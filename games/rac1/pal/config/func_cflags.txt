@@ -1,0 +1,13 @@
+# Extra compiler flags for single functions (tools/func_cflags.py splices
+# them into their file's compiled assembly). One function per line:
+#
+#   func_XXXXXXXX  flags...
+#
+# -mno-split-addresses: retail reaches every global of the function
+# through the assembler's `lui $at` macro, not a %hi/%lo split, while its
+# neighbours in the same file use the split form. See docs/LEVERS.md.
+# -fno-schedule-insns: no first scheduling pass (Lombyte builds some SDK
+# units this way, e.g. sceSifInitIopHeap).
+func_002282D0  -mno-split-addresses
+func_0011CB40  -fno-schedule-insns
+func_L18_002FAEF8  -mno-split-addresses

@@ -1,0 +1,67 @@
+# text, in link order = retail address order. One object per line:
+#   build-sn/<NAME>.o <START>   <- src/<NAME>.c
+# Makefile.sn, rac1.ld.sh and the tools all read this file.
+#
+# text has no linker fill between objects. The file names and boundaries
+# come from the NTSC split of this game, mapped to this PAL build by matching
+# function sizes, and each checked against the PAL code (a return right
+# before, a function start right at it); see docs/DECOMP_PROGRESS.md.
+
+build-sn/game/actuator.o 0x001E9080
+build-sn/game/bloaders.o 0x001E94E8
+build-sn/game/stub.o 0x001E9730
+build-sn/game/bmain.o 0x001E9808
+build-sn/game/transition.o 0x001E9E70
+build-sn/game/camera.o 0x001EC038
+build-sn/game/effects.o 0x001EDFF8
+build-sn/game/cmecpu.o 0x001EE9F8
+build-sn/game/collproc.o 0x001EFD70
+build-sn/game/draw.o 0x001F0F30
+build-sn/game/drawquad.o 0x001F7C60
+build-sn/game/fastfunc.o 0x001F9810
+build-sn/game/framebuf.o 0x001FAA28
+build-sn/game/freeze.o 0x001FBC80
+build-sn/game/help.o 0x001FDF10
+build-sn/game/hud.o 0x001FF668
+build-sn/game/init.o 0x00201D58
+build-sn/game/initonce.o 0x00201E10
+build-sn/game/lights.o 0x00202260
+build-sn/game/loaders.o 0x00202AA8
+build-sn/game/map.o 0x00205520
+build-sn/game/menu.o 0x002071A8
+build-sn/game/memcard.o 0x00209A60
+build-sn/game/miscproc.o 0x0020C210
+build-sn/game/missionfunc.o 0x0020C7A0
+build-sn/game/mobyfunc.o 0x0020D348
+build-sn/game/mobyproc.o 0x0020E6B8
+build-sn/game/mobyutil.o 0x00213A78
+build-sn/game/music.o 0x002161E0
+build-sn/game/stream.o 0x00217588
+build-sn/game/pad.o 0x00217F68
+build-sn/game/partproc.o 0x00218928
+build-sn/game/partupd.o 0x00219780
+build-sn/game/pause.o 0x00219C08
+build-sn/game/shadowproc.o 0x00228A58
+build-sn/game/shrubfunc.o 0x00229C08
+build-sn/game/shrubproc.o 0x00229F00
+build-sn/game/skyfunc.o 0x0022BEB0
+build-sn/game/skyproc.o 0x0022CEB8
+build-sn/game/sound.o 0x0022D8C0
+build-sn/game/space.o 0x0022F128
+build-sn/game/stash.o 0x00233FF8
+build-sn/game/tfragfunc.o 0x00234380
+build-sn/game/vuchain.o 0x002347F0
+build-sn/game/tfragproc.o 0x002352C8
+build-sn/game/tiefunc.o 0x00236958
+build-sn/game/tieproc.o 0x00236F00
+build-sn/game/update.o 0x00238D88
+build-sn/game/vendor.o 0x00239628
+build-sn/game/movie/movie.o 0x0023B670
+build-sn/game/movie/audiodec.o 0x0023BFA0
+build-sn/game/movie/disp.o 0x0023C5E0
+build-sn/game/movie/read.o 0x0023C9C0
+build-sn/game/movie/readbuf.o 0x0023CD10
+build-sn/game/movie/strfile.o 0x0023CE18
+build-sn/game/movie/vibuf.o 0x0023CEC8
+build-sn/game/movie/videodec.o 0x0023DE98
+build-sn/game/movie/vobuf.o 0x0023E560

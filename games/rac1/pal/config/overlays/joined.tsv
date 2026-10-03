@@ -1,0 +1,16 @@
+# Catalogue functions that are really one C function.
+#
+# tools/overlays.py splits a function wherever a table or a branch gives the
+# next address a function start, so a function whose first half branches into
+# the second shows up as two catalogue entries. Retail has one function there,
+# and so does the C: write it under the first name, keep the INCLUDE_ASM
+# stub of each later name where it is, and list them here. The strict check
+# (tools/overlay_check.py) then compares the C function against the bytes of
+# all the pieces together, and the progress report counts every piece as C
+# when the first one is EXACT. The pieces must be consecutive in the catalogue
+# (each starts where the previous one ends).
+#
+# owner<TAB>pieces that follow it (space separated)
+func_L18_002D9C78	func_L18_002D9C90
+func_L18_002D9440	func_L18_002D9460
+func_L18_002F1420	func_L18_002F1444

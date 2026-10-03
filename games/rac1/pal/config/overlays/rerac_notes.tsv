@@ -1,0 +1,802 @@
+# ReRAC's names and notes for our functions: python3 tools/overlays.py rerac-notes
+# Quoted from ReRAC (https://github.com/re-rac/rerac, ISC, "Copyright (c) 2026 ReRAC contributors"),
+# tools/ghidra/names/doc_names.csv at its commit a7efec0: every function entry (kind fn) whose US
+# address is a function start with a PAL counterpart in config/overlays/us_map.tsv. Its names are
+# ReRAC's own (coined from what the code does, or taken from other projects; see its confidence and
+# note), not this project's. Notes trimmed to 160 characters; source doc is a ReRAC file.
+# name	rerac name	confidence	note	source doc	us place
+func_001160C8	srand	verified	doc's name; verified against disassembly (line 293) | alt set_global_state_slot (docs/plan/particles.md:136; inferred) | Lombyte name believed wrong: set_glo...	docs/plan/particles.md:136	boot:001160c8
+func_001160D8	rand	verified	newlib rand; verified against disassembly (line 293)	docs/plan/particles.md:135	boot:001160d8
+func_00122630	sce_gs_set_def_load_image	verified	startup image load	docs/plan/render_pipeline.md:41	boot:00122330
+func_00122958	sce_gs_exec_load_image	verified	startup image load	docs/plan/render_pipeline.md:41	boot:00122658
+func_0012DDC0	snd_flush_sound_commands	verified	doc name snd_FlushSoundCommands | 989snd RPC stub	docs/plan/audio.md:19	boot:0012dc80
+func_0012E1C8	snd_bank_load_from_ee_cb	verified	doc name snd_BankLoadFromEE_CB | 989snd RPC stub	docs/plan/audio.md:23	boot:0012e088
+func_0012E820	snd_send_iop_command_no_wait	verified	doc name snd_SendIOPCommandNoWait | 989snd RPC stub	docs/plan/audio.md:18	boot:0012e6e0
+func_0012F2E0	doppler_pitch_mod	suggested	doc name DopplerPitchMod | coined: doppler pm scaling; maybe-mid-function	docs/plan/audio.md:152	boot:0012f1a0
+func_0012F3F8	load_disc_sectors_into_global_buffer	verified	reads 6 sectors at LBA 1500; copies 0x2960-byte ToC	docs/formats/disc_layout.md:247	boot:0012f2b8
+func_001E9E70	transition_draw_sky	inferred	sky draw: SetupSkyGifPaging; per-shell loop	docs/plan/sky_render_notes.md:14	boot:001e9ab8
+func_001E9EC8	level_init_read_settings	suggested	doc name LevelInitReadSettings | coined: fun_001e9b10 level init reading level settings; calls UpdateFog | alt LevelLoadRenderInit (docs/plan/tie_lighting.md...	docs/plan/game_camera_fog.md:14	boot:001e9b10
+func_001EABE8	transition_load_wad	inferred	calls shrub class init per class	docs/plan/shrub_lighting.md:209	boot:001ea830
+func_001EB7C0	transition_default_draw	inferred	calls VU0_loadMicroProgram(0x100ae0)	docs/plan/render_pipeline.md:9	boot:001eb410
+func_001ED080	camera_update	suggested	doc name CameraUpdate | coined: fun_001eccd8 usual camera update (rows from look dir)	docs/plan/game_camera_fog.md:31	boot:001eccd8
+func_001EE858	update_fog_zones	suggested	doc name UpdateFogZones | coined: fun_001ee4b0 fog zones lerp from env transitions | alt EnvFogUpdate (docs/plan/world_animation.md:204; suggested) | also do...	docs/plan/game_camera_fog.md:15	boot:001ee4b0
+func_001EE9F8	moby_skin_light	suggested	doc name MobySkinLight | doc: unnamed; suggested name; EE driver for VU0 104691 | also docs/plan/roadmap.md	docs/plan/moby_skinning_lighting.md:7	boot:001ee650
+func_001EFD70	coll_cell_lookup	suggested	doc name CollCellLookup | coined: boot cell lookup; level01 0x2117d0	docs/plan/collision_queries.md:110	boot:001ef9c8
+func_001EFE10	coll_line_fix	verified	doc name CollLine_Fix | boot line kernel; level01 0x211870 | also docs/plan/roadmap.md	docs/plan/collision_queries.md:33	boot:001efa68
+func_001F0F00	coll_type	verified	doc name CollType | boot CollType; level01 0x2151d8 | alt CollSurfaceType (docs/plan/world_animation.md:242; suggested) | also docs/plan/world_animation.md	docs/plan/collision_queries.md:39	boot:001f0b58
+func_001F2418	world_to_screen	suggested	doc name WorldToScreen | coined: fun_001f2070 EE world->screen for one point	docs/plan/game_camera_fog.md:19	boot:001f2070
+func_001F2608	build_rotation_view_proj	suggested	doc name BuildRotationViewProj | coined: fun_001f2260 builds view-projection variants from camera rotation | alt UpdateCameraMatrices (docs/plan/game_camera_...	docs/plan/sky_render_notes.md:61	boot:001f2260
+func_001F2930	UpdateFog__Fi	verified	existing Lombyte name	docs/plan/game_camera_fog.md:13	boot:001f2588
+func_001F2A38	parse_occl_grid	verified	doc name ParseOcclGrid | boot copy of level01 0x218e78	docs/plan/occlusion_culling.md:5	boot:001f2690
+func_001F2B10	get_occl_grid_from_pair	verified	doc name GetOcclGridFromPair | boot copy of level01 0x218f50	docs/plan/occlusion_culling.md:5	boot:001f2768
+func_001F2BC8	build_occl_visibility	verified	doc name BuildOcclVisibility | boot copy of level01 0x219008	docs/plan/occlusion_culling.md:6	boot:001f2820
+func_001F2FB8	update_occlusion	verified	doc name UpdateOcclusion | boot copy of level01 0x2193f8	docs/plan/occlusion_culling.md:6	boot:001f2c10
+func_001F3008	InitViewContext__Fv	verified	existing Lombyte name	docs/plan/game_camera_fog.md:11	boot:001f2c60
+func_001F3140	update_view_context	verified	alt UpdateViewContext (docs/plan/sky_render_notes.md:68; verified); alt UpdateViewContext__Fv (docs/plan/game_camera_fog.md:12; verified) | also docs/plan/ga...	docs/plan/moby_skinning_lighting.md:11	boot:001f2d98
+func_001F3760	set_render_to_texture_view	suggested	doc name SetRenderToTextureView | coined: fun_001f33b8 render-to-texture view	docs/plan/game_camera_fog.md:21	boot:001f33b8
+func_001F3890	set_pal_mode	inferred	patches ZBUF with real ZBP	docs/plan/sky_render_notes.md:37	boot:001f34e8
+func_001F3C10	reset_gs_registers	verified	doc name; sets FOGCOL	docs/plan/game_camera_fog.md:20	boot:001f3868
+func_001F3D78	draw_world	inferred	doc name DrawWorld | doc preferred meaning of draw_debug_profiler | alt DrawDebugProfiler (docs/plan/game_camera_fog.md:16; verified); alt draw_debug_profile...	docs/plan/moby_skinning_lighting.md:15	boot:001f39d0
+func_001F4868	GetEffectTex__Fii	verified	boot equivalent | alt GetEffectTex (docs/plan/particles.md:21; inferred) | also docs/plan/particles.md	docs/plan/hud_text.md:17	boot:001f44b8
+func_001F5148	draw_screen_fade	suggested	doc name DrawScreenFade | coined: fun_001f4d98 screen fade; program assumed boot (fun_ prefix)	docs/plan/hud_text.md:101	boot:001f4d98
+func_001F5988	draw_bone_quads	suggested	doc name DrawBoneQuads | coined: fun_001f55d8 textured quads RGBA 0x80808080; program assumed boot	docs/plan/menus.md:205	boot:001f55d8
+func_001F6668	font_print	verified	doc name FontPrint | boot equivalent	docs/plan/hud_text.md:116	boot:001f62b0
+func_001F7868	setup_water_strip_vu1	suggested	doc name SetupWaterStripVu1 | coined: fun_001f76a0 sets VU1 prog 57843; view-proj and guard-band consts | alt DrawSpriteHelper_A (docs/plan/render_pipeline.m...	docs/plan/world_animation.md:30	boot:001f76a0
+func_001F98C0	scale_ticks	verified	doc name ScaleTicks | doc writes fun_001f96f8 = ScaleTicks; boot addr (level01 0x220e30 per hud_text.md) | alt ScaleTickCount (docs/plan/player_controller.md...	docs/plan/menus.md:6	boot:001f96f8
+func_001F9968	log2_plzcw	suggested	doc name Log2Plzcw | coined: log2(x) = 30 - PLZCW(x) helper; maybe-mid-function	docs/formats/tfrag_rac1.md:329	boot:001f97a0
+func_001F99B0	fill_transfer_words	inferred		docs/plan/moby_untextured.md:28	boot:001f97e8
+func_001F9A00	mem_copy	suggested	doc name MemCopy | coined: fun_001f9838(dst; src; n) copies light sets	docs/plan/tfrag_lighting.md:27	boot:001f9838
+func_001F9B50	vec_length	suggested	doc name VecLength | coined: fun_001f9988 in disturbance; assumed |d| (doc unknown)	docs/plan/world_animation.md:140	boot:001f9988
+func_001F9BD8	vec_add	suggested	doc name VecAdd | coined: fun_001f9a10 add translation	docs/plan/tie_lighting.md:32	boot:001f9a10
+func_001F9C48	vec_scale	suggested	doc name VecScale | coined: fun_001f9a80 multiply all lanes by scalar	docs/plan/tie_lighting.md:31	boot:001f9a80
+func_001F9E58	clamp_vec_length	suggested	doc name ClampVecLength | coined: fun_001f9c90 rescales vector to max length; not drag (line 324)	docs/plan/particles.md:128	boot:001f9c90
+func_001F9EC0	matrix_mul_vec3	suggested	doc name MatrixMulVec3 | coined: fun_001f9cf8 M3*v; w kept	docs/plan/tie_lighting.md:31	boot:001f9cf8
+func_001FA218	euler_to_matrix	suggested	doc name EulerToMatrix | coined: fun_001fa050 builds rotation rows from Euler 0x13f3e0 | retagged boot: boot function start, not a level01 one	docs/plan/player_controller.md:54	boot:001fa050
+func_001FA238	build_euler_matrix	suggested	doc name BuildEulerMatrix | coined: fun_001fa070 Euler builder M=Rz*Ry*Rx	docs/plan/sky_render_notes.md:85	boot:001fa070
+func_001FA480	matrix_copy_rows	suggested	doc name MatrixCopyRows | coined: stores W rows into item moby; role inferred	docs/formats/moby_rac1.md:73	boot:001fa2b8
+func_001FA540	sce_vu0_mul_matrix	verified	doc name sceVu0MulMatrix | fun_001fa378 identified as sceVu0MulMatrix | alt MatrixMul4x4 (docs/plan/sky_render_notes.md:71; suggested) | also docs/plan/sky_r...	docs/plan/game_camera_fog.md:22	boot:001fa378
+func_001FB448	set_background_color	verified	doc name	docs/plan/game_camera_fog.md:134	boot:001fb280
+func_001FB530	append_gif_transfer_packet	verified	doc name	docs/plan/game_camera_fog.md:135	boot:001fb368
+func_00200468	hud_sprite	verified	doc name HudSprite | boot equivalent	docs/plan/hud_text.md:79	boot:001ffc30
+func_00201E88	init_once	verified	decomp + disassembly	docs/plan/moby_untextured.md:27	boot:00201650
+func_00202F00	parse_particle_texs	inferred	doc name ParseParticleTexs | boot copy	docs/plan/particles.md:20	boot:002026c8
+func_00203118	load_sky	suggested	doc name LoadSky | coined: sky loader; relocates offsets; sets clear_screen=1	docs/plan/sky_render_notes.md:13	boot:002028e0
+func_002032D0	LoadHudBanks__Fv	verified	boot equivalent	docs/plan/hud_text.md:23	boot:00202a98
+func_002035B0	build_moby_ad_gif	suggested	doc name BuildMobyAdGif | coined: fun_00202d78 builds ad-gif words from moby texture table	docs/plan/moby_untextured.md:18	boot:00202d78
+func_00203808	set_up_vis_gif_viewer	inferred		docs/plan/moby_untextured.md:20	boot:00202fd0
+func_00203B70	moby_class_relocate	suggested	doc name MobyClassRelocate | coined: fun_00203338 rewrites ad-gif A+D words of every packet	docs/plan/moby_untextured.md:14	boot:00203338
+func_00203E78	moby_classes_relocate	suggested	doc name MobyClassesRelocate | coined: fun_00203640; calls fun_00203338 for every class	docs/plan/moby_untextured.md:14	boot:00203640
+func_00203F68	tie_ad_gif_convert	suggested	doc name TieAdGifConvert | coined: fun_00203730 converts tie ad-gifs at load (tfrag rule)	docs/plan/tie_lighting.md:75	boot:00203730
+func_00204340	shrub_class_init	suggested	doc name ShrubClassInit | coined: fun_00203b08 shrub class init / ad-gif conversion | alt ConvertAdGif (docs/plan/roadmap.md:69; suggested) | also docs/plan/...	docs/plan/shrub_lighting.md:209	boot:00203b08
+func_00204918	relocate_tfrags	suggested	doc name RelocateTfrags | coined: fun_002040e0 rewrites tfrag header data to absolute ptrs | alt TfragLoadInit (docs/plan/shrub_lighting.md:221; suggested) |...	docs/plan/trace_harness.md:64	boot:002040e0
+func_00205270	select_world_object_resource_tables	inferred		docs/formats/moby_rac1.md:54	boot:00204a40
+func_0020C468	wad_decompress	suggested	doc name WadDecompress | coined: fun_0020b618(wad+0x50; base) decompress	docs/plan/trace_harness.md:63	boot:0020b618
+func_0020D440	init_moby_instance	verified	doc name InitMobyInstance | boot copy of level01 0x263488 | alt init_moby_instance (docs/plan/moby_animation.md:69; inferred) | also docs/plan/moby_animation.md	docs/plan/moby_update_catalogue.md:28	boot:0020c5f0
+func_0020D6D0	update_moby_animation_state	inferred	level01 0x263718	docs/plan/moby_animation.md:63	boot:0020c880
+func_0020D790	moby_loop_sound_refresh	suggested	doc name MobyLoopSoundRefresh | coined: refreshes loop-sound voice | alt MobyLoopSoundUpdate (docs/plan/audio.md:135; suggested) | also docs/plan/audio.md	docs/plan/moby_animation.md:78	boot:0020c940
+func_0020D830	compute_interpolated_record_value	inferred		docs/plan/moby_animation.md:34	boot:0020c9e0
+func_0020DA68	find_or_allocate_id_slot	inferred		docs/plan/moby_animation.md:85	boot:0020cc18
+func_0020DAF8	moby_attach_to_joint	suggested	doc name MobyAttachToJoint | coined: attach item moby to a joint chain of Ratchet	docs/formats/moby_rac1.md:69	boot:0020cca8
+func_0020DFF8	process_moby_anim_data	inferred		docs/plan/moby_skinning_lighting.md:18	boot:0020d1a8
+func_0020E0C8	draw_mobys_setup	inferred		docs/plan/moby_skinning_lighting.md:16	boot:0020d278
+func_0020E200	draw_mobys_clean_up	inferred		docs/plan/moby_skinning_lighting.md:18	boot:0020d3b0
+func_0020E2B0	draw_mobys	inferred		docs/plan/moby_skinning_lighting.md:15	boot:0020d460
+func_0020E3D0	moby_anim_advance	verified	doc name MobyAnimAdvance | algorithm verified from disassembly | also docs/plan/roadmap.md	docs/plan/moby_animation.md:8	boot:0020d580
+func_0020E6B8	build_active_moby_list	suggested	doc name BuildActiveMobyList | coined: activity gate / active list builder (level01 0x265548) | alt MobyUpdateLoop (docs/plan/roadmap.md:57; suggested) | als...	docs/plan/moby_update_catalogue.md:41	boot:0020d868
+func_0020ED48	moby_build_rotation	suggested	doc name MobyBuildRotation | coined: fun_0020def8 R = Rz*Ry*Rx via VU0 28259 | alt MobyBuildMatrix (docs/plan/moby_update_catalogue.md:46; suggested) | also...	docs/plan/roadmap.md:63	boot:0020def8
+func_0020EEE8	moby_anim_sphere_lerp	suggested	doc name MobyAnimSphereLerp | coined: lerps A/B sequence bounding spheres by t	docs/plan/moby_animation.md:19	boot:0020e098
+func_0020EF30	moby_anim_eval	suggested	doc name MobyAnimEval | suggested name (moby_skinning_lighting.md); algorithm verified | alt MobyAnimEvaluate (docs/plan/roadmap.md:9; suggested) | also docs...	docs/plan/moby_animation.md:8	boot:0020e0e0
+func_0020FC38	moby_anim_snapshot	suggested	doc name MobyAnimSnapshot | coined: fun_0020ede8 re-encodes current pose as snapshot frame	docs/plan/moby_update_catalogue.md:371	boot:0020ede8
+func_002116A0	moby_mark_joint_chain	suggested	doc name MobyMarkJointChain | coined: marks joints of a list and evaluates them | alt MobyPartialPose (docs/plan/roadmap.md:58; suggested) | also docs/plan/r...	docs/formats/moby_rac1.md:70	boot:00210850
+func_00211808	moby_anim_eval_chain	verified	doc name MobyAnimEvalChain | coined: partial evaluator; verified from disassembly (evaluate_chains) | alt MobyPartialPoseChains (docs/plan/roadmap.md:58; sug...	docs/formats/moby_rac1.md:70	boot:002109b8
+func_00212578	moby_anim_proc	inferred		docs/plan/moby_skinning_lighting.md:7	boot:00211728
+func_00212658	moby_proc	verified	doc name MobyProc |	docs/plan/moby_untextured.md:33	boot:00211808
+func_00213BB8	moby_class_register	suggested	doc name MobyClassRegister | coined: boot fun_00212d68 = level copy FUN_00279218	docs/plan/moby_update_catalogue.md:25	boot:00212d68
+func_00213D28	moby_change_sequence	suggested	doc name MobyChangeSequence | coined: fun_00212ed8 sequence change/blend (pair order unclear) | alt MobySetSeqFrame (docs/plan/menus.md:101; suggested); alt...	docs/plan/roadmap.md:56	boot:00212ed8
+func_00213DE0	moby_set_anim_snapshot	suggested	doc name MobySetAnimSnapshot | coined: fun_00212f90 generic set-anim that snapshots the pose | retagged boot: boot function start, not a level01 one | alt Mo...	docs/plan/player_controller.md:249	boot:00212f90
+func_00213F28	moby_anim_blend_ex	suggested	doc name MobyAnimBlendEx | coined: blend with flags (level01 0x26c7a8)	docs/plan/moby_update_catalogue.md:287	boot:002130d8
+func_002140B0	randi	verified	boot copy	docs/plan/particles.md:141	boot:00213260
+func_002140F8	randf	verified	boot copy	docs/plan/particles.md:142	boot:002132a8
+func_00214158	rand_angle	verified	boot copy	docs/plan/particles.md:144	boot:00213308
+func_002157C0	set_time_base	verified	doc name SetTimeBase | coined: fun_00214970 sets NTSC/PAL speed; timer scale; dt; dt^2 | alt IsPal (docs/plan/player_controller.md:17; suggested) | also docs...	docs/plan/particles.md:94	boot:00214970
+func_00218928	create_part	inferred	doc name CreatePart | boot copy; Lombyte name	docs/plan/particles.md:13	boot:00217a30
+func_00218A80	update_parts	inferred	doc name UpdateParts | boot copy	docs/plan/particles.md:16	boot:00217b88
+func_00218B10	part_proc	inferred	doc name PartProc | boot copy	docs/plan/particles.md:17	boot:00217c18
+func_00219704	_part_load_tex	inferred	boot copy	docs/plan/particles.md:18	boot:0021880c
+func_002255F8	load_hand_gadget	inferred	doc name LoadHandGadget |	docs/formats/moby_rac1.md:54	boot:00224368
+func_00225E00	hand_item_update	suggested	doc name HandItemUpdate | coined: boot copy	docs/formats/moby_rac1.md:60	boot:00224b70
+func_00225FB8	head_item_update	suggested	doc name HeadItemUpdate | coined: boot copy	docs/formats/moby_rac1.md:64	boot:00224d28
+func_002260A8	feet_item_update	suggested	doc name FeetItemUpdate | coined: boot copy	docs/formats/moby_rac1.md:65	boot:00224e18
+func_00226250	back_item_update	suggested	doc name BackItemUpdate | coined: boot copy	docs/formats/moby_rac1.md:62	boot:00224fc0
+func_00226410	spawn_extra479	suggested	doc name SpawnExtra479 | coined: spawns up to 8 x class 479	docs/formats/moby_rac1.md:67	boot:00225180
+func_00226720	spawn_hand_gadget_moby	suggested	doc name SpawnHandGadgetMoby | coined: fun_00225490 spawns the gadget moby via CreateMoby	docs/formats/moby_rac1.md:54	boot:00225490
+func_00229D48	patch_shrub_gifs	verified	doc name PatchShrubGifs | fun_00228a30; ORs TBP per frame; name suggested in render_pipeline.md:51 | 2026-09-27 fix: verified by decompile; level01 copy 0x29...	docs/plan/shrub_lighting.md:217	boot:00228a30
+func_00229F00	shrub_proc	verified	doc name ShrubProc | fun_00228be8 exact-match boot copy; level01 = boot + 0x74208	docs/plan/shrub_lighting.md:147	boot:00228be8
+func_0022B648	shrub_texture_paging	suggested	doc name ShrubTexturePaging | coined: fun_0022a330 fills paging table; uploads base+mip1	docs/plan/shrub_lighting.md:224	boot:0022a330
+func_0022C188	update_sky_effects	inferred	boot template; star levels have overlay copies | also docs/plan/sky_render_notes.md	docs/plan/particles.md:23	boot:0022ae70
+func_0022C5A0	draw_sky_shells	suggested	doc name DrawSkyShells | variant sky shell draw paired with level01 0x29f260; name from render_pipeline.md:51	docs/plan/sky_render_notes.md:28	boot:0022b288
+func_0022C9A8	sky_draw_shell	verified	flags==0 textured else gouraud	docs/plan/sky_render_notes.md:16	boot:0022b690
+func_0022CA00	sky_draw_shell_textured	suggested	doc name SkyDrawShellTextured | coined: textured shell; cluster cull; double-buffered SPR DMA	docs/plan/sky_render_notes.md:17	boot:0022b6e8
+func_0022CC40	sky_draw_shell_gouraud	suggested	doc name SkyDrawShellGouraud | coined: gouraud shell; cluster cull; SPR DMA	docs/plan/sky_render_notes.md:17	boot:0022b928
+func_0022CEB8	sky_sprite_proc	inferred	star sprites | alt SkySpriteProc (docs/plan/particles.md:23; inferred) | also docs/plan/particles.md	docs/plan/sky_render_notes.md:21	boot:0022bba0
+func_0022D1DC	_load_tex	inferred	sky sprite texture loader (own copy)	docs/plan/particles.md:226	boot:0022bec4
+func_0022D2AC	sky_transform_vertices	suggested	doc name SkyTransformVertices | coined: vertex transform + clip flags into scratchpad	docs/plan/sky_render_notes.md:19	boot:0022bf94
+func_0022D3F8	sky_build_gif_gouraud	suggested	doc name SkyBuildGifGouraud | coined: gouraud triangle-list GIF builder	docs/plan/sky_render_notes.md:20	boot:0022c0e0
+func_0022D520	sky_build_gif_textured	suggested	doc name SkyBuildGifTextured | coined: textured triangle-list GIF builder	docs/plan/sky_render_notes.md:20	boot:0022c208
+func_0022D7E0	sky_bsphere_check	inferred	doc name SkyBsphereCheck | boot match of level01 SkyBsphereCheck	docs/plan/sky_render_notes.md:18	boot:0022c4c8
+func_0022EB08	sound_slot_alloc	suggested	doc name SoundSlotAlloc | coined: doc writes fun_0022d7f0 (boot) = 0x2a13a0 level01	docs/plan/audio.md:116	boot:0022d7f0
+func_0022ED80	play_class_sound	suggested	doc name PlayClassSound | coined: fun_0022da68 = class sound n; boot addr; level01 0x2a1618 per audio.md | alt PlayMobySound (docs/plan/moby_update_catalogue...	docs/plan/menus.md:108	boot:0022da68
+func_0022FDC0	clamp_camera_fov	suggested	doc name ClampCameraFov | coined: fun_0022eaa8 clamps tan(hfov/2) to per-mode minimum	docs/plan/game_camera_fog.md:59	boot:0022eaa8
+func_002305A0	draw_world_paused	suggested	doc name DrawWorldPaused | coined: address from level01 name fun_0022f288; maybe unreliable	docs/plan/render_pipeline.md:21	boot:0022f288
+func_00232EF0	play_story_transition	suggested	doc name PlayStoryTransition | coined: fun_00231bd8(planet;a;b;ticks) first-visit transition; program assumed boot	docs/plan/menus.md:247	boot:00231bd8
+func_00234380	set_tfrag_dists	verified	boot name; level01 SetTfragDists 0x2a79f0 | alt SetTfragDists (docs/plan/game_camera_fog.md:76; verified) | also docs/plan/game_camera_fog.md | 2026-09-27 fi...	docs/formats/tfrag_rac1.md:525	boot:00233068
+func_00234620	patch_tfrag_gifs	verified	doc name PatchTfragGifs | boot copy of level01 0x2a7c90 | 2026-09-27 fix: address verified (Lombyte patch_tfrag_gifs; level01 0x2a7c90 = boot + 0x74988, byte...	docs/formats/tfrag_rac1.md:364	boot:00233308
+func_002346C0	draw_tfrag	verified	our name; Lombyte DrawTfrag | alt DrawTfrag (docs/plan/game_camera_fog.md:17; verified)	docs/plan/game_camera_fog.md:17	boot:002333a8
+func_002347F0	VU0_loadMicroProgram__FPl	verified	boot match of level01 0x2b4470 | alt start_vif1_dma_transfer (docs/plan/render_pipeline.md:9; verified) | Lombyte name believed wrong: start_vif1_dma_transfer	docs/plan/render_pipeline.md:9	boot:002334d8
+func_00234F40	replay_hud_gs_state	suggested	doc name ReplayHudGsState | coined: fun_00233c28 replays 0x1c2970; boot addr (level01 0x2b4bc0)	docs/plan/hud_text.md:96	boot:00233c28
+func_002352C8	tfrag_proc	verified	our name; Lombyte TfragProc | alt TfragProc (docs/formats/tfrag_rac1.md:526; verified) | also docs/formats/tfrag_rac1.md	docs/plan/game_camera_fog.md:18	boot:00233fb0
+func_00235EF0	compute_tfrag_texture_usage	verified	doc name ComputeTfragTextureUsage | boot copy of level01 0x2a8a80	docs/formats/tfrag_rac1.md:635	boot:00234bd8
+func_00236060	build_tfrag_texture_dma	verified	doc name BuildTfragTextureDma | boot copy of level01 0x2a8bf0 | alt build_tfrag_texture_dma (docs/plan/moby_untextured.md:30; inferred) | also docs/plan/moby...	docs/formats/tfrag_rac1.md:361	boot:00234d48
+func_002362B0	light_tfrags	verified	doc name LightTfrags | Lombyte fun_00234f98; 0x6a4 bytes	docs/plan/tfrag_lighting.md:15	boot:00234f98
+func_00236F00	tie_proc	verified	doc name TieProc | boot copy of level01 0x2a9a90 (0x235be8..0x2370b8)	docs/plan/tie_lighting.md:67	boot:00235be8
+func_002383D8	tie_texture_paging	suggested	doc name TieTexturePaging | coined: fun_002370c0 tie texture paging	docs/plan/tie_lighting.md:77	boot:002370c0
+func_00238688	light_ties	verified	doc name LightTies | Lombyte exact match of level01 0x2ab218	docs/plan/tie_lighting.md:13	boot:00237370
+func_00238D90	moby_screen_rect	suggested	doc name MobyScreenRect | coined: fun_00237a78 projects moby to widget rect; program assumed boot (fun_ prefix)	docs/plan/menus.md:136	boot:00237a78
+func_001EC120	Cam_InterpValues__FffPffff	verified	existing Lombyte name (line 8)	docs/plan/player_controller.md:267	level01:0020ce40
+func_L00_001EBDA0	UpdateAllCameras__Fi	verified	existing Lombyte name (line 8)	docs/plan/player_controller.md:262	level01:0020d620
+func_001ED818	CameraPreUpdate	suggested	coined: computes up vectors; hero move dir/speed	docs/plan/player_controller.md:260	level01:0020e670
+func_001EDB98	UnderwaterTest	suggested	coined: per-camera-update underwater flag test (line 205 says 0x20eca8)	docs/plan/world_animation.md:239	level01:0020e9f0
+func_L00_001ED428	CameraUpdate	verified	doc name (line 259); camera update (mask 8)	docs/plan/player_controller.md:24	level01:0020eca8
+func_L00_001ED600	CameraResetBehindHero	suggested	coined: hard reset behind the hero after 30 blocked ticks	docs/plan/player_controller.md:283	level01:0020ee80
+func_001EDFF8	LensFlareDraw	suggested	coined: lens-flare pass (FX textures); not a particle	docs/plan/particles.md:170	level01:0020f480
+func_001EE858	EnvFogUpdate	suggested	coined: level copy of fun_001ee4b0	docs/plan/world_animation.md:204	level01:002102b8
+func_L00_001EFF50	CollCellLookup	suggested	coined: cell lookup z/y/x tree -> leaf word	docs/plan/collision_queries.md:38	level01:002117d0
+func_L00_001EFFF0	CollLine_Fix	verified	segment query; boot 0x1efa68 | alt coll_line (docs/plan/collision_queries.md:107; verified) | also docs/plan/moby_update_catalogue.md docs/plan/roadmap.md	docs/plan/collision_queries.md:33	level01:00211870
+func_L00_001F10E0	coll_sphere	verified	port name (collision_queries.md:107); sphere query | alt CollSphere (docs/plan/moby_update_catalogue.md:185; suggested) | also docs/plan/moby_update_catalogu...	docs/plan/player_controller.md:224	level01:00212960
+func_L00_001F1D20	coll_capsule	verified	port name (collision_queries.md:107); vertical capsule query | alt CollHeroCapsule (docs/plan/roadmap.md:85; suggested); alt CollCapsule (docs/plan/moby_upda...	docs/plan/player_controller.md:220	level01:002135a0
+func_L00_001F2BE8	coll_sphere_mobys	verified	port name (line 108); sphere vs mobys only | alt CollSphereVsMobys (docs/plan/moby_update_catalogue.md:292; suggested) | also docs/plan/moby_update_catalogue...	docs/plan/collision_queries.md:36	level01:00214468
+func_L00_001F34F0	coll_sphere_hero_groups	verified	port name (collision_queries.md:108); sphere vs hero groups | alt CollHeroGroups (docs/plan/roadmap.md:85; suggested) | also docs/plan/roadmap.md	docs/plan/player_controller.md:220	level01:00214d70
+func_L00_001F3958	CollType	verified	surface id from CollOutput+0x1c; boot 0x1f0b58	docs/plan/collision_queries.md:39	level01:002151d8
+func_L00_001F3988	CollSoundClass	verified	footstep sound class from CollOutput+0x1c	docs/plan/collision_queries.md:40	level01:00215208
+func_L00_001F4918	DebugCameraUpdate	suggested	coined: mode -1 debug free camera/menu update	docs/plan/menus.md:29	level01:00216198
+func_L00_001F5C60	DebugCameraRender	suggested	coined: mode -1 debug render	docs/plan/menus.md:29	level01:002174e0
+func_001E9768	ProfilerTimerStop	suggested	FUN_00218998 stubbed profiler timer stop	docs/plan/render_pipeline.md:51	level01:00218998
+func_001E9768	ProfilerTimerStart	suggested	FUN_002189a0 stubbed profiler timer start	docs/plan/render_pipeline.md:51	level01:002189a0
+func_001F2930	UpdateFog	inferred	copies level fog into view context; underwater alternate set	docs/plan/world_animation.md:247	level01:00218d70
+func_L00_001F75F8	ParseOcclGrid	verified	grid lookup	docs/plan/occlusion_culling.md:128	level01:00218e78
+func_001F2B10	GetOcclGridFromPair	verified	neighbour-cell lookup	docs/plan/occlusion_culling.md:41	level01:00218f50
+func_001F2BC8	BuildOcclVisibility	verified	builds per-frame mask	docs/plan/occlusion_culling.md:34	level01:00219008
+func_001F2FB8	UpdateOcclusion	verified	called near top of DrawDebugProfiler	docs/plan/occlusion_culling.md:28	level01:002193f8
+func_001F3008	InitViewContext__Fv	verified		docs/plan/hud_text.md:89	level01:00219448
+func_001F3140	UpdateViewContext	verified	level01 copy; calls SetTfragDists every frame	docs/formats/tfrag_rac1.md:525	level01:00219580
+func_001F3890	SetPalMode__Fi	verified	also docs/plan/render_pipeline.md	docs/plan/hud_text.md:89	level01:00219cd0
+func_001F3C10	ResetGsRegisters__Fv	verified	emits reset A+D blocks + FOGCOL	docs/plan/render_pipeline.md:37	level01:0021a050
+func_001F3D78	DrawWorld	suggested	doc's preferred name for DrawDebugProfiler | alt FrameRender (docs/plan/hud_text.md:95; suggested); alt DrawDebugProfiler (docs/plan/sky_render_notes.md:14;...	docs/plan/render_pipeline.md:21	level01:0021a1b8
+func_L00_001F91B0	GameplayRender	suggested	coined: mode 0 render (doc says Lombyte DrawDebugProfiler is main world render) | alt RenderFrame (docs/plan/player_controller.md:19; suggested) | also docs/...	docs/plan/menus.md:21	level01:0021aa30
+func_001F45F0	prepare_debug_profiler_render	verified	wrapper of DrawDebugProfiler	docs/plan/render_pipeline.md:49	level01:0021aa90
+func_L00_001F9248	FreezeModeRender	suggested	coined: mode 4 freeze render	docs/plan/menus.md:25	level01:0021aac8
+func_L00_001F92C0	PageMenuModeRender	suggested	coined: mode 3 render; calls 0x28d080(0)	docs/plan/menus.md:24	level01:0021ab50
+func_L00_001F92E8	SlideshowModeRender	suggested	coined: mode 7 render	docs/plan/menus.md:28	level01:0021ab78
+func_001F4630	SetupGifPaging__Fi	verified	reserves 4 qw	docs/plan/render_pipeline.md:41	level01:0021ac60
+func_001F4748	DoGifPaging__Fv	verified	fills paging chain	docs/plan/render_pipeline.md:41	level01:0021ad78
+func_001F4868	GetEffectTex__Fii	verified	fetches FX texture n | alt GetEffectTex (docs/plan/particles.md:21; inferred) | also docs/plan/particles.md	docs/plan/hud_text.md:17	level01:0021ae98
+func_001F49B0	RegisterDrawCallback	verified	coined: draw-callback list 1 (doc: 'lists'; may be list data or register fn) | alt AddDrawCallback (docs/plan/moby_update_catalogue.md:297; suggested) | also...	docs/plan/world_animation.md:16	level01:0021afe0
+func_001F4A00	RunDrawCallbacksPostMoby	verified	drains list 0x15f424 (RegisterDrawCallback 0x21afe0); called by DrawWorld at 0x21a4e0, after DrawMobys, before the lens flare | was RunDrawCallbacks_0 (CSV)...	docs/plan/render_pipeline.md:23	level01:0021b030
+func_001F4A00	RunDrawCallbacksPostTie	verified	drains list 0x15f42c (fn 0x16e100, arg 0x16e200; no registrar in level01); called at 0x21a330 after the ties, before shrubs | was RunDrawCallbacks_1 (CSV) /...	docs/plan/render_pipeline.md:23	level01:0021b0a8
+func_001F4A00	RunDrawCallbacksPostShrub	verified	drains list 0x15f430 (fn 0x16e300, arg 0x16e400; no registrar in level01); called at 0x21a404 after shrubs, before mobys | was RunDrawCallbacks_2 (CSV) / Ghi...	docs/plan/render_pipeline.md:23	level01:0021b120
+func_001F49B0	RegisterDrawCallback2	verified	coined: draw-callback list 2; 760 registers its callback on it | alt AddDrawCallback2 (docs/plan/moby_update_catalogue.md:297; suggested) | also docs/plan/mo...	docs/plan/world_animation.md:16	level01:0021b198
+func_001F4A00	RunDrawCallbacksPostPart	verified	drains list 0x15f428 (RegisterDrawCallback2 0x21b198); called at 0x21a5ac after PartProc | was RunDrawCallbacks_3 (CSV) / Ghidra RunDrawCallbacks_4 (address...	docs/plan/render_pipeline.md:23	level01:0021b1e8
+func_L00_001F9D40	GrabFrameSnapshot	suggested	coined: snapshots rendered world for vendor	docs/plan/menus.md:183	level01:0021b5c0
+func_001F5650	DrawRectOverlay	verified	untextured rect	docs/plan/hud_text.md:85	level01:0021bce0
+func_001F5800	DrawTexturedQuad	verified	glyphs; FX textures	docs/plan/hud_text.md:84	level01:0021be90
+func_001F62C8	DrawUIFrame	verified	(top;bottom;left;right;alpha)	docs/plan/hud_text.md:148	level01:0021c958
+func_001F65B0	measure_text_width	verified		docs/plan/hud_text.md:129	level01:0021cc40
+func_001F6668	FontPrint	verified	per-byte glyph renderer	docs/plan/hud_text.md:116	level01:0021ccf0
+func_001F68E8	font_print_large	inferred	Lombyte name; misleading; doc says this is the regular font (FX tex 1) | alt FontPrintRegular (docs/plan/hud_text.md:109; suggested)	docs/plan/hud_text.md:109	level01:0021cf70
+func_001F6968	FontPrintSmall	suggested	coined: small font print	docs/plan/hud_text.md:110	level01:0021cff0
+func_L00_001FB7F8	FontPrintLarge	suggested	coined: large font print	docs/plan/hud_text.md:111	level01:0021d070
+func_001F69F0	FontPrintWindowFloat	suggested	coined: float-position path for window flag 8	docs/plan/hud_text.md:136	level01:0021d0f0
+func_001F6CF8	FontPrintRegularRight	suggested	coined: regular font right-aligned	docs/plan/hud_text.md:109	level01:0021d3f8
+func_001F6D88	FontPrintSmallRight	suggested	coined: small font right-aligned	docs/plan/hud_text.md:110	level01:0021d488
+func_001F6E18	FontPrintLargeRight	suggested	coined: large font right-aligned	docs/plan/hud_text.md:111	level01:0021d518
+func_001F6EA8	FontPrintRegularCentre	suggested	coined: regular font centred	docs/plan/hud_text.md:109	level01:0021d5a8
+func_001F6F40	FontPrintSmallCentre	suggested	coined: small font centred	docs/plan/hud_text.md:110	level01:0021d640
+func_001F6FD8	FontPrintLargeCentre	suggested	coined: large font centred	docs/plan/hud_text.md:111	level01:0021d6d8
+func_001F7070	FontPrintWindow	verified	word wrap	docs/plan/hud_text.md:132	level01:0021db48
+func_001F75D0	FontPrintSmallWindow	suggested	coined: small font window print	docs/plan/hud_text.md:110	level01:0021e0a8
+func_001F7648	FontSetWindow	verified		docs/plan/hud_text.md:133	level01:0021e120
+func_001F7868	DrawSpriteHelper_A	suggested	coined: billboard/sprite draw helper using VU1 prog 0x10e818 | doc cross-ref fun_001f76a0	docs/plan/render_pipeline.md:16	level01:0021e340
+func_L01_0021F9C8	EmitStripST	suggested	coined: strip emitter re-sending ST (copy with CTXT=1)	docs/plan/world_animation.md:65	level01:0021fa98
+func_L00_001FDE48	DrawEnvOverlayMesh	suggested	coined: draws the 1848 meshes	docs/plan/world_animation.md:192	level01:0021fda8
+func_001F9850	ticks	verified	doc name ticks(n) = (int)(n*timer_scale+0.5); pinned from the code (line 297) | alt ScaleTicks (docs/plan/hud_text.md:5; verified) | also docs/plan/hud_text....	docs/plan/particles.md:96	level01:00220e30
+func_001F9908	FastDecTimer	inferred	doc: 0x220e78/0x220ea8 FastDecTimer	docs/plan/moby_update_catalogue.md:299	level01:00220e78
+func_001F9938	FastDecTimer	inferred	second of the FastDecTimer pair | also docs/plan/particles.md	docs/plan/moby_update_catalogue.md:299	level01:00220ea8
+func_001F9AF0	write_dma_channel	verified	SPR_FROM (D8) scratchpad to main copy	docs/plan/render_pipeline.md:27	level01:00221090
+func_001F9BD8	VecAdd	suggested	coined: vec add	docs/plan/moby_update_catalogue.md:299	level01:00221188
+func_001F9BF0	VecSub	suggested	coined: vec sub	docs/plan/moby_update_catalogue.md:299	level01:002211b8
+func_001F9C30	VecScale	suggested	coined: vec scale	docs/plan/moby_update_catalogue.md:299	level01:00221210
+func_001F9D10	VecDistance	suggested	coined: distance	docs/plan/moby_update_catalogue.md:299	level01:00221360
+func_001F9D48	VecDistance2	suggested	coined: distance (second variant)	docs/plan/moby_update_catalogue.md:299	level01:00221398
+func_L00_001FF860	Atan2	suggested	coined: atan2	docs/plan/moby_update_catalogue.md:299	level01:002217c0
+func_001FA748	AngleAdd	suggested	coined: angle add	docs/plan/moby_update_catalogue.md:299	level01:00221ff8
+func_001FA850	AngleDiff	suggested	coined: angle diff	docs/plan/moby_update_catalogue.md:299	level01:00222100
+func_001FA898	truncate_float_to_s32	verified	bare cvt.w.s	docs/plan/occlusion_culling.md:128	level01:00222160
+func_001FA8A8	FastTweenColor	inferred	per-byte colour lerp on VU0	docs/plan/particles.md:98	level01:002221a8
+func_L00_00200290	FastBSphereCheck	verified	bounding-sphere view test; verified from disassembly	docs/plan/particles.md:312	level01:002221f0
+func_L00_00200598	SetupFS_AA_buffer	verified	builds full-screen AA packets	docs/plan/render_pipeline.md:37	level01:002224f8
+func_001FB530	append_gif_transfer_packet	verified	full-screen clear packet	docs/plan/render_pipeline.md:37	level01:00222ee8
+func_001FB848	PutAABlitPacket_A	suggested	FUN_00223200 AA/flip blit; 38 regs @0x151900; doc suggests PutAABlitPacket_* | alt AaBlit (docs/plan/hud_text.md:95; suggested) | also docs/plan/hud_text.md	docs/plan/render_pipeline.md:23	level01:00223200
+func_001FB848	PutAABlitPacket_B	suggested	FUN_00223260; emits 41 regs @0x151b60; doc suggests PutAABlitPacket_*	docs/plan/render_pipeline.md:21	level01:00223260
+func_001FBC80	mode_freezeInit	verified	(kind;arg) enters freeze dialog mode 4	docs/plan/menus.md:25	level01:00223640
+func_001FD3E8	UpdateModeFreeze	verified	mode 4 freeze dialog update	docs/plan/menus.md:25	level01:002249b0
+func_L00_00203F20	Help_Request	verified	(msg_id;slot) | alt HelpQueue (docs/plan/moby_update_catalogue.md:300; suggested) | also docs/plan/moby_update_catalogue.md	docs/plan/hud_text.md:153	level01:00225818
+func_001FE540	msg_string__Fi	verified	message lookup by id	docs/plan/hud_text.md:203	level01:002259e8
+func_001FE588	Help_ComputeSize	suggested	coined: help box size measure	docs/plan/hud_text.md:154	level01:00225a98
+func_001FE6C0	Help_Update	verified	help/tutorial box update	docs/plan/menus.md:261	level01:00225bd0
+func_001FF1B0	DrawHud2D_B	suggested	coined: FUN_002266c0 HUD/2D draw in frame render | alt Help_Draw (docs/plan/hud_text.md:101; suggested) | also docs/plan/hud_text.md	docs/plan/render_pipeline.md:23	level01:002266c0
+func_L00_00205278	HeroInit	suggested	coined: hero init (zeroes hero block; finds moby +0xa6==0)	docs/plan/moby_update_catalogue.md:109	level01:00226b70
+func_L00_002056D8	HeroTakeDamage	suggested	coined: damage path calling health show; maybe-mid-function	docs/plan/hud_text.md:185	level01:00226fa8
+func_L00_002064C0	HudBoltAlertShow	suggested	coined: nearby-bolt alert show [L]	docs/plan/hud_text.md:188	level01:00227d90
+func_L01_002283E0	HeroFootstepSound	suggested	coined: footstep sound (calls 0x2a1898)	docs/plan/collision_queries.md:82	level01:00227e48
+func_L01_00228598	HeroUpdateAlt	suggested	coined: hero update path when hero mode != 0	docs/plan/moby_update_catalogue.md:231	level01:00228000
+func_L01_00228E08	HeroUpdate	verified	coined: hero update per tick (mask 1) | also docs/plan/moby_update_catalogue.md docs/plan/particles.md | 2026-09-27 fix: verified by decompile (bounds check...	docs/plan/player_controller.md:23	level01:00228870
+func_L00_00208E98	HeroSyncMoby	suggested	coined: moby sync (pos; Euler; rows)	docs/plan/player_controller.md:92	level01:00229f20
+func_L00_002098B8	HeroComputeAttachMatrices	suggested	coined: attach matrices for items	docs/formats/moby_rac1.md:77	level01:0022a940
+func_L00_00209940	HeroItemPoseFromRatchet	suggested	coined: builds item keyframe from Ratchet local pose | alt HeroAttachGear (docs/plan/roadmap.md:58; suggested) | also docs/plan/roadmap.md	docs/formats/moby_rac1.md:81	level01:0022a9c8
+func_L00_0020B310	HeroScanTargets	suggested	coined: hero code scanning target array; maybe-mid-function	docs/plan/moby_update_catalogue.md:64	level01:0022c080
+func_L00_0020BC30	HeroWallLedgeCheckA	suggested	coined: wall/ledge check (rejects ids 9/0xc or 10/0xc; slope test)	docs/plan/collision_queries.md:86	level01:0022c9a0
+func_L01_0022D340	HeroSurfaceReaction	suggested	coined: surface reaction (water; special floors)	docs/plan/player_controller.md:89	level01:0022cd48
+func_L01_0022D688	HeroWallLedgeCheckB	suggested	coined: hero update step 4; collision_queries.md:86 lists it among wall/ledge checks	docs/plan/player_controller.md:90	level01:0022d090
+func_L01_0022DE30	HeroWallLedgeCheckC	suggested	coined: wall/ledge check (rejects ids 9/0xc or 10/0xc; slope test)	docs/plan/collision_queries.md:86	level01:0022d838
+func_L00_0020DB30	GetClankModule	suggested	coined: Clank module query 0x22ddd8(3)	docs/plan/player_controller.md:101	level01:0022ddd8
+func_L00_0020F118	HeroItemsCreate	suggested	coined: creates Clank and pack mobys via CreateMoby	docs/plan/moby_update_catalogue.md:242	level01:0022f3c0
+func_L00_0020FC18	HeroItemsAttach	suggested	coined: per-item attach and advance	docs/formats/moby_rac1.md:77	level01:0022fec0
+func_L00_00210558	UpdateWrenchSelected	suggested	coined: sets 0x15ed90 to 1 when wrench selected	docs/formats/moby_rac1.md:79	level01:002307e0
+func_L00_00210FE0	HeroItemsUpdate	suggested	coined: calls item create and attach	docs/formats/moby_rac1.md:77	level01:00231268
+func_L01_002320F8	HeroSizeCapsule	suggested	coined: sizes the capsule	docs/plan/player_controller.md:88	level01:00231ae0
+func_L00_00211D28	HeroMotionUpdate	suggested	coined: hero stick -> per-state physics -> move+collide -> timer++	docs/plan/player_controller.md:48	level01:00231d18
+func_L00_00211F80	StickTarget	inferred	doc name StickTarget(scale; mode)	docs/plan/player_controller.md:142	level01:00231f70
+func_L01_002328A8	HeroSpeedFromTable	suggested	coined: picks walk/run speed from table 0x17c238	docs/plan/player_controller.md:159	level01:00232290
+func_L00_002124E8	TurnTo	inferred	doc name TurnTo(k;d;max) -> 0x270b58	docs/plan/player_controller.md:140	level01:00232490
+func_L00_00212740	SpeedStep	inferred	doc name SpeedStep(acc; dec)	docs/plan/player_controller.md:145	level01:002326e8
+func_L00_00212790	SetPlanarVel	inferred	doc name SetPlanarVel(yaw)	docs/plan/player_controller.md:146	level01:00232738
+func_L00_00212878	HeroSteepWallStop	suggested	coined: stops climbing steep walls after leaving ground	docs/plan/player_controller.md:166	level01:00232820
+func_L01_00232F90	HeroWallCheck	suggested	coined: wall check; removes velocity into wall	docs/plan/player_controller.md:155	level01:00232978
+func_L01_002333D8	HeroGroundProbe	suggested	coined: ground probe via CollLine_Fix flags 2	docs/plan/player_controller.md:225	level01:00232dc0
+func_L00_002136A8	HeroStepUpSnap	suggested	coined: step-up / snap to ground	docs/plan/player_controller.md:230	level01:00233588
+func_L01_00233F58	HeroCapsulePasses	suggested	coined: up to 8 capsule passes + hero groups | alt HeroMove (docs/plan/moby_update_catalogue.md:250; suggested) | also docs/plan/moby_update_catalogue.md	docs/plan/player_controller.md:218	level01:00233940
+func_L00_00213E60	HeroCapsuleResolve	suggested	coined: capsule resolve -> 0x233940	docs/plan/player_controller.md:218	level01:00233d08
+func_L01_002343F8	HeroMovePipeline	suggested	coined: move and collision pipeline | also docs/plan/roadmap.md	docs/plan/player_controller.md:215	level01:00233de0
+func_L01_00234970	AirAccel	inferred	doc name AirAccel(a)	docs/plan/player_controller.md:177	level01:00234358
+func_L00_002147C0	HeroJumpVertical	suggested	coined: per-tick jump vertical	docs/plan/player_controller.md:180	level01:002345f0
+func_L01_002351A8	HeroJumpHorizontal	suggested	coined: per-tick air horizontal (jump states)	docs/plan/player_controller.md:180	level01:00234b40
+func_L00_00215A90	HeroLean	suggested	coined: procedural lean via joint modifiers	docs/plan/player_controller.md:170	level01:00235638
+func_L00_00216E98	HeroDecayMomentum	suggested	coined: momentum shrinks by dec each tick	docs/plan/player_controller.md:151	level01:00236678
+func_L00_00217718	HeroTeleport	suggested	coined: hero teleport | also docs/plan/world_animation.md	docs/plan/moby_update_catalogue.md:294	level01:002368e0
+func_L00_002178A0	HeroEdgeBrake	suggested	coined: edge brake line cast ahead	docs/plan/player_controller.md:153	level01:00236a68
+func_L01_002377A8	HeroStatePhysics	suggested	coined: per-state physics | alt HeroPhysics (docs/plan/particles.md:245; suggested) | also docs/plan/particles.md	docs/plan/player_controller.md:87	level01:002370b8
+func_L00_00221A98	HeroMoveCollide	suggested	coined: move+collide	docs/plan/player_controller.md:87	level01:0023c458
+func_L01_0023CE00	HeroTickStateTimer	suggested	coined: state timer ++ after the move; maybe-mid-function	docs/plan/player_controller.md:67	level01:0023c710
+func_L00_00222580	HeroClassifyStick	suggested	coined: stick classification (not decoded)	docs/plan/player_controller.md:323	level01:0023ceb0
+func_L01_0023D688	SetState	verified	doc name SetState(id; playAnim) (H) | alt HeroSetState (docs/plan/moby_update_catalogue.md:205; suggested) | also docs/plan/moby_update_catalogue.md docs/pla...	docs/plan/player_controller.md:94	level01:0023cf98
+func_L01_00241620	HeroPdaGadget	suggested	coined: PDA gadget hero code calling 0x2ae1a0(0); maybe-mid-function	docs/plan/menus.md:150	level01:00240ed8
+func_L00_00229348	HeroChooseJump	suggested	coined: crouch jump 0xb vs jump 7 selection	docs/plan/player_controller.md:110	level01:00241968
+func_L00_002293E8	HeroWalkRunAnim	suggested	coined: walk/run anim selection with hysteresis	docs/plan/player_controller.md:168	level01:00241a08
+func_L01_002428E0	HeroLandingNextState	suggested	coined: picks next state after landing	docs/plan/player_controller.md:125	level01:00242198
+func_L00_00229E30	HeroCrouchJumps	suggested	coined: crouch jumps from state 4	docs/plan/player_controller.md:120	level01:00242420
+func_L01_00243078	HeroStateTransitions	suggested	coined: state transitions | alt HeroCheckQuickSelect (docs/plan/menus.md:66; suggested); alt HeroStateMachine (docs/plan/moby_update_catalogue.md:231; sugges...	docs/plan/player_controller.md:91	level01:00242930
+func_L00_00232560	HeroPickFidget	suggested	coined: picks fidget from pack table	docs/formats/moby_rac1.md:82	level01:002473e0
+func_L00_00232C10	SetAnim	inferred	doc name SetAnim(blend; seq; frame) | alt HeroSetAnim (docs/plan/moby_update_catalogue.md:236; suggested) | also docs/plan/moby_update_catalogue.md	docs/plan/player_controller.md:249	level01:00247a90
+func_L00_00232EF0	RatchetAnimAdvance	suggested	coined: Ratchet's own anim advance	docs/plan/player_controller.md:86	level01:00247d48
+func_L00_002346C0	AddAmmo	suggested	coined: (id;qty) adds ammo; returns overflow	docs/plan/menus.md:195	level01:002494d8
+func_L00_00234800	HeroPlatformUpdate	suggested	coined: moby collision/moving platforms; not reversed	docs/plan/player_controller.md:324	level01:00249618
+func_L00_00235790	HudShowHealth	suggested	coined: shows health slot	docs/plan/hud_text.md:185	level01:0024a498
+func_001FF668	Hud_GetIconIndex__Fi	verified	linear scan of icon table	docs/plan/hud_text.md:40	level01:0024a4e0
+func_L00_00235960	HudMoveBank	suggested	coined: moves HUD bank on menu entry	docs/plan/menus.md:99	level01:0024a668
+func_001FF7F0	LinkHudBank__FiPc	verified		docs/plan/hud_text.md:46	level01:0024a848
+func_001FF958	Hud_SendResidentBank__FiPcb	verified	alt Hud_SendResidentBank (docs/plan/render_pipeline.md:41; verified) | also docs/plan/render_pipeline.md	docs/plan/hud_text.md:50	level01:0024ab28
+func_001FFB38	HudShow	verified	doc's name | alt queue_animation_update (docs/plan/hud_text.md:172; inferred)	docs/plan/hud_text.md:171	level01:0024ad98
+func_L00_00237B90	HudRaceTimerDraw	suggested	coined: race timer draw	docs/plan/hud_text.md:191	level01:0024c898
+func_L00_00238478	QuickSelectInit	suggested	coined: quick-select HUD slot 3 init callback	docs/plan/menus.md:67	level01:0024d180
+func_L00_00238530	QuickSelectUpdate	suggested	coined: quick-select HUD slot 3 update callback	docs/plan/menus.md:67	level01:0024d238
+func_L00_00238C30	QuickSelectDraw	suggested	coined: quick-select HUD slot 3 draw callback	docs/plan/menus.md:67	level01:0024d938
+func_L00_00239FC0	HudHealthUpdate	suggested	coined: health slot update	docs/plan/hud_text.md:185	level01:0024e238
+func_L00_0023A1A0	HudHealthDraw	suggested	coined: health slot draw	docs/plan/hud_text.md:185	level01:0024e418
+func_L00_0023A658	HudShowBolts	suggested	coined: registers bolt counter slot	docs/plan/hud_text.md:186	level01:0024e8d0
+func_L00_0023A690	HudBoltsUpdate	suggested	coined: bolt counter update	docs/plan/hud_text.md:186	level01:0024e908
+func_L00_0023A788	HudBoltsDraw	suggested	coined: bolt counter draw	docs/plan/hud_text.md:186	level01:0024ea00
+func_L00_0023AC68	HudBoltAlertDraw	suggested	coined: nearby-bolt alert draw	docs/plan/hud_text.md:188	level01:0024eed8
+func_L00_0023B0F8	HudWeaponInit	suggested	coined: weapon+ammo slot init	docs/plan/hud_text.md:187	level01:0024f368
+func_L00_0023B140	HudWeaponDraw	suggested	coined: weapon+ammo slot draw	docs/plan/hud_text.md:187	level01:0024f3b0
+func_L00_0023B610	HudUpdate	suggested	coined: HUD slot update loop	docs/plan/hud_text.md:176	level01:0024f880
+func_L00_0023B750	HudWeaponShow	suggested	coined: weapon+ammo slot show	docs/plan/hud_text.md:187	level01:0024f9c0
+func_001FFFB8	HudDraw	verified	HUD pass (named in hud_text.md) | alt DrawHud2D_A (docs/plan/render_pipeline.md:23; suggested) | also docs/plan/render_pipeline.md	docs/plan/menus.md:223	level01:0024fb50
+func_L00_0023BAB8	HudFrame	verified	(slot;frame;x;y;flags;a)	docs/plan/hud_text.md:83	level01:0024fd28
+func_00200198	GetIconFrame__Fii	verified		docs/plan/hud_text.md:40	level01:0024fe10
+func_00200248	GetFrameTex__Fi	verified	builds TEX0	docs/plan/hud_text.md:57	level01:0024fec0
+func_00200468	HudSprite	verified	(frame;x;y;w;h;a)	docs/plan/hud_text.md:79	level01:002500e0
+func_L00_0023C058	HudSpriteSubRect	suggested	coined: HUD sprite 1:1 sub-rect	docs/plan/hud_text.md:82	level01:002502c8
+func_00200650	HudSpriteRot180	suggested	coined: HUD sprite rotated 180 (right end caps)	docs/plan/hud_text.md:80	level01:00250468
+func_L00_0023C458	HudSpriteRot90	suggested	coined: HUD sprite rotated 90	docs/plan/hud_text.md:81	level01:002506c8
+func_00201348	Hud_sendTexture__FPciiiii	verified	HUD texture bank	docs/plan/render_pipeline.md:41	level01:002513b8
+func_L00_0023D750	HudWeaponUpdate	suggested	coined: weapon+ammo slot update	docs/plan/hud_text.md:187	level01:002519c0
+func_00201960	DrawBarFrame	suggested	coined: bar frame 30080 caps + middle	docs/plan/hud_text.md:151	level01:00251ab0
+func_00201A38	DrawBanner	suggested	coined: banner draw called from HudDraw	docs/plan/hud_text.md:162	level01:00251b88
+func_L00_0023DB30	VendorStockLevelInit	suggested	coined: at level load drops unknown items; adds planet's new item	docs/plan/menus.md:158	level01:00251da0
+func_00201E10	InitMemSlots__Fv	inferred	sets level core base DAT_00174294	docs/plan/trace_harness.md:58	level01:00252128
+func_00201E88	InitOnce__Fv	verified	loads VU0 patch 0x10e4d0; calls sce_gs_reset_graph | alt InitOnce (docs/plan/moby_untextured.md:27; verified) | also docs/plan/moby_untextured.md	docs/plan/render_pipeline.md:9	level01:002521a0
+func_L01_00252E80	DrawSky	suggested	FUN_00252570; name suggested in render_pipeline.md:51; called from DrawDebugProfiler	docs/plan/sky_render_notes.md:14	level01:00252570
+func_L00_0023EF78	WritePointLight_A	suggested	coined: FUN_002525f8 writes point-light bank	docs/plan/tfrag_lighting.md:19	level01:002525f8
+func_L00_0023F0D0	WritePointLight_B	suggested	coined: FUN_00252750 writes point-light bank | alt AllocPointLight (docs/plan/moby_update_catalogue.md:298; suggested) | also docs/plan/moby_update_catalogue.md	docs/plan/tfrag_lighting.md:19	level01:00252750
+func_L00_0023F1D0	FreePointLight	suggested	coined: free point light	docs/plan/moby_update_catalogue.md:298	level01:00252850
+func_00202260	UpdateAllPointLights	verified	point light maintenance	docs/plan/render_pipeline.md:45	level01:002528a8
+func_002023E0	CreatePointLight	verified	point light create	docs/plan/render_pipeline.md:45	level01:00252a28
+func_00202790	refresh_point_light	verified	point light refresh	docs/plan/render_pipeline.md:45	level01:00252dd8
+func_00202F00	ParseParticleTexs	inferred	level load: part_defs + part_textures	docs/plan/particles.md:20	level01:00253648
+func_002032D0	LoadHudBanks__Fv	verified	copies hud_header to HUD heap	docs/plan/hud_text.md:23	level01:00253e28
+func_002035B0	BuildMobyAdGif	suggested	coined: level01 copy of fun_00202d78	docs/plan/moby_untextured.md:18	level01:00254108
+func_L00_00240CE0	set_up_vis_gif_viewer	inferred		docs/plan/moby_untextured.md:20	level01:00254360
+func_00203B70	MobyClassRelocate	suggested	coined: level01 copy of fun_00203338	docs/plan/moby_untextured.md:14	level01:002546c8
+func_00203E78	MobyClassesRelocate	suggested	coined: level01 copy of fun_00203640	docs/plan/moby_untextured.md:14	level01:002549d0
+func_00204918	RelocateTfrags	suggested	coined: level01 copy of fun_002040e0 | alt TfragLoadInit (docs/formats/tfrag_rac1.md:323; suggested) | also docs/formats/tfrag_rac1.md	docs/plan/trace_harness.md:64	level01:00255470
+func_L00_002420C0	CollInit	suggested	coined: FUN_00255740 collision init (mesh ptr; hero groups)	docs/plan/collision_queries.md:10	level01:00255740
+func_L00_002422D8	InitLevelRenderGlobals	suggested	coined: doc suggests 'level render-globals init'; also shrub/light loader | alt LoadGameplayMobys (docs/plan/moby_update_catalogue.md:84; suggested); alt Rel...	docs/plan/render_pipeline.md:51	level01:00255958
+func_L00_00244AE0	LoadLevelCoreData	suggested	coined: FUN_00258128 decompresses core data; relocates tfrags | alt LevelCoreSetup (docs/formats/tfrag_rac1.md:323; suggested); alt LoadLevelCore (docs/plan/...	docs/plan/trace_harness.md:63	level01:00258128
+func_00205270	select_world_object_resource_tables	inferred		docs/formats/moby_rac1.md:54	level01:00259788
+func_L00_002465F8	entry	verified	main loop | also docs/plan/player_controller.md docs/plan/render_pipeline.md	docs/plan/menus.md:15	level01:00259c40
+func_L00_0024B1B0	MobyUnknown74Hook	suggested	coined: instance unknown_74 hook	docs/plan/moby_update_catalogue.md:345	level01:0025e7b0
+func_0020BFC8	memcard_Save	inferred		docs/plan/moby_update_catalogue.md:300	level01:00261448
+func_L01_00262BC0	RippleHeightsToSpr	suggested	coined: copies heights + halos to scratchpad	docs/plan/world_animation.md:134	level01:00261c10
+func_L01_00262D28	RippleLerpBuffers	suggested	coined: lerp(prev; cur; f) into buffer 2	docs/plan/world_animation.md:131	level01:00261d78
+func_L01_00262DA8	RippleVertex	suggested	coined: per-vertex normal; grey light; env reflection UV	docs/plan/world_animation.md:88	level01:00261df8
+func_L01_00262FE8	RipplePatchStep	suggested	coined: 8-neighbour wave step per active patch	docs/plan/world_animation.md:88	level01:00262038
+func_L01_00263338	RippleEmitSubBlock	suggested	coined: emits a 4x4 sub-block as 46-vertex strips	docs/plan/world_animation.md:163	level01:00262388
+func_L01_002635C8	WaterStripVertexUV	suggested	coined: per-vertex VU0 macro (wobble; z blend; 2-layer UV)	docs/plan/world_animation.md:56	level01:00262618
+func_L00_0024F7E0	MobyFreeSlotBookkeeping	suggested	coined: free-slot bookkeeping; first step of frame | alt UpdateMobysPartA (docs/plan/player_controller.md:23; suggested) | also docs/plan/player_controller.md	docs/plan/moby_update_catalogue.md:34	level01:00263300
+func_0020D348	CreateMoby	inferred		docs/plan/moby_update_catalogue.md:289	level01:00263390
+func_0020D440	InitMobyInstance	verified	doc section 9 verified (+0x74 update; mode 2) | also docs/plan/collision_queries.md	docs/plan/moby_update_catalogue.md:28	level01:00263488
+func_0020D678	DeleteMoby	verified	state 0xfd/0xfe | 2026-09-27 fix: verified: Lombyte exact-boot-match boot 0x20c828; sets state 0xfd/0xfe, stamps tick+2	docs/plan/moby_update_catalogue.md:289	level01:002636c0
+func_0020D6D0	update_moby_animation_state	inferred	boot 0x20c880	docs/plan/moby_update_catalogue.md:288	level01:00263718
+func_L00_0024FD50	MobyAnimFindFrame	suggested	coined: frame finder reading frame time	docs/plan/moby_animation.md:34	level01:00263870
+func_0020D830	MobyAnimKeyTime	suggested	coined: returns current key time	docs/plan/moby_update_catalogue.md:288	level01:00263920
+func_0020D960	AttachManipulator	inferred	(m; joint; node); fills +0x64 list	docs/plan/moby_update_catalogue.md:290	level01:00264370
+func_0020D9D8	DetachManipulator	suggested	doc writes Detach	docs/plan/moby_update_catalogue.md:290	level01:002643e8
+func_0020DAF8	MobyAttachToJoint	suggested	coined: fun_0020cca8 attach rule	docs/formats/moby_rac1.md:69	level01:00264508
+func_0020DB98	MobyGetBoneMatrix	suggested	coined: (moby;bone;...) used to place quads on vendor monitor bones	docs/plan/menus.md:205	level01:00264630
+func_L00_00250928	MobyEvalAttachLists	suggested	coined: evaluates N joint lists into attach matrices | alt MobyAttachMatrix (docs/plan/roadmap.md:58; suggested) | also docs/plan/roadmap.md	docs/formats/moby_rac1.md:80	level01:002646d0
+func_0020DC40	DmaMobyTextures	verified	moby texture DMA	docs/plan/render_pipeline.md:41	level01:002647a8
+func_0020DD48	PatchMobyGifs	verified	moby TEX0 fixup	docs/plan/render_pipeline.md:23	level01:002648b0
+func_0020E0C8	DrawMobysSetup__Fv	verified	adds moby VU1 program; loads VU0 prog 0x100090	docs/plan/render_pipeline.md:9	level01:00264c30
+func_0020E180	DrawMobyList	verified	re-entrant per-list moby draw	docs/plan/render_pipeline.md:32	level01:00264ce8
+func_0020E200	DrawMobysCleanUp	verified	moby draw cleanup	docs/plan/render_pipeline.md:32	level01:00264d68
+func_0020E2B0	DrawMobys	verified	moby draw entry	docs/plan/render_pipeline.md:23	level01:00264e18
+func_L00_002510F0	EnvNearestSamplePoint	suggested	coined: env sample point nearest hero sets music track; maybe-mid-function	docs/plan/audio.md:201	level01:00264e98
+func_L00_002512D8	SetMissionDone	suggested	coined: set mission byte / mission done | alt SetMissionByte (docs/plan/menus.md:254; suggested) | also docs/plan/menus.md	docs/plan/moby_update_catalogue.md:222	level01:00265080
+func_L00_002513F8	LightMoby	suggested	FUN_002651a0; doc-suggested name; uses 0x180340 bank	docs/plan/render_pipeline.md:45	level01:002651a0
+func_L00_002514B8	MobyAnimAdvance	verified	boot fun_0020d580; algorithm verified in moby_animation.md | also docs/plan/audio.md	docs/plan/moby_update_catalogue.md:43	level01:00265260
+func_0020E6B8	BuildActiveMobyList	suggested	coined: fun_0020d868 activity gate; builds active moby list	docs/plan/moby_update_catalogue.md:41	level01:00265548
+func_L00_00251E30	MobyBuildMatrix	suggested	coined: fun_0020def8 rebuilds rotation rows/bounding sphere unless mode&4	docs/plan/moby_update_catalogue.md:46	level01:00265bd8
+func_L00_00252018	MobyAnimEval	suggested	level01 copy of fun_0020e0e0	docs/plan/moby_animation.md:94	level01:00265dc0
+func_L00_00254218	MobyCollXformCached	suggested	coined: moby blob transform via 8-entry cache	docs/plan/collision_queries.md:95	level01:00267fc0
+func_L00_00255B90	MobyAnimDecodeLocalPose	suggested	coined: Ratchet decoded local pose	docs/formats/moby_rac1.md:81	level01:00269938
+func_00212578	MobyAnimProc	verified	walks moby animation-evaluation job list	docs/plan/occlusion_culling.md:169	level01:0026a6c0
+func_L00_002569F8	MobyProc	verified	also docs/plan/render_pipeline.md	docs/plan/moby_untextured.md:33	level01:0026a7a0
+func_L00_00257E18	EnvZoneLookup	suggested	coined: env zone lookup returning index and t	docs/plan/world_animation.md:200	level01:0026bbc0
+func_L00_0025805C	HeroEnvLighting	suggested	coined: env zone hero light-bank cross-fade	docs/plan/world_animation.md:215	level01:0026be04
+func_L00_002584A8	SetDeathBits	suggested	coined: death bits (0x14c190 + level*0x100; 0x1ba950)	docs/plan/moby_update_catalogue.md:300	level01:0026c250
+func_00213D28	hard_cut	inferred	port Rust name for this fn (clamps B) | alt MobyAnimCut (docs/plan/moby_update_catalogue.md:287; suggested)	docs/plan/moby_update_catalogue.md:369	level01:0026c5a8
+func_00213DE0	MobyAnimBlend	suggested	coined: fun_00212f90 sequence blend	docs/plan/moby_update_catalogue.md:287	level01:0026c660
+func_00213F28	MobyAnimBlendEx	suggested	coined: fun_002130d8 blend with flags	docs/plan/moby_update_catalogue.md:287	level01:0026c7a8
+func_002140B0	randi	verified	r % n; also FUN_0026c930 in world_animation.md:121 | alt RandRange (docs/plan/audio.md:118; suggested); alt RandMod (docs/plan/moby_update_catalogue.md:299;...	docs/plan/particles.md:141	level01:0026c930
+func_L00_00258BC8	rand_range	verified	r % (b-a+1) + a | alt RandInt (docs/plan/moby_update_catalogue.md:299; suggested) | also docs/plan/moby_update_catalogue.md	docs/plan/particles.md:141	level01:0026c970
+func_002140F8	randf	verified	a + r*(b-a)*2^-15 | alt RandFloat (docs/plan/moby_update_catalogue.md:299; suggested) | also docs/plan/moby_update_catalogue.md	docs/plan/particles.md:142	level01:0026c9c8
+func_L00_00258C80	randf_sym	verified	12-bit random float; sign from bit 16	docs/plan/particles.md:143	level01:0026ca28
+func_00214158	rand_angle	verified	random angle in [-pi; pi) | alt RandAngle (docs/plan/moby_update_catalogue.md:299; suggested) | also docs/plan/moby_update_catalogue.md	docs/plan/particles.md:144	level01:0026ca90
+func_L00_00258DB0	rand_vec	verified	random vector of random length; verified (line 294)	docs/plan/particles.md:145	level01:0026cb58
+func_L00_00259148	SpringTurn	suggested	coined: spring turn	docs/plan/moby_update_catalogue.md:299	level01:0026cef0
+func_L00_002592B0	SpringTurn2	suggested	coined: spring turn (second variant)	docs/plan/moby_update_catalogue.md:299	level01:0026d058
+func_L01_0026E8E0	SeedJumpPattern	suggested	coined: 577 init seeds a jump pattern; maybe-mid-function	docs/plan/moby_update_catalogue.md:199	level01:0026d930
+func_L01_0026EFB8	MobyGroupCount	suggested	coined: group count	docs/plan/moby_update_catalogue.md:293	level01:0026e008
+func_00214358	GroundHeight	suggested	coined: ground height probe (line from z+0.5 down)	docs/plan/moby_update_catalogue.md:292	level01:0026e618
+func_00214440	SetWaterLevel	suggested	coined: records water level into 0x13f640 | alt WaterHeightAt (docs/plan/world_animation.md:144; suggested) | also docs/plan/world_animation.md	docs/plan/collision_queries.md:83	level01:0026ed38
+func_L00_0025B478	MobyGetHitMessage	suggested	coined: hit/damage message query (m; mask; keep)	docs/plan/moby_update_catalogue.md:189	level01:0026f320
+func_00214D28	Approach	inferred	doc name Approach(t; step; &x) | also docs/plan/moby_update_catalogue.md	docs/plan/player_controller.md:137	level01:00270728
+func_L00_0025C918	Spring	inferred	doc name Spring(t;k;d;max;&x;&v)	docs/plan/player_controller.md:138	level01:00270780
+func_L00_0025CCF0	SpringAngle	suggested	coined: yaw spring with wrapped angle differences (called by TurnTo)	docs/plan/player_controller.md:140	level01:00270b58
+func_00214F78	NormaliseMatrixColumns	suggested	coined: normalises the three columns	docs/formats/moby_rac1.md:73	level01:00271030
+func_L00_0025D308	ReflectVelocity	suggested	coined: reflects particle velocity on collision hit (factor P.3c)	docs/plan/particles.md:122	level01:00271170
+func_L00_0025E860	SplineProject	suggested	coined: spline project	docs/plan/moby_update_catalogue.md:293	level01:002726c8
+func_L00_0025EFC0	SplineSample	suggested	coined: spline sample	docs/plan/moby_update_catalogue.md:293	level01:00272e28
+func_L00_0025F4A8	SpawnBeamExplosion	suggested	coined: beam/explosion	docs/plan/moby_update_catalogue.md:296	level01:00273310
+func_00215570	PointInCuboid	suggested	coined: point-in-cuboid test (cuboid table 0x1600ec) | also docs/plan/world_animation.md	docs/plan/moby_update_catalogue.md:95	level01:00274820
+func_L00_002617B0	CarryRiders	suggested	coined: carry riders	docs/plan/moby_update_catalogue.md:138	level01:002755f8
+func_L00_00261848	UnlockPlanet	suggested	coined: unlocks planet | alt UnlockItem (docs/plan/moby_update_catalogue.md:221; suggested) | also docs/plan/moby_update_catalogue.md	docs/plan/menus.md:254	level01:002756d0
+func_L00_002618D8	GiveItem	suggested	coined: (id;1) gives weapon	docs/plan/menus.md:194	level01:00275760
+func_L01_00277FD8	LineOfSightTest	suggested	coined: LOS test	docs/plan/moby_update_catalogue.md:123	level01:00276fe8
+func_L00_00263DB0	ShowPlanetBanner	suggested	coined: planet banner 1009+ [L]	docs/plan/menus.md:258	level01:00277c38
+func_L01_00278FA8	HeroOnMoby	suggested	coined: hero-on-moby test	docs/plan/moby_update_catalogue.md:293	level01:00277fb8
+func_L00_00264570	SpawnImpactSparks	suggested	coined: impact sparks via particle type 1	docs/plan/particles.md:245	level01:002780b0
+func_L01_00279790	BreakFxA	suggested	coined: one of three break FX fns	docs/plan/moby_update_catalogue.md:296	level01:002787a0
+func_L00_00264DB8	ShowBanner	verified	(msg_id;ticks=180) | alt HudText (docs/plan/moby_update_catalogue.md:300; suggested) | also docs/plan/moby_update_catalogue.md	docs/plan/hud_text.md:162	level01:002789e0
+func_L00_00264E28	ShowBannerf	suggested	coined: ShowBanner with printf arg	docs/plan/hud_text.md:162	level01:00278a50
+func_L00_00265050	BreakFxB	suggested	coined: one of three break FX fns	docs/plan/moby_update_catalogue.md:296	level01:00278ad8
+func_L01_00279E10	BreakFxC	suggested	coined: one of three break FX fns	docs/plan/moby_update_catalogue.md:296	level01:00278e20
+func_L00_002653A0	RaceTimerShow	suggested	coined: race timer slot 12 show	docs/plan/hud_text.md:191	level01:00278eb8
+func_00215F80	try_set_help_message	inferred		docs/plan/moby_update_catalogue.md:300	level01:00278f58
+func_L00_00265558	OpenShipMenu	suggested	coined: ship menu; called with 2	docs/plan/moby_update_catalogue.md:217	level01:00279070
+func_00213BB8	MobyClassRegister	suggested	coined: class-load lookup of update/vtbl; writes 0x197b00[slot] and class+0x2c	docs/plan/moby_update_catalogue.md:24	level01:00279218
+func_L00_002657B8	MobyLoadTimeUpdatePass	suggested	coined: FUN_002792d0 runs every moby update once before first frame | alt MobyLoadUpdatePass (docs/plan/moby_update_catalogue.md:49; suggested); alt UpdateMo...	docs/plan/particles.md:328	level01:002792d0
+func_00213C78	MobyUpdateLoop	suggested	coined: per-frame moby loop (anim advance; update fn; matrix) | alt MobyUpdateAll (docs/plan/menus.md:114; suggested) | also docs/plan/menus.md docs/plan/par...	docs/plan/moby_update_catalogue.md:35	level01:002793d8
+func_002161E0	MusicStreamInit	suggested	coined: calls InitVAGStreamingEx(4;0xf000;0;1); maybe-mid-function	docs/plan/audio.md:185	level01:002796f8
+func_002167C0	PlayDialogue	suggested	coined: dialogue (id<10000) scene sounds	docs/plan/audio.md:202	level01:00279cd8
+func_00216A90	music_start_track	verified		docs/plan/audio.md:187	level01:00279fa8
+func_00216B68	StartTrackBody	verified	queues loop body	docs/plan/audio.md:189	level01:0027a080
+func_00216C50	music_Transition	verified	plays stinger	docs/plan/audio.md:196	level01:0027a168
+func_L00_002664B0	MusicRequestTrack	suggested	coined: (track;stinger) music change request	docs/plan/audio.md:194	level01:0027a248
+func_00217130	music_Update	verified		docs/plan/audio.md:194	level01:0027a688
+func_L00_00267188	MusicStartCallback	suggested	coined: handle callback sets state 8	docs/plan/audio.md:188	level01:0027af20
+func_00217A60	MusicTimeRemainingCallback	suggested	coined: arms fade	docs/plan/audio.md:197	level01:0027afb8
+func_L00_00267BA8	PadPressedWithin	suggested	coined: (mask;n;*ago) mask pressed within last n ticks (input buffer)	docs/plan/player_controller.md:45	level01:0027b940
+func_L00_00267C48	PadComboWithin	suggested	coined: both buttons pressed within n ticks; at most gap apart	docs/plan/player_controller.md:46	level01:0027b9e0
+func_L00_00267CC8	PadStickLengthAgo	suggested	coined: stick length n-1 ticks ago	docs/plan/player_controller.md:46	level01:0027ba60
+func_00216270	UpdatePad__FR3PAD	verified	existing Lombyte name (line 7); doc writes UpdatePad | alt PadUpdate (docs/plan/menus.md:21; suggested) | also docs/plan/menus.md	docs/plan/player_controller.md:19	level01:0027c478
+func_00218928	CreatePart	inferred	Lombyte name; stub a1=0 then jumps to CreatePart2	docs/plan/particles.md:13	level01:0027c498
+func_L00_00268760	CreatePart2	verified	real allocator; pool logic verified from disassembly (line 300)	docs/plan/particles.md:14	level01:0027c4a0
+func_L00_002688A8	KillPart	verified	frees record; verified from disassembly (line 300)	docs/plan/particles.md:15	level01:0027c5e8
+func_L00_002689B0	PartType22Update	suggested	coined: particle type 22 update fn from RegisterPartTypes table	docs/plan/particles.md:63	level01:0027c6f0
+func_00218A80	UpdateParts	inferred	per-tick dispatch through the particle type table	docs/plan/particles.md:16	level01:0027c7e8
+func_00218B10	PartProc	verified	particles | also docs/plan/particles.md	docs/plan/render_pipeline.md:14	level01:0027c878
+func_00219704	_part_load_tex	verified	particle textures | also docs/plan/particles.md	docs/plan/render_pipeline.md:41	level01:0027d46c
+func_L00_002697A0	RegisterPartTypes	inferred	fills 81-entry update table 0x1b2300	docs/plan/particles.md:19	level01:0027d4e0
+func_L00_00269BE8	PartType00Update	suggested	coined: particle type 0 update fn from RegisterPartTypes table	docs/plan/particles.md:60	level01:0027d928
+func_L00_00269DB0	PartType01Spawn	suggested	coined: particle type 1 spawner (only CreatePart call site) (impact sparks)	docs/plan/particles.md:60	level01:0027daf0
+func_L00_00269E88	PartType01Update	suggested	coined: particle type 1 update fn from RegisterPartTypes table (impact sparks)	docs/plan/particles.md:60	level01:0027dbc8
+func_00219780	PartType02Spawn	suggested	coined: particle type 2 spawner (only CreatePart call site)	docs/plan/particles.md:60	level01:0027dc98
+func_L00_0026A130	PartType02Update	suggested	coined: particle type 2 update fn from RegisterPartTypes table	docs/plan/particles.md:60	level01:0027de70
+func_L00_0026A398	PartType03Update	suggested	coined: particle type 3 update fn from RegisterPartTypes table	docs/plan/particles.md:60	level01:0027e0d8
+func_L00_0026A7F8	PartType04Spawn	suggested	coined: particle type 4 spawner (only CreatePart call site)	docs/plan/particles.md:60	level01:0027e538
+func_L00_0026A910	PartType04Update	suggested	coined: particle type 4 update fn from RegisterPartTypes table	docs/plan/particles.md:60	level01:0027e650
+func_L00_0026AA10	PartType05Spawn	suggested	coined: particle type 5 spawner (only CreatePart call site)	docs/plan/particles.md:60	level01:0027e750
+func_L00_0026AB10	PartType05Update	suggested	coined: particle type 5 update fn from RegisterPartTypes table	docs/plan/particles.md:60	level01:0027e850
+func_L01_0027F6C8	PartType06Spawn	suggested	coined: particle type 6 spawner (only CreatePart call site) (data-driven emitter particle) | alt SpawnParticle (docs/plan/moby_update_catalogue.md:112; sugge...	docs/plan/particles.md:60	level01:0027e900
+func_L00_0026ABC0	PartType06Update	suggested	coined: particle type 6 update fn from RegisterPartTypes table (data-driven emitter particle)	docs/plan/particles.md:60	level01:0027eb08
+func_L00_0026AB10	PartType07Update	suggested	coined: particle type 7 update fn from RegisterPartTypes table	docs/plan/particles.md:61	level01:0027f200
+func_L00_0026B368	PartType08Spawn	suggested	coined: particle type 8 spawner (only CreatePart call site)	docs/plan/particles.md:61	level01:0027f2b0
+func_L00_0026B458	PartType08Update	suggested	coined: particle type 8 update fn from RegisterPartTypes table	docs/plan/particles.md:61	level01:0027f3a0
+func_L00_0026B590	PartType09Update	suggested	coined: particle type 9 update fn from RegisterPartTypes table	docs/plan/particles.md:61	level01:0027f4d8
+func_L01_00280428	PartType10Spawn	suggested	coined: particle type 10 spawner (only CreatePart call site)	docs/plan/particles.md:61	level01:0027f660
+func_L00_0026B720	PartType10Update	suggested	coined: particle type 10 update fn from RegisterPartTypes table	docs/plan/particles.md:61	level01:0027f788
+func_L00_0026B890	PartType11Spawn	suggested	coined: particle type 11 spawner (only CreatePart call site)	docs/plan/particles.md:61	level01:0027f8f8
+func_L00_0026BB18	PartType11Update	suggested	coined: particle type 11 update fn from RegisterPartTypes table	docs/plan/particles.md:61	level01:0027fb80
+func_L00_0026C0D0	PartType12Spawn	suggested	coined: particle type 12 spawner (only CreatePart call site)	docs/plan/particles.md:62	level01:00280138
+func_L00_0026C3A0	PartType12Update	suggested	coined: particle type 12 update fn from RegisterPartTypes table	docs/plan/particles.md:62	level01:00280408
+func_L00_0026C630	PartType13Spawn	suggested	coined: particle type 13 spawner (only CreatePart call site)	docs/plan/particles.md:62	level01:00280698
+func_L00_0026C7B0	PartType13Update	suggested	coined: particle type 13 update fn from RegisterPartTypes table	docs/plan/particles.md:62	level01:00280818
+func_L01_00281738	PartType14Spawn	suggested	coined: particle type 14 spawner (only CreatePart call site)	docs/plan/particles.md:62	level01:00280970
+func_L00_0026C908	PartType14Update	suggested	coined: particle type 14 update fn from RegisterPartTypes table	docs/plan/particles.md:62	level01:00280ac8
+func_L00_0026CA10	PartType15Spawn	suggested	coined: particle type 15 spawner (only CreatePart call site)	docs/plan/particles.md:62	level01:00280bd0
+func_L00_0026CB48	PartType15Update	suggested	coined: particle type 15 update fn from RegisterPartTypes table	docs/plan/particles.md:62	level01:00280d08
+func_L00_0026CD70	PartType16Spawn	suggested	coined: particle type 16 spawner (only CreatePart call site)	docs/plan/particles.md:62	level01:00280f30
+func_L00_0026CF28	PartType16Update	suggested	coined: particle type 16 update fn from RegisterPartTypes table	docs/plan/particles.md:62	level01:002810e8
+func_001E9768	PartType17Update	suggested	coined: particle type 17 update fn from RegisterPartTypes table	docs/plan/particles.md:62	level01:00281428
+func_L00_0026D270	PartType18Spawn	suggested	coined: particle type 18 spawner (only CreatePart call site)	docs/plan/particles.md:63	level01:00281430
+func_L00_0026D3F8	PartType18Update	suggested	coined: particle type 18 update fn from RegisterPartTypes table	docs/plan/particles.md:63	level01:002815b8
+func_L00_0026D588	PartType19Spawn	suggested	coined: particle type 19 spawner (only CreatePart call site)	docs/plan/particles.md:63	level01:00281748
+func_L00_0026D690	PartType19Update	suggested	coined: particle type 19 update fn from RegisterPartTypes table	docs/plan/particles.md:63	level01:00281850
+func_L00_0026D700	PartType20Update	suggested	coined: particle type 20 update fn from RegisterPartTypes table	docs/plan/particles.md:63	level01:002818c0
+func_L00_0026DA50	PartType21Spawn	suggested	coined: particle type 21 spawner (only CreatePart call site)	docs/plan/particles.md:63	level01:00281c10
+func_L00_0026DB50	PartType21Update	suggested	coined: particle type 21 update fn from RegisterPartTypes table	docs/plan/particles.md:63	level01:00281d10
+func_L00_0026DD70	PartType22Spawn	suggested	coined: particle type 22 spawner (only CreatePart call site) | alt SpawnSmoke (docs/plan/moby_update_catalogue.md:296; suggested) | also docs/plan/moby_updat...	docs/plan/particles.md:63	level01:00281f30
+func_L00_0026DEA0	PartType23Spawn	suggested	coined: particle type 23 spawner (only CreatePart call site) | alt SpawnSprite (docs/plan/moby_update_catalogue.md:296; suggested) | also docs/plan/moby_upda...	docs/plan/particles.md:63	level01:00282060
+func_L00_0026E050	PartType23Update	suggested	coined: particle type 23 update fn from RegisterPartTypes table	docs/plan/particles.md:63	level01:00282210
+func_L00_0026E310	PartType24Update	suggested	coined: particle type 24 update fn from RegisterPartTypes table	docs/plan/particles.md:64	level01:002824d0
+func_L00_0026E438	PartType25Spawn	suggested	coined: particle type 25 spawner (only CreatePart call site)	docs/plan/particles.md:64	level01:002825f8
+func_L00_0026E5A0	PartType25Update	suggested	coined: particle type 25 update fn from RegisterPartTypes table	docs/plan/particles.md:64	level01:00282760
+func_L00_0026E940	PartType26Spawn	suggested	coined: particle type 26 spawner (only CreatePart call site)	docs/plan/particles.md:64	level01:00282b00
+func_L00_0026EA80	PartType26Update	suggested	coined: particle type 26 update fn from RegisterPartTypes table	docs/plan/particles.md:64	level01:00282c40
+func_L00_0026EBC0	PartType27Spawn	suggested	coined: particle type 27 spawner (only CreatePart call site)	docs/plan/particles.md:64	level01:00282d80
+func_L00_0026ECA0	PartType27Update	suggested	coined: particle type 27 update fn from RegisterPartTypes table	docs/plan/particles.md:64	level01:00282e60
+func_L00_0026ED30	PartType28Spawn	suggested	coined: particle type 28 spawner (only CreatePart call site)	docs/plan/particles.md:64	level01:00282ef0
+func_L00_0026EFF0	PartType28Update	suggested	coined: particle type 28 update fn from RegisterPartTypes table	docs/plan/particles.md:64	level01:002831b0
+func_L00_0026F248	PartType29Update	suggested	coined: particle type 29 update fn from RegisterPartTypes table	docs/plan/particles.md:64	level01:00283408
+func_L00_0026F510	PartType30Update	suggested	coined: particle type 30 update fn from RegisterPartTypes table	docs/plan/particles.md:65	level01:002836d0
+func_L00_0026FA28	PartType31Update	suggested	coined: particle type 31 update fn from RegisterPartTypes table	docs/plan/particles.md:65	level01:00283be8
+func_L00_0026FBC8	PartType32Spawn	suggested	coined: particle type 32 spawner (only CreatePart call site)	docs/plan/particles.md:65	level01:00283d88
+func_L00_0026FCE8	PartType32Update	suggested	coined: particle type 32 update fn from RegisterPartTypes table	docs/plan/particles.md:65	level01:00283ea8
+func_L00_0026FEE8	PartType33Update	suggested	coined: particle type 33 update fn from RegisterPartTypes table	docs/plan/particles.md:65	level01:002840a8
+func_L00_0026FF20	PartType34Spawn	suggested	coined: particle type 34 spawner (only CreatePart call site)	docs/plan/particles.md:65	level01:002840e0
+func_L00_00270120	PartType34Update	suggested	coined: particle type 34 update fn from RegisterPartTypes table	docs/plan/particles.md:65	level01:002842e0
+func_L00_002703E8	PartType35Spawn	suggested	coined: particle type 35 spawner (only CreatePart call site)	docs/plan/particles.md:65	level01:002845a8
+func_L00_00270500	PartType35Update	suggested	coined: particle type 35 update fn from RegisterPartTypes table	docs/plan/particles.md:65	level01:002846c0
+func_L00_00270738	PartType36Update	suggested	coined: particle type 36 update fn from RegisterPartTypes table	docs/plan/particles.md:65	level01:002848f8
+func_L00_002708A0	PartType37Update	suggested	coined: particle type 37 update fn from RegisterPartTypes table	docs/plan/particles.md:66	level01:00284a60
+func_L00_002709A0	PartType38Update	suggested	coined: particle type 38 update fn from RegisterPartTypes table	docs/plan/particles.md:66	level01:00284b60
+func_L00_00270AD8	PartType39Update	suggested	coined: particle type 39 update fn from RegisterPartTypes table	docs/plan/particles.md:66	level01:00284c98
+func_L00_00270BC8	PartType40Spawn	suggested	coined: particle type 40 spawner (only CreatePart call site)	docs/plan/particles.md:66	level01:00284d88
+func_L00_00270DB0	PartType40Update	suggested	coined: particle type 40 update fn from RegisterPartTypes table	docs/plan/particles.md:66	level01:00284f70
+func_L01_00286530	PartType41Spawn	suggested	coined: particle type 41 spawner (only CreatePart call site)	docs/plan/particles.md:66	level01:00285768
+func_L00_002715B0	PartType41Update	suggested	coined: particle type 41 update fn from RegisterPartTypes table	docs/plan/particles.md:66	level01:002858a8
+func_L00_002715F8	PartType42Spawn	suggested	coined: particle type 42 spawner (only CreatePart call site)	docs/plan/particles.md:66	level01:002858f0
+func_L00_002717E8	PartType42Update	suggested	coined: particle type 42 update fn from RegisterPartTypes table	docs/plan/particles.md:66	level01:00285ae0
+func_L00_00271F40	PartType43Update	suggested	coined: particle type 43 update fn from RegisterPartTypes table	docs/plan/particles.md:66	level01:00286238
+func_L00_00272158	PartType44Spawn	suggested	coined: particle type 44 spawner (only CreatePart call site)	docs/plan/particles.md:67	level01:00286450
+func_L00_002722F0	PartType44Update	suggested	coined: particle type 44 update fn from RegisterPartTypes table	docs/plan/particles.md:67	level01:002865e8
+func_L00_00272488	PartType45Spawn	suggested	coined: particle type 45 spawner (only CreatePart call site)	docs/plan/particles.md:67	level01:00286780
+func_L00_002725E8	PartType45Update	suggested	coined: particle type 45 update fn from RegisterPartTypes table	docs/plan/particles.md:67	level01:002868e0
+func_L00_00272770	PartType46Spawn	suggested	coined: particle type 46 spawner (only CreatePart call site)	docs/plan/particles.md:67	level01:00286a68
+func_L00_00272890	PartType46Update	suggested	coined: particle type 46 update fn from RegisterPartTypes table	docs/plan/particles.md:67	level01:00286b88
+func_L00_002729B8	PartType47Spawn	suggested	coined: particle type 47 spawner (only CreatePart call site)	docs/plan/particles.md:67	level01:00286cb0
+func_L00_00272A88	PartType47Update	suggested	coined: particle type 47 update fn from RegisterPartTypes table	docs/plan/particles.md:67	level01:00286d80
+func_L00_00272B28	PartType48Update	suggested	coined: particle type 48 update fn from RegisterPartTypes table	docs/plan/particles.md:67	level01:00286e20
+func_L00_00272BC0	PartType49Update	suggested	coined: particle type 49 update fn from RegisterPartTypes table	docs/plan/particles.md:67	level01:00286eb8
+func_L00_00272C98	PartType50Update	suggested	coined: particle type 50 update fn from RegisterPartTypes table	docs/plan/particles.md:68	level01:00286f90
+func_L00_00272D68	PartType51Update	suggested	coined: particle type 51 update fn from RegisterPartTypes table	docs/plan/particles.md:68	level01:00287060
+func_L01_00287F20	PartType52Spawn	suggested	coined: particle type 52 spawner (only CreatePart call site)	docs/plan/particles.md:68	level01:00287158
+func_L00_00272E60	PartType52Update	suggested	coined: particle type 52 update fn from RegisterPartTypes table	docs/plan/particles.md:68	level01:00287288
+func_L00_00272F00	PartType53Spawn	suggested	coined: particle type 53 spawner (only CreatePart call site)	docs/plan/particles.md:68	level01:00287328
+func_L00_00273090	PartType53Update	suggested	coined: particle type 53 update fn from RegisterPartTypes table	docs/plan/particles.md:68	level01:002874b8
+func_L00_002732D8	PartType54Update	suggested	coined: particle type 54 update fn from RegisterPartTypes table	docs/plan/particles.md:68	level01:00287700
+func_L00_00273478	PartType55Spawn	suggested	coined: particle type 55 spawner (only CreatePart call site)	docs/plan/particles.md:68	level01:002878a0
+func_L00_00273578	PartType55Update	suggested	coined: particle type 55 update fn from RegisterPartTypes table	docs/plan/particles.md:68	level01:002879a0
+func_L01_002888C8	PartType56Spawn	suggested	coined: particle type 56 spawner (only CreatePart call site) (mist puff)	docs/plan/particles.md:69	level01:00287b00
+func_L00_002736D8	PartType56Update	suggested	coined: particle type 56 update fn from RegisterPartTypes table (mist puff)	docs/plan/particles.md:69	level01:00287bd8
+func_L01_00288A48	PartType57Spawn	suggested	coined: particle type 57 spawner (only CreatePart call site) (flat ripple)	docs/plan/particles.md:69	level01:00287c80
+func_L00_00273788	PartType57Update	suggested	coined: particle type 57 update fn from RegisterPartTypes table (flat ripple)	docs/plan/particles.md:69	level01:00287d90
+func_L00_00273868	PartType58Spawn	suggested	coined: particle type 58 spawner (only CreatePart call site)	docs/plan/particles.md:69	level01:00287e70
+func_L00_00273A60	PartType58Update	suggested	coined: particle type 58 update fn from RegisterPartTypes table	docs/plan/particles.md:69	level01:00288068
+func_L00_00273E08	PartType59Spawn	suggested	coined: particle type 59 spawner (only CreatePart call site) (glow)	docs/plan/particles.md:69	level01:00288410
+func_L00_00273F28	PartType59Update	suggested	coined: particle type 59 update fn from RegisterPartTypes table (glow)	docs/plan/particles.md:69	level01:00288530
+func_L00_00273F80	PartType60Spawn	suggested	coined: particle type 60 spawner (only CreatePart call site) (sparkle)	docs/plan/particles.md:69	level01:00288588
+func_L00_00274138	PartType60Update	suggested	coined: particle type 60 update fn from RegisterPartTypes table (sparkle)	docs/plan/particles.md:69	level01:00288740
+func_L00_002742E8	PartType61Update	suggested	coined: particle type 61 update fn from RegisterPartTypes table	docs/plan/particles.md:69	level01:002888f0
+func_L00_002745A8	PartType62Spawn	suggested	coined: particle type 62 spawner (only CreatePart call site)	docs/plan/particles.md:70	level01:00288bb0
+func_L00_002746A0	PartType62Update	suggested	coined: particle type 62 update fn from RegisterPartTypes table	docs/plan/particles.md:70	level01:00288ca8
+func_L00_0026FEE8	PartType63Update	suggested	coined: particle type 63 update fn from RegisterPartTypes table	docs/plan/particles.md:70	level01:00288d58
+func_L00_00274788	PartType64Spawn	suggested	coined: particle type 64 spawner (only CreatePart call site)	docs/plan/particles.md:70	level01:00288d90
+func_L00_00274908	PartType64Update	suggested	coined: particle type 64 update fn from RegisterPartTypes table	docs/plan/particles.md:70	level01:00288f10
+func_L00_00274D80	PartType65Update	suggested	coined: particle type 65 update fn from RegisterPartTypes table	docs/plan/particles.md:70	level01:00289388
+func_L00_00275040	PartType66Spawn	suggested	coined: particle type 66 spawner (only CreatePart call site)	docs/plan/particles.md:70	level01:00289648
+func_L00_002751A8	PartType66Update	suggested	coined: particle type 66 update fn from RegisterPartTypes table	docs/plan/particles.md:70	level01:002897b0
+func_L00_00275248	PartType67Spawn	suggested	coined: particle type 67 spawner (only CreatePart call site)	docs/plan/particles.md:70	level01:00289850
+func_L00_002753B8	PartType67Update	suggested	coined: particle type 67 update fn from RegisterPartTypes table	docs/plan/particles.md:70	level01:002899c0
+func_L00_002756B8	PartType68Update	suggested	coined: particle type 68 update fn from RegisterPartTypes table	docs/plan/particles.md:71	level01:00289cc0
+func_L00_00275910	PartType69Update	suggested	coined: particle type 69 update fn from RegisterPartTypes table	docs/plan/particles.md:71	level01:00289df0
+func_L00_00275C80	PartType70Update	suggested	coined: particle type 70 update fn from RegisterPartTypes table	docs/plan/particles.md:71	level01:0028a078
+func_L00_00275CE8	PartType71Update	suggested	coined: particle type 71 update fn from RegisterPartTypes table	docs/plan/particles.md:71	level01:0028a0e0
+func_L00_00275FF8	PartType72Spawn	suggested	coined: particle type 72 spawner (only CreatePart call site)	docs/plan/particles.md:71	level01:0028a3f0
+func_L00_00276180	PartType72Update	suggested	coined: particle type 72 update fn from RegisterPartTypes table	docs/plan/particles.md:71	level01:0028a578
+func_L00_002761C0	PartType73Update	suggested	coined: particle type 73 update fn from RegisterPartTypes table	docs/plan/particles.md:71	level01:0028a5b8
+func_L01_0028B570	PartType74Spawn	suggested	coined: particle type 74 spawner (only CreatePart call site)	docs/plan/particles.md:71	level01:0028a7a8
+func_L00_002763B0	PartType74Update	suggested	coined: particle type 74 update fn from RegisterPartTypes table	docs/plan/particles.md:71	level01:0028a908
+func_L00_00276590	PartType75Update	suggested	coined: particle type 75 update fn from RegisterPartTypes table	docs/plan/particles.md:71	level01:0028aae8
+func_L00_002766B0	PartType76Update	suggested	coined: particle type 76 update fn from RegisterPartTypes table	docs/plan/particles.md:72	level01:0028ac08
+func_L00_00276700	PartType77Update	suggested	coined: particle type 77 update fn from RegisterPartTypes table	docs/plan/particles.md:72	level01:0028ac58
+func_L00_002767B0	PartType78Spawn	suggested	coined: particle type 78 spawner (only CreatePart call site)	docs/plan/particles.md:72	level01:0028ad08
+func_L00_00276940	PartType78Update	suggested	coined: particle type 78 update fn from RegisterPartTypes table	docs/plan/particles.md:72	level01:0028ae98
+func_L00_00276C08	PartType79Update	suggested	coined: particle type 79 update fn from RegisterPartTypes table	docs/plan/particles.md:72	level01:0028b160
+func_L00_00276D50	PartType80Update	suggested	coined: particle type 80 update fn from RegisterPartTypes table	docs/plan/particles.md:72	level01:0028b2a8
+func_00219C70	EnterMenuMode	verified	doc's preferred name; (kind) sets mode 3 page menu; pauses music/sfx | alt PauseAllSounds (docs/plan/menus.md:8; inferred) | Lombyte name believed wrong: Pau...	docs/plan/menus.md:8	level01:0028bf50
+func_L00_00277208	LoadItemIdsFromSave	suggested	coined: copies item ids from save | alt PageMenuFirstTick (docs/plan/menus.md:85; suggested) | also docs/plan/menus.md	docs/formats/moby_rac1.md:77	level01:0028c128
+func_L00_002777C0	PageMenuClose	suggested	coined: close; restores HUD bank; frees mobys; runs post-action	docs/plan/menus.md:117	level01:0028c6c8
+func_L00_00277A88	PageMenuUpdate	suggested	page-menu (pause/map/planet-select) update; entry 0x28bf50, draw 0x28d080 | alt SceneController (docs/formats/moby_rac1.md:77; suggested, coined) | also docs...	docs/plan/menus.md:24	level01:0028c990
+func_L00_002781D8	PageMenuDraw	suggested	coined: page menu render (snapshot; black 0x30; mobys; widgets)	docs/plan/menus.md:24	level01:0028d080
+func_0021BB90	ListWidgetUpdate	suggested	coined: page-menu list widget update (hl timers, ✕ actions 0..11; docs/plan/menus.md "List widget") | was MenuSetPostAction, an earlier doc-coined name (not...	docs/plan/menus.md:130	level01:0028e600
+func_0021CE60	MapWidgetUpdate	verified	map page W2 widget update (docs/plan/menus.md Map; draw is 0x292d38) | Lombyte name believed wrong: DrawMapScreen (boot 0x21be60 draw_map_screen)	docs/plan/menus.md:137	level01:0028f868
+func_0021DE08	DrawSoundMenu	verified	widget draw	docs/plan/menus.md:137	level01:00290808
+func_0021E2D0	MenuTextSwap	suggested	coined: streams/swaps all_text for menus (second of pair)	docs/plan/hud_text.md:202	level01:00290cd0
+func_0021E340	MenuTextLoad	suggested	coined: streams/swaps all_text for menus (first of pair)	docs/plan/hud_text.md:202	level01:00290d40
+func_0021F898	DrawQuitGameMenu	verified	widget draw	docs/plan/menus.md:137	level01:00292298
+func_0021FB28	DrawItemsMenu	verified	widget draw	docs/plan/menus.md:137	level01:00292528
+func_0021FF80	GoldBoltPanelDraw	inferred	coined: confirm-page W4 gold-bolt panel (spinning moby + "Found: N of M") | Lombyte name believed wrong: DrawGBsShipMenu__maybe (boot 0x21ef78; boot_function...	docs/plan/menus.md:302	level01:00292980
+func_00220370	DrawMissionsMenu	verified	widget draw	docs/plan/menus.md:137	level01:00292d70
+func_002208F8	draw_menu_selection_marker	verified	menu selection marker / cursor	docs/plan/menus.md:139	level01:002932f0
+func_00220C90	StreamedImageDraw	inferred	coined: map page W4 streamed planet picture draw (update 0x293398) | Lombyte name believed wrong: draw_transition_overlay (boot 0x21fc68)	docs/plan/menus.md:299	level01:00293670
+func_00222070	ToggleListDraw	verified	generic toggle-list widget draw (HelpDesk/Subtitles pages; update 0x294830) | Lombyte name believed wrong: DrawCheatsMenu (boot 0x221030 draw_cheats_menu)	docs/plan/menus.md:137	level01:00294a38
+func_00224040	DrawSaveMenu	suggested	coined: save/load widget draw (first of pair)	docs/plan/menus.md:138	level01:00296990
+func_002243E8	DrawLoadMenu	suggested	coined: save/load widget draw (second of pair)	docs/plan/menus.md:138	level01:00296ce0
+func_002255F8	LoadHandGadget	inferred	also docs/plan/menus.md	docs/formats/moby_rac1.md:54	level01:00297d70
+func_00225E00	HandItemUpdate	suggested	coined: update fn of hand items (wrench 71 etc.)	docs/formats/moby_rac1.md:60	level01:00298578
+func_00225FB8	HeadItemUpdate	suggested	coined: update fn of head items	docs/formats/moby_rac1.md:64	level01:00298730
+func_002260A8	FeetItemUpdate	suggested	coined: update fn of feet items	docs/formats/moby_rac1.md:65	level01:00298820
+func_00226250	BackItemUpdate	suggested	coined: update fn of back items 601/607-609	docs/formats/moby_rac1.md:62	level01:002989c8
+func_L00_00284410	CheatEntryUpdate	suggested	coined: cheat entry, called every tick (records presses while R2+L1 held; docs/plan/menus.md "Every tick") | was MenuInput, an earlier doc-coined name (not L...	docs/plan/menus.md:114	level01:00298f80
+func_00229C08	dma_shrub_textures	verified	shrub texture DMA	docs/plan/render_pipeline.md:31	level01:0029caf8
+func_00229D48	PatchShrubGifs	verified	level01 copy of fun_00228a30; name from render_pipeline.md:51 | 2026-09-27 fix: verified = boot 0x228a30 (same decompile, tables 0x1bd330/0x1bc4b0/0x1bce30);...	docs/plan/shrub_lighting.md:223	level01:0029cc38
+func_00229E50	DrawShrubs	verified	shrub draw entry	docs/plan/render_pipeline.md:23	level01:0029cd40
+func_00229F00	ShrubProc	verified	shrub chain builder	docs/plan/shrub_lighting.md:55	level01:0029cdf0
+func_0022B8F8	LightShrubs	verified	was FUN_0029e7e8; boot copy not located; VU0 prog 436083 | also docs/plan/trace_harness.md	docs/plan/shrub_lighting.md:14	level01:0029e7e8
+func_L00_0028A5A8	UpdateSkyShellsStatic	verified	static (identity) sky-shell loop, taken when level index 0x15ed84 != 1 (DrawSky 0x252570) | was DrawSkyShells_NTSC (docs/plan/render_pipeline.md:51; suggeste...	docs/plan/render_pipeline.md:51	level01:0029edb0
+func_L00_0028A6F8	UpdateSkyShellsAnimated	verified	animated sky-shell loop (shells 2-4 rotate with 0x15f5cc), taken when level index 0x15ed84 == 1 (DrawSky 0x252570) | was DrawSkyShells_PAL (docs/plan/render_...	docs/plan/render_pipeline.md:51	level01:0029ee10
+func_0022C5A0	DrawSkyShells	suggested	FUN_0029f260 standalone sky shell loop; name from render_pipeline.md:51	docs/plan/sky_render_notes.md:122	level01:0029f260
+func_0022C9A8	SkyDrawShell__Fi	verified	existing level01 name; draws one sky shell (render_pipeline.md:23)	docs/plan/sky_render_notes.md:16	level01:0029f668
+func_0022CA00	SkyDrawShellTextured	suggested	coined: level01 copy of boot 0x22b6e8	docs/plan/sky_render_notes.md:17	level01:0029f6c0
+func_0022CC40	SkyDrawShellGouraud	suggested	coined: level01 copy of boot 0x22b928	docs/plan/sky_render_notes.md:17	level01:0029f900
+func_L00_0028D958	SkyBsphereCheck	inferred	per-cluster bounding-sphere cull; existing level01 name	docs/plan/sky_render_notes.md:18	level01:002a00b0
+func_0022D8C0	SoundOcclusionOrigin	suggested	coined: jittered listener origin for occlusion	docs/plan/audio.md:156	level01:002a0190
+func_0022DA10	SoundDistanceVolume	suggested	coined: distance volume	docs/plan/audio.md:146	level01:002a02e0
+func_0022DB48	SoundComputePan	suggested	coined: pan	docs/plan/audio.md:149	level01:002a0418
+func_0022DBE8	SoundMasterVolumeInit	suggested	coined: master volume groups init	docs/plan/audio.md:164	level01:002a04b8
+func_0022DD68	sound_update	verified	per-frame sound update | also docs/plan/roadmap.md	docs/plan/audio.md:139	level01:002a0638
+func_L00_0028EB98	SoundIsAlive	suggested	coined: (moby;slot) alive? | alt VoiceAlive (docs/plan/moby_update_catalogue.md:295; suggested) | also docs/plan/moby_update_catalogue.md	docs/plan/audio.md:131	level01:002a12f0
+func_L00_0028EBF0	release_voice_slot	inferred	alt SoundRelease (docs/plan/audio.md:131; suggested) | also docs/plan/audio.md	docs/plan/moby_update_catalogue.md:295	level01:002a1348
+func_0022EB08	SoundSlotAlloc	suggested	coined: sound slot allocation	docs/plan/audio.md:116	level01:002a13a0
+func_0022ED80	PlayClassSound	suggested	coined: class sound i of moby; doc writes fun_0022da68 | alt PlayMobySound (docs/plan/moby_update_catalogue.md:295; suggested) | also docs/plan/moby_update_c...	docs/plan/audio.md:126	level01:002a1618
+func_L00_0028EF68	PlayClassSoundByClass	suggested	coined: class sound looked up by o_class	docs/plan/audio.md:127	level01:002a16c0
+func_0022EE28	PlayLevelSoundAtMoby	suggested	coined: (i;flags;moby) level def at moby	docs/plan/audio.md:79	level01:002a1770
+func_L00_0028F0B0	PlayLevelSoundAtInstance	suggested	coined: level def at sound instance	docs/plan/audio.md:128	level01:002a1808
+func_L00_0028F140	PlayFootstepSound	suggested	coined: sound = tbl[level] + class*4 + foot*2 + variant + base | alt PlayFootstep (docs/plan/audio.md:79; suggested) | also docs/plan/audio.md	docs/plan/collision_queries.md:82	level01:002a1898
+func_L00_0028F210	SoundSetVolume	suggested	coined: set slot volume	docs/plan/audio.md:130	level01:002a1968
+func_L00_0028F210	SoundSetPitchBend	suggested	coined: set slot pitch bend	docs/plan/audio.md:130	level01:002a1988
+func_L00_0028F230	SoundInstanceUpdate	suggested	coined: dispatches sound instance update	docs/plan/audio.md:177	level01:002a19a8
+func_0022EF68	RunLevelCallbacks	suggested	coined: runs level callback list 0x13f2e4 | alt UpdateMobysPartC (docs/plan/player_controller.md:23; suggested) | also docs/plan/player_controller.md	docs/plan/moby_update_catalogue.md:36	level01:002a1a18
+func_0022EFE8	SoundStopAll	suggested	coined: stop all sounds	docs/plan/audio.md:131	level01:002a1b08
+func_L00_0028F458	ShipUpdate	suggested	coined: engine-shared ship update set on moby+0x74 | alt Class531Update (docs/plan/world_animation.md:262; suggested) | also docs/plan/menus.md docs/plan/wor...	docs/plan/moby_update_catalogue.md:214	level01:002a1c40
+func_0022F258	ShipDrawCallbackNear	suggested	coined: ship draw callback when camera within 32	docs/plan/moby_update_catalogue.md:216	level01:002a2130
+func_L00_0028FCA0	EnterShipMode	suggested	coined: (sub) sets mode 6 and substate; take-off with 0	docs/plan/menus.md:27	level01:002a24b8
+func_L00_0028FFB0	ShipTakeOff	suggested	coined: take-off; calls 0x2a24b8(0)	docs/plan/menus.md:52	level01:002a27c8
+func_L00_00290030	ShipTravelTo	suggested	coined: (dest) ship travel after planet select; landing or fly-away	docs/plan/menus.md:27	level01:002a2848
+func_L00_002901A8	ShipLandingStart	suggested	coined: new level starts mode 6 substate 8 (landing)	docs/plan/menus.md:27	level01:002a29c0
+func_0022FDC0	SpaceLoadingLoop	suggested	coined: mode 6 substate 4 in-space loading loop	docs/plan/menus.md:27	level01:002a33b0
+func_002305A0	DrawWorldPaused	suggested	coined: pause/freeze variant of frame render (mode 4) | doc cross-ref fun_0022f288	docs/plan/render_pipeline.md:21	level01:002a3b90
+func_00230A90	GameStateUpdate	suggested	coined: game-state update (substates 0/8/3); runs moby updates then UpdateParts | alt ShipModeUpdate (docs/plan/menus.md:27; suggested) | also docs/plan/menu...	docs/plan/particles.md:90	level01:002a4080
+func_00232200	dispatch_game_state_update	verified	mode 6 path to frame render	docs/plan/render_pipeline.md:21	level01:002a57f0
+func_00232278	EnterSpaceLoadingLoop	suggested	coined: enters substate 4 random space flight while disc loads	docs/plan/menus.md:32	level01:002a5868
+func_00233308	DoSpaceTransition	verified	(dest level) space transition and level load | also docs/plan/moby_update_catalogue.md	docs/plan/menus.md:245	level01:002a68f8
+func_00233AB8	ShipDrawCallback	suggested	coined: ship engine draw callback	docs/plan/moby_update_catalogue.md:216	level01:002a70a8
+func_00234380	SetTfragDists	verified	tfrag LOD distance table	docs/plan/render_pipeline.md:29	level01:002a79f0
+func_002344D8	DmaTfragTextures	verified	splices tfrag texture sub-chain	docs/plan/render_pipeline.md:29	level01:002a7b48
+func_00234620	PatchTfragGifs	verified	ORs TBP0 into tfrag TEX0 | also docs/plan/world_animation.md	docs/plan/render_pipeline.md:23	level01:002a7c90
+func_002346C0	DrawTfrag	verified	tfrag draw entry	docs/plan/render_pipeline.md:23	level01:002a7d30
+func_002352C8	TfragProc	verified	tfrag SPR chain builder + cull	docs/plan/render_pipeline.md:11	level01:002a7e58
+func_00235EF0	ComputeTfragTextureUsage	verified	usage bitmap	docs/plan/render_pipeline.md:41	level01:002a8a80
+func_L00_002963D8	BuildTfragTextureDma	verified	tfrag texture upload chain	docs/plan/render_pipeline.md:41	level01:002a8bf0
+func_002362B0	LightTfrags	verified	VU0 macro tfrag lighting	docs/plan/render_pipeline.md:23	level01:002a8e40
+func_00229C08	dma_tie_textures	verified	tie texture DMA	docs/plan/render_pipeline.md:30	level01:002a94e8
+func_00236A98	PatchTieGifs	verified	tie TEX0 fixup	docs/plan/render_pipeline.md:23	level01:002a9628
+func_00236BE0	DrawTies_1	verified	tie draw	docs/plan/render_pipeline.md:23	level01:002a9770
+func_00236CA8	DrawTies_2	verified	two-pass mirror/reflection tie draw	docs/plan/render_pipeline.md:23	level01:002a9838
+func_00236F00	TieProc	verified	tie chain builder	docs/plan/render_pipeline.md:12	level01:002a9a90
+func_002383D8	BuildTieTextureDma	suggested	FUN_002aaf68; doc-suggested name	docs/plan/render_pipeline.md:30	level01:002aaf68
+func_00238688	LightTies	verified	VU0 macro tie lighting | also docs/plan/trace_harness.md	docs/plan/render_pipeline.md:23	level01:002ab218
+func_L00_00299148	IncrementTickCounter	suggested	coined: end of gameplay tick; tick counter 0x15f5cc++ | alt GameTick (docs/plan/menus.md:16; suggested) | also docs/plan/menus.md	docs/plan/player_controller.md:25	level01:002ab960
+func_L00_00299250	InLevelFrameUpdate	suggested	coined: in-level per-frame fn (moby loop; callbacks; hero; parts) | alt GameplayUpdate (docs/plan/menus.md:21; suggested); alt GameplayTick (docs/plan/player...	docs/plan/moby_update_catalogue.md:32	level01:002aba68
+func_L00_00299B68	DialogStreamStart	suggested	coined: dialog stream fn; doc does not distinguish it from 0x2acf50 | alt StartScene (docs/plan/menus.md:23; suggested) | also docs/plan/menus.md	docs/plan/moby_update_catalogue.md:221	level01:002ac330
+func_L00_0029A300	CutsceneModeUpdate	suggested	coined: mode 2 in-engine cutscene update	docs/plan/menus.md:23	level01:002aca80
+func_L00_0029A7D0	DialogStreamUpdate	suggested	coined: dialog stream fn; doc does not distinguish it from 0x2ac330 | alt PlayMovieById (docs/plan/menus.md:22; suggested) | also docs/plan/menus.md	docs/plan/moby_update_catalogue.md:221	level01:002acf50
+func_L00_0029A868	PlayMovieC	suggested	coined: starts PSS movie variant (post-action 6; arg 0x1ba254)	docs/plan/menus.md:22	level01:002acfe8
+func_L00_0029A8D0	PlayMovieB	suggested	coined: starts PSS movie variant (post-action 4)	docs/plan/menus.md:22	level01:002ad050
+func_L00_0029A940	StartPssMovie	suggested	coined: (lsn;size;planet) enters mode 1 movie	docs/plan/menus.md:22	level01:002ad0c0
+func_L00_0029AB38	MovieExitToGameplay	suggested	coined: returns from PSS movie mode 1 to mode 0	docs/plan/menus.md:21	level01:002ad2b8
+func_L00_0029AD18	MovieModeUpdate	suggested	coined: mode 1 PSS movie update (save VRAM; play; restore)	docs/plan/menus.md:22	level01:002ad498
+func_L00_0029ADD8	EnterSlideshowMode	suggested	coined: enters mode 7 (menu post-action 7)	docs/plan/menus.md:28	level01:002ad558
+func_L00_0029AFB8	SlideshowModeUpdate	suggested	coined: mode 7 streamed image slideshow update	docs/plan/menus.md:28	level01:002ad738
+func_L00_0029B770	VendorBuildItemList	suggested	coined: builds vendor item list 0x1caa10	docs/plan/menus.md:153	level01:002adef0
+func_L00_0029BA20	OpenVendorMenu	suggested	coined: vendor menu opened on triangle | alt VendorEnter (docs/plan/menus.md:26; suggested) | also docs/plan/menus.md	docs/plan/moby_update_catalogue.md:110	level01:002ae1a0
+func_L00_0029BED8	VendorExit	suggested	coined: camera back to hero; sound 6; mode 0; music unpaused	docs/plan/menus.md:200	level01:002ae660
+func_L00_0029C070	VendorStartWeaponDemo	suggested	coined: enters substate 3 weapon demo scene	docs/plan/menus.md:199	level01:002ae7f8
+func_L00_0029CDE0	DrawSpriteHelper_C	suggested	coined: FUN_002af7e8 touches 0x101010; billboard/sprite draw helper | alt VendorBuyFlow (docs/plan/menus.md:190; suggested) | also docs/plan/menus.md	docs/plan/render_pipeline.md:51	level01:002af7e8
+func_L00_0029D988	VendorModeUpdate	suggested	coined: mode 5 Gadgetron vendor update	docs/plan/menus.md:26	level01:002b03b8
+func_00239838	VendorDrawTicker	suggested	coined: vendor ticker target	docs/plan/menus.md:206	level01:002b1a48
+func_00239948	VendorDrawSalesmanVideo	suggested	coined: salesman video target	docs/plan/menus.md:208	level01:002b1b58
+func_00239A00	VendorDrawIconStrip	suggested	coined: icon strip target	docs/plan/menus.md:210	level01:002b1c10
+func_00239CF8	VendorDrawItemPanel	suggested	coined: item panel target	docs/plan/menus.md:212	level01:002b1f08
+func_0023A220	VendorDrawButtonWindow	suggested	coined: button window target	docs/plan/menus.md:218	level01:002b2430
+func_0023AA38	VendorDrawScreens	suggested	coined: draws off-screen monitor targets; does not decompile	docs/plan/menus.md:203	level01:002b3130
+func_L00_002A0C20	VendorDrawGlassQuads	suggested	coined: glass quads on vendor bones	docs/plan/menus.md:221	level01:002b3700
+func_L00_002A11E8	VendorDrawHologramCone	suggested	coined: hologram cone 4 quads	docs/plan/menus.md:221	level01:002b3cc8
+func_L00_002A1540	VendorModeRender	suggested	coined: mode 5 vendor render; calls 0x2b3130 | alt DrawWorldMode5 (docs/plan/render_pipeline.md:21; suggested) | also docs/plan/render_pipeline.md	docs/plan/menus.md:26	level01:002b4020
+func_002347F0	VU0_loadMicroProgram__FPl	verified	kicks VIF0 DMA chain	docs/plan/render_pipeline.md:9	level01:002b4470
+func_00234948	VU1_swapChain__Fv	verified	toggles chain buffers	docs/plan/render_pipeline.md:21	level01:002b45c8
+func_002349B8	VU1_sendChain__Fv	verified	kicks last frame's chain on D1	docs/plan/render_pipeline.md:21	level01:002b4638
+func_00234B48	VU1_addDataRef__FPvi	verified	writes REF tag qwc or 0x30000000 + address	docs/plan/render_pipeline.md:10	level01:002b47c8
+func_00234BA0	write_vif_unpack_packet	verified	STCYCL + UNPACK V4_32	docs/plan/render_pipeline.md:27	level01:002b4820
+func_00234C98	VU1_addGSregister	verified	2-qw DIRECT A+D	docs/plan/render_pipeline.md:27	level01:002b4918
+func_00234D58	VU1_setScissor	verified	SCISSOR reg 0x40	docs/plan/render_pipeline.md:27	level01:002b49d8
+func_001FB848	VU1_restoreGsRegs_A	suggested	FUN_002b4b00 restore 3 GS regs from 0x1c3380	docs/plan/render_pipeline.md:30	level01:002b4b00
+func_001FB848	VU1_restoreGsRegs_B	suggested	FUN_002b4b60 A+D from 0x1c2940	docs/plan/render_pipeline.md:51	level01:002b4b60
+func_001FB848	ReplayHudGsState	suggested	coined: replays GS state packet 0x1c2970	docs/plan/hud_text.md:96	level01:002b4bc0
+func_L00_002A21A8	DownloadFrameBuffer	suggested	coined: (buf;fbp;size) downloads GS frame buffer to EE RAM snapshot	docs/plan/menus.md:35	level01:002b4c88
+func_L00_002A2258	UploadFrameSnapshot	suggested	coined: re-uploads snapshot each frame with IMAGE GIFtags	docs/plan/menus.md:36	level01:002b4d38
+func_00235290	VU1_addIrqTag	suggested	FUN_002b5110 writes CNT+IRQ tag	docs/plan/render_pipeline.md:23	level01:002b5110
+func_L01_002B8C00	RipplePatchesInit	suggested	coined: ripple module init (theta; steps; radius; speed; zero heights)	docs/plan/world_animation.md:88	level01:002b7a48
+func_L01_002B90E8	RippleSimStep	suggested	coined: runs one ripple sim step	docs/plan/world_animation.md:130	level01:002b7f30
+func_L01_002B9198	RippleSimClock	suggested	coined: sim accumulator; step every 8 ticks	docs/plan/world_animation.md:129	level01:002b7fe0
+func_L01_002B9288	RippleUpdateUV	suggested	coined: shared water UV scroll + wobble angles	docs/plan/world_animation.md:158	level01:002b80d0
+func_L00_002A5158	RippleDisturb	suggested	coined: disturbance (x; y; r; amp; patches; n; additive)	docs/plan/world_animation.md:121	level01:002b82a8
+func_0023B210	RippleHeightQuery	suggested	coined: water height (+normal) from active patch or flat plane	docs/plan/world_animation.md:144	level01:002b8910
+func_L01_002B9DC0	RippleBuildGrid	suggested	coined: 17x17 vertex grid from heights	docs/plan/world_animation.md:150	level01:002b8c08
+func_L01_002BA150	DrawSpriteHelper_B	suggested	coined: FUN_002b8f98 billboard/sprite helper using VU1 prog 0x10e818	docs/plan/render_pipeline.md:16	level01:002b8f98
+func_L01_002BA380	RippleDraw	suggested	coined: draws active ripple patches	docs/plan/world_animation.md:137	level01:002b91c8
+func_L01_002BA898	DrawStaticStrips	suggested	coined: draw static strips | alt DrawWaterStrips (docs/plan/world_animation.md:31; suggested) | also docs/plan/world_animation.md	docs/plan/moby_update_catalogue.md:132	level01:002b96e0
+func_L00_002A5B20	LevelAmbienceUpdate	suggested	coined: level ambience | alt UpdateMobysPartD (docs/plan/player_controller.md:23; suggested) | also docs/plan/player_controller.md	docs/plan/moby_update_catalogue.md:37	level01:002b9a68
+func_L01_002BB068	PathPlatformUpdate	suggested	coined: update fn class 726	docs/plan/moby_update_catalogue.md:143	level01:002b9eb0
+func_L00_002A5F68	TextureScrollUpdate	suggested	coined: update fn class 809 | alt Class809Update (docs/plan/world_animation.md:176; suggested) | also docs/plan/world_animation.md	docs/plan/moby_update_catalogue.md:157	level01:002ba658
+func_L00_002A6A38	VendorUpdate	suggested	coined: update fn of class 11 Gadgetron vendor; not defined in Ghidra	docs/plan/moby_update_catalogue.md:8	level01:002bb128
+func_L00_002A7078	BoltUpdate	suggested	coined: update fn of bolt classes 13-16	docs/plan/moby_update_catalogue.md:111	level01:002bb758
+func_L00_002A7E10	CollectBolt	suggested	coined: bolts += value; HUD	docs/plan/moby_update_catalogue.md:111	level01:002bc4f0
+func_L01_002BE2C8	ParticleEmitterUpdate	suggested	coined: update fn class 27; pvar-driven bursts | alt Class27EmitterUpdate (docs/plan/particles.md:110; suggested) | also docs/plan/particles.md	docs/plan/moby_update_catalogue.md:112	level01:002bd100
+func_L00_002AB910	DrawSpriteHelper_D	suggested	coined: FUN_002bfe40 touches 0x101010; billboard/sprite draw helper	docs/plan/render_pipeline.md:51	level01:002bfe40
+func_L00_002B0D30	FxDebrisGroupUpdateA	suggested	coined: update fn of classes 149; 348-364 (look like FX/debris)	docs/plan/moby_update_catalogue.md:177	level01:002c5218
+func_L00_002B6BC8	CameraCollLineFix	suggested	coined: FUN_002cb540 CollLine_Fix camera-placement path; sets fallback 1	docs/plan/occlusion_culling.md:58	level01:002cb540
+func_L00_002C6720	FxDebrisGroupUpdateB	suggested	coined: update fn of classes 204; 213-226; 1006; 1438-1449 (FX/debris)	docs/plan/moby_update_catalogue.md:177	level01:002db028
+func_L01_002E1FE0	BoltCrankUpdate	suggested	coined: update fn class 280	docs/plan/moby_update_catalogue.md:114	level01:002e0c68
+func_L01_002E2E38	ItemOfferUpdate	suggested	coined: update fn classes 304 and 1456-1465	docs/plan/moby_update_catalogue.md:115	level01:002e1ac0
+func_L01_002E7FC8	PathEnemyUpdate	suggested	coined: update fn class 459 (spline enemy)	docs/plan/moby_update_catalogue.md:117	level01:002e6bf0
+func_L00_002D06C8	CrateUpdate	suggested	coined: update fn crate classes 500/501/502/505/511	docs/plan/moby_update_catalogue.md:118	level01:002ea178
+func_L00_002D19E8	CrateDropBolts	suggested	coined: spawns N bolt mobys from crate	docs/plan/moby_update_catalogue.md:118	level01:002eb498
+func_L00_002D1E68	CrateBreakFx	suggested	coined: crate break FX/debris	docs/plan/moby_update_catalogue.md:118	level01:002eb918
+func_L01_002EF078	AmoeboidUpdate	suggested	coined: update fn classes 572/865/866	docs/plan/moby_update_catalogue.md:123	level01:002edca0
+func_L01_002F1038	GroundCritterUpdate	suggested	coined: update fn class 577	docs/plan/moby_update_catalogue.md:125	level01:002efc60
+func_L01_002F3F40	CommandedNpcUpdate	suggested	coined: update fn class 604	docs/plan/moby_update_catalogue.md:126	level01:002f2b68
+func_L01_002F4290	NearestAreaMarkerUpdate	suggested	coined: update fn class 605	docs/plan/moby_update_catalogue.md:127	level01:002f2eb8
+func_L00_002D4C80	ClankPackUpdate	suggested	coined: update fn class 607; seq 6 in hero state 8	docs/plan/moby_update_catalogue.md:245	level01:002f30c0
+func_L01_002F44F8	WaterCurrentUpdate	suggested	coined: update fn class 613	docs/plan/moby_update_catalogue.md:128	level01:002f3120
+func_L01_002F5720	CrankRotatorUpdate	suggested	coined: update fn class 641	docs/plan/moby_update_catalogue.md:129	level01:002f4348
+func_L01_002F5800	BlargFlyerUpdate	suggested	coined: update fn class 660	docs/plan/moby_update_catalogue.md:130	level01:002f4428
+func_L01_002F5AE8	CrankSliderUpdate	suggested	coined: update fn class 665	docs/plan/moby_update_catalogue.md:129	level01:002f4710
+func_L01_002F5D38	DropshipUpdate	suggested	coined: update fn class 666	docs/plan/moby_update_catalogue.md:131	level01:002f4960
+func_L01_002F6540	FlyerPathDriver	suggested	coined: shared flyer path driver	docs/plan/moby_update_catalogue.md:130	level01:002f5168
+func_L01_002F74D0	Class676DrawCallback	suggested	coined: class 676 per-frame draw callback | alt CustomDrawMeshDraw (docs/plan/moby_update_catalogue.md:132; suggested) | also docs/plan/moby_update_catalogue.md	docs/plan/world_animation.md:29	level01:002f60f8
+func_0023BF48	CustomDrawMeshUpdate	suggested	coined: update fn class 676; not defined in Ghidra | alt Class676Update (docs/plan/world_animation.md:28; suggested) | also docs/plan/world_animation.md	docs/plan/moby_update_catalogue.md:8	level01:002f6128
+func_L01_002F7528	Class678DrawCallback	suggested	coined: class 678 per-frame draw callback	docs/plan/world_animation.md:29	level01:002f6150
+func_L01_002F7558	CustomDrawSurfacesUpdate	suggested	coined: update fn class 678 | alt Class678Update (docs/plan/world_animation.md:28; suggested) | also docs/plan/world_animation.md	docs/plan/moby_update_catalogue.md:133	level01:002f6180
+func_L01_002F7700	WaterCurrent679Update	suggested	coined: update fn class 679	docs/plan/moby_update_catalogue.md:128	level01:002f6328
+func_L01_002F8B00	GunshipUpdate	suggested	coined: update fn class 688	docs/plan/moby_update_catalogue.md:134	level01:002f7728
+func_L01_002F9640	FloatingPushableUpdate	suggested	coined: update fn class 695	docs/plan/moby_update_catalogue.md:135	level01:002f8268
+func_L01_002F9908	SpawnDebrisMoby	suggested	coined: debris moby	docs/plan/moby_update_catalogue.md:296	level01:002f8530
+func_L01_002FA030	ImpactSmokeEmitterUpdate	suggested	coined: update fn class 700	docs/plan/moby_update_catalogue.md:136	level01:002f8c58
+func_L01_002FA458	CollapsingPlatformUpdate	suggested	coined: update fn class 701	docs/plan/moby_update_catalogue.md:137	level01:002f9080
+func_L01_002FA998	ElevatorUpdate	suggested	coined: update fn classes 703/715	docs/plan/moby_update_catalogue.md:138	level01:002f95c0
+func_L01_002FABE8	BreakableRockUpdate	suggested	coined: update fn class 704	docs/plan/moby_update_catalogue.md:139	level01:002f9810
+func_L01_002FAFC8	OscillatingSpinnerUpdate	suggested	coined: update fn class 705	docs/plan/moby_update_catalogue.md:140	level01:002f9bf0
+func_L01_002FB158	ProjectileBreakableUpdate	suggested	coined: update fn classes 709-711	docs/plan/moby_update_catalogue.md:141	level01:002f9d80
+func_L00_002E5158	GrassUpdate	suggested	coined: update fn classes 724/725	docs/plan/moby_update_catalogue.md:142	level01:002fa720
+func_L01_002FBBD8	BreakableWallUpdate	suggested	coined: update fn class 729	docs/plan/moby_update_catalogue.md:144	level01:002fa800
+func_L01_002FC140	MissionNpcUpdate	suggested	coined: update fn classes 730/790	docs/plan/moby_update_catalogue.md:145	level01:002fad68
+func_L01_002FC988	CameraTriggerUpdate	suggested	coined: update fn class 737	docs/plan/moby_update_catalogue.md:146	level01:002fb5b0
+func_L01_002FCC80	HingedBridgeUpdate	suggested	coined: update fn class 746	docs/plan/moby_update_catalogue.md:147	level01:002fb8a8
+func_L00_002D7298	InfobotUpdate	suggested	coined: update fn class 750 | also docs/plan/menus.md	docs/plan/moby_update_catalogue.md:148	level01:002fbf80
+func_L01_002FE498	Class751DrawCallback	suggested	coined: 751 draw callback -> 0x2b91c8(0x1e34c0; 21)	docs/plan/world_animation.md:137	level01:002fd0c0
+func_L01_002FE4C0	WaterSurfaceFxUpdate	suggested	coined: update fn class 751 | alt Class751Init (docs/plan/world_animation.md:101; suggested) | also docs/plan/world_animation.md	docs/plan/moby_update_catalogue.md:149	level01:002fd0e8
+func_L01_002FED78	BreakablePotUpdate	suggested	coined: update fn class 754	docs/plan/moby_update_catalogue.md:150	level01:002fd9a0
+func_L00_002D83D8	ParticleFieldUpdate	suggested	coined: update fn class 760	docs/plan/moby_update_catalogue.md:151	level01:002fdbc0
+func_L00_002D8898	Class760DrawCallback	suggested	coined: waterfall foam/mist quads callback	docs/plan/world_animation.md:171	level01:002fe080
+func_L01_002FFF00	Class761DrawCallback	suggested	coined: class 761 per-frame draw callback	docs/plan/world_animation.md:29	level01:002feb28
+func_L01_002FFF30	PulsingMeshUpdate	suggested	coined: update fn class 761 | alt Class761Update (docs/plan/world_animation.md:28; suggested) | also docs/plan/world_animation.md	docs/plan/moby_update_catalogue.md:152	level01:002feb58
+func_L01_00300140	SlidingDoorUpdate	suggested	coined: update fn classes 768/769	docs/plan/moby_update_catalogue.md:153	level01:002fed68
+func_L01_003004F0	TalkingNpcUpdate	suggested	coined: update fn class 774	docs/plan/moby_update_catalogue.md:154	level01:002ff118
+func_L01_00300C38	BreakablePropUpdate	suggested	coined: update fn class 778	docs/plan/moby_update_catalogue.md:155	level01:002ff860
+func_L01_003010A8	Class787Update	suggested	coined: drip class 787 (maybe its spawn fn; not update)	docs/plan/world_animation.md:126	level01:002ffcd0
+func_L01_003015F8	CheckpointTriggerUpdate	suggested	coined: update fn class 805	docs/plan/moby_update_catalogue.md:156	level01:00300220
+func_L00_002D95E8	CrateSpawnIconMoby	suggested	coined: ammo crate 501 init spawns icon moby 806	docs/plan/moby_update_catalogue.md:119	level01:00300528
+func_L01_00303590	EnemySpawnerUpdate	suggested	coined: update fn class 815	docs/plan/moby_update_catalogue.md:158	level01:003021b8
+func_L01_00303A20	RcRangeLimiterUpdate	suggested	coined: update fn class 832	docs/plan/moby_update_catalogue.md:159	level01:00302648
+func_L00_00237B70	DefaultVtbl_DeleteMoby	verified	default moby vtbl 0x20c3ac slot 5 (0x20c3c0): 7-instruction wrapper that calls DeleteMoby 0x2636c0 | was DeleteMoby (docs/plan/moby_update_catalogue.md:20; i...	docs/plan/moby_update_catalogue.md:20	level01:003040d8
+func_L01_00309020	ShootableUpdate	suggested	coined: update fn class 1042	docs/plan/moby_update_catalogue.md:160	level01:00307c48
+func_L01_00309078	GoldBoltUpdate	suggested	coined: update fn class 1134	docs/plan/moby_update_catalogue.md:161	level01:00307ca0
+func_L01_00309FB0	TeleporterPadUpdate	suggested	coined: update fn class 1135	docs/plan/moby_update_catalogue.md:162	level01:00308bd8
+func_L00_002E0AE8	MenuMobyUpdate	suggested	coined: class 0x472 menu moby update	docs/plan/menus.md:100	level01:00309898
+func_L01_0030AFD0	Class1225DrawCallback	suggested	coined: class 1225 per-frame draw callback | alt CustomDrawGlowDraw (docs/plan/moby_update_catalogue.md:163; suggested) | also docs/plan/moby_update_catalogu...	docs/plan/world_animation.md:29	level01:00309bf8
+func_L01_0030B070	CustomDrawGlowUpdate	suggested	coined: update fn class 1225; not defined in Ghidra | alt Class1225Update (docs/plan/world_animation.md:28; suggested) | also docs/plan/world_animation.md	docs/plan/moby_update_catalogue.md:9	level01:00309c98
+func_L01_0030C090	HelpHintDirectorUpdate	suggested	coined: update fn class 1341 | alt NovalisLevelScript (docs/plan/hud_text.md:213; suggested) | also docs/plan/hud_text.md	docs/plan/moby_update_catalogue.md:164	level01:0030acb8
+func_L01_0030C9F0	WanderingLightUpdate	suggested	coined: update fn class 1504	docs/plan/moby_update_catalogue.md:165	level01:0030b618
+func_L01_0030D568	CutsceneFxUpdate	suggested	coined: update fn class 1546	docs/plan/moby_update_catalogue.md:166	level01:0030c190
+func_L00_002E5238	FxGroupUpdate	suggested	coined: update fn shared by 13 FX classes (1736-1817)	docs/plan/moby_update_catalogue.md:18	level01:0030cd18
+func_L01_0030E4C8	BreakableCrateVariantUpdate	suggested	coined: update fn class 1813	docs/plan/moby_update_catalogue.md:167	level01:0030d0f0
+func_L01_0030F318	MouseCritterUpdate	suggested	coined: update fn class 1818	docs/plan/moby_update_catalogue.md:168	level01:0030df40
+func_L01_003102F0	EnvOverlayVertex	suggested	coined: per-vertex sphere-map UV	docs/plan/world_animation.md:187	level01:0030ef18
+func_L01_003104B8	Class1848DrawCallback	suggested	coined: 1848 sphere-map overlay draw callback	docs/plan/world_animation.md:183	level01:0030f0e0
+func_L01_003105E0	UvScrollerUpdate	suggested	coined: update fn class 1848 | alt Class1848Update (docs/plan/world_animation.md:182; suggested) | also docs/plan/world_animation.md	docs/plan/moby_update_catalogue.md:169	level01:0030f208
+func_L00_002E74B0	CamType0HeroStateTweaks	suggested	coined: state-dependent camera tweaks	docs/plan/player_controller.md:291	level01:003111d8
+func_L00_002E7B68	CamType0InitSnap	suggested	coined: camera init snap behind hero	docs/plan/player_controller.md:317	level01:00311890
+func_L00_002E8210	CamType0Init	suggested	coined: type-0 follow camera init	docs/plan/player_controller.md:263	level01:00311f38
+func_L00_002EB0D8	CameraType0Update	suggested	coined: type-0 follow camera | alt CamType0Update (docs/plan/player_controller.md:263; suggested) | also docs/plan/player_controller.md	docs/plan/roadmap.md:88	level01:00314e00
+func_L00_002EBF50	CameraScript	suggested	coined: camera script | alt CameraTween (docs/plan/menus.md:181; suggested) | also docs/plan/menus.md	docs/plan/moby_update_catalogue.md:301	level01:00316ef8
+func_L00_002EC0C8	CameraScript2	suggested	coined: camera script (second fn)	docs/plan/moby_update_catalogue.md:301	level01:00317070
+func_L00_002EEE00	SndInstSphereUpdate	suggested	coined: class 0 sphere	docs/plan/audio.md:180	level01:003197a0
+func_L01_0031AD00	SndInstBoxVolumeUpdate	suggested	coined: class 1 box volume by depth	docs/plan/audio.md:181	level01:00319928
+func_L00_002EEF88	SndInstBoxOneShotUpdate	suggested	coined: class 2 box one-shot	docs/plan/audio.md:181	level01:00319cc8
+func_L01_0031B2F0	SndInstReverbBoxUpdate	suggested	coined: sound-instance class 3 reverb box	docs/plan/audio.md:173	level01:00319f18
+func_L01_0031B450	SndInstUnderwaterLoopUpdate	suggested	coined: class 5 underwater loop | alt ReleaseVoices (docs/plan/world_animation.md:255; suggested) | also docs/plan/world_animation.md	docs/plan/audio.md:181	level01:0031a078
+func_L01_0031B500	SndInstMusicBoxUpdate	suggested	coined: class 6 music box	docs/plan/audio.md:182	level01:0031a128
+func_L05_00319F78	SetWaterPlane	suggested	coined: level-05 code setting flat water plane; maybe-mid-function	docs/plan/world_animation.md:147	level05:00318a68

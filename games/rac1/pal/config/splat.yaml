@@ -1,0 +1,57 @@
+name: rac1
+sha1: 79956931bd62fafd8d20fa2eae796dbaf2e15e83
+options:
+  basename: SCES_509.16
+  target_path: baserom/SCES_509.16
+  base_path: ..
+  compiler: EEGCC
+  # include/{include_asm.h,labels.inc,macro.inc} are project-owned (labels.inc
+  # makes jlabel global so cross-object jump tables link) -- never regenerate.
+  generate_asm_macros_files: False
+  # Emit a .s for EVERY function, decompiled or not: the audit tools read
+  # retail sizes and bytes from them (sweep_matches, gen_progress_report).
+  disassemble_all: True
+  # ...all in one directory: the tools look in asm/nonmatchings/<segment>.
+  matchings_path: nonmatchings
+  # src/ is hand-organised (src/core/, src/game/, src/libgcc/), not one file
+  # per splat segment -- never let splat create src/core_text.c or src/text.c.
+  create_c_files: False
+  find_file_boundaries: True
+  platform: ps2
+  asm_path: asm
+  src_path: src
+  build_path: build
+  extensions_path: tools/splat_ext
+  asset_path: assets
+  symbol_addrs_path:
+    - config/symbol_addrs.txt
+
+segments:
+  - name: core
+    type: code
+    start: 0x1000
+    vram: 0x100080
+    bss_size: 0xab80
+    subsegments:
+      - [0x1000, bin, vutext]
+      - [0x13300, c, core_text]
+      - [0x30500, data, core_data]
+      - [0x53280, rodata, core_rdata]
+      - [0x55180, bss, core_bss]
+      - [0x5fd00]
+  - name: main
+    type: code
+    start: 0x5fd00
+    vram: 0x15ed80
+    bss_size: 0x4200
+    subsegments:
+      - [0x5fd00, rodata, core_lit]
+      - [0x5ff80, rodata, lit]
+      - [0x62300, bss, bss]
+      - [0x66500, data, data]
+      - [0xe9e80, data, lvl_vtbl]
+      - [0xe9f00, data, lvl_camvtbl]
+      - [0xe9f80, data, lvl_sndvtbl]
+      - [0xea000, c, text]
+      - [0x13f6b0]
+  - [0x13f6b0]

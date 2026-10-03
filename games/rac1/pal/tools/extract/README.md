@@ -1,0 +1,288 @@
+# Level extractor
+
+Turns the levels on your own disc of Ratchet & Clank (PAL, `SCES_509.16`
+v2.00) into a Godot 4 project. Godot is the map editor: open a level, move,
+add or delete objects, and save. Tools to pack edited scenes back into game
+data come later; the scenes already keep what they will need.
+
+Never commit or share what it produces (see [LEGAL.md](../../LEGAL.md)).
+It only writes to new directories under the ignored `assets/` or `build-sn/`.
+
+## Before you start
+
+You need:
+
+- Python 3.10 or newer (standard library only).
+- Godot 4, tested with 4.7.2. On macOS its command is
+  `/Applications/Godot.app/Contents/MacOS/Godot`; below it is `godot`.
+- An ISO image of your own PAL disc, placed at `baserom/SCES_509.16.iso`.
+  `baserom/` is ignored by git.
+
+The build only needs the executable from that image (see the main README).
+The extractor reads the whole image, and it stops unless the executable
+inside matches PAL v2.00.
+
+## Extract
+
+```sh
+python3 tools/extract/extract.py godot baserom/SCES_509.16.iso assets/godot
+godot --path assets/godot -e res://levels/level_00/level_00.tscn
+```
+
+The second command opens level 0 in the editor. Other levels are in the
+FileSystem dock under `levels/`; double-click a `level_NN.tscn` to open it.
+
+All 19 levels take about 20 seconds and 630 MB, one level per CPU core at
+a time. Godot's first import takes about two minutes. Options:
+
+- `--level N` (repeatable) exports only some levels.
+- `--jobs N` limits how many levels are exported at once.
+- `--terrain-lod 2` uses the coarsest terrain.
+
+## Regenerate
+
+Nothing the extractor writes is kept in git, so a fresh checkout has none
+of it: run the command above to make it. The same disc always gives
+byte-identical files. To rebuild a project, delete its directory and run
+the command again; the extractor never overwrites an existing directory.
+Godot rebuilds its import cache (`.godot/`) the next time it opens the
+project.
+
+Until the packer exists, edits made in Godot live only in that project,
+and regenerating replaces them. To keep an edited level:
+
+1. Copy its scene, `levels/level_NN/level_NN.tscn`, somewhere safe.
+2. Regenerate.
+3. Copy the scene back. The meshes and textures it refers to come out
+   identical, so its paths still resolve.
+
+That only works when the extractor hasn't changed since the scene was
+made. A newer extractor can write scenes with other nodes (the sky's
+WorldEnvironment, for instance), so after updating it, move your changes
+into the new scene instead. Godot saves a scene as text, so a diff
+against a fresh export shows each edit.
+
+## Other commands
+
+```sh
+python3 tools/extract/extract.py survey baserom/SCES_509.16.iso      # disc layout, as JSON
+python3 tools/extract/extract.py raw baserom/SCES_509.16.iso build-sn/level-00 --level 0
+```
+
+`raw` writes one level's sections as stored on the disc and decompressed,
+with a manifest of their sizes and hashes.
+
+## The project
+
+```
+project.godot
+rc1/level.gd                 fly camera when a level is run
+rc1/check.gd                 headless check against level.json
+levels/level_NN/
+  level_NN.tscn              the level
+  level.json                 what was extracted: counts, bounds, code overlay
+  terrain.glb                one node per terrain fragment
+  collision.glb              the collision mesh, coloured by surface type
+  ties/tie_<class>.glb       one mesh per tie class
+  shrubs/shrub_<class>.glb   one mesh per shrub class
+  mobys/moby_<class>.tscn    a moby class: its mesh (or a box) and a label
+  mobys/moby_<class>.glb     a moby class's mesh, skeleton and animations
+  sky.png                    the sky as a panorama, used by the WorldEnvironment
+  textures/*.png             shared by the level's meshes
+```
+
+Each level scene looks like this:
+
+```
+Level_NN
+  WorldEnvironment      the sky (sky.png) and flat ambient light
+  Sun                   a directional light, so shapes read in the editor
+  Game                  turns the game's Z-up axes into Godot's Y-up
+    Terrain             fragments Terrain_000... (editable children)
+    Collision           the collision layer, hidden until you show it
+    Ties/Tie_NNNN       one node per placed tie
+    Shrubs/Shrub_NNNN   one node per placed shrub
+    Mobys/Moby_NNNN     one node per placed moby (crates, enemies, NPCs...)
+```
+
+To edit a level:
+
+- Move, rotate or scale objects as usual. Transforms under `Game` are in
+  game units and axes.
+- To add an object, drag a class `.glb` from the FileSystem dock onto
+  `Game/Ties` or `Game/Shrubs`. The file is the object's class.
+- Per-object game fields are in the Inspector's Metadata section:
+  - `rc1_index`: the object's record in the original level (new objects
+    have none);
+  - `rc1_draw_distance`, `rc1_directional_lights`;
+  - ties only: `rc1_occlusion_index`, `rc1_uid`;
+  - shrubs only: `rc1_colour`, raw integers;
+  - `rc1_matrix_w`: only on objects that store 0.0 instead of the usual 0.01.
+- Mobys show as their class's mesh in its bind pose, with a label giving
+  the class number and name (`11 vendor`) that fades out beyond 60 units.
+  Classes without a mesh (spawn points, triggers, particle spawners...)
+  show as a coloured box. Each class scene, `mobys/moby_<class>.tscn`,
+  has one for every class the level loads, placed or not; drag one onto
+  `Game/Mobys` to add a moby. Its `Model` node carries the class scale.
+  A moby's rotation in the Inspector is the game's own Euler angles
+  (rotation order XYZ).
+- Animated classes have a `Skeleton3D` in the bind pose and an
+  `AnimationPlayer` with one animation per sequence: `seq_NN` by slot, and
+  Ratchet's `ratchet_seq_NNN`. Sequences that loop in the game loop here.
+  To preview one, double-click `mobys/moby_<class>.glb` in the FileSystem
+  dock: Godot's import settings window plays each animation. In a scene,
+  enable Editable Children on the `Model` node to reach the
+  `AnimationPlayer`.
+- A moby's metadata:
+  - always `rc1_index`, `rc1_spawn_id`, `rc1_group`, `rc1_pvar_index` and
+    `rc1_colour` (the ambient colour, 128 = 1.0);
+  - the other fields only when they differ from what most mobys store:
+    `rc1_spawn_flags` (0), `rc1_draw_distance` and `rc1_update_distance`
+    (64), `rc1_mode_bits` (32), `rc1_occlusion` (1), `rc1_light` (0),
+    `rc1_unknown_74` (-1), and a few unknown fields
+    ([docs/ASSETS.md](../../docs/ASSETS.md#mobys)).
+- Textures are ordinary PNGs. Editing one changes every mesh that uses it.
+
+Run a level (F6) to fly around it:
+
+| Key | Action |
+|---|---|
+| Right mouse | Look |
+| WASD | Move |
+| Q / E | Down / up |
+| Shift | Faster |
+| Mouse wheel | Change speed |
+| F | Frame the terrain |
+| C | Show or hide the collision layer |
+
+## Collision layer
+
+`Game/Collision` is the level's baked collision mesh: the triangles the game
+tests Ratchet, bolts and shots against, with ties and shrubs already
+included. It is hidden by default (`visible` is off) so it does not hide the
+terrain. In the editor, click its eye icon in the Scene dock; in a running
+level press C. It is one translucent, unshaded mesh with a colour per
+surface, so it reads over the terrain. Triangles are double-sided here, but
+the game treats them as one-sided.
+
+The colour is the surface id, the low five bits of each face's type byte
+(the other bits choose footstep sounds and exclude the face from some
+queries). The game has no table of surface types, so the names are
+inferences from how its code tests them, and most ids are only colours:
+
+| Id | Colour | What is known |
+|---|---|---|
+| 31 (0x1f) | grey `#8c8c8c` | no special surface; most of every level |
+| 0 | blue `#3373ff` | water surface (the ground probe looks for the floor below it) |
+| 8, 9, 10, 12 | orange `#f27130`, `#30f2aa`, `#e230f2`, blue `#3091f2` | common; the game's wall and ledge checks test for these ids |
+| 11 (0x0b) | `#caf230` | the ground snap is skipped (some special floor) |
+| 13 (0x0d) | `#f23058` | liquid-like (level 12 only) |
+| 1-7, 14 | other hues | used in many levels; meaning unknown |
+
+The other ids are coloured by hue from the id. Each level's `level.json`
+lists its surfaces and how many triangles use each.
+
+The mesh is decoded from the level's collision block with every cell's
+faces merged, so a face that straddles several cells appears once.
+Vertices are quantised (1/16 unit across, 1/64 up), which leaves tiny
+gaps and some doubled faces. Hero-only walls and fences (invisible walls
+that only block the player) are in the block too, but they are not
+extracted yet.
+
+## Checks
+
+```sh
+python3 -m unittest discover -s tools/extract                  # synthetic data only
+godot --headless --path assets/godot --import
+godot --headless --path assets/godot --script res://rc1/check.gd
+```
+
+The Godot check loads every level scene and compares its meshes, triangles,
+textures, bounds, sky panorama and moby count with what the extractor wrote.
+The collision layer is not counted with the textured meshes; its triangles
+are compared with `level.json` on their own, and it must be hidden.
+It also loads every moby class scene and compares their models, triangles,
+textures, skeletons, bones and animations, and the meshes the placed mobys
+show.
+
+## Coverage
+
+Extracted:
+
+- terrain (tfrags);
+- ties and shrubs, with their placements;
+- moby placements, and each moby class's high-detail mesh, skeleton and
+  animations;
+- the sky;
+- the collision mesh, as a hidden layer;
+- the textures they use.
+
+Approximations:
+
+- Normals are flat, and Godot lights the scene. The game's own lighting,
+  baked into vertex colours, is not decoded yet. Mobys use their stored
+  vertex normals; the game lights them at run time.
+- Alpha-tested textures become cutouts.
+- Moby faces the game draws untextured get a flat grey texture, which is
+  what the game binds for them. Some classes are made only of such faces
+  (rings, force fields, barriers); the game may draw those translucent,
+  glowing or not at all. Glow parts are lit like the rest, and the chrome
+  and glass passes and the low-detail meshes are not extracted.
+- Moby animations run at the game's 60 Hz tick, as ReRAC infers it. Godot
+  interpolates rotation keys spherically where the game lerps, and a joint
+  channel that stays within 1e-5 of the bind pose (1e-4 for rotations) is
+  left out of an animation. The two helper classes 1 and 2, which animate
+  joints of another skeleton, stay static. The gadget classes (the wrench
+  and weapons in Ratchet's hand) are not extracted.
+- The sky is baked into a 2048×1024 panorama. The game centres its sky
+  shells on the camera and never moves them, so a panorama loses nothing.
+  Their blending follows the PS2's usual texture and alpha modes, which is
+  inferred rather than traced in the game's code. Sprites the game adds
+  to the sky at run time are not included.
+
+Not yet extracted: low-detail moby meshes, hero collision, audio, video
+and each level's code overlay. [docs/ASSETS.md](../../docs/ASSETS.md) describes
+the formats and the evidence for them.
+
+## Code
+
+The GDScript files follow [`docs/GDSCRIPT_CONVENTIONS.md`](../../docs/GDSCRIPT_CONVENTIONS.md).
+
+| File | Contents |
+|---|---|
+| `extract.py` | Command line and safe output |
+| `disc.py` | ISO files, sector table of contents, level headers |
+| `level.py` | A level's sections, core blocks and textures |
+| `formats.py` | Bounded reads, WAD decompression, code overlays, textures |
+| `terrain.py`, `ties.py`, `shrubs.py`, `sky.py`, `collision.py` | Geometry and placements |
+| `mobys.py`, `moby_class.py`, `moby_anim.py` | Moby placements, class meshes, skeletons and animations |
+| `mesh.py`, `gltf.py` | The mesh type and the GLB writer |
+| `godot.py` | Project, scenes and level.json |
+
+The decoders accept only the layouts found on this disc and raise
+`FormatError` on anything else. Nothing is skipped silently.
+
+## Credits
+
+- **[Wrench](https://github.com/chaoticgd/wrench)** by chaoticgd and
+  contributors (GPL-3.0-or-later). Most of what the extractor knows about
+  terrain, ties, shrubs, the sky, textures and placements comes from
+  reading its source. [docs/ASSETS.md](../../docs/ASSETS.md#sources-and-credits)
+  lists which files each format came from.
+- **[Replanetizer](https://github.com/RatchetModding/Replanetizer)** by
+  RatchetModding contributors, consulted for what fields mean.
+- **[ReRAC](https://github.com/re-rac/rerac)** (ISC): the moby instance
+  record and what each field does in the game's level loader, the moby
+  class format (packets, vertex cache, skinning slots, normals, the
+  untextured faces, skeletons and animation sequences), and the collision
+  block and the meaning of its surface bytes
+  ([docs/ASSETS.md](../../docs/ASSETS.md#collision)).
+- **[Lombyte](https://github.com/mateuszklysz/Lombyte)** (MIT): the moby
+  class names on the labels (`moby_classes.tsv`, see its header).
+- **[OpenGOAL's jak-project](https://github.com/open-goal/jak-project)**,
+  whose extractor was the model for extracting from your own disc.
+- **[Godot Engine](https://godotengine.org)** and the Khronos Group's
+  **[glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html)**,
+  which the output is built for.
+
+No code from these projects is included; the extractor is newly written.

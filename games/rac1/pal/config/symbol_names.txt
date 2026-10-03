@@ -1,0 +1,268 @@
+# Real function names for this PAL build, from the NTSC decomp
+# (config/symbols.txt), mapped to PAL addresses.
+# Only confident mappings are listed; see docs/DECOMP_PROGRESS.md.
+#
+# The build and tools keep using func_<ADDR> (the address IS the name there);
+# these names are annotated in src/ as comments.
+#
+# <pal symbol>  <mangled name>  <demangled>  | <evidence>
+
+func_0011DFC8  __main  __main  | libgcc2 L__main, matched byte for byte
+func_0012D868  _start  _start  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012DA28  _exit  _exit  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012DA38  ParseBin__Fv  ParseBin(void)  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012DB18  main  main  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012DB68  snd_StartSoundSystem  snd_StartSoundSystem  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012DDC0  snd_FlushSoundCommands  snd_FlushSoundCommands  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012DFB0  snd_GotReturns  snd_GotReturns  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012E038  snd_PrepareReturnBuffer  snd_PrepareReturnBuffer  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012E318  snd_UnloadBank  snd_UnloadBank  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012E348  snd_SetMasterVolume  snd_SetMasterVolume  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012E380  snd_SetPlaybackMode  snd_SetPlaybackMode  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012E3F8  snd_SetGroupVoiceRange  snd_SetGroupVoiceRange  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012E528  snd_PauseAllSoundsInGroup  snd_PauseAllSoundsInGroup  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012E558  snd_ContinueAllSoundsInGroup  snd_ContinueAllSoundsInGroup  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012E588  snd_SoundIsStillPlaying_CB  snd_SoundIsStillPlaying_CB  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012E688  snd_SendIOPCommandAndWait  snd_SendIOPCommandAndWait  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012E820  snd_SendIOPCommandNoWait  snd_SendIOPCommandNoWait  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EAE0  snd_PostMessage  snd_PostMessage  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EB18  snd_SendCurrentBatch  snd_SendCurrentBatch  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EC30  snd_UnkFunction_0012eaf0  snd_UnkFunction_0012eaf0  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EC40  snd_UnkFunction_0012eb00  snd_UnkFunction_0012eb00  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EC60  snd_InitVAGStreamingEx  snd_InitVAGStreamingEx  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012ED10  snd_StopAllStreams  snd_StopAllStreams  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EDB0  snd_PauseVAGStream  snd_PauseVAGStream  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EDE0  snd_ContinueVAGStream  snd_ContinueVAGStream  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EE10  snd_GetVAGStreamTimeRemaining_CB  snd_GetVAGStreamTimeRemaining_CB  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EE40  snd_IsVAGStreamBuffered_CB  snd_IsVAGStreamBuffered_CB  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EE70  snd_StreamSafeCheckCDIdle  snd_StreamSafeCheckCDIdle  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EE98  snd_StreamSafeCdRead  snd_StreamSafeCdRead  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EF48  snd_StreamSafeCdSync  snd_StreamSafeCdSync  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012EFE8  snd_StreamSafeCdBreak  snd_StreamSafeCdBreak  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012F030  snd_StreamSafeCdGetError  snd_StreamSafeCdGetError  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012F068  snd_StreamSafeCdCallback  snd_StreamSafeCdCallback  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012F0E8  snd_PreAllocReverbWorkArea  snd_PreAllocReverbWorkArea  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012F120  snd_AutoReverb  snd_AutoReverb  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012F1E8  snd_ResetMovieSound  snd_ResetMovieSound  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012F248  snd_StartMovieSound  snd_StartMovieSound  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012F2B8  snd_GetMovieNAX  snd_GetMovieNAX  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012F2E0  snd_GetDopplerPitchMod  snd_GetDopplerPitchMod  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012F308  vsync_callback__Fi  vsync_callback(int)  | core tail: entry-point shift +0x140 onto a PAL function start
+func_0012F348  wad_GetSectors_FiiPv  wad_GetSectors_FiiPv  | core tail: entry-point shift +0x140 onto a PAL function start
+func_001E9088  actuator_CalcPower  actuator_CalcPower  | text: NTSC/PAL function-size alignment
+func_001E94E8  LoadPifAsPSMT8H  LoadPifAsPSMT8H  | text: NTSC/PAL function-size alignment
+func_001E96B8  LoadDebugFont  LoadDebugFont  | text: NTSC/PAL function-size alignment
+func_001E9E70  Transition_DrawSky__Fv  Transition_DrawSky(void)  | text: NTSC/PAL function-size alignment
+func_001EB338  Transition_UpdateMovieCamera__Fv  Transition_UpdateMovieCamera(void)  | text: NTSC/PAL function-size alignment
+func_001EB458  Transition_FUN_001eb0a8  Transition_FUN_001eb0a8  | text: NTSC/PAL function-size alignment
+func_001EB7C0  Transition_DefaultDraw__Fb  Transition_DefaultDraw(bool)  | text: NTSC/PAL function-size alignment
+func_001EC038  BackupCurrentCam  BackupCurrentCam  | text: NTSC/PAL function-size alignment
+func_001EC098  ExecuteCamPostUpdFuncs  ExecuteCamPostUpdFuncs  | text: NTSC/PAL function-size alignment
+func_001EC120  Cam_InterpValues__FffPffff  Cam_InterpValues(float, float, float *, float, float, float)  | text: NTSC/PAL function-size alignment
+func_001EC210  Camera_handleCollWithHero__FiP9UpdateCam  Camera_handleCollWithHero(int, UpdateCam *)  | text: NTSC/PAL function-size alignment
+func_001EC270  Camera_runSetupToNewCam__FP9UpdateCam  Camera_runSetupToNewCam(UpdateCam *)  | text: NTSC/PAL function-size alignment
+func_001EC5B8  Camera_ActivationCheckPriority  Camera_ActivationCheckPriority  | text: NTSC/PAL function-size alignment
+func_001EC780  Camera_Exit__FP9UpdateCam  Camera_Exit(UpdateCam *)  | text: NTSC/PAL function-size alignment
+func_001F2930  UpdateFog__Fi  UpdateFog(int)  | text: NTSC/PAL function-size alignment
+func_001F2A38  ParseOcclGrid  ParseOcclGrid  | text: NTSC/PAL function-size alignment
+func_001F2B10  GetOcclGridFromPair__Fiiiiiif  GetOcclGridFromPair(int, int, int, int, int, int, float)  | text: NTSC/PAL function-size alignment
+func_001F2BC8  BuildOcclVisibility__Fv  BuildOcclVisibility(void)  | text: NTSC/PAL function-size alignment
+func_001F2FB8  UpdateOcclusion__Fv  UpdateOcclusion(void)  | text: NTSC/PAL function-size alignment
+func_001F3008  InitViewContext__Fv  InitViewContext(void)  | text: NTSC/PAL function-size alignment
+func_001F3140  UpdateViewContext__Fv  UpdateViewContext(void)  | text: NTSC/PAL function-size alignment
+func_001F3890  SetPalMode__Fi  SetPalMode(int)  | text: NTSC/PAL function-size alignment
+func_001F3B90  ResetDrawGlobals  ResetDrawGlobals  | text: NTSC/PAL function-size alignment
+func_001F3C10  ResetGsRegisters__Fv  ResetGsRegisters(void)  | text: NTSC/PAL function-size alignment
+func_001F3D00  ResetGsRegistersPr__Fv  ResetGsRegistersPr(void)  | text: NTSC/PAL function-size alignment
+func_001F3D78  DrawDebugProfiler  DrawDebugProfiler  | text: NTSC/PAL function-size alignment
+func_001F4630  SetupGifPaging__Fi  SetupGifPaging(int)  | text: NTSC/PAL function-size alignment
+func_001F4748  DoGifPaging__Fv  DoGifPaging(void)  | text: NTSC/PAL function-size alignment
+func_001F4868  GetEffectTex__Fii  GetEffectTex(int, int)  | text: NTSC/PAL function-size alignment
+func_001F4E08  FadeToBlack__FiUi  FadeToBlack(int, unsigned int)  | text: NTSC/PAL function-size alignment
+func_001F5650  DrawRectOverlay_FiiiiUl  DrawRectOverlay_FiiiiUl  | text: NTSC/PAL function-size alignment
+func_001F5800  DrawTexturedQuad  DrawTexturedQuad  | text: NTSC/PAL function-size alignment
+func_001F62C8  DrawUIFrame  DrawUIFrame  | text: NTSC/PAL function-size alignment
+func_001F6668  FontPrint  FontPrint  | text: NTSC/PAL function-size alignment
+func_001F68E8  FontPrintLarge  FontPrintLarge  | text: NTSC/PAL function-size alignment
+func_001F6968  FontPrintSmall  FontPrintSmall  | text: NTSC/PAL function-size alignment
+func_001F6EA8  FontPrintCenter  FontPrintCenter  | text: NTSC/PAL function-size alignment
+func_001F6F40  FontPrintCenterSmall  FontPrintCenterSmall  | text: NTSC/PAL function-size alignment
+func_001F6FD8  FontPrintCenterLarge  FontPrintCenterLarge  | text: NTSC/PAL function-size alignment
+func_001F7070  FontPrintWindow  FontPrintWindow  | text: NTSC/PAL function-size alignment
+func_001F7648  FontSetWindow  FontSetWindow  | text: NTSC/PAL function-size alignment
+func_001FB470  PutDispBuffer__Fv  PutDispBuffer(void)  | text: NTSC/PAL function-size alignment
+func_001FB498  PutDrawBufferLarge__Fv  PutDrawBufferLarge(void)  | text: NTSC/PAL function-size alignment
+func_001FB598  PutDrawBufferSmall__Fv  PutDrawBufferSmall(void)  | text: NTSC/PAL function-size alignment
+func_001FB848  AA_BlurPass__Fv  AA_BlurPass(void)  | text: NTSC/PAL function-size alignment
+func_001FE4D0  Help_FindIndex  Help_FindIndex  | text: NTSC/PAL function-size alignment
+func_001FE540  msg_string__Fi  msg_string(int)  | text: NTSC/PAL function-size alignment
+func_001FE6C0  Help_Update  Help_Update  | text: NTSC/PAL function-size alignment
+func_001FF0C8  Help_DrawPrompt  Help_DrawPrompt  | text: NTSC/PAL function-size alignment
+func_001FF668  Hud_GetIconIndex__Fi  Hud_GetIconIndex(int)  | text: NTSC/PAL function-size alignment
+func_001FF7F0  LinkHudBank__FiPc  LinkHudBank(int, char *)  | text: NTSC/PAL function-size alignment
+func_001FF958  Hud_SendResidentBank__FiPcb  Hud_SendResidentBank(int, char *, bool)  | text: NTSC/PAL function-size alignment
+func_001FFA90  Hud_HeapReset__Fv  Hud_HeapReset(void)  | text: NTSC/PAL function-size alignment
+func_001FFAB8  Hud_HeapAlloc__FUiPcT1i  Hud_HeapAlloc(unsigned int, char *, char *, int)  | text: NTSC/PAL function-size alignment
+func_00200198  GetIconFrame__Fii  GetIconFrame(int, int)  | text: NTSC/PAL function-size alignment
+func_00200248  GetFrameTex__Fi  GetFrameTex(int)  | text: NTSC/PAL function-size alignment
+func_00201348  Hud_sendTexture__FPciiiii  Hud_sendTexture(char *, int, int, int, int, int)  | text: NTSC/PAL function-size alignment
+func_00201D58  LoadIRXModule  LoadIRXModule  | text: NTSC/PAL function-size alignment
+func_00201E10  InitMemSlots__Fv  InitMemSlots(void)  | text: NTSC/PAL function-size alignment
+func_00201E88  InitOnce__Fv  InitOnce(void)  | text: NTSC/PAL function-size alignment
+func_00202260  UpdateAllPointLights  UpdateAllPointLights  | text: NTSC/PAL function-size alignment
+func_002023E0  CreatePointLight  CreatePointLight  | text: NTSC/PAL function-size alignment
+func_00202790  RefreshPointLight  RefreshPointLight  | text: NTSC/PAL function-size alignment
+func_002027C0  DetachPointLight__Fi  DetachPointLight(int)  | text: NTSC/PAL function-size alignment
+func_00202F00  ParseParticleTexs  ParseParticleTexs  | text: NTSC/PAL function-size alignment
+func_002032D0  LoadHudBanks__Fv  LoadHudBanks(void)  | text: NTSC/PAL function-size alignment
+func_00203548  LoadCompressedHudBank__FiPc  LoadCompressedHudBank(int, char *)  | text: NTSC/PAL function-size alignment
+func_00203808  SetUpVisGifViewer__FPiiiiii  SetUpVisGifViewer(int *, int, int, int, int, int)  | text: NTSC/PAL function-size alignment
+func_00205220  ParseSpaceSceneChunk__Fi  ParseSpaceSceneChunk(int)  | text: NTSC/PAL function-size alignment
+func_00205E70  UNK_NoMapAvailable  UNK_NoMapAvailable  | text: NTSC/PAL function-size alignment
+func_00209CE8  memcard_RestoreGame  memcard_RestoreGame  | text: NTSC/PAL function-size alignment
+func_0020BA00  memcard_MakeWholeSave  memcard_MakeWholeSave  | text: NTSC/PAL function-size alignment
+func_0020BAA8  memcard_Init  memcard_Init  | text: NTSC/PAL function-size alignment
+func_0020BAD8  memcard_GetDataSize  memcard_GetDataSize  | text: NTSC/PAL function-size alignment
+func_0020BB10  memcard_Checksum  memcard_Checksum  | text: NTSC/PAL function-size alignment
+func_0020BB88  memcard_TestChecksum  memcard_TestChecksum  | text: NTSC/PAL function-size alignment
+func_0020BBC8  memcard_PrepData  memcard_PrepData  | text: NTSC/PAL function-size alignment
+func_0020BCB0  memcard_RestoreInfo__FPcii  memcard_RestoreInfo(char *, int, int)  | text: NTSC/PAL function-size alignment
+func_0020BD70  memcard_RestoreData__FPcT0iP7mc_data  memcard_RestoreData(char *, char *, int, mc_data *)  | text: NTSC/PAL function-size alignment
+func_0020BFC8  memcard_Save__Fii  memcard_Save(int, int)  | text: NTSC/PAL function-size alignment
+func_0020D348  CreateMoby__Fi  CreateMoby(int)  | text: NTSC/PAL function-size alignment
+func_0020D440  InitMobyInstance__FP12MobyInstancei  InitMobyInstance(MobyInstance *, int)  | text: NTSC/PAL function-size alignment
+func_0020D678  DeleteMoby  DeleteMoby  | text: NTSC/PAL function-size alignment
+func_0020D960  AttachManipulator  AttachManipulator  | text: NTSC/PAL function-size alignment
+func_0020D9D8  DetachManipulator  DetachManipulator  | text: NTSC/PAL function-size alignment
+func_0020DC40  DmaMobyTextures  DmaMobyTextures  | text: NTSC/PAL function-size alignment
+func_0020DD48  PatchMobyGifs  PatchMobyGifs  | text: NTSC/PAL function-size alignment
+func_0020DFF8  ProcessMobyAnimData__Fv  ProcessMobyAnimData(void)  | text: NTSC/PAL function-size alignment
+func_0020E040  InitMobyClassDists__Fv  InitMobyClassDists(void)  | text: NTSC/PAL function-size alignment
+func_0020E068  StashMobyClassDists__Fv  StashMobyClassDists(void)  | text: NTSC/PAL function-size alignment
+func_0020E098  RestoreMobyClassDists__Fv  RestoreMobyClassDists(void)  | text: NTSC/PAL function-size alignment
+func_0020E0C8  DrawMobysSetup__Fv  DrawMobysSetup(void)  | text: NTSC/PAL function-size alignment
+func_0020E180  DrawMobyList  DrawMobyList  | text: NTSC/PAL function-size alignment
+func_0020E200  DrawMobysCleanUp  DrawMobysCleanUp  | text: NTSC/PAL function-size alignment
+func_0020E2B0  DrawMobys  DrawMobys  | text: NTSC/PAL function-size alignment
+func_002169B8  music_PreseekTrack__Fiii  music_PreseekTrack(int, int, int)  | text: NTSC/PAL function-size alignment
+func_00216A90  music_StartTrack__Fiii  music_StartTrack(int, int, int)  | text: NTSC/PAL function-size alignment
+func_00216B68  music_StartTrackBody__Fiii  music_StartTrackBody(int, int, int)  | text: NTSC/PAL function-size alignment
+func_00216D88  music_Stop__Fv  music_Stop(void)  | text: NTSC/PAL function-size alignment
+func_00216EF0  music_Pause__Fi  music_Pause(int)  | text: NTSC/PAL function-size alignment
+func_00216F28  music_Unpause__Fv  music_Unpause(void)  | text: NTSC/PAL function-size alignment
+func_00216F48  music_UpdateStream__FR13music_Playing  music_UpdateStream(music_Playing &)  | text: NTSC/PAL function-size alignment
+func_00217130  music_Update__Fv  music_Update(void)  | text: NTSC/PAL function-size alignment
+func_002176C8  Load  Load  | text: NTSC/PAL function-size alignment
+func_00218188  ClearPadInput__FR3PAD  ClearPadInput(PAD &)  | text: NTSC/PAL function-size alignment
+func_00218908  UpdatePad__Fv  UpdatePad(void)  | text: NTSC/PAL function-size alignment
+func_00219C70  PauseAllSounds  PauseAllSounds  | text: NTSC/PAL function-size alignment
+func_0021CE60  DrawMapScreen  DrawMapScreen  | text: NTSC/PAL function-size alignment
+func_0021DE08  DrawSoundMenu  DrawSoundMenu  | text: NTSC/PAL function-size alignment
+func_0021F898  DrawQuitGameMenu  DrawQuitGameMenu  | text: NTSC/PAL function-size alignment
+func_0021FB28  DrawItemsMenu  DrawItemsMenu  | text: NTSC/PAL function-size alignment
+func_0021FF80  DrawGBsShipMenu__maybe  DrawGBsShipMenu__maybe  | text: NTSC/PAL function-size alignment
+func_00220370  DrawMissionsMenu  DrawMissionsMenu  | text: NTSC/PAL function-size alignment
+func_00222070  DrawCheatsMenu  DrawCheatsMenu  | text: NTSC/PAL function-size alignment
+func_002239F0  ObtainAllGoldWeaponsMenu  ObtainAllGoldWeaponsMenu  | text: NTSC/PAL function-size alignment
+func_00223B40  DrawEndScreenMenuMaybe  DrawEndScreenMenuMaybe  | text: NTSC/PAL function-size alignment
+func_00229C08  DmaShrubTextures  DmaShrubTextures  | text: NTSC/PAL function-size alignment
+func_00229E50  DrawShrubs  DrawShrubs  | text: NTSC/PAL function-size alignment
+func_0022C188  SkyLevelGeneric___maybe  SkyLevelGeneric___maybe  | text: NTSC/PAL function-size alignment
+func_0022C7E0  SetupSkyGifPaging__Fv  SetupSkyGifPaging(void)  | text: NTSC/PAL function-size alignment
+func_0022C870  DoSkyGifPaging__Fv  DoSkyGifPaging(void)  | text: NTSC/PAL function-size alignment
+func_0022C9A8  SkyDrawShell__Fi  SkyDrawShell(int)  | text: NTSC/PAL function-size alignment
+func_0022CA00  SkyDrawShellTextured  SkyDrawShellTextured  | text: NTSC/PAL function-size alignment
+func_0022CC40  SkyDrawShellGouraud  SkyDrawShellGouraud  | text: NTSC/PAL function-size alignment
+func_0022DD68  sound_update  sound_update  | text: NTSC/PAL function-size alignment
+func_0022EFE8  sound_StopAllSounds__Fv  sound_StopAllSounds(void)  | text: NTSC/PAL function-size alignment
+func_0022F128  FUN_0022de10_rename  FUN_0022de10_rename  | text: NTSC/PAL function-size alignment
+func_00233308  DoSpaceTransition  DoSpaceTransition  | text: NTSC/PAL function-size alignment
+func_00234158  Stash_SendData  Stash_SendData  | text: NTSC/PAL function-size alignment
+func_00234380  SetTfragDists__Fv  SetTfragDists(void)  | text: NTSC/PAL function-size alignment
+func_002344D8  DmaTfragTextures__Fv  DmaTfragTextures(void)  | text: NTSC/PAL function-size alignment
+func_00234620  PatchTfragGifs__Fv  PatchTfragGifs(void)  | text: NTSC/PAL function-size alignment
+func_002346C0  DrawTfrag  DrawTfrag  | text: NTSC/PAL function-size alignment
+func_002347F0  VU0_loadMicroProgram__FPl  VU0_loadMicroProgram(long *)  | text: NTSC/PAL function-size alignment
+func_002348E8  VU1_initChain__Fv  VU1_initChain(void)  | text: NTSC/PAL function-size alignment
+func_00234948  VU1_swapChain__Fv  VU1_swapChain(void)  | text: NTSC/PAL function-size alignment
+func_002349B8  VU1_sendChain__Fv  VU1_sendChain(void)  | text: NTSC/PAL function-size alignment
+func_00234AC8  VU1_syncChain__Fi  VU1_syncChain(int)  | text: NTSC/PAL function-size alignment
+func_00234B48  VU1_addDataRef__FPvi  VU1_addDataRef(void *, int)  | text: NTSC/PAL function-size alignment
+func_00234C98  VU1_addGSregister__FUiUlb  VU1_addGSregister(unsigned int, unsigned long, bool)  | text: NTSC/PAL function-size alignment
+func_00234D58  VU1_setScissor__Fiiii  VU1_setScissor(int, int, int, int)  | text: NTSC/PAL function-size alignment
+func_00234E80  VU1_texFlush__Fv  VU1_texFlush(void)  | text: NTSC/PAL function-size alignment
+func_00234EE0  VU1_gsRegsNormal__Fv  VU1_gsRegsNormal(void)  | text: NTSC/PAL function-size alignment
+func_00235018  DMAC_VIF1_Enable__Fv  DMAC_VIF1_Enable(void)  | text: NTSC/PAL function-size alignment
+func_002350A8  DMAC_VIF1_Disable__Fv  DMAC_VIF1_Disable(void)  | text: NTSC/PAL function-size alignment
+func_00236958  DmaTieTextures__Fv  DmaTieTextures(void)  | text: NTSC/PAL function-size alignment
+func_00236A98  PatchTieGifs  PatchTieGifs  | text: NTSC/PAL function-size alignment
+func_00236BE0  DrawTies_1  DrawTies_1  | text: NTSC/PAL function-size alignment
+func_00236CA8  DrawTies_2  DrawTies_2  | text: NTSC/PAL function-size alignment
+func_0023BB40  switchThread  switchThread  | text: NTSC/PAL function-size alignment
+func_0023BB60  isAudioOK  isAudioOK  | text: NTSC/PAL function-size alignment
+func_0023BB90  initAll__Fiii  initAll(int, int, int)  | text: NTSC/PAL function-size alignment
+func_0023BE38  termAll__Fv  termAll(void)  | text: NTSC/PAL function-size alignment
+func_0023BF48  ErrMessage  ErrMessage  | text: NTSC/PAL function-size alignment
+func_0023BF70  proceedAudio__Fv  proceedAudio(void)  | text: NTSC/PAL function-size alignment
+func_0023BFA0  audioDecCreate__FP9_AudioDecPUci14sceMpegStrType  audioDecCreate(_AudioDec *, unsigned char *, int, sceMpegStrType)  | text: NTSC/PAL function-size alignment
+func_0023C060  audioDecDelete__FP9_AudioDec  audioDecDelete(_AudioDec *)  | text: NTSC/PAL function-size alignment
+func_0023C088  audioDecStart  audioDecStart  | text: NTSC/PAL function-size alignment
+func_0023C0E0  audioDecReset__FP9_AudioDec  audioDecReset(_AudioDec *)  | text: NTSC/PAL function-size alignment
+func_0023C128  audioDecBeginPut__FP9_AudioDecPPUcPiT1T2  audioDecBeginPut(_AudioDec *, unsigned char **, int *, unsigned char **, int *)  | text: NTSC/PAL function-size alignment
+func_0023C1F8  audioDecEndPut__FP9_AudioDeci  audioDecEndPut(_AudioDec *, int)  | text: NTSC/PAL function-size alignment
+func_0023C2C0  audioDecSend  audioDecSend  | text: NTSC/PAL function-size alignment
+func_0023C2E8  sendToSPU__FP9_AudioDecPUcii  sendToSPU(_AudioDec *, unsigned char *, int, int)  | text: NTSC/PAL function-size alignment
+func_0023C390  sendADPCM__FP9_AudioDec  sendADPCM(_AudioDec *)  | text: NTSC/PAL function-size alignment
+func_0023C5E0  setImageTag  setImageTag  | text: NTSC/PAL function-size alignment
+func_0023C7A8  vblankHandler  vblankHandler  | text: NTSC/PAL function-size alignment
+func_0023C910  handler_endimage  handler_endimage  | text: NTSC/PAL function-size alignment
+func_0023C960  startDisplay__Fi  startDisplay(int)  | text: NTSC/PAL function-size alignment
+func_0023C9B0  endDisplay__Fv  endDisplay(void)  | text: NTSC/PAL function-size alignment
+func_0023C9C0  videoCallback  videoCallback  | text: NTSC/PAL function-size alignment
+func_0023CAF8  pcmCallback__FP7sceMpegP16sceMpegCbDataStrPv  pcmCallback(sceMpeg *, sceMpegCbDataStr *, void *)  | text: NTSC/PAL function-size alignment
+func_0023CBE0  cpy2area__FPUciT0iT0iT0i  cpy2area(unsigned char *, int, unsigned char *, int, unsigned char *, int, unsigned char *, int)  | text: NTSC/PAL function-size alignment
+func_0023CD30  readBufBeginPut__FP7ReadBufPPUc  readBufBeginPut(ReadBuf *, unsigned char **)  | text: NTSC/PAL function-size alignment
+func_0023CD60  readBufEndPut__FP7ReadBufi  readBufEndPut(ReadBuf *, int)  | text: NTSC/PAL function-size alignment
+func_0023CDA8  readBufBeginGet__FP7ReadBufPPUc  readBufBeginGet(ReadBuf *, unsigned char **)  | text: NTSC/PAL function-size alignment
+func_0023CDF0  readBufEndGet__FP7ReadBufi  readBufEndGet(ReadBuf *, int)  | text: NTSC/PAL function-size alignment
+func_0023CEC8  getFIFOindex__FP5ViBufPv  getFIFOindex(ViBuf *, void *)  | text: NTSC/PAL function-size alignment
+func_0023CF10  setD3_CHCR__FUi  setD3_CHCR(unsigned int)  | text: NTSC/PAL function-size alignment
+func_0023CF80  setD4_CHCR__FUi  setD4_CHCR(unsigned int)  | text: NTSC/PAL function-size alignment
+func_0023CFF0  scTag2  scTag2  | text: NTSC/PAL function-size alignment
+func_0023D018  viBufCreate  viBufCreate  | text: NTSC/PAL function-size alignment
+func_0023D090  viBufReset__FP5ViBuf  viBufReset(ViBuf *)  | text: NTSC/PAL function-size alignment
+func_0023D1F0  viBufBeginPut__FP5ViBufPPUcPiT1T2  viBufBeginPut(ViBuf *, unsigned char **, int *, unsigned char **, int *)  | text: NTSC/PAL function-size alignment
+func_0023D2E8  viBufEndPut__FP5ViBufi  viBufEndPut(ViBuf *, int)  | text: NTSC/PAL function-size alignment
+func_0023D340  viBufAddDMA__FP5ViBuf  viBufAddDMA(ViBuf *)  | text: NTSC/PAL function-size alignment
+func_0023D540  viBufStopDMA__FP5ViBuf  viBufStopDMA(ViBuf *)  | text: NTSC/PAL function-size alignment
+func_0023D650  viBufRestartDMA__FP5ViBuf  viBufRestartDMA(ViBuf *)  | text: NTSC/PAL function-size alignment
+func_0023D988  viBufDelete__FP5ViBuf  viBufDelete(ViBuf *)  | text: NTSC/PAL function-size alignment
+func_0023D9E0  viBufCount__FP5ViBuf  viBufCount(ViBuf *)  | text: NTSC/PAL function-size alignment
+func_0023DA30  viBufFlush__FP5ViBuf  viBufFlush(ViBuf *)  | text: NTSC/PAL function-size alignment
+func_0023DA88  viBufModifyPts__FP5ViBufP9TimeStamp  viBufModifyPts(ViBuf *, TimeStamp *)  | text: NTSC/PAL function-size alignment
+func_0023DBE0  viBufPutTs__FP5ViBufP9TimeStamp  viBufPutTs(ViBuf *, TimeStamp *)  | text: NTSC/PAL function-size alignment
+func_0023DCF0  viBufGetTs__FP5ViBufP9TimeStamp  viBufGetTs(ViBuf *, TimeStamp *)  | text: NTSC/PAL function-size alignment
+func_0023DE98  videoDecCreate__FP8VideoDecPUciPUxT3iP9TimeStampi  videoDecCreate(VideoDec *, unsigned char *, int, unsigned long long *, unsigned long long *, int, TimeStamp *, int)  | text: NTSC/PAL function-size alignment
+func_0023DFA0  videoDecSetStream__FP8VideoDeciiPFP7sceMpegP13sceMpegCbDataPv_iPv  videoDecSetStream(VideoDec *, int, int, int (*)(sceMpeg *, sceMpegCbData *, void *), void *)  | text: NTSC/PAL function-size alignment
+func_0023DFC0  videoDecBeginPut__FP8VideoDecPPUcPiT1T2  videoDecBeginPut(VideoDec *, unsigned char **, int *, unsigned char **, int *)  | text: NTSC/PAL function-size alignment
+func_0023DFE0  videoDecEndPut__FP8VideoDec  videoDecEndPut(VideoDec *)  | text: NTSC/PAL function-size alignment
+func_0023E000  videoDecReset__FP8VideoDec  videoDecReset(VideoDec *)  | text: NTSC/PAL function-size alignment
+func_0023E008  videoDecDelete__FP8VideoDec  videoDecDelete(VideoDec *)  | text: NTSC/PAL function-size alignment
+func_0023E040  videoDecAbort__FP8VideoDec  videoDecAbort(VideoDec *)  | text: NTSC/PAL function-size alignment
+func_0023E050  videoDecGetState  videoDecGetState  | text: NTSC/PAL function-size alignment
+func_0023E058  videoDecSetState__FP8VideoDecUi  videoDecSetState(VideoDec *, unsigned int)  | text: NTSC/PAL function-size alignment
+func_0023E068  videoDecPutTs__FP8VideoDecllPUci  videoDecPutTs(VideoDec *, long, long, unsigned char *, int)  | text: NTSC/PAL function-size alignment
+func_0023E0B0  videoDecInputCount__FP8VideoDec  videoDecInputCount(VideoDec *)  | text: NTSC/PAL function-size alignment
+func_0023E0D8  videoDecFlush__FP8VideoDec  videoDecFlush(VideoDec *)  | text: NTSC/PAL function-size alignment
+func_0023E1B0  videoDecIsFlushed__FP8VideoDec  videoDecIsFlushed(VideoDec *)  | text: NTSC/PAL function-size alignment
+func_0023E1F8  videoDecMain__FPv  videoDecMain(void *)  | text: NTSC/PAL function-size alignment
+func_0023E298  decBs0__FP8VideoDec  decBs0(VideoDec *)  | text: NTSC/PAL function-size alignment
+func_0023E450  mpegError__FP7sceMpegP18sceMpegCbDataErrorPv  mpegError(sceMpeg *, sceMpegCbDataError *, void *)  | text: NTSC/PAL function-size alignment
+func_0023E478  mpegNodata__FP7sceMpegP13sceMpegCbDataPv  mpegNodata(sceMpeg *, sceMpegCbData *, void *)  | text: NTSC/PAL function-size alignment
+func_0023E5B8  voBufReset__FP5VoBuf  voBufReset(VoBuf *)  | text: NTSC/PAL function-size alignment
+func_0023E5C8  voBufIsFull__FP5VoBuf  voBufIsFull(VoBuf *)  | text: NTSC/PAL function-size alignment
+func_0023E5E0  voBufIncCount__FP5VoBuf  voBufIncCount(VoBuf *)  | text: NTSC/PAL function-size alignment
+func_0023E658  voBufGetData__FP5VoBuf  voBufGetData(VoBuf *)  | text: NTSC/PAL function-size alignment
+func_0023E698  voBufIsEmpty  voBufIsEmpty  | text: NTSC/PAL function-size alignment
+func_0023E6A8  voBufGetTag__FP5VoBuf  voBufGetTag(VoBuf *)  | text: NTSC/PAL function-size alignment
+func_0023E710  voBufDecCount__FP5VoBuf  voBufDecCount(VoBuf *)  | text: NTSC/PAL function-size alignment

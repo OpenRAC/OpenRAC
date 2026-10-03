@@ -1,0 +1,205 @@
+# Build against the era-accurate SN Systems ProDG GCC 2.95.3 toolchain
+# (see docs/TOOLCHAIN.md). Local-only, gitignored -- get it yourself:
+#   git clone https://github.com/AngheloAlf/SN-Systems-ProDG_for_PS2_3.01 \
+#       toolchain/sn-prodg-3.01
+#   git clone https://github.com/AngheloAlf/sce_ps2_sdk_24 toolchain/sn-prodg-24
+#
+# Run it through tools/build_sn.sh rather than directly. This assembler
+# supports VU0 macro-mode natively but only accepts numeric GPR names, so
+# tools/sn_regnames.py runs over asm/ first (the regnames target; it only
+# rewrites files that change, so it is safe to re-run and to run in parallel
+# with compiles once asm/ exists).
+
+# The toolchain is 32-bit Windows programs. On Windows they run directly;
+# anywhere else tools/build_sn.sh passes WINE=wine (see tools/toolchain.sh
+# and tools/docker/).
+WINE ?=
+
+# COMPILERS. Retail's two code segments were built by two different SN
+# sub-builds of GCC 2.95.3, which is why no single compiler ever matched
+# both (see docs/DECOMP_PROGRESS.md, the sq/lq section). Measured across
+# all of retail's disassembly:
+#
+#   core_text: 234 s-reg spills via sd,  14 via sq  -> v1.36-like
+#   text:       34 s-reg spills via sd, 428 via sq  -> v1.14
+#   (plus 520 text functions saving $ra via sq, which v1.36 never emits)
+#
+# Given the same input and flags, the only codegen difference between the
+# two sub-builds is the spill pair and the save-slot layout.
+SN_136  := toolchain/sn-prodg-3.01/usr/local/sce/ee/gcc
+SN_114  := toolchain/sn-prodg-24/local/sce/ee/gcc
+
+# core_text is built with v1.14 too -- NOT v1.36 -- then post-processed.
+# See the build-sn/core/%.o rule below for why.
+CC_CORE := $(WINE) $(SN_114)/bin/ee-gcc2953.exe
+CC_TEXT := $(WINE) $(SN_114)/bin/ee-gcc2953.exe
+SIZE    := $(WINE) $(SN_136)/bin/ee-size.exe
+
+# -G2, NOT -G0. The small-data threshold has to sit in 1..3:
+#   -G0        no $gp addressing at all -> the ~244 text functions that
+#              use $gp can never match
+#   -G1..-G3   small globals go via $gp AND float constants stay inline
+#              (lui/ori/mtc1), which is what retail does
+#   -G4+       float constants get pooled into .lit4 and addressed via
+#              $gp, which retail never does -- and .lit4 has nowhere to
+#              live, since the SDA window is fully occupied
+# Verified: -G1/-G2/-G3 all link clean with zero regressions vs -G0.
+CFLAGS := -O2 -G2 -Iinclude -Wa,-I,.
+
+# libgcc (0x11DF0C-0x1206A0): GCC's own libgcc2.c and fp-bit.c, one object
+# per L_* module like libgcc.a's members. Built with Sony's 2.9-ee, NOT the
+# game's 2.95.3 -- see src/libgcc/README.md. Modules that do not match yet
+# are asm stubs (nonmatching_*.c).
+#
+# Through the 2.9-ee DRIVER, not cc1 directly: the driver passes the
+# target predefines (__mips__, __R5900__, ...), and longlong.h picks its
+# MIPS multiply/divide primitives off them. Without them __divdi3 and
+# __muldi3 come out wrong.
+CC_LIBGCC := $(WINE) $(SN_114)/bin/ee-gcc.exe
+
+# Every core_text object, in link order, from the one list that rac1.ld.sh
+# and the tools also read.
+CORE_TEXT_OBJS := $(shell grep -v -e "^\#" -e "^$$" config/core_text.objects | cut -d" " -f1)
+
+TEXT_OBJS := $(shell grep -v -e "^\#" -e "^$$" config/text.objects | cut -d" " -f1)
+
+OBJS := $(CORE_TEXT_OBJS) $(TEXT_OBJS)
+
+.PHONY: all clean regnames
+all: regnames $(OBJS)
+	$(SIZE) $(OBJS)
+
+regnames:
+	python tools/sn_regnames.py asm
+
+# core_text game objects (src/core/<ADDR>.c): compile to assembly with
+# v1.14, narrow the callee-saved spills to sd/ld, then assemble. Neither
+# compiler reproduces retail's core_text alone:
+#   v1.36  spills $ra as sd but $s0-$s7 as sq, AND mirrors the save-slot
+#          layout ($31 at offset 0, s-regs descending)
+#   v1.14  lays slots out EXACTLY as retail does ($16 at 0, s-regs
+#          ascending, $31 at top) but spills everything as sq
+# Retail core_text == v1.14's layout + sd/ld mnemonics. Since the layout
+# already matches, this is a pure mnemonic substitution -- frame size,
+# the 16-byte slot stride (which retail keeps even for 8-byte stores)
+# and every offset are left exactly as v1.14 emitted them. No offset
+# arithmetic, which is what makes it safe. (fix_core_spills keys on
+# address, so the objects from 0x12DB18 on keep their sq spills.)
+build-sn/core/%.o: src/core/%.c config/func_cflags.txt tools/func_cflags.py tools/fix_core_spills.py tools/fix_tail_calls.py tools/fix_trunc_slot.py tools/fix_macro_load_delay.py tools/check_macro_slots.py tools/ps2eeas_nops.py
+	@mkdir -p build-sn/core
+	$(CC_CORE) $(CFLAGS) -S -o build-sn/core/$*.s $<
+	python tools/func_cflags.py $< build-sn/core/$*.s -- $(CC_CORE) $(CFLAGS)
+	python tools/fix_core_spills.py build-sn/core/$*.s build-sn/core/$*_sp.s
+	python tools/fix_tail_calls.py build-sn/core/$*_sp.s build-sn/core/$*_fixed.s
+	python tools/fix_trunc_slot.py build-sn/core/$*_fixed.s build-sn/core/$*_fixed.s
+	if [ "$*" = 989snd ] || [ "$*" = wad ]; then python tools/fix_macro_load_delay.py build-sn/core/$*_fixed.s build-sn/core/$*_fixed.s; fi
+	python tools/check_macro_slots.py build-sn/core/$*_fixed.s
+	if [ "$*" = 989snd ] || [ "$*" = wad ]; then \
+	  $(CC_CORE) $(CFLAGS) -c build-sn/core/$*_fixed.s -o build-sn/core/$*_first.o && \
+	  python tools/ps2eeas_nops.py build-sn/core/$*_fixed.s build-sn/core/$*_first.o build-sn/core/$*_fixed.s; fi
+	$(CC_CORE) $(CFLAGS) -c build-sn/core/$*_fixed.s -o $@
+
+# Sony SDK code that was built with the SDK's own 2.9-ee, like libgcc,
+# not with the game's 2.95.3: the objects marked `ee29` in
+# config/core_text.objects (the memory card library, sceMcSync at
+# func_00123F30; the C library's printf, sprintf, stdio and strtol; ...).
+# 2.9-ee writes sd/ld spills and tail calls natively, so the spill and
+# tail-call rewriters do not run. It tail-calls a void function that ends
+# in a call, but not `return f(...)`, so the return type decides which
+# retail has. What else tells the compilers apart is scheduling ties,
+# gcse (2.95.3's PRE leaves extra %hi copies) and the varargs register
+# save (2.95.3 also saves $f12-$f18). fix_trunc_slot runs: neither
+# compiler puts a final truncation's dsra in the return slot, and
+# fix_volatile_slot puts a volatile store in the next jal's slot as
+# retail's assembler did. Its own
+# headers (stdarg.h) are passed explicitly: under Wine the driver does
+# not find its built-in include directory.
+EE29_CORE := $(shell awk '!/^\#/ && $$3 == "ee29" {print $$1}' config/core_text.objects)
+EE29_INC := -I$(SN_114)/lib/gcc-lib/ee/2.9-ee-991111/include
+$(EE29_CORE): build-sn/core/%.o: src/core/%.c config/func_cflags.txt tools/func_cflags.py tools/fix_trunc_slot.py tools/fix_volatile_slot.py tools/check_macro_slots.py
+	@mkdir -p build-sn/core
+	$(CC_LIBGCC) $(CFLAGS) $(EE29_INC) -S -o build-sn/core/$*.s $<
+	python tools/func_cflags.py $< build-sn/core/$*.s -- $(CC_LIBGCC) $(CFLAGS) $(EE29_INC)
+	python tools/fix_trunc_slot.py build-sn/core/$*.s build-sn/core/$*_fixed.s
+	python tools/fix_volatile_slot.py build-sn/core/$*_fixed.s build-sn/core/$*_fixed.s
+	python tools/check_macro_slots.py build-sn/core/$*_fixed.s
+	$(CC_CORE) $(CFLAGS) -c build-sn/core/$*_fixed.s -o $@
+
+# libgcc modules: verbatim GCC source, no rewriters.
+LIBGCC_CFLAGS := -O2 -G2 -S
+
+# Soft-float: Sony's libgcc.a builds fp-bit.c twice, whole: dp-bit.o
+# (double) and fp-bit.o (-DFLOAT), with GOFAST names (dpadd, fpadd...), the
+# little-endian bitfield layout GCC's MIPS makefile fragments select
+# (FLOAT_BIT_ORDER_MISMATCH) and no denormals (the EE FPU flushes them).
+# Built that way ours are function for function identical to Sony's. Retail's
+# linker then dead-stripped what the game never calls (tools/strip_dead.py):
+# DP_DEAD / SF_DEAD list those functions, with the func_ name splat gives each
+# surviving word. See src/libgcc/README.md.
+FP_DEFS := -DFLOAT_BIT_ORDER_MISMATCH -DNO_DENORMALS -DUS_SOFTWARE_GOFAST
+DP_DEAD := --export _fpadd_parts __negdf2 dptofp=func_001206A0
+SF_DEAD := __pack_f=func_001206A8 _fpadd_parts=func_00120740 fpadd \
+	fpsub=func_00120748 fpmul=func_00120750 fpdiv \
+	__fpcmp_parts_f=func_00120758 fpcmp=func_00120760 sitofp \
+	fptosi=func_00120768 fptoui __negsf2 __make_fp=func_00120770
+
+build-sn/libgcc/dp-bit.o: src/libgcc/fp-bit.c tools/strip_dead.py
+	@mkdir -p build-sn/libgcc
+	$(CC_LIBGCC) $(LIBGCC_CFLAGS) $(FP_DEFS) $< -o build-sn/libgcc/dp-bit.s
+	$(CC_TEXT) -c build-sn/libgcc/dp-bit.s -o build-sn/libgcc/dp-bit_whole.o
+	python tools/strip_dead.py build-sn/libgcc/dp-bit.s build-sn/libgcc/dp-bit_whole.o build-sn/libgcc/dp-bit_stripped.s $(DP_DEAD)
+	$(CC_TEXT) -c build-sn/libgcc/dp-bit_stripped.s -o $@
+
+build-sn/libgcc/fp-bit.o: src/libgcc/fp-bit.c tools/strip_dead.py
+	@mkdir -p build-sn/libgcc
+	$(CC_LIBGCC) $(LIBGCC_CFLAGS) $(FP_DEFS) -DFLOAT $< -o build-sn/libgcc/fp-bit.s
+	$(CC_TEXT) -c build-sn/libgcc/fp-bit.s -o build-sn/libgcc/fp-bit_whole.o
+	python tools/strip_dead.py build-sn/libgcc/fp-bit.s build-sn/libgcc/fp-bit_whole.o build-sn/libgcc/fp-bit_stripped.s $(SF_DEAD)
+	$(CC_TEXT) -c build-sn/libgcc/fp-bit_stripped.s -o $@
+
+build-sn/libgcc/l2_%.o: src/libgcc/libgcc2.c src/libgcc/longlong.h
+	@mkdir -p build-sn/libgcc
+	$(CC_LIBGCC) $(LIBGCC_CFLAGS) -Isrc/libgcc/include -DIN_LIBGCC2 -DL_$* $< -o build-sn/libgcc/l2_$*.s
+	$(CC_TEXT) -c build-sn/libgcc/l2_$*.s -o $@
+
+# L__main: retail's linker dead-stripped the unreferenced __do_global_dtors
+# from this module; being 4 mod 8 bytes long, it left its last word (the
+# delay slot) behind, followed by __do_global_ctors and __main.
+# tools/strip_dead.py reproduces that on the compiler's output.
+build-sn/libgcc/l2__main.o: src/libgcc/libgcc2.c src/libgcc/gbl-ctors.h tools/strip_dead.py
+	@mkdir -p build-sn/libgcc
+	$(CC_LIBGCC) $(LIBGCC_CFLAGS) -Isrc/libgcc/include -DIN_LIBGCC2 -DL__main $< -o build-sn/libgcc/l2__main.s
+	$(CC_TEXT) -c build-sn/libgcc/l2__main.s -o build-sn/libgcc/l2__main_whole.o
+	python tools/strip_dead.py build-sn/libgcc/l2__main.s build-sn/libgcc/l2__main_whole.o build-sn/libgcc/l2__main_stripped.s __do_global_dtors=func_0011DF10
+	$(CC_TEXT) -c build-sn/libgcc/l2__main_stripped.s -o $@
+
+# Not-yet-matching libgcc modules and linker fill: asm only.
+build-sn/libgcc/asm_%.o: src/libgcc/nonmatching_%.c
+	@mkdir -p build-sn/libgcc
+	$(CC_TEXT) $(CFLAGS) -c $< -o $@
+
+# text objects (src/game/**.c) need the tail-call rewrite, but NOT
+# fix_core_spills: retail's text segment uses sq/lq, which v1.14 emits.
+#
+# Retail's text was assembled by SN's ps2eeas, which adds nops GNU as does
+# not: it pads short loops (the R5900 erratum) and separates an FP compare
+# from its bc1. tools/ps2eeas_nops.py does the same, measuring both in a
+# first assembly. It also builds 64-bit constants its own way, which
+# tools/ps2eeas_dli.py reproduces. A switch's jump table gets a section of
+# its own, placed at retail's table by rac1.ld.sh (tools/fix_jump_tables.py).
+build-sn/game/%.o: src/game/%.c config/func_cflags.txt tools/func_cflags.py tools/fix_orphan_hi.py tools/fix_tail_calls.py tools/fix_trunc_slot.py tools/fix_jump_tables.py tools/jump_tables.py tools/ps2eeas_dli.py tools/check_macro_slots.py tools/ps2eeas_nops.py
+	@mkdir -p $(dir $@)
+	$(CC_TEXT) $(CFLAGS) -S -o build-sn/game/$*.s $<
+	python tools/func_cflags.py $< build-sn/game/$*.s -- $(CC_TEXT) $(CFLAGS)
+	python tools/fix_tail_calls.py build-sn/game/$*.s build-sn/game/$*_tc.s
+	python tools/fix_trunc_slot.py build-sn/game/$*_tc.s build-sn/game/$*_tc.s
+	python tools/fix_jump_tables.py build-sn/game/$*_tc.s build-sn/game/$*_jt.s
+	python tools/ps2eeas_dli.py build-sn/game/$*_jt.s build-sn/game/$*_jt.s
+	python tools/check_macro_slots.py build-sn/game/$*_jt.s
+	python tools/fix_orphan_hi.py build-sn/game/$*_jt.s build-sn/game/$*_jt.s
+	$(CC_TEXT) $(CFLAGS) -c build-sn/game/$*_jt.s -o build-sn/game/$*_jt.o
+	python tools/ps2eeas_nops.py build-sn/game/$*_jt.s build-sn/game/$*_jt.o build-sn/game/$*_fixed.s
+	$(CC_TEXT) $(CFLAGS) -c build-sn/game/$*_fixed.s -o $@
+
+clean:
+	rm -rf build-sn

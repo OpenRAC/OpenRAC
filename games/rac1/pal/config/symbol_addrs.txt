@@ -1,0 +1,75 @@
+// splat symbol overrides. Read via symbol_addrs_path in config/splat.yaml.
+//
+// Object starts splat missed. Retail's linker filled the gap between
+// objects with 0xCDCDCDCD, and the code right after each fill run starts a
+// new object -- but splat had folded that code into the previous function
+// (fill included). Declaring the real start makes the fill end its own
+// function file, so the object boundaries in config/core_text.objects fall
+// on file boundaries.
+func_001144D0 = 0x001144D0; // type:func
+func_00116070 = 0x00116070; // type:func
+func_00116CC0 = 0x00116CC0; // type:func
+func_00118A40 = 0x00118A40; // type:func
+func_0011D700 = 0x0011D700; // type:func
+func_0011DD68 = 0x0011DD68; // type:func
+func_0011DF10 = 0x0011DF10; // type:func
+func_001206A8 = 0x001206A8; // type:func
+func_001208E8 = 0x001208E8; // type:func
+func_00122140 = 0x00122140; // type:func
+func_001224B0 = 0x001224B0; // type:func
+func_00122630 = 0x00122630; // type:func
+func_00122818 = 0x00122818; // type:func
+func_00122AD8 = 0x00122AD8; // type:func
+func_00123168 = 0x00123168; // type:func
+func_001236F0 = 0x001236F0; // type:func
+func_00125218 = 0x00125218; // type:func
+func_001252A0 = 0x001252A0; // type:func
+func_0012CC70 = 0x0012CC70; // type:func
+
+// libgcc's __do_global_ctors. retail's L__main module opens with the one
+// word left of the dead-stripped __do_global_dtors (its delay slot), which
+// splat had merged into this function; see tools/strip_dead.py.
+func_0011DF18 = 0x0011DF18; // type:func
+
+// Words left by retail's linker dead-stripping libgcc's soft-float (see
+// tools/strip_dead.py): one per stripped function of size 4 mod 8, which
+// splat had merged. 0x1206A4 is linker fill after dp-bit.o's last remnant.
+func_001206A4 = 0x001206A4; // type:func
+func_00120748 = 0x00120748; // type:func
+func_00120750 = 0x00120750; // type:func
+func_00120758 = 0x00120758; // type:func
+func_00120760 = 0x00120760; // type:func
+func_00120768 = 0x00120768; // type:func
+func_00120770 = 0x00120770; // type:func
+
+// 989snd.c starts right after boot.cpp's main (confirmed: crt0 calls
+// func_0012DB18 as main; the 989snd.c path string is used from 0x12DBE0 on).
+func_0012DB68 = 0x0012DB68; // type:func
+
+// Real function starts after linker remnants. splat folded the dead-strip
+// remnant pairs (`addiu $sp,$sp,N; nop` and the like) in front of these
+// functions into one function and left the real entry as an alabel. With
+// the start declared, the remnant is its own file (config/linker_remnants.txt)
+// and the function can be decompiled.
+func_0011CB40 = 0x0011CB40; // type:func
+func_001235C8 = 0x001235C8; // type:func
+func_001241F0 = 0x001241F0; // type:func
+func_00124340 = 0x00124340; // type:func
+func_00124D18 = 0x00124D18; // type:func
+func_00125358 = 0x00125358; // type:func
+func_0012AD10 = 0x0012AD10; // type:func
+func_0012BB30 = 0x0012BB30; // type:func
+func_0012BB88 = 0x0012BB88; // type:func
+func_0012E060 = 0x0012E060; // type:func
+func_0012E1C8 = 0x0012E1C8; // type:func
+func_0012E2E8 = 0x0012E2E8; // type:func
+func_0012E3C0 = 0x0012E3C0; // type:func
+func_0012E448 = 0x0012E448; // type:func
+func_0012E4A8 = 0x0012E4A8; // type:func
+func_0012E4F8 = 0x0012E4F8; // type:func
+func_0012E600 = 0x0012E600; // type:func
+func_0012ED48 = 0x0012ED48; // type:func
+func_0012F0A8 = 0x0012F0A8; // type:func
+func_0012F1A8 = 0x0012F1A8; // type:func
+func_0012F220 = 0x0012F220; // type:func
+func_0012F288 = 0x0012F288; // type:func

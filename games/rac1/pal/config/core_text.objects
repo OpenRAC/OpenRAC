@@ -1,0 +1,83 @@
+# core_text, in link order = retail address order. One object per line.
+# Makefile.sn, rac1.ld.sh and the tools all read this file.
+#
+# Object boundaries are retail's own: the linker filled the gaps between
+# objects with 0xCDCDCDCD, and every such run starts a new object here
+# (plus 0x12DB18, where the compiler sub-build changes).
+#
+# Game objects carry their retail start address as a second column. They
+# are named by that address until their real source file is identified,
+# then renamed (e.g. 989snd): only the name changes, the address stays.
+#   build-sn/core/<NAME>.o <START>   <- src/core/<NAME>.c
+# A third column `ee29` marks Sony SDK code built with the SDK's own
+# 2.9-ee (like libgcc) instead of the game's 2.95.3; Makefile.sn and
+# tools/try_func.py take the list from here.
+#   build-sn/libgcc/l2_*.o     <- src/libgcc/libgcc2.c
+#   build-sn/libgcc/dp-bit.o, fp-bit.o <- src/libgcc/fp-bit.c
+#   build-sn/libgcc/asm_*.o    <- src/libgcc/nonmatching_*.c
+
+build-sn/core/00112380.o 0x00112380 ee29
+build-sn/core/00112468.o 0x00112468 ee29
+build-sn/core/001138A8.o 0x001138A8 ee29
+build-sn/core/001138B8.o 0x001138B8 ee29
+build-sn/core/00113A70.o 0x00113A70 ee29
+build-sn/core/00113B70.o 0x00113B70 ee29
+build-sn/core/00114000.o 0x00114000 ee29
+build-sn/core/00114060.o 0x00114060 ee29
+build-sn/core/001144D0.o 0x001144D0 ee29
+build-sn/core/00114518.o 0x00114518 ee29
+build-sn/core/001154C0.o 0x001154C0 ee29
+build-sn/core/00116070.o 0x00116070 ee29
+build-sn/core/00116248.o 0x00116248 ee29
+build-sn/core/001162B8.o 0x001162B8 ee29
+build-sn/core/00116CC0.o 0x00116CC0 ee29
+build-sn/core/00116D30.o 0x00116D30 ee29
+build-sn/core/00116FA0.o 0x00116FA0 ee29
+build-sn/core/001188C8.o 0x001188C8 ee29
+build-sn/core/00118A40.o 0x00118A40 ee29
+build-sn/core/00119328.o 0x00119328 ee29
+build-sn/core/00119868.o 0x00119868 ee29
+build-sn/core/00119D88.o 0x00119D88 ee29
+build-sn/core/0011CCE0.o 0x0011CCE0 ee29
+build-sn/core/0011D0D0.o 0x0011D0D0 ee29
+build-sn/core/0011D700.o 0x0011D700 ee29
+build-sn/core/0011D960.o 0x0011D960 ee29
+build-sn/core/0011DBE8.o 0x0011DBE8 ee29
+build-sn/core/0011DD68.o 0x0011DD68 ee29
+build-sn/core/0011DDD0.o 0x0011DDD0 ee29
+build-sn/libgcc/l2__main.o
+build-sn/libgcc/l2_divdi3.o
+build-sn/libgcc/asm_0011E6D4.o
+build-sn/libgcc/l2_fixunsdfdi.o
+build-sn/libgcc/asm_0011E7C4.o
+build-sn/libgcc/l2_floatdidf.o
+build-sn/libgcc/asm_0011E860.o
+build-sn/libgcc/l2_muldi3.o
+build-sn/libgcc/asm_0011EF28.o
+build-sn/libgcc/dp-bit.o
+build-sn/libgcc/asm_001206A4.o
+build-sn/libgcc/fp-bit.o
+build-sn/core/001207B8.o 0x001207B8
+build-sn/core/001208E8.o 0x001208E8 ee29
+build-sn/core/00121750.o 0x00121750 ee29
+build-sn/core/00121D18.o 0x00121D18 ee29
+build-sn/core/00122140.o 0x00122140 ee29
+build-sn/core/00122200.o 0x00122200 ee29
+build-sn/core/001224B0.o 0x001224B0 ee29
+build-sn/core/00122630.o 0x00122630 ee29
+build-sn/core/00122818.o 0x00122818 ee29
+build-sn/core/00122AD8.o 0x00122AD8 ee29
+build-sn/core/00123168.o 0x00123168 ee29
+build-sn/core/001236F0.o 0x001236F0 ee29
+build-sn/core/00125218.o 0x00125218 ee29
+build-sn/core/001252A0.o 0x001252A0 ee29
+build-sn/core/00125630.o 0x00125630 ee29
+build-sn/core/0012A2F0.o 0x0012A2F0 ee29
+build-sn/core/0012AC80.o 0x0012AC80 ee29
+build-sn/core/0012CC70.o 0x0012CC70 ee29
+build-sn/core/0012CC90.o 0x0012CC90 ee29
+build-sn/core/crt0.o 0x0012D868
+build-sn/core/boot.o 0x0012DA38
+build-sn/core/989snd.o 0x0012DB68
+build-sn/core/permcb.o 0x0012F308
+build-sn/core/wad.o 0x0012F348
