@@ -1,0 +1,47 @@
+# Checks that need neither a disc nor a toolchain: OpenRAC's own tests, the
+# editor's, the generated tables, and each game's toolchain-free checks as
+# its original repository ran them. Game builds need your own disc and
+# proprietary compilers, so they run on contributors' machines.
+name: checks
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: OpenRAC tools
+        run: python -m unittest discover -s tools -v
+
+      - name: Level editor (synthetic data only)
+        run: python -m unittest discover -s editor -v
+
+      - name: Generated tables match games/*/game.json and the reports
+        run: |
+          python tools/openrac.py tables
+          git diff --exit-code -- README.md baserom/README.md games/README.md
+
+      - name: rac1/pal progress report is current with its source
+        working-directory: games/rac1/pal
+        run: python tools/gen_progress_report.py --check
+
+      - name: rac1/ntsc tools
+        working-directory: games/rac1/ntsc
+        run: |
+          python scripts/test_public_tools.py -v
+          python -m py_compile scripts/*.py
+
+      - name: rac2 tools
+        working-directory: games/rac2/ntsc
+        run: python -m unittest discover -s tests -v
