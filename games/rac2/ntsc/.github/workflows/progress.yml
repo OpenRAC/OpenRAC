@@ -1,0 +1,76 @@
+name: Progress report
+
+on:
+  push:
+    branches: [ RAC2 ]
+  pull_request:
+    branches: [ RAC2 ]
+  workflow_dispatch:
+
+jobs:
+  progress:
+    name: SCUS_972.68 Progress
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Export verified RAC2 progress (objdiff v2)
+        run: |
+          python scripts/decomp_report.py --output build/decomp/report.json \
+            $(for f in progress/levels/*.json; do printf -- '--level-proof %s ' "$f"; done)
+
+      - name: Upload decomp.dev progress artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SCUS_972.68_report
+          path: build/decomp/report.json
+          if-no-files-found: error
+
+      - name: Post Job Summary
+        run: |
+          python -c '
+          import json, os
+          with open("build/decomp/report.json") as f:
+              report = json.load(f)
+          measures = report["measures"]
+          total_code = int(measures["totalCode"])
+          matched_code = int(measures["matchedCode"])
+          code_pct = measures["matchedCodePercent"]
+          total_units = measures["totalUnits"]
+          complete_units = measures["completeUnits"]
+
+          lines = [
+              "### 🎮 decomp.dev Progress Report: SCUS_972.68 (Ratchet & Clank: Going Commando)",
+              "",
+              "| Metric | Value |",
+              "| :--- | :--- |",
+              f"| **Matched Code** | `{matched_code:,} / {total_code:,} bytes` ({code_pct:.3f}%) |",
+              f"| **Matched Units** | `{complete_units} / {total_units}` |",
+              "",
+              "#### Breakdown by Category",
+              "| Category | Matched Code | Percent | Units |",
+              "| :--- | :--- | :--- | :--- |",
+          ]
+          for cat in report.get("categories", []):
+              cm = cat["measures"]
+              cname = cat["name"]
+              mc = int(cm["matchedCode"])
+              tc = int(cm["totalCode"])
+              pct = cm["matchedCodePercent"]
+              cu = cm["completeUnits"]
+              tu = cm["totalUnits"]
+              lines.append(f"| {cname} | `{mc:,} / {tc:,} B` | {pct:.3f}% | {cu} / {tu} |")
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a") as f_out:
+                  f_out.write("\n".join(lines) + "\n")
+          else:
+              print("\n".join(lines))
+          '

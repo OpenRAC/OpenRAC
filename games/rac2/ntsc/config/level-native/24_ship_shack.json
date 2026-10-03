@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "kind": "level-native-catalog",
+  "target": "SCUS_972.68",
+  "level": "24_ship_shack",
+  "program": "levels/24_ship_shack",
+  "reference_sha256": "4afbc22add84109c84ef8ca49099fdf9863905e5f497369c207ac5cb47814740",
+  "entry": 2763912,
+  "source": "candidates/levels/24_ship_shack.c",
+  "flags": [
+    "-O2",
+    "-G0",
+    "-ffunction-sections"
+  ],
+  "functions": [
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_002D1570",
+      "address": 2954608,
+      "size": 72,
+      "meaning": "updates the resident selection and index after validating the selected table entry"
+    },
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_002D6960",
+      "address": 2976096,
+      "size": 24,
+      "meaning": "clears five object fields; authored level-only C"
+    },
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_002F5DE0",
+      "address": 3104224,
+      "size": 80,
+      "meaning": "authored C for independently verified level-native body"
+    },
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_002F2510",
+      "address": 3089680,
+      "size": 72,
+      "meaning": "authored C for independently verified level-native body"
+    },
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_0034F218",
+      "address": 3469848,
+      "size": 80,
+      "meaning": "authored C for independently verified level-native body"
+    },
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_0035E348",
+      "address": 3531592,
+      "size": 72,
+      "meaning": "selects the level data bank when the resident context is in state 9"
+    }
+  ],
+  "externals": {
+    "LVL_24_SHIP_SHACK_FUN_002F5D18": 3104024,
+    "LVL_24_SHIP_SHACK_D_001A8EB0": 1740464,
+    "LVL_24_SHIP_SHACK_D_001B1B70": 1776496,
+    "LVL_24_SHIP_SHACK_D_001B1B74": 1776500,
+    "LVL_24_SHIP_SHACK_D_00189E20": 1613344,
+    "LVL_24_SHIP_SHACK_D_001BC3C0": 1819584,
+    "LVL_24_SHIP_SHACK_D_0028AAC0": 2665152
+  }
+}
