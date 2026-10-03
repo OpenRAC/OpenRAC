@@ -21,7 +21,8 @@ Lombyte's FUN_LNN_xxxxxxxx against every function
 config/overlays/functions.tsv places in level NN (its shared code is
 named after level 00, as ours is). Each pair records how it was found
 ("us_map" or "sizes"). It lives in build-sn/lombyte_ntsc_pal_map.json.
-Lombyte is looked for in $LOMBYTE, else ~/Projects/Lombyte.
+Lombyte is looked for in $LOMBYTE, else next to this tree inside OpenRAC
+(games/rac1/ntsc), else ~/Projects/Lombyte.
 """
 from __future__ import annotations
 import difflib
@@ -33,7 +34,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-LOMBYTE = Path(os.environ.get("LOMBYTE", Path.home() / "Projects/Lombyte"))
+# Inside OpenRAC, Lombyte is this game's other region, games/rac1/ntsc, and
+# OpenRAC keeps a copy of the report its CI publishes (tools/openrac.py progress --fetch).
+OPENRAC = ROOT.parents[2] if (ROOT.parents[2] / "games/rac1/game.json").exists() else None
+LOMBYTE = Path(os.environ.get("LOMBYTE") or (ROOT.parent / "ntsc" if OPENRAC else Path.home() / "Projects/Lombyte"))
 MAP = ROOT / "build-sn/lombyte_ntsc_pal_map.json"
 US_MAP = ROOT / "config/overlays/us_map.tsv"
 US_EXE_DELTA = 0xFF080      # SCUS-97199: vram - file offset of its one loaded segment
@@ -44,8 +48,10 @@ def their_report(lombyte: Path = LOMBYTE) -> dict | None:
     """Lombyte's progress report, or None. It was committed as
     progress/report.json until their #64; since then their CI publishes
     it as report.json on the `progress` branch, and their
-    scripts/gen_progress_report.py writes build/progress/report.json."""
-    for path in (lombyte / "progress/report.json", lombyte / "build/progress/report.json"):
+    scripts/gen_progress_report.py writes build/progress/report.json; inside
+    OpenRAC, progress/sources/rac1-ntsc.json holds a copy of the published one."""
+    copies = [OPENRAC / "progress/sources/rac1-ntsc.json"] if OPENRAC else []
+    for path in (lombyte / "progress/report.json", lombyte / "build/progress/report.json", *copies):
         if path.exists():
             return json.loads(path.read_text())
     for ref in ("origin/progress", "progress"):
