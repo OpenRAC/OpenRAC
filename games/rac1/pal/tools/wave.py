@@ -89,6 +89,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# Inside OpenRAC, commit scopes name the game version first (OpenRAC's CONTRIBUTING.md).
+SCOPE = "rac1/pal/" if (ROOT.parents[2] / "games/rac1/game.json").exists() else ""
 sys.path.insert(0, str(ROOT / "tools"))
 
 import claims as shared  # noqa: E402
@@ -785,7 +787,7 @@ def land_exe(args, wave: dict) -> None:
         docker("python", "tools/gen_progress_report.py", "--no-build")
         row = rows[name]
         title = f"{row['symbol']} ({name})" if row["symbol"] else name
-        message = (f"feat({row['unit'].split('/')[0]}): {title} exact match\n\n"
+        message = (f"feat({SCOPE}{row['unit'].split('/')[0]}): {title} exact match\n\n"
                    f"Matched by a Sonnet worker in wave {args.name}; full build audited.\n\n{TRAILER}")
         subprocess.run(["git", "add", str(source.relative_to(ROOT)), "progress/report.json"], cwd=ROOT, check=True)
         subprocess.run(["git", "commit", "-q", "-m", message], cwd=ROOT, check=True)
@@ -1210,7 +1212,7 @@ def land_one(args, name: str, candidate: str, source: Path, owner: str) -> str:
     if elf.exists():
         docker("python", "tools/gen_progress_report.py", "--no-build")
     title = f"{known} ({name})" if known else name
-    message = (f"feat(overlays): {title} exact match\n\n"
+    message = (f"feat({SCOPE}overlays): {title} exact match\n\n"
                f"Matched by a Sonnet worker in wave {args.name}; checked strictly against "
                f"{name}'s real address in its level with tools/overlay_check.py "
                f"(docs/OVERLAYS.md).\n\n{TRAILER}")
