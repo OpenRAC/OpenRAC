@@ -1,0 +1,357 @@
+#!/usr/bin/env python3
+"""
+OpenRAC's top-level helper: your discs, where each game's build expects its
+inputs, and progress across all the games. Standard library only.
+
+  python3 tools/openrac.py discs [--full]   identify the disc images in baserom/ and check them
+  python3 tools/openrac.py setup [GAME/VERSION ...]
+                                            place each game's inputs from those discs (hard links,
+                                            and boot executables read out of the images)
+  python3 tools/openrac.py progress [--fetch]
+                                            write progress/summary.json and progress/README.md, and
+                                            the table in README.md; --fetch first copies reports that
+                                            a sister project publishes outside its tree
+
+Discs are recognised by the boot file SYSTEM.CNF names, whatever the image
+is called, and checked against games/<game>/game.json: size and SHA-1, or
+every checksum with --full. Nothing is downloaded and nothing leaves your
+machine; baserom/ and every placed input are ignored by git.
+"""
+import hashlib
+import json
+import os
+import shutil
+import struct
+import subprocess
+import sys
+import zlib
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+GAMES = ROOT / "games"
+BASEROM = ROOT / "baserom"
+PROGRESS = ROOT / "progress"
+SECTOR = 2048
+MARK_BEGIN, MARK_END = "<!-- progress:begin -->", "<!-- progress:end -->"
+
+
+# --- Manifests ---------------------------------------------------------------
+
+def games() -> list[dict]:
+    """Every games/<game>/game.json, in game order."""
+    return [json.loads(p.read_text()) for p in sorted(GAMES.glob("*/game.json"))]
+
+
+def versions() -> list[tuple[dict, str, dict]]:
+    """(game, version name, version) for every version of every game."""
+    return [(g, name, v) for g in games() for name, v in g["versions"].items()]
+
+
+# --- ISO 9660 -------------------------------------------------------------------
+
+def iso_find(f, path: str) -> tuple[int, int] | None:
+    """(first sector, size) of a file in an ISO 9660 image, or None."""
+    f.seek(16 * SECTOR)
+    pvd = f.read(SECTOR)
+    if pvd[1:6] != b"CD001":
+        return None
+    lba, size = struct.unpack_from("<I", pvd, 158)[0], struct.unpack_from("<I", pvd, 166)[0]
+    for part in path.upper().split("/"):
+        f.seek(lba * SECTOR)
+        data, i, found = f.read(size), 0, None
+        while i < len(data):
+            n = data[i]
+            if n == 0:
+                i = (i // SECTOR + 1) * SECTOR
+                continue
+            name = data[i + 33:i + 33 + data[i + 32]].decode("latin-1").split(";")[0].upper()
+            if name == part:
+                found = struct.unpack_from("<I", data, i + 2)[0], struct.unpack_from("<I", data, i + 10)[0]
+                break
+            i += n
+        if found is None:
+            return None
+        lba, size = found
+    return lba, size
+
+
+def boot_serial(iso: Path) -> str | None:
+    """The executable SYSTEM.CNF boots (e.g. SCES_509.16), or None if this is no PS2 disc."""
+    with open(iso, "rb") as f:
+        where = iso_find(f, "SYSTEM.CNF")
+        if where is None:
+            return None
+        f.seek(where[0] * SECTOR)
+        for line in f.read(where[1]).decode("latin-1").splitlines():
+            key, _, value = line.partition("=")
+            if key.strip() == "BOOT2":
+                return value.strip().split("\\")[-1].split(";")[0]
+    return None
+
+
+def read_boot(iso: Path, serial: str) -> bytes:
+    with open(iso, "rb") as f:
+        lba, size = iso_find(f, serial)
+        f.seek(lba * SECTOR)
+        return f.read(size)
+
+
+def checksums(path: Path, full: bool) -> dict:
+    """size and sha1, plus crc32, md5 and sha256 when FULL."""
+    names = ("sha1", "md5", "sha256") if full else ("sha1",)
+    hashes = {n: hashlib.new(n) for n in names}
+    crc = 0
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 24), b""):
+            for h in hashes.values():
+                h.update(block)
+            if full:
+                crc = zlib.crc32(block, crc)
+    out = {"size": path.stat().st_size, **{n: h.hexdigest() for n, h in hashes.items()}}
+    if full:
+        out["crc32"] = f"{crc:08x}"
+    return out
+
+
+def known_discs() -> dict[str, tuple[dict, str, dict]]:
+    """serial -> (game, version name, version)."""
+    return {v["serial"]: (g, name, v) for g, name, v in versions()}
+
+
+def scan(full: bool = False) -> dict[str, Path]:
+    """serial -> the image in baserom/ whose checksums match game.json; prints what it finds."""
+    known, found = known_discs(), {}
+    images = sorted(p for p in BASEROM.glob("*") if p.is_file() and p.suffix.lower() == ".iso")
+    if not images:
+        print(f"no .iso files in {BASEROM.relative_to(ROOT)}/ (see baserom/README.md)")
+    for iso in images:
+        serial = boot_serial(iso)
+        if serial not in known:
+            print(f"{iso.name}: {'not a PS2 disc' if serial is None else serial + ', not a disc OpenRAC knows'}")
+            continue
+        game, name, version = known[serial]
+        want, got = version["disc"], checksums(iso, full)
+        bad = [k for k, v in got.items() if want.get(k) != v]
+        label = f"{game['title']} ({version['region']}, {serial})"
+        if bad:
+            print(f"{iso.name}: {label}, but {', '.join(bad)} differ from games/{game['id']}/game.json")
+            continue
+        print(f"{iso.name}: {label}, {'all checksums' if full else 'size and SHA-1'} match")
+        found[serial] = iso
+    for serial, (game, name, version) in known.items():
+        if serial not in found:
+            print(f"missing: {game['title']} ({version['region']}, {serial}) for games/{game['id']}/{name}")
+    return found
+
+
+# --- Setup ----------------------------------------------------------------------
+
+def place_link(source: Path, dest: Path) -> str:
+    """Hard-link SOURCE at DEST (a copy across file systems). Hard links, not symbolic
+    ones, so a build container that mounts only part of the tree still sees the file."""
+    if dest.exists():
+        if dest.stat().st_ino == source.stat().st_ino:
+            return "already there"
+        return "exists, left alone"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(source, dest)
+        return "linked"
+    except OSError:
+        shutil.copy2(source, dest)
+        return "copied"
+
+
+def place_boot(iso: Path, serial: str, want: dict, dest: Path) -> str:
+    if dest.exists():
+        return "already there" if checksums(dest, False)["sha1"] == want["sha1"] else "exists, left alone (other contents)"
+    data = read_boot(iso, serial)
+    if hashlib.sha1(data).hexdigest() != want["sha1"]:
+        return "not written: the executable in the image does not match game.json"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(data)
+    return "written"
+
+
+def place_toolchains(dest: Path) -> str:
+    """A relative symbolic link from DEST to the shared toolchains/ directory, which
+    the build container sees because it mounts all of OpenRAC."""
+    target = Path(os.path.relpath(ROOT / "toolchains", dest.parent))
+    if dest.is_symlink() and Path(os.readlink(dest)) == target:
+        return "already linked"
+    if dest.exists() or dest.is_symlink():
+        return "exists, left alone"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.symlink_to(target, target_is_directory=True)
+    missing = [] if (ROOT / "toolchains").is_dir() else [" (toolchains/ is empty: see toolchains/README.md)"]
+    return f"linked to {target}" + "".join(missing)
+
+
+def setup(only: list[str]) -> None:
+    found = scan()
+    for game, name, version in versions():
+        key = f"{game['id']}/{name}"
+        if only and key not in only:
+            continue
+        inputs = version.get("inputs", [])
+        iso = found.get(version["serial"])
+        if not inputs:
+            print(f"{key}: nothing to place ({version.get('setup', 'no build yet')})")
+            continue
+        for item in inputs:
+            dest = ROOT / item["path"]
+            if item["from"] == "toolchains":
+                state = place_toolchains(dest)
+            elif iso is None:
+                state = "skipped, the disc is missing"
+            elif item["from"] == "disc":
+                state = place_link(iso, dest)
+            else:
+                state = place_boot(iso, version["serial"], version["boot"], dest)
+            print(f"{key}: {item['path']}: {state}")
+        if version.get("setup"):
+            print(f"{key}: next, {version['setup']}")
+
+
+# --- Progress -------------------------------------------------------------------
+
+def fetch_reports() -> None:
+    """Copy reports that a sister project publishes outside its tree (progress.fetch)."""
+    for game, name, version in versions():
+        fetch = version.get("progress", {}).get("fetch")
+        if not fetch:
+            continue
+        repo = Path(os.path.expanduser(version["source"]["checkout"]))
+        key = f"{game['id']}/{name}"
+        try:
+            subprocess.run(["git", "-C", str(repo), "fetch", "-q", "origin", fetch["branch"]], check=True)
+            ref = f"origin/{fetch['branch']}"
+            data = subprocess.run(["git", "-C", str(repo), "show", f"{ref}:{fetch['path']}"],
+                                  check=True, capture_output=True).stdout
+            commit = subprocess.run(["git", "-C", str(repo), "log", "-1", "--format=%h %cs", ref],
+                                    check=True, capture_output=True, text=True).stdout.split()
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"{key}: could not fetch its report from {repo} ({e})")
+            continue
+        report = json.loads(data)
+        report["openrac_source"] = {"branch": fetch["branch"], "commit": commit[0], "date": commit[1]}
+        dest = ROOT / version["progress"]["report"]
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(json.dumps(report, indent=1) + "\n")
+        print(f"{key}: report from {fetch['branch']} at {commit[0]} ({commit[1]})")
+
+
+def measure(version: dict) -> dict | None:
+    """The version's code progress from its own report, in one shape:
+    matched/total code bytes, matched/total functions (when counted), fuzzy %, and the date."""
+    progress = version.get("progress")
+    if not progress:
+        return None
+    path = ROOT / progress["report"]
+    if not path.exists():
+        return {"missing": progress["report"]}
+    report = json.loads(path.read_text())
+    if progress["format"] == "objdiff":
+        m = report["measures"]
+        out = {"matched_code": int(m.get("matched_code", 0)), "total_code": int(m["total_code"]),
+               "matched_functions": m.get("matched_functions"), "total_functions": m.get("total_functions"),
+               "fuzzy_percent": round(float(m.get("fuzzy_match_percent", 0)), 2)}
+        out["date"] = report.get("openrac_source", {}).get("date") or report_date(version, path)
+    elif progress["format"] == "rac2-proof":
+        scope = json.loads((path.parent.parent / "config/progress-scope.json").read_text())
+        total = sum(s["size"] for p in scope["programs"] for s in p["sections"] if s["flags"] & 4)
+        out = {"matched_code": report["integrated_code_bytes"], "total_code": total,
+               "matched_functions": None, "total_functions": None, "fuzzy_percent": None,
+               "date": report.get("verified_at", "")[:10]}
+    else:
+        raise SystemExit(f"{progress['report']}: unknown progress format {progress['format']}")
+    out["percent"] = round(100.0 * out["matched_code"] / out["total_code"], 2) if out["total_code"] else 0.0
+    return out
+
+
+def report_date(version: dict, path: Path) -> str:
+    """When the report last changed: in its sister project's history when the checkout is
+    there and the file came from it, else in OpenRAC's."""
+    source = version.get("source")
+    for repo, rel in ((Path(os.path.expanduser(source["checkout"])) if source else None, None), (ROOT, path)):
+        if repo is None or not (repo / ".git").exists():
+            continue
+        if rel is None:
+            game_dir = next((d for d in GAMES.glob("*/*") if d.is_dir() and d in path.parents), None)
+            if game_dir is None:
+                continue
+            rel, rev = path.relative_to(game_dir), source["commit"]
+        else:
+            rev = "HEAD"
+        run = subprocess.run(["git", "-C", str(repo), "log", "-1", "--format=%cs", rev, "--", str(rel)],
+                             capture_output=True, text=True)
+        if run.stdout.strip():
+            return run.stdout.strip()
+    return "uncommitted"
+
+
+def progress(fetch: bool) -> None:
+    if fetch:
+        fetch_reports()
+    rows, summary = [], {}
+    for game, name, version in versions():
+        key = f"{game['id']}/{name}"
+        m = measure(version)
+        summary[key] = {"title": game["title"], "region": version["region"], "serial": version["serial"],
+                        "progress": m, "note": version.get("progress", {}).get("note")}
+        rows.append((game, name, version, m))
+    PROGRESS.mkdir(exist_ok=True)
+    (PROGRESS / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n")
+    table = render(rows)
+    (PROGRESS / "README.md").write_text(
+        "# Progress\n\n"
+        "Generated by `python3 tools/openrac.py progress` from each game's own report; do not\n"
+        "edit by hand. Each project measures its own scope (see the notes), so the percentages\n"
+        "are comparable within a game, not between games.\n\n" + table + "\n" + notes(rows))
+    readme = ROOT / "README.md"
+    text = readme.read_text() if readme.exists() else ""
+    if MARK_BEGIN in text and MARK_END in text:
+        head, rest = text.split(MARK_BEGIN, 1)
+        readme.write_text(head + MARK_BEGIN + "\n" + table + MARK_END + rest.split(MARK_END, 1)[1])
+    print(table)
+
+
+def render(rows) -> str:
+    out = ["| Game | Version | Code matched | Functions | Fuzzy | Report date |",
+           "|---|---|---:|---:|---:|---|"]
+    for game, name, version, m in rows:
+        where = f"[`games/{game['id']}/{name}`](games/{game['id']}/{name})" if version.get("source") else "not started"
+        label = f"{version['serial']} ({where})"
+        if m is None:
+            out.append(f"| {game['title']} | {label} | – | – | – | – |")
+        elif "missing" in m:
+            out.append(f"| {game['title']} | {label} | no report (`{m['missing']}`) | – | – | – |")
+        else:
+            fns = (f"{m['matched_functions']:,} / {m['total_functions']:,}"
+                   if m["matched_functions"] is not None else "not counted")
+            fuzzy = f"{m['fuzzy_percent']:.2f}%" if m["fuzzy_percent"] is not None else "–"
+            out.append(f"| {game['title']} | {label} | {m['percent']:.2f}% "
+                       f"({m['matched_code']:,} / {m['total_code']:,} bytes) | {fns} | {fuzzy} | {m['date']} |")
+    return "\n".join(out) + "\n"
+
+
+def notes(rows) -> str:
+    lines = [f"- **{game['id']}/{name}**: {version['progress']['note']}"
+             for game, name, version, _ in rows if version.get("progress", {}).get("note")]
+    return ("## Notes\n\n" + "\n".join(lines) + "\n") if lines else ""
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    if args[:1] == ["discs"]:
+        scan(full="--full" in args)
+    elif args[:1] == ["setup"]:
+        setup(args[1:])
+    elif args[:1] == ["progress"]:
+        progress(fetch="--fetch" in args)
+    else:
+        sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main()

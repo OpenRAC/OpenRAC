@@ -48,8 +48,24 @@
       },
       "progress": {
         "report": "games/rac1/pal/progress/report.json",
-        "format": "objdiff"
-      }
+        "format": "objdiff",
+        "note": "The boot executable and all 19 level programs. Handwritten assembly and linker remnants count as finished; staged near misses (nonmatching/) give the fuzzy figure."
+      },
+      "inputs": [
+        {
+          "from": "disc",
+          "path": "games/rac1/pal/baserom/SCES_509.16.iso"
+        },
+        {
+          "from": "boot",
+          "path": "games/rac1/pal/baserom/SCES_509.16"
+        },
+        {
+          "from": "toolchains",
+          "path": "games/rac1/pal/toolchain"
+        }
+      ],
+      "setup": "in games/rac1/pal: bash tools/docker/run.sh bash tools/setup_asm.sh, then bash tools/docker/run.sh bash tools/build_sn.sh (its README; toolchains/README.md for the compilers)"
     },
     "ntsc": {
       "region": "NTSC-U (North America)",
@@ -92,8 +108,23 @@
       "progress": {
         "report": "progress/sources/rac1-ntsc.json",
         "format": "objdiff",
-        "note": "Lombyte commits no report; its CI publishes one on the project's progress branch, copied here."
-      }
+        "note": "Lombyte commits no report: its CI publishes one on the project's progress branch, which `openrac.py progress --fetch` copies to progress/sources/. Byte-weighted over the boot executable and the 19 level programs.",
+        "fetch": {
+          "branch": "progress",
+          "path": "report.json"
+        }
+      },
+      "inputs": [
+        {
+          "from": "disc",
+          "path": "games/rac1/ntsc/dumps/SCUS_971.99.iso"
+        },
+        {
+          "from": "boot",
+          "path": "games/rac1/ntsc/config/us/SCUS_971.99"
+        }
+      ],
+      "setup": "in games/rac1/ntsc: ./setup.sh --elf config/us/SCUS_971.99 (Linux or WSL; add --docker on macOS), then make elf"
     }
   }
 }

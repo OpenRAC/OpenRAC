@@ -28,7 +28,9 @@
         "sha1": "aa91b1c3b9b1a244320c47580b77342ef9856e95",
         "sha256": "2f305ab0ed47f148f599ef8769a534adf4080307aa11ab26a7966dedec897ed6"
       },
-      "target": "Not started: the disc is identified so work can begin from it."
+      "target": "Not started: the disc is identified so work can begin from it.",
+      "inputs": [],
+      "setup": "not started"
     }
   }
 }

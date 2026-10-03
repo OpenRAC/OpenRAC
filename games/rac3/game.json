@@ -48,8 +48,11 @@
       },
       "progress": {
         "report": "games/rac3/ntsc/progress_report.json",
-        "format": "objdiff"
-      }
+        "format": "objdiff",
+        "note": "The committed report is from 2026-10-01; the project's README counts 1,441 of 31,316 functions matched on 2026-10-03. It covers frontbin.elf, plus the level programs and other executables, which are counted but not compiled yet."
+      },
+      "inputs": [],
+      "setup": "extract frontbin.elf from the disc with Wrench (games/uya_scus_973_53/globals/misc) into games/rac3/ntsc/, then python3 tools/setup_asm.py there (its README)"
     }
   }
 }
