@@ -1,12 +1,12 @@
 {
  "measures": {
-  "fuzzy_match_percent": 22.701840838524358,
+  "fuzzy_match_percent": 22.70008918317348,
   "total_code": "3712808",
-  "matched_code": "734720",
-  "matched_code_percent": 19.7887959732903,
+  "matched_code": "736084",
+  "matched_code_percent": 19.825533666163185,
   "total_functions": 5109,
-  "matched_functions": 2776,
-  "matched_functions_percent": 54.3354863965551,
+  "matched_functions": 2777,
+  "matched_functions_percent": 54.35505969857115,
   "complete_code": "90120",
   "complete_code_percent": 2.4272733736837457,
   "total_units": 278,
@@ -41715,7 +41715,7 @@
   {
    "name": "Level 04: Eudora",
    "measures": {
-    "fuzzy_match_percent": 9.410315872598053,
+    "fuzzy_match_percent": 9.430038167938932,
     "total_code": "60784",
     "matched_code": "3504",
     "matched_code_percent": 5.764674914451171,
@@ -42109,7 +42109,7 @@
     {
      "name": "func_L04_002D48B8",
      "size": "148",
-     "fuzzy_match_percent": 91.89,
+     "fuzzy_match_percent": 99.99,
      "address": "923984",
      "metadata": {
       "virtual_address": "2967736"
@@ -50625,13 +50625,13 @@
   {
    "name": "Level 16: Kalebo III",
    "measures": {
-    "fuzzy_match_percent": 26.59204956929122,
+    "fuzzy_match_percent": 26.63585340788877,
     "total_code": "132340",
-    "matched_code": "26168",
-    "matched_code_percent": 19.77331116820311,
+    "matched_code": "27532",
+    "matched_code_percent": 20.803989723439624,
     "total_functions": 98,
-    "matched_functions": 62,
-    "matched_functions_percent": 63.265306122448976,
+    "matched_functions": 63,
+    "matched_functions_percent": 64.28571428571429,
     "complete_code": "0",
     "complete_code_percent": 0.0,
     "total_units": 1,
@@ -51145,7 +51145,7 @@
     {
      "name": "func_L16_002E45F8",
      "size": "1364",
-     "fuzzy_match_percent": 95.75,
+     "fuzzy_match_percent": 100.0,
      "address": "895072",
      "metadata": {
       "virtual_address": "3032568"
@@ -52119,7 +52119,7 @@
   {
    "name": "Level 18: Veldin (return)",
    "measures": {
-    "fuzzy_match_percent": 34.20506845422608,
+    "fuzzy_match_percent": 34.117890318247575,
     "total_code": "154848",
     "matched_code": "29360",
     "matched_code_percent": 18.960529034924573,
@@ -52288,7 +52288,7 @@
     {
      "name": "func_L18_002D74F8",
      "size": "136",
-     "fuzzy_match_percent": 99.26,
+     "fuzzy_match_percent": 0.0,
      "address": "799680",
      "metadata": {
       "virtual_address": "2979064"
@@ -53263,13 +53263,13 @@
    "id": "level_code",
    "name": "Level code",
    "measures": {
-    "fuzzy_match_percent": 17.63482344289133,
+    "fuzzy_match_percent": 17.632820565253756,
     "total_code": "3247108",
-    "matched_code": "465096",
-    "matched_code_percent": 14.323391768921761,
+    "matched_code": "466460",
+    "matched_code_percent": 14.365398379111506,
     "total_functions": 3429,
-    "matched_functions": 1475,
-    "matched_functions_percent": 43.015456401283174,
+    "matched_functions": 1476,
+    "matched_functions_percent": 43.044619422572175,
     "complete_code": "2416",
     "complete_code_percent": 0.07440467024811001
    }
@@ -53323,13 +53323,13 @@
    "id": "levels",
    "name": "Level-specific code",
    "measures": {
-    "fuzzy_match_percent": 13.725117880458157,
+    "fuzzy_match_percent": 13.72193995543568,
     "total_code": "2046480",
-    "matched_code": "211992",
-    "matched_code_percent": 10.35886009147414,
+    "matched_code": "213356",
+    "matched_code_percent": 10.425511121535514,
     "total_functions": 1449,
-    "matched_functions": 597,
-    "matched_functions_percent": 41.200828157349896,
+    "matched_functions": 598,
+    "matched_functions_percent": 41.26984126984127,
     "complete_code": "0",
     "complete_code_percent": 0.0
    }
@@ -53398,7 +53398,7 @@
    "id": "level_04",
    "name": "Level 04: Eudora",
    "measures": {
-    "fuzzy_match_percent": 9.410315872598053,
+    "fuzzy_match_percent": 9.430038167938932,
     "total_code": "60784",
     "matched_code": "3504",
     "matched_code_percent": 5.764674914451171,
@@ -53578,13 +53578,13 @@
    "id": "level_16",
    "name": "Level 16: Kalebo III",
    "measures": {
-    "fuzzy_match_percent": 26.59204956929122,
+    "fuzzy_match_percent": 26.63585340788877,
     "total_code": "132340",
-    "matched_code": "26168",
-    "matched_code_percent": 19.77331116820311,
+    "matched_code": "27532",
+    "matched_code_percent": 20.803989723439624,
     "total_functions": 98,
-    "matched_functions": 62,
-    "matched_functions_percent": 63.265306122448976,
+    "matched_functions": 63,
+    "matched_functions_percent": 64.28571428571429,
     "complete_code": "0",
     "complete_code_percent": 0.0
    }
@@ -53608,7 +53608,7 @@
    "id": "level_18",
    "name": "Level 18: Veldin (return)",
    "measures": {
-    "fuzzy_match_percent": 34.20506845422608,
+    "fuzzy_match_percent": 34.117890318247575,
     "total_code": "154848",
     "matched_code": "29360",
     "matched_code_percent": 18.960529034924573,

@@ -44,7 +44,9 @@ extern void func_L00_0025AC00(char *,float,int,int,void *,void *);
 extern float func_00214358(void *,int,float);
 extern float func_001F9B88(float);
 extern int func_001F9938(void *);
-extern void func_L00_00263950(int,unsigned char *,int,float,float);
+/* Its own name for func_L00_00263950: the file now declares it
+   (float, float, void *, void *, int). */
+extern void func_L00_00263950_1868(int,unsigned char *,int,float,float) __asm__("func_L00_00263950");
 extern float func_001FA748(float,float);
 extern void func_L00_00250800(void *,int,void *);
 extern void func_L00_001FF4B0(void *,void *,float);
@@ -207,10 +209,10 @@ void func_L16_002D1868(unsigned char *m) {
         rear_pose=d+0x1E0; front=d+0x60;
         { float coefficient=D_0015EE64;
         F(d,0x248)=rate*30.0f; F(d,0xC8)=rate*20.0f; F(d,0x1C8)=rate*50.0f; F(d,0x144)=rate*40.0f;
-        func_L00_00263950((int)m,(unsigned char *)rear_pose,3,coefficient*0.02f,coefficient*0.3f); }
-        func_L00_00263950((int)m,(unsigned char *)front,0,D_0015EE64*0.02f,D_0015EE64*0.3f);
-        func_L00_00263950((int)m,(unsigned char *)middle,1,D_0015EE64*0.02f,D_0015EE64*0.3f);
-        func_L00_00263950((int)m,(unsigned char *)back,2,D_0015EE64*0.015f,D_0015EE64*0.3f);
+        func_L00_00263950_1868((int)m,(unsigned char *)rear_pose,3,coefficient*0.02f,coefficient*0.3f); }
+        func_L00_00263950_1868((int)m,(unsigned char *)front,0,D_0015EE64*0.02f,D_0015EE64*0.3f);
+        func_L00_00263950_1868((int)m,(unsigned char *)middle,1,D_0015EE64*0.02f,D_0015EE64*0.3f);
+        func_L00_00263950_1868((int)m,(unsigned char *)back,2,D_0015EE64*0.015f,D_0015EE64*0.3f);
         qcopy(mpos,spawn);
         { float bob_time=D_0015EE6C;
         F(m,0x18)+=0.25f;
