@@ -32,6 +32,9 @@ Everything else is exactly as it was at that commit.
   editor, `baserom/` and `toolchains/` are reachable.
 - `tools/wave.py` names its own directory in worker prompts instead of a
   path on one machine.
+- `tools/lombyte.py` and `tools/names.py` read Lombyte from
+  `games/rac1/ntsc` and its published report from `progress/sources/`;
+  `docs/SIBLING_DECOMPS.md` says where the sibling projects are.
 
 **rac1/ntsc**
 - The README credits the NTSC decomp by that name only
