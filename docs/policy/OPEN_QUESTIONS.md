@@ -46,7 +46,11 @@ rather than retail ([SOURCING.md](SOURCING.md#prerelease-builds)):
   `MobyInstance` blocks are attributed to STABS debug information without
   naming the build; no C file uses them. The `MobyInstance` field list is
   the same as the one left out of rac2 ([SOURCES.md](../SOURCES.md)),
-  whose copy said it came from a leaked build.
+  whose copy said it came from a leaked build. It also disagrees with
+  matched retail code: `InitMobyInstance` (`func_0020D440`,
+  [src/game/mobyfunc.c](../../games/rac1/pal/src/game/mobyfunc.c)) stores a
+  float at +0x2C and a short at +0xA6, where the header has bytes, so it may
+  describe another build of the engine.
 - rac1/ntsc [docs/engine-source-layout.md](../../games/rac1/ntsc/docs/engine-source-layout.md):
   original source file names and structures from 2002 development and demo builds.
 - rac2 [include/flags.h](../../games/rac2/ntsc/include/flags.h) and
