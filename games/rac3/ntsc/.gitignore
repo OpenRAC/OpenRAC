@@ -23,3 +23,6 @@ asm/
 
 # decomp-permuter work dirs (tools/permuter_setup.py)
 /nonmatchings/
+
+# splat writes its own linker script next to ours; the build uses linker_scripts/frontbin.ld
+linker_scripts/frontbin.splat.ld
