@@ -44,11 +44,15 @@ project's README still names SN ProDG 3.01 for the C
 
 ## Ratchet & Clank: Up Your Arsenal (`games/rac3/ntsc`)
 
-SN Systems ee-gcc 2.95.3 v1.36, from the same SN ProDG 3.01 mirror, arranged
-in the layout its [Setup page](../games/rac3/ntsc/docs/wiki/Setup.md) shows
-(`bin/ee-gcc2953.exe`, `bin/ee-as.exe`, `ee/bin/Ps2EeAs.exe`, ...). Keeping
-that folder here, for example as `toolchains/eegcc_2.95.3_sn_v1.36`, works:
-point `UYA_TOOLCHAIN` (or `--toolchain`) at it.
+SN Systems ee-gcc 2.95.3 v1.36 is the `usr/local/sce/ee/gcc` tree of the
+`sn-prodg-3.01` mirror above: its `cc1` reports "2.95.3 SN BUILD 1.36", and the
+tree already has the layout the project's
+[Setup page](../games/rac3/ntsc/docs/wiki/Setup.md) shows (`bin/ee-gcc2953.exe`,
+`bin/ee-as.exe`, `ee/bin/as.exe`, `ee/bin/Ps2EeAs.exe`, ...). `python3
+tools/openrac.py setup rac3/ntsc` links `toolchains/eegcc_2.95.3_sn_v1.36` to
+it; point `UYA_TOOLCHAIN` (or `--toolchain`) there. (`sn-prodg-24`'s 2.95.3 is
+SN BUILD 1.14, the one rac1/pal uses.) The full macOS and Linux recipe is in
+[games/rac3/README.md](../games/rac3/README.md#getting-started).
 
 ## Ratchet: Deadlocked (`games/rac4`)
 
