@@ -27,6 +27,9 @@ python scripts/doctor.py                   # what your environment has and lacks
 ```
 
 The setup and build steps, and the toolchains they need, are in
-[ntsc/README.md](ntsc/README.md). `scripts/setup.py --iso` takes the image in
+[ntsc/README.md](ntsc/README.md) (Windows with WSL). On macOS and Linux,
+[ntsc/host/README.md](ntsc/host/README.md) runs the same pipeline unchanged; on
+an Apple Silicon Mac it rebuilt the boot and all 27 overlays byte for byte and
+passed every C check (2026-10-03). `scripts/setup.py --iso` takes the image in
 OpenRAC's `baserom/` directly. Its runtime directory must be outside
 `games/rac2/ntsc`; OpenRAC's ignored `build/` works (`--runtime ../../../build/rac2-runtime`).

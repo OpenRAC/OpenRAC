@@ -54,9 +54,14 @@ Everything else is exactly as it was at that commit.
   used.
 - `AGENTS.md` and `.gitmessage` use OpenRAC's commit convention instead of
   the Lombyte style.
+- Added `host/`: running the pipeline on macOS and Linux, unchanged (nothing
+  in the project reads or hashes it).
 
 **rac3/ntsc**
 - Left out `localdecomp/server.py.bak_0926`, a stale backup of `server.py`.
+- `localdecomp/server.py` commits and pushes only when its project is the top
+  of its own git work tree, so never into OpenRAC.
+- `.gitignore` covers the linker script splat writes during setup.
 
 ## Bringing in later work
 
