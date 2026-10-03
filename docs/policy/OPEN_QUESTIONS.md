@@ -95,7 +95,11 @@ their provenance noted.
   (`rosetta error: invalid gdt selector`, then Wine's status c0000018, even
   with a 32-bit prefix). It needs QEMU emulation instead: in OrbStack
   `orb config set rosetta false`, in Docker Desktop turn off "Use Rosetta for
-  x86/amd64 emulation". rac1/pal's linux/386 image is not affected.
+  x86/amd64 emulation". rac1/pal's linux/386 image is not affected. With
+  `RNC_WINE` pointing at wibo's i686 build instead of Wine, 4,366 of the
+  4,368 build steps run under Rosetta (2026-10-03); the two units compiled by
+  SN's `ee-gcc.exe` driver (`audio/rpc`) still fail, because wibo cannot start
+  the driver's child processes under QEMU's 32-bit emulation.
 - rac2 builds on Windows with WSL only (`scripts/wsl_chain.py` has
   machine-specific defaults).
 - rac3 builds on Windows, or on Linux and macOS with wibo; several tools
