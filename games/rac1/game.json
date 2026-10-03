@@ -1,0 +1,99 @@
+{
+  "id": "rac1",
+  "title": "Ratchet & Clank",
+  "year": 2002,
+  "titles": {
+    "pal": "Ratchet & Clank"
+  },
+  "versions": {
+    "pal": {
+      "region": "PAL (Europe)",
+      "serial": "SCES_509.16",
+      "disc": {
+        "file": "SCES_509.16.iso",
+        "volume": "RATCHETANDCLANK",
+        "version": "2.00",
+        "video": "PAL",
+        "size": 4214784000,
+        "crc32": "e417c4b2",
+        "md5": "32b8347b2bb80cd30d30ba0601ebb0ee",
+        "sha1": "ef304c641c7cd426ba492707dda5974679befbc0",
+        "sha256": "0f18a6c84cd8d727ec8c21000a236ed5ce2f279cbb8d0682fa9747199ef73260"
+      },
+      "boot": {
+        "file": "SCES_509.16",
+        "size": 1388100,
+        "crc32": "3b34cb54",
+        "md5": "d86429e2eca4e1da7d7f1cc656af2574",
+        "sha1": "79956931bd62fafd8d20fa2eae796dbaf2e15e83",
+        "sha256": "17f8a846329fd10798cb97847e9610e5eecd1867668420ed627b2292a96b122b"
+      },
+      "target": "The boot executable SCES_509.16 and the 19 level programs (overlays), matched function by function.",
+      "source": {
+        "name": "rac1-decomp",
+        "repo": "https://github.com/Lynder063/rac1-decomp",
+        "branch": "main",
+        "checkout": "~/Projects/rac1-decomp",
+        "license": "MIT",
+        "exclude": [
+          ".agents"
+        ],
+        "commit": "e67fe2010ed1265b4411dc7c2cd44df7df9639d1",
+        "date": "2026-10-03",
+        "imported": "2026-10-03"
+      },
+      "build": {
+        "host": "macOS or Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",
+        "readme": "games/rac1/pal/README.md"
+      },
+      "progress": {
+        "report": "games/rac1/pal/progress/report.json",
+        "format": "objdiff"
+      }
+    },
+    "ntsc": {
+      "region": "NTSC-U (North America)",
+      "serial": "SCUS_971.99",
+      "disc": {
+        "file": "SCUS_971.99.iso",
+        "volume": "RATCHETANDCLANK",
+        "version": "1.00",
+        "video": "NTSC",
+        "size": 4214095872,
+        "crc32": "960318d0",
+        "md5": "a62a8ae0e44c2580be38c82f48b7d181",
+        "sha1": "aee9275384f739c9b24cd5de6f7e200292db7b01",
+        "sha256": "ab849fe7cc9cc81c487d61b0d3ea15b5849943481b6a6ebf4d9aa9cf7bc40d9d"
+      },
+      "boot": {
+        "file": "SCUS_971.99",
+        "size": 1383028,
+        "crc32": "bb737a9f",
+        "md5": "0c081d4e0353b419d95e5f95eb0ebacb",
+        "sha1": "72fd1de379dafd8f243dceeb3be50980f3fd3cd5",
+        "sha256": "e050581032e4bb3f20341307da5b69b76f1574910519155380ea771e55c3c0c9"
+      },
+      "target": "The boot executable SCUS_971.99 and the 19 level programs, as per-function units.",
+      "source": {
+        "name": "Lombyte",
+        "repo": "https://github.com/mateuszklysz/Lombyte",
+        "branch": "main",
+        "checkout": "~/Projects/rac1-decomp-ntsc",
+        "license": "MIT",
+        "exclude": [],
+        "commit": "64543183305bb5bcda0b40235b4a782a5218833b",
+        "date": "2026-10-03",
+        "imported": "2026-10-03"
+      },
+      "build": {
+        "host": "Linux or WSL; macOS through ./setup.sh --docker; toolchains downloaded and built by setup.sh",
+        "readme": "games/rac1/ntsc/README.md"
+      },
+      "progress": {
+        "report": "progress/sources/rac1-ntsc.json",
+        "format": "objdiff",
+        "note": "Lombyte commits no report; its CI publishes one on the project's progress branch, copied here."
+      }
+    }
+  }
+}

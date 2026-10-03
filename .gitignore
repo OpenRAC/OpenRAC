@@ -1,0 +1,23 @@
+# Your own discs, and everything extracted or built from them, never go into
+# git (docs/policy/SOURCING.md). Each game directory has its own .gitignore
+# for its build output; these rules cover the shared top level.
+/baserom/*
+!/baserom/README.md
+/build/
+/assets/
+/toolchains/*
+!/toolchains/README.md
+
+# Python and editors
+__pycache__/
+*.pyc
+.venv/
+venv*/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Agent worktrees and local notes
+.claude/worktrees/
+.claude/settings.local.json

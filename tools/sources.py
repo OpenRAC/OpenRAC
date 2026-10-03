@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""
+Imports and syncs the sister projects whose trees live under games/
+(docs/SOURCES.md).
+
+Each version in games/<game>/game.json names its source project: the
+repository, branch and local checkout, the commit last brought in, and
+the paths left out. An import copies one commit's tree (git archive),
+never a working tree, so nothing uncommitted in a checkout comes along.
+A sync applies the project's diff since the recorded commit, so edits
+made here (docs/SOURCES.md lists them) survive, and a hunk that touches
+one is left as a .rej file to resolve by hand.
+
+  python3 tools/sources.py status                    how far each checkout is past its recorded commit
+  python3 tools/sources.py import GAME/VERSION [REV] copy REV (default: the checkout's HEAD) into an empty directory
+  python3 tools/sources.py sync GAME/VERSION [REV]   apply the diff from the recorded commit to REV
+
+A checkout is looked for at the path in game.json (~ is your home), or
+in $OPENRAC_SOURCE_<GAME>_<VERSION> (e.g. OPENRAC_SOURCE_RAC1_NTSC).
+After an import or sync, review the result and commit it together with
+the updated game.json.
+"""
+import io
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tarfile
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+GAMES = ROOT / "games"
+
+
+def manifests() -> dict[str, tuple[Path, dict]]:
+    """'game/version' -> (its game.json, the whole manifest), for every version with a source."""
+    out = {}
+    for path in sorted(GAMES.glob("*/game.json")):
+        game = json.loads(path.read_text())
+        for version, info in game["versions"].items():
+            if info.get("source"):
+                out[f"{game['id']}/{version}"] = (path, game)
+    return out
+
+
+def checkout(key: str, source: dict) -> Path:
+    env = "OPENRAC_SOURCE_" + key.replace("/", "_").upper()
+    return Path(os.environ.get(env) or os.path.expanduser(source["checkout"]))
+
+
+def git(repo: Path, *args: str, binary: bool = False):
+    run = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, check=True)
+    return run.stdout if binary else run.stdout.decode().strip()
+
+
+def excluded(path: str, exclude: list[str]) -> bool:
+    return any(path == e or path.startswith(e.rstrip("/") + "/") for e in exclude)
+
+
+def do_import(key: str, rev: str | None) -> None:
+    path, game = manifests()[key]
+    version = key.split("/")[1]
+    source = game["versions"][version]["source"]
+    repo, dest = checkout(key, source), GAMES / key
+    if dest.exists() and any(p.name != ".gitkeep" for p in dest.iterdir()):
+        sys.exit(f"{dest.relative_to(ROOT)} is not empty: use sync")
+    commit = git(repo, "rev-parse", rev or "HEAD")
+    data = git(repo, "archive", "--format=tar", commit, binary=True)
+    exclude = source.get("exclude", [])
+    count = 0
+    with tarfile.open(fileobj=io.BytesIO(data)) as tar:
+        members = [m for m in tar.getmembers() if not excluded(m.name, exclude)]
+        dest.mkdir(parents=True, exist_ok=True)
+        tar.extractall(dest, members=members, filter="data")
+        count = sum(m.isfile() for m in members)
+    record(path, game, version, commit, repo)
+    print(f"{key}: imported {count} files from {source['name']} at {commit[:10]}")
+
+
+def do_sync(key: str, rev: str | None) -> None:
+    path, game = manifests()[key]
+    version = key.split("/")[1]
+    source = game["versions"][version]["source"]
+    repo, dest = checkout(key, source), GAMES / key
+    commit = git(repo, "rev-parse", rev or "HEAD")
+    if commit == source["commit"]:
+        print(f"{key}: already at {commit[:10]}")
+        return
+    specs = [f":(exclude){e}" for e in source.get("exclude", [])]
+    diff = git(repo, "diff", "--binary", source["commit"], commit, "--", ".", *specs, binary=True)
+    apply = subprocess.run(["git", "apply", "--reject", f"--directory={dest.relative_to(ROOT)}"],
+                           input=diff, cwd=ROOT, capture_output=True)
+    sys.stderr.write(apply.stderr.decode())
+    record(path, game, version, commit, repo)
+    state = "with rejected hunks (*.rej) to resolve" if apply.returncode else "cleanly"
+    print(f"{key}: applied {source['commit'][:10]}..{commit[:10]} {state}")
+
+
+def record(path: Path, game: dict, version: str, commit: str, repo: Path) -> None:
+    source = game["versions"][version]["source"]
+    source["commit"] = commit
+    source["date"] = git(repo, "log", "-1", "--format=%cs", commit)
+    source["imported"] = time.strftime("%Y-%m-%d")
+    path.write_text(json.dumps(game, indent=2, ensure_ascii=False) + "\n")
+
+
+def do_status() -> None:
+    for key, (_, game) in manifests().items():
+        source = game["versions"][key.split("/")[1]]["source"]
+        repo = checkout(key, source)
+        if not (repo / ".git").exists():
+            print(f"{key}: no checkout at {repo}")
+            continue
+        ahead = git(repo, "rev-list", "--count", f"{source['commit']}..HEAD")
+        print(f"{key}: {source['name']} at {source['commit'][:10]} ({source['date']}); "
+              f"checkout {repo} is {ahead} commits past it")
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    if args[:1] == ["status"]:
+        do_status()
+    elif args[:1] in (["import"], ["sync"]) and len(args) in (2, 3):
+        (do_import if args[0] == "import" else do_sync)(args[1], args[2] if len(args) == 3 else None)
+    else:
+        sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main()

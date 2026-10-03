@@ -1,0 +1,55 @@
+{
+  "id": "rac2",
+  "title": "Ratchet & Clank: Going Commando",
+  "year": 2003,
+  "titles": {
+    "pal": "Ratchet & Clank 2: Locked and Loaded"
+  },
+  "versions": {
+    "ntsc": {
+      "region": "NTSC-U (North America), v1.01",
+      "serial": "SCUS_972.68",
+      "disc": {
+        "file": "SCUS_972.68.iso",
+        "volume": "RATCHETANDCLANK2",
+        "version": "1.01",
+        "video": "NTSC",
+        "size": 3828350976,
+        "crc32": "6d1fc798",
+        "md5": "3cbbb5127ee8a0be93ef0876f7781ee8",
+        "sha1": "f2cfaf0eb12b3c0d8fd6db7aa49ce032e8a6020b",
+        "sha256": "9db2e33e276133cc283647fa3279b37911955e123d6199d10065547eaa9b1ce5"
+      },
+      "boot": {
+        "file": "SCUS_972.68",
+        "size": 2618684,
+        "crc32": "0fa89158",
+        "md5": "e514263cd9b01cad088839fbe8585e1e",
+        "sha1": "bacda860cbd6723142e86db56f197e47e728970f",
+        "sha256": "36d5814d8d95328d5839612ccdf7a2e7ecac0b6f868d3ad4bb2e98411f734b4a"
+      },
+      "target": "The boot executable SCUS_972.68 and its 27 level overlays: the whole program rebuilds from reconstructed assembly, and C replaces it function by function.",
+      "source": {
+        "name": "rac2-decomp",
+        "repo": "https://github.com/llesieur99/rac2-decomp",
+        "branch": "RAC2",
+        "checkout": "~/Projects/rac2-decomp",
+        "license": "MIT",
+        "exclude": [
+          "include/moby.h"
+        ],
+        "commit": "0fd4b77553818cf078363ea6548068188d4b6164",
+        "date": "2026-10-03",
+        "imported": "2026-10-03"
+      },
+      "build": {
+        "host": "Windows with WSL for the C compiler; SN ProDG 2.0 assembler and linker you supply",
+        "readme": "games/rac2/ntsc/README.md"
+      },
+      "progress": {
+        "report": "games/rac2/ntsc/progress/report.json",
+        "format": "rac2-proof"
+      }
+    }
+  }
+}

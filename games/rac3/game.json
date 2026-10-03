@@ -1,0 +1,55 @@
+{
+  "id": "rac3",
+  "title": "Ratchet & Clank: Up Your Arsenal",
+  "year": 2004,
+  "titles": {
+    "pal": "Ratchet & Clank 3"
+  },
+  "versions": {
+    "ntsc": {
+      "region": "NTSC-U (North America)",
+      "serial": "SCUS_973.53",
+      "disc": {
+        "file": "SCUS_973.53.iso",
+        "volume": "RATCHETANDCLANK3",
+        "version": "1.00",
+        "video": "NTSC",
+        "size": 4379377664,
+        "crc32": "2b9b91f7",
+        "md5": "ba9f2b38c7346e7b6e5b8e87717d5893",
+        "sha1": "b080139c5a94688ef9472b78d5f5585a756d1ee4",
+        "sha256": "d2bb15c7c5b2205db868713fc0362c2b10e87751ca5bcc4e96c1e244a8c42444"
+      },
+      "boot": {
+        "file": "SCUS_973.53",
+        "size": 771008,
+        "crc32": "01affd24",
+        "md5": "c6075c4a296f656648bc9f64f4f1b09b",
+        "sha1": "601012bb03ef1213ad1253baebae8a071b8a7df7",
+        "sha256": "200068cb4186715521cdc1c20bc6c5a88054d0da54aa336ffdb2022633351c7d"
+      },
+      "target": "frontbin.elf, the frontend and menu program (SHA-1 3bc94ee895e4b4af9b5602a229af599c1103b542), extracted from the disc with Wrench; level programs and other executables are counted for progress.",
+      "source": {
+        "name": "ratchet-uya-decomp",
+        "repo": "https://github.com/vetusmagnus/ratchet-uya-decomp",
+        "branch": "main",
+        "checkout": "~/Projects/rac3-decomp",
+        "license": "none stated",
+        "exclude": [
+          "localdecomp/server.py.bak_0926"
+        ],
+        "commit": "dcc2c1f28414074a899e3059aec5c86f0c9e547d",
+        "date": "2026-10-03",
+        "imported": "2026-10-03"
+      },
+      "build": {
+        "host": "Windows with SN ee-gcc 2.95.3 v1.36; Linux or macOS through tools/build.py with wibo",
+        "readme": "games/rac3/ntsc/README.md"
+      },
+      "progress": {
+        "report": "games/rac3/ntsc/progress_report.json",
+        "format": "objdiff"
+      }
+    }
+  }
+}
