@@ -1,0 +1,2218 @@
+{
+  "$schema": "https://raw.githubusercontent.com/encounter/objdiff/main/config.schema.json",
+  "min_version": "2.0.0",
+  "build_target": false,
+  "target_dir": "build/objdiff/target",
+  "base_dir": "build/objdiff/base",
+  "watch_patterns": [
+    "*.c",
+    "*.h",
+    "*.s",
+    "*.inc"
+  ],
+  "progress_categories": [
+    {
+      "id": "frontend",
+      "name": "Frontend / Menu"
+    },
+    {
+      "id": "singleplayer",
+      "name": "Singleplayer Levels"
+    },
+    {
+      "id": "multiplayer",
+      "name": "Multiplayer Levels"
+    },
+    {
+      "id": "levels",
+      "name": "Level code"
+    },
+    {
+      "id": "common_level_code",
+      "name": "Common level code"
+    },
+    {
+      "id": "level_specific",
+      "name": "Level-specific code"
+    },
+    {
+      "id": "common_level_data",
+      "name": "Common level data"
+    },
+    {
+      "id": "level_data",
+      "name": "Level-specific data"
+    },
+    {
+      "id": "level_01",
+      "name": "Level 01: Veldin"
+    },
+    {
+      "id": "level_02",
+      "name": "Level 02: Florana"
+    },
+    {
+      "id": "level_03",
+      "name": "Level 03: Starship Phoenix"
+    },
+    {
+      "id": "level_04",
+      "name": "Level 04: Marcadia"
+    },
+    {
+      "id": "level_05",
+      "name": "Level 05: Daxx"
+    },
+    {
+      "id": "level_06",
+      "name": "Level 06: Starship Phoenix Under Attack"
+    },
+    {
+      "id": "level_07",
+      "name": "Level 07: Annihilation Nation"
+    },
+    {
+      "id": "level_08",
+      "name": "Level 08: Aquatos"
+    },
+    {
+      "id": "level_09",
+      "name": "Level 09: Tyhrranosis"
+    },
+    {
+      "id": "level_10",
+      "name": "Level 10: Zeldrin Starport"
+    },
+    {
+      "id": "level_11",
+      "name": "Level 11: Obani Moons"
+    },
+    {
+      "id": "level_12",
+      "name": "Level 12: Rilgar"
+    },
+    {
+      "id": "level_13",
+      "name": "Level 13: Holostar Studios (Ratchet)"
+    },
+    {
+      "id": "level_14",
+      "name": "Level 14: Koros"
+    },
+    {
+      "id": "level_16",
+      "name": "Level 16: Kerwan"
+    },
+    {
+      "id": "level_17",
+      "name": "Level 17: Crash Site"
+    },
+    {
+      "id": "level_18",
+      "name": "Level 18: Aridia"
+    },
+    {
+      "id": "level_19",
+      "name": "Level 19: Thran Asteroid Belt"
+    },
+    {
+      "id": "level_20",
+      "name": "Level 20: Final Boss"
+    },
+    {
+      "id": "level_21",
+      "name": "Level 21: Obani Draco"
+    },
+    {
+      "id": "level_22",
+      "name": "Level 22: Mylon"
+    },
+    {
+      "id": "level_23",
+      "name": "Level 23: Holostar Studios (Clank)"
+    },
+    {
+      "id": "level_24",
+      "name": "Level 24: Insomniac Museum"
+    },
+    {
+      "id": "level_26",
+      "name": "Level 26: Kerwan Ranger Missions"
+    },
+    {
+      "id": "level_27",
+      "name": "Level 27: Aquatos Base"
+    },
+    {
+      "id": "level_28",
+      "name": "Level 28: Aquatos Sewers"
+    },
+    {
+      "id": "level_29",
+      "name": "Level 29: Tyhrranosis Ranger Missions"
+    },
+    {
+      "id": "level_30",
+      "name": "Level 30: Vidcomic (Unnamed)"
+    },
+    {
+      "id": "level_31",
+      "name": "Level 31: Vidcomic 1"
+    },
+    {
+      "id": "level_32",
+      "name": "Level 32: Vidcomic 4"
+    },
+    {
+      "id": "level_33",
+      "name": "Level 33: Vidcomic 2"
+    },
+    {
+      "id": "level_34",
+      "name": "Level 34: Vidcomic 3"
+    },
+    {
+      "id": "level_35",
+      "name": "Level 35: Vidcomic 5"
+    },
+    {
+      "id": "level_36",
+      "name": "Level 36: Vidcomic 1 Special Edition"
+    },
+    {
+      "id": "level_39",
+      "name": "Level 39: Multiplayer Menu"
+    },
+    {
+      "id": "level_40",
+      "name": "Level 40: Bakisi Isles"
+    },
+    {
+      "id": "level_41",
+      "name": "Level 41: Hoven Gorge"
+    },
+    {
+      "id": "level_42",
+      "name": "Level 42: Outpost X12"
+    },
+    {
+      "id": "level_43",
+      "name": "Level 43: Korgon Outpost"
+    },
+    {
+      "id": "level_44",
+      "name": "Level 44: Metropolis"
+    },
+    {
+      "id": "level_45",
+      "name": "Level 45: Blackwater City"
+    },
+    {
+      "id": "level_46",
+      "name": "Level 46: Command Center"
+    },
+    {
+      "id": "level_47",
+      "name": "Level 47: Blackwater Docks"
+    },
+    {
+      "id": "level_48",
+      "name": "Level 48: Aquatos Sewers"
+    },
+    {
+      "id": "level_49",
+      "name": "Level 49: Marcadia Palace"
+    },
+    {
+      "id": "level_50",
+      "name": "Level 50: Bakisi Isles (Splitscreen)"
+    },
+    {
+      "id": "level_51",
+      "name": "Level 51: Hoven Gorge (Splitscreen)"
+    },
+    {
+      "id": "level_52",
+      "name": "Level 52: Outpost X12 (Splitscreen)"
+    },
+    {
+      "id": "level_53",
+      "name": "Level 53: Korgon Outpost (Splitscreen)"
+    },
+    {
+      "id": "level_54",
+      "name": "Level 54: Metropolis (Splitscreen)"
+    },
+    {
+      "id": "level_55",
+      "name": "Level 55: Blackwater City (Splitscreen)"
+    },
+    {
+      "id": "executables",
+      "name": "Other executables"
+    },
+    {
+      "id": "boot_elf",
+      "name": "Boot ELF (core engine)"
+    },
+    {
+      "id": "i5bootn",
+      "name": "Bootstrap (i5bootn)"
+    },
+    {
+      "id": "ntgui",
+      "name": "Network GUI (ntgui)"
+    },
+    {
+      "id": "sly2",
+      "name": "Sly 2 (sly2.elf)"
+    }
+  ],
+  "units": [
+    {
+      "name": "frontbin/src/37D100",
+      "target_path": "build/objdiff/target/frontbin/37D100.o",
+      "base_path": "build/objdiff/base/frontbin/37D100.o",
+      "metadata": {
+        "source_path": "src/frontbin/37D100.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/37E0F0",
+      "target_path": "build/objdiff/target/frontbin/37E0F0.o",
+      "base_path": "build/objdiff/base/frontbin/37E0F0.o",
+      "metadata": {
+        "source_path": "src/frontbin/37E0F0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3882D0",
+      "target_path": "build/objdiff/target/frontbin/3882D0.o",
+      "base_path": "build/objdiff/base/frontbin/3882D0.o",
+      "metadata": {
+        "source_path": "src/frontbin/3882D0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/388680",
+      "target_path": "build/objdiff/target/frontbin/388680.o",
+      "base_path": "build/objdiff/base/frontbin/388680.o",
+      "metadata": {
+        "source_path": "src/frontbin/388680.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/388770",
+      "target_path": "build/objdiff/target/frontbin/388770.o",
+      "base_path": "build/objdiff/base/frontbin/388770.o",
+      "metadata": {
+        "source_path": "src/frontbin/388770.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/388830",
+      "target_path": "build/objdiff/target/frontbin/388830.o",
+      "base_path": "build/objdiff/base/frontbin/388830.o",
+      "metadata": {
+        "source_path": "src/frontbin/388830.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/388960",
+      "target_path": "build/objdiff/target/frontbin/388960.o",
+      "base_path": "build/objdiff/base/frontbin/388960.o",
+      "metadata": {
+        "source_path": "src/frontbin/388960.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/388A28",
+      "target_path": "build/objdiff/target/frontbin/388A28.o",
+      "base_path": "build/objdiff/base/frontbin/388A28.o",
+      "metadata": {
+        "source_path": "src/frontbin/388A28.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/388B40",
+      "target_path": "build/objdiff/target/frontbin/388B40.o",
+      "base_path": "build/objdiff/base/frontbin/388B40.o",
+      "metadata": {
+        "source_path": "src/frontbin/388B40.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/389380",
+      "target_path": "build/objdiff/target/frontbin/389380.o",
+      "base_path": "build/objdiff/base/frontbin/389380.o",
+      "metadata": {
+        "source_path": "src/frontbin/389380.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/389468",
+      "target_path": "build/objdiff/target/frontbin/389468.o",
+      "base_path": "build/objdiff/base/frontbin/389468.o",
+      "metadata": {
+        "source_path": "src/frontbin/389468.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3894A0",
+      "target_path": "build/objdiff/target/frontbin/3894A0.o",
+      "base_path": "build/objdiff/base/frontbin/3894A0.o",
+      "metadata": {
+        "source_path": "src/frontbin/3894A0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3896E8",
+      "target_path": "build/objdiff/target/frontbin/3896E8.o",
+      "base_path": "build/objdiff/base/frontbin/3896E8.o",
+      "metadata": {
+        "source_path": "src/frontbin/3896E8.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3934E8",
+      "target_path": "build/objdiff/target/frontbin/3934E8.o",
+      "base_path": "build/objdiff/base/frontbin/3934E8.o",
+      "metadata": {
+        "source_path": "src/frontbin/3934E8.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3958F0",
+      "target_path": "build/objdiff/target/frontbin/3958F0.o",
+      "base_path": "build/objdiff/base/frontbin/3958F0.o",
+      "metadata": {
+        "source_path": "src/frontbin/3958F0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/39B198",
+      "target_path": "build/objdiff/target/frontbin/39B198.o",
+      "base_path": "build/objdiff/base/frontbin/39B198.o",
+      "metadata": {
+        "source_path": "src/frontbin/39B198.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/39B200",
+      "target_path": "build/objdiff/target/frontbin/39B200.o",
+      "base_path": "build/objdiff/base/frontbin/39B200.o",
+      "metadata": {
+        "source_path": "src/frontbin/39B200.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/39BC00",
+      "target_path": "build/objdiff/target/frontbin/39BC00.o",
+      "base_path": "build/objdiff/base/frontbin/39BC00.o",
+      "metadata": {
+        "source_path": "src/frontbin/39BC00.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/39DB38",
+      "target_path": "build/objdiff/target/frontbin/39DB38.o",
+      "base_path": "build/objdiff/base/frontbin/39DB38.o",
+      "metadata": {
+        "source_path": "src/frontbin/39DB38.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/39FFC8",
+      "target_path": "build/objdiff/target/frontbin/39FFC8.o",
+      "base_path": "build/objdiff/base/frontbin/39FFC8.o",
+      "metadata": {
+        "source_path": "src/frontbin/39FFC8.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3A4758",
+      "target_path": "build/objdiff/target/frontbin/3A4758.o",
+      "base_path": "build/objdiff/base/frontbin/3A4758.o",
+      "metadata": {
+        "source_path": "src/frontbin/3A4758.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3A53B0",
+      "target_path": "build/objdiff/target/frontbin/3A53B0.o",
+      "base_path": "build/objdiff/base/frontbin/3A53B0.o",
+      "metadata": {
+        "source_path": "src/frontbin/3A53B0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3A5478",
+      "target_path": "build/objdiff/target/frontbin/3A5478.o",
+      "base_path": "build/objdiff/base/frontbin/3A5478.o",
+      "metadata": {
+        "source_path": "src/frontbin/3A5478.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3A6790",
+      "target_path": "build/objdiff/target/frontbin/3A6790.o",
+      "base_path": "build/objdiff/base/frontbin/3A6790.o",
+      "metadata": {
+        "source_path": "src/frontbin/3A6790.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3A7690",
+      "target_path": "build/objdiff/target/frontbin/3A7690.o",
+      "base_path": "build/objdiff/base/frontbin/3A7690.o",
+      "metadata": {
+        "source_path": "src/frontbin/3A7690.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3A9CF8",
+      "target_path": "build/objdiff/target/frontbin/3A9CF8.o",
+      "base_path": "build/objdiff/base/frontbin/3A9CF8.o",
+      "metadata": {
+        "source_path": "src/frontbin/3A9CF8.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3AAAA0",
+      "target_path": "build/objdiff/target/frontbin/3AAAA0.o",
+      "base_path": "build/objdiff/base/frontbin/3AAAA0.o",
+      "metadata": {
+        "source_path": "src/frontbin/3AAAA0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3ABA48",
+      "target_path": "build/objdiff/target/frontbin/3ABA48.o",
+      "base_path": "build/objdiff/base/frontbin/3ABA48.o",
+      "metadata": {
+        "source_path": "src/frontbin/3ABA48.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3AD430",
+      "target_path": "build/objdiff/target/frontbin/3AD430.o",
+      "base_path": "build/objdiff/base/frontbin/3AD430.o",
+      "metadata": {
+        "source_path": "src/frontbin/3AD430.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3AD458",
+      "target_path": "build/objdiff/target/frontbin/3AD458.o",
+      "base_path": "build/objdiff/base/frontbin/3AD458.o",
+      "metadata": {
+        "source_path": "src/frontbin/3AD458.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3AD8A8",
+      "target_path": "build/objdiff/target/frontbin/3AD8A8.o",
+      "base_path": "build/objdiff/base/frontbin/3AD8A8.o",
+      "metadata": {
+        "source_path": "src/frontbin/3AD8A8.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3B1068",
+      "target_path": "build/objdiff/target/frontbin/3B1068.o",
+      "base_path": "build/objdiff/base/frontbin/3B1068.o",
+      "metadata": {
+        "source_path": "src/frontbin/3B1068.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3B1518",
+      "target_path": "build/objdiff/target/frontbin/3B1518.o",
+      "base_path": "build/objdiff/base/frontbin/3B1518.o",
+      "metadata": {
+        "source_path": "src/frontbin/3B1518.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3B46F0",
+      "target_path": "build/objdiff/target/frontbin/3B46F0.o",
+      "base_path": "build/objdiff/base/frontbin/3B46F0.o",
+      "metadata": {
+        "source_path": "src/frontbin/3B46F0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3B5BF8",
+      "target_path": "build/objdiff/target/frontbin/3B5BF8.o",
+      "base_path": "build/objdiff/base/frontbin/3B5BF8.o",
+      "metadata": {
+        "source_path": "src/frontbin/3B5BF8.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3B8F50",
+      "target_path": "build/objdiff/target/frontbin/3B8F50.o",
+      "base_path": "build/objdiff/base/frontbin/3B8F50.o",
+      "metadata": {
+        "source_path": "src/frontbin/3B8F50.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3BDAC0",
+      "target_path": "build/objdiff/target/frontbin/3BDAC0.o",
+      "base_path": "build/objdiff/base/frontbin/3BDAC0.o",
+      "metadata": {
+        "source_path": "src/frontbin/3BDAC0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3BF5D0",
+      "target_path": "build/objdiff/target/frontbin/3BF5D0.o",
+      "base_path": "build/objdiff/base/frontbin/3BF5D0.o",
+      "metadata": {
+        "source_path": "src/frontbin/3BF5D0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3C0E08",
+      "target_path": "build/objdiff/target/frontbin/3C0E08.o",
+      "base_path": "build/objdiff/base/frontbin/3C0E08.o",
+      "metadata": {
+        "source_path": "src/frontbin/3C0E08.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3C1A60",
+      "target_path": "build/objdiff/target/frontbin/3C1A60.o",
+      "base_path": "build/objdiff/base/frontbin/3C1A60.o",
+      "metadata": {
+        "source_path": "src/frontbin/3C1A60.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3C79F0",
+      "target_path": "build/objdiff/target/frontbin/3C79F0.o",
+      "base_path": "build/objdiff/base/frontbin/3C79F0.o",
+      "metadata": {
+        "source_path": "src/frontbin/3C79F0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3C7B98",
+      "target_path": "build/objdiff/target/frontbin/3C7B98.o",
+      "base_path": "build/objdiff/base/frontbin/3C7B98.o",
+      "metadata": {
+        "source_path": "src/frontbin/3C7B98.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3C8B28",
+      "target_path": "build/objdiff/target/frontbin/3C8B28.o",
+      "base_path": "build/objdiff/base/frontbin/3C8B28.o",
+      "metadata": {
+        "source_path": "src/frontbin/3C8B28.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3C9210",
+      "target_path": "build/objdiff/target/frontbin/3C9210.o",
+      "base_path": "build/objdiff/base/frontbin/3C9210.o",
+      "metadata": {
+        "source_path": "src/frontbin/3C9210.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3C9888",
+      "target_path": "build/objdiff/target/frontbin/3C9888.o",
+      "base_path": "build/objdiff/base/frontbin/3C9888.o",
+      "metadata": {
+        "source_path": "src/frontbin/3C9888.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3C9C58",
+      "target_path": "build/objdiff/target/frontbin/3C9C58.o",
+      "base_path": "build/objdiff/base/frontbin/3C9C58.o",
+      "metadata": {
+        "source_path": "src/frontbin/3C9C58.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3CB5A0",
+      "target_path": "build/objdiff/target/frontbin/3CB5A0.o",
+      "base_path": "build/objdiff/base/frontbin/3CB5A0.o",
+      "metadata": {
+        "source_path": "src/frontbin/3CB5A0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3CB890",
+      "target_path": "build/objdiff/target/frontbin/3CB890.o",
+      "base_path": "build/objdiff/base/frontbin/3CB890.o",
+      "metadata": {
+        "source_path": "src/frontbin/3CB890.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3CC198",
+      "target_path": "build/objdiff/target/frontbin/3CC198.o",
+      "base_path": "build/objdiff/base/frontbin/3CC198.o",
+      "metadata": {
+        "source_path": "src/frontbin/3CC198.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3CC838",
+      "target_path": "build/objdiff/target/frontbin/3CC838.o",
+      "base_path": "build/objdiff/base/frontbin/3CC838.o",
+      "metadata": {
+        "source_path": "src/frontbin/3CC838.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3CC880",
+      "target_path": "build/objdiff/target/frontbin/3CC880.o",
+      "base_path": "build/objdiff/base/frontbin/3CC880.o",
+      "metadata": {
+        "source_path": "src/frontbin/3CC880.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3CD710",
+      "target_path": "build/objdiff/target/frontbin/3CD710.o",
+      "base_path": "build/objdiff/base/frontbin/3CD710.o",
+      "metadata": {
+        "source_path": "src/frontbin/3CD710.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3CD830",
+      "target_path": "build/objdiff/target/frontbin/3CD830.o",
+      "base_path": "build/objdiff/base/frontbin/3CD830.o",
+      "metadata": {
+        "source_path": "src/frontbin/3CD830.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3CE740",
+      "target_path": "build/objdiff/target/frontbin/3CE740.o",
+      "base_path": "build/objdiff/base/frontbin/3CE740.o",
+      "metadata": {
+        "source_path": "src/frontbin/3CE740.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3D14B0",
+      "target_path": "build/objdiff/target/frontbin/3D14B0.o",
+      "base_path": "build/objdiff/base/frontbin/3D14B0.o",
+      "metadata": {
+        "source_path": "src/frontbin/3D14B0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3D48D8",
+      "target_path": "build/objdiff/target/frontbin/3D48D8.o",
+      "base_path": "build/objdiff/base/frontbin/3D48D8.o",
+      "metadata": {
+        "source_path": "src/frontbin/3D48D8.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3D97C8",
+      "target_path": "build/objdiff/target/frontbin/3D97C8.o",
+      "base_path": "build/objdiff/base/frontbin/3D97C8.o",
+      "metadata": {
+        "source_path": "src/frontbin/3D97C8.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3D9A40",
+      "target_path": "build/objdiff/target/frontbin/3D9A40.o",
+      "base_path": "build/objdiff/base/frontbin/3D9A40.o",
+      "metadata": {
+        "source_path": "src/frontbin/3D9A40.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3DBDF0",
+      "target_path": "build/objdiff/target/frontbin/3DBDF0.o",
+      "base_path": "build/objdiff/base/frontbin/3DBDF0.o",
+      "metadata": {
+        "source_path": "src/frontbin/3DBDF0.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3E0190",
+      "target_path": "build/objdiff/target/frontbin/3E0190.o",
+      "base_path": "build/objdiff/base/frontbin/3E0190.o",
+      "metadata": {
+        "source_path": "src/frontbin/3E0190.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3E1150",
+      "target_path": "build/objdiff/target/frontbin/3E1150.o",
+      "base_path": "build/objdiff/base/frontbin/3E1150.o",
+      "metadata": {
+        "source_path": "src/frontbin/3E1150.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3E1C38",
+      "target_path": "build/objdiff/target/frontbin/3E1C38.o",
+      "base_path": "build/objdiff/base/frontbin/3E1C38.o",
+      "metadata": {
+        "source_path": "src/frontbin/3E1C38.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3E1E38",
+      "target_path": "build/objdiff/target/frontbin/3E1E38.o",
+      "base_path": "build/objdiff/base/frontbin/3E1E38.o",
+      "metadata": {
+        "source_path": "src/frontbin/3E1E38.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3E5378",
+      "target_path": "build/objdiff/target/frontbin/3E5378.o",
+      "base_path": "build/objdiff/base/frontbin/3E5378.o",
+      "metadata": {
+        "source_path": "src/frontbin/3E5378.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/src/3ECC70",
+      "target_path": "build/objdiff/target/frontbin/3ECC70.o",
+      "base_path": "build/objdiff/base/frontbin/3ECC70.o",
+      "metadata": {
+        "source_path": "src/frontbin/3ECC70.c",
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "frontbin/data",
+      "target_path": "build/objdiff/target/frontbin_data.o",
+      "metadata": {
+        "progress_categories": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "name": "levels/common",
+      "target_path": "build/objdiff/target/levels/common.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "common_level_code"
+        ]
+      }
+    },
+    {
+      "name": "levels/common data",
+      "target_path": "build/objdiff/target/levels/common_data.o",
+      "metadata": {
+        "progress_categories": [
+          "common_level_data"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Veldin",
+      "target_path": "build/objdiff/target/levels/1_veldin.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_01"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Veldin (data)",
+      "target_path": "build/objdiff/target/levels/1_veldin_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Florana",
+      "target_path": "build/objdiff/target/levels/2_florana.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_02"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Florana (data)",
+      "target_path": "build/objdiff/target/levels/2_florana_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Starship Phoenix",
+      "target_path": "build/objdiff/target/levels/3_starship_phoenix.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_03"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Starship Phoenix (data)",
+      "target_path": "build/objdiff/target/levels/3_starship_phoenix_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Marcadia",
+      "target_path": "build/objdiff/target/levels/4_marcadia.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_04"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Marcadia (data)",
+      "target_path": "build/objdiff/target/levels/4_marcadia_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Daxx",
+      "target_path": "build/objdiff/target/levels/5_daxx.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_05"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Daxx (data)",
+      "target_path": "build/objdiff/target/levels/5_daxx_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Starship Phoenix Under Attack",
+      "target_path": "build/objdiff/target/levels/6_starship_phoenix_under_attack.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_06"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Starship Phoenix Under Attack (data)",
+      "target_path": "build/objdiff/target/levels/6_starship_phoenix_under_attack_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Annihilation Nation",
+      "target_path": "build/objdiff/target/levels/7_annihilation_nation.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_07"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Annihilation Nation (data)",
+      "target_path": "build/objdiff/target/levels/7_annihilation_nation_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Aquatos",
+      "target_path": "build/objdiff/target/levels/8_aquatos.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_08"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Aquatos (data)",
+      "target_path": "build/objdiff/target/levels/8_aquatos_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Tyhrranosis",
+      "target_path": "build/objdiff/target/levels/9_tyhrranosis.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_09"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Tyhrranosis (data)",
+      "target_path": "build/objdiff/target/levels/9_tyhrranosis_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Zeldrin Starport",
+      "target_path": "build/objdiff/target/levels/10_zeldrin_starport.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_10"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Zeldrin Starport (data)",
+      "target_path": "build/objdiff/target/levels/10_zeldrin_starport_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Obani Moons",
+      "target_path": "build/objdiff/target/levels/11_obani_moons.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_11"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Obani Moons (data)",
+      "target_path": "build/objdiff/target/levels/11_obani_moons_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Rilgar",
+      "target_path": "build/objdiff/target/levels/12_rilgar.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_12"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Rilgar (data)",
+      "target_path": "build/objdiff/target/levels/12_rilgar_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Holostar Studios (Ratchet)",
+      "target_path": "build/objdiff/target/levels/13_holostar_studios_ratchet.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_13"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Holostar Studios (Ratchet) (data)",
+      "target_path": "build/objdiff/target/levels/13_holostar_studios_ratchet_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Koros",
+      "target_path": "build/objdiff/target/levels/14_koros.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_14"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Koros (data)",
+      "target_path": "build/objdiff/target/levels/14_koros_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Kerwan",
+      "target_path": "build/objdiff/target/levels/16_kerwan.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_16"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Kerwan (data)",
+      "target_path": "build/objdiff/target/levels/16_kerwan_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Crash Site",
+      "target_path": "build/objdiff/target/levels/17_crash_site.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_17"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Crash Site (data)",
+      "target_path": "build/objdiff/target/levels/17_crash_site_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Aridia",
+      "target_path": "build/objdiff/target/levels/18_aridia.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_18"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Aridia (data)",
+      "target_path": "build/objdiff/target/levels/18_aridia_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Thran Asteroid Belt",
+      "target_path": "build/objdiff/target/levels/19_thran_asteroid_belt.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_19"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Thran Asteroid Belt (data)",
+      "target_path": "build/objdiff/target/levels/19_thran_asteroid_belt_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Final Boss",
+      "target_path": "build/objdiff/target/levels/20_final_boss.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_20"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Final Boss (data)",
+      "target_path": "build/objdiff/target/levels/20_final_boss_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Obani Draco",
+      "target_path": "build/objdiff/target/levels/21_obani_draco.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_21"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Obani Draco (data)",
+      "target_path": "build/objdiff/target/levels/21_obani_draco_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Mylon",
+      "target_path": "build/objdiff/target/levels/22_mylon.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_22"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Mylon (data)",
+      "target_path": "build/objdiff/target/levels/22_mylon_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Holostar Studios (Clank)",
+      "target_path": "build/objdiff/target/levels/23_holostar_studios_clank.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_23"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Holostar Studios (Clank) (data)",
+      "target_path": "build/objdiff/target/levels/23_holostar_studios_clank_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Insomniac Museum",
+      "target_path": "build/objdiff/target/levels/24_insomniac_museum.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_24"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Insomniac Museum (data)",
+      "target_path": "build/objdiff/target/levels/24_insomniac_museum_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Kerwan Ranger Missions",
+      "target_path": "build/objdiff/target/levels/26_kerwan_ranger_missions.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_26"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Kerwan Ranger Missions (data)",
+      "target_path": "build/objdiff/target/levels/26_kerwan_ranger_missions_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Aquatos Base",
+      "target_path": "build/objdiff/target/levels/27_aquatos_base.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_27"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Aquatos Base (data)",
+      "target_path": "build/objdiff/target/levels/27_aquatos_base_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Aquatos Sewers",
+      "target_path": "build/objdiff/target/levels/28_aquatos_sewers.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_28"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Aquatos Sewers (data)",
+      "target_path": "build/objdiff/target/levels/28_aquatos_sewers_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Tyhrranosis Ranger Missions",
+      "target_path": "build/objdiff/target/levels/29_tyhrranosis_ranger_missions.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_29"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Tyhrranosis Ranger Missions (data)",
+      "target_path": "build/objdiff/target/levels/29_tyhrranosis_ranger_missions_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic (Unnamed)",
+      "target_path": "build/objdiff/target/levels/30_vidcomic_unnamed.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_30"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic (Unnamed) (data)",
+      "target_path": "build/objdiff/target/levels/30_vidcomic_unnamed_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic 1",
+      "target_path": "build/objdiff/target/levels/31_vidcomic_1.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_31"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic 1 (data)",
+      "target_path": "build/objdiff/target/levels/31_vidcomic_1_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic 4",
+      "target_path": "build/objdiff/target/levels/32_vidcomic_4.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_32"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic 4 (data)",
+      "target_path": "build/objdiff/target/levels/32_vidcomic_4_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic 2",
+      "target_path": "build/objdiff/target/levels/33_vidcomic_2.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_33"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic 2 (data)",
+      "target_path": "build/objdiff/target/levels/33_vidcomic_2_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic 3",
+      "target_path": "build/objdiff/target/levels/34_vidcomic_3.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_34"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic 3 (data)",
+      "target_path": "build/objdiff/target/levels/34_vidcomic_3_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic 5",
+      "target_path": "build/objdiff/target/levels/35_vidcomic_5.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_35"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic 5 (data)",
+      "target_path": "build/objdiff/target/levels/35_vidcomic_5_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic 1 Special Edition",
+      "target_path": "build/objdiff/target/levels/36_vidcomic_1_special_edition.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "singleplayer",
+          "level_36"
+        ]
+      }
+    },
+    {
+      "name": "levels/singleplayer/Vidcomic 1 Special Edition (data)",
+      "target_path": "build/objdiff/target/levels/36_vidcomic_1_special_edition_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "singleplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Multiplayer Menu",
+      "target_path": "build/objdiff/target/levels/39_multiplayer_menu.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_39"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Multiplayer Menu (data)",
+      "target_path": "build/objdiff/target/levels/39_multiplayer_menu_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Bakisi Isles",
+      "target_path": "build/objdiff/target/levels/40_bakisi_isles.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_40"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Bakisi Isles (data)",
+      "target_path": "build/objdiff/target/levels/40_bakisi_isles_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Hoven Gorge",
+      "target_path": "build/objdiff/target/levels/41_hoven_gorge.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_41"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Hoven Gorge (data)",
+      "target_path": "build/objdiff/target/levels/41_hoven_gorge_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Outpost X12",
+      "target_path": "build/objdiff/target/levels/42_outpost_x12.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_42"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Outpost X12 (data)",
+      "target_path": "build/objdiff/target/levels/42_outpost_x12_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Korgon Outpost",
+      "target_path": "build/objdiff/target/levels/43_korgon_outpost.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_43"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Korgon Outpost (data)",
+      "target_path": "build/objdiff/target/levels/43_korgon_outpost_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Metropolis",
+      "target_path": "build/objdiff/target/levels/44_metropolis.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_44"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Metropolis (data)",
+      "target_path": "build/objdiff/target/levels/44_metropolis_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Blackwater City",
+      "target_path": "build/objdiff/target/levels/45_blackwater_city.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_45"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Blackwater City (data)",
+      "target_path": "build/objdiff/target/levels/45_blackwater_city_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Command Center",
+      "target_path": "build/objdiff/target/levels/46_command_center.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_46"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Command Center (data)",
+      "target_path": "build/objdiff/target/levels/46_command_center_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Blackwater Docks",
+      "target_path": "build/objdiff/target/levels/47_blackwater_docks.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_47"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Blackwater Docks (data)",
+      "target_path": "build/objdiff/target/levels/47_blackwater_docks_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Aquatos Sewers",
+      "target_path": "build/objdiff/target/levels/48_aquatos_sewers.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_48"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Aquatos Sewers (data)",
+      "target_path": "build/objdiff/target/levels/48_aquatos_sewers_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Marcadia Palace",
+      "target_path": "build/objdiff/target/levels/49_marcadia_palace.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_49"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Marcadia Palace (data)",
+      "target_path": "build/objdiff/target/levels/49_marcadia_palace_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Bakisi Isles (Splitscreen)",
+      "target_path": "build/objdiff/target/levels/50_bakisi_isles_splitscreen.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_50"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Bakisi Isles (Splitscreen) (data)",
+      "target_path": "build/objdiff/target/levels/50_bakisi_isles_splitscreen_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Hoven Gorge (Splitscreen)",
+      "target_path": "build/objdiff/target/levels/51_hoven_gorge_splitscreen.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_51"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Hoven Gorge (Splitscreen) (data)",
+      "target_path": "build/objdiff/target/levels/51_hoven_gorge_splitscreen_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Outpost X12 (Splitscreen)",
+      "target_path": "build/objdiff/target/levels/52_outpost_x12_splitscreen.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_52"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Outpost X12 (Splitscreen) (data)",
+      "target_path": "build/objdiff/target/levels/52_outpost_x12_splitscreen_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Korgon Outpost (Splitscreen)",
+      "target_path": "build/objdiff/target/levels/53_korgon_outpost_splitscreen.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_53"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Korgon Outpost (Splitscreen) (data)",
+      "target_path": "build/objdiff/target/levels/53_korgon_outpost_splitscreen_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Metropolis (Splitscreen)",
+      "target_path": "build/objdiff/target/levels/54_metropolis_splitscreen.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_54"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Metropolis (Splitscreen) (data)",
+      "target_path": "build/objdiff/target/levels/54_metropolis_splitscreen_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Blackwater City (Splitscreen)",
+      "target_path": "build/objdiff/target/levels/55_blackwater_city_splitscreen.o",
+      "metadata": {
+        "progress_categories": [
+          "levels",
+          "level_specific",
+          "multiplayer",
+          "level_55"
+        ]
+      }
+    },
+    {
+      "name": "levels/multiplayer/Blackwater City (Splitscreen) (data)",
+      "target_path": "build/objdiff/target/levels/55_blackwater_city_splitscreen_data.o",
+      "metadata": {
+        "progress_categories": [
+          "level_data",
+          "multiplayer"
+        ]
+      }
+    },
+    {
+      "name": "exes/boot_elf",
+      "target_path": "build/objdiff/target/exes/boot_elf.o",
+      "metadata": {
+        "progress_categories": [
+          "executables",
+          "boot_elf"
+        ]
+      }
+    },
+    {
+      "name": "exes/boot_elf (data)",
+      "target_path": "build/objdiff/target/exes/boot_elf_data.o",
+      "metadata": {
+        "progress_categories": [
+          "executables",
+          "boot_elf"
+        ]
+      }
+    },
+    {
+      "name": "exes/i5bootn",
+      "target_path": "build/objdiff/target/exes/i5bootn.o",
+      "metadata": {
+        "progress_categories": [
+          "executables",
+          "i5bootn"
+        ]
+      }
+    },
+    {
+      "name": "exes/i5bootn (data)",
+      "target_path": "build/objdiff/target/exes/i5bootn_data.o",
+      "metadata": {
+        "progress_categories": [
+          "executables",
+          "i5bootn"
+        ]
+      }
+    },
+    {
+      "name": "exes/ntgui",
+      "target_path": "build/objdiff/target/exes/ntgui.o",
+      "metadata": {
+        "progress_categories": [
+          "executables",
+          "ntgui"
+        ]
+      }
+    },
+    {
+      "name": "exes/ntgui (data)",
+      "target_path": "build/objdiff/target/exes/ntgui_data.o",
+      "metadata": {
+        "progress_categories": [
+          "executables",
+          "ntgui"
+        ]
+      }
+    },
+    {
+      "name": "exes/sly2",
+      "target_path": "build/objdiff/target/exes/sly2.o",
+      "metadata": {
+        "progress_categories": [
+          "executables",
+          "sly2"
+        ]
+      }
+    },
+    {
+      "name": "exes/sly2 (data)",
+      "target_path": "build/objdiff/target/exes/sly2_data.o",
+      "metadata": {
+        "progress_categories": [
+          "executables",
+          "sly2"
+        ]
+      }
+    }
+  ]
+}

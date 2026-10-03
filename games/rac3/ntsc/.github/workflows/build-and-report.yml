@@ -1,0 +1,72 @@
+name: Build and report progress
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-report:
+    runs-on: [self-hosted, windows, ps2-toolchain]
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      # Retail frontbin.elf is copyrighted and gitignored; check_match.py needs it.
+      - name: Copy retail frontbin.elf
+        shell: pwsh
+        run: |
+          Copy-Item "C:\decomp-refs\frontbin.elf" -Destination "frontbin.elf" -Force
+
+      - name: Copy retail-derived asm
+        shell: pwsh
+        run: |
+          Copy-Item "C:\decomp-refs\asm" -Destination "asm" -Recurse -Force
+          if (-not (Test-Path "asm\header.s")) { throw "asm\header.s missing after copy" }
+
+      # `make objdiff` runs the full build + MATCH check first, then produces
+      # one object per source file in build/objdiff/target/frontbin/ and build/objdiff/base/frontbin/
+      - name: Build frontbin and objdiff inputs
+        shell: pwsh
+        run: |
+          & "C:\tools\eegcc_2.95.3_sn_v1.36\bin\make.exe" objdiff *> build_log.txt
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content build_log.txt
+            throw "make.exe failed (exit $LASTEXITCODE) -- see build_log.txt above"
+          }
+
+      - name: Upload build log (always, even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build_log
+          path: build_log.txt
+
+      - name: Copy level and data target objects
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "build\objdiff\target\levels" | Out-Null
+          Copy-Item "C:\decomp-refs\level-targets-split\*.o" -Destination "build\objdiff\target\levels\" -Force
+          Copy-Item "C:\decomp-refs\frontbin_data.o" -Destination "build\objdiff\target\frontbin_data.o" -Force
+          $n = (Get-ChildItem "build\objdiff\target\levels\*.o").Count
+          if ($n -ne 105) { throw "expected 105 level objects (51 code, 51 data, common, common data, zero-fill), found $n" }
+
+      - name: Copy executable target objects
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "build\objdiff\target\exes" | Out-Null
+          Copy-Item "C:\decomp-refs\exe-targets\*.o" -Destination "build\objdiff\target\exes\" -Force
+          $n = (Get-ChildItem "build\objdiff\target\exes\*.o").Count
+          if ($n -ne 8) { throw "expected 8 executable objects (4 code, 4 data), found $n" }
+
+      - name: Generate progress report
+        shell: pwsh
+        run: |
+          objdiff-cli.exe report generate -o build/report.json
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SCUS_973.53_report
+          path: build/report.json
