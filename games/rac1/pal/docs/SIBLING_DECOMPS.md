@@ -4,7 +4,11 @@ Other projects decompile or reimplement Ratchet & Clank games. Lombyte
 and the NTSC decomp match the US build of this game, and the NTSC decomp has mapped per-file
 compiler flags; ReRAC documents what the code does; ratchet-uya-decomp
 mapped retail's flags for a later game. None is part of this build.
-Clone them next to this repository:
+
+Inside OpenRAC, Lombyte is [games/rac1/ntsc](../../ntsc/README.md) and
+ratchet-uya-decomp is [games/rac3/ntsc](../../../rac3/ntsc/README.md); the tools find
+Lombyte there. ReRAC is still cloned next to OpenRAC. In a standalone
+checkout, clone them next to this repository:
 
 ```sh
 git clone https://github.com/re-rac/rerac ~/Projects/rerac
