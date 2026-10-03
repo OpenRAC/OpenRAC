@@ -350,7 +350,7 @@ def tables() -> None:
     summary = PROGRESS / "summary.json"
     rows = [(g, n, v, measure(v)) for g, n, v in versions()]
     made = {"games": game_table(), "discs": disc_table(), "boot": boot_table(),
-            "progress": render(rows) if summary.exists() else None}
+            "progress": render(rows, dates=False) if summary.exists() else None}
     for doc in (ROOT / "README.md", BASEROM / "README.md", GAMES / "README.md"):
         if not doc.exists():
             continue
@@ -366,22 +366,26 @@ def tables() -> None:
         doc.write_text(text)
 
 
-def render(rows) -> str:
-    out = ["| Game | Version | Code matched | Functions | Fuzzy | Report date |",
-           "|---|---|---:|---:|---:|---|"]
+def render(rows, dates: bool = True) -> str:
+    """The progress table. Without DATES it depends only on the committed reports
+    and manifests, so CI can check that README.md is current."""
+    out = ["| Game | Version | Code matched | Functions | Fuzzy |" + (" Report date |" if dates else ""),
+           "|---|---|---:|---:|---:|" + ("---|" if dates else "")]
     for game, name, version, m in rows:
         where = f"[`games/{game['id']}/{name}`](games/{game['id']}/{name})" if version.get("source") else "not started"
         label = f"{version['serial']} ({where})"
+        tail = " – |" if dates else ""
         if m is None:
-            out.append(f"| {game['title']} | {label} | – | – | – | – |")
+            out.append(f"| {game['title']} | {label} | – | – | – |{tail}")
         elif "missing" in m:
-            out.append(f"| {game['title']} | {label} | no report (`{m['missing']}`) | – | – | – |")
+            out.append(f"| {game['title']} | {label} | no report (`{m['missing']}`) | – | – |{tail}")
         else:
             fns = (f"{m['matched_functions']:,} / {m['total_functions']:,}"
                    if m["matched_functions"] is not None else "not counted")
             fuzzy = f"{m['fuzzy_percent']:.2f}%" if m["fuzzy_percent"] is not None else "–"
             out.append(f"| {game['title']} | {label} | {m['percent']:.2f}% "
-                       f"({m['matched_code']:,} / {m['total_code']:,} bytes) | {fns} | {fuzzy} | {m['date']} |")
+                       f"({m['matched_code']:,} / {m['total_code']:,} bytes) | {fns} | {fuzzy} |"
+                       + (f" {m['date']} |" if dates else ""))
     return "\n".join(out) + "\n"
 
 
