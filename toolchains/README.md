@@ -1,0 +1,54 @@
+# toolchains: compilers you supply
+
+The PS2 compilers, assemblers and linkers the games were built with are
+proprietary. They are never committed (this directory is ignored by git,
+apart from this file); each game's docs say where its builders get them.
+[docs/toolchains](../docs/toolchains/README.md) collects what is known about
+which compiler built what.
+
+## Ratchet & Clank, PAL (`games/rac1/pal`)
+
+The build uses two public community mirrors, cloned here:
+
+```sh
+git clone https://github.com/AngheloAlf/SN-Systems-ProDG_for_PS2_3.01 toolchains/sn-prodg-3.01
+git clone https://github.com/AngheloAlf/sce_ps2_sdk_24 toolchains/sn-prodg-24
+python3 tools/openrac.py setup rac1/pal   # links games/rac1/pal/toolchain to this directory
+```
+
+- `sn-prodg-3.01`: `make`, the assembler and the linker.
+- `sn-prodg-24`: GCC 2.95.3 (SN BUILD v1.14) for the game code and 989snd,
+  and Sony's `2.9-ee-991111` for Sony's SDK code and libgcc.
+
+The build runs in a Linux container with Wine on macOS and Linux; it mounts
+all of OpenRAC, so the link resolves inside it. Details:
+[games/rac1/pal/README.md](../games/rac1/pal/README.md) and
+[docs/TOOLCHAIN.md](../games/rac1/pal/docs/TOOLCHAIN.md).
+
+## Ratchet & Clank, NTSC-U (`games/rac1/ntsc`)
+
+Nothing to put here: `./setup.sh` downloads its pinned toolchains (every
+download checked by SHA-256) into `games/rac1/ntsc/tools/`, and builds the
+game compiler from the public GNU EE source archive with the project's
+patches. See [docs/building.md](../games/rac1/ntsc/docs/building.md).
+
+## Ratchet & Clank: Going Commando (`games/rac2/ntsc`)
+
+You supply an SN ProDG 2.0 EE toolchain (`Ps2EeAs.exe`, `ld.exe`) for the
+assembly rebuild, and a GNU EE-GCC 2.9 chain built under WSL for the C; see
+[docs/COMPILER-NOTES.md](../games/rac2/ntsc/docs/COMPILER-NOTES.md) and the
+project's [README](../games/rac2/ntsc/README.md). Pass their locations with
+`--toolchain` and `--c-toolchain`.
+
+## Ratchet & Clank: Up Your Arsenal (`games/rac3/ntsc`)
+
+SN Systems ee-gcc 2.95.3 v1.36, from the same SN ProDG 3.01 mirror, arranged
+in the layout its [Setup page](../games/rac3/ntsc/docs/wiki/Setup.md) shows
+(`bin/ee-gcc2953.exe`, `bin/ee-as.exe`, `ee/bin/Ps2EeAs.exe`, ...). Keeping
+that folder here, for example as `toolchains/eegcc_2.95.3_sn_v1.36`, works:
+point `UYA_TOOLCHAIN` (or `--toolchain`) at it.
+
+## Ratchet: Deadlocked (`games/rac4`)
+
+Not started. [docs/toolchains](../docs/toolchains/README.md#choosing-a-toolchain-for-deadlocked)
+lists what to try first.

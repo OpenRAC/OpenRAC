@@ -31,7 +31,7 @@
   },
   "rac2/ntsc": {
     "title": "Ratchet & Clank: Going Commando",
-    "region": "NTSC-U (North America), v1.01",
+    "region": "NTSC-U (North America)",
     "serial": "SCUS_972.68",
     "progress": {
       "matched_code": 214344,

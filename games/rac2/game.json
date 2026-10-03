@@ -7,7 +7,7 @@
   },
   "versions": {
     "ntsc": {
-      "region": "NTSC-U (North America), v1.01",
+      "region": "NTSC-U (North America)",
       "serial": "SCUS_972.68",
       "disc": {
         "file": "SCUS_972.68.iso",
