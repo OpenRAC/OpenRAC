@@ -1,6 +1,6 @@
 # Asset formats
 
-What the extractor ([tools/extract](../tools/extract/README.md)) knows
+What the extractor (OpenRAC's [editor](../../../../editor/README.md)) knows
 about the data on the PAL disc (`SCES_509.16` v2.00), and the evidence for
 each piece. This file describes formats and measured metadata only; it
 contains no game data.
@@ -31,7 +31,7 @@ contains no game data.
   were checked against the PAL disc (see "Mobys", "Moby classes" and
   "Collision").
 - **[Lombyte](https://github.com/mateuszklysz/Lombyte)** (MIT): the moby class
-  names the editor shows (`tools/extract/moby_classes.tsv`), which it joins
+  names the editor shows (`editor/moby_classes.tsv`), which it joins
   from each level's class dispatch table and Wrench's class names.
 - **[Replanetizer](https://github.com/RatchetModding/Replanetizer)** by
   RatchetModding contributors (GPL-3.0-or-later). It reads the PS3 HD
@@ -343,12 +343,12 @@ extracted.
 
 The Godot scenes keep every field a packer needs: the transform, plus
 node metadata for the fields that differ from the value most instances
-store (`tools/extract/mobys.py`, `USUAL`).
+store (`editor/mobys.py`, `USUAL`).
 
 ### Moby classes
 
 The layouts are ReRAC's (`docs/formats/moby_rac1.md` §1–§2 and its
-corrections); `tools/extract/moby_class.py` reads them.
+corrections); `editor/moby_class.py` reads them.
 
 - **Class table:** core index +0x18, 32-byte entries: the core offset of
   the class blob, the class number, two unknown words and 16 texture slots
@@ -425,7 +425,7 @@ show them textured and standing on their placements.
 ### Moby skeletons and animations
 
 ReRAC traced these in the game's animation evaluator (`fun_0020e0e0`) and
-per-tick step (`fun_0020d580`); `tools/extract/moby_anim.py` reads them.
+per-tick step (`fun_0020d580`); `editor/moby_anim.py` reads them.
 
 - **Skeleton** (class +0x14): one matrix per joint, four rows of four
   floats. Rows 0–2 are the images of the axes and row 3 the translation,

@@ -191,7 +191,7 @@ with its roles (`UpdateMoby_<oClass>`, `InitCamera_<id>`, ...,
 executable ones. A function with many roles is a generic one (an empty
 `Exit`, a class that reuses another's update). An update function gets
 the moby in `$a0`. `tools/dossier.py` puts the role in `CONTEXT.md` in
-words, with the class's name from `tools/extract/moby_classes.tsv`
+words, with the class's name from `editor/moby_classes.tsv` (OpenRAC's top level)
 ("update function of moby class 726 (novalis_elevator) on levels 01, 03,
 13").
 

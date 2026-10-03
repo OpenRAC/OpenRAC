@@ -5,7 +5,7 @@
   extract.py godot ISO OUT [--level N ...]    a Godot 4 project of editable levels
   extract.py raw ISO OUT --level N            one level's sections, as stored and decoded
 
-OUT must be a new directory under this repository's assets/ or build-sn/,
+OUT must be a new directory under this repository's assets/ or build/,
 both ignored by git. Output is built beside it and moved into place only
 when complete. Never commit or share it: see LEGAL.md.
 """
@@ -26,14 +26,14 @@ from formats import FormatError
 from godot import LevelWriter, write_project
 from level import load_level
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def output_path(path: Path) -> Path:
-    """A new directory inside assets/ or build-sn/, after resolving symlinks."""
+    """A new directory inside assets/ or build/, after resolving symlinks."""
     resolved = path.resolve()
-    if not any(root in resolved.parents for root in (ROOT / "assets", ROOT / "build-sn")):
-        raise FormatError("output must be a new directory under this repository's assets/ or build-sn/")
+    if not any(root in resolved.parents for root in (ROOT / "assets", ROOT / "build")):
+        raise FormatError("output must be a new directory under this repository's assets/ or build/")
     if resolved.exists():
         raise FormatError(f"{resolved} already exists; choose a new directory")
     return resolved

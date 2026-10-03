@@ -28,7 +28,7 @@ def face_normal(a, b, c) -> tuple[float, float, float]:
 class Gltf:
     def __init__(self):
         self.buffer = bytearray()
-        self.doc = {"asset": {"version": "2.0", "generator": "rac1-decomp tools/extract"},
+        self.doc = {"asset": {"version": "2.0", "generator": "OpenRAC editor"},
                     "scene": 0, "scenes": [{"nodes": []}], "nodes": [], "meshes": [],
                     "materials": [], "textures": [], "images": [], "accessors": [], "bufferViews": [],
                     "samplers": [{"magFilter": LINEAR, "minFilter": LINEAR_MIPMAP_LINEAR,

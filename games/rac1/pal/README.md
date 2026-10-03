@@ -204,7 +204,7 @@ Whether you're interested in matching functions, analyzing PS2 disassembly, rese
 | `Makefile.sn`, `rac1.ld.sh` | Compile and link at retail addresses |
 | `tools/` | Build, audit, progress-report and decompilation helper scripts |
 | `tools/docker/` | The build container and the Ghidra MCP container ([docs](docs/CONTAINERS.md)) |
-| `tools/extract/` | Level extractor: your own disc's levels as an editable Godot project ([README](tools/extract/README.md)) |
+| `../../../editor/` | Level editor (OpenRAC's top level): your own disc's levels as an editable Godot project ([README](../../../editor/README.md)) |
 | `docs/` | Workflow, toolchain notes, progress log, containers, asset formats |
 | `notes/` | Round notes from September 2026, kept as history; `docs/DECOMP_PROGRESS.md` has the current state |
 | `progress/report.json` | objdiff-format progress report read by decomp.dev |
@@ -238,7 +238,7 @@ Whether you're interested in matching functions, analyzing PS2 disassembly, rese
   `docs/SIBLING_DECOMPS.md`
 - [Wrench](https://github.com/chaoticgd/wrench): Ratchet & Clank PS2 modding
   tools. Most of the level extractor's format knowledge comes from its
-  source; `tools/extract/README.md` credits it and the other projects the
+  source; OpenRAC's `editor/README.md` credits it and the other projects the
   extractor drew on
 
 

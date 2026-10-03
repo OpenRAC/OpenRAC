@@ -1,4 +1,4 @@
-"""Output safety: new directories under assets/ or build-sn/, published whole."""
+"""Output safety: new directories under assets/ or build/, published whole."""
 
 from pathlib import Path
 import tempfile
@@ -14,8 +14,8 @@ class OutputTests(unittest.TestCase):
             output_path(ROOT / "docs" / "extracted")
         with self.assertRaises(FormatError):
             output_path(ROOT / "assets" / ".." / "extracted")
-        (ROOT / "build-sn").mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory(dir=ROOT / "build-sn") as temp:
+        (ROOT / "build").mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=ROOT / "build") as temp:
             with self.assertRaises(FormatError):
                 output_path(Path(temp))
             escape = Path(temp) / "escape"
@@ -24,8 +24,8 @@ class OutputTests(unittest.TestCase):
                 output_path(escape / "extracted")
 
     def test_publish_is_all_or_nothing(self):
-        (ROOT / "build-sn").mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory(dir=ROOT / "build-sn") as temp:
+        (ROOT / "build").mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=ROOT / "build") as temp:
             dest = Path(temp) / "out"
 
             def fail(directory):

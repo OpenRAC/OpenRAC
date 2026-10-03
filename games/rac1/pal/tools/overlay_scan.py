@@ -16,7 +16,7 @@ import json, struct, sys
 from collections import defaultdict
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "tools/extract"))
+sys.path.insert(0, str(ROOT.parents[2] / "editor"))  # the OpenRAC editor's readers
 from disc import Disc
 from level import decoded
 from formats import overlay_sections, unpack, span

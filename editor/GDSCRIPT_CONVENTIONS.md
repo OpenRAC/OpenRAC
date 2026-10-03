@@ -1,7 +1,7 @@
 # GDScript conventions
 
 Rules for the `.gd` files in this repository (the scripts the level extractor
-puts in the Godot project, `tools/extract/rc1/*.gd`). New code follows them;
+puts in the Godot project, `editor/rc1/*.gd`). New code follows them;
 touch an old file and bring it in line. Indentation is tabs.
 
 ## File structure

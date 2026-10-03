@@ -1,12 +1,16 @@
-# Level extractor
+# Level editor
 
-Turns the levels on your own disc of Ratchet & Clank (PAL, `SCES_509.16`
+The editor turns the levels on your own disc of Ratchet & Clank (PAL, `SCES_509.16`
 v2.00) into a Godot 4 project. Godot is the map editor: open a level, move,
 add or delete objects, and save. Tools to pack edited scenes back into game
 data come later; the scenes already keep what they will need.
 
-Never commit or share what it produces (see [LEGAL.md](../../LEGAL.md)).
-It only writes to new directories under the ignored `assets/` or `build-sn/`.
+It sits at the top of OpenRAC because it is meant to serve all four games.
+Today it reads Ratchet & Clank PAL only; the formats of the later games are
+close relatives (see [docs/engine](../docs/engine/README.md)).
+
+Never commit or share what it produces (see [docs/policy/SOURCING.md](../docs/policy/SOURCING.md)).
+It only writes to new directories under OpenRAC's ignored `assets/` or `build/`.
 
 ## Before you start
 
@@ -15,17 +19,18 @@ You need:
 - Python 3.10 or newer (standard library only).
 - Godot 4, tested with 4.7.2. On macOS its command is
   `/Applications/Godot.app/Contents/MacOS/Godot`; below it is `godot`.
-- An ISO image of your own PAL disc, placed at `baserom/SCES_509.16.iso`.
-  `baserom/` is ignored by git.
+- An ISO image of your own PAL disc, placed at `baserom/SCES_509.16.iso` at the top of
+  OpenRAC ([baserom/README.md](../baserom/README.md)). `baserom/` is ignored by git.
 
-The build only needs the executable from that image (see the main README).
+The RAC1 PAL build only needs the executable from that image
+([games/rac1/pal/README.md](../games/rac1/pal/README.md)).
 The extractor reads the whole image, and it stops unless the executable
 inside matches PAL v2.00.
 
 ## Extract
 
 ```sh
-python3 tools/extract/extract.py godot baserom/SCES_509.16.iso assets/godot
+python3 editor/extract.py godot baserom/SCES_509.16.iso assets/godot
 godot --path assets/godot -e res://levels/level_00/level_00.tscn
 ```
 
@@ -65,8 +70,8 @@ against a fresh export shows each edit.
 ## Other commands
 
 ```sh
-python3 tools/extract/extract.py survey baserom/SCES_509.16.iso      # disc layout, as JSON
-python3 tools/extract/extract.py raw baserom/SCES_509.16.iso build-sn/level-00 --level 0
+python3 editor/extract.py survey baserom/SCES_509.16.iso      # disc layout, as JSON
+python3 editor/extract.py raw baserom/SCES_509.16.iso build/level-00 --level 0
 ```
 
 `raw` writes one level's sections as stored on the disc and decompressed,
@@ -140,7 +145,7 @@ To edit a level:
     `rc1_spawn_flags` (0), `rc1_draw_distance` and `rc1_update_distance`
     (64), `rc1_mode_bits` (32), `rc1_occlusion` (1), `rc1_light` (0),
     `rc1_unknown_74` (-1), and a few unknown fields
-    ([docs/ASSETS.md](../../docs/ASSETS.md#mobys)).
+    ([ASSETS.md](../games/rac1/pal/docs/ASSETS.md#mobys)).
 - Textures are ordinary PNGs. Editing one changes every mesh that uses it.
 
 Run a level (F6) to fly around it:
@@ -192,7 +197,7 @@ extracted yet.
 ## Checks
 
 ```sh
-python3 -m unittest discover -s tools/extract                  # synthetic data only
+python3 -m unittest discover -s editor                         # synthetic data only
 godot --headless --path assets/godot --import
 godot --headless --path assets/godot --script res://rc1/check.gd
 ```
@@ -241,12 +246,12 @@ Approximations:
   to the sky at run time are not included.
 
 Not yet extracted: low-detail moby meshes, hero collision, audio, video
-and each level's code overlay. [docs/ASSETS.md](../../docs/ASSETS.md) describes
+and each level's code overlay. [ASSETS.md](../games/rac1/pal/docs/ASSETS.md) describes
 the formats and the evidence for them.
 
 ## Code
 
-The GDScript files follow [`docs/GDSCRIPT_CONVENTIONS.md`](../../docs/GDSCRIPT_CONVENTIONS.md).
+The GDScript files follow [`GDSCRIPT_CONVENTIONS.md`](GDSCRIPT_CONVENTIONS.md).
 
 | File | Contents |
 |---|---|
@@ -267,7 +272,7 @@ The decoders accept only the layouts found on this disc and raise
 - **[Wrench](https://github.com/chaoticgd/wrench)** by chaoticgd and
   contributors (GPL-3.0-or-later). Most of what the extractor knows about
   terrain, ties, shrubs, the sky, textures and placements comes from
-  reading its source. [docs/ASSETS.md](../../docs/ASSETS.md#sources-and-credits)
+  reading its source. [ASSETS.md](../games/rac1/pal/docs/ASSETS.md#sources-and-credits)
   lists which files each format came from.
 - **[Replanetizer](https://github.com/RatchetModding/Replanetizer)** by
   RatchetModding contributors, consulted for what fields mean.
@@ -276,7 +281,7 @@ The decoders accept only the layouts found on this disc and raise
   class format (packets, vertex cache, skinning slots, normals, the
   untextured faces, skeletons and animation sequences), and the collision
   block and the meaning of its surface bytes
-  ([docs/ASSETS.md](../../docs/ASSETS.md#collision)).
+  ([ASSETS.md](../games/rac1/pal/docs/ASSETS.md#collision)).
 - **[Lombyte](https://github.com/mateuszklysz/Lombyte)** (MIT): the moby
   class names on the labels (`moby_classes.tsv`, see its header).
 - **[OpenGOAL's jak-project](https://github.com/open-goal/jak-project)**,

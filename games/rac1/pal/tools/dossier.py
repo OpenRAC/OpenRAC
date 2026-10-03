@@ -308,8 +308,8 @@ def name_lines(row: dict | None) -> list[str]:
 
 
 def load_moby_classes() -> dict[int, str]:
-    """oClass -> moby class name, from tools/extract/moby_classes.tsv."""
-    path = ROOT / "tools/extract/moby_classes.tsv"
+    """oClass -> moby class name, from the OpenRAC editor's moby_classes.tsv."""
+    path = ROOT.parents[2] / "editor/moby_classes.tsv"
     if not path.exists():
         return {}
     rows = {}

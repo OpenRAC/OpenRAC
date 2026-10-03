@@ -1,4 +1,4 @@
-"""Synthetic fixtures only, never disc data: python3 -m unittest discover -s tools/extract"""
+"""Synthetic fixtures only, never disc data: python3 -m unittest discover -s editor"""
 
 from pathlib import Path
 import struct

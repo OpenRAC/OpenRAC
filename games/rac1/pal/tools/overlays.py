@@ -53,7 +53,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "tools/extract"))
+sys.path.insert(0, str(ROOT.parents[2] / "editor"))  # the OpenRAC editor's readers
 
 ISO = ROOT / "baserom/SCES_509.16.iso"
 ELF = ROOT / "baserom/SCES_509.16"
