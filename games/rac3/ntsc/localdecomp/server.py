@@ -156,9 +156,12 @@ def _run_git(root: Path, args, timeout=30):
 
 
 def is_git_repo(root: Path) -> bool:
+    """True when ROOT is the top of its own git work tree. Inside a larger
+    repository (OpenRAC keeps this project at games/rac3/ntsc), auto-commit
+    and push stay off: they would act on the whole repository."""
     try:
-        proc = _run_git(root, ["rev-parse", "--is-inside-work-tree"], timeout=10)
-        return proc.returncode == 0 and proc.stdout.strip() == "true"
+        proc = _run_git(root, ["rev-parse", "--show-toplevel"], timeout=10)
+        return proc.returncode == 0 and Path(proc.stdout.strip()).resolve() == Path(root).resolve()
     except Exception:
         return False
 
@@ -259,8 +262,8 @@ class Project:
         self.git_sync = git_sync and is_git_repo(root)
         if git_sync and not self.git_sync:
             sys.stderr.write(
-                f"[localdecomp] --git-sync requested but {root} is not a git "
-                f"work tree -- auto-commit/push disabled.\n"
+                f"[localdecomp] git sync is on by default, but {root} is not the top "
+                f"of its own git work tree -- auto-commit/push disabled.\n"
             )
         # Canonical per-function source of truth: the FULL editor contents
         # (externs, helper decls, and the function body together) for each
@@ -1416,6 +1419,9 @@ def run_full_check(project):
 
 def run_push(project):
     root = project.root
+    if not project.git_sync:
+        return {"ok": False, "message": "Git sync is off (--no-git-sync, or the project is inside a larger "
+                                        "repository such as OpenRAC). Commit and push with git yourself."}
     st = project.check_state
     head = _git_out(root, ["rev-parse", "HEAD"])
     if not st or not st.get("ok"):
