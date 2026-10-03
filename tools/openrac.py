@@ -11,8 +11,9 @@ inputs, and progress across all the games. Standard library only.
                                             write progress/summary.json and progress/README.md, then
                                             refresh the tables; --fetch first copies reports that a
                                             sister project publishes outside its tree
-  python3 tools/openrac.py tables           refresh the generated tables (discs, checksums, progress)
-                                            in README.md and baserom/README.md from game.json
+  python3 tools/openrac.py tables           refresh the generated tables (games, discs, checksums,
+                                            progress) in README.md, baserom/README.md and
+                                            games/README.md from game.json
 
 Discs are recognised by the boot file SYSTEM.CNF names, whatever the image
 is called, and checked against games/<game>/game.json: size and SHA-1, or
@@ -350,7 +351,7 @@ def tables() -> None:
     rows = [(g, n, v, measure(v)) for g, n, v in versions()]
     made = {"games": game_table(), "discs": disc_table(), "boot": boot_table(),
             "progress": render(rows) if summary.exists() else None}
-    for doc in (ROOT / "README.md", BASEROM / "README.md"):
+    for doc in (ROOT / "README.md", BASEROM / "README.md", GAMES / "README.md"):
         if not doc.exists():
             continue
         text, depth = doc.read_text(), len(doc.relative_to(ROOT).parts) - 1
