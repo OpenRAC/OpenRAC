@@ -1,0 +1,90 @@
+# Documentation map
+
+Every document in OpenRAC, by where it lives and what it is for. Start with
+the first table; go to a game's documents when you work on that game.
+
+## Start here
+
+| Document | For |
+|---|---|
+| [README.md](../README.md) | What OpenRAC is, progress, getting started, supported discs and checksums |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Ground rules, the commit convention, pull requests, tests |
+| [AGENTS.md](../AGENTS.md) and [CLAUDE.md](../CLAUDE.md) | Rules for AI agents |
+| [LAYOUT.md](LAYOUT.md) | How the repository is organised, and where a new file goes |
+| [policy/SOURCING.md](policy/SOURCING.md) | What may and may not be used or committed |
+| [policy/OPEN_QUESTIONS.md](policy/OPEN_QUESTIONS.md) | Decisions the group still has to make |
+| [SOURCES.md](SOURCES.md) | Where each game's code came from, what changed on import, how to sync |
+| [baserom/README.md](../baserom/README.md), [toolchains/README.md](../toolchains/README.md) | Setting up your discs and compilers |
+
+## Across the games
+
+| Document | For |
+|---|---|
+| [engine/](engine/README.md) | What is known about Insomniac's engine, and in which game it was measured |
+| [toolchains/](toolchains/README.md) | Which compilers built what, and what each project uses to match |
+| [workflow/](workflow/README.md) | How matching works in each game, side by side, and porting between games |
+| [games/](../games/README.md) | The games and versions, with a page per game |
+| [progress/](../progress/README.md) | Consolidated progress (generated) |
+| [editor/README.md](../editor/README.md) | The Godot level editor: extracting your levels, what it reads, its code |
+| [editor/GDSCRIPT_CONVENTIONS.md](../editor/GDSCRIPT_CONVENTIONS.md) | Style for the editor's GDScript |
+| [LICENSE.md](../LICENSE.md), [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md), [CREDITS.md](../CREDITS.md) | Licensing by directory, third-party work, the people behind each project |
+
+## Ratchet & Clank, PAL ([games/rac1/pal](../games/rac1/pal))
+
+| Document | For |
+|---|---|
+| [README.md](../games/rac1/pal/README.md), [CONTRIBUTING.md](../games/rac1/pal/CONTRIBUTING.md), [LEGAL.md](../games/rac1/pal/LEGAL.md) | Setup and build, contributing, what the project contains |
+| [docs/WORKFLOW.md](../games/rac1/pal/docs/WORKFLOW.md) | From an `INCLUDE_ASM` stub to matched C, step by step |
+| [docs/LEVERS.md](../games/rac1/pal/docs/LEVERS.md), [docs/DECOMP_PROGRESS.md](../games/rac1/pal/docs/DECOMP_PROGRESS.md) | Matching levers; the knowledge base of solved questions and dead ends |
+| [docs/TOOLCHAIN.md](../games/rac1/pal/docs/TOOLCHAIN.md) | What builds the image and why (SN ProDG, flags, pipeline) |
+| [docs/OVERLAYS.md](../games/rac1/pal/docs/OVERLAYS.md) | The 19 level programs, variants, the US to PAL map |
+| [docs/ASSETS.md](../games/rac1/pal/docs/ASSETS.md) | Disc, WAD and level data formats, with evidence; what the editor reads |
+| [docs/NAMES.md](../games/rac1/pal/docs/NAMES.md), [docs/NONMATCHING.md](../games/rac1/pal/docs/NONMATCHING.md), [docs/ASM_CLASSIFICATION.md](../games/rac1/pal/docs/ASM_CLASSIFICATION.md) | Symbol names, near-miss staging, handwritten assembly |
+| [docs/AGENT_WORKFLOW.md](../games/rac1/pal/docs/AGENT_WORKFLOW.md), [docs/QUEUE.md](../games/rac1/pal/docs/QUEUE.md), [docs/WORKER.md](../games/rac1/pal/docs/WORKER.md), [docs/LONG_FUNCTIONS.md](../games/rac1/pal/docs/LONG_FUNCTIONS.md), [docs/LLM_DECOMP_INSTRUCTIONS.md](../games/rac1/pal/docs/LLM_DECOMP_INSTRUCTIONS.md) | AI agent waves, worker protocols, claims (the last in Czech) |
+| [docs/PERMUTER.md](../games/rac1/pal/docs/PERMUTER.md), [docs/CONTAINERS.md](../games/rac1/pal/docs/CONTAINERS.md) | decomp-permuter; the build and Ghidra containers |
+| [docs/SIBLING_DECOMPS.md](../games/rac1/pal/docs/SIBLING_DECOMPS.md) | The other projects and how to port from them |
+| [docs/DATAMINED_REVERSE_ENGINEERING.md](../games/rac1/pal/docs/DATAMINED_REVERSE_ENGINEERING.md) | A generated Ghidra datamining report |
+| [notes/](../games/rac1/pal/notes) | Dated investigation logs and per-function write-ups (60 files) |
+| [nonmatching/README.md](../games/rac1/pal/nonmatching/README.md) | Index of staged near misses (generated) |
+
+## Ratchet & Clank, NTSC-U ([games/rac1/ntsc](../games/rac1/ntsc))
+
+| Document | For |
+|---|---|
+| [README.md](../games/rac1/ntsc/README.md), [CONTRIBUTING.md](../games/rac1/ntsc/CONTRIBUTING.md) | The project, its seven-step contribution loop |
+| [docs/building.md](../games/rac1/ntsc/docs/building.md) | Automatic and manual builds, environment variables, targets |
+| [docs/decompilation-tips.md](../games/rac1/ntsc/docs/decompilation-tips.md), [docs/progress-metrics.md](../games/rac1/ntsc/docs/progress-metrics.md) | Acceptance discipline and matching tips; what C_EXACT and C_FUZZY measure |
+| [docs/patched-toolchain.md](../games/rac1/ntsc/docs/patched-toolchain.md), [patches/README.md](../games/rac1/ntsc/patches/README.md) | The patched EE-GCC: lineage, rules, hashes |
+| [docs/overlays.md](../games/rac1/ntsc/docs/overlays.md) | Level programs in the US build |
+| [docs/engine-source-layout.md](../games/rac1/ntsc/docs/engine-source-layout.md), [docs/moby-selector-scratch-path.md](../games/rac1/ntsc/docs/moby-selector-scratch-path.md), [docs/recovered-names.md](../games/rac1/ntsc/docs/recovered-names.md) | Engine source layout (from prerelease builds), a moby data path, the names catalog |
+| [docs/commit-messages.md](../games/rac1/ntsc/docs/commit-messages.md) | What a good commit summary and body say (OpenRAC's convention applies) |
+| [config/README.md](../games/rac1/ntsc/config/README.md), [src/README.md](../games/rac1/ntsc/src/README.md) | Directory notes |
+
+## Ratchet & Clank: Going Commando ([games/rac2/ntsc](../games/rac2/ntsc))
+
+| Document | For |
+|---|---|
+| [README.md](../games/rac2/ntsc/README.md), [docs/START-HERE.md](../games/rac2/ntsc/docs/START-HERE.md), [CONTRIBUTING.md](../games/rac2/ntsc/CONTRIBUTING.md), [AGENTS.md](../games/rac2/ntsc/AGENTS.md) | The project, first steps, contribution rules, agent rules |
+| [docs/COMPILER-NOTES.md](../games/rac2/ntsc/docs/COMPILER-NOTES.md) | The C compiler profile and its patches |
+| [docs/LEVEL-ARCHIVE-FORMAT.md](../games/rac2/ntsc/docs/LEVEL-ARCHIVE-FORMAT.md), [docs/MOBY-DISPATCH-TABLES.md](../games/rac2/ntsc/docs/MOBY-DISPATCH-TABLES.md), [docs/VU-MICROPROGRAMS.md](../games/rac2/ntsc/docs/VU-MICROPROGRAMS.md) | Level archives, class dispatch tables, VU microprograms |
+| [docs/COMMUNITY-ENGINE-REFERENCE.md](../games/rac2/ntsc/docs/COMMUNITY-ENGINE-REFERENCE.md) | A reverse-engineering reference ("reference, never evidence") |
+| [docs/RAC1-TO-RAC2.md](../games/rac2/ntsc/docs/RAC1-TO-RAC2.md), [docs/SECOND-C-LOT.md](../games/rac2/ntsc/docs/SECOND-C-LOT.md) | What carries over from RAC1, and the bodies reused from it |
+| [docs/LEVEL-NATIVE-C.md](../games/rac2/ntsc/docs/LEVEL-NATIVE-C.md), [docs/LEVEL-INTEGRATION-PLAN.md](../games/rac2/ntsc/docs/LEVEL-INTEGRATION-PLAN.md), [docs/C-NATIVE-EXPERIMENT-REGISTER.md](../games/rac2/ntsc/docs/C-NATIVE-EXPERIMENT-REGISTER.md) | C in the level overlays, the plan, the register of trials |
+| [docs/PROTOTYPE-BUILDS.md](../games/rac2/ntsc/docs/PROTOTYPE-BUILDS.md), [docs/AUG6-RETAIL-ANCHORS.md](../games/rac2/ntsc/docs/AUG6-RETAIL-ANCHORS.md), [docs/ENGINE-SYMBOL-NAMES.md](../games/rac2/ntsc/docs/ENGINE-SYMBOL-NAMES.md), [docs/ASSERT-MESSAGE-NAMES.md](../games/rac2/ntsc/docs/ASSERT-MESSAGE-NAMES.md) | Prerelease builds and the names drawn from them; names from retail assert messages |
+| [docs/PCSX2-VALIDATION.md](../games/rac2/ntsc/docs/PCSX2-VALIDATION.md) | Booting rebuilt programs in PCSX2 |
+| `docs/*-C-LOT.md`, `docs/*-NATIVE-LOT.md`, [docs/INTEGRATION-FIRST-LOT.md](../games/rac2/ntsc/docs/INTEGRATION-FIRST-LOT.md) | The matching log, one file per lot (25 files) |
+
+## Ratchet & Clank: Up Your Arsenal ([games/rac3/ntsc](../games/rac3/ntsc))
+
+| Document | For |
+|---|---|
+| [README.md](../games/rac3/ntsc/README.md), [CONTRIBUTING.md](../games/rac3/ntsc/CONTRIBUTING.md) | The project, contribution rules |
+| [docs/wiki/Home.md](../games/rac3/ntsc/docs/wiki/Home.md) | The wiki's index: [Setup](../games/rac3/ntsc/docs/wiki/Setup.md), [Toolchain and build](../games/rac3/ntsc/docs/wiki/Toolchain-and-Build.md), [Workflow](../games/rac3/ntsc/docs/wiki/Workflow.md), [Matching patterns](../games/rac3/ntsc/docs/wiki/Matching-Patterns.md), [Pull requests](../games/rac3/ntsc/docs/wiki/Pull-Requests.md), [Tools](../games/rac3/ntsc/docs/wiki/Tools.md), [Cross-repository resources](../games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md) |
+| [docs/compiler_matrix_findings.md](../games/rac3/ntsc/docs/compiler_matrix_findings.md) | 15 compilers against 8 flag sets: what built the game |
+| [docs/source_files.md](../games/rac3/ntsc/docs/source_files.md), [docs/trailing_padding.md](../games/rac3/ntsc/docs/trailing_padding.md) | How the source files are laid out; trailing padding |
+| [docs/common_level_c.md](../games/rac3/ntsc/docs/common_level_c.md), [docs/shared_code_findings.md](../games/rac3/ntsc/docs/shared_code_findings.md) | C for code common to the levels; code shared between levels |
+| [docs/full_match_roadmap.md](../games/rac3/ntsc/docs/full_match_roadmap.md), [docs/permuter.md](../games/rac3/ntsc/docs/permuter.md), [docs/permuter_todo.md](../games/rac3/ntsc/docs/permuter_todo.md) | The plan to 100%; decomp-permuter and its worklist |
+
+## Ratchet: Deadlocked ([games/rac4](../games/rac4))
+
+Not started: [games/rac4/README.md](../games/rac4/README.md).
