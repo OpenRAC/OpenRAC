@@ -200,7 +200,10 @@ acceptance discipline and the recovery ladder.
 - The tracked [`.pre-commit-config.yaml`](.pre-commit-config.yaml) runs the
   usual file checks (JSON/YAML validity, large files, shebang modes); install
   it with `pre-commit install` or `prek install` if you use either.
-- Enable the commit-message hook once per checkout (optional but handy):
+- Enable the commit-message hook once per checkout (optional but handy).
+  Not inside OpenRAC: there the hook would reject OpenRAC's
+  `type(scope): summary` subjects and strip its credit trailers, and
+  `.git/hooks` belongs to the whole repository.
 
   ```sh
   ln -sf ../../scripts/commit-msg.py .git/hooks/commit-msg

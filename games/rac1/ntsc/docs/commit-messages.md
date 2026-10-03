@@ -2,7 +2,9 @@
 
 > Inside OpenRAC, commits follow the repository's Conventional Commits,
 > `type(rac1/ntsc): summary` ([CONTRIBUTING.md](../../../../CONTRIBUTING.md#commits)).
-> The guidance below on what a good summary and body say still applies.
+> The guidance below on what a good summary and body say still applies; do not
+> install the `commit-msg` hook described below inside OpenRAC, where it would
+> reject those subjects.
 
 Every commit subject uses one shape:
 

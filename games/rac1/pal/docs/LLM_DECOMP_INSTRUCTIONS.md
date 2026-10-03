@@ -103,6 +103,10 @@ bash tools/docker/run.sh python3 tools/gen_progress_report.py --no-build
 ```
 
 #### Step 8: Git Atomic Commit & Push
+
+> **Inside OpenRAC:** commit as `feat(rac1/pal): <FunctionName> (func_XXXXXXXX) exact match`
+> (OpenRAC's CONTRIBUTING.md), keep `progress/report.json` in the same commit, and do
+> **not** push: the maintainer publishes (AGENTS.md, rule 7).
 1. Inspect git status:
 ```bash
 git status

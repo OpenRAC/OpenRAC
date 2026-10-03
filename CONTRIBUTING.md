@@ -89,7 +89,10 @@ only for a change to the repository as a whole.
 - Every commit leaves what it touches working: the game still builds and
   matches, the tests still pass.
 - Keep regenerated output in its own commit when it is large (a progress
-  report after a batch of matches: `chore(progress): ...`).
+  report after a batch of matches: `chore(progress): ...`), unless the game's
+  checks require it with the source: rac1/pal's `progress/report.json` goes in
+  the same commit as the functions it counts, because CI checks it against
+  `src/` on every commit.
 - Mark a change that breaks something others rely on with `!` after the
   scope and a `BREAKING CHANGE:` footer.
 

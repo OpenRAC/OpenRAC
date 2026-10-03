@@ -57,12 +57,16 @@ goal. Start with [docs/LAYOUT.md](docs/LAYOUT.md).
    `feat(rac1/pal): func_L05_002D48B8 exact match` or
    `docs(engine): describe the moby dispatch tables`. Commit granularly, one
    logical change at a time, each leaving the build and tests working; keep
-   regenerated output in its own commit. Write a body that says what changed,
+   regenerated output in its own commit, except where a game's checks need it
+   with the source (rac1/pal's `progress/report.json`). Write a body that says what changed,
    why, and what you verified. End it with a `Co-Authored-By:` line naming
    the assistant ([open question 2](docs/policy/OPEN_QUESTIONS.md#2-credit-lines-for-ai-assistants-in-commits)).
 7. **Never push, open pull requests or publish anything** unless the person
    you work for asks for that specific action. Never rewrite history that
-   has been pushed.
+   has been pushed. Where an imported doc says to commit per function or to
+   push (rac1/pal's `docs/LLM_DECOMP_INSTRUCTIONS.md`), these rules win. Do
+   not install a project's own git hooks: `.git/hooks` serves all of OpenRAC.
+   rac3's `localdecomp` keeps its auto-commit and push off inside OpenRAC.
 8. **Never delete or overwrite what you did not create.** Leave other
    people's and other agents' uncommitted work alone. In rac1/pal, follow
    the claims protocol when several agents work at once
