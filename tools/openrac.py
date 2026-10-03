@@ -190,6 +190,20 @@ def place_toolchains(dest: Path) -> str:
     return f"linked to {target}" + "".join(missing)
 
 
+def place_symlink(target: Path, dest: Path) -> str:
+    """A relative symbolic link from DEST to TARGET, both inside OpenRAC."""
+    rel = Path(os.path.relpath(target, dest.parent))
+    if dest.is_symlink() and Path(os.readlink(dest)) == rel:
+        return "already linked"
+    if dest.exists() or dest.is_symlink():
+        return "exists, left alone"
+    if not target.exists():
+        return f"not linked: {target.relative_to(ROOT)} is missing (see toolchains/README.md)"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.symlink_to(rel, target_is_directory=target.is_dir())
+    return f"linked to {rel}"
+
+
 def setup(only: list[str]) -> None:
     found = scan()
     for game, name, version in versions():
@@ -205,6 +219,8 @@ def setup(only: list[str]) -> None:
             dest = ROOT / item["path"]
             if item["from"] == "toolchains":
                 state = place_toolchains(dest)
+            elif item["from"] == "link":
+                state = place_symlink(ROOT / item["target"], dest)
             elif iso is None:
                 state = "skipped, the disc is missing"
             elif item["from"] == "disc":
