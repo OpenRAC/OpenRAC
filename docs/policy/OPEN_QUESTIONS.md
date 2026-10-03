@@ -12,7 +12,8 @@ docs it names.
 | `games/rac1/ntsc` | MIT, Mateusz Kłysz ([LICENSE](../../games/rac1/ntsc/LICENSE)); GPL-2.0 libgcc and EE-GCC patches, newlib's license ([licenses/](../../games/rac1/ntsc/licenses)) |
 | `games/rac2/ntsc` | MIT, llesieur99 ([LICENSE](../../games/rac2/ntsc/LICENSE)) |
 | `games/rac3/ntsc` | **none stated**: the project has no license file |
-| top level (`editor/`, `tools/`, `docs/`) | not chosen yet; see [LICENSE.md](../../LICENSE.md) |
+| `editor/` | MIT, as part of rac1-decomp where it was written ([editor/LICENSE](../../editor/LICENSE)) |
+| rest of the top level (`tools/`, `docs/`) | not chosen yet; see [LICENSE.md](../../LICENSE.md) |
 
 To decide: a license for rac3 (its authors' call), and one for the top level.
 MIT would match three of the four projects. Lombyte's

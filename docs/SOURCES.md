@@ -36,6 +36,7 @@ Everything else is exactly as it was at that commit.
 **rac1/ntsc**
 - The README credits the NTSC decomp by that name only
   ([removal requests](policy/SOURCING.md#removal-requests)).
+- `docs/commit-messages.md` notes that OpenRAC's commit convention applies.
 
 **rac2/ntsc**
 - Left out `include/moby.h`. Its structure was taken from leaked material
@@ -48,6 +49,8 @@ Everything else is exactly as it was at that commit.
   prototype.
 - `CONTRIBUTING.md` points to the sourcing policy: leaked material is never
   used.
+- `AGENTS.md` and `.gitmessage` use OpenRAC's commit convention instead of
+  the Lombyte style.
 
 **rac3/ntsc**
 - Left out `localdecomp/server.py.bak_0926`, a stale backup of `server.py`.
