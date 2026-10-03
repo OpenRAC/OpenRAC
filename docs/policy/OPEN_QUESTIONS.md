@@ -90,6 +90,12 @@ their provenance noted.
 
 - rac1/pal builds on macOS and Linux through Docker, and natively on Windows.
 - rac1/ntsc builds on Linux or WSL, and on macOS through `./setup.sh --docker`.
+  On Apple Silicon that container is linux/amd64, and its Windows assembler
+  runs under 32-bit Wine, which Rosetta's amd64 emulation cannot run
+  (`rosetta error: invalid gdt selector`, then Wine's status c0000018, even
+  with a 32-bit prefix). It needs QEMU emulation instead: in OrbStack
+  `orb config set rosetta false`, in Docker Desktop turn off "Use Rosetta for
+  x86/amd64 emulation". rac1/pal's linux/386 image is not affected.
 - rac2 builds on Windows with WSL only (`scripts/wsl_chain.py` has
   machine-specific defaults).
 - rac3 builds on Windows, or on Linux and macOS with wibo; several tools

@@ -41,4 +41,7 @@ python3 tools/openrac.py setup rac1/pal rac1/ntsc   # from the top of OpenRAC
 ```
 
 Then follow [pal/README.md](pal/README.md) or [ntsc/README.md](ntsc/README.md).
+On an Apple Silicon Mac, `ntsc/`'s Docker build needs QEMU rather than Rosetta
+for amd64 containers, because its Windows assembler runs under 32-bit Wine
+([build hosts](../../docs/policy/OPEN_QUESTIONS.md#7-build-hosts)).
 The level editor ([editor/](../../editor/README.md)) reads the PAL disc.
