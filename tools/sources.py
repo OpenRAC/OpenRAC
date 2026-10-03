@@ -93,9 +93,10 @@ def do_sync(key: str, rev: str | None) -> None:
     apply = subprocess.run(["git", "apply", "--reject", f"--directory={dest.relative_to(ROOT)}"],
                            input=diff, cwd=ROOT, capture_output=True)
     sys.stderr.write(apply.stderr.decode())
+    old = source["commit"]
     record(path, game, version, commit, repo)
     state = "with rejected hunks (*.rej) to resolve" if apply.returncode else "cleanly"
-    print(f"{key}: applied {source['commit'][:10]}..{commit[:10]} {state}")
+    print(f"{key}: applied {old[:10]}..{commit[:10]} {state}")
 
 
 def record(path: Path, game: dict, version: str, commit: str, repo: Path) -> None:
