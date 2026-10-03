@@ -15,7 +15,7 @@ What the other games suggest, in order:
    run between this boot executable and RAC3's shows how much code carries
    over, and which project's conventions fit best.
 2. **Pick the toolchain from evidence.** Deadlocked followed Up Your Arsenal
-   on the same engine; [docs/toolchains](../../docs/toolchains/README.md#choosing-a-toolchain-for-deadlocked)
+   on the same engine; [docs/toolchains](../../docs/toolchains/README.md#5-choosing-a-toolchain-for-deadlocked)
    lists what to try first.
 3. **Set up `games/rac4/ntsc/`** as a self-contained project
    ([games/README.md](../README.md#adding-a-version)), add its inputs to

@@ -35,10 +35,12 @@ patches. See [docs/building.md](../games/rac1/ntsc/docs/building.md).
 ## Ratchet & Clank: Going Commando (`games/rac2/ntsc`)
 
 You supply an SN ProDG 2.0 EE toolchain (`Ps2EeAs.exe`, `ld.exe`) for the
-assembly rebuild, and a GNU EE-GCC 2.9 chain built under WSL for the C; see
-[docs/COMPILER-NOTES.md](../games/rac2/ntsc/docs/COMPILER-NOTES.md) and the
-project's [README](../games/rac2/ntsc/README.md). Pass their locations with
-`--toolchain` and `--c-toolchain`.
+assembly rebuild, passed with `--toolchain` (`--c-toolchain` supplies only the
+linker for the C step). The C compiler is a patched GNU EE-GCC 2.9 built under
+WSL, which `scripts/wsl_chain.py` runs; see
+[docs/COMPILER-NOTES.md](../games/rac2/ntsc/docs/COMPILER-NOTES.md). The
+project's README still names SN ProDG 3.01 for the C
+([docs/toolchains](../docs/toolchains/README.md#4-open-questions-and-contradictions)).
 
 ## Ratchet & Clank: Up Your Arsenal (`games/rac3/ntsc`)
 
@@ -50,5 +52,5 @@ point `UYA_TOOLCHAIN` (or `--toolchain`) at it.
 
 ## Ratchet: Deadlocked (`games/rac4`)
 
-Not started. [docs/toolchains](../docs/toolchains/README.md#choosing-a-toolchain-for-deadlocked)
+Not started. [docs/toolchains](../docs/toolchains/README.md#5-choosing-a-toolchain-for-deadlocked)
 lists what to try first.
