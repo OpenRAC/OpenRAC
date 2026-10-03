@@ -1,0 +1,31 @@
+diff --git a/gas/config/tc-mips.c b/gas/config/tc-mips.c
+--- a/gas/config/tc-mips.c
++++ b/gas/config/tc-mips.c
+@@ -4954,9 +4954,26 @@
+ 	     With a constant we always use the latter case.  */
+ 	  if (breg == 0)
+ 	    {
++	      /* ASTRA P20: the retail R5900 assembler decides at the use:
++		 a symbol whose size is still unknown (no .extern seen yet)
++		 gets the absolute lui/<op> form in both reorder and noreorder
++		 mode; the deferred relaxation pair would resolve to gp at
++		 link time and does not match.  A symbol whose size is known
++		 keeps the gp-relative form -- in a noreorder block that is
++		 the single gp-relative instruction emitted below, in reorder
++		 mode the relaxable pair.  */
+ 	      if ((valueT) offset_expr.X_add_number >= MAX_GPREL_OFFSET
+-		  || nopic_need_relax (offset_expr.X_add_symbol, 1))
++		  || nopic_need_relax (offset_expr.X_add_symbol, 1)
++		  || (! S_IS_DEFINED (offset_expr.X_add_symbol)
++		      && offset_expr.X_add_symbol->ecoff_extern_size == 0))
+ 		p = NULL;
++	      else if (mips_opts.noreorder)
++		{
++		  macro_build ((char *) NULL, &icnt, &offset_expr, s, fmt,
++			       treg, (int) BFD_RELOC_MIPS_GPREL, GP);
++		  used_at = 0;
++		  return;
++		}
+ 	      else
+ 		{
+ 		  frag_grow (20);

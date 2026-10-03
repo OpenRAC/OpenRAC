@@ -1,0 +1,50 @@
+# Large binaries - never commit
+*.iso
+*.bin
+*.chd
+*.zso
+config/us/SCUS_971.99
+# Level code overlays (records, manifests, generated asm): restored from the
+# private tooling checkout by its setup, never committed here
+config/us/overlays/
+
+# Disc images / build output (drop a legally owned dump into dumps/)
+dumps/*
+!dumps/README.md
+build/*
+!build/README.md
+config/output/
+config/us/.splache
+config/us/build.ninja
+config/us/oracle-aliases.txt
+config/us/oracle-fallback-units.json
+config/us/SCUS_971.99.ld
+config/us/asm/
+config/us/expected/
+config/us/undefined_syms_auto.txt
+
+# Vendored tools: ignore the compiler/binary components, keep small scripts
+tools/
+!tools/
+tools/*
+!tools/README.md
+!tools/compilers/*/bin/README.md
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Runtime logs and UI state
+ps2_log.txt
+imgui.ini
+
+# OS noise
+Thumbs.db
+desktop.ini
+next_steps.txt
+report.txt
+gccdump.*
