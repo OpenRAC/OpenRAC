@@ -43,7 +43,7 @@ Everything else is exactly as it was at that commit.
   includes, now forward-declares `struct Moby` instead.
 - `docs/COMMUNITY-ENGINE-REFERENCE.md` loses its moby field list, and the
   table row and note taken from a leaked port's source path (same reason),
-  and names no community archive. RAC1's moby record is linked instead.
+  and names no community archive.
 - `docs/PROTOTYPE-BUILDS.md` loses one sentence about another game's
   prototype.
 - `CONTRIBUTING.md` points to the sourcing policy: leaked material is never

@@ -43,7 +43,9 @@ rather than retail ([SOURCING.md](SOURCING.md#prerelease-builds)):
   prototype, and are used by `src/game/stash.c` and
   `src/overlays/shared/stash_00295010.c`. The `BSphere`, `vec4` and
   `MobyInstance` blocks are attributed to STABS debug information without
-  naming the build; no C file uses them.
+  naming the build; no C file uses them. The `MobyInstance` field list is
+  the same as the one left out of rac2 ([SOURCES.md](../SOURCES.md)),
+  whose copy said it came from a leaked build.
 - rac1/ntsc [docs/engine-source-layout.md](../../games/rac1/ntsc/docs/engine-source-layout.md):
   original source file names and structures from 2002 development and demo builds.
 - rac2 [include/flags.h](../../games/rac2/ntsc/include/flags.h) and

@@ -2,7 +2,7 @@
 #define ENGINE_H
 
 #include "common.h"
-struct Moby; /* RAC1's moby record: games/rac1/pal/include/structs.h */
+struct Moby;
 
 /*
  * Insomniac Engine Core Geometry Systems:

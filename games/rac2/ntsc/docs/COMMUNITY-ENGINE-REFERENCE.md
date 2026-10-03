@@ -84,9 +84,8 @@ The game uses dynamic level overlays loaded over the high memory region:
 
 ### 4.1 Moby Object Model
 - All dynamic entities (Ratchet, enemies, crates, hazards, projectiles) are **Mobies**.
-- A moby is a 256-byte record (`InitMobyInstance` clears 0x100 bytes). RAC1's layout is
-  `MobyInstance` in `games/rac1/pal/include/structs.h`; RAC2's offsets are still to be measured
-  from this game's own code.
+- A moby is a 256-byte record (`InitMobyInstance` clears 0x100 bytes). Its field offsets are
+  still to be measured from this game's own code.
 - **Dispatch**:
   - `CreateMobyChain(void)`
   - `PreUpdateMoby(Moby *moby)`
