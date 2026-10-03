@@ -7,6 +7,14 @@
 #   bash tools/docker/run.sh bash tools/build_sn.sh
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/../.." && pwd)
+# Inside OpenRAC (games/rac1/pal), mount the whole repository instead, so
+# the shared editor/, baserom/ and toolchains/ at its top level are visible
+# in the container at the same paths.
+mount=$repo
+top=$(cd "$repo/../../.." && pwd)
+if [ -f "$top/games/rac1/game.json" ] && [ "$top/games/rac1/pal" = "$repo" ]; then
+  mount=$top
+fi
 CONTAINER_CLI="${CONTAINER_CLI:-}"
 if [ -z "$CONTAINER_CLI" ]; then
   if command -v podman >/dev/null 2>&1; then
@@ -55,4 +63,4 @@ fi
 # processes (gen_progress_report.py compiling every overlay file) never
 # reaps the orphans; process creation then fails partway through with
 # Wine's "Not enough space".
-exec $CONTAINER_CLI run --rm --init $tty ${sec_opts[@]+"${sec_opts[@]}"} --platform linux/386 -v "$repo:$repo" -w "$repo" "$IMAGE_TO_RUN" "$@"
+exec $CONTAINER_CLI run --rm --init $tty ${sec_opts[@]+"${sec_opts[@]}"} --platform linux/386 -v "$mount:$mount" -w "$repo" "$IMAGE_TO_RUN" "$@"
