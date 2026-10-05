@@ -115,6 +115,7 @@ same	36	func_00119868	boot	00119868	boot	00127DC8	1
 same	36	func_0011AFC0	boot	0011AFC0	boot	00129F30	1	
 same	36	func_0012D760	boot	0012D760	boot	001559E0	1	
 same	32	func_0012D4E0	boot	0012D4E0	boot	00155760	1	
+same	32	func_0020E340	boot	0020E340	boot	00470090	48	
 same	28	func_0011A728	boot	0011A728	boot	001295F0	1	
 same	28	func_0011B090	boot	0011B090	boot	0012A000	2	
 same	28	func_0011D078	boot	0011D078	boot	0012CBC0	1	

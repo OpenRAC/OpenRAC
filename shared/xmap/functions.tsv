@@ -1468,7 +1468,7 @@ fcb9969803bc62a1	32	game	2	matrix_copy_rows	boot:001FA480	func_001FA480	open	boo
 7f7849c211fc7d62	32	game	2	save_card_state_no_room	boot:002098A8	func_002098A8	matched	boot:00208EB8	save_card_state_no_room	matched	boot:00298940		open						
 a89b04ef259be3a6	32	game	3	DmaToSpr	boot:0020C210	func_0020C210	open	boot:0020B3C0	WriteDmaChannelRegisters	open	boot:0029CF58		open				boot:004697C0		open
 ce8604365db068e3	32	game	4		boot:0020C738	func_0020C738	open	boot:0020B8E8		open	boot:0029D7A0		open	boot:003A0CF0	func_0039BA30	open	boot:00469F30		open
-3c25bae11e23f2e5	32	game	4	PackRenderCommandFields	boot:0020E340	func_0020E340	open	boot:0020D4F0	PackRenderCommandFields	matched	boot:002A0468		open	boot:003C7200	func_003C1A40	matched	boot:00470090	func_00470090	open
+3c25bae11e23f2e5	32	game	4	PackRenderCommandFields	boot:0020E340	func_0020E340	matched	boot:0020D4F0	PackRenderCommandFields	matched	boot:002A0468		open	boot:003C7200	func_003C1A40	matched	boot:00470090	func_00470090	open
 5b26d22e75664df2	32	game	4	voBufDecCount	boot:0023E710	func_0023E710	open	boot:0023D340	DecrementStateFieldIfPositive	matched	boot:00351FA0	FUN_00351FA0	matched	boot:003B2FB8	func_003AD7F8	matched	boot:004F2410	func_004F2410	matched
 346c9ffa777d11f3	32	game	2		boot:00209358	func_L00_0024B920	open	boot:00208A38		open	boot:00298440		open						
 19f84135911378d3	32	game	2		boot:00209398	func_L00_0024B960	open	boot:00208A78		open	boot:00298490		open						
@@ -3178,7 +3178,7 @@ ba02a8491638c492	56	level	2											level:39:0050DD38		open	boot:0040BAB8		ope
 2ff44fc25ca9715c	52	level	2		level:00:0025E828	func_L00_0025E828	open	level:00:0025D7D0		open	level:00:003417E8		open						
 be8f1714efe607d7	52	level	2		level:00:002E9968	func_L00_002E9968	matched	level:00:002E84B8	FUN_L00_002e84b8	matched	level:00:00424A50		open						
 dbb9d2cfbdf30226	52	level	2		level:00:002EDC60	func_L00_002EDC60	matched	level:00:002EC7B0	FUN_L00_002ec7b0	matched	level:00:00428FE8		open						
-293bdf914d97c3bb	52	level	2		level:02:002FBB10	func_L02_002FBB10	open	level:02:002FA6D8	FUN_L02_002fa6d8	matched	level:03:0043AC40		open						
+293bdf914d97c3bb	52	level	2		level:02:002FBB10	func_L02_002FBB10	matched	level:02:002FA6D8	FUN_L02_002fa6d8	matched	level:03:0043AC40		open						
 ccfd54f904d01967	52	level	2								level:00:00326048		open	level:01:0044EB38		open			
 d437632c12514882	52	level	3								level:20:0039F230		open	level:35:003A3AA8		open	level:00:006B8FD8	func_L00_006B8FD8	matched
 30f58135fc9e9d71	52	level	2											level:01:00472C08		open	boot:004954E0	func_004954E0	open
@@ -3392,7 +3392,7 @@ a478aa8d5f907e85	40	level	2											level:39:006D6578		open	level:00:00774D50	
 71d9b1d89bfd0397	36	level	2		level:00:0025A8C0	func_L00_0025A8C0	matched	level:00:00259888	FUN_L00_00259888	matched	boot:002A8C00	FUN_002A8C00	matched						
 6af8db7ac3d8ba67	36	level	2		level:00:002E9A18	func_L00_002E9A18	matched	level:00:002E8568	FUN_L00_002e8568	matched	level:00:00424B48		open						
 9ca033bb8142acfc	36	level	2		level:05:0031B138	func_L05_0031B138	open	level:05:00319C28		open							level:15:003F8F80	func_L15_003F8F80	open
-3a46033b65de24f1	36	level	3		level:10:002F6E10	func_L10_002F6E10	open	level:10:002F5A50	FUN_L10_002f5a50	matched	level:00:00429020		open	level:01:003EAB30		open			
+3a46033b65de24f1	36	level	3		level:10:002F6E10	func_L10_002F6E10	matched	level:10:002F5A50	FUN_L10_002f5a50	matched	level:00:00429020		open	level:01:003EAB30		open			
 854a4c0af693d6b8	36	level	2		level:14:002B02B0	func_L14_002B02B0	open	level:14:002AF070		open	level:09:003FE648		open						
 edb09aa3aebe1eff	36	level	3	LVL_0_ARANOS_TUTORIAL_FUN_002E3A68							level:00:002E3A68	LVL_0_ARANOS_TUTORIAL_FUN_002E3A68	matched	level:01:003FE3F8		open	level:00:005AB550	func_L00_005AB550	open
 1894ee862915c680	36	level	2								level:00:002E2048		open	level:01:003FC760		open			
@@ -3560,7 +3560,7 @@ c21769e81a2d3b04	24	level	3		level:00:00232A18	func_L00_00232A18	open	level:00:0
 38428071382f2d2a	24	level	4		level:00:0025A43C	func_L00_0025A43C	open	level:00:00259404		open	boot:002A8834		open	level:01:00442D44		open	level:01:005924BC	func_L01_005924BC	open
 9f3e2df820e2f4e9	24	level	2		level:00:002E5618	func_L00_002E5618	matched	level:00:002E4168	FUN_L00_002e4168	matched	boot:00334710		open						
 84d1e1d6d40e3fbd	24	level	3		level:01:002490E0	func_L01_002490E0	matched	level:01:002488E8	FUN_L01_002488e8	matched	level:01:002C8990		open	level:02:004DCEC0		open			
-7ea005025ef6541a	24	level	3		level:01:002490F8	func_L01_002490F8	open	level:01:00248900	FUN_L01_00248900	matched	level:01:002C89A8		open	level:02:004DCED8		open			
+7ea005025ef6541a	24	level	3		level:01:002490F8	func_L01_002490F8	matched	level:01:00248900	FUN_L01_00248900	matched	level:01:002C89A8		open	level:02:004DCED8		open			
 415b9386bee8bd7d	24	level	2	LVL_0_ARANOS_TUTORIAL_FUN_002D7940	level:00:001EB430		open	level:00:001EB0B0	FUN_L00_001eb0b0	matched	level:00:002D7940	LVL_0_ARANOS_TUTORIAL_FUN_002D7940	matched						
 50a034250e3055af	24	level	2								level:00:002B3248		open	level:01:004EA1D8		open			
 669814fe475b5ff8	24	level	2								level:00:002D24D0		open	level:01:0050BF40		open			

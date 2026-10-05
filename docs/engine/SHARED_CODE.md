@@ -74,17 +74,19 @@ this version's code, and still open here:
 
 | Version | Functions | Bytes | Compared with what the project has matched |
 |---|---:|---:|---|
-| rac1/pal | 245 | 125,876 | +19% |
+| rac1/pal | 147 | 58,192 | +8% |
 | rac1/ntsc | 186 | 60,020 | +8% |
 | rac2/ntsc | 437 | 62,472 | 4.6 times as much |
 | rac3/ntsc | 192 | 22,252 | +25% |
 | rac4/ntsc | 282 | 29,872 | 1.1 times as much |
 
-Most of rac1/pal's come from Lombyte (228 functions, 124,888 bytes, among
-them `_dtoa_r` at 4.5 KB), and most of RAC2's from the two RAC1 projects
-(about 295 functions, 48 KB). The lists, one per pair, are in
-[shared/xmap/ports/](../../shared/xmap/ports): source name and address, target
-program and address, size, and whether it is the same function or a relative.
+rac1/pal's row was 245 functions and 125,876 bytes until 98 of them were
+carried over from Lombyte by machine on 2026-10-04 (below); 130 of Lombyte's
+remain (57,204 bytes, among them `_dtoa_r` at 4.5 KB). Most of RAC2's come
+from the two RAC1 projects (about 295 functions, 48 KB). The lists, one per
+pair, are in [shared/xmap/ports/](../../shared/xmap/ports): source name and
+address, target program and address, size, and whether it is the same function
+or a relative.
 
 ## Using a port candidate
 

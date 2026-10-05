@@ -21,7 +21,6 @@ same	40	func_00388B40	frontbin	00388B40	boot	001FA168	20
 same	36	func_003ABE30	frontbin	003ABE30	boot	0023CDF0	20	
 same	36	func_003AC0B0	frontbin	003AC0B0	boot	0023CFF0	20	
 same	32	func_003AD7F8	frontbin	003AD7F8	boot	0023E710	20	
-same	32	func_003C1A40	frontbin	003C1A40	boot	0020E340	20	
 same	24	func_003886E8	frontbin	003886E8	boot	001F9C30	20	
 same	24	func_00388700	frontbin	00388700	level:00	001FF2C8	19	
 same	24	func_00388718	frontbin	00388718	boot	001F9C48	20	
