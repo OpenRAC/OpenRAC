@@ -204,7 +204,92 @@ float func_L01_002F95A0(float target, float k, float a, float b, float *cur, flo
     *cur = *cur + *vel;
     return FastAbsF(target - *cur);
 }
-INCLUDE_ASM("asm/overlays", func_L01_002F9640);
+typedef unsigned int u128_pt __attribute__((mode(TI)));
+extern void func_001F9BD8_2f9640(void *, void *, void *) __asm__("func_001F9BD8") ;
+extern f32 D_0015EE6C_2f9640  __asm__("D_0015EE6C") MACRO_ADDR;
+extern void func_001F9BF0_2f9640(void *, void *, void *) __asm__("func_001F9BF0") ;
+extern void func_001F9BD8_2f9640(void *, void *, void *) __asm__("func_001F9BD8") ;
+extern void func_001F9BD8_2f9640(void *, void *, void *) __asm__("func_001F9BD8") ;
+extern void func_001F9BF0_2f9640(void *, void *, void *) __asm__("func_001F9BF0") ;
+extern f32 func_L00_001FF860_2f9640(f32, f32) __asm__("func_L00_001FF860") ;
+extern f32 func_001F9B88_2f9640(f32) __asm__("func_001F9B88") ;
+typedef union { u128_pt q; struct { f32 x, y, z, w; } v; } HoverVec;
+typedef struct { f32 home_x; f32 home_y; f32 pad8[2]; f32 vel_x; f32 vel_y; } HoverVars;
+typedef struct { u8 pad0[0x10]; HoverVec pos; u8 state; u8 pad21[0x57]; HoverVars *pvars; } HoverMoby;
+typedef struct { u8 pad0[0x80]; HoverVec pos; } HoverPlayer;
+extern HoverPlayer D_0013F450_2f9640 __asm__("D_0013F450") ;
+extern short D_L01_00161C80_2f9640 __asm__("D_L01_00161C80") ;
+extern short D_L01_00161C84_2f9640 __asm__("D_L01_00161C84") ;
+extern short D_L01_00161C88_2f9640 __asm__("D_L01_00161C88") ;
+extern short D_L01_00161C8C_2f9640 __asm__("D_L01_00161C8C") ;
+extern short D_L01_00161C90_2f9640 __asm__("D_L01_00161C90") ;
+extern f32 D_0015EE70_2f9640  __asm__("D_0015EE70") MACRO_ADDR;
+extern f32 spring_axis_to(f32 *, f32, f32 *, f32, f32, f32) __asm__("func_L01_002F95A0");
+extern f32 func_001F9D48_2f9640(void *, void *) __asm__("func_001F9D48") ;
+extern f32 func_001F9B88_2f9640(f32) __asm__("func_001F9B88") ;
+extern float func_001F9F90_2f9640(float) __asm__("func_001F9F90") ;
+extern float func_001F9FA8_2f9640(float) __asm__("func_001F9FA8") ;
+extern void func_L00_002594C8_2f9640(void *, void *, void *, s32, f32, f32, f32, f32) __asm__("func_L00_002594C8") ;
+extern f32 func_001F9D10_2f9640(void *, void *) __asm__("func_001F9D10") ;
+extern void func_L00_001FF4B0_2f9640(void *, void *, f32) __asm__("func_L00_001FF4B0") ;
+extern f32 func_00214440_2f9640(void *, s32) __asm__("func_00214440") ;
+/* Hovering enemy update: springs its position toward a home point on each axis, keeps its distance to the player, and steers toward a target with the shared turn helper. Adapted from Lombyte (MIT) for PAL: overlays/l01/unclassified_002b96e0.c, FUN_L01_002f8268. */
+void func_L01_002F9640(HoverMoby *m) {
+    HoverVars *v;
+    HoverPlayer *pl;
+    HoverVec old;
+    HoverVec tgt;
+    HoverVec step;
+    HoverVec d;
+    f32 ang;
+    f32 dz;
+    f32 lim;
+
+    old.q = m->pos.q;
+    v = m->pvars;
+    tgt.q = old.q;
+    if (v == 0) {
+        return;
+    }
+    switch (m->state) {
+    case 0:
+        *(u128_pt *)v = old.q;
+        m->state = 1;
+        break;
+    case 1:
+        spring_axis_to(&m->pos.v.x, v->home_x, &v->vel_x, *(float *)&D_L01_00161C80_2f9640 * D_0015EE70_2f9640, *(float *)&D_L01_00161C84_2f9640, 3.0f);
+        spring_axis_to(&m->pos.v.y, v->home_y, &v->vel_y, *(float *)&D_L01_00161C80_2f9640 * D_0015EE70_2f9640, *(float *)&D_L01_00161C84_2f9640, 3.0f);
+        if (func_001F9D48_2f9640(&m->pos, &D_0013F450_2f9640.pos) < *(float *)&D_L01_00161C88_2f9640) {
+            if (func_001F9B88_2f9640(m->pos.v.z - D_0013F450_2f9640.pos.v.z) < 0.7f) {
+                ang = func_L00_001FF860_2f9640(m->pos.v.x - D_0013F450_2f9640.pos.v.x, m->pos.v.y - D_0013F450_2f9640.pos.v.y);
+                m->pos.v.x = func_001F9F90_2f9640(ang) * *(float *)&D_L01_00161C88_2f9640;
+                m->pos.v.y = func_001F9FA8_2f9640(ang) * *(float *)&D_L01_00161C88_2f9640;
+                m->pos.v.x += D_0013F450_2f9640.pos.v.x;
+                m->pos.v.y += D_0013F450_2f9640.pos.v.y;
+            }
+        }
+        func_L00_002594C8_2f9640(m, &tgt, &m->pos, 3, 0.1f, *(float *)&D_L01_00161C90_2f9640, 600.0f, 1.5707964f);
+        m->pos.v.x = tgt.v.x;
+        m->pos.v.y = tgt.v.y;
+        m->pos.v.z = old.v.z;
+        if (func_001F9D10_2f9640(&old, &m->pos) > *(float *)&D_L01_00161C8C_2f9640 * D_0015EE6C_2f9640) {
+            func_001F9BF0_2f9640(&d, &m->pos, &old);
+            step.q = d.q;
+            func_L00_001FF4B0_2f9640(&step, &step, *(float *)&D_L01_00161C8C_2f9640 * D_0015EE6C_2f9640);
+            func_001F9BD8_2f9640(&d, &old, &step);
+            m->pos.q = d.q;
+        }
+        dz = func_00214440_2f9640(&m->pos, 0) - m->pos.v.z;
+        lim = D_0015EE6C_2f9640 * 3.0f;
+        if (dz > lim) {
+            dz = lim;
+        } else if (dz < -lim) {
+            dz = -lim;
+        }
+        m->pos.v.z += dz;
+        break;
+    }
+}
 typedef int u128_p __attribute__((mode(TI)));
 typedef union {
     u128_p q;

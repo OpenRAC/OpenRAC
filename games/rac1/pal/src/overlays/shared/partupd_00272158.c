@@ -394,7 +394,41 @@ void func_L00_002732D8(unsigned char *m) {
     func_L00_0025BA50(q->p14, (void *)&t, D_L00_00178000, r, 0, 0x810001, 2, 1, 2.0f, 1.0f, 1.0f);
 }
 INCLUDE_ASM("asm/overlays", func_L00_00273478);
-INCLUDE_ASM("asm/overlays", func_L00_00273578);
+extern void func_001F9BD8_273578(void *, void *, void *) __asm__("func_001F9BD8");
+extern void func_L00_002688A8_273578(void *) __asm__("func_L00_002688A8");
+typedef unsigned int u128_2726d8 __attribute__((mode(TI), aligned(16)));
+typedef struct { u8 *owner; s32 x4; s32 x8; f32 xC; } Q_2726d8;
+typedef struct { u8 pad0[0x10]; u128_2726d8 pos; u8 pad20[0xC]; f32 f2C; Q_2726d8 q; } P_2726d8;
+extern f32 func_002140F8_273578(f32, f32) __asm__("func_002140F8");
+extern void func_L00_00250800_273578(void *, s32, void *) __asm__("func_L00_00250800");
+extern void func_001F9BF0_273578(void *, void *, void *) __asm__("func_001F9BF0");
+extern f32 func_001F9CB8_273578(void *) __asm__("func_001F9CB8");
+extern void func_L00_001FF4B0_273578(void *, void *, f32) __asm__("func_L00_001FF4B0");
+/* Particle update. Adapted from Lombyte (MIT) for PAL: overlays/shared/rendering_002712b8.c, FUN_L00_002726d8. */
+void func_L00_00273578(P_2726d8 *p) {
+    Q_2726d8 *q = &p->q;
+    u128_2726d8 t;
+    f32 save, sc, r2, f;
+    if (p->q.owner == 0 || *(s16 *)(p->q.owner + 0xA6) != q->x8 || p->q.owner[0x20] == 0xFE || p->q.owner[0x20] == 0xFD) {
+        func_L00_002688A8_273578(p);
+        return;
+    }
+    sc = q->xC * func_002140F8_273578(0.5f, 1.0f);
+    save = p->f2C;
+    qcopy(&t, &p->pos);
+    func_L00_00250800_273578(p->q.owner, q->x4, &p->pos);
+    func_001F9BF0_273578(&t, &t, &p->pos);
+    r2 = func_002140F8_273578(-0.021f, 0.021f);
+    if (func_001F9CB8_273578(&t) < 0.0625f) {
+        f = r2 + 0.0625f;
+    } else {
+        f = func_001F9CB8_273578(&t) + r2;
+    }
+    func_L00_001FF4B0_273578(&t, &t, f);
+    func_001F9BD8_273578((u8 *)p + 0x20, &p->pos, &t);
+    *(f32 *)((u8 *)p + 0x1C) = sc;
+    p->f2C = save;
+}
 /* Updates a fading particle: damps velocity, moves, dims colour, kills at zero. */
 void func_L00_002736D8(char *m) {
     char *v = m + 0x20;

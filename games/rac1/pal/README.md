@@ -5,14 +5,6 @@
 [![Functions](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/Sfd2B54PDG)
 
-> [!NOTE]
-> Because of recent events in the Ratchet & Clank community, I had to remove
-> all information associated with John Doe #1 and John Doe #2 from this project
-> at their request. If anyone else would like mentions of them removed, please
-> contact me on the [Discord](https://discord.gg/Sfd2B54PDG).
->
-> - Kryštof "Lynder063" Malinda
-
 A work-in-progress **matching decompilation** of *Ratchet & Clank* (Insomniac
 Games, 2002) for the PlayStation 2. The goal is C/C++ source that, built with
 the original toolchain, produces a byte-identical copy of the retail executable.
@@ -82,6 +74,24 @@ level only under *Level-specific* and that level's own row.
 | 18 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_18&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_18) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_18&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_18) |
 
 </details>
+
+## How it works
+
+- **The compiler is SN Systems ProDG's GCC 2.95.3** (32-bit Windows programs,
+  run through Wine in a container on Linux and macOS), with `-O2 -G2`. Parts of
+  the SDK and C library code were built by Sony's `2.9-ee` compiler instead, and
+  the GCC runtime (`libgcc`) is rebuilt from GCC's own sources the way Sony's
+  toolchain built it. Retail was assembled by SN's own assembler, whose extra
+  nops `tools/ps2eeas_nops.py` reproduces ([`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md)).
+- **The whole image already links with every function at its retail address.**
+  Functions that are not decompiled yet are included as assembly, so the build
+  can be checked end to end against the retail executable.
+- **Level code is overlays.** Each level carries its own build of the game
+  program ([`docs/OVERLAYS.md`](docs/OVERLAYS.md)); its functions are decompiled
+  in `src/overlays/` and counted once each.
+- **Progress is measured per function.** The report on decomp.dev is generated
+  locally from a from-scratch build and committed, because CI cannot build the
+  game (the compiler and the executable cannot be redistributed).
 
 ## Disclaimer
 
@@ -220,6 +230,10 @@ Whether you're interested in matching functions, analyzing PS2 disassembly, rese
   [asm-differ](https://github.com/simonlindholm/asm-differ),
   [objdiff](https://github.com/encounter/objdiff)
 - [AngheloAlf's PS2 toolchain mirrors](https://github.com/AngheloAlf)
+
+## Credits
+
+- **GFI (Game Fuckery Inc.)**: Special thanks to the GFI Discord server for the years of time spent researching and exploring the game, which helped make this decompilation possible.
 - [Lombyte](https://github.com/mateuszklysz/Lombyte) (MIT): matching
   decompilation of the same game's NTSC build; some real names and struct
   layouts in `src/` comments (e.g. `src/game/draw.c`, `src/game/vuchain.c`)
@@ -241,4 +255,15 @@ Whether you're interested in matching functions, analyzing PS2 disassembly, rese
   source; OpenRAC's `editor/README.md` credits it and the other projects the
   extractor drew on
 
+## Contributing
 
+Contributions are welcome: see [`CONTRIBUTING.md`](CONTRIBUTING.md) and
+[`docs/WORKFLOW.md`](docs/WORKFLOW.md). A good first step is a function from
+`python tools/rank_candidates.py`, a draft from `tools/m2c.py`, and
+`tools/diff.sh` to compare it with retail.
+
+## License
+
+The original work in this repository is MIT licensed (`LICENSE`). Third-party
+files keep their own licenses (see `THIRD_PARTY_NOTICES.md` and each file's
+header, for example the GPL-with-exception files under `src/libgcc/`).

@@ -7,6 +7,14 @@
  * sizes -- see docs/DECOMP_PROGRESS.md. Compiled as C for now.
  */
 
-INCLUDE_ASM("asm/nonmatchings/text", func_0023CE18);
-INCLUDE_ASM("asm/nonmatchings/text", func_0023CE28);
+/* InitializeStateFields - initializes state fields */
+int func_0023CE18(int *a, int val1, int val2) {
+    a[1] = val1;
+    a[0] = val2;
+    return 1;
+}
+/* GetStateCallbackResult - returns 1 */
+int func_0023CE28(void) {
+    return 1;
+}
 INCLUDE_ASM("asm/nonmatchings/text", func_0023CE30);

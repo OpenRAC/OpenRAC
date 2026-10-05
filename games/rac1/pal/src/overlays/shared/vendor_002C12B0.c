@@ -385,7 +385,35 @@ void func_L00_002C7128(char *m) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L00_002C74B8);
-INCLUDE_ASM("asm/overlays", func_L00_002C82E8);
+typedef unsigned int u128_pt __attribute__((mode(TI)));
+extern unsigned char *func_0020D348_2c82e8(int) __asm__("func_0020D348") ;
+extern void func_L00_00251328_2c82e8(unsigned char *, int, int, int) __asm__("func_L00_00251328") ;
+extern void func_L00_00250800_2c82e8(unsigned char *, int, void *) __asm__("func_L00_00250800") ;
+extern int func_001F9850_2c82e8(int) __asm__("func_001F9850") ;
+extern void func_00213DE0_2c82e8(unsigned char *, int, int, int) __asm__("func_00213DE0") ;
+extern void func_L00_00251E30_2c82e8(unsigned char *) __asm__("func_L00_00251E30") ;
+/* Spawns the type-0xD1 moby for an owner: links the owner and a float into its data, copies three quadwords of the owner's transform and finalizes it. Adapted from Lombyte (MIT) for PAL: overlays/shared/unclassified_002bffa8.c, FUN_L00_002c6f88. */
+unsigned char *func_L00_002C82E8(unsigned char *src, float f) {
+    unsigned char *m = func_0020D348_2c82e8(0xd1);
+    if (m) {
+        char *q = *(char **)(m + 0x78);
+        *(float *)(q + 4) = f;
+        *(unsigned char **)q = src;
+        m[0x30] = 0xff;
+        *(short *)(m + 0x32) = 0xff;
+        m[0x31] = 1;
+        func_L00_00251328_2c82e8(m, 0x80, 0x80, 0x80);
+        func_L00_00250800_2c82e8(src, 0, m + 0x10);
+        *(u128_pt *)(m + 0xc0) = *(u128_pt *)(src + 0xc0);
+        *(u128_pt *)(m + 0xd0) = *(u128_pt *)(src + 0xd0);
+        *(u128_pt *)(m + 0xe0) = *(u128_pt *)(src + 0xe0);
+        if (m[0x53]) func_00213DE0_2c82e8(m, 0, 0, func_001F9850_2c82e8(10));
+        func_L00_00251E30_2c82e8(m);
+        m[0x20] = 0;
+        *(unsigned short *)(m + 0x34) |= 4;
+    }
+    return m;
+}
 extern unsigned char D_001414F5[] NOT_SDA;
 extern void func_00213DE0(void *, int, int, int);
 extern void func_0020D678(void *);

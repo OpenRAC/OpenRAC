@@ -155,7 +155,21 @@ void func_L00_002D28D8(char *a) {
     } while (n != 0);
 }
 INCLUDE_ASM("asm/overlays", func_L00_002D2E60);
-INCLUDE_ASM("asm/overlays", func_L00_002D3330);
+typedef struct M2d1e80 { u8 p0[0x20]; u8 state; u8 p21[0x10]; u8 vis; u8 p32[2]; u16 flags; u8 p36[0x42]; s32 *vars; u8 p7c[0x40]; u8 bc; } M2d1e80;
+extern s32 D_L00_0015F6A8_2d3330 __asm__("D_L00_0015F6A8") MACRO_ADDR;
+extern s32 D_L00_0016C990_2d3330[] __asm__("D_L00_0016C990");
+extern void func_0020DAF8_2d3330(M2d1e80 *, s32, s32 *) __asm__("func_0020DAF8");
+extern void func_001F49B0_2d3330(void *, M2d1e80 *) __asm__("func_001F49B0");
+extern void func_L00_002D2E60_2d3330(void) __asm__("func_L00_002D2E60");
+/* Moby update: hides itself and sets its flag while the game mode word is 2 and the state table entry is below 3 or equal to 4. Adapted from Lombyte (MIT) for PAL: overlays/shared/unclassified_002cfcb8.c, FUN_L00_002d1e80. */
+void func_L00_002D3330(M2d1e80 *m) {
+    s32 *v = m->vars;
+    if (m->state == 0) { m->state = 1; m->bc = 1; v[0x10] = 0; }
+    if (D_L00_0015F6A8_2d3330 == 2 && (D_L00_0016C990_2d3330[0] < 3 || D_L00_0016C990_2d3330[0] == 4)) { m->vis = 0; m->flags |= 1; }
+    else { m->vis = 1; m->flags &= 0xFFFE; }
+    func_0020DAF8_2d3330(m, 0, v);
+    if (m->vis) func_001F49B0_2d3330(func_L00_002D2E60_2d3330, m);
+}
 INCLUDE_ASM("asm/overlays", func_L00_002D3608);
 INCLUDE_ASM("asm/overlays", func_L00_002D3B20);
 INCLUDE_ASM("asm/overlays", func_L00_002D3F40);

@@ -9,9 +9,31 @@
 
 INCLUDE_ASM("asm/nonmatchings/text", func_0023B670);
 INCLUDE_ASM("asm/nonmatchings/text", func_0023B740);
-INCLUDE_ASM("asm/nonmatchings/text", func_0023BB40); /* switchThread */
-INCLUDE_ASM("asm/nonmatchings/text", func_0023BB60); /* isAudioOK */
+extern int func_00118BC0(int);
+
+/* switch_thread - calls func_00118BC0(1) */
+void func_0023BB40(void) {
+    func_00118BC0(1);
+}
+extern int func_0023C2B0(int);
+extern int D_0016130C MACRO_ADDR;
+
+/* is_audio_ok - checks if audio is OK */
+int func_0023BB60(void) {
+    return func_0023C2B0(D_0016130C + 0xD9100);
+}
 INCLUDE_ASM("asm/nonmatchings/text", func_0023BB90); /* initAll(int, int, int) */
 INCLUDE_ASM("asm/nonmatchings/text", func_0023BE38); /* termAll(void) */
-INCLUDE_ASM("asm/nonmatchings/text", func_0023BF48); /* ErrMessage */
-INCLUDE_ASM("asm/nonmatchings/text", func_0023BF70); /* proceedAudio(void) */
+extern void func_001E9730(char *, ...);
+extern char D_001612F8[];
+
+/* log_audio_error - logs to D_001612F8 */
+void func_0023BF48(char *fmt) {
+    func_001E9730(D_001612F8, fmt);
+}
+extern void func_0023C2C0(int *);
+
+/* process_audio_stream - calls func_0023C2C0 with address */
+void func_0023BF70(void) {
+    func_0023C2C0(D_0016130C + 0xD9100);
+}

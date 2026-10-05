@@ -96,7 +96,76 @@ void func_L15_002D9B00(char *moby) {
                       F(D_L15_00161CF4), F(D_L15_00161CF8), 0.2f);
     func_L15_002DA238(moby);
 }
-INCLUDE_ASM("asm/overlays", func_L15_002DA238);
+typedef struct { float f[4]; } __attribute__((aligned(16))) V2d8e48;
+typedef struct { float u, v; } UV2d8e48;
+typedef struct { V2d8e48 corner[4]; unsigned int color[4]; UV2d8e48 uv[4]; long unk70, tex, unk80, unk88; } Q2d8e48;
+extern short D_L15_00161D2C_2da238 __asm__("D_L15_00161D2C") ;
+extern short D_L15_00161CE0_2da238 __asm__("D_L15_00161CE0") ;
+extern short D_L15_00161D34_2da238 __asm__("D_L15_00161D34") ;
+extern short D_L15_00161D38_2da238 __asm__("D_L15_00161D38") ;
+extern V2d8e48 D_L15_00167440 __asm__("D_L15_00167440") NOT_SDA;
+extern V2d8e48 D_0013F6E0 __asm__("D_0013F6E0");
+extern V2d8e48 D_L15_001D39C0[] __asm__("D_L15_001D39C0") NOT_SDA;
+extern UV2d8e48 D_L15_001D3A00[] __asm__("D_L15_001D3A00") NOT_SDA;
+extern void vsub_2d8e48(void *, void *, void *) __asm__("func_001F9BF0");
+extern void vadd_2d8e48(void *, void *, void *) __asm__("func_001F9BD8");
+extern void vscl_2d8e48(void *, void *, float) __asm__("func_L00_001FF4B0");
+extern void cross_2d8e48(void *, void *, void *) __asm__("func_001F9CA0");
+extern void vmul_2d8e48(float, void *, void *) __asm__("func_001F9C30");
+extern void xform_2d8e48(void *, void *, void *) __asm__("func_001F9EE8");
+extern long tex_2d8e48(int) __asm__("func_001F4868");
+extern float rnd_2d8e48(float, float) __asm__("func_L00_00258C80");
+extern void draw_2d8e48(void *, void *, int) __asm__("func_L00_001FD1D8");
+/* Draw callback: builds a camera-facing matrix from the moby's position and draws two quads, each with a jittered scale. Adapted from Lombyte (MIT) for PAL: overlays/shared/unclassified_002d6810.c, FUN_L15_002d8e48. */
+void func_L15_002DA238(char *mv) {
+    Q2d8e48 quad;
+    V2d8e48 mat[4];
+    V2d8e48 *pos;
+    unsigned int c;
+    float s;
+    int i;
+    pos = *(V2d8e48 **)((char *)mv + 0x78);
+    quad.tex = tex_2d8e48(0xB);
+    pos = (V2d8e48 *)((char *)pos + 0xF0);
+    quad.unk88 = 0x8000000048L;
+    quad.unk80 = 0xFF9000000260L;
+    quad.unk70 = 0;
+    vsub_2d8e48(&mat[3], &D_L15_00167440, pos);
+    vscl_2d8e48(&mat[3], &mat[3], 0.3f);
+    vadd_2d8e48(&mat[3], &mat[3], pos);
+    mat[3].f[3] = 1.0f;
+    vsub_2d8e48(&mat[0], &D_L15_00167440, &mat[3]);
+    vscl_2d8e48(&mat[0], &mat[0], 1.0f);
+    cross_2d8e48(&mat[1], &mat[0], &D_0013F6E0);
+    vscl_2d8e48(&mat[1], &mat[1], -1.0f);
+    cross_2d8e48(&mat[2], &mat[1], &mat[0]);
+    c = *(unsigned int *)&D_L15_00161D2C_2da238;
+    quad.color[3] = c;
+    quad.color[2] = c;
+    quad.color[1] = c;
+    quad.color[0] = c;
+    s = *(float *)&D_L15_00161D34_2da238 + rnd_2d8e48(0.0f, 0.025f);
+    for (i = 0; i < 4; i++) {
+        vmul_2d8e48(s, &quad.corner[i], &D_L15_001D39C0[i]);
+        xform_2d8e48(&quad.corner[i], &quad.corner[i], &mat[0]);
+        quad.uv[i].u = D_L15_001D3A00[i].u;
+        quad.uv[i].v = D_L15_001D3A00[i].v;
+    }
+    draw_2d8e48(&quad, 0, 0);
+    c = *(unsigned int *)&D_L15_00161CE0_2da238;
+    quad.color[3] = c;
+    quad.color[2] = c;
+    quad.color[1] = c;
+    quad.color[0] = c;
+    s = *(float *)&D_L15_00161D38_2da238 + rnd_2d8e48(0.0f, 0.05f);
+    for (i = 0; i < 4; i++) {
+        vmul_2d8e48(s, &quad.corner[i], &D_L15_001D39C0[i]);
+        xform_2d8e48(&quad.corner[i], &quad.corner[i], &mat[0]);
+        quad.uv[i].u = D_L15_001D3A00[i].u;
+        quad.uv[i].v = D_L15_001D3A00[i].v;
+    }
+    draw_2d8e48(&quad, 0, 0);
+}
 extern int func_L11_00310738(void *);
 
 void func_L15_002DA990(char *moby)

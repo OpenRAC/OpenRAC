@@ -8,7 +8,10 @@
  */
 
 INCLUDE_ASM("asm/nonmatchings/text", func_0023CD10);
-INCLUDE_ASM("asm/nonmatchings/text", func_0023CD28);
+/* NoOpStateCallback - leaves state unchanged */
+void func_0023CD28(void) {
+    return;
+}
 INCLUDE_ASM("asm/nonmatchings/text", func_0023CD30); /* readBufBeginPut(ReadBuf *, unsigned char **) */
 INCLUDE_ASM("asm/nonmatchings/text", func_0023CD60); /* readBufEndPut(ReadBuf *, int) */
 INCLUDE_ASM("asm/nonmatchings/text", func_0023CDA8); /* readBufBeginGet(ReadBuf *, unsigned char **) */

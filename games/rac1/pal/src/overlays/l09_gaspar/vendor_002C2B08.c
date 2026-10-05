@@ -255,7 +255,31 @@ void func_L09_002F0AA0(void) {
 }
 INCLUDE_ASM("asm/overlays", func_L09_002F0BB8);
 INCLUDE_ASM("asm/overlays", func_L09_002F0D00);
-INCLUDE_ASM("asm/overlays", func_L09_002F10F8);
+extern void func_L00_00251E30_2f10f8(void *) __asm__("func_L00_00251E30");
+typedef unsigned int u128_ee380 __attribute__((mode(TI)));
+extern char *CreateMoby_c(int) __asm__("func_0020D348");
+/* Creates a type-0x144 moby that inherits its owner's colour, position, rotation and timer. Adapted from Lombyte (MIT) for PAL: overlays/l09/unclassified_0021e538.c, FUN_L09_002efda8. */
+char *func_L09_002F10F8(char *owner, void *position, float angle) {
+    u128_ee380 pos;
+    void *copy = &pos;
+    char *moby;
+
+    pos = *(u128_ee380 *)position;
+    moby = CreateMoby_c(0x144);
+    if (moby != 0) {
+        unsigned char state;
+
+        ((unsigned char *)moby)[0x30] = ((unsigned char *)owner)[0x30];
+        state = ((unsigned char *)owner)[0x30];
+        moby[0x31] = 1;
+        *(short *)(moby + 0x32) = state;
+        qcopy(moby + 0x10, copy);
+        qcopy(moby + 0x40, owner + 0x40);
+        *(long *)(moby + 0x38) = *(long *)(owner + 0x38);
+        func_L00_00251E30_2f10f8(moby);
+    }
+    return moby;
+}
 INCLUDE_ASM("asm/overlays", func_L09_002F1198);
 extern float D_0015EE60 MACRO_ADDR;
 extern void func_001F9BD8(void *, void *, void *);

@@ -7,7 +7,31 @@ INCLUDE_ASM("asm/overlays", func_L00_001FD428);
 INCLUDE_ASM("asm/overlays", func_L00_001FD6A8);
 INCLUDE_ASM("asm/overlays", func_L00_001FDE48);
 INCLUDE_ASM("asm/overlays", func_L00_001FE688);
-INCLUDE_ASM("asm/overlays", func_L00_001FE940);
+typedef unsigned int u128_pt __attribute__((mode(TI)));
+extern char D_L00_0016EB40_001fe990[] __asm__("D_L00_0016EB40");
+float func_00214158_001fe990() __asm__("func_00214158");
+/* Claims a free slot of the 16-entry effect table: copies the position quadword, stores a scale, a lifetime of 0x18 frames, a type and a random float; returns the slot or -1. Adapted from Lombyte (MIT) for PAL: overlays/shared/unclassified_001fd108.c, FUN_L00_001fe990. */
+int func_L00_001FE940(u128_pt *v, int b, float x) {
+    u128_pt t;
+    u128_pt *tp = &t;
+    char *e;
+    int i;
+    *tp = *v;
+    e = D_L00_0016EB40_001fe990;
+    for (i = 0;
+    i < 16;
+    i++, e += 0x20) {
+        if (*(short *)(e + 0x10) <= 0) {
+            qcopy(e, tp);
+            *(float *)(e + 0x1c) = x;
+            *(short *)(e + 0x10) = 0x18;
+            *(short *)(e + 0x14) = b;
+            *(float *)(e + 0x18) = func_00214158_001fe990();
+            return i;
+        }
+    }
+    return -1;
+}
 typedef struct { char pad[0x10]; short life; unsigned short ang; char pad2[4]; float f; char pad3[4]; } P;
 extern P D_L00_0016EB40[16];
 extern float D_0015EE6C MACRO_ADDR;

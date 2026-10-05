@@ -36,11 +36,13 @@
         "checkout": "~/Projects/rac1-decomp",
         "license": "MIT",
         "exclude": [
-          ".agents"
+          ".agents",
+          "tools/extract",
+          "docs/GDSCRIPT_CONVENTIONS.md"
         ],
-        "commit": "99fc0d339f698115dbb2d40eadb505771041edab",
-        "date": "2026-10-03",
-        "imported": "2026-10-03"
+        "commit": "7a9784a9be88c257c9344b2d9290bcfc46891202",
+        "date": "2026-10-04",
+        "imported": "2026-10-04"
       },
       "build": {
         "host": "macOS or Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",

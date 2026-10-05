@@ -70,7 +70,40 @@ float func_L11_00312F50(void *moby_v, void *o_v) {
 INCLUDE_ASM("asm/overlays", func_L11_003130B0);
 INCLUDE_ASM("asm/overlays", func_L11_00313148);
 INCLUDE_ASM("asm/overlays", func_L11_00313218);
-INCLUDE_ASM("asm/overlays", func_L11_00313A70);
+extern void func_L11_003126D8_313a70(void *, void *, void *, int) __asm__("func_L11_003126D8");
+extern int func_001F9908_c(void *) __asm__("func_001F9908");
+extern int func_0022ED80_c(int, int, int) __asm__("func_0022ED80");
+extern int func_L11_00309C18_313a70(void *, void *, void *, float, float) __asm__("func_L11_00309C18");
+extern short D_L11_001620EC_d __asm__("D_L11_001620EC");
+extern short D_L11_001620F0_d __asm__("D_L11_001620F0");
+extern short D_L11_00162120_d __asm__("D_L11_00162120");
+extern unsigned char D_0013A5E0_313a70[] __asm__("D_0013A5E0");
+extern void func_L00_00250800_313a70(void *, int, void *) __asm__("func_L00_00250800");
+extern void func_001F9BD8_313a70(void *, void *, void *) __asm__("func_001F9BD8");
+extern void func_L00_001FF4B0_313a70(void *, void *, float) __asm__("func_L00_001FF4B0");
+void build_spherical_offset(f32 *out, f32 scale, f32 a, f32 b) __asm__("func_00215C00");
+/* Update. Adapted from Lombyte (MIT) for PAL: overlays/l11/gameplay_vendor_0030c788.c, FUN_L11_003125a8. */
+void func_L11_00313A70(char *moby, char *obj, float p2, float p3) {
+    char a[16];
+    char b[16];
+    char c[16];
+    char d[16];
+
+    build_spherical_offset((f32 *)a, *(float *)&D_L11_001620EC_d * *(float *)&D_L11_00162120_d, p2, p3);
+    func_001F9BD8_313a70(a, a, obj);
+    if (func_001F9908_c(obj + 0x80) && (*(int *)(D_0013A5E0_313a70 + 0x2610) & 0x84)) {
+        func_L00_001FF4B0_313a70(c, a, 2.2f);
+        func_L00_00250800_313a70(moby, 3 + (obj[0x61] & 1), b);
+        func_001F9BD8_313a70(b, b, c);
+        func_L11_00309C18_313a70(moby, a, b, 200.0f, -1.0f);
+        *(int *)(obj + 0x80) = *(int *)&D_L11_001620F0_d;
+        obj[0x61] ^= 1;
+        func_0022ED80_c(3, 0, (int)moby);
+    }
+    func_L00_001FF4B0_313a70(a, a, 23.0f);
+    func_001F9BD8_313a70(d, a, moby + 0x10);
+    func_L11_003126D8_313a70(d, obj + 0xE0, obj + 0xE4, 0);
+}
 extern void func_001F9908(int *arg0);
 extern void func_L00_00250800(void *, int, void *);
 extern void func_L00_001FF4B0(void *, void *, float);

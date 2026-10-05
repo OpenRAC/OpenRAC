@@ -3,7 +3,47 @@
 #include "include_asm.h"
 
 INCLUDE_ASM("asm/overlays", func_L00_0023E4C8);
-INCLUDE_ASM("asm/overlays", func_L00_0023E9A0);
+typedef int ti_23e008 __attribute__((mode(TI)));
+extern float D_0015EE60_23e008 __asm__("D_0015EE60") MACRO_ADDR;
+extern void getpos_23e008(void *, int, void *) __asm__("func_L00_00250800");
+extern float rndf_23e008(float, float) __asm__("func_002140F8");
+extern int rndi_23e008(int) __asm__("func_002140B0");
+extern float rnda_23e008(void) __asm__("func_00214158");
+extern void dir_23e008(void *, float, float, float) __asm__("func_00215C00");
+extern float rnd_23e008(float, float) __asm__("func_L00_00258C80");
+extern int fr_23e008(int) __asm__("func_001F9850");
+extern unsigned char *emit_23e008(float *, int, float, float, float, int, int, int, void *) __asm__("func_L00_00272F00");
+extern int rf_23e008(float) __asm__("func_001FA898");
+/* Spawns a burst of directed particles with randomised speeds from the frame time. Adapted from Lombyte (MIT) for PAL: overlays/shared/unclassified_0023db30.c, FUN_L00_0023e008. */
+void func_L00_0023E9A0(void *p)
+{
+    ti_23e008 dir[1];
+    ti_23e008 old[1];
+    float pos[4] __attribute__((aligned(16)));
+    int i;
+    unsigned char *r;
+    getpos_23e008(p, 0, pos);
+    for (i = 3; i >= 0; i--) {
+        float s = rndf_23e008(0.15f, 0.5f);
+        int k = rndi_23e008(2);
+        float a, b;
+        if (k == 0) k--;
+        a = rnda_23e008();
+        b = rndf_23e008(0.34906584f, 1.53588974f);
+        dir_23e008(dir, rndf_23e008(0.05f, 0.2f) * D_0015EE60_23e008, a, b);
+        qcopy(old, pos);
+        pos[0] += rnd_23e008(0.0f, 0.15f);
+        pos[1] += rnd_23e008(0.0f, 0.15f);
+        pos[2] += rnd_23e008(0.0f, 0.15f);
+        r = emit_23e008(pos, fr_23e008(0x3C), s * 0.1f, s, 0.009f, 0x7F7F2020, 0, k, dir);
+        if (r)
+            r[9] = rf_23e008(4.0f) + 0x70;
+        k = -k;
+        r = emit_23e008(pos, fr_23e008(0x3C), s * 0.07f, s * 0.7f, 0.009f, 0x7F7F7F7F, 1, k, dir);
+        if (r)
+            r[9] = rf_23e008(4.0f) + 0x70;
+    }
+}
 extern float func_001FA888(int);
 extern void func_001F99D8(void *, int);
 extern unsigned char D_L00_001805C0[];
@@ -42,7 +82,38 @@ int func_L00_0023EF78(float *pos, float radius, float intensity, int color) {
     *(int *)(s + 0xC) = (int)(D_L00_00180740 + i * 0x400);
     return i;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0023F0D0);
+typedef unsigned int u128_pt __attribute__((mode(TI)));
+typedef union { u128_pt q_0023e738; float f[4]; } Vec4_0023e738;
+typedef struct { float x, y, z, b_0023e738; Vec4_0023e738 pos; } P_0023e738;
+typedef struct { char pad[0xc]; char *buf; int used; char pad2[0x30 - 0x14]; } T_0023e738;
+extern float D_L00_0015F6B8_0023e738 __asm__("D_L00_0015F6B8") MACRO_ADDR;
+extern T_0023e738 D_L00_001805C0_0023e738[] __asm__("D_L00_001805C0");
+extern P_0023e738 D_L00_001803C0_0023e738[] __asm__("D_L00_001803C0");
+extern char D_L00_00180740_0023e738[] __asm__("D_L00_00180740");
+void func_001F99D8_0023e738(void *, int) __asm__("func_001F99D8");
+/* Update (reads the frame-time float D_L00_0015F6B8). Adapted from Lombyte (MIT) for PAL: overlays/shared/unclassified_0023db30.c, FUN_L00_0023e738. */
+int func_L00_0023F0D0(u128_pt *v, float a, float b_0023e738, float c, float d, float e) {
+    int i;
+    T_0023e738 *t;
+    P_0023e738 *p;
+    if (0.8f < D_L00_0015F6B8_0023e738) return -1;
+    for (i = 0;
+    i < 8;
+    i++) if (D_L00_001805C0_0023e738[i].used == 0) break;
+    if (i == 8) return -1;
+    t = &D_L00_001805C0_0023e738[i];
+    p = &D_L00_001803C0_0023e738[i];
+    qcopy(&p->pos, v);
+    p->pos.f[3] = a;
+    p->x = c;
+    p->y = d;
+    p->z = e;
+    p->b_0023e738 = b_0023e738;
+    func_001F99D8_0023e738(t, 0x30);
+    t->used = 1;
+    t->buf = D_L00_00180740_0023e738 + i * 1024;
+    return i;
+}
 extern void func_002027C0(int);
 extern void func_001F99D8(void *, int);
 extern unsigned char D_L00_001803C0[];

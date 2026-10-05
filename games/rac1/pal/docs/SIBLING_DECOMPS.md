@@ -304,3 +304,24 @@ byte-identical between RAC1 and RAC2:
 - **Memory Card FSM (`CardState`)**: Identical 25-state machine (`CS_INIT` to `CS_PROMPT_BEGIN_NOSAVE`).
 - **Geometry Pillars**: `tfrag`, `tie`, `shrub`, `moby` collision pill sweep
   `MB_CheckCollPill` and camera collision `Camera_CollPrimTest`.
+
+## Wrench: modding suite and engine asset definitions
+
+[Wrench](https://github.com/chaoticgd/wrench) (GPL-3.0-or-later) by chaoticgd
+and contributors is a modding toolkit and level editor for the PS2 Ratchet &
+Clank games. It is not a decompilation, but it is the original source of our
+asset format knowledge and provides reverse-engineered C++ type definitions
+for moby instance private variables (`pvars`).
+
+What carries over:
+- **Moby PVar structures**: In `data/overlay/src/game_rac/`, Wrench defines
+  the layout of private state variables (`pvars`) for ~20 moby classes (Plumber,
+  Skid McMarx, Big Al, Novalis lift, etc.) and shared NPC dialogue systems
+  (`npcVars`, `npcStep`, `npcstring`). These are adapted into
+  [`include/moby_pvars.h`](../include/moby_pvars.h) and documented in
+  [`docs/PVARS.md`](PVARS.md).
+- **Asset and level formats**: Level data headers, WAD compression, terrain
+  (`tfrag`), ties, shrubs, sky, and occlusion bounds ([`docs/ASSETS.md`](ASSETS.md)).
+- **Moby class catalogue**: Class IDs and naming schemes
+  (`tools/extract/moby_classes.tsv`).
+

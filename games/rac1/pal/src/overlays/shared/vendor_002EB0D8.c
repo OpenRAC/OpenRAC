@@ -23,7 +23,34 @@ void func_L00_002EB0D8(char *m) {
     func_001E9768(m);
     func_L00_002E72E8(m);
 }
-INCLUDE_ASM("asm/overlays", func_L00_002EB170);
+extern char D_0013E633[] NOT_SDA;
+extern int D_0015EEB3 MACRO_ADDR;
+extern void func_L00_001FF4B0(void *, void *, float);
+extern void func_001F9C30(void *, void *, float);
+extern void func_001F9BD8(void *, void *, void *);
+/* Builds a view matrix and multiplies it into the camera and projection matrices. The mode flag is read as a byte of a MACRO_ADDR int, which gives retail's one-register lui/lbu. */
+void func_L00_002EB170(char *p) {
+    char a[16] __attribute__((aligned(16)));
+    char b[16] __attribute__((aligned(16)));
+    char *g = D_0013E633 + 0xE1D;
+    int m;
+    func_L00_001FF4B0(a, *(char **)(g + 0x2080) + 0xE0, 1.0f);
+    m = *(unsigned char *)(g + 0x20A4);
+    if (m == 2) {
+        func_001F9C30(b, a, 9.5f);
+    } else if (m == 1) {
+        if (*(unsigned char *)&D_0015EEB3) {
+            func_001F9C30(b, a, 1.2f);
+        } else {
+            func_001F9C30(b, a, 0.9f);
+        }
+    } else {
+        func_001F9C30(b, a, 1.6f);
+    }
+    p += 0x30;
+    func_001F9BD8(p, D_0013E633 + 0xE9D, b);
+    func_001F9BD8(p, D_0013E633 + 0xE9D + 0xC0, p);
+}
 extern void func_L00_001FF4B0(void *, void *, float);
 extern void func_001F9C30(void *, void *, float);
 extern void func_001F9BD8(void *, void *, void *);
@@ -71,7 +98,104 @@ void func_L00_002EB3A0(p)
     *(short *)(p + 0x7E) = 0;
 }
 INCLUDE_ASM("asm/overlays", func_L00_002EB3E8);
-INCLUDE_ASM("asm/overlays", func_L00_002EB938);
+typedef int q_2eb938 __attribute__((mode(TI)));
+typedef struct { f32 f[4]; } V_2eb938;
+typedef struct { u8 p0[0x20]; s16 h20; s16 h22; s32 i24; } Q_2eb938;
+typedef struct { u8 p0[0x1C]; Q_2eb938 *q; } E_2eb938;
+typedef struct { u8 p0[0x98]; f32 f98; u8 p1[0x2080 - 0x9C]; char *p2080; u8 p2[0x2284 - 0x2084]; s32 i2284; } P_2eb938;
+extern P_2eb938 D_0013F450_2eb938 __asm__("D_0013F450") NOT_SDA;
+extern q_2eb938 D_0013F4D0_2eb938 __asm__("D_0013F4D0") NOT_SDA;
+extern E_2eb938 *D_L00_0015F050_2eb938 __asm__("D_L00_0015F050") MACRO_ADDR;
+extern char *D_L00_00166F00_2eb938 __asm__("D_L00_00166F00") NOT_SDA;
+extern char D_L00_00166F10_2eb938[] __asm__("D_L00_00166F10") NOT_SDA;
+extern char *func_L00_001EE530_2eb938(void *, f32) __asm__("func_L00_001EE530");
+extern int func_001F9850_2eb938(int) __asm__("func_001F9850");
+extern f32 func_001F9F90_2eb938(f32) __asm__("func_001F9F90");
+extern f32 func_001F9FA8_2eb938(f32) __asm__("func_001F9FA8");
+extern f32 func_001F9FC0_2eb938(f32) __asm__("func_001F9FC0");
+extern void func_L00_002E9DC8_2eb938(void *, f32, f32) __asm__("func_L00_002E9DC8");
+extern f32 func_001F9C78_2eb938(void *, void *) __asm__("func_001F9C78");
+extern void func_001F9C30_2eb938(void *, void *, f32) __asm__("func_001F9C30");
+extern void func_001F9BF0_2eb938(void *, void *, void *) __asm__("func_001F9BF0");
+extern f32 func_001F9CB8_2eb938(void *) __asm__("func_001F9CB8");
+extern void func_L00_001ED600_2eb938(void) __asm__("func_L00_001ED600");
+extern void func_001F9908_2eb938(void *) __asm__("func_001F9908");
+#define P D_0013F450_2eb938
+/* Camera-mode transition update for an InitCamera moby: counts frames while the player and the other camera are in an allowed state, and eases the camera (0.07 / 0.14 rad) toward the target. Adapted from Lombyte (MIT) for PAL: overlays/shared/gameplay_vendor_002e9010.c, FUN_L00_002ea488. */
+int func_L00_002EB938(u8 *m, char *a1) {
+    Q_2eb938 *q;
+    char *o;
+    char *r;
+    s32 st;
+    int t;
+    int s;
+    V_2eb938 v;
+    V_2eb938 d1, d2;
+    f32 l, x;
+    P_2eb938 *g;
+    char *b, *b2, *vec;
+
+    q = D_L00_0015F050_2eb938[*(s16 *)(m + 0x84)].q;
+    g = &P;
+    st = g->i2284;
+    if (st == *(s16 *)(m + 0x86) || st == 0x51) {
+        o = D_L00_00166F00_2eb938;
+        t = *(s16 *)(a1 + 0x86);
+        if (t != 0 && t != 10 && t != 14 && t != 2) goto off;
+        s = *(s16 *)(o + 0x86);
+        if (s != 0 && s != 10 && s != 14 && s != 2) goto off;
+        *(q_2eb938 *)&v = D_0013F4D0_2eb938;
+        r = func_L00_001EE530_2eb938(&v, 0.25f);
+        if (r && (*(s32 *)(r + 0x18) & 1)) return 0;
+        q->i24 = 0;
+        q->h22 = 1;
+        q->h20++;
+        if (q->h20 >= func_001F9850_2eb938(7)) {
+            if (*(s16 *)(o + 0x86) == 0) m[0x7C] = 5;
+            return 1;
+        }
+        v.f[0] = func_001F9F90_2eb938(P.f98);
+        v.f[1] = func_001F9FA8_2eb938(P.f98);
+        *(s32 *)&v.f[2] = 0;
+        func_L00_002E9DC8_2eb938(&v, 0.06981316953897476f, v.f[2]);
+        goto tail;
+off:
+        q->h20 = 0;
+        q->h22 = 0;
+        goto tail;
+    }
+    q->h20 = 0;
+    if (q->h22 == 0) goto tail;
+    q->h22 = 0;
+    b = D_L00_00166F10_2eb938;
+    b2 = b - 0x190;
+    vec = b + 0x30;
+    func_001F9C30_2eb938(&v, vec, func_001F9C78_2eb938(vec, *(char **)(b2 + 0x180)));
+    func_001F9BF0_2eb938(&d1, *(char **)(b2 + 0x180), &v);
+    func_001F9C30_2eb938(&v, vec, func_001F9C78_2eb938(vec, g->p2080 + 0xC0));
+    func_001F9BF0_2eb938(&d2, g->p2080 + 0xC0, &v);
+    l = func_001F9CB8_2eb938(&d2);
+    if (l != 0.0f) {
+        l *= func_001F9CB8_2eb938(&d1);
+    }
+    if (l != 0.0f) {
+        x = func_001F9FC0_2eb938(func_001F9C78_2eb938(&d2, &d1) / l);
+        if (1.3962633609771729f <= 1.5707964f - x) {
+            func_L00_001ED600_2eb938();
+            return 0;
+        }
+    }
+    q->i24 = func_001F9850_2eb938(30);
+tail:
+    if (q->i24) {
+        func_001F9908_2eb938(&q->i24);
+        v.f[0] = func_001F9F90_2eb938(P.f98);
+        v.f[1] = func_001F9FA8_2eb938(P.f98);
+        *(s32 *)&v.f[2] = 0;
+        func_L00_002E9DC8_2eb938(&v, 0.13962633907794952f, v.f[2]);
+    }
+    return 0;
+}
 typedef struct { char pad[0x254]; int p; char pad2[0x18]; short s; char pad3[1]; char c; char pad4[0x14]; float f0; char pad5[8]; float f1; } S;
 extern S D_L00_00166D80;
 extern void func_L00_002EB3A0();
@@ -160,7 +284,48 @@ void func_L00_002EBEE0(char *src) {
     qcopy(*(char **)(p + 0x70) + 0x90, src);
 }
 INCLUDE_ASM("asm/overlays", func_L00_002EBF38);
-INCLUDE_ASM("asm/overlays", func_L00_002EBF50);
+typedef struct { f32 v[4]; } __attribute__((aligned(16))) V_2ebf50;
+extern V_2ebf50 D_L00_00166EC0_2ebf50[2] __asm__("D_L00_00166EC0") NOT_SDA;
+extern V_2ebf50 D_0013F4D0_2ebf50 __asm__("D_0013F4D0") NOT_SDA;
+u8 *func_L00_001EB578_2ebf50(s32) __asm__("func_L00_001EB578");
+void func_L00_001EB890_2ebf50(u8 *) __asm__("func_L00_001EB890");
+void func_L00_001ED9B0_2ebf50(void *, V_2ebf50 *, V_2ebf50 *) __asm__("func_L00_001ED9B0");
+/* Camera script setup: fills the type-5 moby from two positions, a mode (2 or 3) and two values. Adapted from Lombyte (MIT) for PAL: overlays/shared/gameplay_vendor_002e9010.c, FUN_L00_002eaaa0. The helper at +0xFC takes a third argument (the camera vector). */
+void func_L00_002EBF50(V_2ebf50 *pa, V_2ebf50 *pb, s32 mode, s32 w, s32 x) {
+    u8 *m = func_L00_001EB578_2ebf50(5);
+    V_2ebf50 a, b, c, d;
+    u8 *n;
+    u8 *e;
+    u8 *p;
+    qcopy(&a, pa);
+    qcopy(&b, pb);
+    qcopy(&c, &D_L00_00166EC0_2ebf50[0]);
+    qcopy(&d, &D_L00_00166EC0_2ebf50[1]);
+    func_L00_001EB890_2ebf50(m);
+    n = *(u8 **)(m + 0x70);
+    e = n + 0xE0;
+    p = n + 0x80;
+    m[0x7C] = 7;
+    m[0x7D] = 1;
+    qcopy(m + 0x30, &a);
+    qcopy(&D_L00_00166EC0_2ebf50[0], &a);
+    qcopy(m + 0x40, &b);
+    qcopy(p, &a);
+    qcopy(n + 0x90, &b);
+    *(s32 *)(e + 0x40) = x;
+    m[0x88] = mode;
+    if (mode != 2) {
+        if (mode != 3) return;
+        *(f32 *)(e + 0x44) = 1.0f;
+        *(f32 *)(e + 0x48) = 0.0f;
+        qcopy(m + 0x30, &c);
+        qcopy(m + 0x40, &d);
+        qcopy(n + 0x110, &D_0013F4D0_2ebf50);
+        func_L00_001ED9B0_2ebf50(n + 0xFC, &c, &D_0013F4D0_2ebf50);
+    }
+    *(s32 *)(e + 4) = w;
+    *(s32 *)(n + 0xE0) = w;
+}
 extern void func_L00_001EB7C8(void);
 extern void func_001FA218(void *, void *);
 extern void func_001FA480(void *, void *);

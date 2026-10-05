@@ -360,4 +360,69 @@ void func_L00_0028BF60(void) {
     func_0022C9A8(2);
 }
 INCLUDE_ASM("asm/overlays", func_L00_0028C358);
-INCLUDE_ASM("asm/overlays", func_L00_0028C478);
+typedef int q_28b1a0 __attribute__((mode(TI)));
+typedef struct { short h0, h2, h4, h6; unsigned char pad[0x18]; unsigned char *e[1]; } S_28b1a0;
+extern S_28b1a0 *D_L00_001605DC_28b1a0 __asm__("D_L00_001605DC") MACRO_ADDR;
+extern unsigned char D_L00_001BDB70_28b1a0[] __asm__("D_L00_001BDB70") NOT_SDA;
+extern short D_L00_00160580_28b1a0 __asm__("D_L00_00160580");
+extern q_28b1a0 D_L00_001605E0_28b1a0 __asm__("D_L00_001605E0") MACRO_ADDR;
+void func_001FA190_28b1a0(void *) __asm__("func_001FA190");
+void func_001F9BC0_28b1a0(void *) __asm__("func_001F9BC0");
+void func_L00_001FFA40_28b1a0(void *, void *) __asm__("func_L00_001FFA40");
+void func_001F9C48_28b1a0(void *, void *, float) __asm__("func_001F9C48");
+void func_0022C9A8_28b1a0(int) __asm__("func_0022C9A8");
+/* Per-entry update of a table of up to five entries (a switch on the index): each entry gets its own tilt, scale and turn speed, and its matrix is rebuilt every frame. Adapted from Lombyte (MIT) for PAL: overlays/shared/unclassified_00288ec0.c, FUN_L00_0028b1a0. */
+void func_L00_0028C478(void)
+{
+    float v[4] __attribute__((aligned(16)));
+    int i = 0;
+    float *p;
+    unsigned char *M;
+    float k;
+    D_L00_001605DC_28b1a0->h4 = 0;
+    func_001FA190_28b1a0(D_L00_001BDB70_28b1a0);
+    func_001F9BC0_28b1a0(v);
+    for (; i < D_L00_001605DC_28b1a0->h6; i++) {
+        p = (float *)(D_L00_001605DC_28b1a0->e[i] + 8);
+        k = 1.0f;
+        switch (i) {
+        case 1:
+            v[1] = 0.02f;
+            k = 3.0f;
+            *p += (*(float *)&D_L00_00160580_28b1a0) * 0.55f;
+            break;
+        case 2:
+            v[1] = -0.02f;
+            k = 2.5f;
+            *p += (*(float *)&D_L00_00160580_28b1a0) * 0.6f;
+            break;
+        case 3:
+            v[1] = 0.01f;
+            k = 2.0f;
+            *p += (*(float *)&D_L00_00160580_28b1a0) * 0.7f;
+            break;
+        case 4:
+            v[1] = -0.01f;
+            k = 1.5f;
+            *p += (*(float *)&D_L00_00160580_28b1a0) * 0.75f;
+            break;
+        case 5:
+            k = 1.25f;
+            *p += (*(float *)&D_L00_00160580_28b1a0) * 0.8f;
+            break;
+        default:
+            func_001FA190_28b1a0(D_L00_001BDB70_28b1a0);
+            break;
+        }
+        if (i > 0) {
+            M = D_L00_001BDB70_28b1a0;
+            v[2] = (float)((int)(*p + i * 2000.0f) % 10000) * 0.00062831853f - 3.1415927f;
+            func_L00_001FFA40_28b1a0(M, v);
+            func_001F9C48_28b1a0(M, M, k);
+            func_001F9C48_28b1a0(M + 0x10, M + 0x10, k);
+            func_001F9C48_28b1a0(M + 0x20, M + 0x20, k);
+            qcopy(M + 0x30, &D_L00_001605E0_28b1a0);
+        }
+        func_0022C9A8_28b1a0(i);
+    }
+}

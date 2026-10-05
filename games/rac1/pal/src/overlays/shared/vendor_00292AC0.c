@@ -118,7 +118,9 @@ int func_L03_002C8028(char *moby) {
     }
     return 0;
 }
-INCLUDE_ASM("asm/overlays", func_L03_002C8058);
+void func_L03_002C8058(unsigned char *moby) {
+    moby[0x20] = 14;
+}
 INCLUDE_ASM("asm/overlays", func_L03_002CDDC8);
 extern char *func_L00_0025B478(void *, int, int);
 extern int func_L00_0025B4D0(void *, void *, void *, int, int *, float *, int, int);

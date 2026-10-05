@@ -156,7 +156,28 @@ void func_L00_00205B00(void) {
         p += 0xB0;
     } while (p < end);
 }
-INCLUDE_ASM("asm/overlays", func_L00_00205B50);
+typedef struct { u8 a0; u8 active; char pad[0x3E]; char m40[0x20]; char m60[0x30]; char m90[0x12]; s16 type; char pad2[8]; f32 scale; } Ent;
+extern Ent D_L00_0017A780_c[] __asm__("D_L00_0017A780");
+s32 func_L00_00205728_c(s32) __asm__("func_L00_00205728");
+extern void func_0020D9D8_205b50(s32, Ent *) __asm__("func_0020D9D8");
+void func_001F9BC0_c(void *) __asm__("func_001F9BC0");
+/* Per-frame update over the 31-entry table at D_L00_0017A780: runs the type handler for active entries and resets their matrices and scale. Adapted from Lombyte (MIT) for PAL: overlays/shared/ui_help_00203b18.c, FUN_L00_00205538. */
+void func_L00_00205B50(void) {
+    s32 i;
+    char *tbl = (char *)D_L00_0017A780_c; char *c = tbl + 0x90;
+    char *b = tbl + 0x60;
+    for (i = 0; i < 31; i++) {
+        Ent *e = &D_L00_0017A780_c[i];
+        if (e->active != 0) {
+            s32 r = func_L00_00205728_c(e->type);
+            if (r != 0) func_0020D9D8_205b50(r, e);
+        }
+        func_001F9BC0_c(D_L00_0017A780_c[i].m40);
+        func_001F9BC0_c(b); b += sizeof(Ent);
+        func_001F9BC0_c(c); c += sizeof(Ent);
+        e->scale = 1.0f;
+    }
+}
 extern int D_L00_0015F6B0 MACRO_ADDR;
 extern int func_002140B0(int);
 
@@ -314,7 +335,28 @@ void func_L00_00206808(void) {
 }
 INCLUDE_ASM("asm/overlays", func_L00_002068C8);
 INCLUDE_ASM("asm/overlays", func_L00_00207220);
-INCLUDE_ASM("asm/overlays", func_L00_00207310);
+typedef struct { unsigned char p[8]; int x8; unsigned char pc[0x40]; } E00207310;
+typedef struct { unsigned char p[0x280]; unsigned short x280; unsigned char p282[0x13E]; unsigned short x3c0; } G00207310;
+extern G00207310 D_00141A68;
+extern unsigned short D_001419F0 NOT_SDA;
+extern unsigned char D_0013D5C8[] NOT_SDA;
+extern int func_L00_0020DC00(void);
+/* Periodic help-message check: tick-based hints for the pack and the unused-slot count. The two message tables sit behind separate symbols (D_00141A68 and D_001419F0) as in retail. */
+void func_L00_00207310(void) {
+    int i, n;
+    if (D_00141A68.x3c0 == 0 && D_0013D5C8[4] != 0 && func_L00_0020DC00() != 0) {
+        func_L00_00203F20(0x4E2E, 0x78);
+    }
+    if (D_L00_0015F6B0 <= 0) return;
+    if (D_L00_0015F6B0 & 0x7F) return;
+    if (D_00141A68.x280 != 0) return;
+    if (D_001419F0 != 0) return;
+    n = 0;
+    for (i = 0; i < 0x25; i++) {
+        if (((E00207310 *)D_L00_00179BC0)[i].x8 == 0 && i != 8 && i != 0x18 && D_0013D5C8[i] != 0) n++;
+    }
+    if (n >= 9) func_L00_00203F20(0x4E26, 0x50);
+}
 INCLUDE_ASM("asm/overlays", func_L00_00207418);
 extern void func_001F4E08(int);
 extern void func_L00_002068C8(void);
@@ -798,7 +840,34 @@ float func_L00_00209690(float *a, int n) {
     w = func_L00_002001D8(buf, *(float *)(d + 0xAA8));
     return w * a[i] + (*(float *)(d + 0xAAC) - w) * a[p];
 }
-INCLUDE_ASM("asm/overlays", func_L00_00209748);
+typedef unsigned int u128_002090d0 __attribute__((mode(TI), aligned(16)));
+typedef struct { float x, y, z, w_002090d0; } __attribute__((aligned(16))) Vec4_002090d0;
+typedef struct { Vec4_002090d0 r[4]; } Mtx_002090d0;
+extern Vec4_002090d0 D_0013F4E0_002090d0 __asm__("D_0013F4E0");
+void func_001FA218_002090d0(Mtx_002090d0 *, Vec4_002090d0 *) __asm__("func_001FA218");
+void func_001F9EE8_002090d0(Vec4_002090d0 *, Vec4_002090d0 *, Mtx_002090d0 *) __asm__("func_001F9EE8");
+void func_001FA540_002090d0(Mtx_002090d0 *, Mtx_002090d0 *, Mtx_002090d0 *) __asm__("func_001FA540");
+void func_001F9BF0_002090d0(Vec4_002090d0 *, Vec4_002090d0 *, Vec4_002090d0 *) __asm__("func_001F9BF0");
+void func_001F9BD8_002090d0(Vec4_002090d0 *, Vec4_002090d0 *, Vec4_002090d0 *) __asm__("func_001F9BD8");
+void func_002153E8_002090d0(Mtx_002090d0 *, Vec4_002090d0 *) __asm__("func_002153E8");
+/* Camera-relative placement: transforms a position through the camera matrix and an offset rotation, then writes the difference back into the camera block. Adapted from Lombyte (MIT) for PAL: overlays/shared/ui_help_00203b18.c, FUN_L00_002090d0. */
+void func_L00_00209748(float *inf, float x, float y, float z) {
+    u128_002090d0 *in = (u128_002090d0 *)inf;
+    struct { Vec4_002090d0 p; Vec4_002090d0 a; Vec4_002090d0 b; Vec4_002090d0 d; Mtx_002090d0 m; Mtx_002090d0 r; Vec4_002090d0 e; } L_002090d0;
+    Vec4_002090d0 *cam = &D_0013F4E0_002090d0;
+    *(u128_002090d0 *)&L_002090d0.p = *in;
+    func_001FA218_002090d0(&L_002090d0.m, cam);
+    func_001F9EE8_002090d0(&L_002090d0.a, &L_002090d0.p, &L_002090d0.m);
+    L_002090d0.e.x = x;
+    L_002090d0.e.y = y;
+    L_002090d0.e.z = z;
+    func_001FA218_002090d0(&L_002090d0.r, &L_002090d0.e);
+    func_001FA540_002090d0(&L_002090d0.m, &L_002090d0.m, &L_002090d0.r);
+    func_001F9EE8_002090d0(&L_002090d0.b, &L_002090d0.p, &L_002090d0.m);
+    func_001F9BF0_002090d0(&L_002090d0.d, &L_002090d0.a, &L_002090d0.b);
+    func_001F9BD8_002090d0(cam - 1, cam - 1, &L_002090d0.d);
+    func_002153E8_002090d0(&L_002090d0.m, cam);
+}
 typedef float V[4] __attribute__((aligned(16)));
 
 extern void func_001F9BC0(float *);
@@ -1265,8 +1334,186 @@ void func_L00_0020B310(void) {
     func_L00_0020A858(D_0015EE64 * 0.014f, D_0015EE64 * 0.3f);
     *(float *)(p + 0x1C8) = *(float *)(p + 0x278) * 0.55f;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0020B850);
-INCLUDE_ASM("asm/overlays", func_L00_0020BC30);
+typedef struct { u8 p0[0x2C0]; f32 f2C0, f2C4, f2C8, f2CC, f2D0, f2D4; u8 p2D8[0x308 - 0x2D8]; s16 h308; u8 p30A[0x418 - 0x30A]; s32 i418; u8 p41C[0x10E0 - 0x41C]; s32 i10E0; u8 p10E4[0x12A0 - 0x10E4]; f32 f12A0, f12A4; s32 i12A8; s16 h12AC; u16 h12AE; u8 p12B0[0x2080 - 0x12B0]; u8 *p2080; s32 i2084; u8 p2088[4]; s32 i208C; } P_20b1d8;
+typedef struct { u8 p0[0x320]; f32 f320, f324; u8 p328[0x36C - 0x328]; f32 f36C; u8 p370[0x3D0 - 0x370]; f32 f3D0, f3D4; u8 p3D8[0x41C - 0x3D8]; f32 f41C; u8 p420[0x480 - 0x420]; f32 f480; u8 p484[0x530 - 0x484]; f32 f530; } A_20b1d8;
+extern P_20b1d8 D_0013F450_20b1d8 __asm__("D_0013F450");
+extern A_20b1d8 D_L00_0017A780_20b1d8 __asm__("D_L00_0017A780");
+extern s32 func_L00_0020DC00_20b850(void) __asm__("func_L00_0020DC00") ;
+extern f32 func_001F9B88_20b850(f32) __asm__("func_001F9B88") ;
+extern f32 func_L00_001FF860_20b850(f32, f32) __asm__("func_L00_001FF860") ;
+extern f32 func_001FA790_20b850(f32, f32) __asm__("func_001FA790") ;
+extern void func_L00_00233B08_20b850(s32, s32, s32, s32, f32, f32) __asm__("func_L00_00233B08") ;
+extern s32 func_001F9850_c(s32) __asm__("func_001F9850");
+extern void func_L00_00250800_20b850(void *, s32, void *) __asm__("func_L00_00250800") ;
+extern f32 func_002140F8_20b850(f32, f32) __asm__("func_002140F8") ;
+extern void func_L00_0026ED30_20b850(void *, void *, f32) __asm__("func_L00_0026ED30") ;
+/* Hero movement check: tests the six stick/velocity thresholds against the pad and the state word, then runs the transition tests. Adapted from Lombyte (MIT) for PAL: overlays/shared/ui_help_00203b18.c, FUN_L00_0020b1d8. */
+void func_L00_0020B850(void) {
+    u8 buf[0x10] __attribute__((aligned(16)));
+    f32 a, b;
+    u8 *q;
+    s32 i;
+    if (func_L00_0020DC00_20b850()) return;
+    if (0.03f < func_001F9B88_20b850(D_0013F450_20b1d8.f2C0) || 0.03f < func_001F9B88_20b850(D_0013F450_20b1d8.f2C4) ||
+        0.06981317f < func_001F9B88_20b850(D_0013F450_20b1d8.f2C8) || 0.06981317f < func_001F9B88_20b850(D_0013F450_20b1d8.f2CC) ||
+        0.06981317f < func_001F9B88_20b850(D_0013F450_20b1d8.f2D0) || 0.06981317f < func_001F9B88_20b850(D_0013F450_20b1d8.f2D4)) {
+        if (D_0013F450_20b1d8.h308 != 1) {
+            D_L00_0017A780_20b1d8.f324 = -D_0013F450_20b1d8.f2C8;
+            D_L00_0017A780_20b1d8.f3D4 = -D_0013F450_20b1d8.f2CC;
+            a = func_L00_001FF860_20b850(0.2f, D_0013F450_20b1d8.f2C0) * 1.2f;
+            b = -func_L00_001FF860_20b850(0.2f, D_0013F450_20b1d8.f2C4) * 1.2f;
+            if (0.7853982f < a) a = 0.7853982f;
+            if (a < -0.17453292f) a = -0.17453292f;
+            if (0.17453292f < b) b = 0.17453292f;
+            if (b < -0.7853982f) b = -0.7853982f;
+            D_L00_0017A780_20b1d8.f480 = a;
+            D_L00_0017A780_20b1d8.f530 = b;
+            D_L00_0017A780_20b1d8.f320 = -func_001FA790_20b850(D_0013F450_20b1d8.f2D0, -a);
+            D_L00_0017A780_20b1d8.f3D0 = -func_001FA790_20b850(D_0013F450_20b1d8.f2D4, -b);
+        }
+    }
+    if (D_0013F450_20b1d8.i10E0) {
+        D_L00_0017A780_20b1d8.f36C = 0.01f;
+        D_L00_0017A780_20b1d8.f41C = 0.01f;
+    }
+    if (!(D_0013F450_20b1d8.h12AE & 0x80)) {
+    if (D_0013F450_20b1d8.i2084 == 3) func_L00_00233B08_20b850(1, 2, 1, 0, 0.021f, 0.002f);
+    if (D_0013F450_20b1d8.i208C == 4 && D_0013F450_20b1d8.i418 > 0 && D_0013F450_20b1d8.i418 < func_001F9850_c(12)) func_L00_00233B08_20b850(1, 2, 0, 1, 0.016f, 0.002f);
+    if (D_0013F450_20b1d8.i12A8 <= 0) return;
+    if (D_0013F450_20b1d8.h12AC == 0) return;
+    q = 0;
+    if (D_0013F450_20b1d8.h12AE & 1) q = D_0013F450_20b1d8.p2080 + 0xC0;
+    D_0013F450_20b1d8.i12A8--;
+    func_L00_00250800_20b850(D_0013F450_20b1d8.p2080, 0x16, buf);
+    for (i = 0; i < D_0013F450_20b1d8.h12AC; i++) func_L00_0026ED30_20b850(buf, q, D_0013F450_20b1d8.f12A0 + func_002140F8_20b850(-D_0013F450_20b1d8.f12A4, D_0013F450_20b1d8.f12A4));
+    func_L00_00250800_20b850(D_0013F450_20b1d8.p2080, 0x17, buf);
+    for (i = 0; i < D_0013F450_20b1d8.h12AC; i++) func_L00_0026ED30_20b850(buf, q, D_0013F450_20b1d8.f12A0 + func_002140F8_20b850(-D_0013F450_20b1d8.f12A4, D_0013F450_20b1d8.f12A4));
+    } else D_0013F450_20b1d8.i12A8 = 0;
+}
+typedef unsigned int u128_20b5b8 __attribute__((mode(TI)));
+typedef union { u128_20b5b8 q; f32 f[4]; } V4_20b5b8;
+typedef struct { u8 pad[0x40]; f32 x, y; } S2_20b5b8;
+extern u8 D_0013F450_20b5b8[] __asm__("D_0013F450");
+extern f32 D_0015EE6C_20b5b8 __asm__("D_0015EE6C") MACRO_ADDR;
+extern V4_20b5b8 D_L00_00173F80_20b5b8[] __asm__("D_L00_00173F80");
+extern f32 func_L00_002342F8_20b5b8(void *) __asm__("func_L00_002342F8");
+extern s32 func_001F9850_20b5b8(s32) __asm__("func_001F9850");
+extern s32 func_L00_0020CDF0_20b5b8(void *, void *) __asm__("func_L00_0020CDF0");
+extern s32 func_L00_0020A8B8_20b5b8(s32, f32, f32) __asm__("func_L00_0020A8B8");
+extern void func_L00_00233E48_20b5b8(void *, f32, f32, f32) __asm__("func_L00_00233E48");
+extern s32 func_L00_001EFFF0_20b5b8(void *, void *, s32, void *, void *) __asm__("func_L00_001EFFF0");
+extern s32 func_L00_001F3958_20b5b8(void) __asm__("func_L00_001F3958");
+extern f32 func_L00_002345B0_20b5b8(void *) __asm__("func_L00_002345B0");
+extern void func_001F9EE8_20b5b8(void *, void *, void *) __asm__("func_001F9EE8");
+extern f32 func_L00_001FF860_20b5b8(f32, f32) __asm__("func_L00_001FF860");
+extern f32 func_001FA850_20b5b8(f32, f32) __asm__("func_001FA850");
+extern f32 func_001F9D48_20b5b8(void *, void *) __asm__("func_001F9D48");
+/* Hero ledge-grab check: predicts a position with gravity, probes for a ledge and tests angle and dot thresholds before setting the grab state. Adapted from Lombyte (MIT) for PAL: overlays/shared/ui_help_00203b18.c, FUN_L00_0020b5b8. */
+void func_L00_0020BC30(void) {
+    V4_20b5b8 v, w, z;
+    u8 *g;
+    u8 *h;
+    u8 *k2;
+    u8 *pz;
+    s32 t;
+    s32 n;
+    f32 f;
+    f32 r;
+    f32 s;
+    f32 a, b, c, d;
+
+    g = D_0013F450_20b5b8;
+    if (*(f32 *)(g + 0x2DC) < 0.4f) {
+        return;
+    }
+    if (func_L00_002342F8_20b5b8(g + 0xE0) < D_0015EE6C_20b5b8 * -20.0f) {
+        return;
+    }
+    if (*(s32 *)(g + 0x4E8) != 0) {
+        *(s32 *)(g + 0x1B4) = 0;
+        return;
+    }
+    qcopy(&v, g + 0x80);
+    t = func_001F9850_20b5b8(0x14);
+    {
+    f32 st = (f32)t;
+    a = *(f32 *)(g + 0x4A0) * st;
+    b = *(f32 *)(g + 0xE8) * st;
+    c = *(f32 *)(g + 0x100) * st;
+    d = *(f32 *)(g + 0x104) * st;
+    v.f[2] = v.f[2] + b - a * st * 0.5f;
+    }
+    v.f[0] = v.f[0] + c;
+    v.f[1] = v.f[1] + d;
+    if (func_L00_0020CDF0_20b5b8(&v, g + 0x98) != 0) {
+        *(s32 *)(g + 0x1B4) = 0;
+        *(s16 *)(g + 0x1F0) = t + 2;
+        return;
+    }
+    if (func_L00_0020A8B8_20b5b8(0, 0.3f, 1.0f) == 0) {
+        return;
+    }
+    r = 1.7f;
+    if (*(s32 *)(g + 0x2084) != 0x11) {
+        if (g[0x255] == 0 || g[0x254] != 0) {
+            r = 3.0f;
+        }
+    }
+    k2 = D_0013F450_20b5b8;
+    func_L00_00233E48_20b5b8(&v, 0.0f, 0.0f, r);
+    func_L00_00233E48_20b5b8(&w, *(f32 *)(k2 + 0x234) + 1.4f, 0.0f, r);
+    if (func_L00_001EFFF0_20b5b8(&v, &w, 2, 0, 0) == 0) {
+        return;
+    }
+    n = func_L00_001F3958_20b5b8();
+    if (n == 0xA) {
+        return;
+    }
+    if (n == 0xC) {
+        return;
+    }
+    pz = (u8 *)D_L00_00173F80_20b5b8;
+    if (func_L00_002345B0_20b5b8(pz) < 1.3089969f) {
+        return;
+    }
+    func_001F9EE8_20b5b8(&z, pz, k2 + 0x40);
+    f = func_L00_001FF860_20b5b8(z.f[0], z.f[1]);
+    f = func_001FA850_20b5b8(f, 3.1415927f);
+    if (0.87266463f < f) {
+        return;
+    }
+    if (*(s32 *)(k2 + 0x2084) == 0x11) {
+        s = 0.95f;
+    } else {
+        s = 0.72f;
+    }
+    f = func_001F9D48_20b5b8(pz - 0x20, &v);
+    if (s < f) {
+        return;
+    }
+    {
+    S2_20b5b8 *q2;
+    *(u128_20b5b8 *)(k2 + 0x460) = *(u128_20b5b8 *)pz;
+    q2 = (S2_20b5b8 *)(pz - 0x40);
+    f = func_L00_001FF860_20b5b8(q2->x, q2->y);
+    }
+    *(f32 *)(k2 + 0x46C) = f;
+    if (*(s32 *)(k2 + 0x208C) != 4 && *(s32 *)(k2 + 0x2094) != 4 && *(s32 *)(k2 + 0x20A0) != 4) {
+        return;
+    }
+    h = D_0013F450_20b5b8;
+    if (*(s32 *)(h + 0x22B4) != 0) {
+        f = func_001FA850_20b5b8(*(f32 *)(h + 0x47C), *(f32 *)(h + 0x46C));
+        if (f < 2.9670596f) {
+            return;
+        }
+    }
+    if (*(s32 *)(h + 0x2084) == 0x11) {
+        *(s32 *)(h + 0x1B4) = func_001F9850_20b5b8(7);
+    } else {
+        *(s32 *)(h + 0x1B4) = func_001F9850_20b5b8(6);
+    }
+}
 extern void func_L00_002111E8(void);
 void func_L00_0020BFA8(void) {
     if (*(unsigned char *)(D_0013F450 + 0x20A4) == 3) {

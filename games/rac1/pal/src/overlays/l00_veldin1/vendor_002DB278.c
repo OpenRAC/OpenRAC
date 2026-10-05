@@ -561,7 +561,47 @@ void func_L00_002E3128(char *m) {
     }
     func_L00_001FD1D8(q, c, 0);
 }
-INCLUDE_ASM("asm/overlays", func_L00_002E32A0);
+extern int D_L00_00161D58[] MACRO_ADDR;
+extern int D_L00_00161CC8[] MACRO_ADDR;
+extern void func_L00_002E35A8(int);
+extern void func_L00_002E3700(int, int);
+extern void func_L00_002E3FA0(void);
+
+/* Slot update: state 0 clears the two slot arrays, state 1 services the pending slots. The arrays are MACRO_ADDR (retail loads their addresses unsplit), as the NTSC decomp declares them. */
+void func_L00_002E32A0(unsigned char *m) {
+    int i;
+    int j;
+    int n;
+    int st;
+
+    switch (m[0x20]) {
+    case 0:
+        for (j = 0; j < 3; j++) {
+            D_L00_00161CC8[j] = 0;
+            D_L00_00161D58[j] = 0;
+        }
+        m[0x20] = 1;
+        m[0x30] = 0xFF;
+        break;
+    case 1:
+        n = 0;
+        for (i = 0; i < 3; i++) {
+            st = D_L00_00161CC8[i];
+            if (st == 1) {
+            } else if (st == 4) {
+                func_L00_002E35A8(i);
+            } else if (st != 0) {
+                n++;
+                func_L00_002E3700(D_L00_00161D58[i], i);
+                D_L00_00161CC8[i] = 4;
+            }
+        }
+        if (n != 0) {
+            func_001F49B0(func_L00_002E3FA0, m);
+        }
+        break;
+    }
+}
 extern void func_L00_00264870(int);
 extern void func_L00_00264BE8(void *, void *, void *, float, float);
 extern int func_L00_00258BC8(int, int);

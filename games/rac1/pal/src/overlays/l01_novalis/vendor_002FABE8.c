@@ -551,7 +551,63 @@ void func_L01_00300F00(char *self) {
 }
 INCLUDE_ASM("asm/overlays", func_L01_003010A8);
 INCLUDE_ASM("asm/overlays", func_L01_00301198);
-INCLUDE_ASM("asm/overlays", func_L01_00303590);
+typedef unsigned int u128_pt __attribute__((mode(TI)));
+extern f32 func_001FA748_303590(f32, f32) __asm__("func_001FA748") ;
+typedef struct { u8 pad0[0x10]; s32 w10; u8 pad14[0x10]; f32 f24; } MobyClass;
+typedef struct { u8 pad0[0x10]; u128_pt pos; u8 pad20[4]; MobyClass *mclass; u8 pad28[4]; f32 scale; u8 b30; u8 b31; s16 h32; u16 flags; u8 pad36[2]; u64 d38; u128_pt rot; u8 pad50[0x28]; void *pvars; u8 pad7C[0x18]; s32 w94; } ClonedMoby;
+extern s32 truncate_float_to_s32(f32) __asm__("func_001FA898");
+typedef struct { s32 src_id; u8 pad4[4]; s32 count; } SpawnerVars;
+typedef struct { u8 pad0[0x60]; u8 path[0x18]; s32 w78; s32 w7C; s32 w80; s32 w84; f32 f88; u8 pad8C[0x24]; f32 fB0; f32 fB4; u8 padB8[0x198]; f32 f250; } CloneAiVars;
+typedef struct { u8 pad0[0x10]; f32 x; f32 y; u8 pad18[8]; u8 state; u8 pad21[0x57]; void *pvars; } SpawnerMoby;
+typedef struct { u8 pad0[0x80]; f32 x; f32 y; } PlayerPosView;
+extern s32 func_L01_0026EFB8_303590(s32, s32) __asm__("func_L01_0026EFB8") ;
+extern ClonedMoby *func_L01_00303700_303590(ClonedMoby *) __asm__("func_L01_00303700") ;
+extern f32 func_L00_001FF860_303590(f32, f32) __asm__("func_L00_001FF860") ;
+extern f32 func_001FA748_303590(f32, f32) __asm__("func_001FA748") ;
+extern void func_L00_0025D5B0_303590(void *, void *, s32, s32, s32, f32) __asm__("func_L00_0025D5B0") ;
+extern short D_L01_00161F20_303590 __asm__("D_L01_00161F20") ;
+extern PlayerPosView D_0013F450_303590 __asm__("D_0013F450") ;
+/* Enemy-spawner update: state 0 arms it, state 1 spawns one child toward the player while under the count limit and aims its AI path. func_L00_0025D5B0 takes the angle as its last argument. Adapted from Lombyte (MIT) for PAL: overlays/l01/unclassified_002f9810.c, FUN_L01_003021b8. */
+void func_L01_00303590(SpawnerMoby *m) {
+    SpawnerVars *v = m->pvars;
+    SpawnerMoby *n;
+    CloneAiVars *nv;
+    f32 k;
+
+    switch (m->state) {
+    case 0:
+        m->state = 1;
+        break;
+    case 1:
+        if (v->src_id < 0) {
+            break;
+        }
+        if (func_L01_0026EFB8_303590(v->src_id, 0xC) != 0) {
+            break;
+        }
+        if (v->count >= *(int *)&D_L01_00161F20_303590) {
+            break;
+        }
+        v->count++;
+        n = (SpawnerMoby *)func_L01_00303700_303590((ClonedMoby *)m);
+        if (n != 0) {
+            nv = n->pvars;
+            k = 0.8f;
+            nv->w84 = 8;
+            nv->w80 = truncate_float_to_s32(nv->f250 * k * 1024.0f);
+            nv->f88 = nv->f250 * k;
+            nv->fB0 = 7.0f;
+            nv->fB4 = 13.0f;
+            nv->w78 = 0;
+            nv->w7C = 0;
+            func_L00_0025D5B0_303590(n, nv->path, 5, 8, 0,
+                func_001FA748_303590(func_L00_001FF860_303590(D_0013F450_303590.x - m->x, D_0013F450_303590.y - m->y),
+                             3.1415927f));
+            n->state = 9;
+        }
+        break;
+    }
+}
 extern int func_L00_0025A208(int *, int, int, int);
 extern int func_001FA898_r(float) __asm__("func_001FA898");
 
@@ -654,7 +710,34 @@ char *func_L01_0030D248(char *src, void *dir, float scale) {
     return m;
 }
 INCLUDE_ASM("asm/overlays", func_L01_0030D568);
-INCLUDE_ASM("asm/overlays", func_L01_0030E4C8);
+/* Breakable crate variant update: state 0 starts, 1 waits for a positive value, 2 breaks into pieces. Keeping 'flag' as its own variable (as the NTSC decomp does) gives retail's second callee-saved register. */
+void func_L01_0030E4C8(char *moby) {
+    char *hit;
+    int flag;
+
+    flag = 0;
+    hit = func_L00_0025B478(moby, 0x10000, 0);
+    switch (*(unsigned char *)(moby + 0x20)) {
+    case 0:
+        moby[0x20] = 1;
+        break;
+    case 1:
+        if (hit != 0 && *(float *)(hit + 0x2C) > 0.0f) {
+            flag = 1;
+        }
+        if (flag) {
+            moby[0x20] = 2;
+        }
+        break;
+    case 2:
+        func_0022ED80(0, 0, (int)moby);
+        func_L01_00279790(moby);
+        func_L00_00265050(moby, 0x717, (float *)(moby + 0x10), moby + 0x40, 0, 0, D_L01_0015F660, D_L01_0015F660, 0.0f, D_L01_0015F660);
+        func_L01_00279E10(moby, 0x718);
+        func_0020D678(moby);
+        break;
+    }
+}
 extern void func_001F9BF0(void *, void *, void *);
 extern void func_L00_001FF4B0(void *, void *, float);
 extern float func_001F9C78(void *, void *);

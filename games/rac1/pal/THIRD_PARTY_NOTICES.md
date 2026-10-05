@@ -234,3 +234,42 @@ ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
 WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+## Wrench
+
+[Wrench](https://github.com/chaoticgd/wrench) by chaoticgd and contributors
+provides reverse-engineered asset decoders, level modding tools, and C++ type
+definitions for moby instance private variables (`pvars`). The following adapt
+its source code and reverse-engineering findings:
+
+- `include/moby_pvars.h`: moby instance private variable (pvar) layouts, NPC
+  state machine structs (`npcVars`, `npcStep`, `npcstring`), and IK / procedural
+  structures (`Manipulator`, `Tweaker`), adapted from
+  `data/overlay/src/game_common/` and `data/overlay/src/game_rac/` for C
+  compilation with SN ProDG.
+- `docs/PVARS.md`: documentation of moby pvar layouts and subsystem
+  architecture synthesized from Wrench's overlay definitions.
+- `tools/extract/`: asset extraction logic (disc layout, table of contents
+  groups, level data header sections, core block bounds, WAD compression,
+  terrain, ties, shrubs, sky, gameplay block boundaries), as described in
+  `docs/ASSETS.md`.
+- `tools/extract/moby_classes.tsv`: moby class names and categories joined with
+  Wrench's `data/underlay/rac_moby_classes.asset`.
+
+GNU General Public License v3.0 or later (GPL-3.0-or-later)
+
+Copyright (C) 2019-2023 chaoticgd and contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+

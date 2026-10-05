@@ -413,5 +413,63 @@ float func_L00_002B1238(int n) {
 }
 INCLUDE_ASM("asm/overlays", func_L00_002B1290);
 INCLUDE_ASM("asm/overlays", func_L00_002B1688);
-INCLUDE_ASM("asm/overlays", func_L00_002B2DD8);
+typedef struct { float f[4]; } __attribute__((aligned(16))) V_2b1af0;
+typedef int Q_2b1af0 __attribute__((mode(TI)));
+typedef struct { V_2b1af0 a; char pad[0x30]; V_2b1af0 b; } P_2b1af0;
+extern P_2b1af0 D_0013F550_2b1af0 __asm__("D_0013F550");
+void fefc8_2b1af0(void *) __asm__("func_L00_001FEF78");
+void rot_2b1af0(void *, void *, void *) __asm__("func_001F9EC0");
+void add_2b1af0(void *, void *, void *) __asm__("func_001F9BD8");
+void scale_2b1af0(void *, void *, float) __asm__("func_001F9C30");
+float rndf_2b1af0(float, float) __asm__("func_002140F8");
+void ff500_2b1af0(void *, void *, float) __asm__("func_L00_001FF4B0");
+float rnd_2b1af0(float, float) __asm__("func_L00_00258C80");
+int trunc_2b1af0(float) __asm__("func_001FA898");
+int fr_2b1af0(int) __asm__("func_001F9850");
+int rndi_2b1af0(int, int) __asm__("func_L00_00258BC8");
+void smoke_2b1af0(void *, void *, int, int, int, int, float, float, float, float, float) __asm__("func_L00_00272158");
+void spark_2b1af0(void *, void *, int, int, int, int, float) __asm__("func_L00_0026DA50");
+/* Moby update. Adapted from Lombyte (MIT) for PAL: overlays/shared/unclassified_002aa670.c, FUN_L00_002b1af0. */
+void func_L00_002B2DD8(unsigned char *o) {
+    V_2b1af0 b;
+    V_2b1af0 a;
+    V_2b1af0 c;
+    V_2b1af0 d;
+    int i, j;
+    int t;
+    if (o[0xBC] == 0) return;
+    *(Q_2b1af0 *)&a = 0;
+    *(Q_2b1af0 *)&b = 0;
+    a.f[0] = 0.23f;
+    a.f[1] = 0.18f;
+    b.f[1] = 1.0f;
+    b.f[3] = 1.0f;
+    a.f[3] = 1.0f;
+    fefc8_2b1af0(o + 0xBC);
+    rot_2b1af0(&a, &a, o + 0xC0);
+    add_2b1af0(&c, o + 0x10, &a);
+    rot_2b1af0(&b, &b, o + 0xC0);
+    for (i = 1; i >= 0; i--) {
+        ff500_2b1af0(&d, &b, rndf_2b1af0(0.01f, 0.06f));
+        scale_2b1af0(&b, &D_0013F550_2b1af0.a, 0.7f);
+        b.f[2] = 0.0f;
+        add_2b1af0(&d, &d, &b);
+        scale_2b1af0(&b, &D_0013F550_2b1af0.b, 0.7f);
+        b.f[2] = 0.0f;
+        add_2b1af0(&d, &d, &b);
+        t = trunc_2b1af0(rnd_2b1af0(0.0f, 6.0f));
+        smoke_2b1af0(&c, &d, fr_2b1af0(0x1E), 0x7F, 0xFFFFFF, t, 25000.0f, 300.0f, 0.98f, 0.0f, 0.85f);
+    }
+    for (j = 0; j >= 0; j--) {
+        ff500_2b1af0(&d, &b, rndf_2b1af0(0.01f, 0.06f));
+        scale_2b1af0(&b, &D_0013F550_2b1af0.a, 0.55f);
+        b.f[2] = 0.0f;
+        add_2b1af0(&d, &d, &b);
+        scale_2b1af0(&b, &D_0013F550_2b1af0.b, 0.55f);
+        b.f[2] = 0.0f;
+        add_2b1af0(&d, &d, &b);
+        t = fr_2b1af0(0x14);
+        spark_2b1af0(&c, &d, 0x4F007FFF, 0x1FFFFFFF, rndi_2b1af0(t, fr_2b1af0(0x28)), 1, 10000.0f);
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L00_002B30C8);

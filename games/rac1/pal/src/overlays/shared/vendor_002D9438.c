@@ -305,7 +305,34 @@ void func_L00_002DB700(char *m, float *a, float *b, float *c) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L00_002DB810);
-INCLUDE_ASM("asm/overlays", func_L00_002DBB10);
+typedef struct { u8 pad0[0x2050]; u8 *slot[10]; s32 i2078; s32 i207C; } G_002da660;
+extern G_002da660 D_0013F450_002da660 __asm__("D_0013F450") __attribute__((section(".data")));
+typedef struct { u8 p[9]; u8 b9; } H_002da660;
+extern H_002da660 D_0013E620_002da660 __asm__("D_0013E620") __attribute__((section(".data")));
+extern char D_L00_001EA368_002da660[] __asm__("D_L00_001EA368") __attribute__((section(".data")));
+u8 *func_L00_002DCD40_002da660(u8 *) __asm__("func_L00_002DCD40");
+void func_001E9730_002da660(void *, s32, s32) __asm__("func_001E9730");
+/* Update. Adapted from Lombyte (MIT) for PAL: overlays/shared/unclassified_002d7f88.c, FUN_L00_002da660. */
+void func_L00_002DBB10(void) {
+    s32 i;
+    D_0013F450_002da660.i207C = 0;
+    D_0013F450_002da660.i2078 = 0;
+    for (i = 0; i < (D_0013E620_002da660.b9 == 0 ? 5 : 10); i++) {
+        u8 *o;
+        s32 k;
+        if (D_0013F450_002da660.slot[i] == 0) continue;
+        o = func_L00_002DCD40_002da660(D_0013F450_002da660.slot[i]);
+        if (o == 0 || (k = *(s16 *)(o + 0x68)) < 3 || k >= 5 || *(s16 *)(o + 0x6A) == -1) {
+            u8 *m = D_0013F450_002da660.slot[i];
+            func_001E9730_002da660(D_L00_001EA368_002da660, *(s16 *)(m + 0xB2), *(s16 *)(m + 0xA6));
+            D_0013F450_002da660.slot[i] = 0;
+        } else if (k == 3) {
+            D_0013F450_002da660.i207C++;
+        } else if (k == 4) {
+            D_0013F450_002da660.i2078++;
+        }
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L00_002DBC40);
 /* From Lombyte (MIT), FUN_L00_002db890 (PR #66), adapted to PAL. */
 typedef int (*Fn2DCD40)(void *);

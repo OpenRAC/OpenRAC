@@ -534,7 +534,58 @@ void *func_L00_0026CA10(void *pos, void *vel, int a2, int a3, int cnt, int s, in
     }
     return p;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0026CB48);
+typedef unsigned int u128_pt __attribute__((mode(TI)));
+typedef union { u128_pt q; float f[4]; } V26bca8;
+extern float D_0015EE70_26bca8 __asm__("D_0015EE70") MACRO_ADDR;
+extern int D_L00_0015F6B0_26bca8 __asm__("D_L00_0015F6B0") MACRO_ADDR;
+int func_001F9938_26bca8(void *) __asm__("func_001F9938");
+void func_L00_002688A8_26bca8(void *) __asm__("func_L00_002688A8");
+float func_001FA888_26bca8(int) __asm__("func_001FA888");
+int func_L00_00237B70_26bca8(int, int, float) __asm__("func_L00_00237B70");
+void func_001F9BD8_26bca8(void *, void *, void *) __asm__("func_001F9BD8");
+void func_001F9C30_26bca8(void *, void *, float) __asm__("func_001F9C30");
+float func_002140F8_26bca8(float, float) __asm__("func_002140F8");
+float func_001F9CB8_26bca8(void *) __asm__("func_001F9CB8");
+void func_L00_001FF4B0_26bca8(void *, void *, float) __asm__("func_L00_001FF4B0");
+int func_L00_00258BC8_26bca8(int, int) __asm__("func_L00_00258BC8");
+int func_001F9850_26bca8(int) __asm__("func_001F9850");
+unsigned char *func_L00_0026CA10_26bca8(void *, void *, int, int, int, float, int, int, int) __asm__("func_L00_0026CA10");
+/* Particle update: counts down its life, applies velocity and gravity, and now and then spawns a child particle with a random kick. Adapted from Lombyte (MIT) for PAL: overlays/shared/rendering_00269290.c, FUN_L00_0026bca8. */
+void func_L00_0026CB48(unsigned char *m) {
+    V26bca8 u, t, w;
+    unsigned char *o = m + 0x20;
+    unsigned char *p;
+    float a, b;
+    if (func_001F9938_26bca8(m + 0xA)) {
+        func_L00_002688A8_26bca8(m);
+        return;
+    }
+    p = m + 0x10;
+    a = func_001FA888_26bca8(*(short *)(m + 0xA));
+    b = func_001FA888_26bca8(*(short *)(o + 0x18));
+    a *= *(float *)(o + 0x1C);
+    a /= b;
+    *(float *)(m + 0xC) = a;
+    a = func_001FA888_26bca8(*(short *)(m + 0xA));
+    *(int *)(m + 4) = func_L00_00237B70_26bca8(*(int *)(o + 0x14), *(int *)(o + 0x10), a / func_001FA888_26bca8(*(short *)(o + 0x18)));
+    func_001F9BD8_26bca8(p, p, o);
+    *(float *)(o + 8) -= D_0015EE70_26bca8 * 14.6f;
+    qcopy(&u, p);
+    if (*(short *)(o + 0x1A) && (D_L00_0015F6B0_26bca8 & 1)) {
+        w.q = 0;
+        w.f[0] = func_002140F8_26bca8(-1.0f, 1.0f);
+        w.f[1] = func_002140F8_26bca8(-1.0f, 1.0f);
+        w.f[2] = func_002140F8_26bca8(-1.0f, 1.0f);
+        t.q = w.q;
+        b = func_001F9CB8_26bca8(o);
+        func_L00_001FF4B0_26bca8(&t, &t, b * func_002140F8_26bca8(0.15f, 0.25f));
+        func_001F9BD8_26bca8(&t, &t, o);
+        func_001F9C30_26bca8(&t, &t, func_002140F8_26bca8(0.75f, 0.95f));
+        func_L00_0026CA10_26bca8(p, &t, *(int *)(m + 4), *(int *)(o + 0x14), func_001F9850_26bca8(func_L00_00258BC8_26bca8(0xF, 0x1E)), *(float *)(m + 0xC), 0, m[2], m[3]);
+    } else {
+        func_001F9C30_26bca8(o, o, 0.96f);
+    }
+}
 extern float D_L00_0015F6B4 MACRO_ADDR;
 extern unsigned char *D_L00_001B2440;
 
@@ -1049,7 +1100,46 @@ void func_L00_0026ECA0(char *a) {
     if (func_001F9908(a + 0x30)) KillPart(a);
 }
 INCLUDE_ASM("asm/overlays", func_L00_0026ED30);
-INCLUDE_ASM("asm/overlays", func_L00_0026EFF0);
+typedef struct { unsigned char pad0[4]; unsigned int i4; unsigned char b8; unsigned char pad9; unsigned char cA[2]; float fC; float pos[4]; struct Q_26e150 { float f0; float size; float phase; float vel; float dv[4]; } q; } M_26e150;
+extern float D_0015EE60_26e150 __asm__("D_0015EE60") MACRO_ADDR;
+extern int func_001F9938_26e150(void *) __asm__("func_001F9938");
+extern void func_L00_002688A8_26e150(void *) __asm__("func_L00_002688A8");
+extern int func_001FA898_26e150(float) __asm__("func_001FA898");
+extern void func_001F9BD8_26e150(void *, void *, void *) __asm__("func_001F9BD8");
+/* Particle update: size and phase advance with the frame time (D_0015EE60), the size following the particle's velocity. Adapted from Lombyte (MIT) for PAL: overlays/shared/rendering_00269290.c, FUN_L00_0026e150. */
+void func_L00_0026EFF0(M_26e150 *m) {
+    struct Q_26e150 *q = &m->q;
+    float vel = q->vel;
+    float s;
+    float d;
+
+    if (0.0f < vel) {
+        q->size += D_0015EE60_26e150 * 0.007f * vel;
+    } else if (0.03f < q->size) {
+        q->size = q->size + D_0015EE60_26e150 * 0.007f * vel;
+    } else {
+        d = D_0015EE60_26e150;
+        q->size = q->size + d * 0.007f * vel * 0.2f;
+        m->fC += d * 5460.0f;
+    }
+    if (q->size <= 0.0244f || func_001F9938_26e150(m->cA) != 0) {
+        func_L00_002688A8_26e150(m);
+        return;
+    }
+    s = q->size;
+    if (0.12f <= s) {
+        q->vel = -q->vel;
+        q->size = s + D_0015EE60_26e150 * 0.007f * q->vel;
+    }
+    m->fC += D_0015EE60_26e150 * 5460.0f;
+    m->i4 = (m->i4 & 0xFFFFFF) | (func_001FA898_26e150(q->size * 255.0f) << 24);
+    q->phase += D_0015EE60_26e150 * 0.002f;
+    if (1.0f < q->phase) {
+        q->phase -= 1.0f;
+    }
+    m->b8 = (int)(q->phase * 255.0f);
+    func_001F9BD8_26e150(m->pos, m->pos, q->dv);
+}
 INCLUDE_ASM("asm/overlays", func_L00_0026F248);
 INCLUDE_ASM("asm/overlays", func_L00_0026F510);
 typedef struct { int a[4]; } V31 __attribute__((aligned(16)));

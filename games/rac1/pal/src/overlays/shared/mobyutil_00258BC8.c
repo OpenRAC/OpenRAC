@@ -946,7 +946,33 @@ void func_L00_0025D5B0(float ang, char *o, float *s, int a, int b, int c) {
 }
 INCLUDE_ASM("asm/overlays", func_L00_0025D6F0);
 INCLUDE_ASM("asm/overlays", func_L00_0025E210);
-INCLUDE_ASM("asm/overlays", func_L00_0025E290);
+typedef unsigned int u128_pt __attribute__((mode(TI)));
+typedef union { u128_pt q; f32 f[4]; } V0025d238;
+extern void func_001F9BF0_25e290(void *, void *, void *) __asm__("func_001F9BF0");
+extern f32 func_001F9B88_25e290(f32) __asm__("func_001F9B88");
+extern void func_001F9C30_25e290(void *, void *, f32) __asm__("func_001F9C30");
+extern void func_001F9BD8_25e290(void *, void *, void *) __asm__("func_001F9BD8");
+/* Per-component adjustment of v against src: for each of the three components of v that is negative it recomputes v through the vector helpers. Adapted from Lombyte (MIT) for PAL: overlays/shared/math_rotations_0025d238.c, FUN_L00_0025d238. */
+void func_L00_0025E290(V0025d238 *src, V0025d238 *v) {
+    V0025d238 t0, t1;
+    f32 *pv, *p0, *p1;
+    V0025d238 *a = &t0, *b = &t1;
+    s32 i;
+    t0.q = src->q;
+    p0 = t0.f;
+    pv = v->f;
+    p1 = t1.f;
+    for (i = 2; i >= 0; i--) {
+        if (*pv < 0.0f) {
+            func_001F9BF0_25e290(b, v, a);
+            func_001F9C30_25e290(b, b, func_001F9B88_25e290((*p0 - 0.1f) / *p1));
+            func_001F9BD8_25e290(v, a, b);
+        }
+        pv++;
+        p1++;
+        p0++;
+    }
+}
 extern int func_001F9850(int);
 extern void func_L00_00251358(void *, void *, void *, void *);
 

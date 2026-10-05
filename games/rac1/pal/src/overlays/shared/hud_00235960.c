@@ -2,8 +2,79 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L00_00235960);
-INCLUDE_ASM("asm/overlays", func_L00_00235CA0);
+typedef struct { char pad[0x50]; int sz[8]; char pad2[0x20]; void *p[8]; } T_234fd0;
+typedef struct { char pad[0x18]; T_234fd0 *t; } G_234fd0;
+typedef struct { char pad[0x10]; void *h; char pad2[0x104 - 0x14]; int off; } B_234fd0;
+extern G_234fd0 D_L00_0017E5D8_234fd0 __asm__("D_L00_0017E5D8") __attribute__((section(".data")));
+extern B_234fd0 D_L00_001BA070_234fd0 __asm__("D_L00_001BA070") __attribute__((section(".data")));
+extern int D_L00_0017E610_234fd0 __asm__("D_L00_0017E610") __attribute__((section(".data")));
+extern int D_L00_0017E618_234fd0 __asm__("D_L00_0017E618") __attribute__((section(".data")));
+extern int D_L00_0017E61C_234fd0 __asm__("D_L00_0017E61C") __attribute__((section(".data")));
+extern int D_L00_0017E620_234fd0 __asm__("D_L00_0017E620") __attribute__((section(".data")));
+void func_00234238_234fd0(void *, void *, int, int, int) __asm__("func_00234238");
+void func_0020C468_234fd0(void *, int) __asm__("func_0020C468");
+void func_001FF7F0_234fd0(int, int) __asm__("func_001FF7F0");
+/* HUD update. Adapted from Lombyte (MIT) for PAL: overlays/shared/ui_hud_00234fd0.c, FUN_L00_00234fd0. */
+void func_L00_00235960(int mode) {
+    G_234fd0 *g = &D_L00_0017E5D8_234fd0;
+    int off = D_L00_001BA070_234fd0.off;
+    void *h = D_L00_001BA070_234fd0.h;
+    { int n1; if ((n1 = g->t->sz[1])) {
+        func_00234238_234fd0(h, g->t->p[1], 0, D_L00_0017E610_234fd0 / 16, 0);
+        func_0020C468_234fd0(h, off);
+        func_001FF7F0_234fd0(0, off);
+        off += n1; }
+    }
+    { int n3; if ((n3 = g->t->sz[3])) {
+        func_00234238_234fd0(h, g->t->p[3], 0, D_L00_0017E618_234fd0 / 16, 0);
+        func_0020C468_234fd0(h, off);
+        func_001FF7F0_234fd0(2, off);
+        off += n3; }
+    }
+    if (mode == 0 || mode == 2) {
+        { int n4; if ((n4 = g->t->sz[4])) {
+            func_00234238_234fd0(h, g->t->p[4], 0, D_L00_0017E61C_234fd0 / 16, 0);
+            func_0020C468_234fd0(h, off);
+            func_001FF7F0_234fd0(3, off);
+            off += n4; }
+        }
+    }
+    if ((unsigned)(mode - 1) < 2) {
+        G_234fd0 *g2 = &D_L00_0017E5D8_234fd0;
+        if (g2->t->sz[5]) {
+            func_00234238_234fd0(h, g2->t->p[5], 0, D_L00_0017E620_234fd0 / 16, 0);
+            func_0020C468_234fd0(h, off);
+            func_001FF7F0_234fd0(4, off);
+        }
+    }
+}
+typedef struct { int pad[5]; int a[8]; int b[16]; int c[8]; } T_235310;
+typedef struct { int v; short s; short pad; } E_235310;
+typedef struct { char pad[0x18]; T_235310 *t; char pad2[8]; E_235310 *a; E_235310 *b; } G_235310;
+extern G_235310 D_L00_0017E5D8_235ca0  __asm__("D_L00_0017E5D8") __attribute__((section(".data")));
+/* HUD update. Adapted from Lombyte (MIT) for PAL: overlays/shared/ui_hud_00234fd0.c, FUN_L00_00235310. */
+void func_L00_00235CA0(int n) {
+    int d = D_L00_0017E5D8_235ca0.t->c[n];
+    int i, j, s, end;
+    if (n == 0) {
+        for (j = 0; j < D_L00_0017E5D8_235ca0.t->b[0]; j++) {
+            D_L00_0017E5D8_235ca0.a[j].s = 0;
+        }
+    }
+    if (n) s = D_L00_0017E5D8_235ca0.t->a[n - 1]; else s = 0;
+    end = D_L00_0017E5D8_235ca0.t->a[n];
+    for (i = s; i < end; i++) {
+        D_L00_0017E5D8_235ca0.b[i].v -= d;
+        D_L00_0017E5D8_235ca0.b[i].v |= 0x80000000;
+    }
+    if (n) s = D_L00_0017E5D8_235ca0.t->b[n - 1]; else s = 0;
+    end = D_L00_0017E5D8_235ca0.t->b[n];
+    for (i = s; i < end; i++) {
+        D_L00_0017E5D8_235ca0.a[i].v -= d;
+        D_L00_0017E5D8_235ca0.a[i].v |= 0x80000000;
+    }
+    D_L00_0017E5D8_235ca0.t->c[n] = 0;
+}
 INCLUDE_ASM("asm/overlays", func_L00_00235FF8);
 typedef struct {
     int unk00, unk04;
@@ -850,7 +921,42 @@ int func_L00_0023B440(char *p) {
     *(int *)(p + 4) = r;
     return r;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0023B610);
+typedef struct E_23ac78 { int a; unsigned int flags; int b[3]; void (*cb)(struct E_23ac78 *); char pad[0x68 - 0x18]; int on; int lvl; char pad2[0x7C - 0x70]; int t; char pad3[0x90 - 0x80]; } E_23ac78;
+extern E_23ac78 D_L00_0017DD50_23b610[]  __asm__("D_L00_0017DD50") __attribute__((section(".data")));
+typedef struct { int a; int b; } H_23ac78;
+extern H_23ac78 D_L00_0017E5D8_23b610  __asm__("D_L00_0017E5D8") __attribute__((section(".data")));
+extern void func_L00_0023B750_23b610(void) __asm__("func_L00_0023B750");
+extern void func_001FFC48_23b610(void *) __asm__("func_001FFC48");
+/* Text/HUD update. Adapted from Lombyte (MIT) for PAL: overlays/shared/ui_text_0023a7a8.c, FUN_L00_0023ac78. */
+int func_L00_0023B610(int call) {
+    int n = 0;
+    E_23ac78 *e;
+    H_23ac78 *h;
+    func_L00_0023B750_23b610();
+    e = D_L00_0017DD50_23b610;
+    h = &D_L00_0017E5D8_23b610;
+    do {
+        if ((e->flags & 0x10) || h->b != 0) {
+            if (e->t < func_001F9850(10)) {
+                e->t = func_001F9850(10);
+            }
+        }
+        if (e->t > 0 && --e->t > 0) {
+            n++;
+            if (e->lvl < 30) e->lvl++;
+        } else {
+            if (e->lvl >= -5) e->lvl--;
+        }
+        if (e->on && e->lvl == -6) {
+            func_001FFC48_23b610(e);
+        }
+        if (call && e->cb) {
+            e->cb(e);
+        }
+        e++;
+    } while ((int)e < (int)(D_L00_0017DD50_23b610 + 13));
+    return n;
+}
 typedef struct {
     char pad0[8];
     unsigned short unk8;
