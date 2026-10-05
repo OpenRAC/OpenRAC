@@ -418,3 +418,235 @@ void LVL_15_GORN_FUN_0030BF38(void) {
         LVL_15_GORN_D_001BF900.state = 2;
     }
 }
+
+/* Substitute the first percent selector in a record's localized text. */
+typedef struct {
+    unsigned char gap0[10];
+    short text_id;
+    short mapped_key;
+    unsigned char gap0e[26];
+} DobboFormatRow396;
+typedef struct {
+    unsigned char gap0[32];
+    DobboFormatRow396 *rows;
+} DobboFormatRoot396;
+typedef struct {
+    unsigned char gap0[0x80];
+    int amount;
+    unsigned char gap84[0x5c];
+} DobboFormatMapped396;
+typedef char DobboFormatRowStride396[(sizeof(DobboFormatRow396) == 40) ? 1 : -1];
+typedef char DobboFormatMappedStride396[(sizeof(DobboFormatMapped396) == 0xe0) ? 1 : -1];
+extern DobboFormatRoot396 LVL_15_GORN_D_001C9DA0;
+extern const char LVL_15_GORN_D_001A9A60[];
+extern const char LVL_15_GORN_D_001A9A68[];
+extern const unsigned char *LVL_15_GORN_FUN_0030D1A8(int);
+extern void BOOT_FUN_00115DA8(char *, const char *, ...);
+void LVL_15_GORN_FUN_00321B58(int index, unsigned char *output)
+{
+    unsigned char temporary[80];
+    const unsigned char *source = LVL_15_GORN_FUN_0030D1A8(LVL_15_GORN_D_001C9DA0.rows[index].text_id);
+    unsigned char *p = temporary;
+    if (!source)
+        return;
+    while (*source && *source != '%')
+        *output++ = *source++;
+    if (!*source) {
+        *output = *source;
+        return;
+    }
+    ++source;
+    if (*source == 'b') {
+        int key = LVL_15_GORN_D_001C9DA0.rows[index].mapped_key;
+        DobboFormatMapped396 *record = (DobboFormatMapped396 *)&LVL_15_GORN_D_00276FF0[LVL_15_GORN_D_00139568[key]];
+        BOOT_FUN_00115DA8((char *)temporary, LVL_15_GORN_D_001A9A60, record->amount);
+    } else {
+        BOOT_FUN_00115DA8((char *)temporary, LVL_15_GORN_D_001A9A68);
+    }
+    ++source;
+    while (*p)
+        *output++ = *p++;
+    while (*source)
+        *output++ = *source++;
+    *output = 0;
+}
+
+typedef struct { u8 prefix[0xc38]; f32 plane; f32 depth; } GornFloatInterval64;
+
+int LVL_15_GORN_FUN_002CC818(f32 value)
+{
+    GornFloatInterval64 *root = (GornFloatInterval64 *)LVL_15_GORN_D_00189E20;
+    if (value < root->plane) {
+        if (root->plane - value <= root->depth)
+            return 1;
+    }
+    return 0;
+}
+
+typedef struct { int status; u8 reserved[36]; } GornStatusRecord156;
+typedef char GornStatusRecord156Size[(sizeof(GornStatusRecord156) == 40) ? 1 : -1];
+extern GornStatusRecord156 LVL_15_GORN_D_0029FD80[];
+
+int LVL_15_GORN_FUN_00384038(void)
+{
+    if (LVL_15_GORN_D_0029FD80[2].status != 0 ||
+        LVL_15_GORN_D_0029FD80[3].status != 0 ||
+        LVL_15_GORN_D_0029FD80[4].status != 0 ||
+        LVL_15_GORN_D_0029FD80[5].status != 0 ||
+        LVL_15_GORN_D_0029FD80[8].status != 0 ||
+        LVL_15_GORN_D_0029FD80[9].status != 0 ||
+        LVL_15_GORN_D_0029FD80[10].status != 0 ||
+        LVL_15_GORN_D_0029FD80[11].status != 0 ||
+        LVL_15_GORN_D_0029FD80[12].status != 0 ||
+        LVL_15_GORN_D_0029FD80[13].status != 0 ||
+        LVL_15_GORN_D_0029FD80[14].status != 0)
+        return 1;
+    return 0;
+}
+
+/* Update the observed two-axis selection fields and their combined index. */
+typedef struct {
+    unsigned char gap0[0x43c];
+    int column, row, index, mode;
+} DobboGridState312;
+extern int LVL_15_GORN_FUN_003781D0(int, unsigned int, void *);
+void LVL_15_GORN_FUN_00461E08(DobboGridState312 *state, unsigned int buttons)
+{
+    if (buttons & 0x1000) {
+        LVL_15_GORN_FUN_003781D0(3, 0, 0);
+        --state->row;
+        if (state->row < 0) {
+            if (state->column == 0) {
+                state->mode = 2;
+                state->row = 1;
+                state->column = 3;
+            } else if (state->column == 1) {
+                state->row = state->column;
+            }
+        }
+    } else if (buttons & 0x4000) {
+        int row;
+        LVL_15_GORN_FUN_003781D0(3, 0, 0);
+        row = state->row + 1;
+        state->row = row > 1 ? 0 : row;
+    } else if (buttons & 0x8000) {
+        LVL_15_GORN_FUN_003781D0(3, 0, 0);
+        --state->column;
+        if (state->column < 0) {
+            state->column = 3;
+            state->row = 1;
+            state->mode = 2;
+        }
+    } else if (buttons & 0x2000) {
+        LVL_15_GORN_FUN_003781D0(3, 0, 0);
+        ++state->column;
+        if (state->column >= 2)
+            state->column = 0;
+    }
+    state->index = state->column + state->row * 2;
+}
+
+extern void *LVL_15_GORN_D_001B2580[16];
+extern u32 LVL_15_GORN_D_001B25C0[16];
+
+int LVL_15_GORN_FUN_00329F50(void *object)
+{
+    int index;
+    for (index = 0; index < 16; ++index) {
+        if (LVL_15_GORN_D_001B2580[index] == 0 ||
+            LVL_15_GORN_D_001B2580[index] == object) {
+            LVL_15_GORN_D_001B2580[index] = object;
+            LVL_15_GORN_D_001B25C0[index] = 0;
+            return index;
+        }
+    }
+    return -1;
+}
+
+typedef struct {
+    u8 prefix[0x40];
+    void *payload;
+    u32 unused44;
+    short key;
+    u8 marker;
+    u8 unused4b;
+    u8 selector;
+    u8 tail[3];
+} GornRecordWrite64;
+typedef char GornRecordWrite64Stride[(sizeof(GornRecordWrite64) == 80) ? 1 : -1];
+
+void LVL_15_GORN_FUN_0033C450(GornRecordWrite64 *record, u32 selector,
+                            int key, void *payload)
+{
+    if (record->marker != 0) {
+        u8 marker;
+        do {
+            if (record->selector == selector && record->key == key) {
+                record->payload = payload;
+                return;
+            }
+            marker = record->marker;
+            ++record;
+        } while (marker != 1);
+    }
+}
+
+/* Append an observed point index and update the original geometric descriptor. */
+typedef struct {
+    unsigned char gap0[0x10];
+    float plane[4];
+    unsigned char gap20[0x10];
+    float (*points)[4];
+    unsigned char gap34[0x25];
+    unsigned char indices[3];
+    unsigned char count;
+} OozlaAppendDescriptor164;
+typedef struct {
+    unsigned char gap0[0x68];
+    OozlaAppendDescriptor164 *descriptor;
+    unsigned char gap6c[0x54];
+    float transform[3][4];
+} OozlaAppendObject164;
+typedef char OozlaAppendDescriptorCount164[((int)&((OozlaAppendDescriptor164 *)0)->count == 0x5c) ? 1 : -1];
+extern void LVL_15_GORN_FUN_002F5868(OozlaAppendObject164 *, int, const float *);
+extern void LVL_15_GORN_FUN_00306C60(float *, const float *, const float *);
+extern void LVL_15_GORN_FUN_003070D8(float *, const float *, const float *);
+extern void LVL_15_GORN_FUN_002F5BB0(OozlaAppendObject164 *, float *, const float *);
+unsigned int LVL_15_GORN_FUN_002F57C0(OozlaAppendObject164 *object, unsigned int index, const float *direction)
+{
+    float difference[4];
+    OozlaAppendDescriptor164 *descriptor = object->descriptor;
+    descriptor->indices[descriptor->count] = index;
+    ++descriptor->count;
+    LVL_15_GORN_FUN_002F5868(object, (int)descriptor->count - 1, direction);
+    if (descriptor->count != 1) {
+        LVL_15_GORN_FUN_00306C60(difference, descriptor->points[descriptor->indices[0]], descriptor->points[descriptor->indices[1]]);
+        LVL_15_GORN_FUN_003070D8(difference, difference, &object->transform[0][0]);
+        LVL_15_GORN_FUN_002F5BB0(object, descriptor->plane, difference);
+    }
+    return descriptor->count;
+}
+
+typedef struct { f32 x, y, z, w; } JammingParameterRow;
+typedef struct {
+    u8 prefix[0x30];
+    JammingParameterRow rows[4];
+    f32 weights[3];
+} JammingParameterRows;
+void LVL_15_GORN_FUN_00467280(f32 weight, f32 x, f32 y, f32 z, f32 w, JammingParameterRows *object, s32 index) {
+    object->rows[index].x = x;
+    object->rows[index].y = y;
+    object->rows[index].z = z;
+    object->rows[index].w = w;
+    object->weights[index] = weight;
+}
+
+typedef struct { f32 x, y, z, w; } JammingGridRow;
+typedef struct { JammingGridRow rows[3]; } JammingGridGroup;
+typedef struct { u8 prefix[0x2c]; JammingGridGroup groups[2]; } JammingGridObject;
+void LVL_15_GORN_FUN_00467718(f32 x, f32 y, f32 z, f32 w, JammingGridObject *object, s32 row, s32 group) {
+    object->groups[group].rows[row].x = x;
+    object->groups[group].rows[row].y = y;
+    object->groups[group].rows[row].z = z;
+    object->groups[group].rows[row].w = w;
+}

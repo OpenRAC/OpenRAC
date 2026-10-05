@@ -8,10 +8,11 @@ directory lists its own in its `THIRD_PARTY_NOTICES.md` and source comments:
 - [games/rac1/ntsc/THIRD_PARTY_NOTICES.md](games/rac1/ntsc/THIRD_PARTY_NOTICES.md):
   libgcc and soft-float, newlib, David Gay's dtoa, code ported from rac1-decomp,
   the patched EE-GCC.
-- rac2 and rac3 credit their sources in their docs
-  ([games/rac2/ntsc/docs/SECOND-C-LOT.md](games/rac2/ntsc/docs/SECOND-C-LOT.md),
-  [games/rac2/ntsc/docs/COMPILER-NOTES.md](games/rac2/ntsc/docs/COMPILER-NOTES.md),
-  [games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md](games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md)).
+- [games/rac2/ntsc/THIRD_PARTY_NOTICES.md](games/rac2/ntsc/THIRD_PARTY_NOTICES.md):
+  the MIT PAL functional reconstruction, retained authorship, and its open
+  provenance review item; matching C sources are credited in the linked game docs.
+- rac3 credits its sources in
+  [Cross-Repository-Resources.md](games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md).
 
 The level editor (`editor/`) is distributed under rac1-decomp's MIT license
 ([editor/LICENSE](editor/LICENSE)). It uses the following.

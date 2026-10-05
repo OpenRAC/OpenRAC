@@ -187,6 +187,48 @@
       "address": 3134656,
       "size": 48,
       "meaning": "Change resident state word from1 to2 only when the mode word equals7"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_00312C78",
+      "address": 3222648,
+      "size": 396,
+      "meaning": "localized row40 textID10 firstpercent selector b formats signedmappedword80 with original decimalformatter; other selector formats original error string, preserve prefix/tail"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002BCA50",
+      "address": 2869840,
+      "size": 64,
+      "meaning": "Test whether a scalar lies below a plane within its configured depth, rejecting unordered values"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_0044FAC8",
+      "address": 4520648,
+      "size": 312,
+      "meaning": "prioritized masks1000/4000/8000/2000 update signedcolumns43C/rows440 and mode448 with originalevent3 flags0/entitynull; index444=column+2row"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_0031B010",
+      "address": 3256336,
+      "size": 84,
+      "meaning": "Reserve or reuse an object slot, reset its associated state and return signed slot index"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002E7358",
+      "address": 3044184,
+      "size": 164,
+      "meaning": "appendindexbyte59/count5C descriptor68, originalthreeGPR geometricupdate inclincomingdirectionA2, ifcount!=1 originalpointdifference24/transform40/bound80 andterminalcountbyte return"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_00454F40",
+      "address": 4542272,
+      "size": 52,
+      "meaning": "Store an indexed four-component parameter row and its float weight"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_004553D8",
+      "address": 4543448,
+      "size": 52,
+      "meaning": "Store four float components in a selected row of a parameter group"
     }
   ],
   "externals": {
@@ -213,6 +255,18 @@
     "LVL_23_DAMOSEL_ORBIT_FUN_002F7EA0": 3112608,
     "LVL_23_DAMOSEL_ORBIT_D_001A79F0": 1735152,
     "LVL_23_DAMOSEL_ORBIT_D_001BA480": 1811584,
-    "LVL_23_DAMOSEL_ORBIT_D_001C0780": 1836928
+    "LVL_23_DAMOSEL_ORBIT_D_001C0780": 1836928,
+    "LVL_23_DAMOSEL_ORBIT_D_001CAC20": 1879072,
+    "LVL_23_DAMOSEL_ORBIT_D_001A99E0": 1743328,
+    "LVL_23_DAMOSEL_ORBIT_D_001A99E8": 1743336,
+    "LVL_23_DAMOSEL_ORBIT_FUN_002FE718": 3139352,
+    "BOOT_FUN_00115DA8": 1138088,
+    "LVL_23_DAMOSEL_ORBIT_FUN_003675B0": 3569072,
+    "LVL_23_DAMOSEL_ORBIT_D_001B2700": 1779456,
+    "LVL_23_DAMOSEL_ORBIT_D_001B2740": 1779520,
+    "LVL_23_DAMOSEL_ORBIT_FUN_002E7400": 3044352,
+    "LVL_23_DAMOSEL_ORBIT_FUN_002F8190": 3113360,
+    "LVL_23_DAMOSEL_ORBIT_FUN_002F8620": 3114528,
+    "LVL_23_DAMOSEL_ORBIT_FUN_002E7748": 3045192
   }
 }

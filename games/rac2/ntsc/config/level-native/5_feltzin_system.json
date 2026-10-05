@@ -187,6 +187,48 @@
       "address": 3193144,
       "size": 48,
       "meaning": "Change resident state word from1 to2 only when the mode word equals7"
+    },
+    {
+      "symbol": "LVL_5_FELTZIN_SYSTEM_FUN_00321380",
+      "address": 3281792,
+      "size": 396,
+      "meaning": "localized row40 textID10 firstpercent selector b formats signedmappedword80 with original decimalformatter; other selector formats original error string, preserve prefix/tail"
+    },
+    {
+      "symbol": "LVL_5_FELTZIN_SYSTEM_FUN_002CC218",
+      "address": 2933272,
+      "size": 64,
+      "meaning": "Test whether a scalar lies below a plane within its configured depth, rejecting unordered values"
+    },
+    {
+      "symbol": "LVL_5_FELTZIN_SYSTEM_FUN_00455188",
+      "address": 4542856,
+      "size": 312,
+      "meaning": "prioritized masks1000/4000/8000/2000 update signedcolumns43C/rows440 and mode448 with originalevent3 flags0/entitynull; index444=column+2row"
+    },
+    {
+      "symbol": "LVL_5_FELTZIN_SYSTEM_FUN_00329728",
+      "address": 3315496,
+      "size": 84,
+      "meaning": "Reserve or reuse an object slot, reset its associated state and return signed slot index"
+    },
+    {
+      "symbol": "LVL_5_FELTZIN_SYSTEM_FUN_002F51C0",
+      "address": 3101120,
+      "size": 164,
+      "meaning": "appendindexbyte59/count5C descriptor68, originalthreeGPR geometricupdate inclincomingdirectionA2, ifcount!=1 originalpointdifference24/transform40/bound80 andterminalcountbyte return"
+    },
+    {
+      "symbol": "LVL_5_FELTZIN_SYSTEM_FUN_0045A600",
+      "address": 4564480,
+      "size": 52,
+      "meaning": "Store an indexed four-component parameter row and its float weight"
+    },
+    {
+      "symbol": "LVL_5_FELTZIN_SYSTEM_FUN_0045AA98",
+      "address": 4565656,
+      "size": 52,
+      "meaning": "Store four float components in a selected row of a parameter group"
     }
   ],
   "externals": {
@@ -213,6 +255,18 @@
     "LVL_5_FELTZIN_SYSTEM_FUN_00306370": 3171184,
     "LVL_5_FELTZIN_SYSTEM_D_001A79F0": 1735152,
     "LVL_5_FELTZIN_SYSTEM_D_001B9500": 1807616,
-    "LVL_5_FELTZIN_SYSTEM_D_001BF800": 1832960
+    "LVL_5_FELTZIN_SYSTEM_D_001BF800": 1832960,
+    "LVL_5_FELTZIN_SYSTEM_D_001C9CA0": 1875104,
+    "LVL_5_FELTZIN_SYSTEM_D_001A99E0": 1743328,
+    "LVL_5_FELTZIN_SYSTEM_D_001A99E8": 1743336,
+    "LVL_5_FELTZIN_SYSTEM_FUN_0030CBA8": 3197864,
+    "BOOT_FUN_00115DA8": 1138088,
+    "LVL_5_FELTZIN_SYSTEM_FUN_00371A60": 3611232,
+    "LVL_5_FELTZIN_SYSTEM_D_001B2480": 1778816,
+    "LVL_5_FELTZIN_SYSTEM_D_001B24C0": 1778880,
+    "LVL_5_FELTZIN_SYSTEM_FUN_002F5268": 3101288,
+    "LVL_5_FELTZIN_SYSTEM_FUN_00306660": 3171936,
+    "LVL_5_FELTZIN_SYSTEM_FUN_00306AD8": 3173080,
+    "LVL_5_FELTZIN_SYSTEM_FUN_002F55B0": 3102128
   }
 }

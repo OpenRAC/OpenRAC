@@ -21,8 +21,9 @@ project's commits up to its import on 2026-10-03, most commits first.
 
 ## Ratchet & Clank: Going Commando: rac2-decomp (`games/rac2/ntsc`)
 
-- Louis-Philippe Le Sieur (llesieur99): creator and maintainer
+- Louis-Philippe Le Sieur (llesieur99): creator and maintainer; Going Commando contributions
 - Kryštof "Lynder063" Malinda
+- platypet2217-star: the experimental PAL functional reconstruction (MIT)
 
 ## Ratchet & Clank: Up Your Arsenal: ratchet-uya-decomp (`games/rac3/ntsc`)
 

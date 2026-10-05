@@ -14,7 +14,7 @@ each project.
 |---|---|---|---|---|---|---|
 | [`games/rac1/pal`](../games/rac1/pal) | rac1-decomp | https://github.com/Lynder063/rac1-decomp | main | `e46d716bd2ab` | 2026-10-05 | MIT |
 | [`games/rac1/ntsc`](../games/rac1/ntsc) | Lombyte | https://github.com/mateuszklysz/Lombyte | main | `e1db4cd6b482` | 2026-10-05 | MIT (GPL-2.0 and newlib parts) |
-| [`games/rac2/ntsc`](../games/rac2/ntsc) | rac2-decomp | https://github.com/llesieur99/rac2-decomp | RAC2 | `b300787daae9` | 2026-10-04 | MIT |
+| [`games/rac2/ntsc`](../games/rac2/ntsc) | rac2-decomp | https://github.com/llesieur99/rac2-decomp | RAC2 | `940aaf1b0e52` | 2026-10-05 | MIT |
 | [`games/rac3/ntsc`](../games/rac3/ntsc) | ratchet-uya-decomp | https://github.com/vetusmagnus/ratchet-uya-decomp | main | `476c81533d1f` | 2026-10-04 | GPL-3.0 |
 | [`games/rac4/ntsc`](../games/rac4/ntsc) | rac-deadlocked-decomp | https://github.com/Lynder063/rac-deadlocked-decomp | main | `dedfcd416a1b` | 2026-10-05 | MIT (GPL libgcc, newlib libm) |
 <!-- sources:end -->
@@ -54,6 +54,15 @@ Everything else is exactly as it was at that commit.
   Nothing in the project reads them.
 
 **rac2/ntsc**
+- Synced through rac2-decomp `940aaf1b0e523e8a789b0a17746c7e90fd68a2f8`,
+  including its PRs #9-#12 and fresh boot/all-27-overlay byte proofs.
+  This is a tree update; original author history remains in rac2-decomp.
+- The experimental PAL port stays isolated in `ports/pal-functional/`
+  under its original MIT notice, with zero matching credit. Its README and
+  region guide describe this source snapshot rather than claiming OpenRAC
+  contains its complete git history. See the game's
+  [third-party notices](../games/rac2/ntsc/THIRD_PARTY_NOTICES.md) for attribution
+  and the SDK-comment provenance question submitted for review.
 - Left out `include/moby.h`. Its structure was taken from leaked material
   ([SOURCING.md](policy/SOURCING.md)); `include/engine.h`, which no C file
   includes, now forward-declares `struct Moby` instead.

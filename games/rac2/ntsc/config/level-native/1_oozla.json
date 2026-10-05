@@ -169,6 +169,48 @@
       "address": 3049336,
       "size": 48,
       "meaning": "Change resident state word from1 to2 only when the mode word equals7"
+    },
+    {
+      "symbol": "LVL_1_OOZLA_FUN_002FE9E0",
+      "address": 3140064,
+      "size": 396,
+      "meaning": "localized row40 textID10 firstpercent selector b formats signedmappedword80 with original decimalformatter; other selector formats original error string, preserve prefix/tail"
+    },
+    {
+      "symbol": "LVL_1_OOZLA_FUN_002B4328",
+      "address": 2835240,
+      "size": 64,
+      "meaning": "Test whether a scalar lies below a plane within its configured depth, rejecting unordered values"
+    },
+    {
+      "symbol": "LVL_1_OOZLA_FUN_0043CA98",
+      "address": 4442776,
+      "size": 312,
+      "meaning": "prioritized masks1000/4000/8000/2000 update signedcolumns43C/rows440 and mode448 with originalevent3 flags0/entitynull; index444=column+2row"
+    },
+    {
+      "symbol": "LVL_1_OOZLA_FUN_00307158",
+      "address": 3174744,
+      "size": 84,
+      "meaning": "Reserve or reuse an object slot, reset its associated state and return signed slot index"
+    },
+    {
+      "symbol": "LVL_1_OOZLA_FUN_002D21F0",
+      "address": 2957808,
+      "size": 164,
+      "meaning": "appendindexbyte59/count5C descriptor68, originalthreeGPR geometricupdate inclincomingdirectionA2, ifcount!=1 originalpointdifference24/transform40/bound80 andterminalcountbyte return"
+    },
+    {
+      "symbol": "LVL_1_OOZLA_FUN_00441F10",
+      "address": 4464400,
+      "size": 52,
+      "meaning": "Store an indexed four-component parameter row and its float weight"
+    },
+    {
+      "symbol": "LVL_1_OOZLA_FUN_004423A8",
+      "address": 4465576,
+      "size": 52,
+      "meaning": "Store four float components in a selected row of a parameter group"
     }
   ],
   "externals": {
@@ -194,6 +236,18 @@
     "LVL_1_OOZLA_FUN_002E31B0": 3027376,
     "LVL_1_OOZLA_D_001A79F0": 1735152,
     "LVL_1_OOZLA_D_001B9300": 1807104,
-    "LVL_1_OOZLA_D_001BF600": 1832448
+    "LVL_1_OOZLA_D_001BF600": 1832448,
+    "LVL_1_OOZLA_D_001C9AA0": 1874592,
+    "LVL_1_OOZLA_D_001A9A60": 1743456,
+    "LVL_1_OOZLA_D_001A9A68": 1743464,
+    "LVL_1_OOZLA_FUN_002E99D0": 3054032,
+    "BOOT_FUN_00115DA8": 1138088,
+    "LVL_1_OOZLA_FUN_003558E0": 3496160,
+    "LVL_1_OOZLA_D_001B24C0": 1778880,
+    "LVL_1_OOZLA_D_001B2500": 1778944,
+    "LVL_1_OOZLA_FUN_002D2298": 2957976,
+    "LVL_1_OOZLA_FUN_002E34A0": 3028128,
+    "LVL_1_OOZLA_FUN_002E3918": 3029272,
+    "LVL_1_OOZLA_FUN_002D25E0": 2958816
   }
 }

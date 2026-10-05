@@ -300,6 +300,48 @@
       "address": 3087184,
       "size": 48,
       "meaning": "Change resident state word from1 to2 only when the mode word equals7"
+    },
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_00307308",
+      "address": 3175176,
+      "size": 396,
+      "meaning": "localized row40 textID10 firstpercent selector b formats signedmappedword80 with original decimalformatter; other selector formats original error string, preserve prefix/tail"
+    },
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_002B2A98",
+      "address": 2828952,
+      "size": 64,
+      "meaning": "Test whether a scalar lies below a plane within its configured depth, rejecting unordered values"
+    },
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_00418978",
+      "address": 4295032,
+      "size": 312,
+      "meaning": "prioritized masks1000/4000/8000/2000 update signedcolumns43C/rows440 and mode448 with originalevent3 flags0/entitynull; index444=column+2row"
+    },
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_0030F650",
+      "address": 3208784,
+      "size": 84,
+      "meaning": "Reserve or reuse an object slot, reset its associated state and return signed slot index"
+    },
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_002DBA40",
+      "address": 2996800,
+      "size": 164,
+      "meaning": "appendindexbyte59/count5C descriptor68, originalthreeGPR geometricupdate inclincomingdirectionA2, ifcount!=1 originalpointdifference24/transform40/bound80 andterminalcountbyte return"
+    },
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_0041DDF0",
+      "address": 4316656,
+      "size": 52,
+      "meaning": "Store an indexed four-component parameter row and its float weight"
+    },
+    {
+      "symbol": "LVL_24_SHIP_SHACK_FUN_0041E288",
+      "address": 4317832,
+      "size": 52,
+      "meaning": "Store four float components in a selected row of a parameter group"
     }
   ],
   "externals": {
@@ -346,6 +388,18 @@
     "LVL_24_SHIP_SHACK_D_00261E70": 2498160,
     "LVL_24_SHIP_SHACK_FUN_002EC588": 3065224,
     "LVL_24_SHIP_SHACK_D_001A79F0": 1735152,
-    "LVL_24_SHIP_SHACK_D_001BE800": 1828864
+    "LVL_24_SHIP_SHACK_D_001BE800": 1828864,
+    "LVL_24_SHIP_SHACK_D_001C8CA0": 1871008,
+    "LVL_24_SHIP_SHACK_D_001A99E0": 1743328,
+    "LVL_24_SHIP_SHACK_D_001A99E8": 1743336,
+    "LVL_24_SHIP_SHACK_FUN_002F2DA8": 3091880,
+    "BOOT_FUN_00115DA8": 1138088,
+    "LVL_24_SHIP_SHACK_FUN_00356B70": 3500912,
+    "LVL_24_SHIP_SHACK_D_001B1700": 1775360,
+    "LVL_24_SHIP_SHACK_D_001B1740": 1775424,
+    "LVL_24_SHIP_SHACK_FUN_002DBAE8": 2996968,
+    "LVL_24_SHIP_SHACK_FUN_002EC878": 3065976,
+    "LVL_24_SHIP_SHACK_FUN_002ECCF0": 3067120,
+    "LVL_24_SHIP_SHACK_FUN_002DBE30": 2997808
   }
 }

@@ -19,7 +19,12 @@ Some of that C was carried over from Ratchet & Clank, where the two games
 share byte-identical functions ([ntsc/docs/SECOND-C-LOT.md](ntsc/docs/SECOND-C-LOT.md),
 [ntsc/docs/RAC1-TO-RAC2.md](ntsc/docs/RAC1-TO-RAC2.md)).
 
-Only v1.01 is supported; the Greatest Hits release and other regions differ.
+Only USA v1.01 has matching proofs; the Greatest Hits release and other
+regions differ. PAL identity measurement is available through the
+[region tools](ntsc/docs/REGIONS.md), but its identities remain unpinned.
+The separate [experimental PAL port](ntsc/ports/pal-functional/README.md)
+adds no matching credit; its NTSC option still uses PAL RAM addresses and
+its SDK-attribution provenance is an explicit review item.
 Disc checksums are in [baserom/README.md](../../baserom/README.md); progress
 in [progress/](../../progress/README.md).
 
@@ -27,7 +32,7 @@ in [progress/](../../progress/README.md).
 
 ```sh
 cd games/rac2/ntsc
-python -m unittest discover -s tests       # 240 tests; Python only (one fails on macOS: /var is a link)
+python -m unittest discover -s tests       # Python-only tool tests (260 at this sync)
 python scripts/doctor.py                   # what your environment has and lacks
 ```
 

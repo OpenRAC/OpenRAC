@@ -36,10 +36,10 @@ Recorded validation on **5 October 2026**:
 
 | Scope | Integrated C functions / placements | Matched C bytes |
 | --- | ---: | ---: |
-| Boot | 179 functions | 9,456 |
-| 27 level overlays | 4,915 placements | 268,324 |
-| Native overlay subset, included above | 788 placements | 62,972 |
-| **Total C coverage** | **Boot + all 27 overlays** | **277,780 / 48,788,176 (0.5694%)** |
+| Boot | 181 functions | 9,564 |
+| 27 level overlays | 5,143 placements | 301,936 |
+| Native overlay subset, included above | 989 placements | 94,856 |
+| **Total C coverage** | **Boot + all 27 overlays** | **311,500 / 48,788,176 (0.6385%)** |
 <!-- generated-progress:end -->
 
 The complete boot (**2,521,763 loaded bytes, two PT_LOAD segments**) and all
@@ -60,10 +60,19 @@ Its fill uses the full 0–100% scale.
 | Game | Platform | Region | Version | Boot executable |
 | --- | --- | --- | --- | --- |
 | Ratchet & Clank: Going Commando (2003) | PlayStation 2 | USA / NTSC-U | 1.01 | `SCUS_972.68` |
+| Ratchet & Clank 2: Locked and Loaded (2003) | PlayStation 2 | Europe / PAL | unmeasured | `SCES_516.07` |
 
-Other regions and Greatest Hits v2.00 are different targets. Disc and boot
-identities are pinned in [target configuration](config/target.json); all
-27 extracted overlay identities are in [overlay configuration](config/overlays.json).
+Matching proofs exist for USA v1.01 only. Disc and boot identities are pinned in
+[target configuration](config/target.json); all 27 extracted overlay identities
+are in [overlay configuration](config/overlays.json). The PAL release is a
+registered but unpinned region: `--region pal` lets the preparation and
+reconstruction tools measure and round-trip it, without C catalogues or credit.
+See [game regions](docs/REGIONS.md). Greatest Hits v2.00 is a different target.
+
+The functional, non-matching PAL reconstruction and native-port skeleton from
+[platypet2217-star/RAC2Decomp](https://github.com/platypet2217-star/RAC2Decomp)
+are imported with their history under [ports/pal-functional/](ports/pal-functional/).
+They are outside the matching sources and add no progress.
 
 ## Start or resume work
 
@@ -235,6 +244,8 @@ Related projects include [RAC1](https://github.com/Lynder063/rac1-decomp) and
 can inform a hypothesis; addresses and code must be verified against the RAC2 target.
 Reused C is credited per function in [the second C lot](docs/SECOND-C-LOT.md),
 and contributed research in [community engine references](docs/COMMUNITY-ENGINE-REFERENCE.md).
+Compiler, libgcc and SDK findings measured on RAC1 are summarised in
+[findings from rac1-decomp](docs/RAC1-DECOMP-FINDINGS.md).
 [OpenRAC](https://openrac.dev/) provides a community view of decompilation projects.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before contributing. Write documentation,
@@ -255,3 +266,5 @@ Intermediate percentages are milestones, not completion of the project.
 
 MIT — see [LICENSE](LICENSE). It covers the repository's code, never the game,
 its assets or proprietary toolchains. Contributions use the same terms.
+`ports/pal-functional/` keeps its own MIT notice, copyright platypet2217-star,
+in [its LICENSE](ports/pal-functional/LICENSE).

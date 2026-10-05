@@ -175,6 +175,60 @@
       "address": 3227992,
       "size": 48,
       "meaning": "Change resident state word from1 to2 only when the mode word equals7"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_00329910",
+      "address": 3315984,
+      "size": 396,
+      "meaning": "localized row40 textID10 firstpercent selector b formats signedmappedword80 with original decimalformatter; other selector formats original error string, preserve prefix/tail"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002D9DD8",
+      "address": 2989528,
+      "size": 64,
+      "meaning": "Test whether a scalar lies below a plane within its configured depth, rejecting unordered values"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_0047D160",
+      "address": 4706656,
+      "size": 312,
+      "meaning": "prioritized masks1000/4000/8000/2000 update signedcolumns43C/rows440 and mode448 with originalevent3 flags0/entitynull; index444=column+2row"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_003326F0",
+      "address": 3352304,
+      "size": 84,
+      "meaning": "Reserve or reuse an object slot, reset its associated state and return signed slot index"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_003461E0",
+      "address": 3432928,
+      "size": 64,
+      "meaning": "Write a payload pointer in the first selector/key record before the list terminator"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002FD280",
+      "address": 3134080,
+      "size": 164,
+      "meaning": "appendindexbyte59/count5C descriptor68, originalthreeGPR geometricupdate inclincomingdirectionA2, ifcount!=1 originalpointdifference24/transform40/bound80 andterminalcountbyte return"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_004825D8",
+      "address": 4728280,
+      "size": 52,
+      "meaning": "Store an indexed four-component parameter row and its float weight"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_00482A70",
+      "address": 4729456,
+      "size": 52,
+      "meaning": "Store four float components in a selected row of a parameter group"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_0046B4E8",
+      "address": 4633832,
+      "size": 84,
+      "meaning": "updates the registered countdown state and clears its original completion flags"
     }
   ],
   "externals": {
@@ -211,6 +265,20 @@
     "LVL_4_BARLOW_D_00139568": 1283432,
     "LVL_4_BARLOW_D_0027B470": 2602096,
     "LVL_4_BARLOW_FUN_0030EAA8": 3205800,
-    "LVL_4_BARLOW_D_001BF7C0": 1832896
+    "LVL_4_BARLOW_D_001BF7C0": 1832896,
+    "LVL_4_BARLOW_D_001C9C60": 1875040,
+    "LVL_4_BARLOW_D_001A99E0": 1743328,
+    "LVL_4_BARLOW_D_001A99E8": 1743336,
+    "LVL_4_BARLOW_FUN_003153B0": 3232688,
+    "BOOT_FUN_00115DA8": 1138088,
+    "LVL_4_BARLOW_FUN_00382F58": 3682136,
+    "LVL_4_BARLOW_D_001B2440": 1778752,
+    "LVL_4_BARLOW_D_001B2480": 1778816,
+    "LVL_4_BARLOW_FUN_002FD328": 3134248,
+    "LVL_4_BARLOW_FUN_0030EDC8": 3206600,
+    "LVL_4_BARLOW_FUN_0030F270": 3207792,
+    "LVL_4_BARLOW_FUN_002FD670": 3135088,
+    "LVL_4_BARLOW_D_001B98E0": 1808608,
+    "LVL_4_BARLOW_D_001B1C88": 1776776
   }
 }

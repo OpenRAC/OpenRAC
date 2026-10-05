@@ -1,11 +1,11 @@
 {
   "target": "SCUS_972.68",
-  "verified_at": "2026-10-05T00:36:09.888050+00:00",
+  "verified_at": "2026-10-05T03:25:24.202192+00:00",
   "reference_sha256": "36d5814d8d95328d5839612ccdf7a2e7ecac0b6f868d3ad4bb2e98411f734b4a",
-  "source_sha256": "cd876796155d15764334c4e08ed21d6f3612c2ddb8d17407f6369e229ff3d10a",
-  "candidate_elf_sha256": "01c3872bea09f2b9324b508ad20968c624b6d73d05f20b4ba756464f7a74128e",
-  "object_sha256": "8010c046efe99dcfb5fa1c29e0708b0a57682b2f78d732aa2a9113dbb8eb322f",
-  "catalog_sha256": "7aacba27832f3b08a6c7dc481c5b5d09bf532144c4d222661aaa32efe5b63fc7",
+  "source_sha256": "9eb82f39913ace0a1e34f6a620d40d2b92add9e3e4cc1919eb5751a846732036",
+  "candidate_elf_sha256": "6f3a25b54edbbbadb45686b0061901f26e88b980bd8a0d5805f3dbfbffe94e97",
+  "object_sha256": "e6d601c5bf5ec8f23ca33853f969fdedd0ceea9a847e57cc31cc7b58be756156",
+  "catalog_sha256": "61c249f59e535480d39c195918e9c3272c928c315a5d26725c4ef5bef73d75cb",
   "checker_sha256": "2964b71f90ba9910bbce6359331a88ceb3cfc64e4a444f35b90083adfa60b26f",
   "flags": [
     "-O2",
@@ -1806,6 +1806,26 @@
       "matched": true,
       "reference_sha256": "d4411d7ace01ad58aa846443e4a135c934220a8a331cdd99f82fd18cc47659e4",
       "candidate_sha256": "d4411d7ace01ad58aa846443e4a135c934220a8a331cdd99f82fd18cc47659e4",
+      "different_bytes": 0,
+      "state": "matched_unintegrated"
+    },
+    {
+      "symbol": "FUN_002B7340",
+      "address": 2847552,
+      "size": 64,
+      "matched": true,
+      "reference_sha256": "956edf7f25f8f8b7c2dc647ac7bf899765b80fc702eba3cafbab055bdee0ff28",
+      "candidate_sha256": "956edf7f25f8f8b7c2dc647ac7bf899765b80fc702eba3cafbab055bdee0ff28",
+      "different_bytes": 0,
+      "state": "matched_unintegrated"
+    },
+    {
+      "symbol": "FUN_00123268",
+      "address": 1192552,
+      "size": 44,
+      "matched": true,
+      "reference_sha256": "a5b8042c3b5113bcf53a96cbae661269395f3bb5d5e0ac970330a4a2407b2090",
+      "candidate_sha256": "a5b8042c3b5113bcf53a96cbae661269395f3bb5d5e0ac970330a4a2407b2090",
       "different_bytes": 0,
       "state": "matched_unintegrated"
     }

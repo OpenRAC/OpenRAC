@@ -11,17 +11,18 @@ from pathlib import Path
 
 from build import ROOT, TARGET, rebuild
 from check_candidates import file_hash
+import region as regions
 
 
 def input_hashes(root: Path) -> dict:
     paths = [root / name for name in (
-        "config/target.json", "config/overlays.json", "config/candidate-catalog.json",
+        "config/target.json", "config/overlays.json", "config/regions.json", "config/candidate-catalog.json",
         "config/level-catalog.json", "config/source-layout.json", "progress/candidates.json",
         "scripts/build.py", "scripts/integration.py", "scripts/level_native.py",
         "scripts/check_candidates.py", "scripts/elf_tools.py", "scripts/wsl_chain.py",
         "scripts/campaign_build.py", "scripts/source_layout.py")]
     for directory, pattern in (("candidates", "*.c"), ("src", "*.cfrag"),
-                               ("config/level-native", "*.json"),
+                               ("config/level-native", "*.json"), ("config/regions", "*.json"),
                                ("progress/level-candidates", "*.json")):
         paths.extend((root / directory).rglob(pattern))
     paths.extend((root / "scripts").rglob("*.py"))
@@ -30,13 +31,21 @@ def input_hashes(root: Path) -> dict:
 
 
 def validate_manifest(manifest: dict, baseline: dict) -> None:
+    if manifest.get("target") != TARGET["serial"]:
+        try:
+            owner = regions.by_serial(manifest.get("target"), ROOT)
+        except ValueError:
+            owner = None
+        if owner is not None and not owner.matching:
+            owner.require_matching("A C campaign")
     if (manifest.get("target") != TARGET["serial"]
             or manifest.get("boot", {}).get("sha256") != TARGET["boot"]["sha256"]):
         raise ValueError("Wrong campaign boot identity")
     expected = {row["level"]: row["sha256"] for row in baseline["levels"]}
     actual = {row["level"]: row["sha256"] for row in manifest["overlays"]}
-    if len(actual) != 27 or len(manifest["overlays"]) != 27 or actual != expected:
-        raise ValueError("Campaign requires all 27 pinned overlays exactly once")
+    count = TARGET["expected_levels"]
+    if len(actual) != count or len(manifest["overlays"]) != count or actual != expected:
+        raise ValueError(f"Campaign requires all {count} pinned overlays exactly once")
 
 
 def run_campaign(manifest_path: Path, toolchain: Path, c_toolchain: Path,
@@ -110,7 +119,7 @@ def run_campaign(manifest_path: Path, toolchain: Path, c_toolchain: Path,
     report["decompiled_functions"] = boot_count
     report["matched"] = (not report["failures"] and report["g1"] is not None
                          and report["g1"].get("matched") is True
-                         and len(report["g3"]) == 27
+                         and len(report["g3"]) == TARGET["expected_levels"]
                          and all(row.get("matched") is True for row in report["g3"]))
     path = directory / "report.json"
     path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="")

@@ -187,6 +187,54 @@
       "address": 3093520,
       "size": 48,
       "meaning": "Change resident state word from1 to2 only when the mode word equals7"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_00308FB0",
+      "address": 3182512,
+      "size": 396,
+      "meaning": "localized row40 textID10 firstpercent selector b formats signedmappedword80 with original decimalformatter; other selector formats original error string, preserve prefix/tail"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002B3998",
+      "address": 2832792,
+      "size": 64,
+      "meaning": "Test whether a scalar lies below a plane within its configured depth, rejecting unordered values"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_00439A90",
+      "address": 4430480,
+      "size": 312,
+      "meaning": "prioritized masks1000/4000/8000/2000 update signedcolumns43C/rows440 and mode448 with originalevent3 flags0/entitynull; index444=column+2row"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_00311348",
+      "address": 3216200,
+      "size": 84,
+      "meaning": "Reserve or reuse an object slot, reset its associated state and return signed slot index"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_00323E48",
+      "address": 3292744,
+      "size": 64,
+      "meaning": "Write a payload pointer in the first selector/key record before the list terminator"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002DCA20",
+      "address": 3000864,
+      "size": 164,
+      "meaning": "appendindexbyte59/count5C descriptor68, originalthreeGPR geometricupdate inclincomingdirectionA2, ifcount!=1 originalpointdifference24/transform40/bound80 andterminalcountbyte return"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_0043EF08",
+      "address": 4452104,
+      "size": 52,
+      "meaning": "Store an indexed four-component parameter row and its float weight"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_0043F3A0",
+      "address": 4453280,
+      "size": 52,
+      "meaning": "Store four float components in a selected row of a parameter group"
     }
   ],
   "externals": {
@@ -213,6 +261,18 @@
     "LVL_0_ARANOS_TUTORIAL_FUN_002EDE18": 3071512,
     "LVL_0_ARANOS_TUTORIAL_D_001A79F0": 1735152,
     "LVL_0_ARANOS_TUTORIAL_D_001B8C00": 1805312,
-    "LVL_0_ARANOS_TUTORIAL_D_001BEF00": 1830656
+    "LVL_0_ARANOS_TUTORIAL_D_001BEF00": 1830656,
+    "LVL_0_ARANOS_TUTORIAL_D_001C93A0": 1872800,
+    "LVL_0_ARANOS_TUTORIAL_D_001A9AA0": 1743520,
+    "LVL_0_ARANOS_TUTORIAL_D_001A9AA8": 1743528,
+    "LVL_0_ARANOS_TUTORIAL_FUN_002F4668": 3098216,
+    "BOOT_FUN_00115DA8": 1138088,
+    "LVL_0_ARANOS_TUTORIAL_FUN_0035F508": 3536136,
+    "LVL_0_ARANOS_TUTORIAL_D_001B1E00": 1777152,
+    "LVL_0_ARANOS_TUTORIAL_D_001B1E40": 1777216,
+    "LVL_0_ARANOS_TUTORIAL_FUN_002DCAC8": 3001032,
+    "LVL_0_ARANOS_TUTORIAL_FUN_002EE138": 3072312,
+    "LVL_0_ARANOS_TUTORIAL_FUN_002EE5B0": 3073456,
+    "LVL_0_ARANOS_TUTORIAL_FUN_002DCE10": 3001872
   }
 }
