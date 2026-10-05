@@ -191,9 +191,9 @@ label, small data marked `__attribute__((sda))`), checked by Lombyte's own
 | Other | 10 | 7,088 |
 
 With the 14 applied, Lombyte's `make overlays` reports all 1,554 overlay
-functions matching (1,540 before). They are not applied here: `games/rac1/ntsc`
-follows Lombyte's repository, so they go to that project as a patch, which
-`--check` writes beside its results
+functions matching (1,540 before). They are not applied here, since
+`games/rac1/ntsc` is a copy that follows Lombyte's repository; `--check`
+leaves them as a patch beside its results
 (`games/rac1/ntsc/build/port/rac1-pal--rac1-ntsc/exact.patch`).
 
 Fewer pass in this direction, for two reasons worth knowing. Lombyte's
