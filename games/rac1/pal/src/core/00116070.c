@@ -65,26 +65,58 @@ int func_00116108(int *errOut, void *a, void *b, void *c) {
 }
 
 /*
- * Close, not exact (27/72, same size so harmless). Same bit-classifier
- * family as func_001161B0, and blocked the same way: every instruction
- * and operand matches, but the allocator assigns the low-word and mask
- * registers the other way round from retail and the rest follows.
+ * The two functions below are fdlibm's, as newlib carries them:
+ *
+ * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+ *
+ * Developed at SunPro, a Sun Microsystems, Inc. business.
+ * Permission to use, copy, modify, and distribute this
+ * software is freely granted, provided that this notice
+ * is preserved.
+ *
+ * The do { } while (0) in each is fdlibm's own EXTRACT_WORDS macro, written out.
  */
-int func_00116168(long arg0) {
-    int lo = (int)arg0;
-    int hi = (int)(arg0 >> 32);
-    hi &= 0x7FFFFFFF;
-    hi |= (unsigned int)(lo | -lo) >> 31;
-    hi = 0x7FF00000 - hi;
-    return 1 - ((unsigned int)(hi | -hi) >> 31);
+typedef union {
+    f64 value;
+    struct {
+        u32 lsw;
+        u32 msw;
+    } parts;
+} ieee_double_shape_type;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/runtime/newlib/double_is_not_nan.c, double_is_not_nan. */
+s32 func_00116168(f64 x) {
+    s32 hx;
+    s32 lx;
+    ieee_double_shape_type ew_u;
+
+    do {
+        ew_u.value = x;
+        hx = ew_u.parts.msw;
+        lx = ew_u.parts.lsw;
+    } while (0);
+    hx &= 0x7fffffff;
+    hx |= (u32)(lx | (-lx)) >> 31;
+    hx = 0x7ff00000 - hx;
+    return 1 - (s32)(((u32)(hx | (-hx))) >> 31);
 }
 
-int func_001161B0(long arg0) {
-    int lo = (int)arg0;
-    int hi = (int)(arg0 >> 32);
-    hi &= 0x7FFFFFFF;
-    hi |= (unsigned int)(lo | -lo) >> 31;
-    return (unsigned int)(0x7FF00000 - hi) >> 31;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/math/classify_float_bits.c, ClassifyDoubleNaN. */
+s32 func_001161B0(f64 x) {
+    s32 hx;
+    s32 lx;
+    ieee_double_shape_type ew_u;
+
+    do {
+        ew_u.value = x;
+        hx = ew_u.parts.msw;
+        lx = ew_u.parts.lsw;
+    } while (0);
+    hx &= 0x7fffffff;
+    hx |= (u32)(lx | (-lx)) >> 31;
+    hx = 0x7ff00000 - hx;
+    return (u32)hx >> 31;
 }
 
 extern int func_00119110();

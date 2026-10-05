@@ -166,7 +166,7 @@ The following functions adapt source from
 - `src/overlays/shared/vendor_002EB0D8.c`: `func_L00_002EC860` (sets a moby's damping and scale constants, then re-runs its setup)
 - `src/overlays/shared/help_00203E98.c`: `func_L00_0020A8B8` (tests a segment against the world and returns the hit distance)
 
-The next 100 were carried over by machine (OpenRAC's `tools/port.py`, 2026-10-04): the PAL code is
+The next 114 were carried over by machine (OpenRAC's `tools/port.py`, 2026-10-04): the PAL code is
 the same instructions as the US code Lombyte matched, the C is Lombyte's with every symbol renamed
 to its PAL address, and each passed this project's own check. In parentheses, Lombyte's name.
 
@@ -270,6 +270,20 @@ to its PAL address, and each passed this project's own check. In parentheses, Lo
 - `src/overlays/shared/mobyutil_00258BC8.c`: `func_L00_0025F368` (`FUN_L00_0025e310`)
 - `src/overlays/shared/help_00214D60.c`: `func_L00_002178A0` (`FUN_L00_00217118`)
 - `src/overlays/shared/vendor_002D9548.c`: `func_L06_002F4CF8` (`FUN_L06_002f38c8`)
+- `src/core/00112468.c`: `func_001126D8` (`_dtoa_r`; David M. Gay's dtoa, see below)
+- `src/core/00116070.c`: `func_00116168` (`double_is_not_nan`; fdlibm, see below)
+- `src/core/00116070.c`: `func_001161B0` (`ClassifyDoubleNaN`; fdlibm, see below)
+- `src/core/00119D88.c`: `func_0011BF80` (`sceOpen`)
+- `src/core/00119D88.c`: `func_0011C388` (`sceLseek`)
+- `src/core/00119D88.c`: `func_0011C5C0` (`sceRead`)
+- `src/core/00119D88.c`: `func_0011C820` (`sceWrite`)
+- `src/overlays/shared/vendor_002C12B0.c`: `func_L00_002C4748` (`FUN_L00_002c3440`)
+- `src/overlays/shared/mobyutil_00258BC8.c`: `func_L00_00259B88` (`FUN_L00_00258b50`)
+- `src/overlays/shared/vendor_002D9438.c`: `func_L00_002E0958` (`FUN_L00_002df4a8`)
+- `src/overlays/shared/vendor_00299AF0.c`: `func_L10_002F6E38` (`FUN_L10_002f5a78`)
+- `src/overlays/shared/vendor_002A5218.c`: `func_L02_002A5238` (`FUN_L02_002a4058`)
+- `src/core/00114518.c`: `func_00114920` (`_malloc_r`; newlib's allocator, see below)
+- `src/core/00119D88.c`: `func_0011AA90` (`_sceSifSendCmd`; its two small structs' members are named by offset here)
 
 Data taken from Lombyte:
 
@@ -299,6 +313,46 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## newlib, fdlibm and David M. Gay's dtoa
+
+The game's C library is newlib. Four functions here are its open sources,
+as Lombyte reconstructed them for the US build and adapted above:
+
+- `src/core/00112468.c`: `func_001126D8` (`_dtoa_r`), David M. Gay's dtoa:
+
+```
+The author of this software is David M. Gay.
+
+Copyright (c) 1991 by AT&T.
+
+Permission to use, copy, modify, and distribute this software for any
+purpose without fee is hereby granted, provided that this entire notice
+is included in all copies of any software which is or includes a copy
+or modification of this software and in all copies of the supporting
+documentation for such software.
+
+THIS SOFTWARE IS BEING PROVIDED "AS IS", WITHOUT ANY EXPRESS OR IMPLIED
+WARRANTY.  IN PARTICULAR, NEITHER THE AUTHOR NOR AT&T MAKES ANY
+REPRESENTATION OR WARRANTY OF ANY KIND CONCERNING THE MERCHANTABILITY
+OF THIS SOFTWARE OR ITS FITNESS FOR ANY PARTICULAR PURPOSE.
+```
+
+- `src/core/00114518.c`: `func_00114920` (`_malloc_r`), newlib's allocator, which
+  is Doug Lea's malloc (dlmalloc 2.6.5), released by its author to the public
+  domain.
+
+- `src/core/00116070.c`: `func_00116168` and `func_001161B0`, fdlibm's finite
+  and NaN tests:
+
+```
+Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+
+Developed at SunPro, a Sun Microsystems, Inc. business.
+Permission to use, copy, modify, and distribute this
+software is freely granted, provided that this notice
+is preserved.
+```
 
 ## ReRAC
 

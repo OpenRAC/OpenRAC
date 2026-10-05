@@ -160,7 +160,34 @@ void func_L00_002C44C8(char *m) {
         func_L00_001FD1D8(&quad, rotA, 1);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_002C4748);
+float func_002140F8(float, float);
+int func_001160D8(void);
+int func_001F9850(int);
+void func_L00_0026AA10_C4748(float *, unsigned char, unsigned char, unsigned char, float, float, int) __asm__("func_L00_0026AA10");
+void func_L00_00260878(void *, void *);
+void func_0020D678(void *);
+extern char D_L00_001B0BB0[];
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002bffa8.c, FUN_L00_002c3440. */
+void func_L00_002C4748(unsigned char *m) {
+    float v[4] __attribute__((aligned(16)));
+    int i;
+    int r, g; unsigned char b;
+    float s;
+    for (i = 0; i < 10; i++) {
+        qcopy(v, m + 0x10);
+        v[0] += func_002140F8(-0.2f, 0.2f);
+        v[1] += func_002140F8(-0.2f, 0.2f);
+        v[2] += func_002140F8(-0.2f, 0.2f);
+        r = (func_001160D8() + 0x30) & 0x3F;
+        g = (func_001160D8() + 0x20) & 0x3F;
+        b = func_001160D8() & 0x2F;
+        s = func_002140F8(100000.0f, 600000.0f);
+        func_L00_0026AA10_C4748(v, r, g, b, s, 0.0f, func_001F9850(func_001160D8() % 40 + 10));
+    }
+    func_L00_00260878(m, D_L00_001B0BB0);
+    func_0020D678(m);
+}
 INCLUDE_ASM("asm/overlays", func_L00_002C48C8);
 INCLUDE_ASM("asm/overlays", func_L00_002C4B90);
 INCLUDE_ASM("asm/overlays", func_L00_002C4E00);
@@ -212,7 +239,7 @@ void func_L00_002C53A8(char *m) {
     }
 }
 extern int func_L00_001F3958(void);
-extern void func_L00_002C4748(void *);
+void func_L00_002C4748(unsigned char *m);
 
 /* Runs func_L00_002C4748 on the moby for selected values of the current mode. */
 void func_L00_002C5630(void *m) {

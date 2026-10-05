@@ -727,11 +727,31 @@ void func_L00_002E0888(u8 *p) {
         func_L00_0025A2F0(it, it[0], 0, 0);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_002E0958);
+extern short D_L00_0015F6B0;
+typedef struct { char pad[8]; s32 **p; } S09;
+typedef struct { char pad[0x78]; S09 *s; } M09;
+typedef void (*CB09)(M09 *);
+void func_L00_002E0888_E0958(M09 *) __asm__("func_L00_002E0888");
+void func_001F49B0_E0958(CB09, M09 *) __asm__("func_001F49B0");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002d7f88.c, FUN_L00_002df4a8. */
+void func_L00_002E0958(M09 *m) {
+    u8 b;
+    s32 v;
+    S09 *s;
+    b = m->pad[0x21];
+    if (b == 0xFF) return;
+    s = m->s;
+    v = (*(s32 *)&D_L00_0015F6B0);
+    if (v == 0) return;
+    if (v != *s->p) {
+        *s->p = v;
+        func_001F49B0_E0958(func_L00_002E0888_E0958, m);
+    }
+}
 extern float func_001FA748(float, float);
 extern float func_001F9FA8(float);
 extern int func_001FA8A8(int, int, float);
-extern void func_L00_002E0958(void *);
 extern void func_L00_00251328(void *, int, int, int);
 extern int D_0015EE84_m __asm__("D_0015EE84") MACRO_ADDR;
 extern short D_L00_00161C68;

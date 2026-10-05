@@ -3,12 +3,37 @@
 #include "include_asm.h"
 
 INCLUDE_ASM("asm/overlays", func_L02_002A5218);
-INCLUDE_ASM("asm/overlays", func_L02_002A5238);
-extern void func_L02_002A5238(char *arg, int val);
+extern u8 D_L02_001CBC40[];
+extern float D_L02_001CB780[];
+extern short D_L02_00161320;
+extern s32 D_L02_00161324 MACRO_ADDR;
+extern s32 D_L02_00161328 MACRO_ADDR;
+extern s32 D_L02_0016132C MACRO_ADDR;
 
-// Call vendor setup with fixed parameter
-void func_L02_002A52B0(char *arg) {
-    func_L02_002A5238(arg, 0x80);
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002a4038.c, FUN_L02_002a4058. */
+void func_L02_002A5238(char *arg, int val, float scale) {
+    int i;
+    float *p;
+    float *q;
+    float *base;
+    arg[0x3F] = val;
+    *(s32 *)(D_L02_001CBC40 + 0x0) = (*(s32 *)&D_L02_00161320);
+    *(s32 *)(D_L02_001CBC40 + 0x4) = D_L02_00161324;
+    *(s32 *)(D_L02_001CBC40 + 0x8) = D_L02_00161328;
+    *(s32 *)(D_L02_001CBC40 + 0xC) = D_L02_0016132C;
+    p = (float *)(D_L02_001CBC40 + 0x10);
+    base = D_L02_001CB780;
+    q = base + 4;
+    for (i = 0xF7; i >= 0; i--) {
+        *p = *q * scale;
+        p++;
+        q++;
+    }
+}
+
+// Call vendor setup with a fixed value; the scale it was given goes through untouched.
+void func_L02_002A52B0(char *arg, float scale) {
+    func_L02_002A5238(arg, 0x80, scale);
 }
 INCLUDE_ASM("asm/overlays", func_L02_002A52D0);
 extern void func_00234C50(int);

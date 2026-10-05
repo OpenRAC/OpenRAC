@@ -132,12 +132,38 @@ void func_L10_002F6E10(int i) {
     q[0x38] = 1;
     q[0x39] = 0;
 }
-INCLUDE_ASM("asm/overlays", func_L10_002F6E38);
+extern char D_0013F4D0[];
+extern char * D_L10_001B0C30[];
+extern int func_00215570(void *, int);
+extern int func_L00_00260AB0(void *, int);
+extern int func_L00_00260B68(float *, int);
+extern int func_L00_0025A778(float *, float *, int);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002e3de8.c, FUN_L10_002f5a78. */
+int func_L10_002F6E38(char *moby, char *unused)
+{
+    unsigned char *e = *(unsigned char **)(D_L10_0015F050 + *(short *)(moby + 0x84) * 32 + 0x1C);
+
+    if (*(int *)(e + 0x0C) >= 0) {
+        if (func_00215570(D_0013F4D0, *(int *)(e + 0x0C))) return 1;
+    } else if (*(int *)(e + 0x10) >= 0) {
+        if (func_L00_00260AB0(D_0013F4D0, *(int *)(e + 0x10))) return 1;
+    } else if (*(int *)(e + 0x08) >= 0) {
+        if (func_L00_00260B68((float *)D_0013F4D0, *(int *)(e + 0x08))) return 1;
+    } else if (*(int *)(e + 0x14) >= 0) {
+        int i = *(int *)(e + 0x14);
+        if (func_L00_0025A778((float *)D_0013F4D0,
+                                  (float *)(D_L10_001B0C30[i] + 0x10),
+                                  *(int *)D_L10_001B0C30[i])) return 1;
+    } else if (e[0x38] != 0 && e[0x39] == 0) {
+        return 1;
+    }
+    return 0;
+}
 INCLUDE_ASM("asm/overlays", func_L10_002F6F18);
 INCLUDE_ASM("asm/overlays", func_L10_002F72D8);
 extern char *D_L10_0015F050 MACRO_ADDR;
 extern char D_0013E633[];
-extern int func_L10_002F6E38(char *, char *);
 
 // Decides whether a moby's camera target passes the checks; -1 disabled, 0 no, 1 yes.
 int func_L10_002F79B8(char *a, char *b) {

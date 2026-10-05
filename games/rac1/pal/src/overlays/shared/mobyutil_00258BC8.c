@@ -267,14 +267,155 @@ extern void func_L00_00259868(int, int, float, float, float, int);
 void func_L00_00259B08(int a, int b, int g, int e, float c, float d) {
     func_L00_00259868(a, b, c, func_001FA888(g) * 0.0009765625f, d, e);
 }
-INCLUDE_ASM("asm/overlays", func_L00_00259B88);
+typedef u32 u128 __attribute__((mode(TI), aligned(16)));
+typedef union {
+    u128 q;
+    f32 f[4];
+} Vec;
+typedef struct {
+    s32 i00;
+    f32 f04;
+    f32 f08;
+    f32 f0C;
+    f32 f10;
+    f32 f14;
+    f32 f18;
+    f32 f1C;
+    f32 f20;
+    f32 f24;
+    f32 f28;
+    f32 f2C;
+    f32 f30;
+    f32 f34;
+    s32 i38;
+    u8 pad3C[0x4C - 0x3C];
+    f32 f4C;
+} Ctl;
+typedef struct {
+    u8 pad00[0x10];
+    Vec pos;
+    u8 pad20[0x48 - 0x20];
+    f32 f48;
+} Obj;
+typedef struct {
+    u8 pad00[0x28];
+    f32 f28;
+    u8 pad2C[0x40 - 0x2C];
+    Vec v40;
+    f32 f48;
+} Glob;
+extern Glob D_L00_00173F40_59B88 __asm__("D_L00_00173F40");
+extern short D_0015EE70;
+extern short D_0015EE60;
+extern f32 func_001F9CE8(void *);
+extern f32 func_001F9F90(f32);
+extern f32 func_001F9FA8(f32);
+extern s32 func_L00_00259428_59B88(void *, void *, s32, f32, f32) __asm__("func_L00_00259428");
+extern f32 func_L00_001FF860(f32, f32);
+extern void func_L00_001FF4B0(void *, void *, f32);
+extern void func_001F9C30(void *, void *, f32);
+extern s32 func_L00_00259B08_59B88(void *, void *, f32, s32, f32, s32) __asm__("func_L00_00259B08");
+extern f32 func_00214358_59B88(void *, s32, f32) __asm__("func_00214358");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/math_interpolation_00257ef0.c, FUN_L00_00258b50. */
+s32 func_L00_00259B88(Obj *m, Ctl *c, void *v, Vec *out, f32 f) {
+    Vec save;
+    Vec d;
+    Vec p;
+    Vec q;
+    Glob *g;
+    s32 mask = 0;
+    s32 r;
+    f32 len;
+    f32 sp;
+    f32 lim;
+    f32 t;
+    f32 h1;
+    f32 h2;
+    f32 h;
+    f32 a;
+    f32 l2;
+
+    sp = c->f1C * f;
+    lim = c->f24 * f;
+    func_001F9BF0(&d, v, &m->pos);
+    len = func_001F9CE8(&d);
+    save.q = m->pos.q;
+    t = sp * len;
+    if (sp < t) t = sp;
+    c->f10 = c->f10 + t;
+    if (len < c->f10 * 10.0f) c->f10 = c->f10 - c->f20 * c->f10;
+    if (lim < c->f10) c->f10 = lim;
+    else if (c->f10 < -lim) c->f10 = -lim;
+    if (c->i38 & 4) {
+        d.f[0] = func_001F9F90(c->f4C) * c->f10;
+        d.f[1] = func_001F9FA8(c->f4C) * c->f10;
+    } else {
+        d.f[0] = func_001F9F90(m->f48) * c->f10;
+        d.f[1] = func_001F9FA8(m->f48) * c->f10;
+    }
+    if (c->i38 & 1) {
+        d.f[2] = 0.0f;
+    } else {
+        d.f[2] = c->f18;
+        c->f18 = c->f18 - (*(f32 *)&D_0015EE70) * 9.0f;
+    }
+    lim = m->pos.f[2] + 0.04f;
+    func_001F9BD8(&p, &m->pos, &d);
+    p.f[2] = m->pos.f[2] - c->f30;
+    if (func_L00_00259428_59B88(&p, m, c->i38 & 0x20, c->f08, c->f0C)) {
+        g = &D_L00_00173F40_59B88;
+        a = func_L00_001FF860(g->v40.f[2], func_001F9CE8(&g->v40));
+        h1 = g->f28;
+        if (0.5f < a && 0.1f < func_001F9CE8(&d)) {
+            {
+                func_L00_001FF4B0(&q, &d, 0.57f);
+                func_001F9BD8(&q, &q, &m->pos);
+                q.f[2] = m->pos.f[2] - c->f30;
+                if (func_L00_00259428_59B88(&q, m, c->i38 & 0x20, c->f08, c->f0C)) {
+                    h2 = g->f28;
+                    if (!(0.5f <= func_L00_001FF860(g->v40.f[2], func_001F9CE8(&g->v40)))) goto done;
+                    mask = 0x22;
+                    if (!(c->i38 & 8)) goto done;
+                    if (!(h2 < lim)) goto done;
+                } else {
+                    mask = 0x22;
+                    if (!(c->i38 & 8)) goto done;
+                }
+                if (h1 < lim) mask = 8;
+            }
+        }
+    } else {
+        mask = (c->i38 & 8) ? 8 : 0x22;
+    }
+done:
+    if (!(mask & 2)) {
+        l2 = func_001F9CE8(&d);
+        func_001F9C30(&p, &d, 1.0f / l2);
+        r = func_L00_00259B08_59B88(m, &d, c->f04, c->i00, c->f30, c->i38);
+        if (r & 2) c->f18 = (*(f32 *)&D_0015EE60) * -0.01f;
+        if (r & 1) {
+            mask |= 1;
+            if (d.f[0] * p.f[0] + d.f[1] * p.f[1] < l2 * 0.2f) mask |= 2;
+            h = func_00214358_59B88(&m->pos, 0, 0.5f);
+            if (c->f08 < save.f[2] - h || c->f0C < h - save.f[2]) {
+                mask |= 0x22;
+                m->pos.q = save.q;
+            }
+        }
+        qcopy(out, &d);
+    } else {
+        if ((c->i38 ^ 1) & 1) c->f18 = (*(f32 *)&D_0015EE60) * -0.01f;
+    }
+    if (len < c->f2C) mask |= 4;
+    return mask;
+}
 extern void func_001F9BC0(void *);
 extern float func_001F9D10_f(void *, void *) __asm__("func_001F9D10");
 extern float func_L00_001FF860(float, float);
 extern float func_001FA850(float, float);
 extern void func_001F9908(int *);
 extern int func_001F9850(int);
-extern int func_L00_00259B88(char *, char *, float *, char *, float);
 
 /* classify a target against a moby's cone and range, returning flag bits */
 int func_L00_0025A060(char *m, char *p, float *pos, char *v) {
