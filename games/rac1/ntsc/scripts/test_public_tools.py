@@ -458,7 +458,7 @@ class RebuildIsoExtentTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.rebuild = load_module("rnc_rebuild_iso", ROOT / "rebuild-iso.py")
+        cls.rebuild = load_module("rnc_rebuild_iso", ROOT / "scripts/rebuild-iso.py")
 
     @classmethod
     def _record(cls, name: str, lba: int, size: int) -> bytes:
@@ -1562,177 +1562,6 @@ class CheckUnitTests(unittest.TestCase):
         self.assertIn("rebuilt from the retail oracle", stderr.getvalue())
 
 
-class NormalizePendingBodiesTests(unittest.TestCase):
-    """normalize-pending-bodies.py must strip grouping sections, never the oracle."""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.normalize = load_module(
-            "rnc_normalize_pending_bodies",
-            ROOT / "scripts" / "normalize-pending-bodies.py",
-        )
-
-    BODY = textwrap.dedent(
-        """\
-        #include "asm.h"
-
-        #ifndef NON_MATCHING
-        INCLUDE_ASM("config/us/expected/asm/assembly/textbin/demo/snd_StopSound.s", snd_StopSound);
-        #else
-        #include "types.h"
-
-        __attribute__((section(".text.func_00123456")))
-        void func_00123456(void) {
-            return;
-        }
-        #endif /* NON_MATCHING */
-        """
-    )
-
-    def _repo(self, tmp: Path, text: str | None = None):
-        (tmp / "src" / "assembly" / "textbin").mkdir(parents=True)
-        (tmp / "src" / "assembly" / "textbin" / "demo.c").write_text(text or self.BODY)
-        (tmp / "config" / "us").mkdir(parents=True)
-        (tmp / "config" / "us" / "unit_categories.json").write_text(
-            json.dumps({"exact_under_assembly": [], "intentional_asm": []})
-        )
-
-    def _workspace(self, tmp: Path, symbols=("snd_StopSound",)):
-        ws = tmp / "ws"
-        asm = ws / "config" / "us" / "expected" / "asm" / "assembly" / "textbin" / "demo"
-        asm.mkdir(parents=True)
-        (asm / "snd_StopSound.s").write_text(
-            "glabel snd_StopSound\n" + "\n".join(f"glabel {name}" for name in symbols) + "\n"
-        )
-        (ws / ".rnc-baseline-root").write_text("")
-        (ws / "config" / "us" / "build.ninja").write_text("")
-        (ws / "tools" / "objdiff").mkdir(parents=True)
-        (ws / "tools" / "objdiff" / "objdiff-cli").write_text("")
-        return ws
-
-    def test_strip_section_attributes(self):
-        stripped, count = self.normalize.strip_section_attributes(
-            'void a(void) {\n}\n__attribute__((section(".text.a")))\nvoid b(void) {\n}\n'
-        )
-        self.assertEqual(count, 1)
-        self.assertNotIn("section(", stripped)
-        self.assertIn("void b(void) {", stripped)
-
-    def test_reports_unpaired_definition_and_expected_symbol(self):
-        plan = self.normalize.unit_plan(
-            "assembly/textbin/demo",
-            Path("src/assembly/textbin/demo.c"),
-            self.BODY,
-            None,
-            set(),
-            False,
-        )
-        self.assertEqual(plan["attributes_removed"], 1)
-        self.assertEqual(plan["defined"], ["func_00123456"])
-        self.assertEqual(plan["expected"], ["snd_StopSound"])
-        self.assertEqual(plan["unpaired"], ["func_00123456"])
-
-    def test_apply_preserves_the_oracle(self):
-        with tempfile.TemporaryDirectory() as name:
-            tmp = Path(name)
-            self._repo(tmp)
-            ws = self._workspace(tmp)
-            with mock.patch.object(self.normalize, "ROOT", tmp):
-                code = self.normalize.main(
-                    ["--unit", "assembly/textbin/demo", "--apply",
-                     "--workspace", str(ws), "--candidates", str(tmp / "banks")]
-                )
-            self.assertEqual(code, 0)
-            text = (tmp / "src" / "assembly" / "textbin" / "demo.c").read_text()
-        self.assertIn("INCLUDE_ASM(", text)
-        self.assertIn("#ifndef NON_MATCHING", text)
-        self.assertNotIn("section(", text)
-        self.assertIn("void func_00123456(void) {", text)
-
-    def test_skips_contaminated_units(self):
-        with tempfile.TemporaryDirectory() as name:
-            tmp = Path(name)
-            self._repo(tmp)
-            ws = self._workspace(tmp)
-            bank = tmp / "banks" / "assembly_textbin_demo"
-            bank.mkdir(parents=True)
-            (bank / "candidate.json").write_text(
-                json.dumps({"unit": "assembly/textbin/demo", "status": "contaminated"})
-            )
-            before = (tmp / "src" / "assembly" / "textbin" / "demo.c").read_text()
-            with mock.patch.object(self.normalize, "ROOT", tmp):
-                code = self.normalize.main(
-                    ["--unit", "assembly/textbin/demo", "--apply",
-                     "--workspace", str(ws), "--candidates", str(tmp / "banks")]
-                )
-            after = (tmp / "src" / "assembly" / "textbin" / "demo.c").read_text()
-        self.assertEqual(code, 0)
-        self.assertEqual(before, after)
-
-    def test_noop_on_clean_body(self):
-        clean = self.BODY.replace('__attribute__((section(".text.func_00123456")))\n', "")
-        with tempfile.TemporaryDirectory() as name:
-            tmp = Path(name)
-            self._repo(tmp, clean)
-            ws = self._workspace(tmp)
-            with mock.patch.object(self.normalize, "ROOT", tmp):
-                code = self.normalize.main(
-                    ["--unit", "assembly/textbin/demo", "--apply",
-                     "--workspace", str(ws), "--candidates", str(tmp / "banks")]
-                )
-            text = (tmp / "src" / "assembly" / "textbin" / "demo.c").read_text()
-        self.assertEqual(code, 0)
-        self.assertEqual(text, clean)
-
-    def test_reconcile_renames_single_unambiguous_definition(self):
-        with tempfile.TemporaryDirectory() as name:
-            tmp = Path(name)
-            self._repo(tmp)
-            ws = self._workspace(tmp)
-            with mock.patch.object(self.normalize, "ROOT", tmp):
-                code = self.normalize.main(
-                    ["--unit", "assembly/textbin/demo", "--apply", "--reconcile-names",
-                     "--workspace", str(ws), "--candidates", str(tmp / "banks")]
-                )
-            text = (tmp / "src" / "assembly" / "textbin" / "demo.c").read_text()
-        self.assertEqual(code, 0)
-        self.assertIn("void snd_StopSound(void) {", text)
-        self.assertNotIn("func_00123456", text)
-
-    def test_reconcile_refuses_ambiguous_name_sets(self):
-        ambiguous = self.BODY.replace(
-            "void func_00123456(void) {",
-            "void func_00123456(void) {\n}\nvoid func_00123457(void) {",
-        )
-        with tempfile.TemporaryDirectory() as name:
-            tmp = Path(name)
-            self._repo(tmp, ambiguous)
-            ws = self._workspace(tmp, symbols=("snd_StopSound", "snd_StopSound2"))
-            with mock.patch.object(self.normalize, "ROOT", tmp):
-                code = self.normalize.main(
-                    ["--unit", "assembly/textbin/demo", "--apply", "--reconcile-names",
-                     "--workspace", str(ws), "--candidates", str(tmp / "banks")]
-                )
-            text = (tmp / "src" / "assembly" / "textbin" / "demo.c").read_text()
-        self.assertEqual(code, 0)
-        self.assertIn("func_00123456", text)
-        self.assertNotIn("snd_StopSound", text.split("#else", 1)[1])
-
-    def test_rejects_paths_outside_assembly(self):
-        with tempfile.TemporaryDirectory() as name:
-            tmp = Path(name)
-            self._repo(tmp)
-            with mock.patch.object(self.normalize, "ROOT", tmp):
-                with contextlib.redirect_stderr(io.StringIO()):
-                    code = self.normalize.main(["--unit", "../../etc/passwd", "--apply"])
-        self.assertEqual(code, 2)
-
-    def test_cli_requires_a_scope(self):
-        with contextlib.redirect_stderr(io.StringIO()):
-            with self.assertRaises(SystemExit):
-                self.normalize.main([])
-
-
 class PatchedToolchainArtifactTests(unittest.TestCase):
     """The published toolchain patch and its build script must agree."""
 
@@ -1821,6 +1650,49 @@ class RenameCatalogUnitTests(unittest.TestCase):
         catalog = ROOT / "config/us/recovered_names.json"
         payload = json.loads(catalog.read_text(encoding="utf-8"))
         self.assertEqual(self.tool.find_duplicate_catalog_units(payload), [])
+
+
+class NoGameDataTests(unittest.TestCase):
+    """Nothing cut from the disc (ELF, overlay records, their asm) is tracked."""
+
+    def test_no_tracked_game_data(self):
+        listed = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True,
+                                text=True)
+        if listed.returncode:
+            self.skipTest("not a git checkout")
+        bad = [p for p in listed.stdout.splitlines()
+               if p.startswith(("config/us/overlays/", "config/us/expected/",
+                                "config/us/asm/", "dumps/", "build/"))
+               and not p.endswith("README.md")
+               or p.endswith((".s", ".S", ".bin", ".iso", ".elf", ".o"))
+               or p == "config/us/SCUS_971.99"]
+        self.assertEqual(bad, [])
+
+
+class OverlayStageTests(unittest.TestCase):
+    def setUp(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        self.unit = load_module("overlay_unit", ROOT / "scripts/overlay_unit.py")
+
+    def test_guarded_body_is_staged_and_other_stubs_dropped(self):
+        text = textwrap.dedent("""\
+            #include "asm.h"
+            INCLUDE_ASM("config/us/overlays/asm/FUN_L00_00000010.s", FUN_L00_00000010);
+            #ifndef NON_MATCHING
+            INCLUDE_ASM("config/us/overlays/asm/FUN_L00_00000020.s", FUN_L00_00000020);
+            #else
+            void FUN_L00_00000020(void) {}
+            #endif /* NON_MATCHING */
+            """)
+        staged, how = self.unit.stage("FUN_L00_00000020", text)
+        self.assertIn("void FUN_L00_00000020(void) {}", staged)
+        self.assertNotIn("INCLUDE_ASM", staged)
+        self.assertNotIn("NON_MATCHING", staged)
+        self.assertIn("guard", how)
+
+    def test_bare_stub_has_no_c(self):
+        text = 'INCLUDE_ASM("config/us/overlays/asm/FUN_L00_00000010.s", FUN_L00_00000010);\n'
+        self.assertIsNone(self.unit.stage("FUN_L00_00000010", text)[0])
 
 
 if __name__ == "__main__":

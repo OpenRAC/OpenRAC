@@ -42,9 +42,49 @@ void FUN_L05_0031abe0(char *moby) {
 }
 INCLUDE_ASM("config/us/overlays/asm/FUN_L05_0031c8e0.s", FUN_L05_0031c8e0);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L05_0031cf58.s", FUN_L05_0031cf58);
-INCLUDE_ASM("config/us/overlays/asm/FUN_L05_0031d160.s", FUN_L05_0031d160);
+extern char *FUN_0020c4f8_d160(int) __asm__("FUN_0020c4f8");
+extern void FUN_L00_00250df8_d160(void *) __asm__("FUN_L00_00250df8");
+
+char *FUN_L05_0031d160(unsigned char *a0)
+{
+    unsigned char *m = (unsigned char *)FUN_0020c4f8_d160(0x5EA);
+    if (m != 0) {
+        m[0x30] = a0[0x30];
+        *(unsigned short *)(m + 0x32) = *(unsigned short *)(a0 + 0x32);
+        m[0x31] = 1;
+        *(float *)(m + 0x40) = *(float *)(a0 + 0x40);
+        *(float *)(m + 0x44) = *(float *)(a0 + 0x44);
+        *(float *)(m + 0x48) = *(float *)(a0 + 0x48);
+        *(long *)(m + 0x38) = *(long *)(a0 + 0x38);
+        qcopy(m + 0x10, a0 + 0x10);
+        FUN_L00_00250df8_d160(m);
+    }
+    return (char *)m;
+}
 INCLUDE_ASM("config/us/overlays/asm/FUN_L05_00329358.s", FUN_L05_00329358);
-INCLUDE_ASM("config/us/overlays/asm/FUN_L05_003294c0.s", FUN_L05_003294c0);
+extern char *D_L05_00167200 __attribute__((section(".data")));
+void FUN_L05_003294c0(float a, float b, float c, float d, float e, float f, float g, float h) {
+    char *o = D_L05_00167200;
+    char *p = *(char **)(o + 0x70);
+
+    *(float *)(p + 0x184) = a;
+    *(float *)(p + 0x188) = b;
+    *(float *)(p + 0x180) = c;
+    *(float *)(p + 0x190) = d;
+    *(float *)(p + 0x194) = e;
+    *(float *)(p + 0x18C) = f;
+    p = *(char **)(o + 0x70);
+    if (g < 0.0f) {
+        *(float *)(p + 0x10) = 0.01f;
+    } else {
+        *(float *)(p + 0x10) = g;
+    }
+    if (h < 0.0f) {
+        *(float *)(p + 0x14) = 0.2f;
+    } else {
+        *(float *)(p + 0x14) = h;
+    }
+}
 INCLUDE_ASM("config/us/overlays/asm/FUN_L05_00329540.s", FUN_L05_00329540);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L05_003296e0.s", FUN_L05_003296e0);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L05_003298d8.s", FUN_L05_003298d8);

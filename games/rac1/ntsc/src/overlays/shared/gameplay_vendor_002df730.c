@@ -718,7 +718,280 @@ void FUN_L00_002e48a0(void *out) {
     FUN_001f9a10(a, a, b);
     FUN_001f9a68(out, g + 0x30, FUN_001f9ab0(g + 0x30, a));
 }
-INCLUDE_ASM("config/us/overlays/asm/FUN_L00_002e4930.s", FUN_L00_002e4930);
+/* camera attach mode transitions: picks the next state from the player's state and arms its timers */
+/* Migrated from rac1-decomp (src/overlays/shared/vendor_002E1660.c: func_L00_002E5DE0). */
+
+typedef struct {
+    float v00[4];
+    float v10[4];
+    float v20[4];
+    float v30[4];
+    char pad40[0x84];
+    unsigned char state;
+    unsigned char prev;
+    short timer;
+    float invTimer;
+    float invMove;
+    float dist;
+    short moveTimer;
+    char padD6;
+    unsigned char hit;
+} CamAttach;
+
+extern int D_001413D4 __attribute__((section(".data")));
+extern int D_001413DC __attribute__((section(".data")));
+extern f32 ConvertIntegerToFloat_c(s32) __asm__("func_001FA6C0");
+extern float D_L00_00166EEC __attribute__((section(".data")));
+extern int FUN_001f9770_c2(void *) __asm__("FUN_001f9770");
+extern s32 scale_game_frames(s32) __asm__("func_001F96F8");
+extern short D_L00_00161D24 __attribute__((sda));
+extern short D_L00_00161D38 __attribute__((sda));
+extern short D_L00_00161D3C __attribute__((sda));
+extern short D_L00_00161D40 __attribute__((sda));
+extern short D_L00_00161D48 __attribute__((sda));
+extern short D_L00_00161D4C __attribute__((sda));
+extern short D_L00_00161D50 __attribute__((sda));
+extern short D_L00_00161D54 __attribute__((sda));
+extern short D_L00_00161D58 __attribute__((sda));
+extern short D_L00_00161D5C __attribute__((sda));
+extern short D_L00_00161D60 __attribute__((sda));
+extern short D_L00_00161D64 __attribute__((sda));
+extern short D_L00_00161D68 __attribute__((sda));
+extern short D_L00_00161D6C __attribute__((sda));
+extern short D_L00_00161D78 __attribute__((sda));
+extern short D_L00_00161D7C __attribute__((sda));
+extern void FUN_L00_002e48a0_c(void *out, float f) __asm__("FUN_L00_002e48a0");
+
+void FUN_L00_002e4930(char *m) {
+    char *d = *(char **)(m + 0x70);
+    CamAttach *e = (CamAttach *)(d + 0x40);
+    char *q;
+    float inv, x, y;
+    int t;
+
+    if (e->state == 0) {
+        char *p0 = D_0013F350;
+        if (*(int *)(p0 + 0x208C) == 2) {
+            e->prev = e->state;
+            e->state = 1;
+            e->timer = D_L00_00161D3C;
+            e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+        } else {
+            char *p1 = D_0013F350;
+            if (*(int *)(p1 + 0x2084) == 0xF && D_L00_00166EEC == 0.0f) {
+                e->prev = e->state;
+                e->state = 3;
+                e->moveTimer = scale_game_frames(*(int *)&D_L00_00161D4C);
+                e->invMove = 1.0f / ConvertIntegerToFloat_c(e->moveTimer);
+                e->timer = D_L00_00161D50;
+                inv = 1.0f / ConvertIntegerToFloat_c(e->timer);
+                e->dist = *(float *)&D_L00_00161D58;
+                e->hit = 0;
+                x = *(float *)&D_L00_00161D58;
+                e->invTimer = inv;
+                FUN_L00_002e48a0_c(e->v30, x);
+                qcopy(e->v20, e->v10);
+            } else {
+                char *p2 = D_0013F350;
+                if (*(int *)(p2 + 0x2084) == 0xC && D_L00_00166EEC == 0.0f) {
+                    e->prev = e->state;
+                    e->state = 8;
+                    e->timer = D_L00_00161D60;
+                    e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+                } else {
+                    char *p3 = D_0013F350;
+                    if (*(int *)(p3 + 0x2084) == 0xB && D_L00_00166EEC == 0.0f) {
+                        e->prev = e->state;
+                        e->state = 6;
+                        e->moveTimer = scale_game_frames(*(int *)&D_L00_00161D40);
+                        e->invMove = 1.0f / ConvertIntegerToFloat_c(e->moveTimer);
+                        e->timer = D_L00_00161D50;
+                        inv = 1.0f / ConvertIntegerToFloat_c(e->timer);
+                        e->dist = *(float *)&D_L00_00161D48;
+                        e->hit = 0;
+                        x = *(float *)&D_L00_00161D48;
+                        e->invTimer = inv;
+                        FUN_L00_002e48a0_c(e->v30, x);
+                        qcopy(e->v20, e->v10);
+                    } else {
+                        char *p4 = D_0013F350;
+                        if ((*(int *)(p4 + 0x2084) == 0xD || *(int *)(p4 + 0x2084) == 0xE) && D_L00_00166EEC == 0.0f) {
+                            e->prev = e->state;
+                            e->state = 5;
+                            e->moveTimer = scale_game_frames(*(int *)&D_L00_00161D5C);
+                            e->invMove = 1.0f / ConvertIntegerToFloat_c(e->moveTimer);
+                            e->timer = D_L00_00161D60;
+                            inv = 1.0f / ConvertIntegerToFloat_c(e->timer);
+                            e->dist = *(float *)&D_L00_00161D68;
+                            e->hit = 0;
+                            x = *(float *)&D_L00_00161D68;
+                            e->invTimer = inv;
+                            FUN_L00_002e48a0_c(e->v30, x);
+                            qcopy(e->v20, e->v10);
+                        } else {
+                            char *p5 = D_0013F350;
+                            if (*(int *)(p5 + 0x208C) == 4 && D_L00_00166EEC == 0.0f) {
+                                e->prev = e->state;
+                                e->state = 2;
+                                e->timer = D_L00_00161D38;
+                                e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return;
+    }
+    if (e->state != 9 && e->state != 1 && D_001413D4 == 0x14) {
+        float r;
+        e->prev = e->state;
+        e->state = 9;
+        e->moveTimer = scale_game_frames(*(int *)&D_L00_00161D6C);
+        r = 1.0f / ConvertIntegerToFloat_c(e->moveTimer);
+        y = *(float *)&D_L00_00161D7C;
+        e->hit = 0;
+        e->timer = 0;
+        x = *(float *)&D_L00_00161D7C;
+        e->invTimer = 1.0f;
+        e->dist = y;
+        e->invMove = r;
+        FUN_L00_002e48a0_c(e->v30, x);
+        qcopy(e->v20, e->v10);
+        return;
+    }
+    if ((e->state == 1 || e->state == 2) && D_001413DC != 4 && D_001413DC != 2) {
+        e->timer = 0;
+        e->invTimer = 1.0f;
+        e->state = 0;
+        return;
+    }
+    if (e->state == 7) {
+        char *p = D_0013F350;
+        if (*(short *)(p + 0x41E) == 0) {
+            e->prev = e->state;
+            e->state = 6;
+            e->moveTimer = scale_game_frames(*(int *)&D_L00_00161D40);
+            e->invMove = 1.0f / ConvertIntegerToFloat_c(e->moveTimer);
+            e->timer = D_L00_00161D50;
+            inv = 1.0f / ConvertIntegerToFloat_c(e->timer);
+            e->dist = *(float *)&D_L00_00161D48;
+            e->hit = 0;
+            x = *(float *)&D_L00_00161D48;
+            e->invTimer = inv;
+            FUN_L00_002e48a0_c(e->v30, x);
+            qcopy(e->v20, e->v10);
+            return;
+        }
+        if (*(int *)(p + 0x208C) == 2) {
+            e->prev = e->state;
+            e->state = 1;
+            e->timer = scale_game_frames(*(int *)&D_L00_00161D54);
+            e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+            return;
+        }
+    }
+    if (e->state == 4 && D_001413DC != 4) {
+        if (D_001413DC == 2) {
+            e->prev = 4;
+            e->state = 1;
+            e->timer = scale_game_frames(*(int *)&D_L00_00161D54);
+            e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+        } else {
+            e->prev = 4;
+            e->state = 0;
+            e->timer = scale_game_frames(*(int *)&D_L00_00161D54);
+            e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+        }
+        return;
+    }
+    if (e->state == 3 && D_001413D4 == 0xB) {
+        e->prev = e->state;
+        e->state = 6;
+        e->moveTimer = scale_game_frames(*(int *)&D_L00_00161D40);
+        e->invMove = 1.0f / ConvertIntegerToFloat_c(e->moveTimer);
+        e->timer = D_L00_00161D50;
+        inv = 1.0f / ConvertIntegerToFloat_c(e->timer);
+        e->dist = *(float *)&D_L00_00161D48;
+        e->hit = 0;
+        x = *(float *)&D_L00_00161D48;
+        e->invTimer = inv;
+        FUN_L00_002e48a0_c(e->v30, x);
+        qcopy(e->v20, e->v10);
+        return;
+    }
+    if (e->state == 5 && D_001413D4 == 0xC) {
+        e->prev = e->state;
+        e->state = 8;
+        e->timer = D_L00_00161D60;
+        e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+        return;
+    }
+    if (e->state == 8 && D_001413D4 != 0xC) {
+        e->prev = e->state;
+        e->state = 0;
+        e->timer = scale_game_frames(*(int *)&D_L00_00161D64);
+        e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+        return;
+    }
+    if (e->state == 6 && D_001413D4 != 0xB) {
+        e->prev = e->state;
+        e->state = 0;
+        e->timer = scale_game_frames(*(int *)&D_L00_00161D54);
+        e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+        return;
+    }
+    if ((e->state == 3 || e->state == 5) && D_001413DC != 4) {
+        e->prev = e->state;
+        e->state = 0;
+        e->timer = scale_game_frames(*(int *)&D_L00_00161D54);
+        e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+        return;
+    }
+    if (e->state == 9) {
+        char *p = D_0013F350;
+        if (*(int *)(p + 0x208C) == 2 || *(short *)(p + 0x30C) >= scale_game_frames(0x37)) {
+            goto to_one;
+        }
+    }
+    if (e->state == 0xA) {
+        char *p = D_0013F350;
+        if (*(int *)(p + 0x208C) == 2 || *(short *)(p + 0x30C) >= scale_game_frames(0x37)) {
+            float r;
+        to_one:
+            e->prev = e->state;
+            e->state = 1;
+            e->timer = scale_game_frames(*(int *)&D_L00_00161D54);
+            r = 1.0f / ConvertIntegerToFloat_c(e->timer);
+            t = *(int *)&D_L00_00161D24;
+            e->invTimer = r;
+            q = *(char **)(m + 0x70);
+            *(short *)(q + 0x20) = scale_game_frames(t);
+            qcopy(m + 0x40, m);
+            return;
+        }
+    }
+    if (e->state == 9 && D_001413D4 != 0x14) {
+        e->prev = e->state;
+        e->state = 0xA;
+        e->timer = D_L00_00161D78;
+        e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+        return;
+    }
+    if (e->state == 0xA && FUN_001f9770_c2(&e->moveTimer)) {
+        e->prev = e->state;
+        e->state = 0;
+        e->timer = scale_game_frames(*(int *)&D_L00_00161D54);
+        e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+        return;
+    }
+    if (e->state == 5 && D_001413D4 == 0x10) {
+        e->prev = e->state;
+        e->state = 0;
+        e->timer = scale_game_frames(*(int *)&D_L00_00161D64);
+        e->invTimer = 1.0f / ConvertIntegerToFloat_c(e->timer);
+    }
+}
 /* per-frame state machine that eases a moby's attach pose toward the camera block's vector */
 /* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_002E1660.c: func_L00_002E6498), where it is exact; names translated to the US level program. */
 
@@ -1281,8 +1554,21 @@ void FUN_L00_002e8490(float f) {
 }
 extern char *D_L00_00166E00_002e84b8 __asm__("D_L00_00166E00") __attribute__((section(".data")));
 void FUN_L00_002e84b8(float a, float b) { char *p = D_L00_00166E00_002e84b8; if (*(short *)(p + 0x86) == 0) { char *q = *(char **)(p + 0x70) + 0x130;  *(short *)(q + 0x3e) = 1; *(float *)(q + 0x4c) = a; *(float *)(q + 0x54) = b; } }
-INCLUDE_ASM("config/us/overlays/asm/FUN_L00_002e84f0.s", FUN_L00_002e84f0);
-void FUN_L00_002e8534(void *u, char *p, float a) { *(volatile float *)(p + 0xB4) = a; }
+extern char *D_L00_00166E00_c3 __asm__("D_L00_00166E00") __attribute__((section(".data")));
+extern char *D_L00_00168FC0 __attribute__((section(".data")));
+void FUN_L00_002e84f0(int add, float a, float b) {
+    char *p = D_L00_00166E00_c3;
+    if (*(short *)(p + 0x86) == 0) {
+        char *q = *(char **)(p + 0x70) + 0x40;
+        *(short *)(q + 0xDA) = 1;
+        *(float *)(q + 0xB8) = b;
+        if (add) {
+            *(float *)(q + 0xB4) = *(float *)(D_L00_00168FC0 + 0xF0) + a;
+        } else {
+            *(float *)(q + 0xB4) = a;
+        }
+    }
+}
 typedef struct { char pad[0x10]; short h; } S2e8568b;
 typedef struct { char pad[0x70]; S2e8568b *p; char pad2[0x12]; short f86; } S2e8568;
 extern S2e8568 *D_L00_00166E00;
@@ -1373,218 +1659,23 @@ float FUN_L00_002e86b0(char *a0, float *a1, float lim) {
     *(float *)(q + 0x1C) = FUN_L00_00257e20(-1.0f, 0.0f, 1.0f, 0.0f, t) * sign;
     return r;
 }
-INCLUDE_ASM("config/us/overlays/asm/FUN_L00_002e88c8.s", FUN_L00_002e88c8);
+void FUN_001f9a28_c2(void *, void *, void *) __asm__("FUN_001f9a28");
+void FUN_L00_002e86b0_c(char *, void *, f32) __asm__("FUN_L00_002e86b0");
+void FUN_L00_002e88c8(char *p, void *b, f32 x) {
+    char buf[16];
+    char *m = *(char **)(p + 0x70);
+    f32 t;
+    if (x && x) {
+    }
+    t = x;
+    if (t && t && x) {
+    }
+    FUN_001f9a28_c2(buf, b, m + 0x40);
+    FUN_L00_002e86b0_c(p, buf, x);
+}
 extern char *D_L00_00166E00_002e8918 __asm__("D_L00_00166E00") __attribute__((section(".data")));
 void FUN_L00_002e86b0_002e8918(char *, char *, float) __asm__("FUN_L00_002e86b0");
 void FUN_L00_002e8918(char *a, float x, float y) { char *p = D_L00_00166E00_002e8918; if (*(short *)(p + 0x86) == 0 && x != 0.0f) { *(float *)(*(char **)(p + 0x70) + 0x1bc) = x; FUN_L00_002e86b0_002e8918(p, a, y); } }
 extern char *D_L00_00166E00_002e8970 __asm__("D_L00_00166E00") __attribute__((section(".data")));
 void FUN_L00_002e88c8_002e8970(char *, char *, float) __asm__("FUN_L00_002e88c8");
 void FUN_L00_002e8970(char *a, float x, float y) { char *b = a; char *p = D_L00_00166E00_002e8970; if (*(short *)(p + 0x86) == 0) { *(float *)(*(char **)(p + 0x70) + 0x1bc) = x; FUN_L00_002e88c8_002e8970(p, b, y); } }
-typedef struct {
-    unsigned char pad0[0x10];
-    int flags;
-    float f14;
-    unsigned char pad18[4];
-    float f1C;
-    unsigned char pad20[4];
-    float f24;
-} S_2e89b0;
-typedef struct {
-    unsigned char pad0[0x40];
-    unsigned short u40;
-    unsigned short u42;
-    int i44;
-} G_2e89b0;
-extern float D_0013CA40_2e89b0[] __asm__("D_0013CA40") __attribute__((section(".data")));
-extern int D_0015EDE0_2e89b0 __asm__("D_0015EDE0");
-extern int D_0015EDDC_2e89b0 __asm__("D_0015EDDC");
-extern int D_0015EEA4_2e89b0 __asm__("D_0015EEA4");
-extern int D_0015ED84_2e89b0 __asm__("D_0015ED84");
-extern float D_L00_0015EF44_2e89b0 __asm__("D_L00_0015EF44");
-extern int D_L00_00161D8C_2e89b0 __asm__("D_L00_00161D8C") __attribute__((sda));
-extern int D_L00_00161D90_2e89b0 __asm__("D_L00_00161D90") __attribute__((sda));
-extern G_2e89b0 D_00141848_2e89b0 __asm__("D_00141848");
-extern int FUN_001f96f8_2e89b0(int) __asm__("FUN_001f96f8");
-
-void FUN_L00_002e89b0(char *o, float *a, float *b) {
-    S_2e89b0 *s = (S_2e89b0 *)(*(char **)(o + 0x70) + 0x1A8);
-    G_2e89b0 *g;
-
-    if (s->flags & 1) {
-        *a = 0.0f;
-    } else {
-        *a = D_0013CA40_2e89b0[0];
-        if (D_0015EDE0_2e89b0 == 0) {
-            *a = -*a;
-        }
-    }
-    if (*a == 0.0f) {
-        D_L00_00161D8C_2e89b0 = 0;
-        D_L00_00161D90_2e89b0 = 0;
-        if (s->f1C != 0.0f) {
-            *a = s->f1C;
-        }
-    } else {
-        s->f14 = D_L00_0015EF44_2e89b0;
-        g = &D_00141848_2e89b0;
-        if (g->u40 < 3) {
-            D_L00_00161D8C_2e89b0++;
-            if (D_L00_00161D90_2e89b0 == 0 && FUN_001f96f8_2e89b0(0x3C) < D_L00_00161D8C_2e89b0) {
-                if (g->u40 <= 0xFFFE) {
-                    g->u40++;
-                }
-                if (FUN_001f96f8_2e89b0(D_0015EEA4_2e89b0) / 600 > g->u42) {
-                    g->u42 = FUN_001f96f8_2e89b0(D_0015EEA4_2e89b0) / 600;
-                }
-                D_L00_00161D90_2e89b0 = 1;
-                g->i44 = g->i44 | (1 << D_0015ED84_2e89b0) | 0x80000000;
-            }
-        }
-    }
-    if (s->flags & 2) {
-        *b = 0.0f;
-        *b = s->f24 / 0.6981317f;
-    } else {
-        float t = D_0013CA40_2e89b0[1];
-        *b = -t;
-        if (D_0015EDDC_2e89b0 == 0) {
-            *b = t;
-        }
-        if (*b == 0.0f) {
-            *b = s->f24 / 0.6981317f;
-        }
-    }
-}
-typedef float V_2e8bb8[4] __attribute__((aligned(16)));
-extern float D_L00_00161CAC_2e8bb8 __asm__("D_L00_00161CAC") __attribute__((sda));
-extern float D_L00_00161CB0_2e8bb8 __asm__("D_L00_00161CB0") __attribute__((sda));
-extern float D_L00_00161CBC_2e8bb8 __asm__("D_L00_00161CBC") __attribute__((sda));
-extern float D_L00_00161CC0_2e8bb8 __asm__("D_L00_00161CC0") __attribute__((sda));
-extern float D_L00_00161CC4_2e8bb8 __asm__("D_L00_00161CC4") __attribute__((sda));
-extern unsigned char D_L00_00166E10_2e8bb8[] __asm__("D_L00_00166E10") __attribute__((section(".data")));
-extern float FUN_001ebd78_2e8bb8(void *, float, float, float, float, float) __asm__("FUN_001ebd78");
-extern float FUN_001f99c0_2e8bb8(float) __asm__("FUN_001f99c0");
-extern void FUN_00214890_2e8bb8(void *, void *, void *, float) __asm__("FUN_00214890");
-extern float FUN_001f9ab0_2e8bb8(void *, void *) __asm__("FUN_001f9ab0");
-extern float FUN_001f9af0_2e8bb8(void *) __asm__("FUN_001f9af0");
-extern void FUN_001f9ad8_2e8bb8(void *, void *, void *) __asm__("FUN_001f9ad8");
-extern void FUN_001f9bf8_2e8bb8(void *, void *, float) __asm__("FUN_001f9bf8");
-extern float FUN_001f9e90_2e8bb8(float, float) __asm__("FUN_001f9e90");
-extern float FUN_001fa580_2e8bb8(float, float) __asm__("FUN_001fa580");
-extern float FUN_001fa5c8_2e8bb8(float, float) __asm__("FUN_001fa5c8");
-
-void FUN_L00_002e8bb8(unsigned char *o, float k, float in) {
-    V_2e8bb8 axis;
-    unsigned char *e;
-    unsigned char *base;
-    unsigned char *s;
-    unsigned char *c;
-    float r;
-    float lim;
-    float sel;
-    float a;
-    float b;
-    float ang;
-    float z;
-
-    e = *(unsigned char **)(o + 0x70);
-    base = D_L00_00166E10_2e8bb8;
-    s = e + 0x1A8;
-    c = e + 0x130;
-    r = FUN_001ebd78_2e8bb8(e + 0x1AC, *(float *)(e + 0x1A8), k, D_L00_00161CAC_2e8bb8, D_L00_00161CB0_2e8bb8, 0.0f);
-    *(float *)(e + 0x1A8) = r;
-    *(float *)(c + 0x34) = *(float *)(s + 0x14) * r;
-    if (in < -0.3f) {
-        in = (in + 0.3f) * 1.4285715f;
-    } else if (0.3f < in) {
-        in = (in - 0.3f) * 1.4285715f;
-    } else {
-        in = 0.0f;
-    }
-    z = 0.0f;
-    if (in == z) {
-        sel = D_L00_00161CC0_2e8bb8;
-    } else if (!(FUN_001f99c0_2e8bb8(in) < FUN_001f99c0_2e8bb8(*(float *)(s + 8)))) {
-        sel = D_L00_00161CBC_2e8bb8;
-    } else if (z < in && z < *(float *)(s + 8)) {
-        sel = D_L00_00161CC0_2e8bb8;
-    } else if (in < z && *(float *)(s + 8) < z) {
-        sel = D_L00_00161CC0_2e8bb8;
-    } else {
-        sel = D_L00_00161CBC_2e8bb8;
-    }
-    *(float *)(s + 8) = FUN_001ebd78_2e8bb8(s + 0xC, *(float *)(s + 8), in, D_L00_00161CAC_2e8bb8, D_L00_00161CB0_2e8bb8, sel);
-    lim = *(float *)(s + 8) * 0.69813168f;
-    if (k == 0.0f) {
-        FUN_00214890_2e8bb8(c, c, base + 0x20, *(float *)(s + 0x20));
-    } else {
-        FUN_00214890_2e8bb8(c, c, base + 0x20, *(float *)(c + 0x34));
-    }
-    a = FUN_001f9ab0_2e8bb8(c, base + 0x20);
-    b = FUN_001f9af0_2e8bb8(c);
-    FUN_001f9ad8_2e8bb8(axis, base + 0x20, c);
-    FUN_001f9bf8_2e8bb8(axis, axis, 1.0f);
-    ang = FUN_001f9e90_2e8bb8(b, a);
-    if (FUN_001f99c0_2e8bb8(ang) < FUN_001f99c0_2e8bb8(lim) && sel == D_L00_00161CC0_2e8bb8) {
-        *(float *)(s + 8) = ang / 0.69813168f;
-    }
-    if (ang < lim) {
-        if (lim < FUN_001fa580_2e8bb8(ang, D_L00_00161CC4_2e8bb8)) {
-            *(float *)(c + 0x38) = FUN_001fa5c8_2e8bb8(lim, ang);
-        } else {
-            *(float *)(c + 0x38) = D_L00_00161CC4_2e8bb8;
-        }
-    } else if (lim < ang) {
-        if (*(short *)(*(unsigned char **)(o + 0x70) + 0x208) < 0) {
-            *(float *)(c + 0x38) = 0.0f;
-        } else if (FUN_001fa580_2e8bb8(ang, -D_L00_00161CC4_2e8bb8) < lim) {
-            *(float *)(c + 0x38) = FUN_001fa5c8_2e8bb8(lim, ang);
-        } else {
-            *(float *)(c + 0x38) = -D_L00_00161CC4_2e8bb8;
-        }
-    } else {
-        *(float *)(c + 0x38) = 0.0f;
-    }
-    if (lim < 0.0f) {
-        *(short *)(*(unsigned char **)(o + 0x70) + 0x22) = 1;
-    }
-    FUN_00214890_2e8bb8(c, c, axis, *(float *)(c + 0x38));
-}
-#define NOT_SDA
-
-#define MACRO_ADDR
-
-/* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_002E1660.c: func_L00_002EA3F0), where it is exact; names translated to the US level program. */
-
-extern float D_L00_0015EF40;
-extern float FUN_001f9af0(void *);
-extern void FUN_001f9a28(float *, float *, float *);
-extern void FUN_001f9a40(float, void *, void *, void *);
-extern void FUN_001f9bf8(void *, void *, float);
-
-void FUN_L00_002e8f40(int m) {
-    char *p = *(char **)(m + 0x70);
-    char *r = p + 0x1D0;
-    char *q = p + 0x130;
-    if (*(short *)(p + 0x10) > 0) {
-        float v[4];
-        float f;
-        float lim;
-        FUN_001f9a28(v, (float *)p, (float *)(p + 0x90));
-        FUN_001f9a40(D_L00_0015EF40, q, q, v);
-        f = FUN_001f9af0(q);
-        lim = *(float *)(q + 0x2C);
-        if (lim < f) {
-            f = lim;
-            FUN_001f9bf8(q, q, f);
-            *(float *)(r + 0x30) = *(float *)(q + 0x2C) - f;
-        } else {
-            float t = lim - *(float *)(r + 0x30);
-            if (f < t) {
-                f = t;
-                FUN_001f9bf8(q, q, f);
-            }
-            *(float *)(r + 0x30) = *(float *)(q + 0x2C) - f;
-        }
-    }
-}

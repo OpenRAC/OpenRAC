@@ -197,7 +197,62 @@ INCLUDE_ASM("config/us/overlays/asm/FUN_L15_0029d6c0.s", FUN_L15_0029d6c0);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L15_0029ead0.s", FUN_L15_0029ead0);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L15_0029edb0.s", FUN_L15_0029edb0);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L15_002a2488.s", FUN_L15_002a2488);
-INCLUDE_ASM("config/us/overlays/asm/FUN_L15_002a2868.s", FUN_L15_002a2868);
+/* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_00298BB8.c: func_L15_002A3A48), where it is exact; names translated to the US level program. */
+
+typedef struct {
+    char _pad00[0x10];
+    unsigned char nframes; /* 0x10 */
+} AnimSeq;
+
+typedef struct {
+    char _pad00[0x48];
+    AnimSeq *seqs[1]; /* 0x48 */
+} AnimClass;
+
+typedef struct {
+    char _pad00[0x24];
+    AnimClass *pClass;       /* 0x24 */
+    char _pad28[0x50 - 0x28];
+    unsigned char frame;     /* 0x50 */
+    unsigned char nextFrame; /* 0x51 */
+    unsigned char seq;       /* 0x52 */
+    unsigned char prevSeq;   /* 0x53 */
+    char _pad54[0x5C - 0x54];
+    float unk5C;             /* 0x5C */
+    char _pad60[0x68 - 0x60];
+    float *frameData;        /* 0x68 */
+    char _pad6C[4];
+    unsigned char unk70;     /* 0x70 */
+} MobyAnim;
+
+extern char D_0013F350[];
+extern int D_L15_0015FFD8;
+void blend_moby_animation(MobyAnim *arg0, int arg1, int arg2, int arg3) __asm__("FUN_00212f90");
+
+int FUN_L15_002a2868(int idx, void *pos) {
+    short *p = (short *)D_L15_001ABE40[idx];
+    char *g = D_0013F350;
+    do {
+        unsigned char *m = (unsigned char *)D_L15_0015FFD8 + ((*(unsigned short *)p & 0x7FFF) << 8);
+        unsigned char state = m[0x20];
+        if (state == 1) {
+            char *data;
+            m[0x20] = 2;
+            if (m[0x53] != 0) blend_moby_animation(m, 0, 0, 0);
+            *(unsigned short *)(m + 0x34) |= 1;
+            m[0x31] = 0;
+            data = *(char **)(m + 0x78);
+            *(int *)(m + 0x94) = *(int *)(*(char **)(m + 0x24) + 0x10);
+            *(float *)(data + 0x64) = random_float_between_alt(-15.0f, 15.0f) * 0.017453292f;
+            *(int *)(data + 0x68) = FUN_001f96f8(0x3C);
+            qcopy(m + 0x10, pos);
+            *(float *)(m + 0x18) -= 1.0f;
+            *(float *)(m + 0x48) = FUN_001f9e90(*(float *)(g + 0x80) - *(float *)(m + 0x10), *(float *)(g + 0x84) - *(float *)(m + 0x14));
+            return 1;
+        }
+    } while (*p++ >= 0);
+    return 0;
+}
 INCLUDE_ASM("config/us/overlays/asm/FUN_L15_002a29b8.s", FUN_L15_002a29b8);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L15_002a2bf0.s", FUN_L15_002a2bf0);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L15_002a3138.s", FUN_L15_002a3138);
@@ -241,31 +296,8 @@ void FUN_L15_002cbac0(char *m, int a) {
 }
 /* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_00298BB8.c: func_L15_002CCF30), where it is exact; names translated to the US level program. */
 
-typedef struct {
-    char _pad00[0x10];
-    unsigned char nframes; /* 0x10 */
-} AnimSeq;
 
-typedef struct {
-    char _pad00[0x48];
-    AnimSeq *seqs[1]; /* 0x48 */
-} AnimClass;
 
-typedef struct {
-    char _pad00[0x24];
-    AnimClass *pClass;       /* 0x24 */
-    char _pad28[0x50 - 0x28];
-    unsigned char frame;     /* 0x50 */
-    unsigned char nextFrame; /* 0x51 */
-    unsigned char seq;       /* 0x52 */
-    unsigned char prevSeq;   /* 0x53 */
-    char _pad54[0x5C - 0x54];
-    float unk5C;             /* 0x5C */
-    char _pad60[0x68 - 0x60];
-    float *frameData;        /* 0x68 */
-    char _pad6C[4];
-    unsigned char unk70;     /* 0x70 */
-} MobyAnim;
 
 void blend_moby_animation(MobyAnim *arg0, int arg1, int arg2, int arg3) __asm__("FUN_00212f90");
 
@@ -329,53 +361,4 @@ void FUN_L15_002cbc30(void *arg) {
         }
         *(int *)&D_L15_00161AC0_d = 0;
     }
-}
-/* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_00298BB8.c: func_L15_002CD118), where it is exact; names translated to the US level program. */
-
-extern f32 ConvertIntegerToFloat(s32) __asm__("func_001FA6C0");
-extern int D_L15_0015F5CC MACRO_ADDR;
-extern s32 scale_game_frames(s32) __asm__("func_001F96F8");
-extern s32 truncate_float_to_s32(f32) __asm__("FUN_001fa6d0");
-extern short D_L15_00161ACC_d __asm__("D_L15_00161ACC") __attribute__((sda));
-extern short D_L15_00161AD0_d __asm__("D_L15_00161AD0") __attribute__((sda));
-extern short D_L15_00161AD4_d __asm__("D_L15_00161AD4") __attribute__((sda));
-extern signed char D_L15_00161ACF[] MACRO_ADDR;
-void emit_rgba_draw_packet(s32 r, s32 g, s32 b, s32 a) __asm__("FUN_001f5210");
-extern int func_001FA898_r(float) __asm__("FUN_001fa6d0");
-
-void FUN_L15_002cbd88(void) {
-    int n = scale_game_frames(*(int *)&D_L15_00161AD4_d);
-    float d = ConvertIntegerToFloat(n);
-    float s = fast_sin((float)(D_L15_0015F5CC % n) / d * 6.28318f);
-    float v = *(float *)&D_L15_00161ABC_d + *(float *)&D_L15_00161AD0_d * s;
-    int r;
-    int k;
-    if (v < 0.0f) v = 0.0f;
-    r = func_001FA898_r((float)D_L15_00161ACF[0] * v);
-    k = *(int *)&D_L15_00161ACC_d;
-    emit_rgba_draw_packet(k & 0xFF, k >= 9, k >= 17, r);
-}
-/* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_00298BB8.c: func_L15_002D7B60), where it is exact; names translated to the US level program. */
-
-typedef int u128 __attribute__((mode(TI)));
-
-extern char D_0013F350[];
-extern int FUN_001f0b58(void);
-extern int FUN_L00_0020d568(void);
-f32 probe_ground_height(void *arg0, s32 arg1, f32 arg2) __asm__("FUN_00213508");
-
-int FUN_L15_002d6770(void) {
-    char *p;
-    float vec[4];
-    float h;
-    if (FUN_L00_0020d568() != 0) return 1;
-    p = D_0013F350;
-    if ((unsigned)(*(int *)(p + 0x2084) - 0x18) < 2) {
-        *(u128 *)vec = *(u128 *)(p + 0x80);
-        vec[2] = vec[2] + 2.0f;
-        h = probe_ground_height(vec, 0, 0.5f);
-        if (FUN_001f0b58() != 0) return 0;
-        if (*(float *)(p + 0x88) <= h) return 1;
-    }
-    return 0;
 }
