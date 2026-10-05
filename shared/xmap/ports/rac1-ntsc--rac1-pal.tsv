@@ -35,14 +35,12 @@ same	628	sky_draw_shell_gouraud	boot	0022B928	boot	0022CC40	20
 same	624	FUN_L00_0028efc8	level:00	0028EFC8	boot	0022F4C8	20	
 same	608	sceRead	boot	0011C2C0	boot	0011C5C0	1	
 same	588	send_adpcm	boot	0023AFC0	boot	0023C390	20	
-same	588	FUN_L00_00217118	level:00	00217118	level:00	002178A0	19	
 same	576	draw_sky_shells	boot	0022B288	boot	0022C5A0	20	
 same	572	sky_draw_shell_textured	boot	0022B6E8	boot	0022CA00	20	
 same	568	sceLseek	boot	0011C088	boot	0011C388	1	
 same	548	FUN_L00_002afa48	level:00	002AFA48	level:00	002B0D30	19	
 same	548	FUN_L04_002e5178	level:04	002E5178	level:04	002E6558	1	
 same	528	FUN_L01_003087e0	level:01	003087E0	level:01	00309BB8	18	
-same	524	FUN_L06_002f38c8	level:06	002F38C8	level:06	002F4CF8	2	
 same	516	FUN_L00_002e7318	level:00	002E7318	level:00	002E87C8	19	
 same	516	FUN_L00_002e89b0	level:00	002E89B0	level:00	002E9E60	19	
 same	508	vi_buf_add_dma	boot	0023BF70	boot	0023D340	20	

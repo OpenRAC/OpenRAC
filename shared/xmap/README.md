@@ -10,7 +10,7 @@ Distinct functions: a function that repeats in several levels counts once.
 
 | Version | Programs | Distinct functions | Code bytes | Core | Network | Resident game | Level-only | Matched by its project |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `rac1/pal` (SCES_509.16) | 20 | 4,827 | 3,655,984 | 116,560 | 0 | 343,964 | 3,195,460 | 2,518 functions, 732,272 (20.0%) |
+| `rac1/pal` (SCES_509.16) | 20 | 4,827 | 3,655,984 | 116,560 | 0 | 343,964 | 3,195,460 | 2,520 functions, 733,384 (20.1%) |
 | `rac1/ntsc` (SCUS_971.99) | 20 | 4,827 | 3,646,376 | 116,240 | 0 | 339,884 | 3,190,252 | 2,510 functions, 753,420 (20.7%) |
 | `rac2/ntsc` (SCUS_972.68) | 28 | 8,056 | 5,053,396 | 122,120 | 0 | 903,244 | 4,028,032 | 227 functions, 13,508 (0.3%) |
 | `rac3/ntsc` (SCUS_973.53) | 53 | 14,436 | 7,020,256 | 153,024 | 0 | 443,392 | 6,423,840 | 848 functions, 88,312 (1.3%) |
@@ -84,7 +84,7 @@ at least one. What each version could take from the others together, each functi
 
 | Version | Functions matched elsewhere, present and open here | Bytes | Against what its project has matched |
 |---|---:|---:|---:|
-| `rac1/pal` | 147 | 58,192 | 7.9% of 732,272 |
+| `rac1/pal` | 145 | 57,080 | 7.8% of 733,384 |
 | `rac1/ntsc` | 186 | 60,020 | 8.0% of 753,420 |
 | `rac2/ntsc` | 437 | 62,472 | 462.5% of 13,508 |
 | `rac3/ntsc` | 192 | 22,252 | 25.2% of 88,312 |
@@ -98,7 +98,7 @@ lists them.
 | Matched in | Open in `rac1/pal` | Open in `rac1/ntsc` | Open in `rac2/ntsc` | Open in `rac3/ntsc` | Open in `rac4/ntsc` |
 |---|---:|---:|---:|---:|---:|
 | `rac1/pal` | – | 169 / 58,772 B (+6 / 6,544 B) | 297 / 47,864 B (+51 / 9,656 B) | 143 / 19,032 B (+45 / 7,976 B) | 131 / 15,960 B (+43 / 8,752 B) |
-| `rac1/ntsc` | 130 / 57,204 B (+8 / 8,184 B) | – | 298 / 47,636 B (+55 / 11,568 B) | 138 / 17,000 B (+45 / 8,476 B) | 133 / 15,832 B (+45 / 9,392 B) |
+| `rac1/ntsc` | 128 / 56,092 B (+8 / 8,184 B) | – | 298 / 47,636 B (+55 / 11,568 B) | 138 / 17,000 B (+45 / 8,476 B) | 133 / 15,832 B (+45 / 9,392 B) |
 | `rac2/ntsc` | 14 / 852 B (+2 / 288 B) | 4 / 448 B (+0 / 0 B) | – | 27 / 1,656 B (+2 / 76 B) | 30 / 1,832 B (+7 / 632 B) |
 | `rac3/ntsc` | 24 / 1,388 B (+14 / 744 B) | 14 / 816 B (+10 / 496 B) | 127 / 11,444 B (+81 / 9,072 B) | – | 161 / 14,304 B (+84 / 10,192 B) |
 | `rac4/ntsc` | 2 / 88 B (+0 / 0 B) | 2 / 1,868 B (+0 / 0 B) | 37 / 5,820 B (+1 / 52 B) | 51 / 6,672 B (+5 / 288 B) | – |

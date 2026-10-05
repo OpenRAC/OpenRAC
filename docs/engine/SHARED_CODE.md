@@ -74,15 +74,15 @@ this version's code, and still open here:
 
 | Version | Functions | Bytes | Compared with what the project has matched |
 |---|---:|---:|---|
-| rac1/pal | 147 | 58,192 | +8% |
+| rac1/pal | 145 | 57,080 | +8% |
 | rac1/ntsc | 186 | 60,020 | +8% |
 | rac2/ntsc | 437 | 62,472 | 4.6 times as much |
 | rac3/ntsc | 192 | 22,252 | +25% |
 | rac4/ntsc | 282 | 29,872 | 1.1 times as much |
 
-rac1/pal's row was 245 functions and 125,876 bytes until 98 of them were
-carried over from Lombyte by machine on 2026-10-04 (below); 130 of Lombyte's
-remain (57,204 bytes, among them `_dtoa_r` at 4.5 KB). Most of RAC2's come
+rac1/pal's row was 245 functions and 125,876 bytes until 100 of them were
+carried over from Lombyte by machine on 2026-10-04 (below); 128 of Lombyte's
+remain (56,092 bytes, among them `_dtoa_r` at 4.5 KB). Most of RAC2's come
 from the two RAC1 projects (about 295 functions, 48 KB). The lists, one per
 pair, are in [shared/xmap/ports/](../../shared/xmap/ports): source name and
 address, target program and address, size, and whether it is the same function
@@ -143,23 +143,23 @@ declaration: a global reached only through `$gp` is small data, one whose
 every `lui` access has the assembler's own shape (`lui $2` / `lw $2,%lo($2)`,
 or through `$at`) is `MACRO_ADDR`, a one- or two-byte global reached with
 `lui` is kept out of small data. For rac1/pal these three rules took the pass
-rate from 39 of 102 candidates to 101 of 140.
+rate from 39 of 102 candidates to 102 of 140.
 
 **Measured: Lombyte to rac1/pal, 2026-10-04.** Of 228 functions Lombyte has
 matched whose code is identical in PAL and open there:
 
 | Outcome | Functions | Bytes |
 |---|---:|---:|
-| Pass rac1/pal's checks as generated, and landed there | 98 | 67,684 |
-| Pass alone, but not beside the other C in their file | 2 | 1,372 |
+| Pass rac1/pal's checks as generated, and landed there | 100 | 68,796 |
+| Passes alone, but not beside the other C in its file | 1 | 784 |
 | Same size, a few bytes differ (the compilers schedule or allocate differently) | 17 | 12,572 |
-| Another size | 13 | 8,988 |
+| Another size | 12 | 8,464 |
 | The target file already declares the function with other types | 10 | 4,636 |
 | Uses the source project's inline `sq $0` helper, which rac1/pal has no form for | 17 | 6,416 |
 | Not attempted: movie code, and SDK code awaiting a decision ([shared/port/](../../shared/port)) | 67 | 20,304 |
 | Other (no listed function at the target address, an ambiguous name) | 4 | 2,916 |
 
-The 98 are 85 level functions, each exact under rac1/pal's strict link-time
+The 100 are 87 level functions, each exact under rac1/pal's strict link-time
 check and again with every other C function of its file, and 13 functions of
 the executable, confirmed by the full build (1,034 exact, none with a wrong
 size). No model wrote or adjusted any of them.
