@@ -67,7 +67,546 @@ void func_L15_002C7C20(char *m) {
     func_L00_0025E590(m, d + 0x60);
 }
 INCLUDE_ASM("asm/overlays", func_L15_002D0500);
-INCLUDE_ASM("asm/overlays", func_L15_002D0798);
+typedef int u128 __attribute__((mode(TI)));
+typedef union { u128 q; float f[4]; } UVec;
+typedef struct { int n; int pad[3]; UVec pt[1]; } UPath;
+typedef struct UData UData;
+typedef struct UMoby UMoby;
+struct UMoby {
+    char pad0[0x10];
+    UVec pos;
+    unsigned char state;
+    char pad21[3];
+    char *cls;
+    char pad28[8];
+    unsigned char b30;
+    char pad31;
+    unsigned short h32;
+    unsigned short flags;
+    char pad36[0xA];
+    UVec rot;
+    char pad50[3];
+    unsigned char anim;
+    char pad54[4];
+    float animSpeed;
+    char pad5C[0x14];
+    unsigned char animFlags;
+    char pad71[7];
+    UData *data;
+    char pad7C[0x18];
+    int w94;
+    char pad98[0x1A];
+    unsigned short id;
+    char padB4[0xC];
+    char mtx[0x40];
+};
+struct UData {
+    char pad0[0x20];
+    float f20;
+    short h24;
+    char pad26[2];
+    unsigned char b28;
+    unsigned char b29;
+    char pad2A[6];
+    float f30;
+    char pad34[0xA];
+    unsigned short h3E;
+    UVec vel;
+    char pad50[8];
+    unsigned char b58;
+    char pad59[0x17];
+    char hit[0x78];
+    float fE8;
+    char padEC[0x74];
+    UMoby *target;
+    int w164;
+    char pad168[8];
+    int path;
+    float f174;
+    char pad178[8];
+    int paths[2];
+    float f188;
+    char pad18C[0x14];
+    UVec v1A0;
+    int side;
+    int point;
+    float f1B8;
+    float turnVel;
+    int timer;
+    int shots;
+    int w1C8;
+    int w1CC;
+    int w1D0;
+    int w1D4;
+    int w1D8;
+    int w1DC;
+    int snd;
+    char pad1E4[0x1C];
+    unsigned char v200[0x10];
+};
+typedef struct { char pad0[0x454]; unsigned char collected[1]; } ULevelState;
+typedef struct { int idx[2]; } UPaths;
+
+extern void func_L15_002D2398(void *);
+extern void func_L00_0028EBF0(int);
+extern void func_L00_00264B40(float, int, int, unsigned char *);
+extern int func_001160D8(void);
+extern void func_00213DE0(void *, int, int, int);
+extern int func_00215570(void *arg0, int arg1);
+extern int func_L01_0026EFB8(int, int);
+extern int func_L00_0025A778(void *, void *, int);
+extern float func_001F9D10(void *, void *);
+extern void func_001F9BF0(void *, void *, void *);
+extern void func_L00_001FF500(void *, void *, float);
+extern void func_L00_0025EFC0(void *, void *, void *, int *, float *, int, float, float, float);
+extern float func_001FA888(int);
+extern int func_001FA898_r(float) __asm__("func_001FA898");
+extern float func_00214358(void *, int, float);
+extern float func_001F9878(float);
+extern void func_001F9C30(void *, void *, float);
+extern void func_001F9BD8(void *, void *, void *);
+extern float func_L00_00259148(float *vel, float cur, float target, float k, float d, float max);
+extern float func_001F9CB8(void *);
+extern void func_L00_001FF4B0(void *, void *, float);
+extern float func_L00_0025CE58(void *, float, void *, float, float, float);
+extern int func_001F9908(int *);
+extern float func_001F9D48(void *, void *);
+extern int func_00215B18(char *, float);
+extern void func_L00_00250800(void *, int, void *);
+extern char *func_L10_002CD578_v(void *vel, float scale, void *pos, int a, int b, int c) __asm__("func_L10_002CD578");
+extern void func_L00_001FF240(void *, void *, void *);
+extern void func_L03_00251AC8(void *, void *, int);
+extern float func_L15_002D0500(void *, void *, float);
+extern void func_L00_002592B0(char *moby, float *vel, float target, float k, float d, float max);
+extern int func_L00_002594C8(void *, void *, void *, int, float, float, float, float);
+extern float func_0020D830(void *);
+extern void func_L00_0025A8C0(void *, void *, int, void *, float);
+extern void func_L00_001F2BE8(void *, int, void *, void *, float);
+extern int func_L00_001EFFF0(void *, void *, int, void *, void *);
+extern int func_L00_0025AD60(void *a, void *b, void *c, void *d, void *e, void *f, int n);
+extern void func_001E9768(void *, void *);
+extern int func_L00_0025D6F0(void *, void *);
+extern float func_L00_0025BC48(void *a, void *b, void *out, float speed, float g);
+extern void *func_L00_00265050(void *, int, void *, void *, int, int, float, void *, void *, void *);
+extern void func_L00_00264EA8(void *, int, int, int, int, int, int);
+extern int func_L00_0028EB98(void *, int);
+extern int func_0022ED80(int, int, int);
+extern float func_002140F8(float, float);
+extern int func_002140B0(int);
+extern void func_001F9EC0(void *, void *, void *);
+extern int func_L00_00258BC8(int, int);
+extern void func_L00_0026DD70(void *, void *, int, int, float, int);
+extern void func_L00_0025A8E8(int, float, void *, int, float, float, int, int, int);
+
+extern unsigned char D_0013E633[];
+extern unsigned char D_001414F4[];
+extern unsigned char D_0014171B[] NOT_SDA;
+extern UPath *D_L15_001B0DB0[];
+extern float D_0015EE70 MACRO_ADDR;
+extern float D_0015EE60 MACRO_ADDR;
+extern int D_0015EE84 MACRO_ADDR;
+extern float D_L15_0015F660[] MACRO_ADDR;
+extern ULevelState D_L15_001BAEE0;
+extern ULevelState D_L15_001BBB40;
+extern int D_L15_001BADE0[];
+extern short D_L15_00161B9C;
+extern short D_L15_00161BA0;
+extern short D_L15_00161BA4;
+extern short D_L15_00161BA8;
+extern short D_L15_00161BAC;
+extern short D_L15_00161BB0;
+extern short D_L15_00161BBC;
+extern short D_L15_00161BC0;
+extern short D_L15_00161BC4;
+
+/* Update function of the ultramech (moby class 491): waits for the player, follows its path, turns, fires and strafes, with jet particles while it moves. */
+void func_L15_002D0798(UMoby *m) {
+    UVec v10;
+    UVec v20;
+    UVec v30;
+    UVec v40;
+    UVec v50;
+    UVec v60;
+    int seg;
+    float frac;
+    int moving;
+    UData *d;
+    UMoby *tgt;
+    int idx;
+
+    moving = 0;
+    d = m->data;
+    func_L15_002D2398(m);
+    tgt = d->target;
+    if (m->state != 0 && m->state != 0x40 && D_001414F4[0] != 2) {
+        m->w94 = 0;
+        m->flags |= 0x41;
+        idx = d->snd;
+        if (idx != -1) {
+            char *e = (char *)D_0013E633 + 0x1D + idx * 0x70;
+            if (*(UMoby **)(e + 0x88) == m) {
+                if (*(unsigned char *)(e + 0x74) != 0) func_L00_0028EBF0(idx);
+            }
+        }
+        d->snd = -1;
+        m->flags &= 0xEFFF;
+        d->b58 = 0;
+        m->state = 1;
+        return;
+    }
+    func_L00_00264B40(2.5f, (int)m, 6, d->v200);
+    switch (m->state) {
+    case 0:
+        d->f20 = 12.0f;
+        d->h24 = 0xC;
+        d->b28 = 3;
+        d->h3E |= 2;
+        d->f30 = 6.0f;
+        d->b29 = 0;
+        {
+            int ff = 0xFF;
+            m->h32 = ff;
+            m->b30 = ff;
+        }
+        d->snd = -1;
+        d->turnVel = 0.0f;
+        d->f174 = 90.0f;
+        if (func_001160D8() & 1) m->flags |= 0x8000;
+        m->w94 = 0;
+        m->flags = (m->flags | 0x41) & 0xEFFF;
+        if (d->paths[0] == -1 || d->paths[1] == -1) d->w1D4 = 1;
+        if (d->path != -1) m->pos.q = D_L15_001B0DB0[d->path]->pt[0].q;
+        m->state = 1;
+        if (m->anim != 0) func_00213DE0(m, 0, 0, 5);
+        break;
+    case 1:
+        if (d->w1CC != -1 || func_00215570(D_0013E633 + 0xE9D, d->w1DC)) {
+            if (d->w1CC != -1 && func_L01_0026EFB8(d->w1CC, 0x40)) break;
+            if (D_001414F4[0] == 2) {
+                m->w94 = *(int *)(m->cls + 0x10);
+                m->flags = (m->flags & 0xFFBE) | 0x1000;
+            }
+        }
+        if (d->w164 != 2 && d->path != -1) {
+            unsigned char *pl = D_0013E633 + 0xE1D;
+            if (pl[0x20A4] == 2 && (m->flags & 0x1000)) {
+                if (d->w1D0 != -1 && !func_L00_0025A778(pl + 0x80, D_L15_001B0DB0[d->w1D0]->pt, D_L15_001B0DB0[d->w1D0]->n)) {
+                    m->w94 = 0;
+                    m->flags = (m->flags | 0x41) & 0xEFFF;
+                } else {
+                    UPath *path;
+                    int i;
+                    m->state = 2;
+                    if (m->anim != 4) func_00213DE0(m, 4, 0, func_001F9850(0x14));
+                    path = D_L15_001B0DB0[d->path];
+                    for (i = 0; i < path->n - 2; i++) {
+                        path->pt[i].f[3] = func_001F9D10(&path->pt[i], &path->pt[i + 1]);
+                    }
+                    m->pos.q = path->pt[0].q;
+                    func_001F9BF0(&d->vel, (UVec *)path + path->n, &m->pos);
+                    func_L00_001FF500(&d->vel, &d->vel, *(float *)&D_L15_00161B9C * D_0015EE6C);
+                    d->vel.f[2] = func_L00_0025BC48(&m->pos, (UVec *)path + path->n, 0, *(float *)&D_L15_00161B9C * D_0015EE6C, -(*(float *)&D_L15_00161BA0 * D_0015EE70));
+                }
+            }
+        }
+        break;
+    case 2: {
+        UPath *path = D_L15_001B0DB0[d->path];
+        float speed = D_0015EE6C * 12.0f;
+        float dist;
+        float len;
+        func_L00_0025EFC0(path, &m->pos, &v20, &seg, &frac, 0, 999.0f, 5.0f, 0.0f);
+        dist = func_001FA888(seg) * path->pt[0].f[3];
+        dist += frac;
+        dist += 2.0f;
+        seg = func_001FA898_r(dist / path->pt[0].f[3]);
+        dist -= func_001FA888(seg) * path->pt[0].f[3];
+        dist /= path->pt[0].f[3];
+        frac = dist;
+        if (seg >= path->n - 1) {
+            float z = func_00214358(&m->pos, 0, 0.5f);
+            if (m->pos.f[2] < z) m->pos.f[2] = z;
+            m->state = 4;
+            d->timer = func_001F9850(0xF);
+            break;
+        }
+        dist = func_001F9D10(&m->pos, (UVec *)path + path->n);
+        if (dist < speed / func_001F9878(26.0f) && m->anim != 5) {
+            func_00213DE0(m, 5, 0, func_001F9850(6));
+        }
+        func_001F9BF0(&v20, (UVec *)path + (seg + 2), (UVec *)path + (seg + 1));
+        func_001F9C30(&v20, &v20, frac);
+        func_001F9BD8(&v20, &v20, (UVec *)path + (seg + 1));
+        if (seg + 1 < path->n - 8) {
+            float ang = func_L00_001FF860(path->pt[seg + 1].f[0] - m->pos.f[0], path->pt[seg + 1].f[1] - m->pos.f[1]);
+            m->rot.f[2] = func_L00_00259148(&d->turnVel, m->rot.f[2], ang, 0.01f, 0.3f, 0.1f);
+        }
+        func_001F9BF0(&v10, &v20, &m->pos);
+        len = func_001F9CB8(&v10);
+        if (speed < len) len = speed;
+        moving = 1;
+        func_L00_001FF4B0(&v10, &v10, len);
+        func_001F9BD8(&m->pos, &m->pos, &v10);
+        break;
+    }
+    case 3:
+        if (m->anim == 3 && (m->animFlags & 2)) func_00213DE0(m, 4, 0, func_001F9850(6));
+        func_001F9BD8(&m->pos, &m->pos, &d->vel);
+        d->vel.f[2] -= *(float *)&D_L15_00161BA0 * D_0015EE70;
+        if (d->vel.f[2] < 0.0f) {
+            float z;
+            qcopy(&v10, &m->pos);
+            v10.f[2] += 1.0f;
+            z = func_00214358(&v10, 0, 0.5f);
+            if (m->pos.f[2] - z < d->vel.f[2] * func_001F9878(26.0f) + *(float *)&D_L15_00161BA0 * D_0015EE70 * 0.5f * func_001F9878(26.0f) * func_001F9878(26.0f) && m->anim != 5) {
+                func_00213DE0(m, 5, 0, func_001F9850(6));
+            }
+            if (m->pos.f[2] < z) {
+                m->pos.f[2] = z;
+                m->state = 4;
+                d->timer = func_001F9850(0xF);
+            }
+        }
+        moving = 1;
+        break;
+    case 4:
+        if (m->anim != 0 && (m->animFlags & 2)) func_00213DE0(m, 0, 0, func_001F9850(0x14));
+        if (d->w164 != 2) {
+            func_L00_0025CE58(&m->rot.f[2], func_L00_001FF860(tgt->pos.f[0] - m->pos.f[0], tgt->pos.f[1] - m->pos.f[1]), &d->turnVel, D_0015EE70 * 8.726646f, D_0015EE70 * 8.726646f, D_0015EE6C * 12.566371f);
+            if (func_001F9908(&d->timer)) {
+                if (d->w1D8 == 0 && func_001F9D48(&m->pos, &tgt->pos) < *(float *)&D_L15_00161BAC) {
+                    m->state = 7;
+                    if (m->anim != 1) func_00213DE0(m, 1, 0, func_001F9850(0xA));
+                } else if (d->w1D8 == 0 && func_001F9D48(&m->pos, &tgt->pos) < *(float *)&D_L15_00161BB0) {
+                    m->state = 8;
+                    if (m->anim != 2) func_00213DE0(m, 2, 0, func_001F9850(0xA));
+                } else {
+                    m->state = 5;
+                    if (m->anim != 6) func_00213DE0(m, 6, 0, func_001F9850(0x14));
+                    d->shots = 0;
+                }
+            }
+        }
+        break;
+    case 5:
+        if (m->anim == 6 && (m->animFlags & 2)) {
+            func_00213DE0(m, 7, 0, func_001F9850(5));
+            m->animSpeed = *(float *)&D_L15_00161BBC;
+        }
+        if (d->w164 != 2) {
+            int fire = -1;
+            func_L00_0025CE58(&m->rot.f[2], func_L00_001FF860(tgt->pos.f[0] - m->pos.f[0], tgt->pos.f[1] - m->pos.f[1]), &d->turnVel, D_0015EE70 * 8.726646f, D_0015EE70 * 8.726646f, D_0015EE6C * 12.566371f);
+            if (m->anim == 7) {
+                if (func_00215B18((char *)m, 0.0f)) fire = 1;
+            }
+            if (fire >= 0) {
+                func_L00_00250800(m, 0, &v10);
+                func_001F9BF0(&v20, &tgt->pos, &v10);
+                v20.f[2] += 0.5f;
+                func_L00_001FF4B0(&v20, &v20, *(float *)&D_L15_00161BA8 * D_0015EE6C);
+                if (0.0f < v20.f[2]) v20.f[2] = 0.0f;
+                if (v20.f[2] < 0.0f) v20.f[2] = 0.0f;
+                func_L10_002CD578_v(&v20, 3.0f, &v10, (int)m, (int)tgt, func_001F9850(*(int *)&D_L15_00161BA4));
+                func_L00_001FF4B0(&v20, &v20, 3.0f);
+                func_L00_001FF240(&v30, &v10, &v20);
+                func_L03_00251AC8(m, &v10, 0);
+                d->shots++;
+            } else if ((float)d->shots >= 6.0f && (m->animFlags & 2)) {
+                m->state = 6;
+                if (m->anim != 0) func_00213DE0(m, 0, 0, func_001F9850(0xA));
+                d->timer = func_001FA898_r(func_001F9878(d->f188 * 60.0f));
+            } else if (d->w1D8 == 0 && func_001F9D48(&m->pos, &tgt->pos) < *(float *)&D_L15_00161BAC) {
+                m->state = 7;
+                if (m->anim != 1) func_00213DE0(m, 1, 0, func_001F9850(0xA));
+            } else if (d->w1D8 == 0 && func_001F9D48(&m->pos, &tgt->pos) < *(float *)&D_L15_00161BB0) {
+                m->state = 8;
+                if (m->anim != 2) func_00213DE0(m, 2, 0, func_001F9850(0xA));
+            } else if (d->w1D8 == 0 && func_001F9D48(&m->pos, &tgt->pos) > 10.0f && d->w1C8 != 0 && d->w1D4 == 0) {
+                m->state = 3;
+                d->timer = 0;
+                d->side = (d->side + 1) & 1;
+                if (m->anim != 3) func_00213DE0(m, 3, 0, func_001F9850(0x14));
+                func_001F9BF0(&d->vel, (UVec *)D_L15_001B0DB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] + (d->point + 1), &m->pos);
+                func_L00_001FF500(&d->vel, &d->vel, *(float *)&D_L15_00161B9C * D_0015EE6C);
+                d->vel.f[2] = func_L00_0025BC48(&m->pos, (UVec *)D_L15_001B0DB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] + (d->point + 1), 0, *(float *)&D_L15_00161B9C * D_0015EE6C, -(*(float *)&D_L15_00161BA0 * D_0015EE70));
+            }
+        } else {
+            m->state = 4;
+            if (m->anim != 0) func_00213DE0(m, 0, 0, func_001F9850(0x14));
+        }
+        break;
+    case 6:
+        if (d->w164 != 2) {
+            func_L00_0025CE58(&m->rot.f[2], func_L00_001FF860(tgt->pos.f[0] - m->pos.f[0], tgt->pos.f[1] - m->pos.f[1]), &d->turnVel, D_0015EE70 * 8.726646f, D_0015EE70 * 8.726646f, D_0015EE6C * 12.566371f);
+            if (d->w1D8 == 0 && func_001F9D48(&m->pos, &tgt->pos) < 8.0f && d->w1D4 == 0 && d->point < D_L15_001B0DB0[((UPaths *)((char *)d + 0x180))->idx[d->side]]->n - 1) {
+                m->state = 3;
+                d->timer = 0;
+                d->point++;
+                if (m->anim != 3) func_00213DE0(m, 3, 0, func_001F9850(0x14));
+                func_001F9BF0(&d->vel, (UVec *)D_L15_001B0DB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] + (d->point + 1), &m->pos);
+                func_L00_001FF500(&d->vel, &d->vel, *(float *)&D_L15_00161B9C * D_0015EE6C);
+                d->vel.f[2] = func_L00_0025BC48(&m->pos, (UVec *)D_L15_001B0DB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] + (d->point + 1), 0, *(float *)&D_L15_00161B9C * D_0015EE6C, -(*(float *)&D_L15_00161BA0 * D_0015EE70));
+            } else if (func_001F9908(&d->timer)) {
+                m->state = 5;
+                if (m->anim != 6) func_00213DE0(m, 6, 0, func_001F9850(0x14));
+                d->shots = 0;
+            }
+        } else {
+            m->state = 4;
+            if (m->anim != 0) func_00213DE0(m, 0, 0, func_001F9850(0x14));
+        }
+        break;
+    case 7: {
+        float ang = func_L00_001FF860(tgt->pos.f[0] - m->pos.f[0], tgt->pos.f[1] - m->pos.f[1]);
+        if (d->w164 != 2) {
+            ang = func_L15_002D0500(m, &v20, d->f1B8);
+            if (func_001F9D48(&m->pos, &tgt->pos) < *(float *)&D_L15_00161BB0) {
+                m->state = 8;
+                if (m->anim != 2) func_00213DE0(m, 2, 0, func_001F9850(0xA));
+            }
+        } else {
+            m->state = 4;
+            if (m->anim != 0) func_00213DE0(m, 0, 0, func_001F9850(0x14));
+        }
+        func_L00_002592B0((char *)m, &d->turnVel, ang, D_0015EE70 * 1.0471976f, D_0015EE70 * 3.1415927f, D_0015EE6C * 3.1415927f);
+        qcopy(&v10, &m->pos);
+        func_001F9BF0(&v30, &v20, &m->pos);
+        v20.q = v30.q;
+        func_L00_001FF4B0(&v20, &v20, D_0015EE6C * 6.5f);
+        func_L00_001FF240(&v30, &v20, &m->pos);
+        if (!func_L00_002594C8(m, &v10, &v20, 1, 2.25f, 1.75f, 0.5f, 0.5235988f) || func_L00_0025A778(&v10, D_L15_001B0DB0[d->side]->pt, D_L15_001B0DB0[d->side]->n)) {
+            qcopy(&m->pos, &v10);
+            m->state = 4;
+            if (m->anim != 0) func_00213DE0(m, 0, 0, func_001F9850(0xC));
+        } else {
+            m->pos.q = v10.q;
+        }
+        break;
+    }
+    case 8:
+        func_L00_0025CE58(&m->rot.f[2], func_L00_001FF860(tgt->pos.f[0] - m->pos.f[0], tgt->pos.f[1] - m->pos.f[1]), &d->turnVel, D_0015EE70 * 8.726646f, D_0015EE70 * 8.726646f, D_0015EE6C * 12.566371f);
+        if (m->animFlags & 2) {
+            if (func_001F9D48(&m->pos, &tgt->pos) < *(float *)&D_L15_00161BB0 && d->w1D4 == 0 && d->point < D_L15_001B0DB0[((UPaths *)((char *)d + 0x180))->idx[d->side]]->n - 1) {
+                m->state = 3;
+                d->timer = 0;
+                d->point++;
+                if (m->anim != 3) func_00213DE0(m, 3, 0, func_001F9850(0x14));
+                func_001F9BF0(&d->vel, (UVec *)D_L15_001B0DB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] + (d->point + 1), &m->pos);
+                func_L00_001FF500(&d->vel, &d->vel, *(float *)&D_L15_00161B9C * D_0015EE6C);
+                d->vel.f[2] = func_L00_0025BC48(&m->pos, (UVec *)D_L15_001B0DB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] + (d->point + 1), 0, *(float *)&D_L15_00161B9C * D_0015EE6C, -(*(float *)&D_L15_00161BA0 * D_0015EE70));
+            } else if (*(float *)&D_L15_00161BB0 < func_001F9D48(&m->pos, &tgt->pos)) {
+                m->state = 4;
+                if (m->anim != 0) func_00213DE0(m, 0, 0, func_001F9850(0x14));
+            }
+        } else {
+            float h = func_0020D830(m);
+            func_L00_00250800(m, 1, &v60);
+            if (h >= 17.0f && h <= 24.0f) {
+                qcopy(&v50, &m->pos);
+                v50.f[2] += 0.5f;
+                v40.f[0] = func_001F9F90(m->rot.f[2]);
+                v40.f[1] = func_001F9FA8(m->rot.f[2]);
+                v40.f[2] = 1.0f;
+                func_L00_0025A8C0(&v10, m, 0x10007, &v40, 4.0f);
+                func_L00_001F2BE8(&v60, 9, m, &v10, 2.5f);
+                func_L00_001EFFF0(&v50, &v60, 0, m, &v10);
+                func_L00_0025AD60(&v50, &v60, &v50, &d->v1A0, m, &v10, 5);
+                func_001E9768(&v50, &v60);
+                qcopy(&d->v1A0, &v60);
+            }
+        }
+        break;
+    case 9: {
+        int r = 0;
+        if (d->w1D8 == 0) {
+            r = func_L00_0025D6F0(m, d->hit);
+        } else {
+            m->animSpeed = 1.0f;
+        }
+        if ((r & 0x40) || (d->w1D8 != 0 && (m->animFlags & 2))) {
+            if (d->w1D4 == 0) {
+                m->state = 3;
+                d->timer = 0;
+                d->side = (d->side + 1) & 1;
+                qcopy(&v10, (UVec *)D_L15_001B0DB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] + d->point + 1);
+                v10.f[2] = func_00214358(&v10, 0, 0.5f);
+                if (m->anim != 3) func_00213DE0(m, 3, 0, func_001F9850(0x14));
+                func_001F9BF0(&d->vel, &v10, &m->pos);
+                func_L00_001FF500(&d->vel, &d->vel, *(float *)&D_L15_00161B9C * D_0015EE6C);
+                d->vel.f[2] = func_L00_0025BC48(&m->pos, &v10, 0, *(float *)&D_L15_00161B9C * D_0015EE6C, -(*(float *)&D_L15_00161BA0 * D_0015EE70));
+            } else {
+                m->state = 4;
+                if (m->anim != 0) func_00213DE0(m, 0, 0, func_001F9850(0x14));
+            }
+        }
+        break;
+    }
+    case 10:
+        func_001F9C30(&v10, m->mtx, *(float *)&D_L15_00161BC0 * D_0015EE60);
+        v10.f[2] += *(float *)&D_L15_00161BC4 * D_0015EE60;
+        func_L00_00265050(m, 0x64A, &m->pos, &m->rot, func_001F9850(0x5A), 0, D_0015EE70 * 12.0f, &v10, D_L15_0015F660, D_L15_0015F660);
+        func_L00_00265050(m, 0x64B, &m->pos, &m->rot, func_001F9850(0x5A), 0, D_0015EE70 * 12.0f, &v10, D_L15_0015F660, D_L15_0015F660);
+        func_L00_00265050(m, 0x64C, &m->pos, &m->rot, 0, 0, 0.0f, D_L15_0015F660, D_L15_0015F660, D_L15_0015F660);
+        func_L00_00264EA8(m, 0x7A9, 1, 0x7A9, 2, 4, 2);
+        m->state = 0x40;
+        return;
+    case 0x40:
+        m->w94 = 0;
+        m->flags = (m->flags | 0x41) & 0xEFFF;
+        d->b58 = 0;
+        D_L15_001BAEE0.collected[(short)m->id] = 0;
+        D_L15_001BBB40.collected[(short)m->id] = 0;
+        *(int *)(D_0014171B + 0xAB75 + (((short)m->id >> 5) * 4 + (D_0015EE84 << 8))) &= ~(1 << (m->id & 0x1F));
+        D_L15_001BADE0[(short)m->id >> 5] &= ~(1 << (m->id & 0x1F));
+        if (D_001414F4[0] != 2) m->state = 0;
+        break;
+    }
+    if (moving) {
+        if (func_L00_0028EB98(m, d->snd)) goto spawn;
+        d->snd = func_0022ED80(7, 4, (int)m);
+    } else {
+        idx = d->snd;
+        if (idx != -1) {
+            char *e = (char *)D_0013E633 + 0x1D + idx * 0x70;
+            if (*(UMoby **)(e + 0x88) == m) {
+                if (*(unsigned char *)(e + 0x74) != 0) func_L00_0028EBF0(idx);
+            }
+        }
+        d->snd = -1;
+    }
+    if (moving) {
+        int i;
+        int j;
+        int n;
+spawn:
+        for (i = 0; i < 10; i = n) {
+            n = i + 1;
+            for (j = 2; j < 6; j++) {
+                int k;
+                v20.q = 0;
+                v20.f[0] = func_002140F8(1.0f, -1.0f) * (D_0015EE6C * 20.0f);
+                v20.f[1] = func_002140F8(1.0f, -1.0f) * (D_0015EE6C * 20.0f);
+                v20.f[2] = func_002140F8(0.8f, 1.2f) * (D_0015EE6C * -20.0f);
+                v10.q = v20.q;
+                k = func_002140B0(100) & 1;
+                func_L00_00250800(m, j, &v20);
+                func_001F9EC0(&v10, &v10, m->mtx);
+                func_L00_0026DD70(&v20, &v10, k ? 0x400F0F7F : 0x407F7F7F, 0x272727, func_002140F8(1.5f, 3.0f) * 210000.0f, func_001F9850(k ? func_L00_00258BC8(0xA, 0xF) : func_L00_00258BC8(0x14, 0x1E)));
+            }
+        }
+    } else if (m->state > 1 && m->state != 0x40) {
+        float z;
+        d->fE8 += D_0015EE70 * 30.0f;
+        m->pos.f[2] -= d->fE8 - 2.0f;
+        z = func_00214358(&m->pos, 0, 0.5f);
+        m->pos.f[2] -= 2.0f;
+        if (m->pos.f[2] < z) {
+            m->pos.f[2] = z;
+            d->fE8 = 0.0f;
+        }
+        func_L00_0025A8E8((int)m, 2.5f, &m->pos, 0x10000, 40.0f, 1.0f, 0, 1, 0);
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L15_002D2398);
 extern float func_001FA748(float, float);
 extern float D_0015EE6C MACRO_ADDR;

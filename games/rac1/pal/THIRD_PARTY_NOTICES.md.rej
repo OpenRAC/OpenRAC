@@ -1,0 +1,16 @@
+diff a/games/rac1/pal/THIRD_PARTY_NOTICES.md b/games/rac1/pal/THIRD_PARTY_NOTICES.md	(rejected hunks)
+@@ -285,6 +285,14 @@ to its PAL address, and each passed this project's own check. In parentheses, Lo
+ - `src/core/00114518.c`: `func_00114920` (`_malloc_r`; newlib's allocator, see below)
+ - `src/core/00119D88.c`: `func_0011AA90` (`_sceSifSendCmd`; its two small structs' members are named by offset here)
+ 
++Four more began as machine ports that came out a few bytes off and were finished by hand by the GPT agent
++(2026-10-05):
++
++- `src/overlays/shared/vendor_002BA7C8.c`: `func_L00_002C0358` (`FUN_L00_002bf050`)
++- `src/overlays/shared/shrubproc_0028A198.c`: `func_L00_0028AF90` (`FUN_L00_00289cb8`)
++- `src/overlays/shared/hud_00235960.c`: `func_L00_00239510` (`FUN_L00_00238b80`)
++- `src/overlays/shared/help_00203E98.c`: `func_L00_002091D8` (`FUN_L00_00208b60`)
++
+ Data taken from Lombyte:
+ 
+ - `tools/extract/moby_classes.tsv`: the moby class names the level editor

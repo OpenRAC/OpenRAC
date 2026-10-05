@@ -37,6 +37,12 @@ with calls (func_0012E688, func_0012EC60). Three rules:
    unfilled bc1 in reorder mode), so the pairs are found in the
    assembled object, never guessed from the source.
 
+   GNU as can already have inserted this nop before a label between the
+   compare and branch. SN's label instead names the nop: a jump into the
+   shared branch must execute the hazard delay too. Spell the existing
+   nop out after the label in that case, replacing GNU's implicit one
+   without changing the instruction count (func_L00_002C0358).
+
 3. GPR to FPU move. An `mtc1 $x, $fN` -- written out or from an `li.s`
    expansion -- immediately followed by an instruction that reads $fN
    gets a nop between them, in reorder code (215 times in retail text;
@@ -253,6 +259,31 @@ def move_sites(lines, start, end):
     return sites
 
 
+def fp_label_nop(lines, start, j, text, addr):
+    """An implicit GNU FP nop whose shared-branch label skipped the nop.
+
+    Require both the assembled hazard pair and a source label between
+    the compare and branch. An explicit source nop already fixes the
+    label placement; ordinary comparisons without labels need no change.
+    """
+    if addr < 8 or text[addr - 4:addr] != b"\0\0\0\0" \
+            or not decode(text, addr - 8).getOpcodeName().startswith("c."):
+        return False
+    labelled = False
+    for k in range(j - 1, start - 1, -1):
+        stripped = lines[k].split("#", 1)[0].strip()
+        if not stripped:
+            continue
+        if stripped.endswith(":"):
+            labelled = True
+            continue
+        if stripped.startswith("."):
+            continue
+        m = INSN_LINE.match(stripped)
+        return labelled and m is not None and m.group(1).startswith("c.")
+    return False
+
+
 def main() -> None:
     src_path, obj_path, dst_path = sys.argv[1:4]
     lines = open(src_path).readlines()
@@ -265,7 +296,7 @@ def main() -> None:
 
     inserts = {}  # line index -> number of nops to put before it
     as_words = set()  # branch lines to write as .word (GNU as over-padded them)
-    loops = fps = moves = 0
+    loops = fps = moves = fp_labels = 0
     hand_written = noreorder_ranges()
     i = 0
     while i < len(lines):
@@ -306,6 +337,9 @@ def main() -> None:
             if needs:
                 inserts[j] = inserts.get(j, 0) + 1
                 fps += 1
+            elif fp_label_nop(lines, i, j, text, addr):
+                inserts[j] = inserts.get(j, 0) + 1
+                fp_labels += 1
         for j in src_moves:
             inserts[j] = inserts.get(j, 0) + 1
             moves += 1
@@ -349,7 +383,8 @@ def main() -> None:
         out.append(line)
     open(dst_path, "w").writelines(out)
     print(f"ps2eeas_nops: padded {loops} short loop(s), {fps} FP compare(s), "
-          f"{moves} mtc1 use(s), unpadded {len(as_words)} branch(es) {src_path} -> {dst_path}")
+          f"{moves} mtc1 use(s), placed {fp_labels} shared FP label(s), "
+          f"unpadded {len(as_words)} branch(es) {src_path} -> {dst_path}")
 
 
 if __name__ == "__main__":
