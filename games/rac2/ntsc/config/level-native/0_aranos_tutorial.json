@@ -15,19 +15,204 @@
   "gp": 0,
   "functions": [
     {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002ADE68",
+      "address": 2809448,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1220 when field 0x1244 equals two, otherwise zero"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002ADEA0",
+      "address": 2809504,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1248 when field 0x1244 equals two, otherwise minus one"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002ADFD0",
+      "address": 2809808,
+      "size": 20,
+      "meaning": "returns the provided value, or object byte 0xa9 when the value is 255"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002AEAC0",
+      "address": 2812608,
+      "size": 88,
+      "meaning": "maps values one, two and three to identifiers 0x72, 0x70 and 0x6e"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002D68E8",
+      "address": 2975976,
+      "size": 12,
+      "meaning": "returns the resident 32-bit field at core address 0x0018c0b4"
+    },
+    {
       "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002D7940",
       "address": 2980160,
       "size": 24,
       "meaning": "clear five object fields; independently qualified in this overlay"
     },
     {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002E3A68",
+      "address": 3029608,
+      "size": 36,
+      "meaning": "evaluates (b-a)*(t*t)+a*t and converts the measured float result to a signed word"
+    },
+    {
       "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002F3DD0",
       "address": 3096016,
       "size": 72,
       "meaning": "indexed copy of overlay-owned five-entry table"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002D7140",
+      "address": 2978112,
+      "size": 92,
+      "meaning": "clears object byte then calls the measured four-float helper when the field is nonnegative"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002E5890",
+      "address": 3037328,
+      "size": 136,
+      "meaning": "Set up aligned GS buffer state and emit pinned register/clear helper calls; source identity and matching require complete-unit qualification"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002ADCF8",
+      "address": 2809080,
+      "size": 56,
+      "meaning": "forwards an output pointer, three pinned floating constants and selector one to the typed helper"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002ADED8",
+      "address": 2809560,
+      "size": 56,
+      "meaning": "tests whether the indexed resident status equals 12 or 17"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002ADF10",
+      "address": 2809616,
+      "size": 36,
+      "meaning": "tests whether the indexed resident status equals 47"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002B3248",
+      "address": 2830920,
+      "size": 32,
+      "meaning": "tests the signed short identifier at offset 0xaa of a nonnull object against 71"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_003417B8",
+      "address": 3413944,
+      "size": 100,
+      "meaning": "advances an index with signed delta and either wraps by count or clamps the applicable endpoint"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002F6ED8",
+      "address": 3108568,
+      "size": 116,
+      "meaning": "findfirstmatchingkey among13records and writefield24 plusfield04 whenword68clear"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_00305930",
+      "address": 3168560,
+      "size": 72,
+      "meaning": "returns the indexed resident bit using signed division by eight and an unsigned remainder validity guard"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_0037DDE8",
+      "address": 3661288,
+      "size": 68,
+      "meaning": "searches 32 sixteen-byte records for matching key and owner words and returns the value word or minus one"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_0036AC58",
+      "address": 3583064,
+      "size": 192,
+      "meaning": "apply nonzero signed halfword overrides to selected object rows; observed count0F, rows1C, stride50 and key33"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_003F8A78",
+      "address": 4164216,
+      "size": 88,
+      "meaning": "finds the first matching object pointer in thirty resident32-byte records or returns-1"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002D67A8",
+      "address": 2975656,
+      "size": 160,
+      "meaning": "Filter primary or fallback object's class identifier by mode and signed selection"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002A4FE8",
+      "address": 2772968,
+      "size": 96,
+      "meaning": "select primary pointer forkind0/2/3/4/5, secondary for1,tertiary for6; otherwiseNULL"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002F3AA8",
+      "address": 3095208,
+      "size": 84,
+      "meaning": "search56 byte-mapped E0 records by U16class3C, return opaque32 marker0 elsezero"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_00380148",
+      "address": 3670344,
+      "size": 300,
+      "meaning": "relocates serialized offsets and compacts16-byte rows in their original storage using captured sourcewords"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002D6728",
+      "address": 2975528,
+      "size": 60,
+      "meaning": "Return one when the resident mode word is25,5,10 or15, otherwise zero"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002D31D0",
+      "address": 2961872,
+      "size": 56,
+      "meaning": "Set bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002D3208",
+      "address": 2961928,
+      "size": 56,
+      "meaning": "Clear bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002D6B70",
+      "address": 2976624,
+      "size": 52,
+      "meaning": "For eight16-byte records, clear active byte1 and halfword6 only when active is nonzero"
+    },
+    {
+      "symbol": "LVL_0_ARANOS_TUTORIAL_FUN_002F3410",
+      "address": 3093520,
+      "size": 48,
+      "meaning": "Change resident state word from1 to2 only when the mode word equals7"
     }
   ],
   "externals": {
-    "LVL_0_ARANOS_TUTORIAL_D_001A8EB0": 1740464
+    "LVL_0_ARANOS_TUTORIAL_D_001A8EB0": 1740464,
+    "LVL_0_ARANOS_TUTORIAL_D_0018C0B4": 1622196,
+    "LVL_0_ARANOS_TUTORIAL_D_00189E20": 1613344,
+    "LVL_0_ARANOS_TUTORIAL_FUN_002D7698": 2979480,
+    "LVL_0_ARANOS_TUTORIAL_FUN_002F0628": 3081768,
+    "LVL_0_ARANOS_TUTORIAL_FUN_002F0990": 3082640,
+    "LVL_0_ARANOS_TUTORIAL_FUN_0037B508": 3650824,
+    "LVL_0_ARANOS_TUTORIAL_FUN_002D36E0": 2963168,
+    "LVL_0_ARANOS_TUTORIAL_D_0027DD00": 2612480,
+    "LVL_0_ARANOS_TUTORIAL_D_001395B8": 1283512,
+    "LVL_0_ARANOS_TUTORIAL_D_00231340": 2298688,
+    "LVL_0_ARANOS_TUTORIAL_D_0022DC00": 2284544,
+    "LVL_0_ARANOS_TUTORIAL_D_00226700": 2254592,
+    "LVL_0_ARANOS_TUTORIAL_D_0022D600": 2283008,
+    "LVL_0_ARANOS_TUTORIAL_D_002533B0": 2438064,
+    "LVL_0_ARANOS_TUTORIAL_D_0018C0B0": 1622192,
+    "LVL_0_ARANOS_TUTORIAL_D_0018B134": 1618228,
+    "LVL_0_ARANOS_TUTORIAL_D_0018B040": 1617984,
+    "LVL_0_ARANOS_TUTORIAL_D_00139568": 1283432,
+    "LVL_0_ARANOS_TUTORIAL_D_00262570": 2499952,
+    "LVL_0_ARANOS_TUTORIAL_FUN_002EDE18": 3071512,
+    "LVL_0_ARANOS_TUTORIAL_D_001A79F0": 1735152,
+    "LVL_0_ARANOS_TUTORIAL_D_001B8C00": 1805312,
+    "LVL_0_ARANOS_TUTORIAL_D_001BEF00": 1830656
   }
 }

@@ -15,19 +15,204 @@
   "gp": 0,
   "functions": [
     {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002AE468",
+      "address": 2810984,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1220 when field 0x1244 equals two, otherwise zero"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002AE4A0",
+      "address": 2811040,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1248 when field 0x1244 equals two, otherwise minus one"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002AE5D0",
+      "address": 2811344,
+      "size": 20,
+      "meaning": "returns the provided value, or object byte 0xa9 when the value is 255"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002AF0C0",
+      "address": 2814144,
+      "size": 88,
+      "meaning": "maps values one, two and three to identifiers 0x72, 0x70 and 0x6e"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002D7020",
+      "address": 2977824,
+      "size": 12,
+      "meaning": "returns the resident 32-bit field at core address 0x0018c0b4"
+    },
+    {
       "symbol": "LVL_26_JAMMING_ARRAY_FUN_002D7FE0",
       "address": 2981856,
       "size": 24,
       "meaning": "clear five object fields; independently qualified in this overlay"
     },
     {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002E4108",
+      "address": 3031304,
+      "size": 36,
+      "meaning": "evaluates (b-a)*(t*t)+a*t and converts the measured float result to a signed word"
+    },
+    {
       "symbol": "LVL_26_JAMMING_ARRAY_FUN_002F4030",
       "address": 3096624,
       "size": 72,
       "meaning": "indexed copy of overlay-owned five-entry table"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002D77E0",
+      "address": 2979808,
+      "size": 92,
+      "meaning": "clears object byte then calls the measured four-float helper when the field is nonnegative"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002E5EA8",
+      "address": 3038888,
+      "size": 136,
+      "meaning": "Set up aligned GS buffer state and emit pinned register/clear helper calls; source identity and matching require complete-unit qualification"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002AE2F8",
+      "address": 2810616,
+      "size": 56,
+      "meaning": "forwards an output pointer, three pinned floating constants and selector one to the typed helper"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002AE4D8",
+      "address": 2811096,
+      "size": 56,
+      "meaning": "tests whether the indexed resident status equals 12 or 17"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002AE510",
+      "address": 2811152,
+      "size": 36,
+      "meaning": "tests whether the indexed resident status equals 47"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002B39C8",
+      "address": 2832840,
+      "size": 32,
+      "meaning": "tests the signed short identifier at offset 0xaa of a nonnull object against 71"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_003411A8",
+      "address": 3412392,
+      "size": 100,
+      "meaning": "advances an index with signed delta and either wraps by count or clamps the applicable endpoint"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002F7138",
+      "address": 3109176,
+      "size": 116,
+      "meaning": "findfirstmatchingkey among13records and writefield24 plusfield04 whenword68clear"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_00305AB8",
+      "address": 3168952,
+      "size": 72,
+      "meaning": "returns the indexed resident bit using signed division by eight and an unsigned remainder validity guard"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_0037D590",
+      "address": 3659152,
+      "size": 68,
+      "meaning": "searches 32 sixteen-byte records for matching key and owner words and returns the value word or minus one"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_0036A5D0",
+      "address": 3581392,
+      "size": 192,
+      "meaning": "apply nonzero signed halfword overrides to selected object rows; observed count0F, rows1C, stride50 and key33"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_003ECD28",
+      "address": 4115752,
+      "size": 88,
+      "meaning": "finds the first matching object pointer in thirty resident32-byte records or returns-1"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002D6EE0",
+      "address": 2977504,
+      "size": 160,
+      "meaning": "Filter primary or fallback object's class identifier by mode and signed selection"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002A55E8",
+      "address": 2774504,
+      "size": 96,
+      "meaning": "select primary pointer forkind0/2/3/4/5, secondary for1,tertiary for6; otherwiseNULL"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002F3D08",
+      "address": 3095816,
+      "size": 84,
+      "meaning": "search56 byte-mapped E0 records by U16class3C, return opaque32 marker0 elsezero"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_0037F8F0",
+      "address": 3668208,
+      "size": 300,
+      "meaning": "relocates serialized offsets and compacts16-byte rows in their original storage using captured sourcewords"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002D6E60",
+      "address": 2977376,
+      "size": 60,
+      "meaning": "Return one when the resident mode word is25,5,10 or15, otherwise zero"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002D3950",
+      "address": 2963792,
+      "size": 56,
+      "meaning": "Set bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002D3988",
+      "address": 2963848,
+      "size": 56,
+      "meaning": "Clear bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002D72A8",
+      "address": 2978472,
+      "size": 52,
+      "meaning": "For eight16-byte records, clear active byte1 and halfword6 only when active is nonzero"
+    },
+    {
+      "symbol": "LVL_26_JAMMING_ARRAY_FUN_002F3670",
+      "address": 3094128,
+      "size": 48,
+      "meaning": "Change resident state word from1 to2 only when the mode word equals7"
     }
   ],
   "externals": {
-    "LVL_26_JAMMING_ARRAY_D_001A8EB0": 1740464
+    "LVL_26_JAMMING_ARRAY_D_001A8EB0": 1740464,
+    "LVL_26_JAMMING_ARRAY_D_0018C0B4": 1622196,
+    "LVL_26_JAMMING_ARRAY_D_00189E20": 1613344,
+    "LVL_26_JAMMING_ARRAY_FUN_002D7D38": 2981176,
+    "LVL_26_JAMMING_ARRAY_FUN_002F0888": 3082376,
+    "LVL_26_JAMMING_ARRAY_FUN_002F0BF0": 3083248,
+    "LVL_26_JAMMING_ARRAY_FUN_0037ACB0": 3648688,
+    "LVL_26_JAMMING_ARRAY_FUN_002D3E60": 2965088,
+    "LVL_26_JAMMING_ARRAY_D_0027DA80": 2611840,
+    "LVL_26_JAMMING_ARRAY_D_001395B8": 1283512,
+    "LVL_26_JAMMING_ARRAY_D_00231100": 2298112,
+    "LVL_26_JAMMING_ARRAY_D_0022D9C0": 2283968,
+    "LVL_26_JAMMING_ARRAY_D_002264C0": 2254016,
+    "LVL_26_JAMMING_ARRAY_D_0022D3C0": 2282432,
+    "LVL_26_JAMMING_ARRAY_D_00253170": 2437488,
+    "LVL_26_JAMMING_ARRAY_D_0018C0B0": 1622192,
+    "LVL_26_JAMMING_ARRAY_D_0018B134": 1618228,
+    "LVL_26_JAMMING_ARRAY_D_0018B040": 1617984,
+    "LVL_26_JAMMING_ARRAY_D_00139568": 1283432,
+    "LVL_26_JAMMING_ARRAY_D_002622F0": 2499312,
+    "LVL_26_JAMMING_ARRAY_FUN_002EE068": 3072104,
+    "LVL_26_JAMMING_ARRAY_D_001A79F0": 1735152,
+    "LVL_26_JAMMING_ARRAY_D_001B89C0": 1804736,
+    "LVL_26_JAMMING_ARRAY_D_001BECC0": 1830080
   }
 }

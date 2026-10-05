@@ -15,19 +15,210 @@
   "gp": 0,
   "functions": [
     {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002B55E8",
+      "address": 2840040,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1220 when field 0x1244 equals two, otherwise zero"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002B5620",
+      "address": 2840096,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1248 when field 0x1244 equals two, otherwise minus one"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002B5750",
+      "address": 2840400,
+      "size": 20,
+      "meaning": "returns the provided value, or object byte 0xa9 when the value is 255"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002B6240",
+      "address": 2843200,
+      "size": 88,
+      "meaning": "maps values one, two and three to identifiers 0x72, 0x70 and 0x6e"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002DE1E8",
+      "address": 3006952,
+      "size": 12,
+      "meaning": "returns the resident 32-bit field at core address 0x0018c0b4"
+    },
+    {
       "symbol": "LVL_14_ARANOS_PRISON_FUN_002DF240",
       "address": 3011136,
       "size": 24,
       "meaning": "clear five object fields; independently qualified in this overlay"
     },
     {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002EB368",
+      "address": 3060584,
+      "size": 36,
+      "meaning": "evaluates (b-a)*(t*t)+a*t and converts the measured float result to a signed word"
+    },
+    {
       "symbol": "LVL_14_ARANOS_PRISON_FUN_002FB958",
       "address": 3127640,
       "size": 72,
       "meaning": "indexed copy of overlay-owned five-entry table"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002DEA40",
+      "address": 3009088,
+      "size": 92,
+      "meaning": "clears object byte then calls the measured four-float helper when the field is nonnegative"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002ED190",
+      "address": 3068304,
+      "size": 136,
+      "meaning": "Set up aligned GS buffer state and emit pinned register/clear helper calls; source identity and matching require complete-unit qualification"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002B5478",
+      "address": 2839672,
+      "size": 56,
+      "meaning": "forwards an output pointer, three pinned floating constants and selector one to the typed helper"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002B5658",
+      "address": 2840152,
+      "size": 56,
+      "meaning": "tests whether the indexed resident status equals 12 or 17"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002B5690",
+      "address": 2840208,
+      "size": 36,
+      "meaning": "tests whether the indexed resident status equals 47"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002BAB48",
+      "address": 2861896,
+      "size": 32,
+      "meaning": "tests the signed short identifier at offset 0xaa of a nonnull object against 71"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_0042FAE8",
+      "address": 4389608,
+      "size": 36,
+      "meaning": "evaluates the ordered scalar cubic value squared times negative two times value plus three"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_0034BC98",
+      "address": 3456152,
+      "size": 100,
+      "meaning": "advances an index with signed delta and either wraps by count or clamps the applicable endpoint"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002FEA60",
+      "address": 3140192,
+      "size": 116,
+      "meaning": "findfirstmatchingkey among13records and writefield24 plusfield04 whenword68clear"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_0030D280",
+      "address": 3199616,
+      "size": 72,
+      "meaning": "returns the indexed resident bit using signed division by eight and an unsigned remainder validity guard"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_00388598",
+      "address": 3704216,
+      "size": 68,
+      "meaning": "searches 32 sixteen-byte records for matching key and owner words and returns the value word or minus one"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_003752F8",
+      "address": 3625720,
+      "size": 192,
+      "meaning": "apply nonzero signed halfword overrides to selected object rows; observed count0F, rows1C, stride50 and key33"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_00405DB0",
+      "address": 4218288,
+      "size": 88,
+      "meaning": "finds the first matching object pointer in thirty resident32-byte records or returns-1"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002DE0A8",
+      "address": 3006632,
+      "size": 160,
+      "meaning": "Filter primary or fallback object's class identifier by mode and signed selection"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002AC768",
+      "address": 2803560,
+      "size": 96,
+      "meaning": "select primary pointer forkind0/2/3/4/5, secondary for1,tertiary for6; otherwiseNULL"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002FB630",
+      "address": 3126832,
+      "size": 84,
+      "meaning": "search56 byte-mapped E0 records by U16class3C, return opaque32 marker0 elsezero"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_0038A990",
+      "address": 3713424,
+      "size": 300,
+      "meaning": "relocates serialized offsets and compacts16-byte rows in their original storage using captured sourcewords"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002DE028",
+      "address": 3006504,
+      "size": 60,
+      "meaning": "Return one when the resident mode word is25,5,10 or15, otherwise zero"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002DAAD0",
+      "address": 2992848,
+      "size": 56,
+      "meaning": "Set bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002DAB08",
+      "address": 2992904,
+      "size": 56,
+      "meaning": "Clear bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002DE470",
+      "address": 3007600,
+      "size": 52,
+      "meaning": "For eight16-byte records, clear active byte1 and halfword6 only when active is nonzero"
+    },
+    {
+      "symbol": "LVL_14_ARANOS_PRISON_FUN_002FAF98",
+      "address": 3125144,
+      "size": 48,
+      "meaning": "Change resident state word from1 to2 only when the mode word equals7"
     }
   ],
   "externals": {
-    "LVL_14_ARANOS_PRISON_D_001A8EB0": 1740464
+    "LVL_14_ARANOS_PRISON_D_001A8EB0": 1740464,
+    "LVL_14_ARANOS_PRISON_D_0018C0B4": 1622196,
+    "LVL_14_ARANOS_PRISON_D_00189E20": 1613344,
+    "LVL_14_ARANOS_PRISON_FUN_002DEF98": 3010456,
+    "LVL_14_ARANOS_PRISON_FUN_002F81B0": 3113392,
+    "LVL_14_ARANOS_PRISON_FUN_002F8518": 3114264,
+    "LVL_14_ARANOS_PRISON_FUN_00385CB8": 3693752,
+    "LVL_14_ARANOS_PRISON_FUN_002DAFE0": 2994144,
+    "LVL_14_ARANOS_PRISON_D_00283E80": 2637440,
+    "LVL_14_ARANOS_PRISON_D_001395B8": 1283512,
+    "LVL_14_ARANOS_PRISON_D_00231A80": 2300544,
+    "LVL_14_ARANOS_PRISON_D_0022E340": 2286400,
+    "LVL_14_ARANOS_PRISON_D_00226E40": 2256448,
+    "LVL_14_ARANOS_PRISON_D_0022DD40": 2284864,
+    "LVL_14_ARANOS_PRISON_D_00256280": 2450048,
+    "LVL_14_ARANOS_PRISON_D_0018C0B0": 1622192,
+    "LVL_14_ARANOS_PRISON_D_0018B134": 1618228,
+    "LVL_14_ARANOS_PRISON_D_0018B040": 1617984,
+    "LVL_14_ARANOS_PRISON_D_00139568": 1283432,
+    "LVL_14_ARANOS_PRISON_D_002686F0": 2524912,
+    "LVL_14_ARANOS_PRISON_FUN_002F5948": 3103048,
+    "LVL_14_ARANOS_PRISON_D_001A79F0": 1735152,
+    "LVL_14_ARANOS_PRISON_D_001B9340": 1807168,
+    "LVL_14_ARANOS_PRISON_D_001BF640": 1832512
   }
 }

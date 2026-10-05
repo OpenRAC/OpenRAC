@@ -15,19 +15,179 @@
   "gp": 0,
   "functions": [
     {
+      "symbol": "LVL_7_SIBERIUS_FUN_002ACC88",
+      "address": 2804872,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1220 when field 0x1244 equals two, otherwise zero"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002ACCC0",
+      "address": 2804928,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1248 when field 0x1244 equals two, otherwise minus one"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002ACDF0",
+      "address": 2805232,
+      "size": 20,
+      "meaning": "returns the provided value, or object byte 0xa9 when the value is 255"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002AD8E0",
+      "address": 2808032,
+      "size": 88,
+      "meaning": "maps values one, two and three to identifiers 0x72, 0x70 and 0x6e"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002CC898",
+      "address": 2934936,
+      "size": 12,
+      "meaning": "returns the resident 32-bit field at core address 0x0018c0b4"
+    },
+    {
       "symbol": "LVL_7_SIBERIUS_FUN_002CD8F0",
       "address": 2939120,
       "size": 24,
       "meaning": "clear five object fields; independently qualified in this overlay"
     },
     {
+      "symbol": "LVL_7_SIBERIUS_FUN_002D9AC8",
+      "address": 2988744,
+      "size": 36,
+      "meaning": "evaluates (b-a)*(t*t)+a*t and converts the measured float result to a signed word"
+    },
+    {
       "symbol": "LVL_7_SIBERIUS_FUN_002E9FF0",
       "address": 3055600,
       "size": 72,
       "meaning": "indexed copy of overlay-owned five-entry table"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002CD0F0",
+      "address": 2937072,
+      "size": 92,
+      "meaning": "clears object byte then calls the measured four-float helper when the field is nonnegative"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002DB868",
+      "address": 2996328,
+      "size": 136,
+      "meaning": "Set up aligned GS buffer state and emit pinned register/clear helper calls; source identity and matching require complete-unit qualification"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002ACCF8",
+      "address": 2804984,
+      "size": 56,
+      "meaning": "tests whether the indexed resident status equals 12 or 17"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002ACD30",
+      "address": 2805040,
+      "size": 36,
+      "meaning": "tests whether the indexed resident status equals 47"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002B1FE0",
+      "address": 2826208,
+      "size": 32,
+      "meaning": "tests the signed short identifier at offset 0xaa of a nonnull object against 71"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002ED0F8",
+      "address": 3068152,
+      "size": 116,
+      "meaning": "findfirstmatchingkey among13records and writefield24 plusfield04 whenword68clear"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002FBCF0",
+      "address": 3128560,
+      "size": 72,
+      "meaning": "returns the indexed resident bit using signed division by eight and an unsigned remainder validity guard"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_00373EC0",
+      "address": 3620544,
+      "size": 68,
+      "meaning": "searches 32 sixteen-byte records for matching key and owner words and returns the value word or minus one"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_00360CD0",
+      "address": 3542224,
+      "size": 192,
+      "meaning": "apply nonzero signed halfword pair overrides to selected objects with row50/key33/count0F projections"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_003E42E0",
+      "address": 4080352,
+      "size": 88,
+      "meaning": "finds the first matching object pointer in thirty resident32-byte records or returns-1"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002CC758",
+      "address": 2934616,
+      "size": 160,
+      "meaning": "Filter primary or fallback object's class identifier by mode and signed selection"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002A55C0",
+      "address": 2774464,
+      "size": 96,
+      "meaning": "select pointer for kind0/2/3/4/5,kind1,kind6; other kinds returnnull"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002E9CC8",
+      "address": 3054792,
+      "size": 84,
+      "meaning": "search56 byte-mapped E0 records by U16class3C and return opaque32marker0, otherwisezero"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_00376220",
+      "address": 3629600,
+      "size": 300,
+      "meaning": "relocates serialized offsets and compacts16-byte rows in their original storage using captured sourcewords"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002CC6D8",
+      "address": 2934488,
+      "size": 60,
+      "meaning": "Return one when the resident mode word is25,5,10 or15, otherwise zero"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002CCB20",
+      "address": 2935584,
+      "size": 52,
+      "meaning": "For eight16-byte records, clear active byte1 and halfword6 only when active is nonzero"
+    },
+    {
+      "symbol": "LVL_7_SIBERIUS_FUN_002E9630",
+      "address": 3053104,
+      "size": 48,
+      "meaning": "Change resident state word from1 to2 only when the mode word equals7"
     }
   ],
   "externals": {
-    "LVL_7_SIBERIUS_D_001A8EB0": 1740464
+    "LVL_7_SIBERIUS_D_001A8EB0": 1740464,
+    "LVL_7_SIBERIUS_D_0018C0B4": 1622196,
+    "LVL_7_SIBERIUS_D_00189E20": 1613344,
+    "LVL_7_SIBERIUS_FUN_002CD648": 2938440,
+    "LVL_7_SIBERIUS_FUN_002E6848": 3041352,
+    "LVL_7_SIBERIUS_FUN_002E6BB0": 3042224,
+    "LVL_7_SIBERIUS_FUN_003715E0": 3610080,
+    "LVL_7_SIBERIUS_D_0027E030": 2613296,
+    "LVL_7_SIBERIUS_D_001395B8": 1283512,
+    "LVL_7_SIBERIUS_D_00231780": 2299776,
+    "LVL_7_SIBERIUS_D_0022E040": 2285632,
+    "LVL_7_SIBERIUS_D_00226B40": 2255680,
+    "LVL_7_SIBERIUS_D_0022DA40": 2284096,
+    "LVL_7_SIBERIUS_D_002537F0": 2439152,
+    "LVL_7_SIBERIUS_D_0018C0B0": 1622192,
+    "LVL_7_SIBERIUS_D_0018B134": 1618228,
+    "LVL_7_SIBERIUS_D_0018B040": 1617984,
+    "LVL_7_SIBERIUS_D_00139568": 1283432,
+    "LVL_7_SIBERIUS_D_002628A0": 2500768,
+    "LVL_7_SIBERIUS_FUN_002E4050": 3031120,
+    "LVL_7_SIBERIUS_D_001A79F0": 1735152,
+    "LVL_7_SIBERIUS_D_001B9040": 1806400,
+    "LVL_7_SIBERIUS_D_001BF340": 1831744
   }
 }

@@ -9,11 +9,41 @@
   "source": "candidates/levels/4_barlow.c",
   "flags": [
     "-O2",
-    "-G0",
+    "-G8",
     "-ffunction-sections"
   ],
-  "gp": 0,
+  "gp": 1765360,
   "functions": [
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002D4350",
+      "address": 2966352,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1220 when field 0x1244 equals two, otherwise zero"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002D4388",
+      "address": 2966408,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1248 when field 0x1244 equals two, otherwise minus one"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002D44B8",
+      "address": 2966712,
+      "size": 20,
+      "meaning": "returns the provided value, or object byte 0xa9 when the value is 255"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002D4FA8",
+      "address": 2969512,
+      "size": 88,
+      "meaning": "maps values one, two and three to identifiers 0x72, 0x70 and 0x6e"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002F70D8",
+      "address": 3109080,
+      "size": 12,
+      "meaning": "returns the resident 32-bit field at core address 0x0018c0b4"
+    },
     {
       "symbol": "LVL_4_BARLOW_FUN_002F8130",
       "address": 3113264,
@@ -21,13 +51,166 @@
       "meaning": "clear five object fields; independently qualified in this overlay"
     },
     {
+      "symbol": "LVL_4_BARLOW_FUN_003042C8",
+      "address": 3162824,
+      "size": 36,
+      "meaning": "evaluates (b-a)*(t*t)+a*t and converts the measured float result to a signed word"
+    },
+    {
       "symbol": "LVL_4_BARLOW_FUN_00314B18",
       "address": 3230488,
       "size": 72,
       "meaning": "indexed copy of overlay-owned five-entry table"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002F7930",
+      "address": 3111216,
+      "size": 92,
+      "meaning": "clears object byte then calls the measured four-float helper when the field is nonnegative"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_00306068",
+      "address": 3170408,
+      "size": 136,
+      "meaning": "Set up aligned GS buffer state and emit pinned register/clear helper calls; source identity and matching require complete-unit qualification"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002D43C0",
+      "address": 2966464,
+      "size": 56,
+      "meaning": "tests whether the indexed resident status equals 12 or 17"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002D43F8",
+      "address": 2966520,
+      "size": 36,
+      "meaning": "tests whether the indexed resident status equals 47"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002D96D0",
+      "address": 2987728,
+      "size": 32,
+      "meaning": "tests the signed short identifier at offset 0xaa of a nonnull object against 71"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_003A1540",
+      "address": 3806528,
+      "size": 56,
+      "meaning": "returns the packed header's signed rounded sixteen-byte block count in word units"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_004554F8",
+      "address": 4543736,
+      "size": 36,
+      "meaning": "evaluates the ordered scalar cubic value squared times negative two times value plus three"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_00314F98",
+      "address": 3231640,
+      "size": 200,
+      "meaning": "launches one queued request using mode-dependent word arguments and resets the queue after a negative submission status"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_00317C20",
+      "address": 3243040,
+      "size": 116,
+      "meaning": "findfirstmatchingkey among13records and writefield24 plusfield04 whenword68clear"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_00326290",
+      "address": 3302032,
+      "size": 72,
+      "meaning": "returns the indexed resident bit using signed division by eight and an unsigned remainder validity guard"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_003A3B08",
+      "address": 3816200,
+      "size": 68,
+      "meaning": "searches 32 sixteen-byte records for matching key and owner words and returns the value word or minus one"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_0038E650",
+      "address": 3728976,
+      "size": 192,
+      "meaning": "apply nonzero signed halfword overrides to selected object rows; observed count0F, rows1C, stride50 and key33"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_004341E0",
+      "address": 4407776,
+      "size": 88,
+      "meaning": "finds the first matching object pointer in thirty resident32-byte records or returns-1"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002F6F98",
+      "address": 3108760,
+      "size": 160,
+      "meaning": "Filter primary or fallback object's class identifier by mode and signed selection"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002CC8D0",
+      "address": 2934992,
+      "size": 96,
+      "meaning": "select primary pointer forkind0/2/3/4/5, secondary for1,tertiary for6; otherwiseNULL"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_003147F0",
+      "address": 3229680,
+      "size": 84,
+      "meaning": "search56 byte-mapped E0 records by U16class3C, return opaque32 marker0 elsezero"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_003A5EA0",
+      "address": 3825312,
+      "size": 300,
+      "meaning": "relocates serialized offsets and compacts16-byte rows in their original storage using captured sourcewords"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_002F6F18",
+      "address": 3108632,
+      "size": 60,
+      "meaning": "Return one when the resident mode word is25,5,10 or15, otherwise zero"
+    },
+    {
+      "symbol": "LVL_4_BARLOW_FUN_00314158",
+      "address": 3227992,
+      "size": 48,
+      "meaning": "Change resident state word from1 to2 only when the mode word equals7"
     }
   ],
   "externals": {
-    "LVL_4_BARLOW_D_001A8EB0": 1740464
+    "LVL_4_BARLOW_D_001A8EB0": 1740464,
+    "LVL_4_BARLOW_D_0018C0B4": 1622196,
+    "LVL_4_BARLOW_D_00189E20": 1613344,
+    "LVL_4_BARLOW_FUN_002F7E88": 3112584,
+    "LVL_4_BARLOW_FUN_00311370": 3216240,
+    "LVL_4_BARLOW_FUN_003116D8": 3217112,
+    "LVL_4_BARLOW_FUN_0039EFA0": 3796896,
+    "LVL_4_BARLOW_D_001A8F00": 1740544,
+    "LVL_4_BARLOW_D_001A79F0": 1735152,
+    "LVL_4_BARLOW_D_0019B2E8": 1684200,
+    "LVL_4_BARLOW_D_001B24DC": 1778908,
+    "LVL_4_BARLOW_D_001BF880": 1833088,
+    "LVL_4_BARLOW_FUN_00314DB0": 3231152,
+    "LVL_4_BARLOW_FUN_0034E170": 3465584,
+    "LVL_4_BARLOW_FUN_00314EC8": 3231432,
+    "LVL_4_BARLOW_FUN_0034C4C8": 3458248,
+    "LVL_4_BARLOW_FUN_00333408": 3355656,
+    "LVL_4_BARLOW_FUN_00314E50": 3231312,
+    "LVL_4_BARLOW_FUN_00394268": 3752552,
+    "LVL_4_BARLOW_FUN_003317E8": 3348456,
+    "LVL_4_BARLOW_D_00296C00": 2714624,
+    "LVL_4_BARLOW_D_001395B8": 1283512,
+    "LVL_4_BARLOW_D_00231C00": 2300928,
+    "LVL_4_BARLOW_D_0022E4C0": 2286784,
+    "LVL_4_BARLOW_D_00226FC0": 2256832,
+    "LVL_4_BARLOW_D_0022DEC0": 2285248,
+    "LVL_4_BARLOW_D_0026C0D0": 2539728,
+    "LVL_4_BARLOW_D_0018C0B0": 1622192,
+    "LVL_4_BARLOW_D_0018B134": 1618228,
+    "LVL_4_BARLOW_D_0018B040": 1617984,
+    "LVL_4_BARLOW_D_00139568": 1283432,
+    "LVL_4_BARLOW_D_0027B470": 2602096,
+    "LVL_4_BARLOW_FUN_0030EAA8": 3205800,
+    "LVL_4_BARLOW_D_001BF7C0": 1832896
   }
 }

@@ -15,19 +15,203 @@
   "gp": 0,
   "functions": [
     {
+      "symbol": "LVL_13_BOLDAN_FUN_002B8C70",
+      "address": 2854000,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1220 when field 0x1244 equals two, otherwise zero"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002B8CA8",
+      "address": 2854056,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1248 when field 0x1244 equals two, otherwise minus one"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002B8DD8",
+      "address": 2854360,
+      "size": 20,
+      "meaning": "returns the provided value, or object byte 0xa9 when the value is 255"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002B98C8",
+      "address": 2857160,
+      "size": 88,
+      "meaning": "maps values one, two and three to identifiers 0x72, 0x70 and 0x6e"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002E1370",
+      "address": 3019632,
+      "size": 12,
+      "meaning": "returns the resident 32-bit field at core address 0x0018c0b4"
+    },
+    {
       "symbol": "LVL_13_BOLDAN_FUN_002E23C8",
       "address": 3023816,
       "size": 24,
       "meaning": "clear five object fields; independently qualified in this overlay"
     },
     {
+      "symbol": "LVL_13_BOLDAN_FUN_002EE558",
+      "address": 3073368,
+      "size": 36,
+      "meaning": "evaluates (b-a)*(t*t)+a*t and converts the measured float result to a signed word"
+    },
+    {
       "symbol": "LVL_13_BOLDAN_FUN_002FE420",
       "address": 3138592,
       "size": 72,
       "meaning": "indexed copy of overlay-owned five-entry table"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002E1BC8",
+      "address": 3021768,
+      "size": 92,
+      "meaning": "clears object byte then calls the measured four-float helper when the field is nonnegative"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002F02F8",
+      "address": 3080952,
+      "size": 136,
+      "meaning": "Set up aligned GS buffer state and emit pinned register/clear helper calls; source identity and matching require complete-unit qualification"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002B8CE0",
+      "address": 2854112,
+      "size": 56,
+      "meaning": "tests whether the indexed resident status equals 12 or 17"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002B8D18",
+      "address": 2854168,
+      "size": 36,
+      "meaning": "tests whether the indexed resident status equals 47"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002BE1D0",
+      "address": 2875856,
+      "size": 32,
+      "meaning": "tests the signed short identifier at offset 0xaa of a nonnull object against 71"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_00422C90",
+      "address": 4336784,
+      "size": 36,
+      "meaning": "evaluates the ordered scalar cubic value squared times negative two times value plus three"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_0034B260",
+      "address": 3453536,
+      "size": 100,
+      "meaning": "advances an index with signed delta and either wraps by count or clamps the applicable endpoint"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_00301528",
+      "address": 3151144,
+      "size": 116,
+      "meaning": "findfirstmatchingkey among13records and writefield24 plusfield04 whenword68clear"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_0030FC08",
+      "address": 3210248,
+      "size": 72,
+      "meaning": "returns the indexed resident bit using signed division by eight and an unsigned remainder validity guard"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_00387748",
+      "address": 3700552,
+      "size": 68,
+      "meaning": "searches 32 sixteen-byte records for matching key and owner words and returns the value word or minus one"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_00374678",
+      "address": 3622520,
+      "size": 192,
+      "meaning": "apply nonzero signed halfword overrides to selected object rows; observed count0F, rows1C, stride50 and key33"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_003FA838",
+      "address": 4171832,
+      "size": 88,
+      "meaning": "finds the first matching object pointer in thirty resident32-byte records or returns-1"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002E1230",
+      "address": 3019312,
+      "size": 160,
+      "meaning": "Filter primary or fallback object's class identifier by mode and signed selection"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002AFF68",
+      "address": 2817896,
+      "size": 96,
+      "meaning": "select primary pointer forkind0/2/3/4/5, secondary for1,tertiary for6; otherwiseNULL"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002FE0F8",
+      "address": 3137784,
+      "size": 84,
+      "meaning": "search56 byte-mapped E0 records by U16class3C, return opaque32 marker0 elsezero"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_00389B40",
+      "address": 3709760,
+      "size": 300,
+      "meaning": "relocates serialized offsets and compacts16-byte rows in their original storage using captured sourcewords"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002E11B0",
+      "address": 3019184,
+      "size": 60,
+      "meaning": "Return one when the resident mode word is25,5,10 or15, otherwise zero"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002DDC58",
+      "address": 3005528,
+      "size": 56,
+      "meaning": "Set bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002DDC90",
+      "address": 3005584,
+      "size": 56,
+      "meaning": "Clear bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002E15F8",
+      "address": 3020280,
+      "size": 52,
+      "meaning": "For eight16-byte records, clear active byte1 and halfword6 only when active is nonzero"
+    },
+    {
+      "symbol": "LVL_13_BOLDAN_FUN_002FDA60",
+      "address": 3136096,
+      "size": 48,
+      "meaning": "Change resident state word from1 to2 only when the mode word equals7"
     }
   ],
   "externals": {
-    "LVL_13_BOLDAN_D_001A8EB0": 1740464
+    "LVL_13_BOLDAN_D_001A8EB0": 1740464,
+    "LVL_13_BOLDAN_D_0018C0B4": 1622196,
+    "LVL_13_BOLDAN_D_00189E20": 1613344,
+    "LVL_13_BOLDAN_FUN_002E2120": 3023136,
+    "LVL_13_BOLDAN_FUN_002FAC78": 3124344,
+    "LVL_13_BOLDAN_FUN_002FAFE0": 3125216,
+    "LVL_13_BOLDAN_FUN_00384E68": 3690088,
+    "LVL_13_BOLDAN_D_00288A00": 2656768,
+    "LVL_13_BOLDAN_D_001395B8": 1283512,
+    "LVL_13_BOLDAN_D_00231E40": 2301504,
+    "LVL_13_BOLDAN_D_0022E700": 2287360,
+    "LVL_13_BOLDAN_D_00227200": 2257408,
+    "LVL_13_BOLDAN_D_0022E100": 2285824,
+    "LVL_13_BOLDAN_D_00254AB0": 2443952,
+    "LVL_13_BOLDAN_D_0018C0B0": 1622192,
+    "LVL_13_BOLDAN_D_0018B134": 1618228,
+    "LVL_13_BOLDAN_D_0018B040": 1617984,
+    "LVL_13_BOLDAN_D_00139568": 1283432,
+    "LVL_13_BOLDAN_D_0026D270": 2544240,
+    "LVL_13_BOLDAN_FUN_002F8480": 3114112,
+    "LVL_13_BOLDAN_D_001A79F0": 1735152,
+    "LVL_13_BOLDAN_D_001B9700": 1808128,
+    "LVL_13_BOLDAN_D_001BFA00": 1833472
   }
 }

@@ -15,19 +15,204 @@
   "gp": 0,
   "functions": [
     {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002B6C20",
+      "address": 2845728,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1220 when field 0x1244 equals two, otherwise zero"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002B6C58",
+      "address": 2845784,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1248 when field 0x1244 equals two, otherwise minus one"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002B6D88",
+      "address": 2846088,
+      "size": 20,
+      "meaning": "returns the provided value, or object byte 0xa9 when the value is 255"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002B7878",
+      "address": 2848888,
+      "size": 88,
+      "meaning": "maps values one, two and three to identifiers 0x72, 0x70 and 0x6e"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002E12B8",
+      "address": 3019448,
+      "size": 12,
+      "meaning": "returns the resident 32-bit field at core address 0x0018c0b4"
+    },
+    {
       "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002E2278",
       "address": 3023480,
       "size": 24,
       "meaning": "clear five object fields; independently qualified in this overlay"
     },
     {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002EE3A0",
+      "address": 3072928,
+      "size": 36,
+      "meaning": "evaluates (b-a)*(t*t)+a*t and converts the measured float result to a signed word"
+    },
+    {
       "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002FDE80",
       "address": 3137152,
       "size": 72,
       "meaning": "indexed copy of overlay-owned five-entry table"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002E1A78",
+      "address": 3021432,
+      "size": 92,
+      "meaning": "clears object byte then calls the measured four-float helper when the field is nonnegative"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002F0140",
+      "address": 3080512,
+      "size": 136,
+      "meaning": "Set up aligned GS buffer state and emit pinned register/clear helper calls; source identity and matching require complete-unit qualification"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002B6AB0",
+      "address": 2845360,
+      "size": 56,
+      "meaning": "forwards an output pointer, three pinned floating constants and selector one to the typed helper"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002B6C90",
+      "address": 2845840,
+      "size": 56,
+      "meaning": "tests whether the indexed resident status equals 12 or 17"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002B6CC8",
+      "address": 2845896,
+      "size": 36,
+      "meaning": "tests whether the indexed resident status equals 47"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002BC2C0",
+      "address": 2867904,
+      "size": 32,
+      "meaning": "tests the signed short identifier at offset 0xaa of a nonnull object against 71"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_00349860",
+      "address": 3446880,
+      "size": 100,
+      "meaning": "advances an index with signed delta and either wraps by count or clamps the applicable endpoint"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_00300F88",
+      "address": 3149704,
+      "size": 116,
+      "meaning": "findfirstmatchingkey among13records and writefield24 plusfield04 whenword68clear"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_0030F5F8",
+      "address": 3208696,
+      "size": 72,
+      "meaning": "returns the indexed resident bit using signed division by eight and an unsigned remainder validity guard"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_00385C80",
+      "address": 3693696,
+      "size": 68,
+      "meaning": "searches 32 sixteen-byte records for matching key and owner words and returns the value word or minus one"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_00372BE8",
+      "address": 3615720,
+      "size": 192,
+      "meaning": "apply nonzero signed halfword overrides to selected object rows; observed count0F, rows1C, stride50 and key33"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_003FAEB0",
+      "address": 4173488,
+      "size": 88,
+      "meaning": "finds the first matching object pointer in thirty resident32-byte records or returns-1"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002E1178",
+      "address": 3019128,
+      "size": 160,
+      "meaning": "Filter primary or fallback object's class identifier by mode and signed selection"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002AD590",
+      "address": 2807184,
+      "size": 96,
+      "meaning": "select primary pointer forkind0/2/3/4/5, secondary for1,tertiary for6; otherwiseNULL"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002FDB58",
+      "address": 3136344,
+      "size": 84,
+      "meaning": "search56 byte-mapped E0 records by U16class3C, return opaque32 marker0 elsezero"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_00387FE0",
+      "address": 3702752,
+      "size": 300,
+      "meaning": "relocates serialized offsets and compacts16-byte rows in their original storage using captured sourcewords"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002E10F8",
+      "address": 3019000,
+      "size": 60,
+      "meaning": "Return one when the resident mode word is25,5,10 or15, otherwise zero"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002DDBE8",
+      "address": 3005416,
+      "size": 56,
+      "meaning": "Set bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002DDC20",
+      "address": 3005472,
+      "size": 56,
+      "meaning": "Clear bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002E1540",
+      "address": 3020096,
+      "size": 52,
+      "meaning": "For eight16-byte records, clear active byte1 and halfword6 only when active is nonzero"
+    },
+    {
+      "symbol": "LVL_23_DAMOSEL_ORBIT_FUN_002FD4C0",
+      "address": 3134656,
+      "size": 48,
+      "meaning": "Change resident state word from1 to2 only when the mode word equals7"
     }
   ],
   "externals": {
-    "LVL_23_DAMOSEL_ORBIT_D_001A8EB0": 1740464
+    "LVL_23_DAMOSEL_ORBIT_D_001A8EB0": 1740464,
+    "LVL_23_DAMOSEL_ORBIT_D_0018C0B4": 1622196,
+    "LVL_23_DAMOSEL_ORBIT_D_00189E20": 1613344,
+    "LVL_23_DAMOSEL_ORBIT_FUN_002E1FD0": 3022800,
+    "LVL_23_DAMOSEL_ORBIT_FUN_002FA6D8": 3122904,
+    "LVL_23_DAMOSEL_ORBIT_FUN_002FAA40": 3123776,
+    "LVL_23_DAMOSEL_ORBIT_FUN_003833A0": 3683232,
+    "LVL_23_DAMOSEL_ORBIT_FUN_002DE0F8": 3006712,
+    "LVL_23_DAMOSEL_ORBIT_D_00282200": 2630144,
+    "LVL_23_DAMOSEL_ORBIT_D_001395B8": 1283512,
+    "LVL_23_DAMOSEL_ORBIT_D_00232BC0": 2304960,
+    "LVL_23_DAMOSEL_ORBIT_D_0022F480": 2290816,
+    "LVL_23_DAMOSEL_ORBIT_D_00227F80": 2260864,
+    "LVL_23_DAMOSEL_ORBIT_D_0022EE80": 2289280,
+    "LVL_23_DAMOSEL_ORBIT_D_00254EF0": 2445040,
+    "LVL_23_DAMOSEL_ORBIT_D_0018C0B0": 1622192,
+    "LVL_23_DAMOSEL_ORBIT_D_0018B134": 1618228,
+    "LVL_23_DAMOSEL_ORBIT_D_0018B040": 1617984,
+    "LVL_23_DAMOSEL_ORBIT_D_00139568": 1283432,
+    "LVL_23_DAMOSEL_ORBIT_D_00266A70": 2517616,
+    "LVL_23_DAMOSEL_ORBIT_FUN_002F7EA0": 3112608,
+    "LVL_23_DAMOSEL_ORBIT_D_001A79F0": 1735152,
+    "LVL_23_DAMOSEL_ORBIT_D_001BA480": 1811584,
+    "LVL_23_DAMOSEL_ORBIT_D_001C0780": 1836928
   }
 }

@@ -15,19 +15,204 @@
   "gp": 0,
   "functions": [
     {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002B4C68",
+      "address": 2837608,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1220 when field 0x1244 equals two, otherwise zero"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002B4CA0",
+      "address": 2837664,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1248 when field 0x1244 equals two, otherwise minus one"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002B4DD0",
+      "address": 2837968,
+      "size": 20,
+      "meaning": "returns the provided value, or object byte 0xa9 when the value is 255"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002B58C0",
+      "address": 2840768,
+      "size": 88,
+      "meaning": "maps values one, two and three to identifiers 0x72, 0x70 and 0x6e"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002DD738",
+      "address": 3004216,
+      "size": 12,
+      "meaning": "returns the resident 32-bit field at core address 0x0018c0b4"
+    },
+    {
       "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002DE790",
       "address": 3008400,
       "size": 24,
       "meaning": "clear five object fields; independently qualified in this overlay"
     },
     {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002EA920",
+      "address": 3057952,
+      "size": 36,
+      "meaning": "evaluates (b-a)*(t*t)+a*t and converts the measured float result to a signed word"
+    },
+    {
       "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002FAB30",
       "address": 3124016,
       "size": 72,
       "meaning": "indexed copy of overlay-owned five-entry table"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002DDF90",
+      "address": 3006352,
+      "size": 92,
+      "meaning": "clears object byte then calls the measured four-float helper when the field is nonnegative"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002EC6C0",
+      "address": 3065536,
+      "size": 136,
+      "meaning": "Set up aligned GS buffer state and emit pinned register/clear helper calls; source identity and matching require complete-unit qualification"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002B4AF8",
+      "address": 2837240,
+      "size": 56,
+      "meaning": "forwards an output pointer, three pinned floating constants and selector one to the typed helper"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002B4CD8",
+      "address": 2837720,
+      "size": 56,
+      "meaning": "tests whether the indexed resident status equals 12 or 17"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002B4D10",
+      "address": 2837776,
+      "size": 36,
+      "meaning": "tests whether the indexed resident status equals 47"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002BA048",
+      "address": 2859080,
+      "size": 32,
+      "meaning": "tests the signed short identifier at offset 0xaa of a nonnull object against 71"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_00342468",
+      "address": 3417192,
+      "size": 100,
+      "meaning": "advances an index with signed delta and either wraps by count or clamps the applicable endpoint"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002FDC38",
+      "address": 3136568,
+      "size": 116,
+      "meaning": "findfirstmatchingkey among13records and writefield24 plusfield04 whenword68clear"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_0030C2A8",
+      "address": 3195560,
+      "size": 72,
+      "meaning": "returns the indexed resident bit using signed division by eight and an unsigned remainder validity guard"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_0037E518",
+      "address": 3663128,
+      "size": 68,
+      "meaning": "searches 32 sixteen-byte records for matching key and owner words and returns the value word or minus one"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_0036B548",
+      "address": 3585352,
+      "size": 192,
+      "meaning": "apply nonzero signed halfword overrides to selected object rows; observed count0F, rows1C, stride50 and key33"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_003F1488",
+      "address": 4134024,
+      "size": 88,
+      "meaning": "finds the first matching object pointer in thirty resident32-byte records or returns-1"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002DD5F8",
+      "address": 3003896,
+      "size": 160,
+      "meaning": "Filter primary or fallback object's class identifier by mode and signed selection"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002ABDE8",
+      "address": 2801128,
+      "size": 96,
+      "meaning": "select primary pointer forkind0/2/3/4/5, secondary for1,tertiary for6; otherwiseNULL"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002FA808",
+      "address": 3123208,
+      "size": 84,
+      "meaning": "search56 byte-mapped E0 records by U16class3C, return opaque32 marker0 elsezero"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_00380878",
+      "address": 3672184,
+      "size": 300,
+      "meaning": "relocates serialized offsets and compacts16-byte rows in their original storage using captured sourcewords"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002DD578",
+      "address": 3003768,
+      "size": 60,
+      "meaning": "Return one when the resident mode word is25,5,10 or15, otherwise zero"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002D9FD0",
+      "address": 2990032,
+      "size": 56,
+      "meaning": "Set bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002DA008",
+      "address": 2990088,
+      "size": 56,
+      "meaning": "Clear bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002DD9C0",
+      "address": 3004864,
+      "size": 52,
+      "meaning": "For eight16-byte records, clear active byte1 and halfword6 only when active is nonzero"
+    },
+    {
+      "symbol": "LVL_30_INSOMNIAC_MUSEUM_FUN_002FA170",
+      "address": 3121520,
+      "size": 48,
+      "meaning": "Change resident state word from1 to2 only when the mode word equals7"
     }
   ],
   "externals": {
-    "LVL_30_INSOMNIAC_MUSEUM_D_001A8EB0": 1740464
+    "LVL_30_INSOMNIAC_MUSEUM_D_001A8EB0": 1740464,
+    "LVL_30_INSOMNIAC_MUSEUM_D_0018C0B4": 1622196,
+    "LVL_30_INSOMNIAC_MUSEUM_D_00189E20": 1613344,
+    "LVL_30_INSOMNIAC_MUSEUM_FUN_002DE4E8": 3007720,
+    "LVL_30_INSOMNIAC_MUSEUM_FUN_002F7388": 3109768,
+    "LVL_30_INSOMNIAC_MUSEUM_FUN_002F76F0": 3110640,
+    "LVL_30_INSOMNIAC_MUSEUM_FUN_0037BB30": 3652400,
+    "LVL_30_INSOMNIAC_MUSEUM_FUN_002DA4E0": 2991328,
+    "LVL_30_INSOMNIAC_MUSEUM_D_00284B80": 2640768,
+    "LVL_30_INSOMNIAC_MUSEUM_D_001395B8": 1283512,
+    "LVL_30_INSOMNIAC_MUSEUM_D_00232340": 2302784,
+    "LVL_30_INSOMNIAC_MUSEUM_D_0022EC00": 2288640,
+    "LVL_30_INSOMNIAC_MUSEUM_D_00227700": 2258688,
+    "LVL_30_INSOMNIAC_MUSEUM_D_0022E600": 2287104,
+    "LVL_30_INSOMNIAC_MUSEUM_D_00259C40": 2464832,
+    "LVL_30_INSOMNIAC_MUSEUM_D_0018C0B0": 1622192,
+    "LVL_30_INSOMNIAC_MUSEUM_D_0018B134": 1618228,
+    "LVL_30_INSOMNIAC_MUSEUM_D_0018B040": 1617984,
+    "LVL_30_INSOMNIAC_MUSEUM_D_00139568": 1283432,
+    "LVL_30_INSOMNIAC_MUSEUM_D_002693F0": 2528240,
+    "LVL_30_INSOMNIAC_MUSEUM_FUN_002F4BA8": 3099560,
+    "LVL_30_INSOMNIAC_MUSEUM_D_001A79F0": 1735152,
+    "LVL_30_INSOMNIAC_MUSEUM_D_001B9C00": 1809408,
+    "LVL_30_INSOMNIAC_MUSEUM_D_001BFF00": 1834752
   }
 }

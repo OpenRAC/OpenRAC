@@ -15,19 +15,204 @@
   "gp": 0,
   "functions": [
     {
+      "symbol": "LVL_15_GORN_FUN_002C6CE8",
+      "address": 2911464,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1220 when field 0x1244 equals two, otherwise zero"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002C6D20",
+      "address": 2911520,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1248 when field 0x1244 equals two, otherwise minus one"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002C6E50",
+      "address": 2911824,
+      "size": 20,
+      "meaning": "returns the provided value, or object byte 0xa9 when the value is 255"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002C7940",
+      "address": 2914624,
+      "size": 88,
+      "meaning": "maps values one, two and three to identifiers 0x72, 0x70 and 0x6e"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002EF720",
+      "address": 3077920,
+      "size": 12,
+      "meaning": "returns the resident 32-bit field at core address 0x0018c0b4"
+    },
+    {
       "symbol": "LVL_15_GORN_FUN_002F06E0",
       "address": 3081952,
       "size": 24,
       "meaning": "clear five object fields; independently qualified in this overlay"
     },
     {
+      "symbol": "LVL_15_GORN_FUN_002FC808",
+      "address": 3131400,
+      "size": 36,
+      "meaning": "evaluates (b-a)*(t*t)+a*t and converts the measured float result to a signed word"
+    },
+    {
       "symbol": "LVL_15_GORN_FUN_0030C8F8",
       "address": 3197176,
       "size": 72,
       "meaning": "indexed copy of overlay-owned five-entry table"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002EFEE0",
+      "address": 3079904,
+      "size": 92,
+      "meaning": "clears object byte then calls the measured four-float helper when the field is nonnegative"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002FE630",
+      "address": 3139120,
+      "size": 136,
+      "meaning": "Set up aligned GS buffer state and emit pinned register/clear helper calls; source identity and matching require complete-unit qualification"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002C6B78",
+      "address": 2911096,
+      "size": 56,
+      "meaning": "forwards an output pointer, three pinned floating constants and selector one to the typed helper"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002C6D58",
+      "address": 2911576,
+      "size": 56,
+      "meaning": "tests whether the indexed resident status equals 12 or 17"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002C6D90",
+      "address": 2911632,
+      "size": 36,
+      "meaning": "tests whether the indexed resident status equals 47"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002CC0C8",
+      "address": 2932936,
+      "size": 32,
+      "meaning": "tests the signed short identifier at offset 0xaa of a nonnull object against 71"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_0035A480",
+      "address": 3515520,
+      "size": 100,
+      "meaning": "advances an index with signed delta and either wraps by count or clamps the applicable endpoint"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_0030FA18",
+      "address": 3209752,
+      "size": 116,
+      "meaning": "findfirstmatchingkey among13records and writefield24 plusfield04 whenword68clear"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_0031E4D8",
+      "address": 3269848,
+      "size": 72,
+      "meaning": "returns the indexed resident bit using signed division by eight and an unsigned remainder validity guard"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_00399940",
+      "address": 3774784,
+      "size": 68,
+      "meaning": "searches 32 sixteen-byte records for matching key and owner words and returns the value word or minus one"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_003868A8",
+      "address": 3696808,
+      "size": 192,
+      "meaning": "apply nonzero signed halfword overrides to selected object rows; observed count0F, rows1C, stride50 and key33"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_00409FA0",
+      "address": 4235168,
+      "size": 88,
+      "meaning": "finds the first matching object pointer in thirty resident32-byte records or returns-1"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002EF5E0",
+      "address": 3077600,
+      "size": 160,
+      "meaning": "Filter primary or fallback object's class identifier by mode and signed selection"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002BDE68",
+      "address": 2874984,
+      "size": 96,
+      "meaning": "select primary pointer forkind0/2/3/4/5, secondary for1,tertiary for6; otherwiseNULL"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_0030C5D0",
+      "address": 3196368,
+      "size": 84,
+      "meaning": "search56 byte-mapped E0 records by U16class3C, return opaque32 marker0 elsezero"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_0039BCA0",
+      "address": 3783840,
+      "size": 300,
+      "meaning": "relocates serialized offsets and compacts16-byte rows in their original storage using captured sourcewords"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002EF560",
+      "address": 3077472,
+      "size": 60,
+      "meaning": "Return one when the resident mode word is25,5,10 or15, otherwise zero"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002EC050",
+      "address": 3063888,
+      "size": 56,
+      "meaning": "Set bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002EC088",
+      "address": 3063944,
+      "size": 56,
+      "meaning": "Clear bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_002EF9A8",
+      "address": 3078568,
+      "size": 52,
+      "meaning": "For eight16-byte records, clear active byte1 and halfword6 only when active is nonzero"
+    },
+    {
+      "symbol": "LVL_15_GORN_FUN_0030BF38",
+      "address": 3194680,
+      "size": 48,
+      "meaning": "Change resident state word from1 to2 only when the mode word equals7"
     }
   ],
   "externals": {
-    "LVL_15_GORN_D_001A8EB0": 1740464
+    "LVL_15_GORN_D_001A8EB0": 1740464,
+    "LVL_15_GORN_D_0018C0B4": 1622196,
+    "LVL_15_GORN_D_00189E20": 1613344,
+    "LVL_15_GORN_FUN_002F0438": 3081272,
+    "LVL_15_GORN_FUN_00309150": 3182928,
+    "LVL_15_GORN_FUN_003094B8": 3183800,
+    "LVL_15_GORN_FUN_00397060": 3764320,
+    "LVL_15_GORN_FUN_002EC560": 3065184,
+    "LVL_15_GORN_D_00292780": 2697088,
+    "LVL_15_GORN_D_001395B8": 1283512,
+    "LVL_15_GORN_D_00231F40": 2301760,
+    "LVL_15_GORN_D_0022E800": 2287616,
+    "LVL_15_GORN_D_00227300": 2257664,
+    "LVL_15_GORN_D_0022E200": 2286080,
+    "LVL_15_GORN_D_00262A70": 2501232,
+    "LVL_15_GORN_D_0018C0B0": 1622192,
+    "LVL_15_GORN_D_0018B134": 1618228,
+    "LVL_15_GORN_D_0018B040": 1617984,
+    "LVL_15_GORN_D_00139568": 1283432,
+    "LVL_15_GORN_D_00276FF0": 2584560,
+    "LVL_15_GORN_FUN_00306970": 3172720,
+    "LVL_15_GORN_D_001A79F0": 1735152,
+    "LVL_15_GORN_D_001B9600": 1807872,
+    "LVL_15_GORN_D_001BF900": 1833216
   }
 }

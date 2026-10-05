@@ -15,19 +15,191 @@
   "gp": 0,
   "functions": [
     {
+      "symbol": "LVL_18_DAMOSEL_FUN_002CB190",
+      "address": 2929040,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1220 when field 0x1244 equals two, otherwise zero"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_002CB1C8",
+      "address": 2929096,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1248 when field 0x1244 equals two, otherwise minus one"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_002CB2F8",
+      "address": 2929400,
+      "size": 20,
+      "meaning": "returns the provided value, or object byte 0xa9 when the value is 255"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_002CBDE8",
+      "address": 2932200,
+      "size": 88,
+      "meaning": "maps values one, two and three to identifiers 0x72, 0x70 and 0x6e"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_002F1130",
+      "address": 3084592,
+      "size": 12,
+      "meaning": "returns the resident 32-bit field at core address 0x0018c0b4"
+    },
+    {
       "symbol": "LVL_18_DAMOSEL_FUN_002F2188",
       "address": 3088776,
       "size": 24,
       "meaning": "clear five object fields; independently qualified in this overlay"
     },
     {
+      "symbol": "LVL_18_DAMOSEL_FUN_002FE318",
+      "address": 3138328,
+      "size": 36,
+      "meaning": "evaluates (b-a)*(t*t)+a*t and converts the measured float result to a signed word"
+    },
+    {
       "symbol": "LVL_18_DAMOSEL_FUN_0030E5D8",
       "address": 3204568,
       "size": 72,
       "meaning": "indexed copy of overlay-owned five-entry table"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_002F1988",
+      "address": 3086728,
+      "size": 92,
+      "meaning": "clears object byte then calls the measured four-float helper when the field is nonnegative"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_003000B8",
+      "address": 3145912,
+      "size": 136,
+      "meaning": "Set up aligned GS buffer state and emit pinned register/clear helper calls; source identity and matching require complete-unit qualification"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_002CB200",
+      "address": 2929152,
+      "size": 56,
+      "meaning": "tests whether the indexed resident status equals 12 or 17"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_002CB238",
+      "address": 2929208,
+      "size": 36,
+      "meaning": "tests whether the indexed resident status equals 47"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_002D07A0",
+      "address": 2951072,
+      "size": 32,
+      "meaning": "tests the signed short identifier at offset 0xaa of a nonnull object against 71"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_00399C50",
+      "address": 3775568,
+      "size": 56,
+      "meaning": "returns the packed header's signed rounded sixteen-byte block count in word units"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_0035D878",
+      "address": 3528824,
+      "size": 100,
+      "meaning": "advances an index with signed delta and either wraps by count or clamps the applicable endpoint"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_003116E0",
+      "address": 3217120,
+      "size": 116,
+      "meaning": "findfirstmatchingkey among13records and writefield24 plusfield04 whenword68clear"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_0031FF08",
+      "address": 3276552,
+      "size": 72,
+      "meaning": "returns the indexed resident bit using signed division by eight and an unsigned remainder validity guard"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_0039C218",
+      "address": 3785240,
+      "size": 68,
+      "meaning": "searches 32 sixteen-byte records for matching key and owner words and returns the value word or minus one"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_00386E58",
+      "address": 3698264,
+      "size": 192,
+      "meaning": "apply nonzero signed halfword overrides to selected object rows; observed count0F, rows1C, stride50 and key33"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_004165B0",
+      "address": 4285872,
+      "size": 88,
+      "meaning": "finds the first matching object pointer in thirty resident32-byte records or returns-1"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_002F0FC8",
+      "address": 3084232,
+      "size": 160,
+      "meaning": "Filter primary or fallback object's class identifier by mode and signed selection"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_002C2EE8",
+      "address": 2895592,
+      "size": 96,
+      "meaning": "select primary pointer forkind0/2/3/4/5, secondary for1,tertiary for6; otherwiseNULL"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_0030E2B0",
+      "address": 3203760,
+      "size": 84,
+      "meaning": "search56 byte-mapped E0 records by U16class3C, return opaque32 marker0 elsezero"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_0039E5B0",
+      "address": 3794352,
+      "size": 300,
+      "meaning": "relocates serialized offsets and compacts16-byte rows in their original storage using captured sourcewords"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_002F0F48",
+      "address": 3084104,
+      "size": 60,
+      "meaning": "Return one when the resident mode word is25,5,10 or15, otherwise zero"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_002F13B8",
+      "address": 3085240,
+      "size": 52,
+      "meaning": "For eight16-byte records, clear active byte1 and halfword6 only when active is nonzero"
+    },
+    {
+      "symbol": "LVL_18_DAMOSEL_FUN_0030DC18",
+      "address": 3202072,
+      "size": 48,
+      "meaning": "Change resident state word from1 to2 only when the mode word equals7"
     }
   ],
   "externals": {
-    "LVL_18_DAMOSEL_D_001A8EB0": 1740464
+    "LVL_18_DAMOSEL_D_001A8EB0": 1740464,
+    "LVL_18_DAMOSEL_D_0018C0B4": 1622196,
+    "LVL_18_DAMOSEL_D_00189E20": 1613344,
+    "LVL_18_DAMOSEL_FUN_002F1EE0": 3088096,
+    "LVL_18_DAMOSEL_FUN_0030AE30": 3190320,
+    "LVL_18_DAMOSEL_FUN_0030B198": 3191192,
+    "LVL_18_DAMOSEL_FUN_003976B0": 3765936,
+    "LVL_18_DAMOSEL_D_00287480": 2651264,
+    "LVL_18_DAMOSEL_D_001395B8": 1283512,
+    "LVL_18_DAMOSEL_D_00231D40": 2301248,
+    "LVL_18_DAMOSEL_D_0022E600": 2287104,
+    "LVL_18_DAMOSEL_D_00227100": 2257152,
+    "LVL_18_DAMOSEL_D_0022E000": 2285568,
+    "LVL_18_DAMOSEL_D_002549B0": 2443696,
+    "LVL_18_DAMOSEL_D_0018C0B0": 1622192,
+    "LVL_18_DAMOSEL_D_0018B134": 1618228,
+    "LVL_18_DAMOSEL_D_0018B040": 1617984,
+    "LVL_18_DAMOSEL_D_00139568": 1283432,
+    "LVL_18_DAMOSEL_D_0026BCF0": 2538736,
+    "LVL_18_DAMOSEL_FUN_00308630": 3180080,
+    "LVL_18_DAMOSEL_D_001A79F0": 1735152,
+    "LVL_18_DAMOSEL_D_001B9600": 1807872,
+    "LVL_18_DAMOSEL_D_001BF900": 1833216
   }
 }

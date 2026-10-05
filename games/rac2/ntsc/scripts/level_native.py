@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-from check_candidates import compare_function, file_hash, linker_script, run
+from check_candidates import compare_function, compare_readonly, file_hash, linker_script, run, readonly_sections, require_exact_readonly
 from elf_tools import assert_fresh, read_elf
 from wsl_chain import compile_c, tool_hashes
 
@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 HASH = re.compile(r"[0-9a-f]{64}")
 LEVEL = re.compile(r"[0-9]+_[a-z0-9_]+")
 C_ONLY = re.compile(rb"\b(?:asm|__asm__|__asm|INCLUDE_ASM)\b|\.byte|\.word")
+DEFAULT_FLAGS = ["-O2", "-G0", "-ffunction-sections"]
+SMALL_DATA_FLAGS = ["-O2", "-G8", "-ffunction-sections"]
 
 
 def digest(value: object) -> str:
@@ -71,9 +73,12 @@ def load_catalog(level: str, root: Path = ROOT) -> dict:
             or catalog.get("target") != target["serial"] or overlays["target"] != target["serial"]
             or catalog.get("level") != level or catalog.get("program") != "levels/" + level
             or catalog.get("reference_sha256") != pinned.get(level)
-            or catalog.get("source") != source_path or catalog.get("flags") != boot["flags"]
+            or catalog.get("source") != source_path
             or type(catalog.get("entry")) is not int or catalog["entry"] < 0 or catalog["entry"] % 4):
         raise ValueError("Native catalog programme, source, entry or pinned identity mismatch")
+    if catalog.get("flags") != boot["flags"] and not (
+            boot["flags"] == DEFAULT_FLAGS and catalog.get("flags") == SMALL_DATA_FLAGS):
+        raise ValueError("Native compiler flags lack a supported per-program profile")
     require_hash(catalog["reference_sha256"])
     functions = catalog.get("functions")
     if not isinstance(functions, list) or not functions or any(not isinstance(item, dict) for item in functions):
@@ -94,6 +99,7 @@ def load_catalog(level: str, root: Path = ROOT) -> dict:
     if type(gp) is not int or gp < 0 or gp > 0xFFFFFFFF or gp % 4:
         raise ValueError("Invalid reviewed native gp")
     source = (root / source_path).read_bytes()
+    readonly_sections(catalog)
     if C_ONLY.search(source):
         raise ValueError("Native candidates must be genuine C")
     if re.search(rb"(?m)^\s*#\s*include\b|\b__(?:DATE|TIME|TIMESTAMP)__\b", source):
@@ -120,6 +126,7 @@ def validate_reference(reference: Path, catalog: dict) -> dict:
 
 def validate_review(review: dict, catalog: dict, level: str, root: Path = ROOT) -> None:
     source_path, catalog_path, _ = paths(level)
+    require_exact_readonly(catalog, review.get("read_only_sections", []))
     expected = {"kind": "level-native-candidate", "schema": 1, "target": catalog["target"],
                 "program": "levels/" + level, "reference_sha256": catalog["reference_sha256"],
                 "reference_entry": catalog["entry"], "candidate_source": source_path,
@@ -182,6 +189,7 @@ def qualify(reference: Path, directory: Path, toolchain: Path, level: str, root:
         result["produced_size"] = symbols.get(item["symbol"], {}).get("size")
         results.append(result)
     after = tool_hashes(toolchain)
+    data = compare_readonly(reference, qualified, catalog, object_path)
     if before != after:
         raise ValueError("Native instruments changed during qualification")
     proof = {"schema": 1, "kind": "level-native-candidate", "target": catalog["target"],
@@ -189,7 +197,7 @@ def qualify(reference: Path, directory: Path, toolchain: Path, level: str, root:
              "candidate_source": source_path, "source_sha256": file_hash(snapshot), "catalog_sha256": catalog["_catalog_sha256"],
              "object_sha256": file_hash(object_path), "candidate_elf_sha256": file_hash(qualified),
              "checker_sha256": checker_hash(root), "tools": after, "flags": catalog["flags"],
-             "state": "matched_unintegrated", "functions": results,
+             "state": "matched_unintegrated", "functions": results, "read_only_sections": data,
              "matched_code_bytes": sum(item["size"] for item in results if item.get("matched"))}
     (directory / "object-qualification.json").write_text(json.dumps(proof, indent=2) + "\n", encoding="utf-8")
     validate_review(proof, catalog, level, root)

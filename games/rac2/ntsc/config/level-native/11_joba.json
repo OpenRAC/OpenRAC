@@ -15,19 +15,224 @@
   "gp": 0,
   "functions": [
     {
+      "symbol": "LVL_11_JOBA_FUN_002C61F0",
+      "address": 2908656,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1220 when field 0x1244 equals two, otherwise zero"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002C6228",
+      "address": 2908712,
+      "size": 52,
+      "meaning": "returns indexed resident word 0x1248 when field 0x1244 equals two, otherwise minus one"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002C6358",
+      "address": 2909016,
+      "size": 20,
+      "meaning": "returns the provided value, or object byte 0xa9 when the value is 255"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002C6E48",
+      "address": 2911816,
+      "size": 88,
+      "meaning": "maps values one, two and three to identifiers 0x72, 0x70 and 0x6e"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002E86E0",
+      "address": 3049184,
+      "size": 12,
+      "meaning": "returns the resident 32-bit field at core address 0x0018c0b4"
+    },
+    {
       "symbol": "LVL_11_JOBA_FUN_002E9738",
       "address": 3053368,
       "size": 24,
       "meaning": "clear five object fields; independently qualified in this overlay"
     },
     {
+      "symbol": "LVL_11_JOBA_FUN_002F58D0",
+      "address": 3102928,
+      "size": 36,
+      "meaning": "evaluates (b-a)*(t*t)+a*t and converts the measured float result to a signed word"
+    },
+    {
       "symbol": "LVL_11_JOBA_FUN_00306280",
       "address": 3170944,
       "size": 72,
       "meaning": "indexed copy of overlay-owned five-entry table"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002E8F38",
+      "address": 3051320,
+      "size": 92,
+      "meaning": "clears object byte then calls the measured four-float helper when the field is nonnegative"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002F7670",
+      "address": 3110512,
+      "size": 136,
+      "meaning": "Set up aligned GS buffer state and emit pinned register/clear helper calls; source identity and matching require complete-unit qualification"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002C6080",
+      "address": 2908288,
+      "size": 56,
+      "meaning": "forwards an output pointer, three pinned floating constants and selector one to the typed helper"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002C6260",
+      "address": 2908768,
+      "size": 56,
+      "meaning": "tests whether the indexed resident status equals 12 or 17"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002C6298",
+      "address": 2908824,
+      "size": 36,
+      "meaning": "tests whether the indexed resident status equals 47"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002CB668",
+      "address": 2930280,
+      "size": 32,
+      "meaning": "tests the signed short identifier at offset 0xaa of a nonnull object against 71"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_00355E88",
+      "address": 3497608,
+      "size": 100,
+      "meaning": "advances an index with signed delta and either wraps by count or clamps the applicable endpoint"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_003095B0",
+      "address": 3184048,
+      "size": 116,
+      "meaning": "findfirstmatchingkey among13records and writefield24 plusfield04 whenword68clear"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_00317D08",
+      "address": 3243272,
+      "size": 72,
+      "meaning": "returns the indexed resident bit using signed division by eight and an unsigned remainder validity guard"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_00441868",
+      "address": 4462696,
+      "size": 268,
+      "meaning": "consumes one positive signed state counter selected by a measured class identifier and reports success"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_00441978",
+      "address": 4462968,
+      "size": 188,
+      "meaning": "increments one signed state counter selected by a measured class identifier"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_00441808",
+      "address": 4462600,
+      "size": 80,
+      "meaning": "returns zero for a missing state polygon index or dispatches its point query to the integrated crossing-parity helper"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_00392650",
+      "address": 3745360,
+      "size": 68,
+      "meaning": "searches 32 sixteen-byte records for matching key and owner words and returns the value word or minus one"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_0037F518",
+      "address": 3667224,
+      "size": 192,
+      "meaning": "apply nonzero signed halfword overrides to selected object rows; observed count0F, rows1C, stride50 and key33"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_0042E6A0",
+      "address": 4384416,
+      "size": 88,
+      "meaning": "finds the first matching object pointer in thirty resident32-byte records or returns-1"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002E85A0",
+      "address": 3048864,
+      "size": 160,
+      "meaning": "Filter primary or fallback object's class identifier by mode and signed selection"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002BE258",
+      "address": 2875992,
+      "size": 96,
+      "meaning": "select primary pointer forkind0/2/3/4/5, secondary for1,tertiary for6; otherwiseNULL"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_00305F58",
+      "address": 3170136,
+      "size": 84,
+      "meaning": "search56 byte-mapped E0 records by U16class3C, return opaque32 marker0 elsezero"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_003949B0",
+      "address": 3754416,
+      "size": 300,
+      "meaning": "relocates serialized offsets and compacts16-byte rows in their original storage using captured sourcewords"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002E8520",
+      "address": 3048736,
+      "size": 60,
+      "meaning": "Return one when the resident mode word is25,5,10 or15, otherwise zero"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002E4FC8",
+      "address": 3035080,
+      "size": 56,
+      "meaning": "Set bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002E5000",
+      "address": 3035136,
+      "size": 56,
+      "meaning": "Clear bit0 of the primary object's halfword flags and of the optional secondary object's flags"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_002E8968",
+      "address": 3049832,
+      "size": 52,
+      "meaning": "For eight16-byte records, clear active byte1 and halfword6 only when active is nonzero"
+    },
+    {
+      "symbol": "LVL_11_JOBA_FUN_003058C0",
+      "address": 3168448,
+      "size": 48,
+      "meaning": "Change resident state word from1 to2 only when the mode word equals7"
     }
   ],
   "externals": {
-    "LVL_11_JOBA_D_001A8EB0": 1740464
+    "LVL_11_JOBA_D_001A8EB0": 1740464,
+    "LVL_11_JOBA_D_0018C0B4": 1622196,
+    "LVL_11_JOBA_D_00189E20": 1613344,
+    "LVL_11_JOBA_FUN_002E9490": 3052688,
+    "LVL_11_JOBA_FUN_00302AD8": 3156696,
+    "LVL_11_JOBA_FUN_00302E40": 3157568,
+    "LVL_11_JOBA_FUN_0038FD70": 3734896,
+    "LVL_11_JOBA_FUN_002E54D8": 3036376,
+    "LVL_11_JOBA_D_00295330": 2708272,
+    "LVL_11_JOBA_D_001395B8": 1283512,
+    "LVL_11_JOBA_D_001FF580": 2094464,
+    "LVL_11_JOBA_FUN_0032E110": 3334416,
+    "LVL_11_JOBA_D_00232E40": 2305600,
+    "LVL_11_JOBA_D_0022F700": 2291456,
+    "LVL_11_JOBA_D_00228200": 2261504,
+    "LVL_11_JOBA_D_0022F100": 2289920,
+    "LVL_11_JOBA_D_00261410": 2495504,
+    "LVL_11_JOBA_D_0018C0B0": 1622192,
+    "LVL_11_JOBA_D_0018B134": 1618228,
+    "LVL_11_JOBA_D_0018B040": 1617984,
+    "LVL_11_JOBA_D_00139568": 1283432,
+    "LVL_11_JOBA_D_00279BA0": 2595744,
+    "LVL_11_JOBA_FUN_00300220": 3146272,
+    "LVL_11_JOBA_D_001A79F0": 1735152,
+    "LVL_11_JOBA_D_001BA700": 1812224,
+    "LVL_11_JOBA_D_001C0A00": 1837568
   }
 }

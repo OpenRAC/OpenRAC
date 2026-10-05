@@ -1,3 +1,13 @@
+# Historical C experiment view
+
+Generated from the immutable legacy documents in
+`config/campaign-register.json`. This file is a historical view;
+current tasks and new trials live only in that structured register.
+
+The original text below is preserved verbatim, including dated terminology.
+
+Original document SHA-256: `e40363e07a64355915836420caf5116d940cb730cbd06d5628c3aad938f0c19b`.
+
 # C Experiment Register
 
 This is the canonical index for the recorded RAC2 C experiments. The original table covers `levels/24_ship_shack`; boot requalifications are appended below. Check it before proposing or running a new source variant. Add one row immediately after each trial; never overwrite a prior row. The run directory is the evidence package and retains the exact source, catalog, object, assembly, logs, and qualification result. Ghidra remains the place for function analysis and annotations; this register records compiler experiments and their outcomes. The repository tracks this index; generated game objects, binaries, and runtime artifacts remain local.
@@ -5,7 +15,7 @@ This is the canonical index for the recorded RAC2 C experiments. The original ta
 ## Current scope and interpretation
 
 - Reference: `SCUS_972.68`, `/levels/24_ship_shack.elf`, pinned ELF SHA-256 `4afbc22add84109c84ef8ca49099fdf9863905e5f497369c207ac5cb47814740`.
-- This register inventories 78 distinct archived trials across 12 functions: 7 exact results, 67 byte mismatches, 2 archived runs without proof, 1 compiler failure, and 1 source rejected before compilation.
+- This register inventories 158 target records across 53 functions: 33 exact results, 97 byte mismatches, 2 archived runs without proof, 9 compiler failures, 8 link failures and 9 source/catalog rejections. Shared-unit failure rows identify attempted targets and do not infer individual body measurements. Exact trial records are not integration credit.
 - The 51 proof-bearing trials from the original candidate bank used the historical `dff08a34` C compiler profile with `-O2 -G0 -ffunction-sections`; seven later measured `FUN_002B0408` variants, five measured `FUN_002F2718` trials, two measured `FUN_00323430` variants, and the two latest exact promotions used the current `8bed6eae` profile with the same flags. Two earlier 8bed-labelled folders do not retain qualification proofs and are explicitly marked unverified; the register-binding source was separately rejected before compilation. Other pinned tool hashes for proof-bearing trials are recorded in their local evidence. Historical exact results are not current-profile qualification; requalify a candidate with the current checker before treating an old exact result as current evidence.
 - The five historical exact targets are now present in the public level-native catalog at the repository revision where this register was created. The table records the trial result and its original profile, not a substitute for current proofs.
 - Classification uses `qualification_passed` and `proof.functions[].matched`; `proof.state` alone is not decisive. Aggregate `*-results.json` files duplicate these per-run records. Deduplicate by run directory / `work` path.
@@ -137,3 +147,251 @@ PCSX2 session bank. See [the validation record](../progress/pcsx2/boot-lot24.jso
 |---|---|---|---|
 | Retail ISO | PCSX2 d75a0ad, DebugServer 21512, PINE 28012 | SCUS-97268 v1.01; loaded function sample equals pinned bytes; breakpoint hit not observed | `20261003-162346-bf1dbc7d/mcp-reference-observations.json` |
 | Lot 24 rebuilt ELF + same ISO | Same dedicated profile | SCUS-97268 v1.01; loaded function sample equals retail/pinned/rebuilt bytes; gameplay unverified | `20261003-163125-1a5e81ad/mcp-rebuilt-observations.json` |
+
+## Tail-pointer state experiment — current 8bed profile
+
+This ordinary-C hypothesis computes the next state in the switch, then forms a partial-structure pointer in the shared tail before writing state and clearing field4. It preserves the void return and the observed fields. The six integrated native controls remain exact. Both measurements produce a complete 128-byte symbol against the pinned 136-byte function; explicit placement of the generated table also changes its entries. Neither result is integrated.
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002F2B48` | `FUN_002F2B48` | 136 | `tail-pointer-020b639a:normal` | `8bed6eae` | MISMATCH | 128 produced / 136 target bytes | `9f1af555c54beee60` | `nuit-codex-prologue/native-2f2b48-tail-pointer-8bed-020b639a/trial-tail-pointer` |
+| `0x002F2B48` | `FUN_002F2B48` | 136 | `tail-pointer-020b639a:table-placement` | `8bed6eae` | MISMATCH (generated-table placement) | 128 produced / 136 target bytes; generated table differs | `9f1af555c54beee60` | `nuit-codex-prologue/native-2f2b48-tail-pointer-8bed-020b639a/trial-table-placement` |
+
+Inventory after these appended measurements: 80 native records across the same 12 functions, comprising 7 exact results, 69 mismatches, 2 archived runs without proof, 1 compiler failure and 1 source rejection. The original inventory above describes its historical checkpoint.
+
+## Boot zero-TI loop requalification
+
+The preserved volatile zero-store loop was rejected at 44/40 bytes under dff08a34. Recompiling the identical source under the current profile still produces 44 bytes. This tests the architectural-zero store correction on a volatile loop rather than assuming the scalar zero-store result generalizes. The complete source SHA-256 is unchanged: `c94397760c68bc0484540232954e915c5058381292dc827c0b5abe67809fc0c2`.
+
+| Target | Program | Trial record | C profile | Result | Produced / target bytes | Source SHA prefix | Evidence directory |
+|---|---|---|---|---|---|---|---|
+| `FUN_00282A88` | boot | `ti-loop-a2f8e58d:FUN_00282A88` | `8bed6eae` | MISMATCH | 44 / 40 | `c94397760c68bc04` | `nuit-codex-prologue/boot-ti-loop-8bed-020b639a/run-ti-loop-a2f8e58d` |
+
+## Frame-bearing native requalification — current 8bed profile
+
+The preserved `002E7A08` source contains a 48-byte frame and a call, so the current frame-scheduler default is relevant to its qualification. Its source SHA-256 remains `b84f46ffe3f8a5feb1cb0b7fc661f9f4a1d485a114da07a660948a1edd8f1e65`. The current-profile measurement retains the prior 17-byte difference at the complete 156-byte size; no source or compiler change was made to force a result.
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002E7A08` | `FUN_002E7A08` | 156 | `frame-020b639a:preserved-source-current-profile` | `8bed6eae` | MISMATCH | 17 / 156 bytes | `b84f46ffe3f8a5fe` | `nuit-codex-prologue/native-2e7a08-frame-8bed-020b639a/trial-preserved-source-current-profile` |
+
+Inventory after this measurement: 81 native records, including 70 mismatches; other categories and the 12-function scope are unchanged. Nine boot records and two separate PCSX2 observations are also indexed.
+
+## Selective store-order experiment — current 8bed profile
+
+The best archived settings source matched the first eleven retail instructions but scheduled the final five stores differently. This new hypothesis makes only y/value/mode/flags stores volatile and leaves x ordinary, testing whether the final x store can occupy the return delay slot. The complete function still produces 72 bytes against the pinned 68-byte body. No source is integrated.
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002D2348` | `FUN_002D2348` | 68 | `settings-selective-stores-20261003` | `8bed6eae` | MISMATCH | 72 produced / 68 target bytes | `ac57528239a266d3` | `nuit-codex-prologue/native-2d2348-selective-stores-8bed-20261003/trial-selective-stores` |
+
+Inventory after this measurement: 82 native records, including 71 mismatches; the other categories and the 12-function scope are unchanged.
+
+
+## New small native family — live Ghidra inventory
+
+The bridge was reconnected to the measured RAC2 project before selecting new targets. Every complete instruction span was compared against its pinned overlay bytes. Function extents, rather than the next boundary including padding, define the sizes below. Four float-pair setters, a byte fallback selector, a nullable short comparison and a pair clearer were authored independently in ordinary C. The selector is exact but does not count until integrated through the full overlay gate. Other results remain negative.
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002AA1A8` | `FUN_002AA1A8` | 20 | `small-family-20261003:002AA1A8` | `8bed6eae` | MISMATCH | 4 / 20 bytes | `d53c197aa5d5e6de` | `nuit-codex-prologue/native-small-lot-8bed-20261003/trial-small-native-family` |
+| `0x002AA1C0` | `FUN_002AA1C0` | 20 | `small-family-20261003:002AA1C0` | `8bed6eae` | MISMATCH | 4 / 20 bytes | `d53c197aa5d5e6de` | `nuit-codex-prologue/native-small-lot-8bed-20261003/trial-small-native-family` |
+| `0x002AA1D8` | `FUN_002AA1D8` | 20 | `small-family-20261003:002AA1D8` | `8bed6eae` | MISMATCH | 4 / 20 bytes | `d53c197aa5d5e6de` | `nuit-codex-prologue/native-small-lot-8bed-20261003/trial-small-native-family` |
+| `0x002AA1F0` | `FUN_002AA1F0` | 20 | `small-family-20261003:002AA1F0` | `8bed6eae` | MISMATCH | 4 / 20 bytes | `d53c197aa5d5e6de` | `nuit-codex-prologue/native-small-lot-8bed-20261003/trial-small-native-family` |
+| `0x002AD0D0` | `FUN_002AD0D0` | 20 | `small-family-20261003:002AD0D0` | `8bed6eae` | EXACT; integration pending | 0 | `d53c197aa5d5e6de` | `nuit-codex-prologue/native-small-lot-8bed-20261003/trial-small-native-family` |
+| `0x002B2348` | `FUN_002B2348` | 32 | `small-family-20261003:002B2348` | `8bed6eae` | MISMATCH | 28 produced / 32 target bytes | `d53c197aa5d5e6de` | `nuit-codex-prologue/native-small-lot-8bed-20261003/trial-small-native-family` |
+| `0x002B2AD8` | `FUN_002B2AD8` | 20 | `small-family-20261003:002B2AD8` | `8bed6eae` | MISMATCH | 2 / 20 bytes | `d53c197aa5d5e6de` | `nuit-codex-prologue/native-small-lot-8bed-20261003/trial-small-native-family` |
+
+Inventory after these seven measurements: 89 native records across 19 functions, comprising 8 exact results, 77 mismatches, 2 archived runs without proof, 1 compiler failure and 1 source rejection. The source SHA-256 and all four instrument hashes are retained in the complete private proof.
+
+
+## Next native family — new pinned complete bodies
+
+The live assembly spans and bytes were independently checked against the pinned overlay before writing this ten-function C lot. Six complete bodies match: three call wrappers, one scalar getter, one indexed byte test and one object-field setter. The four failed sources are retained. Exact trial rows are not integration credit.
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002D1060` | `FUN_002D1060` | 20 | `next-family-20261003:002D1060` | `8bed6eae` | MISMATCH | 2 / 20 bytes | `8f569df16983f20e` | `nuit-codex-prologue/native-next-lot-8bed-20261003/trial-next-native-family` |
+| `0x002D15B8` | `FUN_002D15B8` | 24 | `next-family-20261003:002D15B8` | `8bed6eae` | MISMATCH | 9 / 24 bytes | `8f569df16983f20e` | `nuit-codex-prologue/native-next-lot-8bed-20261003/trial-next-native-family` |
+| `0x002D15D0` | `FUN_002D15D0` | 24 | `next-family-20261003:002D15D0` | `8bed6eae` | MISMATCH | 17 / 24 bytes | `8f569df16983f20e` | `nuit-codex-prologue/native-next-lot-8bed-20261003/trial-next-native-family` |
+| `0x002D2878` | `FUN_002D2878` | 28 | `next-family-20261003:002D2878` | `8bed6eae` | EXACT; integration pending | 0 | `8f569df16983f20e` | `nuit-codex-prologue/native-next-lot-8bed-20261003/trial-next-native-family` |
+| `0x002D57C8` | `FUN_002D57C8` | 20 | `next-family-20261003:002D57C8` | `8bed6eae` | MISMATCH | 2 / 20 bytes | `8f569df16983f20e` | `nuit-codex-prologue/native-next-lot-8bed-20261003/trial-next-native-family` |
+| `0x002D5820` | `FUN_002D5820` | 28 | `next-family-20261003:002D5820` | `8bed6eae` | EXACT; integration pending | 0 | `8f569df16983f20e` | `nuit-codex-prologue/native-next-lot-8bed-20261003/trial-next-native-family` |
+| `0x002D5840` | `FUN_002D5840` | 28 | `next-family-20261003:002D5840` | `8bed6eae` | EXACT; integration pending | 0 | `8f569df16983f20e` | `nuit-codex-prologue/native-next-lot-8bed-20261003/trial-next-native-family` |
+| `0x002D59A0` | `FUN_002D59A0` | 12 | `next-family-20261003:002D59A0` | `8bed6eae` | EXACT; integration pending | 0 | `8f569df16983f20e` | `nuit-codex-prologue/native-next-lot-8bed-20261003/trial-next-native-family` |
+| `0x002D5A30` | `FUN_002D5A30` | 28 | `next-family-20261003:002D5A30` | `8bed6eae` | EXACT; integration pending | 0 | `8f569df16983f20e` | `nuit-codex-prologue/native-next-lot-8bed-20261003/trial-next-native-family` |
+| `0x002D6CF8` | `FUN_002D6CF8` | 32 | `next-family-20261003:002D6CF8` | `8bed6eae` | EXACT; integration pending | 0 | `8f569df16983f20e` | `nuit-codex-prologue/native-next-lot-8bed-20261003/trial-next-native-family` |
+
+Inventory after this lot: 99 native records across 29 functions, comprising 14 exact results, 81 mismatches, 2 archived runs without proof, 1 compiler failure and 1 source rejection.
+
+
+## Eight-body source-unit compile failure
+
+The first full-context source for these eight new targets redeclared s64 and u64 already present in the accepted Ship Shack source. This compiler rejects those duplicate typedefs before producing an object. All eight attempted targets are indexed below as failures of the shared source unit; no individual body size or byte result is inferred. The complete source and compile log are preserved, and the corrected unit must use a separate run.
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002E2A88` | `FUN_002E2A88` | 36 | `eight-new-20261003:duplicate-types:002E2A88` | `8bed6eae` (compiler invoked; no object) | COMPILE FAIL (shared source unit) | duplicate existing s64/u64 typedefs; no body measurement | `697f851dc4126cf5` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003/trial-eight-new-bodies` |
+| `0x002E48B0` | `FUN_002E48B0` | 28 | `eight-new-20261003:duplicate-types:002E48B0` | `8bed6eae` (compiler invoked; no object) | COMPILE FAIL (shared source unit) | duplicate existing s64/u64 typedefs; no body measurement | `697f851dc4126cf5` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003/trial-eight-new-bodies` |
+| `0x002E53E0` | `FUN_002E53E0` | 28 | `eight-new-20261003:duplicate-types:002E53E0` | `8bed6eae` (compiler invoked; no object) | COMPILE FAIL (shared source unit) | duplicate existing s64/u64 typedefs; no body measurement | `697f851dc4126cf5` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003/trial-eight-new-bodies` |
+| `0x002EBB68` | `FUN_002EBB68` | 36 | `eight-new-20261003:duplicate-types:002EBB68` | `8bed6eae` (compiler invoked; no object) | COMPILE FAIL (shared source unit) | duplicate existing s64/u64 typedefs; no body measurement | `697f851dc4126cf5` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003/trial-eight-new-bodies` |
+| `0x002EF578` | `FUN_002EF578` | 12 | `eight-new-20261003:duplicate-types:002EF578` | `8bed6eae` (compiler invoked; no object) | COMPILE FAIL (shared source unit) | duplicate existing s64/u64 typedefs; no body measurement | `697f851dc4126cf5` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003/trial-eight-new-bodies` |
+| `0x002EF588` | `FUN_002EF588` | 12 | `eight-new-20261003:duplicate-types:002EF588` | `8bed6eae` (compiler invoked; no object) | COMPILE FAIL (shared source unit) | duplicate existing s64/u64 typedefs; no body measurement | `697f851dc4126cf5` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003/trial-eight-new-bodies` |
+| `0x002EF5E8` | `FUN_002EF5E8` | 12 | `eight-new-20261003:duplicate-types:002EF5E8` | `8bed6eae` (compiler invoked; no object) | COMPILE FAIL (shared source unit) | duplicate existing s64/u64 typedefs; no body measurement | `697f851dc4126cf5` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003/trial-eight-new-bodies` |
+| `0x002F1B80` | `FUN_002F1B80` | 20 | `eight-new-20261003:duplicate-types:002F1B80` | `8bed6eae` (compiler invoked; no object) | COMPILE FAIL (shared source unit) | duplicate existing s64/u64 typedefs; no body measurement | `697f851dc4126cf5` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003/trial-eight-new-bodies` |
+
+Inventory: 107 target records across 37 functions, comprising 14 exact results, 81 mismatches, 2 archived runs without proof, 9 compiler failures (including eight targets in this shared failed unit), and 1 source rejection.
+
+
+## Eight new native bodies — existing types reused
+
+Removing the duplicate typedef declarations creates a separate full-context source run. All eight complete bodies and all thirteen prior native controls match exactly under the unchanged qualified tools. The float witness retains the measured product association and no fused operation. These results remain unintegrated until the affected full overlay gates pass.
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002E2A88` | `FUN_002E2A88` | 36 | `eight-new-20261003:reuse-types:002E2A88` | `8bed6eae` | EXACT; integration pending | 0 | `344c526d2936c8f0` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003-v2/trial-eight-new-bodies` |
+| `0x002E48B0` | `FUN_002E48B0` | 28 | `eight-new-20261003:reuse-types:002E48B0` | `8bed6eae` | EXACT; integration pending | 0 | `344c526d2936c8f0` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003-v2/trial-eight-new-bodies` |
+| `0x002E53E0` | `FUN_002E53E0` | 28 | `eight-new-20261003:reuse-types:002E53E0` | `8bed6eae` | EXACT; integration pending | 0 | `344c526d2936c8f0` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003-v2/trial-eight-new-bodies` |
+| `0x002EBB68` | `FUN_002EBB68` | 36 | `eight-new-20261003:reuse-types:002EBB68` | `8bed6eae` | EXACT; integration pending | 0 | `344c526d2936c8f0` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003-v2/trial-eight-new-bodies` |
+| `0x002EF578` | `FUN_002EF578` | 12 | `eight-new-20261003:reuse-types:002EF578` | `8bed6eae` | EXACT; integration pending | 0 | `344c526d2936c8f0` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003-v2/trial-eight-new-bodies` |
+| `0x002EF588` | `FUN_002EF588` | 12 | `eight-new-20261003:reuse-types:002EF588` | `8bed6eae` | EXACT; integration pending | 0 | `344c526d2936c8f0` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003-v2/trial-eight-new-bodies` |
+| `0x002EF5E8` | `FUN_002EF5E8` | 12 | `eight-new-20261003:reuse-types:002EF5E8` | `8bed6eae` | EXACT; integration pending | 0 | `344c526d2936c8f0` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003-v2/trial-eight-new-bodies` |
+| `0x002F1B80` | `FUN_002F1B80` | 20 | `eight-new-20261003:reuse-types:002F1B80` | `8bed6eae` | EXACT; integration pending | 0 | `344c526d2936c8f0` | `nuit-codex-prologue/native-eight-lot26-8bed-20261003-v2/trial-eight-new-bodies` |
+
+Inventory: 115 target records across 37 functions, comprising 22 exact results, 81 mismatches, 2 archived runs without proof, 9 compiler failures and 1 source rejection. Eight compiler-failure records refer to one shared source-unit failure; they do not establish individual body mismatches.
+
+
+## Broader source-unit catalog rejection
+
+The first catalog for the eight new targets included the byte address 0x0018b2bd as an external symbol. The native checker requires aligned external anchors and rejected the unit before compilation. All eight attempted target records describe this shared catalog rejection; no compiler or individual body result is inferred. The original source, catalog and preflight error remain private. A corrected source can address the measured byte as offset one from aligned anchor 0x0018b2bc without relaxing the guard.
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002A40E8` | `FUN_002A40E8` | 96 | `broader-20261003:unaligned-anchor:002A40E8` | not invoked | REJECTED (shared catalog) | byte external is unaligned; no body measurement | `bb84263567c2b91e` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003` |
+| `0x002A5288` | `FUN_002A5288` | 60 | `broader-20261003:unaligned-anchor:002A5288` | not invoked | REJECTED (shared catalog) | byte external is unaligned; no body measurement | `bb84263567c2b91e` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003` |
+| `0x002AA4E0` | `FUN_002AA4E0` | 60 | `broader-20261003:unaligned-anchor:002AA4E0` | not invoked | REJECTED (shared catalog) | byte external is unaligned; no body measurement | `bb84263567c2b91e` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003` |
+| `0x002ACF68` | `FUN_002ACF68` | 52 | `broader-20261003:unaligned-anchor:002ACF68` | not invoked | REJECTED (shared catalog) | byte external is unaligned; no body measurement | `bb84263567c2b91e` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003` |
+| `0x002ACFA0` | `FUN_002ACFA0` | 52 | `broader-20261003:unaligned-anchor:002ACFA0` | not invoked | REJECTED (shared catalog) | byte external is unaligned; no body measurement | `bb84263567c2b91e` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003` |
+| `0x002AD080` | `FUN_002AD080` | 80 | `broader-20261003:unaligned-anchor:002AD080` | not invoked | REJECTED (shared catalog) | byte external is unaligned; no body measurement | `bb84263567c2b91e` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003` |
+| `0x002ADBC0` | `FUN_002ADBC0` | 88 | `broader-20261003:unaligned-anchor:002ADBC0` | not invoked | REJECTED (shared catalog) | byte external is unaligned; no body measurement | `bb84263567c2b91e` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003` |
+| `0x002AECC0` | `FUN_002AECC0` | 44 | `broader-20261003:unaligned-anchor:002AECC0` | not invoked | REJECTED (shared catalog) | byte external is unaligned; no body measurement | `bb84263567c2b91e` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003` |
+
+Inventory: 123 target records across 45 functions, with 22 exact results, 81 mismatches, 2 archived runs without proof, 9 compiler failures and 9 source/catalog rejections. Eight new rejection rows concern this one uncompiled catalog.
+
+
+## Broader unit link refusal and isolated complete-body measurements
+
+The aligned-anchor source compiled, but one 88-byte candidate for the 80-byte 002AD080 slot overlapped its next function and blocked the full-unit linker. The source and failed link remain unchanged. Each new complete body was then linked separately from that same compiled object, without trimming, patching or recompiling its code. Five bodies are exact and three remain mismatches. Only new full-unit qualification after excluding failed bodies can authorize integration.
+
+### Shared link-failure records
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002A40E8` | `FUN_002A40E8` | 96 | `broader-20261003:union-link:002A40E8` | `8bed6eae` | LINK FAIL (shared unit) | 002AD080 section extends into next function; no union body measurement | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/trial-broader-native-family` |
+| `0x002A5288` | `FUN_002A5288` | 60 | `broader-20261003:union-link:002A5288` | `8bed6eae` | LINK FAIL (shared unit) | 002AD080 section extends into next function; no union body measurement | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/trial-broader-native-family` |
+| `0x002AA4E0` | `FUN_002AA4E0` | 60 | `broader-20261003:union-link:002AA4E0` | `8bed6eae` | LINK FAIL (shared unit) | 002AD080 section extends into next function; no union body measurement | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/trial-broader-native-family` |
+| `0x002ACF68` | `FUN_002ACF68` | 52 | `broader-20261003:union-link:002ACF68` | `8bed6eae` | LINK FAIL (shared unit) | 002AD080 section extends into next function; no union body measurement | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/trial-broader-native-family` |
+| `0x002ACFA0` | `FUN_002ACFA0` | 52 | `broader-20261003:union-link:002ACFA0` | `8bed6eae` | LINK FAIL (shared unit) | 002AD080 section extends into next function; no union body measurement | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/trial-broader-native-family` |
+| `0x002AD080` | `FUN_002AD080` | 80 | `broader-20261003:union-link:002AD080` | `8bed6eae` | LINK FAIL (shared unit) | 002AD080 section extends into next function; no union body measurement | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/trial-broader-native-family` |
+| `0x002ADBC0` | `FUN_002ADBC0` | 88 | `broader-20261003:union-link:002ADBC0` | `8bed6eae` | LINK FAIL (shared unit) | 002AD080 section extends into next function; no union body measurement | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/trial-broader-native-family` |
+| `0x002AECC0` | `FUN_002AECC0` | 44 | `broader-20261003:union-link:002AECC0` | `8bed6eae` | LINK FAIL (shared unit) | 002AD080 section extends into next function; no union body measurement | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/trial-broader-native-family` |
+
+### Isolated measurements
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002A40E8` | `FUN_002A40E8` | 96 | `broader-20261003:isolated:002A40E8` | `8bed6eae` | MISMATCH | 9 / 96 bytes | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/isolated-bodies-gp0/002A40E8` |
+| `0x002A5288` | `FUN_002A5288` | 60 | `broader-20261003:isolated:002A5288` | `8bed6eae` | EXACT; integration pending | 0 | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/isolated-bodies-gp0/002A5288` |
+| `0x002AA4E0` | `FUN_002AA4E0` | 60 | `broader-20261003:isolated:002AA4E0` | `8bed6eae` | MISMATCH | 13 / 60 bytes | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/isolated-bodies-gp0/002AA4E0` |
+| `0x002ACF68` | `FUN_002ACF68` | 52 | `broader-20261003:isolated:002ACF68` | `8bed6eae` | EXACT; integration pending | 0 | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/isolated-bodies-gp0/002ACF68` |
+| `0x002ACFA0` | `FUN_002ACFA0` | 52 | `broader-20261003:isolated:002ACFA0` | `8bed6eae` | EXACT; integration pending | 0 | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/isolated-bodies-gp0/002ACFA0` |
+| `0x002AD080` | `FUN_002AD080` | 80 | `broader-20261003:isolated:002AD080` | `8bed6eae` | MISMATCH | 88 produced / 80 target bytes | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/isolated-bodies-gp0/002AD080` |
+| `0x002ADBC0` | `FUN_002ADBC0` | 88 | `broader-20261003:isolated:002ADBC0` | `8bed6eae` | EXACT; integration pending | 0 | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/isolated-bodies-gp0/002ADBC0` |
+| `0x002AECC0` | `FUN_002AECC0` | 44 | `broader-20261003:isolated:002AECC0` | `8bed6eae` | EXACT; integration pending | 0 | `c9bc32200b3a6e0a` | `nuit-codex-prologue/native-broader-lot27-8bed-20261003-v2/isolated-bodies-gp0/002AECC0` |
+
+Inventory: 139 target records across 45 functions, comprising 27 exact results, 84 mismatches, 2 archived runs without proof, 9 compiler failures, 8 link failures and 9 source/catalog rejections. Shared-unit failure rows do not assert individual body mismatches.
+
+## Five winners requalified in a complete source unit
+
+The three mismatches are excluded from this fresh source. All five new complete
+bodies and the 21 existing native controls now pass together: 26 functions and
+1,056 native bytes. This qualifies the authored unit without the previous
+overlap; full overlay integration remains required before credit.
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002A5288` | `FUN_002A5288` | 60 | `lot27-five-full:002A5288` | `8bed6eae` | EXACT; integration pending | 0 | `85c805d4a898eb9a` | `nuit-codex-prologue/native-five-lot27-full-8bed-20261003/trial-five-winners-full-unit` |
+| `0x002ACF68` | `FUN_002ACF68` | 52 | `lot27-five-full:002ACF68` | `8bed6eae` | EXACT; integration pending | 0 | `85c805d4a898eb9a` | `nuit-codex-prologue/native-five-lot27-full-8bed-20261003/trial-five-winners-full-unit` |
+| `0x002ACFA0` | `FUN_002ACFA0` | 52 | `lot27-five-full:002ACFA0` | `8bed6eae` | EXACT; integration pending | 0 | `85c805d4a898eb9a` | `nuit-codex-prologue/native-five-lot27-full-8bed-20261003/trial-five-winners-full-unit` |
+| `0x002ADBC0` | `FUN_002ADBC0` | 88 | `lot27-five-full:002ADBC0` | `8bed6eae` | EXACT; integration pending | 0 | `85c805d4a898eb9a` | `nuit-codex-prologue/native-five-lot27-full-8bed-20261003/trial-five-winners-full-unit` |
+| `0x002AECC0` | `FUN_002AECC0` | 44 | `lot27-five-full:002AECC0` | `8bed6eae` | EXACT; integration pending | 0 | `85c805d4a898eb9a` | `nuit-codex-prologue/native-five-lot27-full-8bed-20261003/trial-five-winners-full-unit` |
+
+Inventory after full-unit requalification: 144 target records / 45 functions,
+including 32 exact results; all failure categories retain the counts above.
+
+## Selective first-store scheduling hypothesis
+
+Six archived pair-store bodies reverse the two stores under ordinary C. This
+new hypothesis qualifies only the first observed write as volatile and leaves
+the final write ordinary, testing whether the latter can fill the return delay
+slot. All six produce 24 bytes against complete 20-byte functions. The 26
+existing native controls stay exact. No source is integrated and no further
+qualifier permutation is justified by this result alone.
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002AA1A8` | `FUN_002AA1A8` | 20 | `pair-first-volatile:002AA1A8` | `8bed6eae` | MISMATCH | 24 produced / 20 target bytes | `23b9fbafed6c0588` | `nuit-codex-prologue/native-selective-pair-stores-8bed-20261003/trial-selective-first-store` |
+| `0x002AA1C0` | `FUN_002AA1C0` | 20 | `pair-first-volatile:002AA1C0` | `8bed6eae` | MISMATCH | 24 produced / 20 target bytes | `23b9fbafed6c0588` | `nuit-codex-prologue/native-selective-pair-stores-8bed-20261003/trial-selective-first-store` |
+| `0x002AA1D8` | `FUN_002AA1D8` | 20 | `pair-first-volatile:002AA1D8` | `8bed6eae` | MISMATCH | 24 produced / 20 target bytes | `23b9fbafed6c0588` | `nuit-codex-prologue/native-selective-pair-stores-8bed-20261003/trial-selective-first-store` |
+| `0x002AA1F0` | `FUN_002AA1F0` | 20 | `pair-first-volatile:002AA1F0` | `8bed6eae` | MISMATCH | 24 produced / 20 target bytes | `23b9fbafed6c0588` | `nuit-codex-prologue/native-selective-pair-stores-8bed-20261003/trial-selective-first-store` |
+| `0x002B2AD8` | `FUN_002B2AD8` | 20 | `pair-first-volatile:002B2AD8` | `8bed6eae` | MISMATCH | 24 produced / 20 target bytes | `23b9fbafed6c0588` | `nuit-codex-prologue/native-selective-pair-stores-8bed-20261003/trial-selective-first-store` |
+| `0x002D1060` | `FUN_002D1060` | 20 | `pair-first-volatile:002D1060` | `8bed6eae` | MISMATCH | 24 produced / 20 target bytes | `23b9fbafed6c0588` | `nuit-codex-prologue/native-selective-pair-stores-8bed-20261003/trial-selective-first-store` |
+
+Inventory: 150 records /45 functions; 90 mismatches. Other categories unchanged.
+
+## Pair-store caller ABI audit
+
+A separate read-only audit located all 49 direct calls to the six pair-store
+targets in the pinned Ship Shack executable section and checked their bodies
+against Ghidra memory. No caller consumes the materialized base address in v0
+before a later write or an independently checked callee replaces it. A few
+paths propagate the residue through an epilogue, but their caller also leaves
+it unused. No address-word table reference to these targets was found in the
+loaded segments.
+
+| Target | Direct calls | Return-value evidence |
+|---|---:|---|
+| `002AA1A8` | 7 | no use before overwrite |
+| `002AA1C0` | 14 | no use before overwrite |
+| `002AA1D8` | 11 | no use before overwrite |
+| `002AA1F0` | 14 | no use before overwrite |
+| `002B2AD8` | 1 | no use before overwrite |
+| `002D1060` | 2 | no use before overwrite |
+
+This does not prove the original source return type absolutely, but supplies
+no justification for changing it to a pointer to force store scheduling.
+Keep these six targets parked pending new evidence. This ABI observation is
+not a compiler trial and does not change the inventory totals above.
+
+## Eight larger native hypotheses, with measured callee return corrected
+
+The pinned callee 002D5860 returns a 0/1 word. This private full-context source
+corrects its declaration to s32 rather than inventing a result or using a
+conflicting declaration. All 26 existing controls remain exact. The new
+40-record loop is exact at 76 bytes; the seven other hypotheses remain
+mismatches. Their original sources, assembly and complete results are retained.
+
+| Target | Function | Bytes | Trial | C profile | Outcome | Diff | Source SHA-256 prefix | Evidence directory |
+|---|---|---:|---|---|---|---|---|---|
+| `0x002A3E18` | `FUN_002A3E18` | 152 | `next960:002A3E18` | `8bed6eae` | MISMATCH | 98 / 152 bytes | `b2a5db0c634b9b61` | `nuit-codex-prologue/native-next960-8bed-20261003/trial-eight-larger-bodies` |
+| `0x002A3F48` | `FUN_002A3F48` | 164 | `next960:002A3F48` | `8bed6eae` | MISMATCH | 160 produced / 164 target bytes | `b2a5db0c634b9b61` | `nuit-codex-prologue/native-next960-8bed-20261003/trial-eight-larger-bodies` |
+| `0x002A4468` | `FUN_002A4468` | 76 | `next960:002A4468` | `8bed6eae` | EXACT; integration pending | 0 | `b2a5db0c634b9b61` | `nuit-codex-prologue/native-next960-8bed-20261003/trial-eight-larger-bodies` |
+| `0x002A6100` | `FUN_002A6100` | 108 | `next960:002A6100` | `8bed6eae` | MISMATCH | 92 produced / 108 target bytes | `b2a5db0c634b9b61` | `nuit-codex-prologue/native-next960-8bed-20261003/trial-eight-larger-bodies` |
+| `0x002A6170` | `FUN_002A6170` | 124 | `next960:002A6170` | `8bed6eae` | MISMATCH | 39 / 124 bytes | `b2a5db0c634b9b61` | `nuit-codex-prologue/native-next960-8bed-20261003/trial-eight-larger-bodies` |
+| `0x002A67B8` | `FUN_002A67B8` | 140 | `next960:002A67B8` | `8bed6eae` | MISMATCH | 36 / 140 bytes | `b2a5db0c634b9b61` | `nuit-codex-prologue/native-next960-8bed-20261003/trial-eight-larger-bodies` |
+| `0x002AD170` | `FUN_002AD170` | 88 | `next960:002AD170` | `8bed6eae` | MISMATCH | 25 / 88 bytes | `b2a5db0c634b9b61` | `nuit-codex-prologue/native-next960-8bed-20261003/trial-eight-larger-bodies` |
+| `0x002B1D58` | `FUN_002B1D58` | 108 | `next960:002B1D58` | `8bed6eae` | MISMATCH | 14 / 108 bytes | `b2a5db0c634b9b61` | `nuit-codex-prologue/native-next960-8bed-20261003/trial-eight-larger-bodies` |
+
+Inventory: 158 target records /53 functions, including 33 exact results and
+97 mismatches. Other categories retain the counts above. A private source
+prototype correction does not change public source or integration credit.

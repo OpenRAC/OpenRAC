@@ -1,11 +1,22 @@
 # Start here
 
+New contributor? Start with the [AI beginner guide](CONTRIBUTOR-QUICKSTART.md)
+and [toolchain acquisition list](../toolchain/README.md). Every contributor needs
+their own legally acquired matching ISO and complete tool suite before selecting
+a contribution. This page covers reference preparation and matching validation.
+
 This repository reconstructs *Ratchet & Clank: Going Commando* (PS2, USA v1.01) into C that a
 compiler turns into **exactly** the bytes of the retail executable. Everything below exists so
 you can go from a fresh clone to a proven match without asking anyone.
 
 The rules are in [CONTRIBUTING.md](../CONTRIBUTING.md). This page is the long version: what you
 need, in what order, what each command must print, and what to do when it does not.
+
+The [maintained campaign workflow](CAMPAIGN-WORKFLOW.md) is the current entry point
+for target selection, packets, immutable trials and the complete build batch.
+[Source organization](SOURCE-LAYOUT.md) explains `src/` and generated standalone
+units. Commands below describe the underlying strict gates; do not create a
+separate runner or queue for each target.
 
 ## What you need, and where it comes from
 
@@ -14,7 +25,8 @@ need, in what order, what each command must print, and what to do when it does n
 | Python 3.12 + `requirements.txt` | `pip` | tests, report export, everything |
 | **Your own** disc image of the USA **v1.01** release (`SCUS_972.68`) | your legally obtained copy | the reference bytes |
 | **SN ProDG 2.0** EE toolchain (`ee/bin/Ps2EeAs.exe`, `ee/bin/ld.exe`) | you supply it | assembly reconstruction, the build gate |
-| **SN ProDG 3.01** EE toolchain (`bin/ee-gcc2953.exe`, `bin/ee-as.exe`, `lib/gcc-lib/ee/2.95.3/cc1.exe`) | you supply it | C candidate qualification |
+| **Reconstructed GNU EE 2.9-ee-991111b** `cpp`/`cc1`/`as` profile | locally rebuilt; see [compiler notes](COMPILER-NOTES.md) | current authored-C compilation and assembly |
+| **SN ProDG 3.01** EE toolchain (`ee/bin/ld.exe`; earlier compiler profile `ee-gcc2953`) | you supply it | linking the current C objects; retaining the earlier SN profile |
 | **Wrench** (`wrenchbuild`) | you supply it | unpacking the 27 level overlays |
 | A runtime directory **outside** this repository | you create it | every generated file lands there |
 
@@ -22,12 +34,24 @@ Greatest Hits **v2.00** and other regions are **different targets** — the pinn
 `config/target.json` reject them. The tests and `scripts/decomp_report.py` need **none** of the
 proprietary entries above; a bare Python 3.12 runs them (that is what CI does).
 
+The current C checker compiles through `scripts/wsl_chain.py` and uses the SN
+toolchain directory for its linker. `8bed6eae` in a proof is the SHA-256 prefix
+of the reconstructed `cc1`, not a compiler version. Compatibility with the
+qualified retail bodies does not establish the original game's compiler identity.
+
 ## 0. Python
 
 ```powershell
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
+python --version
+python scripts/doctor.py
+# Only if required package versions are missing:
+python -m pip install -r requirements.txt
 ```
+
+Reuse your configured interpreter when it has the required versions. A virtual
+environment is optional for dependency isolation, not required by the project.
+Use the same interpreter for installation and all commands. Preserve other
+projects' dependencies; do not force changes into a system-managed Python.
 
 `scripts/build.py` refuses to run unless `splat64`, `spimdisasm` and `rabbitizer` are exactly
 the pinned versions. `scripts/doctor.py` checks that for you.
@@ -35,7 +59,7 @@ the pinned versions. `scripts/doctor.py` checks that for you.
 ## 1. Ask your machine what it can do
 
 ```powershell
-.venv\Scripts\python.exe scripts/doctor.py
+python scripts/doctor.py
 ```
 
 With your inputs it prints the same list, all `ok`, and a verdict:
@@ -65,7 +89,7 @@ finds the manifest and will not ask you to re-verify 3.8 GB of disc.
 ## 2. Prepare the reference from your own disc
 
 ```powershell
-.venv\Scripts\python.exe scripts/setup.py --iso <disc.iso> --runtime <runtime> --wrench <wrenchbuild.exe>
+python scripts/setup.py --iso <disc.iso> --runtime <runtime> --wrench <wrenchbuild.exe>
 ```
 
 For an archive, use `--archive <archive.7z> --sevenzip <7z.exe>` instead of `--iso`. On success
@@ -81,7 +105,7 @@ On failure it prints `Preparation failed: <reason>` and exits **2**. A wrong dis
 ## 3. Rebuild, and gate every byte
 
 ```powershell
-.venv\Scripts\python.exe scripts/build.py --manifest <runtime>\runs\<id>\manifest.json --toolchain <ProDG-2.0> --all-levels
+python scripts/build.py --manifest <runtime>\runs\<id>\manifest.json --toolchain <ProDG-2.0> --all-levels
 ```
 
 Add `--c-toolchain <ProDG-3.01>` to link the reviewed C bodies into the boot as well. A good run
@@ -98,7 +122,7 @@ boot gate inside every one of the 27 overlays; on a cold cache that is roughly 4
 ## 4. Run the tests
 
 ```powershell
-.venv\Scripts\python.exe -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
 ```
 
 The suite must end with `OK`. It needs no disc, no toolchain, no network.
@@ -106,7 +130,7 @@ The suite must end with `OK`. It needs no disc, no toolchain, no network.
 ## 5. The per-function loop
 
 ```powershell
-.venv\Scripts\python.exe scripts/check_candidates.py --reference <runtime>\runs\<id>\reference\boot.elf --toolchain <ProDG-3.01> --runtime <runtime>
+python scripts/check_candidates.py --reference <runtime>\runs\<id>\reference\boot.elf --toolchain <ProDG-3.01> --runtime <runtime>
 ```
 
 It compiles `candidates/boot.c`, links a standalone candidate, and compares **every catalogued
@@ -139,7 +163,8 @@ The rules are deliberate; each one exists because a wrong result once got throug
 | What you see | What it means | What to do |
 | --- | --- | --- |
 | `Use pinned splat64 0.50.0` | your environment has another version | `pip install -r requirements.txt` |
-| `Missing instrument ee-gcc2953.exe` | `--toolchain` points at the wrong root | point it at the folder **containing** `bin/` and `ee/` |
+| `C linker ... is missing ee/bin/ld.exe` | the C linker root is incomplete or incorrect | use the root containing `ee/bin/ld.exe`; the old SN frontend is not required |
+| `GNU WSL profile unavailable` or `hash mismatch` | the actual GNU tools are missing or differ from the current qualified hashes | see [toolchain setup](../toolchain/README.md); do not substitute another compiler |
 | `ISO: wrong size, sha1, …` | not the supported release | USA v1.01, `SCUS_972.68`; v2.00 is another target |
 | `Runtime must be outside the source repository` | your `--runtime` is inside the clone | pick a directory elsewhere |
 | `Wrong RAC2 reference identity` | `--reference` is not the pinned boot | use the `boot.elf` that `setup.py` extracted |
@@ -149,17 +174,17 @@ The rules are deliberate; each one exists because a wrong result once got throug
 | `Every integrated function requires a complete candidate match` | catalogue and checker disagree | the catalogue lists a symbol the checker does not fully match |
 | `C candidates must not embed assembly or retail bytes` | the C uses inline asm or raw bytes | a match must come from the compiler |
 | `G3 requires all 27 verified overlays` | a level build was asked for before every overlay is verified | run `--all-levels` first |
-| `Candidate is older than an input` | a stale object/output was reused | delete the run directory and rebuild |
+| `Candidate is older than an input` | a stale object/output was reused | retain the old run and create a fresh trial/batch |
 
-## What is not reproducible here
+## Current limits
 
-- **The retail compiler.** Part of the game's code was built by a patched `cc1` that is not
-  redistributable. Some functions cannot be reproduced with the SN toolchains at all; those
-  targets are coordinated before anyone spends a day on them.
-- **Level-only bodies.** The counting path admits bodies reviewed against the **boot**; three
-  measured bodies that exist only inside level overlays are documented in
-  [THIRD-C-LOT.md](THIRD-C-LOT.md) and wait for a level-body lot to be wired through
-  `check_candidates.py`, `integration.py`, `build.py` and `decomp_report.py`.
+- **Exact tools and original identity.** The current reconstructed GNU EE profile
+  reproduces the accepted corpus, without establishing the original Insomniac
+  compiler identity. The exact public rebuild/acquisition path still has missing
+  inputs and legacy licensed components; see [toolchain status](../toolchain/README.md).
+- **Native level bodies.** Native overlay C is supported and integrated through
+  [LEVEL-NATIVE-C.md](LEVEL-NATIVE-C.md) and [SOURCE-LAYOUT.md](SOURCE-LAYOUT.md).
+  Every new program placement still requires its own reviewed boundary and full gate.
 - **Community reference material.** [COMMUNITY-ENGINE-REFERENCE.md](COMMUNITY-ENGINE-REFERENCE.md)
   collects engine intelligence from the wider community. It is a **reference**, never evidence:
   nothing in it can make a match, and the gate never reads it.

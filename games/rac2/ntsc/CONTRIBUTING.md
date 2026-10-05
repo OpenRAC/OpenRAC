@@ -6,6 +6,20 @@ contains. Analysis, tooling and documentation are welcome, but they never count 
 
 Full walkthrough: **[docs/START-HERE.md](docs/START-HERE.md)**.
 
+First contribution with no programming/PS2 experience: use the
+[AI beginner guide](docs/CONTRIBUTOR-QUICKSTART.md). It first requires your own
+legally acquired matching ISO and complete tool suite, then a validated task
+and draft PR from your fork. The
+[toolchain guide](toolchain/README.md) distinguishes public software downloads
+from the locally supplied components needed for actual game-code qualification.
+
+Before choosing a function, inspect the single register through
+`scripts/campaign.py --runtime <private-runtime> queue` and the corresponding `packet`. Use the
+[maintained campaign workflow](docs/CAMPAIGN-WORKFLOW.md) for new trials.
+Edit authored modules under `src/`, then regenerate the standalone compilation
+units using the [source layout workflow](docs/SOURCE-LAYOUT.md). Preserve the
+complete compilation context and refresh affected proofs after source changes.
+
 ## The three things this repository cannot ship
 
 1. **Your own copy of the game** — the USA v1.01 disc (`SCUS_972.68`), verified against the
@@ -21,6 +35,10 @@ Full walkthrough: **[docs/START-HERE.md](docs/START-HERE.md)**.
 That is deliberate: no game data and no proprietary SDK is distributed here. The tooling and
 the tests run without any of it — `python -m unittest discover -s tests -v` and
 `scripts/decomp_report.py` need nothing but Python 3.12.
+
+That is a technical property of preparation and CI checks, not a waiver of the
+contributor requirement: your legally acquired matching ISO and full tool suite
+must be available before contribution work begins.
 
 ## The loop
 
