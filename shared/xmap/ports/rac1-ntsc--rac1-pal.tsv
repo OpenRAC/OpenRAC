@@ -4,13 +4,10 @@
 # similar = between the same unchanged neighbours and alike by the ratio given (a draft to adapt).
 # Addresses are hexadecimal; `places` counts where the function occurs in the target version.
 kind	size	from_name	from_program	from_address	to_program	to_address	places	ratio
-same	4556	_dtoa_r	boot	001126D8	boot	001126D8	1	
 same	2168	draw_debug_profiler	boot	001F39D0	boot	001F3D78	20	
 same	1980	FUN_L00_002bf050	level:00	002BF050	level:00	002C0358	19	
-same	1912	_malloc_r	boot	00114920	boot	00114920	1	
 same	1408	FUN_L00_0025a478	level:00	0025A478	boot	00214778	20	
 same	1360	FUN_L00_00289cb8	level:00	00289CB8	level:00	0028AF90	2	
-same	1228	FUN_L00_00258b50	level:00	00258B50	level:00	00259B88	19	
 same	1168	FUN_L00_002c9348	level:00	002C9348	level:00	002CA728	19	
 same	1148	FUN_L00_002d0538	level:00	002D0538	level:00	002D19E8	19	
 same	1116	FUN_L00_002d5988	level:00	002D5988	level:00	002D6E38	14	
@@ -23,21 +20,17 @@ same	984	FUN_00216c48	boot	00216C48	boot	00217AE8	20
 same	956	FUN_L00_00208b60	level:00	00208B60	level:00	002091D8	19	
 same	928	FUN_L00_0020cf58	level:00	0020CF58	level:00	0020D5F0	12	
 same	784	FUN_L00_0028e9c8	level:00	0028E9C8	level:00	0028FCA0	19	
-same	704	sceWrite	boot	0011C520	boot	0011C820	1	
 same	704	snd_send_iop_command_no_wait	boot	0012E6E0	boot	0012E820	1	
 same	700	FUN_L00_0026de90	level:00	0026DE90	level:00	0026ED30	19	
-same	644	sceOpen	boot	0011BC80	boot	0011BF80	1	
 same	644	FUN_L01_002e35a8	level:01	002E35A8	level:01	002E4920	3	
 same	640	font_print	boot	001F62B0	boot	001F6668	20	
 same	640	FUN_L00_0025fcb8	level:00	0025FCB8	level:00	00260D30	16	
 same	640	FUN_L00_002a9c50	level:00	002A9C50	level:00	002AAEF0	19	
 same	628	sky_draw_shell_gouraud	boot	0022B928	boot	0022CC40	20	
 same	624	FUN_L00_0028efc8	level:00	0028EFC8	boot	0022F4C8	20	
-same	608	sceRead	boot	0011C2C0	boot	0011C5C0	1	
 same	588	send_adpcm	boot	0023AFC0	boot	0023C390	20	
 same	576	draw_sky_shells	boot	0022B288	boot	0022C5A0	20	
 same	572	sky_draw_shell_textured	boot	0022B6E8	boot	0022CA00	20	
-same	568	sceLseek	boot	0011C088	boot	0011C388	1	
 same	548	FUN_L00_002afa48	level:00	002AFA48	level:00	002B0D30	19	
 same	548	FUN_L04_002e5178	level:04	002E5178	level:04	002E6558	1	
 same	528	FUN_L01_003087e0	level:01	003087E0	level:01	00309BB8	18	
@@ -54,12 +47,10 @@ same	420	vi_buf_get_ts	boot	0023C920	boot	0023DCF0	20
 same	416	FUN_L00_0028a480	level:00	0028A480	level:00	0028B758	2	
 same	396	GetMpegPictureTimestampsAndFlags	boot	00129B60	boot	00129CA0	1	
 same	388	FUN_L00_0026c3d0	level:00	0026C3D0	level:00	0026D270	19	
-same	384	FUN_L00_002c3440	level:00	002C3440	level:00	002C4748	19	
 same	356	FUN_L00_001ee1b0	level:00	001EE1B0	level:00	001EE530	19	
 same	352	vi_buf_reset	boot	0023BCC0	boot	0023D090	20	
 same	340	vi_buf_modify_pts	boot	0023C6B8	boot	0023DA88	20	
 same	312	video_callback	boot	0023B5F0	boot	0023C9C0	20	
-same	308	_sceSifSendCmd	boot	0011A790	boot	0011AA90	1	
 same	304	copy_video_buffer_region	boot	0023B810	boot	0023CBE0	20	
 same	304	FUN_L01_0030f208	level:01	0030F208	level:01	003105E0	1	
 same	288	FUN_L00_0028b080	level:00	0028B080	level:00	0028C358	2	
@@ -80,7 +71,6 @@ same	228	FUN_L00_0023cdb8	level:00	0023CDB8	level:00	0023D750	19
 same	228	FUN_L00_0028a208	level:00	0028A208	level:00	0028B4E0	2	
 same	224	_initRefImages	boot	0012C770	boot	0012C8B0	1	
 same	220	FUN_L00_00289bd8	level:00	00289BD8	level:00	0028AEB0	2	
-same	220	FUN_L10_002f5a78	level:10	002F5A78	level:10	002F6E38	5	
 same	216	video_dec_flush	boot	0023CD08	boot	0023E0D8	20	
 same	208	audio_dec_begin_put	boot	0023AD58	boot	0023C128	1	
 same	188	audio_dec_create	boot	0023ABD0	boot	0023BFA0	20	
@@ -93,7 +83,6 @@ same	156	run_video_decoder	boot	0023CE28	boot	0023E1F8	20
 same	152	FUN_0023ba60	boot	0023BA60	boot	0023CE30	20	
 same	120	vi_buf_create	boot	0023BC48	boot	0023D018	20	
 same	120	vo_buf_inc_count	boot	0023D210	boot	0023E5E0	20	
-same	116	FUN_L02_002a4058	level:02	002A4058	level:02	002A5238	7	
 same	108	load_debug_font	boot	001E9338	boot	001E96B8	20	
 same	108	set_dma_channel_3_control_register	boot	0023BB40	boot	0023CF10	20	
 same	108	set_dma_channel_4_control_register	boot	0023BBB0	boot	0023CF80	20	
@@ -106,12 +95,10 @@ same	88	audio_dec_start	boot	0023ACB8	boot	0023C088	20
 same	84	vi_buf_end_put	boot	0023BF18	boot	0023D2E8	20	
 same	84	vi_buf_flush	boot	0023C660	boot	0023DA30	20	
 same	80	get_mpeg_timestamp	boot	0023D140	boot	0023E510	20	
-same	80	FUN_L00_002df4a8	level:00	002DF4A8	level:00	002E0958	4	
 same	76	wait_for_display_vsync	boot	0023B590	boot	0023C960	20	
 same	76	vi_buf_count	boot	0023C610	boot	0023D9E0	20	
 same	76	vo_buf_create	boot	0023D190	boot	0023E560	20	
 same	76	FUN_L00_002e88c8	level:00	002E88C8	level:00	002E9D78	19	
-same	72	double_is_not_nan	boot	00116168	boot	00116168	1	
 same	72	video_dec_put_ts	boot	0023CC98	boot	0023E068	20	
 same	72	video_dec_is_flushed	boot	0023CDE0	boot	0023E1B0	20	
 same	72	read_buf_begin_get	boot	0023B9D8	boot	0023CDA8	20	
@@ -120,7 +107,6 @@ same	68	get_fifo_index	boot	0023BAF8	boot	0023CEC8	1
 same	68	read_buf_end_put	boot	0023B990	boot	0023CD60	20	
 same	68	FUN_L00_00266e80	level:00	00266E80	level:00	00267CC8	19	
 same	64	vo_buf_get_data	boot	0023D288	boot	0023E658	20	
-same	56	ClassifyDoubleNaN	boot	001161B0	boot	001161B0	1	
 same	52	video_dec_delete	boot	0023CC38	boot	0023E008	20	
 same	48	mpeg_stop_dma	boot	0023D0E0	boot	0023E4B0	40	
 same	48	GetStateOffsetAddress	boot	0023B960	boot	0023CD30	20	

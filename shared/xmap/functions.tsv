@@ -48,12 +48,12 @@ fb2accaaba17b22c	656	core	2	_cpr8	boot:001299E8	func_001299E8	matched	boot:00129
 ec93672d2149d359	656	core	2											boot:00123430		open	boot:0012B338	func_0012B338	open
 6fffa54b68fc1a06	656	core	2											boot:001360D0		open	boot:00142610	func_00142610	open
 7c9a34431f1f9dbf	648	core	2	_csc_storeRefImage	boot:0012A7E8	func_0012A7E8	open	boot:0012A6A8	_csc_storeRefImage	open	boot:0012E608		open						
-9087291b18800c5d	644	core	2	sceOpen	boot:0011BF80	func_0011BF80	open	boot:0011BC80	sceOpen	matched	boot:0011E0D8		open						
+9087291b18800c5d	644	core	2	sceOpen	boot:0011BF80	func_0011BF80	matched	boot:0011BC80	sceOpen	matched	boot:0011E0D8		open						
 925c05c4dbdd08a1	640	core	2	sceSifInitCmd	boot:0011A780	func_0011A780	open	boot:0011A480	sceSifInitCmd	open	boot:0011C8D8		open						
 18fba7cf2a09b64b	640	core	2											boot:001218B8		open	boot:00129660	func_00129660	open
 19d59c2987304bdd	620	core	2											boot:00123840		open	boot:0012B980	func_0012B980	open
 9a42715e0b736ef7	612	core	2								boot:001236C8		open	boot:00129BF0		open			
-224bd6e9e2776be5	608	core	2	sceRead	boot:0011C5C0	func_0011C5C0	open	boot:0011C2C0	sceRead	matched	boot:0011E4E0		open						
+224bd6e9e2776be5	608	core	2	sceRead	boot:0011C5C0	func_0011C5C0	matched	boot:0011C2C0	sceRead	matched	boot:0011E4E0		open						
 ca60db7a05776de2	592	core	4		boot:00125630	func_00125630	open	boot:001254F0		open	boot:00129450		open	boot:00130AA0		open	boot:0013CFE0	func_0013CFE0	open
 95277abac33965a0	576	core	2											boot:00131398		open	boot:0013D8D8	func_0013D8D8	open
 7d1fa9b1dd38969c	568	core	4	sceIpuInit	boot:0012D068	func_0012D068	matched	boot:0012CF28	sceIpuInit	matched	boot:00130E88		open	boot:0013A598		open	boot:00146AD8	func_00146AD8	open
@@ -153,7 +153,7 @@ a6902e8e7932eaf9	316	core	2	scePad2GetState	boot:00124EE0	func_00124EE0	matched	
 2bfc99dfc83eb319	316	core	2								boot:00123A00		open	boot:00129F28		open			
 f2cc874da12f4523	316	core	2											boot:0012F720		open	boot:0013BD48	func_0013BD48	open
 2feb6a0826fc9f48	312	core	2		boot:00116810	func_00116810	open	boot:001166CC		open				boot:0011B868		open			
-6b79ef1ef136da2f	308	core	4	_sceSifSendCmd	boot:0011AA90	func_0011AA90	open	boot:0011A790	_sceSifSendCmd	matched	boot:0011CBE8		open	boot:00121C38		open	boot:001299E0	func_001299E0	open
+6b79ef1ef136da2f	308	core	4	_sceSifSendCmd	boot:0011AA90	func_0011AA90	matched	boot:0011A790	_sceSifSendCmd	matched	boot:0011CBE8		open	boot:00121C38		open	boot:001299E0	func_001299E0	open
 85f516d95b70ee8f	304	core	2	_sequenceExtension	boot:0012CA70	func_0012CA70	matched	boot:0012C930	_sequenceExtension	matched	boot:00130890		open						
 10dad992e2e70c01	304	core	2											boot:00139E50		open	boot:00146390	func_00146390	open
 4d5539727209b8e5	300	core	4	__pack_d	boot:0011FA38	func_0011FA38	matched	boot:0011F738	__pack_d	matched	boot:00122630		open	boot:00128AC0		open	boot:001309C0	func_001309C0	matched
@@ -552,7 +552,7 @@ ff44f2a05fdf84eb	60	core	3	QueuePeekReadDone	boot:001198D0	func_001198D0	matched
 b2bae5c0d87600d7	60	core	3								boot:00133788		open	boot:0013CFF8		open	boot:00159670	func_00159670	open
 131550b37589c425	60	core	3								boot:00133850		open	boot:0013D080		open	boot:00159718		open
 95ee8a47e0bf6d5a	60	core	2											boot:00135D00		open	boot:00142240	func_00142240	open
-d80aa97253021772	56	core	3	ClassifyDoubleNaN	boot:001161B0	func_001161B0	open	boot:001161B0	ClassifyDoubleNaN	matched	boot:001313C8		open				boot:00135358	func_00135358	matched
+d80aa97253021772	56	core	3	ClassifyDoubleNaN	boot:001161B0	func_001161B0	matched	boot:001161B0	ClassifyDoubleNaN	matched	boot:001313C8		open				boot:00135358	func_00135358	matched
 2b7ca6473db17a09	56	core	4	kputchar	boot:00119D88	func_00119D88	matched	boot:00119A88	kputchar	open	boot:0011BEE0		open	boot:00120580		open	boot:00128310	func_00128310	open
 130aec7fde6742b5	56	core	2	kprintf	boot:0011A690	func_0011A690	matched	boot:0011A390	kprintf	matched	boot:0011C7E8		open						
 37947232b0a2aff8	56	core	3		boot:0011D098	func_0011D098	open	boot:0011CD98		open	boot:0011ED28		open	boot:00124100		open			

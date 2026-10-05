@@ -74,15 +74,15 @@ this version's code, and still open here:
 
 | Version | Functions | Bytes | Compared with what the project has matched |
 |---|---:|---:|---|
-| rac1/pal | 145 | 57,080 | +8% |
+| rac1/pal | 131 | 45,624 | +6% |
 | rac1/ntsc | 186 | 60,020 | +8% |
 | rac2/ntsc | 437 | 62,472 | 4.6 times as much |
 | rac3/ntsc | 192 | 22,252 | +25% |
 | rac4/ntsc | 282 | 29,872 | 1.1 times as much |
 
-rac1/pal's row was 245 functions and 125,876 bytes until 100 of them were
-carried over from Lombyte by machine on 2026-10-04 (below); 128 of Lombyte's
-remain (56,092 bytes, among them `_dtoa_r` at 4.5 KB). Most of RAC2's come
+rac1/pal's row was 245 functions and 125,876 bytes until 114 of them were
+carried over from Lombyte on 2026-10-04 (below); 114 of Lombyte's remain
+(44,636 bytes). Most of RAC2's come
 from the two RAC1 projects (about 295 functions, 48 KB). The lists, one per
 pair, are in [shared/xmap/ports/](../../shared/xmap/ports): source name and
 address, target program and address, size, and whether it is the same function
@@ -150,19 +150,25 @@ matched whose code is identical in PAL and open there:
 
 | Outcome | Functions | Bytes |
 |---|---:|---:|
-| Pass rac1/pal's checks as generated, and landed there | 100 | 68,796 |
-| Passes alone, but not beside the other C in its file | 1 | 784 |
-| Same size, a few bytes differ (the compilers schedule or allocate differently) | 17 | 12,572 |
-| Another size | 12 | 8,464 |
-| The target file already declares the function with other types | 10 | 4,636 |
+| Landed in rac1/pal | 114 | 80,252 |
+| Close, not exact: the two compilers schedule or allocate an instruction or two differently, or the size differs | 37 | 25,408 |
 | Uses the source project's inline `sq $0` helper, which rac1/pal has no form for | 17 | 6,416 |
-| Not attempted: movie code, and SDK code awaiting a decision ([shared/port/](../../shared/port)) | 67 | 20,304 |
+| Never taken: the movie code ([shared/port/](../../shared/port/README.md)) | 56 | 9,896 |
 | Other (no listed function at the target address, an ambiguous name) | 4 | 2,916 |
 
-The 100 are 87 level functions, each exact under rac1/pal's strict link-time
-check and again with every other C function of its file, and 13 functions of
-the executable, confirmed by the full build (1,034 exact, none with a wrong
+Of the 114, 100 passed rac1/pal's checks exactly as generated. Seven more are
+library functions that were first held back and then reviewed
+([shared/port/README.md](../../shared/port/README.md)), and seven needed a
+prototype that an earlier caller in the same file had guessed put right by
+hand. 92 are level functions, each exact under rac1/pal's strict link-time
+check and again with every other C function of its file; 22 are in the
+executable, confirmed by the full build (1,043 exact, none with a wrong
 size). No model wrote or adjusted any of them.
+
+One of the library functions showed why the full build is the proof and the
+quick check is not: `sceLseek` passed the masked comparison with one wrong
+address and was 3 bytes off in the linked image. The cause was in the tool
+(dead padding after a jump hid a reference) and is fixed.
 
 So the claim above holds, with its caveat measured: identical machine code
 came from identical C in about three cases out of four once declarations

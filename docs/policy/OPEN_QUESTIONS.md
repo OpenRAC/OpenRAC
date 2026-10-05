@@ -111,10 +111,6 @@ own project) may come along, or a pass that regenerates them (`Type1`, `f20`).
 130 functions (15,928 bytes) rac1/pal has matched are identical in Deadlocked
 and wait on this.
 
-And for rac1/pal: 11 functions Lombyte has matched (SDK file and SIF I/O,
-989snd command senders, newlib internals) are held back until their C there
-has been reviewed against the sourcing policy
-([shared/port/rac1-pal.undecided.txt](../../shared/port/rac1-pal.undecided.txt)).
 
 ## 7. Build hosts
 
