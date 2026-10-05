@@ -40,6 +40,137 @@ def mask(w: int) -> int:
     return w
 
 
+# Opcodes whose 16-bit immediate can be the %lo half of an address: MEM, addiu and daddiu.
+LO16 = MEM | {0x09, 0x19}
+# Opcodes that write rt: immediate arithmetic, lui, and the loads into a general register.
+WRITES_RT = {*range(8, 16), 0x18, 0x19, 0x1A, 0x1B, 0x1E, *range(0x20, 0x28), 0x37}
+CALLER_SAVED = (*range(1, 16), 24, 25, 31)
+
+
+def references(code: bytes, base: int, gp: int | None = None) -> list[tuple[int, str, int]]:
+    """(instruction index, kind, address) for every address CODE forms, in
+    instruction order: `call` (a jal, or a j that leaves the function), `data`
+    (a `lui` and the %lo half that completes it, given at the %lo instruction)
+    and `gp` ($gp-relative, when GP is known).
+
+    Two copies of one function give the same indexes and kinds, so the n-th
+    address one forms is the n-th the other forms: that is how tools/port.py
+    translates a function's symbols between versions.
+
+    Which `lui` a %lo half completes is decided along the function's branches,
+    not by reading down the page: a register holds a top half where every way
+    of reaching the instruction left the same one in it. A top half follows
+    moves and an added index, and ends when its register is overwritten or a
+    call returns. Code reached only through a jump table starts from what was
+    held at the `jr`."""
+    ws = words(code)
+    n, end = len(ws), base + 4 * len(ws)
+
+    def fields(w):
+        return w >> 26, (w >> 21) & 31, (w >> 16) & 31, (w >> 11) & 31, w & 0xFFFF
+
+    def step(i: int, state: dict) -> dict:
+        """STATE after instruction I (register -> the top half it holds)."""
+        op, rs, rt, rd, imm = fields(ws[i])
+        dest, carried = 0, None
+        if op == 0:
+            dest = rd
+            if ws[i] & 0x3F in (0x21, 0x25, 0x2D) and (rs in state) != (rt in state):   # addu, or, daddu: a move or an index
+                carried = state[rs] if rs in state else state[rt]
+        elif op == 0x1C:
+            dest = rd
+        elif op in WRITES_RT or op in (0x10, 0x11, 0x12) and rs in (0, 1, 2):          # ... and mfc0, mfc1, cfc1
+            dest = rt
+        if not dest or dest not in state and op != 0x0F and carried is None:
+            return state
+        state = {r: v for r, v in state.items() if r != dest}
+        if op == 0x0F:
+            state[rt] = imm << 16
+        elif carried is not None:
+            state[rd] = carried
+        return state
+
+    def flow(i: int) -> tuple[str, int | None]:
+        """How instruction I transfers control: (kind, target index)."""
+        w = ws[i]
+        op, rs, rt, _rd, imm = fields(w)
+        target = i + 1 + (imm - 0x10000 if imm & 0x8000 else imm)
+        if op == 2:
+            dest = (base + 4 * i + 4) & 0xF0000000 | (w & 0x03FFFFFF) << 2
+            return ("jump", (dest - base) // 4) if base <= dest < end else ("leave", None)
+        if op == 3 or op == 0 and w & 0x3F == 9:
+            return "call", None
+        if op == 0 and w & 0x3F == 8:
+            return ("leave", None) if rs == 31 else ("table", None)
+        if op == 4 and rs == rt:                                     # b: a beq that always goes
+            return "jump", target
+        if op in (4, 5, 6, 7) or op == 1 and rt in (0, 1, 16, 17) or op in (0x10, 0x11, 0x12) and rs == 8 and not rt & 2:
+            return "branch", target
+        if op in (0x14, 0x15, 0x16, 0x17) or op == 1 and rt in (2, 3, 18, 19) or op in (0x10, 0x11, 0x12) and rs == 8:
+            return "likely", target
+        return "next", None
+
+    before: list = [None] * n          # what each instruction finds in the registers; None = not reached yet
+    tables: list = []                  # what was held at each jump through a table
+
+    def meet(a, b):
+        return b if a is None else {r: v for r, v in a.items() if b.get(r) == v}
+
+    def reach(i, state, work):
+        if 0 <= i < n:
+            merged = meet(before[i], state)
+            if merged != before[i]:
+                before[i] = merged
+                work.append(i)
+
+    def run(work):
+        while work:
+            i = work.pop()
+            state = before[i]
+            kind, target = flow(i)
+            if kind == "next":
+                reach(i + 1, step(i, state), work)
+                continue
+            slot = step(i + 1, state) if i + 1 < n else state       # the delay slot runs before control moves
+            if i + 1 < n:
+                before[i + 1] = meet(before[i + 1], state)
+            if kind == "call":
+                reach(i + 2, {r: v for r, v in slot.items() if r not in CALLER_SAVED}, work)
+            elif kind == "table":
+                tables.append(slot)
+            elif kind in ("jump", "branch", "likely"):
+                reach(target, slot, work)
+                if kind != "jump":
+                    reach(i + 2, state if kind == "likely" else slot, work)       # a likely branch not taken skips its slot
+
+    if n:
+        before[0] = {}
+        run([0])
+    while None in before:               # reached only through a jump table, or not at all
+        start = {}
+        for held in tables:
+            start = held if held is tables[0] else meet(start, held)
+        i = before.index(None)
+        before[i] = dict(start)
+        run([i])
+
+    out = []
+    for i, w in enumerate(ws):
+        op, rs, _rt, _rd, imm = fields(w)
+        simm = imm - 0x10000 if imm & 0x8000 else imm
+        if op in (2, 3):
+            target = (base + 4 * i + 4) & 0xF0000000 | (w & 0x03FFFFFF) << 2
+            if op == 3 or not base <= target < end:
+                out.append((i, "call", target))
+        elif op in LO16:
+            if rs == 28:
+                if gp is not None:
+                    out.append((i, "gp", (gp + simm) & 0xFFFFFFFF))
+            elif rs in before[i]:
+                out.append((i, "data", (before[i][rs] + simm) & 0xFFFFFFFF))
+    return out
+
+
 def shape(b: bytes) -> str:
     """The loose fingerprint: equal for two functions with the same instructions
     whatever their addresses, constants and struct offsets. Two functions that
