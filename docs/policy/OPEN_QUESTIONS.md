@@ -11,12 +11,14 @@ docs it names.
 | `games/rac1/pal` | MIT, Kryštof "Lynder063" Malinda ([LICENSE](../../games/rac1/pal/LICENSE)); libgcc sources under the GPL with the runtime exception |
 | `games/rac1/ntsc` | MIT, Mateusz Kłysz ([LICENSE](../../games/rac1/ntsc/LICENSE)); GPL-2.0 libgcc and EE-GCC patches, newlib's license ([licenses/](../../games/rac1/ntsc/licenses)) |
 | `games/rac2/ntsc` | MIT, llesieur99 ([LICENSE](../../games/rac2/ntsc/LICENSE)) |
-| `games/rac3/ntsc` | **none stated**: the project has no license file |
+| `games/rac3/ntsc` | GNU GPL v3 ([LICENSE](../../games/rac3/ntsc/LICENSE)), chosen by the project on 2026-10-04 |
 | `editor/` | MIT, as part of rac1-decomp where it was written ([editor/LICENSE](../../editor/LICENSE)) |
 | rest of the top level (`tools/`, `docs/`) | not chosen yet; see [LICENSE.md](../../LICENSE.md) |
 
-To decide: a license for rac3 (its authors' call), and one for the top level.
-MIT would match three of the four projects. Lombyte's
+To decide: a license for the top level, and how code moves between games
+now that the projects differ: rac3 is GPL v3 and the others MIT, so rac3's
+code cannot be copied into an MIT directory without its authors' permission,
+while MIT code can go the other way. That bears on shared code (question 6). Lombyte's
 [THIRD_PARTY_NOTICES.md](../../games/rac1/ntsc/THIRD_PARTY_NOTICES.md) still
 says rac1-decomp has no license; rac1-decomp has had an MIT license since
 2026-09, so that note is out of date.

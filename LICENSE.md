@@ -8,7 +8,7 @@ covered by the license of the closest directory below that has one.
 | [`games/rac1/pal`](games/rac1/pal/LICENSE) | MIT, Copyright (c) 2026 Kryštof "Lynder063" Malinda. The libgcc sources in `src/libgcc/` keep the GPL with the runtime exception their headers state. |
 | [`games/rac1/ntsc`](games/rac1/ntsc/LICENSE) | MIT, Copyright (c) 2026 Mateusz Kłysz. Code reconstructed from libgcc and the EE-GCC patches is GPL-2.0 ([licenses/GPL-2.0.txt](games/rac1/ntsc/licenses/GPL-2.0.txt)); newlib code keeps newlib's licenses ([licenses/COPYING.NEWLIB.txt](games/rac1/ntsc/licenses/COPYING.NEWLIB.txt)); see its [THIRD_PARTY_NOTICES.md](games/rac1/ntsc/THIRD_PARTY_NOTICES.md). |
 | [`games/rac2/ntsc`](games/rac2/ntsc/LICENSE) | MIT, Copyright (c) 2026 llesieur99. |
-| `games/rac3/ntsc` | **No license stated.** The project has not chosen one; until it does, its authors keep all rights to their work. |
+| [`games/rac3/ntsc`](games/rac3/ntsc/LICENSE) | GNU General Public License v3 (since 2026-10-04). Code from this directory can only move into another under the GPL, or with its authors' permission. |
 | [`editor`](editor/LICENSE) | MIT, as part of rac1-decomp where it was written ([editor/LICENSE](editor/LICENSE)). |
 | Everything else (`tools/`, `docs/`, the top-level files) | **Not chosen yet.** |
 

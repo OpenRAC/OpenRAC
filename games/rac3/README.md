@@ -20,8 +20,9 @@ it is the most systematic compiler study among the projects
 ([docs/toolchains](../../docs/toolchains/README.md)).
 
 Disc checksums are in [baserom/README.md](../../baserom/README.md); progress
-in [progress/](../../progress/README.md). The project has no license file yet
-([open questions](../../docs/policy/OPEN_QUESTIONS.md#1-licensing)).
+in [progress/](../../progress/README.md). The project is licensed under the GNU
+GPL v3 ([ntsc/LICENSE](ntsc/LICENSE)); the other games are MIT, which matters
+when code moves between them ([open questions](../../docs/policy/OPEN_QUESTIONS.md#1-licensing)).
 
 ## Getting started
 
