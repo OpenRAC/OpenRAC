@@ -305,7 +305,72 @@ void func_L06_002F4C00(char *owner) {
         func_L00_0025A2F0(&list, list, 0, 0);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L06_002F4CF8);
+extern float func_001FA748(f32, f32);
+extern s32 func_001FA898(f32);
+extern void func_L00_00250800(void *, int, void *);
+extern void func_001F49B0_F4CF8(void *, void *) __asm__("func_001F49B0");
+extern void func_L06_002F4C00_F4CF8(void *) __asm__("func_L06_002F4C00");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_00297d10.c, FUN_L06_002f38c8. */
+void func_L06_002F4CF8(char *obj)
+{
+    char *d;
+    int tint;
+    int i;
+    f32 f20;
+    int r, g, b, a;
+
+    if (*(unsigned char *)(obj + 0x21) == 0xFF) {
+        return;
+    }
+    d = *(char **)(obj + 0x78);
+    tint = 0x3228AAAA;
+    if (*(unsigned char *)(obj + 0x20) == 3 || *(unsigned char *)(obj + 0x20) == 6) {
+        tint = 0x3228AA28;
+    } else if (*(unsigned char *)(obj + 0x20) == 5 || *(unsigned char *)(obj + 0x20) == 9) {
+        tint = 0x322828AA;
+    } else if (*(unsigned char *)(obj + 0x20) == 7) {
+        tint = 0x32AA2828;
+    }
+
+    *(f32 *)(d + 0x28C) = func_001FA748(*(f32 *)(d + 0x28C), D_0015EE6C * 2.9670596f);
+    f20 = 0.5f * func_001F9FA8(*(f32 *)(d + 0x28C)) + 1.0f;
+
+    r = tint & 0xFF;
+    b = (tint >> 16) & 0xFF;
+    g = (tint >> 8) & 0xFF;
+    a = ((unsigned int)tint) >> 24;
+
+    r = func_001FA898((f32)r * f20);
+    if (r >= 0x100) r = 0xFF;
+    g = func_001FA898((f32)g * f20);
+    if (g >= 0x100) g = 0xFF;
+    b = func_001FA898((f32)b * f20);
+    if (b >= 0x100) b = 0xFF;
+
+    {
+        int packed = a << 24;
+        packed |= b << 16;
+        packed |= g << 8;
+        packed |= r;
+        *(int *)(obj + 0x90) = func_001FA8A8(*(int *)(obj + 0x90), packed, 0.1f);
+    }
+
+    for (i = 0; i < 3; i++) {
+        func_L00_00250800(obj, i + 1, d + 0x140 + i * 0x10);
+    }
+    {
+        int dv = D_L06_0015F6B0;
+        *(int *)(d + 0x290) = *(int *)(obj + 0x90);
+        if (dv != 0) {
+        int *p = *(int **)(d + 0x294);
+        if (dv != *p) {
+            *p = dv;
+            func_001F49B0_F4CF8(func_L06_002F4C00_F4CF8, obj);
+        }
+        }
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L06_002F6330);
 INCLUDE_ASM("asm/overlays", func_L06_002F86B8);
 extern int func_002140B0(int);

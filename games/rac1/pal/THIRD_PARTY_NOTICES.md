@@ -166,7 +166,7 @@ The following functions adapt source from
 - `src/overlays/shared/vendor_002EB0D8.c`: `func_L00_002EC860` (sets a moby's damping and scale constants, then re-runs its setup)
 - `src/overlays/shared/help_00203E98.c`: `func_L00_0020A8B8` (tests a segment against the world and returns the hit distance)
 
-The next 98 were carried over by machine (OpenRAC's `tools/port.py`, 2026-10-04): the PAL code is
+The next 100 were carried over by machine (OpenRAC's `tools/port.py`, 2026-10-04): the PAL code is
 the same instructions as the US code Lombyte matched, the C is Lombyte's with every symbol renamed
 to its PAL address, and each passed this project's own check. In parentheses, Lombyte's name.
 
@@ -268,6 +268,8 @@ to its PAL address, and each passed this project's own check. In parentheses, Lo
 - `src/game/pause.c`: `func_00227A70` (`clear_preview_resource_bindings`)
 - `src/game/mobyfunc.c`: `func_0020E340` (`PackRenderCommandFields`)
 - `src/overlays/shared/mobyutil_00258BC8.c`: `func_L00_0025F368` (`FUN_L00_0025e310`)
+- `src/overlays/shared/help_00214D60.c`: `func_L00_002178A0` (`FUN_L00_00217118`)
+- `src/overlays/shared/vendor_002D9548.c`: `func_L06_002F4CF8` (`FUN_L06_002f38c8`)
 
 Data taken from Lombyte:
 

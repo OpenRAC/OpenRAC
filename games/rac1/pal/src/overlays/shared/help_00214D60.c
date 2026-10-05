@@ -538,7 +538,88 @@ void func_L00_00217718(void *a, void *b, int c, int d) {
     if (d) func_L00_001ED600();
     func_L00_002510F0(*(int *)(D_0013E633 + 0x2E9D));
 }
-INCLUDE_ASM("asm/overlays", func_L00_002178A0);
+typedef int u128_2163f0 __attribute__((mode(TI)));
+typedef union { u128_2163f0 q; float f[4]; } V_2163f0;
+typedef struct {
+    unsigned char pad0[0x80];
+    V_2163f0 v80;
+    unsigned char pad90[0x1F8 - 0x90];
+    short s1F8;
+    unsigned char pad1FA[0x270 - 0x1FA];
+    V_2163f0 v270;
+    unsigned char pad280[0x10];
+    V_2163f0 v290;
+    unsigned char pad2A0[0x2DC - 0x2A0];
+    float f2DC;
+    unsigned char pad2E0[0x30E - 0x2E0];
+    short s30E;
+    unsigned char pad310[0x20B3 - 0x310];
+    unsigned char b20B3;
+} P_2163f0;
+extern P_2163f0 D_0013F450_178A0 __asm__("D_0013F450");
+typedef struct { char pad[0x2218]; int a[8]; int b[8]; } G_178A0;
+typedef int q_217118 __attribute__((mode(TI)));
+extern unsigned char D_0013F530_178A0[] __asm__("D_0013F530");
+extern unsigned char D_0013F450_178A0b[] __asm__("D_0013F450");
+extern unsigned char D_0013F4D0_178A0[] __asm__("D_0013F4D0");
+extern unsigned char D_L00_00173F40[];
+float func_L00_00234250_178A0(void *) __asm__("func_L00_00234250");
+void func_001F9C30_178A0(void *, float, void *) __asm__("func_001F9C30");
+void func_L00_00234420_178A0(void *, void *, float) __asm__("func_L00_00234420");
+void func_L00_00233F88(void *, void *, float);
+void func_L00_002343A0_178A0(void *, void *, float) __asm__("func_L00_002343A0");
+void func_001F9BD8(void *, void *, void *);
+void func_L00_00234090(void *, void *, float);
+int func_L00_001EFFF0(void *, void *, int, void *, int);
+float func_L00_002345B0(void *);
+void func_L00_002144A0(float);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui_help_00214658.c, FUN_L00_00217118. */
+void func_L00_002178A0(float a, float b)
+{
+    q_217118 t[1];
+    q_217118 u[1];
+    unsigned char *D_0013F450_178A0 = D_0013F530_178A0;
+    unsigned char *G_178A0;
+    unsigned char *Q;
+    float k, r;
+    unsigned char *e;
+    if (func_L00_00234250_178A0(D_0013F450_178A0) == 0.0f)
+        return;
+    G_178A0 = D_0013F450_178A0 - 0xE0;
+    if (0.5f < *(float *)(G_178A0 + 0x229C) && *(int *)(G_178A0 + 0x208C) != 6 && *(short *)(G_178A0 + 0x1F4) == 0 && G_178A0[0x12E7] == 0)
+        return;
+    Q = D_0013F450_178A0b;
+    if (*(short *)(Q + 0x30E))
+        return;
+    if (*(int *)(Q + 0x2084) == 0x20)
+        a = 2.0f;
+    Q += 0xE0;
+    func_001F9C30_178A0(t, a, Q);
+    if (0.0f < b && func_L00_00234250_178A0(t) < b) {
+        func_L00_00234420_178A0(t, t, 0.0f);
+        func_L00_00233F88(t, t, b);
+    }
+    func_L00_002343A0_178A0(t, t, 0.0f);
+    func_001F9BD8(t, t, D_0013F4D0_178A0);
+    qcopy(u, t);
+    func_L00_00234090(t, t, 0.3f);
+    D_0013F450_178A0 = D_0013F4D0_178A0 - 0x80;
+    k = -0.2f;
+    if (*(int *)(D_0013F450_178A0 + 0x2084) == 0x20)
+        k = -0.35f;
+    if (D_0013F450_178A0[0x20A4] == 2)
+        k = -0.7f;
+    func_L00_00234090(u, u, k);
+    r = 1.0f;
+    if (func_L00_001EFFF0(t, u, 4, *(void **)(D_0013F450_178A0 + 0x2080), 0)) {
+        e = D_L00_00173F40;
+        if (*(int *)(e + 0x1C) > 0 && func_L00_002345B0(e + 0x40) <= 0.87266463f)
+            r = 0.0f;
+    }
+    if (r != 0.0f)
+        func_L00_002144A0(0.0f);
+}
 extern void func_L00_00233F68(float *dst, float *src, float h);
 extern void func_L00_002A90C0(void *, int);
 extern int *D_L00_00178000[];
