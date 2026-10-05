@@ -314,7 +314,34 @@ void func_L03_002DF738(char *moby) {
 }
 INCLUDE_ASM("asm/overlays", func_L03_002E99F0);
 INCLUDE_ASM("asm/overlays", func_L03_002E9AF8);
-INCLUDE_ASM("asm/overlays", func_L03_002E9C38);
+extern char D_0013E633[];
+extern int D_L03_0015F050 MACRO_ADDR;
+extern char D_L03_00166F40[];
+extern int func_00215570(void *arg0, int arg1);
+extern char D_0013E633_E9C38b[] __asm__("D_0013E633");
+extern int D_L03_0015F050_E9C38b __asm__("D_L03_0015F050") MACRO_ADDR;
+extern int func_00215570_E9C38b(void *arg0, int arg1) __asm__("func_00215570");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002de370.c, FUN_L03_002e8870. */
+int func_L03_002E9C38(char *a0, char *a1) {
+    char *entry = (char *)(D_L03_0015F050_E9C38b + (*(short *)(a0 + 0x84) << 5));
+    char *sub = *(char **)(entry + 0x1C);
+    char *q;
+    int five;
+    if (*(int *)(a0 + 0x74) != 4) return 0;
+    if (a1 != 0 && *(short *)(a1 + 0x7E) == 0 && !(*(unsigned char *)(a0 + 0x7C) > *(unsigned char *)(a1 + 0x7C))) return 0;
+    if (func_00215570_E9C38b(D_0013E633_E9C38b + 0xE9D, *(int *)(sub + 0xC)) != 0) {
+        if (func_00215570_E9C38b(D_L03_00166F40, *(int *)(sub + 0xC)) != 0) return 1;
+        q = D_L03_00166F40 - 0x140;
+        five = *(int *)(q + 0x180);
+        *(unsigned char *)(q + 0x273) = 0;
+        *(short *)(five + 0x7E) = 2;
+        *(float *)(q + 0x294) = 0.018f;
+        *(float *)(q + 0x288) = 0.018f;
+        return 1;
+    }
+    return 0;
+}
 extern int D_L03_0015F050 MACRO_ADDR;
 extern char D_0013E633[];
 extern int func_00215570(void *arg0, int arg1);

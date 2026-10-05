@@ -482,7 +482,25 @@ void func_L01_0030ABC0(L01Moby *moby) {
         }
     }
 }
-INCLUDE_ASM("asm/overlays", func_L01_0030AC10);
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002f6328.c, FUN_L01_00309838. */
+void func_L01_0030AC10(char *a) {
+    char *p = *(char **)(a + 0x24);
+    char **q;
+    s32 i;
+    s8 one;
+    q = (char **)(*(char **)(a + 0x78) + 0x14);
+    *(s32 *)(a + 0x94) = *(s32 *)(p + 0x10);
+    *(u16 *)(a + 0x34) &= 0xFFFE;
+    *(s8 *)(a + 0x31) = 1;
+    one = 1;
+    for (i = 2; i >= 0; i--) {
+        if (*q != 0) {
+            *(u16 *)(*q + 0x34) &= 0xFFFE;
+            *(s8 *)(*q + 0x31) = one;
+        }
+        q++;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L01_0030C9F0);
 INCLUDE_ASM("asm/overlays", func_L01_0030D380);
 typedef int uq __attribute__((mode(TI)));
@@ -536,7 +554,75 @@ void func_L01_0030E638(void *unused, float *p) {
     p[2] = p[2] + 1.0f;
 }
 INCLUDE_ASM("asm/overlays", func_L01_0030E6E0);
-INCLUDE_ASM("asm/overlays", func_L01_0030E9C8);
+typedef int u128_w22c __attribute__((mode(TI)));
+extern int func_001F9938(void *);
+extern void func_001F9BF0(void *, void *, void *);
+extern float func_L00_001FF860(float, float);
+extern float func_001FA850(float, float);
+extern float func_001F9D48(void *, void *);
+extern void *func_L00_0025D390(void *);
+extern void func_0022ED80_0E9C8(int, int, char *) __asm__("func_0022ED80");
+extern void *func_L01_0030E6E0(void *, void *, void *, float, float, float, float, float, float);
+extern void func_L01_0030DC70_0E9C8(void *, void *, float, float, float, float) __asm__("func_L01_0030DC70");
+extern short D_L01_00162114;
+extern short D_L01_00162118;
+extern short D_L01_0016211C;
+extern short D_L01_00162120;
+extern short D_L01_00162124;
+extern short D_L01_00162110;
+extern short D_L01_0015F6A8_0E9C8 __asm__("D_L01_0015F6A8");
+typedef union { u128_w22c q; float f[4]; } V4_w22c;
+extern V4_w22c D_0013F4D0;
+extern void func_L00_00250800_0E9C8b(void *, int, void *) __asm__("func_L00_00250800");
+extern void func_L00_00250800_0E9C8c(void *, int, void *) __asm__("func_L00_00250800");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_0030b618.c, FUN_L01_0030d5f0. */
+void func_L01_0030E9C8(char *moby, char *state) {
+    V4_w22c v;
+    V4_w22c q;
+    V4_w22c p;
+    char *e;
+    float a, b, c, d, t, dist;
+
+    if (func_001F9938(state + 0x54) == 0) return;
+    func_L00_00250800_0E9C8c(moby, (state[0x56] & 1) + 1, &v);
+    state[0x56] = state[0x56] ^ 1;
+    e = func_L01_0030E6E0(moby, &v, moby + 0x40,
+                         (*(float *)&D_L01_00162118) * 0.017453292f,
+                         (*(float *)&D_L01_0016211C) * 0.017453292f,
+                         (*(float *)&D_L01_00162114), 2.0f, 3.1415927f, 3.1415927f);
+    if (e != 0) {
+        *(char **)(state + 0x60) = e;
+        if (D_0013F4D0.f[2] + 1.1f < *(float *)(moby + 0x18)) {
+            t = func_L00_001FF860(*(float *)(e + 0x10) - *(float *)(moby + 0x10),
+                             *(float *)(e + 0x14) - *(float *)(moby + 0x14));
+            if (func_001FA850(*(float *)(moby + 0x48), t) < 0.5235988f) {
+                if ((*(int *)&D_L01_0015F6A8_0E9C8) != 2) {
+                    char *r;
+                    qcopy(&q, e + 0x10);
+                    r = func_L00_0025D390(e);
+                    if (r != 0) q.f[2] = q.f[2] + *(float *)(r + 0x10);
+                    else q.f[2] = q.f[2] + (*(float *)&D_L01_00162124);
+                    func_001F9BF0(&p, &q, &v);
+                    func_L00_001FF4B0(&p, &p, (*(float *)&D_L01_00162120));
+                    func_001F9BD8(&v, &v, &p);
+                    a = func_L00_001FF860(q.f[0] - v.f[0], q.f[1] - v.f[1]);
+                    dist = func_001F9D48(&v, &q);
+                    b = -func_L00_001FF860(dist, q.f[2] - v.f[2]);
+                    c = func_L00_001FF860(q.f[0] - v.f[0], q.f[1] - v.f[1]);
+                    dist = func_001F9D48(&v, &q);
+                    d = -func_L00_001FF860(dist, q.f[2] - v.f[2]);
+                    func_L01_0030DC70_0E9C8(moby, &v, a, b, c, d);
+                    func_0022ED80_0E9C8(0, 0, moby);
+                    *(short *)(state + 0x54) = func_001F9850((*(int *)&D_L01_00162110));
+                    *(int *)(state + 0x5C) = *(int *)(state + 0x5C) + 1;
+                }
+            }
+        }
+    } else {
+        *(int *)(state + 0x60) = 0;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L01_0030EC58);
 typedef int u128 __attribute__((mode(TI)));
 extern float func_002140F8(float, float);

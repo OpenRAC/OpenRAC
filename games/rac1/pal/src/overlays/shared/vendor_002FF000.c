@@ -230,7 +230,27 @@ void func_L06_0030D2A0(char *m) {
         break;
     }
 }
-INCLUDE_ASM("asm/overlays", func_L06_0030D338);
+typedef int uq_b __attribute__((mode(TI)));
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_00307578.c, FUN_L06_0030bef8. */
+void func_L06_0030D338(char *src, int a1, int a2, int a3) {
+    uq_b v;
+    char *vp = (char *)&v;
+    unsigned char *m;
+    v = *(uq_b *)src;
+    m = (unsigned char *)func_0020D348(0x76A);
+    if (m) {
+        char *e = *(char **)(m + 0x78);
+        float f;
+        qcopy(m + 0x10, vp);
+        f = func_001FA888(a1);
+        *(int *)(e + 0xC) = a3;
+        *(int *)(e + 0x8) = a2;
+        *(float *)(e + 0x4) = 2.0f / f;
+        m[0x30] = 0xFF;
+        m[0x20] = 1;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L06_0030D3E8);
 extern char *D_L06_0015F050 MACRO_ADDR;
 

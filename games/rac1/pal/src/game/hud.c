@@ -1086,31 +1086,114 @@ void func_00201960(int a0, int a1, int a2, int a3, int a4) {
     func_00200650(v1, a0 - 0x20, a1, 0x20, a3, a4);
 }
 
-/*
- * Close, not exact (32/168, 19%), same size so harmless to anything
- * after it -- kept on the func_002094E0 precedent (13/64, 20%). Logic is
- * certain: clamp the top byte of `c` to 0x50, draw once with the colour
- * masked to its alpha byte, then a second pass offset from the first
- * call's return, then draw again unmasked. Five-argument calls -- EABI
- * passes the first eight integer args in $4-$11.
- *
- * Residual is the known allocator/constant-scheduling question, not
- * source shape: retail hoists the `lui $6,0xFF00` mask in among the
- * register spills and assigns $17-$20 to a,b,c,d in argument order,
- * where this compiler schedules the `slti` into that slot and picks a
- * different arg-to-saved-register mapping. Hoisting the mask into its
- * own local was tried and changed nothing at all.
- */
-void func_00201A38(int a, int b, int c, int d) {
-    int hi = c >> 24;
-    int m = c & 0xFF000000;
-    int t;
-    if (hi >= 0x51) hi = 0x50;
-    t = FontPrintCenterLarge(a + 1, b + 1, m, d, -1) - 0x20;
-    draw_stretchable_ui_frame(t, b - 8, (a - t) * 2, 0x20, hi);
-    FontPrintCenterLarge(a, b, c, d, -1);
+extern s32 func_001F6FD8_01A38(s32, s32, u64, s32, s32) __asm__("func_001F6FD8");
+extern void func_00201960(s32, s32, s32, s32, s32);
+void func_00201A38(s32 x, s32 y, s32 color, s32 text);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/ui/frames/draw_framed_text.c, draw_framed_text. */
+void func_00201A38(s32 x, s32 y, s32 color, s32 text) {
+    s32 alpha = (s32)color >> 24;
+    s32 text_left;
+    s32 left;
+
+    if (alpha > 0x50) {
+        alpha = 0x50;
+    }
+    text_left = func_001F6FD8_01A38(x + 1, y + 1, (s64)color & (s64)(s32)0xFF000000, text, -1);
+    left = text_left - 0x20;
+    func_00201960(left, y - 8, (x - left) * 2, 0x20, alpha);
+    func_001F6FD8_01A38(x, y, color, text, -1);
 }
 
 INCLUDE_ASM("asm/nonmatchings/text", func_00201AE0);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00201AF0);
+struct DmaTag {
+    u32 dma_control;
+    u32 address;
+    u32 vif0;
+    u32 vif1;
+};
+struct TagPtr {
+    struct DmaTag *p;
+};
+extern struct TagPtr D_00161000_01AF0 __asm__("D_00161000") MACRO_ADDR;
+extern s32 D_0015EE80 MACRO_ADDR;
+extern s32 D_0015EF84 MACRO_ADDR;
+void func_00201AF0(u32 image_address);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/draw_boot_image.c, draw_boot_image. */
+void func_00201AF0(u32 image_address) {
+    struct DmaTag *tag;
+    struct DmaTag *next;
+    u64 *register_words;
+    s32 remaining_rows;
+    s32 destination_block;
+    s64 upload_rows;
+    s32 rows_after_upload;
+    s64 image_quadword_count;
+
+    remaining_rows = D_0015EE80 ? 0x1C0 : 0x1A0;
+    destination_block = D_0015EF84 >> 8;
+    do {
+        rows_after_upload = remaining_rows - 0x80;
+        upload_rows = 0x80;
+        if (rows_after_upload < 0) {
+            upload_rows = remaining_rows;
+        }
+        D_00161000_01AF0.p->dma_control = 0x10000006;
+        D_00161000_01AF0.p->address = 0;
+        D_00161000_01AF0.p->vif0 = 0;
+        D_00161000_01AF0.p->vif1 = 0x50000006;
+        tag = D_00161000_01AF0.p;
+        next = tag + 7;
+        D_00161000_01AF0.p = tag + 1;
+        register_words = (u64 *)(tag + 1);
+        register_words[0] = 0x4000000000000001;
+        register_words[1] = 0xEEEEEEE;
+        register_words[2] = ((u64)destination_block << 32) | 0x0008000000000000;
+        register_words[3] = 0x50;
+        register_words[4] = 0;
+        register_words[5] = 0x51;
+        register_words[6] = ((u64)upload_rows << 32) | 0x200;
+        register_words[7] = 0x52;
+        register_words[8] = 0;
+        register_words[9] = 0x53;
+        image_quadword_count = upload_rows << 7;
+        register_words[10] = ((u64)image_quadword_count) | 0x0800000000008000;
+        register_words[11] = 0;
+        D_00161000_01AF0.p = next;
+        D_00161000_01AF0.p->dma_control = image_quadword_count | 0x30000000;
+        D_00161000_01AF0.p->address = image_address;
+        {
+            s64 upload_bytes = upload_rows << 11;
+            image_address += upload_bytes;
+        }
+        D_00161000_01AF0.p->vif0 = 0;
+        D_00161000_01AF0.p->vif1 = (s32)image_quadword_count | 0x50000000;
+        D_00161000_01AF0.p++;
+        {
+            s64 uploaded_blocks = upload_rows << 3;
+            destination_block += uploaded_blocks;
+        }
+        remaining_rows = rows_after_upload;
+    } while (remaining_rows > 0);
+    /* Finish the upload chain with a TEXFLUSH register write. */
+    {
+        struct DmaTag *final_tag;
+        struct DmaTag *final_next;
+        u64 *final_words;
+        D_00161000_01AF0.p->dma_control = 0x10000002;
+        D_00161000_01AF0.p->address = 0;
+        D_00161000_01AF0.p->vif0 = 0;
+        D_00161000_01AF0.p->vif1 = 0x50000002;
+        final_tag = D_00161000_01AF0.p;
+        final_next = final_tag + 3;
+        final_words = (u64 *)(final_tag + 1);
+        D_00161000_01AF0.p = final_tag + 1;
+        final_words[0] = 0x1000000000008001;
+        final_words[1] = 0xE;
+        final_words[2] = 0;
+        final_words[3] = 0x3F;
+        D_00161000_01AF0.p = final_next;
+    }
+}

@@ -55,4 +55,40 @@ void func_L00_00245E98(int arg) {
         } while (i < 0x46 && q[1] != 0);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_00245FE0);
+extern s32 D_0015EE80 MACRO_ADDR;
+void func_00217628_45FE0(void *, s32, s32) __asm__("func_00217628");
+void func_00217748(s32);
+void func_001F4E08(s32);
+typedef struct { s32 a, b; } P2_245610;
+typedef struct { u8 pad[0x12E8]; P2_245610 x[10]; P2_245610 y[1]; } Tab_245610;
+typedef struct { u8 pad[0x5C]; u8 *buf; s32 ptr[70]; } H_245610;
+extern Tab_245610 D_00137C80;
+extern H_245610 D_L00_0016C960_45FE0 __asm__("D_L00_0016C960");
+void func_00217628_45FE0b(void *, s32, s32) __asm__("func_00217628");
+void func_00217748_45FE0b(s32) __asm__("func_00217748");
+void func_001F4E08_45FE0b(s32) __asm__("func_001F4E08");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/world_animation_002454c8.c, FUN_L00_00245610. */
+void func_L00_00245FE0(s32 i, s32 p) {
+    s32 n;
+    s32 *e;
+    if (D_0015EE80 == 0) {
+        func_00217628_45FE0b(D_L00_0016C960_45FE0.buf, D_00137C80.x[i].a, D_00137C80.x[i].b);
+    } else {
+        func_00217628_45FE0b(D_L00_0016C960_45FE0.buf, D_00137C80.y[i].a, D_00137C80.y[i].b);
+    }
+    if (p != 0) {
+        func_00217748_45FE0b(0);
+        func_001F4E08_45FE0b(p);
+    }
+    func_00217748_45FE0b(1);
+    e = (s32 *)D_L00_0016C960_45FE0.buf;
+    n = 0;
+    if (e[1] != 0) {
+        do {
+            D_L00_0016C960_45FE0.ptr[n] = (s32)(D_L00_0016C960_45FE0.buf + (e[0] + 0x800));
+            n++;
+            e += 2;
+        } while (n < 70 && e[1] != 0);
+    }
+}

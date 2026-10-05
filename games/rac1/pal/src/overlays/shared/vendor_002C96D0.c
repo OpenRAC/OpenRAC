@@ -299,7 +299,70 @@ unsigned char *func_L00_002CE390(int a, V4 *pos, unsigned char *tgt, float f12, 
     return m;
 }
 INCLUDE_ASM("asm/overlays", func_L00_002CE6A0);
-INCLUDE_ASM("asm/overlays", func_L00_002CF170);
+typedef struct {
+    unsigned char pad0[0x80];
+    float v80[4];
+    unsigned char pad90[8];
+    float f98;
+    unsigned char pad9c[0x1FF5 - 0x9C];
+    unsigned char b1FF5;
+    unsigned char b1FF6;
+    unsigned char pad1ff7[0x2080 - 0x1FF7];
+    unsigned char *p2080;
+} P_2cdcc0;
+typedef struct {
+    unsigned char pad0[0xC0];
+    unsigned short hC0;
+    unsigned short hC2;
+    unsigned int wC4;
+} S_2cdcc0;
+extern P_2cdcc0 D_0013F450;
+extern S_2cdcc0 D_00141780;
+extern int D_0015EFA4 MACRO_ADDR;
+extern int D_0015EE84 MACRO_ADDR;
+int func_L00_00234718(int);
+void func_L00_00234638(int, int);
+float func_001F9F90(float);
+float func_001F9FA8(float);
+int func_001F9850(int);
+void func_001F9BD8(void *, void *, void *);
+unsigned char *func_L00_002CF6A0(unsigned char *, void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002c8440.c, FUN_L00_002cdcc0. */
+void func_L00_002CF170(void) {
+    P_2cdcc0 *p = &D_0013F450;
+    S_2cdcc0 *s;
+    float d[4] __attribute__((aligned(16)));
+    float v[4] __attribute__((aligned(16)));
+    unsigned char *m;
+    int i;
+    p->b1FF5 = 0;
+    if (func_L00_00234718(0x18)) {
+        d[0] = func_001F9F90(p->f98) * 0.25f;
+        d[1] = func_001F9FA8(p->f98) * 0.25f;
+        d[2] = 0.25f;
+        if (p->b1FF6 < 6) {
+            func_L00_00234638(0x18, 1);
+            s = &D_00141780;
+            if (s->hC0 < 0xFFFF) {
+                s->hC0++;
+            }
+            if (func_001F9850(D_0015EFA4) / 600 > s->hC2) {
+                s->hC2 = func_001F9850(D_0015EFA4) / 600;
+            }
+            s->wC4 = s->wC4 | (1 << D_0015EE84) | 0x80000000;
+
+            func_001F9BD8(v, p->v80, p->p2080 + 0xE0);
+            func_001F9BD8(v, v, p->p2080 + 0xC0);
+            for (i = p->b1FF6; i < 6; i++) {
+                m = func_L00_002CF6A0(m, v);
+                if (m) {
+                    qcopy(*(void **)(m + 0x78), d);
+                }
+            }
+        }
+    }
+}
 extern int func_L00_00273478(void *, int, float, float, unsigned, unsigned);
 
 void func_L00_002CF328(char *m) {

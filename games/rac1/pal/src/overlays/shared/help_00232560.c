@@ -422,7 +422,112 @@ void func_L00_00232EC0(int id) {
     *(int *)(D_0013F450 + 0xAB8) = id;
 }
 INCLUDE_ASM("asm/overlays", func_L00_00232EF0);
-INCLUDE_ASM("asm/overlays", func_L00_00233410);
+typedef int V4q_32b90 __attribute__((mode(TI), aligned(16)));
+typedef union { V4q_32b90 q; f32 f[4]; } V4_32b90;
+typedef struct {
+    char pad000[0x80];
+    V4_32b90 v80;
+    char pad090[0x50];
+    V4_32b90 vE0;
+    char pad0F0[0x180];
+    V4_32b90 v270;
+    char pad280[0x1E33];
+    u8 mode;
+} G_32b90;
+extern G_32b90 D_0013F450_33410 __asm__("D_0013F450");
+extern u8 D_L00_00173F80[];
+extern f32 D_L00_00173F60;
+extern void func_001F9BF0(void *, void *, void *);
+extern void func_001F9C30(void *, void *, f32);
+extern void func_001F9BD8(void *, void *, void *);
+extern void func_L00_001FF4B0(void *, void *, f32);
+extern void func_L00_0025E290(V4_32b90 *, void *);
+extern s32 func_L00_001EFFF0(void *, void *, s32, s32, s32);
+extern f32 func_L00_002345B0_33410(void *) __asm__("func_L00_002345B0");
+extern f32 func_L00_002342F8_33410(void *) __asm__("func_L00_002342F8");
+extern s32 func_L00_0025A5D8(f32 *, f32 *, f32, f32, f32);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui_help_00231d08.c, FUN_L00_00232b90. */
+f32 func_L00_00233410(f32 a, f32 b, f32 c) {
+    f32 t[4];
+    V4_32b90 v;
+    V4_32b90 t1;
+    V4_32b90 v2;
+    f32 o[6];
+    f32 x, y, z;
+
+    switch ((&D_0013F450_33410)->mode) {
+    case 0:
+        if (c < 0.0f) {
+            func_001F9C30(t, &(&D_0013F450_33410)->vE0, a);
+            t[2] -= ((a * a + a) * 0.5f) * b;
+            func_001F9BD8(t, t, &(&D_0013F450_33410)->v80);
+            v.q = (&D_0013F450_33410)->v80.q;
+            func_L00_0025E290(&v, t);
+            qcopy(&v, &(&D_0013F450_33410)->v80);
+            if (func_L00_001EFFF0(&v, t, 0x24, 0, 0) != 0) {
+                if (func_L00_002345B0_33410((f32 *)D_L00_00173F80) <= 0.87266463f) {
+                    c = *(f32 *)(D_L00_00173F80 - 0x18);
+                }
+            }
+        }
+        if (c > 0.0f) {
+            if (func_L00_0025A5D8(&o[0], &o[1], b * -0.5f, (&D_0013F450_33410)->vE0.f[2] - b * -0.5f, (&D_0013F450_33410)->v80.f[2] - c) > 0
+                && o[0] > 0.0f) {
+                return o[0];
+            }
+        }
+        break;
+    case 1:
+        qcopy(&v, &(&D_0013F450_33410)->v270);
+        func_L00_001FF4B0(&v, &v, b);
+        func_001F9C30(&v, &v, -1.0f);
+        func_001F9C30(t, &(&D_0013F450_33410)->vE0, a);
+        func_001F9C30(&t1, &v, ((a * a + a) * 0.5f) * b);
+        func_001F9BD8(t, &t1, t);
+        func_001F9BD8(t, &(&D_0013F450_33410)->v80, t);
+        v2.q = (&D_0013F450_33410)->v80.q;
+        func_L00_0025E290(&v2, t);
+        if (func_L00_001EFFF0(&(&D_0013F450_33410)->v80, t, 0x24, 0, 0) != 0) {
+            f32 nb;
+            nb = b * -0.5f;
+            z = func_L00_002342F8_33410(&(&D_0013F450_33410)->vE0) - nb;
+            x = func_L00_002342F8_33410(&(&D_0013F450_33410)->v80);
+            y = func_L00_002342F8_33410(&D_L00_00173F60);
+            if (func_L00_0025A5D8(&o[2], &o[3], nb, z, x - y) > 0
+                && o[2] > 0.0f) {
+                return o[2];
+            }
+        }
+        break;
+    case 2:
+        t1.f[2] = 100.0f;
+        t1.f[1] = 100.0f;
+        t1.f[0] = 100.0f;
+        func_001F9BF0(&v, &(&D_0013F450_33410)->v80, &t1);
+        func_L00_001FF4B0(&v, &v, b);
+        func_001F9C30(&v, &v, -1.0f);
+        func_001F9C30(t, &(&D_0013F450_33410)->vE0, a);
+        func_001F9C30(&t1, &v, ((a * a + a) * 0.5f) * b);
+        func_001F9BD8(t, &t1, t);
+        func_001F9BD8(t, &(&D_0013F450_33410)->v80, t);
+        v2.q = (&D_0013F450_33410)->v80.q;
+        func_L00_0025E290(&v2, t);
+        if (func_L00_001EFFF0(&(&D_0013F450_33410)->v80, t, 0x24, 0, 0) != 0) {
+            f32 nb;
+            nb = b * -0.5f;
+            z = func_L00_002342F8_33410(&(&D_0013F450_33410)->vE0) - nb;
+            x = func_L00_002342F8_33410(&(&D_0013F450_33410)->v80);
+            y = func_L00_002342F8_33410(&D_L00_00173F60);
+            if (func_L00_0025A5D8(&o[4], &o[5], nb, z, x - y) > 0
+                && o[4] > 0.0f) {
+                return o[4];
+            }
+        }
+        break;
+    }
+    return a;
+}
 extern int D_L00_0015F6A8 MACRO_ADDR;
 
 typedef struct {
@@ -994,7 +1099,57 @@ void func_L00_00235040(void) {
         *(short *)(base + 0x1F6) = 4;
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_00235088);
+typedef struct {
+    char p0[0x11D0]; char *m11D0, *m11D4; char p11D8[0x1220 - 0x11D8]; char *m1220;
+    char p1224[0x1D90 - 0x1224]; u8 b1D90, b1D91; char p1D92[0x1DA0 - 0x1D92]; char v1DA0[0x10];
+    char p1DB0[0x22E8 - 0x1DB0]; f32 f22E8, f22EC, f22F0;
+} P_234808;
+extern P_234808 D_0013F450_35088 __asm__("D_0013F450");
+extern s32 D_L00_0015F6A8 MACRO_ADDR;
+extern short D_0015EE6C;
+f32 func_001FA748(f32, f32);
+f32 func_001F9FA8(f32);
+s32 func_001FA8A8(s32, s32, f32);
+void func_0020D960(void *, s32, void *);
+void func_L00_001FFED8(void *, s32, f32);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui_help_00231d08.c, FUN_L00_00234808. */
+void func_L00_00235088(void) {
+    char *m0, *m1, *m2;
+    f32 k;
+    s32 a, b;
+    f32 t;
+    m0 = D_0013F450_35088.m11D0;
+    if (m0) {
+        if (D_L00_0015F6A8 == 2) D_0013F450_35088.f22E8 = func_001FA748(D_0013F450_35088.f22E8, (*(f32 *)&D_0015EE6C) * 1.2217305f);
+        else D_0013F450_35088.f22E8 = func_001FA748(D_0013F450_35088.f22E8, (*(f32 *)&D_0015EE6C) * 2.0943952f);
+        *(s32 *)(m0 + 0x90) = func_001FA8A8(0xD2D2D2, 0x285050, func_001F9FA8(D_0013F450_35088.f22E8) * 0.5f + 0.5f);
+    }
+    m1 = D_0013F450_35088.m11D4;
+    if (m1) {
+        if (D_L00_0015F6A8 != 2) {
+            f32 v;
+            D_0013F450_35088.f22EC = v = func_001FA748(D_0013F450_35088.f22EC, (*(f32 *)&D_0015EE6C) * 2.9670596f);
+            b = 0x1EE628;
+            if (0.0f < v && v < 1.9198622f) b = 0x1E1ED2;
+            *(s32 *)(m1 + 0x90) = func_001FA8A8(*(s32 *)(m1 + 0x90), b, 0.07f);
+        } else {
+            f32 v;
+            D_0013F450_35088.f22EC = v = func_001FA748(D_0013F450_35088.f22EC, (*(f32 *)&D_0015EE6C) * 1.5707964f);
+            *(s32 *)(m1 + 0x90) = func_001FA8A8(0x1E1ED2, 0x1E1E50, func_001F9FA8(v) * 0.5f + 0.5f);
+        }
+    }
+    m2 = D_0013F450_35088.m1220;
+    if (m2) {
+        if (D_L00_0015F6A8 == 2) D_0013F450_35088.f22F0 = func_001FA748(D_0013F450_35088.f22EC, (*(f32 *)&D_0015EE6C) * 1.3962634f);
+        else D_0013F450_35088.f22F0 = func_001FA748(D_0013F450_35088.f22EC, (*(f32 *)&D_0015EE6C) * 1.9198622f);
+            *(s32 *)(m2 + 0x90) = func_001FA8A8(0xAAC8AA, 0x965050, func_001F9FA8(D_0013F450_35088.f22F0) * 0.5f + 0.5f);
+        if (m2) {
+            if (!D_0013F450_35088.b1D91) func_0020D960(m2, 0, &D_0013F450_35088.b1D90);
+            else func_L00_001FFED8(D_0013F450_35088.v1DA0, 0, D_0013F450_35088.f22F0);
+        }
+    }
+}
 extern char D_L00_0016C960[];
 extern void func_L00_002098B8(int);
 extern void func_L00_0020FC18(void);

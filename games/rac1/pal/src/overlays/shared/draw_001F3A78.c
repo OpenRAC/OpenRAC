@@ -2,7 +2,24 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L00_001F3A78);
+typedef struct { s32 a, b, c, d; } E001f36f8;
+extern short D_L00_0015F0C4;
+extern short D_L00_0015F0C0;
+extern E001f36f8 D_L00_0016A940[];
+extern u8 D_L00_0016A140[];
+void func_L00_001F3AF0(s32, s32, s32, s32);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/rendering_debug_001f36f8.c, FUN_L00_001f36f8. */
+void func_L00_001F3A78(void) {
+    s32 i;
+    E001f36f8 *p;
+
+    for (i = 0; i < (*(s32 *)&D_L00_0015F0C4); i++) {
+        func_L00_001F3AF0(D_L00_0016A940[i].a, D_L00_0016A940[i].b, D_L00_0016A940[i].c, D_L00_0016A940[i].d);
+    }
+    (*(s32 *)&D_L00_0015F0C4) = 0;
+    (*(void * *)&D_L00_0015F0C0) = D_L00_0016A140;
+}
 INCLUDE_ASM("asm/overlays", func_L00_001F3AF0);
 INCLUDE_ASM("asm/overlays", func_L00_001F3DF0);
 INCLUDE_ASM("asm/overlays", func_L00_001F3E20);

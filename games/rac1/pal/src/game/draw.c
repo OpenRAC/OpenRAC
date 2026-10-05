@@ -1601,7 +1601,72 @@ void func_001F6968(void *a, void *b, void *c, void *d, void *e) {
 
 LINKER_REMNANT("asm/remnants/text", func_001F69E8);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001F69F0);
+struct Glyph {
+    u8 u;
+    u8 v;
+    s8 top;
+    s8 adv;
+};
+extern s32 D_0015F5A0 MACRO_ADDR;
+extern s32 D_0018CBF8[];
+extern f32 func_001FA888(s32);
+extern void func_001F5BB8_F69F0(f32, f32, f32, f32, s32, s32, s32, s32, u64, s32) __asm__("func_001F5BB8");
+void func_001F69F0(u64 color, u8 *s, s32 n, s32 tex, struct Glyph *g, f32 x, f32 y, f32 scale);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/audio/music/process_bgm_display_text_event.c, process_bgm_display_text_event. */
+void func_001F69F0(u64 color, u8 *str, s32 n, s32 tex, struct Glyph *g, f32 x, f32 y, f32 scale) {
+    u8 *s;
+    s32 i;
+    f32 size;
+    f32 top;
+    f32 dx;
+    f32 dy;
+    struct Glyph *e;
+    s32 avg;
+    s32 mk;
+
+    if (D_0015F5A0 == 0) {
+        D_0018CBF8[0] = color;
+    }
+    size = scale * 16.0f;
+    i = 0;
+    if (n == 0 || *str == 0) {
+        return;
+    }
+    s = str;
+    do {
+        if ((u8)(*s - 8) < 8) {
+            if ((*(s32 *)&D_0015F59C) != 0) {
+                color &= 0xFF000000;
+                color |= D_0018CBF8[*s - 8] & 0xFFFFFF;
+            }
+        } else if (g[*s].adv != 0) {
+            top = func_001FA888(g[*s].top) * scale;
+            if ((u8)(*s + 0x80) < 0x28) {
+                e = (struct Glyph *)(((*s + 0x40) << 2) + (s32)g);
+                dx = func_001FA888(e->adv) * scale;
+                dy = func_001FA888(e->top) * scale;
+                func_001F5BB8_F69F0(x + dx, y + dy, size, size, e->u, e->v, 16, 16, color, tex);
+            }
+            if (*s < 0x20) {
+                avg = (s32)((color & 0xFF) + ((color >> 8) & 0xFF) + ((color >> 16) & 0xFF)) / 3;
+                mk = (s32)(color & 0xFF000000);
+                mk += avg << 16;
+                mk += avg << 8;
+                avg += mk;
+                func_001F5BB8_F69F0(x, y + top, scale * 24.0f, scale * 16.0f, g[*s].u, g[*s].v, 24, 16, avg, tex);
+            } else if (*s > 0x20) {
+                func_001F5BB8_F69F0(x, y + top, size, size, g[*s].u, g[*s].v, 16, 16, color, tex);
+            }
+            x += func_001FA888(g[*s].adv) * scale;
+        }
+        i++;
+        if (i == n) {
+            break;
+        }
+        s++;
+    } while (*s != 0);
+}
 
 INCLUDE_ASM("asm/nonmatchings/text", func_001F6CE0);
 

@@ -3,7 +3,26 @@
 #include "include_asm.h"
 
 INCLUDE_ASM("asm/overlays", func_L11_002C99E0);
-INCLUDE_ASM("asm/overlays", func_L11_002CC950);
+extern char D_0013F4D0[];
+extern unsigned char D_0013D491[];
+extern char D_L11_00179B98[];
+extern char D_L11_0021ABF0[];
+extern int D_L11_0015F720 MACRO_ADDR;
+extern float func_001F9D10(void *, void *);
+extern int func_001F9850(int);
+extern int func_00116248(void *, void *);
+extern void func_0020D678(void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002c8830.c, FUN_L11_002cb790. */
+void func_L11_002CC950(char *a0)
+{
+    if (func_001F9D10(a0 + 0x10, D_0013F4D0) < 2.0f) {
+        D_0013D491[0] = 1;
+        func_00116248(D_L11_00179B98, D_L11_0021ABF0);
+        D_L11_0015F720 = func_001F9850(0xB4);
+        func_0020D678(a0);
+    }
+}
 extern float func_001F9D48(void *, void *);
 extern float func_L00_001FF860(float, float);
 extern float func_001FA850(float, float);

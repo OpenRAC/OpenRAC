@@ -411,7 +411,136 @@ float func_L00_002B1238(int n) {
     }
     return sum;
 }
-INCLUDE_ASM("asm/overlays", func_L00_002B1290);
+typedef int ti_t __attribute__((mode(TI), aligned(16)));
+typedef union { ti_t q; f32 f[4]; } VU;
+typedef struct {
+    VU v;
+    s32 w10;
+    s32 w14;
+    char *owner;
+    f32 f1C;
+    s32 w20;
+    s32 w24;
+    s32 w28;
+    f32 f2C;
+    f32 f30;
+    s32 w34;
+    s32 w38;
+} O;
+typedef struct {
+    char p0[0x80];
+    f32 x80;
+    f32 x84;
+    char p1[0x2E4 - 0x88];
+    f32 f2E4;
+    char p2[0x2080 - 0x2E8];
+    char *cam;
+} P;
+typedef struct { char p0[0xB]; u8 bB; } E;
+extern char * D_L00_001ABD80[];
+extern P D_0013F450;
+extern E D_0013E620;
+extern s32 D_L00_00166EC0[];
+extern s32 D_L00_00173F40[0x1C];
+extern f32 func_001F9D10(void *, void *);
+extern f32 func_001F9D48(void *, void *);
+extern f32 func_L00_001FF860(f32, f32);
+extern f32 func_001FA850(f32, f32);
+extern f32 func_001F9B88(f32);
+extern f32 func_001F9FC0(f32);
+extern f32 func_001FA888(s32);
+extern void func_00215C00(void *, f32, f32, f32);
+extern s32 func_L00_001EFFF0_B1290(void *, void *, s32, char *, void *) __asm__("func_L00_001EFFF0");
+extern s32 func_L00_0025D390_B1290(char *) __asm__("func_L00_0025D390");
+extern s32 func_L00_002608F0(char *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002aa670.c, FUN_L00_002affa8. */
+void func_L00_002B1290(char *self, O *out, char *skip) {
+    VU v;
+    VU lv;
+    char *o;
+    s32 p;
+    s32 i;
+    s32 flag;
+    f32 best, yaw, pitch, dist, ang, z, angh, angv;
+    char *spos;
+    char *opos;
+    P *g;
+
+    i = 0;
+    best = 10000.0f;
+    yaw = *(f32 *)(self + 0x48);
+    pitch = *(f32 *)(self + 0x44);
+    o = D_L00_001ABD80[i];
+    if (o == 0) return;
+    g = &D_0013F450;
+    while (o != 0) {
+        if (*(s8 *)(o + 0x20) < 0) goto next;
+        if (o == skip) goto next;
+        qcopy(&v, o + 0x10);
+        spos = self + 0x10;
+        opos = o + 0x10;
+        if (40.0f < func_001F9D10(&v, spos)) goto next;
+        p = func_L00_0025D390_B1290(o);
+        if (p == 0) goto np;
+        if (p <= 0x100000) goto np;
+        if (0x3FFFFF < p) goto np;
+        { f32 pf = *(f32 *)(p + 0x10); z = v.f[2] + pf; }
+        goto zset;
+    np:
+        p = 0;
+        z = v.f[2] + 0.5f;
+    zset:
+        v.f[2] = z;
+        if (o == 0) goto next;
+        if (*(char **)(o + 0x24) == 0) goto next;
+        if (*(s16 *)(*(char **)(o + 0x24) + 0x46) != 5) goto next;
+        angh = func_L00_001FF860(v.f[0] - *(f32 *)(self + 0x10), v.f[1] - *(f32 *)(self + 0x14));
+        angv = func_L00_001FF860(func_001F9D48(spos, &v), v.f[2] - *(f32 *)(self + 0x18));
+        dist = func_001F9D10(spos, &v);
+        if (dist < 2.5f) {
+            char *cam = g->cam;
+            if (func_001FA850(*(f32 *)(cam + 0x48),
+                    func_L00_001FF860(*(f32 *)(o + 0x10) - g->x80, *(f32 *)(o + 0x14) - g->x84)) < 1.0471976f) {
+                if (func_001F9B88(angv) < 0.7853982f) return;
+            }
+        }
+        if (best < dist) goto next;
+        ang = func_001FA888(D_0013E620.bB) * 0.6981317f;
+        func_00215C00(&lv, dist, yaw, pitch + g->f2E4 * 0.5f);
+        func_001F9BD8(&lv, &lv, spos);
+        z = func_001F9FC0(func_001F9D10(&lv, &v) / (dist + dist));
+        ang = ang + 1.5707964f;
+        if (ang < z + z && p != 0) {
+            ang = func_001FA888(*(u8 *)(p + 0xA) << 3) * 0.125f;
+            func_001F9FC0(ang / dist);
+        }
+        flag = 1;
+        if (func_L00_001EFFF0_B1290(D_L00_00166EC0, &v, 6, self, 0) != 0) {
+            s32 hit = D_L00_00173F40[6];
+            if (hit == 0 || hit != (s32)o) flag = 0;
+        } else {
+            best = dist;
+            pitch = -angv;
+            yaw = angh;
+            if (func_L00_002608F0(o) != 0) goto next;
+            z = 0.5f;
+            out->owner = o;
+            if (p != 0) z = *(f32 *)(p + 0x10);
+            out->f2C = angh;
+            out->w38 = flag;
+            out->f30 = pitch;
+            out->w24 = 0;
+            out->w28 = 0;
+            out->w20 = 0;
+            qcopy(out, opos);
+            out->f1C = z;
+        }
+    next:
+        i++;
+        o = D_L00_001ABD80[i];
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L00_002B1688);
 typedef struct { float f[4]; } __attribute__((aligned(16))) V_2b1af0;
 typedef int Q_2b1af0 __attribute__((mode(TI)));

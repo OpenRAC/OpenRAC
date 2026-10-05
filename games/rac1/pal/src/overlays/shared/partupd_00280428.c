@@ -121,7 +121,50 @@ int func_L01_0028C2D8(void *arg0, List *arg1, float target) {
     }
     return best;
 }
-INCLUDE_ASM("asm/overlays", func_L01_0028C3A8);
+typedef struct {
+    int count;
+    int pad[3];
+    float e[1][4];
+} List_8C3A8;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/rendering_0027f660.c, FUN_L01_0028b5e0. */
+int func_L01_0028C3A8(char *a0, List_8C3A8 *list, char *pt, char *out) {
+    int idx0 = -1;
+    int idx1 = -1;
+    float best0 = 10000.0f;
+    float best1 = 10000.0f;
+    float d_init = func_001F9D10(a0 + 0x10, pt);
+    int i;
+
+    for (i = 0; i < list->count; i++) {
+        float d_pt = func_001F9D10(list->e[i], pt);
+        float d_a0 = func_001F9D10(list->e[i], a0 + 0x10);
+        if (d_a0 < best0) {
+            best0 = d_a0;
+            idx0 = i;
+        }
+        if (d_pt < d_init) {
+            if (d_pt < best1) {
+                best1 = d_pt;
+                idx1 = i;
+            }
+        }
+    }
+    if (idx1 != -1) {
+        if (idx0 == idx1) {
+            qcopy(out, list->e[idx0]);
+            return idx0;
+        }
+        if (idx0 < idx1) {
+            qcopy(out, list->e[idx0 + 1]);
+            return idx0 + 1;
+        }
+        qcopy(out, list->e[idx0 - 1]);
+        return idx0 - 1;
+    }
+    qcopy(out, pt);
+    return -1;
+}
 INCLUDE_ASM("asm/overlays", func_L01_0028C578);
 INCLUDE_ASM("asm/overlays", func_L01_0028C5B8);
 INCLUDE_ASM("asm/overlays", func_L01_0028C5D0);

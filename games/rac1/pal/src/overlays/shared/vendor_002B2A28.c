@@ -120,7 +120,67 @@ INCLUDE_ASM("asm/overlays", func_L14_002B4B84);
 INCLUDE_ASM("asm/overlays", func_L14_002B4BF0);
 INCLUDE_ASM("asm/overlays", func_L14_002B4C2C);
 INCLUDE_ASM("asm/overlays", func_L14_002B4C70);
-INCLUDE_ASM("asm/overlays", func_L14_002DAA70);
+extern u8 D_001414F4[];
+extern u8 * D_L14_00167600;
+extern s32 func_001F9850(s32);
+extern s32 func_001F9908(void *);
+extern void func_00213D28(void *, s32, s32);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002b17d8.c, FUN_L14_002d96e0. */
+void func_L14_002DAA70(char *moby) {
+    char *data = *(char **)(moby + 0x78);
+    if (D_001414F4[0] == 2) {
+        *(s32 *)(moby + 0x94) = 0;
+    } else {
+        *(s32 *)(moby + 0x94) = *(s32 *)(*(char **)(moby + 0x24) + 0x10);
+    }
+    switch ((u8)moby[0x20]) {
+    case 0:
+        if (*(s32 *)data != 0 && *(s16 *)(D_L14_00167600 + 0x86) == 0x14) {
+            moby[0x20] = 1;
+            *(s32 *)(data + 8) = func_001F9850(*(s32 *)(data + 4));
+        }
+        break;
+    case 1:
+        if (func_001F9908(data + 8) != 0) {
+            moby[0x20] = 2;
+            func_00213D28(moby, 1, 0);
+        }
+        break;
+    case 2:
+        if ((moby[0x70] & 2) != 0) {
+            moby[0x20] = 3;
+            func_00213D28(moby, 2, 0);
+        }
+        break;
+    case 3:
+        if (*(s16 *)(D_L14_00167600 + 0x86) != 0x14) {
+            func_00213D28(moby, 0, 0);
+            moby[0x20] = 4;
+        }
+        break;
+    case 4:
+        break;
+    case 5:
+        if ((moby[0x70] & 2) != 0) {
+            moby[0x20] = 6;
+            func_00213D28(moby, 2, 0);
+        }
+        break;
+    case 6:
+        if (func_001F9908(data + 8) != 0) {
+            func_00213D28(moby, 3, 0);
+            moby[0x20] = 7;
+        }
+        break;
+    case 7:
+        if ((moby[0x70] & 2) != 0) {
+            moby[0x20] = 0;
+            func_00213D28(moby, 0, 0);
+        }
+        break;
+    }
+}
 extern void func_00213D28(void *, int, int);
 
 // Starts a moby in state 5 if idle, then stores a random value and returns whether it was in state 6.

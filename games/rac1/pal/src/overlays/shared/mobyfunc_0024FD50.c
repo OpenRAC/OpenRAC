@@ -151,7 +151,21 @@ void func_L00_002501C8(void *unused, unsigned char *a) {
     }
     func_L00_002539C8(a);
 }
-INCLUDE_ASM("asm/overlays", func_L00_00250418);
+typedef struct { u8 pad[0x20]; u8 b20, b21, b22, b23; s32 i24; f32 f28; f32 f2c; } S;
+typedef struct { u8 pad[0x51]; u8 b51, b52, b53; } A;
+extern void func_L00_002501C8_50418(void) __asm__("func_L00_002501C8");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_state_0024eec0.c, FUN_L00_0024f3e0. */
+void func_L00_00250418(A *a0, S *a1, s32 a2, s32 a3, s32 a4, s32 a5) {
+    a1->b22 = a0->b53;
+    a1->b20 = a0->b51;
+    a1->b23 = a2;
+    a1->b21 = a3;
+    a1->f28 = 1.0f;
+    a1->f2c = 1.0f / (f32)a4;
+    a1->i24 = 0;
+    if (a5) func_L00_002501C8_50418();
+}
 INCLUDE_ASM("asm/overlays", func_L00_00250478);
 INCLUDE_ASM("asm/overlays", func_L00_002506D0);
 INCLUDE_ASM("asm/overlays", func_L00_00250700);

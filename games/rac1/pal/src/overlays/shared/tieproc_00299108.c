@@ -20,7 +20,30 @@ void func_L00_00299108(void) {
     D_L00_0015F3F0 = 0;
     D_L00_0015F3F4 = 0;
 }
-INCLUDE_ASM("asm/overlays", func_L00_00299148);
+struct P { char pad[0x100]; float a, b, c, d; char pad2[0x1A0 - 0x110]; int busy; };
+extern struct P D_0013CA40;
+extern short D_L00_001610B0;
+extern int D_L00_0015F6B0 MACRO_ADDR;
+extern int D_0015EFA4 MACRO_ADDR;
+extern int D_L00_0015F678 MACRO_ADDR;
+extern int D_0015EF28 MACRO_ADDR;
+int func_001F9850(int);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_00295100.c, FUN_L00_00297e70. */
+void func_L00_00299148(void) {
+    if (D_0013CA40.busy != 0 || D_0013CA40.c != 0.0f || D_0013CA40.d != 0.0f || D_0013CA40.a != 0.0f || D_0013CA40.b != 0.0f) {
+        (*(int *)&D_L00_001610B0) = 0;
+    } else {
+        (*(int *)&D_L00_001610B0)++;
+    }
+    D_L00_0015F6B0++;
+    D_0015EFA4++;
+    if (D_L00_0015F678) {
+        if ((*(int *)&D_L00_001610B0) < (int)((float)func_001F9850(15) * 60.0f)) {
+            D_0015EF28++;
+        }
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L00_00299250);
 INCLUDE_ASM("asm/overlays", func_L00_00299B68);
 INCLUDE_ASM("asm/overlays", func_L00_00299E70);

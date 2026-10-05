@@ -23,7 +23,55 @@ char *func_L06_002D98E0(char *owner) {
     }
     return moby;
 }
-INCLUDE_ASM("asm/overlays", func_L06_002D9970);
+extern int D_L06_0015F6B0 MACRO_ADDR;
+extern float func_001F9FA8(float);
+extern int func_001FA8A8(int, int, float);
+extern char *func_L00_0025B478(void *, int, int);
+extern int func_L00_001FEF78(void *);
+extern void func_0020D678(void *);
+extern void func_L06_002D9548(void *, void *);
+extern void func_L06_002D9B08(void);
+extern void func_001F49B0(int, int);
+extern float func_001F9FA8_D9970b(float) __asm__("func_001F9FA8");
+extern int func_001FA8A8_D9970b(int, int, float) __asm__("func_001FA8A8");
+extern char *func_L00_0025B478_D9970b(void *, int, int) __asm__("func_L00_0025B478");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_00297d10.c, FUN_L06_002d85a0. */
+void func_L06_002D9970(unsigned char *moby) {
+    char *p = func_L00_0025B478_D9970b(moby, 0x10000, 0);
+    float tmp[4];
+    int t;
+    float f;
+
+    moby[0xA4] = 0xFF;
+    switch (moby[0x20]) {
+    case 0:
+        moby[0x20] = 1;
+        break;
+    case 1:
+        t = D_L06_0015F6B0;
+        f = (float)(t % 150) / 150.0f * 2.0f * 3.14159274f;
+        if (f > 3.14159274f) {
+            f -= 6.28318548f;
+        }
+        f = (func_001F9FA8_D9970b(f) + 1.0f) * 0.5f;
+        *(int *)(moby + 0x90) = func_001FA8A8_D9970b(0x80464646, 0x80828282, f);
+        if (p != 0) {
+            func_L06_002D9548(moby, p);
+        }
+        if (moby[0x31] != 0) {
+            func_001F49B0((int)func_L06_002D9B08, (int)moby);
+        }
+        break;
+    case 2:
+        qcopy(tmp, moby + 0x10);
+        tmp[2] += 0.3f;
+        if (func_L00_001FEF78(moby + 0xBC) != 0) {
+            func_0020D678(moby);
+        }
+        break;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L06_002D9B08);
 /* Spawns a moby of type 0x12F at the owner's position and links it to the owner. */
 char *func_L06_002D9F68(char *owner) {
@@ -164,7 +212,20 @@ int func_L06_002EBAD8(unsigned char *moby) {
     }
     return r;
 }
-INCLUDE_ASM("asm/overlays", func_L06_002EBBF8);
+extern s32 func_L00_002DD2D0(void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_00297d10.c, FUN_L06_002ea7c8. */
+s32 func_L06_002EBBF8(unsigned char *p) {
+    u8 t;
+    s32 r;
+    r = func_L00_002DD2D0(p);
+    t = p[0x20];
+    if (t != 0x10) {
+        p[0xBC] = t;
+        p[0x20] = 0x10;
+    }
+    return r;
+}
 INCLUDE_ASM("asm/overlays", func_L06_002F1470);
 extern float func_001F9D48(void *, void *);
 extern float func_L00_001FF860(float, float);

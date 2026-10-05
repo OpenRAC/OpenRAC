@@ -1318,7 +1318,158 @@ int func_0021E4B0(Menu *menu) {
     return 2;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_0021E950);
+typedef struct {
+    u8 pad_0[0x40];
+    f32 w;
+    f32 h;
+} Font;
+typedef struct {
+    u8 pad_0[0x78];
+    Font *font;
+} FontHolder;
+typedef struct {
+    u8 pad_0[0x40];
+    void *owner;
+} MenuFocus;
+typedef struct {
+    u8 pad_0[0x4];
+    MenuFocus *focus;
+    u8 pad_8[0x28];
+    s32 slot[65];
+    s32 unk134;
+    s32 unk138;
+} MenuState;
+typedef struct {
+    s32 slot;
+    u8 pad_4[0x48];
+} ItemInfo;
+typedef struct {
+    u16 icon;
+    s16 frame;
+    s16 kind;
+    s16 id;
+    u16 pad_8;
+} MenuGridCell;
+typedef struct {
+    u8 pad_0[0x14];
+    FontHolder *holder;
+    u8 pad_18[0x8];
+    s32 w;
+    s32 h;
+    u8 pad_28[0x8];
+    s32 flags;
+    f32 margin_x;
+    f32 margin_y;
+    s32 selected_cell;
+    s32 rows;
+    s32 cols;
+    MenuGridCell *cells;
+} MenuItemGrid;
+extern MenuState D_001D5F70_1E950 __asm__("D_001D5F70");
+extern ItemInfo D_001864D8[];
+extern u8 D_0013D490[];
+extern u8 D_0013D5C8_1E950[] __asm__("D_0013D5C8");
+extern u8 D_0013E620[];
+extern s32 D_0015F538 MACRO_ADDR;
+extern short D_001602B0;
+extern short D_00160390;
+extern short D_00160394;
+extern s32 func_001F9B70(s32);
+extern void func_001F4630(s32);
+extern s32 func_00200198(s32, s32);
+extern void func_002008B8(s32, s32, s32, s32, s32, s32);
+extern void func_00201640_1E950(s32, s32, s32, s32, u64, s32) __asm__("func_00201640");
+extern s32 func_00234C98_1E950(s32, s64) __asm__("func_00234C98");
+s32 func_0021E950(MenuItemGrid *grid);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/ui/menus/fun_0021d948.c, draw_menu_item_grid. */
+s32 func_0021E950(MenuItemGrid *grid) {
+    Font *font;
+    MenuGridCell *cell;
+    s32 focused;
+    f32 start_x, column_step, start_y, y, row_step, x;
+    f32 scale;
+    s32 largest_dimension;
+    s32 icon_width, icon_height;
+    s32 i, j;
+    s32 left, top, right, bottom;
+    s32 id, frame_offset;
+    u32 color;
+
+    font = grid->holder->font;
+    focused = D_001D5F70_1E950.focus->owner == grid;
+    cell = grid->cells;
+    func_00234C98_1E950(0x42, 0x8000000044L);
+    func_00234C98_1E950(0x47, 0xB);
+    func_001F4630(0);
+
+    if (grid->cols >= 2) {
+        start_x = grid->margin_x;
+        column_step = (*(f32 *)&D_00160390) + (font->w - (start_x + start_x) - (*(f32 *)&D_00160390) * grid->cols) / (grid->cols - 1);
+    } else {
+        column_step = 0.0f;
+        start_x = (font->w - (*(f32 *)&D_00160390)) * 0.5f;
+    }
+
+    if (grid->flags & 2) {
+        row_step = (*(f32 *)&D_00160394) + 0.15f;
+        start_y = grid->margin_y;
+    } else if (grid->rows >= 2) {
+        start_y = grid->margin_y;
+        row_step = (*(f32 *)&D_00160394) + (font->h - (start_y + start_y) - (*(f32 *)&D_00160394) * grid->rows) / (grid->rows - 1);
+    } else {
+        row_step = 0.0f;
+        start_y = (font->h - (*(f32 *)&D_00160394)) * 0.5f;
+    }
+
+    largest_dimension = grid->h;
+    if (largest_dimension < grid->w) {
+        largest_dimension = grid->w;
+    }
+    scale = (f32)(largest_dimension << 4) / (font->h < font->w ? font->w : font->h);
+    icon_width = scale * (*(f32 *)&D_00160390);
+    icon_height = scale * (*(f32 *)&D_00160394);
+
+    y = start_y;
+    for (i = 0; i < grid->rows; i++) {
+        x = start_x;
+        for (j = 0; j < grid->cols; j++) {
+            top = scale * y;
+            bottom = top + icon_height;
+            left = scale * x;
+            right = left + icon_width;
+            if (focused && grid->selected_cell == cell - grid->cells) {
+                color = ((func_001F9B70((D_0015F538 & 0x3F) - 0x20) + 0x40) * 0x10202) | 0x80000000;
+                func_00201640_1E950(left - 0x30, top - 0x30, right + 0x30, bottom + 0x30, color, 1);
+                func_00201640_1E950(left - 0x10, top - 0x10, right + 0x10, bottom + 0x10, (*(s32 *)&D_001602B0), 1);
+            }
+            if (cell->kind == 0 ? D_0013D5C8_1E950[cell->id] : D_0013D490[cell->id]) {
+                frame_offset = 0;
+                if ((u16)cell->kind == 0) {
+                    id = cell->id;
+                    if (D_001D5F70_1E950.slot[D_001864D8[id].slot] == id && !(grid->flags & 0x20)) {
+                        frame_offset = 1;
+                    }
+                    if (frame_offset == 0) {
+                        frame_offset = D_0013E620[id] ? 4 : 0;
+                    }
+                    if (D_001D5F70_1E950.unk134 != 0 && (grid->flags & 8)) {
+                        frame_offset = 2;
+                    }
+                    if (D_001D5F70_1E950.unk138 != 0 && (grid->flags & 4)) {
+                        frame_offset = 2;
+                    }
+                }
+                func_002008B8(func_00200198(cell->icon, cell->frame + frame_offset), left, top, icon_width, icon_height, 0x80);
+            }
+            cell++;
+            x += column_step;
+        }
+        y += row_step;
+    }
+    func_001F4748();
+    return 2;
+}
 
 extern unsigned char D_001414F4 NOT_SDA;
 
@@ -3479,7 +3630,94 @@ INCLUDE_ASM("asm/nonmatchings/text", func_00224728);
 
 INCLUDE_ASM("asm/nonmatchings/text", func_00224C30);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_002250B8);
+struct MenuFlashingPanel {
+    u8 pad0[0x48];
+    s32 active;
+    s32 time;
+    s32 x;
+    s32 y;
+    s32 width;
+    s32 height;
+};
+struct MenuPanelOwner {
+    u8 pad0[0x78];
+    struct MenuFlashingPanel *flash;
+};
+extern short D_0015EE80_250B8 __asm__("D_0015EE80");
+extern void func_00234C98_250B8(s32, u64) __asm__("func_00234C98");
+extern s32 func_002140B0(s32);
+extern s64 func_001F4868_250B8(s32) __asm__("func_001F4868");
+extern void func_001F5800_250B8(s32, s32, s32, s32, s32, s32, s32, s32, s64, s64) __asm__("func_001F5800");
+void func_002250B8(struct MenuPanelOwner *owner);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/ui/menus/fun_00223e28.c, draw_menu_flashing_panel. */
+void func_002250B8(struct MenuPanelOwner *owner) {
+    struct MenuFlashingPanel *panel;
+    s32 x;
+    s32 y;
+    s32 width;
+    s32 height;
+    s32 u;
+    s32 v;
+    s32 alpha;
+    s32 width_adjustment;
+    s32 height_adjustment;
+
+    if (owner == 0) {
+        return;
+    }
+    panel = owner->flash;
+    if (panel == 0) {
+        return;
+    }
+    x = panel->x;
+    y = panel->y;
+    width = panel->width;
+    height = panel->height;
+    if (x >= 0x200 || x + width < 0) {
+        return;
+    }
+    if (!((*(s32 *)&D_0015EE80_250B8) != 0 ? y < 0x1C1 : y < 0x1A1) || y + height < 0) {
+        return;
+    }
+    func_00234C98_250B8(8, 0);
+    func_00234C98_250B8(0x42, 0x8000000044ULL);
+    func_002008B8(func_00200198(0xE99E, 7), x << 4, y << 4, width << 4, height << 4, 0x80);
+    if (panel->active) {
+        panel->time += 2;
+        u = func_002140B0(200);
+        v = func_002140B0(200);
+        alpha = 0x80 - func_001F9B70(panel->time - 0x80);
+        func_00234C98_250B8(8, 0);
+        alpha = alpha * 2;
+        func_00234C98_250B8(0x42, ((u64)(alpha > 0x80 ? 0x80 : alpha) << 32) | 0x68);
+        func_001F5800_250B8(x, y, width, height, u, v, width, height, 0x808080, func_001F4868_250B8(0x1A));
+        if (panel->time >= 0x100) {
+            panel->active = 0;
+        }
+    } else if (func_002140B0(2000) == 0) {
+        panel->time = 0;
+        panel->active = 1;
+    }
+    func_00234C98_250B8(8, 0);
+    func_00234C98_250B8(0x42, 0x8000000044ULL);
+    width_adjustment = -2;
+    height_adjustment = -2;
+    func_001F5800_250B8(x, y, width, height, 0, 0, width, (height * 3) >> 1, 0x50606060, func_001F4868_250B8(0x1C));
+    if (width >= 0x4C) {
+        width_adjustment = -1;
+    }
+    if (height >= 0x4C) {
+        height_adjustment = -1;
+    }
+    if (width >= 0x97) {
+        width_adjustment = 0;
+    }
+    if (height >= 0x97) {
+        height_adjustment = 0;
+    }
+    func_001F5800_250B8(x + 1, y + 1, width + width_adjustment, height + height_adjustment, 1, 1, 0x3E, 0x3E, 0x80808080, func_001F4868_250B8(0x19));
+}
 
 extern int func_002279D0(void);
 extern int D_0016004C MACRO_ADDR;
@@ -3780,7 +4018,102 @@ void func_00226380(PauseMoby *m) {
     func_0020EEE8(m);
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00226410);
+struct AmmoPreviewMoby;
+struct AmmoPreviewOwner {
+    u8 pad00[0x44];
+    struct AmmoPreviewMoby *source_moby;
+};
+struct AmmoPreviewVars {
+    struct AmmoPreviewOwner *owner;
+};
+struct AmmoPreviewResource {
+    u8 pad00[0x24];
+    f32 scale;
+};
+struct AmmoPreviewMoby {
+    u8 pad00[0x10];
+    f32 position[4];
+    u8 pad20[4];
+    struct AmmoPreviewResource *resource;
+    u8 pad28[4];
+    f32 scale;
+    u8 pad30[0x48];
+    struct AmmoPreviewVars *preview_vars;
+    u8 pad7C[0x40];
+    u8 slot;
+    u8 padBD[3];
+    f32 basis[12];
+};
+extern f32 D_0015EE6C MACRO_ADDR;
+extern short D_0015EE70;
+extern f32 D_001D6220[];
+extern f32 D_001D6238[];
+extern void func_001F9BC0(void *);
+extern f32 func_001F9F90(f32);
+extern f32 func_001F9FA8(f32);
+extern void func_001FA1F8(void *, void *);
+extern void func_001FA4F0(void *, void *, void *);
+extern f32 func_001FA748(f32, f32);
+extern f32 func_001FA7D8_26410(f32) __asm__("func_001FA7D8");
+extern f32 func_001FA888(s32);
+extern void func_0020E3D0_26410(void *) __asm__("func_0020E3D0");
+extern f32 func_00214D88(f32 *, f32 *, f32, f32, f32, f32);
+void func_00226410(struct AmmoPreviewMoby *moby);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/ui/menus/item_preview/update_ammo_preview_transform.c, update_ammo_preview_transform. */
+void func_00226410(struct AmmoPreviewMoby *moby) {
+    f32 offset[4];
+    f32 rotation_basis[12];
+    f32 angles[4];
+    struct AmmoPreviewMoby *source_moby;
+    f32 *basis;
+    s32 phase_index;
+    f32 phase;
+    f32 orbit_angle;
+    f32 phase_angle;
+    f32 bob_angle;
+    f32 double_phase;
+    f32 zero;
+
+    source_moby = moby->preview_vars->owner->source_moby;
+    func_0020E3D0_26410(moby);
+    func_0020ED48(moby);
+    qcopy(moby->position, source_moby->position);
+    basis = moby->basis;
+    func_001FA480(basis, source_moby->basis);
+    func_00214F78(basis);
+    moby->scale = moby->resource->scale;
+    if (moby->slot < 3U) {
+        phase_index = (moby->slot * 2) % 6;
+    } else {
+        phase_index = (moby->slot * 2 + 1) % 6;
+    }
+    orbit_angle = (((f32)(D_0015F538 % 200) / func_001FA888(200)) * 6.28318f) - 3.14159f;
+    phase = (f32)phase_index;
+    phase_angle = ((phase * 6.28318f) / func_001FA888(6)) - 3.14159f;
+    bob_angle = (((f32)(D_0015F538 % 170) / func_001FA888(170)) * 6.28318f) - 3.14159f;
+    double_phase = (phase * 12.56636f) / func_001FA888(6);
+    func_001FA7D8_26410(double_phase);
+    zero = 0.0f;
+    orbit_angle = func_001FA748(orbit_angle, phase_angle);
+    bob_angle = func_001FA748(bob_angle, double_phase);
+    if (D_001D6220[moby->slot] != zero) {
+        func_00214D88(&D_001D6220[moby->slot],
+                                  &D_001D6238[moby->slot],
+                                  zero, 1.0f, (*(f32 *)&D_0015EE70) * 6.0f, D_0015EE6C * 6.0f);
+    }
+    offset[0] = func_001F9F90(orbit_angle);
+    offset[1] = func_001F9FA8(orbit_angle);
+    offset[2] = zero;
+    offset[2] = func_001F9FA8(bob_angle) * 0.25f + 0.5f + D_001D6220[moby->slot];
+    func_001F9EC0(offset, offset, source_moby->basis);
+    func_001F9BD8(moby->position, moby->position, offset);
+    func_001F9BC0(angles);
+    angles[2] = func_001FA748(orbit_angle, 1.5707964f);
+    func_001FA1F8(rotation_basis, angles);
+    func_001FA4F0(moby->basis, rotation_basis, moby->basis);
+    func_0020EEE8(moby);
+}
 
 /* Hoisted from the func_00227A70 block below so this earlier caller can
    see it -- a second NOT_SDA extern for the same symbol is a hard
@@ -4069,49 +4402,64 @@ void func_00227A30(void *arg0, char *src) {
 extern char D_001D5D58[] NOT_SDA;
 extern char *D_001B3580[] NOT_SDA;
 
-/* Drain the pending list at D_001D5F70+0xA8/+0xAC, clearing +0x48 on each
-   referenced object, then reset the count. Both the start and the count
-   are re-read every iteration.
+typedef struct {
+    u8 pad0[0x30];
+    s32 active_items[3];
+    u8 pad3C[0x64];
+    s32 buffer_address[2];
+    s32 resource_first;
+    s32 resource_count;
+    s32 resource_buffer_address[3];
+    s32 read_offset;
+    u8 padC0[8];
+    u8 loaded_animation[2];
+    u8 read_buffer_index;
+    u8 pending_buffer;
+    u32 streamed_animation_base;
+} PreviewAnimationStreamState;
+typedef struct {
+    s32 class_id;
+    s32 animation_index;
+} PreviewResourceBinding;
+extern u8 D_001B3580_27A70[] __asm__("D_001B3580");
+extern u8 D_001B3E40[];
+extern u8 D_001D5D58_27A70[] __asm__("D_001D5D58");
+extern PreviewAnimationStreamState D_001D5F70_27A70 __asm__("D_001D5F70");
+void func_00227A70(void);
 
-   Near-miss (29/36), size-exact, and now structurally identical to
-   retail block for block. Two levers got it here:
-     - taking the base into a local `char *g` instead of indexing the
-       extern array directly fixed the loop's offsets;
-     - declaring `p` INSIDE the loop body rather than before the `while`
-       moves its initialisation into the loop preheader, where retail
-       has it. Spelled before the loop, gcc hoists the %hi/%lo of
-       D_001D5D58 and the `sll`/`addu` above the guard, and the loop's
-       .p2align then eats the slack as a nop. Let gcc build the
-       induction variable itself and the preheader comes out right.
-
-   What is left is two things, neither source-reachable:
-     - the allocator permutation: retail puts D_001B3E40 in $9 and
-       D_001B3580 in $8, this build swaps them, and every $v0/$v1 in
-       the loop body is correspondingly transposed. Splitting the
-       nested index into `int k = D_001B3E40[a];` does not move it.
-     - retail COPIES the raw %hi of D_001D5F70 into $t2 in the prologue
-       and rebuilds the pointer with `addiu $2,$10,%lo` for the final
-       store, keeping both the full pointer and the bare high half live
-       across the loop. This build re-does the whole `lui` at the end
-       instead -- same instruction count, different encoding. The
-       two-names-on-one-symbol trick
-       (`extern char D_001D5F70_2[] __asm__("D_001D5F70");`) was tried
-       here and changes nothing: it defeats CSE of the full address,
-       which we already lack, not of the high half, which is what
-       retail is sharing. */
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/ui/menus/item_preview/clear_preview_resource_bindings.c, clear_preview_resource_bindings. */
 void func_00227A70(void) {
-    char *g = D_001D5F70;
-    int i = *(int *)(g + 0xA8);
+    register s32 class_slot;
+    register s32 class_resource_address;
+    s32 resource_index;
+    register u8 *binding_base;
+    PreviewResourceBinding *binding;
+    register s32 animation_address;
+    register s32 resource_first;
+    register s32 resource_count;
+    register s32 resource_end;
 
-    while (i < *(int *)(g + 0xA8) + *(int *)(g + 0xAC)) {
-        char *p = D_001D5D58 + i * 8;
-        int a = *(int *)p;
-        int b = *(int *)(p + 4);
+    resource_index = D_001D5F70_27A70.resource_first;
+    if (resource_index < (resource_index + D_001D5F70_27A70.resource_count)) {
+        u8 *class_slots = D_001B3E40;
+        u8 *class_resources = D_001B3580_27A70;
+        u8 *bindings = D_001D5D58_27A70;
 
-        i++;
-        *(int *)(D_001B3580[D_001B3E40[a]] + b * 4 + 0x48) = 0;
+        binding_base = bindings;
+        binding = (PreviewResourceBinding *) ((resource_index * 8) + binding_base);
+        do {
+            resource_index += 1;
+            class_slot = *((u8 *) (binding->class_id + (s32) class_slots));
+            class_resource_address = *(s32 *) ((class_slot * 4) + class_resources);
+            animation_address = class_resource_address + (binding->animation_index * 4);
+            *(s32 *) (animation_address + 0x48) = 0;
+            binding += 1;
+            resource_first = D_001D5F70_27A70.resource_first;
+            resource_count = D_001D5F70_27A70.resource_count;
+            resource_end = resource_first + resource_count;
+        } while (resource_index < resource_end);
     }
-    *(int *)(D_001D5F70 + 0xAC) = 0;
+    D_001D5F70_27A70.resource_count = 0;
 }
 
 INCLUDE_ASM("asm/nonmatchings/text", func_00227B00);

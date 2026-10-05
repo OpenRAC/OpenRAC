@@ -2,7 +2,17 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L01_002B90A8);
+extern float D_L01_001CB0E0[];
+extern float D_L01_001CB0E0_B90A8b[] __asm__("D_L01_001CB0E0");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002b7ef0.c, FUN_L01_002b7ef0. */
+void func_L01_002B90A8(float s) {
+    unsigned int i;
+    float k = s / D_L01_001CB0E0_B90A8b[16];
+    for (i = 0; i < 0x5C; i++) {
+        D_L01_001CB0E0_B90A8b[i] = D_L01_001CB0E0_B90A8b[i] * k;
+    }
+}
 extern short D_L01_00161298;
 extern short D_L01_0016129C;
 extern void func_L01_00262BC0(char *a, char *b);
@@ -102,7 +112,12 @@ void func_L01_002B9288(float *m) {
         }
     }
 }
-INCLUDE_ASM("asm/overlays", func_L01_002B9440);
+extern void func_L00_002A5158(void *, int, int);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002b7ef0.c, FUN_L01_002b8288. */
+void func_L01_002B9440(void *a, int b) {
+    func_L00_002A5158(a, b, 0);
+}
 extern float D_L01_001CAF80[];
 
 /* Fills the ripple grid vertices in scratchpad from a base position. */
@@ -277,7 +292,107 @@ int func_L01_002F31A0(char *a) {
     return r;
 }
 INCLUDE_ASM("asm/overlays", func_L01_002F31D0);
-INCLUDE_ASM("asm/overlays", func_L01_002F3F40);
+extern float func_L00_00259148(float *vel, float cur, float target, float k, float d, float max);
+extern void func_00213DE0(void *m, int a, int b, int c);
+extern float D_0015EE70 MACRO_ADDR;
+extern char D_001405A8[];
+extern unsigned char D_0013D5CD NOT_SDA;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002b8c08.c, FUN_L01_002f2b68. */
+void func_L01_002F3F40(unsigned char *m) {
+    char *d;
+    if (m == 0) return;
+    d = *(char **)(m + 0x78);
+    if (d != 0) {
+        if (m[0x20] != 0) {
+            if (D_0013D5CD != 0) {
+                if (*(int *)D_001405A8 == 5) {
+                    float s = D_0015EE70;
+                    *(float *)(m + 0x48) = func_L00_00259148((float *)(d + 4), *(float *)(m + 0x48), *(float *)d, s * 6.2831855f, s * 5.7595863f, 0.0f);
+                }
+            }
+        }
+    }
+    switch (m[0x20]) {
+    case 0:
+        if (m[0x53] != 0) {
+            func_00213DE0(m, 0, 0, func_001F9850(0));
+        }
+        m[0x20] = 1;
+        *(float *)d = *(float *)(m + 0x48);
+        break;
+    case 1:
+        if ((unsigned char)(m[0xBC] - 3) < 3) {
+            if (m[0x53] != 1) {
+                func_00213DE0(m, 1, 0, func_001F9850(10));
+            }
+            m[0x20] = 2;
+        }
+        break;
+    case 2:
+        if (m[0x70] & 2) {
+            if (m[0x53] != 2) {
+                func_00213DE0(m, 2, 0, func_001F9850(3));
+            }
+            m[0x20] = 3;
+        }
+        break;
+    case 3:
+        if ((unsigned char)(m[0xBC] - 4) < 2) {
+            if (m[0x53] != 3) {
+                func_00213DE0(m, 3, 0, func_001F9850(3));
+            }
+            m[0x20] = 4;
+        } else if (m[0xBC] == 7 || m[0xBC] == 1) {
+            if (m[0x53] != 6) {
+                func_00213DE0(m, 6, 0, func_001F9850(3));
+            }
+            m[0x20] = 7;
+        }
+        break;
+    case 4:
+        if (m[0x70] & 2) {
+            if (m[0x53] != 4) {
+                func_00213DE0(m, 4, 0, func_001F9850(3));
+            }
+            m[0x20] = 5;
+        }
+        break;
+    case 5:
+        if (m[0xBC] == 3 || m[0xBC] == 6 || m[0xBC] == 7 || m[0xBC] == 1) {
+            if (m[0x53] != 5) {
+                func_00213DE0(m, 5, 0, func_001F9850(3));
+            }
+            m[0x20] = 6;
+        }
+        break;
+    case 6:
+        if (m[0x70] & 2) {
+            if (m[0xBC] == 7 || m[0xBC] == 1) {
+                if (m[0x53] != 6) {
+                    func_00213DE0(m, 6, 0, func_001F9850(3));
+                }
+                m[0x20] = 7;
+            } else {
+                if (m[0x53] != 2) {
+                    func_00213DE0(m, 2, 0, func_001F9850(3));
+                }
+                m[0x20] = 3;
+            }
+        }
+        break;
+    case 7:
+        if (m[0x70] & 2) {
+            if (m[0x53] != 0) {
+                func_00213DE0(m, 0, 0, func_001F9850(3));
+            }
+            m[0x20] = 1;
+        }
+        break;
+    case 8:
+        break;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L01_002F4290);
 typedef int u128 __attribute__((mode(TI)));
 extern void func_001FA218(float *, float *);

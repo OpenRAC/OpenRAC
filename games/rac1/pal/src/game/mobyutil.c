@@ -593,43 +593,54 @@ INCLUDE_ASM("asm/nonmatchings/text", func_00214F50);
 
 extern void func_001F9DC0(void *, void *, float);
 
-/* Re-normalise the three basis columns of the 4x4 at arg0: gather a
-   column into a scratch vector with a zero w, scale it to unit length,
-   and scatter it back.
+struct M2c_temp3 {
+    f32 values[3];
+    s32 pad;
+};
+extern void func_001F9DC0_14F78(f32 *, f32 *, f32) __asm__("func_001F9DC0");
+void func_00214F78(f32 *arg0);
 
-   Near-miss (14/47), size-exact and therefore inert. Every instruction
-   and both loop shapes are right; what is left is two recorded dead
-   ends. Retail holds arg0 in $s1 and gcc's own i+1 induction temp in
-   $s2, this build the other way round, and the prologue save order
-   follows -- the declaration-order lever does not reach incoming
-   parameter registers (see func_00215328). And retail ends the outer
-   loop with `bne` plus an unconditional `sll` in the delay slot where
-   this build picks `bnel`, the per-site delay-slot choice. */
-void func_00214F78(float *m) {
-    float v[4];
-    float *p;
-    float *q;
-    int i;
-    int j;
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/math/vectors/normalize_vector_triplet.c, normalize_vector_triplet. */
+void func_00214F78(f32 *arg0) {
+    struct M2c_temp3 scratch;
+    f32 *base;
+    f32 *src;
+    f32 *dst;
+    f32 value;
+    s32 offset;
+    s32 i;
+    s32 next;
+    s32 count;
 
-    for (i = 0; i < 3; i++) {
-        v[3] = 0.0f;
-        q = v;
-        p = m + i;
-        for (j = 2; j >= 0; j--) {
-            *q = *p;
-            p += 4;
-            q++;
-        }
-        func_001F9DC0(v, v, 1.0f);
-        p = v;
-        q = m + i;
-        for (j = 2; j >= 0; j--) {
-            *q = *p;
-            p++;
-            q += 4;
-        }
-    }
+    base = arg0;
+    i = 0;
+    do {
+        next = i + 1;
+        offset = i * 4;
+        scratch.pad = 0;
+        dst = scratch.values;
+        src = (f32 *)((u8 *)base + offset);
+        count = 2;
+        do {
+            value = *src;
+            count--;
+            src += 4;
+            *dst = value;
+            dst++;
+        } while (count >= 0);
+        func_001F9DC0_14F78(scratch.values, scratch.values, 1.0f);
+        dst = (f32 *)((u8 *)base + offset);
+        src = scratch.values;
+        count = 2;
+        do {
+            value = *src;
+            count--;
+            src++;
+            *dst = value;
+            dst += 4;
+        } while (count >= 0);
+        i = next;
+    } while (i < 3);
 }
 
 INCLUDE_ASM("asm/nonmatchings/text", func_00215038);

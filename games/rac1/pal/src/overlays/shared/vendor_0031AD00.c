@@ -4,7 +4,31 @@
 
 INCLUDE_ASM("asm/overlays", func_L01_0031AD00);
 INCLUDE_ASM("asm/overlays", func_L01_0031B2F0);
-INCLUDE_ASM("asm/overlays", func_L01_0031B450);
+extern char D_0013E6E0[];
+extern char D_L01_001672C0[];
+extern int func_L00_0028F0B0(int, int, int, int);
+extern void func_L00_0028EBF0(int);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_0030b618.c, FUN_L01_0031a078. */
+void func_L01_0031B450(int a0) {
+    char *p = *(char **)(a0 + 8);
+    int n = *(int *)(p + 4);
+    char *r;
+    int flag;
+    qcopy(D_0013E6E0 + n * 0x70, D_L01_001672C0);
+    r = D_0013E6E0 - 0x90 + n * 0x70;
+    flag = *(int *)(r + 0x8C) == a0 && *(unsigned char *)(r + 0x74) != 0;
+    if (*(int *)(D_L01_001672C0 + 0x254) != 0) {
+        if (!flag) {
+            *(int *)(p + 4) = func_L00_0028F0B0(*(int *)p, 0x15, a0, 0x400);
+        }
+    } else {
+        if (flag) {
+            func_L00_0028EBF0(n);
+            *(int *)(p + 4) = -1;
+        }
+    }
+}
 extern void func_001F9BF0(void *, void *, void *);
 extern void func_001F9EC0(void *, void *, void *);
 extern float func_001F9B88(float);

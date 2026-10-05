@@ -4,7 +4,123 @@
 
 INCLUDE_ASM("asm/overlays", func_L01_002BA898);
 INCLUDE_ASM("asm/overlays", func_L01_002BABE8);
-INCLUDE_ASM("asm/overlays", func_L01_002BE2C8);
+typedef u32 u128_BE2C8 __attribute__((mode(TI), aligned(16)));
+typedef union { u128_BE2C8 q; f32 f[4]; } EmitVec;
+typedef struct {
+    EmitVec r[4];
+} EmitMtx;
+typedef struct {
+    u8 pad0[0x70];
+    s32 flags;
+    u8 pad74[8];
+    void *owner;
+    EmitVec vel;
+    f32 vel_range[4];
+    f32 life_min;
+    f32 life_max;
+    f32 size_min;
+    f32 size_max;
+    f32 fade[4];
+    s32 tex;
+    u8 count;
+    u8 delay;
+    u8 blend;
+    u8 alpha;
+    s32 timer;
+    f32 spread[3];
+} Emitter;
+typedef struct {
+    u8 pad0[0x10];
+    EmitVec pos;
+    u8 pad20[0x20];
+    f32 rot[4];
+    u8 pad50[0x28];
+    Emitter *vars;
+} EmitterMoby;
+extern s32 D_0015EE84 MACRO_ADDR;
+extern f32 D_0015EE60 MACRO_ADDR;
+extern int func_L00_00200290(void *, f32);
+extern f32 func_002140F8(f32, f32);
+extern f32 func_001FA748(f32 a, f32 b);
+extern void func_001FA218(void *, void *);
+extern void func_001F9EE8(void *, void *, void *);
+extern void func_001F9BD8(void *, void *, void *);
+extern void func_L01_0027F6C8(void *, void *, f32, f32, f32, f32, f32, f32, f32, f32, f32, s32, u8, u8, u8);
+extern f32 func_002140F8_BE2C8b(f32, f32) __asm__("func_002140F8");
+extern void func_001F9BD8_BE2C8b(void *, void *, void *) __asm__("func_001F9BD8");
+f32 func_001FA748_BE2C8b(f32 a, f32 b) __asm__("func_001FA748");
+extern void func_001F9BD8_BE2C8c(void *, void *, void *) __asm__("func_001F9BD8");
+extern f32 D_0015EE60_BE2C8b __asm__("D_0015EE60") MACRO_ADDR;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l01/unclassified_002b96e0.c, FUN_L01_002bd100. */
+void func_L01_002BE2C8(EmitterMoby *self) {
+    Emitter *v;
+    EmitVec out;
+    EmitVec p;
+    EmitVec off;
+    union {
+        struct {
+            EmitMtx m;
+            EmitVec ang;
+        } rot;
+        struct {
+            EmitVec vel;
+            EmitMtx m;
+        } lin;
+    } u;
+    f32 size;
+    s32 i;
+
+    v = self->vars;
+    if (D_0015EE84 == 1) {
+        p.q = self->pos.q;
+        p.f[3] = 20.0f;
+        if (func_L00_00200290(&p, 240.0f) == -1) {
+            return;
+        }
+    }
+    v->owner = self;
+    if (v->timer <= 0) {
+        v->timer = v->delay;
+        for (i = 0; i < v->count; i++) {
+            p.q = self->pos.q;
+            off.f[0] = func_002140F8_BE2C8b(-v->spread[0], v->spread[0]);
+            off.f[1] = func_002140F8_BE2C8b(-v->spread[1], v->spread[2]);
+            off.f[2] = func_002140F8_BE2C8b(-v->spread[2], v->spread[2]);
+            if (v->flags & 0x2000) {
+                func_001FA218(&u.rot.m, self->rot);
+                func_001F9EE8(&off, &off, &u.rot.m);
+            }
+            func_001F9BD8_BE2C8c(&p, &p, &off);
+            if (v->flags & 0x1000) {
+                u.rot.ang.f[0] = func_002140F8_BE2C8b(-v->vel_range[0], v->vel_range[0]) * 3.1415927f / 180.0f;
+                u.rot.ang.f[1] = func_002140F8_BE2C8b(-v->vel_range[1], v->vel_range[1]) * 3.1415927f / 180.0f;
+                u.rot.ang.f[2] = func_002140F8_BE2C8b(-v->vel_range[2], v->vel_range[2]) * 3.1415927f / 180.0f;
+                if (v->flags & 0x4000) {
+                    u.rot.ang.f[0] = func_001FA748_BE2C8b(u.rot.ang.f[0], self->rot[0]);
+                    u.rot.ang.f[1] = func_001FA748_BE2C8b(u.rot.ang.f[0], self->rot[1]);
+                    u.rot.ang.f[2] = func_001FA748_BE2C8b(u.rot.ang.f[0], self->rot[2]);
+                }
+                func_001FA218(&u.rot.m, &u.rot.ang);
+                func_001F9EE8(&out, &v->vel, &u.rot.m);
+                size = func_002140F8_BE2C8b(v->size_min, v->size_max);
+                func_L01_0027F6C8(v, &p, out.f[0], out.f[1], out.f[2], size, func_002140F8_BE2C8b(v->life_min, v->life_max), v->fade[0], v->fade[1], v->fade[2], v->fade[3], v->tex, v->blend, v->alpha, 0xFF);
+            } else {
+                u.lin.vel.f[0] = func_002140F8_BE2C8b(v->vel.f[0], v->vel_range[0]) * D_0015EE60_BE2C8b;
+                u.lin.vel.f[1] = func_002140F8_BE2C8b(v->vel.f[1], v->vel_range[1]) * D_0015EE60_BE2C8b;
+                u.lin.vel.f[2] = func_002140F8_BE2C8b(v->vel.f[2], v->vel_range[2]) * D_0015EE60_BE2C8b;
+                if (v->flags & 0x4000) {
+                    func_001FA218(&u.lin.m, self->rot);
+                    func_001F9EE8(&u.lin.vel, &u.lin.vel, &u.lin.m);
+                }
+                size = func_002140F8_BE2C8b(v->size_min, v->size_max);
+                func_L01_0027F6C8(v, &p, u.lin.vel.f[0], u.lin.vel.f[1], u.lin.vel.f[2], size, func_002140F8_BE2C8b(v->life_min, v->life_max), v->fade[0], v->fade[1], v->fade[2], v->fade[3], v->tex, v->blend, v->alpha, 0xFF);
+            }
+        }
+    } else {
+        v->timer--;
+    }
+}
 typedef unsigned int u128 __attribute__((mode(TI), aligned(16)));
 typedef union {
     u128 q;

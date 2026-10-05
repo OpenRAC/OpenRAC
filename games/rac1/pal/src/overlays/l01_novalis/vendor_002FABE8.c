@@ -66,7 +66,107 @@ void func_L01_002FAFC8(SwayMoby *m) {
     }
     m->rotz = func_001FA748(m->rotz, D_0015EE6C * -12.566371f * v->sway);
 }
-INCLUDE_ASM("asm/overlays", func_L01_002FB158);
+typedef u32 u128_FB158 __attribute__((mode(TI), aligned(16)));
+extern f32 func_002140F8(f32, f32);
+extern f32 D_0015EE6C MACRO_ADDR;
+typedef union { u128_FB158 q; f32 f[4]; } BurstVec;
+typedef struct {
+    u32 c[3];
+} BurstColors;
+typedef struct {
+    u8 pad0[0xA6];
+    s16 oclass;
+} BurstClassMoby;
+typedef struct {
+    u8 pad0[0x20];
+    BurstClassMoby *moby;
+} BurstTarget;
+typedef struct {
+    u8 pad0[0x10];
+    BurstVec pos;
+    u8 pad20[0x84];
+    u8 bA4;
+    u8 padA5[0xD];
+    s16 id;
+} BurstMoby;
+extern s32 D_0015EE84_FB158 __asm__("D_0015EE84") MACRO_ADDR;
+extern s32 D_0014C290[][64];
+extern s32 D_L01_001BAC60[];
+typedef struct {
+    u8 pad0[0x454];
+    u8 collected[1];
+} BurstLevelState;
+extern BurstLevelState D_L01_001BB9C0;
+extern BurstColors D_L01_00161CF0;
+extern void *func_L00_0025B478_FB158(void *, s32, s32) __asm__("func_L00_0025B478");
+extern void func_0020D678(void *);
+extern f32 func_00214158(void);
+extern s32 func_002140B0(s32);
+extern float func_001F9F90(float);
+extern float func_001F9FA8(float);
+extern void func_L00_001FF4B0(void *, void *, f32);
+extern void func_001F9BD8(void *, void *, void *);
+extern int func_L00_00258BC8(int lo, int hi);
+extern void func_L01_002F9908(void *, void *, u32, s32, f32, f32, f32, f32, s32);
+extern f32 func_00214158_FB158b(void) __asm__("func_00214158");
+extern void func_001F9BD8_FB158b(void *, void *, void *) __asm__("func_001F9BD8");
+void func_0020D678_FB158b(void *) __asm__("func_0020D678");
+extern s32 D_0015EE84_FB158b __asm__("D_0015EE84") MACRO_ADDR;
+extern void func_001F9BD8_FB158c(void *, void *, void *) __asm__("func_001F9BD8");
+extern f32 func_001F9F90_FB158b(f32) __asm__("func_001F9F90");
+extern f32 func_001F9FA8_FB158b(f32) __asm__("func_001F9FA8");
+void *func_L00_0025B478_FB158b(void *, s32, s32) __asm__("func_L00_0025B478");
+void func_0020D678_FB158c(void *) __asm__("func_0020D678");
+extern float func_001F9F90_FB158c(float) __asm__("func_001F9F90");
+extern float func_001F9FA8_FB158c(float) __asm__("func_001F9FA8");
+extern void func_001F9BD8_FB158d(void *, void *, void *) __asm__("func_001F9BD8");
+extern void func_001F9BD8_FB158e(void *, void *, void *) __asm__("func_001F9BD8");
+extern int func_L00_00258BC8_FB158b(int lo, int hi) __asm__("func_L00_00258BC8");
+extern f32 func_00214158_FB158c(void) __asm__("func_00214158");
+extern f32 func_002140F8_FB158b(f32, f32) __asm__("func_002140F8");
+extern f32 D_0015EE6C_FB158b __asm__("D_0015EE6C") MACRO_ADDR;
+void *func_L00_0025B478_FB158c(void *, s32, s32) __asm__("func_L00_0025B478");
+void func_0020D678_FB158d(void *) __asm__("func_0020D678");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l01/unclassified_002f9810.c, FUN_L01_002f9d80. */
+void func_L01_002FB158(BurstMoby *self) {
+    BurstTarget *t;
+    BurstColors colors;
+    BurstVec dir;
+    BurstVec pos;
+    f32 r;
+    f32 ang;
+    s32 i;
+
+    t = func_L00_0025B478_FB158c(self, 0x830000, 0);
+    if (D_L01_001BB9C0.collected[self->id] != 0
+        || (D_0014C290[D_0015EE84_FB158b][self->id >> 5] >> (self->id & 0x1F)) & 1) {
+        func_0020D678_FB158d(self);
+    }
+    if (t != 0 && t->moby->oclass == 0x2AE) {
+        for (i = 0; i < 20; i++) {
+            colors = D_L01_00161CF0;
+            pos.q = 0;
+            pos.f[0] = func_002140F8_FB158b(-D_0015EE6C_FB158b, D_0015EE6C_FB158b);
+            pos.f[1] = func_002140F8_FB158b(-D_0015EE6C_FB158b, D_0015EE6C_FB158b);
+            pos.f[2] = func_002140F8_FB158b(-D_0015EE6C_FB158b, D_0015EE6C_FB158b);
+            dir.q = pos.q;
+            r = func_002140F8_FB158b(2.0f, 3.0f);
+            ang = func_00214158_FB158c();
+            pos.f[0] = func_001F9F90_FB158c(ang) * r;
+            pos.f[1] = func_001F9FA8_FB158c(ang) * r;
+            pos.f[2] = 0.0f;
+            func_L00_001FF4B0(&dir, &dir, func_002140F8_FB158b(D_0015EE6C_FB158b * 5.0f, D_0015EE6C_FB158b * 20.0f));
+            func_001F9BD8_FB158e(&pos, &pos, &self->pos);
+            func_L01_002F9908(&pos, &dir, colors.c[func_002140B0(3)], func_L00_00258BC8_FB158b(0xB4, 0x12C), 0.05f, 1.0f, 1.0f, 0.75f, 0);
+        }
+        D_0014C290[D_0015EE84_FB158b][self->id >> 5] |= 1 << (self->id & 0x1F);
+        D_L01_001BAC60[self->id >> 5] |= 1 << (self->id & 0x1F);
+        func_0020D678_FB158d(self);
+    } else {
+        self->bA4 = 0xFF;
+    }
+}
 typedef struct { int a[4]; } Vy __attribute__((aligned(16)));
 extern char *func_0020D348(int);
 extern void func_L00_00251328(void *, int, int, int);

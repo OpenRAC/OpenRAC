@@ -109,7 +109,147 @@ unsigned char func_001EB338(void) {
 
 INCLUDE_ASM("asm/nonmatchings/text", func_001EB458); /* Transition_FUN_001eb0a8 */
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001EB7C0); /* Transition_DefaultDraw(bool) */
+struct M2c_D_0016045C
+{
+  u8 pad_0[0x4];
+  s16 unk4;
+  u8 pad_6[0x2];
+};
+extern u8 D_00100AE0[];
+extern s32 D_0013E604[];
+extern short D_0015EE88;
+extern short D_0015F048;
+extern s32 D_0015F050 MACRO_ADDR;
+extern s32 D_0015F054 MACRO_ADDR;
+extern f32 D_0015F53C MACRO_ADDR;
+extern s32 D_0015F564 MACRO_ADDR;
+extern s32 D_0015F6E8 MACRO_ADDR;
+extern s32 D_0015F704 MACRO_ADDR;
+extern struct M2c_D_0016045C * D_0016055C MACRO_ADDR;
+extern s32 D_0018A3E8[];
+extern u8 D_001940C0[];
+extern u8 D_001D9240[];
+extern u8 D_001E1600[];
+extern u8 D_001E3500[];
+extern s32 func_00235290();
+extern s32 func_001F99B0();
+extern s32 func_00118D80();
+extern s32 func_001E9E70_EB7C0() __asm__("func_001E9E70");
+extern s32 func_001EB338_EB7C0() __asm__("func_001EB338");
+extern s32 func_001F2608();
+extern s32 func_001F2930();
+extern void func_001F3C10();
+extern s32 func_001F4630();
+extern s32 func_001F4748();
+extern u64 func_001F4868();
+extern s32 func_001F4A00();
+extern s32 func_001F55C0();
+extern s32 func_001F5800();
+extern s32 func_001FA898(f32);
+extern s32 func_001FB530();
+extern s32 func_001FB848();
+extern s32 func_001FBE80();
+extern s32 func_0020DAB0();
+extern s32 func_0020DD48();
+extern s32 func_0020E2B0();
+extern void func_00218B10();
+extern s32 func_0021A610();
+extern s32 func_00229D48();
+extern s32 func_00229E50();
+extern s32 func_0022B8F8();
+extern s32 func_00234620();
+extern s32 func_002346C0();
+extern s32 func_002347F0();
+extern s32 func_00234AC8();
+extern s32 func_00234C98_EB7C0() __asm__("func_00234C98");
+extern void func_00234F40();
+extern s32 func_002362B0();
+extern s32 func_00236A98();
+extern s32 func_00236BE0();
+extern s32 func_00238688();
+void func_001EB7C0(s32 *arg0);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/gameplay/state/transition_default_draw.c, transition_default_draw. */
+void func_001EB7C0(s32 *arg0)
+{
+    s32 n;
+
+    if (D_0016055C == 0 || D_0016055C->unk4 != 0) {
+        func_001FB530();
+    }
+    func_001F99B0(D_001940C0, -1, 0x80);
+    func_001EB338_EB7C0();
+    func_001F2608();
+    func_0020DAB0();
+    func_001F3C10();
+    D_0015F704 = -1;
+    if (D_0016055C != 0) {
+        func_001E9E70_EB7C0();
+    }
+    func_002346C0();
+    func_00235290(0x02010000);
+    func_00236BE0();
+    func_00235290(0x02020000);
+    func_00229E50();
+    func_00235290(0x02040000);
+    if (D_0015F6E8 == 3) {
+        func_0021A610();
+    } else {
+        func_0020E2B0();
+    }
+    func_00235290(0x02080000);
+    func_001F4630(0);
+    func_00234F40();
+    if (D_0015F564 != 0) {
+        func_001F4A00();
+    }
+    func_00234F40();
+    if (D_0018A3E8[0] != 0) {
+        func_00234C98_EB7C0(8, 5);
+        func_00234F40();
+        func_00118D80(0);
+        func_00218B10();
+        D_0015F704 = 8;
+    }
+    func_001FB848();
+    func_001F3C10();
+    if (D_0015F050 != 0) {
+        func_001F5800(0xEC, 0x10, 0x100, 0x80, 0, 0, 0x100, 0x80,
+                      (long)(D_0015F050 << 24 | 0x808080), (*(s64 *)&D_0015F048));
+    }
+    if (D_0015F054 != 0) {
+        n = (*(s32 *)&D_0015EE88) - 1;
+        if (n < 0) {
+            n = 0;
+        }
+        func_001F5800(0xA0, D_0013E604[0] - 0x50, 0xC0, 0x60, 0, 0, 0x100, 0x80,
+                      (long)(D_0015F054 << 24 | 0x808080), func_001F4868(n + 4));
+    }
+    func_001F4748();
+    if (D_0015F53C > 0.0f) {
+        if (D_0015F53C > 1.0f) {
+            D_0015F53C = 1.0f;
+        }
+        func_001F55C0(0, 0, 0, func_001FA898(D_0015F53C * 128.0f));
+    }
+    func_002347F0(D_00100AE0);
+    func_00118D80(0);
+    if (D_0015F6E8 == 4) {
+        func_001FBE80();
+    }
+    func_00234AC8(2);
+    func_002362B0(D_001E1600);
+    func_00234620();
+    func_00234AC8(4);
+    func_00238688(D_001E3500);
+    func_00236A98();
+    func_00234AC8(8);
+    func_0022B8F8(D_001D9240);
+    func_00229D48();
+    func_00234AC8(0x10);
+    func_0020DD48();
+    func_001F2930();
+}
 
 extern char D_0013E650[];
 extern int D_0015F694;

@@ -4,7 +4,57 @@
 
 INCLUDE_ASM("asm/overlays", func_L06_0021D6B8);
 INCLUDE_ASM("asm/overlays", func_L06_0021E7B8);
-INCLUDE_ASM("asm/overlays", func_L06_00228390);
+extern unsigned char D_0013F450[];
+extern s32 D_L06_0015F6A8 MACRO_ADDR;
+extern void func_0020D678(void *);
+extern void func_L00_00205B50(void);
+extern void func_L00_00207220(void);
+extern void func_L00_00232EA8(void);
+extern void func_L06_00235E08(int, int);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui_help_0021d0a0.c, FUN_L06_00227cf8. */
+void func_L06_00228390(void) {
+    unsigned char *g = D_0013F450;
+    unsigned char *m;
+    if (g[0x20A4] == 1) {
+        *(int *)(g + 0x22AC) = *(int *)(g + 0x22A8);
+        *(int *)(g + 0x22A8) = *(s16 *)(g + 0x22B0);
+        if (*(void **)(g + 0x1620)) {
+            func_0020D678(*(void **)(g + 0x1620));
+            *(void **)(g + 0x1620) = 0;
+        }
+        if (*(void **)(g + 0x1624)) {
+            func_0020D678(*(void **)(g + 0x1624));
+            *(void **)(g + 0x1624) = 0;
+        }
+    }
+    {
+    unsigned char *g2 = D_0013F450;
+    func_L00_00205B50();
+    g2[0x20A4] = 0;
+    m = *(unsigned char **)(g2 + 0xA84);
+    if (m) {
+        *(u16 *)(m + 0x34) &= ~6;
+    }
+    *(void **)(g2 + 0xA84) = 0;
+    if (*(void **)(g2 + 0xA8C)) {
+        func_0020D678(*(void **)(g2 + 0xA8C));
+        *(void **)(g2 + 0xA8C) = 0;
+    }
+    func_L00_00207220();
+    {
+        unsigned char *o = *(unsigned char **)(g2 + 0xA88);
+        *(unsigned char **)(g2 + 0x2080) = o;
+        qcopy(o + 0x10, g2 + 0x80);
+        *(int *)(o + 0x98) = 0;
+    }
+    *(float *)(g2 + 0xA94) = 1.0f;
+    func_L00_00232EA8();
+    if (*(int *)(g2 + 0x2084) != 100 || (D_L06_0015F6A8 != 2 && D_L06_0015F6A8 != 6)) {
+        func_L06_00235E08(0, 1);
+    }
+    }
+}
 extern unsigned char D_0013E633[];
 extern float D_0015EE6C MACRO_ADDR;
 extern int D_L06_001746DC;

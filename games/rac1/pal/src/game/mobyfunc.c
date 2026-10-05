@@ -909,16 +909,30 @@ void func_0020E2B0(void) {
 
 LINKER_REMNANT("asm/remnants/text", func_0020E330);
 
-/*
- * Close but not exact (13/32 bytes): packs 4 values into a 64-bit
- * field: *(long*)(arg0+0x38) = (arg1<<32) | arg2 | (arg3<<8) | (arg4<<16).
- * Same operations/order as retail (confirmed via objdump: same dsll32/
- * dsll/or sequence), but the widen-and-shift-by-32 for arg1 lands in a
- * different register than retail. Not investigated to a fix -- same
- * general family as the scratch-register-allocation-choice question,
- * on the widening step specifically.
- */
-INCLUDE_ASM("asm/nonmatchings/text", func_0020E340);
+void func_0020E340(u64 *command_words, u64 upper_field, u64 middle_field, u64 low_field, u64 tail_field);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/rendering/commands/pack_render_command_fields.c, PackRenderCommandFields. */
+void func_0020E340(u64 *command_words, u64 upper_field,
+                             u64 middle_field, u64 low_field, u64 tail_field) {
+    int command_word_index;
+    if (middle_field) {
+        upper_field <<= 32;
+        low_field <<= 8;
+        tail_field <<= 16;
+    } else {
+        upper_field <<= 32;
+        low_field <<= 8;
+        tail_field <<= 16;
+    }
+    {
+        register u64 packed_command;
+        packed_command = upper_field | middle_field;
+        packed_command |= low_field;
+        packed_command |= tail_field;
+        command_word_index = 7;
+        command_words[command_word_index] = packed_command;
+    }
+}
 
 ASM_FUNC("asm/handwritten/text", func_0020E360);
 

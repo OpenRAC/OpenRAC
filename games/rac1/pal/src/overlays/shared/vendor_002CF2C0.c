@@ -248,7 +248,31 @@ void func_L05_00319B58(char *m, int b, void *v1, void *v2, int a) {
     d->s[2] = random_float_between(-(D_0015EE6C * 4.1887903f), D_0015EE6C * 4.1887903f);
 }
 INCLUDE_ASM("asm/overlays", func_L05_00319C08);
-INCLUDE_ASM("asm/overlays", func_L05_0031AA20);
+extern char *func_L05_0031AAA8(void *, int);
+extern void func_L05_0031A718(void *);
+extern char * D_L05_001601AC MACRO_ADDR;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002b3840.c, FUN_L05_00319510. */
+void func_L05_0031AA20(void *moby_v)
+{
+    char *moby = moby_v;
+    char *data = *(char **)(moby + 0x78);
+    char *spawn = func_L05_0031AAA8(moby, *(short *)(data + 0xB6));
+    char *position;
+    if (spawn != 0) {
+        int index;
+        char *slot=data;
+        char *entry;
+        position=spawn+0x10;
+        slot+=*(short *)(data+0xB4)<<2;
+        index=*(int *)(slot+0x80)<<7;
+        entry=D_L05_001601AC;
+        qcopy(position, (void *)(index+(int)entry+0x30));
+        qcopy(spawn + 0x40, (void *)(index+(int)entry+0x70));
+        func_L05_0031A718(spawn);
+    }
+    *(short *)(data + 0xB4) = *(unsigned short *)(data + 0xB6);
+}
 INCLUDE_ASM("asm/overlays", func_L05_0031AAA8);
 INCLUDE_ASM("asm/overlays", func_L05_0031AB00);
 extern float func_00214D88(float, float, float, float, float *, float *);
@@ -360,7 +384,26 @@ void func_L05_0031C0F0(char *moby) {
 }
 INCLUDE_ASM("asm/overlays", func_L05_0031DDF0);
 INCLUDE_ASM("asm/overlays", func_L05_0031E468);
-INCLUDE_ASM("asm/overlays", func_L05_0031E670);
+extern char *func_0020D348(int);
+extern void func_L00_00251E30(void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_0031abe0.c, FUN_L05_0031d160. */
+char *func_L05_0031E670(unsigned char *a0)
+{
+    unsigned char *m = (unsigned char *)func_0020D348(0x5EA);
+    if (m != 0) {
+        m[0x30] = a0[0x30];
+        *(unsigned short *)(m + 0x32) = *(unsigned short *)(a0 + 0x32);
+        m[0x31] = 1;
+        *(float *)(m + 0x40) = *(float *)(a0 + 0x40);
+        *(float *)(m + 0x44) = *(float *)(a0 + 0x44);
+        *(float *)(m + 0x48) = *(float *)(a0 + 0x48);
+        *(long *)(m + 0x38) = *(long *)(a0 + 0x38);
+        qcopy(m + 0x10, a0 + 0x10);
+        func_L00_00251E30(m);
+    }
+    return (char *)m;
+}
 INCLUDE_ASM("asm/overlays", func_L05_0032A868);
 INCLUDE_ASM("asm/overlays", func_L05_0032A9D0);
 INCLUDE_ASM("asm/overlays", func_L05_0032AA48);

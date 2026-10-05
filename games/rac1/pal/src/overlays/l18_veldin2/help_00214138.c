@@ -125,4 +125,214 @@ void func_L18_00214138(void) {
         }
     }
 }
-INCLUDE_ASM("asm/overlays", func_L18_002190C8);
+typedef int Q_210ce8 __attribute__((mode(TI)));
+typedef struct {
+    u8 pad0[0x98];
+    f32 f98;
+    u8 pad9C[0x128 - 0x9C];
+    f32 f128;
+    u8 pad12C[0x1C0 - 0x12C];
+    s32 i1C0;
+    u8 pad1C4[0x30E - 0x1C4];
+    s16 h30E;
+    u8 pad310[0x5BE - 0x310];
+    s16 h5BE;
+    u8 pad5C0[0x12E7 - 0x5C0];
+    u8 b12E7;
+    u8 pad12E8[0x1630 - 0x12E8];
+    s32 i1630;
+    u8 pad1634[0x2080 - 0x1634];
+    u8 *p2080;
+    s32 i2084;
+    u8 pad2088[4];
+    s32 i208C;
+    u8 pad2090[0x20A4 - 0x2090];
+    u8 b20A4;
+    u8 pad20A5[0x2280 - 0x20A5];
+    u8 *p2280;
+} G_210ce8;
+typedef struct {
+    u8 pad0[0x10];
+    Q_210ce8 v10;
+    u8 *p20;
+    s32 i24;
+    u8 b28;
+    u8 pad29[3];
+    f32 f2C;
+    s32 i30;
+    u8 *p34;
+    u8 pad38[8];
+} T_210ce8;
+typedef union { Q_210ce8 q; f32 f[4]; s32 i[4]; } V_210ce8;
+extern G_210ce8 D_0013F450;
+extern s32 D_L18_0015F6A8 MACRO_ADDR;
+extern T_210ce8 D_L18_00178B80[];
+extern s32 D_0015EE84 MACRO_ADDR;
+extern s32 D_0013E090[];
+extern s32 D_0015EFA8 MACRO_ADDR;
+extern u8 D_0013F4D0[];
+extern f32 D_0015EE6C MACRO_ADDR;
+extern u8 D_0013F530[];
+s32 func_001FA898(f32);
+void func_L00_00207220(void);
+void func_001F9BF0(void *, void *, void *);
+f32 func_001FA748(f32, f32);
+f32 func_001F9F90(f32);
+f32 func_001F9FA8(f32);
+void func_001F9BD8(void *, void *, void *);
+void func_L18_002284E0(s32, s32);
+void func_L00_00217570(s32, s32);
+void func_L00_002AAE80(void);
+void func_001F9BC0(void *);
+void func_L00_00211338(void *, s32, f32, f32);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l18/ui_help_00213b40.c, FUN_L18_00218a90. */
+s32 func_L18_002190C8(s32 arg) {
+    u8 *m;
+    T_210ce8 *tbl;
+    u8 *mob;
+    s32 flag;
+    s32 id;
+    f32 a, b, e;
+    V_210ce8 v;
+
+    if (D_0013F450.i208C == 0x14) {
+        return 0;
+    }
+    if (D_0013F450.i208C == 7) {
+        return 0;
+    }
+    if (D_0013F450.i2084 == 0x32) {
+        return 0;
+    }
+    if (D_0013F450.i1C0 != 0) {
+        return 0;
+    }
+    if (D_L18_0015F6A8 != 0) {
+        return 0;
+    }
+    D_0013F450.p2280 = 0;
+    m = D_0013F450.p2080;
+    if (m[0xA4] == 0xFF) {
+        return 0;
+    }
+    tbl = &D_L18_00178B80[m[0xA4]];
+    if (tbl->p34 != m) {
+        return 0;
+    }
+    if (D_0013F450.b20A4 == 2) {
+        if (!(tbl->i24 & 2)) {
+            return 0;
+        }
+    } else if ((tbl->i24 ^ 1) & 1) {
+        return 0;
+    }
+    D_0013E090[D_0015EE84]++;
+    D_0013F450.p2280 = tbl->p20;
+    D_0015EFA8++;
+    if (D_0013F450.i208C == 0xF) {
+        D_0013F450.h5BE = 1;
+        return 0;
+    }
+    if (D_0013F450.b20A4 == 2) {
+        D_0013F450.i1630 -= func_001FA898(tbl->f2C);
+        if (D_0013F450.i1630 < 0) {
+            D_0013F450.i1630 = 0;
+        }
+    }
+    if (arg == 0) {
+        return 1;
+    }
+    func_L00_00207220();
+    flag = 0;
+    if (tbl->i30 & 1) {
+        qcopy(&v, &tbl->v10);
+        if (*(f32 *)((u8 *)tbl + 0x1C) == 5627.9248046875f) {
+            flag = 1;
+        }
+    } else if (tbl->p20 != 0) {
+        func_001F9BF0(&v, D_0013F4D0, tbl->p20 + 0x10);
+    } else {
+        v.f[0] = func_001F9F90(func_001FA748(D_0013F450.f98, 3.1415927f));
+        v.f[1] = func_001F9FA8(func_001FA748(D_0013F450.f98, 3.1415927f));
+        v.i[2] = 0;
+    }
+    switch (D_0013F450.b20A4) {
+    case 0:
+        mob = D_0013F450.p2280;
+        if (mob != 0 && (*(s16 *)(mob + 0xA6) == 0x4EB || *(s16 *)(mob + 0xA6) == 0x558)) {
+            id = 0x80;
+        call_ret:
+            func_L18_002284E0(id, 1);
+            return 1;
+        }
+        if (D_0013F450.i208C == 0x16) {
+            func_L18_002284E0(0x6D, 1);
+            D_0013F450.f128 = D_0015EE6C * 7.0f;
+            return 1;
+        }
+        if (D_0013F450.i208C == 0x12) {
+            mob = D_0013F450.p2280;
+            if (mob != 0 && *(s16 *)(mob + 0xA6) == 0x28F) {
+                id = 0x82;
+                goto call_ret;
+            }
+            func_L18_002284E0(0x75, 1);
+        } else if (D_0013F450.i208C == 0x11) {
+            mob = D_0013F450.p2280;
+            if (mob != 0 && *(s16 *)(mob + 0xA6) == 0x28F) {
+                id = 0x82;
+                goto call_ret;
+            }
+            if (D_0015EE84 == 0xF || D_0015EE84 == 0x11) {
+                mob = D_0013F450.p2280;
+                if (mob != 0 && (*(s16 *)(mob + 0xA6) == 0x28F || *(s16 *)(mob + 0xA6) == 0x7B
+                                 || *(s16 *)(mob + 0xA6) == 0x29D)) {
+                    func_L00_00217570(0x1C, 0);
+                }
+            }
+            func_L18_002284E0(0x76, 1);
+        } else if (D_0013F450.i208C == 3) {
+            mob = D_0013F450.p2280;
+            if (mob != 0) {
+                id = 0x82;
+                if (*(s16 *)(mob + 0xA6) == 0x28F) {
+                    goto call_ret;
+                }
+            }
+            func_L18_002284E0(0x16, 1);
+        } else {
+            func_L18_002284E0(0x16, 1);
+        }
+        e = D_0015EE6C;
+        a = e * 5.7f;
+        b = e * 2.4f;
+        if (D_0013F450.b12E7 != 0) {
+            a = 0.0f;
+            b = e * 1.7f;
+        }
+        func_L00_00211338(&v, flag, a, b);
+        if (flag != 0 && tbl->b28 == 4) {
+            v.f[2] += v.f[2];
+        }
+        break;
+    case 2:
+        if ((tbl->i24 & 4) || D_0013F450.i1630 <= 0) {
+            func_L18_002284E0(0x5D, 1);
+            func_L00_002AAE80();
+            if (D_0013F450.h30E == 0) {
+                func_L00_00211338(&v, flag, D_0015EE6C * 7.0f, D_0015EE6C * 3.5f);
+                break;
+            }
+        }
+        func_001F9BC0(&v);
+        break;
+    case 3:
+        func_L18_002284E0(0x56, 1);
+        func_L00_00211338(&v, flag, D_0015EE6C * 5.0f, D_0015EE6C * 2.4f);
+        break;
+    }
+    func_001F9BD8(D_0013F530, D_0013F530, &v);
+    func_001F9BD8(D_0013F530 + 0x20, D_0013F530 + 0x20, &v);
+    return 1;
+}

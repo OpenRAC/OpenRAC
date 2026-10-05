@@ -469,7 +469,13 @@ void func_L00_0025AC00(char *m, float t, int a, int b, void *pos, void *vel) {
     *(unsigned char *)(m + 0xA4) = i;
     D_L00_00173F40[5] = (i + 1) & 0x3F;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0025AD38);
+extern char D_L00_0015F660[] MACRO_ADDR;
+extern void func_L00_0025AC00_5AD38(unsigned char *, int, int, void *, void *, float) __asm__("func_L00_0025AC00");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_entities_0024c7f0.c, FUN_L10_0024c7f0. */
+void func_L00_0025AD38(unsigned char *m, int x, int y, void *p, float f) {
+    func_L00_0025AC00_5AD38(m, x, y, p, D_L00_0015F660, f);
+}
 extern void func_001F9BF0(void *, void *, void *);
 
 /* steps two interpolated points from a0/a1 toward a2/a3 and reports whether any step hits */
@@ -1165,7 +1171,21 @@ float func_L00_0025ED30(u128_ED30 *out, u128_ED30 *p, u128_ED30 *a, u128_ED30 *b
 }
 INCLUDE_ASM("asm/overlays", func_L00_0025EFC0);
 INCLUDE_ASM("asm/overlays", func_L00_0025F360);
-INCLUDE_ASM("asm/overlays", func_L00_0025F368);
+extern f32 func_L00_002001D8(void *, f32);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/math_rotations_0025d238.c, FUN_L00_0025e310. */
+f32 func_L00_0025F368(f32 a) {
+    f32 out;
+    f32 x;
+    f32 pi = 3.14159274f;
+    f32 tp = 6.2831855f;
+
+    x = a + pi;
+    x /= tp;
+    x = func_L00_002001D8(&out, x);
+    x *= tp;
+    return x - pi;
+}
 extern int func_L00_0025F410(void *);
 int func_L00_0025F3C0(char *a) {
     int r;

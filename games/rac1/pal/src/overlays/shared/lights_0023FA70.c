@@ -14,4 +14,24 @@ void func_L00_0023FA70(char *p) {
     D_L00_0015FD64 = *(float *)p; p += 4;
     D_L00_0015FD68 = p;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0023FAB8);
+extern u32 D_L00_0015F53C MACRO_ADDR;
+extern s32 D_L00_0015F538 MACRO_ADDR;
+extern u32 D_L00_0015F540 MACRO_ADDR;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/rendering_0023f0d8.c, FUN_L00_0023f120. */
+void func_L00_0023FAB8(s32 *p) {
+    s32 i, j;
+    s32 n;
+    n = *p;
+    p += 4;
+    D_L00_0015F53C = (u32)p;
+    p = (s32 *)((u8 *)p + (n << 5));
+    D_L00_0015F538 = n;
+    D_L00_0015F540 = (u32)p;
+    for (i = 0; i < D_L00_0015F538; i++) {
+        *(u32 *)(D_L00_0015F540 + i * 4) += D_L00_0015F540;
+    }
+    for (j = 0; j < D_L00_0015F538; j++) {
+        *(u32 *)(*(u32 *)(D_L00_0015F540 + j * 4) + 4) += D_L00_0015F540;
+    }
+}

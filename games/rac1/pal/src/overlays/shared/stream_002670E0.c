@@ -21,7 +21,55 @@ void func_L00_002676A0(int a, int b) {
         ((E00266858 *)((char *)s - (-(i * 16))))->d = b;
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_002676E8);
+typedef struct {
+    u8 pad0[4];
+    s16 f04;
+    u8 pad6[2];
+    u8 f08;
+    u8 f09;
+    u8 padA[0x2C];
+    s16 f36;
+    u32 f38;
+    u32 f3C;
+} Out002668a0;
+typedef struct {
+    s32 a;
+    s32 b;
+    s32 c;
+    s32 d;
+} E002668a0;
+typedef struct {
+    u8 pad0[6];
+    u16 f06;
+    s16 f08;
+} P002668a0;
+extern E002668a0 D_0013D6B8[];
+extern P002668a0 * D_L00_001B19F8[];
+extern s32 D_L00_0015F6B0 MACRO_ADDR;
+extern s32 func_L00_00267618_676E8(void *) __asm__("func_L00_00267618");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/audio_streaming_00266298.c, FUN_L00_002668a0. */
+s32 func_L00_002676E8(void *p, u8 *out_p)
+{
+    Out002668a0 *out;
+    s32 i;
+    unsigned long k;
+    P002668a0 *q;
+
+    out = (Out002668a0 *)out_p;
+    i = func_L00_00267618_676E8(p);
+    if (i == -1) { return -1; }
+    if (D_L00_001B19F8[i] == 0) { return -1; }
+    out->f09 = 1;
+    out->f38 = D_L00_0015F6B0;
+    out->f04 = -1;
+    out->f36 = 0;
+    q = D_L00_001B19F8[i];
+    out->f3C = (u32)q;
+    if (D_0013D6B8[i].d != 0 && q->f08 == 0) { out->f36 = q->f06; }
+    out->f08 = ((u8 *)out->f3C)[out->f36 * 0x1C + (k = 0x10)] & 1;
+    return i;
+}
 INCLUDE_ASM("asm/overlays", func_L00_00267BA8);
 INCLUDE_ASM("asm/overlays", func_L00_00267C34);
 extern int func_L00_00267BA8(int, int, int *);

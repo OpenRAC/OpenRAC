@@ -10,4 +10,20 @@ INCLUDE_ASM("asm/overlays", func_L00_0024F198);
 INCLUDE_ASM("asm/overlays", func_L00_0024F1C8);
 INCLUDE_ASM("asm/overlays", func_L00_0024F220);
 INCLUDE_ASM("asm/overlays", func_L00_0024F258);
-INCLUDE_ASM("asm/overlays", func_L00_0024F7E0);
+extern u8 * D_L00_0016009C MACRO_ADDR;
+extern u8 * D_L00_001600A0 MACRO_ADDR;
+extern u32 D_L00_0015F6B0 MACRO_ADDR;
+extern s32 D_L00_0016007C MACRO_ADDR;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui_map_0024e7a8.c, FUN_L00_0024e7a8. */
+void func_L00_0024F7E0(void) {
+    u8 *p;
+    s32 flag = 0;
+    D_L00_0016007C = 0;
+    for (p = D_L00_0016009C; p < D_L00_001600A0; p += 0x100) {
+        if ((p[0x20] >= 0xFE && D_L00_0015F6B0 >= *(u64 *)(p + 0x38)) || flag) {
+            D_L00_0016007C++;
+            if (p[0x20] == 0xFF) flag = 1;
+        }
+    }
+}

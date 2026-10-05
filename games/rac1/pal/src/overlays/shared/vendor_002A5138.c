@@ -654,7 +654,51 @@ void func_L00_002AAE80(void) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L00_002AAEF0);
-INCLUDE_ASM("asm/overlays", func_L00_002AB170);
+typedef int q128_2a9ed0 __attribute__((mode(TI)));
+unsigned char *func_0020D348_AB170(int) __asm__("func_0020D348");
+void func_001F9BC0(void *);
+float func_002140F8(float, float);
+void func_L00_00251E30(void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002a4830.c, FUN_L00_002a9ed0. */
+unsigned char *func_L00_002AB170(int owner, q128_2a9ed0 *pos) {
+    unsigned char *m = func_0020D348_AB170(0x4A);
+    if (m) {
+        unsigned char *v = *(unsigned char **)(m + 0x78);
+        m[0x30] = 0xFF;
+        *(short *)(m + 0x32) = 0x7F;
+        m[0x31] = 1;
+        *(float *)(m + 0x2C) = *(float *)(m + 0x2C) * 0.5f;
+        m[0x20] = 0;
+        *(int *)(v + 0x30) = owner;
+        *(short *)(v + 0x36) = 0;
+        *(int *)(v + 0x78) = 0;
+        qcopy(m + 0x10, pos);
+        func_001F9BC0(v);
+        {
+        float a = func_002140F8(D_0015EE6C * 1.0471976f, D_0015EE6C * 3.1415927f);
+        float d = D_0015EE6C;
+        float b;
+        int x;
+        float z;
+        *(float *)(v + 0x38) = a;
+        b = func_002140F8(d * 1.0471976f, d * 3.1415927f);
+        x = D_L00_0015F6B0;
+        z = 0.0f;
+        *(float *)(v + 0x3C) = b;
+        *(float *)(v + 0x64) = z;
+        *(float *)(v + 0x60) = z;
+        *(float *)(v + 0x70) = z;
+        *(float *)(v + 0x6C) = z;
+        *(int *)(v + 0x5C) = x;
+        *(int *)(v + 0x74) = 0;
+        *(int *)(v + 0x68) = -1;
+        *(int *)(m + 0x94) = 0;
+        }
+        func_L00_00251E30(m);
+    }
+    return m;
+}
 extern int func_L00_001EFFF0(void *, void *, int, int, int);
 extern void func_L00_001FF610(void *, void *, void *);
 extern float D_0015EE70 MACRO_ADDR;

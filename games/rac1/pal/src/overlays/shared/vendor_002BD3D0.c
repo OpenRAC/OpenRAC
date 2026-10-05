@@ -77,7 +77,30 @@ extern char D_L12_001F5740[];
 void func_L12_002E8530(void) {
     func_L12_002BD3D0(D_L12_001F5740, 0x2F, GetEffectTex(0x2C), GetEffectTex(0x2D));
 }
-INCLUDE_ASM("asm/overlays", func_L12_00309A50);
+typedef int u128_8670 __attribute__((mode(TI)));
+extern char *func_0020D348(int);
+extern void func_001F99D8(void *, int);
+extern void func_L00_00251E30(void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_00308670.c, FUN_L12_00308670. */
+char *func_L12_00309A50(char *a0)
+{
+    unsigned char *m = (unsigned char *)func_0020D348(0x55B);
+    if (m != 0) {
+        char *d = *(char **)(m + 0x78);
+        m[0x30] = 0xFF;
+        *(short *)(m + 0x32) = 0x7F;
+        m[0x31] = 1;
+        m[0x20] = 0;
+        *(u128_8670 *)(m + 0x10) = *(u128_8670 *)(a0 + 0x10);
+        *(u128_8670 *)(m + 0x40) = *(u128_8670 *)(a0 + 0x40);
+        *(char **)(m + 0xB8) = a0;
+        func_001F99D8(d, 0x20);
+        *(int *)(d + 0x10) = (int)(d + 0x20);
+        func_L00_00251E30(m);
+    }
+    return (char *)m;
+}
 INCLUDE_ASM("asm/overlays", func_L12_00309AE8);
 typedef struct { char pad[0x40]; float vx, vy; } MO;
 extern int func_L00_0025D6F0(void *, void *);
