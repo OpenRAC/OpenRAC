@@ -6,11 +6,11 @@ are comparable within a game, not between games.
 
 | Game | Version | Code matched | Functions | Fuzzy | Report date |
 |---|---|---:|---:|---:|---|
-| Ratchet & Clank | SCES_509.16 ([`games/rac1/pal`](../games/rac1/pal)) | 19.83% (736,084 / 3,712,808 bytes) | 2,777 / 5,109 | 22.70% | 2026-10-03 |
-| Ratchet & Clank | SCUS_971.99 ([`games/rac1/ntsc`](../games/rac1/ntsc)) | 20.21% (711,620 / 3,521,820 bytes) | 2,550 / 4,191 | 23.20% | 2026-10-03 |
-| Ratchet & Clank: Going Commando | SCUS_972.68 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 0.44% (214,344 / 48,788,176 bytes) | not counted | – | 2026-10-03 |
+| Ratchet & Clank | SCES_509.16 ([`games/rac1/pal`](../games/rac1/pal)) | 20.28% (753,132 / 3,712,808 bytes) | 2,836 / 5,109 | 22.88% | 2026-10-04 |
+| Ratchet & Clank | SCUS_971.99 ([`games/rac1/ntsc`](../games/rac1/ntsc)) | 21.68% (757,404 / 3,493,132 bytes) | 2,611 / 4,107 | 24.65% | 2026-10-05 |
+| Ratchet & Clank: Going Commando | SCUS_972.68 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 0.57% (277,780 / 48,788,176 bytes) | not counted | – | 2026-10-05 |
 | Ratchet & Clank: Up Your Arsenal | SCUS_973.53 ([`games/rac3/ntsc`](../games/rac3/ntsc)) | 1.28% (164,764 / 12,838,776 bytes) | 1,292 / 31,316 | 1.28% | 2026-10-01 |
-| Ratchet: Deadlocked | SCUS_974.65 (not started) | – | – | – | – |
+| Ratchet: Deadlocked | SCUS_974.65 ([`games/rac4/ntsc`](../games/rac4/ntsc)) | 0.51% (26,572 / 5,175,440 bytes) | 243 / 15,056 | 0.51% | 2026-10-05 |
 
 ## Notes
 
@@ -18,3 +18,4 @@ are comparable within a game, not between games.
 - **rac1/ntsc**: Lombyte commits no report: its CI publishes one on the project's progress branch, which `openrac.py progress --fetch` copies to progress/sources/. Byte-weighted over the boot executable and the 19 level programs.
 - **rac2/ntsc**: Integrated C bytes over every executable byte of the boot program and its 27 level overlays (config/progress-scope.json); the rest already rebuilds from reconstructed assembly. Functions are not counted.
 - **rac3/ntsc**: The committed report is from 2026-10-01; the project's README counts 1,441 of 31,316 functions matched on 2026-10-03. It covers frontbin.elf, plus the level programs and other executables, which are counted but not compiled yet.
+- **rac4/ntsc**: Functions are compared one by one with most 16-bit immediates masked (symbols, struct offsets and small constants are not checked), and nothing is linked yet, so this is a looser proof than the other games'. Overlay code identical to resident code is counted once.
