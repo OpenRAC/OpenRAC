@@ -60,6 +60,9 @@ The same comparison as bytes, split by the row version's code class.
 
 Code present in every version above: 319 functions, 37,972 bytes (core 29,568, resident game 7,032, level-only 1,372).
 
+[functions.tsv](functions.tsv) lists the 3,809 functions (737,616 bytes) found in two or more games: where each is in every version,
+what each project calls it and whether it has matched it.
+
 ## Port candidates
 
 Across all projects, 3,765 distinct functions (960,496 bytes) are matched in

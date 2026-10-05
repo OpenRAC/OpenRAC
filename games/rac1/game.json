@@ -87,7 +87,8 @@
           "not_c": [
             "games/rac1/pal/config/handwritten_asm.txt",
             "games/rac1/pal/config/linker_remnants.txt"
-          ]
+          ],
+          "names": "games/rac1/pal/config/names.tsv"
         },
         "setup": "python3 tools/openrac.py setup rac1/pal, then python3 tools/overlays.py dump in games/rac1/pal"
       }
