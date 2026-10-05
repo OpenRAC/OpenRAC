@@ -104,16 +104,12 @@ each game's own check, and rac3's GPL v3 limits where its code may go
 
 - rac1/pal builds on macOS and Linux through Docker, and natively on Windows.
 - rac1/ntsc builds on Linux or WSL, and on macOS through `./setup.sh --docker`.
-  On Apple Silicon that container is linux/amd64, and its Windows assembler
-  runs under 32-bit Wine, which Rosetta's amd64 emulation cannot run
-  (`rosetta error: invalid gdt selector`, then Wine's status c0000018, even
-  with a 32-bit prefix). It needs QEMU emulation instead: in OrbStack
-  `orb config set rosetta false`, in Docker Desktop turn off "Use Rosetta for
-  x86/amd64 emulation". rac1/pal's linux/386 image is not affected. With
-  `RNC_WINE` pointing at wibo's i686 build instead of Wine, 4,366 of the
-  4,368 build steps run under Rosetta (2026-10-03); the two units compiled by
-  SN's `ee-gcc.exe` driver (`audio/rpc`) still fail, because wibo cannot start
-  the driver's child processes under QEMU's 32-bit emulation.
+  On Apple Silicon that container is emulated linux/amd64, and its own Wine 9
+  cannot start the project's 32-bit Windows tools there (status c0000018,
+  under Rosetta and under QEMU). With the 32-bit Wine 8 of rac1/pal's image
+  in its place, both of the project's gates pass on an Apple Silicon Mac with
+  Rosetta on: the boot ELF byte for byte, and all 1,540 overlay functions
+  (2026-10-04; [games/rac1/ntsc/host](../../games/rac1/ntsc/host/README.md)).
 - rac4 builds like rac1/pal, in the same container image.
 - rac2 builds on Windows with WSL only (`scripts/wsl_chain.py` has
   machine-specific defaults).

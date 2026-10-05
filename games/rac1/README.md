@@ -41,8 +41,8 @@ python3 tools/openrac.py setup rac1/pal rac1/ntsc   # from the top of OpenRAC
 ```
 
 Then follow [pal/README.md](pal/README.md) or [ntsc/README.md](ntsc/README.md).
-On an Apple Silicon Mac, `ntsc/`'s Docker build needs QEMU rather than Rosetta
-for amd64 containers, because its Windows tools run under 32-bit Wine
-([build hosts](../../docs/policy/OPEN_QUESTIONS.md#7-build-hosts)); `make check`
-and all but two build steps also work with `RNC_WINE` set to wibo's i686 build.
+On an Apple Silicon Mac, build `ntsc/` through [ntsc/host/](ntsc/host/README.md):
+its container's own Wine cannot run the project's Windows tools there, and
+that folder runs them under rac1/pal's Wine instead. Both of its gates pass
+that way, the boot ELF and all 1,540 overlay functions.
 The level editor ([editor/](../../editor/README.md)) reads the PAL disc.

@@ -350,8 +350,11 @@ RAC2).
     trying either of them on those stubs.
 11. **macOS hosts.** PAL measured that Wine's 32-bit code fails under Rosetta
     in an amd64 Linux machine. Lombyte's `--docker` image is `linux/amd64`
-    with `wine32:i386` ([setup.sh](../../games/rac1/ntsc/setup.sh)). Neither
-    project documents that combination on Apple Silicon.
+    with `wine32:i386` ([setup.sh](../../games/rac1/ntsc/setup.sh)), and its
+    Wine 9 fails on Apple Silicon under Rosetta and under QEMU. Measured in
+    OpenRAC on 2026-10-04: with the Wine 8 of PAL's `linux/386` image run in
+    its place, Lombyte's boot ELF and all 1,540 of its overlay functions match
+    ([games/rac1/ntsc/host](../../games/rac1/ntsc/host/README.md)).
 
 ## 5. Choosing a toolchain for Deadlocked
 
