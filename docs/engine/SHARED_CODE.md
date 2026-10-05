@@ -109,6 +109,99 @@ A `shape` candidate needs its constants and offsets adjusted; treat it as a
 strong draft. A `similar` one changed by a few instructions: a draft to adapt,
 with the ratio saying how close.
 
+## Porting by machine
+
+For a `same` candidate, steps 1 to 3 need no judgement, so
+[tools/port.py](../../tools/port.py) does them:
+
+```sh
+python3 tools/port.py rac1/ntsc rac1/pal           # candidates in build/port/rac1-ntsc--rac1-pal/
+python3 tools/port.py rac1/ntsc rac1/pal --check   # ... and the target project's verdict on each
+```
+
+It cuts the function and the declarations it needs out of the source
+project's file, renames every symbol, and writes a candidate with a credit
+line. `--check` hands each candidate to the target project's own check, reads
+what the compiler says about names the target's file already uses, and tries
+again. What passes is listed for the target project to land its own way;
+nothing is written into a game's `src/`.
+
+**How it knows the target's names.** It does not look them up. The two
+functions are the same instructions, so the n-th address the source version's
+code forms (a call, a `lui` with its `%lo`, a `$gp` offset) is the n-th the
+target's code forms ([tools/mips.py](../../tools/mips.py), `references`). A
+symbol of the source C has an address in the source version; the references
+that reach it give its address in the target; the target names that address
+by its own rules. This works for any global, named or not, in any level.
+
+**How it knows the target's declarations.** The projects compile with
+different compilers and declare a global differently to get the same access.
+The tool reads the access from the target's code instead of translating the
+declaration: a global reached only through `$gp` is small data, one whose
+every `lui` access has the assembler's own shape (`lui $2` / `lw $2,%lo($2)`,
+or through `$at`) is `MACRO_ADDR`, a one- or two-byte global reached with
+`lui` is kept out of small data. For rac1/pal these three rules took the pass
+rate from 39 of 102 candidates to 101 of 140.
+
+**Measured: Lombyte to rac1/pal, 2026-10-04.** Of 228 functions Lombyte has
+matched whose code is identical in PAL and open there:
+
+| Outcome | Functions | Bytes |
+|---|---:|---:|
+| Pass rac1/pal's checks as generated, and landed there | 98 | 67,684 |
+| Pass alone, but not beside the other C in their file | 2 | 1,372 |
+| Same size, a few bytes differ (the compilers schedule or allocate differently) | 17 | 12,572 |
+| Another size | 13 | 8,988 |
+| The target file already declares the function with other types | 10 | 4,636 |
+| Uses the source project's inline `sq $0` helper, which rac1/pal has no form for | 17 | 6,416 |
+| Not attempted: movie code, and SDK code awaiting a decision ([shared/port/](../../shared/port)) | 67 | 20,304 |
+| Other (no listed function at the target address, an ambiguous name) | 4 | 2,916 |
+
+The 98 are 85 level functions, each exact under rac1/pal's strict link-time
+check and again with every other C function of its file, and 13 functions of
+the executable, confirmed by the full build (1,034 exact, none with a wrong
+size). No model wrote or adjusted any of them.
+
+So the claim above holds, with its caveat measured: identical machine code
+came from identical C in about three cases out of four once declarations
+follow the target's rules, and in the rest the two compilers differ by an
+instruction or two. Those near misses are the cheapest matches left in
+rac1/pal, and each is a data point on which compiler built the game.
+
+**Measured the other way: rac1/pal to Lombyte, 2026-10-04.** The same tool
+with Lombyte's rules (every symbol under a private name with an assembler
+label, small data marked `__attribute__((sda))`), checked by Lombyte's own
+`check-unit.py`:
+
+| Outcome | Functions | Bytes |
+|---|---:|---:|
+| Pass as generated | 14 | 11,452 |
+| Same size, a few bytes differ | 13 | 10,284 |
+| Another size | 16 | 8,888 |
+| The place is a second copy of a function Lombyte lists once | 37 | 7,372 |
+| In the executable, where this check does not reach yet | 36 | 6,508 |
+| Other | 10 | 7,088 |
+
+With the 14 applied, Lombyte's `make overlays` reports all 1,554 overlay
+functions matching (1,540 before). They are not applied here: `games/rac1/ntsc`
+follows Lombyte's repository, so they go to that project as a patch, which
+`--check` writes beside its results
+(`games/rac1/ntsc/build/port/rac1-pal--rac1-ntsc/exact.patch`).
+
+Fewer pass in this direction, for two reasons worth knowing. Lombyte's
+catalogue gives one name to functions that differ only in a constant, so 37
+of the functions rac1/pal matched have no place of their own there. And the
+PAL C was shaped to PAL's compiler: where it leans on that compiler's
+scheduling, Lombyte's compiler orders an instruction or two differently.
+
+**Adding a pair.** A version's side is the `port` entry of its `game.json`
+(the keys are listed at the top of `port.py`): where its sources and catalogue
+are, its `$gp`, how it names an address and declares a global, how its check
+is run, and what it never takes. rac1's two projects are described both as
+source and as target. Another game needs its entry, and a decision first if
+its rules restrict what may come along
+([open question 6](../policy/OPEN_QUESTIONS.md#6-code-shared-between-the-games)).
+
 Byte-identical library code deserves a note: where a function comes from a
 prebuilt archive (Sony's libraries, libgcc), every game that linked the same
 archive has the same bytes, whatever compiled the game itself. Those ports
@@ -163,8 +256,9 @@ lists them, and `python3 tools/shared.py check` keeps their copies identical
 ## What comes next
 
 In order ([open question 6](../policy/OPEN_QUESTIONS.md#6-code-shared-between-the-games)):
-port the candidates above, each proven in its target; extend the similarity
-step to level code; then give the library code that is in every version one
+port the candidates above, each proven in its target (by machine where the
+code is the same, starting with the pairs `port.py` does not describe yet);
+extend the similarity step to level code; then give the library code that is in every version one
 home that every game's build compiles and checks. That last step needs each
 game's per-object compile recipe as a shared tool first: a library file
 matches only when built exactly as the game built it.

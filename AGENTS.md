@@ -92,6 +92,7 @@ python3 tools/openrac.py progress [--fetch] # consolidate progress, refresh the 
 python3 tools/openrac.py tables             # refresh the generated tables only
 python3 tools/sources.py status|sync GAME/VER   # follow the original repositories while they are active
 python3 tools/xmap.py scan|report|ports FROM TO # the function map across the games (docs/engine/SHARED_CODE.md)
+python3 tools/port.py FROM TO [--check]         # candidates for functions FROM matched whose code TO has unchanged
 python3 tools/shared.py check|find|sync PATH    # files several games share must stay identical (shared/README.md)
 python3 -m unittest discover -s tools       # tests for tools/
 python3 -m unittest discover -s editor      # tests for the editor

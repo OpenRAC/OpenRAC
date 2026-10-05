@@ -100,6 +100,22 @@ things bear on it: the projects' compilers differ, so a shared file must pass
 each game's own check, and rac3's GPL v3 limits where its code may go
 (question 1).
 
+Also to decide, before code is ported into Deadlocked by machine: how names
+travel. [tools/port.py](../../tools/port.py) renames every symbol to the
+target's own address-based name, but the C it carries keeps the source
+project's local, type and member names. rac4's rule
+([LEGAL.md](../../games/rac4/ntsc/LEGAL.md), "Naming") allows code from other
+public decompilations and forbids identifiers copied from any other source, so
+a port into rac4 needs either its author's word that names from rac1/pal (his
+own project) may come along, or a pass that regenerates them (`Type1`, `f20`).
+130 functions (15,928 bytes) rac1/pal has matched are identical in Deadlocked
+and wait on this.
+
+And for rac1/pal: 11 functions Lombyte has matched (SDK file and SIF I/O,
+989snd command senders, newlib internals) are held back until their C there
+has been reviewed against the sourcing policy
+([shared/port/rac1-pal.undecided.txt](../../shared/port/rac1-pal.undecided.txt)).
+
 ## 7. Build hosts
 
 - rac1/pal builds on macOS and Linux through Docker, and natively on Windows.

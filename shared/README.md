@@ -3,6 +3,7 @@
 | Here | What it is | Maintained by |
 |---|---|---|
 | [xmap/](xmap/README.md) | The function map across the five versions: how much code they share, a table of every function two or more games share ([functions.tsv](xmap/functions.tsv)), and the functions each project could port from another ([ports/](xmap/ports)) | `python3 tools/xmap.py scan`, `report`, `ports` (generated; never edit) |
+| [port/](port) | What a version never takes from another project (rac1/pal: the movie code), and what waits for a decision | by hand; `tools/port.py` skips every name listed |
 | [files.json](files.json) | The files several games build with, copy for copy, and the files that began as copies and now differ on purpose | by hand; `python3 tools/shared.py check` holds the copies identical, in CI too |
 
 [docs/engine/SHARED_CODE.md](../docs/engine/SHARED_CODE.md) explains the map
