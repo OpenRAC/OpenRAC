@@ -279,10 +279,34 @@ with `python3` run on the host.
   `tools/build_common_c.py` and its own strict gates
   ([common_level_c.md](../../games/rac3/ntsc/docs/common_level_c.md)).
 
-### rac4: Deadlocked
+### rac4: Deadlocked NTSC-U (from rac-deadlocked-decomp)
 
-Not started. [games/rac4/game.json](../../games/rac4/game.json) identifies the
-disc so that work can begin from it.
+Run from `games/rac4/ntsc`. Begun 2026-10-04 by rac1/pal's author, with a
+smaller version of the same tooling ([CONTRIBUTING.md](../../games/rac4/ntsc/CONTRIBUTING.md)).
+
+| Step | Command |
+|---|---|
+| Set up | `python3 tools/openrac.py setup rac4/ntsc` (OpenRAC root), then `bash tools/setup_asm.sh` |
+| Compile everything | `bash tools/docker/run.sh bash tools/build.sh` |
+| Compile one file | `bash tools/docker/run.sh bash tools/cc.sh SRC.c OUT.o` |
+| Compare with retail | `venv/bin/python tools/audit_matches.py`; `venv/bin/python tools/diff_func.py func_00473A88` shows one function word by word |
+| Try several forms of a function | `venv/bin/python tools/try_variants.py FILE.c name=func_00497438 ...` |
+| Regenerate and check progress | `python3 tools/gen_progress_report.py`, then `--check` |
+
+- **Proof.** Per function, with relocatable fields masked
+  ([retail.py](../../games/rac4/ntsc/tools/retail.py)); nothing is linked. The mask also hides
+  struct offsets and small constants, so this is looser than the other games'
+  proofs ([games/rac4/README.md](../../games/rac4/README.md#what-matched-means-here)).
+- **Source.** One file per function, `src/<core|net|game>/<ADDR>.c` and
+  `src/overlays/L<nn>/`, with per-file flags in a `/* cflags: ... */` comment.
+  `tools/auto_structs.py` drafts small functions from m2c output and keeps the
+  ones that match.
+- **Names.** `func_<address>`, `D_<address>`, generated `TypeN` and `fNN`
+  until the code is understood; nothing copied from another source
+  ([LEGAL.md](../../games/rac4/ntsc/LEGAL.md)).
+- **Near misses.** `nonmatching/` holds drafts that are not built or scored.
+- **Report.** `progress/report.json` is committed with the source; OpenRAC's
+  CI runs its `--check`.
 
 ## 5. Working with AI agents
 

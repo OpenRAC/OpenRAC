@@ -54,7 +54,11 @@ it; point `UYA_TOOLCHAIN` (or `--toolchain`) there. (`sn-prodg-24`'s 2.95.3 is
 SN BUILD 1.14, the one rac1/pal uses.) The full macOS and Linux recipe is in
 [games/rac3/README.md](../games/rac3/README.md#getting-started).
 
-## Ratchet: Deadlocked (`games/rac4`)
+## Ratchet: Deadlocked (`games/rac4/ntsc`)
 
-Not started. [docs/toolchains](../docs/toolchains/README.md#5-choosing-a-toolchain-for-deadlocked)
-lists what to try first.
+The same two mirrors as rac1/pal, cloned above: SN GCC 2.95.3 v1.36 from
+`sn-prodg-3.01` for the game code, and Sony's `2.9-ee-991111` from
+`sn-prodg-24` for libgcc and libm. `python3 tools/openrac.py setup rac4/ntsc`
+links `games/rac4/ntsc/toolchain` to this directory, and the build runs in
+rac1/pal's container image. `tools/get_newlib.sh` clones the newlib snapshot
+libm is built from into the project's ignored `private/`.

@@ -28,7 +28,7 @@ Names used on this page:
 | RAC1 NTSC-U `SCUS_971.99` ([games/rac1/ntsc](../../games/rac1/ntsc/docs/building.md), Lombyte) | "Game compiler": GNU EE 2.9-ee-991111b rebuilt from source with the production patch stack `0000`..`0056` ([patches/sce-991111b](../../games/rac1/ntsc/patches/sce-991111b/README.md)) | `-O2`, no `-g`, no `-G` option; per-unit flags in `GAME_COMPILER_FLAG_UNITS` ([configure.py](../../games/rac1/ntsc/configure.py)) | EE-GCC 2.9-ee-991111-01 ("SDK compiler") for every unit below `GAME_TEXT_START = 0x12D8F8`, with `-DMATCHING_DECOMP -O2 -g2 -gstabs` ([configure.py](../../games/rac1/ntsc/configure.py)) | 1258 of 1331 C units byte-identical on their placement compiler (2026-09-27); 18 units in `ROUTE_EXCEPTIONS` still use another route |
 | RAC2 NTSC-U v1.01 `SCUS_972.68` ([games/rac2/ntsc](../../games/rac2/ntsc/README.md)) | C: 2.9-ee-991111b, the Lombyte stack minus its save widening, plus the adjustments in [COMPILER-NOTES.md](../../games/rac2/ntsc/docs/COMPILER-NOTES.md) (`cc1` `8bed6eae…`) | `-O2 -G0 -ffunction-sections` ([candidate-catalog.json](../../games/rac2/ntsc/config/candidate-catalog.json)) | Not qualified | 178 integrated bodies. "Not offered as a general RAC2 compiler qualification" ([COMPILER-NOTES.md](../../games/rac2/ntsc/docs/COMPILER-NOTES.md)) |
 | RAC3 NTSC-U `SCUS_973.53`, `frontbin.elf` ([games/rac3/ntsc](../../games/rac3/ntsc/docs/wiki/Toolchain-and-Build.md)) | SN 2.95.3 v1.36 | `-O2 -G8 -fopt-stack -mno-check-zero-division` on every range. `-mno-split-addresses` on 110 and `@ps2as` on 112 of the 358 lines of [text_parts.txt](../../games/rac3/ntsc/tools/text_parts.txt) | Not measured | 2043/2043 text functions byte-identical in a full build (2026-09-25) ([compiler_matrix_findings.md](../../games/rac3/ntsc/docs/compiler_matrix_findings.md)) |
-| RAC4 Deadlocked `SCUS_974.65` | Not started ([game.json](../../games/rac4/game.json)) | | | |
+| RAC4 Deadlocked `SCUS_974.65` ([games/rac4/ntsc](../../games/rac4/ntsc/docs/RESEARCH.md)) | SN 2.95.3 v1.36 | `-O2 -G8 -fopt-stack -mno-check-zero-division`; `-mno-split-addresses` per file, named in a `/* cflags: */` comment ([build.sh](../../games/rac4/ntsc/tools/build.sh)) | Sony 2.9-ee-991111 with `-O2 -G2` for libgcc and libm | Per function only, with most immediates masked and no linked image. Chosen from five functions: v1.36 gave 4 of 5 exact, 2.9-ee 3, SN v1.14 and SN 2.74 one each ([RESEARCH.md](../../games/rac4/ntsc/docs/RESEARCH.md#the-compiler)) |
 
 ### Assembler, linker, host, sources
 
@@ -38,6 +38,7 @@ Names used on this page:
 | RAC1 NTSC-U | Game code: Ps2EeAs 1.9.25.758 from ProDG 3.01 with its divbug padding patched out (6 bytes, [patch-ps2eeas.py](../../games/rac1/ntsc/scripts/patch-ps2eeas.py)). `INCLUDE_ASM` wrappers: the patched GNU as of the 991111b tree | `mips-ps2-decompals-ld` (binutils-mips-ps2-decompals v0.10) | Linux x86-64 with glibc 2.38+ (Ubuntu 24.04+, Debian 13+) or WSL; Docker `linux/amd64` Ubuntu 24.04 elsewhere; Wine for the Windows tools; `gcc -m32` to build the compiler ([setup.sh](../../games/rac1/ntsc/setup.sh)) | Downloaded by `setup.sh`. Game compiler built from `gnu-ee-binutils-gcc-1.1.tar.gz`, an Internet Archive copy of the ps2dev download ([build-game-compiler.py](../../games/rac1/ntsc/scripts/build-game-compiler.py)) | Every download by SHA-256: binutils, objdiff, SDK compiler, SN 2.95.2 archive, Ps2EeAs before and after the patch, two GCC headers, source archive, bison 1.28. Patch files by SHA-256. The built `cc1` hash is reported, not enforced, because it depends on the host |
 | RAC2 | C: the patched GNU `as` of the same tree (`cda1a4e4…`). Reconstructed assembly: `Ps2EeAs.exe` from ProDG 2.0 ([build.py](../../games/rac2/ntsc/scripts/build.py)) | `ee/bin/ld.exe` | Windows with WSL: the 1999 tools are 32-bit Linux binaries ([wsl_chain.py](../../games/rac2/ntsc/scripts/wsl_chain.py)) | ProDG 2.0 supplied locally. Compiler built from the same archive as RAC1 NTSC-U | `cc1`, `cpp`, `as` and `ld.exe` SHA-256 in every proof ([integration.json](../../games/rac2/ntsc/progress/integration.json)); source archive SHA-256 |
 | RAC3 | `bin/ee-as.exe` (Aug 2000) by default; `ee/bin/Ps2EeAs.exe` per range (`@ps2as`); `ee/bin/as.exe` (May 2001) per range (`@newas`) | `bin/ee-ld.exe`, then `ee-objcopy` | Windows with SN `make.exe`; Linux and macOS through wibo 1.0.0-beta.1 ([build.py](../../games/rac3/ntsc/tools/build.py)) | SN ee-gcc 2.95.3 v1.36 package; [Setup](../../games/rac3/ntsc/docs/wiki/Setup.md) points at the `SN-Systems-ProDG_for_PS2_3.01` mirror | `frontbin.elf` SHA-1, on input and on output. Toolchain not pinned |
+| RAC4 | The v1.36 driver's GNU as, with rac1/pal's `ps2eeas_dli.py` and `ps2eeas_nops.py` imitating Ps2EeAs (minimum loop span 5) ([cc.sh](../../games/rac4/ntsc/tools/cc.sh)) | None yet: nothing is linked | Docker/Podman `linux/386` with Wine, rac1/pal's image | The same two mirrors as RAC1 PAL ([CONTRIBUTING.md](../../games/rac4/ntsc/CONTRIBUTING.md)) | Boot executable SHA-1; the rebuilt ELF's SHA-1 in `config/splat.yaml`; the newlib snapshot commit |
 
 ## 2. Per game
 
@@ -206,6 +207,26 @@ Names used on this page:
 - **Never produced from C:** `sq $zero` (C gives `por` then `sq`) and `lq $at`.
   `long` is 64-bit and `long long` is 128-bit; `ULL` is rejected.
 
+### RAC4 (rac-deadlocked-decomp)
+
+- **Compiler.** SN 2.95.3 v1.36 with RAC3's flags, picked by compiling five
+  small functions with every compiler in the two mirrors; the UYA project's
+  matrix supplied the flags ([RESEARCH.md](../../games/rac4/ntsc/docs/RESEARCH.md#the-compiler)).
+- **Why each flag.** `-fopt-stack`: retail saves registers with `sd`/`ld` in
+  8-byte slots. `-G8`: retail's `$gp` accesses include 18 eight-byte `ld`/`sd`.
+  `-mno-split-addresses`: per file, as in RAC3.
+  `-mno-check-zero-division`: not needed yet.
+- **Assembler.** Retail was assembled by Ps2EeAs; the project imitates it with
+  rac1/pal's two passes. Its retail histogram of backward branches starts at
+  5 instructions, so the short-loop minimum is 5 here, where rac1/pal uses 6.
+  Level code has 722 `mtc1; nop; cvt.s.w` sequences and 93 without.
+- **Libraries.** libgcc and libm (newlib's fdlibm, snapshot 2000-02-17) are
+  rebuilt from their sources with Sony's 2.9-ee driver at `-O2 -G2`: 24 of 36
+  and 27 of 40 functions match. Sony's prebuilt `libgcc.a` matches the three
+  libgcc functions the sources do not, so retail linked that archive.
+- **Open there.** Two nops before most `div.s` (281 of 435 in level code) that
+  no compiler in the mirrors emits; a link-time comparison.
+
 ## 3. Cross-game findings
 
 | Finding | RAC1 PAL | RAC1 NTSC-U | RAC2 | RAC3 | Status |
@@ -334,8 +355,11 @@ RAC2).
 
 ## 5. Choosing a toolchain for Deadlocked
 
-The repository holds no compiler evidence for Deadlocked yet; only the disc is
-identified ([game.json](../../games/rac4/game.json)). Based on the other three
+Deadlocked's project began on 2026-10-04 and chose RAC3's profile, SN 2.95.3
+v1.36, from a five-function comparison ([RESEARCH.md](../../games/rac4/ntsc/docs/RESEARCH.md#the-compiler),
+section 2 above). That is step 2 of the list below, which was written before
+the project existed. The rest still applies to what it leaves open: the
+`div.s` nops, and a comparison at link addresses. Based on the other three
 games:
 
 1. **Measure the retail signatures first.** Before choosing a compiler, look

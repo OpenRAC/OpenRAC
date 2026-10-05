@@ -16,7 +16,7 @@ Each claim names the game it was measured on, using these keys:
 | **RAC1 US** | Ratchet & Clank, `SCUS_971.99` | [games/rac1/ntsc](../../games/rac1/ntsc/README.md) (Lombyte) |
 | **RAC2** | Going Commando, `SCUS_972.68` v1.01 | [games/rac2/ntsc](../../games/rac2/ntsc/README.md) |
 | **RAC3** | Up Your Arsenal, `SCUS_973.53` | [games/rac3/ntsc](../../games/rac3/ntsc/README.md) |
-| **RAC4** | Deadlocked, `SCUS_974.65` | [games/rac4](../../games/rac4/game.json): not started |
+| **RAC4** | Deadlocked, `SCUS_974.65` | [games/rac4/ntsc](../../games/rac4/ntsc/README.md) |
 
 And how strong the evidence is:
 
@@ -47,7 +47,7 @@ Three rules follow from how the projects work:
 | RAC1 US | `SCUS_971.99`, 1,383,028 bytes | 19 | | boot and all 19 levels |
 | RAC2 | `SCUS_972.68`, 2,618,684 bytes, two loadable segments | 27 | | boot and 27 overlays rebuilt from assembly; C replaces it function by function |
 | RAC3 | `SCUS_973.53`, 771,008 bytes | 51, single player and multiplayer | `frontbin.elf`, `boot_elf.elf`, `i5bootn.elf`, `ntgui.elf`, `sly2.elf` | `frontbin.elf`; levels and the four other executables counted, not compiled; the boot not split yet |
-| RAC4 | `SCUS_974.65`, 1,692,216 bytes | unknown | unknown | nothing |
+| RAC4 | `SCUS_974.65`, 1,692,216 bytes: a 20 KB loader around one compressed image, which unpacks to 17 sections (5,157,636 bytes) | 47 (24 campaign, 23 multiplayer), each with its own overlay on the disc | the IOP image and the DNAS and network GUI files | the image's core, network and level code (8,027 functions) and the overlays, function by function; nothing is linked ([RESEARCH.md](../../games/rac4/ntsc/docs/RESEARCH.md)) |
 
 Sizes are from each `game.json`. RAC2's level identifiers run 0–20, 22–26
 and 30 ([config/overlays.json](../../games/rac2/ntsc/config/overlays.json)),
@@ -440,8 +440,11 @@ without saves, calls or `lq`/`sq`, GCC 2.9 and 2.95 emit the same code.
   should live waits on it ([OPEN_QUESTIONS.md](../policy/OPEN_QUESTIONS.md), section 6).
 - **RAC3's boot** is not split, so the engine core `frontbin` calls (132
   functions) has not been compared with RAC1 or RAC2.
-- **Deadlocked.** Only the disc is identified
-  ([game.json](../../games/rac4/game.json)).
+- **Deadlocked.** Its image and overlays are split and catalogued
+  ([RESEARCH.md](../../games/rac4/ntsc/docs/RESEARCH.md), [OVERLAYS.md](../../games/rac4/ntsc/docs/OVERLAYS.md)): the
+  same section names as RAC2's boot (`core.text`, `lvl.vtbl`, `lvl.camvtbl`,
+  `lvl.sndvtbl`), assigned by position, plus `net.text`. Nothing is compared
+  with the earlier games yet.
 
 ## 9. Gaps and contradictions
 
