@@ -36,6 +36,10 @@ jobs:
         working-directory: games/rac1/pal
         run: python tools/gen_progress_report.py --check
 
+      - name: rac4 progress report is current with its source
+        working-directory: games/rac4/ntsc
+        run: python tools/gen_progress_report.py --check
+
       - name: rac1/ntsc tools
         working-directory: games/rac1/ntsc
         run: |
