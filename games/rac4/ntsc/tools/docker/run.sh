@@ -7,6 +7,14 @@
 #   bash tools/docker/run.sh bash tools/build_sn.sh
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/../.." && pwd)
+# Inside OpenRAC (games/rac4/ntsc), mount the whole repository instead, so
+# the shared toolchains/ and baserom/ at its top level are visible in the
+# container at the same paths (toolchain/ is a link to ../../../toolchains).
+mount=$repo
+top=$(cd "$repo/../../.." && pwd)
+if [ -f "$top/games/rac4/game.json" ] && [ "$top/games/rac4/ntsc" = "$repo" ]; then
+  mount=$top
+fi
 CONTAINER_CLI="${CONTAINER_CLI:-}"
 if [ -z "$CONTAINER_CLI" ]; then
   if command -v podman >/dev/null 2>&1; then
@@ -24,6 +32,11 @@ if [ "$CONTAINER_CLI" = "podman" ]; then
   LOCAL_IMAGE="localhost/rac1-build:latest"
 else
   LOCAL_IMAGE="rac-build:latest"
+  # rac1/pal builds the same image locally under this name.
+  if ! $CONTAINER_CLI image inspect "$LOCAL_IMAGE" >/dev/null 2>&1 \
+     && $CONTAINER_CLI image inspect "rac1-build:latest" >/dev/null 2>&1; then
+    LOCAL_IMAGE="rac1-build:latest"
+  fi
 fi
 IMAGE_TO_RUN=""
 
@@ -55,4 +68,4 @@ fi
 # processes (gen_progress_report.py compiling every overlay file) never
 # reaps the orphans; process creation then fails partway through with
 # Wine's "Not enough space".
-exec $CONTAINER_CLI run --rm --init $tty ${sec_opts[@]+"${sec_opts[@]}"} --platform linux/386 -v "$repo:$repo" -w "$repo" "$IMAGE_TO_RUN" "$@"
+exec $CONTAINER_CLI run --rm --init $tty ${sec_opts[@]+"${sec_opts[@]}"} --platform linux/386 -v "$mount:$mount" -w "$repo" "$IMAGE_TO_RUN" "$@"
