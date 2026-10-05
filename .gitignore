@@ -23,3 +23,7 @@ Thumbs.db
 # Agent worktrees and local notes
 .claude/worktrees/
 .claude/settings.local.json
+
+# What a sync leaves when a hunk does not apply (tools/sources.py): resolve by hand, never commit
+*.rej
+*.orig
