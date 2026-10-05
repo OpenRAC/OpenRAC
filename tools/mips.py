@@ -62,7 +62,8 @@ def references(code: bytes, base: int, gp: int | None = None) -> list[tuple[int,
     of reaching the instruction left the same one in it. A top half follows
     moves and an added index, and ends when its register is overwritten or a
     call returns. Code reached only through a jump table starts from what was
-    held at the `jr`."""
+    held at the `jr`; code nothing reaches (a nop after a jump) passes nothing
+    on."""
     ws = words(code)
     n, end = len(ws), base + 4 * len(ws)
 
@@ -147,10 +148,13 @@ def references(code: bytes, base: int, gp: int | None = None) -> list[tuple[int,
         before[0] = {}
         run([0])
     while None in before:               # reached only through a jump table, or not at all
+        i = before.index(None)
+        if not tables or not ws[i]:     # dead: the padding after a jump. Nothing flows out of it,
+            before[i] = {}              # or it would wipe what the code after it really holds
+            continue
         start = {}
         for held in tables:
             start = held if held is tables[0] else meet(start, held)
-        i = before.index(None)
         before[i] = dict(start)
         run([i])
 

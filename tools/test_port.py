@@ -39,6 +39,14 @@ class ReferenceTests(unittest.TestCase):
                     JR_RA, NOP)
         self.assertIn((6, "data", 0x001E3200), mips.references(text, 0x00300000))
 
+    def test_padding_after_a_jump_passes_nothing_on(self):
+        # bne over a dead nop: what the branch carries must reach its target intact.
+        text = code(0x14400004, lui(S0, 0x0016),                 # 0, 1: bne $v0,$zero -> 5; the slot loads the half
+                    beq(0, 0, 3), NOP,                            # 2, 3: b -> 6
+                    NOP,                                          # 4: padding nothing reaches
+                    NOP, addiu(A0, S0, -0x7F80), JR_RA, NOP)      # 5 falls into 6
+        self.assertIn((6, "data", 0x00158080), mips.references(text, 0x00300000))
+
     def test_two_ways_in_with_different_halves_give_nothing(self):
         text = code(beq(V0, 0, 2), lui(A0, 0x001E), lui(A0, 0x0016), lw(V0, A0, 4), JR_RA, NOP)
         self.assertEqual(mips.references(text, 0x00300000), [])
@@ -152,6 +160,10 @@ class ResolveTests(unittest.TestCase):
         self.assertEqual(found["pair"][:2], (0x150110, {"data"}))
         self.assertEqual(found["small"][0], 0x15EE10)       # the far reference above it (a string, a table) does not move it
         self.assertIn("gp", found["small"][1])
+
+    def test_a_constant_far_above_is_not_a_reference(self):
+        with self.assertRaises(port.Skip):                  # 0x20000000 | address: not a reference to the last symbol
+            port.resolve({"client": [0x157F80]}, [("data", 0x20000000, 0x20000000)])
 
     def test_a_call_must_hit_the_symbol_itself(self):
         with self.assertRaises(port.Skip):

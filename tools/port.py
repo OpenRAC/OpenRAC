@@ -53,7 +53,8 @@ Each version's side is the "port" entry of its games/<game>/game.json:
                 an address), alias and small_data (how it declares: rac1/pal
                 by plain names and a short read through a cast, rac1/ntsc
                 under private names with an sda attribute), headers,
-                never and never_sources (what it does not take), check
+                never and never_sources (what it does not take), allow (a
+                construct a named function may keep after review), check
 
 A check is either a command over a manifest (rac1/pal's tools/integrate.py),
 or `"kind": "guard"`: the candidate is put under `#else` of a NON_MATCHING
@@ -82,6 +83,7 @@ KEYWORDS = set("""auto break case char const continue default do double else enu
     volatile while __inline__ __inline __attribute__ __asm__ asm __volatile__ __extension__ __const
     __signed__ __typeof__ typeof""".split())
 SMALL_TYPES = {"char", "short", "s8", "u8", "s16", "u16"}        # two bytes or less: small data by size alone
+REACH = 0x100000         # a reference this far above a symbol is not into that object (a constant such as 0x20000000)
 
 
 class Skip(Exception):
@@ -420,13 +422,15 @@ def resolve(links: dict[str, list[int]], pairs: list) -> dict[str, tuple[int, se
     than one for a function its level holds twice: the one the code reaches
     counts). A reference belongs to the nearest symbol at or below it; of a
     symbol's references the nearest decides, and the ones that then disagree
-    are another object's (a jump table, a string) and are left alone."""
+    are another object's (a jump table, a string) and are left alone; so is
+    one a megabyte or more above every symbol, which is a constant, not an
+    address."""
     order = sorted((a, n) for n, addrs in links.items() for a in addrs)
     starts = [a for a, _ in order]
     seen: dict[str, list] = {}
     for kind, src, dst, *where in pairs:
         k = bisect_right(starts, src) - 1
-        if k < 0 or kind == "call" and starts[k] != src:
+        if k < 0 or kind == "call" and starts[k] != src or src - starts[k] >= REACH:
             continue
         for addr, name in order[bisect_right(starts, starts[k] - 1):k + 1]:      # every name at that address
             seen.setdefault(name, []).append((src - addr, dst - (src - addr), kind, *where))
@@ -613,7 +617,8 @@ def port(row: dict, src: dict, dst: dict, hints: dict) -> tuple[str, str]:
     text = "\n".join(t for t in out if t) + f"\n\n/* {about + chr(10) + '   ' if about else ''}{credit} */\n{body}\n"
     for find, replace in (('__attribute__((section(".data")))', "NOT_SDA"), ('__attribute__((section(".sdata")))', "MACRO_ADDR")):
         text = text.replace(find, replace)
-    banned = [why for pattern, why in BANNED if re.search(pattern, blank_comments(text))]
+    allowed = dst.get("allow", {}).get(name, [])        # a reviewed exception, by name (newlib's own macro bodies)
+    banned = [why for pattern, why in BANNED if why not in allowed and re.search(pattern, blank_comments(text))]
     if banned:
         raise Skip("needs a hand: " + ", ".join(banned))
     code_only = blank(text)

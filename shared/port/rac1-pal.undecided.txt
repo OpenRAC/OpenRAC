@@ -1,14 +1,4 @@
-# rac1/pal functions whose port from Lombyte waits for a decision: SDK file and SIF I/O, 989snd
-# command senders and newlib internals whose matched C in the US project has not been reviewed against
-# the sourcing policy (docs/policy/SOURCING.md). tools/port.py skips them until this list is emptied.
-func_001126D8
-func_00114920
-func_00116168
-func_001161B0
-func_0011AA90
-func_0011BF80
-func_0011C388
-func_0011C5C0
-func_0011C820
-func_0012E820
-func_0012EB18
+# rac1/pal functions whose port from another project waits for a decision. tools/port.py skips every
+# name listed here (games/rac1/game.json, "never"). Empty since 2026-10-04: the eleven that were here
+# (SDK file and SIF I/O, 989snd command senders, newlib internals) were reviewed against
+# docs/policy/SOURCING.md and released; shared/port/README.md has the review.
