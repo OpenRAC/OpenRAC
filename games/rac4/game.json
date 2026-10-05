@@ -28,9 +28,38 @@
         "sha1": "aa91b1c3b9b1a244320c47580b77342ef9856e95",
         "sha256": "2f305ab0ed47f148f599ef8769a534adf4080307aa11ab26a7966dedec897ed6"
       },
-      "target": "Not started: the disc is identified so work can begin from it.",
-      "inputs": [],
-      "setup": "not started"
+      "target": "The game image packed inside the boot executable SCUS_974.65 (core, network and resident level code: 8,027 functions) and the 47 level overlays (24 campaign, 23 multiplayer), compared function by function; there is no linked image yet.",
+      "inputs": [
+        {
+          "from": "boot",
+          "path": "games/rac4/ntsc/baserom/SCUS_974.65"
+        },
+        {
+          "from": "toolchains",
+          "path": "games/rac4/ntsc/toolchain"
+        }
+      ],
+      "setup": "in games/rac4/ntsc: bash tools/setup_asm.sh, bash tools/docker/run.sh bash tools/build.sh, then venv/bin/python tools/audit_matches.py (its README; toolchains/README.md for the compilers)",
+      "source": {
+        "name": "rac-deadlocked-decomp",
+        "repo": "https://github.com/Lynder063/rac-deadlocked-decomp",
+        "branch": "main",
+        "checkout": "~/Projects/rac4-decomp",
+        "license": "MIT (GPL libgcc, newlib libm)",
+        "exclude": [],
+        "commit": "dedfcd416a1b8e195978df6b038e0d4cd927f4b7",
+        "date": "2026-10-05",
+        "imported": "2026-10-04"
+      },
+      "build": {
+        "host": "macOS or Linux through Docker (rac1/pal's linux/386 image with Wine); SN ProDG toolchain you supply",
+        "readme": "games/rac4/ntsc/README.md"
+      },
+      "progress": {
+        "report": "games/rac4/ntsc/progress/report.json",
+        "format": "objdiff",
+        "note": "Functions are compared one by one with most 16-bit immediates masked (symbols, struct offsets and small constants are not checked), and nothing is linked yet, so this is a looser proof than the other games'. Overlay code identical to resident code is counted once."
+      }
     }
   }
 }
