@@ -67,7 +67,30 @@
           "path": "games/rac1/pal/toolchain"
         }
       ],
-      "setup": "in games/rac1/pal: bash tools/docker/run.sh bash tools/setup_asm.sh, then bash tools/docker/run.sh bash tools/build_sn.sh (its README; toolchains/README.md for the compilers)"
+      "setup": "in games/rac1/pal: bash tools/docker/run.sh bash tools/setup_asm.sh, then bash tools/docker/run.sh bash tools/build_sn.sh (its README; toolchains/README.md for the compilers)",
+      "xmap": {
+        "code": [
+          {
+            "program": "boot",
+            "path": "games/rac1/pal/baserom/SCES_509.16",
+            "format": "elf"
+          },
+          {
+            "program": "level",
+            "glob": "games/rac1/pal/baserom/overlays/level_*",
+            "format": "rac1-level"
+          }
+        ],
+        "matched": {
+          "kind": "objdiff",
+          "report": "games/rac1/pal/progress/report.json",
+          "not_c": [
+            "games/rac1/pal/config/handwritten_asm.txt",
+            "games/rac1/pal/config/linker_remnants.txt"
+          ]
+        },
+        "setup": "python3 tools/openrac.py setup rac1/pal, then python3 tools/overlays.py dump in games/rac1/pal"
+      }
     },
     "ntsc": {
       "region": "NTSC-U (North America)",
@@ -126,7 +149,27 @@
           "path": "games/rac1/ntsc/config/us/SCUS_971.99"
         }
       ],
-      "setup": "in games/rac1/ntsc: ./setup.sh --elf config/us/SCUS_971.99 (Linux or WSL; add --docker on macOS), then make elf"
+      "setup": "in games/rac1/ntsc: ./setup.sh --elf config/us/SCUS_971.99 (Linux or WSL; add --docker on macOS), then make elf",
+      "xmap": {
+        "code": [
+          {
+            "program": "boot",
+            "path": "games/rac1/ntsc/config/us/SCUS_971.99",
+            "format": "elf"
+          },
+          {
+            "program": "level",
+            "glob": "games/rac1/ntsc/config/us/overlays/level_*",
+            "format": "rac1-level"
+          }
+        ],
+        "matched": {
+          "kind": "objdiff",
+          "report": "progress/sources/rac1-ntsc.json",
+          "boot_offset_delta": 1044608
+        },
+        "setup": "python3 tools/openrac.py setup rac1/ntsc, then the project's setup.sh, which extracts the level overlays"
+      }
     }
   }
 }

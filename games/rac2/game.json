@@ -52,7 +52,25 @@
         "note": "Integrated C bytes over every executable byte of the boot program and its 27 level overlays (config/progress-scope.json); the rest already rebuilds from reconstructed assembly. Functions are not counted."
       },
       "inputs": [],
-      "setup": "in games/rac2/ntsc: python scripts/setup.py --iso ../../../baserom/SCUS_972.68.iso --runtime <a directory outside OpenRAC> --wrench <wrenchbuild> (Windows with WSL; its README)"
+      "setup": "in games/rac2/ntsc: python scripts/setup.py --iso ../../../baserom/SCUS_972.68.iso --runtime <a directory outside OpenRAC> --wrench <wrenchbuild> (Windows with WSL; its README)",
+      "xmap": {
+        "code": [
+          {
+            "program": "boot",
+            "glob": "build/rac2/runtime/runs/*/reference/boot.elf",
+            "format": "elf"
+          },
+          {
+            "program": "level",
+            "glob": "build/rac2/runtime/runs/*/reference/levels/*/overlay.elf",
+            "format": "elf"
+          }
+        ],
+        "matched": {
+          "kind": "rac2"
+        },
+        "setup": "scripts/setup.py with --runtime build/rac2/runtime (games/rac2/ntsc/host/README.md)"
+      }
     }
   }
 }

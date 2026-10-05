@@ -59,6 +59,25 @@
         "report": "games/rac4/ntsc/progress/report.json",
         "format": "objdiff",
         "note": "Functions are compared one by one with most 16-bit immediates masked (symbols, struct offsets and small constants are not checked), and nothing is linked yet, so this is a looser proof than the other games'. Overlay code identical to resident code is counted once."
+      },
+      "xmap": {
+        "code": [
+          {
+            "program": "boot",
+            "path": "games/rac4/ntsc/baserom/SCUS_974.65.elf",
+            "format": "elf"
+          },
+          {
+            "program": "level",
+            "glob": "build/rac4/wrench_out/levels/*/*/overlay.elf",
+            "format": "elf"
+          }
+        ],
+        "matched": {
+          "kind": "objdiff",
+          "report": "games/rac4/ntsc/progress/report.json"
+        },
+        "setup": "bash tools/setup_asm.sh in games/rac4/ntsc, and wrenchbuild unpack baserom/SCUS_974.65.iso -o build/rac4/wrench_out -g dl -r us"
       }
     }
   }

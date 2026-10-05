@@ -58,7 +58,31 @@
           "target": "toolchains/sn-prodg-3.01/usr/local/sce/ee/gcc"
         }
       ],
-      "setup": "extract frontbin.elf with Wrench into games/rac3/ntsc/ (games/rac3/README.md), then in games/rac3/ntsc: python3 tools/setup_asm.py and python3 tools/build.py --toolchain ../../../toolchains/eegcc_2.95.3_sn_v1.36 --runner <wibo>"
+      "setup": "extract frontbin.elf with Wrench into games/rac3/ntsc/ (games/rac3/README.md), then in games/rac3/ntsc: python3 tools/setup_asm.py and python3 tools/build.py --toolchain ../../../toolchains/eegcc_2.95.3_sn_v1.36 --runner <wibo>",
+      "xmap": {
+        "code": [
+          {
+            "program": "boot",
+            "path": "build/rac3/wrench_out/uya_scus_973_53/boot_elf.elf",
+            "format": "elf"
+          },
+          {
+            "program": "frontbin",
+            "path": "build/rac3/wrench_out/uya_scus_973_53/globals/misc/frontbin.elf",
+            "format": "elf"
+          },
+          {
+            "program": "level",
+            "glob": "build/rac3/wrench_out/uya_scus_973_53/levels/*/*/overlay.elf",
+            "format": "elf"
+          }
+        ],
+        "matched": {
+          "kind": "rac3",
+          "program": "frontbin"
+        },
+        "setup": "wrenchbuild unpack baserom/SCUS_973.53.iso -o build/rac3/wrench_out -s (games/rac3/README.md)"
+      }
     }
   }
 }
