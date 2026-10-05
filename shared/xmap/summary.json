@@ -198,6 +198,14 @@
    "ports_shape": [
     5,
     5948
+   ],
+   "similar": [
+    51,
+    39440
+   ],
+   "ports_similar": [
+    1,
+    596
    ]
   },
   "rac1/pal rac2/ntsc": {
@@ -244,6 +252,14 @@
    "ports_shape": [
     8,
     868
+   ],
+   "similar": [
+    108,
+    50232
+   ],
+   "ports_similar": [
+    43,
+    8788
    ]
   },
   "rac1/pal rac3/ntsc": {
@@ -290,6 +306,14 @@
    "ports_shape": [
     16,
     2736
+   ],
+   "similar": [
+    76,
+    16192
+   ],
+   "ports_similar": [
+    29,
+    5240
    ]
   },
   "rac1/pal rac4/ntsc": {
@@ -336,6 +360,14 @@
    "ports_shape": [
     16,
     3092
+   ],
+   "similar": [
+    58,
+    16144
+   ],
+   "ports_similar": [
+    27,
+    5660
    ]
   },
   "rac1/ntsc rac1/pal": {
@@ -382,6 +414,14 @@
    "ports_shape": [
     0,
     0
+   ],
+   "similar": [
+    51,
+    38756
+   ],
+   "ports_similar": [
+    8,
+    8184
    ]
   },
   "rac1/ntsc rac2/ntsc": {
@@ -428,6 +468,14 @@
    "ports_shape": [
     7,
     552
+   ],
+   "similar": [
+    106,
+    49764
+   ],
+   "ports_similar": [
+    48,
+    11016
    ]
   },
   "rac1/ntsc rac3/ntsc": {
@@ -474,6 +522,14 @@
    "ports_shape": [
     15,
     2592
+   ],
+   "similar": [
+    76,
+    15936
+   ],
+   "ports_similar": [
+    30,
+    5884
    ]
   },
   "rac1/ntsc rac4/ntsc": {
@@ -520,6 +576,14 @@
    "ports_shape": [
     15,
     2948
+   ],
+   "similar": [
+    58,
+    16144
+   ],
+   "ports_similar": [
+    30,
+    6444
    ]
   },
   "rac2/ntsc rac1/pal": {
@@ -566,6 +630,14 @@
    "ports_shape": [
     0,
     0
+   ],
+   "similar": [
+    108,
+    51580
+   ],
+   "ports_similar": [
+    2,
+    288
    ]
   },
   "rac2/ntsc rac1/ntsc": {
@@ -610,6 +682,14 @@
     448
    ],
    "ports_shape": [
+    0,
+    0
+   ],
+   "similar": [
+    107,
+    51292
+   ],
+   "ports_similar": [
     0,
     0
    ]
@@ -658,6 +738,14 @@
    "ports_shape": [
     1,
     60
+   ],
+   "similar": [
+    125,
+    33608
+   ],
+   "ports_similar": [
+    1,
+    16
    ]
   },
   "rac2/ntsc rac4/ntsc": {
@@ -704,6 +792,14 @@
    "ports_shape": [
     0,
     0
+   ],
+   "similar": [
+    78,
+    24928
+   ],
+   "ports_similar": [
+    7,
+    632
    ]
   },
   "rac3/ntsc rac1/pal": {
@@ -750,6 +846,14 @@
    "ports_shape": [
     0,
     0
+   ],
+   "similar": [
+    95,
+    18208
+   ],
+   "ports_similar": [
+    14,
+    744
    ]
   },
   "rac3/ntsc rac1/ntsc": {
@@ -796,6 +900,14 @@
    "ports_shape": [
     0,
     0
+   ],
+   "similar": [
+    95,
+    17948
+   ],
+   "ports_similar": [
+    10,
+    496
    ]
   },
   "rac3/ntsc rac2/ntsc": {
@@ -842,6 +954,14 @@
    "ports_shape": [
     12,
     1080
+   ],
+   "similar": [
+    194,
+    50824
+   ],
+   "ports_similar": [
+    69,
+    7992
    ]
   },
   "rac3/ntsc rac4/ntsc": {
@@ -888,6 +1008,14 @@
    "ports_shape": [
     40,
     4240
+   ],
+   "similar": [
+    93,
+    23736
+   ],
+   "ports_similar": [
+    44,
+    5952
    ]
   },
   "rac4/ntsc rac1/pal": {
@@ -932,6 +1060,14 @@
     88
    ],
    "ports_shape": [
+    0,
+    0
+   ],
+   "similar": [
+    64,
+    16576
+   ],
+   "ports_similar": [
     0,
     0
    ]
@@ -980,6 +1116,14 @@
    "ports_shape": [
     0,
     0
+   ],
+   "similar": [
+    64,
+    16576
+   ],
+   "ports_similar": [
+    0,
+    0
    ]
   },
   "rac4/ntsc rac2/ntsc": {
@@ -1026,6 +1170,14 @@
    "ports_shape": [
     1,
     52
+   ],
+   "similar": [
+    77,
+    25396
+   ],
+   "ports_similar": [
+    0,
+    0
    ]
   },
   "rac4/ntsc rac3/ntsc": {
@@ -1072,6 +1224,14 @@
    "ports_shape": [
     5,
     288
+   ],
+   "similar": [
+    59,
+    16360
+   ],
+   "ports_similar": [
+    0,
+    0
    ]
   }
  },

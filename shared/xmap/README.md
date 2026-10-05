@@ -58,6 +58,20 @@ The same comparison as bytes, split by the row version's code class.
 | `rac4/ntsc` | `rac2/ntsc` | 35,532 (12.4%) | 124 (0.0%) | 16,716 (1.2%) | 6,640 (0.2%) | 59,012 |
 | `rac4/ntsc` | `rac3/ntsc` | 106,224 (37.2%) | 284 (0.1%) | 127,696 (9.4%) | 332,792 (10.1%) | 566,996 |
 
+### Changed a little
+
+Functions of the row version's resident programs (boot executable, frontend) that sit between the
+same two unchanged functions in the column version and are at least 80% alike there: count and
+bytes, on top of the tables above. Level code is not paired this way.
+
+| | `rac1/pal` | `rac1/ntsc` | `rac2/ntsc` | `rac3/ntsc` | `rac4/ntsc` |
+|---|---:|---:|---:|---:|---:|
+| `rac1/pal` | – | 51 / 39,440 B | 108 / 50,232 B | 76 / 16,192 B | 58 / 16,144 B |
+| `rac1/ntsc` | 51 / 38,756 B | – | 106 / 49,764 B | 76 / 15,936 B | 58 / 16,144 B |
+| `rac2/ntsc` | 108 / 51,580 B | 107 / 51,292 B | – | 125 / 33,608 B | 78 / 24,928 B |
+| `rac3/ntsc` | 95 / 18,208 B | 95 / 17,948 B | 194 / 50,824 B | – | 93 / 23,736 B |
+| `rac4/ntsc` | 64 / 16,576 B | 64 / 16,576 B | 77 / 25,396 B | 59 / 16,360 B | – |
+
 Code present in every version above: 319 functions, 37,972 bytes (core 29,568, resident game 7,032, level-only 1,372).
 
 [functions.tsv](functions.tsv) lists the 3,809 functions (737,616 bytes) found in two or more games: where each is in every version,
@@ -78,12 +92,13 @@ at least one. What each version could take from the others together, each functi
 
 Functions the row version's project has matched in C that the column version's code also
 contains and its project has not matched: count and bytes of the same function, and in
-brackets of relatives with other constants. `python3 tools/xmap.py ports FROM TO` lists them.
+brackets of relatives: other constants, or changed a little. `python3 tools/xmap.py ports FROM TO`
+lists them.
 
 | Matched in | Open in `rac1/pal` | Open in `rac1/ntsc` | Open in `rac2/ntsc` | Open in `rac3/ntsc` | Open in `rac4/ntsc` |
 |---|---:|---:|---:|---:|---:|
-| `rac1/pal` | – | 169 / 58,772 B (+5 / 5,948 B) | 293 / 47,720 B (+8 / 868 B) | 141 / 18,972 B (+16 / 2,736 B) | 130 / 15,928 B (+16 / 3,092 B) |
-| `rac1/ntsc` | 228 / 124,888 B (+0 / 0 B) | – | 298 / 47,636 B (+7 / 552 B) | 138 / 17,000 B (+15 / 2,592 B) | 133 / 15,832 B (+15 / 2,948 B) |
-| `rac2/ntsc` | 14 / 852 B (+0 / 0 B) | 4 / 448 B (+0 / 0 B) | – | 27 / 1,656 B (+1 / 60 B) | 30 / 1,832 B (+0 / 0 B) |
-| `rac3/ntsc` | 25 / 1,420 B (+0 / 0 B) | 14 / 816 B (+0 / 0 B) | 127 / 11,444 B (+12 / 1,080 B) | – | 161 / 14,304 B (+40 / 4,240 B) |
+| `rac1/pal` | – | 169 / 58,772 B (+6 / 6,544 B) | 293 / 47,720 B (+51 / 9,656 B) | 141 / 18,972 B (+45 / 7,976 B) | 130 / 15,928 B (+43 / 8,752 B) |
+| `rac1/ntsc` | 228 / 124,888 B (+8 / 8,184 B) | – | 298 / 47,636 B (+55 / 11,568 B) | 138 / 17,000 B (+45 / 8,476 B) | 133 / 15,832 B (+45 / 9,392 B) |
+| `rac2/ntsc` | 14 / 852 B (+2 / 288 B) | 4 / 448 B (+0 / 0 B) | – | 27 / 1,656 B (+2 / 76 B) | 30 / 1,832 B (+7 / 632 B) |
+| `rac3/ntsc` | 25 / 1,420 B (+14 / 744 B) | 14 / 816 B (+10 / 496 B) | 127 / 11,444 B (+81 / 9,072 B) | – | 161 / 14,304 B (+84 / 10,192 B) |
 | `rac4/ntsc` | 2 / 88 B (+0 / 0 B) | 2 / 1,868 B (+0 / 0 B) | 37 / 5,820 B (+1 / 52 B) | 51 / 6,672 B (+5 / 288 B) | – |

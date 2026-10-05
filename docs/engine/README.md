@@ -444,9 +444,8 @@ matched in identical code.
 
 ### Not measured yet
 
-- **Functions that changed slightly between games.** The map finds identical
-  functions and exact shapes only; pairing the rest by similarity, as
-  `us_map.tsv` does for the RAC1 builds, is the next step.
+- **Level functions that changed slightly between games.** The map pairs
+  changed functions by similarity only in the boot executables and frontend.
 - **RAC3's boot** is indexed by the map (Wrench's unpacked `boot_elf.elf`), but
   the project has not split it, so none of it is matched there.
 - **Deadlocked.** Its image and overlays are split and catalogued

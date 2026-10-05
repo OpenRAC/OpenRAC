@@ -9,6 +9,13 @@ and which functions one project has matched that another has not.
   python3 tools/xmap.py ports FROM TO            functions FROM has matched and TO has not:
                                                  shared/xmap/ports/FROM--TO.tsv (e.g. rac1/pal rac1/ntsc)
 
+Functions that changed a little between two versions share neither fingerprint.
+For the resident programs (boot and frontend), `report` also pairs those: between
+two functions that are the same in both versions and in the same order, the
+functions in between are paired in order when their instructions are alike
+(difflib's ratio over shape-masked instructions, at least 0.80). `ports` lists
+them as `similar` with the ratio.
+
 `scan` reads the code your own discs give after each game's setup (the paths
 are in games/<game>/game.json under "xmap"; docs/engine/SHARED_CODE.md says
 how to produce them) and writes build/xmap/, which is ignored. It cuts every
@@ -41,6 +48,8 @@ CODE_SECTIONS = ("core.text", ".text", "net.text")
 CLASSES = ("core", "net", "game", "level")          # where a function lives, most resident first
 MIN_STRICT = 16          # bytes: below this (a bare return) a shared fingerprint says nothing
 MIN_SHAPE = 48           # bytes: a shape match below this is too easily a coincidence
+ALIKE = 0.80             # least similarity for two functions between the same anchors to be paired
+RESIDENT = ("boot", "frontbin")
 NAME = re.compile(r"^(?:func|FUN)_(?:L(\d+)_)?([0-9A-Fa-f]{8})$")
 
 
@@ -174,13 +183,16 @@ def scan_program(job: tuple) -> tuple:
     fingerprints of each function as the project itself cuts it there."""
     prog, path, fmt, wanted = job
     sections = load(path, fmt)
-    functions = []
+    functions, ordered = [], []
     for name, (base, data) in sections.items():
         for off, span in mips.split(data, base):
             size = mips.code_size(data[off:off + span])
             if size:
                 code = data[off:off + size]
-                functions.append((mips.fingerprint(code), mips.shape(code), size, klass(prog, name), name, base + off))
+                fp = mips.fingerprint(code)
+                functions.append((fp, mips.shape(code), size, klass(prog, name), name, base + off))
+                if prog in RESIDENT:        # in address order, with shape-masked words, for the similarity pairing
+                    ordered.append([name, base + off, size, fp, [mips.mask(w) for w in mips.words(code)]])
     listed = []
     for addr, size, fname, done in wanted:
         for name, (base, data) in sections.items():
@@ -188,7 +200,7 @@ def scan_program(job: tuple) -> tuple:
                 code = data[addr - base:addr - base + size]
                 listed.append((mips.fingerprint(code), mips.shape(code), fname, prog, addr, mips.code_size(code), done))
                 break
-    return prog, {n: [a, len(d)] for n, (a, d) in sections.items()}, functions, listed
+    return prog, {n: [a, len(d)] for n, (a, d) in sections.items()}, functions, listed, ordered
 
 
 def scan(keys: list[str]) -> None:
@@ -202,9 +214,11 @@ def scan(keys: list[str]) -> None:
             continue
         want, readable = known(key, version), aliases(version)
         jobs = [(prog, path, fmt, want.get(prog, [])) for prog, (path, fmt) in sorted(files.items())]
-        functions, done, listed, programs = {}, {}, {}, {}
+        functions, done, listed, programs, resident = {}, {}, {}, {}, {}
         with ProcessPoolExecutor() as pool:
-            for prog, sections, found, own in pool.map(scan_program, jobs):
+            for prog, sections, found, own, ordered in pool.map(scan_program, jobs):
+                if ordered:
+                    resident[prog] = ordered
                 programs[prog] = sections
                 for fp, shape, size, cls, section, addr in found:
                     f = functions.setdefault(fp, {"size": size, "shape": shape, "class": cls, "count": 0, "places": []})
@@ -225,6 +239,7 @@ def scan(keys: list[str]) -> None:
         index = {"version": key, "serial": version["serial"], "programs": programs, "functions": functions,
                  "listed": listed, "matched": done}
         (INDEX / f"{slug(key)}.json").write_text(json.dumps(index))
+        (INDEX / f"{slug(key)}.resident.json").write_text(json.dumps(resident))     # masked code: local only
         code = sum(f["size"] for f in functions.values())
         print(f"{key}: {len(programs)} programs, {len(functions):,} distinct functions, {code:,} bytes; the project lists "
               f"{len(listed):,} distinct functions and has matched {len(done):,} of them ({sum(m['size'] for m in done.values()):,} bytes)")
@@ -278,6 +293,84 @@ def port_list(src: dict, dst: dict) -> list[dict]:
     return out
 
 
+def increasing(pairs: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """The longest run of (i, j) pairs, sorted by i, whose j also rises: anchors in the same order."""
+    best, back, tails = [], [], []
+    import bisect
+    for n, (_i, j) in enumerate(pairs):
+        at = bisect.bisect_left([pairs[t][1] for t in tails], j)
+        back.append(tails[at - 1] if at else -1)
+        if at == len(tails):
+            tails.append(n)
+        else:
+            tails[at] = n
+    n = tails[-1] if tails else -1
+    while n >= 0:
+        best.append(pairs[n])
+        n = back[n]
+    return best[::-1]
+
+
+def alike(a: list, b: list) -> list[tuple[int, int, float]]:
+    """Pair two runs of functions in order: (index in A, index in B, ratio) for the pairing with
+    the highest total similarity among pairs of at least ALIKE."""
+    import difflib
+    if not a or not b or len(a) * len(b) > 400:
+        return []
+    ratio = [[0.0] * len(b) for _ in a]
+    for i, x in enumerate(a):
+        for j, y in enumerate(b):
+            if 0.6 < x[2] / y[2] < 1.67:
+                r = difflib.SequenceMatcher(None, x[4], y[4], autojunk=False).ratio()
+                ratio[i][j] = r if r >= ALIKE else 0.0
+    score = [[0.0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) - 1, -1, -1):
+        for j in range(len(b) - 1, -1, -1):
+            score[i][j] = max(score[i + 1][j], score[i][j + 1], score[i + 1][j + 1] + ratio[i][j])
+    out, i, j = [], 0, 0
+    while i < len(a) and j < len(b):
+        if ratio[i][j] and score[i][j] == score[i + 1][j + 1] + ratio[i][j]:
+            out.append((i, j, ratio[i][j]))
+            i, j = i + 1, j + 1
+        elif score[i][j] == score[i + 1][j]:
+            i += 1
+        else:
+            j += 1
+    return out
+
+
+def similar(src_key: str, dst_key: str) -> list[dict]:
+    """Functions of SRC's resident programs that changed a little in DST: each sits between the
+    same two unchanged functions in both, and is at least ALIKE similar."""
+    files = [INDEX / f"{slug(k)}.resident.json" for k in (src_key, dst_key)]
+    if not all(f.exists() for f in files):
+        return []
+    src, dst = (json.loads(f.read_text()) for f in files)
+    out = []
+    for prog in src:
+        target = prog if prog in dst else "boot"
+        for section in {f[0] for f in src[prog]}:
+            a = [f for f in src[prog] if f[0] == section]
+            b = [f for f in dst.get(target, []) if f[0] == section]
+            if not a or not b:
+                continue
+            where = {}
+            for j, f in enumerate(b):
+                where.setdefault(f[3], []).append(j)
+            unique = [(i, where[f[3]][0]) for i, f in enumerate(a)
+                      if f[2] >= MIN_STRICT and len(where.get(f[3], [])) == 1]
+            anchors = [(-1, -1)] + increasing(unique) + [(len(a), len(b))]
+            for (i0, j0), (i1, j1) in zip(anchors, anchors[1:]):
+                run_a, run_b = a[i0 + 1:i1], b[j0 + 1:j1]
+                for i, j, r in alike(run_a, run_b):
+                    x, y = run_a[i], run_b[j]
+                    if x[3] != y[3] and x[2] >= MIN_STRICT:
+                        out.append({"program": prog, "section": section, "address": x[1], "size": x[2], "fp": x[3],
+                                    "to_program": target, "to_address": y[1], "to_size": y[2], "to_fp": y[3],
+                                    "ratio": round(r, 3)})
+    return out
+
+
 def present(index: dict) -> dict:
     """fingerprint -> {shape, places, count} for every function of a version, cut uniformly
     or as its own project cuts it."""
@@ -305,11 +398,15 @@ def report() -> None:
                 continue
             fa, fb = idx[a]["functions"], present(idx[b])
             ports = port_list(idx[a], idx[b])
+            near = similar(a, b)
+            near_ports = [n for n in near if n["fp"] in idx[a]["matched"] and n["to_fp"] not in idx[b]["matched"]]
             summary["pairs"][f"{a} {b}"] = {
                 "same": by_class(fa, lambda fp, f: f["size"] >= MIN_STRICT and fp in fb),
                 "shape": by_class(fa, lambda fp, f: f["size"] >= MIN_SHAPE and fp not in fb and f["shape"] in shapes[b]),
                 "ports_same": [sum(p["kind"] == "same" for p in ports), sum(p["from"]["size"] for p in ports if p["kind"] == "same")],
                 "ports_shape": [sum(p["kind"] == "shape" for p in ports), sum(p["from"]["size"] for p in ports if p["kind"] == "shape")],
+                "similar": [len(near), sum(n["size"] for n in near)],
+                "ports_similar": [len(near_ports), sum(n["size"] for n in near_ports)],
             }
     # What each version could take from all the others together: functions matched in some
     # other project, present here and not matched here, each counted once.
@@ -423,6 +520,14 @@ def render(s: dict, keys: list[str]) -> str:
                 p, f = s["pairs"][f"{a} {b}"]["same"], v[a]["functions"]
                 out.append(f"| `{a}` | `{b}` | " + " | ".join(
                     f"{p[c][1]:,} ({pct(p[c][1], f[c][1])})" for c in CLASSES) + f" | {total(p)[1]:,} |")
+    out += ["", "### Changed a little\n",
+            f"Functions of the row version's resident programs (boot executable, frontend) that sit between the",
+            f"same two unchanged functions in the column version and are at least {int(ALIKE * 100)}% alike there: count and",
+            "bytes, on top of the tables above. Level code is not paired this way.\n",
+            "| | " + " | ".join(f"`{k}`" for k in keys) + " |", "|---|" + "---:|" * len(keys)]
+    for a in keys:
+        out.append(f"| `{a}` | " + " | ".join(
+            "–" if a == b else f"{s['pairs'][f'{a} {b}']['similar'][0]:,} / {s['pairs'][f'{a} {b}']['similar'][1]:,} B" for b in keys) + " |")
     e = s["in_every_version"]
     out += ["", f"Code present in every version above: {total(e)[0]:,} functions, {total(e)[1]:,} bytes "
             f"(core {e['core'][1]:,}, resident game {e['game'][1]:,}, level-only {e['level'][1]:,}).\n",
@@ -439,7 +544,8 @@ def render(s: dict, keys: list[str]) -> str:
             "",
             "Functions the row version's project has matched in C that the column version's code also",
             "contains and its project has not matched: count and bytes of the same function, and in",
-            "brackets of relatives with other constants. `python3 tools/xmap.py ports FROM TO` lists them.\n",
+            "brackets of relatives: other constants, or changed a little. `python3 tools/xmap.py ports FROM TO`",
+            "lists them.\n",
             "| Matched in | " + " | ".join(f"Open in `{k}`" for k in keys) + " |", "|---|" + "---:|" * len(keys)]
     for a in keys:
         cells = []
@@ -448,7 +554,8 @@ def render(s: dict, keys: list[str]) -> str:
                 cells.append("–")
                 continue
             p = s["pairs"][f"{a} {b}"]
-            cells.append(f"{p['ports_same'][0]:,} / {p['ports_same'][1]:,} B (+{p['ports_shape'][0]:,} / {p['ports_shape'][1]:,} B)")
+            more = [p["ports_shape"][0] + p["ports_similar"][0], p["ports_shape"][1] + p["ports_similar"][1]]
+            cells.append(f"{p['ports_same'][0]:,} / {p['ports_same'][1]:,} B (+{more[0]:,} / {more[1]:,} B)")
         out.append(f"| `{a}` | " + " | ".join(cells) + " |")
     return "\n".join(out) + "\n"
 
@@ -459,21 +566,28 @@ def ports(src_key: str, dst_key: str) -> None:
         if key not in idx:
             sys.exit(f"{key} is not indexed; indexed: {', '.join(idx)}")
     rows = sorted(port_list(idx[src_key], idx[dst_key]), key=lambda p: (p["kind"] != "same", -p["from"]["size"]))
+    seen = {p["from"]["name"] for p in rows}
+    for n in similar(src_key, dst_key):
+        m = idx[src_key]["matched"].get(n["fp"])
+        if m and m["name"] not in seen and n["to_fp"] not in idx[dst_key]["matched"]:
+            rows.append({"kind": "similar", "from": m, "ratio": n["ratio"],
+                         "to": {"places": [[n["to_program"], n["to_address"]]], "count": 1}})
     path = OUT / "ports" / f"{slug(src_key)}--{slug(dst_key)}.tsv"
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [f"# Functions {src_key} has matched in C that {dst_key} also contains and has not matched.",
              "# Generated by tools/xmap.py ports; do not edit. kind: same = the same function at another",
-             "# address; shape = the same instructions with other constants or struct offsets (check each).",
+             "# address; shape = the same instructions with other constants or struct offsets (check each);",
+             "# similar = between the same unchanged neighbours and alike by the ratio given (a draft to adapt).",
              "# Addresses are hexadecimal; `places` counts where the function occurs in the target version.",
-             "kind\tsize\tfrom_name\tfrom_program\tfrom_address\tto_program\tto_address\tplaces"]
+             "kind\tsize\tfrom_name\tfrom_program\tfrom_address\tto_program\tto_address\tplaces\tratio"]
     for p in rows:
         m, t = p["from"], p["to"]
         lines.append(f"{p['kind']}\t{m['size']}\t{m['name']}\t{m['program']}\t{m['address']:08X}\t"
-                     f"{t['places'][0][0]}\t{t['places'][0][1]:08X}\t{t['count']}")
+                     f"{t['places'][0][0]}\t{t['places'][0][1]:08X}\t{t['count']}\t{p.get('ratio', '')}")
     path.write_text("\n".join(lines) + "\n")
     same = [p for p in rows if p["kind"] == "same"]
     print(f"{path.relative_to(ROOT)}: {len(same):,} the same ({sum(p['from']['size'] for p in same):,} bytes), "
-          f"{len(rows) - len(same):,} relatives ({sum(p['from']['size'] for p in rows if p['kind'] == 'shape'):,} bytes)")
+          f"{len(rows) - len(same):,} relatives ({sum(p['from']['size'] for p in rows if p['kind'] != 'same'):,} bytes)")
 
 
 def main() -> None:

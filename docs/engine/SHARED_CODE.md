@@ -28,8 +28,12 @@ here" can be answered whatever the two projects call a function.
 The rules are the ones that built rac1/pal's US to PAL map
 ([OVERLAYS.md](../../games/rac1/pal/docs/OVERLAYS.md)). The strict figure is a
 floor: that map pairs 84% of the US code by identical fingerprint and most of
-the rest by similarity between those anchors, a step this tool does not take
-yet.
+the rest by similarity between those anchors.
+
+For the resident programs (boot executable and frontend) the tool takes that
+step too: between two functions that are unchanged and in the same order in
+both versions, it pairs the functions in between when their instructions are
+at least 80% alike. Level code is not paired this way yet.
 
 ## Results
 
@@ -60,6 +64,9 @@ distinct code against the 48.8 MB its progress scope sums.
   shared library tree would hold first.
 - *Level code is each game's own*: under 1% is identical between two games,
   except RAC3 and Deadlocked (6 to 10%).
+- *Changed a little*: in the boot executables, another 50 KB of RAC1's
+  functions reappear in RAC2 at least 80% alike, 34 KB of RAC2's in RAC3, and
+  24 KB of RAC3's in Deadlocked.
 
 **What each project can take from the others.** 3,765 distinct functions
 (960 KB) are matched in at least one project. Matched elsewhere, identical in
@@ -99,7 +106,8 @@ way**. That last part is the catch: the projects do not agree on compilers
    down, not a failed port.
 
 A `shape` candidate needs its constants and offsets adjusted; treat it as a
-strong draft.
+strong draft. A `similar` one changed by a few instructions: a draft to adapt,
+with the ratio saying how close.
 
 Byte-identical library code deserves a note: where a function comes from a
 prebuilt archive (Sony's libraries, libgcc), every game that linked the same
@@ -130,9 +138,10 @@ commit `shared/xmap/` as `chore(shared)`.
 
 ## Limits
 
-- **A floor, not the whole overlap.** Only identical functions and exact
-  shapes are found. Functions that changed by an instruction or two between
-  games, the next largest group, need the similarity step.
+- **A floor, not the whole overlap.** Functions that changed a little are
+  paired only in the resident programs, only between anchors in the same
+  order, and only in runs short enough to compare; level code and reordered
+  code are not.
 - **Cuts differ.** A function one project cuts in two is not found whole in
   another. Each version is indexed both ways (uniformly, and as its project
   cuts it), which recovers most cases, not all.
@@ -154,6 +163,8 @@ lists them, and `python3 tools/shared.py check` keeps their copies identical
 ## What comes next
 
 In order ([open question 6](../policy/OPEN_QUESTIONS.md#6-code-shared-between-the-games)):
-port the candidates above, each proven in its target; add the similarity step
-for the functions that changed slightly; then give the library code that is
-in every version one home that every game's build compiles and checks.
+port the candidates above, each proven in its target; extend the similarity
+step to level code; then give the library code that is in every version one
+home that every game's build compiles and checks. That last step needs each
+game's per-object compile recipe as a shared tool first: a library file
+matches only when built exactly as the game built it.
