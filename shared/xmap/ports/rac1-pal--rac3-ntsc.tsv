@@ -164,6 +164,7 @@ shape	84	func_0012C468	boot	0012C468	boot	0013A0F8	1
 shape	72	func_0012BB30	boot	0012BB30	boot	00135C10	1	
 shape	72	func_L00_00232E60	level:00	00232E60	level:01	0050BEE0	34	
 shape	68	func_0012C058	boot	0012C058	boot	00135E40	1	
+similar	16	func_0023C2B0	boot	0023C2B0	boot	003B060C	1	0.857
 similar	320	func_0011B2F8	boot	0011B2F8	boot	00122630	1	0.908
 similar	644	func_0011BF80	boot	0011BF80	boot	00123430	1	0.868
 similar	380	func_0011C208	boot	0011C208	boot	001236C0	1	0.836
@@ -188,4 +189,3 @@ similar	72	func_0012E600	boot	0012E600	boot	0013C2C0	1	0.889
 similar	60	func_0012F1A8	boot	0012F1A8	boot	0013D080	1	0.867
 similar	56	func_0012F248	boot	0012F248	boot	0013D120	1	0.857
 similar	44	func_0012F288	boot	0012F288	boot	0013D180	1	0.818
-similar	16	func_0023C2B0	boot	0023C2B0	boot	003B060C	1	0.857

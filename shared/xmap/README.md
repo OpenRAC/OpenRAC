@@ -10,7 +10,7 @@ Distinct functions: a function that repeats in several levels counts once.
 
 | Version | Programs | Distinct functions | Code bytes | Core | Network | Resident game | Level-only | Matched by its project |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `rac1/pal` (SCES_509.16) | 20 | 4,827 | 3,655,984 | 116,560 | 0 | 343,964 | 3,195,460 | 2,534 functions, 744,840 (20.4%) |
+| `rac1/pal` (SCES_509.16) | 20 | 4,827 | 3,655,984 | 116,560 | 0 | 343,964 | 3,195,460 | 2,541 functions, 772,684 (21.1%) |
 | `rac1/ntsc` (SCUS_971.99) | 20 | 4,827 | 3,646,376 | 116,240 | 0 | 339,884 | 3,190,252 | 2,510 functions, 753,420 (20.7%) |
 | `rac2/ntsc` (SCUS_972.68) | 28 | 8,056 | 5,053,396 | 122,120 | 0 | 903,244 | 4,028,032 | 227 functions, 13,508 (0.3%) |
 | `rac3/ntsc` (SCUS_973.53) | 53 | 14,436 | 7,020,256 | 153,024 | 0 | 443,392 | 6,423,840 | 848 functions, 88,312 (1.3%) |
@@ -79,13 +79,13 @@ what each project calls it and whether it has matched it.
 
 ## Port candidates
 
-Across all projects, 3,765 distinct functions (960,496 bytes) are matched in
+Across all projects, 3,768 distinct functions (983,016 bytes) are matched in
 at least one. What each version could take from the others together, each function counted once:
 
 | Version | Functions matched elsewhere, present and open here | Bytes | Against what its project has matched |
 |---|---:|---:|---:|
-| `rac1/pal` | 131 | 45,624 | 6.1% of 744,840 |
-| `rac1/ntsc` | 186 | 60,020 | 8.0% of 753,420 |
+| `rac1/pal` | 127 | 40,300 | 5.2% of 772,684 |
+| `rac1/ntsc` | 189 | 82,540 | 11.0% of 753,420 |
 | `rac2/ntsc` | 437 | 62,472 | 462.5% of 13,508 |
 | `rac3/ntsc` | 192 | 22,252 | 25.2% of 88,312 |
 | `rac4/ntsc` | 282 | 29,872 | 114.5% of 26,100 |
@@ -97,8 +97,8 @@ lists them.
 
 | Matched in | Open in `rac1/pal` | Open in `rac1/ntsc` | Open in `rac2/ntsc` | Open in `rac3/ntsc` | Open in `rac4/ntsc` |
 |---|---:|---:|---:|---:|---:|
-| `rac1/pal` | – | 169 / 58,772 B (+6 / 6,544 B) | 301 / 49,480 B (+51 / 9,656 B) | 144 / 19,340 B (+46 / 8,620 B) | 132 / 16,268 B (+44 / 9,396 B) |
-| `rac1/ntsc` | 114 / 44,636 B (+8 / 8,184 B) | – | 298 / 47,636 B (+55 / 11,568 B) | 138 / 17,000 B (+45 / 8,476 B) | 133 / 15,832 B (+45 / 9,392 B) |
+| `rac1/pal` | – | 172 / 81,292 B (+6 / 6,544 B) | 301 / 49,480 B (+51 / 9,656 B) | 144 / 19,340 B (+46 / 8,620 B) | 132 / 16,268 B (+44 / 9,396 B) |
+| `rac1/ntsc` | 110 / 39,312 B (+8 / 8,184 B) | – | 298 / 47,636 B (+55 / 11,568 B) | 138 / 17,000 B (+45 / 8,476 B) | 133 / 15,832 B (+45 / 9,392 B) |
 | `rac2/ntsc` | 14 / 852 B (+2 / 288 B) | 4 / 448 B (+0 / 0 B) | – | 27 / 1,656 B (+2 / 76 B) | 30 / 1,832 B (+7 / 632 B) |
 | `rac3/ntsc` | 24 / 1,388 B (+14 / 744 B) | 14 / 816 B (+10 / 496 B) | 127 / 11,444 B (+81 / 9,072 B) | – | 161 / 14,304 B (+84 / 10,192 B) |
 | `rac4/ntsc` | 1 / 32 B (+0 / 0 B) | 2 / 1,868 B (+0 / 0 B) | 37 / 5,820 B (+1 / 52 B) | 51 / 6,672 B (+5 / 288 B) | – |

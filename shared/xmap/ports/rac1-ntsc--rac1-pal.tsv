@@ -5,9 +5,7 @@
 # Addresses are hexadecimal; `places` counts where the function occurs in the target version.
 kind	size	from_name	from_program	from_address	to_program	to_address	places	ratio
 same	2168	draw_debug_profiler	boot	001F39D0	boot	001F3D78	20	
-same	1980	FUN_L00_002bf050	level:00	002BF050	level:00	002C0358	19	
 same	1408	FUN_L00_0025a478	level:00	0025A478	boot	00214778	20	
-same	1360	FUN_L00_00289cb8	level:00	00289CB8	level:00	0028AF90	2	
 same	1168	FUN_L00_002c9348	level:00	002C9348	level:00	002CA728	19	
 same	1148	FUN_L00_002d0538	level:00	002D0538	level:00	002D19E8	19	
 same	1116	FUN_L00_002d5988	level:00	002D5988	level:00	002D6E38	14	
@@ -15,9 +13,7 @@ same	1096	FUN_L00_002a02b0	level:00	002A02B0	level:00	002A1540	19
 same	1068	FUN_L00_002e1678	level:00	002E1678	level:00	002E2B28	1	
 same	1060	FUN_00237ed0	boot	00237ED0	boot	002391E8	20	
 same	1048	play_level_loading_slides	boot	00231BD8	boot	00232EF0	20	
-same	1028	FUN_L00_00238b80	level:00	00238B80	level:00	00239510	8	
 same	984	FUN_00216c48	boot	00216C48	boot	00217AE8	20	
-same	956	FUN_L00_00208b60	level:00	00208B60	level:00	002091D8	19	
 same	928	FUN_L00_0020cf58	level:00	0020CF58	level:00	0020D5F0	12	
 same	784	FUN_L00_0028e9c8	level:00	0028E9C8	level:00	0028FCA0	19	
 same	704	snd_send_iop_command_no_wait	boot	0012E6E0	boot	0012E820	1	
