@@ -49,6 +49,9 @@ Everything else is exactly as it was at that commit.
 - The README credits the NTSC decomp by that name only
   ([removal requests](policy/SOURCING.md#removal-requests)).
 - `docs/commit-messages.md` notes that OpenRAC's commit convention applies.
+- Added `host/`: a wrapper and a runner that build the project on an Apple
+  Silicon Mac under rac1/pal's Wine ([host/README.md](../games/rac1/ntsc/host/README.md)).
+  Nothing in the project reads them.
 
 **rac2/ntsc**
 - Left out `include/moby.h`. Its structure was taken from leaked material
