@@ -38,9 +38,9 @@
         "exclude": [
           "localdecomp/server.py.bak_0926"
         ],
-        "commit": "dcc2c1f28414074a899e3059aec5c86f0c9e547d",
-        "date": "2026-10-03",
-        "imported": "2026-10-03"
+        "commit": "476c81533d1f0cba57d6f96ceb7e1508851120d8",
+        "date": "2026-10-04",
+        "imported": "2026-10-04"
       },
       "build": {
         "host": "Windows with SN ee-gcc 2.95.3 v1.36; macOS (wibo-macos, natively) and Linux through tools/build.py with wibo",

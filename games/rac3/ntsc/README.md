@@ -6,7 +6,7 @@ This repo contains no game code or assets. To build it you need your own copy of
 
 ## Status
 
-1441 of 31316 functions (4.6%) are fully matched (2026-10-03). `python tools/pr_check.py` prints the current count for frontbin (the file being worked on). 1067 functions are matched fully in C with the rest matched being confirmed handwritten assembly as currently no known compiler or set of flags generates matching assembly.
+1459 of 31316 functions (4.7%) are fully matched (2026-10-04). `python tools/pr_check.py` prints the current count for frontbin (the file being worked on). 1085 functions are matched fully in C with the rest matched being confirmed handwritten assembly as currently no known compiler or set of flags generates matching assembly.
 
 frontbin's code is in `src/frontbin/`, one C file per original source file (see [`docs/source_files.md`](docs/source_files.md)). Until 2026-10-03 it was a single `src/text.c`; branches or notes that mention that file are older than the split.
 
@@ -30,6 +30,7 @@ Start with the [wiki](https://github.com/vetusmagnus/ratchet-uya-decomp/wiki):
 - [Workflow](https://github.com/vetusmagnus/ratchet-uya-decomp/wiki/Workflow)
 - [Matching patterns](https://github.com/vetusmagnus/ratchet-uya-decomp/wiki/Matching-Patterns)
 - [Pull requests](https://github.com/vetusmagnus/ratchet-uya-decomp/wiki/Pull-Requests)
+- [Credits](https://github.com/vetusmagnus/ratchet-uya-decomp/wiki/Credits)
 
 The wiki sources live in [`docs/wiki/`](docs/wiki). The compiler research is in [`docs/compiler_matrix_findings.md`](docs/compiler_matrix_findings.md), and the plan to 100% is in [`docs/full_match_roadmap.md`](docs/full_match_roadmap.md).
 
