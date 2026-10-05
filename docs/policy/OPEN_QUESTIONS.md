@@ -12,6 +12,7 @@ docs it names.
 | `games/rac1/ntsc` | MIT, Mateusz Kłysz ([LICENSE](../../games/rac1/ntsc/LICENSE)); GPL-2.0 libgcc and EE-GCC patches, newlib's license ([licenses/](../../games/rac1/ntsc/licenses)) |
 | `games/rac2/ntsc` | MIT, llesieur99 ([LICENSE](../../games/rac2/ntsc/LICENSE)) |
 | `games/rac3/ntsc` | GNU GPL v3 ([LICENSE](../../games/rac3/ntsc/LICENSE)), chosen by the project on 2026-10-04 |
+| `games/rac4/ntsc` | MIT, Kryštof "Lynder063" Malinda ([LICENSE](../../games/rac4/ntsc/LICENSE)); GPL libgcc and newlib libm sources |
 | `editor/` | MIT, as part of rac1-decomp where it was written ([editor/LICENSE](../../editor/LICENSE)) |
 | rest of the top level (`tools/`, `docs/`) | not chosen yet; see [LICENSE.md](../../LICENSE.md) |
 
@@ -60,8 +61,14 @@ rather than retail ([SOURCING.md](SOURCING.md#prerelease-builds)):
   and the class names in [docs/moby-dispatch.tsv](../../games/rac2/ntsc/docs/moby-dispatch.tsv)
   (a prototype's extracted tables). No C file includes rac2's headers.
 
+- rac4 forbids any name not derived from the retail binary by the contributor
+  ([LEGAL.md](../../games/rac4/ntsc/LEGAL.md)). One of its files carried four of
+  the `MobyInstance` member names above; they are named by offset here
+  ([SOURCES.md](../SOURCES.md)).
+
 To decide: whether names from prerelease builds may stay in code, or should be
-replaced by names derived from retail alone.
+replaced by names derived from retail alone. rac4's rule is the strictest
+answer already in the repository.
 
 ## 4. One Ratchet & Clank tree for both regions
 
@@ -102,6 +109,7 @@ their provenance noted.
   4,368 build steps run under Rosetta (2026-10-03); the two units compiled by
   SN's `ee-gcc.exe` driver (`audio/rpc`) still fail, because wibo cannot start
   the driver's child processes under QEMU's 32-bit emulation.
+- rac4 builds like rac1/pal, in the same container image.
 - rac2 builds on Windows with WSL only (`scripts/wsl_chain.py` has
   machine-specific defaults).
 - rac3 builds on Windows, or on Linux and macOS with wibo; several tools

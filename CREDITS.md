@@ -29,6 +29,10 @@ project's commits up to its import on 2026-10-03, most commits first.
 - vetusmagnus: creator and maintainer
 - Louis-Philippe Le Sieur
 
+## Ratchet: Deadlocked: rac-deadlocked-decomp (`games/rac4/ntsc`)
+
+- Kryštof "Lynder063" Malinda: creator and maintainer
+
 ## The top level
 
 The consolidation into OpenRAC (the editor's move, `tools/`, `docs/`):

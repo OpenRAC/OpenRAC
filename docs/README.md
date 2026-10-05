@@ -85,6 +85,12 @@ the first table; go to a game's documents when you work on that game.
 | [docs/common_level_c.md](../games/rac3/ntsc/docs/common_level_c.md), [docs/shared_code_findings.md](../games/rac3/ntsc/docs/shared_code_findings.md) | C for code common to the levels; code shared between levels |
 | [docs/full_match_roadmap.md](../games/rac3/ntsc/docs/full_match_roadmap.md), [docs/permuter.md](../games/rac3/ntsc/docs/permuter.md), [docs/permuter_todo.md](../games/rac3/ntsc/docs/permuter_todo.md) | The plan to 100%; decomp-permuter and its worklist |
 
-## Ratchet: Deadlocked ([games/rac4](../games/rac4))
+## Ratchet: Deadlocked ([games/rac4/ntsc](../games/rac4/ntsc))
 
-Not started: [games/rac4/README.md](../games/rac4/README.md).
+| Document | For |
+|---|---|
+| [README.md](../games/rac4/ntsc/README.md), [CONTRIBUTING.md](../games/rac4/ntsc/CONTRIBUTING.md) | The project, setup, adding a function, matching tips, naming, commits |
+| [LEGAL.md](../games/rac4/ntsc/LEGAL.md) | What may be committed, allowed sources, the naming rule |
+| [docs/RESEARCH.md](../games/rac4/ntsc/docs/RESEARCH.md) | The packed executable, its 17 sections, the compiler and assembler, libgcc and libm, open questions |
+| [docs/OVERLAYS.md](../games/rac4/ntsc/docs/OVERLAYS.md) | The 47 level overlays: obtaining, splitting, counting and disassembling them |
+| [docs/CREDITS.md](../games/rac4/ntsc/docs/CREDITS.md), [THIRD_PARTY_NOTICES.md](../games/rac4/ntsc/THIRD_PARTY_NOTICES.md) | Projects it drew on; GCC and newlib notices |
