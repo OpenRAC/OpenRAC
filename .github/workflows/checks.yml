@@ -32,6 +32,9 @@ jobs:
           python tools/openrac.py tables
           git diff --exit-code -- README.md baserom/README.md games/README.md docs/SOURCES.md
 
+      - name: Files the games share are still the same file
+        run: python tools/shared.py check
+
       - name: rac1/pal progress report is current with its source
         working-directory: games/rac1/pal
         run: python tools/gen_progress_report.py --check

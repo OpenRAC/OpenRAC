@@ -73,8 +73,10 @@ goal. Start with [docs/LAYOUT.md](docs/LAYOUT.md).
    (`python3 tools/claims.py claim|release|lock|unlock`, described in its
    docs/AGENT_WORKFLOW.md).
 9. **Regenerate generated files with their tools**; never hand-edit them
-   (`progress/`, the marked tables in the READMEs, rac1/pal's
-   `progress/report.json`, `nonmatching/README.md`, `include/names.h`).
+   (`progress/`, `shared/xmap/`, the marked tables in the READMEs, rac1/pal's
+   `progress/report.json`, `nonmatching/README.md`, `include/names.h`). A file
+   listed in `shared/files.json` is one file in several games: change every
+   copy together (`tools/shared.py sync`) and verify each game that has it.
 10. **Verify before you say it is done.** Run the checks for what you
     touched and report the results as they are, failures included.
 11. **Do not settle open questions alone.** If a task depends on one
@@ -90,6 +92,7 @@ python3 tools/openrac.py progress [--fetch] # consolidate progress, refresh the 
 python3 tools/openrac.py tables             # refresh the generated tables only
 python3 tools/sources.py status|sync GAME/VER   # follow the original repositories while they are active
 python3 tools/xmap.py scan|report|ports FROM TO # the function map across the games (docs/engine/SHARED_CODE.md)
+python3 tools/shared.py check|find|sync PATH    # files several games share must stay identical (shared/README.md)
 python3 -m unittest discover -s tools       # tests for tools/
 python3 -m unittest discover -s editor      # tests for the editor
 ```

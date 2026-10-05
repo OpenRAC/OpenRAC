@@ -38,6 +38,9 @@ read [AGENTS.md](AGENTS.md), which builds on this page.
   (`python3 tools/openrac.py progress`), and each game's own generated files
   (for example rac1/pal's `progress/report.json`, `nonmatching/README.md`
   and `include/names.h`).
+- **A shared file changes in every game at once.** `shared/files.json` lists
+  the files several games build with; `python3 tools/shared.py check` fails
+  when their copies differ ([shared/README.md](shared/README.md)).
 - **Credit what you reuse**: the project, the file or function, and its
   license, in the game's `THIRD_PARTY_NOTICES.md` and at the code.
 - **Open questions are decided together.** If your change depends on one

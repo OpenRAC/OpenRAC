@@ -143,6 +143,14 @@ commit `shared/xmap/` as `chore(shared)`.
 - **Small functions prove little.** Fingerprints under 16 bytes are ignored,
   shapes under 48.
 
+## Files, not only functions
+
+The same comparison on the source trees finds 16 files that two games build
+with unchanged: GCC's libgcc sources and build helpers in rac1/pal and rac4,
+and label macros in rac3 and rac4. [shared/files.json](../../shared/files.json)
+lists them, and `python3 tools/shared.py check` keeps their copies identical
+([shared/README.md](../../shared/README.md)).
+
 ## What comes next
 
 In order ([open question 6](../policy/OPEN_QUESTIONS.md#6-code-shared-between-the-games)):

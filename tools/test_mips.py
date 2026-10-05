@@ -96,6 +96,60 @@ class ElfTests(unittest.TestCase):
                 mips.elf_sections(path)
 
 
+class SameRulesAsRac1PalTests(unittest.TestCase):
+    """tools/mips.py was lifted from rac1/pal's overlays.py, which keeps its own copy
+    (shared/files.json, "related"). They must keep giving the same answers."""
+
+    def test_fingerprints_and_cuts_agree(self):
+        import importlib.util
+        import sys
+        tools = mips.Path(__file__).resolve().parent.parent / "games/rac1/pal/tools"
+        spec = importlib.util.spec_from_file_location("rac1_pal_overlays", tools / "overlays.py")
+        sys.path.insert(0, str(tools))
+        try:
+            overlays = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(overlays)
+        finally:
+            sys.path.remove(str(tools))
+        samples = [function(0x00201000, 0x00150010, 7), function(0x00345678, 0x0016F420, 9, offset=0x1234),
+                   code(addiu(29, 29, -32), lui(3, 0x42BE), lw(2, 28, -0x7FF0), JR_RA, addiu(29, 29, 32))]
+        for sample in samples:
+            self.assertEqual(mips.fingerprint(sample), overlays.fingerprint(sample))
+            self.assertEqual(mips.shape(sample), overlays.coarse_fingerprint(sample))
+        text = b"".join(s + bytes(8) for s in samples)
+        self.assertEqual(mips.split(text, 0x00200000), overlays.split(text, 0x00200000))
+
+
+class SharedFilesTests(unittest.TestCase):
+    def test_reports_missing_and_differing_copies(self):
+        import json
+        import shared
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name, text in (("a/x.c", "one"), ("b/x.c", "one"), ("a/y.c", "one"), ("b/y.c", "two")):
+                (root / name).parent.mkdir(exist_ok=True)
+                (root / name).write_text(text)
+            (root / "files.json").write_text(json.dumps({
+                "groups": [{"what": "same", "copies": ["a/x.c", "b/x.c"]}, {"what": "drifted", "copies": ["a/y.c", "b/y.c"]},
+                           {"what": "gone", "copies": ["a/x.c", "b/z.c"]}],
+                "related": [{"files": ["a/x.c", "b/none.c"], "why": "kept apart"}]}))
+            old = shared.ROOT, shared.MANIFEST
+            shared.ROOT, shared.MANIFEST = root, root / "files.json"
+            try:
+                found = shared.problems()
+                shared.sync("a/y.c")
+                self.assertEqual((root / "b/y.c").read_text(), "one")
+            finally:
+                shared.ROOT, shared.MANIFEST = old
+        self.assertEqual(len(found), 3)
+        self.assertTrue(any("copies differ" in f and "drifted" in f for f in found))
+        self.assertTrue(any("b/z.c" in f for f in found) and any("b/none.c" in f for f in found))
+
+    def test_the_manifest_holds(self):
+        import shared
+        self.assertEqual(shared.problems(), [])
+
+
 class XmapTests(unittest.TestCase):
     def test_level_numbers_and_classes(self):
         self.assertEqual(xmap.level_id(Path("baserom/overlays/level_05"), "rac1-level"), 5)
