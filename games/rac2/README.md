@@ -10,6 +10,11 @@ The whole program, the boot executable and its 27 level overlays, already
 rebuilds byte for byte from reconstructed assembly. C replaces that assembly
 function by function, each body proven against retail before it is
 integrated ([ntsc/README.md](ntsc/README.md), [ntsc/docs/START-HERE.md](ntsc/docs/START-HERE.md)).
+The C is written under `src/` as ordered fragments, from which the compiled
+units in `candidates/` are generated ([ntsc/docs/SOURCE-LAYOUT.md](ntsc/docs/SOURCE-LAYOUT.md)),
+and ongoing work runs through a campaign register and queue
+([ntsc/docs/CAMPAIGN-WORKFLOW.md](ntsc/docs/CAMPAIGN-WORKFLOW.md),
+[ntsc/docs/CONTRIBUTOR-QUICKSTART.md](ntsc/docs/CONTRIBUTOR-QUICKSTART.md)).
 Some of that C was carried over from Ratchet & Clank, where the two games
 share byte-identical functions ([ntsc/docs/SECOND-C-LOT.md](ntsc/docs/SECOND-C-LOT.md),
 [ntsc/docs/RAC1-TO-RAC2.md](ntsc/docs/RAC1-TO-RAC2.md)).
@@ -22,7 +27,7 @@ in [progress/](../../progress/README.md).
 
 ```sh
 cd games/rac2/ntsc
-python -m unittest discover -s tests       # 176 tests; Python only, any host
+python -m unittest discover -s tests       # 240 tests; Python only (one fails on macOS: /var is a link)
 python scripts/doctor.py                   # what your environment has and lacks
 ```
 

@@ -230,6 +230,15 @@ with `python3` run on the host.
 
 ### rac2: Going Commando NTSC-U v1.01 (from rac2-decomp)
 
+Since 2026-10-04 the project writes its C under `src/` as ordered fragments
+and generates the compiled units in `candidates/` from them
+([SOURCE-LAYOUT.md](../../games/rac2/ntsc/docs/SOURCE-LAYOUT.md); check with
+`python scripts/source_layout.py --check --inventory-check progress/source-inventory.json`),
+and schedules work through `scripts/campaign.py`
+([CAMPAIGN-WORKFLOW.md](../../games/rac2/ntsc/docs/CAMPAIGN-WORKFLOW.md),
+[CONTRIBUTOR-QUICKSTART.md](../../games/rac2/ntsc/docs/CONTRIBUTOR-QUICKSTART.md)).
+The checks and gates below are unchanged.
+
 - **Setup** ([docs/START-HERE.md](../../games/rac2/ntsc/docs/START-HERE.md)).
   You need Python 3.12, SN ProDG 2.0 (assembly reconstruction), SN ProDG 3.01
   (C), Wrench, and a runtime directory outside the repository.

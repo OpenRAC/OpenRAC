@@ -65,6 +65,8 @@ the first table; go to a game's documents when you work on that game.
 | Document | For |
 |---|---|
 | [README.md](../games/rac2/ntsc/README.md), [docs/START-HERE.md](../games/rac2/ntsc/docs/START-HERE.md), [CONTRIBUTING.md](../games/rac2/ntsc/CONTRIBUTING.md), [AGENTS.md](../games/rac2/ntsc/AGENTS.md) | The project, first steps, contribution rules, agent rules |
+| [docs/SOURCE-LAYOUT.md](../games/rac2/ntsc/docs/SOURCE-LAYOUT.md), [docs/CAMPAIGN-WORKFLOW.md](../games/rac2/ntsc/docs/CAMPAIGN-WORKFLOW.md), [docs/CAMPAIGN-QUEUE.md](../games/rac2/ntsc/docs/CAMPAIGN-QUEUE.md), [docs/CONTINUE.md](../games/rac2/ntsc/docs/CONTINUE.md), [docs/CONTRIBUTOR-QUICKSTART.md](../games/rac2/ntsc/docs/CONTRIBUTOR-QUICKSTART.md) | Source fragments under `src/`, the campaign register and queue, resuming work, a first contribution |
+| [toolchain/README.md](../games/rac2/ntsc/toolchain/README.md), [host/README.md](../games/rac2/ntsc/host/README.md) | The tools to obtain; running the pipeline on macOS and Linux |
 | [docs/COMPILER-NOTES.md](../games/rac2/ntsc/docs/COMPILER-NOTES.md) | The C compiler profile and its patches |
 | [docs/LEVEL-ARCHIVE-FORMAT.md](../games/rac2/ntsc/docs/LEVEL-ARCHIVE-FORMAT.md), [docs/MOBY-DISPATCH-TABLES.md](../games/rac2/ntsc/docs/MOBY-DISPATCH-TABLES.md), [docs/VU-MICROPROGRAMS.md](../games/rac2/ntsc/docs/VU-MICROPROGRAMS.md) | Level archives, class dispatch tables, VU microprograms |
 | [docs/COMMUNITY-ENGINE-REFERENCE.md](../games/rac2/ntsc/docs/COMMUNITY-ENGINE-REFERENCE.md) | A reverse-engineering reference ("reference, never evidence") |
@@ -72,7 +74,7 @@ the first table; go to a game's documents when you work on that game.
 | [docs/LEVEL-NATIVE-C.md](../games/rac2/ntsc/docs/LEVEL-NATIVE-C.md), [docs/LEVEL-INTEGRATION-PLAN.md](../games/rac2/ntsc/docs/LEVEL-INTEGRATION-PLAN.md), [docs/C-NATIVE-EXPERIMENT-REGISTER.md](../games/rac2/ntsc/docs/C-NATIVE-EXPERIMENT-REGISTER.md) | C in the level overlays, the plan, the register of trials |
 | [docs/PROTOTYPE-BUILDS.md](../games/rac2/ntsc/docs/PROTOTYPE-BUILDS.md), [docs/AUG6-RETAIL-ANCHORS.md](../games/rac2/ntsc/docs/AUG6-RETAIL-ANCHORS.md), [docs/ENGINE-SYMBOL-NAMES.md](../games/rac2/ntsc/docs/ENGINE-SYMBOL-NAMES.md), [docs/ASSERT-MESSAGE-NAMES.md](../games/rac2/ntsc/docs/ASSERT-MESSAGE-NAMES.md) | Prerelease builds and the names drawn from them; names from retail assert messages |
 | [docs/PCSX2-VALIDATION.md](../games/rac2/ntsc/docs/PCSX2-VALIDATION.md) | Booting rebuilt programs in PCSX2 |
-| `docs/*-C-LOT.md`, `docs/*-NATIVE-LOT.md`, [docs/INTEGRATION-FIRST-LOT.md](../games/rac2/ntsc/docs/INTEGRATION-FIRST-LOT.md) | The matching log, one file per lot (25 files) |
+| `docs/*-C-LOT.md`, `docs/*-NATIVE-LOT.md`, [docs/INTEGRATION-FIRST-LOT.md](../games/rac2/ntsc/docs/INTEGRATION-FIRST-LOT.md) | The matching log, one file per lot (28 files) |
 
 ## Ratchet & Clank: Up Your Arsenal ([games/rac3/ntsc](../games/rac3/ntsc))
 
