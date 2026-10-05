@@ -14,7 +14,7 @@ each project.
 |---|---|---|---|---|---|---|
 | [`games/rac1/pal`](../games/rac1/pal) | rac1-decomp | https://github.com/Lynder063/rac1-decomp | main | `e46d716bd2ab` | 2026-10-05 | MIT |
 | [`games/rac1/ntsc`](../games/rac1/ntsc) | Lombyte | https://github.com/mateuszklysz/Lombyte | main | `e1db4cd6b482` | 2026-10-05 | MIT (GPL-2.0 and newlib parts) |
-| [`games/rac2/ntsc`](../games/rac2/ntsc) | rac2-decomp | https://github.com/llesieur99/rac2-decomp | RAC2 | `940aaf1b0e52` | 2026-10-05 | MIT |
+| [`games/rac2/ntsc`](../games/rac2/ntsc) | rac2-gc-decomp | https://github.com/OpenRAC/rac2-gc-decomp | RAC2 | `940aaf1b0e52` | 2026-10-05 | MIT |
 | [`games/rac3/ntsc`](../games/rac3/ntsc) | ratchet-uya-decomp | https://github.com/vetusmagnus/ratchet-uya-decomp | main | `476c81533d1f` | 2026-10-04 | GPL-3.0 |
 | [`games/rac4/ntsc`](../games/rac4/ntsc) | rac-deadlocked-decomp | https://github.com/Lynder063/rac-deadlocked-decomp | main | `dedfcd416a1b` | 2026-10-05 | MIT (GPL libgcc, newlib libm) |
 <!-- sources:end -->

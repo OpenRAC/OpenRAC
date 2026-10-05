@@ -30,8 +30,8 @@
       },
       "target": "The boot executable SCUS_972.68 and its 27 level overlays: the whole program rebuilds from reconstructed assembly, and C replaces it function by function.",
       "source": {
-        "name": "rac2-decomp",
-        "repo": "https://github.com/llesieur99/rac2-decomp",
+        "name": "rac2-gc-decomp",
+        "repo": "https://github.com/OpenRAC/rac2-gc-decomp",
         "branch": "RAC2",
         "checkout": "~/Projects/rac2-decomp",
         "license": "MIT",
