@@ -4,7 +4,11 @@ The project's scripts were written for Windows with WSL. These files run the
 same pipeline, unchanged, on macOS (Apple Silicon included) and Linux. They
 were added in OpenRAC; nothing in the project reads or hashes them.
 
-On an Apple Silicon Mac on 2026-10-03, this recipe produced these results:
+On an Apple Silicon Mac on 2026-10-03, at the project's commit `0fd4b77`, this
+recipe produced the results below. Rerun on 2026-10-04 at `b300787`, after the
+project moved its C to `src/` fragments: the boot and all 27 overlays again
+rebuilt byte for byte (79,486,851 bytes), and 179/179 boot bodies matched
+(9,456 bytes).
 
 | Step | Result |
 |---|---|
@@ -13,7 +17,7 @@ On an Apple Silicon Mac on 2026-10-03, this recipe produced these results:
 | `scripts/check_candidates.py` | 178/178 boot bodies match (9,336 bytes); object identical to `progress/candidates.json` |
 | `scripts/check_level_candidates.py`, all 27 levels | 58/58 match (2,896 bytes); objects identical to `progress/level-candidates/` |
 | C integration, boot and all levels | 214,344 bytes integrated, all gates passed; every function row and object hash equal to `progress/integration.json` and `progress/levels/` |
-| `python -m unittest discover -s tests` | 176 tests pass |
+| `python -m unittest discover -s tests` | 176 tests pass (240 at `b300787`; one of them fails on macOS only, where `/var` is a link) |
 
 ## The files
 
