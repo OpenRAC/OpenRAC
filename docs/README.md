@@ -21,6 +21,7 @@ the first table; go to a game's documents when you work on that game.
 | Document | For |
 |---|---|
 | [engine/](engine/README.md) | What is known about Insomniac's engine, and in which game it was measured |
+| [engine/SHARED_CODE.md](engine/SHARED_CODE.md), [shared/xmap/](../shared/xmap/README.md) | How much code the versions share, and the functions each project could port from another |
 | [toolchains/](toolchains/README.md) | Which compilers built what, and what each project uses to match |
 | [workflow/](workflow/README.md) | How matching works in each game, side by side, and porting between games |
 | [games/](../games/README.md) | The games and versions, with a page per game |

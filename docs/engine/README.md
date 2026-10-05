@@ -433,18 +433,27 @@ What each project measured (details in [docs/toolchains](../toolchains/README.md
 The RAC1 bodies RAC2 reused make no calls; RAC2 notes that on leaf bodies
 without saves, calls or `lq`/`sq`, GCC 2.9 and 2.95 emit the same code.
 
+### Measured across all five versions
+
+[SHARED_CODE.md](SHARED_CODE.md) reports the function map `tools/xmap.py`
+builds from the discs (2026-10-04). In short: the engine core carries over
+between games (RAC1 to RAC2 70% of the core, RAC3 to Deadlocked 69%), game and
+level code mostly do not, 319 functions are in every version, and each project
+has between 186 and 437 functions open that another project has already
+matched in identical code.
+
 ### Not measured yet
 
-- **A cross-game function map.** Nothing pairs functions across RAC1, RAC2
-  and RAC3 the way `us_map.tsv` pairs the RAC1 builds; where shared code
-  should live waits on it ([OPEN_QUESTIONS.md](../policy/OPEN_QUESTIONS.md), section 6).
-- **RAC3's boot** is not split, so the engine core `frontbin` calls (132
-  functions) has not been compared with RAC1 or RAC2.
+- **Functions that changed slightly between games.** The map finds identical
+  functions and exact shapes only; pairing the rest by similarity, as
+  `us_map.tsv` does for the RAC1 builds, is the next step.
+- **RAC3's boot** is indexed by the map (Wrench's unpacked `boot_elf.elf`), but
+  the project has not split it, so none of it is matched there.
 - **Deadlocked.** Its image and overlays are split and catalogued
   ([RESEARCH.md](../../games/rac4/ntsc/docs/RESEARCH.md), [OVERLAYS.md](../../games/rac4/ntsc/docs/OVERLAYS.md)): the
   same section names as RAC2's boot (`core.text`, `lvl.vtbl`, `lvl.camvtbl`,
-  `lvl.sndvtbl`), assigned by position, plus `net.text`. Nothing is compared
-  with the earlier games yet.
+  `lvl.sndvtbl`), assigned by position, plus `net.text`. It shares 567 KB of
+  identical functions with RAC3 ([SHARED_CODE.md](SHARED_CODE.md)).
 
 ## 9. Gaps and contradictions
 

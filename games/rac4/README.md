@@ -35,6 +35,14 @@ link addresses. Read this game's percentage with that in mind until it has a
 link-time comparison (the first of its own
 [open questions](ntsc/docs/RESEARCH.md#open-questions)).
 
+## What it shares with the other games
+
+The function map across the games ([docs/engine/SHARED_CODE.md](../../docs/engine/SHARED_CODE.md))
+finds 567 KB of its code identical to RAC3's, and 282 functions (29,872
+bytes) that another project has already matched: 161 from RAC3, about 130
+from each RAC1 project. The lists are in
+[shared/xmap/ports/](../../shared/xmap/ports).
+
 ## Getting started
 
 From the top of OpenRAC, with the two toolchain mirrors in `toolchains/`

@@ -89,6 +89,7 @@ python3 tools/openrac.py setup [GAME/VER]   # place each game's inputs (hard lin
 python3 tools/openrac.py progress [--fetch] # consolidate progress, refresh the README tables
 python3 tools/openrac.py tables             # refresh the generated tables only
 python3 tools/sources.py status|sync GAME/VER   # follow the original repositories while they are active
+python3 tools/xmap.py scan|report|ports FROM TO # the function map across the games (docs/engine/SHARED_CODE.md)
 python3 -m unittest discover -s tools       # tests for tools/
 python3 -m unittest discover -s editor      # tests for the editor
 ```

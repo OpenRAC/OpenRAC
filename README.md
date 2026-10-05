@@ -71,6 +71,7 @@ editor/      the Godot level editor and its extractor
 tools/       openrac.py (discs, setup, progress) and sources.py (imports)
 docs/        policy, engine knowledge, toolchains and workflows across games
 progress/    consolidated progress, generated
+shared/      the function map across the games, generated
 baserom/     your disc images (ignored by git)
 toolchains/  compilers you supply (ignored by git)
 ```

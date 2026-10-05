@@ -90,10 +90,15 @@ branch and its private scoring repository.
 
 ## 6. Code shared between the games
 
-The games share engine code and Sony's libraries. To decide, after measuring
-it with a cross-game function map: whether identical functions live once in
-a shared tree that several game builds compile, or stay copied per game with
-their provenance noted.
+The games share engine code and Sony's libraries, now measured
+([docs/engine/SHARED_CODE.md](../engine/SHARED_CODE.md)): the core carries over
+between games, 319 functions (38 KB) are in every version, and each project has
+hundreds of functions open that another has matched in identical code. To
+decide: whether identical functions live once in a shared tree that several
+game builds compile, or stay copied per game with their provenance noted. Two
+things bear on it: the projects' compilers differ, so a shared file must pass
+each game's own check, and rac3's GPL v3 limits where its code may go
+(question 1).
 
 ## 7. Build hosts
 

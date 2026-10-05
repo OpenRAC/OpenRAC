@@ -20,6 +20,7 @@ OpenRAC/
 │   ├── toolchains/         which compilers built what
 │   └── workflow/           how matching works in each game
 ├── progress/               consolidated progress (generated)
+├── shared/                 what the games have in common: the function map (generated)
 ├── baserom/                your own disc images (ignored, except its README)
 └── toolchains/             compilers you supply (ignored, except its README)
 ```
