@@ -12,8 +12,8 @@ inputs, and progress across all the games. Standard library only.
                                             refresh the tables; --fetch first copies reports that a
                                             sister project publishes outside its tree
   python3 tools/openrac.py tables           refresh the generated tables (games, discs, checksums,
-                                            progress) in README.md, baserom/README.md and
-                                            games/README.md from game.json
+                                            progress, sources) in README.md, baserom/README.md,
+                                            games/README.md and docs/SOURCES.md from game.json
 
 Discs are recognised by the boot file SYSTEM.CNF names, whatever the image
 is called, and checked against games/<game>/game.json: size and SHA-1, or
@@ -361,14 +361,24 @@ def game_table() -> str:
     return "\n".join(out) + "\n"
 
 
+def source_table() -> str:
+    out = ["| Directory | Project | Repository | Branch | Commit | Its date | License |", "|---|---|---|---|---|---|---|"]
+    for game, name, v in versions():
+        s = v.get("source")
+        if s:
+            out.append(f"| [`games/{game['id']}/{name}`](games/{game['id']}/{name}) | {s['name']} | {s['repo']} | "
+                       f"{s['branch']} | `{s['commit'][:12]}` | {s['date']} | {s['license']} |")
+    return "\n".join(out) + "\n"
+
+
 def tables() -> None:
     """Rewrite every <!-- NAME:begin --> ... <!-- NAME:end --> block in README.md and
     baserom/README.md with the table of that name."""
     summary = PROGRESS / "summary.json"
     rows = [(g, n, v, measure(v)) for g, n, v in versions()]
-    made = {"games": game_table(), "discs": disc_table(), "boot": boot_table(),
+    made = {"games": game_table(), "discs": disc_table(), "boot": boot_table(), "sources": source_table(),
             "progress": render(rows, dates=False) if summary.exists() else None}
-    for doc in (ROOT / "README.md", BASEROM / "README.md", GAMES / "README.md"):
+    for doc in (ROOT / "README.md", BASEROM / "README.md", GAMES / "README.md", ROOT / "docs/SOURCES.md"):
         if not doc.exists():
             continue
         text, depth = doc.read_text(), len(doc.relative_to(ROOT).parts) - 1

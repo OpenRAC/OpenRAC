@@ -34,7 +34,7 @@
         "repo": "https://github.com/vetusmagnus/ratchet-uya-decomp",
         "branch": "main",
         "checkout": "~/Projects/rac3-decomp",
-        "license": "none stated",
+        "license": "GPL-3.0",
         "exclude": [
           "localdecomp/server.py.bak_0926"
         ],

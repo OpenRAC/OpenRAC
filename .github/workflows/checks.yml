@@ -30,7 +30,7 @@ jobs:
       - name: Generated tables match games/*/game.json and the reports
         run: |
           python tools/openrac.py tables
-          git diff --exit-code -- README.md baserom/README.md games/README.md
+          git diff --exit-code -- README.md baserom/README.md games/README.md docs/SOURCES.md
 
       - name: rac1/pal progress report is current with its source
         working-directory: games/rac1/pal
