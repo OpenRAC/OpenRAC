@@ -30,21 +30,37 @@ is not, whatever the source project wrote to get there (its compiler differs).
 A global the source declares MACRO_ADDR keeps that: the assembler then picks
 the form of each access, which the target's check has to reproduce.
 
---check then runs the target project's own check on every candidate (the
-command in its "port" entry, in --target-dir or the version's directory under
-games/), reads the compiler's complaints about names its file already uses,
-writes hints, and tries again, up to four rounds. results.tsv has each
-function's verdict and MANIFEST.exact the ones that passed; landing them is
-the target project's own step.
+--check then runs the target project's own check on every candidate (in
+--target-dir, or the version's directory under games/), reads the compiler's
+complaints about names its file already uses, writes hints, and tries again,
+up to four rounds. results.tsv has each function's verdict and MANIFEST.exact
+the ones that passed; landing them is the target project's own step.
 
 `<target name>.hints.json` next to a candidate, {"alias": [...], "rename":
 [...]}, changes how it is written: a symbol in `alias` is declared under a
 private name with an assembler label (for a file that already declares it
 with another type), and a type in `rename` gets a suffix (for a file that
-already has one of that name). The checker that drives this tool writes them
-from the compiler's messages.
+already has one of that name). --check writes them.
 
-Each version's side is described in games/<game>/game.json under "port".
+Each version's side is the "port" entry of its games/<game>/game.json:
+
+  as a source   sources, include, defines (what to read and how to preprocess
+                it), gp, catalogue and symbols (where its names are),
+                shared_headers (headers the target has its own copy of),
+                refuse_headers (headers whose contents do not travel), types
+                and phrases (spellings to translate), credit
+  as a target   gp, catalogue, report, level_data_from and names (how it names
+                an address), alias and small_data (how it declares: rac1/pal
+                by plain names and a short read through a cast, rac1/ntsc
+                under private names with an sda attribute), headers,
+                never and never_sources (what it does not take), check
+
+A check is either a command over a manifest (rac1/pal's tools/integrate.py),
+or `"kind": "guard"`: the candidate is put under `#else` of a NON_MATCHING
+guard in the target's own file, as rac1/ntsc keeps pending C, checked there
+and taken out again; what passes is also written as exact.patch against the
+target's tree. "alternatives" lists other readings of a rule to try on a
+candidate that misses.
 """
 import json
 import re
@@ -280,8 +296,10 @@ def side(key: str) -> dict:
     if "symbols" in cfg and (ROOT / cfg["symbols"]).is_file():
         for m in re.finditer(r"^(\w+)\s*=\s*0x([0-9A-Fa-f]+)", (ROOT / cfg["symbols"]).read_text(), re.M):
             out["symbols"][m.group(1)] = int(m.group(2), 16)
+    out["names_at"] = {}
     for addr, _size, name, _done in xmap.known(key, version).get("boot", []):      # the project's own names for its functions
         out["symbols"].setdefault(name, addr)
+        out["names_at"].setdefault(addr, name)
     out["functions"] = set()
     if "report" in cfg and (ROOT / cfg["report"]).is_file():
         report = json.loads((ROOT / cfg["report"]).read_text())
@@ -319,15 +337,23 @@ def source_addresses(v: dict, name: str, level: int | None) -> list[int]:
     return [] if addr is None else [addr]
 
 
+NAMES = {"function": "func_{addr:08X}", "data": "D_{addr:08X}", "level_data": "D_L{level:02d}_{addr:08X}"}
+
+
 def target_name(v: dict, addr: int, level: int | None, function: bool) -> str | None:
-    """What the target project calls ADDR in LEVEL's program (rac1/pal's rules)."""
+    """What the target project calls ADDR in LEVEL's program: its catalogue's
+    name for level code, else a name made from the address by the patterns in
+    its "port" entry ("names"; rac1/pal's when it gives none)."""
     if level is not None and (level, addr) in v["at"]:
         return v["at"][(level, addr)]
+    names = {**NAMES, **v.get("names", {})}
     limit = int(v["level_data_from"], 16)
-    if function or f"func_{addr:08X}" in v["functions"]:
+    as_function = v.get("names_at", {}).get(addr) if level is None else None
+    as_function = as_function or names["function"].format(addr=addr)
+    if function or as_function in v["functions"]:
         # A resident function keeps its address in every program; level code is named by the catalogue alone.
-        return f"func_{addr:08X}" if level is None or addr < limit else None
-    return f"D_{addr:08X}" if level is None or addr < limit else f"D_L{level:02d}_{addr:08X}"
+        return as_function if level is None or addr < limit else None
+    return names["data"].format(addr=addr) if level is None or addr < limit else names["level_data"].format(addr=addr, level=level)
 
 
 # --- One function --------------------------------------------------------------
@@ -417,13 +443,36 @@ def resolve(links: dict[str, list[int]], pairs: list) -> dict[str, tuple[int, se
 
 
 def object_parts(it: dict, name: str) -> tuple[str, str]:
-    """(type, what follows the name) of an object declaration: `extern s32 x[2]
-    __attribute__((sda));` gives ("s32", "[2]")."""
-    plain = without(without(it["clean"], r"\b__attribute__"), r"\b(?:__asm__|asm)")
-    m = re.search(rf"\b{re.escape(name)}\b", plain)
-    head = re.sub(r"\b(?:extern|static)\b", " ", plain[:m.start()])
-    tail = plain[m.end():].split("=")[0].rstrip().rstrip(";").strip()
-    return " ".join(head.split()), tail
+    """(type, what follows the name) of one object in a declaration: `extern
+    s32 x[2] __attribute__((sda));` gives ("s32", "[2]"), and `extern char
+    *a, b[4];` gives ("char *", "") for a and ("char", "[4]") for b."""
+    plain = without(without(it["clean"], r"\b__attribute__"), r"\b(?:__asm__|asm)").rstrip().rstrip(";")
+    flat, i = [], 0                                     # the same text with every { ... } blanked: only declarators left to read
+    while i < len(plain):
+        j = closing(plain, i) if plain[i] == "{" else i + 1
+        flat.append(" " * (j - i) if plain[i] == "{" else plain[i])
+        i = j
+    flat = "".join(flat)
+    cuts, depth = [0], 0
+    for k, c in enumerate(flat):
+        depth += c in "(["
+        depth -= c in ")]"
+        if c == "," and not depth:
+            cuts.append(k + 1)
+    spans = list(zip(cuts, [c - 1 for c in cuts[1:]] + [len(flat)]))
+    first = re.search(rf"\b{re.escape(declared(flat[spans[0][0]:spans[0][1]]) or name)}\b", flat[:spans[0][1]])
+    stop = cut = first.start() if first else spans[0][1]
+    while cut and plain[cut - 1] in " \t\n*":             # the first declarator's own stars are not the type's
+        cut -= 1
+    base = re.sub(r"\b(?:extern|static)\b", " ", plain[:cut])
+    for start, end in spans:
+        chunk = flat[start:end]
+        m = re.search(rf"\b{re.escape(name)}\b", chunk)
+        if m and declared(chunk) == name:
+            lead = chunk[:m.start()] if start else flat[cut:stop]
+            stars = "*" * lead.count("*")
+            return " ".join(base.split()) + (" " + stars if stars else ""), chunk[m.end():].split("=")[0].strip()
+    raise Skip(f"cannot read the declaration of {name}")
 
 
 def port(row: dict, src: dict, dst: dict, hints: dict) -> tuple[str, str]:
@@ -433,6 +482,12 @@ def port(row: dict, src: dict, dst: dict, hints: dict) -> tuple[str, str]:
     name = target_name(dst, d_addr, d_level, True)
     if name not in dst["functions"]:
         raise Skip(f"the target lists no function at {d_addr:08X}")
+    home = re.fullmatch(r"\w+?_L(\d\d)_([0-9A-Fa-f]{8})", name)
+    if home and (int(home.group(1)), int(home.group(2), 16)) != (d_level, d_addr):
+        # The target's catalogue calls this place another copy of NAME; its symbols are named from NAME's own place.
+        raise Skip(f"the target counts this place as a copy of {name}")
+    if not home and d_level is not None:
+        raise Skip(f"a level's copy of the executable's {name}: it is ported in the executable")
     path = definition_file(src, row["from_name"])
     text = preprocess(path, [ROOT / d for d in src["include"]], src.get("defines", []))
     chosen, target = pieces(text, row["from_name"])
@@ -441,16 +496,21 @@ def port(row: dict, src: dict, dst: dict, hints: dict) -> tuple[str, str]:
                   mips.references(code(dst, row["to_program"], d_addr, size), d_addr, dst["gp"]))
 
     # What each kept declaration links against, and where that is in the source version.
+    for it in chosen:
+        if Path(it["origin"]).name in src.get("refuse_headers", []):
+            raise Skip(f"uses {Path(it['origin']).name}, which is not carried to other projects")
     shared = [Path(p).name for p in src.get("shared_headers", [])]
     drop = [it for it in chosen if Path(it["origin"]).name in shared]
     chosen = [it for it in chosen if it not in drop]
     used = idents(target["clean"]) | set().union(*[idents(it["clean"]) for it in chosen if it["kind"] != "decl"])
     links: dict[str, list[int]] = {}
     symbol_of: dict[str, str] = {}              # C identifier -> link name
-    labels = {}                                 # a label on any declaration of a name holds for all of them
+    labels, source_macro = {}, set()            # a label or MACRO_ADDR on any declaration of a name holds for all of them
     for it in chosen:
         if it["kind"] == "decl" and link_name(it["text"]):
             labels.update({ident: link_name(it["text"]) for ident in it["names"]})
+        if it["kind"] == "decl" and '(".sdata")' in it["text"]:
+            source_macro |= it["names"]
     for it in chosen:
         if it["kind"] != "decl" or it["static"]:
             continue
@@ -472,6 +532,9 @@ def port(row: dict, src: dict, dst: dict, hints: dict) -> tuple[str, str]:
         rename[old] = new
     taken: dict[str, list[str]] = {}            # target name -> the identifiers that carry it
     lines, suffix = [], f"{d_addr:08X}"[-5:]
+    declared_once: set[str] = set()
+    always_alias = dst.get("alias") == "always"         # the target's files declare everything under private names
+    sda = dst.get("small_data") == "sda"                # ... and mark small data with an attribute
     for word in hints.get("rename", []):
         rename[word] = f"{word}_{suffix}"
     for it in chosen:
@@ -484,13 +547,19 @@ def port(row: dict, src: dict, dst: dict, hints: dict) -> tuple[str, str]:
                 continue
             link = symbol_of[ident]
             base, kinds, where = found[link]
+            if base == d_addr and s_addr in links[link]:        # the function itself: its definition declares it
+                rename[ident] = name
+                continue
+            if ident in declared_once:                          # a file may declare one name once per function that uses it
+                continue
+            declared_once.add(ident)
             function = bool(it.get("proto")) or re.search(rf"\b{re.escape(ident)}\s*\(", it["clean"]) is not None
             new = target_name(dst, base, d_level, function and kinds <= {"call"})
             if not new:
                 raise Skip(f"the target has no name for {link} at {base:08X}")
             # A second C name for one symbol, or a symbol the target's file declares with another
             # type, is declared under a private name with an assembler label.
-            alias = new in taken or new in hints.get("alias", [])
+            alias = always_alias or new in taken or new in hints.get("alias", [])
             local = f"{new}_{suffix}{chr(ord('a') + len(taken[new])) if taken.get(new) else ''}" if alias else new
             if len(taken.get(new, [])) > 20:
                 raise Skip(f"more than twenty names for {new}")
@@ -511,7 +580,15 @@ def port(row: dict, src: dict, dst: dict, hints: dict) -> tuple[str, str]:
             # source has it, and add it where every lui access has the assembler's shape: the source
             # project's compiler gets that shape without being told, the target's does not.
             lui_form = [i for kind, i in where if kind == "data"]
-            macro = '(".sdata")' in it["text"] or not tail and bool(lui_form) and all(through_macro(d_words, i) for i in lui_form)
+            if hints.get("macro_addr", dst.get("macro_addr")) == "mixed":     # only where the code has both forms
+                macro = "gp" in kinds and "data" in kinds
+            else:
+                macro = ident in source_macro or not tail and bool(lui_form) and all(through_macro(d_words, i) for i in lui_form)
+            if sda:
+                mark = " MACRO_ADDR" if macro else " __attribute__((sda))" if "gp" in kinds and "data" not in kinds else ""
+                emitted.append(f"extern {kind_type} {local}{tail}{label}{mark};")
+                rename[ident] = local
+                continue
             if "gp" in kinds and "data" not in kinds and not small and not macro:
                 # The target's convention for a word in small data: a short, read through a cast.
                 if tail and not re.fullmatch(r"\[[^\]]*\]", tail):
@@ -539,7 +616,9 @@ def port(row: dict, src: dict, dst: dict, hints: dict) -> tuple[str, str]:
     banned = [why for pattern, why in BANNED if re.search(pattern, blank_comments(text))]
     if banned:
         raise Skip("needs a hand: " + ", ".join(banned))
-    return name, text
+    code_only = blank(text)
+    needs = [header for word, header in dst.get("headers", {}).items() if re.search(rf"\b{word}\b", code_only)]
+    return name, "".join(f'#include "{h}"\n' for h in sorted(set(needs))) + text
 
 
 # What a candidate may not contain in any of the projects (docs/policy): the checks rac1/pal's integrate.py makes.
@@ -580,18 +659,42 @@ def rows(src_key: str, dst_key: str) -> list[dict]:
     return [dict(zip(head, l.split("\t"))) for l in lines[1:]]
 
 
+def functions_under(folder: Path) -> set[str]:
+    """Every function with an assembly stub or a body in FOLDER's C files (not the ones they only call)."""
+    found = set()
+    for path in folder.rglob("*.c"):
+        text = path.read_text(errors="replace")
+        found |= set(re.findall(r"^\s*INCLUDE_ASM\([^)]*?\b(\w+)\s*\)", text, re.M))
+        for it in items(text):
+            if it["kind"] == "function":
+                found |= it["names"]
+    return found
+
+
 def generate(src: dict, dst: dict, out_dir: Path, only: set[str]) -> dict[str, tuple[str, str, str]]:
     """Writes the candidates; returns target name -> (source name, size, result)."""
     skip = set()
     for listing in dst.get("never", []):
         skip |= set((ROOT / listing).read_text().split())
+    for folder in dst.get("never_sources", []):
+        skip |= functions_under(ROOT / folder)
     table = {}
-    for row in rows(src["key"], dst["key"]):
+
+    def own_level(row: dict) -> bool:
+        """Whether the row's place is the one the target's name for the function is made from."""
+        level = level_of(row["to_program"])
+        named = re.match(r"\w+?_L(\d\d)_", target_name(dst, int(row["to_address"], 16), level, True) or "")
+        return not named or int(named.group(1)) == level
+
+    # A target function with several places has a row for each: the place its name comes from goes first and stands.
+    for row in sorted(rows(src["key"], dst["key"]), key=lambda r: not own_level(r)):
         if row["kind"] != "same":
             continue
         d_level = level_of(row["to_program"])
         name = target_name(dst, int(row["to_address"], 16), d_level, True) or f"{row['to_program']}:{row['to_address']}"
         if only and not {name, row["from_name"]} & only:
+            continue
+        if name in table:
             continue
         result = "candidate"
         hints_path = out_dir / f"{name}.hints.json"
@@ -614,8 +717,64 @@ COMPLAINT = re.compile(r"(?:conflicting types for|redefinition of|redeclaration 
 VERDICT = re.compile(r"^(\S+)\s+(.+?)\s+(/\S+\.c)(?:\s+\((.*)\))?$")
 
 
+def run_guarded(dst: dict, target_dir: Path, out_dir: Path, names: list[str]) -> dict[str, str]:
+    """The verdict of a target whose check reads pending C from its own source
+    file (rac1/ntsc: under `#else` of a NON_MATCHING guard, the assembly stub
+    staying in force). Each candidate is put there, checked and taken out
+    again, one at a time: the tree is left as it was found."""
+    cfg, verdicts = dst["check"], {}
+    files = {p: p.read_text() for p in sorted((target_dir / cfg["sources"]).rglob("*.c"))}
+    for name in names:
+        stub = cfg["stub"].format(name=name)
+        path = next((p for p, text in files.items() if stub in text), None)
+        if path is None:
+            verdicts[name] = "the target has no assembly stub for it"
+            continue
+        text = files[path]
+        if text[:text.index(stub)].rstrip().endswith("#ifndef NON_MATCHING"):
+            verdicts[name] = "the target already has pending C for it"
+            continue
+        body = (out_dir / f"{name}.c").read_text()
+        try:
+            path.write_text(text.replace(stub, f"#ifndef NON_MATCHING\n{stub}\n#else\n{body}#endif /* NON_MATCHING */", 1))
+            done = subprocess.run(cfg["command"].format(name=name), shell=True, cwd=target_dir, capture_output=True, text=True)
+        finally:
+            path.write_text(text)
+        (out_dir / f"{name}.log").write_text(done.stdout + done.stderr)
+        try:
+            answer = json.loads(done.stdout[done.stdout.index("{"):])
+            verdicts[name] = "EXACT" if answer.get("ok") else str(answer.get("verdict") or answer.get("error") or "not exact")
+            verdicts[name] = "COMPILE failed" if verdicts[name].startswith("compile failed") else verdicts[name].splitlines()[0]
+        except ValueError:
+            verdicts[name] = "COMPILE failed"
+        print(f"{name:20s} {verdicts[name]}", flush=True)
+    return verdicts
+
+
+def guarded_patch(dst: dict, target_dir: Path, out_dir: Path, names: list[str]) -> str:
+    """The passing candidates of a guard-checked target as one patch against
+    its tree, each in place of its assembly stub. The tree is not touched."""
+    import difflib
+    cfg = dst["check"]
+    old = {p: p.read_text() for p in sorted((target_dir / cfg["sources"]).rglob("*.c"))}
+    new = dict(old)
+    for name in names:
+        stub = cfg["stub"].format(name=name)
+        path = next((p for p, text in new.items() if stub in text), None)
+        if path:
+            new[path] = new[path].replace(stub, (out_dir / f"{name}.c").read_text().rstrip("\n"), 1)
+    out = []
+    for path in old:
+        if old[path] != new[path]:
+            rel = path.relative_to(target_dir).as_posix()
+            out += difflib.unified_diff(old[path].splitlines(True), new[path].splitlines(True), f"a/{rel}", f"b/{rel}")
+    return "".join(out)
+
+
 def run_check(dst: dict, target_dir: Path, out_dir: Path, names: list[str], jobs: int) -> dict[str, str]:
     """The target project's verdict on each named candidate, several at a time."""
+    if dst["check"].get("kind") == "guard":
+        return run_guarded(dst, target_dir, out_dir, names)
     chunks = [names[k::jobs] for k in range(jobs) if names[k::jobs]]
     running = []
     for k, chunk in enumerate(chunks):
@@ -641,7 +800,7 @@ def check(src: dict, dst: dict, target_dir: Path, out_dir: Path, only: set[str],
         verdicts.update(run_check(dst, target_dir, out_dir, todo, jobs))
         again = []
         for name in todo:
-            log = target_dir / dst["check"]["log"].format(name=name)
+            log = target_dir / dst["check"]["log"].format(name=name) if "log" in dst["check"] else out_dir / f"{name}.log"
             if not verdicts.get(name, "").startswith("COMPILE") or not log.is_file():
                 continue
             hints_path = out_dir / f"{name}.hints.json"
@@ -663,12 +822,36 @@ def check(src: dict, dst: dict, target_dir: Path, out_dir: Path, only: set[str],
         redone = generate(src, dst, out_dir, set(again))
         table.update(redone)
         todo = [n for n in again if redone.get(n, ("", "", ""))[2] == "candidate"]
+    # Where the target's rule for a declaration is not settled, the other reading gets a try
+    # ("alternatives" in its check); a candidate keeps the reading that passes.
+    for other in dst["check"].get("alternatives", []):
+        open_ones = [n for n, (_f, _s, result) in table.items() if result == "candidate" and not verdicts.get(n, "").startswith("EXACT")]
+        kept = {n: ((out_dir / f"{n}.c").read_text(), (out_dir / f"{n}.hints.json").read_text() if (out_dir / f"{n}.hints.json").is_file() else None)
+                for n in open_ones}
+        for n in open_ones:
+            hints = json.loads(kept[n][1]) if kept[n][1] else {"alias": [], "rename": []}
+            (out_dir / f"{n}.hints.json").write_text(json.dumps({**hints, **other}, indent=1) + "\n")
+        redone = generate(src, dst, out_dir, set(open_ones))
+        again = [n for n in open_ones if redone.get(n, ("", "", ""))[2] == "candidate"]
+        print(f"another reading {other}: checking {len(again)} candidates", flush=True)
+        tried = run_check(dst, target_dir, out_dir, again, jobs)
+        for n in open_ones:
+            if tried.get(n, "").startswith("EXACT"):
+                verdicts[n] = tried[n]
+            else:                               # no better: the first reading's candidate stands
+                (out_dir / f"{n}.c").write_text(kept[n][0])
+                if kept[n][1] is None:
+                    (out_dir / f"{n}.hints.json").unlink(missing_ok=True)
+                else:
+                    (out_dir / f"{n}.hints.json").write_text(kept[n][1])
     lines = ["name\tfrom_name\tsize\tresult"]
     for name, (from_name, size, result) in table.items():
         lines.append(f"{name}\t{from_name}\t{size}\t{verdicts.get(name, result) if result == 'candidate' else result}")
     (out_dir / "results.tsv").write_text("\n".join(lines) + "\n")
     exact = [n for n in table if verdicts.get(n, "").startswith("EXACT")]
     (out_dir / "MANIFEST.exact").write_text("".join(f"{n} {out_dir / (n + '.c')}\n" for n in exact))
+    if dst["check"].get("kind") == "guard":             # what passed, ready to hand to the target project
+        (out_dir / "exact.patch").write_text(guarded_patch(dst, target_dir, out_dir, exact))
     size = sum(int(table[n][1]) for n in exact)
     print(f"{len(exact)} of {len(table)} pass the target's check ({size:,} bytes): {out_dir / 'results.tsv'}")
 

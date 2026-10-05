@@ -1,13 +1,17 @@
 # rac1/pal functions that are never ported from another project: the movie player (Sony's ezmpeg
-# sample as built into the game, src/game/movie.c) and four libmpeg helpers. rac1/pal reverted them to
+# sample as built into the game, src/game/movie/) and four libmpeg helpers. rac1/pal reverted them to
 # assembly on 2026-09-30; they are redone from the assembly alone (docs/policy/SOURCING.md).
-# tools/port.py skips every name here (games/rac1/game.json, "never").
+# tools/port.py skips every name here, and every function under src/game/movie whatever this list
+# says (games/rac1/game.json, "never" and "never_sources").
 func_00129CA0
 func_00129E30
 func_00129F40
 func_0012C8B0
+func_0023B670
+func_0023B740
 func_0023BB40
 func_0023BB60
+func_0023BB90
 func_0023BE38
 func_0023BF48
 func_0023BF70
@@ -22,6 +26,7 @@ func_0023C2C0
 func_0023C2E8
 func_0023C390
 func_0023C5E0
+func_0023C910
 func_0023C960
 func_0023C9B0
 func_0023C9C0
@@ -30,7 +35,9 @@ func_0023CBE0
 func_0023CD10
 func_0023CD28
 func_0023CD30
+func_0023CD60
 func_0023CDA8
+func_0023CDF0
 func_0023CE18
 func_0023CE28
 func_0023CE30
@@ -44,6 +51,7 @@ func_0023D1F0
 func_0023D2E8
 func_0023D340
 func_0023D540
+func_0023D650
 func_0023D988
 func_0023D9E0
 func_0023DA30

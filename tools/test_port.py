@@ -125,6 +125,22 @@ class SliceTests(unittest.TestCase):
         self.assertEqual(port.object_parts(dict(item, clean=port.blank(text)), "D_00150010_a"), ("Pair", ""))
         array = {"clean": "extern s32 D_1[2] __attribute__((sda));"}
         self.assertEqual(port.object_parts(array, "D_1"), ("s32", "[2]"))
+        several = {"clean": "extern char *D_1, D_2[4], **D_3;"}
+        self.assertEqual([port.object_parts(several, n) for n in ("D_1", "D_2", "D_3")],
+                         [("char *", ""), ("char", "[4]"), ("char **", "")])
+        aggregate = {"clean": "extern struct { int a; } D_1, *D_2;"}
+        self.assertEqual(port.object_parts(aggregate, "D_2"), ("struct { int a; } *", ""))
+
+
+class NeverTests(unittest.TestCase):
+    def test_a_folder_excludes_its_own_functions_not_the_ones_it_calls(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "movie.c").write_text('extern int func_00118BC0(int);\n'
+                                              'INCLUDE_ASM("asm/nonmatchings/text", func_0023CD60); /* a note */\n'
+                                              'int func_0023B670(int x) { return func_00118BC0(x); }\n')
+            self.assertEqual(port.functions_under(Path(tmp)), {"func_0023CD60", "func_0023B670"})
 
 
 class ResolveTests(unittest.TestCase):
@@ -230,6 +246,39 @@ long func_00300800(void) {
         self.assertIn('extern Pair_00800 D_00150110_00800 __asm__("D_00150110");', text)
         self.assertIn('s32 func_00201400_00800(Pair_00800 *) __asm__("func_00201400");', text)
         self.assertIn("func_00201400_00800(&D_00150110_00800)", text)
+
+    def test_another_targets_own_rules(self):
+        # A target that declares everything under private names, marks small data with an attribute and names
+        # functions its own way (rac1/ntsc); the other reading of MACRO_ADDR comes from a hint.
+        theirs = dict(self.dst, alias="always", small_data="sda", names={"function": "FUN_{addr:08x}"},
+                      headers={"MACRO_ADDR": "sda.h"}, functions={"FUN_00300800"})
+        name, text = port.port(self.row, self.src, theirs, {})
+        self.assertEqual(name, "FUN_00300800")
+        self.assertTrue(text.startswith('#include "sda.h"\ntypedef struct { s32 a; } Pair;\n'))
+        for line in ('extern Pair D_00150110_00800 __asm__("D_00150110");',
+                     'extern s32 D_0015ED10_00800 __asm__("D_0015ED10") __attribute__((sda));',
+                     'extern u8 D_001700F0_00800 __asm__("D_001700F0");',
+                     'extern s32 D_00180400_00800 __asm__("D_00180400") MACRO_ADDR;',
+                     's32 FUN_00201400_00800(Pair *) __asm__("FUN_00201400");',
+                     "long FUN_00300800(void) {",
+                     "    return FUN_00201400_00800(&D_00150110_00800) + D_0015ED10_00800 + D_001700F0_00800 + D_00180400_00800;"):
+            self.assertIn(line, text)
+        _, other = port.port(self.row, self.src, theirs, {"macro_addr": "mixed"})
+        self.assertIn('extern s32 D_00180400_00800 __asm__("D_00180400");', other)
+        self.assertNotIn("sda.h", other)
+
+    def test_a_place_the_target_counts_as_a_copy(self):
+        theirs = dict(self.dst, functions={"FUN_L03_00300400"}, at={(3, 0x00300800): "FUN_L03_00300400"},
+                      programs={"level:03": None}, loaded={"level:03": self.dst["loaded"]["boot"]})
+        row = dict(self.row, to_program="level:03")
+        with self.assertRaises(port.Skip) as why:
+            port.port(row, self.src, theirs, {})
+        self.assertIn("copy of FUN_L03_00300400", str(why.exception))
+
+    def test_headers_that_do_not_travel(self):
+        self.src["refuse_headers"] = ["a.c"]
+        with self.assertRaises(port.Skip):
+            port.port(self.row, self.src, self.dst, {})
 
     def test_what_a_candidate_may_not_contain(self):
         port.preprocess = lambda path, include, defines: US_C.replace("return", '__asm__ __volatile__("sq $0,0($4)"); return')

@@ -106,7 +106,30 @@
         "never": [
           "shared/port/rac1-pal.never.txt",
           "shared/port/rac1-pal.undecided.txt"
-        ]
+        ],
+        "never_sources": [
+          "games/rac1/pal/src/game/movie"
+        ],
+        "sources": "games/rac1/pal/src",
+        "include": [
+          "games/rac1/pal/include"
+        ],
+        "defines": [],
+        "shared_headers": [
+          "common.h",
+          "include_asm.h",
+          "names.h"
+        ],
+        "refuse_headers": [
+          "structs.h"
+        ],
+        "phrases": [
+          [
+            "\\blong\\b",
+            "long long"
+          ]
+        ],
+        "credit": "Adapted from rac1-decomp (MIT), the PAL decompilation, by OpenRAC's tools/port.py: {file}, {name}."
       }
     },
     "ntsc": {
@@ -223,7 +246,31 @@
             "\\blong\\s+long\\b",
             "long"
           ]
-        ]
+        ],
+        "level_data_from": "0x15EF00",
+        "report": "progress/sources/rac1-ntsc.json",
+        "names": {
+          "function": "FUN_{addr:08x}"
+        },
+        "alias": "always",
+        "small_data": "sda",
+        "headers": {
+          "MACRO_ADDR": "sda.h",
+          "NOT_SDA": "sda.h",
+          "qcopy": "qcopy.h"
+        },
+        "check": {
+          "kind": "guard",
+          "sources": "src/overlays",
+          "stub": "INCLUDE_ASM(\"config/us/overlays/asm/{name}.s\", {name});",
+          "command": "bash host/run.sh python3 scripts/check-unit.py {name} --json",
+          "scratch": "build/port",
+          "alternatives": [
+            {
+              "macro_addr": "mixed"
+            }
+          ]
+        }
       }
     }
   }
