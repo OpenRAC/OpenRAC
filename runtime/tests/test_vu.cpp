@@ -90,21 +90,21 @@ void test_numbers() {
   Unit u;
   // There are no infinities: the largest number plus itself is the largest
   // number, with the overflow flag; a product too small to hold is zero,
-  // with underflow.
-  u.vu.vf[1] = {0x7F7FFFFFu, as_u32(1e-30f), as_u32(1.0f), 0x7F800000u};
-  u.vu.vf[2] = {0x7F7FFFFFu, as_u32(1e-30f), 0x33C00000u /* 3 * 2^-25 */, as_u32(1.0f)};
+  // with underflow; the largest exponent is an ordinary one.
+  u.vu.vf[1] = {0x7FFFFFFFu, as_u32(1e-30f), as_u32(1.0f), 0x7F800000u};
+  u.vu.vf[2] = {0x7FFFFFFFu, as_u32(1e-30f), 0x33C00000u /* 3 * 2^-25 */, as_u32(1.0f)};
   u.vu.vi[5] = 0xFFFF;
   Program p;
   p.hi(add(X, 3, 1, 2));
   p.hi(mul(Y, 3, 1, 2));
-  p.hi(add(Z, 3, 1, 2));   // rounds towards zero: 1 + 0.75 of a last place is 1
-  p.hi(mul(W, 3, 1, 2));   // an "infinity" read as a number is the largest number
+  p.hi(add(Z, 3, 1, 2));   // cut, not rounded: 1 + 0.75 of a last place is 1
+  p.hi(mul(W, 3, 1, 2));   // 2^128 times one is 2^128
   finish(p);
   u.run(p);
-  CHECK_EQ(u.vu.vf[3][0], 0x7F7FFFFFu);
+  CHECK_EQ(u.vu.vf[3][0], 0x7FFFFFFFu);
   CHECK_EQ(u.vu.vf[3][1], 0u);
   CHECK_EQ(u.vu.vf[3][2], 0x3F800000u);
-  CHECK_EQ(u.vu.vf[3][3], 0x7F7FFFFFu);
+  CHECK_EQ(u.vu.vf[3][3], 0x7F800000u);
   // The status register remembers overflow (bit 9) and underflow (bit 8).
   CHECK_EQ(u.vu.status & 0x300, 0x300u);
 }
@@ -243,7 +243,7 @@ void test_divider() {
   CHECK(u.vu.f(3, 0) == 0.25f);
   CHECK(u.vu.f(4, 0) == 3.0f);
   CHECK(u.vu.f(5, 0) == 0.5f);
-  CHECK_EQ(u.vu.vf[6][0], 0x7F7FFFFFu);
+  CHECK_EQ(u.vu.vf[6][0], 0x7FFFFFFFu);
   CHECK_EQ(u.vu.vi[7], 0x020u);
   CHECK_EQ(u.vu.status & 0x800, 0x800u);  // and it is remembered
 }

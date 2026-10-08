@@ -2,39 +2,18 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #include "vu.h"
 
-#include <cfenv>
 #include <cmath>
+
+#include "fp.h"
 
 namespace ps2 {
 namespace {
 
-constexpr u32 kSign = 0x80000000u, kMaxFloat = 0x7F7FFFFFu, kExponent = 0x7F800000u;
 constexpr u32 kXyz = 14, kAll = 15;
 
-// A number as the vector units read it: they have no infinities, NaNs or
-// denormals. The largest exponent is an ordinary large number and the
-// smallest is zero.
-inline float number(u32 raw) {
-  u32 exponent = raw & kExponent;
-  if (exponent == kExponent) {
-    raw = (raw & kSign) | kMaxFloat;
-  } else if (exponent == 0) {
-    raw &= kSign;
-  }
-  return as_float(raw);
-}
-
-// A product as the multiplier hands it to the adder: cut to single precision
-// and kept in range, before anything is added to it.
-inline double product(double a, double b) {
-  double m = a * b;
-  if (std::fabs(m) > 3.4028234663852886e38) {
-    return std::copysign(3.4028234663852886e38, m);
-  }
-  if (std::fabs(m) < 1.17549435e-38) {
-    return std::copysign(0.0, m);
-  }
-  return static_cast<double>(static_cast<float>(m));
+// The divider's two status bits: invalid (bit 4) and divide by zero (bit 5).
+inline u32 divide_flags(u32 problems) {
+  return ((problems & fp::kInvalid) ? 0x10u : 0u) | ((problems & fp::kDivideByZero) ? 0x20u : 0u);
 }
 
 inline s32 sign_extend(u32 v, unsigned width) {
@@ -84,16 +63,12 @@ u64 Vu::run(u32 address, u64 limit) {
 }
 
 u64 Vu::resume(u64 limit) {
-  // The units round towards zero.
-  int rounding = std::fegetround();
-  std::fesetround(FE_TOWARDZERO);
   running_ = true;
   u64 count = 0;
   while (running_ && count < limit) {
     step();
     count++;
   }
-  std::fesetround(rounding);
   return count;
 }
 
@@ -256,49 +231,40 @@ void Vu::start_p(double value, unsigned latency) {
   if (p_wait_) {
     p = p_next_;
   }
-  p_next_ = result(value, 0, unused);
+  p_next_ = fp::from_double(value, unused);
   p_wait_ = latency;
 }
 
-float Vu::operand(u32 code, From from, unsigned field) const {
+u32 Vu::operand(u32 code, From from, unsigned field) const {
   unsigned ft = (code >> 16) & 31;
   switch (from) {
     case From::Ft:
-      return number(vf[ft][field]);
+      return vf[ft][field];
     case From::Bc:
-      return number(vf[ft][code & 3]);
+      return vf[ft][code & 3];
     case From::Q:
-      return number(q);
+      return q;
     default:
-      return number(i);
+      return i;
   }
 }
 
-// Store a computed value: too large becomes the largest number, too small
-// becomes zero, and the field's four MAC flags (zero, sign, underflow,
-// overflow) are noted. The value comes in at double precision, which holds
-// the exact product of two numbers and enough of a sum that cutting it down
-// here gives what cutting the exact result would.
-u32 Vu::result(double value, unsigned field, u32& flags) const {
+// Note a computed field's four MAC flags: zero, sign, underflow, overflow.
+u32 Vu::result(u32 value, u32 problems, unsigned field, u32& flags) const {
   unsigned shift = 3 - field;
-  u32 sign = std::signbit(value) ? kSign : 0;
-  if (sign) {
+  if (value & fp::kSign) {
     flags |= 0x0010u << shift;
   }
-  double size = std::fabs(value);
-  if (size == 0.0) {
+  if (fp::is_zero(value)) {
     flags |= 0x0001u << shift;
-    return sign;
   }
-  if (size < 1.17549435e-38) {
-    flags |= 0x0101u << shift;
-    return sign;
+  if (problems & fp::kUnderflow) {
+    flags |= 0x0100u << shift;
   }
-  if (size > 3.4028234663852886e38 || std::isnan(value)) {
+  if (problems & fp::kOverflow) {
     flags |= 0x1000u << shift;
-    return sign | kMaxFloat;
   }
-  return as_u32(static_cast<float>(value));
+  return value;
 }
 
 void Vu::post() {
@@ -326,26 +292,26 @@ void Vu::arith(u32 code, Op op, From from, bool to_acc) {
     if (!has(dest, field)) {
       continue;
     }
-    double a = number(vf[fs][field]), b = operand(code, from, field);
-    double value;
+    u32 a = vf[fs][field], b = operand(code, from, field);
+    u32 problems = 0, value;
     switch (op) {
       case Op::Add:
-        value = a + b;
+        value = fp::add(a, b, problems);
         break;
       case Op::Sub:
-        value = a - b;
+        value = fp::sub(a, b, problems);
         break;
       case Op::Mul:
-        value = a * b;
+        value = fp::mul(a, b, problems);
         break;
       case Op::Madd:
-        value = static_cast<double>(number(acc[field])) + product(a, b);
+        value = fp::add(acc[field], fp::mul(a, b, problems), problems);
         break;
       default:
-        value = static_cast<double>(number(acc[field])) - product(a, b);
+        value = fp::sub(acc[field], fp::mul(a, b, problems), problems);
         break;
     }
-    out[field] = result(value, field, flags);
+    out[field] = result(value, problems, field, flags);
   }
   if (to_acc) {
     acc = out;
@@ -361,8 +327,8 @@ void Vu::min_max(u32 code, From from, bool max) {
   std::array<u32, 4> out = vf[fd];
   for (unsigned field = 0; field < 4; field++) {
     if (has(dest, field)) {
-      float a = number(vf[fs][field]), b = operand(code, from, field);
-      out[field] = as_u32(max ? (a > b ? a : b) : (a < b ? a : b));
+      u32 a = vf[fs][field], b = operand(code, from, field);
+      out[field] = max ? fp::max(a, b) : fp::min(a, b);
     }
   }
   write_vf(fd, kAll, out);
@@ -404,7 +370,9 @@ void Vu::upper(u32 code) {
       u32 flags = 0;
       for (unsigned field = 0; field < 3; field++) {
         unsigned a = (field + 1) % 3, b = (field + 2) % 3;
-        out[field] = result(static_cast<double>(number(acc[field])) - product(number(vf[fs][a]), number(vf[ft][b])), field, flags);
+        u32 problems = 0;
+        u32 value = fp::sub(acc[field], fp::mul(vf[fs][a], vf[ft][b], problems), problems);
+        out[field] = result(value, problems, field, flags);
       }
       write_vf(fd, kXyz, out);
       post_flags(flags);
@@ -428,26 +396,19 @@ void Vu::upper_special(u32 code) {
     case 0x08: case 0x09: case 0x0A: case 0x0B: arith(code, Op::Madd, From::Bc, true); break;
     case 0x0C: case 0x0D: case 0x0E: case 0x0F: arith(code, Op::Msub, From::Bc, true); break;
     case 0x10: case 0x11: case 0x12: case 0x13: {  // ITOF0, 4, 12, 15
-      static constexpr float scale[4] = {1.0f, 1.0f / 16.0f, 1.0f / 4096.0f, 1.0f / 32768.0f};
+      static constexpr s32 shift[4] = {0, 4, 12, 15};
       std::array<u32, 4> out{};
       for (unsigned field = 0; field < 4; field++) {
-        out[field] = as_u32(static_cast<float>(static_cast<s32>(vf[fs][field])) * scale[fn & 3]);
+        out[field] = fp::from_int(static_cast<s32>(vf[fs][field]), shift[fn & 3]);
       }
       write_vf(ft, dest, out);
       break;
     }
     case 0x14: case 0x15: case 0x16: case 0x17: {  // FTOI0, 4, 12, 15
-      static constexpr float scale[4] = {1.0f, 16.0f, 4096.0f, 32768.0f};
+      static constexpr s32 shift[4] = {0, 4, 12, 15};
       std::array<u32, 4> out{};
       for (unsigned field = 0; field < 4; field++) {
-        float v = number(vf[fs][field]) * scale[fn & 3];
-        if (v >= 2147483648.0f) {
-          out[field] = 0x7FFFFFFFu;
-        } else if (v <= -2147483648.0f) {
-          out[field] = 0x80000000u;
-        } else {
-          out[field] = static_cast<u32>(static_cast<s32>(v));
-        }
+        out[field] = static_cast<u32>(fp::to_int(vf[fs][field], shift[fn & 3]));
       }
       write_vf(ft, dest, out);
       break;
@@ -457,17 +418,17 @@ void Vu::upper_special(u32 code) {
     case 0x1D: {  // ABS
       std::array<u32, 4> out{};
       for (unsigned field = 0; field < 4; field++) {
-        out[field] = vf[fs][field] & ~kSign;
+        out[field] = vf[fs][field] & ~fp::kSign;
       }
       write_vf(ft, dest, out);
       break;
     }
     case 0x1E: arith(code, Op::Mul, From::I, true); break;
     case 0x1F: {  // CLIP: x, y and z of fs against plus and minus |w| of ft
-      float w = std::fabs(number(vf[ft][3]));
+      s64 w = fp::key(vf[ft][3] & ~fp::kSign);
       u32 now = 0;
       for (unsigned field = 0; field < 3; field++) {
-        float v = number(vf[fs][field]);
+        s64 v = fp::key(vf[fs][field]);
         if (v > w) now |= 1u << (field * 2);
         if (v < -w) now |= 2u << (field * 2);
       }
@@ -493,7 +454,9 @@ void Vu::upper_special(u32 code) {
       std::array<u32, 4> out = acc;
       for (unsigned field = 0; field < 3; field++) {
         unsigned a = (field + 1) % 3, b = (field + 2) % 3;
-        out[field] = result(static_cast<double>(number(vf[fs][a])) * number(vf[ft][b]), field, flags);
+        u32 problems = 0;
+        u32 value = fp::mul(vf[fs][a], vf[ft][b], problems);
+        out[field] = result(value, problems, field, flags);
       }
       acc = out;
       post_flags(flags);
@@ -693,8 +656,8 @@ void Vu::lower_special(u32 code) {
     u32 x = (r >> 4) & 1, y = (r >> 22) & 1;
     r = (((r << 1) ^ x ^ y) & 0x7FFFFF) | 0x3F800000;
   };
-  double x = number(vf[is][0]), y = number(vf[is][1]), z = number(vf[is][2]);
-  double one = number(vf[is][fsf]);
+  double x = fp::to_double(vf[is][0]), y = fp::to_double(vf[is][1]), z = fp::to_double(vf[is][2]);
+  double one = fp::to_double(vf[is][fsf]);
 
   switch ((((code >> 6) & 0x1F) << 2) | (code & 3)) {
     case 0x30:  // MOVE
@@ -728,30 +691,21 @@ void Vu::lower_special(u32 code) {
       break;
     }
     case 0x38: {  // DIV
-      double num = one, den = number(vf[it][ftf]);
-      u32 unused = 0;
-      if (den == 0.0f) {
-        u32 sign = (vf[is][fsf] ^ vf[it][ftf]) & kSign;
-        start_q(sign | kMaxFloat, kDiv, num == 0.0f ? 0x10 : 0x20);
-      } else {
-        start_q(result(static_cast<double>(num) / den, 0, unused), kDiv, 0);
-      }
+      u32 problems = 0;
+      u32 value = fp::div(vf[is][fsf], vf[it][ftf], problems);
+      start_q(value, kDiv, divide_flags(problems));
       break;
     }
     case 0x39: {  // SQRT
-      float v = number(vf[it][ftf]);
-      u32 unused = 0;
-      start_q(result(std::sqrt(std::fabs(static_cast<double>(v))), 0, unused), kSqrt, v < 0.0f ? 0x10 : 0);
+      u32 problems = 0;
+      u32 value = fp::sqrt(vf[it][ftf], problems);
+      start_q(value, kSqrt, divide_flags(problems));
       break;
     }
     case 0x3A: {  // RSQRT
-      double num = one, den = number(vf[it][ftf]);
-      u32 unused = 0;
-      if (den == 0.0f) {
-        start_q((vf[is][fsf] & kSign) | kMaxFloat, kRsqrt, num == 0.0f ? 0x10 : 0x20);
-      } else {
-        start_q(result(static_cast<double>(num) / std::sqrt(std::fabs(static_cast<double>(den))), 0, unused), kRsqrt, den < 0.0f ? 0x10 : 0);
-      }
+      u32 problems = 0;
+      u32 value = fp::rsqrt(vf[is][fsf], vf[it][ftf], problems);
+      start_q(value, kRsqrt, divide_flags(problems));
       break;
     }
     case 0x3B:  // WAITQ
@@ -811,7 +765,7 @@ void Vu::lower_special(u32 code) {
     case 0x73: start_p(1.0f / std::sqrt(x * x + y * y + z * z), 24); break;  // ERLENG
     case 0x74: start_p(std::atan2(y, x), 54); break;                         // EATANxy
     case 0x75: start_p(std::atan2(z, x), 54); break;                         // EATANxz
-    case 0x76: start_p(x + y + z + number(vf[is][3]), 12); break;            // ESUM
+    case 0x76: start_p(x + y + z + fp::to_double(vf[is][3]), 12); break;     // ESUM
     case 0x78: start_p(std::sqrt(std::fabs(one)), 12); break;                // ESQRT
     case 0x79: start_p(1.0f / std::sqrt(std::fabs(one)), 18); break;         // ERSQRT
     case 0x7A: start_p(1.0f / one, 12); break;                               // ERCPR

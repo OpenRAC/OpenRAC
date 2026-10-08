@@ -15,7 +15,8 @@ namespace ps2 {
 // same state, flags appear four instructions after the one that set them,
 // Q and P arrive when their dividers and function units finish, a branch
 // tests the value an integer register had before the instruction just ahead
-// of it, and XGKICK sends its packet one instruction late.
+// of it, and XGKICK sends its packet one instruction late. Arithmetic is the
+// console's own (fp.h), on raw bit patterns.
 class Vu {
  public:
   struct Memory {
@@ -72,8 +73,8 @@ class Vu {
 
   void arith(u32 code, Op op, From from, bool to_acc);
   void min_max(u32 code, From from, bool max);
-  float operand(u32 code, From from, unsigned field) const;
-  u32 result(double value, unsigned field, u32& flags) const;
+  u32 operand(u32 code, From from, unsigned field) const;
+  u32 result(u32 value, u32 problems, unsigned field, u32& flags) const;
   void post_flags(u32 mac_bits);
   void post();
   void finish_q();
