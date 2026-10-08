@@ -153,12 +153,12 @@ with `python3` run on the host.
 
 | Step | Command |
 |---|---|
-| Set up | `python tools/setup_asm.py`, then `& "C:\tools\eegcc_2.95.3_sn_v1.36\bin\make.exe"`; on Linux and macOS, `python3 tools/setup_asm.py`, then `python3 tools/build.py --toolchain <dir> --runner <wibo>` |
+| Set up | `python tools/setup_asm.py --target all`, then `& "C:\tools\eegcc_2.95.3_sn_v1.36\bin\make.exe"`; on Linux and macOS, `python3 tools/setup_asm.py --target all`, then `python3 tools/build.py --target all --toolchain <dir> --runner <wibo>` with `UYA_EE29` set |
 | List | `python tools/triage.py --tsv remaining.tsv` (pick from `plain`, smallest first) |
 | Try | `python tools/try_func.py scratch/func_0039BEC0.c` (`--all-modes` tries every address mode and assembler), or `python localdecomp/server.py --project . --no-git-sync` |
 | In context | `python tools/try_in_context.py scratch/func_003AED08.c` |
 | Land | Replace the `INCLUDE_ASM` line with the block inside `localdecomp:start`/`end` markers, then `python tools/split_text.py --refresh` |
-| Prove | `python tools/pr_check.py` (prints `OK`), then the full build (prints `MATCH`) |
+| Prove | `python tools/pr_check.py --target all` (prints `OK`), then the full build (prints `MATCH` per target) |
 | Progress | CI on the maintainer's runner after merge; `make.exe objdiff` or localdecomp's Full check reproduce its numbers |
 
 ## 4. Per game
@@ -185,6 +185,18 @@ with `python3` run on the host.
   register pins, empty-asm barriers, inline asm, `while (0)`, expression
   aliases and a `#define` in a candidate. Write a level address as the symbol
   the assembly names, never as a number.
+- **Build fidelity** ([BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md)). No build step may change what the compiler
+  emitted, and options apply to whole files (`config/file_cflags.txt`); a
+  function that needs an option its neighbours do not goes in a file of its
+  own. A function that only matches through a new build step or a flag of
+  its own is a near miss, not a match. `tools/check_build_fidelity.py` runs
+  in `gen_progress_report.py --check`, so CI enforces it.
+- **What counts as finished without C.** Handwritten functions and linker
+  remnants are retail assembly, counted as finished
+  ([ASM_CLASSIFICATION.md](../../games/rac1/pal/docs/ASM_CLASSIFICATION.md)); a
+  run of remnants qualifies under one rule (`tools/overlay_remnants.py`). A
+  level function the catalogue cut into pieces is written whole and listed in
+  `config/overlays/joined.tsv`.
 - **Near misses** ([NONMATCHING.md](../../games/rac1/pal/docs/NONMATCHING.md)).
   The best attempt at each level function is kept as
   `nonmatching/<dir>/<func>.c`, with its verdict and the last notes in a
@@ -260,20 +272,35 @@ The checks and gates below are unchanged.
   matching for every program touched, no retail-derived files, pinned
   identities untouched or regenerated together, and provenance. One function
   or one coherent family per pull request.
+- **Shared families** (since 2026-10-06). Copies of one function across boot
+  and the overlays are discovered by measured intervals, bound to one reviewed
+  C body per program, and accepted only by the exact checks; discovery itself
+  earns no credit ([NORMALIZED-FAMILY-WORKFLOW.md](../../games/rac2/ntsc/docs/NORMALIZED-FAMILY-WORKFLOW.md),
+  [GLOBAL-CODE-REUSE.md](../../games/rac2/ntsc/docs/GLOBAL-CODE-REUSE.md)). Recorded trials are
+  reviewed and a batch finalised through guarded, immutable steps
+  ([CAMPAIGN-TOOLS.md](../../games/rac2/ntsc/docs/CAMPAIGN-TOOLS.md)); the tools take NTSC or PAL
+  ([REGIONS.md](../../games/rac2/ntsc/docs/REGIONS.md)).
 
-### rac3: Up Your Arsenal NTSC-U (from ratchet-uya-decomp)
+### rac3: Up Your Arsenal NTSC-U (from rac3-uya-decomp)
 
-- **Setup** ([docs/wiki/Setup.md](../../games/rac3/ntsc/docs/wiki/Setup.md)).
-  It needs exactly SN ee-gcc 2.95.3 v1.36 and your own `frontbin.elf` (SHA-1
-  `3bc94ee895e4b4af9b5602a229af599c1103b542`), extracted with Wrench.
+- **Setup** ([docs/wiki/Setup.md](../../games/rac3/ntsc/docs/wiki/Setup.md),
+  [targets.md](../../games/rac3/ntsc/docs/targets.md)). It builds three
+  programs from your own disc: `frontbin.elf` (extracted with Wrench),
+  `boot_elf.elf` (the main executable) and `i5bootn.elf` (the launcher). It
+  needs exactly SN ee-gcc 2.95.3 v1.36, and for the library ranges marked
+  `@ee29` also Sony's 2.9-ee-991111 (`UYA_EE29`, the SDK 2.4 mirror's
+  `ee/gcc` folder). Tools take `--target frontbin|boot_elf|i5bootn|all`.
 - **Loop** ([Workflow.md](../../games/rac3/ntsc/docs/wiki/Workflow.md),
   [Tools.md](../../games/rac3/ntsc/docs/wiki/Tools.md)). A score of 0 or a
   `MATCH` from `try_func.py` is necessary, not sufficient. localdecomp's Save
   writes into the source file, so save only at score 0.
 - **Flags.** [tools/text_parts.txt](../../games/rac3/ntsc/tools/text_parts.txt)
   sets flags per address range. A function that needs other flags gets a
-  two-line single-function override, and `@ps2as` selects SN's assembler
-  ([Toolchain-and-Build.md](../../games/rac3/ntsc/docs/wiki/Toolchain-and-Build.md)).
+  two-line single-function override, a whole source file can take a flag
+  (`3958F0.c` takes `-fno-force-mem`), `@ps2as` selects SN's assembler and
+  `@ee29` Sony's library compiler
+  ([Toolchain-and-Build.md](../../games/rac3/ntsc/docs/wiki/Toolchain-and-Build.md),
+  [ee29.py](../../games/rac3/ntsc/tools/ee29.py)).
 - **Not C.** `ASM_FUNC(...)` (handwritten) and `LINKER_REMNANT(...)` entries
   count as finished; report `odd` entries instead of writing C for them.
   Trailing padding is part of the layout
@@ -321,10 +348,15 @@ smaller version of the same tooling ([CONTRIBUTING.md](../../games/rac4/ntsc/CON
 
 **rac1/pal's agent waves** ([AGENT_WORKFLOW.md](../../games/rac1/pal/docs/AGENT_WORKFLOW.md)).
 A lead model plans waves, launches workers, reviews their matches and lands
-them; it matches nothing itself. Queue workers (Sonnet) follow
-[QUEUE.md](../../games/rac1/pal/docs/QUEUE.md), and long-function workers (Opus)
-follow [LONG_FUNCTIONS.md](../../games/rac1/pal/docs/LONG_FUNCTIONS.md). The
-subagent type is
+them; it matches nothing itself. Work flows up the tiers measured on
+2026-10-07 ([AGENT_WORKFLOW.md](../../games/rac1/pal/docs/AGENT_WORKFLOW.md), "Model tiers"): tools that need no model first
+(`tools/port.py`, `overlay_variants.py`), then a swarm of small, cheap workers
+(Haiku) on level functions of about 400 bytes and under, then Opus on their
+near misses and on functions over 1 KB
+([LONG_FUNCTIONS.md](../../games/rac1/pal/docs/LONG_FUNCTIONS.md)), each tier
+starting from the notes and best candidate of the one below. Sonnet is used
+only for library code with an answer key. Queue workers follow
+[QUEUE.md](../../games/rac1/pal/docs/QUEUE.md); the subagent type is
 [.claude/agents/match-worker.md](../../games/rac1/pal/.claude/agents/match-worker.md).
 
 ```
@@ -340,8 +372,9 @@ bash tools/docker/run.sh python tools/overlay_variants.py clone   # variants, no
   `runs.log`, not a worker's final message.
 - At review, the lead rejects reads of unassigned locals, register pins,
   inline asm, barriers, `volatile` added to force an order, and anything that
-  looks taken from Sony SDK source. The measured cost per match, by model and
-  pool, is why the waves use Sonnet and no Haiku tier.
+  looks taken from Sony SDK source, and any new build step or per-function
+  flag (the build-fidelity rules above). The measured cost per match, by
+  model and pool, is what sets the tiers.
 
 **Several agents in one checkout.** rac1/pal's `tools/claims.py` lets agents
 and people share a working tree
