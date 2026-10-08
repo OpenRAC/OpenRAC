@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L13_002EB978 -- src/overlays/l13_gemlik/vendor_002C2638.c
- * Best so far: BYTES 63/372 (83.1% of the bytes match), checked 2026-10-03.
+ * Best so far: BYTES 63/372 (83.1% of the bytes match), checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -10,7 +10,6 @@
 #include "common.h"
 extern int func_001160D8(void);
 extern void func_L00_00250800(void *, int, void *);
-extern void func_L13_002EB838(void *, void *, void *, float);
 extern int func_001F9850(int);
 extern int func_L13_002C2638(void *, void *, int, void *, int, float, float);
 extern char D_0013E633[];

@@ -452,7 +452,188 @@ void func_L00_002E2038(VendMoby *moby) {
     }
     func_L00_002E2F58((char *)moby);
 }
-INCLUDE_ASM("asm/overlays", func_L00_002E2B28);
+extern int func_L00_00258BC8(int, int);
+extern int func_001F9938(void *);
+extern char *func_L00_0025B478(void *, int, int);
+extern int func_L00_0025B4D0(void *, void *, void *, int, int *, float *, int, int);
+extern void func_L00_0025BBA0(void *, float *, void *, void *);
+extern void func_L00_0025D5B0(void *, void *, float, int, int, int);
+extern void func_L00_0025E4B0(void *m, short *p);
+extern void func_L00_002584A8(void *, int, int);
+extern void func_L00_0025E590(void *, void *);
+extern int func_L00_00260FB0(float, char *, void *, int, int, void *, int);
+extern int func_L00_00260D30(void *, float, void *);
+extern float D_L00_00161CA0 SDATA(D_L00_00161CA0);
+extern float D_L00_00161CA4 SDATA(D_L00_00161CA4);
+extern float D_L00_00161CA8 SDATA(D_L00_00161CA8);
+extern float D_L00_00161CAC SDATA(D_L00_00161CAC);
+extern float D_L00_00161CB0 SDATA(D_L00_00161CB0);
+
+typedef unsigned int U128A __attribute__((mode(TI), aligned(16)));
+typedef union {
+    U128A q;
+    f32 f[4];
+} TrollVec;
+
+typedef struct TrollMoby {
+    u8 pad0[0x10];
+    TrollVec pos;
+    u8 state;
+    u8 pad21[0x13];
+    u16 flags;
+    u8 pad36[0x42];
+    struct TrollVars *vars;
+    u8 pad7C[0x18];
+    s32 unk94;
+    u8 pad98[0xC];
+    u8 unkA4;
+} TrollMoby;
+
+typedef struct TrollVars {
+    u8 pad0[0x20];
+    f32 health;
+    u8 pad24[2];
+    s16 unk26;
+    u8 pad28[0x10];
+    s32 unk38;
+    u8 pad3C[0x24];
+    u8 unk60[7];
+    u8 unk67;
+    u8 pad68[8];
+    u8 unk70[0x10];
+    f32 unk80;
+    f32 unk84;
+    f32 unk88;
+    f32 unk8C;
+    s32 unk90;
+    s32 unk94;
+    f32 unk98;
+    u8 pad9C[0x11];
+    u8 unkAD;
+    u8 padAE[0xE];
+    f32 unkBC;
+    f32 unkC0;
+    f32 unkC4;
+    u8 padC8[8];
+    TrollVec target;
+    u8 padE0[0x30];
+    TrollMoby *targetMoby;
+    s32 unk114;
+    u8 pad118[0x9C];
+    s32 unk1B4;
+    u8 pad1B8[4];
+    s32 unk1BC;
+    u8 pad1C0[0x1A];
+    s16 unk1DA;
+} TrollVars;
+
+typedef struct {
+    u8 pad0[0x10];
+    TrollVec pos;
+} TrollColl;
+
+/* Update for the troll moby: takes hits, picks and tracks its target. Adapted from Lombyte (MIT) for PAL: src/overlays/l00/gameplay_vendor_002e0988.c, FUN_L00_002e1678. */
+void func_L00_002E2B28(void *mv) {
+    TrollMoby *m = mv;
+    TrollVars *vars;
+    void *anim;
+    TrollColl *coll;
+    VendPath *path;
+    TrollMoby *t;
+    TrollVec v;
+    u8 *g;
+    s32 hit;
+    f32 dmg;
+    f32 angle;
+    f32 unused;
+    f32 range;
+    u8 *pp;
+
+    vars = m->vars;
+    if (m->state == 0) {
+        return;
+    }
+    if (vars->unk38 != 0) {
+        vars->unk38 = 0;
+        vars->unk1DA = func_001F9850(func_L00_00258BC8(0xB4, 0x12C));
+    }
+    func_001F9938(&vars->unk1DA);
+    anim = vars->unk60;
+    dmg = 0.0f;
+    coll = (TrollColl *)func_L00_0025B478(m, 0x330000, 0);
+    func_L00_0025B4D0(m, coll, &vars->health, 0, &hit, &dmg, 0, 4);
+    if (hit != 1 && m->state != 8 && dmg != 0.0f) {
+        vars->health -= dmg;
+        vars->unk90 = 0x200;
+        vars->unk80 = D_L00_00161CA4 * D_0015EE70;
+        vars->unk84 = D_L00_00161CA8 * D_0015EE70;
+        vars->unk88 = D_L00_00161CAC * D_0015EE6C;
+        vars->unk8C = D_L00_00161CB0 * D_0015EE6C;
+        vars->unkAD = 0;
+        vars->unk94 = 9;
+        vars->unkBC = D_0015EE6C + D_0015EE6C;
+        vars->unk98 = 0.5f;
+        if (vars->health <= 0.0f) {
+            vars->unk94 = 0x29;
+            m->flags &= ~0x1000;
+            v.q = coll->pos.q;
+            func_L00_0025BBA0(&v, &angle, &vars->unk88, &vars->unk8C);
+            func_L00_0025D5B0(m, vars->unk70, angle, 0xB, 1, 0);
+            vars->unkC0 = 7.0f;
+            vars->unkC4 = 16.0f;
+            m->state = 8;
+            m->unk94 = 0;
+            vars->unk67 = 0x78;
+            func_L00_0025E4B0(m, anim);
+            func_L00_002584A8(m, 0, -1);
+        } else {
+            pp = vars->unk70;
+            vars->unk88 = D_L00_00161CAC * D_0015EE6C * 0.35f;
+            vars->unk8C = D_L00_00161CB0 * D_0015EE6C * 0.5f;
+            v.q = coll->pos.q;
+            func_L00_0025BBA0(&v, &unused, &vars->unk88, &vars->unk8C);
+            func_L00_0025D5B0(m, pp, func_L00_001FF860(coll->pos.f[0], coll->pos.f[1]), 8, 1, 0);
+            vars->unkC4 = vars->unkC0 = -1.0f;
+            m->state = 7;
+            vars->unk67 = 0xFA;
+            vars->unk26 = func_001F9850(0x3C);
+            func_L00_0025E4B0(m, anim);
+        }
+        func_L00_002E34F0(m);
+    }
+    m->unkA4 = 0xFF;
+    func_L00_0025E590(m, anim);
+    if (m->state == 1) {
+        path = D_L00_001B0830[vars->unk1B4];
+        func_L00_00260FB0(64.0f, (char *)m, &vars->target, 0, 0, path->pts, path->count);
+    } else if (m->state != 5) {
+        range = D_L00_00161CA0;
+        if (vars->unk1DA != 0) {
+            range = 37.0f;
+        }
+        if (func_L00_00260D30(m, range, &vars->target) != 2 && range < func_001F9D48(&m->pos, &vars->target)) {
+            vars->unk114 = 2;
+        }
+    }
+    if (vars->targetMoby == 0) {
+        g = D_0013E633 + 0xE1D;
+        vars->targetMoby = *(TrollMoby **)(g + 0x2080);
+        qcopy(&vars->target, g + 0x80);
+    }
+    if (vars->unk1BC >= 0) {
+        t = (TrollMoby *)(D_L00_00160098 + (vars->unk1BC << 8));
+        if (t == 0 || t->state == 0xFE || t->state == 0xFD) {
+            vars->unk1BC = -1;
+        } else {
+            range = func_001F9D48(&m->pos, &t->pos);
+            if (range < func_001F9D48(&m->pos, &vars->targetMoby->pos)) {
+                vars->targetMoby = t;
+                qcopy(&vars->target, &t->pos);
+                vars->unk114 = 1;
+            }
+        }
+    }
+}
 extern void func_L00_00250800(void *, int, void *);
 extern void func_002141A8(void *, float, float);
 extern char *func_L00_002757E8(void *, void *, int, void *);

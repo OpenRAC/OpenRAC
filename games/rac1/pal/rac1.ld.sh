@@ -44,12 +44,10 @@ cat >> build-sn/rac1.ld <<'EOF'
   func_0011DFE8 = __divdi3;
   func_0011E6D8 = __fixunsdfdi;
   func_0011E7C8 = __floatdidf;
+  func_0011E860 = __moddi3;
   func_0011EEC8 = __muldi3;
-  /* Modules still built from retail's assembly define only the address
-     name; compiled C calls them by their real one. */
-  __moddi3 = func_0011E860;
-  __udivdi3 = func_0011EF28;
-  __umoddi3 = func_0011F4F8;
+  func_0011EF28 = __udivdi3;
+  func_0011F4F8 = __umoddi3;
   /* The compiler clears large aggregate initializers with a memset
      libcall (func_00222B98); newlib's memset lives at this address. */
   memset = func_001153FC;

@@ -2,10 +2,25 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L00_001EB430);
-INCLUDE_ASM("asm/overlays", func_L00_001EB438);
-// Clears the word at offset 0xC of its argument.
-void func_L00_001EB440(int *a) {
+/* Clears the five words of A. The catalogue cuts this function in three (config/overlays/joined.tsv). */
+void func_L00_001EB430(int *a) {
+    a[0] = 0;
+    a[1] = 0;
+    a[2] = 0;
     a[3] = 0;
+    a[4] = 0;
 }
-INCLUDE_ASM("asm/overlays", func_L00_001EB448);
+INCLUDE_ASM("asm/overlays", func_L00_001EB438);
+INCLUDE_ASM("asm/overlays", func_L00_001EB440);
+extern float func_001FA748(float, float);
+
+/* Copies a 5-float record, the first element replaced by func_001FA748(src[0], x).
+ * Adapted from Lombyte (MIT), FUN_L00_001eb0c8. The catalogue splits the delay slot of the final
+ * jr off as func_001EC030, so this function is joined to it (config/overlays/joined.tsv). */
+void func_L00_001EB448(float *d, float *s, float x) {
+    d[0] = func_001FA748(s[0], x);
+    d[1] = s[1];
+    d[2] = s[2];
+    d[3] = s[3];
+    d[4] = s[4];
+}

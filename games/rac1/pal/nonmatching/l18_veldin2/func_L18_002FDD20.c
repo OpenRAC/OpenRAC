@@ -1,12 +1,10 @@
 /* NON_MATCHING func_L18_002FDD20 -- src/overlays/l18_veldin2/vendor_002F9D48.c
- * Best so far: BYTES 16/564 (97.2% of the bytes match), checked 2026-10-03.
+ * Best so far: BYTES 8/564 (98.6% of the bytes match), checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
- *   # Round 1
- *   Draws a 4-vertex textured quad in the moby's frame (sibling of func_L18_002F3A80): builds a basis from the mob
- *   Mattered: D_L18_00167840 as `extern int` (lui/addiu, not gp); pointer locals p90/pB0 assigned after the vC0 qc
- *   Remaining (p9, 16 bytes): loop induction-variable init/increment order only (retail s0=m initialised before s2
+ *   Builds a camera-facing 4-vertex textured quad draw packet (GIF words as longs, dsll) and calls func_L00_001FD1
+ *   x01 round (p5-p10, budget spent): p10.c is 8 bytes of difference, same size 564, only two prologue instruction
  */
 #include "common.h"
 extern void func_001F9BC0(void *);
@@ -29,7 +27,8 @@ extern short D_L18_001626D8;
 extern short D_L18_001626DC;
 extern short D_L18_001626E0;
 
-void func_L18_002FDD20(char *moby) {
+void func_L18_002FDD20_x(char *moby) __asm__("func_L18_002FDD20");
+void func_L18_002FDD20_x(char *moby) {
     float m[4][4];
     int colors[4];
     float uv[4][2];
@@ -44,6 +43,7 @@ void func_L18_002FDD20(char *moby) {
     float *pB0;
     float f20 = *(float *)(data + 0x1F4);
     int col;
+    float *mp;
     int i;
 
     moby += 0x10;
@@ -68,8 +68,8 @@ void func_L18_002FDD20(char *moby) {
     pkt[2] = 0xFF9000000260;
     pkt[0] = 0;
     col = func_001FA8A8(*(int *)&D_L18_001626CC, *(int *)&D_L18_001626D0, *(float *)(data + 0x1F4));
-    for (i = 0; i < 4; i++) {
-        float *mp = m[i];
+    mp = m[0];
+    for (i = 0; i < 4; mp += 4, i++) {
         uv[i][0] = D_L18_001EFF90[i][0];
         uv[i][1] = D_L18_001EFF90[i][1];
         func_001F9BC0(mp);

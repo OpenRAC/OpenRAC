@@ -178,4 +178,4 @@ int func_0011D078(int arg0, int arg1, int arg2) {
     return func_0011CE70(arg0, arg1, arg2, buf);
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_0011D098);
+LINKER_REMNANT("asm/remnants/core_text", func_0011D098);

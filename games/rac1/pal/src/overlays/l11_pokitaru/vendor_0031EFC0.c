@@ -75,5 +75,56 @@ void func_L11_0031FBF0(int a) {
         func_L00_001FDE48(D_L11_002009E8[i], D_L11_00207B20[i], D_L11_00207B98[i], D_L11_00217A30, 1);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L11_0031FDA0);
+extern int func_00215570(void *arg0, int arg1);
+extern void func_L11_0031FB18(int arg);
+extern void func_L11_0031FBF0(int);
+extern void func_L11_0031FCC8(int);
+extern char D_L11_00167700[];
+extern int D_L11_001626A0_w __asm__("D_L11_001626A0") MACRO_ADDR;
+extern int D_L11_0016265C MACRO_ADDR;
+extern int D_L11_0016267C MACRO_ADDR;
+extern short D_L11_00162658;
+extern short D_L11_00162678;
+extern short D_L11_00162688;
+
+// Draws the level 11 HUD gauges: sets up the gfx packets and per-gauge draws.
+void func_L11_0031FDA0(char *m) {
+    int *d = *(int **)(m + 0x78);
+    int flag = 0;
+    char *cam;
+    func_00234C98(0x42, 0x8000000044L);
+    func_00234C98(8, 0);
+    func_00234C98(0x14, 0xFF9000000260L);
+    func_00234C98(0x47, 0x513F1L);
+    func_001F7868();
+    cam = D_L11_00167700;
+    if (*(float *)(cam + 0x148) > 255.0f
+        || func_00215570(cam + 0x140, d[0])
+        || func_00215570(cam + 0x140, d[1])
+        || func_00215570(cam + 0x140, d[2])) {
+        flag = 1;
+    }
+    if (flag) {
+        func_00234C98(6, func_001F4868(0x2C));
+        func_00234C98(0x42, ((long)*(int *)&D_L11_00162658 << 32) | 0x44);
+        func_L11_0031FB18(0);
+    }
+    if (*(unsigned char *)&D_L11_001626A0_w != 0 && flag) {
+        func_00234C98(6, func_001F4868(0x29));
+        func_00234C98(0x42, ((long)((D_L11_0016265C * *(unsigned char *)&D_L11_001626A0_w) >> 8) << 32) | 0x68);
+        func_L11_0031FB18(1);
+        func_00234C98(0x42, ((long)((D_L11_0016265C * *(unsigned char *)&D_L11_001626A0_w) >> 8) << 32) | 0x62);
+        func_L11_0031FB18(2);
+    }
+    func_00234C98(6, func_001F4868(0x2A));
+    func_00234C98(0x42, ((long)*(int *)&D_L11_00162678 << 32) | 0x48);
+    func_L11_0031FBF0(0);
+    func_00234C98(0x42, ((long)D_L11_0016267C << 32) | 0x48);
+    func_L11_0031FBF0(1);
+    if (flag) {
+        func_00234C98(6, func_001F4868(0x2B));
+        func_00234C98(0x42, ((long)*(int *)&D_L11_00162688 << 32) | 0x48);
+        func_L11_0031FCC8(0);
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L11_003205C0);

@@ -30,6 +30,9 @@ with calls (func_0012E688, func_0012EC60). Three rules:
    Only branches in the compiler's noreorder blocks, whose delay slot is
    spelled out, are rewritten.
 
+   Adding explicit padding can also suppress GNU's implicit FP compare
+   hazard nop. Preserve that nop when padding a short FP loop.
+
 2. FP compare then branch. A `c.cond.fmt` immediately followed by a
    `bc1*` gets a nop between them. In retail text the pair is never
    adjacent (191 of 191 have the nop). GNU as adds one on its own in
@@ -89,6 +92,23 @@ def noreorder_ranges():
             for k, (a, obj) in enumerate(rows) if obj in NOREORDER_OBJECTS]
 BRANCH_LINE = re.compile(r"^\s*(b[a-z0-9]*)\s+(.*)$")
 BC1_LINE = re.compile(r"^\s*bc1(t|f)l?\s")
+LABEL_LINE = re.compile(r"^\s*(\$L\w+|\.L\w+):")
+
+
+def label_before_hazard(lines, j):
+    """True when a local label sits between an FP compare and the bc1 at
+    source line J. Retail puts such a label before the hazard nop (a jump
+    to it executes the nop); GNU as, which adds the nop itself, puts the
+    label after it, so the nop is spelled out after the label instead."""
+    seen, k = False, j - 1
+    while k >= 0:
+        stripped = lines[k].split("#")[0].strip()
+        if LABEL_LINE.match(lines[k]):
+            seen = True
+        elif stripped and not stripped.startswith("."):
+            return seen and re.match(r"c\.[a-z]+\.s\b", stripped) is not None
+        k -= 1
+    return False
 
 
 def is_local_branch(mnemonic: str, operands: str) -> bool:
@@ -175,6 +195,30 @@ def gnu_padding(text, start, branch, lines, j):
         else:
             break
     return max(0, run - written)
+
+
+def implicit_loop_compare_nop(text, start, branch, lines, j):
+    """Whether explicit loop padding will replace GNU's FP hazard nop.
+
+    GNU supplies the nop between a compare and a bc1 branch, but stops
+    supplying it when we insert explicit nops there. That existing nop
+    must be spelled out along with any additional short-loop padding.
+    """
+    if not decode(text, branch).getOpcodeName().startswith("bc1"):
+        return False
+    a = branch - 4
+    if a < start or text[a:a + 4] != b"\0\0\0\0":
+        return False
+    while a >= start and text[a:a + 4] == b"\0\0\0\0":
+        a -= 4
+    if a < start or not decode(text, a).getOpcodeName().startswith("c."):
+        return False
+    for k in range(j - 1, -1, -1):
+        source = lines[k].split("#")[0].strip()
+        if not source or source.startswith(".") or source.endswith(":"):
+            continue
+        return source.startswith("c.")
+    return False
 
 
 REGS = {"$zero": 0, "$at": 1, "$gp": 28, "$sp": 29, "$fp": 30, "$ra": 31}
@@ -334,7 +378,7 @@ def main() -> None:
                      f"{len(src_back)}, {len(src_bc1)}, {len(src_moves)} -- refusing to guess")
         fp_nops = [addr for addr, needs in obj_fp if needs] + obj_moves
         for (addr, needs), j in zip(obj_fp, src_bc1):
-            if needs:
+            if needs or label_before_hazard(lines, j):
                 inserts[j] = inserts.get(j, 0) + 1
                 fps += 1
             elif fp_label_nop(lines, i, j, text, addr):
@@ -353,7 +397,9 @@ def main() -> None:
                     inserts[j] = inserts.get(j, 0) + need
                     loops += 1
             elif span < MIN_SPAN:
-                inserts[j] = inserts.get(j, 0) + MIN_SPAN - span
+                replace_hazard = j not in inserts and implicit_loop_compare_nop(
+                    text, start, branch, lines, j)
+                inserts[j] = inserts.get(j, 0) + MIN_SPAN - span + int(replace_hazard)
                 loops += 1
         i = end + 1
 

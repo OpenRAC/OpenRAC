@@ -46,7 +46,7 @@ void func_001EC098(void) {
    (`$v0 = 0` twice with intervening nops) then a store, falling through
    to whatever follows. Same fallthrough-fragment category as
    func_00113AD8 in core_text. */
-INCLUDE_ASM("asm/nonmatchings/text", func_001EC108);
+LINKER_REMNANT("asm/remnants/text", func_001EC108);
 
 extern float func_001F9B88(float);
 
@@ -141,7 +141,177 @@ void func_001EC270(void *arg0) {
     }
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001EC2B8);
+typedef u32 u128 __attribute__((mode(TI), aligned(16)));
+typedef struct {
+    f32 x;
+    f32 y;
+    f32 z;
+} Vec3;
+typedef struct {
+    f32 x;
+    f32 y;
+    f32 z;
+    f32 w;
+} Vec4f;
+struct UpdateCam {
+    u128 m0;
+    u128 m1;
+    u128 m2;
+    Vec4f pos;
+    u8 pad40[0x24];
+    Vec3 prev_pos;
+    void *saved_state;
+    u8 state; /* activation rule, see camera_activation_check_priority */
+    u8 pad75[3];
+    f32 transition_duration;
+    u8 active;
+    u8 handoff_state;
+    s16 transition_state;
+    u8 pad80[4];
+    s16 descriptor_index;
+    s16 unk86; /* 0 lets the hero collision moby spawn; 6 disables shake */
+    u8 pad88[4];
+    s16 type; /* index into camera_types (D_001E8C00) */
+    s16 activation_blocked;
+    u8 pad90[0x10];
+};
+typedef struct {
+    u8 pad0[0x1D];
+    u8 descriptor_kind;
+} CameraDescriptorInfo;
+typedef struct {
+    u8 pad0[0x1C];
+    CameraDescriptorInfo *descriptor;
+} CameraDescriptor;
+struct CameraTransitionState {
+    u8 pad0[0x140];
+    u128 published_position;
+    u8 pad150[0x30];
+    struct UpdateCam *current;
+    struct UpdateCam *previous;
+    u8 pad188[0xE8];
+    s16 transition_phase;
+    u8 pad272;
+    u8 transition_mode;
+    u8 pad274[0x14];
+    f32 configured_rotation_rate;
+    u8 pad28C[8];
+    f32 configured_position_rate;
+    u8 pad298[0x5C];
+    s32 configured_frames;
+    u8 pad2F8[0xA0];
+    s32 snapshot_pending;
+};
+extern struct CameraTransitionState D_00187040_EC2B8 __asm__("D_00187040");
+extern CameraDescriptor * D_0015F090_EC2B8 __asm__("D_0015F090") MACRO_ADDR;
+extern s32 D_0015EE84 MACRO_ADDR;
+extern u8 D_00189750[];
+extern s32 D_0018C42C_EC2B8[] __asm__("D_0018C42C");
+extern void func_001EC038(void);
+extern void func_001EC270_EC2B8(struct UpdateCam *next_camera) __asm__("func_001EC270");
+extern void func_001F9A98(void *dst, void *src, s32 size);
+extern s32 func_001FA898(f32 transition_duration);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/fun_001ebf10.c, switch_active_camera_record. */
+void func_001EC2B8(struct UpdateCam *next_camera) {
+
+    struct UpdateCam *previous_camera;
+    CameraDescriptorInfo *descriptor;
+    f32 transition_duration;
+    f32 mode_one_duration;
+    f32 handoff_duration;
+    f32 *previous_position;
+    Vec4f *position;
+    s32 descriptor_kind = 0;
+    s32 previous_transition_state;
+
+    descriptor = D_0015F090_EC2B8[next_camera->descriptor_index].descriptor;
+    previous_camera = D_00187040_EC2B8.current;
+    previous_transition_state = previous_camera->transition_state;
+    if (descriptor != 0) {
+        descriptor_kind = descriptor->descriptor_kind;
+    }
+    if (previous_transition_state == 4) {
+        next_camera->activation_blocked = 1;
+    } else if (previous_transition_state == 2 || descriptor_kind == 1 || descriptor_kind == 5) {
+        if (descriptor_kind == 1) {
+            mode_one_duration = next_camera->transition_duration;
+            D_00187040_EC2B8.transition_mode = 0;
+            if (mode_one_duration > 0.0f) {
+                D_00187040_EC2B8.configured_position_rate = mode_one_duration;
+                D_00187040_EC2B8.configured_rotation_rate = mode_one_duration;
+            } else {
+                D_00187040_EC2B8.configured_position_rate = 0.018f;
+                D_00187040_EC2B8.configured_rotation_rate = 0.018f;
+            }
+        } else if (descriptor_kind == 5) {
+            transition_duration = next_camera->transition_duration;
+            D_00187040_EC2B8.transition_mode = 2;
+            if (transition_duration > 0.0f) {
+                D_00187040_EC2B8.configured_frames =
+                    func_001FA898(transition_duration);
+            } else {
+                D_00187040_EC2B8.configured_frames = 40;
+            }
+        }
+        if (D_00187040_EC2B8.transition_phase == 0) {
+            D_00187040_EC2B8.transition_phase = 1;
+        } else {
+            D_00187040_EC2B8.transition_phase = 2;
+        }
+    } else if (previous_transition_state == 3 || previous_transition_state == 5 ||
+               descriptor_kind == 3 || descriptor_kind == 6) {
+        qcopy(&next_camera->pos, &previous_camera->pos);
+        qcopy(&next_camera->m0, &previous_camera->m0);
+        qcopy(&next_camera->m1, &previous_camera->m1);
+        qcopy(&next_camera->m2, &previous_camera->m2);
+        next_camera->handoff_state = 2;
+        if (previous_camera->transition_state == 5 || descriptor_kind == 6) {
+            handoff_duration = next_camera->transition_duration;
+            D_00187040_EC2B8.transition_mode = 0;
+            if (handoff_duration > 0.0f) {
+                D_00187040_EC2B8.configured_position_rate = handoff_duration;
+                D_00187040_EC2B8.configured_rotation_rate = handoff_duration;
+            } else {
+                D_00187040_EC2B8.configured_position_rate = 0.018f;
+                D_00187040_EC2B8.configured_rotation_rate = 0.018f;
+                if (D_0015EE84 == 1) {
+                    D_00187040_EC2B8.configured_position_rate = 0.01f;
+                    D_00187040_EC2B8.configured_rotation_rate = 0.01f;
+                }
+            }
+            if (D_00187040_EC2B8.transition_phase == 0) {
+                D_00187040_EC2B8.transition_phase = 1;
+            } else {
+                D_00187040_EC2B8.transition_phase = 2;
+            }
+        }
+    } else {
+        next_camera->activation_blocked = 1;
+    }
+
+    position = &next_camera->pos;
+    previous_camera->transition_state = 0;
+    previous_camera->handoff_state = 0;
+    previous_camera->activation_blocked = 0;
+    D_00187040_EC2B8.previous = previous_camera;
+    func_001F9A98(D_00189750, D_00189750 - 0x280,
+                           0x280);
+    D_00187040_EC2B8.previous->saved_state = D_00189750;
+    D_00187040_EC2B8.current = next_camera;
+    next_camera->saved_state = D_00189750 - 0x280;
+    D_00187040_EC2B8.snapshot_pending = 0;
+    func_001EC270_EC2B8(next_camera);
+    func_001EC038();
+    /* The callbacks run before this flag is read; previous_position is updated either way. */
+    if (D_0018C42C_EC2B8[0] == 0) {
+        qcopy(&D_00187040_EC2B8.published_position, &next_camera->pos);
+    }
+    previous_position = &next_camera->prev_pos.x;
+    previous_position[0] = next_camera->pos.x;
+    previous_position[1] = position->y;
+    previous_position[2] = position->z;
+}
 
 typedef struct {
     char unk_00[0x10];
@@ -265,7 +435,7 @@ extern int D_00189C50[];
 typedef struct { char unk_00[0xA0]; } CamSlot;
 extern CamSlot D_00187510[];
 extern int func_001EC5B8(void *cur, void *other);
-extern void func_001EC2B8(void *arg0);
+extern void func_001EC2B8(struct UpdateCam *next_camera);
 /* The camera-type table (D_001E8F80) with its +0xC hook typed: DispatchRec
    above keeps that slot as bytes. */
 typedef struct {
@@ -803,7 +973,161 @@ void func_001ED708(char *arg0, int arg1) {
 }
 __asm__(".section .text\n\tnop\n");
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001ED818);
+typedef union {
+    u128 q;
+    f32 f[4];
+    s32 i[4];
+} Vec4;
+struct MobyClass;
+struct Manip;
+struct Moby {
+    Vec4f bsphere;
+    Vec4f pos;
+    u8 state; /* >= 0xFE: dead, waiting to respawn */
+    u8 pad21[3];
+    struct MobyClass *pclass;
+    struct Moby *next;
+    s32 unk2C;
+    u8 pad30[4];
+    u16 flags;
+    u8 pad36[2];
+    u64 spawn_frame; /* frame count at which it may respawn */
+    u8 pad40[0x10];
+    u8 frame; /* animation frame */
+    u8 prev_frame; /* frame index in prev_seq */
+    u8 seq; /* animation sequence id */
+    u8 prev_seq;
+    u8 pad54[0x10];
+    struct Manip *manips;
+    void *cur_frame_data;
+    void *prev_frame_data;
+    u8 pad70[4];
+    void (*update)(struct Moby *moby);
+    u8 *pvars;
+    u8 unk7C;
+    u8 pad7D;
+    u8 unk7E;
+    u8 pad7F[0x27];
+    s16 oclass;
+    u8 padA8[0x58];
+};
+struct Player {
+    u8 pad0[0x80];
+    Vec4 pos;
+    u8 pad90[0x8];
+    f32 unk98;
+    u8 pad9C[0x1F4];
+    Vec4 unk290;
+    u8 pad2A0[0x5C];
+    struct Moby *unk2FC;
+    u8 pad300[0x1D84];
+    s32 unk2084;
+    u8 pad2088[0x1FC];
+    s32 unk2284;
+};
+struct CamColl {
+    Vec4 pos;
+    f32 vel;
+    u8 pad14[0xC];
+    Vec4 dir;
+    Vec4 unk30;
+    Vec4 unk40;
+    f32 dir_vel[4];
+    Vec4 unk60;
+    Vec4 unk70;
+    Vec4 unk80;
+    Vec4 unk90;
+    f32 unkA0;
+    f32 unkA4;
+    f32 unkA8;
+    f32 hist[5];
+    u8 padC0[0x14];
+    struct Moby *unkD4;
+    f32 unkD8;
+    f32 unkDC;
+};
+extern struct Player D_0013F450_ED818 __asm__("D_0013F450");
+extern struct CamColl D_001871D0_ED818 __asm__("D_001871D0");
+extern f32 func_001EC120_ED818(f32 *vel, f32 from, f32 to, f32 stiffness, f32 damping, f32 max) __asm__("func_001EC120");
+extern float func_001F9B88(float input);
+extern void func_001F9BF0(void *out, void *a, void *b);
+extern void func_001F9C30(void *out, void *a, f32 s);
+extern f32 func_001F9C78(void *a, void *b);
+extern f32 func_001F9CB8(void *a);
+extern void func_001F9DC0(void *out, void *a, f32 len);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/gameplay/camera/fun_001ed470.c, FUN_001ed470. */
+void func_001ED818(void) {
+    Vec4 dir;
+    Vec4 proj;
+    struct CamColl *cam;
+    f32 d;
+    s32 i;
+    struct Moby *m;
+
+    cam = &D_001871D0_ED818;
+    func_001F9DC0(&dir, &D_0013F450_ED818.unk290, -1.0f);
+    qcopy(&cam->unk40, &cam->unk30);
+    qcopy(&cam->unk30, &dir);
+    if (func_001F9C78(&cam->dir, &dir) < -0.98f) {
+        dir.f[0] += 0.2f;
+        dir.f[1] += 0.2f;
+        dir.f[2] += 0.2f;
+    }
+    cam->dir.f[0] =
+        func_001EC120_ED818(&cam->dir_vel[0], cam->dir.f[0], dir.f[0], 0.015f, 0.2f, 0.0f);
+    cam->dir.f[1] =
+        func_001EC120_ED818(&cam->dir_vel[1], cam->dir.f[1], dir.f[1], 0.015f, 0.2f, 0.0f);
+    cam->dir.f[2] =
+        func_001EC120_ED818(&cam->dir_vel[2], cam->dir.f[2], dir.f[2], 0.015f, 0.2f, 0.0f);
+    func_001F9DC0(&cam->dir, &cam->dir, 1.0f);
+
+    func_001F9BF0(&cam->unk70, &D_0013F450_ED818.pos, &cam->unk60);
+    cam->unkA0 = func_001F9CB8(&cam->unk70);
+    d = func_001F9C78(&cam->unk70, &dir);
+    cam->unkA8 = d;
+    func_001F9DC0(&proj, &dir, d);
+    qcopy(&cam->unk90, &proj);
+    func_001F9BF0(&cam->unk80, &cam->unk70, &proj);
+    cam->unkA4 = func_001F9CB8(&cam->unk80);
+    func_001F9C30(&cam->unk80, &cam->unk80, 1.0f / cam->unkA4);
+    qcopy(&cam->unk60, &D_0013F450_ED818.pos);
+
+    if (D_0013F450_ED818.unk2284 != 0x50 || D_0013F450_ED818.unk2084 == 0x11) {
+        cam->pos.f[0] = D_0013F450_ED818.pos.f[0];
+        cam->pos.f[1] = D_0013F450_ED818.pos.f[1];
+        cam->pos.f[2] =
+            func_001EC120_ED818(&cam->vel, cam->pos.f[2], D_0013F450_ED818.pos.f[2], 0.0075f, 0.175f, 0.0f);
+        cam->pos.f[3] = D_0013F450_ED818.pos.f[2];
+    } else {
+        cam->pos.f[0] = D_0013F450_ED818.pos.f[0];
+        cam->pos.f[1] = D_0013F450_ED818.pos.f[1];
+    }
+
+    for (i = 0; i < 4; i++) {
+        cam->hist[i] = cam->hist[i + 1];
+    }
+    cam->hist[i] = D_0013F450_ED818.unk98;
+
+    m = D_0013F450_ED818.unk2FC;
+    if (m != 0 && m->oclass != 0x4BA && m->oclass != 0x336) {
+        if (m == cam->unkD4) {
+            cam->unkDC = m->pos.z - cam->unkD8;
+            if (func_001F9B88(cam->unkDC) < 0.001f) {
+                cam->unkDC = 0.0f;
+            }
+            cam->unkD8 = cam->unkD4->pos.z;
+        } else {
+            cam->unkD4 = m;
+            cam->unkDC = 0.0f;
+            cam->unkD8 = m->pos.z;
+        }
+    } else {
+        cam->unkDC = 0.0f;
+        cam->unkD4 = 0;
+        cam->unkD8 = D_0013F450_ED818.pos.f[2];
+    }
+}
 
 extern char D_00187040[];
 extern char D_00194220[];
@@ -995,4 +1319,4 @@ frozen:
     }
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001EDFD8);
+LINKER_REMNANT("asm/remnants/text", func_001EDFD8);

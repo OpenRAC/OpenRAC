@@ -36,9 +36,8 @@ void func_00113A70(void *arg0, int arg1, int arg2, int arg3) {
 extern void func_00113968(void);
 extern void func_00114438(void *, void *);
 
-/* Reclaimed from a stale revert: the old comment correctly said retail is
-   a bare tail jump that this compiler could not produce. tools/fix_tail_calls.py
-   removes that limitation, and the source it recorded compiles unchanged. */
+/* Retail is a bare tail jump: Sony's 2.9-ee, which builds this SDK object,
+   emits it for a void function that ends in a call. */
 void func_00113AC8(void *arg0) {
     func_00114438(arg0, func_00113968);
 }

@@ -236,4 +236,4 @@ int func_001187E0(char *p0, int exp, int fmtch) {
     return (p - p0);
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_001188C0);
+LINKER_REMNANT("asm/remnants/core_text", func_001188C0);

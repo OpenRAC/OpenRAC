@@ -21,6 +21,7 @@ import subprocess
 import sys
 
 import claims
+import provenance
 
 # Upstream bans these (docs/LLM_DECOMP_INSTRUCTIONS.md): only file-scope
 # aliases and padding directives may use __asm__. Retail's vector copy is
@@ -39,8 +40,13 @@ BANNED = [(re.compile(r"\bregister\b[^;{]*__asm__\s*\("), "register pin"),
 
 
 def banned(path: str) -> str:
-    text = re.sub(r"/\*.*?\*/", "", open(path).read(), flags=re.S)
-    return ", ".join(reason for pattern, reason in BANNED if pattern.search(text))
+    raw = open(path).read()
+    text = re.sub(r"/\*.*?\*/", "", raw, flags=re.S)
+    reasons = [reason for pattern, reason in BANNED if pattern.search(text)]
+    sample = provenance.sony_sample(raw)   # comments count: the sample's names must not appear at all
+    if sample:
+        reasons.append(f"Sony sample name '{sample}' (docs/MOVIE.md)")
+    return ", ".join(reasons)
 
 
 def main() -> None:

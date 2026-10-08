@@ -1579,7 +1579,7 @@ void func_L00_00276D50(char *m) {
         *(int *)(m + 4) = FastTweenColor(0x603F1008, *(int *)(m + 4), f / func_001FA888(*(short *)(m + 0xA)));
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_00276EB0);
+LINKER_REMNANT("asm/overlays", func_L00_00276EB0);
 typedef struct { int a; int n; } Ent;
 typedef struct { char pad[0xF8]; Ent e[20]; } Tab;
 typedef struct { char pad[0x158]; int o[20]; } Out;

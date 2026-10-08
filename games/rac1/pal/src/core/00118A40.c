@@ -322,4 +322,4 @@ ASM_FUNC("asm/handwritten/core_text", func_001191E0);
 
 ASM_FUNC("asm/handwritten/core_text", func_00119288);
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_00119308);
+LINKER_REMNANT("asm/remnants/core_text", func_00119308);

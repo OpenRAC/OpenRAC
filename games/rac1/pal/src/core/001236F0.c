@@ -1314,4 +1314,4 @@ int func_00125160(unsigned char *src, int *out) {
     return 1;
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_00125210);
+LINKER_REMNANT("asm/remnants/core_text", func_00125210);

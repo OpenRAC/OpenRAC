@@ -483,12 +483,88 @@ done:
     return ret;
 }
 INCLUDE_ASM("asm/overlays", func_L05_002523C8);
-INCLUDE_ASM("asm/overlays", func_L05_00254030);
+typedef struct { int bank; int seq; } SndPair_254030;
+typedef struct { char pad[0x6E0]; int flags[6]; } Hero6E0_254030;
+extern SndPair_254030 D_L05_00179CC0[];
+extern float func_L00_00233410(float a, float b, float c);
+extern int func_001FA898(float);
+extern void func_L00_00232C10(int, int, float);
+extern void func_L00_00232E60(int bank, int seq);
+extern int func_L05_002559A0(void);
+
+/* Hero idle: picks the idle animation from the stick direction, and occasionally plays a fidget or the
+ * look-around when standing still. */
+void func_L05_00254030(void) {
+    char *g = (char *)D_0013E633 + 0xE1D;
+    int pad;
+    *(short *)(g + 0x888) = func_001FA898(func_L00_00233410(60.0f, *(float *)(g + 0x860), -1.0f));
+    if (((unsigned char *)g)[0x88D] != 0 && ((pad = *(int *)(D_0013A5E0 + 0x2600)) & 0xF) != 0) {
+        g[0x88F] = 0;
+        if (pad & 8) g[0x88F] = 1;
+        else if (pad & 1) g[0x88F] = 2;
+        else if (pad & 2) g[0x88F] = 3;
+        {
+            char *h = (char *)D_0013E633 + 0xE1D;
+            int a = ((unsigned char *)h)[0x88F] + 0x69;
+            if (((unsigned char *)*(char **)(h + 0x2080))[0x53] != a) {
+                func_L00_00232C10(a, 2, (float)func_001F9850(5));
+                func_L00_00232E60(D_L05_00179CC0[((unsigned char *)h)[0x88F]].bank,
+                                  D_L05_00179CC0[((unsigned char *)h)[0x88F]].seq);
+            } else if ((float)*(int *)(h + 0xAB0) - 2.0f < *(float *)(h + 0xAA8)) {
+                ((Hero6E0_254030 *)h)->flags[((unsigned char *)h)[0x88F]] = 1;
+                *(int *)(h + 0x6F8) += 1;
+            }
+        }
+    }
+    {
+        char *k = (char *)D_0013E633 + 0xE1D;
+        if ((*(short *)(k + 0x30E) == 0 || (*(int *)(D_0013A5E0 + 0x2600) & 0xF) == 0)
+            && (unsigned int)(((unsigned char *)*(char **)(k + 0x2080))[0x53] - 0x69) < 4
+            && *(int *)(k + 0xA9C) == 0
+            && *(int *)(k + 0xAB0) < ((unsigned char *)*(char **)(k + 0x2080))[0x51]
+            && ((unsigned char *)*(char **)(k + 0x2080))[0x51] < *(int *)(k + 0xAB4)) {
+            int t = *(short *)(k + 0x888);
+            if (t > func_001F9850(0x1E)) {
+                int x = func_L05_002559A0();
+                func_L00_00232C10(x, 9, (float)func_001F9850(0x11));
+            } else {
+                t = *(short *)(k + 0x888);
+                if (t < func_001F9850(0xA)) t = func_001F9850(0xA);
+                func_L00_00232C10(func_L05_002559A0(), 0xD, (float)t);
+            }
+        }
+    }
+    {
+        char *h = (char *)D_0013E633 + 0xE1D;
+        if (*(short *)(h + 0x8BC) != 0) {
+            int a = ((unsigned char *)*(char **)(h + 0x2080))[0x53];
+            if (a == 0x52 || a == 0x7D || a == 0x68 || a == 0x7E) {
+                int x = func_L05_002559A0();
+                func_L00_00232C10(x, 0xB, (float)func_001F9850(0xA));
+            }
+        }
+    }
+    {
+        char *h = (char *)D_0013E633 + 0xE1D;
+        if ((*(int *)(h + 0xA98) & 2) && *(short *)(h + 0x30C) != 0) {
+            int x = func_L05_002559A0();
+            func_L00_00232C10(x, 9, (float)func_001F9850(7));
+        }
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L05_00254328);
 INCLUDE_ASM("asm/overlays", func_L05_00254838);
 INCLUDE_ASM("asm/overlays", func_L05_00254B38);
 INCLUDE_ASM("asm/overlays", func_L05_00254DE8);
-INCLUDE_ASM("asm/overlays", func_L05_002559A0);
+extern unsigned char D_0013FD1E NOT_SDA;
+// Load byte and return conditional value (swapped condition)
+int func_L05_002559A0(void) {
+    unsigned char b = D_0013FD1E;  // selected help mode
+    int r = 0x7F;
+    if (b == 0)
+        r = 0x55;
+    return r;
+}
 INCLUDE_ASM("asm/overlays", func_L05_002559B8);
 /* returns 0x7E when arg is nonzero, else 0x68 */
 int func_L05_002559DC(int arg) {

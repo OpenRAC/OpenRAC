@@ -1,11 +1,12 @@
 /* NON_MATCHING func_L00_002A86D8 -- src/overlays/shared/vendor_002A5138.c
- * Best so far: SIZE ours 852 / retail 836, checked 2026-10-03.
+ * Best so far: BYTES 40/836 (95.2% of the bytes match), checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   Spawns one of four debris mobys (class 0xD/0xE/0xF/0x10 by kind 0/5/0x14/0x32, scale 0.65-0.75), parents it to
  *   Best is p6.c (size 844 vs 836): switch compare tree matched with gotos (if 5 / if <6 / 0x14 / 0x32 / default f
  *   NOTE: src/overlays/shared/vendor_002A5138.c now declares `extern int func_L00_002A84B0(void *, int, float, flo
+ *   q27/s04: p11 = p6 with the func_L00_002A84B0 prototype (void*,int,float,float) and `flags & 2` written at its 
  */
 #include "common.h"
 extern void *func_0020D348(int oClass);
@@ -20,6 +21,7 @@ extern void func_001F9BF0(void *, void *, void *);
 extern void func_001F9CA0(void *, void *, void *);
 extern void func_L00_001FF4B0(float *, float *, float);
 extern void func_00215380(void *arg0, void *axis, float angle);
+extern int func_L00_002A84B0(void *, int, float, float);
 extern void func_L00_00251E30(void *);
 extern float D_0015EE6C MACRO_ADDR;
 extern int D_0015EE98 MACRO_ADDR;
@@ -32,7 +34,6 @@ void *func_L00_002A86D8(char *parent, void *pos, void *vel, int flags, int kind,
     char *d;
     char *top;
     char *q;
-    int f2;
     float scale;
     float f20;
     float tmp[4];
@@ -62,15 +63,10 @@ c32:
     m = func_0020D348(0x10);
     scale = 0.6f;
 join:
-    if (m == 0) {
-        D_0015EE98 += kind;
-        return m;
-    }
-    {
+    if (m != 0) {
         d = *(char **)(m + 0x78);
         d[0x40] = b;
         top = parent;
-        f2 = flags & 2;
         if (parent != 0) {
             while (*(char **)(top + 0xB8) != 0)
                 top = *(char **)(top + 0xB8);
@@ -103,13 +99,15 @@ join:
         func_001F9CA0(cr, d + 0x20, tmp);
         func_L00_001FF4B0((float *)(d + 0x30), cr, 1.0f);
         func_00215380(d + 0x30, d + 0x30, f20);
-        if (f2) {
+        if (flags & 2) {
             float a = 0.0f;
             if (flags & 0x10)
                 a = func_002140F8(-30.0f, 30.0f) * 0.017453292f;
-            func_L00_002A84B0(m, a, 0.0f, *(int *)(D_0013E633 + 0x2E9D));
+            func_L00_002A84B0(m, *(int *)(D_0013E633 + 0x2E9D), a, 0.0f);
         }
         func_L00_00251E30(m);
+    } else {
+        D_0015EE98 += kind;
     }
     return m;
 }

@@ -4,7 +4,85 @@
 
 INCLUDE_ASM("asm/overlays", func_L02_002E21F8);
 INCLUDE_ASM("asm/overlays", func_L02_002E2D88);
-INCLUDE_ASM("asm/overlays", func_L02_002E33F0);
+extern char D_0013F4D0[];
+extern char * D_L02_0016016C MACRO_ADDR;
+extern char * D_L02_00160058 MACRO_ADDR;
+extern int func_00215570(void *, int);
+extern void func_001FFDA0(int, int);
+extern int func_001F9938(int *);
+extern int func_001F9850(int);
+extern void func_001F4E08(int);
+extern float func_L00_001FF860(float, float);
+extern float func_001F9F90(float);
+extern float func_001F9FA8(float);
+extern void func_001F9BC0(void *);
+extern float func_001FA748(float, float);
+extern void func_L00_00217718(void *, void *, int, int);
+extern int func_001FFB38(int, int, void *, void *, void *, void *, int);
+extern void func_L00_0023B0F8(void);
+extern void func_L02_0023D600(void);
+extern void func_L02_0023D6E0(void);
+
+/* Three-state controller (data+0x180): 0 waits for its trigger, 1 runs timed effects until released, then moves the moby to its spawn point, sets the two linked mobys' flags and enters state 2.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l02/gameplay/entities/002e0dc0.c, FUN_L02_002e1fb8. */
+void func_L02_002E33F0(char *moby) {
+    char *data = *(char **)(moby + 0x78);
+    float fx_pos[4] __attribute__((aligned(16)));
+    float fx_rot[4] __attribute__((aligned(16)));
+    char *entry;
+    int entry_off;
+    char *mobys;
+    float yaw;
+    char *table;
+    if (*(int *)(data + 0x180) == 1) {
+        if (func_00215570(D_0013F4D0, *(int *)(data + 0x148)) == 0) {
+            *(int *)(data + 0x180) = 0;
+            func_001FFDA0(*(int *)(data + 0x160), 0);
+            *(int *)(data + 0x160) = -1;
+            func_001FFDA0(*(int *)(data + 0x164), 0);
+            *(int *)(data + 0x164) = -1;
+            return;
+        }
+        if (*(int *)(data + 0x14C) != 0 || *(int *)(data + 0x150) != 0)
+            return;
+        if (func_001F9938((int *)(data + 0x168)) == 0)
+            return;
+        *(int *)(data + 0x180) = 2;
+        func_001F4E08(func_001F9850(0x10));
+        func_001FFDA0(*(int *)(data + 0x160), 0);
+        *(int *)(data + 0x160) = -1;
+        func_001FFDA0(*(int *)(data + 0x164), 0);
+        table = D_L02_0016016C;
+        entry_off = *(int *)(data + 0x154) << 7;
+        mobys = table;
+        *(int *)(data + 0x164) = -1;
+        qcopy(moby + 0x10, (char *)(entry_off + (int)mobys) + 0x30);
+        entry = (char *)(entry_off + (int)mobys);
+        *(float *)(moby + 0x48) = yaw = func_L00_001FF860(*(float *)(entry + 0), *(float *)(entry + 4));
+        qcopy(fx_pos, moby + 0x10);
+        fx_pos[0] += func_001F9F90(yaw) * 1.5f;
+        fx_pos[1] += func_001F9FA8(*(float *)(moby + 0x48)) * 1.5f;
+        func_001F9BC0(fx_rot);
+        fx_rot[2] = func_001FA748(*(float *)(moby + 0x48), 3.1415927f);
+        func_L00_00217718(fx_pos, fx_rot, 0, 1);
+        {
+            int i0 = *(int *)(data + 0x158);
+            int i1 = *(int *)(data + 0x15C);
+            mobys = D_L02_00160058;
+            *(unsigned char *)(mobys + (i0 << 8) + 0xBC) = 1;
+            mobys += i1 << 8;
+            mobys[0xBC] = 1;
+            *(short *)(data + 0x36) = 2;
+            data[8] = 1;
+        }
+    } else if (*(int *)(data + 0x180) == 0) {
+        if (func_00215570(D_0013F4D0, *(int *)(data + 0x148)) != 0) {
+            *(int *)(data + 0x180) = 1;
+            *(int *)(data + 0x164) = func_001FFB38(0x15, 0x7D0, func_L00_0023B0F8, func_L02_0023D600, func_L02_0023D6E0, data + 0x14C, 100);
+            *(int *)(data + 0x160) = func_001FFB38(0x17, 0x7D1, func_L00_0023B0F8, func_L02_0023D600, func_L02_0023D6E0, data + 0x150, 7);
+        }
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L02_002E3660);
 INCLUDE_ASM("asm/overlays", func_L02_002EB480);
 extern void func_L02_002A59D8(float);
@@ -24,7 +102,34 @@ void func_L02_002EB5D0(unsigned char *moby) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L02_002ED358);
-INCLUDE_ASM("asm/overlays", func_L02_002ED660);
+extern char *func_0020D348(int);
+extern void func_L00_00251328(char *, int, int, int);
+extern float func_001F9CE8(void *);
+extern short D_L02_00161FDC;
+extern short D_L02_00161FE0;
+extern short D_L02_00161FE4;
+
+/* Spawns a projectile moby from src at pos, heading along dir, with its lifetime in the moby data.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l02/gameplay/vendor/002ebf20.c, FUN_L02_002ec228. */
+char *func_L02_002ED660(char *src, void *pos, float *dir) {
+    char *moby;
+    char *data;
+    moby = func_0020D348(0x4B8);
+    if (moby != 0) {
+        moby[0x31] = 1;
+        *(unsigned char *)(moby + 0x30) = *(short *)(moby + 0x32) = 0xFF;
+        func_L00_00251328(moby, (*(int *)&D_L02_00161FDC), (*(int *)&D_L02_00161FE0), (*(int *)&D_L02_00161FE4));
+        *(short *)(moby + 0x34) = *(unsigned short *)(src + 0x34);
+        qcopy(moby + 0x10, pos);
+        *(float *)(moby + 0x48) = func_L00_001FF860(dir[0], dir[1]);
+        *(float *)(moby + 0x44) = func_L00_001FF860(func_001F9CE8(dir), dir[2]);
+        moby[0x20] = 1;
+        data = *(char **)(moby + 0x78);
+        qcopy(data, dir);
+        *(int *)(data + 0x10) = func_001F9850(0x3C);
+    }
+    return moby;
+}
 typedef struct {
     int pad0;
     int pad4;
@@ -248,5 +353,5 @@ void func_L02_002EFCC8(unsigned char *moby) {
     qcopy(data + 8, D_0013E633 + 0xE9D);
 }
 INCLUDE_ASM("asm/overlays", func_L02_002F0458);
-INCLUDE_ASM("asm/overlays", func_L02_002F9E40);
+LINKER_REMNANT("asm/overlays", func_L02_002F9E40);
 INCLUDE_ASM("asm/overlays", func_L02_002F9E50);

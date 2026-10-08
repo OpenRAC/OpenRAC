@@ -67,7 +67,25 @@ float func_L11_00312F50(void *moby_v, void *o_v) {
     }
     return 10000.0f;
 }
-INCLUDE_ASM("asm/overlays", func_L11_003130B0);
+/* counts the listed mobys of the type that are active, and of those the ones with 0x31 set */
+void func_L11_003130B0(void *a0, void *a1, void *a2) {
+    char *d = *(char **)((char *)a0 + 0x78);
+    int type = *(short *)(d + 0x108);
+    short *p;
+    *(unsigned short *)a1 = 0;
+    *(unsigned short *)a2 = 0;
+    p = D_L11_001AC540[type];
+    if (p == 0) return;
+    do {
+        int off = (*(unsigned short *)p & 0x7FFF) << 8;
+        if (((char *)D_L11_00160058_m)[off + 0x20] >= 0) {
+            (*(unsigned short *)a1)++;
+            if (((unsigned char *)D_L11_00160058_m)[off + 0x31] != 0) {
+                (*(unsigned short *)a2)++;
+            }
+        }
+    } while (*p++ >= 0);
+}
 INCLUDE_ASM("asm/overlays", func_L11_00313148);
 INCLUDE_ASM("asm/overlays", func_L11_00313218);
 extern void func_L11_003126D8_313a70(void *, void *, void *, int) __asm__("func_L11_003126D8");
@@ -142,7 +160,70 @@ void func_L11_00313BC0(char *moby, char *d) {
 }
 INCLUDE_ASM("asm/overlays", func_L11_00313D00);
 INCLUDE_ASM("asm/overlays", func_L11_003146E0);
-INCLUDE_ASM("asm/overlays", func_L11_003153D0);
+extern void func_001F9BF0(void *, void *, void *);
+extern float func_001F9CE8(void *);
+extern float func_L00_001FF860(float, float);
+extern float func_001FA748(float, float);
+extern float func_001FA790(float, float);
+extern char *D_L11_0016016C MACRO_ADDR;
+extern unsigned char D_0013F450[];
+
+// Clamps and blends camera inputs near the edges of the movement bounds. Adapted from Lombyte (MIT) for PAL: src/overlays/l11/gameplay_vendor_0030c788.c, FUN_L11_00313f60.
+void func_L11_003153D0(char *moby, float *a, float *b) {
+    char *d = *(char **)(moby + 0x78);
+    float v[4];
+    float zz, dist, tmp, hi, lo, f, t, r, s;
+    unsigned char *base;
+    char *e;
+    func_001F9C30(v, d + 0x10, *(float *)(d + 0x64) * (float)func_001F9850(0x3C));
+    func_001F9BD8(v, v, moby + 0x10);
+    zz = v[2];
+    func_001F9BF0(v, v, (*(int *)(d + 0x104) << 7) + D_L11_0016016C + 0x30);
+    dist = func_001F9CE8(v);
+    tmp = func_001F9CE8((*(int *)(d + 0x104) << 7) + D_L11_0016016C);
+    e = (char *)((*(int *)(d + 0x104) << 7) + (int)D_L11_0016016C);
+    hi = *(float *)(e + 0x28);
+    lo = *(float *)(e + 0x38);
+    t = hi + lo;
+    f = func_001FA748(func_L00_001FF860(v[0], v[1]), 3.141590118408203f);
+    if (tmp - 10.0f < dist) {
+        r = (dist - tmp + 10.0f) / 10.0f;
+        s = func_001FA790(f, *(float *)(d + 0x38));
+        if (r > 1.0f) r = 1.0f; else if (r < 0.0f) r = 0.0f;
+        if (s > 0.0f) {
+            *a = (-1.0f - *a) * r + *a;
+        } else {
+            *a = (1.0f - *a) * r + *a;
+        }
+        base = D_0013F450;
+        base[0x160F] |= 2;
+    }
+    if (t - 10.0f < zz) {
+        float q, w;
+        q = (zz - t + 10.0f) / 10.0f;
+        w = (0.5235987901687622f - *(float *)(d + 0x34)) / 0.5235987901687622f;
+        if (q > 1.0f) q = 1.0f; else if (q < 0.0f) q = 0.0f;
+        if (w > 1.0f) w = 1.0f; else if (w < 0.0f) w = 0.0f;
+        q = q * w;
+        *b = (-1.0f - *b) * q + *b;
+        {
+            unsigned char *p = D_0013F450;
+            p[0x160F] |= 2;
+        }
+    } else if (zz < 260.0f) {
+        float q, w;
+        q = (250.0f - zz + 10.0f) / 10.0f;
+        w = (*(float *)(d + 0x34) + 0.5235987901687622f) / 0.5235987901687622f;
+        if (q > 1.0f) q = 1.0f; else if (q < 0.0f) q = 0.0f;
+        if (w > 1.0f) w = 1.0f; else if (w < 0.0f) w = 0.0f;
+        q = q * w;
+        *b = (1.0f - *b) * q + *b;
+        {
+            unsigned char *p = D_0013F450;
+            p[0x160F] |= 2;
+        }
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L11_00315788);
 INCLUDE_ASM("asm/overlays", func_L11_00316DD8);
 INCLUDE_ASM("asm/overlays", func_L11_003173C8);
@@ -209,7 +290,60 @@ int func_L11_003194C0(char *moby, void **out) {
     return count;
 }
 INCLUDE_ASM("asm/overlays", func_L11_00319510);
-INCLUDE_ASM("asm/overlays", func_L11_00319660);
+extern short D_L11_001623D0;
+extern short D_L11_001623E0;
+extern short D_L11_001623F0;
+extern short D_L11_001623F4;
+extern short D_L11_001623F8;
+extern short D_L11_001623FC;
+extern short D_L11_0016003C;
+extern char D_L11_00161EA8[] MACRO_ADDR;
+extern float D_L11_0015F660[] MACRO_ADDR;
+extern float D_0015EE60 MACRO_ADDR;
+extern float D_0015EE6C MACRO_ADDR;
+extern float D_0015EE70 MACRO_ADDR;
+extern int func_002140B0(int);
+extern void func_001F9EC0(void *, void *, void *);
+extern void func_001F9BF0(void *, void *, void *);
+extern void func_L00_00258DB0(float *, float, float);
+extern float func_002140F8(float, float);
+extern char *func_L11_0031C210_5(void *, void *, void *, int, float) __asm__("func_L11_0031C210");
+extern void func_L00_00260108(void *, void *, int, float, float);
+extern void *func_L00_00265050_s(char *, int, void *, void *, int, int, float *, float *, float, float *) __asm__("func_L00_00265050");
+
+/* Bubbling vent: puffs a bubble while the hero is near; on trigger spawns three debris pieces and goes idle. */
+void func_L11_00319660(char *m) {
+    char *d = *(char **)(m + 0x78);
+    float v[4];
+    float w[4];
+    float r[4];
+    switch (((unsigned char *)m)[0x20]) {
+    case 0:
+        if (func_001F9908_i(d + 0x28) == 0 && func_002140B0(*(int *)&D_L11_001623D0) == 0
+            && ((unsigned char *)m)[0x31] != 0 && *(int *)&D_L11_0016003C >= 0x47) {
+            func_001F9EC0(v, &D_L11_001623E0, m + 0xC0);
+            func_001F9BD8(v, v, m + 0x10);
+            func_L00_00258DB0(r, 0.0f, *(float *)&D_L11_001623F8 * D_0015EE6C);
+            func_001F9BF0(w, m + 0x10, d);
+            w[2] -= D_0015EE6C + D_0015EE6C;
+            func_001F9BD8(w, w, r);
+            func_L11_0031C210_5(v, w, D_L11_00161EA8, 0, func_002140F8(*(float *)&D_L11_001623F0, *(float *)&D_L11_001623F4));
+        }
+        qcopy(d, m + 0x10);
+        break;
+    case 1:
+        func_L00_00260108(m, m + 0x10, -1, 5.0f, 13.0f);
+        func_001F9C30(v, m + 0xC0, *(float *)&D_L11_001623FC * D_0015EE60);
+        v[2] += D_0015EE60 * 0.08f;
+        func_L00_00265050_s(m, 0x785, m + 0x10, m + 0x40, func_001F9850(0x5A), 0, v, D_L11_0015F660, D_0015EE70 * 12.0f, D_L11_0015F660);
+        func_L00_00265050_s(m, 0x786, m + 0x10, m + 0x40, func_001F9850(0x5A), 0, v, D_L11_0015F660, D_0015EE70 * 12.0f, D_L11_0015F660);
+        func_L00_00265050_s(m, 0x787, m + 0x10, m + 0x40, func_001F9850(0x5A), 0, v, D_L11_0015F660, D_0015EE70 * 12.0f, D_L11_0015F660);
+        m[0x20] = 2;
+        m[0x31] = 0;
+        *(unsigned short *)(m + 0x34) |= 1;
+        break;
+    }
+}
 extern void func_001F9BF0(void *, void *, void *);
 extern float func_002140F8(float, float);
 extern float D_0015EE6C MACRO_ADDR;
@@ -223,7 +357,52 @@ void func_L11_003198F8(char *m) {
     *(float *)(d + 0x20) = random_float_between(20.0f, 60.0f) * 0.017453292f * D_0015EE6C;
     *(float *)(d + 0x24) = random_float_between(20.0f, 60.0f) * 0.017453292f * D_0015EE6C;
 }
-INCLUDE_ASM("asm/overlays", func_L11_00319FA0);
+extern void func_L11_0031A498(char *moby);
+extern float func_00214D28(float *p, float target, float maxstep);
+extern void func_0020D678(void *);
+extern void func_L11_0031A630(char *moby);
+extern int func_L00_001EFFF0(void *, void *, int, void *, void *);
+extern int func_L00_001F2BE8(float, void *, int, void *, void *);
+extern void func_L00_0025F4A8(void *, void *, void *, float, float, int, int, int, float, float, float, int, float, float, int, int, int, int);
+extern short D_L11_00162418;
+
+// Update function for a moby that eases values, then flies to a target and bursts.
+void func_L11_00319FA0(unsigned char *moby) {
+    char *data = *(char **)(moby + 0x78);
+    float v[4];
+    float *vp;
+    func_L11_0031A498((char *)moby);
+    switch (moby[0x20]) {
+    case 1:
+        if (func_001F9908_i(data + 0x20)) {
+            float *p = *(float **)(moby + 0x24);
+            float n = (float)func_001F9850(0x14);
+            float a = p[9];
+            float b = (*(float **)(moby + 0x24))[9] / n;
+            p = (float *)(data + 0x1C);
+            func_00214D28((float *)(moby + 0x2C), a, b);
+            func_00214D28(p, *(float *)&D_L11_00162418, *(float *)&D_L11_00162418 / (float)func_001F9850(0x14));
+        }
+        if (func_001F9908_i(data + 0x28)) {
+            func_0020D678(moby);
+        }
+        break;
+    case 2: {
+        char *pos = (char *)moby + 0x10;
+        func_L11_0031A630((char *)moby);
+        vp = v;
+        qcopy(vp, pos);
+        func_001F9BD8(pos, pos, data);
+        if (func_001F9908_i(data + 0x20) ||
+            func_L00_001EFFF0(vp, (char *)moby + 0x10, 0, moby, 0) ||
+            func_L00_001F2BE8(0.333f, (char *)moby + 0x10, 0, *(void **)(data + 0x24), 0)) {
+            func_L00_0025F4A8(moby, data, (char *)moby + 0x10, 1.5f, 2.0f, 10, 3, 16, 4.0f, 2.0f, 9.0f, -1, 1.0f, 15.0f, 1, 1, -1, 0);
+            func_0020D678(moby);
+        }
+        break;
+    }
+    }
+}
 extern char *func_0020D348(int);
 extern void func_001F9BC0(void *);
 extern void func_001FA1F8(void *, void *);
@@ -638,8 +817,92 @@ char *func_L11_0031BC48(int idx) {
     } while (*p++ >= 0);
     return 0;
 }
-INCLUDE_ASM("asm/overlays", func_L11_0031BEF0);
-INCLUDE_ASM("asm/overlays", func_L11_0031BF78);
+extern int func_L01_0026EFB8(int, int);
+extern void func_0022EE28(int, int, int);
+extern void func_L00_00264DB8(int, int);
+extern unsigned char D_0013D50F[];
+
+void func_L11_0031BEF0(char *moby) {
+    int *data = *(int **)(moby + 0x78);
+    if (data[0] == -1) {
+        func_0020D678(moby);
+    } else if (data[1] != -1 && func_L01_0026EFB8(data[1], -1) == 0) {
+        unsigned char *g = D_0013D50F + 1;
+        if (g[0x13] == 0) {
+            g[0x13] = 1;
+            func_0022EE28(1, 0, 0);
+            func_L00_00264DB8(0x53DB, -1);
+        }
+    }
+}
+extern short D_L11_00162490;
+extern short D_L11_00162494;
+extern short D_L11_00162498;
+extern short D_L11_0016249C;
+extern short D_L11_001624A0;
+extern short D_L11_001624A4;
+extern short D_L11_001624A8;
+extern short D_L11_001624AC;
+extern void func_L11_0031C508(char *);
+extern void func_L11_0031C2D8(char *, float *, int, int);
+extern float func_001F9B88(float);
+extern char *func_L00_0026FF20_p(void *, float *, float, float) __asm__("func_L00_0026FF20");
+extern void func_0020D678(void *);
+extern void func_L00_001FF500(void *, void *, float);
+
+/* Bubble update: rises to the surface, then pops and fades, drifting with its velocity. */
+void func_L11_0031BF78(char *m) {
+    char *d = *(char **)(m + 0x78);
+    float v[4];
+    float len;
+    float rate;
+    char *p;
+    if (((unsigned char *)m)[0x31] == 0) {
+        if (++*(short *)(d + 0x22) > func_001F9850(0xF)) {
+            func_0020D678(m);
+            return;
+        }
+    } else {
+        *(short *)(d + 0x22) = 0;
+    }
+    switch (((unsigned char *)m)[0x20]) {
+    case 1:
+        *(float *)(d + 8) -= *(float *)&D_L11_00162490 * D_0015EE70;
+        if (**(float **)(d + 0x24) + 3.0f < *(float *)(m + 0x18)) {
+            if (func_002140B0(*(int *)&D_L11_001624A0) == 0) {
+                func_L11_0031C508(m);
+            }
+        }
+        if (*(float *)(m + 0x18) < **(float **)(d + 0x24)) {
+            func_001F9C30(d, d, *(float *)&D_L11_0016249C);
+            m[0x20] = 2;
+            func_L11_0031C2D8(m, *(float **)(d + 0x24), 8, 4);
+        }
+        break;
+    case 2:
+        *(float *)(d + 8) -= *(float *)&D_L11_00162494 * D_0015EE70;
+        rate = *(float *)(*(char **)(m + 0x24) + 0x24) / (float)func_001F9850(0x3C);
+        if ((D_L11_0015F6B0 & 3) == 0) {
+            func_L11_0031C2D8(m, *(float **)(d + 0x24), 0, 1);
+            func_L00_00258DB0(v, 0.0f, D_0015EE6C);
+            v[2] = func_001F9B88(v[2]);
+            p = func_L00_0026FF20_p(m + 0x10, v, *(float *)&D_L11_001624A4, **(float **)(d + 0x24));
+            if (p != 0) {
+                *(int *)(p + 4) = func_001FA8A8(*(int *)&D_L11_001624A8, *(int *)&D_L11_001624AC, func_002140F8(0.0f, 1.0f));
+            }
+        }
+        func_00214D28((float *)(m + 0x2C), 0.0f, rate);
+        if (*(float *)(m + 0x2C) == 0.0f) {
+            func_0020D678(m);
+            return;
+        }
+        break;
+    }
+    func_001F9BD8(m + 0x10, m + 0x10, d);
+    len = func_001F9CE8(d);
+    func_00214D28(&len, 0.0f, *(float *)&D_L11_00162498 * D_0015EE70);
+    func_L00_001FF500(d, d, len);
+}
 extern char *func_0020D348(int);
 extern float func_00214158(void);
 
@@ -660,7 +923,40 @@ char *func_L11_0031C210(void *position, void *vector, void *owner, float scale) 
     }
     return moby;
 }
-INCLUDE_ASM("asm/overlays", func_L11_0031C2D8);
+extern short D_L11_001624B0;
+extern short D_L11_001624B4;
+extern int func_L00_00258BC8(int, int);
+extern void func_L00_002703E8(void *, void *, int, int);
+extern char *func_L00_00272770_p(void *, void *, void *, float, float) __asm__("func_L00_00272770");
+extern float func_001F9878(float);
+
+/* Bursts n1 sparks and n2 smoke puffs at the moby, the puffs sitting on the ground height. */
+void func_L11_0031C2D8(char *m, float *ground, int n1, int n2) {
+    float v[4];
+    int i;
+    for (i = 0; i < n1; i++) {
+        float a = func_00214158();
+        float r = func_002140F8(D_0015EE6C * 0.0f, D_0015EE6C * 6.0f);
+        int k;
+        v[0] = func_001F9F90(a) * r;
+        v[1] = func_001F9FA8(a) * r;
+        v[2] = func_002140F8(D_0015EE6C * 3.0f, D_0015EE6C * 6.5f);
+        k = func_L00_00258BC8(0x5A, 0x78);
+        func_L00_002703E8(m + 0x10, v, func_002140B0(2), k);
+    }
+    for (i = 0; i < n2; i++) {
+        char *e;
+        func_L00_00258DB0(v, 1.0f, 1.0f);
+        func_001F9BD8(v, v, m + 0x10);
+        v[2] = *ground + 0.05f;
+        e = func_L00_00272770_p(v, D_L11_0015F660, ground, func_002140F8(3.0f, 6.0f), i == 0 ? 1.0f : -1.0f);
+        if (e != 0) {
+            e[9] = func_001FA898_r(4.0f) + 0x40;
+            *(short *)(e + 0xA) = func_001FA898_r(func_001F9878(func_002140F8(30.0f, 90.0f)));
+            *(int *)(e + 4) = func_001FA8A8(*(int *)&D_L11_001624B0, *(int *)&D_L11_001624B4, func_002140F8(0.0f, 1.0f));
+        }
+    }
+}
 extern float func_001F9878(float);
 extern short D_L11_001624B8;
 extern short D_L11_001624BC;

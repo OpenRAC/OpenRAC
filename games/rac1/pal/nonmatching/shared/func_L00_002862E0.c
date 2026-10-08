@@ -1,9 +1,8 @@
 /* NON_MATCHING func_L00_002862E0 -- src/overlays/shared/pause_00277208.c
- * Best so far: SIZE ours 456 / retail 436, checked 2026-10-03.
+ * Best so far: SIZE ours 456 / retail 436, checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
- *   else copy 0xC60 bytes, qcopy two vectors to D_0013E633+0xE9D/+0xEAD, patch fields, then for kind 1/2 scan the 
  *   D_L00_00160098..0016009C for a short at +0xA6 == 0x57/0x1A3 and call func_L00_002110C0, finally 251E30/1FA1F8/
  *   p4.c is the closest (size 436 = retail; BYTES 259): qcopy dst written as D_0013E633 + 0xE9D (not via a g varia
  *   2-case `switch (k)` after `if (k == 0 || k == 3) goto done;`, `s = 0` before it, and D_L00_001BB5C0[0x11]/[0x1
@@ -11,6 +10,7 @@
  *   Remaining difference: gcc derives D_0013E633+0x1D (b) from D+0xE9D with `addu $4,-0xE80` and keeps D+0xE1D in 
  *   reg, so ours uses $s0-$s3 (frame 0x50) where retail uses $s0-$s2 (frame 0x40) and builds b with its own lui/ad
  *   before/after the qcopy and a second alias array for b; no change. Would need the wording that stops that cse d
+ *   w02/q30: with the file's own declarations (D_0013E633/D_0014171B/D_L00_001BB5C0 reached through __asm__ aliase
  */
 extern char D_L00_001BA960[] NOT_SDA;
 extern int D_L00_00160098 MACRO_ADDR;

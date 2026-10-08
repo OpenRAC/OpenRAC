@@ -12,7 +12,7 @@ target function's body possibly rewritten by the permuter. This pulls just
 that function's definition back out and hands it to tools/try_func.py's own
 build() -- the same function try_func.py uses for `python tools/try_func.py
 func_X candidate.c` -- so a candidate compiles here exactly as it would
-there: same flags, same fix_orphan_hi/func_cflags/ps2eeas_nops passes.
+there: same flags (file_cflags), same fix_orphan_hi/ps2eeas_nops passes.
 
 The function's location (which segment, which source file, which lines to
 replace) is re-resolved by name on every call, not cached from setup time:

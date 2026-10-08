@@ -40,5 +40,59 @@ unsigned char *func_L08_0027ACC8(char *a)
     }
     return m;
 }
-INCLUDE_ASM("asm/overlays", func_L08_0027C218);
-INCLUDE_ASM("asm/overlays", func_L08_00280BC8);
+extern int func_001160D8(void);
+extern unsigned char *D_L08_001B2C2C;
+
+/* Spawns a coloured effect at pos with the given vector, size and lifetime. */
+unsigned char *func_L08_0027C218(int owner, void *pos, void *vec, short ticks,
+                                 unsigned char r, unsigned char g, unsigned char b, unsigned char a,
+                                 float size)
+{
+    unsigned char *m = func_00218928(0x2B);
+    unsigned char *q;
+    if (m != 0) {
+        q = m + 0x20;
+        qcopy(m + 0x10, pos);
+        qcopy(q, vec);
+        q[0x14] = r;
+        q[0x15] = g;
+        q[0x16] = b;
+        q[0x17] = a;
+        *(int *)(m + 4) = (b << 16) | (g << 8) | r;
+        m[9] = func_001FA898_r(4.0f) + 0x40;
+        m[3] = 0x48;
+        m[1] = 0;
+        m[8] = func_001160D8();
+        m[2] = *D_L08_001B2C2C;
+        *(float *)(m + 0xC) = size;
+        *(short *)(m + 0xA) = 0;
+        *(short *)(q + 0x18) = scale_ticks(ticks);
+        *(int *)(q + 0x10) = owner;
+    }
+    return m;
+}
+extern float func_001FA888(int);
+extern unsigned char *D_L08_001B2CB4;
+extern void qcopy(void *, void *);
+typedef int U128 __attribute__((mode(TI)));
+// Spawns a class 0x4D particle moby at a position.
+void func_L08_00280BC8(char *a, char *b, int c, float f) {
+    unsigned char *m = func_00218928(0x4D);
+    char *q;
+    int t;
+    if (m != 0) {
+        qcopy(m + 0x10, a);
+        q = (char *)m + 0x20;
+        *(int *)(m + 4) = 0x50504040;
+        m[9] = func_001FA898_r(2.0f) + 0x40;
+        m[3] = 0x48;
+        m[1] = 0;
+        m[2] = *D_L08_001B2CB4;
+        m[8] = 0xA0;
+        *(float *)(m + 0xC) = f * 210000.0f;
+        t = func_001F9850(c);
+        *(short *)(m + 0xA) = t;
+        *(U128 *)(m + 0x20) = *(U128 *)b;
+        *(float *)(q + 0xC) = func_001FA888((short)t);
+    }
+}

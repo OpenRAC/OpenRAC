@@ -251,6 +251,85 @@ void func_001EE6E0(void) {
 
 LINKER_REMNANT("asm/remnants/text", func_001EE850);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001EE858);
+struct CameraEnvironmentRegion {
+    u8 pad0[0x50];
+    s32 flags;
+    s32 negative_color;
+    s32 positive_color;
+    f32 negative_depth_start;
+    f32 negative_value_start;
+    f32 negative_depth_end;
+    f32 negative_value_end;
+    f32 positive_depth_start;
+    f32 positive_value_start;
+    f32 positive_depth_end;
+    f32 positive_value_end;
+    u8 pad7C[4];
+};
+extern struct CameraEnvironmentRegion D_0019AEC0[];
+/* A fog preset: an RGB byte triple and four floats (as src/game/draw.c reads it). */
+typedef struct {
+    unsigned char r, g, b, pad;
+    float f[4];
+} FogPreset;
+extern FogPreset D_0015F584 MACRO_ADDR;
+extern s32 func_00213A78(void *, f32 *, s32 *);
+extern s32 func_001FA898(f32);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001EE9E8);
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/update_camera_environment_from_regions.c,
+ * update_camera_environment_from_regions; the fog preset written as the struct src/game/draw.c reads. */
+void func_001EE858(void *position) {
+    f32 blend;
+    s32 region_index;
+    struct CameraEnvironmentRegion *region;
+    u32 positive_weight;
+    u32 negative_weight;
+    s32 negative_color;
+    s32 positive_color;
+    f32 inverse_blend;
+    u32 red;
+    u32 green;
+    u32 positive_red;
+    u32 negative_red;
+    u32 positive_green;
+    u32 negative_green;
+    u32 positive_blue;
+    u32 negative_blue;
+
+    if (func_00213A78(position, &blend, &region_index) == 0) {
+        return;
+    }
+    region = &D_0019AEC0[region_index];
+    if (!(region->flags & 2)) {
+        return;
+    }
+    positive_weight = func_001FA898(blend * 255.0f);
+    negative_weight = 255 - positive_weight;
+    inverse_blend = 1.0f - blend;
+    positive_color = region->positive_color;
+    negative_color = region->negative_color;
+    positive_red = (positive_color & 0xFF) * positive_weight;
+    positive_green = ((positive_color >> 8) & 0xFF) * positive_weight;
+    positive_blue = (positive_color >> 16) & 0xFF;
+    negative_red = (negative_color & 0xFF) * negative_weight;
+    negative_green = ((negative_color >> 8) & 0xFF) * negative_weight;
+    negative_blue = (negative_color >> 16) & 0xFF;
+    red = (s32)(positive_red + negative_red) >> 8;
+    green = (s32)(positive_green + negative_green) >> 8;
+    D_0015F584.b = (s32)(positive_blue * positive_weight + negative_blue * negative_weight) >> 8;
+    D_0015F584.r = red;
+    D_0015F584.g = green;
+    D_0015F584.f[0] =
+        (region->positive_depth_start * blend + region->negative_depth_start * inverse_blend) *
+        1024.0f;
+    D_0015F584.f[1] =
+        (region->positive_depth_end * blend + region->negative_depth_end * inverse_blend) * 1024.0f;
+    D_0015F584.f[2] = 255.0f - (region->positive_value_start * blend +
+                                   region->negative_value_start * inverse_blend) *
+                                      255.0f;
+    D_0015F584.f[3] =
+        255.0f -
+        (region->positive_value_end * blend + region->negative_value_end * inverse_blend) * 255.0f;
+}
+
+LINKER_REMNANT("asm/remnants/text", func_001EE9E8);

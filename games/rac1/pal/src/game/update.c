@@ -327,7 +327,7 @@ INCLUDE_ASM("asm/nonmatchings/text", func_00238D90);
 
 INCLUDE_ASM("asm/nonmatchings/text", func_00238F98);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00239180);
+LINKER_REMNANT("asm/remnants/text", func_00239180);
 
 extern char D_001E66C0[];
 extern char D_001E8DA0[];
@@ -340,4 +340,4 @@ void func_002391A8(int arg0) {
 
 INCLUDE_ASM("asm/nonmatchings/text", func_002391E8);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00239610);
+LINKER_REMNANT("asm/remnants/text", func_00239610);

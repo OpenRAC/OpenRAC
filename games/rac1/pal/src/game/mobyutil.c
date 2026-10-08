@@ -207,7 +207,7 @@ LINKER_REMNANT("asm/remnants/text", func_00213C70);
 
 INCLUDE_ASM("asm/nonmatchings/text", func_00213C78);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00213D10);
+LINKER_REMNANT("asm/remnants/text", func_00213D10);
 
 typedef struct {
     char _pad00[0x10];
@@ -350,7 +350,7 @@ void func_00213F28(MobyAnim *arg0, int arg1, int arg2, int arg3, int arg4) {
         *((unsigned char *)arg0->pClass->seqs[arg1] + 0x11);
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00214080);
+LINKER_REMNANT("asm/remnants/text", func_00214080);
 
 extern int func_001160D8(void);
 
@@ -398,7 +398,7 @@ float func_00214220(float a, float b, float t) {
     return a + (b - a) * ((1.0f - FastCos(t * 3.14159274f)) * 0.5f);
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_002142B8);
+LINKER_REMNANT("asm/remnants/text", func_002142B8);
 
 extern int func_001EFE10_a(void *, void *, int, int, int) __asm__("func_001EFE10");
 extern char D_00194220[];
@@ -422,7 +422,7 @@ f32 func_00214358(void *arg0, s32 arg1, f32 arg2) {
     return 0.0f;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_002143D0);
+LINKER_REMNANT("asm/remnants/text", func_002143D0);
 
 extern int D_00161298 MACRO_ADDR;
 extern int D_0016129C MACRO_ADDR;
@@ -463,7 +463,7 @@ float func_00214440(float *pos, void *out) {
     return pos[2];
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00214538);
+LINKER_REMNANT("asm/remnants/text", func_00214538);
 
 extern char D_00194200[];
 extern void func_001F9E10(float *, float *, float);
@@ -520,7 +520,7 @@ void func_00214550(char *m) {
 
 INCLUDE_ASM("asm/nonmatchings/text", func_00214770);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00214CF8);
+LINKER_REMNANT("asm/remnants/text", func_00214CF8);
 
 float func_00214D28(float *p, float target, float maxstep) {
     float d = target - *p;
@@ -589,7 +589,7 @@ float func_00214D88(float *p1, float *p2, float a, float b, float c, float d) {
     return *p2;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00214F50);
+LINKER_REMNANT("asm/remnants/text", func_00214F50);
 
 extern void func_001F9DC0(void *, void *, float);
 
@@ -643,7 +643,7 @@ void func_00214F78(f32 *arg0) {
     } while (i < 3);
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00215038);
+LINKER_REMNANT("asm/remnants/text", func_00215038);
 
 /* A goto into the first `return 0` gives retail's backward beqz; the two
    nops before it are short-loop padding (tools/ps2eeas_nops.py). */
@@ -807,7 +807,7 @@ void func_002153E8(Mtx44 *src, float *out) {
 /* 12 bytes of post-endlabel nop padding in retail -- see func_001F6668. */
 __asm__(".section .text\n\tnop\n\tnop\n\tnop\n");
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00215518);
+LINKER_REMNANT("asm/remnants/text", func_00215518);
 
 typedef struct {
     char pad[0x30];
@@ -878,7 +878,7 @@ void func_002156E0(void *dst, void *vec, void *axis, float angle) {
     func_00215650(dst, vec, q);
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00215788);
+LINKER_REMNANT("asm/remnants/text", func_00215788);
 
 extern float D_0015EE60 MACRO_ADDR;
 extern float D_0015EE64 MACRO_ADDR;
@@ -1009,7 +1009,7 @@ int func_00215B18(char *arg0, float arg1) {
     return 0;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00215BA8);
+LINKER_REMNANT("asm/remnants/text", func_00215BA8);
 
 /* Spherical-to-cartesian: x is the radius, y and z the two angles.
    func_001F9F90 is cos, func_001F9FA8 sin (named in the comments at
@@ -1102,7 +1102,7 @@ void func_00215CA8(Path *path, int wrap, void *pos, float *rot, int flags, float
     rot[3] = -FastAddRots(FastSubRots(roll2, roll) * f, roll);
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00215F20);
+LINKER_REMNANT("asm/remnants/text", func_00215F20);
 
 extern int func_001FE540(int);
 extern void func_001FFE88(int);

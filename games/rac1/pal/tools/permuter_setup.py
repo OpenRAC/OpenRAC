@@ -35,7 +35,7 @@ write one from scratch. Writes build-sn/permuter/<func>/:
   compile.sh   hands the permuter's current mutated base.c to
                tools/permuter_compile.py, which pulls the target function's
                definition back out and recompiles it through
-               tools/try_func.py's own build() -- the same func_cflags.py /
+               tools/try_func.py's own build() -- the same file_cflags.py flags /
                fix_orphan_hi.py / ps2eeas_nops.py passes try_func.py itself
                runs -- so a score of 0 here means the same thing try_func.py
                calls EXACT. Confirm any score-0 result with try_func.py

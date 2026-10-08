@@ -25,6 +25,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from try_func import find_stub, STUB  # noqa: E402
+import provenance  # noqa: E402
 
 TRAILING = re.compile(r"\)\s*;\s*(/\*.*\*/)\s*$")
 
@@ -38,6 +39,12 @@ def main() -> None:
     a = ap.parse_args()
 
     _seg, src, first, last = find_stub(a.name)
+    sample = provenance.sony_sample(Path(a.candidate).read_text())
+    if sample:
+        sys.exit(f"{a.candidate}: mentions '{sample}', a name from Sony's sample source (docs/MOVIE.md)")
+    if provenance.is_movie_file(src) and not provenance.movie_provenance(a.name):
+        sys.exit(f"{a.name} lands in {src}: movie code needs a row in "
+                 f"config/movie_provenance.tsv (docs/MOVIE.md)")
     lines = src.read_text().splitlines()
     is_stub = STUB.match(lines[first]) is not None
     m = TRAILING.search(lines[first]) if is_stub else None

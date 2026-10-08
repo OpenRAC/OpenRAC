@@ -148,10 +148,12 @@ def instructions(body: str) -> list[str]:
 # `sq $2,0(b)` is qcopy() in include/common.h; any other register, offset
 # or a store in a delay slot is a plain 128-bit copy through
 # `typedef int u128 __attribute__((mode(TI)))` (checked 2026-10-01: SN gcc
-# emits `lq $2,16($5)` / `sq $2,48($4)` for it). Only a zero store
-# (`sq $0`) has no C form: the zero is materialised with `por` first.
+# emits `lq $2,16($5)` / `sq $2,48($4)` for it). A zero store at offset 0
+# (`sq $0,0(a)`) is qzero() in include/common.h; at another offset it has
+# no C form: the zero is materialised with `por` first.
 BARE_QUAD = re.compile(r"\b(sq|lq)\s+\$(?!29\b|1[6-9]\b|2[0-3]\b|3[01]\b)")
 ZERO_QUAD = re.compile(r"\bsq\s+\$0,")
+QZERO_SQ = re.compile(r"^sq\s+\$0,\s*0x0\(\$\d+\)$")
 QCOPY_LQ = re.compile(r"^lq\s+\$2,\s*0x0\(\$\d+\)$")
 QCOPY_SQ = re.compile(r"^sq\s+\$2,\s*0x0\(\$\d+\)$")
 
@@ -199,31 +201,21 @@ def classify(name: str, body: str, seg: str, size: int) -> tuple[str, str, str]:
             return "blocked", "linker fill", "0xCDCDCDCD between objects"
         return "blocked", "dead-strip remnant", "delay slot of a stripped function"
 
-    # RESOLVED: core_text s-register spills are no longer blocked.
-    # core_text is now built with v1.14 (which reproduces retail's
-    # exact save-slot layout) and post-processed by
-    # tools/fix_core_spills.py to narrow the spills to sd/ld.
-    # Proven byte-exact on func_00116FA0. The old rule blocked ~247
-    # functions on the assumption v1.36 was the core_text compiler.
+    # core_text's sd/ld saves are Sony SDK code built with 2.9-ee (the `ee29`
+    # objects), which emits them natively; the game compiler's core objects
+    # save with sq like retail does there. No spill rewriting
+    # (docs/BUILD_FIDELITY.md).
     if "Handwritten function" in body:
         return "blocked", "handwritten asm", "spimdisasm marker"
-    # RESOLVED: tail calls are no longer blocked. GCC 2.95 still has no
-    # sibling-call optimisation (the flag does not exist in either SN
-    # sub-build and -O3 does not help), but tools/fix_tail_calls.py
-    # rewrites the compiled call-and-return into retail's bare `j target`
-    # for the functions in tools/tail_call_functions.txt. Proven
-    # byte-exact on func_0011DD98 (0/8) and func_0012CC80 (0/12).
-    #
-    # Ranked "risky" rather than plain candidate because the rewriter only
-    # fires on a strict shape: the frame instructions must be the only $sp
-    # references, the $31 spill must be at offset 0, and nothing may happen
-    # after the call returns. A tail-call function that keeps its own
-    # locals, or does work after the call, is deliberately refused -- of
-    # the 99, 47 touch $sp and 22 contain a second call, so expect a large
-    # share not to convert.
+    # A bare tail jump (`j func_X`). Sony's 2.9-ee emits one for a void
+    # function that ends in a call, so in its `ee29` objects it is ordinary
+    # C. SN's 2.95.3 has no sibling-call optimisation (no flag turns one on),
+    # and the build no longer rewrites its call-and-return into a jump
+    # (docs/BUILD_FIDELITY.md, "Removed"), so outside those objects a tail
+    # jump means another compiler or handwritten assembly: a wall.
     tail = bool(re.search(r"(?m)^j\s+func_[0-9A-Fa-f]{8}", text))
     if tail and not ee29:
-        return "risky", "tail call", "needs fix_tail_calls.py; strict shape"
+        return "blocked", "tail call", "SN 2.95.3 emits no tail jumps"
     # Must come AFTER the tail-call test: a tail-called function ends in
     # `j`, not `jr $31`, so this rule would otherwise claim every tail call
     # is a fragment. Same verdict, but the category is what tells a future
@@ -275,8 +267,8 @@ def classify(name: str, body: str, seg: str, size: int) -> tuple[str, str, str]:
     if len(ins) > 4 and best >= 4:
         return "blocked", "varargs definition", "needs stdarg.h"
     qcopy = u128 = False
-    if ZERO_QUAD.search(text):
-        return "blocked", "bare quadword", "sq $0: a 128-bit zero store has no C form"
+    if any(ZERO_QUAD.search(s) and not QZERO_SQ.match(s) for s in ins):
+        return "blocked", "bare quadword", "sq $0 at an offset: only a zero store at offset 0 is qzero()"
     if BARE_QUAD.search(text):
         qcopy = True
         u128 = not only_qcopies(ins)

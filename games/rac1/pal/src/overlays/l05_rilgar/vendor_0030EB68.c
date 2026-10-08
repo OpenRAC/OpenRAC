@@ -111,10 +111,163 @@ void func_L05_0030F130(char *m) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L05_0030F358);
-INCLUDE_ASM("asm/overlays", func_L05_0030F6C0);
+extern unsigned char D_L05_0015F544[] MACRO_ADDR;
+extern unsigned char D_L05_0015F545[] MACRO_ADDR;
+extern unsigned char D_L05_0015F546[] MACRO_ADDR;
+extern float D_L05_0015F548 MACRO_ADDR;
+extern float D_L05_0015F54C MACRO_ADDR;
+extern float D_L05_0015F550 MACRO_ADDR;
+extern float D_L05_0015F554 MACRO_ADDR;
+extern unsigned char D_L05_001612C0[] MACRO_ADDR;
+extern unsigned char D_L05_001612C1[] MACRO_ADDR;
+extern unsigned char D_L05_001612C2[] MACRO_ADDR;
+extern unsigned char D_L05_001612C3[] MACRO_ADDR;
+extern char *D_L05_001601AC_c __asm__("D_L05_001601AC") MACRO_ADDR;
+extern int func_00215570(void *, int);
+extern void func_001F9BF0(void *, void *, void *);
+extern void func_001F9EC0(void *, void *, void *);
+extern int func_001FA8A8(int, int, float);
+
+/* Fog zone: switches the level fog between its two settings when the hero enters either trigger volume, and
+ * tints a colour by the hero's side of a gate while inside the third. */
+void func_L05_0030F6C0(char *m) {
+    char *d = *(char **)(m + 0x78);
+    float v[4];
+    float w[4];
+    char *g = D_0013E633 + 0xE9D;
+    if (func_00215570(g, *(int *)(d + 0x28))) {
+        *(float *)(g + 0x270) = 500.0f;
+    }
+    switch (((unsigned char *)m)[0x20]) {
+    case 0:
+        d[0x20] = D_L05_0015F544[0];
+        d[0x21] = D_L05_0015F545[0];
+        d[0x22] = D_L05_0015F546[0];
+        {
+            float f0 = D_L05_0015F548;
+            float f1 = D_L05_0015F54C;
+            float f2 = D_L05_0015F550;
+            float f3 = D_L05_0015F554;
+            *(float *)(d + 0) = f0;
+            *(float *)(d + 8) = f1;
+            *(float *)(d + 4) = f2;
+            *(float *)(d + 0xC) = f3;
+        }
+        d[0x23] = 0x49;
+        d[0x24] = 0x53;
+        d[0x25] = 0xC;
+        *(float *)(d + 0x18) = 33792.0f;
+        *(float *)(d + 0x14) = 255.0f;
+        *(int *)(d + 0x10) = 0;
+        *(int *)(d + 0x1C) = 0;
+        {
+            int c = D_L05_001612C0[0] + (D_L05_001612C1[0] << 8) + (D_L05_001612C2[0] << 16) + (D_L05_001612C3[0] << 24);
+            *(int *)(d + 0x34) = 0x40408070;
+            *(int *)(d + 0x30) = c;
+        }
+        m[0x20] = 1;
+        break;
+    case 1:
+        if (func_00215570(D_0013E633 + 0xE9D, *(int *)(d + 0x2C))) {
+            D_L05_0015F544[0] = d[0x23];
+            D_L05_0015F545[0] = d[0x24];
+            D_L05_0015F546[0] = d[0x25];
+            {
+                float f0 = *(float *)(d + 0x10);
+                float f1 = *(float *)(d + 0x18);
+                float f2 = *(float *)(d + 0x14);
+                float f3 = *(float *)(d + 0x1C);
+                D_L05_0015F548 = f0;
+                D_L05_0015F54C = f1;
+                D_L05_0015F550 = f2;
+                D_L05_0015F554 = f3;
+            }
+            m[0x20] = 2;
+        }
+        break;
+    case 2:
+        if (func_00215570(D_0013E633 + 0xE9D, *(int *)(d + 0x28))) {
+            D_L05_0015F544[0] = d[0x20];
+            D_L05_0015F545[0] = d[0x21];
+            D_L05_0015F546[0] = d[0x22];
+            {
+                float f0 = *(float *)(d + 0);
+                float f1 = *(float *)(d + 8);
+                float f2 = *(float *)(d + 4);
+                float f3 = *(float *)(d + 0xC);
+                D_L05_0015F548 = f0;
+                D_L05_0015F54C = f1;
+                D_L05_0015F550 = f2;
+                D_L05_0015F554 = f3;
+            }
+            m[0x20] = 1;
+        }
+        break;
+    }
+    g = D_0013E633 + 0xE9D;
+    if (func_00215570(g, *(int *)(d + 0x38))) {
+        int c;
+        func_001F9BF0(v, g, D_L05_001601AC_c + *(int *)(d + 0x38) * 128 + 0x30);
+        v[3] = 0.0f;
+        func_001F9EC0(w, v, D_L05_001601AC_c + *(int *)(d + 0x38) * 128 + 0x40);
+        c = func_001FA8A8(*(int *)(d + 0x30), *(int *)(d + 0x34), (w[0] + 1.0f) * 0.5f);
+        D_L05_001612C1[0] = c >> 8;
+        D_L05_001612C2[0] = c >> 16;
+        D_L05_001612C0[0] = c;
+        D_L05_001612C3[0] = c >> 24;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L05_0030F9D0);
 INCLUDE_ASM("asm/overlays", func_L05_0030FCC0);
-INCLUDE_ASM("asm/overlays", func_L05_003106E0);
+extern void func_001F9BC0(void *);
+extern float func_001FA888(int);
+extern float func_002140F8(float, float);
+extern float func_00214158(void);
+extern float func_001F9F90(float);
+extern float func_001F9FA8(float);
+extern void func_001F9BD8(void *, void *, void *);
+extern int func_001F9850(int);
+extern float func_L00_00258C80(float lo, float hi);
+extern int func_001FA898_r(float) __asm__("func_001FA898");
+extern void func_L05_0029CA28(float, void *, void *, int, int, int);
+extern float D_0015EE6C MACRO_ADDR;
+extern short D_L05_00161E74;
+extern short D_L05_00161E78;
+extern short D_L05_00161E7C;
+extern short D_L05_00161E80;
+extern short D_L05_00161E84;
+extern short D_L05_00161E88;
+extern short D_L05_00161E8C;
+extern short D_L05_00161E90;
+
+/* Scatters points along a range, placing each one with a heading and radius. */
+void func_L05_003106E0(char *obj, float a, float b) {
+    float v[4];
+    float w[4];
+    float ground, x, y, t, u;
+    int i, j, k, m, n;
+    func_001F9BC0(v);
+    v[2] = *(float *)&D_L05_00161E88 * D_0015EE6C;
+    ground = v[2] * 0.75f * func_001FA888(*(int *)&D_L05_00161E78);
+    j = 0;
+    for (i = j; (float)i < (b - a) / *(float *)&D_L05_00161E74; i++) {
+        float fi = (float)j;
+        x = func_002140F8(fi, *(float *)&D_L05_00161E90);
+        y = func_00214158();
+        w[0] = func_001F9F90(y) * x;
+        w[1] = func_001F9FA8(y) * x;
+        w[2] = fi;
+        func_001F9BD8(w, obj + 0x10, w);
+        w[2] = func_002140F8(a, b) - ground;
+        t = func_002140F8((a + b) * 0.5f, b) - ground;
+        if (t < w[2]) w[2] = t;
+        u = func_002140F8(*(float *)&D_L05_00161E7C, *(float *)&D_L05_00161E80);
+        k = func_001F9850(*(int *)&D_L05_00161E78);
+        m = func_001FA898_r(func_L00_00258C80(fi, (float)*(int *)&D_L05_00161E84));
+        n = *(int *)&D_L05_00161E8C;
+        func_L05_0029CA28(u, w, v, k, m, n);
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L05_003108D0);
 INCLUDE_ASM("asm/overlays", func_L05_00310A90);
 INCLUDE_ASM("asm/overlays", func_L05_00316378);
@@ -439,8 +592,89 @@ void func_L05_0031A188(char *moby) {
     func_L00_002617B0(d + 0x20, v20, v10, moby + 0x40);
 }
 INCLUDE_ASM("asm/overlays", func_L05_0031A718);
-INCLUDE_ASM("asm/overlays", func_L05_0031A8B8);
-INCLUDE_ASM("asm/overlays", func_L05_0031B138);
+extern char * D_L05_001B0CB0[];
+extern unsigned char D_0014C150[][16];
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l05/unclassified_0030d6a0.c, FUN_L05_003193a8. */
+void func_L05_0031A8B8(char *moby) {
+    char *d = *(char **)(moby + 0x78);
+    char *p;
+    float inv, a, b, r;
+    switch (*(short *)(d + 0xB4)) {
+    case 0:
+        *(char **)(d + 0xAC) = D_L05_001B0CB0[*(int *)(d + 0x94)];
+        *(short *)(d + 0xB6) = 1;
+        break;
+    case 1:
+        *(char **)(d + 0xAC) = D_L05_001B0CB0[*(int *)(d + 0x98)];
+        *(short *)(d + 0xB6) = 0;
+        break;
+    case 2:
+        if (D_0014C150[D_0015EE84][*(int *)(d + 0xB8)] != 0xFF) {
+            *(char **)(d + 0xAC) = D_L05_001B0CB0[*(int *)(d + 0x9C)];
+            *(short *)(d + 0xB6) = 3;
+        } else {
+            *(char **)(d + 0xAC) = D_L05_001B0CB0[*(int *)(d + 0xA4)];
+            *(short *)(d + 0xB6) = 4;
+        }
+        break;
+    case 3:
+        *(char **)(d + 0xAC) = D_L05_001B0CB0[*(int *)(d + 0xA0)];
+        *(short *)(d + 0xB6) = 2;
+        break;
+    case 4:
+        *(char **)(d + 0xAC) = D_L05_001B0CB0[*(int *)(d + 0xA8)];
+        *(short *)(d + 0xB6) = 2;
+        break;
+    }
+    p = *(char **)(d + 0xAC);
+    r = func_001F9D10(p + 0x10, p + 0x20);
+    a = D_0015EE6C * 20.0f;
+    b = D_0015EE70 * 5.0f;
+    inv = 1.0f / (r * (float)**(int **)(d + 0xAC));
+    *(int *)(d + 0xC4) = 0;
+    *(int *)(d + 0xC0) = 0;
+    *(float *)(d + 0xD4) = a * inv;
+    *(float *)(d + 0xD8) = b * inv;
+}
+// Updates trailer visibility and flag bit from the current mode.
+void func_L05_0031B138(char *moby) {
+    if (D_L05_0015F6A8 == 2) {
+        moby[0x31] = 0;
+        *(unsigned short *)(moby + 0x34) |= 1;
+    } else {
+        moby[0x31] = 1;
+        *(unsigned short *)(moby + 0x34) &= 0xFFFE;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L05_0031B15C);
 INCLUDE_ASM("asm/overlays", func_L05_0031D450);
-INCLUDE_ASM("asm/overlays", func_L05_0031EAD8);
+extern void func_L00_00264870(int);
+
+/* UpdateMoby_1550 (names.tsv role). State 0 arms it: state 1 and byte 0x30 = 0xFF. In state 1,
+ * while the level flag is 2 and the word at +0x30 of D_L05_0016CD60 is 10 or 11, passes one
+ * entry of that table to func_L00_00264870. The index select `s < t ? 0 : 3` is kept as retail
+ * has it (it always gives 3 here since t < 2). The two state stores have to be written in
+ * the order 0x30, 0x20 to come out as retail's. */
+void func_L05_0031EAD8(unsigned char *m) {
+    unsigned int s = m[0x20];
+    unsigned int t;
+    G *g;
+    switch (s) {
+    case 0:
+        m[0x30] = 0xFF;
+        m[0x20] = 1;
+        break;
+    case 1:
+        if (D_L05_0015F6A8 == 2) {
+            g = &D_L05_0016CD60;
+            t = *(int *)((char *)g + 0x30) - 10;
+            if (t < 2) {
+                int k = 3;
+                if (s < t) k = 0;
+                func_L00_00264870((int)g->m[k]);
+            }
+        }
+        break;
+    }
+}

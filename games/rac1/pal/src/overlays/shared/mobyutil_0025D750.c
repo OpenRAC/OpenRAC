@@ -9,9 +9,9 @@ void func_L02_0025D750(char *moby) {
     *(float *)(moby + 0x84) = val - delta;
     *(float *)(moby + 0x88) = val + delta;
 }
-INCLUDE_ASM("asm/overlays", func_L02_0025D778);
-INCLUDE_ASM("asm/overlays", func_L02_002612C0);
-INCLUDE_ASM("asm/overlays", func_L02_00264950);
+LINKER_REMNANT("asm/overlays", func_L02_0025D778);
+LINKER_REMNANT("asm/overlays", func_L02_002612C0);
+LINKER_REMNANT("asm/overlays", func_L02_00264950);
 // Clears seven words at moby+0x00..0x18 (walking down) and a halfword at 0x1C.
 void func_L02_00265E58(char *moby) {
     int *p = (int *)(moby + 0x18);

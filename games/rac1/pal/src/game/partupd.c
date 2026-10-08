@@ -281,4 +281,4 @@ struct Obj *func_00219780(u128 *arg0, f32 *arg1, f32 *arg2, s32 arg3, s32 arg4, 
     return o;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00219958);
+LINKER_REMNANT("asm/remnants/text", func_00219958);

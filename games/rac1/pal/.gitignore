@@ -79,3 +79,4 @@ dataset*.jsonl
 
 # Ghidra local datamining cache (generate on demand via tools/datamine_ghidra.py)
 config/ghidra_*.json
+.agents/

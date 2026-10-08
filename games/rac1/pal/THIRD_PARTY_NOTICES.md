@@ -293,6 +293,125 @@ Four more began as machine ports that came out a few bytes off and were finished
 - `src/overlays/shared/hud_00235960.c`: `func_L00_00239510` (`FUN_L00_00238b80`)
 - `src/overlays/shared/help_00203E98.c`: `func_L00_002091D8` (`FUN_L00_00208b60`)
 
+Fourteen more were carried over by machine on 2026-10-05, from what Lombyte matched in its pull request 94
+(the same tool, the same rule: identical instructions, Lombyte's C with every symbol renamed to its PAL
+address, and each passed this project's own check):
+
+- `src/overlays/l02_aridia/help_0021BC90.c`: `func_L02_002205B0` (`FUN_L02_0021ff70`)
+- `src/overlays/l02_aridia/help_0021BC90.c`: `func_L02_00220A28` (`FUN_L02_002203e8`)
+- `src/overlays/l04_eudora/vendor_002CB800.c`: `func_L04_002E30E0` (`FUN_L04_002e1d00`)
+- `src/overlays/l05_rilgar/vendor_0030EB68.c`: `func_L05_0031A8B8` (`FUN_L05_003193a8`)
+- `src/overlays/l06_blarg/help_00223630.c`: `func_L06_00228510` (`FUN_L06_00227e78`)
+- `src/overlays/l06_blarg/vendor_002FE5D0.c`: `func_L06_0030B248` (`FUN_L06_00309e08`)
+- `src/overlays/l12_hoven/help_0022E428.c`: `func_L12_00233130` (`FUN_L12_00232b18`)
+- `src/overlays/l14_oltanis/help_0021E3A8.c`: `func_L14_00223140` (`FUN_L14_00222aa8`)
+- `src/overlays/l14_oltanis/help_0021E3A8.c`: `func_L14_002235D0` (`FUN_L14_00222f38`)
+- `src/overlays/l16_kalebo3/vendor_002E7C70.c`: `func_L16_002EA2F8` (`FUN_L16_002e8e80`)
+- `src/overlays/l16_kalebo3/vendor_002E7C70.c`: `func_L16_002EAD58` (`FUN_L16_002e98e0`)
+- `src/overlays/l16_kalebo3/vendor_002E7C70.c`: `func_L16_002EB5A0` (`FUN_L16_002ea128`)
+- `src/overlays/l17_fleet/help_00202740.c`: `func_L17_0020E320` (`FUN_L17_0020dbe8`)
+- `src/overlays/shared/vendor_002A5138.c`: `func_L00_002A6058` (`FUN_L00_002a4dc8`)
+
+Fifteen more were adapted by queue workers on 2026-10-05, each from Lombyte's matched C for the function's US
+counterpart where the PAL code is not the same instructions (so the machine port above does not apply): the
+control flow is Lombyte's, the symbols and the differing parts are PAL's, and each passed this project's own
+check. In parentheses, Lombyte's name.
+
+- `src/overlays/l01_novalis/help_002343F8.c`: `func_L01_002351A8` (`FUN_L01_00234b40`)
+- `src/overlays/l02_aridia/help_0021BC90.c`: `func_L02_0021BC90` (`FUN_L02_0021b698`)
+- `src/overlays/l06_blarg/help_00223630.c`: `func_L06_0022BB20` (`FUN_L06_0022b438`)
+- `src/overlays/l09_gaspar/vendor_002C2B08.c`: `func_L09_00304750` (`FUN_L09_003033a0`)
+- `src/overlays/l11_pokitaru/vendor_00312BD8.c`: `func_L11_003153D0` (`FUN_L11_00313f60`)
+- `src/overlays/l12_hoven/help_0022E428.c`: `func_L12_0022E428` (`FUN_L12_0022de30`)
+- `src/overlays/shared/help_00214D60.c`: `func_L00_00216B40` (`FUN_L00_002163f0`)
+- `src/overlays/shared/help_0021A2E0.c`: `func_L02_00223AE0` (`FUN_L02_00223450`)
+- `src/overlays/shared/help_002284A8.c`: `func_L12_00236270` (`FUN_L12_00235c08`)
+- `src/overlays/shared/mobyutil_00258BC8.c`: `func_L00_0025B4D0` (`FUN_L00_0025a478`)
+- `src/overlays/shared/partupd_0026A130.c`: `func_L00_0026B890` (`FUN_L00_0026a9f0`)
+- `src/overlays/shared/tieproc_00299108.c`: `func_L00_00299250` (`FUN_L00_00297f78`)
+- `src/overlays/shared/vendor_002A5138.c`: `func_L00_002A6A38` (`FUN_L00_002a57a8`)
+- `src/overlays/shared/vendor_002B90A8.c`: `func_L01_002BB068` (`FUN_L01_002b9eb0`)
+- `src/overlays/shared/vuchain_002A21A8.c`: `func_L00_002A2680` (`FUN_L00_002a13f0`)
+
+One more was adapted the same way on 2026-10-06:
+
+- `src/overlays/shared/pause_00277208.c`: `func_L00_00277A88` (`FUN_L00_00276bd0`)
+- `src/overlays/l00_veldin1/vendor_002DB278.c`: `func_L00_002E2B28` (`FUN_L00_002e1678`)
+
+Nine more were carried over by machine on 2026-10-06, from what Lombyte matched in its pull requests 98 to 108
+(the same tool, the same rule: identical instructions, Lombyte's C with every symbol renamed to its PAL
+address, each passing this project's own check). In parentheses, Lombyte's name.
+
+- `src/overlays/shared/effects_001EE2E0.c`: `func_L00_001EE530` (`FUN_L00_001ee1b0`)
+- `src/overlays/shared/help_0021A2E0.c`: `func_L02_002211C0` (`FUN_L02_00220b80`)
+- `src/overlays/shared/help_0021D6B8.c`: `func_L06_0021D6B8` (`FUN_L06_0021d0a0`)
+- `src/overlays/shared/help_0021D6B8.c`: `func_L06_0022A868` (`FUN_L06_0022a1d0`)
+- `src/overlays/shared/help_002274A8.c`: `func_L01_002328A8` (`FUN_L01_00232290`)
+- `src/overlays/shared/mobyutil_00258BC8.c`: `func_L00_0025E210` (`FUN_L00_0025d1b8`)
+- `src/overlays/shared/mobyutil_00258BC8.c`: `func_L00_00260878` (`FUN_L00_0025f800`)
+- `src/overlays/shared/mobyutil_00258BC8.c`: `func_L00_002608F0` (`FUN_L00_0025f878`)
+- `src/overlays/shared/vendor_002B33E8.c`: `func_L00_002B9A90` (`FUN_L00_002b8798`)
+- `src/overlays/shared/vendor_002E1660.c`: `func_L00_002E1790` (`FUN_L00_002e02e0`)
+- `src/overlays/l13_gemlik/vendor_002C2638.c`: `func_L13_002C2638` (`FUN_L13_002c13b0`)
+
+Twelve executable functions from the same pull requests followed on 2026-10-07, proven by the full build.
+Ten went in as the tool wrote them. `func_001EC2B8` needed its file to change around it: a later
+declaration retyped to its parameter, and two typedefs it shares with `func_001ED818` kept once.
+`func_001EE858` was adapted: it writes the fog preset as the struct `src/game/draw.c` already reads.
+
+- `src/core/00119868.c`: `func_00119AA8` (`sceTtyWrite`)
+- `src/core/0012AC80.c`: `func_0012AD10` (`sceMpegDemuxPssRing`)
+- `src/game/camera.c`: `func_001EC2B8` (`switch_active_camera_record`)
+- `src/game/camera.c`: `func_001ED818` (`FUN_001ed470`)
+- `src/game/drawquad.c`: `func_001F9478` (`append_billboard_batch`)
+- `src/game/effects.c`: `func_001EE858` (`update_camera_environment_from_regions`)
+- `src/game/pause.c`: `func_0021C1B0` (`render_localized_ui_entry_list`)
+- `src/game/pause.c`: `func_0021F6A0` (`update_item_preview_transform`)
+- `src/game/pause.c`: `func_002255F8` (`load_hand_gadget`)
+- `src/game/pause.c`: `func_00228860` (`submit_graphics_setup_command_stream`)
+- `src/game/skyfunc.c`: `func_0022C188` (`update_sky_effects`)
+- `src/game/vendor.c`: `func_0023A5E0` (`render_vendor_capture_texture_overlays_pass`)
+
+One more on 2026-10-07, written from the adapted `func_L12_00236270` above plus one state arm:
+
+- `src/overlays/shared/help_00214D60.c`: `func_L00_00214D60` (`FUN_L00_00214658`)
+
+Ten more were carried over by machine on 2026-10-07, from Lombyte's pull requests 109 to 114 and from its
+unmerged branches `decomp/twins-wave` (the first three below) and `overlay/shared-veldin-5` (the same tool,
+the same rule: identical instructions, Lombyte's C with every symbol renamed to its PAL address, each
+passing this project's own check). In parentheses, Lombyte's name.
+
+- `src/overlays/shared/help_001FFED0.c`: `func_L15_0020ADD8` (`FUN_L15_0020a7a0`)
+- `src/overlays/l02_aridia/help_0022BE40.c`: `func_L02_002368E8` (`FUN_L02_002360c8`)
+- `src/overlays/shared/help_0021D6B8.c`: `func_L06_002431A0` (`FUN_L06_00242950`)
+- `src/overlays/l02_aridia/vendor_002E21F8.c`: `func_L02_002E33F0` (`FUN_L02_002e1fb8`)
+- `src/overlays/l02_aridia/vendor_002E21F8.c`: `func_L02_002ED660` (`FUN_L02_002ec228`)
+- `src/overlays/l05_rilgar/vendor_002D28D0.c`: `func_L05_003052A8` (`FUN_L05_00303e50`)
+- `src/overlays/l05_rilgar/vendor_002D28D0.c`: `func_L05_0030D3F0` (`FUN_L05_0030bf98`)
+- `src/overlays/l08_batalia/vendor_002EAF48.c`: `func_L08_002F2838` (`FUN_L08_002f1378`)
+- `src/overlays/l14_oltanis/vendor_002FF358.c`: `func_L14_00306B08` (`FUN_L14_00305680`)
+- `src/overlays/shared/vendor_002B90A8.c`: `func_L01_002F0FD0` (`FUN_L01_002efbf8`)
+
+Fifteen more were carried over by machine on 2026-10-05 once `include/common.h` had `qzero()`, the 128-bit
+zero store Lombyte identified as inline assembly in the original (its `include/qzero.h`; the helper here is
+written after it). Same tool, same rule; the two executable functions are proven by the full build:
+
+- `src/game/pause.c`: `func_00219C08` (`FUN_00218d10`)
+- `src/game/sound.c`: `func_0022EFE8` (`sound_stop_all_sounds`)
+- `src/overlays/l00_veldin1/shrubproc_0028A608.c`: `func_L00_0028A608` (`FUN_L00_00289330`)
+- `src/overlays/l01_novalis/vendor_002BA898.c`: `func_L01_002F7558` (`FUN_L01_002f6180`)
+- `src/overlays/shared/mobyutil_00258BC8.c`: `func_L00_00260D30` (`FUN_L00_0025fcb8`)
+- `src/overlays/shared/partupd_0026A130.c`: `func_L00_0026D270` (`FUN_L00_0026c3d0`)
+- `src/overlays/shared/partupd_0026A130.c`: `func_L00_0026ED30` (`FUN_L00_0026de90`)
+- `src/overlays/shared/shrubproc_0028A198.c`: `func_L00_0028AEB0` (`FUN_L00_00289bd8`)
+- `src/overlays/shared/shrubproc_0028A198.c`: `func_L00_0028B4E0` (`FUN_L00_0028a208`)
+- `src/overlays/shared/shrubproc_0028A198.c`: `func_L00_0028B5C8` (`FUN_L00_0028a2f0`)
+- `src/overlays/shared/shrubproc_0028A198.c`: `func_L00_0028B758` (`FUN_L00_0028a480`)
+- `src/overlays/shared/shrubproc_0028A198.c`: `func_L00_0028BC70` (`FUN_L00_0028a998`)
+- `src/overlays/shared/shrubproc_0028A198.c`: `func_L00_0028C358` (`FUN_L00_0028b080`)
+- `src/overlays/shared/space_0028FB78.c`: `func_L00_002902A0` (`FUN_L00_0028efc8`)
+- `src/overlays/shared/vendor_002B90A8.c`: `func_L01_002E4920` (`FUN_L01_002e35a8`)
+
 Data taken from Lombyte:
 
 - `editor/moby_classes.tsv` (OpenRAC's top level): the moby class names the level editor

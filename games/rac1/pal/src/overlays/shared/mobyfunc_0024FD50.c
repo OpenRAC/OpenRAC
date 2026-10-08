@@ -26,7 +26,7 @@ int func_L00_0024FD50(char *a, float time) {
     }
     return -1;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0024FEF8);
+LINKER_REMNANT("asm/overlays", func_L00_0024FEF8);
 extern void func_001FA4A0(void *, void *);
 extern void func_001F9BF0(void *, void *, void *);
 extern void func_001F9EE8(void *, void *, void *);
@@ -167,7 +167,20 @@ void func_L00_00250418(A *a0, S *a1, s32 a2, s32 a3, s32 a4, s32 a5) {
     if (a5) func_L00_002501C8_50418();
 }
 INCLUDE_ASM("asm/overlays", func_L00_00250478);
-INCLUDE_ASM("asm/overlays", func_L00_002506D0);
+extern char D_L00_00197040[];
+
+/* stores the value in the first empty or matching slot */
+int func_L00_002506D0(int value) {
+    int i;
+    for (i = 0; i < 16; i++) {
+        int *slot = (int *)(D_L00_00197040 + i * 4);
+        if (*slot == 0 || *slot == value) {
+            *slot = value;
+            return i;
+        }
+    }
+    return -1;
+}
 INCLUDE_ASM("asm/overlays", func_L00_00250700);
 /* Scale the object's local vertex (built via func_002116A0 into a local
    0x40-byte scratch buffer) by arg0+0x2C in 1/1024 units, writing the

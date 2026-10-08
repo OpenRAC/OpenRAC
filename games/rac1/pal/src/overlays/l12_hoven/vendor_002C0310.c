@@ -50,7 +50,20 @@ int func_L12_002E2B08(Level12VendorStateMoby *moby) {
     moby->state = 8;
     return result;
 }
-INCLUDE_ASM("asm/overlays", func_L12_002E2B88);
+typedef union { long long quad; float f[4]; } L12Vector;
+extern float D_0015EE70 MACRO_ADDR;
+extern float func_00214358_order(float, void *, int) __asm__("func_00214358");
+extern void func_00214D28_order(float, float, void *) __asm__("func_00214D28");
+
+// Copies the position and updates its height from the terrain.
+void func_L12_002E2B88(char *moby) {
+    L12Vector position;
+    float value;
+    qcopy(&position, moby + 0x10);
+    position.f[2] += 0.5f;
+    value = func_00214358_order(0.5f, &position, 0);
+    func_00214D28_order(value, D_0015EE70 * 27.0f, moby + 0x18);
+}
 extern int func_002140B0(int);
 extern int func_001F9850(int);
 extern void func_00213DE0(void *, int, int, int);
@@ -131,7 +144,40 @@ INCLUDE_ASM("asm/overlays", func_L12_002E2EF0);
 INCLUDE_ASM("asm/overlays", func_L12_002E41C8);
 INCLUDE_ASM("asm/overlays", func_L12_002E43A8);
 INCLUDE_ASM("asm/overlays", func_L12_002E4838);
-INCLUDE_ASM("asm/overlays", func_L12_002E4C58);
+extern short D_L12_001619A0;
+extern void func_001F9BD8(void *, void *, void *);
+extern char *func_L00_0026DA50(void *pos, void *dir, int c, int d, int n, int k, float f);
+extern void *func_L00_0026DEA0_x(void *, float, float, float, int, void *, float, int) __asm__("func_L00_0026DEA0");
+
+/* Hoven engine exhaust: emits a flame and a smoke puff from each of the moby's two nozzles (the second one
+ * mirrored across its local Y axis), with random jitter. */
+void func_L12_002E4C58(char *m) {
+    float a[4];
+    float b[4];
+    float p1[4];
+    float p2[4];
+    float z[4];
+    if (((unsigned char *)m)[0x31] == 0) return;
+    func_001F9BC0(z);
+    a[0] = -func_002140F8(0.0f, D_0015EE6C * 5.0f);
+    a[1] = func_002140F8(-(D_0015EE6C * 2.0f), D_0015EE6C * 2.0f);
+    a[2] = func_002140F8(-(D_0015EE6C * 2.0f), D_0015EE6C * 2.0f);
+    func_001F9EC0(a, a, m + 0xC0);
+    func_001F9EC0(p1, &D_L12_001619A0, m + 0xC0);
+    func_001F9BD8(p1, p1, m + 0x10);
+    b[0] = -func_002140F8(0.0f, D_0015EE6C);
+    b[1] = func_002140F8(-D_0015EE6C, D_0015EE6C);
+    b[2] = func_002140F8(-D_0015EE6C, D_0015EE6C);
+    func_001F9EC0(b, b, m + 0xC0);
+    qcopy(p2, &D_L12_001619A0);
+    p2[1] = -p2[1];
+    func_001F9EC0(p2, p2, m + 0xC0);
+    func_001F9BD8(p2, p2, m + 0x10);
+    func_L00_0026DA50(p1, a, 0x4F007FFF, 0x1FFFFFFF, func_L00_00258BC8(func_001F9850(8), func_001F9850(0x11)), 1, 10000.0f);
+    func_L00_0026DEA0_x(p1, 0.05f, 1.01f, 1.03f, 6, b, 30000.0f, 0x404040);
+    func_L00_0026DA50(p2, a, 0x4F007FFF, 0x1FFFFFFF, func_L00_00258BC8(func_001F9850(8), func_001F9850(0x11)), 1, 10000.0f);
+    func_L00_0026DEA0_x(p2, 0.05f, 1.01f, 1.03f, 6, b, 30000.0f, 0x404040);
+}
 INCLUDE_ASM("asm/overlays", func_L12_002E4F18);
 extern char D_0013E633[];
 extern short D_L12_00161994;
@@ -395,4 +441,57 @@ void func_L12_002ED028(char *m, int flag) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L12_002ED228);
-INCLUDE_ASM("asm/overlays", func_L12_002ED550);
+extern float func_001F9D48(void *, void *);
+extern int func_L00_001FEF78(void *);
+
+/* Idle critter: waits a random time, then plays one of its fidget animations (or reacts when the hero comes close). */
+void func_L12_002ED550(unsigned char *m) {
+    float dist = func_001F9D48(m + 0x10, D_0013E633 + 0xE9D);
+    switch (m[0x20]) {
+    case 0:
+        if (m[0x53] != 0) func_00213DE0(m, 0, 0, 0);
+        m[0x20] = 1;
+        m[0xBC] = func_002140B0(func_001F9850(0xB4));
+        break;
+    case 1:
+        if (m[0x52] == 0 && dist < 9.0f && m[0xBC] < 2) m[0xBC] = 2;
+        if (dist < 12.0f && m[0x52] == m[0x53] && m[0x52] != 0) m[0xBC] = 0;
+        if (func_L00_001FEF78(m + 0xBC)) {
+            switch (m[0x52]) {
+            case 0:
+                if (func_002140B0(0x100) & 1) {
+                    if (m[0x53] != 3) func_00213DE0(m, 3, 0, 0);
+                } else {
+                    if (m[0x53] != 5) func_00213DE0(m, 5, 0, 0);
+                }
+                break;
+            case 1:
+                if (m[0x53] != 4) func_00213DE0(m, 4, 0, 0);
+                break;
+            case 2:
+                if (m[0x53] != 6) func_00213DE0(m, 6, 0, 0);
+                break;
+            }
+            m[0x20] = 2;
+        }
+        break;
+    case 2:
+        if (m[0x70] & 2) {
+            switch (m[0x52]) {
+            case 3:
+                if (m[0x53] != 1) func_00213DE0(m, 1, 0, 0);
+                break;
+            case 4:
+            case 6:
+                if (m[0x53] != 0) func_00213DE0(m, 0, 0, 0);
+                break;
+            case 5:
+                if (m[0x53] != 2) func_00213DE0(m, 2, 0, 0);
+                break;
+            }
+            m[0x20] = 1;
+            m[0xBC] = func_002140B0(func_001F9850(0xB4));
+        }
+        break;
+    }
+}

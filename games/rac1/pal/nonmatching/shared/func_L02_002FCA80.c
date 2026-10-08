@@ -1,11 +1,12 @@
 /* NON_MATCHING func_L02_002FCA80 -- src/overlays/shared/vendor_002A5218.c
- * Best so far: BYTES 18/316 (94.3% of the bytes match), checked 2026-10-03.
+ * Best so far: BYTES 17/316 (94.6% of the bytes match), checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   Tests whether a target entry's condition holds (g==k shortcut; class 6 compares global+0x2FC; type 1 distance 
  *   Best: p12.c (18 bytes differ). Body and branches match (arms 1-3 share the `if (r) return 1;` via `goto four`/
  *   Left: prologue schedule only. Retail loads D_L02_0016755C (lui/lw) first, then lh, then D_L02_0015F050; ours l
+ *   Round q28/t10: p13-p18, best 17 bytes (p17/p18: both globals MACRO_ADDR). Prologue schedule only: retail hoist
  */
 #include "common.h"
 
@@ -14,17 +15,16 @@ extern int func_00215570(void *, int);
 extern int func_L00_00260AB0(void *, int);
 extern int func_L00_00260B68(float *, int);
 extern int func_L00_0025A778(void *, void *, int);
-extern char *D_L02_0016755C;
-extern char *D_L02_0015F050;
+extern char *D_L02_0016755C MACRO_ADDR;
+extern char *D_L02_0015F050 MACRO_ADDR;
 extern char *D_L02_001B0DB0[];
 extern char D_0013F450[];
 
 /* Tests whether a target entry's condition currently holds. */
 int func_L02_002FCA80(char *a) {
-    char *g = D_L02_0016755C;
     int idx = *(short *)(a + 0x84);
-    char *tab = D_L02_0015F050;
-    char *e = *(char **)(tab + (idx << 5) + 0x1C);
+    char *g = D_L02_0016755C;
+    char *e = *(char **)(D_L02_0015F050 + (idx << 5) + 0x1C);
     char *k = *(char **)(e + 0x48);
     int r;
     if (g == 0 || g != k) {

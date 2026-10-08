@@ -2,5 +2,21 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L00_0024DFB0);
+// Computes a bounded buffer checksum.
+unsigned int func_L00_0024DFB0(unsigned char *data, int size) {
+ unsigned char *end;
+ unsigned int crc;
+ if (size > 0x1800) return 0;
+ end = data + size;
+ crc = 0xEDB88320;
+ while (data < end) {
+  int bit = 7;
+  crc ^= (unsigned int)*data++ << 8;
+  do {
+   if (crc & 0x8000) crc = (crc << 1) ^ 0x1F45;
+   else crc <<= 1;
+  } while (--bit >= 0);
+ }
+ return crc & 0xFFFF;
+}
 INCLUDE_ASM("asm/overlays", func_L00_0024DFC4);

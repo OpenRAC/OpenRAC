@@ -7,14 +7,21 @@
  * sizes -- see docs/DECOMP_PROGRESS.md. Compiled as C for now.
  */
 
-/* InitializeStateFields - initializes state fields */
-int func_0023CE18(int *a, int val1, int val2) {
-    a[1] = val1;
-    a[0] = val2;
+/* StrFile: only the fields these functions touch are known. */
+typedef struct StrFile {
+    int second;
+    int first;
+} StrFile;
+
+/* No recovered name. Stores its two arguments in the object (first argument at offset 4)
+ * and returns 1. */
+int func_0023CE18(StrFile *f, int first, int second) {
+    f->first = first;
+    f->second = second;
     return 1;
 }
-/* GetStateCallbackResult - returns 1 */
-int func_0023CE28(void) {
+/* No recovered name. Nothing to free, returns 1. */
+int func_0023CE28(StrFile *f) {
     return 1;
 }
 INCLUDE_ASM("asm/nonmatchings/text", func_0023CE30);

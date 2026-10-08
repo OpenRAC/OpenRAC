@@ -39,6 +39,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from libgcc_units import SEGMENT_SOURCES, ee29_sources  # noqa: E402
 from toolchain import sn  # noqa: E402
+import file_cflags  # noqa: E402
 import overlay_check  # noqa: E402
 
 import rabbitizer as rz  # noqa: E402
@@ -126,16 +127,16 @@ def build(name, seg, src, first, last, candidate, work):
     c.write_text("\n".join(lines) + "\n")
     obj = work / "obj.o"
     obj.unlink(missing_ok=True)
+    # The source file's own extra flags (config/file_cflags.txt), as Makefile.sn passes them.
+    # No step between the compiler and the assembler changes what the compiler wrote, apart
+    # from the assembler behaviours listed in docs/BUILD_FIDELITY.md.
+    extra = file_cflags.flags_for(src)
     with open(work / "log.txt", "w") as log:
         s = [work / f"{n}.s" for n in "abcd"]
         if str(src) in EE29_SOURCES:
-            if not run(sn(CC29, *CFLAGS, EE29_INC, "-S", "-o", str(s[0]), str(c)), log):
+            if not run(sn(CC29, *CFLAGS, *extra, EE29_INC, "-S", "-o", str(s[0]), str(c)), log):
                 return None
-            if not run([sys.executable, "tools/func_cflags.py", str(c), str(s[0]), "--",
-                        *sn(CC29, *CFLAGS, EE29_INC)], log):
-                return None
-            if not run([sys.executable, "tools/fix_trunc_slot.py", str(s[0]), str(s[3])], log):
-                return None
+            shutil.copy(s[0], s[3])
             if not run([sys.executable, "tools/fix_volatile_slot.py", str(s[3]), str(s[3])], log):
                 return None
             if not run([sys.executable, "tools/check_macro_slots.py", str(s[3])], log):
@@ -143,21 +144,9 @@ def build(name, seg, src, first, last, candidate, work):
             if not run(sn(CC, *CFLAGS, "-c", str(s[3]), "-o", str(obj)), log):
                 return None
             return obj
-        if not run(sn(CC, *CFLAGS, "-S", "-o", str(s[0]), str(c)), log):
+        if not run(sn(CC, *CFLAGS, *extra, "-S", "-o", str(s[0]), str(c)), log):
             return None
-        # per-function flags (config/func_cflags.txt), as Makefile.sn does
-        if not run([sys.executable, "tools/func_cflags.py", str(c), str(s[0]), "--",
-                    *sn(CC, *CFLAGS)], log):
-            return None
-        if seg == "core_text":
-            if not run([sys.executable, "tools/fix_core_spills.py", str(s[0]), str(s[1])], log):
-                return None
-        else:
-            shutil.copy(s[0], s[1])
-        if not run([sys.executable, "tools/fix_tail_calls.py", str(s[1]), str(s[2])], log):
-            return None
-        if not run([sys.executable, "tools/fix_trunc_slot.py", str(s[2]), str(s[2])], log):
-            return None
+        shutil.copy(s[0], s[2])
         if src.name in ("989snd.c", "wad.c"):
             if not run([sys.executable, "tools/fix_macro_load_delay.py", str(s[2]), str(s[2])], log):
                 return None

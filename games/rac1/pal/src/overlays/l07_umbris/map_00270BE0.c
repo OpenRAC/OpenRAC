@@ -2,4 +2,24 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L07_00270BE0);
+extern int func_L00_0024A798(int);
+extern struct { int a, b, c; char *p; } D_L07_001842F0;
+
+/* Clears each set bit in a rectangle of a per-row bit grid, notifying for each. */
+void func_L07_00270BE0(int x, int y0, int w, int h) {
+    int y = y0;
+    for (; y < y0 + h; y++) {
+        int rowbase = (y >> 5) << 4;
+        int i;
+        for (i = x; i < x + w; i++) {
+            unsigned char *p = (unsigned char *)D_L07_001842F0.p + (y << 6) + i / 8;
+            if (*p != 0) {
+                int bit = 1 << (i & 7);
+                if (*p & bit) {
+                    func_L00_0024A798((i >> 5) + rowbase);
+                    *p = *p & ~bit;
+                }
+            }
+        }
+    }
+}

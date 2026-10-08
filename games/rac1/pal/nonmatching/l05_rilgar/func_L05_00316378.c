@@ -1,10 +1,11 @@
 /* NON_MATCHING func_L05_00316378 -- src/overlays/l05_rilgar/vendor_0030EB68.c
- * Best so far: SIZE ours 676 / retail 576, checked 2026-10-03.
+ * Best so far: SIZE ours 676 / retail 576, checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   Level 5 timed platform moby update (states 0 init, 1 wait for trigger, 2 move along path with two func_00214D8
  *   Left: one addu operand order in state 1 (`addu $v0,$v0,$v1` idx first in retail vs ours base first); written b
+ *   q27/s04: with the packet's decls p6/p7 compile (func_00214D88 is (float,float,float,float,float*,float*), func
  */
 extern int func_001F9908(int *arg0);
 extern float func_001F9B88(float);

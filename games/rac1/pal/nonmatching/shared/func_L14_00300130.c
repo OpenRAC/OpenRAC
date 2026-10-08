@@ -1,23 +1,24 @@
 /* NON_MATCHING func_L14_00300130 -- src/overlays/shared/vendor_002B2A28.c
- * Best so far: SIZE ours 596 / retail 588, checked 2026-10-03.
+ * Best so far: BYTES 20/588 (96.6% of the bytes match), checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   Spawns two bursts of debris particles (func_L00_0026DEA0) at a moby's position: 2 iterations with random sign,
  *   Best (p2.c, 121/588 bytes diff-counted; registers match): only the scheduling differs: retail puts `lw $a3,-0x
  *   Unblock: some form that makes the scheduler leave the gp load last; three wordings tied.
+ *   w06 round: best p8.c (36/588 bytes differ, same size). Keys: func_L00_0026DEA0_c prototype (floats before the 
  */
 extern void func_001F9C30(void *, void *, float);
 extern void func_001F9BD8(void *, void *, void *);
 extern int func_002140B0(int);
-extern char *func_L00_0026DEA0(void *, int, void *, int, float, float, float, float);
+extern char * func_L00_0026DEA0_c(void *, int, float, float, float, void *, float, int) __asm__("func_L00_0026DEA0");
 extern int func_001F9850(int);
 extern short D_L14_0016209C;
 extern short D_L14_001620A0;
 extern short D_L14_001620A4;
 extern short D_L14_001620A8;
 extern short D_L14_001620B4;
-extern char D_L14_0015F660[];
+extern char D_L14_0015F660[] MACRO_ADDR;
 
 /* Spawns two bursts of debris particles at the moby's position. */
 void func_L14_00300130(char *moby) {
@@ -34,11 +35,8 @@ void func_L14_00300130(char *moby) {
     func_001F9C30(a, moby + 0xE0, *(float *)&D_L14_001620A0);
     func_001F9BD8(b, b, a);
     for (i = 1; i >= 0; i--) {
-        int x = func_002140B0(0x10);
-        int y = func_002140B0(2);
-        spd = -x;
-        if (y == 0) spd = x;
-        p = func_L00_0026DEA0(b, spd, D_L14_0015F660, *(int *)&D_L14_001620B4, 0.2f, 1.0f, 0.9f, 100000.0f);
+        spd = func_002140B0(0x10);
+        p = func_L00_0026DEA0_c(b, func_002140B0(2) ? -spd : spd, 0.2f, 1.0f, 0.9f, D_L14_0015F660, 100000.0f, *(int *)&D_L14_001620B4);
         if (p != 0) {
             q = p + 0x20;
             *(short *)(p + 0xA) = func_001F9850(0xC);
@@ -55,9 +53,9 @@ void func_L14_00300130(char *moby) {
     n = func_001F9850(2);
     f = 80000.0f;
     for (i = 2; i >= 0; i--) {
-        p = func_L00_0026DEA0(b, spd, D_L14_0015F660, 0x7FFFFFFF, 0.05f, 1.0f, 1.0f, f);
-        spd = -spd;
+        p = func_L00_0026DEA0_c(b, spd, 0.05f, 1.0f, 1.0f, D_L14_0015F660, f, 0x7FFFFFFF);
         f -= 20000.0f;
+        spd = -spd;
         if (p != 0) {
             q = p + 0x20;
             *(short *)(p + 0xA) = n;

@@ -17,13 +17,27 @@ INCLUDE_ASM("asm/overlays", func_L00_002497A0);
 int func_L00_002497E0(float a, float b, float x) { return x >= 95.0f; }
 INCLUDE_ASM("asm/overlays", func_L00_00249EE0);
 INCLUDE_ASM("asm/overlays", func_L00_00249F40);
-INCLUDE_ASM("asm/overlays", func_L00_0024A110);
+extern unsigned char D_0013D4C5 NOT_SDA;
+extern int D_001414DC;
+// Checks a menu flag for small values and mode 15 for larger values.
+int func_L00_0024A110(int unused, int value) {
+    if (value >= 257) return D_001414DC == 15;
+    return D_0013D4C5 != 0;
+}
 INCLUDE_ASM("asm/overlays", func_L00_0024A12C);
 INCLUDE_ASM("asm/overlays", func_L00_0024A140);
 int func_L00_0024A170(float a, float b, float x) { return x < 29.0f; }
-INCLUDE_ASM("asm/overlays", func_L00_0024A198);
+/* tests the vertical menu range according to the integer selection */
+int func_L00_0024A198(int a, float b, float c, float x) {
+ if (a < 224) return x >= 44.0f && x <= 45.0f;
+ return x >= 37.0f;
+}
 INCLUDE_ASM("asm/overlays", func_L00_0024A1E4);
-INCLUDE_ASM("asm/overlays", func_L00_0024A210);
+/* tests menu coordinate bounds selected by item */
+int func_L00_0024A210(int item, float a, float b, float x) {
+ if (item < 224) return x >= 42.0f && x <= 43.0f;
+ return x >= 39.0f;
+}
 INCLUDE_ASM("asm/overlays", func_L00_0024A25C);
 INCLUDE_ASM("asm/overlays", func_L00_0024A320);
 int func_L00_0024A338(float a, float b, float x) { return x >= 58.5f; }
@@ -58,13 +72,53 @@ void func_L00_0024B1B0(int a, int b) {
 }
 INCLUDE_ASM("asm/overlays", func_L00_0024B200);
 INCLUDE_ASM("asm/overlays", func_L00_0024B2A4);
-INCLUDE_ASM("asm/overlays", func_L00_0024B750);
+extern int D_0015EFB4 MACRO_ADDR;
+extern int D_0015EFB0 MACRO_ADDR;
+extern int D_0013D390[];
+/* advances the card menu according to input and card status */
+void func_L00_0024B750(void) {
+ int old=D_0015EFB4;
+ int intermediate=old&~4;
+ int flags=intermediate&~2;
+ D_0015EFB4=flags;
+ if(D_0013D390[0xfc/4]==0) D_0015EFB0=3;
+ else if(old&0x80) { D_0015EFB0=21; D_0015EFB4=(flags^0x80)|0x40; }
+ else if(old&0x100) { D_0015EFB0=20; D_0015EFB4=(flags^0x100)|0x40; }
+ else if(D_0013D390[7]!=0) { D_0013D390[0xfc/4]=0; D_0015EFB4=flags|1; D_0015EFB0=2; }
+ else if(old&0x200) { D_0015EFB4=flags^0x200; D_0015EFB0=22; }
+}
 INCLUDE_ASM("asm/overlays", func_L00_0024B788);
 INCLUDE_ASM("asm/overlays", func_L00_0024B7AC);
-INCLUDE_ASM("asm/overlays", func_L00_0024B8B0);
+extern int D_0015EFB4 MACRO_ADDR;
+extern int D_0015EFB0 MACRO_ADDR;
+extern int D_0013D390[];
+/* clears the menu flag and advances based on card status */
+void func_L00_0024B8B0(void) {
+ D_0015EFB4 &= ~0x20;
+ if (D_0013D390[2] == 2) {
+  int v = D_0013D390[7];
+  if (v == 0) D_0015EFB0 = 9;
+  else if (v == -1) { D_0013D390[7] = 0; D_0015EFB0 = 9; }
+  else if (v == -2) D_0015EFB0 = 5;
+ }
+}
 INCLUDE_ASM("asm/overlays", func_L00_0024B8F0);
 INCLUDE_ASM("asm/overlays", func_L00_0024B908);
-INCLUDE_ASM("asm/overlays", func_L00_0024B920);
+extern char D_0013D355[];
+
+// Sets the menu memory card state.
+void func_L00_0024B920(void) {
+    /* The card status word at 0x13D3AC, reached the way the assembly names it (D_0013D355 + 0x57). Its
+       neighbours in this file read the same word as D_0013D390[7]; that spelling does not give retail's
+       bytes here. Accepted as a last resort. */
+    if (*(int *)(D_0013D355 + 0x57) != -2) {
+        D_0015EFB0 = 3;
+        return;
+    }
+    if (D_0015EFB4 & 2) {
+        D_0015EFB0 = 6;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L00_0024B940);
 INCLUDE_ASM("asm/overlays", func_L00_0024B960);
 INCLUDE_ASM("asm/overlays", func_L00_0024B980);
@@ -91,7 +145,16 @@ void func_L00_0024BC2C(void) {
     *(int *)&D_0015EFB0 = 12;
 }
 INCLUDE_ASM("asm/overlays", func_L00_0024BC38);
-INCLUDE_ASM("asm/overlays", func_L00_0024BCA0);
+typedef struct { int v[60]; } MenuState;
+extern int D_0015EFB4_m __asm__("D_0015EFB4") MACRO_ADDR;
+/* advances the active menu state or requests its alternate action */
+void func_L00_0024BCA0(void) {
+ MenuState *p = &D_0013D390;
+ if (p->v[55]==2 && p->v[57]<0) {
+ if (p->v[59]) { D_0015EFB0=18; D_0015EFB4_m |= 64; }
+ else { p->v[50]=0; p->v[57]=7; p->v[5]=0; p->v[58]=0; D_0015EFB0=16; }
+ }
+}
 INCLUDE_ASM("asm/overlays", func_L00_0024BCF0);
 INCLUDE_ASM("asm/overlays", func_L00_0024BD18);
 INCLUDE_ASM("asm/overlays", func_L00_0024BD84);

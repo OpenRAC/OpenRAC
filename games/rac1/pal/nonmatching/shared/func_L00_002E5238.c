@@ -1,11 +1,12 @@
 /* NON_MATCHING func_L00_002E5238 -- src/overlays/shared/vendor_002E1660.c
- * Best so far: SIZE ours 988 / retail 980, checked 2026-10-03.
+ * Best so far: SIZE ours 988 / retail 980, checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   func_L00_002E5238 (FxGroupUpdate: switch on moby state 0..3 [free / grow / burst / fade], then the common tail
  *   What helped: unsigned state byte (lbu), no hoisted sp+0x30 local, h = d[0x2C]*0.5f local, func_L00_001F10E0 pr
  *   Remaining: in the 25F4A8 call setup retail schedules `sw -1,8(sp)` before `lui a1` and the int arg moves (a2,a
+ *   q27/s04: p10 uses the packet's decls (func_L00_0025F4A8 with ints grouped: (void*,void*,void*,float,float,int,
  */
 #include "common.h"
 

@@ -48,8 +48,36 @@ void func_L00_002A2258(int a, int b, int n) {
         D_L00_00161280 = D_L00_00161280 + 4;
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_002A2668);
-INCLUDE_ASM("asm/overlays", func_L00_002A2680);
+LINKER_REMNANT("asm/overlays", func_L00_002A2668);
+/* classifies a point against wrapped ranges and bounds; returns a bitmask. Adapted from Lombyte (MIT) for PAL: src/overlays/shared/runtime_dma_002a13d8.c, FUN_L00_002a13f0. */
+struct WalkAnim;
+int func_L00_002A2680(struct WalkAnim *anim, float v) {
+    int bit = 1;
+    int r = 0;
+    int i;
+    float *p = ((float *)anim) + 12;
+    for (i = 0; i < 2; i++, p++) {
+        float x = p[4], y = p[6];
+        if (x <= y) {
+            if (x <= v && v <= y) r |= bit;
+        } else {
+            if (x <= v || v <= y) r |= bit;
+        }
+        bit <<= 1;
+        x = p[-2]; y = p[0];
+        if (x <= y) {
+            if (x <= v && v <= y) r |= bit;
+        } else {
+            if (x <= v || v <= y) r |= bit;
+        }
+        bit <<= 1;
+    }
+    if (r == 0) {
+        if (v < ((float *)anim)[6] || ((float *)anim)[6] + 1.0f < v) r |= bit;
+        if (v < ((float *)anim)[7] || ((float *)anim)[7] + 1.0f < v) r |= bit << 1;
+    }
+    return r;
+}
 extern void func_L00_001FFED8(void *, int, float);
 void func_L00_002A27C8(char *a) {
     int i;
@@ -83,5 +111,746 @@ float func_L00_002A2858(char *a, char *b) {
     }
     return res;
 }
-INCLUDE_ASM("asm/overlays", func_L00_002A2900);
-INCLUDE_ASM("asm/overlays", func_L00_002A4F50);
+typedef struct WalkSeqClass {
+    char pad00[0x48];
+    char *seqs[1]; /* 0x48 */
+} WalkSeqClass;
+
+typedef struct WalkMoby {
+    char pad00[0x10];
+    float pos[4]; /* 0x10 */
+    char pad20[4];
+    WalkSeqClass *pClass; /* 0x24 */
+    char pad28[0x20];
+    float f48; /* 0x48 */
+    char pad4C[4];
+    unsigned char b50; /* 0x50 */
+    unsigned char b51;
+    unsigned char b52; /* 0x52 */
+    unsigned char b53;
+    float f54; /* 0x54 */
+    float f58; /* 0x58 */
+} WalkMoby;
+
+typedef struct WalkAnim {
+    int id; /* 0x00 */
+    float f04;
+    float f08;
+    float f0C;
+    float f10;
+    int i14;
+    char pad18[0x20];
+    float f38;
+    float f3C;
+    float f40;
+    float f44;
+    float f48;
+    float f4C;
+} WalkAnim;
+
+typedef struct WalkData {
+    char pad00[0x10];
+    float m10[8]; /* 0x10 */
+    float m30[8]; /* 0x30 */
+    char pad50[0x10];
+    float v60[3]; /* 0x60 */
+    float f6C;
+    WalkAnim *anim[13]; /* 0x70 */
+    char padA4[0xC];
+    unsigned char bB0;
+    unsigned char bB1;
+    unsigned char bB2;
+    unsigned char bB3;
+    unsigned char bB4;
+    unsigned char bB5;
+    unsigned char bB6;
+    unsigned char bB7;
+    float fB8;
+    float fBC;
+    float fC0;
+    char padC4[0x14];
+    float fD8;
+    float fDC;
+    float fE0;
+    float fE4;
+    char padE8[4];
+    short sEC;
+    unsigned short uEE;
+} WalkData;
+
+extern int func_L00_0024FD50(char *a, float time);
+extern void func_00213DE0(void *, int, int, int);
+extern float func_001FA850(float, float);
+extern int func_L00_002A2680(WalkAnim *a, float t);
+extern float func_0020D830(void *);
+extern int func_001FA898(float);
+extern float func_001F9F90(float);
+extern float func_001F9FA8(float);
+extern void func_001F9BD8(void *, void *, void *);
+extern float func_00214358(void *, int, float);
+extern float func_001F9D48(void *, void *);
+extern float func_001F9D10(void *, void *);
+extern void func_001E9730();
+extern float func_L00_0025BC48(float *a, float *b, float *out, float speed, float g);
+extern float func_L00_001FF860(float, float);
+extern float func_001FA888(int);
+extern float D_0015EE6C MACRO_ADDR;
+extern float D_0015EE68 MACRO_ADDR;
+extern int D_L00_001CAA60[];
+extern char D_L00_001612A0[];
+
+/* Steps the walk cycle state machine: picks the next walk, run, turn, jump or landing sequence from speed, heading and foot height. */
+void func_L00_002A2900(WalkMoby *m, WalkData *d, int flags, float speed, float ang, float accel) {
+    float vec[4];
+
+    switch (d->bB7) {
+    case 0:
+        d->fE4 = 0.0f;
+        if (accel > 0.0008f && speed > d->anim[0]->f08 * 1.35f) {
+            {
+                WalkAnim *a = d->anim[7];
+                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)a->i14);
+                func_00213DE0(m, a->id, f, 10);
+                func_L00_002A27C8((char *)d);
+            }
+            d->bB7 = 0xD;
+            d->bB6 = func_L00_002A2680(d->anim[7], (float)d->anim[7]->i14);
+            d->sEC = 0;
+        } else if (speed > D_0015EE6C * 0.21f || func_001FA850(m->f48, ang) > 0.10471976f) {
+            d->sEC++;
+            if (d->sEC >= 4) {
+                {
+                    WalkAnim *a = d->anim[0];
+                    int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)a->i14);
+                    func_00213DE0(m, a->id, f, 10);
+                    func_L00_002A27C8((char *)d);
+                }
+                d->bB7 = 1;
+                d->bB6 = func_L00_002A2680(d->anim[0], (float)d->anim[0]->i14);
+                d->sEC = 0;
+            }
+        }
+        break;
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    case 5:
+    case 6:
+        if (flags & 5) {
+            d->uEE &= 0xFFF7;
+        }
+    case 7:
+    case 8:
+    case 9:
+    case 10:
+    case 11: {
+        int idx = D_L00_001CAA60[d->bB7];
+        if (m->f58 < 0.25f && func_001FA850(m->f48, ang) < 0.09239978f && speed < D_0015EE6C * 0.19f) {
+            func_00213DE0(m, d->bB0, 0, 10);
+            func_L00_002A27C8((char *)d);
+            d->bB7 = 0;
+        } else if (m->b52 == d->anim[idx]->id) {
+            float t = (d->anim[7]->f08 + d->anim[0]->f08) * 0.375f;
+            if (speed > t && d->fC0 > t && !(d->bB6 & 0x3A)) {
+                float cur = func_0020D830(m);
+                int r1 = func_001FA898(d->anim[idx]->f48 - cur + d->anim[idx]->f10) % func_001FA898(d->anim[idx]->f10);
+                int r2 = func_001FA898(d->anim[idx]->f4C - cur + d->anim[idx]->f10) % func_001FA898(d->anim[idx]->f10);
+                int x;
+                int bl;
+                if (r1 < r2) {
+                    x = func_001FA898(d->anim[7]->f48 - d->anim[7]->f0C);
+                } else {
+                    x = func_001FA898(d->anim[7]->f4C - d->anim[7]->f0C);
+                }
+                x = (x + func_001FA898(d->anim[7]->f10)) % func_001FA898(d->anim[7]->f10);
+                bl = func_001FA898(10.0f / (speed / d->anim[7]->f08));
+                {
+                    float ft = (float)x;
+                    WalkAnim *a = d->anim[7];
+                    int f = func_L00_0024FD50(m->pClass->seqs[a->id], ft);
+                    func_00213DE0(m, a->id, f, bl);
+                    func_L00_002A27C8((char *)d);
+                }
+                d->bB7 = 0xD;
+            } else if (flags & 5) {
+                if (d->uEE & 1) {
+                    d->uEE = (d->uEE & 0xFFFE) | 2;
+                    d->fE4 = m->pos[2];
+                    if (flags & 1) {
+                        int bl = func_001FA898(d->anim[11]->f38 * 0.25f / (speed / d->anim[11]->f08));
+                        int fr = func_001FA898(d->anim[11]->f40 + d->anim[11]->f38 * 0.125f - d->anim[11]->f0C) % func_001FA898(d->anim[11]->f10);
+                        WalkAnim *a = d->anim[11];
+                        int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                        func_00213DE0(m, a->id, f, bl);
+                        func_L00_002A27C8((char *)d);
+                        d->bB7 = 0xF;
+                    } else {
+                        int bl = func_001FA898(d->anim[9]->f3C * 0.25f / (speed / d->anim[9]->f08));
+                        int fr = func_001FA898(d->anim[9]->f44 + d->anim[9]->f3C * 0.125f - d->anim[9]->f0C) % func_001FA898(d->anim[9]->f10);
+                        WalkAnim *a = d->anim[9];
+                        int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                        func_00213DE0(m, a->id, f, bl);
+                        func_L00_002A27C8((char *)d);
+                        d->bB7 = 0xE;
+                    }
+                } else {
+                    float h;
+                    vec[0] = func_001F9F90(ang) * d->anim[idx]->f04 * 0.5f;
+                    vec[1] = func_001F9FA8(ang) * d->anim[idx]->f04 * 0.5f;
+                    vec[2] = 0.0f;
+                    if (flags & 1) {
+                        func_001F9BD8(vec, vec, d->m10);
+                    } else {
+                        func_001F9BD8(vec, vec, d->m30);
+                    }
+                    h = func_00214358(vec, 0, 0.5f);
+                    d->fE4 = h;
+                    switch (d->bB7) {
+                    case 1:
+                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) > d->fE0 * 0.75f) {
+                            if (flags & 1) {
+                                int bl = func_001FA898(d->anim[2]->f38 * 0.25f / (speed / d->anim[2]->f08));
+                                int fr = func_001FA898(d->anim[2]->f40 + d->anim[2]->f38 * 0.125f - d->anim[2]->f0C) % func_001FA898(d->anim[2]->f10);
+                                WalkAnim *a = d->anim[2];
+                                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                                func_00213DE0(m, a->id, f, bl);
+                                func_L00_002A27C8((char *)d);
+                                d->bB7 = 3;
+                            } else {
+                                int bl = func_001FA898(d->anim[1]->f3C * 0.25f / (speed / d->anim[1]->f08));
+                                int fr = func_001FA898(d->anim[1]->f44 + d->anim[1]->f3C * 0.125f - d->anim[1]->f0C) % func_001FA898(d->anim[1]->f10);
+                                WalkAnim *a = d->anim[1];
+                                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                                func_00213DE0(m, a->id, f, bl);
+                                func_L00_002A27C8((char *)d);
+                                d->bB7 = 2;
+                            }
+                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) < -d->fE0 * 0.75f) {
+                            d->uEE |= 8;
+                            if (flags & 1) {
+                                int bl = func_001FA898(d->anim[5]->f38 * 0.25f / (speed / d->anim[5]->f08));
+                                int fr = func_001FA898(d->anim[5]->f40 + d->anim[5]->f38 * 0.125f - d->anim[5]->f0C) % func_001FA898(d->anim[5]->f10);
+                                WalkAnim *a = d->anim[5];
+                                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                                func_00213DE0(m, a->id, f, bl);
+                                func_L00_002A27C8((char *)d);
+                                d->bB7 = 8;
+                            } else {
+                                int bl = func_001FA898(d->anim[4]->f3C * 0.25f / (speed / d->anim[4]->f08));
+                                int fr = func_001FA898(d->anim[4]->f44 + d->anim[4]->f3C * 0.125f - d->anim[4]->f0C) % func_001FA898(d->anim[4]->f10);
+                                WalkAnim *a = d->anim[4];
+                                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                                func_00213DE0(m, a->id, f, bl);
+                                func_L00_002A27C8((char *)d);
+                                d->bB7 = 7;
+                            }
+                        }
+                        break;
+                    case 2:
+                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) < -d->fE0 * 0.75f) {
+                            int bl;
+                            int fr;
+                            WalkAnim *a;
+                            int f;
+                            d->uEE |= 8;
+                            bl = func_001FA898(d->anim[5]->f38 * 0.25f / (speed / d->anim[5]->f08));
+                            fr = func_001FA898(d->anim[5]->f40 + d->anim[5]->f38 * 0.125f - d->anim[5]->f0C) % func_001FA898(d->anim[5]->f10);
+                            a = d->anim[5];
+                            f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 8;
+                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) < d->fE0 * 0.75f) {
+                            d->bB7 = 5;
+                        } else {
+                            int bl = func_001FA898(d->anim[3]->f38 * 0.25f / (speed / d->anim[3]->f08));
+                            int fr = func_001FA898(d->anim[3]->f40 + d->anim[3]->f38 * 0.125f - d->anim[3]->f0C) % func_001FA898(d->anim[3]->f10);
+                            WalkAnim *a = d->anim[3];
+                            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 4;
+                        }
+                        break;
+                    case 3:
+                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) < -d->fE0 * 0.75f) {
+                            int bl;
+                            int fr;
+                            WalkAnim *a;
+                            int f;
+                            d->uEE |= 8;
+                            bl = func_001FA898(d->anim[4]->f3C * 0.25f / (speed / d->anim[4]->f08));
+                            fr = func_001FA898(d->anim[4]->f44 + d->anim[4]->f3C * 0.125f - d->anim[4]->f0C) % func_001FA898(d->anim[4]->f10);
+                            a = d->anim[4];
+                            f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 7;
+                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) < d->fE0 * 0.75f) {
+                            d->bB7 = 6;
+                        } else {
+                            int bl = func_001FA898(d->anim[3]->f3C * 0.25f / (speed / d->anim[3]->f08));
+                            int fr = func_001FA898(d->anim[3]->f44 + d->anim[3]->f3C * 0.125f - d->anim[3]->f0C) % func_001FA898(d->anim[3]->f10);
+                            WalkAnim *a = d->anim[3];
+                            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 4;
+                        }
+                        break;
+                    case 4:
+                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) < -d->fE0 * 0.75f) {
+                            d->uEE |= 8;
+                            if (flags & 1) {
+                                int bl = func_001FA898(d->anim[5]->f38 * 0.25f / (speed / d->anim[5]->f08));
+                                int fr = func_001FA898(d->anim[5]->f40 + d->anim[5]->f38 * 0.125f - d->anim[5]->f0C) % func_001FA898(d->anim[5]->f10);
+                                WalkAnim *a = d->anim[5];
+                                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                                func_00213DE0(m, a->id, f, bl);
+                                func_L00_002A27C8((char *)d);
+                                d->bB7 = 8;
+                            } else {
+                                int bl = func_001FA898(d->anim[4]->f3C * 0.25f / (speed / d->anim[4]->f08));
+                                int fr = func_001FA898(d->anim[4]->f44 + d->anim[4]->f3C * 0.125f - d->anim[4]->f0C) % func_001FA898(d->anim[4]->f10);
+                                WalkAnim *a = d->anim[4];
+                                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                                func_00213DE0(m, a->id, f, bl);
+                                func_L00_002A27C8((char *)d);
+                                d->bB7 = 7;
+                            }
+                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) < d->fE0 * 0.75f) {
+                            if (flags & 1) {
+                                int bl = func_001FA898(d->anim[1]->f38 * 0.25f / (speed / d->anim[1]->f08));
+                                int fr = func_001FA898(d->anim[1]->f40 + d->anim[1]->f38 * 0.125f - d->anim[1]->f0C) % func_001FA898(d->anim[1]->f10);
+                                WalkAnim *a = d->anim[1];
+                                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                                func_00213DE0(m, a->id, f, bl);
+                                func_L00_002A27C8((char *)d);
+                                d->bB7 = 5;
+                            } else {
+                                int bl = func_001FA898(d->anim[2]->f3C * 0.25f / (speed / d->anim[2]->f08));
+                                int fr = func_001FA898(d->anim[2]->f44 + d->anim[2]->f3C * 0.125f - d->anim[2]->f0C) % func_001FA898(d->anim[2]->f10);
+                                WalkAnim *a = d->anim[2];
+                                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                                func_00213DE0(m, a->id, f, bl);
+                                func_L00_002A27C8((char *)d);
+                                d->bB7 = 6;
+                            }
+                        }
+                        break;
+                    case 5:
+                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) < -d->fE0 * 0.75f) {
+                            int bl;
+                            int fr;
+                            WalkAnim *a;
+                            int f;
+                            d->uEE |= 8;
+                            bl = func_001FA898(d->anim[4]->f3C * 0.25f / (speed / d->anim[4]->f08));
+                            fr = func_001FA898(d->anim[4]->f44 + d->anim[4]->f3C * 0.125f - d->anim[4]->f0C) % func_001FA898(d->anim[4]->f10);
+                            a = d->anim[4];
+                            f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 7;
+                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) > d->fE0 * 0.75f) {
+                            d->bB7 = 2;
+                        } else {
+                            int bl = func_001FA898(d->anim[0]->f3C * 0.25f / (speed / d->anim[0]->f08));
+                            int fr = func_001FA898(d->anim[0]->f44 + d->anim[0]->f3C * 0.125f - d->anim[0]->f0C) % func_001FA898(d->anim[0]->f10);
+                            WalkAnim *a = d->anim[0];
+                            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 1;
+                        }
+                        break;
+                    case 6:
+                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) < -d->fE0 * 0.75f) {
+                            int bl;
+                            int fr;
+                            WalkAnim *a;
+                            int f;
+                            d->uEE |= 8;
+                            bl = func_001FA898(d->anim[5]->f38 * 0.25f / (speed / d->anim[5]->f08));
+                            fr = func_001FA898(d->anim[5]->f40 + d->anim[5]->f38 * 0.125f - d->anim[5]->f0C) % func_001FA898(d->anim[5]->f10);
+                            a = d->anim[5];
+                            f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 8;
+                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) > d->fE0 * 0.75f) {
+                            d->bB7 = 3;
+                        } else {
+                            int bl = func_001FA898(d->anim[0]->f38 * 0.25f / (speed / d->anim[0]->f08));
+                            int fr = func_001FA898(d->anim[0]->f40 + d->anim[0]->f38 * 0.125f - d->anim[0]->f0C) % func_001FA898(d->anim[0]->f10);
+                            WalkAnim *a = d->anim[0];
+                            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 1;
+                        }
+                        break;
+                    case 7:
+                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) > d->fE0 * 0.75f) {
+                            int bl = func_001FA898(d->anim[2]->f38 * 0.25f / (speed / d->anim[2]->f08));
+                            int fr = func_001FA898(d->anim[2]->f40 + d->anim[2]->f38 * 0.125f - d->anim[2]->f0C) % func_001FA898(d->anim[2]->f10);
+                            WalkAnim *a = d->anim[2];
+                            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 3;
+                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) > -d->fE0 * 0.75f) {
+                            d->bB7 = 10;
+                        } else {
+                            int bl = func_001FA898(d->anim[6]->f38 * 0.25f / (speed / d->anim[6]->f08));
+                            int fr = func_001FA898(d->anim[6]->f40 + d->anim[6]->f38 * 0.125f - d->anim[6]->f0C) % func_001FA898(d->anim[6]->f10);
+                            WalkAnim *a = d->anim[6];
+                            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 9;
+                        }
+                        break;
+                    case 8:
+                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) > d->fE0 * 0.75f) {
+                            int bl = func_001FA898(d->anim[1]->f3C * 0.25f / (speed / d->anim[1]->f08));
+                            int fr = func_001FA898(d->anim[1]->f44 + d->anim[1]->f3C * 0.125f - d->anim[1]->f0C) % func_001FA898(d->anim[1]->f10);
+                            WalkAnim *a = d->anim[1];
+                            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 2;
+                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) > -d->fE0 * 0.75f) {
+                            d->bB7 = 11;
+                        } else {
+                            int bl = func_001FA898(d->anim[6]->f3C * 0.25f / (speed / d->anim[6]->f08));
+                            int fr = func_001FA898(d->anim[6]->f44 + d->anim[6]->f3C * 0.125f - d->anim[6]->f0C) % func_001FA898(d->anim[6]->f10);
+                            WalkAnim *a = d->anim[6];
+                            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 9;
+                        }
+                        break;
+                    case 9:
+                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) > d->fE0 * 0.75f) {
+                            if (flags & 1) {
+                                int bl = func_001FA898(d->anim[2]->f38 * 0.25f / (speed / d->anim[2]->f08));
+                                int fr = func_001FA898(d->anim[2]->f40 + d->anim[2]->f38 * 0.125f - d->anim[2]->f0C) % func_001FA898(d->anim[2]->f10);
+                                WalkAnim *a = d->anim[2];
+                                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                                func_00213DE0(m, a->id, f, bl);
+                                func_L00_002A27C8((char *)d);
+                                d->bB7 = 3;
+                            } else {
+                                int bl = func_001FA898(d->anim[1]->f3C * 0.25f / (speed / d->anim[1]->f08));
+                                int fr = func_001FA898(d->anim[1]->f44 + d->anim[1]->f3C * 0.125f - d->anim[1]->f0C) % func_001FA898(d->anim[1]->f10);
+                                WalkAnim *a = d->anim[1];
+                                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                                func_00213DE0(m, a->id, f, bl);
+                                func_L00_002A27C8((char *)d);
+                                d->bB7 = 2;
+                            }
+                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) > -d->fE0 * 0.75f) {
+                            if (flags & 1) {
+                                int bl = func_001FA898(d->anim[4]->f38 * 0.25f / (speed / d->anim[4]->f08));
+                                int fr = func_001FA898(d->anim[4]->f40 + d->anim[4]->f38 * 0.125f - d->anim[4]->f0C) % func_001FA898(d->anim[4]->f10);
+                                WalkAnim *a = d->anim[4];
+                                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                                func_00213DE0(m, a->id, f, bl);
+                                func_L00_002A27C8((char *)d);
+                                d->bB7 = 10;
+                            } else {
+                                int bl = func_001FA898(d->anim[5]->f3C * 0.25f / (speed / d->anim[5]->f08));
+                                int fr = func_001FA898(d->anim[5]->f44 + d->anim[5]->f3C * 0.125f - d->anim[5]->f0C) % func_001FA898(d->anim[5]->f10);
+                                WalkAnim *a = d->anim[5];
+                                int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                                func_00213DE0(m, a->id, f, bl);
+                                func_L00_002A27C8((char *)d);
+                                d->bB7 = 11;
+                            }
+                        }
+                        break;
+                    case 10:
+                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) > d->fE0 * 0.75f) {
+                            int bl = func_001FA898(d->anim[1]->f3C * 0.25f / (speed / d->anim[1]->f08));
+                            int fr = func_001FA898(d->anim[1]->f44 + d->anim[1]->f3C * 0.125f - d->anim[1]->f0C) % func_001FA898(d->anim[1]->f10);
+                            WalkAnim *a = d->anim[1];
+                            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 2;
+                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) < -d->fE0 * 0.75f) {
+                            d->bB7 = 7;
+                        } else {
+                            int bl = func_001FA898(d->anim[0]->f3C / (speed / d->anim[0]->f08));
+                            int fr = func_001FA898(d->anim[0]->f44 + d->anim[0]->f3C * 0.5f - d->anim[0]->f0C) % func_001FA898(d->anim[0]->f10);
+                            WalkAnim *a = d->anim[0];
+                            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 1;
+                        }
+                        break;
+                    case 11:
+                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) > d->fE0 * 0.75f) {
+                            int bl = func_001FA898(d->anim[2]->f38 * 0.25f / (speed / d->anim[2]->f08));
+                            int fr = func_001FA898(d->anim[2]->f40 + d->anim[2]->f38 * 0.125f - d->anim[2]->f0C) % func_001FA898(d->anim[2]->f10);
+                            WalkAnim *a = d->anim[2];
+                            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 3;
+                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * func_001F9FA8(d->fB8) < -d->fE0 * 0.75f) {
+                            d->bB7 = 8;
+                        } else {
+                            int bl = func_001FA898(d->anim[0]->f38 / (speed / d->anim[0]->f08));
+                            int fr = func_001FA898(d->anim[0]->f40 + d->anim[0]->f38 * 0.5f - d->anim[0]->f0C) % func_001FA898(d->anim[0]->f10);
+                            WalkAnim *a = d->anim[0];
+                            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                            func_00213DE0(m, a->id, f, bl);
+                            func_L00_002A27C8((char *)d);
+                            d->bB7 = 1;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        break;
+    }
+    case 13: {
+        float t = (d->anim[7]->f08 + d->anim[0]->f08) * 0.35f;
+        if (m->b52 == d->anim[7]->id && !(d->bB6 & 0x30)) {
+            if (speed < t && d->fC0 <= t) {
+                int fr;
+                if (d->bB6 & 3) {
+                    fr = func_001FA898(d->anim[0]->f38 * 2.0f / 3.0f + d->anim[0]->f40 - d->anim[0]->f0C) % func_001FA898(d->anim[0]->f10);
+                } else {
+                    fr = func_001FA898(d->anim[0]->f3C * 2.0f / 3.0f + d->anim[0]->f44 - d->anim[0]->f0C) % func_001FA898(d->anim[0]->f10);
+                }
+                {
+                    WalkAnim *a = d->anim[0];
+                    float ft = (float)fr;
+                    int f = func_L00_0024FD50(m->pClass->seqs[a->id], ft);
+                    func_00213DE0(m, a->id, f, 10);
+                    func_L00_002A27C8((char *)d);
+                }
+                d->bB7 = 1;
+            } else if (flags & 5) {
+                if (d->uEE & 1) {
+                    d->uEE = (d->uEE & 0xFFFE) | 2;
+                    d->fE4 = m->pos[2];
+                    if (flags & 1) {
+                        int bl = func_001FA898(d->anim[11]->f38 * 0.25f / (speed / d->anim[11]->f08));
+                        int fr = func_001FA898(d->anim[11]->f40 + d->anim[11]->f38 * 0.125f - d->anim[11]->f0C) % func_001FA898(d->anim[11]->f10);
+                        WalkAnim *a = d->anim[11];
+                        int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                        func_00213DE0(m, a->id, f, bl);
+                        func_L00_002A27C8((char *)d);
+                        d->bB7 = 0xF;
+                    } else {
+                        int bl = func_001FA898(d->anim[9]->f3C * 0.25f / (speed / d->anim[9]->f08));
+                        int fr = func_001FA898(d->anim[9]->f44 + d->anim[9]->f3C * 0.125f - d->anim[9]->f0C) % func_001FA898(d->anim[9]->f10);
+                        WalkAnim *a = d->anim[9];
+                        int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+                        func_00213DE0(m, a->id, f, bl);
+                        func_L00_002A27C8((char *)d);
+                        d->bB7 = 0xE;
+                    }
+                } else {
+                    vec[0] = func_001F9F90(ang) * d->anim[0]->f04 * 0.5f;
+                    vec[1] = func_001F9FA8(ang) * d->anim[0]->f04 * 0.5f;
+                    vec[2] = 0.0f;
+                    if (flags & 1) {
+                        func_001F9BD8(vec, vec, d->m10);
+                    } else {
+                        func_001F9BD8(vec, vec, d->m30);
+                    }
+                    vec[2] += 1.0f;
+                    d->fE4 = func_00214358(vec, 0, 0.5f);
+                }
+            }
+        }
+        if (d->fC0 < t) {
+            d->fC0 = t;
+        }
+        break;
+    }
+    case 12:
+        func_00213DE0(m, d->bB0, 0, 10);
+        func_L00_002A27C8((char *)d);
+        d->bB7 = 0;
+        break;
+    case 15:
+        if (flags & 0x30) {
+            float dist = func_001F9D48(m->pos, d->v60);
+            func_001E9730(D_L00_001612A0, dist);
+            d->fD8 = func_L00_0025BC48(m->pos, d->v60, 0, d->fC0, -d->fDC);
+            d->uEE |= 4;
+            d->f6C = func_L00_001FF860(d->v60[0] - m->pos[0], d->v60[1] - m->pos[1]);
+        }
+        if (func_0020D830(m) >= d->anim[11]->f0C + d->anim[11]->f10 - m->f58) {
+            func_00213DE0(m, d->bB3, 0, 10);
+            func_L00_002A27C8((char *)d);
+            d->bB7 = 0x10;
+        } else if ((d->uEE & 4) && d->fD8 < 0.0f) {
+            float t = func_L00_002A2858((char *)m, (char *)d);
+            float len = (d->anim[12]->f44 - d->anim[12]->f0C) * 2.0f;
+            if (t < len + 15.0f) {
+                int bl = func_001FA898(t - len) >> 1;
+                WalkAnim *a;
+                int f;
+                if (bl < 0) {
+                    bl = 0;
+                }
+                a = d->anim[12];
+                f = func_L00_0024FD50(m->pClass->seqs[a->id], 0.0f);
+                func_00213DE0(m, a->id, f, bl);
+                func_L00_002A27C8((char *)d);
+                d->bB7 = 0x12;
+            }
+        }
+        break;
+    case 14:
+        if (flags & 0x30) {
+            float dist = func_001F9D10(m->pos, d->v60);
+            func_001E9730(D_L00_001612A0, dist);
+            d->fD8 = func_L00_0025BC48(m->pos, d->v60, 0, d->fC0, -d->fDC);
+            d->uEE |= 4;
+            d->f6C = func_L00_001FF860(d->v60[0] - m->pos[0], d->v60[1] - m->pos[1]);
+        }
+        if (func_0020D830(m) >= d->anim[9]->f0C + d->anim[9]->f10 - m->f58) {
+            func_00213DE0(m, d->bB3, 0, 10);
+            func_L00_002A27C8((char *)d);
+            d->bB7 = 0x10;
+        } else if ((d->uEE & 4) && d->fD8 < 0.0f) {
+            float t = func_L00_002A2858((char *)m, (char *)d);
+            float len = (d->anim[10]->f44 - d->anim[10]->f0C) * 2.0f;
+            if (t < len + 15.0f) {
+                int bl = func_001FA898(t - len) >> 1;
+                WalkAnim *a;
+                int f;
+                if (bl < 0) {
+                    bl = 0;
+                }
+                a = d->anim[10];
+                f = func_L00_0024FD50(m->pClass->seqs[a->id], 0.0f);
+                func_00213DE0(m, a->id, f, bl);
+                func_L00_002A27C8((char *)d);
+                d->bB7 = 0x11;
+            }
+        }
+        break;
+    case 16:
+        if (m->b52 == d->bB3) {
+            float t = func_L00_002A2858((char *)m, (char *)d);
+            float len = (d->anim[12]->f44 - d->anim[12]->f0C) * 2.0f;
+            if (t < len + 15.0f) {
+                int bl = func_001FA898(t - len) >> 1;
+                WalkAnim *a = d->anim[12];
+                int f = func_L00_0024FD50(m->pClass->seqs[a->id], 0.0f);
+                func_00213DE0(m, a->id, f, bl);
+                func_L00_002A27C8((char *)d);
+                d->bB7 = 0x12;
+            }
+        }
+        break;
+    case 18:
+        if (m->b52 == d->anim[12]->id) {
+            float t = func_L00_002A2858((char *)m, (char *)d);
+            if (t > 1.0f) {
+                float base = func_001FA888(m->b50) + m->f54;
+                t = d->anim[12]->f44 + 2.0f - t * 0.5f - d->anim[12]->f0C;
+                if (t < base + 0.1f) {
+                    t = base + 0.1f;
+                }
+                m->f58 = D_0015EE68 * (t - base);
+            } else {
+                float base = func_001FA888(m->b50) + m->f54;
+                t = d->anim[12]->f44 - d->anim[12]->f0C;
+                if (t < base + 0.1f) {
+                    t = base + 0.1f;
+                }
+                m->f58 = D_0015EE68 * (t - base);
+                {
+                    int ns = 0x14;
+                    int fl = 4;
+                    d->bB6 = fl;
+                    d->bB7 = ns;
+                }
+                d->uEE &= 0xFFFB;
+            }
+        }
+        break;
+    case 17:
+        if (m->b52 == d->anim[10]->id) {
+            float t = func_L00_002A2858((char *)m, (char *)d);
+            if (t > 1.0f) {
+                float base = func_001FA888(m->b50) + m->f54;
+                t = d->anim[10]->f44 + 2.0f - t * 0.5f - d->anim[10]->f0C;
+                if (t < base + 0.1f) {
+                    t = base + 0.1f;
+                }
+                m->f58 = D_0015EE68 * (t - base);
+            } else {
+                float base = func_001FA888(m->b50) + m->f54;
+                t = d->anim[10]->f44 - d->anim[10]->f0C;
+                if (t < base + 0.1f) {
+                    t = base + 0.1f;
+                }
+                m->f58 = D_0015EE68 * (t - base);
+                {
+                    int ns = 0x13;
+                    int fl = 4;
+                    d->bB6 = fl;
+                    d->bB7 = ns;
+                }
+                d->uEE &= 0xFFFB;
+            }
+        }
+        break;
+    case 20:
+        if (flags & 1) {
+            int bl = func_001FA898((d->anim[7]->f38 * 0.25f + 2.0f) / (speed / d->anim[7]->f08));
+            int fr = func_001FA898(d->anim[7]->f40 + 1.0f + d->anim[7]->f38 * 0.125f - d->anim[7]->f0C) % func_001FA898(d->anim[7]->f10);
+            WalkAnim *a = d->anim[7];
+            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+            func_00213DE0(m, a->id, f, bl);
+            func_L00_002A27C8((char *)d);
+            d->fD8 = 0.0f;
+            d->bB7 = 0xD;
+            d->bB6 = 1;
+            d->uEE &= 0xFFFD;
+            vec[0] = func_001F9F90(ang) * d->anim[7]->f04 * 0.5f;
+            vec[1] = func_001F9FA8(ang) * d->anim[7]->f04 * 0.5f;
+            vec[2] = 0.0f;
+            func_001F9BD8(vec, vec, d->m10);
+            vec[2] += 1.0f;
+            d->fE4 = func_00214358(vec, 0, 0.5f);
+        }
+        break;
+    case 19:
+        if (flags & 1) {
+            int bl = func_001FA898((d->anim[7]->f3C * 0.25f + 2.0f) / (speed / d->anim[7]->f08));
+            int fr = func_001FA898(d->anim[7]->f44 + 1.0f + d->anim[7]->f38 * 0.125f - d->anim[7]->f0C) % func_001FA898(d->anim[7]->f10);
+            WalkAnim *a = d->anim[7];
+            int f = func_L00_0024FD50(m->pClass->seqs[a->id], (float)fr);
+            func_00213DE0(m, a->id, f, bl);
+            func_L00_002A27C8((char *)d);
+            d->fD8 = 0.0f;
+            d->bB7 = 0xD;
+            d->bB6 = 1;
+            d->uEE &= 0xFFFD;
+            vec[0] = func_001F9F90(ang) * d->anim[7]->f04 * 0.5f;
+            vec[1] = func_001F9FA8(ang) * d->anim[7]->f04 * 0.5f;
+            vec[2] = 0.0f;
+            func_001F9BD8(vec, vec, d->m10);
+            vec[2] += 1.0f;
+            d->fE4 = func_00214358(vec, 0, 0.5f);
+        }
+        break;
+    }
+}
+LINKER_REMNANT("asm/overlays", func_L00_002A4F50);

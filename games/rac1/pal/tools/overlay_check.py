@@ -67,6 +67,14 @@ ASM_OVERLAYS = ROOT / "asm/overlays"
 
 GP = 0x166D00
 RESIDENT_MAX = 0x15F000
+# The libgcc helpers the compiler calls by name (a float passed to a variadic
+# function becomes a call to `fptodp`). They are resident, at the addresses
+# tools/libgcc_ref.py finds them in retail (`python tools/libgcc_ref.py
+# retail`, the EXACT rows), so C that leaves the conversion to the compiler
+# can be checked instead of calling the helper by its address.
+LIBGCC = {"__divdi3": 0x11DFE8, "__moddi3": 0x11E860, "__udivdi3": 0x11EF28, "__umoddi3": 0x11F4F8,
+          "dpadd": 0x11FE48, "dpsub": 0x11FEA0, "dpmul": 0x11FF08, "dpdiv": 0x1201B0, "dpcmp": 0x120430,
+          "litodp": 0x120480, "dptoli": 0x120538, "dptoul": 0x1205D0, "fptodp": 0x120778}
 
 # R_MIPS_* type numbers we know how to apply.
 R_MIPS_32 = 2
@@ -98,6 +106,54 @@ class Unresolved(Exception):
 
 
 _catalogue_cache = None
+
+
+JOINED = ROOT / "config/overlays/joined.tsv"
+BARE_RETURN = "func_001E9768"     # `jr $31; nop`, the executable's empty function
+_joined_cache = None
+
+
+def load_joined() -> dict[str, list[str]]:
+    """owner -> [piece, ...] from config/overlays/joined.tsv: catalogue entries that are
+    really one C function (the owner and the entries that follow it)."""
+    global _joined_cache
+    if _joined_cache is not None:
+        return _joined_cache
+    rows = {}
+    if JOINED.exists():
+        for line in JOINED.read_text().splitlines():
+            if not line or line.startswith("#"):
+                continue
+            owner, pieces = line.split("\t", 1)
+            rows[owner] = pieces.split()
+    _joined_cache = rows
+    return rows
+
+
+def joined_size(name: str, csize: int, catalogue) -> int:
+    """CSIZE plus the pieces joined to NAME (docs/OVERLAYS.md, joined functions), measured from
+    their places in NAME's level. A piece of kind exe is a shared fragment such as the delay slot
+    that the catalogue split off the preceding jr (func_001EC030); it still counts as part of this
+    function's bytes. A piece may start up to four nops after the previous one ends (the compiler
+    aligns a loop's head to 8 bytes, and the assembler pads a short loop): the catalogue leaves
+    those nops out of both pieces, and the check compares them with the rest."""
+    pieces = load_joined().get(name, [])
+    m = OVERLAY_NAME.match(name)
+    level, start = int(m.group(1)), int(m.group(2), 16)
+    end = start + csize
+    for piece in pieces:
+        if piece not in catalogue:
+            raise SystemExit(f"joined.tsv: {name} is joined to {piece}, which is not in the catalogue")
+        _kind, size, places = catalogue[piece]
+        at = next((a for lv, a in places if lv == level and end <= a <= end + 16), None)
+        if at is None:
+            raise SystemExit(f"joined.tsv: {piece} does not follow the piece before it in level {level}")
+        end = at + size
+    # A function whose last piece is the bare return ends in that return's delay slot too: a nop,
+    # which the catalogue takes for padding (it sizes func_001E9768 as the `jr $31` alone).
+    if pieces and pieces[-1] == BARE_RETURN:
+        end += 4
+    return end - start
 
 
 def load_catalogue():
@@ -163,6 +219,8 @@ def resolve_symbol(name: str, level: int, near: int) -> int:
     place_in_level). Raises Unresolved if NAME can't be placed."""
     if name == "_gp":
         return GP
+    if name in LIBGCC:
+        return LIBGCC[name]
     if (m := FUNC_L.match(name)):
         mm, y = int(m.group(1)), int(m.group(2), 16)
         return y if mm == level else place_in_level(name, level, near)
@@ -590,6 +648,7 @@ def check(obj_path, name: str, show: bool = False) -> str:
     if row is None:
         return f"LINK {name} is not in the catalogue"
     _kind, csize, _places = row
+    csize = joined_size(name, csize, catalogue)
 
     elf = ELFFile(open(obj_path, "rb"))
     try:

@@ -50,6 +50,11 @@ fails on `wave.py`).
   pin an order, no read of a local that was never assigned. A match that
   needs one is not a match: stop instead. A function that reads a register
   it never sets, or branches outside itself, is a fragment: stop at once.
+- The build is fixed: no step may change what the compiler emitted, and
+  flags apply only to whole files (GCC 2.95 has no per-function options).
+  Never propose a new post-processing step or a per-function flag; a
+  function that only matches that way is not a match
+  (docs/BUILD_FIDELITY.md).
 - Sources: work from the assembly and from what the packet gives you.
   Never use Sony SDK source, sample code or headers, or any leaked
   material, from memory either (CONTRIBUTING.md, "Sources"). If a function
@@ -135,20 +140,34 @@ stop and say in NOTES.md which instructions are left.
   objects of two bytes or less go through `$gp`, so declare it
   `extern short D_x;` (or `char`) and read a word as `*(int *)&D_x`, a
   float as `*(float *)&D_x`. This is the project's convention
-  (`include/common.h`). A bare `$gp` offset (`addiu $2, $28, -0x7580`)
+  (`include/common.h`), and for most functions it matches. Where it
+  does not (a load retail has before a store through a pointer comes
+  out after it, or is repeated after it), declare the global with its
+  real type, `extern float D_x SDATA(D_x);`, and write the stores as
+  struct members: a read through a cast is not a scalar to the
+  compiler and waits behind every pointer store (`SDATA` in
+  `include/common.h`; func_L17_002EEB08). A bare `$gp` offset (`addiu $2, $28, -0x7580`)
   is the address 0x166D00 + offset: at 0x15F000 or above it is level
   data, `D_LNN_<address>` (`D_L00_0015F780`), never `D_<address>`.
 - A moby (game object) is a `char *`/struct pointer with fields at fixed
   offsets: state byte at 0x20, position vector at 0x10, its own data
   pointer at 0x78. Matched code in the packet shows the usual spellings.
+- A packet that says "A joined function" lists several catalogue entries:
+  they are one function, written under the first name. A branch to the
+  next entry's name is a branch inside it. A `lui` in the delay slot of
+  such a branch belongs to the load at the top of the next entry:
+  `lui $3, 0x14` then `lw $2, 0x14DC($3)` reads `D_001414DC`.
 
 ## Codegen (verified on matched functions)
 
-- `lq $2, 0(a)` then `sq $2, 0(b)`: `qcopy(b, a);` from `common.h`.
+- `lq $2, 0(a)` then `sq $2, 0(b)`: `qcopy(b, a);` from `common.h`. Where retail keeps a value it read
+  before the copy in its register and uses it after (ours reloads it), `qcopy_nc(b, a);`: the same copy
+  without the "memory" clobber.
+- `sq $zero, 0(a)`: `qzero(a);` from `common.h`.
 - Any other `lq`/`sq` pair (another register, an offset, the `sq` in a
   delay slot) is a plain 128-bit copy:
   `typedef int u128 __attribute__((mode(TI)));` above the function, then
-  `*(u128 *)(a + 0x30) = *(u128 *)(b + 0x10);`. Only `sq $zero` has no C form.
+  `*(u128 *)(a + 0x30) = *(u128 *)(b + 0x10);`. A zero store through `por` is `*(u128 *)a = 0;`.
 - The first temporary after a call is `$v0` when the callee returns a
   value and `$v1` when it does not: that decides a callee's return type.
   `sltiu` is an unsigned compare, `slti` a signed one. `lbu`/`lb`,
@@ -161,6 +180,16 @@ stop and say in NOTES.md which instructions are left.
   arm: try the other when only the epilogue differs.
 - A callee's argument register untouched since function entry is an
   argument passed straight on: keep the parameter order and types.
+- Argument moves come out in the order the callee's PARAMETERS are declared.
+  A float set up before or after an integer or pointer (`mov.s $f12` against
+  `move $a0`) is the prototype, not a scheduler tie: declare the callee with
+  its float where retail sets it up (floats and integers travel in separate
+  registers, so the call is the same). func_L02_002D8B80 was 8 bytes off for
+  three rounds over one such line; sixteen more closed the same way.
+- With the result unused, a callee declared as returning a value gives `$v1`
+  as the first temporary after the call and a `void` one gives `$v0`. Read
+  the callee's epilogue: if it sets `$v0` or `$f0`, declare the return type
+  (func_L00_00277A88, 3 bytes off until func_0022DD68 was `int`).
 - An `addu` with the index first: `base + i * 4`. With the base first:
   index in its own local, or `base - (-(i * 4))`.
 - `sltiu $2, $2, 3` after `addiu $2, $3, -5`: a range test, written
@@ -196,10 +225,20 @@ stop and say in NOTES.md which instructions are left.
   (func_L13_002C4A68).
 - A variant of matched C ("differs only in a number" in the packet): copy
   it and change the constant, offset or callee the assembly shows.
+- A walk over an id list (`lhu`, `andi 0x7FFF`, `sll 8`, a class compare,
+  `bgez` back to the top) where retail loads the class constant inside the
+  loop: return early for an empty list, then `for (;;)` with every exit a
+  `return` inside the body and nothing after the loop; an entry of the
+  wrong class that retail sends back to the top is `continue`. A
+  `do`/`while` with the test as its condition hoists the constant into a
+  saved register (func_L16_002D0A40, func_L16_002D6E98).
+- When one function of a family has matched, write its siblings in exactly
+  its form first (func_L16_002D6F90 and func_L16_002D7178, each EXACT on
+  the first run from func_L16_002D6E98).
 
 ## Walls: stop at once and name the wall in NOTES.md
 
-- `sq $zero` (a 128-bit zero store), `cfc2`/`ctc2`, `$at` used as an
+- `sq $zero` at a non-zero offset (at offset 0 it is `qzero()`), `cfc2`/`ctc2`, `$at` used as an
   ordinary register, trapping `add`/`addi`: the original was assembly or
   has no C form.
 - More saved registers or a bigger frame than retail with the instructions

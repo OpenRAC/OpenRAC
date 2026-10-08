@@ -3,7 +3,48 @@
 #include "include_asm.h"
 
 INCLUDE_ASM("asm/overlays", func_L08_002D3DF8);
-INCLUDE_ASM("asm/overlays", func_L08_002D49E8);
+extern char D_0013E633[];
+extern char *D_L08_001B0FB0[];
+extern char *func_L00_0025B478(void *, int, int);
+extern int func_L00_0025B4D0(void *, void *, void *, int, int *, float *, int, int);
+extern void func_L00_002584A8(void *, int, int);
+extern int func_L00_00260FB0_f(char *, void *, float, int, int, void *, int) __asm__("func_L00_00260FB0");
+extern float func_001F9D48(void *, void *);
+extern float func_001F9B88(float);
+
+/* Takes hits (dying at 0 health), then follows the moby's path and gives up on it when too far off. */
+void func_L08_002D49E8(char *m) {
+    char *d = *(char **)(m + 0x78);
+    int hit;
+    float dmg;
+    int idx;
+    dmg = 0.0f;
+    idx = func_L00_0025B4D0(m, func_L00_0025B478(m, 0x330000, 0), d + 0x20, 0, &hit, &dmg, 0, 4);
+    if (hit != 1 && ((unsigned char *)m)[0x20] != 0x63) {
+        *(float *)(d + 0x20) -= dmg;
+        if (*(float *)(d + 0x20) <= 0.0f) idx = 1;
+        if (idx < 12) {
+            if (idx >= 0) {
+                func_L00_002584A8(m, 0, -1);
+                m[0x20] = 0x63;
+            }
+        }
+    }
+    ((unsigned char *)m)[0xA4] = 0xFF;
+    if (((unsigned char *)m)[0x20] != 0 && ((unsigned char *)m)[0x20] != 4) {
+        char *e = D_L08_001B0FB0[*(int *)(d + 0x21C)];
+        if (func_L00_00260FB0_f(m, d + 0x170, 14.0f, 0, 0, e + 0x10, *(int *)e) != 2) {
+            if (14.0f < func_001F9D48(d + 0x1C0, d + 0x170)) {
+                *(int *)(d + 0x1B4) = 2;
+            } else if (3.0f < func_001F9B88(*(float *)(d + 0x1C8) - *(float *)(d + 0x178))) {
+                *(int *)(d + 0x1B4) = 2;
+            }
+        }
+    }
+    if (*(int *)(d + 0x1B0) == 0) {
+        *(int *)(d + 0x1B0) = *(int *)(D_0013E633 + 0x2E9D);
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L08_002D4B80);
 extern float D_0015EE6C MACRO_ADDR;
 extern float func_001F9FA8(float);
@@ -255,7 +296,24 @@ void func_L08_002F2760(int a) {
     if (*(float *)&D_L08_001E8608[a].b > 1.0f) *(float *)&D_L08_001E8608[a].b = *(float *)&D_L08_001E8608[a].b - 1.0f;
     if (*(float *)&D_L08_001E8608[a].b < -1.0f) *(float *)&D_L08_001E8608[a].b = *(float *)&D_L08_001E8608[a].b + 1.0f;
 }
-INCLUDE_ASM("asm/overlays", func_L08_002F2838);
+extern short D_L08_00161E70;
+extern float D_L08_00161E74[] MACRO_ADDR;
+extern float D_L08_00161EA0_F2838[] __asm__("D_L08_00161EA0") MACRO_ADDR;
+extern float D_L08_00161EA4[] MACRO_ADDR;
+
+/* Advances the X and Y scroll offsets of entry `i` by speed * frame step, wrapping them into [-1, 1].
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/entities/002937a0.c, FUN_L08_002f1378. */
+void func_L08_002F2838(int i) {
+    float *p;
+    p = &D_L08_00161EA0_F2838[i * 2];
+    *p += (((float *)&D_L08_00161E70))[i * 2] * D_0015EE7C;
+    if (*p > 1.0f) *p -= 1.0f;
+    if (*p < -1.0f) *p += 1.0f;
+    p = &D_L08_00161EA4[i * 2];
+    *p += D_L08_00161E74[i * 2] * D_0015EE7C;
+    if (*p > 1.0f) *p -= 1.0f;
+    if (*p < -1.0f) *p += 1.0f;
+}
 extern int func_001F9908(int *);
 extern void func_001FA218(void *, void *);
 extern float func_002140F8(float, float);
@@ -364,7 +422,65 @@ char *func_L08_00308650(char *pos, char *dir, int a2, int a3, int a4, int a5) {
     }
     return m;
 }
-INCLUDE_ASM("asm/overlays", func_L08_00308758);
+extern float D_L08_0015F6B8 MACRO_ADDR;
+extern float D_L08_0015F6B4 MACRO_ADDR;
+extern char D_L08_001746C0[];
+extern void func_001F9C30(void *, void *, float);
+extern void func_L00_001FF240(void *, void *, void *);
+extern int func_L00_00258BC8(int, int);
+extern void func_L00_0026A7F8(void *, void *, int, int, int, int, int, int);
+extern int func_L00_001EFFF0(void *, void *, int, int, int);
+extern void func_L00_0025AC00(void *, int, int, void *, void *, float);
+extern int func_001F9908_i(void *) __asm__("func_001F9908");
+extern void func_L00_00260108(void *, void *, int, float, float);
+extern void func_0020D678(void *);
+
+/* Fire bolt: flies along its velocity with a smoke trail (while the level is not underwater), damaging what it hits. */
+void func_L08_00308758(char *m) {
+    char *d = *(char **)(m + 0x78);
+    float prev[4];
+    float sc[4];
+    float off[4];
+    float tmp[4];
+    char *o;
+    switch (((unsigned char *)m)[0x20]) {
+    case 1:
+        qcopy(prev, m + 0x10);
+        o = *(char **)(d + 0x14);
+        if (o == 0 || ((unsigned char *)o)[0x20] == 0xFE || ((unsigned char *)o)[0x20] == 0xFD) {
+            m[0x20] = 2;
+        }
+        if (D_L08_0015F6B8 < 0.9f && D_L08_0015F6B4 < 0.9f) {
+            int a;
+            float f = func_002140F8(0.95f, 0.985f);
+            func_001F9C30(sc, d, f);
+            func_L00_001FF4B0(off, d, -0.1f);
+            func_L00_001FF240(tmp, off, m + 0x10);
+            a = func_001F9850(func_L00_00258BC8(0xF, 0x14));
+            func_L00_0026A7F8(off, sc, 0x6F00AFFF, 0xFF, a, 0x28, func_001F9850(func_L00_00258BC8(7, 0xA)), 1);
+        }
+        func_001F9BD8(m + 0x10, m + 0x10, d);
+        if (func_L00_001EFFF0(m + 0x10, prev, 0x10, *(int *)(d + 0x10), 0) != 0) {
+            char *t = D_L08_001746C0;
+            if (*(int *)(t + 0x18) != *(int *)(d + 0x10)) {
+                if (*(int *)(t + 0x18) != 0) {
+                    func_L00_0025AC00(*(void **)(t + 0x18), (int)m, 0x10001, t + 0x20, d, 1.0f);
+                }
+                m[0x20] = 2;
+            }
+        }
+        if (func_001F9908_i(d + 0x18) != 0) m[0x20] = 2;
+        break;
+    case 2:
+        if ((D_L08_0015F6B8 < 0.85f && D_L08_0015F6B4 < 0.85f) || *(int *)(d + 0x2C) == 1) {
+            func_L00_00260108(m, m + 0x10, -1, 0.25f, 13.0f);
+        } else {
+            func_L00_00260108(m, m + 0x10, -1, 0.25f, 0.0f);
+        }
+        func_0020D678(m);
+        break;
+    }
+}
 extern float func_002140F8(float, float);
 extern float func_001F9878(float);
 extern float func_001F9CB8(void *);

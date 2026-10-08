@@ -111,4 +111,6 @@ int func_L15_002F9AE8(char *moby, float a, float b) {
     return 0;
 }
 INCLUDE_ASM("asm/overlays", func_L15_002F9D38);
-INCLUDE_ASM("asm/overlays", func_L15_002F9FF8);
+extern char *D_L15_00167480;
+extern void func_L15_002F9D38(void *);
+

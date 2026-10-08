@@ -267,7 +267,7 @@ int func_0012DDC0(void) {
 #undef SND_CMDS
 #undef SND_REPLY
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_0012DFA0);
+LINKER_REMNANT("asm/remnants/core_text", func_0012DFA0);
 
 extern void func_00118D80(int arg0);
 extern int D_0015ECC0;
@@ -519,7 +519,7 @@ void func_0012E600(int arg0, int arg1, int arg2, int arg3, int arg4, int arg5,
     func_0012E820(0x21, 0x18, local, arg6, arg7);
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_0012E648);
+LINKER_REMNANT("asm/remnants/core_text", func_0012E648);
 
 extern unsigned char D_00133240_c[] __asm__("D_00133240");
 extern int D_00133200_w[] __asm__("D_00133200");

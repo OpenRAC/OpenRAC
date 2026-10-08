@@ -393,7 +393,7 @@ void func_001FFDA0(int arg0, int arg1) {
     }
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001FFE18);
+LINKER_REMNANT("asm/remnants/text", func_001FFE18);
 
 typedef struct {
     char b[0x13];
@@ -414,7 +414,7 @@ void func_001FFE88(void *arg0) {
     func_001166FC(&D_0019A540, arg0);
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001FFF08);
+LINKER_REMNANT("asm/remnants/text", func_001FFF08);
 
 extern short D_0015F9D0;   /* SDA (gp -0x7330) */
 
@@ -1067,7 +1067,7 @@ void func_002017C8(int arg0, int arg1, int arg2, int arg3, long arg4,
     D_00161000 = (int *)((char *)D_00161000 + 0x30);
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00201948);
+LINKER_REMNANT("asm/remnants/text", func_00201948);
 
 extern int func_00200198(int, int);
 extern void func_00200468(int, int, int, int, int, int);
@@ -1105,7 +1105,7 @@ void func_00201A38(s32 x, s32 y, s32 color, s32 text) {
     func_001F6FD8_01A38(x, y, color, text, -1);
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00201AE0);
+LINKER_REMNANT("asm/remnants/text", func_00201AE0);
 
 struct DmaTag {
     u32 dma_control;

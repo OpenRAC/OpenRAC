@@ -124,7 +124,23 @@ void func_L00_0028A5A8(void) {
         SkyDrawShell(i);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_0028A6F8);
+extern int D_L00_0015F6B0 MACRO_ADDR;
+void func_L00_001FFA40(void *,void *);
+/* rotates animated sky shells and draws each layer */
+void func_L00_0028A6F8(void) {
+ float v[4] __attribute__((aligned(16))); int i;
+ *(short *)(D_L00_001605DC+4)=0;
+ qzero(v);
+ for(i=0;i<*(short *)(D_L00_001605DC+6);i++) {
+ switch(i) {
+ case 2: v[2]=(D_L00_0015F6B0&0x3ffff)*0.000023968450f-3.14159265f; func_L00_001FFA40(D_L00_001BDB70,v); break;
+ case 3: v[2]=(D_L00_0015F6B0&0x1ffff)*0.000047936900f-3.14159265f; func_L00_001FFA40(D_L00_001BDB70,v); break;
+ case 4: v[2]=(unsigned short)D_L00_0015F6B0*0.000095873800f-3.14159265f; func_L00_001FFA40(D_L00_001BDB70,v); break;
+ default:func_001FA190(D_L00_001BDB70);
+ }
+ func_0022C9A8(i);
+ }
+}
 extern void func_0022CEB8(void);
 extern void func_00234C98(int, long);
 
@@ -223,9 +239,62 @@ void func_L00_0028A878(void) {
     func_0022C9A8(2);
     func_0022C9A8(3);
 }
-INCLUDE_ASM("asm/overlays", func_L00_0028AC80);
-INCLUDE_ASM("asm/overlays", func_L00_0028AD68);
-INCLUDE_ASM("asm/overlays", func_L00_0028AEB0);
+extern int D_L00_0015F6B0 MACRO_ADDR;
+void func_L00_001FFA40(void *,void *);
+/* refreshes two rotating shrub transform layers */
+void func_L00_0028AC80(void) {
+ float v[4] __attribute__((aligned(16)));
+ *(short *)(D_L00_001605DC+4)=0;
+ func_001FA190(D_L00_001BDB70);
+ func_0022C9A8(0);
+ qzero(v);
+ v[2]=(unsigned short)D_L00_0015F6B0*0.000095873800f-3.14159265f;
+ func_L00_001FFA40(D_L00_001BDB70,v);
+ func_0022C9A8(1);
+ v[2]=(D_L00_0015F6B0&0x1ffff)*0.000047936900f-3.14159265f;
+ func_L00_001FFA40(D_L00_001BDB70,v);
+ func_0022C9A8(2);
+}
+extern void func_L00_001FFA40(void *,void *);
+/* draws sky shells with two animated rotation offsets */
+void func_L00_0028AD68(void) {
+ float v[4] __attribute__((aligned(16))); int i;
+ *(short *)(D_L00_001605DC+4)=0; qzero(v);
+ for(i=0;i<*(short *)(D_L00_001605DC+6);++i) {
+ switch(i) {
+ case 1: v[2]=(float)*(unsigned short *)&D_L00_0015F6B0*0.0000958738017f-3.14159265f; func_L00_001FFA40(D_L00_001BDB70,v); break;
+ case 2: v[2]=(float)(D_L00_0015F6B0&0x1FFFF)*0.00004793690085f-3.14159265f;
+ func_L00_001FFA40(D_L00_001BDB70,v); break;
+ default: func_001FA190(D_L00_001BDB70); break;
+ }
+ func_0022C9A8(i);
+ }
+}
+void func_L00_0028A198(s32 a, s32 b);
+void func_L00_0028A3E0(void);
+extern char D_L00_001BDB70[];
+extern char * D_L00_001605DC MACRO_ADDR;
+void func_001FA190();
+void func_0022C9A8();
+extern int D_L00_0015F6B0 MACRO_ADDR;
+void func_0022CEB8(void);
+void func_00234C98(int, long);
+void func_L00_001FFA40(void *, void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_00288ec0.c, FUN_L00_00289bd8. */
+void func_L00_0028AEB0(void) {
+    float v[4] __attribute__((aligned(16)));
+    func_001FA190(D_L00_001BDB70);
+    func_0022C9A8(0);
+    if (*(short *)(D_L00_001605DC + 8) == 0) func_L00_0028A198(0x78, 8);
+    func_L00_0028A3E0();
+    func_0022CEB8();
+    func_00234C98(0x42, (0x8000L << 24) | 0x44);
+    qzero(v);
+    v[2] = (D_L00_0015F6B0 % 50000) * 0.000125663704f - 3.14159265f;
+    func_L00_001FFA40(D_L00_001BDB70, v);
+    func_0022C9A8(1);
+}
 typedef union {
     struct { s16 h0; s16 h2; } h;
     struct { u8 c0; u8 c1; u8 c2; u8 c3; } c;
@@ -396,8 +465,51 @@ void func_L00_0028AF90(void) {
     func_0022C9A8(1);
     func_0022C9A8(2);
 }
-INCLUDE_ASM("asm/overlays", func_L00_0028B4E0);
-INCLUDE_ASM("asm/overlays", func_L00_0028B5C8);
+void func_L00_0028A198(s32 a, s32 b);
+void func_L00_0028A3E0(void);
+void func_001FA190();
+void func_0022C9A8();
+void func_0022CEB8(void);
+void func_00234C98(int, long);
+void func_L00_001FFA40(void *, void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_00288ec0.c, FUN_L00_0028a208. */
+void func_L00_0028B4E0(void) {
+    float v[4] __attribute__((aligned(16)));
+    func_001FA190(D_L00_001BDB70);
+    func_0022C9A8(0);
+    if (*(short *)(D_L00_001605DC + 8) == 0) func_L00_0028A198(0x78, 8);
+    func_L00_0028A3E0();
+    func_0022CEB8();
+    func_00234C98(0x42, (0x8000L << 24) | 0x44);
+    func_0022C9A8(1);
+    qzero(v);
+    v[2] = (D_L00_0015F6B0 % 50000) * 0.000125663704f - 3.14159265f;
+    func_L00_001FFA40(D_L00_001BDB70, v);
+    func_0022C9A8(2);
+}
+void func_001FA190();
+typedef int q128 __attribute__((mode(TI)));
+typedef union { q128 q; f32 f[4]; } V0028a2f0;
+extern u8 D_L00_001BDB70_8B5C8[] __asm__("D_L00_001BDB70");
+extern u8 * D_L00_001605DC_8B5C8 __asm__("D_L00_001605DC") MACRO_ADDR;
+extern s32 D_L00_0015F6B0 MACRO_ADDR;
+void func_0022C9A8(s32);
+void func_L00_001FFA40(void *, void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_00288ec0.c, FUN_L00_0028a2f0. */
+void func_L00_0028B5C8(void) {
+    V0028a2f0 t;
+    *(s16 *)(D_L00_001605DC_8B5C8 + 4) = 0;
+    func_001FA190(D_L00_001BDB70_8B5C8);
+    func_0022C9A8(0);
+    qzero(&t);
+    t.f[2] = (f32)(D_L00_0015F6B0 % 40000) * 0.00015707963029854f - 3.1415927f;
+    func_L00_001FFA40(D_L00_001BDB70_8B5C8, &t);
+    func_0022C9A8(1);
+    func_001FA190(D_L00_001BDB70_8B5C8);
+    func_0022C9A8(2);
+}
 extern int D_L00_0015F6B0 MACRO_ADDR;
 extern void func_L00_001FFA40(void *, void *);
 
@@ -419,8 +531,67 @@ void func_L00_0028B680(void) {
     func_001FA190(D_L00_001BDB70);
     SkyDrawShell(4);
 }
-INCLUDE_ASM("asm/overlays", func_L00_0028B758);
-INCLUDE_ASM("asm/overlays", func_L00_0028B8F8);
+typedef int T28a480_q __attribute__((mode(TI)));
+extern int D_L00_0015F6B0_8B758b __asm__("D_L00_0015F6B0") MACRO_ADDR;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_00288ec0.c, FUN_L00_0028a480. */
+void func_L00_0028B758(void)
+{
+    T28a480_q v[1];
+    int i;
+
+    qzero(v);
+    for (i = 0; i < *(short *)(D_L00_001605DC + 6); i++) {
+        switch (i) {
+        case 0:
+            ((float *)v)[2] = (float)((D_L00_0015F6B0 * 2) & 0x1FFFF) * (3.14159265f / 65536.0f) - 3.14159265f;
+            func_L00_001FFA40(D_L00_001BDB70, v);
+            break;
+        case 1:
+            ((float *)v)[2] = (float)((D_L00_0015F6B0_8B758b * 5) & 0x1FFFF) * (3.14159265f / 65536.0f) - 3.14159265f;
+            func_L00_001FFA40(D_L00_001BDB70, v);
+            break;
+        case 2:
+            ((float *)v)[2] = (float)((D_L00_0015F6B0_8B758b * 10) & 0x3FFFF) * 2.39684496e-05f - 3.14159265f;
+            func_L00_001FFA40(D_L00_001BDB70, v);
+            break;
+        case 3:
+            ((float *)v)[2] = (float)((D_L00_0015F6B0 * 10) & 0x1FFFF) * (3.14159265f / 65536.0f) - 3.14159265f;
+            func_L00_001FFA40(D_L00_001BDB70, v);
+            break;
+        default:
+            func_001FA190(D_L00_001BDB70);
+            break;
+        }
+        func_0022C9A8(i);
+    }
+}
+extern short D_L00_0015F6B0_s __asm__("D_L00_0015F6B0");
+// Rotates each sky shell at its assigned angular rate before drawing.
+void func_L00_0028B8F8(void) {
+ float v[4] __attribute__((aligned(16)));
+ int i;
+ *(short *)(D_L00_001605DC + 4) = 0;
+ qzero(v);
+ for (i = 0; i < *(short *)(D_L00_001605DC + 6); i++) {
+  switch (i) {
+   case 1:
+    v[2] = (D_L00_0015F6B0 & 0x3FFFF) * (3.14159265f / 131072.0f) - 3.14159265f;
+    func_L00_001FFA40(D_L00_001BDB70, v);
+    break;
+   case 2:
+    v[2] = (D_L00_0015F6B0 & 0x1FFFF) * (3.14159265f / 65536.0f) - 3.14159265f;
+    func_L00_001FFA40(D_L00_001BDB70, v);
+    break;
+   case 3:
+    v[2] = *(unsigned short *)&D_L00_0015F6B0_s * (3.14159265f / 32768.0f) - 3.14159265f;
+    func_L00_001FFA40(D_L00_001BDB70, v);
+    break;
+   default: func_001FA190(D_L00_001BDB70); break;
+  }
+  func_0022C9A8(i);
+ }
+}
 extern char D_L00_001BDB70[] NOT_SDA;
 extern char *D_L00_001605DC MACRO_ADDR;
 extern void func_001FA190(void *);
@@ -439,7 +610,23 @@ void func_L00_0028BBF8(void) {
     VU1_addGSregister(0x42, 0x8000000044L);
     SkyDrawShell(2);
 }
-INCLUDE_ASM("asm/overlays", func_L00_0028BC70);
+void func_001FA190();
+void func_0022C9A8();
+void func_L00_001FFA40(void *, void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_00288ec0.c, FUN_L00_0028a998. */
+void func_L00_0028BC70(void) {
+    float v[4] __attribute__((aligned(16)));
+    func_001FA190(D_L00_001BDB70);
+    func_0022C9A8(0);
+    qzero(v);
+    v[2] = (D_L00_0015F6B0 % 50000) * 0.000125663704f - 3.14159265f;
+    func_L00_001FFA40(D_L00_001BDB70, v);
+    func_0022C9A8(1);
+    v[2] = (D_L00_0015F6B0 % 100000) * 0.0000628318521f - 3.14159265f;
+    func_L00_001FFA40(D_L00_001BDB70, v);
+    func_0022C9A8(2);
+}
 /* Shrub proc init variant: set up, conditional call, finish. */
 void func_L00_0028BD70(void) {
     func_001FA190(D_L00_001BDB70);
@@ -528,7 +715,28 @@ void func_L00_0028BF60(void) {
     func_0022C9A8(1);
     func_0022C9A8(2);
 }
-INCLUDE_ASM("asm/overlays", func_L00_0028C358);
+void func_001FA190();
+void func_0022C9A8();
+void func_L00_001FFA40(void *, void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_00288ec0.c, FUN_L00_0028b080. */
+void func_L00_0028C358(void) {
+    float v[4] __attribute__((aligned(16)));
+    *(short *)(D_L00_001605DC + 4) = 0;
+    func_0022C9A8(0);
+    func_0022C9A8(1);
+    func_0022C9A8(2);
+    func_0022C9A8(3);
+    qzero(v);
+    v[2] = (D_L00_0015F6B0 % 40000) * 0.000157079637f - 3.14159265f;
+    func_L00_001FFA40(D_L00_001BDB70, v);
+    func_0022C9A8(4);
+    v[2] = (D_L00_0015F6B0 % 60000) * 0.000104719758f - 3.14159265f;
+    func_L00_001FFA40(D_L00_001BDB70, v);
+    func_0022C9A8(5);
+    func_001FA190(D_L00_001BDB70);
+    func_0022C9A8(6);
+}
 typedef int q_28b1a0 __attribute__((mode(TI)));
 typedef struct { short h0, h2, h4, h6; unsigned char pad[0x18]; unsigned char *e[1]; } S_28b1a0;
 extern S_28b1a0 *D_L00_001605DC_28b1a0 __asm__("D_L00_001605DC") MACRO_ADDR;

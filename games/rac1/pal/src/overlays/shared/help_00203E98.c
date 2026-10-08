@@ -152,7 +152,15 @@ void func_L00_002056D8(s32 n) {
         func_L00_00235790();
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_00205728);
+extern int D_001414D0;
+extern int D_001405D4;
+extern int D_001404E0;
+// Selects a help status by mode.
+int func_L00_00205728(int mode) {
+ if (mode == 0 || mode == 2 || mode == 3 || mode == 4) return D_001414D0;
+ if (mode == 1) return D_001405D4;
+ if (mode == 5) { return D_001404E0; } else { return 0; }
+}
 INCLUDE_ASM("asm/overlays", func_L00_00205754);
 INCLUDE_ASM("asm/overlays", func_L00_00205768);
 INCLUDE_ASM("asm/overlays", func_L00_00205778);
@@ -697,7 +705,77 @@ void func_L00_00208318(void) {
         AddDrawCallback(func_L00_00208358, *(int *)(g + 0x2080));
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_00208358);
+extern int D_L00_0015F6A8 MACRO_ADDR;
+extern float D_0015EE60 MACRO_ADDR;
+typedef struct { float v[4]; } QV;
+typedef struct {
+    char pad[0x1DD0];
+    QV vec[8];
+    int val[8];
+    float f0[8];
+    float f1[8];
+    short n;
+} DrawQ;
+extern void func_L00_00264690(void *, int, float, float);
+
+// Draws the queued effect particles and the per-state glow for the current game state.
+void func_L00_00208358(void) {
+    char *g;
+    char *h;
+    int i;
+    float f;
+    float u;
+    if (D_L00_0015F6A8 == 2 || D_L00_0015F6A8 == 6) {
+        for (i = 0; i < ((DrawQ *)(D_0013E633 + 0xE1D))->n; i++) {
+            func_L00_00264690(&((DrawQ *)(D_0013E633 + 0xE1D))->vec[i], ((DrawQ *)(D_0013E633 + 0xE1D))->val[i], ((DrawQ *)(D_0013E633 + 0xE1D))->f0[i], ((DrawQ *)(D_0013E633 + 0xE1D))->f1[i]);
+        }
+        return;
+    }
+    g = (char *)D_0013E633 + 0xE1D;
+    if (*(unsigned char *)(g + 0x20A4) == 3) {
+        int v = *(int *)(g + 0x22E4);
+        char *q = g + 0x1D50;
+        int k = 2;
+        while (k >= 0) {
+            func_L00_00264690(q, v, 0.2f, 0.08f);
+            q += 16;
+            k--;
+        }
+        return;
+    }
+    if (*(unsigned char *)(g + 0x20A4) == 0) {
+        if ((func_L00_0020DB30(3) == 3 || func_L00_0020DB30(3) == 2) && *(short *)(g + 0x22D8) == 0) {
+            u = 0.015f;
+            *(float *)(g + 0x1D88) = *(float *)(g + 0x1D88) + u;
+            func_L00_00264690(g + 0x1D80, 0x280000C0, 0.057f, 0.08f);
+            *(float *)(g + 0x1D88) = *(float *)(g + 0x1D88) - u;
+        }
+        for (i = 0; i < ((DrawQ *)(D_0013E633 + 0xE1D))->n; i++) {
+            func_L00_00264690(&((DrawQ *)(D_0013E633 + 0xE1D))->vec[i], ((DrawQ *)(D_0013E633 + 0xE1D))->val[i], ((DrawQ *)(D_0013E633 + 0xE1D))->f0[i], ((DrawQ *)(D_0013E633 + 0xE1D))->f1[i]);
+        }
+        return;
+    }
+    if (*(unsigned char *)(g + 0x20A4) == 2) {
+        u = 0.07f;
+        *(float *)(g + 0x1D88) = *(float *)(g + 0x1D88) - u;
+        func_L00_00264690(g + 0x1D80, 0x300000C0, 0.25f, 0.08f);
+        *(float *)(g + 0x1D88) = *(float *)(g + 0x1D88) + u;
+        return;
+    }
+    if (*(unsigned char *)(g + 0x20A4) == 1) {
+        f = 0.06f;
+        if (*(short *)(g + 0x22FC) != 0) f = 0.087f;
+        if (D_0015EEB0[3] != 0) {
+            *(float *)(g + 0x1D88) = *(float *)(g + 0x1D88) - 0.01f;
+            f = f * 1.7f;
+        } else {
+            *(float *)(g + 0x1D88) = *(float *)(g + 0x1D88) - 0.02f;
+        }
+        func_00214D28((float *)(D_0013E633 + 0x2449), f, D_0015EE60 * 0.003f);
+        h = (char *)D_0013E633 + 0xE1D;
+        func_L00_00264690(h + 0x1D80, *(int *)(h + 0x2300), *(float *)(h + 0x162C), 0.08f);
+    }
+}
 typedef struct { float v[4]; } Q4;
 typedef struct {
     char pad[0x1DD0];

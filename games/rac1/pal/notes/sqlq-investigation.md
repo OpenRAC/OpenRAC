@@ -1,5 +1,7 @@
 # The `sq`/`lq` callee-saved spill question — resolved
 
+> Historical log. `tools/fix_core_spills.py`, `tools/fix_tail_calls.py`, `tools/fix_trunc_slot.py` and `tools/func_cflags.py`, which it describes, were removed on 2026-10-07 for rewriting compiler output; see docs/BUILD_FIDELITY.md for the current build.
+
 > **Historical round notes (September 2026), kept as a record.**
 > `docs/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
 > state. Superseded since this was written:

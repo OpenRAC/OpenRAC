@@ -51,9 +51,10 @@ build-sn/libgcc/asm_0011E6D4.o
 build-sn/libgcc/l2_fixunsdfdi.o
 build-sn/libgcc/asm_0011E7C4.o
 build-sn/libgcc/l2_floatdidf.o
-build-sn/libgcc/asm_0011E860.o
+build-sn/libgcc/l2_moddi3.o
 build-sn/libgcc/l2_muldi3.o
-build-sn/libgcc/asm_0011EF28.o
+build-sn/libgcc/l2_udivdi3.o
+build-sn/libgcc/l2_umoddi3.o
 build-sn/libgcc/dp-bit.o
 build-sn/libgcc/asm_001206A4.o
 build-sn/libgcc/fp-bit.o

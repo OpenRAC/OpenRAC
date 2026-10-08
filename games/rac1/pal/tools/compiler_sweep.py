@@ -6,15 +6,13 @@ built each object.
 
   python tools/compiler_sweep.py                     # every src/core file
   python tools/compiler_sweep.py src/core/X.c ...    # just these
-  python tools/compiler_sweep.py --modes v114,ee29t src/core/X.c
+  python tools/compiler_sweep.py --modes v114,ee29 src/core/X.c
   python tools/compiler_sweep.py -j 8 ...            # parallel jobs
 
-Modes:
-  v114    the 2.95.3 core pipeline: fix_core_spills, fix_tail_calls,
-          fix_trunc_slot
-  ee29    Sony's 2.9-ee, raw
-  ee29t   2.9-ee + fix_trunc_slot (the EE29_CORE pipeline in Makefile.sn)
-  ee29tc  2.9-ee + fix_tail_calls + fix_trunc_slot
+Modes (each compiler's output as it is; the build rewrites none of it,
+docs/BUILD_FIDELITY.md):
+  v114    SN's 2.95.3 build v1.14, the game compiler
+  ee29    Sony's 2.9-ee, the SDK compiler
 
 One line per file with the exact count under each mode, then each
 function whose verdict differs between modes. The C is compiled as it
@@ -33,33 +31,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import try_func as tf  # noqa: E402
 from toolchain import sn  # noqa: E402
 
-PY = sys.executable
-
-
 def compile_mode(mode: str, src: Path, work: Path) -> Path | None:
     work.mkdir(parents=True, exist_ok=True)
     c = work / "src.c"
     c.write_text(src.read_text(errors="replace"))
     obj = work / "obj.o"
     obj.unlink(missing_ok=True)
-    a, b, cc = [work / f"{n}.s" for n in "abc"]
+    a = work / "a.s"
     with open(work / "log.txt", "w") as log:
         if mode == "v114":
-            ok = (tf.run(sn(tf.CC, *tf.CFLAGS, "-S", "-o", str(a), str(c)), log)
-                  and tf.run([PY, "tools/fix_core_spills.py", str(a), str(b)], log)
-                  and tf.run([PY, "tools/fix_tail_calls.py", str(b), str(cc)], log)
-                  and tf.run([PY, "tools/fix_trunc_slot.py", str(cc), str(cc)], log))
-            final = cc
+            ok = tf.run(sn(tf.CC, *tf.CFLAGS, "-S", "-o", str(a), str(c)), log)
         else:
             ok = tf.run(sn(tf.CC29, *tf.CFLAGS, tf.EE29_INC, "-S", "-o", str(a), str(c)), log)
-            final = a
-            if ok and mode == "ee29t":
-                ok = tf.run([PY, "tools/fix_trunc_slot.py", str(a), str(b)], log)
-                final = b
-            elif ok and mode == "ee29tc":
-                ok = (tf.run([PY, "tools/fix_tail_calls.py", str(a), str(b)], log)
-                      and tf.run([PY, "tools/fix_trunc_slot.py", str(b), str(b)], log))
-                final = b
+        final = a
         ok = ok and tf.run(sn(tf.CC, *tf.CFLAGS, "-c", str(final), "-o", str(obj)), log)
     return obj if ok else None
 
@@ -86,7 +70,7 @@ def job(arg: tuple[str, str]) -> tuple[str, str, dict[str, str] | None]:
 
 def main() -> None:
     args = sys.argv[1:]
-    modes, jobs = ["v114", "ee29", "ee29t"], 6
+    modes, jobs = ["v114", "ee29"], 6
     while args[:1] and args[0].startswith("-"):
         if args[0] == "--modes":
             modes, args = args[1].split(","), args[2:]

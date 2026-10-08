@@ -2,7 +2,47 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L06_0021D6B8);
+typedef struct {
+    char pad[0x24];
+    int v;
+    char pad2[0x24];
+} Rec;
+extern Rec D_L06_0017A340[];
+extern char D_0013F450_1D6B8[] __asm__("D_0013F450");
+extern int func_L00_0020DB30(int);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui/help/0021d0a0.c, FUN_L06_0021d0a0. */
+int func_L06_0021D6B8(int a) {
+    char *g = (char *)D_0013F450_1D6B8;
+    switch (*(unsigned char *)(g + 0x20A4)) {
+    case 1:
+        return 0;
+    case 3:
+        return 0;
+    }
+    {
+        char *g2 = (char *)D_0013F450_1D6B8;
+        if (*(int *)(g2 + 0x22A8) == 1) {
+            return 0x54;
+        }
+        if (a == 0) {
+            return 0;
+        }
+        if (*(unsigned char *)(g2 + 0x20A8) == 0) {
+            return 0;
+        }
+        if (*(unsigned char *)(g2 + 0x20AA) == 0) {
+            return 0;
+        }
+        if (*(short *)(g2 + 0x22C8) != 0) {
+            return 0;
+        }
+    }
+    {
+        int i = func_L00_0020DB30(0);
+        return D_L06_0017A340[i].v;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L06_0021E7B8);
 extern unsigned char D_0013F450[];
 extern s32 D_L06_0015F6A8 MACRO_ADDR;
@@ -149,7 +189,134 @@ void func_L06_00229868(int arg) {
         }
     }
 }
-INCLUDE_ASM("asm/overlays", func_L06_0022A868);
+typedef unsigned int u128_22a1d0 __attribute__((mode(TI), aligned(16)));
+typedef struct {
+    u8 pad0[0x80];
+    u128_22a1d0 pos;
+    u8 pad90[0x1CC - 0x90];
+    s32 w1CC;
+    u8 pad1D0[0x1F8 - 0x1D0];
+    s16 h1F8;
+    u8 pad1FA[6];
+    u128_22a1d0 q200;
+    u128_22a1d0 q210;
+    f32 f220;
+    f32 f224;
+    u8 pad228[0xC];
+    f32 f234;
+    u8 pad238[4];
+    s32 w23C;
+    u8 pad240[0x17];
+    u8 b257;
+    u8 pad258[0x2080 - 0x258];
+    s32 w2080;
+    s32 w2084;
+    u8 pad2088[4];
+    s32 w208C;
+    u8 pad2090[0x20B3 - 0x2090];
+    u8 b20B3;
+    u8 pad20B4[0x22DA - 0x20B4];
+    s16 h22DA;
+} G_22a1d0;
+typedef union {
+    u128_22a1d0 q;
+    f32 f[4];
+} V_22a1d0;
+extern G_22a1d0 D_0013F450_2A868 __asm__("D_0013F450");
+extern f32 D_0015EE60 MACRO_ADDR;
+extern u128_22a1d0 D_L06_001746F0[];
+extern void func_001F9BC0(void *);
+extern void func_L00_00235040(void);
+extern void func_L00_00234090(void *, void *, f32);
+extern void func_L00_00233D50(void *, void *, f32);
+extern void func_001F9BF0(void *, void *, void *);
+extern f32 func_001F9CB8(void *);
+extern s32 func_L00_001F10E0(void *, s32, s32, f32);
+extern s32 func_L00_001F1D20(void *, s32, f32, s32, f32);
+extern s32 func_L00_001F34F0(void *, f32);
+extern void func_L00_001FF4B0(void *, void *, f32);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui/help/0021d0a0.c, FUN_L06_0022a1d0. */
+s32 func_L06_0022A868(s32 mode) {
+    V_22a1d0 old;
+    V_22a1d0 v;
+    V_22a1d0 w;
+    s32 mask;
+    s32 i;
+    u128_22a1d0 *c;
+    f32 h;
+    if (D_0013F450_2A868.w1CC != 0) {
+        return 1;
+    }
+    qcopy(&old, &D_0013F450_2A868.pos);
+    func_001F9BC0(&v);
+    if (D_0013F450_2A868.h22DA != 0) {
+        func_L00_00235040();
+        D_0013F450_2A868.h22DA = 0;
+    }
+    if (D_0013F450_2A868.w208C != 0x11) {
+        if (D_0013F450_2A868.b20B3 != 0 || D_0013F450_2A868.h1F8 != 0) {
+            if (D_0013F450_2A868.b20B3 == 1 || D_0013F450_2A868.h1F8 != 0) {
+                func_L00_00234090(&v, &v, 0.6f);
+            } else {
+                func_L00_00233D50(&v, &v, -D_0013F450_2A868.f224);
+            }
+        } else {
+            v.f[2] = D_0013F450_2A868.f224;
+        }
+    }
+    func_001F9BD8(&D_0013F450_2A868.pos, &D_0013F450_2A868.pos, &v);
+    mask = 0xD24;
+    if (D_0013F450_2A868.w2084 == 0x7F)
+        mask = 0xD24;
+    for (i = 0; i < 8; i++) {
+        if (D_0013F450_2A868.b20B3 != 0) {
+            if (!func_L00_001F10E0(&D_0013F450_2A868.pos, mask, D_0013F450_2A868.w2080, D_0015EE60 * 0.4f))
+                break;
+        } else if (D_0013F450_2A868.w208C == 0xF) {
+            if (!func_L00_001F10E0(&D_0013F450_2A868.pos, mask, D_0013F450_2A868.w2080, D_0015EE60 * 0.45f))
+                break;
+        } else {
+            s32 a;
+            h = D_0013F450_2A868.f220 - D_0013F450_2A868.f224;
+            if (h < 0.05f) {
+                h = 0.05f;
+            }
+            a = func_L00_001F1D20(&D_0013F450_2A868.pos, mask, D_0013F450_2A868.f234, D_0013F450_2A868.w2080, h);
+            if (!(a | func_L00_001F34F0(&D_0013F450_2A868.pos, D_0013F450_2A868.f234)))
+                break;
+        }
+        c = D_L06_001746F0;
+        qcopy(&D_0013F450_2A868.pos, c);
+        qcopy(&D_0013F450_2A868.q200, c + 1);
+        qcopy(&D_0013F450_2A868.q210, c - 1);
+        D_0013F450_2A868.b257 = 1;
+        D_0013F450_2A868.w23C = ((s32 *)c)[-6];
+    }
+    func_001F9BF0(&D_0013F450_2A868.pos, &D_0013F450_2A868.pos, &v);
+    func_001F9BF0(&w, &D_0013F450_2A868.pos, &old);
+    h = func_001F9CB8(&w);
+    if (D_0013F450_2A868.f234 * 1.5f < h) {
+        if (mode == 0xF) {
+            if (512.0f < w.f[0])
+                w.f[0] = 512.0f;
+            else if (w.f[0] < -512.0f)
+                w.f[0] = -512.0f;
+            if (512.0f < w.f[1])
+                w.f[1] = 512.0f;
+            else if (w.f[1] < -512.0f)
+                w.f[1] = -512.0f;
+            if (512.0f < w.f[2])
+                w.f[2] = 512.0f;
+            else if (w.f[2] < -512.0f)
+                w.f[2] = -512.0f;
+            func_L00_001FF4B0(&w, &w, D_0013F450_2A868.f234);
+            func_001F9BD8(&D_0013F450_2A868.pos, &old, &w);
+        }
+        return -1;
+    }
+    return 1;
+}
 INCLUDE_ASM("asm/overlays", func_L06_00235038);
 extern unsigned char D_0013E633[];
 extern void func_L06_00235E08(int, int);
@@ -162,4 +329,108 @@ void func_L06_00239CD0(void) {
     case 3: func_L06_00235E08(0x53, 1); break;
     }
 }
-INCLUDE_ASM("asm/overlays", func_L06_002431A0);
+typedef int V4q_32b90 __attribute__((mode(TI), aligned(16)));
+typedef union {
+    V4q_32b90 q;
+    f32 f[4];
+} V4_32b90;
+typedef struct {
+    char pad000[0x80];
+    V4_32b90 v80;
+    char pad090[0x50];
+    V4_32b90 vE0;
+    char pad0F0[0x180];
+    V4_32b90 v270;
+    char pad280[0x1E33];
+    u8 mode;
+} G_32b90;
+extern G_32b90 D_0013F450_431A0 __asm__("D_0013F450");
+extern u8 D_L06_00174700[];
+extern f32 D_L06_001746E0;
+extern void func_001F9C30(void *, void *, f32);
+extern void func_L00_0025E290(V4_32b90 *, void *);
+extern s32 func_L00_001EFFF0(void *, void *, s32, s32, s32);
+extern f32 func_L00_002345B0(void *);
+extern f32 func_L00_002342F8(void *);
+extern s32 func_L00_0025A5D8(f32 *, f32 *, f32, f32, f32);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui_help_00242950.c, FUN_L06_00242950. */
+f32 func_L06_002431A0(f32 a, f32 b, f32 c) {
+    f32 t[4];
+    V4_32b90 v;
+    V4_32b90 t1;
+    V4_32b90 v2;
+    f32 o[6];
+    f32 x, y, z;
+
+    switch ((&D_0013F450_431A0)->mode) {
+    case 0:
+        if (c < 0.0f) {
+            func_001F9C30(t, &(&D_0013F450_431A0)->vE0, a);
+            t[2] -= ((a * a + a) * 0.5f) * b;
+            func_001F9BD8(t, t, &(&D_0013F450_431A0)->v80);
+            v.q = (&D_0013F450_431A0)->v80.q;
+            func_L00_0025E290(&v, t);
+            qcopy(&v, &(&D_0013F450_431A0)->v80);
+            if (func_L00_001EFFF0(&v, t, 0xd24, 0, 0) != 0) {
+                if (func_L00_002345B0((f32 *)D_L06_00174700) <= 0.87266463f) {
+                    c = *(f32 *)(D_L06_00174700 - 0x18);
+                }
+            }
+        }
+        if (c > 0.0f) {
+            if (func_L00_0025A5D8(&o[0], &o[1], b * -0.5f, (&D_0013F450_431A0)->vE0.f[2] - b * -0.5f,
+                                       (&D_0013F450_431A0)->v80.f[2] - c) > 0 &&
+                o[0] > 0.0f) {
+                return o[0];
+            }
+        }
+        break;
+    case 1:
+        qcopy(&v, &(&D_0013F450_431A0)->v270);
+        func_L00_001FF4B0(&v, &v, b);
+        func_001F9C30(&v, &v, -1.0f);
+        func_001F9C30(t, &(&D_0013F450_431A0)->vE0, a);
+        func_001F9C30(&t1, &v, ((a * a + a) * 0.5f) * b);
+        func_001F9BD8(t, &t1, t);
+        func_001F9BD8(t, &(&D_0013F450_431A0)->v80, t);
+        v2.q = (&D_0013F450_431A0)->v80.q;
+        func_L00_0025E290(&v2, t);
+        if (func_L00_001EFFF0(&(&D_0013F450_431A0)->v80, t, 0xd24, 0, 0) != 0) {
+            f32 nb;
+            nb = b * -0.5f;
+            z = func_L00_002342F8(&(&D_0013F450_431A0)->vE0) - nb;
+            x = func_L00_002342F8(&(&D_0013F450_431A0)->v80);
+            y = func_L00_002342F8(&D_L06_001746E0);
+            if (func_L00_0025A5D8(&o[2], &o[3], nb, z, x - y) > 0 && o[2] > 0.0f) {
+                return o[2];
+            }
+        }
+        break;
+    case 2:
+        t1.f[2] = 100.0f;
+        t1.f[1] = 100.0f;
+        t1.f[0] = 100.0f;
+        func_001F9BF0(&v, &(&D_0013F450_431A0)->v80, &t1);
+        func_L00_001FF4B0(&v, &v, b);
+        func_001F9C30(&v, &v, -1.0f);
+        func_001F9C30(t, &(&D_0013F450_431A0)->vE0, a);
+        func_001F9C30(&t1, &v, ((a * a + a) * 0.5f) * b);
+        func_001F9BD8(t, &t1, t);
+        func_001F9BD8(t, &(&D_0013F450_431A0)->v80, t);
+        v2.q = (&D_0013F450_431A0)->v80.q;
+        func_L00_0025E290(&v2, t);
+        if (func_L00_001EFFF0(&(&D_0013F450_431A0)->v80, t, 0xd24, 0, 0) != 0) {
+            f32 nb;
+            nb = b * -0.5f;
+            z = func_L00_002342F8(&(&D_0013F450_431A0)->vE0) - nb;
+            x = func_L00_002342F8(&(&D_0013F450_431A0)->v80);
+            y = func_L00_002342F8(&D_L06_001746E0);
+            if (func_L00_0025A5D8(&o[4], &o[5], nb, z, x - y) > 0 && o[4] > 0.0f) {
+                return o[4];
+            }
+        }
+        break;
+    }
+    return a;
+}

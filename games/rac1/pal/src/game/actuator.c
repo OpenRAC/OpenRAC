@@ -147,4 +147,4 @@ __asm__(".section .text
 	nop
 ");
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001E94C8);
+LINKER_REMNANT("asm/remnants/text", func_001E94C8);

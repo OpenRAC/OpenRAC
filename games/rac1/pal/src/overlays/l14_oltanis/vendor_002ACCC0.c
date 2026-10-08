@@ -3,7 +3,27 @@
 #include "include_asm.h"
 
 INCLUDE_ASM("asm/overlays", func_L14_002ACCC0);
-INCLUDE_ASM("asm/overlays", func_L14_002AD4F8);
+extern float func_L00_0025C918(float *p, float *v, float t, float u1, float u2, float eps);
+extern int *D_L14_001B0F30[];
+
+// Pick a keyframe vector from the moby's table and ease the moby position toward it per axis.
+void func_L14_002AD4F8(char *moby) {
+    char *data = *(char **)(moby + 0x78);
+    float v[4];
+    char *src;
+    int *tab;
+    tab = D_L14_001B0F30[*(int *)(data + 0xB4)];
+    if (*(float *)(data + 0xA4) > 0.5f) {
+        src = (char *)(tab[0] * 16 + (int)tab);
+        qcopy(v, src);
+    } else {
+        src = (char *)tab + 0x10;
+        qcopy(v, src);
+    }
+    func_L00_0025C918((float *)(moby + 0x10), (float *)(data + 0xD0), v[0], 0.005f, 0.2f, 0.0f);
+    func_L00_0025C918((float *)(moby + 0x14), (float *)(data + 0xD4), v[1], 0.005f, 0.2f, 0.0f);
+    func_L00_0025C918((float *)(moby + 0x18), (float *)(data + 0xD8), v[2], 0.005f, 0.2f, 0.0f);
+}
 INCLUDE_ASM("asm/overlays", func_L14_002AD858);
 extern char *func_L00_0025B478(void *, int, int);
 extern int func_L00_0025B4D0(void *, void *, void *, int, void *, void *, int, int);
@@ -59,8 +79,130 @@ void func_L14_002AEAF8(char *moby) {
 INCLUDE_ASM("asm/overlays", func_L14_002AEC58);
 INCLUDE_ASM("asm/overlays", func_L14_002AEF88);
 INCLUDE_ASM("asm/overlays", func_L14_002AF2E8);
-INCLUDE_ASM("asm/overlays", func_L14_002AF4A0);
-INCLUDE_ASM("asm/overlays", func_L14_002AF688);
+typedef struct {
+    float m[4][4];
+    u32 col[4];
+    float uv[8];
+    u64 a, b, c, d;
+} Pk_2af4a0;
+extern char D_L14_001675C0[];
+extern float D_L14_001D8940[4][4];
+extern short D_L14_00161544;
+extern short D_L14_00161548;
+u64 func_001F4868(s32);
+extern void func_00234C98(int, long);
+extern void func_001F9BF0(void *, void *, void *);
+extern float func_001F9CB8(void *);
+extern void func_L00_001FF4B0(void *, void *, float);
+extern void func_001F9BD8(void *, void *, void *);
+extern void func_001F9C30(void *, void *, float);
+extern void func_L00_001FD1D8(void *, void *, s32);
+
+/* Draws the moby's glow quad, pulled toward the camera so it is not hidden by the moby. */
+void func_L14_002AF4A0(char *m) {
+    char *d = *(char **)(m + 0x78);
+    float pos[4];
+    Pk_2af4a0 pk;
+    float v[4];
+    float w[4];
+    float len;
+    u32 col;
+    int j;
+    qcopy(pos, d + 0x90);
+    pos[2] += 0.01f;
+    pos[3] = 1.0f;
+    pk.b = func_001F4868(0xB);
+    pk.c = 0x0000FF9000000260ULL;
+    pk.d = 0x8000000048ULL;
+    pk.a = 0;
+    func_00234C98(0x4A, 0);
+    func_00234C98(0x47, 0x51001);
+    func_001F9BF0(v, D_L14_001675C0, pos);
+    len = func_001F9CB8(v);
+    if (0.0f < len) {
+        float s = *(float *)(d + 0x218);
+        float f = len - *(float *)&D_L14_00161544;
+        if (f < s) {
+            s = f;
+            if (f < 0.0f) s = 0.0f;
+        }
+        func_L00_001FF4B0(w, v, s);
+        func_001F9BD8(pos, pos, w);
+    }
+    pk.uv[2] = 0.0f;
+    pk.uv[0] = 1.0f;
+    pk.uv[1] = 1.0f;
+    pk.uv[3] = 1.0f;
+    pk.uv[4] = 1.0f;
+    pk.uv[5] = 0.0f;
+    pk.uv[6] = 0.0f;
+    pk.uv[7] = 0.0f;
+    if (*(short *)(d + 0x202) != 0) {
+        col = 0x7F40407F;
+        pk.col[3] = col;
+        pk.col[2] = col;
+        pk.col[1] = col;
+        pk.col[0] = col;
+    } else {
+        col = *(u32 *)&D_L14_00161548;
+        pk.col[3] = col;
+        pk.col[2] = col;
+        pk.col[1] = col;
+        pk.col[0] = col;
+    }
+    for (j = 0; j < 4; j++) {
+        func_001F9C30(pk.m[j], D_L14_001D8940[j], *(float *)(d + 0x214));
+        func_001F9BD8(pk.m[j], pk.m[j], pos);
+    }
+    func_L00_001FD1D8(&pk, 0, 0);
+}
+extern int *D_L14_001B0F30[];
+extern float func_001F9D10(void *, void *);
+extern int func_L00_0025E860_2AF688(void *, void *, void *, void *, int, float) __asm__("func_L00_0025E860");
+
+/* Measures the segments of the moby's three paths, sums two of them and places it on the first two. */
+void func_L14_002AF688(char *m) {
+    char *d = *(char **)(m + 0x78);
+    int *p;
+    int i;
+    float len;
+    p = D_L14_001B0F30[*(int *)(d + 0x78)];
+    *(int *)(d + 0x16C) = 0;
+    for (i = 0; i < p[0]; i++) {
+        len = func_001F9D10((char *)p + (i * 16 + 0x10), (char *)p + (((i + 1) % p[0]) * 16 + 0x10));
+        *(float *)((char *)p + (i << 4) + 0x1C) = len;
+        if (i != p[0] - 1) {
+            *(float *)(d + 0x16C) += len;
+        }
+    }
+    p = D_L14_001B0F30[*(int *)(d + 0x74)];
+    *(int *)(d + 0x190) = 0;
+    for (i = 0; i < p[0]; i++) {
+        len = func_001F9D10((char *)p + (i * 16 + 0x10), (char *)p + (((i + 1) % p[0]) * 16 + 0x10));
+        *(float *)((char *)p + (i << 4) + 0x1C) = len;
+        if (i != p[0] - 1) {
+            *(float *)(d + 0x190) += len;
+        }
+    }
+    p = D_L14_001B0F30[*(int *)(d + 0x204)];
+    for (i = 0; i < p[0]; i++) {
+        *(float *)((char *)p + (i << 4) + 0x1C) = func_001F9D10((char *)p + (i * 16 + 0x10), (char *)p + (((i + 1) % p[0]) * 16 + 0x10));
+    }
+    if (*(float *)(d + 0x210) != 0.0f) {
+        int *q = D_L14_001B0F30[*(int *)(d + 0x78)];
+        *(int *)(d + 0x84) = 0;
+        *(float *)(d + 0x1CC) = 0.0f;
+        func_L00_0025E860_2AF688(q, m + 0x10, d + 0x84, d + 0x1CC, *(short *)(d + 0x8A), *(float *)(d + 0x210) * *(float *)(d + 0x16C));
+        *(float *)(d + 0x8C) = 0.0f;
+        *(int *)(d + 0x80) = 0;
+        func_L00_0025E860_2AF688(q, m + 0x10, d + 0x80, d + 0x8C, *(short *)(d + 0x8A), *(float *)(d + 0x210) * *(float *)(d + 0x190));
+    } else {
+        *(int *)(d + 0x80) = 0;
+        *(int *)(d + 0x84) = 0;
+        *(float *)(d + 0x8C) = 0.0f;
+        *(float *)(d + 0x1CC) = 0.0f;
+    }
+}
 extern float func_L00_0025C918(float *p, float *v, float t, float u1, float u2, float eps);
 extern int func_L00_0025E860_2AF918(int *tab, float *out, int *a, float *b, int c, float d) __asm__("func_L00_0025E860");
 extern int *D_L14_001B0F30[];
@@ -176,7 +318,7 @@ extern float func_001FA790(float, float);
 extern void func_L00_001FFED8(void *, int, float);
 extern float func_001F9CE8(void *);
 extern void func_001F49B0(void *, void *);
-extern void func_L14_002AF4A0(void);
+extern void func_L14_002AF4A0(char *);
 
 // Sets up the moby's motion data from its vectors; returns whether it succeeded.
 int func_L14_002AFDE0(char *moby, int flag) {
@@ -267,7 +409,17 @@ char *func_L14_002B0168(int index) {
     } while (*p++ >= 0);
     return best;
 }
-INCLUDE_ASM("asm/overlays", func_L14_002B0288);
+/* counts table entries through the first negative terminator */
+int func_L14_002B0288(char *moby) {
+    short *table = D_L14_001AC2C0_2B0168[(unsigned char)moby[0x21]];
+    int count = 0;
+    if (table == 0)
+        return 0;
+    do {
+        count++;
+    } while (*table++ >= 0);
+    return count;
+}
 INCLUDE_ASM("asm/overlays", func_L14_002B02B0);
 INCLUDE_ASM("asm/overlays", func_L14_002B4E40);
 extern void func_L00_0025E4B0(void *, short *);
@@ -339,10 +491,86 @@ void func_L14_002B56F8(int idx) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L14_002B5750);
-INCLUDE_ASM("asm/overlays", func_L14_002B58C0);
+// Tests whether a vendor group has no active unready objects.
+int func_L14_002B58C0(int index) {
+ unsigned short *list = (unsigned short *)D_L14_001AC2C0_2B0168[index];
+ int count = 0;
+ char *base;
+ if (list) goto scan;
+success:
+ return 1;
+scan:
+ base = D_L14_00160098_2B0168;
+ do {
+  unsigned short id = *list;
+  char *moby = base + ((id & 0x7FFF) << 8);
+  int state = *(signed char *)(moby + 0x20);
+  char *data = *(char **)(moby + 0x78);
+  if (state >= 0) count++;
+  if (state >= 0 && *(short *)(data + 0x88)) goto success;
+  list++;
+  if ((short)id < 0) return count == 0;
+ } while (1);
+}
 INCLUDE_ASM("asm/overlays", func_L14_002B58E4);
 INCLUDE_ASM("asm/overlays", func_L14_002B5938);
-INCLUDE_ASM("asm/overlays", func_L14_002B64E0);
+/* Sibling of func_L14_002B5590 (84% similar): same collision step on the moby's data block, but
+ * it is skipped for states 0 and 9, state 9 is what cases 1/2 set (6 in the sibling) and cases
+ * 3-8 also start func_00213DE0 and store 1.75f at +0x58. Written from the sibling's C; f4 has to
+ * be zeroed after the +0x2C store. */
+void func_L14_002B64E0(unsigned char *m) {
+    unsigned char *d = *(unsigned char **)(m + 0x78);
+    int loc0;
+    float f4;
+    char *q;
+    int k;
+    float t;
+    if (m[0x20] == 0 || m[0x20] == 9) {
+        return;
+    }
+    *(float *)(m + 0x2C) = *(float *)(*(char **)(m + 0x24) + 0x24);
+    f4 = 0.0f;
+    q = func_L00_0025B478(m, 0x330000, 0);
+    if (q != 0) {
+        if (*(int *)(q + 0x20) != 0) {
+            int a = *(short *)(*(int *)(q + 0x20) + 0xA6);
+            if (a == *(short *)(m + 0xA6) || a == 0x370) q = 0;
+        }
+    }
+    k = func_L00_0025B4D0(m, q, d + 0x20, 0, &loc0, &f4, 0, 4);
+    if (loc0 != 1 && m[0x20] != 9) {
+        t = *(float *)(d + 0x20) - f4;
+        *(float *)(d + 0x20) = t;
+        if (t <= 0.0f) k = 1;
+        switch (k) {
+        case 0:
+        case 11:
+            break;
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+        case 8:
+            func_00213DE0(m, 2, 0, 5);
+            *(float *)(m + 0x58) = 1.75f;
+        case 9:
+        case 10:
+            d[0x67] = 0xFA;
+            break;
+        case 1:
+        case 2:
+            m[0x20] = 9;
+            *(unsigned short *)(m + 0x34) &= 0xEFFF;
+            d[0x67] = 0xFA;
+            func_L00_002584A8(m, 0, -1);
+            break;
+        }
+        func_L00_0025E4B0(m, (short *)(d + 0x60));
+    }
+    m[0xA4] = 0xFF;
+    func_L00_0025E590(m, d + 0x60);
+}
 extern short D_L14_00161600;
 extern short D_L14_00161604;
 extern short D_L14_00161608;
@@ -416,7 +644,20 @@ int func_L14_002B6980(char *moby, char *a1, int a2, int a3, float *v, float *vel
     func_L00_002592B0(moby, vel, func_L00_001FF860(v[0], v[1]), f16, f17, f18);
     return r != 0;
 }
-INCLUDE_ASM("asm/overlays", func_L14_002B6AA0);
+extern void func_L00_002592B0_2B6AA0(char *moby, float target, float *vel, float k, float d, float max) __asm__("func_L00_002592B0");
+
+/* eases a moby's position and heading toward targets while in states 4-6 or 8 */
+void func_L14_002B6AA0(char *moby, float *target, float a, float b, float c, float d, float e, float f, float g) {
+    int data;
+    int s = moby[0x20] & 0xFF;
+    if ((s >= 4 && s <= 6) || s == 8) {
+        data = *(int *)(moby + 0x78);
+        func_L00_0025C918((float *)(moby + 0x10), (float *)(data + 0xF0), target[0], b, c, d);
+        func_L00_0025C918((float *)(moby + 0x14), (float *)(data + 0xF4), target[1], b, c, d);
+        func_L00_0025C918((float *)(moby + 0x18), (float *)(data + 0xF8), target[2], b, c, d);
+        func_L00_002592B0_2B6AA0(moby, a, (float *)(data + 0xE4), e, f, g);
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L14_002B6BB8);
 INCLUDE_ASM("asm/overlays", func_L14_002B6E80);
 extern char D_0013E633[];
@@ -441,7 +682,51 @@ void func_L14_002B6EE8(char *moby)
 INCLUDE_ASM("asm/overlays", func_L14_002B6F68);
 INCLUDE_ASM("asm/overlays", func_L14_002B7028);
 INCLUDE_ASM("asm/overlays", func_L14_002BBEC8);
-INCLUDE_ASM("asm/overlays", func_L14_002BC560);
+typedef int u128_2BC560 __attribute__((mode(TI)));
+extern float D_0015EE60 MACRO_ADDR;
+extern struct Moby *func_0020D348_m(int) __asm__("func_0020D348");
+extern float func_002140F8(float, float);
+extern void func_001F9CA0(void *, void *, void *);
+extern float func_L00_00258C80(float lo, float hi);
+extern void func_002156E0(void *dst, void *vec, void *axis, float angle);
+extern void func_L00_00251E30(void *);
+
+// Spawns moby 0x51 at a position facing away from an owner, with random drift and spin parameters.
+unsigned char *func_L14_002BC560(char *owner, float angle, char *posp) {
+    float vec[12];
+    unsigned char *m;
+    char *d;
+    char *g;
+    float *v0 = vec;
+    float *v1;
+    *(u128_2BC560 *)v0 = *(u128_2BC560 *)posp;
+    m = (unsigned char *)func_0020D348_m(0x51);
+    if (m != 0) {
+        d = *(char **)(m + 0x78);
+        qcopy(m + 0x10, v0);
+        v1 = vec + 4;
+        *(float *)(m + 0x48) = angle;
+        m[0x20] = 0;
+        m[0x30] = 0xFF;
+        *(short *)(m + 0x32) = 0xFF;
+        m[0x31] = 1;
+        func_001F9BF0(v1, v0, owner + 0x10);
+        vec[6] = 0.0f;
+        func_L00_001FF4B0(v1, v1, func_002140F8(D_0015EE60 * 0.075f, D_0015EE60 * 0.2f));
+        g = D_0013E633 + 0x10AD;
+        func_001F9CA0(vec + 8, g, v1);
+        func_002156E0(d, v1, g, func_L00_00258C80(0.0f, 0.7853982f));
+        *(float *)(d + 8) = func_002140F8(D_0015EE60 * 0.05f, D_0015EE60 * 0.32f);
+        *(float *)(d + 0x14) = func_L00_00258C80(0.0f, 0.034906585f);
+        *(float *)(d + 0x18) = func_L00_00258C80(0.0f, 0.034906585f);
+        *(float *)(d + 0x1C) = func_L00_00258C80(0.0f, 0.034906585f);
+        *(short *)(d + 0x10) = func_001F9850(200);
+        *(char **)(d + 0x20) = owner;
+        *(short *)(d + 0x12) = -1;
+        func_L00_00251E30(m);
+    }
+    return m;
+}
 extern void func_L00_0023F1D0(int);
 extern void func_0020D678(void *);
 
@@ -456,8 +741,63 @@ void func_L14_002BC728(char *moby)
     DeleteMoby(moby);
 }
 INCLUDE_ASM("asm/overlays", func_L14_002D7250);
-INCLUDE_ASM("asm/overlays", func_L14_002D7668);
-INCLUDE_ASM("asm/overlays", func_L14_002D77E0);
+extern char *D_L14_0015F7EC_p __asm__("D_L14_0015F7EC") MACRO_ADDR;
+extern short D_L14_00161B08;
+extern int func_L00_0025EFC0(void *, void *, float *, int *, float *, int, float, float, float);
+
+typedef struct {
+    float v[4];
+    int i;
+    float t;
+} PathPos_2D7668;
+
+/* Finds the path segments nearest to the two target points and sums the segment lengths between them. */
+void func_L14_002D7668(char *m) {
+    char *d = *(char **)(m + 0x78);
+    char *path = *(char **)(D_L14_0015F7EC_p + *(int *)(d + 0x60) * 32 + 0x10);
+    char *tg;
+    PathPos_2D7668 s;
+    int k;
+    float z;
+    unsigned short n;
+    *(float *)(d + 0x74) = *(float *)&D_L14_00161B08;
+    *(int *)(d + 0x68) = 0;
+    *(int *)(d + 0x64) = 0;
+    z = *(float *)(d + 0x68);
+    tg = (char *)D_L14_001B0F30[*(int *)(d + 0x88)] + 0x30;
+    s.t = z;
+    s.i = 0;
+    func_L00_0025EFC0(path, tg, s.v, &s.i, &s.t, 0, 20.0f, 5.0f, z);
+    *(short *)(d + 0x8C) = s.i;
+    s.t = z;
+    s.i = 0;
+    func_L00_0025EFC0(path, (char *)D_L14_001B0F30[*(int *)(d + 0x88)] + 0x20, s.v, &s.i, &s.t, 0, 20.0f, 5.0f, z);
+    n = s.i;
+    *(short *)(d + 0x8E) = n;
+    *(float *)(d + 0x78) = z;
+    for (k = (short)n; k < *(short *)(d + 0x8C); k++) {
+        *(float *)(d + 0x78) += *(float *)(path + k * 16 + 0x1C);
+    }
+}
+/* Moves toward the table entry: looks up entry d[0x60] (32-byte records, pointer at +0x10), runs
+ * func_001F9908 on the data block's +0x6C and returns whether that was non-zero; then calls
+ * func_001F9C08 with the moby position, the entry, the D_L14_001B0F30 target and
+ * func_001FA888(+0x6C) * +0x70 as the factor. The index-first sum keeps retail's addu order. */
+extern char *D_L14_0015F7EC_p __asm__("D_L14_0015F7EC") MACRO_ADDR;
+extern char *D_L14_001B0F30_a[] __asm__("D_L14_001B0F30");
+extern int func_001F9908(void *);
+extern void func_001F9C08(void *, void *, void *, float);
+
+int func_L14_002D77E0(char *m) {
+    char *d = *(char **)(m + 0x78);
+    char *ent = *(char **)((char *)((*(int *)(d + 0x60) << 5) + (int)D_L14_0015F7EC_p) + 0x10);
+    int ok;
+    float t;
+    ok = func_001F9908(d + 0x6C) != 0;
+    t = func_001FA888(*(int *)(d + 0x6C));
+    func_001F9C08(m + 0x10, ent + 0x10, D_L14_001B0F30_a[*(int *)(d + 0x84)] + 0x10, t * *(float *)(d + 0x70));
+    return ok;
+}
 INCLUDE_ASM("asm/overlays", func_L14_002D7880);
 INCLUDE_ASM("asm/overlays", func_L14_002D7AF8);
 extern int D_L14_0015F7EC MACRO_ADDR;
@@ -473,7 +813,64 @@ void func_L14_002D84A8(char *moby)
     func_L00_0025E860(*(int *)((idx << 5) + D_L14_0015F7EC + 0x10), moby + 0x10, data + 0x64, data + 0x68, 0, *(float *)&D_L14_00161B00 * D_0015EE6C);
 }
 INCLUDE_ASM("asm/overlays", func_L14_002D8500);
-INCLUDE_ASM("asm/overlays", func_L14_002D87A0);
+extern char D_L14_00180AC0[];
+extern short D_L14_00161B30;
+extern float D_L14_0015F660[] MACRO_ADDR;
+extern void func_L00_00250800(void *, int, void *);
+extern int func_L00_0023F0D0(float *, float, float, float, float, float);
+extern void func_002141A8(void *, float, float);
+extern char *func_L00_002757E8(void *, void *, int, void *);
+extern void func_L14_002D8500(void);
+
+/* Puffs smoke from the moby's exhaust joint: keeps its light in place while active, then spawns four puffs. */
+void func_L14_002D87A0(char *m) {
+    char *d = *(char **)(m + 0x78);
+    float p[4];
+    float v[4];
+    float w[4];
+    char *q;
+    int i;
+    func_L00_00250800(m, 1, p);
+    func_001F9BF0(v, p, D_L14_001675C0);
+    func_L00_001FF4B0(v, v, -0.5f);
+    func_001F9BD8(d + 0xE0, p, v);
+    if ((unsigned int)(((unsigned char *)m)[0x20] - 3) < 3) {
+        p[2] += 1.0f;
+        if (*(int *)(d + 0xF0) == -1) {
+            *(int *)(d + 0xF0) = func_L00_0023F0D0(p, *(float *)&D_L14_00161B30, 0.0f, 0.5f, 0.5f, 1.0f);
+        }
+        if (*(int *)(d + 0xF0) >= 0) {
+            char *e = D_L14_00180AC0 + *(int *)(d + 0xF0) * 32;
+            qcopy(e + 0x10, p);
+            *(float *)(e + 0x1C) = *(float *)&D_L14_00161B30;
+        }
+        p[2] -= 1.0f;
+    }
+    func_002141A8(w, 0.005f, 0.03f);
+    q = func_L00_002757E8(p, w, 0x7F, m);
+    if (q != 0) {
+        *(float *)(q + 0xC) = func_002140F8(6000.0f, 32000.0f);
+    }
+    for (i = 0; i < 3; i++) {
+        char *e;
+        int t;
+        q = func_L00_002757E8(p, D_L14_0015F660, 0x7F, m);
+        if (q == 0) continue;
+        e = q + 0x20;
+        if (i == 2 && func_002140B0(8) == 0) {
+            *(float *)(q + 0xC) = 180000.0f;
+        } else {
+            *(float *)(q + 0xC) = func_002140F8(80000.0f, 120000.0f);
+        }
+        t = func_001F9850(2);
+        *(short *)(q + 0xA) = t;
+        *(float *)(e + 0x10) = 1.0f / func_001FA888((short)t);
+        *(int *)(e + 0x18) = 0x7F7F7F;
+        *(short *)(e + 0x16) = 3;
+    }
+    func_L00_00250800(m, 6, d + 0x200);
+    func_001F49B0(func_L14_002D8500, m);
+}
 INCLUDE_ASM("asm/overlays", func_L14_002DF5F8);
 INCLUDE_ASM("asm/overlays", func_L14_002DF6B8);
 typedef int u128 __attribute__((mode(TI)));

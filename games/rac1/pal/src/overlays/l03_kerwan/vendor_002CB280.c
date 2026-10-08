@@ -46,7 +46,46 @@ void func_L03_002D5008(char *m) {
     func_L00_00263BF8(m, d + 0xF0, d + 0xF4, *(float *)&D_L03_00161B78_g, *(float *)&D_L03_00161B7C_g * 0.0174532925f * D_0015EE6C, *(float *)&D_L03_00161B80_g * 0.0174532925f * D_0015EE6C);
 }
 INCLUDE_ASM("asm/overlays", func_L03_002D5220);
-INCLUDE_ASM("asm/overlays", func_L03_002D5650);
+extern struct Moby *func_0020D348_m(int) __asm__("func_0020D348");
+extern float func_L00_001FF860(float, float);
+extern int func_001F9850(int);
+extern int func_L00_001EFFF0(void *, void *, int, void *, void *);
+extern void func_L00_00251E30(void *);
+extern char D_L03_00173FE0[];
+
+typedef int u128 __attribute__((mode(TI)));
+
+// Spawns a moby of class 0x341 at a position, initialises its data and registers it.
+char *func_L03_002D5650(char *a, char *pos, char *parent, int n, float f0, float f1, float f2) {
+    char *m = (char *)func_0020D348_m(0x341);
+    char *d;
+    if (m != 0) {
+        float v[4];
+        *(unsigned char *)(m + 0x30) = 0xFF;
+        *(short *)(m + 0x32) = 0x7E;
+        d = *(char **)(m + 0x78);
+        m[0x31] = 1;
+        m[0x20] = 1;
+        qcopy(m + 0x10, pos);
+        qcopy(d, a);
+        *(float *)(m + 0x48) = func_L00_001FF860(*(float *)d, *(float *)(d + 4));
+        *(int *)(d + 0x14) = func_001F9850(n);
+        *(float *)(d + 0x18) = f2;
+        *(float *)(d + 0x1C) = f0;
+        *(float *)(d + 0x24) = f1;
+        *(char **)(d + 0x10) = parent;
+        *(int *)(d + 0x28) = 0;
+        *(u128 *)v = *(u128 *)(parent + 0x10);
+        v[2] = *(float *)(pos + 8);
+        if (func_L00_001EFFF0(v, pos, 2, parent, 0) != 0) {
+            *(int *)(d + 0x14) = 0;
+            *(u128 *)(m + 0x10) = *(u128 *)D_L03_00173FE0;
+            *(int *)(d + 0x24) = 0;
+        }
+        func_L00_00251E30(m);
+    }
+    return m;
+}
 INCLUDE_ASM("asm/overlays", func_L03_002D5790);
 INCLUDE_ASM("asm/overlays", func_L03_002DBAD8);
 INCLUDE_ASM("asm/overlays", func_L03_002DBC38);

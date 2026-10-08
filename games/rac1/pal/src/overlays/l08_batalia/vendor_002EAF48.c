@@ -133,9 +133,56 @@ void func_L08_003078B0(char *moby) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L08_00307A98);
-INCLUDE_ASM("asm/overlays", func_L08_00307FF0);
+extern void func_L00_00211908(void);
+
+// Sets the vendor state or closes the active interaction.
+void func_L08_00307FF0(char *moby, int mode) {
+    char *data = *(char **)(moby + 0x78);
+    moby[0x20] = 1;
+    if (mode != 0) {
+        if (mode <= 0) {
+            if (mode == -1) goto close;
+            return;
+        } else {
+            if (mode != 1) return;
+            data[8] = mode;
+            *(short *)(data + 0x36) = 3;
+            return;
+        }
+    } else {
+        data[8] = 1;
+        *(short *)(data + 0x36) = 4;
+    }
+    return;
+close:
+    func_L00_00211908();
+}
 INCLUDE_ASM("asm/overlays", func_L08_00308A00);
-INCLUDE_ASM("asm/overlays", func_L08_00309998);
+extern int func_001F9850(int);
+extern void func_L00_00264870(int);
+/* per-frame update of a moby that fires a sound event when the game state allows */
+void func_L08_00309998(char *moby) {
+    int k;
+    switch (*(unsigned char *)(moby + 0x20)) {
+    case 0:
+        *(unsigned char *)(moby + 0x30) = 0xFF;
+        moby[0x20] = 1;
+        break;
+    case 1:
+        if (D_L08_0015F6A8 == 2) {
+            int t = D_L08_0016D0E0.a;
+            if ((t >= 1 && t <= 2) || t == 4 || t == 5) {
+                if (D_L08_0016D0E0.a != 1 || func_001F9850(0x8CE) < D_L08_0016D0E0.b) {
+                    k = 0;
+                    if (D_L08_0016D0E0.a == 1 || D_L08_0016D0E0.a == 4) k = 3;
+                    else if (D_L08_0016D0E0.a == 2 || D_L08_0016D0E0.a == 5) k = 2;
+                    func_L00_00264870((int)D_L08_0016D0E0.objs[k]);
+                }
+            }
+        }
+        break;
+    }
+}
 extern float func_002140F8(float, float);
 extern void func_001FA1F8(void *, void *);
 extern void func_001F9EC0(void *, void *, void *);

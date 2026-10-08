@@ -2,7 +2,21 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L00_002664B0);
+extern char D_001517D0[];
+// Requests a music track and stinger.
+void func_L00_002664B0(int track, int stinger) {
+ char *b = D_001517D0;
+ if (*(short *)(b+0x38) == track) {
+  if (*(signed char *)(b+0x22) == -1) return;
+ }
+ if (*(short *)(b+0x3E)) goto pending;
+ if (*(short *)(b+0x76)) goto pending;
+ *(short *)(b+0x38)=track;
+ return;
+ pending:
+ D_001517D0[0x22]=track;
+ D_001517D0[0x23]=stinger;
+}
 INCLUDE_ASM("asm/overlays", func_L00_002664F4);
 extern char D_001517D0[];
 void func_L00_002666C8(int v) {

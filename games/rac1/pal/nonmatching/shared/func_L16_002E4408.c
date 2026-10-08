@@ -1,25 +1,34 @@
 /* NON_MATCHING func_L16_002E4408 -- src/overlays/shared/vendor_002A1B58.c
- * Best so far: BYTES 37/172 (78.5% of the bytes match), checked 2026-10-03.
+ * Best so far: SIZE ours 176 / retail 172, checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
- *   Walks a path record (count at +0, 16-byte points from +0x10): point[i].w = func_L00_001FF860(dx, dy) to the ne
- *   p3.c has retail's instruction stream (separate (n-2)*16 and (n-1)*16 via two int locals, bounds re-read from p
- *   Unblock: a wording that gives the counter i a higher allocation priority than the pointer q; allocator tie not
+ *   - Start staged near; delay point assignment into guarded loop, giving counter its earlier lifetime and target 
+ *   1. BYTES27/172: delayed point pointer fixes the guard/initialization stream; counter/point/base S2/S0/S1 still
+ *   2. BYTES27 identical: counter advance placement does not change saved register allocation. Use original index-
+ *   3. BYTES27: explicit point step, pre-call increment and index-derived point all tie on counter/point/base save
+ *   Revisit: full asm read. Earlier pointer/index spellings all used byte views. Describe the path header and 16-b
+ *   4. SIZE176/172: typed heading indexing caches base+1C and adds a pointer setup. Preserve typed loop/header but
+ *   5. BYTES27/172: byte-stride tail views restore exact size and all tail scheduling; retain p4 as equal typed be
+ *   6. BYTES27/172 unchanged: unsigned induction with signed comparison retains the same saved counter/point/base 
  */
-extern float func_L00_001FF860(float, float);
-void func_L16_002E4408(char *base) {
-    int i = 0;
-    char *p = base + 0x10;
-    if (*(int *)base - 1 > 0) {
+#include "common.h"
+extern float func_L00_001FF860(float,float);
+typedef struct {float x,y,z,heading;} L16HeadingPoint;
+typedef struct {int count;char pad04[12];L16HeadingPoint point[1];} L16HeadingPath;
+/* Set each path point's heading toward its successor, repeating the last heading. */
+void func_L16_002E4408(L16HeadingPath *base) {
+    int i=0;
+    L16HeadingPoint *point;
+    if(base->count-1>0) {
+        point=base->point;
         do {
-            *(float *)(p + 0xC) = func_L00_001FF860(*(float *)(p + 0x10) - *(float *)p, *(float *)(p + 0x14) - *(float *)(p + 4));
-            i++;
-            p += 0x10;
-        } while (i < *(int *)base - 1);
+            point->heading=func_L00_001FF860(point[1].x-point->x,point[1].y-point->y);
+            i++;point++;
+        } while(i<base->count-1);
     }
-    if (*(int *)base >= 2) {
-        int n = *(int *)base;
-        *(float *)(base + ((n - 1) << 4) + 0x1C) = *(float *)(base + ((n - 2) << 4) + 0x1C);
+    if(base->count>=2) {
+        int n=base->count;
+        base->point[n-1].heading=base->point[n-2].heading;
     }
 }

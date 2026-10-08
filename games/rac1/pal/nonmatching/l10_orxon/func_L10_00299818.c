@@ -1,14 +1,15 @@
 /* NON_MATCHING func_L10_00299818 -- src/overlays/l10_orxon/vendor_00296BD8.c
- * Best so far: BYTES 7/504 (98.6% of the bytes match), checked 2026-10-03.
+ * Best so far: BYTES 2/504 (99.6% of the bytes match), checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   UpdateMoby_18: spins moby, 4-state script (cases 0-3). p2.c matches except 7 instructions in case 2: retail se
+ *   Round q27: p4-p6 (p = base+(idx<<8), idx*256, int *dd) all still 7/504: in case 2 retail sets a0=0x1C before t
  */
 extern float func_001FA748(float, float);
 extern void func_L00_002D80A0(char *);
 extern void func_0020D678(void *);
-extern void func_L10_00299AF0(char *);
+extern int func_L10_00299AF0__s(char *) __asm__("func_L10_00299AF0");
 extern float func_001F9D48(void *, void *);
 extern float func_001F9B88(float);
 extern void func_L00_00299B68(int);
@@ -39,7 +40,7 @@ void func_L10_00299818(char *moby) {
         }
         break;
     case 1:
-        func_L10_00299AF0(moby);
+        func_L10_00299AF0__s(moby);
         d = D_0013E633 + 0xE9D;
         if (func_001F9D48(moby + 0x10, d) < 5.0f) {
             d -= 0x80;

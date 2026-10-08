@@ -189,7 +189,57 @@ void func_L00_002C4748(unsigned char *m) {
     func_0020D678(m);
 }
 INCLUDE_ASM("asm/overlays", func_L00_002C48C8);
-INCLUDE_ASM("asm/overlays", func_L00_002C4B90);
+typedef int u128 __attribute__((mode(TI)));
+extern unsigned char *func_L00_0025D390(int);
+extern void func_001F9BD8(void *,void *,void *);
+extern void func_001F9BF0(void *,void *,void *);
+extern float func_001F9CB8(void *);
+extern void func_L00_001FF4B0(void *,void *,float);
+extern int func_L00_001EFFF0(void *,void *,int,int,int);
+extern float func_001F9F90(float),func_001F9FA8(float),func_001F9B50(float);
+extern float func_L00_001FF860(float,float);
+extern float func_001FA790(float,float),func_001FA748(float,float);
+extern char D_00173F60_alias[] __asm__("D_L00_00173F60");
+extern int D_L00_00173F40[];
+extern struct { float pad[10]; float height; float gap[5]; float vector[4]; } D_L00_00173F40_v __asm__("D_L00_00173F40");
+extern float D_0015EE60 MACRO_ADDR;
+extern char D_0013F450[];
+/* Tests a movement vector against the player and turns a colliding moby. */
+void func_L00_002C4B90(float *pos,char *m,void *vec) {
+ float a[4],b[4],c[4];
+ char *d=*(char **)(m+0x78);
+ char *camera;
+ char *player;
+ qcopy(d+0x10,vec);
+ { char *view=D_0013F450;
+   if(*(int *)(view+0x2FC) && func_L00_0025D390(*(int *)(view+0x2FC))) func_001F9BD8(d+0x10,d+0x10,view+0x100);
+ }
+ qcopy(m+0x10,pos);
+ camera=D_0013F450;
+ player=*(char **)(camera+0x2080);
+ *(u128 *)a=*(u128 *)(player+0x10); a[2]=pos[2];
+ func_001F9BF0(pos,pos,a);
+ func_L00_001FF4B0(pos,pos,func_001F9CB8(pos)+0.2f);
+ func_001F9BD8(pos,pos,a);
+ if(func_L00_001EFFF0(a,pos,0,*(int *)(camera+0x2080),0)) {
+  float smoothing;
+  qcopy(m+0x10,D_00173F60_alias); qzero(d+0x10);
+  m[0x20]=4;
+  *(short *)(d+0x44)=func_001F9850(30);
+  *(float *)(m+0x18)=D_L00_00173F40_v.height;
+  qcopy(b,D_L00_00173F40_v.vector);
+  { float co,si;
+  co=func_001F9F90(*(float *)(m+0x48)); smoothing=0.1f; si=func_001F9FA8(*(float *)(m+0x48));
+  c[0]=b[0]*co+b[1]*si; }
+  { float co,si;
+  co=func_001F9F90(*(float *)(m+0x48)); si=func_001F9FA8(*(float *)(m+0x48));
+  c[1]=b[1]*co-b[0]*si; c[2]=b[2]; }
+  *(float *)(d+0x4C)=-func_L00_001FF860(func_001F9B50(c[0]*c[0]+c[2]*c[2]),c[1]);
+  *(float *)(d+0x50)=func_L00_001FF860(c[2],c[0]);
+  *(float *)(m+0x40)=func_001FA748(*(float *)(m+0x40),func_001FA790(*(float *)(d+0x4C),*(float *)(m+0x40))*(D_0015EE60*smoothing));
+  *(float *)(m+0x44)=func_001FA748(*(float *)(m+0x44),func_001FA790(*(float *)(d+0x50),*(float *)(m+0x44))*(D_0015EE60*smoothing));
+ } else m[0x20]=2;
+}
 INCLUDE_ASM("asm/overlays", func_L00_002C4E00);
 extern float func_001F9B88(float);
 extern float func_001F9CE8(void *);
@@ -295,7 +345,7 @@ char *func_L00_002C6608(void *pos, int idx, int a2, int a3) {
     return m;
 }
 INCLUDE_ASM("asm/overlays", func_L00_002C6720);
-INCLUDE_ASM("asm/overlays", func_L00_002C6F40);
+LINKER_REMNANT("asm/overlays", func_L00_002C6F40);
 extern int func_L00_002346C0(int, int);
 extern void func_L00_00264E28(int a, int b, int c);
 extern void func_001F9BC0(void *);

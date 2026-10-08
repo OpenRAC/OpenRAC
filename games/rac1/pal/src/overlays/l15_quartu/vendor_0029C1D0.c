@@ -66,7 +66,64 @@ void func_L15_002C7C20(char *m) {
     *(unsigned char *)(m + 0xA4) = 0xFF;
     func_L00_0025E590(m, d + 0x60);
 }
-INCLUDE_ASM("asm/overlays", func_L15_002D0500);
+extern char *D_L15_00160064 MACRO_ADDR;
+extern void func_L00_00260D30_t(void *, float *, float) __asm__("func_L00_00260D30");
+extern float func_001F9D48(void *, void *);
+extern void func_001F9BC0_t(void *) __asm__("func_001F9BC0");
+extern void func_001F9BF0(void *, void *, void *);
+extern void func_001F9C30(void *, void *, float);
+extern void func_001F9BD8(void *, void *, void *);
+extern void func_L00_001FF4B0(void *, void *, float);
+
+/* Flocking step toward the moby's path target: separates from same-type mobys, keeps ~10 units off the
+ * target while others are closer, writes the steering point to out and returns the heading to follow. */
+float func_L15_002D0500(void *m_, void *out, float r) {
+    char *m = m_;
+    float tmp[4];
+    float tgt[4];
+    float pad[4][4]; /* unused, but retail reserves the stack space */
+    float dist;
+    float wsum = 0.0f;
+    int clear = 1;
+    float k;
+    char *o;
+    func_L00_00260D30_t(m, tgt, r);
+    dist = func_001F9D48(m + 0x10, tgt);
+    func_001F9BC0_t(out);
+    for (o = D_L15_00160064; o != 0; o = *(char **)(o + 0x28)) {
+        if (o == m) continue;
+        if (*(short *)(o + 0xA6) != *(short *)(m + 0xA6)) continue;
+        if (func_001F9D48(o + 0x10, m + 0x10) < 3.0f) {
+            wsum += 6.0f;
+            func_001F9BF0(tmp, m + 0x10, o + 0x10);
+            func_001F9C30(tmp, tmp, 6.0f);
+            func_001F9BD8(out, out, tmp);
+        }
+        if (func_001F9D48(o + 0x10, tgt) < dist) clear = 0;
+    }
+    if (clear == 0) {
+        func_001F9BF0(tmp, m + 0x10, tgt);
+        if (dist < 9.5f) {
+            k = 10.0f;
+        } else if (10.5f < dist) {
+            k = -10.0f;
+        } else {
+            k = 0.0f;
+        }
+        wsum += 10.0f;
+        func_L00_001FF4B0(tmp, tmp, k * 10.0f);
+        func_001F9BD8(out, out, tmp);
+        func_001F9C30(out, out, 1.0f / wsum);
+        func_001F9BD8(out, out, m + 0x10);
+    } else {
+        qcopy(out, tgt);
+    }
+    if (func_001F9D48(m + 0x10, out) < 1.0f) {
+        qcopy(out, m + 0x10);
+        return func_L00_001FF860(tgt[0] - *(float *)(m + 0x10), tgt[1] - *(float *)(m + 0x14));
+    }
+    return func_L00_001FF860(((float *)out)[0] - *(float *)(m + 0x10), ((float *)out)[1] - *(float *)(m + 0x14));
+}
 typedef int u128 __attribute__((mode(TI)));
 typedef union { u128 q; float f[4]; } UVec;
 typedef struct { int n; int pad[3]; UVec pt[1]; } UPath;
@@ -685,7 +742,60 @@ char *func_L15_002E92C8(void *unused, void *vector) {
     return moby;
 }
 INCLUDE_ASM("asm/overlays", func_L15_002E9358);
-INCLUDE_ASM("asm/overlays", func_L15_002EBB38);
+extern void func_L00_002D80A0(char *);
+extern void func_0020D678(void *);
+extern void func_L10_00299AF0(char *);
+extern float func_001F9D48(void *, void *);
+extern void func_L00_00299B68(int);
+extern void func_L00_00264DB8(int, int);
+extern void func_L00_002618D8(int, int);
+extern int func_0020BFC8(int, int);
+extern short D_L15_001620F8;
+extern unsigned char D_0013D605[];
+extern int D_L15_0015F720 MACRO_ADDR;
+extern int D_L15_0015F6A8 MACRO_ADDR;
+
+/* UpdateMoby_1388 (names.tsv role). Every frame: func_001FA748 on the heading at +0x48 with
+ * frame time * pi/2, and the +0x2C scale from the model's +0x24 value. State 0: runs
+ * func_L00_002D80A0, then deletes the moby if flag byte 0xD is set, else raises it by 1.0
+ * and goes to state 1. State 1: when the hero (D_0013E633 + 0xE9D) is within 3.0, sets
+ * flags 0x41, calls func_L00_00299B68(5) and goes to state 2. State 2: once the level flag
+ * is no longer 2, starts the exit sequence and goes to state 3. State 3: deletes the moby. */
+void func_L15_002EBB38(unsigned char *m) {
+    *(float *)(m + 0x48) = func_001FA748(*(float *)(m + 0x48), D_0015EE6C * 1.5707964f);
+    *(float *)(m + 0x2C) = *(float *)(*(char **)(m + 0x24) + 0x24) * *(float *)&D_L15_001620F8;
+    switch (m[0x20]) {
+    case 0:
+        func_L00_002D80A0((char *)m);
+        if (D_0013D605[0xD] != 0) {
+            func_0020D678(m);
+            return;
+        }
+        m[0x20] = 1;
+        *(float *)(m + 0x18) = *(float *)(m + 0x18) + 1.0f;
+        break;
+    case 1:
+        func_L10_00299AF0((char *)m);
+        if (func_001F9D48(m + 0x10, D_0013E633 + 0xE9D) < 3.0f) {
+            *(unsigned short *)(m + 0x34) |= 0x41;
+            func_L00_00299B68(5);
+            m[0x20] = 2;
+        }
+        break;
+    case 2:
+        if (D_L15_0015F6A8 != 2) {
+            func_L00_00264DB8(0x3AA3, -1);
+            D_L15_0015F720 = func_001F9850(0xB4);
+            func_L00_002618D8(0x22, 1);
+            func_0020BFC8(0, -1);
+            m[0x20] = 3;
+        }
+        break;
+    case 3:
+        func_0020D678(m);
+        break;
+    }
+}
 extern short D_L15_001620FC;
 extern float func_001F9878(float);
 extern int func_001FA898_r(float) __asm__("func_001FA898");
@@ -794,7 +904,30 @@ void func_L15_002ECD18(char *moby)
         func_L00_0026FF20(random_float_between(0.06f, 0.12f) * 210000.0f, *data, pos, vec);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L15_002ECDD0);
+extern char *func_0020D348_c(int) __asm__("func_0020D348");
+extern void func_L00_0025E210_u(void *) __asm__("func_L00_0025E210");
+extern void func_L00_00251E30_u(void *) __asm__("func_L00_00251E30");
+
+/* Spawns a class 0x594 moby: position from the first quad, the second quad stored at +0x40.
+ * Same shape as func_L04_002D48B8; the 0xFF store has to go through unsigned char. */
+char *func_L15_002ECDD0(char *pos, char *vec) {
+    char tmp[32] __attribute__((aligned(16)));
+    char *p = tmp;
+    char *m;
+    *(u128 *)tmp = *(u128 *)pos;
+    *(u128 *)(tmp + 0x10) = *(u128 *)vec;
+    m = func_0020D348_c(0x594);
+    if (m != 0) {
+        func_L00_0025E210_u(m);
+        *(unsigned char *)(m + 0x30) = 0xFF;
+        *(short *)(m + 0x32) = 0xFF;
+        m[0x31] = 1;
+        qcopy(m + 0x10, p);
+        *(u128 *)(m + 0x40) = *(u128 *)(tmp + 0x10);
+        func_L00_00251E30_u(m);
+    }
+    return m;
+}
 INCLUDE_ASM("asm/overlays", func_L15_002ED318);
 INCLUDE_ASM("asm/overlays", func_L15_002ED3A0);
 INCLUDE_ASM("asm/overlays", func_L15_002ED3C4);

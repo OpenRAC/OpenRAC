@@ -9,50 +9,57 @@
 
 INCLUDE_ASM("asm/nonmatchings/text", func_0023DE98); /* videoDecCreate(VideoDec *, unsigned char *, int, unsigned long long *, unsigned long long *, int, TimeStamp *, int) */
 LINKER_REMNANT("asm/remnants/text", func_0023DF98);
-extern int func_0012B008(void);
+/* VideoDec: only the fields these functions touch are known. */
+typedef struct VideoDec {
+    char pad0[0x48];
+    char viBuf[0x60];   /* ViBuf, the video input buffer */
+    int state;          /* 0xA8 */
+} VideoDec;
 
-/* video_dec_set_stream - calls func_0012B008 */
-int func_0023DFA0(void) {
-    func_0012B008();
+extern int func_0012B008(void *, int, int, int, int);
+extern void func_0023D1F0(void *, unsigned char **, int *, unsigned char **, int *);
+extern void func_0023D2E8(void *);
+extern int func_0023D9E0(void *);
+
+/* videoDecSetStream(VideoDec *, int, int, int (*)(sceMpeg *, sceMpegCbData *, void *), void *)
+ * -- hands its five arguments to func_0012B008 and returns 1. */
+int func_0023DFA0(VideoDec *dec, int a1, int a2, int (*cb)(void *, void *, void *), void *arg) {
+    func_0012B008(dec, a1, a2, (int)cb, (int)arg);
     return 1;
 }
-extern void func_0023D1F0(int);
-
-/* video_dec_begin_put - calls func_0023D1F0 with offset */
-void func_0023DFC0(int *a) {
-    func_0023D1F0(a + 0x12);
+/* videoDecBeginPut(VideoDec *, unsigned char **, int *, unsigned char **, int *)
+ * -- viBufBeginPut on the decoder's input buffer. */
+void func_0023DFC0(VideoDec *dec, unsigned char **p1, int *n1, unsigned char **p2, int *n2) {
+    func_0023D1F0(dec->viBuf, p1, n1, p2, n2);
 }
-extern void func_0023D2E8(int);
-
-/* video_dec_end_put - calls func_0023D2E8 with offset */
-void func_0023DFE0(int *a) {
-    func_0023D2E8(a + 0x12);
+/* videoDecEndPut(VideoDec *) -- viBufEndPut on the decoder's input buffer.
+ * The symbol table gives viBufEndPut a second int argument; retail sets none up here. */
+void func_0023DFE0(VideoDec *dec) {
+    func_0023D2E8(dec->viBuf);
 }
-/* ClearStateField - clears a field at offset 0xA8 */
-void func_0023E000(int *a) {
-    a[0x2A] = 0;
+/* videoDecReset(VideoDec *) -- clears the decoder state. */
+void func_0023E000(VideoDec *dec) {
+    dec->state = 0;
 }
 INCLUDE_ASM("asm/nonmatchings/text", func_0023E008); /* videoDecDelete(VideoDec *) */
-/* SetStateField - sets field at offset 0xA8 to 1 */
-void func_0023E040(int *a) {
-    a[0x2A] = 1;
+/* videoDecAbort(VideoDec *) -- sets the decoder state to 1. */
+void func_0023E040(VideoDec *dec) {
+    dec->state = 1;
 }
-/* GetStateField - returns field at offset 0xA8 */
-int func_0023E050(int *a) {
-    return a[0x2A];
+/* videoDecGetState -- returns the decoder state. */
+int func_0023E050(VideoDec *dec) {
+    return dec->state;
 }
-/* ReplaceStateField - returns old value and sets new value at offset 0xA8 */
-int func_0023E058(int *a, int val) {
-    int old = a[0x2A];
-    a[0x2A] = val;
+/* videoDecSetState(VideoDec *, unsigned int) -- stores the new state, returns the old one. */
+int func_0023E058(VideoDec *dec, unsigned int state) {
+    int old = dec->state;
+    dec->state = state;
     return old;
 }
 INCLUDE_ASM("asm/nonmatchings/text", func_0023E068); /* videoDecPutTs(VideoDec *, long, long, unsigned char *, int) */
-extern int func_0023D9E0(int);
-
-/* video_dec_input_count - calls func_0023D9E0 with offset */
-int func_0023E0B0(int *a) {
-    return func_0023D9E0(a + 0x12);
+/* videoDecInputCount(VideoDec *) -- viBufCount of the input buffer. */
+int func_0023E0B0(VideoDec *dec) {
+    return func_0023D9E0(dec->viBuf);
 }
 LINKER_REMNANT("asm/remnants/text", func_0023E0D0);
 INCLUDE_ASM("asm/nonmatchings/text", func_0023E0D8); /* videoDecFlush(VideoDec *) */
@@ -61,15 +68,42 @@ INCLUDE_ASM("asm/nonmatchings/text", func_0023E1F8); /* videoDecMain(void *) */
 INCLUDE_ASM("asm/nonmatchings/text", func_0023E298); /* decBs0(VideoDec *) */
 INCLUDE_ASM("asm/nonmatchings/text", func_0023E450); /* mpegError(sceMpeg *, sceMpegCbDataError *, void *) */
 extern void func_0023BB40(void);
-extern int func_0023D340(int);
-extern int D_0016130C MACRO_ADDR;
+extern int func_0023D340(char *);
+extern char *D_0016130C MACRO_ADDR;
 
-/* process_video_stream - calls func_0023BB40 then func_0023D340 */
-int func_0023E478(void) {
+/* mpegNodata(sceMpeg *, sceMpegCbData *, void *) -- switchThread, then viBufAddDMA on the
+ * buffer at offset 0xD9090 of the movie state. Returns 1. */
+int func_0023E478(void *mpeg, void *cbdata, void *arg) {
     func_0023BB40();
     func_0023D340(D_0016130C + 0xD9090);
     return 1;
 }
-INCLUDE_ASM("asm/nonmatchings/text", func_0023E4B0);
-INCLUDE_ASM("asm/nonmatchings/text", func_0023E4E0);
-INCLUDE_ASM("asm/nonmatchings/text", func_0023E510);
+extern int func_0023D540(char *);   /* viBufStopDMA */
+
+/* No recovered name. viBufStopDMA on the
+ * ViBuf at offset 0xD9090 of the movie state. Returns 1. */
+int func_0023E4B0(void) {
+    func_0023D540(D_0016130C + 0xD9090);
+    return 1;
+}
+extern int func_0023D650(char *);   /* viBufRestartDMA */
+
+/* No recovered name. viBufRestartDMA on the ViBuf at
+ * offset 0xD9090 of the movie state. Returns 1. */
+int func_0023E4E0(void) {
+    func_0023D650(D_0016130C + 0xD9090);
+    return 1;
+}
+typedef struct { long first, second; long pad[2]; } TimeStamp;   /* 0x20 bytes: retail reserves that much */
+extern void func_0023DCF0(char *, TimeStamp *);   /* viBufGetTs */
+
+/* No recovered name. Reads the
+ * timestamp of the ViBuf at offset 0xD9090 of the movie state with viBufGetTs and stores it
+ * at out+8. Returns 1. */
+int func_0023E510(int unused, char *out) {
+    TimeStamp ts;
+    func_0023DCF0(D_0016130C + 0xD9090, &ts);
+    *(long *)(out + 8) = ts.first;
+    *(long *)(out + 0x10) = ts.second;
+    return 1;
+}

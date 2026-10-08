@@ -175,7 +175,7 @@ the ones above the definition, as before.
   (`tools/try_func.py`'s own `build()`, which every candidate goes
   through unchanged) **on every iteration**, not just the one function.
   That keeps the pipeline byte-for-byte identical to `try_func.py` --
-  same `func_cflags.py`/`fix_orphan_hi.py`/`ps2eeas_nops.py` passes -- but
+  same `file_cflags.py` flags and `fix_orphan_hi.py`/`ps2eeas_nops.py` passes -- but
   it means each iteration costs roughly what one `try_func.py` run costs,
   and the file's other, already-decided code shows up as a constant
   (always-matching, zero-penalty) prefix/suffix in every score. Iteration

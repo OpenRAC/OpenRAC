@@ -78,7 +78,12 @@ WORK_ROOT = Path("build-sn/overlays/report")
 # standard library: try_func.py and overlay_check.py import rabbitizer and
 # pyelftools at module scope for the toolchain-driven build/compare path,
 # which CI (no toolchain, no baserom) never runs.
-OVERLAY_STUB = re.compile(r'^\s*INCLUDE_ASM\([^)]*\b(func_L\d{2}_[0-9A-Fa-f]{8})\)')
+OVERLAY_STUB = re.compile(r'^\s*(?:INCLUDE_ASM|LINKER_REMNANT)\([^)]*\b(func_L\d{2}_[0-9A-Fa-f]{8})\)')
+# Level-code linker remnants (docs/ASM_CLASSIFICATION.md): what the linker left of stripped functions
+# (each one's last delay slot), kept as assembly and counted as finished, as the executable's are.
+OVERLAY_REMNANT = re.compile(r'^\s*LINKER_REMNANT\("asm/overlays",\s*(func_L\d{2}_[0-9A-Fa-f]{8})\);', re.M)
+OVERLAY_REMNANTS = Path("config/overlays/linker_remnants.txt")
+OVERLAY_JOINED = Path("config/overlays/joined.tsv")
 OVERLAY_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_L\d{2}_[0-9A-Fa-f]{8})\s*\(")
 
 # Same patterns as tools/sweep_matches.py (see the comments there on why
@@ -229,6 +234,38 @@ def overlay_file_functions(path: Path) -> list[tuple[str, bool]]:
     return out
 
 
+def overlay_remnants() -> set[str]:
+    """The level-code linker remnants: config/overlays/linker_remnants.txt, which has to agree
+    with the LINKER_REMNANT lines of src/overlays/ and name only catalogue entries.
+    Tracked files only, so --check can run it; tools/overlay_remnants.py --check holds the
+    list to the rule, against the level dumps."""
+    listed = [l.strip() for l in OVERLAY_REMNANTS.read_text().splitlines()
+              if l.strip() and not l.startswith("#")] if OVERLAY_REMNANTS.exists() else []
+    if len(set(listed)) != len(listed):
+        sys.exit(f"*** {OVERLAY_REMNANTS}: a name is listed twice")
+    marked = []
+    for directory, _ in overlay_dirs():
+        for path in sorted(directory.glob("*.c")):
+            marked += OVERLAY_REMNANT.findall(path.read_text(errors="replace"))
+    if sorted(marked) != sorted(listed):
+        sys.exit(f"*** {OVERLAY_REMNANTS} disagrees with src/overlays/: "
+                 f"listed only {sorted(set(listed) - set(marked))}, marked only {sorted(set(marked) - set(listed))}")
+    catalogue = overlay_catalogue()
+    wrong = sorted(n for n in listed if n not in catalogue)
+    if wrong:
+        sys.exit(f"*** {OVERLAY_REMNANTS}: not a catalogue entry: {wrong}")
+    return set(listed)
+
+
+def overlay_joined() -> dict[str, list[str]]:
+    """owner -> the catalogue entries after it that are pieces of the same C function
+    (config/overlays/joined.tsv): finished when the owner is, as that file says."""
+    if not OVERLAY_JOINED.exists():
+        return {}
+    rows = [l.split("\t", 1) for l in OVERLAY_JOINED.read_text().splitlines() if l and not l.startswith("#")]
+    return {owner: pieces.split() for owner, pieces in rows}
+
+
 def overlay_file_map() -> dict[Path, list[tuple[str, bool]]]:
     """path -> [(name, is_c), ...] for every file under src/overlays/shared/
     or src/overlays/lNN_<planet>/."""
@@ -274,10 +311,11 @@ def overlay_match_results(file_map: dict) -> dict[str, float]:
 
     out = {}
     jobs = []
+    remnants = overlay_remnants()
     for path, fns in file_map.items():
         for n, is_c in fns:
             if not is_c:
-                out[n] = 0.0
+                out[n] = 100.0 if n in remnants else 0.0
         c_names = [n for n, is_c in fns if is_c]
         if c_names:
             jobs.append((path, c_names))
@@ -291,6 +329,11 @@ def overlay_match_results(file_map: dict) -> dict[str, float]:
         sys.exit(f"*** {len(failed)} file(s) failed to build -- NOT writing a report")
     for _path, r in results:
         out.update(r)
+    # A joined function is one C function under its first name, checked against the bytes of
+    # all its pieces: the stubs kept for the later names are finished when it is.
+    for owner, pieces in overlay_joined().items():
+        if out.get(owner) == 100.0:
+            out.update({piece: 100.0 for piece in pieces if piece in out})
     # Near misses staged in nonmatching/ (docs/NONMATCHING.md): their share
     # of matching bytes as fuzzy_match_percent. They are never finished:
     # only an EXACT C definition in src/overlays/ counts as matched code.
@@ -594,6 +637,9 @@ def generate() -> dict:
 
 
 def check() -> None:
+    # The build runs only documented assembler/linker steps, with flags per file (docs/BUILD_FIDELITY.md).
+    import check_build_fidelity
+    check_build_fidelity.main()
     if not REPORT.exists():
         sys.exit(f"*** {REPORT} missing -- run: python tools/gen_progress_report.py")
     report = json.loads(REPORT.read_text())
@@ -627,6 +673,10 @@ def check() -> None:
     # EXACT-ness (that needs a real build), only that the report has not
     # gone stale about which functions have C.
     _overlay_map, have_c = overlay_c_functions()
+    have_c |= overlay_remnants()        # classified original assembly counts as finished too
+    level_names = overlay_catalogue()
+    have_c |= {piece for owner, pieces in overlay_joined().items() if owner in have_c
+               for piece in pieces if level_names.get(piece, ("exe",))[0] != "exe"}
     reported_c = {f["name"] for u in report["units"] for f in u["functions"]
                   if is_level_unit(u)
                   and f.get("fuzzy_match_percent", 0) == 100.0}
@@ -635,7 +685,7 @@ def check() -> None:
     if stale_new_c or stale_gone_c:
         print("progress/report.json is out of date with src/overlays/:")
         for n in stale_new_c:
-            print(f"  has C, report doesn't mark it: {n}")
+            print(f"  has C (or is a listed remnant or a joined piece), report doesn't mark it: {n}")
         for n in stale_gone_c:
             print(f"  report marks it as C, no C source any more: {n}")
         sys.exit("*** regenerate with: python tools/gen_progress_report.py")

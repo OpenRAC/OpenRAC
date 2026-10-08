@@ -557,7 +557,35 @@ void func_L01_002320F8(void) {
         func_L00_0025C918(q + 5, q + 6, b->f230, D_0015EE64 * 0.02f, D_0015EE64 * 0.3f, D_0015EE6C * 4.0f);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L01_002328A8);
+extern char D_0013E633_328A8[] __asm__("D_0013E633");
+extern float D_0015EE6C MACRO_ADDR;
+extern float D_L01_0017C2B8[];
+extern void func_L00_00211F80(int, float);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui/help/00226f10.c, FUN_L01_00232290. */
+void func_L01_002328A8(void) {
+    char *x;
+    func_L00_00211F80(0, 1.0f);
+    x = D_0013E633_328A8 + 0xE1D;
+    if (0.0f < *(float *)(x + 0x190)) {
+        if (*(float *)(x + 0x190) < D_L01_0017C2B8[3]) {
+            *(float *)(x + 0x190) = D_L01_0017C2B8[2] * D_0015EE6C;
+        } else {
+            *(float *)(x + 0x190) = D_L01_0017C2B8[6] * D_0015EE6C;
+        }
+    }
+    {
+        char *y = D_0013E633_328A8 + 0xE1D;
+        if (*(int *)(y + 0x2084) == 0x73) {
+            float v = *(float *)(y + 0x190) * 0.8f;
+            float m = D_0015EE6C * 2.5f;
+            *(float *)(y + 0x190) = v;
+            if (v < m) {
+                *(float *)(y + 0x190) = m;
+            }
+        }
+    }
+}
 extern float func_L00_00234250(float *v);
 extern float func_001F9CE8(void *);
 extern float func_001F9F90(float);

@@ -25,4 +25,4 @@ void func_L03_00260EE8(int a, int *b, int *c, float *d, int e) {
         *(short *)(p + 0xA) = e;
     }
 }
-INCLUDE_ASM("asm/overlays", func_L03_002653D8);
+LINKER_REMNANT("asm/overlays", func_L03_002653D8);

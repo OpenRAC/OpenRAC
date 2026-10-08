@@ -1,5 +1,7 @@
 # Decompilation progress
 
+> Historical log. `tools/fix_core_spills.py`, `tools/fix_tail_calls.py`, `tools/fix_trunc_slot.py` and `tools/func_cflags.py`, which it describes, were removed on 2026-10-07 for rewriting compiler output; see docs/BUILD_FIDELITY.md for the current build.
+
 The project's knowledge base: the levers that close near-misses, the
 toolchain questions (solved and open), the dead ends with their counts,
 and a per-function log. The step-by-step procedure lives in
@@ -53,7 +55,7 @@ classes through, each caught only by luck:
    `st_size`.
 
 **Where the numbers live.** `progress/report.json` (published on
-[decomp.dev](https://decomp.dev/Lynder063/rac1-decomp)) is the source of
+[decomp.dev](https://decomp.dev/OpenRAC/rac1-decomp)) is the source of
 truth for what has source and what is finished. `tools/gen_progress_report.py`
 regenerates it from a from-scratch build, and CI fails when it is out of
 date with `src/` or the original-assembly manifests. The report counts

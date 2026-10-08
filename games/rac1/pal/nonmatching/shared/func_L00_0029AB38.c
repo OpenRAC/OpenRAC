@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L00_0029AB38 -- src/overlays/shared/tieproc_00299108.c
- * Best so far: BYTES 88/480 (81.7% of the bytes match), checked 2026-10-03.
+ * Best so far: BYTES 88/480 (81.7% of the bytes match), checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -7,6 +7,7 @@
  *   Best is p6.c: frame size and all instruction shapes agree (movn for the counts, MACRO_ADDR gp-in-delay-slot ac
  *   Retail has x=$s0, y=$s1, loop counter=$s2 (and the store of D_L00_0015F6BC sits in the first jal's delay slot,
  *   Tried counter as for(i<m), for(i=m;i;i--), while(m--), giv forms for x; declaration order does not matter. Unb
+ *   t11 round (p10-p13): p10/p13 (80/480 bytes, size now right: sp[0x70], y loaded before x, p[2]=0 before p[3]=0)
  */
 extern int D_L00_00161118 MACRO_ADDR;
 extern int D_L00_0015F6A8 MACRO_ADDR;
@@ -18,7 +19,6 @@ extern void func_00122818(void *, int, int, int, int, int, int, int);
 extern void func_00122AD8(void *, int);
 extern void func_00216A90(int, int, int);
 extern void func_00217AE8(int, int, int);
-extern char D_0014171B[];
 extern int D_0015EF88 MACRO_ADDR;
 extern short D_0015EF78;
 extern int D_0015EFD8_m __asm__("D_0015EFD8") MACRO_ADDR;

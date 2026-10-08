@@ -2,7 +2,21 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L13_00266128);
+extern char *D_L13_00160058 MACRO_ADDR;
+extern char *D_L13_00160060 MACRO_ADDR;
+
+/* updates matching objects in the selected object range */
+void func_L13_00266128(int id, int state) {
+    char *moby = D_L13_00160058;
+    if ((unsigned long)D_L13_00160060 >= (unsigned long)moby) {
+        do {
+            if (*(short *)(moby + 0xA6) == id) {
+                if (moby[0x20] >= 0) moby[0x20] = state;
+            }
+            moby += 0x100;
+        } while ((unsigned long)D_L13_00160060 >= (unsigned long)moby);
+    }
+}
 extern char *D_L13_00160058 MACRO_ADDR;
 extern char *D_L13_00160060 MACRO_ADDR;
 

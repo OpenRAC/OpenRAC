@@ -2,6 +2,17 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L00_002EFC90);
+/* splits available audio-buffer data into up to two spans */
+void func_L00_002EFC90(int *s,int *a,int *n,int *b,int *m) {
+ if(s[0]==0) {
+  if(s[1]!=4) { *a=(int)((char *)s+(s[12]+8)); *n=40-s[12]; *b=s[13]; *m=s[16]; }
+  else { *a=s[13]; *n=s[16]; *b=0; *m=0; }
+ } else {
+  int len=s[16]-s[15];
+  int off=s[14];
+  if(s[16]-off>=len) { *a=s[13]+off; *n=len; *b=0; *m=0; }
+  else { *a=s[13]+off; *n=s[16]-s[14]; *b=s[13]; *m=len-(s[16]-s[14]); }
+ }
+}
 INCLUDE_ASM("asm/overlays", func_L00_002EFCE4);
 INCLUDE_ASM("asm/overlays", func_L00_002EFCFC);

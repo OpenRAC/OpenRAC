@@ -2,4 +2,43 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L03_0022D028);
+extern int func_001F9850(int);
+extern void func_001F9BC0(void *);
+extern void func_L00_00250800(void *, int, void *);
+extern float func_00214158(void);
+extern float func_002140F8(float, float);
+extern void func_00215C00(void *, float, float, float);
+extern int func_L00_00258BC8(int, int);
+extern void func_L00_0026DD70(void *, void *, int, int, int, float);
+extern int D_0015EE84 MACRO_ADDR;
+extern float D_0015EE6C MACRO_ADDR;
+typedef struct { char pad0[0x44]; short n; char pad1[0x132]; char *m[1]; } G_2DC848;
+extern G_2DC848 D_L03_0016C9E0;
+// Emits four randomized particles while the active level event is in its trigger range.
+void func_L03_0022D028(void) {
+ float position[4], direction[4];
+ char *g;
+ char *moby;
+ int i;
+ if (D_0015EE84 != 3) return;
+ g = (char *)&D_L03_0016C9E0;
+ if (*(int *)(g + 0x30) != 5) return;
+ if (func_001F9850(900) >= *(int *)(g + 0x34)) return;
+ if (*(int *)(g + 0x34) >= func_001F9850(1100)) return;
+ moby = *(char **)(g + 0x184);
+ if (!moby) return;
+ for (i = 0; i < 4; i++) {
+  float a, b, size;
+  int lo, hi, value;
+  func_001F9BC0(direction);
+  func_L00_00250800(moby, i % 2, position);
+  a = func_00214158();
+  b = func_00214158();
+  size = func_002140F8(D_0015EE6C * 0.7f, D_0015EE6C * 2.2f);
+  func_00215C00(direction, size, a, b);
+  lo = func_001F9850(12);
+  hi = func_001F9850(35);
+  value = func_L00_00258BC8(lo, hi);
+  func_L00_0026DD70(position, direction, 0x80808080, 0x808080, value, 147000.0f);
+ }
+}

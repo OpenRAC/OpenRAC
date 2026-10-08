@@ -1,9 +1,10 @@
 /* NON_MATCHING func_L09_00306DD8 -- src/overlays/l09_gaspar/vendor_002C2B08.c
- * Best so far: BYTES 10/488 (98.0% of the bytes match), checked 2026-10-03.
+ * Best so far: BYTES 7/488 (98.6% of the bytes match), checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   UpdateMoby_1206: sweeps a hit test along a heading and logs hits (func_001E9730). p4.c/p5.c are 478/488 bytes 
+ *   Swept hit test + log (488 bytes). Best now p9.c: 7/488, all in the log block: retail loads x+0xB2, x+0xA6 then
  */
 typedef int u128_306DD8 __attribute__((mode(TI)));
 extern int func_L00_0028EB98(void *, int);
@@ -50,11 +51,9 @@ void func_L09_00306DD8(char *moby) {
     for (i = 0; i < *(int *)(data + 8); i++) {
         if (func_L00_001F2BE8_alt(*(float *)data, v10, 1, moby, buf) != 0) {
             char *x = D_L09_00174040.p;
+            int b = *(short *)(x + 0xA6);
             int a = *(short *)(x + 0xB2);
-            int c;
-            int b;
-            b = *(short *)(x + 0xA6);
-            c = *(short *)(moby + 0xB2);
+            int c = *(short *)(moby + 0xB2);
             func_001E9730(D_L09_002093A0, c, b, a, func_00120778(*(float *)(data + 0xC)));
         }
         func_001F9BD8(v10, v10, v);

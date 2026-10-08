@@ -44,9 +44,301 @@ void func_L00_00299148(void) {
         }
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_00299250);
+typedef struct { char pad0[8]; int w8; char pad0C[8]; int w14; int w18; char pad1C[0xA0 - 0x1C]; int wA0; char padA4[0xEC - 0xA4]; int wEC; } CfgS;
+typedef struct { char pad0[0x19C]; int w19C; int w1A0; int w1A4; int w1A8; } PadS;
+typedef struct { char pad0[0xA6]; short hA6; } ObjS;
+typedef struct {
+    char pad0[0x10AC];
+    unsigned char b10AC;
+    char pad10AD[0x15F0 - 0x10AD];
+    ObjS *p15F0;
+    char pad15F4[0x2084 - 0x15F4];
+    int w2084;
+    char pad2088[4];
+    int w208C;
+    char pad2090[0x20A4 - 0x2090];
+    unsigned char b20A4;
+    char pad20A5[0x20B1 - 0x20A5];
+    unsigned char b20B1;
+    char pad20B2[0x22A8 - 0x20B2];
+    int w22A8;
+} HeroS;
+typedef struct { char pad0[0x86]; short h86; } PtrS;
+typedef struct { char pad0[0xDC]; int wDC; char pad0E0[4]; int wE4; char pad0E8[0xFC - 0xE8]; int wFC; } AreaS;
+typedef struct { char pad0[0x48]; unsigned short h48; unsigned short h4A; unsigned int w4C; } HitS;
+
+extern CfgS D_L00_0016C158;
+extern char D_0013A5E0[];
+extern char D_0013E633[];
+extern char D_0013D355[];
+extern char D_0013D355_b[] __asm__("D_0013D355");
+extern unsigned char D_0014171B[] NOT_SDA;
+extern int D_L00_0015F6A8 MACRO_ADDR;
+extern int D_0015EFB4_m __asm__("D_0015EFB4") MACRO_ADDR;
+extern int D_L00_0015F6AC MACRO_ADDR;
+extern int D_L00_001BA160;
+extern int D_0015EE84 MACRO_ADDR;
+extern PtrS *D_L00_00166F00;
+extern int D_0015EF20 MACRO_ADDR;
+extern int D_0015EE98 MACRO_ADDR;
+extern int D_L00_00184314;
+extern int D_L00_0015F710 MACRO_ADDR;
+extern char D_L00_001610B8[];
+extern char D_L00_001610C8[];
+extern char D_L00_001610D8[];
+extern char D_L00_001610E8[];
+extern char D_L00_001610F8[];
+extern void func_001FBC80(int, void *, int);
+extern void func_00219C70(int);
+extern void func_L00_002653A0(void);
+extern int func_L00_00235790_r(void) __asm__("func_L00_00235790");
+extern void func_L00_002367A8(int, int);
+extern int func_001FFB38(int, int, int, int, int, int, int);
+extern void func_L00_0023A658(void);
+extern void func_L00_0023A690(void);
+extern void func_L00_0023A788(void);
+extern void func_L00_0028FFB0(void);
+extern void func_L00_0024F7E0(void);
+extern void func_00213C78(void);
+extern void func_0022EF68(void);
+extern void func_L00_002A5B20(void);
+extern void func_001E9768_a(void *, int) __asm__("func_001E9768");
+extern void func_001E9768_b(void) __asm__("func_001E9768");
+extern void func_L00_002076E8(void);
+extern void func_00218A80(void);
+extern void func_L00_001FE9C8(void);
+extern void func_L00_001ED428(void);
+extern void func_L00_001F3E20(void);
+extern void func_L00_001F4810(void);
+extern void func_0022DD68(void);
+extern void func_00202260(void);
+extern void func_0020DE20(void);
+extern int func_L00_0023B610_r(int) __asm__("func_L00_0023B610");
+extern void func_001FE6C0(void);
+
+/* per-frame update of the in-level game: pause and cutscene triggers, then the subsystem updates. Adapted from Lombyte (MIT) for PAL: src/overlays/shared/unclassified_00295100.c, FUN_L00_00297f78. */
+void func_L00_00299250(void) {
+    int lvl, area, noctl, special;
+    unsigned char *r;
+    if (D_L00_0016C158.wEC) {
+        if (--D_L00_0016C158.wEC == 0) D_L00_0016C158.w8 = 0x10;
+    }
+    if ((D_L00_0016C158.w8 & 0x10) && (((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x200)) {
+        ((PadS *)(D_0013A5E0 + 0x2460))->w1A4 = ~D_L00_0016C158.wA0 & ((PadS *)(D_0013A5E0 + 0x2460))->w1A0;
+        ((PadS *)(D_0013A5E0 + 0x2460))->w1A8 = ~((PadS *)(D_0013A5E0 + 0x2460))->w1A0 & D_L00_0016C158.wA0;
+        D_L00_0016C158.wA0 = ((PadS *)(D_0013A5E0 + 0x2460))->w1A0 & ~0x200;
+    }
+    lvl = D_L00_0015F6A8;
+    if (lvl == 0 && (D_0015EFB4_m & 0x401) && D_L00_0015F6AC >= 8 && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x1D) {
+        func_001FBC80(3, 0, 0);
+        return;
+    }
+    noctl = ((PadS *)(D_0013A5E0 + 0x2460))->w19C == 0;
+    if (D_L00_001BA160 && lvl == 0) {
+        func_00219C70(0);
+        return;
+    }
+    area = D_0015EE84;
+    if (area == 15 && D_L00_0015F6AC >= 8 && ((HeroS *)(D_0013E633 + 0xE1D))->b20A4 == 2
+        && ((((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x800) || noctl) && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x72) {
+        if (D_L00_00166F00->h86 == 0x13) return;
+        func_001FBC80(4, 0, 0);
+        return;
+    }
+    special = 0;
+    if (((HeroS *)(D_0013E633 + 0xE1D))->w208C == 9 && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 == 0x32 && ((HeroS *)(D_0013E633 + 0xE1D))->p15F0) {
+        int k = ((HeroS *)(D_0013E633 + 0xE1D))->p15F0->hA6;
+        if (k == 0x45 || k == 0x563 || k == 0x4DA) special = 1;
+    }
+    if (special && D_L00_0015F6AC >= 8 && ((((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x800) || noctl)
+        && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x72 && D_L00_00166F00->h86 != 0x13) {
+        func_001FBC80(1, 0, 0);
+        return;
+    }
+    if (lvl == 0 && (area == 8 || area == 0xC) && ((((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x800) || noctl)
+        && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 == 0x32) {
+        func_001FBC80(1, 0, 0);
+        return;
+    }
+    if (((((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x800) || noctl) && D_L00_0015F6AC >= 8
+        && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x72 && ((HeroS *)(D_0013E633 + 0xE1D))->w208C == 0x16) {
+        func_001FBC80(0, 0, 0);
+        return;
+    }
+    if (((((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x800) || noctl) && D_L00_0015F6AC >= 8
+        && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x72 && ((HeroS *)(D_0013E633 + 0xE1D))->b10AC != 2
+        && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x32 && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x1D
+        && !((HeroS *)(D_0013E633 + 0xE1D))->b20B1 && ((HeroS *)(D_0013E633 + 0xE1D))->w22A8
+        && ((AreaS *)(D_0013D355 + 0x3B))->wDC < 3 && ((AreaS *)(D_0013D355 + 0x3B))->wE4 < 0 && lvl == 0) {
+        func_00219C70(0);
+        return;
+    }
+    if (!(D_L00_0016C158.w8 & 0x10) && D_L00_0015F6AC >= 8 && (((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x500)
+        && ((HeroS *)(D_0013E633 + 0xE1D))->w208C != 0x16 && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x72
+        && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x32 && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x1D
+        && !((HeroS *)(D_0013E633 + 0xE1D))->b20B1 && ((HeroS *)(D_0013E633 + 0xE1D))->w22A8
+        && ((AreaS *)(D_0013D355 + 0x3B))->wDC < 3 && ((AreaS *)(D_0013D355 + 0x3B))->wE4 < 0
+        && lvl == 0 && !special && !D_L00_0016C158.wEC) {
+        func_00219C70(10);
+        return;
+    }
+    if (((AreaS *)(D_0013D355 + 0x3B))->wFC && !(r = (unsigned char *)(D_0013D355_b + 0x13B))[0x10] && D_L00_0015F6AC >= 8
+        && !D_0015EF20 && !((HeroS *)(D_0013E633 + 0xE1D))->b20B1 && ((HeroS *)(D_0013E633 + 0xE1D))->w22A8
+        && func_001F9850(0x1E) < D_L00_0015F6B0 && D_0015EE84) {
+        func_001FBC80(5, 0, 0);
+        r[0x10] = 1;
+        return;
+    }
+    if (((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x1D && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x32) func_L00_002653A0();
+    if ((((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x200) && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x1D
+        && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x32) {
+        int x;
+        x = func_L00_00235790_r();
+        func_L00_002367A8(x, func_001F9850(0xB4));
+        x = func_001FFB38(2, 0x754E, (int)func_L00_0023A658, (int)func_L00_0023A690, (int)func_L00_0023A788, (int)&D_0015EE98, 9999999);
+        func_L00_002367A8(x, func_001F9850(0xB4));
+    }
+    if (D_L00_00184314) {
+        HitS *h = (HitS *)(D_0014171B + 0x22D);
+        if (h->h48 < 0xFFFF) h->h48++;
+        if (func_001F9850(D_0015EFA4) / 600 > h->h4A) h->h4A = func_001F9850(D_0015EFA4) / 600;
+        h->w4C = h->w4C | (1 << D_0015EE84) | 0x80000000;
+    }
+    if (D_L00_0015F710) {
+        D_L00_0015F710 = 0;
+        if (((HeroS *)(D_0013E633 + 0xE1D))->w22A8) {
+            func_L00_0028FFB0();
+            return;
+        }
+    }
+    if ((D_L00_0016C158.w8 & 2) || ((D_L00_0016C158.w8 & 0x10) && (((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x200))) func_L00_00299108();
+    if ((D_L00_0016C158.w8 & 2) || ((D_L00_0016C158.w8 & 0x10) && (((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x200))) {
+        func_L00_0024F7E0();
+        func_00213C78();
+        func_0022EF68();
+        func_L00_002A5B20();
+    }
+    func_001E9768_a(D_L00_001610B8, 3);
+    if ((D_L00_0016C158.w8 & 1) || ((D_L00_0016C158.w8 & 0x10) && (((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x200))) func_L00_002076E8();
+    func_001E9768_a(D_L00_001610C8, 7);
+    if ((D_L00_0016C158.w8 & 4) || ((D_L00_0016C158.w8 & 0x10) && (((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x200))) {
+        func_00218A80();
+        func_L00_001FE9C8();
+    }
+    func_001E9768_a(D_L00_001610D8, 5);
+    if ((D_L00_0016C158.w8 & 8) || ((D_L00_0016C158.w8 & 0x10) && (((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x200))) {
+        func_L00_001ED428();
+    } else if (D_L00_0016C158.w14) {
+        func_L00_001F3E20();
+        if (D_L00_0016C158.w14 == 2) func_L00_001F4810();
+    }
+    func_001E9768_a(D_L00_001610E8, 8);
+    func_0022DD68();
+    func_001E9768_a(D_L00_001610F8, 6);
+    func_00202260();
+    func_0020DE20();
+    func_L00_0023B610_r(1);
+    func_001FE6C0();
+    if ((D_L00_0016C158.w8 & 2) || ((D_L00_0016C158.w8 & 0x10) && (((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x200))) func_L00_00299148();
+    if (D_L00_0016C158.w18 == 2) func_001E9768_b();
+    if (D_L00_0016C158.w18 == 3) func_001E9768_b();
+    if (D_L00_0016C158.w18 == 4) func_001E9768_b();
+    if (D_L00_0016C158.w18 == 5) func_001E9768_b();
+    if (D_L00_0016C158.w18 == 6) func_001E9768_b();
+}
 INCLUDE_ASM("asm/overlays", func_L00_00299B68);
-INCLUDE_ASM("asm/overlays", func_L00_00299E70);
+extern void func_002348B8(void);
+extern void func_001F4E08(int);
+extern void func_L00_00299108(void);
+extern void func_001F3140(void);
+extern void func_0020D678(void *);
+extern int func_L00_00222B80(int, int);
+extern float func_00214358(void *, int, float);
+extern float func_001F9B88(float);
+extern void func_L00_00233950(void);
+extern void func_L00_00217718(void *, void *, int, int);
+extern void func_00217AE8(void *, void *, int);
+extern int func_001F9850(int);
+extern void func_L00_002666C8(int v);
+
+typedef struct { char pad[0x5A]; unsigned short x5a; } O5A;
+typedef struct { unsigned char cnt; } MC;
+typedef struct { char pad[0xC]; unsigned char n; char pad2[0x3B]; int x48[1]; } MCls;
+typedef struct { char pad[0x24]; MCls *cls; } Mob;
+typedef struct { char pad[0x10]; float v[4]; char pad2[0x24]; short n; char pad3[4]; unsigned char x4a; unsigned char x4b; char pad4[0x12A]; Mob *m[1]; } CT;
+typedef struct { char p0[0x20]; unsigned char st; char p1[0x13]; unsigned short flags; char p2[0x70]; short type; char p3[0x58]; } Obj;
+typedef struct { char pad[0x34]; unsigned short flags; } Fl;
+typedef struct { char pad[8]; Fl *a; void *b; } AB;
+typedef struct { char pad[0xEC]; Fl *p; } PP;
+typedef struct { char pad[0x20A5]; char x20a5; } Hd;
+
+extern CT D_L00_0016C960_c __asm__("D_L00_0016C960");
+extern int D_L00_0015F6BC MACRO_ADDR;
+extern float D_L00_0016CBF0;
+extern int D_L00_00167114 NOT_SDA;
+extern int D_L00_0015F4FC MACRO_ADDR;
+extern Obj *D_L00_0016009C MACRO_ADDR;
+extern char D_L00_0016C970[];
+extern AB D_L00_00179200;
+extern PP D_L00_001BA070 NOT_SDA;
+
+// Level teardown: clears the moby table, flags, camera floats and cached objects.
+void func_L00_00299E70(void) {
+    Obj *o;
+    O5A *h = (O5A *)((char *)D_0014171B + 0x100B5 - 0);
+    char *p, *b;
+    float g, f;
+    int i;
+    if ((unsigned short)(h->x5a - 6) >= 2) h->x5a = 5;
+    D_L00_0015F6BC = 1;
+    func_002348B8();
+    func_001F4E08(12);
+    func_L00_00299108();
+    D_L00_00167114 = D_L00_0016C960_c.x4b;
+    D_L00_0016CBF0 = 0.63f;
+    D_L00_0015F6A8 = 0;
+    D_L00_0015F4FC = 0;
+    func_001F3140();
+    for (i = 0; i < D_L00_0016C960_c.n; i++) {
+        Mob *m = D_L00_0016C960_c.m[i];
+        if (m) {
+            m->cls->n--;
+            m->cls->x48[m->cls->n] = 0;
+            func_0020D678(m);
+        }
+    }
+    for (o = D_L00_0016009C; o->st != 0xFF; o++) {
+        if (!(o->st & 0x80) && (o->type == 0x4A || o->type == 0xCB)) o->flags &= 0xFF7F;
+    }
+    p = D_0013E633 + 0xE9D;
+    func_L00_00222B80(0, 1);
+    g = func_00214358(p, 0, 0.5f);
+    if (2.0f < g) {
+        p -= 0x80;
+        if (func_001F9B88(*(float *)(p + 0x88) - g) < 4.5f) *(float *)(p + 0x88) = g;
+    }
+    b = D_0013E633 + 0xE1D;
+    b[0x20A5] = 0;
+    func_L00_00233950();
+    if (D_L00_0016C960_c.x4a) {
+        f = func_00214358(D_L00_0016C960_c.v, 0, 0.5f);
+        if (2.0f < f && func_001F9B88(D_L00_0016C960_c.v[2] - f) < 2.0f) D_L00_0016C960_c.v[2] = f;
+        func_L00_00217718(D_L00_0016C970, D_L00_0016C970 + 0x10, 0, 1);
+    }
+    if (D_L00_00179200.a) D_L00_00179200.a->flags &= ~1;
+    if (D_L00_001BA070.p) {
+        D_L00_001BA070.p->flags &= ~1;
+        D_L00_001BA070.p = 0;
+    }
+    if (D_L00_00179200.a) {
+        Fl *a = D_L00_00179200.a;
+        void *b = D_L00_00179200.b;
+        D_L00_00179200.a = 0;
+        D_L00_00179200.b = 0;
+        func_00217AE8(a, b, 1);
+    }
+    func_L00_002666C8(func_001F9850(30));
+}
 extern void func_001F3140(void);
 extern void func_00125358(float *);
 extern void func_001254A0(float *, float *, float);

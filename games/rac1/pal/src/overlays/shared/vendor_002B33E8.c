@@ -391,7 +391,7 @@ void func_L00_002B5488(void *p) {
         break;
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_002B5990);
+LINKER_REMNANT("asm/overlays", func_L00_002B5990);
 typedef int u128_2b46a8 __attribute__((mode(TI)));
 typedef union { u128_2b46a8 q; float f[4]; } V_2b46a8;
 extern char D_L00_00166EC0[];
@@ -480,7 +480,56 @@ unsigned char *func_L00_002B5998(int ign, V_2b46a8 *from, float *yaw, float *pit
     return best;
 }
 INCLUDE_ASM("asm/overlays", func_L00_002B5C98);
-INCLUDE_ASM("asm/overlays", func_L00_002B69C0);
+extern void func_001FB448(int, int, int);
+extern int D_L00_0015F40C_m __asm__("D_L00_0015F40C") MACRO_ADDR;
+extern float D_L00_0015F548_m __asm__("D_L00_0015F548") MACRO_ADDR;
+extern float D_L00_0015F54C_m __asm__("D_L00_0015F54C") MACRO_ADDR;
+extern float D_L00_0015F550_m __asm__("D_L00_0015F550") MACRO_ADDR;
+extern float D_L00_0015F554_m __asm__("D_L00_0015F554") MACRO_ADDR;
+extern int D_L00_0015F544_m __asm__("D_L00_0015F544") MACRO_ADDR;
+extern int D_L00_0015F545_m __asm__("D_L00_0015F545") MACRO_ADDR;
+extern int D_L00_0015F546_m __asm__("D_L00_0015F546") MACRO_ADDR;
+extern float D_L00_00161040_m __asm__("D_L00_00161040") MACRO_ADDR;
+extern float D_L00_001610A0_m __asm__("D_L00_001610A0") MACRO_ADDR;
+extern float D_L00_00160564_m __asm__("D_L00_00160564") MACRO_ADDR;
+extern int D_L00_001600B0_m __asm__("D_L00_001600B0") MACRO_ADDR;
+extern int D_L00_0016023C_m __asm__("D_L00_0016023C") MACRO_ADDR;
+extern int D_L00_0016A0F8;
+
+// Saves the camera parameters into a moby and switches the globals to a fixed screen setup.
+void func_L00_002B69C0(void *m_) {
+    char *m = (char *)m_;
+    char *p;
+    float f0, f1, f2, f3;
+
+    p = *(char **)(m + 0x78);
+    f0 = D_L00_0015F548_m;
+    f1 = D_L00_0015F54C_m;
+    f2 = D_L00_0015F550_m;
+    f3 = D_L00_0015F554_m;
+    D_L00_0015F40C_m = 1;
+    *(float *)(p + 0x30) = f0;
+    *(float *)(p + 0x34) = f1;
+    *(float *)(p + 0x38) = f2;
+    *(float *)(p + 0x3C) = f3;
+    p[0x40] = *(unsigned char *)&D_L00_0015F544_m;
+    p[0x41] = *(unsigned char *)&D_L00_0015F545_m;
+    p[0x42] = *(unsigned char *)&D_L00_0015F546_m;
+    *(unsigned char *)&D_L00_0015F544_m = 0x40;
+    *(unsigned char *)&D_L00_0015F545_m = 0x60;
+    *(unsigned char *)&D_L00_0015F546_m = 0x40;
+    D_L00_0015F54C_m = 131072.0f;
+    D_L00_0015F550_m = 255.0f;
+    D_L00_0016A0F8 = 0;
+    D_L00_001610A0_m = 144.0f;
+    D_L00_00161040_m = 147456.0f;
+    D_L00_00160564_m = 144.0f;
+    D_L00_001600B0_m = 0x90;
+    D_L00_0016023C_m = 0x50000;
+    *(int *)&D_L00_0015F548_m = 0;
+    *(int *)&D_L00_0015F554_m = 0;
+    func_001FB448(0x40, 0x60, 0x40);
+}
 extern void func_001FB448(int, int, int);
 extern int D_L00_0015F40C_m __asm__("D_L00_0015F40C") MACRO_ADDR;
 extern float D_L00_0015F548_m __asm__("D_L00_0015F548") MACRO_ADDR;
@@ -854,7 +903,65 @@ L7340:
 end:
     if ((s32)(D_0013F450_2B8208.w10B4 ^ 3) != 0) func_L00_002B8690(m);
 }
-INCLUDE_ASM("asm/overlays", func_L00_002B8690);
+typedef struct { float f; short a; short b; short c; short pad; } E8690;
+extern E8690 D_L00_001DB740_b[10] __asm__("D_L00_001DB740") NOT_SDA;
+extern int D_L00_0016159C MACRO_ADDR;
+extern int D_L00_001615A0 MACRO_ADDR;
+extern int D_L00_001615A4 MACRO_ADDR;
+extern float D_L00_001615AC MACRO_ADDR;
+extern char D_L00_001615B0_b[] __asm__("D_L00_001615B0") MACRO_ADDR;
+extern short D_L00_00161580_g __asm__("D_L00_00161580");
+extern short D_L00_00161584_g __asm__("D_L00_00161584");
+extern short D_L00_00161588_g __asm__("D_L00_00161588");
+extern short D_L00_0016158C_g __asm__("D_L00_0016158C");
+extern short D_L00_001615A8_g __asm__("D_L00_001615A8");
+extern int func_001F9908(int *);
+extern int func_001F9938(void *);
+extern void func_L00_00250800(void *, int, void *);
+extern void func_001F49B0(void (*)(void), void *);
+extern void func_L00_002B8860_b(void) __asm__("func_L00_002B8860");
+/* per-frame update of the ten slot table: spawn one, age the rest, then draw */
+void func_L00_002B8690(Moby *arg) {
+    E8690 *p;
+    unsigned short av;
+
+    int i;
+    int r;
+    if (D_L00_0016159C != 0) {
+        for (i = 9; i >= 0; i--) D_L00_001DB740_b[i].c = 0;
+        D_L00_0016159C = 0;
+        D_L00_001615A0 = 0;
+        r = func_001FA898_r(*(float *)&D_L00_00161584_g / (*(float *)&D_L00_00161588_g * D_0015EE6C));
+        *(int *)&D_L00_001615A8_g = r;
+        D_L00_001615AC = 1.0f / func_001FA888(r);
+    }
+    if (D_L00_001615A4 == 0) {
+        if (func_001F9908(&D_L00_001615A0) != 0) {
+            i = 0;
+            do {
+                p = &D_L00_001DB740_b[i];
+                if (p->c == 0) {
+                    D_L00_001615A0 = func_001F9850(*(int *)&D_L00_00161580_g);
+                    av = *(unsigned short *)(&D_L00_001615A0 + 2);
+                    p->b = *(unsigned short *)&D_L00_0016158C_g;
+                    p->c = 1;
+                    p->a = av;
+                    p->f = 0;
+                    break;
+                }
+            } while (++i < 10);
+        }
+    }
+    for (i = 0; i < 10; i++) {
+        p = &D_L00_001DB740_b[i];
+        if (p->c != 0) {
+            if (func_001F9938(&p->a) != 0) p->c = 0;
+            else p->f += *(float *)&D_L00_00161588_g * D_0015EE6C;
+        }
+    }
+    func_L00_00250800(arg, 0, D_L00_001615B0_b);
+    func_001F49B0(func_L00_002B8860_b, arg);
+}
 extern int func_001F4868(int);
 extern void func_L00_001FF4B0(void *, void *, float);
 extern void func_001F9C30(void *, void *, float);
@@ -986,8 +1093,108 @@ void func_L00_002B9528(unsigned char *m)
     if (D_0013F450_2B9528[0x20B4] >= 3)
         func_L00_00203F20(0x4E24, 0x4E);
 }
-INCLUDE_ASM("asm/overlays", func_L00_002B9730);
-INCLUDE_ASM("asm/overlays", func_L00_002B9A90);
+extern char D_0013E15A[];
+extern short D_L00_001615FC;
+extern short D_L00_00161608;
+extern short D_L00_0016160C;
+extern short D_L00_00161610;
+extern short D_L00_00161614;
+extern short D_L00_00161618;
+extern short D_L00_0016161C;
+extern short D_L00_00161620;
+extern short D_L00_00161624;
+extern short D_L00_00161628;
+extern short D_L00_0016162C;
+extern void func_L00_001FF500(void *, void *, float);
+extern void func_L00_0025A8C0(char *arg, int a, int b, void *src, float scale);
+extern void func_L00_001F2BE8(void *, float, int, void *, void *);
+extern void func_L00_00258DB0(float *, float, float);
+extern int func_001FA8A8(int, int, float);
+extern unsigned func_L00_0025D140(unsigned c, int mask);
+extern float func_001F9878(float);
+extern char *func_00219780(void *, void *, void *, int, int, int, int, int, int);
+
+// Updates the effect moby's 15 slots: spawns and releases spark particles around live children.
+void func_L00_002B9730(char *m) {
+    float vec[4];
+    char buf[0x30];
+    char qv[16];
+    float v2[4];
+    float v3[4];
+    char *base = *(char **)(m + 0x78) + 4;
+    unsigned char *q = (unsigned char *)D_0013E15A + 0x4C6;
+    int i;
+
+    for (i = 0; i < 15; i++) {
+        char *o = *(char **)(base - (-(i * 4)));
+        if (o == 0) {
+            continue;
+        }
+        if (*(unsigned char *)o == 0xC && o[1] >= 0) {
+            float f20 = *(float *)(o + 0xC) / 210000.0f * 0.5f;
+            char *src = o + 0x20;
+            int type;
+            func_L00_001FF500(vec, src, 1.0f);
+            vec[2] = 1.0f;
+            vec[3] = 5627.9248046875f;
+            func_L00_0025A8C0(buf, (int)m, 0x10000, vec, func_001FA888(q[0x10]) + 1.0f);
+            *(unsigned char *)(buf + 0x18) = 5;
+            *(unsigned char *)(buf + 0x19) = 1;
+            *(unsigned short *)(buf + 0x1A) = *(unsigned short *)(m + 0xA6);
+            func_L00_001F2BE8((o + 0x10), f20, 0, m, buf);
+            type = *(short *)(o + 0xA);
+            if (type == 10) {
+                int j;
+                for (j = 0; j < *(int *)&D_L00_0016162C; j++) {
+                    int c1;
+                    int c2;
+                    int c3;
+                    int c4;
+                    qcopy(qv, src);
+                    func_L00_00258DB0(v2, 0.0f, *(float *)&D_L00_00161608 * D_0015EE6C);
+                    *(float *)(qv + 0xC) = *(float *)&D_L00_0016160C;
+                    v2[2] = D_0015EE6C * 4.0f;
+                    v2[3] = *(float *)&D_L00_00161610;
+                    c1 = func_001FA8A8(*(int *)&D_L00_00161614, *(int *)&D_L00_00161618, func_002140F8(0.0f, 1.0f));
+                    func_L00_0025D140(c1, q[0x10]);
+                    c2 = func_001FA8A8(*(int *)&D_L00_0016161C, *(int *)&D_L00_00161620, func_002140F8(0.0f, 1.0f));
+                    func_L00_0025D140(c2, q[0x10]);
+                    c3 = func_001FA898_r(func_001F9878(func_002140F8((float)*(int *)&D_L00_00161624, (float)*(int *)&D_L00_00161628)));
+                    c4 = func_001FA898_r(func_001F9878(func_002140F8((float)*(int *)&D_L00_00161624, (float)*(int *)&D_L00_00161628)));
+                    func_L00_00258DB0(v3, 0.0f, f20 + f20);
+                    func_001F9BD8(v3, v3, (o + 0x10));
+                    func_00219780(v3, qv, v2, c1, c2, 0xA, c3, c4, *(int *)&D_L00_001615FC);
+                }
+            } else if (type < 2) {
+                *(int *)(base - (-(i * 4))) = 0;
+            }
+        } else {
+            *(int *)(base - (-(i * 4))) = 0;
+        }
+    }
+}
+typedef struct {
+    u8 pad0[0x78];
+    s32 *slots;
+} ListSlots8;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/entities/002b2100.c, FUN_L00_002b8798. */
+void func_L00_002B9A90(ListSlots8 *list, s32 val) {
+    s32 *p = list->slots;
+    s32 i = 0;
+    s32 *q;
+    s32 n;
+
+    while (i < 15) {
+        n = i * 4;
+        q = (s32 *)((u8 *)p + 4);
+        if (*(s32 *)((u8 *)q + n) == 0) {
+            *(s32 *)((u8 *)q + n) = val;
+            break;
+        }
+        i++;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L00_002B9AA8);
 INCLUDE_ASM("asm/overlays", func_L00_002B9AD8);
 INCLUDE_ASM("asm/overlays", func_L00_002BA608);

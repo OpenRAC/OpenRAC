@@ -102,4 +102,15 @@ unsigned char *func_L13_002E7E90(char *src, char *pos, char *target, char *vec, 
     return moby;
 }
 INCLUDE_ASM("asm/overlays", func_L13_002E8040);
-INCLUDE_ASM("asm/overlays", func_L13_003184A0);
+typedef struct { char pad0[0x39]; unsigned char field39; } Level13VendorItem;
+typedef struct { char pad0[0x1C]; Level13VendorItem *item; } Level13VendorRecord;
+typedef struct { char pad0[0x86]; short class_id; } Level13VendorCurrentMoby;
+extern Level13VendorCurrentMoby *D_L13_00167180;
+extern Level13VendorRecord *D_L13_0015F050 MACRO_ADDR;
+/* marks a vendor item for the current moby class */
+void func_L13_003184A0(int index) {
+ Level13VendorCurrentMoby *m=D_L13_00167180;
+ Level13VendorRecord *rec=(Level13VendorRecord *)(index*32+(int)D_L13_0015F050);
+ Level13VendorItem *item=rec->item;
+ if(m->class_id==0x13) item->field39=1;
+}

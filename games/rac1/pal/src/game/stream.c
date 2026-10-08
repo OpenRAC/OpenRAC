@@ -484,7 +484,7 @@ void func_00217A60(int arg0, long arg1) {
     *(int *)((char *)b + 0x28) = *(int *)(p + 0x18) / 4;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00217AD0);
+LINKER_REMNANT("asm/remnants/text", func_00217AD0);
 
 INCLUDE_ASM("asm/nonmatchings/text", func_00217AE8);
 
@@ -496,7 +496,7 @@ void func_00217EC0(void) {
     *(int *)(p + 0x190) = 0;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00217ED8);
+LINKER_REMNANT("asm/remnants/text", func_00217ED8);
 
 extern int D_001CDAE0 NOT_SDA;
 extern char D_0013CA40[];

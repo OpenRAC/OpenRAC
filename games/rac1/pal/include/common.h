@@ -59,6 +59,29 @@ typedef double f64;
 #define MACRO_ADDR __attribute__((section(".sdata")))
 
 /*
+ * A scalar in the file's own small data, declared with its real type:
+ *
+ *     extern float D_L17_00162108 SDATA(D_L17_00162108);
+ *
+ * Retail reaches a level file's own tuning floats and ints through $gp at
+ * every access, in one instruction. The older way to get that here is
+ * `extern short D_x;` read as `*(float *)&D_x`, and for most functions it
+ * matches. But a read through a cast is not a scalar to the compiler: it may
+ * alias any store through a pointer, so the load is ordered behind such
+ * stores and its value is forgotten at each one. Where retail loads the
+ * global before a store through a struct pointer, only the real type
+ * reproduces it (func_L17_002EEB08, func_L17_002EDE50), with the stores
+ * written as struct members.
+ *
+ * The declaration gives the symbol the assembler label `sym__gp`;
+ * tools/check_macro_slots.py makes every such label a 1-byte .extern equated
+ * to the symbol, so the assembler emits the $gp-relative form. A file that
+ * also declares the same symbol `extern short` for an older function needs
+ * two C names for it; keep the real name for this declaration.
+ */
+#define SDATA(sym) __asm__(#sym "__gp") MACRO_ADDR
+
+/*
  * Copies one 16-byte quadword from src to dst through $2, the way retail's
  * own source did: an inline-asm copy shaped like libvu0's sceVu0CopyVector
  * (which uses $6). Each address goes into its own register and is read at
@@ -70,6 +93,32 @@ typedef double f64;
  */
 static __inline__ void qcopy(void *dst, void *src) {
     __asm__ __volatile__("lq $2,0x0(%1)\n\tsq $2,0x0(%0)" : : "r"(dst), "r"(src) : "$2", "memory");
+}
+
+/*
+ * The same copy without the "memory" clobber. Retail has both behaviours.
+ * Where a value read before a copy is read again after it, the hero's
+ * state-setting function (func_L02_0022BE40 and its level versions) reloads
+ * it, which is qcopy(); the hero's update function keeps it in its register
+ * across the copy (case 107 of func_L05_00256148 and func_L16_00227818),
+ * which is this one. Dropping the clobber from qcopy() itself leaves eleven
+ * state-setting functions 8 bytes short, so the two are separate. Use this
+ * one only where retail keeps a value live across the copy.
+ */
+static __inline__ void qcopy_nc(void *dst, void *src) {
+    __asm__ __volatile__("lq $2,0x0(%1)\n\tsq $2,0x0(%0)" : : "r"(dst), "r"(src) : "$2");
+}
+
+/*
+ * Clears one 16-byte quadword with `sq $0`, the other store retail's own
+ * source had as inline asm: this compiler's `sq` takes a register, so C
+ * zeroing a 128-bit value always comes out `por $2,$0,$0` + `sq $2`, while
+ * retail has `sq $0` in code that is otherwise the compiler's. No clobbers:
+ * with a "memory" clobber the compiler reloads the base address around it.
+ * Identified by Lombyte, the US decompilation (its include/qzero.h).
+ */
+static __inline__ void qzero(void *p) {
+    __asm__ __volatile__("sq $0,0x0(%0)" : : "r"(p));
 }
 
 #endif /* COMMON_H */

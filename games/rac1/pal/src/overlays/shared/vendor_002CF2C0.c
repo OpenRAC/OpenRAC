@@ -2,8 +2,8 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L05_002CF2C0);
-INCLUDE_ASM("asm/overlays", func_L05_002D5398);
+LINKER_REMNANT("asm/overlays", func_L05_002CF2C0);
+LINKER_REMNANT("asm/overlays", func_L05_002D5398);
 extern struct Moby *func_0020D348_m(int) __asm__("func_0020D348");
 extern int func_001F9850(int);
 extern float D_0015EE6C MACRO_ADDR;
@@ -31,7 +31,7 @@ char *func_L05_002D53B0(int owner, char *pos, int arg, float f0, float f1) {
     }
     return moby;
 }
-INCLUDE_ASM("asm/overlays", func_L05_002D54C0);
+LINKER_REMNANT("asm/overlays", func_L05_002D54C0);
 INCLUDE_ASM("asm/overlays", func_L05_002F62E8);
 INCLUDE_ASM("asm/overlays", func_L05_002F63DC);
 INCLUDE_ASM("asm/overlays", func_L05_002F63FC);
@@ -79,7 +79,49 @@ void func_L05_002F9478(char *m) {
     }
     func_L05_002F95B0(m);
 }
-INCLUDE_ASM("asm/overlays", func_L05_002F95B0);
+extern float func_00214D28(float *p, float target, float maxstep);
+extern float func_001FA748(float, float);
+extern float func_001F9FA8(float);
+extern int func_001FA8A8(int, int, float);
+extern short D_0015EE6C_s __asm__("D_0015EE6C");
+extern char D_0013E633[];
+extern short D_L05_00161980;
+extern short D_L05_00161984;
+extern short D_L05_00161988;
+extern short D_L05_0016198C;
+extern short D_L05_00161990;
+
+/* eases the pulse level of the moby that holds the focus and mixes its colour from two palettes */
+void func_L05_002F95B0(void *mv) {
+    char *moby = mv;
+    char *base = D_0013E633 + 0xE1D;
+    char *data = *(char **)(moby + 0x78);
+    int r;
+    float s;
+    if (*(char **)(base + 0x2FC) == moby) {
+        func_00214D28((float *)(data + 0x1C), 1.0f, D_0015EE6C + D_0015EE6C);
+        if (*(int *)(base + 0x1090) != 0) {
+            if (*(int *)(base + 0x10B8) == 0x16) ((unsigned char *)moby)[0xBC] = 1;
+            else ((unsigned char *)moby)[0xBC] = 0;
+        } else {
+            ((unsigned char *)moby)[0xBC] = 0;
+        }
+    } else {
+        func_00214D28((float *)(data + 0x1C), 0.0f, *(float *)&D_0015EE6C_s);
+    }
+    if (*(float *)(data + 0x1C) != 0.0f) {
+        s = func_001FA748(*(float *)(data + 0x18), D_0015EE6C * 6.2831855f);
+        *(float *)(data + 0x18) = s;
+        if (((unsigned char *)moby)[0xBC] == 1) {
+            r = func_001FA8A8(*(int *)&D_L05_00161984, *(int *)&D_L05_00161988, (func_001F9FA8(s) + 1.0f) * 0.5f);
+        } else {
+            r = func_001FA8A8(*(int *)&D_L05_0016198C, *(int *)&D_L05_00161990, (func_001F9FA8(s) + 1.0f) * 0.5f);
+        }
+        *(int *)(moby + 0x90) = func_001FA8A8(*(int *)&D_L05_00161980, r, *(float *)(data + 0x1C));
+    } else {
+        *(int *)(moby + 0x90) = *(int *)&D_L05_00161980;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L05_002F9BA0);
 extern int func_001F9850(int);
 extern int func_001F9908(int *);
@@ -383,7 +425,72 @@ void func_L05_0031C0F0(char *moby) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L05_0031DDF0);
-INCLUDE_ASM("asm/overlays", func_L05_0031E468);
+typedef int ti_31e468 __attribute__((mode(TI)));
+typedef struct {
+    float m[4][4];
+    u32 col[4];
+    float uv[8];
+    u64 a, b, c, d;
+} Pk_31e468;
+extern char D_L05_001672C0[];
+extern float D_L05_00215FB0[4][4];
+extern short D_L05_00162088;
+extern short D_L05_0016208C;
+u64 func_001F4868(s32);
+extern void func_001F9C30(void *, void *, float);
+extern void func_L00_001FF4B0(void *, void *, float);
+extern void func_001F9CA0(void *, void *, void *);
+extern int func_002140B0(int);
+extern void func_L00_001FD1D8(void *, void *, s32);
+
+/* Draws the moby's camera-facing glow sprite, flickering its alpha at random. */
+void func_L05_0031E468(char *m) {
+    char *d = *(char **)(m + 0x78);
+    Pk_31e468 pk;
+    float up[4];
+    float M[4][4];
+    float t[4];
+    float w[4];
+    u32 col;
+    int j;
+    *(ti_31e468 *)up = 0;
+    up[2] = 1.0f;
+    up[3] = 1.0f;
+    pk.b = func_001F4868(0xB);
+    pk.d = 0x8000000048ULL;
+    pk.c = 0x0000FF9000000260ULL;
+    pk.a = 5;
+    pk.uv[0] = 0.0f;
+    pk.uv[1] = 0.0f;
+    pk.uv[2] = 0.0f;
+    pk.uv[3] = 1.0f;
+    pk.uv[4] = 1.0f;
+    pk.uv[5] = 0.0f;
+    pk.uv[6] = 1.0f;
+    pk.uv[7] = 1.0f;
+    func_001F9C30(t, m + 0xE0, *(float *)&D_L05_00162088);
+    func_001F9BD8(M[3], m + 0x10, t);
+    func_001F9BF0(M[0], D_L05_001672C0, M[3]);
+    func_L00_001FF4B0(M[0], M[0], 1.0f);
+    func_001F9CA0(M[1], M[0], up);
+    func_L00_001FF4B0(M[1], M[1], 1.0f);
+    func_001F9CA0(M[2], M[1], M[0]);
+    func_001F9C30(w, M[0], *(float *)&D_L05_0016208C);
+    func_001F9BD8(M[3], M[3], w);
+    if (((unsigned char *)d)[0x67] != 0 && func_002140B0(8) == 0) {
+        *(int *)(d + 0x60) >>= 1;
+    }
+    col = (*(int *)(d + 0x60) << 24) | *(int *)(d + 0x68);
+    pk.col[3] = col;
+    pk.col[2] = col;
+    pk.col[1] = col;
+    pk.col[0] = col;
+    for (j = 0; j < 4; j++) {
+        func_001F9C30(pk.m[j], D_L05_00215FB0[j], *(float *)(d + 0x70));
+        func_001F9EE8(pk.m[j], pk.m[j], M);
+    }
+    func_L00_001FD1D8(&pk, 0, 0);
+}
 extern char *func_0020D348(int);
 extern void func_L00_00251E30(void *);
 
@@ -404,10 +511,99 @@ char *func_L05_0031E670(unsigned char *a0)
     }
     return (char *)m;
 }
-INCLUDE_ASM("asm/overlays", func_L05_0032A868);
-INCLUDE_ASM("asm/overlays", func_L05_0032A9D0);
+typedef int u128 __attribute__((mode(TI)));
+extern float func_001F9D48(float *, float *);
+extern void func_L00_001FF4B0(void *, void *, float);
+extern char D_0013F6E0[];
+extern int D_0015EE84 MACRO_ADDR;
+
+/* Sets up a moby's vector from the level table and clamps its height for the current state. */
+void func_L05_0032A868(char *moby) {
+    float v[4];
+    char *d = *(char **)(moby + 0x70);
+    float *p = (float *)(d + 0x80);
+    *(u128 *)v = 0;
+    v[2] = 0.7f;
+    func_001F9EE8(v, v, D_0013F450);
+    func_001F9BD8(p, D_0013F450 + 0x80, v);
+    qcopy(d + 0x1D0, p);
+    if (D_0015EE84 == 5) {
+        float w[4];
+        *(u128 *)w = 0;
+        w[0] = 286.16f;
+        w[1] = 447.82f;
+        w[2] = 63.37f;
+        w[3] = 1.0f;
+        if (func_001F9D48(w, p) < 48.0f) {
+            if (p[2] < 62.4f) {
+                p[2] = 62.4f;
+            }
+        } else {
+            if (p[2] < 67.2f) {
+                p[2] = 67.2f;
+            }
+        }
+    } else if (D_0015EE84 == 0x10) {
+        if (p[2] < 77.5f) {
+            p[2] = 77.5f;
+        }
+    }
+    func_L00_001FF4B0(p + 8, D_0013F6E0, -1.0f);
+}
+extern char *D_L05_00167300;
+/* updates camera parameters with default negative-value limits */
+void func_L05_0032A9D0(float a,float b,float c,float d,float e,float f,float g,float h) {
+ char *o=D_L05_00167300;
+ float *p=*(float **)(o+0x70);
+ p[0x184/4]=a;
+ p[0x188/4]=b;
+ p[0x180/4]=c;
+ p[0x190/4]=d;
+ p[0x194/4]=e;
+ p[0x18c/4]=f;
+ p=*(float **)(o+0x70);
+ if(g<0.0f) p[4]=0.01f; else p[4]=g;
+ if(h<0.0f) p[5]=0.2f; else p[5]=h;
+}
 INCLUDE_ASM("asm/overlays", func_L05_0032AA48);
-INCLUDE_ASM("asm/overlays", func_L05_0032AA50);
+extern void func_L05_0032A868(char *);
+extern void func_L00_001FF4B0(void *, void *, float);
+extern void func_001F9CA0(void *, void *, void *);
+
+/* Places the camera moby relative to the hero's target and builds its look-at basis. */
+void func_L05_0032AA50(char *m) {
+    char *d = *(char **)(m + 0x70);
+    char *at = m + 0x30;
+    char *up = m + 0x10;
+    char *side = m + 0x20;
+    char *g;
+    char *a;
+    char *b;
+    float v0[4];
+    float v1[4];
+    float v2[4];
+    float v3[4];
+    float v4[4];
+    func_L05_0032A868(m);
+    g = D_0013E633 + 0xE1D;
+    a = d + 0x80;
+    b = d + 0xE0;
+    func_L00_001FF4B0(v3, *(char **)(g + 0x2080) + 0xC0, 1.0f);
+    func_L00_001FF4B0(v3, v3, *(float *)(d + 0xE0));
+    func_001F9BF0(at, a, v3);
+    func_L00_001FF4B0(v4, g + 0x290, -1.0f);
+    func_L00_001FF4B0(v3, v4, *(float *)(b + 0x10));
+    func_001F9BD8(at, at, v3);
+    func_L00_001FF4B0(v0, v4, *(float *)(a + 0x4C));
+    func_001F9BD8(v2, v0, a);
+    func_001F9BF0(v1, v2, at);
+    func_L00_001FF4B0(m, v1, 1.0f);
+    func_001F9CA0(up, m, v4);
+    func_001F9CA0(side, up, m);
+    func_L00_001FF4B0(up, up, 1.0f);
+    func_L00_001FF4B0(side, side, 1.0f);
+    qcopy(m + 0x40, m);
+}
 INCLUDE_ASM("asm/overlays", func_L05_0032ABF0);
 INCLUDE_ASM("asm/overlays", func_L05_0032ADE8);
 INCLUDE_ASM("asm/overlays", func_L05_0032B1F8);

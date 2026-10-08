@@ -2,4 +2,66 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L08_00273A80);
+typedef int u128 __attribute__((mode(TI)));
+extern unsigned char *D_L08_001B2B80;
+extern unsigned char *func_00218928(int);
+extern float func_002140F8(float, float);
+extern void func_L00_001FF4B0(void *, void *, float);
+extern int func_001FA898_r(float) __asm__("func_001FA898");
+extern void func_001F9BD8(void *, void *, void *);
+
+// Spawns a particle at a position with a color and scale chosen by kind.
+void func_L08_00273A80(float *pos, int kind, float *vec, float scale) {
+    float v[4];
+    float *vp = v;
+    float w[4];
+    float u[4];
+    unsigned char *p;
+    int k2 = kind;
+    int c;
+    float s;
+    float f20;
+    int k;
+    *(u128 *)v = *(u128 *)vec;
+    p = func_00218928(0);
+    if (p != 0) {
+        c = 0;
+        k = k2;
+        f20 = 0.0f;
+        s = f20;
+        switch (k) {
+        case 0:
+            c = 0x14;
+            f20 = 0.015f;
+            s = func_002140F8(0.01f, 1.0f);
+            break;
+        case 1:
+            c = 0xD;
+            f20 = 0.5f;
+            s = func_002140F8(1.0f, 5.0f);
+            break;
+        case 2:
+            c = 0xD;
+            f20 = 1.0f;
+            k = 1;
+            s = func_002140F8(20.0f, 30.0f);
+            break;
+        }
+        *(u128 *)w = *(u128 *)vp;
+        func_L00_001FF4B0(w, w, s);
+        *(short *)(p + 0xA) = k2;
+        *(int *)(p + 4) = ((c >> 2) << 24) | 0x606060;
+        *(int *)(p + 0xC) = (c << 24) | 0x907070;
+        p[9] = func_001FA898_r(4.0f) + 0x60;
+        p[3] = 0x44;
+        p[1] = 3;
+        p[2] = D_L08_001B2B80[k];
+        *(u128 *)(p + 0x10) = *(u128 *)pos;
+        func_001F9BD8(u, pos, w);
+        *(u128 *)(p + 0x20) = *(u128 *)u;
+        *(float *)(p + 0x1C) = f20;
+        *(float *)(p + 0x2C) = 1.0f;
+        *(u128 *)(p + 0x30) = *(u128 *)vp;
+        *(float *)(p + 0x3C) = scale;
+    }
+}

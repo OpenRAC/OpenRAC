@@ -529,6 +529,18 @@ def claim(args) -> None:
         print(packet(name, wave["budget"], wave.get("near", False)))
 
 
+def joined_pieces(name: str) -> list[str]:
+    """The catalogue entries after NAME that are pieces of the same function
+    (config/overlays/joined.tsv; docs/OVERLAYS.md, "Joined functions")."""
+    table = ROOT / "config/overlays/joined.tsv"
+    if not table.exists():
+        return []
+    for line in table.read_text().splitlines():
+        if line.startswith(name + "\t"):
+            return line.split("\t", 1)[1].split()
+    return []
+
+
 def packet(name: str, budget: int, near: bool = False) -> str:
     work = TRY / name
     context = (work / "CONTEXT.md").read_text(errors="replace").splitlines() if (work / "CONTEXT.md").exists() else []
@@ -538,11 +550,25 @@ def packet(name: str, budget: int, near: bool = False) -> str:
                                  *ROOT.glob(f"asm/nonmatchings/*/{name}.s")) if p.exists()), None)
     asm = [re.sub(r"^\s*/\*[^*]*\*/\s*", "    ", l) for l in asm_path.read_text().splitlines()
            if l.strip() and not l.startswith((".section", "/* Handwritten", "nonmatching"))] if asm_path else []
+    for piece in joined_pieces(name):
+        # A joined function: the catalogue cut it apart, the C is one function under the first name.
+        path = ROOT / "asm/overlays" / f"{piece}.s"
+        if path.exists():
+            asm += [f"    # the same function goes on (catalogue entry {piece}: a branch to that name is a branch "
+                    "to here, inside the function)"]
+            asm += [re.sub(r"^\s*/\*[^*]*\*/\s*", "    ", l) for l in path.read_text().splitlines()
+                    if l.strip() and not l.startswith((".section", "/* Handwritten", "nonmatching", ".align"))]
+        else:
+            asm += [f"    # the function ends with the 4-byte entry {piece}: the delay slot of the jump above, "
+                    "or a `jr $31` and its nop"]
     used = [int(m.group(1)) for c in work.glob("p*.c") if (m := re.fullmatch(r"p(\d+)\.c", c.name))]
     first = max(used) + 1 if used else 0     # never overwrite an earlier round's candidates: the run logs name them
     out = [f"===== {name}: budget {budget} runs, work in build-sn/try/{name}/, "
-           f"your first candidate is p{first}.c =====", *keep,
-           "", "## Assembly", *asm]
+           f"your first candidate is p{first}.c =====", *keep]
+    if joined_pieces(name):
+        out += ["- A joined function: the assembly below is several catalogue entries, written as ONE C function "
+                f"named {name}. Earlier notes about its size were made against the first entry alone: ignore them."]
+    out += ["", "## Assembly", *asm]
     best, diff = work / "best.c", work / "BEST_DIFF.txt"
     if near and best.exists():
         shown = diff.read_text(errors="replace").splitlines() if diff.exists() else ["(no diff written)"]

@@ -213,7 +213,33 @@ extern int func_00205790(void);
 extern void func_0020BA00(char *out);
 extern void func_00217588(void);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00219C08);
+struct S {
+    u8 pad_0[0x140];
+    float f140, f144, f148;
+    u8 pad_14C[0x204];
+    float f350;
+    u8 pad_354[0x10];
+    float f364;
+    u8 pad_368[0x10];
+    float f378, f37C;
+};
+extern struct S D_00187040_19C08 __asm__("D_00187040");
+extern s32 D_001873A0;
+extern s32 D_001873B0;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/rendering/fun_00218d10.c, FUN_00218d10. */
+void func_00219C08(void) {
+    D_00187040_19C08.f140 = 256.0f;
+    D_00187040_19C08.f148 = 64.0f;
+    D_00187040_19C08.f144 = 256.0f;
+    qzero(&D_00187040_19C08.f350);
+    qzero(&D_001873A0);
+    qzero(&D_001873B0);
+    D_00187040_19C08.f350 = 1.0f;
+    D_00187040_19C08.f364 = 1.0f;
+    D_00187040_19C08.f378 = 1.0f;
+    D_00187040_19C08.f37C = 1.0f;
+}
 
 extern void func_0012E528(int);
 extern void func_00216EF0(int);
@@ -300,7 +326,7 @@ void func_00219C70(int arg0) {
     }
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00219E48);
+LINKER_REMNANT("asm/remnants/text", func_00219E48);
 
 void func_00219E60(void) {
     char *p = D_001D5F70;
@@ -603,7 +629,196 @@ INCLUDE_ASM("asm/nonmatchings/text", func_0021B298);
 
 INCLUDE_ASM("asm/nonmatchings/text", func_0021BB90);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_0021C1B0);
+typedef struct {
+    s16 text_id;
+    s16 enabled;
+    s32 action_value;
+    s16 secondary_text_id;
+    s16 fade_timer;
+} MenuItem_1C1B0;
+typedef struct {
+    u8 pad0[0x20];
+    s32 width;
+    s32 height;
+    u8 pad28[8];
+    s32 flags;
+    MenuItem_1C1B0 *items;
+    u8 pad38[8];
+    s32 selected_entry;
+} MenuDescriptor;
+typedef struct {
+    u8 pad0[0x40];
+    MenuDescriptor *focus;
+} MenuPage;
+extern MenuPage * D_001D5F74_1C1B0[] __asm__("D_001D5F74");
+extern u8 D_001DF3D0[];
+extern u8 D_001DF770[];
+extern u8 D_001DFB10[];
+extern short D_001602B8;
+extern short D_001602BC;
+extern void func_00234C98_1C1B0(s32, long) __asm__("func_00234C98");
+extern void func_001F4630(s32);
+extern s32 func_001F4868(s32);
+extern void func_001F6598(void);
+extern void func_001F65A8(void);
+extern s32 func_001F65B0_1C1B0(char *, s32, u8 *) __asm__("func_001F65B0");
+extern void func_001F6668_1C1B0(s32, s32, long, char *, s32, s32, u8 *) __asm__("func_001F6668");
+extern char *func_001FE540_1C1B0(s32) __asm__("func_001FE540");
+extern s32 func_0021C6C0(s32, s32, s32);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/render_localized_ui_entry_list.c, render_localized_ui_entry_list. */
+s32 func_0021C1B0(MenuDescriptor *menu) {
+    s32 focused;
+    u8 *glyphs;
+    s32 font_texture_index;
+    s32 row_height;
+    s32 half_width;
+    s32 maximum_text_width;
+    s32 selection_index;
+    s32 font_height;
+    s32 entry_count;
+    MenuItem_1C1B0 *entry;
+    MenuItem_1C1B0 *scan_entry;
+    s32 entry_index;
+    s32 selected_entry;
+    s32 enabled;
+    s32 color;
+    char *text_id;
+    char *secondary_text;
+    s32 x;
+    s32 y;
+    s32 text_width;
+    s32 flags;
+    s32 menu_width;
+    MenuItem_1C1B0 *selected_item;
+    s32 shadow_y;
+    s32 shadow_x;
+    font_height = 12;
+    font_texture_index = 1;
+    glyphs = D_001DF3D0;
+    focused = D_001D5F74_1C1B0[0]->focus == menu;
+    if (menu->flags & 4) {
+        font_height = 14;
+        font_texture_index = 3;
+        glyphs = D_001DFB10;
+    }
+    if (menu->flags & 8) {
+        font_height = 10;
+        font_texture_index = 2;
+        glyphs = D_001DF770;
+    }
+    func_00234C98_1C1B0(0x42, 0x44);
+    func_00234C98_1C1B0(0x47, 0x2004B);
+    func_001F4630(0);
+    entry_count = 0;
+    entry = menu->items;
+    while (entry->text_id != 0) {
+        entry++;
+        entry_count++;
+    }
+
+    if (menu->flags & 0x10) {
+        row_height = font_height + 3;
+    } else {
+        row_height = menu->height / (entry_count + 1);
+    }
+    half_width = menu->width >> 1;
+    maximum_text_width = 0;
+    y = (row_height - (font_height / 2)) - 1;
+    if (menu->flags & 0x4000) {
+        scan_entry = menu->items;
+        if (scan_entry[0].text_id != 0) {
+            entry_index = 0;
+            selection_index = 0;
+            do {
+                text_width = func_001F65B0_1C1B0(
+                    func_001FE540_1C1B0(scan_entry[entry_index].text_id), -1, glyphs);
+                entry_index++;
+                selection_index++;
+                maximum_text_width =
+                    (maximum_text_width < text_width) ? (text_width) : (maximum_text_width);
+                scan_entry = menu->items;
+            } while (menu->items[selection_index].text_id != 0);
+        }
+    }
+    flags = menu->flags;
+    menu_width = menu->width;
+    if (flags & 0x20000) {
+        if (menu_width < (maximum_text_width + 6)) {
+            if (!(flags & 8)) {
+                menu->flags = flags | 8;
+                return 1;
+            }
+        }
+    }
+    entry_index = (selection_index = 0);
+    maximum_text_width = (menu_width < maximum_text_width) ? (menu_width) : (maximum_text_width);
+    if (menu->items[0].text_id != 0) {
+        do {
+            selected_entry = 0;
+            if (focused) {
+                selected_entry = menu->selected_entry == selection_index;
+            }
+            selected_item = (MenuItem_1C1B0 *)((u32)(entry_index * sizeof(MenuItem_1C1B0)) + (u32)menu->items);
+            enabled = selected_item->enabled != 0;
+            if (menu->flags & 2) {
+                color = 0x80FFA888;
+            } else if (selected_entry) {
+                if (enabled) {
+                    goto fade_timer;
+                }
+                color = 0x80006060;
+            } else if (enabled) {
+            fade_timer:
+                color = func_0021C6C0(selected_item->fade_timer, -1, -1);
+
+            } else {
+                color = 0x80303030;
+            }
+            text_id = func_001FE540_1C1B0(menu->items[entry_index].text_id);
+            if (menu->items[entry_index].enabled == 2) {
+                text_id = func_001FE540_1C1B0(0x4F54);
+            }
+            x = half_width - (func_001F65B0_1C1B0(text_id, -1, glyphs) >> 1);
+            if (menu->flags & 0x40) {
+                x = 4;
+            } else if (menu->flags & 0x4000) {
+                x = half_width - (maximum_text_width >> 1);
+            }
+            func_001F65A8();
+            func_001F6668_1C1B0(x + (*(s32 *)&D_001602B8), y + (*(s32 *)&D_001602BC), 0x80000000L, text_id, -1,
+                       func_001F4868(font_texture_index), glyphs);
+            func_001F6598();
+            if (menu->flags & 0x80) {
+                func_001F65A8();
+            }
+            func_001F6668_1C1B0(x, y, color, text_id, -1, func_001F4868(font_texture_index), glyphs);
+            y += row_height;
+            if (menu->items[entry_index].secondary_text_id != 0) {
+                func_001F65A8();
+                shadow_x = x + (*(s32 *)&D_001602B8);
+                shadow_y = y + (*(s32 *)&D_001602BC);
+                secondary_text = func_001FE540_1C1B0(menu->items[entry_index].secondary_text_id);
+                func_001F6668_1C1B0(shadow_x, shadow_y, 0x80000000L, secondary_text, -1,
+                           func_001F4868(font_texture_index), glyphs);
+                if (!(menu->flags & 0x80)) {
+                    func_001F6598();
+                }
+                func_001F6668_1C1B0(x, y, color,
+                           func_001FE540_1C1B0(menu->items[entry_index].secondary_text_id), -1,
+                           func_001F4868(font_texture_index), glyphs);
+                y += row_height;
+            }
+            if (menu->flags & 0x80) {
+                func_001F6598();
+            }
+            entry_index++;
+            selection_index++;
+        } while (menu->items[entry_index].text_id != 0);
+    }
+    func_001F4748();
+    return 2;
+}
 
 /* SDA, gp -0x6A4C: declared 2 bytes so the assembler reaches it through
    $gp, and read as the int it is. */
@@ -1683,7 +1898,76 @@ int func_0021F610(char *arg0) {
     return 8;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_0021F6A0);
+struct ItemPreviewPlacement {
+    f32 alternate_x;
+    f32 normal_x;
+    f32 y;
+    f32 z;
+    u8 pad10[8]; /* Per-item record stride is 0x20. */
+    f32 side_offset;
+    f32 forward_offset;
+};
+struct ItemPreviewBinding {
+    u8 pad0[0x30];
+    s32 flags;
+    u8 pad34[4];
+    f32 rotation_angle;
+};
+struct ItemPreviewVars {
+    struct ItemPreviewBinding *owner;
+    u8 pad4[8];
+    s32 item_index;
+};
+struct ItemPreviewMoby {
+    u8 pad0[0x10];
+    volatile f32 x;
+    f32 y;
+    f32 z;
+    u8 pad1C[0x2C];
+    f32 rotation_z;
+    u8 pad4C[0x2C];
+    struct ItemPreviewVars *preview_vars;
+};
+struct PreviewCamera {
+    u8 pad0[0x140];
+    f32 x;
+    f32 y;
+    f32 z;
+};
+extern struct PreviewCamera D_00187040_1F6A0 __asm__("D_00187040");
+extern struct ItemPreviewPlacement D_001E0708[];
+extern f32 func_001F9F90(f32);
+extern f32 func_001F9FA8(f32);
+
+/* Position the selected item relative to the preview camera. Owner flag bit 0 selects alternate_x; otherwise use normal_x. Rotate the side and forward offsets in the X/Y plane after adding the unrotated placement position.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/update_item_preview_transform.c, update_item_preview_transform. */
+void func_0021F6A0(struct ItemPreviewMoby *moby) {
+    struct ItemPreviewBinding *preview = moby->preview_vars->owner;
+    s32 item_index = moby->preview_vars->item_index;
+    f32 side_offset;
+    f32 forward_offset;
+    f32 cosine;
+    f32 sine;
+    f32 negated_forward_offset;
+    s32 flags = preview->flags;
+    f32 y_offset;
+    struct PreviewCamera *camera;
+
+    moby->rotation_z = preview->rotation_angle;
+    moby->x = D_00187040_1F6A0.x + ((flags & 1) ? D_001E0708[item_index].alternate_x
+                                              : D_001E0708[item_index].normal_x);
+    camera = &D_00187040_1F6A0;
+    y_offset = D_001E0708[item_index].y;
+    moby->y = camera->y + y_offset;
+    moby->z = camera->z + D_001E0708[item_index].z;
+    forward_offset = D_001E0708[item_index].forward_offset;
+    side_offset = D_001E0708[item_index].side_offset;
+    cosine = func_001F9F90(moby->rotation_z);
+    negated_forward_offset = -forward_offset;
+    sine = func_001F9FA8(moby->rotation_z);
+    moby->x += negated_forward_offset * sine + side_offset * cosine;
+    moby->y += forward_offset * cosine + side_offset * sine;
+}
 
 extern int D_0013D48C;
 extern int D_0015F6E4 MACRO_ADDR;
@@ -3835,7 +4119,365 @@ int func_00225548(void *arg0) {
     return 0;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_002255F8);
+typedef struct Moby {
+    u8 pad00[0x20];
+    u8 state;
+    u8 pad21[0x13];
+    s16 update_kind;
+    u8 pad36[0x1D];
+    u8 anim;
+    u8 pad54[0x20];
+    void *update;
+    void **vars;
+    u8 pad7C[0x2A];
+    s16 oclass;
+    u8 padA8[0x14];
+    u8 ammo_moby_slot;
+} Moby;
+typedef struct HandGadgetState {
+    u8 pad00[0x44];
+    s32 source_moby_address;
+    u8 pad48[4];
+    Moby *pose_moby;
+    Moby *animation_moby;
+    Moby *class_pose_moby;
+    Moby *first_attachment_moby;
+    Moby *second_attachment_moby;
+    s32 x60;
+    s32 x64;
+    s32 x68;
+    Moby *class_0197_moby;
+    Moby *class_0266_moby;
+    Moby *class_026a_moby;
+    Moby *ammo_mobys[8];
+    u8 pad98[0xC];
+    u8 timers[0x18];
+} HandGadgetState;
+typedef struct HandGadgetDefinition {
+    u8 pad00[0x10];
+    s32 oclass;
+    u8 pad14[0x38];
+} HandGadgetDefinition;
+typedef struct HandGadgetSelection {
+    u8 pad00[0x1C];
+    s32 current_gadget;
+    u8 pad20[0x10];
+    s32 selected_gadget;
+    s32 attachment_gadget;
+    s32 animation_gadget;
+    s32 pose_gadget;
+    u8 pad40[0x8C];
+    s32 animation_base;
+    u8 padD0[0x48];
+    s32 D_00160050;
+    s32 active_resource_class;
+    s32 requested_resource_class;
+    u8 pad124[0x1C];
+    s32 last_requested_resource_class;
+    s32 last_resource_request_state;
+} HandGadgetSelection;
+typedef struct HandGadgetManipulator {
+    u8 pad0;
+    u8 active;
+    u8 pad2[0x1E];
+    float rotation_x;
+    float rotation_y;
+    float rotation_z;
+} HandGadgetManipulator;
+typedef struct HandGadgetAnimation {
+    s32 resource_first;
+    s32 resource_count;
+    s32 primary_animation;
+    s32 delay_frames;
+    s32 item_animation;
+    s32 secondary_animation;
+    s32 attachment0_class;
+    s32 attachment0_animation;
+    s32 attachment1_class;
+    s32 attachment1_animation;
+    s32 attachment2_class;
+    s32 attachment2_animation;
+} HandGadgetAnimation;
+extern u8 D_0013D5C8_255F8[] __asm__("D_0013D5C8");
+typedef struct HandGadgetPlayerState {
+    u8 pad0[0x10B8];
+    s32 equipped_gadget;
+    u8 pad10BC[0xF3A];
+    u8 ammo_used;
+    u8 ammo_capacity;
+} HandGadgetPlayerState;
+extern HandGadgetPlayerState D_0013F450_255F8 __asm__("D_0013F450");
+extern s32 D_00160050 MACRO_ADDR;
+extern HandGadgetDefinition D_001864D0_255F8[] __asm__("D_001864D0");
+extern u8 * D_001B3580_255F8[] __asm__("D_001B3580");
+extern u8 D_001B3E40[];
+extern HandGadgetAnimation D_001D5668[];
+extern HandGadgetSelection D_001D5F70_255F8 __asm__("D_001D5F70");
+extern HandGadgetManipulator D_001D6160_255F8 __asm__("D_001D6160");
+extern HandGadgetManipulator D_001D61A0_255F8 __asm__("D_001D61A0");
+extern HandGadgetManipulator D_001D61E0_255F8 __asm__("D_001D61E0");
+extern float D_001D6220[];
+extern s32 D_001D6238_255F8[] __asm__("D_001D6238");
+extern void func_001E97F0(s32, s32);
+extern void func_001E97F8(Moby *, s32);
+extern void func_00205270(s32, s32);
+extern void func_0020D960_255F8(s32, s32, HandGadgetManipulator *) __asm__("func_0020D960");
+extern void func_0020D9D8_255F8(s32, HandGadgetManipulator *) __asm__("func_0020D9D8");
+extern void func_00213DE0(void *, int, int, int);
+extern Moby *func_00226720_255F8(s32) __asm__("func_00226720");
+extern Moby *func_002267C0_255F8(Moby *) __asm__("func_002267C0");
+extern void func_00227100(s32, Moby *, Moby *, s32 *, s32 *, s32 *);
+extern s32 func_00227890(s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
+extern s32 func_002279D0(void);
+extern void func_00225E00();
+extern void func_00225FB8();
+extern void func_002260A8();
+extern void func_00226250();
+extern void func_00226380();
+extern void func_00226410();
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/gameplay/gadgets/load_hand_gadget.c, load_hand_gadget. */
+s32 func_002255F8(HandGadgetState *hand) {
+    Moby *moby;
+    s32 previous_selected_class;
+    s32 previous_animation_class;
+    s32 previous_attachment_class;
+    s32 previous_pose_class;
+    s32 previous_class_0197;
+    s32 previous_class_0266;
+    s32 previous_class;
+    s32 requested_class;
+    s32 selected_class;
+    s32 selected_gadget;
+    s32 loaded_gadget;
+    s32 slot_index;
+    s32 velocity_offset;
+    HandGadgetAnimation *animation;
+    float *ammo_offset;
+    s32 selected_class_ready;
+    Moby **ammo_moby_slot;
+    loaded_gadget = 0;
+    moby = hand->class_pose_moby;
+    previous_selected_class = (moby != 0) ? (moby->oclass) : (-1);
+    selected_gadget = D_001D5F70_255F8.selected_gadget;
+    selected_class = D_001864D0_255F8[selected_gadget].oclass;
+    selected_class_ready = selected_class == D_001D5F70_255F8.requested_resource_class;
+    if ((previous_selected_class != selected_class) && selected_class_ready) {
+        func_002267C0_255F8(moby);
+        if (D_001D6160_255F8.active) {
+            func_0020D9D8_255F8(hand->source_moby_address, &D_001D6160_255F8);
+        }
+        if ((D_0013F450_255F8.equipped_gadget != 0) &&
+            (selected_gadget != D_0013F450_255F8.equipped_gadget)) {
+            func_001E97F0(0, 0);
+        }
+        D_00160050 = D_001D5F70_255F8.D_00160050 == 0;
+        func_00205270(selected_class, -1);
+        D_001D5F70_255F8.active_resource_class = selected_class;
+        D_001D5F70_255F8.D_00160050 = D_00160050;
+        D_001D5F70_255F8.last_requested_resource_class = selected_class;
+        D_001D5F70_255F8.last_resource_request_state = D_00160050;
+        D_001B3580_255F8[D_001B3E40[selected_class]][0xD] = 0;
+        moby = func_00226720_255F8(selected_class);
+        if (moby != 0) {
+            loaded_gadget = selected_gadget;
+            if (D_0013E620[loaded_gadget]) {
+                func_001E97F8(moby, hand->source_moby_address);
+            }
+            *moby->vars = hand;
+            moby->update = func_00225E00;
+            moby->update_kind = 4;
+            if (loaded_gadget == 0x12) {
+                func_0020D960_255F8(hand->source_moby_address, 0, &D_001D6160_255F8);
+                D_001D6160_255F8.rotation_x = 0;
+                D_001D6160_255F8.rotation_y = 0;
+                D_001D6160_255F8.rotation_z = 0;
+            }
+        }
+        hand->class_pose_moby = moby;
+    }
+    moby = hand->animation_moby;
+    previous_animation_class = (moby != 0) ? (moby->oclass) : (-1);
+    requested_class = D_001864D0_255F8[D_001D5F70_255F8.animation_gadget].oclass;
+    if (previous_animation_class != requested_class) {
+        moby = func_002267C0_255F8(moby);
+        if (requested_class != (-1)) {
+            moby = func_00226720_255F8(requested_class);
+            if (moby != 0) {
+                loaded_gadget = D_001D5F70_255F8.animation_gadget;
+                *moby->vars = hand;
+                moby->update = func_00225FB8;
+                moby->update_kind = 4;
+            }
+        }
+        hand->animation_moby = moby;
+    }
+    moby = hand->first_attachment_moby;
+    previous_attachment_class = (moby != 0) ? (moby->oclass) : (-1);
+    requested_class = D_001864D0_255F8[D_001D5F70_255F8.attachment_gadget].oclass;
+    if (previous_attachment_class != requested_class) {
+        moby = func_002267C0_255F8(moby);
+        if (D_001D61A0_255F8.active) {
+            func_0020D9D8_255F8(hand->source_moby_address, &D_001D61A0_255F8);
+        }
+        if (D_001D61E0_255F8.active) {
+            func_0020D9D8_255F8(hand->source_moby_address, &D_001D61E0_255F8);
+        }
+        if (requested_class != (-1)) {
+            moby = func_00226720_255F8(requested_class);
+            if (moby != 0) {
+                loaded_gadget = D_001D5F70_255F8.attachment_gadget;
+                *moby->vars = hand;
+                moby->update = func_002260A8;
+                moby->update_kind = 4;
+                func_0020D960_255F8(hand->source_moby_address, 0x16, &D_001D61A0_255F8);
+                func_0020D960_255F8(hand->source_moby_address, 0x17, &D_001D61E0_255F8);
+                D_001D61E0_255F8.rotation_z =
+                    (D_001D61A0_255F8.rotation_z =
+                         (D_001D61E0_255F8.rotation_y =
+                              (D_001D61E0_255F8.rotation_x =
+                                   (D_001D61A0_255F8.rotation_y =
+                                        (D_001D61A0_255F8.rotation_x = 0.01f)))));
+            }
+        }
+        hand->first_attachment_moby = moby;
+        moby = func_002267C0_255F8(hand->second_attachment_moby);
+        if (requested_class != (-1)) {
+            moby = func_00226720_255F8(requested_class);
+            if (moby != 0) {
+                *moby->vars = hand;
+                moby->update = func_002260A8;
+                moby->update_kind = 4;
+            }
+        }
+        hand->second_attachment_moby = moby;
+    }
+    moby = hand->pose_moby;
+    previous_pose_class = (moby != 0) ? (moby->oclass) : (-1);
+    requested_class = D_001864D0_255F8[D_001D5F70_255F8.pose_gadget].oclass;
+    if (previous_pose_class != requested_class) {
+        moby = func_002267C0_255F8(moby);
+        if (requested_class != (-1)) {
+            moby = func_00226720_255F8(requested_class);
+            if (moby != 0) {
+                *moby->vars = hand;
+                moby->update = func_00226250;
+                moby->update_kind = 4;
+                if (moby->oclass == 0x25F) {
+                    if (moby->anim != 6) {
+                        func_00213DE0(moby, 6, 0, 10);
+                    }
+                    moby->state = 8;
+                }
+            }
+        }
+        hand->pose_moby = moby;
+    }
+    moby = hand->class_0197_moby;
+    previous_class_0197 = (moby != 0) ? (moby->oclass) : (-1);
+    requested_class = (D_0013D5C8_255F8[0x23]) ? (0x197) : (-1);
+    if (previous_class_0197 != requested_class) {
+        moby = func_002267C0_255F8(moby);
+        if (requested_class != (-1)) {
+            moby = func_00226720_255F8(requested_class);
+            if (moby != 0) {
+                *moby->vars = hand;
+                moby->update = func_00226380;
+                moby->update_kind = 4;
+            }
+        }
+        hand->class_0197_moby = moby;
+    }
+    moby = hand->class_0266_moby;
+    previous_class_0266 = (moby != 0) ? (moby->oclass) : (-1);
+    requested_class = (D_0013D5C8_255F8[0x21]) ? (0x266) : (-1);
+    if (previous_class_0266 != requested_class) {
+        moby = func_002267C0_255F8(moby);
+        if (requested_class != (-1)) {
+            moby = func_00226720_255F8(requested_class);
+            if (moby != 0) {
+                *moby->vars = hand;
+                moby->update = func_00226380;
+                moby->update_kind = 4;
+            }
+        }
+        hand->class_0266_moby = moby;
+    }
+    moby = hand->class_026a_moby;
+    previous_class = (moby != 0) ? (moby->oclass) : (-1);
+    requested_class = (D_0013D5C8_255F8[0x22]) ? (0x26A) : (-1);
+    if (previous_class != requested_class) {
+        moby = func_002267C0_255F8(moby);
+        if (requested_class != (-1)) {
+            moby = func_00226720_255F8(requested_class);
+            if (moby != 0) {
+                *moby->vars = hand;
+                moby->update = func_00226380;
+                moby->update_kind = 4;
+            }
+        }
+        hand->class_026a_moby = moby;
+    }
+    slot_index = 0;
+    ammo_offset = D_001D6220;
+    ammo_moby_slot = hand->ammo_mobys;
+    do {
+        moby = *ammo_moby_slot;
+        previous_class = (moby != 0) ? (moby->oclass) : (-1);
+        requested_class = (slot_index < D_0013F450_255F8.ammo_capacity) ? (0x1DF) : (-1);
+        if (previous_class != requested_class) {
+            moby = func_002267C0_255F8(moby);
+            if (requested_class != (-1)) {
+                moby = func_00226720_255F8(requested_class);
+                velocity_offset = slot_index * 4;
+                *ammo_offset = (slot_index < D_0013F450_255F8.ammo_used) ? (0.0f) : (3.0f);
+                *(s32 *)((u8 *)D_001D6238_255F8 + velocity_offset) = 0;
+                if (moby != 0) {
+                    *moby->vars = hand;
+                    moby->update = func_00226410;
+                    moby->update_kind = 4;
+                    moby->ammo_moby_slot = slot_index;
+                }
+            }
+            *ammo_moby_slot = moby;
+        }
+        slot_index++;
+        ammo_moby_slot++;
+        ammo_offset++;
+    } while (slot_index < 8);
+    if (((loaded_gadget != D_001D5F70_255F8.current_gadget) && (loaded_gadget > 0)) &&
+        (loaded_gadget < 0x24)) {
+        D_001D5F70_255F8.current_gadget = loaded_gadget;
+        func_002279D0();
+        func_00227890(D_001D5668[loaded_gadget].primary_animation +
+                                    D_001D5F70_255F8.animation_base,
+                                0, D_001D5668[loaded_gadget].delay_frames, loaded_gadget,
+                                D_001D5668[loaded_gadget].item_animation,
+                                D_001D5668[loaded_gadget].attachment0_class,
+                                D_001D5668[loaded_gadget].attachment0_animation,
+                                D_001D5668[loaded_gadget].attachment1_class,
+                                D_001D5668[loaded_gadget].attachment1_animation,
+                                D_001D5668[loaded_gadget].attachment2_class,
+                                D_001D5668[loaded_gadget].attachment2_animation,
+                                D_001D5668[loaded_gadget].resource_first,
+                                D_001D5668[loaded_gadget].resource_count);
+        if (D_001D5668[loaded_gadget].delay_frames != 0) {
+            func_00227890(D_001D5668[loaded_gadget].secondary_animation +
+                                        D_001D5F70_255F8.animation_base,
+                                    2, 0, loaded_gadget, 1, -1, 0, -1, 0, -1, 0, 0, 0);
+        }
+    }
+    for (slot_index = 0; slot_index < 0x18; slot_index++) {
+        if (hand->timers[slot_index] != 0) {
+            hand->timers[slot_index]--;
+        }
+    }
+
+    func_00227100(hand->source_moby_address, hand->class_pose_moby,
+                                             hand->animation_moby, &hand->x60, &hand->x64,
+                                             &hand->x68);
+    return 0;
+}
 
 void func_00225DF0(void) {
 }
@@ -4591,7 +5233,7 @@ void func_00228268(void) {
     FastMemSet(D_001D6760, 0, 0x100);
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_002282B8);
+LINKER_REMNANT("asm/remnants/text", func_002282B8);
 
 extern float D_00160470[] MACRO_ADDR;
 extern float D_00160470_x __asm__("D_00160470");
@@ -4617,38 +5259,8 @@ typedef struct {
    -mno-split-addresses (config/func_cflags.txt): every global goes
    through the assembler's lui $at macro, and only D_00160480, declared
    small, uses $gp when it lands in a delay slot. The aligned struct
-   copy is schedulable where qcopy's asm is not. */
-void func_002282D0(PauseVec *dir, float scale) {
-    PauseVec d;
-    float *v = d.v;
-
-    d = *dir;
-    func_001F9DC0(D_00160470, v, 1.0f);
-    D_00160490 = D_00160470_x * scale;
-    D_00160494 = D_00160474 * scale;
-    D_00160498 = D_00160478 * scale;
-    if (v[0] < v[1]) {
-        if (v[0] < v[2]) {
-            D_00160480_x = v[0];
-            D_00160484 = v[2];
-            D_00160488 = v[1];
-        } else {
-            D_00160480_x = v[1];
-            D_00160484 = v[0];
-            D_00160488 = v[2];
-        }
-    } else if (v[1] < v[2]) {
-        D_00160480_x = v[2];
-        D_00160484 = v[1];
-        D_00160488 = v[0];
-    } else {
-        D_00160480_x = v[1];
-        D_00160484 = v[0];
-        D_00160488 = v[2];
-    }
-    FastVecCross(D_00160480, D_00160480, D_00160470);
-    func_001F9DC0(D_00160480, D_00160480, 1.0f);
-}
+/* func_002282D0: matched only with -mno-split-addresses, which the rest of pause.c does not build with (docs/BUILD_FIDELITY.md, "Removed"). */
+INCLUDE_ASM("asm/nonmatchings/text", func_002282D0);
 
 /*
  * Dispatch on a leading short: 0 and 1 each call a handler and advance
@@ -4787,4 +5399,71 @@ INCLUDE_ASM("asm/nonmatchings/text", func_002284E8);
  */
 INCLUDE_ASM("asm/nonmatchings/text", func_00228690);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00228860);
+typedef u32 u128 __attribute__((mode(TI), aligned(16)));
+struct GraphicsSetupRecord {
+    s32 command_count;
+    s32 command_flags;
+    f32 second_depth;
+    f32 first_depth;
+    u128 direction;
+};
+extern u8 * D_00161000_28860 __asm__("D_00161000") MACRO_ADDR;
+struct VideoModeState {
+    s32 v;
+};
+extern struct VideoModeState D_0015EE80_28860 __asm__("D_0015EE80") MACRO_ADDR;
+extern u8 D_001D8250[];
+extern u8 D_001D81E0[];
+extern s32 D_001604A0 MACRO_ADDR;
+extern void func_002284E8(void);
+extern void func_002282D0_28860(f32 *, f32) __asm__("func_002282D0");
+extern u8 *func_00228400_28860(u8 *) __asm__("func_00228400");
+extern void func_00229838(f32 *, f32 *);
+extern void func_00228D20(u32, s32, s32);
+extern void func_00228458(s32, s32, s32);
+extern void func_00234C98_28860(s32, s64) __asm__("func_00234C98");
+extern void func_00228690(s64);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/fun_00227548.c, submit_graphics_setup_command_stream. */
+void func_00228860(u8 *command_stream) {
+    f32 first_vector[4];
+    f32 second_vector[4];
+    f32 direction[4];
+    struct GraphicsSetupRecord *record;
+    s32 command_index;
+
+    func_002284E8();
+    record = (struct GraphicsSetupRecord *)command_stream;
+    *(u32 *)(D_00161000_28860 + 0) = 0x30000007;
+    *(u32 *)(D_00161000_28860 + 4) =
+        (u32)(D_0015EE80_28860.v != 0 ? D_001D8250 : D_001D81E0);
+    *(u32 *)(D_00161000_28860 + 8) = 0x13000000;
+    *(u32 *)(D_00161000_28860 + 12) = 0x50000007;
+    /* Remaining vector components are filled from each setup record. */
+    second_vector[1] = first_vector[1] = second_vector[0] = first_vector[0] = 0.0f;
+    D_00161000_28860 += 16;
+    while (record->command_count != 0) {
+        command_stream += 0x20;
+        *(u128 *)direction = record->direction;
+        func_002282D0_28860(direction, 1000.0f);
+        first_vector[2] = record->first_depth;
+        second_vector[2] = record->second_depth;
+        for (command_index = 0; command_index < record->command_count; command_index++) {
+            command_stream = func_00228400_28860(command_stream);
+            func_00229838(first_vector, second_vector);
+            func_00228D20(0x70000000, D_001604A0, record->command_flags);
+            func_00228458(2, 1, 2);
+            func_00228458(1, 0, 2);
+        }
+        record = (struct GraphicsSetupRecord *)command_stream;
+    }
+    if (D_0015EE80_28860.v) {
+        func_00234C98_28860(0x4C, 0x80080);
+    } else {
+        func_00234C98_28860(0x4C, 0x80070);
+    }
+    func_00234C98_28860(0x42, 0x2000000064LL);
+    func_00228690(0);
+    func_00234C98_28860(0x47, 0x5360B);
+    func_00234C98_28860(0x42, 0x8000000044LL);
+}

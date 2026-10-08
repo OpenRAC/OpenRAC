@@ -200,7 +200,29 @@ void func_L00_0026A910(char *m) {
     *(int *)(m + 4) = DefaultVtbl_DeleteMoby(*(int *)(p + 0x14), *(int *)(p + 0x10), (float)*(short *)(m + 0xA) / func_001FA888(*(int *)(p + 0x1C)));
     if (FastDecTimer(m + 0xA)) KillPart(m);
 }
-INCLUDE_ASM("asm/overlays", func_L00_0026AA10);
+extern int D_L00_001B2414;
+
+/* spawns a type-5 particle at pos with packed color and a target */
+void func_L00_0026AA10(void *pos, unsigned char c0, unsigned char c1, unsigned char c2, int tgt, float a, float b) {
+    char *p;
+    float *q;
+    if (tgt) {
+        p = func_00218928(5);
+        if (p) {
+            qcopy(p + 0x10, pos);
+            *(int *)(p + 4) = 0x7F000000 | (c2 << 16) | (c1 << 8) | c0;
+            q = (float *)(p + 0x20);
+            p[9] = func_001FA898_r(4.0f) - 0x60;
+            p[3] = 0x48;
+            *(float *)(p + 0xC) = b;
+            p[1] = 0;
+            p[8] = 0;
+            p[2] = **(unsigned char **)&D_L00_001B2414;
+            *(int *)(p + 0x20) = tgt;
+            q[1] = a / func_001FA888(tgt);
+        }
+    }
+}
 extern int func_001F9908(void *);
 extern int func_001F9850(int);
 extern void func_L00_002688A8(void *);
@@ -312,7 +334,70 @@ void func_L00_0026B720(char *m) {
     FastVecScale(p, p, D_0015EE60 * -0.10000002384185791f + 1.0f);
     m[8]--;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0026B890);
+extern int func_002140B0(int);
+extern float func_002140F8(float, float);
+extern void func_L00_001FF4B0(void *, void *, float);
+extern float D_L00_0015F6B4 MACRO_ADDR;
+extern float D_L00_0015F6B8 MACRO_ADDR;
+extern unsigned char *D_L00_001B242C;
+typedef int u128 __attribute__((mode(TI)));
+typedef union { u128 q; float f[4]; } V_26a9f0;
+
+// Spawns a type-11 particle, skipped by chance under load. Adapted from Lombyte (MIT) for PAL: src/overlays/shared/rendering_00269290.c, FUN_L00_0026a9f0.
+void func_L00_0026B890(void *pos, void *dir, int col, int d, int n, int b1A, int b18, float x, int b19, float y) {
+    unsigned char *m;
+    unsigned char *q;
+    V_26a9f0 t;
+    V_26a9f0 v;
+
+    if (0 == n) {
+        return;
+    }
+    if (0.85f < D_L00_0015F6B4 || 0.85f < D_L00_0015F6B8) {
+        if (func_002140B0(3) == 0) {
+            return;
+        }
+    }
+    if (0.9f < D_L00_0015F6B4 || 0.9f < D_L00_0015F6B8) {
+        if (func_002140B0(2) == 0) {
+            return;
+        }
+    }
+    if (1.0f < D_L00_0015F6B4 || 1.0f < D_L00_0015F6B8) {
+        if (func_002140B0(1) == 0) {
+            return;
+        }
+    }
+    m = func_00218928(0xB);
+    if (m == 0) {
+        return;
+    }
+    qcopy(m + 0x10, pos);
+    *(int *)(m + 4) = col;
+    m[9] = func_001FA898_r(4.0f) - 0x60;
+    m[3] = (func_002140B0(100) < 0x14) ? 0x44 : 0x48;
+    m[1] = 0;
+    q = m + 0x20;
+    *(int *)(m + 0xC) = 0;
+    m[8] = func_001160D8();
+    m[2] = *D_L00_001B242C;
+    v.q = 0;
+    v.f[0] = func_002140F8(-1.0f, 1.0f);
+    v.f[1] = func_002140F8(-1.0f, 1.0f);
+    v.f[2] = func_002140F8(-1.0f, 1.0f);
+    t.q = v.q;
+    func_L00_001FF4B0(&t, &t, y);
+    func_001F9BD8(q, dir, &t);
+    *(float *)(q + 0xC) = y * 0.75f;
+    *(short *)(m + 0xA) = n;
+    q[0x1B] = n;
+    q[0x18] = b1A;
+    *(float *)(q + 0x1C) = x;
+    *(int *)(q + 0x10) = col;
+    *(int *)(q + 0x14) = d;
+    q[0x1A] = b18;
+    q[0x19] = b19;
+}
 extern float func_002140F8(float, float);
 extern void func_L00_0026B890(void *, void *, int, int, int, int, int, float, int, float);
 extern float func_001F9B50(float);
@@ -627,7 +712,41 @@ char *func_L00_0026CD70(float f, char *a, char *b, int c, int d, int e, int g) {
     return p;
 }
 INCLUDE_ASM("asm/overlays", func_L00_0026CF28);
-INCLUDE_ASM("asm/overlays", func_L00_0026D270);
+typedef u32 u128_6D270 __attribute__((mode(TI), aligned(16)));
+extern unsigned char * D_L00_001B2448;
+extern unsigned char *func_00218928_6D270(int) __asm__("func_00218928");
+extern void func_001F9EE8(void *, void *, void *);
+extern int func_001FA898(float);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/rendering_00269290.c, FUN_L00_0026c3d0. */
+void func_L00_0026D270(void *pos, u128_6D270 *mat) {
+    unsigned char *m = func_00218928_6D270(0x12);
+    if (m) {
+        float *q = (float *)(m + 0x20);
+        u128_6D270 out[1];
+        float v[4] __attribute__((aligned(16)));
+        u128_6D270 mt[4];
+        qzero(&mt[3]);
+        mt[0] = mat[0];
+        mt[1] = mat[1];
+        mt[2] = mat[2];
+        v[0] = func_002140F8(-0.1f, 0.1f);
+        v[1] = func_002140F8(-0.3f, 0.3f);
+        v[2] = func_002140F8(-0.3f, 0.3f);
+        func_001F9EE8(out, v, mt);
+        func_001F9BD8(m + 0x10, out, pos);
+        *(int *)(m + 4) = 0x806040;
+        m[9] = func_001FA898(4.0f) + 0x40;
+        m[1] = 0;
+        m[3] = 0x48;
+        m[8] = func_001160D8();
+        m[2] = *D_L00_001B2448;
+        q[1] = 0.08f;
+        *(float *)(m + 0xC) = func_002140F8(27993.002f, 49980.0f);
+        *(s16 *)(m + 0xA) = func_001F9850(0xD2);
+        q[3] = 1.0f;
+    }
+}
 extern float D_0015EE60_far __asm__("D_0015EE60") MACRO_ADDR;
 extern short D_L00_0015EE60;
 
@@ -1163,7 +1282,70 @@ void func_L00_0026ECA0(char *a) {
     *(unsigned *)(a + 4) = (*(unsigned *)(a + 4) & 0xFFFFFF) + (((*(int *)(b + 0x18) * *(int *)(b + 0x10)) / *(int *)(b + 0x14)) << 24);
     if (func_001F9908(a + 0x30)) KillPart(a);
 }
-INCLUDE_ASM("asm/overlays", func_L00_0026ED30);
+typedef struct { f32 f[4]; } __attribute__((aligned(16))) V_26de90;
+typedef struct { f32 q0; f32 q4; f32 q8; f32 qC; V_26de90 v30; } Q_26de90;
+typedef struct { u8 b0; u8 b1; u8 b2; u8 b3; s32 i4; u8 b8; u8 b9; s16 hA; f32 fC; V_26de90 v10; Q_26de90 q; } M_26de90;
+typedef struct { f32 f[16]; } __attribute__((aligned(16))) X_26de90;
+extern u8 * D_L00_001B2470;
+M_26de90 *func_00218928_6ED30(s32) __asm__("func_00218928");
+f32 func_002140F8(f32, f32);
+void func_001FA460(void *, void *);
+void func_001F9EE8(void *, void *, void *);
+void func_001F9BD8(void *, void *, void *);
+s32 func_001160D8(void);
+s32 func_001FA898(f32);
+s32 func_001F9850(s32);
+void func_001F9EC0(void *, void *, void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/rendering_00269290.c, FUN_L00_0026de90. */
+void func_L00_0026ED30(void *pos, void *dir, f32 size) {
+    M_26de90 *m;
+    V_26de90 a, d, t;
+    X_26de90 x;
+    s32 r, g, b;
+    Q_26de90 *q;
+    m = func_00218928_6ED30(0x1C);
+    if (m) {
+        q = &m->q;
+        d.f[0] = func_002140F8(-0.03f, 0.03f);
+        d.f[1] = func_002140F8(-0.03f, 0.03f);
+        d.f[2] = 0.0f;
+        if (dir) {
+            func_001FA460(&x, dir);
+            func_001F9EE8(&a, &d, &x);
+            func_001F9BD8(&m->v10, &a, pos);
+        } else {
+            func_001F9BD8(&m->v10, &d, pos);
+        }
+        m->v10.f[2] -= 0.05f;
+        r = func_001160D8() % 0x60;
+        if (!r) r = 1;
+        g = func_001160D8() % r % 64;
+        if (!g) g = 1;
+        b = func_001160D8() % g % 0x30;
+        m->i4 = (r + 0x8F) | ((g + 0x8F) << 8) | ((b + 0x6F) << 16);
+        m->b9 = func_001FA898(4.0f) + 0x40;
+        m->b3 = 0x48;
+        m->b1 = 0;
+        m->b8 = 0;
+        m->b2 = *D_L00_001B2470;
+        q->q4 = func_002140F8(0.0f, 0.0223456f) + 1e-05f;
+        m->fC = func_002140F8(10080.0f, 19950.0f);
+        q->q8 = 0.0f;
+        m->hA = func_001F9850(0xFC);
+        q->qC = 1.0f;
+        qzero(&t);
+        if (dir) {
+            t.f[0] = size;
+            t.f[2] = -0.0025f;
+            func_001F9EC0(&q->v30, &t, dir);
+        } else {
+            q->v30.f[0] = func_002140F8(-size, size);
+            q->v30.f[1] = func_002140F8(-size, size);
+            q->v30.f[2] = -0.0025f;
+        }
+    }
+}
 typedef struct { unsigned char pad0[4]; unsigned int i4; unsigned char b8; unsigned char pad9; unsigned char cA[2]; float fC; float pos[4]; struct Q_26e150 { float f0; float size; float phase; float vel; float dv[4]; } q; } M_26e150;
 extern float D_0015EE60_26e150 __asm__("D_0015EE60") MACRO_ADDR;
 extern int func_001F9938_26e150(void *) __asm__("func_001F9938");

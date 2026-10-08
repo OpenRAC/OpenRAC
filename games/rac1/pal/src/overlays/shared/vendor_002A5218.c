@@ -2,7 +2,7 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L02_002A5218);
+LINKER_REMNANT("asm/overlays", func_L02_002A5218);
 extern u8 D_L02_001CBC40[];
 extern float D_L02_001CB780[];
 extern short D_L02_00161320;
@@ -123,8 +123,130 @@ void func_L02_002DA728(char *moby) {
     *(float *)(p + 0x98) = FastAddRots(f, *(float *)(p + 0x98));
 }
 INCLUDE_ASM("asm/overlays", func_L02_002DA820);
-INCLUDE_ASM("asm/overlays", func_L02_002DB810);
-INCLUDE_ASM("asm/overlays", func_L02_002DBAF8);
+extern short D_L02_00161B9C, D_L02_00161BA0, D_L02_00161BA4, D_L02_00161BA8;
+extern float func_001F9F90(float);
+extern float func_001F9FA8(float);
+extern int func_001FA898_r(float) __asm__("func_001FA898");
+extern void func_L02_0020BF88(void *, void *, void *, s32, s32);
+
+/* Draws an elliptical arc from angle a to b (radii rx, ry, around the screen centre) as five sprite
+ * segments in colour col. */
+void func_L02_002DB810(int tex, u32 col, float a, float b, float rx, float ry) {
+    long xy[4];
+    u32 cols[4];
+    int uv[4];
+    float step = func_001FA790(b, a) / 5.0f;
+    int i;
+    uv[0] = *(int *)&D_L02_00161B9C;
+    uv[1] = *(int *)&D_L02_00161BA0;
+    uv[2] = *(int *)&D_L02_00161BA4;
+    uv[3] = *(int *)&D_L02_00161BA8;
+    cols[3] = col;
+    cols[2] = col;
+    cols[1] = col;
+    cols[0] = col;
+    for (i = 0; i < 5; i++) {
+        float t0 = func_001FA748(a, step * (float)i);
+        float t1 = func_001FA748(a, step * (float)(i + 1));
+        xy[3] = 0xFFFFF000000000L;
+        xy[2] = 0xFFFFF000000000L;
+        xy[1] = 0xFFFFF000000000L;
+        xy[0] = 0xFFFFF000000000L;
+        xy[0] += (u32)(-(func_001FA898_r(func_001F9F90(t0) * rx * 16.0f) << 16) - (int)0x80000000);
+        xy[0] += func_001FA898_r(func_001F9FA8(t0) * rx * 16.0f) + 0x8000;
+        xy[1] += (u32)(-(func_001FA898_r(func_001F9F90(t0) * ry * 16.0f) << 16) - (int)0x80000000);
+        xy[1] += func_001FA898_r(func_001F9FA8(t0) * ry * 16.0f) + 0x8000;
+        xy[2] += (u32)(-(func_001FA898_r(func_001F9F90(t1) * rx * 16.0f) << 16) - (int)0x80000000);
+        xy[2] += func_001FA898_r(func_001F9FA8(t1) * rx * 16.0f) + 0x8000;
+        xy[3] += (u32)(-(func_001FA898_r(func_001F9F90(t1) * ry * 16.0f) << 16) - (int)0x80000000);
+        xy[3] += func_001FA898_r(func_001F9FA8(t1) * ry * 16.0f) + 0x8000;
+        func_L02_0020BF88(xy, uv, cols, tex, 1);
+    }
+}
+extern short D_L02_00161B4C;
+extern short D_L02_00161B50;
+extern short D_L02_00161B54;
+extern short D_L02_00161B58;
+extern short D_L02_00161B5C;
+extern short D_L02_00161B60;
+extern short D_L02_00161B64;
+extern short D_L02_00161B68;
+extern short D_L02_00161B6C;
+extern short D_L02_00161B70;
+extern short D_L02_00161B74;
+extern short D_L02_00161B78;
+extern short D_L02_00161C2C;
+extern short D_L02_00161BAC;
+extern float D_L02_001D3680[4][4];
+extern float func_001F9FA8(float);
+extern float func_001F9F90(float);
+extern int func_001FA898_r(float) __asm__("func_001FA898");
+extern void func_001F9BC0(void *);
+extern void func_001FA218(void *, void *);
+extern void func_001FA540(void *, void *, void *);
+extern int func_001F4868(int);
+extern void func_L02_0020BF88(void *, void *, void *, s32, s32);
+
+/* Draws the rotating radar arrow sprite (style sel) at angle a and scale s, twice. */
+void func_L02_002DBAF8(int p0, int p1, int sel, float a, float s) {
+    long xy[4];
+    u32 col[4];
+    int uv[4];
+    float M[4][4];
+    float ang[4];
+    int x, y;
+    long v;
+    int tex;
+    switch (sel) {
+    case 0:
+        uv[0] = *(int *)&D_L02_00161B4C;
+        uv[1] = *(int *)&D_L02_00161B50;
+        uv[2] = *(int *)&D_L02_00161B54;
+        uv[3] = *(int *)&D_L02_00161B58;
+        break;
+    case 1:
+        uv[0] = *(int *)&D_L02_00161B5C;
+        uv[1] = *(int *)&D_L02_00161B60;
+        uv[2] = *(int *)&D_L02_00161B64;
+        uv[3] = *(int *)&D_L02_00161B68;
+        break;
+    case 2:
+    default:
+        uv[0] = *(int *)&D_L02_00161B6C;
+        uv[1] = *(int *)&D_L02_00161B70;
+        uv[2] = *(int *)&D_L02_00161B74;
+        uv[3] = *(int *)&D_L02_00161B78;
+        break;
+    }
+    col[3] = *(u32 *)&D_L02_00161C2C;
+    col[2] = *(u32 *)&D_L02_00161C2C;
+    col[1] = *(u32 *)&D_L02_00161C2C;
+    col[0] = *(u32 *)&D_L02_00161C2C;
+    y = func_001FA898_r(func_001F9FA8(a) * s * 16.0f);
+    x = func_001FA898_r(func_001F9F90(a) * s * 16.0f);
+    v = (long)y + 0xFFFFF080000000L;
+    v -= x << 16;
+    v += 0x8000;
+    xy[3] = v;
+    xy[2] = v;
+    xy[1] = v;
+    xy[0] = v;
+    func_001F9BC0(ang);
+    ang[2] = -a;
+    func_001FA218(M, ang);
+    func_001FA540(M, M, D_L02_001D3680);
+    xy[0] += func_001FA898_r(M[0][0] * 16.0f) << 16;
+    xy[0] += func_001FA898_r(M[0][1] * 16.0f);
+    xy[1] += func_001FA898_r(M[1][0] * 16.0f) << 16;
+    xy[1] += func_001FA898_r(M[1][1] * 16.0f);
+    xy[2] += func_001FA898_r(M[2][0] * 16.0f) << 16;
+    xy[2] += func_001FA898_r(M[2][1] * 16.0f);
+    xy[3] += func_001FA898_r(M[3][0] * 16.0f) << 16;
+    xy[3] += func_001FA898_r(M[3][1] * 16.0f);
+    tex = func_001F4868(*(int *)&D_L02_00161BAC + 0x29);
+    func_L02_0020BF88(xy, uv, col, tex, 1);
+    func_L02_0020BF88(xy, uv, col, tex, 1);
+}
 extern s32 D_L02_0015F6B0 MACRO_ADDR;
 extern short D_L02_00161BF0;
 extern short D_L02_00161B7C;
@@ -247,7 +369,85 @@ void func_L02_002DBD70(void *unused, f32 a, f32 b, f32 c, s32 d) {
 }
 INCLUDE_ASM("asm/overlays", func_L02_002DC2C0);
 INCLUDE_ASM("asm/overlays", func_L02_002DDAE8);
-INCLUDE_ASM("asm/overlays", func_L02_002E1888);
+extern int D_L02_00160058_x __asm__("D_L02_00160058") MACRO_ADDR;
+extern int D_L02_0015F6B0_x __asm__("D_L02_0015F6B0") MACRO_ADDR;
+extern int D_0015EE84_x __asm__("D_0015EE84") MACRO_ADDR;
+extern unsigned char D_0014171B_x[] __asm__("D_0014171B");
+extern float D_0015EE70 MACRO_ADDR;
+extern short D_L02_00161D40;
+extern short D_L02_00161D44;
+extern short D_L02_00161D48;
+extern short D_L02_00161D4C;
+extern void func_L00_00251328(void *, int, int, int);
+extern void func_L02_002FBB10_c(char *) __asm__("func_L02_002FBB10");
+extern void func_L02_002FBC00_c(char *) __asm__("func_L02_002FBC00");
+extern float func_L00_001FF860(float, float);
+extern float func_L00_0025CE58_f(float *, float, float *, float, float, float) __asm__("func_L00_0025CE58");
+extern void func_L00_001FF4B0(void *, void *, float);
+extern float func_001F9878(float);
+extern void func_001F9BD8(void *, void *, void *);
+extern int func_001FA898(float);
+extern int func_002140B0(int);
+extern void func_L00_00273F80(void *, void *, int, int, int, int, float);
+
+/* Hideable flower: appears when its slot is free, faces and sparkles at the hero (class 0x323), hides again
+ * when its slot is used. */
+void func_L02_002E1888(char *m) {
+    char *d = *(char **)(m + 0x78);
+    float v[4];
+    float w[4];
+    char *o;
+    switch (((unsigned char *)m)[0x20]) {
+    case 0:
+        if (*(int *)(d + 0x30) != -1
+            || (*(int *)(d + 0x3C) != -1 && (o = (char *)(D_L02_00160058_x + (*(int *)(d + 0x3C) << 8))) != 0
+                && ((unsigned char *)o)[0x20] != 0xFE && ((unsigned char *)o)[0x20] != 0xFD)) {
+            ((unsigned char *)m)[0x30] = 0xFF;
+            m[0x20] = 2;
+            *(unsigned short *)(m + 0x34) |= 0x41;
+        } else {
+            func_L00_00251328(m, 0xC0, 0xC0, 0xC0);
+            func_L02_002FBB10_c(m);
+            m[0x20] = 1;
+        }
+        break;
+    case 1:
+        if (*(short *)(m + 0xA6) == 0x323) {
+            char *g = D_0013E633 + 0xE1D;
+            float *rz = (float *)(m + 0x48);
+            float yaw = func_L00_001FF860(*(float *)(g + 0x80) - *(float *)(m + 0x10), *(float *)(g + 0x84) - *(float *)(m + 0x14));
+            func_L00_0025CE58_f(rz, yaw, (float *)(d + 0x38), D_0015EE70 * 6.2831855f, D_0015EE70 * 6.2831855f, D_0015EE6C * 12.566371f);
+            if (D_L02_0015F6B0_x & 1) {
+                if (((unsigned char *)m)[0x31] != 0) {
+                    float s = 1.0f;
+                    int a;
+                    if (D_L02_0015F6B0_x & 4) s = -1.0f;
+                    func_L00_001FF4B0(v, m + 0xD0, s * *(float *)&D_L02_00161D4C);
+                    func_L00_001FF4B0(w, v, -2.0f / func_001F9878(*(float *)&D_L02_00161D40));
+                    func_001F9BD8(v, v, m + 0x10);
+                    a = func_001FA898(func_001F9878(*(float *)&D_L02_00161D40)) & 0xFF;
+                    func_L00_00273F80(v, w, *(int *)&D_L02_00161D44, a, func_002140B0(0xFF) & 0xFF, 0,
+                                      *(float *)&D_L02_00161D48);
+                }
+            }
+        }
+        {
+            char *g2 = D_0013E633 + 0xE1D;
+            if (*(int *)(g2 + 0x2084) != 0x2C) func_L02_002FBC00_c(m);
+        }
+        break;
+    case 2:
+        if (((D_0014171B_x + 0xAA35))[*(int *)(d + 0x30) + (D_0015EE84_x << 4)] != 0
+            || (*(int *)(d + 0x3C) != -1
+                && ((o = (char *)(D_L02_00160058_x + (*(int *)(d + 0x3C) << 8))) == 0
+                    || ((unsigned char *)o)[0x20] == 0xFE || ((unsigned char *)o)[0x20] == 0xFD))) {
+            *(unsigned short *)(m + 0x34) &= 0xFFBE;
+            *(int *)(d + 0x30) = -1;
+            m[0x20] = 0;
+        }
+        break;
+    }
+}
 typedef struct {
     char pad0[0x44];
     short count;
@@ -633,7 +833,20 @@ void func_L02_002F79D0(float x, float y, float z) {
         }
     }
 }
-INCLUDE_ASM("asm/overlays", func_L02_002F9ED8);
+/* stores two coordinate triples in the selected object data */
+void func_L02_002F9ED8(float a, float b, float c,
+                       float d, float e, float f) {
+    char *moby = D_L02_00167480;
+    char *data = *(char **)(moby + 0x70);
+    char *dst = data + 0x30;
+    *(float *)(dst + 0x20) = e;
+    *(float *)(dst + 0x24) = d;
+    *(float *)(dst + 0x28) = f;
+    { char *other = *(char **)(moby + 0x70);
+    *(float *)(other + 0x10) = b;
+    *(float *)(other + 0x14) = a;
+    *(float *)(other + 0x18) = c; }
+}
 typedef struct {
     int a;
     int b;

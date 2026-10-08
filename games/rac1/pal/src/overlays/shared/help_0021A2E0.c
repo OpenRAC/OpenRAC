@@ -2,8 +2,236 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L02_0021A2E0);
-INCLUDE_ASM("asm/overlays", func_L02_002211C0);
+LINKER_REMNANT("asm/overlays", func_L02_0021A2E0);
+extern char D_0013E633[];
+extern float D_0015EE6C MACRO_ADDR;
+extern float D_L02_0017C438[];
+extern void func_L00_00211F80(int, float);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui/help/00220b80.c, FUN_L02_00220b80. */
+void func_L02_002211C0(void) {
+    char *x;
+    func_L00_00211F80(0, 1.0f);
+    x = D_0013E633 + 0xE1D;
+    if (*(int *)(x + 0x2084) == 0x3F) {
+        float two = D_0015EE6C + D_0015EE6C;
+        float v = D_0015EE6C * 3.5f * *(float *)(x + 0x190);
+        *(float *)(x + 0x190) = v;
+        if (v < two) {
+            *(float *)(x + 0x190) = two;
+        }
+    } else if (0.0f < *(float *)(x + 0x190)) {
+        if (*(float *)(x + 0x190) < D_L02_0017C438[3]) {
+            *(float *)(x + 0x190) = D_L02_0017C438[2] * D_0015EE6C;
+        } else {
+            *(float *)(x + 0x190) = D_L02_0017C438[6] * D_0015EE6C;
+        }
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L02_00222D18);
-INCLUDE_ASM("asm/overlays", func_L02_00223AE0);
+typedef int u128 __attribute__((mode(TI)));
+typedef union {
+    u128 q;
+    float f[4];
+} HopVec;
+typedef struct {
+    u8 pad0[0x98];
+    float f98;
+    u8 pad9C[0x44];
+    HopVec vE0;
+    u8 padF0[0x60];
+    HopVec v150;
+    float f160;
+    float f164;
+    u8 pad168[0x8];
+    HopVec v170;
+    float f180;
+    float f184;
+    float f188;
+    u8 pad18C[0x4];
+    float f190;
+    float f194;
+    int i198;
+    u8 pad19C[0x144];
+    float f2E0;
+    u8 pad2E4[0x24];
+    s16 s308;
+    s16 s30A;
+    u8 pad30C[0xE8];
+    float f3F4;
+    u8 pad3F8[0x1C];
+    float f414;
+    u8 pad418[0x6];
+    s16 s41E;
+    u8 pad420[0x18];
+    float f438;
+    float f43C;
+    u8 pad440[0xC];
+    int i44C;
+    int i450;
+    float f454;
+    float f458;
+    float f45C;
+    u8 pad460[0x10];
+    HopVec v470;
+    u8 pad480[0x20];
+    float f4A0;
+    u8 pad4A4[0x4];
+    s16 s4A8;
+    u8 pad4AA[0x476];
+    HopVec v920;
+    u8 pad930[0x14];
+    float f944;
+    u8 pad948[0x160];
+    float fAA8;
+    u8 padAAC[0x836];
+    u8 b12E2;
+    u8 pad12E3[0xDA1];
+    int i2084;
+    u8 pad2088[0x4];
+    int i208C;
+} HopPlayer;
+extern HopPlayer D_0013F450;
+extern float D_0015EE64 MACRO_ADDR;
+extern float D_0015EE6C MACRO_ADDR;
+extern float D_0015EE70 MACRO_ADDR;
+extern int D_0015EE84 MACRO_ADDR;
+extern float D_L02_0017C450[];
+extern int func_001F9850(int);
+extern float func_001F9F90(float);
+extern float func_001F9FA8(float);
+extern float func_001FA850(float, float);
+extern float func_001FA790(float, float);
+extern float func_001F9CE8(void *);
+extern float func_00214D28(float *, float, float);
+extern void func_L00_00213970(float, float);
+extern void func_L00_00212740(float, float);
+extern void func_L00_002124E8(int, float, float, float);
+extern float func_L00_0025CCF0(void *, float, void *, int, float, float, float);
+extern void func_L00_00209850(float, float, float);
+extern void func_L00_00234420(float *, float *, float);
+extern void func_L00_00233F88(void *, void *, float);
+extern void func_L00_001FF4B0(void *, void *, float);
+extern void func_L00_001FF500(void *, void *, float);
+extern void func_001F9BD8(void *, void *, void *);
+extern void func_L01_00234970(float);
+extern int func_L00_0020DB30(int);
+extern int func_L00_00217570(int, int);
+
+// Per-state hop velocity update for the player. Adapted from Lombyte (MIT) for PAL: src/overlays/shared/ui_help_00220b80.c, FUN_L02_00223450.
+void func_L02_00223AE0(void) {
+    HopVec tmp;
+    float x;
+    float speed;
+    float a;
+    float d;
+    float arg;
+    int state;
+
+    state = D_0013F450.i2084;
+    if (state == 10) {
+        func_L00_00213970(0.7f, D_0015EE6C * 0.0f);
+        qcopy(&D_0013F450.v150, &D_0013F450.v920);
+        D_0013F450.f194 = D_0013F450.f164;
+    } else if (state == 16) {
+        if (func_001F9850(0x36) < D_0013F450.i198) {
+            func_00214D28(&D_0013F450.f4A0, D_0015EE70 * 25.0f, D_0015EE70 * 7.0f);
+        }
+        if (D_0013F450.i198 < func_001F9850(0x37)) {
+            D_0013F450.f190 = D_0013F450.f3F4;
+        } else {
+            D_0013F450.f190 = D_0015EE6C * 3.5f;
+        }
+        func_L00_00212740(D_0015EE70 * 44.0f, D_0015EE70 * 45.0f);
+        func_L00_00234420(D_0013F450.vE0.f, D_0013F450.vE0.f, 0.0f);
+        func_L00_00233F88(&D_0013F450.vE0, &D_0013F450.vE0, D_0013F450.f194);
+    } else if (state == 0x1C) {
+        if (func_001F9850(0x28) < D_0013F450.i198) {
+            func_L00_002124E8(0, D_0015EE64 * 0.04f, D_0015EE64 * 0.2f, D_0015EE6C * 15.009831f);
+            func_L01_00234970(D_0015EE70 * 20.0f);
+        }
+        if (13.0f <= D_0013F450.fAA8 && D_0013F450.fAA8 <= 30.0f) {
+            if (27.0f < D_0013F450.fAA8) {
+                func_00214D28(&D_0013F450.f45C, 0.0f, D_0015EE70 * 8.0f);
+            } else {
+                func_00214D28(&D_0013F450.f45C, D_0015EE6C * 2.0f, D_0015EE70 * 8.0f);
+            }
+        }
+        D_0013F450.vE0.f[0] = func_001F9F90(D_0013F450.f98) * D_0013F450.f45C;
+        D_0013F450.vE0.f[1] = func_001F9FA8(D_0013F450.f98) * D_0013F450.f45C;
+    } else if (state == 11 || state == 12) {
+        if (D_0015EE84 != 14) {
+            if (func_L00_0020DB30(3) == 3) {
+                if (D_0013F450.i198 == func_001F9850(5)) {
+                    func_L00_00217570(1, 0);
+                }
+            }
+        }
+        D_0013F450.f180 = D_0013F450.f43C;
+        func_L00_002124E8(0, D_0015EE64 * 0.04f, D_0015EE64 * 0.2f, D_0015EE6C * 6.981317f);
+        if (D_0013F450.i450 != 3) {
+            D_0013F450.f194 = D_0013F450.f454;
+        } else {
+            D_0013F450.f194 = 0.0f;
+        }
+        if (D_0013F450.i2084 == 11) {
+            if (D_0013F450.s41E != 0 && D_0013F450.i44C < func_001F9850(0xC)) {
+                func_00214D28(&D_0013F450.f458, 0.0f, D_0015EE70 * 8.0f);
+            } else {
+                func_00214D28(&D_0013F450.f458, D_0015EE6C * 4.2f, D_0015EE70 * 8.0f);
+            }
+        }
+        D_0013F450.vE0.f[0] = func_001F9F90(D_0013F450.f438) * D_0013F450.f458;
+        D_0013F450.vE0.f[1] = func_001F9FA8(D_0013F450.f438) * D_0013F450.f458;
+        a = D_0013F450.f454 * func_001F9FA8(func_001FA850(D_0013F450.f43C, D_0013F450.f438));
+        D_0013F450.vE0.f[0] += func_001F9F90(D_0013F450.f43C) * a;
+        D_0013F450.vE0.f[1] += func_001F9FA8(D_0013F450.f43C) * a;
+        func_L00_00213970(0.7f, D_0015EE6C * 0.0f);
+        qcopy(&D_0013F450.v150, &D_0013F450.v920);
+    } else if (state == 0x11) {
+        D_0013F450.f180 = D_0013F450.v470.f[3];
+        qcopy(&D_0013F450.v170, &D_0013F450.v470);
+        if (func_001F9850(9) < D_0013F450.i198) {
+            func_L00_002124E8(-1, D_0015EE64 * 0.042f, D_0015EE64 * 0.2f, D_0015EE6C * 11.868238f);
+        }
+        if (func_001F9850(9) <= D_0013F450.i198) {
+            if (D_0013F450.s308 == 0) {
+                D_0013F450.vE0.f[0] = func_001F9F90(D_0013F450.f180) * (D_0015EE6C * 4.9f);
+                D_0013F450.vE0.f[1] = func_001F9FA8(D_0013F450.f180) * (D_0015EE6C * 4.9f);
+            } else {
+                func_L00_00234420(D_0013F450.vE0.f, D_0013F450.vE0.f, 0.0f);
+                func_L00_001FF4B0(&tmp, &D_0013F450.v170, D_0015EE6C * 4.9f);
+                func_001F9BD8(&D_0013F450.vE0, &D_0013F450.vE0, &tmp);
+            }
+        }
+        D_0013F450.f194 = D_0013F450.f164;
+    } else {
+        if (state == 0x2D) {
+            x = D_0013F450.f98;
+            D_0013F450.f188 = func_L00_0025CCF0(&x, D_0013F450.f180, &D_0013F450.f184, 0, D_0015EE64 * 0.018f, D_0015EE64 * 0.2f, D_0015EE6C * 7.330383f);
+            a = func_001FA790(x, D_0013F450.f98);
+            func_L00_00209850(0.0f, 0.0f, a);
+        } else {
+            func_L00_002124E8(0, D_0015EE64 * 0.04f, D_0015EE64 * 0.2f, D_0013F450.f414);
+        }
+        func_L00_00213970(0.7f, D_0015EE6C * 0.0f);
+        qcopy(&D_0013F450.v150, &D_0013F450.v920);
+        arg = D_0015EE70 * 20.0f;
+        if (D_0013F450.f190 < D_L02_0017C450[0] * D_0015EE6C * 0.2f) {
+            if (D_0013F450.i208C == 2) {
+                d = D_0013F450.f944;
+                speed = func_001F9CE8(&D_0013F450.vE0);
+                func_00214D28(&speed, 0.0f, d);
+                func_L00_001FF500(D_0013F450.vE0.f, D_0013F450.vE0.f, speed);
+                return;
+            }
+            if (D_0013F450.s30A != 0) {
+                arg = D_0015EE70 * 6.0f;
+            } else {
+                arg = D_0015EE70 * 2.0f;
+            }
+        }
+        func_L01_00234970(arg);
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L02_0022F568);

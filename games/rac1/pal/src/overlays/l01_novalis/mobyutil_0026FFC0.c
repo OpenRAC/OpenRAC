@@ -2,7 +2,7 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L01_0026FFC0);
+LINKER_REMNANT("asm/overlays", func_L01_0026FFC0);
 void func_L01_0026FFC8(char *arg, float value) {
     *(float *)(arg + 0x84) = value - 0.2f;
     *(float *)(arg + 0x88) = value + 0.2f;

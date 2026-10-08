@@ -1,10 +1,11 @@
 /* NON_MATCHING func_L08_002EB770 -- src/overlays/l08_batalia/vendor_002EAF48.c
- * Best so far: SIZE ours 508 / retail 524, checked 2026-10-03.
+ * Best so far: SIZE ours 508 / retail 524, checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   Controller moby (UpdateMoby_467/472): when D_0013D355+0x13B flag set and data+8<0 it deletes mobys in a list; 
  *   Left: retail loops with `b L7DC; lhu` entry and hoists the 0x1D8 constant into $s2 (loop shaped as while-style
+ *   w06 round: p6.c (pointer walk `*p++ >= -1`) and p7.c (`for (;;) { ...; if (*p++ < -1) break; }`) both give 508
  */
 extern void func_0020D678(void *);
 extern int func_0022ED80(int, int, int);

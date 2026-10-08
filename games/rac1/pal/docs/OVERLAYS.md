@@ -204,6 +204,32 @@ the 16-byte func_L08_002DB438 (UpdateMoby_324 in level 8). Each is two
 small functions the split joined; the next catalogue run can use the
 table pointers as split points.
 
+## Joined functions (`config/overlays/joined.tsv`)
+
+The catalogue ends a function wherever the next address is a function start. Two cases make
+one real C function show up as several entries, and `tools/overlay_check.py` (and so
+`try_func.py`) handles both by adding the sizes of the pieces listed after the owner:
+
+- A function whose first half branches into the second (the level 18 pairs).
+- A function whose last `jr` has its delay slot catalogued as a separate 4-byte entry, a shared
+  fragment such as `func_001EC030` (kind `exe`). Retail has one function of size + 4; a C
+  function compiles to that size, so the entry reads `owner<TAB>fragment` (16 of these:
+  see the file). Write the C under the owner's name and leave the fragment alone.
+
+The pieces must follow the owner in the catalogue; the check compares the C against the bytes of
+all of them together, and the progress report counts each piece as finished once the owner is EXACT.
+
+A function that ends in a return of its own which other code also reaches has `func_001E9768`
+(the executable's empty function, `jr $31; nop`) as its last piece. The catalogue sizes that entry
+4 bytes, from a place where another entry starts in its delay slot, so the check adds the nop:
+`func_L16_002E4BD8` is 40 bytes in the catalogue and 48 in retail and in C.
+
+An entry of single words that follows a finished function, each on an 8-byte boundary with a nop
+or fill after it, and that nothing branches to, is a different thing: what the linker left of
+functions it stripped. Those are listed in `config/overlays/linker_remnants.txt` and marked
+`LINKER_REMNANT` in the source (docs/ASM_CLASSIFICATION.md, "Level code"); `tools/overlay_remnants.py`
+tells the two apart from the bytes.
+
 ## Relatives
 
 `python3 tools/overlays.py families` lists, for each shared and level

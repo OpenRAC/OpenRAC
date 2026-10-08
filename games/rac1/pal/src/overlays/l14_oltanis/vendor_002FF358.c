@@ -3,7 +3,15 @@
 #include "include_asm.h"
 
 INCLUDE_ASM("asm/overlays", func_L14_002FF358);
-INCLUDE_ASM("asm/overlays", func_L14_002FF6C0);
+extern char *D_L14_00160098 MACRO_ADDR;
+extern void func_0020D678(void *);
+/* deletes the linked moby and then the owner if still active */
+void func_L14_002FF6C0(char *moby) {
+ char *data=*(char **)(moby+0x78);
+ char *other=D_L14_00160098+(*(int *)(data+4)<<8);
+ if(other!=0 && other[0x20]>=0) func_0020D678(other);
+ if(moby[0x20]>=0) func_0020D678(moby);
+}
 INCLUDE_ASM("asm/overlays", func_L14_002FF728);
 INCLUDE_ASM("asm/overlays", func_L14_002FFF08);
 INCLUDE_ASM("asm/overlays", func_L14_00300468);
@@ -62,8 +70,53 @@ void func_L14_003047F8(unsigned char *moby) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L14_00306890);
-INCLUDE_ASM("asm/overlays", func_L14_00306A88);
-INCLUDE_ASM("asm/overlays", func_L14_00306B08);
+extern unsigned short *D_L14_001AC2C0[];
+extern float D_L14_001EE920[];
+
+/* For each entry in a moby-id list, saves the moby's Y and lowers it by 20. */
+void func_L14_00306A88(char *moby) {
+    unsigned short *p = D_L14_001AC2C0[**(int **)(moby + 0x78)];
+    float *out;
+    if (p != 0) {
+        int base = D_L14_00160098;
+        out = D_L14_001EE920;
+        do {
+            float *f = (float *)(base + ((*p & 0x7FFF) << 8));
+            *out++ = f[6];
+            f[6] -= 20.0f;
+            *(unsigned short *)((char *)f + 0x34) |= 0x41;
+        } while (*(short *)p++ >= 0);
+    }
+}
+extern char * D_L14_00160098 MACRO_ADDR;
+extern unsigned short * D_L14_001AC2C0[];
+extern float func_001FA888(int);
+extern float func_L00_00258E58(float, float, float, float, float);
+
+/* Per-frame update: slides each listed part toward a rest height by a factor from the moby's animation value.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l14/gameplay/vendor/00300e00.c, FUN_L14_00305680. */
+void func_L14_00306B08(char *moby) {
+    int *d = *(int **)(moby + 0x78);
+    short *p = (short *)D_L14_001AC2C0[d[0]];
+    float t;
+    float *h;
+    char *base;
+    float x;
+    if (p == 0) {
+        return;
+    }
+    x = func_001FA888(d[1]) * ((float *)d)[2];
+    t = func_L00_00258E58(-1.0f, 0.0f, 1.0f, 0.0f, 1.0f - x);
+    base = D_L14_00160098;
+    h = D_L14_001EE920;
+    do {
+        char *o = base + ((*(unsigned short *)p & 0x7FFF) << 8);
+        float a = *h++;
+        float lo = a - 20.0f;
+        *(unsigned short *)(o + 0x34) &= 0xFFBE;
+        *(float *)(o + 0x18) = lo + (a - lo) * t;
+    } while (*p++ >= 0);
+}
 INCLUDE_ASM("asm/overlays", func_L14_00306BE0);
 extern int func_002140B0(int);
 extern int func_001F9850(int);
@@ -280,7 +333,7 @@ void func_L14_00314A40(int value)
         *(float *)(again + 0xB0) = 2.0f;
     }
 }
-INCLUDE_ASM("asm/overlays", func_L14_003162A0);
+LINKER_REMNANT("asm/overlays", func_L14_003162A0);
 INCLUDE_ASM("asm/overlays", func_L14_00316388);
 INCLUDE_ASM("asm/overlays", func_L14_00316718);
 extern int func_L10_002F6E38(void *);
@@ -304,7 +357,29 @@ int func_L14_00316DA8(char *a, char *b) {
 }
 INCLUDE_ASM("asm/overlays", func_L14_00316E60);
 INCLUDE_ASM("asm/overlays", func_L14_003171D0);
-INCLUDE_ASM("asm/overlays", func_L14_00317BD0);
+/* InitCamera_21 (level 14). Sets the init flag of the camera record the
+   moby's index selects, once, while the moby at D_L14_00167600 is at height
+   0x14. Retail has this function joined with the 28-byte piece after it
+   (func_L14_00317C4C): one function of 152 bytes with the nops the build pads
+   its short backward branch with. Every "return 0" arm leaves through the one
+   shared exit at the end. */
+int func_L14_00317BD0(char *moby, char *b)
+{
+    char *rec = *(char **)(D_L14_0015F050 + *(short *)(moby + 0x84) * 32 + 0x1C);
+
+    if (*(int *)(rec + 0x20) == 0 && *(short *)(D_L14_00167600 + 0x86) == 0x14) {
+        *(int *)(rec + 0x20) = 1;
+        goto done;
+    }
+    if (*(int *)(rec + 0x20) != 1)
+        goto done;
+    if (*(short *)(D_L14_00167600 + 0x86) != 0x14)
+        return 1;
+    if (b == 0 || *(short *)(b + 0x7E) != 0)
+        return 1;
+done:
+    return 0;
+}
 INCLUDE_ASM("asm/overlays", func_L14_00317C4C);
 extern char D_0013E633[];
 // Sets the exit camera's state field to 3 unless the global is 0xF.

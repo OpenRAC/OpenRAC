@@ -1,269 +1,114 @@
-# Ratchet & Clank Decompilation
+# Ratchet & Clank (PS2) Decompilation
 
-[![Progress report](https://github.com/Lynder063/rac1-decomp/actions/workflows/progress.yml/badge.svg)](https://github.com/Lynder063/rac1-decomp/actions/workflows/progress.yml)
-[![Code](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp)
-[![Functions](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp)
+[![Website](https://img.shields.io/badge/Website-openrac.dev-ff8a00?logo=googlechrome&logoColor=white)](https://openrac.dev)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/Sfd2B54PDG)
+[![Progress report](https://github.com/OpenRAC/rac1-decomp/actions/workflows/progress.yml/badge.svg)](https://github.com/OpenRAC/rac1-decomp/actions/workflows/progress.yml)
+[![Code](https://decomp.dev/OpenRAC/rac1-decomp.svg?mode=shield&label=Code&measure=matched_code_percent)](https://decomp.dev/OpenRAC/rac1-decomp)
+[![Functions](https://decomp.dev/OpenRAC/rac1-decomp.svg?mode=shield&label=Functions&measure=matched_functions)](https://decomp.dev/OpenRAC/rac1-decomp)
 
-A work-in-progress **matching decompilation** of *Ratchet & Clank* (Insomniac
-Games, 2002) for the PlayStation 2. The goal is C/C++ source that, built with
-the original toolchain, produces a byte-identical copy of the retail executable.
+A work-in-progress **matching decompilation** of *Ratchet & Clank* (Insomniac Games, 2002) for the PlayStation 2 (`SCES_509.16`, PAL v2.00), part of the **[OpenRAC](https://openrac.dev)** initiative.
 
-The project runs in two phases:
+The objective is to produce C/C++ source code that, when compiled with the original toolchain, generates a byte-identical copy of the retail executable. Matched code is then refactored toward readable, idiomatic C++ with accurate types and naming, using matching builds as continuous regression tests.
 
-1. **Match.** Write source that compiles to exactly the retail machine code.
-   This is what proves a function has been understood: the compiler judges
-   the result, not a read-through.
-2. **Make it readable.** Refactor matched code toward idiomatic C++ with real
-   names, types and structure. The matching build acts as the regression test
-   for every cleanup.
+> [!NOTE]
+> This repository contains **no game assets, retail executables, or disassembly**. To build, you must provide your own legally obtained copy of the game. Please review [`LEGAL.md`](LEGAL.md) before contributing.
+
+---
 
 ## Progress
 
-Progress is tracked on [decomp.dev](https://decomp.dev/Lynder063/rac1-decomp).
+Decompilation progress is tracked live on **[openrac.dev](https://openrac.dev)** and **[decomp.dev/OpenRAC/rac1-decomp](https://decomp.dev/OpenRAC/rac1-decomp)**.
 
-| Version | Region | Game ID | Code | Functions |
+| Version | Region | Target ID | Code Matched | Functions Matched |
 |---|---|---|---|---|
-| v2.00 | PAL (En, Fr, De, Es, It) | `SCES_509.16` | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp) |
+| v2.00 | PAL (En, Fr, De, Es, It) | `SCES_509.16` | [![](https://decomp.dev/OpenRAC/rac1-decomp.svg?mode=shield&label=Code&measure=matched_code_percent)](https://decomp.dev/OpenRAC/rac1-decomp) | [![](https://decomp.dev/OpenRAC/rac1-decomp.svg?mode=shield&label=Functions&measure=matched_functions)](https://decomp.dev/OpenRAC/rac1-decomp) |
 
-| Category | Progress | Contents |
-|---|---|---|
-| Game | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=game&label=Game&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=game) | Game and SDK code (`src/core/`, `src/game/`) |
-| libgcc | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=libgcc&label=libgcc&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=libgcc) | GCC runtime library rebuilt from GCC's own source (`src/libgcc/`) |
+Every function links at its original retail address. Functions not yet decompiled are built from disassembly, ensuring the full binary always links and matches retail byte-for-byte outside in-progress functions. For level overlays and breakdown details, see [decomp.dev](https://decomp.dev/OpenRAC/rac1-decomp) and [`docs/OVERLAYS.md`](docs/OVERLAYS.md).
 
-The whole image already links with every function at its retail address.
-Functions that are not decompiled yet are included as assembly.
+---
 
-### Level code
+## Quick Start
 
-Each level carries its own build of the game program, loaded over the
-executable's game code ([`docs/OVERLAYS.md`](docs/OVERLAYS.md)). Its
-functions are decompiled in `src/overlays/` and counted once each:
-code shared by two or more levels under *Common*, code found in one
-level only under *Level-specific* and that level's own row.
+### Prerequisites
+- **Linux & macOS**: [Docker](https://www.docker.com/) or [Podman](https://podman.io/) (uses our prebuilt Wine container via GitHub Container Registry).
+- **Windows**: Git Bash, Python 3.10+, and community toolchain mirrors.
 
-| Category | Code | Functions | Contents |
-|---|---|---|---|
-| Level code | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_code&label=Level%20code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_code) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_code&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_code) | All level code (`src/overlays/`) |
-| Common | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=common&label=Common&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=common) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=common&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=common) | Shared by two or more levels (`src/overlays/shared/`) |
-| Level-specific | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=levels&label=Levels&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=levels) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=levels&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=levels) | Found in one level only (`src/overlays/lNN_<planet>/`, docs/OVERLAYS.md "Levels") |
+### Setup & Build
 
-<details>
-<summary>Per level</summary>
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/OpenRAC/rac1-decomp.git
+   cd rac1-decomp
+   ```
+   *(On Windows, keep the directory path short to avoid path length limits in the legacy toolchain's `make`.)*
 
-| Level | Code | Functions |
-|---|---|---|
-| 00 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_00&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_00) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_00&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_00) |
-| 01 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_01&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_01) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_01&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_01) |
-| 02 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_02&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_02) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_02&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_02) |
-| 03 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_03&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_03) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_03&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_03) |
-| 04 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_04&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_04) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_04&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_04) |
-| 05 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_05&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_05) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_05&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_05) |
-| 06 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_06&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_06) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_06&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_06) |
-| 07 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_07&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_07) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_07&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_07) |
-| 08 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_08&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_08) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_08&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_08) |
-| 09 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_09&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_09) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_09&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_09) |
-| 10 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_10&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_10) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_10&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_10) |
-| 11 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_11&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_11) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_11&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_11) |
-| 12 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_12&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_12) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_12&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_12) |
-| 13 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_13&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_13) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_13&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_13) |
-| 14 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_14&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_14) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_14&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_14) |
-| 15 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_15&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_15) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_15&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_15) |
-| 16 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_16&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_16) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_16&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_16) |
-| 17 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_17&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_17) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_17&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_17) |
-| 18 | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_18&label=Code&measure=matched_code_percent)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_18) | [![](https://decomp.dev/Lynder063/rac1-decomp.svg?mode=shield&category=level_18&label=Functions&measure=matched_functions)](https://decomp.dev/Lynder063/rac1-decomp/SCES_509.16?category=level_18) |
+2. **Provide your original executable:**
+   Copy `SCES_509.16` from your disc image into `baserom/`:
+   ```bash
+   # Expected SHA-1: 79956931bd62fafd8d20fa2eae796dbaf2e15e83
+   cp /path/to/SCES_509.16 baserom/SCES_509.16
+   ```
 
-</details>
+3. **Install dependencies and fetch toolchains:**
+   ```bash
+   # Windows (native):
+   pip install -r requirements.txt
+   bash tools/setup_asm.sh
+   git clone https://github.com/AngheloAlf/SN-Systems-ProDG_for_PS2_3.01 toolchain/sn-prodg-3.01
+   git clone https://github.com/AngheloAlf/sce_ps2_sdk_24 toolchain/sn-prodg-24
 
-## How it works
+   # Linux & macOS (via container wrapper):
+   bash tools/docker/run.sh bash tools/setup_asm.sh
+   git clone https://github.com/AngheloAlf/SN-Systems-ProDG_for_PS2_3.01 toolchain/sn-prodg-3.01
+   git clone https://github.com/AngheloAlf/sce_ps2_sdk_24 toolchain/sn-prodg-24
+   ```
 
-- **The compiler is SN Systems ProDG's GCC 2.95.3** (32-bit Windows programs,
-  run through Wine in a container on Linux and macOS), with `-O2 -G2`. Parts of
-  the SDK and C library code were built by Sony's `2.9-ee` compiler instead, and
-  the GCC runtime (`libgcc`) is rebuilt from GCC's own sources the way Sony's
-  toolchain built it. Retail was assembled by SN's own assembler, whose extra
-  nops `tools/ps2eeas_nops.py` reproduces ([`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md)).
-- **The whole image already links with every function at its retail address.**
-  Functions that are not decompiled yet are included as assembly, so the build
-  can be checked end to end against the retail executable.
-- **Level code is overlays.** Each level carries its own build of the game
-  program ([`docs/OVERLAYS.md`](docs/OVERLAYS.md)); its functions are decompiled
-  in `src/overlays/` and counted once each.
-- **Progress is measured per function.** The report on decomp.dev is generated
-  locally from a from-scratch build and committed, because CI cannot build the
-  game (the compiler and the executable cannot be redistributed).
+4. **Build and verify:**
+   ```bash
+   # Windows (native):
+   bash tools/build_sn.sh
 
-## Disclaimer
+   # Linux & macOS (via container):
+   bash tools/docker/run.sh bash tools/build_sn.sh
+   ```
 
-This repository contains **no game assets, executable, or disassembly**. To
-build it you need your own legally obtained copy of the game. Read
-[`LEGAL.md`](LEGAL.md) before contributing.
+For detailed documentation on the toolchain and container setup:
+- [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md) – Compiler and assembler configurations
+- [`docs/BUILD_FIDELITY.md`](docs/BUILD_FIDELITY.md) – What the build reproduces of retail's toolchain, what it models, and the rules that keep it honest
+- [`docs/CONTAINERS.md`](docs/CONTAINERS.md) – Docker/Podman container workflow
 
-## Building
-
-The original compiler is SN Systems ProDG, a set of 32-bit Windows programs.
-There are two ways to run it:
-
-- **Windows**, natively, with **Git Bash** and Python 3.10 or newer.
-- **Linux and macOS**, through 32-bit Wine in a container
-  (`tools/docker/`). Works with **Podman** (Fedora, RHEL, etc.) or **Docker**
-  (Ubuntu, Debian, macOS OrbStack/Docker Desktop). The image is pulled
-  from GitHub Container Registry (`ghcr.io/lynder063/rac1-build:latest`),
-  so there is no 15-minute local image build. The container build
-  reproduces the Windows build's progress report byte for byte. See
-  [`docs/CONTAINERS.md`](docs/CONTAINERS.md).
-
-Every command below runs the same on both. On Linux and macOS, prefix it with
-`bash tools/docker/run.sh` (which automatically pulls or builds the container and runs the command inside it):
-
-```
-bash tools/docker/run.sh bash tools/build_sn.sh
-```
-
-### 1. Clone
-
-```
-git clone https://github.com/Lynder063/rac1-decomp.git C:\rac1-decomp
-```
-
-On Windows keep the path short: the toolchain's `make` 3.77 fails with
-`CreateProcess ... failed` when the repository path is long.
-
-### 2. Add your executable
-
-Copy `SCES_509.16` from your disc to `baserom/SCES_509.16`. From a disc
-image, `bsdtar -xf game.iso -C baserom SCES_509.16` extracts it (the image
-itself stays out of the way; `baserom/` is ignored by git). The expected
-SHA-1 is:
-
-```
-79956931bd62fafd8d20fa2eae796dbaf2e15e83
-```
-
-### 3. Install Python dependencies and generate the disassembly
-
-```
-pip install -r requirements.txt      # Windows only; the Docker image has them
-bash tools/setup_asm.sh
-```
-
-`setup_asm.sh` checks the executable's hash and the pinned splat and
-spimdisasm versions, then generates `asm/` with
-[splat](https://github.com/ethteck/splat). `asm/` is not tracked in git.
-
-### 4. Get the toolchain
-
-The build uses two community mirrors of the SN Systems / Sony PS2 toolchains.
-They are third-party mirrors of commercial software and are not part of this
-repository:
-
-```
-git clone https://github.com/AngheloAlf/SN-Systems-ProDG_for_PS2_3.01 toolchain/sn-prodg-3.01
-git clone https://github.com/AngheloAlf/sce_ps2_sdk_24 toolchain/sn-prodg-24
-```
-
-- `sn-prodg-3.01` provides `make`, the assembler and the linker.
-- `sn-prodg-24` provides the compilers:
-  - GCC 2.95.3 (SN BUILD v1.14) for game code and the 989snd sound library;
-  - Sony's `2.9-ee-991111` for Sony's SDK code and libgcc (the objects
-    marked `ee29` in `config/core_text.objects`).
-
-See [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md) for how this was determined.
-
-### 5. Build
-
-```
-bash tools/build_sn.sh
-```
-
-This builds and links `build-sn/rac1.elf`, then audits every decompiled
-function against the retail executable on size and bytes. The output looks
-like this (these are the numbers as of 2026-09-27; decomp.dev has the
-current ones):
-
-```
-=== 1002 decompiled functions audited ===
-  exact (size AND bytes): 989
-  size mismatch:          0   (always revert these -- see docs)
-  byte mismatch:          13
-every function is at its retail address
-image matches retail outside the decompiled near-misses (559 bytes differ inside them)
-```
-
-Hand-written assembly and the linker's dead-strip remnants are included as
-assembly on purpose and count as finished in the progress report
-([`docs/ASM_CLASSIFICATION.md`](docs/ASM_CLASSIFICATION.md)).
-
-## Community
-
-Come hang out with us! Join the **[Ratchet & Clank Decompilation Discord](https://discord.gg/Sfd2B54PDG)**.
-
-Whether you're interested in matching functions, analyzing PS2 disassembly, researching engine quirks, or simply following along with the progress, everyone is warmly welcome!
-
-## Project structure
-
-| Path | Contents |
-|---|---|
-| `src/core/` | The `core_text` segment, one file per retail object, split at the retail linker's own fill between objects. Files are named by start address until their real source is identified (e.g. `989snd.c`) |
-| `src/game/` | The `text` segment, one file per original source file (`hud`, `camera`, `mobyfunc`, `movie/*`...), named after the originals |
-| `src/libgcc/` | GCC's `libgcc2.c` and `fp-bit.c` (GPL with the libgcc exception) plus stubs, see its README |
-| `include/` | Shared headers, recovered structs, assembly macros |
-| `include-sn/` | Assembly macros for assembling the data objects with SN's assembler |
-| `config/splat.yaml`, `config/symbol_addrs.txt` | How the executable is split into functions |
-| `config/core_text.objects`, `config/text.objects` | Link order and start address of every object |
-| `Makefile.sn`, `rac1.ld.sh` | Compile and link at retail addresses |
-| `tools/` | Build, audit, progress-report and decompilation helper scripts |
-| `tools/docker/` | The build container and the Ghidra MCP container ([docs](docs/CONTAINERS.md)) |
-| `../../../editor/` | Level editor (OpenRAC's top level): your own disc's levels as an editable Godot project ([README](../../../editor/README.md)) |
-| `docs/` | Workflow, toolchain notes, progress log, containers, asset formats |
-| `notes/` | Round notes from September 2026, kept as history; `docs/DECOMP_PROGRESS.md` has the current state |
-| `progress/report.json` | objdiff-format progress report read by decomp.dev |
-
-## Resources
-
-- [Discord](https://discord.gg/Sfd2B54PDG): community server for chat, collaboration and questions
-- [decomp.wiki](https://decomp.wiki): matching-decompilation knowledge base
-- [decomp.dev](https://decomp.dev): progress tracking
-- [splat](https://github.com/ethteck/splat),
-  [spimdisasm](https://github.com/Decompollaborate/spimdisasm),
-  [m2c](https://github.com/matt-kempster/m2c),
-  [asm-differ](https://github.com/simonlindholm/asm-differ),
-  [objdiff](https://github.com/encounter/objdiff)
-- [AngheloAlf's PS2 toolchain mirrors](https://github.com/AngheloAlf)
-
-## Credits
-
-- **GFI (Game Fuckery Inc.)**: Special thanks to the GFI Discord server for the years of time spent researching and exploring the game, which helped make this decompilation possible.
-- [Lombyte](https://github.com/mateuszklysz/Lombyte) (MIT): matching
-  decompilation of the same game's NTSC build; some real names and struct
-  layouts in `src/` comments (e.g. `src/game/draw.c`, `src/game/vuchain.c`)
-  are corroborated against it, and `tools/lombyte.py` pairs its functions
-  with ours as starting points (see `docs/SIBLING_DECOMPS.md`)
-- [ReRAC](https://github.com/re-rac/rerac) (ISC): native PC port of the
-  same game's US build; its format notes and parsers inform the level
-  extractor (moby placements, models and animations, collision), its
-  documented names feed
-  `config/names.tsv` (`docs/NAMES.md`), and its notes on what functions do
-  reach worker packets through `config/overlays/rerac_notes.tsv` and the
-  US map (`docs/OVERLAYS.md`); see `THIRD_PARTY_NOTICES.md`
-- [ratchet-uya-decomp](https://github.com/vetusmagnus/ratchet-uya-decomp):
-  matching decompilation of R&C 3 with the same SN compiler; its compiler
-  and flag research (per-file `-mno-split-addresses`) is summarised in
-  `docs/SIBLING_DECOMPS.md`
-- [Wrench](https://github.com/chaoticgd/wrench): Ratchet & Clank PS2 modding
-  tools. Most of the level extractor's format knowledge comes from its
-  source; OpenRAC's `editor/README.md` credits it and the other projects the
-  extractor drew on
+---
 
 ## Contributing
 
-Contributions are welcome: see [`CONTRIBUTING.md`](CONTRIBUTING.md) and
-[`docs/WORKFLOW.md`](docs/WORKFLOW.md). A good first step is a function from
-`python tools/rank_candidates.py`, a draft from `tools/m2c.py`, and
-`tools/diff.sh` to compare it with retail.
+Contributions are warmly welcome! Whether you are interested in decompiling functions, researching engine quirks, or improving documentation:
+
+- See [`CONTRIBUTING.md`](CONTRIBUTING.md) for contribution guidelines and rules.
+- See [`docs/WORKFLOW.md`](docs/WORKFLOW.md) for the step-by-step function matching guide.
+- Join our **[Discord Community](https://discord.gg/Sfd2B54PDG)** to discuss progress, ask questions, and collaborate!
+
+---
+
+## Credits
+
+This project builds upon years of dedicated reverse-engineering research and tooling by the community:
+
+- **GFI (Game Fuckery Inc.)** – Special thanks to the GFI Discord community for years of reverse engineering, game research, and technical insights that made this decompilation possible.
+- **[Lombyte](https://github.com/mateuszklysz/Lombyte)** by mateuszklysz – Matching decompilation of the NTSC build of *Ratchet & Clank*. Invaluable reference for function pairing, struct definitions, and symbol names ([`docs/SIBLING_DECOMPS.md`](docs/SIBLING_DECOMPS.md)).
+- **[ReRAC](https://github.com/re-rac/rerac)** by the ReRAC team – Native PC port of the US release. Essential documentation of formats (mobys, models, collision), symbol names ([`config/names.tsv`](config/names.tsv)), and overlay mechanics ([`docs/OVERLAYS.md`](docs/OVERLAYS.md)).
+- **[ratchet-uya-decomp](https://github.com/OpenRAC/ratchet-uya-decomp)** by vetusmagnus – Matching decompilation of *Ratchet & Clank: Up Your Arsenal*. Foundation for SN Systems compiler flag discoveries and build setup.
+- **[Wrench](https://github.com/chaoticgd/wrench)** by chaoticgd – Ratchet & Clank PS2 modding tools and asset format specifications ([OpenRAC's `editor/README.md`](../../../editor/README.md)).
+- **Decompilation Tooling & Ecosystem**:
+  - [splat](https://github.com/ethteck/splat) & [spimdisasm](https://github.com/Decompollaborate/spimdisasm) – Binary splitting and MIPS disassembly.
+  - [m2c](https://github.com/matt-kempster/m2c) & [asm-differ](https://github.com/simonlindholm/asm-differ) – Assembly-to-C translation and diffing.
+  - [objdiff](https://github.com/encounter/objdiff) – Object diffing tool.
+  - [decomp.dev](https://decomp.dev) & [decomp.wiki](https://decomp.wiki) – Progress tracking and decompilation knowledge base.
+  - [AngheloAlf](https://github.com/AngheloAlf) – PS2 toolchain mirrors.
+
+---
 
 ## License
 
-The original work in this repository is MIT licensed (`LICENSE`). Third-party
-files keep their own licenses (see `THIRD_PARTY_NOTICES.md` and each file's
-header, for example the GPL-with-exception files under `src/libgcc/`).
+- Code written for this project is licensed under the [GNU General Public License v3.0](LICENSE).
+- Reconstructed libraries and third-party components retain their original licenses (see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and [`LEGAL.md`](LEGAL.md)).
+- *Ratchet & Clank* is a registered trademark of Sony Interactive Entertainment. This project is not affiliated with or endorsed by Sony or Insomniac Games.

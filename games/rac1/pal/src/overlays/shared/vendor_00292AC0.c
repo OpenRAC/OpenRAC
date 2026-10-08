@@ -17,7 +17,7 @@ void func_L03_00292AC0(char *moby)
     func_L02_00250A58(moby);
     func_L02_002A58C0(moby);
 }
-INCLUDE_ASM("asm/overlays", func_L03_00292B18);
+LINKER_REMNANT("asm/overlays", func_L03_00292B18);
 extern float D_0015EE6C MACRO_ADDR;
 extern float D_0015EE60 MACRO_ADDR;
 extern int func_001F9938(void *);
@@ -313,7 +313,27 @@ void func_L03_002DF738(char *moby) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L03_002E99F0);
-INCLUDE_ASM("asm/overlays", func_L03_002E9AF8);
+extern float D_0013F4D0[];
+extern float D_L03_00166FB0[];
+extern void func_001F9BF0(void *,void *,void *);
+extern void func_L00_001FF4B0(void *,void *,float);
+extern float func_001F9C78(void *,void *);
+extern float func_001F9FC0(float);
+extern float func_L00_001EB6A8(void *,float,float,float,float,float);
+extern void func_L03_0024F6D8(float,float *,float *,float *,int);
+extern void func_001F9CA0(void *,void *,void *);
+/* smooths a direction and rebuilds its orthogonal matrix axes */
+void func_L03_002E9AF8(char *m) {
+ float position[4] __attribute__((aligned(16))); float direction[4] __attribute__((aligned(16)));
+ char *data=*(char **)(m+0x70); float *height=(float *)(data+0x10); char *result; float angle,t;
+ qcopy(position,D_0013F4D0); position[2]+=height[19];
+ result=m+0x40; func_001F9BF0(direction,position,m+0x30); func_L00_001FF4B0(direction,direction,1.0f);
+ angle=func_001F9FC0(func_001F9C78(direction,m));
+ t=func_L00_001EB6A8(data,0.0f,1.57079637f-angle,*(float *)(data+4),*(float *)(data+8),*(float *)(data+12));
+ func_L03_0024F6D8(t,(float *)m,(float *)result,direction,1); func_L00_001FF4B0(result,m,1.0f);
+ qcopy(m,result);
+ func_001F9CA0(m+0x10,m,D_L03_00166FB0); func_L00_001FF4B0(m+0x10,m+0x10,1.0f); func_001F9CA0(m+0x20,m+0x10,m);
+}
 extern char D_0013E633[];
 extern int D_L03_0015F050 MACRO_ADDR;
 extern char D_L03_00166F40[];

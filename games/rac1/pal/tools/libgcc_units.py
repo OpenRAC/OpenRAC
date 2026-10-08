@@ -19,10 +19,10 @@ MODULES = [
     ("divdi3",         L2, ["func_0011DFE8"], ["func_0011E6D4"]),  # + linker fill
     ("fixunsdfdi",     L2, ["func_0011E6D8"], ["func_0011E7C4"]),  # + linker fill
     ("floatdidf",      L2, ["func_0011E7C8"], []),
-    ("moddi3",         L2, [], ["func_0011E860"]),
+    ("moddi3",         L2, ["func_0011E860"], []),
     ("muldi3",         L2, ["func_0011EEC8"], []),
-    ("udivdi3",        L2, [], ["func_0011EF28"]),
-    ("umoddi3",        L2, [], ["func_0011F4F8"]),
+    ("udivdi3",        L2, ["func_0011EF28"], []),
+    ("umoddi3",        L2, ["func_0011F4F8"], []),
     # Sony's whole-file soft-float objects, dead-stripped by retail's linker.
     ("dp-bit",         FP, ["func_0011FA38", "func_0011FB68", "func_0011FC08",
                             "func_0011FE48", "func_0011FEA0", "func_0011FF08",

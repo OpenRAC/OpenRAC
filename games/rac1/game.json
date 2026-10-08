@@ -31,18 +31,18 @@
       "target": "The boot executable SCES_509.16 and the 19 level programs (overlays), matched function by function.",
       "source": {
         "name": "rac1-decomp",
-        "repo": "https://github.com/Lynder063/rac1-decomp",
+        "repo": "https://github.com/OpenRAC/rac1-decomp",
         "branch": "main",
         "checkout": "~/Projects/rac1-decomp",
-        "license": "MIT",
+        "license": "GPL-3.0 (third-party parts keep theirs)",
         "exclude": [
           ".agents",
           "tools/extract",
           "docs/GDSCRIPT_CONVENTIONS.md"
         ],
-        "commit": "e46d716bd2abd94b410e21747fc3d88b40e49816",
-        "date": "2026-10-05",
-        "imported": "2026-10-05"
+        "commit": "47f8556018c4f01a41c0476e1cdfb10144542870",
+        "date": "2026-10-07",
+        "imported": "2026-10-07"
       },
       "build": {
         "host": "macOS or Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",

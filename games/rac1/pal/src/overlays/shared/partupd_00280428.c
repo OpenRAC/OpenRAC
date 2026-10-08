@@ -95,9 +95,57 @@ unsigned char *func_L01_00287F20(void *a, int b, int c, int d, float f, float g)
     }
     return r;
 }
-INCLUDE_ASM("asm/overlays", func_L01_0028B570);
-INCLUDE_ASM("asm/overlays", func_L01_0028C1D0);
-INCLUDE_ASM("asm/overlays", func_L01_0028C1D8);
+extern int func_001160D8(void);
+extern void func_001F9BF0(void *,void *,void *);
+extern void func_001FA4A0(void *,void *);
+extern void func_001F9EE8(void *,void *,void *);
+extern unsigned char D_L01_001B2928_b[] __asm__("D_L01_001B2928");
+/* spawns a type-74 particle with transformed offset and velocity */
+unsigned char *func_L01_0028B570(char *m,char *pos,float *vel,char *cfg,int flag) {
+ float v[4]; float mat[16];
+ unsigned char *p=func_00218928(74);
+ if(p) {
+ char *q;
+ p[9]=func_001FA898_r(4.0f)-0x60;
+ if(flag) p[3]=0x48; else p[3]=0x44;
+ p[1]=0;
+ q=(char *)p+0x20;
+ p[2]=**(unsigned char **)D_L01_001B2928_b;
+ p[8]=func_001160D8(); *(int *)(p+0xc)=0;
+ qcopy(p+0x10,pos);
+ *(float *)q=vel[0]; *(float *)(q+4)=vel[1]; *(float *)(q+8)=vel[2];
+ func_001F9BF0(v,pos,m+0x10);
+ qzero(mat);qzero(mat+4);qzero(mat+8);qzero(mat+12);
+ func_001FA4A0(mat,m+0xc0);
+ func_001F9EE8(v,v,mat);
+ *(float *)(q+0x10)=v[0]; *(float *)(q+0x14)=v[1]; *(float *)(q+0x18)=v[2];
+ *(char **)(q+0xc)=m; *(char **)(q+0x1c)=cfg;
+ *(short *)(p+0xa)=*(unsigned short *)(cfg+0xc);
+ *(int *)(p+4)=*(int *)cfg;
+ }
+ return p;
+}
+LINKER_REMNANT("asm/overlays", func_L01_0028C1D0);
+extern float func_001F9D10(void *, void *);
+extern char *D_L01_001B0C30[];
+
+// Resets a path object and computes per-segment lengths of its points.
+void func_L01_0028C1D8(char *p)
+{
+    int i;
+    int off;
+    char *q;
+    p[5] = 0;
+    *(int *)(p + 8) = 0;
+    *(char **)(p + 0x10) = D_L01_001B0C30[*(int *)(p + 0x14)];
+    for (i = 0; i < **(int **)(p + 0x10); i++) {
+        q = *(char **)(p + 0x10);
+        off = i << 4;
+        *(float *)(*(char **)(p + 0x10) + off + 0x1C) = func_001F9D10(q + (off + 0x10), q + ((((i + 1) % *(int *)q) << 4) + 0x10));
+        *(float *)(*(char **)(p + 0x10) + off + 0x18) += 0.5f;
+        *(float *)(*(char **)(p + 0x10) + off + 0x18) -= 0.5f;
+    }
+}
 typedef struct {
     int count;
     int pad[3];
@@ -168,7 +216,18 @@ int func_L01_0028C3A8(char *a0, List_8C3A8 *list, char *pt, char *out) {
 INCLUDE_ASM("asm/overlays", func_L01_0028C578);
 INCLUDE_ASM("asm/overlays", func_L01_0028C5B8);
 INCLUDE_ASM("asm/overlays", func_L01_0028C5D0);
-INCLUDE_ASM("asm/overlays", func_L01_0028C5F0);
+// Computes a bounded animation index from an effect and step count.
+int func_L01_0028C5F0(char *effect, int steps) {
+    int count = effect[4] < 0 ? 0 : **(int **)(effect + 0x10) - 1;
+    if (steps < 0) {
+        return count + steps;
+    }
+    if (count < steps) {
+        count++;
+        return steps % count;
+    }
+    return steps;
+}
 INCLUDE_ASM("asm/overlays", func_L01_0028C618);
 INCLUDE_ASM("asm/overlays", func_L01_0028C628);
 int func_L01_0028C640(char *p)

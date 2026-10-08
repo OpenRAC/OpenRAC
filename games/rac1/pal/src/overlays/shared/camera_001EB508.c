@@ -7,8 +7,31 @@ INCLUDE_ASM("asm/overlays", func_L00_001EB564);
 INCLUDE_ASM("asm/overlays", func_L00_001EB578);
 INCLUDE_ASM("asm/overlays", func_L00_001EB598);
 INCLUDE_ASM("asm/overlays", func_L00_001EB5A8);
-INCLUDE_ASM("asm/overlays", func_L00_001EB5B0);
-INCLUDE_ASM("asm/overlays", func_L00_001EB6A8);
+LINKER_REMNANT("asm/overlays", func_L00_001EB5B0);
+extern float func_001FA790_f(float, float) __asm__("func_001FA790");
+extern float func_001F9B88(float);
+extern float func_001FA748(float, float);
+
+/* steers *p toward a target with damping, clamps it, then calls FA748 */
+/* Joined to the fragment that follows it (config/overlays/joined.tsv): the catalogue splits the delay slot of the final jr off. */
+void func_L00_001EB6A8(float *p, float a, float b, float c, float d, float lim) {
+    float r = func_001FA790_f(b, a);
+    float v;
+    *p = *p + (c * r - d * *p);
+    if (lim != 0.0f) {
+        if (lim < *p) {
+            *p = lim;
+        } else if (*p < -lim) {
+            *p = -lim;
+        }
+    }
+    if (func_001F9B88(r) < *p) {
+        *p = func_001F9B88(r);
+    } else if (*p < -func_001F9B88(r)) {
+        *p = -func_001F9B88(r);
+    }
+    func_001FA748(a, *p);
+}
 typedef struct { char pad[0x254]; int p; char pad2[0x18]; short s; char pad3[1]; char c; char pad4[0x14]; float f0; char pad5[8]; float f1; } S;
 extern S D_L00_00166D80;
 
@@ -20,9 +43,96 @@ void func_L00_001EB7C8(void) {
 }
 INCLUDE_ASM("asm/overlays", func_L00_001EB890);
 INCLUDE_ASM("asm/overlays", func_L00_001EBDA0);
-INCLUDE_ASM("asm/overlays", func_L00_001EC090);
+extern char D_0013E633[];
+extern void func_L00_001FF4B0(void *, void *, float);
+extern void func_001EC8D8(float *out, void *p0, void *p1, void *dir0, void *dir1, void *axis);
+extern char D_L00_00166FF0[];
+
+// Samples three axes of the active camera, stores two and derives the look-at vector from them.
+/* Joined to the fragment that follows it (config/overlays/joined.tsv): the catalogue splits the delay slot of the final jr off. */
+void func_L00_001EC090(void) {
+    float a[4];
+    float b[4];
+    float c[4];
+    char *g = D_0013E633 + 0xE1D;
+    char *d = D_L00_00166FF0;
+
+    func_L00_001FF4B0(a, *(char **)(g + 0x2080) + 0xC0, 1.0f);
+    func_L00_001FF4B0(b, *(char **)(g + 0x2080) + 0xD0, 1.0f);
+    func_L00_001FF4B0(c, *(char **)(g + 0x2080) + 0xE0, 1.0f);
+    qcopy(d + 0x90, a);
+    qcopy(d + 0xA0, c);
+    func_001EC8D8((float *)(d + 0x70), d + 0xC0, g + 0x80, a, b, c);
+    qcopy(d + 0xB0, d + 0xD0);
+}
 INCLUDE_ASM("asm/overlays", func_L00_001EC220);
-INCLUDE_ASM("asm/overlays", func_L00_001ED2C0);
+/* func_L00_001ED2C0 is the head of one C function: its retail code runs on through
+   func_L00_001ED380 and the 8-byte piece at func_L00_001ED3D4 (288 bytes in all; the
+   beqz to 0x1ED380 and the beql to 0x1ED3D4 are branches inside it). This is the whole
+   function written out; try_func only compares the first 192 bytes, so it reports SIZE
+   until config/overlays/joined.tsv joins the pieces. Each block takes its own base
+   pointer to the hero state, as retail re-derives it per block. */
+extern char D_L00_00166F10[];
+extern float D_L00_00166EC8;
+extern int D_L00_0015F058 SDATA(D_L00_0015F058);
+extern int D_L00_0015F060 MACRO_ADDR;
+extern int D_L00_0015F05C_w __asm__("D_L00_0015F05C") MACRO_ADDR;
+extern int D_L00_0015F05C_g SDATA(D_L00_0015F05C);
+
+void func_L00_001ED2C0(void) {
+    char *d = D_L00_00166F10;
+
+    D_L00_0015F05C_g = 0x14;
+    {
+        unsigned char *g = (unsigned char *)(D_0013E633 + 0xE1D);
+        if ((unsigned int)(*(int *)(g + 0x208C) - 0x11) < 2 || *(int *)(g + 0x2084) == 0x73) {
+            D_L00_0015F05C_w = 0x34;
+        }
+    }
+    {
+        unsigned char *g = (unsigned char *)(D_0013E633 + 0xE1D);
+        if (*(int *)(g + 0x208C) != 0x11) {
+            if (*(float *)(g + 0x2F0) < D_L00_00166EC8) {
+                D_L00_0015F05C_w = 0x14;
+            }
+        }
+    }
+    {
+        int v = D_L00_0015F05C_w;
+        D_L00_0015F060 = v;
+        D_L00_0015F05C_w = v | 0x80;
+    }
+    D_L00_0015F058 = 0xB4;
+    {
+        unsigned char *g = (unsigned char *)(D_0013E633 + 0xE1D);
+        if (g[0x12E5]) {
+            *(int *)(d + 0xC0) = 0x100;
+            D_L00_0015F058 = 0x1B4;
+            return;
+        }
+        if (g[0x12EB]) {
+            *(int *)(d + 0xC0) = 0xB00;
+            D_L00_0015F058 = 0xBB4;
+            return;
+        }
+        if (g[0x12E6]) {
+            *(int *)(d + 0xC0) = 0x300;
+            D_L00_0015F058 = 0x3B4;
+            return;
+        }
+        if (g[0x12EC]) {
+            *(int *)(d + 0xC0) = 0xD00;
+            D_L00_0015F058 = 0xDB4;
+            return;
+        }
+        if (g[0x12E4] != 0) {
+            *(int *)(d + 0xC0) = 0;
+            D_L00_0015F058 = 0xB4;
+            return;
+        }
+        D_L00_0015F058 = *(int *)(d + 0xC0) | 0xB4;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L00_001ED380);
 INCLUDE_ASM("asm/overlays", func_L00_001ED3D4);
 INCLUDE_ASM("asm/overlays", func_L00_001ED428);
@@ -79,7 +189,27 @@ void func_L00_001ED600(void) {
     u[1] = t[1];
     u[2] = t[2];
 }
-INCLUDE_ASM("asm/overlays", func_L00_001ED6D8);
+typedef struct {
+    char pad[0x74];
+    int i74;
+    float f78;
+    char c7C, c7D;
+    short s7E, s80, s82, s84, s86;
+    char pad2;
+    char c89;
+    short s8A, s8C, s8E;
+    char pad3[0x10];
+} Elem;
+extern Elem D_L00_00167250[];
+extern int D_L00_00169990[];
+extern char D_L00_00166FF0[];
+extern int D_L00_0015F04C MACRO_ADDR;
+extern int D_L00_0015F054 MACRO_ADDR;
+extern short D_L00_0015F040;
+extern char *D_L00_0015F050 MACRO_ADDR;
+extern void func_L00_001FF4B0(void *, void *, float);
+extern void func_001F9BC0(void *);
+
 extern float func_001F9F90(float);
 extern float func_001F9FA8(float);
 extern void func_001F9BD8(void *, void *, void *);
@@ -164,4 +294,4 @@ void func_L00_001EDA28(float *pos, float r) {
         qcopy(&D_L00_00166EC0, pos);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_001EDBF8);
+LINKER_REMNANT("asm/overlays", func_L00_001EDBF8);

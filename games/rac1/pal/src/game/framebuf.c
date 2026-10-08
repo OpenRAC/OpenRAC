@@ -52,7 +52,7 @@ extern int D_0018E840[];
 
 ASM_FUNC("asm/handwritten/text", func_001FAA28);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001FAB20);
+LINKER_REMNANT("asm/remnants/text", func_001FAB20);
 
 INCLUDE_ASM("asm/nonmatchings/text", func_001FAB40);
 

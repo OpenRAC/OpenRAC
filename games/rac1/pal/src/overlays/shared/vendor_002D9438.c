@@ -319,7 +319,51 @@ void func_L00_002DB480(char *a, char *b, void *c) {
     *(unsigned short *)(b + 0x34) |= 4;
     func_0020EEE8(b);
 }
-INCLUDE_ASM("asm/overlays", func_L00_002DB508);
+typedef struct { u8 pad0[0x2050]; char *slot[10]; s32 i2078; s32 i207C; } G_2db508;
+extern G_2db508 D_0013F450_2db508 __asm__("D_0013F450") __attribute__((section(".data")));
+extern unsigned char D_0013E629_2db508 __asm__("D_0013E629") __attribute__((section(".data")));
+extern int func_001F9850(int);
+extern void func_00213DE0(void *, int, int, int);
+extern float func_001F9D48(void *, void *);
+
+/* Lets moby m take a free hero slot once its handler accepts (returns 2); returns the handler's result. */
+int func_L00_002DB508(u8 *p, void *q, void *m_, void *r_, void *buf) {
+    char *m = (char *)m_;
+    char *r = (char *)r_;
+    int ret = 0;
+    int (*fn)(void *, void *, void *) = **(int (***)(void *, void *, void *))(*(char **)(m + 0x24) + 0x2C);
+    G_2db508 *g;
+    char *x;
+    int c;
+    int n;
+    int i;
+    if (fn != 0) {
+        ret = fn(m, buf, p);
+        if (ret == 2 && *(short *)(r + 0x68) != 3) {
+            g = &D_0013F450_2db508;
+            n = g->i2078 + g->i207C;
+            if (D_0013E629_2db508 == 0 ? n < 5 : n < 10) {
+                x = *(char **)(r + 0x70);
+                if (((unsigned char *)m)[0x53] != (unsigned char)x[3]) {
+                    func_00213DE0(m, (unsigned char)x[3], 0, func_001F9850(10));
+                }
+                *(short *)(r + 0x68) = 3;
+                *(int *)(r + 0x6C) = 0;
+                *(float *)(m + 0x58) = 1.0f;
+                *(float *)(r + 0x64) = func_001F9D48(m + 0x10, buf);
+                for (i = 0; i < (D_0013E629_2db508 == 0 ? 5 : 10); i++) {
+                    if (D_0013F450_2db508.slot[i] == 0) {
+                        D_0013F450_2db508.slot[i] = m;
+                        *(short *)(r + 0x6A) = i;
+                        D_0013F450_2db508.i207C++;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    return ret;
+}
 int func_L00_002DB690(char *a) {
     int (*fn)(char *) = *(int (**)(char *))(*(char **)(*(char **)(a + 0x24) + 0x2C) + 0xC);
     if (fn != 0) {
@@ -385,7 +429,7 @@ extern s32 func_L00_002DB428(void);
 extern f32 func_L00_001FF860(f32, f32);
 extern f32 func_001FA850(f32, f32);
 extern s32 func_L00_001EFFF0_DB810(void *, V_da360 *, s32, M_da360 *, s32) __asm__("func_L00_001EFFF0");
-extern void func_L00_002DB508(u8 *, void *, M_da360 *, R *, void *);
+extern int func_L00_002DB508(u8 *, void *, void *, void *, void *);
 extern void func_L00_002DB690_DB810(M_da360 *) __asm__("func_L00_002DB690");
 extern void func_L00_002E0690_DB810(M_da360 *) __asm__("func_L00_002E0690");
 
@@ -607,7 +651,27 @@ int func_L00_002DD2D0(char *m) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L00_002DD3D8);
-INCLUDE_ASM("asm/overlays", func_L00_002DDDE8);
+typedef struct { int v[16]; } __attribute__((aligned(16))) Mtx2DDDE8;
+typedef struct { float v[4]; } __attribute__((aligned(16))) Q2DDDE8;
+extern void func_L00_002DD3D8(char *, char *);
+
+// Initializes an object from its template and calls its handler.
+void func_L00_002DDDE8(char *p, char *q, int flag) {
+    Mtx2DDDE8 m;
+    void (*fn)(char *);
+    if (flag) func_L00_002DD3D8(p, q);
+    *(int *)(p + 0x98) = *(int *)(q + 0x84);
+    qzero(p + 0x40);
+    func_001FA218(&m, p + 0x40);
+    func_001FA480(p + 0xC0, &m);
+    func_0020EEE8(p);
+    *(unsigned short *)(p + 0x34) &= ~4;
+    *(int *)(p + 0x98) = *(int *)(q + 0x84);
+    *(float *)(p + 0x2C) = *(float *)(*(char **)(p + 0x24) + 0x24);
+    *(short *)(q + 0x68) = 0;
+    fn = *(void (**)(char *))(*(char **)(*(char **)(p + 0x24) + 0x2C) + 0x14);
+    if (fn) fn(p); else func_0020D678(p);
+}
 INCLUDE_ASM("asm/overlays", func_L00_002DDEA0);
 INCLUDE_ASM("asm/overlays", func_L00_002DED98);
 extern short D_L00_001E6358[];

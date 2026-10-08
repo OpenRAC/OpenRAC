@@ -587,7 +587,7 @@ void func_00234FA8(void) {
     D_00161000 += 4;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00235008);
+LINKER_REMNANT("asm/remnants/text", func_00235008);
 
 extern int D_00161018 MACRO_ADDR;
 extern int D_0016101C MACRO_ADDR;

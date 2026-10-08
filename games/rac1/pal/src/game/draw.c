@@ -1668,7 +1668,7 @@ void func_001F69F0(u64 color, u8 *str, s32 n, s32 tex, struct Glyph *g, f32 x, f
     } while (*s != 0);
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001F6CE0);
+LINKER_REMNANT("asm/remnants/text", func_001F6CE0);
 
 extern int func_001F6600(unsigned char *, int);
 extern int func_001F6620(unsigned char *, int);
@@ -1925,4 +1925,4 @@ void func_001F7BF8(void) {
     }
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001F7C50);
+LINKER_REMNANT("asm/remnants/text", func_001F7C50);

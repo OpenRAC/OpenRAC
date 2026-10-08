@@ -2,9 +2,62 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L09_0021E3E8);
+LINKER_REMNANT("asm/overlays", func_L09_0021E3E8);
 INCLUDE_ASM("asm/overlays", func_L09_0021E410);
-INCLUDE_ASM("asm/overlays", func_L09_0021E770);
+extern void func_L09_0021E410(int, int);
+extern void func_001F7868(void);
+extern int func_L00_00200290(char *, float);
+extern void func_L01_0021F9C8(int, int, int, int, int, int);
+extern int *D_L09_00161240 MACRO_ADDR;
+extern char D_L09_0016EB20[];
+extern int D_L09_0015F6B0 MACRO_ADDR;
+
+typedef struct { char pad[0x20]; short idx[16]; } Strip;
+
+/* Draws a list of scrolling-texture strips (water) into the scratchpad. */
+void func_L09_0021E770(char *list, int count, long tex0, long tex1) {
+    int i;
+    int j;
+    int c;
+    int *sp;
+    int idx;
+    float s0;
+    float s1;
+    func_L09_0021E410(tex0, tex1);
+    D_L09_00161240[0] = 0x30000009;
+    D_L09_00161240[1] = (int)D_L09_0016EB20;
+    D_L09_00161240[2] = 0;
+    D_L09_00161240[3] = 0x50000009;
+    D_L09_00161240 += 4;
+    func_001F7868();
+    s0 = 1.0f - (float)(D_L09_0015F6B0 & 0x7FF) * 0.00048828125f;
+    s1 = s0 + s0 + 0.5f;
+    sp = (int *)0x70000000;
+    for (i = 0; i < 256; i++) {
+        sp[i] = ((i * 0x89) & 0xF) * 0x20200 + 0x80787070;
+    }
+    for (i = 0; i < count; i++) {
+        char *e = list + i * 64;
+        idx = func_L00_00200290(e, 256.0f);
+        if (idx == -1) continue;
+        for (j = 0; j < *(int *)(e + 0x1C); j++) {
+            int n;
+            float *src;
+            float *a = (float *)0x70001000;
+            float *b = (float *)0x70002000;
+            n = ((Strip *)e)->idx[j + 1] - ((Strip *)e)->idx[j];
+            src = (float *)(*(int *)(e + 0x14) + ((Strip *)e)->idx[j] * 8);
+            for (c = 0; c < n; c++) {
+                float f = *src++;
+                *b++ = f;
+                *a++ = f;
+                *a++ = *src + s0;
+                *b++ = *src++ + s1;
+            }
+            func_L01_0021F9C8(n, *(int *)(e + 0x10) + ((Strip *)e)->idx[j] * 12, 0x70000000, 0x70001000, 0x70002000, idx == 0);
+        }
+    }
+}
 extern void func_0022C7E0(void);
 extern int D_0015EE84_m __asm__("D_0015EE84") MACRO_ADDR;
 extern void func_L00_0028B680(void);

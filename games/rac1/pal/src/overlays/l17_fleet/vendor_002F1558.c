@@ -2,7 +2,140 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L17_002F1558);
+typedef int q128_2F1558 __attribute__((mode(TI)));
+typedef struct {
+    char pad0[0x20];
+    float f20;
+    char pad24[0x14];
+    int i38;
+    char pad3C[0xD4];
+    short h110[3];
+    char b116;
+    unsigned char b117;
+    char pad118[8];
+    float v120[4];
+    float f130;
+    float f134;
+    float f138;
+    float f13C;
+    int i140;
+    int i144;
+    char pad148[0x15];
+    char b15D;
+    char pad15E[0x12];
+    float f170;
+    float f174;
+    char pad178[8];
+    float v180[4];
+    char pad190[0x20];
+    float v1B0[4];
+    char pad1C0[0x14];
+    float f1D4;
+    char pad1D8[0xC];
+    char b1E4;
+    char pad1E5[0xB];
+    float f1F0;
+    float f1F4;
+} Data_2F1558;
+typedef struct {
+    char pad0[0x10];
+    float pos[4];
+    unsigned char state;
+    char pad21[0x27];
+    float f48;
+    char pad4C[0x2C];
+    Data_2F1558 *data;
+    char pad7C[0x28];
+    unsigned char bA4;
+    char padA5;
+    short hA6;
+} Moby_2F1558;
+typedef struct {
+    char pad0[0x10];
+    float pos[4];
+    Moby_2F1558 *moby;
+} Hit_2F1558;
+extern char D_0013E633[];
+extern float D_0015EE70 MACRO_ADDR;
+extern float D_0015EE6C MACRO_ADDR;
+extern float func_002140F8(float, float);
+extern float func_001F9878(float);
+extern int func_001FA898_r(float) __asm__("func_001FA898");
+extern void func_L08_00211A38(float *);
+extern char *func_L00_0025B478(void *, int, int);
+extern int func_L00_0025B4D0(void *, void *, void *, int, int *, float *, int, int);
+extern void func_L00_0025BBA0(void *, float *, void *, void *);
+extern float func_L00_001FF860(float, float);
+extern void func_L00_0025D5B0(float, void *, void *, int, int, int);
+extern void func_L00_0025E4B0(void *m, short *p);
+extern int func_L00_00260FB0(float, char *, void *, int, int, void *, int);
+extern float func_001F9D10(void *, void *);
+extern float func_001FA850(float, float);
+extern int func_L00_001EFFF0(void *, void *, int, int, int);
+
+/* Fleet turret/enemy state update: refreshes the hit reaction, fires the aim query and sets the lock flags. */
+void func_L17_002F1558(Moby_2F1558 *moby, int arg) {
+    Data_2F1558 *d;
+    Hit_2F1558 *q;
+    float tmp[4];
+    int x;
+    float y;
+    float ang;
+    int r;
+    float yaw;
+    float ang2;
+
+    d = moby->data;
+    if (moby->state == 0) {
+        return;
+    }
+    if (d->i38 != 0) {
+        d->f1D4 = func_001FA898_r(func_001F9878(func_002140F8(180.0f, 240.0f)));
+        d->i38 = 0;
+    }
+    func_L08_00211A38(&d->f1D4);
+    y = 0;
+    q = (Hit_2F1558 *)func_L00_0025B478(moby, 0x330000, 0);
+    func_L00_0025B4D0(moby, q, &d->f20, 0, &x, &y, 0, 4);
+    if (x != 1 && moby->state != 15) {
+        d->f20 -= y;
+        d->f130 = D_0015EE70 * 42.0f;
+        d->f134 = D_0015EE70 * 24.0f;
+        d->b15D = 0;
+        d->i144 = 9;
+        d->f13C = D_0015EE6C * 15.7f;
+        d->f138 = D_0015EE6C * 19.0f;
+        d->f170 = -1.0f;
+        d->f174 = -1.0f;
+        *(q128_2F1558 *)tmp = *(q128_2F1558 *)q->pos;
+        func_L00_0025BBA0(tmp, &ang, &d->f138, &d->f13C);
+        if (q != 0 && q->moby != 0 && q->moby->hA6 == 0x63) {
+            ang = func_L00_001FF860(d->f1F0 - moby->pos[0], d->f1F4 - moby->pos[1]);
+        }
+        func_L00_0025D5B0(ang, moby, d->v120, 0xB, 1, 0);
+        moby->state = 15;
+        d->b117 = 0xF0;
+        func_L00_0025E4B0(moby, d->h110);
+    }
+    moby->bA4 = 0xFF;
+    if (arg != 0) {
+        return;
+    }
+    if (func_L00_00260FB0(128.0f, (char *)moby, d->v180, 0, 0, 0, 0) == 2) {
+        return;
+    }
+    if (func_001F9D10(moby->pos, d->v1B0) < 64.0f) {
+        ang2 = func_L00_001FF860(d->v180[0] - moby->pos[0], d->v180[1] - moby->pos[1]);
+        yaw = func_001FA850(moby->f48, ang2);
+        qcopy(tmp, moby->pos);
+        tmp[2] += 1.0f;
+        r = func_L00_001EFFF0(tmp, D_0013E633 + 0xEED, 2, 0, 0) == 0;
+        d->b1E4 = r;
+        if (yaw < 1.0471976f) {
+            d->b1E4 = r << 1;
+        }
+    }
+}
 extern float func_L00_001FF860(float, float);
 extern float func_L00_0025CE58(float *p, float *v, float a, float b, float c, float d);
 extern float func_00214D28(float *p, float target, float maxstep);
@@ -53,8 +186,140 @@ int func_L17_002F1B50(char *a) {
     a[0x20] = 12;
     return r;
 }
-INCLUDE_ASM("asm/overlays", func_L17_002F1BB0);
-INCLUDE_ASM("asm/overlays", func_L17_002F1D20);
+extern float D_0015EE64 MACRO_ADDR;
+extern void func_001F9BF0(void *, void *, void *);
+extern float func_001FA790(float, float);
+extern float func_001F9CE8(void *);
+extern void func_L00_00263950(char *, char *, int, float, float);
+
+/* The turret's eased part (func_L00_00263950's second argument) and where it sits in the moby's data. */
+typedef struct {
+    char pad0[0x64];
+    float pitch;
+    float yaw;
+} AimPart_1BB0;
+
+typedef struct {
+    char pad0[0x230];
+    AimPart_1BB0 part;
+} AimData_1BB0;
+
+/* Aims the turret at the hero: yaw and pitch to him, clamped, become the eased part's targets. */
+void func_L17_002F1BB0(char *moby) {
+    AimData_1BB0 *d = *(AimData_1BB0 **)(moby + 0x78);
+    float accel = 0.02f;
+    float speed = 0.3f;
+    float tmp[4];
+    float v[4];
+    float yaw;
+    float pitch;
+    qcopy(tmp, moby + 0x10);
+    tmp[2] += 0.5f;
+    func_001F9BF0(v, D_0013E633 + 0xEED, tmp);
+    yaw = func_001FA790(func_L00_001FF860(v[0], v[1]), *(float *)(moby + 0x48));
+    pitch = -func_L00_001FF860(func_001F9CE8(v), v[2]);
+    if (yaw > 1.0471976f) {
+        yaw = 1.0471976f;
+    } else if (yaw < -1.0471976f) {
+        yaw = -1.0471976f;
+    }
+    if (pitch > 0.5235988f) {
+        pitch = 0.5235988f;
+    } else if (pitch < -0.5235988f) {
+        pitch = -0.5235988f;
+    }
+    d->part.pitch = pitch;
+    d->part.yaw = yaw;
+    func_L00_00263950(moby, (char *)&d->part, 0, accel * D_0015EE64, speed * D_0015EE64);
+}
+extern float func_001FA888(int);
+extern int func_001FA8A8(int, int, float);
+extern void func_L00_00250800(void *, int, void *);
+extern void func_001F49B0(void (*)(void), void *);
+extern void func_L17_002F1F58(char *);
+extern int D_L17_0015F6B0 MACRO_ADDR;
+
+// Pulses a moby's colour from a random phase and queues its draw callback.
+void func_L17_002F1D20(unsigned char *moby) {
+    char *data;
+    int n;
+    int alpha;
+    int mode;
+    int i;
+    int x, y, z;
+    int r, g, b;
+    float f;
+    int color;
+
+    /* Period and base colour by state range; both ranges have the same values in this build. */
+    if (moby[0x20] < 16) {
+        n = 0xAA;
+        r = 0x32;
+        g = 0xB4;
+        b = 0x14;
+    } else {
+        n = 0xAA;
+        r = 0x32;
+        g = 0xB4;
+        b = 0x14;
+    }
+    data = *(char **)(moby + 0x78);
+    n = scale_ticks(n);
+    alpha = 0x80;
+    mode = 0;
+    switch (moby[0x20]) {
+    case 4:
+    case 5:
+    case 6:
+        mode = 1;
+        break;
+    case 7:
+    case 8:
+    case 9:
+    case 10:
+    case 11:
+    case 13:
+    case 14:
+    case 15:
+        mode = 2;
+        break;
+    case 12:
+        mode = -1;
+        break;
+    }
+    if (mode >= 0) {
+        if (mode == 2) {
+            n = scale_ticks(0x32);
+        } else if (mode == 1) {
+            n = scale_ticks(0x5A);
+        }
+        f = FastSin(((float)(D_L17_0015F6B0 % n) / func_001FA888(n)) * 2.0f * 3.1415927f + -3.1415927f);
+        x = func_001FA898_r(f * 20.0f);
+        y = func_001FA898_r(f * 70.0f);
+        z = func_001FA898_r(f * 10.0f);
+        r += x;
+        g += y;
+        b += z;
+        if (r > 255) {
+            r = 255;
+        }
+        if (g > 255) {
+            g = 255;
+        }
+        if (mode == 2) {
+            color = (alpha << 24) | (b << 16) | ((r / 2) << 8) | g;
+        } else if (mode != 0) {
+            color = (alpha << 24) | (b << 16) | ((r / 2) << 8) | g;
+        } else {
+            color = (alpha << 24) | (b << 16) | (g << 8) | r;
+        }
+        *(int *)(moby + 0x90) = FastTweenColor(*(int *)(moby + 0x90), color, 0.1f);
+        for (i = 0; i < 3; i++) {
+            func_L00_00250800(moby, i + 1, data + 0x200 + i * 16);
+        }
+        AddDrawCallback(func_L17_002F1F58, moby);
+    }
+}
 extern void func_L00_00264690(void *, int, float, float);
 void func_L17_002F1F58(char *m) {
     int v = (*(int *)(m + 0x90) & 0xFFFFFF) | 0x30000000;
@@ -65,9 +330,225 @@ void func_L17_002F1F58(char *m) {
         p += 0x10;
     }
 }
-INCLUDE_ASM("asm/overlays", func_L17_002F1FE0);
-INCLUDE_ASM("asm/overlays", func_L17_002F2458);
-INCLUDE_ASM("asm/overlays", func_L17_002F2BD8);
+extern float func_001FA888(int);
+extern int func_001F4868(int);
+extern void func_00234C98(int, long);
+extern float func_001F9878(float);
+extern float func_001FA748(float, float);
+extern void func_L00_00251358(void *, void *, void *, void *);
+extern float func_001F9B50(float);
+extern float func_L00_00200210(float, float);
+extern float func_001FA7D8(float x);
+extern void func_001F7868(void);
+extern void func_L00_001FDE48(int, int, int, void *, int);
+extern int D_L17_0015F6B0 MACRO_ADDR;
+extern short D_L17_00162290;
+extern short D_L17_00162298;
+extern short D_L17_001622A0;
+extern short D_L17_001622A8;
+extern short D_L17_001622B0;
+extern short D_L17_001622B8;
+extern int D_L17_001622C8 SDATA(D_L17_001622C8);
+extern int D_L17_001622CC SDATA(D_L17_001622CC);
+extern int D_L17_001622D0 SDATA(D_L17_001622D0);
+extern float D_L17_001622D4 SDATA(D_L17_001622D4);
+extern float D_L17_001622D8 SDATA(D_L17_001622D8);
+extern float D_L17_001622DC SDATA(D_L17_001622DC);
+extern float D_L17_001622E0 SDATA(D_L17_001622E0);
+typedef struct { float f0; float f4; } RippleData;
+typedef struct { float v[2]; } P2;
+typedef struct { P2 p[2]; } T4;
+extern T4 D_L17_001622E8;
+
+/* Builds the two rippling vertex strips around the moby (template points moved to its position, z waved by distance from the centre), then draws them twice with scrolled texture coordinates. */
+void func_L17_002F1FE0(char *moby) {
+    RippleData *d = *(RippleData **)(moby + 0x78);
+    float scale;
+    int r, g, b;
+    int color;
+    int i, j, m, n, q;
+
+    scale = func_001FA888(D_L17_0015F6B0) * (D_L17_001622E0 * D_0015EE6C);
+    VU1_addGSregister(6, GetEffectTex(D_L17_001622CC));
+    VU1_addGSregister(0x42, ((long)D_L17_001622C8 << 32) | 0x44);
+    VU1_addGSregister(8, 0);
+    VU1_addGSregister(0x14, ((long)0xFF90 << 32) | 0x260);
+    d->f0 = d->f4;
+    d->f4 = FastAddRots(d->f4, 360.0f / func_001F9878(D_L17_001622D8) * 0.017453292f * D_0015EE6C);
+    func_L00_00251358(moby, &r, &g, &b);
+    color = (D_L17_001622D0 << 24) | (b << 16) | (g << 8) | r;
+    for (i = 0; i < 2; i++) {
+        for (j = 0; j < ((int *)&D_L17_00162290)[i]; j++) {
+            int *e = (int *)&D_L17_001622B0 + i;
+            float *p = (float *)(*e + j * 12);
+            float t = D_L17_001622DC *
+                FastSin(FastAddRots(FastNormalizeAngle(
+                    func_L00_00200210(func_001F9B50(p[0] * p[0] + p[1] * p[1]), D_L17_001622D4)
+                        * 6.2831855f / D_L17_001622D4), d->f4));
+            *(float *)(j * 12 + ((int *)&D_L17_00162298)[i]) = p[0] + *(float *)(moby + 0x10);
+            *(float *)(j * 12 + ((int *)&D_L17_00162298)[i] + 4) = p[1] + *(float *)(moby + 0x14);
+            *(float *)(j * 12 + ((int *)&D_L17_00162298)[i] + 8) = p[2] + *(float *)(moby + 0x18) + t;
+            *(int *)(j * 4 + ((int *)&D_L17_001622A8)[i]) = color;
+        }
+    }
+    for (i = 0; i < 2; i++) {
+        for (m = 0; m < 2; m++) {
+            for (n = 0; n < ((int *)&D_L17_00162290)[m]; n++) {
+                T4 tbl = D_L17_001622E8;
+                *(float *)(n * 8 + ((int *)&D_L17_001622A0)[m]) =
+                    *(float *)(n * 8 + ((int *)&D_L17_001622B8)[m])
+                    + func_L00_00200210(scale * tbl.p[i].v[0], 1.0f);
+                *(float *)(n * 8 + ((int *)&D_L17_001622A0)[m] + 4) =
+                    *(float *)(n * 8 + ((int *)&D_L17_001622B8)[m] + 4)
+                    + func_L00_00200210(scale * tbl.p[i].v[1], 1.0f);
+            }
+        }
+        func_001F7868();
+        for (q = 0; q < 2; q++) {
+            func_L00_001FDE48(((int *)&D_L17_00162290)[q], ((int *)&D_L17_00162298)[q],
+                ((int *)&D_L17_001622A8)[q], (void *)((int *)&D_L17_001622A0)[q], 1);
+        }
+    }
+}
+typedef struct { float x; float y; float z; } RingPt;
+extern RingPt D_L17_001DC0F0[];
+extern RingPt D_L17_001DC950[];
+extern int D_L17_001DD048[];
+extern float D_L17_001DC520[][2];
+extern float D_L17_001DCD80[][2];
+extern int D_L17_00162300[1] SDATA(D_L17_00162300);
+extern int D_L17_00162320[1] SDATA(D_L17_00162320);
+extern int D_L17_00162328[1] SDATA(D_L17_00162328);
+extern int D_L17_00162330[1] SDATA(D_L17_00162330);
+extern int D_L17_00162334 SDATA(D_L17_00162334);
+extern int D_L17_00162338 SDATA(D_L17_00162338);
+extern int D_L17_0016233C SDATA(D_L17_0016233C);
+extern float D_L17_00162340 SDATA(D_L17_00162340);
+extern float D_L17_00162344 SDATA(D_L17_00162344);
+extern float D_L17_00162348 SDATA(D_L17_00162348);
+extern float D_L17_0016234C SDATA(D_L17_0016234C);
+extern T4 D_L17_00162350;
+
+/* Builds the rippling 89-point ring around the moby (template points moved to its position, z waved by distance from the centre), then draws it twice with scrolled texture coordinates. */
+void func_L17_002F2458(char *moby) {
+    RippleData *d = *(RippleData **)(moby + 0x78);
+    T4 t;
+    float scale;
+    int r, g, b;
+    int color;
+    int i, j, n, k;
+
+    scale = func_001FA888(D_L17_0015F6B0) * (D_L17_0016234C * D_0015EE6C);
+    VU1_addGSregister(6, GetEffectTex(D_L17_00162338));
+    VU1_addGSregister(0x42, ((long)D_L17_00162334 << 32) | 0x44);
+    VU1_addGSregister(8, 0);
+    VU1_addGSregister(0x14, ((long)0xFF90 << 32) | 0x260);
+    d->f0 = d->f4;
+    d->f4 = FastAddRots(d->f4, 360.0f / func_001F9878(D_L17_00162344) * 0.017453292f * D_0015EE6C);
+    func_L00_00251358(moby, &r, &g, &b);
+    color = (D_L17_0016233C << 24) | (b << 16) | (g << 8) | r;
+    for (i = 0; i < D_L17_00162300[0]; i++) {
+        RingPt *p = &D_L17_001DC0F0[i];
+        float w = D_L17_00162348 *
+            FastSin(FastAddRots(FastNormalizeAngle(
+                func_L00_00200210(func_001F9B50(p->x * p->x + p->y * p->y), D_L17_00162340)
+                    * 6.2831855f / D_L17_00162340), d->f4));
+        D_L17_001DC950[i].x = p->x + *(float *)(moby + 0x10);
+        D_L17_001DC950[i].y = p->y + *(float *)(moby + 0x14);
+        D_L17_001DC950[i].z = p->z + *(float *)(moby + 0x18) + w;
+        D_L17_001DD048[i] = color;
+    }
+    for (j = 0; j < 2; j++) {
+        for (n = 0; n < D_L17_00162300[0]; n++) {
+            t = D_L17_00162350;
+            D_L17_001DCD80[n][0] = D_L17_001DC520[n][0] + func_L00_00200210(scale * t.p[j].v[0], 1.0f);
+            D_L17_001DCD80[n][1] = D_L17_001DC520[n][1] + func_L00_00200210(scale * t.p[j].v[1], 1.0f);
+        }
+        func_001F7868();
+        for (k = 0; k < 1; k++) {
+            func_L00_001FDE48(D_L17_00162300[k], D_L17_00162320[k], D_L17_00162330[k], (void *)D_L17_00162328[k], 1);
+        }
+    }
+}
+extern float D_L17_001DDE70[];
+extern float D_L17_001DDA30[];
+extern int D_L17_001DE1F8[];
+extern float D_L17_001DDC50[][2];
+extern float D_L17_001DE090[][2];
+typedef struct { float f[4]; } Quad4;
+typedef struct {
+    float prev;
+    float angle;
+} RingVars;
+extern Quad4 D_L17_00162410;
+extern int D_L17_001623C0[1] SDATA(D_L17_001623C0);
+extern int D_L17_001623E0[1] SDATA(D_L17_001623E0);
+extern int D_L17_001623E8[1] SDATA(D_L17_001623E8);
+extern int D_L17_001623F0[1] SDATA(D_L17_001623F0);
+extern int D_L17_001623F4 SDATA(D_L17_001623F4);
+extern int D_L17_001623F8 SDATA(D_L17_001623F8);
+extern int D_L17_001623FC SDATA(D_L17_001623FC);
+extern float D_L17_00162400 SDATA(D_L17_00162400);
+extern float D_L17_00162404 SDATA(D_L17_00162404);
+extern float D_L17_00162408 SDATA(D_L17_00162408);
+extern float D_L17_0016240C SDATA(D_L17_0016240C);
+
+/* Builds and draws the animated ring of lights around a moby: 45 vertices and colours, then two passes of 45 texture coordinates. */
+void func_L17_002F2BD8(char *moby) {
+    unsigned int i = 0;
+    unsigned int off = 0;
+    RingVars *data = *(RingVars **)(moby + 0x78);
+    unsigned int n;
+    int j;
+    int k;
+    int color;
+    Quad4 t;
+    int r;
+    int g;
+    int b;
+    float scale;
+    Quad4 *p;
+    float *o;
+    scale = func_001FA888(D_L17_0015F6B0) * (D_L17_0016240C * D_0015EE6C);
+    func_00234C98(6, func_001F4868(D_L17_001623F8));
+    func_00234C98(0x42, ((long)D_L17_001623F4 << 32) | 0x44);
+    func_00234C98(8, 0);
+    func_00234C98(0x14, 0xFF9000000260L);
+    data->prev = data->angle;
+    data->angle = func_001FA748(data->angle, 360.0f / func_001F9878(D_L17_00162404) * 0.017453292f * D_0015EE6C);
+    func_L00_00251358(moby, &r, &g, &b);
+    /* The second float of each pair in t: p->f[0] is t.f[1], p->f[2] is t.f[3]. */
+    p = (Quad4 *)&t.f[1];
+    color = (D_L17_001623FC << 24) | (b << 16) | (g << 8) | r;
+    o = D_L17_001DDE70;
+    do {
+        float *s = &D_L17_001DDA30[i * 3];
+        float x = s[0];
+        float y = s[1];
+        float rad = func_001F9B50(x * x + y * y);
+        float a = func_L00_00200210(rad, D_L17_00162400);
+        float w = func_001FA7D8(a * 6.2831855f / D_L17_00162400);
+        float z = func_001F9FA8(func_001FA748(w, data->angle));
+        o[0] = s[0] + *(float *)(moby + 0x10);
+        *(float *)((char *)D_L17_001DDE70 + 4 + off) = s[1] + *(float *)(moby + 0x14);
+        o[2] = s[2] + *(float *)(moby + 0x18) + D_L17_00162408 * z;
+        D_L17_001DE1F8[i] = color;
+        i++;
+        off += 12;
+        o += 3;
+    } while (i < 45);
+    for (j = 0; j < 2; j++) {
+        for (n = 0; n < 45; n++) {
+            t = D_L17_00162410;
+            D_L17_001DE090[n][0] = D_L17_001DDC50[n][0] + func_L00_00200210(scale * t.f[j * 2], 1.0f);
+            D_L17_001DE090[n][1] = D_L17_001DDC50[n][1] + func_L00_00200210(scale * p->f[j * 2], 1.0f);
+        }
+        func_001F7868();
+        for (k = 0; k < 1; k++) {
+            func_L00_001FDE48(D_L17_001623C0[k], D_L17_001623E0[k], D_L17_001623F0[k], (void *)D_L17_001623E8[k], 1);
+        }
+    }
+}
 extern int func_0022ED80(int, int, int);
 extern int func_L00_00265558(int);
 extern void func_001F4E08(int);
@@ -399,7 +880,7 @@ int func_L17_002F3CC0(char *moby, int idx) {
     }
     return d->fA4 == 1.0f;
 }
-INCLUDE_ASM("asm/overlays", func_L17_002F4208);
+LINKER_REMNANT("asm/overlays", func_L17_002F4208);
 extern int func_00215570(void *arg0, int arg1);
 extern int func_0022EE28(int, int, int);
 extern void func_L00_00264DB8(int arg0, int arg1);
@@ -1084,7 +1565,7 @@ void func_L17_002F5C18(unsigned char *moby) {
         break;
     }
 }
-INCLUDE_ASM("asm/overlays", func_L17_002F6AF0);
+LINKER_REMNANT("asm/overlays", func_L17_002F6AF0);
 extern short *D_L17_001AC440[];
 extern char D_L17_00167750[];
 extern char D_L17_00167740[];

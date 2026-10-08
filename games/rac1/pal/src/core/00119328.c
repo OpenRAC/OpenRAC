@@ -240,7 +240,7 @@ void func_001197F8(int arg0, int arg1, unsigned short arg2) {
     func_00118E90(-0x6, buf);
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_00119830);
+LINKER_REMNANT("asm/remnants/core_text", func_00119830);
 
 void func_00119840(int arg0) {
     int local = arg0;

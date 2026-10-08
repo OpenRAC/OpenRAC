@@ -21,7 +21,7 @@ void func_L00_001F3A78(void) {
     (*(void * *)&D_L00_0015F0C0) = D_L00_0016A140;
 }
 INCLUDE_ASM("asm/overlays", func_L00_001F3AF0);
-INCLUDE_ASM("asm/overlays", func_L00_001F3DF0);
+LINKER_REMNANT("asm/overlays", func_L00_001F3DF0);
 INCLUDE_ASM("asm/overlays", func_L00_001F3E20);
 extern float func_001FA748(float, float);
 extern float func_001F9F90(float);
@@ -64,7 +64,35 @@ void func_L00_001F70F0(void) {
     *(int *)(p + 0x1B0) = 0;
     *(int *)(p + 0x368) = t;
 }
-INCLUDE_ASM("asm/overlays", func_L00_001F75F8);
+/* ParseOcclGrid(x, y, z): walks the three-level occlusion grid at
+   D_L00_0015F6E0, the same function as the core's func_001F2A38 (src/game/draw.c).
+   Each level is {u16 start, u16 count, u16 entry[count]}; the coordinate minus
+   start must fall in [0, count). Retail's function is 0xD4 bytes: this stub's
+   0x84 bytes, the func_L00_001F767C piece (0x48) and the shared return
+   (func_001E97C8, 8 bytes) are one C function (config/overlays/joined.tsv). */
+extern char *D_L00_0015F6E0 MACRO_ADDR;
+
+int func_L00_001F75F8(int x, int y, int z) {
+    char *grid = D_L00_0015F6E0;
+    char *base = grid + *(int *)grid;
+    unsigned short *l = (unsigned short *)(grid + 4);
+    int cz, cy, cx;
+
+    cz = z - l[0];
+    if (cz < 0) return 0;
+    if (cz >= l[1]) return 0;
+    if (l[cz + 2] == 0) return 0;
+    l = (unsigned short *)(grid + l[cz + 2] * 4);
+    cy = y - l[0];
+    if (cy < 0) return 0;
+    if (cy >= l[1]) return 0;
+    if (l[cy + 2] == 0) return 0;
+    l = (unsigned short *)(grid + l[cy + 2] * 4);
+    cx = x - l[0];
+    if (cx < 0 || cx >= l[1]) return 0;
+    if (l[cx + 2] == 0xFFFF) return 0;
+    return (int)(base + l[cx + 2] * 128);
+}
 INCLUDE_ASM("asm/overlays", func_L00_001F767C);
 INCLUDE_ASM("asm/overlays", func_L00_001F8750);
 extern int D_L00_0015F6BC MACRO_ADDR;

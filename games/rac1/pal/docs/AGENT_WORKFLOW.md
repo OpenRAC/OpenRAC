@@ -5,7 +5,8 @@ cheap workers, reviews what they match and lands it, and a strict tool
 decides what counts as a match. The goal is the most matched bytes per
 token. The setup follows
 [Thief3-Decomp's tiered workflow](https://github.com/Veradictus/Thief3-Decomp)
-and every setting below was measured here (2026-09-30).
+and every setting below was measured here (2026-09-30; the model tiers
+again on 2026-10-07).
 
 [WORKFLOW.md](WORKFLOW.md) covers the build and the manual loop,
 [QUEUE.md](QUEUE.md) is the workers' protocol, [OVERLAYS.md](OVERLAYS.md)
@@ -16,17 +17,19 @@ the level-code catalogue the waves draw from.
 | Role | Model | Does |
 |---|---|---|
 | Lead | Opus 5.5 | plans, launches, refills, reviews, lands, commits; matches nothing itself |
-| Queue worker | Sonnet 5.5 (`model: sonnet`), 8 to 10 at once | functions up to about 600 bytes, and near waves: 8 functions from the queue, 2 at a time, 6 runs each |
-| Long-function worker | Opus 5.5 (`model: opus`), 2 to 4 at once | one function of 1 KB or more per agent, 30 runs ([LONG_FUNCTIONS.md](LONG_FUNCTIONS.md)): the Opus matches that took a second pass needed 5 to 13 runs past the first 20 |
-| (none) | Haiku 4.5 | no tier: see [Why Sonnet only](#why-sonnet-only) |
-| Clone and salvage | no model | variants of matched functions; EXACT runs that never landed |
+| Tools first | no model | variants (`clone`), EXACT runs that never landed (`salvage`), Lombyte ports, linker remnants and joins: whatever a script can close never reaches a model |
+| Swarm worker | Haiku 5.5 (`model: haiku`), 8 to 10 at once | small level functions, about 400 bytes and under, whole functions only; a first pass that matches about a third and leaves notes and a staged candidate for the rest |
+| Escalation worker | Opus 5.5 (`model: opus`), 2 to 4 at once | what the swarm left close (right size, a few bytes off) and every function of 1 KB or more: one function per agent, 20 to 30 runs ([LONG_FUNCTIONS.md](LONG_FUNCTIONS.md)) |
+| (rarely) | Sonnet 5.5 | only library code with an answer key (a reference source); on game code it neither matches what Haiku can't nor closes what Opus does: see [Model tiers](#model-tiers) |
 
-- The standing fleet is 8 to 10 Sonnet queue workers and 2 to 4 Opus
-  long-function workers, about 12 agents: most bytes per token without
-  burning through the plan. Sonnet matches small and medium functions
-  cheapest; Opus reaches the big ones Sonnet can't, and 80% of the level
-  code still unmatched is in functions over 1 KB
-  ([Long functions](#long-functions-opus)).
+- The standing fleet is 8 to 10 Haiku swarm workers and 2 to 4 Opus
+  escalation workers, about 12 agents. Work flows up: tools, then Haiku on
+  the small functions, then Opus on Haiku's near misses and on the long
+  functions, each starting from the notes and best candidate of the tier
+  below ([Model tiers](#model-tiers)). 80% of the level code still
+  unmatched is in functions over 1 KB ([Long functions](#long-functions-opus)),
+  so the Opus tier never runs dry; the swarm keeps the small functions,
+  which are many, off it.
 - The claims and the landing lock
   ([Several agents at once](#several-agents-at-once)) are what make a
   dozen agents in one checkout safe.
@@ -112,9 +115,18 @@ says counts; only what `try_func` logged.
    (`tools/rank_candidates.py`).
 2. **Launch** the fleet with the Agent tool (`subagent_type:
    match-worker`, in the background), all in one message:
-   - 8 to 10 Sonnet queue workers (`model: sonnet`), each with its own `ID`;
-   - 2 to 4 Opus long-function workers (`model: opus`), one function each
+   - 8 to 10 Haiku swarm workers (`model: haiku`), each with its own `ID`,
+     on functions of about 400 bytes and under;
+   - 2 to 4 Opus escalation workers (`model: opus`), one function each:
+     the swarm's closest near misses first (right size, a few bytes off,
+     started from the staged candidate and its notes), then long functions
      ([Long functions](#long-functions-opus)).
+
+   Pick the swarm's pool with `plan`, never by hand: it skips entries that
+   branch outside themselves. Of a hand-picked batch of 8, 5 were pieces of
+   a function the catalogue had cut apart. A one-function `plan` (without
+   `--queue`) does not claim: claim each function for the wave with
+   `tools/claims.py` so another agent does not take it.
 3. **Refill.** A notification arrives when a worker ends. If
    `wave.py status` still shows unclaimed functions, start another worker
    with a new `ID`. Workers sometimes stop after one claim, whatever the
@@ -141,7 +153,12 @@ says counts; only what `try_func` logged.
    - register pins, inline assembly, barriers, `volatile` added to pin an
      order (`tools/integrate.py` refuses the first three);
    - anything that looks taken from Sony SDK source or samples
-     (CONTRIBUTING.md, "Sources").
+     (CONTRIBUTING.md, "Sources");
+   - any change to the build itself that edits compiler output, or a flag
+     for one function: options go per file (`config/file_cflags.txt`), and
+     a new assembler or linker step needs evidence and a section in
+     [BUILD_FIDELITY.md](BUILD_FIDELITY.md) first.
+     `tools/check_build_fidelity.py` runs in the report's `--check`.
 
    The `extern short D_x;` read as `*(int *)&D_x` is not a hack: it is
    this project's way to get a `$gp`-relative access at `-G2`
@@ -243,40 +260,63 @@ Matching `func_L01_00252E80` in q3 brought 17 variants with it through
 `clone`. Across the first day the clone tool matched 37 functions with no
 model.
 
-## Why Sonnet only
+## Model tiers
 
-Two trials, each one queue with Haiku and Sonnet workers claiming from it
-at the same time, so both saw the same mix of functions.
+**Haiku 5.5, 2026-10-07: the swarm tier.** 18 one-function workers
+(WORKER.md, budget 15 runs) on small level functions, in two batches.
 
-**q6, the fair one** (2026-09-30): all 85 functions of 8 to 31 bytes left
-after the fragment filter, Thief3's tier-1 band, the same budget of 5
-runs for both, two workers per model.
+| Batch | Functions | Exact | Runs per worker | Tokens (per match) |
+|---|---|---|---|---|
+| never tried, 104-192 bytes | 8 | 4, each after a join the worker named | 2 to 9 | 0.91M (229K) |
+| tried before (1-6 runs each), 132-396 bytes, 7 with a staged near miss | 10 | 2 | 3 to 10 | 1.03M (514K) |
 
-| Model | Handled | Exact | First try | Runs per function | Input tokens | Per match |
-|---|---|---|---|---|---|---|
-| Haiku 4.5 | 39 | 15 (38%) | 11 | 2.6 | 13.3M | 887K |
-| Sonnet 5.5 | 46 | 18 (39%) | 11 | 0.9 | 2.3M | 129K |
+Tokens are the harness's per-agent totals.
 
-- Both models match the same share. Haiku needs almost three times the
-  runs to get there and about seven times the input tokens per match, far
-  more than its lower price per token makes up for. It was also slower:
-  its workers took 21 to 23 minutes against Sonnet's 7 to 9.
-- Half of the band is still not whole functions. Sonnet stopped on 23 of
-  its 46 without a run, recognising tails of larger functions (they read
-  registers nothing in them sets); Haiku tried 33 of its 39. The fragment
-  filter catches entries that branch out of themselves, not these tails.
-- Thief3's Haiku tier works because its small functions are whole
-  functions of a few shapes, which Haiku matches on the first try
-  (97%). Here the same band is half fragments, and what is left to match
-  is large: 686 level functions over 1 KB hold three quarters of the
-  remaining level code.
+- **What it does well.** It recognises a function the catalogue cut apart
+  (five times, naming the missing piece and its address each time) and an
+  already matched twin to reuse (func_L00_001F75F8 is the executable's
+  func_001F2A38). It follows the rules and reports walls plainly: an order
+  only `volatile` gives, a 16-byte argument no declaration of the callee
+  passes the way retail does, a file's `short` declaration of a global
+  that forces `$gp` where the function needs `lui`.
+- **Where it stops.** Register-allocation and scheduling ties: it ends a
+  function after three wordings with the same bytes, which is where Opus
+  usually still finds the form. Four of batch two's near misses ended
+  that way at the right size. It wasted a few runs (a compile error, a
+  flag the compiler does not have), and one worker wrote to `/tmp` against
+  its brief.
+- **So:** run it wide on the small functions, then send what it left
+  close to Opus with its notes. A start from a good candidate is cheap for
+  Opus: on the same day Opus finished other workers' 2-byte residue in 2
+  runs and a right-size 197-byte one in 9.
+- **Still to measure:** Haiku as queue workers (QUEUE.md, several
+  functions each) instead of one-function workers; queue workers paid
+  their startup once, about 81K tokens for six small functions against
+  112K for one in earlier waves. And Haiku's cost per match against
+  Opus's on the same pool at current prices: that decides whether the
+  swarm pays for its matches or mainly prepares Opus's.
 
-**q1, the first** (8 to 92 bytes, before the fragment filter): Haiku 4 of
-15 at 1.02M input tokens per match, Sonnet 4 of 17 at 214K.
+**Sonnet 5.5.** It matched library code well where a reference source
+was at hand (60K to 100K tokens per function), but 0 of 15 game
+functions in its 2026-09-24 batches and 1 of 10 in a one-function pilot
+(2.1M tokens), and it stalls at the size of long functions where Opus
+closes them ([Long functions](#long-functions-opus)). Haiku's leftovers
+are exactly that kind of residue, so the ladder goes from Haiku straight
+to Opus.
 
-Measure again only if the pool changes in Haiku's favour, for example
-once tails are merged back into their functions, with the same method:
-one queue, half the workers on each model, `wave.py tokens`.
+**Haiku 4.5, 2026-09-30, for the record.** Two trials, each one queue
+with Haiku and Sonnet workers claiming from it at the same time.
+
+| Trial | Model | Handled | Exact | Runs per function | Input tokens per match |
+|---|---|---|---|---|---|
+| q6: all 85 functions of 8-31 bytes, 5 runs each | Haiku 4.5 | 39 | 15 (38%) | 2.6 | 887K |
+| | Sonnet 5.5 | 46 | 18 (39%) | 0.9 | 129K |
+| q1: 8-92 bytes, before the fragment filter | Haiku 4.5 | 15 | 4 | | 1.02M |
+| | Sonnet 5.5 | 17 | 4 | | 214K |
+
+Half of that 8-31 byte band was tails of larger functions, which neither
+model can match on their own; joins (`config/overlays/joined.tsv`) and
+the linker-remnant list have since taken many of them out of the pool.
 
 ## Matches without a model
 
@@ -323,6 +363,8 @@ The cheapest match is the one no worker makes.
 | A candidate kept a test `#define` that renamed a declaration its neighbour links against, and the executable failed to link | `integrate.py` refuses a candidate with a `#define`; such a candidate is landed by hand after review |
 | A candidate defined under an `__asm__` alias was reported landed though its stub stayed | `land` checks the stub is gone before counting a function as landed |
 | A tool-testing agent deleted match history in `build-sn/try/` | workers write only files they create; nothing under `build-sn/try/` or `build-sn/waves/` is scratch |
+| A hand-picked swarm batch was mostly pieces of split functions (5 of 8) | pick through `plan`, which skips entries that branch outside themselves; when a worker names the missing piece, add the join and re-check its candidate |
+| A joined function's pieces were three nops apart (the assembler pads a short loop), so the join check refused it | `overlay_check.joined_size` allows pieces up to four nops apart and compares the nops with the rest |
 
 ## Several agents at once
 
@@ -367,7 +409,9 @@ They are in QUEUE.md, so the one-line prompt is enough:
 - compile only through `try_func`;
 - never Sony SDK source, samples or headers, or leaked material
   (CONTRIBUTING.md, "Sources");
-- never a level address as a number: the symbol the assembly names.
+- never a level address as a number: the symbol the assembly names;
+- the build is fixed: no new step that edits compiler output, no
+  per-function flags ([BUILD_FIDELITY.md](BUILD_FIDELITY.md)).
 
 ## Running it on a smaller plan
 

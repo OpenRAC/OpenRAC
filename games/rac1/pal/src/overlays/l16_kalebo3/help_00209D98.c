@@ -499,4 +499,228 @@ int func_L16_00211178(int a) {
     }
     return 1;
 }
-INCLUDE_ASM("asm/overlays", func_L16_002116B0);
+extern void func_L00_00234800(int, void *, void *);
+extern float func_L00_00234250(float *v);
+extern float func_L00_002342F8(float *);
+extern void func_L00_002343A0(float *, float *, float);
+extern float func_001F9CE8(void *);
+extern void func_L00_001FF500(void *, void *, float);
+extern void func_L00_00213E60(void);
+extern void func_L00_002136A8(void);
+extern void func_L00_00234150(float *, float *);
+extern void func_L00_00234420(float *, float *, float);
+extern float func_L00_00213A08(void *);
+extern float D_0015EE6C MACRO_ADDR;
+extern char *D_L16_001742D8;
+typedef struct {
+    char pad00[0x80];
+    float position[4];
+    float rotation[4];
+    char padA0[0x40];
+    float velocity[4];
+    float contact[4];
+    float external[4];
+    float delta[4];
+    float vertical_delta[4];
+    float horizontal_delta[4];
+    float frame_delta[4];
+    char pad150[0x10];
+    float speed;
+    float horizontal_speed;
+    float vertical_speed;
+    float slope;
+    char pad170[0x5C];
+    int unconstrained;
+    char pad1D0[0x64];
+    float speed_limit;
+    char pad238[4];
+    int contact_state;
+    char pad240[0x17];
+    unsigned char contact_flag;
+    char pad258[0x84];
+    float gravity_limit;
+    char pad2E0[0x218];
+    int physics_mode;
+    char pad4FC[0x424];
+    float extra_step[4];
+    char pad930[0x1754];
+    int state;
+    char pad2088[4];
+    int mode;
+} L16MovementPlayer;
+
+/* Integrate player motion, resolve contacts, and measure the resulting movement. */
+void func_L16_002116B0(void) {
+    V previous;
+    V work;
+    V plane;
+    L16MovementPlayer *contact_player;
+    L16MovementPlayer *motion_player;
+    L16MovementPlayer *cap_player;
+    float *position = (float *)(D_0013E633 + 0xE9D);
+    L16MovementPlayer *player;
+    float *delta;
+    float *vertical;
+    float *horizontal;
+    float *extra_step;
+    float *velocity;
+    float *new_position;
+    float *contact;
+    float *external;
+    float magnitude;
+
+    qcopy(previous.f, position);
+    player = (L16MovementPlayer *)((char *)position - 0x80);
+    func_L00_00234800(player->physics_mode, (char *)position + 0x70, (char *)position + 0x10);
+    /* Limit the velocity by state and mode. Inside an arm `position` moves on to the velocity; it is formed again below. */
+    if (player->state == 34 || player->state == 20) {
+        float limit;
+        float *limited_velocity;
+
+        if (!player->unconstrained) {
+            float length;
+
+            position = (float *)((char *)position + 0x60);
+            length = func_L00_00234250(position);
+            limit = player->speed_limit - 0.02f;
+            if (limit < length) func_L00_001FF4B0(position, position, limit);
+        }
+        limited_velocity = (float *)(D_0013E633 + 0xEFD);
+        magnitude = func_L00_002342F8(limited_velocity);
+        limit = -*(float *)((char *)limited_velocity + 0x1FC); /* the player's gravity_limit */
+        if (magnitude < limit) {
+            if (limit > 0.0f) limit = 0.0f;
+            func_L00_002343A0(limited_velocity, limited_velocity, limit);
+        }
+    } else if (player->mode == 15) {
+        /* The same vertical clamp as in mode 22 below, written out in both places: the compiler merges the two. */
+        if (!player->unconstrained) {
+            float length;
+            float limit;
+
+            position = (float *)((char *)position + 0x60);
+            length = func_001F9CE8(position);
+            limit = player->speed_limit - 0.02f;
+            if (limit < length) func_L00_001FF500(position, position, limit);
+        }
+    } else if (player->mode == 21) {
+        float limit = 0.6f;
+
+        if (!player->unconstrained) {
+            float *limited_velocity = (float *)((char *)position + 0x60);
+
+            if (func_001F9CB8(limited_velocity) > limit) func_L00_001FF4B0(limited_velocity, limited_velocity, limit);
+        }
+    } else if (player->mode == 22) {
+        qcopy(work.f, position);
+        work.f[2] += 0.5f;
+        func_001F9BD8(plane.f, work.f, (char *)position + 0x60);
+        if (func_L00_001EFFF0(position, plane.f, 2, 0, 0)) {
+            char *hit = D_L16_001742D8;
+
+            if (!hit || *(short *)(hit + 0xA6) == 0x1F6 || *(short *)(hit + 0xA6) == 0x59F) {
+                player = (L16MovementPlayer *)(D_0013E633 + 0xE1D);
+                if (!player->unconstrained) {
+                    float length;
+                    float limit;
+
+                    position = player->velocity;
+                    length = func_001F9CE8(position);
+                    limit = player->speed_limit - 0.02f;
+                    if (limit < length) func_L00_001FF500(position, position, limit);
+                }
+            }
+        }
+    } else if (player->mode != 13) {
+        if (player->mode != 14) {
+            if (!player->unconstrained) {
+                float length;
+                float limit;
+
+                position = (float *)((char *)position + 0x60);
+                length = func_001F9CB8(position);
+                limit = player->speed_limit - 0.02f;
+                if (limit < length) func_L00_001FF4B0(position, position, limit);
+            }
+        }
+    }
+    position = (float *)(D_0013E633 + 0xE9D);
+    func_001F9BD8(position, position, (char *)position + 0x60);
+    extra_step = (float *)((char *)position + 0x8A0);
+    func_001F9BD8(position, position, extra_step);
+    func_001F9BC0(extra_step);
+    contact_player = (L16MovementPlayer *)((char *)position - 0x80);
+    contact_player->contact_flag = 0;
+    contact_player->contact_state = 0;
+    if (func_001F9CB8((char *)position + 0x70) <= 0.0001f) {
+        func_L00_00213E60();
+        func_L16_002105C8();
+        func_001F9BF0((char *)position + 0x80, position, previous.f);
+        func_L00_002136A8();
+    } else {
+        func_L16_002105C8();
+    }
+    delta = (float *)(D_0013E633 + 0xF2D);
+    new_position = (float *)((char *)delta - 0x90);
+    horizontal = (float *)((char *)delta + 0x20);
+    func_001F9BF0(delta, new_position, previous.f);
+    qcopy(horizontal, delta);
+    vertical = (float *)((char *)delta + 0x10);
+    qcopy(vertical, delta);
+    velocity = (float *)((char *)delta - 0x30);
+    func_L00_001FF4B0(delta, delta, 1.0f);
+    magnitude = func_001F9C78(delta, velocity);
+    if (magnitude < 0.0f) magnitude = 0.0f;
+    func_L00_001FF4B0(delta, velocity, magnitude);
+    qcopy(work.f, velocity);
+    func_L00_00234150(work.f, work.f);
+    func_L00_00234150(horizontal, horizontal);
+    func_L00_001FF4B0(horizontal, horizontal, 1.0f);
+    magnitude = func_001F9C78(horizontal, work.f);
+    if (magnitude < 0.0f) magnitude = 0.0f;
+    func_L00_001FF4B0(horizontal, work.f, magnitude);
+    qcopy(plane.f, velocity);
+    func_L00_00234420(plane.f, plane.f, 0.0f);
+    func_L00_00234420(vertical, vertical, 0.0f);
+    func_L00_001FF4B0(vertical, vertical, 1.0f);
+    magnitude = func_001F9C78(vertical, plane.f);
+    if (magnitude < 0.0f) magnitude = 0.0f;
+    func_L00_001FF4B0(vertical, plane.f, magnitude);
+    motion_player = (L16MovementPlayer *)((char *)delta - 0x110);
+    motion_player->speed = func_001F9CB8(delta);
+    motion_player->horizontal_speed = func_001F9CE8(delta);
+    work.q = *(Q *)delta;
+    motion_player->vertical_speed = func_L00_00213A08(work.f);
+    if (motion_player->vertical_speed < 0.0f) motion_player->vertical_speed = 0.0f;
+    qcopy(work.f, new_position);
+    contact = (float *)((char *)delta - 0x20);
+    external = (float *)((char *)delta - 0x10);
+    if (func_001F9CB8(contact) > 0.0001f) {
+        float saved;
+
+        func_001F9BD8(new_position, new_position, contact);
+        saved = motion_player->contact[3];
+        func_001F9BC0(contact);
+        motion_player->contact[3] = saved;
+        func_L00_00213E60();
+        func_L16_002105C8();
+        func_001F9BF0(external, new_position, previous.f);
+        func_L00_002136A8();
+    }
+    func_001F9BF0((char *)delta + 0x30, new_position, work.f);
+    motion_player->frame_delta[3] = motion_player->contact[3];
+    motion_player->contact[3] = 0.0f;
+    func_001F9BF0(external, new_position, previous.f);
+    motion_player->slope = 0.0f;
+    if (motion_player->horizontal_speed > 0.004f) {
+        motion_player->slope = motion_player->external[2] / motion_player->horizontal_speed;
+        if (motion_player->slope > 0.5f) motion_player->slope = 0.5f;
+        else if (motion_player->slope < -0.5f) motion_player->slope = -0.5f;
+    }
+    cap_player = (L16MovementPlayer *)(D_0013E633 + 0xE1D);
+    magnitude = D_0015EE6C * 52.0f;
+    if (magnitude < cap_player->speed) {
+        func_001F9C30(cap_player->external, cap_player->external, magnitude / cap_player->speed);
+        cap_player->speed = D_0015EE6C * 52.0f;
+    }
+}

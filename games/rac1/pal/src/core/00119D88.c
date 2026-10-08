@@ -116,26 +116,8 @@ void func_00119E70(int c) {
    the slot to the assembler, which pads it with a nop. */
 /* The parameter doubles as the mantissa and the exponent is computed
    in place. It ends in the same int truncation as func_0012AAA8, with
-   the dsra in the return slot (tools/fix_trunc_slot.py). */
-int func_00119EA8(unsigned long x) {
-    long e;
-
-    e = (x << 1) >> 53;
-    e -= 0x433;
-    if (e < -0x35) return 0;
-    if (e >= 13) return 9999;
-    x = (x << 12) >> 12;
-    x |= 0x10000000000000;
-    if (e < 0) {
-        e = -e;
-        x >>= e - 2;
-        if ((x & 3) == 3) x = (x >> 2) + 1;
-        else x >>= 2;
-    } else {
-        x <<= e;
-    }
-    return x;
-}
+/* func_00119EA8: matched only with the truncation's last instruction moved into the return slot by a removed step (docs/BUILD_FIDELITY.md, "Removed"). */
+INCLUDE_ASM("asm/nonmatchings/core_text", func_00119EA8);
 
 extern char D_00152880[]; /* "0.%d" */
 extern char D_00152888[]; /* "e+%d" */
@@ -256,7 +238,7 @@ int func_0011A758(int arg0) {
     return D_00155080[arg0];
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_0011A770);
+LINKER_REMNANT("asm/remnants/core_text", func_0011A770);
 
 INCLUDE_ASM("asm/nonmatchings/core_text", func_0011A780);
 
@@ -868,7 +850,7 @@ int func_0011B6B8(void *arg0) {
     return 1;
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_0011B6F8);
+LINKER_REMNANT("asm/remnants/core_text", func_0011B6F8);
 
 extern int func_00118C70(void *);
 extern int D_0012FDA0;
@@ -968,15 +950,8 @@ int func_0011BC40(void) {
     return 0;
 }
 
-/* Byte-exact once tools/fix_tail_calls.py learned to sink the last body
-   instruction into the tail jump's delay slot. An earlier round reverted
-   this at 16 bytes against retail's 12 and correctly identified the
-   cause -- retail has `lui / j / lw(delay)` where we had
-   `lui / lw / j / nop` -- but left it as a rewriter limitation. It was
-   not: SN's assembler fills a delay slot only from AFTER the branch, so
-   at the end of a function it has nothing to take. Moving the one
-   preceding instruction down is safe by construction, not by analysis;
-   the reasoning is written out in the rewriter. */
+/* A tail jump with the argument load in its delay slot (`lui / j /
+   lw`), as 2.9-ee, which builds this SDK object, emits it. */
 void func_0011BC70(void) {
     func_00118C90(D_0012FD9C);
 }
@@ -1546,24 +1521,8 @@ extern int D_0012FDAC;
 /* sceSifInitIopHeap: bind the RPC client D_00158140 to IOP server
    0x80000003, busy-waiting until the server answers; -1 if binding fails.
    Built with -fno-schedule-insns (config/func_cflags.txt), the flag
-   Lombyte builds this SDK unit with. */
-int func_0011CB40(void) {
-    int i;
-
-    for (;;) {
-        if (func_0011B2F8(D_00158140, 0x80000003, 0) < 0) {
-            return -1;
-        }
-        if (*(int *)(D_00158140 + 0x24) != 0) {
-            break;
-        }
-        i = 0x100000;
-        while (i--) {
-        }
-    }
-    D_0012FDAC = 0;
-    return 0;
-}
+/* func_0011CB40: matched only with -fno-schedule-insns, which the rest of its object does not build with (docs/BUILD_FIDELITY.md, "Removed"). */
+INCLUDE_ASM("asm/nonmatchings/core_text", func_0011CB40);
 
 extern int D_0012FDAC;
 extern char D_00158140[];
@@ -1614,4 +1573,4 @@ int func_0011CCB0(void) {
     return func_0011CC38();
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_0011CCD0);
+LINKER_REMNANT("asm/remnants/core_text", func_0011CCD0);

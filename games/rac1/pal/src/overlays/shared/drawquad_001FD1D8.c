@@ -56,4 +56,4 @@ void func_L00_001FE9C8(void) {
         }
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_001FEE20);
+LINKER_REMNANT("asm/overlays", func_L00_001FEE20);

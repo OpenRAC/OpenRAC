@@ -784,9 +784,137 @@ INCLUDE_ASM("asm/overlays", func_L10_002E9E70);
 INCLUDE_ASM("asm/overlays", func_L10_002EAA08);
 INCLUDE_ASM("asm/overlays", func_L10_002EAD50);
 INCLUDE_ASM("asm/overlays", func_L10_002EB5B0);
-INCLUDE_ASM("asm/overlays", func_L10_002EB8A8);
-INCLUDE_ASM("asm/overlays", func_L10_002EBB70);
-INCLUDE_ASM("asm/overlays", func_L10_002EBDC8);
+extern short D_L10_00161FE8, D_L10_00161FEC, D_L10_00161FF0, D_L10_00161FF4, D_L10_00161FF8, D_L10_00161FFC;
+extern short D_L10_00162000, D_L10_00162004, D_L10_00162008, D_L10_0016200C, D_L10_00162010, D_L10_00162014;
+extern short D_L10_00162018, D_L10_0016201C, D_L10_00162020, D_L10_00162024, D_L10_00162028, D_L10_0016202C;
+extern short D_L10_00162030, D_L10_00162034, D_L10_00162038;
+extern int func_L00_00200290(char *, float);
+extern int func_001F9938(void *);
+extern void func_L00_00258DB0(float *, float, float);
+extern int func_001FA898_r(float) __asm__("func_001FA898");
+extern int func_001FA8A8(int, int, float);
+extern char *func_00219780(void *, void *, void *, int, int, int, int, int, int);
+
+/* Emits sparks from pos in bursts: the burst timer alternates between a pause (counting up to 0) and an
+ * active window, and during the window a particle goes out on each emit-timer tick when the camera is near. */
+void func_L10_002EB8A8(void *pos, short *timer, short *burst) {
+    float p[4];
+    float vel[4];
+    float acc[4];
+    float s;
+    int a, b, c, c1;
+    if (*burst >= 0) {
+        if (func_001F9938(burst)) {
+            *burst = -func_001FA898_r(func_002140F8((float)*(int *)&D_L10_00162034, (float)*(int *)&D_L10_00162038));
+            return;
+        }
+    } else {
+        if (++*burst != 0) return;
+        *burst = func_001FA898_r(func_002140F8((float)*(int *)&D_L10_0016202C, (float)*(int *)&D_L10_00162030));
+    }
+    if (32.0f < func_001F9D10(D_L10_001672C0, pos)) return;
+    qcopy(p, pos);
+    p[3] = 2.0f;
+    if (func_L00_00200290((char *)p, 32.0f) == -1 && func_002140B0(3) != 0) return;
+    if (!func_001F9938(timer)) return;
+    func_001F9BC0(vel);
+    vel[2] = *(float *)&D_L10_00161FE8 * D_0015EE6C;
+    func_L00_00258DB0(acc, 0.0f, *(float *)&D_L10_00161FF0 * D_0015EE6C);
+    acc[2] += *(float *)&D_L10_00161FEC * D_0015EE6C;
+    vel[3] = func_002140F8(*(float *)&D_L10_00161FF4, *(float *)&D_L10_00161FF8);
+    acc[3] = func_002140F8(*(float *)&D_L10_00161FFC, *(float *)&D_L10_00162000);
+    s = func_002140F8(1.0f - *(float *)&D_L10_00162010, *(float *)&D_L10_00162010 + 1.0f);
+    a = func_001FA898_r((float)*(int *)&D_L10_00162004 * s);
+    b = func_001FA898_r((float)*(int *)&D_L10_00162008 * s);
+    c = func_001FA898_r((float)*(int *)&D_L10_0016200C * s);
+    c1 = func_001FA8A8(*(int *)&D_L10_00162014, *(int *)&D_L10_00162018, func_002140F8(0.0f, 1.0f));
+    func_00219780(pos, vel, acc, c1, func_001FA8A8(*(int *)&D_L10_0016201C, *(int *)&D_L10_00162020, func_002140F8(0.0f, 1.0f)), a, b, c, -1);
+    *timer = func_001FA898_r(func_002140F8((float)*(int *)&D_L10_00162024, (float)*(int *)&D_L10_00162028));
+}
+extern char D_L10_001672C0[];
+extern float D_0015EE6C MACRO_ADDR;
+extern short D_L10_0016203C, D_L10_00162040, D_L10_00162044, D_L10_00162048, D_L10_0016204C;
+extern short D_L10_00162050, D_L10_00162054, D_L10_00162058, D_L10_0016205C, D_L10_00162060;
+extern short D_L10_00162064, D_L10_00162068, D_L10_0016206C, D_L10_00162070, D_L10_00162074;
+extern short D_L10_00162078, D_L10_0016207C;
+extern int func_L00_00200290(char *, float);
+extern int func_002140B0(int);
+extern int func_001F9938(void *);
+extern void func_001F9BC0(void *);
+extern void func_L00_00258DB0(float *, float, float);
+extern float func_002140F8(float, float);
+extern int func_001FA898_r(float) __asm__("func_001FA898");
+extern int func_001FA8A8(int, int, float);
+extern char *func_00219780(void *, void *, void *, int, int, int, int, int, int);
+
+/* Emits a smoke particle from pos on its timer, when the camera is near and the spot is visible. */
+void func_L10_002EBB70(void *pos, short *timer) {
+    float p[4];
+    float vel[4];
+    float acc[4];
+    float s;
+    int a, b, c, c1;
+    if (32.0f < func_001F9D10(D_L10_001672C0, pos)) return;
+    qcopy(p, pos);
+    p[2] += 6.0f;
+    p[3] = 5.0f;
+    if (func_L00_00200290((char *)p, 32.0f) == -1 && func_002140B0(3) != 0) return;
+    if (!func_001F9938(timer)) return;
+    func_001F9BC0(vel);
+    vel[2] = *(float *)&D_L10_0016203C * D_0015EE6C;
+    func_L00_00258DB0(acc, 0.0f, *(float *)&D_L10_00162044 * D_0015EE6C);
+    acc[2] += *(float *)&D_L10_00162040 * D_0015EE6C;
+    vel[3] = func_002140F8(*(float *)&D_L10_00162048, *(float *)&D_L10_0016204C);
+    acc[3] = func_002140F8(*(float *)&D_L10_00162050, *(float *)&D_L10_00162054);
+    s = func_002140F8(1.0f - *(float *)&D_L10_00162064, *(float *)&D_L10_00162064 + 1.0f);
+    a = func_001FA898_r((float)*(int *)&D_L10_00162058 * s);
+    b = func_001FA898_r((float)*(int *)&D_L10_0016205C * s);
+    c = func_001FA898_r((float)*(int *)&D_L10_00162060 * s);
+    c1 = func_001FA8A8(*(int *)&D_L10_00162068, *(int *)&D_L10_0016206C, func_002140F8(0.0f, 1.0f));
+    func_00219780(pos, vel, acc, c1, func_001FA8A8(*(int *)&D_L10_00162070, *(int *)&D_L10_00162074, func_002140F8(0.0f, 1.0f)), a, b, c, -1);
+    *timer = func_001FA898_r(func_002140F8((float)*(int *)&D_L10_00162078, (float)*(int *)&D_L10_0016207C));
+}
+extern short D_L10_00162080, D_L10_00162084, D_L10_00162088, D_L10_0016208C, D_L10_00162090, D_L10_00162094;
+extern short D_L10_00162098, D_L10_0016209C, D_L10_001620A0, D_L10_001620A4, D_L10_001620A8, D_L10_001620AC;
+extern short D_L10_001620B0, D_L10_001620B4, D_L10_001620B8, D_L10_001620BC, D_L10_001620C0, D_L10_001620C4;
+extern short D_L10_001620C8, D_L10_001620CC, D_L10_001620D0;
+extern float func_001F9B50(float);
+
+/* Emits falling drips from pos in bursts (burst timer as in func_L10_002EB8A8); each drip lives about as
+ * long as it takes to fall the given height. */
+void func_L10_002EBDC8(void *pos, short *timer, short *burst, float height) {
+    float p[4];
+    float vel[4];
+    float acc[4];
+    float s;
+    int a, b, c, c1;
+    if (*burst >= 0) {
+        if (func_001F9938(burst)) {
+            *burst = -func_001FA898_r(func_002140F8((float)*(int *)&D_L10_001620C4, (float)*(int *)&D_L10_001620C8));
+            return;
+        }
+    } else {
+        if (++*burst != 0) return;
+        *burst = func_001FA898_r(func_002140F8((float)*(int *)&D_L10_001620BC, (float)*(int *)&D_L10_001620C0));
+    }
+    qcopy(p, pos);
+    p[3] = 3.0f;
+    p[2] -= 4.0f;
+    if (func_L00_00200290((char *)p, 32.0f) == -1) return;
+    if (!func_001F9938(timer)) return;
+    s = func_002140F8(1.0f - *(float *)&D_L10_001620A0, *(float *)&D_L10_001620A0 + 1.0f);
+    a = func_001FA898_r((float)*(int *)&D_L10_00162098 * s);
+    b = func_001FA898_r((float)*(int *)&D_L10_0016209C * s);
+    c = func_001FA898_r(func_001F9B50((height + height) / (*(float *)&D_L10_00162080 * D_0015EE70)) * *(float *)&D_L10_001620D0 * s);
+    func_001F9BC0(vel);
+    func_L00_00258DB0(acc, 0.0f, *(float *)&D_L10_00162084 * D_0015EE6C);
+    acc[2] -= *(float *)&D_L10_00162080 * D_0015EE70 * (float)c;
+    vel[3] = func_002140F8(*(float *)&D_L10_00162088, *(float *)&D_L10_0016208C);
+    acc[3] = func_002140F8(*(float *)&D_L10_00162090, *(float *)&D_L10_00162094);
+    c1 = func_001FA8A8(*(int *)&D_L10_001620A4, *(int *)&D_L10_001620A8, func_002140F8(0.0f, 1.0f));
+    func_00219780(pos, vel, acc, c1, func_001FA8A8(*(int *)&D_L10_001620AC, *(int *)&D_L10_001620B0, func_002140F8(0.0f, 1.0f)), a, c, b, *(int *)&D_L10_001620CC);
+    *timer = func_001FA898_r(func_002140F8((float)*(int *)&D_L10_001620B4, (float)*(int *)&D_L10_001620B8));
+}
 struct L10Data {
     char pad0[0x30];
     int mode;

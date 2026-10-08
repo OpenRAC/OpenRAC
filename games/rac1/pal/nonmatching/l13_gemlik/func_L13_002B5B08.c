@@ -1,11 +1,12 @@
 /* NON_MATCHING func_L13_002B5B08 -- src/overlays/l13_gemlik/vendor_002B2020.c
- * Best so far: BYTES 14/252 (94.4% of the bytes match), checked 2026-10-03.
+ * Best so far: BYTES 13/252 (94.8% of the bytes match), checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   Spawns a class 0x24 child moby that copies its parent's class byte, position (qcopy) and scaled size, then cal
  *   Best p4.c: BYTES 14/252. Remaining difference is constant-1 allocation: retail keeps two separate 1 constants 
  *   Would need a source form that stops CSE of the two 1s (unknown); qcopy is volatile asm so its position is fixe
+ *   q28 t05: p10.c (data stores in order 0x28,0x24,0x2A,0x29,0x20f,0x30f) fixed the constant-1 regs and qcopy dest
  */
 extern char *func_0020D348(int);
 extern void func_L00_00251E30(void *);
@@ -27,11 +28,11 @@ char *func_L13_002B5B08(char *parent) {
         m[0xBC] = 0;
         qcopy(m + 0x10, *(char **)(d + 0x70) + 0x10);
         *(float *)(m + 0x2C) = *(float *)(*(char **)(m + 0x24) + 0x24) * *(float *)(parent + 0x2C) / *(float *)(*(char **)(parent + 0x24) + 0x24);
-        *(float *)(d + 0x20) = 1.0f;
+        d[0x28] = 0;
+        *(short *)(d + 0x24) = 1;
         d[0x29] = 1;
         d[0x2A] = 3;
-        *(short *)(d + 0x24) = 1;
-        d[0x28] = 0;
+        *(float *)(d + 0x20) = 1.0f;
         *(float *)(d + 0x30) = 0.7f;
         func_L00_00251E30(m);
         func_L00_0025E210(m);

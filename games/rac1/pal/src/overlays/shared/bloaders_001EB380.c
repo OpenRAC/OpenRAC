@@ -2,4 +2,20 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L00_001EB380);
+extern int D_00137C80[];
+extern char D_L00_0018F040[];
+extern int func_002176C8(void *, int, int);
+extern int D_0015EF88 MACRO_ADDR;
+extern void func_001E94E8(void *arg0, void *arg1, int arg2, int arg3);
+extern long D_0015EFC8 MACRO_ADDR;
+
+/* Loads the texture at D_L00_0018F040 into VRAM and caches its TEX0 word. Exact with the two
+ * globals declared MACRO_ADDR and func_002176C8 returning int (its result unused); joined to the
+ * delay-slot fragment that follows (config/overlays/joined.tsv). */
+void func_L00_001EB380(void) {
+    long localbuf[3];
+
+    func_002176C8(D_L00_0018F040, D_00137C80[2], D_00137C80[3]);
+    func_001E94E8(D_L00_0018F040, localbuf, D_0015EF88 + 0xC0000, 0x3FFC00);
+    D_0015EFC8 = localbuf[0];
+}

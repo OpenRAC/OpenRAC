@@ -296,7 +296,7 @@ int func_00120CA0(void) {
     return 1;
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_00120D18);
+LINKER_REMNANT("asm/remnants/core_text", func_00120D18);
 
 typedef struct {
     char pad[0x24];

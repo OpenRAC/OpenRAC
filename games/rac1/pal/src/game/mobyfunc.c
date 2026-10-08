@@ -483,7 +483,7 @@ float func_0020D830(Moby *m) {
 }
 __asm__(".section .text\n\tnop\n");
 
-INCLUDE_ASM("asm/nonmatchings/text", func_0020D928);
+LINKER_REMNANT("asm/remnants/text", func_0020D928);
 
 /* Attach a fresh node to arg0's list at +0x64, seeded with 1.0f scales. */
 /* AttachManipulator */

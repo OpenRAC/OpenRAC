@@ -135,25 +135,30 @@ in `config/core_rodata.txt`).
    `tools/integrate.py` refuses a candidate that uses one. `__asm__` is only
    for file-scope aliases (`extern T D_x_alias __asm__("D_x");`) and padding
    directives. The one exception is retail's own vector copy: `lq $2,0(a)`
-   then `sq $2,0(b)` is `qcopy(dst, src)` in `include/common.h`. A 128-bit
-   zero store (`sq $zero`) has no known C form: `*(long long *)p = 0`
-   adds a `por` first.
+   then `sq $2,0(b)` is `qcopy(dst, src)` in `include/common.h`, or
+   `qcopy_nc(dst, src)` where retail keeps a value live across the copy.
+   A 128-bit zero store (`sq $zero,0(p)`) is `qzero(p)` there too:
+   `*(long long *)p = 0` adds a `por` first.
 
-10. **Per-function flags.** Retail built some functions with
-    `-mno-split-addresses` ([SIBLING_DECOMPS.md](SIBLING_DECOMPS.md)),
-    next to split-address neighbours in the same file, so it is a
-    per-function setting (compiling all of pause.c with it breaks 49
-    functions). There a global is one assembler macro: every access is
-    `lui $at` + `%lo(sym)($at)` (loads, stores and FP ones alike), no
-    `%hi` survives a call, and gcc never puts such an access in a delay
-    slot. If that's what retail shows, or what's left is `%hi` values in
-    saved registers, run the candidate with
-    `TRY_CFLAGS=-mno-split-addresses`. When it matches, add the function
-    to `config/func_cflags.txt`: the build and try_func compile it with
-    those flags and splice it into the file's assembly
-    (`tools/func_cflags.py`). A small global (declared `MACRO_ADDR`) still
-    goes through `$gp` when it lands in a delay slot. First match:
-    func_002282D0. A `div` without the zero-divide trap wants
+10. **Flags for a whole file.** Retail built some code with other options,
+    for example `-mno-split-addresses` ([SIBLING_DECOMPS.md](SIBLING_DECOMPS.md)).
+    There a global is one assembler macro: every access is `lui $at` +
+    `%lo(sym)($at)` (loads, stores and FP ones alike), no `%hi` survives a
+    call, and gcc never puts such an access in a delay slot. If that's what
+    retail shows, or what's left is `%hi` values in saved registers, run the
+    candidate with `TRY_CFLAGS=-mno-split-addresses` (a diagnostic: it
+    applies to the whole file). GCC 2.95 takes options per translation unit,
+    so a match with a flag only counts when the flag can hold for a whole
+    file (docs/BUILD_FIDELITY.md, "Flags"):
+    - every C function of the file still matches with it: the file goes in
+      `config/file_cflags.txt` (`src/game/movie/disp.c` is built that way);
+    - a level file (`src/overlays/`, groupings this project chose): the
+      function can move to a file of its own that has the flag;
+    - an executable file whose neighbours break with the flag: its objects
+      follow retail's, so the flag does not make the function a match
+      (func_002282D0 and func_0011CB40 went back to assembly for this).
+    A small global (declared `MACRO_ADDR`) still goes through `$gp` when it
+    lands in a delay slot. A `div` without the zero-divide trap wants
     `-mno-check-zero-division`.
 
 11. **Orphan `%hi`.** When loop optimisation hoists a global's `lui`
@@ -188,7 +193,8 @@ in `config/core_rodata.txt`).
       under 2.9-ee: `return callee(...)` (func_0012BB30).
     - `lq`/`sq` through `$v0` that stays inside a loop, while values read
       before it are not reloaded after it: `qcopy`, with the values it
-      must not clobber held in locals (func_001F4C30).
+      must not clobber held in locals (func_001F4C30), or `qcopy_nc`
+      when a local does not do it (func_L05_00256148, case 107).
     - A `lui`-reached global that also shows up `$gp`-relative in branch
       delay slots: plain `MACRO_ADDR` does both (func_001F5148). Keep
       short aliases away from such a symbol: the assembler takes the
@@ -220,7 +226,8 @@ in `config/core_rodata.txt`).
 No plain-C wording has reached these. Name the one you hit in NOTES.md
 and stop, rather than spending the budget on it:
 
-- A 128-bit zero store (`sq $zero`): C adds a `por` first
+- A 128-bit zero store at a non-zero offset (`sq $zero,16(p)`): C adds a
+  `por` first, and `qzero()` stores at offset 0 only
   (`src/game/fastfunc.c`, func_001F9BC0).
 - A register allocation that three different wordings leave unchanged
   (`WORKER.md`'s stop rule).

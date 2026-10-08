@@ -1,10 +1,11 @@
 /* NON_MATCHING func_L02_002E33F0 -- src/overlays/l02_aridia/vendor_002E21F8.c
- * Best so far: SIZE ours 608 / retail 612, checked 2026-10-03.
+ * Best so far: BYTES 19/612 (96.9% of the bytes match), checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   Moby state machine (d = moby[0x78]; d[0x180]: 0 starts two func_001FFB38 handles when func_00215570 says so, 1
  *   Best p5.c (608 vs 612 bytes): only left is retail computing `table + (idx<<7)` twice (two addu, first +0x30 fo
+ *   t11 round (p6-p11): p8.c/p10.c reach the right size (612) and instruction set: base in local t = D_L02_0016016
  */
 extern unsigned char D_0013E633[];
 extern int func_00215570(void *arg0, int arg1);
@@ -38,9 +39,9 @@ void func_L02_002E33F0(char *moby) {
         } else {
             float v[4];
             float w[4];
-            char *e;
             char *m;
-            int i1, i2;
+            char *t;
+            int i2, i1;
             float a;
             if (*(int *)(d + 0x14C) != 0) return;
             if (*(int *)(d + 0x150) != 0) return;
@@ -50,10 +51,11 @@ void func_L02_002E33F0(char *moby) {
             func_001FFDA0(*(int *)(d + 0x160), 0);
             *(int *)(d + 0x160) = -1;
             func_001FFDA0(*(int *)(d + 0x164), 0);
-            e = D_L02_0016016C + (*(int *)(d + 0x154) << 7);
+            t = D_L02_0016016C;
+            i1 = *(int *)(d + 0x154) << 7;
             *(int *)(d + 0x164) = -1;
-            qcopy(moby + 0x10, e + 0x30);
-            a = func_L00_001FF860(*(float *)e, *(float *)(e + 4));
+            qcopy(moby + 0x10, t + i1 + 0x30);
+            a = func_L00_001FF860(*(float *)(t + i1), *(float *)(t + i1 + 4));
             *(float *)(moby + 0x48) = a;
             qcopy(v, moby + 0x10);
             v[0] = v[0] + func_001F9F90(a) * 1.5f;

@@ -39,6 +39,17 @@ beside the file's own 4-byte declaration, say) counts as small only if
 EVERY declaration is small: the assembler goes by the largest, so the
 access really is a two-instruction macro and does need the rewrite.
 
+A scalar the C declares as the file's own small data (`SDATA(sym)` in
+include/common.h: its assembler label is `sym__gp`) gets the same
+treatment at every access, not only in delay slots: the label's .extern
+is made 1 byte and the label is equated to the symbol, so the assembler
+emits one $gp-relative instruction wherever the compiler wrote the
+access. Retail reaches a level file's own tuning floats and ints that
+way throughout, and they have to be declared with their real type: a
+read through a cast of an `extern short` is not a scalar to the
+compiler, which then orders the load behind every store through a
+pointer (func_L17_002EEB08, func_L17_002EDE50).
+
 Usage: python tools/check_macro_slots.py file.s   (rewrites in place)
 """
 import re
@@ -70,6 +81,13 @@ def main(path: str) -> int:
             sizes.setdefault(m.group(1), []).append(int(m.group(2)))
     small = {sym for sym, seen in sizes.items()
              if seen and all(0 < n <= G for n in seen)}
+    # Labels the C itself declared as small data (SDATA in common.h).
+    declared = {sym[:-len("__gp")] for sym in sizes if sym.endswith("__gp")}
+    for n, line in enumerate(lines):
+        m = re.match(r"^(\s*\.extern\s+)([\w.$]+__gp)\s*,\s*\d+", line)
+        if m:
+            lines[n] = "%s%s, 1\n" % (m.group(1), m.group(2))
+    small |= {sym + "__gp" for sym in declared}
     for n, line in enumerate(lines):
         s = line.strip()
         if s.startswith(".set"):
@@ -99,9 +117,9 @@ def main(path: str) -> int:
         print("*** an `la` of a MACRO_ADDR symbol landed in a delay slot; "
               "retail's form for that is not established")
         return 1
-    if fixed:
+    if fixed or declared:
         head = []
-        for sym in sorted(aliased):
+        for sym in sorted(aliased | declared):
             head.append("\t.extern %s__gp, 1\n" % sym)
             head.append("\t%s__gp = %s\n" % (sym, sym))
         # At the END of the file: directives placed before gcc's own
@@ -112,8 +130,9 @@ def main(path: str) -> int:
         # resolve.
         with open(path, "w") as f:
             f.writelines(lines + head)
-        print("check_macro_slots: %d delay-slot access(es) made $gp-relative"
-              " in %s" % (fixed, path))
+        print("check_macro_slots: %d delay-slot access(es) made $gp-relative,"
+              " %d declared small-data scalar(s) in %s"
+              % (fixed, len(declared), path))
     return 0
 
 

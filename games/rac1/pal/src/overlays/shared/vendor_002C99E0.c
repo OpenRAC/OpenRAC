@@ -2,7 +2,7 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L11_002C99E0);
+LINKER_REMNANT("asm/overlays", func_L11_002C99E0);
 extern char D_0013F4D0[];
 extern unsigned char D_0013D491[];
 extern char D_L11_00179B98[];
@@ -148,7 +148,70 @@ char *func_L11_0030A318(int owner, float *dir, float *pos, float size, float len
     }
     return m;
 }
-INCLUDE_ASM("asm/overlays", func_L11_0030A468);
+extern short D_L11_00161E50, D_L11_00161E54, D_L11_00161E58, D_L11_00161E5C, D_L11_00161E60;
+extern char D_L11_00174900[];
+extern float D_0015EE6C_e __asm__("D_0015EE6C") MACRO_ADDR;
+extern float func_002140F8(float, float);
+extern int func_001FA8A8(int, int, float);
+extern void func_L00_00258DB0(float *, float, float);
+extern void func_001F9BD8(void *, void *, void *);
+extern void func_001F9C30(void *, void *, float);
+extern char *func_L00_0026EBC0(char *pos, char *vel, int c, int d, float f);
+extern void func_L00_0025A8C0(void *, void *, int, float, void *);
+extern int func_L00_001EFFF0(void *, void *, int, void *, void *);
+extern void func_L00_001FF610(void *, void *, void *);
+extern int func_L00_00258BC8(int, int);
+extern int func_001F9908(int *);
+
+/* Fireball: flies along its velocity leaving smoke; when it hits something it bursts into five puffs
+ * and is deleted, otherwise it shrinks away once its timer runs out. */
+void func_L11_0030A468(char *m) {
+    float old[4];
+    float p[4];
+    float v[4];
+    float hit[4];
+    float pad[4][2];
+    float q[4];
+    float r[4];
+    char *d;
+    char *pos;
+    int c;
+    if (m == 0) return;
+    d = *(char **)(m + 0x78);
+    if (d == 0) return;
+    pos = m + 0x10;
+    qcopy(old, pos);
+    c = func_001FA8A8(*(int *)&D_L11_00161E50, *(int *)&D_L11_00161E54, func_002140F8(0.0f, 1.0f));
+    func_L00_00258DB0(p, 0.0f, 0.1f);
+    func_001F9BD8(p, p, pos);
+    func_001F9C30(v, d, *(float *)&D_L11_00161E60);
+    func_L00_0026EBC0((char *)p, (char *)v, c, func_001F9850(*(int *)&D_L11_00161E58), (float)*(int *)&D_L11_00161E5C);
+    func_001F9BD8(pos, pos, d);
+    func_L00_0025A8C0(hit, m, 0x10000, *(float *)(d + 0x20), d);
+    if (func_L00_001EFFF0(old, pos, 0, *(void **)(d + 0x1C), hit)) {
+        int i;
+        for (i = 0; i < 5; i++) {
+            *(u128 *)r = 0;
+            r[0] = func_002140F8(-1.0f, 1.0f);
+            r[1] = func_002140F8(-1.0f, 1.0f);
+            r[2] = func_002140F8(-1.0f, 1.0f);
+            *(u128 *)q = *(u128 *)r;
+            func_L00_001FF610(r, d, D_L11_00174900);
+            func_L00_001FF4B0(q, q, func_001F9CB8(r) * 0.5f);
+            func_001F9BD8(q, r, q);
+            func_L00_001FF4B0(q, q, func_002140F8(D_0015EE6C_e * 5.0f, D_0015EE6C_e * 9.0f));
+            func_L00_0026EBC0(m + 0x10, (char *)q, 0x7F2F4F6F, func_L00_00258BC8(func_001F9850(10), func_001F9850(15)), 90000.0f);
+        }
+        func_0020D678(m);
+        return;
+    }
+    if (func_001F9908((int *)(d + 0x18))) {
+        *(float *)(d + 0x10) *= 0.74f;
+        if (*(float *)(d + 0x10) < 0.02f) {
+            func_0020D678(m);
+        }
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L11_0030A8C8);
 INCLUDE_ASM("asm/overlays", func_L11_0030BCD8);
 INCLUDE_ASM("asm/overlays", func_L11_0030C728);
@@ -321,7 +384,76 @@ void func_L11_0031AAE0(char *moby) {
         }
     }
 }
-INCLUDE_ASM("asm/overlays", func_L11_0031B630);
+extern char D_0013E633[];
+extern unsigned char D_0014171B[] NOT_SDA;
+extern int D_0015EFA4 MACRO_ADDR;
+extern int D_0015EE84_m __asm__("D_0015EE84") MACRO_ADDR;
+extern int D_0015EF00 MACRO_ADDR;
+extern unsigned char D_0013D510[] NOT_SDA;
+extern char *func_L00_0025B478(void *, int, int);
+extern int func_0022EE28(int, int, int);
+extern void func_L00_00264DB8(int, int);
+extern void func_00213DE0(void *, int, int, int);
+extern int func_L00_001F10E0(float, void *, int, void *);
+
+/* Collectable crate: when hit, updates the totals (count, best time, levels mask, a level-11 bonus) and breaks open. */
+void func_L11_0031B630(char *m) {
+    char *d = *(char **)(m + 0x78);
+    char *info = func_L00_0025B478(m, 0x330000, 0);
+    char *g;
+    ((unsigned char *)m)[0xA4] = 0xFF;
+    g = D_0013E633 + 0xE1D;
+    if (*(int *)(g + 0x2084) != 0x32) {
+        *(unsigned short *)(m + 0x34) &= 0xEFFF;
+    } else {
+        *(unsigned short *)(m + 0x34) |= 0x1000;
+    }
+    if (info != 0) {
+        char *st = (char *)D_0014171B + 0x34D;
+        int st2;
+        int cur;
+        if (*(unsigned short *)(st + 0x157E8) < 0xFFFF) {
+            *(unsigned short *)(st + 0x157E8) += 1;
+        }
+        if (func_001F9850(D_0015EFA4) / 600 > *(unsigned short *)(st + 0x157EA)) {
+            *(unsigned short *)(st + 0x157EA) = func_001F9850(D_0015EFA4) / 600;
+        }
+        *(int *)(st + 0x157EC) = *(int *)(st + 0x157EC) | (1 << D_0015EE84_m) | 0x80000000;
+        if (D_0015EE84_m == 0xB && *(char **)(info + 0x20) != 0 && *(short *)(*(char **)(info + 0x20) + 0xA6) == 0xAC) {
+            if (++D_0015EF00 >= 3 && D_0013D510[0x12] == 0) {
+                D_0013D510[0x12] = 1;
+                func_0022EE28(1, 0, 0);
+                func_L00_00264DB8(0x53DB, -1);
+            }
+        }
+        if (*(int *)(d + 0x88) != 0) {
+            st2 = 6;
+            cur = ((unsigned char *)m)[0x20];
+        } else {
+            cur = ((unsigned char *)m)[0x20];
+            st2 = 2;
+        }
+        if (cur != st2) {
+            m[0x20] = st2;
+            if (((unsigned char *)m)[0x53] != 1) {
+                func_00213DE0(m, 1, 0, func_001F9850(10));
+            }
+        }
+    } else if (((unsigned char *)m)[0x20] == 5) {
+        char *g2 = D_0013E633 + 0xE1D;
+        if (*(int *)(g2 + 0x2084) != 0x32) {
+            m[0x20] = 4;
+            *(int *)(m + 0x94) = 0;
+            *(unsigned short *)(m + 0x34) |= 1;
+        }
+        if (func_L00_001F10E0(1.0f, m + 0x10, 0, m)) {
+            m[0x20] = 6;
+            if (((unsigned char *)m)[0x53] != 1) {
+                func_00213DE0(m, 1, 0, func_001F9850(10));
+            }
+        }
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L11_0031B8A8);
 typedef struct { int a, b; } Pair8;
 

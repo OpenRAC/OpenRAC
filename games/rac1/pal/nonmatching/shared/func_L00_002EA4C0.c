@@ -1,11 +1,12 @@
 /* NON_MATCHING func_L00_002EA4C0 -- src/overlays/shared/vendor_002E1660.c
- * Best so far: SIZE ours 1272 / retail 1288, checked 2026-10-03.
+ * Best so far: SIZE ours 1276 / retail 1288, checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   func_L00_002EA4C0 (takes `int`, declared so by the caller func_L00_002EB060): turns the moby's basis vectors (
  *   p1.c has the right structure (same call sequence and constants); ours is 1272 vs 1288 bytes. Difference: retai
  *   That is the "repeated lui for one symbol" per-function flag wall; per-use locals (p3.c) and spelling it D_L00_
+ *   w16: best is p6.c (g = D_L00_00166F10 hoisted before the if, G locals inlined): prologue now matches. Left: re
  */
 extern char D_0013E633[] NOT_SDA;
 extern char D_L00_00166F10[];
@@ -40,17 +41,12 @@ void func_L00_002EA4C0(int a_) {
     float v3[4];
     float v4[4];
     char *g;
-    char *G1;
-    char *G2;
-    char *G3;
-    char *G4;
-    char *G5;
-    char *G6;
     char *d2;
     char *k;
     char *up;
     char *fw;
     float a, b, t, bias, ang;
+    g = D_L00_00166F10;
     if (*(unsigned char *)(dd + 0xC4) == 0xB) {
         func_001F9BF0((float *)m, (float *)(D_0013E633 + 0xE9D), (float *)(m + 0x30));
         up = m + 0x10;
@@ -58,7 +54,7 @@ void func_L00_002EA4C0(int a_) {
         fw = m + 0x20;
         func_001F9938(s);
     } else {
-        g = D_L00_00166F10 + 0x20;
+        g += 0x20;
         a = func_001F9C78(d + 0x80, g);
         func_001F9C30(v0, g, a);
         func_001F9BF0(v1, (float *)(d + 0x80), v0);
@@ -71,21 +67,17 @@ void func_L00_002EA4C0(int a_) {
         a = func_001F9CB8(v3);
         if (a >= 0.05f) func_001F9C30(m, v3, 1.0f / a);
         up = m + 0x10;
-        G1 = D_L00_00166F30;
-        func_001F9CA0(up, m, G1);
+        func_001F9CA0(up, m, D_L00_00166F30);
         func_L00_001FF4B0(up, up, 1.0f);
         *(float *)(s + 8) = func_001EC120(d + 0x30, *(float *)(s + 8), *(float *)(k + 0x30), 0.001f, 0.2f, 0.0f);
         fw = m + 0x20;
         *(float *)(s + 4) = func_001EC120(d + 0x2C, *(float *)(s + 4), *(float *)(dd + 0xB0), 0.001f, 0.2f, 0.0f);
         a = *(float *)(s + 8) - *(float *)(s + 4);
-        G2 = D_L00_00166F30;
-        b = func_001F9C78(d2 + 0x140, G2);
-        G3 = D_L00_00166F30;
-        func_001F9C30(v0, G3, -b);
+        b = func_001F9C78(d2 + 0x140, D_L00_00166F30);
+        func_001F9C30(v0, D_L00_00166F30, -b);
         func_001F9BF0(v0, v0, v3);
         func_001F9BF0(v4, (float *)(m + 0x30), v0);
-        G4 = D_L00_00166F30;
-        func_001F9C30(v0, G4, -a);
+        func_001F9C30(v0, D_L00_00166F30, -a);
         func_001F9BF0(v4, v4, v0);
         func_001F9BF0(v3, v4, (float *)(m + 0x30));
         a = func_001F9CB8(v3);
@@ -93,8 +85,7 @@ void func_L00_002EA4C0(int a_) {
             ang = 1.5707964f - func_001F9FC0(func_001F9C78(m, v3) / a);
             func_001F9CA0(fw, up, m);
             if (func_001F9C78(fw, v3) < 0.0f) ang = -ang;
-            G5 = D_L00_00166F30;
-            b = func_001F9C78(k, G5);
+            b = func_001F9C78(k, D_L00_00166F30);
             t = func_L00_001FF860(func_001F9CB8(k), b) / 0.6981317f;
             bias = 0.0f;
             if (t < -0.1f) {
@@ -118,8 +109,7 @@ void func_L00_002EA4C0(int a_) {
         func_001F9C08(a / b, m, m, m + 0x40);
         func_L00_001FF4B0(m, m, 1.0f);
     }
-    G6 = D_L00_00166F30;
-    func_001F9CA0(up, m, G6);
+    func_001F9CA0(up, m, D_L00_00166F30);
     func_L00_001FF4B0(up, up, 1.0f);
     func_001F9CA0(fw, up, m);
 }

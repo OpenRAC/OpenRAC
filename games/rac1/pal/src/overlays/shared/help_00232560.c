@@ -210,7 +210,25 @@ void func_L00_00232980(void) {
         *(float *)(*(char **)(base + 0x1184) + 0x58) = *(float *)(base + 0xA90);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_00232A18);
+extern short *D_001416CC;
+/* searches a terminated key/value list */
+int func_L00_00232A18(int key, int *out) {
+    short *base = D_001416CC;
+    short *p;
+    if (!base) return 0;
+    if (base[0] == -1) goto missing;
+    p = base;
+    do {
+        if (key == p[0]) {
+            *out = p[1];
+            return 1;
+        }
+        p += 2;
+    } while (p[0] != -1);
+missing:
+    *out = 0;
+    return 0;
+}
 INCLUDE_ASM("asm/overlays", func_L00_00232A30);
 INCLUDE_ASM("asm/overlays", func_L00_00232A3C);
 extern char D_0013F450[];

@@ -607,7 +607,91 @@ __asm__(".section .text\n\tnop\n");
 
 LINKER_REMNANT("asm/remnants/text", func_0023A5D8);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_0023A5E0);
+extern s32 D_001E6920[];
+extern s32 D_001E6940[];
+extern void func_00234C98_3A5E0(s32, u64) __asm__("func_00234C98");
+extern s32 func_002140B0(s32);
+extern s32 func_001F9B70(s32);
+extern s64 func_001F4868_3A5E0(s32) __asm__("func_001F4868");
+extern f32 func_001FA888(s32);
+extern void func_001F5988(f32, f32, f32, f32, s32, s32, s32, s32, u64, s64);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/render_vendor_capture_texture_overlays_pass.c, render_vendor_capture_texture_overlays_pass. */
+void func_0023A5E0(s32 pass_index, f32 capture_width,
+                                                 f32 capture_height) {
+    s32 flash_timer;
+    s32 scroll_opacity;
+    s32 flash_opacity;
+    f32 random_u;
+    f32 random_v;
+    f32 zero_offset;
+    f32 scroll_offset;
+    f32 overlay_height;
+    s32 overlay_width;
+
+    func_00234C98_3A5E0(0x47, 0x32003);
+    if (D_001E6920[pass_index] != 0 || pass_index == 0) {
+        if (D_001E6920[pass_index] != 0) {
+            D_001E6920[pass_index] += 2;
+        }
+        flash_timer = D_001E6920[pass_index];
+        if (pass_index == 0) {
+            /* The floor changes this frame's opacity, not the stored timer. */
+            if (flash_timer < 0x18) {
+                flash_timer = 0x18;
+            }
+        }
+        random_u = func_002140B0(200);
+        random_v = func_002140B0(200);
+        zero_offset = 0.0f;
+        flash_opacity = 0x80 - func_001F9B70(flash_timer - 0x80);
+        func_00234C98_3A5E0(8, 0);
+        flash_opacity *= 2;
+        if (flash_opacity > 0x80)
+            flash_opacity = 0x80;
+        func_00234C98_3A5E0(0x42, ((u64)flash_opacity << 32) | 0x68);
+        func_001F5988(0.0f, 0.0f, capture_width, capture_height,
+                                             random_u + zero_offset, random_v + zero_offset,
+                                             capture_width + random_u, capture_height + random_v,
+                                             0x808080, func_001F4868_3A5E0(0x1A));
+        if (D_001E6920[pass_index] >= 0x100) {
+            D_001E6920[pass_index] = 0;
+        }
+    }
+    if (D_001E6920[pass_index] == 0 && func_002140B0(700) == 0) {
+        D_001E6920[pass_index] = 2;
+    }
+    func_00234C98_3A5E0(8, 0);
+    func_00234C98_3A5E0(0x42, 0x8000000044ULL);
+    if (pass_index > 0) {
+        if (D_001E6940[pass_index] != 0) {
+            D_001E6940[pass_index] += 2;
+            overlay_width = capture_width;
+            scroll_opacity =
+                0x100 - func_001F9B70(D_001E6940[pass_index] - 0x100);
+            if (scroll_opacity > 0x50) {
+                scroll_opacity = 0x50;
+            }
+            scroll_offset =
+                -(func_001FA888(0x200 - D_001E6940[pass_index]) * 0.03125f);
+            overlay_height = capture_height + 16.0f;
+            func_001F5988(0.0f, scroll_offset, capture_width, overlay_height,
+                                                 0, 0, overlay_width, (s32)(overlay_height * 1.5f),
+                                                 (scroll_opacity << 24) | 0x505050,
+                                                 func_001F4868_3A5E0(0x1C));
+            if (D_001E6940[pass_index] >= 0x200) {
+                D_001E6940[pass_index] = 0;
+            }
+        } else if (func_002140B0(360) == 0) {
+            D_001E6940[pass_index] = 2;
+        }
+    }
+    if (pass_index == 6) {
+        /* The known capture coordinator supplies only passes zero through five. */
+        func_001F5988(0.0f, 0.0f, capture_width, capture_height, 0, 0, 0x40,
+                                             0x40, 0x80808080, func_001F4868_3A5E0(0x19));
+    }
+}
 
 extern void func_001FB608(int, int, int);
 extern void func_001F3760(int, int, float, float, float, float, float);
@@ -646,7 +730,7 @@ void func_0023AA08(void) {
 
 INCLUDE_ASM("asm/nonmatchings/text", func_0023AA38);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_0023B008);
+LINKER_REMNANT("asm/remnants/text", func_0023B008);
 
 typedef struct {
     int x;
@@ -697,7 +781,7 @@ int func_0023B018(float x, float y, float z) {
 /* 12 bytes of post-endlabel nop padding in retail -- see func_001F6668. */
 __asm__(".section .text\n\tnop\n\tnop\n\tnop\n");
 
-INCLUDE_ASM("asm/nonmatchings/text", func_0023B1E8);
+LINKER_REMNANT("asm/remnants/text", func_0023B1E8);
 
 INCLUDE_ASM("asm/nonmatchings/text", func_0023B210);
 

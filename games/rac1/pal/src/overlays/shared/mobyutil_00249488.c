@@ -2,7 +2,7 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L03_00249488);
+LINKER_REMNANT("asm/overlays", func_L03_00249488);
 extern void func_001F9CA0(void *, void *, void *);
 extern void func_L00_001FF4B0(void *, void *, float);
 extern float func_001F9C78(void *, void *);
@@ -35,7 +35,7 @@ void func_L03_0024F6D8(float t, float *dst, float *a, float *b, int flag)
     q[3] = FastCos(ang);
     func_00215650(dst, a, q);
 }
-INCLUDE_ASM("asm/overlays", func_L03_0024FA90);
+LINKER_REMNANT("asm/overlays", func_L03_0024FA90);
 extern float func_001F9B50(float);
 
 void func_L03_00251A58(float *p, float a, float b)

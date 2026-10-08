@@ -356,7 +356,7 @@ void func_001235C8(int *p, int arg1) {
     p[0] = (p[0] & ~0xC) | 0x105;
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_00123630);
+LINKER_REMNANT("asm/remnants/core_text", func_00123630);
 
 /*
  * sceDmaPause: DI (func_0011D960), force D_ENABLEW.CPND (0x10000) if
@@ -387,4 +387,4 @@ int func_00123650(void *arg0) {
     return old;
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_001236E8);
+LINKER_REMNANT("asm/remnants/core_text", func_001236E8);

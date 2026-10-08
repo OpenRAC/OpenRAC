@@ -1,11 +1,13 @@
 /* NON_MATCHING func_L01_003171B8 -- src/overlays/shared/vendor_002F7700.c
- * Best so far: SIZE ours 600 / retail 588, checked 2026-10-03.
+ * Best so far: SIZE ours 596 / retail 588, checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   Claimed by a18 after its N=8 was reached; no attempt was made. Still free for another worker (budget untouched
  *   Camera activation (ActivateCamera_3): copies camera pose from D_L01_00167304 object, fills path segment length
  *   Best p3.c (432/588 bytes matching by offset; logic right). Left: ours uses 7 saved regs, retail 6: retail shar
+ *   Round q30/x05 (p5-p9, budget spent): for-loop forms, plain vs MACRO D_L01_00167304, swapped load order, loop-l
+ *   Retail keeps the loop index i in a temp ($a2) with only j=i+1 and i*16 in saved regs; the k/path-clamp tail us
  */
 extern float func_001F9D10(void *, void *);
 extern int func_L00_0025EFC0(void *, void *, void *, int *, float *, int, float, float, float);
@@ -40,13 +42,11 @@ void func_L01_003171B8(char *cam) {
     if (*(int *)(d + 0x20) >= 0) {
         path = D_L01_001B0C30[*(int *)(d + 0x20)];
         if (*(int *)path > 0) {
-            i = 0;
-            do {
-                int j = i + 1;
+            for (i = 0; i < *(int *)path; i = k) {
+                k = i + 1;
                 *(float *)(path + i * 16 + 0x1C) =
-                    func_001F9D10(path + i * 16 + 0x10, path + (j % *(int *)path) * 16 + 0x10);
-                i = j;
-            } while (i < *(int *)path);
+                    func_001F9D10(path + i * 16 + 0x10, path + (k % *(int *)path) * 16 + 0x10);
+            }
         }
     }
     *(short *)(d + 0x36) = 0;

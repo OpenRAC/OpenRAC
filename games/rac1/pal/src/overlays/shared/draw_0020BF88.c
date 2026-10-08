@@ -2,5 +2,44 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L02_0020BF88);
+extern int *D_L02_00161240 MACRO_ADDR;
+extern char D_L02_00160A20[];
+
+/* Appends a display-list entry: a DMA tag, a constant quad and a 0x154 record built from three vectors. */
+void func_L02_0020BF88(long *a, int *b, int *c, long d, int on) {
+    int *t;
+    long *w;
+    long a3;
+    D_L02_00161240[0] = 0x10000009;
+    D_L02_00161240[1] = 0;
+    D_L02_00161240[2] = 0;
+    D_L02_00161240[3] = 0x50000009;
+    t = D_L02_00161240;
+    D_L02_00161240 = t + 4;
+    qcopy(t + 4, D_L02_00160A20);
+    w = (long *)(t + 8);
+    D_L02_00161240 = (int *)w;
+    if (on != 0) {
+        w[0] = 5;
+    } else {
+        w[0] = 0;
+    }
+    w[1] = d;
+    w[2] = 0x154;
+    w[3] = c[0];
+    w[4] = b[0];
+    w[5] = a[0];
+    w[6] = c[1];
+    w[7] = b[1];
+    w[8] = a[1];
+    w[9] = c[2];
+    w[10] = b[2];
+    w[11] = a[2];
+    w[12] = c[3];
+    w[13] = b[3];
+    a3 = a[3];
+    w[15] = 0;
+    w[14] = a3;
+    D_L02_00161240 = D_L02_00161240 + 32;
+}
 INCLUDE_ASM("asm/overlays", func_L02_002100E8);

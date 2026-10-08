@@ -73,3 +73,6 @@ func_0012F0A8 = 0x0012F0A8; // type:func
 func_0012F1A8 = 0x0012F1A8; // type:func
 func_0012F220 = 0x0012F220; // type:func
 func_0012F288 = 0x0012F288; // type:func
+
+// String literals after libgcc __umoddi3 __clz_tab
+D_00152F18 = 0x00152F18;

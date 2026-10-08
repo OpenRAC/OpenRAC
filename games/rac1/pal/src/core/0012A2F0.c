@@ -202,10 +202,8 @@ void func_0012AA70(void *arg0, int arg1, int arg2, int arg3) {
 
 /* Bitstream peek: the top n bits of the 64-bit accumulator at +0x0, as
    an int. The truncation's dsra sits in the return's delay slot, as the
-   retail compiler had it (tools/fix_trunc_slot.py). */
-int func_0012AAA8(void *arg0, int arg1) {
-    return (int)(*(unsigned long *)arg0 >> (0x40 - arg1));
-}
+/* func_0012AAA8: matched only with the truncation's last instruction moved into the return slot by a removed step (docs/BUILD_FIDELITY.md, "Removed"). */
+INCLUDE_ASM("asm/nonmatchings/core_text", func_0012AAA8);
 
 /* The bitstream reader's state (func_0012AA70 sets it up). */
 typedef struct {

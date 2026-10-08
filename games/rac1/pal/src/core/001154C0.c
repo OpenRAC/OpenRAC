@@ -529,4 +529,4 @@ Bigint_1154D0 *func_00115EE8(void *ptr, double _d, int *e, int *bits) {
     return b;
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_00116068);
+LINKER_REMNANT("asm/remnants/core_text", func_00116068);

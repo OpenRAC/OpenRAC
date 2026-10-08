@@ -427,7 +427,7 @@ int func_0012D380(void) {
     return r;
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_0012D3E0);
+LINKER_REMNANT("asm/remnants/core_text", func_0012D3E0);
 
 extern short D_001331D0 NOT_SDA;
 
@@ -620,8 +620,7 @@ void func_0012D688(unsigned char *s) {
  * Retail's call is a bare tail `j func_0012D5D0` on the wrap path only,
  * with a plain `jr $ra` on the other: a conditional sibling call, which
  * 2.9-ee emits from this plain C. (Under 2.95.3, which has no sibling
- * calls, it was 8 bytes over, and fix_tail_calls.py cannot rewrite a call
- * reached through one of several paths.)
+ * calls, it was 8 bytes over.)
  */
 void func_0012D730(unsigned char *s) {
     s[3] = s[3] + 1;

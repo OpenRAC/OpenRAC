@@ -13,7 +13,22 @@ int func_L00_0028EB98(int a, int i) {
     }
     return 0;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0028EBF0);
+/* Stops sound slot I: one still starting (state 7) is cleared outright, one in any other state
+ * but 0 and 6 is set to 4. The catalogue cuts the second test off as func_L00_0028EC28
+ * (config/overlays/joined.tsv). */
+void func_L00_0028EBF0(int i) {
+    if (i >= 0) {
+        char *e = D_0013E633 + 0x1D + i * 0x70;
+        int t = *(unsigned char *)(e + 0x74);
+        if (t == 7) {
+            *(int *)(e + 0x88) = 0;
+            *(int *)(e + 0x8C) = 0;
+            *(unsigned char *)(e + 0x74) = 0;
+        } else if (t != 0 && t != 6) {
+            *(unsigned char *)(e + 0x74) = 4;
+        }
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L00_0028EC28);
 extern char D_0013E633[] NOT_SDA;
 extern unsigned char D_L00_00197F40[] NOT_SDA;
@@ -78,7 +93,7 @@ int func_L00_0028F140(int a0, int a1, int a2, int a3, int a4) {
     }
     return h;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0028F208);
+LINKER_REMNANT("asm/overlays", func_L00_0028F208);
 /* sets the pitch-bend word of sound slot i to v */
 int func_L00_0028F210(int i, int v) {
     char *e = D_0013E633 + 0x1D + i * 0x70;
@@ -95,7 +110,19 @@ void func_L00_0028F230(short *a) {
     a[1] = i;
     *(int *)(a + 2) = D_L00_001EAD00[i].v;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0028F3E0);
+/* stores a sound value and transitions or clears its entry */
+void func_L00_0028F3E0(int value, long long address) {
+    unsigned char *entry = (unsigned char *)(int)address;
+    if (entry == 0) return;
+    *(int *)entry = value;
+    if (value != 0) {
+        if (entry[4] == 1) entry[4] = 2;
+    } else {
+        *(int *)(entry + 0x18) = 0;
+        *(int *)(entry + 0x1C) = 0;
+        entry[4] = 0;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L00_0028F410);
 extern char D_0013A5E0[] NOT_SDA;
 extern unsigned char D_0013D355[] NOT_SDA;

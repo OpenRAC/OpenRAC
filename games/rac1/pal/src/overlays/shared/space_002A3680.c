@@ -2,4 +2,14 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L01_002A3680);
+extern char D_0013E130[];
+/* clears two moby flags and refreshes its linked value */
+void func_L01_002A3680(void) {
+ char *first=*(char **)D_0013E130;
+ if(first!=0) {
+ char *moby;
+ *(unsigned short *)(first+0x34)&=0xfffc;
+ moby=*(char **)D_0013E130;
+ *(int *)(moby+0x94)=*(int *)(*(char **)(moby+0x24)+0x10);
+ }
+}

@@ -737,7 +737,83 @@ void func_002083E0(void *arg0, unsigned char *arg1, int arg2) {
     }
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00208458);
+/* Decodes the run-length compressed 1-bit occlusion map into 0x8000 bytes at dst: runs are expanded one byte per bit in the scratchpad, packed eight to a byte and copied out 0x400 bytes at a time. */
+void func_00208458(void *dst, unsigned char *ctrl, int spans) {
+    unsigned char *dst_end;
+    unsigned char *end;
+    unsigned char *span;
+    unsigned char *cursor;
+    unsigned char *next_dst;
+    unsigned char *next;
+    unsigned char *wrapped;
+    unsigned char *r;
+    unsigned char *w;
+    unsigned char *from;
+    unsigned char *to;
+    int count;
+    int n;
+    int bit;
+
+    dst_end = (unsigned char *)dst + 0x8000;
+    end = (unsigned char *)0x70002000;
+    span = (unsigned char *)spans;
+    count = *ctrl >> 1;
+    ctrl++;
+    FastMemSet((void *)0x70000000, 0, 0x2400);
+    bit = 1;
+    cursor = (unsigned char *)0x70000000;
+    for (;;) {
+        next_dst = (unsigned char *)dst + 0x400;
+        do {
+            cursor += *span++;
+            n = *span++;
+            if (n != 0) {
+                do {
+                    n--;
+                    next = cursor + 1;
+                    if (count == 0) {
+                        do {
+                            count = *ctrl++;
+                            bit = !bit;
+                        } while (count == 0);
+                    }
+                    *cursor = bit;
+                    count--;
+                    cursor = next;
+                } while (n != 0);
+            }
+        } while (cursor < end);
+        r = (unsigned char *)0x70000000;
+        w = (unsigned char *)0x70000000;
+        do {
+            *w = *r++;
+            *w |= *r++ << 1;
+            *w |= *r++ << 2;
+            *w |= *r++ << 3;
+            *w |= *r++ << 4;
+            *w |= *r++ << 5;
+            *w |= *r++ << 6;
+            *w |= *r++ << 7;
+            w++;
+        } while (r < end);
+        FastMemCopy(dst, (void *)0x70000000, 0x400);
+        dst = next_dst;
+        if (next_dst == dst_end) {
+            return;
+        }
+        FastMemSet((void *)0x70000000, 0, 0x2000);
+        wrapped = cursor - 0x2000;
+        from = (unsigned char *)0x70002000;
+        to = (unsigned char *)0x70000000;
+        if (cursor > end) {
+            do {
+                *to++ = *from++;
+            } while (from < cursor);
+        }
+        FastMemSet((void *)0x70002000, 0, 0x400);
+        cursor = wrapped;
+    }
+}
 
 /* Expands 128 rows of 16 source bytes into 4-bit-per-pixel masks: a
    256-entry table maps each byte to a word with nibble k set to 0xF when
@@ -945,7 +1021,57 @@ void func_00208C38(float *out0, float *out1, int arg2, float arg3, float arg4) {
 
 LINKER_REMNANT("asm/remnants/text", func_00208D30);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00208D38);
+typedef struct {
+    float x;
+    float y;
+    int icon;           /* icon id, or -1 for a plain square */
+    unsigned int sub;   /* the icon's frame, or the square's colour */
+} MapMarker;
+
+extern int D_0015FE70 MACRO_ADDR;
+extern float D_001A02A4[];
+extern char D_0019A4E8_raw[] __asm__("D_0019A4E8");
+extern void func_00201640(int, int, int, int, long, int);
+extern int func_00200198(int, int);
+extern void func_002008B8(int, int, int, int, int, int);
+
+void func_00208D38(int left, int top, int right, int bottom) {
+    float nx;
+    float ny;
+    int n = D_001A01F0[0x2C];
+    MapMarker *m = (MapMarker *)D_001A01F0[7];
+
+    while (n-- != 0) {
+        int sx;
+        int sy;
+
+        func_00208C38(&nx, &ny, D_0015EE84, m->x, m->y);
+        sx = left + (int)((float)(right - left) * nx);
+        sy = top + (int)((float)(bottom - top) * ny);
+        if (sx < -0x199 || sy < -0x199 || sx >= 0x219A || sy >= 0x1B9A) {
+            m++;
+            continue;
+        }
+        if (m->icon == -1) {
+            func_00201640(sx - D_0015FE70, sy - D_0015FE70, sx + D_0015FE70,
+                          sy + D_0015FE70, m->sub, 1);
+        } else {
+            int tex = func_00200198(m->icon, m->sub);
+            int *st = D_001A01F0;
+            float *sc = (float *)(st + 0x2D);   /* the zoom scale table, at 0xB4 of the same block (the assembly's D_001A02A4) */
+            char *arena = D_0019A4E8_raw;
+            unsigned char *e = (unsigned char *)(*(char **)(arena + 0x24)
+                + *(short *)(*(char **)(arena + 0x20) + tex * 4 + 2) * 8);
+            float scale = (2.0f * sc[st[0x89]] + 5.0f) / 13.0f;
+            float w = scale * (float)(1 << (e[6] + 4));
+
+            func_002008B8(tex, sx - (int)(scale * (float)(1 << (e[6] + 3))),
+                          sy - (int)(scale * (float)(1 << (e[7] + 3))),
+                          (int)w, (int)(scale * (float)(1 << (e[7] + 4))), 0x80);
+        }
+        m++;
+    }
+}
 
 extern int D_001E06B8[];
 extern void *D_00199578[];

@@ -37,7 +37,107 @@ void func_L01_002FC890(void) {
         }
     }
 }
-INCLUDE_ASM("asm/overlays", func_L01_002FC988);
+extern void func_L01_002FC890_m(char *) __asm__("func_L01_002FC890");
+extern char D_L01_0020B840[];
+typedef struct { char pad0[0x454]; unsigned char collected[1]; } TpLevelState_fc988;
+extern TpLevelState_fc988 D_L01_001BB9C0_s __asm__("D_L01_001BB9C0");
+extern char D_L01_001672C0_c[] __asm__("D_L01_001672C0");
+extern char *D_L01_0016016C_c __asm__("D_L01_0016016C") MACRO_ADDR;
+extern int D_L01_0015F504 MACRO_ADDR;
+extern int D_0015EE84_c __asm__("D_0015EE84") MACRO_ADDR;
+extern char D_0014171B_c[] __asm__("D_0014171B");
+extern char D_0013E633_c[] __asm__("D_0013E633");
+extern int func_001E9730_c(void *, int, int) __asm__("func_001E9730");
+extern void func_0020D678(void *);
+extern int func_001F9850(int);
+extern int func_00215570(void *, int);
+extern void func_L00_00217718(void *, void *, int, int);
+extern void func_L00_002EBF50(void *, void *, int, int, int);
+extern int func_001F9908_c(void *) __asm__("func_001F9908");
+extern void func_L00_002EC0C8(int);
+extern void func_L01_00240CE8(void);
+
+/* Cutscene trigger: unless already seen, starts its camera sequence when the hero enters the volume (or it is
+ * triggered), then ends it after its timer and re-arms. */
+void func_L01_002FC988(char *m) {
+    char *d = *(char **)(m + 0x78);
+    float a[4];
+    float b[4];
+    func_L01_002FC890_m(m);
+    switch (((unsigned char *)m)[0x20]) {
+    case 0:
+        if (*(int *)(d + 0x24) == -1) {
+            func_001E9730_c(D_L01_0020B840, *(short *)(m + 0xA6), *(unsigned short *)(m + 0xA8));
+            func_0020D678(m);
+            return;
+        }
+        *(int *)(d + 0x2C) = func_001F9850(*(int *)(d + 0x2C));
+        m[0x20] = 1;
+        {
+            int ff = 0xFF;
+            *(short *)(m + 0x32) = ff;
+            ((unsigned char *)m)[0x30] = ff;
+        }
+        break;
+    case 1: {
+        char *g;
+        if (D_L01_001BB9C0_s.collected[(short)*(unsigned short *)(m + 0xB2)] != 0) {
+            m[0x20] = 1;
+            break;
+        }
+        if ((*(int *)((((short)*(unsigned short *)(m + 0xB2) >> 5) << 2) + (D_0015EE84_c << 8) + (D_0014171B_c + 0xAB75))
+             >> (*(unsigned short *)(m + 0xB2) & 0x1F)) & 1) {
+            m[0x20] = 1;
+            break;
+        }
+        g = D_0013E633_c + 0xE9D;
+        if (func_00215570(g, *(int *)(d + 0x20)) == 0 && ((unsigned char *)m)[0xBC] != 1) break;
+        qcopy(a, D_L01_001672C0_c);
+        qcopy(b, D_L01_001672C0_c + 0x10);
+        if (*(int *)(d + 0x28) == -1) {
+            func_L00_00217718(g, g + 0x10, 0x72, 1);
+        } else {
+            char *o = D_L01_0016016C_c + *(int *)(d + 0x28) * 128;
+            func_L00_00217718(o + 0x30, o + 0x70, 0x72, 1);
+        }
+        if (*(int *)(d + 0x30) != 0) {
+            func_L00_002EBF50(a, b, 2, *(int *)(d + 0x34), 0);
+        } else {
+            char *o = D_L01_0016016C_c + *(int *)(d + 0x24) * 128;
+            func_L00_002EBF50(o + 0x30, o + 0x70, 0, 0, 0);
+        }
+        D_L01_0015F504 = 1;
+        m[0x20] = 2;
+        m[0xBC] = 1;
+        {
+            int o = *(int *)(d + 0x24) << 7;
+            char *t = D_L01_0016016C_c;
+            qcopy(d, (char *)(o + (int)t) + 0x30);
+            qcopy(d + 0x10, (char *)(o + (int)t) + 0x70);
+        }
+        break;
+    }
+    case 2:
+        if (func_001F9908_c(d + 0x2C) != 0 || ((unsigned char *)m)[0xBC] != 1) {
+            if (*(int *)(d + 0x30) != 0) {
+                func_L00_002EC0C8(2);
+            } else {
+                func_L00_002EC0C8(0);
+            }
+            func_L01_00240CE8();
+            D_L01_0015F504 = 0;
+            m[0x20] = 3;
+            m[0xBC] = 0;
+        } else {
+            func_L00_002EBE88(d);
+            func_L00_002EBEE0(d + 0x10);
+        }
+        break;
+    case 3:
+        if (((unsigned char *)m)[0xBC] == 1) m[0x20] = ((unsigned char *)m)[0xBC];
+        break;
+    }
+}
 extern char D_L01_001E3780[];
 extern void func_L01_002BA380(char *, int);
 
@@ -133,8 +233,125 @@ void func_L01_00309848(char *moby) {
     *(float *)(data + 0x5C) = 2.5f;
     *(float *)(data + 0x58) = 3.0f;
 }
-INCLUDE_ASM("asm/overlays", func_L01_00309928);
-INCLUDE_ASM("asm/overlays", func_L01_00309BB8);
+extern char D_L01_001672C0[];
+extern short D_L01_00161FCC;
+extern short D_L01_00161FD0;
+extern short D_L01_00161FD8;
+extern short D_L01_00161FDC;
+extern void func_001F9C30(void *, void *, float);
+extern void func_L00_00250800(void *, int, void *);
+extern float func_0020D830_m(void *) __asm__("func_0020D830");
+extern void func_001F9BF0(void *, void *, void *);
+extern void func_L00_001FF4B0(void *, void *, float);
+extern void func_001F9BD8(void *, void *, void *);
+extern int func_001F9908(void *);
+extern float func_001FA888(int);
+extern float func_001F9B88(float);
+extern int func_001FA8A8(int, int, float);
+extern int func_001FA898_r(float) __asm__("func_001FA898");
+extern unsigned char *func_L00_00273E08(void *, int, unsigned char, int, int, int, int, float);
+
+/* Draws the moby's four pulsing glow rings between it and the camera, fading with distance. */
+void func_L01_00309928(char *m) {
+    char *d = *(char **)(m + 0x78);
+    float dir[4];
+    float pos[4];
+    float step[4];
+    float scale = 1.0f;
+    int i;
+    float *ang;
+    float *spd;
+    int *tm;
+    float *sz;
+    if (((unsigned char *)m)[0x20] == 1) {
+        func_001F9C30(pos, m, 0.0009765625f);
+    } else {
+        func_L00_00250800(m, 0, pos);
+        scale = (160.0f - func_0020D830_m(m)) / 160.0f * 16.0f;
+        if (1.0f < scale) scale = 1.0f;
+    }
+    func_001F9BF0(dir, D_L01_001672C0, pos);
+    func_L00_001FF4B0(dir, dir, -0.3f);
+    func_L00_001FF4B0(step, dir, 0.1f);
+    func_001F9BD8(dir, dir, pos);
+    ang = (float *)(d + 0x20);
+    spd = (float *)(d + 0x30);
+    tm = (int *)(d + 0x40);
+    sz = (float *)(d + 0x50);
+    for (i = 0; i < 4; i++) {
+        float a = ang[i] + spd[i];
+        float t;
+        int c;
+        ang[i] = a;
+        if (255.0f <= a) {
+            ang[i] = a - 255.0f;
+        } else if (a <= 0.0f) {
+            ang[i] = a + 255.0f;
+        }
+        if (func_001F9908((int *)(d + 0x40) + i)) {
+            tm[i] = func_001F9850(0xFF);
+        }
+        t = func_001FA888(func_001F9850(0xFF) - tm[i]) / (float)func_001F9850(0xFF);
+        c = func_001FA8A8(*(int *)&D_L01_00161FCC, *(int *)&D_L01_00161FD0, func_001F9B88(0.5f - t));
+        func_L00_00273E08(dir, c, func_001FA898_r(ang[i]), *(int *)&D_L01_00161FDC,
+                          *(int *)&D_L01_00161FD8, 2, 0, sz[i] * scale);
+        func_001F9BD8(dir, dir, step);
+    }
+}
+typedef int u128_309BB8 __attribute__((mode(TI)));
+extern float func_0020D830(void);
+extern float func_001F9F90(float);
+extern void func_001F9BD8(void *, void *, void *);
+extern void func_001F9BC0(void *);
+extern void func_001F9C08(void *, void *, void *, float);
+extern float func_001FA790(float, float);
+extern void func_L00_002EBE88(void *);
+extern void func_L00_002EBEE0(void *);
+extern char D_0013E633[];
+extern char *D_L01_0016016C MACRO_ADDR;
+
+// Computes a rotation/blend for a moby from its data and passes it to two helpers.
+void func_L01_00309BB8(char *m) {
+    float out[4];
+    float v[4];
+    float a[4];
+    float b[4];
+    char *d = *(char **)(m + 0x78);
+    float f;
+    float k;
+    char *t;
+    char *g;
+    if (*(unsigned char *)(m + 0x52) == 1) {
+        f = func_0020D830();
+    } else {
+        f = 170.0f;
+    }
+    k = f / 170.0f;
+    if (*(int *)(d + 4) == -1 || *(int *)(d + 8) == -1) {
+        float ang;
+        g = D_0013E633 + 0xE1D;
+        ang = func_001FA748(k * 0.6981317f - 0.34906585f, *(float *)(g + 0x98));
+        out[0] = func_001F9F90(ang) * 5.0f;
+        out[1] = func_001F9FA8(ang) * 5.0f;
+        out[2] = 0;
+        func_001F9BD8(out, out, g + 0x80);
+        out[2] = out[2] + 1.0f;
+        func_001F9BC0(v);
+        v[2] = func_001FA748(ang, 3.14159f);
+        v[1] = k * -0.17f;
+    } else {
+        func_001F9C08(out, D_L01_0016016C + *(int *)(d + 4) * 128 + 0x30,
+                      D_L01_0016016C + *(int *)(d + 8) * 128 + 0x30, k);
+        t = D_L01_0016016C;
+        qcopy(a, t + *(int *)(d + 4) * 128 + 0x70);
+        qcopy(b, t + *(int *)(d + 8) * 128 + 0x70);
+        v[2] = func_001FA748(func_001FA790(b[2], a[2]) * k, a[2]);
+        v[1] = func_001FA748(func_001FA790(b[1], a[1]) * k, a[1]);
+        v[0] = func_001FA748(func_001FA790(b[0], a[0]) * k, a[0]);
+    }
+    func_L00_002EBE88(out);
+    func_L00_002EBEE0(v);
+}
 extern short D_L01_00161FE4;
 extern short D_L01_00161FE8;
 extern short D_L01_00161FF4;

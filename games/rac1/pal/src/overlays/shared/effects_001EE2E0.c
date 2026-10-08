@@ -40,7 +40,56 @@ void func_L00_001EE2E0(int a0, int a1, float f12, float f13, int *a2, int a3, in
     }
     D_L00_00169140[0xC0 / 4]++;
 }
-INCLUDE_ASM("asm/overlays", func_L00_001EE530);
+typedef int q128 __attribute__((mode(TI)));
+typedef union {
+    q128 q;
+    f32 f[4];
+    s32 i[4];
+} V;
+extern void func_001F9BF0(void *, void *, void *);
+extern f32 func_001F9CE8(void *);
+extern s32 func_001FA898(f32);
+extern s32 * D_L00_0015F080 MACRO_ADDR;
+extern void func_001E9730(char *);
+extern char D_L00_001E7C00[];
+extern s32 func_L00_001EE698_EE530(V *, s32 *, f32) __asm__("func_L00_001EE698");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_001ee1b0.c, FUN_L00_001ee1b0. */
+s32 *func_L00_001EE530(q128 *v, f32 rad) {
+    V t;
+    V d;
+    V *tp;
+    s32 i, j, k;
+    char *p;
+    char *e;
+    f32 f;
+
+    tp = &t;
+    t.q = *v;
+    i = func_001FA898(t.f[0] * 0.0625f);
+    j = func_001FA898(t.f[1] * 0.0625f);
+    if (i < 0 || j < 0 || i > 0x40 || j > 0x40) {
+        func_001E9730(D_L00_001E7C00);
+        return 0;
+    }
+    p = (char *)D_L00_0015F080[j * 64 + i];
+    if (p == 0) {
+        return 0;
+    }
+    p += (s32)D_L00_0015F080;
+    for (k = 0; k < *(s32 *)p; k++) {
+        e = p + 0x10 + k * 0x30;
+        func_001F9BF0(&d, e, tp);
+        f = *(f32 *)(e + 0xC);
+        d.f[3] = 1.0f;
+        if (func_001F9CE8(&d) < f + rad) {
+            if (func_L00_001EE698_EE530(tp, (s32 *)e, rad) != 0) {
+                return (s32 *)e;
+            }
+        }
+    }
+    return 0;
+}
 typedef int u128_1ee318 __attribute__((mode(TI)));
 typedef union { u128_1ee318 q; float f[4]; int i[4]; } V_1ee318;
 extern unsigned char * D_L00_001601AC MACRO_ADDR;

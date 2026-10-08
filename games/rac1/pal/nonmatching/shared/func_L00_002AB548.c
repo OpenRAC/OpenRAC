@@ -1,10 +1,11 @@
 /* NON_MATCHING func_L00_002AB548 -- src/overlays/shared/vendor_002A5138.c
- * Best so far: SIZE ours 968 / retail 964, checked 2026-10-03.
+ * Best so far: BYTES 8/964 (99.2% of the bytes match), checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   Projectile-path trace: from a0 steps w/B with gravity until func_001F9908(&x) reports done or the hit test pas
  *   Best p4.c: 968 vs 964 bytes; left: else-branch (o[0x20]!=0) retail does 'lh x; daddu pB; lw d2[0x50]; beqz; sw
+ *   Round q27/s10: best is p8.c, 8 bytes (964 = retail size). Changes from p4: pB local dropped (use B[] directly 
  */
 extern float func_L00_001FF860(float, float);
 extern float func_001FA748(float, float);
@@ -36,7 +37,6 @@ int func_L00_002AB548(char *a0, char *o, int mode) {
     int x;
     char *base = D_0013E633 + 0xE1D;
     int i;
-    float *pB;
     char *tmp;
     if (*(int *)(base + 0x2084) == 0x72) return 0;
     if (D_L00_0015F6A8 != 0) return 0;
@@ -48,16 +48,14 @@ int func_L00_002AB548(char *a0, char *o, int mode) {
         func_001F9BD8(w, w, base + 0x80);
         w[2] = w[2] + 0.49082f;
         qcopy(B, a0);
-        pB = B;
         if (*(int *)(base + 0x2FC) != 0 && func_L00_0025D390((void *)*(int *)(base + 0x2FC)) != 0 && mode != 0) {
-            func_001F9BD8(pB, pB, base + 0x100);
+            func_001F9BD8(B, B, base + 0x100);
         }
         x = func_001F9850(0x78);
     } else {
         tmp = *(char **)(*(char **)(a0 + 0x30) + 0x78);
         qcopy(w, o + 0x10);
         qcopy(B, a0);
-        pB = B;
         x = *(short *)(a0 + 0x34);
         if (*(int *)(tmp + 0x50) != 0) *(short *)(a0 + 0x36) = 1;
     }
@@ -76,11 +74,11 @@ int func_L00_002AB548(char *a0, char *o, int mode) {
         qcopy(C, w);
         i = 9;
         do {
-            func_001F9BD8(w, w, pB);
-            pB[2] = pB[2] - D_0015EE70 * 9.8f;
+            func_001F9BD8(w, w, B);
+            B[2] = B[2] - D_0015EE70 * 9.8f;
         } while (--i >= 0);
         if (func_L00_001EFFF0(C, w, 0x12, (int)o, 0) == 0) continue;
-        if (func_L00_001F3958() == 0 && 0.0f < pB[2]) continue;
+        if (func_L00_001F3958() == 0 && 0.0f < B[2]) continue;
         if (D_L00_00173F40[7] > 0) {
             qcopy(a0 + 0x10, (char *)D_L00_00173F40 + 0x20);
             break;
@@ -94,10 +92,14 @@ int func_L00_002AB548(char *a0, char *o, int mode) {
         if (mode != 2 || D_L00_00173F58 == 0 || func_L00_0025D390(D_L00_00173F58) == 0) {
             func_001F49B0(func_L00_002AAEF0, o);
         }
-        qcopy(a0 + 0x20, D_L00_00173F80);
-        func_001F9BF0(C, a0 + 0x10, &D_L00_00166EC0);
-        func_001F9C30(C, C, 0.95f);
-        func_001F9BD8(a0 + 0x10, C, &D_L00_00166EC0);
+        {
+            char *g = (char *)&D_L00_00166EC0;
+            char *a10 = a0 + 0x10;
+            *(u128 *)(a0 + 0x20) = *(u128 *)D_L00_00173F80;
+            func_001F9BF0(C, a10, g);
+            func_001F9C30(C, C, 0.95f);
+            func_001F9BD8(a10, C, g);
+        }
         return 1;
     }
     return 0;

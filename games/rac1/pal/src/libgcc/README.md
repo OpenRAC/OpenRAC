@@ -91,10 +91,10 @@ libgcc: its two functions program VIF1 and DMA registers.
 | 0x11DFE8 | `L_divdi3` | `__divdi3` | **exact**; its static `__clz_tab` goes into core_rdata at 0x152B18, see `tools/split_data_s.py` |
 | 0x11E6D8 | `L_fixunsdfdi` | `__fixunsdfdi` | **exact** |
 | 0x11E7C8 | `L_floatdidf` | `__floatdidf` | **exact** |
-| 0x11E860 | `L_moddi3` | `__moddi3` | stub: 7/410 words, right size, retail frame 0x20 larger (see below) |
+| 0x11E860 | `L_moddi3` | `__moddi3` | **exact** (built with Linux 2.9-ee-991111-01) |
 | 0x11EEC8 | `L_muldi3` | `__muldi3` | **exact** |
-| 0x11EF28 | `L_udivdi3` | `__udivdi3` | stub: 12 bytes short, because retail keeps a 0x10 frame (see below) |
-| 0x11F4F8 | `L_umoddi3` | `__umoddi3` | stub: 2/336 words, retail frame 0x20 larger (see below) |
+| 0x11EF28 | `L_udivdi3` | `__udivdi3` | **exact** (built with Linux 2.9-ee-991111-01) |
+| 0x11F4F8 | `L_umoddi3` | `__umoddi3` | **exact** (built with Linux 2.9-ee-991111-01) |
 | 0x11FA38 | `dp-bit.o` | `__pack_d`, `__unpack_d`, `_fpadd_parts`, `dpadd`, `dpsub`, `dpmul`, `dpdiv`, `__fpcmp_parts_d`, `dpcmp`, `litodp`, `dptoli`, `dptoul`, `__make_dp`, and `dptofp`'s remnant | **exact**; `__negdf2` stripped |
 | 0x1206A8 | `fp-bit.o` | `__unpack_f`, `fptodp`, and the remnants of eight stripped functions | **exact** |
 
@@ -136,7 +136,6 @@ retail's D_001597EC inside core_bss, and the stripped function's static
 pointer (its `.data`) is discarded, since retail's copy is in the data
 blob and nothing references it.
 
-## Next to look at
+## Status
 
-- `__moddi3`, `__udivdi3`, `__umoddi3` (above): their frames need Sony's
-  Linux `cc1`. Everything else in libgcc now builds from GCC's source.
+- All functions in libgcc now build 100% byte-exact from GCC source using Sony's Linux `2.9-ee-991111-01` compiler (`__moddi3`, `__udivdi3`, `__umoddi3` matched).

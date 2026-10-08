@@ -195,7 +195,26 @@ void func_L00_00236468(HudElem *e, int *x, int *y, int t, int d) {
     *x += dx;
     *y += dy;
 }
-INCLUDE_ASM("asm/overlays", func_L00_00236610);
+/* updates numeric HUD values and dimensions from digit count */
+void func_L00_00236610(HudElem *e) {
+ int *value=e->unk0C;
+ int digits;
+ int v,flags,width;
+ if(value && !((int)value&3)) {
+ e->unk78=*value;
+ if(e->unk08<e->unk78) e->unk78=e->unk08;
+ e->unk74=e->unk78;
+ } else { e->unk78=99999; e->unk74=99999; }
+ v=e->unk08; digits=0; flags=e->flags; width=e->h;
+ while(v>=10) { v/=10; digits++; }
+ if(!(flags&3) && (flags&12)) {
+ e->h=width+(digits+1)*12;
+ if(e->w<14) e->w=14;
+ } else {
+ if(width<12) e->h=12;
+ e->w+=(digits+1)*14;
+ }
+}
 INCLUDE_ASM("asm/overlays", func_L00_002366DC);
 extern int func_001F9850(int);
 extern void func_L00_00236610(HudElem *);
@@ -818,7 +837,7 @@ void func_L00_0023A690(HudElem *e) {
     }
 }
 INCLUDE_ASM("asm/overlays", func_L00_0023A788);
-INCLUDE_ASM("asm/overlays", func_L00_0023AB88);
+LINKER_REMNANT("asm/overlays", func_L00_0023AB88);
 /* A word reached through $gp: under -G2 that takes a declaration of at
    most two bytes. */
 extern short D_L00_0015F8D0;
@@ -958,7 +977,7 @@ int func_L00_0023B140(char *m) {
     }
     return *(int *)(m + 0x58);
 }
-INCLUDE_ASM("asm/overlays", func_L00_0023B430);
+LINKER_REMNANT("asm/overlays", func_L00_0023B430);
 extern int func_002140B0(int);
 extern char *D_L00_0017E5F4;
 extern int D_L00_0015F6B0 MACRO_ADDR;
@@ -1239,7 +1258,7 @@ void func_L00_0023C458(int tex, int x, int y, int w, int h, int alpha) {
     D_L00_00161280 = (int *)((char *)D_L00_00161280 + 0x70);
 }
 INCLUDE_ASM("asm/overlays", func_L00_0023D750);
-INCLUDE_ASM("asm/overlays", func_L00_0023D838);
+LINKER_REMNANT("asm/overlays", func_L00_0023D838);
 extern int D_0015EF8C MACRO_ADDR;
 extern int D_0015EF78 MACRO_ADDR;
 extern int D_0015EF74 MACRO_ADDR;

@@ -163,4 +163,4 @@ int func_00125218(int arg0, int arg1) {
     return r;
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_00125298);
+LINKER_REMNANT("asm/remnants/core_text", func_00125298);

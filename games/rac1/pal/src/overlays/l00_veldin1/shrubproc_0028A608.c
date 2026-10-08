@@ -2,4 +2,35 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L00_0028A608);
+void func_00234C98(s32 a0, s64 a1);
+typedef u32 u128 __attribute__((mode(TI), aligned(16)));
+typedef union { u128 q; f32 f[4]; } SkyRotVec;
+extern char * D_L00_001605DC MACRO_ADDR;
+extern char D_L00_001BDB70[];
+extern int D_L00_0015F6B0 MACRO_ADDR;
+extern void func_001FA190(void *);
+extern void func_0022CEB8(void);
+extern void func_L00_0028A198(int, int);
+extern void func_L00_0028A3E0(void);
+extern void func_L00_001FFA40(void *, void *);
+void func_0022C9A8(s32 arg0);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l00/unclassified_0023d968.c, FUN_L00_00289330. */
+void func_L00_0028A608(void) {
+    SkyRotVec rot;
+
+    *(short *)(D_L00_001605DC + 4) = 0;
+    func_0022C9A8(0);
+    func_0022C9A8(1);
+    if (*(short *)(D_L00_001605DC + 8) == 0) func_L00_0028A198(0xF4, 0xC);
+    func_L00_0028A3E0();
+    func_0022CEB8();
+    func_00234C98(0x42, 0x8000000044L);
+    func_0022C9A8(2);
+    qzero(&rot);
+    rot.f[2] = (f32)(*(volatile int *)&D_L00_0015F6B0 & 0x7FFF) * 1.9174760e-4f - 3.1415927f;
+    func_L00_001FFA40(D_L00_001BDB70, &rot);
+    func_0022C9A8(3);
+    func_001FA190(D_L00_001BDB70);
+    func_0022C9A8(4);
+}

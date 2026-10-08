@@ -1,11 +1,12 @@
 /* NON_MATCHING func_L01_002F0728 -- src/overlays/shared/vendor_002B90A8.c
- * Best so far: SIZE ours 288 / retail 296, checked 2026-10-03.
+ * Best so far: SIZE ours 292 / retail 296, checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   Finds, in the owner's class-list (D_L01_001ABFC0[owner[0x21]], ushort ids with bit 15 as end mark), the moby i
  *   p2.c matches the prologue, the class map (movz), the found-block and the epilogue, but is 284 of 296 bytes: re
  *   for(;;), do-while, for(;;p++), a v-before test and v=0 header loop give 284/288 bytes; none yields that layout
+ *   x04 round (p8-p13): p8.c fixes the layout with gotos (`goto body; next: if ((short)v < 0) return 0; p++; body:
  */
 extern unsigned short *D_L01_001ABFC0[];
 extern short D_L01_00160058;
@@ -16,7 +17,7 @@ char *func_L01_002F0728(char *owner) {
     int cls = *(short *)(owner + 0xA6);
     int id = -1;
     unsigned short *p;
-    unsigned short v;
+    unsigned int v;
     char *base;
     if (cls == 0x23C) {
         id = 0x361;
@@ -28,12 +29,18 @@ char *func_L01_002F0728(char *owner) {
     if (p == 0) {
         return 0;
     }
-    v = 0;
-    for (; (short)v >= 0; p++) {
+    goto body;
+next:
+    if ((short)v < 0) return 0;
+    p++;
+body:
+    {
         char *moby;
         v = *p;
         moby = base + ((v & 0x7FFF) << 8);
-        if (((unsigned char *)moby)[0x20] == 0xC && *(short *)(moby + 0xA6) == id) {
+        if (((unsigned char *)moby)[0x20] != 0xC) goto next;
+        if (*(short *)(moby + 0xA6) != id) goto next;
+        {
             char *data = *(char **)(moby + 0x78);
             char *odata = *(char **)(owner + 0x78);
             moby[0x30] = owner[0x30];
@@ -50,5 +57,4 @@ char *func_L01_002F0728(char *owner) {
             return moby;
         }
     }
-    return 0;
 }

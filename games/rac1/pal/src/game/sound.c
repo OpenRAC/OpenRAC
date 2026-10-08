@@ -481,7 +481,7 @@ int func_0022EEB8(int rel, int arg1, int arg2) {
     return h;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_0022EF50);
+LINKER_REMNANT("asm/remnants/text", func_0022EF50);
 
 static inline char *SndSys(void) {
     return D_0013E650;
@@ -510,7 +510,49 @@ void func_0022EF68(void) {
 /* 8 bytes of post-endlabel nop padding in retail -- see func_001F6668. */
 __asm__(".section .text\n\tnop\n\tnop\n");
 
-INCLUDE_ASM("asm/nonmatchings/text", func_0022EFE8); /* sound_StopAllSounds(void) */
+typedef u32 u128 __attribute__((mode(TI), aligned(16)));
+typedef struct {
+    s32 x0;
+    u8 x4;
+    u8 pad5[0x6B];
+} SndVoice;
+typedef struct {
+    u128 q[4];
+    s32 x40;
+    u8 pad44[0x2C];
+    SndVoice voices[30];
+} SndState;
+extern SndState D_0013E650_2EFE8 __asm__("D_0013E650");
+extern s32 func_0012DDC0_2EFE8() __asm__("func_0012DDC0");
+extern s32 func_0012E4F8();
+extern s32 func_0012EC40_2EFE8() __asm__("func_0012EC40");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/audio/voices/sound_stop_all_sounds.c, sound_stop_all_sounds. */
+void func_0022EFE8(void) {
+    s32 i;
+    SndState *s;
+    u128 *q;
+    s32 p;
+    s32 end;
+
+    func_0012EC40_2EFE8();
+    func_0012DDC0_2EFE8();
+    func_0012E4F8();
+    while (func_0012DDC0_2EFE8() != 0) {
+    }
+    for (i = 0; i < 4; i++) {
+        qzero(&D_0013E650_2EFE8.q[i]);
+    }
+    s = &D_0013E650_2EFE8;
+    s->x40 = 0;
+    p = (s32)s;
+    end = p + 0xD20;
+    do {
+        ((SndVoice *)p)[1].x0 = 0;
+        ((SndVoice *)p)[1].x4 = 0;
+        p += 0x70;
+    } while (p < end);
+}
 
 void func_0022F090(int arg0, long arg1) {
     int *p = (int *)(int)arg1;

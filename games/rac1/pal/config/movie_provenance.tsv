@@ -1,0 +1,38 @@
+# Where the C of each src/game/movie/ function came from (docs/MOVIE.md).
+# Columns: function, source, date, note. tools/apply_candidate.py refuses to land a movie
+# function without a row. "asm only" = written from the retail assembly alone.
+#
+# The first block landed before the rule existed (2026-10-03/04, by an automated agent); the C was
+# read on 2026-10-05 and holds nothing but the retail assembly's own operations. They are listed
+# as "asm only (reviewed)"; revert them with `git revert` if that is judged not enough.
+func_0023E478	asm only (reviewed)	2026-10-05	mpegNodata wrapper
+func_0023BF70	asm only (reviewed)	2026-10-05	proceedAudio wrapper
+func_0023BB60	asm only (reviewed)	2026-10-05	isAudioOK wrapper
+func_0023C2C0	asm only (reviewed)	2026-10-05	audioDecSend
+func_0023BF48	asm only (reviewed)	2026-10-05	ErrMessage wrapper
+func_0023DFA0	asm only (reviewed)	2026-10-05	videoDecSetStream wrapper
+func_0023C060	asm only (reviewed)	2026-10-05	audioDecDelete
+func_0023E0B0	asm only (reviewed)	2026-10-05	videoDecInputCount wrapper
+func_0023DFE0	asm only (reviewed)	2026-10-05	videoDecEndPut wrapper
+func_0023DFC0	asm only (reviewed)	2026-10-05	videoDecBeginPut wrapper
+func_0023BB40	asm only (reviewed)	2026-10-05	switchThread wrapper
+func_0023CE18	asm only (reviewed)	2026-10-05	two stores
+func_0023C9B0	asm only (reviewed)	2026-10-05	endDisplay
+func_0023C2B0	asm only (reviewed)	2026-10-05	no recovered name
+func_0023E698	asm only (reviewed)	2026-10-05	voBufIsEmpty
+func_0023E058	asm only (reviewed)	2026-10-05	videoDecSetState
+func_0023E040	asm only (reviewed)	2026-10-05	videoDecAbort
+func_0023E5B0	asm only (reviewed)	2026-10-05	voBufDelete (empty)
+func_0023E050	asm only (reviewed)	2026-10-05	videoDecGetState
+func_0023E000	asm only (reviewed)	2026-10-05	videoDecReset
+func_0023CE28	asm only (reviewed)	2026-10-05	no recovered name
+func_0023CD28	asm only (reviewed)	2026-10-05	readBufDelete (empty)
+# Landed 2026-10-05 from the retail assembly alone.
+func_0023D988	asm only	2026-10-05	viBufDelete
+func_0023C960	asm only	2026-10-05	startDisplay
+func_0023C088	asm only	2026-10-05	audioDecStart
+func_0023E510	asm only	2026-10-05	no recovered name
+func_0023E4B0	asm only	2026-10-05	no recovered name
+func_0023E4E0	asm only	2026-10-05	no recovered name
+func_0023C128	asm only	2026-10-05	audioDecBeginPut
+func_0023C2E8	asm only	2026-10-05	sendToSPU

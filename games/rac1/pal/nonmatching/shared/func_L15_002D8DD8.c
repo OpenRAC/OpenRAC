@@ -1,11 +1,12 @@
 /* NON_MATCHING func_L15_002D8DD8 -- src/overlays/shared/vendor_002D7C00.c
- * Best so far: BYTES 29/452 (93.6% of the bytes match), checked 2026-10-03.
+ * Best so far: BYTES 23/452 (94.9% of the bytes match), checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   Mover-init: when D_L15_00161C78 is set, clears it, seeds vector tables (19 slots, stride 16/4) from moby data 
  *   Best: p9.c, 29 words differ of 113, size exact. Left: short-loop counter lands in $s1 not $v1 (retail keeps it
  *   Idioms found: gp ints declared `extern char X;` and read as *(int*)&X; non-gp shorts/D60 as `extern T X[n] MAC
+ *   q30 w07: p13.c best (BYTES 23/452): second loop gets its own counter j (fixes the s1 counter). Left: retail ho
  */
 #include "common.h"
 extern char D_L15_00161C78;
@@ -44,6 +45,7 @@ void func_L15_002D8DD8(char *moby) {
         float v[4];
         float w[4];
         int i;
+        int j;
         char *src = data + 0xF0;
         *(int *)&D_L15_00161C78 = 0;
         *(int *)&D_L15_00161D64 = 0;
@@ -58,16 +60,16 @@ void func_L15_002D8DD8(char *moby) {
             func_001F9BC0(D_L15_001D3CF0 + i * 0x10);
             *(int *)(D_L15_001D3E30 + i * 4) = 0;
         }
-        for (i = 3; i >= 0; i--)
-            D_L15_00161D46[i - 3] = -1;
-        D_L15_00161D54[0] = 8;
-        D_L15_00161D56[0] = 4;
-        D_L15_00161D5E[0] = 2;
-        D_L15_00161D50[0] = 8;
-        D_L15_00161D58[0] = 4;
-        D_L15_00161D52[0] = 4;
-        D_L15_00161D5A[0] = 2;
+        for (j = 3; j >= 0; j--)
+            D_L15_00161D46[j - 3] = -1;
         D_L15_00161D5C[0] = 4;
+        D_L15_00161D5A[0] = 2;
+        D_L15_00161D52[0] = 4;
+        D_L15_00161D58[0] = 4;
+        D_L15_00161D50[0] = 8;
+        D_L15_00161D5E[0] = 2;
+        D_L15_00161D56[0] = 4;
+        D_L15_00161D54[0] = 8;
         *(int *)&D_L15_00161C94 = 0;
         *(int *)&D_L15_00161C9C = 0;
         *(int *)&D_L15_00161CB0 = 0;

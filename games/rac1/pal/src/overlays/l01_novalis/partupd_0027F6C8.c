@@ -98,4 +98,4 @@ unsigned char *func_L01_00288A48(void *a, void *b, float f, float g) {
     }
     return r;
 }
-INCLUDE_ASM("asm/overlays", func_L01_0028C548);
+LINKER_REMNANT("asm/overlays", func_L01_0028C548);
