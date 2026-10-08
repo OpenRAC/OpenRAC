@@ -68,22 +68,23 @@ distinct code against the 48.8 MB its progress scope sums.
   functions reappear in RAC2 at least 80% alike, 34 KB of RAC2's in RAC3, and
   24 KB of RAC3's in Deadlocked.
 
-**What each project can take from the others.** 3,765 distinct functions
-(960 KB) are matched in at least one project. Matched elsewhere, identical in
-this version's code, and still open here:
+**What each project can take from the others** (2026-10-07). 4,750 distinct
+functions (3.1 MB) are matched in at least one project. Matched elsewhere,
+identical in this version's code, and still open here:
 
 | Version | Functions | Bytes | Compared with what the project has matched |
 |---|---:|---:|---|
-| rac1/pal | 131 | 45,624 | +6% |
-| rac1/ntsc | 186 | 60,020 | +8% |
-| rac2/ntsc | 437 | 62,472 | 4.6 times as much |
-| rac3/ntsc | 192 | 22,252 | +25% |
-| rac4/ntsc | 282 | 29,872 | 1.1 times as much |
+| rac1/pal | 133 | 56,904 | +2.7% |
+| rac1/ntsc | 185 | 36,624 | +1.7% |
+| rac2/ntsc | 480 | 75,020 | 2.8 times as much |
+| rac3/ntsc | 222 | 28,816 | +11% |
+| rac4/ntsc | 324 | 44,000 | 1.7 times as much |
 
-rac1/pal's row was 245 functions and 125,876 bytes until 114 of them were
-carried over from Lombyte on 2026-10-04 (below); 114 of Lombyte's remain
-(44,636 bytes). Most of RAC2's come
-from the two RAC1 projects (about 295 functions, 48 KB). The lists, one per
+On 2026-10-04 rac1/pal's row was 245 functions and 125,876 bytes, until 114
+of them were carried over from Lombyte (below); Lombyte has since matched
+more, and 117 of its functions (55,936 bytes) are identical in PAL and open
+there. Most of RAC2's come from the two RAC1 projects (rac1/pal alone
+offers 327 functions, 55 KB). The lists, one per
 pair, are in [shared/xmap/ports/](../../shared/xmap/ports): source name and
 address, target program and address, size, and whether it is the same function
 or a relative.
@@ -98,8 +99,8 @@ way**. That last part is the catch: the projects do not agree on compilers
 1. Take the C from the project that matched it, with its license and a
    provenance note, as the projects already do
    ([workflow](../workflow/README.md#6-porting-between-versions-and-games)).
-   RAC3's code is GPL v3; it can only move into an MIT tree with its authors'
-   agreement ([LICENSE.md](../../LICENSE.md)).
+   RAC3's code, and rac1/pal's since 2026-10-07, is GPL v3; it can only move
+   into an MIT tree with its authors' agreement ([LICENSE.md](../../LICENSE.md)).
 2. Rename its symbols to the target's (addresses differ, and each project
    names by its own).
 3. Build it with the target project's own tools and pass that project's own
@@ -194,7 +195,9 @@ With the 14 applied, Lombyte's `make overlays` reports all 1,554 overlay
 functions matching (1,540 before). They are not applied here, since
 `games/rac1/ntsc` is a copy that follows Lombyte's repository; `--check`
 leaves them as a patch beside its results
-(`games/rac1/ntsc/build/port/rac1-pal--rac1-ntsc/exact.patch`).
+(`games/rac1/ntsc/build/port/rac1-pal--rac1-ntsc/exact.patch`). Since
+rac1-decomp moved to the GPL on 2026-10-07, C written there after that date
+can go to Lombyte (MIT) only with its authors' agreement.
 
 Fewer pass in this direction, for two reasons worth knowing. Lombyte's
 catalogue gives one name to functions that differ only in a constant, so 37

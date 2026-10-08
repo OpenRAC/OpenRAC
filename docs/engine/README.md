@@ -46,7 +46,7 @@ Three rules follow from how the projects work:
 | RAC1 PAL | `SCES_509.16`, 1,388,100 bytes | 19, one in each level's data | `IOPRP243.IMG`, an IOP reboot image | boot and all 19 levels |
 | RAC1 US | `SCUS_971.99`, 1,383,028 bytes | 19 | | boot and all 19 levels |
 | RAC2 | `SCUS_972.68`, 2,618,684 bytes, two loadable segments | 27 | | boot and 27 overlays rebuilt from assembly; C replaces it function by function |
-| RAC3 | `SCUS_973.53`, 771,008 bytes | 51, single player and multiplayer | `frontbin.elf`, `boot_elf.elf`, `i5bootn.elf`, `ntgui.elf`, `sly2.elf` | `frontbin.elf`; levels and the four other executables counted, not compiled; the boot not split yet |
+| RAC3 | `SCUS_973.53`, 771,008 bytes | 51, single player and multiplayer | `frontbin.elf`, `boot_elf.elf`, `i5bootn.elf`, `ntgui.elf`, `sly2.elf` | `frontbin.elf`, `boot_elf.elf` (the main executable) and `i5bootn.elf` (the launcher), each rebuilt byte for byte ([targets.md](../../games/rac3/ntsc/docs/targets.md)); levels and the other executables counted, not compiled |
 | RAC4 | `SCUS_974.65`, 1,692,216 bytes: a 20 KB loader around one compressed image, which unpacks to 17 sections (5,157,636 bytes) | 47 (24 campaign, 23 multiplayer), each with its own overlay on the disc | the IOP image and the DNAS and network GUI files | the image's core, network and level code (8,027 functions) and the overlays, function by function; nothing is linked ([RESEARCH.md](../../games/rac4/ntsc/docs/RESEARCH.md)) |
 
 Sizes are from each `game.json`. RAC2's level identifiers run 0–20, 22–26
@@ -230,6 +230,12 @@ says for each.
 
 Lombyte keeps each level's disc location and program records as JSON under
 `config/overlays/us/` ([overlays.md](../../games/rac1/ntsc/docs/overlays.md)).
+Its level loader agrees with the PAL reading above: the header ranges at
+0x10 and 0x18 are the two gameplay archives, not sound (corrected there on
+2026-10-06, Lombyte pull request 112). It documents the sky,
+tfrag and gameplay file layouts and the class tables at the functions that
+read them (`src/world/loaders/relocate_sky_definition.c`,
+`src/rendering/draw_tfrag.c`).
 ReRAC finds four fewer moby class blobs and slightly lower collision totals
 on the US disc ([ASSETS.md](../../games/rac1/pal/docs/ASSETS.md#collision)).
 
@@ -373,7 +379,7 @@ reference ([SOURCING.md](../policy/SOURCING.md)).
 | RAC1 PAL | 452 `core_text` functions match SDK archive members byte for byte: `libmc`, `libdbc`, `libpad2`, `libmpeg` (with `bit.o`), kernel and SIF calls. Also newlib (`mprec`, `dtoa`, `makebuf`, `strtol` follow its 2000-02-17 snapshot nearly line for line), libgcc built from GCC's source, `989snd`, `crt0` and libsn's `vu.o`. Version strings: libcdvd 2530, libdbc 2500, libkernl 2540, libpad2 2500. `core_text` is about 50 objects, split at the linker's `0xCDCDCDCD` fill; the linker dropped unreferenced functions, sometimes leaving their last word ([DECOMP_PROGRESS.md](../../games/rac1/pal/docs/DECOMP_PROGRESS.md), [core_text.objects](../../games/rac1/pal/config/core_text.objects)) |
 | RAC1 US | `src/sdk/` and `src/runtime/newlib/`, with newlib's licence under `licenses/` |
 | RAC2 | The IOP-library strings above; a `FlushCache` syscall stub (syscall 100) at 0x0011AEA0 (**retail**). SDK 2.5.5 and a libpad2 2500 string are **reference** claims ([COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/ntsc/docs/COMMUNITY-ENGINE-REFERENCE.md)); RAC1 PAL has the same libpad2 string |
-| RAC3 | None identified yet. 644 `boot_elf.elf` functions equal `frontbin` functions, "probably shared SDK/engine code" (**inferred**, [shared_code_findings.md](../../games/rac3/ntsc/docs/shared_code_findings.md)) |
+| RAC3 | The launcher `i5bootn.elf`: libgcc's soft-float, 64-bit division and `__main`, rebuilt from GCC 2.95.x source with Sony's no-denormals change, and small libc and SIO helpers, all Sony 2.9-ee-991111 builds; newlib's `exit()` from 2.96-ee-001003-1 ([compiler_matrix_i5bootn.md](../../games/rac3/ntsc/docs/compiler_matrix_i5bootn.md)). 644 `boot_elf.elf` functions equal `frontbin` functions, "probably shared SDK/engine code" (**inferred**, [shared_code_findings.md](../../games/rac3/ntsc/docs/shared_code_findings.md)) |
 
 ## 8. Code shared between games and versions
 
@@ -446,8 +452,10 @@ matched in identical code.
 
 - **Level functions that changed slightly between games.** The map pairs
   changed functions by similarity only in the boot executables and frontend.
-- **RAC3's boot** is indexed by the map (Wrench's unpacked `boot_elf.elf`), but
-  the project has not split it, so none of it is matched there.
+- **RAC3's boot** is indexed by the map (Wrench's unpacked `boot_elf.elf`).
+  The project split it on 2026-10-06 and seeded its front end from
+  frontbin's C ([boot_elf.md](../../games/rac3/ntsc/docs/boot_elf.md)); the map has not been
+  regenerated against those matches.
 - **Deadlocked.** Its image and overlays are split and catalogued
   ([RESEARCH.md](../../games/rac4/ntsc/docs/RESEARCH.md), [OVERLAYS.md](../../games/rac4/ntsc/docs/OVERLAYS.md)): the
   same section names as RAC2's boot (`core.text`, `lvl.vtbl`, `lvl.camvtbl`,
