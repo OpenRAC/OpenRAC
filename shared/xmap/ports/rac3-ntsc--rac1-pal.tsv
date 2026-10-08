@@ -4,7 +4,6 @@
 # similar = between the same unchanged neighbours and alike by the ratio given (a draft to adapt).
 # Addresses are hexadecimal; `places` counts where the function occurs in the target version.
 kind	size	from_name	from_program	from_address	to_program	to_address	places	ratio
-same	208	func_003AAC70	frontbin	003AAC70	boot	0023C128	1	
 same	192	func_003CD710	frontbin	003CD710	boot	001F7DD8	20	
 same	96	func_003CD7D0	frontbin	003CD7D0	boot	001F7E98	20	
 same	80	func_00388830	frontbin	00388830	boot	001F9DC0	1	

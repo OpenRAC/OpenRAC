@@ -5,51 +5,72 @@
 # Addresses are hexadecimal; `places` counts where the function occurs in the target version.
 kind	size	from_name	from_program	from_address	to_program	to_address	places	ratio
 same	2168	draw_debug_profiler	boot	001F39D0	boot	001F3D78	20	
-same	1408	FUN_L00_0025a478	level:00	0025A478	boot	00214778	20	
+same	1704	initialize_level_runtime	boot	00230F60	boot	00232278	20	
+same	1616	FUN_L01_002ff118	level:01	002FF118	level:01	003004F0	2	
+same	1524	FUN_L08_00305270	level:08	00305270	level:08	00306730	1	
+same	1444	FUN_L05_003180a0	level:05	003180A0	level:05	003195B0	1	
+same	1384	FUN_L12_002e6c48	level:12	002E6C48	level:12	002E7FC8	1	
+same	1364	FUN_L08_003065d8	level:08	003065D8	level:08	00307A98	1	
+same	1336	FUN_L05_00317470	level:05	00317470	level:05	00318980	1	
+same	1304	FUN_L03_002dc478	level:03	002DC478	level:03	002DD840	5	
 same	1168	FUN_L00_002c9348	level:00	002C9348	level:00	002CA728	19	
 same	1148	FUN_L00_002d0538	level:00	002D0538	level:00	002D19E8	19	
-same	1116	FUN_L00_002d5988	level:00	002D5988	level:00	002D6E38	14	
 same	1096	FUN_L00_002a02b0	level:00	002A02B0	level:00	002A1540	19	
-same	1068	FUN_L00_002e1678	level:00	002E1678	level:00	002E2B28	1	
 same	1060	FUN_00237ed0	boot	00237ED0	boot	002391E8	20	
 same	1048	play_level_loading_slides	boot	00231BD8	boot	00232EF0	20	
+same	1040	FUN_L15_002eac90	level:15	002EAC90	level:15	002EC080	1	
+same	996	FUN_L02_002dc2c8	level:02	002DC2C8	level:02	002DD700	1	
 same	984	FUN_00216c48	boot	00216C48	boot	00217AE8	20	
-same	928	FUN_L00_0020cf58	level:00	0020CF58	level:00	0020D5F0	12	
-same	784	FUN_L00_0028e9c8	level:00	0028E9C8	level:00	0028FCA0	19	
+same	960	FUN_L11_0031f150	level:11	0031F150	level:11	003205C0	1	
+same	952	FUN_L11_0031e2f0	level:11	0031E2F0	level:11	0031F760	1	
+same	876	FUN_L08_002f1548	level:08	002F1548	level:08	002F2A08	1	
+same	864	service_level_archive_load	boot	00204428	boot	00204C60	20	
+same	848	FUN_L15_002eb108	level:15	002EB108	level:15	002EC4F8	1	
+same	808	render_level_frame	boot	0022F288	boot	002305A0	20	
+same	772	prepare_resident_class_render_data	boot	00203338	boot	00203B70	20	
 same	704	snd_send_iop_command_no_wait	boot	0012E6E0	boot	0012E820	1	
-same	700	FUN_L00_0026de90	level:00	0026DE90	level:00	0026ED30	19	
-same	644	FUN_L01_002e35a8	level:01	002E35A8	level:01	002E4920	3	
+same	676	initialize_audio_system	boot	0023A7C0	boot	0023BB90	20	
 same	640	font_print	boot	001F62B0	boot	001F6668	20	
-same	640	FUN_L00_0025fcb8	level:00	0025FCB8	level:00	00260D30	16	
 same	640	FUN_L00_002a9c50	level:00	002A9C50	level:00	002AAEF0	19	
+same	628	allocate_voice_slot	boot	0022D7F0	boot	0022EB08	20	
 same	628	sky_draw_shell_gouraud	boot	0022B928	boot	0022CC40	20	
-same	624	FUN_L00_0028efc8	level:00	0028EFC8	boot	0022F4C8	20	
+same	600	snd_start_sound_system	boot	0012DA28	boot	0012DB68	1	
 same	588	send_adpcm	boot	0023AFC0	boot	0023C390	20	
+same	580	FUN_L07_0030cd48	level:07	0030CD48	level:07	0030E128	1	
+same	580	FUN_L11_0030e730	level:11	0030E730	level:11	0030FBF8	1	
+same	580	FUN_L12_002bf770	level:12	002BF770	level:12	002C0940	1	
+same	580	FUN_L13_0030a488	level:13	0030A488	level:13	0030B940	1	
 same	576	draw_sky_shells	boot	0022B288	boot	0022C5A0	20	
 same	572	sky_draw_shell_textured	boot	0022B6E8	boot	0022CA00	20	
+same	564	FUN_L11_00311710	level:11	00311710	level:11	00312BD8	1	
 same	548	FUN_L00_002afa48	level:00	002AFA48	level:00	002B0D30	19	
 same	548	FUN_L04_002e5178	level:04	002E5178	level:04	002E6558	1	
-same	528	FUN_L01_003087e0	level:01	003087E0	level:01	00309BB8	18	
+same	544	get_frame_texture	boot	001FFA10	boot	00200248	20	
 same	516	FUN_L00_002e7318	level:00	002E7318	level:00	002E87C8	19	
 same	516	FUN_L00_002e89b0	level:00	002E89B0	level:00	002E9E60	19	
 same	508	vi_buf_add_dma	boot	0023BF70	boot	0023D340	20	
+same	492	sceSifCallRpc	boot	0011B1C8	boot	0011B4C8	1	
 same	492	FUN_L00_00275320	level:00	00275320	level:00	002761C0	19	
+same	460	FUN_L14_002b3a20	level:14	002B3A20	level:14	002B4C70	2	
 same	452	build_image_transfer_tag	boot	0023B210	boot	0023C5E0	20	
 same	440	PrepareMpegPictureFieldTransfers	boot	00129E00	boot	00129F40	1	
 same	436	decode_bitstream_0	boot	0023CEC8	boot	0023E298	20	
 same	432	FUN_L00_002c1778	level:00	002C1778	level:00	002C2A80	19	
-same	424	FUN_L01_002f6180	level:01	002F6180	level:01	002F7558	1	
+same	424	FUN_L14_002fea80	level:14	002FEA80	level:14	002FFF08	1	
 same	420	vi_buf_get_ts	boot	0023C920	boot	0023DCF0	20	
-same	416	FUN_L00_0028a480	level:00	0028A480	level:00	0028B758	2	
+same	416	FUN_L05_00319208	level:05	00319208	level:05	0031A718	1	
 same	396	GetMpegPictureTimestampsAndFlags	boot	00129B60	boot	00129CA0	1	
-same	388	FUN_L00_0026c3d0	level:00	0026C3D0	level:00	0026D270	19	
+same	396	FUN_L06_002f3640	level:06	002F3640	level:06	002F4A70	2	
+same	384	FUN_L11_00309378	level:11	00309378	level:11	0030A748	1	
 same	356	FUN_L00_001ee1b0	level:00	001EE1B0	level:00	001EE530	19	
 same	352	vi_buf_reset	boot	0023BCC0	boot	0023D090	20	
 same	340	vi_buf_modify_pts	boot	0023C6B8	boot	0023DA88	20	
+same	316	FUN_L03_0024fba8	level:03	0024FBA8	level:03	00250B88	1	
 same	312	video_callback	boot	0023B5F0	boot	0023C9C0	20	
+same	308	FUN_L11_00315f58	level:11	00315F58	level:11	003173C8	1	
+same	304	FUN_00226fb8	boot	00226FB8	boot	002282D0	20	
 same	304	copy_video_buffer_region	boot	0023B810	boot	0023CBE0	20	
 same	304	FUN_L01_0030f208	level:01	0030F208	level:01	003105E0	1	
-same	288	FUN_L00_0028b080	level:00	0028B080	level:00	0028C358	2	
 same	284	FUN_L00_001eb328	level:00	001EB328	level:00	001EB6A8	19	
 same	276	snd_send_current_batch	boot	0012E9D8	boot	0012EB18	1	
 same	272	_dispRefImage	boot	00129CF0	boot	00129E30	1	
@@ -57,44 +78,31 @@ same	272	vi_buf_stop_dma	boot	0023C170	boot	0023D540	20
 same	272	vi_buf_put_ts	boot	0023C810	boot	0023DBE0	20	
 same	268	terminate_audio_system	boot	0023AA68	boot	0023BE38	20	
 same	256	video_dec_create	boot	0023CAC8	boot	0023DE98	20	
-same	252	FUN_L00_0028a998	level:00	0028A998	level:00	0028BC70	2	
 same	244	vi_buf_begin_put	boot	0023BE20	boot	0023D1F0	20	
 same	244	FUN_L00_0028eed0	level:00	0028EED0	level:00	002901A8	19	
-same	240	FUN_L00_00289330	level:00	00289330	level:00	0028A608	1	
-same	240	FUN_L01_002ffcd0	level:01	002FFCD0	level:01	003010A8	1	
+same	244	FUN_L06_002f32f0	level:06	002F32F0	level:06	002F4720	2	
 same	228	pcm_callback	boot	0023B728	boot	0023CAF8	20	
 same	228	FUN_L00_0023cdb8	level:00	0023CDB8	level:00	0023D750	19	
-same	228	FUN_L00_0028a208	level:00	0028A208	level:00	0028B4E0	2	
+same	228	FUN_L02_002ecc68	level:02	002ECC68	level:02	002EE0A0	3	
 same	224	_initRefImages	boot	0012C770	boot	0012C8B0	1	
-same	220	FUN_L00_00289bd8	level:00	00289BD8	level:00	0028AEB0	2	
 same	216	video_dec_flush	boot	0023CD08	boot	0023E0D8	20	
-same	208	audio_dec_begin_put	boot	0023AD58	boot	0023C128	1	
 same	188	audio_dec_create	boot	0023ABD0	boot	0023BFA0	20	
-same	184	FUN_L00_0028a2f0	level:00	0028A2F0	level:00	0028B5C8	2	
-same	184	FUN_L00_002dc938	level:00	002DC938	level:00	002DDDE8	19	
 same	180	audio_dec_end_put	boot	0023AE28	boot	0023C1F8	20	
-same	168	sound_stop_all_sounds	boot	0022DCD0	boot	0022EFE8	20	
-same	168	send_to_spu	boot	0023AF18	boot	0023C2E8	20	
 same	156	run_video_decoder	boot	0023CE28	boot	0023E1F8	20	
-same	152	FUN_0023ba60	boot	0023BA60	boot	0023CE30	20	
+same	152	read_cd_stream_sectors	boot	0023BA60	boot	0023CE30	20	
+same	136	sceSifInitIopHeap	boot	0011C840	boot	0011CB40	1	
 same	120	vi_buf_create	boot	0023BC48	boot	0023D018	20	
 same	120	vo_buf_inc_count	boot	0023D210	boot	0023E5E0	20	
-same	108	load_debug_font	boot	001E9338	boot	001E96B8	20	
 same	108	set_dma_channel_3_control_register	boot	0023BB40	boot	0023CF10	20	
 same	108	set_dma_channel_4_control_register	boot	0023BBB0	boot	0023CF80	20	
-same	104	FUN_00218d10	boot	00218D10	boot	00219C08	20	
+same	108	FUN_L05_00262ae8	level:05	00262AE8	level:05	00263490	2	
 same	100	vo_buf_get_tag	boot	0023D2D8	boot	0023E6A8	20	
 same	96	FUN_L00_00241728	level:00	00241728	level:00	002420C0	19	
 same	92	FUN_L00_001eb0c8	level:00	001EB0C8	level:00	001EB448	19	
-same	88	vi_buf_delete	boot	0023C5B8	boot	0023D988	20	
-same	88	audio_dec_start	boot	0023ACB8	boot	0023C088	20	
 same	84	vi_buf_end_put	boot	0023BF18	boot	0023D2E8	20	
 same	84	vi_buf_flush	boot	0023C660	boot	0023DA30	20	
-same	80	get_mpeg_timestamp	boot	0023D140	boot	0023E510	20	
-same	76	wait_for_display_vsync	boot	0023B590	boot	0023C960	20	
 same	76	vi_buf_count	boot	0023C610	boot	0023D9E0	20	
 same	76	vo_buf_create	boot	0023D190	boot	0023E560	20	
-same	76	FUN_L00_002e88c8	level:00	002E88C8	level:00	002E9D78	19	
 same	72	video_dec_put_ts	boot	0023CC98	boot	0023E068	20	
 same	72	video_dec_is_flushed	boot	0023CDE0	boot	0023E1B0	20	
 same	72	read_buf_begin_get	boot	0023B9D8	boot	0023CDA8	20	
@@ -104,16 +112,20 @@ same	68	read_buf_end_put	boot	0023B990	boot	0023CD60	20
 same	68	FUN_L00_00266e80	level:00	00266E80	level:00	00267CC8	19	
 same	64	vo_buf_get_data	boot	0023D288	boot	0023E658	20	
 same	52	video_dec_delete	boot	0023CC38	boot	0023E008	20	
-same	48	mpeg_stop_dma	boot	0023D0E0	boot	0023E4B0	40	
 same	48	GetStateOffsetAddress	boot	0023B960	boot	0023CD30	20	
 same	40	handle_mpeg_error	boot	0023D080	boot	0023E450	20	
-same	36	PackStateValue	boot	0023BC20	boot	0023CFF0	20	
-same	36	GetStateTableWord	boot	0023BA20	boot	0023CDF0	20	
-same	32	DecrementStateFieldIfPositive	boot	0023D340	boot	0023E710	20	
+same	36	read_buf_end_get	boot	0023BA20	boot	0023CDF0	20	
+same	36	sc_tag2	boot	0023BC20	boot	0023CFF0	20	
+same	32	vo_buf_dec_count	boot	0023D340	boot	0023E710	20	
 same	24	InitializeStateFields	boot	0023B940	boot	0023CD10	20	
 same	24	FUN_L00_001eb0b0	level:00	001EB0B0	level:00	001EB430	19	
-same	20	CompareStateFields	boot	0023D1F8	boot	0023E5C8	20	
+same	20	vo_buf_is_full	boot	0023D1F8	boot	0023E5C8	20	
 same	16	ClearStateFields	boot	0023D1E8	boot	0023E5B8	20	
+shape	1740	FUN_L14_002fba20	level:14	002FBA20	level:14	002FCEA8	1	
+shape	872	draw_sound_menu	boot	0021CE00	boot	0021DE08	20	
+shape	868	update_gameplay_frame	boot	001EB0A8	boot	001EB458	1	
+similar	1116	startlevel	boot	001E9658	boot	001E99D8	1	0.873
+similar	1820	transition_load_wad	boot	001EA830	boot	001EABE8	1	0.965
 similar	1376	update_map_icons	boot	0020BF90	boot	0020CDE0	1	0.997
 similar	1768	process_pad_input	boot	00217328	boot	002181F0	1	0.92
 similar	544	FUN_00218f98	boot	00218F98	boot	00219E90	1	0.831
@@ -121,4 +133,5 @@ similar	1036	FUN_002192a8	boot	002192A8	boot	0021A1A0	1	0.823
 similar	1468	draw_map_screen	boot	0021BE60	boot	0021CE60	1	0.985
 similar	728	FUN_0021f990	boot	0021F990	boot	002209A0	1	0.905
 similar	1096	draw_save_slot_list	boot	002239E0	boot	00224C30	1	0.813
-similar	168	FUN_0023a3b8	boot	0023A3B8	boot	0023B670	1	0.83
+similar	5996	update_resident_gameplay_state	boot	0022F778	boot	00230A90	1	0.999
+similar	168	play_mpeg_movie	boot	0023A3B8	boot	0023B670	1	0.83

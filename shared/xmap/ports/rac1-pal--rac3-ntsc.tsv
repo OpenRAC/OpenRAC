@@ -5,6 +5,9 @@
 # Addresses are hexadecimal; `places` counts where the function occurs in the target version.
 kind	size	from_name	from_program	from_address	to_program	to_address	places	ratio
 same	1772	func_0011DFE8	boot	0011DFE8	boot	001260F0	1	
+same	1640	func_0011E860	boot	0011E860	boot	001278E0	1	
+same	1488	func_0011EF28	boot	0011EF28	boot	00127FB0	1	
+same	1344	func_0011F4F8	boot	0011F4F8	boot	00128580	1	
 same	680	func_0011FF08	boot	0011FF08	boot	00128F90	1	
 same	568	func_0012D068	boot	0012D068	boot	0013A598	1	
 same	520	func_0011CE70	boot	0011CE70	boot	00123ED8	1	
@@ -14,20 +17,16 @@ same	404	func_00119910	boot	00119910	boot	001200E0	1
 same	380	func_00122958	boot	00122958	boot	0012CCC8	1	
 same	360	func_001201B0	boot	001201B0	boot	00129238	1	
 same	336	func_0012CE48	boot	0012CE48	boot	0013A368	1	
-same	332	func_00203808	boot	00203808	frontbin	00394660	1	
 same	308	func_0011AA90	boot	0011AA90	boot	00121C38	1	
 same	300	func_0011FA38	boot	0011FA38	boot	00128AC0	1	
 same	272	func_0011D248	boot	0011D248	boot	00124308	1	
-same	260	func_00229D48	boot	00229D48	boot	003DF090	53	
 same	256	func_0011CCE0	boot	0011CCE0	boot	00123D10	1	
 same	252	func_0011DA98	boot	0011DA98	boot	00124A80	1	
 same	236	func_0011E6D8	boot	0011E6D8	boot	00127750	1	
 same	228	func_0012CD60	boot	0012CD60	boot	0013A280	1	
 same	220	func_00123308	boot	00123308	boot	0012D678	1	
 same	216	func_001194C8	boot	001194C8	boot	0011FA10	1	
-same	216	func_0020DD48	boot	0020DD48	boot	003C3450	53	
 same	212	func_0011DE38	boot	0011DE38	boot	00124FB8	1	
-same	212	func_001F2A38	boot	001F2A38	frontbin	003822C8	1	
 same	208	func_00119BF8	boot	00119BF8	boot	001203F0	1	
 same	204	func_L00_0025A778	level:00	0025A778	level:01	004432C0	51	
 same	200	func_00122200	boot	00122200	boot	0012C570	1	
@@ -45,6 +44,7 @@ same	164	func_0012D688	boot	0012D688	boot	0013ABC8	1
 same	160	func_001205D0	boot	001205D0	boot	00129658	1	
 same	160	func_001209D8	boot	001209D8	boot	0012AAE0	1	
 same	160	func_00121D18	boot	00121D18	boot	0012C088	1	
+same	160	func_L00_00240CE0	level:00	00240CE0	boot	00399718	53	
 same	152	func_0011E7C8	boot	0011E7C8	boot	00127848	1	
 same	152	func_00120E98	boot	00120E98	boot	0012B000	1	
 same	152	func_00121930	boot	00121930	boot	0012BC00	1	
@@ -55,7 +55,7 @@ same	144	func_00118ED0	boot	00118ED0	boot	0011F2B0	1
 same	140	func_0011B438	boot	0011B438	boot	00122780	1	
 same	140	func_0011BEB8	boot	0011BEB8	boot	00123368	2	
 same	136	func_0011B770	boot	0011B770	boot	00122AE0	1	
-same	136	func_0011CB40	boot	0011CB40	boot	00123B10	1	
+same	132	func_L00_001F75F8	level:00	001F75F8	boot	00386958	53	
 same	124	func_00119008	boot	00119008	boot	0011F3E8	1	
 same	120	func_00120CA0	boot	00120CA0	boot	0012AE20	1	
 same	116	func_00119088	boot	00119088	boot	0011F468	1	
@@ -70,17 +70,23 @@ same	104	func_0012D448	boot	0012D448	boot	0013A988	1
 same	104	func_0012D500	boot	0012D500	boot	0013AA40	2	
 same	100	func_0011FEA0	boot	0011FEA0	boot	00128F28	1	
 same	100	func_00205C08	boot	00205C08	level:01	0042B8F0	34	
+same	100	func_L00_002EFCFC	level:00	002EFCFC	boot	003B049C	53	
 same	96	func_0011EEC8	boot	0011EEC8	boot	00127F48	1	
 same	96	func_0012D380	boot	0012D380	boot	0013A880	1	
+same	96	func_L00_00240D80	level:00	00240D80	boot	003997B8	53	
 same	92	func_L00_0025D0E0	level:00	0025D0E0	level:01	00445BF0	51	
 same	88	func_0011FE48	boot	0011FE48	boot	00128ED0	1	
 same	88	func_00203B18	boot	00203B18	level:01	00423DB8	34	
 same	88	func_L00_0020DCF0	level:00	0020DCF0	level:01	004E5630	34	
+same	88	func_L00_00260878	level:00	00260878	level:01	00448C50	51	
+same	84	func_L00_002EFC90	level:00	002EFC90	boot	003B0430	53	
 same	80	func_L01_0026F040	level:01	0026F040	level:01	00442AA8	22	
 same	76	func_00120430	boot	00120430	boot	001294B8	1	
 same	76	func_0012D3F0	boot	0012D3F0	boot	0013A930	1	
+same	76	func_L00_00240DE0	level:00	00240DE0	boot	00399818	53	
 same	76	func_L00_0024B1B0	level:00	0024B1B0	level:01	0042E448	34	
 same	72	func_00234C50	boot	00234C50	level:01	004C1FA0	34	
+same	72	func_L00_001F767C	level:00	001F767C	boot	003869DC	53	
 same	68	func_00119718	boot	00119718	boot	0011FEE0	1	
 same	68	func_L00_00233B08	level:00	00233B08	level:01	0050CCC8	34	
 same	64	func_0011D4A0	boot	0011D4A0	boot	00124560	1	
@@ -93,12 +99,15 @@ same	60	func_00119890	boot	00119890	boot	00120060	1
 same	60	func_001198D0	boot	001198D0	boot	001200A0	1	
 same	60	func_0011ABC8	boot	0011ABC8	boot	00121D70	1	
 same	60	func_0011AC08	boot	0011AC08	boot	00121DB0	1	
+same	60	func_L00_00232A3C	level:00	00232A3C	level:01	0050B874	34	
 same	56	func_00119D88	boot	00119D88	boot	00120580	1	
 same	56	func_0011D370	boot	0011D370	boot	00124430	3	
+same	56	func_L00_00217648	level:00	00217648	level:01	004F11B8	34	
 same	56	func_L00_00233A90	level:00	00233A90	level:01	0050CC50	32	
 same	56	func_L00_00233AC8	level:00	00233AC8	level:01	0050CC88	32	
 same	56	func_L00_00258E58	level:00	00258E58	level:01	00442098	51	
 same	56	func_L00_0025A468	level:00	0025A468	level:01	00442D70	51	
+same	56	func_L13_003184A0	level:13	003184A0	level:09	00403338	1	
 same	52	func_001197C0	boot	001197C0	boot	0011FF90	1	
 same	52	func_001197F8	boot	001197F8	boot	0011FFC8	1	
 same	52	func_00119E70	boot	00119E70	boot	00120668	1	
@@ -128,23 +137,32 @@ same	36	func_0012D760	boot	0012D760	boot	0013ACA0	1
 same	36	func_L10_002F6E10	level:10	002F6E10	level:01	003EAB30	9	
 same	32	func_0011DFC8	boot	0011DFC8	boot	001260D0	1	
 same	32	func_0012D4E0	boot	0012D4E0	boot	0013AA20	1	
+same	32	func_L00_002951A8	level:00	002951A8	level:01	004AD788	34	
 same	28	func_0011A728	boot	0011A728	boot	00121860	1	
 same	28	func_0011B090	boot	0011B090	boot	00122258	1	
 same	28	func_0011D078	boot	0011D078	boot	001240E0	1	
 same	28	func_001275A0	boot	001275A0	level:07	003AF720	1	
+same	28	func_L00_002608D0	level:00	002608D0	level:01	00448CA8	51	
 same	24	func_0011A758	boot	0011A758	boot	00121890	1	
 same	24	func_001FFFA0	boot	001FFFA0	level:01	0041D738	34	
 same	24	func_0020CCB8	boot	0020CCB8	level:01	00490878	34	
+same	24	func_L00_00232A18	level:00	00232A18	level:01	0050B850	34	
 same	24	func_L00_00232EA8	level:00	00232EA8	level:01	0050BF28	34	
+same	24	func_L00_002EFCE4	level:00	002EFCE4	boot	003B0484	53	
 same	24	func_L01_002490E0	level:01	002490E0	level:02	004DCEC0	2	
 same	24	func_L01_002490F8	level:01	002490F8	level:02	004DCED8	2	
 same	20	func_001191C8	boot	001191C8	boot	0011F5A8	1	
 same	20	func_0012BD28	boot	0012BD28	boot	00135FD8	1	
 same	20	func_L00_0020A858	level:00	0020A858	level:01	004E25C8	136	
 same	20	func_L00_00211F68	level:00	00211F68	level:01	004EAA60	68	
+same	20	func_L00_00217680	level:00	00217680	level:01	004F11F0	34	
+same	20	func_L00_0025E210	level:00	0025E210	level:01	004475D0	34	
+same	20	func_L03_00292B18	level:03	00292B18	boot	003E5938	2	
 same	16	func_0012BB98	boot	0012BB98	boot	00135CF0	1	
 same	16	func_0012C420	boot	0012C420	boot	00139F80	1	
 same	16	func_002071D0	boot	002071D0	level:01	00417EA0	68	
+same	16	func_L00_00205768	level:00	00205768	level:01	004DC468	34	
+same	16	func_L00_0025F410	level:00	0025F410	level:39	005B6970	17	
 same	16	func_L00_002D95D8	level:00	002D95D8	level:01	003015E0	43	
 same	16	func_L00_002E89D0	level:00	002E89D0	level:01	003E5C20	51	
 same	16	func_L16_002C5A08	level:16	002C5A08	level:21	00338890	2	
@@ -164,7 +182,7 @@ shape	84	func_0012C468	boot	0012C468	boot	0013A0F8	1
 shape	72	func_0012BB30	boot	0012BB30	boot	00135C10	1	
 shape	72	func_L00_00232E60	level:00	00232E60	level:01	0050BEE0	34	
 shape	68	func_0012C058	boot	0012C058	boot	00135E40	1	
-similar	16	func_0023C2B0	boot	0023C2B0	boot	003B060C	1	0.857
+shape	48	func_L00_0028F3E0	level:00	0028F3E0	boot	003A57C8	53	
 similar	320	func_0011B2F8	boot	0011B2F8	boot	00122630	1	0.908
 similar	644	func_0011BF80	boot	0011BF80	boot	00123430	1	0.868
 similar	380	func_0011C208	boot	0011C208	boot	001236C0	1	0.836
@@ -189,3 +207,4 @@ similar	72	func_0012E600	boot	0012E600	boot	0013C2C0	1	0.889
 similar	60	func_0012F1A8	boot	0012F1A8	boot	0013D080	1	0.867
 similar	56	func_0012F248	boot	0012F248	boot	0013D120	1	0.857
 similar	44	func_0012F288	boot	0012F288	boot	0013D180	1	0.818
+similar	16	func_0023C2B0	boot	0023C2B0	boot	003B060C	1	0.857

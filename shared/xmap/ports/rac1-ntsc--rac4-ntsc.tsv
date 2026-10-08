@@ -19,6 +19,7 @@ same	272	sceSifRebootIop	boot	0011CF48	boot	0012CE00	1
 same	260	FUN_00228a30	boot	00228A30	level:00	00666DF0	47	
 same	256	_lf_bind	boot	0011C9E0	boot	0012C4B8	1	
 same	252	InitSystemCallTableAddress	boot	0011D798	boot	0012D580	1	
+same	228	suspend_ipu_dma_state	boot	0012CC20	boot	001467C0	1	
 same	220	sceDmaReset	boot	00123008	boot	00139AE0	1	
 same	216	topThread	boot	001191C8	boot	001277A0	1	
 same	216	patch_moby_gifs	boot	0020CEF8	boot	0046CBD8	48	
@@ -46,6 +47,7 @@ same	152	sceDmaPause	boot	00123350	boot	00139E28	1
 same	148	sceGsSyncV	boot	00122298	boot	00138D70	1	
 same	144	VSync	boot	00118BD0	boot	00127030	1	
 same	140	FUN_0011bbb8	boot	0011BBB8	boot	0012B270	2	
+same	140	handle_sif_rpc_call	boot	0011B138	boot	0012A688	1	
 same	136	new_iob	boot	0011B470	boot	0012A9E8	1	
 same	136	sceSifInitIopHeap	boot	0011C840	boot	0012C1B8	1	
 same	132	CountLeadingZeroBits	boot	001156C0	boot	0011F6F8	1	
@@ -85,7 +87,7 @@ same	60	IsceSifSendCmd	boot	0011A908	boot	00129B58	1
 same	60	SceSifCheckStatRpc	boot	0011B3B8	boot	0012A918	1	
 same	56	KernelCopyRdata	boot	0011D708	boot	0012CF28	3	
 same	56	GetDmaPacketSpanBytes	boot	0020AC88	boot	00468B40	48	
-same	56	InitializeDmaPacket	boot	001F7668	boot	00455E40	48	
+same	56	font_set_window	boot	001F7668	boot	00455E40	48	
 same	52	SceFsReset	boot	0011BC48	boot	0012B300	1	
 same	52	ClearMemoryRange	boot	00122FA8	boot	00139A80	1	
 same	52	SceDeci2ExRecv	boot	001194C0	boot	00127D20	1	
@@ -105,32 +107,32 @@ same	40	debug_print_stub	boot	00124A20	boot	0013AE70	1
 same	40	RfuDispatchEntry	boot	0011DAA0	level:00	00508310	1	
 same	40	GetDmaChannel	boot	00122FE0	boot	00139AB8	1	
 same	40	PackDmaTag	boot	001FB280	boot	004593D8	48	
-same	36	PackStateValue	boot	0023BC20	boot	004F0CC8	48	
 same	36	GetStateResourceWrapper	boot	001144F0	boot	0011A1C8	1	
 same	36	SceDeci2Poll	boot	00119498	boot	00127CF0	1	
 same	36	Kputs	boot	00119540	boot	00127DA0	1	
 same	36	InitBlockFn	boot	00119568	boot	00127DC8	1	
-same	36	GetStateTableWord	boot	0023BA20	boot	004F0A48	48	
 same	36	ResetRpcCommandState	boot	0011ACC0	boot	00129F30	1	
 same	36	Subhour	boot	0012D620	boot	001559E0	1	
+same	36	read_buf_end_get	boot	0023BA20	boot	004F0A48	48	
+same	36	sc_tag2	boot	0023BC20	boot	004F0CC8	48	
 same	32	BcdToTime	boot	0012D3A0	boot	00155760	1	
 same	32	PackRenderCommandFields	boot	0020D4F0	boot	00470090	48	
 same	28	Func0011AD90	boot	0011AD90	boot	0012A000	2	
 same	28	FUN_0011a428	boot	0011A428	boot	001295F0	1	
 same	28	InvokeIopStatus	boot	0011CD78	boot	0012CBC0	1	
 same	28	InitializeMemoryCardDirectory	boot	00127460	boot	01EEBC54	48	
-same	28	UpdateRenderStateCommand	boot	00216088	boot	00489478	48	
+same	28	music_unpause	boot	00216088	boot	00489478	48	
 same	24	LookupIndex	boot	0011A458	boot	00129620	386	
 same	24	FUN_0020be68	boot	0020BE68	boot	004E7428	48	
 same	24	store_sound_bank_handle_callback	boot	0022DD78	boot	004E2440	48	
 same	24	InitializeStateFields	boot	0023B940	boot	004F0978	48	
 same	20	InitializeStateRecord	boot	0012BBE8	boot	00142518	1	
-same	20	CompareStateFields	boot	0023D1F8	boot	004F22D8	48	
 same	20	InitializeObject	boot	00118EC8	boot	00127348	1	
-same	20	FUN_L00_002118b0	level:00	002118B0	boot	0015C730	2	
+same	20	vo_buf_is_full	boot	0023D1F8	boot	004F22D8	48	
+same	20	FUN_L00_002321a8	level:00	002321A8	boot	0015C730	2	
 same	16	Func0012BA58	boot	0012BA58	boot	00142230	1	
 same	16	JumpToImageSetup	boot	0012C2E0	boot	001464C0	1	
-same	16	ClearStageStateFlag	boot	0023B5E0	boot	004F0650	95	
+same	16	end_display	boot	0023B5E0	boot	004F0650	95	
 same	16	FUN_002069a0	boot	002069A0	boot	0015C818	50	
 same	16	ClearStateFields	boot	0023D1E8	boot	004F22C8	48	
 same	16	FUN_L00_0025b6a8	level:00	0025B6A8	boot	004756D0	48	
@@ -146,6 +148,7 @@ shape	192	patch_tie_texture_fields	boot	00235780	level:00	006702E0	47
 shape	188	_skipMB0	boot	00127B40	boot	0013F018	1	
 shape	160	sceCdSync	boot	00120C30	boot	00137448	1	
 shape	160	_groupOfPicturesHeader	boot	00129100	boot	00140900	1	
+shape	144	_outputFrame	boot	001294C0	boot	00143040	1	
 shape	140	_sequenceDisplayExtension	boot	0012CA60	boot	001412F8	1	
 shape	108	sceCdSyncS	boot	00120CD0	boot	001374E8	1	
 shape	84	_Error	boot	0012C328	boot	00146638	1	
@@ -161,8 +164,9 @@ similar	16	IsStateFieldLarge	boot	0023AEE0	boot	004EFA54	1	0.857
 similar	68	read_buf_end_put	boot	0023B990	boot	004F09C8	1	0.875
 similar	72	read_buf_begin_get	boot	0023B9D8	boot	004F0A08	1	0.882
 similar	16	SetStateFields	boot	0023BA48	boot	004F0A70	1	0.889
-similar	256	pow5mult	boot	00115A70	boot	0011FA80	1	0.828
+similar	256	_pow5mult	boot	00115A70	boot	0011FA80	1	0.828
 similar	320	sceSifBindRpc	boot	0011AFF8	boot	0012A538	1	0.908
+similar	492	sceSifCallRpc	boot	0011B1C8	boot	0012A718	1	0.9
 similar	644	sceOpen	boot	0011BC80	boot	0012B338	1	0.868
 similar	380	sceClose	boot	0011BF08	boot	0012B5C8	1	0.836
 similar	316	sceSifResetIop	boot	0011CDD0	boot	0012CC30	1	0.939

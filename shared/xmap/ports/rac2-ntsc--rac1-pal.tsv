@@ -4,7 +4,6 @@
 # similar = between the same unchanged neighbours and alike by the ratio given (a draft to adapt).
 # Addresses are hexadecimal; `places` counts where the function occurs in the target version.
 kind	size	from_name	from_program	from_address	to_program	to_address	places	ratio
-same	208	FUN_0034F960	boot	0034F960	boot	0023C128	1	
 same	180	FUN_0034FA30	boot	0034FA30	boot	0023C1F8	20	
 same	72	FUN_00350628	boot	00350628	boot	0023CDA8	20	
 same	68	FUN_003505E0	boot	003505E0	boot	0023CD60	20	
@@ -15,8 +14,6 @@ same	36	FUN_00350878	boot	00350878	boot	0023CFF0	20
 same	32	FUN_00351FA0	boot	00351FA0	boot	0023E710	20	
 same	24	FUN_00350590	boot	00350590	boot	0023CD10	20	
 same	24	LVL_0_ARANOS_TUTORIAL_FUN_002D7940	level:00	002D7940	level:00	001EB430	19	
-same	20	FUN_002AB650	boot	002AB650	level:00	0025E210	19	
 same	20	FUN_00351E58	boot	00351E58	boot	0023E5C8	20	
 same	16	FUN_00351E48	boot	00351E48	boot	0023E5B8	20	
-similar	168	FUN_002E5FE0	boot	002E5FE0	boot	0022EFE8	1	0.952
 similar	120	FUN_00351E70	boot	00351E70	boot	0023E5E0	1	0.8

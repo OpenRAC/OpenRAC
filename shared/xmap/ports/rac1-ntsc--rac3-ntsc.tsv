@@ -4,7 +4,7 @@
 # similar = between the same unchanged neighbours and alike by the ratio given (a draft to adapt).
 # Addresses are hexadecimal; `places` counts where the function occurs in the target version.
 kind	size	from_name	from_program	from_address	to_program	to_address	places	ratio
-same	680	dpmul	boot	0011FC08	boot	00128F90	1	
+same	680	pack_d	boot	0011FC08	boot	00128F90	1	
 same	568	sceIpuInit	boot	0012CF28	boot	0013A598	1	
 same	520	_sceSifLoadModuleBuffer	boot	0011CB70	boot	00123ED8	1	
 same	484	sceGsSetDefDrawEnv	boot	00121FC8	boot	0012C638	1	
@@ -13,19 +13,16 @@ same	404	sceTtyHandler	boot	00119610	boot	001200E0	1
 same	380	sceGsExecLoadImage	boot	00122658	boot	0012CCC8	1	
 same	360	dpdiv	boot	0011FEB0	boot	00129238	1	
 same	336	sceIpuRestartDMA	boot	0012CD08	boot	0013A368	1	
-same	332	set_up_vis_gif_viewer	boot	00202FD0	frontbin	00394660	1	
 same	308	_sceSifSendCmd	boot	0011A790	boot	00121C38	1	
 same	300	__pack_d	boot	0011F738	boot	00128AC0	1	
 same	272	sceSifRebootIop	boot	0011CF48	boot	00124308	1	
-same	260	FUN_00228a30	boot	00228A30	boot	003DF090	53	
 same	256	_lf_bind	boot	0011C9E0	boot	00123D10	1	
 same	252	InitSystemCallTableAddress	boot	0011D798	boot	00124A80	1	
 same	236	__fixunsdfdi	boot	0011E3D8	boot	00127750	1	
+same	228	suspend_ipu_dma_state	boot	0012CC20	boot	0013A280	1	
 same	220	sceDmaReset	boot	00123008	boot	0012D678	1	
 same	216	topThread	boot	001191C8	boot	0011FA10	1	
-same	216	patch_moby_gifs	boot	0020CEF8	boot	003C3450	53	
 same	212	InitAlarm	boot	0011DB38	boot	00124FB8	1	
-same	212	parse_occlusion_grid	boot	001F2690	frontbin	003822C8	1	
 same	208	sceTtyRead	boot	001198F8	boot	001203F0	1	
 same	204	FUN_L00_00259740	level:00	00259740	level:01	004432C0	51	
 same	200	sceGszbufaddr	boot	00121F00	boot	0012C570	1	
@@ -51,6 +48,7 @@ same	148	dptoli	boot	00120238	boot	001295C0	1
 same	148	sceGsSyncV	boot	00122298	boot	0012C908	1	
 same	144	VSync	boot	00118BD0	boot	0011F2B0	1	
 same	140	FUN_0011bbb8	boot	0011BBB8	boot	00123368	2	
+same	140	handle_sif_rpc_call	boot	0011B138	boot	00122780	1	
 same	136	new_iob	boot	0011B470	boot	00122AE0	1	
 same	136	sceSifInitIopHeap	boot	0011C840	boot	00123B10	1	
 same	124	write	boot	00118D08	boot	0011F3E8	1	
@@ -76,7 +74,7 @@ same	80	FUN_L01_0026e090	level:01	0026E090	level:01	00442AA8	22
 same	76	CompareDoubles	boot	00120130	boot	001294B8	1	
 same	76	sceScfGetTimeZone	boot	0012D2B0	boot	0013A930	1	
 same	76	FUN_L00_0024a798	level:00	0024A798	level:01	0042E448	34	
-same	72	FUN_00233938	boot	00233938	level:01	004C1FA0	34	
+same	72	vu1_add_vif_code	boot	00233938	level:01	004C1FA0	34	
 same	68	sceDeci2Open	boot	00119418	boot	0011FEE0	1	
 same	68	FUN_L00_00233288	level:00	00233288	level:01	0050CCC8	34	
 same	64	InitTLB	boot	0011D1A0	boot	00124560	1	
@@ -94,6 +92,7 @@ same	56	FUN_L00_00233210	level:00	00233210	level:01	0050CC50	32
 same	56	FUN_L00_00233248	level:00	00233248	level:01	0050CC88	32	
 same	56	FUN_L00_00257e20	level:00	00257E20	level:01	00442098	51	
 same	56	FUN_L00_00259430	level:00	00259430	level:01	00442D70	51	
+same	56	FUN_L13_00316f48	level:13	00316F48	level:09	00403338	1	
 same	52	SceFsReset	boot	0011BC48	boot	001233F8	1	
 same	52	ClearMemoryRange	boot	00122FA8	boot	0012D618	1	
 same	52	SceDeci2ExRecv	boot	001194C0	boot	0011FF90	1	
@@ -101,7 +100,7 @@ same	52	SceDeci2ExSend	boot	001194F8	boot	0011FFC8	1
 same	52	serialPutchar	boot	00119B70	boot	00120668	1	
 same	52	sceSifExitCmd	boot	0011A700	boot	00121B38	1	
 same	52	sceMcMkdir	boot	001236D8	boot	0012DDC8	1	
-same	52	InitializeRenderState	boot	00216050	level:01	0045BF98	51	
+same	52	music_pause	boot	00216050	level:01	0045BF98	51	
 same	48	CallDebugCharacter	boot	00119468	boot	0011FF30	1	
 same	48	GetRpcPacket	boot	0011ADB0	boot	00122278	1	
 same	48	AddClockHour	boot	0012D5F0	boot	0013AC70	1	
@@ -135,7 +134,8 @@ same	24	FUN_L01_00248900	level:01	00248900	level:02	004DCED8	2
 same	20	InitializeStateRecord	boot	0012BBE8	boot	00135FD8	1	
 same	20	InitializeObject	boot	00118EC8	boot	0011F5A8	1	
 same	20	FUN_L00_0020a1e0	level:00	0020A1E0	level:01	004E25C8	136	
-same	20	FUN_L00_002118b0	level:00	002118B0	level:01	004EAA60	68	
+same	20	FUN_L00_002321a8	level:00	002321A8	level:01	004EAA60	68	
+same	20	FUN_L00_0025d1b8	level:00	0025D1B8	level:01	004475D0	34	
 same	16	Func0012BA58	boot	0012BA58	boot	00135CF0	1	
 same	16	JumpToImageSetup	boot	0012C2E0	boot	00139F80	1	
 same	16	FUN_002069a0	boot	002069A0	level:01	00417EA0	68	
@@ -150,6 +150,7 @@ shape	188	_skipMB0	boot	00127B40	boot	00132AD8	1
 shape	160	sceCdSync	boot	00120C30	boot	0012B098	1	
 shape	160	_groupOfPicturesHeader	boot	00129100	boot	001343C0	1	
 shape	152	FUN_L00_00232320	level:00	00232320	level:01	0050B9A8	34	
+shape	144	_outputFrame	boot	001294C0	boot	00136B00	1	
 shape	140	_sequenceDisplayExtension	boot	0012CA60	boot	00134DB8	1	
 shape	108	sceCdSyncS	boot	00120CD0	boot	0012B138	1	
 shape	84	_Error	boot	0012C328	boot	0013A0F8	1	
@@ -158,6 +159,7 @@ shape	72	sceMpegGetPicture	boot	0012B9F0	boot	00135C10	1
 shape	72	FUN_L00_002325e0	level:00	002325E0	level:01	0050BEE0	34	
 shape	68	_decodeOrSkip	boot	0012BF18	boot	00135E40	1	
 similar	320	sceSifBindRpc	boot	0011AFF8	boot	00122630	1	0.908
+similar	492	sceSifCallRpc	boot	0011B1C8	boot	00122810	1	0.9
 similar	644	sceOpen	boot	0011BC80	boot	00123430	1	0.868
 similar	380	sceClose	boot	0011BF08	boot	001236C0	1	0.836
 similar	316	sceSifResetIop	boot	0011CDD0	boot	00124138	1	0.939

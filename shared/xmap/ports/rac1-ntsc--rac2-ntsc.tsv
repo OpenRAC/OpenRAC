@@ -6,7 +6,8 @@
 kind	size	from_name	from_program	from_address	to_program	to_address	places	ratio
 same	1456	_PES_packet	boot	0012B180	boot	0012F0E0	1	
 same	1192	_decMB0	boot	00127C00	boot	0012BB60	1	
-same	680	dpmul	boot	0011FC08	boot	00122B00	1	
+same	760	sceMpegDemuxPssRing	boot	0012ABD0	boot	0012EB30	1	
+same	680	pack_d	boot	0011FC08	boot	00122B00	1	
 same	656	_cpr8	boot	001298A8	boot	0012D808	1	
 same	644	sceOpen	boot	0011BC80	boot	0011E0D8	1	
 same	608	sceRead	boot	0011C2C0	boot	0011E4E0	1	
@@ -16,6 +17,7 @@ same	520	sceMpegCreate	boot	0012B7D8	boot	0012F738	1
 same	508	_waitBdecOut	boot	00127260	boot	0012B1C0	1	
 same	496	_slice0	boot	00127950	boot	0012B8B0	1	
 same	496	_pictureCodingExtension	boot	00128E50	boot	0012CDB0	1	
+same	492	sceSifCallRpc	boot	0011B1C8	boot	0011D620	1	
 same	484	sceGsSetDefDrawEnv	boot	00121FC8	boot	00125F20	1	
 same	440	PrepareMpegPictureFieldTransfers	boot	00129E00	boot	0012DD60	1	
 same	412	_motionVectors	boot	00128130	boot	0012C090	1	
@@ -35,6 +37,7 @@ same	348	_decodeOrSkipField	boot	0012BF60	boot	0012FEC0	1
 same	340	vi_buf_modify_pts	boot	0023C6B8	boot	00351310	28	
 same	336	_nextBit	boot	00128918	boot	0012C878	1	
 same	336	_pack_header	boot	0012AFC0	boot	0012EF20	1	
+same	336	sceTtyWrite	boot	001197A8	boot	0011BCD0	1	
 same	336	sceIpuRestartDMA	boot	0012CD08	boot	00130C68	1	
 same	332	_motionVector	boot	001282D0	boot	0012C230	1	
 same	328	sceDbcGetDepNumber	boot	001247E0	boot	00128578	1	
@@ -59,7 +62,7 @@ same	272	sceSifRebootIop	boot	0011CF48	boot	0011EED8	1
 same	268	_nextHeader	boot	00128B50	boot	0012CAB0	1	
 same	264	_pictureData0	boot	00127718	boot	0012B678	1	
 same	264	_peepBit	boot	00128720	boot	0012C680	1	
-same	260	FUN_00228a30	boot	00228A30	boot	002E10B8	28	
+same	260	FUN_L02_0020bc88	level:02	0020BC88	boot	0027E920	28	
 same	256	_lf_bind	boot	0011C9E0	boot	0011E938	1	
 same	252	InitSystemCallTableAddress	boot	0011D798	boot	0011F718	1	
 same	248	sceCdReadClock	boot	00121780	boot	001256D8	1	
@@ -69,13 +72,13 @@ same	240	_flushBuf	boot	00128828	boot	0012C788	1
 same	240	scePad2GetButtonProfile	boot	00124CB0	boot	00128B28	1	
 same	236	__fixunsdfdi	boot	0011E3D8	boot	001212C8	1	
 same	236	sceDbcReceiveData	boot	00124930	boot	001287A8	1	
+same	228	suspend_ipu_dma_state	boot	0012CC20	boot	00130B80	1	
 same	224	_initRefImages	boot	0012C770	boot	001306D0	1	
 same	224	sceMcSync	boot	00123C30	boot	00127B88	1	
 same	220	sceDmaReset	boot	00123008	boot	00126F60	1	
 same	220	parse_bin	boot	0012D8F8	boot	00131CB8	1	
 same	216	topThread	boot	001191C8	boot	0011B728	1	
 same	216	sceMcSeek	boot	001237C8	boot	00127720	1	
-same	216	patch_moby_gifs	boot	0020CEF8	boot	0029FEE0	28	
 same	212	InitThread	boot	001192A0	boot	0011B800	1	
 same	212	InitAlarm	boot	0011DB38	boot	0011FAB8	1	
 same	212	scePad2Read	boot	00124BD8	boot	00128A50	1	
@@ -89,19 +92,17 @@ same	196	sceCdMmode	boot	00121388	boot	001252E0	1
 same	196	PictureHeader	boot	00128C60	boot	0012CBC0	1	
 same	196	_quantMatrixExtension	boot	001291A0	boot	0012D100	1	
 same	196	FUN_00204e30	boot	00204E30	boot	00294D80	28	
-same	192	FUN_L00_0024f028	level:00	0024F028	level:00	00310BC8	27	
 same	188	_skipMB0	boot	00127B40	boot	0012BAA0	1	
 same	188	sceTtyInit	boot	001199C8	boot	0011BE20	1	
-same	188	update_moby_animation_state	boot	0020C880	boot	0029F390	28	
 same	184	litodp	boot	00120180	boot	00123078	1	
 same	184	sceCdBreak	boot	001216C8	boot	00125620	1	
 same	184	sceMcClose	boot	00123710	boot	00127668	1	
 same	180	AddDate	boot	0012D490	boot	00131850	1	
 same	180	_request_end	boot	0011ADE0	boot	0011D238	1	
-same	180	vu1_add_g_sregister	boot	00233980	boot	002FC560	28	
 same	176	deci2Putchar	boot	00119AC0	boot	0011BF18	1	
 same	176	_request_bind	boot	0011AF48	boot	0011D3A0	1	
 same	176	_waitIpuIdle64	boot	001284F8	boot	0012C458	1	
+same	176	scePad2SetButtonOrder	boot	00125020	boot	00128E98	1	
 same	172	InitExecPS2	boot	0011D9B8	boot	0011F938	1	
 same	168	get_available_rpc_packet	boot	0011ACE8	boot	0011D140	1	
 same	168	sceMpegInit	boot	0012B730	boot	0012F690	1	
@@ -115,7 +116,6 @@ same	160	_groupOfPicturesHeader	boot	00129100	boot	0012D060	1
 same	160	_isOutSizeOK	boot	00129808	boot	0012D768	1	
 same	160	handle_cd_read_callback	boot	001206D8	boot	00124630	1	
 same	156	GetRomName	boot	0012D160	boot	00131540	1	
-same	156	patch_tfrag_gifs	boot	00233308	boot	002EF310	28	
 same	156	FUN_00208770	boot	00208770	boot	002980D0	28	
 same	152	__floatdidf	boot	0011E4C8	boot	001213B8	1	
 same	152	sceCdNcmdDiskReady	boot	00120B98	boot	00124AF0	1	
@@ -127,10 +127,12 @@ same	148	cdvd_exit	boot	001208C0	boot	00124818	1
 same	148	sceGsSyncV	boot	00122298	boot	001261F0	1	
 same	144	VSync	boot	00118BD0	boot	0011B0B0	1	
 same	144	_copyrightExtension	boot	00129360	boot	0012D2C0	1	
+same	144	_outputFrame	boot	001294C0	boot	0012D420	1	
 same	144	unpack_spr_descriptor	boot	001238A0	boot	001277F8	1	
 same	140	_sequenceDisplayExtension	boot	0012CA60	boot	001309C0	1	
 same	140	AdjustTime	boot	0012D648	boot	00131A08	1	
 same	140	FUN_0011bbb8	boot	0011BBB8	boot	0011E010	2	
+same	140	handle_sif_rpc_call	boot	0011B138	boot	0011D590	1	
 same	136	new_iob	boot	0011B470	boot	0011D8C8	1	
 same	136	decode_motion_vector	boot	001280A8	boot	0012C008	1	
 same	136	sceSifInitIopHeap	boot	0011C840	boot	0011E7A0	1	
@@ -139,29 +141,23 @@ same	132	receiveDataFromIPU	boot	0012A128	boot	0012E088	1
 same	128	scePad2CheckDma	boot	00124FA0	boot	00128E18	1	
 same	124	write	boot	00118D08	boot	0011B1E8	1	
 same	124	_nextStartCode	boot	00128A68	boot	0012C9C8	1	
-same	124	FUN_L00_0025f780	level:00	0025F780	boot	002ACA50	28	
 same	120	PowerOffCB	boot	001209A0	boot	001248F8	1	
 same	120	free_sif_system_memory	boot	0011C938	boot	0011E8A8	1	
-same	120	FUN_L01_0026d930	level:01	0026D930	level:04	0033CB88	2	
-same	116	UpdateTempTrackData	boot	00129088	boot	0012CFE8	1	
 same	116	FUN_L00_0024efb0	level:00	0024EFB0	level:00	00310838	27	
 same	116	FUN_L01_002a1a90	level:01	002A1A90	level:00	0035F8D0	27	
 same	112	WaitDma	boot	00122F08	boot	00126E60	1	
-same	112	FUN_L00_0028df58	level:00	0028DF58	level:00	0035F7E8	27	
 same	108	get_iob	boot	0011B4F8	boot	0011D950	1	
 same	108	sceCdSyncS	boot	00120CD0	boot	00124C28	1	
 same	108	sceDbcSetWorkAddr	boot	001246A8	boot	00128440	1	
 same	108	ParseSystemHeader	boot	0012B110	boot	0012F070	1	
 same	108	reserve_aligned_buffer_space	boot	0012BC20	boot	0012FB80	1	
 same	108	music_remaining_time_callback	boot	00216BC0	boot	002B8048	28	
-same	108	append_draw_buffer_packet	boot	001FB3D0	boot	00284FC0	28	
 same	108	find_help_message_index	boot	001FDCA0	boot	00288F48	28	
 same	104	PatchIsNeeded	boot	0011D950	boot	0011F8D0	1	
 same	104	SceCdDelayThread	boot	00120610	boot	00124568	1	
 same	104	sceScfGetSummerTime	boot	0012D308	boot	001316C8	1	
 same	104	sceDmaSend	boot	001232C8	boot	00127220	1	
 same	104	_sceMpegFlush	boot	0012C0C0	boot	00130020	1	
-same	104	sceIpuSync	boot	0012CE58	boot	00130DB8	1	
 same	104	decode_bcd_time_fields	boot	0012D3C0	boot	00131780	2	
 same	104	FUN_00218d10	boot	00218D10	boot	002C9C90	28	
 same	100	dpsub	boot	0011FBA0	boot	00122A98	1	
@@ -181,10 +177,10 @@ same	88	FUN_L00_0020d658	level:00	0020D658	level:00	002AE070	27
 same	88	FUN_L01_0026e0e0	level:01	0026E0E0	level:01	003115E8	6	
 same	84	SceDbcGetModVersion	boot	001244B8	boot	00128250	1	
 same	84	_Error	boot	0012C328	boot	00130288	1	
+same	84	FUN_00123d10	boot	00123D10	boot	00127C68	1	
 same	84	_sysbitJump	boot	0012AAB8	boot	0012EA18	1	
 same	84	scePad2LinkDriver	boot	00124EE0	boot	00128D58	1	
 same	84	ClearMpegReferenceBuffer	boot	0012BAB8	boot	0012FA18	1	
-same	84	FUN_L02_002fa770	level:02	002FA770	level:03	0043ACD8	12	
 same	80	sceMpegReset	boot	0012BA68	boot	0012F9C8	1	
 same	80	_dispatchMpegCallback	boot	0012BB38	boot	0012FA98	1	
 same	80	enqueue_callback_list_1	boot	001F4600	boot	0027CDC8	88	
@@ -200,7 +196,7 @@ same	76	FUN_L00_0024a798	level:00	0024A798	level:00	00309140	27
 same	72	SupplementCrt0	boot	0011D6C0	boot	0011F640	1	
 same	72	ExtraInfo	boot	00129040	boot	0012CFA0	1	
 same	72	sceMpegGetPicture	boot	0012B9F0	boot	0012F950	1	
-same	72	FUN_00233938	boot	00233938	boot	002FC518	28	
+same	72	vu1_add_vif_code	boot	00233938	boot	002FC518	28	
 same	72	FUN_L00_002e8590	level:00	002E8590	level:00	00424B70	58	
 same	68	_decodeOrSkip	boot	0012BF18	boot	0012FE78	1	
 same	68	sceDeci2Open	boot	00119418	boot	0011B978	1	
@@ -215,8 +211,6 @@ same	64	count_vsync	boot	0012F1C8	boot	001339B0	1
 same	64	FindKernelAddress	boot	0011D740	boot	0011F6C0	1	
 same	64	save_card_state_check_save	boot	00208BC0	boot	002985F0	28	
 same	64	save_card_state_create_save_pending	boot	00208D20	boot	00298780	28	
-same	64	FUN_L00_00211870	level:00	00211870	level:00	002B3998	27	
-same	64	FUN_L00_00265880	level:00	00265880	boot	002B7340	28	
 same	60	QueuePeekWriteDone	boot	00119590	boot	0011BAF0	1	
 same	60	sceSifSendCmd	boot	0011A8C8	boot	0011CD20	1	
 same	60	IsceSifSendCmd	boot	0011A908	boot	0011CD60	1	
@@ -240,7 +234,7 @@ same	52	sceSifExitCmd	boot	0011A700	boot	0011CB58	1
 same	52	sceMcMkdir	boot	001236D8	boot	00127630	1	
 same	52	_sysbitInit	boot	0012A930	boot	0012E890	1	
 same	52	AppendDmaTag	boot	00233F78	boot	002FCF90	28	
-same	52	InitializeRenderState	boot	00216050	boot	002B72E8	28	
+same	52	music_pause	boot	00216050	boot	002B72E8	28	
 same	52	FUN_L00_002e84b8	level:00	002E84B8	level:00	00424A50	27	
 same	52	FUN_L00_002ec7b0	level:00	002EC7B0	level:00	00428FE8	27	
 same	52	FUN_L02_002fa6d8	level:02	002FA6D8	level:03	0043AC40	12	
@@ -249,7 +243,6 @@ same	48	CallDebugCharacter	boot	00119468	boot	0011B9C8	1
 same	48	GetRpcPacket	boot	0011ADB0	boot	0011D208	1	
 same	48	AddClockHour	boot	0012D5F0	boot	001319B0	1	
 same	44	_sceFsWaitS	boot	0011B940	boot	0011DD98	1	
-same	44	MakeDoublePacket	boot	00120370	boot	00123268	1	
 same	44	sceSifAddCmdHandler	boot	0011A738	boot	0011CB90	1	
 same	44	GetSysbitPointer	boot	0012AB10	boot	0012EA70	1	
 same	44	SendIpuCommand	boot	00128420	boot	0012C380	1	
@@ -265,12 +258,12 @@ same	40	FUN_00221908	boot	00221908	boot	002DBAA8	28
 same	40	save_card_state_warning	boot	00208980	boot	00298380	28	
 same	36	SceDeci2Poll	boot	00119498	boot	0011B9F8	1	
 same	36	Kputs	boot	00119540	boot	0011BAA0	1	
-same	36	ComputeSectorIndex	boot	0012F1A0	boot	00133988	1	
 same	36	InitBlockFn	boot	00119568	boot	0011BAC8	1	
 same	36	ResetRpcCommandState	boot	0011ACC0	boot	0011D118	1	
 same	36	DispatchMpegCallbackNoData	boot	0012BB88	boot	0012FAE8	1	
 same	36	AddMpegCallback	boot	0012BB10	boot	0012FA70	1	
 same	36	Subhour	boot	0012D620	boot	001319E0	1	
+same	36	snd_get_doppler_pitch_mod	boot	0012F1A0	boot	00133988	1	
 same	36	save_card_state_no_card	boot	002089A8	boot	002983A8	28	
 same	36	save_card_state_format_failed	boot	00208E68	boot	002988F0	112	
 same	36	FUN_L00_002e8568	level:00	002E8568	level:00	00424B48	27	
@@ -284,7 +277,7 @@ same	32	FUN_L00_0028df38	level:00	0028DF38	boot	002E5F40	28
 same	28	Func0011AD90	boot	0011AD90	boot	0011D1E8	1	
 same	28	InvokeIopStatus	boot	0011CD78	boot	0011ED08	1	
 same	28	InitializeMemoryCardDirectory	boot	00127460	boot	0012B3C0	1	
-same	28	UpdateRenderStateCommand	boot	00216088	boot	002B7320	28	
+same	28	music_unpause	boot	00216088	boot	002B7320	28	
 same	24	DecrementResourceCounter	boot	001FF768	boot	0028E440	28	
 same	24	LookupIndex	boot	0011A458	boot	0011C8B0	1	
 same	24	FUN_L00_00232628	level:00	00232628	level:00	002D24B8	27	
@@ -295,26 +288,22 @@ same	20	InitializeStateRecord	boot	0012BBE8	boot	0012FB48	1
 same	20	ResetGlobalStateFields	boot	00217020	boot	002B8518	28	
 same	20	FUN_0021cac8	boot	0021CAC8	boot	002D5950	56	
 same	20	FUN_L00_0020a1e0	level:00	0020A1E0	level:00	002AB0A8	108	
-same	20	FUN_L00_002118b0	level:00	002118B0	boot	002C9A60	82	
+same	20	FUN_L00_002321a8	level:00	002321A8	boot	002C9A60	82	
+same	20	FUN_L00_002a4dc8	level:00	002A4DC8	level:04	003C70C8	2	
 same	20	FUN_L08_00313ba8	level:08	00313BA8	level:11	004885A0	1	
 same	16	SetGlobalStateSlot	boot	001160C8	boot	001163A0	1	
 same	16	Func0012BA58	boot	0012BA58	boot	0012F9B8	1	
 same	16	JumpToImageSetup	boot	0012C2E0	boot	00130240	1	
-same	16	ClearStageStateFlag	boot	0023B5E0	boot	00350230	55	
+same	16	end_display	boot	0023B5E0	boot	00350230	55	
 same	16	FUN_L00_002e7520	level:00	002E7520	level:00	00423BB0	27	
 shape	152	FUN_L00_00232320	level:00	00232320	level:00	002D20D0	27	
+shape	128	FUN_L14_00305600	level:14	00305600	level:20	003C02D0	1	
 shape	92	FUN_00221af0	boot	00221AF0	boot	002DBBB0	28	
 shape	80	FUN_L01_003097e8	level:01	003097E8	level:01	00399098	5	
 shape	60	QueuePeekReadDone	boot	001195D0	boot	0011BAF0	1	
 shape	60	ClearDmaQueueEntry	boot	001F0B88	boot	002C9C20	28	
 shape	60	FUN_L00_00203a28	level:00	00203A28	level:00	002F45B8	27	
 shape	48	FUN_L00_002e8680	level:00	002E8680	level:00	00424C60	27	
-similar	48	snd_stop_sound	boot	0012E368	boot	00132A70	1	0.833
-similar	44	snd_stop_all_sounds	boot	0012E3B8	boot	00132AC8	1	0.818
-similar	48	snd_pause_all_sounds_in_group	boot	0012E3E8	boot	00132AF8	1	0.833
-similar	48	snd_continue_all_sounds_in_group	boot	0012E418	boot	00132B28	1	0.833
-similar	48	snd_sound_is_still_playing_cb	boot	0012E448	boot	00132B58	1	0.833
-similar	72	snd_set_sound_params_cb	boot	0012E4C0	boot	00132BC0	1	0.889
 similar	596	start_camera_blend	boot	001EC8A0	boot	00270EE0	1	0.858
 similar	1496	advance_alternate_camera_transition	boot	001ECCD8	boot	002712D8	1	0.816
 similar	332	update_camera_underwater_flag	boot	001ED7F0	boot	00271E88	1	0.88
@@ -323,7 +312,7 @@ similar	260	update_fog	boot	001F2588	boot	00279FF0	1	0.969
 similar	124	reset_callback_registries	boot	001F37E8	boot	0027B7E0	1	0.967
 similar	236	reset_gs_registers	boot	001F3868	boot	0027B858	1	0.966
 similar	488	font_queue_vu_state	boot	001F76A0	boot	00280328	1	0.91
-similar	148	append_draw_environment_packet	boot	001FB2D0	boot	00284EA8	1	0.946
+similar	920	append_billboard_batch	boot	001F92B0	boot	002824B8	1	0.805
 similar	256	push_help_history	boot	001FED30	boot	0028A030	1	0.953
 similar	76	find_animation_definition_index	boot	001FEE38	boot	0028AB20	1	0.895
 similar	128	remove_hud_item	boot	001FF480	boot	0028B5D0	1	0.938
@@ -349,10 +338,15 @@ similar	172	clamp_voice_position_to_collision	boot	0022C5A8	boot	002E4478	1	0.81
 similar	164	write_vif_unpack_packet	boot	00233888	boot	002FC468	1	0.854
 similar	284	vu1_set_scissor	boot	00233A40	boot	002FC620	1	0.873
 similar	144	dmac_vif1_enable	boot	00233D00	boot	002FCD18	1	0.917
-similar	112	dmac_vif1_disable	boot	00233D90	boot	002FCDA8	1	0.929
 similar	116	print_register_values_and_halt	boot	00233F00	boot	002FCF18	1	0.862
 similar	588	send_adpcm	boot	0023AFC0	boot	0034FBC8	1	0.891
 similar	120	vi_buf_create	boot	0023BC48	boot	003508A0	1	0.8
 similar	352	vi_buf_reset	boot	0023BCC0	boot	00350918	1	0.875
 similar	508	vi_buf_add_dma	boot	0023BF70	boot	00350BC8	1	0.835
 similar	272	vi_buf_stop_dma	boot	0023C170	boot	00350DC8	1	0.912
+similar	48	snd_stop_sound	boot	0012E368	boot	00132A70	1	0.833
+similar	44	snd_stop_all_sounds	boot	0012E3B8	boot	00132AC8	1	0.818
+similar	48	snd_pause_all_sounds_in_group	boot	0012E3E8	boot	00132AF8	1	0.833
+similar	48	snd_continue_all_sounds_in_group	boot	0012E418	boot	00132B28	1	0.833
+similar	48	snd_sound_is_still_playing_cb	boot	0012E448	boot	00132B58	1	0.833
+similar	72	snd_set_sound_params_cb	boot	0012E4C0	boot	00132BC0	1	0.889

@@ -4,15 +4,35 @@
 # similar = between the same unchanged neighbours and alike by the ratio given (a draft to adapt).
 # Addresses are hexadecimal; `places` counts where the function occurs in the target version.
 kind	size	from_name	from_program	from_address	to_program	to_address	places	ratio
+same	588	func_0039ABB0	frontbin	0039ABB0	boot	00297BB0	28	
+same	496	func_00392400	frontbin	00392400	boot	0028E868	28	
+same	432	func_0038E030	frontbin	0038E030	boot	00285398	28	
+same	424	func_00392878	frontbin	00392878	boot	0028ECD8	28	
+same	384	func_00386488	frontbin	00386488	boot	0027DB68	28	
+same	352	func_0038E798	frontbin	0038E798	boot	0028AE88	28	
 same	316	func_00387C78	frontbin	00387C78	boot	0027EB88	28	
 same	304	func_003ABC30	frontbin	003ABC30	boot	00350460	28	
+same	300	func_00391FD8	frontbin	00391FD8	boot	0028E458	28	
+same	296	func_00391D08	frontbin	00391D08	boot	0028E138	28	
+same	280	func_003C8D50	frontbin	003C8D50	boot	002E3820	28	
+same	276	func_00394A20	frontbin	00394A20	boot	002932B8	28	
+same	276	func_00399830	frontbin	00399830	boot	0029AF98	28	
+same	276	func_0039C9A0	frontbin	0039C9A0	boot	002B6F70	28	
+same	264	func_00384C98	frontbin	00384C98	boot	0027C660	28	
+same	264	func_0038EB10	frontbin	0038EB10	boot	0028B3D0	28	
 same	256	func_003ACED0	frontbin	003ACED0	boot	00351720	28	
+same	256	func_003BD8A0	frontbin	003BD8A0	boot	0029FB20	28	
+same	248	func_0039C8A8	frontbin	0039C8A8	boot	002B6E78	28	
+same	244	func_00395AC8	frontbin	00395AC8	boot	002942A0	28	
+same	244	func_0039C7B0	frontbin	0039C7B0	boot	002B6D80	28	
+same	240	func_003BDBA0	frontbin	003BDBA0	boot	0029FDF0	28	
 same	216	func_003A3430	frontbin	003A3430	boot	002F5E20	28	
+same	208	func_003C9B80	frontbin	003C9B80	boot	002EF3B0	28	
+same	196	func_00393DC8	frontbin	00393DC8	boot	002925F0	28	
 same	196	func_003CB890	frontbin	003CB890	boot	00291788	28	
 same	192	func_003CD710	frontbin	003CD710	boot	00280A70	28	
-same	188	func_003BD490	frontbin	003BD490	boot	0029F390	28	
 same	184	func_003823A0	frontbin	003823A0	boot	0027A1D0	28	
-same	180	func_003A3EF0	frontbin	003A3EF0	boot	002FC560	28	
+same	184	func_00399948	frontbin	00399948	boot	0029B0B0	28	
 same	176	func_003A3028	frontbin	003A3028	boot	002ED4B8	28	
 same	168	func_003A4DC8	frontbin	003A4DC8	boot	00300A00	28	
 same	164	func_0039D6C8	frontbin	0039D6C8	boot	002B7CE0	28	
@@ -20,33 +40,26 @@ same	164	func_003A3E40	frontbin	003A3E40	boot	002FC468	28
 same	160	func_003D3E40	frontbin	003D3E40	boot	00281DE8	28	
 same	156	func_00387BD8	frontbin	00387BD8	boot	0027EAE8	28	
 same	156	func_0039B0F8	frontbin	0039B0F8	boot	002980D0	28	
-same	156	func_003C9AE0	frontbin	003C9AE0	boot	002EF310	28	
 same	152	func_00389240	frontbin	00389240	boot	00283A58	28	
 same	152	func_0039C210	frontbin	0039C210	boot	002B6828	28	
 same	152	func_003BEB58	frontbin	003BEB58	level:00	0031D670	27	
-same	148	func_0038DA80	frontbin	0038DA80	boot	00284EA8	28	
 same	148	func_003BE6A8	frontbin	003BE6A8	boot	002A7C00	28	
 same	148	func_003BEA80	frontbin	003BEA80	boot	002A91F0	28	
 same	144	func_003A44F0	frontbin	003A44F0	boot	002FCD18	28	
 same	144	func_003A56C0	frontbin	003A56C0	boot	00335B80	28	
 same	136	func_00388F90	frontbin	00388F90	boot	00283810	28	
 same	132	func_003A13B0	frontbin	003A13B0	boot	00293CA8	56	
-same	128	func_0038DB18	frontbin	0038DB18	boot	00284F40	28	
 same	128	func_00395360	frontbin	00395360	boot	002939D0	28	
 same	128	func_003BE260	frontbin	003BE260	boot	002A0300	28	
 same	128	func_003BF6A8	frontbin	003BF6A8	boot	002ACB48	28	
 same	124	func_0038EA88	frontbin	0038EA88	boot	0028B2B8	28	
 same	120	func_0037E2F0	frontbin	0037E2F0	boot	002A7988	28	
 same	120	func_003856D8	frontbin	003856D8	boot	0027CE18	112	
-same	120	func_00385908	frontbin	00385908	boot	0027D0E8	28	
 same	120	func_003AC0D8	frontbin	003AC0D8	boot	003508A0	28	
 same	116	func_003A53E0	frontbin	003A53E0	boot	003358A0	28	
-same	112	func_003A4580	frontbin	003A4580	boot	002FCDA8	28	
 same	112	func_003A5650	frontbin	003A5650	boot	00335B10	28	
 same	112	func_003A5800	frontbin	003A5800	boot	00335CC0	28	
-same	112	func_003C8CE0	frontbin	003C8CE0	boot	002E37B0	28	
 same	108	func_0037DF28	frontbin	0037DF28	boot	00288F48	28	
-same	108	func_0038DB98	frontbin	0038DB98	boot	00284FC0	28	
 same	108	func_0039DA60	frontbin	0039DA60	boot	002B8048	28	
 same	108	func_003B0F58	frontbin	003B0F58	boot	002857B8	28	
 same	108	func_003B62E8	frontbin	003B62E8	boot	002EAAA8	28	
@@ -87,7 +100,6 @@ same	60	func_003A5760	frontbin	003A5760	boot	00335C20	28
 same	56	func_00388B98	frontbin	00388B98	boot	002833B8	28	
 same	56	func_00389468	frontbin	00389468	boot	00283C80	28	
 same	52	func_003A4720	frontbin	003A4720	boot	002FCF90	28	
-same	52	func_003A7F90	frontbin	003A7F90	boot	003495D8	28	
 same	52	func_003AD040	frontbin	003AD040	boot	00351890	28	
 same	48	func_003888F0	frontbin	003888F0	boot	002830C0	28	
 same	48	func_00388B68	frontbin	00388B68	boot	00283388	28	
@@ -131,9 +143,9 @@ same	20	func_003A5608	frontbin	003A5608	boot	00335AC8	28
 same	16	func_003886B0	frontbin	003886B0	boot	00282C78	28	
 same	16	func_00393448	frontbin	00393448	boot	00290748	28	
 same	16	func_003ABA38	frontbin	003ABA38	boot	00350230	55	
+shape	460	func_003CBC70	frontbin	003CBC70	boot	002DF9E0	28	
+shape	276	func_003A6520	frontbin	003A6520	boot	00336A78	28	
 shape	176	func_003A7CD0	frontbin	003A7CD0	boot	00338F58	28	
-shape	140	func_003A6910	frontbin	003A6910	boot	00336E40	28	
-shape	124	func_003A6888	frontbin	003A6888	boot	00336DB8	28	
 shape	120	func_003A7618	frontbin	003A7618	boot	00338A60	28	
 shape	92	func_003A6450	frontbin	003A6450	boot	003369A8	28	
 shape	88	func_003AD650	frontbin	003AD650	boot	00351DE8	28	
@@ -144,19 +156,32 @@ shape	52	func_003A69C8	frontbin	003A69C8	boot	00337BD8	28
 shape	48	func_003A5E80	frontbin	003A5E80	boot	00336390	28	
 shape	48	func_003E8790	frontbin	003E8790	boot	00335870	28	
 similar	116	func_00383848	frontbin	00383848	boot	0027B7E0	1	0.897
+similar	300	func_00384B68	frontbin	00384B68	boot	0027C540	1	0.83
+similar	264	func_00384DA0	frontbin	00384DA0	boot	0027C768	1	0.848
+similar	384	func_00385B60	frontbin	00385B60	boot	0027D330	1	0.969
 similar	32	func_00388BD0	frontbin	00388BD0	boot	002833F0	1	0.875
 similar	32	func_00388BF0	frontbin	00388BF0	boot	00283410	1	0.875
+similar	3048	func_0038CE40	frontbin	0038CE40	boot	00284268	1	0.82
 similar	124	func_0038EC80	frontbin	0038EC80	boot	0028B5D0	1	0.889
 similar	276	func_00391A18	frontbin	00391A18	boot	0028DE18	1	0.986
+similar	644	func_003925F0	frontbin	003925F0	boot	0028EA58	1	0.875
 similar	152	func_00393380	frontbin	00393380	boot	00290680	1	0.88
+similar	672	func_00394060	frontbin	00394060	boot	00292888	1	0.937
 similar	104	func_00394300	frontbin	00394300	boot	00292B20	1	0.902
+similar	620	func_003947B0	frontbin	003947B0	boot	00293000	1	0.922
+similar	224	func_00394B38	frontbin	00394B38	boot	002933D0	1	0.938
+similar	596	func_00395648	frontbin	00395648	boot	00293D30	1	0.887
 similar	104	func_003958F0	frontbin	003958F0	boot	002940C0	1	0.943
+similar	284	func_003959A8	frontbin	003959A8	boot	00294180	1	0.951
 similar	168	func_00399660	frontbin	00399660	boot	0029ADA0	1	0.976
 similar	168	func_00399748	frontbin	00399748	boot	0029AEB0	1	0.976
+similar	304	func_0039C028	frontbin	0039C028	boot	002B6480	1	0.902
+similar	524	func_0039CC98	frontbin	0039CC98	boot	002B7380	1	0.887
 similar	64	func_0039D4D0	frontbin	0039D4D0	boot	002B7AD0	1	0.824
 similar	148	func_0039D510	frontbin	0039D510	boot	002B7B18	1	0.861
 similar	188	func_003A3A40	frontbin	003A3A40	boot	002FC070	1	0.887
 similar	72	func_003A3DA0	frontbin	003A3DA0	boot	002FC3C0	1	0.865
+similar	448	func_003A4860	frontbin	003A4860	boot	00300748	1	0.929
 similar	100	func_003A5978	frontbin	003A5978	boot	00335EB0	1	0.92
 similar	100	func_003A59E8	frontbin	003A59E8	boot	00335F20	1	0.92
 similar	20	func_003A5A78	frontbin	003A5A78	boot	00335FB0	1	1.0
@@ -168,22 +193,38 @@ similar	92	func_003A5EF8	frontbin	003A5EF8	boot	00336408	1	0.957
 similar	36	func_003A5F60	frontbin	003A5F60	boot	00336470	1	1.0
 similar	180	func_003A7E80	frontbin	003A7E80	boot	003494D0	1	0.978
 similar	76	func_003AB9E8	frontbin	003AB9E8	boot	003501E0	1	0.872
+similar	352	func_003AC150	frontbin	003AC150	boot	00350918	1	0.966
+similar	268	func_003AC5E0	frontbin	003AC5E0	boot	00350DC8	1	0.963
+similar	264	func_003ACC30	frontbin	003ACC30	boot	00351468	1	0.955
 similar	204	func_003AD108	frontbin	003AD108	boot	00351960	1	0.914
 similar	116	func_00383848	frontbin	00383848	boot	0027B7E0	1	0.897
+similar	300	func_00384B68	frontbin	00384B68	boot	0027C540	1	0.83
+similar	264	func_00384DA0	frontbin	00384DA0	boot	0027C768	1	0.848
+similar	384	func_00385B60	frontbin	00385B60	boot	0027D330	1	0.969
 similar	32	func_00388BD0	frontbin	00388BD0	boot	002833F0	1	0.875
 similar	32	func_00388BF0	frontbin	00388BF0	boot	00283410	1	0.875
+similar	3048	func_0038CE40	frontbin	0038CE40	boot	00284268	1	0.82
 similar	124	func_0038EC80	frontbin	0038EC80	boot	0028B5D0	1	0.889
 similar	276	func_00391A18	frontbin	00391A18	boot	0028DE18	1	0.986
+similar	644	func_003925F0	frontbin	003925F0	boot	0028EA58	1	0.875
 similar	152	func_00393380	frontbin	00393380	boot	00290680	1	0.88
+similar	672	func_00394060	frontbin	00394060	boot	00292888	1	0.937
 similar	104	func_00394300	frontbin	00394300	boot	00292B20	1	0.902
+similar	620	func_003947B0	frontbin	003947B0	boot	00293000	1	0.922
+similar	224	func_00394B38	frontbin	00394B38	boot	002933D0	1	0.938
+similar	596	func_00395648	frontbin	00395648	boot	00293D30	1	0.887
 similar	104	func_003958F0	frontbin	003958F0	boot	002940C0	1	0.943
+similar	284	func_003959A8	frontbin	003959A8	boot	00294180	1	0.951
 similar	168	func_00399660	frontbin	00399660	boot	0029ADA0	1	0.976
 similar	168	func_00399748	frontbin	00399748	boot	0029AEB0	1	0.976
+similar	304	func_0039C028	frontbin	0039C028	boot	002B6480	1	0.902
+similar	524	func_0039CC98	frontbin	0039CC98	boot	002B7380	1	0.887
 similar	64	func_0039D4D0	frontbin	0039D4D0	boot	002B7AD0	1	0.824
 similar	148	func_0039D510	frontbin	0039D510	boot	002B7B18	1	0.861
 similar	72	func_003A30E0	frontbin	003A30E0	boot	002EED08	1	0.919
 similar	188	func_003A3A40	frontbin	003A3A40	boot	002FC070	1	0.887
 similar	72	func_003A3DA0	frontbin	003A3DA0	boot	002FC3C0	1	0.865
+similar	448	func_003A4860	frontbin	003A4860	boot	00300748	1	0.929
 similar	100	func_003A5978	frontbin	003A5978	boot	00335EB0	1	0.92
 similar	100	func_003A59E8	frontbin	003A59E8	boot	00335F20	1	0.92
 similar	20	func_003A5A78	frontbin	003A5A78	boot	00335FB0	1	1.0
@@ -195,4 +236,7 @@ similar	92	func_003A5EF8	frontbin	003A5EF8	boot	00336408	1	0.957
 similar	36	func_003A5F60	frontbin	003A5F60	boot	00336470	1	1.0
 similar	180	func_003A7E80	frontbin	003A7E80	boot	003494D0	1	0.978
 similar	76	func_003AB9E8	frontbin	003AB9E8	boot	003501E0	1	0.872
+similar	352	func_003AC150	frontbin	003AC150	boot	00350918	1	0.966
+similar	268	func_003AC5E0	frontbin	003AC5E0	boot	00350DC8	1	0.963
+similar	264	func_003ACC30	frontbin	003ACC30	boot	00351468	1	0.955
 similar	204	func_003AD108	frontbin	003AD108	boot	00351960	1	0.914
