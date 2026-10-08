@@ -51,4 +51,6 @@ jobs:
 
       - name: rac2 tools
         working-directory: games/rac2/ntsc
-        run: python -m unittest discover -s tests -v
+        run: |
+          python -m pip install rabbitizer==1.16.2
+          python -m unittest discover -s tests -v
