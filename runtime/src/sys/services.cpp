@@ -86,22 +86,60 @@ void add_library_services(Machine& machine) {
     m.result(0);
   });
   machine.add_service("sceSifCheckStatRpc", [](Machine& m) { m.result(0); });  // never busy
-  // sceSifCallRpc as the 989snd sound library uses it, with no sound
-  // processor behind it. A command's reply is a word of all ones, one word a
-  // command (0: done), and all ones again; a loader call's reply is one word,
-  // the handle of what was loaded. Then the end function, if any.
+  // sceSifCallRpc as the 989snd sound library uses it, answered by a sound
+  // server that makes no sound yet. The library has two clients. The loader's
+  // calls return one word, the handle of what was loaded. The command
+  // client's calls return a word of all ones, one result word a command, and
+  // all ones again; function 0x4D carries a batch (a count, then for each
+  // command its number and size as half-words and its data, padded to a
+  // word), any other function is one command with its data.
   // (client, function, mode, send, send size, receive, receive size, end function, end argument)
   machine.add_service("sceSifCallRpc.989snd", [](Machine& m) {
+    u32 function = m.arg(1), send = m.arg(3);
     u32 receive = static_cast<u32>(m.ee.gpr[9].lo), size = static_cast<u32>(m.ee.gpr[10].lo);
     u32 end_function = static_cast<u32>(m.ee.gpr[11].lo);
     u32 end_argument = m.ee.read32(static_cast<u32>(m.ee.gpr[29].lo));
-    m.log(2, "sound call %x: %u bytes out, %u back", m.arg(1), m.arg(4), size);
-    if (size == 4) {
-      m.ee.write32(receive, 0x00010000);
-    } else if (size >= 8) {
-      for (u32 n = 0; n < size / 4; n++) {
-        m.ee.write32(receive + n * 4, (n == 0 || n == size / 4 - 1) ? 0xFFFFFFFFu : 0u);
+
+    // What a silent server answers. Streams and sounds get handles and are
+    // "buffered" at once; nothing is ever still playing.
+    auto command = [&m](u32 number, u32 data) -> u32 {
+      (void)data;
+      switch (number) {
+        case 0x11: case 0x21:  // play a sound
+        case 0x2C:             // play a stream from the disc
+          return m.sound_next_handle++;
+        case 0x4F:  // is the stream buffered?
+          return 1;
+        case 0x19:  // is the sound still playing?
+        case 0x32:  // time left in the stream
+        default:
+          return 0;
       }
+    };
+
+    if (size == 4) {
+      m.log(2, "sound loader call %x", function);
+      m.ee.write32(receive, m.sound_next_handle++ << 16);
+    } else if (size >= 8) {
+      m.ee.write32(receive, 0xFFFFFFFFu);
+      u32 results = size / 4 - 2;
+      if (function == 0x4D) {
+        u32 count = m.ee.read32(send), at = send + 4;
+        for (u32 n = 0; n < count && n < results; n++) {
+          u32 number = m.ee.read16(at), bytes = m.ee.read16(at + 2);
+          u32 answer = command(number, at + 4);
+          m.log(2, "sound command %02x (%u bytes) -> %x", number, bytes, answer);
+          m.ee.write32(receive + 4 + n * 4, answer);
+          at += (4 + bytes + 3) & ~3u;
+        }
+      } else {
+        u32 answer = command(function, send);
+        m.log(2, "sound command %02x, waited for -> %x", function, answer);
+        for (u32 n = 0; n < results; n++) {
+          m.ee.write32(receive + 4 + n * 4, answer);
+        }
+      }
+      m.ee.write32(receive + 4 + results * 4, 0xFFFFFFFFu);
     }
     if (end_function) {
       m.ee.call(end_function, end_argument);

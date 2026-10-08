@@ -93,6 +93,8 @@ class Machine {
   u32 cd_callback = 0;
   // Tell it soon, as the drive would: not before the caller has returned.
   void cd_read_finished() { cd_callback_at_ = ee.cycles + 200000; update_event(); }
+  // The silent sound server's next handle for a bank, stream or sound.
+  u32 sound_next_handle = 0x100;
   // The memory card library's "last function and its result".
   int mc_function = 0, mc_result = 0;
 
