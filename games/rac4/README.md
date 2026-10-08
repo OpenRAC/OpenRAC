@@ -4,7 +4,7 @@ Released in Europe as *Ratchet: Gladiator*.
 
 | Version | Directory | Came from | Builds on |
 |---|---|---|---|
-| NTSC-U, `SCUS_974.65` (disc v1.00) | [ntsc/](ntsc/README.md) | [rac-deadlocked-decomp](https://github.com/Lynder063/rac-deadlocked-decomp) | macOS and Linux through Docker (rac1/pal's image) |
+| NTSC-U, `SCUS_974.65` (disc v1.00) | [ntsc/](ntsc/README.md) | [rac-deadlocked-decomp](https://github.com/OpenRAC/rac-deadlocked-decomp) | macOS and Linux through Docker (rac1/pal's image) |
 
 The project began on 2026-10-04 and is early. The boot executable is a small
 loader around one compressed game image; the project unpacks that image into
