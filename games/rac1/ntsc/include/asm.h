@@ -1,5 +1,5 @@
-#ifndef RNCDECOMP_ASM_H
-#define RNCDECOMP_ASM_H
+#ifndef LOMBYTE_ASM_H
+#define LOMBYTE_ASM_H
 
 /*
  * Assembly-backed C fallback support.
@@ -17,6 +17,7 @@
  * include is required because the generated per-function files do not set it
  * and the assembler would otherwise reorder delay slots.
  */
-#define INCLUDE_ASM(path, symbol) __asm__(".set noreorder\n.include \"macro.inc\"\n.include \"" path "\"\n.set reorder")
+#define INCLUDE_ASM(path, symbol)                                                                  \
+    __asm__(".set noreorder\n.include \"macro.inc\"\n.include \"" path "\"\n.set reorder")
 
-#endif /* RNCDECOMP_ASM_H */
+#endif /* LOMBYTE_ASM_H */

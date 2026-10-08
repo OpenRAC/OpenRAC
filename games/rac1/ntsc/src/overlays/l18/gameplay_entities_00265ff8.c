@@ -7,7 +7,7 @@
 #define MACRO_ADDR
 
 /* Set an attached effect's alpha from distance and the supplied scale. */
-/* Ported from rac1-decomp (PAL, src/overlays/l18/mobyutil_00267000.c: func_L18_00267000), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/l18/mobyutil_00267000.c: func_L18_00267000), where it is exact; names translated to the US level program. */
 
 typedef struct {
     char pad0[0x10];
@@ -35,7 +35,8 @@ void FUN_L18_00265ff8(Level18Moby *moby, float scale) {
     if (effect == 0) {
         return;
     }
-    alpha = truncate_float_to_s32(FUN_001f9b48(D_0013E533 + 0xE9D, moby->position) * 8.0f * scale) - 1;
+    alpha =
+        truncate_float_to_s32(FUN_001f9b48(D_0013E533 + 0xE9D, moby->position) * 8.0f * scale) - 1;
     if (alpha >= 256) {
         alpha = 255;
     } else if (alpha < 0) {

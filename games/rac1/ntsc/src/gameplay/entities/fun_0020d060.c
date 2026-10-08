@@ -1,40 +1,39 @@
 #include "types.h"
-struct DmaTag { u32 w0; u32 addr; u32 w2; u32 w3; };
-struct TagPtr { struct DmaTag *p; };
+#include "rnc/rendering/dma_tag.h"
 extern struct TagPtr D_00160F00;
 extern struct TagPtr D_0015FF40;
 extern s32 D_0015FF3C;
 extern u8 D_001C8680[];
 extern u8 D_0015FEC0[];
 extern void FUN_00227740(void);
-extern void FUN_00227548(void *);
+extern void submit_graphics_setup_command_stream(void *) __asm__("FUN_00227548");
 extern void func_001F21B0(void *, s32);
 void FUN_0020d060(void) {
     struct DmaTag *tag;
 
     if (D_0015FF3C == 0) {
-        D_0015FF40.p->w0 = 0x10000000;
+        D_0015FF40.p->tag = 0x10000000;
         D_0015FF40.p->addr = 0;
-        D_0015FF40.p->w2 = 0;
-        D_0015FF40.p->w3 = 0;
+        D_0015FF40.p->vif0 = 0;
+        D_0015FF40.p->vif1 = 0;
         return;
     }
     tag = D_00160F00.p++;
-    D_0015FF40.p->w0 = 0x20000000;
+    D_0015FF40.p->tag = 0x20000000;
     D_0015FF40.p->addr = (u32)D_00160F00.p;
-    D_0015FF40.p->w2 = 0;
-    D_0015FF40.p->w3 = 0;
+    D_0015FF40.p->vif0 = 0;
+    D_0015FF40.p->vif1 = 0;
     FUN_00227740();
-    FUN_00227548(D_001C8680);
-    D_00160F00.p->w0 = 0x20000000;
+    submit_graphics_setup_command_stream(D_001C8680);
+    D_00160F00.p->tag = 0x20000000;
     D_00160F00.p->addr = (u32)(D_0015FF40.p + 1);
-    D_00160F00.p->w2 = 0;
-    D_00160F00.p->w3 = 0;
+    D_00160F00.p->vif0 = 0;
+    D_00160F00.p->vif1 = 0;
     D_00160F00.p++;
-    tag->w0 = 0x20000000;
+    tag->tag = 0x20000000;
     tag->addr = (u32)D_00160F00.p;
-    tag->w2 = 0;
-    tag->w3 = 0;
+    tag->vif0 = 0;
+    tag->vif1 = 0;
     func_001F21B0(D_0015FEC0, 8);
 }
 

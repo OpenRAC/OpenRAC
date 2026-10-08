@@ -6,12 +6,11 @@
 
 #define MACRO_ADDR
 
-/* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_002D7C00.c: func_L15_002DA990), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/shared/vendor_002D7C00.c: func_L15_002DA990), where it is exact; names translated to the US level program. */
 
 extern int FUN_L03_002c6c60(void *);
 
-void FUN_L15_002d95a0(char *moby)
-{
+void FUN_L15_002d95a0(char *moby) {
     if (FUN_L03_002c6c60(moby)) {
         moby[0x20] = 1;
         *(float *)(moby + 0x18) += 1.5f;
@@ -19,13 +18,13 @@ void FUN_L15_002d95a0(char *moby)
 }
 #include "qcopy.h"
 
-/* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_002D7C00.c: func_L15_002E5970), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/shared/vendor_002D7C00.c: func_L15_002E5970), where it is exact; names translated to the US level program. */
 
 extern char *FUN_L00_0026daa0(char *src, int col, int w, int v, float x);
 extern char *func_0020D348_m(int);
 extern float FUN_001f9b20(void *);
 extern float FUN_001f9e90(float, float);
-extern int FUN_001f96f8(int);
+extern int scale_game_frames(int) __asm__("FUN_001f96f8");
 extern void FUN_001f9a68(void *, void *, float);
 extern void FUN_L00_00250df8(void *);
 
@@ -42,7 +41,7 @@ char *FUN_L15_002e4580(char *src, float *v, char *pos) {
         qcopy(m + 0x10, pos);
         p = *(char **)(m + 0x78);
         FUN_001f9a68(p, v, 5.0f);
-        *(int *)(p + 0x38) = FUN_001f96f8(0xF0);
+        *(int *)(p + 0x38) = scale_game_frames(0xF0);
         *(char **)(p + 0x3C) = src;
         m[0x23] = 0x30;
         *(unsigned short *)(m + 0x34) |= 0x200;
@@ -73,6 +72,7 @@ extern int scale_ticks(int) __asm__("FUN_001f96f8");
 extern int random_integer_below(int) __asm__("FUN_00213260");
 extern int func_001FA898_r(float) __asm__("FUN_001fa6d0");
 extern void FontPrintCenterLarge(int a, int b, int c, int d, int e) __asm__("FUN_001f6af0");
+extern void FontPrintCenterLarge_001f6c20(int a, int b, int c, int d, int e) __asm__("FUN_001f6c20");
 
 #define W(x) (*(int *)&(x))
 
@@ -83,7 +83,8 @@ void FUN_L15_002d77c0(char *moby) {
     int col;
 
     DrawUIFrame(W(D_L15_00161BE4) + W(D_L15_00161BD8), W(D_L15_00161BE8) + W(D_L15_00161BD8),
-                 W(D_L15_00161BEC) + W(D_L15_00161BD4), W(D_L15_00161BF0) + W(D_L15_00161BD4), W(D_L15_00161BF4));
+                W(D_L15_00161BEC) + W(D_L15_00161BD4), W(D_L15_00161BF0) + W(D_L15_00161BD4),
+                W(D_L15_00161BF4));
     v = FastSin(func_001FA888(D_L15_0015F5CC % 60) / 60.0f * 6.28318f) * 3.0f + 0.5f;
     if (v > 1.0f) {
         v = 1.0f;
@@ -99,7 +100,7 @@ void FUN_L15_002d77c0(char *moby) {
     buf[5] = 0x3A;
     buf[6] = *(short *)(data + 0x12) % scale_ticks(0x3C) / scale_ticks(6) + 0x30;
     buf[7] = func_001FA898_r((float)random_integer_below(10)) + 0x30;
-    FontPrintCenterLarge(W(D_L15_00161BD4), W(D_L15_00161BD8), col, (int)buf, 8);
+    FontPrintCenterLarge_001f6c20(W(D_L15_00161BD4), W(D_L15_00161BD8), col, (int)buf, 8);
 }
 INCLUDE_ASM("config/us/overlays/asm/FUN_L15_002d79e8.s", FUN_L15_002d79e8);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L15_002d7bb0.s", FUN_L15_002d7bb0);
@@ -122,7 +123,8 @@ extern short D_L15_00161C70_8710 __asm__("D_L15_00161C70") __attribute__((sda));
 extern short D_L15_00161C74_8710 __asm__("D_L15_00161C74") __attribute__((sda));
 extern short D_L15_00161C78_8710 __asm__("D_L15_00161C78") __attribute__((sda));
 extern short D_L15_00161CA0_8710 __asm__("D_L15_00161CA0") __attribute__((sda));
-extern void FUN_L00_002baae0_8710(char *, int, int, int, float, float, float) __asm__("FUN_L00_002baae0");
+extern void FUN_L00_002baae0_8710(char *, int, int, int, float, float,
+                                  float) __asm__("FUN_L00_002baae0");
 extern void FUN_L15_002d8e48_8710(char *) __asm__("FUN_L15_002d8e48");
 #define F(x) (*(float *)&(x))
 void FUN_L15_002d8710(char *moby) {
@@ -132,21 +134,30 @@ void FUN_L15_002d8710(char *moby) {
         F(D_L15_00161C54_8710) = v + 8.0f;
     }
     FUN_L00_002baae0_8710(D_L15_001D3750_8710, W(D_L15_00161C3C_8710), W(D_L15_00161C44_8710), 0x14,
-                      F(D_L15_00161C64_8710), F(D_L15_00161C68_8710), F(D_L15_00161C9C_8710));
-    FUN_L00_002baae0_8710(D_L15_001D3750_8710 + 0x140, W(D_L15_00161C6C_8710), W(D_L15_00161C70_8710), 0x14,
-                      F(D_L15_00161C74_8710), F(D_L15_00161C78_8710), F(D_L15_00161CA0_8710));
-    FUN_L00_002baae0_8710(D_L15_001D3BB0_8710, *(short *)&D_L15_00161CC8_8710, *(short *)&D_L15_00161CC8_8710, 5,
-                      F(D_L15_00161C74_8710), F(D_L15_00161C78_8710), 0.2f);
-    FUN_L00_002baae0_8710(D_L15_001D3BB0_8710 + 0x50, *(short *)&D_L15_00161CCA_8710, *(short *)&D_L15_00161CCA_8710, 5,
-                      F(D_L15_00161C74_8710), F(D_L15_00161C78_8710), 0.2f);
-    FUN_L00_002baae0_8710(D_L15_001D3BB0_8710 + 0xA0, *(short *)&D_L15_00161CCC_8710, *(short *)&D_L15_00161CCC_8710, 5,
-                      F(D_L15_00161C74_8710), F(D_L15_00161C78_8710), 0.2f);
-    FUN_L00_002baae0_8710(D_L15_001D3BB0_8710 + 0xF0, *(short *)&D_L15_00161CCE_8710, *(short *)&D_L15_00161CCE_8710, 5,
-                      F(D_L15_00161C74_8710), F(D_L15_00161C78_8710), 0.2f);
+                          F(D_L15_00161C64_8710), F(D_L15_00161C68_8710), F(D_L15_00161C9C_8710));
+    FUN_L00_002baae0_8710(D_L15_001D3750_8710 + 0x140, W(D_L15_00161C6C_8710),
+                          W(D_L15_00161C70_8710), 0x14, F(D_L15_00161C74_8710),
+                          F(D_L15_00161C78_8710), F(D_L15_00161CA0_8710));
+    FUN_L00_002baae0_8710(D_L15_001D3BB0_8710, *(short *)&D_L15_00161CC8_8710,
+                          *(short *)&D_L15_00161CC8_8710, 5, F(D_L15_00161C74_8710),
+                          F(D_L15_00161C78_8710), 0.2f);
+    FUN_L00_002baae0_8710(D_L15_001D3BB0_8710 + 0x50, *(short *)&D_L15_00161CCA_8710,
+                          *(short *)&D_L15_00161CCA_8710, 5, F(D_L15_00161C74_8710),
+                          F(D_L15_00161C78_8710), 0.2f);
+    FUN_L00_002baae0_8710(D_L15_001D3BB0_8710 + 0xA0, *(short *)&D_L15_00161CCC_8710,
+                          *(short *)&D_L15_00161CCC_8710, 5, F(D_L15_00161C74_8710),
+                          F(D_L15_00161C78_8710), 0.2f);
+    FUN_L00_002baae0_8710(D_L15_001D3BB0_8710 + 0xF0, *(short *)&D_L15_00161CCE_8710,
+                          *(short *)&D_L15_00161CCE_8710, 5, F(D_L15_00161C74_8710),
+                          F(D_L15_00161C78_8710), 0.2f);
     FUN_L15_002d8e48_8710(moby);
 }
-typedef struct { float f[4]; } __attribute__((aligned(16))) V2d8e48;
-typedef struct { float u, v; } UV2d8e48;
+typedef struct {
+    float f[4];
+} __attribute__((aligned(16))) V2d8e48;
+typedef struct {
+    float u, v;
+} UV2d8e48;
 typedef struct {
     V2d8e48 corner[4];
     unsigned int color[4];

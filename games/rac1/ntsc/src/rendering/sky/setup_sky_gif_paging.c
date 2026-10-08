@@ -1,8 +1,16 @@
 #include "types.h"
 
-struct DmaTag { u32 w0; u32 addr; u32 w2; u32 w3; };
-struct SkyVisibilityEntry { u64 flags; u8 pad8[8]; };
-struct SkyVisibilityList { u8 pad0[0xC]; s16 count; u8 padE[2]; struct SkyVisibilityEntry *points; };
+#include "rnc/rendering/dma_tag.h"
+struct SkyVisibilityEntry {
+    u64 flags;
+    u8 pad8[8];
+};
+struct SkyVisibilityList {
+    u8 pad0[0xC];
+    s16 count;
+    u8 padE[2];
+    struct SkyVisibilityEntry *points;
+};
 extern struct DmaTag *D_00160F00;
 extern struct DmaTag *D_00160470;
 extern u8 D_00160450[];

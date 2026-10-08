@@ -6,7 +6,7 @@
 INCLUDE_ASM("config/us/expected/asm/assembly/sdk/library/sceCdRead/sceCdRead.s", sceCdRead);
 #else
 #include "types.h"
-struct M2c_D_001313C0 {
+struct CdDriveState {
     s32 unk0;
     s32 unk4;
     s32 unk8;
@@ -18,7 +18,7 @@ struct M2c_D_001313C0 {
     s32 unk14;
 };
 
-struct M2c_arg3 {
+struct sceCdRMode {
     u8 unk0;
     u8 unk1;
     u8 unk2;
@@ -26,27 +26,26 @@ struct M2c_arg3 {
 
 extern u8 D_00120788[];
 extern s32 D_001312D0[];
-extern u32 D_001312E8[];
-extern u32 D_001312F0[];
-extern u32 D_001312F4[];
-extern u32 D_00131314[];
-extern struct M2c_D_001313C0 D_001313C0;
+extern volatile u32 D_001312E8[];
+extern volatile u32 D_001312F0[];
+extern volatile u32 D_001312F4[];
+extern volatile u32 D_00131314[];
+extern struct CdDriveState D_001313C0;
 extern u8 D_001323C0[];
 extern u8 D_00132480[];
 extern u8 D_00132490[];
 extern u8 D_00152FC8[];
 extern u8 D_00152FE0[];
-extern s32 SignalSema();
-extern s32 func_00120A28();
+extern s32 SignalSema(u32 semaphore);
+extern s32 cd_check_ncmd() __asm__("func_00120A28");
 extern s32 sceCdNcmdDiskReady();
 extern s32 scePrintf();
 extern s32 sceSifCallRpc();
 extern s32 sceSifWriteBackDCache();
-s32 sceCdRead(s32 arg0, s32 arg1, s32 *arg2, struct M2c_arg3 *arg3) {
-    s32 var_2_53;
-    s32 var_5_50;
-    s32 temp_7_46;
-    struct M2c_D_001313C0 *st = &D_001313C0;
+s32 sceCdRead(u32 dwSector, u32 dwSectorCount, s32 *pDestination, struct sceCdRMode *pMode) {
+    s32 byteCount;
+    s32 dataPattern;
+    struct CdDriveState *st = &D_001313C0;
 
     if (D_001312F4[0] & 1) {
         goto block_2;
@@ -55,40 +54,40 @@ s32 sceCdRead(s32 arg0, s32 arg1, s32 *arg2, struct M2c_arg3 *arg3) {
         return 0;
     }
 block_2:
-    if (func_00120A28(4) == 0) {
+    if (cd_check_ncmd(4) == 0) {
         return 0;
     }
-    st->unk0 = arg0;
-    st->unk4 = arg1;
-    st->unk8 = arg2;
-    st->unkC = (u8) arg3->unk0;
-    st->unkD = (u8) arg3->unk1;
-    st->unkE = (u8) arg3->unk2;
+    st->unk0 = dwSector;
+    st->unk4 = dwSectorCount;
+    st->unk8 = pDestination;
+    st->unkC = (u8)pMode->unk0;
+    st->unkD = (u8)pMode->unk1;
+    st->unkE = (u8)pMode->unk2;
     st->unk10 = D_001323C0;
     st->unk14 = D_00132480;
-    temp_7_46 = arg3->unk2;
-    if (temp_7_46 == 1) {
+    dataPattern = pMode->unk2;
+    if (dataPattern == 1) {
         goto block_7;
     }
-    var_5_50 = arg1 << 0xB;
-    if (temp_7_46 < 2) {
+    byteCount = dwSectorCount << 0xB;
+    if (dataPattern < 2) {
         goto block_9;
     }
-    var_2_53 = 0x924;
-    if (temp_7_46 == 2) {
+    if (dataPattern == 2) {
         goto block_8;
     }
     goto block_9;
 block_7:
-    var_2_53 = 0x918;
+    byteCount = dwSectorCount * (dataPattern = 0x918);
+    goto block_9;
 block_8:
-    var_5_50 = arg1 * var_2_53;
+    byteCount = dwSectorCount * 0x924;
 block_9:
     *(s32 *)D_00132480 = 0;
     if (D_001312F4[0] & 2) {
         goto block_11;
     }
-    sceSifWriteBackDCache(arg2, var_5_50, 1, temp_7_46, D_00132480);
+    sceSifWriteBackDCache(pDestination, byteCount);
 block_11:
     sceSifWriteBackDCache(D_001323C0, 0x90);
     sceSifWriteBackDCache(st, 0x18);

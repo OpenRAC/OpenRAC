@@ -1,5 +1,5 @@
 #include "types.h"
-struct M2c_arg1 {
+struct PackHeaderInfo {
     s32 unk0;
     s32 unk4;
     s32 unk8;
@@ -10,7 +10,7 @@ extern s32 SignExtendPackedValue();
 extern s32 _sysbitGet();
 extern s32 _sysbitMarker();
 extern s32 _system_header();
-s32 _pack_header(s32 arg0, struct M2c_arg1 *arg1) {
+s32 _pack_header(s32 arg0, struct PackHeaderInfo *arg1) {
     u32 temp_16_20;
     u32 temp_17_26;
     u32 temp_18_32;
@@ -28,15 +28,15 @@ s32 _pack_header(s32 arg0, struct M2c_arg1 *arg1) {
     arg1->unk0 = _sysbitGet(arg0, 9);
     _sysbitGet(arg0, 0x1E);
     temp_20_45 = _sysbitGet(arg0, 3);
-    arg1->unk8 = (s32) ((temp_16_20 >> 2) & 1);
-    arg1->unk4 = (s32) ((temp_16_20 << 0x1E) | (temp_17_26 << 0xF) | temp_18_32);
+    arg1->unk8 = (s32)((temp_16_20 >> 2) & 1);
+    arg1->unk4 = (s32)((temp_16_20 << 0x1E) | (temp_17_26 << 0xF) | temp_18_32);
     if (temp_20_45 != 0) {
         do {
             do {
-            _sysbitGet(arg0, 8);
-            var_21_16 += 1;
-        } while (var_21_16 < temp_20_45);
-        } while(0);
+                _sysbitGet(arg0, 8);
+                var_21_16 += 1;
+            } while (var_21_16 < temp_20_45);
+        } while (0);
     }
     if (SignExtendPackedValue(arg0, 0x20) == 0x1BB) {
         arg1->unkC = 1;

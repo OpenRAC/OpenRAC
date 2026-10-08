@@ -66,7 +66,8 @@ extern float vector_dot_product(void *, void *) __asm__("func_001F9AB0");
 extern void normalize_vector(void *, void *, float) __asm__("func_001F9BF8");
 extern void transform_vector(void *, void *, void *) __asm__("func_001F9D20");
 extern float convert_integer_to_float(int) __asm__("func_001FA6C0");
-extern void calculate_object_transform(EnvironmentMappedObject *, int, void *) __asm__("func_0020CCA8");
+extern void calculate_object_transform(EnvironmentMappedObject *, int,
+                                       void *) __asm__("func_0020CCA8");
 
 void render_environment_mapped_object(EnvironmentMappedObject *object) __asm__("FUN_002327a0");
 
@@ -91,6 +92,7 @@ void render_environment_mapped_object(EnvironmentMappedObject *object) {
     float sphere_denominator;
     float new_u;
     float new_v;
+    float old_v;
     int element_index;
     int corner_index;
 
@@ -115,8 +117,8 @@ void render_environment_mapped_object(EnvironmentMappedObject *object) {
     colors[1] = color;
     colors[0] = color;
     calculate_object_transform(object, 0, object_transform);
-    if (game_stage != 0 ||
-        (AbsoluteFloat(D_00186F40.position_x - object->position_x) < 16.0f && AbsoluteFloat(D_00186F40.position_y - object->position_y) < 16.0f)) {
+    if (game_stage != 0 || (AbsoluteFloat(D_00186F40.position_x - object->position_x) < 16.0f &&
+                            AbsoluteFloat(D_00186F40.position_y - object->position_y) < 16.0f)) {
         mapping_enabled = 1;
     }
     if (game_stage == 6 && D_0013E050[0] == 4) {
@@ -125,9 +127,11 @@ void render_environment_mapped_object(EnvironmentMappedObject *object) {
     if (mapping_enabled != 0 || D_001604A4 == 1) {
         D_001604A8 = 1;
         tick_countdown_32(&D_001604AC);
-        transition_fraction = convert_integer_to_float(D_001604AC) / convert_integer_to_float(scale_ticks(0x3C));
+        transition_fraction =
+            convert_integer_to_float(D_001604AC) / convert_integer_to_float(scale_ticks(0x3C));
         for (element_index = 0; element_index < vertex_count; element_index++) {
-            transform_vector(&D_001DC4E0[element_index], &positions[element_index], object_transform);
+            transform_vector(&D_001DC4E0[element_index], &positions[element_index],
+                             object_transform);
             subtract_vectors(view_direction, &D_001DC4E0[element_index], camera_position);
             normalize_vector(view_direction, view_direction, 1.0f);
             transform_vector(normal, &normals[element_index], object_transform);
@@ -139,14 +143,16 @@ void render_environment_mapped_object(EnvironmentMappedObject *object) {
             sphere_denominator = square_root_float(reflection[2] * 2.0f) * 2.0f;
             if (D_001604A4 == 1 || D_001604AC == 0) {
                 D_001DCB40[element_index][0] = reflection[0] / sphere_denominator + 0.5f;
-                D_001DCB40[element_index][1] = reflection[1] / sphere_denominator + 0.5f;
-            } else {
-                new_v = D_001DCE70[element_index][0];
-                new_u = reflection[0] / sphere_denominator + 0.5f;
-                D_001DCB40[element_index][0] = new_u + (new_v - new_u) * transition_fraction;
                 new_v = reflection[1] / sphere_denominator + 0.5f;
-                D_001DCB40[element_index][1] = new_v + (D_001DCE70[element_index][1] - new_v) * transition_fraction;
+            } else {
+                new_u = D_001DCE70[element_index][0];
+                new_v = reflection[0] / sphere_denominator + 0.5f;
+                D_001DCB40[element_index][0] = new_v + (new_u - new_v) * transition_fraction;
+                new_v = reflection[1] / sphere_denominator + 0.5f;
+                old_v = D_001DCE70[element_index][1];
+                new_v = new_v + (old_v - new_v) * transition_fraction;
             }
+            D_001DCB40[element_index][1] = new_v;
         }
         if (D_001604A4 == 1) {
             D_001604A4 = 2;
@@ -157,11 +163,13 @@ void render_environment_mapped_object(EnvironmentMappedObject *object) {
             for (element_index = 0; element_index < vertex_count; element_index++) {
                 D_001DCE70[element_index][0] = D_001DCB40[element_index][0];
                 D_001DCE70[element_index][1] = D_001DCB40[element_index][1];
-                transform_vector(&D_001DC4E0[element_index], &positions[element_index], object_transform);
+                transform_vector(&D_001DC4E0[element_index], &positions[element_index],
+                                 object_transform);
             }
         } else {
             for (element_index = 0; element_index < vertex_count; element_index++) {
-                transform_vector(&D_001DC4E0[element_index], &positions[element_index], object_transform);
+                transform_vector(&D_001DC4E0[element_index], &positions[element_index],
+                                 object_transform);
             }
         }
         D_001604AC = scale_ticks(0x3C);
@@ -177,6 +185,7 @@ void render_environment_mapped_object(EnvironmentMappedObject *object) {
         draw_geometry_quad(quad_positions, 0, 0);
     }
 }
-extern __typeof__(render_environment_mapped_object) func_002327A0 __attribute__((alias("FUN_002327a0")));
+extern __typeof__(render_environment_mapped_object) func_002327A0
+    __attribute__((alias("FUN_002327a0")));
 
 #endif /* NON_MATCHING */

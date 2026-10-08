@@ -22,7 +22,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, List, Set, Union, cast
+from typing import Any, Set, Union, cast
 
 import ninja_syntax
 import yaml
@@ -34,27 +34,60 @@ from splat.util.conf import load as splat_load_yaml
 
 ROOT = Path.cwd()
 
+# —— Toolchain and paths ——
+
 # The two compilers of the retail build: tools/compilers/game-compiler (the
 # reconstructed Sony/Cygnus 2.9-ee-991111b, game code) and
 # tools/compilers/sdk-compiler (the vendored EE-GCC 2.9-991111-01, the SDK
 # libraries).  The build stages tools/compilers as tools/cc.
 SDK_COMPILER = "sdk-compiler"
+
 # decomp.me id of the SDK compiler, for the permuter settings.
 SDK_COMPILER_DECOMPME = "ee-gcc2.9-991111-01"
+
 CROSS = "mips-ps2-decompals-"
+
 COMPILER_FLAGS = "-DMATCHING_DECOMP -O2 -g2 -gstabs"
+
 LANG_DEFINE = "-DBUILD_US_VERSION"
 
 # Overrides for the game compiler location (default tools/compilers/game-compiler,
 # rebuilt from patches/sce-991111b).
 GAME_COMPILER_ROOT = os.environ.get("GAME_COMPILER_ROOT", "").strip()
+
 # Retiring toolchains, needed only by ROUTE_EXCEPTIONS below: the SN tree
 # (cc_sn, cc_sn_padless and the Ps2EeAs assembler) and the locally built
 # patched 991111 cc1 (cc_ee_gcc_patched, docs/patched-toolchain.md).
 SN_TOOLCHAIN_ROOT = os.environ.get("SN_TOOLCHAIN_ROOT", "").strip()
+
 EE_GCC_PATCHED_ROOT = os.environ.get("EE_GCC_PATCHED_ROOT", "").strip()
-# The routing and flag tables below use unit paths from rnc1.us.yaml.  When a
-# source unit is renamed or moved, carry its entries forward.
+
+LANGUAGES = {
+    "SCUS_971.99": "us",
+}
+
+BASENAME = "SCUS_971.99"
+
+LD_PATH = f"{BASENAME}.ld"
+
+# The script ld actually runs: LD_PATH with every per-object `.text` statement
+# rewritten to a unique input-section name (see write_fast_linkerscript).
+FAST_LD_PATH = f"{BASENAME}.fast.ld"
+
+ELF_PATH = f"build/{BASENAME}"
+
+MAP_PATH = f"build/{BASENAME}.map"
+
+PRE_ELF_PATH = f"build/{BASENAME}.elf"
+
+OBJDIFF_CATEGORY = {"id": "us", "name": "Ratchet & Clank (USA)"}
+
+OVERLAYS_SRC = Path("src/overlays")
+
+OVERLAYS_BUILD = Path("build/overlays")
+
+# —— Compiler routes ——
+
 # The retail executable links the SDK libraries (newlib, libkernl, libsif,
 # libcdvd, libmpeg, ...) as one block ahead of the game code, and the two
 # blocks were built by different compilers: the SDK libraries by sdk-compiler,
@@ -65,11 +98,6 @@ EE_GCC_PATCHED_ROOT = os.environ.get("EE_GCC_PATCHED_ROOT", "").strip()
 # (no per-unit flags): 1258 of 1331 C units build byte-identically on the
 # compiler this rule gives them.
 GAME_TEXT_START = 0x12D8F8  # first game function; the SDK block ends at 0x12D8F0
-
-
-def provenance_compiler(vram: int) -> str:
-    return "sdk-compiler" if vram < GAME_TEXT_START else "game-compiler"
-
 
 # Units that do not build byte-identically on their provenance compiler yet,
 # mapped to the build.ninja rule that still reproduces them.  This table is the
@@ -87,7 +115,7 @@ ROUTE_EXCEPTIONS = {
     # fun_00208030: expand a 4bpp coverage map through the 16-entry weight table
     # into a 1bpp threshold mask (4 source rows per output row)
     "ui/menus/fun_00208030": "cc_sn",
-    "ui/menus/fun_00221e50": "cc_sn",
+    "ui/menus/update_menu_cycle_selection": "cc_sn",
     # Game code still built by SN cc1 plus the SN assembler Ps2EeAs (the padless route).
     "rendering/packets/emit_rgba_draw_packet": "cc_sn_padless",
     # parse_particle_textures: The a1/a3 induction-pointer swap was the ORDER OF
@@ -159,56 +187,6 @@ PADLESS_POLICY_UNITS = {
     "sdk/library/picturecodingextension": "at-store",
 }
 
-# Recovered C units that own the small .rodata retail kept inside the
-# preserved `core_rdata` blob.  Key: configured unit-name suffix; value:
-# (retail VMA, retail file offset) of the unit's compiled `.rodata` bytes.
-# apply_retail_link_layout emits an overlay section for any configured `c`
-# unit matching the suffix, so both the assembly-backed and the promoted
-# (normalized) unit names resolve to the same retail bytes.
-RODATA_OVERLAYS = {
-    "_dtoa_r": (0x152330, 0x532B0),
-    # _getpic's switch emits a 5-entry jump table (0x14 bytes) that retail
-    # stored at 0x153AA0 inside core_rdata; the expected object references it
-    # as the splat symbol jtbl_00153AA0, so the compiled .rodata must land at
-    # the same VMA/file offset for the relocations to resolve content-equal.
-    "_getpic": (0x153AA0, 0x54A20),
-    "dispatch_game_state_update": (0x1E8960, 0xE98E0),  # retail switch table
-    "gameplay/missions/check_mission_condition": (0x1E8390, 0xE9310),  # unlock-condition switch table
-    "fun_0021ddf8": (0x1E87A0, 0xE9720),  # item-handle release switch table
-    "fun_00222768": (0x1E8860, 0xE97E0),  # switch table
-    "camera_activation_check_priority": (0x1E7730, 0xE86B0),  # camera-mode switch table
-    "ui/help/draw_help": (0x1E7A70, 0xE89F0),  # switch table (PAL import)
-    "ui/help/dismiss_help": (0x1E7A20, 0xE89A0),  # switch table (PAL import)
-    # A switch's jump table is a literal pool that retail placed at a fixed VMA
-    # (jtbl_001528E0 = 0x1528E0); the expected object references it by that
-    # splat symbol, so the compiled .rodata has to land at the same VMA and
-    # file offset for the relocation to resolve content-equal. Same shape as
-    # _getpic above. This only fixes the PLACEMENT, so it unblocks objdiff
-    # pairing; it does not by itself make the unit match.
-    "_sceFs_Rcv_Intr": (0x1528E0, 0x53860),  # retail switch table (jtbl_001528E0)
-    "fun_00216c48": (0x1E86A0, 0xE9620),  # retail switch table (jtbl_001E86A0)
-    "fun_0022b288": (0x1E8910, 0xE9890),  # switch table
-    "fun_002223f0": (0x1E8810, 0xE9790),  # switch table
-    "fun_00237ed0": (0x1E8A90, 0xE9A10),  # switch table
-    "update_help_state": (0x1E7A40, 0xE89C0),  # switch table
-    "memcard_update_state": (0x1E8200, 0xE9180),  # switch table
-    "init_once": (0x1E7B30, 0xE8AB0),  # switch table
-}
-
-# Recovered C units that define the small-data variables their original
-# translation unit owned.  Retail reaches such a variable gp-relative only
-# where the assembler already knew its size, i.e. after the definition in
-# the same file; a unit that defines it reproduces that and needs no
-# `.extern`.  Key: configured unit-name suffix; value: (retail VMA, retail
-# file offset) of the unit's `.sdata`, which retail kept inside the preserved
-# small-data blobs (core.lit / .lit).  Placed like RODATA_OVERLAYS.
-SDATA_OVERLAYS = {
-    "audio/rpc/snd_returns": (0x15EC80, 0x5FC00),
-    "rendering/debug/print_debug_text": (0x15F000, 0x5FF80),
-    "runtime/resources/update_resource_counter": (0x15F8F8, 0x60878),
-    "rendering/vu1_chain": (0x160EE0, 0x61E60),
-}
-
 # Per-unit extra compiler flags for the native EE-GCC 2.9 units whose
 # exact codegen requires a different scheduling model.  Keyed by the configured
 # owner path (exact match): a unit renamed or moved out of assembly/ must have
@@ -249,7 +227,6 @@ SDK_COMPILER_FLAG_UNITS = {
     # recorded in this comment.
 }
 
-
 # Per-unit extra flags for GAME_COMPILER_UNITS (exact owner path, as SN_FLAG_UNITS).
 GAME_COMPILER_FLAG_UNITS = {
     # fun_0012eb20: retail's D_0015EC8C accesses are gp-relative in the body
@@ -277,17 +254,12 @@ GAME_COMPILER_FLAG_UNITS = {
     "rendering/state/reset_graphics": "-mno-split-addresses",
     "ui/menus/draw_menu_selection_marker": "-mastra-r5900-extern-buffer",
     "audio/rpc/snd_reset_state_and_flush_commands": "-mastra-r5900-extern-buffer",
-    "ui/menus/fun_00225490": "-fno-schedule-insns",
+    "ui/menus/create_menu_preview_moby": "-fno-schedule-insns",
     "audio/sound/calculate_voice_volume": "-fno-schedule-insns",
     # FUN_002075e8: retail materializes the zero return before `jr $ra` and
     # leaves the delay slot empty; the default pass moves that assignment into
     # the slot.  100/100/100 with this option (2026-10-03).
     "ui/menus/fun_002075e8": "-fno-delayed-branch",
-    # fun_001f33b8 (-fno-schedule-insns) and fun_00221f58 (-G0) carry no entry:
-    # both owners are still assembly wrappers, where an option cannot change the
-    # wrapper's bytes. The shorter keys also always won first-suffix-match over
-    # the longer "textbin/..." spellings, so those were dead as well. Re-add with
-    # the measurement and the reason recorded here if a C body needs them.
 }
 
 SN_FLAG_UNITS = {
@@ -297,6 +269,194 @@ SN_FLAG_UNITS = {
     "audio/rpc/snd_post_message": "-fno-schedule-insns",
 }
 
+# Level overlay units (src/overlays/<dir>/<file>) built with SN cc1 2.95.2
+# instead of the game compiler: retail level code matches SN where the game
+# compiler cannot (the hero giants' 128-bit zero stores, reload registers).
+# Add a unit only when every C function in it stays exact under SN.
+# Kept sorted, one per line: scripts/sn/tryfn.py edits this block.
+OVERLAY_SN_UNITS = {
+    "l01/gameplay/entities/002b96e0.c",
+    "l01/gameplay/entities/002f9810.c",
+    "l01/gameplay/hero/00233de0.c",
+    "l01/gameplay/hero/0023cf98.c",
+    "l01/gameplay/hero/00242930.c",
+    "l02/gameplay/entities/002400c8.c",
+    "l02/gameplay/hero/0021b698.c",
+    "l02/gameplay/hero/0022b728.c",
+    "l02/gameplay/vendor/002ebf20.c",
+    "l03/gameplay/entities/00292578.c",
+    "l03/gameplay/hero/00205830.c",
+    "l03/gameplay/hero/00216648.c",
+    "l03/gameplay/hero/0021c668.c",
+    "l03/runtime_startup_0022c728.c",
+    "l03/unclassified_002c9eb8.c",
+    "l04/gameplay/entities/0029eb20.c",
+    "l04/gameplay/entities/002ca420.c",
+    "l04/unclassified_001f3038.c",
+    "l05/gameplay/entities/002d1688.c",
+    "l05/gameplay/entities/0030d6a0.c",
+    "l05/gameplay/hero/00244a70.c",
+    "l05/gameplay/hero/0024cee8.c",
+    "l05/gameplay/hero/00255960.c",
+    "l06/gameplay/entities/002fd1a0.c",
+    "l06/gameplay/hero/002356a0.c",
+    "l06/gameplay/hero/0023b440.c",
+    "l06/unclassified_002b4770.c",
+    "l07/gameplay/entities/002cd2b0.c",
+    "l07/gameplay_vendor_0031d2e0.c",
+    "l07/ui_map_00270248.c",
+    "l07/unclassified_00312948.c",
+    "l08/gameplay/entities/002b8228.c",
+    "l08/gameplay/entities/002deee0.c",
+    "l08/gameplay/hero/00230b38.c",
+    "l08/gameplay/hero/002370d8.c",
+    "l08/gameplay_vendor_00305138.c",
+    "l08/rendering_00279f00.c",
+    "l08/unclassified_002e9b70.c",
+    "l09/gameplay/entities/0021e538.c",
+    "l10/gameplay/entities/00295a38.c",
+    "l10/gameplay/vendor/002ea1f0.c",
+    "l10/gameplay_vendor_002df270.c",
+    "l11/gameplay/hero/0023c7a0.c",
+    "l11/gameplay/hero/0024db50.c",
+    "l11/gameplay/hero/00253a18.c",
+    "l11/gameplay/vendor/00315968.c",
+    "l11/gameplay_vendor_0030c788.c",
+    "l12/gameplay/entities/002bf140.c",
+    "l12/gameplay/hero/0022de30.c",
+    "l12/gameplay/hero/002400d0.c",
+    "l12/gameplay/hero/002461f0.c",
+    "l12/gameplay_vendor_003028c8.c",
+    "l12/unclassified_002ec720.c",
+    "l13/gameplay/entities/002c13b0.c",
+    "l13/gameplay/entities/002ea8c8.c",
+    "l13/gameplay_vendor_003058a8.c",
+    "l14/gameplay/entities/002460f8.c",
+    "l14/gameplay/entities/002df080.c",
+    "l14/gameplay/hero/0022ff58.c",
+    "l14/gameplay/hero/00235600.c",
+    "l14/unclassified_002fded0.c",
+    "l15/gameplay/hero/002044c8.c",
+    "l15/gameplay/hero/00216c38.c",
+    "l15/gameplay/hero/0021d040.c",
+    "l15/gameplay_vendor_002e73c0.c",
+    "l15/unclassified_0029aff0.c",
+    "l16/gameplay/entities/002a3f38.c",
+    "l16/gameplay/hero/002097a0.c",
+    "l16/gameplay/hero/0021e398.c",
+    "l16/gameplay/hero/002270c8.c",
+    "l16/gameplay/vendor/002e3190.c",
+    "l17/gameplay/hero/0021e530.c",
+    "l17/gameplay/hero/002258a8.c",
+    "l17/gameplay_vendor_002e87d8.c",
+    "l17/gameplay_vendor_002f26d0.c",
+    "l17/ui_help_002020a8.c",
+    "l17/unclassified_002a8da0.c",
+    "l18/gameplay/entities/002a7220.c",
+    "l18/gameplay/hero/00227dd0.c",
+    "l18/gameplay/hero/0022e8f8.c",
+    "l18/gameplay/vendor/002efb88.c",
+    "l18/gameplay_vendor_002f88e8.c",
+    "shared/gameplay/animation/00235878.c",
+    "shared/gameplay/camera/001eb188.c",
+    "shared/gameplay/entities/00278fd8.c",
+    "shared/gameplay/entities/00291918.c",
+    "shared/gameplay/entities/002937a0.c",
+    "shared/gameplay/entities/00295100.c",
+    "shared/gameplay/entities/00297d10.c",
+    "shared/gameplay/entities/0029f990.c",
+    "shared/gameplay/entities/002a09a0.c",
+    "shared/gameplay/entities/002a4038.c",
+    "shared/gameplay/entities/002aa670.c",
+    "shared/gameplay/entities/002b17d8.c",
+    "shared/gameplay/entities/002b2100.c",
+    "shared/gameplay/entities/002b3840.c",
+    "shared/gameplay/entities/002b8c08.c",
+    "shared/gameplay/entities/002b94d0.c",
+    "shared/gameplay/entities/002c8830.c",
+    "shared/gameplay/entities/002d7f88.c",
+    "shared/gameplay/entities/002f6328.c",
+    "shared/gameplay/hero/00221310.c",
+    "shared/gameplay/hero/00229b70.c",
+    "shared/gameplay/state/0024eec0.c",
+    "shared/gameplay/state/0027b268.c",
+    "shared/gameplay/vendor/002e22d8.c",
+    "shared/gameplay/vendor/002e3de8.c",
+    "shared/gameplay/vendor/003015d0.c",
+    "shared/gameplay/vendor/0030b618.c",
+    "shared/gameplay/vendor/0030e690.c",
+    "shared/gameplay/vendor/00316f48.c",
+    "shared/math/interpolation/00257ef0.c",
+    "shared/math/vectors/0025c230.c",
+    "shared/rendering/00269290.c",
+    "shared/rendering/002712b8.c",
+    "shared/rendering/commands/0020bc88.c",
+    "shared/ui/help/0021d0a0.c",
+    "shared/ui/help/00231d08.c",
+    "shared/unclassified_00288ec0.c",
+    "shared/unclassified_002aee30.c",
+}
+
+# —— Retail link layout ——
+
+# Recovered C units that own the small .rodata retail kept inside the
+# preserved `core_rdata` blob.  Key: configured unit-name suffix; value:
+# (retail VMA, retail file offset) of the unit's compiled `.rodata` bytes.
+# apply_retail_link_layout emits an overlay section for any configured `c`
+# unit matching the suffix, so both the assembly-backed and the promoted
+# (normalized) unit names resolve to the same retail bytes.
+RODATA_OVERLAYS = {
+    "_dtoa_r": (0x152330, 0x532B0),
+    # _getpic's switch emits a 5-entry jump table (0x14 bytes) that retail
+    # stored at 0x153AA0 inside core_rdata; the expected object references it
+    # as the splat symbol jtbl_00153AA0, so the compiled .rodata must land at
+    # the same VMA/file offset for the relocations to resolve content-equal.
+    "_getpic": (0x153AA0, 0x54A20),
+    "dispatch_game_state_update": (0x1E8960, 0xE98E0),  # retail switch table
+    "gameplay/missions/check_mission_condition": (0x1E8390, 0xE9310),  # unlock-condition switch table
+    "draw_menu_preview_objects": (0x1E87A0, 0xE9720),  # item-handle release switch table
+    "update_resident_gameplay_state": (0x1E8930, 0xE98B0),  # gameplay-state switch table
+    "fun_00222768": (0x1E8860, 0xE97E0),  # switch table
+    "camera_activation_check_priority": (0x1E7730, 0xE86B0),  # camera-mode switch table
+    "ui/help/draw_help": (0x1E7A70, 0xE89F0),  # switch table (PAL import)
+    "ui/help/dismiss_help": (0x1E7A20, 0xE89A0),  # switch table (PAL import)
+    # A switch's jump table is a literal pool that retail placed at a fixed VMA
+    # (jtbl_001528E0 = 0x1528E0); the expected object references it by that
+    # splat symbol, so the compiled .rodata has to land at the same VMA and
+    # file offset for the relocation to resolve content-equal. Same shape as
+    # _getpic above. This only fixes the PLACEMENT, so it unblocks objdiff
+    # pairing; it does not by itself make the unit match.
+    "_sceFs_Rcv_Intr": (0x1528E0, 0x53860),  # retail switch table (jtbl_001528E0)
+    "fun_00216c48": (0x1E86A0, 0xE9620),  # retail switch table (jtbl_001E86A0)
+    "draw_sky_shells": (0x1E8910, 0xE9890),  # switch table
+    "fun_002223f0": (0x1E8810, 0xE9790),  # switch table
+    "fun_00237ed0": (0x1E8A90, 0xE9A10),  # switch table
+    "update_help_state": (0x1E7A40, 0xE89C0),  # switch table
+    "memcard_update_state": (0x1E8200, 0xE9180),  # switch table
+    "init_once": (0x1E7B30, 0xE8AB0),  # switch table
+    "fun_001e8d08": (0x1E7640, 0xE85C0),  # switch table
+    "fun_00213928": (0x1E84E0, 0xE9460),  # switch table
+    "fun_00204428": (0x1E7CE0, 0xE8C60),  # switch table
+}
+
+# Recovered C units that define the small-data variables their original
+# translation unit owned.  Retail reaches such a variable gp-relative only
+# where the assembler already knew its size, i.e. after the definition in
+# the same file; a unit that defines it reproduces that and needs no
+# `.extern`.  Key: configured unit-name suffix; value: (retail VMA, retail
+# file offset) of the unit's `.sdata`, which retail kept inside the preserved
+# small-data blobs (core.lit / .lit).  Placed like RODATA_OVERLAYS.
+SDATA_OVERLAYS = {
+    "audio/rpc/snd_returns": (0x15EC80, 0x5FC00),
+    "rendering/debug/print_debug_text": (0x15F000, 0x5FF80),
+    "runtime/resources/update_resource_counter": (0x15F8F8, 0x60878),
+    "rendering/vu1_chain": (0x160EE0, 0x61E60),
+}
+
+# —— Code ——
+
+def provenance_compiler(vram: int) -> str:
+    return "sdk-compiler" if vram < GAME_TEXT_START else "game-compiler"
 
 def _is_include_asm(config_dir: Path, source: Path) -> bool:
     """A pending unit: its C file only wraps splat's listing."""
@@ -305,32 +465,14 @@ def _is_include_asm(config_dir: Path, source: Path) -> bool:
     except OSError:
         return False
 
-
 def unit_compiler(unit: str, vram: int) -> str:
     """The build.ninja rule a unit is compiled with."""
     return ROUTE_EXCEPTIONS.get(unit) or provenance_compiler(vram)
-
-
-LANGUAGES = {
-    "SCUS_971.99": "us",
-}
-
-BASENAME = "SCUS_971.99"
-LD_PATH = f"{BASENAME}.ld"
-# The script ld actually runs: LD_PATH with every per-object `.text` statement
-# rewritten to a unique input-section name (see write_fast_linkerscript).
-FAST_LD_PATH = f"{BASENAME}.fast.ld"
-ELF_PATH = f"build/{BASENAME}"
-MAP_PATH = f"build/{BASENAME}.map"
-PRE_ELF_PATH = f"build/{BASENAME}.elf"
-
-OBJDIFF_CATEGORY = {"id": "us", "name": "Ratchet & Clank (USA)"}
 
 # Configuration names become file paths and compiler command fragments.
 # Restrict them to the project's alphabet and forbid path escapes so a
 # malformed or hostile row cannot write outside the build workspace.
 _UNIT_NAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_./-]*$")
-
 
 def _check_unit_name(name: str) -> None:
     parts = [part for part in name.split("/") if part not in ("", ".")]
@@ -344,7 +486,6 @@ def _check_unit_name(name: str) -> None:
             "(allowed: letters, digits, '_', '.', '/', '-'; no '..')"
         )
 
-
 def validate_config_names(node: Any) -> None:
     """Reject configuration names that could escape the build tree."""
     if isinstance(node, dict):
@@ -357,7 +498,6 @@ def validate_config_names(node: Any) -> None:
             _check_unit_name(node[2])
         for item in node:
             validate_config_names(item)
-
 
 @contextlib.contextmanager
 def suppress_stdout_stderr():
@@ -373,7 +513,6 @@ def suppress_stdout_stderr():
         for fd in null_fds + save_fds:
             os.close(fd)
 
-
 def get_compiler_command(command: str) -> Path:
     compiler_dir = Path("tools") / "cc" / SDK_COMPILER
     ee_dir = compiler_dir / "lib" / "gcc-lib" / "ee"
@@ -385,7 +524,6 @@ def get_compiler_command(command: str) -> Path:
     }
 
     return commands[command]
-
 
 def make_compiler_cmd(config_dir: Path, src_path: Path) -> tuple[str, str]:
     rel_root = Path(os.path.relpath(ROOT, config_dir))
@@ -404,13 +542,11 @@ def make_compiler_cmd(config_dir: Path, src_path: Path) -> tuple[str, str]:
 
     return compile_cmd, common_includes
 
-
 def sn_compiler_configured() -> bool:
     return (
         bool(SN_TOOLCHAIN_ROOT)
         and (Path(SN_TOOLCHAIN_ROOT) / "bin/ee-gcc.exe").is_file()
     )
-
 
 def _game_compiler_root() -> Path:
     """Locate the reconstructed game compiler.
@@ -426,15 +562,12 @@ def _game_compiler_root() -> Path:
             return candidate
     return ROOT / "tools/compilers/game-compiler"
 
-
 def game_compiler_configured() -> bool:
     root = _game_compiler_root()
     return (root / "ee-gcc").is_file() and (root / "cc1").is_file()
 
-
 def ee_gcc_patched_configured() -> bool:
     return bool(EE_GCC_PATCHED_ROOT) and (Path(EE_GCC_PATCHED_ROOT) / "xgcc").is_file()
-
 
 def _win_path(value: str) -> str:
     """Convert a WSL mount path to the form the Windows driver needs.
@@ -456,7 +589,6 @@ def _win_path(value: str) -> str:
         return f"\\\\wsl.localhost\\{distro}{value}".replace("/", "\\")
     return value.replace("/", "\\")
 
-
 def _wine_binary() -> str:
     """The wine binary the PE tools must run under, or "" to run them directly."""
     wine = os.environ.get("RNC_WINE")
@@ -464,7 +596,6 @@ def _wine_binary() -> str:
         return wine
     on_windows_drive = re.match(r"^/mnt/[A-Za-z]/", str(ROOT)) is not None
     return "" if on_windows_drive else (shutil.which("wine") or "")
-
 
 def _windows_exe(path: str) -> str:
     """Spell a Windows tool (Ps2EeAs, the SN driver) for a ninja command.
@@ -481,7 +612,6 @@ def _windows_exe(path: str) -> str:
     quoted = shlex.quote(path)
     return f"{shlex.quote(wine)} {quoted}" if wine else quoted
 
-
 def _unit_from_object(object_path: Path) -> str:
     """Derive the unit name from the ninja object path.
 
@@ -496,7 +626,6 @@ def _unit_from_object(object_path: Path) -> str:
         joined = joined[: -len(".c.o")]
     return joined
 
-
 # C aliases in promoted sources: ALIAS __attribute__((alias("TARGET"))).
 # The oracle fallback keeps the bytes but not the aliases, so they are handed
 # to the linker (PROVIDE, only when nothing else defines them).
@@ -506,12 +635,10 @@ _ALIAS_RE = re.compile(
     r"([A-Za-z_]\w*)\s*(?:\([^;{]*?\))?\s*__attribute__\s*\(\(\s*alias\s*\(\s*\"([^\"]+)\"\s*\)\s*\)\)"
 )
 
-
 def _alias_symbols(source: Path) -> set[tuple[str, str]]:
     """(alias, target) pairs declared in a source file."""
     text = source.read_text(errors="replace")
     return {(match.group(1), match.group(2)) for match in _ALIAS_RE.finditer(text)}
-
 
 PADLESS_ASM_HELPER = r'''#!/usr/bin/env python3
 """Normalize SN cc1 output for Ps2EeAs and drop section tail padding.
@@ -775,9 +902,39 @@ def apply_la_gprel_policy(assembly):
     return "".join(body[:insert_at] + moved + body[insert_at:])
 
 
+def hoist_sda_externs(assembly, source):
+    """Move `.extern NAME, SIZE` ahead of the code for every small-data symbol.
+
+    SN cc1 writes its `.extern` directives at the end of the file and leaves
+    the choice between $gp and lui to the assembler.  Ps2EeAs is single-pass:
+    it relaxes a bare symbol access to $gp only when the size is already
+    known.  The source says which globals retail reads through $gp: those
+    declared `__attribute__((sda))` (the game compiler's spelling, ignored by
+    SN cc1); their directives go first, the others stay where cc1 put them.
+    """
+    sda = set()
+    for decl in re.findall(r"^extern[^;]*__attribute__\(\(sda\)\)[^;]*;", source, re.M):
+        label = re.search(r'__asm__\s*\(\s*"([\w.$]+)"', decl)
+        name = re.search(r"([A-Za-z_]\w*)\s*(?:\[[^\]]*\]\s*)*(?:__asm__|__attribute__)", decl)
+        if label:
+            sda.add(label.group(1))
+        elif name:
+            sda.add(name.group(1))
+    lines = assembly.split("\n")
+    first = [l for l in lines if re.match(r"\s*\.extern\s+([\w.$]+)\s*,", l)
+             and re.match(r"\s*\.extern\s+([\w.$]+)", l).group(1) in sda]
+    rest = [l for l in lines if l not in first]
+    return "\n".join(first + rest)
+
+
 def main(argv):
+    if len(argv) == 5 and argv[1] == "externs":
+        _, _, source, destination, c_source = argv
+        assembly = hoist_sda_externs(open(source).read(), open(c_source, errors="replace").read())
+        open(destination, "w").write(assembly)
+        return
     if len(argv) not in (4, 5):
-        raise SystemExit("usage: padless-asm.py normalize IN OUT [POLICY] | finish IN OUT [REFERENCE]")
+        raise SystemExit("usage: padless-asm.py normalize IN OUT [POLICY] | finish IN OUT [REFERENCE] | externs IN OUT SOURCE")
     mode, source, destination = argv[1:4]
     policy = argv[4] if len(argv) == 5 else "none"
     data = open(source, "rb").read()
@@ -803,7 +960,6 @@ if __name__ == "__main__":
     main(sys.argv)
 '''
 
-
 def clean(config_dir: Path):
     for file in (
         ".splache",
@@ -821,7 +977,6 @@ def clean(config_dir: Path):
     for folder in ("asm", "assets", "build", "expected"):
         shutil.rmtree(config_dir / folder, ignore_errors=True)
 
-
 def write_permuter_settings(config_dir: Path, compiler_cmd: str):
     with open(config_dir / "permuter_settings.toml", "w", encoding="utf-8") as f:
         f.write(
@@ -836,9 +991,7 @@ compiler_type = "gcc"
 """
         )
 
-
 _TEXT_STATEMENT_RE = re.compile(r"^(\s*)(build/\S+?\.o)\(\.text\);$", re.MULTILINE)
-
 
 def write_fast_linkerscript(config_dir: Path) -> list[tuple[str, str, str]]:
     """Write FAST_LD_PATH from LD_PATH; return (object, link copy, section) rows.
@@ -866,12 +1019,11 @@ def write_fast_linkerscript(config_dir: Path) -> list[tuple[str, str, str]]:
         return f"{match.group(1)}*({section}); /* {obj} */"
 
     text = _TEXT_STATEMENT_RE.sub(rename, text)
-    for obj, copy, _ in rows:
-        text = text.replace(f"{obj}(", f"{copy}(")
-    inputs = "".join(f"    {copy}\n" for _, copy, _ in rows)
+    for obj, link, _ in rows:
+        text = text.replace(f"{obj}(", f"{link}(")
+    inputs = "".join(f"    {link}\n" for _, link, _ in rows)
     (config_dir / FAST_LD_PATH).write_text(f"INPUT(\n{inputs})\n\n" + text)
     return rows
-
 
 def build_stuff(
     config_dir: Path,
@@ -1220,9 +1372,9 @@ def build_stuff(
     alias_path.write_text("\n".join(alias_lines) + "\n")
 
     link_copies = []
-    for obj, copy, section in write_fast_linkerscript(config_dir):
-        ninja.build(copy, "link_copy", obj, variables={"section": section})
-        link_copies.append(copy)
+    for obj, link, section in write_fast_linkerscript(config_dir):
+        ninja.build(link, "link_copy", obj, variables={"section": section})
+        link_copies.append(link)
 
     ninja.build(
         PRE_ELF_PATH,
@@ -1246,13 +1398,11 @@ def build_stuff(
 
     write_permuter_settings(config_dir, compile_cmd)
 
-
 def rename_locals(base_path: Path):
     for asm_file in base_path.rglob("*.s"):
         data = asm_file.read_text()
         data = re.sub(r"__local_\d+", "", data)
         asm_file.write_text(data)
-
 
 def fix_gp_rel_stores(asm_root: Path) -> int:
     """Normalize the gp-relative store and FPU load spelling for the frozen assembler.
@@ -1292,7 +1442,6 @@ def fix_gp_rel_stores(asm_root: Path) -> int:
         asm_file.write_text(updated)
         fixed += 1
     return fixed
-
 
 def make_asm(config_path: Path, config: dict[str, Any]):
     with tempfile.TemporaryDirectory(dir=config_path, prefix="tmp_") as tmp_dir:
@@ -1411,7 +1560,6 @@ def make_asm(config_path: Path, config: dict[str, Any]):
 
         print(f"expected obj built to '{dst_path}'")
 
-
 def generate_objdiff_configuration(config_path: Path, config: dict[str, Any]):
     segments: list[Any] = config["segments"]
 
@@ -1468,7 +1616,6 @@ def generate_objdiff_configuration(config_path: Path, config: dict[str, Any]):
 
     print(f"Wrote objdiff configuration ({len(units)} units) to {objdiff_path}")
 
-
 def fix_assets(config_dir: Path, config: dict[str, Any]):
     asset_path = Path(config["options"]["asset_path"])
     asset_rel_path = (config_dir / asset_path).resolve().relative_to(ROOT)
@@ -1486,7 +1633,6 @@ def fix_assets(config_dir: Path, config: dict[str, Any]):
             count += labels
         if count > 0:
             asm_file.write_text(data_asm)
-
 
 def fix_linkerscript(config: dict[str, Any], linkerscript_path: Path):
     section_subalign = cast(dict[str, int], config.get("_section_subalign", {}))
@@ -1530,7 +1676,6 @@ def fix_linkerscript(config: dict[str, Any], linkerscript_path: Path):
 
     if config.get("_retail_link_layout"):
         apply_retail_link_layout(config, linkerscript_path)
-
 
 def apply_retail_link_layout(config: dict[str, Any], linkerscript_path: Path):
     """Place the preserved inputs at their retail file offsets.
@@ -1734,10 +1879,18 @@ SECTIONS
 """
     linkerscript_path.write_text(script)
 
+def overlay_sn_units() -> set[str]:
+    """src/overlays files built by SN cc1 2.95.2 (OVERLAY_SN_UNITS)."""
+    return set(OVERLAY_SN_UNITS)
 
-OVERLAYS_SRC = Path("src/overlays")
-OVERLAYS_BUILD = Path("build/overlays")
-
+def overlay_sn_functions(units: set[str]) -> set[str]:
+    """Names of the functions defined or stubbed in the SN-built files."""
+    names = set()
+    for unit in units:
+        path = OVERLAYS_SRC / unit
+        if path.is_file():
+            names |= set(re.findall(r"\b(FUN_L\d\d_[0-9a-f]{8})\b", path.read_text(errors="replace")))
+    return names
 
 def build_overlays() -> Path:
     """Write build/overlays/build.ninja for the level overlays (docs/overlays.md).
@@ -1803,9 +1956,29 @@ def build_overlays() -> Path:
         ),
     )
 
-    def game_edge(out: str, src: str) -> None:
+    # Level code the game compiler does not reproduce but SN cc1 2.95.2 does
+    # (OVERLAY_SN_UNITS): SN cc1, its externs ordered for Ps2EeAs, then the
+    # same Ps2EeAs + padless finish as overlay-game.
+    sn_driver = _windows_exe(str(sn_root / "bin/ee-gcc295.exe"))
+    ninja.rule(
+        "overlay-sn",
+        description="overlay-sn $in",
+        command=(
+            f"mkdir -p {work} && cp $in {work}/cand.c && "
+            f"cd {work} && {sn_driver} -S -I{ROOT}/src -I{ROOT}/include "
+            f"{LANG_DEFINE} -DMATCHING_DECOMP -O2 cand.c -o cand.s && cd - >/dev/null && "
+            f"{sys.executable} padless-asm.py normalize {work}/cand.s {work}/cand-norm.s none && "
+            f"{sys.executable} padless-asm.py externs {work}/cand-norm.s {work}/cand-final.s $in && "
+            f"{ee_assembler} -o '$work_win/cand-padded.o' '$work_win/cand-final.s' && "
+            f"{game_root}/as -mabi=eabi -o {work}/cand-ref.o {work}/cand-final.s && "
+            f"{sys.executable} padless-asm.py finish {work}/cand-padded.o $out {work}/cand-ref.o"
+        ),
+    )
+    sn_units = overlay_sn_units()
+
+    def game_edge(out: str, src: str, rule: str = "overlay-game") -> None:
         path = str((OVERLAYS_BUILD / out).resolve()) + ".work"
-        ninja.build(outputs=[out], rule="overlay-game", inputs=[src],
+        ninja.build(outputs=[out], rule=rule, inputs=[src],
                     implicit=["padless-asm.py"], variables={"work_win": _win_path(path)})
 
     objects = []
@@ -1814,19 +1987,20 @@ def build_overlays() -> Path:
         obj, c_only = f"obj/{rel}.o", f"c/{rel}"
         ninja.build(outputs=[obj], rule="overlay-cc", inputs=[f"{rel_root}/{src}"])
         ninja.build(outputs=[c_only], rule="c-only", inputs=[f"{rel_root}/{src}"])
-        game_edge(f"{c_only}.o", c_only)
+        game_edge(f"{c_only}.o", c_only, "overlay-sn" if str(rel) in sn_units else "overlay-game")
         objects += [obj, f"{c_only}.o"]
     catalogue = Path("config/overlays/us/functions.tsv")
+    sn_functions = overlay_sn_functions(sn_units)
     for line in catalogue.read_text().splitlines():
         parts = line.split("\t")
         if len(parts) > 1 and parts[1] in ("shared", "level"):
-            game_edge(f"stage/{parts[0]}.c.o", f"stage/{parts[0]}.c")
+            game_edge(f"stage/{parts[0]}.c.o", f"stage/{parts[0]}.c",
+                      "overlay-sn" if parts[0] in sn_functions else "overlay-game")
     ninja.build(outputs=["overlays"], rule="phony", inputs=objects)
     ninja.default(["overlays"])
     ninja.close()
     print(f"{len(sources)} overlay source files -> {ninja_path} (ninja -C {OVERLAYS_BUILD})")
     return ninja_path
-
 
 def main():
     class ArgsProtocol:
@@ -1905,7 +2079,6 @@ def main():
         make_asm(config_dir, config)
 
     generate_objdiff_configuration(config_dir, config)
-
 
 if __name__ == "__main__":
     main()

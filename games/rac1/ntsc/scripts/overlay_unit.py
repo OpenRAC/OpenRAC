@@ -66,11 +66,15 @@ def ninja(*targets: str) -> subprocess.CompletedProcess:
 
 def ensure_configured(force: bool = False) -> str | None:
     """Write build/overlays/build.ninja when missing (always with FORCE, so a
-    new or renamed source file is picked up)."""
+    new or renamed source file is picked up, and when configure.py changed)."""
     if not ov.ASM_DIR.is_dir():
         return ("config/us/overlays/asm is missing: run "
                 "`python3 scripts/overlay-extract.py --iso <your disc image>` first")
-    if force or not (BUILD / "build.ninja").is_file():
+    build_ninja = BUILD / "build.ninja"
+    routes = ROOT / "configure.py"
+    stale = (build_ninja.is_file()
+             and routes.stat().st_mtime > build_ninja.stat().st_mtime)
+    if force or stale or not build_ninja.is_file():
         proc = subprocess.run([sys.executable, "configure.py", "--overlays"], cwd=ROOT,
                               capture_output=True, text=True)
         if proc.returncode:
@@ -151,8 +155,11 @@ def verify_all() -> int:
     from elftools.elf.elffile import ELFFile
 
     import overlay_proof as proof
-    total, bad = 0, []
+    total, copies, bad = 0, 0, []
     for obj in sorted((BUILD / "c").glob("**/*.c.o")):
+        # An object left behind by a moved or deleted source is not counted.
+        if not (SOURCES / obj.relative_to(BUILD / "c").with_suffix("")).is_file():
+            continue
         with open(obj, "rb") as handle:
             symtab = ELFFile(handle).get_section_by_name(".symtab")
             names = [s.name for s in symtab.iter_symbols()
@@ -163,12 +170,25 @@ def verify_all() -> int:
             verdict = proof.check(obj, name)
             if not verdict["exact"]:
                 bad.append(f"{name:24s} {verdict['verdict']}  ({obj.relative_to(BUILD)})")
+                continue
+            # every other copy (other levels, or twice in one level) is placed
+            # and compared too: callees and level data resolve per level
+            for place in ov.read_catalogue()[name].places[1:]:
+                copies += 1
+                verdict = proof.copy_check(obj, name, place)
+                if verdict.get("not_a_copy"):
+                    bad.append(f"{name:24s} L{place[0]:02d}:{place[1]:08x} is another function, "
+                               "not a copy: fix the catalogue fingerprint")
+                    continue
+                if not verdict["exact"]:
+                    bad.append(f"{name:24s} L{place[0]:02d}:{place[1]:08x} {verdict['verdict']}"
+                               f"  ({obj.relative_to(BUILD)})")
     for line in bad:
         print(line)
     if bad:
         print(f"FAIL: {len(bad)} of {total} overlay functions in C do not match retail")
         return 1
-    print(f"PASS: all {total} overlay functions in C match retail")
+    print(f"PASS: all {total} overlay functions in C match retail, with their {copies} copies in other places")
     return 0
 
 

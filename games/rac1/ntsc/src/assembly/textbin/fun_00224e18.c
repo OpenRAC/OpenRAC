@@ -4,9 +4,9 @@
 #ifndef NON_MATCHING
 INCLUDE_ASM("config/us/expected/asm/assembly/textbin/fun_00224e18/FUN_00224e18.s", FUN_00224e18);
 #else
-/* Ported from rac1-decomp, the PAL decompilation (src/game/pause.c, func_002260A8). */
+/* Ported from rac1-decomp (src/game/pause.c, func_002260A8). */
 #include "qcopy.h"
-#include "rnc/pause_moby_types.h"
+#include "rnc/ui/menus/pause_moby.h"
 extern void copy_matrix3x4(void *, void *) __asm__("func_001FA2B8");
 extern char preview_binding_table[] __asm__("D_001863D0");
 extern char preview_binding_table_alias[] __asm__("D_001863D0");
@@ -54,13 +54,13 @@ void update_menu_preview_pose_and_attachments(void *preview) {
         detach_manipulator(source_moby_address, second_preview_manipulator);
     }
     if (!is_second_preview_moby) {
-        binding_table_alias = preview_binding_table_alias;
-        binding_table = preview_binding_table;
         resource_address = moby->resource_address;
+        binding_table = preview_binding_table;
+        binding_table_alias = (char *)0x001863D0;
     } else {
-        binding_table = preview_binding_table;
-        binding_table_alias = preview_binding_table_alias;
         resource_address = moby->resource_address;
+        binding_table = (char *)0x001863D0;
+        binding_table_alias = preview_binding_table_alias;
     }
     noop_callback_s(binding_table_alias, binding_table, resource_address, 0, source_moby_address);
     moby->primary_binding = binding_table;

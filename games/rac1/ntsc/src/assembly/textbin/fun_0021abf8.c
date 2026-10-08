@@ -81,8 +81,7 @@ extern s32 allocate_voice_for_target_entry(s32, s32, s32) __asm__("func_0022DA68
 
 s32 update_menu_entry_actions(MenuDescriptor *menu) __asm__("FUN_0021abf8");
 
-s32 update_menu_entry_actions(MenuDescriptor *menu)
-{
+s32 update_menu_entry_actions(MenuDescriptor *menu) {
     s32 focused;
     s32 entry_index;
     s32 entry_count;
@@ -94,7 +93,6 @@ s32 update_menu_entry_actions(MenuDescriptor *menu)
     MenuItem *items;
     MenuItem *entry;
     s32 selected_entry;
-    s32 action;
 
     focused = menu_state.screen->focus == menu;
     for (entry_index = 0; menu->items[entry_index].type != 0; entry_index++) {
@@ -105,7 +103,8 @@ s32 update_menu_entry_actions(MenuDescriptor *menu)
             if (scale_game_frames(menu_fade_duration) < fade_timer) {
                 menu->items[entry_index].timer = scale_game_frames(menu_fade_duration);
             }
-            menu->items[entry_index].timer = (s16)menu->items[entry_index].timer > 0 ? menu->items[entry_index].timer - 1 : 0;
+            menu->items[entry_index].timer =
+                (s16)menu->items[entry_index].timer > 0 ? menu->items[entry_index].timer - 1 : 0;
         }
     }
     if (!focused) {
@@ -130,8 +129,7 @@ s32 update_menu_entry_actions(MenuDescriptor *menu)
     if (controller_state.pressed & 0x40) {
         items = menu->items;
         selected_entry = menu->selected_entry;
-        action = items[selected_entry].action;
-        switch (action) {
+        switch (items[selected_entry].action) {
         case 0:
             break;
         case 1:
@@ -157,7 +155,8 @@ s32 update_menu_entry_actions(MenuDescriptor *menu)
             }
             break;
         case 6:
-            message_index = items[selected_entry].param.h.hi;
+            /* This action passes the low halfword; the other indexed actions pass the full word. */
+            message_index = menu->items[menu->selected_entry].param.h.hi;
             if (message_index != 0) {
                 menu_state.action_message = menu_action_messages[message_index];
             }
@@ -195,7 +194,7 @@ s32 update_menu_entry_actions(MenuDescriptor *menu)
             allocate_voice_for_target_entry(0, 0x11, menu->sound);
             return 0;
         case 9:
-            requested_level_index = menu->items[menu->selected_entry].param.entry_index;
+            requested_level_index = items[selected_entry].param.entry_index;
             return 0;
         case 2:
             allocate_voice_for_target_entry(2, 0x11, menu->sound);
@@ -226,7 +225,8 @@ s32 update_menu_entry_actions(MenuDescriptor *menu)
         }
     }
     if ((buttons & 0x4000) || ((menu->flags & 0x100) && (buttons & 8))) {
-        if (menu->items[menu->selected_entry + 1].type != 0 && menu->items[menu->selected_entry + 1].action != 0) {
+        if (menu->items[menu->selected_entry + 1].type != 0 &&
+            menu->items[menu->selected_entry + 1].action != 0) {
             menu->selected_entry++;
         } else if (menu->flags & 0x1000) {
             menu->selected_entry = 0;

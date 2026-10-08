@@ -7,7 +7,7 @@ takes the boot executable from your own disc image, and rebuilds the game
 byte-for-byte:
 
 ```sh
-git clone https://github.com/mateuszklysz/Lombyte.git && cd Lombyte
+git clone https://github.com/lombyte-project/lombyte.git && cd lombyte
 ./setup.sh --iso /path/to/your-ratchet-and-clank-usa.iso
 ```
 
@@ -75,7 +75,9 @@ code is compiled without `-g`, whose line labels the assembler would take for
 branch targets. Pending `INCLUDE_ASM` wrappers are assembled by the game
 compiler's GNU `as` instead. The few units that do not reproduce on their
 compiler yet are listed in `ROUTE_EXCEPTIONS` with the route that still builds
-them; that list only shrinks.
+them; that list only shrinks. It and every other per-unit compiler setting,
+including the overlay SN list, are in the compiler routes section at the top
+of `configure.py`.
 
 The game compiler is required: `configure.py` stops with an error when it is
 missing. Its driver has no builtin include directory, so the three headers it

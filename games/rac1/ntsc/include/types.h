@@ -1,5 +1,5 @@
-#ifndef RNCDECOMP_TYPES_H
-#define RNCDECOMP_TYPES_H
+#ifndef LOMBYTE_TYPES_H
+#define LOMBYTE_TYPES_H
 
 /* Project-owned EE scalar types.  Keep these independent of host ABI widths. */
 typedef signed char s8;
@@ -29,11 +29,11 @@ typedef s32 b32;
 #endif
 
 #ifndef TRUE
-#define TRUE 1
+#define TRUE  1
 #define FALSE 0
 #endif
 
-#define ARRAY_COUNT(array) ((s32)(sizeof(array) / sizeof((array)[0])))
+#define ARRAY_COUNT(array)  ((s32)(sizeof(array) / sizeof((array)[0])))
 #define ARRAY_COUNTU(array) ((u32)(sizeof(array) / sizeof((array)[0])))
 
-#endif /* RNCDECOMP_TYPES_H */
+#endif /* LOMBYTE_TYPES_H */

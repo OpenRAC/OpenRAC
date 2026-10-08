@@ -21,10 +21,16 @@ extern u64 special_material_template[] __asm__("D_0019E6C0");
 extern u64 alternate_special_material_template[] __asm__("D_0019E6D8");
 extern s32 highest_set_bit_index(s32) __asm__("func_001F97A0");
 
-void build_indexed_resident_render_packet(u64 *packet, struct ResidentRenderTextureDefinition *texture, s32 draw_high, s32 draw_shift, s32 material_base, s32 material_shift, s32 material_index) __asm__("FUN_00202d78");
+void build_indexed_resident_render_packet(u64 *packet,
+                                          struct ResidentRenderTextureDefinition *texture,
+                                          s32 draw_high, s32 draw_shift, s32 material_base,
+                                          s32 material_shift,
+                                          s32 material_index) __asm__("FUN_00202d78");
 
-void build_indexed_resident_render_packet(u64 *packet, struct ResidentRenderTextureDefinition *texture, s32 draw_high, s32 draw_shift, s32 material_base, s32 material_shift, s32 material_index)
-{
+void build_indexed_resident_render_packet(u64 *packet,
+                                          struct ResidentRenderTextureDefinition *texture,
+                                          s32 draw_high, s32 draw_shift, s32 material_base,
+                                          s32 material_shift, s32 material_index) {
     s32 width_units_128;
     s32 width_units_64;
     s32 width_log2;
@@ -40,7 +46,6 @@ void build_indexed_resident_render_packet(u64 *packet, struct ResidentRenderText
     u64 mip_word;
     u64 mip_address_word;
     s32 draw_control_count;
-    s32 control_base = material_base;
 
     width_units_64 = texture->width >> 6;
     width_units_128 = texture->width >> 7;
@@ -62,11 +67,11 @@ void build_indexed_resident_render_packet(u64 *packet, struct ResidentRenderText
         draw_control_word = (u64)draw_shift;
         draw_control_word <<= 6;
         draw_control_word |= 0x20;
-        draw_control_word = ((u64)(draw_control_count - 1) << 2) | draw_control_word;
+        draw_control_word |= ((u64)(draw_control_count - 1) << 2);
         draw_control_word |= (u64)draw_high << 32;
         packet[0] = draw_control_word;
         packet += 2;
-        packet[0] = control_base | ((u64)material_shift << 2) | ((u64)material_index << 24);
+        packet[0] = material_base | ((u64)material_shift << 2) | ((u64)material_index << 24);
         packet += 2;
         texture_word = ((u64)width_log2 << 26) | 0x1300000;
         texture_word = ((u64)width_units_64 << 14) | texture_word;
@@ -85,17 +90,14 @@ void build_indexed_resident_render_packet(u64 *packet, struct ResidentRenderText
         if (material_index == -3) {
             fallback_packet = alternate_special_material_template;
         }
-        draw_control_word = ((u64)draw_high << 32) | 0x20;
-        draw_control_word = ((u64)draw_shift << 6) | draw_control_word;
-        packet[0] = draw_control_word;
+        packet[0] = ((u64)draw_shift << 6) | 0x20 | ((u64)draw_high << 32);
         packet += 2;
         packet[0] = 5;
         packet += 2;
         packet[0] = fallback_packet[0];
         packet[2] = fallback_packet[2];
     } else {
-        draw_control_word = ((u64)draw_high << 32) | 0x20;
-        draw_control_word = ((u64)draw_shift << 6) | draw_control_word;
+        draw_control_word = ((u64)draw_shift << 6) | 0x20 | ((u64)draw_high << 32);
         packet[0] = draw_control_word;
         packet += 2;
         packet[0] = 5;
@@ -105,6 +107,7 @@ void build_indexed_resident_render_packet(u64 *packet, struct ResidentRenderText
     }
 }
 
-extern __typeof__(build_indexed_resident_render_packet) func_00202D78 __attribute__((alias("FUN_00202d78")));
+extern __typeof__(build_indexed_resident_render_packet) func_00202D78
+    __attribute__((alias("FUN_00202d78")));
 
 #endif /* NON_MATCHING */

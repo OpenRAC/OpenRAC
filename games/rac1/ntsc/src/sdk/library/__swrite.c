@@ -1,5 +1,5 @@
 #include "types.h"
-struct M2c_arg0 {
+struct StdioFile {
     u8 pad_0[0xC];
     u16 unkC;
     s16 unkE;
@@ -7,15 +7,15 @@ struct M2c_arg0 {
     s32 unk54;
 };
 
-extern s32 func_00114518();
-extern s32 func_001185D0();
-s64 __swrite(struct M2c_arg0 *arg0, s32 arg1, s32 arg2) {
-    s64 r;
+extern s32 reentrant_syscall_with_three_arguments() __asm__("func_00114518");
+extern s32 reentrant_write() __asm__("func_001185D0");
+s64 __swrite(struct StdioFile *file, s32 buf, s32 len) {
+    s64 written;
 
-    if (arg0->unkC & 0x100) {
-        func_00114518(arg0->unk54, arg0->unkE, 0, 2);
+    if (file->unkC & 0x100) {
+        reentrant_syscall_with_three_arguments(file->unk54, file->unkE, 0, 2);
     }
-    arg0->unkC = (u16) (arg0->unkC & 0xEFFF);
-    r = func_001185D0(arg0->unk54, arg0->unkE, arg1, arg2);
-    return (s64) (s32) (u32) r;
+    file->unkC = (u16)(file->unkC & 0xEFFF);
+    written = reentrant_write(file->unk54, file->unkE, buf, len);
+    return (s64)(s32)(u32)written;
 }

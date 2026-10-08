@@ -1,4 +1,4 @@
-/* Ported from rac1-decomp, the PAL decompilation (src/game/space.c, func_0022F128). */
+/* Ported from rac1-decomp (src/game/space.c, func_0022F128). */
 
 #include "sda.h"
 #include "qcopy.h"
@@ -48,4 +48,5 @@ unsigned char build_object_rotation_matrix(void) {
     return flag;
 }
 
-extern __typeof__(build_object_rotation_matrix) func_0022DE10 __attribute__((alias("FUN_0022de10")));
+extern __typeof__(build_object_rotation_matrix) func_0022DE10
+    __attribute__((alias("FUN_0022de10")));

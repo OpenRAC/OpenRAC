@@ -1,13 +1,13 @@
-/* Ported from rac1-decomp, the PAL decompilation (src/game/pause.c, func_00222640). */
+/* Ported from rac1-decomp (src/game/pause.c, func_00222640). */
 #include "sda.h"
 extern int D_0013D4C0 NOT_SDA;
 extern unsigned char D_0013E520[];
 typedef struct {
-    unsigned short a;   /* +0 */
-    short b;            /* +2 */
-    short c;            /* +4 */
-    short id;           /* +6 */
-    short idx;          /* +8 */
+    unsigned short a; /* +0 */
+    short b;          /* +2 */
+    short c;          /* +4 */
+    short id;         /* +6 */
+    short idx;        /* +8 */
 } Item0A;
 extern Item0A D_001CF120[];
 extern Item0A D_001D60E0[];

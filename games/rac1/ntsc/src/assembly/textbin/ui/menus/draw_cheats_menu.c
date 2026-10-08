@@ -2,13 +2,13 @@
 #include "asm.h"
 
 #ifndef NON_MATCHING
-INCLUDE_ASM("config/us/expected/asm/assembly/textbin/ui/menus/draw_cheats_menu/FUN_00221030.s", FUN_00221030);
+INCLUDE_ASM("config/us/expected/asm/assembly/textbin/ui/menus/draw_cheats_menu/FUN_00221030.s",
+            FUN_00221030);
 #else
 #include "types.h"
-#include "rnc/text_region.h"
+#include "rnc/ui/text/text_region.h"
 
 typedef struct TextRegion FontWindow;
-
 
 struct CheatMenuEntry {
     s32 text_id;
@@ -45,11 +45,11 @@ s32 draw_cheats_menu(struct CheatsMenu *menu) {
     struct CheatMenuEntry *entry;
     s32 entry_count;
     s32 entry_index;
-    s32 line_spacing;
+    s32 draw_index;
     s32 draw_y;
+    s32 line_spacing;
     s32 color;
     s32 enabled;
-    s32 draw_index;
 
     vu1_add_g_sregister(0x47, 0x2004B);
     setup_gif_paging(0);
@@ -67,10 +67,12 @@ s32 draw_cheats_menu(struct CheatsMenu *menu) {
         text_window = *(FontWindow *)window_fields;
         font_print_window_regular(&text_window, 0x80FFA888, get_help_message_text(0x4FC0), -1);
     }
+    /* Entries end at a zero text ID; each retail entry occupies 0x14 bytes. */
     entry_count = 0;
     while (menu->entries[entry_count].text_id != 0) {
         entry_count++;
     }
+    /* Retail keeps row spacing in s8 and the entry offset in s7. */
     line_spacing = menu->height / (entry_count + 1);
     draw_y = line_spacing - 8;
     entry_index = 0;
@@ -84,7 +86,10 @@ s32 draw_cheats_menu(struct CheatsMenu *menu) {
                 enabled = *entry->enabled_flag;
             }
             font_print_large(0xC, draw_y, color, get_help_message_text(entry->text_id), -1);
-            font_print_right(menu->width - 0xC, draw_y, 0x80FFA888, get_help_message_text(enabled ? entry->enabled_text_id : entry->disabled_text_id), -1);
+            font_print_right(
+                menu->width - 0xC, draw_y, 0x80FFA888,
+                get_help_message_text(enabled ? entry->enabled_text_id : entry->disabled_text_id),
+                -1);
             draw_y += line_spacing;
             draw_index++;
             entry_index++;

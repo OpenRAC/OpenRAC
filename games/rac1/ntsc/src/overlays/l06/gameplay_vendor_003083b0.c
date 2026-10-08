@@ -11,7 +11,7 @@ INCLUDE_ASM("config/us/overlays/asm/FUN_L06_00308c68.s", FUN_L06_00308c68);
 #include "qcopy.h"
 
 /* finds the mobys of type 0x5E8 in state 1 in a level list and starts those within range */
-/* Ported from rac1-decomp (PAL, src/overlays/l06_blarg/vendor_002FE5D0.c: func_L06_0030A680), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/l06_blarg/vendor_002FE5D0.c: func_L06_0030A680), where it is exact; names translated to the US level program. */
 
 extern char *D_L06_0015FFD8;
 extern float FUN_001f96b0(float);
@@ -36,7 +36,8 @@ void FUN_L06_00309240(int idx) {
                 if (FUN_001fa728((char *)v, 64.0f) >= 0) {
                     data = *(char **)(m + 0x78);
                     m[0x20] = 2;
-                    *(int *)(data + 0x28) = func_001FA898_r(FUN_001f96b0(random_float_between_alt(30.0f, 60.0f)));
+                    *(int *)(data + 0x28) =
+                        func_001FA898_r(FUN_001f96b0(random_float_between_alt(30.0f, 60.0f)));
                 }
             }
         } while (*p++ >= 0);
@@ -46,15 +47,14 @@ void FUN_L06_00309240(int idx) {
 
 #define MACRO_ADDR
 
-/* Ported from rac1-decomp (PAL, src/overlays/l06_blarg/vendor_002FE5D0.c: func_L06_0030A788), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/l06_blarg/vendor_002FE5D0.c: func_L06_0030A788), where it is exact; names translated to the US level program. */
 
 extern char D_L06_0016CFE0[];
 extern int D_L06_0015F5C4;
-extern int FUN_001f96f8(int);
+extern int scale_game_frames(int) __asm__("FUN_001f96f8");
 extern void FUN_L00_002637f8(int);
 
-void FUN_L06_00309348(unsigned char *moby)
-{
+void FUN_L06_00309348(unsigned char *moby) {
     switch (moby[0x20]) {
     case 0:
         moby[0x30] = 0xFF;
@@ -64,7 +64,7 @@ void FUN_L06_00309348(unsigned char *moby)
         if (D_L06_0015F5C4 == 2) {
             char *p = D_L06_0016CFE0;
             if (*(int *)(p + 0x30) == 5) {
-                if (FUN_001f96f8(0x7F) >= *(int *)(p + 0x34)) {
+                if (scale_game_frames(0x7F) >= *(int *)(p + 0x34)) {
                     FUN_L00_002637f8(*(int *)(p + 0x180));
                 }
             }
@@ -72,4 +72,83 @@ void FUN_L06_00309348(unsigned char *moby)
         break;
     }
 }
-INCLUDE_ASM("config/us/overlays/asm/FUN_L06_00309e08.s", FUN_L06_00309e08);
+#include "sda.h"
+
+/* Same source as the exact FUN_L06_00309860, with two 0x67E effects and spawned class 0x67D. */
+typedef struct {
+    char v[16];
+    char padv[16];
+    float f20;
+    char pad24[4];
+    float f28;
+    char pad2C[4];
+    int f30;
+    int f34;
+} Child;
+
+typedef struct {
+    char pad0[0x10];
+    char pos[0x10];
+    unsigned char b20;
+    char pad21[0xB];
+    float f2C;
+    unsigned char b30;
+    unsigned char b31;
+    short s32;
+    unsigned short h34;
+    char pad36[0x12];
+    float f48;
+    char pad4C[0x2C];
+    Child *child;
+    char pad7C[0x14];
+    int f90;
+} Obj;
+
+extern char *FUN_L00_0025a420(void *, int, int);
+extern char *func_0020D348_m(int);
+extern float D_L06_0015F580[] __attribute__((section(".sdata")));
+extern int FUN_0022da68_c(int, int, int) __asm__("FUN_0022da68");
+extern void FUN_L00_00250df8(void *);
+extern void FUN_L00_00263fd8(void *, int, void *, void *, int, int, float, void *, void *, void *);
+extern void FUN_L01_002787a0(void *);
+void mark_moby_for_removal_c(struct Obj *obj) __asm__("FUN_0020c828");
+extern char *mk_a(int) __asm__("FUN_0020c4f8");
+extern void upd_a(void *) __asm__("FUN_L00_00250df8");
+
+void FUN_L06_00309e08(char *self) {
+    int flag = 0;
+    char *o = FUN_L00_0025a420(self, 0x10000, 0);
+    switch (((unsigned char *)self)[0x20]) {
+    case 0:
+        self[0x20] = 1;
+        break;
+    case 1:
+        if (o != 0 && *(float *)(o + 0x2C) > 0.0f) {
+            flag = 1;
+        }
+        if (flag) {
+            self[0x20] = 2;
+        }
+        break;
+    case 2: {
+        char *m;
+        FUN_0022da68_c(0, 0, (int)self);
+        FUN_L01_002787a0(self);
+        FUN_L00_00263fd8(self, 0x67E, self + 0x10, self + 0x40, 0, 0, 0.0f, D_L06_0015F580,
+                         D_L06_0015F580, D_L06_0015F580);
+        FUN_L00_00263fd8(self, 0x67E, self + 0x10, self + 0x40, 0, 0, 0.0f, D_L06_0015F580,
+                         D_L06_0015F580, D_L06_0015F580);
+        m = mk_a(0x67D);
+        if (m != 0) {
+            m[0x31] = 1;
+            *(short *)(m + 0x32) = 0xFF;
+            qcopy(m + 0x10, self + 0x10);
+            qcopy(m + 0x40, self + 0x40);
+            *(long *)(m + 0x38) = *(long *)(self + 0x38);
+            upd_a(m);
+        }
+        mark_moby_for_removal_c(self);
+        break;
+    }
+    }
+}

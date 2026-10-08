@@ -1,5 +1,5 @@
 #include "types.h"
-#include "rnc/rendering_draw_tfrag_types.h"
+#include "rnc/rendering/draw_tfrag.h"
 
 struct Locals {
     u8 pad0[0x30];
@@ -15,7 +15,7 @@ extern u8 D_00160E80[];
 extern s32 D_00160EBC;
 extern s32 D_00160F00;
 extern u8 D_00187080[];
-extern struct M2c_D_0018A2B0 D_0018A2B0;
+extern struct Globals_0018A2B0 D_0018A2B0;
 extern u8 D_001E1300[];
 extern void FlushCache(s32);
 extern void WriteDmaChannel(u32, u32, u32);
@@ -24,9 +24,17 @@ extern void func_001F21B8(void *, s32);
 extern void FUN_001f9a68(void *, void *, f32);
 extern void FUN_001f9fc8(void *);
 extern void FUN_001fa378(void *, void *, void *);
-extern void func_002331C0(void);
+extern void dma_tfrag_textures(void) __asm__("func_002331C0");
 extern void func_00233FB0(void);
 void write_vif_unpack_packet(s32 addr, void *src, s32 qwc) __asm__("FUN_00233888");
+/* Draws the level terrain (tfrags). Each tfrag has a 0x40-byte header:
+ *   0x10  where its data starts
+ *   0x16, 0x18, 0x1a  where its data lists start (shared, lower detail, full detail)
+ *   0x1e  vertex colours: one RGBA colour per vertex, 0x80 means full brightness
+ *   0x3d  number of triangles at full detail
+ * Texture coordinates are 16-bit numbers that the hardware adds to 2048.0, so
+ * negative values come out at half size. The strips list how to join the
+ * vertices into triangles and when to switch to the next texture. */
 void draw_tfrag(void) __asm__("FUN_002333a8");
 
 void draw_tfrag(void) {
@@ -52,7 +60,7 @@ void draw_tfrag(void) {
         func_00233FB0();
     }
     func_001F21B8(D_00160E80, 2);
-    func_002331C0();
+    dma_tfrag_textures();
     if (D_0018A2B0.unk10 != 0) {
         WriteDmaChannel(D_001E1300, 0x3000, 0x40);
     }

@@ -1,18 +1,22 @@
 #include "types.h"
 #include "qcopy.h"
 
-struct DmaTag { u32 w0; u32 addr; u32 w2; u32 w3; };
-struct TagPtr { struct DmaTag *p; };
-struct ScreenOfs { u8 pad0[0x10]; s32 x; s32 y; };
+#include "rnc/rendering/dma_tag.h"
+struct ScreenOfs {
+    u8 pad0[0x10];
+    s32 x;
+    s32 y;
+};
 
 extern struct TagPtr D_00160F00;
 extern struct ScreenOfs D_0013E500;
 extern char D_00160840[];
 
-void draw_textured_quad(s32 x, s32 y, s32 w, s32 h, s32 u, s32 v, s32 uw, s32 vh, s64 color, s64 extra) __asm__("FUN_001f5450");
+void draw_textured_quad(s32 x, s32 y, s32 w, s32 h, s32 u, s32 v, s32 uw, s32 vh, s64 color,
+                        s64 extra) __asm__("FUN_001f5450");
 
-void draw_textured_quad(s32 x, s32 y, s32 w, s32 h, s32 u, s32 v, s32 uw, s32 vh, s64 color, s64 extra)
-{
+void draw_textured_quad(s32 x, s32 y, s32 w, s32 h, s32 u, s32 v, s32 uw, s32 vh, s64 color,
+                        s64 extra) {
     struct DmaTag *tag;
     u64 *q;
     s32 sx;
@@ -34,10 +38,10 @@ void draw_textured_quad(s32 x, s32 y, s32 w, s32 h, s32 u, s32 v, s32 uw, s32 vh
     u1 = (u + uw) << 4;
     u0 = u << 4;
     v1 = v + vh;
-    D_00160F00.p->w0 = 0x10000007;
+    D_00160F00.p->tag = 0x10000007;
     D_00160F00.p->addr = 0;
-    D_00160F00.p->w2 = 0;
-    D_00160F00.p->w3 = 0x50000007;
+    D_00160F00.p->vif0 = 0;
+    D_00160F00.p->vif1 = 0x50000007;
     tag = D_00160F00.p;
     D_00160F00.p = tag + 1;
     qcopy(tag + 1, D_00160840);

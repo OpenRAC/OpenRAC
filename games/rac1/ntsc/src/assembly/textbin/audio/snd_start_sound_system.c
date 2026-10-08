@@ -2,20 +2,21 @@
 #include "asm.h"
 
 #ifndef NON_MATCHING
-INCLUDE_ASM("config/us/expected/asm/assembly/textbin/audio/snd_start_sound_system/FUN_0012da28.s", FUN_0012da28);
+INCLUDE_ASM("config/us/expected/asm/assembly/textbin/audio/snd_start_sound_system/FUN_0012da28.s",
+            FUN_0012da28);
 #else
 #include "types.h"
 #include "sda.h"
 
 struct SifClientDataStartSound {
     u8 pad_0[0x24];
-    void *server;
+    void *volatile server;
 };
 
 struct StartSoundWork {
-    s32 read_active;
+    volatile s32 read_active;
     u8 pad_4[0xC];
-    s32 read_error;
+    volatile s32 read_error;
 };
 
 extern u8 D_00133280[];
@@ -38,7 +39,6 @@ extern s32 D_0015ECC8 __attribute__((sda));
 extern s32 D_0015ECD0 __attribute__((sda));
 extern s64 D_0015ECD8 MACRO_ADDR;
 extern s32 D_0015ED00 MACRO_ADDR;
-
 
 extern void sceSifInitRpc(u32);
 extern s32 sceSifBindRpc(struct SifClientDataStartSound *, u32, s32);
@@ -79,7 +79,7 @@ s32 snd_start_sound_system(void) {
     D_0015ECD8 = 0;
     D_0015ED00 = 0;
 
-    for (;;) {
+    do {
         bind_result = sceSifBindRpc(&sound_stream_client, 0x123457, 0);
         if (bind_result < 0) {
             printf((const char *)D_00153C50, D_00153C78, 0x88);
@@ -89,18 +89,15 @@ s32 snd_start_sound_system(void) {
         command_arg = 10000;
         for (command_arg--; command_arg != -1; command_arg--) {
         }
-        if (sound_stream_client.server != NULL) {
-            break;
-        }
-    }
+    } while (sound_stream_client.server == NULL);
 
     *(s32 *)D_00133280 = 0;
-    *(s32 *)D_00134280 = 0;
     sound_read_work.read_active = 0;
+    *(s32 *)D_00134280 = 0;
     sound_read_work.read_error = 0;
     D_0015ECA8 = 0xFFC;
     D_0015ECAC = 0xFFC;
-    command_arg = (s32)(u32)&sound_read_work;
+    command_arg = (s32)(u32)&sound_read_work.read_active;
     return snd_send_iop_command_and_wait(0, 4, &command_arg);
 }
 #endif /* NON_MATCHING */

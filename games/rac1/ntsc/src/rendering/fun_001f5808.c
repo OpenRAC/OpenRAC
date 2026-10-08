@@ -1,15 +1,13 @@
 #include "types.h"
 #include "qcopy.h"
 
-struct DmaTag { u32 w0; u32 addr; u32 w2; u32 w3; };
-struct TagPtr { struct DmaTag *p; };
+#include "rnc/rendering/dma_tag.h"
 extern struct TagPtr D_00160F00;
 extern s32 D_0013E500[];
 extern char D_00160860[];
 extern s32 truncate_float_to_s32(f32) __asm__("FUN_001fa6d0");
 
-void FUN_001f5808(f32 x, f32 y, f32 w, f32 h, s32 u, s32 v, s32 uw, s32 vh, u64 rgba, u64 tex)
-{
+void FUN_001f5808(f32 x, f32 y, f32 w, f32 h, s32 u, s32 v, s32 uw, s32 vh, u64 rgba, u64 tex) {
     s32 x0 = truncate_float_to_s32(x * 16.0f) + D_0013E500[4] - 8;
     s32 x1 = truncate_float_to_s32((x + w) * 16.0f) + D_0013E500[4] - 8;
     s32 y0 = truncate_float_to_s32(y * 16.0f) + D_0013E500[5] - 8;
@@ -24,10 +22,10 @@ void FUN_001f5808(f32 x, f32 y, f32 w, f32 h, s32 u, s32 v, s32 uw, s32 vh, u64 
     if (x0 > 0x9000 || x1 < 0x7000 || y0 > 0x9000 || y1 < 0x7000) {
         return;
     }
-    D_00160F00.p->w0 = 0x10000008;
+    D_00160F00.p->tag = 0x10000008;
     D_00160F00.p->addr = 0;
-    D_00160F00.p->w2 = 0;
-    D_00160F00.p->w3 = 0x50000008;
+    D_00160F00.p->vif0 = 0;
+    D_00160F00.p->vif1 = 0x50000008;
     ub = u + uw;
     vb = v + vh;
     s0 = u * 16;

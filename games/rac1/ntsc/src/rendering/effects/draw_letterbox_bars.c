@@ -1,9 +1,11 @@
-/* Ported from rac1-decomp, the PAL decompilation (src/game/draw.c, func_001F5148). */
+/* Ported from rac1-decomp (src/game/draw.c, func_001F5148). */
 
 #include "sda.h"
 #include "qcopy.h"
 
-struct PacketCursor { int *p; };
+struct PacketCursor {
+    int *p;
+};
 extern struct PacketCursor D_00160F00_s __asm__("D_00160F00") MACRO_ADDR;
 #define D_00160F00 (D_00160F00_s.p)
 extern int D_0013E500[];

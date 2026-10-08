@@ -1,11 +1,11 @@
 #include "types.h"
-struct M2c_D_00158400 {
+struct sceSifClientData {
     u8 pad_0[0x24];
     s32 unk24;
 };
 extern s32 D_0012FCB0[];
 extern u8 D_00158200[];
-extern struct M2c_D_00158400 D_00158400;
+extern struct sceSifClientData D_00158400;
 extern u8 D_00158428[];
 extern s32 sceSifBindRpc();
 extern s32 sceSifCallRpc();
@@ -14,7 +14,7 @@ s32 _lf_bind(void) {
     s32 i;
 
     if (D_0012FCB0[0] < 0) {
-loop_2:
+    loop_2:
         if (sceSifBindRpc(&D_00158400, 0x80000006, 0) < 0) {
             return -1;
         }

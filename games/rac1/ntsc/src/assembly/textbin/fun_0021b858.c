@@ -119,10 +119,11 @@ s32 update_menu_grid_selection(MenuGrid *grid) {
     column = column_index;
 
     /* Process every pressed direction in order; a page change can also adjust
-       column before the following direction checks. */
+       column before the following direction checks. Retail's UP-clear branch
+       reaches a redundant controller address calculation before DOWN. */
     if (controller_state.pressed_buttons & 0x1000) {
         if (row != 0) {
-            grid->cursor = cursor - column_count;
+            grid->cursor -= column_count;
         } else if (grid->up != NULL) {
             next = grid;
             do {
@@ -149,7 +150,8 @@ s32 update_menu_grid_selection(MenuGrid *grid) {
                     column = 0;
                 }
             }
-            next->cursor = (next_rows - 1) * next_columns + (column < next_columns - 1 ? column : next_columns - 1);
+            next->cursor = (next_rows - 1) * next_columns +
+                           (column < next_columns - 1 ? column : next_columns - 1);
         } else if (!(grid->flags & 0x8000)) {
             grid->cursor = column_count * (row_count - 1) + cursor;
         }

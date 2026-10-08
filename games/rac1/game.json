@@ -168,14 +168,14 @@
       "target": "The boot executable SCUS_971.99 and the 19 level programs, as per-function units.",
       "source": {
         "name": "Lombyte",
-        "repo": "https://github.com/mateuszklysz/Lombyte",
+        "repo": "https://github.com/lombyte-project/Lombyte",
         "branch": "main",
         "checkout": "~/Projects/rac1-decomp-ntsc",
         "license": "MIT (GPL-2.0 and newlib parts)",
         "exclude": [],
-        "commit": "e1db4cd6b48282a75420f3e69ac7f2cb699523eb",
-        "date": "2026-10-05",
-        "imported": "2026-10-04"
+        "commit": "5ccfa1fb314e9cb43f6ff9a43249523e1c4a5310",
+        "date": "2026-10-07",
+        "imported": "2026-10-07"
       },
       "build": {
         "host": "Linux or WSL; macOS through ./setup.sh --docker; toolchains downloaded and built by setup.sh",

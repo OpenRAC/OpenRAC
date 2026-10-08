@@ -63,10 +63,11 @@ void append_fullscreen_clear_strips(s64 color) {
     dimensions = &fs_aa_buffer;
     display_width = dimensions->display_width;
     display_height = dimensions->display_height;
+    /* Retail truncates signed display width toward zero before packing strips. */
     dividend = (display_width > -1) ? display_width : (display_width + 0x1F);
     strip_count = dividend >> 5;
     render_packet_cursor[0]->dma_control = (strip_count + 5) | 0x10000000;
-    render_packet_cursor[0]->address = 0;
+    ((s32 *)render_packet_cursor[0])[1] = 0;
     render_packet_cursor[0]->vif_command = 0;
     render_packet_cursor[0]->gif_control = (strip_count + 5) | 0x50000000;
     base = render_packet_cursor[0];
@@ -91,20 +92,19 @@ void append_fullscreen_clear_strips(s64 color) {
         left_x = negative_half_width + 0x8000;
         right_x = negative_half_width + 0x8200;
         packed_bottom_y = (s64)bottom_y << 16;
-        strip_index = 0;
         vertices = (struct StripVertices *)((u8 *)base + 0x60);
+        strip_index = 0;
         do {
             first_vertex = (s64)left_x | packed_top_y;
             second_vertex = (s64)right_x | packed_bottom_y;
             vertices->first = first_vertex;
             strip_index += 1;
             right_x += 0x200;
-            vertices->second = second_vertex;
+            (++vertices)[-1].second = second_vertex;
             left_x += 0x200;
-            vertices++;
         } while (strip_index < strip_count);
     }
-    packet_cursor = (struct ClearStripPacket *)((u8 *)render_packet_cursor[0] + strip_count * 0x10 + 0x50);
+    packet_cursor = (struct ClearStripPacket *)((u8 *)base + strip_count * 0x10 + 0x60);
     render_packet_cursor[0] = packet_cursor;
     packet_cursor->dma_control = 0x10000000;
     render_packet_cursor[0]->address = 0;
@@ -112,6 +112,7 @@ void append_fullscreen_clear_strips(s64 color) {
     render_packet_cursor[0]->gif_control = 0;
     render_packet_cursor[0] = (struct ClearStripPacket *)((u8 *)render_packet_cursor[0] + 0x10);
 }
-extern __typeof__(append_fullscreen_clear_strips) func_00227378 __attribute__((alias("FUN_00227378")));
+extern __typeof__(append_fullscreen_clear_strips) func_00227378
+    __attribute__((alias("FUN_00227378")));
 
 #endif /* NON_MATCHING */

@@ -7,8 +7,15 @@ INCLUDE_ASM("config/us/expected/asm/assembly/textbin/fun_0021e230/FUN_0021e230.s
 #include "types.h"
 #include "qcopy.h"
 
-struct PreviewMobyResource { u8 pad0[0xC]; u8 animation_count; };
-struct ItemPreviewVars { void *owner; u8 pad4[8]; s32 item_index; };
+struct PreviewMobyResource {
+    u8 pad0[0xC];
+    u8 animation_count;
+};
+struct ItemPreviewVars {
+    void *owner;
+    u8 pad4[8];
+    s32 item_index;
+};
 struct ItemPreviewMoby {
     u8 pad0[0x10];
     f32 x;
@@ -39,10 +46,32 @@ struct ItemPreviewBinding {
     struct ItemPreviewMoby *primary_moby;
     struct ItemPreviewMoby *secondary_moby;
 };
-struct PreviewItemDefinition { u8 pad0[8]; s32 item_type; u8 padC[4]; s32 oclass; u8 pad14[0x38]; };
-struct ItemPreviewPlacement { f32 alternate_x; f32 normal_x; f32 y; f32 z; f32 rotation_x; f32 rotation_y; u8 pad18[8]; };
-struct PreviewItemSelection { u8 pad0[0x3C]; s32 index; u8 pad40[8]; u8 *table; };
-struct PreviewMenuGame { u8 pad0[0x40]; struct PreviewItemSelection *selection; };
+struct PreviewItemDefinition {
+    u8 pad0[8];
+    s32 item_type;
+    u8 padC[4];
+    s32 oclass;
+    u8 pad14[0x38];
+};
+struct ItemPreviewPlacement {
+    f32 alternate_x;
+    f32 normal_x;
+    f32 y;
+    f32 z;
+    f32 rotation_x;
+    f32 rotation_y;
+    u8 pad18[8];
+};
+struct PreviewItemSelection {
+    u8 pad0[0x3C];
+    s32 index;
+    u8 pad40[8];
+    u8 *table;
+};
+struct PreviewMenuGame {
+    u8 pad0[0x40];
+    struct PreviewItemSelection *selection;
+};
 struct ItemPreviewMenuState {
     u8 pad0[4];
     struct PreviewMenuGame *game;
@@ -54,8 +83,16 @@ struct ItemPreviewMenuState {
     s32 last_requested_class;
     s32 last_resource_request_state;
 };
-struct PreviewCamera { u8 pad0[0x140]; f32 x; f32 y; f32 z; };
-struct PreviewClassResource { u8 pad0[0xD]; u8 state_0d; };
+struct PreviewCamera {
+    u8 pad0[0x140];
+    f32 x;
+    f32 y;
+    f32 z;
+};
+struct PreviewClassResource {
+    u8 pad0[0xD];
+    u8 state_0d;
+};
 
 extern struct ItemPreviewMenuState preview_menu_state __asm__("D_001D5BF0");
 extern struct PreviewItemDefinition preview_item_definitions[] __asm__("D_001863D0");
@@ -97,8 +134,8 @@ s32 update_item_preview_binding(struct ItemPreviewBinding *preview) {
     struct ItemPreviewVars *preview_vars;
     s32 is_type1;
     s32 item_two_difference;
-    f32 offset;
     f32 camera_x;
+    volatile f32 *camera_position;
 
     selection = preview_menu_state.game->selection;
     item_index = *(s16 *)(selection->table + selection->index * 10 + 6);
@@ -139,7 +176,8 @@ s32 update_item_preview_binding(struct ItemPreviewBinding *preview) {
             break;
         }
         if (load_class) {
-            if (active_preview_resource_class[0] != 0 && oclass != active_preview_resource_class[0]) {
+            if (active_preview_resource_class[0] != 0 &&
+                oclass != active_preview_resource_class[0]) {
                 func_001E9470(0, 0);
             }
             if (oclass != preview_menu_state.active_class) {
@@ -163,14 +201,15 @@ s32 update_item_preview_binding(struct ItemPreviewBinding *preview) {
             }
             preview->primary_moby = moby;
             moby->flags = 0;
-            camera_x = preview_camera.x;
+            camera_position = &preview_camera.x;
+            camera_x = *(f32 *)((u8 *)&preview_camera + 0x140);
             if (use_alternate_x) {
                 moby->x = camera_x + preview_placements[item_index].alternate_x;
             } else {
                 moby->x = camera_x + preview_placements[item_index].normal_x;
             }
-            moby->y = preview_camera.y + preview_placements[item_index].y;
-            moby->z = preview_camera.z + preview_placements[item_index].z;
+            moby->y = ((volatile struct PreviewCamera *)&preview_camera)->y + preview_placements[item_index].y;
+            moby->z = camera_position[2] + preview_placements[item_index].z;
             moby->rotation_x = preview_placements[item_index].rotation_x;
             moby->rotation_y = preview_placements[item_index].rotation_y;
             moby->rotation_z = 3.1415927f;
@@ -196,7 +235,11 @@ s32 update_item_preview_binding(struct ItemPreviewBinding *preview) {
                 preview_vars = moby->preview_vars;
                 preview_vars->item_index = item_index;
                 preview_vars->owner = preview;
-                set_moby_animation(moby, (animation_index < moby->resource->animation_count - 1) ? animation_index : moby->resource->animation_count - 1, 0);
+                set_moby_animation(moby,
+                                   (animation_index < moby->resource->animation_count - 1)
+                                       ? animation_index
+                                       : moby->resource->animation_count - 1,
+                                   0);
             }
         }
         preview->state = 3;

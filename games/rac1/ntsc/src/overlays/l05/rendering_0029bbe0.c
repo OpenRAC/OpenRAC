@@ -10,7 +10,7 @@ INCLUDE_ASM("config/us/overlays/asm/FUN_L05_0029bbe0.s", FUN_L05_0029bbe0);
 #include "qcopy.h"
 
 /* spawn a particle at a position with a velocity and random parameters */
-/* Ported from rac1-decomp (PAL, src/overlays/l05_rilgar/partupd_0029CA28.c: func_L05_0029CCB8), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/l05_rilgar/partupd_0029CA28.c: func_L05_0029CCB8), where it is exact; names translated to the US level program. */
 
 extern float random_float_between_alt_q(float, float) __asm__("FUN_002132a8");
 extern s32 scale_game_frames_q(s32) __asm__("func_001F96F8");
@@ -19,7 +19,8 @@ extern unsigned char *D_L05_001B25C8_q __asm__("D_L05_001B25C8") __attribute__((
 extern unsigned char *FUN_L00_002678b8_q(int) __asm__("FUN_L00_002678b8");
 extern int func_001FA898_r_q(float) __asm__("FUN_001fa6d0");
 
-unsigned char *FUN_L05_0029be70(void *pos, void *vel, int arg2, int arg3, float a, float b, float c) {
+unsigned char *FUN_L05_0029be70(void *pos, void *vel, int arg2, int arg3, float a, float b,
+                                float c) {
     unsigned char *p = FUN_L00_002678b8_q(0x32);
     unsigned char *q;
     if (p != 0) {

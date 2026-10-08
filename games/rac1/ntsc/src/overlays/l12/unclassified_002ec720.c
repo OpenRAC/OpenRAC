@@ -3,19 +3,90 @@
 #include "asm.h"
 
 INCLUDE_ASM("config/us/overlays/asm/FUN_L12_002ec720.s", FUN_L12_002ec720);
-INCLUDE_ASM("config/us/overlays/asm/FUN_L12_002ecac0.s", FUN_L12_002ecac0);
+
 #define NOT_SDA
 
 #define MACRO_ADDR
 
 #include "qcopy.h"
 
-/* Ported from rac1-decomp (PAL, src/overlays/l12_hoven/vendor_002EDAA0.c: func_L12_002EE068), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/l12_hoven/vendor_002EDAA0.c: func_L12_002EDE40), where it is exact; names translated to the US level program. */
+
+typedef struct {
+    float v[16];
+    int c[4];
+    float uv[8];
+    long g[4];
+} Quad;
+
+extern char D_L12_001F5B20[];
+extern float fast_cos(float);
+extern float fast_sin(float);
+extern int FUN_001fa6e0(int, int, float);
+extern int get_effect_texture(int) __asm__("FUN_001f44b8");
+extern short D_L12_00161A10 __attribute__((sda));
+extern short D_L12_00161A14 __attribute__((sda));
+extern short D_L12_00161A0C __attribute__((sda));
+extern short D_L12_00161A18 __attribute__((sda));
+extern short D_L12_00161A1C __attribute__((sda));
+extern short D_L12_00161A20 __attribute__((sda));
+extern short D_L12_00161A24 __attribute__((sda));
+extern void FUN_001fa298(void *, void *);
+extern void draw_geometry_quad(void *, void *, int);
+
+void FUN_L12_002ecac0(char *moby) {
+    char *data = *(char **)(moby + 0x78);
+    Quad q;
+    float m[12];
+    float pos[4];
+    float a, b;
+    int i, col;
+    FUN_001fa298(m, moby + 0xC0);
+    qcopy(pos, moby + 0x10);
+    pos[2] = pos[2] + *(float *)(data + 8);
+    pos[3] = 1.0f;
+    q.g[1] = get_effect_texture(0x10);
+    q.g[0] = 0;
+    q.g[2] = 0xFF9000000260UL;
+    q.g[3] = (long)*(int *)&D_L12_00161A0C | ((long)*(int *)&D_L12_00161A10 << 2) |
+             ((long)*(int *)&D_L12_00161A14 << 4) | ((long)*(int *)&D_L12_00161A18 << 6) |
+             (0x8000L << 24);
+    col = FUN_001fa6e0(*(int *)&D_L12_00161A1C, *(int *)&D_L12_00161A20,
+                       (fast_sin(*(float *)data) + 1.0f) * 0.5f);
+    for (i = 0; i < 4; i++) {
+        q.uv[i * 2] = 0.5f;
+        *(&q.uv[i * 2] + 1) = 0.5f;
+        q.c[i] = col;
+        qcopy(&q.v[i * 4], D_L12_001F5B20 + i * 16);
+    }
+    for (a = -0.4f; a < 0.36f; a += 0.1f) {
+        b = a + 0.1f;
+        q.v[9] = a;
+        q.v[1] = a;
+        q.v[13] = b;
+        q.v[5] = b;
+        if (moby[0xBC] & 1) {
+            q.v[2] = -fast_cos(a * *(float *)&D_L12_00161A24) + 2.0f;
+            q.v[6] = -fast_cos(b * *(float *)&D_L12_00161A24) + 2.0f;
+        } else {
+            q.v[2] = fast_cos(a * *(float *)&D_L12_00161A24);
+            q.v[6] = fast_cos(b * *(float *)&D_L12_00161A24);
+        }
+        draw_geometry_quad(&q, m, 0);
+    }
+}
+#define NOT_SDA
+
+#define MACRO_ADDR
+
+#include "qcopy.h"
+
+/* Ported from rac1-decomp (src/overlays/l12_hoven/vendor_002EDAA0.c: func_L12_002EE068), where it is exact; names translated to the US level program. */
 
 extern char *func_0020D348_m(int);
 extern float FUN_001f9b20(void *);
 extern float FUN_001f9e90(float, float);
-extern int FUN_001f96f8(int);
+extern int scale_game_frames(int) __asm__("FUN_001f96f8");
 extern void FUN_L00_00250df8(void *);
 
 char *FUN_L12_002ecce8(char *src, char *pos, int owner, int seed, float f0, float f1, float f2) {
@@ -32,7 +103,7 @@ char *FUN_L12_002ecce8(char *src, char *pos, int owner, int seed, float f0, floa
         qcopy(data, src);
         *(float *)(moby + 0x48) = FUN_001f9e90(*(float *)data, *(float *)(data + 4));
         *(float *)(moby + 0x44) = -FUN_001f9e90(FUN_001f9b20(data), *(float *)(data + 8));
-        r = FUN_001f96f8(seed);
+        r = scale_game_frames(seed);
         *(int *)(data + 0x10) = owner;
         *(float *)(data + 0x18) = f2;
         *(float *)(data + 0x1C) = f0;
@@ -44,4 +115,91 @@ char *FUN_L12_002ecce8(char *src, char *pos, int owner, int seed, float f0, floa
     return moby;
 }
 INCLUDE_ASM("config/us/overlays/asm/FUN_L12_002ece00.s", FUN_L12_002ece00);
-INCLUDE_ASM("config/us/overlays/asm/FUN_L12_002ed280.s", FUN_L12_002ed280);
+/* Hoven challenge tracker: unlocks the area once, records the time and run flags for two skill points and
+ * awards them (one for staying airborne long enough). */
+/* Ported from rac1-decomp (src/overlays/l12_hoven/vendor_002EDAA0.c: func_L12_002EE600), where it is exact; names translated to the US level program. */
+
+extern char D_00141968[];
+extern int D_0015ED84; /* no foreign declaration */
+extern int D_0015EEA4;
+extern int D_0015ED84;
+extern int D_0013CAE0[];
+extern unsigned char D_0013D408_b[] __asm__("D_0013D408");
+extern char D_00141968_h[] __asm__("D_00141968");
+extern char D_0013F350_q[] __asm__("D_0013F350");
+extern int FUN_L01_0026e008(int, int);
+extern int is_point_inside_clip_volume(void *arg0, int arg1) __asm__("func_00214720");
+extern s32 scale_game_frames_c(s32) __asm__("func_001F96F8");
+extern void FUN_L00_00203908(int, int);
+extern void FUN_L00_00263d40(int, int);
+extern void allocate_voice_for_bank_entry_alt(int, int, int) __asm__("FUN_0022db10");
+extern unsigned char D_0013D50F_e[] __asm__("D_0013D408");
+
+void FUN_L12_002ed280(char *m) {
+    int *d = *(int **)(m + 0x78);
+    if (FUN_L01_0026e008(d[3], -1) == 0) {
+        unsigned char *s = D_0013D50F_e;
+        if (s[0x14] == 0) {
+            s[0x14] = 1;
+            allocate_voice_for_bank_entry_alt(1, 0, 0);
+            FUN_L00_00263d40(0x53D6, -1);
+        }
+    }
+    {
+        char *h = D_00141968_h;
+        if (*(unsigned short *)(h + 0x368) == 0) {
+            char *q = D_0013F350_q;
+            if (*(int *)(q + 0x2084) == 0x81) {
+                *(unsigned short *)(h + 0x368) = *(unsigned short *)(h + 0x368) + 1;
+            }
+            if (scale_game_frames_c(D_0015EEA4) / 600 > *(unsigned short *)(h + 0x36A)) {
+                *(unsigned short *)(h + 0x36A) = scale_game_frames_c(D_0015EEA4) / 600;
+            }
+            *(unsigned int *)(h + 0x36C) = *(unsigned int *)(h + 0x36C) | (1 << D_0015ED84) | 0x80000000;
+            if (is_point_inside_clip_volume(q + 0x80, d[0])) {
+                FUN_L00_00203908(0x2EE3, 0x6D);
+            }
+        }
+    }
+    {
+        char *h = D_00141968_h;
+        if (*(unsigned short *)(h + 0x370) == 0
+            || (*(unsigned short *)(h + 0x370) < 2
+                && scale_game_frames_c(D_0015EEA4) - *(unsigned short *)(h + 0x372) * 600 > scale_game_frames_c(72000))) {
+            char *q = D_0013F350_q;
+            if (*(int *)(q + 0x2084) == 0x81) {
+                d[1]++;
+                if ((D_0013CAE0[0] & 3) && 0.3f < *(float *)(q + 0x229C)) {
+                    d[2]++;
+                } else {
+                    d[2] = 0;
+                }
+                if (scale_game_frames_c(0x28) < d[2]) {
+                    char *g = D_00141968_h;
+                    d[1] = 0;
+                    if (*(unsigned short *)(g + 0x370) <= 0xFFFE) {
+                        *(unsigned short *)(g + 0x370) = *(unsigned short *)(g + 0x370) + 1;
+                    }
+                    if (scale_game_frames_c(D_0015EEA4) / 600 > *(unsigned short *)(g + 0x372)) {
+                        *(unsigned short *)(g + 0x372) = scale_game_frames_c(D_0015EEA4) / 600;
+                    }
+                    *(unsigned int *)(g + 0x374) = *(unsigned int *)(g + 0x374) | (1 << D_0015ED84) | 0x80000000;
+                }
+                {
+                    int a = scale_game_frames_c(0x1C20);
+                    int b = scale_game_frames_c(0x708);
+                    char *k = D_00141968_h;
+                    if (*(unsigned short *)(k + 0x370) * a + b < d[1]) {
+                        FUN_L00_00203908(0x2EE4, 0x6E);
+                    }
+                }
+            }
+        }
+    }
+    if (D_0013D408_b[0xBC] != 0) {
+        char *k = D_00141968_h;
+        if (*(unsigned short *)(k + 0x1F0) == 0) {
+            FUN_L00_00203908(0x2EE0, 0x3E);
+        }
+    }
+}

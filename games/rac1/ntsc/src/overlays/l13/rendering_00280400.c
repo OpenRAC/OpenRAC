@@ -7,7 +7,7 @@
 #include "qcopy.h"
 
 /* Allocates and fills a particle-process record attached to a moby. */
-/* Ported from rac1-decomp (PAL, src/overlays/l13_gemlik/partupd_002811B0.c: func_L13_002811B0), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/l13_gemlik/partupd_002811B0.c: func_L13_002811B0), where it is exact; names translated to the US level program. */
 
 extern s32 truncate_float_to_s32(f32) __asm__("FUN_001fa6d0");
 extern unsigned char *D_L13_001B2490_x __asm__("D_L13_001B2490") __attribute__((section(".data")));
@@ -15,7 +15,8 @@ extern unsigned char *FUN_L00_002678b8(int);
 extern void FUN_L00_0024f7c8(void *, int, void *);
 extern int func_001FA898_r(float) __asm__("FUN_001fa6d0");
 
-unsigned char *FUN_L13_00280400(char *moby, unsigned char a, int b, int c, unsigned char d, float x, float y, float z) {
+unsigned char *FUN_L13_00280400(char *moby, unsigned char a, int b, int c, unsigned char d, float x,
+                                float y, float z) {
     unsigned char *e = FUN_L00_002678b8(0x44);
     if (e != 0) {
         char *p;

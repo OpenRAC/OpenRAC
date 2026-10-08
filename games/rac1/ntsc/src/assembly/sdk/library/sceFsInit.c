@@ -49,25 +49,24 @@ extern s32 _sceFsIobSemaMK();
 extern s32 sceSifAddCmdHandler();
 extern s32 sceSifBindRpc();
 extern s32 sceSifCallRpc();
-extern s32 sceSifInitRpc();
+extern void sceSifInitRpc(u32 mode);
 extern void _sceFs_Rcv_Intr();
 
 s32 sceFsInit(void) {
     s32 irq_state;
     s32 countdown;
-    struct FsRequest *init_request;
     struct FsRequest *rpc_command;
     struct FsSemaSlot *sema_slot;
     u8 *sema_end;
+    s32 *init_request = &D_00158000[0].field4;
     struct FsWord4 response_word;
 
-    init_request = &D_00158000[0];
     sceSifInitRpc(0);
-    init_request->field0 = 0;
-    init_request->field4 = 0;
+    D_00158000[0].field0 = 0;
+    *init_request = 0;
     irq_state = DIntr();
     sceSifAddCmdHandler(0x80000011, &_sceFs_Rcv_Intr, D_00157FC0);
-    sceSifAddCmdHandler(0x80000013, D_0011B980, init_request);
+    sceSifAddCmdHandler(0x80000013, D_0011B980, D_00158000);
 
     if (irq_state != 0) {
         EnableInterrupts();
@@ -99,8 +98,7 @@ s32 sceFsInit(void) {
     rpc_command = &D_00156840[0];
     rpc_command->field0 = (s32)&D_00157500[0];
     rpc_command->field4 = (s32)&D_00157500[0x440];
-    if (sceSifCallRpc(&D_00157F80, 0xFF, 0, rpc_command, 8,
-                      (s32)D_001574C0, 8, 0, 0) < 0) {
+    if (sceSifCallRpc(&D_00157F80, 0xFF, 0, rpc_command, 8, (s32)D_001574C0, 8, 0, 0) < 0) {
         return 0xFFFEFFFF;
     }
 

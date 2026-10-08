@@ -1,10 +1,10 @@
 #include "types.h"
 
-extern void FUN_00206860(u8 *arg0, s32 arg1, s32 arg2, s16 *arg3);
+extern void decode_map_rle_row(u8 *dst, s32 arg1, s32 arg2, s16 *arg3) __asm__("FUN_00206860");
 
-void decode_map_mask(u8 *arg0, s32 arg1, s16 *arg2) __asm__("FUN_00206710");
+void decode_map_mask(u8 *dst, s32 arg1, s16 *arg2) __asm__("FUN_00206710");
 
-void decode_map_mask(u8 *arg0, s32 arg1, s16 *arg2) {
+void decode_map_mask(u8 *dst, s32 arg1, s16 *arg2) {
     s32 s;
     s32 i;
     s32 col;
@@ -16,9 +16,9 @@ void decode_map_mask(u8 *arg0, s32 arg1, s16 *arg2) {
 
     src = (u8 *)0x70000000;
     for (i = 0; i < 0x100; i++) {
-        FUN_00206860((u8 *)0x70000000, i, arg1, arg2);
+        decode_map_rle_row((u8 *)0x70000000, i, arg1, arg2);
         s = i % 0x10;
-        p = arg0 + ((s + ((i / 0x10) * 0x200)) * 4);
+        p = dst + ((s + ((i / 0x10) * 0x200)) * 4);
         for (col = 0; col < 0x20; col++) {
             acc = 0;
             for (k = 0; k < 0x20; k++) {

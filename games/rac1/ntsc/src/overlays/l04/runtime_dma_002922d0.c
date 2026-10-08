@@ -8,7 +8,7 @@
 
 #include "qcopy.h"
 
-/* Ported from rac1-decomp (PAL, src/overlays/l04_eudora/vuchain_00293490.c: func_L04_00293490), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/l04_eudora/vuchain_00293490.c: func_L04_00293490), where it is exact; names translated to the US level program. */
 
 extern float D_L04_00173FE8_d __asm__("D_L04_00173FE8") __attribute__((section(".data")));
 extern int FUN_001efa68(void *, void *, int, int, int);
@@ -18,17 +18,19 @@ float FUN_L04_002922d0(float *pos) {
     float b[4];
     qcopy(a, pos);
     a[2] = a[2] - 2.5f;
-    if (a[2] < 0.1f) a[2] = 0.1f;
+    if (a[2] < 0.1f)
+        a[2] = 0.1f;
     qcopy(b, pos);
     b[2] = b[2] + 0.75f;
-    if (FUN_001efa68(b, a, 2, 0, 0) != 0) return D_L04_00173FE8_d;
+    if (FUN_001efa68(b, a, 2, 0, 0) != 0)
+        return D_L04_00173FE8_d;
     return 0.0f;
 }
 #define NOT_SDA
 
 #define MACRO_ADDR
 
-/* Ported from rac1-decomp (PAL, src/overlays/l04_eudora/vuchain_00293490.c: func_L04_00293530), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/l04_eudora/vuchain_00293490.c: func_L04_00293530), where it is exact; names translated to the US level program. */
 
 void FUN_L04_00292370(void *unused, char *arg) {
     *(float *)(arg + 0x10C) = -0.19634955f;
@@ -37,7 +39,7 @@ void FUN_L04_00292370(void *unused, char *arg) {
     *(float *)(arg + 0x1C0) = 0.19634955f;
 }
 INCLUDE_ASM("config/us/overlays/asm/FUN_L04_002923b8.s", FUN_L04_002923b8);
-/* Ported from rac1-decomp (PAL, src/overlays/l04_eudora/vuchain_00293490.c: func_L04_00293990), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/l04_eudora/vuchain_00293490.c: func_L04_00293990), where it is exact; names translated to the US level program. */
 
 extern int FUN_L00_002a13f0(int *a, char *b);
 
@@ -47,13 +49,14 @@ int FUN_L04_002927d0(char *arg0, char *arg1) {
     int i;
     for (i = 12; i >= 0; i--) {
         int *e = *p++;
-        if (*e == (int)(unsigned char)arg0[0x52]) found = e;
+        if (*e == (int)(unsigned char)arg0[0x52])
+            found = e;
     }
-    if (found == 0) return (unsigned char)arg1[0xB6];
+    if (found == 0)
+        return (unsigned char)arg1[0xB6];
     return FUN_L00_002a13f0(found, arg1);
 }
 INCLUDE_ASM("config/us/overlays/asm/FUN_L04_00292828.s", FUN_L04_00292828);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L04_00292d48.s", FUN_L04_00292d48);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L04_00295778.s", FUN_L04_00295778);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L04_00295de8.s", FUN_L04_00295de8);
-

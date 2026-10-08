@@ -1,4 +1,4 @@
-/* Ported from rac1-decomp, the PAL decompilation (src/game/camera.c, func_001ECEA0). */
+/* Ported from rac1-decomp (src/game/camera.c, func_001ECEA0). */
 #include "sda.h"
 #include "qcopy.h"
 extern void FUN_001f9a10(void *, void *, void *);
@@ -7,7 +7,7 @@ extern char D_00187080[];
 extern char D_0018C318[];
 extern char D_00187290[];
 extern float D_0015ED60 MACRO_ADDR;
-extern float FUN_002133d0(float, float, float);
+extern float cosine_interpolate(float, float, float) __asm__("FUN_002133d0");
 extern void func_002144D8(void *, void *);
 extern void FUN_001fa400(void *, void *, void *, float);
 extern void FUN_001fa4f8(void *, void *);
@@ -19,11 +19,11 @@ extern void func_001FA2B8(void *, void *);
    (FUN_001fa400) into cam+0x50 and load it as the view matrix, then
    advance both blends by their rates times D_0015ED60, capped at 1.
    Returns 1 once both are complete. */
-int step_camera_blend(void *arg0, void *arg1) __asm__("FUN_001ecaf8");
+int step_camera_blend(void *to_blend, void *cam_blend) __asm__("FUN_001ecaf8");
 
-int step_camera_blend(void *arg0, void *arg1) {
-    float *to = arg0;
-    float *cam = arg1;
+int step_camera_blend(void *to_blend, void *cam_blend) {
+    float *to = to_blend;
+    float *cam = cam_blend;
     float m[4];
     float q[16];
     char *st;
@@ -33,7 +33,7 @@ int step_camera_blend(void *arg0, void *arg1) {
     if (cam[3] == 1.0f && cam[0] == 1.0f) {
         return 1;
     }
-    t = FUN_002133d0(0.0f, 1.0f, cam[3]);
+    t = cosine_interpolate(0.0f, 1.0f, cam[3]);
     FUN_001f9a10(cam + 12, D_0013F490, cam + 12);
     st = D_0018C318;
     cam[16] = cam[12] + (to[12] - cam[12]) * t;
@@ -44,7 +44,7 @@ int step_camera_blend(void *arg0, void *arg1) {
     }
     func_002144D8(m, to);
     rot = cam + 20;
-    t = FUN_002133d0(0.0f, 1.0f, cam[0]);
+    t = cosine_interpolate(0.0f, 1.0f, cam[0]);
     FUN_001fa400(rot, cam + 8, m, t);
     FUN_001fa4f8(rot, q);
     if (*(int *)(st + 0x14) == 0) {

@@ -1,0 +1,11 @@
+#ifndef LOMBYTE_RNC_GAMEPLAY_ENTITIES_FUN_0020CCA8_H
+#define LOMBYTE_RNC_GAMEPLAY_ENTITIES_FUN_0020CCA8_H
+
+#include "types.h"
+
+struct MobyView {
+    u8 pad_0[0x2C];
+    s32 unk2C;
+};
+
+#endif /* LOMBYTE_RNC_GAMEPLAY_ENTITIES_FUN_0020CCA8_H */

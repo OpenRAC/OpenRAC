@@ -1,11 +1,11 @@
-#include "rnc/sdk_library_cpr8_types.h"
+#include "rnc/sdk/library/cpr8.h"
 #include "types.h"
 
 extern s32 DIntr();
 extern s32 EnableInterrupts();
 
-void _cpr8(struct M2c_arg0 *arg0, struct M2c_arg1 *arg1) {
-    struct M2c_sp0 *sp0;
+void _cpr8(struct MpegDecoder *arg0, struct MpegCopyParams *arg1) {
+    struct MpegDecoderFrame *sp0;
     s32 sp4;
     s32 sp8;
     s32 temp_2_106;
@@ -20,7 +20,7 @@ void _cpr8(struct M2c_arg0 *arg0, struct M2c_arg1 *arg1) {
     s32 var_3_29;
     s32 var_5_64;
 
-    sp0 = (struct M2c_sp0 *)arg0;
+    sp0 = (struct MpegDecoderFrame *)arg0;
     var_18_22 = arg1->unk0 & 0x0FFFFFFF;
     sp8 = arg0->unkD8 & 0x0FFFFFFF;
     if (sp0->unk174 == 3) {
@@ -49,7 +49,7 @@ block_7:
     goto block_9;
 block_8:
     var_30_43 = (temp_4_27 >> 4) * 0xC0;
-    var_21_38 = ((s32) arg1->unk10 >> 1) * 0x180;
+    var_21_38 = ((s32)arg1->unk10 >> 1) * 0x180;
     sp4 = 2;
     var_20_40 = var_21_38 >> 4;
 block_9:

@@ -6,16 +6,7 @@ INCLUDE_ASM("config/us/expected/asm/assembly/textbin/fun_001f5ab0/FUN_001f5ab0.s
 #else
 #include "types.h"
 
-struct DmaTag {
-    u32 w0;
-    u32 addr;
-    u32 w2;
-    u32 w3;
-};
-
-struct TagPtr {
-    struct DmaTag *p;
-};
+#include "rnc/rendering/dma_tag.h"
 
 struct Vec4 {
     f32 x;
@@ -39,10 +30,15 @@ extern f32 fast_cos(f32) __asm__("func_001F9DC8");
 extern f32 fast_sin(f32) __asm__("func_001F9DE0");
 extern s32 convert_float_to_integer(f32) __asm__("func_001FA6D0");
 
-void append_rotated_sprite_quad(s32 texture_width, s32 texture_height, s64 texture_tex0, s64 z_and_fog, s32 color, u8 flip_u, u8 flip_v, f32 center_x, f32 center_y, f32 quad_width, f32 quad_height, f32 angle, f32 pivot_u, f32 pivot_v) __asm__("FUN_001f5ab0");
+void append_rotated_sprite_quad(s32 texture_width, s32 texture_height, s64 texture_tex0,
+                                s64 z_and_fog, s32 color, u8 flip_u, u8 flip_v, f32 center_x,
+                                f32 center_y, f32 quad_width, f32 quad_height, f32 angle,
+                                f32 pivot_u, f32 pivot_v) __asm__("FUN_001f5ab0");
 
-void append_rotated_sprite_quad(s32 texture_width, s32 texture_height, s64 texture_tex0, s64 z_and_fog, s32 color, u8 flip_u, u8 flip_v, f32 center_x, f32 center_y, f32 quad_width, f32 quad_height, f32 angle, f32 pivot_u, f32 pivot_v)
-{
+void append_rotated_sprite_quad(s32 texture_width, s32 texture_height, s64 texture_tex0,
+                                s64 z_and_fog, s32 color, u8 flip_u, u8 flip_v, f32 center_x,
+                                f32 center_y, f32 quad_width, f32 quad_height, f32 angle,
+                                f32 pivot_u, f32 pivot_v) {
     struct Vec4 vertical_edge;
     struct Vec4 horizontal_edge;
     struct Vec4 center;
@@ -76,12 +72,12 @@ void append_rotated_sprite_quad(s32 texture_width, s32 texture_height, s64 textu
     }
     center.x = center_x;
     center.y = center_y;
-    inverse_pivot_u = 1.0f - pivot_u;
     vertical_edge.x = quad_height * fast_sin(angle);
     inverse_pivot_v = 1.0f - pivot_v;
     vertical_edge.y = quad_height * fast_cos(angle);
     horizontal_edge.x = quad_width * fast_cos(angle);
     horizontal_edge.y = -quad_width * fast_sin(angle);
+    inverse_pivot_u = 1.0f - pivot_u;
     fast_vec_scale(&temporary, &vertical_edge, inverse_pivot_v);
     fast_vec_add(&top_left, &center, &temporary);
     fast_vec_scale(&temporary, &horizontal_edge, inverse_pivot_u);
@@ -98,10 +94,10 @@ void append_rotated_sprite_quad(s32 texture_width, s32 texture_height, s64 textu
     fast_vec_sub(&bottom_right, &center, &temporary);
     fast_vec_scale(&temporary, &horizontal_edge, pivot_u);
     fast_vec_add(&bottom_right, &bottom_right, &temporary);
-    render_packet_cursor.p->w0 = 0x10000007;
+    render_packet_cursor.p->tag = 0x10000007;
     render_packet_cursor.p->addr = 0;
-    render_packet_cursor.p->w2 = 0;
-    render_packet_cursor.p->w3 = 0x50000007;
+    render_packet_cursor.p->vif0 = 0;
+    render_packet_cursor.p->vif1 = 0x50000007;
     tag = render_packet_cursor.p;
     packet_words = (u64 *)(tag + 1);
     render_packet_cursor.p = tag + 1;
@@ -111,13 +107,25 @@ void append_rotated_sprite_quad(s32 texture_width, s32 texture_height, s64 textu
     packet_words[3] = 0x154;
     packet_words[4] = color;
     packet_words[5] = texture_left | texture_top;
-    packet_words[6] = (convert_float_to_integer(top_left.x * 16.0f) + screen_offsets.x - 8) | ((u64)(convert_float_to_integer(top_left.y * 16.0f) + screen_offsets.y - 8) << 16) | ((u64)z_and_fog << 32);
+    packet_words[6] =
+        (convert_float_to_integer(top_left.x * 16.0f) + screen_offsets.x - 8) |
+        ((u64)(convert_float_to_integer(top_left.y * 16.0f) + screen_offsets.y - 8) << 16) |
+        ((u64)z_and_fog << 32);
     packet_words[7] = texture_right | texture_top;
-    packet_words[8] = (convert_float_to_integer(top_right.x * 16.0f) + screen_offsets.x - 8) | ((u64)(convert_float_to_integer(top_right.y * 16.0f) + screen_offsets.y - 8) << 16) | ((u64)z_and_fog << 32);
+    packet_words[8] =
+        (convert_float_to_integer(top_right.x * 16.0f) + screen_offsets.x - 8) |
+        ((u64)(convert_float_to_integer(top_right.y * 16.0f) + screen_offsets.y - 8) << 16) |
+        ((u64)z_and_fog << 32);
     packet_words[9] = texture_left | texture_bottom;
-    packet_words[10] = (convert_float_to_integer(bottom_left.x * 16.0f) + screen_offsets.x - 8) | ((u64)(convert_float_to_integer(bottom_left.y * 16.0f) + screen_offsets.y - 8) << 16) | ((u64)z_and_fog << 32);
+    packet_words[10] =
+        (convert_float_to_integer(bottom_left.x * 16.0f) + screen_offsets.x - 8) |
+        ((u64)(convert_float_to_integer(bottom_left.y * 16.0f) + screen_offsets.y - 8) << 16) |
+        ((u64)z_and_fog << 32);
     packet_words[11] = texture_right | texture_bottom;
-    packet_words[12] = (convert_float_to_integer(bottom_right.x * 16.0f) + screen_offsets.x - 8) | ((u64)(convert_float_to_integer(bottom_right.y * 16.0f) + screen_offsets.y - 8) << 16) | ((u64)z_and_fog << 32);
+    packet_words[12] =
+        (convert_float_to_integer(bottom_right.x * 16.0f) + screen_offsets.x - 8) |
+        ((u64)(convert_float_to_integer(bottom_right.y * 16.0f) + screen_offsets.y - 8) << 16) |
+        ((u64)z_and_fog << 32);
     packet_words[13] = 0;
     render_packet_cursor.p = (struct DmaTag *)((u8 *)render_packet_cursor.p + 0x70);
 }

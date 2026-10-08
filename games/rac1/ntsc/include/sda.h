@@ -1,5 +1,5 @@
-#ifndef SDA_H
-#define SDA_H
+#ifndef LOMBYTE_SDA_H
+#define LOMBYTE_SDA_H
 
 /*
  * Small-data placement for externals, per declaration.
@@ -17,7 +17,7 @@
  *                         `lui $2,%hi(D)` / `lw $2,%lo(D)($2)` form. Loads only;
  *                         a store becomes a two-instruction $at macro.
  */
-#define NOT_SDA __attribute__((section(".data")))
+#define NOT_SDA    __attribute__((section(".data")))
 #define MACRO_ADDR __attribute__((section(".sdata")))
 
-#endif /* SDA_H */
+#endif /* LOMBYTE_SDA_H */

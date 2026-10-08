@@ -3,7 +3,7 @@
 #include "asm.h"
 #include "sda.h"
 
-/* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_00298BB8.c: func_L15_002CD118), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/shared/vendor_00298BB8.c: func_L15_002CD118), where it is exact; names translated to the US level program. */
 
 extern float fast_sin(float) __asm__("func_001F9DE0");
 extern f32 ConvertIntegerToFloat(s32) __asm__("func_001FA6C0");
@@ -25,12 +25,13 @@ void FUN_L15_002cbd88(void) {
     float v = *(float *)&D_L15_00161ABC_d + *(float *)&D_L15_00161AD0_d * s;
     int r;
     int k;
-    if (v < 0.0f) v = 0.0f;
+    if (v < 0.0f)
+        v = 0.0f;
     r = func_001FA898_r((float)D_L15_00161ACF[0] * v);
     k = *(int *)&D_L15_00161ACC_d;
     emit_rgba_draw_packet(k & 0xFF, k >= 9, k >= 17, r);
 }
-/* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_00298BB8.c: func_L15_002D7B60), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/shared/vendor_00298BB8.c: func_L15_002D7B60), where it is exact; names translated to the US level program. */
 
 typedef int u128 __attribute__((mode(TI)));
 
@@ -43,14 +44,17 @@ int FUN_L15_002d6770(void) {
     char *p;
     float vec[4];
     float h;
-    if (FUN_L00_0020d568() != 0) return 1;
+    if (FUN_L00_0020d568() != 0)
+        return 1;
     p = D_0013F350;
     if ((unsigned)(*(int *)(p + 0x2084) - 0x18) < 2) {
         *(u128 *)vec = *(u128 *)(p + 0x80);
         vec[2] = vec[2] + 2.0f;
         h = probe_ground_height(vec, 0, 0.5f);
-        if (FUN_001f0b58() != 0) return 0;
-        if (*(float *)(p + 0x88) <= h) return 1;
+        if (FUN_001f0b58() != 0)
+            return 0;
+        if (*(float *)(p + 0x88) <= h)
+            return 1;
     }
     return 0;
 }

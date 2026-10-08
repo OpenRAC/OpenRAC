@@ -1,5 +1,5 @@
-#ifndef QCOPY_H
-#define QCOPY_H
+#ifndef LOMBYTE_QCOPY_H
+#define LOMBYTE_QCOPY_H
 
 /*
  * Copies one 16-byte quadword from src to dst through $2, the way the
@@ -12,11 +12,10 @@
  *
  * This is the project's one inline-asm idiom, because the original had it.
  * Prefer a plain TImode copy (u128) wherever that reproduces retail.
- * Identified by rac1-decomp, the PAL decompilation (include/common.h).
+ * Identified by rac1-decomp (include/common.h).
  */
-static __inline__ void qcopy(void *dst, void *src)
-{
+static __inline__ void qcopy(void *dst, void *src) {
     __asm__ __volatile__("lq $2,0x0(%1)\n\tsq $2,0x0(%0)" : : "r"(dst), "r"(src) : "$2", "memory");
 }
 
-#endif /* QCOPY_H */
+#endif /* LOMBYTE_QCOPY_H */

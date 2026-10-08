@@ -9,7 +9,9 @@ INCLUDE_ASM("config/us/expected/asm/assembly/textbin/fun_00202270/FUN_00202270.s
 #include "eetypes.h"
 #include "sda.h"
 
-typedef struct { u128 data[6]; } sceGsLoadImage;
+typedef struct {
+    u128 data[6];
+} sceGsLoadImage;
 
 typedef struct {
     u8 pad0[8];
@@ -48,6 +50,7 @@ s32 upload_mip_texture(MipTextureHeader *tex, u64 *regs) {
     MipTextureUpload upload;
     sceGsLoadImage load_image;
     s32 mip_index;
+    s32 indexed_pixel_format;
     s32 allocation_bytes;
     s32 *buffer_width;
     u64 tex0_word;
@@ -55,7 +58,6 @@ s32 upload_mip_texture(MipTextureHeader *tex, u64 *regs) {
     u64 mip_word;
 
     FillTransferWords(&upload, 0, sizeof(upload));
-    buffer_width = upload.buffer_widths;
     switch (tex->pixel_storage_format) {
     default:
         break;
@@ -66,8 +68,9 @@ s32 upload_mip_texture(MipTextureHeader *tex, u64 *regs) {
         break;
     case 0x13:
     case 0x14:
+        indexed_pixel_format = ((volatile MipTextureHeader *)tex)->pixel_storage_format;
         upload.palette_address = (s32)tex->data;
-        if (tex->pixel_storage_format == 0x14) {
+        if (indexed_pixel_format == 0x14) {
             if (tex->palette_storage_format == 0) {
                 upload.palette_size = 0x40;
             } else {
@@ -103,10 +106,12 @@ s32 upload_mip_texture(MipTextureHeader *tex, u64 *regs) {
         upload.palette_block_offset = gs_texture_allocation_cursor >> 8;
         if (tex->pixel_storage_format == 0x14) {
             gs_texture_allocation_cursor += 0x100;
-            sceGsSetDefLoadImage(&load_image, upload.palette_block_offset, 1, tex->palette_storage_format, 0, 0, 8, 2);
+            sceGsSetDefLoadImage(&load_image, upload.palette_block_offset, 1,
+                                 tex->palette_storage_format, 0, 0, 8, 2);
         } else {
             gs_texture_allocation_cursor += upload.palette_size;
-            sceGsSetDefLoadImage(&load_image, upload.palette_block_offset, 1, tex->palette_storage_format, 0, 0, 16, 16);
+            sceGsSetDefLoadImage(&load_image, upload.palette_block_offset, 1,
+                                 tex->palette_storage_format, 0, 0, 16, 16);
         }
         FlushCache(0);
         sceGsExecLoadImage(&load_image, (u128 *)upload.palette_address);
@@ -114,25 +119,32 @@ s32 upload_mip_texture(MipTextureHeader *tex, u64 *regs) {
     }
     for (mip_index = 1; mip_index < tex->mip_level_count; mip_index++) {
         upload.mip_sizes[mip_index] = upload.mip_sizes[mip_index - 1] >> 2;
-        upload.mip_addresses[mip_index] = upload.mip_addresses[mip_index - 1] + upload.mip_sizes[mip_index - 1];
+        upload.mip_addresses[mip_index] =
+            upload.mip_addresses[mip_index - 1] + upload.mip_sizes[mip_index - 1];
     }
-    for (mip_index = 0; mip_index < tex->mip_level_count; mip_index++) {
-        *buffer_width = tex->width >> (mip_index + 6);
-        if (*buffer_width <= 0) {
-            *buffer_width = 1;
-        }
-        upload.texture_block_offsets[mip_index] = gs_texture_allocation_cursor >> 8;
-        sceGsSetDefLoadImage(&load_image, upload.texture_block_offsets[mip_index], *buffer_width, tex->pixel_storage_format, 0, 0, tex->width >> mip_index, tex->height >> mip_index);
-        buffer_width++;
-        FlushCache(0);
-        sceGsExecLoadImage(&load_image, (u128 *)upload.mip_addresses[mip_index]);
-        wait_for_graphics_pipeline_idle(0, 0);
-        allocation_bytes = upload.mip_sizes[0] >> (mip_index * 2);
-        if (allocation_bytes <= 0xFF) {
-            allocation_bytes = 0x100;
-        }
-        gs_texture_allocation_cursor += allocation_bytes;
-    }
+    mip_index = 0;
+    if (((volatile MipTextureHeader *)tex)->mip_level_count > 0)
+        do {
+            buffer_width = &upload.buffer_widths[mip_index];
+            *buffer_width = tex->width >> (mip_index + 6);
+            if (*buffer_width <= 0) {
+                *buffer_width = 1;
+            }
+            upload.texture_block_offsets[mip_index] = gs_texture_allocation_cursor >> 8;
+            sceGsSetDefLoadImage(&load_image, upload.texture_block_offsets[mip_index],
+                                 *buffer_width, tex->pixel_storage_format, 0, 0,
+                                 ((volatile MipTextureHeader *)tex)->width >> mip_index,
+                                 tex->height >> mip_index);
+            FlushCache(0);
+            sceGsExecLoadImage(&load_image, (u128 *)upload.mip_addresses[mip_index]);
+            wait_for_graphics_pipeline_idle(0, 0);
+            allocation_bytes = upload.mip_sizes[0] >> (mip_index * 2);
+            if (allocation_bytes <= 0xFF) {
+                allocation_bytes = 0x100;
+            }
+            gs_texture_allocation_cursor += allocation_bytes;
+            mip_index++;
+        } while (mip_index < tex->mip_level_count);
     tex0_word = upload.texture_block_offsets[0];
     tex0_word |= (u64)upload.buffer_widths[0] << 14;
     tex0_word |= (u64)tex->pixel_storage_format << 20;

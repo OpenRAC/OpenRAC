@@ -16,7 +16,7 @@ typedef struct {
     u8 pad28[0x10];
 } sceSifClientData;
 
-extern s32 D_001312D0[];   /* debug level */
+extern s32 D_001312D0[]; /* debug level */
 extern s32 D_001312E0[];
 extern s32 D_001312E4[];
 extern s32 D_001312E8[];
@@ -48,31 +48,34 @@ extern s32 sceSifCallRpc(sceSifClientData *cd, u32 fno, u32 mode, void *send, s3
 extern void sceSifInitRpc(u32 mode);
 extern void sceSifWriteBackDCache(void *addr, s32 size);
 
-int sceCdInit(int init_mode)
-{
+int sceCdInit(int init_mode) {
     int ret;
     int r;
     int i;
     int stat;
     int a;
     int b;
+    int owner;
+    int count;
     u8 *rbuf;
 
     if (sceCdSyncS(1) != 0) {
         return 0;
     }
     sceSifInitRpc(0);
-    D_00159750[0] = GetThreadId();
-    D_001312E4[0] = 1;
+    owner = GetThreadId();
+    count = *(volatile s32 *)D_00131310 + 1;
+    *(volatile s32 *)D_001312E4 = 1;
     D_001312FC[0] = -1;
     D_00131300[0] = -1;
     D_001312F8[0] = -1;
     D_00131308[0] = -1;
     D_00131304[0] = -1;
-    D_001312F4[0] = 0;
-    D_00131310[0]++;
-    D_0013130C[0] = -1;
     rbuf = D_001324C0;
+    D_001312F4[0] = 0;
+    D_00131310[0] = count;
+    D_0013130C[0] = -1;
+    *(volatile s32 *)D_00159750 = owner;
     while (1) {
         r = sceSifBindRpc(&D_00159968, 0x80000592, 0);
         if (r < 0) {
@@ -98,9 +101,11 @@ int sceCdInit(int init_mode)
         while (i-- != 0) {
         }
     }
+    /* Read the RPC result through the EE uncached alias. The signed division
+       below preserves the retail rounding for negative response components. */
     stat = *(s32 *)((u32)(rbuf + 0xC) | 0x20000000);
-    a = *(s32 *)((u32)(rbuf + 4) | 0x20000000);
     b = *(s32 *)((u32)(rbuf + 8) | 0x20000000);
+    a = *(s32 *)((u32)(rbuf + 4) | 0x20000000);
     ret = 1;
     if (stat == 0xFF) {
     } else if (stat == 0xFE) {
@@ -110,7 +115,7 @@ int sceCdInit(int init_mode)
             ret = 2;
         }
     }
-    D_001312E4[0] = 0;
+    *(volatile s32 *)D_001312E4 = 0;
     switch (init_mode) {
     case 0:
     case 1:
@@ -120,8 +125,8 @@ int sceCdInit(int init_mode)
             scePrintf(D_00152F70);
         }
         cdvd_exit();
-        D_001312E8[0] = -1;
-        D_001312EC[0] = -1;
+        *(volatile s32 *)D_001312E8 = -1;
+        *(volatile s32 *)D_001312EC = -1;
         D_001312E0[0] = -1;
         return ret;
     }

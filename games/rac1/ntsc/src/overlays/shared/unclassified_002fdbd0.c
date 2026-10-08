@@ -10,7 +10,7 @@ INCLUDE_ASM("config/us/overlays/asm/FUN_L06_002ff680.s", FUN_L06_002ff680);
 #include "sda.h"
 
 /* Spawns a burst of effects for each pair of ready entries in the moby's table. */
-/* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_002FF000.c: func_L06_00300DA8), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/shared/vendor_002FF000.c: func_L06_00300DA8), where it is exact; names translated to the US level program. */
 
 extern char *FUN_00218888(void *, void *, void *, int, int, int, int, int, int);
 extern float FUN_001f96b0(float);
@@ -50,38 +50,51 @@ void FUN_L06_002ff978(char *moby) {
         char *p;
         int off = i * 16;
         n = i + 1;
-        if (*(float *)(data + off + 0x23C) < 0.99f && *(float *)(data - (-(n * 16)) + 0x23C) < 0.99f) { continue; }
-        if (*(float *)&D_L06_0016203C < random_float_between_alt(0.0f, 1.0f)) { continue; }
+        if (*(float *)(data + off + 0x23C) < 0.99f &&
+            *(float *)(data - (-(n * 16)) + 0x23C) < 0.99f) {
+            continue;
+        }
+        if (*(float *)&D_L06_0016203C < random_float_between_alt(0.0f, 1.0f)) {
+            continue;
+        }
         f21 = random_angle_radians();
         f22 = random_angle_radians();
-        v[0] = fast_cos(f21) * random_float_between_alt(*(float *)&D_L06_0016202C, *(float *)&D_L06_00162030);
-        v[1] = fast_sin(f21) * random_float_between_alt(*(float *)&D_L06_0016202C, *(float *)&D_L06_00162030);
+        v[0] = fast_cos(f21) *
+               random_float_between_alt(*(float *)&D_L06_0016202C, *(float *)&D_L06_00162030);
+        v[1] = fast_sin(f21) *
+               random_float_between_alt(*(float *)&D_L06_0016202C, *(float *)&D_L06_00162030);
         v[2] = 0;
-        w[0] = fast_cos(f22) * random_float_between_alt(*(float *)&D_L06_0016202C, *(float *)&D_L06_00162030);
-        w[1] = fast_sin(f22) * random_float_between_alt(*(float *)&D_L06_0016202C, *(float *)&D_L06_00162030);
+        w[0] = fast_cos(f22) *
+               random_float_between_alt(*(float *)&D_L06_0016202C, *(float *)&D_L06_00162030);
+        w[1] = fast_sin(f22) *
+               random_float_between_alt(*(float *)&D_L06_0016202C, *(float *)&D_L06_00162030);
         w[2] = 0;
         v[2] = random_float_between_alt(*(float *)&D_L06_00162034, *(float *)&D_L06_00162038);
         w[2] = random_float_between_alt(*(float *)&D_L06_00162034, *(float *)&D_L06_00162038);
-        s18 = func_001FA898_r(FUN_001f96b0(random_float_between_alt(*(float *)&D_L06_00162014, *(float *)&D_L06_00162018)));
-        s19 = func_001FA898_r(FUN_001f96b0(random_float_between_alt(*(float *)&D_L06_0016201C, *(float *)&D_L06_00162020)));
-        s17 = func_001FA898_r(FUN_001f96b0(random_float_between_alt(*(float *)&D_L06_00162024, *(float *)&D_L06_00162028)));
+        s18 = func_001FA898_r(FUN_001f96b0(
+            random_float_between_alt(*(float *)&D_L06_00162014, *(float *)&D_L06_00162018)));
+        s19 = func_001FA898_r(FUN_001f96b0(
+            random_float_between_alt(*(float *)&D_L06_0016201C, *(float *)&D_L06_00162020)));
+        s17 = func_001FA898_r(FUN_001f96b0(
+            random_float_between_alt(*(float *)&D_L06_00162024, *(float *)&D_L06_00162028)));
         scale_vector_xyz(v, v, 1.0f / (float)s18);
         v[3] = *(float *)&D_L06_0016200C;
         scale_vector_xyz(w, w, 1.0f / (float)s17);
         w[3] = *(float *)&D_L06_00162010;
         p = data + (off + 0x230);
         FUN_001f9a40(s10, p, p, random_float_between_alt(0.0f, 1.0f));
-        FUN_00218888(s10, v, w, *(int *)&D_L06_00162004, *(int *)&D_L06_00162008, s18, s19, s17, *(int *)&D_L06_00162040);
+        FUN_00218888(s10, v, w, *(int *)&D_L06_00162004, *(int *)&D_L06_00162008, s18, s19, s17,
+                     *(int *)&D_L06_00162040);
     }
 }
 #define NOT_SDA
 
 #define MACRO_ADDR
 
-/* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_002FF000.c: func_L06_00301FE8), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/shared/vendor_002FF000.c: func_L06_00301FE8), where it is exact; names translated to the US level program. */
 
 extern float D_0015ED70;
-extern float FUN_001fa580(float, float);
+extern float fast_add_rotations(float, float) __asm__("FUN_001fa580");
 extern short D_L06_00162080_d __asm__("D_L06_00162080") __attribute__((sda));
 extern void FUN_001f9a10(float *, float *, float *);
 void mark_moby_for_removal(struct Obj *obj) __asm__("FUN_0020c828");
@@ -89,20 +102,21 @@ void mark_moby_for_removal(struct Obj *obj) __asm__("FUN_0020c828");
 void FUN_L06_00300b90(char *moby) {
     char *data;
     float t = D_0015ED70 * 15.0f;
-    *(float *)(moby + 0x2C) = *(float *)(*(char **)(moby + 0x24) + 0x24) * *(float *)&D_L06_00162080_d;
+    *(float *)(moby + 0x2C) =
+        *(float *)(*(char **)(moby + 0x24) + 0x24) * *(float *)&D_L06_00162080_d;
     data = *(char **)(moby + 0x78);
     *(float *)(data + 8) -= t;
     FUN_001f9a10((float *)(moby + 0x10), (float *)(moby + 0x10), (float *)data);
     FUN_001f9a10((float *)(moby + 0x40), (float *)(moby + 0x40), (float *)(data + 0x10));
-    *(float *)(moby + 0x40) = FUN_001fa580(*(float *)(moby + 0x40), *(float *)(data + 0x10));
-    *(float *)(moby + 0x44) = FUN_001fa580(*(float *)(moby + 0x44), *(float *)(data + 0x14));
-    *(float *)(moby + 0x48) = FUN_001fa580(*(float *)(moby + 0x48), *(float *)(data + 0x18));
+    *(float *)(moby + 0x40) = fast_add_rotations(*(float *)(moby + 0x40), *(float *)(data + 0x10));
+    *(float *)(moby + 0x44) = fast_add_rotations(*(float *)(moby + 0x44), *(float *)(data + 0x14));
+    *(float *)(moby + 0x48) = fast_add_rotations(*(float *)(moby + 0x48), *(float *)(data + 0x18));
     if (--*(unsigned char *)(moby + 0xBC) == 0) {
         mark_moby_for_removal(moby);
     }
 }
 INCLUDE_ASM("config/us/overlays/asm/FUN_L06_00300c60.s", FUN_L06_00300c60);
-/* Ported from rac1-decomp (PAL, src/overlays/shared/vendor_002FF000.c: func_L06_00303630), where it is exact; names translated to the US level program. */
+/* Ported from rac1-decomp (src/overlays/shared/vendor_002FF000.c: func_L06_00303630), where it is exact; names translated to the US level program. */
 
 extern int D_L06_0015F5CC;
 extern short D_L06_001620C8 __attribute__((sda));
@@ -122,6 +136,7 @@ extern int scale_ticks(int) __asm__("FUN_001f96f8");
 extern int random_integer_below(int) __asm__("FUN_00213260");
 extern int func_001FA898_r(float) __asm__("FUN_001fa6d0");
 extern void FontPrintCenterLarge(int a, int b, int c, int d, int e) __asm__("FUN_001f6af0");
+extern void FontPrintCenterLarge_001f6c20(int a, int b, int c, int d, int e) __asm__("FUN_001f6c20");
 
 #define W(x) (*(int *)&(x))
 
@@ -133,7 +148,8 @@ void FUN_L06_003021d8(char *moby) {
     int col;
 
     DrawUIFrame(W(D_L06_001620D8) + W(D_L06_001620CC), W(D_L06_001620DC) + W(D_L06_001620CC),
-                  W(D_L06_001620E0) + W(D_L06_001620C8), W(D_L06_001620E4) + W(D_L06_001620C8), W(D_L06_001620E8));
+                W(D_L06_001620E0) + W(D_L06_001620C8), W(D_L06_001620E4) + W(D_L06_001620C8),
+                W(D_L06_001620E8));
     v = FastSin(func_001FA888(D_L06_0015F5CC % 60) / 60.0f * 6.28318f) * 3.0f + 0.5f;
     if (v > 1.0f) {
         v = 1.0f;
@@ -149,5 +165,5 @@ void FUN_L06_003021d8(char *moby) {
     buf[5] = 0x3A;
     buf[6] = *(int *)(data + 0xB4) % scale_ticks(0x3C) / scale_ticks(6) + 0x30;
     buf[7] = func_001FA898_r((float)random_integer_below(10)) + 0x30;
-    FontPrintCenterLarge(W(D_L06_001620C8), W(D_L06_001620CC), col, (int)buf, 8);
+    FontPrintCenterLarge_001f6c20(W(D_L06_001620C8), W(D_L06_001620CC), col, (int)buf, 8);
 }

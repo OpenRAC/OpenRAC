@@ -3,7 +3,8 @@
 
 #ifndef NON_MATCHING
 /* Exact SDK/library unit _sceFs_Rcv_Intr; symbolic expected assembly retained pending source recovery. */
-INCLUDE_ASM("config/us/expected/asm/assembly/sdk/library/_sceFs_Rcv_Intr/_sceFs_Rcv_Intr.s", _sceFs_Rcv_Intr);
+INCLUDE_ASM("config/us/expected/asm/assembly/sdk/library/_sceFs_Rcv_Intr/_sceFs_Rcv_Intr.s",
+            _sceFs_Rcv_Intr);
 #else
 #include "types.h"
 
@@ -62,19 +63,21 @@ void _sceFs_Rcv_Intr(s32 *arg) {
     } u;
     FsRcvRead *r;
     u8 *pkt;
+    u8 *base;
     u8 *d;
+    u32 *bank = D_0012FC90;
     s32 idx;
     s32 i;
     u32 ret;
     u32 n;
+    u32 addr;
 
-    idx = 0;
-    if (D_0012FC98[0] != 0) {
-        idx = arg[3];
-    }
-    D_0012FC90[0] = idx;
-    pkt = D_00157500 + idx * 0x440;
-    pkt = (u8 *)((u32)pkt | 0x20000000);
+    idx = D_0012FC98[0] != 0 ? arg[3] : 0;
+    *bank = idx;
+    base = D_00157500;
+    addr = (u32)base;
+    addr += (u32)idx * 0x440;
+    pkt = (u8 *)(addr | 0x20000000);
     src = (FsRcvHead *)pkt;
     h.ret = src->ret;
     h.func = src->func;
@@ -122,8 +125,7 @@ void _sceFs_Rcv_Intr(s32 *arg) {
         break;
     }
     if (h.ret.v < 0) {
-        h.ret.v = -h.ret.v;
-        ret = h.ret.v;
+        ret = -(u32)h.ret.v;
         for (i = 0; i < 32; i++) {
             if (D_0012FC10[i] == ret) {
                 D_0012FC10[i] = -1;

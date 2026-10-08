@@ -3,7 +3,8 @@
 
 #ifndef NON_MATCHING
 /* Exact SDK/library unit _csc_storeRefImage; symbolic expected assembly retained pending source recovery. */
-INCLUDE_ASM("config/us/expected/asm/assembly/sdk/dma/csc_store_ref_image/_csc_storeRefImage.s", _csc_storeRefImage);
+INCLUDE_ASM("config/us/expected/asm/assembly/sdk/dma/csc_store_ref_image/_csc_storeRefImage.s",
+            _csc_storeRefImage);
 #else
 #include "types.h"
 
@@ -35,8 +36,8 @@ extern s32 _dispatchMpegCallback();
 extern s32 _doCSC();
 extern s32 _doCSC2();
 extern s32 _sendIpuCommand();
-extern s32 func_001190F8();
-extern s32 func_00119160();
+extern s32 disable_dmac() __asm__("func_001190F8");
+extern s32 enable_dmac() __asm__("func_00119160");
 
 void _csc_storeRefImage(CscDec *d, CscImage *img) __asm__("_csc_storeRefImage");
 
@@ -47,7 +48,6 @@ void _csc_storeRefImage(CscDec *d, CscImage *img) {
     s32 small;
     s32 handle;
     s32 intr;
-    u32 *p;
 
     total = img->w * img->h;
     cbarg[0] = 2;
@@ -56,19 +56,18 @@ void _csc_storeRefImage(CscDec *d, CscImage *img) {
         *(volatile u32 *)0x10002010 = 0x40000000;
     }
     small = total < 0x400;
-    while ((s32)*(volatile u32 *)0x10002010 < 0) {
+    while ((s32) * (volatile u32 *)0x10002010 < 0) {
     }
     _sendIpuCommand(d, 0);
-    while ((s32)*(volatile u32 *)0x10002010 < 0) {
+    while ((s32) * (volatile u32 *)0x10002010 < 0) {
     }
     dma.count = total * 0x18;
     dma.addr = img->dest & 0x0FFFFFFF;
     if (dma.count > 0xFFFF) {
+        /* The handler receives the stack DMA state; the first transfer uses 0xFFFF QWC. */
         handle = AddDmacHandlerSecondary(4, D_0012A5D8, 0, &dma);
-        p = (u32 *)0x1000E010;
-        __asm__("" : "+r"(p));
-        *p = 0x10;
-        func_00119160(4);
+        *(volatile u32 *)0x1000E010 = 0x10;
+        enable_dmac(4);
         intr = DIntr();
         *(volatile u32 *)0x1000B410 = dma.addr;
         *(volatile u32 *)0x1000B420 = 0xFFFF;
@@ -83,9 +82,10 @@ void _csc_storeRefImage(CscDec *d, CscImage *img) {
         } else {
             _doCSC2(d, d->data, total);
         }
-        func_001190F8(4);
+        disable_dmac(4);
         RemoveDmacHandler(4, handle);
     } else {
+        /* Even the short transfer clears the stack count before running CSC. */
         intr = DIntr();
         *(volatile u32 *)0x1000B410 = img->dest & 0x0FFFFFFF;
         *(volatile u32 *)0x1000B420 = dma.count;

@@ -49,20 +49,20 @@ extern u8 D_0013D4E8[];
 extern u8 D_0013D388[];
 
 extern void func_001E9458(s32);
-extern s32 FUN_001ff480(s32);
+extern s32 remove_hud_item(s32) __asm__("FUN_001ff480");
 extern void func_001E9460(s32);
-extern char *func_001FDD10(s32);
+extern char *get_help_message_text(s32) __asm__("func_001FDD10");
 extern char *strcpy(char *, const char *);
 extern char *FindSubstring(char *, char *);
 extern s32 sprintf(char *, const char *, ...);
-extern void func_001FF658(char *);
-extern s32 FUN_00215248(void);
+extern void copy_text_to_shared_buffer(char *) __asm__("func_001FF658");
+extern s32 compute_clamped_count_difference(void) __asm__("FUN_00215248");
 
-void func_00216C48(void *arg0, Menu *arg1, s32 arg2);
+void func_00216C48(void *arg0, Menu *menu, s32 arg2);
 
 #define SCRATCH ((char *)0x70000000)
 
-void FUN_00216c48(void *arg0, Menu *arg1, s32 arg2) {
+void FUN_00216c48(void *arg0, Menu *menu, s32 arg2) {
     char buf[0x100];
     Suffixes sfx;
     char num[0x20];
@@ -75,40 +75,40 @@ void FUN_00216c48(void *arg0, Menu *arg1, s32 arg2) {
     s16 kind;
     s32 t;
 
-    e = (MenuItem *)(arg1->unk3C + arg1->unk36 * 0x1C);
-    if (arg1->unk3C == 0) {
+    e = (MenuItem *)(menu->unk3C + menu->unk36 * 0x1C);
+    if (menu->unk3C == 0) {
         return;
     }
     if (arg2 != 0) {
-        arg1->unk4 = arg1->unk36;
-        arg1->unk38 = D_0015F60C;
+        menu->unk4 = menu->unk36;
+        menu->unk38 = D_0015F60C;
         n = e->unk6;
-        if (arg1->unk36 != n) {
+        if (menu->unk36 != n) {
             flags = e->unk10;
-            arg1->unk36 = e->unk6;
-            e = (MenuItem *)(arg1->unk3C + n * 0x1C);
-            arg1->unk8 = *(u8 *)&e->unk10 & 1;
+            menu->unk36 = e->unk6;
+            e = (MenuItem *)(menu->unk3C + n * 0x1C);
+            menu->unk8 = *(u8 *)&e->unk10 & 1;
             if (flags & 4) {
                 D_001993C0[2] = (s32)arg0;
-                D_001993C0[3] = (s32)arg1;
+                D_001993C0[3] = (s32)menu;
                 if (e->unk4 & 0x4000) {
                     func_001E9458((s16)(e->unk4 ^ 0x4000));
                 } else {
-                    FUN_001ff480(D_00160070);
+                    remove_hud_item(D_00160070);
                     D_00160070 = -1;
                     func_001E9460((s16)e->unk4);
                 }
             }
         }
     }
-    if (arg1->unk36 == -1) {
+    if (menu->unk36 == -1) {
         return;
     }
     D_001993C0[5] = e->unk0;
     kind = e->unk8;
     if (kind == 6) {
         sfx = D_001E8680;
-        strcpy(SCRATCH, func_001FDD10(e->unk0));
+        strcpy(SCRATCH, get_help_message_text(e->unk0));
         p = FindSubstring(SCRATCH, D_00160088);
         if (p != 0) {
             p[1] = 's';
@@ -117,12 +117,12 @@ void FUN_00216c48(void *arg0, Menu *arg1, s32 arg2) {
         sprintf(num, D_00160090, t / 1000, sfx.s[D_0015ED88 % 6], t % 1000);
         sprintf(buf, SCRATCH, num);
     } else {
-        sprintf(buf, func_001FDD10(e->unk0));
+        sprintf(buf, get_help_message_text(e->unk0));
     }
     if (D_001993C0[5] != 0) {
-        func_001FF658(buf);
+        copy_text_to_shared_buffer(buf);
     } else if (D_00160070 != -1) {
-        FUN_001ff480(D_00160070);
+        remove_hud_item(D_00160070);
         D_00160070 = -1;
     }
     if (e->unk8 == 0) {
@@ -146,10 +146,10 @@ void FUN_00216c48(void *arg0, Menu *arg1, s32 arg2) {
         ok = D_0013D388[e->unkA] != 0;
         break;
     case 5:
-        ok = !(FUN_00215248() < e->unkA);
+        ok = !(compute_clamped_count_difference() < e->unkA);
         break;
     case 6:
-        ok = D_0015ED98 >= D_001DFFB0[e->unkA].unk14 && FUN_00215248() >= 4;
+        ok = D_0015ED98 >= D_001DFFB0[e->unkA].unk14 && compute_clamped_count_difference() >= 4;
         break;
     default:
         ok = 0;
@@ -160,12 +160,12 @@ void FUN_00216c48(void *arg0, Menu *arg1, s32 arg2) {
     } else {
         next = e->unkE;
     }
-    if (next != arg1->unk36) {
-        arg1->unk36 = next;
-        arg1->unk38 = D_0015F60C_far;
-        e = (MenuItem *)(arg1->unk3C + next * 0x1C);
-        arg1->unk8 = *(u8 *)&e->unk10 & 1;
-        func_00216C48(arg0, arg1, 0);
+    if (next != menu->unk36) {
+        menu->unk36 = next;
+        menu->unk38 = D_0015F60C_far;
+        e = (MenuItem *)(menu->unk3C + next * 0x1C);
+        menu->unk8 = *(u8 *)&e->unk10 & 1;
+        func_00216C48(arg0, menu, 0);
     }
 }
 

@@ -1,42 +1,55 @@
-#include "types.h"
-struct Anim { u8 pad0[0x10]; u8 count; };
-struct AnimSet { u8 pad0[0x48]; struct Anim *anims[1]; };
-struct Obj {
-    u8 pad0[0x24]; struct AnimSet *set; u8 pad28[0x28];
-    u8 cur; u8 next; u8 sel; u8 sel2; u8 pad54[8]; f32 time; u8 pad60[8]; f32 *start; u8 pad6c[4]; u8 flags;
-};
-extern void func_0020C880(struct Obj *);
+/* Ported from rac1-decomp (src/game/mobyutil.c, func_00213D28). */
+typedef struct {
+    char _pad00[0x10];
+    unsigned char nframes; /* 0x10 */
+} AnimSeq;
+typedef struct {
+    char _pad00[0x48];
+    AnimSeq *seqs[1]; /* 0x48 */
+} AnimClass;
+typedef struct {
+    char _pad00[0x24];
+    AnimClass *pClass;       /* 0x24 */
+    char _pad28[0x50 - 0x28];
+    unsigned char frame;     /* 0x50 */
+    unsigned char nextFrame; /* 0x51 */
+    unsigned char seq;       /* 0x52 */
+    unsigned char prevSeq;   /* 0x53 */
+    char _pad54[0x5C - 0x54];
+    float unk5C;             /* 0x5C */
+    char _pad60[0x68 - 0x60];
+    float *frameData;        /* 0x68 */
+    char _pad6C[4];
+    unsigned char unk70;     /* 0x70 */
+} MobyAnim;
+extern void func_0020C880(void *);
+/* Sets moby m's animation to sequence seq at frame (clamped to the
+   sequence's last frame), the next frame to frame + 1 (clamped the same
+   way, 0 if still out of range), refreshes the frame pointers
+   (func_0020C880) and copies the first float of the new frame to +0x5C.
+   The frame count is re-read through the class at each test, as retail
+   reloads it after the byte stores. */
+void set_moby_animation(MobyAnim *m, int seq, int frame) __asm__("FUN_00212ed8");
 
-void set_moby_animation(struct Obj *o, s32 sel, s32 idx) __asm__("FUN_00212ed8");
+void set_moby_animation(MobyAnim *m, int seq, int frame) {
+    int n = m->pClass->seqs[seq]->nframes;
 
-void set_moby_animation(struct Obj *o, s32 sel, s32 idx) {
-    struct Anim **slot;
-    /* retail register file: a0 = &anims[sel], v0 = anim pointer / o->cur,
-       a1 = count / o->next */
-    register struct Anim **anims __asm__("$4");
-    register s32 n __asm__("$5");
-    register s32 v __asm__("$2");
-
-    anims = o->set->anims;
-    slot = &anims[sel];
-    n = (*slot)->count;
-    o->sel = sel;
-    v = n - 1;
-    if (idx < n) {
-        v = idx;
+    m->seq = seq;
+    if (frame >= n) {
+        frame = n - 1;
     }
-    o->cur = v;
-    o->next = v + 1;
-    if ((*slot)->count - 1 < o->next) {
-        o->next = (*slot)->count - 1;
+    m->frame = frame;
+    m->nextFrame = frame + 1;
+    if (m->nextFrame > m->pClass->seqs[seq]->nframes - 1) {
+        m->nextFrame = m->pClass->seqs[seq]->nframes - 1;
     }
-    o->sel2 = sel;
-    if (o->next >= o->set->anims[sel]->count) {
-        o->next = 0;
+    m->prevSeq = seq;
+    if (m->nextFrame >= m->pClass->seqs[seq]->nframes) {
+        m->nextFrame = 0;
     }
-    func_0020C880(o);
-    o->time = *o->start;
-    o->flags &= ~2;
+    func_0020C880(m);
+    m->unk5C = *m->frameData;
+    m->unk70 &= ~2;
 }
 
 extern __typeof__(set_moby_animation) func_00212ED8 __attribute__((alias("FUN_00212ed8")));

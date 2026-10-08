@@ -2,7 +2,9 @@
 #include "asm.h"
 
 #ifndef NON_MATCHING
-INCLUDE_ASM("config/us/expected/asm/assembly/textbin/ui/menus/draw_localized_three_option_menu/FUN_00222a98.s", FUN_00222a98);
+INCLUDE_ASM("config/us/expected/asm/assembly/textbin/ui/menus/draw_localized_three_option_menu/"
+            "FUN_00222a98.s",
+            FUN_00222a98);
 #else
 #include "types.h"
 
@@ -10,6 +12,7 @@ struct ThreeOptionMenu {
     u8 pad0[0x20];
     s32 menu_width;
     s32 height;
+    s32 spacing_divisor;
 };
 
 extern u8 D_001DF050[];
@@ -41,9 +44,9 @@ s32 draw_localized_three_option_menu(struct ThreeOptionMenu *menu) {
     s32 draw_y;
 
     font_texture_index = 1;
-    maximum_text_width = 0;
     setup_gif_paging(0);
     line_spacing = menu->height / 5;
+    maximum_text_width = 0;
     sprintf(text_buffer, get_help_message_text(0x522F), count_nonzero_entries_up_to_40(), 0x28);
     measured_width = measure_text_width_regular(text_buffer, -1);
     if (maximum_text_width < measured_width) {
@@ -70,18 +73,22 @@ s32 draw_localized_three_option_menu(struct ThreeOptionMenu *menu) {
     draw_y += line_spacing;
     draw_menu_selection_marker(0xB, draw_y + 9, count_nonzero_entries_up_to_40() == 0x28);
     sprintf(text_buffer, get_help_message_text(0x522F), count_nonzero_entries_up_to_40(), 0x28);
-    font_print(0x14, draw_y, 0x80FFA888, text_buffer, -1, get_effect_texture(font_texture_index), glyphs);
+    font_print(0x14, draw_y, 0x80FFA888, text_buffer, -1, get_effect_texture(font_texture_index),
+               glyphs);
     draw_y += line_spacing;
     draw_menu_selection_marker(0xB, draw_y + 9, count_nonzero_entries_up_to_10() == 10);
     sprintf(text_buffer, get_help_message_text(0x5230), count_nonzero_entries_up_to_10(), 10);
-    font_print(0x14, draw_y, 0x80FFA888, text_buffer, -1, get_effect_texture(font_texture_index), glyphs);
+    font_print(0x14, draw_y, 0x80FFA888, text_buffer, -1, get_effect_texture(font_texture_index),
+               glyphs);
     draw_y += line_spacing;
     draw_menu_selection_marker(0xB, draw_y + 9, count_nonzero_entries_up_to_30() == 0x1E);
     sprintf(text_buffer, get_help_message_text(0x5231), count_nonzero_entries_up_to_30(), 0x1E);
-    font_print(0x14, draw_y, 0x80FFA888, text_buffer, -1, get_effect_texture(font_texture_index), glyphs);
+    font_print(0x14, draw_y, 0x80FFA888, text_buffer, -1, get_effect_texture(font_texture_index),
+               glyphs);
     func_001F61E8();
     do_gif_paging();
     return 2;
 }
-extern __typeof__(draw_localized_three_option_menu) func_00222A98 __attribute__((alias("FUN_00222a98")));
+extern __typeof__(draw_localized_three_option_menu) func_00222A98
+    __attribute__((alias("FUN_00222a98")));
 #endif /* NON_MATCHING */
