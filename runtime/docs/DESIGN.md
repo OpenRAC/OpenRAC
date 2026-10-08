@@ -231,9 +231,9 @@ Sony's SDK source, samples and headers are never used
 
 | | Milestone | Shows |
 |---|---|---|
-| M0 | Build, window, software GS, GIF, VIF and DMA decoding, tests; a demo that draws from a hand-built chain | the renderer end exists (**done**, see [README](../README.md)) |
+| M0 | Build, window, software GS, GIF, VIF and DMA decoding, the vector unit interpreter, tests; a demo that draws from a hand-built chain, part of it through a microprogram on VU1 | the renderer end exists (**done**, see [README](../README.md)) |
 | M1 | EE interpreter boots RAC1 PAL from the ISO to the title loop with the library boundary replaced; chains reach the walker | the game code end exists |
-| M2 | VU0 and VU1 interpreters; the title screen and main menu draw | first real picture |
+| M2 | The EE's vector instructions and VU0 microprograms on the same interpreter; the games' VU1 programs run; the title screen and main menu draw | first real picture |
 | M3 | Memory card as files, pad input, the save and load screens | the menu is usable |
 | M4 | Level 0 loads and plays | first level |
 | M5 | Sound; frame pacing; a faster EE core | playable |

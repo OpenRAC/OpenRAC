@@ -22,15 +22,20 @@ draws, and nothing runs a game yet.
 | `src/ps2/gs.*` | The Graphics Synthesizer as a software model: registers, primitive assembly, a rasteriser for points, lines, triangles and sprites, texturing with colour tables, mipmaps and filtering, fog, the alpha, destination alpha and depth tests, blending, masks, transfers in, out and within local memory, and the display read-out |
 | `src/ps2/gif.*` | GIF packets (PACKED, REGLIST, IMAGE) on the three paths |
 | `src/ps2/vif.*` | VIF1: every UNPACK format with masks, modes and write cycles; MPG; MSCAL and the double buffer; DIRECT |
+| `src/ps2/vu.*` | A vector unit running microprograms, with the timing they depend on: both halves of an instruction pair see the same state, flags arrive four instructions late, Q and P when their units finish, a branch tests the integer from before the instruction ahead of it, XGKICK sends one instruction late. Numbers have no infinities or denormals and round towards zero |
+| `src/ps2/vu_asm.h` | Encoders for vector unit instructions, for tests and for programs written here |
+| `src/ps2/graphics.h` | VIF1, VU1, the GIF and the GS connected as on the board |
 | `src/ps2/dma.*` | The source-chain walker for a DMA channel, stopping on tag interrupts as the hardware does |
 | `src/ps2/memory.h` | Guest memory: 32 MB and the scratchpad |
 | `src/host/window.*` | An SDL3 window that shows one image per frame |
-| `src/app/gsdemo.cpp` | `openrac-gsdemo`: a scene of its own, written into guest memory as a VIF1 DMA chain and drawn through all of the above |
-| `tests/test_ps2.cpp` | Tests of the model against the documented layouts, formats and equations |
+| `src/app/gsdemo.cpp` | `openrac-gsdemo`: a scene of its own, written into guest memory as a VIF1 DMA chain and drawn through all of the above, with a cube whose vertices a microprogram written for it transforms on VU1 |
+| `tests/test_ps2.cpp`, `tests/test_vu.cpp` | Tests of the model against the documented layouts, formats, equations and timing |
 
 Not here yet, in the order of [the milestones](docs/DESIGN.md#8-milestones):
-the EE interpreter and the library boundary, the VU0 and VU1 interpreters,
-the memory card, pad and disc services, sound, a GPU back end.
+the EE interpreter and the library boundary (with VU0 behind the EE's
+vector instructions), the memory card, pad and disc services, sound, a GPU
+back end. The vector unit has run only programs written here so far; the
+games' own microprograms will be its real test.
 
 ## Building
 

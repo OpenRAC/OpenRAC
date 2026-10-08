@@ -17,33 +17,11 @@
 #include "memory.h"
 #include "vif.h"
 
+#include "check.h"
+
 using namespace ps2;
 
 namespace {
-
-int g_failures = 0;
-int g_checks = 0;
-
-#define CHECK(cond)                                                          \
-  do {                                                                       \
-    g_checks++;                                                              \
-    if (!(cond)) {                                                           \
-      g_failures++;                                                          \
-      std::printf("  FAILED %s:%d: %s\n", __FILE__, __LINE__, #cond);        \
-    }                                                                        \
-  } while (0)
-
-#define CHECK_EQ(a, b)                                                       \
-  do {                                                                       \
-    g_checks++;                                                              \
-    auto va = (a);                                                           \
-    auto vb = (b);                                                           \
-    if (!(va == vb)) {                                                       \
-      g_failures++;                                                          \
-      std::printf("  FAILED %s:%d: %s == %s (%llx vs %llx)\n", __FILE__, __LINE__, #a, #b, \
-                  static_cast<unsigned long long>(va), static_cast<unsigned long long>(vb)); \
-    }                                                                        \
-  } while (0)
 
 // --- helpers -----------------------------------------------------------------
 
@@ -1107,10 +1085,7 @@ void test_whole_path() {
 }  // namespace
 
 int main() {
-  const struct {
-    const char* name;
-    void (*run)();
-  } tests[] = {
+  const TestCase tests[] = {
       {"memory layout", test_memory_layout},
       {"memory is one to one", test_memory_is_one_to_one},
       {"memory formats", test_memory_formats},
@@ -1135,11 +1110,5 @@ int main() {
       {"dma chain", test_dma_chain},
       {"whole path", test_whole_path},
   };
-  for (const auto& t : tests) {
-    int before = g_failures;
-    t.run();
-    std::printf("%s %s\n", g_failures == before ? "ok    " : "FAILED", t.name);
-  }
-  std::printf("%d checks, %d failed\n", g_checks, g_failures);
-  return g_failures ? 1 : 0;
+  return run_tests(tests);
 }

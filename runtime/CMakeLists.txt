@@ -14,6 +14,8 @@ endif()
 option(OPENRAC_RUNTIME_WINDOW "Build the programs that open a window (needs SDL3)" ON)
 
 add_compile_options(-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wno-sign-conversion)
+# The console multiplies and then adds; a fused multiply-add rounds differently.
+add_compile_options(-ffp-contract=off)
 
 # The hardware contract the games draw through: no dependencies.
 add_library(openrac_ps2 STATIC
@@ -22,6 +24,7 @@ add_library(openrac_ps2 STATIC
   src/ps2/gs.cpp
   src/ps2/gs_memory.cpp
   src/ps2/vif.cpp
+  src/ps2/vu.cpp
 )
 target_include_directories(openrac_ps2 PUBLIC src/ps2 src)
 
@@ -43,3 +46,6 @@ enable_testing()
 add_executable(openrac-ps2-tests tests/test_ps2.cpp)
 target_link_libraries(openrac-ps2-tests PRIVATE openrac_ps2)
 add_test(NAME ps2 COMMAND openrac-ps2-tests)
+add_executable(openrac-vu-tests tests/test_vu.cpp)
+target_link_libraries(openrac-vu-tests PRIVATE openrac_ps2)
+add_test(NAME vu COMMAND openrac-vu-tests)
