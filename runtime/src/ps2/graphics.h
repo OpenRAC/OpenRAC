@@ -19,11 +19,21 @@ struct Graphics {
   Vif1 vif{gif};
   Vu vu1{Vu::Memory{vif.micro.data(), Vif1::kMemoryBytes, vif.data.data(), Vif1::kMemoryBytes}};
 
-  u64 vu1_instructions = 0;
+  u64 vu1_instructions = 0, vu1_starts = 0, vu1_runaways = 0;
+  u32 vu1_runaway_start = 0, vu1_runaway_pc = 0;
 
   Graphics() {
     vif.on_start = [this](u32 address, bool resume) {
-      vu1_instructions += resume ? vu1.resume() : vu1.run(address);
+      // No real program runs this long between two stops; one that does has
+      // gone wrong here.
+      const u64 limit = 4'000'000;
+      vu1_instructions += resume ? vu1.resume(limit) : vu1.run(address, limit);
+      vu1_starts++;
+      if (!vu1.stopped()) {
+        vu1_runaways++;
+        vu1_runaway_start = address;
+        vu1_runaway_pc = vu1.pc;
+      }
     };
     vu1.on_top = [this] { return vif.top; };
     vu1.on_itop = [this] { return vif.itop; };

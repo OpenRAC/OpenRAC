@@ -88,6 +88,9 @@ class Ee {
   u64 unknown = 0;         // instructions the core does not know
   u32 last_unknown_pc = 0, last_unknown = 0;
 
+  u64 vu0_runaways = 0;    // VU0 microprograms that did not stop
+  u32 vu0_runaway_start = 0, vu0_runaway_from = 0;
+
   // The address a `call()` returns to. Nothing is mapped there.
   static constexpr u32 kReturnAddress = 0x1FC00FF0;
 
@@ -103,6 +106,8 @@ class Ee {
   void cop0_op(u32 op);
   void cop1_op(u32 op, u32 at);
   void cop2_op(u32 op, u32 at);
+  void vu0_sync();
+  void vu0_finish(u32 at);
   void fpu_flags(u32 problems);
   void not_known(u32 op, u32 at);
 
@@ -121,6 +126,8 @@ class Ee {
   GuestMemory& memory_;
   Vu& vu0_;
   bool stop_ = false, returned_ = false;
+  u64 vu0_cycles_ = 0;
+  u32 vu0_started_at_ = 0;
 };
 
 }  // namespace ps2

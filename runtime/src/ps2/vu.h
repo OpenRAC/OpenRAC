@@ -38,6 +38,14 @@ class Vu {
 
   bool stopped() const { return !running_; }
 
+  // Running beside the EE, which is how VU0 is used: start a program, then
+  // let it run a number of instructions at a time. `advance_to_sync` runs
+  // until an instruction with the M bit (a point the program marks for the
+  // EE to wait for) or the end.
+  void start(u32 address);
+  u64 advance(u64 instructions);
+  u64 advance_to_sync(u64 limit);
+
   // One instruction given by the EE (a COP2 operation): it runs at once and
   // the EE waits for its result, so nothing is left in flight afterwards.
   void macro(u32 code);
@@ -101,7 +109,7 @@ class Vu {
 
   Memory memory_;
   u32 pc_mask_ = 0;
-  bool running_ = false;
+  bool running_ = false, sync_point_ = false;
 
   // The upper instruction's register write, held back while the lower one runs.
   bool in_upper_ = false;

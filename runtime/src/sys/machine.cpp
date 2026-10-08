@@ -389,7 +389,7 @@ bool Machine::boot(std::string* error) {
 
 void Machine::run_frame() {
   frame_done_ = false;
-  while (!frame_done_ && !halted) {
+  while (!frame_done_ && !halted && !ee.vu0_runaways) {
     ee.run(~u64{0});
     if (ee.unknown && verbose >= 0 && last_reported_unknown_ != ee.unknown) {
       last_reported_unknown_ = ee.unknown;

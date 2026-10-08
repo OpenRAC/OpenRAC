@@ -77,3 +77,6 @@
 00124DF0 scePad2GetButtonProfile
 00124EE0 scePad2GetState
 00125218 sceVibGetProfile
+
+# Movies are not played yet: the player returns at once.
+0023B670 return0            # the game's movie player

@@ -7,7 +7,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
+#include "ps2/vu_dis.h"
 #include "sys/machine.h"
 
 #ifndef OPENRAC_NO_WINDOW
@@ -38,6 +40,12 @@ int main(int argc, char** argv) {
   std::string iso, hooks, ppm;
   int frames = 600, report = 60;
   bool window_wanted = false;
+  // Scripted input: hold these buttons from one frame for some frames.
+  struct Press {
+    int frame, length;
+    unsigned buttons;
+  };
+  std::vector<Press> presses;
   sys::Machine machine;
   for (int i = 1; i < argc; i++) {
     std::string arg = argv[i];
@@ -51,6 +59,11 @@ int main(int argc, char** argv) {
       machine.verbose = std::atoi(argv[++i]);
     } else if (arg == "--ppm" && i + 1 < argc) {
       ppm = argv[++i];
+    } else if (arg == "--press" && i + 1 < argc) {
+      // FRAME:BUTTONS[:FRAMES], buttons as a hexadecimal mask (cross is 4000, start 8)
+      Press p{0, 4, 0};
+      std::sscanf(argv[++i], "%d:%x:%d", &p.frame, &p.buttons, &p.length);
+      presses.push_back(p);
     } else if (arg == "--ntsc") {
       machine.hz = 59.94;
     } else if (arg == "--window") {
@@ -59,7 +72,7 @@ int main(int argc, char** argv) {
       iso = arg;
     } else {
       std::fprintf(stderr, "usage: openrac-boot DISC.iso [--hooks FILE] [--frames N] [--report N] [--verbose N] "
-                           "[--ntsc] [--window] [--ppm FILE]\n");
+                           "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]]\n");
       return 2;
     }
   }
@@ -89,7 +102,16 @@ int main(int argc, char** argv) {
       break;
     }
 #endif
+    machine.pad.buttons = 0;
+    for (const Press& p : presses) {
+      if (frame >= p.frame && frame < p.frame + p.length) {
+        machine.pad.buttons |= static_cast<u16>(p.buttons);
+      }
+    }
     machine.run_frame();
+    if (machine.ee.vu0_runaways) {
+      break;
+    }
     bool shown = machine.graphics.gs.display(image);
 #ifndef OPENRAC_NO_WINDOW
     if (window_wanted && shown) {
@@ -121,6 +143,33 @@ int main(int argc, char** argv) {
                  static_cast<unsigned long long>(machine.vu0.unknown_ops),
                  static_cast<unsigned long long>(machine.graphics.vu1.unknown_ops),
                  static_cast<unsigned long long>(machine.graphics.vif.unknown_codes));
+  }
+  if (machine.ee.vu0_runaways) {
+    std::fprintf(stderr, "  %llu VU0 microprograms did not stop (the first started at %u by the EE at %08x)\n",
+                 static_cast<unsigned long long>(machine.ee.vu0_runaways), machine.ee.vu0_runaway_start,
+                 machine.ee.vu0_runaway_from);
+    u32 at = machine.ee.vu0_runaway_start;
+    if (std::getenv("OPENRAC_VU0_LISTING")) {
+      // For working on the interpreter: the program as it sits in VU0, and where it was.
+      for (u32 n = 0; n < 512; n++) {
+        u32 up = load<u32>(&machine.vif0.micro[n * 8 + 4]), low = load<u32>(&machine.vif0.micro[n * 8]);
+        if (up || low) {
+          std::fprintf(stderr, "%s\n", vudis::pair(n, up, low).c_str());
+        }
+      }
+      std::fprintf(stderr, "pc %u; vi:", machine.vu0.pc);
+      for (unsigned n = 0; n < 16; n++) {
+        std::fprintf(stderr, " %04x", machine.vu0.vi[n]);
+      }
+      std::fprintf(stderr, "\n");
+    }
+    (void)at;
+  }
+  if (machine.graphics.vu1_runaways) {
+    std::fprintf(stderr, "  %llu of %llu VU1 program starts did not stop (the last from %u, at %u when cut off)\n",
+                 static_cast<unsigned long long>(machine.graphics.vu1_runaways),
+                 static_cast<unsigned long long>(machine.graphics.vu1_starts), machine.graphics.vu1_runaway_start,
+                 machine.graphics.vu1_runaway_pc);
   }
   if (!ppm.empty() && machine.graphics.gs.display(image)) {
     write_ppm(ppm, image);

@@ -62,6 +62,31 @@ u64 Vu::run(u32 address, u64 limit) {
   return resume(limit);
 }
 
+void Vu::start(u32 address) {
+  pc = address & pc_mask_;
+  branch_in_ = stop_in_ = 0;
+  running_ = true;
+}
+
+u64 Vu::advance(u64 instructions) {
+  u64 count = 0;
+  while (running_ && count < instructions) {
+    step();
+    count++;
+  }
+  return count;
+}
+
+u64 Vu::advance_to_sync(u64 limit) {
+  u64 count = 0;
+  sync_point_ = false;
+  while (running_ && !sync_point_ && count < limit) {
+    step();
+    count++;
+  }
+  return count;
+}
+
 u64 Vu::resume(u64 limit) {
   running_ = true;
   u64 count = 0;
@@ -115,12 +140,16 @@ void Vu::step() {
 
   in_upper_ = true;
   upper_reg_ = 0;
+  if (up & 0x20000000u) {
+    sync_point_ = true;  // the M bit
+  }
   if (up & 0x80000000u) {
     // The I bit: the lower word is a number for the I register, not an
-    // instruction.
-    i = low;
+    // instruction. The upper instruction of the same pair still reads the
+    // old I (the games' own sine routine depends on it).
     upper(up);
     in_upper_ = false;
+    i = low;
   } else {
     upper(up);
     in_upper_ = false;
@@ -214,7 +243,8 @@ u32 Vu::control(unsigned reg) const {
     case 26: return pc * 8;
     case 27: return cmsar0_;
     case 28: return fbrst_;
-    default: return 0;  // VPU-STAT: nothing is running when the EE looks
+    case 29: return running_ ? 1 : 0;  // VPU-STAT: bit 0, VU0 is running
+    default: return 0;
   }
 }
 

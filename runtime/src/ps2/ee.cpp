@@ -341,6 +341,7 @@ void Ee::step() {
     case 0x39: write32(address, fpr[rt]); break;   // SWC1
     case 0x36: {  // LQC2
       u32 a = address & ~15u;
+      vu0_sync();
       if (rt) {
         vu0_.vf[rt] = {read32(a), read32(a + 4), read32(a + 8), read32(a + 12)};
       }
@@ -348,6 +349,7 @@ void Ee::step() {
     }
     case 0x3E: {  // SQC2
       u32 a = address & ~15u;
+      vu0_sync();
       for (unsigned f = 0; f < 4; f++) {
         write32(a + f * 4, vu0_.vf[rt][f]);
       }
@@ -671,21 +673,66 @@ void Ee::cop1_op(u32 op, u32 at) {
 
 // --- COP2: VU0 from the EE -----------------------------------------------------
 
+// VU0 runs beside the EE once a microprogram is started. It is advanced
+// when the EE next touches it: by as many instructions as the EE has run
+// since (one VU instruction to an EE instruction), or further when the EE's
+// instruction is one that waits.
+void Ee::vu0_sync() {
+  if (!vu0_.stopped()) {
+    vu0_.advance((cycles - vu0_cycles_) / kCyclesPerInstruction);
+  }
+  vu0_cycles_ = cycles;
+}
+
+void Ee::vu0_finish(u32 at) {
+  if (vu0_.stopped()) {
+    return;
+  }
+  // A microprogram is a few thousand instructions at most; one that runs on
+  // is waiting for something the EE will never send, or has gone wrong here.
+  vu0_.advance(2'000'000);
+  vu0_cycles_ = cycles;
+  if (!vu0_.stopped()) {
+    if (vu0_runaways++ == 0) {
+      vu0_runaway_start = vu0_started_at_;
+      vu0_runaway_from = at;
+    }
+  }
+}
+
 void Ee::cop2_op(u32 op, u32 at) {
   unsigned rt = rt_of(op), rd = rd_of(op);
   if (op & (1u << 25)) {
+    // An operation on VU0 itself: the EE waits for a running microprogram.
+    vu0_finish(at);
     switch (op & 0x3F) {
-      case 0x38:  // VCALLMS: run the microprogram at this instruction
-        vu0_.run((op >> 6) & 0x7FFF);
-        break;
+      case 0x38:  // VCALLMS: start the microprogram at this instruction
       case 0x39:  // VCALLMSR: at the address in CMSAR0
-        vu0_.run(vu0_.control(27));
+        vu0_started_at_ = (op & 0x3F) == 0x38 ? (op >> 6) & 0x7FFF : vu0_.control(27);
+        vu0_.start(vu0_started_at_);
+        vu0_cycles_ = cycles;
         break;
       default:
         vu0_.macro(op);
         break;
     }
     return;
+  }
+  // Moves between the EE and VU0. With the interlock bit, a move from VU0
+  // waits for the microprogram to end and a move to VU0 waits for the next
+  // point the microprogram marks (its M bit); without it, the move happens
+  // while the microprogram runs.
+  if (!vu0_.stopped()) {
+    unsigned kind = rs_of(op);
+    if ((op & 1) && (kind == 0x01 || kind == 0x02)) {
+      vu0_finish(at);
+    } else if ((op & 1) && (kind == 0x05 || kind == 0x06)) {
+      vu0_sync();
+      vu0_.advance_to_sync(2'000'000);
+      vu0_cycles_ = cycles;
+    } else {
+      vu0_sync();
+    }
   }
   switch (rs_of(op)) {
     case 0x01:  // QMFC2
