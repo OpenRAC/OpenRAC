@@ -1,0 +1,94 @@
+// Each game's colours and typeface, from the OpenRAC website's game cards
+// (openrac-site src/lib/projects.ts, `theme` and `fontClass`). The site
+// names the games by their own ids; OpenRAC by release order:
+//   rac1 = "rac1", rac2 = "gc", rac3 = "uya", rac4 = "deadlocked".
+// Keep the values in step with the site (docs/STYLE.md).
+
+export interface Theme {
+  /** The boxes' fill, their border, the main and the second text colour. */
+  box: string;
+  border: string;
+  text: string;
+  text2: string;
+  /** The card's gradient, top to bottom. */
+  from: string;
+  to: string;
+  /** The title's typeface: the site's Audiowide for RAC1, Orbitron for the others. */
+  font: "brand" | "head";
+  weight: number;
+}
+
+export const THEMES: Record<string, Theme> = {
+  rac1: {
+    box: "#181820",
+    border: "#747669",
+    text: "#c8d2ff",
+    text2: "#9ca1d4",
+    from: "#3c7a3a",
+    to: "#12331f",
+    font: "brand",
+    weight: 400,
+  },
+  rac2: {
+    box: "#101a2a",
+    border: "#5a7fa6",
+    text: "#9fd3ff",
+    text2: "#6fa8d6",
+    from: "#7a4d1a",
+    to: "#2a1a0c",
+    font: "head",
+    weight: 600,
+  },
+  rac3: {
+    box: "rgba(98,66,27,.8)",
+    border: "#a0742e",
+    text: "#ebbe67",
+    text2: "#c99a45",
+    from: "#25514f",
+    to: "#0d1f24",
+    font: "head",
+    weight: 600,
+  },
+  rac4: {
+    box: "#12151b",
+    border: "#b91c1c",
+    text: "#f3f4f6",
+    text2: "#ef4444",
+    from: "#7f1d1d",
+    to: "#0f1115",
+    font: "head",
+    weight: 700,
+  },
+};
+
+/** For a game the site has no card for yet: the launcher's own colours. */
+export const FALLBACK: Theme = {
+  box: "#1d1d28",
+  border: "#d58a00",
+  text: "#ffd08a",
+  text2: "#ffb443",
+  from: "#22222f",
+  to: "#12121a",
+  font: "head",
+  weight: 600,
+};
+
+export function theme(game: string): Theme {
+  return THEMES[game] ?? FALLBACK;
+}
+
+/** The theme as CSS custom properties, for a style attribute (the site's names: --box, --bd, --tx, --tx2). */
+export function themeStyle(game: string): string {
+  const t = theme(game);
+  const font = t.font === "brand" ? "var(--font-brand)" : "var(--font-head)";
+  return [
+    `--box: ${t.box}`,
+    `--bd: ${t.border}`,
+    `--tx: ${t.text}`,
+    `--tx2: ${t.text2}`,
+    `--from: ${t.from}`,
+    `--to: ${t.to}`,
+    `--title-font: ${font}`,
+    `--title-weight: ${t.weight}`,
+  ].join("; ");
+}

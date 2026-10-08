@@ -1,0 +1,178 @@
+<script lang="ts">
+  // Where the OpenRAC folder and the programs are. With `setup`, the
+  // first-run screen: the same fields, filled from detection.
+  import PathField from "$components/PathField.svelte";
+  import { api, type Check, type Config, type Detected } from "$lib/api";
+  import { app, saveConfig } from "$lib/app.svelte";
+  import { REPO_URL } from "$lib/links";
+
+  let { setup = false }: { setup?: boolean } = $props();
+
+  /** The saved settings; this page only shows once they are loaded. */
+  function saved(): Config {
+    if (!app.config) throw new Error("settings not loaded");
+    return { ...app.config };
+  }
+
+  // Edits stay local until saved.
+  let draft = $state<Config>(saved());
+  let found = $state<Detected | null>(null);
+  let saving = $state(false);
+
+  $effect(() => {
+    void api.detect().then((d) => {
+      found = d;
+      // First run: take what was found for anything not set yet.
+      if (setup) {
+        draft.root ??= d.roots[0]?.path ?? null;
+        draft.python ??= d.pythons[0]?.path ?? null;
+        draft.pcsx2 ??= d.pcsx2s[0]?.path ?? null;
+        draft.godot ??= d.godots[0]?.path ?? null;
+        draft.docker ??= d.dockers[0]?.path ?? null;
+      }
+    });
+  });
+
+  const changed = $derived(JSON.stringify(draft) !== JSON.stringify(app.config));
+  const tool = (t: "python" | "pcsx2" | "godot" | "docker") => (path: string) => api.checkTool(t, path);
+  const root = (path: string): Promise<Check> => api.checkRoot(path);
+
+  async function save(finish: boolean) {
+    saving = true;
+    await saveConfig({ ...draft, setupComplete: draft.setupComplete || finish });
+    draft = saved();
+    saving = false;
+    if (finish) app.page = "library";
+  }
+</script>
+
+<div class="page">
+  {#if setup}
+    <section class="welcome rise">
+      <img src="/wrench.webp" alt="" width="72" height="72" />
+      <div>
+        <h1>Welcome to OpenRAC</h1>
+        <p class="muted">
+          The launcher sets up, builds and plays the Ratchet &amp; Clank decompilations in your OpenRAC folder, with
+          your own discs. Check what was found below; only the OpenRAC folder and Python are needed to start.
+        </p>
+      </div>
+    </section>
+  {:else}
+    <h1>Settings</h1>
+  {/if}
+
+  <section class="panel">
+    <h2>OpenRAC</h2>
+    <PathField
+      label="OpenRAC folder"
+      hint="Your checkout of OpenRAC: the folder with games/, tools/ and baserom/."
+      folder
+      bind:value={draft.root}
+      candidates={found?.roots}
+      check={root}
+    />
+    {#if !draft.root}
+      <p class="dim note">
+        No checkout yet? <button class="link" onclick={() => void api.openUrl(REPO_URL)}>Get OpenRAC</button> with git, then
+        choose its folder here.
+      </p>
+    {/if}
+  </section>
+
+  <section class="panel">
+    <h2>Programs</h2>
+    <PathField
+      label="Python"
+      hint="Python 3.10 or newer: OpenRAC's tools and the level editor run with it."
+      bind:value={draft.python}
+      candidates={found?.pythons}
+      check={tool("python")}
+    />
+    <PathField
+      label="PCSX2"
+      hint="The PlayStation 2 emulator, to play your disc or a build. Optional."
+      bind:value={draft.pcsx2}
+      candidates={found?.pcsx2s}
+      check={tool("pcsx2")}
+    />
+    <PathField
+      label="Docker"
+      hint="The build container of Ratchet & Clank (PAL) and Deadlocked runs in it, on Linux and macOS. Optional."
+      bind:value={draft.docker}
+      candidates={found?.dockers}
+      check={tool("docker")}
+    />
+    <PathField
+      label="Godot"
+      hint="Godot 4 (4.7 or newer), to edit levels. Optional."
+      bind:value={draft.godot}
+      candidates={found?.godots}
+      check={tool("godot")}
+    />
+  </section>
+
+  <div class="row end">
+    {#if app.info?.configFile}<span class="dim mono grow clip" title="Settings file">{app.info.configFile}</span>{/if}
+    {#if setup}
+      <button class="primary" disabled={saving || !draft.root} onclick={() => void save(true)}>Start</button>
+    {:else}
+      <button disabled={!changed || saving} onclick={() => (draft = saved())}>Undo</button>
+      <button class="primary" disabled={!changed || saving} onclick={() => void save(false)}>Save</button>
+    {/if}
+  </div>
+  {#if !setup && app.info}
+    <p class="dim version">OpenRAC Launcher {app.info.version} · {app.info.platform}</p>
+  {/if}
+</div>
+
+<style>
+  .page {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 28px 28px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .welcome {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    padding: 24px;
+    border-radius: 30px;
+    background: radial-gradient(80% 90% at 80% 0, rgb(213 138 0 / 0.28), transparent 70%), var(--panel);
+    border: 1px solid var(--line);
+  }
+
+  .welcome h1 {
+    font-size: 28px;
+    margin-bottom: 6px;
+  }
+
+  .panel h2 {
+    margin-bottom: 4px;
+  }
+
+  .note {
+    font-size: 13px;
+  }
+
+  .link {
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--amber);
+    font-size: 13px;
+  }
+
+  .end {
+    justify-content: flex-end;
+  }
+
+  .version {
+    font-size: 12px;
+    text-align: right;
+  }
+</style>

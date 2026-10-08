@@ -1,0 +1,450 @@
+{
+  "format": 1,
+  "repository": [
+    {
+      "id": "discs",
+      "label": "Identify discs",
+      "description": "Finds the PlayStation 2 images in baserom/ and checks each one's size and SHA-1 against games/*/game.json.",
+      "kind": "setup",
+      "state": "connected",
+      "program": "{python}",
+      "args": ["tools/openrac.py", "discs"],
+      "requires": ["python"],
+      "docs": "baserom/README.md"
+    },
+    {
+      "id": "discs-full",
+      "label": "Verify every checksum",
+      "description": "The same, with every checksum game.json lists (CRC32, MD5, SHA-1, SHA-256). Reads each 4 GB image several times: minutes, not seconds.",
+      "kind": "check",
+      "state": "connected",
+      "program": "{python}",
+      "args": ["tools/openrac.py", "discs", "--full"],
+      "requires": ["python"],
+      "docs": "baserom/README.md"
+    },
+    {
+      "id": "setup",
+      "label": "Place inputs",
+      "description": "Puts what each game's build reads where it expects it: hard links to your images, boot executables read out of them, links to toolchains/. Never overwrites a file.",
+      "kind": "setup",
+      "state": "connected",
+      "program": "{python}",
+      "args": ["tools/openrac.py", "setup"],
+      "requires": ["python"],
+      "docs": "docs/LAYOUT.md"
+    },
+    {
+      "id": "tool-tests",
+      "label": "Test OpenRAC's tools",
+      "description": "The unit tests of tools/ (no disc or toolchain needed).",
+      "kind": "check",
+      "state": "connected",
+      "program": "{python}",
+      "args": ["-m", "unittest", "discover", "-s", "tools"],
+      "requires": ["python"],
+      "docs": "CONTRIBUTING.md#tests"
+    },
+    {
+      "id": "update",
+      "label": "Update OpenRAC",
+      "description": "Brings the checkout up to date with the published OpenRAC.",
+      "kind": "setup",
+      "state": "planned",
+      "todo": "Decide how players get updates: git pull in a checkout (refuse when the tree has local changes) or a bundled release of the tools. See docs/INTEGRATION.md, 'Open decisions'."
+    }
+  ],
+  "versions": {
+    "rac1/pal": [
+      {
+        "id": "setup-asm",
+        "label": "Extract the assembly",
+        "description": "Splits the boot executable and the 19 level programs into assembly with splat, in the build container.",
+        "kind": "setup",
+        "state": "unverified",
+        "program": "bash",
+        "args": ["tools/docker/run.sh", "bash", "tools/setup_asm.sh"],
+        "platforms": ["linux", "macos"],
+        "requires": ["inputs", "docker"],
+        "docs": "games/rac1/pal/README.md",
+        "todo": "Run once from the launcher on Linux and macOS; on a first run the container image is built, which takes several minutes."
+      },
+      {
+        "id": "setup-asm-native",
+        "label": "Extract the assembly",
+        "description": "Splits the boot executable and the 19 level programs into assembly with splat.",
+        "kind": "setup",
+        "state": "unverified",
+        "program": "bash",
+        "args": ["tools/setup_asm.sh"],
+        "platforms": ["windows"],
+        "requires": ["inputs"],
+        "docs": "games/rac1/pal/README.md",
+        "todo": "Needs Git Bash's bash.exe on PATH (not WSL's, which sees other paths) and the project's Python packages; check both on Windows."
+      },
+      {
+        "id": "build",
+        "label": "Build",
+        "description": "Compiles the decompiled C with SN ProDG and links the executable, in the build container. Your toolchains/ must hold the compilers.",
+        "kind": "build",
+        "state": "unverified",
+        "program": "bash",
+        "args": ["tools/docker/run.sh", "bash", "tools/build_sn.sh"],
+        "platforms": ["linux", "macos"],
+        "requires": ["inputs", "toolchains", "docker"],
+        "artifact": "games/rac1/pal/build-sn/rac1.elf",
+        "docs": "games/rac1/pal/docs/CONTAINERS.md",
+        "todo": "Confirm build-sn/rac1.elf is the final executable and how the build reports a mismatch (its exit code), so the launcher can say 'matches retail'."
+      },
+      {
+        "id": "build-native",
+        "label": "Build",
+        "description": "Compiles the decompiled C with SN ProDG and links the executable.",
+        "kind": "build",
+        "state": "unverified",
+        "program": "bash",
+        "args": ["tools/build_sn.sh"],
+        "platforms": ["windows"],
+        "requires": ["inputs", "toolchains"],
+        "artifact": "games/rac1/pal/build-sn/rac1.elf",
+        "docs": "games/rac1/pal/README.md",
+        "todo": "As setup-asm-native: Git Bash on PATH; check on Windows."
+      },
+      {
+        "id": "report-check",
+        "label": "Check the progress report",
+        "description": "Recomputes progress/report.json from the source and compares it with the committed one, as CI does. Needs neither disc nor toolchain.",
+        "kind": "check",
+        "state": "connected",
+        "program": "{python}",
+        "args": ["tools/gen_progress_report.py", "--check"],
+        "requires": ["python"],
+        "docs": "games/rac1/pal/docs/WORKFLOW.md"
+      },
+      {
+        "id": "play-disc",
+        "label": "Play your disc",
+        "description": "Starts your own disc image in PCSX2.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{pcsx2}",
+        "args": ["--", "{disc}"],
+        "requires": ["disc", "pcsx2"],
+        "detached": true,
+        "todo": "Check PCSX2 2.x's command line on each platform (a Flatpak PCSX2 is started as 'flatpak run net.pcsx2.PCSX2'); see docs/INTEGRATION.md, 'Playing'."
+      },
+      {
+        "id": "play-build",
+        "label": "Play the build",
+        "description": "Starts the executable you built, with your disc for the game's data.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{pcsx2}",
+        "args": ["-elf", "{artifact}", "--", "{disc}"],
+        "requires": ["disc", "pcsx2", "artifact"],
+        "artifact": "games/rac1/pal/build-sn/rac1.elf",
+        "detached": true,
+        "todo": "Check that PCSX2's -elf override boots the rebuilt executable and that it loads the level programs from the disc; otherwise rebuild an image as rac1/ntsc does (make iso)."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 19 levels on your disc into a Godot 4 project in assets/godot. About 20 seconds and 630 MB. Stops if the project already exists.",
+        "kind": "edit",
+        "state": "unverified",
+        "program": "{python}",
+        "args": ["editor/extract.py", "godot", "{disc}", "assets/godot"],
+        "cwd": ".",
+        "requires": ["disc", "python"],
+        "docs": "editor/README.md",
+        "todo": "Run with a real disc; then offer Open in Godot instead when assets/godot exists (the extractor never overwrites)."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open in Godot",
+        "description": "Opens the extracted levels in the Godot editor.",
+        "kind": "edit",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": ["--path", "assets/godot", "-e"],
+        "cwd": ".",
+        "requires": ["godot", "artifact"],
+        "artifact": "assets/godot/project.godot",
+        "detached": true,
+        "docs": "editor/README.md",
+        "todo": "Check the project file's name after an extract."
+      }
+    ],
+    "rac1/ntsc": [
+      {
+        "id": "setup",
+        "label": "Set up the toolchains",
+        "description": "Downloads and builds the project's patched EE-GCC and assembler (every download pinned by SHA-256), then extracts the level programs. Takes a while the first time.",
+        "kind": "setup",
+        "state": "unverified",
+        "program": "bash",
+        "args": ["setup.sh", "--elf", "config/us/SCUS_971.99"],
+        "platforms": ["linux"],
+        "requires": ["inputs"],
+        "docs": "games/rac1/ntsc/docs/building.md",
+        "todo": "Run once on Linux. On Windows it runs in WSL: decide how the launcher starts WSL (wsl.exe --cd ...)."
+      },
+      {
+        "id": "setup-macos",
+        "label": "Set up the toolchains",
+        "description": "The same, in Docker on macOS.",
+        "kind": "setup",
+        "state": "unverified",
+        "program": "bash",
+        "args": ["setup.sh", "--docker", "--elf", "config/us/SCUS_971.99"],
+        "platforms": ["macos"],
+        "requires": ["inputs", "docker"],
+        "docs": "games/rac1/ntsc/docs/building.md",
+        "todo": "Run once on macOS."
+      },
+      {
+        "id": "build",
+        "label": "Build",
+        "description": "Builds the executable (make elf).",
+        "kind": "build",
+        "state": "unverified",
+        "program": "make",
+        "args": ["elf"],
+        "platforms": ["linux"],
+        "requires": ["inputs"],
+        "docs": "games/rac1/ntsc/docs/building.md",
+        "todo": "Find the executable make elf writes (config/us/build/SCUS_971.99 per docs/building.md) and add it as the artifact; macOS runs make through host/run.sh."
+      },
+      {
+        "id": "verify",
+        "label": "Verify the build",
+        "description": "Rebuilds and compares the whole executable's SHA-256 with retail (verify-baseline.sh).",
+        "kind": "check",
+        "state": "unverified",
+        "program": "bash",
+        "args": ["verify-baseline.sh"],
+        "platforms": ["linux"],
+        "requires": ["inputs"],
+        "docs": "games/rac1/ntsc/docs/building.md"
+      },
+      {
+        "id": "rebuild-iso",
+        "label": "Make a disc image",
+        "description": "Patches the built executable into a copy of your image (make iso).",
+        "kind": "build",
+        "state": "unverified",
+        "program": "make",
+        "args": ["iso"],
+        "platforms": ["linux"],
+        "requires": ["inputs"],
+        "artifact": "games/rac1/ntsc/build/Ratchet & Clank (USA) - rebuilt.iso",
+        "docs": "games/rac1/ntsc/docs/building.md",
+        "todo": "make iso takes the first dumps/*.iso: openrac.py setup links your image there, so it should be the only one."
+      },
+      {
+        "id": "play-disc",
+        "label": "Play your disc",
+        "description": "Starts your own disc image in PCSX2.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{pcsx2}",
+        "args": ["--", "{disc}"],
+        "requires": ["disc", "pcsx2"],
+        "detached": true,
+        "todo": "As rac1/pal's play-disc."
+      },
+      {
+        "id": "play-build",
+        "label": "Play the build",
+        "description": "Starts the rebuilt disc image in PCSX2.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{pcsx2}",
+        "args": ["--", "{artifact}"],
+        "requires": ["pcsx2", "artifact"],
+        "artifact": "games/rac1/ntsc/build/Ratchet & Clank (USA) - rebuilt.iso",
+        "detached": true,
+        "todo": "Run once a rebuilt image exists."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "The level editor reads the PAL disc only, for now.",
+        "kind": "edit",
+        "state": "planned",
+        "docs": "editor/README.md",
+        "todo": "The editor's readers know PAL v2.00 offsets only (editor/README.md); NTSC-U needs its own table."
+      }
+    ],
+    "rac2/ntsc": [
+      {
+        "id": "doctor",
+        "label": "Check this machine",
+        "description": "rac2's own report of what this machine can do: Python, the toolchains, WSL, Wrench, PCSX2.",
+        "kind": "check",
+        "state": "unverified",
+        "program": "{python}",
+        "args": ["scripts/doctor.py"],
+        "requires": ["python"],
+        "docs": "games/rac2/ntsc/docs/START-HERE.md",
+        "todo": "Run once; it may need requirements.txt installed first."
+      },
+      {
+        "id": "setup",
+        "label": "Set up",
+        "description": "Unpacks your disc with Wrench into a runtime folder outside OpenRAC and prepares the reference build.",
+        "kind": "setup",
+        "state": "planned",
+        "docs": "games/rac2/ntsc/docs/START-HERE.md",
+        "todo": "Needs two settings the launcher does not have yet: rac2's runtime folder (outside the tree; build/rac2-runtime works) and Wrench's wrenchbuild. Then: {python} scripts/setup.py --iso {disc} --runtime <runtime> --wrench <wrenchbuild>. Windows with WSL."
+      },
+      {
+        "id": "build",
+        "label": "Build",
+        "description": "Rebuilds the boot program and its 27 level overlays from the reconstructed assembly and the C.",
+        "kind": "build",
+        "state": "planned",
+        "docs": "games/rac2/ntsc/docs/START-HERE.md",
+        "todo": "scripts/build.py --manifest <runtime>/runs/<id>/manifest.json --toolchain <ProDG 2.0>: the run id comes from setup's output; decide how the launcher learns it."
+      },
+      {
+        "id": "tests",
+        "label": "Run rac2's tests",
+        "description": "rac2's unit tests (no disc needed; rabbitizer 1.16.2 must be installed).",
+        "kind": "check",
+        "state": "unverified",
+        "program": "{python}",
+        "args": ["-m", "unittest", "discover", "-s", "tests"],
+        "requires": ["python"],
+        "docs": "games/rac2/ntsc/README.md",
+        "todo": "Fails without rabbitizer: say so, or install the requirements in a launcher-owned venv."
+      },
+      {
+        "id": "play-disc",
+        "label": "Play your disc",
+        "description": "Starts your own disc image in PCSX2.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{pcsx2}",
+        "args": ["--", "{disc}"],
+        "requires": ["disc", "pcsx2"],
+        "detached": true,
+        "todo": "As rac1/pal's play-disc."
+      },
+      {
+        "id": "play-port",
+        "label": "Play the PC port",
+        "description": "The non-matching SDL2 port in ports/pal-functional, with your disc's data.",
+        "kind": "play",
+        "state": "planned",
+        "docs": "games/rac2/ntsc/ports/pal-functional/README.md",
+        "todo": "Build it with CMake and find what data it reads; it is PAL-functional, so check which disc it expects."
+      }
+    ],
+    "rac3/ntsc": [
+      {
+        "id": "setup",
+        "label": "Set up",
+        "description": "Unpacks frontbin.elf, boot_elf.elf and i5bootn.elf from your disc with Wrench, then splits them into assembly.",
+        "kind": "setup",
+        "state": "planned",
+        "docs": "games/rac3/README.md",
+        "todo": "Needs Wrench and wibo (downloaded into build/rac3/ by the README's steps) and a venv with tools/requirements.txt: a launcher 'Download helpers' action could fetch both, pinned. Then tools/setup_asm.py --target all."
+      },
+      {
+        "id": "build",
+        "label": "Build",
+        "description": "Builds the three programs and checks them byte for byte (prints MATCH).",
+        "kind": "build",
+        "state": "planned",
+        "docs": "games/rac3/README.md",
+        "todo": "tools/build.py --target all --toolchain {root}/toolchains/eegcc_2.95.3_sn_v1.36 --runner <wibo>, with the venv's Python; needs the wibo setting."
+      },
+      {
+        "id": "pr-check",
+        "label": "Check before a pull request",
+        "description": "rac3's pre-PR check (prints OK).",
+        "kind": "check",
+        "state": "planned",
+        "docs": "games/rac3/ntsc/CONTRIBUTING.md",
+        "todo": "tools/pr_check.py --target all with the venv's Python, once Set up works."
+      },
+      {
+        "id": "play-disc",
+        "label": "Play your disc",
+        "description": "Starts your own disc image in PCSX2.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{pcsx2}",
+        "args": ["--", "{disc}"],
+        "requires": ["disc", "pcsx2"],
+        "detached": true,
+        "todo": "As rac1/pal's play-disc."
+      }
+    ],
+    "rac4/ntsc": [
+      {
+        "id": "setup-asm",
+        "label": "Extract the assembly",
+        "description": "Unpacks the compressed boot image, splits it and its overlays, and writes the assembly with splat.",
+        "kind": "setup",
+        "state": "unverified",
+        "program": "bash",
+        "args": ["tools/setup_asm.sh"],
+        "platforms": ["linux", "macos"],
+        "requires": ["inputs"],
+        "docs": "games/rac4/ntsc/README.md",
+        "todo": "Run once; check whether it needs the project's venv first."
+      },
+      {
+        "id": "build",
+        "label": "Build",
+        "description": "Compiles the decompiled C in the build container (rac1/pal's image).",
+        "kind": "build",
+        "state": "unverified",
+        "program": "bash",
+        "args": ["tools/docker/run.sh", "bash", "tools/build.sh"],
+        "platforms": ["linux", "macos"],
+        "requires": ["inputs", "toolchains", "docker"],
+        "docs": "games/rac4/ntsc/README.md",
+        "todo": "Nothing is linked yet in rac4: the build writes objects to build/obj, so there is no executable to play."
+      },
+      {
+        "id": "audit",
+        "label": "Audit the matches",
+        "description": "Compares every compiled function with retail.",
+        "kind": "check",
+        "state": "unverified",
+        "program": "{dir}/venv/bin/python",
+        "args": ["tools/audit_matches.py"],
+        "platforms": ["linux", "macos"],
+        "requires": ["inputs"],
+        "docs": "games/rac4/ntsc/README.md",
+        "todo": "Uses the project's own venv (venv/): add an action that creates it, or run with {python} once the requirements are known."
+      },
+      {
+        "id": "report-check",
+        "label": "Check the progress report",
+        "description": "Recomputes progress/report.json from the source and compares it with the committed one, as CI does.",
+        "kind": "check",
+        "state": "connected",
+        "program": "{python}",
+        "args": ["tools/gen_progress_report.py", "--check"],
+        "requires": ["python"],
+        "docs": "games/rac4/ntsc/README.md"
+      },
+      {
+        "id": "play-disc",
+        "label": "Play your disc",
+        "description": "Starts your own disc image in PCSX2.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{pcsx2}",
+        "args": ["--", "{disc}"],
+        "requires": ["disc", "pcsx2"],
+        "detached": true,
+        "todo": "As rac1/pal's play-disc."
+      }
+    ]
+  }
+}
