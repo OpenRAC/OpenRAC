@@ -13,6 +13,12 @@ directory lists its own in its `THIRD_PARTY_NOTICES.md` and source comments:
   [games/rac2/ntsc/docs/COMPILER-NOTES.md](games/rac2/ntsc/docs/COMPILER-NOTES.md),
   [games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md](games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md)).
 
+The runtime (`runtime/`) is OpenRAC's own code under GPL-3.0-or-later. It
+links [SDL3](https://libsdl.org) (zlib licence), taken from the system and not
+included here. [runtime/docs/OPENGOAL_NOTES.md](runtime/docs/OPENGOAL_NOTES.md)
+describes how [OpenGOAL](https://github.com/open-goal/jak-project) (ISC,
+Copyright (c) 2020-2026 OpenGOAL Team) works; no code from it is included.
+
 The level editor (`editor/`) is distributed under rac1-decomp's MIT license
 ([editor/LICENSE](editor/LICENSE)). It uses the following.
 

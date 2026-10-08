@@ -63,11 +63,21 @@ edit ([editor/README.md](editor/README.md)):
 python3 editor/extract.py godot baserom/SCES_509.16.iso assets/godot
 ```
 
+The runtime is where the games will run on a PC. It is at its first step, a
+software model of the console's graphics hardware with a demo and tests
+([runtime/README.md](runtime/README.md)):
+
+```sh
+cmake -S runtime -B build/runtime -G Ninja && cmake --build build/runtime
+build/runtime/openrac-gsdemo
+```
+
 ## Repository layout
 
 ```
 games/       one directory per game, one per version inside (pal, ntsc)
 editor/      the Godot level editor and its extractor
+runtime/     what will run the games on a PC: hardware model, renderer, host
 tools/       openrac.py (discs, setup, progress) and sources.py (imports)
 docs/        policy, engine knowledge, toolchains and workflows across games
 progress/    consolidated progress, generated
