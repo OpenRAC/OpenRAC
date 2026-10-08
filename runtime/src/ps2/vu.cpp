@@ -153,24 +153,103 @@ void Vu::step() {
   if (stop_in_ && --stop_in_ == 0) {
     running_ = false;
     // Nothing is left waiting when a program has stopped.
-    if (kick_in_) {
-      fire_kick();
+    settle();
+  }
+}
+
+// Bring everything in flight to its end: flags, the divider, the function
+// unit, a pending kick.
+void Vu::settle() {
+  for (int n = 3; n >= 0; n--) {
+    if (flag_pipe_[n].valid) {
+      mac = flag_pipe_[n].mac;
+      status = flag_pipe_[n].status;
+      clip = flag_pipe_[n].clip;
+      flag_pipe_[n].valid = false;
     }
-    if (q_wait_) {
-      finish_q();
+  }
+  if (q_wait_) {
+    finish_q();
+  }
+  if (p_wait_) {
+    p = p_next_;
+    p_wait_ = 0;
+  }
+  if (kick_in_) {
+    fire_kick();
+  }
+  backup_ttl_ = 0;
+}
+
+void Vu::macro(u32 code) {
+  in_upper_ = false;
+  u32 fn = code & 0x3F;
+  if (fn < 0x30) {
+    upper(code);
+  } else if (fn < 0x38) {
+    lower_special(code);  // the integer operations
+  } else if (fn >= 0x3C) {
+    if (((((code >> 6) & 0x1F) << 2) | (code & 3)) < 0x30) {
+      upper_special(code);
+    } else {
+      lower_special(code);
     }
-    if (p_wait_) {
-      p = p_next_;
-      p_wait_ = 0;
+  } else {
+    unknown_ops++;
+  }
+  settle();
+}
+
+u32 Vu::control(unsigned reg) const {
+  if (reg < 16) {
+    return vi[reg];
+  }
+  switch (reg) {
+    case 16: return status;
+    case 17: return mac;
+    case 18: return clip;
+    case 20: return r & 0x7FFFFF;
+    case 21: return i;
+    case 22: return q;
+    case 26: return pc * 8;
+    case 27: return cmsar0_;
+    case 28: return fbrst_;
+    default: return 0;  // VPU-STAT: nothing is running when the EE looks
+  }
+}
+
+void Vu::set_control(unsigned reg, u32 value) {
+  if (reg < 16) {
+    if (reg) {
+      vi[reg] = static_cast<u16>(value);
     }
-    for (int n = 3; n >= 0; n--) {
-      if (flag_pipe_[n].valid) {
-        mac = flag_pipe_[n].mac;
-        status = flag_pipe_[n].status;
-        clip = flag_pipe_[n].clip;
-        flag_pipe_[n].valid = false;
-      }
-    }
+    return;
+  }
+  switch (reg) {
+    case 16:  // only the remembered bits can be written
+      status = (status & 0x3F) | (value & 0xFC0);
+      status_latest_ = status;
+      break;
+    case 18:
+      clip = clip_latest_ = value & 0xFFFFFF;
+      break;
+    case 20:
+      r = (value & 0x7FFFFF) | 0x3F800000;
+      break;
+    case 21:
+      i = value;
+      break;
+    case 22:
+      q = value;
+      break;
+    case 27:
+      cmsar0_ = value & 0xFFFF;
+      break;
+    case 28:
+      fbrst_ = value & 0x0C0C;
+      break;
+    default:
+      break;
   }
 }
 

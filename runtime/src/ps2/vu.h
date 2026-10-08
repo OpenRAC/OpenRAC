@@ -38,6 +38,15 @@ class Vu {
 
   bool stopped() const { return !running_; }
 
+  // One instruction given by the EE (a COP2 operation): it runs at once and
+  // the EE waits for its result, so nothing is left in flight afterwards.
+  void macro(u32 code);
+  // The control registers the EE reads and writes with CFC2 and CTC2:
+  // 0-15 the integer registers, 16 status, 17 MAC, 18 clip, 20 R, 21 I,
+  // 22 Q, 26 TPC, 27 CMSAR0, 28 FBRST, 29 VPU-STAT, 31 CMSAR1.
+  u32 control(unsigned reg) const;
+  void set_control(unsigned reg, u32 value);
+
   // XGKICK: a GIF packet starts at this quadword of data memory.
   std::function<void(u32 quadword)> on_kick;
   // XTOP and XITOP read VIF registers.
@@ -77,6 +86,7 @@ class Vu {
   u32 result(u32 value, u32 problems, unsigned field, u32& flags) const;
   void post_flags(u32 mac_bits);
   void post();
+  void settle();
   void finish_q();
   void fire_kick();
 
@@ -109,6 +119,7 @@ class Vu {
 
   unsigned backup_reg_ = 0, backup_ttl_ = 0;
   u16 backup_value_ = 0;
+  u32 cmsar0_ = 0, fbrst_ = 0;
 };
 
 }  // namespace ps2

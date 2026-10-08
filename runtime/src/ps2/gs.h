@@ -137,6 +137,9 @@ class Gs {
   // Image data of a local to host transfer. Returns the bytes produced.
   std::size_t transfer_out(u8* data, std::size_t bytes);
 
+  // The start of a vertical blank: the event bit, and which field follows.
+  void vblank(bool odd_field) { csr_ = (csr_ & ~u64{0x2000}) | 0x8 | (odd_field ? 0x2000 : 0); }
+
   // What the display circuits show, or false when no circuit is enabled.
   bool display(Image& out) const;
   // A rectangle of any buffer as RGBA, for tools and tests.

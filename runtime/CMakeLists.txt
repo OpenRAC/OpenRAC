@@ -20,6 +20,8 @@ add_compile_options(-ffp-contract=off)
 # The hardware contract the games draw through: no dependencies.
 add_library(openrac_ps2 STATIC
   src/ps2/dma.cpp
+  src/ps2/ee.cpp
+  src/ps2/ee_mmi.cpp
   src/ps2/gif.cpp
   src/ps2/gs.cpp
   src/ps2/gs_memory.cpp
@@ -27,6 +29,16 @@ add_library(openrac_ps2 STATIC
   src/ps2/vu.cpp
 )
 target_include_directories(openrac_ps2 PUBLIC src/ps2 src)
+
+# The machine around the hardware model: kernel services, the disc, the
+# library functions answered by the runtime.
+add_library(openrac_sys STATIC
+  src/sys/disc.cpp
+  src/sys/machine.cpp
+  src/sys/services.cpp
+)
+target_include_directories(openrac_sys PUBLIC src)
+target_link_libraries(openrac_sys PUBLIC openrac_ps2)
 
 if(OPENRAC_RUNTIME_WINDOW)
   find_package(SDL3 REQUIRED CONFIG)
@@ -36,7 +48,12 @@ if(OPENRAC_RUNTIME_WINDOW)
 
   add_executable(openrac-gsdemo src/app/gsdemo.cpp)
   target_link_libraries(openrac-gsdemo PRIVATE openrac_host)
+  add_executable(openrac-boot src/app/boot.cpp)
+  target_link_libraries(openrac-boot PRIVATE openrac_sys openrac_host)
 else()
+  add_executable(openrac-boot src/app/boot.cpp)
+  target_compile_definitions(openrac-boot PRIVATE OPENRAC_NO_WINDOW)
+  target_link_libraries(openrac-boot PRIVATE openrac_sys)
   add_executable(openrac-gsdemo src/app/gsdemo.cpp)
   target_compile_definitions(openrac-gsdemo PRIVATE OPENRAC_NO_WINDOW)
   target_link_libraries(openrac-gsdemo PRIVATE openrac_ps2)
