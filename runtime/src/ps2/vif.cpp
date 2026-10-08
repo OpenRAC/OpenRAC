@@ -190,6 +190,9 @@ void Vif1::execute(u32 code, const u32* operands, std::size_t words) {
       for (std::size_t i = 0; i < words * 4; i++) {
         micro[(at + i) & (kMemoryBytes - 1)] = src[i];
       }
+      if (on_program) {
+        on_program();
+      }
       break;
     }
     case kDirect:

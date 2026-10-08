@@ -2,6 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #pragma once
 
+#include <cfenv>
+
 #include "fp.h"
 #include "types.h"
 
@@ -26,6 +28,20 @@
 // The caller must have set the host's rounding to "towards zero"
 // (QuadRounding does it for a scope).
 namespace ps2::fp {
+
+// The host's rounding mode, read and set directly where the C library's way
+// is slow (it is called around every packet a vector unit sends).
+#if defined(__aarch64__)
+inline u64 host_rounding() { return __builtin_arm_rsr64("FPCR"); }
+inline void set_host_rounding(u64 saved) { __builtin_arm_wsr64("FPCR", saved); }
+inline void round_toward_zero() { __builtin_arm_wsr64("FPCR", __builtin_arm_rsr64("FPCR") | (u64{3} << 22)); }
+inline void round_to_nearest() { __builtin_arm_wsr64("FPCR", __builtin_arm_rsr64("FPCR") & ~(u64{3} << 22)); }
+#else
+inline u64 host_rounding() { return static_cast<u64>(std::fegetround()); }
+inline void set_host_rounding(u64 saved) { std::fesetround(static_cast<int>(saved)); }
+inline void round_toward_zero() { std::fesetround(FE_TOWARDZERO); }
+inline void round_to_nearest() { std::fesetround(FE_TONEAREST); }
+#endif
 
 #if OPENRAC_FP_QUAD
 

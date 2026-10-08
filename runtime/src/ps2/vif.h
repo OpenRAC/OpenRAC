@@ -30,6 +30,9 @@ class Vif1 {
   // one that stopped (MSCNT) when `resume` is true.
   std::function<void(u32 address, bool resume)> on_start;
 
+  // Called when MPG has written program memory.
+  std::function<void()> on_program;
+
   std::array<u8, kMemoryBytes> data{};   // VU1 data memory, 1,024 quadwords
   std::array<u8, kMemoryBytes> micro{};  // VU1 program memory, 2,048 instructions
 

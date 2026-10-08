@@ -22,9 +22,9 @@ inline u32 divide_flags(u32 problems) {
 // unit computes, and only then: other code on the thread expects the usual
 // rounding.
 struct TowardZero {
-  int saved = std::fegetround();
-  TowardZero() { std::fesetround(FE_TOWARDZERO); }
-  ~TowardZero() { std::fesetround(saved); }
+  u64 saved = fp::host_rounding();
+  TowardZero() { fp::round_toward_zero(); }
+  ~TowardZero() { fp::set_host_rounding(saved); }
 };
 
 inline s32 sign_extend(u32 v, unsigned width) {
@@ -129,10 +129,10 @@ void Vu::fire_kick() {
   kick_in_ = 0;
   if (on_kick) {
     // What takes the packet (the GS) computes with the usual rounding.
-    int mode = std::fegetround();
-    std::fesetround(FE_TONEAREST);
+    u64 mode = fp::host_rounding();
+    fp::round_to_nearest();
     on_kick(kick_address_);
-    std::fesetround(mode);
+    fp::set_host_rounding(mode);
   }
 }
 
@@ -212,6 +212,94 @@ void Vu::work_out(Needs& needs, u32 up, u32 low) const {
   }
 }
 
+void Vu::program_changed() {
+  for (Needs& n : needs_) {
+    n.known = false;
+  }
+  programs_looked_at_ = false;
+}
+
+namespace {
+
+// Does this upper instruction set MAC and status flags?
+inline bool sets_flags(u32 up) {
+  u32 fn = up & 0x3F;
+  if (fn < 0x10 || (fn >= 0x18 && fn <= 0x1C) || fn == 0x1E || (fn >= 0x20 && fn <= 0x2A) || (fn >= 0x2C && fn <= 0x2E)) {
+    return true;
+  }
+  if (fn < 0x3C) {
+    return false;
+  }
+  u32 index = (((up >> 6) & 0x1F) << 2) | (up & 3);
+  return index < 0x10 || (index >= 0x18 && index <= 0x1C) || index == 0x1E || (index >= 0x20 && index <= 0x2A) ||
+         (index >= 0x2C && index <= 0x2E);
+}
+
+// Lower instructions that read the MAC or status flags.
+inline bool reads_flags(u32 low) {
+  u32 op = low >> 25;
+  return op == 0x14 || op == 0x16 || op == 0x17 || op == 0x18 || op == 0x1A || op == 0x1B;
+}
+
+}  // namespace
+
+// What is in program memory as a whole: does anything read flags in a way
+// that depends on every instruction (the bits that remember, the MAC flags)?
+void Vu::look_at_programs() {
+  programs_looked_at_ = true;
+  sticky_readers_ = false;
+  for (u32 n = 0; n <= pc_mask_; n++) {
+    u32 low = load<u32>(memory_.micro + n * 8), up = load<u32>(memory_.micro + n * 8 + 4);
+    if (up & 0x80000000u) {
+      continue;
+    }
+    u32 op = low >> 25;
+    u32 imm12 = ((low >> 10) & 0x800) | (low & 0x7FF);
+    if (op == 0x15 || op == 0x18 || op == 0x1A || op == 0x1B || ((op == 0x14 || op == 0x16 || op == 0x17) && (imm12 & 0xFC0))) {
+      sticky_readers_ = true;
+      return;
+    }
+  }
+}
+
+// Can any instruction read the flags the upper instruction at `at` sets?
+// They are seen from four cycles on and until the next instruction that
+// sets flags has had its four cycles. A reader in that stretch, or anything
+// that leaves the straight line (a branch, the end of the program), counts.
+bool Vu::flags_can_be_read(u32 at) const {
+  if (!skip_unread_flags || sticky_readers_) {
+    return true;
+  }
+  int next_setter = -1;
+  // (From the pair before: if that one branches, this is its delay slot and
+  // what follows is somewhere else. The pair itself is looked at only for a
+  // branch.)
+  for (int n = -1; n <= 40; n++) {
+    u32 where = (at + static_cast<u32>(n)) & pc_mask_;
+    u32 low = load<u32>(memory_.micro + where * 8), up = load<u32>(memory_.micro + where * 8 + 4);
+    if (up & 0x40000000u) {
+      return true;
+    }
+    if (!(up & 0x80000000u)) {
+      u32 op = low >> 25;
+      if ((n > 0 && reads_flags(low)) || (op >= 0x20 && op <= 0x2F)) {
+        return true;
+      }
+    }
+    if (n <= 0) {
+      continue;
+    }
+    if (next_setter < 0 && sets_flags(up)) {
+      next_setter = n;
+    }
+    // Five more pairs after the next setter: its four cycles, and one over.
+    if (next_setter >= 0 && n >= next_setter + 5) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void Vu::step() {
   u32 at = pc;
   u32 low = load<u32>(memory_.micro + at * 8), up = load<u32>(memory_.micro + at * 8 + 4);
@@ -221,8 +309,13 @@ void Vu::step() {
   // register not yet readable, or needs a unit that is busy.
   Needs& needs = needs_[at];
   if (!needs.known || needs.up != up || needs.low != low) {
+    if (!programs_looked_at_) {
+      look_at_programs();
+    }
     work_out(needs, up, low);
+    needs.flags_wanted = !sets_flags(up) || flags_can_be_read(at);
   }
+  flags_wanted_ = needs.flags_wanted;
   u64 ready = cycle_ + 1;
   for (unsigned n = 0; n < needs.count; n++) {
     const std::array<u64, 4>& fields = readable_[needs.reg[n]];
@@ -330,6 +423,7 @@ void Vu::settle() {
 void Vu::macro(u32 code) {
   TowardZero rounding;
   in_upper_ = false;
+  flags_wanted_ = true;
   u32 fn = code & 0x3F;
   if (fn < 0x30) {
     upper(code);
@@ -567,6 +661,19 @@ void Vu::arith(u32 code, Op op, From from, bool to_acc) {
              fp::quad_add(acc.data(), product.data(), dest, quick.data(), true);
       break;
   }
+  if (fast && !flags_wanted_) {
+    for (unsigned field = 0; field < 4; field++) {
+      if (has(dest, field)) {
+        out[field] = quick[field];
+      }
+    }
+    if (to_acc) {
+      acc = out;
+    } else {
+      write_vf(fd, kAll, out);
+    }
+    return;
+  }
   if (fast) {
     for (unsigned field = 0; field < 4; field++) {
       if (has(dest, field)) {
@@ -604,7 +711,9 @@ void Vu::arith(u32 code, Op op, From from, bool to_acc) {
   } else {
     write_vf(fd, kAll, out);
   }
-  post_flags(flags);
+  if (flags_wanted_) {
+    post_flags(flags);
+  }
 }
 
 void Vu::min_max(u32 code, From from, bool max) {
@@ -942,10 +1051,17 @@ void Vu::lower_special(u32 code) {
     u32 x = (r >> 4) & 1, y = (r >> 22) & 1;
     r = (((r << 1) ^ x ^ y) & 0x7FFFFF) | 0x3F800000;
   };
-  double x = fp::to_double(vf[is][0]), y = fp::to_double(vf[is][1]), z = fp::to_double(vf[is][2]);
-  double one = fp::to_double(vf[is][fsf]);
+  u32 index = (((code >> 6) & 0x1F) << 2) | (code & 3);
+  // The function unit's operands, for the instructions that use it.
+  double x = 0, y = 0, z = 0, one = 0;
+  if (index >= 0x70) {
+    x = fp::to_double(vf[is][0]);
+    y = fp::to_double(vf[is][1]);
+    z = fp::to_double(vf[is][2]);
+    one = fp::to_double(vf[is][fsf]);
+  }
 
-  switch ((((code >> 6) & 0x1F) << 2) | (code & 3)) {
+  switch (index) {
     case 0x30:  // MOVE
       write_vf(it, dest, vf[is]);
       break;

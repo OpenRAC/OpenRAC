@@ -41,6 +41,13 @@ class Vu {
 
   bool stopped() const { return !running_; }
 
+  // Skip working out MAC and status flags that no instruction of the loaded
+  // programs can read. Safe for VU1, whose flags nothing outside it reads;
+  // VU0's can be read by the EE, so it leaves this off.
+  bool skip_unread_flags = false;
+  // Program memory was written: forget what was worked out about it.
+  void program_changed();
+
   // Running beside the EE, which is how VU0 is used: start a program, then
   // let it run a number of instructions at a time. `advance_to_sync` runs
   // until an instruction with the M bit (a point the program marks for the
@@ -89,6 +96,7 @@ class Vu {
     u8 count = 0;
     u8 reg[4] = {0, 0, 0, 0}, mask[4] = {0, 0, 0, 0};
     u8 wait = 0;  // 1: the divider must be free, 2: the function unit must be done
+    bool flags_wanted = true;  // something can read the flags its upper instruction sets
   };
   enum class Op { Add, Sub, Mul, Madd, Msub };
   enum class From { Ft, Bc, Q, I };
@@ -115,6 +123,8 @@ class Vu {
   void branch(u32 target);
   void start_q(u32 value, unsigned latency, u32 divide_flags);
   void work_out(Needs& needs, u32 up, u32 low) const;
+  bool flags_can_be_read(u32 at) const;
+  void look_at_programs();
   void start_p(double value, unsigned latency);
 
   u8* quad(u32 address) { return memory_.data + ((address * 16) & (memory_.data_bytes - 1)); }
@@ -134,6 +144,8 @@ class Vu {
   // The cycle from which each field of each float register can be read.
   std::array<std::array<u64, 4>, 32> readable_{};
   std::vector<Needs> needs_;
+  bool programs_looked_at_ = false, sticky_readers_ = true;
+  bool flags_wanted_ = true;  // for the instruction being run
 
   std::array<Flags, 8> flag_pipe_{};
   unsigned flag_first_ = 0, flag_count_ = 0;

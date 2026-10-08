@@ -105,6 +105,7 @@ int main(int argc, char** argv) {
     vif.write(&file[at], end - at);
 
     u32 instructions = 0, immediates = 0, unknown = 0, lowest = 0xFFFFFFFF, highest = 0;
+    u32 mac_readers = 0, status_readers = 0, clip_ops = 0, clip_readers = 0;
     std::map<u64, u32> unknown_words;
     for (u32 n = 0; n < Vif1::kMemoryBytes / 8; n++) {
       u32 lower = load<u32>(&vif.micro[n * 8]), upper = load<u32>(&vif.micro[n * 8 + 4]);
@@ -116,16 +117,22 @@ int main(int argc, char** argv) {
       highest = std::max(highest, n);
       if (upper & 0x80000000u) {
         immediates++;
+      } else {
+        u32 op = lower >> 25;
+        mac_readers += op == 0x18 || op == 0x1A || op == 0x1B;
+        status_readers += op >= 0x14 && op <= 0x17;
+        clip_readers += op == 0x10 || op == 0x12 || op == 0x13 || op == 0x1C;
       }
+      clip_ops += (upper & 0x7FF) == 0x1FF;
       if (!known(upper, lower)) {
         unknown++;
         unknown_words[(u64{upper} << 32) | lower]++;
       }
     }
     std::printf("program at 0x%zx: %u quadwords, %u instructions at %u-%u, %u with a number for I, %u not decoded, "
-                "%llu codes VIF1 did not know\n",
+                "%llu codes VIF1 did not know; flag readers: %u MAC, %u status, %u clip (%u CLIPs)\n",
                 at, quadwords, instructions, lowest, highest, immediates, unknown,
-                static_cast<unsigned long long>(vif.unknown_codes));
+                static_cast<unsigned long long>(vif.unknown_codes), mac_readers, status_readers, clip_readers, clip_ops);
     int shown = 0;
     for (const auto& [word, count] : unknown_words) {
       if (shown++ == 12) {

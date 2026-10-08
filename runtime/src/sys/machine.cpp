@@ -30,6 +30,7 @@ Machine::Machine() {
   ee.on_write128 = [this](u32 address, u64 lo, u64 hi) { hw_write128(address, lo, hi); };
   ee.on_syscall = [this](u32 code) { syscall(code); };
   ee.on_event = [this] { event(); };
+  vif0.on_program = [this] { vu0.program_changed(); };
   add_default_services();
 }
 

@@ -35,6 +35,8 @@ struct Graphics {
         vu1_runaway_pc = vu1.pc;
       }
     };
+    vif.on_program = [this] { vu1.program_changed(); };
+    vu1.skip_unread_flags = true;
     vu1.on_top = [this] { return vif.top; };
     vu1.on_itop = [this] { return vif.itop; };
     vu1.on_kick = [this](u32 quadword) {
