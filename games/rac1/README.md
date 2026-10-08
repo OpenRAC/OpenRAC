@@ -6,8 +6,8 @@ programs (code the game loads with each planet).
 
 | Version | Directory | Came from | Builds on |
 |---|---|---|---|
-| PAL, `SCES_509.16` (disc v2.00) | [pal/](pal/README.md) | [rac1-decomp](https://github.com/Lynder063/rac1-decomp) | macOS and Linux through Docker; Windows natively |
-| NTSC-U, `SCUS_971.99` (disc v1.00) | [ntsc/](ntsc/README.md) | [Lombyte](https://github.com/mateuszklysz/Lombyte) | Linux or WSL; macOS through `./setup.sh --docker` |
+| PAL, `SCES_509.16` (disc v2.00) | [pal/](pal/README.md) | [rac1-decomp](https://github.com/OpenRAC/rac1-decomp) | macOS and Linux through Docker; Windows natively |
+| NTSC-U, `SCUS_971.99` (disc v1.00) | [ntsc/](ntsc/README.md) | [Lombyte](https://github.com/lombyte-project/Lombyte) | Linux or WSL; macOS through `./setup.sh --docker` |
 
 Disc checksums are in [baserom/README.md](../../baserom/README.md); progress
 in [progress/](../../progress/README.md).
@@ -29,10 +29,17 @@ in [progress/](../../progress/README.md).
   function under a subsystem path, with recovered names in
   [ntsc/config/us/recovered_names.json](ntsc/config/us/recovered_names.json).
 - **Different compilers.** The PAL project matches the game code with SN GCC
-  2.95.3; the US project with a patched GNU EE-GCC 2.9. Settling which one
-  built the game comes before merging the two into one tree
+  2.95.3 and Sony's SDK objects and libgcc with EE-GCC 2.9-ee-991111; the US
+  project matches everything with a patched GNU EE-GCC 2.9. The PAL build
+  runs no step that edits compiler output and gives flags only per file
+  ([pal/docs/BUILD_FIDELITY.md](pal/docs/BUILD_FIDELITY.md)). Settling which
+  compiler built the game comes before merging the two into one tree
   ([docs/toolchains](../../docs/toolchains/README.md),
   [open questions](../../docs/policy/OPEN_QUESTIONS.md#4-one-ratchet--clank-tree-for-both-regions)).
+- **Different licenses.** The PAL project is GPL v3 since 2026-10-07 and the
+  US project MIT, so US code can move into the PAL tree, and PAL code written
+  since then cannot move back without its authors' permission
+  ([LICENSE.md](../../LICENSE.md)).
 
 ## Getting started
 

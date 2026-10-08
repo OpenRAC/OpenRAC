@@ -55,7 +55,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ## Lombyte
 
-[Lombyte](https://github.com/mateuszklysz/Lombyte), the US decompilation, now
+[Lombyte](https://github.com/lombyte-project/Lombyte), the US decompilation, now
 `games/rac1/ntsc`:
 
 - `editor/moby_classes.tsv`: the moby class names the editor shows, from its

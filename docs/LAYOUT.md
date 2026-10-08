@@ -10,7 +10,7 @@ OpenRAC/
 │   │   ├── pal/            SCES_509.16, from rac1-decomp
 │   │   └── ntsc/           SCUS_971.99, from Lombyte
 │   ├── rac2/ntsc/          Going Commando, SCUS_972.68 v1.01, from rac2-decomp
-│   ├── rac3/ntsc/          Up Your Arsenal, SCUS_973.53, from ratchet-uya-decomp
+│   ├── rac3/ntsc/          Up Your Arsenal, SCUS_973.53, from rac3-uya-decomp
 │   └── rac4/ntsc/          Deadlocked, SCUS_974.65, from rac-deadlocked-decomp
 ├── editor/                 Godot level editor and extractor (shared)
 ├── tools/                  repository-wide tools: openrac.py, sources.py

@@ -19,6 +19,12 @@ Some of that C was carried over from Ratchet & Clank, where the two games
 share byte-identical functions ([ntsc/docs/SECOND-C-LOT.md](ntsc/docs/SECOND-C-LOT.md),
 [ntsc/docs/RAC1-TO-RAC2.md](ntsc/docs/RAC1-TO-RAC2.md)).
 
+[ntsc/ports/pal-functional/](ntsc/ports/pal-functional/README.md) is a separate
+project inside it: platypet2217-star's RAC2Decomp (MIT), a functional, not
+matching, reconstruction of the PAL release (`SCES_516.07`) as C with SDL2 and
+OpenGL. It builds with CMake on its own and is not part of the matching
+sources or the progress.
+
 Only v1.01 is supported; the Greatest Hits release and other regions differ.
 Disc checksums are in [baserom/README.md](../../baserom/README.md); progress
 in [progress/](../../progress/README.md).
@@ -27,9 +33,14 @@ in [progress/](../../progress/README.md).
 
 ```sh
 cd games/rac2/ntsc
-python -m unittest discover -s tests       # 240 tests; Python only (one fails on macOS: /var is a link)
+python -m pip install rabbitizer==1.16.2  # the tests disassemble with it
+python -m unittest discover -s tests       # 675 tests; all pass on Linux with git
 python scripts/doctor.py                   # what your environment has and lacks
 ```
+
+On macOS 63 tests fail for the platform alone: `/tmp` is a symlink there and
+atomic replace is not available, which the tools' guards refuse (the same
+tests fail in the project's own checkout).
 
 The setup and build steps, and the toolchains they need, are in
 [ntsc/README.md](ntsc/README.md) (Windows with WSL). On macOS and Linux,

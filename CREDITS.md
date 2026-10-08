@@ -3,7 +3,7 @@
 OpenRAC is the work of the people behind the four projects it brings
 together. The original repositories keep the full history of who wrote what
 ([docs/SOURCES.md](docs/SOURCES.md)). Names below are as they appear in each
-project's commits up to its import on 2026-10-03, most commits first.
+project's commits up to the sync of 2026-10-07, most commits first.
 
 ## Ratchet & Clank, PAL: rac1-decomp (`games/rac1/pal`)
 
@@ -17,14 +17,17 @@ project's commits up to its import on 2026-10-03, most commits first.
 - Louis-Philippe Le Sieur
 - Pezza
 - Kryštof "Lynder063" Malinda
+- Purab
 - mechaivan
 
 ## Ratchet & Clank: Going Commando: rac2-decomp (`games/rac2/ntsc`)
 
 - Louis-Philippe Le Sieur (llesieur99): creator and maintainer
+- platypet2217-star: author of RAC2Decomp, the functional PAL port in
+  `ports/pal-functional/`
 - Kryštof "Lynder063" Malinda
 
-## Ratchet & Clank: Up Your Arsenal: ratchet-uya-decomp (`games/rac3/ntsc`)
+## Ratchet & Clank: Up Your Arsenal: rac3-uya-decomp (`games/rac3/ntsc`)
 
 - vetusmagnus: creator and maintainer
 - Louis-Philippe Le Sieur
@@ -40,7 +43,8 @@ Flavius (Veradictus), with the level editor written in rac1-decomp.
 
 Several projects work with AI assistants under human direction; their
 commits say so where a project records it. A few rac1-decomp commits carry
-an unconfigured git identity and are not listed by name.
+an unconfigured git identity or an assistant's identity and are not listed
+by name.
 
 ## Projects we build on
 
