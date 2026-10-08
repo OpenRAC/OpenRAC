@@ -8,21 +8,23 @@ docs it names.
 
 | Directory | License today |
 |---|---|
-| `games/rac1/pal` | MIT, Kryštof "Lynder063" Malinda ([LICENSE](../../games/rac1/pal/LICENSE)); libgcc sources under the GPL with the runtime exception |
+| `games/rac1/pal` | GNU GPL v3 ([LICENSE](../../games/rac1/pal/LICENSE)), chosen by the project on 2026-10-07 (MIT before); libgcc sources under the GPL with the runtime exception |
 | `games/rac1/ntsc` | MIT, Mateusz Kłysz ([LICENSE](../../games/rac1/ntsc/LICENSE)); GPL-2.0 libgcc and EE-GCC patches, newlib's license ([licenses/](../../games/rac1/ntsc/licenses)) |
 | `games/rac2/ntsc` | MIT, llesieur99 ([LICENSE](../../games/rac2/ntsc/LICENSE)) |
 | `games/rac3/ntsc` | GNU GPL v3 ([LICENSE](../../games/rac3/ntsc/LICENSE)), chosen by the project on 2026-10-04 |
 | `games/rac4/ntsc` | MIT, Kryštof "Lynder063" Malinda ([LICENSE](../../games/rac4/ntsc/LICENSE)); GPL libgcc and newlib libm sources |
-| `editor/` | MIT, as part of rac1-decomp where it was written ([editor/LICENSE](../../editor/LICENSE)) |
+| `editor/` | MIT ([editor/LICENSE](../../editor/LICENSE)), moved here from rac1-decomp while that was MIT |
 | rest of the top level (`tools/`, `docs/`) | not chosen yet; see [LICENSE.md](../../LICENSE.md) |
 
 To decide: a license for the top level, and how code moves between games
-now that the projects differ: rac3 is GPL v3 and the others MIT, so rac3's
-code cannot be copied into an MIT directory without its authors' permission,
-while MIT code can go the other way. That bears on shared code (question 6). Lombyte's
-[THIRD_PARTY_NOTICES.md](../../games/rac1/ntsc/THIRD_PARTY_NOTICES.md) still
-says rac1-decomp has no license; rac1-decomp has had an MIT license since
-2026-09, so that note is out of date.
+now that the projects differ. rac1/pal and rac3 are GPL v3 and the others
+MIT, so their code cannot be copied into an MIT directory without its
+authors' permission, while MIT code can go the other way. For
+[tools/port.py](../../tools/port.py) that means Lombyte to rac1/pal is fine
+and rac1/pal to Lombyte is not, for code written after rac1-decomp's move
+to the GPL; Lombyte's [THIRD_PARTY_NOTICES.md](../../games/rac1/ntsc/THIRD_PARTY_NOTICES.md)
+credits what it took from rac1-decomp while that was MIT. That bears on
+shared code (question 6).
 
 ## 2. Credit lines for AI assistants in commits
 
@@ -97,7 +99,7 @@ hundreds of functions open that another has matched in identical code. To
 decide: whether identical functions live once in a shared tree that several
 game builds compile, or stay copied per game with their provenance noted. Two
 things bear on it: the projects' compilers differ, so a shared file must pass
-each game's own check, and rac3's GPL v3 limits where its code may go
+each game's own check, and the GPL v3 of rac1/pal and rac3 limits where their code may go
 (question 1).
 
 Also to decide, before code is ported into Deadlocked by machine: how names
