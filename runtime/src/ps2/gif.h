@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+#pragma once
+
+#include <array>
+
+#include "gs.h"
+#include "types.h"
+
+namespace ps2 {
+
+// The GS interface: turns GIF packets into register writes and image data.
+// A packet is a tag quadword followed by its data, in one of three layouts:
+// PACKED (a quadword per register), REGLIST (64 bits per register) and IMAGE
+// (raw pixels for a transfer). Each of the three paths (1: VU1's XGKICK,
+// 2: VIF1's DIRECT, 3: the GIF DMA channel) keeps its own position, because a
+// packet may arrive in several pieces.
+class Gif {
+ public:
+  explicit Gif(Gs& gs) : gs_(gs) {}
+
+  void reset();
+
+  // Whole quadwords for one path (1, 2 or 3).
+  void write(int path, const u8* data, std::size_t quadwords);
+
+  // True when the path is between packets (the last tag seen had EOP and its
+  // data is complete).
+  bool idle(int path) const { return !paths_[path - 1].in_packet; }
+
+ private:
+  struct Path {
+    u64 regs = 0;
+    u32 loops = 0;  // loops (or image quadwords) still to come
+    u32 nreg = 0;
+    u32 reg = 0;  // next register descriptor in the loop
+    u32 flg = 0;
+    bool eop = true;
+    bool in_packet = false;
+    float q = 1.0f;
+  };
+
+  void packed(Path& p, u64 lo, u64 hi);
+  void advance(Path& p);
+
+  Gs& gs_;
+  std::array<Path, 3> paths_{};
+};
+
+}  // namespace ps2
