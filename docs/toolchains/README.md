@@ -24,7 +24,7 @@ Names used on this page:
 
 | Game | Game code | Flags | SDK and runtime code | How far it is proven |
 |---|---|---|---|---|
-| RAC1 PAL `SCES_509.16` ([games/rac1/pal](../../games/rac1/pal/README.md)) | SN 2.95.3 v1.14 for both code segments. In `core_text` its `sq`/`lq` spills are narrowed to `sd`/`ld` afterwards ([TOOLCHAIN.md](../../games/rac1/pal/docs/TOOLCHAIN.md)) | `-O2 -G2 -Iinclude -Wa,-I,.` ([Makefile.sn](../../games/rac1/pal/Makefile.sn)), plus `-mno-split-addresses` or `-fno-schedule-insns` for single functions ([func_cflags.txt](../../games/rac1/pal/config/func_cflags.txt)) | Sony 2.9-ee-991111 (`ee-gcc.exe`) for objects marked `ee29` ([core_text.objects](../../games/rac1/pal/config/core_text.objects)) and for libgcc | Whole image links at retail addresses. Container build reproduced the Windows report byte for byte ([TOOLCHAIN.md](../../games/rac1/pal/docs/TOOLCHAIN.md)) |
+| RAC1 PAL `SCES_509.16` ([games/rac1/pal](../../games/rac1/pal/README.md)) | SN 2.95.3 v1.14 for game code in both segments; nothing edits its output ([BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md)) | `-O2 -G2 -Iinclude -Wa,-I,.` ([Makefile.sn](../../games/rac1/pal/Makefile.sn)), plus options for whole files only ([file_cflags.txt](../../games/rac1/pal/config/file_cflags.txt): `-mno-split-addresses`, `-fno-force-mem`, `-fno-schedule-insns`, `-fno-sched-interblock`) | Sony 2.9-ee-991111 (`ee-gcc.exe`) for objects marked `ee29` ([core_text.objects](../../games/rac1/pal/config/core_text.objects)) and for libgcc; a Linux 2.9-ee-991111-01 built from source for its last three modules | Whole image links at retail addresses. Container build reproduced the Windows report byte for byte ([TOOLCHAIN.md](../../games/rac1/pal/docs/TOOLCHAIN.md)) |
 | RAC1 NTSC-U `SCUS_971.99` ([games/rac1/ntsc](../../games/rac1/ntsc/docs/building.md), Lombyte) | "Game compiler": GNU EE 2.9-ee-991111b rebuilt from source with the production patch stack `0000`..`0056` ([patches/sce-991111b](../../games/rac1/ntsc/patches/sce-991111b/README.md)) | `-O2`, no `-g`, no `-G` option; per-unit flags in `GAME_COMPILER_FLAG_UNITS` ([configure.py](../../games/rac1/ntsc/configure.py)) | EE-GCC 2.9-ee-991111-01 ("SDK compiler") for every unit below `GAME_TEXT_START = 0x12D8F8`, with `-DMATCHING_DECOMP -O2 -g2 -gstabs` ([configure.py](../../games/rac1/ntsc/configure.py)) | 1258 of 1331 C units byte-identical on their placement compiler (2026-09-27); 18 units in `ROUTE_EXCEPTIONS` still use another route |
 | RAC2 NTSC-U v1.01 `SCUS_972.68` ([games/rac2/ntsc](../../games/rac2/ntsc/README.md)) | C: 2.9-ee-991111b, the Lombyte stack minus its save widening, plus the adjustments in [COMPILER-NOTES.md](../../games/rac2/ntsc/docs/COMPILER-NOTES.md) (`cc1` `8bed6eae…`) | `-O2 -G0 -ffunction-sections` ([candidate-catalog.json](../../games/rac2/ntsc/config/candidate-catalog.json)) | Not qualified | 178 integrated bodies. "Not offered as a general RAC2 compiler qualification" ([COMPILER-NOTES.md](../../games/rac2/ntsc/docs/COMPILER-NOTES.md)) |
 | RAC3 NTSC-U `SCUS_973.53`, `frontbin.elf` ([games/rac3/ntsc](../../games/rac3/ntsc/docs/wiki/Toolchain-and-Build.md)) | SN 2.95.3 v1.36 | `-O2 -G8 -fopt-stack -mno-check-zero-division` on every range. `-mno-split-addresses` on 110 and `@ps2as` on 112 of the 358 lines of [text_parts.txt](../../games/rac3/ntsc/tools/text_parts.txt) | Not measured | 2043/2043 text functions byte-identical in a full build (2026-09-25) ([compiler_matrix_findings.md](../../games/rac3/ntsc/docs/compiler_matrix_findings.md)) |
@@ -34,7 +34,7 @@ Names used on this page:
 
 | Game | Assembler | Linker | Host | Where the binaries come from | Pinned by checksum |
 |---|---|---|---|---|---|
-| RAC1 PAL | Compiled code: the GNU as that the v1.14 driver calls (`-c`), with `ps2eeas_nops.py` and `ps2eeas_dli.py` imitating Ps2EeAs for game code. Data: `ee-as.exe` (ProDG 3.01) | `ee-ld.exe` (ProDG 3.01); GNU make 3.77 on Windows | Windows (Git Bash), or Docker/Podman `linux/386` Debian bookworm with classic 32-bit Wine, emulated on ARM Macs ([Dockerfile](../../games/rac1/pal/tools/docker/Dockerfile), [CONTAINERS.md](../../games/rac1/pal/docs/CONTAINERS.md)) | Two community mirrors cloned into `toolchain/`: `SN-Systems-ProDG_for_PS2_3.01` and `sce_ps2_sdk_24` ([README.md](../../games/rac1/pal/README.md)) | Executable SHA-1. The clone commands name no commit or checksum. |
+| RAC1 PAL | Compiled code: the GNU as that the v1.14 driver calls (`-c`), with `ps2eeas_nops.py` and `ps2eeas_dli.py` imitating Ps2EeAs for game code (each such step listed with its evidence and the matches that depend on it in [BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md)). Data: `ee-as.exe` (ProDG 3.01) | `ee-ld.exe` (ProDG 3.01); GNU make 3.77 on Windows | Windows (Git Bash), or Docker/Podman `linux/386` Debian bookworm with classic 32-bit Wine, emulated on ARM Macs ([Dockerfile](../../games/rac1/pal/tools/docker/Dockerfile), [CONTAINERS.md](../../games/rac1/pal/docs/CONTAINERS.md)) | Two community mirrors cloned into `toolchain/`: `SN-Systems-ProDG_for_PS2_3.01` and `sce_ps2_sdk_24` ([README.md](../../games/rac1/pal/README.md)) | Executable SHA-1. The clone commands name no commit or checksum. |
 | RAC1 NTSC-U | Game code: Ps2EeAs 1.9.25.758 from ProDG 3.01 with its divbug padding patched out (6 bytes, [patch-ps2eeas.py](../../games/rac1/ntsc/scripts/patch-ps2eeas.py)). `INCLUDE_ASM` wrappers: the patched GNU as of the 991111b tree | `mips-ps2-decompals-ld` (binutils-mips-ps2-decompals v0.10) | Linux x86-64 with glibc 2.38+ (Ubuntu 24.04+, Debian 13+) or WSL; Docker `linux/amd64` Ubuntu 24.04 elsewhere; Wine for the Windows tools; `gcc -m32` to build the compiler ([setup.sh](../../games/rac1/ntsc/setup.sh)) | Downloaded by `setup.sh`. Game compiler built from `gnu-ee-binutils-gcc-1.1.tar.gz`, an Internet Archive copy of the ps2dev download ([build-game-compiler.py](../../games/rac1/ntsc/scripts/build-game-compiler.py)) | Every download by SHA-256: binutils, objdiff, SDK compiler, SN 2.95.2 archive, Ps2EeAs before and after the patch, two GCC headers, source archive, bison 1.28. Patch files by SHA-256. The built `cc1` hash is reported, not enforced, because it depends on the host |
 | RAC2 | C: the patched GNU `as` of the same tree (`cda1a4e4…`). Reconstructed assembly: `Ps2EeAs.exe` from ProDG 2.0 ([build.py](../../games/rac2/ntsc/scripts/build.py)) | `ee/bin/ld.exe` | Windows with WSL: the 1999 tools are 32-bit Linux binaries ([wsl_chain.py](../../games/rac2/ntsc/scripts/wsl_chain.py)) | ProDG 2.0 supplied locally. Compiler built from the same archive as RAC1 NTSC-U | `cc1`, `cpp`, `as` and `ld.exe` SHA-256 in every proof ([integration.json](../../games/rac2/ntsc/progress/integration.json)); source archive SHA-256 |
 | RAC3 | `bin/ee-as.exe` (Aug 2000) by default; `ee/bin/Ps2EeAs.exe` per range (`@ps2as`); `ee/bin/as.exe` (May 2001) per range (`@newas`) | `bin/ee-ld.exe`, then `ee-objcopy` | Windows with SN `make.exe`; Linux and macOS through wibo 1.0.0-beta.1 ([build.py](../../games/rac3/ntsc/tools/build.py)) | SN ee-gcc 2.95.3 v1.36 package; [Setup](../../games/rac3/ntsc/docs/wiki/Setup.md) points at the `SN-Systems-ProDG_for_PS2_3.01` mirror | `frontbin.elf` SHA-1, on input and on output. Toolchain not pinned |
@@ -52,9 +52,11 @@ Names used on this page:
   [sqlq-investigation.md](../../games/rac1/pal/notes/sqlq-investigation.md)).
   v1.14 lays the save slots out as retail does, with `$16` at 0, the s-registers
   ascending and `$31` at the top. v1.36 reverses it, with `$31` at 0 and the
-  s-registers descending. So `core_text`
-  is compiled with v1.14 and `tools/fix_core_spills.py` renames the mnemonics
-  only. Retail keeps the 16-byte stride even for 8-byte stores. A search of
+  s-registers descending. The `core_text` objects that save with `sd` are
+  Sony SDK code built with 2.9-ee, which emits `sd` natively; the game-code
+  core objects save with `sq` like `text`. The step that once narrowed v1.14's
+  `sq` to `sd` (`fix_core_spills.py`) carried no match and is gone (2026-10-07,
+  [BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md)). A search of
   `cc1.exe`'s whole `target_switches` table found no flag that changes either
   behaviour ([DECOMP_PROGRESS.md](../../games/rac1/pal/docs/DECOMP_PROGRESS.md),
   "Open toolchain questions").
@@ -67,11 +69,13 @@ Names used on this page:
   "Open: core_text prologue scheduling").
 - **libgcc** is built from GCC's `libgcc2.c` (trunk 1999-11-02) and `fp-bit.c`
   through the 2.9-ee driver, not `cc1`. The driver supplies the
-  `__mips__`/`__R5900__` predefines that `longlong.h` needs. Three modules
-  still differ from Sony's `libgcc.a` only in unused stack slots. Sony's
-  objects were built on Linux, while the mirrors hold a Windows
-  `2.9-ee-991111b/r4` `cc1`
-  ([src/libgcc/README.md](../../games/rac1/pal/src/libgcc/README.md)).
+  `__mips__`/`__R5900__` predefines that `longlong.h` needs. Sony's objects
+  were built on Linux, while the mirrors hold a Windows `2.9-ee-991111b/r4`
+  `cc1`, which left three modules (`__moddi3`, `__udivdi3`, `__umoddi3`)
+  differing in unused stack slots. A Linux 2.9-ee-991111-01 built from
+  source matches them too, so every libgcc module is exact (2026-10-07,
+  [src/libgcc/README.md](../../games/rac1/pal/src/libgcc/README.md),
+  [TOOLCHAIN.md](../../games/rac1/pal/docs/TOOLCHAIN.md)).
 - **`-G2`.** At `-G0` nothing uses `$gp`, and at `-G4` and above float
   constants are pooled into `.lit4`, which retail never does. Retail does both
   inline floats and `$gp`, so the threshold is 1 to 3. Placement follows the
@@ -84,15 +88,27 @@ Names used on this page:
   mismatches. Its effects are reproduced instead: short-loop padding
   (`ps2eeas_nops.py`) and 64-bit `dli` sequences (`ps2eeas_dli.py`, checked on
   871 constants) ([DECOMP_PROGRESS.md](../../games/rac1/pal/docs/DECOMP_PROGRESS.md),
-  "SOLVED: the short-loop erratum").
-- **Post-processors.** GCC 2.95 has no sibling calls (`-foptimize-sibling-calls`
-  is rejected by both SN sub-builds), so `fix_tail_calls.py` rewrites only
-  the functions whose retail form is a bare `j`
-  ([tail_call_functions.txt](../../games/rac1/pal/tools/tail_call_functions.txt)).
-  38 of its entries are in `text`. Further passes: `fix_trunc_slot.py`,
-  `fix_volatile_slot.py` (2.9-ee objects), `fix_macro_load_delay.py`
-  (989snd, `wad`), `check_macro_slots.py` and `strip_dead.py`
-  ([TOOLCHAIN.md](../../games/rac1/pal/docs/TOOLCHAIN.md)).
+  "SOLVED: the short-loop erratum"). Retried on 2026-10-07 with files that are
+  C throughout: Ps2EeAs 1.9.6.516 and 1.9.25.758 both overflow their stack on
+  v1.14's output, and v1.14 ignores `-mgpopt`. Measured with each step as a
+  pass-through, the padding, `dli` and delay-slot `$gp` steps together carry
+  1,078 matched functions, 46.1% of the code
+  ([BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md)).
+- **Build fidelity (2026-10-07).** No step edits what the compiler emitted,
+  and options apply to whole files, the only granularity GCC 2.95 has
+  ([BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md)). The
+  rewriters `fix_tail_calls.py`, `fix_trunc_slot.py` and `fix_core_spills.py`
+  and the per-function flags were removed after measuring what depended on
+  them: 12 functions, 0.06% of the code; seven keep their flag as a file's,
+  five are assembly again. The remaining steps only model the assembler and
+  linker (`ps2eeas_nops.py`, `ps2eeas_dli.py`, `check_macro_slots.py`,
+  `fix_orphan_hi.py`, `fix_macro_load_delay.py` for 989snd and `wad`,
+  `fix_volatile_slot.py` for 2.9-ee objects, `fix_jump_tables.py`,
+  `strip_dead.py`), each with its evidence and measured dependence;
+  `tools/check_build_fidelity.py` fails `--check` on anything else. GCC 2.95
+  has no sibling calls (`-foptimize-sibling-calls` is rejected by both SN
+  sub-builds), so a bare `j` tail call outside the 2.9-ee objects cannot be
+  matched in C with v1.14.
 - **Assembler and linker quirks.** SN `ee-as` accepts only numeric register
   names. Stubs need `.set noreorder`/`.set noat`. It has no `.aent`.
   `ee-ld.exe` does not advance after a `NOLOAD` section, and it crashes on a
@@ -175,8 +191,22 @@ Names used on this page:
 - **Assembly rebuild.** Splat output is adapted to Ps2EeAs by
   [expand_asm.py](../../games/rac2/ntsc/scripts/expand_asm.py), which keeps
   RAC1's `vadda` operand swap and writes `.float -0` as a word.
+- **A complete rebuild recipe** (2026-10-07): the source archive's SHA-256,
+  Lombyte's stack minus the saves widening, the five measured source
+  adjustments shipped as scripts that carry their exact replacement text, and
+  the configure and build steps. A partial recipe yields a different
+  `mips.c`, and the built hashes depend on the host distribution
+  ([COMPILER-NOTES.md](../../games/rac2/ntsc/docs/COMPILER-NOTES.md), "Complete rebuild recipe").
+- **SDK and small data.** Exact SDK boot objects (CPR8, sysbit flush, IPU DMA
+  restart) under a separately qualified SDK profile
+  ([SDK-PROFILE-QUALIFICATION.md](../../games/rac2/ntsc/docs/SDK-PROFILE-QUALIFICATION.md)); a
+  separate small-data unit per overlay, and `$gp` facts proved per function
+  ([SMALL-DATA-UNIT-EVIDENCE.md](../../games/rac2/ntsc/docs/SMALL-DATA-UNIT-EVIDENCE.md),
+  [LOCAL-GP-PROOF.md](../../games/rac2/ntsc/docs/LOCAL-GP-PROOF.md)). It also drew on rac1-decomp's
+  findings ([RAC1-DECOMP-FINDINGS.md](../../games/rac2/ntsc/docs/RAC1-DECOMP-FINDINGS.md),
+  [RAC1-FP-BIT-EVIDENCE.md](../../games/rac2/ntsc/docs/RAC1-FP-BIT-EVIDENCE.md)).
 
-### RAC3 (ratchet-uya-decomp)
+### RAC3 (rac3-uya-decomp)
 
 - **The matrix.** 15 compiler builds times 8 flag sets, over 271 C functions
   and 47 problem cases. SN v1.36 reproduces 270/271, Sony 2.95.3-136 gives
@@ -206,6 +236,15 @@ Names used on this page:
   `.word` ([fix_quadword_ops.py](../../games/rac3/ntsc/tools/fix_quadword_ops.py)).
 - **Never produced from C:** `sq $zero` (C gives `por` then `sq`) and `lq $at`.
   `long` is 64-bit and `long long` is 128-bit; `ULL` is rejected.
+- **`-fno-force-mem` for a whole file** (`3958F0.c`), the same option rac1/pal
+  gives two level files.
+- **Three programs** (2026-10-07). `boot_elf.elf`, the main executable, and
+  `i5bootn.elf`, the launcher, build byte for byte as well
+  ([targets.md](../../games/rac3/ntsc/docs/targets.md)). The launcher was linked from three
+  compilers' objects: Sony 2.9-ee-991111(-01) for libgcc and small libc
+  helpers, 2.96-ee-001003-1 for newlib's `exit()`, and SN 2.95.3 for `main`
+  (at `-O0`) and one dispatcher; 2.9-ee emits sibling calls, SN 2.95.3 never
+  does ([compiler_matrix_i5bootn.md](../../games/rac3/ntsc/docs/compiler_matrix_i5bootn.md)).
 
 ### RAC4 (rac-deadlocked-decomp)
 
@@ -231,10 +270,10 @@ Names used on this page:
 
 | Finding | RAC1 PAL | RAC1 NTSC-U | RAC2 | RAC3 | Status |
 |---|---|---|---|---|---|
-| SDK libraries built by a 2.9-ee-991111 variant, separately from game code | yes; SDK `.a` members match retail | yes; SDK compiler is 991111-01 | not qualified | not measured (`frontbin.elf`) | RAC1 only, in both regions |
+| SDK libraries built by a 2.9-ee-991111 variant, separately from game code | yes; SDK `.a` members match retail | yes; SDK compiler is 991111-01 | exact SDK boot objects under a separately qualified SDK profile ([SDK-PROFILE-QUALIFICATION.md](../../games/rac2/ntsc/docs/SDK-PROFILE-QUALIFICATION.md)) | yes: `i5bootn`'s libgcc and libc helpers are 2.9-ee-991111(-01) ([compiler_matrix_i5bootn.md](../../games/rac3/ntsc/docs/compiler_matrix_i5bootn.md)) | Every game measured |
 | The compiler switch sits at `boot.cpp` | `boot.cpp` at 0x12DA38, NTSC-to-PAL shift +0x140 there ([DECOMP_PROGRESS.md](../../games/rac1/pal/docs/DECOMP_PROGRESS.md)) | `GAME_TEXT_START` 0x12D8F8 (+0x140 = 0x12DA38) | | | Agreed for RAC1 |
-| Callee-saved saves | `text`: `sq`, 16-byte slots, `$ra` too. `core_text`: `sd`, 16-byte stride | `sq` saves (patch `0001`) | `sd`, 8-byte slots | `$s`: `sd`, 8-byte slots (`-fopt-stack`); 13 functions `sq $ra` | Differs per game. A signature, not a constant |
-| Bare tail jumps | in a listed minority of functions, both segments; added by rewrite | sibling calls off, on per unit | none in the measured family | not documented | RAC1 needs per-function handling in both projects |
+| Callee-saved saves | `sq`, 16-byte slots, `$ra` too, in all game code; `sd` in the SDK objects of `core_text`, which 2.9-ee builds | `sq` saves (patch `0001`) | `sd`, 8-byte slots | `$s`: `sd`, 8-byte slots (`-fopt-stack`); 13 functions `sq $ra` | Differs per game. A signature, not a constant |
+| Bare tail jumps | only in 2.9-ee objects, where the compiler emits them; the rewrite for SN code is gone ([BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md)) | sibling calls off, on per unit | none in the measured family | SN 2.95.3 never emits them; 2.9-ee-991111 does ([compiler_matrix_i5bootn.md](../../games/rac3/ntsc/docs/compiler_matrix_i5bootn.md)) | A tail jump means "not SN 2.95.3" (RAC1 PAL, RAC3) |
 | Short loops padded by the assembler | Ps2EeAs for `text`: six instructions, target through branch | Ps2EeAs; earlier `cc1` patches padded to "shorter than 7" | `cc1` hook, "measured minimum of seven" | Ps2EeAs pads; ee-as stubs need raw branches | Same rule in three games. Patch `0046`'s example (`jal; nop x4; bnez; nop`) is seven words counting the delay slot |
 | `nop`s before `div`/`div.s` | none among 1,671 divides | none among 346 + 26,539 | not documented | 0 to 3 before most `div.s`/`sqrt.s` | Differs between RAC1 and RAC3 |
 | `mtc1` hazard nop | handled in the build ([LEVERS.md](../../games/rac1/pal/docs/LEVERS.md)) | patch `0051` | rule plus a narrow exemption | ee-as or Ps2EeAs per range | Present in three games; details differ |
@@ -242,17 +281,27 @@ Names used on this page:
 | Inline `li.s` rather than `.lit4` | kept inline by `-G2` with GNU as | gas patch `0027` | | Ps2EeAs only | Same retail form; three mechanisms |
 | Delay-slot global access becomes `$gp`-relative | `MACRO_ADDR` + `check_macro_slots.py` | Ps2EeAs rule in delay slots | outside scope | Ps2EeAs rule | Independent findings in RAC1 (both) and RAC3 |
 | `-G` | `-G2` | none passed | `-G0` | `-G8`; "-G2 fails every 4-byte `$gp` variable" | Not settled; see section 4 |
-| `-mno-split-addresses` | per function (pause.c whole breaks 49) | per unit | not documented | per file, 18 runs | Retail used it in RAC1 and RAC3 |
+| `-mno-split-addresses` | per file ([file_cflags.txt](../../games/rac1/pal/config/file_cflags.txt)); `pause.c` whole breaks 81 of 124, so its function is assembly again | per unit | not documented | per file, 18 runs | Retail used it in RAC1 and RAC3 |
+| `-fno-force-mem` | per file: two level functions in files of their own ([BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md)) | | | per file (`3958F0.c`) | Same option, per file, in RAC1 and RAC3 |
+| Steps that edit compiler output | none since 2026-10-07; `check_build_fidelity.py` enforces it ([BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md)) | none: behaviours are compiler and assembler patches | none: behaviours are compiler source adjustments ([COMPILER-NOTES.md](../../games/rac2/ntsc/docs/COMPILER-NOTES.md)) | `asm_filter.py`: `sq $ra` for 13 functions, `div.s` nops from a table | Differs; PAL models only the assembler and linker |
+| libgcc rebuilt from GCC's source | every module, the last three with a Linux 2.9-ee-991111-01 built from source | GPL-2.0 reconstruction | `fp-bit` unpacker from vendored source | 26 of `i5bootn`'s, from GCC 2.95.x `fp-bit.c` with Sony's no-denormals change | Sony's libgcc is reproducible from source in three games |
 | Zero-divide trap | present with default flags ([SIBLING_DECOMPS.md](../../games/rac1/pal/docs/SIBLING_DECOMPS.md)); `-mno-check-zero-division` for a `div` without it ([LEVERS.md](../../games/rac1/pal/docs/LEVERS.md)) | | present in some bodies (`TRAP_IF`) | absent: `-mno-check-zero-division` | Differs |
 | `sq $zero` | wall: C adds `por` | | compiler patch | wall under SN 3.01 and 2.0 | No stock compiler emits it from C |
 | Linker dead-strip remnants and `0xCDCDCDCD` fill | both; rule `floor(size/8)*8` | | | 203 remnants; fill around jump tables | RAC1 and RAC3 |
 | `long` 64-bit, `long long` 128-bit | yes | | | yes | SN 2.95.3 in RAC1 and RAC3 |
 
 Findings that transfer: the SDK/game split and the SDK archives as references
-(RAC1, two projects). The assembler behaviours of Ps2EeAs, found independently
-in RAC1 and RAC3: short-loop padding, the `dli` form, `$gp` in delay slots,
-size-at-use, inline `li.s`. Per-file `-mno-split-addresses` (RAC1, RAC3).
-Dead-strip remnants (RAC1, RAC3).
+(RAC1, two projects; RAC3's launcher). The assembler behaviours of Ps2EeAs,
+found independently in RAC1 and RAC3: short-loop padding, the `dli` form,
+`$gp` in delay slots, size-at-use, inline `li.s`. Per-file
+`-mno-split-addresses` and `-fno-force-mem` (RAC1, RAC3). Dead-strip
+remnants (RAC1, RAC3). Sibling calls as a compiler signature: SN 2.95.3 emits
+none, 2.9-ee does (RAC1 PAL, RAC3). A lead for RAC1 PAL: its `_exit`
+(`func_0012DA28`, a bare `j` with `$a0` cleared in the delay slot) went back
+to assembly on 2026-10-07 because v1.14 cannot emit it, while RAC3's launcher
+has an `_exit` and its jump stubs that match from C under 2.9-ee-991111. If
+rac1/pal's `crt0` object turns out to be 2.9-ee library code, its `_exit` is
+plain C again.
 
 Measured on one game only: `-fopt-stack` and `@ps2as` per range (RAC3); the
 `mtc1` statistics and the `sq $zero` patch (RAC2); `-G2` and the spill
@@ -264,9 +313,9 @@ RAC2).
 1. **Which compiler built RAC1's game code.** The two regions' projects give
    different answers:
    - PAL: two SN 2.95.3 sub-builds. `text` matches SN BUILD v1.14. The
-     game objects in `core_text` (`sd` spills in v1.14's slot layout) match
-     no single sub-build, and are built with v1.14 plus a mnemonic rewrite
-     ([TOOLCHAIN.md](../../games/rac1/pal/docs/TOOLCHAIN.md)).
+     `core_text` objects that save with `sd` are SDK code built with
+     2.9-ee; the game code there is v1.14 as well, and nothing rewrites its
+     output ([TOOLCHAIN.md](../../games/rac1/pal/docs/TOOLCHAIN.md), [BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md)).
    - NTSC-U (Lombyte): a patched 2.9-ee-991111b. Its `configure.py` says
      "SN is not a compiler of the retail build", yet the
      [sce-991111b README](../../games/rac1/ntsc/patches/sce-991111b/README.md)
@@ -303,21 +352,25 @@ RAC2).
    `ee/bin/ld.exe` ([integration.py](../../games/rac2/ntsc/scripts/integration.py)).
    COMPILER-NOTES itself announces "Five changes" and lists seven, and its
    Scope speaks of "four rules".
-3. **Does SN 2.95.3 emit sibling calls?** RAC2's table gives "sibling call
-   (`j target`)" for SN 2.95.3, but its item 3 calls the sibcall pass "absent
-   from the SN compiler". Lombyte's patch `0049` says the same. PAL measured
-   that `-foptimize-sibling-calls` is rejected by both SN sub-builds and that
+3. **Does SN 2.95.3 emit sibling calls?** Settled (2026-10-07): it does not.
+   RAC3's launcher matrix found that no SN 2.95.3 build emits one, while
+   Sony's 2.9-ee-991111 does ([compiler_matrix_i5bootn.md](../../games/rac3/ntsc/docs/compiler_matrix_i5bootn.md), "Correction"). PAL had measured that
+   `-foptimize-sibling-calls` is rejected by both SN sub-builds and that
    `return f(x);` compiles to a call and a return
    ([DECOMP_PROGRESS.md](../../games/rac1/pal/docs/DECOMP_PROGRESS.md), "SOLVED:
-   tail calls").
+   tail calls"); Lombyte's patch `0049` and RAC2's item 3 agree. RAC2's table
+   entry giving SN 2.95.3 a sibling call is the outlier.
 4. **Would `-fopt-stack` fit RAC2?** RAC2 left SN partly because of `sd`
    saves in 8-byte slots. RAC3 gets exactly that layout from SN 3.01 with
    `-fopt-stack`. RAC2's documents do not mention the option.
-5. **Ps2EeAs and `$gp`.** PAL found that ps2eeas "has no `-G` expansion": every
-   `$gp` access came out as `lui`/`lw`. RAC3 and Lombyte describe a
-   single-pass rule: `$gp` only once the size is known, and gcc writes its
-   `.extern` sizes at the end of the file. These may be the same behaviour;
-   no document checks one against the other.
+5. **Ps2EeAs and `$gp`.** PAL first reported that ps2eeas "has no `-G`
+   expansion": every `$gp` access came out as `lui`/`lw`. RAC3 and Lombyte
+   describe a single-pass rule: `$gp` only once the size is known, and gcc
+   writes its `.extern` sizes at the end of the file. PAL now reads its own
+   result the same way ([BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md), "Why not the real ps2eeas"); its retry on
+   2026-10-07 stopped earlier, with both versions overflowing their stack on
+   v1.14's output, and v1.14 ignores `-mgpopt`. Lombyte gets `$gp` by having
+   its compiler declare small-data symbols before use (patch `0056`).
 6. **What `-G` did retail use?** PAL's case for 1 to 3 rests on inline float
    constants, measured with GNU as. RAC3 shows that Ps2EeAs builds `li.s`
    inline at `-G8`, and Lombyte patched its gas to do the same. If retail was
@@ -343,11 +396,12 @@ RAC2).
    ProDG 2.0, and do not say whether the "-114" build was run on them.
 10. **Two SDK compilers.** PAL uses `ee-gcc.exe` from `sce_ps2_sdk_24` (Windows
     `2.9-ee-991111b/r4`); Lombyte uses EE-GCC 2.9-ee-991111-01. Both match SDK
-    code. PAL's three libgcc2 stubs point at a Linux-built `cc1`
-    ([src/libgcc/README.md](../../games/rac1/pal/src/libgcc/README.md)).
+    code. PAL's three libgcc2 modules that the Windows `cc1` could not match
+    now match with a Linux 2.9-ee-991111-01 built from source (2026-10-07,
+    [src/libgcc/README.md](../../games/rac1/pal/src/libgcc/README.md)), as
+    their debug info suggested; RAC3's launcher libgcc pins 991111-01 too.
     Lombyte runs both of its compilers natively on Linux
-    ([configure.py](../../games/rac1/ntsc/configure.py)). No document reports
-    trying either of them on those stubs.
+    ([configure.py](../../games/rac1/ntsc/configure.py)).
 11. **macOS hosts.** PAL measured that Wine's 32-bit code fails under Rosetta
     in an amd64 Linux machine. Lombyte's `--docker` image is `linux/amd64`
     with `wine32:i386` ([setup.sh](../../games/rac1/ntsc/setup.sh)), and its

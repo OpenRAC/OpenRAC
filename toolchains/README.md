@@ -19,6 +19,18 @@ python3 tools/openrac.py setup rac1/pal   # links games/rac1/pal/toolchain to th
 - `sn-prodg-3.01`: `make`, the assembler and the linker.
 - `sn-prodg-24`: GCC 2.95.3 (SN BUILD v1.14) for the game code and 989snd,
   and Sony's `2.9-ee-991111` for Sony's SDK code and libgcc.
+- `ee-gcc-2.9-991111-01/bin/ee-gcc` (optional): a Linux build of Sony's
+  2.9-ee-991111-01. Sony built its libgcc on Linux, and `__moddi3`,
+  `__udivdi3` and `__umoddi3` match only with this compiler; when the file is
+  there, `Makefile.sn` compiles libgcc with it, and without it those three
+  differ in unused stack slots. The one these matches were verified with was
+  built from the public
+  [SSXModding/ps2-ee-toolchain](https://github.com/SSXModding/ps2-ee-toolchain)
+  source (b595ded) with only the `c-parse.in` fix a modern bison needs.
+  decomp.me's compilers release also has a prebuilt
+  `ee-gcc2.9-991111-01.tar.xz` (the one rac1/ntsc's `setup.sh` downloads),
+  not yet checked on these three. It runs inside the build container, which
+  is 32-bit Linux.
 
 The build runs in a Linux container with Wine on macOS and Linux; it mounts
 all of OpenRAC, so the link resolves inside it. Details:
@@ -51,7 +63,10 @@ tree already has the layout the project's
 `bin/ee-as.exe`, `ee/bin/as.exe`, `ee/bin/Ps2EeAs.exe`, ...). `python3
 tools/openrac.py setup rac3/ntsc` links `toolchains/eegcc_2.95.3_sn_v1.36` to
 it; point `UYA_TOOLCHAIN` (or `--toolchain`) there. (`sn-prodg-24`'s 2.95.3 is
-SN BUILD 1.14, the one rac1/pal uses.) The full macOS and Linux recipe is in
+SN BUILD 1.14, the one rac1/pal uses.) The library ranges of `boot_elf` and
+`i5bootn` (`@ee29`) also need Sony's 2.9-ee-991111: point `UYA_EE29` at
+`sn-prodg-24`'s `local/sce/ee/gcc`, whose `lib/gcc-lib/ee/2.9-ee-991111/` the
+project picks. The full macOS and Linux recipe is in
 [games/rac3/README.md](../games/rac3/README.md#getting-started).
 
 ## Ratchet: Deadlocked (`games/rac4/ntsc`)
