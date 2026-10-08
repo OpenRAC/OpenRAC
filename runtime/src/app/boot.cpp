@@ -6,6 +6,8 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <algorithm>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -38,7 +40,7 @@ bool write_ppm(const std::string& path, const Image& image) {
 
 int main(int argc, char** argv) {
   std::string iso, hooks, ppm;
-  int frames = 600, report = 60;
+  int frames = 600, report = 60, states_frame = -1;
   bool window_wanted = false;
   // Scripted input: hold these buttons from one frame for some frames.
   struct Press {
@@ -64,6 +66,8 @@ int main(int argc, char** argv) {
       Press p{0, 4, 0};
       std::sscanf(argv[++i], "%d:%x:%d", &p.frame, &p.buttons, &p.length);
       presses.push_back(p);
+    } else if (arg == "--gs-states" && i + 1 < argc) {
+      states_frame = std::atoi(argv[++i]);
     } else if (arg == "--ntsc") {
       machine.hz = 59.94;
     } else if (arg == "--window") {
@@ -102,6 +106,26 @@ int main(int argc, char** argv) {
       break;
     }
 #endif
+    // For working on the GS: what one frame is drawn with, by state, with
+    // how many primitives and the area they span.
+    struct Use {
+      int count = 0, x0 = 1 << 30, y0 = 1 << 30, x1 = -(1 << 30), y1 = -(1 << 30), first = 0;
+    };
+    std::map<std::string, Use> states;
+    int order = 0;
+    if (frame == states_frame) {
+      machine.graphics.gs.on_primitive = [&](const std::string& state, int x0, int y0, int x1, int y1) {
+        Use& u = states[state];
+        if (u.count++ == 0) {
+          u.first = order;
+        }
+        order++;
+        u.x0 = std::min(u.x0, x0);
+        u.y0 = std::min(u.y0, y0);
+        u.x1 = std::max(u.x1, x1);
+        u.y1 = std::max(u.y1, y1);
+      };
+    }
     machine.pad.buttons = 0;
     for (const Press& p : presses) {
       if (frame >= p.frame && frame < p.frame + p.length) {
@@ -111,6 +135,19 @@ int main(int argc, char** argv) {
     machine.run_frame();
     if (machine.ee.vu0_runaways) {
       break;
+    }
+    if (frame == states_frame) {
+      machine.graphics.gs.on_primitive = nullptr;
+      std::vector<std::pair<int, std::string>> lines;
+      for (const auto& [state, u] : states) {
+        char head[96];
+        std::snprintf(head, sizeof(head), "%6d x%-6d [%4d,%4d - %4d,%4d] ", u.first, u.count, u.x0, u.y0, u.x1, u.y1);
+        lines.push_back({u.first, head + state});
+      }
+      std::sort(lines.begin(), lines.end());
+      for (const auto& line : lines) {
+        std::printf("%s\n", line.second.c_str());
+      }
     }
     bool shown = machine.graphics.gs.display(image);
 #ifndef OPENRAC_NO_WINDOW

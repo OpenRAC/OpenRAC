@@ -46,8 +46,10 @@ void Vu::reset() {
   r = 0x3F800000;
   mac = status = clip = 0;
   mac_latest_ = status_latest_ = clip_latest_ = 0;
-  flag_pipe_ = {};
-  q_wait_ = p_wait_ = 0;
+  flag_first_ = flag_count_ = 0;
+  q_at_ = p_at_ = 0;
+  cycle_ = 0;
+  written_ = {};
   branch_in_ = stop_in_ = kick_in_ = 0;
   backup_ttl_ = 0;
   pc = 0;
@@ -99,7 +101,7 @@ u64 Vu::resume(u64 limit) {
 
 void Vu::finish_q() {
   q = q_next_;
-  q_wait_ = 0;
+  q_at_ = 0;
   // The divider's two flags (invalid, divide by zero) arrive with its result.
   auto apply = [this](u32& s) { s = (s & ~0x30u) | q_flags_ | (q_flags_ << 6); };
   apply(status);
@@ -116,27 +118,119 @@ void Vu::fire_kick() {
   }
 }
 
-void Vu::step() {
-  // Results that have had their time arrive before this instruction reads.
-  if (flag_pipe_[3].valid) {
-    mac = flag_pipe_[3].mac;
-    status = flag_pipe_[3].status;
-    clip = flag_pipe_[3].clip;
-  }
-  flag_pipe_[3] = flag_pipe_[2];
-  flag_pipe_[2] = flag_pipe_[1];
-  flag_pipe_[1] = flag_pipe_[0];
-  flag_pipe_[0].valid = false;
-  if (q_wait_ && --q_wait_ == 0) {
-    finish_q();
-  }
-  if (p_wait_ && --p_wait_ == 0) {
-    p = p_next_;
+// The cycle at which this pair can run: the next one, or later if it reads
+// a float register that an instruction less than four cycles back wrote, or
+// needs the divider while it is busy.
+u64 Vu::ready_cycle(u32 up, u32 low) const {
+  struct Read {
+    unsigned reg;
+    u32 mask;
+  } reads[4];
+  unsigned count = 0;
+  auto read = [&](unsigned reg, u32 mask) {
+    if (reg && mask) {
+      reads[count++] = {reg, mask};
+    }
+  };
+
+  u32 dest = (up >> 21) & 0xF;
+  unsigned ft = (up >> 16) & 31, fs = (up >> 11) & 31;
+  u32 fn = up & 0x3F;
+  if (fn < 0x1C) {
+    read(fs, dest);
+    read(ft, 8u >> (fn & 3));
+  } else if (fn < 0x28) {
+    read(fs, dest);
+  } else if (fn < 0x30) {
+    read(fs, dest);
+    read(ft, dest);
+  } else if (fn >= 0x3C) {
+    u32 index = (((up >> 6) & 0x1F) << 2) | (up & 3);
+    if (index < 0x10 || (index >= 0x18 && index < 0x1C)) {
+      read(fs, dest);
+      read(ft, 8u >> (index & 3));
+    } else if (index == 0x1F) {  // CLIP
+      read(fs, 14);
+      read(ft, 1);
+    } else if (index >= 0x28 && index < 0x2F) {
+      read(fs, dest);
+      read(ft, dest);
+    } else if (index != 0x2F) {
+      read(fs, dest);
+    }
   }
 
+  u64 ready = cycle_ + 1;
+  if (!(up & 0x80000000u)) {
+    u32 op = low >> 25;
+    u32 ldest = (low >> 21) & 0xF;
+    unsigned it = (low >> 16) & 31, is = (low >> 11) & 31;
+    u32 fsf = 8u >> ((low >> 21) & 3), ftf = 8u >> ((low >> 23) & 3);
+    if (op == 0x01) {  // SQ
+      read(is, ldest);
+    } else if (op == 0x40 && (low & 0x3F) >= 0x3C) {
+      switch ((((low >> 6) & 0x1F) << 2) | (low & 3)) {
+        case 0x30: read(is, ldest); break;  // MOVE
+        case 0x31: read(is, 15); break;     // MR32
+        case 0x35: case 0x37: read(is, ldest); break;  // SQI, SQD
+        case 0x38: case 0x3A:  // DIV, RSQRT: and the divider must be free
+          read(is, fsf);
+          read(it, ftf);
+          if (q_at_ > ready) ready = q_at_;
+          break;
+        case 0x39:  // SQRT
+          read(it, ftf);
+          if (q_at_ > ready) ready = q_at_;
+          break;
+        case 0x3B:  // WAITQ
+          if (q_at_ > ready) ready = q_at_;
+          break;
+        case 0x3C: case 0x42: case 0x43: read(is, fsf); break;  // MTIR, RINIT, RXOR
+        case 0x70: case 0x71: case 0x72: case 0x73: case 0x74: case 0x75: read(is, 14); break;
+        case 0x76: read(is, 15); break;
+        case 0x78: case 0x79: case 0x7A: case 0x7C: case 0x7D: case 0x7E: read(is, fsf); break;
+        case 0x7B:  // WAITP
+          if (p_at_ > ready) ready = p_at_;
+          break;
+        default: break;
+      }
+    }
+  }
+
+  for (unsigned n = 0; n < count; n++) {
+    for (const Written& w : written_) {
+      if (w.reg == reads[n].reg && (w.mask & reads[n].mask) && w.cycle + 4 > ready) {
+        ready = w.cycle + 4;
+      }
+    }
+  }
+  return ready;
+}
+
+void Vu::step() {
   u32 at = pc;
   u32 low = load<u32>(memory_.micro + at * 8), up = load<u32>(memory_.micro + at * 8 + 4);
   pc = (pc + 1) & pc_mask_;
+
+  // When this pair runs, and what has arrived by then.
+  cycle_ = ready_cycle(up, low);
+  while (flag_count_ && flag_pipe_[flag_first_].at <= cycle_) {
+    const Flags& f = flag_pipe_[flag_first_];
+    mac = f.mac;
+    status = f.status;
+    clip = f.clip;
+    flag_first_ = (flag_first_ + 1) & 7;
+    flag_count_--;
+  }
+  if (q_at_ && q_at_ <= cycle_) {
+    finish_q();
+  }
+  if (p_at_ && p_at_ <= cycle_) {
+    p = p_next_;
+    p_at_ = 0;
+  }
+  timed_ = true;
+
 
   in_upper_ = true;
   upper_reg_ = 0;
@@ -179,6 +273,7 @@ void Vu::step() {
   if (backup_ttl_) {
     backup_ttl_--;
   }
+  timed_ = false;
   if (stop_in_ && --stop_in_ == 0) {
     running_ = false;
     // Nothing is left waiting when a program has stopped.
@@ -189,21 +284,22 @@ void Vu::step() {
 // Bring everything in flight to its end: flags, the divider, the function
 // unit, a pending kick.
 void Vu::settle() {
-  for (int n = 3; n >= 0; n--) {
-    if (flag_pipe_[n].valid) {
-      mac = flag_pipe_[n].mac;
-      status = flag_pipe_[n].status;
-      clip = flag_pipe_[n].clip;
-      flag_pipe_[n].valid = false;
-    }
+  while (flag_count_) {
+    const Flags& f = flag_pipe_[flag_first_];
+    mac = f.mac;
+    status = f.status;
+    clip = f.clip;
+    flag_first_ = (flag_first_ + 1) & 7;
+    flag_count_--;
   }
-  if (q_wait_) {
+  if (q_at_) {
     finish_q();
   }
-  if (p_wait_) {
+  if (p_at_) {
     p = p_next_;
-    p_wait_ = 0;
+    p_at_ = 0;
   }
+  written_ = {};
   if (kick_in_) {
     fire_kick();
   }
@@ -293,6 +389,10 @@ void Vu::write_vf(unsigned reg, u32 mask, const std::array<u32, 4>& value) {
     upper_reg_ = reg;
     upper_old_ = vf[reg];
   }
+  if (timed_) {
+    written_[written_next_] = {static_cast<u8>(reg), static_cast<u8>(mask), cycle_};
+    written_next_ = (written_next_ + 1) & 7;
+  }
   for (unsigned field = 0; field < 4; field++) {
     if (has(mask, field)) {
       vf[reg][field] = value[field];
@@ -327,21 +427,21 @@ void Vu::branch(u32 target) {
 }
 
 void Vu::start_q(u32 value, unsigned latency, u32 divide_flags) {
-  if (q_wait_) {
-    finish_q();  // the divider is busy: the new operation waits for it
+  if (q_at_) {
+    finish_q();  // (the instruction has already waited for the divider)
   }
   q_next_ = value;
   q_flags_ = divide_flags;
-  q_wait_ = latency;
+  q_at_ = cycle_ + latency;
 }
 
 void Vu::start_p(double value, unsigned latency) {
   u32 unused = 0;
-  if (p_wait_) {
+  if (p_at_) {
     p = p_next_;
   }
   p_next_ = fp::from_double(value, unused);
-  p_wait_ = latency;
+  p_at_ = cycle_ + latency;
 }
 
 u32 Vu::operand(u32 code, From from, unsigned field) const {
@@ -377,7 +477,12 @@ u32 Vu::result(u32 value, u32 problems, unsigned field, u32& flags) const {
 }
 
 void Vu::post() {
-  flag_pipe_[0] = {mac_latest_, status_latest_, clip_latest_, true};
+  if (flag_count_ == 8) {  // cannot happen: at most two a cycle, four cycles deep
+    flag_first_ = (flag_first_ + 1) & 7;
+    flag_count_--;
+  }
+  flag_pipe_[(flag_first_ + flag_count_) & 7] = {mac_latest_, status_latest_, clip_latest_, cycle_ + 4};
+  flag_count_++;
 }
 
 void Vu::post_flags(u32 mac_bits) {
@@ -817,10 +922,7 @@ void Vu::lower_special(u32 code) {
       start_q(value, kRsqrt, divide_flags(problems));
       break;
     }
-    case 0x3B:  // WAITQ
-      if (q_wait_) {
-        finish_q();
-      }
+    case 0x3B:  // WAITQ: the pair has waited; the result is in
       break;
     case 0x3C:  // MTIR
       write_vi(it, static_cast<u16>(vf[is][fsf]));
@@ -878,11 +980,7 @@ void Vu::lower_special(u32 code) {
     case 0x78: start_p(std::sqrt(std::fabs(one)), 12); break;                // ESQRT
     case 0x79: start_p(1.0f / std::sqrt(std::fabs(one)), 18); break;         // ERSQRT
     case 0x7A: start_p(1.0f / one, 12); break;                               // ERCPR
-    case 0x7B:                                                               // WAITP
-      if (p_wait_) {
-        p = p_next_;
-        p_wait_ = 0;
-      }
+    case 0x7B:  // WAITP: likewise
       break;
     case 0x7C: start_p(std::sin(one), 29); break;    // ESIN
     case 0x7D: start_p(std::atan(one), 54); break;   // EATAN

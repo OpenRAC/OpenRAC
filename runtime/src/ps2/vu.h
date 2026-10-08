@@ -12,10 +12,12 @@ namespace ps2 {
 // A vector unit running microprograms: VU1 behind VIF1, or VU0 when the EE
 // starts a microprogram on it. It is an interpreter that keeps the timing
 // microprograms depend on: the upper and lower instruction of a pair see the
-// same state, flags appear four instructions after the one that set them,
-// Q and P arrive when their dividers and function units finish, a branch
-// tests the value an integer register had before the instruction just ahead
-// of it, and XGKICK sends its packet one instruction late. Arithmetic is the
+// same state; a float register written by one instruction can be read four
+// cycles later, and an instruction that needs it sooner waits; flags appear
+// four cycles after the instruction that set them; Q and P arrive when their
+// dividers and function units finish; a branch tests the value an integer
+// register had before the instruction just ahead of it; XGKICK sends its
+// packet one instruction late. Arithmetic is the
 // console's own (fp.h), on raw bit patterns.
 class Vu {
  public:
@@ -77,7 +79,11 @@ class Vu {
  private:
   struct Flags {
     u32 mac = 0, status = 0, clip = 0;
-    bool valid = false;
+    u64 at = 0;  // the cycle from which instructions see them
+  };
+  struct Written {
+    u8 reg = 0, mask = 0;
+    u64 cycle = 0;
   };
   enum class Op { Add, Sub, Mul, Madd, Msub };
   enum class From { Ft, Bc, Q, I };
@@ -103,6 +109,7 @@ class Vu {
   u16 branch_vi(unsigned reg) const;
   void branch(u32 target);
   void start_q(u32 value, unsigned latency, u32 divide_flags);
+  u64 ready_cycle(u32 up, u32 low) const;
   void start_p(double value, unsigned latency);
 
   u8* quad(u32 address) { return memory_.data + ((address * 16) & (memory_.data_bytes - 1)); }
@@ -116,11 +123,18 @@ class Vu {
   unsigned upper_reg_ = 0;
   std::array<u32, 4> upper_old_{};
 
-  std::array<Flags, 4> flag_pipe_{};
+  // Time, in cycles: one an instruction, more when an instruction waits.
+  u64 cycle_ = 0;
+  bool timed_ = false;  // a microprogram is running (the EE's own instructions are not timed)
+  std::array<Written, 8> written_{};
+  unsigned written_next_ = 0;
+
+  std::array<Flags, 8> flag_pipe_{};
+  unsigned flag_first_ = 0, flag_count_ = 0;
   u32 mac_latest_ = 0, status_latest_ = 0, clip_latest_ = 0;  // the newest values, visible or not
 
   u32 q_next_ = 0, q_flags_ = 0, p_next_ = 0;
-  unsigned q_wait_ = 0, p_wait_ = 0;
+  u64 q_at_ = 0, p_at_ = 0;  // the cycle the result arrives, 0 when none is on its way
 
   unsigned branch_in_ = 0, stop_in_ = 0, kick_in_ = 0;
   u32 branch_target_ = 0, kick_address_ = 0;

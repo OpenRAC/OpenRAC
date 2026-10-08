@@ -3,6 +3,8 @@
 #pragma once
 
 #include <array>
+#include <functional>
+#include <string>
 #include <vector>
 
 #include "gs_memory.h"
@@ -145,6 +147,11 @@ class Gs {
   // A rectangle of any buffer as RGBA, for tools and tests.
   Image snapshot(u32 fbp, u32 fbw, u32 psm, int width, int height) const;
 
+  // For tools: called for every primitive drawn, with a line describing the
+  // state it is drawn with (target, scissor, texture, tests, blending) and
+  // its bounding box in the target.
+  std::function<void(const std::string& state, int x0, int y0, int x1, int y1)> on_primitive;
+
   GsMemory memory;
 
   struct Stats {
@@ -211,6 +218,7 @@ class Gs {
   void draw_triangle(const Env& e, const Vertex& a, const Vertex& b, const Vertex& c);
   void draw_sprite(const Env& e, const Vertex& a, const Vertex& b);
   Env environment() const;
+  void report(const Env& e, unsigned count) const;
   u32 prim_bits() const;
 
   // Per pixel.

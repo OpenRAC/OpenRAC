@@ -125,7 +125,22 @@ void Gs::write(u8 reg, u64 data) {
     case TEX0_2:
       reg_[reg] = data;
       if (bits(reg_[TEX1_1 + (reg - TEX0_1)], 9, 1)) {
-        note(gstodo::AUTO_MIP_ADDRESS, "automatic mipmap addresses (TEX1 MTBA)");
+        // MTBA: the first three mipmap levels follow the texture in memory,
+        // each a square of the larger side, packed one after the other at
+        // half the buffer width of the one before.
+        u32 bp = static_cast<u32>(bits(data, 0, 14)), bw = static_cast<u32>(bits(data, 14, 6));
+        u32 side = std::max(1u << bits(data, 26, 4), 1u << bits(data, 30, 4));
+        u32 bpp = transfer_bits(static_cast<u32>(bits(data, 20, 6)));
+        if (bits(data, 20, 6) == PSMT8H) bpp = 32;
+        if (bits(data, 20, 6) == PSMT4HL || bits(data, 20, 6) == PSMT4HH) bpp = 32;
+        u64 mip = 0;
+        for (unsigned level = 0; level < 3; level++) {
+          bp += ((side * side * bpp >> 3) + 255) >> 8;
+          bw = std::max(bw >> 1, 1u);
+          side = std::max(side >> 1, 1u);
+          mip |= (static_cast<u64>(bp & 0x3FFF) | (static_cast<u64>(bw) << 14)) << (level * 20);
+        }
+        reg_[MIPTBP1_1 + (reg - TEX0_1)] = mip;
       }
       load_clut(data);
       break;
@@ -356,6 +371,9 @@ void Gs::vertex(u16 x, u16 y, u32 z, bool draw) {
     if (draw) {
       Env e = environment();
       stats.primitives++;
+      if (on_primitive) {
+        report(e, static_cast<unsigned>(count_));
+      }
       fn(e);
     }
   };
@@ -409,6 +427,36 @@ void Gs::vertex(u16 x, u16 y, u32 z, bool draw) {
       count_ = 0;
       break;
   }
+}
+
+void Gs::report(const Env& e, unsigned count) const {
+  char text[320];
+  u32 prim = prim_bits();
+  int n = std::snprintf(text, sizeof(text), "prim %u%s%s%s%s ctx%u | frame %u/%u psm %02x mask %08x | z %u psm %02x%s | scissor %d-%d,%d-%d | test %s%u/%02x/%u%s z%s%u | ",
+                        prim & 7, e.iip ? " gouraud" : "", e.fge ? " fog" : "", e.abe ? " blend" : "", e.fst ? " uv" : "",
+                        (prim >> 9) & 1, e.fbp / 32, e.fbw, e.fpsm, e.fbmsk, e.zbp / 32, e.zpsm, e.zmsk ? " nowrite" : "",
+                        e.sx0, e.sx1, e.sy0, e.sy1, e.ate ? "a" : "-", e.atst, e.aref, e.afail, e.date ? (e.datm ? " date1" : " date0") : "",
+                        e.zte ? "" : "-", e.ztst);
+  if (e.abe) {
+    n += std::snprintf(text + n, sizeof(text) - static_cast<std::size_t>(n), "alpha %u%u%u%u fix %02x | ", e.ba, e.bb, e.bc, e.bd, e.fix);
+  }
+  if (e.tme) {
+    const Texture& t = e.tex;
+    std::snprintf(text + n, sizeof(text) - static_cast<std::size_t>(n), "tex %u/%u psm %02x %ux%u tfx %u%s wrap %u%u filter %u%u mxl %u k %.2f%s",
+                  t.tbp[0], t.tbw[0], t.psm, 1u << t.tw, 1u << t.th, t.tfx, t.tcc ? " tcc" : "", t.wms, t.wmt, t.mmag, t.mmin,
+                  t.mxl, static_cast<double>(t.k), t.lcm ? " lcm" : "");
+  } else {
+    std::snprintf(text + n, sizeof(text) - static_cast<std::size_t>(n), "no texture");
+  }
+  int x0 = 1 << 30, y0 = 1 << 30, x1 = -(1 << 30), y1 = -(1 << 30);
+  for (unsigned v = 0; v < count; v++) {
+    int x = (static_cast<s32>(queue_[v].x) - e.ofx) >> 4, y = (static_cast<s32>(queue_[v].y) - e.ofy) >> 4;
+    x0 = std::min(x0, x);
+    y0 = std::min(y0, y);
+    x1 = std::max(x1, x);
+    y1 = std::max(y1, y);
+  }
+  on_primitive(text, x0, y0, x1, y1);
 }
 
 // --- rasterisers -----------------------------------------------------------
@@ -814,7 +862,9 @@ void Gs::frame_write(const Env& e, s32 x, s32 y, u32 rgba, u32 mask) {
 
 void Gs::pixel(const Env& e, s32 x, s32 y, u32 z, u32 rgba) {
   u32 sa = rgba >> 24;
-  bool write_rgb = true, write_a = true, write_z = !e.zmsk;
+  // With the depth test switched off the Z buffer is not touched at all: the
+  // games draw to targets that share memory with it that way.
+  bool write_rgb = true, write_a = true, write_z = !e.zmsk && e.zte;
 
   if (e.ate && !alpha_passes(e.atst, sa, e.aref)) {
     switch (e.afail) {

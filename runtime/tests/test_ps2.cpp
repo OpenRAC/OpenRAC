@@ -377,6 +377,13 @@ void test_depth() {
   m.sprite(0, 0, 8, 8, 5000);
   CHECK_EQ(m.at(1, 1), 5u);
   CHECK_EQ(m.gs.memory.read(PSMZ32, 8 * 32, 1, 1, 1), 1001u);
+  // With the depth test off, nothing is written to the Z buffer.
+  m.gs.write(gsreg::ZBUF_1, 8);
+  m.gs.write(gsreg::TEST_1, 0);
+  m.colour(6, 0, 0, 0);
+  m.sprite(0, 0, 8, 8, 9000);
+  CHECK_EQ(m.at(1, 1), 6u);
+  CHECK_EQ(m.gs.memory.read(PSMZ32, 8 * 32, 1, 1, 1), 1001u);
   // A triangle's depth is interpolated across it.
   Machine t;
   t.target();
