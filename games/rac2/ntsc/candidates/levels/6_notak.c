@@ -416,3 +416,1720 @@ void LVL_6_NOTAK_FUN_003328E8(void) {
         LVL_6_NOTAK_D_001BF980.state = 2;
     }
 }
+
+/* Substitute the first percent selector in a record's localized text. */
+typedef struct {
+    unsigned char gap0[10];
+    short text_id;
+    short mapped_key;
+    unsigned char gap0e[26];
+} DobboFormatRow396;
+typedef struct {
+    unsigned char gap0[32];
+    DobboFormatRow396 *rows;
+} DobboFormatRoot396;
+typedef struct {
+    unsigned char gap0[0x80];
+    int amount;
+    unsigned char gap84[0x5c];
+} DobboFormatMapped396;
+typedef char DobboFormatRowStride396[(sizeof(DobboFormatRow396) == 40) ? 1 : -1];
+typedef char DobboFormatMappedStride396[(sizeof(DobboFormatMapped396) == 0xe0) ? 1 : -1];
+extern DobboFormatRoot396 LVL_6_NOTAK_D_001C9E20;
+extern const char LVL_6_NOTAK_D_001A99E0[];
+extern const char LVL_6_NOTAK_D_001A99E8[];
+extern const unsigned char *LVL_6_NOTAK_FUN_00333B40(int);
+extern void BOOT_FUN_00115DA8(char *, const char *, ...);
+void LVL_6_NOTAK_FUN_003484B0(int index, unsigned char *output)
+{
+    unsigned char temporary[80];
+    const unsigned char *source = LVL_6_NOTAK_FUN_00333B40(LVL_6_NOTAK_D_001C9E20.rows[index].text_id);
+    unsigned char *p = temporary;
+    if (!source)
+        return;
+    while (*source && *source != '%')
+        *output++ = *source++;
+    if (!*source) {
+        *output = *source;
+        return;
+    }
+    ++source;
+    if (*source == 'b') {
+        int key = LVL_6_NOTAK_D_001C9E20.rows[index].mapped_key;
+        DobboFormatMapped396 *record = (DobboFormatMapped396 *)&LVL_6_NOTAK_D_0026C7F0[LVL_6_NOTAK_D_00139568[key]];
+        BOOT_FUN_00115DA8((char *)temporary, LVL_6_NOTAK_D_001A99E0, record->amount);
+    } else {
+        BOOT_FUN_00115DA8((char *)temporary, LVL_6_NOTAK_D_001A99E8);
+    }
+    ++source;
+    while (*p)
+        *output++ = *p++;
+    while (*source)
+        *output++ = *source++;
+    *output = 0;
+}
+
+typedef struct { u8 prefix[0xc38]; f32 plane; f32 depth; } GornFloatInterval64;
+
+int LVL_6_NOTAK_FUN_002F3118(f32 value)
+{
+    GornFloatInterval64 *root = (GornFloatInterval64 *)LVL_6_NOTAK_D_00189E20;
+    if (value < root->plane) {
+        if (root->plane - value <= root->depth)
+            return 1;
+    }
+    return 0;
+}
+
+/* Update the observed two-axis selection fields and their combined index. */
+typedef struct {
+    unsigned char gap0[0x43c];
+    int column, row, index, mode;
+} DobboGridState312;
+extern int LVL_6_NOTAK_FUN_003A0AA8(int, unsigned int, void *);
+void LVL_6_NOTAK_FUN_0048B6F0(DobboGridState312 *state, unsigned int buttons)
+{
+    if (buttons & 0x1000) {
+        LVL_6_NOTAK_FUN_003A0AA8(3, 0, 0);
+        --state->row;
+        if (state->row < 0) {
+            if (state->column == 0) {
+                state->mode = 2;
+                state->row = 1;
+                state->column = 3;
+            } else if (state->column == 1) {
+                state->row = state->column;
+            }
+        }
+    } else if (buttons & 0x4000) {
+        int row;
+        LVL_6_NOTAK_FUN_003A0AA8(3, 0, 0);
+        row = state->row + 1;
+        state->row = row > 1 ? 0 : row;
+    } else if (buttons & 0x8000) {
+        LVL_6_NOTAK_FUN_003A0AA8(3, 0, 0);
+        --state->column;
+        if (state->column < 0) {
+            state->column = 3;
+            state->row = 1;
+            state->mode = 2;
+        }
+    } else if (buttons & 0x2000) {
+        LVL_6_NOTAK_FUN_003A0AA8(3, 0, 0);
+        ++state->column;
+        if (state->column >= 2)
+            state->column = 0;
+    }
+    state->index = state->column + state->row * 2;
+}
+
+extern void *LVL_6_NOTAK_D_001B2780[16];
+extern u32 LVL_6_NOTAK_D_001B27C0[16];
+
+int LVL_6_NOTAK_FUN_00351290(void *object)
+{
+    int index;
+    for (index = 0; index < 16; ++index) {
+        if (LVL_6_NOTAK_D_001B2780[index] == 0 ||
+            LVL_6_NOTAK_D_001B2780[index] == object) {
+            LVL_6_NOTAK_D_001B2780[index] = object;
+            LVL_6_NOTAK_D_001B27C0[index] = 0;
+            return index;
+        }
+    }
+    return -1;
+}
+
+/* Append an observed point index and update the original geometric descriptor. */
+typedef struct {
+    unsigned char gap0[0x10];
+    float plane[4];
+    unsigned char gap20[0x10];
+    float (*points)[4];
+    unsigned char gap34[0x25];
+    unsigned char indices[3];
+    unsigned char count;
+} OozlaAppendDescriptor164;
+typedef struct {
+    unsigned char gap0[0x68];
+    OozlaAppendDescriptor164 *descriptor;
+    unsigned char gap6c[0x54];
+    float transform[3][4];
+} OozlaAppendObject164;
+typedef char OozlaAppendDescriptorCount164[((int)&((OozlaAppendDescriptor164 *)0)->count == 0x5c) ? 1 : -1];
+extern void LVL_6_NOTAK_FUN_0031C1B0(OozlaAppendObject164 *, int, const float *);
+extern void LVL_6_NOTAK_FUN_0032D5F8(float *, const float *, const float *);
+extern void LVL_6_NOTAK_FUN_0032DA88(float *, const float *, const float *);
+extern void LVL_6_NOTAK_FUN_0031C4F8(OozlaAppendObject164 *, float *, const float *);
+unsigned int LVL_6_NOTAK_FUN_0031C108(OozlaAppendObject164 *object, unsigned int index, const float *direction)
+{
+    float difference[4];
+    OozlaAppendDescriptor164 *descriptor = object->descriptor;
+    descriptor->indices[descriptor->count] = index;
+    ++descriptor->count;
+    LVL_6_NOTAK_FUN_0031C1B0(object, (int)descriptor->count - 1, direction);
+    if (descriptor->count != 1) {
+        LVL_6_NOTAK_FUN_0032D5F8(difference, descriptor->points[descriptor->indices[0]], descriptor->points[descriptor->indices[1]]);
+        LVL_6_NOTAK_FUN_0032DA88(difference, difference, &object->transform[0][0]);
+        LVL_6_NOTAK_FUN_0031C4F8(object, descriptor->plane, difference);
+    }
+    return descriptor->count;
+}
+
+typedef struct { f32 x, y, z, w; } JammingParameterRow;
+typedef struct {
+    u8 prefix[0x30];
+    JammingParameterRow rows[4];
+    f32 weights[3];
+} JammingParameterRows;
+void LVL_6_NOTAK_FUN_00490B68(f32 weight, f32 x, f32 y, f32 z, f32 w, JammingParameterRows *object, s32 index) {
+    object->rows[index].x = x;
+    object->rows[index].y = y;
+    object->rows[index].z = z;
+    object->rows[index].w = w;
+    object->weights[index] = weight;
+}
+
+typedef struct { f32 x, y, z, w; } JammingGridRow;
+typedef struct { JammingGridRow rows[3]; } JammingGridGroup;
+typedef struct { u8 prefix[0x2c]; JammingGridGroup groups[2]; } JammingGridObject;
+void LVL_6_NOTAK_FUN_00491000(f32 x, f32 y, f32 z, f32 w, JammingGridObject *object, s32 row, s32 group) {
+    object->groups[group].rows[row].x = x;
+    object->groups[group].rows[row].y = y;
+    object->groups[group].rows[row].z = z;
+    object->groups[group].rows[row].w = w;
+}
+
+typedef struct { u8 before[0x68]; s32 active; u8 gap[6]; short state; } CallState;
+extern u8 LVL_6_NOTAK_D_001A63A8[];
+extern void FUN_00133400(s32);
+s32 LVL_6_NOTAK_FUN_0036DE70(void) {
+    if (((CallState *)LVL_6_NOTAK_D_001A63A8)->active==0) return 0;
+    if (((CallState *)LVL_6_NOTAK_D_001A63A8)->state!=3) return 0;
+    FUN_00133400(((CallState *)LVL_6_NOTAK_D_001A63A8)->active); ((CallState *)LVL_6_NOTAK_D_001A63A8)->state=4;
+    return 1;
+}
+
+f32 LVL_6_NOTAK_FUN_0035A5C0(f32 value, s32 count) {
+    f32 factor = 1.0f - value;
+    f32 product = factor;
+    for (; count > 1; --count)
+        product = product * factor;
+    return 1.0f - product;
+}
+
+typedef struct {
+    u8 pad0000[0x0000];
+} ResidentBase1395B8;
+
+s32 LVL_6_NOTAK_FUN_00344DB0(s32 index)
+{
+    s32 byte = index / 8;
+    s32 bit = index % 8;
+    s32 old;
+
+    if ((u32)bit < 8) {
+        old = (LVL_6_NOTAK_D_001395B8[byte + 0xA7] >> bit) & 1;
+    } else {
+        old = 0;
+    }
+    if ((u32)bit < 8) {
+        LVL_6_NOTAK_D_001395B8[byte + 0xA7] |= 1 << bit;
+    }
+    return old;
+}
+
+extern unsigned char D_19B278[];
+
+int LVL_6_NOTAK_FUN_00366D58(void)
+{
+    int count = 0;
+    int i;
+
+    for (i = 0; i < 0x1C; i++) {
+        int j;
+
+        for (j = 0; j < 4; j++) {
+            if (D_19B278[i * 4 + j] != 0)
+                count++;
+        }
+    }
+    if (count < 0)
+        count = 0;
+    if (count > 0x28)
+        count = 0x28;
+    return count;
+}
+
+typedef struct {
+    u8 pad0000[0x2294];
+    u32 kind;
+    u32 unknown2298;
+    u32 mode;
+} ResidentFlags2294;
+
+s32 LVL_6_NOTAK_FUN_002ED580(void)
+{
+    ResidentFlags2294 *root = (ResidentFlags2294 *)LVL_6_NOTAK_D_00189E20;
+
+    if (root->mode == 17 || root->mode == 18
+        || root->kind == 0x67 || root->kind == 0x7f
+        || root->kind == 0x73 || root->kind == 0x72) {
+        return 1;
+    }
+    return 0;
+}
+
+/* Prototype775 is a research label. Field names below describe only the
+ * independently observed byte23 and binary32 word2C operations. */
+typedef struct {
+    u8 pad00[0x23];
+    u8 field23;
+    u8 pad24[8];
+    f32 field2C;
+} NativeUpdate775View;
+
+extern void LVL_6_NOTAK_FUN_00350388(NativeUpdate775View *object);
+
+void LVL_6_NOTAK_FUN_003E1150(NativeUpdate775View *object)
+{
+    object->field2C *= 1.025f;
+    object->field23 -= 3;
+    if (object->field23 < 4)
+        LVL_6_NOTAK_FUN_00350388(object);
+}
+
+
+/* One fixed ordinary scalar source hypothesis. Byte offset and mask are
+   measured; no original object/class/field name or allocation claim. The
+   observed callers pass scalar one and ignore the result. */
+void LVL_6_NOTAK_FUN_0036A278(unsigned char *entity, int enabled) {
+    if (enabled)
+        entity[0xBE] |= 4;
+    else
+        entity[0xBE] &= 0xFB;
+}
+
+
+/* One fixed ordinary scalar query. Signed halfword width, offset and
+   equality constant are measured; no original class or field-name claim. */
+int LVL_6_NOTAK_FUN_0035FC28(const unsigned char *entity) {
+    return *(const signed short *)(entity + 0xAA) == 0x0CDB;
+}
+
+
+void LVL_6_NOTAK_FUN_002E66F0(void)
+{
+}
+
+
+unsigned int LVL_6_NOTAK_FUN_00315FF8(void)
+{
+    return 0;
+}
+
+
+void LVL_6_NOTAK_FUN_0032C900(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_003338D8(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_00334688(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_0033BB48(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_0033BB50(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_0033FB10(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_00348868(void)
+{
+}
+
+
+unsigned int LVL_6_NOTAK_FUN_0035E908(void)
+{
+    return 0;
+}
+
+
+unsigned int LVL_6_NOTAK_FUN_003B0838(void)
+{
+    return 0;
+}
+
+
+void LVL_6_NOTAK_FUN_003B5350(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_003BC368(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_003C1F78(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_003C5690(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_004383D0(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_00459B10(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_004635E0(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_0047E328(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_0047FD98(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_0047FFE8(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_004804E0(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_00488D58(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_004899B0(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_004957B8(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_00497B48(void)
+{
+}
+
+
+void LVL_6_NOTAK_FUN_004993E0(void)
+{
+}
+void LVL_6_NOTAK_FUN_003FA500(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_00406D98(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_00412368(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_00419210(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_0041DC30(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_00422530(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_00428810(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_00433798(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_00434B40(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_0045F470(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_00469288(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+
+extern u8 LVL_6_NOTAK_F62e6ff2b_D_00189E20[];
+extern u8 LVL_6_NOTAK_F62e6ff2b_D_00188660[];
+
+typedef struct {
+    u8 pad0[4640];
+    u32 field4640;
+    u8 gap[4204];
+    u32 field8848;
+} NativeView;
+
+s32 LVL_6_NOTAK_FUN_003A06A0(s32 id)
+{
+    u8 *record;
+    u8 *cursor;
+    s32 limit;
+
+    limit = 52;
+    if (id == 0 || (((NativeView *)&LVL_6_NOTAK_F62e6ff2b_D_00189E20)->field8848 != (u32)id &&
+                    ((NativeView *)&LVL_6_NOTAK_F62e6ff2b_D_00189E20)->field4640 != (u32)id))
+        limit = 42;
+
+    id = 0;
+    if (limit != 0) {
+        record = (u8 *)&LVL_6_NOTAK_F62e6ff2b_D_00188660;
+        if (record[116] != 0) {
+            cursor = record + 116;
+            do {
+                id++;
+                if (id >= limit)
+                    break;
+                cursor += 112;
+            } while (*cursor != 0);
+        }
+    }
+    return (id != limit) ? id : 52;
+}
+
+extern u8 LVL_6_NOTAK_F1c0a2bbf_D_001ADD18[];
+extern u8 LVL_6_NOTAK_F1c0a2bbf_D_001ADD38[];
+extern void LVL_6_NOTAK_F1c0a2bbf_FUN_00115E38(void *, s32, void *);
+
+void LVL_6_NOTAK_FUN_0047E340(u32 *p, u32 a1, u32 a2, u32 a3)
+{
+    if (a1 < 4u)
+        LVL_6_NOTAK_F1c0a2bbf_FUN_00115E38(LVL_6_NOTAK_F1c0a2bbf_D_001ADD18, 37, LVL_6_NOTAK_F1c0a2bbf_D_001ADD38);
+    p[0] = a2;
+    p[1] = a3;
+    p[2] = a1;
+    p[5] = 0;
+    p[3] = 0;
+    p[4] = 0;
+}
+void LVL_6_NOTAK_FUN_003E8E48(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 88) = 0;
+    *(float *)(p + 96) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 92) = 1.0f;
+    *(int *)(p + 100) = 0;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -2.0f;
+    *(float *)(p + 24) = 2.0f;
+    *(float *)(p + 40) = -2.0f;
+    *(float *)(p + 56) = 2.0f;
+    *(float *)(p + 4) = -2.0f;
+    *(float *)(p + 36) = 2.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -2.0f;
+    *(float *)(p + 52) = 2.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_0042B4B0(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 88) = 0;
+    *(float *)(p + 96) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 92) = 1.0f;
+    *(int *)(p + 100) = 0;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -2.0f;
+    *(float *)(p + 24) = 2.0f;
+    *(float *)(p + 40) = -2.0f;
+    *(float *)(p + 56) = 2.0f;
+    *(float *)(p + 4) = -2.0f;
+    *(float *)(p + 36) = 2.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 280993940374112LL;
+    *(float *)(p + 20) = -2.0f;
+    *(float *)(p + 52) = 2.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+typedef struct { int v[12]; } Blob;
+extern Blob LVL_6_NOTAK_F6894d7c1_D_001A8E60;
+int LVL_6_NOTAK_FUN_00332BB0(int x)
+{
+    Blob b;
+    int i;
+    b = LVL_6_NOTAK_F6894d7c1_D_001A8E60;
+    for (i = 0; b.v[i]; i++)
+        if (x == b.v[i])
+            return 1;
+    return 0;
+}
+extern int LVL_6_NOTAK_Fafab4c55_FUN_00115DA8(char *, char *, ...);
+extern char LVL_6_NOTAK_Fafab4c55_D_001AD5F0[];
+extern char LVL_6_NOTAK_Fafab4c55_D_001AD600[];
+extern char LVL_6_NOTAK_Fafab4c55_D_001AD608[];
+
+void LVL_6_NOTAK_FUN_003B6D50(char *dst, int value)
+{
+    if (value > 999999)
+        LVL_6_NOTAK_Fafab4c55_FUN_00115DA8(dst, LVL_6_NOTAK_Fafab4c55_D_001AD5F0, value / 1000000, (value / 1000) % 1000, value % 1000);
+    else if (value >= 1000)
+        LVL_6_NOTAK_Fafab4c55_FUN_00115DA8(dst, LVL_6_NOTAK_Fafab4c55_D_001AD600, value / 1000, value % 1000);
+    else
+        LVL_6_NOTAK_Fafab4c55_FUN_00115DA8(dst, LVL_6_NOTAK_Fafab4c55_D_001AD608, value);
+}
+typedef struct {
+    char *base;
+    unsigned limit;
+    unsigned size;
+    unsigned cur;
+    int count;
+    void *free;
+} Hdr;
+
+extern int LVL_6_NOTAK_Fe77c6258_FUN_00115E38(char *, int, char *);
+extern char LVL_6_NOTAK_Fe77c6258_D_001ADD18[];
+extern char LVL_6_NOTAK_Fe77c6258_D_001ADD60[];
+
+void *LVL_6_NOTAK_FUN_0047E3C8(Hdr *p)
+{
+    void *q;
+    unsigned cur;
+    unsigned n;
+    char *r;
+
+    if (p->free != 0) {
+        q = p->free;
+        p->free = *(void **)q;
+        p->count++;
+        return q;
+    }
+    cur = p->cur;
+    if (p->limit < cur + p->size) {
+        LVL_6_NOTAK_Fe77c6258_FUN_00115E38(LVL_6_NOTAK_Fe77c6258_D_001ADD18, 83, LVL_6_NOTAK_Fe77c6258_D_001ADD60);
+        return 0;
+    }
+    r = p->base + cur;
+    p->cur = cur + p->size;
+    p->count++;
+    return r;
+}
+void LVL_6_NOTAK_FUN_003CA858(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -2.0f;
+    *(float *)(p + 24) = 2.0f;
+    *(float *)(p + 40) = -2.0f;
+    *(float *)(p + 56) = 2.0f;
+    *(float *)(p + 4) = -2.0f;
+    *(float *)(p + 36) = 2.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 0x0000FF9000000260LL;
+    *(float *)(p + 20) = -2.0f;
+    *(float *)(p + 52) = 2.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_003CCEE0(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 80) = 0;
+    *(int *)(p + 84) = 0;
+    *(float *)(p + 88) = 1.0f;
+    *(int *)(p + 92) = 0;
+    *(int *)(p + 96) = 0;
+    *(float *)(p + 100) = 1.0f;
+    *(float *)(p + 104) = 1.0f;
+    *(float *)(p + 108) = 1.0f;
+    *(float *)(p + 8) = -2.0f;
+    *(float *)(p + 24) = 2.0f;
+    *(float *)(p + 40) = -2.0f;
+    *(float *)(p + 56) = 2.0f;
+    *(float *)(p + 4) = -2.0f;
+    *(float *)(p + 36) = 2.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 0x0000FF9000000260LL;
+    *(float *)(p + 20) = -2.0f;
+    *(float *)(p + 52) = 2.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_0046C128(char *p)
+{
+    *(long long *)(p + 112) = 0LL;
+    *(int *)(p + 8) = 0;
+    *(float *)(p + 24) = 2.0f;
+    *(int *)(p + 40) = 0;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 0x0000FF9000000260LL;
+    *(float *)(p + 56) = 2.0f;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+typedef struct { short key; short val; } Entry;
+
+extern Entry *LVL_6_NOTAK_Fc68ad20a_D_0018C2B8;
+
+int LVL_6_NOTAK_FUN_003116F8(int key, int *out)
+{
+    Entry *e = LVL_6_NOTAK_Fc68ad20a_D_0018C2B8;
+    Entry *p;
+
+    if (e == 0)
+        return 0;
+    if (e->key == -1)
+        goto notfound;
+    p = e;
+    for (;;) {
+        if (key == p->key) {
+            *out = p->val;
+            return 1;
+        }
+        p++;
+        if (p->key == -1)
+            goto notfound;
+    }
+notfound:
+    *out = 0;
+    return 0;
+}
+typedef struct {
+    int f0;
+    short f4;
+    unsigned char f6;
+    char pad[0x18 - 7];
+    int f18;
+    int f1C;
+} Blk;
+
+extern Blk LVL_6_NOTAK_F55a1acb8_D_001A63A8;
+extern short LVL_6_NOTAK_F55a1acb8_D_001A63AC;
+extern int LVL_6_NOTAK_F55a1acb8_FUN_00133688(void);
+extern void LVL_6_NOTAK_F55a1acb8_FUN_0011AEA0(int);
+
+void LVL_6_NOTAK_FUN_0036EF40(int x)
+{
+    unsigned char c;
+    int q;
+    int arg;
+
+    if (x != 1)
+        return;
+
+    if (LVL_6_NOTAK_F55a1acb8_FUN_00133688()) {
+        LVL_6_NOTAK_F55a1acb8_D_001A63AC = 2;
+        return;
+    }
+
+    LVL_6_NOTAK_F55a1acb8_FUN_0011AEA0(0);
+
+    c = LVL_6_NOTAK_F55a1acb8_D_001A63A8.f6;
+    q = LVL_6_NOTAK_F55a1acb8_D_001A63A8.f18;
+    LVL_6_NOTAK_F55a1acb8_D_001A63A8.f4 = 0;
+    arg = c < 1;
+    LVL_6_NOTAK_F55a1acb8_D_001A63A8.f6 = 0;
+
+    if (q != 0) {
+        int cb = LVL_6_NOTAK_F55a1acb8_D_001A63A8.f1C;
+        LVL_6_NOTAK_F55a1acb8_D_001A63A8.f18 = 0;
+        LVL_6_NOTAK_F55a1acb8_D_001A63A8.f1C = 0;
+        ((void (*)(int, int))q)(cb, arg);
+    }
+}
+extern char LVL_6_NOTAK_Fa2dbe766_D_00189E20[];
+
+int LVL_6_NOTAK_FUN_0040C200(float f12)
+{
+    char *b;
+
+    if (f12 <= 0.0f)
+        goto fail;
+    b = LVL_6_NOTAK_Fa2dbe766_D_00189E20;
+    if (*(short *)(*(int *)(b + 8848) + 170) != 0)
+        goto fail;
+    if (*(unsigned char *)(b + 8884) != 0)
+        goto fail;
+    if (*(int *)(b + 8852) == 49)
+        goto fail;
+    if (*(int *)(b + 8860) == 20)
+        goto fail;
+    if (*(int *)(b + 9420) > 0)
+        goto ok;
+fail:
+    return 0;
+ok:
+    return 1;
+}
+void LVL_6_NOTAK_FUN_003877B0(void)
+{
+    *(short *)0x001AA802 = (*(unsigned char *)0x001A7BC9) ? 3 : 0;
+    *(short *)0x001AA81A = (*(unsigned char *)0x001A7BCA) ? 3 : 0;
+    *(short *)0x001AA832 = (*(unsigned char *)0x001A7BCB) ? 3 : 0;
+    *(short *)0x001AA84A = (*(unsigned char *)0x001A7BCC) ? 3 : 0;
+    *(short *)0x001AA862 = (*(unsigned char *)0x001A7BCE) ? 3 : 0;
+}
+void LVL_6_NOTAK_FUN_00450B08(char *object)
+{
+    char *o = object;
+    int *q = *(int **)(o + 104);
+
+    if (*(unsigned char *)(o + 32))
+        return;
+
+    q[2] = 64;
+    q[4] = 50;
+    q[0] = 0;
+    q[3] = -1;
+    q[5] = 0;
+    *(unsigned char *)(o + 32) = 1;
+    q[6] = -1;
+
+    *(float *)(o + 44) = *(float *)(*(int *)(o + 36) + 36) * 0.8f;
+}
+extern char LVL_6_NOTAK_Fea34650e_D_00189E20[];
+
+void LVL_6_NOTAK_FUN_003127E8(void)
+{
+    char *b = LVL_6_NOTAK_Fea34650e_D_00189E20;
+    char *p;
+    int i;
+
+    p = *(char **)(b + 3096);
+    *(unsigned short *)(p + 52) &= 0xFFFE;
+
+    for (i = 0; i < 7; i++) {
+        p = *(char **)(b + 4640 + i * 80);
+        if (p != 0)
+            *(unsigned short *)(p + 52) &= 0xFFFE;
+        p = *(char **)(b + 4644 + i * 80);
+        if (p != 0)
+            *(unsigned short *)(p + 52) &= 0xFFFE;
+        p = *(char **)(b + 4648 + i * 80);
+        if (p != 0)
+            *(unsigned short *)(p + 52) &= 0xFFFE;
+    }
+
+    if (1) {
+        char *c = LVL_6_NOTAK_Fea34650e_D_00189E20;
+        p = *(char **)(c + 4892);
+        if (p != 0)
+            *(unsigned short *)(p + 52) &= 0xFFFE;
+    }
+
+    if (1) {
+        char *c = LVL_6_NOTAK_Fea34650e_D_00189E20;
+        if (*(unsigned char *)(c + 8884) == 1) {
+            c = LVL_6_NOTAK_Fea34650e_D_00189E20;
+            p = *(char **)(c + 6244);
+            if (p != 0)
+                *(unsigned short *)(p + 52) &= 0xFFFE;
+        }
+    }
+
+    if (1) {
+        char *c = LVL_6_NOTAK_Fea34650e_D_00189E20;
+        if (*(short *)(c + 9468) != 0 || *(int *)(c + 8860) == 31) {
+            c = LVL_6_NOTAK_Fea34650e_D_00189E20;
+            p = *(char **)(c + 4880);
+            if (p != 0)
+                *(unsigned short *)(p + 52) |= 0x41;
+            c = LVL_6_NOTAK_Fea34650e_D_00189E20;
+            p = *(char **)(c + 4884);
+            if (p != 0)
+                *(unsigned short *)(p + 52) |= 0x41;
+            c = LVL_6_NOTAK_Fea34650e_D_00189E20;
+            p = *(char **)(c + 4892);
+            if (p != 0)
+                *(unsigned short *)(p + 52) |= 0x41;
+        }
+    }
+
+    if (1) {
+        char *c = LVL_6_NOTAK_Fea34650e_D_00189E20;
+        if ((*(unsigned char *)(c + 8894) != 0 && *(int *)(c + 4680) == 10) ||
+            *(unsigned char *)(c + 8895) != 0) {
+            char *d = LVL_6_NOTAK_Fea34650e_D_00189E20;
+            p = *(char **)(d + 4640);
+            if (p != 0)
+                *(unsigned short *)(p + 52) |= 0x41;
+        }
+    }
+}
+void LVL_6_NOTAK_FUN_0042BCE0(char *p)
+{
+    *(long long *)(p + 112) = 0;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 0x0000FF9000000260LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+void LVL_6_NOTAK_FUN_0046C0C0(char *p)
+{
+    *(long long *)(p + 112) = 0;
+    *(float *)(p + 8) = -1.0f;
+    *(float *)(p + 24) = 1.0f;
+    *(float *)(p + 40) = -1.0f;
+    *(float *)(p + 56) = 1.0f;
+    *(float *)(p + 4) = -1.0f;
+    *(float *)(p + 36) = 1.0f;
+    *(float *)(p + 52) = 1.0f;
+    *(int *)(p + 0) = 0;
+    *(int *)(p + 16) = 0;
+    *(int *)(p + 32) = 0;
+    *(int *)(p + 48) = 0;
+    *(float *)(p + 12) = 1.0f;
+    *(float *)(p + 28) = 1.0f;
+    *(float *)(p + 44) = 1.0f;
+    *(long long *)(p + 128) = 0x0000FF9000000260LL;
+    *(float *)(p + 20) = -1.0f;
+    *(float *)(p + 60) = 1.0f;
+}
+extern char LVL_6_NOTAK_F0be97c76_D_00189E20[];
+
+void LVL_6_NOTAK_FUN_002E6670(void)
+{
+    char *base = LVL_6_NOTAK_F0be97c76_D_00189E20;
+    int i, j;
+
+    for (i = 0; i < 7; i++) {
+        for (j = 0; j < 3; j++) {
+            char *p = *(char **)(base + 4640 + i * 80);
+
+            if (j == 1)
+                p = *(char **)(base + 4644 + i * 80);
+            else if (j == 2)
+                p = *(char **)(base + 4648 + i * 80);
+            if (p != 0)
+                *(long long *)(p + 56) = *(long long *)(*(char **)(base + 8848) + 56);
+        }
+    }
+}
+
+struct Slot { s32 w; s32 rest[4]; };
+struct Table1 { char pad[19264]; struct Slot slots[48]; };
+struct Table2 { char pad[52]; s32 slots[4]; };
+
+extern struct Table1 LVL_6_NOTAK_Fee2b87d1_D_0014B540;
+extern struct Table2 LVL_6_NOTAK_Fee2b87d1_D_00152CD0;
+
+s32 LVL_6_NOTAK_FUN_003444F0(s32 value) {
+    s32 i = 0;
+    s32 *q;
+    if (LVL_6_NOTAK_Fee2b87d1_D_0014B540.slots[0].w == value) goto after1;
+    while (++i < 48) {
+        if (LVL_6_NOTAK_Fee2b87d1_D_0014B540.slots[i].w == value) break;
+    }
+after1:
+    if (i == 48) return 1;
+    value = 0;
+    if (LVL_6_NOTAK_Fee2b87d1_D_00152CD0.slots[0] == i) goto after2;
+    while (++value < 3) {
+        if (LVL_6_NOTAK_Fee2b87d1_D_00152CD0.slots[value] == i) break;
+    }
+after2:
+    return value != 3;
+}
+/* Ring header advance: the four header words are written, then the resident
+   pointer itself is advanced.  The final store is the only access the retail
+   body makes through $gp, hence the -G8 profile (same shape as the qualified
+   19_grelbin body, with this overlay's own global addresses). */
+extern int *LVL_6_NOTAK_F236d541c_D_001B2F88 __attribute__((sda));
+extern int LVL_6_NOTAK_F236d541c_D_001A742C __attribute__((sda));
+
+void LVL_6_NOTAK_FUN_0032FA90(void)
+{
+    *(int *)LVL_6_NOTAK_F236d541c_D_001B2F88 = 0x30000009;
+    *(int *)((char *)LVL_6_NOTAK_F236d541c_D_001B2F88 + 4) = (LVL_6_NOTAK_F236d541c_D_001A742C + 192) & 0x0FFFFFFF;
+    *(int *)((char *)LVL_6_NOTAK_F236d541c_D_001B2F88 + 8) = 0;
+    *(int *)((char *)LVL_6_NOTAK_F236d541c_D_001B2F88 + 12) = 0x50000009;
+    LVL_6_NOTAK_F236d541c_D_001B2F88 = (int *)((char *)LVL_6_NOTAK_F236d541c_D_001B2F88 + 16);
+}
+/* Paired-strip packet emitter, 372 bytes, placed in levels/18_damosel and
+   levels/6_notak.  The body writes a 16-byte GIF header into the resident
+   packet cursor (a small-data global), advances the cursor, writes the tag
+   words and two packed 64-bit strip descriptors, then advances the cursor by
+   another 48 bytes.  The retail loads the cursor absolutely and advances it
+   through $gp, so the unit is compiled under the small-data profile (-O2 -G8). */
+extern int *LVL_6_NOTAK_F25780968_D_001B2F88 __attribute__((sda));
+extern int LVL_6_NOTAK_F25780968_D_001A7350 __attribute__((sda));
+extern int LVL_6_NOTAK_F25780968_D_001A7354 __attribute__((sda));
+
+void LVL_6_NOTAK_FUN_0033ABA0(int a0, int a1, int a2, int a3, int p4, int p5, int p6)
+{
+    long long *q;
+
+    *(int *)((char *)LVL_6_NOTAK_F25780968_D_001B2F88 + 0) = 0x10000003;
+    *(int *)((char *)LVL_6_NOTAK_F25780968_D_001B2F88 + 4) = 0;
+    *(int *)((char *)LVL_6_NOTAK_F25780968_D_001B2F88 + 8) = 0;
+    *(int *)((char *)LVL_6_NOTAK_F25780968_D_001B2F88 + 12) = 0x50000003;
+    q = (long long *)LVL_6_NOTAK_F25780968_D_001B2F88;
+    LVL_6_NOTAK_F25780968_D_001B2F88 = (int *)((char *)q + 16);
+    q[2] = 0x4400000000008001LL;
+    q[3] = 17424;
+    q[4] = 70;
+    q[5] = p4;
+#define LO_D0 (*(int *)((char *)&LVL_6_NOTAK_F25780968_D_001A7350 + 0))
+#define HI_D4 (*(int *)((char *)&LVL_6_NOTAK_F25780968_D_001A7354 + 0))
+    if (p6 != 0) {
+        q[6] = (a0 + LO_D0 - 8)
+             | ((long long)(a1 + HI_D4 - 8) << 16)
+             | ((long long)p5 << 32);
+        q[7] = (a2 + LO_D0 - 8)
+             | ((long long)(a3 + HI_D4 - 8) << 16)
+             | ((long long)p5 << 32);
+    } else {
+        q[6] = ((a0 << 4) + LO_D0 - 16)
+             | ((long long)((a1 << 4) + HI_D4 - 16) << 16)
+             | ((long long)p5 << 32);
+        q[7] = ((a2 << 4) + LO_D0 - 16)
+             | ((long long)((a3 << 4) + HI_D4 - 16) << 16)
+             | ((long long)p5 << 32);
+    }
+    LVL_6_NOTAK_F25780968_D_001B2F88 = (int *)((char *)LVL_6_NOTAK_F25780968_D_001B2F88 + 48);
+}
+
+/* 0x1B2FA0 / 0x1B2FA4 are 4-byte small-data objects (gp = 0x1AEFF0, offsets
+   +0x3FB0 / +0x3FB4).  The retail addresses them absolutely in every normal
+   reference and through $gp in the branch delay slot the reorg pass fills; the
+   plain declarations give exactly that split. */
+extern int LVL_6_NOTAK_Fafa454c6_D_001B2FA0 __attribute__((sda));
+extern int LVL_6_NOTAK_Fafa454c6_D_001B2FA4 __attribute__((sda));
+
+extern void LVL_6_NOTAK_Fafa454c6_FUN_0011A950(int, int);
+extern void LVL_6_NOTAK_Fafa454c6_FUN_0011B658(int);
+
+void LVL_6_NOTAK_FUN_003BD1A8(void)
+{
+    if ((*(volatile u32 *)0x1000E010 & 0x20000) != 0) {
+        *(volatile u32 *)0x1000E010 = 0x20000;
+    }
+    LVL_6_NOTAK_Fafa454c6_FUN_0011A950(1, LVL_6_NOTAK_Fafa454c6_D_001B2FA0);
+    LVL_6_NOTAK_Fafa454c6_FUN_0011A950(15, LVL_6_NOTAK_Fafa454c6_D_001B2FA4);
+    LVL_6_NOTAK_Fafa454c6_FUN_0011B658(1);
+    LVL_6_NOTAK_Fafa454c6_D_001B2FA0 = 0;
+    LVL_6_NOTAK_Fafa454c6_D_001B2FA4 = 0;
+}
+typedef struct OBJ {
+    char pad0[32];
+    unsigned char f20;
+    char pad1[0x64 - 33];
+    void (*f64)(struct OBJ *);
+    char pad2[0xAA - 0x68];
+    short fAA;
+} OBJ;
+
+extern OBJ *LVL_6_NOTAK_F32969de2_D_001B2820 __attribute__((sda));
+extern OBJ *LVL_6_NOTAK_F32969de2_D_001B2824 __attribute__((sda));
+extern OBJ *LVL_6_NOTAK_F32969de2_D_001AC000 __attribute__((sda));
+
+void LVL_6_NOTAK_FUN_004000C0(void)
+{
+    OBJ *p;
+    short key = LVL_6_NOTAK_F32969de2_D_001AC000->fAA;
+
+    for (p = LVL_6_NOTAK_F32969de2_D_001B2820; p < LVL_6_NOTAK_F32969de2_D_001B2824; p = (OBJ *)((char *)p + 256)) {
+        if (p == 0)
+            continue;
+        if (p->fAA != key)
+            continue;
+        if (p->f20 == 254)
+            continue;
+        if (p->f20 == 253)
+            continue;
+        if (p == LVL_6_NOTAK_F32969de2_D_001AC000)
+            continue;
+        p->f64(p);
+    }
+}
+/* attempt 3: the project's existing (boot-qualified) spelling: -G0 profile plus
+   an explicit `sda` attribute on the one resident word that retail addresses
+   through $gp.  Used here as a control, to measure what -G8 changes. */
+
+typedef struct __attribute__((packed)) { unsigned char mode[4]; } CdMode;
+
+extern CdMode LVL_6_NOTAK_F1157be91_D_001A63E8;
+extern unsigned char LVL_6_NOTAK_F1157be91_D_001A7900[] __attribute__((sda));
+extern int LVL_6_NOTAK_F1157be91_D_001A7430[] __attribute__((sda));
+extern int LVL_6_NOTAK_F1157be91_D_001A7434 __attribute__((sda));
+extern int LVL_6_NOTAK_F1157be91_FUN_001334B8(int, int, int, CdMode *);
+extern int LVL_6_NOTAK_F1157be91_FUN_00133230(void);
+extern int LVL_6_NOTAK_F1157be91_FUN_00132028(void);
+
+int LVL_6_NOTAK_FUN_0036EDC8(int a0, int a1, int a2) {
+    CdMode mode = LVL_6_NOTAK_F1157be91_D_001A63E8;
+    mode.mode[1] = LVL_6_NOTAK_F1157be91_D_001A7900[0];
+    LVL_6_NOTAK_F1157be91_D_001A7430[0] = 0;
+    LVL_6_NOTAK_F1157be91_D_001A7434 = 0;
+    LVL_6_NOTAK_F1157be91_FUN_001334B8(a1, a2, a0, &mode);
+    LVL_6_NOTAK_F1157be91_FUN_00133230();
+    LVL_6_NOTAK_F1157be91_FUN_00132028();
+    return 1;
+}
+extern int *LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 __attribute__((sda));
+
+void LVL_6_NOTAK_FUN_003BC960(unsigned int param_1, unsigned long param_2)
+{
+    *(int *)((char *)LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 + 0) = 0x10000002;
+    *(int *)((char *)LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 + 4) = 0;
+    *(int *)((char *)LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 + 8) = 0;
+    *(int *)((char *)LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 + 12) = 0x50000002;
+    *(int *)((char *)LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 + 16) = 0x8001;
+    *(int *)((char *)LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 + 20) = 0x10000000;
+    *(int *)((char *)LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 + 24) = 14;
+    *(int *)((char *)LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 + 28) = 0;
+    *(long long *)((char *)LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 + 32) = param_2;
+    *(int *)((char *)LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 + 40) = param_1;
+    *(int *)((char *)LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 + 44) = 0;
+    LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 = (int *)((char *)LVL_6_NOTAK_Fe85cf1e5_D_001B2F88 + 48);
+}
+struct Sep6 {
+    int v[6];
+};
+
+extern struct Sep6 LVL_6_NOTAK_Fe9186f4c_D_001AA4D0;
+extern char LVL_6_NOTAK_Fe9186f4c_D_001AA4E8[];
+extern char LVL_6_NOTAK_Fe9186f4c_D_001AA4F8[];
+extern char LVL_6_NOTAK_Fe9186f4c_D_001AA508[];
+extern void LVL_6_NOTAK_Fe9186f4c_FUN_00115DA8();
+
+void LVL_6_NOTAK_FUN_0036F270(char *buf, int value, int index) {
+    struct Sep6 sep = LVL_6_NOTAK_Fe9186f4c_D_001AA4D0;
+    int rest;
+    if (value > 999999) {
+        rest = value % 1000000;
+        LVL_6_NOTAK_Fe9186f4c_FUN_00115DA8(buf, LVL_6_NOTAK_Fe9186f4c_D_001AA4E8, value / 1000000, sep.v[index % 6], rest / 1000,
+                sep.v[index % 6], rest % 1000);
+    } else if (value >= 1000) {
+        LVL_6_NOTAK_Fe9186f4c_FUN_00115DA8(buf, LVL_6_NOTAK_Fe9186f4c_D_001AA4F8, value / 1000, sep.v[index % 6], value % 1000);
+    } else {
+        LVL_6_NOTAK_Fe9186f4c_FUN_00115DA8(buf, LVL_6_NOTAK_Fe9186f4c_D_001AA508, value);
+    }
+}
+/* Family 34e74db3063e7a24 — 108 bytes, 2 placements (18_damosel, 6_notak).
+   Same shape as be569dc253cd5555: walk the resident function-pointer table at
+   0x1B2180, call each entry while the resident count at 0x1B21C0 says there is
+   one, then clear the count.  Small-data profile: the count is a 4-byte scalar,
+   so cc1 prints the bare-symbol macro and gas expands every site on its own. */
+extern int LVL_6_NOTAK_F34e74db3_D_001B21C0 __attribute__((sda));
+extern void (*LVL_6_NOTAK_F34e74db3_D_001B2180[])(void);
+
+void LVL_6_NOTAK_FUN_00317100(void)
+{
+    int i;
+
+    for (i = 0; i < LVL_6_NOTAK_F34e74db3_D_001B21C0; i++) {
+        LVL_6_NOTAK_F34e74db3_D_001B2180[i]();
+    }
+
+    LVL_6_NOTAK_F34e74db3_D_001B21C0 = 0;
+}
+typedef struct {
+    u8 field00[0x218]; signed short field218; u8 field21A[0x12e];
+    signed short field348; u8 field34A[4]; signed short field34E;
+    u8 field350[0x1147]; u8 field1497; u8 field1498[2]; u8 field149A;
+    u8 field149B[0xdf9]; s32 field2294;
+} NativeModeResident;
+extern NativeModeResident LVL_6_NOTAK_F4e5bde81_D_00189E20;
+extern s32 LVL_6_NOTAK_F4e5bde81_D_001A8FF0 __attribute__((sda));
+extern volatile u8 LVL_6_NOTAK_F4e5bde81_D_001A7B08[4] __attribute__((sda));
+extern s32 LVL_6_NOTAK_F4e5bde81_D_001A8FF4 __attribute__((sda));
+s32 LVL_6_NOTAK_FUN_00312B80(void) {
+    s32 result = LVL_6_NOTAK_F4e5bde81_D_00189E20.field348;
+    if (LVL_6_NOTAK_F4e5bde81_D_001A8FF0 != 0 && LVL_6_NOTAK_F4e5bde81_D_001A8FF4 == 0) result = 2;
+    if (LVL_6_NOTAK_F4e5bde81_D_001A8FF4 != 0 || LVL_6_NOTAK_F4e5bde81_D_00189E20.field2294 == 59 ||
+        (LVL_6_NOTAK_F4e5bde81_D_00189E20.field2294 == 110 && LVL_6_NOTAK_F4e5bde81_D_00189E20.field149A == 0) ||
+        LVL_6_NOTAK_F4e5bde81_D_00189E20.field2294 == 109 || LVL_6_NOTAK_F4e5bde81_D_00189E20.field218 != 0 ||
+        (LVL_6_NOTAK_F4e5bde81_D_00189E20.field1497 != 0 && LVL_6_NOTAK_F4e5bde81_D_001A7B08[3] != 0 &&
+         LVL_6_NOTAK_F4e5bde81_D_00189E20.field2294 == 0 && LVL_6_NOTAK_F4e5bde81_D_00189E20.field34E < 4)) result = 1;
+    if (result == 1 && LVL_6_NOTAK_F4e5bde81_D_00189E20.field149A != 0) result = 0;
+    return result;
+}
+/* family 0c7f51df6235c46f - 364 bytes, 2 placements
+   levels/18_damosel @0x00397AE0, levels/6_notak @0x003BCD90
+
+   Loop over 16 KiB blocks.  Each iteration writes a four-word header into the
+   resident packet cursor (small-data global at 0x1B2F88), advances the cursor
+   through the helper call's delay slot, hands the payload area plus the rounded
+   block and slice offsets to the eight-argument helper, then writes the far
+   tag word and advances the cursor again. */
+
+extern int *LVL_6_NOTAK_F0c7f51df_D_001B2F88 __attribute__((sda));
+extern void LVL_6_NOTAK_F0c7f51df_FUN_00126288(void *p, int a1, int a2, int a3, int a4, int a5, int a6, int a7);
+
+void LVL_6_NOTAK_FUN_003BCD90(int a0, int a1, int a2)
+{
+    int n = (a2 + 16383) & ~0x3FFF;
+    int block = 0;
+    int slice = 0;
+    int t;
+    char *q;
+    char *p;
+
+    while (n > 0) {
+        *(int *)((char *)LVL_6_NOTAK_F0c7f51df_D_001B2F88 + 0) = 0x10000006;
+        *(int *)((char *)LVL_6_NOTAK_F0c7f51df_D_001B2F88 + 4) = 0;
+        *(int *)((char *)LVL_6_NOTAK_F0c7f51df_D_001B2F88 + 8) = 0;
+        *(int *)((char *)LVL_6_NOTAK_F0c7f51df_D_001B2F88 + 12) = 0x50000006;
+        t = a1 + block;
+        block += 16384;
+        n -= 16384;
+        q = (char *)LVL_6_NOTAK_F0c7f51df_D_001B2F88 + 16;
+        LVL_6_NOTAK_F0c7f51df_D_001B2F88 = (int *)q;
+        LVL_6_NOTAK_F0c7f51df_FUN_00126288(q, (t << 8) >> 16, 1, 1, 0, 0, 64, 64);
+        p = (char *)LVL_6_NOTAK_F0c7f51df_D_001B2F88;
+        LVL_6_NOTAK_F0c7f51df_D_001B2F88 = (int *)(p + 96);
+        *(int *)(p + 96) = 0x30000300;
+        *(int *)((char *)LVL_6_NOTAK_F0c7f51df_D_001B2F88 + 4) = a0 + slice;
+        slice += 12288;
+        *(int *)((char *)LVL_6_NOTAK_F0c7f51df_D_001B2F88 + 8) = 0;
+        *(int *)((char *)LVL_6_NOTAK_F0c7f51df_D_001B2F88 + 12) = 0x50000300;
+        LVL_6_NOTAK_F0c7f51df_D_001B2F88 = (int *)((char *)LVL_6_NOTAK_F0c7f51df_D_001B2F88 + 16);
+    }
+}
+/* Family 07d033343bfa9687 — 148 bytes, levels/18_damosel and levels/6_notak.
+
+   Write the four-word ring header into the resident packet cursor and advance
+   the cursor itself; when the cursor is null, hand the sibling buffer 48 bytes
+   further on to the stop helper instead.  Every reference re-reads the global
+   because a store through it may alias the cursor itself, and the closing
+   store is the only access retail makes through $gp, so the unit uses the
+   qualified small-data spelling (-G0 plus an explicit `sda` attribute) — the
+   same recipe as the c1edda5c and 9b94f3cd ring-header bodies. */
+
+extern int *LVL_6_NOTAK_F07d03334_D_001B2F88 __attribute__((sda));
+extern int LVL_6_NOTAK_F07d03334_D_001A742C __attribute__((sda));
+extern void LVL_6_NOTAK_F07d03334_FUN_00126108(void *);
+
+void LVL_6_NOTAK_FUN_0032F978(void)
+{
+    if (LVL_6_NOTAK_F07d03334_D_001B2F88 != 0) {
+        *(int *)LVL_6_NOTAK_F07d03334_D_001B2F88 = 0x30000009;
+        *(int *)((char *)LVL_6_NOTAK_F07d03334_D_001B2F88 + 4) = (LVL_6_NOTAK_F07d03334_D_001A742C + 48) & 0x0FFFFFFF;
+        *(int *)((char *)LVL_6_NOTAK_F07d03334_D_001B2F88 + 8) = 0;
+        *(int *)((char *)LVL_6_NOTAK_F07d03334_D_001B2F88 + 12) = 0x50000009;
+        LVL_6_NOTAK_F07d03334_D_001B2F88 = (int *)((char *)LVL_6_NOTAK_F07d03334_D_001B2F88 + 16);
+    } else {
+        LVL_6_NOTAK_F07d03334_FUN_00126108((void *)(LVL_6_NOTAK_F07d03334_D_001A742C + 48));
+    }
+}
+/* Family 0f425722ec0b6d0f — 140 bytes, levels/18_damosel and levels/6_notak.
+
+   Same measured body as the e7046bc9 family (levels/10_hrugis_cloud and
+   levels/5_feltzin_system), with this overlay pair's own addresses: walk the
+   256-byte-stride table between the two resident bounds and count the records
+   that qualify, either because their type byte is 254/255 and their field is
+   within the resident limit, or because the sticky flag is already set.  The
+   flag latches on the 0xff type byte through the compiler's conditional move.
+   The outer test and the inner back-edge test both read the same resident
+   bound, and the running count is a small-data word, so the unit uses the
+   qualified small-data spelling (-G0 plus `sda` on the resident words). */
+
+extern unsigned char *LVL_6_NOTAK_F0f425722_D_001B2820 __attribute__((sda));
+extern unsigned char *LVL_6_NOTAK_F0f425722_D_001B2824 __attribute__((sda));
+extern unsigned int LVL_6_NOTAK_F0f425722_D_001B2348 __attribute__((sda));
+extern unsigned int LVL_6_NOTAK_F0f425722_D_001B2740 __attribute__((sda));
+
+void LVL_6_NOTAK_FUN_0034FF90(void)
+{
+    unsigned char *p = LVL_6_NOTAK_F0f425722_D_001B2820;
+    int seen = 0;
+    unsigned int limit;
+
+    LVL_6_NOTAK_F0f425722_D_001B2740 = 0;
+
+    while (p < LVL_6_NOTAK_F0f425722_D_001B2824) {
+        limit = LVL_6_NOTAK_F0f425722_D_001B2348;
+        do {
+            if ((p[32] >= 254 && *(unsigned int *)(p + 160) <= limit) || seen) {
+                LVL_6_NOTAK_F0f425722_D_001B2740 = LVL_6_NOTAK_F0f425722_D_001B2740 + 1;
+                seen = (p[32] == 0xff) ? 1 : seen;
+            }
+            p += 256;
+        } while (p < LVL_6_NOTAK_F0f425722_D_001B2824);
+    }
+}
+void LVL_6_NOTAK_FUN_00360DE0(int param_1, short *param_2, short param_3)
+{
+    int i;
+
+    param_1 = (param_1 - *(int *)0x001B281C) << 8 >> 16;
+    for (i = 1; i <= param_2[0]; i++) {
+        if (param_2[i] == param_1) return;
+    }
+    if (param_2[0] < param_3) {
+        param_2[0] = param_2[0] + 1;
+        param_2[param_2[0]] = param_1;
+    }
+}
+/* Family 023cd14a875d20e4 (120 B, 2 placements): call every registered
+ * callback with its paired argument, bounded by a resident count word.
+ *
+ * The three resident globals are reached with `lui`+`lw` / `lui`+`addiu`
+ * pairs that the ASSEMBLER macro expands from a single RTL insn; this only
+ * happens when the externs carry the `sda` attribute (SYMBOL_REF_FLAG), which
+ * suppresses gcc's HIGH/LO_SUM address split.  Without it the compiler keeps
+ * the `%hi` in an extra callee-saved register and the body is 3 words long.
+ */
+typedef void (*fn_t)(int);
+
+extern int LVL_6_NOTAK_F023cd14a_D_001B22F8 __attribute__((sda));   /* resident callback count */
+extern fn_t LVL_6_NOTAK_F023cd14a_D_001B22D8[] __attribute__((sda)); /* callback table        */
+extern int LVL_6_NOTAK_F023cd14a_D_001B22E8[] __attribute__((sda));  /* argument table        */
+
+void LVL_6_NOTAK_FUN_00326670(void) {
+    int i;
+    for (i = 0; i < LVL_6_NOTAK_F023cd14a_D_001B22F8; i++) {
+        LVL_6_NOTAK_F023cd14a_D_001B22D8[i](LVL_6_NOTAK_F023cd14a_D_001B22E8[i]);
+    }
+}
+extern int LVL_6_NOTAK_F74e6a904_D_001B2F94 __attribute__((sda));
+extern int LVL_6_NOTAK_F74e6a904_D_001B2F90 __attribute__((sda));
+extern int LVL_6_NOTAK_F74e6a904_D_001A8F10 __attribute__((sda));
+extern int LVL_6_NOTAK_F74e6a904_D_001B2F80[];
+extern int LVL_6_NOTAK_F74e6a904_D_001B2F88 __attribute__((sda));
+extern int LVL_6_NOTAK_F74e6a904_D_001B2370 __attribute__((sda));
+extern int LVL_6_NOTAK_F74e6a904_D_001B2374 __attribute__((sda));
+
+void LVL_6_NOTAK_FUN_003BC620(void)
+{
+    int a0;
+    int a1;
+    int a2;
+    int v1;
+
+    a0 = 1 - LVL_6_NOTAK_F74e6a904_D_001B2F94;
+    a1 = LVL_6_NOTAK_F74e6a904_D_001B2F90;
+    a2 = LVL_6_NOTAK_F74e6a904_D_001A8F10;
+    LVL_6_NOTAK_F74e6a904_D_001B2F94 = a0;
+    v1 = LVL_6_NOTAK_F74e6a904_D_001B2F80[a0];
+    a1 = v1 + LVL_6_NOTAK_F74e6a904_D_001B2F90;
+    LVL_6_NOTAK_F74e6a904_D_001B2F88 = v1;
+    a1 = a1 - a2;
+    LVL_6_NOTAK_F74e6a904_D_001B2370 = a1;
+    LVL_6_NOTAK_F74e6a904_D_001B2374 = a1 - 8192;
+}
+int LVL_6_NOTAK_FUN_003239C8(int a0, int a1, int a2)
+{
+    unsigned char *base = *(unsigned char **)0x001B23C0;
+    unsigned char *end = base + *(int *)base;
+    unsigned short *node = (unsigned short *)(base + 4);
+    int i2;
+    int i1;
+    int i0;
+
+    i2 = a2 - node[0];
+    if (i2 < 0) return 0;
+    if (!(i2 < node[1])) return 0;
+    if (!node[i2 + 2]) return 0;
+    node = (unsigned short *)(base + node[i2 + 2] * 4);
+    i1 = a1 - node[0];
+    if (i1 < 0) return 0;
+    if (!(i1 < node[1])) return 0;
+    if (!node[i1 + 2]) return 0;
+    node = (unsigned short *)(base + node[i1 + 2] * 4);
+    i0 = a0 - node[0];
+    if (i0 < 0 || !(i0 < node[1])) return 0;
+    if (node[i0 + 2] == 0xFFFF) return 0;
+    return (int)(end + node[i0 + 2] * 128);
+}
+extern int *LVL_6_NOTAK_F412a47f9_D_001B2F88 __attribute__((sda));
+extern int *LVL_6_NOTAK_F412a47f9_D_001B2DA0 __attribute__((sda));
+extern int LVL_6_NOTAK_F412a47f9_D_001A72D0 __attribute__((sda));
+extern int LVL_6_NOTAK_F412a47f9_D_001A72D4 __attribute__((sda));
+extern int LVL_6_NOTAK_F412a47f9_D_001B22BC __attribute__((sda));
+
+typedef struct { int *saved; } SavedSlot412a47f9;
+extern SavedSlot412a47f9 LVL_6_NOTAK_F412a47f9_D_001B2DC0 __attribute__((sda));
+
+typedef struct {
+    char gap0[12];
+    short count;
+    char gap14[2];
+    long long *table;
+} ResidentTable412a47f9;
+
+void LVL_6_NOTAK_FUN_0039E580(void)
+{
+    ResidentTable412a47f9 *resident = (ResidentTable412a47f9 *)LVL_6_NOTAK_F412a47f9_D_001B2DA0;
+    int *current = LVL_6_NOTAK_F412a47f9_D_001B2F88;
+    int index;
+
+    LVL_6_NOTAK_F412a47f9_D_001B2DC0.saved = current;
+    LVL_6_NOTAK_F412a47f9_D_001B2F88 = (int *)((char *)current + 16);
+    LVL_6_NOTAK_F412a47f9_D_001A72D0 = LVL_6_NOTAK_F412a47f9_D_001A72D4;
+    LVL_6_NOTAK_F412a47f9_D_001B22BC = 0;
+    for (index = 0; index < resident->count; ++index)
+        *(long long *)((char *)resident->table + index * 16) = 0;
+}

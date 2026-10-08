@@ -296,7 +296,7 @@ def _trial(store, repo, task_id, toolchain, profile, repeat_reason="", backend=N
     if not SAFE.fullmatch(source.name) or source.suffix != ".c":
         raise ValueError("Use a plain C filename safe for the existing WSL chain")
     content = source.read_bytes()
-    if re.search(rb"\b(?:asm|__asm__|__asm|INCLUDE_ASM)\b|\.byte|\.word", content):
+    if re.search(rb"\b(?:asm|__asm__|__asm|INCLUDE_ASM)\b|(?m:^[ \t]*(?:(?:[A-Za-z_.$][A-Za-z0-9_.$]*|[0-9]+):[ \t]*)?\.(?:byte|word)\b(?:[ \t]+(?![ \t]*=)\S|[ \t]*$))", content):
         raise ValueError("Candidate embeds assembly or retail bytes")
     if re.search(rb"(?m)^\s*#\s*include\b|\b__(?:DATE|TIME|TIMESTAMP)__\b", content):
         raise ValueError("Candidate must be standalone and reproducible until headers are pinned")
@@ -305,16 +305,21 @@ def _trial(store, repo, task_id, toolchain, profile, repeat_reason="", backend=N
                                               for name in ("cc1", "cpp", "as", "ld.exe")):
         raise ValueError("Trials require the pinned current GNU8bed profile")
     targets, flags = [], None
-    pinned = read(repo / "config/target.json")
-    refs = {"boot": pinned["boot"]["sha256"]}
-    refs.update({"levels/" + level["level"]: level["sha256"] for level in read(repo / "config/overlays.json")["levels"]})
     for descriptor in task["targets"]:
         catalog_path = absolute(descriptor["catalog"], repo, store.runtime)
         reference_path = absolute(descriptor["reference"], repo, store.runtime)
         catalog_bytes, reference_bytes = catalog_path.read_bytes(), reference_path.read_bytes()
         catalog = json.loads(catalog_bytes)
         program = catalog.get("program", "boot")
-        if (catalog.get("target") != pinned["serial"] or program not in refs
+        # The catalogue names its own release; only that region's pinned identities apply.
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        try:
+            owner = importlib.import_module("region").by_serial(catalog.get("target"), repo)
+            owner.require_matching("C trials")
+            refs = owner.program_pins()
+        except ValueError as error:
+            raise ValueError(f"Reference/catalog is not a pinned RAC2 program ({error})") from error
+        if (program not in refs
                 or digest(reference_bytes) != refs[program] or catalog.get("reference_sha256") != refs[program]):
             raise ValueError("Reference/catalog is not a pinned RAC2 program")
         current_flags = catalog.get("flags")
@@ -711,12 +716,16 @@ def facade(store, repo, command, arguments, runner=subprocess.run):
     before = instrument_hashes(repo)
     external_inputs = {str(Path(args[i + 1]).resolve()): digest(Path(args[i + 1]).read_bytes())
                        for i, option in enumerate(args[:-1]) if option in {
-                           "--manifest", "--candidate-review", "--integration-proof", "--progress-proof", "--level-proof"}}
+                           "--manifest", "--sdk-binding", "--candidate-review", "--integration-proof", "--progress-proof", "--level-proof"}}
     invocation = [sys.executable, str(repo / "scripts" / script), *args]
     write_new(work / "manifest.json", encoded({"id": action_id, "kind": command, "created": now(),
                                               "command": invocation, "instruments": before, "external_input_sha256": external_inputs}))
     with store.edit() as registry:
-        registry["actions"][action_id] = {"id": action_id, "kind": command, "state": "running", "directory": "runtime:actions/" + action_id}
+        registry["actions"][action_id] = {
+            "id": action_id, "kind": command, "state": "running",
+            "directory": "runtime:actions/" + action_id,
+            "action_manifest_sha256": digest((work / "manifest.json").read_bytes()),
+        }
     with (work / "run.log").open("xb") as log:
         try:
             completed = runner(invocation, cwd=repo, stdout=log, stderr=subprocess.STDOUT)
@@ -777,6 +786,7 @@ def facade(store, repo, command, arguments, runner=subprocess.run):
             else:
                 public_result["artifact"] = "private-artifact:" + artifact_path.name
         registry["actions"][action_id].update(public_result)
+        registry["actions"][action_id]["action_outcome_sha256"] = digest((work / "outcome.json").read_bytes())
     return result
 
 
@@ -801,6 +811,22 @@ def main(argv=None):
     v = subs.add_parser("views")
     v.add_argument("--check", action="store_true")
     subs.add_parser("close").add_argument("task")
+    d = subs.add_parser("diff", help="Review an immutable trial without changing its acceptance state")
+    d.add_argument("task")
+    d.add_argument("--trial", help="Historical trial ID; defaults to the task's last trial")
+    d.add_argument("--output", type=Path, help="New private standalone HTML review")
+    d.add_argument("--target", help="Initially selected trial target")
+    d.add_argument("--symbol", help="Initially selected complete function")
+    d.add_argument("--serve", action="store_true", help="Serve the private review read-only on 127.0.0.1")
+    d.add_argument("--port", type=int, default=0, help="Local review port; zero chooses an unused port")
+    d.add_argument("--open", action="store_true", help="Open the local browser (requires --serve)")
+    f = subs.add_parser("finalize", help="Validate and publish a completed batch with guarded backups")
+    f.add_argument("action", help="Registered successful build/integration action ID")
+    f.add_argument("--manifest", required=True, type=Path, help="The action's pinned preparation manifest")
+    f.add_argument("--output", required=True, type=Path, help="Private staging, backups and receipts directory")
+    f.add_argument("--references", type=Path, help="Private pinned boot/level reference root when needed")
+    f.add_argument("--task", action="append", default=[], help="Candidate to close after validation; repeat as needed")
+    f.add_argument("--apply", action="store_true", help="Publish the validated staged files; default only prepares them")
     subs.add_parser("seed-history")
     subs.add_parser("refresh-history")
     subs.add_parser("import-legacy").add_argument("markdown", type=Path)
@@ -812,6 +838,10 @@ def main(argv=None):
     for name in ("build", "integrate", "report"):
         subs.add_parser(name).add_argument("arguments", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
+    if args.command == "diff" and (args.open or args.port) and not args.serve:
+        parser.error("--open and --port require --serve")
+    if args.command == "diff" and not 0 <= args.port <= 65535:
+        parser.error("Review port must be between 0 and 65535")
     repo = args.repo.resolve()
     store = Store(args.registry or repo / "config/campaign-register.json", private(args.runtime, repo))
     if args.command == "plan":
@@ -832,6 +862,20 @@ def main(argv=None):
         result = views(store, repo, args.check)
     elif args.command == "close":
         result = close(store, repo, args.task)
+    elif args.command == "diff":
+        from campaign_diff import render_review
+        result = render_review(store, repo, args.task, trial_id=args.trial,
+                               output=args.output, target=args.target, symbol=args.symbol)
+        if args.serve:
+            from campaign_view_server import serve_review
+            print(json.dumps(result, indent=2), flush=True)
+            serve_review(Path(result["output"]), port=args.port, open_browser=args.open)
+            return 0
+    elif args.command == "finalize":
+        from campaign_finalize import finalize
+        result = finalize(store, repo, args.action, manifest=args.manifest,
+                          output=args.output, tasks=tuple(args.task), apply=args.apply,
+                          references=args.references)
     elif args.command == "seed-history":
         result = seed_history(store, repo)
     elif args.command == "refresh-history":

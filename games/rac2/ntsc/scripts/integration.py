@@ -41,7 +41,13 @@ def split_assembly(content: str, functions: list[dict], relocated: bool = False)
         # placement keeps the reviewed C symbol and takes the address from the
         # level, so the name/address agreement is only required for the boot.
         if not relocated and function["symbol"] != f"FUN_{address:08X}":
-            raise ValueError("Integration symbol does not identify its address")
+            from boot_sdk_unit import unit_spec
+            spec = unit_spec(function.get("unit_id"))
+            if (function.get("origin") != "boot-sdk"
+                    or function.get("candidate_source") != spec["source"]
+                    or {key: function[key] for key in spec["function"]} != spec["function"]
+                    or function.get("input_section") != ".text"):
+                raise ValueError("Integration symbol does not identify its address")
         previous_end = address + size
         original_symbol = f"func_{address:08X}"
         starts = starts_by_address.get(address, [])
@@ -183,6 +189,49 @@ def compile_c(reference: Path, directory: Path, toolchain: Path, review_path: Pa
     return catalog, object_path, hashes
 
 
+
+def compile_boot_c(reference: Path, directory: Path, toolchain: Path,
+                   review_path: Path | None = None, sdk_binding: Path | None = None):
+    """Preserve the default object; add only fixed, individually admitted SDK units."""
+    default, default_object, default_tools = compile_c(reference, directory, toolchain, review_path)
+    from boot_sdk_unit import admitted_units, unit_spec, compile_reviewed, file_hash
+    units = admitted_units(ROOT)
+    if not units:
+        return default, default_object, default_tools
+    default_functions = [{**f, "candidate_source": "candidates/boot.c", "origin": "boot-default",
+                          "unit_id": "default-gnu8bed"} for f in default["functions"]]
+    union = {**default, "functions": list(default_functions),
+             "compiled_sources": {"candidates/boot.c": default["compiled_source_sha256"]},
+             "sdk_units": {}, "default_functions": default_functions,
+             "externals": dict(default["externals"])}
+    objects = {"candidates/boot.c": default_object}
+    for unit in units:
+        spec = unit_spec(unit)
+        sdk, sdk_object, sdk_proof = compile_reviewed(reference, directory / "build/c/sdk" / unit,
+                                                     ROOT, sdk_binding, unit)
+        for name, address in sdk["externals"].items():
+            if name in union["externals"] and union["externals"][name] != address:
+                raise ValueError("SDK absolute external conflicts with existing boot binding")
+            existing = [f for f in union["functions"] if f["symbol"] == name]
+            if existing and any(f["address"] != address for f in existing):
+                raise ValueError("SDK absolute external conflicts with compiled boot owner")
+            union["externals"][name] = address
+        union["functions"].extend({**f, "candidate_source": spec["source"], "origin": "boot-sdk",
+                                   "unit_id": unit, "input_section": ".text"} for f in sdk["functions"])
+        union["compiled_sources"][spec["source"]] = sdk["source_sha256"]
+        union["sdk_units"][unit] = {
+            "unit_id": unit, "source": spec["source"], "module": spec["module"],
+            "catalog_path": spec["catalog"], "review_path": spec["review"],
+            "review_sha256": file_hash(ROOT / spec["review"]),
+            "profile_id": sdk["profile_id"], "input_section": ".text", "object_proof": sdk_proof}
+        objects[spec["source"]] = sdk_object
+    from level_native import ranges
+    ranges(union["functions"])
+    if len({f["symbol"] for f in union["functions"]}) != len(union["functions"]):
+        raise ValueError("Boot object owner symbols collide")
+    return union, objects, default_tools
+
+
 def level_catalog(level: str) -> dict:
     """The reviewed placement of the SAME C bodies at one level's own addresses.
 
@@ -289,7 +338,7 @@ def _compile_shared_level_c(reference: Path, directory: Path, toolchain: Path, l
 
 def compile_level_c(reference: Path, directory: Path, toolchain: Path, level: str, review_path: Path | None = None):
     """Preserve the legacy gate, optionally add an independently reviewed level source."""
-    from level_native import paths, compile_reviewed, ranges, dependencies
+    from level_native import paths, compile_reviewed, ranges, dependencies, has_smalldata, SMALL_DATA_GP
     catalog, object_path, hashes = _compile_shared_level_c(reference, directory, toolchain, level, review_path)
     source_path, native_catalog_path, native_review_path = paths(level)
     if not (ROOT / native_catalog_path).exists():
@@ -317,6 +366,38 @@ def compile_level_c(reference: Path, directory: Path, toolchain: Path, level: st
         if name in externals and externals[name] != address:
             raise ValueError("Native and shared external addresses conflict")
         externals[name] = address
+    objects = {"candidates/boot.c": object_path, source_path: native_object}
+    smalldata = None
+    smalldata_functions = []
+    if has_smalldata(level, ROOT):
+        # A measured body that addresses a global through $gp cannot be built
+        # under the default profile, so it lives in its own unit with its own
+        # flags, gp, catalog and review. Both units are linked into this
+        # overlay and both are compared complete; neither is patched.
+        sd_source, sd_catalog_path, sd_review_path = paths(level, "smalldata")
+        sd, sd_object, sd_proof = compile_reviewed(
+            reference, directory / "build/c/smalldata" / level, toolchain, level, ROOT, "smalldata")
+        if sd_proof["tools"] != hashes:
+            raise ValueError("Small-data and shared compiler instruments disagree")
+        if native["gp"] not in (0, SMALL_DATA_GP):
+            raise ValueError("Small-data and native gp bases disagree")
+        smalldata_functions = [{**function, "candidate_source": sd_source, "origin": "level-smalldata"}
+                               for function in sd["functions"]]
+        functions = functions + smalldata_functions
+        ranges(functions)
+        for name, address in sd["externals"].items():
+            if name in definitions:
+                if definitions[name] != address:
+                    raise ValueError("Small-data external disagrees with an integrated definition")
+                continue
+            if name in externals and externals[name] != address:
+                raise ValueError("Small-data and shared external addresses conflict")
+            externals[name] = address
+        objects[sd_source] = sd_object
+        smalldata = {"source": sd_source, "catalog_path": sd_catalog_path,
+                     "review_path": sd_review_path, "object_proof": sd_proof,
+                     "review_sha256": file_hash(ROOT / sd_review_path), "gp": SMALL_DATA_GP}
+
     combined = {**catalog, "functions": functions, "externals": externals,
                 "native": {"source": source_path, "catalog_path": native_catalog_path,
                            "review_path": native_review_path, "object_proof": native_proof,
@@ -326,9 +407,14 @@ def compile_level_c(reference: Path, directory: Path, toolchain: Path, level: st
                                      source_path: native_proof["source_sha256"]},
                 "dependency_sha256": dependencies(level, ROOT, review_path), "reference_entry": native["entry"],
                 "boot_review_sha256": file_hash(review_path or ROOT / "progress/candidates.json")}
-    if native["gp"]:
+    if smalldata is not None:
+        combined["smalldata"] = smalldata
+        combined["smalldata_functions"] = smalldata_functions
+        combined["compiled_sources"][smalldata["source"]] = smalldata["object_proof"]["source_sha256"]
+        combined["gp"] = SMALL_DATA_GP
+    elif native["gp"]:
         combined["gp"] = native["gp"]
-    return combined, {"candidates/boot.c": object_path, source_path: native_object}, hashes
+    return combined, objects, hashes
 
 
 def c_objects(objects) -> list[Path]:
@@ -366,7 +452,10 @@ def replace_inputs(directory: Path, sources: list[Path], catalog: dict, c_object
                 function = piece["function"]
                 found.add(function["symbol"])
                 owner = c_object[function["candidate_source"]] if isinstance(c_object, dict) else c_object
-                new_inputs.append(owner.relative_to(directory).as_posix() + f"(.text.{function['symbol']});")
+                input_section = function.get('input_section', '.text.' + function['symbol'])
+                if input_section not in {'.text', '.text.' + function['symbol']}:
+                    raise ValueError('Unreviewed per-owner input section')
+                new_inputs.append(owner.relative_to(directory).as_posix() + f'({input_section});')
             else:
                 fragment = directory / "asm_pp" / "integrated" / f"{source.stem}_{index}.s"
                 fragment.parent.mkdir(exist_ok=True)
@@ -416,7 +505,9 @@ def validate_integrated(reference: Path, candidate: Path, catalog: dict, source:
     for result in results:
         result.update({"integrated": True, "program": program})
         result["state"] = "integrated"
-        if "native" in catalog:
+        if "native" in catalog or "sdk_units" in catalog:
             function = next(item for item in catalog["functions"] if item["symbol"] == result["symbol"])
             result.update({"candidate_source": function["candidate_source"], "origin": function["origin"]})
+            if "sdk_units" in catalog:
+                result["unit_id"] = function["unit_id"]
     return results

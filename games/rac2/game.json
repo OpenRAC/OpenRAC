@@ -38,9 +38,9 @@
         "exclude": [
           "include/moby.h"
         ],
-        "commit": "b300787daae94913484c1a29ff064d9711f39fda",
-        "date": "2026-10-04",
-        "imported": "2026-10-04"
+        "commit": "9ba277d68cecb54c016985d877b5199b36757509",
+        "date": "2026-10-07",
+        "imported": "2026-10-07"
       },
       "build": {
         "host": "Windows with WSL for the C compiler; SN ProDG 2.0 assembler and linker you supply",

@@ -24,8 +24,17 @@ required. The game target is Going Commando USA v1.01, `SCUS_972.68`.
    runtime binding. Choose the current task and its explicit reopening condition.
    Do not restart parked source permutations or historical jobs.
 
+Use the [official campaign tools](CAMPAIGN-TOOLS.md) to inspect a recorded trial
+with `campaign.py diff` and finalize a completed validated batch with
+`campaign.py finalize`. Neither command starts a matching search or authorizes
+publication to another repository.
+
 Read compiler, native-overlay and source-layout documentation when a concrete
 technical question requires it. Archive files are evidence, not startup instructions.
+When a task concerns shared copies, use the
+[normalized family workflow](NORMALIZED-FAMILY-WORKFLOW.md) for candidate discovery
+and reviewed binding controls. It retains exact acceptance and the one register;
+its signatures never reopen a parked source trial or add matching credit.
 Verify a stale environment pointer and update its private source as soon as it
 changes; do not repeatedly rediscover an already documented tool.
 

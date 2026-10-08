@@ -27,12 +27,144 @@ PILOT_FAMILY = "native-clear-five-words"
 FUNCTION_PLACEHOLDER = b"@@FUNCTION@@"
 CLEAR_CANONICAL_BODY = b"void @@FUNCTION@@(s32 *object) {\n    object[0]=0; object[1]=0; object[2]=0; object[3]=0; object[4]=0;\n}"
 SHIP_CLEAR_VARIANT = b"void @@FUNCTION@@(int *object) {\n    object[0] = 0;\n    object[1] = 0;\n    object[2] = 0;\n    object[3] = 0;\n    object[4] = 0;\n}"
-BASE_SEED_SYMBOLS = (
-    "LVL_0_ARANOS_TUTORIAL_FUN_002ADE68", "LVL_0_ARANOS_TUTORIAL_FUN_002ADEA0",
-    "LVL_0_ARANOS_TUTORIAL_FUN_002ADFD0", "LVL_0_ARANOS_TUTORIAL_FUN_002AEAC0",
-    "LVL_0_ARANOS_TUTORIAL_FUN_002D68E8", "LVL_0_ARANOS_TUTORIAL_FUN_002D7940",
-    "LVL_0_ARANOS_TUTORIAL_FUN_002E3A68", "LVL_0_ARANOS_TUTORIAL_FUN_002F3DD0",
+# One reviewed placement anchors each shared source family: the normalized
+# authored body is the family identity, so any program may anchor one. The
+# legacy anchor program keeps its historical family id spelling.
+BASE_SEED_PLACEMENTS = (
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_0030F458"),
+    ("16_snivelak", "LVL_16_SNIVELAK_FUN_0030B038"),
+    ("25_wupash_nebula", "LVL_25_WUPASH_NEBULA_FUN_00323FA8"),
+    ("26_jamming_array", "LVL_26_JAMMING_ARRAY_FUN_0035F1D8"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_003792E8"),
+    ("16_snivelak", "LVL_16_SNIVELAK_FUN_00360890"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_00366B70"),
+    ("13_boldan", "LVL_13_BOLDAN_FUN_003724E8"),
+    ("16_snivelak", "LVL_16_SNIVELAK_FUN_002DBE98"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_002FD858"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_00379EA8"),
+    ("11_joba", "LVL_11_JOBA_FUN_00332B18"),
+    ("16_snivelak", "LVL_16_SNIVELAK_FUN_0030A390"),
+    ("11_joba", "LVL_11_JOBA_FUN_00400AA0"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_002E1D88"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_002FEB90"),
+    ("25_wupash_nebula", "LVL_25_WUPASH_NEBULA_FUN_00323300"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_0032B6B0"),
+    ("15_gorn", "LVL_15_GORN_FUN_003297D0"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_0030E7B0"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_00397370"),
+    ("11_joba", "LVL_11_JOBA_FUN_003029E8"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_00392808"),
+    ("11_joba", "LVL_11_JOBA_FUN_003901A0"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_002F8AF8"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_0037E040"),
+    ("11_joba", "LVL_11_JOBA_FUN_002F8DF0"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_00320BC0"),
+    ("22_dobbo_orbit", "LVL_22_DOBBO_ORBIT_FUN_003A6470"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_00303C48"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_00301838"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_002E4A80"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_00301CB0"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_0033B298"),
+    ("11_joba", "LVL_11_JOBA_FUN_00332A98"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_0033A6C0"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_0031DFB0"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_0030AF78"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_002EDD70"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_0032B068"),
+    ("3_endako", "LVL_3_ENDAKO_FUN_0043D6D8"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_0030ACA8"),
+    ("16_snivelak", "LVL_16_SNIVELAK_FUN_002D02C0"),
+    ("16_snivelak", "LVL_16_SNIVELAK_FUN_00360EF8"),
+    ("13_boldan", "LVL_13_BOLDAN_FUN_00372B50"),
+    ("3_endako", "LVL_3_ENDAKO_FUN_00376E68"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_0032AFD0"),
+    ("25_wupash_nebula", "LVL_25_WUPASH_NEBULA_FUN_00322C20"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_0030E040"),
+    ("25_wupash_nebula", "LVL_25_WUPASH_NEBULA_FUN_00366E80"),
+    ("16_snivelak", "LVL_16_SNIVELAK_FUN_003527C8"),
+    ("15_gorn", "LVL_15_GORN_FUN_003735B0"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_00412F70"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_00397AE0"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_00315C90"),
+    ("25_wupash_nebula", "LVL_25_WUPASH_NEBULA_FUN_002E9B50"),
+    ("16_snivelak", "LVL_16_SNIVELAK_FUN_002CFBB8"),
+    ("11_joba", "LVL_11_JOBA_FUN_0038A160"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002D3400"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_002F22C8"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_002D54C0"),
+    ("20_yeedil", "LVL_20_YEEDIL_FUN_0041C828"),
+    ("16_snivelak", "LVL_16_SNIVELAK_FUN_00381938"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_0036EC50"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_002F16D0"),
+    ("15_gorn", "LVL_15_GORN_FUN_002EF7D0"),
+    ("11_joba", "LVL_11_JOBA_FUN_00342430"),
+    ("14_aranos_prison", "LVL_14_ARANOS_PRISON_FUN_00338928"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_003976B0"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_0032E5F0"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_0032AB80"),
+    ("11_joba", "LVL_11_JOBA_FUN_00302950"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_003D8D30"),
+    ("3_endako", "LVL_3_ENDAKO_FUN_00307730"),
+    ("11_joba", "LVL_11_JOBA_FUN_0030DDA0"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_00371348"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_00316120"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_00397EF8"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_00315ED0"),
+    ("18_damosel", "LVL_18_DAMOSEL_FUN_0030ADC0"),
+    ("11_joba", "LVL_11_JOBA_FUN_00318850"),
+    ("19_grelbin", "LVL_19_GRELBIN_FUN_002F8DF8"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_00315E00"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_003B2900"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002ADE68"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002ADEA0"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002ADFD0"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002AEAC0"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002D68E8"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002D7940"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002E3A68"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002F3DD0"),
+    ("15_gorn", "LVL_15_GORN_FUN_002FB958"),
+    ("3_endako", "LVL_3_ENDAKO_FUN_0043D650"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002A7070"),
+    ("15_gorn", "LVL_15_GORN_FUN_0031EC90"),
+    ("11_joba", "LVL_11_JOBA_FUN_0035AC48"),
+    ("13_boldan", "LVL_13_BOLDAN_FUN_004407D8"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_00346330"),
+    ("25_wupash_nebula", "LVL_25_WUPASH_NEBULA_FUN_002F5CD8"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_0032E768"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_003EA860"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_0042C6E0"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_0035F100"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002F36D8"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_003A2B28"),
+    ("13_boldan", "LVL_13_BOLDAN_FUN_003876E0"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_0041AF60"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_003883B8"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_003C5B18"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_0042C768"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_00409420"),
+    ("13_boldan", "LVL_13_BOLDAN_FUN_0037F258"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_00375940"),
+    ("13_boldan", "LVL_13_BOLDAN_FUN_0034FDD8"),
+    ("10_hrugis_cloud", "LVL_10_HRUGIS_CLOUD_FUN_003E5E90"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002D1F78"),
+    ("11_joba", "LVL_11_JOBA_FUN_0048E038"),
+    ("17_smolg", "LVL_17_SMOLG_FUN_0031C1E0"),
+    ("13_boldan", "LVL_13_BOLDAN_FUN_00440860"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_002D3068"),
+    ("11_joba", "LVL_11_JOBA_FUN_0048E0C0"),
+    ("3_endako", "LVL_3_ENDAKO_FUN_00347A08"),
+    ("0_aranos_tutorial", "LVL_0_ARANOS_TUTORIAL_FUN_00304FF0"),
 )
+BASE_SEED_SYMBOLS = tuple(symbol for _, symbol in BASE_SEED_PLACEMENTS)
+
+
+def seed_family_id(level: str, symbol: str) -> str:
+    """Stable legacy ids for the original anchor program; explicit ids elsewhere."""
+    if symbol.endswith("002D7940"):
+        return PILOT_FAMILY
+    address = symbol.split("_FUN_")[1].lower()
+    return "native-" + address if level == "0_aranos_tutorial" else f"native-{level}-{address}"
 
 
 def digest(data: bytes) -> str:
@@ -119,6 +251,20 @@ def checked_fragment(layout: Path, name: str, data: bytes, write: bool = True) -
     return {"fragment": name, "sha256": digest(data), "source_text_bytes": len(data)}
 
 
+
+def load_smalldata(repo: Path, inputs: dict) -> list:
+    """The separate small-data units: one catalog per overlay that needs one."""
+    found = []
+    for path in sorted((repo / "config/level-g8").glob("*.json")):
+        relative = path.relative_to(repo).as_posix()
+        data = path.read_bytes()
+        catalog = json.loads(data)
+        if catalog.get("kind") != "level-smalldata-catalog" or catalog.get("target") != "SCUS_972.68":
+            raise ValueError(f"wrong small-data catalogue: {relative}")
+        inputs[relative] = digest(data)
+        found.append((relative, catalog))
+    return found
+
 def load_inputs(repo: Path) -> tuple[dict, list[tuple[str, dict]], dict]:
     boot_name = "config/candidate-catalog.json"
     boot_bytes = contained(repo, boot_name).read_bytes()
@@ -143,6 +289,7 @@ def capture(repo: Path, layout: Path, write: bool = True, expected_manifest_hash
     if write and layout.is_relative_to(repo):
         raise ValueError("draft must be outside the public repository")
     boot, native, inputs = load_inputs(repo)
+    small_catalogs = load_smalldata(repo, inputs)
     fragment = lambda name, data: checked_fragment(layout, name, data, write=write)
     boot_data = contained(repo, "candidates/boot.c").read_bytes()
     inputs["candidates/boot.c"] = digest(boot_data)
@@ -168,15 +315,17 @@ def capture(repo: Path, layout: Path, write: bool = True, expected_manifest_hash
                              "functions": [n for n, (s, e) in boot_spans.items() if start <= s and e <= end],
                              "boundary_evidence": "reviewed organization boundary; not an original object boundary"})
 
-    seed = next(c for _, c in native if c["level"] == "0_aranos_tutorial")
-    seed_data = contained(repo, seed["source"]).read_bytes()
+    catalogs = {c["level"]: (name, c) for name, c in native}
     base_templates = {}
-    for f in seed["functions"]:
-        if f["symbol"] not in BASE_SEED_SYMBOLS:
-            continue
+    for seed_level, seed_symbol in BASE_SEED_PLACEMENTS:
+        if seed_level not in catalogs:
+            raise ValueError(f"unknown anchor program: {seed_level}")
+        _, seed = catalogs[seed_level]
+        seed_data = contained(repo, seed["source"]).read_bytes()
+        f = next(f for f in seed["functions"] if f["symbol"] == seed_symbol)
         start, end = function_span(seed_data, f["symbol"])
         normalized, _ = normalized_body(seed_data[start:end], f["symbol"], seed["externals"])
-        family = PILOT_FAMILY if f["meaning"].startswith("clear five object fields") else "native-" + f["symbol"].split("_FUN_")[1].lower()
+        family = PILOT_FAMILY if f["meaning"].startswith("clear five object fields") else seed_family_id(seed_level, f["symbol"])
         key = digest(normalized)
         if key in base_templates:
             raise ValueError("ambiguous base source template")
@@ -241,6 +390,30 @@ def capture(repo: Path, layout: Path, write: bool = True, expected_manifest_hash
                        dict(current_pilot_piece, replacements={"@@FUNCTION@@": pilot_symbol}),
                        fragment(f"src/levels/placements/{catalog['level']}-after.cfrag", data[end:])])
         recipes[relative] = {"sha256": digest(data), "source_text_bytes": len(data), "pieces": pieces}
+    from boot_sdk_unit import admitted_units, load_catalog, unit_spec
+    sdk_catalogs = [load_catalog(repo, unit) for unit in admitted_units(repo)]
+    if sdk_catalogs:
+        from boot_sdk_unit import PROFILE, CONTROLS
+        for dependency in ('config/target.json', PROFILE, CONTROLS):
+            inputs[dependency] = digest(contained(repo, dependency).read_bytes())
+    for sdk in sdk_catalogs:
+        data = contained(repo, sdk["source"]).read_bytes()
+        piece = fragment(sdk["module"], data)
+        recipes[sdk["source"]] = {"sha256": digest(data), "source_text_bytes": len(data), "pieces": [piece]}
+        catalog_path = unit_spec(sdk["unit_id"])["catalog"]
+        inputs[catalog_path] = digest(contained(repo, catalog_path).read_bytes())
+        inputs[sdk["source"]] = inputs[sdk["module"]] = digest(data)
+    # A small-data unit is one authored fragment holding the measured body.
+    for _, catalog in small_catalogs:
+        pieces = []
+        for function in catalog["functions"]:
+            data = contained(repo, catalog["module"]).read_bytes()
+            pieces.append({**fragment(catalog["module"], data),
+                           "replacements": {"@@FUNCTION@@": function["symbol"]}})
+        rendered = contained(repo, catalog["source"]).read_bytes()
+        recipes[catalog["source"]] = {"sha256": digest(rendered), "source_text_bytes": len(rendered),
+                                      "pieces": pieces}
+        inputs[catalog["source"]] = digest(rendered)
     families = [{k: v for k, v in family.items() if k != "normalized_source"} for family in base_templates.values()]
     native_functions = sum(len(c["functions"]) for _, c in native)
     native_bytes = sum(f["size"] for _, c in native for f in c["functions"])
@@ -263,6 +436,11 @@ def capture(repo: Path, layout: Path, write: bool = True, expected_manifest_hash
         "shared_native_prelude_variants": len(shared_preludes),
         "warning": "Representative catalogued bytes are an organization metric, not loaded-byte progress or a new accepted match. Do not add this numerator to the public report.",
     }
+    if sdk_catalogs:
+        metrics["sdk_authored_functions"] = len(sdk_catalogs)
+        metrics["sdk_catalogued_machine_bytes"] = sum(f["size"] for c in sdk_catalogs for f in c["functions"])
+        metrics["total_unique_authored_source_variants_in_scope"] += len(sdk_catalogs)
+        metrics["scope"] = "authored default boot, separate SDK boot and native catalogues; excludes replicated common overlay coverage"
     manifest = {"schema": 1, "target": "SCUS_972.68", "input_sha256": inputs,
                 "generator_sha256": digest(Path(__file__).read_bytes()),
                 "boot_modules": boot_modules, "recipes": recipes, "native_source_families": families,
@@ -306,26 +484,48 @@ def render(layout: Path, manifest: dict, enforce_hashes: bool = True) -> tuple[d
 def analyze(repo: Path, sources: dict, recipes: dict) -> dict:
     """Recompute source inventories without re-slicing authoritative modules."""
     boot, native, inputs = load_inputs(repo)
-    expected_sources = {"candidates/boot.c"} | {c["source"] for _, c in native}
+    smalldata = load_smalldata(repo, inputs)
+    from boot_sdk_unit import admitted_units, load_catalog, unit_spec
+    sdk_catalogs = [load_catalog(repo, unit) for unit in admitted_units(repo)]
+    if sdk_catalogs:
+        from boot_sdk_unit import PROFILE, CONTROLS
+        for dependency in ('config/target.json', PROFILE, CONTROLS):
+            inputs[dependency] = digest(contained(repo, dependency).read_bytes())
+    for sdk_catalog in sdk_catalogs:
+        path = unit_spec(sdk_catalog["unit_id"])["catalog"]
+        inputs[path] = digest(contained(repo, path).read_bytes())
+        inputs[sdk_catalog["module"]] = digest(contained(repo, sdk_catalog["module"]).read_bytes())
+    expected_sources = ({"candidates/boot.c"} | {c["source"] for _, c in native}
+                        | {c["source"] for c in sdk_catalogs} | {c["source"] for _, c in smalldata})
     if set(sources) != expected_sources:
         raise ValueError("recipe source inventory differs from the catalogues")
     definition_pattern = rb"(?m)^[A-Za-z_][^;{}]*?\b((?:LVL_[A-Z0-9_]+_)?FUN_[0-9A-F]+)\s*\([^;{}]*?\)\s*\{"
-    for catalog in [dict(boot, source="candidates/boot.c")] + [c for _, c in native]:
+    for catalog in ([dict(boot, source="candidates/boot.c")] + [c for _, c in native]
+                    + [c for _, c in smalldata] + sdk_catalogs):
         data = sources[catalog["source"]]
         defined = {m[1].decode() for m in re.finditer(definition_pattern, data)}
         catalogued = {f["symbol"] for f in catalog["functions"]}
+        if catalog in sdk_catalogs:
+            spec = unit_spec(catalog["unit_id"])
+            if digest(data) != spec["source_sha256"] or catalogued != {spec["function"]["symbol"]}:
+                raise ValueError("Fixed SDK whole source/function changed")
+            # Exact reviewed source hash bounds definitions including names outside the default regex.
+            defined = catalogued
         if defined != catalogued:
             raise ValueError(f"source/catalogue definitions differ: {catalog['source']}")
         for f in catalog["functions"]:
             function_span(data, f["symbol"])
     inputs.update({relative: digest(data) for relative, data in sources.items()})
-    seed = next(c for _, c in native if c["level"] == "0_aranos_tutorial")
+    catalogs_by_level = {c["level"]: c for _, c in native}
     templates = {}
-    for symbol in BASE_SEED_SYMBOLS:
+    for seed_level, symbol in BASE_SEED_PLACEMENTS:
+        seed = catalogs_by_level.get(seed_level)
+        if seed is None:
+            raise ValueError(f"unknown anchor program: {seed_level}")
         f = next(f for f in seed["functions"] if f["symbol"] == symbol)
         start, end = function_span(sources[seed["source"]], symbol)
         body, _ = normalized_body(sources[seed["source"]][start:end], symbol, seed["externals"])
-        family_id = PILOT_FAMILY if symbol.endswith("002D7940") else "native-" + symbol.split("_FUN_")[1].lower()
+        family_id = PILOT_FAMILY if symbol.endswith("002D7940") else seed_family_id(seed_level, symbol)
         if digest(body) in templates:
             raise ValueError("ambiguous normalized base family")
         templates[digest(body)] = {"id": family_id, "template_sha256": digest(body), "catalogued_size": f["size"],
@@ -379,6 +579,11 @@ def analyze(repo: Path, sources: dict, recipes: dict) -> dict:
         "pilot_family_authored_source_variants": len(variant_keys[PILOT_FAMILY]), "shared_native_prelude_variants": len(prelude_paths),
         "warning": "Representative catalogued bytes are an organization metric, not loaded-byte progress or a new accepted match. Do not add this numerator to the public report.",
     }
+    if sdk_catalogs:
+        metrics["sdk_authored_functions"] = len(sdk_catalogs)
+        metrics["sdk_catalogued_machine_bytes"] = sum(f["size"] for c in sdk_catalogs for f in c["functions"])
+        metrics["total_unique_authored_source_variants_in_scope"] += len(sdk_catalogs)
+        metrics["scope"] = "authored default boot, separate SDK boot and native catalogues; excludes replicated common overlay coverage"
     return {"input_sha256": inputs, "generator_sha256": digest(Path(__file__).read_bytes()), "recipes": recipes,
             "native_source_families": families, "native_unmerged_singletons": singletons, "metrics": metrics}
 

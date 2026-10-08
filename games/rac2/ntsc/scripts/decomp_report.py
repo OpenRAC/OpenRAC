@@ -50,6 +50,22 @@ def require_tools(value: object) -> None:
 def validate_integration(integration: dict, target: dict, progress: dict) -> list[dict]:
     if not isinstance(integration, dict):
         raise ValueError("Invalid integration proof")
+    if integration.get("schema") == 3 and integration.get("kind") == "boot-c-owner-integration":
+        from boot_sdk_unit import validate_union
+        default_review = json.loads((ROOT / "progress/candidates.json").read_bytes())
+        def check_default(legacy):
+            adapted = dict(progress, integrated_functions=len(legacy["functions"]),
+                           decompiled_functions=len(legacy["functions"]))
+            validate_integration(legacy, target, adapted)
+        validate_union(integration, default_review, ROOT, check_default, validate_object_proof)
+        if (type(progress.get("integrated_functions")) is not int
+                or type(progress.get("decompiled_functions")) is not int
+                or progress["integrated_functions"] != len(integration["functions"])
+                or progress["decompiled_functions"] != len(integration["functions"])):
+            raise ValueError("Boot union progress count mismatch")
+        return sorted(integration["functions"], key=lambda function: function["address"])
+    if not isinstance(integration, dict):
+        raise ValueError("Invalid integration proof")
     if (integration.get("target") != target["serial"]
             or progress.get("target") != target["serial"]
             or integration.get("reference_sha256") != target["boot"]["sha256"]
@@ -64,7 +80,7 @@ def validate_integration(integration: dict, target: dict, progress: dict) -> lis
     if (hashlib.sha256(source).hexdigest() != integration["source_sha256"]
             or hashlib.sha256(catalog_bytes).hexdigest() != integration["catalog_sha256"]):
         raise ValueError("Integration source or catalog hash mismatch")
-    if re.search(rb"\b(?:asm|__asm__|__asm|INCLUDE_ASM)\b|\.byte|\.word", source):
+    if re.search(rb"\b(?:asm|__asm__|__asm|INCLUDE_ASM)\b|(?m:^[ \t]*(?:(?:[A-Za-z_.$][A-Za-z0-9_.$]*|[0-9]+):[ \t]*)?\.(?:byte|word)\b(?:[ \t]+(?![ \t]*=)\S|[ \t]*$))", source):
         raise ValueError("Integrated C must not embed assembly or retail bytes")
     catalog = json.loads(catalog_bytes)
     if (catalog["target"] != target["serial"]
@@ -130,6 +146,18 @@ def validate_integration(integration: dict, target: dict, progress: dict) -> lis
 
 
 def validate_object_proof(integration: dict, proof: dict) -> None:
+    if not isinstance(integration, dict):
+        raise ValueError("Invalid integration proof")
+    if integration.get("schema") == 3 and integration.get("kind") == "boot-c-owner-integration":
+        from boot_sdk_unit import validate_union
+        target = json.loads((ROOT / "config/target.json").read_bytes())
+        progress = json.loads((ROOT / "progress/report.json").read_bytes())
+        def check_default(legacy):
+            adapted = dict(progress, integrated_functions=len(legacy["functions"]),
+                           decompiled_functions=len(legacy["functions"]))
+            validate_integration(legacy, target, adapted)
+        validate_union(integration, proof, ROOT, check_default, validate_object_proof)
+        return
     if not isinstance(proof, dict):
         raise ValueError("Invalid candidate object proof")
     for field in ("target", "reference_sha256", "source_sha256", "catalog_sha256"):
@@ -296,7 +324,8 @@ def validate_native_level_proof(proof: dict, target: dict, overlays: dict, progr
                                 integration: dict, catalog_bytes: bytes, boot_catalog: dict,
                                 candidate_review: Path | None = None) -> list[dict]:
     """Validate both objects and their union; neither a boot proof nor a partial gate suffices."""
-    from level_native import load_catalog, validate_review, paths, ranges, dependencies, file_hash
+    from level_native import (load_catalog, validate_review, paths, ranges, dependencies, file_hash,
+                              has_smalldata, SMALL_DATA_GP)
     level = proof.get("program")
     if proof.get("schema") != 2 or proof.get("kind") != "level-c-integration":
         raise ValueError("Invalid native level integration kind")
@@ -366,7 +395,42 @@ def validate_native_level_proof(proof: dict, target: dict, overlays: dict, progr
                 or result.get("reference_sha256") != object_result["reference_sha256"]
                 or result.get("candidate_sha256") != object_result["candidate_sha256"]):
             raise ValueError("Native integration requires the complete reviewed object bodies")
-    union = shared_results + native_results
+    smalldata_results = []
+    if has_smalldata(level, ROOT):
+        sd_source, sd_catalog_path, sd_review_path = paths(level, "smalldata")
+        small_catalog = load_catalog(level, ROOT, "smalldata")
+        small = proof.get("smalldata")
+        if (not isinstance(small, dict) or small.get("source") != sd_source
+                or small.get("catalog_path") != sd_catalog_path or small.get("review_path") != sd_review_path
+                or small.get("review_sha256") != file_hash(ROOT / sd_review_path)
+                or small.get("gp") != SMALL_DATA_GP):
+            raise ValueError("Small-data integration source, catalogue or gp mismatch")
+        sd_review = json.loads((ROOT / sd_review_path).read_bytes())
+        validate_review(sd_review, small_catalog, level, ROOT, "smalldata")
+        sd_qualified = small.get("object_qualification")
+        validate_review(sd_qualified, small_catalog, level, ROOT, "smalldata")
+        if (small.get("object_sha256") != sd_review["object_sha256"]
+                or sd_qualified["object_sha256"] != sd_review["object_sha256"]
+                or sd_qualified["tools"] != sd_review["tools"]):
+            raise ValueError("Small-data integration object or instruments disagree with review")
+        sd_expected = {item["symbol"]: item for item in small_catalog["functions"]}
+        smalldata_results = [item for item in functions if item.get("origin") == "level-smalldata"]
+        sd_checked = {item["symbol"]: item for item in sd_qualified["functions"]}
+        if len(smalldata_results) != len(sd_expected):
+            raise ValueError("Small-data integration is partial")
+        for result in smalldata_results:
+            item = sd_expected.get(result.get("symbol"))
+            object_result = sd_checked.get(result.get("symbol"))
+            if (item is None or result.get("address") != item["address"] or result.get("size") != item["size"]
+                    or result.get("program") != level or result.get("candidate_source") != sd_source
+                    or result.get("integrated") is not True or result.get("matched") is not True
+                    or result.get("different_bytes") != 0
+                    or result.get("reference_sha256") != object_result["reference_sha256"]
+                    or result.get("candidate_sha256") != object_result["candidate_sha256"]):
+                raise ValueError("Small-data integration requires the complete reviewed object bodies")
+    elif "smalldata" in proof or any(item.get("origin") == "level-smalldata" for item in functions):
+        raise ValueError("Small-data section without a reviewed small-data unit")
+    union = shared_results + native_results + smalldata_results
     ranges(union)
     by_symbol = {item["symbol"]: item for item in union}
     if (len(by_symbol) != len(union) or len(functions) != len(union)
@@ -396,6 +460,13 @@ def generate(scope: dict, target: dict, overlays: dict, progress: dict,
     if len(programs) != 28 or len(actual) != len(programs) or actual != expected:
         raise ValueError("Progress scope must cover the pinned boot and all 27 overlays")
     functions = [] if integration is None else validate_integration(integration, target, progress)
+    shared_boot = integration
+    if integration is not None and integration.get("kind") == "boot-c-owner-integration":
+        # The union has already passed both owner validators. Overlay placements
+        # reuse only the unchanged default object and its 187-function review.
+        from boot_sdk_unit import owner_rows
+        defaults, _ = owner_rows(integration["functions"])
+        shared_boot = dict(integration["default"], functions=defaults)
     level_proofs = [] if levels is None else levels
     if not isinstance(level_proofs, list):
         raise ValueError("Invalid level integration proofs")
@@ -411,10 +482,10 @@ def generate(scope: dict, target: dict, overlays: dict, progress: dict,
                 raise ValueError("Duplicate or invalid level integration proof")
             seen_programs.add(program)
             if proof.get("kind") == "level-c-integration":
-                functions.extend(validate_native_level_proof(proof, target, overlays, progress, integration,
+                functions.extend(validate_native_level_proof(proof, target, overlays, progress, shared_boot,
                                                              catalog_bytes, boot_catalog, candidate_review))
             else:
-                functions.extend(validate_level_proof(proof, target, overlays, progress, integration, catalog_bytes, boot_catalog))
+                functions.extend(validate_level_proof(proof, target, overlays, progress, shared_boot, catalog_bytes, boot_catalog))
     owners = {}
     promoted_by_section = {}
     for program in programs:
