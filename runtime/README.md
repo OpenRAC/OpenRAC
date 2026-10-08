@@ -29,6 +29,7 @@ draws, and nothing runs a game yet.
 | `src/ps2/memory.h` | Guest memory: 32 MB and the scratchpad |
 | `src/host/window.*` | An SDL3 window that shows one image per frame |
 | `src/app/gsdemo.cpp` | `openrac-gsdemo`: a scene of its own, written into guest memory as a VIF1 DMA chain and drawn through all of the above, with a cube whose vertices a microprogram written for it transforms on VU1 |
+| `src/app/vuscan.cpp` | `openrac-vuscan FILE`: finds the VU1 microprograms in an executable from your own disc, loads each through VIF1 as the game would and reports whether the interpreter decodes every instruction. It prints counts, never the programs |
 | `tests/test_ps2.cpp`, `tests/test_vu.cpp` | Tests of the model against the documented layouts, formats, equations and timing |
 
 Not here yet, in the order of [the milestones](docs/DESIGN.md#8-milestones):
@@ -36,6 +37,20 @@ the EE interpreter and the library boundary (with VU0 behind the EE's
 vector instructions), the memory card, pad and disc services, sound, a GPU
 back end. The vector unit has run only programs written here so far; the
 games' own microprograms will be its real test.
+
+## What it has been run against
+
+`openrac-vuscan` on the boot executable of each supported disc (2026-10-08).
+Decoding every instruction is necessary, not sufficient: it says nothing yet
+about whether the programs compute the right thing here.
+
+| Disc | VU1 programs | Instructions | Not decoded |
+|---|---:|---:|---:|
+| Ratchet & Clank, `SCES_509.16` | 9 | 8,625 | 0 |
+| Ratchet & Clank, `SCUS_971.99` | 9 | 8,625 | 0 |
+| Going Commando, `SCUS_972.68` | 10 | 10,086 | 0 |
+| Up Your Arsenal, `SCUS_973.53` (`boot_elf.elf`) | 11 | 10,804 | 0 |
+| Deadlocked, `SCUS_974.65` (unpacked image) | 13 | 10,996 | 0 |
 
 ## Building
 

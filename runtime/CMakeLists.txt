@@ -42,6 +42,10 @@ else()
   target_link_libraries(openrac-gsdemo PRIVATE openrac_ps2)
 endif()
 
+# Tools that read a file from your own disc and report on it.
+add_executable(openrac-vuscan src/app/vuscan.cpp)
+target_link_libraries(openrac-vuscan PRIVATE openrac_ps2)
+
 enable_testing()
 add_executable(openrac-ps2-tests tests/test_ps2.cpp)
 target_link_libraries(openrac-ps2-tests PRIVATE openrac_ps2)
