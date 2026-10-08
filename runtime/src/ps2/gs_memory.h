@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #pragma once
 
+#include <array>
 #include <vector>
 
 #include "types.h"
@@ -53,15 +54,41 @@ class GsMemory {
   static u32 address8(u32 bp, u32 bw, u32 x, u32 y);
   static u32 address4(u32 bp, u32 bw, u32 x, u32 y);
 
+  // The same addresses as tables, for inner loops. A pixel's block is
+  // `bp + rowbase[y] * (bw >> bw_shift) + sy[y] + px[x]` and its place in the
+  // block is `cx[x] ^ cy[y]`; a Row holds the parts that depend on y.
+  struct Layout {
+    std::array<u16, 2048> px{}, cx{}, sy{}, cy{}, rowbase{};
+    unsigned bw_shift = 0;
+    u32 unit = 64;  // storage units in a block: 64 words, 128 halves, 256 bytes, 512 nibbles
+  };
+  struct Row {
+    u32 block = 0, in_block = 0;
+    const Layout* layout = nullptr;
+  };
+  static const Layout& layout(u32 psm);
+  static Row row(const Layout& l, u32 bp, u32 bw, u32 y) {
+    y &= 2047;
+    return {bp + l.rowbase[y] * (bw >> l.bw_shift) + l.sy[y], l.cy[y], &l};
+  }
+  static u32 index(const Row& r, u32 x) {
+    x &= 2047;
+    return ((r.block + r.layout->px[x]) & (kBlocks - 1)) * r.layout->unit + (r.layout->cx[x] ^ r.in_block);
+  }
+  static u32 index(const Layout& l, u32 bp, u32 bw, u32 x, u32 y) { return index(row(l, bp, bw, y), x); }
+
+  // Storage units by index, as `index` gives them.
+  u32 word(u32 i) const { return load<u32>(&bytes_[(i & (kBytes / 4 - 1)) * 4]); }
+  void set_word(u32 i, u32 v) { store<u32>(&bytes_[(i & (kBytes / 4 - 1)) * 4], v); }
+  u16 half(u32 i) const { return load<u16>(&bytes_[(i & (kBytes / 2 - 1)) * 2]); }
+  void set_half(u32 i, u16 v) { store<u16>(&bytes_[(i & (kBytes / 2 - 1)) * 2], v); }
+  u8 byte(u32 i) const { return bytes_[i & (kBytes - 1)]; }
+  u8 nibble(u32 i) const { return (bytes_[(i >> 1) & (kBytes - 1)] >> ((i & 1) * 4)) & 0xF; }
+
   u8* data() { return bytes_.data(); }
   const u8* data() const { return bytes_.data(); }
 
  private:
-  u32 word(u32 index) const { return load<u32>(&bytes_[(index & (kBytes / 4 - 1)) * 4]); }
-  void set_word(u32 index, u32 v) { store<u32>(&bytes_[(index & (kBytes / 4 - 1)) * 4], v); }
-  u16 half(u32 index) const { return load<u16>(&bytes_[(index & (kBytes / 2 - 1)) * 2]); }
-  void set_half(u32 index, u16 v) { store<u16>(&bytes_[(index & (kBytes / 2 - 1)) * 2], v); }
-
   std::vector<u8> bytes_;
 };
 

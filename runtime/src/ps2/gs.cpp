@@ -3,8 +3,12 @@
 #include "gs.h"
 
 #include <algorithm>
+#include <bit>
+#include <climits>
 #include <cmath>
+#include <condition_variable>
 #include <cstdio>
+#include <thread>
 
 namespace ps2 {
 namespace {
@@ -14,6 +18,9 @@ using namespace gsreg;
 enum : u32 { kPoint, kLine, kLineStrip, kTriangle, kTriangleStrip, kTriangleFan, kSprite };
 
 constexpr u32 kA = 0xFF000000u, kRgb = 0x00FFFFFFu;
+
+// How a stored texel becomes a colour.
+enum : unsigned { kTex32, kTex24, kTex16, kTex8, kTex4, kTex8H, kTex4HL, kTex4HH };
 
 inline u32 ch(u32 rgba, unsigned n) {
   return (rgba >> (n * 8)) & 0xFF;
@@ -65,10 +72,114 @@ inline u32 lerp_colour(u32 c0, u32 c1, float f) {
   return out;
 }
 
+
+// Pixels drawn by this thread since it last reported them.
+thread_local u64 tls_pixels = 0;
+
+}  // namespace
+
+// Threads that share out the bands of a batch. `run` returns when every
+// item is done and every thread has let go of the job.
+class Gs::Pool {
+ public:
+  explicit Pool(unsigned threads) {
+    for (unsigned n = 0; n < threads; n++) {
+      threads_.emplace_back([this] { loop(); });
+    }
+  }
+  ~Pool() {
+    {
+      std::lock_guard lock(mutex_);
+      quit_ = true;
+    }
+    start_.notify_all();
+    for (std::thread& t : threads_) {
+      t.join();
+    }
+  }
+
+  void run(unsigned count, const std::function<void(unsigned)>& job) {
+    {
+      std::lock_guard lock(mutex_);
+      job_ = &job;
+      count_ = count;
+      next_.store(0);
+      left_.store(count);
+      generation_++;
+    }
+    start_.notify_all();
+    work(job, count);
+    std::unique_lock lock(mutex_);
+    done_.wait(lock, [this] { return left_.load() == 0 && busy_ == 0; });
+    job_ = nullptr;
+  }
+
+ private:
+  void work(const std::function<void(unsigned)>& job, unsigned count) {
+    for (;;) {
+      unsigned item = next_.fetch_add(1);
+      if (item >= count) {
+        break;
+      }
+      job(item);
+      left_.fetch_sub(1);
+    }
+  }
+
+  void loop() {
+    u64 seen = 0;
+    for (;;) {
+      const std::function<void(unsigned)>* job;
+      unsigned count;
+      {
+        std::unique_lock lock(mutex_);
+        start_.wait(lock, [&] { return quit_ || (generation_ != seen && job_); });
+        if (quit_) {
+          return;
+        }
+        seen = generation_;
+        job = job_;
+        count = count_;
+        busy_++;
+      }
+      work(*job, count);
+      {
+        std::lock_guard lock(mutex_);
+        busy_--;
+      }
+      done_.notify_one();
+    }
+  }
+
+  std::vector<std::thread> threads_;
+  std::mutex mutex_;
+  std::condition_variable start_, done_;
+  const std::function<void(unsigned)>* job_ = nullptr;
+  unsigned count_ = 0, busy_ = 0;
+  std::atomic<unsigned> next_{0}, left_{0};
+  u64 generation_ = 0;
+  bool quit_ = false;
+};
+
+namespace {
+
+constexpr unsigned kBandShift = 4;  // a band is 16 scan lines
+
 }  // namespace
 
 Gs::Gs() {
   reset();
+}
+
+Gs::~Gs() = default;
+
+void Gs::set_threads(unsigned threads) {
+  flush();
+  threads_ = threads;
+  pool_.reset();
+  if (threads > 1) {
+    pool_ = std::make_unique<Pool>(threads - 1);  // the caller is one of them
+  }
 }
 
 void Gs::reset() {
@@ -85,6 +196,22 @@ void Gs::reset() {
   clut_cbp_.fill(0);
   in_ = Transfer{};
   out_ = Transfer{};
+  texture_cache_.clear();
+  retired_.clear();
+  page_stamp_.fill(0);
+  clock_ = 1;
+  waiting_.clear();
+  for (u16 band : used_bands_) {
+    bands_[band].clear();
+  }
+  used_bands_.clear();
+  pending_write_.clear();
+  pending_read_.clear();
+  envs_.clear();
+  levels_.clear();
+  clut_copies_.clear();
+  env_ = nullptr;
+  env_dirty_ = clut_copy_dirty_ = true;
 }
 
 void Gs::note(u32 what, const char* text) {
@@ -100,6 +227,15 @@ void Gs::note(u32 what, const char* text) {
 void Gs::write(u8 reg, u64 data) {
   if (reg >= reg_.size()) {
     return;
+  }
+  // Anything but a vertex's own registers changes what the next primitive is
+  // drawn with.
+  switch (reg) {
+    case RGBAQ: case ST: case UV: case XYZF2: case XYZ2: case XYZF3: case XYZ3: case FOG:
+      break;
+    default:
+      env_dirty_ = true;
+      break;
   }
   switch (reg) {
     case PRIM:
@@ -251,7 +387,7 @@ u32 Gs::prim_bits() const {
   return static_cast<u32>((reg_[PRMODE] & ~u64{7}) | (reg_[PRIM] & 7));
 }
 
-Gs::Env Gs::environment() const {
+Gs::Env Gs::environment() {
   Env e;
   u32 prim = prim_bits();
   unsigned ctx = (prim >> 9) & 1;
@@ -340,9 +476,54 @@ Gs::Env Gs::environment() const {
     t.mmin = static_cast<u32>(bits(tex1, 6, 3));
     t.l = static_cast<u32>(bits(tex1, 19, 2));
     t.k = static_cast<float>(sign_extend(static_cast<u32>(bits(tex1, 32, 12)), 12)) / 16.0f;
+
+    t.layout = &GsMemory::layout(t.psm);
+    switch (t.psm >= 0x30 ? (t.psm & 0xF) : t.psm) {
+      case PSMCT32: t.kind = kTex32; break;
+      case PSMCT24: t.kind = kTex24; break;
+      case PSMCT16:
+      case PSMCT16S: t.kind = kTex16; break;
+      case PSMT8: t.kind = kTex8; break;
+      case PSMT4: t.kind = kTex4; break;
+      case PSMT8H: t.kind = kTex8H; break;
+      case PSMT4HL: t.kind = kTex4HL; break;
+      default: t.kind = kTex4HH; break;
+    }
+    u64 texa = reg_[TEXA];
+    t.ta0 = static_cast<u32>(bits(texa, 0, 8));
+    t.ta1 = static_cast<u32>(bits(texa, 32, 8));
+    t.aem = bits(texa, 15, 1) != 0;
+    if (t.kind >= kTex8) {
+      // The table as it is now: it may be loaded again before this is drawn.
+      if (clut_copy_dirty_ || clut_copies_.empty()) {
+        clut_copies_.push_back(clut_);
+        clut_copy_dirty_ = false;
+      }
+      t.clut = clut_copies_.back().data();
+    }
+    levels_.emplace_back();
+    t.levels = &levels_.back();
+    u32 levels = (t.mxl > 0 && t.mmin >= 2) ? t.mxl : 0;
+    for (u32 level = 0; level <= levels; level++) {
+      s32 w = std::max(1, (1 << t.tw) >> level), h = std::max(1, (1 << t.th) >> level);
+      add_pages(e.tex_pages, t.psm, t.tbp[level], t.tbw[level], 0, 0, w - 1, h - 1);
+    }
+    // The level of detail comes from each pixel's Q only when it is not
+    // fixed (LCM), the coordinates carry a Q, and something depends on it:
+    // mipmap levels, or different filters for enlarging and reducing.
+    bool min_linear = t.mmin == 1 || t.mmin >= 4;
+    t.lod_per_pixel = !e.fst && !t.lcm && ((t.mxl > 0 && t.mmin >= 2) || (t.mmag != 0) != min_linear);
   }
+  e.flayout = &GsMemory::layout(e.fpsm);
+  e.zlayout = &GsMemory::layout(e.zpsm);
+  e.target = e.fbp | (static_cast<u64>(e.fbw) << 14) | (static_cast<u64>(e.fpsm) << 20) | (static_cast<u64>(e.zbp) << 26) |
+             (static_cast<u64>(e.zpsm) << 40);
+  e.f16 = is16(e.fpsm);
+  e.f24 = is24(e.fpsm);
+  e.z16 = is16(e.zpsm);
+  e.z24 = is24(e.zpsm);
   if ((prim >> 7) & 1) {
-    const_cast<Gs*>(this)->note(gstodo::ANTIALIAS, "edge antialiasing (PRIM AA1)");
+    note(gstodo::ANTIALIAS, "edge antialiasing (PRIM AA1)");
   }
   return e;
 }
@@ -367,44 +548,33 @@ void Gs::vertex(u16 x, u16 y, u32 z, bool draw) {
 
   // A vertex written through XYZ3 or XYZF3 moves the queue along without
   // drawing, which is how strips skip a triangle.
-  auto with_env = [&](auto&& fn) {
-    if (draw) {
-      Env e = environment();
-      stats.primitives++;
-      if (on_primitive) {
-        report(e, static_cast<unsigned>(count_));
-      }
-      fn(e);
-    }
-  };
-
   switch (reg_[PRIM] & 7) {
     case kPoint:
-      with_env([&](const Env& e) { draw_point(e, queue_[0]); });
+      if (draw) submit(kPoint, 1);
       count_ = 0;
       break;
     case kLine:
       if (count_ == 2) {
-        with_env([&](const Env& e) { draw_line(e, queue_[0], queue_[1]); });
+        if (draw) submit(kLine, 2);
         count_ = 0;
       }
       break;
     case kLineStrip:
       if (count_ == 2) {
-        with_env([&](const Env& e) { draw_line(e, queue_[0], queue_[1]); });
+        if (draw) submit(kLine, 2);
         queue_[0] = queue_[1];
         count_ = 1;
       }
       break;
     case kTriangle:
       if (count_ == 3) {
-        with_env([&](const Env& e) { draw_triangle(e, queue_[0], queue_[1], queue_[2]); });
+        if (draw) submit(kTriangle, 3);
         count_ = 0;
       }
       break;
     case kTriangleStrip:
       if (count_ == 3) {
-        with_env([&](const Env& e) { draw_triangle(e, queue_[0], queue_[1], queue_[2]); });
+        if (draw) submit(kTriangle, 3);
         queue_[0] = queue_[1];
         queue_[1] = queue_[2];
         count_ = 2;
@@ -412,14 +582,14 @@ void Gs::vertex(u16 x, u16 y, u32 z, bool draw) {
       break;
     case kTriangleFan:
       if (count_ == 3) {
-        with_env([&](const Env& e) { draw_triangle(e, queue_[0], queue_[1], queue_[2]); });
+        if (draw) submit(kTriangle, 3);
         queue_[1] = queue_[2];
         count_ = 2;
       }
       break;
     case kSprite:
       if (count_ == 2) {
-        with_env([&](const Env& e) { draw_sprite(e, queue_[0], queue_[1]); });
+        if (draw) submit(kSprite, 2);
         count_ = 0;
       }
       break;
@@ -427,6 +597,133 @@ void Gs::vertex(u16 x, u16 y, u32 z, bool draw) {
       count_ = 0;
       break;
   }
+}
+
+// --- gathering and drawing -----------------------------------------------------
+
+void Gs::submit(unsigned kind, unsigned count) {
+  if (env_dirty_ || !env_) {
+    if (waiting_.empty()) {
+      // Nothing waiting refers to the old states: let them go.
+      envs_.clear();
+      levels_.clear();
+      clut_copies_.clear();
+      clut_copy_dirty_ = true;
+      retired_.clear();
+    }
+    envs_.push_back(environment());
+    env_ = &envs_.back();
+    env_dirty_ = false;
+  }
+  const Env& e = *env_;
+  stats.primitives++;
+  if (on_primitive) {
+    report(e, count);
+  }
+
+  // The pixels it can reach, generously, inside the scissor rectangle.
+  s32 x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+  for (unsigned n = 0; n < count; n++) {
+    s32 x = static_cast<s32>(queue_[n].x) - e.ofx, y = static_cast<s32>(queue_[n].y) - e.ofy;
+    x0 = std::min(x0, x);
+    y0 = std::min(y0, y);
+    x1 = std::max(x1, x);
+    y1 = std::max(y1, y);
+  }
+  x0 = std::max(x0 >> 4, e.sx0);
+  y0 = std::max(y0 >> 4, e.sy0);
+  x1 = std::min((x1 + 15) >> 4, e.sx1);
+  y1 = std::min((y1 + 15) >> 4, e.sy1);
+  if (x0 > x1 || y0 > y1) {
+    return;
+  }
+  Pages written;
+  add_pages(written, e.fpsm, e.fbp, e.fbw, x0, y0, x1, y1);
+  if (e.zte && !e.zmsk) {
+    add_pages(written, e.zpsm, e.zbp, e.fbw, x0, y0, x1, y1);
+  }
+
+  Queued q{&e, static_cast<u8>(kind), {queue_[0], queue_[1], queue_[2]}};
+  // A primitive whose texture is in the memory it draws to (the games blur
+  // and distort the frame that way) is drawn alone, top to bottom.
+  bool feeds_itself = e.tme && e.tex_pages.intersects(written);
+  if (threads_ == 0 || feeds_itself) {
+    flush();
+    stamp(written);
+    draw(q, 0, 2047);
+    stats.pixels += tls_pixels;
+    tls_pixels = 0;
+    return;
+  }
+
+  // Draw what is waiting first if this primitive reads what it writes, writes
+  // what it reads, or draws to other buffers.
+  if ((e.tme && e.tex_pages.intersects(pending_write_)) || written.intersects(pending_read_) ||
+      (!waiting_.empty() && e.target != pending_target_)) {
+    flush();
+  }
+  pending_target_ = e.target;
+  stamp(written);
+  pending_write_.add(written);
+  if (e.tme) {
+    pending_read_.add(e.tex_pages);
+  }
+  u32 index = static_cast<u32>(waiting_.size());
+  waiting_.push_back(q);
+  for (s32 band = y0 >> kBandShift; band <= (y1 >> kBandShift); band++) {
+    if (bands_[static_cast<unsigned>(band)].empty()) {
+      used_bands_.push_back(static_cast<u16>(band));
+    }
+    bands_[static_cast<unsigned>(band)].push_back(index);
+  }
+  if (waiting_.size() >= 16384) {
+    flush();
+  }
+}
+
+void Gs::draw(const Queued& q, s32 clip0, s32 clip1) {
+  switch (q.kind) {
+    case kPoint: draw_point(*q.env, q.v[0], clip0, clip1); break;
+    case kLine: draw_line(*q.env, q.v[0], q.v[1], clip0, clip1); break;
+    case kTriangle: draw_triangle(*q.env, q.v[0], q.v[1], q.v[2], clip0, clip1); break;
+    default: draw_sprite(*q.env, q.v[0], q.v[1], clip0, clip1); break;
+  }
+}
+
+void Gs::render_band(unsigned band) {
+  s32 first = static_cast<s32>(band << kBandShift), last = first + (1 << kBandShift) - 1;
+  for (u32 index : bands_[band]) {
+    draw(waiting_[index], first, last);
+  }
+}
+
+void Gs::flush() {
+  if (waiting_.empty()) {
+    return;
+  }
+  stats.flushes++;
+  if (!pool_ || waiting_.size() < 8) {
+    for (u16 band : used_bands_) {
+      render_band(band);
+    }
+    stats.pixels += tls_pixels;
+    tls_pixels = 0;
+  } else {
+    std::atomic<u64> pixels{0};
+    pool_->run(static_cast<unsigned>(used_bands_.size()), [&](unsigned item) {
+      render_band(used_bands_[item]);
+      pixels.fetch_add(tls_pixels);
+      tls_pixels = 0;
+    });
+    stats.pixels += pixels.load();
+  }
+  waiting_.clear();
+  for (u16 band : used_bands_) {
+    bands_[band].clear();
+  }
+  used_bands_.clear();
+  pending_write_.clear();
+  pending_read_.clear();
 }
 
 void Gs::report(const Env& e, unsigned count) const {
@@ -459,24 +756,151 @@ void Gs::report(const Env& e, unsigned count) const {
   on_primitive(text, x0, y0, x1, y1);
 }
 
+// --- decoded textures ----------------------------------------------------------
+
+void Gs::add_pages(Pages& pages, u32 psm, u32 bp, u32 bw, s32 x0, s32 y0, s32 x1, s32 y1) {
+  x0 = std::max(x0, 0);
+  y0 = std::max(y0, 0);
+  x1 = std::min(x1, 2047);
+  y1 = std::min(y1, 2047);
+  if (x1 < x0 || y1 < y0) {
+    return;
+  }
+  // Pages are tiles of the buffer: 64 by 32 pixels in the 32-bit formats, 64
+  // by 64 in the 16-bit, 128 by 64 in the 8-bit and 128 by 128 in the 4-bit.
+  unsigned bits_per_pixel = transfer_bits(psm);
+  unsigned wshift = bits_per_pixel <= 8 ? 7 : 6, hshift = bits_per_pixel == 32 || bits_per_pixel == 24 ? 5 : bits_per_pixel == 4 ? 7 : 6;
+  if (psm == PSMT8H || psm == PSMT4HL || psm == PSMT4HH) {
+    wshift = 6;
+    hshift = 5;
+  }
+  u32 pages_across = wshift == 7 ? std::max(bw >> 1, 1u) : std::max(bw, 1u);
+  for (u32 ty = static_cast<u32>(y0) >> hshift; ty <= static_cast<u32>(y1) >> hshift; ty++) {
+    for (u32 tx = static_cast<u32>(x0) >> wshift; tx <= static_cast<u32>(x1) >> wshift; tx++) {
+      u32 block = bp + (ty * pages_across + tx) * 32;
+      // A buffer need not start on a page: its tile can lie across two.
+      pages.set((block >> 5) & 511);
+      pages.set(((block + 31) >> 5) & 511);
+    }
+  }
+}
+
+void Gs::stamp(const Pages& pages) {
+  clock_++;
+  for (unsigned n = 0; n < 8; n++) {
+    for (u64 w = pages.bits[n]; w; w &= w - 1) {
+      page_stamp_[n * 64 + static_cast<unsigned>(std::countr_zero(w))] = clock_;
+    }
+  }
+}
+
+// Find, once, the decoded copy of a level for the primitives of one state.
+// Any drawing thread may be the first to need it.
+void Gs::resolve_level(const Texture& t, u32 level) const {
+  std::lock_guard lock(texture_mutex_);
+  u32 bit = 1u << level;
+  if (t.levels->looked_up.load(std::memory_order_relaxed) & bit) {
+    return;
+  }
+  u32 w = std::max(1u, (1u << t.tw) >> level), h = std::max(1u, (1u << t.th) >> level);
+  // A large level (a frame buffer read as a texture) is cheaper read in place.
+  const u32* decoded = w * h <= 256u * 256u ? const_cast<Gs*>(this)->cached_level(t, level) : nullptr;
+  t.levels->cached[level].store(decoded, std::memory_order_relaxed);
+  t.levels->looked_up.fetch_or(bit, std::memory_order_release);
+}
+
+const u32* Gs::cached_level(const Texture& t, u32 level) {
+  u32 wl = t.tw > level ? t.tw - level : 0, hl = t.th > level ? t.th - level : 0;
+  TextureKey key;
+  key.place = t.tbp[level] | (static_cast<u64>(t.tbw[level]) << 14) | (static_cast<u64>(t.psm) << 20) | (static_cast<u64>(wl) << 26) |
+              (static_cast<u64>(hl) << 30) | (static_cast<u64>(t.csa) << 34);
+  switch (t.kind) {
+    case kTex32:
+      break;
+    case kTex24:
+    case kTex16:
+      key.colours = t.ta0 | (static_cast<u64>(t.ta1) << 8) | (static_cast<u64>(t.aem) << 16);
+      break;
+    case kTex8:
+    case kTex8H: {
+      u64 h = 0xCBF29CE484222325ull;
+      for (u32 i = 0; i < 256; i++) {
+        h = (h ^ t.clut[i]) * 0x100000001B3ull;
+      }
+      key.colours = h;
+      break;
+    }
+    default: {
+      u64 h = 0xCBF29CE484222325ull;
+      for (u32 i = 0; i < 16; i++) {
+        h = (h ^ t.clut[((t.csa & 15) * 16 + i) & 0xFF]) * 0x100000001B3ull;
+      }
+      key.colours = h;
+      break;
+    }
+  }
+  auto found = texture_cache_.find(key);
+  if (found != texture_cache_.end()) {
+    CachedTexture& c = found->second;
+    bool fresh = true;
+    for (unsigned n = 0; n < 8 && fresh; n++) {
+      for (u64 w = c.pages.bits[n]; w; w &= w - 1) {
+        if (page_stamp_[n * 64 + static_cast<unsigned>(std::countr_zero(w))] > c.stamp) {
+          fresh = false;
+          break;
+        }
+      }
+    }
+    if (fresh) {
+      return c.texels->data();
+    }
+    retired_.push_back(c.texels);  // a waiting primitive may still be reading it
+  } else if (texture_cache_.size() > 4096) {
+    for (auto& entry : texture_cache_) {
+      retired_.push_back(entry.second.texels);
+    }
+    texture_cache_.clear();
+  }
+
+  CachedTexture& c = texture_cache_[key];
+  u32 w = 1u << wl, h = 1u << hl;
+  stats.texture_decodes++;
+  stats.texels_decoded += static_cast<u64>(w) * h;
+  c.texels = std::make_shared<std::vector<u32>>(static_cast<std::size_t>(w) * h);
+  Texture direct = t;
+  direct.wms = direct.wmt = 1;  // plain coordinates: wrapping is applied when the copy is read
+  u32* out = c.texels->data();
+  for (u32 y = 0; y < h; y++) {
+    for (u32 x = 0; x < w; x++) {
+      *out++ = texel(direct, level, static_cast<s32>(x), static_cast<s32>(y), nullptr);
+    }
+  }
+  c.pages.clear();
+  add_pages(c.pages, t.psm, t.tbp[level], t.tbw[level], 0, 0, static_cast<s32>(w) - 1, static_cast<s32>(h) - 1);
+  c.stamp = clock_;
+  return c.texels->data();
+}
+
 // --- rasterisers -----------------------------------------------------------
 //
 // Sample points are at whole pixel coordinates. A sprite covers the pixels
 // from its first corner up to, not including, its second; a triangle does
 // not draw its right and bottom edges.
 
-void Gs::draw_point(const Env& e, const Vertex& a) {
+void Gs::draw_point(const Env& e, const Vertex& a, s32 clip0, s32 clip1) {
   s32 x = (static_cast<s32>(a.x) - e.ofx) >> 4;
   s32 y = (static_cast<s32>(a.y) - e.ofy) >> 4;
-  if (x < e.sx0 || x > e.sx1 || y < e.sy0 || y > e.sy1) {
+  if (x < e.sx0 || x > e.sx1 || y < e.sy0 || y > e.sy1 || y < clip0 || y > clip1) {
     return;
   }
   float u = e.fst ? a.u / 16.0f : a.s / a.q * static_cast<float>(1u << e.tex.tw);
   float v = e.fst ? a.v / 16.0f : a.t / a.q * static_cast<float>(1u << e.tex.th);
-  pixel(e, x, y, std::min(a.z, e.zmax), shade(e, a.rgba, u, v, e.tex.k, a.fog));
+  GsMemory::Row frow = GsMemory::row(*e.flayout, e.fbp, e.fbw, static_cast<u32>(y));
+  GsMemory::Row zrow = GsMemory::row(*e.zlayout, e.zbp, e.fbw, static_cast<u32>(y));
+  pixel(e, frow, zrow, x, std::min(a.z, e.zmax), shade(e, a.rgba, u, v, e.tex.k, a.fog));
 }
 
-void Gs::draw_line(const Env& e, const Vertex& a, const Vertex& b) {
+void Gs::draw_line(const Env& e, const Vertex& a, const Vertex& b, s32 clip0, s32 clip1) {
   s32 x0 = static_cast<s32>(a.x) - e.ofx, y0 = static_cast<s32>(a.y) - e.ofy;
   s32 x1 = static_cast<s32>(b.x) - e.ofx, y1 = static_cast<s32>(b.y) - e.ofy;
   s32 steps = (std::max(std::abs(x1 - x0), std::abs(y1 - y0)) + 15) >> 4;
@@ -488,7 +912,7 @@ void Gs::draw_line(const Env& e, const Vertex& a, const Vertex& b) {
     float f = static_cast<float>(i) / static_cast<float>(steps);
     s32 x = (x0 + static_cast<s32>(std::lround(static_cast<float>(x1 - x0) * f)) + 8) >> 4;
     s32 y = (y0 + static_cast<s32>(std::lround(static_cast<float>(y1 - y0) * f)) + 8) >> 4;
-    if (x < e.sx0 || x > e.sx1 || y < e.sy0 || y > e.sy1) {
+    if (x < e.sx0 || x > e.sx1 || y < e.sy0 || y > e.sy1 || y < clip0 || y > clip1) {
       continue;
     }
     u32 colour = e.iip ? lerp_colour(a.rgba, b.rgba, f) : b.rgba;
@@ -503,11 +927,13 @@ void Gs::draw_line(const Env& e, const Vertex& a, const Vertex& b) {
       v = (a.t + (b.t - a.t) * f) / q * th;
     }
     u32 fog = static_cast<u32>(a.fog + (b.fog - a.fog) * f + 0.5f);
-    pixel(e, x, y, std::min(static_cast<u32>(z + 0.5), e.zmax), shade(e, colour, u, v, e.tex.k, fog));
+    GsMemory::Row frow = GsMemory::row(*e.flayout, e.fbp, e.fbw, static_cast<u32>(y));
+    GsMemory::Row zrow = GsMemory::row(*e.zlayout, e.zbp, e.fbw, static_cast<u32>(y));
+      pixel(e, frow, zrow, x, std::min(static_cast<u32>(z + 0.5), e.zmax), shade(e, colour, u, v, e.tex.k, fog));
   }
 }
 
-void Gs::draw_sprite(const Env& e, const Vertex& a, const Vertex& b) {
+void Gs::draw_sprite(const Env& e, const Vertex& a, const Vertex& b, s32 clip0, s32 clip1) {
   s32 x0 = static_cast<s32>(a.x) - e.ofx, y0 = static_cast<s32>(a.y) - e.ofy;
   s32 x1 = static_cast<s32>(b.x) - e.ofx, y1 = static_cast<s32>(b.y) - e.ofy;
   float u0, v0, u1, v1;
@@ -536,19 +962,28 @@ void Gs::draw_sprite(const Env& e, const Vertex& a, const Vertex& b) {
     return;
   }
   s32 px0 = std::max(ceil16(x0), e.sx0), px1 = std::min(ceil16(x1) - 1, e.sx1);
-  s32 py0 = std::max(ceil16(y0), e.sy0), py1 = std::min(ceil16(y1) - 1, e.sy1);
+  s32 py0 = std::max({ceil16(y0), e.sy0, clip0}), py1 = std::min({ceil16(y1) - 1, e.sy1, clip1});
   float du = (u1 - u0) / static_cast<float>(x1 - x0), dv = (v1 - v0) / static_cast<float>(y1 - y0);
   u32 z = std::min(b.z, e.zmax);
+  // An untextured, unfogged sprite is one colour: work it out once.
+  bool flat = !e.tme && !e.fge;
+  u32 flat_colour = flat ? shade(e, b.rgba, 0, 0, 0, b.fog) : 0;
   for (s32 y = py0; y <= py1; y++) {
     float v = v0 + static_cast<float>(y * 16 - y0) * dv;
+    GsMemory::Row frow = GsMemory::row(*e.flayout, e.fbp, e.fbw, static_cast<u32>(y));
+    GsMemory::Row zrow = GsMemory::row(*e.zlayout, e.zbp, e.fbw, static_cast<u32>(y));
     for (s32 x = px0; x <= px1; x++) {
-      float u = u0 + static_cast<float>(x * 16 - x0) * du;
-      pixel(e, x, y, z, shade(e, b.rgba, u, v, e.tex.k, b.fog));
+      if (flat) {
+        pixel(e, frow, zrow, x, z, flat_colour);
+      } else {
+        float u = u0 + static_cast<float>(x * 16 - x0) * du;
+        pixel(e, frow, zrow, x, z, shade(e, b.rgba, u, v, e.tex.k, b.fog));
+      }
     }
   }
 }
 
-void Gs::draw_triangle(const Env& e, const Vertex& a, const Vertex& b, const Vertex& c) {
+void Gs::draw_triangle(const Env& e, const Vertex& a, const Vertex& b, const Vertex& c, s32 clip0, s32 clip1) {
   const Vertex* v[3] = {&a, &b, &c};
   s64 x[3], y[3];
   for (int i = 0; i < 3; i++) {
@@ -568,9 +1003,12 @@ void Gs::draw_triangle(const Env& e, const Vertex& a, const Vertex& b, const Ver
 
   s32 px0 = std::max(ceil16(std::min({x[0], x[1], x[2]})), e.sx0);
   s32 px1 = std::min(static_cast<s32>(std::max({x[0], x[1], x[2]}) >> 4), e.sx1);
+  // Everything below is worked out from the triangle's own first row, so
+  // that a band of it comes out the same as the whole.
   s32 py0 = std::max(ceil16(std::min({y[0], y[1], y[2]})), e.sy0);
-  s32 py1 = std::min(static_cast<s32>(std::max({y[0], y[1], y[2]}) >> 4), e.sy1);
-  if (px0 > px1 || py0 > py1) {
+  s32 py1 = std::min({static_cast<s32>(std::max({y[0], y[1], y[2]}) >> 4), e.sy1, clip1});
+  s32 first_row = std::max(py0, clip0);
+  if (px0 > px1 || first_row > py1) {
     return;
   }
 
@@ -588,54 +1026,96 @@ void Gs::draw_triangle(const Env& e, const Vertex& a, const Vertex& b, const Ver
     row[i] = ex[i] * (static_cast<s64>(py0) * 16 - y[p]) - ey[i] * (static_cast<s64>(px0) * 16 - x[p]);
   }
 
+  // Everything interpolated is linear across the screen: its value at the
+  // first pixel, and what it changes by a pixel across and a pixel down.
+  struct Plane {
+    double at, dx, dy;
+  };
   double inv_area = 1.0 / static_cast<double>(area);
-  float tw = static_cast<float>(1u << e.tex.tw), th = static_cast<float>(1u << e.tex.th);
-  double z[3] = {static_cast<double>(v[0]->z), static_cast<double>(v[1]->z), static_cast<double>(v[2]->z)};
+  auto plane = [&](double a0, double a1, double a2) -> Plane {
+    return {(static_cast<double>(row[0]) * a0 + static_cast<double>(row[1]) * a1 + static_cast<double>(row[2]) * a2) * inv_area,
+            -(static_cast<double>(ey[0]) * a0 + static_cast<double>(ey[1]) * a1 + static_cast<double>(ey[2]) * a2) * 16.0 * inv_area,
+            (static_cast<double>(ex[0]) * a0 + static_cast<double>(ex[1]) * a1 + static_cast<double>(ex[2]) * a2) * 16.0 * inv_area};
+  };
+
   bool flat_z = v[0]->z == v[1]->z && v[1]->z == v[2]->z;
+  Plane pz = plane(v[0]->z, v[1]->z, v[2]->z);
+  Plane pc[4]{}, ps{}, pt{}, pq{}, pf{};
+  if (e.iip) {
+    for (unsigned n = 0; n < 4; n++) {
+      pc[n] = plane(ch(v[0]->rgba, n), ch(v[1]->rgba, n), ch(v[2]->rgba, n));
+    }
+  }
+  if (e.tme) {
+    if (e.fst) {
+      ps = plane(v[0]->u / 16.0, v[1]->u / 16.0, v[2]->u / 16.0);
+      pt = plane(v[0]->v / 16.0, v[1]->v / 16.0, v[2]->v / 16.0);
+    } else {
+      ps = plane(v[0]->s, v[1]->s, v[2]->s);
+      pt = plane(v[0]->t, v[1]->t, v[2]->t);
+      pq = plane(v[0]->q, v[1]->q, v[2]->q);
+    }
+  }
+  if (e.fge) {
+    pf = plane(v[0]->fog, v[1]->fog, v[2]->fog);
+  }
+  const double tw = static_cast<double>(1u << e.tex.tw), th = static_cast<double>(1u << e.tex.th);
+  const double lod_scale = static_cast<double>(1u << e.tex.l);
+  // A flat, untextured, unfogged triangle is one colour.
+  bool constant = !e.iip && !e.tme && !e.fge;
+  u32 constant_colour = constant ? shade(e, c.rgba, 0, 0, 0, 0) : 0;
 
-  for (s32 py = py0; py <= py1; py++) {
-    s64 w[3] = {row[0], row[1], row[2]};
+  for (int i = 0; i < 3; i++) {
+    row[i] += ex[i] * 16 * (first_row - py0);
+  }
+  for (s32 py = first_row; py <= py1; py++) {
+    double dy = static_cast<double>(py - py0);
+    s64 w0 = row[0], w1 = row[1], w2 = row[2];
+    GsMemory::Row frow = GsMemory::row(*e.flayout, e.fbp, e.fbw, static_cast<u32>(py));
+    GsMemory::Row zrow = GsMemory::row(*e.zlayout, e.zbp, e.fbw, static_cast<u32>(py));
     for (s32 px = px0; px <= px1; px++) {
-      if (w[0] >= bias[0] && w[1] >= bias[1] && w[2] >= bias[2]) {
-        double l0 = static_cast<double>(w[0]) * inv_area;
-        double l1 = static_cast<double>(w[1]) * inv_area;
-        double l2 = static_cast<double>(w[2]) * inv_area;
-
-        u32 zv = flat_z ? v[0]->z
-                        : static_cast<u32>(std::clamp(l0 * z[0] + l1 * z[1] + l2 * z[2] + 0.5, 0.0, 4294967295.0));
-
-        u32 colour = c.rgba;
-        if (e.iip) {
-          colour = 0;
-          for (unsigned n = 0; n < 4; n++) {
-            double value = l0 * ch(v[0]->rgba, n) + l1 * ch(v[1]->rgba, n) + l2 * ch(v[2]->rgba, n);
-            colour |= std::min<u32>(static_cast<u32>(value + 0.5), 255) << (n * 8);
-          }
+      if (w0 >= bias[0] && w1 >= bias[1] && w2 >= bias[2]) {
+        double dx = static_cast<double>(px - px0);
+        u32 zv = flat_z ? v[0]->z : static_cast<u32>(std::clamp(pz.at + pz.dx * dx + pz.dy * dy + 0.5, 0.0, 4294967295.0));
+        if (zv > e.zmax) {
+          zv = e.zmax;
         }
-
-        float tu = 0, tv = 0, lod = e.tex.k;
-        if (e.tme) {
-          if (e.fst) {
-            tu = static_cast<float>(l0 * v[0]->u + l1 * v[1]->u + l2 * v[2]->u) / 16.0f;
-            tv = static_cast<float>(l0 * v[0]->v + l1 * v[1]->v + l2 * v[2]->v) / 16.0f;
-          } else {
-            double s = l0 * v[0]->s + l1 * v[1]->s + l2 * v[2]->s;
-            double t = l0 * v[0]->t + l1 * v[1]->t + l2 * v[2]->t;
-            double q = l0 * v[0]->q + l1 * v[1]->q + l2 * v[2]->q;
-            tu = static_cast<float>(s / q) * tw;
-            tv = static_cast<float>(t / q) * th;
-            if (!e.tex.lcm) {
-              lod = static_cast<float>(-std::log2(std::fabs(q))) * static_cast<float>(1u << e.tex.l) + e.tex.k;
+        u32 colour;
+        if (constant) {
+          colour = constant_colour;
+        } else {
+          u32 vertex_colour = c.rgba;
+          if (e.iip) {
+            vertex_colour = 0;
+            for (unsigned n = 0; n < 4; n++) {
+              double value = pc[n].at + pc[n].dx * dx + pc[n].dy * dy;
+              vertex_colour |= static_cast<u32>(std::clamp(value + 0.5, 0.0, 255.0)) << (n * 8);
             }
           }
+          float tu = 0, tv = 0, lod = e.tex.k;
+          if (e.tme) {
+            double s = ps.at + ps.dx * dx + ps.dy * dy, t = pt.at + pt.dx * dx + pt.dy * dy;
+            if (e.fst) {
+              tu = static_cast<float>(s);
+              tv = static_cast<float>(t);
+            } else {
+              double q = pq.at + pq.dx * dx + pq.dy * dy;
+              double inv_q = 1.0 / q;
+              tu = static_cast<float>(s * inv_q * tw);
+              tv = static_cast<float>(t * inv_q * th);
+              if (e.tex.lod_per_pixel) {
+                lod = static_cast<float>(-std::log2(std::fabs(q)) * lod_scale) + e.tex.k;
+              }
+            }
+          }
+          u32 fog = e.fge ? static_cast<u32>(std::clamp(pf.at + pf.dx * dx + pf.dy * dy + 0.5, 0.0, 255.0)) : 0;
+          colour = shade(e, vertex_colour, tu, tv, lod, fog);
         }
-
-        u32 fog = static_cast<u32>(l0 * v[0]->fog + l1 * v[1]->fog + l2 * v[2]->fog + 0.5);
-        pixel(e, px, py, std::min(zv, e.zmax), shade(e, colour, tu, tv, lod, fog));
+        pixel(e, frow, zrow, px, zv, colour);
       }
-      for (int i = 0; i < 3; i++) {
-        w[i] -= ey[i] * 16;
-      }
+      w0 -= ey[0] * 16;
+      w1 -= ey[1] * 16;
+      w2 -= ey[2] * 16;
     }
     for (int i = 0; i < 3; i++) {
       row[i] += ex[i] * 16;
@@ -645,20 +1125,12 @@ void Gs::draw_triangle(const Env& e, const Vertex& a, const Vertex& b, const Ver
 
 // --- texturing ---------------------------------------------------------------
 
-u32 Gs::expand16(u16 c) const {
-  u64 texa = reg_[TEXA];
-  u32 a;
-  if (c & 0x8000) {
-    a = static_cast<u32>(bits(texa, 32, 8));
-  } else if (bits(texa, 15, 1) && c == 0) {
-    a = 0;
-  } else {
-    a = static_cast<u32>(bits(texa, 0, 8));
-  }
+u32 Gs::expand16(u16 c, u32 ta0, u32 ta1, bool aem) {
+  u32 a = (c & 0x8000) ? ta1 : (aem && c == 0) ? 0 : ta0;
   return pack((c & 0x1F) << 3, ((c >> 5) & 0x1F) << 3, ((c >> 10) & 0x1F) << 3, a);
 }
 
-u32 Gs::texel(const Texture& t, u32 level, s32 iu, s32 iv) const {
+u32 Gs::texel(const Texture& t, u32 level, s32 iu, s32 iv, const u32* decoded) const {
   s32 w = std::max(1, (1 << t.tw) >> level), h = std::max(1, (1 << t.th) >> level);
   auto wrap = [level](s32 c, s32 size, u32 mode, u32 lo, u32 hi) -> s32 {
     switch (mode) {
@@ -670,40 +1142,58 @@ u32 Gs::texel(const Texture& t, u32 level, s32 iu, s32 iv) const {
   };
   iu = wrap(iu, w, t.wms, t.minu, t.maxu);
   iv = wrap(iv, h, t.wmt, t.minv, t.maxv);
+  if (decoded && static_cast<u32>(iu) < static_cast<u32>(w) && static_cast<u32>(iv) < static_cast<u32>(h)) {
+    return decoded[static_cast<u32>(iv) * static_cast<u32>(w) + static_cast<u32>(iu)];
+  }
 
-  u32 psm = t.psm >= 0x30 ? (t.psm & 0xF) : t.psm;  // a Z buffer read as a texture
-  u32 raw = memory.read(t.psm, t.tbp[level], t.tbw[level], static_cast<u32>(iu), static_cast<u32>(iv));
-  switch (psm) {
-    case PSMCT32:
-      return raw;
-    case PSMCT24: {
-      u64 texa = reg_[TEXA];
-      u32 a = (bits(texa, 15, 1) && raw == 0) ? 0 : static_cast<u32>(bits(texa, 0, 8));
-      return raw | (a << 24);
+  u32 at = GsMemory::index(*t.layout, t.tbp[level], t.tbw[level], static_cast<u32>(iu), static_cast<u32>(iv));
+  switch (t.kind) {
+    case kTex32:
+      return memory.word(at);
+    case kTex24: {
+      u32 raw = memory.word(at) & kRgb;
+      return raw | ((t.aem && raw == 0) ? 0u : t.ta0 << 24);
     }
-    case PSMCT16:
-    case PSMCT16S:
-      return expand16(static_cast<u16>(raw));
+    case kTex16:
+      return expand16(memory.half(at), t.ta0, t.ta1, t.aem);
+    case kTex8:
+      return t.clut[(t.csa * 16 + memory.byte(at)) & 0xFF];
+    case kTex4:
+      return t.clut[(t.csa * 16 + memory.nibble(at)) & 0xFF];
+    case kTex8H:
+      return t.clut[(t.csa * 16 + (memory.word(at) >> 24)) & 0xFF];
+    case kTex4HL:
+      return t.clut[(t.csa * 16 + ((memory.word(at) >> 24) & 0xF)) & 0xFF];
     default:
-      return clut_[(t.csa * 16 + raw) & 0xFF];
+      return t.clut[(t.csa * 16 + (memory.word(at) >> 28)) & 0xFF];
   }
 }
 
 u32 Gs::sample_level(const Texture& t, u32 level, float u, float v, bool linear) const {
-  float scale = 1.0f / static_cast<float>(1u << level);
-  u *= scale;
-  v *= scale;
-  if (!linear) {
-    return texel(t, level, static_cast<s32>(std::floor(u)), static_cast<s32>(std::floor(v)));
+  if (!(t.levels->looked_up.load(std::memory_order_acquire) & (1u << level))) {
+    resolve_level(t, level);
   }
-  u -= 0.5f;
-  v -= 0.5f;
-  float fu0 = std::floor(u), fv0 = std::floor(v);
-  s32 iu = static_cast<s32>(fu0), iv = static_cast<s32>(fv0);
-  float fu = u - fu0, fv = v - fv0;
-  u32 top = lerp_colour(texel(t, level, iu, iv), texel(t, level, iu + 1, iv), fu);
-  u32 bottom = lerp_colour(texel(t, level, iu, iv + 1), texel(t, level, iu + 1, iv + 1), fu);
-  return lerp_colour(top, bottom, fv);
+  const u32* decoded = t.levels->cached[level].load(std::memory_order_relaxed);
+  if (level) {
+    float scale = 1.0f / static_cast<float>(1u << level);
+    u *= scale;
+    v *= scale;
+  }
+  if (!linear) {
+    return texel(t, level, static_cast<s32>(std::floor(u)), static_cast<s32>(std::floor(v)), decoded);
+  }
+  // Weights in sixteenths, as the hardware has them.
+  s32 fu = static_cast<s32>(std::floor(u * 16.0f)) - 8, fv = static_cast<s32>(std::floor(v * 16.0f)) - 8;
+  s32 iu = fu >> 4, iv = fv >> 4;
+  u32 a = static_cast<u32>(fu & 15), b = static_cast<u32>(fv & 15);
+  u32 c00 = texel(t, level, iu, iv, decoded), c10 = texel(t, level, iu + 1, iv, decoded);
+  u32 c01 = texel(t, level, iu, iv + 1, decoded), c11 = texel(t, level, iu + 1, iv + 1, decoded);
+  u32 out = 0;
+  for (unsigned n = 0; n < 4; n++) {
+    u32 top = ch(c00, n) * (16 - a) + ch(c10, n) * a, bottom = ch(c01, n) * (16 - a) + ch(c11, n) * a;
+    out |= ((top * (16 - b) + bottom * b) >> 8) << (n * 8);
+  }
+  return out;
 }
 
 u32 Gs::sample(const Texture& t, float u, float v, float lod) const {
@@ -797,6 +1287,19 @@ void Gs::load_clut(u64 tex0) {
       return;
   }
 
+  // The table is read from memory: draw what is waiting to be drawn there.
+  {
+    Pages source;
+    if (csm2) {
+      add_pages(source, PSMCT16, cbp, static_cast<u32>(bits(reg_[TEXCLUT], 0, 6)), 0, 0, 1023, 1023);
+    } else {
+      add_pages(source, cpsm, cbp, 1, 0, 0, 15, 15);
+    }
+    if (source.intersects(pending_write_)) {
+      flush();
+    }
+  }
+
   u32 entries;
   if (psm == PSMT8 || psm == PSMT8H) {
     entries = 256;
@@ -826,41 +1329,51 @@ void Gs::load_clut(u64 tex0) {
 }
 
 void Gs::rebuild_clut() {
+  u64 texa = reg_[TEXA];
+  u32 ta0 = static_cast<u32>(bits(texa, 0, 8)), ta1 = static_cast<u32>(bits(texa, 32, 8));
+  bool aem = bits(texa, 15, 1) != 0;
   for (u32 i = 0; i < 256; i++) {
-    clut_[i] = clut_psm_ == PSMCT32 ? clut_raw_[i] : expand16(static_cast<u16>(clut_raw_[i]));
+    u32 colour = clut_psm_ == PSMCT32 ? clut_raw_[i] : expand16(static_cast<u16>(clut_raw_[i]), ta0, ta1, aem);
+    if (colour != clut_[i]) {
+      clut_[i] = colour;
+      clut_copy_dirty_ = true;
+      env_dirty_ = true;
+    }
   }
 }
 
 // --- pixel pipeline ----------------------------------------------------------
 
-u32 Gs::frame_read(const Env& e, s32 x, s32 y) const {
-  u32 v = memory.read(e.fpsm, e.fbp, e.fbw, static_cast<u32>(x), static_cast<u32>(y));
-  if (is16(e.fpsm)) {
+u32 Gs::frame_read(const Env& e, const GsMemory::Row& row, s32 x) const {
+  u32 at = GsMemory::index(row, static_cast<u32>(x));
+  if (e.f16) {
+    u32 v = memory.half(at);
     return pack((v & 0x1F) << 3, ((v >> 5) & 0x1F) << 3, ((v >> 10) & 0x1F) << 3, (v & 0x8000) ? 0x80 : 0);
   }
-  if (is24(e.fpsm)) {
-    return v | 0x80000000u;
-  }
-  return v;
+  u32 v = memory.word(at);
+  return e.f24 ? (v | 0x80000000u) : v;
 }
 
-void Gs::frame_write(const Env& e, s32 x, s32 y, u32 rgba, u32 mask) {
-  u32 ux = static_cast<u32>(x), uy = static_cast<u32>(y);
-  if (is16(e.fpsm)) {
+void Gs::frame_write(const Env& e, const GsMemory::Row& row, s32 x, u32 rgba, u32 mask) {
+  u32 at = GsMemory::index(row, static_cast<u32>(x));
+  if (e.f16) {
     auto to16 = [](u32 c) { return ((c >> 3) & 0x1F) | (((c >> 11) & 0x1F) << 5) | (((c >> 19) & 0x1F) << 10) | ((c >> 16) & 0x8000); };
     u32 m = to16(mask), v = to16(rgba);
-    u32 old = m == 0xFFFF ? 0 : memory.read(e.fpsm, e.fbp, e.fbw, ux, uy);
-    memory.write(e.fpsm, e.fbp, e.fbw, ux, uy, (old & ~m) | (v & m));
+    u32 old = m == 0xFFFF ? 0 : memory.half(at);
+    memory.set_half(at, static_cast<u16>((old & ~m) | (v & m)));
     return;
   }
-  if (is24(e.fpsm)) {
+  if (e.f24) {
     mask &= kRgb;
   }
-  u32 old = mask == 0xFFFFFFFFu ? 0 : memory.read(e.fpsm, e.fbp, e.fbw, ux, uy);
-  memory.write(e.fpsm, e.fbp, e.fbw, ux, uy, (old & ~mask) | (rgba & mask));
+  if (mask == 0xFFFFFFFFu) {
+    memory.set_word(at, rgba);
+  } else {
+    memory.set_word(at, (memory.word(at) & ~mask) | (rgba & mask));
+  }
 }
 
-void Gs::pixel(const Env& e, s32 x, s32 y, u32 z, u32 rgba) {
+void Gs::pixel(const Env& e, const GsMemory::Row& frow, const GsMemory::Row& zrow, s32 x, u32 z, u32 rgba) {
   u32 sa = rgba >> 24;
   // With the depth test switched off the Z buffer is not touched at all: the
   // games draw to targets that share memory with it that way.
@@ -884,24 +1397,26 @@ void Gs::pixel(const Env& e, s32 x, s32 y, u32 z, u32 rgba) {
   }
 
   bool need_dest = e.date || e.abe;
-  u32 dest = need_dest ? frame_read(e, x, y) : 0;
-  if (e.date && !is24(e.fpsm) && ((dest >> 31) != 0) != e.datm) {
+  u32 dest = need_dest ? frame_read(e, frow, x) : 0;
+  if (e.date && !e.f24 && ((dest >> 31) != 0) != e.datm) {
     return;
   }
 
+  u32 zat = 0;
   if (e.zte) {
     if (e.ztst == 0) {
       return;
     }
+    zat = GsMemory::index(zrow, static_cast<u32>(x));
     if (e.ztst >= 2) {
-      u32 stored = memory.read(e.zpsm, e.zbp, e.fbw, static_cast<u32>(x), static_cast<u32>(y));
+      u32 stored = e.z16 ? memory.half(zat) : e.z24 ? (memory.word(zat) & kRgb) : memory.word(zat);
       if (e.ztst == 2 ? z < stored : z <= stored) {
         return;
       }
     }
   }
 
-  stats.pixels++;
+  tls_pixels++;
 
   if (write_rgb || write_a) {
     u32 out = rgba;
@@ -924,12 +1439,18 @@ void Gs::pixel(const Env& e, s32 x, s32 y, u32 z, u32 rgba) {
     }
     u32 mask = ~e.fbmsk & ((write_rgb ? kRgb : 0) | (write_a ? kA : 0));
     if (mask) {
-      frame_write(e, x, y, out, mask);
+      frame_write(e, frow, x, out, mask);
     }
   }
 
   if (write_z) {
-    memory.write(e.zpsm, e.zbp, e.fbw, static_cast<u32>(x), static_cast<u32>(y), z);
+    if (e.z16) {
+      memory.set_half(zat, static_cast<u16>(z));
+    } else if (e.z24) {
+      memory.set_word(zat, (memory.word(zat) & kA) | (z & kRgb));
+    } else {
+      memory.set_word(zat, z);
+    }
   }
 }
 
@@ -949,7 +1470,18 @@ void Gs::start_transfer() {
     in_.active = true;
     in_.width = width;
     in_.height = height;
+    // The transfer's pixels are compared with what is there: have what is
+    // waiting to be drawn there drawn first.
+    u64 to = reg_[BITBLTBUF], where = reg_[TRXPOS];
+    s32 x = static_cast<s32>(bits(where, 32, 11)), y = static_cast<s32>(bits(where, 48, 11));
+    in_pages_.clear();
+    add_pages(in_pages_, static_cast<u32>(bits(to, 56, 6)), static_cast<u32>(bits(to, 32, 14)), static_cast<u32>(bits(to, 48, 6)), x, y,
+              x + static_cast<s32>(width) - 1, y + static_cast<s32>(height) - 1);
+    if (in_pages_.intersects(pending_write_)) {
+      flush();
+    }
   } else if (dir == 1) {
+    flush();
     // Local to host: produce the whole image now, hand it out as it is asked for.
     u64 buffer = reg_[BITBLTBUF], position = reg_[TRXPOS];
     u32 bp = static_cast<u32>(bits(buffer, 0, 14)), bw = static_cast<u32>(bits(buffer, 16, 6));
@@ -989,8 +1521,20 @@ void Gs::transfer_in(const u8* data, std::size_t bytes) {
   u32 dx = static_cast<u32>(bits(position, 32, 11)), dy = static_cast<u32>(bits(position, 48, 11));
   unsigned bpp = transfer_bits(psm);
 
+  // The games send the textures in view again every frame. Only a transfer
+  // that changes something makes the decoded copies of that memory stale.
   auto put = [&](u32 value) {
-    memory.write(psm, bp, bw, (dx + in_.x) & 2047, (dy + in_.y) & 2047, value);
+    u32 x = (dx + in_.x) & 2047, y = (dy + in_.y) & 2047;
+    if (memory.read(psm, bp, bw, x, y) != (value & (bpp == 32 ? 0xFFFFFFFFu : (1u << bpp) - 1))) {
+      if (!in_.changed) {
+        in_.changed = true;
+        if (in_pages_.intersects(pending_read_)) {
+          flush();  // waiting primitives read this memory as it was
+        }
+        stamp(in_pages_);
+      }
+      memory.write(psm, bp, bw, x, y, value);
+    }
     if (++in_.x == in_.width) {
       in_.x = 0;
       if (++in_.y == in_.height) {
@@ -1051,6 +1595,13 @@ void Gs::copy_local() {
   u32 dx = static_cast<u32>(bits(position, 32, 11)), dy = static_cast<u32>(bits(position, 48, 11));
   u32 order = static_cast<u32>(bits(position, 59, 2));  // bit 0: rows bottom up, bit 1: right to left
   u32 width = static_cast<u32>(bits(size, 0, 12)), height = static_cast<u32>(bits(size, 32, 12));
+  if (width == 0 || height == 0) {
+    return;
+  }
+  flush();
+  Pages to;
+  add_pages(to, dpsm, dbp, dbw, static_cast<s32>(dx), static_cast<s32>(dy), static_cast<s32>(dx + width) - 1, static_cast<s32>(dy + height) - 1);
+  stamp(to);
   for (u32 j = 0; j < height; j++) {
     u32 y = (order & 1) ? height - 1 - j : j;
     for (u32 i = 0; i < width; i++) {
@@ -1063,7 +1614,8 @@ void Gs::copy_local() {
 
 // --- output ------------------------------------------------------------------
 
-Image Gs::snapshot(u32 bp, u32 bw, u32 psm, int width, int height) const {
+Image Gs::snapshot(u32 bp, u32 bw, u32 psm, int width, int height) {
+  flush();
   Image image;
   image.width = width;
   image.height = height;
@@ -1080,7 +1632,8 @@ Image Gs::snapshot(u32 bp, u32 bw, u32 psm, int width, int height) const {
   return image;
 }
 
-bool Gs::display(Image& out) const {
+bool Gs::display(Image& out) {
+  flush();
   u64 pmode = priv_[0];
   int circuit = (pmode & 1) ? 0 : (pmode & 2) ? 1 : -1;
   if (circuit < 0) {

@@ -3,8 +3,13 @@
 #pragma once
 
 #include <array>
+#include <atomic>
+#include <deque>
 #include <functional>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "gs_memory.h"
@@ -122,10 +127,22 @@ struct Image {
 // pixel is computed here and stored in GS memory in the frame buffer's own
 // format, so textures drawn into, read back or reused as targets behave as
 // on the machine.
+//
+// Primitives can be drawn as they arrive, or (set_threads) gathered and
+// drawn by several threads, each taking bands of scan lines. The result is
+// the same memory either way: a band's primitives are drawn in their order,
+// and the gathered ones are drawn before anything reads or writes memory
+// they use.
 class Gs {
  public:
   Gs();
+  ~Gs();
   void reset();
+
+  // How many threads draw (0: each primitive is drawn at once, by the caller).
+  void set_threads(unsigned threads);
+  // Draw everything gathered so far. Called by whatever reads GS memory.
+  void flush();
 
   // A write to a general register (from a GIF packet).
   void write(u8 reg, u64 data);
@@ -143,9 +160,9 @@ class Gs {
   void vblank(bool odd_field) { csr_ = (csr_ & ~u64{0x2000}) | 0x8 | (odd_field ? 0x2000 : 0); }
 
   // What the display circuits show, or false when no circuit is enabled.
-  bool display(Image& out) const;
+  bool display(Image& out);
   // A rectangle of any buffer as RGBA, for tools and tests.
-  Image snapshot(u32 fbp, u32 fbw, u32 psm, int width, int height) const;
+  Image snapshot(u32 fbp, u32 fbw, u32 psm, int width, int height);
 
   // For tools: called for every primitive drawn, with a line describing the
   // state it is drawn with (target, scissor, texture, tests, blending) and
@@ -158,6 +175,8 @@ class Gs {
     u64 primitives = 0;
     u64 pixels = 0;
     u64 transfers = 0;
+    u64 texture_decodes = 0, texels_decoded = 0;
+    u64 flushes = 0;
   } stats;
   u32 todo = 0;  // gstodo bits met so far
 
@@ -169,6 +188,31 @@ class Gs {
     float s = 0, t = 0, q = 1;
     u16 u = 0, v = 0;  // 10.4
     u8 fog = 0;
+  };
+
+  // A set of pages of GS memory (512 of 8 KB).
+  struct Pages {
+    std::array<u64, 8> bits{};
+    void set(u32 page) { bits[(page >> 6) & 7] |= u64{1} << (page & 63); }
+    void add(const Pages& o) {
+      for (unsigned n = 0; n < 8; n++) bits[n] |= o.bits[n];
+    }
+    bool intersects(const Pages& o) const {
+      u64 any = 0;
+      for (unsigned n = 0; n < 8; n++) any |= bits[n] & o.bits[n];
+      return any != 0;
+    }
+    void clear() { bits = {}; }
+  };
+  // The pages a rectangle of a buffer lies in.
+  static void add_pages(Pages& pages, u32 psm, u32 bp, u32 bw, s32 x0, s32 y0, s32 x1, s32 y1);
+
+  // Each level of a texture as plain colours, when it is held in the cache
+  // (else null: the level is read from GS memory texel by texel). Filled in
+  // by whichever thread first needs a level.
+  struct Levels {
+    std::atomic<u32> looked_up{0};
+    std::array<std::atomic<const u32*>, 7> cached{};
   };
 
   struct Texture {
@@ -183,6 +227,14 @@ class Gs {
     bool lcm = false;
     u32 mxl = 0, mmag = 0, mmin = 0, l = 0;
     float k = 0;
+    // Worked out once a primitive:
+    const GsMemory::Layout* layout = nullptr;
+    unsigned kind = 0;         // how a stored texel becomes a colour (see gs.cpp)
+    bool lod_per_pixel = false;  // the level or the filter depends on each pixel's Q
+    u32 ta0 = 0, ta1 = 0;
+    bool aem = false;
+    const u32* clut = nullptr;  // the colour table as it was when the primitive was given
+    Levels* levels = nullptr;   // decoded copies of the levels, found when first needed
   };
 
   // Everything a primitive needs, decoded from the registers of its context.
@@ -199,10 +251,22 @@ class Gs {
     bool iip = false, tme = false, fge = false, fst = false;
     u32 fogcol = 0;
     Texture tex;
+    const GsMemory::Layout* flayout = nullptr;
+    const GsMemory::Layout* zlayout = nullptr;
+    bool f16 = false, f24 = false, z16 = false, z24 = false;
+    Pages tex_pages;     // every page a texture level lies in
+    u64 target = 0;      // which buffers it draws to
+  };
+
+  // A primitive waiting to be drawn.
+  struct Queued {
+    const Env* env;
+    u8 kind;
+    Vertex v[3];
   };
 
   struct Transfer {
-    bool active = false;
+    bool active = false, changed = false;
     u32 dir = 3;
     u32 x = 0, y = 0;  // pixels done in the current row, rows done
     u32 width = 0, height = 0;
@@ -213,27 +277,73 @@ class Gs {
 
   // Primitive assembly.
   void vertex(u16 x, u16 y, u32 z, bool draw);
-  void draw_point(const Env& e, const Vertex& a);
-  void draw_line(const Env& e, const Vertex& a, const Vertex& b);
-  void draw_triangle(const Env& e, const Vertex& a, const Vertex& b, const Vertex& c);
-  void draw_sprite(const Env& e, const Vertex& a, const Vertex& b);
-  Env environment() const;
+  // Rows outside clip0..clip1 are left to whoever has that band.
+  void draw_point(const Env& e, const Vertex& a, s32 clip0, s32 clip1);
+  void draw_line(const Env& e, const Vertex& a, const Vertex& b, s32 clip0, s32 clip1);
+  void draw_triangle(const Env& e, const Vertex& a, const Vertex& b, const Vertex& c, s32 clip0, s32 clip1);
+  void draw_sprite(const Env& e, const Vertex& a, const Vertex& b, s32 clip0, s32 clip1);
+  void draw(const Queued& q, s32 clip0, s32 clip1);
+  void submit(unsigned kind, unsigned count);
+  void render_band(unsigned band);
+  Env environment();
   void report(const Env& e, unsigned count) const;
   u32 prim_bits() const;
 
   // Per pixel.
-  void pixel(const Env& e, s32 x, s32 y, u32 z, u32 rgba);
+  void pixel(const Env& e, const GsMemory::Row& frow, const GsMemory::Row& zrow, s32 x, u32 z, u32 rgba);
   u32 shade(const Env& e, u32 rgba, float u, float v, float lod, u32 fog) const;
   u32 sample(const Texture& t, float u, float v, float lod) const;
   u32 sample_level(const Texture& t, u32 level, float u, float v, bool linear) const;
-  u32 texel(const Texture& t, u32 level, s32 iu, s32 iv) const;
-  u32 frame_read(const Env& e, s32 x, s32 y) const;
-  void frame_write(const Env& e, s32 x, s32 y, u32 rgba, u32 mask);
+  u32 texel(const Texture& t, u32 level, s32 iu, s32 iv, const u32* decoded) const;
+  u32 frame_read(const Env& e, const GsMemory::Row& row, s32 x) const;
+  void frame_write(const Env& e, const GsMemory::Row& row, s32 x, u32 rgba, u32 mask);
+
+  // Decoded textures. A level is decoded once and kept until something
+  // writes to the pages it lies in, the colour table it used changes, or
+  // TEXA changes under a format that needs it.
+  struct CachedTexture {
+    std::shared_ptr<std::vector<u32>> texels;
+    Pages pages;
+    u64 stamp = 0;
+  };
+  const u32* cached_level(const Texture& t, u32 level);
+  void resolve_level(const Texture& t, u32 level) const;
+  // Note a write to pages: decoded copies of them are stale from now on.
+  void stamp(const Pages& pages);
+  // A level is known by where and how it is stored, and by what turns its
+  // texels into colours: the table entries it uses, or TEXA.
+  struct TextureKey {
+    u64 place = 0, colours = 0;
+    bool operator==(const TextureKey&) const = default;
+  };
+  struct TextureKeyHash {
+    std::size_t operator()(const TextureKey& k) const { return static_cast<std::size_t>(k.place * 0x9E3779B97F4A7C15ull ^ k.colours); }
+  };
+  std::unordered_map<TextureKey, CachedTexture, TextureKeyHash> texture_cache_;
+  std::vector<std::shared_ptr<std::vector<u32>>> retired_;  // replaced copies a waiting primitive may still use
+  mutable std::mutex texture_mutex_;
+  std::array<u64, 512> page_stamp_{};
+  u64 clock_ = 1;
 
   // Colour lookup table.
   void load_clut(u64 tex0);
   void rebuild_clut();
-  u32 expand16(u16 c) const;
+  static u32 expand16(u16 c, u32 ta0, u32 ta1, bool aem);
+
+  // Primitives waiting to be drawn, and what they will read and write.
+  class Pool;
+  std::unique_ptr<Pool> pool_;
+  unsigned threads_ = 0;
+  std::vector<Queued> waiting_;
+  std::array<std::vector<u32>, 128> bands_;  // by 16 scan lines: the waiting primitives that reach each band
+  std::vector<u16> used_bands_;
+  Pages pending_write_, pending_read_;
+  u64 pending_target_ = 0;
+  std::deque<Env> envs_;
+  std::deque<Levels> levels_;
+  std::deque<std::array<u32, 256>> clut_copies_;
+  const Env* env_ = nullptr;
+  bool env_dirty_ = true, clut_copy_dirty_ = true;
 
   // Transfers.
   void start_transfer();
@@ -254,6 +364,7 @@ class Gs {
 
   Transfer in_;
   Transfer out_;
+  Pages in_pages_;
 };
 
 }  // namespace ps2

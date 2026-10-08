@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <map>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "ps2/vu_dis.h"
@@ -41,6 +42,8 @@ bool write_ppm(const std::string& path, const Image& image) {
 int main(int argc, char** argv) {
   std::string iso, hooks, ppm;
   int frames = 600, report = 60, states_frame = -1;
+  // Threads that draw: by default most of the fast cores, leaving one for the program itself.
+  int gs_threads = static_cast<int>(std::min(12u, std::max(2u, std::thread::hardware_concurrency()) - 1));
   bool window_wanted = false;
   // Scripted input: hold these buttons from one frame for some frames.
   struct Press {
@@ -68,6 +71,8 @@ int main(int argc, char** argv) {
       presses.push_back(p);
     } else if (arg == "--gs-states" && i + 1 < argc) {
       states_frame = std::atoi(argv[++i]);
+    } else if (arg == "--gs-threads" && i + 1 < argc) {
+      gs_threads = std::atoi(argv[++i]);
     } else if (arg == "--ntsc") {
       machine.hz = 59.94;
     } else if (arg == "--window") {
@@ -84,6 +89,7 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "cannot open the disc image %s\n", iso.c_str());
     return 1;
   }
+  machine.graphics.gs.set_threads(static_cast<unsigned>(std::max(gs_threads, 0)));
   std::string error;
   if (!machine.boot(&error) || (!hooks.empty() && !machine.load_hooks(hooks, &error))) {
     std::fprintf(stderr, "%s\n", error.c_str());
@@ -166,6 +172,11 @@ int main(int argc, char** argv) {
     }
   }
 
+  std::fprintf(stderr, "gs: %llu texture levels decoded (%llu texels), %llu transfers, %llu batches drawn\n",
+               static_cast<unsigned long long>(machine.graphics.gs.stats.texture_decodes),
+               static_cast<unsigned long long>(machine.graphics.gs.stats.texels_decoded),
+               static_cast<unsigned long long>(machine.graphics.gs.stats.transfers),
+               static_cast<unsigned long long>(machine.graphics.gs.stats.flushes));
   std::fprintf(stderr, "stopped after %llu frames at pc %08x (ra %08x)\n", static_cast<unsigned long long>(machine.frames),
                machine.ee.pc, static_cast<u32>(machine.ee.gpr[31].lo));
   for (const auto& [what, count] : machine.notes) {

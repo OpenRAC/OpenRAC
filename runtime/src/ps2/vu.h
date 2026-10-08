@@ -4,6 +4,7 @@
 
 #include <array>
 #include <functional>
+#include <vector>
 
 #include "types.h"
 
@@ -81,9 +82,13 @@ class Vu {
     u32 mac = 0, status = 0, clip = 0;
     u64 at = 0;  // the cycle from which instructions see them
   };
-  struct Written {
-    u8 reg = 0, mask = 0;
-    u64 cycle = 0;
+  // What a pair reads that can make it wait, worked out once per pair.
+  struct Needs {
+    u32 up = 0, low = 0;
+    bool known = false;
+    u8 count = 0;
+    u8 reg[4] = {0, 0, 0, 0}, mask[4] = {0, 0, 0, 0};
+    u8 wait = 0;  // 1: the divider must be free, 2: the function unit must be done
   };
   enum class Op { Add, Sub, Mul, Madd, Msub };
   enum class From { Ft, Bc, Q, I };
@@ -109,7 +114,7 @@ class Vu {
   u16 branch_vi(unsigned reg) const;
   void branch(u32 target);
   void start_q(u32 value, unsigned latency, u32 divide_flags);
-  u64 ready_cycle(u32 up, u32 low) const;
+  void work_out(Needs& needs, u32 up, u32 low) const;
   void start_p(double value, unsigned latency);
 
   u8* quad(u32 address) { return memory_.data + ((address * 16) & (memory_.data_bytes - 1)); }
@@ -126,8 +131,9 @@ class Vu {
   // Time, in cycles: one an instruction, more when an instruction waits.
   u64 cycle_ = 0;
   bool timed_ = false;  // a microprogram is running (the EE's own instructions are not timed)
-  std::array<Written, 8> written_{};
-  unsigned written_next_ = 0;
+  // The cycle from which each field of each float register can be read.
+  std::array<std::array<u64, 4>, 32> readable_{};
+  std::vector<Needs> needs_;
 
   std::array<Flags, 8> flag_pipe_{};
   unsigned flag_first_ = 0, flag_count_ = 0;

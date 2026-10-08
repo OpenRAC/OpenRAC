@@ -9,6 +9,9 @@
 #include <cstring>
 #include <vector>
 
+#include <cfenv>
+
+#include "fp_quad.h"
 #include "graphics.h"
 #include "vu.h"
 #include "vu_asm.h"
@@ -366,6 +369,59 @@ void test_memory_and_integers() {
   CHECK_EQ(u.vu.unknown_ops, u64{0});
 }
 
+void test_quad_arithmetic() {
+  // The four-at-once arithmetic either declines or gives exactly what the
+  // integer model gives, on ordinary numbers, zeros, numbers close together
+  // and far apart, and the ends of the range.
+  std::fesetround(FE_TOWARDZERO);
+  u32 seed = 12345;
+  auto next = [&seed] {
+    seed = seed * 1664525u + 1013904223u;
+    return seed;
+  };
+  auto value = [&]() -> u32 {
+    u32 r = next();
+    switch ((r >> 28) & 15) {
+      case 0: return next() & 0x80000000u;                                // a zero
+      case 1: return (next() & 0x807FFFFFu) | (((next() >> 8) % 3) << 23);   // tiny exponents
+      case 2: return (next() & 0x807FFFFFu) | ((253 + (next() >> 8) % 3) << 23);  // huge exponents
+      case 3: return next();                                              // anything
+      default: return (next() & 0x807FFFFFu) | ((100 + (next() >> 8) % 60) << 23);  // ordinary, near each other
+    }
+  };
+  u64 accepted = 0, wrong = 0;
+  for (int n = 0; n < 200000; n++) {
+    u32 a[4], b[4], out[4];
+    for (int f = 0; f < 4; f++) {
+      a[f] = value();
+      b[f] = value();
+    }
+    u32 dest = (next() >> 20) & 15;
+    for (int op = 0; op < 3; op++) {
+      bool ok = op == 0 ? fp::quad_add(a, b, dest, out) : op == 1 ? fp::quad_add(a, b, dest, out, true) : fp::quad_mul(a, b, dest, out);
+      if (!ok) {
+        continue;
+      }
+      accepted++;
+      for (unsigned f = 0; f < 4; f++) {
+        if (!(dest & (8u >> f))) {
+          continue;
+        }
+        u32 problems = 0;
+        u32 want = op == 0 ? fp::add(a[f], b[f], problems) : op == 1 ? fp::sub(a[f], b[f], problems) : fp::mul(a[f], b[f], problems);
+        if (want != out[f] || problems) {
+          wrong++;
+        }
+      }
+    }
+  }
+  std::fesetround(FE_TONEAREST);
+  CHECK_EQ(wrong, u64{0});
+#if OPENRAC_FP_QUAD
+  CHECK(accepted > 100000);  // and it does take most of them
+#endif
+}
+
 // --- with the rest of the machine ----------------------------------------------
 
 std::vector<u8> bytes_of(const std::vector<u32>& words) {
@@ -448,6 +504,7 @@ int main() {
       {"branches", test_branches},
       {"a branch sees the older integer", test_branch_sees_the_older_integer},
       {"memory and integers", test_memory_and_integers},
+      {"four-field arithmetic", test_quad_arithmetic},
       {"kick through vif", test_kick_through_vif},
   };
   return run_tests(tests);

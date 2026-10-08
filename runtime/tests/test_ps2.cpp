@@ -186,6 +186,39 @@ void test_memory_is_one_to_one() {
   }
 }
 
+void test_memory_tables() {
+  // The table form of the layout gives the same place as the formulas, for
+  // every format, at several buffer positions and widths.
+  struct Case {
+    u32 psm;
+    std::function<u32(u32, u32, u32, u32)> address;
+  };
+  const Case cases[] = {
+      {PSMCT32, [](u32 bp, u32 bw, u32 x, u32 y) { return GsMemory::address32(bp, bw, x, y); }},
+      {PSMZ32, [](u32 bp, u32 bw, u32 x, u32 y) { return GsMemory::address32(bp, bw, x, y, true); }},
+      {PSMCT16, [](u32 bp, u32 bw, u32 x, u32 y) { return GsMemory::address16(bp, bw, x, y); }},
+      {PSMZ16, [](u32 bp, u32 bw, u32 x, u32 y) { return GsMemory::address16(bp, bw, x, y, true); }},
+      {PSMCT16S, [](u32 bp, u32 bw, u32 x, u32 y) { return GsMemory::address16s(bp, bw, x, y); }},
+      {PSMZ16S, [](u32 bp, u32 bw, u32 x, u32 y) { return GsMemory::address16s(bp, bw, x, y, true); }},
+      {PSMT8, [](u32 bp, u32 bw, u32 x, u32 y) { return GsMemory::address8(bp, bw, x, y); }},
+      {PSMT4, [](u32 bp, u32 bw, u32 x, u32 y) { return GsMemory::address4(bp, bw, x, y); }},
+  };
+  for (const Case& c : cases) {
+    const GsMemory::Layout& l = GsMemory::layout(c.psm);
+    bool same = true;
+    for (u32 bw : {2u, 8u, 10u}) {
+      for (u32 bp : {0u, 4160u, 16000u}) {
+        for (u32 y = 0; y < 300; y += 1) {
+          for (u32 x = 0; x < 700; x += 3) {
+            same = same && GsMemory::index(l, bp, bw, x, y) == c.address(bp, bw, x, y);
+          }
+        }
+      }
+    }
+    CHECK(same);
+  }
+}
+
 void test_memory_formats() {
   GsMemory m;
   const u32 formats[] = {PSMCT32, PSMCT24, PSMCT16, PSMCT16S, PSMT8, PSMT4, PSMZ32, PSMZ24, PSMZ16, PSMZ16S};
@@ -1095,6 +1128,7 @@ int main() {
   const TestCase tests[] = {
       {"memory layout", test_memory_layout},
       {"memory is one to one", test_memory_is_one_to_one},
+      {"memory tables", test_memory_tables},
       {"memory formats", test_memory_formats},
       {"sprite coverage", test_sprite_coverage},
       {"triangles share edges", test_triangles_share_edges},
