@@ -71,10 +71,10 @@ SIMPLE_OPS = re.compile(r"^(addu|addiu|subu|and|andi|or|ori|xor|xori|nor|slt|slt
                         r"daddu|daddiu|dsubu|dsll|dsrl|dsra|dsll32|dsrl32|dsra32|move|negu|not|lui|"
                         r"lb|lbu|lh|lhu|lw|lwu|ld|sb|sh|sw|sd|lwc1|swc1|l\.s|s\.s|lq|sq|"
                         r"add\.s|sub\.s|mul\.s|neg\.s|abs\.s|mov\.s|c\.\w+\.s|cvt\.\w+\.\w+|mtc1|mfc1|"
-                        r"movz|movn|mult|multu|mult1|multu1|nop)$")
+                        r"movz|movn|mult|multu|mult1|multu1|div|divu|mflo|mfhi|nop)$")
 
 
-def insn_count(lines, noreorder=True):
+def insn_count(lines, noreorder=True, small=frozenset()):
     """Number of machine instructions in these .s lines, or None if unsure
     (macro instructions, which may expand to more than one word).
 
@@ -114,9 +114,19 @@ def insn_count(lines, noreorder=True):
         # a symbol operand (not reg, not N(reg), not a small number) is a macro
         last = ops.split(",")[-1].strip() if ops else ""
         if last and not re.match(r"^(\$\w+|-?\d+|-?0x[0-9a-fA-F]+|-?\d*\(\$\w+\)|-?0x[0-9a-fA-F]+\(\$\w+\)|%\w+\([^)]*\)(\(\$\w+\))?)$", last):
-            return None
+            # A load/store of a symbol the assembler already knows is small (an
+            # earlier `.extern SYM, N` with N <= 8, the -G8 limit) is a single
+            # $gp-relative word, not a lui/op macro pair.
+            sm = re.match(r"^([A-Za-z_.$][\w.$]*)(\s*[+-]\s*(\d+|0x[0-9a-fA-F]+))?$", last)
+            if not (sm and sm.group(1) in small
+                    and re.match(r"^(l[bhwd]u?|s[bhwd]|lwc1|swc1|l\.s|s\.s)$", m.group(1))):
+                return None
         if m.group(1) in ("li",):
             return None
+        if m.group(1) in ("div", "divu"):
+            dops = [o.strip() for o in ops.split(",")]
+            if not (len(dops) == 2 or (len(dops) == 3 and dops[0] in ("$0", "$zero"))):
+                return None  # `div rd, rs, rt` is an assembler macro (several words)
         n += 1
     return n
 
@@ -129,14 +139,21 @@ def insn_count(lines, noreorder=True):
 # already gives sq for the $s registers) every callee-saved save and restore is
 # rewritten to the slot retail uses. $ra is written as a raw word (sq =
 # 0x7FBF0000 | off, lq = 0x7BBF0000 | off, base $sp), like the retail .s files.
-SQ_RA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sq_ra_funcs.txt")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import targets  # noqa: E402
+
+
+def _sq_ra_file():
+    return targets.get().path("sq_ra_funcs")
+
+
 SAVE_RE = re.compile(r"^(\s*)(sd|sq|ld|lq)\s+\$(1[6-9]|2[0-3]|30|31|fp),\s*(\d+)\(\$sp\)\s*(#.*)?$")
 SAVE_ORDER = [16, 17, 18, 19, 20, 21, 22, 23, 30, 31]
 
 
 def sq_ra_funcs():
     try:
-        with open(SQ_RA_FILE) as f:
+        with open(_sq_ra_file()) as f:
             return {l.split("#")[0].strip() for l in f if l.split("#")[0].strip()}
     except OSError:
         return set()
@@ -151,6 +168,11 @@ def sq_rewrite(lines):
         if m:
             saves.append((i, m.group(2) in ("sd", "sq"), (30 if m.group(3) == "fp" else int(m.group(3))), int(m.group(4)),
                           m.group(1), l[len(body):]))
+    # Only loads that restore a saved (register, slot) pair count as restores;
+    # an incoming stack argument loaded into $s0/$s1 (ld $17, 0x20($sp) in a
+    # leaf such as func_00386D98) is not a restore and is left alone.
+    stored = {(s[2], s[3]) for s in saves if s[1]}
+    saves = [s for s in saves if s[1] or (s[2], s[3]) in stored]
     regs = sorted({s[2] for s in saves}, key=SAVE_ORDER.index)
     offs = sorted({s[3] for s in saves})
     if not regs or len(regs) != len(offs):
@@ -192,13 +214,16 @@ def sq_pass(text):
 # in reorder mode keeps. tools/divs_nops.txt (tools/gen_divs_nops.py) lists, per
 # function, the count in front of each div.s/sqrt.s in order; they go back in as
 # raw .words. A function whose div.s/sqrt.s count differs from the table is left alone.
-DIVS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "divs_nops.txt")
+def _divs_file():
+    return targets.get().path("divs_nops")
+
+
 DIVS_RE = re.compile(r"^\s*(div\.s|sqrt\.s)\s")
 
 
 def divs_table():
     try:
-        with open(DIVS_FILE) as f:
+        with open(_divs_file()) as f:
             rows = [l.split("#")[0].split() for l in f]
     except OSError:
         return {}
@@ -238,6 +263,20 @@ def divs_pass(text):
     return "".join(out)
 
 
+EXTERN_RE = re.compile(r"^\s*\.extern\s+([A-Za-z_.$][\w.$]*)\s*,\s*(\d+|0x[0-9a-fA-F]+)")
+
+
+def small_externs(lines, limit=8):
+    """Symbols declared `.extern SYM, N` with 0 < N <= limit in these lines.
+    A single-pass assembler only knows a symbol is small after its .extern."""
+    out = set()
+    for l in lines:
+        m = EXTERN_RE.match(l)
+        if m and 0 < int(m.group(2), 0) <= limit:
+            out.add(m.group(1))
+    return frozenset(out)
+
+
 def filter_asm(text):
     out, labels, noreorder, app = [], {}, False, False
     text = sq_pass(text)
@@ -272,7 +311,8 @@ def filter_asm(text):
                 except KeyError:
                     bits = None
                 at, mode = labels[target]
-                n = insn_count(out[at + 1:], mode) if bits is not None else None
+                n = (insn_count(out[at + 1:], mode, small_externs(out[:at + 1]))
+                     if bits is not None else None)
                 if n is not None and n + 2 <= 6:
                     ind = bm.group(1)
                     out.append(f"{ind}nop\n" * (4 - n))

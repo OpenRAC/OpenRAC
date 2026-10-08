@@ -1,6 +1,7 @@
 #include "common.h"
 
 /* --- declarations from other files (tools/split_text.py --refresh) --- */
+extern void (*D_001D9AC0[2])(s32);
 extern void (*D_00226880[])(s32);
 extern void (*D_00226C80[])(s32);
 extern void (*D_00226E80[])(s32);
@@ -10,7 +11,37 @@ extern void func_003C8C40(void);
 extern void func_003C8D50(void);
 /* --- end of declarations from other files --- */
 
-INCLUDE_ASM("asm/nonmatchings/text", func_003C8B28);
+/* localdecomp:start func_003C8B28 */
+typedef struct { u8 pad[0x20]; s16 *arr[1]; } S_3C8B28;
+extern S_3C8B28 *D_001DA670_003C8B28;
+extern s32 D_001DA690[2];
+extern void func_00388C10(void *, void *);
+s32 func_003C8B28(s32 idx, s32 n) {
+    f32 v[4] __attribute__((aligned(16)));
+    s16 *p = D_001DA670_003C8B28->arr[idx];
+    if (n > 0) {
+        s32 dx = (u16)p[5], dy = (u16)p[6], dz = (u16)p[7];
+        s32 a, b, c;
+        s32 x = (u16)p[2], y = (u16)p[3], z = (u16)p[4];
+        do {
+            a = x + dx;
+            b = y + dy;
+            c = z + dz;
+            x = a;
+            y = b;
+            z = c;
+        } while (--n);
+        p[4] = c;
+        p[3] = b;
+        p[2] = a;
+    }
+    __asm__ __volatile__("sq $0,0x0(%0)" : : "r"(v));
+    if (p[2] != 0) v[0] = p[2] * 9.58738019107841e-05f;
+    if (p[3] != 0) v[1] = p[3] * 9.58738019107841e-05f;
+    if (p[4] != 0) v[2] = p[4] * 9.58738019107841e-05f;
+    func_00388C10(D_001DA690, v);
+}
+/* localdecomp:end func_003C8B28 */
 
 /* localdecomp:start func_003C8C40 */
 extern s32 func_003C8B28(s32, s32);
@@ -87,7 +118,37 @@ void func_003C8CE0(void) {
 }
 /* localdecomp:end func_003C8CE0 */
 
-INCLUDE_ASM("asm/nonmatchings/text", func_003C8D50);
+/* localdecomp:start func_003C8D50 */
+extern u32 *D_001DA0D0_003C8D50;
+extern u32 *D_001DA680_003C8D50;
+extern u32 *D_001DA684_003C8D50;
+extern s32 D_001D4BB0_003C8D50;
+extern s32 D_001D4BB4_003C8D50;
+__asm__(".extern D_001DA680_003C8D50, 16");
+__asm__(".extern D_001DA0D0_003C8D50, 16");
+__asm__(".extern D_001DA684_003C8D50, 16");
+__asm__(".extern D_001D4BB0_003C8D50, 16");
+__asm__(".extern D_001D4BB4_003C8D50, 16");
+extern void func_0039B2E8();
+extern s32 func_003A40C8();
+void func_003C8D50(void) {
+    D_001DA684_003C8D50 = D_001DA0D0_003C8D50;
+    D_001DA0D0_003C8D50 += 4;
+    D_001DA680_003C8D50[0] = 0x20000000;
+    { u32 *q = D_001DA680_003C8D50; q[1] = (u32)D_001DA0D0_003C8D50; D_001DA680_003C8D50[2] = 0; D_001DA680_003C8D50[3] = 0; func_0039B2E8(q); }
+    func_003A40C8();
+    D_001DA0D0_003C8D50[0] = 0x20000000;
+    D_001DA0D0_003C8D50[1] = (u32)(D_001DA680_003C8D50 + 4);
+    D_001DA0D0_003C8D50[2] = 0;
+    D_001DA0D0_003C8D50[3] = 0;
+    D_001DA0D0_003C8D50 += 4;
+    D_001DA684_003C8D50[0] = 0x20000000;
+    D_001DA684_003C8D50[1] = (u32)D_001DA0D0_003C8D50;
+    D_001DA684_003C8D50[2] = 0;
+    D_001DA684_003C8D50[3] = 0;
+    D_001D4BB0_003C8D50 = D_001D4BB4_003C8D50;
+}
+/* localdecomp:end func_003C8D50 */
 
 LINKER_REMNANT("asm/remnants", func_003C8E68);
 

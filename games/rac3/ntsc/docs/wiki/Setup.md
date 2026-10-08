@@ -1,6 +1,6 @@
 # Setup
 
-You need three things the repo can't ship: the compiler toolchain, the retail `frontbin.elf`, and a few Python packages. Windows is the primary platform. Linux and macOS work through [wibo](https://github.com/decompals/wibo) (see the end of this page).
+You need three things the repo can't ship: the compiler toolchain, the retail `frontbin.elf`, `boot_elf.elf` and `i5bootn.elf`, and a few Python packages. Windows is the primary platform. Linux and macOS work through [wibo](https://github.com/decompals/wibo) (see the end of this page).
 
 ## 1. Toolchain: SN Systems ee-gcc 2.95.3 v1.36
 
@@ -21,6 +21,8 @@ C:\tools\eegcc_2.95.3_sn_v1.36\
 ```
 
 If you install elsewhere, change `TOOLBIN` in the `Makefile` locally (don't commit that change) and pass `--toolbin` to localdecomp.
+
+i5bootn's libgcc (`src/i5bootn/libgcc/`, the `@ee29` ranges) also needs Sony's **ee-gcc 2.9-ee-991111** (Windows build), by default in `C:\tools\testfolder\ee-gcc2.9-991111` (`bin\ee-gcc.exe`, `lib\gcc-lib\ee\2.9-ee-991111\cc1.exe`, `cpp.exe`, `specs`). Elsewhere: `make EE29=...` or the `UYA_EE29` environment variable (see [Toolchain and Build](Toolchain-and-Build), pseudo-flags).
 
 ## 2. Your own frontbin.elf
 
@@ -43,6 +45,21 @@ The game contents can be extracted from your legally obtained ISO using [the fol
 
 `frontbin.elf` is in `.gitignore`. Never force-add it.
 
+### Your own boot_elf.elf
+
+The repo also decompiles `boot_elf.elf`, the game's main executable (the engine core plus a second copy of the front end). It is in the root of the unpacked disc (the same `uya_scus_973_53` folder, next to `files` and `levels`). Put it in the repo root too and check it:
+
+```
+certutil -hashfile boot_elf.elf SHA1        (Windows)
+sha1sum boot_elf.elf                       (Linux/macOS)
+```
+
+It must be `487975305f8a263c750dfede50391b575ed07835`. It is in `.gitignore` as well. See [`docs/boot_elf.md`](https://github.com/OpenRAC/rac3-uya-decomp/blob/main/docs/boot_elf.md) for how it is laid out.
+
+### Your own i5bootn.elf
+
+`i5bootn.elf` is the bootstrap launcher the disc starts first. It is in the unpacked disc's `files` folder. Put it in the repo root and check it the same way: the sha1 must be `71f3ecfc54c3d24d1475ef9efe8228fbfe59d65f`. It is in `.gitignore` too. See [`docs/i5bootn.md`](https://github.com/OpenRAC/rac3-uya-decomp/blob/main/docs/i5bootn.md).
+
 ## 3. Python
 
 - Python 3.9 or newer.
@@ -62,7 +79,16 @@ It runs splat and the assembler fixups, then the same post-processing the projec
 
 You do **not** need `C:\decomp-refs` or `C:\decomp-refs-objdiff` to build or to match functions. Those folders only hold the retail objects that CI and localdecomp's "Full check" use for the objdiff progress report.
 
-If `make` stops with `No rule to make target 'asm/...'`, this step is missing or incomplete.
+Then generate the other executables' asm the same way (it goes to `asm/boot_elf/` and `asm/i5bootn/`, next to frontbin's):
+
+```
+python tools/setup_asm.py --target boot_elf
+python tools/setup_asm.py --target i5bootn
+```
+
+`python tools/setup_asm.py --target all` does all three in one go.
+
+If `make` stops with `No rule to make target 'asm/...'` (or `asm/boot_elf/...`, `asm/i5bootn/...`), this step is missing or incomplete.
 
 ## 5. First build
 
@@ -72,13 +98,17 @@ From the repo root in PowerShell:
 & "C:\tools\eegcc_2.95.3_sn_v1.36\bin\make.exe"
 ```
 
-The last line should be:
+`make` builds every executable. The output should include these three lines, the last one at the end:
 
 ```
 MATCH: build/frontbin.bin sha1 3bc94ee895e4b4af9b5602a229af599c1103b542 (0x218924 bytes)
+MATCH: build/boot_elf/boot_elf.bin sha1 487975305f8a263c750dfede50391b575ed07835 (0x35EE64 bytes)
+MATCH: build/i5bootn/i5bootn.bin sha1 71f3ecfc54c3d24d1475ef9efe8228fbfe59d65f (0xC5B88 bytes)
 ```
 
-If it isn't, check your `frontbin.elf` hash and the toolchain layout before changing anything. If `make` fails right away because an `asm/` file is missing, run step 4 first. After that, the unmodified repo always matches.
+`make check-frontbin`, `make check-boot_elf` and `make check-i5bootn` build just one of them.
+
+If one doesn't match, check that ELF's hash and the toolchain layout before changing anything. If `make` fails right away because an `asm/` file is missing, run step 4 first. After that, the unmodified repo always matches.
 
 ## 6. localdecomp
 
@@ -88,7 +118,7 @@ localdecomp is the project's local, decomp.me-style web editor. It builds one fu
 python localdecomp/server.py --project . --no-git-sync
 ```
 
-Then open http://127.0.0.1:8477. See [Workflow](Workflow) for how to use it.
+Then open http://127.0.0.1:8477. See [Workflow](Workflow) for how to use it. The dropdown at the top of the function list picks the executable (frontbin, boot_elf or i5bootn); an executable whose ELF or `asm/` folder is missing is listed as "not set up".
 
 Options you might need:
 
@@ -98,7 +128,7 @@ Options you might need:
 
 ## 7. Full localdecomp build (optional)
 
-localdecomp's **Full check** button (and CI) compares your build with every retail object in the game, not just `frontbin.elf`: the level overlays, `boot_elf.elf`, `i5bootn.elf`, `ntgui.elf`, `sly2.elf` and frontbin's data. Those reference objects are made from your own copy of the game, so they aren't in the repo. A fresh clone has none, and the Full check stops at "copy reference objects". You do **not** need any of this for `make` or for matching functions in localdecomp; it is only for the full progress report.
+localdecomp's **Full check** button (and CI) compares your build with every retail object in the game, not just the two executables it builds: the level overlays, `i5bootn.elf`, `ntgui.elf`, `sly2.elf` and frontbin's data. Those reference objects are made from your own copy of the game, so they aren't in the repo. A fresh clone has none, and the Full check stops at "copy reference objects". You do **not** need any of this for `make` or for matching functions in localdecomp; it is only for the full progress report.
 
 You need:
 
@@ -139,6 +169,8 @@ The compiler and binutils are Windows executables. [wibo](https://github.com/dec
 
 1. Copy the toolchain folder over with the same layout.
 2. Test a function: `export UYA_TOOLCHAIN=~/sn UYA_RUNNER=~/bin/wibo`, then `python3 tools/try_func.py some.c`.
-3. Full build: `python3 tools/build.py`. It runs the same steps as the Makefile and ends with the same `MATCH` line.
+3. Full build: `python3 tools/build.py --target all` (or one `--target`). It runs the same steps as the Makefile and ends each target with the same `MATCH` line.
+
+wibo occasionally hangs, in Ps2EeAs or in the ee-gcc driver, most often on a busy machine. `try_func.py` and the build have no timeout of their own, so wrap scripted runs in one (`timeout 120 python3 tools/try_func.py ...`) and rerun a build that stops without printing `MATCH` after a clean `rm -rf build`.
 
 localdecomp's `server.py` assumes Windows paths and executables. On Linux, use `tools/try_func.py` for matching.

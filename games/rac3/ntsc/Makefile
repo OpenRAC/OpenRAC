@@ -1,4 +1,10 @@
-# Makefile for frontbin.elf (Ratchet & Clank: Up Your Arsenal, PS2)
+# Makefile for frontbin.elf, boot_elf.elf and i5bootn.elf (Ratchet & Clank: Up
+# Your Arsenal, PS2)
+#
+# `make check` builds every executable and checks each against its retail
+# sha1; `make check-frontbin` / `make check-boot_elf` / `make check-i5bootn`
+# build one. boot_elf's and i5bootn's sections are at the end of this file
+# (docs/boot_elf.md, docs/i5bootn.md).
 #
 # Builds the whole project into a linked ELF via linker_scripts/frontbin.ld,
 # using splat's generated asm/ output for not-yet-decompiled regions and
@@ -13,6 +19,15 @@
 # in particular).
 
 TOOLBIN := C:/tools/eegcc_2.95.3_sn_v1.36/bin
+
+# Sony's ee-gcc 2.9-ee-991111 (the Windows build), for the text_parts.txt
+# ranges marked @ee29: library code that came prebuilt with Sony's compiler
+# (i5bootn's libgcc, see tools/ee29.py and docs/i5bootn.md). Set it with
+# `make EE29=...` or the UYA_EE29 environment variable.
+ifdef UYA_EE29
+EE29 ?= $(UYA_EE29)
+endif
+EE29 ?= C:/tools/testfolder/ee-gcc2.9-991111
 
 CC      := $(TOOLBIN)/ee-gcc2953.exe
 AS      := $(TOOLBIN)/ee-as.exe
@@ -54,7 +69,7 @@ TEXT_PARTS := tools/text_parts.txt
 # .text sources: one C file per original source file, in link order in
 # tools/src_files.txt (see tools/srcfiles.py and tools/build_text.py).
 SRC_FILES := $(wildcard src/frontbin/*.c) tools/src_files.txt
-TEXT_DEPS := $(SRC_FILES) $(TEXT_PARTS) tools/build_text.py tools/srcfiles.py tools/asm_filter.py tools/divs_nops.txt
+TEXT_DEPS := $(SRC_FILES) $(TEXT_PARTS) tools/build_text.py tools/ee29.py tools/srcfiles.py tools/asm_filter.py tools/targets.py tools/divs_nops.txt tools/sq_ra_funcs.txt
 
 # --- data segments: splat's whole-segment disassembly, one .o each -------
 # data is split around the jump-table block (tools/migrate_jtbls.py); text.c.o(.rodata) goes between.
@@ -70,7 +85,7 @@ HEADER_OBJ := $(BUILD_DIR)/asm/header.s.o
 # file in build/src/frontbin/) and links them into one text.c.o.
 TEXT_OBJ := $(BUILD_DIR)/src/text.c.o
 
-.PHONY: all clean check objdiff
+.PHONY: all clean check check-frontbin check-boot_elf check-i5bootn objdiff objdiff-frontbin objdiff-boot_elf objdiff-i5bootn
 all: check
 
 # -I include: every splat-generated .s (data segments, per-function
@@ -94,7 +109,7 @@ $(HEADER_OBJ): asm/header.s
 
 $(TEXT_OBJ): $(TEXT_DEPS)
 	@if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
-	$(PYTHON) tools/build_text.py --cc "$(CC)" --ld "$(LD)" --cflags "$(CFLAGS)" -o "$@"
+	$(PYTHON) tools/build_text.py --cc "$(CC)" --ld "$(LD)" --cflags "$(CFLAGS)" --ee29 "$(EE29)" -o "$@"
 
 $(TARGET): $(HEADER_OBJ) $(DATA_OBJS) $(TEXT_OBJ) $(LD_SCRIPT)
 	@if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
@@ -105,7 +120,9 @@ $(TARGET_BIN): $(TARGET)
 	"$(OBJCOPY)" -O binary "$<" "$@"
 
 # Prints MATCH or the first differing offset; fails the build on a mismatch.
-check: $(TARGET_BIN)
+check: check-frontbin check-boot_elf check-i5bootn
+
+check-frontbin: $(TARGET_BIN)
 	python tools/check_match.py "$(TARGET_BIN)" frontbin.elf frontbin.splat.yaml
 
 clean:
@@ -129,7 +146,9 @@ OBJDIFF_BASE   := $(BUILD_DIR)/objdiff/base/text.o
 OBJDIFF_COMMON := $(BUILD_DIR)/objdiff/base/common.o
 COMMON_DEPS    := $(wildcard src/levels/common/*.c) tools/common_c.json tools/build_common_c.py tools/common_c_base.py
 
-objdiff: check $(OBJDIFF_TARGET) $(OBJDIFF_BASE) $(OBJDIFF_COMMON)
+objdiff: objdiff-frontbin objdiff-boot_elf objdiff-i5bootn
+
+objdiff-frontbin: check-frontbin $(OBJDIFF_TARGET) $(OBJDIFF_BASE) $(OBJDIFF_COMMON)
 
 $(OBJDIFF_TARGET): $(TEXT_OBJ) $(TARGET_BIN)
 	@if not exist "$(subst /,\,$(dir $@))frontbin" mkdir "$(subst /,\,$(dir $@))frontbin"
@@ -138,7 +157,140 @@ $(OBJDIFF_TARGET): $(TEXT_OBJ) $(TARGET_BIN)
 
 $(OBJDIFF_BASE): $(TEXT_DEPS) include/include_asm.h
 	@if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
-	$(PYTHON) tools/build_text.py --base --cc "$(CC)" --ld "$(LD)" --cflags "$(CFLAGS)" -o "$@"
+	$(PYTHON) tools/build_text.py --base --cc "$(CC)" --ld "$(LD)" --cflags "$(CFLAGS)" --ee29 "$(EE29)" -o "$@"
 
 $(OBJDIFF_COMMON): $(COMMON_DEPS)
 	$(PYTHON) tools/common_c_base.py -o "$@"
+
+
+# ===========================================================================
+# boot_elf.elf (docs/boot_elf.md)
+#
+# Two code sections, each built from its own source files into one object:
+# core.text (the engine core, src/boot_elf/core/) and .text (the front end
+# overlay, src/boot_elf/text/, frontbin's code linked at other addresses).
+# Everything else (header, .vutext, the data sections, the trailer with the
+# section headers) is assembled from asm/boot_elf/, which
+# `python tools/setup_asm.py --target boot_elf` writes from boot_elf.elf.
+# Its tables (file list, flags, divs_nops, sq_ra_funcs, symbols) are in
+# targets/boot_elf/. All tools take `--target boot_elf`.
+# ===========================================================================
+
+BOOT_BUILD   := $(BUILD_DIR)/boot_elf
+BOOT_LD      := linker_scripts/boot_elf.ld
+BOOT_TARGET  := $(BOOT_BUILD)/boot_elf.elf
+BOOT_BIN     := $(BOOT_BUILD)/boot_elf.bin
+BOOT_TABLES  := targets/boot_elf/src_files.txt targets/boot_elf/text_parts.txt targets/boot_elf/divs_nops.txt targets/boot_elf/sq_ra_funcs.txt
+BOOT_TOOLS   := tools/build_text.py tools/ee29.py tools/srcfiles.py tools/asm_filter.py tools/targets.py
+BOOT_CORE_DEPS := $(wildcard src/boot_elf/core/*.c) $(BOOT_TABLES) $(BOOT_TOOLS)
+BOOT_TEXT_DEPS := $(wildcard src/boot_elf/text/*.c) $(BOOT_TABLES) $(BOOT_TOOLS)
+BOOT_CORE_OBJ  := $(BOOT_BUILD)/src/core.c.o
+BOOT_TEXT_OBJ  := $(BOOT_BUILD)/src/text.c.o
+
+BOOT_DATA_SEGMENTS := vutext core_data core_rdata core_lit lit data_a data_b lvl_vtbl lvl_camvtbl lvl_sndvtbl patch_data legal_data mc1_data_a mc1_data_b
+BOOT_ASM_OBJS := $(BOOT_BUILD)/asm/boot_elf/header.s.o $(BOOT_BUILD)/asm/boot_elf/trailer.s.o \
+                 $(patsubst %,$(BOOT_BUILD)/asm/boot_elf/data/%.data.s.o,$(BOOT_DATA_SEGMENTS))
+
+$(BOOT_BUILD)/asm/boot_elf/%.s.o: asm/boot_elf/%.s
+	@if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
+	"$(AS)" $(ASFLAGS) -o "$@" "$<"
+
+$(BOOT_CORE_OBJ): $(BOOT_CORE_DEPS)
+	@if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
+	$(PYTHON) tools/build_text.py --target boot_elf --unit core --cc "$(CC)" --ld "$(LD)" --cflags "$(CFLAGS)" --ee29 "$(EE29)" -o "$@"
+
+$(BOOT_TEXT_OBJ): $(BOOT_TEXT_DEPS)
+	@if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
+	$(PYTHON) tools/build_text.py --target boot_elf --unit text --cc "$(CC)" --ld "$(LD)" --cflags "$(CFLAGS)" --ee29 "$(EE29)" -o "$@"
+
+$(BOOT_TARGET): $(BOOT_ASM_OBJS) $(BOOT_CORE_OBJ) $(BOOT_TEXT_OBJ) $(BOOT_LD)
+	"$(LD)" -T "$(BOOT_LD)" -o "$@"
+
+$(BOOT_BIN): $(BOOT_TARGET)
+	"$(OBJCOPY)" -O binary "$<" "$@"
+
+check-boot_elf: $(BOOT_BIN)
+	python tools/check_match.py --target boot_elf "$(BOOT_BIN)" boot_elf.elf boot_elf.splat.yaml
+
+# objdiff: build/objdiff/{target,base}/boot_elf/{core,text}/<file>.o, one unit
+# per source file (tools/gen_objdiff_units.py), the same way as frontbin.
+BOOT_OBJDIFF_CORE_T := $(BUILD_DIR)/objdiff/target/boot_elf/core.o
+BOOT_OBJDIFF_TEXT_T := $(BUILD_DIR)/objdiff/target/boot_elf/text.o
+BOOT_OBJDIFF_CORE_B := $(BUILD_DIR)/objdiff/base/boot_elf/core.o
+BOOT_OBJDIFF_TEXT_B := $(BUILD_DIR)/objdiff/base/boot_elf/text.o
+
+objdiff-boot_elf: check-boot_elf $(BOOT_OBJDIFF_CORE_T) $(BOOT_OBJDIFF_TEXT_T) $(BOOT_OBJDIFF_CORE_B) $(BOOT_OBJDIFF_TEXT_B)
+
+$(BOOT_OBJDIFF_CORE_T): $(BOOT_CORE_OBJ) $(BOOT_BIN)
+	@if not exist "$(subst /,\,$(dir $@))core" mkdir "$(subst /,\,$(dir $@))core"
+	copy /Y "$(subst /,\,$(BOOT_CORE_OBJ))" "$(subst /,\,$@)" >nul
+	copy /Y "$(subst /,\,$(BOOT_BUILD))\src\core\*.o" "$(subst /,\,$(dir $@))core" >nul
+
+$(BOOT_OBJDIFF_TEXT_T): $(BOOT_TEXT_OBJ) $(BOOT_BIN)
+	@if not exist "$(subst /,\,$(dir $@))text" mkdir "$(subst /,\,$(dir $@))text"
+	copy /Y "$(subst /,\,$(BOOT_TEXT_OBJ))" "$(subst /,\,$@)" >nul
+	copy /Y "$(subst /,\,$(BOOT_BUILD))\src\text\*.o" "$(subst /,\,$(dir $@))text" >nul
+
+$(BOOT_OBJDIFF_CORE_B): $(BOOT_CORE_DEPS) include/include_asm.h
+	@if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
+	$(PYTHON) tools/build_text.py --target boot_elf --unit core --base --cc "$(CC)" --ld "$(LD)" --cflags "$(CFLAGS)" --ee29 "$(EE29)" -o "$@"
+
+$(BOOT_OBJDIFF_TEXT_B): $(BOOT_TEXT_DEPS) include/include_asm.h
+	@if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
+	$(PYTHON) tools/build_text.py --target boot_elf --unit text --base --cc "$(CC)" --ld "$(LD)" --cflags "$(CFLAGS)" --ee29 "$(EE29)" -o "$@"
+
+
+# ===========================================================================
+# i5bootn.elf (docs/i5bootn.md)
+#
+# The bootstrap launcher: one code section (.text, src/i5bootn/), its .data and
+# .rodata (mostly the payload it loads), assembled from asm/i5bootn/, which
+# `python tools/setup_asm.py --target i5bootn` writes from i5bootn.elf. Tables
+# in targets/i5bootn/.
+#
+# The flat binary comes from tools/elf2bin.py, not ee-objcopy: SN's objcopy
+# corrupts 21 bytes of this file's section-name table (the ELF it is given is
+# right; see tools/elf2bin.py).
+# ===========================================================================
+
+I5_BUILD   := $(BUILD_DIR)/i5bootn
+I5_LD      := linker_scripts/i5bootn.ld
+I5_TARGET  := $(I5_BUILD)/i5bootn.elf
+I5_BIN     := $(I5_BUILD)/i5bootn.bin
+I5_TABLES  := targets/i5bootn/src_files.txt targets/i5bootn/text_parts.txt targets/i5bootn/divs_nops.txt targets/i5bootn/sq_ra_funcs.txt
+I5_DEPS    := $(wildcard src/i5bootn/*.c) $(wildcard src/i5bootn/libgcc/*.c) $(wildcard src/libgcc/*.h) $(I5_TABLES) tools/build_text.py tools/ee29.py tools/srcfiles.py tools/asm_filter.py tools/targets.py
+I5_TEXT_OBJ := $(I5_BUILD)/src/text.c.o
+I5_ASM_OBJS := $(I5_BUILD)/asm/i5bootn/header.s.o $(I5_BUILD)/asm/i5bootn/trailer.s.o \
+               $(patsubst %,$(I5_BUILD)/asm/i5bootn/data/%.data.s.o,data rodata_a rodata_b)
+
+$(I5_BUILD)/asm/i5bootn/%.s.o: asm/i5bootn/%.s
+	@if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
+	"$(AS)" $(ASFLAGS) -o "$@" "$<"
+
+$(I5_TEXT_OBJ): $(I5_DEPS)
+	@if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
+	$(PYTHON) tools/build_text.py --target i5bootn --cc "$(CC)" --ld "$(LD)" --cflags "$(CFLAGS)" --ee29 "$(EE29)" -o "$@"
+
+$(I5_TARGET): $(I5_ASM_OBJS) $(I5_TEXT_OBJ) $(I5_LD)
+	"$(LD)" -T "$(I5_LD)" -o "$@"
+
+$(I5_BIN): $(I5_TARGET) tools/elf2bin.py
+	$(PYTHON) tools/elf2bin.py "$<" "$@"
+
+check-i5bootn: $(I5_BIN)
+	python tools/check_match.py --target i5bootn "$(I5_BIN)" i5bootn.elf i5bootn.splat.yaml
+
+# objdiff: build/objdiff/{target,base}/i5bootn/<file>.o, one unit per source file
+I5_OBJDIFF_T := $(BUILD_DIR)/objdiff/target/i5bootn.o
+I5_OBJDIFF_B := $(BUILD_DIR)/objdiff/base/i5bootn.o
+
+objdiff-i5bootn: check-i5bootn $(I5_OBJDIFF_T) $(I5_OBJDIFF_B)
+
+$(I5_OBJDIFF_T): $(I5_TEXT_OBJ) $(I5_BIN)
+	@if not exist "$(subst /,\,$(dir $@))i5bootn" mkdir "$(subst /,\,$(dir $@))i5bootn"
+	copy /Y "$(subst /,\,$(I5_TEXT_OBJ))" "$(subst /,\,$@)" >nul
+	copy /Y "$(subst /,\,$(I5_BUILD))\src\i5bootn\*.o" "$(subst /,\,$(dir $@))i5bootn" >nul
+
+$(I5_OBJDIFF_B): $(I5_DEPS) include/include_asm.h
+	@if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
+	$(PYTHON) tools/build_text.py --target i5bootn --base --cc "$(CC)" --ld "$(LD)" --cflags "$(CFLAGS)" --ee29 "$(EE29)" -o "$@"

@@ -1,7 +1,11 @@
 #include "common.h"
 
 /* --- declarations from other files (tools/split_text.py --refresh) --- */
+extern void func_00389158(void *, void *, void *, f32);
 typedef int u128_t __attribute__((mode(TI)));
+extern void func_00388E58(void *, void *);
+extern void func_00388B68();
+extern void func_00388F08();
 /* --- end of declarations from other files --- */
 
 /* localdecomp:start func_00388B40 */
@@ -87,9 +91,9 @@ void func_00388BF0(void) {
 
 ASM_FUNC("asm/handwritten", func_00388C10);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00388E38);
+ASM_FUNC("asm/handwritten", func_00388E38);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00388E58);
+ASM_FUNC("asm/handwritten", func_00388E58);
 
 /* localdecomp:start func_00388E78 */
 void func_00388E78(p, b) u8 *p; void *b; {  /* K&R: later callers pass (M_3BFAF8 *, void *) */

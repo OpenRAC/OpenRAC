@@ -1,11 +1,14 @@
 #include "common.h"
 
 /* --- declarations from other files (tools/split_text.py --refresh) --- */
+extern void (*D_001D9AC0[2])(s32);
 extern void (*D_00226880[])(s32);
 extern void (*D_00226C80[])(s32);
 extern void (*D_00226E80[])(s32);
 extern void (*D_00226A80[])(s32);
 extern s32 func_003AAE00();
+extern void func_003AB7B8();
+extern void func_003AB9A8();
 extern s32 func_003AAB60();
 /* --- end of declarations from other files --- */
 
@@ -278,7 +281,46 @@ void func_003AB180(u8 *o, s32 a, s32 b, s32 c) {
 }
 /* localdecomp:end func_003AB180 */
 
-INCLUDE_ASM("asm/nonmatchings/text", func_003AB220);
+/* localdecomp:start func_003AB220 */
+typedef struct { s32 x0; u8 p4[0x30]; s32 x34; s32 x38; s32 x3C; s32 x40; s32 x44; s32 x48; s32 x4C; s32 x50; s32 x54; s32 x58; } S_3AB220;
+extern u32 func_13D158();
+void func_003AB220(s32 *arg0) {
+    S_3AB220 *o = (S_3AB220 *)arg0;
+    s32 s0, s1, s2, s3;
+    s32 n = 0;
+    s32 base, pos;
+    s32 v, sz, mod, len, rest;
+    s32 t;
+    switch (o->x0) {
+    case 1:
+        s0 = o->x48 + o->x50 % o->x4C;
+        s1 = o->x4C - o->x50;
+        s2 = 0;
+        s3 = 0;
+        break;
+    case 2:
+        t = func_13D158() & 0xFFFFFF;
+        func_003AAEC8(&s0, &s1, &s2, &s3, o, t - o->x48);
+        break;
+    case 3:
+        return;
+    }
+    v = o->x3C;
+    sz = v / 1024 * 1024;
+    mod = (o->x38 - v + o->x40) % o->x40;
+    len = o->x40 - mod;
+    if (sz < len) len = sz;
+    rest = sz - len;
+    base = o->x34;
+    pos = base + mod;
+    if (s1 + s3 >= 0x400 && len + rest >= 0x400) {
+        n = func_003AAF88(o, s0, s1, s2, s3, pos, len, base, rest);
+    }
+    o->x3C -= n;
+    o->x50 += n;
+    o->x58 = (o->x58 + n) % o->x4C;
+}
+/* localdecomp:end func_003AB220 */
 
 INCLUDE_ASM("asm/nonmatchings/text", func_003AB3A8);
 
@@ -287,7 +329,52 @@ s32 func_003AB608(void) {
 }
 /* localdecomp:end func_003AB608 */
 
-INCLUDE_ASM("asm/nonmatchings/text", func_003AB610);
+/* localdecomp:start func_003AB610 */
+extern s32 D_001A1ED4[];
+extern s32 D_001DA140_003AB610[2];
+extern void func_0039C028_003AB610(s32, s32);
+void func_003AB610(unsigned long *p, s32 a1, s32 a2, s32 a3, s32 a4) {
+    s32 i, j;
+    s32 h = a3 >> 4;
+    s32 w = a4 >> 4;
+    p[0] = 0x10000003;
+    p[1] = 0;
+    p[2] = 0x1000000000000002L;
+    p[3] = 0xE;
+    p[4] = (((long)D_001A1ED4[0] >> 8) << 32) | 0x8000000000000L;
+    p[5] = 0x50;
+    p[6] = 0x1000000010L;
+    p[7] = 0x52;
+    p += 8;
+    for (j = 0; j < h; j++) {
+        for (i = 0; i < w; i++) {
+            p[0] = 0x10000004;
+            p[1] = 0;
+            p[2] = 0x1000000000000002L;
+            p[3] = 0xE;
+            p[4] = ((unsigned long)(j << 4) << 32) | ((unsigned long)(i << 4) << 48);
+            p[5] = 0x51;
+            p[6] = 0;
+            p[7] = 0x53;
+            p[8] = 0x800000000000040L;
+            p[9] = 0;
+            ((u32 *)p)[20] = 0x30000040;
+            ((u32 *)p)[21] = a1 & 0xFFFFFFF;
+            p[11] = 0;
+            a1 += 0x400;
+            p += 12;
+        }
+    }
+    {
+    s32 *q = &D_001DA140_003AB610[a2];
+    ((u32 *)p)[0] = 0x20000000;
+    ((u32 *)p)[1] = *q;
+    ((u32 *)p)[2] = 0;
+    ((u32 *)p)[3] = 0;
+    func_0039C028_003AB610((*q & 0xFFFFFFF) | 0x20000000, 1);
+    }
+}
+/* localdecomp:end func_003AB610 */
 
 ASM_FUNC("asm/handwritten", func_003AB7B8);
 

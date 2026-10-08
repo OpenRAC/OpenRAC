@@ -3,8 +3,10 @@
 
     python tools/triage.py                 # summary
     python tools/triage.py --tsv docs/remaining_functions.tsv
+    python tools/triage.py --target boot_elf [--unit core]
+    python tools/triage.py --target all    # every target, one summary each
 
-Reads only the sources in src/frontbin/ and asm/nonmatchings/text/*.s. Each remaining function
+Reads only the target's sources and its asm (tools/targets.py). Each remaining function
 gets one bucket, the first that applies:
 
   remnant      Only [instruction, nop] pairs and no return: the last 8 bytes of
@@ -16,6 +18,13 @@ gets one bucket, the first that applies:
                they no longer show up here.
   odd          No return and not a remnant: probably a bad split. Fix the
                function boundaries before trying C.
+  sibcall      Ends in a sibling call: `j func_...` after the epilogue, with the
+               stack restore in the delay slot or the $ra reload just before.
+               SN ee-gcc 2.95.3 never emits that (it calls with jal and returns),
+               so another compiler built these: in practice Sony's 2.9-ee-991111
+               (library code; docs/compiler_matrix_i5bootn.md), which isn't in the
+               toolchain yet. Seen in boot_elf's engine core and i5bootn;
+               frontbin has none.
   switch       Uses a jump table. Works in C since tools/migrate_jtbls.py;
                delete the INCLUDE_RODATA line(s) with the INCLUDE_ASM.
   vu0          VU0 macro instructions (lqc2, vadd, qmtc2...). Needs inline asm
@@ -32,6 +41,8 @@ declare them sized (`extern f32 D_001D950C;`).
 import argparse, collections, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+import targets  # noqa: E402
 GP = 0x1DC8B0
 LIT_START = 0x1D5680
 VU = re.compile(r"^(v[a-z0-9]+(\.[xyzw]+)?|cop2|lqc2|sqc2|qmtc2.*|qmfc2.*|cfc2.*|ctc2.*|vcallms.*|bc2[ft]l?)$")
@@ -62,7 +73,8 @@ def raw_instruction(word, operands):
 
 
 def classify(name):
-    s = open(os.path.join(ROOT, "asm", "nonmatchings", "text", name + ".s"), errors="ignore").read()
+    unit = targets.get().unit_for(int(name[5:], 16))
+    s = open(os.path.join(ROOT, unit.asm_dir, name + ".s"), errors="ignore").read()
     ins = []
     for line in s.splitlines():
         m = INS.search(line)
@@ -92,8 +104,23 @@ def classify(name):
         return "remnant", size
     if "Handwritten function" in s:
         return "handwritten", size
+    # Two shapes spimdisasm doesn't flag but no compiler produces: the COP0
+    # performance-counter ops (mfpc/mtpc, which it can't decode), and lq/sq with
+    # $at as the data register. Both only occur in the hand-written .s files.
+    for w, o, operands in ins:
+        if (w >> 26) == 0x10 and ((w >> 21) & 31) in (0, 4) and (w & 0x7FF):
+            return "handwritten", size  # mfpc/mtpc: mfc0/mtc0 have the low 11 bits clear
+        if (w >> 26) in (0x1E, 0x1F) and ((w >> 16) & 31) == 1:
+            return "handwritten", size
     if not has_return:
         return "odd", size
+    for k, (w, o, operands) in enumerate(ins):
+        if o == "j" and "func_" in operands:
+            nxt = ins[k + 1] if k + 1 < len(ins) else (0, "", "")
+            delay_restore = nxt[1] == "addiu" and re.match(r"\$sp, \$sp, 0x", nxt[2])
+            ra_reload = any(p[1] in ("ld", "lw", "lq") and p[2].startswith("$31,") for p in ins[max(0, k - 4):k])
+            if delay_restore or ra_reload:
+                return "sibcall", size
     if "jtbl_" in s:
         return "switch", size
     if any(VU.match(o) for o in ops):
@@ -111,19 +138,22 @@ def classify(name):
 
 
 def main():
+    t = targets.from_argv(allow_all=True)   # --target boot_elf
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--tsv", help="write name, address, size, bucket to this file")
+    ap.add_argument("--unit", help="only this code section (boot_elf: core or text)")
     args = ap.parse_args()
-    sys.path.insert(0, os.path.join(ROOT, "tools"))
     import srcfiles
     text = srcfiles.read_all(ROOT)
     names = re.findall(r'INCLUDE_ASM\("[^"]+",\s*(func_[0-9A-Fa-f]{8})\)', text)
+    if args.unit:
+        names = [n for n in names if t.unit(args.unit).contains(int(n[5:], 16))]
     rows = [(n,) + classify(n) for n in names]
     count, size = collections.Counter(), collections.Counter()
     for _, b, sz in rows:
         count[b] += 1
         size[b] += sz
-    order = ["plain", "switch", "vu0", "mmi", "sys", "float-nop", "odd", "handwritten", "remnant"]
+    order = ["plain", "sibcall", "switch", "vu0", "mmi", "sys", "float-nop", "odd", "handwritten", "remnant"]
     print(f"{'bucket':<12}{'functions':>10}{'bytes':>10}")
     for b in order:
         if count[b]:

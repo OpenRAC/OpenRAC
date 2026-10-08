@@ -28,28 +28,28 @@
         "sha1": "601012bb03ef1213ad1253baebae8a071b8a7df7",
         "sha256": "200068cb4186715521cdc1c20bc6c5a88054d0da54aa336ffdb2022633351c7d"
       },
-      "target": "frontbin.elf, the frontend and menu program (SHA-1 3bc94ee895e4b4af9b5602a229af599c1103b542), extracted from the disc with Wrench; level programs and other executables are counted for progress.",
+      "target": "Three programs extracted from the disc with Wrench, each rebuilt byte for byte: frontbin.elf (the frontend and menu program), boot_elf.elf (the main executable) and i5bootn.elf (the launcher); the level programs are counted for progress.",
       "source": {
-        "name": "ratchet-uya-decomp",
-        "repo": "https://github.com/vetusmagnus/ratchet-uya-decomp",
+        "name": "rac3-uya-decomp",
+        "repo": "https://github.com/OpenRAC/rac3-uya-decomp",
         "branch": "main",
         "checkout": "~/Projects/rac3-decomp",
         "license": "GPL-3.0",
         "exclude": [
           "localdecomp/server.py.bak_0926"
         ],
-        "commit": "476c81533d1f0cba57d6f96ceb7e1508851120d8",
-        "date": "2026-10-04",
-        "imported": "2026-10-04"
+        "commit": "bfd8278e8c735d5c095d1f066a6ab7fb87a1a13d",
+        "date": "2026-10-07",
+        "imported": "2026-10-07"
       },
       "build": {
-        "host": "Windows with SN ee-gcc 2.95.3 v1.36; macOS (wibo-macos, natively) and Linux through tools/build.py with wibo",
+        "host": "Windows with SN ee-gcc 2.95.3 v1.36 (and Sony 2.9-ee-991111 for library ranges); macOS (wibo-macos, natively) and Linux through tools/build.py with wibo",
         "readme": "games/rac3/ntsc/README.md"
       },
       "progress": {
         "report": "games/rac3/ntsc/progress_report.json",
         "format": "objdiff",
-        "note": "The committed report is from 2026-10-01; the project's README counts 1,441 of 31,316 functions matched on 2026-10-03. It covers frontbin.elf, plus the level programs and other executables, which are counted but not compiled yet."
+        "note": "The committed report is from 2026-10-01. At bfd8278, tools/pr_check.py --target all counts frontbin 1,800 of 1,867 entries final (1,419 functions in C), boot_elf 2,265 of 2,809 (1,580 in C) and i5bootn 191 of 199 (35 in C); the level programs are counted but not compiled yet."
       },
       "inputs": [
         {

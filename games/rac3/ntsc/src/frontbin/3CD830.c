@@ -1,6 +1,8 @@
 #include "common.h"
 
 /* --- declarations from other files (tools/split_text.py --refresh) --- */
+extern void func_003CD830();
+extern void func_003CE4B4();
 /* --- end of declarations from other files --- */
 
 ASM_FUNC("asm/handwritten", func_003CD830);

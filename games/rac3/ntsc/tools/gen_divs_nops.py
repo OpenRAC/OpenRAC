@@ -14,12 +14,24 @@ decompiled. --all adds every function.
 import glob, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ASM = os.path.join(ROOT, "asm", "nonmatchings", "text")
-OUT = os.path.join(ROOT, "tools", "divs_nops.txt")
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+import targets  # noqa: E402
 
 INSN = re.compile(r"/\*[^*]*\*/\s+([a-z][a-z0-9.]*)\b")
 BRANCH = re.compile(r"^(b|bc1[tf]l?|beq|bne|bgez|bgtz|blez|bltz|beql|bnel|bgezl|bgtzl|blezl|bltzl|bgezal|bltzal|j|jal|jr|jalr)$")
 TARGET = re.compile(r"^(div\.s|sqrt\.s)$")
+
+
+WORD = re.compile(r"/\*\s*[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+([0-9A-Fa-f]{8})\s*\*/")
+
+
+def is_sqrt_s(line):
+    """True if the line's instruction word is COP1 sqrt.s (fmt S, funct 4)."""
+    m = WORD.search(line)
+    if not m:
+        return False
+    w = int.from_bytes(bytes.fromhex(m.group(1)), "little")
+    return (w >> 26) == 0x11 and ((w >> 21) & 0x1F) == 0x10 and (w & 0x3F) == 4
 
 
 def counts(path):
@@ -30,6 +42,8 @@ def counts(path):
         if not m:
             continue
         mn = m.group(1)
+        if mn == "c1" and is_sqrt_s(line):
+            mn = "sqrt.s"  # the disassembler prints the EE's sqrt.s as a raw `c1` word
         if TARGET.match(mn):
             n = 0
             i = len(prev) - 1
@@ -44,11 +58,12 @@ def counts(path):
 
 
 def main():
+    t = targets.from_argv(allow_all=True)   # --target boot_elf: that target's sources and table
+    OUT = t.path("divs_nops")
     allf = "--all" in sys.argv
-    sys.path.insert(0, os.path.join(ROOT, "tools"))
     import srcfiles
     text = srcfiles.read_all(ROOT)
-    todo = set(re.findall(r'INCLUDE_ASM\("asm/nonmatchings/text",\s*(func_[0-9A-Fa-f]+)\)', text))
+    todo = set(re.findall(r'INCLUDE_ASM\("[^"]+",\s*(func_[0-9A-Fa-f]+)\)', text))
     keep = {}
     if os.path.exists(OUT):
         for l in open(OUT):
@@ -56,7 +71,10 @@ def main():
             if l:
                 keep[l.split()[0]] = l
     rows = []
-    for p in sorted(glob.glob(os.path.join(ASM, "func_*.s"))):
+    paths = []
+    for u in t.units:
+        paths += glob.glob(os.path.join(ROOT, u.asm_dir, "func_*.s"))
+    for p in sorted(paths, key=os.path.basename):
         name = os.path.basename(p)[:-2]
         if not allf and name not in todo:
             continue
