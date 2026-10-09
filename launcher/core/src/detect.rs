@@ -141,9 +141,27 @@ fn usual_places(tool: Tool) -> Vec<PathBuf> {
             }
         }
         Tool::Docker if cfg!(target_os = "macos") => places.push("/usr/local/bin/docker".into()),
+        // A desktop app started from the Finder or a menu gets a short PATH:
+        // on macOS it ends at the system's Python, which is too old for the
+        // tools. Homebrew's and a local install's are looked at as well.
+        Tool::Python if !cfg!(windows) => {
+            places.push("/opt/homebrew/bin/python3".into());
+            places.push("/usr/local/bin/python3".into());
+        }
         _ => {}
     }
     places
+}
+
+/// The oldest Python 3 the tools run on: `editor/` and `tools/` use syntax from 3.10.
+pub const PYTHON_MINOR: u32 = 10;
+
+/// Why the Python that answered `--version` with `line` is too old, if it is.
+pub fn python_too_old(line: &str) -> Option<String> {
+    let version = line.trim().strip_prefix("Python 3.")?;
+    let minor: u32 = version.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()?;
+    (minor < PYTHON_MINOR)
+        .then(|| format!("{} is too old: the tools need Python 3.{PYTHON_MINOR} or newer", line.trim()))
 }
 
 pub fn tool_candidates(tool: Tool) -> Vec<Candidate> {
@@ -159,6 +177,12 @@ pub fn tool_candidates(tool: Tool) -> Vec<Candidate> {
                 found.push(Candidate { path, source: "PATH".into() });
             }
         }
+    }
+    // The first candidate is what Settings proposes, so a Python that works
+    // goes before one that is too old. The order is otherwise kept.
+    if tool == Tool::Python {
+        let (good, bad): (Vec<_>, Vec<_>) = found.into_iter().partition(|c| check_tool(tool, &c.path).ok);
+        found = good.into_iter().chain(bad).collect();
     }
     found
 }
@@ -189,7 +213,9 @@ pub fn check_tool(tool: Tool, path: &Path) -> Check {
     match run(cmd, Duration::from_secs(10)) {
         Ok(out) => {
             let line = out.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or("").to_string();
-            if line.contains(expect) {
+            if let Some(why) = (tool == Tool::Python).then(|| python_too_old(&line)).flatten() {
+                Check { ok: false, message: why, version: Some(line) }
+            } else if line.contains(expect) {
                 Check { ok: true, message: line.clone(), version: Some(line) }
             } else {
                 Check { ok: false, message: format!("unexpected answer: {line}"), version: Some(line) }
@@ -294,5 +320,14 @@ mod tests {
         let check = check_tool(Tool::Python, &python.path);
         assert!(check.ok, "{check:?}");
         assert!(!check_tool(Tool::Python, Path::new("/no/such/python")).ok);
+    }
+
+    #[test]
+    fn refuses_a_python_older_than_the_tools_need() {
+        assert!(python_too_old("Python 3.9.6").is_some());
+        assert!(python_too_old("Python 3.10.0").is_none());
+        assert!(python_too_old("Python 3.14.0rc2").is_none());
+        // Not a Python 3 at all: the caller's other check says so.
+        assert!(python_too_old("Python 2.7.18").is_none());
     }
 }
