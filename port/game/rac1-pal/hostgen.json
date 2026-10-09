@@ -1,0 +1,28 @@
+{
+  "id": "rac1-pal",
+  "title": "Ratchet & Clank (PAL)",
+  "game": "rac1",
+  "serial": "SCES_509.16",
+  "source": "games/rac1/pal",
+  "frame_rate": 50,
+  "entry": "func_0012DB18",
+  "sources": [
+    "src"
+  ],
+  "skip": [
+    "src/libgcc"
+  ],
+  "includes": [
+    "include",
+    "src"
+  ],
+  "defines": [],
+  "places": "config/overlays/functions.tsv",
+  "libraries": "libraries.tsv",
+  "overlay_hook": true,
+  "roots": [
+    "func_0012DB18",
+    "func_001EBB48",
+    "func_L00_002465F8"
+  ]
+}

@@ -5,7 +5,7 @@
 #
 #   cmake --preset release && cmake --build --preset release && ctest --preset release
 #
-# The game programs (openrac-rac1, ...) are built from a decompilation's C by
+# The game programs (openrac-rac1-pal, one per port/game/<id>) are built from a decompilation's C by
 # tools/hostgen; they need Clang (to read that C) and Python 3. The programs
 # that open a window need SDL3, found on the system or fetched by CMake.
 cmake_minimum_required(VERSION 3.24)
@@ -32,8 +32,6 @@ endif()
 
 option(OPENRAC_PORT_WINDOW "Build the programs that open a window (needs SDL3)" ON)
 option(OPENRAC_PORT_GAMES "Build the games from their decompilations (needs Clang and Python 3)" ON)
-set(OPENRAC_RAC1_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/../games/rac1/pal" CACHE PATH
-    "The Ratchet & Clank (PAL) decompilation to build: OpenRAC's, or your own checkout of it")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(Warnings)
@@ -67,21 +65,8 @@ if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()
 
-# ---- the games, from their decompilations ----
+# ---- the games, from their decompilations (port/game/*/hostgen.json) ----
 if(OPENRAC_PORT_GAMES)
   include(Games)
-  openrac_add_game(rac1
-    SOURCE "${OPENRAC_RAC1_SOURCE}"
-    CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/game/rac1/hostgen.json"
-    HOST
-      game/rac1/host/boot.c
-      game/rac1/host/cdvd.c
-      game/rac1/host/graph.c
-      game/rac1/host/kernel.c
-      game/rac1/host/libc.c
-      game/rac1/host/mc.c
-      game/rac1/host/pad.c
-      game/rac1/host/snd.c
-      game/rac1/host/vu0.c
-    PROGRAM game/rac1/main.cpp)
+  openrac_add_games()
 endif()

@@ -9,8 +9,8 @@
  * (disc, memory card, pads, sound). */
 #include <stdio.h>
 
-#include "game_protos.h"
-#include "rac1_host.h"
+#include "openrac/game_host.h"
+#include "openrac/game_lib.h"
 
 #define MAX_HANDLERS 8
 
@@ -44,7 +44,7 @@ static int remove_handler(handler* table, int cause, int id) {
 /* The interrupt causes of the console's INTC that the game uses. */
 #define INTC_VBLANK_START 2
 
-void openrac_rac1_run_vsync_handlers(void) {
+void openrac_game_run_vsync_handlers(void) {
     for (int i = 0; i < MAX_HANDLERS; i++) {
         if (intc[i].handler != 0 && intc[i].cause == INTC_VBLANK_START) {
             GFN(int (*)(int), intc[i].handler)(intc[i].cause);
@@ -55,7 +55,7 @@ void openrac_rac1_run_vsync_handlers(void) {
     }
 }
 
-void openrac_rac1_run_dmac_handlers(int channel) {
+void openrac_game_run_dmac_handlers(int channel) {
     for (int i = 0; i < MAX_HANDLERS; i++) {
         if (dmac[i].handler != 0 && dmac[i].cause == channel) {
             GFN(int (*)(int), dmac[i].handler)(channel);
@@ -64,58 +64,58 @@ void openrac_rac1_run_dmac_handlers(int channel) {
 }
 
 /* AddIntcHandler */
-int func_00118A90(int cause, gaddr fn, int next) {
+int openrac_lib_AddIntcHandler(int cause, gaddr fn, int next) {
     return add(intc, cause, fn, next);
 }
 
 /* RemoveIntcHandler */
-int func_00118AA0(int cause, int id) {
+int openrac_lib_RemoveIntcHandler(int cause, int id) {
     return remove_handler(intc, cause, id);
 }
 
 /* AddDmacHandler */
-int func_00118AB0(int channel, gaddr fn, int next) {
+int openrac_lib_AddDmacHandler(int channel, gaddr fn, int next) {
     return add(dmac, channel, fn, next);
 }
 
 /* RemoveDmacHandler */
-int func_00118AD0(int channel, int id) {
+int openrac_lib_RemoveDmacHandler(int channel, int id) {
     return remove_handler(dmac, channel, id);
 }
 
 /* sceGsSyncVCallback: the previous callback is returned. */
-gaddr func_00123168(gaddr fn) {
+gaddr openrac_lib_sceGsSyncVCallback(gaddr fn) {
     gaddr old = vsync_callback;
     vsync_callback = fn;
     return old;
 }
 
 /* Interrupt and DMA controller masks: nothing to mask. */
-int func_00119328(int cause) {
+int openrac_lib_EnableIntc(int cause) {
     (void)cause;
     return 0;
 } /* EnableIntc */
 
-int func_00119390(int cause) {
+int openrac_lib_DisableIntc(int cause) {
     (void)cause;
     return 0;
 } /* DisableIntc */
 
-int func_001193F8(int channel) {
+int openrac_lib_DisableDmac(int channel) {
     (void)channel;
     return 0;
 } /* DisableDmac */
 
-int func_00119460(int channel) {
+int openrac_lib_EnableDmac(int channel) {
     (void)channel;
     return 0;
 } /* EnableDmac */
 
-int func_0011D960(void) {
+int openrac_lib_DIntr(void) {
     return 1;
 } /* DIntr */
 
-int func_0011D9A8(void) {
+int openrac_lib_EIntr(void) {
     return 1;
 } /* EIntr */
 
@@ -123,39 +123,39 @@ int func_0011D9A8(void) {
  * whole (libraries.tsv, libmpeg). They are given ids and never run. */
 static int next_thread = 2;
 
-int func_00118B50(gaddr param) {
+int openrac_lib_CreateThread(gaddr param) {
     (void)param;
     return next_thread++;
 } /* CreateThread */
 
-int func_00118B60(int id) {
+int openrac_lib_DeleteThread(int id) {
     (void)id;
     return 0;
 } /* DeleteThread */
 
-int func_00118B70(int id, gaddr arg) { /* StartThread */
+int openrac_lib_StartThread(int id, gaddr arg) { /* StartThread */
     (void)id;
     (void)arg;
     openrac_guest_missing("StartThread (threads do not run in the port)");
     return 0;
 }
 
-int func_00118B80(int id) {
+int openrac_lib_TerminateThread(int id) {
     (void)id;
     return 0;
 } /* TerminateThread */
 
-int func_00118BA0(int id, int priority) {
+int openrac_lib_ChangeThreadPriority(int id, int priority) {
     (void)id;
     return priority;
 } /* ChangeThreadPriority */
 
-int func_00118BC0(int priority) {
+int openrac_lib_RotateThreadReadyQueue(int priority) {
     (void)priority;
     return 0;
 } /* RotateThreadReadyQueue */
 
-int func_00118BE0(void) {
+int openrac_lib_GetThreadId(void) {
     return 1;
 } /* GetThreadId */
 
@@ -164,7 +164,7 @@ int func_00118BE0(void) {
 static int semas[MAX_SEMAS];
 static int sema_used[MAX_SEMAS];
 
-int func_00118C70(gaddr params) { /* CreateSema: {count, max_count, init_count, ...} */
+int openrac_lib_CreateSema(gaddr params) { /* CreateSema: {count, max_count, init_count, ...} */
     for (int i = 0; i < MAX_SEMAS; i++) {
         if (!sema_used[i]) {
             sema_used[i] = 1;
@@ -175,21 +175,21 @@ int func_00118C70(gaddr params) { /* CreateSema: {count, max_count, init_count, 
     return -1;
 }
 
-int func_00118C80(int id) { /* DeleteSema */
+int openrac_lib_DeleteSema(int id) { /* DeleteSema */
     if (id >= 1 && id <= MAX_SEMAS) {
         sema_used[id - 1] = 0;
     }
     return id;
 }
 
-int func_00118C90(int id) { /* SignalSema */
+int openrac_lib_SignalSema(int id) { /* SignalSema */
     if (id >= 1 && id <= MAX_SEMAS) {
         semas[id - 1]++;
     }
     return id;
 }
 
-int func_00118CB0(int id) { /* WaitSema */
+int openrac_lib_WaitSema(int id) { /* WaitSema */
     if (id >= 1 && id <= MAX_SEMAS && semas[id - 1] > 0) {
         semas[id - 1]--;
     }
@@ -197,41 +197,41 @@ int func_00118CB0(int id) { /* WaitSema */
 }
 
 /* Caches: nothing to flush. */
-int func_00118D60(int which) {
+int openrac_lib_EnableCache(int which) {
     (void)which;
     return 0;
 } /* EnableCache */
 
-void func_00118D80(int which) {
+void openrac_lib_FlushCache(int which) {
     (void)which;
 } /* FlushCache */
 
 /* The IOP: no second processor. Transfers to it complete at once, its RPC
  * servers are bound and answer, its heap hands out addresses that are never
  * used, modules load. */
-int func_00118E10(unsigned int id) {
+int openrac_lib_sceSifDmaStat(unsigned int id) {
     (void)id;
     return -1;
 } /* sceSifDmaStat: done */
 
-unsigned int func_00118E20(gaddr transfers, int count) { /* sceSifSetDma */
+unsigned int openrac_lib_sceSifSetDma(gaddr transfers, int count) { /* sceSifSetDma */
     (void)transfers;
     (void)count;
     return 1;
 }
 
-void func_0011AE20(int mode) {
+void openrac_lib_sceSifInitRpc(int mode) {
     (void)mode;
 } /* sceSifInitRpc */
 
-int func_0011B2F8(gaddr client, unsigned int number, int mode) { /* sceSifBindRpc */
+int openrac_lib_sceSifBindRpc(gaddr client, unsigned int number, int mode) { /* sceSifBindRpc */
     (void)client;
     (void)number;
     (void)mode;
     return 0;
 }
 
-int func_0011B4C8(
+int openrac_lib_sceSifCallRpc(
     gaddr client,
     int number,
     int mode,
@@ -254,73 +254,75 @@ int func_0011B4C8(
     return 0;
 }
 
-int func_0011B6B8(gaddr client) {
+int openrac_lib_sceSifCheckStatRpc(gaddr client) {
     (void)client;
     return 0;
 } /* sceSifCheckStatRpc: idle */
 
-int func_0011CB40(void) {
+int openrac_lib_sceSifInitIopHeap(void) {
     return 0;
 } /* sceSifInitIopHeap */
 
-int func_0011CBC8(int size) {
+int openrac_lib_sceSifAllocIopHeap(int size) {
     (void)size;
     return 0x00100000;
 } /* sceSifAllocIopHeap */
 
-int func_0011CCB0(int at) {
+int openrac_lib_sceSifFreeIopHeap(int at) {
     (void)at;
     return 0;
 } /* sceSifFreeIopHeap */
 
-int func_0011D078(gaddr module, int size, gaddr args) { /* sceSifLoadModuleBuffer */
+int openrac_lib_sceSifLoadModuleBuffer(
+    gaddr module, int size, gaddr args
+) { /* sceSifLoadModuleBuffer */
     (void)module;
     (void)size;
     (void)args;
     return 1;
 }
 
-int func_0011D210(void) {
+int openrac_lib_sceSifSyncIop(void) {
     return 1;
 } /* sceSifSyncIop */
 
-int func_0011D248(gaddr image) {
+int openrac_lib_sceSifRebootIop(gaddr image) {
     (void)image;
     return 1;
 } /* sceSifRebootIop */
 
 /* fileio: the game reads no asset this way (debug output and rom0: settings
  * only). Writes to the console's terminal go to the log. */
-int func_0011BF48(void) {
+int openrac_lib_sceFsReset(void) {
     return 0;
 } /* sceFsReset */
 
-int func_0011BF80(gaddr name, int flags, ...) { /* sceOpen */
+int openrac_lib_sceOpen(gaddr name, int flags, ...) { /* sceOpen */
     (void)flags;
     fprintf(stderr, "[game] sceOpen(\"%s\"): no files in the port\n", (const char*)G(name));
     return -1;
 }
 
-int func_0011C208(int fd) {
+int openrac_lib_sceClose(int fd) {
     (void)fd;
     return 0;
 } /* sceClose */
 
-int func_0011C388(int fd, int offset, int whence) { /* sceLseek */
+int openrac_lib_sceLseek(int fd, int offset, int whence) { /* sceLseek */
     (void)fd;
     (void)offset;
     (void)whence;
     return -1;
 }
 
-int func_0011C5C0(int fd, gaddr buf, int size) { /* sceRead */
+int openrac_lib_sceRead(int fd, gaddr buf, int size) { /* sceRead */
     (void)fd;
     (void)buf;
     (void)size;
     return -1;
 }
 
-int func_0011C820(int fd, gaddr buf, int size) { /* sceWrite */
+int openrac_lib_sceWrite(int fd, gaddr buf, int size) { /* sceWrite */
     if (fd == 1 || fd == 2) {
         fprintf(stderr, "[game] %.*s", size, (const char*)G(buf));
         return size;
@@ -329,10 +331,11 @@ int func_0011C820(int fd, gaddr buf, int size) { /* sceWrite */
 }
 
 /* The scf library: the console's system settings. */
-int func_0012D380(void) { /* sceScfGetLanguage */
-    return openrac_rac1_language;
+int openrac_lib_sceScfGetLanguage(void) { /* sceScfGetLanguage */
+    return openrac_game_language;
 }
 
-void func_0012D818(gaddr clock) { /* sceScfGetLocalTimefromRTC: the clock is local already */
+void openrac_lib_sceScfGetLocalTimefromRTC(gaddr clock
+) { /* sceScfGetLocalTimefromRTC: the clock is local already */
     (void)clock;
 }

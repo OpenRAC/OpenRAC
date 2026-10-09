@@ -11,8 +11,8 @@
  * tests should pin once a level loads. */
 #include <math.h>
 
-#include "game_protos.h"
-#include "rac1_host.h"
+#include "openrac/game_host.h"
+#include "openrac/game_lib.h"
 
 static void rotate(gaddr out, gaddr in, int axis, float angle) {
     const float c = cosf(angle), s = sinf(angle);
@@ -33,14 +33,14 @@ static void rotate(gaddr out, gaddr in, int axis, float angle) {
     memcpy(G(out), result, sizeof result);
 }
 
-void func_001253F8(gaddr m0, gaddr m1, float rz) {
+void openrac_lib_sceVu0RotMatrixZ(gaddr m0, gaddr m1, float rz) {
     rotate(m0, m1, 2, rz);
 } /* sceVu0RotMatrixZ */
 
-void func_001254A0(gaddr m0, gaddr m1, float rx) {
+void openrac_lib_sceVu0RotMatrixX(gaddr m0, gaddr m1, float rx) {
     rotate(m0, m1, 0, rx);
 } /* sceVu0RotMatrixX */
 
-void func_00125548(gaddr m0, gaddr m1, float ry) {
+void openrac_lib_sceVu0RotMatrixY(gaddr m0, gaddr m1, float ry) {
     rotate(m0, m1, 1, ry);
 } /* sceVu0RotMatrixY */

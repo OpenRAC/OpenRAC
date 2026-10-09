@@ -4,14 +4,14 @@
  * The disc library (libcdvd). The game reads its data by absolute sector
  * from the disc (docs/port/RAC1_PAL_SURVEY.md, section 6), so the port reads
  * the same sectors from the player's disc image that the extractor kept
- * (iso_data/rac1/disc.iso). A read completes before the call returns, so the
+ * (iso_data/<game>/disc.iso). A read completes before the call returns, so the
  * game's polling (sceCdSync) finds it done. */
 #define _FILE_OFFSET_BITS 64
 #include <stdio.h>
 #include <time.h>
 
-#include "game_protos.h"
-#include "rac1_host.h"
+#include "openrac/game_host.h"
+#include "openrac/game_lib.h"
 
 #define SECTOR 2048
 
@@ -19,35 +19,35 @@ static FILE* disc;
 static int last_error;
 
 static FILE* open_disc(void) {
-    if (disc == NULL && openrac_rac1_disc_image != NULL) {
-        disc = fopen(openrac_rac1_disc_image, "rb");
+    if (disc == NULL && openrac_game_disc_image != NULL) {
+        disc = fopen(openrac_game_disc_image, "rb");
         if (disc == NULL) {
-            fprintf(stderr, "[error] cannot open the disc image %s\n", openrac_rac1_disc_image);
+            fprintf(stderr, "[error] cannot open the disc image %s\n", openrac_game_disc_image);
         }
     }
     return disc;
 }
 
 /* sceCdInit */
-int func_001211B0(int mode) {
+int openrac_lib_sceCdInit(int mode) {
     (void)mode;
     return open_disc() != NULL;
 }
 
 /* sceCdDiskReady: 2 is "ready". */
-int func_00121490(int mode) {
+int openrac_lib_sceCdDiskReady(int mode) {
     (void)mode;
     return open_disc() != NULL ? 2 : 6;
 }
 
 /* sceCdMmode: the media type (DVD); nothing to set. */
-int func_00121688(int media) {
+int openrac_lib_sceCdMmode(int media) {
     (void)media;
     return 1;
 }
 
 /* sceCdRead(sector, count, buffer, mode) */
-int func_00121750(unsigned int sector, unsigned int count, gaddr buffer, gaddr mode) {
+int openrac_lib_sceCdRead(unsigned int sector, unsigned int count, gaddr buffer, gaddr mode) {
     (void)mode;
     FILE* f = open_disc();
     if (f == NULL) {
@@ -65,18 +65,18 @@ int func_00121750(unsigned int sector, unsigned int count, gaddr buffer, gaddr m
 }
 
 /* sceCdSync: 0 is "done" (every read is). */
-int func_00120F30(int mode) {
+int openrac_lib_sceCdSync(int mode) {
     (void)mode;
     return 0;
 }
 
 /* sceCdGetError */
-int func_00121930(void) {
+int openrac_lib_sceCdGetError(void) {
     return last_error;
 }
 
 /* sceCdBreak */
-int func_001219C8(void) {
+int openrac_lib_sceCdBreak(void) {
     return 1;
 }
 
@@ -86,7 +86,7 @@ static uint8_t bcd(int v) {
 
 /* sceCdReadClock: the console's clock, in BCD: status, second, minute, hour,
  * a pad byte, day, month, year (two digits). */
-int func_00121A80(gaddr clock) {
+int openrac_lib_sceCdReadClock(gaddr clock) {
     time_t now = time(NULL);
     struct tm local;
 #if defined(_WIN32)

@@ -9,8 +9,8 @@
  * each followed by its register address where the structure is a GIF
  * packet), so code that changes one field directly still works. The port
  * decodes them; it never sends them anywhere. */
-#include "game_protos.h"
-#include "rac1_host.h"
+#include "openrac/game_host.h"
+#include "openrac/game_lib.h"
 
 /* GS register values, built from their fields. */
 static uint64_t bits(uint64_t v, int at, int width) {
@@ -18,14 +18,14 @@ static uint64_t bits(uint64_t v, int at, int width) {
 }
 
 /* sceGsResetGraph(mode, interlace, video mode, field mode) */
-void func_00121B78(short mode, short interlace, short video, short field) {
+void openrac_lib_sceGsResetGraph(short mode, short interlace, short video, short field) {
     (void)mode;
-    openrac_rac1_set_video_mode(interlace, video, field);
+    openrac_game_set_video_mode(interlace, video, field);
 }
 
 /* sceGsSetDefDispEnv(disp, psm, width, height, dx, dy): the display
  * environment is {PMODE, SMODE2, DISPFB, DISPLAY, BGCOLOR}, 64 bits each. */
-void func_00121DC8(gaddr disp, short psm, short w, short h, short dx, short dy) {
+void openrac_lib_sceGsSetDefDispEnv(gaddr disp, short psm, short w, short h, short dx, short dy) {
     uint64_t* d = (uint64_t*)G(disp);
     const int magh = 2560 / (w > 0 ? w : 640) - 1; /* the console's horizontal clock divider */
     d[0] = bits(1, 0, 1) | bits(1, 5, 1) | bits(0xFF, 8, 8); /* PMODE: circuit 1, fixed alpha */
@@ -39,11 +39,11 @@ void func_00121DC8(gaddr disp, short psm, short w, short h, short dx, short dy) 
 }
 
 /* sceGsPutDispEnv: the frame buffer to show. */
-void func_00122140(gaddr disp) {
+void openrac_lib_sceGsPutDispEnv(gaddr disp) {
     const uint64_t* d = (const uint64_t*)G(disp);
     const uint64_t dispfb = d[2], display = d[3];
     const int magh = (int)((display >> 23) & 0xF) + 1;
-    openrac_rac1_display out;
+    openrac_game_display out;
     out.frame_base = (int)(dispfb & 0x1FF);
     out.frame_width = (int)((dispfb >> 9) & 0x3F);
     out.psm = (int)((dispfb >> 15) & 0x1F);
@@ -51,29 +51,29 @@ void func_00122140(gaddr disp) {
     out.height = (int)((display >> 44) & 0x7FF) + 1;
     out.x = (int)(dispfb >> 32 & 0x7FF);
     out.y = (int)(dispfb >> 43 & 0x7FF);
-    openrac_rac1_set_display(&out);
+    openrac_game_set_display(&out);
 }
 
 /* sceGsPutDrawEnv: the drawing environment is a GIF packet of register
  * writes; the renderer takes the same writes from the display list, so
  * there is nothing more to do here. */
-int func_001224B0(gaddr draw) {
+int openrac_lib_sceGsPutDrawEnv(gaddr draw) {
     (void)draw;
     return 0;
 }
 
 /* sceGsSyncV: the end of a frame. */
-int func_00122598(int mode) {
+int openrac_lib_sceGsSyncV(int mode) {
     (void)mode;
-    const int field = openrac_rac1_vsync();
-    openrac_rac1_run_vsync_handlers();
+    const int field = openrac_game_vsync();
+    openrac_game_run_vsync_handlers();
     return field;
 }
 
 /* sceGsResetPath, sceGsSyncPath: nothing is in flight. */
-void func_001207B8(void) {}
+void openrac_lib_sceGsResetPath(void) {}
 
-int func_00120858(int mode, unsigned short timeout) {
+int openrac_lib_sceGsSyncPath(int mode, unsigned short timeout) {
     (void)mode;
     (void)timeout;
     return 0;
@@ -118,23 +118,23 @@ static void set_transfer(
 }
 
 /* sceGsSetDefLoadImage(transfer, base, width, psm, x, y, w, h) */
-void func_00122630(
+void openrac_lib_sceGsSetDefLoadImage(
     gaddr transfer, short base, short width, short psm, short x, short y, short w, short h
 ) {
     set_transfer(transfer, 0, base, width, psm, x, y, w, h);
 }
 
 /* sceGsSetDefStoreImage(transfer, base, width, psm, x, y, w, h) */
-void func_00122818(
+void openrac_lib_sceGsSetDefStoreImage(
     gaddr transfer, short base, short width, short psm, short x, short y, short w, short h
 ) {
     set_transfer(transfer, 1, base, width, psm, x, y, w, h);
 }
 
 /* sceGsExecLoadImage(transfer, pixels): to the renderer's textures. */
-int func_00122958(gaddr transfer, gaddr pixels) {
+int openrac_lib_sceGsExecLoadImage(gaddr transfer, gaddr pixels) {
     const image_transfer* t = (const image_transfer*)G(transfer);
-    openrac_rac1_image image;
+    openrac_game_image image;
     image.base = (int)((t->bitbltbuf >> 32) & 0x3FFF);
     image.width_units = (int)((t->bitbltbuf >> 48) & 0x3F);
     image.psm = (int)((t->bitbltbuf >> 56) & 0x3F);
@@ -143,14 +143,14 @@ int func_00122958(gaddr transfer, gaddr pixels) {
     image.width = (int)(t->trxreg & 0xFFF);
     image.height = (int)((t->trxreg >> 32) & 0xFFF);
     image.pixels = pixels;
-    openrac_rac1_load_image(&image);
+    openrac_game_load_image(&image);
     return 0;
 }
 
 /* sceGsExecStoreImage(transfer, destination): reading the GS's memory back.
  * The renderer does not keep GS memory; what the game reads back (a
  * screenshot for a save, render to texture) is to be answered by it. */
-int func_00122AD8(gaddr transfer, gaddr destination) {
+int openrac_lib_sceGsExecStoreImage(gaddr transfer, gaddr destination) {
     (void)transfer;
     (void)destination;
     openrac_guest_missing("sceGsExecStoreImage (readback from the renderer)");
@@ -158,7 +158,7 @@ int func_00122AD8(gaddr transfer, gaddr destination) {
 }
 
 /* sceDmaReset */
-int func_00123308(int mode) {
+int openrac_lib_sceDmaReset(int mode) {
     (void)mode;
     return 0;
 }
@@ -166,9 +166,9 @@ int func_00123308(int mode) {
 /* sceDmaSend(channel, chain): the hand-off to the renderer. The chain is
  * read as data; the channel's completion handlers run as if it had been
  * sent. */
-void func_001235C8(gaddr channel, gaddr tag) {
-    openrac_rac1_dma_send(channel, tag);
+void openrac_lib_sceDmaSend(gaddr channel, gaddr tag) {
+    openrac_game_dma_send(channel, tag);
     /* The DMAC channel number from its register block: 0x10008000 is VIF0
      * (0), 0x10009000 VIF1 (1), 0x1000A000 GIF (2), and so on. */
-    openrac_rac1_run_dmac_handlers((int)((channel >> 12) & 0xF) - 8);
+    openrac_game_run_dmac_handlers((int)((channel >> 12) & 0xF) - 8);
 }

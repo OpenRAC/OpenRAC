@@ -60,6 +60,7 @@ def base_flags(includes: list[Path], defines: list[str]) -> list[str]:
     ] + RELAXED
     for inc in includes:
         flags += ["-I", str(inc)]
+    flags += ["-include", "openrac_hostgen.h"]
     for d in defines:
         flags.append(f"-D{d}")
     return flags
@@ -85,6 +86,16 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
       exactly that declaration and f's symbol (an asm label), declared at
       the start of the function that makes the call; f's own declaration
       and definition stay as they are.
+    - An inline assembly statement whose constraints or registers Clang
+      does not know: replaced by a call to openrac_hostgen_asm() (on the
+      same lines), so the function becomes a stub that says why.
+    - "conflicting types for 'f'" after an earlier declaration or definition
+      of f: the later declaration, and the calls after it, use an alias of
+      f's symbol.
+    - An asm label Clang refuses (given after the function's first use, or
+      a second spelling of one already given): removed from that
+      declaration, and the name recorded as an alias of the label's symbol
+      ("alias NAME SYMBOL" in the fixes), which hostgen follows.
     - "too few arguments to function call": a call to a K&R function with
       fewer arguments than its definition. The missing ones are passed as 0
       (on the console they were whatever the registers held).
@@ -106,7 +117,23 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
         if m:
             name = m.group(1)
             note = diags[k + 1] if k + 1 < len(diags) else None
-            if note is None or note["kind"] != "note" or "implicit declaration" not in note["msg"]:
+            if note is None or note["kind"] != "note":
+                continue
+            if note["msg"].startswith(("previous definition is here", "previous declaration is here")):
+                # A later declaration that contradicts an earlier one: it and the
+                # calls after it use an alias of the same symbol (hostgen matches
+                # every call to the definition's parameters anyway).
+                alias = f"{name}__openrac_decl_{line + 1}"
+                decl = re.sub(rf"\b{name}\b", alias, lines[line], count=1)
+                decl, n = re.subn(r"\)\s*;", f') __asm__("{name}");', decl, count=1)
+                if n == 0:
+                    continue
+                lines[line] = decl
+                for j in range(line + 1, len(lines)):
+                    lines[j] = re.sub(rf"\b{name}\b", alias, lines[j])
+                fixes.append(f"line {line + 1}: a second declaration of {name} that contradicts the first, kept apart")
+                continue
+            if "implicit declaration" not in note["msg"]:
                 continue
             use, use_col = int(note["line"]) - 1, int(note["col"]) - 1
             src = lines[use]
@@ -119,6 +146,22 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
             at = _function_start(lines, code_lines, use)
             inserts.setdefault(at, []).append(f'int {alias}() __asm__("{name}");')
             fixes.append(f"line {use + 1}: {name} called before its declaration, as int {name}()")
+            continue
+        if msg.startswith(("cannot apply asm label to function after its first use", "conflicting asm label")):
+            src = lines[line]
+            lm = re.search(r"\b(\w+)\s*\(([^;]*)\)\s*(__asm__|asm)\s*\(\s*\"([^\"]+)\"\s*\)", src)
+            if lm:
+                lines[line] = src[:lm.start(3)] + " " * (lm.end() - lm.start(3)) + src[lm.end():]
+                if msg.startswith("cannot apply"):
+                    fixes.append(f"alias {lm.group(1)} {lm.group(4)}")
+                else:
+                    fixes.append(f"line {line + 1}: second asm label {lm.group(4)} for {lm.group(1)} removed")
+            continue
+        if re.match(r"(invalid (output|input) constraint|unknown register name|invalid operand in inline asm"
+                    r"|couldn't allocate .* inline asm)", msg):
+            replaced = _replace_asm(lines, line, col)
+            if replaced:
+                fixes.append(f"line {line + 1}: inline assembly Clang cannot read, made a stub")
             continue
         m = re.match(r"too few arguments to function call, expected (\d+), have (\d+)", msg)
         if m:
@@ -133,6 +176,45 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
     for at, decls in inserts.items():
         lines[at] = " ".join(dict.fromkeys(decls)) + " " + lines[at]
     return "\n".join(lines), fixes
+
+
+def _replace_asm(lines: list[str], line: int, col: int) -> bool:
+    """Replaces the asm statement around (line, col) with openrac_hostgen_asm();
+    keeping every line break."""
+    text = "\n".join(lines)
+    offsets = [0]
+    for ln in lines:
+        offsets.append(offsets[-1] + len(ln) + 1)
+    at = offsets[line] + col
+    starts = [m.start() for m in re.finditer(r"\b(?:__asm__|__asm|asm)\b", text[:at])]
+    if not starts:
+        return False
+    start = starts[-1]
+    j = text.find("(", start)
+    depth = 0
+    end = None
+    while 0 <= j < len(text):
+        ch = text[j]
+        if ch == '"':
+            j += 1
+            while j < len(text) and text[j] != '"':
+                j += 2 if text[j] == "\\" else 1
+        elif ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                end = text.find(";", j)
+                break
+        j += 1
+    if end is None or end < 0:
+        return False
+    stmt = text[start:end + 1]
+    call = "openrac_hostgen_asm();"
+    blank = "".join("\n" if ch == "\n" else " " for ch in stmt[len(call):])
+    new = text[:start] + call + blank + text[end + 1:]
+    lines[:] = new.split("\n")
+    return True
 
 
 def _lines_outside_comments(text: str) -> set[int]:

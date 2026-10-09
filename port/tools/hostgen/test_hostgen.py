@@ -58,8 +58,13 @@ def have_compiler() -> bool:
 
 @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
 class Translate(unittest.TestCase):
-    def run_program(self, files: dict[str, str], places: str = "") -> list[str]:
-        """Translates, builds and runs files (name -> C); returns the printed lines."""
+    def run_program(self, files: dict[str, str], places: str = "", config: dict | None = None,
+                    extra_files: dict[str, str] | None = None, host_c: str = "",
+                    stubs: int = 0) -> list[str]:
+        """Translates, builds and runs files (name -> C); returns the printed lines.
+        config adds to hostgen.json; extra_files are written beside it (tables);
+        host_c is linked in (the port's own C); stubs is how many functions are
+        expected to become stubs."""
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             src = tmp / "game"
@@ -74,15 +79,23 @@ class Translate(unittest.TestCase):
             if places:
                 (src / "functions.tsv").write_text(places)
                 cfg["places"] = "functions.tsv"
+            cfg.update(config or {})
+            for name, text in (extra_files or {}).items():
+                (tmp / name).parent.mkdir(parents=True, exist_ok=True)
+                (tmp / name).write_text(text)
             (tmp / "hostgen.json").write_text(json.dumps(cfg))
             out = tmp / "gen"
             rc = hostgen.main(["--game", str(tmp / "hostgen.json"), "--source", str(src), "--out", str(out),
                                "--jobs", "2", "--quiet"])
             self.assertEqual(rc, 0)
             report = json.loads((out / "report.json").read_text())
-            self.assertEqual(report["functions_stubbed"], 0, report["stubbed"])
+            self.last_report = report
+            self.assertEqual(report["functions_stubbed"], stubs, report["stubbed"])
             sources = [out / u.strip() for u in (out / "units.txt").read_text().splitlines()]
-            sources += [out / "stubs.c", out / "functions.c", HERE / "tests" / "harness.c"]
+            sources += [out / "stubs.c", out / "functions.c", out / "libraries.c", HERE / "tests" / "harness.c"]
+            if host_c:
+                (tmp / "host.c").write_text('#include "openrac/guest.h"\n' + textwrap.dedent(host_c))
+                sources.append(tmp / "host.c")
             exe = tmp / "prog"
             build = subprocess.run(
                 ["clang", "-std=gnu11", "-O1", "-w", "-fno-strict-aliasing", "-fwrapv", "-fsigned-char",
@@ -269,6 +282,94 @@ class Translate(unittest.TestCase):
         self.assertEqual(out, ["missing", "func_00120000", "0"])
 
 
+    def test_a_games_own_names_and_symbols(self):
+        # Going Commando names code LVL_<n>_<LEVEL>_FUN_<address>; a symbol
+        # file gives named globals their addresses.
+        out = self.run_program({"a.c": """
+            int LVL_3_ENDAKO_FUN_00300000(int x) { return x + 3; }
+            int BOOT_FUN_00110000(int x) { return x * 2; }
+            typedef int (*Fn)(int);
+            extern Fn gTable[2];
+            int test_main(void) {
+                gTable[0] = BOOT_FUN_00110000;
+                test_print((int)gTable[0] - 0x110000);
+                test_print(gTable[0](21));
+                return 0;
+            }
+        """}, config={
+            "names": {"code": ["^LVL_(?P<overlay>\\d+)_\\w+?_FUN_(?P<addr>[0-9A-Fa-f]{8})$",
+                               "^(?:\\w+?_)?FUN_(?P<addr>[0-9A-Fa-f]{8})$"]},
+            "symbols": ["symbols.txt"]}, extra_files={"game/symbols.txt": "gTable = 0x00200000; // a table\n"})
+        self.assertEqual(out, ["0", "42"])
+
+    def test_gcc_295_habits(self):
+        # Strings across lines, a later declaration that contradicts the
+        # definition, inline assembly Clang cannot read, a variable-length
+        # array: the program still builds; the last two become stubs.
+        out = self.run_program({"a.c": """
+            int twice(int x) { return 2 * x; }
+            extern int twice(int, int);
+            int odd(void) { int r; __asm__("mfhi %0" : "=h"(r)); return r; }
+            int vla(int n) { int a[n]; a[0] = n; return a[0]; }
+            int test_main(void) {
+                char *s = "two
+            lines";
+                test_print(twice(4, 9));
+                test_print(s[3] == '\\n');
+                return 0;
+            }
+        """}, stubs=2)
+        self.assertEqual(out, ["8", "1"])
+        self.assertIn("inline assembly Clang cannot read", self.last_report["stubbed"].values())
+
+    def test_libraries_bind_to_shared_replacements(self):
+        # The game's table binds an address to a shared replacement by name;
+        # hostgen writes the binding (libraries.c) with the shared signature.
+        out = self.run_program({"a.c": """
+            extern int func_00120000(char *, int);
+            int test_main(void) { test_print(func_00120000("ratchet", 3)); return 0; }
+        """}, config={"libraries": "libraries.tsv", "library_api": "api.tsv"}, extra_files={
+            "libraries.tsv": "# symbol\tlibrary\tname\tport\nfunc_00120000\tlibc\tstrnlen\thost\n",
+            "api.tsv": "# name\tlibrary\tsignature\nstrnlen\tlibc\tint (char *, int)\n",
+        }, host_c="""
+            int openrac_lib_strnlen(gaddr s, int n) {
+                int i = 0;
+                while (i < n && ((char *)G(s))[i]) i++;
+                return i + 100;
+            }
+        """)
+        self.assertEqual(out, ["103"])
+
+
+    def test_a_separate_program_in_its_own_group(self):
+        # Up Your Arsenal's menu is a program of its own, loaded over part of
+        # the executable: the same address names another function there.
+        out = self.run_program({
+            "exe.c": """
+                int func_00110000(void) { return 1; }
+                extern int menu_main(void);
+                int test_main(void) { test_print(func_00110000()); test_print(menu_main()); return 0; }
+            """,
+            "menu/menu.c": """
+                int func_00110000(void) { return 2; }
+                int menu_main(void) { return func_00110000() * 10; }
+            """,
+        }, config={"groups": [{"path": "src/menu", "suffix": "menu", "overlay": 100}]})
+        self.assertEqual(out, ["1", "20"])
+
+
+class SharedLibraries(unittest.TestCase):
+    def test_header_and_table_agree(self):
+        game = HERE.parent.parent / "game" / "common"
+        names = [line.split("\t")[0] for line in (game / "libraries.tsv").read_text().splitlines()
+                 if line.strip() and not line.startswith("#")]
+        header = (game / "include" / "openrac" / "game_lib.h").read_text()
+        for name in names:
+            with self.subTest(name):
+                self.assertIn(f" openrac_lib_{name}(", header)
+        self.assertEqual(header.count(" openrac_lib_"), len(names))
+
+
 class TypeStrings(unittest.TestCase):
     def test_declarators(self):
         cases = {
@@ -281,6 +382,7 @@ class TypeStrings(unittest.TestCase):
             "struct (unnamed struct at src/a.c:3:9)": "struct openrac_anon_src_a_c_3_9 x",
             "union S::(anonymous at a.c:1:25)": "union openrac_anon_a_c_1_25 x",
             "void (int) __attribute__((noreturn))": "void x(int)",
+            "struct Moby *[count]": "gaddr x[count]",
         }
         for text, want in cases.items():
             with self.subTest(text):

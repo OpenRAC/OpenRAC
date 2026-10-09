@@ -32,8 +32,8 @@
 #define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
 #endif
 
-#include "game_protos.h"
-#include "rac1_host.h"
+#include "openrac/game_host.h"
+#include "openrac/game_lib.h"
 
 /* The command numbers sceMcSync reports. */
 enum {
@@ -76,7 +76,7 @@ static int finish(int cmd, int result) {
  * manager shows (launcher/core/src/saves.rs); the second port's is beside it,
  * card_dir.slot2, and counts as inserted only if it exists. */
 static int card_path(int port, const char* name, char* out, size_t size) {
-    const char* root = openrac_rac1_card_dir != NULL ? openrac_rac1_card_dir : "memcard";
+    const char* root = openrac_game_card_dir != NULL ? openrac_game_card_dir : "memcard";
     while (*name == '/') {
         name++;
     }
@@ -97,12 +97,12 @@ static int card_present(int port) {
 }
 
 /* sceMcInit */
-int func_001236F0(void) {
+int openrac_lib_sceMcInit(void) {
     return 0;
 }
 
 /* sceMcGetInfo(port, slot, type, free, format): a formatted 8 MB card. */
-int func_00124068(int port, int slot, gaddr type, gaddr free_clusters, gaddr format) {
+int openrac_lib_sceMcGetInfo(int port, int slot, gaddr type, gaddr free_clusters, gaddr format) {
     (void)slot;
     if (!card_present(port)) {
         return finish(MC_GET_INFO, MC_NO_CARD);
@@ -125,7 +125,7 @@ int func_00124068(int port, int slot, gaddr type, gaddr free_clusters, gaddr for
 static FILE* files[MAX_FILES];
 
 /* sceMcOpen(port, slot, name, mode): mode 1 read, 2 write, 3 both, 0x200 create. */
-int func_001238B0(int port, int slot, gaddr name, int mode) {
+int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
     (void)slot;
     char path[1024];
     if (!card_present(port) || !card_path(port, (const char*)G(name), path, sizeof path)) {
@@ -160,7 +160,7 @@ int func_001238B0(int port, int slot, gaddr name, int mode) {
 }
 
 /* sceMcClose(fd) */
-int func_00123A10(int fd) {
+int openrac_lib_sceMcClose(int fd) {
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_CLOSE, MC_FAILED);
     }
@@ -170,7 +170,7 @@ int func_00123A10(int fd) {
 }
 
 /* sceMcSeek(fd, offset, whence) */
-int func_00123AC8(int fd, int offset, int whence) {
+int openrac_lib_sceMcSeek(int fd, int offset, int whence) {
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL || fseek(files[fd], offset, whence) != 0) {
         return finish(MC_SEEK, MC_FAILED);
     }
@@ -178,7 +178,7 @@ int func_00123AC8(int fd, int offset, int whence) {
 }
 
 /* sceMcRead(fd, buffer, size) */
-int func_00123C30(int fd, gaddr buffer, int size) {
+int openrac_lib_sceMcRead(int fd, gaddr buffer, int size) {
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_READ, MC_FAILED);
     }
@@ -186,7 +186,7 @@ int func_00123C30(int fd, gaddr buffer, int size) {
 }
 
 /* sceMcWrite(fd, buffer, size) */
-int func_00123D48(int fd, gaddr buffer, int size) {
+int openrac_lib_sceMcWrite(int fd, gaddr buffer, int size) {
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_WRITE, MC_FAILED);
     }
@@ -196,7 +196,7 @@ int func_00123D48(int fd, gaddr buffer, int size) {
 }
 
 /* sceMcMkdir(port, slot, name) */
-int func_001239D8(int port, int slot, gaddr name) {
+int openrac_lib_sceMcMkdir(int port, int slot, gaddr name) {
     (void)slot;
     char path[1024];
     struct stat st;
@@ -210,7 +210,7 @@ int func_001239D8(int port, int slot, gaddr name) {
 }
 
 /* sceMcDelete(port, slot, name): a file, or an empty folder. */
-int func_00124410(int port, int slot, gaddr name) {
+int openrac_lib_sceMcDelete(int port, int slot, gaddr name) {
     (void)slot;
     char path[1024];
     if (!card_present(port) || !card_path(port, (const char*)G(name), path, sizeof path)) {
@@ -227,12 +227,12 @@ int func_00124410(int port, int slot, gaddr name) {
 }
 
 /* sceMcFormat, sceMcUnformat: a folder is always formatted. */
-int func_00124340(int port, int slot) {
+int openrac_lib_sceMcFormat(int port, int slot) {
     (void)slot;
     return finish(MC_FORMAT, card_present(port) ? MC_OK : MC_NO_CARD);
 }
 
-int func_00124528(int port, int slot) {
+int openrac_lib_sceMcUnformat(int port, int slot) {
     (void)slot;
     return finish(MC_UNFORMAT, card_present(port) ? MC_OK : MC_NO_CARD);
 }
@@ -342,7 +342,9 @@ static void list(int port, const char* spec) {
 
 /* sceMcGetDir(port, slot, name, mode, max entries, table): mode 0 starts a
  * listing, otherwise it continues one. */
-int func_001241F0(int port, int slot, gaddr name, unsigned int mode, int max, gaddr table) {
+int openrac_lib_sceMcGetDir(
+    int port, int slot, gaddr name, unsigned int mode, int max, gaddr table
+) {
     (void)slot;
     if (!card_present(port)) {
         return finish(MC_GET_DIR, MC_NO_CARD);
@@ -360,7 +362,7 @@ int func_001241F0(int port, int slot, gaddr name, unsigned int mode, int max, ga
 
 /* sceMcSync(mode, command, result): 1 when a command has finished (always,
  * once), -1 when none is running. */
-int func_00123F30(int mode, gaddr cmd, gaddr result) {
+int openrac_lib_sceMcSync(int mode, gaddr cmd, gaddr result) {
     (void)mode;
     if (!have_pending) {
         return -1;

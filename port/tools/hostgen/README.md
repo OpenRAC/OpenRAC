@@ -6,7 +6,7 @@ that matched the console's executable, byte for byte, and hostgen keeps its
 meaning while moving it to a 64-bit PC.
 
 ```sh
-python3 port/tools/hostgen/hostgen.py --game port/game/rac1/hostgen.json \
+python3 port/tools/hostgen/hostgen.py --game port/game/rac1-pal/hostgen.json \
     --source games/rac1/pal --out build/hostgen/rac1
 python3 -m unittest discover -s port/tools/hostgen     # its tests (needs Clang)
 ```
@@ -67,32 +67,55 @@ unless the game's `libraries.tsv` says the port writes them itself.
 ## Preparing the sources
 
 [prep.py](prep.py) copies the files it reads and changes the copies without
-moving a line: `long` becomes `long long` (the EE's long is 64-bit), and
-file-scope `__asm__` (padding for the matching build) is blanked.
+moving a line: `long` becomes `long long` (the EE's long is 64-bit; `long
+double` stays), file-scope `__asm__` (padding for the matching build) is
+blanked, and strings that run across lines are split.
 [clangast.py](clangast.py) has Clang read each file for a 32-bit MIPS
 target, so every type has the console's size and layout. Where Clang
 refuses what GCC 2.95 accepted, the copy is fixed from Clang's own
-diagnostics: a call before the callee's declaration gets GCC's implicit
-`int f()` (through an alias, so the later declaration stays as it is); a
-call with too few arguments to a K&R function passes zeros.
+diagnostics:
+
+- a call before the callee's declaration gets GCC's implicit `int f()`
+  (through an alias, so the later declaration stays as it is);
+- a later declaration that contradicts an earlier one, and the calls after
+  it, get an alias of the same symbol;
+- an asm label given after a function's first use is dropped, and the name
+  followed to the label's symbol;
+- inline assembly whose constraints Clang does not know (`=j`, `=h`) is
+  replaced by a call hostgen recognises, and the function becomes a stub;
+- a call with too few arguments to a K&R function passes zeros.
+
+Game typedefs named like the host's standard types (`size_t`, `uint32_t`)
+are renamed.
 
 ## A game's configuration
 
-`port/game/<game>/hostgen.json`:
+`port/game/<id>/hostgen.json` ([port/game/README.md](../../game/README.md)
+describes every key). What hostgen itself reads:
 
 | Key | |
 |---|---|
 | `sources`, `skip` | the C to translate (`src`, without `src/libgcc`: the host compiler has its own) |
-| `includes` | the include directories, relative to the decompilation |
+| `includes`, `defines` | how to read it, relative to the decompilation |
+| `names` | how the decompilation names code and data by address: regular expressions with an `addr` group (and `overlay` for a level's code). rac1/pal's `func_`, `func_Lnn_` and `D_` by default; Going Commando's `LVL_<n>_<LEVEL>_FUN_` and `BOOT_D_`, for example, are its own |
+| `symbols` | splat symbol files (`name = 0x00123456;`): named globals and functions with their addresses |
 | `places` | where each level function sits in each level (`config/overlays/functions.tsv` of rac1/pal) |
-| `libraries` | the table of library entry points ([port/game/rac1/libraries.tsv](../../game/rac1/libraries.tsv)) |
+| `groups` | parts of the tree that are programs of their own, loaded over part of the executable (Up Your Arsenal's menu, `src/frontbin`): their definitions are their own symbols (`func_00385750__frontbin`) in their own overlay, and their calls find their own functions first |
+| `libraries` | the game's table of library entry points ([port/game/rac1-pal/libraries.tsv](../../game/rac1-pal/libraries.tsv)) |
+| `library_api` | the shared replacements' table, `../common/libraries.tsv` by default |
+| `id`, `title`, `game`, `serial`, `frame_rate`, `entry`, `overlay_hook` | the game's description and its entry, written into `game_info.c` |
 | `roots` | where the frontier report starts (the game's `main`, its title and level loops) |
 
 `libraries.tsv` says, for each library function the game calls, whether the
-decompilation's C runs as it is (`game`), the port writes its own (`host`,
-with the signature callers are matched to), the C runs under a host
-function of the same name (`wrap`: the C is kept as `<name>__game`), or a
+decompilation's C runs as it is (`game`), the port answers it with the
+shared replacement of that name (`host`: hostgen binds the address to it in
+`libraries.c`, and callers are matched to its signature), the C runs under a
+host function of the same name (`wrap`: the C is kept as `<name>__game`), or a
 host version is still to be written (`todo`).
+
+Two spellings of one address (`FUN_0020c828` and `func_0020C828`) are one
+function: a call to a name without C goes to the function with C at the same
+place.
 
 ## Output
 
@@ -102,6 +125,8 @@ host version is still to be written (`todo`).
 | `game_protos.h` | every function of the program, with the signature calls are matched to |
 | `stubs.c` | the functions with no C yet |
 | `functions.c` | every function by code address, per level program (`openrac_game_register_functions`) |
+| `libraries.c` | the game's library addresses bound to the shared replacements |
+| `game_info.c` | the game's description (`openrac_game`), its entry (`openrac_game_run`) and, unless the game has its own, its overlay hook |
 | `report.md`, `report.json` | what was translated, what became a stub and why, and **the frontier**: the functions without C that the program reaches from its roots, nearest first. That list is where decompiling moves the port on. |
 
 Names other than `func_...` get a `game_` prefix in the generated C, so

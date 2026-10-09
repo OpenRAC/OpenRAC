@@ -3,10 +3,11 @@
  *
  * Around the game's own start-up code (libraries.tsv, port = wrap). */
 #include "game_protos.h"
-#include "rac1_host.h"
+#include "openrac/game_host.h"
 
 /* The level being played, or -1 (docs/port/RAC1_PAL_SURVEY.md). */
 #define CURRENT_LEVEL 0x0015EE84u
+#define LEVELS 19
 
 static int loaded_level = OPENRAC_OVERLAY_EXE;
 
@@ -19,6 +20,7 @@ gaddr func_0012DA38(void) {
     return entry;
 }
 
-int openrac_rac1_loaded_level(void) {
-    return loaded_level;
+/* hostgen.json: "overlay_hook": true. */
+int openrac_game_loaded_overlay(void) {
+    return loaded_level >= 0 && loaded_level < LEVELS ? loaded_level : OPENRAC_OVERLAY_EXE;
 }

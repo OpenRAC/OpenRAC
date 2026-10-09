@@ -47,7 +47,8 @@ class Ptr:
 @dataclass(frozen=True)
 class Arr:
     of: "Type"
-    size: int | None                 # None: unknown size ("int []")
+    size: int | None                 # None: unknown size ("int []"), or variable (vla)
+    vla: str | None = None           # a variable length: the expression Clang printed
 
 
 @dataclass(frozen=True)
@@ -77,8 +78,8 @@ _ATTRIBUTE = re.compile(r"__attribute__\s*\(\((?:[^()]|\([^()]*\))*\)\)")
 def _tokens(text: str) -> list[str]:
     text = _ATTRIBUTE.sub("", text)
     text = UNNAMED.sub(lambda m: f"{m.group(1) or m.group(2)} {anon_tag(m.group(3))}", text)
-    toks = re.findall(r"[A-Za-z_][A-Za-z_0-9]*|\d+|\.\.\.|[()*\[\],]", text)
-    rest = re.sub(r"[A-Za-z_][A-Za-z_0-9]*|\d+|\.\.\.|[()*\[\],]|\s+", "", text)
+    toks = re.findall(r"[A-Za-z_][A-Za-z_0-9]*|\d+|\.\.\.|[()*\[\],+\-/<>&|^%~!.]", text)
+    rest = re.sub(r"[A-Za-z_][A-Za-z_0-9]*|\d+|\.\.\.|[()*\[\],+\-/<>&|^%~!.]|\s+", "", text)
     if rest:
         raise TypeError_(f"unexpected characters {rest!r} in type {text!r}")
     return toks
@@ -143,17 +144,27 @@ class _Parser:
         while self.peek() in ("[", "("):
             if self.take() == "[":
                 size = None
+                vla = None
                 if self.peek() != "]":
-                    size = int(self.take())
+                    words = []
+                    depth = 0
+                    while self.peek() is not None and (self.peek() != "]" or depth):
+                        tok = self.take()
+                        depth += {"[": 1, "]": -1}.get(tok, 0)
+                        words.append(tok)
+                    if len(words) == 1 and words[0].isdigit():
+                        size = int(words[0])
+                    else:
+                        vla = " ".join(words)
                 self.take("]")
-                suffixes.append(("arr", size))
+                suffixes.append(("arr", size, vla))
             else:
                 suffixes.append(("fn",) + self.params())
 
         def build(t: Type) -> Type:
             for s in reversed(suffixes):
                 if s[0] == "arr":
-                    t = Arr(t, s[1])
+                    t = Arr(t, s[1], s[2])
                 else:
                     t = Func(t, s[1], s[2], s[3])
             return inner(t)
@@ -207,7 +218,7 @@ def declare(t: Type, name: str) -> str:
         quals = " ".join(sorted(t.quals))
         return f"gaddr{' ' + quals if quals else ''}{(' ' + name) if name else ''}"
     if isinstance(t, Arr):
-        dims = f"[{t.size}]" if t.size is not None else "[]"
+        dims = f"[{t.size}]" if t.size is not None else f"[{t.vla}]" if t.vla else "[]"
         inner = f"({name})" if name.startswith("*") else name
         return declare(t.of, f"{inner}{dims}")
     if isinstance(t, Func):

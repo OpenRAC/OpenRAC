@@ -1,13 +1,15 @@
-# openrac-rac1: Ratchet & Clank (PAL), native
+# openrac-rac1-pal: Ratchet & Clank (PAL), native
 
 The native program of Ratchet & Clank (PAL), built from the decompilation
 in [games/rac1/pal](../../../games/rac1/pal) by
-[hostgen](../../tools/hostgen/README.md).
+[hostgen](../../tools/hostgen/README.md). It is one of the port's games
+([port/game](../README.md)): what is particular to it is here, the rest
+(the library replacements, the program) is shared ([common](../common)).
 
 ```sh
 cd port
 cmake --preset release && cmake --build --preset release
-build/release/openrac-rac1 --data <install>/active/rac1/data
+build/release/openrac-rac1-pal --data <install>/active/rac1/data
 ```
 
 `--data` is the folder the extractor wrote from the player's disc
@@ -21,7 +23,7 @@ in it. `--frames N` stops after N frames; `--keep-going` logs a
 function without C and carries on instead of stopping at it.
 
 To build another copy of the decompilation (your own checkout, further
-along than OpenRAC's), configure with `-DOPENRAC_RAC1_SOURCE=<its directory>`.
+along than OpenRAC's), configure with `-DOPENRAC_RAC1_PAL_SOURCE=<its directory>`.
 
 ## How it runs
 
@@ -46,17 +48,22 @@ the level loop (`func_L00_002465F8`).
 
 | File | |
 |---|---|
-| [hostgen.json](hostgen.json) | what hostgen reads ([its README](../../tools/hostgen/README.md#a-games-configuration)) |
-| [libraries.tsv](libraries.tsv) | every library entry point the game calls, and what the port does with it |
-| [main.cpp](main.cpp) | the program: data folder, loading, the hooks the replacements call |
-| [host/rac1_host.h](host/rac1_host.h) | between the replacements and the program |
-| [host/](host) | the replacements, by library: `cdvd.c` (the disc image), `mc.c` (memory cards as folders), `graph.c` (frames, display, texture uploads, the display list hand-off), `kernel.c` (interrupt handlers, no IOP), `pad.c`, `snd.c` (silent for now), `libc.c`, `vu0.c`, `boot.c` |
+| [hostgen.json](hostgen.json) | the game and how hostgen reads it ([port/game](../README.md#what-a-game-is)) |
+| [libraries.tsv](libraries.tsv) | every library entry point the game calls, and what the port does with it: most are bound to the shared replacements ([common/libraries.tsv](../common/libraries.tsv)) |
+| [host/boot.c](host/boot.c) | the game's own host C: ParseBin wrapped, so a level code address means the loaded level's function (its overlay hook) |
+
+The replacements themselves are shared by every game, by library, in
+[common/lib](../common/lib): `cdvd.c` (the disc image), `mc.c` (memory
+cards as folders), `graph.c` (frames, display, texture uploads, the display
+list hand-off), `kernel.c` (interrupt handlers, no IOP), `pad.c`, `snd.c`
+(silent for now), `libc.c`, `vu0.c`; the program is
+[common/main.cpp](../common/main.cpp).
 
 ## What is not done
 
 | | |
 |---|---|
-| Window and renderer | the program paces frames at 50 Hz and logs what the game hands the hardware; the window ([port/platform](../../platform)) and the renderer ([port/renderer](../../renderer)) are to be connected at `openrac_rac1_vsync`, `openrac_rac1_dma_send`, `openrac_rac1_set_display` and `openrac_rac1_load_image` |
+| Window and renderer | the program paces frames at 50 Hz and logs what the game hands the hardware; the window ([port/platform](../../platform)) and the renderer ([port/renderer](../../renderer)) are to be connected at `openrac_game_vsync`, `openrac_game_dma_send`, `openrac_game_set_display` and `openrac_game_load_image` ([common/main.cpp](../common/main.cpp)) |
 | Pads | what `scePad2Read` fills in is to be read from the game's own reader (`func_00217F68`) |
 | Sound | 989snd is replaced at its API but silent |
 | Movies | libmpeg is `todo`: the movie player is to be replaced above it |

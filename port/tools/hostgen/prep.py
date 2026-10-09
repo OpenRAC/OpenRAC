@@ -9,8 +9,9 @@ where it was:
 - `long` becomes `long long`: the EE's GCC has a 64-bit long, where Clang's
   32-bit MIPS target has a 32-bit one. `long long` stays as it is.
 - File-scope `__asm__(...)` statements are blanked: they only lay out the
-  matching build's object files (padding, sections), and GCC 2.95 accepted
-  strings across lines in them, which Clang does not.
+  matching build's object files (padding, sections).
+- A string literal that runs across lines, which GCC 2.95 accepted, becomes
+  one literal per line, concatenated: the same string, the same lines.
 """
 
 from __future__ import annotations
@@ -26,11 +27,11 @@ _SKIP = re.compile(
     r"|//[^\n]*",              # line comment
     re.S,
 )
-_LONG = re.compile(r"\blong\b(\s+long\b)?")
+_LONG = re.compile(r"\blong\b(\s+(?:long|double)\b)?")
 
 
 def widen_long(text: str) -> str:
-    """Every `long` that is not part of `long long` becomes `long long`."""
+    """Every `long` that is not part of `long long` or `long double` becomes `long long`."""
     out = []
     pos = 0
     for m in _SKIP.finditer(text):
@@ -112,8 +113,54 @@ def _statement_end(text: str, i: int) -> int | None:
     return None
 
 
+def split_multiline_strings(text: str) -> str:
+    """Ends a string literal at each line break inside it and reopens it on
+    the next line, keeping the newline as \\n."""
+    out = []
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == "/" and text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            end = n if end < 0 else end + 2
+            out.append(text[i:end])
+            i = end
+            continue
+        if c == "/" and text.startswith("//", i):
+            end = text.find("\n", i)
+            end = n if end < 0 else end
+            out.append(text[i:end])
+            i = end
+            continue
+        if c == "'":
+            end = _skip_literal(text, i)
+            out.append(text[i:end])
+            i = end
+            continue
+        if c == '"':
+            out.append(c)
+            i += 1
+            while i < n and text[i] != '"':
+                if text[i] == "\\" and i + 1 < n:  # an escape, or a continued line: kept
+                    out.append(text[i:i + 2])
+                    i += 2
+                    continue
+                if text[i] == "\n":
+                    out.append('\\n"\n"')
+                else:
+                    out.append(text[i])
+                i += 1
+            if i < n:
+                out.append('"')
+                i += 1
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
 def prepare(text: str) -> str:
-    return widen_long(blank_file_scope_asm(text))
+    return widen_long(split_multiline_strings(blank_file_scope_asm(text)))
 
 
 def copy_tree(src: Path, dst: Path, patterns=("*.c", "*.h", "*.inc")) -> int:

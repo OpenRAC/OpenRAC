@@ -7,65 +7,66 @@
  * music, movie sound: docs/port/ROADMAP.md), the game is silent: banks
  * "load", sounds finish at once, streams are never buffered. Disc reads made
  * through the library's stream-safe calls go to the disc replacement. */
-#include "game_protos.h"
-#include "rac1_host.h"
+#include "openrac/game_host.h"
+#include "openrac/game_lib.h"
 
-int func_0012DB68(void) {
+int openrac_lib_snd_StartSoundSystem(void) {
     return 0;
 } /* snd_StartSoundSystem */
 
-int func_0012DDC0(void) {
+int openrac_lib_snd_FlushSoundCommands(void) {
     return 0;
 } /* snd_FlushSoundCommands */
 
 static unsigned int next_bank = 1;
 
-unsigned int func_0012E060(int sector, int offset) { /* snd_BankLoadByLoc */
+unsigned int openrac_lib_snd_BankLoadByLoc(int sector, int offset) { /* snd_BankLoadByLoc */
     (void)sector;
     (void)offset;
     return next_bank++;
 }
 
-void func_0012E1C8(int a, int b, long long callback) {
+void openrac_lib_snd_BankLoadFromEE_CB(int a, int b, long long callback) {
     (void)a;
     (void)b;
     (void)callback;
 } /* snd_BankLoadFromEE_CB */
 
-void func_0012E2E8(void) {} /* snd_ResolveBankXREFS */
+void openrac_lib_snd_ResolveBankXREFS(void) {} /* snd_ResolveBankXREFS */
 
-void func_0012E318(int bank) {
+void openrac_lib_snd_UnloadBank(int bank) {
     (void)bank;
 } /* snd_UnloadBank */
 
-void func_0012E348(int which, int volume) {
+void openrac_lib_snd_SetMasterVolume(int which, int volume) {
     (void)which;
     (void)volume;
 } /* snd_SetMasterVolume */
 
-void func_0012E380(int mode) {
+void openrac_lib_snd_SetPlaybackMode(int mode) {
     (void)mode;
 } /* snd_SetPlaybackMode */
 
-void func_0012E4F8(void) {} /* snd_StopAllSounds */
+void openrac_lib_snd_StopAllSounds(void) {} /* snd_StopAllSounds */
 
-void func_0012E528(int group) {
+void openrac_lib_snd_PauseAllSoundsInGroup(int group) {
     (void)group;
 } /* snd_PauseAllSoundsInGroup */
 
-void func_0012E558(int group) {
+void openrac_lib_snd_ContinueAllSoundsInGroup(int group) {
     (void)group;
 } /* snd_ContinueAllSoundsInGroup */
 
-void func_0012E588(int a, int b, int c) {
+void openrac_lib_snd_SoundIsStillPlaying_CB(int a, int b, int c) {
     (void)a;
     (void)b;
     (void)c;
 } /* snd_SoundIsStillPlaying_CB */
 
-void func_0012EC40(void) {} /* snd_reset_state_and_flush_commands */
+void openrac_lib_snd_reset_state_and_flush_commands(void) {
+} /* snd_reset_state_and_flush_commands */
 
-int func_0012EC60(int a, int b, int c, int d) {
+int openrac_lib_snd_InitVAGStreamingEx(int a, int b, int c, int d) {
     (void)a;
     (void)b;
     (void)c;
@@ -73,9 +74,9 @@ int func_0012EC60(int a, int b, int c, int d) {
     return 0;
 } /* snd_InitVAGStreamingEx */
 
-void func_0012ED10(void) {} /* snd_StopAllStreams */
+void openrac_lib_snd_StopAllStreams(void) {} /* snd_StopAllStreams */
 
-void func_0012ED48(
+void openrac_lib_snd_PlayVAGStreamByLocEx_CB(
     int a, int b, int c, int d, int e, int f, int g, int h, int i, int j, long long k
 ) {
     (void)a;
@@ -91,66 +92,66 @@ void func_0012ED48(
     (void)k;
 } /* snd_PlayVAGStreamByLocEx_CB */
 
-void func_0012EDB0(int stream) {
+void openrac_lib_snd_PauseVAGStream(int stream) {
     (void)stream;
 } /* snd_PauseVAGStream */
 
-void func_0012EDE0(int stream) {
+void openrac_lib_snd_ContinueVAGStream(int stream) {
     (void)stream;
 } /* snd_ContinueVAGStream */
 
-void func_0012EE10(int a, int b, int c) {
+void openrac_lib_snd_GetVAGStreamTimeRemaining_CB(int a, int b, int c) {
     (void)a;
     (void)b;
     (void)c;
 } /* snd_GetVAGStreamTimeRemaining_CB */
 
-void func_0012EE40(int a, int b, int c) {
+void openrac_lib_snd_IsVAGStreamBuffered_CB(int a, int b, int c) {
     (void)a;
     (void)b;
     (void)c;
 } /* snd_IsVAGStreamBuffered_CB */
 
-void func_0012EE70(int a) {
+void openrac_lib_snd_StreamSafeCheckCDIdle(int a) {
     (void)a;
 } /* snd_StreamSafeCheckCDIdle */
 
-int func_0012EE98(int sector, int count, int buffer) { /* snd_StreamSafeCdRead */
-    return func_00121750((unsigned int)sector, (unsigned int)count, (gaddr)buffer, 0);
+int openrac_lib_snd_StreamSafeCdRead(int sector, int count, int buffer) { /* snd_StreamSafeCdRead */
+    return openrac_lib_sceCdRead((unsigned int)sector, (unsigned int)count, (gaddr)buffer, 0);
 }
 
-int func_0012EF48(int mode) {
-    return func_00120F30(mode);
+int openrac_lib_snd_StreamSafeCdSync(int mode) {
+    return openrac_lib_sceCdSync(mode);
 } /* snd_StreamSafeCdSync */
 
-int func_0012EFE8(void) {
-    return func_001219C8();
+int openrac_lib_snd_StreamSafeCdBreak(void) {
+    return openrac_lib_sceCdBreak();
 } /* snd_StreamSafeCdBreak */
 
-int func_0012F030(void) {
-    return func_00121930();
+int openrac_lib_snd_StreamSafeCdGetError(void) {
+    return openrac_lib_sceCdGetError();
 } /* snd_StreamSafeCdGetError */
 
-int func_0012F068(int callback) {
+int openrac_lib_snd_StreamSafeCdCallback(int callback) {
     (void)callback;
     return 0;
 } /* snd_StreamSafeCdCallback */
 
-void func_0012F0E8(int a, int b) {
+void openrac_lib_snd_PreAllocReverbWorkArea(int a, int b) {
     (void)a;
     (void)b;
 } /* snd_PreAllocReverbWorkArea */
 
-void func_0012F120(int a, int b, int c, int d) {
+void openrac_lib_snd_AutoReverb(int a, int b, int c, int d) {
     (void)a;
     (void)b;
     (void)c;
     (void)d;
 } /* snd_AutoReverb */
 
-void func_0012F1E8(void) {} /* snd_ResetMovieSound */
+void openrac_lib_snd_ResetMovieSound(void) {} /* snd_ResetMovieSound */
 
-void func_0012F248(int a, int b, int c, int d, int e) {
+void openrac_lib_snd_StartMovieSound(int a, int b, int c, int d, int e) {
     (void)a;
     (void)b;
     (void)c;
@@ -158,17 +159,17 @@ void func_0012F248(int a, int b, int c, int d, int e) {
     (void)e;
 } /* snd_StartMovieSound */
 
-int func_0012F288(int a, int b) {
+int openrac_lib_snd_UpdateMovieADPCM(int a, int b) {
     (void)a;
     (void)b;
     return 0;
 } /* snd_UpdateMovieADPCM */
 
-int func_0012F2B8(void) {
+int openrac_lib_snd_GetMovieNAX(void) {
     return 0;
 } /* snd_GetMovieNAX */
 
-int func_0012F2E0(int a) {
+int openrac_lib_snd_GetDopplerPitchMod(int a) {
     (void)a;
     return 0;
 } /* snd_GetDopplerPitchMod */
