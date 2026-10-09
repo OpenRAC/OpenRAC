@@ -207,11 +207,26 @@ Windows (`taskkill /T`) against a WSL process.
 
 ### 7. The level editor
 
-`editor-extract` and `editor-open` for rac1/pal are unverified: run them with
-a real disc. The extractor never overwrites `assets/godot`, so once it exists
-the page should offer Open, not Extract (an `artifact` on extract and a
-"skip when present" rule, or a status field). Other games follow as the
-editor learns their formats ([editor/README.md](../../editor/README.md)).
+rac1/pal has the whole path written down, in the order a user takes it:
+
+| Action           | State      | What it does                                                                      |
+| ---------------- | ---------- | --------------------------------------------------------------------------------- |
+| `editor-extract` | unverified | the disc's 19 levels into a Godot project in `assets/godot`                       |
+| `editor-import`  | unverified | Godot reads the meshes and textures once, headless, so the first open is quick    |
+| `editor-open`    | unverified | the Godot editor on that project                                                  |
+| `editor-pack`    | planned    | edited scenes back into level data, under `build/`; the packer does not exist yet |
+| `editor-play`    | planned    | the runtime with a packed level in place of the disc's; needs the packer          |
+| `editor-tests`   | unverified | the unit tests of `editor/`                                                       |
+
+The unverified ones ran from a shell on macOS with a real disc and Godot
+4.7.2 (extract into a new folder, the refusal of an existing one, the
+headless import, the tests); none has been run from the desktop app yet. The
+extractor needs Python 3.10 or newer, which is why Settings refuses an older
+one. It never overwrites `assets/godot`, so once that exists the page should
+offer Open, not Extract (an `artifact` on extract and a "skip when present"
+rule, or a status field). The other versions carry a planned `editor-extract`
+that says what the editor lacks for them
+([editor/README.md](../../editor/README.md)).
 
 ### 8. Release and CI
 

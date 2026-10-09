@@ -174,7 +174,7 @@
       {
         "id": "editor-extract",
         "label": "Extract the levels",
-        "description": "Turns the 19 levels on your disc into a Godot 4 project in assets/godot. About 20 seconds and 630 MB. Stops if the project already exists.",
+        "description": "Turns the 19 levels on your disc into a Godot 4 project in assets/godot. About 20 seconds and 630 MB. Stops if the project already exists: it never overwrites your edits.",
         "kind": "edit",
         "state": "unverified",
         "program": "{python}",
@@ -182,12 +182,26 @@
         "cwd": ".",
         "requires": ["disc", "python"],
         "docs": "editor/README.md",
-        "todo": "Run with a real disc; then offer Open in Godot instead when assets/godot exists (the extractor never overwrites)."
+        "todo": "Run it from the desktop app. From a shell on macOS the same command extracted a level into a new folder and refused an existing one with a clear message. Then offer Open in Godot instead when assets/godot exists."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import into Godot",
+        "description": "Has Godot read the extracted meshes and textures once, without opening a window, so that the first time you open the editor is quick. About two minutes for all levels.",
+        "kind": "edit",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": ["--path", "assets/godot", "--headless", "--import"],
+        "cwd": ".",
+        "requires": ["godot", "artifact"],
+        "artifact": "assets/godot/project.godot",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS, Godot 4.7.2 imported one extracted level this way in five seconds; a 4.9 development build crashed on it."
       },
       {
         "id": "editor-open",
         "label": "Open in Godot",
-        "description": "Opens the extracted levels in the Godot editor.",
+        "description": "Opens the extracted levels in the Godot editor: move, add or delete objects and save. Your edits stay in assets/godot.",
         "kind": "edit",
         "state": "unverified",
         "program": "{godot}",
@@ -197,7 +211,38 @@
         "artifact": "assets/godot/project.godot",
         "detached": true,
         "docs": "editor/README.md",
-        "todo": "Check the project file's name after an extract."
+        "todo": "Run it from the desktop app. The project file is assets/godot/project.godot, as the action expects."
+      },
+      {
+        "id": "editor-pack",
+        "label": "Pack your edited levels",
+        "description": "Turns the levels you edited in Godot back into the game's level data, in a folder of their own; your disc image is never changed.",
+        "kind": "edit",
+        "state": "planned",
+        "docs": "editor/README.md",
+        "todo": "The packer does not exist yet (editor/README.md, 'Regenerate'). The scenes keep what it needs: each object's class, its place in the level's tables and its instance data. Start with moby instances (move, add, delete), write the packed level under build/, never into baserom/."
+      },
+      {
+        "id": "editor-play",
+        "label": "Play your edited level",
+        "description": "Starts the game in the OpenRAC runtime with your edited level in place of the one on the disc.",
+        "kind": "play",
+        "state": "planned",
+        "docs": "runtime/README.md#running-a-game",
+        "todo": "Needs editor-pack, and an option of openrac-boot that answers the game's reads of a level's sectors from a packed folder instead of the disc image (runtime/docs/RAC1_PAL_SURVEY.md describes how the game finds a level on the disc)."
+      },
+      {
+        "id": "editor-tests",
+        "label": "Test the level editor",
+        "description": "The unit tests of editor/ (no disc needed).",
+        "kind": "check",
+        "state": "unverified",
+        "program": "{python}",
+        "args": ["-m", "unittest", "discover", "-s", "editor"],
+        "cwd": ".",
+        "requires": ["python"],
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS: 66 tests, OK."
       }
     ],
     "rac1/ntsc": [
@@ -390,6 +435,15 @@
         "state": "planned",
         "docs": "games/rac2/ntsc/ports/pal-functional/README.md",
         "todo": "Build it with CMake and find what data it reads; it is PAL-functional, so check which disc it expects."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "The level editor reads the first game's PAL disc only, for now.",
+        "kind": "edit",
+        "state": "planned",
+        "docs": "editor/README.md",
+        "todo": "The editor's readers know Ratchet & Clank PAL v2.00 only. This game's level format is a close relative (docs/engine/README.md): give editor/ a table of its offsets and its section layout."
       }
     ],
     "rac3/ntsc": [
@@ -440,6 +494,15 @@
         "requires": ["disc", "pcsx2"],
         "detached": true,
         "todo": "As rac1/pal's play-disc."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "The level editor reads the first game's PAL disc only, for now.",
+        "kind": "edit",
+        "state": "planned",
+        "docs": "editor/README.md",
+        "todo": "As rac2/ntsc's editor-extract: the format is a later relative; its levels are in the WAD the boot program loads."
       }
     ],
     "rac4/ntsc": [
@@ -513,6 +576,15 @@
         "requires": ["disc", "pcsx2"],
         "detached": true,
         "todo": "As rac1/pal's play-disc."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "The level editor reads the first game's PAL disc only, for now.",
+        "kind": "edit",
+        "state": "planned",
+        "docs": "editor/README.md",
+        "todo": "As rac2/ntsc's editor-extract."
       }
     ]
   }
