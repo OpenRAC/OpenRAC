@@ -33,7 +33,26 @@ export interface Config {
   developer: boolean;
   setupComplete: boolean;
   lastVersion: string | null;
+  discordRpc: boolean;
+  discordClientId: string | null;
 }
+
+export type DiscordStatus =
+  | { kind: "idle" }
+  | {
+      kind: "viewingGame";
+      title: string;
+      region: string;
+      progressPct: number | null;
+      gameId: string;
+    }
+  | {
+      kind: "playingGame";
+      title: string;
+      region: string;
+      gameId: string;
+      startTime?: number | null;
+    };
 
 export interface Candidate {
   path: string;
@@ -166,6 +185,37 @@ export type JobEvent =
   | { type: "output"; id: number; stream: "stdout" | "stderr"; line: string }
   | { type: "exit"; id: number; code: number | null; cancelled: boolean };
 
+/** core/src/iso.rs */
+export type IsoMatchStatus = "exactMatch" | "revisionMismatch" | "wrongGame" | "notPs2Disc" | "invalidIso";
+
+export interface IsoInspection {
+  path: string;
+  filename: string;
+  size: number;
+  isValidIso: boolean;
+  serial: string | null;
+  detectedGameId: string | null;
+  detectedGameTitle: string | null;
+  detectedVersionName: string | null;
+  detectedRegion: string | null;
+  targetGameId: string;
+  targetVersionKey: string;
+  targetSerial: string | null;
+  targetExpectedSize: number | null;
+  matchesTargetGame: boolean;
+  matchesTargetVersion: boolean;
+  status: IsoMatchStatus;
+  message: string;
+}
+
+export interface ImportResult {
+  targetKey: string;
+  baseromPath: string;
+  extractedAssetsDir: string;
+  extractedFiles: string[];
+  setupMessage: string;
+}
+
 // ---- calls ------------------------------------------------------------------------
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -190,6 +240,11 @@ export const api = {
   /** A file or folder in the checkout, relative to it (`games/rac1/pal/README.md`). */
   openPath: (path: string) => call<null>("open_path", { path }),
   openUrl: (url: string) => call<null>("open_url", { url }),
+  inspectIso: (targetKey: string, isoPath: string) => call<IsoInspection>("inspect_iso", { targetKey, isoPath }),
+  importIso: (targetKey: string, isoPath: string) => call<ImportResult>("import_iso", { targetKey, isoPath }),
+  syncProgressFromWeb: () => call<Library>("sync_progress_from_web"),
+  applyProgressJson: (json: string) => call<Library>("apply_progress_json", { json }),
+  setDiscordStatus: (status: DiscordStatus) => call<null>("set_discord_status", { status }),
 };
 
 /** A folder picker; null when cancelled (or in the browser preview). */
@@ -216,6 +271,11 @@ export async function pickDisc(title: string): Promise<string | null> {
     filters: [{ name: "Disc image", extensions: ["iso", "ISO", "bin"] }],
   });
   return typeof picked === "string" ? picked : null;
+}
+
+/** An ISO image file picker; null when cancelled. */
+export async function pickIsoFile(title = "Select PS2 ISO image"): Promise<string | null> {
+  return pickDisc(title);
 }
 
 /** Job output and exits, from `job-output` and `job-exit` events. */

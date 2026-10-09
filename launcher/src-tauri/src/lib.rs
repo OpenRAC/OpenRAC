@@ -20,6 +20,12 @@ struct AppState {
     config: Mutex<Config>,
     config_file: Option<PathBuf>,
     jobs: Jobs,
+    discord: Mutex<DiscordState>,
+}
+
+struct DiscordState {
+    ipc: openrac_launcher_core::discord::DiscordIpc,
+    app_start: u64,
 }
 
 #[derive(Serialize)]
@@ -50,6 +56,20 @@ fn save_config(state: State<'_, AppState>, config: Config) -> Result<Config, Str
     let file = state.config_file.as_deref().ok_or("no per-user config folder")?;
     config::save(file, &config)?;
     *state.config.lock().unwrap() = config.clone();
+
+    let mut discord = state.discord.lock().unwrap();
+    let target_id = config
+        .discord_client_id
+        .as_deref()
+        .unwrap_or(openrac_launcher_core::discord::DEFAULT_CLIENT_ID);
+    discord.ipc.set_client_id(target_id);
+    if config.discord_rpc {
+        let app_start = discord.app_start;
+        let _ = discord.ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
+    } else {
+        let _ = discord.ipc.clear();
+    }
+
     Ok(config)
 }
 
@@ -100,12 +120,75 @@ async fn add_disc(state: State<'_, AppState>, key: String, path: PathBuf) -> Res
 fn run_action(app: AppHandle, state: State<'_, AppState>, scope: Scope, id: String) -> Result<Started, String> {
     let config = state.config.lock().unwrap().clone();
     let plan = library::plan(&config, &scope, &id)?;
+    let is_play = if let Scope::Version(_) = &scope {
+        if let Some(root) = &config.root {
+            if let Ok(file) = openrac_launcher_core::actions::load(root) {
+                file.find(&scope, &id).map(|a| a.kind == openrac_launcher_core::actions::Kind::Play).unwrap_or(false)
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    if is_play && config.discord_rpc {
+        if let Some(root) = &config.root {
+            if let Ok(catalog) = openrac_launcher_core::catalog::load(root) {
+                if let Scope::Version(key) = &scope {
+                    if let Some(v) = catalog.version(key) {
+                        let mut discord = state.discord.lock().unwrap();
+                        let play_status = openrac_launcher_core::discord::DiscordStatus::PlayingGame {
+                            title: v.title.clone(),
+                            region: v.region.clone(),
+                            game_id: v.game.clone(),
+                            start_time: Some(openrac_launcher_core::discord::now_sec()),
+                        };
+                        let app_start = discord.app_start;
+                        let _ = discord.ipc.set_status(&play_status, app_start);
+                    }
+                }
+            }
+        }
+    }
+
+    let app_handle = app.clone();
     state.jobs.start(&plan, config.root.as_deref(), move |event| {
         let _ = match &event {
             Event::Output { .. } => app.emit("job-output", &event),
-            Event::Exit { .. } => app.emit("job-exit", &event),
+            Event::Exit { .. } => {
+                if is_play {
+                    if let Some(st) = app_handle.try_state::<AppState>() {
+                        let cfg = st.config.lock().unwrap().clone();
+                        if cfg.discord_rpc {
+                            let mut discord = st.discord.lock().unwrap();
+                            let app_start = discord.app_start;
+                            let _ = discord.ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
+                        }
+                    }
+                }
+                app.emit("job-exit", &event)
+            }
         };
     })
+}
+
+#[tauri::command]
+fn set_discord_status(
+    state: State<'_, AppState>,
+    status: openrac_launcher_core::discord::DiscordStatus,
+) -> Result<(), String> {
+    let config = state.config.lock().unwrap().clone();
+    let mut discord = state.discord.lock().unwrap();
+    if !config.discord_rpc {
+        let _ = discord.ipc.clear();
+        return Ok(());
+    }
+    let app_start = discord.app_start;
+    let _ = discord.ipc.set_status(&status, app_start);
+    Ok(())
 }
 
 #[tauri::command]
@@ -136,14 +219,173 @@ fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn inspect_iso(
+    state: State<'_, AppState>,
+    target_key: String,
+    iso_path: PathBuf,
+) -> Result<openrac_launcher_core::iso::IsoInspection, String> {
+    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
+    let catalog = openrac_launcher_core::catalog::load(&root)?;
+    Ok(openrac_launcher_core::iso::inspect_iso(&catalog, &target_key, &iso_path))
+}
+
+#[tauri::command]
+fn import_iso(
+    state: State<'_, AppState>,
+    target_key: String,
+    iso_path: PathBuf,
+) -> Result<openrac_launcher_core::iso::ImportResult, String> {
+    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
+    let catalog = openrac_launcher_core::catalog::load(&root)?;
+    openrac_launcher_core::iso::import_iso(&root, &catalog, &target_key, &iso_path)
+}
+
+#[tauri::command]
+fn sync_progress_from_web(
+    state: State<'_, AppState>,
+) -> Result<openrac_launcher_core::catalog::Catalog, String> {
+    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
+
+    // Attempt to fetch latest numbers from openrac.dev using curl (available across all Linux distros)
+    let output = std::process::Command::new("curl")
+        .arg("-s")
+        .arg("--connect-timeout")
+        .arg("4")
+        .arg("https://openrac.dev/progress.json")
+        .output();
+
+    if let Ok(out) = output {
+        if out.status.success() {
+            if let Ok(json_str) = String::from_utf8(out.stdout) {
+                if let Ok(catalog) = openrac_launcher_core::catalog::update_progress_from_openrac_dev(&root, &json_str) {
+                    return Ok(catalog);
+                }
+            }
+        }
+    }
+
+    // Offline fallback: load from cached summary.json seamlessly
+    openrac_launcher_core::catalog::load(&root)
+}
+
+#[tauri::command]
+fn apply_progress_json(
+    state: State<'_, AppState>,
+    json: String,
+) -> Result<openrac_launcher_core::catalog::Catalog, String> {
+    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
+    openrac_launcher_core::catalog::update_progress_from_openrac_dev(&root, &json)
+}
+
+#[cfg(target_os = "linux")]
+fn ensure_linux_desktop_integration() {
+    let icon_bytes_512 = include_bytes!("../icons/icon.png");
+    let icon_bytes_256 = include_bytes!("../icons/128x128@2x.png");
+    let icon_bytes_128 = include_bytes!("../icons/128x128.png");
+    let icon_bytes_64 = include_bytes!("../icons/64x64.png");
+    let icon_bytes_32 = include_bytes!("../icons/32x32.png");
+
+    if let Ok(home) = std::env::var("HOME") {
+        let home_path = PathBuf::from(home);
+        let icons_base = home_path.join(".local/share/icons/hicolor");
+        let app_dir = home_path.join(".local/share/applications");
+        let _ = std::fs::create_dir_all(&app_dir);
+
+        let sizes: &[(&str, &[u8])] = &[
+            ("32x32", icon_bytes_32),
+            ("64x64", icon_bytes_64),
+            ("128x128", icon_bytes_128),
+            ("256x256", icon_bytes_256),
+            ("512x512", icon_bytes_512),
+        ];
+
+        for (sz, bytes) in sizes {
+            let dir = icons_base.join(sz).join("apps");
+            let _ = std::fs::create_dir_all(&dir);
+            let _ = std::fs::write(dir.join("dev.openrac.launcher.png"), bytes);
+            let _ = std::fs::write(dir.join("openrac-launcher.png"), bytes);
+        }
+
+        let main_icon = icons_base.join("128x128/apps/dev.openrac.launcher.png");
+        let icon_target = if main_icon.exists() {
+            main_icon.to_string_lossy().to_string()
+        } else {
+            "dev.openrac.launcher".to_string()
+        };
+
+        let exe_path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("openrac-launcher"));
+        let exe_str = exe_path.to_string_lossy();
+
+        let desktop_content1 = format!(
+            "[Desktop Entry]\nType=Application\nName=OpenRAC Launcher\nComment=OpenRAC Launcher\nExec={}\nIcon={}\nTerminal=false\nCategories=Game;Development;\nStartupWMClass=openrac-launcher\n",
+            exe_str, icon_target
+        );
+        let desktop_content2 = format!(
+            "[Desktop Entry]\nType=Application\nName=OpenRAC Launcher\nComment=OpenRAC Launcher\nExec={}\nIcon={}\nTerminal=false\nCategories=Game;Development;\nStartupWMClass=dev.openrac.launcher\n",
+            exe_str, icon_target
+        );
+
+        let _ = std::fs::write(app_dir.join("openrac-launcher.desktop"), desktop_content1);
+        let _ = std::fs::write(app_dir.join("dev.openrac.launcher.desktop"), desktop_content2);
+
+        // Notify desktop environment and refresh icon caches silently
+        let _ = std::process::Command::new("gtk-update-icon-cache")
+            .arg("-f")
+            .arg("-t")
+            .arg(&icons_base)
+            .status();
+        let _ = std::process::Command::new("update-desktop-database")
+            .arg(&app_dir)
+            .status();
+        let _ = std::process::Command::new("kbuildsycoca6")
+            .arg("--noincremental")
+            .status();
+
+        // If Flatpak Discord is running, ensure standard XDG_RUNTIME_DIR socket symlink exists
+        if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+            let standard_sock = PathBuf::from(&runtime_dir).join("discord-ipc-0");
+            let flatpak_sock = PathBuf::from(&runtime_dir).join("app/com.discordapp.Discord/discord-ipc-0");
+            if flatpak_sock.exists() && !standard_sock.exists() {
+                let _ = std::os::unix::fs::symlink(&flatpak_sock, &standard_sock);
+            }
+        }
+    }
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            #[cfg(target_os = "linux")]
+            ensure_linux_desktop_integration();
+
+            if let Some(window) = app.get_webview_window("main") {
+                if let Some(icon) = app.default_window_icon() {
+                    let _ = window.set_icon(icon.clone());
+                }
+            }
+
             let config_file = app.path().app_config_dir().ok().map(|dir| dir.join("launcher.json"));
             let config = config_file.as_deref().map(config::load).unwrap_or_default();
-            app.manage(AppState { config: Mutex::new(config), config_file, jobs: Jobs::default() });
+
+            let client_id = config
+                .discord_client_id
+                .clone()
+                .unwrap_or_else(|| openrac_launcher_core::discord::DEFAULT_CLIENT_ID.to_string());
+            let mut ipc = openrac_launcher_core::discord::DiscordIpc::new(client_id);
+            let app_start = openrac_launcher_core::discord::now_sec();
+            if config.discord_rpc {
+                let _ = ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
+            }
+
+            app.manage(AppState {
+                config: Mutex::new(config),
+                config_file,
+                jobs: Jobs::default(),
+                discord: Mutex::new(DiscordState { ipc, app_start }),
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -159,6 +401,11 @@ pub fn run() {
             cancel_job,
             open_path,
             open_url,
+            inspect_iso,
+            import_iso,
+            sync_progress_from_web,
+            apply_progress_json,
+            set_discord_status,
         ])
         .run(tauri::generate_context!())
         .expect("the launcher failed to start");

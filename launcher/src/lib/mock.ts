@@ -96,6 +96,8 @@ let config: Config = {
   // ?setup opens the first-run screen.
   setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup"),
   lastVersion: null,
+  discordRpc: true,
+  discordClientId: null,
 };
 
 /** Which versions pretend to have their disc found and their inputs placed. */
@@ -317,7 +319,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
   switch (command) {
     case "app_info":
       return delay<AppInfo>({
-        version: "0.1.0-preview",
+        version: "0.2.0-preview",
         platform,
         configFile: "~/.config/dev.openrac.launcher/launcher.json",
       });
@@ -344,6 +346,43 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay<Check>({ ok: true, version: "Python 3.12.4", message: "Python 3.12.4" });
     case "library":
       return delay(library());
+    case "inspect_iso": {
+      const key = typeof args.targetKey === "string" ? args.targetKey : "rac1/pal";
+      const path = typeof args.isoPath === "string" ? args.isoPath : "/path/to/game.iso";
+      return delay({
+        path,
+        filename: "Ratchet & Clank.iso",
+        size: 4214784000,
+        isValidIso: true,
+        serial: "SCES_509.16",
+        detectedGameId: "rac1",
+        detectedGameTitle: "Ratchet & Clank",
+        detectedVersionName: "pal",
+        detectedRegion: "PAL (Europe)",
+        targetGameId: key.split("/")[0],
+        targetVersionKey: key,
+        targetSerial: "SCES_509.16",
+        targetExpectedSize: 4214784000,
+        matchesTargetGame: true,
+        matchesTargetVersion: true,
+        status: "exactMatch",
+        message: "Exact match! Detected Ratchet & Clank (PAL, SCES_509.16) with expected size.",
+      });
+    }
+    case "import_iso": {
+      const key = typeof args.targetKey === "string" ? args.targetKey : "rac1/pal";
+      const gId = key.split("/")[0];
+      return delay({
+        targetKey: key,
+        baseromPath: `/home/you/OpenRAC/baserom/${gId}.iso`,
+        extractedAssetsDir: `/home/you/OpenRAC/${gId}`,
+        extractedFiles: ["SYSTEM.CNF", "SCES_509.16", "IOPRP243.IMG"],
+        setupMessage: `${key}: inputs placed successfully`,
+      });
+    }
+    case "sync_progress_from_web":
+    case "apply_progress_json":
+      return delay(library());
     case "run_action":
       return delay(start(args.scope as Scope, args.id as string));
     case "cancel_job": {
@@ -356,6 +395,8 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "open_path":
     case "open_url":
       console.info(`[preview] ${command}`, args);
+      return delay(null);
+    case "set_discord_status":
       return delay(null);
     default:
       throw new Error(`the preview has no ${command}: add it to src/lib/mock.ts`);

@@ -83,6 +83,7 @@ export async function start() {
   app.config = await firstRun(await api.getConfig());
   if (app.config.lastVersion) app.version = app.config.lastVersion;
   await refresh();
+  void syncProgressWeb();
 }
 
 /** Reads the library again: after a job, on focus, after settings change. */
@@ -100,6 +101,34 @@ export async function refresh() {
   }
 }
 
+/** Fetches latest progress from openrac.dev; caches in summary.json for offline use. */
+export async function syncProgressWeb() {
+  if (!app.config?.root) return;
+  try {
+    const res = await fetch("https://openrac.dev/progress.json", {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.ok) {
+      const text = await res.text();
+      try {
+        localStorage.setItem("openrac_progress_cache", text);
+      } catch {
+        // ignore localStorage errors
+      }
+      app.library = await api.applyProgressJson(text);
+      return;
+    }
+  } catch {
+    // Offline or network error: try backend or keep using cached summary.json
+  }
+
+  try {
+    app.library = await api.syncProgressFromWeb();
+  } catch {
+    // Offline: keep cached library
+  }
+}
+
 export async function saveConfig(config: Config) {
   const saved = await guard(api.saveConfig(config));
   if (saved) {
@@ -113,6 +142,7 @@ export async function saveConfig(config: Config) {
 export function openVersion(key: string) {
   app.version = key;
   app.page = "game";
+  updateDiscordPresence();
   if (app.config && app.config.lastVersion !== key) {
     void guard(api.saveConfig({ ...app.config, lastVersion: key })).then((saved) => {
       if (saved) app.config = saved;
@@ -123,6 +153,23 @@ export function openVersion(key: string) {
 export function currentVersion(): VersionView | null {
   const versions = app.library?.games.flatMap((g) => g.versions) ?? [];
   return versions.find((v) => v.key === app.version) ?? null;
+}
+
+export function updateDiscordPresence(page: Page = app.page, version: string | null = app.version) {
+  if (page === "game" && version) {
+    const v = currentVersion();
+    if (v) {
+      void api.setDiscordStatus({
+        kind: "viewingGame",
+        title: v.title,
+        region: v.region,
+        progressPct: v.progress?.percent ?? null,
+        gameId: v.game,
+      });
+      return;
+    }
+  }
+  void api.setDiscordStatus({ kind: "idle" });
 }
 
 // ---- actions and jobs ---------------------------------------------------------------------

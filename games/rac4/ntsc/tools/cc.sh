@@ -11,10 +11,28 @@ cd "$(dirname "$0")/.."
 src=$1; out=$2; shift 2
 CC=toolchain/sn-prodg-3.01/usr/local/sce/ee/gcc/bin/ee-gcc2953.exe
 export WINEDEBUG=-all
+
+if [ -z "${WINE:-}" ]; then
+  if command -v wine >/dev/null 2>&1; then
+    WINE="wine"
+  elif command -v wibo >/dev/null 2>&1; then
+    WINE="wibo"
+  elif [ -x "$PWD/toolchain/wibo" ]; then
+    WINE="$PWD/toolchain/wibo"
+  elif [ -x "$PWD/../../toolchains/wibo" ]; then
+    WINE="$PWD/../../toolchains/wibo"
+  elif [ -x "$HOME/.local/bin/wibo" ]; then
+    WINE="$HOME/.local/bin/wibo"
+  else
+    WINE="wine"
+  fi
+fi
+
+PYTHON="${PYTHON:-python3}"
 mkdir -p build/tmp
 tmp=build/tmp/$(basename "${out%.o}")
-wine "$CC" -O2 -G8 -fopt-stack -mno-check-zero-division "$@" -Iinclude -S "$src" -o "$tmp.s"
-python tools/ps2eeas_dli.py "$tmp.s" "$tmp.s"
-wine "$CC" -c "$tmp.s" -o "${tmp}_first.o"
-python tools/ps2eeas_nops.py "$tmp.s" "${tmp}_first.o" "${tmp}_fixed.s"
-wine "$CC" -c "${tmp}_fixed.s" -o "$out"
+"$WINE" "$CC" -O2 -G8 -fopt-stack -mno-check-zero-division "$@" -Iinclude -S "$src" -o "$tmp.s"
+"$PYTHON" tools/ps2eeas_dli.py "$tmp.s" "$tmp.s"
+"$WINE" "$CC" -c "$tmp.s" -o "${tmp}_first.o"
+"$PYTHON" tools/ps2eeas_nops.py "$tmp.s" "${tmp}_first.o" "${tmp}_fixed.s"
+"$WINE" "$CC" -c "${tmp}_fixed.s" -o "$out"

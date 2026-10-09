@@ -1,11 +1,16 @@
 <script lang="ts">
   import Header from "$components/Header.svelte";
   import Toasts from "$components/Toasts.svelte";
-  import { app, refresh, start, type Page } from "$lib/app.svelte";
+  import { app, refresh, start, updateDiscordPresence, type Page } from "$lib/app.svelte";
   import Game from "./pages/Game.svelte";
   import Library from "./pages/Library.svelte";
   import Settings from "./pages/Settings.svelte";
   import Tasks from "./pages/Tasks.svelte";
+
+  $effect(() => {
+    // Sync Discord Rich Presence when page or game changes
+    updateDiscordPresence(app.page, app.version);
+  });
 
   $effect(() => {
     // ?page=tasks (and ?version=rac1/pal) open a page directly: handy for screenshots.

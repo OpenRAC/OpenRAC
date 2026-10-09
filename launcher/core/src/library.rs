@@ -138,4 +138,17 @@ mod tests {
         assert!(super::plan(&config, &Scope::Repository, "nope").is_err());
         assert!(super::plan(&config, &Scope::Version("rac9/pal".into()), "build").is_err());
     }
+
+    #[test]
+    fn plans_play_level_when_godot_present() {
+        let config = Config {
+            root: Some(checkout()),
+            godot: Some("/usr/bin/godot".into()),
+            ..Config::default()
+        };
+        let plan = plan(&config, &Scope::Version("rac1/pal".into()), "play").unwrap();
+        assert_eq!(plan.program, PathBuf::from("/usr/bin/godot"));
+        assert!(plan.detached);
+        assert_eq!(plan.args, vec!["--path", "assets/godot", "res://levels/level_00/level_00.tscn"]);
+    }
 }
