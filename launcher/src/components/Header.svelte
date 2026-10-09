@@ -16,7 +16,7 @@
   const pending = $derived(pendingJobs());
 </script>
 
-<header>
+<header class="site-header">
   <button class="brand" onclick={() => (app.page = "library")} aria-label="OpenRAC: your games">
     <img src="/wrench.webp" alt="" width="40" height="40" />
     <span>Open<b>RAC</b></span>
@@ -55,21 +55,26 @@
 </header>
 
 <style>
-  header {
+  header,
+  .site-header {
     position: relative;
     z-index: 20;
-    display: flex;
+    display: flex !important;
+    flex-direction: row;
     align-items: center;
     gap: 22px;
     height: 60px;
+    min-height: 60px;
+    width: 100%;
     padding: 0 18px;
-    background: linear-gradient(to bottom, var(--bar-top), var(--bar-bottom));
+    background: linear-gradient(to bottom, var(--bar-top), var(--bar-bottom)) !important;
     border-bottom: 1px solid rgb(0 0 0 / 0.3);
     color: #000;
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.35),
       0 4px 24px rgb(0 0 0 / 0.45);
     flex: none;
+    box-sizing: border-box;
   }
 
   button {
@@ -82,6 +87,7 @@
   .brand {
     display: inline-flex;
     align-items: center;
+    flex-shrink: 0;
     gap: 8px;
     font-family: var(--font-brand);
     font-size: 26px;
@@ -119,6 +125,7 @@
   nav {
     display: flex;
     align-items: center;
+    flex-shrink: 0;
     gap: 4px;
   }
 
@@ -173,6 +180,7 @@
     margin-left: auto;
     display: flex;
     align-items: center;
+    flex-shrink: 0;
     gap: 10px;
   }
 

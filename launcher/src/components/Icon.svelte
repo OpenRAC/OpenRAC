@@ -19,6 +19,10 @@
     arrow: "M14 6l-6 6 6 6",
     warn: "M12 4l9 16H3zM12 10v4.5M12 17.2v.3",
     info: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11v6M12 7.6v.3",
+    save: "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8",
+    bolt: "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+    globe:
+      "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 0a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10zm-8 10h16",
   } as const;
   export type IconName = keyof typeof PATHS;
 </script>

@@ -3,6 +3,7 @@
   // native port, edit its levels in Godot. Each button runs the same actions the
   // developer page lists (launcher/actions.json), found here by their ids.
   import Icon from "$components/Icon.svelte";
+  import SaveManagerBlock from "$components/SaveManagerBlock.svelte";
   import { api, pickFile, type ActionView } from "$lib/api";
   import {
     app,
@@ -121,7 +122,7 @@
     <section class="hero rise" aria-label={`${v.title} (${v.region})`}>
       {#if media}
         <div class="hero-backdrop" aria-hidden="true">
-          <img src={media.bg} alt="" class="hero-bg" />
+          <img src={media.gif ?? media.bg} alt="" class="hero-bg" />
           <div class="hero-overlay"></div>
         </div>
       {/if}
@@ -230,6 +231,8 @@
       {/if}
     </section>
 
+    <SaveManagerBlock version={v} />
+
     <details class="panel more">
       <summary>More</summary>
       <div class="row wrap">
@@ -311,9 +314,16 @@
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
-    opacity: 0.22;
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 20%, transparent 80%);
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 20%, transparent 80%);
+    opacity: 0.18;
+  }
+
+  .page-ambient-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 70% 60% at 50% 20%, transparent 20%, var(--ink) 80%),
+      linear-gradient(to bottom, transparent 60%, var(--ink) 100%);
   }
 
   .page-ambient-bg img {

@@ -4,6 +4,7 @@
   import ActionCard from "$components/ActionCard.svelte";
   import Icon from "$components/Icon.svelte";
   import ProgressBar from "$components/ProgressBar.svelte";
+  import SaveManagerBlock from "$components/SaveManagerBlock.svelte";
   import { api } from "$lib/api";
   import { app, currentVersion, guard, openVersion } from "$lib/app.svelte";
   import { grouped, matchedLine, pct, size } from "$lib/format";
@@ -44,7 +45,7 @@
     <section class="banner rise" aria-label={`${v.title} (${v.region})`}>
       {#if media}
         <div class="banner-backdrop" aria-hidden="true">
-          <img src={media.bg} alt="" class="banner-bg" />
+          <img src={media.gif ?? media.bg} alt="" class="banner-bg" />
           <div class="banner-overlay"></div>
         </div>
       {/if}
@@ -115,6 +116,8 @@
         {/each}
       </dl>
     </section>
+
+    <SaveManagerBlock version={v} />
 
     <div class="kinds">
       {#each SECTIONS as section (section.kind)}
@@ -201,9 +204,16 @@
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
-    opacity: 0.22;
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 20%, transparent 80%);
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 20%, transparent 80%);
+    opacity: 0.18;
+  }
+
+  .page-ambient-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 70% 60% at 50% 20%, transparent 20%, var(--ink) 80%),
+      linear-gradient(to bottom, transparent 60%, var(--ink) 100%);
   }
 
   .page-ambient-bg img {

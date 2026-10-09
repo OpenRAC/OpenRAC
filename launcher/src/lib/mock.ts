@@ -412,6 +412,104 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay(null);
     case "set_discord_status":
       return delay(null);
+    case "inspect_saves": {
+      const serial = typeof args.serial === "string" ? args.serial : "SCES_509.16";
+      return delay({
+        serial,
+        memcardDir: `/home/you/.local/share/openrac/memcard/${serial}`,
+        exists: true,
+        gameFolderName: "BESCES-50916RATCHET",
+        title: "Ratchet & Clank",
+        slots: [
+          {
+            slotIndex: 0,
+            filename: "save0.bin",
+            path: `/home/you/.local/share/openrac/memcard/${serial}/BESCES-50916RATCHET/save0.bin`,
+            size: 59912,
+            exists: true,
+            isEmpty: false,
+            bolts: 1250,
+            planetId: 0,
+            planetName: "Veldin (Kyzil Plateau)",
+            timestamp: "2026-10-09 17:01:21",
+            modifiedMillis: Date.now() - 3600000,
+          },
+          {
+            slotIndex: 1,
+            filename: "save1.bin",
+            path: `/home/you/.local/share/openrac/memcard/${serial}/BESCES-50916RATCHET/save1.bin`,
+            size: 59912,
+            exists: true,
+            isEmpty: false,
+            bolts: 4890,
+            planetId: 3,
+            planetName: "Kerwan (Metropolis)",
+            timestamp: "2026-10-09 17:21:44",
+            modifiedMillis: Date.now() - 1800000,
+          },
+          {
+            slotIndex: 2,
+            filename: "save2.bin",
+            path: `/home/you/.local/share/openrac/memcard/${serial}/BESCES-50916RATCHET/save2.bin`,
+            size: 59912,
+            exists: true,
+            isEmpty: true,
+            bolts: null,
+            planetId: null,
+            planetName: null,
+            timestamp: null,
+            modifiedMillis: null,
+          },
+          {
+            slotIndex: 3,
+            filename: "save3.bin",
+            path: `/home/you/.local/share/openrac/memcard/${serial}/BESCES-50916RATCHET/save3.bin`,
+            size: 59912,
+            exists: true,
+            isEmpty: true,
+            bolts: null,
+            planetId: null,
+            planetName: null,
+            timestamp: null,
+            modifiedMillis: null,
+          },
+          {
+            slotIndex: 4,
+            filename: "save4.bin",
+            path: `/home/you/.local/share/openrac/memcard/${serial}/BESCES-50916RATCHET/save4.bin`,
+            size: 59912,
+            exists: true,
+            isEmpty: true,
+            bolts: null,
+            planetId: null,
+            planetName: null,
+            timestamp: null,
+            modifiedMillis: null,
+          },
+        ],
+        backups: [
+          {
+            name: ".backup_1791560000_checkpoint",
+            path: `/home/you/.local/share/openrac/memcard/${serial}/.backup_1791560000_checkpoint`,
+            createdMillis: Date.now() - 86400000,
+            totalSize: 364544,
+          },
+        ],
+      });
+    }
+    case "backup_saves": {
+      const serial = typeof args.serial === "string" ? args.serial : "SCES_509.16";
+      const note = typeof args.note === "string" ? args.note : "manual";
+      return delay({
+        name: `.backup_${Math.floor(Date.now() / 1000)}_${note}`,
+        path: `/home/you/.local/share/openrac/memcard/${serial}/.backup_${Math.floor(Date.now() / 1000)}_${note}`,
+        createdMillis: Date.now(),
+        totalSize: 364544,
+      });
+    }
+    case "restore_backup":
+    case "open_saves_folder":
+      return delay(null);
     default:
       throw new Error(`the preview has no ${command}: add it to src/lib/mock.ts`);
   }
