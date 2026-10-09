@@ -109,7 +109,7 @@ fn names(tool: Tool) -> &'static [&'static str] {
         Tool::Python if cfg!(windows) => &["python", "py", "python3"],
         Tool::Python => &["python3", "python"],
         Tool::Pcsx2 => &["pcsx2-qt", "pcsx2", "PCSX2", "net.pcsx2.PCSX2"],
-        Tool::Godot => &["godot", "godot4", "Godot"],
+        Tool::Godot => &["godot", "godot4", "Godot", "org.godotengine.Godot"],
         Tool::Docker => &["docker", "podman"],
     }
 }
@@ -149,6 +149,23 @@ fn usual_places(tool: Tool) -> Vec<PathBuf> {
             }
             if cfg!(target_os = "macos") {
                 places.push("/Applications/Godot.app/Contents/MacOS/Godot".into());
+            } else if cfg!(windows) {
+                for base in [env("ProgramFiles"), env("LOCALAPPDATA").map(|d| d.join("Programs"))].into_iter().flatten() {
+                    places.push(base.join("Godot").join("Godot.exe"));
+                }
+            } else {
+                for p in [
+                    "/var/lib/flatpak/exports/bin/org.godotengine.Godot",
+                    "/usr/bin/godot",
+                    "/usr/bin/godot4",
+                    "/usr/local/bin/godot",
+                    "/usr/local/bin/godot4",
+                ] {
+                    places.push(PathBuf::from(p));
+                }
+                if let Some(home) = home() {
+                    places.push(home.join(".local/share/flatpak/exports/bin/org.godotengine.Godot"));
+                }
             }
         }
         Tool::Docker if cfg!(target_os = "macos") => places.push("/usr/local/bin/docker".into()),
