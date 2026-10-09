@@ -258,8 +258,9 @@ fn import_iso(
 }
 
 #[tauri::command]
-fn sync_progress_from_web(state: State<'_, AppState>) -> Result<openrac_launcher_core::catalog::Catalog, String> {
-    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
+async fn sync_progress_from_web(state: State<'_, AppState>) -> Result<Library, String> {
+    let config = state.config.lock().unwrap().clone();
+    let root = config.root.clone().ok_or("the OpenRAC folder is not set")?;
 
     // Attempt to fetch latest numbers from openrac.dev using curl (available across all Linux distros)
     let output = std::process::Command::new("curl")
@@ -272,25 +273,24 @@ fn sync_progress_from_web(state: State<'_, AppState>) -> Result<openrac_launcher
     if let Ok(out) = output {
         if out.status.success() {
             if let Ok(json_str) = String::from_utf8(out.stdout) {
-                if let Ok(catalog) = openrac_launcher_core::catalog::update_progress_from_openrac_dev(&root, &json_str)
-                {
-                    return Ok(catalog);
-                }
+                let _ = openrac_launcher_core::catalog::update_progress_from_openrac_dev(&root, &json_str);
             }
         }
     }
 
-    // Offline fallback: load from cached summary.json seamlessly
-    openrac_launcher_core::catalog::load(&root)
+    tauri::async_runtime::spawn_blocking(move || library::library(&config))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn apply_progress_json(
-    state: State<'_, AppState>,
-    json: String,
-) -> Result<openrac_launcher_core::catalog::Catalog, String> {
-    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
-    openrac_launcher_core::catalog::update_progress_from_openrac_dev(&root, &json)
+async fn apply_progress_json(state: State<'_, AppState>, json: String) -> Result<Library, String> {
+    let config = state.config.lock().unwrap().clone();
+    let root = config.root.clone().ok_or("the OpenRAC folder is not set")?;
+    openrac_launcher_core::catalog::update_progress_from_openrac_dev(&root, &json)?;
+    tauri::async_runtime::spawn_blocking(move || library::library(&config))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[cfg(target_os = "linux")]
