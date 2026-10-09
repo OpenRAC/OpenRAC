@@ -62,3 +62,22 @@ add_executable(runtime_test tests/runtime_test.cpp tests/guest_c.c)
 target_link_libraries(runtime_test PRIVATE openrac_runtime)
 openrac_warnings(runtime_test)
 add_test(NAME runtime COMMAND runtime_test)
+
+# ---- the games, from their decompilations ----
+if(OPENRAC_PORT_GAMES)
+  include(Games)
+  openrac_add_game(rac1
+    SOURCE "${OPENRAC_RAC1_SOURCE}"
+    CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/game/rac1/hostgen.json"
+    HOST
+      game/rac1/host/boot.c
+      game/rac1/host/cdvd.c
+      game/rac1/host/graph.c
+      game/rac1/host/kernel.c
+      game/rac1/host/libc.c
+      game/rac1/host/mc.c
+      game/rac1/host/pad.c
+      game/rac1/host/snd.c
+      game/rac1/host/vu0.c
+    PROGRAM game/rac1/main.cpp)
+endif()
