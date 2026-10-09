@@ -39,7 +39,13 @@
 
   async function save(finish: boolean) {
     saving = true;
-    await saveConfig({ ...draft, setupComplete: draft.setupComplete || finish });
+    let customId: string | null = draft.discordClientId?.trim() ?? null;
+    if (customId === "") customId = null;
+    await saveConfig({
+      ...draft,
+      discordClientId: customId,
+      setupComplete: draft.setupComplete || finish,
+    });
     draft = saved();
     saving = false;
     if (finish) app.page = "library";
@@ -121,6 +127,25 @@
         <p class="muted">Show in Discord when you are in the launcher or playing a game.</p>
       </div>
     </label>
+    {#if draft.discordRpc}
+      <div class="rpc-config">
+        <label for="discord-client-id" class="field-title">Discord Application ID</label>
+        <input
+          id="discord-client-id"
+          type="text"
+          class="text-input mono"
+          placeholder="e.g. 1348000000000000000"
+          bind:value={draft.discordClientId}
+        />
+        <p class="muted hint">
+          Leave empty for default. Create an app on
+          <button class="link" onclick={() => void api.openUrl("https://discord.com/developers/applications")}>
+            discord.com/developers/applications
+          </button>
+          named <em>OpenRAC</em> to show custom game name and assets on your profile.
+        </p>
+      </div>
+    {/if}
   </section>
 
   <div class="row end">
@@ -212,5 +237,41 @@
   .toggle-row p {
     margin: 2px 0 0;
     font-size: 13px;
+  }
+
+  .rpc-config {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .text-input {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 13px;
+    outline: none;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .text-input:focus {
+    border-color: var(--amber);
+  }
+
+  .hint {
+    font-size: 12px;
+    margin: 2px 0 0;
   }
 </style>

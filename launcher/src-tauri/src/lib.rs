@@ -57,9 +57,11 @@ fn save_config(state: State<'_, AppState>, config: Config) -> Result<Config, Str
     *state.config.lock().unwrap() = config.clone();
 
     let mut discord = state.discord.lock().unwrap();
-    if let Some(custom_id) = &config.discord_client_id {
-        discord.ipc.set_client_id(custom_id);
-    }
+    let target_id = config
+        .discord_client_id
+        .as_deref()
+        .unwrap_or(openrac_launcher_core::discord::DEFAULT_CLIENT_ID);
+    discord.ipc.set_client_id(target_id);
     if config.discord_rpc {
         let app_start = discord.app_start;
         let _ = discord.ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
@@ -324,6 +326,15 @@ fn ensure_linux_desktop_integration() {
         let _ = std::process::Command::new("kbuildsycoca6")
             .arg("--noincremental")
             .status();
+
+        // If Flatpak Discord is running, ensure standard XDG_RUNTIME_DIR socket symlink exists
+        if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+            let standard_sock = PathBuf::from(&runtime_dir).join("discord-ipc-0");
+            let flatpak_sock = PathBuf::from(&runtime_dir).join("app/com.discordapp.Discord/discord-ipc-0");
+            if flatpak_sock.exists() && !standard_sock.exists() {
+                let _ = std::os::unix::fs::symlink(&flatpak_sock, &standard_sock);
+            }
+        }
     }
 }
 

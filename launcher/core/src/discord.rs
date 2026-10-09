@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_CLIENT_ID: &str = "1293582496739987486";
+pub const DEFAULT_CLIENT_ID: &str = "383226320970055681";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -105,8 +105,8 @@ impl DiscordIpc {
         let socket_paths = find_socket_paths();
         for path in socket_paths {
             if let Ok(mut stream) = std::os::unix::net::UnixStream::connect(&path) {
-                let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(500)));
-                let _ = stream.set_write_timeout(Some(std::time::Duration::from_millis(500)));
+                let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
+                let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(2)));
 
                 // Handshake (Opcode 0): {"v": 1, "client_id": "..."}
                 let payload = serde_json::json!({
@@ -117,9 +117,21 @@ impl DiscordIpc {
 
                 if send_packet(&mut stream, 0, &payload).is_ok() {
                     // Try reading handshake response packet
-                    let _ = read_packet(&mut stream);
-                    self.stream = Some(stream);
-                    return Ok(self.stream.as_mut().unwrap());
+                    match read_packet(&mut stream) {
+                        Ok((opcode, data)) => {
+                            if opcode == 1 {
+                                self.stream = Some(stream);
+                                return Ok(self.stream.as_mut().unwrap());
+                            } else if opcode == 2 {
+                                if let Ok(err) = std::str::from_utf8(&data) {
+                                    eprintln!("[discord-rpc] Handshake error: {err}");
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[discord-rpc] read_packet error on {}: {e}", path.display());
+                        }
+                    }
                 }
             }
         }
@@ -259,14 +271,33 @@ pub fn now_sec() -> u64 {
 fn find_socket_paths() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
 
+    let flatpak_subdirs = [
+        ".flatpak/com.discordapp.Discord/xdg-run",
+        "app/dev.vencord.Vesktop",
+        "app/io.github.spacingbat3.webcord",
+        "app/com.discordapp.DiscordCanary",
+        "app/com.discordapp.Discord",
+    ];
+
     // Check XDG_RUNTIME_DIR or /run/user/<uid>
     if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+        let base = PathBuf::from(&runtime_dir);
         for i in 0..10 {
-            candidates.push(PathBuf::from(&runtime_dir).join(format!("discord-ipc-{i}")));
+            candidates.push(base.join(format!("discord-ipc-{i}")));
+        }
+        for sub in &flatpak_subdirs {
+            for i in 0..10 {
+                candidates.push(base.join(sub).join(format!("discord-ipc-{i}")));
+            }
         }
     }
 
     if let Ok(uid) = std::env::var("UID") {
+        for sub in &flatpak_subdirs {
+            for i in 0..10 {
+                candidates.push(PathBuf::from(format!("/run/user/{uid}/{sub}/discord-ipc-{i}")));
+            }
+        }
         for i in 0..10 {
             candidates.push(PathBuf::from(format!("/run/user/{uid}/discord-ipc-{i}")));
         }
@@ -285,9 +316,12 @@ fn send_packet<W: Write>(writer: &mut W, opcode: u32, payload: &str) -> std::io:
     let bytes = payload.as_bytes();
     let len = bytes.len() as u32;
 
-    writer.write_all(&opcode.to_le_bytes())?;
-    writer.write_all(&len.to_le_bytes())?;
-    writer.write_all(bytes)?;
+    let mut buf = Vec::with_capacity(8 + bytes.len());
+    buf.extend_from_slice(&opcode.to_le_bytes());
+    buf.extend_from_slice(&len.to_le_bytes());
+    buf.extend_from_slice(bytes);
+
+    writer.write_all(&buf)?;
     writer.flush()?;
     Ok(())
 }
