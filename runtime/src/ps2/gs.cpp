@@ -289,6 +289,8 @@ void Gs::reset() {
   batch_ = std::make_unique<Batch>();
   pending_write_.clear();
   pending_read_.clear();
+  pending_colour_.clear();
+  pending_depth_.clear();
   inflight_write_.clear();
   inflight_read_.clear();
   env_ = nullptr;
@@ -702,7 +704,7 @@ void Gs::submit(unsigned kind, unsigned count) {
 
   // The pixels it can reach, generously, inside the scissor rectangle.
   s32 x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
-  Pages written;
+  Pages written, depth;
   u32 need = 0;
   {
     const Env& e = *env_;
@@ -722,7 +724,7 @@ void Gs::submit(unsigned kind, unsigned count) {
     }
     add_pages(written, e.fpsm, e.fbp, e.fbw, x0, y0, x1, y1);
     if (e.zte && !e.zmsk) {
-      add_pages(written, e.zpsm, e.zbp, e.fbw, x0, y0, x1, y1);
+      add_pages(depth, e.zpsm, e.zbp, e.fbw, x0, y0, x1, y1);
     }
     // The levels of the texture it can read. A game leaves the levels it
     // does not need unloaded (their addresses point anywhere, often at the
@@ -736,8 +738,19 @@ void Gs::submit(unsigned kind, unsigned count) {
   prepare_levels(need);
 
   // A primitive whose texture is in the memory it draws to (the games blur
-  // and distort the frame that way) is drawn alone, top to bottom.
-  bool feeds_itself = need && env_->need_pages.intersects(written);
+  // and distort the frame that way) is drawn alone, top to bottom. So is one
+  // whose depth values go where its colours go (a game clears a buffer
+  // through the depth side that way): the two are laid out differently in
+  // memory, so one row's depth is another row's colour.
+  bool feeds_itself = (need && (env_->need_pages.intersects(written) || env_->need_pages.intersects(depth))) ||
+                      depth.intersects(written);
+  // And colours and depth values of different primitives must not meet in
+  // one batch, whose bands are drawn side by side.
+  if (depth.intersects(pending_colour_) || written.intersects(pending_depth_)) {
+    flush();
+  }
+  Pages colour = written;
+  written.add(depth);
   if (threads_ == 0 || feeds_itself) {
     flush();
     wait_for_drawing();
@@ -763,6 +776,8 @@ void Gs::submit(unsigned kind, unsigned count) {
   pending_target_ = e.target;
   stamp(written);
   pending_write_.add(written);
+  pending_colour_.add(colour);
+  pending_depth_.add(depth);
   if (need && e.in_place) {
     pending_read_.add(e.in_place_pages);
   }
@@ -832,6 +847,8 @@ void Gs::flush() {
   }
   pending_write_.clear();
   pending_read_.clear();
+  pending_colour_.clear();
+  pending_depth_.clear();
   // The states went with the batch.
   env_ = nullptr;
   env_dirty_ = clut_copy_dirty_ = true;

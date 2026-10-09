@@ -70,7 +70,141 @@ void Gif::packed(Path& p, u64 lo, u64 hi) {
   }
 }
 
+namespace {
+// How much is copied before the thread is given it, and how far ahead of the
+// thread the writer may get.
+constexpr std::size_t kChunkBytes = 64 * 1024, kMostQueuedBytes = 16 * 1024 * 1024;
+}  // namespace
+
+Gif::~Gif() {
+  if (thread_.joinable()) {
+    hand_over();
+    {
+      std::lock_guard lock(mutex_);
+      quit_ = true;
+    }
+    work_.notify_all();
+    thread_.join();
+  }
+}
+
+void Gif::start() {
+  if (!thread_.joinable()) {
+    thread_ = std::thread([this] { loop(); });
+  }
+}
+
+std::size_t Gif::packet_quadwords(const u8* memory, u32 at, u32 mask) {
+  std::size_t total = 0;
+  while (total <= mask) {
+    u64 lo = load<u64>(memory + ((at + total) & mask) * 16);
+    total++;
+    u64 loops = bits(lo, 0, 15), nreg = bits(lo, 60, 4);
+    if (nreg == 0) {
+      nreg = 16;
+    }
+    switch (bits(lo, 58, 2)) {
+      case kPacked: total += loops * nreg; break;
+      case kReglist: total += (loops * nreg + 1) / 2; break;
+      default: total += loops; break;
+    }
+    if (bits(lo, 15, 1)) {
+      break;
+    }
+  }
+  return std::min<std::size_t>(total, std::size_t{mask} + 1);
+}
+
 void Gif::write(int path, const u8* data, std::size_t quadwords) {
+  if (!thread_.joinable()) {
+    take(path, data, quadwords);
+    return;
+  }
+  if (quadwords == 0) {
+    return;
+  }
+  std::size_t at = open_.data.size();
+  open_.data.insert(open_.data.end(), data, data + quadwords * 16);
+  if (!open_.pieces.empty() && open_.pieces.back().path == path) {
+    open_.pieces.back().quadwords += quadwords;
+  } else {
+    open_.pieces.push_back(Piece{path, at, quadwords});
+  }
+  if (open_.data.size() >= kChunkBytes) {
+    hand_over();
+  }
+}
+
+void Gif::run(std::function<void()> what) {
+  if (!thread_.joinable()) {
+    what();
+    return;
+  }
+  open_.then = std::move(what);
+  hand_over();
+}
+
+void Gif::hand_over() {
+  if (open_.data.empty() && !open_.then) {
+    return;
+  }
+  {
+    std::unique_lock lock(mutex_);
+    done_.wait(lock, [this] { return queued_bytes_ < kMostQueuedBytes; });
+    queued_bytes_ += open_.data.size();
+    queue_.push_back(std::move(open_));
+    if (!spare_.empty()) {
+      open_ = std::move(spare_.back());
+      spare_.pop_back();
+    } else {
+      open_ = Chunk{};
+    }
+  }
+  work_.notify_one();
+}
+
+void Gif::sync() {
+  if (!thread_.joinable()) {
+    return;
+  }
+  hand_over();
+  std::unique_lock lock(mutex_);
+  done_.wait(lock, [this] { return queue_.empty() && !busy_; });
+}
+
+void Gif::loop() {
+  std::unique_lock lock(mutex_);
+  for (;;) {
+    work_.wait(lock, [this] { return quit_ || !queue_.empty(); });
+    if (queue_.empty()) {
+      return;
+    }
+    Chunk chunk = std::move(queue_.front());
+    queue_.pop_front();
+    busy_ = true;
+    lock.unlock();
+
+    for (const Piece& piece : chunk.pieces) {
+      take(piece.path, chunk.data.data() + piece.at, piece.quadwords);
+    }
+    if (chunk.then) {
+      chunk.then();
+      chunk.then = nullptr;
+    }
+
+    lock.lock();
+    busy_ = false;
+    queued_bytes_ -= chunk.data.size();
+    chunk.data.clear();
+    chunk.pieces.clear();
+    if (spare_.size() < 16) {
+      spare_.push_back(std::move(chunk));
+    }
+    done_.notify_all();
+  }
+}
+
+void Gif::take(int path, const u8* data, std::size_t quadwords) {
   fp::want_nearest();  // the GS computes as the host does; a vector unit may have been running
   Path& p = paths_[path - 1];
   while (quadwords) {

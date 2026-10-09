@@ -15,10 +15,12 @@ Drawing::~Drawing() {
     work_.notify_all();
     thread_.join();
   }
+  graphics_.gif.sync();  // what it was asked to do refers to this object
 }
 
 void Drawing::start() {
   if (!thread_.joinable()) {
+    graphics_.gif.start();  // the GIF and the GS on one thread, VIF1 and VU1 on this one
     thread_ = std::thread([this] { loop(); });
   }
 }
@@ -98,7 +100,8 @@ void Drawing::sync() {
     std::unique_lock<std::mutex> lock(mutex_);
     done_.wait(lock, [this] { return queue_.empty() && !busy_; });
   }
-  // The drawing thread has nothing to do now, so this one may ask the GS.
+  // This thread has nothing to give the GIF now, so the caller may ask for it.
+  graphics_.gif.sync();
   graphics_.gs.finish();
 }
 
@@ -119,29 +122,41 @@ void Drawing::run(Command& command) {
       graphics_.gif.write(3, command.data.data(), command.data.size() / 16);
       break;
     case kPrivileged:
-      graphics_.gs.write_privileged(command.address, command.value);
+      graphics_.gif.run([this, address = command.address, value = command.value] {
+        graphics_.gs.write_privileged(address, value);
+      });
       break;
     case kVblank:
-      graphics_.gs.vblank(command.value != 0);
+      graphics_.gif.run([this, odd = command.value != 0] { graphics_.gs.vblank(odd); });
       break;
-    case kPresent: {
-      ps2::Image image;
-      {
-        // The buffer is used again; only its contents are replaced.
-        std::lock_guard<std::mutex> lock(picture_mutex_);
-        image = std::move(spare_picture_);
-      }
-      bool shown = graphics_.gs.display(image);
-      std::lock_guard<std::mutex> lock(picture_mutex_);
-      if (shown) {
-        spare_picture_ = std::move(picture_);
-        picture_ = std::move(image);
-      } else {
-        spare_picture_ = std::move(image);
-      }
-      picture_shown_ = shown;
+    case kPresent:
+      graphics_.gif.run([this, counted = thread_.joinable()] {
+        ps2::Image image;
+        {
+          // The buffer is used again; only its contents are replaced.
+          std::lock_guard<std::mutex> lock(picture_mutex_);
+          image = std::move(spare_picture_);
+        }
+        bool shown = graphics_.gs.display(image);
+        {
+          std::lock_guard<std::mutex> lock(picture_mutex_);
+          if (shown) {
+            spare_picture_ = std::move(picture_);
+            picture_ = std::move(image);
+          } else {
+            spare_picture_ = std::move(image);
+          }
+          picture_shown_ = shown;
+        }
+        if (counted) {
+          {
+            std::lock_guard<std::mutex> lock(mutex_);
+            presents_waiting_--;
+          }
+          done_.notify_all();
+        }
+      });
       break;
-    }
   }
 }
 
@@ -161,9 +176,6 @@ void Drawing::loop() {
 
     lock.lock();
     busy_ = false;
-    if (command.kind == kPresent) {
-      presents_waiting_--;
-    }
     if (command.data.capacity() && spare_.size() < 8) {
       command.data.clear();
       spare_.push_back(std::move(command.data));

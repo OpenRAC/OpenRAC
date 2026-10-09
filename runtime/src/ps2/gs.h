@@ -365,6 +365,7 @@ class Gs {
   unsigned threads_ = 0;
   std::unique_ptr<Batch> batch_;         // the one being gathered
   Pages pending_write_, pending_read_;   // what it will write, and read in place
+  Pages pending_colour_, pending_depth_; // what it will write, by which side
   Pages inflight_write_, inflight_read_; // the same for batches handed over and maybe not drawn yet
   u64 pending_target_ = 0;
   Env* env_ = nullptr;

@@ -2,6 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #pragma once
 
+#include <algorithm>
+
 #include "fp_quad.h"
 #include "gif.h"
 #include "gs.h"
@@ -46,12 +48,11 @@ struct Graphics {
       // announces, and wraps at the end of data memory.
       const u32 mask = Vif1::kMemoryBytes / 16 - 1;
       u32 at = quadword & mask;
-      for (u32 n = 0; n <= mask; n++) {
-        gif.write(1, &vif.data[at * 16], 1);
-        at = (at + 1) & mask;
-        if (gif.idle(1)) {
-          break;
-        }
+      std::size_t count = Gif::packet_quadwords(vif.data.data(), at, mask);
+      std::size_t first = std::min<std::size_t>(count, mask + 1 - at);
+      gif.write(1, &vif.data[at * 16], first);
+      if (count > first) {
+        gif.write(1, vif.data.data(), count - first);
       }
     };
   }
