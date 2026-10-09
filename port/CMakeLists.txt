@@ -61,6 +61,9 @@ target_link_libraries(runtime_test PRIVATE openrac_runtime)
 openrac_warnings(runtime_test)
 add_test(NAME runtime COMMAND runtime_test)
 
+# ---- assets, media, audio, the extractor: no window ----
+include(Assets)
+
 if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()
