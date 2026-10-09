@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// openrac-extractor IMAGE --game GAME [--proj-path DIR] [--extract] [--validate]
+//                   [--decompile] [--compile] [--json]
+//
+// Sets a game up from the image of the player's own disc (extractor.h). The
+// command line is tools/extractor.py's; --json prints the launcher's JSON
+// lines (report.h). Exit status 0, or 1 after "error NNNN: ...".
+
+#include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <string_view>
+
+#include "extract/extractor.h"
+
+namespace {
+
+constexpr const char* kUsage =
+    "usage: openrac-extractor IMAGE --game GAME [--proj-path DIR] [--extract] [--validate]\n"
+    "                         [--decompile] [--compile] [--json]\n"
+    "\n"
+    "Sets a game up from the image (.iso) of your own disc. With no step named, runs\n"
+    "them all. GAME is rac1, rac2, rac3 or rac4; DIR defaults to the current folder.\n";
+
+int usage(const char* problem) {
+    std::fprintf(stderr, "openrac-extractor: %s\n%s", problem, kUsage);
+    return 2;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    openrac::extract::Options options;
+    bool json = false;
+    for (int i = 1; i < argc; ++i) {
+        std::string_view arg = argv[i];
+        std::string value;
+        auto take = [&](std::string_view name) {
+            if (arg.starts_with(name) && arg.size() > name.size() && arg[name.size()] == '=') {
+                value = std::string(arg.substr(name.size() + 1));
+                return true;
+            }
+            if (arg == name && i + 1 < argc) {
+                value = argv[++i];
+                return true;
+            }
+            return false;
+        };
+        if (arg == "-h" || arg == "--help") {
+            std::fputs(kUsage, stdout);
+            return 0;
+        } else if (take("--game") || take("-g")) {
+            options.game = value;
+        } else if (take("--proj-path")) {
+            options.proj = value;
+        } else if (arg == "-e" || arg == "--extract") {
+            options.extract = true;
+        } else if (arg == "-v" || arg == "--validate") {
+            options.validate = true;
+        } else if (arg == "-d" || arg == "--decompile") {
+            options.decompile = true;
+        } else if (arg == "-c" || arg == "--compile") {
+            options.compile = true;
+        } else if (arg == "--json") {
+            json = true;
+        } else if (!arg.starts_with('-') && options.image.empty()) {
+            options.image = std::string(arg);
+        } else {
+            return usage(("unknown argument " + std::string(arg)).c_str());
+        }
+    }
+    if (options.image.empty()) {
+        return usage("no image named");
+    }
+    if (options.game != "rac1" && options.game != "rac2" && options.game != "rac3"
+        && options.game != "rac4") {
+        return usage("--game must be rac1, rac2, rac3 or rac4");
+    }
+    openrac::extract::Reporter report(json);
+    return openrac::extract::run(options, report);
+}

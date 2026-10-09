@@ -45,6 +45,8 @@ and notes:
   compression, level data, overlays, scenes, saves, messages, volumes, the
   front end), converted to C++ from `crates/rc-formats` and its specs in
   `docs/formats`; each file names its source.
+- `port/extract/`: `openrac-extractor`'s JSON-lines output, crash-safe writes,
+  free-space check and decompile step, after `crates/rc-extract`.
 
 ISC License
 
