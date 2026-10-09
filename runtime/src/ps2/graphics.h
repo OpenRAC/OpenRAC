@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #pragma once
 
+#include "fp_quad.h"
 #include "gif.h"
 #include "gs.h"
 #include "vif.h"
@@ -28,6 +29,7 @@ struct Graphics {
       // gone wrong here.
       const u64 limit = 4'000'000;
       vu1_instructions += resume ? vu1.resume(limit) : vu1.run(address, limit);
+      fp::want_nearest();  // the program left the host rounding towards zero
       vu1_starts++;
       if (!vu1.stopped()) {
         vu1_runaways++;

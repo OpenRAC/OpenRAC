@@ -31,7 +31,9 @@ struct Unit {
 
   u64 run(const Program& program, u32 at = 0) {
     std::memcpy(micro.data(), program.words().data(), program.words().size() * 4);
-    return vu.run(at);
+    u64 ran = vu.run(at);
+    fp::want_nearest();  // the checks compute as the host does
+    return ran;
   }
   void set(unsigned reg, float x, float y, float z, float w) {
     vu.vf[reg] = {as_u32(x), as_u32(y), as_u32(z), as_u32(w)};

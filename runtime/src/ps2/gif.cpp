@@ -2,6 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #include "gif.h"
 
+#include "fp_quad.h"
+
 #include <algorithm>
 
 namespace ps2 {
@@ -69,6 +71,7 @@ void Gif::packed(Path& p, u64 lo, u64 hi) {
 }
 
 void Gif::write(int path, const u8* data, std::size_t quadwords) {
+  fp::want_nearest();  // the GS computes as the host does; a vector unit may have been running
   Path& p = paths_[path - 1];
   while (quadwords) {
     if (p.loops == 0) {

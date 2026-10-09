@@ -11,7 +11,7 @@
 namespace ps2 {
 namespace {
 
-constexpr u32 kXyz = 14, kAll = 15;
+constexpr u32 kXyz = 14;
 
 // The divider's two status bits: invalid (bit 4) and divide by zero (bit 5).
 inline u32 divide_flags(u32 problems) {
@@ -19,13 +19,8 @@ inline u32 divide_flags(u32 problems) {
 }
 
 // The four-field arithmetic needs the host to round towards zero while a
-// unit computes, and only then: other code on the thread expects the usual
-// rounding.
-struct TowardZero {
-  u64 saved = fp::host_rounding();
-  TowardZero() { fp::round_toward_zero(); }
-  ~TowardZero() { fp::set_host_rounding(saved); }
-};
+// unit computes. Every way in asks for it (fp::want_toward_zero) and none
+// switches back: whoever computes as the host does asks for its own mode.
 
 inline s32 sign_extend(u32 v, unsigned width) {
   u32 m = 1u << (width - 1);
@@ -82,7 +77,7 @@ void Vu::start(u32 address) {
 }
 
 u64 Vu::advance(u64 instructions) {
-  TowardZero rounding;
+  fp::want_toward_zero();
   u64 count = 0;
   while (running_ && count < instructions) {
     step();
@@ -92,7 +87,7 @@ u64 Vu::advance(u64 instructions) {
 }
 
 u64 Vu::advance_to_sync(u64 limit) {
-  TowardZero rounding;
+  fp::want_toward_zero();
   u64 count = 0;
   sync_point_ = false;
   while (running_ && !sync_point_ && count < limit) {
@@ -103,7 +98,7 @@ u64 Vu::advance_to_sync(u64 limit) {
 }
 
 u64 Vu::resume(u64 limit) {
-  TowardZero rounding;
+  fp::want_toward_zero();
   running_ = true;
   u64 count = 0;
   while (running_ && count < limit) {
@@ -129,10 +124,8 @@ void Vu::fire_kick() {
   kick_in_ = 0;
   if (on_kick) {
     // What takes the packet (the GS) computes with the usual rounding.
-    u64 mode = fp::host_rounding();
-    fp::round_to_nearest();
     on_kick(kick_address_);
-    fp::set_host_rounding(mode);
+    fp::want_toward_zero();
   }
 }
 
@@ -427,7 +420,7 @@ void Vu::settle() {
 }
 
 void Vu::macro(u32 code) {
-  TowardZero rounding;
+  fp::want_toward_zero();
   in_upper_ = false;
   flags_wanted_ = true;
   u32 fn = code & 0x3F;
@@ -689,7 +682,7 @@ void Vu::arith(u32 code, Op op, From from, bool to_acc) {
     if (to_acc) {
       acc = out;
     } else {
-      write_vf(fd, kAll, out);
+      write_vf(fd, dest, out);
     }
     return;
   }
@@ -728,7 +721,7 @@ void Vu::arith(u32 code, Op op, From from, bool to_acc) {
   if (to_acc) {
     acc = out;
   } else {
-    write_vf(fd, kAll, out);
+    write_vf(fd, dest, out);
   }
   if (flags_wanted_) {
     post_flags(flags);
@@ -745,7 +738,7 @@ void Vu::min_max(u32 code, From from, bool max) {
       out[field] = max ? fp::max(a, b) : fp::min(a, b);
     }
   }
-  write_vf(fd, kAll, out);
+  write_vf(fd, dest, out);
 }
 
 // --- upper instructions --------------------------------------------------------

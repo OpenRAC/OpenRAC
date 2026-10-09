@@ -2,6 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #include "machine.h"
 
+#include "ps2/fp_quad.h"
+
 #include <algorithm>
 #include <cstdarg>
 #include <cstdio>
@@ -398,6 +400,7 @@ void Machine::run_frame() {
           ee.last_unknown_pc, static_cast<unsigned long long>(ee.unknown));
     }
   }
+  ps2::fp::want_nearest();  // the vector units leave the host rounding towards zero
 }
 
 void Machine::skip_to_vblank() {

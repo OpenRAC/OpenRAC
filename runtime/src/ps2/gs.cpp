@@ -2,6 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #include "gs.h"
 
+#include "fp_quad.h"
+
 #include <algorithm>
 #include <bit>
 #include <climits>
@@ -1629,6 +1631,7 @@ void Gs::copy_local() {
 // --- output ------------------------------------------------------------------
 
 Image Gs::snapshot(u32 bp, u32 bw, u32 psm, int width, int height) {
+  fp::want_nearest();
   flush();
   Image image;
   image.width = width;
@@ -1647,6 +1650,7 @@ Image Gs::snapshot(u32 bp, u32 bw, u32 psm, int width, int height) {
 }
 
 bool Gs::display(Image& out) {
+  fp::want_nearest();
   flush();
   u64 pmode = priv_[0];
   int circuit = (pmode & 1) ? 0 : (pmode & 2) ? 1 : -1;
