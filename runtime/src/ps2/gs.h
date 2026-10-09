@@ -277,6 +277,9 @@ class Gs {
   // Primitives gathered to be drawn together, with everything they refer
   // to. Once handed over to be drawn, nothing in it changes.
   struct Batch {
+    // Its primitives depend on each other's pixels: they are drawn one
+    // after the other, each top to bottom, not by bands.
+    bool serial = false;
     std::vector<Queued> primitives;
     std::array<std::vector<u32>, 128> bands;  // by 16 scan lines: the primitives that reach each band
     std::vector<u16> used_bands;

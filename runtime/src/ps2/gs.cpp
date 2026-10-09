@@ -233,6 +233,7 @@ class Gs::Raster {
 };
 
 void Gs::Batch::clear() {
+  serial = false;
   primitives.clear();
   for (u16 band : used_bands) {
     bands[band].clear();
@@ -761,7 +762,7 @@ void Gs::submit(unsigned kind, unsigned count) {
   }
   Pages colour = written;
   written.add(depth);
-  if (threads_ == 0 || feeds_itself) {
+  if (threads_ == 0 || (feeds_itself && !raster_)) {
     flush();
     wait_for_drawing();
     prepare_levels(need);
@@ -770,6 +771,26 @@ void Gs::submit(unsigned kind, unsigned count) {
     draw(q, 0, 2047);
     stats.pixels = pixels_.fetch_add(tls_pixels, std::memory_order_relaxed) + tls_pixels;
     tls_pixels = 0;
+    return;
+  }
+  // With a thread that draws batches, such primitives go to it in a batch of
+  // their own kind, drawn one primitive after the other.
+  if (feeds_itself != batch_->serial && !batch_->primitives.empty()) {
+    flush();
+    prepare_levels(need);
+  }
+  if (feeds_itself) {
+    batch_->serial = true;
+    stamp(written);
+    pending_target_ = env_->target;
+    pending_write_.add(written);
+    pending_colour_.add(colour);
+    pending_depth_.add(depth);
+    pending_read_.add(reads);
+    batch_->primitives.push_back(Queued{env_, static_cast<u8>(kind), {queue_[0], queue_[1], queue_[2]}});
+    if (batch_->primitives.size() >= 1024) {
+      flush();
+    }
     return;
   }
 
@@ -823,7 +844,13 @@ void Gs::render_band(const Batch& batch, unsigned band) {
 // Draw a batch: on the calling thread alone when it is small or there is no
 // pool, else with the pool, a band at a time each.
 void Gs::render(const Batch& batch) {
-  if (!pool_ || batch.primitives.size() < 8) {
+  if (batch.serial) {
+    for (const Queued& q : batch.primitives) {
+      draw(q, 0, 2047);
+    }
+    pixels_.fetch_add(tls_pixels, std::memory_order_relaxed);
+    tls_pixels = 0;
+  } else if (!pool_ || batch.primitives.size() < 8) {
     for (u16 band : batch.used_bands) {
       render_band(batch, band);
     }
