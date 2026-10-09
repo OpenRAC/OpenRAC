@@ -169,8 +169,11 @@ draws the menu, because nothing before that depends on it.
 take over, read the same VU memory the program would have read and draw
 directly on the GPU, at any resolution. That is OpenGOAL's method (notes,
 section 4) applied one program at a time, with the interpreter's output as
-the test. RAC1 has nine VU1 programs; RAC2 keeps the tfrag program
-unchanged.
+the test. RAC1 has nine VU1 programs; RAC2 keeps the terrain and shrub
+programs unchanged, so host renderers for those two serve both games. The
+executables name every program and its chunks in a table of their own, which
+is how the runtime can tell which program is loaded
+([VU_PROGRAMS.md](VU_PROGRAMS.md)).
 
 ### 4.5 Conventions taken from OpenGOAL (**decided** by measurement there)
 
