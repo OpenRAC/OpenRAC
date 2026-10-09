@@ -37,6 +37,10 @@ using ps2::u8;
  * time the address is reached, and again after the program says it changed code (a level
  * loading). So a function of another level, or of another version of the game, is never run.
  *
+ * A game with a program for each level has the same function at another address in each, and
+ * calls it by that address. So the level in memory is found again whenever code changed, the
+ * library is told, and a level's functions are bound in that level only.
+ *
  * Only the thread that runs the EE uses it.
  */
 class Native {
@@ -79,6 +83,9 @@ public:
     std::size_t functions() const { return functions_.size(); }
 
     std::size_t bound() const { return bound_; }
+
+    /** The level whose program is in memory, or `OPENRAC_NATIVE_BOOT`; as last looked at. */
+    int level() const { return level_; }
 
     /** How many times host code ran in place of a guest function. */
     u64 calls = 0;
@@ -160,8 +167,10 @@ private:
      * Runs one call both ways and compares (see `check`).
      *
      * @param function The function; it is bound and its mark is set.
+     * @return True if the call was made; false if nothing was done and the interpreter is to
+     * make it (the retail function did not come back without a timed event).
      */
-    void check_call(Function& function);
+    bool check_call(Function& function);
 
     /**
      * Copies the registers and memories.
@@ -176,6 +185,9 @@ private:
      * @param from The copy.
      */
     void put_back(const Snapshot& from);
+
+    /** Finds which level's program is in memory and tells the library if it is another. */
+    void find_level();
 
     /**
      * Compares the guest's memory at a function's address with the code it stands in for.
@@ -197,19 +209,25 @@ private:
     static uint32_t float_op(uint32_t op, uint32_t a, uint32_t b);
     static int32_t float_compare(uint32_t a, uint32_t b);
 
-    ps2::Ee& ee_;                                      // The core.
-    ps2::GuestMemory& memory_;                         // The guest's memory.
-    OpenracHost host_{};                               // What the library was given.
-    std::vector<Function> functions_;                  // The library's functions.
-    std::unordered_map<u32, std::size_t> by_address_;  // Index into `functions_` by guest address.
-    std::vector<u8> marks_;      // One byte a word of main memory, for the core.
-    std::size_t bound_ = 0;      // Functions in state `Bound`.
-    u32 stack_pointer_ = 0;      // The host code's shared stack pointer.
-    u32 next_data_ = kDataBase;  // Where the next module's data goes.
-    bool checking_ = false;      // A call is being compared; calls inside it are not.
-    Snapshot before_;            // The machine before a checked call.
-    Snapshot host_result_;       // What the host function left.
-    Snapshot retail_result_;     // What the retail function left.
+    ps2::Ee& ee_;                                    // The core.
+    ps2::GuestMemory& memory_;                       // The guest's memory.
+    OpenracHost host_{};                             // What the library was given.
+    std::vector<Function> functions_;                // The library's functions.
+    const OpenracNativeLibrary* library_ = nullptr;  // The loaded library.
+
+    /** Indexes into `functions_` by guest address: one for each level that has code there. */
+    std::unordered_map<u32, std::vector<std::size_t>> by_address_;
+
+    std::vector<u8> marks_;            // One byte a word of main memory, for the core.
+    std::size_t bound_ = 0;            // Functions in state `Bound`.
+    int level_ = OPENRAC_NATIVE_BOOT;  // The level whose program is in memory.
+    bool level_known_ = false;         // `level_` was found since code last changed.
+    u32 stack_pointer_ = 0;            // The host code's shared stack pointer.
+    u32 next_data_ = kDataBase;        // Where the next module's data goes.
+    bool checking_ = false;            // A call is being compared; calls inside it are not.
+    Snapshot before_;                  // The machine before a checked call.
+    Snapshot host_result_;             // What the host function left.
+    Snapshot retail_result_;           // What the retail function left.
 };
 
 }  // namespace sys

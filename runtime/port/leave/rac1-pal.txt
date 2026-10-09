@@ -14,4 +14,6 @@
 # a register move carries all 64 bits whatever the C says; here the upper half
 # is dropped.
 func_0021C1B0     gives func_001F4868's result (a 64-bit texture register value, declared int here) to the text drawer
+func_001F6EA8     keeps func_001F4868's result in an `int` local on its way to the text drawer
+func_001F7560     the same, for each character it draws
 func_0021C6C0     returns a colour that the retail code leaves zero-extended in 64 bits; declared s32, it comes back sign-extended

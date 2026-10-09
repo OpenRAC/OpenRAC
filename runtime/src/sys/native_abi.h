@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 /** The version of this contract; a library built for another one is refused. */
-#define OPENRAC_NATIVE_ABI 1
+#define OPENRAC_NATIVE_ABI 2
 
 /**
  * What the runtime gives a library: the guest's memory, the EE's registers, and a way to call a
@@ -90,7 +90,14 @@ typedef struct OpenracHost {
     uint32_t (*allocate)(void* context, uint32_t bytes, uint32_t alignment);
 } OpenracHost;
 
-/** One decompiled function of a library. */
+/**
+ * Which program a function belongs to when it is none of a game's levels: the one the disc boots.
+ * A game that loads a program of its own for each level (Ratchet & Clank does) has levels 0 and
+ * up as well.
+ */
+#define OPENRAC_NATIVE_BOOT (-1)
+
+/** One decompiled function of a library, at one of the places the retail game has it. */
 typedef struct OpenracNativeFunction {
     /** The guest address of the retail function it stands in for. */
     uint32_t address;
@@ -98,6 +105,9 @@ typedef struct OpenracNativeFunction {
     /** The retail function's size in bytes, and the CRC-32 of those bytes as the game has them. */
     uint32_t size;
     uint32_t crc;
+
+    /** The level whose program has it at this address, or `OPENRAC_NATIVE_BOOT`. */
+    int32_t level;
 
     /** Its name in the decompilation, for reports. */
     const char* name;
@@ -108,6 +118,23 @@ typedef struct OpenracNativeFunction {
     /** Runs it: arguments from the EE's registers, the result into them. */
     void (*entry)(void);
 } OpenracNativeFunction;
+
+/**
+ * How to tell that a level's program is the one in memory: the checksum of a run of its code.
+ *
+ * Each level's program has its own copy of the engine at its own addresses, so what a name stands
+ * for depends on the level. The runtime finds the level whose run of bytes is in memory and tells
+ * the library through `set_level`.
+ */
+typedef struct OpenracNativeLevel {
+    /** The level's number. */
+    int32_t level;
+
+    /** Where the run of code is, how long it is, and the CRC-32 of its bytes. */
+    uint32_t address;
+    uint32_t size;
+    uint32_t crc;
+} OpenracNativeLevel;
 
 /** A library: what it was built from and its functions. */
 typedef struct OpenracNativeLibrary {
@@ -123,6 +150,16 @@ typedef struct OpenracNativeLibrary {
 
     /** Called once before any function: the library keeps `host` and sets its modules up. */
     void (*start)(const OpenracHost* host);
+
+    /** How many levels have a program of their own, and how to tell each. */
+    uint32_t level_count;
+    const OpenracNativeLevel* levels;
+
+    /**
+     * Makes the library's names stand for their addresses in one level's program, or in the
+     * boot program's for `OPENRAC_NATIVE_BOOT`. The library starts out as for the boot program.
+     */
+    void (*set_level)(int32_t level);
 } OpenracNativeLibrary;
 
 /** The one symbol a library exports. */

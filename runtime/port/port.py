@@ -46,6 +46,15 @@ SOURCE_DIRS = {
     "rac1/pal": ["src/game", "src/overlays"],
 }
 
+# Where a game lists the places of its functions: a game with a program for each level has the
+# same function at another address in each (the decompilation's catalogue of them).
+CATALOGUES = {
+    "rac1/pal": "config/overlays/functions.tsv",
+}
+
+# How many bytes at the start of a level's code tell the level's program from any other.
+LEVEL_PROBE_BYTES = 256
+
 CFLAGS = [
     "--target=wasm32-unknown-unknown",
     "-O2",
@@ -81,14 +90,22 @@ def find_tool(name):
     return found
 
 
+# Functions whose integer result is 64 bits wide whatever a source file declares (runtime/port/wide).
+WIDE_RESULTS = set()
+
+
 def filter_source(text):
     """Returns a source file's text as the host build compiles it.
 
     `long long` becomes `long`, which the build defines as `long long`. A
     statement of assembly at file scope (padding between functions) is
-    dropped; its lines are kept empty so that line numbers stay.
+    dropped; its lines are kept empty so that line numbers stay. A
+    declaration of a function in `WIDE_RESULTS` is read as returning
+    `long`, whichever integer type it names.
     """
     text = re.sub(r"\blong\s+long\b", "long", text)
+    for name in WIDE_RESULTS:
+        text = re.sub(rf"\b(?:unsigned\s+(?:int|long)|int|unsigned|long|[su]32|[su]64)\s+{name}\s*\(", f"long {name}(", text)
     lines = text.split("\n")
     out = []
     inside = False
@@ -340,18 +357,83 @@ def console_floats(code):
     return code[:at] + override + code[at:]
 
 
+# Reading unoptimised LLVM IR: a function's start, a local, a pointer made from another, any value.
+DEFINE = re.compile(r"^define .*@\"?([\w$.]+)\"?\(")
+ALLOCA = re.compile(r"^\s+(%[\w.]+) = alloca (.+?), align")
+DERIVED = re.compile(r"^\s+(%[\w.]+) = (?:getelementptr|bitcast)\b.*?\bptr (%[\w.]+)")
+TOKEN = re.compile(r"%[\w.]+")
+
+def written_only(ll):
+    """Returns {function: [locals]} from unoptimised LLVM IR: arrays and structures that a function
+    stores to and neither reads nor hands to anyone.
+
+    The retail compiler keeps such stores, and they are there for a reason: the function passes a
+    neighbouring local's address, and the callee reads past it into this one (the original source
+    had one structure where the decompilation has two locals). That works only with the retail
+    compiler's stack layout, so the host build leaves these functions to the interpreter.
+    """
+    found = {}
+    function = None
+    for line in ll.split("\n"):
+        start = DEFINE.match(line)
+        if start:
+            function, roots, root_of, writes, reads = start.group(1), {}, {}, set(), set()
+            continue
+        if function is None:
+            continue
+        if line.startswith("}"):
+            names = sorted(name for name in writes - reads if roots[name])
+            if names:
+                found[function] = names
+            function = None
+            continue
+        made = ALLOCA.match(line)
+        if made:
+            kind = made.group(2)
+            roots[made.group(1)] = kind.startswith("[") or kind.startswith("%struct.") or kind.startswith("%union.")
+            root_of[made.group(1)] = made.group(1)
+            continue
+        step = DERIVED.match(line)
+        if step and step.group(2) in root_of:
+            root_of[step.group(1)] = root_of[step.group(2)]
+            continue
+        tokens = [token for token in TOKEN.findall(line.split("!dbg")[0]) if token in root_of]
+        if not tokens:
+            continue
+        text = line.strip()
+        if "@llvm.lifetime" in text or "@llvm.dbg" in text:
+            continue
+        store = re.match(r"store .*?, ptr (%[\w.]+)(?:,|$)", text)
+        if store and tokens == [store.group(1)]:
+            writes.add(root_of[store.group(1)])
+            continue
+        fill = re.match(r"call void @llvm\.mem(?:set|cpy|move)[\w.]*\(ptr (?:[\w()]+ )*(%[\w.]+), (.*)", text)
+        if fill and fill.group(1) in root_of and not any(t in root_of for t in TOKEN.findall(fill.group(2))):
+            writes.add(root_of[fill.group(1)])
+            continue
+        for token in tokens:
+            reads.add(root_of[token])
+    return found
+
+
 def translate(job):
     """Compiles, links and translates one source file. Sets module.error when a step fails."""
     module, tools, game_dir = job
     filtered = module.stem.with_suffix(".c")
     text = module.source.read_text(errors="replace")
-    filtered.write_text(f'#line 1 "{module.source}"\n' + own_labels(filter_source(text)))
+    # A wide function used before the file declares it would be taken to return `int`.
+    wide = "".join(f"long {name}();\n" for name in sorted(WIDE_RESULTS) if re.search(rf"\b{name}\b", text))
+    filtered.write_text(wide + f'#line 1 "{module.source}"\n' + own_labels(filter_source(text)))
     compile_command = [tools["clang"]] + CFLAGS + [
         f"-I{HERE / 'include'}", f"-I{game_dir / 'include'}", f"-I{module.source.parent}",
         "-c", str(filtered), "-o", str(module.stem.with_suffix(".o"))]
     link_command = [tools["wasm-ld"], "-shared", "--experimental-pic", "--import-memory", "--allow-undefined",
                     "--export-dynamic", "--fatal-warnings", str(module.stem.with_suffix(".o")),
                     "-o", str(module.stem.with_suffix(".wasm"))]
+    layout_command = [tools["clang"]] + [flag for flag in CFLAGS if flag != "-O2"] + [
+        "-O0", "-fno-discard-value-names", "-S", "-emit-llvm",
+        f"-I{HERE / 'include'}", f"-I{game_dir / 'include'}", f"-I{module.source.parent}",
+        str(filtered), "-o", str(module.stem.with_suffix(".ll"))]
     wasm2c_command = [tools["wasm2c"], str(module.stem.with_suffix(".wasm")), "--module-name", module.name,
                       "-o", str(module.stem) + "_w2c.c"]
     for step, command in (("compile", compile_command), ("link", link_command), ("translate", wasm2c_command)):
@@ -381,6 +463,10 @@ def translate(job):
     code = code[:start] + MEMORY_MACROS + code[end:]
     generated.write_text(code)
     read_interface(module, tools)
+    # Which functions depend on the retail compiler's stack layout; without the listing, none are known.
+    module.layout = {}
+    if not run(layout_command):
+        module.layout = written_only(module.stem.with_suffix(".ll").read_text(errors="replace"))
     return module
 
 
@@ -426,6 +512,17 @@ class Retail:
             for unit in json.loads(report.read_text())["units"]:
                 for function in unit.get("functions", []):
                     self.sizes[function["name"]] = int(function["size"])
+        self.symbols = {}  # name -> its number in the library's table of places
+        self.places = {}  # name -> {level number: address}, from the game's catalogue
+        catalogue = game_dir / CATALOGUES.get(key, "none")
+        if catalogue.is_file():
+            for line in catalogue.read_text().split("\n"):
+                fields = line.split("\t")
+                if len(fields) >= 6 and not line.startswith("#"):
+                    found = self.places.setdefault(fields[0], {})
+                    for place in fields[5].split(","):
+                        found.setdefault(int(place[:2]), []).append(int(place[3:], 16))
+        self.calls = {}  # (module name, level number) -> the addresses the module's retail code calls there
         self.regions = {}  # level ("00") or None for the boot program -> [(address, bytes)]
         serial = json.loads((game_dir.parent / "game.json").read_text())["versions"][game_dir.name]["serial"]
         boot = game_dir / "baserom" / serial
@@ -450,6 +547,90 @@ class Retail:
                 found.append((address, elf[offset:offset + size]))
         return found
 
+    def symbol(self, name, module):
+        """Returns the number of a name, as a module uses it, in the library's table of places.
+
+        A name the catalogue has at one address a level is the same for every module. A small
+        function that several of the original objects each carried a copy of has several places
+        in a level under one name, and which copy a module's code calls is read from the retail
+        code itself: see `chosen`.
+        """
+        key = (name, tuple(sorted(self.chosen(name, module).items())))
+        return self.symbols.setdefault(key, len(self.symbols))
+
+    def places_of(self, name, level):
+        """Returns the addresses a function has in a level's program: its own, or the catalogue's."""
+        where = address_of(name)
+        own = [where[0]] if where and where[1] is not None and int(where[1]) == level else []
+        return own or self.places.get(name, {}).get(level, [])
+
+    def called(self, module, level):
+        """Returns the addresses that the retail code of a module's functions calls in a level's program."""
+        key = (module.name, level)
+        if key not in self.calls:
+            import struct
+            targets = set()
+            for _, plain, _, _ in module.exports:
+                size = self.sizes.get(plain, 0)
+                for address in self.places_of(plain, level):
+                    for base, data in self.regions.get(f"{level:02d}", []):
+                        if base <= address and address + size <= base + len(data):
+                            for word, in struct.iter_unpack("<I", data[address - base:address - base + size & ~3]):
+                                # The jump-and-link instruction: opcode 3 and the target's words.
+                                if word >> 26 == 3:
+                                    targets.add((word & 0x03FFFFFF) << 2)
+            self.calls[key] = targets
+        return self.calls[key]
+
+    def chosen(self, name, module):
+        """Returns {level number: address} for a name as one module uses it, where the catalogue places it.
+
+        Where a level has the function more than once, the copy is the one the retail code of
+        the module's own functions calls; if that does not say (none or several are called), it
+        is the copy nearest to the module's functions, as the decompilation's own check takes it.
+        """
+        choice = {}
+        for level, candidates in self.places.get(name, {}).items():
+            if len(candidates) > 1:
+                called = [address for address in candidates if address in self.called(module, level)]
+                if len(called) == 1:
+                    candidates = called
+                else:
+                    near = [address for _, plain, _, _ in module.exports for address in self.places_of(plain, level)]
+                    middle = sorted(near)[len(near) // 2] if near else candidates[0]
+                    candidates = [min(candidates, key=lambda address: abs(address - middle))]
+            choice[level] = candidates[0]
+        return choice
+
+    def levels(self):
+        """Returns the numbers of the levels that have a program of their own, in order."""
+        return sorted(int(level) for level in self.regions if level is not None)
+
+    def place_rows(self):
+        """Returns one C row for each numbered name: its address in the boot program, then in each level.
+
+        A name stands for the address in it everywhere, except where the catalogue has the
+        function at another address in a level's program.
+        """
+        levels = self.levels()
+        rows = []
+        for name, choice in self.symbols:
+            where = address_of(name)
+            own = where[0] if where else 0
+            places = dict(choice)
+            rows.append("    {" + ", ".join(f"0x{address:08X}u" for address in [own] + [places.get(level, own) for level in levels])
+                        + f"}},  /* {name} */")
+        return rows
+
+    def probe_rows(self):
+        """Returns one C row for each level: how the runtime tells that its program is in memory."""
+        rows = []
+        for level in self.levels():
+            address, data = self.regions[f"{level:02d}"][0]
+            run = data[:LEVEL_PROBE_BYTES]
+            rows.append(f"    {{{level}, 0x{address:08X}u, {len(run)}, 0x{self.crc32(run) & 0xFFFFFFFF:08X}u}},")
+        return rows
+
     def function(self, name):
         """Returns (address, size, crc) of a retail function by its name, or None when it is not on disk."""
         where = address_of(name)
@@ -465,7 +646,12 @@ class Retail:
 
 def left_to_the_interpreter(key):
     """Returns the names in the game's list of functions the host build leaves out (runtime/port/leave)."""
-    listing = HERE / "leave" / (key.replace("/", "-") + ".txt")
+    return listed_names("leave", key)
+
+
+def listed_names(folder, key):
+    """Returns the first word of each line of a game's list in runtime/port/<folder>, comments apart."""
+    listing = HERE / folder / (key.replace("/", "-") + ".txt")
     if not listing.exists():
         return set()
     names = set()
@@ -512,15 +698,12 @@ def write_glue(module, retail, out):
     renames = []
     # The addresses of retail globals and functions the module names.
     for c_name, plain in module.globals:
-        where = address_of(plain)
-        value = f"0x{where[0]:08X}u" if where else "0"
-        if not where:
+        if not address_of(plain):
             module.unresolved.append(plain)
         unique = f"{name}_{c_name}"
         renames.append((c_name, unique))
-        lines += [f"static uint32_t value_{unique} = {value};",
-                  f"uint32_t* {unique}(struct {'w2c_GOT0x2Efunc' if c_name.startswith('w2c_GOT0x2Efunc') else 'w2c_GOT0x2Emem'}* unused) "
-                  f"{{ (void)unused; return &value_{unique}; }}"]
+        lines += [f"uint32_t* {unique}(struct {'w2c_GOT0x2Efunc' if c_name.startswith('w2c_GOT0x2Efunc') else 'w2c_GOT0x2Emem'}* unused) "
+                  f"{{ (void)unused; return &openrac_place[{retail.symbol(plain, module)}]; }}"]
     for c_name in module.accessors:
         unique = f"{name}_{c_name}"
         renames.append((c_name, unique))
@@ -560,7 +743,7 @@ def write_glue(module, retail, out):
             module.stubs.append(plain)
         else:
             lines += pass_arguments(plan, slots)
-            lines.append(f"    openrac_call(0x{where[0]:08X}u);")
+            lines.append(f"    openrac_call(openrac_place[{retail.symbol(plain, module)}]);")
             lines += take_result(result, slots)
         lines.append("}")
     lines.append("")
@@ -570,6 +753,10 @@ def write_glue(module, retail, out):
         facts = retail.function(plain)
         plan, slots = marshal(parameters)
         if not facts or result == "f64" or plain in retail.leave:
+            continue
+        # Its locals are laid out for a callee that reads across them (see `written_only`).
+        if plain in module.layout:
+            module.by_layout.append(plain)
             continue
         address, size, crc = facts
 
@@ -595,7 +782,9 @@ def write_glue(module, retail, out):
             lines.append(f"    openrac_set_r64(2, {c_name}({call}));")
         lines.append("}")
         returns = {"void": 0, "f32": 2}.get(result, 1)
-        rows.append(f'    {{0x{address:08X}u, {size}, 0x{crc:08X}u, "{plain}", {returns}, entry_{plain}}},')
+        level = address_of(plain)[1]
+        rows.append(f'    {{0x{address:08X}u, {size}, 0x{crc:08X}u, {int(level) if level else "OPENRAC_NATIVE_BOOT"}, '
+                    f'"{plain}", {returns}, entry_{plain}}},')
     # Setting the module up: its data's place, then the translated code's own start-up.
     starts = [c for c, plain, _, _ in module.exports if plain in ("__wasm_apply_data_relocs", "__wasm_call_ctors")]
     lines += ["", f"void openrac_start_{name}(void) {{",
@@ -605,8 +794,11 @@ def write_glue(module, retail, out):
         for c_name, plain, _, _ in module.exports:
             if plain == wanted:
                 lines.append(f"    {c_name}(&instance);")
+    lines += ["}", "", "/* Addresses the module keeps in its own data follow the level: they are written again. */",
+              f"void openrac_relocate_{name}(void) {{"]
+    lines += [f"    {c_name}(&instance);" for c_name, plain, _, _ in module.exports if plain == "__wasm_apply_data_relocs"]
     lines += ["}", "", f"const OpenracNativeFunction openrac_functions_{name}[] = {{"] + rows + [
-        '    {0, 0, 0, 0, 0, 0},', "};", ""]
+        '    {0, 0, 0, 0, 0, 0, 0},', "};", ""]
     Path(str(module.stem) + "_glue.c").write_text("\n".join(lines))
     Path(str(module.stem) + "_names.h").write_text(
         "".join(f"#define {old} {new}\n" for old, new in renames))
@@ -625,6 +817,8 @@ GLUE_HEADER = """\
 #include "wasm-rt.h"
 
 extern const OpenracHost* openrac_host;
+/* What each numbered name stands for in the program that is in memory now (see openrac_main.c). */
+extern uint32_t openrac_place[];
 extern wasm_rt_memory_t openrac_memory;
 extern wasm_rt_funcref_table_t openrac_no_table;
 
@@ -709,8 +903,8 @@ static inline double openrac_from_bits_f64(uint64_t bits) {
 """
 
 
-def write_main(modules, key, out_dir):
-    """Writes the library's own file: the runtime's side of wasm2c, the table and the start function."""
+def write_main(modules, key, out_dir, retail):
+    """Writes the library's own file: the runtime's side of wasm2c, the tables and the start function."""
     lines = ["/* Generated by runtime/port/port.py. Do not edit. */", '#include "openrac_glue.h"', "",
              "#include <stdio.h>", "#include <stdlib.h>", "",
              "const OpenracHost* openrac_host;", "wasm_rt_memory_t openrac_memory;",
@@ -724,13 +918,29 @@ def write_main(modules, key, out_dir):
     for module in modules:
         lines.append(f"extern const OpenracNativeFunction openrac_functions_{module.name}[];")
         lines.append(f"void openrac_start_{module.name}(void);")
-    lines += ["", "static OpenracNativeFunction* table;", "static uint32_t count;", "",
+        lines.append(f"void openrac_relocate_{module.name}(void);")
+    columns = len(retail.levels()) + 1
+    count = max(len(retail.symbols), 1)
+    lines += ["", "/* Each name's address in the boot program, then in each level's program, in the levels' order. */",
+              f"static const uint32_t places[{count}][{columns}] = {{"] + (retail.place_rows() or ["    {0},"]) + ["};", "",
+              f"uint32_t openrac_place[{count}];", "",
+              "static const OpenracNativeLevel levels[] = {"] + retail.probe_rows() + ["    {0, 0, 0, 0},", "};", "",
+              "static int started;", "",
+              "/* Column 0 of the places is the boot program; a level is at its row of `levels` plus one. */",
+              "static void set_level(int32_t level) {", "    uint32_t column = 0;",
+              "    for (uint32_t n = 0; levels[n].size; n++) {",
+              "        if (levels[n].level == level) {", "            column = n + 1;", "        }", "    }",
+              f"    for (uint32_t n = 0; n < {count}; n++) {{", "        openrac_place[n] = places[n][column];", "    }",
+              "    if (!started) {", "        return;", "    }"]
+    lines += [f"    openrac_relocate_{module.name}();" for module in modules]
+    lines += ["}", "", "static OpenracNativeFunction* table;", "static uint32_t count;", "",
               "static void start(const OpenracHost* host) {", "    openrac_host = host;",
+              "    set_level(OPENRAC_NATIVE_BOOT);",
               "    openrac_memory.data = host->space;", "    openrac_memory.page_size = 65536;",
               "    openrac_memory.pages = 65536;", "    openrac_memory.max_pages = 65536;",
               "    openrac_memory.size = (uint64_t)1 << 32;"]
     lines += [f"    openrac_start_{module.name}();" for module in modules]
-    lines += ["}", "", "static const OpenracNativeFunction* const lists[] = {"]
+    lines += ["    started = 1;", "}", "", "static const OpenracNativeFunction* const lists[] = {"]
     lines += [f"    openrac_functions_{module.name}," for module in modules]
     lines += ["    0,", "};", "",
               "const OpenracNativeLibrary* openrac_native_library(void) {",
@@ -743,6 +953,8 @@ def write_main(modules, key, out_dir):
               "            table[count++] = *f;", "        }", "    }",
               "    library.abi = OPENRAC_NATIVE_ABI;", f'    library.game = "{key}";',
               "    library.count = count;", "    library.functions = table;", "    library.start = start;",
+              f"    library.level_count = {len(retail.levels())};", "    library.levels = levels;",
+              "    library.set_level = set_level;",
               "    return &library;", "}", ""]
     (out_dir / "openrac_main.c").write_text("\n".join(lines))
     (out_dir / "openrac_glue.h").write_text(GLUE_HEADER)
@@ -768,6 +980,7 @@ def build(key, out_dir, only):
     out_dir.mkdir(parents=True, exist_ok=True)
     tools = {name: find_tool(name) for name in ("clang", "wasm-ld", "wasm2c", "wasm-objdump")}
     modules = [Module(source, game_dir, out_dir, index) for index, source in enumerate(sources)]
+    WIDE_RESULTS.update(listed_names("wide", key))
     with concurrent.futures.ThreadPoolExecutor() as pool:
         list(pool.map(translate, [(module, tools, game_dir) for module in modules]))
     good = [module for module in modules if not module.error]
@@ -775,7 +988,7 @@ def build(key, out_dir, only):
     retail.leave = left_to_the_interpreter(key)
     total = 0
     for module in good:
-        module.unresolved, module.stubs = [], []
+        module.unresolved, module.stubs, module.by_layout = [], [], []
         header = Path(str(module.stem) + "_w2c.h").read_text()
         signature = re.search(rf"void wasm2c_{module.name}_instantiate\(([^)]*)\);", header).group(1)
         module.instantiate_arguments = signature.count(",")
@@ -783,7 +996,7 @@ def build(key, out_dir, only):
         total += module.functions
     # A module that names a global with no address in its name cannot be linked to the game's data.
     usable = [module for module in good if not module.unresolved]
-    write_main(usable, key, out_dir)
+    write_main(usable, key, out_dir, retail)
     include = Path(tools["wasm2c"]).resolve().parents[1] / "include"
     cc = shutil.which("cc") or tools["clang"]
     jobs = [(cc, out_dir / "openrac_main.c", include, None)]
@@ -815,6 +1028,12 @@ def build(key, out_dir, only):
     for module in good:
         if module.unresolved:
             print(f"  left out, {module.source.relative_to(game_dir)}: no address for {', '.join(sorted(set(module.unresolved))[:4])}")
+    by_layout = sorted(plain for module in usable for plain in module.by_layout)
+    if by_layout:
+        listing = out_dir / "left_by_stack_layout.txt"
+        listing.write_text("".join(f"{plain}\n" for plain in by_layout))
+        print(f"  {len(by_layout)} functions are left to the interpreter: they fill locals that only a callee reads, "
+              f"through a neighbour's address ({listing.name})")
     stubs = sorted({plain for module in usable for plain in module.stubs})
     if stubs:
         print(f"  {len(stubs)} callees cannot be called yet (the call stops the game): {', '.join(stubs[:8])}")

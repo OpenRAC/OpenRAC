@@ -20,6 +20,9 @@ namespace {
 /** The most instructions the retail side of a checked call may take before the check gives up. */
 constexpr u64 kCheckInstructions = 2'000'000;
 
+/** How many of them run between two looks at whether the function reached outside memory. */
+constexpr u64 kCheckSlice = 64;
+
 /**
  * The CRC-32 of a run of bytes (the common one: polynomial 0xEDB88320, as zlib computes it).
  *
@@ -88,15 +91,15 @@ bool Native::load(const std::string& path, std::string* error) {
         return false;
     }
 
+    library_ = found;
     found->start(&host_);
     marks_.assign(ps2::GuestMemory::kRamBytes / 4, 0);
 
     for (u32 n = 0; n < found->count; n++) {
         const OpenracNativeFunction& function = found->functions[n];
 
-        // Only code in main memory can be stood in for; the first function for an address wins.
-        if (function.address >= ps2::GuestMemory::kRamBytes
-            || by_address_.count(function.address)) {
+        // Only code in main memory can be stood in for.
+        if (function.address >= ps2::GuestMemory::kRamBytes) {
             continue;
         }
 
@@ -110,7 +113,7 @@ bool Native::load(const std::string& path, std::string* error) {
             continue;
         }
 
-        by_address_[function.address] = functions_.size();
+        by_address_[function.address].push_back(functions_.size());
         Function added;
 
         added.entry = function;
@@ -132,6 +135,30 @@ void Native::code_changed() {
     }
 
     bound_ = 0;
+    level_known_ = false;
+}
+
+void Native::find_level() {
+    int now = OPENRAC_NATIVE_BOOT;
+
+    for (u32 n = 0; n < library_->level_count; n++) {
+        const OpenracNativeLevel& level = library_->levels[n];
+        bool inside = level.size != 0 && level.address + level.size <= ps2::GuestMemory::kRamBytes;
+
+        // This level's code is where its program has it: no other program has these bytes there.
+        if (inside && crc32(memory_.ram(level.address), level.size) == level.crc) {
+            now = level.level;
+            break;
+        }
+    }
+
+    // Another program than before: the library's names now stand for its addresses.
+    if (now != level_) {
+        level_ = now;
+        library_->set_level(now);
+    }
+
+    level_known_ = true;
 }
 
 void Native::report(std::FILE* out, std::size_t most) const {
@@ -211,28 +238,54 @@ bool Native::enter(u32 address) {
         return false;
     }
 
-    Function& function = functions_[found->second];
+    // First call since code changed: which program is this?
+    if (!level_known_) {
+        find_level();
+    }
 
-    // First time here since code changed: is this the function the host code was written from?
-    if (function.state == State::Unchecked) {
-        function.state = matches(function) ? State::Bound : State::Other;
-        bound_ += function.state == State::Bound ? 1 : 0;
+    Function* bound = nullptr;
+
+    for (std::size_t index : found->second) {
+        Function& candidate = functions_[index];
+        int level = candidate.entry.level;
+
+        // A function of another level's program; the boot program's may still be in memory.
+        if (level != OPENRAC_NATIVE_BOOT && level != level_) {
+            continue;
+        }
+
+        // First time here since code changed: is this the function the host code was written from?
+        if (candidate.state == State::Unchecked) {
+            candidate.state = matches(candidate) ? State::Bound : State::Other;
+            bound_ += candidate.state == State::Bound ? 1 : 0;
+        }
+
+        // The retail code of this one is at the address.
+        if (candidate.state == State::Bound) {
+            bound = &candidate;
+            break;
+        }
     }
 
     // Other code is at this address now.
-    if (function.state != State::Bound) {
+    if (!bound) {
         return false;
+    }
+
+    Function& function = *bound;
+
+    // One of this function's first calls, and not inside another checked call: compare.
+    if (function.checked + function.unchecked < check && !checking_) {
+        bool made = check_call(function);
+
+        function.calls += made ? 1 : 0;
+        calls += made ? 1 : 0;
+
+        return made;
     }
 
     function.calls++;
     calls++;
-
-    // One of this function's first calls, and not inside another checked call: compare.
-    if (function.checked + function.unchecked < check && !checking_) {
-        check_call(function);
-        return true;
-    }
-
     function.entry.entry();
 
     return true;
@@ -267,10 +320,11 @@ void Native::put_back(const Snapshot& from) {
     std::copy(from.scratchpad.begin(), from.scratchpad.end(), memory_.scratchpad(0));
 }
 
-void Native::check_call(Function& function) {
+bool Native::check_call(Function& function) {
     u32 address = function.entry.address;
     u64 outside_before = outside;
     u64 event_before = ee_.event_at;
+    u64 cycles_before = ee_.cycles;
 
     checking_ = true;
     take(before_);
@@ -283,14 +337,41 @@ void Native::check_call(Function& function) {
     marks_[address >> 2] = 0;
 
     ps2::Ee::Call call = ee_.begin_call(address);
-    bool returned = ee_.run_call(kCheckInstructions);
+    bool returned = false;
 
     /*
-     * It called a library function, touched a device, or is still running (waiting for an
-     * interrupt, say). None of that can be done a second time: this is the call itself, let it
-     * finish with events on again.
+     * A few instructions at a time, to see at once when it reaches outside: from there on it is
+     * the call itself and must not go without its events (a wait for a device would time out).
      */
-    if (!returned || outside != outside_before) {
+    for (u64 left = kCheckInstructions; left != 0 && !returned && outside == outside_before;) {
+        u64 now = std::min(left, kCheckSlice);
+
+        returned = ee_.run_call(now);
+        left -= now;
+    }
+
+    /*
+     * Still running and nothing outside memory was touched: it waits for what only a timed event
+     * brings (an interrupt, say). All it did is taken back, the time it took as well, and the
+     * interpreter makes the call with events on.
+     */
+    if (!returned && outside == outside_before) {
+        ee_.end_call(call);
+        put_back(before_);
+        ee_.cycles = cycles_before;
+        ee_.event_at = event_before;
+        marks_[address >> 2] = 1;
+        function.unchecked++;
+        checking_ = false;
+
+        return false;
+    }
+
+    /*
+     * It called a library function or touched a device. That cannot be done a second time: this
+     * is the call itself, let it finish with events on again.
+     */
+    if (outside != outside_before) {
         ee_.event_at = event_before;
 
         // Still running: until it returns.
@@ -302,7 +383,8 @@ void Native::check_call(Function& function) {
         marks_[address >> 2] = 1;
         function.unchecked++;
         checking_ = false;
-        return;
+
+        return true;
     }
 
     ee_.end_call(call);
@@ -313,6 +395,8 @@ void Native::check_call(Function& function) {
     put_back(before_);
     function.entry.entry();
     take(host_result_);
+
+    u64 outside_after_host = outside;
 
     // What stays is what the retail code left.
     put_back(retail_result_);
@@ -391,12 +475,19 @@ void Native::check_call(Function& function) {
         std::snprintf(text, sizeof(text), "leaves the scratchpad different from the retail code");
     }
 
+    // The host function touched a device or called a library function, and the retail one did not.
+    if (!text[0] && outside_after_host != outside_before) {
+        std::snprintf(text, sizeof(text), "reaches outside memory, the retail code does not");
+    }
+
     // It differs: the interpreter runs this function from now on.
     if (text[0]) {
         function.differs = text;
         function.state = State::Other;
         bound_--;
     }
+
+    return true;
 }
 
 bool Native::matches(const Function& function) {
