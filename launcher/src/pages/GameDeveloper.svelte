@@ -119,6 +119,18 @@
       </dl>
     </section>
 
+    <section class="panel saves-panel">
+      <div class="grow">
+        <h2>Save files & Memory Card</h2>
+        <p class="muted blurb">
+          Inspect PS2 memory card directory, active slots (save0–save4), timestamps and snapshot backups.
+        </p>
+      </div>
+      <button class="primary" onclick={() => (showSaveManager = true)}>
+        <Icon name="save" size={16} />Open save manager
+      </button>
+    </section>
+
     <div class="kinds">
       {#each SECTIONS as section (section.kind)}
         {@const list = here.filter((a) => a.kind === section.kind)}

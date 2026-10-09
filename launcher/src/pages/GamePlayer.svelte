@@ -200,6 +200,18 @@
       {/if}
     </section>
 
+    <section class="panel saves-panel">
+      <div class="grow">
+        <h2>Save files & Memory Card</h2>
+        <p class="muted">
+          Manage memory card save slots (save0–save4), view save timestamps and create safety backups/snapshots.
+        </p>
+      </div>
+      <button class="primary" onclick={() => (showSaveManager = true)}>
+        <Icon name="save" size={16} />Open save manager
+      </button>
+    </section>
+
     <details class="panel more">
       <summary>More</summary>
       <div class="row wrap">
@@ -208,9 +220,7 @@
             ><Icon name="play" size={16} />Preview a level in Godot</button
           >
         {/if}
-        <button onclick={() => (showSaveManager = true)}
-          ><Icon name="save" size={16} />Save management (prototype)</button
-        >
+        <button onclick={() => (showSaveManager = true)}><Icon name="save" size={16} />Save management</button>
         <button onclick={() => void guard(api.openPath(v.dir))}
           ><Icon name="folder" size={16} />Open the game's folder</button
         >
