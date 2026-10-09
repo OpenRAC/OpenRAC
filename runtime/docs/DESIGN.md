@@ -232,11 +232,11 @@ Sony's SDK source, samples and headers are never used
 | | Milestone | Shows |
 |---|---|---|
 | M0 | Build, window, software GS, GIF, VIF and DMA decoding, the vector unit interpreter, tests; a demo that draws from a hand-built chain, part of it through a microprogram on VU1 | the renderer end exists (**done**, see [README](../README.md)) |
-| M1 | EE interpreter boots RAC1 PAL from the ISO to the title loop with the library boundary replaced; chains reach the walker | the game code end exists |
-| M2 | The EE's vector instructions and VU0 microprograms on the same interpreter; the games' VU1 programs run; the title screen and main menu draw | first real picture |
-| M3 | Memory card as files, pad input, the save and load screens | the menu is usable |
-| M4 | Level 0 loads and plays | first level |
-| M5 | Sound; frame pacing; a faster EE core | playable |
+| M1 | EE interpreter boots RAC1 PAL from the ISO to the title loop with the library boundary replaced; chains reach the walker | the game code end exists (**done**) |
+| M2 | The EE's vector instructions and VU0 microprograms on the same interpreter; the games' VU1 programs run; the title screen and main menu draw | first real picture (**done**) |
+| M3 | Memory card as files, pad input, the save and load screens | the menu is usable (pad input **done**; the card is an empty slot) |
+| M4 | Level 0 loads and plays | first level (**done**: it loads, draws and takes input, at about a quarter of full speed) |
+| M5 | Sound; frame pacing; a faster EE core and vector unit; the drawing path on its own thread | playable (frame pacing **done**) |
 | M6 | GPU back end and the first native VU1 renderers; wide screen and resolution | a port, visibly |
 | M7 | The other games' hook tables | all four boot |
 | M8 | Host-compiled decompiled C replacing guest functions (route C) | the decompilation runs |

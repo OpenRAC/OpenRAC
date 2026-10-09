@@ -4,6 +4,8 @@
 // openrac-boot: runs the program on your own disc image and reports how far
 // it gets. A development tool: it shows what the machine model still lacks.
 
+#include <chrono>
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
 #include <algorithm>
@@ -41,7 +43,7 @@ bool write_ppm(const std::string& path, const Image& image) {
 
 int main(int argc, char** argv) {
   std::string iso, hooks, ppm;
-  int frames = 600, report = 60, states_frame = -1;
+  int frames = -1, report = 60, states_frame = -1;
   // Threads that draw: by default most of the fast cores, leaving one for the program itself.
   int gs_threads = static_cast<int>(std::min(12u, std::max(2u, std::thread::hardware_concurrency()) - 1));
   bool window_wanted = false;
@@ -85,6 +87,9 @@ int main(int argc, char** argv) {
       return 2;
     }
   }
+  if (frames < 0) {
+    frames = window_wanted ? INT_MAX : 600;  // a window runs until it is closed
+  }
   if (iso.empty() || !machine.disc.open(iso)) {
     std::fprintf(stderr, "cannot open the disc image %s\n", iso.c_str());
     return 1;
@@ -106,6 +111,8 @@ int main(int argc, char** argv) {
 #endif
 
   Image image;
+  auto reported_at = std::chrono::steady_clock::now();
+  auto next_frame_at = reported_at;
   for (int frame = 0; frame < frames && !machine.halted; frame++) {
 #ifndef OPENRAC_NO_WINDOW
     if (window_wanted && !window.pump()) {
@@ -141,6 +148,16 @@ int main(int argc, char** argv) {
         machine.pad.buttons |= static_cast<u16>(p.buttons);
       }
     }
+#ifndef OPENRAC_NO_WINDOW
+    if (window_wanted) {
+      host::Controls c = window.controls();
+      machine.pad.buttons |= static_cast<u16>(c.buttons);
+      machine.pad.left_x = c.left_x;
+      machine.pad.left_y = c.left_y;
+      machine.pad.right_x = c.right_x;
+      machine.pad.right_y = c.right_y;
+    }
+#endif
     machine.run_frame();
     if (machine.ee.vu0_runaways) {
       break;
@@ -167,15 +184,28 @@ int main(int argc, char** argv) {
     if (window_wanted && shown) {
       window.present(image, 4.0f / 3.0f);
     }
+    if (window_wanted) {
+      // No faster than the console: one frame per field.
+      next_frame_at += std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double>(1.0 / machine.hz));
+      auto now = std::chrono::steady_clock::now();
+      if (next_frame_at > now) {
+        std::this_thread::sleep_until(next_frame_at);
+      } else {
+        next_frame_at = now;
+      }
+    }
 #else
     (void)shown;
 #endif
     if (report > 0 && (frame + 1) % report == 0) {
-      std::fprintf(stderr, "frame %d: pc %08x ra %08x, %llu primitives, %llu pixels, %llu VU1 instructions\n", frame + 1,
-                   machine.ee.pc, static_cast<u32>(machine.ee.gpr[31].lo),
+      auto now = std::chrono::steady_clock::now();
+      double seconds = std::chrono::duration<double>(now - reported_at).count();
+      reported_at = now;
+      std::fprintf(stderr, "frame %d: pc %08x ra %08x, %llu primitives, %llu pixels, %llu VU1 instructions, %.1f frames a second\n",
+                   frame + 1, machine.ee.pc, static_cast<u32>(machine.ee.gpr[31].lo),
                    static_cast<unsigned long long>(machine.graphics.gs.stats.primitives),
                    static_cast<unsigned long long>(machine.graphics.gs.stats.pixels),
-                   static_cast<unsigned long long>(machine.graphics.vu1_instructions));
+                   static_cast<unsigned long long>(machine.graphics.vu1_instructions), report / std::max(seconds, 1e-9));
     }
   }
 
