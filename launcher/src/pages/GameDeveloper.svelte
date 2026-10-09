@@ -44,7 +44,7 @@
     <section class="banner rise" aria-label={`${v.title} (${v.region})`}>
       {#if media}
         <div class="banner-backdrop" aria-hidden="true">
-          <img src={media.bg} alt="" class="banner-bg" />
+          <img src={media.gif ?? media.bg} alt="" class="banner-bg" />
           <div class="banner-overlay"></div>
         </div>
       {/if}

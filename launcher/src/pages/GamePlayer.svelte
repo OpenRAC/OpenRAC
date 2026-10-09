@@ -109,7 +109,7 @@
     <section class="hero rise" aria-label={`${v.title} (${v.region})`}>
       {#if media}
         <div class="hero-backdrop" aria-hidden="true">
-          <img src={media.bg} alt="" class="hero-bg" />
+          <img src={media.gif ?? media.bg} alt="" class="hero-bg" />
           <div class="hero-overlay"></div>
         </div>
       {/if}
