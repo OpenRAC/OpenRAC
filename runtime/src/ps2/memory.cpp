@@ -20,7 +20,7 @@ namespace {
 /** The whole of a 32-bit address space. */
 constexpr std::size_t kSpaceBytes = std::size_t{1} << 32;
 
-/** Where main memory answers besides address 0: the uncached and the kernel segments (documented). */
+/** Where main memory answers besides address 0: the uncached and kernel segments (documented). */
 constexpr u32 kMirrors[] = {0x20000000, 0x80000000, 0xA0000000};
 
 /**
@@ -99,7 +99,6 @@ GuestMemory::GuestMemory() {
     bool mapped = mirrored_ || map_at(ram_, kRamBytes, -1);
 
     mapped = mapped && map_at(scratchpad_, kScratchpadBytes, -1);
-    mapped = mapped && map_at(space_ + kHostBase, kHostBytes, -1);
 
     // The interpreter cannot run without its memories.
     if (!mapped) {

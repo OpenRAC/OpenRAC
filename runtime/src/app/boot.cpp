@@ -19,7 +19,9 @@
 #include <climits>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <map>
 #include <string>
 #include <thread>
@@ -75,7 +77,7 @@ bool write_ppm(const std::string& path, const Image& image) {
  */
 int main(int argc, char** argv) {
     // Settings from the command line. A frame number of -1 means the option was not given.
-    std::string iso, hooks, ppm, vif_file, card, wav;
+    std::string iso, hooks, ppm, vif_file, card, wav, native;
     bool card_wanted = true;
     int vif_frame = -1;
     int frames = -1, report = 60, states_frame = -1;
@@ -142,6 +144,35 @@ int main(int argc, char** argv) {
         } else if (arg == "--wav" && i + 1 < argc) {
             // Everything heard, as a sound file.
             wav = argv[++i];
+        } else if (arg == "--native" && i + 1 < argc) {
+            // A library of host code built from the game's decompiled C (runtime/port).
+            native = argv[++i];
+        } else if (arg == "--native-range" && i + 1 < argc) {
+            // Use only the library's functions FIRST up to LAST of its table: FIRST:LAST.
+            const char* range = argv[++i];
+            const char* colon = std::strchr(range, ':');
+
+            machine.native.first = static_cast<std::size_t>(std::strtoull(range, nullptr, 10));
+
+            // Without a colon the range is open at the top.
+            if (colon) {
+                machine.native.last =
+                    static_cast<std::size_t>(std::strtoull(colon + 1, nullptr, 10));
+            }
+        } else if (arg == "--native-name" && i + 1 < argc) {
+            // Print the name of the function at a place of the library's table.
+            machine.native.name_at = std::atol(argv[++i]);
+        } else if (arg == "--native-skip" && i + 1 < argc) {
+            // A file of function names, one a line, that the interpreter keeps running.
+            std::ifstream names(argv[++i]);
+            std::string name;
+
+            while (std::getline(names, name)) {
+                machine.native.skip.insert(name);
+            }
+        } else if (arg == "--native-check" && i + 1 < argc) {
+            // Compare this many of each host function's first calls with the retail code.
+            machine.native.check = static_cast<unsigned>(std::atoi(argv[++i]));
         } else if (arg == "--card" && i + 1 < argc) {
             // The directory that is the memory card.
             card = argv[++i];
@@ -169,7 +200,8 @@ int main(int argc, char** argv) {
                 "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--gs-states "
                 "FRAME] "
                 "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | "
-                "--no-card] [--wav FILE]\n"
+                "--no-card] [--wav FILE] [--native LIBRARY] [--native-check CALLS] [--native-range "
+                "FIRST:LAST] [--native-skip FILE]\n"
             );
             return 2;
         }
@@ -199,6 +231,12 @@ int main(int argc, char** argv) {
     // The disc has no bootable program, or the hooks table is bad.
     if (!machine.boot(&error) || (!hooks.empty() && !machine.load_hooks(hooks, &error))) {
         std::fprintf(stderr, "%s\n", error.c_str());
+        return 1;
+    }
+
+    // Host code in place of guest functions was asked for and cannot be loaded.
+    if (!native.empty() && !machine.native.load(native, &error)) {
+        std::fprintf(stderr, "%s: %s\n", native.c_str(), error.c_str());
         return 1;
     }
 
@@ -268,35 +306,50 @@ int main(int argc, char** argv) {
     auto reported_at = std::chrono::steady_clock::now();
     auto next_frame_at = reported_at;
 
-    // One pass per field, until the frame limit, a halt, a closed window or a runaway VU0 program.
-    for (int frame = 0; frame < frames && !machine.halted; frame++) {
+    /**
+     * What one field needs from here: `before_field` sets the pad and any recording up,
+     * `after_field` shows the picture and writes what was asked for, `finish` is the closing
+     * report. The machine calls them at each vertical blank through `on_frame`, wherever the
+     * program is at that moment: also inside host code that stands in for a guest function,
+     * which cannot return here first.
+     */
+    int frame = 0;
+    bool stop_run = false;
+
+    /**
+     * For working on the GS: what one frame is drawn with, by state, with
+     * how many primitives and the area they span.
+     *
+     * The area and level of detail start at values no primitive can have, so the first one
+     * replaces them.
+     */
+    struct Use {
+        /**
+         * Primitives drawn with the state, the box they span as least and greatest
+         * coordinates, and the rank of the first among all primitives.
+         */
+        int count = 0, x0 = 1 << 30, y0 = 1 << 30, x1 = -(1 << 30), y1 = -(1 << 30), first = 0;
+
+        /** The least and greatest level of detail among them. */
+        float lod0 = 1e9f, lod1 = -1e9f;
+    };
+
+    std::map<std::string, Use> states;
+    int order = 0;
+    std::vector<u8> vif_bytes, vif_micro, vif_data;
+
+    // Before a field runs: the window, the pad, and what a tool asked to record.
+    auto before_field = [&] {
 #ifndef OPENRAC_NO_WINDOW
         // The user closed the window (or pressed Escape).
         if (window_wanted && !window.pump()) {
-            break;
+            stop_run = true;
+            return;
         }
 #endif
 
-        /**
-         * For working on the GS: what one frame is drawn with, by state, with
-         * how many primitives and the area they span.
-         *
-         * The area and level of detail start at values no primitive can have, so the first one
-         * replaces them.
-         */
-        struct Use {
-            /**
-             * Primitives drawn with the state, the box they span as least and greatest
-             * coordinates, and the rank of the first among all primitives.
-             */
-            int count = 0, x0 = 1 << 30, y0 = 1 << 30, x1 = -(1 << 30), y1 = -(1 << 30), first = 0;
-
-            /** The least and greatest level of detail among them. */
-            float lod0 = 1e9f, lod1 = -1e9f;
-        };
-
-        std::map<std::string, Use> states;
-        int order = 0;
+        states.clear();
+        order = 0;
 
         // This is the field whose states were asked for: collect them while it is drawn.
         if (frame == states_frame) {
@@ -348,7 +401,9 @@ int main(int argc, char** argv) {
             machine.pad.right_y = c.right_y;
         }
 #endif
-        std::vector<u8> vif_bytes, vif_micro, vif_data;
+        vif_bytes.clear();
+        vif_micro.clear();
+        vif_data.clear();
 
         // This is the field to record: keep VU1's memories from before it, then its VIF1 bytes.
         if (frame == vif_frame) {
@@ -358,9 +413,10 @@ int main(int argc, char** argv) {
             vif_data.assign(machine.graphics.vif.data.begin(), machine.graphics.vif.data.end());
             machine.drawing.vif_copy = &vif_bytes;
         }
+    };
 
-        machine.run_frame();
-
+    // After a field has run: recordings, listings, the picture, the pace, the periodic report.
+    auto after_field = [&] {
         // Write the recording: the magic, the two memories before the field, then the VIF1 bytes.
         if (frame == vif_frame) {
             machine.drawing.vif_copy = nullptr;
@@ -385,7 +441,8 @@ int main(int argc, char** argv) {
 
         // A VU0 microprogram did not stop: further fields would show nothing useful.
         if (machine.ee.vu0_runaways) {
-            break;
+            stop_run = true;
+            return;
         }
 
         // The states of this field are complete: print them in the order they first appeared.
@@ -479,142 +536,182 @@ int main(int argc, char** argv) {
                 report / std::max(seconds, 1e-9)
             );
         }
-    }
+    };
 
-    // The closing report: the drawing side must finish first so its counts are complete.
-    machine.drawing.sync();
-    std::fprintf(
-        stderr,
-        "gs: %llu texture levels decoded (%llu texels), %llu transfers, %llu batches drawn\n",
-        static_cast<unsigned long long>(machine.graphics.gs.stats.texture_decodes),
-        static_cast<unsigned long long>(machine.graphics.gs.stats.texels_decoded),
-        static_cast<unsigned long long>(machine.graphics.gs.stats.transfers),
-        static_cast<unsigned long long>(machine.graphics.gs.stats.flushes)
-    );
-    std::fprintf(
-        stderr,
-        "stopped after %llu frames at pc %08x (ra %08x)\n",
-        static_cast<unsigned long long>(machine.frames),
-        machine.ee.pc,
-        static_cast<u32>(machine.ee.gpr[31].lo)
-    );
-
-    // Everything the model met and does not do, once each with how often.
-    for (const auto& [what, count] : machine.notes) {
+    // When the run is over: the reports and the files asked for. Returns the exit code.
+    auto finish = [&]() -> int {
+        // The closing report: the drawing side must finish first so its counts are complete.
+        machine.drawing.sync();
         std::fprintf(
             stderr,
-            "  not modelled: %s (%llu times)\n",
-            what.c_str(),
-            static_cast<unsigned long long>(count)
+            "gs: %llu texture levels decoded (%llu texels), %llu transfers, %llu batches drawn\n",
+            static_cast<unsigned long long>(machine.graphics.gs.stats.texture_decodes),
+            static_cast<unsigned long long>(machine.graphics.gs.stats.texels_decoded),
+            static_cast<unsigned long long>(machine.graphics.gs.stats.transfers),
+            static_cast<unsigned long long>(machine.graphics.gs.stats.flushes)
         );
-    }
-
-    // The EE met instructions it does not know: say how many, and the last one.
-    if (machine.ee.unknown) {
         std::fprintf(
             stderr,
-            "  %llu unknown EE instructions, the last %08x at %08x\n",
-            static_cast<unsigned long long>(machine.ee.unknown),
-            machine.ee.last_unknown,
-            machine.ee.last_unknown_pc
+            "stopped after %llu frames at pc %08x (ra %08x)\n",
+            static_cast<unsigned long long>(machine.frames),
+            machine.ee.pc,
+            static_cast<u32>(machine.ee.gpr[31].lo)
         );
-    }
 
-    // Either vector unit or VIF1 met something it cannot decode.
-    if (machine.vu0.unknown_ops || machine.graphics.vu1.unknown_ops
-        || machine.graphics.vif.unknown_codes) {
-        std::fprintf(
-            stderr,
-            "  unknown: %llu VU0, %llu VU1 instructions, %llu VIF1 codes\n",
-            static_cast<unsigned long long>(machine.vu0.unknown_ops),
-            static_cast<unsigned long long>(machine.graphics.vu1.unknown_ops),
-            static_cast<unsigned long long>(machine.graphics.vif.unknown_codes)
-        );
-    }
-
-    // A VU0 microprogram did not stop: say where it started and who started it.
-    if (machine.ee.vu0_runaways) {
-        std::fprintf(
-            stderr,
-            "  %llu VU0 microprograms did not stop (the first started at %u by the EE at %08x)\n",
-            static_cast<unsigned long long>(machine.ee.vu0_runaways),
-            machine.ee.vu0_runaway_start,
-            machine.ee.vu0_runaway_from
-        );
-        u32 at = machine.ee.vu0_runaway_start;
-
-        // The listing is long, so it is printed only when asked for in the environment.
-        if (std::getenv("OPENRAC_VU0_LISTING")) {
-            // The program as it sits in VU0, and where it was: 4 KB of program memory is 512 pairs.
-            for (u32 n = 0; n < 512; n++) {
-                u32 up = load<u32>(&machine.vif0.micro[n * 8 + 4]),
-                    low = load<u32>(&machine.vif0.micro[n * 8]);
-
-                // Empty slots are not listed.
-                if (up || low) {
-                    std::fprintf(stderr, "%s\n", vudis::pair(n, up, low).c_str());
-                }
-            }
-
-            // The program counter and the sixteen integer registers.
-            std::fprintf(stderr, "pc %u; vi:", machine.vu0.pc);
-            for (unsigned n = 0; n < 16; n++) {
-                std::fprintf(stderr, " %04x", machine.vu0.vi[n]);
-            }
-            std::fprintf(stderr, "\n");
-        }
-
-        // `at` is kept for working in a debugger; reading it here quiets the unused warning.
-        (void)at;
-    }
-
-    // VU1 programs that were cut off at the instruction limit.
-    if (machine.graphics.vu1_runaways) {
-        std::fprintf(
-            stderr,
-            "  %llu of %llu VU1 program starts did not stop (the last from %u, at %u when cut "
-            "off)\n",
-            static_cast<unsigned long long>(machine.graphics.vu1_runaways),
-            static_cast<unsigned long long>(machine.graphics.vu1_starts),
-            machine.graphics.vu1_runaway_start,
-            machine.graphics.vu1_runaway_pc
-        );
-    }
-
-    // A sound file was asked for.
-    if (!wav.empty()) {
-        // If the file cannot be made nothing is written and no message is given.
-        if (std::FILE* f = std::fopen(wav.c_str(), "wb")) {
-            // A plain sound file: 16-bit, two channels.
-            u32 bytes = static_cast<u32>(heard.size() * 2), rate = sys::Sound::kRate;
-            u8 head[44] = {'R', 'I', 'F', 'F', 0,  0, 0,   0,   'W', 'A', 'V', 'E', 'f', 'm', 't',
-                           ' ', 16,  0,   0,   0,  1, 0,   2,   0,   0,   0,   0,   0,   0,   0,
-                           0,   0,   4,   0,   16, 0, 'd', 'a', 't', 'a', 0,   0,   0,   0};
-
-            /*
-             * RIFF size at byte 4 (the data plus the 36 bytes after it), sample rate at 24, bytes a
-             * second at 28 (rate times 4 bytes a frame), data size at 40 (documented).
-             */
-            store<u32>(head + 4, bytes + 36);
-            store<u32>(head + 24, rate);
-            store<u32>(head + 28, rate * 4);
-            store<u32>(head + 40, bytes);
-            std::fwrite(head, 1, sizeof(head), f);
-            std::fwrite(heard.data(), 2, heard.size(), f);
-            std::fclose(f);
+        // Everything the model met and does not do, once each with how often.
+        for (const auto& [what, count] : machine.notes) {
             std::fprintf(
                 stderr,
-                "%.1f seconds of sound written to %s\n",
-                static_cast<double>(heard.size()) / 2 / rate,
-                wav.c_str()
+                "  not modelled: %s (%llu times)\n",
+                what.c_str(),
+                static_cast<unsigned long long>(count)
             );
         }
+
+        // The EE met instructions it does not know: say how many, and the last one.
+        if (machine.ee.unknown) {
+            std::fprintf(
+                stderr,
+                "  %llu unknown EE instructions, the last %08x at %08x\n",
+                static_cast<unsigned long long>(machine.ee.unknown),
+                machine.ee.last_unknown,
+                machine.ee.last_unknown_pc
+            );
+        }
+
+        // Either vector unit or VIF1 met something it cannot decode.
+        if (machine.vu0.unknown_ops || machine.graphics.vu1.unknown_ops
+            || machine.graphics.vif.unknown_codes) {
+            std::fprintf(
+                stderr,
+                "  unknown: %llu VU0, %llu VU1 instructions, %llu VIF1 codes\n",
+                static_cast<unsigned long long>(machine.vu0.unknown_ops),
+                static_cast<unsigned long long>(machine.graphics.vu1.unknown_ops),
+                static_cast<unsigned long long>(machine.graphics.vif.unknown_codes)
+            );
+        }
+
+        // A VU0 microprogram did not stop: say where it started and who started it.
+        if (machine.ee.vu0_runaways) {
+            std::fprintf(
+                stderr,
+                "  %llu VU0 microprograms did not stop (the first started at %u by the EE at "
+                "%08x)\n",
+                static_cast<unsigned long long>(machine.ee.vu0_runaways),
+                machine.ee.vu0_runaway_start,
+                machine.ee.vu0_runaway_from
+            );
+            u32 at = machine.ee.vu0_runaway_start;
+
+            // The listing is long, so it is printed only when asked for in the environment.
+            if (std::getenv("OPENRAC_VU0_LISTING")) {
+                // The program as it sits in VU0, and where it was: 4 KB of memory is 512 pairs.
+                for (u32 n = 0; n < 512; n++) {
+                    u32 up = load<u32>(&machine.vif0.micro[n * 8 + 4]),
+                        low = load<u32>(&machine.vif0.micro[n * 8]);
+
+                    // Empty slots are not listed.
+                    if (up || low) {
+                        std::fprintf(stderr, "%s\n", vudis::pair(n, up, low).c_str());
+                    }
+                }
+
+                // The program counter and the sixteen integer registers.
+                std::fprintf(stderr, "pc %u; vi:", machine.vu0.pc);
+                for (unsigned n = 0; n < 16; n++) {
+                    std::fprintf(stderr, " %04x", machine.vu0.vi[n]);
+                }
+                std::fprintf(stderr, "\n");
+            }
+
+            // `at` is kept for working in a debugger; reading it here quiets the unused warning.
+            (void)at;
+        }
+
+        // VU1 programs that were cut off at the instruction limit.
+        if (machine.graphics.vu1_runaways) {
+            std::fprintf(
+                stderr,
+                "  %llu of %llu VU1 program starts did not stop (the last from %u, at %u when cut "
+                "off)\n",
+                static_cast<unsigned long long>(machine.graphics.vu1_runaways),
+                static_cast<unsigned long long>(machine.graphics.vu1_starts),
+                machine.graphics.vu1_runaway_start,
+                machine.graphics.vu1_runaway_pc
+            );
+        }
+
+        // What host code ran, the 20 busiest functions first.
+        if (!native.empty()) {
+            machine.native.report(stderr, 20);
+        }
+
+        // A sound file was asked for.
+        if (!wav.empty()) {
+            // If the file cannot be made nothing is written and no message is given.
+            if (std::FILE* f = std::fopen(wav.c_str(), "wb")) {
+                // A plain sound file: 16-bit, two channels.
+                u32 bytes = static_cast<u32>(heard.size() * 2), rate = sys::Sound::kRate;
+                u8 head[44] = {'R', 'I', 'F', 'F', 0,   0,   0,   0, 'W', 'A', 'V',
+                               'E', 'f', 'm', 't', ' ', 16,  0,   0, 0,   1,   0,
+                               2,   0,   0,   0,   0,   0,   0,   0, 0,   0,   4,
+                               0,   16,  0,   'd', 'a', 't', 'a', 0, 0,   0,   0};
+
+                /*
+                 * RIFF size at byte 4 (the data plus the 36 bytes after it), sample rate at 24,
+                 * bytes a second at 28 (rate times 4 bytes a frame), data size at 40 (documented).
+                 */
+                store<u32>(head + 4, bytes + 36);
+                store<u32>(head + 24, rate);
+                store<u32>(head + 28, rate * 4);
+                store<u32>(head + 40, bytes);
+                std::fwrite(head, 1, sizeof(head), f);
+                std::fwrite(heard.data(), 2, heard.size(), f);
+                std::fclose(f);
+                std::fprintf(
+                    stderr,
+                    "%.1f seconds of sound written to %s\n",
+                    static_cast<double>(heard.size()) / 2 / rate,
+                    wav.c_str()
+                );
+            }
+        }
+
+        // The last picture was asked for and the display was on.
+        if (!ppm.empty() && machine.drawing.picture(image)) {
+            write_ppm(ppm, image);
+        }
+
+        return 0;
+    };
+
+    /*
+     * Called by the machine when a field is complete. The run ends from here, not from the
+     * loop below: at that moment the program may be inside host code many calls deep.
+     */
+    machine.on_frame = [&] {
+        after_field();
+        frame++;
+
+        // The frame limit, a halt, a closed window or a runaway VU0 program.
+        if (stop_run || frame >= frames || machine.halted) {
+            std::exit(finish());
+        }
+
+        before_field();
+
+        // The window was closed.
+        if (stop_run) {
+            std::exit(finish());
+        }
+    };
+
+    before_field();
+
+    // Runs until `on_frame` ends the process; it comes back here only when the program halts.
+    while (!stop_run && !machine.halted && frames > 0) {
+        machine.run_frame();
     }
 
-    // The last picture was asked for and the display was on.
-    if (!ppm.empty() && machine.drawing.picture(image)) {
-        write_ppm(ppm, image);
-    }
-
-    return 0;
+    return finish();
 }

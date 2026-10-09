@@ -31,6 +31,7 @@
 #include "ps2/memory.h"
 #include "snd/player.h"
 #include "sound.h"
+#include "sys/native.h"
 
 namespace sys {
 
@@ -108,6 +109,9 @@ public:
     /** The sound library's sound effects, played from the banks a program loads. */
     snd::Player effects;
 
+    /** Host code that stands in for guest functions, when a library of it is loaded. */
+    Native native{ee, memory};
+
     /**
      * Loads the program the disc boots (SYSTEM.CNF's BOOT2) and gets ready to run it.
      *
@@ -134,6 +138,15 @@ public:
 
     /** Called at each vertical blank, after the game's handlers: show a frame. */
     std::function<void()> on_vblank;
+
+    /**
+     * Called when a field is complete, as the last thing of the vertical blank.
+     *
+     * The program may be anywhere at that moment, also inside host code that stands in for a
+     * guest function, so an owner that does its per-field work here does it at the same field
+     * however the program is run. It may end the process; it must not call `run_frame`.
+     */
+    std::function<void()> on_frame;
 
     /**
      * Called at each vertical blank with that field's sound: pairs of left
@@ -262,7 +275,7 @@ public:
     /**
      * Where the stack of interrupt handlers and callbacks starts: the top of the first megabyte
      * of main memory. That megabyte is the kernel's on the console (documented); no program is
-     * loaded there and the runtime keeps nothing else in it.
+     * loaded there. Host code's data and stack are below it (`Native::kStackTop`).
      */
     static constexpr u32 kHandlerStack = 0x000FFFF0;
 

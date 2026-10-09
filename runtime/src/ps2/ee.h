@@ -88,6 +88,64 @@ public:
     /** Asks `run()` to return after the instruction that is running. */
     void stop() { stop_ = true; }
 
+    /**
+     * Runs the guest function at an address with the registers as they are, until it returns.
+     *
+     * For host code that stands in for a guest function and calls another one: nothing is saved
+     * or put back but the return address and the place to go on at, so the callee's result and
+     * everything else it changed are the caller's to see. Timed events are handled as in `run()`;
+     * a stop asked for meanwhile is kept for the caller's `run()`.
+     *
+     * @param function Address of the function's first instruction.
+     */
+    void run_function(u32 function);
+
+    /** What `begin_call` set aside of the caller, for `end_call` to put back. */
+    struct Call {
+        u64 ra = 0;             // The caller's return address register.
+        u32 pc = 0;             // Where the caller goes on.
+        u32 next_pc = 0;        // And the instruction after that.
+        bool returned = false;  // The caller's own "returned" flag.
+    };
+
+    /**
+     * The three steps of `run_function`, for a caller that wants to stop part of the way:
+     * `begin_call` points the core at the function, `run_call` runs it for a number of
+     * instructions at most and says whether it returned, `end_call` puts the caller back.
+     *
+     * @param function Address of the function's first instruction.
+     * @return What `end_call` needs.
+     */
+    Call begin_call(u32 function);
+
+    /**
+     * Runs the function `begin_call` started.
+     *
+     * @param instructions The most instructions to run now.
+     * @return True when the function has returned (or the program counter left memory).
+     */
+    bool run_call(u64 instructions);
+
+    /**
+     * Puts the caller back after the function returned.
+     *
+     * @param call What `begin_call` gave.
+     */
+    void end_call(const Call& call);
+
+    /**
+     * Where host code may stand in for guest functions: one byte for each word of main memory,
+     * nonzero at a function's first instruction. Null when there is none.
+     *
+     * When the program counter reaches a marked word, `on_native` is called with the address; if
+     * it answers true the function has been run by host code and the EE goes on at the return
+     * address. Not owned.
+     */
+    const u8* native_marks = nullptr;
+
+    /** Runs the host code for the function at an address; false leaves it to the interpreter. */
+    std::function<bool(u32 address)> on_native;
+
     // --- State ---
 
     /** The 32 general registers, 128 bits each (documented). */

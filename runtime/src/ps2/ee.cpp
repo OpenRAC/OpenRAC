@@ -137,8 +137,7 @@ u8* Ee::pointer(u32 address) {
         return memory_.ram(physical);
     }
 
-    // What host code keeps in guest-addressable memory, or nothing.
-    return memory_.host(address);
+    return nullptr;
 }
 
 u8 Ee::read8(u32 address) {
@@ -324,6 +323,60 @@ u64 Ee::call(u32 function, u64 a0, u64 a1, u64 a2, u64 a3) {
     return result;
 }
 
+void Ee::run_function(u32 function) {
+    Call call = begin_call(function);
+
+    // No limit: until it returns.
+    run_call(~u64{0});
+    end_call(call);
+}
+
+Ee::Call Ee::begin_call(u32 function) {
+    Call call;
+
+    call.ra = gpr[31].lo;
+    call.pc = pc;
+    call.next_pc = next_pc;
+    call.returned = returned_;
+
+    // Returning to this address is how `step()` sees that the function is done.
+    gpr[31].lo = kReturnAddress;
+    pc = function;
+    next_pc = function + 4;
+    returned_ = false;
+
+    return call;
+}
+
+bool Ee::run_call(u64 instructions) {
+    // Ends when the function returns, the program counter leaves memory, or the count is spent.
+    while (!returned_ && !lost && instructions != 0) {
+        // A timed event is due: the owner handles it before any further instruction runs.
+        if (cycles >= event_at) {
+            // With no handler the event is dropped, so it does not fire again.
+            if (on_event) {
+                on_event();
+            } else {
+                event_at = ~u64{0};
+            }
+
+            continue;
+        }
+
+        step();
+        instructions--;
+    }
+
+    return returned_ || lost;
+}
+
+void Ee::end_call(const Call& call) {
+    gpr[31].lo = call.ra;
+    pc = call.pc;
+    next_pc = call.next_pc;
+    returned_ = call.returned;
+}
+
 std::array<std::array<u32, 2>, 16> Ee::recent_jumps() const {
     std::array<std::array<u32, 2>, 16> out{};
 
@@ -360,6 +413,13 @@ void Ee::step() {
     // The call's return address is not code: reaching it ends the call.
     if (at == kReturnAddress) {
         returned_ = true;
+        return;
+    }
+
+    // Host code stands in for the function that starts here: go on at its return address.
+    if (native_marks && native_marks[(at & (GuestMemory::kRamBytes - 1)) >> 2] && on_native(at)) {
+        pc = static_cast<u32>(gpr[31].lo);
+        next_pc = pc + 4;
         return;
     }
 

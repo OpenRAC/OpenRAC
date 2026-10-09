@@ -50,6 +50,7 @@ add_library(openrac_sys STATIC
   src/sys/drawing.cpp
   src/sys/machine.cpp
   src/sys/memcard.cpp
+  src/sys/native.cpp
   src/sys/services.cpp
   src/sys/sound.cpp
 )

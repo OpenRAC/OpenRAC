@@ -23,8 +23,7 @@
 namespace ps2 {
 
 /**
- * The memory a game program sees: 32 MB of main memory and the 16 KB scratchpad, and a region for
- * what host code compiled from a decompilation keeps in guest-addressable memory.
+ * The memory a game program sees: 32 MB of main memory and the 16 KB scratchpad.
  *
  * It owns a 4 GB reservation of address space, most of it unmapped. Not copyable.
  */
@@ -39,15 +38,6 @@ public:
     /** Where the scratchpad is in the address space (documented). */
     static constexpr u32 kScratchpadBase = 0x70000000;
 
-    /**
-     * Where host code's own data and stack are in the address space, and how much there is.
-     *
-     * No console memory is at these addresses, so a guest program never names them by itself; it
-     * sees them only when host code passes it a pointer to its own data.
-     */
-    static constexpr u32 kHostBase = 0x40000000;
-    static constexpr u32 kHostBytes = 64 * 1024 * 1024;
-
     /** Reserves the address space and maps the memories into it, zero-filled. */
     GuestMemory();
 
@@ -61,27 +51,12 @@ public:
      * The base of the address space: a guest address is an offset from it.
      *
      * Main memory answers at 0, 0x20000000, 0x80000000 and 0xA0000000 (the cached and uncached
-     * segments, documented), the scratchpad at `kScratchpadBase`, the host region at
-     * `kHostBase`. Anything else is unmapped: touching it stops the process.
+     * segments, documented), the scratchpad at `kScratchpadBase`. Anything else is unmapped:
+     * touching it stops the process.
      *
      * @return The base, or null on a host where the mirrors could not be mapped.
      */
     u8* space() { return mirrored_ ? space_ : nullptr; }
-
-    /**
-     * Turns an address of the host region into a host pointer.
-     *
-     * @param address A guest address.
-     * @return The pointer, or null when the address is not in the host region.
-     */
-    u8* host(u32 address) {
-        // Outside the region.
-        if (address < kHostBase || address - kHostBase >= kHostBytes) {
-            return nullptr;
-        }
-
-        return space_ + address;
-    }
 
     /**
      * Turns a DMA address into a host pointer.

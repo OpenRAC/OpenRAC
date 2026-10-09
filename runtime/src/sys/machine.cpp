@@ -68,13 +68,17 @@ enum : unsigned {
 
 Machine::Machine() {
     // The EE hands everything outside memory to the machine: hardware registers, SYSCALLs, events.
+    // A device register is outside the guest's memory: host code's checker must know.
     ee.on_read = [this](u32 address, unsigned bytes) {
+        native.outside++;
         return hw_read(address, bytes);
     };
     ee.on_write = [this](u32 address, u64 value, unsigned bytes) {
+        native.outside++;
         hw_write(address, value, bytes);
     };
     ee.on_write128 = [this](u32 address, u64 lo, u64 hi) {
+        native.outside++;
         hw_write128(address, lo, hi);
     };
     ee.on_syscall = [this](u32 code) {
@@ -287,6 +291,9 @@ bool Machine::load_hooks(const std::string& path, std::string* error) {
 }
 
 void Machine::syscall(u32 code) {
+    // A kernel call or a replaced library function: something outside the guest's memory.
+    native.outside++;
+
     // The mark of a replaced function: the rest of the code is the service's number.
     if (code & kHookCode) {
         u32 index = code & (kHookCode - 1);
@@ -502,6 +509,8 @@ void Machine::kernel(int number) {
         case 0x62:  // DisableCache
         case 0x64:  // FlushCache
         case 0x68:  // iFlushCache
+            // A program flushes the cache after it has loaded code: host code is bound anew.
+            native.code_changed();
             result(0);
             break;
 
@@ -838,6 +847,11 @@ void Machine::vblank() {
     // Stop the EE so that `run_frame` returns.
     frame_done_ = true;
     ee.stop();
+
+    // The owner's work between two fields.
+    if (on_frame) {
+        on_frame();
+    }
 }
 
 void Machine::call_handler(u32 function, u32 gp, u64 a0, u64 a1) {
