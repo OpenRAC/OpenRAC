@@ -17,6 +17,15 @@
   const scope = $derived({ kind: "version" as const, key: v?.key ?? "" });
   const here = $derived(v?.actions.filter((a) => a.thisPlatform) ?? []);
   const elsewhere = $derived(v?.actions.filter((a) => !a.thisPlatform) ?? []);
+
+  const GAME_MEDIA: Record<string, { bg: string; gif?: string; video?: string }> = {
+    rac1: { bg: "/img/rac1-bg.webp", video: "/img/rac1-gameplay.mp4", gif: "/img/rac1-gameplay.gif" },
+    rac2: { bg: "/img/gc-bg.webp", gif: "/img/rac2-gameplay.gif" },
+    rac3: { bg: "/img/uya-bg.webp", gif: "/img/rac3-gameplay.gif" },
+    rac4: { bg: "/img/deadlocked-bg.webp", gif: "/img/rac4-gameplay.gif" },
+  };
+
+  const media = $derived(v ? GAME_MEDIA[v.game] : null);
 </script>
 
 {#if !v || !game}
@@ -26,9 +35,28 @@
   </div>
 {:else}
   <div class="page sections" style={themeStyle(v.game)}>
+    {#if media}
+      <div class="page-ambient-bg" aria-hidden="true">
+        <img src={media.bg} alt="" />
+      </div>
+    {/if}
+
     <button class="ghost back" onclick={() => (app.page = "library")}><Icon name="arrow" size={16} />All games</button>
 
     <section class="banner rise" aria-label={`${v.title} (${v.region})`}>
+      {#if media}
+        <div class="banner-backdrop" aria-hidden="true">
+          {#if media.video}
+            <video src={media.video} class="banner-bg video" autoplay loop muted playsinline></video>
+          {:else if media.gif}
+            <img src={media.gif} alt="" class="banner-bg gif" />
+          {:else}
+            <img src={media.bg} alt="" class="banner-bg static" />
+          {/if}
+          <div class="banner-overlay"></div>
+        </div>
+      {/if}
+
       <div class="left">
         <div class="title">
           {v.title}
@@ -170,12 +198,36 @@
 
 <style>
   .page {
+    position: relative;
     max-width: 1180px;
     margin: 0 auto;
     padding: 20px 28px 60px;
     display: flex;
     flex-direction: column;
     gap: 20px;
+    z-index: 1;
+  }
+
+  .page-ambient-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 540px;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+    opacity: 0.18;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
+    -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
+  }
+
+  .page-ambient-bg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(32px);
+    transform: scale(1.1);
   }
 
   .back {
@@ -183,6 +235,8 @@
   }
 
   .banner {
+    position: relative;
+    overflow: hidden;
     display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
     gap: 26px;
@@ -192,6 +246,36 @@
     background:
       radial-gradient(90% 70% at 70% 0, var(--from), transparent 70%), linear-gradient(160deg, var(--from), var(--to));
     box-shadow: var(--shadow);
+  }
+
+  .banner-backdrop {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .banner-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.44;
+  }
+
+  .banner-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.65) 100%);
+    pointer-events: none;
+  }
+
+  .left,
+  .right {
+    position: relative;
+    z-index: 1;
   }
 
   .box {
