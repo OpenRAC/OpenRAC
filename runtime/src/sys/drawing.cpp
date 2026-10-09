@@ -115,8 +115,12 @@ bool Drawing::picture(ps2::Image& out) {
 
 void Drawing::run(Command& command) {
     switch (command.kind) {
-        case kVif: graphics_.vif.write(command.data.data(), command.data.size()); break;
-        case kGif: graphics_.gif.write(3, command.data.data(), command.data.size() / 16); break;
+        case kVif:
+            graphics_.vif.write(command.data.data(), command.data.size());
+            break;
+        case kGif:
+            graphics_.gif.write(3, command.data.data(), command.data.size() / 16);
+            break;
         case kPrivileged:
             graphics_.gif.run([this, address = command.address, value = command.value] {
                 graphics_.gs.write_privileged(address, value);

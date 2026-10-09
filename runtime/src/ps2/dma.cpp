@@ -42,8 +42,12 @@ DmaStop run_source_chain(GuestMemory& memory, DmaChannel& channel, const DmaSink
                 from = address;
                 end = true;
                 break;
-            case dmatag::CNT: channel.tadr = after_tag + qwc * 16; break;
-            case dmatag::NEXT: channel.tadr = address; break;
+            case dmatag::CNT:
+                channel.tadr = after_tag + qwc * 16;
+                break;
+            case dmatag::NEXT:
+                channel.tadr = address;
+                break;
             case dmatag::REF:
             case dmatag::REFS:
                 from = address;
@@ -62,7 +66,9 @@ DmaStop run_source_chain(GuestMemory& memory, DmaChannel& channel, const DmaSink
                     end = true;
                 }
                 break;
-            default: end = true; break;
+            default:
+                end = true;
+                break;
         }
 
         channel.madr = from;

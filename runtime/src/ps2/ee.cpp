@@ -250,8 +250,12 @@ void Ee::step() {
     u32 address = static_cast<u32>(gpr[rs].lo) + static_cast<u32>(imm);
 
     switch (op >> 26) {
-        case 0x00: special(op); break;
-        case 0x01: regimm(op, at); break;
+        case 0x00:
+            special(op);
+            break;
+        case 0x01:
+            regimm(op, at);
+            break;
         case 0x02:  // J
             next_pc = ((at + 4) & 0xF0000000u) | ((op & 0x03FFFFFFu) << 2);
             note_jump(at, next_pc);
@@ -261,26 +265,62 @@ void Ee::step() {
             next_pc = ((at + 4) & 0xF0000000u) | ((op & 0x03FFFFFFu) << 2);
             note_jump(at, next_pc);
             break;
-        case 0x04: branch(gpr[rs].lo == gpr[rt].lo, at, imm, false); break;                 // BEQ
-        case 0x05: branch(gpr[rs].lo != gpr[rt].lo, at, imm, false); break;                 // BNE
-        case 0x06: branch(static_cast<s64>(gpr[rs].lo) <= 0, at, imm, false); break;        // BLEZ
-        case 0x07: branch(static_cast<s64>(gpr[rs].lo) > 0, at, imm, false); break;         // BGTZ
-        case 0x08:                                                                          // ADDI
-        case 0x09: set32(rt, static_cast<u32>(gpr[rs].lo) + static_cast<u32>(imm)); break;  // ADDIU
-        case 0x0A: set64(rt, static_cast<s64>(gpr[rs].lo) < imm); break;                    // SLTI
-        case 0x0B: set64(rt, gpr[rs].lo < static_cast<u64>(static_cast<s64>(imm))); break;  // SLTIU
-        case 0x0C: set64(rt, gpr[rs].lo & (op & 0xFFFF)); break;                            // ANDI
-        case 0x0D: set64(rt, gpr[rs].lo | (op & 0xFFFF)); break;                            // ORI
-        case 0x0E: set64(rt, gpr[rs].lo ^ (op & 0xFFFF)); break;                            // XORI
-        case 0x0F: set32(rt, (op & 0xFFFF) << 16); break;                                   // LUI
-        case 0x10: cop0_op(op); break;
-        case 0x11: cop1_op(op, at); break;
-        case 0x12: cop2_op(op, at); break;
-        case 0x14: branch(gpr[rs].lo == gpr[rt].lo, at, imm, true); break;           // BEQL
-        case 0x15: branch(gpr[rs].lo != gpr[rt].lo, at, imm, true); break;           // BNEL
-        case 0x16: branch(static_cast<s64>(gpr[rs].lo) <= 0, at, imm, true); break;  // BLEZL
-        case 0x17: branch(static_cast<s64>(gpr[rs].lo) > 0, at, imm, true); break;   // BGTZL
-        case 0x18:                                                                   // DADDI
+        case 0x04:
+            branch(gpr[rs].lo == gpr[rt].lo, at, imm, false);
+            break;  // BEQ
+        case 0x05:
+            branch(gpr[rs].lo != gpr[rt].lo, at, imm, false);
+            break;  // BNE
+        case 0x06:
+            branch(static_cast<s64>(gpr[rs].lo) <= 0, at, imm, false);
+            break;  // BLEZ
+        case 0x07:
+            branch(static_cast<s64>(gpr[rs].lo) > 0, at, imm, false);
+            break;  // BGTZ
+        case 0x08:  // ADDI
+        case 0x09:
+            set32(rt, static_cast<u32>(gpr[rs].lo) + static_cast<u32>(imm));
+            break;  // ADDIU
+        case 0x0A:
+            set64(rt, static_cast<s64>(gpr[rs].lo) < imm);
+            break;  // SLTI
+        case 0x0B:
+            set64(rt, gpr[rs].lo < static_cast<u64>(static_cast<s64>(imm)));
+            break;  // SLTIU
+        case 0x0C:
+            set64(rt, gpr[rs].lo & (op & 0xFFFF));
+            break;  // ANDI
+        case 0x0D:
+            set64(rt, gpr[rs].lo | (op & 0xFFFF));
+            break;  // ORI
+        case 0x0E:
+            set64(rt, gpr[rs].lo ^ (op & 0xFFFF));
+            break;  // XORI
+        case 0x0F:
+            set32(rt, (op & 0xFFFF) << 16);
+            break;  // LUI
+        case 0x10:
+            cop0_op(op);
+            break;
+        case 0x11:
+            cop1_op(op, at);
+            break;
+        case 0x12:
+            cop2_op(op, at);
+            break;
+        case 0x14:
+            branch(gpr[rs].lo == gpr[rt].lo, at, imm, true);
+            break;  // BEQL
+        case 0x15:
+            branch(gpr[rs].lo != gpr[rt].lo, at, imm, true);
+            break;  // BNEL
+        case 0x16:
+            branch(static_cast<s64>(gpr[rs].lo) <= 0, at, imm, true);
+            break;  // BLEZL
+        case 0x17:
+            branch(static_cast<s64>(gpr[rs].lo) > 0, at, imm, true);
+            break;  // BGTZL
+        case 0x18:  // DADDI
         case 0x19:
             set64(rt, gpr[rs].lo + static_cast<u64>(static_cast<s64>(imm)));
             break;    // DADDIU
@@ -296,7 +336,9 @@ void Ee::step() {
             set64(rt, s ? (mem >> (8 * s)) | (gpr[rt].lo & ~(~u64{0} >> (8 * s))) : mem);
             break;
         }
-        case 0x1C: mmi(op); break;
+        case 0x1C:
+            mmi(op);
+            break;
         case 0x1E: {  // LQ
             u32 a = address & ~15u;
             if (rt) {
@@ -327,10 +369,16 @@ void Ee::step() {
             set32(rt, n ? (mem << (8 * n)) | (old & ((1u << (8 * n)) - 1)) : mem);
             break;
         }
-        case 0x23: set32(rt, read32(address)); break;  // LW
-        case 0x24: set64(rt, read8(address)); break;   // LBU
-        case 0x25: set64(rt, read16(address)); break;  // LHU
-        case 0x26: {                                   // LWR
+        case 0x23:
+            set32(rt, read32(address));
+            break;  // LW
+        case 0x24:
+            set64(rt, read8(address));
+            break;  // LBU
+        case 0x25:
+            set64(rt, read16(address));
+            break;    // LHU
+        case 0x26: {  // LWR
             unsigned s = address & 3;
             u32 mem = read32(address & ~3u), old = static_cast<u32>(gpr[rt].lo);
             if (s == 0) {
@@ -342,10 +390,16 @@ void Ee::step() {
             }
             break;
         }
-        case 0x27: set64(rt, read32(address)); break;                      // LWU
-        case 0x28: write8(address, static_cast<u8>(gpr[rt].lo)); break;    // SB
-        case 0x29: write16(address, static_cast<u16>(gpr[rt].lo)); break;  // SH
-        case 0x2A: {                                                       // SWL
+        case 0x27:
+            set64(rt, read32(address));
+            break;  // LWU
+        case 0x28:
+            write8(address, static_cast<u8>(gpr[rt].lo));
+            break;  // SB
+        case 0x29:
+            write16(address, static_cast<u16>(gpr[rt].lo));
+            break;    // SH
+        case 0x2A: {  // SWL
             unsigned n = 3 - (address & 3);
             u32 mem = read32(address & ~3u), value = static_cast<u32>(gpr[rt].lo);
             write32(
@@ -353,8 +407,10 @@ void Ee::step() {
             );
             break;
         }
-        case 0x2B: write32(address, static_cast<u32>(gpr[rt].lo)); break;  // SW
-        case 0x2C: {                                                       // SDL
+        case 0x2B:
+            write32(address, static_cast<u32>(gpr[rt].lo));
+            break;    // SW
+        case 0x2C: {  // SDL
             unsigned n = 7 - (address & 7);
             u64 mem = read64(address & ~7u);
             write64(
@@ -381,9 +437,13 @@ void Ee::step() {
         case 0x2F:  // CACHE
         case 0x33:  // PREF
             break;
-        case 0x31: fpr[rt] = read32(address); break;  // LWC1
-        case 0x39: write32(address, fpr[rt]); break;  // SWC1
-        case 0x36: {                                  // LQC2
+        case 0x31:
+            fpr[rt] = read32(address);
+            break;  // LWC1
+        case 0x39:
+            write32(address, fpr[rt]);
+            break;    // SWC1
+        case 0x36: {  // LQC2
             u32 a = address & ~15u;
             vu0_sync();
             if (rt) {
@@ -399,9 +459,15 @@ void Ee::step() {
             }
             break;
         }
-        case 0x37: set64(rt, read64(address)); break;    // LD
-        case 0x3F: write64(address, gpr[rt].lo); break;  // SD
-        default: not_known(op, at); break;
+        case 0x37:
+            set64(rt, read64(address));
+            break;  // LD
+        case 0x3F:
+            write64(address, gpr[rt].lo);
+            break;  // SD
+        default:
+            not_known(op, at);
+            break;
     }
 }
 
@@ -414,11 +480,21 @@ void Ee::special(u32 op) {
     u32 at = pc - 4;
 
     switch (op & 0x3F) {
-        case 0x00: set32(rd, t32v << shift); break;                                      // SLL
-        case 0x02: set32(rd, t32v >> shift); break;                                      // SRL
-        case 0x03: set32(rd, static_cast<u32>(static_cast<s32>(t32v) >> shift)); break;  // SRA
-        case 0x04: set32(rd, t32v << (s32v & 31)); break;                                // SLLV
-        case 0x06: set32(rd, t32v >> (s32v & 31)); break;                                // SRLV
+        case 0x00:
+            set32(rd, t32v << shift);
+            break;  // SLL
+        case 0x02:
+            set32(rd, t32v >> shift);
+            break;  // SRL
+        case 0x03:
+            set32(rd, static_cast<u32>(static_cast<s32>(t32v) >> shift));
+            break;  // SRA
+        case 0x04:
+            set32(rd, t32v << (s32v & 31));
+            break;  // SLLV
+        case 0x06:
+            set32(rd, t32v >> (s32v & 31));
+            break;  // SRLV
         case 0x07:
             set32(rd, static_cast<u32>(static_cast<s32>(t32v) >> (s32v & 31)));
             break;  // SRAV
@@ -451,13 +527,27 @@ void Ee::special(u32 op) {
             break;
         case 0x0F:  // SYNC
             break;
-        case 0x10: set64(rd, hi); break;                                                 // MFHI
-        case 0x11: hi = s; break;                                                        // MTHI
-        case 0x12: set64(rd, lo); break;                                                 // MFLO
-        case 0x13: lo = s; break;                                                        // MTLO
-        case 0x14: set64(rd, t << (s & 63)); break;                                      // DSLLV
-        case 0x16: set64(rd, t >> (s & 63)); break;                                      // DSRLV
-        case 0x17: set64(rd, static_cast<u64>(static_cast<s64>(t) >> (s & 63))); break;  // DSRAV
+        case 0x10:
+            set64(rd, hi);
+            break;  // MFHI
+        case 0x11:
+            hi = s;
+            break;  // MTHI
+        case 0x12:
+            set64(rd, lo);
+            break;  // MFLO
+        case 0x13:
+            lo = s;
+            break;  // MTLO
+        case 0x14:
+            set64(rd, t << (s & 63));
+            break;  // DSLLV
+        case 0x16:
+            set64(rd, t >> (s & 63));
+            break;  // DSRLV
+        case 0x17:
+            set64(rd, static_cast<u64>(static_cast<s64>(t) >> (s & 63)));
+            break;    // DSRAV
         case 0x18: {  // MULT: the EE also writes the low half to rd
             s64 product = static_cast<s64>(static_cast<s32>(s32v)) * static_cast<s32>(t32v);
             lo = sext32(static_cast<u32>(product));
@@ -495,22 +585,46 @@ void Ee::special(u32 op) {
                 hi = sext32(s32v % t32v);
             }
             break;
-        case 0x20:                                                               // ADD
-        case 0x21: set32(rd, s32v + t32v); break;                                // ADDU
-        case 0x22:                                                               // SUB
-        case 0x23: set32(rd, s32v - t32v); break;                                // SUBU
-        case 0x24: set64(rd, s & t); break;                                      // AND
-        case 0x25: set64(rd, s | t); break;                                      // OR
-        case 0x26: set64(rd, s ^ t); break;                                      // XOR
-        case 0x27: set64(rd, ~(s | t)); break;                                   // NOR
-        case 0x28: set64(rd, sa); break;                                         // MFSA
-        case 0x29: sa = s32v; break;                                             // MTSA
-        case 0x2A: set64(rd, static_cast<s64>(s) < static_cast<s64>(t)); break;  // SLT
-        case 0x2B: set64(rd, s < t); break;                                      // SLTU
-        case 0x2C:                                                               // DADD
-        case 0x2D: set64(rd, s + t); break;                                      // DADDU
-        case 0x2E:                                                               // DSUB
-        case 0x2F: set64(rd, s - t); break;                                      // DSUBU
+        case 0x20:  // ADD
+        case 0x21:
+            set32(rd, s32v + t32v);
+            break;  // ADDU
+        case 0x22:  // SUB
+        case 0x23:
+            set32(rd, s32v - t32v);
+            break;  // SUBU
+        case 0x24:
+            set64(rd, s & t);
+            break;  // AND
+        case 0x25:
+            set64(rd, s | t);
+            break;  // OR
+        case 0x26:
+            set64(rd, s ^ t);
+            break;  // XOR
+        case 0x27:
+            set64(rd, ~(s | t));
+            break;  // NOR
+        case 0x28:
+            set64(rd, sa);
+            break;  // MFSA
+        case 0x29:
+            sa = s32v;
+            break;  // MTSA
+        case 0x2A:
+            set64(rd, static_cast<s64>(s) < static_cast<s64>(t));
+            break;  // SLT
+        case 0x2B:
+            set64(rd, s < t);
+            break;  // SLTU
+        case 0x2C:  // DADD
+        case 0x2D:
+            set64(rd, s + t);
+            break;  // DADDU
+        case 0x2E:  // DSUB
+        case 0x2F:
+            set64(rd, s - t);
+            break;  // DSUBU
         case 0x30:
         case 0x31:
         case 0x32:
@@ -518,15 +632,27 @@ void Ee::special(u32 op) {
         case 0x34:
         case 0x36:  // traps: never taken by working code
             break;
-        case 0x38: set64(rd, t << shift); break;                                      // DSLL
-        case 0x3A: set64(rd, t >> shift); break;                                      // DSRL
-        case 0x3B: set64(rd, static_cast<u64>(static_cast<s64>(t) >> shift)); break;  // DSRA
-        case 0x3C: set64(rd, t << (shift + 32)); break;                               // DSLL32
-        case 0x3E: set64(rd, t >> (shift + 32)); break;                               // DSRL32
+        case 0x38:
+            set64(rd, t << shift);
+            break;  // DSLL
+        case 0x3A:
+            set64(rd, t >> shift);
+            break;  // DSRL
+        case 0x3B:
+            set64(rd, static_cast<u64>(static_cast<s64>(t) >> shift));
+            break;  // DSRA
+        case 0x3C:
+            set64(rd, t << (shift + 32));
+            break;  // DSLL32
+        case 0x3E:
+            set64(rd, t >> (shift + 32));
+            break;  // DSRL32
         case 0x3F:
             set64(rd, static_cast<u64>(static_cast<s64>(t) >> (shift + 32)));
             break;  // DSRA32
-        default: not_known(op, at); break;
+        default:
+            not_known(op, at);
+            break;
     }
 }
 
@@ -535,11 +661,19 @@ void Ee::regimm(u32 op, u32 at) {
     s64 s = static_cast<s64>(gpr[rs].lo);
     s32 imm = imm_of(op);
     switch (rt_of(op)) {
-        case 0x00: branch(s < 0, at, imm, false); break;   // BLTZ
-        case 0x01: branch(s >= 0, at, imm, false); break;  // BGEZ
-        case 0x02: branch(s < 0, at, imm, true); break;    // BLTZL
-        case 0x03: branch(s >= 0, at, imm, true); break;   // BGEZL
-        case 0x10:                                         // BLTZAL
+        case 0x00:
+            branch(s < 0, at, imm, false);
+            break;  // BLTZ
+        case 0x01:
+            branch(s >= 0, at, imm, false);
+            break;  // BGEZ
+        case 0x02:
+            branch(s < 0, at, imm, true);
+            break;  // BLTZL
+        case 0x03:
+            branch(s >= 0, at, imm, true);
+            break;  // BGEZL
+        case 0x10:  // BLTZAL
             gpr[31].lo = at + 8;
             branch(s < 0, at, imm, false);
             break;
@@ -600,7 +734,9 @@ void Ee::cop0_op(u32 op) {
                     break;
             }
             break;
-        default: not_known(op, pc - 4); break;
+        default:
+            not_known(op, pc - 4);
+            break;
     }
 }
 
@@ -620,10 +756,16 @@ void Ee::cop1_op(u32 op, u32 at) {
     unsigned rt = rt_of(op), fs = rd_of(op), fd = sa_of(op), ft = rt;
     u32 problems = 0;
     switch (rs_of(op)) {
-        case 0x00: set32(rt, fpr[fs]); break;                                    // MFC1
-        case 0x02: set32(rt, fs == 31 ? fcr31 : fs == 0 ? 0x2E00u : 0u); break;  // CFC1
-        case 0x04: fpr[fs] = static_cast<u32>(gpr[rt].lo); break;                // MTC1
-        case 0x06:                                                               // CTC1
+        case 0x00:
+            set32(rt, fpr[fs]);
+            break;  // MFC1
+        case 0x02:
+            set32(rt, fs == 31 ? fcr31 : fs == 0 ? 0x2E00u : 0u);
+            break;  // CFC1
+        case 0x04:
+            fpr[fs] = static_cast<u32>(gpr[rt].lo);
+            break;  // MTC1
+        case 0x06:  // CTC1
             if (fs == 31) {
                 fcr31 = (static_cast<u32>(gpr[rt].lo) & 0x0083C078u) | 0x01000001u;
             }
@@ -722,7 +864,9 @@ void Ee::cop1_op(u32 op, u32 at) {
                     fpr[fd] = fp::min(fpr[fs], fpr[ft]);
                     fcr31 &= ~(kO | kU);
                     break;
-                case 0x30: fcr31 &= ~kC; break;  // C.F
+                case 0x30:
+                    fcr31 &= ~kC;
+                    break;  // C.F
                 case 0x32:
                     fcr31 = (fcr31 & ~kC) | (fp::key(fpr[fs]) == fp::key(fpr[ft]) ? kC : 0);
                     break;  // C.EQ
@@ -732,7 +876,9 @@ void Ee::cop1_op(u32 op, u32 at) {
                 case 0x36:
                     fcr31 = (fcr31 & ~kC) | (fp::key(fpr[fs]) <= fp::key(fpr[ft]) ? kC : 0);
                     break;  // C.LE
-                default: not_known(op, at); break;
+                default:
+                    not_known(op, at);
+                    break;
             }
             break;
         case 0x14:  // W: CVT.S
@@ -742,7 +888,9 @@ void Ee::cop1_op(u32 op, u32 at) {
                 not_known(op, at);
             }
             break;
-        default: not_known(op, at); break;
+        default:
+            not_known(op, at);
+            break;
     }
 }
 
@@ -787,7 +935,9 @@ void Ee::cop2_op(u32 op, u32 at) {
                 vu0_.start(vu0_started_at_);
                 vu0_cycles_ = cycles;
                 break;
-            default: vu0_.macro(op); break;
+            default:
+                vu0_.macro(op);
+                break;
         }
         return;
     }
@@ -835,7 +985,9 @@ void Ee::cop2_op(u32 op, u32 at) {
         case 0x08:  // BC2: the condition is "VU0 is running", and it never is when the EE looks
             branch((rt & 1) == 0, at, imm_of(op), (rt & 2) != 0);
             break;
-        default: not_known(op, at); break;
+        default:
+            not_known(op, at);
+            break;
     }
 }
 

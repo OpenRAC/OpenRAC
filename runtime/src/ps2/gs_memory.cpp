@@ -186,19 +186,25 @@ GsMemory::Layout make_layout(Kind kind) {
 unsigned transfer_bits(u32 psm) {
     switch (psm) {
         case PSMCT32:
-        case PSMZ32: return 32;
+        case PSMZ32:
+            return 32;
         case PSMCT24:
-        case PSMZ24: return 24;
+        case PSMZ24:
+            return 24;
         case PSMCT16:
         case PSMCT16S:
         case PSMZ16:
-        case PSMZ16S: return 16;
+        case PSMZ16S:
+            return 16;
         case PSMT8:
-        case PSMT8H: return 8;
+        case PSMT8H:
+            return 8;
         case PSMT4:
         case PSMT4HL:
-        case PSMT4HH: return 4;
-        default: return 32;
+        case PSMT4HH:
+            return 4;
+        default:
+            return 32;
     }
 }
 
@@ -210,14 +216,21 @@ const GsMemory::Layout& GsMemory::layout(u32 psm) {
                         t16s = make_layout(Kind::T16S), t16sz = make_layout(Kind::T16SZ),
                         w8 = make_layout(Kind::W8), t4 = make_layout(Kind::T4);
     switch (psm) {
-        case PSMCT16: return t16;
-        case PSMCT16S: return t16s;
-        case PSMT8: return w8;
-        case PSMT4: return t4;
+        case PSMCT16:
+            return t16;
+        case PSMCT16S:
+            return t16s;
+        case PSMT8:
+            return w8;
+        case PSMT4:
+            return t4;
         case PSMZ32:
-        case PSMZ24: return w32z;
-        case PSMZ16: return t16z;
-        case PSMZ16S: return t16sz;
+        case PSMZ24:
+            return w32z;
+        case PSMZ16:
+            return t16z;
+        case PSMZ16S:
+            return t16sz;
         default:
             return w32;  // the 32 and 24-bit formats and the ones kept in a 32-bit pixel's top byte
     }
@@ -255,23 +268,36 @@ u32 GsMemory::address4(u32 bp, u32 bw, u32 x, u32 y) {
 
 u32 GsMemory::read(u32 psm, u32 bp, u32 bw, u32 x, u32 y) const {
     switch (psm) {
-        case PSMCT32: return word(address32(bp, bw, x, y));
-        case PSMCT24: return word(address32(bp, bw, x, y)) & 0x00FFFFFFu;
-        case PSMCT16: return half(address16(bp, bw, x, y));
-        case PSMCT16S: return half(address16s(bp, bw, x, y));
-        case PSMT8: return bytes_[address8(bp, bw, x, y)];
+        case PSMCT32:
+            return word(address32(bp, bw, x, y));
+        case PSMCT24:
+            return word(address32(bp, bw, x, y)) & 0x00FFFFFFu;
+        case PSMCT16:
+            return half(address16(bp, bw, x, y));
+        case PSMCT16S:
+            return half(address16s(bp, bw, x, y));
+        case PSMT8:
+            return bytes_[address8(bp, bw, x, y)];
         case PSMT4: {
             u32 a = address4(bp, bw, x, y);
             return (bytes_[a >> 1] >> ((a & 1) * 4)) & 0xF;
         }
-        case PSMT8H: return word(address32(bp, bw, x, y)) >> 24;
-        case PSMT4HL: return (word(address32(bp, bw, x, y)) >> 24) & 0xF;
-        case PSMT4HH: return word(address32(bp, bw, x, y)) >> 28;
-        case PSMZ32: return word(address32(bp, bw, x, y, true));
-        case PSMZ24: return word(address32(bp, bw, x, y, true)) & 0x00FFFFFFu;
-        case PSMZ16: return half(address16(bp, bw, x, y, true));
-        case PSMZ16S: return half(address16s(bp, bw, x, y, true));
-        default: return 0;
+        case PSMT8H:
+            return word(address32(bp, bw, x, y)) >> 24;
+        case PSMT4HL:
+            return (word(address32(bp, bw, x, y)) >> 24) & 0xF;
+        case PSMT4HH:
+            return word(address32(bp, bw, x, y)) >> 28;
+        case PSMZ32:
+            return word(address32(bp, bw, x, y, true));
+        case PSMZ24:
+            return word(address32(bp, bw, x, y, true)) & 0x00FFFFFFu;
+        case PSMZ16:
+            return half(address16(bp, bw, x, y, true));
+        case PSMZ16S:
+            return half(address16s(bp, bw, x, y, true));
+        default:
+            return 0;
     }
 }
 
@@ -280,11 +306,21 @@ void GsMemory::write(u32 psm, u32 bp, u32 bw, u32 x, u32 y, u32 value) {
         set_word(index, (word(index) & ~mask) | (v & mask));
     };
     switch (psm) {
-        case PSMCT32: set_word(address32(bp, bw, x, y), value); break;
-        case PSMCT24: merge(address32(bp, bw, x, y), value, 0x00FFFFFFu); break;
-        case PSMCT16: set_half(address16(bp, bw, x, y), static_cast<u16>(value)); break;
-        case PSMCT16S: set_half(address16s(bp, bw, x, y), static_cast<u16>(value)); break;
-        case PSMT8: bytes_[address8(bp, bw, x, y)] = static_cast<u8>(value); break;
+        case PSMCT32:
+            set_word(address32(bp, bw, x, y), value);
+            break;
+        case PSMCT24:
+            merge(address32(bp, bw, x, y), value, 0x00FFFFFFu);
+            break;
+        case PSMCT16:
+            set_half(address16(bp, bw, x, y), static_cast<u16>(value));
+            break;
+        case PSMCT16S:
+            set_half(address16s(bp, bw, x, y), static_cast<u16>(value));
+            break;
+        case PSMT8:
+            bytes_[address8(bp, bw, x, y)] = static_cast<u8>(value);
+            break;
         case PSMT4: {
             u32 a = address4(bp, bw, x, y);
             unsigned shift = (a & 1) * 4;
@@ -292,14 +328,29 @@ void GsMemory::write(u32 psm, u32 bp, u32 bw, u32 x, u32 y, u32 value) {
             b = static_cast<u8>((b & ~(0xF << shift)) | ((value & 0xF) << shift));
             break;
         }
-        case PSMT8H: merge(address32(bp, bw, x, y), value << 24, 0xFF000000u); break;
-        case PSMT4HL: merge(address32(bp, bw, x, y), value << 24, 0x0F000000u); break;
-        case PSMT4HH: merge(address32(bp, bw, x, y), value << 28, 0xF0000000u); break;
-        case PSMZ32: set_word(address32(bp, bw, x, y, true), value); break;
-        case PSMZ24: merge(address32(bp, bw, x, y, true), value, 0x00FFFFFFu); break;
-        case PSMZ16: set_half(address16(bp, bw, x, y, true), static_cast<u16>(value)); break;
-        case PSMZ16S: set_half(address16s(bp, bw, x, y, true), static_cast<u16>(value)); break;
-        default: break;
+        case PSMT8H:
+            merge(address32(bp, bw, x, y), value << 24, 0xFF000000u);
+            break;
+        case PSMT4HL:
+            merge(address32(bp, bw, x, y), value << 24, 0x0F000000u);
+            break;
+        case PSMT4HH:
+            merge(address32(bp, bw, x, y), value << 28, 0xF0000000u);
+            break;
+        case PSMZ32:
+            set_word(address32(bp, bw, x, y, true), value);
+            break;
+        case PSMZ24:
+            merge(address32(bp, bw, x, y, true), value, 0x00FFFFFFu);
+            break;
+        case PSMZ16:
+            set_half(address16(bp, bw, x, y, true), static_cast<u16>(value));
+            break;
+        case PSMZ16S:
+            set_half(address16s(bp, bw, x, y, true), static_cast<u16>(value));
+            break;
+        default:
+            break;
     }
 }
 

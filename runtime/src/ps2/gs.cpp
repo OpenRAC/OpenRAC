@@ -71,14 +71,22 @@ inline bool is24(u32 psm) {
 
 inline bool alpha_passes(u32 test, u32 a, u32 ref) {
     switch (test) {
-        case 0: return false;
-        case 1: return true;
-        case 2: return a < ref;
-        case 3: return a <= ref;
-        case 4: return a == ref;
-        case 5: return a >= ref;
-        case 6: return a > ref;
-        default: return a != ref;
+        case 0:
+            return false;
+        case 1:
+            return true;
+        case 2:
+            return a < ref;
+        case 3:
+            return a <= ref;
+        case 4:
+            return a == ref;
+        case 5:
+            return a >= ref;
+        case 6:
+            return a > ref;
+        default:
+            return a != ref;
     }
 }
 
@@ -345,8 +353,11 @@ void Gs::write(u8 reg, u64 data) {
         case XYZ2:
         case XYZF3:
         case XYZ3:
-        case FOG: break;
-        default: env_dirty_ = true; break;
+        case FOG:
+            break;
+        default:
+            env_dirty_ = true;
+            break;
     }
     switch (reg) {
         case PRIM:
@@ -429,7 +440,9 @@ void Gs::write(u8 reg, u64 data) {
             csr_ |= 1;
             break;
         }
-        case FINISH: csr_ |= 2; break;
+        case FINISH:
+            csr_ |= 2;
+            break;
         case LABEL: {
             u64 id = data & 0xFFFFFFFFu, mask = data >> 32;
             siglblid_ = (siglblid_ & ~(mask << 32)) | ((id & mask) << 32);
@@ -447,7 +460,9 @@ void Gs::write(u8 reg, u64 data) {
                 note(gstodo::DITHER, "dithering (DTHE)");
             }
             break;
-        default: reg_[reg] = data; break;
+        default:
+            reg_[reg] = data;
+            break;
     }
 }
 
@@ -460,9 +475,15 @@ void Gs::write_privileged(u32 address, u64 data) {
             }
             csr_ &= ~(data & 0x1F);
             break;
-        case gspriv::IMR: imr_ = data; break;
-        case gspriv::BUSDIR: busdir_ = data; break;
-        case gspriv::SIGLBLID: siglblid_ = data; break;
+        case gspriv::IMR:
+            imr_ = data;
+            break;
+        case gspriv::BUSDIR:
+            busdir_ = data;
+            break;
+        case gspriv::SIGLBLID:
+            siglblid_ = data;
+            break;
         default:
             if (address >= gspriv::PMODE && address <= gspriv::BGCOLOR) {
                 priv_[(address >> 4) & 0xF] = data;
@@ -479,9 +500,12 @@ u64 Gs::read_privileged(u32 address) const {
         case gspriv::CSR:
             // Revision 0x1B, id 0x55, FIFO empty (bit 14).
             return csr_ | (u64{0x1B} << 16) | (u64{0x55} << 24) | (u64{1} << 14);
-        case gspriv::IMR: return imr_;
-        case gspriv::BUSDIR: return busdir_;
-        case gspriv::SIGLBLID: return siglblid_;
+        case gspriv::IMR:
+            return imr_;
+        case gspriv::BUSDIR:
+            return busdir_;
+        case gspriv::SIGLBLID:
+            return siglblid_;
         default:
             if (address >= gspriv::PMODE && address <= gspriv::BGCOLOR) {
                 return priv_[(address >> 4) & 0xF];
@@ -591,15 +615,31 @@ Gs::Env Gs::environment() {
 
         t.layout = &GsMemory::layout(t.psm);
         switch (t.psm >= 0x30 ? (t.psm & 0xF) : t.psm) {
-            case PSMCT32: t.kind = kTex32; break;
-            case PSMCT24: t.kind = kTex24; break;
+            case PSMCT32:
+                t.kind = kTex32;
+                break;
+            case PSMCT24:
+                t.kind = kTex24;
+                break;
             case PSMCT16:
-            case PSMCT16S: t.kind = kTex16; break;
-            case PSMT8: t.kind = kTex8; break;
-            case PSMT4: t.kind = kTex4; break;
-            case PSMT8H: t.kind = kTex8H; break;
-            case PSMT4HL: t.kind = kTex4HL; break;
-            default: t.kind = kTex4HH; break;
+            case PSMCT16S:
+                t.kind = kTex16;
+                break;
+            case PSMT8:
+                t.kind = kTex8;
+                break;
+            case PSMT4:
+                t.kind = kTex4;
+                break;
+            case PSMT8H:
+                t.kind = kTex8H;
+                break;
+            case PSMT4HL:
+                t.kind = kTex4HL;
+                break;
+            default:
+                t.kind = kTex4HH;
+                break;
         }
         u64 texa = reg_[TEXA];
         t.ta0 = static_cast<u32>(bits(texa, 0, 8));
@@ -714,7 +754,9 @@ void Gs::vertex(u16 x, u16 y, u32 z, bool draw) {
                 count_ = 0;
             }
             break;
-        default: count_ = 0; break;
+        default:
+            count_ = 0;
+            break;
     }
 }
 
@@ -888,10 +930,18 @@ void Gs::submit(unsigned kind, unsigned count) {
 
 void Gs::draw(const Queued& q, s32 clip0, s32 clip1) {
     switch (q.kind) {
-        case kPoint: draw_point(*q.env, q.v[0], clip0, clip1); break;
-        case kLine: draw_line(*q.env, q.v[0], q.v[1], clip0, clip1); break;
-        case kTriangle: draw_triangle(*q.env, q.v[0], q.v[1], q.v[2], clip0, clip1); break;
-        default: draw_sprite(*q.env, q.v[0], q.v[1], clip0, clip1); break;
+        case kPoint:
+            draw_point(*q.env, q.v[0], clip0, clip1);
+            break;
+        case kLine:
+            draw_line(*q.env, q.v[0], q.v[1], clip0, clip1);
+            break;
+        case kTriangle:
+            draw_triangle(*q.env, q.v[0], q.v[1], q.v[2], clip0, clip1);
+            break;
+        default:
+            draw_sprite(*q.env, q.v[0], q.v[1], clip0, clip1);
+            break;
     }
 }
 
@@ -1302,7 +1352,8 @@ std::shared_ptr<std::vector<u32>> Gs::cached_level(const Texture& t, u32 level) 
                 | (static_cast<u64>(t.psm) << 20) | (static_cast<u64>(wl) << 26)
                 | (static_cast<u64>(hl) << 30) | (static_cast<u64>(t.csa) << 34);
     switch (t.kind) {
-        case kTex32: break;
+        case kTex32:
+            break;
         case kTex24:
         case kTex16:
             key.colours = t.ta0 | (static_cast<u64>(t.ta1) << 8) | (static_cast<u64>(t.aem) << 16);
@@ -1662,11 +1713,14 @@ u32 Gs::texel(const Texture& t, u32 level, s32 iu, s32 iv, const u32* decoded) c
     s32 w = std::max(1, (1 << t.tw) >> level), h = std::max(1, (1 << t.th) >> level);
     auto wrap = [level](s32 c, s32 size, u32 mode, u32 lo, u32 hi) -> s32 {
         switch (mode) {
-            case 0: return c & (size - 1);
-            case 1: return std::clamp(c, 0, size - 1);
+            case 0:
+                return c & (size - 1);
+            case 1:
+                return std::clamp(c, 0, size - 1);
             case 2:
                 return std::clamp(c, static_cast<s32>(lo >> level), static_cast<s32>(hi >> level));
-            default: return (c & static_cast<s32>(lo)) | static_cast<s32>(hi);
+            default:
+                return (c & static_cast<s32>(lo)) | static_cast<s32>(hi);
         }
     };
     iu = wrap(iu, w, t.wms, t.minu, t.maxu);
@@ -1680,17 +1734,24 @@ u32 Gs::texel(const Texture& t, u32 level, s32 iu, s32 iv, const u32* decoded) c
         *t.layout, t.tbp[level], t.tbw[level], static_cast<u32>(iu), static_cast<u32>(iv)
     );
     switch (t.kind) {
-        case kTex32: return memory.word(at);
+        case kTex32:
+            return memory.word(at);
         case kTex24: {
             u32 raw = memory.word(at) & kRgb;
             return raw | ((t.aem && raw == 0) ? 0u : t.ta0 << 24);
         }
-        case kTex16: return expand16(memory.half(at), t.ta0, t.ta1, t.aem);
-        case kTex8: return t.clut[(t.csa * 16 + memory.byte(at)) & 0xFF];
-        case kTex4: return t.clut[(t.csa * 16 + memory.nibble(at)) & 0xFF];
-        case kTex8H: return t.clut[(t.csa * 16 + (memory.word(at) >> 24)) & 0xFF];
-        case kTex4HL: return t.clut[(t.csa * 16 + ((memory.word(at) >> 24) & 0xF)) & 0xFF];
-        default: return t.clut[(t.csa * 16 + (memory.word(at) >> 28)) & 0xFF];
+        case kTex16:
+            return expand16(memory.half(at), t.ta0, t.ta1, t.aem);
+        case kTex8:
+            return t.clut[(t.csa * 16 + memory.byte(at)) & 0xFF];
+        case kTex4:
+            return t.clut[(t.csa * 16 + memory.nibble(at)) & 0xFF];
+        case kTex8H:
+            return t.clut[(t.csa * 16 + (memory.word(at) >> 24)) & 0xFF];
+        case kTex4HL:
+            return t.clut[(t.csa * 16 + ((memory.word(at) >> 24) & 0xF)) & 0xFF];
+        default:
+            return t.clut[(t.csa * 16 + (memory.word(at) >> 28)) & 0xFF];
     }
 }
 
@@ -1817,9 +1878,12 @@ void Gs::load_clut(u64 tex0) {
         return;
     }
     switch (cld) {
-        case 1: break;
+        case 1:
+            break;
         case 2:
-        case 3: clut_cbp_[cld - 2] = cbp; break;
+        case 3:
+            clut_cbp_[cld - 2] = cbp;
+            break;
         case 4:
         case 5:
             if (clut_cbp_[cld - 4] == cbp) {
@@ -1827,7 +1891,8 @@ void Gs::load_clut(u64 tex0) {
             }
             clut_cbp_[cld - 4] = cbp;
             break;
-        default: return;
+        default:
+            return;
     }
 
     ClutLoad load;

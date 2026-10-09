@@ -184,7 +184,8 @@ void add_library_services(Machine& machine) {
                 }
                 case 0x32:  // time left in the stream
                     return m.sound.remaining(m.ee.read32(data));
-                default: return 0;
+                default:
+                    return 0;
             }
         };
 

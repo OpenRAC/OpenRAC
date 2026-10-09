@@ -139,13 +139,25 @@ void Ee::mmi(u32 op) {
             );
             break;
         }
-        case 0x08: mmi0(op); break;
-        case 0x09: mmi2(op); break;
-        case 0x10: set64(rd, hi1); break;    // MFHI1
-        case 0x11: hi1 = gpr[rs].lo; break;  // MTHI1
-        case 0x12: set64(rd, lo1); break;    // MFLO1
-        case 0x13: lo1 = gpr[rs].lo; break;  // MTLO1
-        case 0x18: {                         // MULT1
+        case 0x08:
+            mmi0(op);
+            break;
+        case 0x09:
+            mmi2(op);
+            break;
+        case 0x10:
+            set64(rd, hi1);
+            break;  // MFHI1
+        case 0x11:
+            hi1 = gpr[rs].lo;
+            break;  // MTHI1
+        case 0x12:
+            set64(rd, lo1);
+            break;  // MFLO1
+        case 0x13:
+            lo1 = gpr[rs].lo;
+            break;    // MTLO1
+        case 0x18: {  // MULT1
             s64 product = static_cast<s64>(static_cast<s32>(s)) * static_cast<s32>(t);
             lo1 = sext32(static_cast<u32>(product));
             hi1 = sext32(static_cast<u32>(product >> 32));
@@ -186,8 +198,12 @@ void Ee::mmi(u32 op) {
             set64(rd, lo1);
             break;
         }
-        case 0x28: mmi1(op); break;
-        case 0x29: mmi3(op); break;
+        case 0x28:
+            mmi1(op);
+            break;
+        case 0x29:
+            mmi3(op);
+            break;
         case 0x30: {  // PMFHL
             const Reg L{lo, lo1}, H{hi, hi1};
             write = true;
@@ -272,7 +288,9 @@ void Ee::mmi(u32 op) {
             out = each<s32>(T, T, [&](s32 v, s32) { return v >> shift; });
             write = true;
             break;  // PSRAW
-        default: not_known(op, pc - 4); break;
+        default:
+            not_known(op, pc - 4);
+            break;
     }
     if (write && rd) {
         gpr[rd] = out;
@@ -284,49 +302,75 @@ void Ee::mmi0(u32 op) {
     const Reg S = gpr[(op >> 21) & 31], T = gpr[(op >> 16) & 31];
     Reg out;
     switch ((op >> 6) & 31) {
-        case 0x00: out = each<u32>(S, T, [](u32 a, u32 b) { return a + b; }); break;  // PADDW
-        case 0x01: out = each<u32>(S, T, [](u32 a, u32 b) { return a - b; }); break;  // PSUBW
+        case 0x00:
+            out = each<u32>(S, T, [](u32 a, u32 b) { return a + b; });
+            break;  // PADDW
+        case 0x01:
+            out = each<u32>(S, T, [](u32 a, u32 b) { return a - b; });
+            break;  // PSUBW
         case 0x02:
             out = each<s32>(S, T, [](s32 a, s32 b) { return a > b ? -1 : 0; });
             break;  // PCGTW
         case 0x03:
             out = each<s32>(S, T, [](s32 a, s32 b) { return std::max(a, b); });
-            break;                                                                    // PMAXW
-        case 0x04: out = each<u16>(S, T, [](u16 a, u16 b) { return a + b; }); break;  // PADDH
-        case 0x05: out = each<u16>(S, T, [](u16 a, u16 b) { return a - b; }); break;  // PSUBH
+            break;  // PMAXW
+        case 0x04:
+            out = each<u16>(S, T, [](u16 a, u16 b) { return a + b; });
+            break;  // PADDH
+        case 0x05:
+            out = each<u16>(S, T, [](u16 a, u16 b) { return a - b; });
+            break;  // PSUBH
         case 0x06:
             out = each<s16>(S, T, [](s16 a, s16 b) { return a > b ? -1 : 0; });
             break;  // PCGTH
         case 0x07:
             out = each<s16>(S, T, [](s16 a, s16 b) { return std::max(a, b); });
-            break;                                                                          // PMAXH
-        case 0x08: out = each<u8>(S, T, [](u8 a, u8 b) { return a + b; }); break;           // PADDB
-        case 0x09: out = each<u8>(S, T, [](u8 a, u8 b) { return a - b; }); break;           // PSUBB
-        case 0x0A: out = each<s8>(S, T, [](s8 a, s8 b) { return a > b ? -1 : 0; }); break;  // PCGTB
+            break;  // PMAXH
+        case 0x08:
+            out = each<u8>(S, T, [](u8 a, u8 b) { return a + b; });
+            break;  // PADDB
+        case 0x09:
+            out = each<u8>(S, T, [](u8 a, u8 b) { return a - b; });
+            break;  // PSUBB
+        case 0x0A:
+            out = each<s8>(S, T, [](s8 a, s8 b) { return a > b ? -1 : 0; });
+            break;  // PCGTB
         case 0x10:
             out = each<s32>(S, T, [](s32 a, s32 b) { return saturate<s32, s64>(s64{a} + b); });
             break;  // PADDSW
         case 0x11:
             out = each<s32>(S, T, [](s32 a, s32 b) { return saturate<s32, s64>(s64{a} - b); });
-            break;                                             // PSUBSW
-        case 0x12: out = interleave<u32>(S, T, false); break;  // PEXTLW
-        case 0x13: out = pack<u32>(S, T); break;               // PPACW
+            break;  // PSUBSW
+        case 0x12:
+            out = interleave<u32>(S, T, false);
+            break;  // PEXTLW
+        case 0x13:
+            out = pack<u32>(S, T);
+            break;  // PPACW
         case 0x14:
             out = each<s16>(S, T, [](s16 a, s16 b) { return saturate<s16, s32>(a + b); });
             break;  // PADDSH
         case 0x15:
             out = each<s16>(S, T, [](s16 a, s16 b) { return saturate<s16, s32>(a - b); });
-            break;                                             // PSUBSH
-        case 0x16: out = interleave<u16>(S, T, false); break;  // PEXTLH
-        case 0x17: out = pack<u16>(S, T); break;               // PPACH
+            break;  // PSUBSH
+        case 0x16:
+            out = interleave<u16>(S, T, false);
+            break;  // PEXTLH
+        case 0x17:
+            out = pack<u16>(S, T);
+            break;  // PPACH
         case 0x18:
             out = each<s8>(S, T, [](s8 a, s8 b) { return saturate<s8, s32>(a + b); });
             break;  // PADDSB
         case 0x19:
             out = each<s8>(S, T, [](s8 a, s8 b) { return saturate<s8, s32>(a - b); });
-            break;                                            // PSUBSB
-        case 0x1A: out = interleave<u8>(S, T, false); break;  // PEXTLB
-        case 0x1B: out = pack<u8>(S, T); break;               // PPACB
+            break;  // PSUBSB
+        case 0x1A:
+            out = interleave<u8>(S, T, false);
+            break;  // PEXTLB
+        case 0x1B:
+            out = pack<u8>(S, T);
+            break;  // PPACB
         case 0x1E:  // PEXT5: 1:5:5:5 to 8:8:8:8 in each word
             out = each<u32>(T, T, [](u32 c, u32) {
                 return ((c & 0x1F) << 3) | ((c & 0x3E0) << 6) | ((c & 0x7C00) << 9)
@@ -339,7 +383,9 @@ void Ee::mmi0(u32 op) {
                        | ((c >> 16) & 0x8000);
             });
             break;
-        default: not_known(op, pc - 4); return;
+        default:
+            not_known(op, pc - 4);
+            return;
     }
     if (rd) {
         gpr[rd] = out;
@@ -389,22 +435,28 @@ void Ee::mmi1(u32 op) {
             break;  // PADDUW
         case 0x11:
             out = each<u32>(S, T, [](u32 a, u32 b) { return a > b ? a - b : 0; });
-            break;                                            // PSUBUW
-        case 0x12: out = interleave<u32>(S, T, true); break;  // PEXTUW
+            break;  // PSUBUW
+        case 0x12:
+            out = interleave<u32>(S, T, true);
+            break;  // PEXTUW
         case 0x14:
             out = each<u16>(S, T, [](u16 a, u16 b) { return std::min<u32>(u32{a} + b, 0xFFFF); });
             break;  // PADDUH
         case 0x15:
             out = each<u16>(S, T, [](u16 a, u16 b) { return a > b ? a - b : 0; });
-            break;                                            // PSUBUH
-        case 0x16: out = interleave<u16>(S, T, true); break;  // PEXTUH
+            break;  // PSUBUH
+        case 0x16:
+            out = interleave<u16>(S, T, true);
+            break;  // PEXTUH
         case 0x18:
             out = each<u8>(S, T, [](u8 a, u8 b) { return std::min<u32>(u32{a} + b, 0xFF); });
             break;  // PADDUB
         case 0x19:
             out = each<u8>(S, T, [](u8 a, u8 b) { return a > b ? a - b : 0; });
-            break;                                           // PSUBUB
-        case 0x1A: out = interleave<u8>(S, T, true); break;  // PEXTUB
+            break;  // PSUBUB
+        case 0x1A:
+            out = interleave<u8>(S, T, true);
+            break;    // PEXTUB
         case 0x1B: {  // QFSRV: the 256-bit value rs:rt shifted right by the SA register's bytes
             unsigned bits_right = (sa & 0xF) * 8;
             if (bits_right == 0) {
@@ -419,7 +471,9 @@ void Ee::mmi1(u32 op) {
             }
             break;
         }
-        default: not_known(op, pc - 4); return;
+        default:
+            not_known(op, pc - 4);
+            return;
     }
     if (rd) {
         gpr[rd] = out;
@@ -455,9 +509,13 @@ void Ee::mmi2(u32 op) {
             out.lo = sext32(get<u32>(T, 0) >> (get<u32>(S, 0) & 31));
             out.hi = sext32(get<u32>(T, 2) >> (get<u32>(S, 2) & 31));
             break;
-        case 0x08: out = Reg{hi, hi1}; break;  // PMFHI
-        case 0x09: out = Reg{lo, lo1}; break;  // PMFLO
-        case 0x0A:                             // PINTH: t's low halfwords with s's high ones
+        case 0x08:
+            out = Reg{hi, hi1};
+            break;  // PMFHI
+        case 0x09:
+            out = Reg{lo, lo1};
+            break;  // PMFLO
+        case 0x0A:  // PINTH: t's low halfwords with s's high ones
             for (unsigned n = 0; n < 4; n++) {
                 put<u16>(out, n * 2, get<u16>(T, n));
                 put<u16>(out, n * 2 + 1, get<u16>(S, 4 + n));
@@ -538,9 +596,13 @@ void Ee::mmi2(u32 op) {
             hi1 = (hi1 & 0xFFFFFFFF00000000ull) | get<u32>(out, 3);
             break;
         }
-        case 0x12: out = Reg{S.lo & T.lo, S.hi & T.hi}; break;  // PAND
-        case 0x13: out = Reg{S.lo ^ T.lo, S.hi ^ T.hi}; break;  // PXOR
-        case 0x1A: {                                            // PEXEH
+        case 0x12:
+            out = Reg{S.lo & T.lo, S.hi & T.hi};
+            break;  // PAND
+        case 0x13:
+            out = Reg{S.lo ^ T.lo, S.hi ^ T.hi};
+            break;    // PXOR
+        case 0x1A: {  // PEXEH
             static constexpr unsigned order[8] = {2, 1, 0, 3, 6, 5, 4, 7};
             out = shuffle<u16>(T, order);
             break;
@@ -575,7 +637,9 @@ void Ee::mmi2(u32 op) {
             out = shuffle<u32>(T, order);
             break;
         }
-        default: not_known(op, pc - 4); return;
+        default:
+            not_known(op, pc - 4);
+            return;
     }
     if (write && rd) {
         gpr[rd] = out;
@@ -638,9 +702,13 @@ void Ee::mmi3(u32 op) {
             out.lo = S.hi;
             out.hi = T.hi;
             break;
-        case 0x12: out = Reg{S.lo | T.lo, S.hi | T.hi}; break;        // POR
-        case 0x13: out = Reg{~(S.lo | T.lo), ~(S.hi | T.hi)}; break;  // PNOR
-        case 0x1A: {                                                  // PEXCH
+        case 0x12:
+            out = Reg{S.lo | T.lo, S.hi | T.hi};
+            break;  // POR
+        case 0x13:
+            out = Reg{~(S.lo | T.lo), ~(S.hi | T.hi)};
+            break;    // PNOR
+        case 0x1A: {  // PEXCH
             static constexpr unsigned order[8] = {0, 2, 1, 3, 4, 6, 5, 7};
             out = shuffle<u16>(T, order);
             break;
@@ -655,7 +723,9 @@ void Ee::mmi3(u32 op) {
             out = shuffle<u32>(T, order);
             break;
         }
-        default: not_known(op, pc - 4); return;
+        default:
+            not_known(op, pc - 4);
+            return;
     }
     if (write && rd) {
         gpr[rd] = out;

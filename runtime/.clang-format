@@ -31,14 +31,14 @@ BreakBeforeBraces: Attach
 InsertBraces: true
 
 # One statement per line. Only these may share a line with their body: an empty
-# function, an accessor defined in its class, a short lambda passed as an
-# argument, and a case label with one short statement.
+# function, an accessor defined in its class, and a short lambda passed as an
+# argument. A case label never shares its line with a statement.
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Never
 AllowShortFunctionsOnASingleLine: Inline
 AllowShortLambdasOnASingleLine: Inline
-AllowShortCaseLabelsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: false
 AllowShortEnumsOnASingleLine: false
 
 # A call or declaration that does not fit goes to the next line after "(". If

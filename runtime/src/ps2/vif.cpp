@@ -75,16 +75,20 @@ std::size_t Vif1::operand_words(u32 code) const {
         return (from_list * vector_bytes(code) + 3) / 4;
     }
     switch (cmd) {
-        case kStmask: return 1;
+        case kStmask:
+            return 1;
         case kStrow:
-        case kStcol: return 4;
-        case kMpg: return count(code) * 2;
+        case kStcol:
+            return 4;
+        case kMpg:
+            return count(code) * 2;
         case kDirect:
         case kDirecthl: {
             u32 quadwords = code & 0xFFFF;
             return (quadwords ? quadwords : 65536) * 4;
         }
-        default: return 0;
+        default:
+            return 0;
     }
 }
 
@@ -147,17 +151,37 @@ void Vif1::execute(u32 code, const u32* operands, std::size_t words) {
             dbf = false;
             tops = base;
             break;
-        case kBase: base = imm & 0x3FF; break;
-        case kItop: itops = imm & 0x3FF; break;
-        case kStmod: mode = imm & 3; break;
-        case kMskpath3: path3_masked = (imm & 0x8000) != 0; break;
-        case kMark: mark = imm; break;
+        case kBase:
+            base = imm & 0x3FF;
+            break;
+        case kItop:
+            itops = imm & 0x3FF;
+            break;
+        case kStmod:
+            mode = imm & 3;
+            break;
+        case kMskpath3:
+            path3_masked = (imm & 0x8000) != 0;
+            break;
+        case kMark:
+            mark = imm;
+            break;
         case kMscal:
-        case kMscalf: start(imm, false); break;
-        case kMscnt: start(0, true); break;
-        case kStmask: mask = operands[0]; break;
-        case kStrow: std::copy(operands, operands + 4, row.begin()); break;
-        case kStcol: std::copy(operands, operands + 4, col.begin()); break;
+        case kMscalf:
+            start(imm, false);
+            break;
+        case kMscnt:
+            start(0, true);
+            break;
+        case kStmask:
+            mask = operands[0];
+            break;
+        case kStrow:
+            std::copy(operands, operands + 4, row.begin());
+            break;
+        case kStcol:
+            std::copy(operands, operands + 4, col.begin());
+            break;
         case kMpg: {
             // `imm` is the load address in instructions of 8 bytes; the program
             // memory wraps.
@@ -172,8 +196,12 @@ void Vif1::execute(u32 code, const u32* operands, std::size_t words) {
             break;
         }
         case kDirect:
-        case kDirecthl: gif_.write(2, reinterpret_cast<const u8*>(operands), words / 4); break;
-        default: unknown_codes++; break;
+        case kDirecthl:
+            gif_.write(2, reinterpret_cast<const u8*>(operands), words / 4);
+            break;
+        default:
+            unknown_codes++;
+            break;
     }
 }
 
@@ -196,7 +224,8 @@ void Vif1::unpack(u32 code, const u32* operands, std::size_t words) {
             return 0;
         }
         switch (vl) {
-            case 0: return load<u32>(p);
+            case 0:
+                return load<u32>(p);
             case 1:
                 return is_unsigned ? u32{load<u16>(p)}
                                    : static_cast<u32>(static_cast<s32>(load<s16>(p)));
@@ -250,9 +279,14 @@ void Vif1::unpack(u32 code, const u32* operands, std::size_t words) {
                         row[f] = value;
                     }
                     break;
-                case 1: value = row[f]; break;
-                case 2: value = col[line]; break;
-                default: continue;  // write protected
+                case 1:
+                    value = row[f];
+                    break;
+                case 2:
+                    value = col[line];
+                    break;
+                default:
+                    continue;  // write protected
             }
             store<u32>(dst + f * 4, value);
         }

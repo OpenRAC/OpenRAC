@@ -428,12 +428,15 @@ void test_quad_arithmetic() {
     auto value = [&]() -> u32 {
         u32 r = next();
         switch ((r >> 28) & 15) {
-            case 0: return next() & 0x80000000u;                                  // a zero
-            case 1: return (next() & 0x807FFFFFu) | (((next() >> 8) % 3) << 23);  // tiny exponents
+            case 0:
+                return next() & 0x80000000u;  // a zero
+            case 1:
+                return (next() & 0x807FFFFFu) | (((next() >> 8) % 3) << 23);  // tiny exponents
             case 2:
                 return (next() & 0x807FFFFFu)
                        | ((253 + (next() >> 8) % 3) << 23);  // huge exponents
-            case 3: return next();                           // anything
+            case 3:
+                return next();  // anything
             default:
                 return (next() & 0x807FFFFFu)
                        | ((100 + (next() >> 8) % 60) << 23);  // ordinary, near each other

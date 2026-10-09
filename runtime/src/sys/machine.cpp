@@ -122,9 +122,15 @@ std::string Machine::format(u32 format_address, unsigned first_arg) {
         }
         char buffer[128];
         switch (f[n]) {
-            case '%': out.push_back('%'); break;
-            case 's': out += string_at(static_cast<u32>(take())); break;
-            case 'c': out.push_back(static_cast<char>(take())); break;
+            case '%':
+                out.push_back('%');
+                break;
+            case 's':
+                out += string_at(static_cast<u32>(take()));
+                break;
+            case 'c':
+                out.push_back(static_cast<char>(take()));
+                break;
             case 'd':
             case 'i':
             case 'u':
@@ -735,7 +741,9 @@ void Machine::dma_start(unsigned channel) {
             }
             break;
         }
-        default: note("DMA on channel " + std::to_string(channel)); break;
+        default:
+            note("DMA on channel " + std::to_string(channel));
+            break;
     }
     dma_done(channel);
 }
@@ -762,38 +770,59 @@ u64 Machine::hw_read(u32 address, unsigned bytes) {
     if (address >= 0x10000000 && address < 0x10002000) {
         const Timer& t = timers[(address >> 11) & 3];
         switch (address & 0x7F0) {
-            case 0x00: return timer_count(t);
-            case 0x10: return t.mode;
-            case 0x20: return t.compare;
-            default: return t.hold;
+            case 0x00:
+                return timer_count(t);
+            case 0x10:
+                return t.mode;
+            case 0x20:
+                return t.compare;
+            default:
+                return t.hold;
         }
     }
     if (address >= 0x10008000 && address < 0x1000E000) {
         for (unsigned n = 0; n < 10; n++) {
             if ((address & ~0xFFu) == kDmaBase[n]) {
                 switch (address & 0xF0) {
-                    case 0x00: return dma[n].chcr;
-                    case 0x10: return dma[n].madr;
-                    case 0x20: return dma[n].qwc;
-                    case 0x30: return dma[n].tadr;
-                    case 0x40: return dma[n].asr[0];
-                    case 0x50: return dma[n].asr[1];
-                    case 0x80: return dma_sadr[n];
-                    default: return 0;
+                    case 0x00:
+                        return dma[n].chcr;
+                    case 0x10:
+                        return dma[n].madr;
+                    case 0x20:
+                        return dma[n].qwc;
+                    case 0x30:
+                        return dma[n].tadr;
+                    case 0x40:
+                        return dma[n].asr[0];
+                    case 0x50:
+                        return dma[n].asr[1];
+                    case 0x80:
+                        return dma_sadr[n];
+                    default:
+                        return 0;
                 }
             }
         }
     }
     switch (address) {
-        case 0x1000E000: return d_ctrl;
-        case 0x1000E010: return d_stat;
-        case 0x1000E020: return d_pcr;
-        case 0x1000E030: return d_sqwc;
-        case 0x1000E040: return d_rbsr;
-        case 0x1000E050: return d_rbor;
-        case 0x1000F000: return intc_stat;
-        case 0x1000F010: return intc_mask;
-        case 0x1000F520: return d_enable;
+        case 0x1000E000:
+            return d_ctrl;
+        case 0x1000E010:
+            return d_stat;
+        case 0x1000E020:
+            return d_pcr;
+        case 0x1000E030:
+            return d_sqwc;
+        case 0x1000E040:
+            return d_rbsr;
+        case 0x1000E050:
+            return d_rbor;
+        case 0x1000F000:
+            return intc_stat;
+        case 0x1000F010:
+            return intc_mask;
+        case 0x1000F520:
+            return d_enable;
         case 0x10003020:  // GIF_STAT
         case 0x10003800:  // VIF0_STAT
         case 0x10003C00:  // VIF1_STAT: idle, FIFOs empty
@@ -827,8 +856,12 @@ void Machine::hw_write(u32 address, u64 value, unsigned bytes) {
                 t.base_cycles = ee.cycles;
                 t.mode = v & 0x3FF;  // bits 10 and 11 are flags, cleared by writing them
                 break;
-            case 0x20: t.compare = v & 0xFFFF; break;
-            default: t.hold = v & 0xFFFF; break;
+            case 0x20:
+                t.compare = v & 0xFFFF;
+                break;
+            default:
+                t.hold = v & 0xFFFF;
+                break;
         }
         return;
     }
@@ -844,31 +877,60 @@ void Machine::hw_write(u32 address, u64 value, unsigned bytes) {
                         dma_start(n);
                     }
                     break;
-                case 0x10: dma[n].madr = v; break;
-                case 0x20: dma[n].qwc = v & 0xFFFF; break;
-                case 0x30: dma[n].tadr = v; break;
-                case 0x40: dma[n].asr[0] = v; break;
-                case 0x50: dma[n].asr[1] = v; break;
-                case 0x80: dma_sadr[n] = v & 0x3FFF; break;
-                default: break;
+                case 0x10:
+                    dma[n].madr = v;
+                    break;
+                case 0x20:
+                    dma[n].qwc = v & 0xFFFF;
+                    break;
+                case 0x30:
+                    dma[n].tadr = v;
+                    break;
+                case 0x40:
+                    dma[n].asr[0] = v;
+                    break;
+                case 0x50:
+                    dma[n].asr[1] = v;
+                    break;
+                case 0x80:
+                    dma_sadr[n] = v & 0x3FFF;
+                    break;
+                default:
+                    break;
             }
             return;
         }
     }
     switch (address) {
-        case 0x1000E000: d_ctrl = v; break;
+        case 0x1000E000:
+            d_ctrl = v;
+            break;
         case 0x1000E010:
             // Writing 1 clears a channel's status bit and flips its enable bit.
             d_stat &= ~(v & 0x3FF);
             d_stat ^= v & 0x03FF0000;
             break;
-        case 0x1000E020: d_pcr = v; break;
-        case 0x1000E030: d_sqwc = v; break;
-        case 0x1000E040: d_rbsr = v; break;
-        case 0x1000E050: d_rbor = v; break;
-        case 0x1000F590: d_enable = v; break;
-        case 0x1000F000: intc_stat &= ~v; break;
-        case 0x1000F010: intc_mask ^= v & 0x7FFF; break;
+        case 0x1000E020:
+            d_pcr = v;
+            break;
+        case 0x1000E030:
+            d_sqwc = v;
+            break;
+        case 0x1000E040:
+            d_rbsr = v;
+            break;
+        case 0x1000E050:
+            d_rbor = v;
+            break;
+        case 0x1000F590:
+            d_enable = v;
+            break;
+        case 0x1000F000:
+            intc_stat &= ~v;
+            break;
+        case 0x1000F010:
+            intc_mask ^= v & 0x7FFF;
+            break;
         case 0x1000F180:  // the serial port: the kernel's console
             if (v == '\n') {
                 log(0, "[tty] %s", tty_.c_str());
@@ -899,9 +961,15 @@ void Machine::hw_write128(u32 address, u64 lo, u64 hi) {
     store<u64>(quad, lo);
     store<u64>(quad + 8, hi);
     switch (address) {
-        case 0x10004000: vif0.write(quad, 16); break;   // VIF0 FIFO
-        case 0x10005000: drawing.vif(quad, 16); break;  // VIF1 FIFO
-        case 0x10006000: drawing.gif(quad, 16); break;  // GIF FIFO
+        case 0x10004000:
+            vif0.write(quad, 16);
+            break;  // VIF0 FIFO
+        case 0x10005000:
+            drawing.vif(quad, 16);
+            break;  // VIF1 FIFO
+        case 0x10006000:
+            drawing.gif(quad, 16);
+            break;  // GIF FIFO
         default:
             hw_write(address, lo, 8);
             hw_write(address + 8, hi, 8);

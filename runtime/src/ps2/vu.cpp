@@ -187,10 +187,16 @@ void Vu::work_out(Needs& needs, u32 up, u32 low) const {
             read(is, ldest);
         } else if (op == 0x40 && (low & 0x3F) >= 0x3C) {
             switch ((((low >> 6) & 0x1F) << 2) | (low & 3)) {
-                case 0x30: read(is, ldest); break;  // MOVE
-                case 0x31: read(is, 15); break;     // MR32
+                case 0x30:
+                    read(is, ldest);
+                    break;  // MOVE
+                case 0x31:
+                    read(is, 15);
+                    break;  // MR32
                 case 0x35:
-                case 0x37: read(is, ldest); break;  // SQI, SQD
+                case 0x37:
+                    read(is, ldest);
+                    break;  // SQI, SQD
                 case 0x38:
                 case 0x3A:  // DIV, RSQRT
                     read(is, fsf);
@@ -201,25 +207,38 @@ void Vu::work_out(Needs& needs, u32 up, u32 low) const {
                     read(it, ftf);
                     needs.wait = 1;
                     break;
-                case 0x3B: needs.wait = 1; break;  // WAITQ
+                case 0x3B:
+                    needs.wait = 1;
+                    break;  // WAITQ
                 case 0x3C:
                 case 0x42:
-                case 0x43: read(is, fsf); break;  // MTIR, RINIT, RXOR
+                case 0x43:
+                    read(is, fsf);
+                    break;  // MTIR, RINIT, RXOR
                 case 0x70:
                 case 0x71:
                 case 0x72:
                 case 0x73:
                 case 0x74:
-                case 0x75: read(is, 14); break;
-                case 0x76: read(is, 15); break;
+                case 0x75:
+                    read(is, 14);
+                    break;
+                case 0x76:
+                    read(is, 15);
+                    break;
                 case 0x78:
                 case 0x79:
                 case 0x7A:
                 case 0x7C:
                 case 0x7D:
-                case 0x7E: read(is, fsf); break;
-                case 0x7B: needs.wait = 2; break;  // WAITP
-                default: break;
+                case 0x7E:
+                    read(is, fsf);
+                    break;
+                case 0x7B:
+                    needs.wait = 2;
+                    break;  // WAITP
+                default:
+                    break;
             }
         }
     }
@@ -605,17 +624,28 @@ u32 Vu::control(unsigned reg) const {
         return vi[reg];
     }
     switch (reg) {
-        case 16: return status;
-        case 17: return mac;
-        case 18: return clip;
-        case 20: return r & 0x7FFFFF;
-        case 21: return i;
-        case 22: return q;
-        case 26: return pc * 8;
-        case 27: return cmsar0_;
-        case 28: return fbrst_;
-        case 29: return running_ ? 1 : 0;  // VPU-STAT: bit 0, VU0 is running
-        default: return 0;
+        case 16:
+            return status;
+        case 17:
+            return mac;
+        case 18:
+            return clip;
+        case 20:
+            return r & 0x7FFFFF;
+        case 21:
+            return i;
+        case 22:
+            return q;
+        case 26:
+            return pc * 8;
+        case 27:
+            return cmsar0_;
+        case 28:
+            return fbrst_;
+        case 29:
+            return running_ ? 1 : 0;  // VPU-STAT: bit 0, VU0 is running
+        default:
+            return 0;
     }
 }
 
@@ -631,13 +661,26 @@ void Vu::set_control(unsigned reg, u32 value) {
             status = (status & 0x3F) | (value & 0xFC0);
             status_latest_ = status;
             break;
-        case 18: clip = clip_latest_ = value & 0xFFFFFF; break;
-        case 20: r = (value & 0x7FFFFF) | 0x3F800000; break;
-        case 21: i = value; break;
-        case 22: q = value; break;
-        case 27: cmsar0_ = value & 0xFFFF; break;
-        case 28: fbrst_ = value & 0x0C0C; break;
-        default: break;
+        case 18:
+            clip = clip_latest_ = value & 0xFFFFFF;
+            break;
+        case 20:
+            r = (value & 0x7FFFFF) | 0x3F800000;
+            break;
+        case 21:
+            i = value;
+            break;
+        case 22:
+            q = value;
+            break;
+        case 27:
+            cmsar0_ = value & 0xFFFF;
+            break;
+        case 28:
+            fbrst_ = value & 0x0C0C;
+            break;
+        default:
+            break;
     }
 }
 
@@ -742,10 +785,14 @@ void Vu::start_p(double value, unsigned latency) {
 u32 Vu::operand(u32 code, From from, unsigned field) const {
     unsigned ft = (code >> 16) & 31;
     switch (from) {
-        case From::Ft: return vf[ft][field];
-        case From::Bc: return vf[ft][code & 3];
-        case From::Q: return q;
-        default: return i;
+        case From::Ft:
+            return vf[ft][field];
+        case From::Bc:
+            return vf[ft][code & 3];
+        case From::Q:
+            return q;
+        default:
+            return i;
     }
 }
 
@@ -808,10 +855,18 @@ void Vu::arith(u32 code) {
     // The second operand, a value a field.
     std::array<u32, 4> b;
     switch (from) {
-        case From::Ft: b = vf[ft]; break;
-        case From::Bc: b.fill(vf[ft][code & 3]); break;
-        case From::Q: b.fill(q); break;
-        default: b.fill(i); break;
+        case From::Ft:
+            b = vf[ft];
+            break;
+        case From::Bc:
+            b.fill(vf[ft][code & 3]);
+            break;
+        case From::Q:
+            b.fill(q);
+            break;
+        default:
+            b.fill(i);
+            break;
     }
     const std::array<u32, 4>& a = vf[fs];
 
@@ -819,9 +874,15 @@ void Vu::arith(u32 code) {
     std::array<u32, 4> quick, product;
     bool fast = false;
     switch (op) {
-        case Op::Add: fast = fp::quad_add(a.data(), b.data(), dest, quick.data()); break;
-        case Op::Sub: fast = fp::quad_add(a.data(), b.data(), dest, quick.data(), true); break;
-        case Op::Mul: fast = fp::quad_mul(a.data(), b.data(), dest, quick.data()); break;
+        case Op::Add:
+            fast = fp::quad_add(a.data(), b.data(), dest, quick.data());
+            break;
+        case Op::Sub:
+            fast = fp::quad_add(a.data(), b.data(), dest, quick.data(), true);
+            break;
+        case Op::Mul:
+            fast = fp::quad_mul(a.data(), b.data(), dest, quick.data());
+            break;
         case Op::Madd:
             fast = fp::quad_mul(a.data(), b.data(), dest, product.data())
                    && fp::quad_add(acc.data(), product.data(), dest, quick.data());
@@ -856,9 +917,15 @@ void Vu::arith(u32 code) {
             }
             u32 problems = 0, value;
             switch (op) {
-                case Op::Add: value = fp::add(a[field], b[field], problems); break;
-                case Op::Sub: value = fp::sub(a[field], b[field], problems); break;
-                case Op::Mul: value = fp::mul(a[field], b[field], problems); break;
+                case Op::Add:
+                    value = fp::add(a[field], b[field], problems);
+                    break;
+                case Op::Sub:
+                    value = fp::sub(a[field], b[field], problems);
+                    break;
+                case Op::Mul:
+                    value = fp::mul(a[field], b[field], problems);
+                    break;
                 case Op::Madd:
                     value = fp::add(acc[field], fp::mul(a[field], b[field], problems), problems);
                     break;
@@ -903,49 +970,99 @@ void Vu::min_max(u32 code, From from, bool max) {
         case 0x00:
         case 0x01:
         case 0x02:
-        case 0x03: arith<Op::Add, From::Bc, false>(code); break;
+        case 0x03:
+            arith<Op::Add, From::Bc, false>(code);
+            break;
         case 0x04:
         case 0x05:
         case 0x06:
-        case 0x07: arith<Op::Sub, From::Bc, false>(code); break;
+        case 0x07:
+            arith<Op::Sub, From::Bc, false>(code);
+            break;
         case 0x08:
         case 0x09:
         case 0x0A:
-        case 0x0B: arith<Op::Madd, From::Bc, false>(code); break;
+        case 0x0B:
+            arith<Op::Madd, From::Bc, false>(code);
+            break;
         case 0x0C:
         case 0x0D:
         case 0x0E:
-        case 0x0F: arith<Op::Msub, From::Bc, false>(code); break;
+        case 0x0F:
+            arith<Op::Msub, From::Bc, false>(code);
+            break;
         case 0x10:
         case 0x11:
         case 0x12:
-        case 0x13: min_max(code, From::Bc, true); break;
+        case 0x13:
+            min_max(code, From::Bc, true);
+            break;
         case 0x14:
         case 0x15:
         case 0x16:
-        case 0x17: min_max(code, From::Bc, false); break;
+        case 0x17:
+            min_max(code, From::Bc, false);
+            break;
         case 0x18:
         case 0x19:
         case 0x1A:
-        case 0x1B: arith<Op::Mul, From::Bc, false>(code); break;
-        case 0x1C: arith<Op::Mul, From::Q, false>(code); break;
-        case 0x1D: min_max(code, From::I, true); break;
-        case 0x1E: arith<Op::Mul, From::I, false>(code); break;
-        case 0x1F: min_max(code, From::I, false); break;
-        case 0x20: arith<Op::Add, From::Q, false>(code); break;
-        case 0x21: arith<Op::Madd, From::Q, false>(code); break;
-        case 0x22: arith<Op::Add, From::I, false>(code); break;
-        case 0x23: arith<Op::Madd, From::I, false>(code); break;
-        case 0x24: arith<Op::Sub, From::Q, false>(code); break;
-        case 0x25: arith<Op::Msub, From::Q, false>(code); break;
-        case 0x26: arith<Op::Sub, From::I, false>(code); break;
-        case 0x27: arith<Op::Msub, From::I, false>(code); break;
-        case 0x28: arith<Op::Add, From::Ft, false>(code); break;
-        case 0x29: arith<Op::Madd, From::Ft, false>(code); break;
-        case 0x2A: arith<Op::Mul, From::Ft, false>(code); break;
-        case 0x2B: min_max(code, From::Ft, true); break;
-        case 0x2C: arith<Op::Sub, From::Ft, false>(code); break;
-        case 0x2D: arith<Op::Msub, From::Ft, false>(code); break;
+        case 0x1B:
+            arith<Op::Mul, From::Bc, false>(code);
+            break;
+        case 0x1C:
+            arith<Op::Mul, From::Q, false>(code);
+            break;
+        case 0x1D:
+            min_max(code, From::I, true);
+            break;
+        case 0x1E:
+            arith<Op::Mul, From::I, false>(code);
+            break;
+        case 0x1F:
+            min_max(code, From::I, false);
+            break;
+        case 0x20:
+            arith<Op::Add, From::Q, false>(code);
+            break;
+        case 0x21:
+            arith<Op::Madd, From::Q, false>(code);
+            break;
+        case 0x22:
+            arith<Op::Add, From::I, false>(code);
+            break;
+        case 0x23:
+            arith<Op::Madd, From::I, false>(code);
+            break;
+        case 0x24:
+            arith<Op::Sub, From::Q, false>(code);
+            break;
+        case 0x25:
+            arith<Op::Msub, From::Q, false>(code);
+            break;
+        case 0x26:
+            arith<Op::Sub, From::I, false>(code);
+            break;
+        case 0x27:
+            arith<Op::Msub, From::I, false>(code);
+            break;
+        case 0x28:
+            arith<Op::Add, From::Ft, false>(code);
+            break;
+        case 0x29:
+            arith<Op::Madd, From::Ft, false>(code);
+            break;
+        case 0x2A:
+            arith<Op::Mul, From::Ft, false>(code);
+            break;
+        case 0x2B:
+            min_max(code, From::Ft, true);
+            break;
+        case 0x2C:
+            arith<Op::Sub, From::Ft, false>(code);
+            break;
+        case 0x2D:
+            arith<Op::Msub, From::Ft, false>(code);
+            break;
         case 0x2E: {  // OPMSUB: the second half of a cross product
             unsigned ft = (code >> 16) & 31, fs = (code >> 11) & 31, fd = (code >> 6) & 31;
             std::array<u32, 4> out = vf[fd];
@@ -960,12 +1077,18 @@ void Vu::min_max(u32 code, From from, bool max) {
             post_flags(flags);
             break;
         }
-        case 0x2F: min_max(code, From::Ft, false); break;
+        case 0x2F:
+            min_max(code, From::Ft, false);
+            break;
         case 0x3C:
         case 0x3D:
         case 0x3E:
-        case 0x3F: upper_special(code); break;
-        default: unknown_ops++; break;
+        case 0x3F:
+            upper_special(code);
+            break;
+        default:
+            unknown_ops++;
+            break;
     }
 }
 
@@ -984,19 +1107,27 @@ void Vu::upper_special(u32 code) {
         case 0x00:
         case 0x01:
         case 0x02:
-        case 0x03: arith<Op::Add, From::Bc, true>(code); break;
+        case 0x03:
+            arith<Op::Add, From::Bc, true>(code);
+            break;
         case 0x04:
         case 0x05:
         case 0x06:
-        case 0x07: arith<Op::Sub, From::Bc, true>(code); break;
+        case 0x07:
+            arith<Op::Sub, From::Bc, true>(code);
+            break;
         case 0x08:
         case 0x09:
         case 0x0A:
-        case 0x0B: arith<Op::Madd, From::Bc, true>(code); break;
+        case 0x0B:
+            arith<Op::Madd, From::Bc, true>(code);
+            break;
         case 0x0C:
         case 0x0D:
         case 0x0E:
-        case 0x0F: arith<Op::Msub, From::Bc, true>(code); break;
+        case 0x0F:
+            arith<Op::Msub, From::Bc, true>(code);
+            break;
         case 0x10:
         case 0x11:
         case 0x12:
@@ -1024,8 +1155,12 @@ void Vu::upper_special(u32 code) {
         case 0x18:
         case 0x19:
         case 0x1A:
-        case 0x1B: arith<Op::Mul, From::Bc, true>(code); break;
-        case 0x1C: arith<Op::Mul, From::Q, true>(code); break;
+        case 0x1B:
+            arith<Op::Mul, From::Bc, true>(code);
+            break;
+        case 0x1C:
+            arith<Op::Mul, From::Q, true>(code);
+            break;
         case 0x1D: {  // ABS
             std::array<u32, 4> out{};
             for (unsigned field = 0; field < 4; field++) {
@@ -1034,7 +1169,9 @@ void Vu::upper_special(u32 code) {
             write_vf(ft, dest, out);
             break;
         }
-        case 0x1E: arith<Op::Mul, From::I, true>(code); break;
+        case 0x1E:
+            arith<Op::Mul, From::I, true>(code);
+            break;
         case 0x1F: {  // CLIP: x, y and z of fs against plus and minus |w| of ft
             s64 w = fp::key(vf[ft][3] & ~fp::kSign);
             u32 now = 0;
@@ -1051,19 +1188,45 @@ void Vu::upper_special(u32 code) {
             post();
             break;
         }
-        case 0x20: arith<Op::Add, From::Q, true>(code); break;
-        case 0x21: arith<Op::Madd, From::Q, true>(code); break;
-        case 0x22: arith<Op::Add, From::I, true>(code); break;
-        case 0x23: arith<Op::Madd, From::I, true>(code); break;
-        case 0x24: arith<Op::Sub, From::Q, true>(code); break;
-        case 0x25: arith<Op::Msub, From::Q, true>(code); break;
-        case 0x26: arith<Op::Sub, From::I, true>(code); break;
-        case 0x27: arith<Op::Msub, From::I, true>(code); break;
-        case 0x28: arith<Op::Add, From::Ft, true>(code); break;
-        case 0x29: arith<Op::Madd, From::Ft, true>(code); break;
-        case 0x2A: arith<Op::Mul, From::Ft, true>(code); break;
-        case 0x2C: arith<Op::Sub, From::Ft, true>(code); break;
-        case 0x2D: arith<Op::Msub, From::Ft, true>(code); break;
+        case 0x20:
+            arith<Op::Add, From::Q, true>(code);
+            break;
+        case 0x21:
+            arith<Op::Madd, From::Q, true>(code);
+            break;
+        case 0x22:
+            arith<Op::Add, From::I, true>(code);
+            break;
+        case 0x23:
+            arith<Op::Madd, From::I, true>(code);
+            break;
+        case 0x24:
+            arith<Op::Sub, From::Q, true>(code);
+            break;
+        case 0x25:
+            arith<Op::Msub, From::Q, true>(code);
+            break;
+        case 0x26:
+            arith<Op::Sub, From::I, true>(code);
+            break;
+        case 0x27:
+            arith<Op::Msub, From::I, true>(code);
+            break;
+        case 0x28:
+            arith<Op::Add, From::Ft, true>(code);
+            break;
+        case 0x29:
+            arith<Op::Madd, From::Ft, true>(code);
+            break;
+        case 0x2A:
+            arith<Op::Mul, From::Ft, true>(code);
+            break;
+        case 0x2C:
+            arith<Op::Sub, From::Ft, true>(code);
+            break;
+        case 0x2D:
+            arith<Op::Msub, From::Ft, true>(code);
+            break;
         case 0x2E: {  // OPMULA: the first half of a cross product
             u32 flags = 0;
             std::array<u32, 4> out = acc;
@@ -1079,7 +1242,9 @@ void Vu::upper_special(u32 code) {
         }
         case 0x2F:  // NOP
             break;
-        default: unknown_ops++; break;
+        default:
+            unknown_ops++;
+            break;
     }
 }
 
@@ -1236,8 +1401,12 @@ void Vu::lower_special(u32 code) {
                 branch(next);
             }
             break;
-        case 0x40: lower_special(code); break;
-        default: unknown_ops++; break;
+        case 0x40:
+            lower_special(code);
+            break;
+        default:
+            unknown_ops++;
+            break;
     }
 }
 
@@ -1263,7 +1432,9 @@ void Vu::lower_special(u32 code) {
             case 0x35:  // IOR
                 write_vi(id, vi[is & 15] | vi[it & 15]);
                 break;
-            default: unknown_ops++; break;
+            default:
+                unknown_ops++;
+                break;
         }
         return;
     }
@@ -1395,22 +1566,50 @@ void Vu::lower_special(u32 code) {
             kick_address_ = vi[is & 15];
             kick_in_ = 2;  // the packet goes after the next instruction has run
             break;
-        case 0x70: start_p(x * x + y * y + z * z, 11); break;                    // ESADD
-        case 0x71: start_p(1.0f / (x * x + y * y + z * z), 18); break;           // ERSADD
-        case 0x72: start_p(std::sqrt(x * x + y * y + z * z), 18); break;         // ELENG
-        case 0x73: start_p(1.0f / std::sqrt(x * x + y * y + z * z), 24); break;  // ERLENG
-        case 0x74: start_p(std::atan2(y, x), 54); break;                         // EATANxy
-        case 0x75: start_p(std::atan2(z, x), 54); break;                         // EATANxz
-        case 0x76: start_p(x + y + z + fp::to_double(vf[is][3]), 12); break;     // ESUM
-        case 0x78: start_p(std::sqrt(std::fabs(one)), 12); break;                // ESQRT
-        case 0x79: start_p(1.0f / std::sqrt(std::fabs(one)), 18); break;         // ERSQRT
-        case 0x7A: start_p(1.0f / one, 12); break;                               // ERCPR
-        case 0x7B:                                                               // WAITP: likewise
+        case 0x70:
+            start_p(x * x + y * y + z * z, 11);
+            break;  // ESADD
+        case 0x71:
+            start_p(1.0f / (x * x + y * y + z * z), 18);
+            break;  // ERSADD
+        case 0x72:
+            start_p(std::sqrt(x * x + y * y + z * z), 18);
+            break;  // ELENG
+        case 0x73:
+            start_p(1.0f / std::sqrt(x * x + y * y + z * z), 24);
+            break;  // ERLENG
+        case 0x74:
+            start_p(std::atan2(y, x), 54);
+            break;  // EATANxy
+        case 0x75:
+            start_p(std::atan2(z, x), 54);
+            break;  // EATANxz
+        case 0x76:
+            start_p(x + y + z + fp::to_double(vf[is][3]), 12);
+            break;  // ESUM
+        case 0x78:
+            start_p(std::sqrt(std::fabs(one)), 12);
+            break;  // ESQRT
+        case 0x79:
+            start_p(1.0f / std::sqrt(std::fabs(one)), 18);
+            break;  // ERSQRT
+        case 0x7A:
+            start_p(1.0f / one, 12);
+            break;  // ERCPR
+        case 0x7B:  // WAITP: likewise
             break;
-        case 0x7C: start_p(std::sin(one), 29); break;   // ESIN
-        case 0x7D: start_p(std::atan(one), 54); break;  // EATAN
-        case 0x7E: start_p(std::exp(-one), 44); break;  // EEXP
-        default: unknown_ops++; break;
+        case 0x7C:
+            start_p(std::sin(one), 29);
+            break;  // ESIN
+        case 0x7D:
+            start_p(std::atan(one), 54);
+            break;  // EATAN
+        case 0x7E:
+            start_p(std::exp(-one), 44);
+            break;  // EEXP
+        default:
+            unknown_ops++;
+            break;
     }
 }
 

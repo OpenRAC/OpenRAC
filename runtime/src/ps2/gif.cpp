@@ -32,7 +32,9 @@ void Gif::advance(Path& p) {
 void Gif::packed(Path& p, u64 lo, u64 hi) {
     u32 desc = static_cast<u32>((p.regs >> (p.reg * 4)) & 0xF);
     switch (desc) {
-        case gsreg::PRIM: gs_.write(gsreg::PRIM, lo & 0x7FF); break;
+        case gsreg::PRIM:
+            gs_.write(gsreg::PRIM, lo & 0x7FF);
+            break;
         case gsreg::RGBAQ: {
             // One colour component per word; Q is the one the last ST carried.
             u64 rgba = (lo & 0xFF) | ((lo >> 32 & 0xFF) << 8) | ((hi & 0xFF) << 16)
@@ -44,7 +46,9 @@ void Gif::packed(Path& p, u64 lo, u64 hi) {
             gs_.write(gsreg::ST, lo);
             p.q = as_float(static_cast<u32>(hi));
             break;
-        case gsreg::UV: gs_.write(gsreg::UV, (lo & 0x3FFF) | ((lo >> 32 & 0x3FFF) << 16)); break;
+        case gsreg::UV:
+            gs_.write(gsreg::UV, (lo & 0x3FFF) | ((lo >> 32 & 0x3FFF) << 16));
+            break;
         case gsreg::XYZF2: {
             u64 xy = (lo & 0xFFFF) | ((lo >> 32 & 0xFFFF) << 16);
             u64 z = (hi >> 4) & 0xFFFFFF, f = (hi >> 36) & 0xFF;
@@ -58,12 +62,17 @@ void Gif::packed(Path& p, u64 lo, u64 hi) {
             gs_.write(no_kick ? gsreg::XYZ3 : gsreg::XYZ2, xy | ((hi & 0xFFFFFFFFu) << 32));
             break;
         }
-        case gsreg::FOG: gs_.write(gsreg::FOG, ((hi >> 36) & 0xFF) << 56); break;
+        case gsreg::FOG:
+            gs_.write(gsreg::FOG, ((hi >> 36) & 0xFF) << 56);
+            break;
         case 0xE:  // A+D: any register, by address
             gs_.write(static_cast<u8>(hi & 0xFF), lo);
             break;
-        case 0xF: break;
-        default: gs_.write(static_cast<u8>(desc), lo); break;
+        case 0xF:
+            break;
+        default:
+            gs_.write(static_cast<u8>(desc), lo);
+            break;
     }
 }
 
@@ -101,9 +110,15 @@ std::size_t Gif::packet_quadwords(const u8* memory, u32 at, u32 mask) {
             nreg = 16;
         }
         switch (bits(lo, 58, 2)) {
-            case kPacked: total += loops * nreg; break;
-            case kReglist: total += (loops * nreg + 1) / 2; break;
-            default: total += loops; break;
+            case kPacked:
+                total += loops * nreg;
+                break;
+            case kReglist:
+                total += (loops * nreg + 1) / 2;
+                break;
+            default:
+                total += loops;
+                break;
         }
         if (bits(lo, 15, 1)) {
             break;
