@@ -210,7 +210,6 @@ void Gs::reset() {
   pending_write_.clear();
   pending_read_.clear();
   envs_.clear();
-  levels_.clear();
   clut_copies_.clear();
   env_ = nullptr;
   env_dirty_ = clut_copy_dirty_ = true;
@@ -503,13 +502,6 @@ Gs::Env Gs::environment() {
       }
       t.clut = clut_copies_.back().data();
     }
-    levels_.emplace_back();
-    t.levels = &levels_.back();
-    u32 levels = (t.mxl > 0 && t.mmin >= 2) ? t.mxl : 0;
-    for (u32 level = 0; level <= levels; level++) {
-      s32 w = std::max(1, (1 << t.tw) >> level), h = std::max(1, (1 << t.th) >> level);
-      add_pages(e.tex_pages, t.psm, t.tbp[level], t.tbw[level], 0, 0, w - 1, h - 1);
-    }
     // The level of detail comes from each pixel's Q only when it is not
     // fixed (LCM), the coordinates carry a Q, and something depends on it:
     // mipmap levels, or different filters for enlarging and reducing.
@@ -608,7 +600,6 @@ void Gs::submit(unsigned kind, unsigned count) {
     if (waiting_.empty()) {
       // Nothing waiting refers to the old states: let them go.
       envs_.clear();
-      levels_.clear();
       clut_copies_.clear();
       clut_copy_dirty_ = true;
       retired_.clear();
@@ -617,7 +608,7 @@ void Gs::submit(unsigned kind, unsigned count) {
     env_ = &envs_.back();
     env_dirty_ = false;
   }
-  const Env& e = *env_;
+  Env& e = *env_;
   stats.primitives++;
   if (on_primitive) {
     report(e, count);
@@ -645,10 +636,33 @@ void Gs::submit(unsigned kind, unsigned count) {
     add_pages(written, e.zpsm, e.zbp, e.fbw, x0, y0, x1, y1);
   }
 
+  // The levels of the texture it can read. A game leaves the levels it does
+  // not need unloaded (their addresses point anywhere, often at the frame),
+  // so only these count.
+  if (e.tme) {
+    u32 need = levels_needed(e, count);
+    if (need & ~e.looked_at) {
+      look_at_levels(e, need & ~e.looked_at);
+    }
+    if (need != e.last_need) {
+      e.last_need = need;
+      e.need_pages.clear();
+      e.in_place_pages.clear();
+      for (u32 level = 0; level < 7; level++) {
+        if (need & (1u << level)) {
+          e.need_pages.add(e.level_pages[level]);
+          if (e.in_place & (1u << level)) {
+            e.in_place_pages.add(e.level_pages[level]);
+          }
+        }
+      }
+    }
+  }
+
   Queued q{&e, static_cast<u8>(kind), {queue_[0], queue_[1], queue_[2]}};
   // A primitive whose texture is in the memory it draws to (the games blur
   // and distort the frame that way) is drawn alone, top to bottom.
-  bool feeds_itself = e.tme && e.tex_pages.intersects(written);
+  bool feeds_itself = e.tme && e.need_pages.intersects(written);
   if (threads_ == 0 || feeds_itself) {
     flush();
     stamp(written);
@@ -658,17 +672,18 @@ void Gs::submit(unsigned kind, unsigned count) {
     return;
   }
 
-  // Draw what is waiting first if this primitive reads what it writes, writes
-  // what it reads, or draws to other buffers.
-  if ((e.tme && e.tex_pages.intersects(pending_write_)) || written.intersects(pending_read_) ||
+  // Draw what is waiting first if this primitive reads in place what that
+  // writes, writes what that reads in place, or draws to other buffers.
+  // (Decoded levels were taken when they were looked at.)
+  if ((e.tme && e.in_place_pages.intersects(pending_write_)) || written.intersects(pending_read_) ||
       (!waiting_.empty() && e.target != pending_target_)) {
     flush();
   }
   pending_target_ = e.target;
   stamp(written);
   pending_write_.add(written);
-  if (e.tme) {
-    pending_read_.add(e.tex_pages);
+  if (e.tme && e.in_place) {
+    pending_read_.add(e.in_place_pages);
   }
   u32 index = static_cast<u32>(waiting_.size());
   waiting_.push_back(q);
@@ -810,19 +825,68 @@ void Gs::stamp(const Pages& pages) {
   }
 }
 
-// Find, once, the decoded copy of a level for the primitives of one state.
-// Any drawing thread may be the first to need it.
-void Gs::resolve_level(const Texture& t, u32 level) const {
-  std::lock_guard lock(texture_mutex_);
-  u32 bit = 1u << level;
-  if (t.levels->looked_up.load(std::memory_order_relaxed) & bit) {
-    return;
+// Which levels of its texture the primitive in the queue can read. The level
+// of detail follows Q, and Q anywhere in a primitive lies between its
+// vertices' values; this mirrors `sample`, with a little room for rounding.
+u32 Gs::levels_needed(const Env& e, unsigned count) const {
+  const Texture& t = e.tex;
+  if (t.mxl == 0 || t.mmin < 2) {
+    return 1;
   }
-  u32 w = std::max(1u, (1u << t.tw) >> level), h = std::max(1u, (1u << t.th) >> level);
-  // A large level (a frame buffer read as a texture) is cheaper read in place.
-  const u32* decoded = w * h <= 256u * 256u ? const_cast<Gs*>(this)->cached_level(t, level) : nullptr;
-  t.levels->cached[level].store(decoded, std::memory_order_relaxed);
-  t.levels->looked_up.fetch_or(bit, std::memory_order_release);
+  float low = t.k, high = t.k;
+  if (t.lod_per_pixel) {
+    float least = std::fabs(queue_[0].q), most = least;
+    for (unsigned n = 1; n < count; n++) {
+      float q = std::fabs(queue_[n].q);
+      least = std::min(least, q);
+      most = std::max(most, q);
+    }
+    float scale = static_cast<float>(1u << t.l);
+    low = -std::log2(most) * scale + t.k - 1.0f / 32;
+    high = -std::log2(least) * scale + t.k + 1.0f / 32;
+    if (!(low <= high)) {
+      return (2u << t.mxl) - 1;  // not numbers: any level
+    }
+  }
+  if (high <= 0.0f) {
+    return 1;
+  }
+  float top = static_cast<float>(t.mxl);
+  u32 first, last;
+  if (t.mmin == 2 || t.mmin == 4) {
+    first = low <= 0.0f ? 0 : static_cast<u32>(std::min(low + 0.5f, top));
+    last = static_cast<u32>(std::min(high + 0.5f, top));
+  } else {
+    first = low <= 0.0f ? 0 : static_cast<u32>(std::min(low, top));
+    last = std::min(static_cast<u32>(std::min(high, top)) + 1, t.mxl);
+  }
+  return ((2u << last) - 1) & ~((1u << first) - 1);
+}
+
+// Find levels for the primitives of one state. A level is decoded now, from
+// memory as it is (after whatever is waiting to draw there); a large one (a
+// frame buffer read as a texture) is cheaper read in place.
+void Gs::look_at_levels(Env& e, u32 levels) {
+  Texture& t = e.tex;
+  for (u32 level = 0; level < 7; level++) {
+    u32 bit = 1u << level;
+    if (!(levels & bit)) {
+      continue;
+    }
+    u32 w = std::max(1u, (1u << t.tw) >> level), h = std::max(1u, (1u << t.th) >> level);
+    Pages& pages = e.level_pages[level];
+    pages.clear();
+    add_pages(pages, t.psm, t.tbp[level], t.tbw[level], 0, 0, static_cast<s32>(w) - 1, static_cast<s32>(h) - 1);
+    if (w * h <= 256u * 256u) {
+      if (pages.intersects(pending_write_)) {
+        flush();
+      }
+      t.decoded[level] = cached_level(t, level);
+    } else {
+      e.in_place |= bit;
+    }
+    e.looked_at |= bit;
+  }
 }
 
 const u32* Gs::cached_level(const Texture& t, u32 level) {
@@ -1186,10 +1250,7 @@ u32 Gs::texel(const Texture& t, u32 level, s32 iu, s32 iv, const u32* decoded) c
 }
 
 u32 Gs::sample_level(const Texture& t, u32 level, float u, float v, bool linear) const {
-  if (!(t.levels->looked_up.load(std::memory_order_acquire) & (1u << level))) {
-    resolve_level(t, level);
-  }
-  const u32* decoded = t.levels->cached[level].load(std::memory_order_relaxed);
+  const u32* decoded = t.decoded[level];
   if (level) {
     float scale = 1.0f / static_cast<float>(1u << level);
     u *= scale;
@@ -1548,6 +1609,7 @@ void Gs::transfer_in(const u8* data, std::size_t bytes) {
           flush();  // waiting primitives read this memory as it was
         }
         stamp(in_pages_);
+        env_dirty_ = true;  // a texture there is to be looked at again
       }
       memory.write(psm, bp, bw, x, y, value);
     }

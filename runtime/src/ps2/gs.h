@@ -207,14 +207,6 @@ class Gs {
   // The pages a rectangle of a buffer lies in.
   static void add_pages(Pages& pages, u32 psm, u32 bp, u32 bw, s32 x0, s32 y0, s32 x1, s32 y1);
 
-  // Each level of a texture as plain colours, when it is held in the cache
-  // (else null: the level is read from GS memory texel by texel). Filled in
-  // by whichever thread first needs a level.
-  struct Levels {
-    std::atomic<u32> looked_up{0};
-    std::array<std::atomic<const u32*>, 7> cached{};
-  };
-
   struct Texture {
     u32 psm = 0;
     std::array<u32, 7> tbp{};
@@ -234,7 +226,9 @@ class Gs {
     u32 ta0 = 0, ta1 = 0;
     bool aem = false;
     const u32* clut = nullptr;  // the colour table as it was when the primitive was given
-    Levels* levels = nullptr;   // decoded copies of the levels, found when first needed
+    // Each level as plain colours, taken when a primitive first needs it
+    // (null: the level is read from GS memory texel by texel).
+    std::array<const u32*, 7> decoded{};
   };
 
   // Everything a primitive needs, decoded from the registers of its context.
@@ -254,8 +248,12 @@ class Gs {
     const GsMemory::Layout* flayout = nullptr;
     const GsMemory::Layout* zlayout = nullptr;
     bool f16 = false, f24 = false, z16 = false, z24 = false;
-    Pages tex_pages;     // every page a texture level lies in
     u64 target = 0;      // which buffers it draws to
+    // About the texture's levels, filled in as primitives need them:
+    u32 looked_at = 0, in_place = 0;     // levels found; levels read from GS memory
+    std::array<Pages, 7> level_pages{};  // the pages each level lies in
+    u32 last_need = 0;                   // the levels the last primitive needed,
+    Pages need_pages, in_place_pages;    // their pages, and those of them read in place
   };
 
   // A primitive waiting to be drawn.
@@ -307,7 +305,10 @@ class Gs {
     u64 stamp = 0;
   };
   const u32* cached_level(const Texture& t, u32 level);
-  void resolve_level(const Texture& t, u32 level) const;
+  // Which levels of its texture the primitive in the queue can read.
+  u32 levels_needed(const Env& e, unsigned count) const;
+  // Find those levels for the state's primitives: decoded copies, or in place.
+  void look_at_levels(Env& e, u32 levels);
   // Note a write to pages: decoded copies of them are stale from now on.
   void stamp(const Pages& pages);
   // A level is known by where and how it is stored, and by what turns its
@@ -321,7 +322,6 @@ class Gs {
   };
   std::unordered_map<TextureKey, CachedTexture, TextureKeyHash> texture_cache_;
   std::vector<std::shared_ptr<std::vector<u32>>> retired_;  // replaced copies a waiting primitive may still use
-  mutable std::mutex texture_mutex_;
   std::array<u64, 512> page_stamp_{};
   u64 clock_ = 1;
 
@@ -340,9 +340,8 @@ class Gs {
   Pages pending_write_, pending_read_;
   u64 pending_target_ = 0;
   std::deque<Env> envs_;
-  std::deque<Levels> levels_;
   std::deque<std::array<u32, 256>> clut_copies_;
-  const Env* env_ = nullptr;
+  Env* env_ = nullptr;
   bool env_dirty_ = true, clut_copy_dirty_ = true;
 
   // Transfers.
