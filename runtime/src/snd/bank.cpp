@@ -10,6 +10,7 @@
 
 #include "snd/bank.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace snd {
@@ -26,6 +27,9 @@ constexpr u32 kGrainBytesV2 = 8;
 
 /** The size of one sound's record in the block. */
 constexpr u32 kSoundBytes = 12;
+
+/** The longest a bank file is taken to be: 64 MB, far more than the console's sound memory. */
+constexpr std::size_t kMostFileBytes = std::size_t{64} << 20;
 
 /** The most sounds and steps a bank is taken to have; more means the file is not a bank. */
 constexpr u32 kMostSounds = 4096;
@@ -268,6 +272,23 @@ std::vector<Sfx> read_sounds(const Bytes& block, u32 version) {
 }
 
 }  // namespace
+
+std::size_t Bank::file_bytes(const u8* table) {
+    Bytes whole{table, kTableBytes};
+
+    // A type, the number of parts, then each part's offset and size (documented).
+    u32 parts = whole.read<u32>(4);
+    std::size_t block_end = std::size_t{whole.read<u32>(8)} + whole.read<u32>(12);
+    std::size_t samples_end = std::size_t{whole.read<u32>(16)} + whole.read<u32>(20);
+    std::size_t bytes = std::max(block_end, samples_end);
+
+    // Not two parts, parts that lie inside the table, or more than the sound memory could hold.
+    if (parts != 2 || bytes <= kTableBytes || bytes > kMostFileBytes) {
+        return 0;
+    }
+
+    return bytes;
+}
 
 std::unique_ptr<Bank> Bank::parse(const u8* file, std::size_t bytes) {
     Bytes whole{file, bytes};

@@ -27,7 +27,6 @@ using namespace snd;
 namespace {
 
 using ps2::store;
-using ps2::u64;
 
 /** The bank number and sound number the tool plays under; any would do. */
 constexpr u32 kBank = 1;
@@ -99,14 +98,10 @@ std::vector<u8> read_bank_file(sys::Disc& disc, u32 sector) {
         return {};
     }
 
-    // Two parts, each an offset and a size, from byte 8 on (documented in bank.cpp).
-    u32 parts = ps2::load<u32>(&first[4]);
-    u64 block_end = u64{ps2::load<u32>(&first[8])} + ps2::load<u32>(&first[12]);
-    u64 samples_end = u64{ps2::load<u32>(&first[16])} + ps2::load<u32>(&first[20]);
-    u64 bytes = std::max(block_end, samples_end);
+    std::size_t bytes = Bank::file_bytes(first.data());
 
-    // Not a bank's table, or a size no bank has (64 MB is more than the sound memory by far).
-    if (parts != 2 || bytes < sys::Disc::kSector || bytes > (u64{64} << 20)) {
+    // Not a bank's table.
+    if (bytes == 0) {
         return {};
     }
 
@@ -118,7 +113,7 @@ std::vector<u8> read_bank_file(sys::Disc& disc, u32 sector) {
         return {};
     }
 
-    file.resize(static_cast<std::size_t>(bytes));
+    file.resize(bytes);
 
     return file;
 }

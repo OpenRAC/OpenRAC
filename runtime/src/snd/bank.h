@@ -151,6 +151,20 @@ struct Sfx {
  */
 class Bank {
 public:
+    /** How many bytes of a file's start `file_bytes` needs: the table of parts. */
+    static constexpr std::size_t kTableBytes = 24;
+
+    /**
+     * Works out how long a bank file is from the table at its start.
+     *
+     * A program names a bank on the disc by its first sector alone, so the length has to come
+     * from the file.
+     *
+     * @param table The first `kTableBytes` bytes of the file.
+     * @return The file's length in bytes, or 0 when the table is not that of a two-part bank.
+     */
+    static std::size_t file_bytes(const u8* table);
+
     /**
      * Reads a bank file.
      *
