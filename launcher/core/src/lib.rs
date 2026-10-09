@@ -13,7 +13,7 @@
 //! - [`status`]: what is in place for a version (disc, inputs, build output).
 //! - [`config`]: the launcher's own settings file.
 //! - [`detect`]: finding the checkout, Python, Godot and Docker.
-//! - [`disc`]: reading which game a disc image is, and adding the user's image.
+//! - [`install`]: setting a game up from the player's disc, OpenGOAL's way.
 //! - [`jobs`]: running an action as a child process and streaming its output.
 //! - [`library`]: all of the above, put together for the UI.
 
@@ -21,9 +21,8 @@ pub mod actions;
 pub mod catalog;
 pub mod config;
 pub mod detect;
-pub mod disc;
 pub mod discord;
-pub mod iso;
+pub mod install;
 pub mod jobs;
 pub mod library;
 pub mod status;

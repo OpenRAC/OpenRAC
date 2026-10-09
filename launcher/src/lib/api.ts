@@ -29,6 +29,8 @@ export interface Config {
   python: string | null;
   godot: string | null;
   docker: string | null;
+  /** Where games are set up from the player's discs (OpenGOAL's install folder). */
+  installDir: string | null;
   /** Show what contributors use (builds, checks, progress); off, a player's three steps. */
   developer: boolean;
   setupComplete: boolean;
@@ -160,6 +162,8 @@ export interface GameView {
   id: string;
   title: string;
   year: number | null;
+  /** How far the game is set up from the player's disc. */
+  install: InstallState | null;
   versions: VersionView[];
 }
 
@@ -185,35 +189,23 @@ export type JobEvent =
   | { type: "output"; id: number; stream: "stdout" | "stderr"; line: string }
   | { type: "exit"; id: number; code: number | null; cancelled: boolean };
 
-/** core/src/iso.rs */
-export type IsoMatchStatus = "exactMatch" | "revisionMismatch" | "wrongGame" | "notPs2Disc" | "invalidIso";
-
-export interface IsoInspection {
-  path: string;
-  filename: string;
-  size: number;
-  isValidIso: boolean;
-  serial: string | null;
-  detectedGameId: string | null;
-  detectedGameTitle: string | null;
-  detectedVersionName: string | null;
-  detectedRegion: string | null;
-  targetGameId: string;
-  targetVersionKey: string;
-  targetSerial: string | null;
-  targetExpectedSize: number | null;
-  matchesTargetGame: boolean;
-  matchesTargetVersion: boolean;
-  status: IsoMatchStatus;
-  message: string;
+/** core/src/install.rs: a game set up from the player's disc, OpenGOAL's way. */
+export interface BuildInfo {
+  serial: string;
+  /** The version the disc is, `rac1/pal`. */
+  version: string;
+  elfSha1: string;
+  files: number;
+  image: string;
 }
 
-export interface ImportResult {
-  targetKey: string;
-  baseromPath: string;
-  extractedAssetsDir: string;
-  extractedFiles: string[];
-  setupMessage: string;
+export interface InstallState {
+  /** `<install folder>/active/<game>/data`. */
+  dir: string;
+  /** The disc was extracted and validated: which build it is. */
+  extracted: BuildInfo | null;
+  decompiled: boolean;
+  compiled: boolean;
 }
 
 // ---- calls ------------------------------------------------------------------------
@@ -233,15 +225,15 @@ export const api = {
   checkRoot: (path: string) => call<Check>("check_root", { path }),
   checkTool: (tool: Tool, path: string) => call<Check>("check_tool", { tool, path }),
   library: () => call<Library>("library"),
-  /** Adds the user's disc image for a version (`rac1/pal`); the Rust side checks it is that game. */
-  addDisc: (key: string, path: string) => call<string>("add_disc", { key, path }),
   runAction: (scope: Scope, id: string) => call<Started>("run_action", { scope, id }),
   cancelJob: (id: number) => call<null>("cancel_job", { id }),
   /** A file or folder in the checkout, relative to it (`games/rac1/pal/README.md`). */
   openPath: (path: string) => call<null>("open_path", { path }),
   openUrl: (url: string) => call<null>("open_url", { url }),
-  inspectIso: (targetKey: string, isoPath: string) => call<IsoInspection>("inspect_iso", { targetKey, isoPath }),
-  importIso: (targetKey: string, isoPath: string) => call<ImportResult>("import_iso", { targetKey, isoPath }),
+  /** Sets a game up from the image of the player's disc: the extractor, as a job. */
+  installGame: (game: string, image: string) => call<Started>("install_game", { game, image }),
+  /** Removes what setting a game up made (not the disc image, not the saves). */
+  uninstallGame: (game: string) => call<null>("uninstall_game", { game }),
   syncProgressFromWeb: () => call<Library>("sync_progress_from_web"),
   applyProgressJson: (json: string) => call<Library>("apply_progress_json", { json }),
   setDiscordStatus: (status: DiscordStatus) => call<null>("set_discord_status", { status }),
@@ -262,20 +254,16 @@ export async function pickFile(title: string): Promise<string | null> {
 }
 
 /** A picker for a disc image; null when cancelled (or in the browser preview). */
-export async function pickDisc(title: string): Promise<string | null> {
-  if (!inTauri) return null;
+/** The player's disc image for setting a game up: an .iso, as OpenGOAL asks for. */
+export async function pickIso(title: string): Promise<string | null> {
+  if (!inTauri) return "/home/you/Discs/game.iso";
   const picked = await open({
     directory: false,
     multiple: false,
     title,
-    filters: [{ name: "Disc image", extensions: ["iso", "ISO", "bin"] }],
+    filters: [{ name: "ISO", extensions: ["iso", "ISO"] }],
   });
   return typeof picked === "string" ? picked : null;
-}
-
-/** An ISO image file picker; null when cancelled. */
-export async function pickIsoFile(title = "Select PS2 ISO image"): Promise<string | null> {
-  return pickDisc(title);
 }
 
 /** Job output and exits, from `job-output` and `job-exit` events. */

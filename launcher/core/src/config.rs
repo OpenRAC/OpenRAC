@@ -18,8 +18,11 @@ pub struct Config {
     /// Docker, which rac1/pal's and rac4's builds run in.
     pub docker: Option<PathBuf>,
     /// Show what contributors use: builds, checks, toolchains, progress.
-    /// Off, the launcher shows a player's three steps: add your disc, play, edit levels.
+    /// Off, the launcher shows a player's three steps: set up from your disc, play, edit levels.
     pub developer: bool,
+    /// Where games are set up from the player's discs (OpenGOAL's install
+    /// directory); unset: the launcher's per-user data folder.
+    pub install_dir: Option<PathBuf>,
     /// The first-run setup was finished (or skipped).
     pub setup_complete: bool,
     /// The version the launcher showed last (`rac1/pal`).
@@ -37,6 +40,7 @@ impl Default for Config {
             python: None,
             godot: None,
             docker: None,
+            install_dir: None,
             developer: false,
             setup_complete: false,
             last_version: None,

@@ -3,12 +3,13 @@
   // native port, edit its levels in Godot. Each button runs the same actions the
   // developer page lists (launcher/actions.json), found here by their ids.
   import Icon from "$components/Icon.svelte";
-  import { api, pickDisc, pickFile, type ActionView } from "$lib/api";
+  import { api, pickFile, type ActionView } from "$lib/api";
   import {
     app,
     cancel,
     currentVersion,
     guard,
+    installGame,
     jobs,
     openVersion,
     refresh,
@@ -16,6 +17,7 @@
     runChain,
     saveConfig,
     toast,
+    uninstallGame,
   } from "$lib/app.svelte";
   import { GODOT_URL } from "$lib/links";
   import { regionLabel } from "$lib/labels";
@@ -52,22 +54,32 @@
         (j.state === "queued" || j.state === "running"),
     );
   const playing = $derived(jobOf(["play"]));
+  /** Setting this game up from the disc, if that is queued or running. */
+  const installing = $derived(
+    jobs.list.find((j) => j.actionId === `install:${v?.game ?? ""}` && (j.state === "queued" || j.state === "running")),
+  );
+  /** Which build of this game the player's disc is, once it is set up. */
+  const setUp = $derived(game?.install?.extracted ?? null);
+  const otherVersion = $derived(
+    setUp && setUp.version !== v?.key ? (game?.versions.find((other) => other.key === setUp.version) ?? null) : null,
+  );
   const preparing = $derived(jobOf(["editor-extract", "editor-import"]));
 
-  let adding = $state(false);
   let opening = $state(false);
 
-  async function addDisc() {
+  /** OpenGOAL's install: pick the disc image, extract and validate it. */
+  async function setUpGame() {
     if (!v) return;
-    const picked = await pickDisc(`The image of your ${v.title} disc`);
-    if (!picked) return;
-    adding = true;
-    const placed = await guard(api.addDisc(v.key, picked));
-    adding = false;
-    if (placed) {
-      toast("Your disc was added.");
-      await refresh();
-    }
+    await installGame(v.game, v.title);
+    await refresh();
+  }
+
+  async function removeSetUp() {
+    if (!v) return;
+    const sure = confirm(
+      `Remove what was set up from your ${v.title} disc? Your disc image and your saves are kept; set it up again any time.`,
+    );
+    if (sure) await uninstallGame(v.game);
   }
 
   async function chooseGodot() {
@@ -128,23 +140,34 @@
       {/if}
 
       <div class="go">
-        {#if !play || play.state === "planned"}
+        {#if installing}
+          <button class="big" onclick={() => void cancel(installing)}>
+            <span class="spinner"></span>{installing.state === "queued" ? "Waiting…" : "Stop"}
+          </button>
+          <p class="line clip">{installing.lines.at(-1)?.line ?? "Reading your disc…"}</p>
+        {:else if !setUp}
+          <button class="big primary" onclick={() => void setUpGame()}
+            ><Icon name="disc" size={22} />Set up from your disc</button
+          >
+          <p class="line">
+            Choose the image (.iso) of your own, legitimately obtained {game.title} disc. OpenRAC never downloads a game.
+          </p>
+        {:else if !play || play.state === "planned"}
           <button class="big" disabled><Icon name="play" size={22} />Not playable yet</button>
-          <p class="line">The native port of this game is not built yet: its decompilation comes first.</p>
+          <p class="line">
+            {#if otherVersion}Your disc is the {otherVersion.region} version ({setUp.serial}).{:else}Your disc is set up
+              ({setUp.serial}).{/if}
+            The native port is not built yet: its decompilation comes first.
+          </p>
+        {:else if otherVersion}
+          <button class="big" disabled><Icon name="play" size={22} />Play</button>
+          <p class="line">Your disc is the {otherVersion.region} version: open that version to play.</p>
         {:else if playing}
           <button class="big" onclick={() => void cancel(playing)}>
             <span class="spinner"></span>{playing.state === "queued" ? "Waiting…" : "Stop the game"}
           </button>
           <p class="line clip">
             {playing.lines.at(-1)?.line ?? "Getting the game ready (the first time takes a minute)…"}
-          </p>
-        {:else if disc !== "found"}
-          <button class="big primary" disabled={adding} onclick={() => void addDisc()}>
-            {#if adding}<span class="spinner"></span>{:else}<Icon name="disc" size={22} />{/if}Add your disc
-          </button>
-          <p class="line">
-            {#if disc === "mismatch"}{v.status.disc.message}{:else}Choose the image (.iso) of your own {v.title} disc. OpenRAC
-              never downloads a game.{/if}
           </p>
         {:else if play.runnable}
           <button class="big primary" onclick={() => void run(scope, play)}><Icon name="play" size={22} />Play</button>
@@ -154,6 +177,16 @@
           <p class="line">Not ready: it needs {needs(play).join(", ")}.</p>
         {/if}
       </div>
+
+      <ol class="steps" aria-label="Setting the game up">
+        <li class:done={!!setUp}>Extract and check your disc</li>
+        <li class:done={game.install?.decompiled}>
+          Prepare the assets{#if !game.install?.decompiled}<small>not available yet</small>{/if}
+        </li>
+        <li class:done={game.install?.compiled}>
+          Build the game{#if !game.install?.compiled}<small>not available yet</small>{/if}
+        </li>
+      </ol>
     </section>
 
     <section class="panel editor">
@@ -162,7 +195,7 @@
         {#if !extract || extract.state === "planned"}
           <p class="muted">The level editor cannot open this game yet.</p>
         {:else if disc !== "found"}
-          <p class="muted">Add your disc first; the editor reads the levels from it.</p>
+          <p class="muted">Set up your disc first; the editor reads the levels from it.</p>
         {:else if lacksGodot}
           <p class="muted">
             The levels open in Godot 4, a free editor.
@@ -202,9 +235,9 @@
         <button onclick={() => void guard(api.openPath(v.dir))}
           ><Icon name="folder" size={16} />Open the game's folder</button
         >
-        <button onclick={() => void guard(api.openPath("baserom"))}
-          ><Icon name="disc" size={16} />Open your discs' folder</button
-        >
+        {#if setUp}
+          <button onclick={() => void removeSetUp()}><Icon name="x" size={16} />Remove the set-up</button>
+        {/if}
         <button onclick={() => (app.page = "tasks")}><Icon name="terminal" size={16} />What the launcher ran</button>
         <button onclick={() => (app.page = "settings")}
           ><Icon name="setup" size={16} />Settings and developer tools</button
@@ -215,6 +248,43 @@
 {/if}
 
 <style>
+  .steps {
+    position: relative;
+    display: flex;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
+  }
+
+  .steps li {
+    flex: 1;
+    counter-increment: step;
+    border: 1px solid rgb(255 255 255 / 0.15);
+    border-radius: var(--radius-sm);
+    background: rgb(0 0 0 / 0.35);
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--soft);
+  }
+
+  .steps li::before {
+    content: counter(step) ". ";
+    font-weight: 700;
+  }
+
+  .steps li.done {
+    border-color: color-mix(in srgb, var(--ok) 50%, transparent);
+    color: var(--ok);
+  }
+
+  .steps small {
+    display: block;
+    color: var(--dim);
+    font-size: 11px;
+  }
+
   .page {
     max-width: 920px;
     margin: 0 auto;

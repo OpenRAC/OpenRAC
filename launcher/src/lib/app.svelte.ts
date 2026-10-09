@@ -3,6 +3,7 @@
 // talks to the Rust side except through api.ts.
 import {
   api,
+  pickIso,
   errorText,
   onJobEvent,
   type ActionView,
@@ -10,6 +11,7 @@ import {
   type Config,
   type Library,
   type Scope,
+  type Started,
   type VersionView,
 } from "./api";
 import { Queue, type Job } from "./queue";
@@ -239,6 +241,35 @@ export async function runChain(scope: Scope, actions: ActionView[]): Promise<boo
   return true;
 }
 
+/** Jobs that are not actions.json actions (setting a game up), by the job's key: how to start each. */
+const starters: Record<number, (() => Promise<Started>) | undefined> = {};
+
+/**
+ * Sets GAME up from the image of the player's own disc, OpenGOAL's way: the
+ * player picks the image, the extractor copies its files out and checks them
+ * against the build OpenRAC knows. Resolves to whether it worked.
+ */
+export async function installGame(game: string, title: string): Promise<boolean> {
+  const image = await pickIso(`Select your legitimately obtained ISO file of ${title}`);
+  if (!image) return false;
+  const job = queue.add({ kind: "repository" }, `install:${game}`, `Set up ${title} from your disc`);
+  starters[job.key] = () => api.installGame(game, image);
+  jobs.selected = job.key;
+  const ended = new Promise<boolean>((resolve) => {
+    waiting[job.key] = resolve;
+  });
+  pump();
+  const ok = await ended;
+  toast(ok ? `${title} is set up from your disc.` : `Setting ${title} up failed: see Tasks.`, ok ? "info" : "error");
+  return ok;
+}
+
+/** Removes what setting GAME up made, after the player confirmed. */
+export async function uninstallGame(game: string) {
+  await guard(api.uninstallGame(game));
+  await refresh();
+}
+
 /**
  * A first start with nothing to ask: when the OpenRAC folder and a Python
  * were found, they are taken, with Godot and Docker when present, and the
@@ -268,7 +299,9 @@ function pump() {
   const job = queue.next();
   if (!job) return;
   job.state = "running";
-  api.runAction(job.scope, job.actionId).then(
+  const start = starters[job.key] ?? (() => api.runAction(job.scope, job.actionId));
+  starters[job.key] = undefined;
+  start().then(
     (started) => {
       job.title = started.title;
       queue.started(job, started.id, started.command);

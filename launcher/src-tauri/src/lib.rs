@@ -9,9 +9,9 @@ use std::sync::{Arc, Mutex};
 use openrac_launcher_core::actions::{Platform, Scope};
 use openrac_launcher_core::config::{self, Config};
 use openrac_launcher_core::detect::{self, Check, Detected, Tool};
+use openrac_launcher_core::install;
 use openrac_launcher_core::jobs::{Event, Jobs, Started};
 use openrac_launcher_core::library::{self, Library};
-use openrac_launcher_core::{catalog, disc};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_opener::OpenerExt;
@@ -102,20 +102,6 @@ async fn check_tool(tool: Tool, path: PathBuf) -> Result<Check, String> {
 async fn library(state: State<'_, AppState>) -> Result<Library, String> {
     let config = state.config.lock().unwrap().clone();
     tauri::async_runtime::spawn_blocking(move || library::library(&config)).await.map_err(|e| e.to_string())?
-}
-
-/// Adds the user's disc image for version `key` (`rac1/pal`): checks that
-/// the image is that game, then links it into baserom/. Returns where.
-#[tauri::command]
-async fn add_disc(state: State<'_, AppState>, key: String, path: PathBuf) -> Result<String, String> {
-    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
-    tauri::async_runtime::spawn_blocking(move || {
-        let catalog = catalog::load(&root)?;
-        let version = catalog.version(&key).ok_or_else(|| format!("no version {key}"))?;
-        disc::add(&root, version, &path).map(|place| place.display().to_string())
-    })
-    .await
-    .map_err(|e| e.to_string())?
 }
 
 /// Runs action `id` of `scope`: a job whose output streams as `job-output`
@@ -229,26 +215,30 @@ fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
+/// Sets `game` up from the image of the player's own disc, OpenGOAL's way:
+/// runs the extractor (extract and validate) as a job whose output streams
+/// like any other job's. Returns the job.
 #[tauri::command]
-fn inspect_iso(
-    state: State<'_, AppState>,
-    target_key: String,
-    iso_path: PathBuf,
-) -> Result<openrac_launcher_core::iso::IsoInspection, String> {
-    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
-    let catalog = openrac_launcher_core::catalog::load(&root)?;
-    Ok(openrac_launcher_core::iso::inspect_iso(&catalog, &target_key, &iso_path))
+fn install_game(app: AppHandle, state: State<'_, AppState>, game: String, image: PathBuf) -> Result<Started, String> {
+    let config = state.config.lock().unwrap().clone();
+    let install_dir = config.install_dir.clone().ok_or("no install folder (Settings)")?;
+    let plan = install::plan_extract(&config, &install_dir, &game, &image)?;
+    state.jobs.start(&plan, config.root.as_deref(), move |event| {
+        let _ = match &event {
+            Event::Output { .. } => app.emit("job-output", &event),
+            Event::Exit { .. } => app.emit("job-exit", &event),
+        };
+    })
 }
 
+/// Removes what setting `game` up made (OpenGOAL's uninstall); the player's
+/// disc image and saves are left alone.
 #[tauri::command]
-fn import_iso(
-    state: State<'_, AppState>,
-    target_key: String,
-    iso_path: PathBuf,
-) -> Result<openrac_launcher_core::iso::ImportResult, String> {
-    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
-    let catalog = openrac_launcher_core::catalog::load(&root)?;
-    openrac_launcher_core::iso::import_iso(&root, &catalog, &target_key, &iso_path)
+async fn uninstall_game(state: State<'_, AppState>, game: String) -> Result<(), String> {
+    let install_dir = state.config.lock().unwrap().install_dir.clone().ok_or("no install folder (Settings)")?;
+    tauri::async_runtime::spawn_blocking(move || install::uninstall(&install_dir, &game))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -369,7 +359,12 @@ pub fn run() {
             }
 
             let config_file = app.path().app_config_dir().ok().map(|dir| dir.join("launcher.json"));
-            let config = config_file.as_deref().map(config::load).unwrap_or_default();
+            let mut config = config_file.as_deref().map(config::load).unwrap_or_default();
+            // OpenGOAL asks for an install folder at first start; until the
+            // player picks one, games are set up in the launcher's own data folder.
+            if config.install_dir.is_none() {
+                config.install_dir = app.path().app_local_data_dir().ok();
+            }
 
             let client_id = config
                 .discord_client_id
@@ -397,13 +392,12 @@ pub fn run() {
             check_root,
             check_tool,
             library,
-            add_disc,
             run_action,
             cancel_job,
             open_path,
             open_url,
-            inspect_iso,
-            import_iso,
+            install_game,
+            uninstall_game,
             sync_progress_from_web,
             apply_progress_json,
             set_discord_status,
