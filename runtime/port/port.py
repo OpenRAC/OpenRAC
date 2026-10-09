@@ -48,13 +48,18 @@ LLVM_DIRS = ["/opt/homebrew/opt/llvm/bin", "/usr/local/opt/llvm/bin", "/usr/lib/
 # The source folders of a game that hold its own code; libraries the runtime
 # replaces, and code that is never ported (movies), are left out.
 SOURCE_DIRS = {
-    "rac1/pal": ["src/game", "src/overlays"],
+    "rac1/pal": ["src/core", "src/game", "src/overlays"],
 }
 
 # Where a game lists the places of its functions: a game with a program for each level has the
 # same function at another address in each (the decompilation's catalogue of them).
 CATALOGUES = {
     "rac1/pal": "config/overlays/functions.tsv",
+}
+
+# Where a game lists the functions it keeps as assembly because they were written as assembly.
+HANDWRITTEN = {
+    "rac1/pal": "config/handwritten_asm.txt",
 }
 
 # How many bytes at the start of a level's code tell the level's program from any other.
@@ -102,13 +107,16 @@ WIDE_RESULTS = set()
 def filter_source(text):
     """Returns a source file's text as the host build compiles it.
 
-    `long long` becomes `long`, which the build defines as `long long`. A
+    `long long` becomes `long`, which the build defines as `long long`, and
+    an integer constant with the suffix `L` gets `LL`. A
     statement of assembly at file scope (padding between functions) is
     dropped; its lines are kept empty so that line numbers stay. A
     declaration of a function in `WIDE_RESULTS` is read as returning
     `long`, whichever integer type it names.
     """
     text = re.sub(r"\blong\s+long\b", "long", text)
+    # An integer constant marked `L` is 64 bits on the console and 32 here: `0xFE00L << 46` must stay 64-bit.
+    text = re.sub(r"\b(0[xX][0-9a-fA-F]+|\d+)([uU]?)[lL]\b", r"\1\2LL", text)
     for name in WIDE_RESULTS:
         text = re.sub(rf"\b(?:unsigned\s+(?:int|long)|int|unsigned|long|[su]32|[su]64)\s+{name}\s*\(", f"long {name}(", text)
     lines = text.split("\n")
@@ -369,6 +377,7 @@ def console_floats(code):
 
 # Reading unoptimised LLVM IR: a function's start, a local, a pointer made from another, any value.
 DEFINE = re.compile(r"^define .*@\"?([\w$.]+)\"?\(")
+VARIADIC = re.compile(r"^define .*@\"?([\w$.]+)\"?\([^)]*\.\.\.\)")
 ALLOCA = re.compile(r"^\s+(%[\w.]+) = alloca (.+?), align")
 DERIVED = re.compile(r"^\s+(%[\w.]+) = (?:getelementptr|bitcast)\b.*?\bptr (%[\w.]+)")
 TOKEN = re.compile(r"%[\w.]+")
@@ -513,11 +522,13 @@ def translate(job):
     generated.write_text(code)
     read_interface(module, tools)
     # Which functions depend on the retail compiler's stack layout; without the listing, none are known.
-    module.layout, module.narrow = {}, {}
+    module.layout, module.narrow, module.variadic = {}, {}, set()
     if not run(layout_command):
         listing = module.stem.with_suffix(".ll").read_text(errors="replace")
         module.layout = written_only(listing)
         module.narrow = narrowed(listing)
+        # A function defined with `...` takes its further arguments where the console's compiler put them.
+        module.variadic = {match.group(1) for match in map(VARIADIC.match, listing.split("\n")) if match}
     return module
 
 
@@ -575,6 +586,13 @@ class Retail:
                         found.setdefault(int(place[:2]), []).append(int(place[3:], 16))
         self.regions = {}  # level ("00") or None for the boot program -> [(address, bytes)]
         serial = json.loads((game_dir.parent / "game.json").read_text())["versions"][game_dir.name]["serial"]
+        self.hooked = set()  # (None, address) of each boot-program function the runtime answers itself
+        hooks = ROOT / "runtime" / "games" / f"{serial}.hooks"
+        if hooks.is_file():
+            for line in hooks.read_text().split("\n"):
+                fields = line.split("#")[0].split()
+                if len(fields) >= 2:
+                    self.hooked.add((None, int(fields[0], 16)))
         boot = game_dir / "baserom" / serial
         gp = None
         if boot.exists():
@@ -720,7 +738,9 @@ def marshal(parameters):
 # Why a decompiled function is left to the interpreter, and the file each kind is listed in beside the library.
 LEFT = {
     "listed": ("are in the game's list of functions to leave (runtime/port/leave)", None),
+    "hooked": ("are answered by the runtime itself (runtime/games/SERIAL.hooks)", None),
     "layout": ("fill locals that only a callee reads, through a neighbour's address", "left_by_stack_layout.txt"),
+    "variadic": ("take a variable number of arguments", None),
     "narrow": ("keep a 64-bit result (runtime/port/wide) in 32 bits, or take one in a 32-bit parameter", "left_by_narrowing.txt"),
     "copy": ("use two copies of a function under one name", "left_by_copy.txt"),
     "caller": ("call one of the functions above directly, in the same source file", "left_by_call.txt"),
@@ -741,7 +761,12 @@ def decide(module, retail):
     module.function_names = sorted(plain for plain in named if plain.startswith("func_"))
     module.data_names = sorted(plain for plain in named if plain.startswith("D_"))
     module.left = {plain: "listed" for plain in candidates if plain in retail.leave}
+    # A library function the runtime answers at its address: host code that called it directly
+    # would run the decompiled body instead, so it is left, and its direct callers with it (below).
+    module.left.update({plain: "hooked" for plain in candidates
+                        if levels.frame_and_address(plain) in retail.hooked and plain not in module.left})
     module.left.update({plain: "layout" for plain in candidates if plain in module.layout and plain not in module.left})
+    module.left.update({plain: "variadic" for plain in candidates if plain in module.variadic and plain not in module.left})
     module.left.update({plain: "narrow" for plain in candidates
                         if (plain in module.narrow or plain in NARROW_TAKERS) and plain not in module.left})
 
@@ -1151,6 +1176,10 @@ def wanted(key, out_dir, files, most):
     if report.exists():
         for unit in json.loads(report.read_text())["units"]:
             matched.update(f["name"] for f in unit.get("functions", []) if f.get("fuzzy_match_percent") == 100.0)
+    by_hand = set()
+    listing = ROOT / "games" / key / HANDWRITTEN.get(key, "none")
+    if listing.is_file():
+        by_hand = {line.strip().split("/")[-1] for line in listing.read_text().split("\n") if line.strip() and not line.startswith("#")}
     status = {}
     for module in modules:
         built = module in usable
@@ -1183,6 +1212,8 @@ def wanted(key, out_dir, files, most):
         size = where.size_of(name)
         if name in status:
             why = status[name]
+        elif name in by_hand:
+            why = "hand-written assembly: the port needs a C version of its own (runtime/port/hand)"
         elif name in matched:
             why = "decompiled; its source file did not build for the host"
         elif size:

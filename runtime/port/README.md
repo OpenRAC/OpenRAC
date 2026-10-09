@@ -20,12 +20,13 @@ only. The sizes and checksums of the retail functions it stands in for are
 read from your own disc's files, which `tools/openrac.py setup` and the
 game's own set-up put in `games/<game>/<version>/baserom/`.
 
-State on 2026-10-09, Ratchet & Clank (PAL): 300 of 317 source files are in
-the library, 2,178 functions standing in for 21,157 places in the boot
-program and the 19 level programs. Every level starts and draws with host
-code: 450 to 530 functions run in each (4 to 19 million calls in the first
-40 seconds), and checked both ways (below) none differs from the retail
-code. Two calls in three are host code.
+State on 2026-10-09, Ratchet & Clank (PAL): 352 of 371 source files are in
+the library (the game, its levels, the core library and the port's own C for
+the assembly routines), 2,471 functions standing in for 21,466 places in the
+boot program and the 19 level programs. Every level starts and draws with
+host code: 500 to 570 functions run in each (5 to 19 million calls in the
+first 40 seconds), and checked both ways (below) none differs from the
+retail code. Two calls in three are host code.
 
 ## How it works
 
@@ -83,7 +84,8 @@ code. Two calls in three are host code.
 game's own in this build: the same types, the steering macros of the retail
 compiler made empty, assembly never included, and the three quadword helpers
 in plain C. `long` is 8 bytes on the console, so the build defines it as
-`long long`.
+`long long` and reads an integer constant marked `L` as `LL` (`0xFE00L << 46`
+is a 64-bit shift there).
 
 ## Checking a function against the retail code
 
@@ -157,6 +159,13 @@ left out. That is the order in which decompiling a function takes the most
 work away from the interpreter.
 
 ## Functions left to the interpreter
+
+Besides the lists below, the build leaves out the functions the runtime
+answers itself (the hooks table of the disc, `runtime/games/SERIAL.hooks`):
+host code calls a function of its own source file directly, so a decompiled
+caller would otherwise run the library function's body where the runtime
+means to answer. It also leaves out functions defined with `...`, whose
+further arguments are where the console's compiler put them.
 
 `leave/<game>-<version>.txt` lists decompiled functions that the build
 leaves out, each with the reason. They match the retail bytes and still do
