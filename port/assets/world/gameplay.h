@@ -143,15 +143,15 @@ inline constexpr std::size_t kMobyInstanceSize = 0x78;
 struct MobyInstance {
     s32 size = 0;  // 0x78; the loader steps by it
     // +0x04: moby+0xb0, and the index of the level mission whose byte the
-    // spawn test reads (moby_spawn.h). -1 on most.
+    // spawn test reads (the game decides). -1 on most.
     s32 mission = 0;
-    // +0x08: spawn conditions, 0 for always (moby_spawn.h).
+    // +0x08: spawn conditions, 0 for always (the game decides).
     s32 spawn_flags = 0;
     // +0x0c: moby+0xb2 (s16): the bit index of the spawn tests, unique per
     // instance (-2 on some); also the key of the occlusion mappings.
     s32 spawn_id = 0;
     // +0x10 / +0x14: the values moby+0xb4 / +0xb6 start from (+0x14 once the
-    // mission is done; moby_spawn.h).
+    // mission is done; the game decides).
     s32 start_value = 0;
     s32 start_value_done = 0;
     s32 class_id = 0;  // +0x18: the moby class number
@@ -242,7 +242,7 @@ std::vector<PvarSharedRecord> read_pvar_shared_records(const GameplayFile& file)
 std::optional<std::vector<u8>> read_pvar_block(const GameplayFile& file, s32 index);
 
 // The pvar blocks as the level loader leaves them, by pvar index. `spawned[i]`
-// says whether instance i was created (empty: all were; moby_spawn.h decides).
+// says whether instance i was created (empty: all were; the game decides).
 // After copying, the loader applies in order: the moby links (an instance
 // index becomes the number of created instances before it, or -1; an index
 // past the list also -1), the pointer fixups (kept block-relative here, only
@@ -257,10 +257,7 @@ std::vector<std::optional<std::vector<u8>>> read_pvars(
 // ---------------------------------------------------------------------------
 // Paths (section 0x70)
 
-// The level's splines: header {s32 count, s32 data_offset, s32 data_size, pad}
-// (offsets from the section), count s32 spline offsets into the data; each
-// spline `s32 count, pad[3]`, then count points {x, y, z, w}.
-std::vector<std::vector<std::array<float, 4>>> read_paths(const GameplayFile& file);
+// The paths (splines) are disc/volumes.h's parse_paths.
 
 // ---------------------------------------------------------------------------
 // Environment transitions (section 0x80): the fog zones

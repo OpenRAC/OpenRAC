@@ -76,8 +76,8 @@ struct CameraHeader {
     s32 cuboid = 0;
     s32 cylinder = 0;
     s32 path = 0;
-    float f18 = 0;     // 1.5 on most records; read by class 1 as its look height
-    u8 priority = 0;   // +0x1c (0 never)
+    float f18 = 0;    // 1.5 on most records; read by class 1 as its look height
+    u8 priority = 0;  // +0x1c (0 never)
     // +0x1d: how a switch to this camera blends: 1 or 5 blend, 3 or 6 copy the
     // pose, else a cut.
     u8 blend = 0;
@@ -129,7 +129,7 @@ struct CameraPlacedView {
     // +0x2c: radians; look height = height - distance * tan(angle).
     float look_angle = 0;
     float f30 = 0;
-    s32 still = 0;  // +0x34: only while the follow camera is still
+    s32 still = 0;       // +0x34: only while the follow camera is still
     float distance = 0;  // +0x38 / +0x3c / +0x40: from the position on the first ticks (run time)
     float height = 0;
     float look_height = 0;
@@ -143,19 +143,19 @@ struct CameraPlacedView {
 // (or along the record's facing) while Ratchet is in it.
 struct CameraMobyFocus {
     CameraHeader header;
-    float turn = 0;     // +0x00: degrees a tick at full strength
-    s16 counter = 0;    // +0x20 (run time; -1 the moby is gone)
-    u8 near_kind = 0;   // +0x22: 1 = the region is `radius` from the moby
-    float radius = 0;   // +0x24
-    s32 moby = 0;       // +0x28: a moby link, used when `group` is -1
+    float turn = 0;       // +0x00: degrees a tick at full strength
+    s16 counter = 0;      // +0x20 (run time; -1 the moby is gone)
+    u8 near_kind = 0;     // +0x22: 1 = the region is `radius` from the moby
+    float radius = 0;     // +0x24
+    s32 moby = 0;         // +0x28: a moby link, used when `group` is -1
     float max_pitch = 0;  // +0x2c: degrees (0 none)
     float max_angle = 0;  // +0x30: degrees (0 none)
     float distance = 0;   // +0x34
     float pivot_height = 0;
-    s16 mode = 0;      // +0x3c: 1..7
-    s16 counter2 = 0;  // +0x3e (run time)
-    float yaw = 0;     // +0x40 (run time)
-    s32 group = 0;     // +0x44: the moby group, its first live member; -1 the moby
+    s16 mode = 0;           // +0x3c: 1..7
+    s16 counter2 = 0;       // +0x3e (run time)
+    float yaw = 0;          // +0x40 (run time)
+    s32 group = 0;          // +0x44: the moby group, its first live member; -1 the moby
     float look_height = 0;  // +0x4c
     s32 suppress = 0;       // +0x50
 
@@ -171,10 +171,10 @@ struct CameraRail {
     s32 rail = 0;      // +0x24: the grind path Ratchet must ride, -1 any
     s32 map_path = 0;  // +0x28 / +0x2c: mode 2's mapping paths
     s32 map_rail = 0;
-    s32 mode = 0;      // +0x30: 0 parallel, 2 mapped piecewise, else the nearest path point
-    s16 mapped = 0;    // +0x34 (run time)
-    s16 flipped = 0;   // +0x36 (run time)
-    float along = 0;   // +0x38: the place offset along the path
+    s32 mode = 0;     // +0x30: 0 parallel, 2 mapped piecewise, else the nearest path point
+    s16 mapped = 0;   // +0x34 (run time)
+    s16 flipped = 0;  // +0x36 (run time)
+    float along = 0;  // +0x38: the place offset along the path
 
     // Nothing when the block is shorter than 0x3c.
     static std::optional<CameraRail> read(ByteView pvar);

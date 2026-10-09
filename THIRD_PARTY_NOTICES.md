@@ -49,6 +49,9 @@ and notes:
   terrain, ties, shrubs, the sky, moby classes and animation, collision and
   shadow blocks, gadgets) and the lighting passes, converted to C++ from
   `crates/rc-formats` and its specs; their tests from ReRAC's unit tests.
+- `port/assets/world/`: the gameplay file, collision and its queries, occlusion,
+  cameras, fonts, the HUD and PIF pictures, built on `crates/rc-formats` and
+  ReRAC's specs; `port/assets/ps2_float.h` and `image.h`, shared by the parts.
 - `port/extract/`: `openrac-extractor`'s JSON-lines output, crash-safe writes,
   free-space check and decompile step, after `crates/rc-extract`.
 

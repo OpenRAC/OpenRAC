@@ -23,42 +23,7 @@
 
 #include "assets/bytes.h"
 #include "assets/geometry/core_records.h"
-
-namespace openrac::assets {
-
-// An RGBA8 image, rows top-down, alpha already scaled to 0..255.
-struct RgbaImage {
-    u32 width = 0;
-    u32 height = 0;
-    std::vector<u8> rgba;
-
-    bool operator==(const RgbaImage&) const = default;
-};
-
-// CSM1 palette order to linear: within each 32-entry group the two middle
-// 8-entry blocks swap (bits 3 and 4 of the index). Its own inverse.
-u32 clut_index(u32 i);
-
-// GS alpha 0..0x80 to 0..0xff; 0x80 and above is opaque.
-u8 scale_alpha(u8 a);
-
-// `width * height` palette indices with a 256-entry RGBA32 palette (1024
-// bytes, CSM1 order).
-RgbaImage decode_indexed8(ByteView indices, u32 width, u32 height, ByteView clut);
-
-// One stored 8-bit image: the indices and the palette as the disc holds them.
-// Exporters that keep the indices use the parts; decode() is what every
-// reader here applies.
-struct IndexedImage {
-    u32 width = 0;
-    u32 height = 0;
-    ByteView indices;
-    ByteView clut;
-
-    RgbaImage decode() const { return decode_indexed8(indices, width, height, clut); }
-};
-
-}  // namespace openrac::assets
+#include "assets/image.h"
 
 namespace openrac::assets::rac1 {
 

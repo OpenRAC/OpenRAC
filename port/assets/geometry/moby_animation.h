@@ -40,7 +40,7 @@
 
 #include "assets/bytes.h"
 #include "assets/geometry/moby.h"
-#include "assets/geometry/ps2_float.h"
+#include "assets/ps2_float.h"
 
 namespace openrac::assets::rac1 {
 

@@ -6,7 +6,7 @@
 //
 // PS2 float arithmetic on bit patterns; see ps2_float.h for what is modelled.
 
-#include "assets/geometry/ps2_float.h"
+#include "assets/ps2_float.h"
 
 #include <algorithm>
 #include <cmath>
@@ -128,6 +128,23 @@ u32 itof12(s32 i) {
     const u64 magnitude =
         i < 0 ? u64{0} - static_cast<u64>(static_cast<s64>(i)) : static_cast<u64>(i);
     return pack(i < 0 ? kSign : 0, magnitude, 127 + 23 - 12);
+}
+
+u32 itof0(s32 i) {
+    if (i == 0) {
+        return 0;
+    }
+    const u64 magnitude =
+        i < 0 ? u64{0} - static_cast<u64>(static_cast<s64>(i)) : static_cast<u64>(i);
+    return pack(i < 0 ? kSign : 0, magnitude, 127 + 23);
+}
+
+f32 to_host(u32 x) {
+    if (exponent(x) == 0xff) {
+        return (x & kSign) != 0 ? -std::numeric_limits<f32>::max()
+                                : std::numeric_limits<f32>::max();
+    }
+    return std::bit_cast<f32>(x);
 }
 
 u32 max(u32 a, u32 b) {

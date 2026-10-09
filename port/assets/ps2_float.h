@@ -43,6 +43,10 @@ inline f32 to_float(u32 x) {
     return std::bit_cast<f32>(x);
 }
 
+// The host float a value means: exponent 255 is an ordinary huge number on
+// the console, not an infinity or NaN, so it becomes the largest float.
+f32 to_host(u32 x);
+
 inline V4 bits(const std::array<f32, 4>& v) {
     return {bits(v[0]), bits(v[1]), bits(v[2]), bits(v[3])};
 }
@@ -71,6 +75,9 @@ inline u32 rsqrt(u32 a, u32 b) {
 
 // ITOF12: a signed integer / 4096 (integers wider than 24 bits truncate).
 u32 itof12(s32 i);
+
+// ITOF0: a signed integer as a float (integers wider than 24 bits truncate).
+u32 itof0(s32 i);
 
 // MAX / MIN compare sign and magnitude, as the units do.
 u32 max(u32 a, u32 b);

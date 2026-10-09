@@ -17,13 +17,13 @@
 #include <cmath>
 #include <limits>
 
-#include "assets/world/console_float.h"
+#include "assets/ps2_float.h"
 
 namespace openrac::assets {
 
 namespace {
 
-namespace cf = console_float;
+namespace cf = ps2;
 
 // Constants, by their bits.
 constexpr u32 kOneBits = 0x3f80'0000;
@@ -44,7 +44,7 @@ struct ConsoleMath {
 
     static F in(float x) { return std::bit_cast<u32>(x); }
 
-    static float out(F x) { return cf::to_float(x); }
+    static float out(F x) { return cf::to_host(x); }
 
     static F add(F a, F b) { return cf::add(a, b); }
 
@@ -62,10 +62,10 @@ struct ConsoleMath {
 
     static F itof(s32 i) { return cf::itof0(i); }
 
-    static s32 ftoi(F x) { return cf::ftoi0(x); }
+    static s32 ftoi(F x) { return cf::ftoi(x, 0); }
 
     // The sign bit (-0 counts), what bltz tests.
-    static bool neg(F x) { return cf::negative(x); }
+    static bool neg(F x) { return (x & cf::kSign) != 0; }
 
     // Above +0, what bgtz on the raw word tests.
     static bool pos(F x) { return static_cast<s32>(x) > 0; }

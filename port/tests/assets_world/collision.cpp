@@ -16,8 +16,8 @@
 #include <cmath>
 
 #include "assets/bytes.h"
+#include "assets/ps2_float.h"
 #include "assets/world/collision_query.h"
-#include "assets/world/console_float.h"
 #include "tests/check.h"
 
 using namespace openrac::assets;
@@ -26,8 +26,8 @@ namespace {
 
 using P3 = std::array<float, 3>;
 
-void check_console_float() {
-    namespace cf = console_float;
+void check_ps2_float() {
+    namespace cf = ps2;
     auto f = [](float x) {
         return std::bit_cast<u32>(x);
     };
@@ -46,11 +46,11 @@ void check_console_float() {
     CHECK(cf::itof12(0x800) == f(0.5f));
     CHECK(cf::itof12(-4096 * 3) == f(-3.0f));
     CHECK(cf::mul(f(1e30f), f(1e30f)) == cf::kMax);
-    CHECK(cf::ftoi0(f(0.999f)) == 0);
-    CHECK(cf::ftoi0(f(-1.75f)) == -1);
-    CHECK(cf::ftoi0(f(4095.9f)) == 4095);
-    CHECK(cf::ftoi0(f(1.5e10f)) == 2147483647);
-    CHECK(cf::ftoi0(f(-1.5e10f)) == -2147483647 - 1);
+    CHECK(cf::ftoi(f(0.999f), 0) == 0);
+    CHECK(cf::ftoi(f(-1.75f), 0) == -1);
+    CHECK(cf::ftoi(f(4095.9f), 0) == 4095);
+    CHECK(cf::ftoi(f(1.5e10f), 0) == 2147483647);
+    CHECK(cf::ftoi(f(-1.5e10f), 0) == -2147483647 - 1);
     CHECK(cf::itof0(-12) == f(-12.0f));
     CHECK(cf::itof0((1 << 24) + 1) == f(16777216.0f));  // truncated above 2^24
 }
@@ -563,7 +563,7 @@ void check_hero_groups(FloatModel model) {
 }  // namespace
 
 int main() {
-    check_console_float();
+    check_ps2_float();
     check_packed_vertices();
     check_block();
     for (FloatModel model : {FloatModel::Console, FloatModel::Native}) {

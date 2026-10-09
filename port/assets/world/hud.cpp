@@ -67,7 +67,9 @@ HudSet HudSet::read(Game game, ByteView b, const std::array<ByteView, kHudBanks>
     }
     b.check(h.frame_offset, std::size_t{h.frame_count} * 4, "HUD frame table");
     for (std::size_t i = 0; i < h.frame_count; ++i) {
-        hud.m_frames.push_back({b.s16_at(h.frame_offset + 4 * i), b.s16_at(h.frame_offset + 4 * i + 2)});
+        hud.m_frames.push_back(
+            {b.s16_at(h.frame_offset + 4 * i), b.s16_at(h.frame_offset + 4 * i + 2)}
+        );
     }
     b.check(h.palette_offset, palettes * 8, "HUD palette table");
     for (std::size_t i = 0; i < palettes; ++i) {
@@ -77,7 +79,8 @@ HudSet HudSet::read(Game game, ByteView b, const std::array<ByteView, kHudBanks>
     b.check(h.texture_offset, textures * 8, "HUD texture table");
     for (std::size_t i = 0; i < textures; ++i) {
         const std::size_t at = h.texture_offset + 8 * i;
-        hud.m_textures.push_back({b.u32_at(at), b.u16_at(at + 4), b.u8_at(at + 6), b.u8_at(at + 7)});
+        hud.m_textures.push_back({b.u32_at(at), b.u16_at(at + 4), b.u8_at(at + 6), b.u8_at(at + 7)}
+        );
     }
     for (std::size_t i = 0; i < kHudBanks; ++i) {
         if (banks[i].size() < h.bank_size[i]) {
@@ -125,7 +128,7 @@ std::optional<std::pair<u32, u32>> HudSet::frame_size(std::size_t i) const {
     return std::pair{m_textures[t].width(), m_textures[t].height()};
 }
 
-Psmt8Image HudSet::frame_image(std::size_t i) const {
+IndexedImage HudSet::frame_image(std::size_t i) const {
     if (i >= m_frames.size()) {
         fail("HUD frame {} out of range", i);
     }
@@ -144,15 +147,16 @@ Psmt8Image HudSet::frame_image(std::size_t i) const {
         fail("HUD frame {}: an entry owned by no bank", i);
     }
     const HudTexture& t = m_textures[ti];
-    const ByteView pixels = ByteView(m_banks[*tb]).sub(
-        t.offset(), std::size_t{t.width()} * t.height(), "HUD texture pixels"
-    );
-    const ByteView palette = ByteView(m_banks[*pb]).sub(m_palettes[pi].offset(), 0x400, "HUD palette");
+    const ByteView pixels =
+        ByteView(m_banks[*tb])
+            .sub(t.offset(), std::size_t{t.width()} * t.height(), "HUD texture pixels");
+    const ByteView palette =
+        ByteView(m_banks[*pb]).sub(m_palettes[pi].offset(), 0x400, "HUD palette");
     return {t.width(), t.height(), pixels, palette};
 }
 
-Rgba8Pixels HudSet::decode_frame(std::size_t i, GsAlpha alpha) const {
-    return decode_psmt8(frame_image(i), alpha);
+RgbaImage HudSet::decode_frame(std::size_t i, GsAlpha alpha) const {
+    return frame_image(i).decode(alpha);
 }
 
 }  // namespace openrac::assets

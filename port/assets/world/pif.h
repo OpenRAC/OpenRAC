@@ -19,8 +19,8 @@
 #include <cstddef>
 
 #include "assets/bytes.h"
+#include "assets/image.h"
 #include "assets/version.h"
-#include "assets/world/psmt8.h"
 
 namespace openrac::assets {
 
@@ -36,7 +36,7 @@ struct PifImage {
     ByteView palette;  // 0x400 bytes
     ByteView pixels;   // width * height indices
 
-    Psmt8Image image() const { return {width, height, pixels, palette}; }
+    IndexedImage image() const { return {width, height, pixels, palette}; }
 };
 
 // The PIF at byte `at` of a decompressed lump.

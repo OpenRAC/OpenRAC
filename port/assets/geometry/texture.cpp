@@ -13,40 +13,6 @@
 
 #include "assets/geometry/gs_adgif.h"
 
-namespace openrac::assets {
-
-u32 clut_index(u32 i) {
-    return ((i >> 3) & 1) != ((i >> 4) & 1) ? i ^ 0x18 : i;
-}
-
-u8 scale_alpha(u8 a) {
-    return a < 0x80 ? static_cast<u8>(a * 2) : u8{0xff};
-}
-
-RgbaImage decode_indexed8(ByteView indices, u32 width, u32 height, ByteView clut) {
-    const std::size_t n = std::size_t{width} * height;
-    if (indices.size() < n) {
-        fail("indexed texture: {} pixels need {} bytes, have {}", n, n, indices.size());
-    }
-    if (clut.size() < 1024) {
-        fail("indexed texture: palette of {} bytes, need 1024", clut.size());
-    }
-    std::array<std::array<u8, 4>, 256> palette{};
-    for (u32 i = 0; i < 256; ++i) {
-        const u8* e = clut.data() + clut_index(i) * 4;
-        palette[i] = {e[0], e[1], e[2], scale_alpha(e[3])};
-    }
-    RgbaImage image{width, height, {}};
-    image.rgba.reserve(n * 4);
-    for (std::size_t p = 0; p < n; ++p) {
-        const auto& c = palette[indices.data()[p]];
-        image.rgba.insert(image.rgba.end(), c.begin(), c.end());
-    }
-    return image;
-}
-
-}  // namespace openrac::assets
-
 namespace openrac::assets::rac1 {
 
 std::string_view texture_table_name(TextureTable table) {

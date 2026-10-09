@@ -359,25 +359,6 @@ std::vector<std::optional<std::vector<u8>>> read_pvars(
     return blocks;
 }
 
-std::vector<std::vector<std::array<float, 4>>> read_paths(const GameplayFile& file) {
-    const ByteView g = file.bytes();
-    const std::size_t s = file.offset(GameplaySection::Paths);
-    if (s == 0) {
-        return {};
-    }
-    const std::size_t count = index_of(g.s32_at(s), "path count");
-    const std::size_t data_offset = index_of(g.s32_at(s + 4), "path data offset");
-    const std::size_t data_size = index_of(g.s32_at(s + 8), "path data size");
-    const ByteView data = g.sub(s + data_offset, data_size, "path data");
-    std::vector<std::vector<std::array<float, 4>>> out;
-    for (std::size_t i = 0; i < count; ++i) {
-        const std::size_t at = index_of(g.s32_at(s + 0x10 + 4 * i), "spline offset");
-        const std::size_t points = index_of(data.s32_at(at), "spline point count");
-        out.push_back(data.read_array<std::array<float, 4>>(at + 0x10, points, "spline points"));
-    }
-    return out;
-}
-
 std::array<u8, 3> EnvTransition::fog_rgb(std::size_t side_index) const {
     const u32 c = fog_colour.at(side_index);
     return {static_cast<u8>(c), static_cast<u8>(c >> 8), static_cast<u8>(c >> 16)};

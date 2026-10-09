@@ -12,12 +12,12 @@ The readers resolve at load what the console's vector units did each frame
 links), so a renderer never replays that machinery. Where the game's
 arithmetic decides a colour or a matrix to the last bit (lighting, the
 animation palette), it runs on a model of the PS2's float unit
-(`ps2_float.h`: truncating multiply and add, the adder's pre-truncation),
+(`../ps2_float.h`: truncating multiply and add, the adder's pre-truncation),
 in the game's order.
 
 | File | |
 |---|---|
-| `bytes`-level helpers: `core_records.h`, `gs_adgif.h`, `mesh.h`, `vif.h`, `ps2_float.h` | core index tables (textures, classes, gadgets), GS A+D quadwords and register fields, a plain triangle mesh, VIF code lists, the PS2 float model |
+| `core_records.h`, `gs_adgif.h`, `mesh.h`, `vif.h` | core index tables (textures, classes, gadgets), GS A+D quadwords and register fields, a plain triangle mesh, VIF code lists |
 | `texture.h`, `particle_textures.h` | the level's textures (PSMT8 with CSM1 palettes) and mip chains, billboard textures, particle and FX textures |
 | `tfrag.h`, `tfrag_lighting.h` | terrain: fragments, strips, ad-gifs and their GS registers, texture paging spheres, the three levels of detail with their morph and collapse links; the lighting pass that bakes vertex colours |
 | `tie.h`, `tie_lighting.h` | ties, the instanced scenery: classes, packets (dinky and fat vertices, strips, GS slots), instances; per-instance lighting of the 64 light slots |

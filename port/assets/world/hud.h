@@ -31,8 +31,8 @@
 #include <vector>
 
 #include "assets/bytes.h"
+#include "assets/image.h"
 #include "assets/version.h"
-#include "assets/world/psmt8.h"
 
 namespace openrac::assets {
 
@@ -124,9 +124,9 @@ public:
     std::optional<std::pair<u32, u32>> frame_size(std::size_t i) const;
 
     // Frame i's indices and palette, borrowed from this set.
-    Psmt8Image frame_image(std::size_t i) const;
+    IndexedImage frame_image(std::size_t i) const;
 
-    Rgba8Pixels decode_frame(std::size_t i, GsAlpha alpha) const;
+    RgbaImage decode_frame(std::size_t i, GsAlpha alpha) const;
 
 private:
     HudHeader m_header;

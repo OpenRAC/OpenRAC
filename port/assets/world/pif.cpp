@@ -33,7 +33,8 @@ PifImage read_pif(Game game, ByteView bytes, std::size_t at) {
         fail("PIF at {:#x}: {}x{}", at, pif.width, pif.height);
     }
     pif.palette = bytes.sub(at + kPifPaletteOffset, 0x400, "PIF palette");
-    pif.pixels = bytes.sub(at + kPifPixelsOffset, std::size_t{pif.width} * pif.height, "PIF pixels");
+    pif.pixels =
+        bytes.sub(at + kPifPixelsOffset, std::size_t{pif.width} * pif.height, "PIF pixels");
     return pif;
 }
 
