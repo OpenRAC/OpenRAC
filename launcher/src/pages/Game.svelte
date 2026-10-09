@@ -30,7 +30,7 @@
 
     <section class="banner rise" aria-label={`${v.title} (${v.region})`}>
       <div class="left">
-        <div class="title box">
+        <div class="title">
           {v.title}
           <small>decompilation{game.year ? ` · ${game.year}` : ""} · {v.region}</small>
         </div>
@@ -207,7 +207,15 @@
     font-weight: var(--title-weight);
     font-size: clamp(24px, 3vw, 36px);
     line-height: 1.15;
-    padding: 18px 24px;
+    padding: 16px 24px;
+    border-radius: 20px;
+    background: rgba(12, 14, 20, 0.65);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    color: #ffffff;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
   }
 
   .title small {

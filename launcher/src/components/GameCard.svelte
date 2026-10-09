@@ -43,17 +43,19 @@
     <div class="card-header">
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
-        class="title box"
+        class="title"
         class:hovered={isTitleHovered}
         onmouseenter={() => (isTitleHovered = true)}
         onmouseleave={() => (isTitleHovered = false)}
         title="Hover to preview gameplay"
       >
         <span class="title-text">{game.title}</span>
-        <small
-          >decompilation{game.year ? ` · ${game.year}` : ""}{#if isTitleHovered}
-            · 🎬 gameplay preview{/if}</small
-        >
+        <div class="title-meta">
+          <span class="title-sub">decompilation{game.year ? ` · ${game.year}` : ""}</span>
+          {#if isTitleHovered}
+            <span class="preview-badge"><span class="pulse-dot"></span>Live preview</span>
+          {/if}
+        </div>
       </div>
 
       {#if game.versions.length === 1}
@@ -215,48 +217,95 @@
   }
 
   .title {
-    font-family: var(--title-font);
-    font-weight: var(--title-weight);
-    font-size: 26px;
-    line-height: 1.2;
-    padding: 12px 20px;
-    border-radius: 16px;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 22px;
+    border-radius: 18px;
+    background: rgba(12, 14, 20, 0.68);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
     cursor: pointer;
     transition:
       transform 0.2s ease,
       box-shadow 0.2s ease,
-      border-color 0.2s ease;
+      border-color 0.2s ease,
+      background 0.2s ease;
   }
 
   .title:hover,
   .title.hovered {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
-    border-color: #ffffff;
+    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.35);
+    background: rgba(16, 18, 28, 0.82);
+    box-shadow:
+      0 8px 28px rgba(0, 0, 0, 0.5),
+      0 0 16px color-mix(in srgb, var(--bd) 35%, transparent);
   }
 
-  .title small {
-    display: block;
-    margin-top: 4px;
+  .title-text {
+    font-family: var(--title-font);
+    font-weight: var(--title-weight);
+    font-size: 24px;
+    line-height: 1.25;
+    color: #ffffff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+    letter-spacing: 0.02em;
+  }
+
+  .title-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 3px;
+  }
+
+  .title-sub {
     font-size: 12px;
+    font-weight: 500;
     letter-spacing: 0.04em;
     color: var(--tx2);
+  }
+
+  .preview-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.14);
+    border: 1px solid rgba(74, 222, 128, 0.32);
+    border-radius: 999px;
+    padding: 1px 7px;
+  }
+
+  .pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 6px #4ade80;
   }
 
   .import-pill-btn {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border: 3px solid var(--bd);
-    background: var(--box);
-    color: var(--tx);
-    font-family: var(--title-font);
-    font-size: 14px;
-    font-weight: var(--title-weight);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(18, 20, 28, 0.68);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: #ffffff;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
     padding: 8px 16px;
     border-radius: 12px;
     cursor: pointer;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
     transition:
       transform 0.15s ease,
       background 0.15s ease,
@@ -265,8 +314,8 @@
 
   .import-pill-btn:hover {
     transform: translateY(-1px);
-    border-color: #ffffff;
-    background: color-mix(in srgb, var(--box) 80%, white 20%);
+    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(30, 34, 48, 0.85);
   }
 
   .versions-grid {
