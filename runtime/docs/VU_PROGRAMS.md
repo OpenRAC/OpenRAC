@@ -58,14 +58,35 @@ host code is written for it.
 
 ## What follows for the runtime
 
-1. **Naming a loaded program.** The runtime already keeps one compiled image
-   for each distinct content of a unit's program memory. With the table above
-   read at boot, an image can be given its `program_id` by comparing its
-   chunks with the executable's, with no table per game. Reports and
-   profiles can then say "terrain" instead of a hash.
-2. **Host renderers start with terrain and shrubs.** Their programs are the
-   same in both games, so one host renderer for each serves both. Ties and
-   mobys were edited between the games and need a look at what changed.
+1. **Naming a loaded program** is done: the runtime reads the table at boot
+   (`src/ps2/vu_programs.*`) and counts what each unit runs by program, with
+   no table per game. `openrac-boot --vu-programs` prints the counts at the
+   end of a run. The first level of the first game (PAL), from the boot to
+   40 seconds in:
+
+   | Unit | Program | Role (ReRAC) | Runs started | Share of the unit's instructions |
+   |---|---:|---|---:|---:|
+   | VU1 | 13507 | ties | 1,697,041 | 43.3% |
+   | VU1 | 13859 | mobys | 224,940 | 25.2% |
+   | VU1 | 56467 | shrubs, first list | 392,174 | 21.6% |
+   | VU1 | 55907 | terrain, main | 58,783 | 5.5% |
+   | VU1 | 224979 | ties, second program | 45,705 | 1.7% |
+   | VU1 | 903379 | terrain, second strip list | 9,251 | 0.9% |
+   | VU1 | 912339 | shrubs, second list | 13,905 | 0.9% |
+   | VU1 | 221571 | particles | 6,119 | 0.2% |
+   | VU1 | 57843 | textured sprites | 14,590 | 0.2% |
+   | VU0 | 104691 | helper for mobys | 899,944 | 99.7% |
+   | VU0 | 436083 | end of frame, transitions | 39,832 | 0.2% |
+
+   VU0's helper for mobys runs 703 million instructions in that run against
+   1,674 million for all of VU1, and it runs on the thread that runs the
+   game's code.
+2. **Which host renderers first.** Terrain and shrubs are the same programs
+   in both games, so one host renderer for each serves both; ties and mobys
+   were edited between the games and need a look at what changed. By work
+   taken from the interpreter the order is the other way round: ties, mobys
+   and the first shrub program are nine tenths of VU1's instructions in the
+   level measured above, terrain a twentieth.
 3. **The `<line>` field** is the line of the program's source it started at:
    the same in both games for unchanged programs, shifted for the edited
    ones. It tells which programs to compare first when a later game is

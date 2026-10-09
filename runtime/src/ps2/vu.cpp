@@ -77,6 +77,9 @@ inline bool has(u32 dest, unsigned field) {
  */
 constexpr unsigned kDiv = 7, kSqrt = 7, kRsqrt = 13;
 
+/** Use is counted for each 256 pairs of program memory: a pair's address shifted by this. */
+constexpr unsigned kUseShift = 8;
+
 }  // namespace
 
 Vu::Vu(Memory memory) : memory_(memory), pc_mask_(memory.micro_bytes / 8 - 1) {
@@ -117,6 +120,7 @@ u64 Vu::run(u32 address, u64 limit) {
     pc = address & pc_mask_;
     straight_ = 0;
     branch_in_ = stop_in_ = 0;
+    count_start();
     return resume(limit);
 }
 
@@ -125,6 +129,26 @@ void Vu::start(u32 address) {
     straight_ = 0;
     branch_in_ = stop_in_ = 0;
     running_ = true;
+    count_start();
+}
+
+void Vu::count_start() {
+    // Program memory was written since the last pair: the start counts under its new content.
+    if (program_dirty_) {
+        choose_image();
+    }
+
+    image_->starts[pc >> kUseShift]++;
+}
+
+std::vector<Vu::Use> Vu::uses() const {
+    std::vector<Use> out;
+
+    for (const auto& [hash, image] : images_) {
+        out.push_back(Use{image->micro, image->pairs, image->starts});
+    }
+
+    return out;
 }
 
 u64 Vu::advance(u64 instructions) {
@@ -470,9 +494,12 @@ void Vu::choose_image() {
         slot = std::make_unique<Image>();
         slot->micro.assign(memory_.micro, memory_.micro + memory_.micro_bytes);
         slot->needs.resize(memory_.micro_bytes / 8);
+        slot->pairs.assign((memory_.micro_bytes / 8) >> kUseShift, 0);
+        slot->starts.assign((memory_.micro_bytes / 8) >> kUseShift, 0);
     }
     image_ = slot.get();
     needs_ = image_->needs.data();
+    pairs_run_ = image_->pairs.data();
     sticky_readers_ = image_->sticky_readers;
 }
 
@@ -600,6 +627,8 @@ void Vu::step() {
     u32 at = pc;
     pc = (pc + 1) & pc_mask_;
     Needs& needs = needs_[at];
+
+    pairs_run_[at >> kUseShift]++;
 
     // The first time this pair runs with this content, work out what it needs.
     if (!needs.known) [[unlikely]] {

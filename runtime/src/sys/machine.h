@@ -29,6 +29,7 @@
 #include "ps2/ee.h"
 #include "ps2/graphics.h"
 #include "ps2/memory.h"
+#include "ps2/vu_programs.h"
 #include "snd/player.h"
 #include "sound.h"
 #include "sys/native.h"
@@ -128,6 +129,12 @@ public:
 
     /** The program's file on the disc, which is the disc's code (SCES_509.16). */
     std::string program_name;
+
+    /**
+     * The chunks of the program's vector unit programs, from its own table (ps2/vu_programs.h);
+     * empty if it has none. For telling which program a unit runs.
+     */
+    std::vector<ps2::VuChunk> vu_chunks;
 
     /**
      * Runs until the next vertical blank has been announced to the program.

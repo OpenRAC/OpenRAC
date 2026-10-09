@@ -648,6 +648,9 @@ bool Machine::boot(std::string* error) {
         return fail(name + " is not an ELF program");
     }
 
+    // The program's own table of its vector unit programs, for telling them apart when they run.
+    vu_chunks = ps2::vu_program_chunks(elf);
+
     // ELF32 header: entry point at byte 24, program header table at 28, entry size 42, count 44.
     u32 entry = load<u32>(&elf[24]), phoff = load<u32>(&elf[28]);
     unsigned phentsize = load<u16>(&elf[42]), phnum = load<u16>(&elf[44]);

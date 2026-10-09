@@ -28,6 +28,7 @@ add_library(openrac_ps2 STATIC
   src/ps2/memory.cpp
   src/ps2/vif.cpp
   src/ps2/vu.cpp
+  src/ps2/vu_programs.cpp
 )
 target_include_directories(openrac_ps2 PUBLIC src/ps2 src)
 

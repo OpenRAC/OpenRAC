@@ -194,6 +194,31 @@ public:
     std::function<u32()> on_top, on_itop;
 
     /**
+     * How much one content of program memory ran: for telling which of a game's programs a unit
+     * runs the most (vu_programs.h).
+     */
+    struct Use {
+        /** The program memory as it was. */
+        std::vector<u8> micro;
+
+        /** Instruction pairs run, for each 256 pairs (0x800 bytes) of program memory. */
+        std::vector<u64> pairs;
+
+        /** Runs started, by the 256 pairs the first instruction is in. */
+        std::vector<u64> starts;
+    };
+
+    /**
+     * Says what ran, one entry for each content program memory has had.
+     *
+     * The counts are kept with what the unit has worked out about a content, and go with it if
+     * that is thrown away (more than 256 contents).
+     *
+     * @return The entries, in no order.
+     */
+    std::vector<Use> uses() const;
+
+    /**
      * The float registers. A float register is four raw 32-bit values, x first, so that integers
      * moved through them survive. VF0 is (0, 0, 0, 1).
      */
@@ -681,6 +706,9 @@ private:
 
         /** `looked_at` is true once `look_at_programs` has run; `sticky_readers` is its answer. */
         bool looked_at = false, sticky_readers = true;
+
+        /** Pairs run and runs started, for each 256 pairs of the memory (see `Use`). */
+        std::vector<u64> pairs, starts;
     };
 
     /** The images, by a 64-bit hash of their program memory. */
@@ -691,6 +719,12 @@ private:
 
     /** The entries of the image in use. */
     Needs* needs_ = nullptr;
+
+    /** The pair counts of the image in use (`Image::pairs`). */
+    u64* pairs_run_ = nullptr;
+
+    /** Counts a run started at `pc` under the content program memory has now. */
+    void count_start();
 
     /** Program memory may differ from the image in use. */
     bool program_dirty_ = true;

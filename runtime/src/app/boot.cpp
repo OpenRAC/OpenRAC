@@ -39,6 +39,41 @@ using namespace ps2;
 namespace {
 
 /**
+ * Prints how much each of a game's vector unit programs ran on one unit.
+ *
+ * @param unit The unit's name for the heading.
+ * @param chunks The chunks of the game's programs, from its executable.
+ * @param uses What the unit ran.
+ */
+void report_vu_programs(
+    const char* unit, const std::vector<VuChunk>& chunks, const std::vector<Vu::Use>& uses
+) {
+    std::vector<VuProgramUse> programs = vu_program_use(chunks, uses);
+    u64 all = 0;
+
+    for (const VuProgramUse& program : programs) {
+        all += program.pairs;
+    }
+
+    std::fprintf(stderr, "%s programs (program, runs started, instructions, share):\n", unit);
+
+    for (const VuProgramUse& program : programs) {
+        double share =
+            all ? 100.0 * static_cast<double>(program.pairs) / static_cast<double>(all) : 0.0;
+
+        std::fprintf(
+            stderr,
+            "  %8u  %10llu  %14llu  %5.1f%%%s\n",
+            program.program,
+            static_cast<unsigned long long>(program.starts),
+            static_cast<unsigned long long>(program.pairs),
+            share,
+            program.program == 0 ? "  (not in the program's table)" : ""
+        );
+    }
+}
+
+/**
  * Writes a picture as a binary PPM file.
  *
  * @param path Host path of the file to make.
@@ -88,7 +123,7 @@ int main(int argc, char** argv) {
      */
     int gs_threads =
         static_cast<int>(std::min(12u, std::max(2u, std::thread::hardware_concurrency()) - 1));
-    bool window_wanted = false, drawing_thread = true;
+    bool window_wanted = false, drawing_thread = true, vu_programs = false;
 
     /** Scripted input: hold these buttons from one frame for some frames. */
     struct Press {
@@ -185,6 +220,9 @@ int main(int argc, char** argv) {
             // Count calls by level and address and write them to this file at the end.
             native_calls = argv[++i];
             machine.native.count_calls = true;
+        } else if (arg == "--vu-programs") {
+            // At the end, list how much each of the game's vector unit programs ran.
+            vu_programs = true;
         } else if (arg == "--native-skip" && i + 1 < argc) {
             // A file of function names, one a line, that the interpreter keeps running.
             std::ifstream names(argv[++i]);
@@ -225,7 +263,7 @@ int main(int argc, char** argv) {
                 "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | "
                 "--no-card] [--wav FILE] [--native LIBRARY] [--native-check CALLS] [--native-range "
                 "FIRST:LAST] [--native-skip FILE] [--native-calls FILE] [--write "
-                "FRAME:ADDRESS:VALUE[:FRAMES]]\n"
+                "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs]\n"
             );
             return 2;
         }
@@ -673,6 +711,12 @@ int main(int argc, char** argv) {
                 machine.graphics.vu1_runaway_start,
                 machine.graphics.vu1_runaway_pc
             );
+        }
+
+        // Asked for: how much each of the game's vector unit programs ran, by unit.
+        if (vu_programs) {
+            report_vu_programs("VU1", machine.vu_chunks, machine.graphics.vu1.uses());
+            report_vu_programs("VU0", machine.vu_chunks, machine.vu0.uses());
         }
 
         // What host code ran, the 20 busiest functions first.

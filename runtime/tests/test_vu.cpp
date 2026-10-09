@@ -16,6 +16,7 @@
 #include <array>
 #include <cfenv>
 #include <cstring>
+#include <string>
 #include <vector>
 
 #include "check.h"
@@ -23,6 +24,7 @@
 #include "graphics.h"
 #include "vu.h"
 #include "vu_asm.h"
+#include "vu_programs.h"
 
 using namespace ps2;
 using namespace ps2::vuasm;
@@ -790,6 +792,193 @@ void test_kick_through_vif() {
     CHECK_EQ(g.vu1.unknown_ops, u64{0});
 }
 
+/**
+ * Appends a little-endian 32-bit word to a file being built.
+ *
+ * @param file The bytes so far.
+ * @param value The word.
+ */
+void put32(std::vector<u8>& file, u32 value) {
+    // Four bytes, the lowest first.
+    for (unsigned shift = 0; shift < 32; shift += 8) {
+        file.push_back(static_cast<u8>(value >> shift));
+    }
+}
+
+/**
+ * Writes a little-endian word of 16 or 32 bits into a file at a place that exists already.
+ *
+ * @param file The file.
+ * @param at Where.
+ * @param value The word.
+ * @param bytes 2 or 4.
+ */
+void poke(std::vector<u8>& file, std::size_t at, u32 value, unsigned bytes) {
+    // The lowest byte first.
+    for (unsigned n = 0; n < bytes; n++) {
+        file[at + n] = static_cast<u8>(value >> (8 * n));
+    }
+}
+
+/**
+ * The use of program memory is counted for each 256 pairs under the content it had, and a
+ * game's own table of chunks turns the counts into counts by program.
+ */
+void test_use_by_program() {
+    Unit u;
+    Program a;
+
+    // Program A: three pairs at address 0 (two no-operations and the end with its last pair).
+    a.add(nop(), lnop());
+    finish(a);
+
+    u64 ran = u.run(a);
+
+    // Pair 0, the pair with the E bit and the one after it.
+    CHECK_EQ(ran, u64{3});
+
+    // Program B, the same pairs, in the second 256 pairs of program memory (byte 0x800).
+    std::memcpy(u.micro.data() + 0x800, a.words().data(), a.words().size() * 4);
+    u.vu.program_changed();
+    ran = u.vu.run(256);
+    fp::want_nearest();
+    CHECK_EQ(ran, u64{3});
+
+    std::vector<Vu::Use> uses = u.vu.uses();
+
+    // Two contents of program memory: A alone, then A with B behind it.
+    CHECK_EQ(uses.size(), std::size_t{2});
+
+    u64 first = 0, second = 0, starts = 0;
+
+    for (const Vu::Use& use : uses) {
+        // VU1's 2048 pairs are eight blocks of 256.
+        CHECK_EQ(use.pairs.size(), std::size_t{8});
+        first += use.pairs[0];
+        second += use.pairs[1];
+        starts += use.starts[0] + use.starts[1];
+    }
+
+    CHECK_EQ(first, u64{3});
+    CHECK_EQ(second, u64{3});
+    CHECK_EQ(starts, u64{2});
+
+    /*
+     * An executable with a table of two chunks: program 7 at byte 0 and program 9 at byte 0x800,
+     * each holding A's 24 bytes. The file is a 52-byte header, one program header, the code,
+     * the table, the names, and six section headers.
+     */
+    const std::size_t code_bytes = a.words().size() * 4;
+    const u32 load_address = 0x00100000;
+    const std::string name_a = ".DVP.overlay..0x0.7.10.0", name_b = ".DVP.overlay..0x800.9.20.0";
+    std::string strings = std::string(1, '\0') + name_a + '\0' + name_b + '\0';
+    std::string section_names = std::string(1, '\0') + ".DVP.ovlytab" + '\0' + ".DVP.ovlystrtab"
+                                + '\0' + name_a + '\0' + name_b + '\0' + ".shstrtab" + '\0';
+    std::vector<u8> elf(52 + 32, 0);
+
+    std::memcpy(
+        elf.data(),
+        "\x7F"
+        "ELF",
+        4
+    );
+
+    const u32 code_at = static_cast<u32>(elf.size());
+
+    // The code of both chunks, one after the other.
+    for (int copy = 0; copy < 2; copy++) {
+        const u8* bytes = reinterpret_cast<const u8*>(a.words().data());
+
+        elf.insert(elf.end(), bytes, bytes + code_bytes);
+    }
+
+    const u32 table_at = static_cast<u32>(elf.size());
+
+    // Two records: name offset, address in the loaded program, address in the unit.
+    put32(elf, 1);
+    put32(elf, load_address);
+    put32(elf, 0);
+    put32(elf, static_cast<u32>(1 + name_a.size() + 1));
+    put32(elf, load_address + static_cast<u32>(code_bytes));
+    put32(elf, 0x800);
+
+    const u32 strings_at = static_cast<u32>(elf.size());
+
+    elf.insert(elf.end(), strings.begin(), strings.end());
+
+    const u32 section_names_at = static_cast<u32>(elf.size());
+
+    elf.insert(elf.end(), section_names.begin(), section_names.end());
+
+    const u32 headers_at = static_cast<u32>(elf.size());
+
+    // Where each section's name starts in the section name table.
+    const u32 n_table = 1, n_strings = n_table + 13, n_a = n_strings + 16;
+    const u32 n_b = n_a + static_cast<u32>(name_a.size()) + 1;
+    const u32 n_names = n_b + static_cast<u32>(name_b.size()) + 1;
+
+    // One row a section: name, file offset, size. The first is the empty section 0.
+    const u32 rows[6][3] = {
+        {0, 0, 0},
+        {n_table, table_at, 24},
+        {n_strings, strings_at, static_cast<u32>(strings.size())},
+        {n_a, 0, static_cast<u32>(code_bytes)},
+        {n_b, 0, static_cast<u32>(code_bytes)},
+        {n_names, section_names_at, static_cast<u32>(section_names.size())},
+    };
+
+    for (const auto& row : rows) {
+        std::size_t header = elf.size();
+
+        elf.resize(elf.size() + 40, 0);
+
+        // Section header: name at byte 0, file offset at 16, size at 20.
+        poke(elf, header, row[0], 4);
+        poke(elf, header + 16, row[1], 4);
+        poke(elf, header + 20, row[2], 4);
+    }
+
+    // File header: program headers at byte 28 (one, at 52), section headers at 32, counts.
+    poke(elf, 28, 52, 4);
+    poke(elf, 32, headers_at, 4);
+    poke(elf, 44, 1, 2);
+    poke(elf, 48, 6, 2);
+    poke(elf, 50, 5, 2);
+
+    // The one loadable segment: type 1, file offset, address, size in the file.
+    poke(elf, 52, 1, 4);
+    poke(elf, 52 + 4, code_at, 4);
+    poke(elf, 52 + 8, load_address, 4);
+    poke(elf, 52 + 16, static_cast<u32>(2 * code_bytes), 4);
+
+    std::vector<VuChunk> chunks = vu_program_chunks(elf);
+
+    CHECK_EQ(chunks.size(), std::size_t{2});
+
+    // The names give program and chunk number, the records the address in the unit.
+    if (chunks.size() == 2) {
+        CHECK_EQ(chunks[0].program, 7u);
+        CHECK_EQ(chunks[0].address, 0u);
+        CHECK_EQ(chunks[1].program, 9u);
+        CHECK_EQ(chunks[1].address, 0x800u);
+        CHECK_EQ(chunks[1].code.size(), code_bytes);
+    }
+
+    std::vector<VuProgramUse> programs = vu_program_use(chunks, uses);
+
+    // Both programs ran three pairs from one start each.
+    CHECK_EQ(programs.size(), std::size_t{2});
+
+    for (const VuProgramUse& program : programs) {
+        CHECK(program.program == 7 || program.program == 9);
+        CHECK_EQ(program.pairs, u64{3});
+        CHECK_EQ(program.starts, u64{1});
+    }
+
+    // A file that is no ELF has no chunks.
+    CHECK(vu_program_chunks(std::vector<u8>(100, 0)).empty());
+}
+
 }  // namespace
 
 /**
@@ -816,6 +1005,7 @@ int main() {
         {"memory and integers", test_memory_and_integers},
         {"four-field arithmetic", test_quad_arithmetic},
         {"kick through vif", test_kick_through_vif},
+        {"use by program", test_use_by_program},
     };
     return run_tests(tests);
 }
