@@ -19,29 +19,29 @@ using s64 = std::int64_t;
 
 // A field of `count` bits starting at bit `start`.
 constexpr u64 bits(u64 value, unsigned start, unsigned count) {
-  return (value >> start) & ((u64{1} << count) - 1);
+    return (value >> start) & ((u64{1} << count) - 1);
 }
 
 // The PlayStation 2 is little-endian and so is every host this is built for;
 // memcpy keeps unaligned reads defined.
 template <typename T>
 inline T load(const void* p) {
-  T v;
-  std::memcpy(&v, p, sizeof(T));
-  return v;
+    T v;
+    std::memcpy(&v, p, sizeof(T));
+    return v;
 }
 
 template <typename T>
 inline void store(void* p, T v) {
-  std::memcpy(p, &v, sizeof(T));
+    std::memcpy(p, &v, sizeof(T));
 }
 
 inline float as_float(u32 v) {
-  return load<float>(&v);
+    return load<float>(&v);
 }
 
 inline u32 as_u32(float v) {
-  return load<u32>(&v);
+    return load<u32>(&v);
 }
 
 }  // namespace ps2

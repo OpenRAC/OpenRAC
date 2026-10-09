@@ -28,74 +28,77 @@ namespace ps2 {
 // on the GS's side in that order goes through `run`, and whoever needs the
 // GS itself waits with `sync` first.
 class Gif {
- public:
-  explicit Gif(Gs& gs) : gs_(gs) {}
-  ~Gif();
-  Gif(const Gif&) = delete;
-  Gif& operator=(const Gif&) = delete;
+public:
+    explicit Gif(Gs& gs) : gs_(gs) {}
 
-  void reset();
+    ~Gif();
+    Gif(const Gif&) = delete;
+    Gif& operator=(const Gif&) = delete;
 
-  // Whole quadwords for one path (1, 2 or 3).
-  void write(int path, const u8* data, std::size_t quadwords);
+    void reset();
 
-  // True when the path is between packets (the last tag seen had EOP and its
-  // data is complete). Only without a thread, where `write` has done its work.
-  bool idle(int path) const { return !paths_[path - 1].in_packet; }
+    // Whole quadwords for one path (1, 2 or 3).
+    void write(int path, const u8* data, std::size_t quadwords);
 
-  // How many quadwords the packet at `at` in a memory of `mask + 1`
-  // quadwords has, up to the end of the data of its first tag with EOP,
-  // wrapping at the memory's end. For XGKICK, which names only the start.
-  static std::size_t packet_quadwords(const u8* memory, u32 at, u32 mask);
+    // True when the path is between packets (the last tag seen had EOP and its
+    // data is complete). Only without a thread, where `write` has done its work.
+    bool idle(int path) const { return !paths_[path - 1].in_packet; }
 
-  // From now on the packets are handled on a thread of their own.
-  void start();
-  // Do this on the GS's side, after everything written so far.
-  void run(std::function<void()> what);
-  // Wait until everything written and asked has been done.
-  void sync();
+    // How many quadwords the packet at `at` in a memory of `mask + 1`
+    // quadwords has, up to the end of the data of its first tag with EOP,
+    // wrapping at the memory's end. For XGKICK, which names only the start.
+    static std::size_t packet_quadwords(const u8* memory, u32 at, u32 mask);
 
- private:
-  struct Path {
-    u64 regs = 0;
-    u32 loops = 0;  // loops (or image quadwords) still to come
-    u32 nreg = 0;
-    u32 reg = 0;  // next register descriptor in the loop
-    u32 flg = 0;
-    bool eop = true;
-    bool in_packet = false;
-    float q = 1.0f;
-  };
+    // From now on the packets are handled on a thread of their own.
+    void start();
+    // Do this on the GS's side, after everything written so far.
+    void run(std::function<void()> what);
+    // Wait until everything written and asked has been done.
+    void sync();
 
-  void packed(Path& p, u64 lo, u64 hi);
-  void advance(Path& p);
-  void take(int path, const u8* data, std::size_t quadwords);
+private:
+    struct Path {
+        u64 regs = 0;
+        u32 loops = 0;  // loops (or image quadwords) still to come
+        u32 nreg = 0;
+        u32 reg = 0;  // next register descriptor in the loop
+        u32 flg = 0;
+        bool eop = true;
+        bool in_packet = false;
+        float q = 1.0f;
+    };
 
-  Gs& gs_;
-  std::array<Path, 3> paths_{};
+    void packed(Path& p, u64 lo, u64 hi);
+    void advance(Path& p);
+    void take(int path, const u8* data, std::size_t quadwords);
 
-  // Data copied for the thread: pieces of the paths, in order, and
-  // optionally something to do after them.
-  struct Piece {
-    int path;
-    std::size_t at, quadwords;
-  };
-  struct Chunk {
-    std::vector<u8> data;
-    std::vector<Piece> pieces;
-    std::function<void()> then;
-  };
-  void hand_over();
-  void loop();
+    Gs& gs_;
+    std::array<Path, 3> paths_{};
 
-  std::thread thread_;
-  std::mutex mutex_;
-  std::condition_variable work_, done_;
-  std::deque<Chunk> queue_;
-  std::vector<Chunk> spare_;
-  std::size_t queued_bytes_ = 0;
-  bool busy_ = false, quit_ = false;
-  Chunk open_;  // being filled by `write`
+    // Data copied for the thread: pieces of the paths, in order, and
+    // optionally something to do after them.
+    struct Piece {
+        int path;
+        std::size_t at, quadwords;
+    };
+
+    struct Chunk {
+        std::vector<u8> data;
+        std::vector<Piece> pieces;
+        std::function<void()> then;
+    };
+
+    void hand_over();
+    void loop();
+
+    std::thread thread_;
+    std::mutex mutex_;
+    std::condition_variable work_, done_;
+    std::deque<Chunk> queue_;
+    std::vector<Chunk> spare_;
+    std::size_t queued_bytes_ = 0;
+    bool busy_ = false, quit_ = false;
+    Chunk open_;  // being filled by `write`
 };
 
 }  // namespace ps2

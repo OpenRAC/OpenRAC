@@ -17,48 +17,54 @@ namespace ps2 {
 // its data memory on path 1, VIF1 passes packets on path 2, and both end at
 // the GS.
 struct Graphics {
-  Gs gs;
-  Gif gif{gs};
-  Vif1 vif{gif};
-  Vu vu1{Vu::Memory{vif.micro.data(), Vif1::kMemoryBytes, vif.data.data(), Vif1::kMemoryBytes}};
+    Gs gs;
+    Gif gif{gs};
+    Vif1 vif{gif};
+    Vu vu1{Vu::Memory{vif.micro.data(), Vif1::kMemoryBytes, vif.data.data(), Vif1::kMemoryBytes}};
 
-  u64 vu1_instructions = 0, vu1_starts = 0, vu1_runaways = 0;
-  u32 vu1_runaway_start = 0, vu1_runaway_pc = 0;
+    u64 vu1_instructions = 0, vu1_starts = 0, vu1_runaways = 0;
+    u32 vu1_runaway_start = 0, vu1_runaway_pc = 0;
 
-  Graphics() {
-    vif.on_start = [this](u32 address, bool resume) {
-      // No real program runs this long between two stops; one that does has
-      // gone wrong here.
-      const u64 limit = 4'000'000;
-      vu1_instructions += resume ? vu1.resume(limit) : vu1.run(address, limit);
-      fp::want_nearest();  // the program left the host rounding towards zero
-      vu1_starts++;
-      if (!vu1.stopped()) {
-        vu1_runaways++;
-        vu1_runaway_start = address;
-        vu1_runaway_pc = vu1.pc;
-      }
-    };
-    vif.on_program = [this] { vu1.program_changed(); };
-    vu1.skip_unread_flags = true;
-    vu1.on_top = [this] { return vif.top; };
-    vu1.on_itop = [this] { return vif.itop; };
-    vu1.on_kick = [this](u32 quadword) {
-      // A packet runs to the end of the data its last tag (the one with EOP)
-      // announces, and wraps at the end of data memory.
-      const u32 mask = Vif1::kMemoryBytes / 16 - 1;
-      u32 at = quadword & mask;
-      std::size_t count = Gif::packet_quadwords(vif.data.data(), at, mask);
-      std::size_t first = std::min<std::size_t>(count, mask + 1 - at);
-      gif.write(1, &vif.data[at * 16], first);
-      if (count > first) {
-        gif.write(1, vif.data.data(), count - first);
-      }
-    };
-  }
+    Graphics() {
+        vif.on_start = [this](u32 address, bool resume) {
+            // No real program runs this long between two stops; one that does has
+            // gone wrong here.
+            const u64 limit = 4'000'000;
+            vu1_instructions += resume ? vu1.resume(limit) : vu1.run(address, limit);
+            fp::want_nearest();  // the program left the host rounding towards zero
+            vu1_starts++;
+            if (!vu1.stopped()) {
+                vu1_runaways++;
+                vu1_runaway_start = address;
+                vu1_runaway_pc = vu1.pc;
+            }
+        };
+        vif.on_program = [this] {
+            vu1.program_changed();
+        };
+        vu1.skip_unread_flags = true;
+        vu1.on_top = [this] {
+            return vif.top;
+        };
+        vu1.on_itop = [this] {
+            return vif.itop;
+        };
+        vu1.on_kick = [this](u32 quadword) {
+            // A packet runs to the end of the data its last tag (the one with EOP)
+            // announces, and wraps at the end of data memory.
+            const u32 mask = Vif1::kMemoryBytes / 16 - 1;
+            u32 at = quadword & mask;
+            std::size_t count = Gif::packet_quadwords(vif.data.data(), at, mask);
+            std::size_t first = std::min<std::size_t>(count, mask + 1 - at);
+            gif.write(1, &vif.data[at * 16], first);
+            if (count > first) {
+                gif.write(1, vif.data.data(), count - first);
+            }
+        };
+    }
 
-  Graphics(const Graphics&) = delete;
-  Graphics& operator=(const Graphics&) = delete;
+    Graphics(const Graphics&) = delete;
+    Graphics& operator=(const Graphics&) = delete;
 };
 
 }  // namespace ps2
