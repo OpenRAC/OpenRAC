@@ -63,6 +63,25 @@ Options g_options;
 long g_frame = 0;
 std::chrono::steady_clock::time_point g_next_frame;
 
+// Where the memory card lives unless --cards says otherwise: the folder the
+// launcher's save manager reads and backs up (launcher/core/src/saves.rs,
+// get_memcard_dir): <data home>/openrac/memcard/<serial>.
+fs::path default_cards() {
+#if defined(__APPLE__)
+    const char* home = std::getenv("HOME");
+    fs::path base = fs::path(home != nullptr ? home : ".") / "Library/Application Support/OpenRAC";
+#else
+    fs::path base;
+    if (const char* xdg = std::getenv("XDG_DATA_HOME"); xdg != nullptr && xdg[0] != '\0') {
+        base = fs::path(xdg) / "openrac";
+    } else {
+        const char* home = std::getenv("HOME");
+        base = fs::path(home != nullptr ? home : ".") / ".local/share/openrac";
+    }
+#endif
+    return base / "memcard" / kSerial;
+}
+
 [[noreturn]] void usage(const char* why) {
     log::error("{}", why);
     log::error("usage: openrac-rac1 --data <install>/active/rac1/data [--cards DIR] [--frames N] "
@@ -102,7 +121,7 @@ Options parse(int argc, char** argv) {
         }
     }
     if (o.cards.empty()) {
-        o.cards = o.data / "memcard";
+        o.cards = default_cards();
     }
     return o;
 }
@@ -203,6 +222,8 @@ int main(int argc, char** argv) {
     log::info("{}: {} segments loaded, entry {:#x}", kSerial, image.segments.size(), image.entry);
 
     static std::string disc_path = disc.string();
+    std::error_code made;
+    fs::create_directories(g_options.cards, made);
     static std::string cards_path = g_options.cards.string();
     openrac_rac1_disc_image = disc_path.c_str();
     openrac_rac1_card_dir = cards_path.c_str();

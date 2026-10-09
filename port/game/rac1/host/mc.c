@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright (c) 2026 the OpenRAC contributors
  *
- * The memory card library (libmc). A card is a folder (card_dir/slot1 for
- * the first port, slot2 for the second, which counts as inserted only if the
+ * The memory card library (libmc). A card is a folder (card_dir for the
+ * first port, card_dir.slot2 for the second, which counts as inserted only if the
  * folder exists), and the game's save folder and files are ordinary files in
  * it, so saves can be copied to and from other tools.
  *
@@ -72,12 +72,16 @@ static int finish(int cmd, int result) {
     return 0; /* the command was started */
 }
 
+/* The first port's card is card_dir itself, the folder the launcher's save
+ * manager shows (launcher/core/src/saves.rs); the second port's is beside it,
+ * card_dir.slot2, and counts as inserted only if it exists. */
 static int card_path(int port, const char* name, char* out, size_t size) {
     const char* root = openrac_rac1_card_dir != NULL ? openrac_rac1_card_dir : "memcard";
     while (*name == '/') {
         name++;
     }
-    return snprintf(out, size, "%s/slot%d%s%s", root, port + 1, *name ? "/" : "", name) < (int)size;
+    return snprintf(out, size, "%s%s%s%s", root, port == 0 ? "" : ".slot2", *name ? "/" : "", name)
+           < (int)size;
 }
 
 static int card_present(int port) {
@@ -87,8 +91,7 @@ static int card_present(int port) {
         return 0;
     }
     if (port == 0) {
-        make_dir(openrac_rac1_card_dir != NULL ? openrac_rac1_card_dir : "memcard");
-        make_dir(path); /* slot 1 is always inserted */
+        make_dir(path); /* the first card is always inserted */
     }
     return stat(path, &st) == 0;
 }
