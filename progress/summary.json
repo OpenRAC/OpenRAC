@@ -19,13 +19,13 @@
     "region": "NTSC-U (North America)",
     "serial": "SCUS_971.99",
     "progress": {
-      "matched_code": 2126484,
-      "total_code": 3548300,
-      "matched_functions": 3179,
-      "total_functions": 4258,
-      "fuzzy_percent": 62.06,
-      "date": "2026-10-08",
-      "percent": 59.93
+      "matched_code": 2391968,
+      "total_code": 3547652,
+      "matched_functions": 3515,
+      "total_functions": 4242,
+      "fuzzy_percent": 69.04,
+      "date": "2026-10-09",
+      "percent": 67.42
     },
     "note": "Lombyte commits no report: its CI publishes one on the project's progress branch, which `openrac.py progress --fetch` copies to progress/sources/. Byte-weighted over the boot executable and the 19 level programs."
   },
@@ -57,7 +57,7 @@
       "date": "2026-10-01",
       "percent": 1.28
     },
-    "note": "The committed report is from 2026-10-01; the project's README counts 1,441 of 31,316 functions matched on 2026-10-03. It covers frontbin.elf, plus the level programs and other executables, which are counted but not compiled yet."
+    "note": "The committed report is from 2026-10-01. At bfd8278, tools/pr_check.py --target all counts frontbin 1,800 of 1,867 entries final (1,419 functions in C), boot_elf 2,265 of 2,809 (1,580 in C) and i5bootn 191 of 199 (35 in C); the level programs are counted but not compiled yet."
   },
   "rac4/ntsc": {
     "title": "Ratchet: Deadlocked",
