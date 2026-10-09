@@ -91,6 +91,8 @@ let config: Config = {
   python: "/usr/bin/python3",
   godot: null,
   docker: "/usr/bin/docker",
+  // ?developer shows the contributor's pages.
+  developer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("developer"),
   // ?setup opens the first-run screen.
   setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup"),
   lastVersion: null,
@@ -324,6 +326,11 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "save_config":
       config = { ...(args.config as Config) };
       return delay({ ...config });
+    case "add_disc": {
+      const key = args.key as string;
+      discs[key] = "found";
+      return delay(`/home/you/OpenRAC/baserom/${key.replace("/", "-")}.iso`);
+    }
     case "detect":
       return delay<Detected>({
         roots: [{ path: "/home/you/OpenRAC", source: "next to the launcher" }],

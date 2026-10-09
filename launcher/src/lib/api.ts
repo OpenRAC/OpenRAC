@@ -29,6 +29,8 @@ export interface Config {
   python: string | null;
   godot: string | null;
   docker: string | null;
+  /** Show what contributors use (builds, checks, progress); off, a player's three steps. */
+  developer: boolean;
   setupComplete: boolean;
   lastVersion: string | null;
 }
@@ -181,6 +183,8 @@ export const api = {
   checkRoot: (path: string) => call<Check>("check_root", { path }),
   checkTool: (tool: Tool, path: string) => call<Check>("check_tool", { tool, path }),
   library: () => call<Library>("library"),
+  /** Adds the user's disc image for a version (`rac1/pal`); the Rust side checks it is that game. */
+  addDisc: (key: string, path: string) => call<string>("add_disc", { key, path }),
   runAction: (scope: Scope, id: string) => call<Started>("run_action", { scope, id }),
   cancelJob: (id: number) => call<null>("cancel_job", { id }),
   /** A file or folder in the checkout, relative to it (`games/rac1/pal/README.md`). */
@@ -199,6 +203,18 @@ export async function pickFolder(title: string): Promise<string | null> {
 export async function pickFile(title: string): Promise<string | null> {
   if (!inTauri) return null;
   const picked = await open({ directory: false, multiple: false, title });
+  return typeof picked === "string" ? picked : null;
+}
+
+/** A picker for a disc image; null when cancelled (or in the browser preview). */
+export async function pickDisc(title: string): Promise<string | null> {
+  if (!inTauri) return null;
+  const picked = await open({
+    directory: false,
+    multiple: false,
+    title,
+    filters: [{ name: "Disc image", extensions: ["iso", "ISO", "bin"] }],
+  });
   return typeof picked === "string" ? picked : null;
 }
 

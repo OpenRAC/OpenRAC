@@ -86,6 +86,7 @@ mirrored in `src/lib/api.ts`.
 | `check_root`                 | `{path}`                          | `{ok, version, message}`: is it an OpenRAC checkout          |
 | `check_tool`                 | `{tool, path}`                    | the same, after running the tool's version flag              |
 | `library`                    |                                   | `Library` (`core/src/library.rs`)                            |
+| `add_disc`                   | `{key, path}`                     | where the image was put; refuses another game's image        |
 | `run_action`                 | `{scope, id}`                     | `{id, title, command, detached}`                             |
 | `cancel_job`                 | `{id}`                            |                                                              |
 | `open_path`                  | `{path}` relative to the checkout | opens it with the system; refuses paths outside the checkout |
@@ -106,6 +107,24 @@ mirrored in `src/lib/api.ts`.
 4. A case in `src/lib/mock.ts`, so the browser preview keeps working.
 5. If the page needs a new permission (a plugin), add it to
    `src-tauri/capabilities/default.json`, and only that one.
+
+### The two views
+
+`Config.developer` (Settings, "Developer tools") chooses what the pages show.
+Off, which is the default, a player's view: `pages/GamePlayer.svelte` has
+three things, each a button over actions found by id in `actions.json`:
+
+| Button        | What it runs                                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Add your disc | `add_disc`: reads the image's serial and links it into `baserom/`                                                               |
+| Play          | the `play-runtime` action                                                                                                       |
+| Edit levels   | `editor-open`, after `editor-extract` and `editor-import` when the project is not there yet (`runChain` in `lib/app.svelte.ts`) |
+
+On, `pages/GameDeveloper.svelte`: every action by kind, the inputs and the
+progress. A version whose `play-runtime` or `editor-extract` is `planned`
+shows as "not playable yet" or "cannot open this game yet" to a player. A
+first start asks nothing when the checkout and a Python are found
+(`firstRun`).
 
 ### Adding a page
 

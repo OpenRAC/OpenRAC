@@ -1,10 +1,15 @@
 # OpenRAC Launcher
 
-A desktop app that puts OpenRAC behind buttons, for all four games: find your
-discs, place what each build needs, set up the toolchains, build, check, play
-your disc in OpenRAC's own runtime (no emulator), and open the level editor. It runs the same
-commands a contributor types, from the user's own OpenRAC checkout, and shows
-their output live.
+A desktop app for playing the Ratchet & Clank games through OpenRAC, for all
+four games. A player opens it, adds the image of their own disc, presses
+Play (the game runs natively in OpenRAC's own runtime, with no emulator), and
+can open the levels in Godot to edit them. That is all it shows by default.
+
+With **developer tools** switched on in Settings it is also a contributor's
+console: place what each build needs, set up the toolchains, build, check,
+and see each decompilation's progress. Either way it runs the same commands a
+contributor types, from the user's own OpenRAC checkout, and shows their
+output live.
 
 It is a [Tauri 2](https://tauri.app/) app: a Rust side (`core/` and
 `src-tauri/`) that does every file and process operation, and a Svelte 5 UI

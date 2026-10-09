@@ -74,12 +74,13 @@ export async function start() {
     if (event.type === "exit") {
       const job = queue.jobs.find((j) => j.id === event.id);
       if (job?.state === "failed") toast(`${job.title} failed`, "error");
+      if (job) settle(job.key, job.state === "succeeded");
       void refresh();
       pump();
     }
   });
   app.info = await api.appInfo();
-  app.config = await api.getConfig();
+  app.config = await firstRun(await api.getConfig());
   if (app.config.lastVersion) app.version = app.config.lastVersion;
   await refresh();
 }
@@ -139,6 +140,62 @@ export async function run(scope: Scope, action: ActionView) {
   pump();
 }
 
+/** Who waits for a job to end (a chain's next step), by the job's key. Not shown, so not reactive. */
+const waiting: Record<number, ((succeeded: boolean) => void) | undefined> = {};
+
+function settle(key: number, succeeded: boolean) {
+  waiting[key]?.(succeeded);
+  waiting[key] = undefined;
+}
+
+/**
+ * Runs actions one after another and stops at the first that fails: "extract
+ * the levels, import them, open the editor" behind one button. A detached
+ * action (the editor) is started and not waited for. Resolves to whether
+ * every step ran.
+ */
+export async function runChain(scope: Scope, actions: ActionView[]): Promise<boolean> {
+  for (const action of actions) {
+    if (action.detached) {
+      const started = await guard(api.runAction(scope, action.id));
+      if (!started) return false;
+      continue;
+    }
+    const job = queue.add(scope, action.id, action.label);
+    jobs.selected = job.key;
+    const ended = new Promise<boolean>((resolve) => {
+      waiting[job.key] = resolve;
+    });
+    pump();
+    if (!(await ended)) return false;
+  }
+  return true;
+}
+
+/**
+ * A first start with nothing to ask: when the OpenRAC folder and a Python
+ * were found, they are taken, with Godot and Docker when present, and the
+ * welcome screen is skipped. A player then sees their games at once.
+ */
+async function firstRun(config: Config): Promise<Config> {
+  if (config.setupComplete) return config;
+  const found = await guard(api.detect());
+  const root = config.root ?? found?.roots[0]?.path ?? null;
+  const python = config.python ?? found?.pythons[0]?.path ?? null;
+  if (!root || !python) return config;
+  const saved = await guard(
+    api.saveConfig({
+      ...config,
+      root,
+      python,
+      godot: config.godot ?? found?.godots[0]?.path ?? null,
+      docker: config.docker ?? found?.dockers[0]?.path ?? null,
+      setupComplete: true,
+    }),
+  );
+  return saved ?? config;
+}
+
 /** Starts the next queued job, if nothing is running. */
 function pump() {
   const job = queue.next();
@@ -152,6 +209,7 @@ function pump() {
     (e: unknown) => {
       queue.refused(job, errorText(e));
       toast(errorText(e), "error");
+      settle(job.key, false);
       pump();
     },
   );
@@ -160,6 +218,7 @@ function pump() {
 export async function cancel(job: Job) {
   if (job.state === "queued") {
     queue.dequeue(job);
+    settle(job.key, false);
     return;
   }
   if (job.state === "running" && job.id !== null) await guard(api.cancelJob(job.id));

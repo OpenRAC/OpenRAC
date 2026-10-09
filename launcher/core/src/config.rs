@@ -17,6 +17,9 @@ pub struct Config {
     pub godot: Option<PathBuf>,
     /// Docker, which rac1/pal's and rac4's builds run in.
     pub docker: Option<PathBuf>,
+    /// Show what contributors use: builds, checks, toolchains, progress.
+    /// Off, the launcher shows a player's three steps: add your disc, play, edit levels.
+    pub developer: bool,
     /// The first-run setup was finished (or skipped).
     pub setup_complete: bool,
     /// The version the launcher showed last (`rac1/pal`).

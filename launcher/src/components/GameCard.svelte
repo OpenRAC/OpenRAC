@@ -1,20 +1,30 @@
 <script lang="ts">
   // One game on the library page, styled like its card on the website
   // (openrac-site src/components/Progress.tsx), one row per version.
-  import type { GameView } from "$lib/api";
-  import { openVersion } from "$lib/app.svelte";
+  import type { GameView, VersionView } from "$lib/api";
+  import { app, openVersion } from "$lib/app.svelte";
   import { matchedLine, pct } from "$lib/format";
   import { DISC, regionLabel } from "$lib/labels";
   import { themeStyle } from "$lib/themes";
   import ProgressBar from "./ProgressBar.svelte";
 
   let { game, delay = 0 }: { game: GameView; delay?: number } = $props();
+
+  const developer = $derived(app.config?.developer ?? false);
+
+  /** A version in a player's words: can it be played, and what is missing. */
+  function playerState(v: VersionView): { text: string; tone: "ok" | "warn" | "info" } {
+    const play = v.actions.find((a) => a.id === "play-runtime");
+    if (!play || play.state === "planned") return { text: "Not playable yet", tone: "info" };
+    if (v.status.disc.state !== "found") return { text: "Add your disc", tone: "warn" };
+    return { text: "Ready to play", tone: "ok" };
+  }
 </script>
 
 <section class="card rise" style={`${themeStyle(game.id)}; animation-delay: ${delay}ms`} aria-label={game.title}>
   <div class="title box">
     {game.title}
-    <small>decompilation{game.year ? ` · ${game.year}` : ""}</small>
+    <small>{developer ? "decompilation" : "PC port"}{game.year ? ` · ${game.year}` : ""}</small>
   </div>
 
   {#each game.versions as v (v.key)}
@@ -33,16 +43,25 @@
       </span>
       {#if v.progress}
         <ProgressBar percent={v.progress.percent} label={`${v.title} (${v.region}) code matched`} />
-        <span class="line">{matchedLine(v.progress.matchedCode, v.progress.totalCode)}</span>
+        <span class="line"
+          >{developer
+            ? matchedLine(v.progress.matchedCode, v.progress.totalCode)
+            : "of the game's code decompiled"}</span
+        >
       {/if}
       <span class="row pills">
-        <span class={`pill ${DISC[v.status.disc.state].tone}`}
-          ><span class="dot"></span>{DISC[v.status.disc.state].text}</span
-        >
-        {#if v.inputs.length}
-          <span class={`pill ${v.status.inputsReady ? "ok" : "warn"}`}>
-            <span class="dot"></span>{v.status.inputsReady ? "Inputs placed" : "Inputs missing"}
-          </span>
+        {#if developer}
+          <span class={`pill ${DISC[v.status.disc.state].tone}`}
+            ><span class="dot"></span>{DISC[v.status.disc.state].text}</span
+          >
+          {#if v.inputs.length}
+            <span class={`pill ${v.status.inputsReady ? "ok" : "warn"}`}>
+              <span class="dot"></span>{v.status.inputsReady ? "Inputs placed" : "Inputs missing"}
+            </span>
+          {/if}
+        {:else}
+          {@const state = playerState(v)}
+          <span class={`pill ${state.tone}`}><span class="dot"></span>{state.text}</span>
         {/if}
         <span class="grow"></span>
         <span class="open">Open →</span>
