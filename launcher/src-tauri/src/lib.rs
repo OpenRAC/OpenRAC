@@ -19,6 +19,12 @@ struct AppState {
     config: Mutex<Config>,
     config_file: Option<PathBuf>,
     jobs: Jobs,
+    discord: Mutex<DiscordState>,
+}
+
+struct DiscordState {
+    ipc: openrac_launcher_core::discord::DiscordIpc,
+    app_start: u64,
 }
 
 #[derive(Serialize)]
@@ -49,6 +55,18 @@ fn save_config(state: State<'_, AppState>, config: Config) -> Result<Config, Str
     let file = state.config_file.as_deref().ok_or("no per-user config folder")?;
     config::save(file, &config)?;
     *state.config.lock().unwrap() = config.clone();
+
+    let mut discord = state.discord.lock().unwrap();
+    if let Some(custom_id) = &config.discord_client_id {
+        discord.ipc.set_client_id(custom_id);
+    }
+    if config.discord_rpc {
+        let app_start = discord.app_start;
+        let _ = discord.ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
+    } else {
+        let _ = discord.ipc.clear();
+    }
+
     Ok(config)
 }
 
@@ -85,12 +103,75 @@ async fn library(state: State<'_, AppState>) -> Result<Library, String> {
 fn run_action(app: AppHandle, state: State<'_, AppState>, scope: Scope, id: String) -> Result<Started, String> {
     let config = state.config.lock().unwrap().clone();
     let plan = library::plan(&config, &scope, &id)?;
+    let is_play = if let Scope::Version(_) = &scope {
+        if let Some(root) = &config.root {
+            if let Ok(file) = openrac_launcher_core::actions::load(root) {
+                file.find(&scope, &id).map(|a| a.kind == openrac_launcher_core::actions::Kind::Play).unwrap_or(false)
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    if is_play && config.discord_rpc {
+        if let Some(root) = &config.root {
+            if let Ok(catalog) = openrac_launcher_core::catalog::load(root) {
+                if let Scope::Version(key) = &scope {
+                    if let Some(v) = catalog.version(key) {
+                        let mut discord = state.discord.lock().unwrap();
+                        let play_status = openrac_launcher_core::discord::DiscordStatus::PlayingGame {
+                            title: v.title.clone(),
+                            region: v.region.clone(),
+                            game_id: v.game.clone(),
+                            start_time: Some(openrac_launcher_core::discord::now_sec()),
+                        };
+                        let app_start = discord.app_start;
+                        let _ = discord.ipc.set_status(&play_status, app_start);
+                    }
+                }
+            }
+        }
+    }
+
+    let app_handle = app.clone();
     state.jobs.start(&plan, config.root.as_deref(), move |event| {
         let _ = match &event {
             Event::Output { .. } => app.emit("job-output", &event),
-            Event::Exit { .. } => app.emit("job-exit", &event),
+            Event::Exit { .. } => {
+                if is_play {
+                    if let Some(st) = app_handle.try_state::<AppState>() {
+                        let cfg = st.config.lock().unwrap().clone();
+                        if cfg.discord_rpc {
+                            let mut discord = st.discord.lock().unwrap();
+                            let app_start = discord.app_start;
+                            let _ = discord.ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
+                        }
+                    }
+                }
+                app.emit("job-exit", &event)
+            }
         };
     })
+}
+
+#[tauri::command]
+fn set_discord_status(
+    state: State<'_, AppState>,
+    status: openrac_launcher_core::discord::DiscordStatus,
+) -> Result<(), String> {
+    let config = state.config.lock().unwrap().clone();
+    let mut discord = state.discord.lock().unwrap();
+    if !config.discord_rpc {
+        let _ = discord.ipc.clear();
+        return Ok(());
+    }
+    let app_start = discord.app_start;
+    let _ = discord.ipc.set_status(&status, app_start);
+    Ok(())
 }
 
 #[tauri::command]
@@ -230,7 +311,23 @@ pub fn run() {
 
             let config_file = app.path().app_config_dir().ok().map(|dir| dir.join("launcher.json"));
             let config = config_file.as_deref().map(config::load).unwrap_or_default();
-            app.manage(AppState { config: Mutex::new(config), config_file, jobs: Jobs::default() });
+
+            let client_id = config
+                .discord_client_id
+                .clone()
+                .unwrap_or_else(|| openrac_launcher_core::discord::DEFAULT_CLIENT_ID.to_string());
+            let mut ipc = openrac_launcher_core::discord::DiscordIpc::new(client_id);
+            let app_start = openrac_launcher_core::discord::now_sec();
+            if config.discord_rpc {
+                let _ = ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
+            }
+
+            app.manage(AppState {
+                config: Mutex::new(config),
+                config_file,
+                jobs: Jobs::default(),
+                discord: Mutex::new(DiscordState { ipc, app_start }),
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -249,6 +346,7 @@ pub fn run() {
             import_iso,
             sync_progress_from_web,
             apply_progress_json,
+            set_discord_status,
         ])
         .run(tauri::generate_context!())
         .expect("the launcher failed to start");

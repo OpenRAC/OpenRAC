@@ -32,7 +32,26 @@ export interface Config {
   docker: string | null;
   setupComplete: boolean;
   lastVersion: string | null;
+  discordRpc: boolean;
+  discordClientId: string | null;
 }
+
+export type DiscordStatus =
+  | { kind: "idle" }
+  | {
+      kind: "viewingGame";
+      title: string;
+      region: string;
+      progressPct: number | null;
+      gameId: string;
+    }
+  | {
+      kind: "playingGame";
+      title: string;
+      region: string;
+      gameId: string;
+      startTime?: number | null;
+    };
 
 export interface Candidate {
   path: string;
@@ -223,6 +242,7 @@ export const api = {
   importIso: (targetKey: string, isoPath: string) => call<ImportResult>("import_iso", { targetKey, isoPath }),
   syncProgressFromWeb: () => call<Library>("sync_progress_from_web"),
   applyProgressJson: (json: string) => call<Library>("apply_progress_json", { json }),
+  setDiscordStatus: (status: DiscordStatus) => call<null>("set_discord_status", { status }),
 };
 
 /** A folder picker; null when cancelled (or in the browser preview). */

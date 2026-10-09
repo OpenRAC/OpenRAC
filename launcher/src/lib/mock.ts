@@ -95,6 +95,8 @@ let config: Config = {
   // ?setup opens the first-run screen.
   setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup"),
   lastVersion: null,
+  discordRpc: true,
+  discordClientId: null,
 };
 
 /** Which versions pretend to have their disc found and their inputs placed. */
@@ -390,6 +392,8 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "open_path":
     case "open_url":
       console.info(`[preview] ${command}`, args);
+      return delay(null);
+    case "set_discord_status":
       return delay(null);
     default:
       throw new Error(`the preview has no ${command}: add it to src/lib/mock.ts`);

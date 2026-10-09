@@ -141,6 +141,7 @@ export async function saveConfig(config: Config) {
 export function openVersion(key: string) {
   app.version = key;
   app.page = "game";
+  updateDiscordPresence();
   if (app.config && app.config.lastVersion !== key) {
     void guard(api.saveConfig({ ...app.config, lastVersion: key })).then((saved) => {
       if (saved) app.config = saved;
@@ -151,6 +152,23 @@ export function openVersion(key: string) {
 export function currentVersion(): VersionView | null {
   const versions = app.library?.games.flatMap((g) => g.versions) ?? [];
   return versions.find((v) => v.key === app.version) ?? null;
+}
+
+export function updateDiscordPresence(page: Page = app.page, version: string | null = app.version) {
+  if (page === "game" && version) {
+    const v = currentVersion();
+    if (v) {
+      void api.setDiscordStatus({
+        kind: "viewingGame",
+        title: v.title,
+        region: v.region,
+        progressPct: v.progress?.percent ?? null,
+        gameId: v.game,
+      });
+      return;
+    }
+  }
+  void api.setDiscordStatus({ kind: "idle" });
 }
 
 // ---- actions and jobs ---------------------------------------------------------------------

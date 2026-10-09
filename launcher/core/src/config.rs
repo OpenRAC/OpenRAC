@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Config {
     /// The OpenRAC checkout (holds games/, tools/ and baserom/).
@@ -23,6 +23,26 @@ pub struct Config {
     pub setup_complete: bool,
     /// The version the launcher showed last (`rac1/pal`).
     pub last_version: Option<String>,
+    /// Discord Rich Presence enabled (default true).
+    pub discord_rpc: bool,
+    /// Custom Discord application ID (optional).
+    pub discord_client_id: Option<String>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            root: None,
+            python: None,
+            pcsx2: None,
+            godot: None,
+            docker: None,
+            setup_complete: false,
+            last_version: None,
+            discord_rpc: true,
+            discord_client_id: None,
+        }
+    }
 }
 
 impl Config {

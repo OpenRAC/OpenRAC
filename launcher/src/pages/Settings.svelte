@@ -112,6 +112,17 @@
     />
   </section>
 
+  <section class="panel">
+    <h2>Integrations</h2>
+    <label class="toggle-row">
+      <input type="checkbox" bind:checked={draft.discordRpc} />
+      <div>
+        <strong>Discord Rich Presence</strong>
+        <p class="muted">Show in Discord when you are in the launcher or playing a game.</p>
+      </div>
+    </label>
+  </section>
+
   <div class="row end">
     {#if app.info?.configFile}<span class="dim mono grow clip" title="Settings file">{app.info.configFile}</span>{/if}
     {#if setup}
@@ -174,5 +185,32 @@
   .version {
     font-size: 12px;
     text-align: right;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    user-select: none;
+    padding: 6px 0;
+  }
+
+  .toggle-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--amber);
+    cursor: pointer;
+  }
+
+  .toggle-row strong {
+    color: var(--text);
+    font-size: 14px;
+    display: block;
+  }
+
+  .toggle-row p {
+    margin: 2px 0 0;
+    font-size: 13px;
   }
 </style>
