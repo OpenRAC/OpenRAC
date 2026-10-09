@@ -94,11 +94,12 @@ void Drawing::give(Command&& command) {
 
 void Drawing::sync() {
   send();
-  if (!thread_.joinable()) {
-    return;
+  if (thread_.joinable()) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    done_.wait(lock, [this] { return queue_.empty() && !busy_; });
   }
-  std::unique_lock<std::mutex> lock(mutex_);
-  done_.wait(lock, [this] { return queue_.empty() && !busy_; });
+  // The drawing thread has nothing to do now, so this one may ask the GS.
+  graphics_.gs.finish();
 }
 
 bool Drawing::picture(ps2::Image& out) {

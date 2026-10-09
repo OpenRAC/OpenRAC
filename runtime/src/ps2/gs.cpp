@@ -163,6 +163,86 @@ class Gs::Pool {
   bool quit_ = false;
 };
 
+// The thread that draws batches, one after the other, in the order given.
+class Gs::Raster {
+ public:
+  explicit Raster(Gs& gs) : gs_(gs), thread_([this] { loop(); }) {}
+  ~Raster() {
+    {
+      std::lock_guard lock(mutex_);
+      quit_ = true;
+    }
+    work_.notify_all();
+    thread_.join();
+  }
+
+  // Takes the batch; gives back an empty one to gather into.
+  std::unique_ptr<Batch> give(std::unique_ptr<Batch> batch) {
+    std::unique_ptr<Batch> next;
+    {
+      std::unique_lock lock(mutex_);
+      done_.wait(lock, [this] { return queue_.size() < 8; });  // no further ahead than this
+      queue_.push_back(std::move(batch));
+      if (!spare_.empty()) {
+        next = std::move(spare_.back());
+        spare_.pop_back();
+      }
+    }
+    work_.notify_one();
+    return next ? std::move(next) : std::make_unique<Batch>();
+  }
+  void wait() {
+    std::unique_lock lock(mutex_);
+    done_.wait(lock, [this] { return queue_.empty() && !busy_; });
+  }
+  bool idle() {
+    std::lock_guard lock(mutex_);
+    return queue_.empty() && !busy_;
+  }
+
+ private:
+  void loop() {
+    std::unique_lock lock(mutex_);
+    for (;;) {
+      work_.wait(lock, [this] { return quit_ || !queue_.empty(); });
+      if (queue_.empty()) {
+        return;
+      }
+      std::unique_ptr<Batch> batch = std::move(queue_.front());
+      queue_.pop_front();
+      busy_ = true;
+      lock.unlock();
+      gs_.render(*batch);
+      batch->clear();
+      lock.lock();
+      busy_ = false;
+      if (spare_.size() < 8) {
+        spare_.push_back(std::move(batch));
+      }
+      done_.notify_all();
+    }
+  }
+
+  Gs& gs_;
+  std::mutex mutex_;
+  std::condition_variable work_, done_;
+  std::deque<std::unique_ptr<Batch>> queue_;
+  std::vector<std::unique_ptr<Batch>> spare_;
+  bool busy_ = false, quit_ = false;
+  std::thread thread_;  // last: it starts using the rest at once
+};
+
+void Gs::Batch::clear() {
+  primitives.clear();
+  for (u16 band : used_bands) {
+    bands[band].clear();
+  }
+  used_bands.clear();
+  envs.clear();
+  cluts.clear();
+  textures.clear();
+}
+
 namespace {
 
 constexpr unsigned kBandShift = 4;  // a band is 16 scan lines
@@ -176,11 +256,13 @@ Gs::Gs() {
 Gs::~Gs() = default;
 
 void Gs::set_threads(unsigned threads) {
-  flush();
-  threads_ = threads;
+  finish();
+  raster_.reset();
   pool_.reset();
+  threads_ = threads;
   if (threads > 1) {
-    pool_ = std::make_unique<Pool>(threads - 1);  // the caller is one of them
+    pool_ = std::make_unique<Pool>(threads - 1);  // the thread that draws batches is one of them
+    raster_ = std::make_unique<Raster>(*this);
   }
 }
 
@@ -198,19 +280,17 @@ void Gs::reset() {
   clut_cbp_.fill(0);
   in_ = Transfer{};
   out_ = Transfer{};
+  if (raster_) {
+    raster_->wait();
+  }
   texture_cache_.clear();
-  retired_.clear();
   page_stamp_.fill(0);
   clock_ = 1;
-  waiting_.clear();
-  for (u16 band : used_bands_) {
-    bands_[band].clear();
-  }
-  used_bands_.clear();
+  batch_ = std::make_unique<Batch>();
   pending_write_.clear();
   pending_read_.clear();
-  envs_.clear();
-  clut_copies_.clear();
+  inflight_write_.clear();
+  inflight_read_.clear();
   env_ = nullptr;
   env_dirty_ = clut_copy_dirty_ = true;
 }
@@ -496,11 +576,12 @@ Gs::Env Gs::environment() {
     t.aem = bits(texa, 15, 1) != 0;
     if (t.kind >= kTex8) {
       // The table as it is now: it may be loaded again before this is drawn.
-      if (clut_copy_dirty_ || clut_copies_.empty()) {
-        clut_copies_.push_back(clut_);
+      if (clut_copy_dirty_ || batch_->cluts.empty()) {
+        batch_->cluts.push_back(ClutCopy{clut_, 0, false});
         clut_copy_dirty_ = false;
       }
-      t.clut = clut_copies_.back().data();
+      t.clut_source = &batch_->cluts.back();
+      t.clut = t.clut_source->colours.data();
     }
     // The level of detail comes from each pixel's Q only when it is not
     // fixed (LCM), the coordinates carry a Q, and something depends on it:
@@ -595,105 +676,105 @@ void Gs::vertex(u16 x, u16 y, u32 z, bool draw) {
 
 // --- gathering and drawing -----------------------------------------------------
 
-void Gs::submit(unsigned kind, unsigned count) {
-  if (env_dirty_ || !env_) {
-    if (waiting_.empty()) {
-      // Nothing waiting refers to the old states: let them go.
-      envs_.clear();
-      clut_copies_.clear();
-      clut_copy_dirty_ = true;
-      retired_.clear();
-    }
-    envs_.push_back(environment());
-    env_ = &envs_.back();
-    env_dirty_ = false;
+void Gs::ensure_env() {
+  if (!env_dirty_ && env_) {
+    return;
   }
-  Env& e = *env_;
+  Batch& batch = *batch_;
+  if (batch.primitives.empty()) {
+    // Nothing gathered refers to the older states: let them go.
+    batch.envs.clear();
+    batch.cluts.clear();
+    batch.textures.clear();
+    clut_copy_dirty_ = true;
+  }
+  batch.envs.push_back(environment());
+  env_ = &batch.envs.back();
+  env_dirty_ = false;
+}
+
+void Gs::submit(unsigned kind, unsigned count) {
+  ensure_env();
   stats.primitives++;
   if (on_primitive) {
-    report(e, count);
+    report(*env_, count);
   }
 
   // The pixels it can reach, generously, inside the scissor rectangle.
   s32 x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
-  for (unsigned n = 0; n < count; n++) {
-    s32 x = static_cast<s32>(queue_[n].x) - e.ofx, y = static_cast<s32>(queue_[n].y) - e.ofy;
-    x0 = std::min(x0, x);
-    y0 = std::min(y0, y);
-    x1 = std::max(x1, x);
-    y1 = std::max(y1, y);
-  }
-  x0 = std::max(x0 >> 4, e.sx0);
-  y0 = std::max(y0 >> 4, e.sy0);
-  x1 = std::min((x1 + 15) >> 4, e.sx1);
-  y1 = std::min((y1 + 15) >> 4, e.sy1);
-  if (x0 > x1 || y0 > y1) {
-    return;
-  }
   Pages written;
-  add_pages(written, e.fpsm, e.fbp, e.fbw, x0, y0, x1, y1);
-  if (e.zte && !e.zmsk) {
-    add_pages(written, e.zpsm, e.zbp, e.fbw, x0, y0, x1, y1);
-  }
-
-  // The levels of the texture it can read. A game leaves the levels it does
-  // not need unloaded (their addresses point anywhere, often at the frame),
-  // so only these count.
-  if (e.tme) {
-    u32 need = levels_needed(e, count);
-    if (need & ~e.looked_at) {
-      look_at_levels(e, need & ~e.looked_at);
+  u32 need = 0;
+  {
+    const Env& e = *env_;
+    for (unsigned n = 0; n < count; n++) {
+      s32 x = static_cast<s32>(queue_[n].x) - e.ofx, y = static_cast<s32>(queue_[n].y) - e.ofy;
+      x0 = std::min(x0, x);
+      y0 = std::min(y0, y);
+      x1 = std::max(x1, x);
+      y1 = std::max(y1, y);
     }
-    if (need != e.last_need) {
-      e.last_need = need;
-      e.need_pages.clear();
-      e.in_place_pages.clear();
-      for (u32 level = 0; level < 7; level++) {
-        if (need & (1u << level)) {
-          e.need_pages.add(e.level_pages[level]);
-          if (e.in_place & (1u << level)) {
-            e.in_place_pages.add(e.level_pages[level]);
-          }
-        }
-      }
+    x0 = std::max(x0 >> 4, e.sx0);
+    y0 = std::max(y0 >> 4, e.sy0);
+    x1 = std::min((x1 + 15) >> 4, e.sx1);
+    y1 = std::min((y1 + 15) >> 4, e.sy1);
+    if (x0 > x1 || y0 > y1) {
+      return;
+    }
+    add_pages(written, e.fpsm, e.fbp, e.fbw, x0, y0, x1, y1);
+    if (e.zte && !e.zmsk) {
+      add_pages(written, e.zpsm, e.zbp, e.fbw, x0, y0, x1, y1);
+    }
+    // The levels of the texture it can read. A game leaves the levels it
+    // does not need unloaded (their addresses point anywhere, often at the
+    // frame), so only these count.
+    if (e.tme) {
+      need = levels_needed(e, count);
     }
   }
+  // From here on the state may be replaced by a copy in the next batch:
+  // whenever what was gathered is handed over to be drawn.
+  prepare_levels(need);
 
-  Queued q{&e, static_cast<u8>(kind), {queue_[0], queue_[1], queue_[2]}};
   // A primitive whose texture is in the memory it draws to (the games blur
   // and distort the frame that way) is drawn alone, top to bottom.
-  bool feeds_itself = e.tme && e.need_pages.intersects(written);
+  bool feeds_itself = need && env_->need_pages.intersects(written);
   if (threads_ == 0 || feeds_itself) {
     flush();
+    wait_for_drawing();
+    prepare_levels(need);
     stamp(written);
+    Queued q{env_, static_cast<u8>(kind), {queue_[0], queue_[1], queue_[2]}};
     draw(q, 0, 2047);
-    stats.pixels += tls_pixels;
+    stats.pixels = pixels_.fetch_add(tls_pixels, std::memory_order_relaxed) + tls_pixels;
     tls_pixels = 0;
     return;
   }
 
-  // Draw what is waiting first if this primitive reads in place what that
-  // writes, writes what that reads in place, or draws to other buffers.
+  // Start another batch if this primitive reads in place what the gathered
+  // ones write, writes what they read in place, or draws to other buffers.
   // (Decoded levels were taken when they were looked at.)
-  if ((e.tme && e.in_place_pages.intersects(pending_write_)) || written.intersects(pending_read_) ||
-      (!waiting_.empty() && e.target != pending_target_)) {
+  if ((need && env_->in_place_pages.intersects(pending_write_)) || written.intersects(pending_read_) ||
+      (!batch_->primitives.empty() && env_->target != pending_target_)) {
     flush();
+    prepare_levels(need);
   }
+  Batch& batch = *batch_;
+  const Env& e = *env_;
   pending_target_ = e.target;
   stamp(written);
   pending_write_.add(written);
-  if (e.tme && e.in_place) {
+  if (need && e.in_place) {
     pending_read_.add(e.in_place_pages);
   }
-  u32 index = static_cast<u32>(waiting_.size());
-  waiting_.push_back(q);
+  u32 index = static_cast<u32>(batch.primitives.size());
+  batch.primitives.push_back(Queued{&e, static_cast<u8>(kind), {queue_[0], queue_[1], queue_[2]}});
   for (s32 band = y0 >> kBandShift; band <= (y1 >> kBandShift); band++) {
-    if (bands_[static_cast<unsigned>(band)].empty()) {
-      used_bands_.push_back(static_cast<u16>(band));
+    if (batch.bands[static_cast<unsigned>(band)].empty()) {
+      batch.used_bands.push_back(static_cast<u16>(band));
     }
-    bands_[static_cast<unsigned>(band)].push_back(index);
+    batch.bands[static_cast<unsigned>(band)].push_back(index);
   }
-  if (waiting_.size() >= 16384) {
+  if (batch.primitives.size() >= 16384) {
     flush();
   }
 }
@@ -707,40 +788,85 @@ void Gs::draw(const Queued& q, s32 clip0, s32 clip1) {
   }
 }
 
-void Gs::render_band(unsigned band) {
+void Gs::render_band(const Batch& batch, unsigned band) {
   s32 first = static_cast<s32>(band << kBandShift), last = first + (1 << kBandShift) - 1;
-  for (u32 index : bands_[band]) {
-    draw(waiting_[index], first, last);
+  for (u32 index : batch.bands[band]) {
+    draw(batch.primitives[index], first, last);
+  }
+}
+
+// Draw a batch: on the calling thread alone when it is small or there is no
+// pool, else with the pool, a band at a time each.
+void Gs::render(const Batch& batch) {
+  if (!pool_ || batch.primitives.size() < 8) {
+    for (u16 band : batch.used_bands) {
+      render_band(batch, band);
+    }
+    pixels_.fetch_add(tls_pixels, std::memory_order_relaxed);
+    tls_pixels = 0;
+  } else {
+    pool_->run(static_cast<unsigned>(batch.used_bands.size()), [&](unsigned item) {
+      render_band(batch, batch.used_bands[item]);
+      pixels_.fetch_add(tls_pixels, std::memory_order_relaxed);
+      tls_pixels = 0;
+    });
   }
 }
 
 void Gs::flush() {
-  if (waiting_.empty()) {
+  if (batch_->primitives.empty()) {
     return;
   }
   stats.flushes++;
-  if (!pool_ || waiting_.size() < 8) {
-    for (u16 band : used_bands_) {
-      render_band(band);
+  if (raster_) {
+    if (raster_->idle()) {
+      inflight_write_.clear();
+      inflight_read_.clear();
     }
-    stats.pixels += tls_pixels;
-    tls_pixels = 0;
+    inflight_write_.add(pending_write_);
+    inflight_read_.add(pending_read_);
+    batch_ = raster_->give(std::move(batch_));
   } else {
-    std::atomic<u64> pixels{0};
-    pool_->run(static_cast<unsigned>(used_bands_.size()), [&](unsigned item) {
-      render_band(used_bands_[item]);
-      pixels.fetch_add(tls_pixels);
-      tls_pixels = 0;
-    });
-    stats.pixels += pixels.load();
+    render(*batch_);
+    batch_->clear();
   }
-  waiting_.clear();
-  for (u16 band : used_bands_) {
-    bands_[band].clear();
-  }
-  used_bands_.clear();
   pending_write_.clear();
   pending_read_.clear();
+  // The states went with the batch.
+  env_ = nullptr;
+  env_dirty_ = clut_copy_dirty_ = true;
+}
+
+void Gs::wait_for_drawing() {
+  if (raster_) {
+    raster_->wait();
+  }
+  inflight_write_.clear();
+  inflight_read_.clear();
+}
+
+void Gs::finish() {
+  flush();
+  wait_for_drawing();
+  stats.pixels = pixels_.load();
+}
+
+void Gs::before_read(const Pages& pages) {
+  if (pages.intersects(pending_write_)) {
+    flush();
+  }
+  if (pages.intersects(inflight_write_)) {
+    wait_for_drawing();
+  }
+}
+
+void Gs::before_write(const Pages& pages) {
+  if (pages.intersects(pending_write_) || pages.intersects(pending_read_)) {
+    flush();
+  }
+  if (pages.intersects(inflight_write_) || pages.intersects(inflight_read_)) {
+    wait_for_drawing();
+  }
 }
 
 void Gs::report(const Env& e, unsigned count) const {
@@ -863,33 +989,56 @@ u32 Gs::levels_needed(const Env& e, unsigned count) const {
   return ((2u << last) - 1) & ~((1u << first) - 1);
 }
 
-// Find levels for the primitives of one state. A level is decoded now, from
-// memory as it is (after whatever is waiting to draw there); a large one (a
-// frame buffer read as a texture) is cheaper read in place.
-void Gs::look_at_levels(Env& e, u32 levels) {
-  Texture& t = e.tex;
-  for (u32 level = 0; level < 7; level++) {
-    u32 bit = 1u << level;
-    if (!(levels & bit)) {
-      continue;
+// Have a current state, with the levels a primitive needs found. A level is
+// decoded now, from memory as it is, so what is still to be drawn there is
+// drawn first; a large one (a frame buffer read as a texture) is cheaper
+// read in place.
+void Gs::prepare_levels(u32 need) {
+  for (;;) {
+    ensure_env();
+    Env& e = *env_;
+    u32 missing = need & ~e.looked_at;
+    if (!missing) {
+      break;
     }
+    Texture& t = e.tex;
+    u32 level = static_cast<u32>(std::countr_zero(missing)), bit = 1u << level;
     u32 w = std::max(1u, (1u << t.tw) >> level), h = std::max(1u, (1u << t.th) >> level);
     Pages& pages = e.level_pages[level];
     pages.clear();
     add_pages(pages, t.psm, t.tbp[level], t.tbw[level], 0, 0, static_cast<s32>(w) - 1, static_cast<s32>(h) - 1);
     if (w * h <= 256u * 256u) {
       if (pages.intersects(pending_write_)) {
-        flush();
+        flush();  // and start again with the state's copy in the next batch
+        continue;
       }
-      t.decoded[level] = cached_level(t, level);
+      if (pages.intersects(inflight_write_)) {
+        wait_for_drawing();
+      }
+      batch_->textures.push_back(cached_level(t, level));
+      t.decoded[level] = batch_->textures.back()->data();
     } else {
       e.in_place |= bit;
     }
     e.looked_at |= bit;
   }
+  Env& e = *env_;
+  if (need != e.last_need) {
+    e.last_need = need;
+    e.need_pages.clear();
+    e.in_place_pages.clear();
+    for (u32 level = 0; level < 7; level++) {
+      if (need & (1u << level)) {
+        e.need_pages.add(e.level_pages[level]);
+        if (e.in_place & (1u << level)) {
+          e.in_place_pages.add(e.level_pages[level]);
+        }
+      }
+    }
+  }
 }
 
-const u32* Gs::cached_level(const Texture& t, u32 level) {
+std::shared_ptr<std::vector<u32>> Gs::cached_level(const Texture& t, u32 level) {
   u32 wl = t.tw > level ? t.tw - level : 0, hl = t.th > level ? t.th - level : 0;
   TextureKey key;
   key.place = t.tbp[level] | (static_cast<u64>(t.tbw[level]) << 14) | (static_cast<u64>(t.psm) << 20) | (static_cast<u64>(wl) << 26) |
@@ -903,11 +1052,16 @@ const u32* Gs::cached_level(const Texture& t, u32 level) {
       break;
     case kTex8:
     case kTex8H: {
-      u64 h = 0xCBF29CE484222325ull;
-      for (u32 i = 0; i < 256; i++) {
-        h = (h ^ t.clut[i]) * 0x100000001B3ull;
+      ClutCopy& copy = *t.clut_source;
+      if (!copy.hashed) {
+        u64 h = 0xCBF29CE484222325ull;
+        for (u32 i = 0; i < 256; i++) {
+          h = (h ^ copy.colours[i]) * 0x100000001B3ull;
+        }
+        copy.hash = h;
+        copy.hashed = true;
       }
-      key.colours = h;
+      key.colours = copy.hash;
       break;
     }
     default: {
@@ -932,14 +1086,10 @@ const u32* Gs::cached_level(const Texture& t, u32 level) {
       }
     }
     if (fresh) {
-      return c.texels->data();
+      return c.texels;
     }
-    retired_.push_back(c.texels);  // a waiting primitive may still be reading it
   } else if (texture_cache_.size() > 4096) {
-    for (auto& entry : texture_cache_) {
-      retired_.push_back(entry.second.texels);
-    }
-    texture_cache_.clear();
+    texture_cache_.clear();  // (the batches that use a copy hold on to it)
   }
 
   CachedTexture& c = texture_cache_[key];
@@ -958,7 +1108,7 @@ const u32* Gs::cached_level(const Texture& t, u32 level) {
   c.pages.clear();
   add_pages(c.pages, t.psm, t.tbp[level], t.tbw[level], 0, 0, static_cast<s32>(w) - 1, static_cast<s32>(h) - 1);
   c.stamp = clock_;
-  return c.texels->data();
+  return c.texels;
 }
 
 // --- rasterisers -----------------------------------------------------------
@@ -1372,9 +1522,7 @@ void Gs::load_clut(u64 tex0) {
     } else {
       add_pages(source, cpsm, cbp, 1, 0, 0, 15, 15);
     }
-    if (source.intersects(pending_write_)) {
-      flush();
-    }
+    before_read(source);
   }
 
   u32 entries;
@@ -1554,11 +1702,9 @@ void Gs::start_transfer() {
     in_pages_.clear();
     add_pages(in_pages_, static_cast<u32>(bits(to, 56, 6)), static_cast<u32>(bits(to, 32, 14)), static_cast<u32>(bits(to, 48, 6)), x, y,
               x + static_cast<s32>(width) - 1, y + static_cast<s32>(height) - 1);
-    if (in_pages_.intersects(pending_write_)) {
-      flush();
-    }
+    before_read(in_pages_);
   } else if (dir == 1) {
-    flush();
+    finish();
     // Local to host: produce the whole image now, hand it out as it is asked for.
     u64 buffer = reg_[BITBLTBUF], position = reg_[TRXPOS];
     u32 bp = static_cast<u32>(bits(buffer, 0, 14)), bw = static_cast<u32>(bits(buffer, 16, 6));
@@ -1605,9 +1751,7 @@ void Gs::transfer_in(const u8* data, std::size_t bytes) {
     if (memory.read(psm, bp, bw, x, y) != (value & (bpp == 32 ? 0xFFFFFFFFu : (1u << bpp) - 1))) {
       if (!in_.changed) {
         in_.changed = true;
-        if (in_pages_.intersects(pending_read_)) {
-          flush();  // waiting primitives read this memory as it was
-        }
+        before_write(in_pages_);  // what is still to be drawn reads or writes this memory as it was
         stamp(in_pages_);
         env_dirty_ = true;  // a texture there is to be looked at again
       }
@@ -1676,7 +1820,7 @@ void Gs::copy_local() {
   if (width == 0 || height == 0) {
     return;
   }
-  flush();
+  finish();
   Pages to;
   add_pages(to, dpsm, dbp, dbw, static_cast<s32>(dx), static_cast<s32>(dy), static_cast<s32>(dx + width) - 1, static_cast<s32>(dy + height) - 1);
   stamp(to);
@@ -1694,7 +1838,7 @@ void Gs::copy_local() {
 
 Image Gs::snapshot(u32 bp, u32 bw, u32 psm, int width, int height) {
   fp::want_nearest();
-  flush();
+  finish();
   Image image;
   image.width = width;
   image.height = height;
@@ -1713,7 +1857,7 @@ Image Gs::snapshot(u32 bp, u32 bw, u32 psm, int width, int height) {
 
 bool Gs::display(Image& out) {
   fp::want_nearest();
-  flush();
+  finish();
   u64 pmode = priv_[0];
   int circuit = (pmode & 1) ? 0 : (pmode & 2) ? 1 : -1;
   if (circuit < 0) {

@@ -129,20 +129,23 @@ struct Image {
 // on the machine.
 //
 // Primitives can be drawn as they arrive, or (set_threads) gathered and
-// drawn by several threads, each taking bands of scan lines. The result is
-// the same memory either way: a band's primitives are drawn in their order,
-// and the gathered ones are drawn before anything reads or writes memory
-// they use.
+// drawn by other threads while more are gathered, each thread taking bands
+// of scan lines. The result is the same memory either way: a band's
+// primitives are drawn in their order, and the gathered ones are drawn
+// before anything reads or writes memory they use.
 class Gs {
  public:
   Gs();
   ~Gs();
   void reset();
 
-  // How many threads draw (0: each primitive is drawn at once, by the caller).
+  // How many threads draw. 0: each primitive is drawn at once, by the caller.
+  // 1: gathered, and drawn by the caller. More: gathered, and drawn in the
+  // background by that many threads.
   void set_threads(unsigned threads);
-  // Draw everything gathered so far. Called by whatever reads GS memory.
-  void flush();
+  // Have everything gathered so far drawn. For whatever reads `memory` or
+  // `stats` from outside.
+  void finish();
 
   // A write to a general register (from a GIF packet).
   void write(u8 reg, u64 data);
@@ -207,6 +210,13 @@ class Gs {
   // The pages a rectangle of a buffer lies in.
   static void add_pages(Pages& pages, u32 psm, u32 bp, u32 bw, s32 x0, s32 y0, s32 x1, s32 y1);
 
+  // The colour table as it was at some moment, for the primitives given then.
+  struct ClutCopy {
+    std::array<u32, 256> colours;
+    u64 hash = 0;  // of all 256 entries, once something has asked
+    bool hashed = false;
+  };
+
   struct Texture {
     u32 psm = 0;
     std::array<u32, 7> tbp{};
@@ -226,6 +236,7 @@ class Gs {
     u32 ta0 = 0, ta1 = 0;
     bool aem = false;
     const u32* clut = nullptr;  // the colour table as it was when the primitive was given
+    ClutCopy* clut_source = nullptr;
     // Each level as plain colours, taken when a primitive first needs it
     // (null: the level is read from GS memory texel by texel).
     std::array<const u32*, 7> decoded{};
@@ -263,6 +274,18 @@ class Gs {
     Vertex v[3];
   };
 
+  // Primitives gathered to be drawn together, with everything they refer
+  // to. Once handed over to be drawn, nothing in it changes.
+  struct Batch {
+    std::vector<Queued> primitives;
+    std::array<std::vector<u32>, 128> bands;  // by 16 scan lines: the primitives that reach each band
+    std::vector<u16> used_bands;
+    std::deque<Env> envs;
+    std::deque<ClutCopy> cluts;
+    std::vector<std::shared_ptr<std::vector<u32>>> textures;  // the decoded levels its states use
+    void clear();
+  };
+
   struct Transfer {
     bool active = false, changed = false;
     u32 dir = 3;
@@ -282,8 +305,10 @@ class Gs {
   void draw_sprite(const Env& e, const Vertex& a, const Vertex& b, s32 clip0, s32 clip1);
   void draw(const Queued& q, s32 clip0, s32 clip1);
   void submit(unsigned kind, unsigned count);
-  void render_band(unsigned band);
+  void render(const Batch& batch);
+  void render_band(const Batch& batch, unsigned band);
   Env environment();
+  void ensure_env();
   void report(const Env& e, unsigned count) const;
   u32 prim_bits() const;
 
@@ -304,11 +329,11 @@ class Gs {
     Pages pages;
     u64 stamp = 0;
   };
-  const u32* cached_level(const Texture& t, u32 level);
+  std::shared_ptr<std::vector<u32>> cached_level(const Texture& t, u32 level);
   // Which levels of its texture the primitive in the queue can read.
   u32 levels_needed(const Env& e, unsigned count) const;
-  // Find those levels for the state's primitives: decoded copies, or in place.
-  void look_at_levels(Env& e, u32 levels);
+  // Have a current state with those levels found: decoded copies, or in place.
+  void prepare_levels(u32 need);
   // Note a write to pages: decoded copies of them are stale from now on.
   void stamp(const Pages& pages);
   // A level is known by where and how it is stored, and by what turns its
@@ -321,7 +346,6 @@ class Gs {
     std::size_t operator()(const TextureKey& k) const { return static_cast<std::size_t>(k.place * 0x9E3779B97F4A7C15ull ^ k.colours); }
   };
   std::unordered_map<TextureKey, CachedTexture, TextureKeyHash> texture_cache_;
-  std::vector<std::shared_ptr<std::vector<u32>>> retired_;  // replaced copies a waiting primitive may still use
   std::array<u64, 512> page_stamp_{};
   u64 clock_ = 1;
 
@@ -330,19 +354,30 @@ class Gs {
   void rebuild_clut();
   static u32 expand16(u16 c, u32 ta0, u32 ta1, bool aem);
 
-  // Primitives waiting to be drawn, and what they will read and write.
+  // Primitives are gathered into a batch; a full batch is drawn by a thread
+  // of its own while the next is gathered, its bands shared out among the
+  // pool. A batch being drawn touches only the pages it draws to and the
+  // textures it reads in place, so whoever gathers may read and write every
+  // other page meanwhile, and waits before touching those.
   class Pool;
+  class Raster;
   std::unique_ptr<Pool> pool_;
   unsigned threads_ = 0;
-  std::vector<Queued> waiting_;
-  std::array<std::vector<u32>, 128> bands_;  // by 16 scan lines: the waiting primitives that reach each band
-  std::vector<u16> used_bands_;
-  Pages pending_write_, pending_read_;
+  std::unique_ptr<Batch> batch_;         // the one being gathered
+  Pages pending_write_, pending_read_;   // what it will write, and read in place
+  Pages inflight_write_, inflight_read_; // the same for batches handed over and maybe not drawn yet
   u64 pending_target_ = 0;
-  std::deque<Env> envs_;
-  std::deque<std::array<u32, 256>> clut_copies_;
   Env* env_ = nullptr;
   bool env_dirty_ = true, clut_copy_dirty_ = true;
+  std::atomic<u64> pixels_{0};
+  // Hand the gathered batch over (or draw it here, with no thread for that).
+  // The current state is gone afterwards: `ensure_env` makes the next.
+  void flush();
+  void wait_for_drawing();
+  // Before reading or writing pages of GS memory outside drawing.
+  void before_read(const Pages& pages);
+  void before_write(const Pages& pages);
+  std::unique_ptr<Raster> raster_;  // last: it stops before what it uses goes
 
   // Transfers.
   void start_transfer();
