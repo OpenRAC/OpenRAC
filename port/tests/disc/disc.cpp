@@ -23,7 +23,12 @@ constexpr std::size_t kHeaderSector = 1510;  // the level header (5 sectors), da
 // A disc with a table of contents at 1500 and one level (id 3) in slot 1.
 std::vector<u8> disc_image(std::vector<u8>& elf) {
     elf = fake_elf("Ratchet & Clank", 3000);
-    std::vector<u8> img = make_iso(1600, {{"DATA/A.BIN", bytes_of("hello")}, {"SCUS_971.99", elf}, {"SYSTEM.CNF", system_cnf("SCUS_971.99")}});
+    std::vector<u8> img = make_iso(
+        1600,
+        {{"DATA/A.BIN", bytes_of("hello")},
+         {"SCUS_971.99", elf},
+         {"SYSTEM.CNF", system_cnf("SCUS_971.99")}}
+    );
     const std::size_t toc = 1500 * kSs;
     put32(img, toc, 1);
     put32(img, toc + 4, 0x2960);
@@ -40,7 +45,17 @@ std::vector<u8> disc_image(std::vector<u8>& elf) {
     const std::size_t d = (kHeaderSector + 5) * kSs;
     // overlay, sound_bank, core_index, gs_ram, hud_header, hud_banks[5], core_data
     const std::pair<s32, s32> ranges[11] = {
-        {0x80, 0x10}, {-1, 0}, {0x100, 0x44}, {0x200, 0x300}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {0x600, 0x123},
+        {0x80, 0x10},
+        {-1, 0},
+        {0x100, 0x44},
+        {0x200, 0x300},
+        {-1, 0},
+        {-1, 0},
+        {-1, 0},
+        {-1, 0},
+        {-1, 0},
+        {-1, 0},
+        {0x600, 0x123},
     };
     for (std::size_t i = 0; i < 11; ++i) {
         put32(img, d + i * 8, ranges[i].first);
@@ -56,7 +71,10 @@ std::vector<u8> disc_image(std::vector<u8>& elf) {
 }
 
 std::vector<u8> slice(const std::vector<u8>& img, std::size_t at, std::size_t n) {
-    return {img.begin() + static_cast<std::ptrdiff_t>(at), img.begin() + static_cast<std::ptrdiff_t>(at + n)};
+    return {
+        img.begin() + static_cast<std::ptrdiff_t>(at),
+        img.begin() + static_cast<std::ptrdiff_t>(at + n)
+    };
 }
 
 void layouts() {
@@ -65,7 +83,9 @@ void layouts() {
     CHECK(ntsc && pal);
     if (ntsc && pal) {
         CHECK(disc_layout(*ntsc).known && disc_layout(*pal).known);
-        CHECK(disc_layout(*pal).toc_sector == 1500 && disc_layout(*pal).level_header_size == 0x2434);
+        CHECK(
+            disc_layout(*pal).toc_sector == 1500 && disc_layout(*pal).level_header_size == 0x2434
+        );
     }
     for (const GameVersion& v : versions()) {
         const DiscLayout& l = disc_layout(v);
@@ -106,11 +126,16 @@ void reads_toc_boot_and_level_lumps() {
     for (const auto& [n, b] : l.files()) {
         names.push_back(n);
     }
-    CHECK((names == std::vector<std::string>{"level_header.bin", "overlay.bin", "core_index.bin", "gs_ram.bin", "core_data.bin", "gameplay_ntsc.bin"}));
+    CHECK((
+        names
+        == std::vector<
+            std::
+                string>{"level_header.bin", "overlay.bin", "core_index.bin", "gs_ram.bin", "core_data.bin", "gameplay_ntsc.bin"}
+    ));
     CHECK(l.file("gs_ram.bin") && l.file("gs_ram.bin")->size() == 0x300);
 
     const auto streams = disc.level_stream_lumps(3);
-    CHECK(streams == std::vector<StreamLump>{{"music/000", 1518, 0x50}});
+    CHECK((streams == std::vector<StreamLump>{{"music/000", 1518, 0x50}}));
     CHECK(disc.read_lump(streams[0]) == slice(img, 1518 * kSs, 0x50));
     bool threw = false;
     try {
@@ -136,8 +161,11 @@ void global_lumps_and_plan() {
     const Disc disc(IsoImage(image_in_memory(img)), rac1_layout());
 
     const auto g = disc.global_lumps();
-    CHECK((g == std::vector<StreamLump>{
-        {"save_game", 1520, 0x1000}, {"qwark_boss_audio/000", 1541, 0x800}, {"mpegs/003", 1530, 100}, {"help_audio/005", 1540, 0x70}}));
+    CHECK((
+        g
+        == std::vector<
+            StreamLump>{{"save_game", 1520, 0x1000}, {"qwark_boss_audio/000", 1541, 0x800}, {"mpegs/003", 1530, 100}, {"help_audio/005", 1540, 0x70}}
+    ));
     CHECK(disc.save_game_lump().size() == 0x1000);
 
     const auto plan = disc.archive_files();
@@ -145,11 +173,12 @@ void global_lumps_and_plan() {
     for (const DiscFile& f : plan) {
         paths.push_back(f.path);
     }
-    CHECK((paths == std::vector<std::string>{
-        "boot/DATA/A.BIN", "boot/SCUS_971.99", "boot/SYSTEM.CNF", "toc.bin",
-        "global/save_game.bin", "global/qwark_boss_audio/000.bin", "global/mpegs/003.bin", "global/help_audio/005.bin",
-        "levels/03/level_header.bin", "levels/03/overlay.bin", "levels/03/core_index.bin", "levels/03/gs_ram.bin",
-        "levels/03/core_data.bin", "levels/03/gameplay_ntsc.bin", "levels/03/music/000.bin"}));
+    CHECK((
+        paths
+        == std::vector<
+            std::
+                string>{"boot/DATA/A.BIN", "boot/SCUS_971.99", "boot/SYSTEM.CNF", "toc.bin", "global/save_game.bin", "global/qwark_boss_audio/000.bin", "global/mpegs/003.bin", "global/help_audio/005.bin", "levels/03/level_header.bin", "levels/03/overlay.bin", "levels/03/core_index.bin", "levels/03/gs_ram.bin", "levels/03/core_data.bin", "levels/03/gameplay_ntsc.bin", "levels/03/music/000.bin"}
+    ));
     // Every planned range reproduces what the member readers return.
     const LevelFiles l = disc.level(3);
     for (const DiscFile& f : plan) {
@@ -172,11 +201,12 @@ void rac1_shaped_disc() {
     for (const DiscFile& f : disc.archive_files()) {
         paths.push_back(f.path);
     }
-    CHECK((paths == std::vector<std::string>{
-        "boot/SCES_509.16", "boot/SYSTEM.CNF", "toc.bin", "global/save_game.bin", "global/credits_images_pal/000.bin",
-        "global/mpegs/021.bin", "global/mpegs/040.bin", "levels/01/level_header.bin", "levels/01/overlay.bin",
-        "levels/01/core_data.bin", "levels/01/gameplay_ntsc.bin", "levels/01/gameplay_pal.bin",
-        "levels/01/scene/00_ntsc.bin", "levels/01/scene/00_pal.bin"}));
+    CHECK((
+        paths
+        == std::vector<
+            std::
+                string>{"boot/SCES_509.16", "boot/SYSTEM.CNF", "toc.bin", "global/save_game.bin", "global/credits_images_pal/000.bin", "global/mpegs/021.bin", "global/mpegs/040.bin", "levels/01/level_header.bin", "levels/01/overlay.bin", "levels/01/core_data.bin", "levels/01/gameplay_ntsc.bin", "levels/01/gameplay_pal.bin", "levels/01/scene/00_ntsc.bin", "levels/01/scene/00_pal.bin"}
+    ));
     CHECK(disc.scene_region(1, 0, false)->size() == 2 * kSs);
     CHECK(!disc.scene_region(1, 1, false));
     CHECK(!disc.scene_speech(1, 0, 0));

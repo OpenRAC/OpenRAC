@@ -36,7 +36,9 @@ std::vector<u8> elf_bytes() {
 std::vector<u8> mini_iso() {
     return make_iso(
         32,
-        {{"DATA/a.bin", bytes_of("hello")}, {"SCUS_971.99", elf_bytes()}, {"SYSTEM.CNF", system_cnf("SCUS_971.99")}}
+        {{"DATA/a.bin", bytes_of("hello")},
+         {"SCUS_971.99", elf_bytes()},
+         {"SYSTEM.CNF", system_cnf("SCUS_971.99")}}
     );
 }
 
@@ -48,7 +50,8 @@ void check_image(const IsoImage& iso) {
     for (const IsoEntry& e : iso.entries()) {
         paths.push_back(e.path);
     }
-    CHECK((paths == std::vector<std::string>{"/DATA", "/DATA/A.BIN", "/SCUS_971.99", "/SYSTEM.CNF"}));
+    CHECK((paths == std::vector<std::string>{"/DATA", "/DATA/A.BIN", "/SCUS_971.99", "/SYSTEM.CNF"})
+    );
     const IsoEntry* boot = iso.find("/scus_971.99;1");
     CHECK(boot && iso.read_file(*boot) == elf);
     const IsoEntry* a = iso.find("data/a.bin");
@@ -141,13 +144,20 @@ void hashes() {
     // FIPS 180-2 appendix A and the NIST short-message vectors.
     CHECK(sha1_hex("") == "da39a3ee5e6b4b0d3255bfef95601890afd80709");
     CHECK(sha1_hex("abc") == "a9993e364706816aba3e25717850c26c9cd0d89d");
-    CHECK(sha1_hex("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq") == "84983e441c3bd26ebaae4aa1f95129e5e54670f1");
-    CHECK(sha1_hex("The quick brown fox jumps over the lazy dog") == "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12");
+    CHECK(
+        sha1_hex("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq")
+        == "84983e441c3bd26ebaae4aa1f95129e5e54670f1"
+    );
+    CHECK(
+        sha1_hex("The quick brown fox jumps over the lazy dog")
+        == "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12"
+    );
     const std::vector<u8> million(1000000, 'a');
     CHECK(to_hex(sha1(million)) == "34aa973cd4c4daa4f61eeb2bdbad27316534016f");
     CHECK(to_hex(sha256({})) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     CHECK(
-        to_hex(sha256(bytes_of("abc"))) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        to_hex(sha256(bytes_of("abc")))
+        == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
     );
     CHECK(
         to_hex(sha256(bytes_of("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq")))

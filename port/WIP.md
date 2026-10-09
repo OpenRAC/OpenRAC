@@ -10,7 +10,8 @@ agent worked to (rules, layout, legal constraints).
 
 | Part | Directory | Converted from | Where it stopped |
 |---|---|---|---|
-| Disc and extractor | `assets/disc/`, `tests/disc/`, `extract/` (empty) | rc-formats iso9660, toc, disc, wad, level, overlays, volumes, sha1, strings, scenes, saves; rc-extract; rc-data | writing the disc library; the C++ extractor not started |
+| Disc | `assets/disc/`, `tests/disc/` | rc-formats iso9660, toc, disc, wad, level, overlays, volumes, sha1, strings, scenes, saves | **done**: reviewed, tested, built by default |
+| Extractor | `extract/` (empty) | rc-extract, rc-data | not started |
 | Geometry | `assets/geometry/` | rc-formats texture, vif, tfrag, tie, shrub, sky, moby, moby_anim, lighting | starting the VIF parser |
 | World data | `assets/world/`, `tests/assets_world/` | rc-formats collision, occlusion, cameras, gameplay, moby_spawn, water, sea, font, hud, pif | at volumes |
 | Sound, movies, audio | `assets/sound/`, `media/`, `audio/`, `tests/sound/`, `tests/media/` | rc-formats sound_bank, vag, pss; rc-video (MPEG-2); rc-game audio (SPU-style mixer, 989snd player, reverb) | writing assets/sound |
@@ -19,7 +20,7 @@ agent worked to (rules, layout, legal constraints).
 
 To continue: finish each part against WIP_BRIEF.md, build it with
 `-DOPENRAC_PORT_WIP=ON`, review it (legal: no game bytes, no personal names),
-test it, then remove it from the guard. After that: bridge assets/geometry to
+test it, then add it to `OPENRAC_PORT_READY` in `cmake/Assets.cmake`. After that: bridge assets/geometry to
 the renderers' draw data, drive the viewer from the disc, wire
 game/common/lib/snd.c to openrac_audio, switch the launcher to the C++
 extractor, credit ReRAC in THIRD_PARTY_NOTICES.md for each finished part.

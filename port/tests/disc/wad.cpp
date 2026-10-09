@@ -40,9 +40,15 @@ bool throws(const std::vector<u8>& stream) {
 
 void decoding() {
     CHECK(wad_decompress(wad({0x01, 'a', 'b', 'c', 'd', 0xc0, 0x00})) == text("abcdddddddd"));
-    CHECK(wad_decompress(wad({0x01, 'x', 'y', 'z', 'w', 0x21, 0x02, 0x00, '!', '?'})) == text("xyzwwww!?"));
+    CHECK(
+        wad_decompress(wad({0x01, 'x', 'y', 'z', 'w', 0x21, 0x02, 0x00, '!', '?'}))
+        == text("xyzwwww!?")
+    );
     // A dummy packet carrying two literals, and a pad packet ending the stream.
-    CHECK(wad_decompress(wad({0x01, 'a', 'b', 'c', 'd', 0x11, 0x02, 0x00, 'e', 'f'})) == text("abcdef"));
+    CHECK(
+        wad_decompress(wad({0x01, 'a', 'b', 'c', 'd', 0x11, 0x02, 0x00, 'e', 'f'}))
+        == text("abcdef")
+    );
     CHECK(wad_decompress(wad({0x01, 'a', 'b', 'c', 'd', 0x12, 0x00, 0x00, 0xee})) == text("abcd"));
     // Two literal packets in a row are malformed.
     CHECK(throws(wad({0x01, 'a', 'b', 'c', 'd', 0x01, 'e', 'f', 'g', 'h'})));
@@ -86,7 +92,8 @@ void compression() {
     round_trip(std::vector<u8>(70000, 0));
     std::vector<u8> mixed;
     for (int i = 0; i < 4000; ++i) {
-        const std::string line = std::format("line {} of a level's text, value {}\n", i % 97, (i * 7919) % 1000);
+        const std::string line =
+            std::format("line {} of a level's text, value {}\n", i % 97, (i * 7919) % 1000);
         mixed.insert(mixed.end(), line.begin(), line.end());
         if (i % 50 == 0) {
             for (int k = 0; k < 300; ++k) {

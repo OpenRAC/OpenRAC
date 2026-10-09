@@ -41,6 +41,10 @@ and notes:
   faces and surface bytes), from `docs/formats/collision_rac1.md`,
   `docs/plan/collision_queries.md` and `crates/rc-formats/src/collision.rs`;
   described in [ASSETS.md](games/rac1/pal/docs/ASSETS.md) ("Collision").
+- `port/assets/disc/`: the disc readers (ISO 9660, table of contents, WAD
+  compression, level data, overlays, scenes, saves, messages, volumes, the
+  front end), converted to C++ from `crates/rc-formats` and its specs in
+  `docs/formats`; each file names its source.
 
 ISC License
 

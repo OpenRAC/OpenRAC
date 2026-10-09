@@ -64,7 +64,9 @@ inline void put32(std::vector<u8>& img, std::size_t at, T value) {
 // sector 20, subdirectories follow, then each file from a sector of its own.
 // Files are listed under their names with ";1".
 inline std::vector<u8> make_iso(
-    std::size_t sectors, const std::vector<IsoFile>& files, std::string_view volume = "RATCHETANDCLANK"
+    std::size_t sectors,
+    const std::vector<IsoFile>& files,
+    std::string_view volume = "RATCHETANDCLANK"
 ) {
     std::vector<std::string> dirs;
     for (const IsoFile& f : files) {
@@ -98,7 +100,9 @@ inline std::vector<u8> make_iso(
 
     auto write_dir = [&](std::size_t sector, std::size_t parent, const std::string& prefix) {
         std::vector<u8> d;
-        auto add = [&](const std::vector<u8>& r) { d.insert(d.end(), r.begin(), r.end()); };
+        auto add = [&](const std::vector<u8>& r) {
+            d.insert(d.end(), r.begin(), r.end());
+        };
         add(dir_record(static_cast<u32>(sector), kSs, true, std::string_view("\0", 1)));
         add(dir_record(static_cast<u32>(parent), kSs, true, std::string_view("\1", 1)));
         if (prefix.empty()) {
@@ -114,7 +118,9 @@ inline std::vector<u8> make_iso(
                 continue;
             }
             const std::string name = (slash == std::string::npos ? p : p.substr(slash + 1)) + ";1";
-            add(dir_record(static_cast<u32>(lba[i]), static_cast<u32>(files[i].bytes.size()), false, name));
+            add(dir_record(
+                static_cast<u32>(lba[i]), static_cast<u32>(files[i].bytes.size()), false, name
+            ));
         }
         std::memcpy(img.data() + sector * kSs, d.data(), d.size());
     };
@@ -123,14 +129,19 @@ inline std::vector<u8> make_iso(
         write_dir(21 + i, 20, dirs[i]);
     }
     for (std::size_t i = 0; i < files.size(); ++i) {
-        std::copy(files[i].bytes.begin(), files[i].bytes.end(), img.begin() + static_cast<std::ptrdiff_t>(lba[i] * kSs));
+        std::copy(
+            files[i].bytes.begin(),
+            files[i].bytes.end(),
+            img.begin() + static_cast<std::ptrdiff_t>(lba[i] * kSs)
+        );
     }
     return img;
 }
 
 // Re-encodes a 2048-byte image as raw 2352-byte mode 2 form 1 sectors.
 inline std::vector<u8> to_raw(const std::vector<u8>& img) {
-    static constexpr u8 kSync[12] = {0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0};
+    static constexpr u8 kSync[12] =
+        {0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0};
     std::vector<u8> out;
     for (std::size_t s = 0; s + kSs <= img.size(); s += kSs) {
         std::vector<u8> raw(2352, 0xaa);  // EDC/ECC stand-in: must never reach user data
@@ -149,7 +160,8 @@ inline std::vector<u8> bytes_of(std::string_view s) {
 }
 
 inline std::vector<u8> fake_elf(std::string_view tag, std::size_t size = 5000) {
-    std::vector<u8> e = bytes_of("\x7f" "ELF");
+    std::vector<u8> e = bytes_of("\x7f"
+                                 "ELF");
     const std::string t = std::format("..{}..", tag);
     e.insert(e.end(), t.begin(), t.end());
     e.resize(size, 0x11);
@@ -157,7 +169,9 @@ inline std::vector<u8> fake_elf(std::string_view tag, std::size_t size = 5000) {
 }
 
 inline std::vector<u8> system_cnf(std::string_view serial, std::string_view vmode = "NTSC") {
-    return bytes_of(std::format("BOOT2 = cdrom0:\\{};1\r\nVER = 1.00\r\nVMODE = {}\r\n\r\n", serial, vmode));
+    return bytes_of(
+        std::format("BOOT2 = cdrom0:\\{};1\r\nVER = 1.00\r\nVMODE = {}\r\n\r\n", serial, vmode)
+    );
 }
 
 // A small RAC1-shaped disc (after ReRAC's synthetic test): the table of
@@ -166,12 +180,17 @@ inline std::vector<u8> system_cnf(std::string_view serial, std::string_view vmod
 // an NTSC and a PAL movie, a PAL credits image. Sectors from 1500 on are
 // filled with a pattern first.
 inline std::vector<u8> rac1_disc(std::string_view serial, const std::vector<u8>& elf) {
-    std::vector<u8> img = make_iso(1600, {{"SYSTEM.CNF", system_cnf(serial)}, {serial.data(), elf}});
+    std::vector<u8> img =
+        make_iso(1600, {{"SYSTEM.CNF", system_cnf(serial)}, {serial.data(), elf}});
     for (std::size_t i = 1500 * kSs; i < img.size(); ++i) {
         img[i] = static_cast<u8>(std::rotr(static_cast<u32>(i - 1500 * kSs) * 2654435761u, 13));
     }
     const std::size_t toc = 1500 * kSs;
-    std::fill(img.begin() + static_cast<std::ptrdiff_t>(toc), img.begin() + static_cast<std::ptrdiff_t>(toc + 0x2960), u8{0});
+    std::fill(
+        img.begin() + static_cast<std::ptrdiff_t>(toc),
+        img.begin() + static_cast<std::ptrdiff_t>(toc + 0x2960),
+        u8{0}
+    );
     put32(img, toc, 1);
     put32(img, toc + 4, 0x2960);
     put32(img, toc + 0x10, 1530);  // save_game: 1 sector
@@ -185,17 +204,34 @@ inline std::vector<u8> rac1_disc(std::string_view serial, const std::vector<u8>&
     put32(img, toc + 0x28c8, 1510);  // level table slot 0
     put32(img, toc + 0x28cc, 5);
     const std::size_t h = 1510 * kSs;
-    std::fill(img.begin() + static_cast<std::ptrdiff_t>(h), img.begin() + static_cast<std::ptrdiff_t>(h + 0x2434), u8{0});
+    std::fill(
+        img.begin() + static_cast<std::ptrdiff_t>(h),
+        img.begin() + static_cast<std::ptrdiff_t>(h + 0x2434),
+        u8{0}
+    );
     const std::pair<std::size_t, s32> header[] = {
-        {0, 1}, {4, 0x2434}, {8, 1516}, {12, 2}, {16, 1518}, {20, 1}, {24, 1519}, {28, 1},
-        {0x19c, 1520}, {0x1a0, 1521},  // scene 0 NTSC: chunk 1520, sentinel 1521
-        {0x2b8, 1522}, {0x2bc, 1523},  // scene 0 PAL
+        {0, 1},
+        {4, 0x2434},
+        {8, 1516},
+        {12, 2},
+        {16, 1518},
+        {20, 1},
+        {24, 1519},
+        {28, 1},
+        {0x19c, 1520},
+        {0x1a0, 1521},  // scene 0 NTSC: chunk 1520, sentinel 1521
+        {0x2b8, 1522},
+        {0x2bc, 1523},  // scene 0 PAL
     };
     for (const auto& [o, v] : header) {
         put32(img, h + o, v);
     }
     const std::size_t d = 1516 * kSs;
-    std::fill(img.begin() + static_cast<std::ptrdiff_t>(d), img.begin() + static_cast<std::ptrdiff_t>(d + 0x58), u8{0});
+    std::fill(
+        img.begin() + static_cast<std::ptrdiff_t>(d),
+        img.begin() + static_cast<std::ptrdiff_t>(d + 0x58),
+        u8{0}
+    );
     put32(img, d + 0, 0x80);  // overlay
     put32(img, d + 4, 0x20);
     put32(img, d + 0x50, 0x100);  // core_data

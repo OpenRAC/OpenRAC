@@ -42,7 +42,9 @@ void messages() {
         std::string text;
         s32 audio;
     };
-    const std::vector<E> entries = {{1000, "Gadgetron \x0cInfobots\x08 give", 4}, {7, "x", -1}, {1000, "second", 0}};
+
+    const std::vector<E> entries =
+        {{1000, "Gadgetron \x0cInfobots\x08 give", 4}, {7, "x", -1}, {1000, "second", 0}};
     ByteWriter table;
     std::string strings;
     const std::size_t base = 8 + 16 * entries.size();
@@ -96,7 +98,9 @@ void volumes() {
     g.put_at<Shape>(0x510, cub);
     g.put_at<f32>(0x590, 7.5f);
     const Volumes v = parse_volumes(g.bytes());
-    CHECK(v.cuboids.size() == 1 && v.spheres.empty() && v.cylinders.size() == 2 && v.pills.size() == 1);
+    CHECK(
+        v.cuboids.size() == 1 && v.spheres.empty() && v.cylinders.size() == 2 && v.pills.size() == 1
+    );
     CHECK(v.cuboids[0] == cub);
     CHECK(v.pill_cap_radius(0) == 7.5f);
     CHECK((v.cuboids[0].local({14, 20, 8}) == Vec3{1, 0, 1}));
@@ -135,7 +139,10 @@ void saves() {
     CHECK(save_crc16(v) == 0);
 
     Section s;
-    s.chunks = {Chunk::make(0, {0xff, 0xff, 0xff, 0xff}), Chunk::make(10, {1, 2, 3, 4, 5}), Chunk{28, {7}, {9, 8, 7}}};
+    s.chunks =
+        {Chunk::make(0, {0xff, 0xff, 0xff, 0xff}),
+         Chunk::make(10, {1, 2, 3, 4, 5}),
+         Chunk{28, {7}, {9, 8, 7}}};
     const auto e = s.encode();
     CHECK(e.size() == s.encoded_size());
     CHECK(e.size() == 8 + (8 + 4) + (8 + 8) + (8 + 4) + 8);
@@ -176,8 +183,14 @@ void saves() {
     CHECK(std::equal(card.begin(), card.begin() + 8, before.begin()));
     for (std::size_t slot = 0; slot < kSaveLevelSlots; ++slot) {
         const std::size_t at = 8 + gs + slot * ls;
-        const std::vector<u8> got(card.begin() + static_cast<std::ptrdiff_t>(at), card.begin() + static_cast<std::ptrdiff_t>(at + ls));
-        const std::vector<u8> old(before.begin() + static_cast<std::ptrdiff_t>(at), before.begin() + static_cast<std::ptrdiff_t>(at + ls));
+        const std::vector<u8> got(
+            card.begin() + static_cast<std::ptrdiff_t>(at),
+            card.begin() + static_cast<std::ptrdiff_t>(at + ls)
+        );
+        const std::vector<u8> old(
+            before.begin() + static_cast<std::ptrdiff_t>(at),
+            before.begin() + static_cast<std::ptrdiff_t>(at + ls)
+        );
         CHECK(slot == 3 ? got == next.levels[3].encode() : got == old);
     }
     const SaveFile parsed = SaveFile::parse(card);
@@ -185,15 +198,23 @@ void saves() {
     CHECK(parsed.levels[4].chunks[0].data == std::vector<u8>{4});
 
     const std::string cnf = "BOOT2 = cdrom0:\\SCUS_971.99;1\r\nVER = 1.00\r\n";
-    CHECK(card_directory({reinterpret_cast<const u8*>(cnf.data()), cnf.size()}) == "/BASCUS-97199RATCHET");
+    CHECK(
+        card_directory({reinterpret_cast<const u8*>(cnf.data()), cnf.size()})
+        == "/BASCUS-97199RATCHET"
+    );
     const std::string pal = "BOOT2 = cdrom0:\\SCES_503.26;1\r\n";
-    CHECK(card_directory({reinterpret_cast<const u8*>(pal.data()), pal.size()}) == "/BESCES-50326RATCHET");
+    CHECK(
+        card_directory({reinterpret_cast<const u8*>(pal.data()), pal.size()})
+        == "/BESCES-50326RATCHET"
+    );
     CHECK(save_file_name(2) == "save2.bin");
 }
 
 // A decompressed scene chunk: `actors` actors of `frames` frames; camera eye.x
 // = the record's scene tick, the cut flag on `cuts`; one subtitle line.
-std::vector<u8> synth_chunk(s16 end, std::size_t index, std::size_t actors, u8 frames, std::vector<s32> cuts, bool subtitle) {
+std::vector<u8> synth_chunk(
+    s16 end, std::size_t index, std::size_t actors, u8 frames, std::vector<s32> cuts, bool subtitle
+) {
     const std::size_t n_camera = camera_records(end, index, SceneRegion::Ntsc);
     ByteWriter d;
     d.resize(0x14 + 4 * actors);
@@ -224,25 +245,41 @@ std::vector<u8> synth_chunk(s16 end, std::size_t index, std::size_t actors, u8 f
         }
         d.put_at<s32>(at + 12, static_cast<s32>(d.size()));
         for (u8 f = 0; f < frames; ++f) {
-            d.put(std::array<f32, 4>{static_cast<f32>(index * 48 + f) * 2, static_cast<f32>(a), 0, 0});
+            d.put(
+                std::array<f32, 4>{static_cast<f32>(index * 48 + f) * 2, static_cast<f32>(a), 0, 0}
+            );
         }
     }
     s32 subtitle_offset = 0;
     if (subtitle) {
         d.resize(std::max<std::size_t>(d.size(), kSubtitleMinOffset));
         subtitle_offset = static_cast<s32>(d.size());
-        for (const s16 v : {s16{100}, s16{150}, s16{32}, s16{32}, s16{32}, s16{32}, s16{32}, s16{0}, s16{-1}}) {
+        for (const s16 v :
+             {s16{100}, s16{150}, s16{32}, s16{32}, s16{32}, s16{32}, s16{32}, s16{0}, s16{-1}}) {
             d.put<s16>(v);
         }
         d.resize(d.size() + 14);
         d.put_bytes({reinterpret_cast<const u8*>("Hello"), 6});
     }
-    d.put_at(0, ChunkHeader{end, 0, subtitle_offset, -6, -1, static_cast<u16>(actors), 0, static_cast<s32>(camera_offset)});
+    d.put_at(
+        0,
+        ChunkHeader{
+            end,
+            0,
+            subtitle_offset,
+            -6,
+            -1,
+            static_cast<u16>(actors),
+            0,
+            static_cast<s32>(camera_offset)
+        }
+    );
     return std::move(d.bytes());
 }
 
 void scenes() {
-    const SceneChunk c = parse_scene_chunk(synth_chunk(200, 1, 2, 49, {107}, true), 1, SceneRegion::Ntsc);
+    const SceneChunk c =
+        parse_scene_chunk(synth_chunk(200, 1, 2, 49, {107}, true), 1, SceneRegion::Ntsc);
     CHECK(c.camera.size() == 97);
     CHECK(c.camera[0].eye[0] == 96.0f);
     CHECK(c.camera[11].is_cut() && !c.camera[10].is_cut());
@@ -254,13 +291,18 @@ void scenes() {
     CHECK(c.subtitles.size() == 1 && c.subtitles[0].text[2] == "Hello");
     CHECK(c.subtitles[0].covers(150) && !c.subtitles[0].covers(151));
     // The last chunk of a 200-tick scene: 200 - 2 * 96 = 8 ticks, 9 records.
-    const SceneChunk last = parse_scene_chunk(synth_chunk(200, 2, 1, 6, {}, false), 2, SceneRegion::Ntsc);
+    const SceneChunk last =
+        parse_scene_chunk(synth_chunk(200, 2, 1, 6, {}, false), 2, SceneRegion::Ntsc);
     CHECK(last.camera.size() == 9 && last.subtitles.empty());
-    CHECK(throws([] { parse_scene_chunk(synth_chunk(200, 2, 1, 6, {}, false), 3, SceneRegion::Ntsc); }));
+    CHECK(throws([] {
+        parse_scene_chunk(synth_chunk(200, 2, 1, 6, {}, false), 3, SceneRegion::Ntsc);
+    }));
 
     std::vector<SceneChunk> chunks;
     for (std::size_t i = 0; i < 3; ++i) {
-        chunks.push_back(parse_scene_chunk(synth_chunk(200, i, 1, 49, {107}, false), i, SceneRegion::Ntsc));
+        chunks.push_back(
+            parse_scene_chunk(synth_chunk(200, i, 1, 49, {107}, false), i, SceneRegion::Ntsc)
+        );
     }
     const Scene s = Scene::from_chunks(5, SceneRegion::Ntsc, std::move(chunks));
     CHECK(s.end_tick() == 200);
@@ -303,11 +345,22 @@ void scenes() {
 void overlay_masking() {
     // lui v0,0x17; addiu s1,v0,0x42c0; move s2,v0; addiu s1,s2,0x42c0;
     // lui at,0x3f80; lw t0,8(a0); lw t1,-0x10(gp)
-    const u32 w[] = {0x3c020017, 0x245142c0, 0x0040902d, 0x265142c0, 0x3c013f80, 0x8c880008, 0x8f89fff0};
-    CHECK((mask_code(w, kRac1NtscGp) == std::vector<u32>{0x3c020000, 0x24510000, 0x0040902d, 0x26510000, 0x3c013f80, 0x8c880008, 0x8f890000}));
-    CHECK((address_refs(w, kRac1NtscGp) == std::vector<std::pair<std::size_t, u32>>{{1, 0x1742c0}, {3, 0x1742c0}, {6, kRac1NtscGp - 0x10}}));
+    const u32 w[] =
+        {0x3c020017, 0x245142c0, 0x0040902d, 0x265142c0, 0x3c013f80, 0x8c880008, 0x8f89fff0};
+    CHECK((
+        mask_code(w, kRac1NtscGp)
+        == std::vector<
+            u32>{0x3c020000, 0x24510000, 0x0040902d, 0x26510000, 0x3c013f80, 0x8c880008, 0x8f890000}
+    ));
+    CHECK(
+        (address_refs(w, kRac1NtscGp)
+         == std::vector<
+             std::pair<std::size_t, u32>>{{1, 0x1742c0}, {3, 0x1742c0}, {6, kRac1NtscGp - 0x10}})
+    );
     const u32 neg[] = {0x3c04001b, 0x2484f000};
-    CHECK((address_refs(neg, kRac1NtscGp) == std::vector<std::pair<std::size_t, u32>>{{1, 0x1af000}}));
+    CHECK(
+        (address_refs(neg, kRac1NtscGp) == std::vector<std::pair<std::size_t, u32>>{{1, 0x1af000}})
+    );
 
     // Seven sections; .text holds a function that jals another. The second
     // overlay is the same code linked 0x1000 higher.
@@ -330,7 +383,22 @@ void overlay_masking() {
         section(0x180100, {0xffffffff, 0, 0, 0, 0});
         section(0x180200, {0});
         const u32 jal = 0x0c000000 | ((text + 0x20) >> 2);
-        section(text, {0x27bdfff0, jal, 0, 0x03e00008, 0, 0, 0, 0, 0x27bdffe0, 0x3c020017, 0x245142c0, 0x03e00008, 0});
+        section(
+            text,
+            {0x27bdfff0,
+             jal,
+             0,
+             0x03e00008,
+             0,
+             0,
+             0,
+             0,
+             0x27bdffe0,
+             0x3c020017,
+             0x245142c0,
+             0x03e00008,
+             0}
+        );
         return std::move(o.bytes());
     };
     const LevelOverlay a = LevelOverlay::parse(build(0), kRac1NtscGp);
@@ -366,7 +434,12 @@ void core_index() {
     for (const CoreBlock& b : core.blocks) {
         names.push_back(std::format("{}@{:x}+{:x}", b.name, b.offset, b.size));
     }
-    CHECK((names == std::vector<std::string>{"tfrags@100+300", "sky@400+100", "collision@500+100", "moby_class/0042@600+200", "moby_class/0007@800+800"}));
+    CHECK((
+        names
+        == std::vector<
+            std::
+                string>{"tfrags@100+300", "sky@400+100", "collision@500+100", "moby_class/0042@600+200", "moby_class/0007@800+800"}
+    ));
     std::vector<u8> data(0x1000);
     data[0x900] = 2;
     data[0x904] = 1;
@@ -376,7 +449,10 @@ void core_index() {
     data[0x911] = 255;
     const auto grid = HeightGrid::parse(h, data);
     CHECK(grid && grid->cells.size() == 2);
-    CHECK(grid && grid->height(1.5f, 0.2f) == 0.0f && grid->height(0, 0) == 255.0f && !grid->height(2, 0));
+    CHECK(
+        grid && grid->height(1.5f, 0.2f) == 0.0f && grid->height(0, 0) == 255.0f
+        && !grid->height(2, 0)
+    );
     CHECK(core.block(data, "sky") && core.block(data, "sky")->size() == 0x100);
 }
 
@@ -392,7 +468,7 @@ void lumps() {
         t.put_at<u32>(4 * (0x14 + v), 0x40 + 0x10 * v);
     }
     t.put_at<u32>(4 * 0x19, 0x90);
-    t.put_at<u32>(0x120, 2);   // two pictures
+    t.put_at<u32>(0x120, 2);  // two pictures
     t.put_at<u32>(0x124, 0x8);
     t.put_at<u32>(0x128, 0xc);
     t.put_at<u32>(0x128 + 4, 0xabcd);
