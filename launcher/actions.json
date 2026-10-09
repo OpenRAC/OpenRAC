@@ -122,29 +122,18 @@
         "docs": "games/rac1/pal/docs/WORKFLOW.md"
       },
       {
-        "id": "play-disc",
-        "label": "Play your disc",
-        "description": "Starts your own disc image in PCSX2.",
+        "id": "play",
+        "label": "Play level",
+        "description": "Runs the extracted 3D game level in the Godot engine.",
         "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["--", "{disc}"],
-        "requires": ["disc", "pcsx2"],
+        "state": "connected",
+        "program": "{godot}",
+        "args": ["--path", "assets/godot", "res://levels/level_00/level_00.tscn"],
+        "cwd": ".",
+        "requires": ["godot", "artifact"],
+        "artifact": "assets/godot/project.godot",
         "detached": true,
-        "todo": "Check PCSX2 2.x's command line on each platform (a Flatpak PCSX2 is started as 'flatpak run net.pcsx2.PCSX2'); see docs/INTEGRATION.md, 'Playing'."
-      },
-      {
-        "id": "play-build",
-        "label": "Play the build",
-        "description": "Starts the executable you built, with your disc for the game's data.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["-elf", "{artifact}", "--", "{disc}"],
-        "requires": ["disc", "pcsx2", "artifact"],
-        "artifact": "games/rac1/pal/build-sn/rac1.elf",
-        "detached": true,
-        "todo": "Check that PCSX2's -elf override boots the rebuilt executable and that it loads the level programs from the disc; otherwise rebuild an image as rac1/ntsc does (make iso)."
+        "docs": "editor/README.md"
       },
       {
         "id": "editor-extract",
@@ -242,31 +231,6 @@
         "todo": "make iso takes the first dumps/*.iso: openrac.py setup links your image there, so it should be the only one."
       },
       {
-        "id": "play-disc",
-        "label": "Play your disc",
-        "description": "Starts your own disc image in PCSX2.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["--", "{disc}"],
-        "requires": ["disc", "pcsx2"],
-        "detached": true,
-        "todo": "As rac1/pal's play-disc."
-      },
-      {
-        "id": "play-build",
-        "label": "Play the build",
-        "description": "Starts the rebuilt disc image in PCSX2.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["--", "{artifact}"],
-        "requires": ["pcsx2", "artifact"],
-        "artifact": "games/rac1/ntsc/build/Ratchet & Clank (USA) - rebuilt.iso",
-        "detached": true,
-        "todo": "Run once a rebuilt image exists."
-      },
-      {
         "id": "editor-extract",
         "label": "Extract the levels",
         "description": "The level editor reads the PAL disc only, for now.",
@@ -320,18 +284,6 @@
         "todo": "Fails without rabbitizer: say so, or install the requirements in a launcher-owned venv."
       },
       {
-        "id": "play-disc",
-        "label": "Play your disc",
-        "description": "Starts your own disc image in PCSX2.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["--", "{disc}"],
-        "requires": ["disc", "pcsx2"],
-        "detached": true,
-        "todo": "As rac1/pal's play-disc."
-      },
-      {
         "id": "play-port",
         "label": "Play the PC port",
         "description": "The non-matching SDL2 port in ports/pal-functional, with your disc's data.",
@@ -368,18 +320,6 @@
         "state": "planned",
         "docs": "games/rac3/ntsc/CONTRIBUTING.md",
         "todo": "tools/pr_check.py --target all with the venv's Python, once Set up works."
-      },
-      {
-        "id": "play-disc",
-        "label": "Play your disc",
-        "description": "Starts your own disc image in PCSX2.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["--", "{disc}"],
-        "requires": ["disc", "pcsx2"],
-        "detached": true,
-        "todo": "As rac1/pal's play-disc."
       }
     ],
     "rac4/ntsc": [
@@ -432,18 +372,6 @@
         "args": ["tools/gen_progress_report.py", "--check"],
         "requires": ["python"],
         "docs": "games/rac4/ntsc/README.md"
-      },
-      {
-        "id": "play-disc",
-        "label": "Play your disc",
-        "description": "Starts your own disc image in PCSX2.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["--", "{disc}"],
-        "requires": ["disc", "pcsx2"],
-        "detached": true,
-        "todo": "As rac1/pal's play-disc."
       }
     ]
   }

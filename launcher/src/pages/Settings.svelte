@@ -96,13 +96,6 @@
       check={tool("python")}
     />
     <PathField
-      label="PCSX2"
-      hint="The PlayStation 2 emulator, to play your disc or a build. Optional."
-      bind:value={draft.pcsx2}
-      candidates={found?.pcsx2s}
-      check={tool("pcsx2")}
-    />
-    <PathField
       label="Docker"
       hint="The build container of Ratchet & Clank (PAL) and Deadlocked runs in it, on Linux and macOS. Optional."
       bind:value={draft.docker}
@@ -111,7 +104,7 @@
     />
     <PathField
       label="Godot"
-      hint="Godot 4 (4.7 or newer), to edit levels. Optional."
+      hint="Godot 4 (4.7 or newer), the game's 3D engine and level player. Optional."
       bind:value={draft.godot}
       candidates={found?.godots}
       check={tool("godot")}

@@ -140,16 +140,15 @@ mod tests {
     }
 
     #[test]
-    fn plans_play_disc_when_pcsx2_and_disc_present() {
+    fn plans_play_level_when_godot_present() {
         let config = Config {
             root: Some(checkout()),
-            pcsx2: Some("/var/lib/flatpak/exports/bin/net.pcsx2.PCSX2".into()),
+            godot: Some("/usr/bin/godot".into()),
             ..Config::default()
         };
-        let plan = plan(&config, &Scope::Version("rac1/pal".into()), "play-disc").unwrap();
-        assert_eq!(plan.program, PathBuf::from("/var/lib/flatpak/exports/bin/net.pcsx2.PCSX2"));
+        let plan = plan(&config, &Scope::Version("rac1/pal".into()), "play").unwrap();
+        assert_eq!(plan.program, PathBuf::from("/usr/bin/godot"));
         assert!(plan.detached);
-        assert_eq!(plan.args[0], "--");
-        assert!(plan.args[1].contains("baserom"));
+        assert_eq!(plan.args, vec!["--path", "assets/godot", "res://levels/level_00/level_00.tscn"]);
     }
 }
