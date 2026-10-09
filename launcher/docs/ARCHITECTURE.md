@@ -18,7 +18,7 @@
  └──────────────────────────────┬──────────────────────────────────────┘
                                 ▼
        the checkout's own tools: tools/openrac.py, each game's build,
-       editor/extract.py, PCSX2, Godot (never through a shell)
+       editor/extract.py, runtime/tools/run.py, Godot (never through a shell)
 ```
 
 ## The rules it keeps
@@ -82,7 +82,7 @@ mirrored in `src/lib/api.ts`.
 | ---------------------------- | --------------------------------- | ------------------------------------------------------------ |
 | `app_info`                   |                                   | `{version, platform, configFile}`                            |
 | `get_config` / `save_config` | `{config}`                        | `Config` (`core/src/config.rs`)                              |
-| `detect`                     |                                   | candidates for the checkout, Python, PCSX2, Godot, Docker    |
+| `detect`                     |                                   | candidates for the checkout, Python, Godot, Docker           |
 | `check_root`                 | `{path}`                          | `{ok, version, message}`: is it an OpenRAC checkout          |
 | `check_tool`                 | `{tool, path}`                    | the same, after running the tool's version flag              |
 | `library`                    |                                   | `Library` (`core/src/library.rs`)                            |

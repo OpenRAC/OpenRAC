@@ -14,7 +14,7 @@ export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in
 // ---- types: the serde output of core/src (camelCase) ------------------------------
 
 export type Platform = "linux" | "macos" | "windows";
-export type Tool = "python" | "pcsx2" | "godot" | "docker";
+export type Tool = "python" | "godot" | "docker";
 
 export interface AppInfo {
   version: string;
@@ -27,7 +27,6 @@ export interface AppInfo {
 export interface Config {
   root: string | null;
   python: string | null;
-  pcsx2: string | null;
   godot: string | null;
   docker: string | null;
   setupComplete: boolean;
@@ -43,7 +42,6 @@ export interface Candidate {
 export interface Detected {
   roots: Candidate[];
   pythons: Candidate[];
-  pcsx2s: Candidate[];
   godots: Candidate[];
   dockers: Candidate[];
 }

@@ -2,7 +2,7 @@
 
 A desktop app that puts OpenRAC behind buttons, for all four games: find your
 discs, place what each build needs, set up the toolchains, build, check, play
-your disc or your build in PCSX2, and open the level editor. It runs the same
+your disc in OpenRAC's own runtime (no emulator), and open the level editor. It runs the same
 commands a contributor types, from the user's own OpenRAC checkout, and shows
 their output live.
 

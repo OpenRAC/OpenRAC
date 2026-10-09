@@ -12,7 +12,7 @@
 //!   `launcher/actions.json`, and how an action becomes a command line.
 //! - [`status`]: what is in place for a version (disc, inputs, build output).
 //! - [`config`]: the launcher's own settings file.
-//! - [`detect`]: finding the checkout, Python, PCSX2, Godot and Docker.
+//! - [`detect`]: finding the checkout, Python, Godot and Docker.
 //! - [`jobs`]: running an action as a child process and streaming its output.
 //! - [`library`]: all of the above, put together for the UI.
 

@@ -16,7 +16,7 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) first for how the parts fit.
 | Browser preview with mock data                                                                | done; `npm run dev`                                                                                                                                                                |
 | Catalogue from `games/*/game.json` and `progress/summary.json`                                | done, tested against this checkout                                                                                                                                                 |
 | Disc and input status (names, sizes, links)                                                   | done; checksums are `openrac.py discs`'s, see [Disc verification](#disc-verification)                                                                                              |
-| Detecting the checkout, Python, PCSX2, Godot, Docker                                          | done; PCSX2 on Linux needs work, see [Playing](#playing)                                                                                                                           |
+| Detecting the checkout, Python, Godot, Docker                                                 | done                                                                                                                                                                               |
 | Jobs: queue, live output, cancel (whole process tree)                                         | done, tested on Linux                                                                                                                                                              |
 | Repository actions: Identify discs, Verify every checksum, Place inputs, Test OpenRAC's tools | **connected**: Identify discs and the tool tests run from the desktop app on Linux; the other two run with the same command lines from a shell. None yet with a disc in `baserom/` |
 | `report-check` for rac1/pal and rac4                                                          | **connected**: the same command lines run from a shell on Linux (they need no disc)                                                                                                |
@@ -51,35 +51,35 @@ say in the commit body what you ran, where, and what it printed at the end.
 
 One action:
 
-| Field         |                                                                       | Meaning                                                                                                                                                           |
-| ------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`          | required                                                              | unique within its list; what the UI sends back                                                                                                                    |
-| `label`       | required                                                              | the button's title, short ("Build")                                                                                                                               |
-| `description` |                                                                       | one or two sentences for players: what it does, how long, what it needs                                                                                           |
-| `kind`        | required                                                              | `setup`, `build`, `check`, `play` or `edit`: the game page's section                                                                                              |
-| `state`       | default `planned`                                                     | see above                                                                                                                                                         |
-| `program`     | for runnable states                                                   | `{python}`, `{pcsx2}`, `{godot}` or `{docker}` (the paths in Settings), a command on PATH (`bash`, `make`), or a path with placeholders (`{dir}/venv/bin/python`) |
-| `args`        |                                                                       | the arguments, one per string; placeholders allowed; never a shell line                                                                                           |
-| `cwd`         | default: the version's folder, or the checkout for repository actions | relative to the checkout (`"."` for the checkout itself)                                                                                                          |
-| `platforms`   | default: all                                                          | `linux`, `macos`, `windows`; the others' actions are tucked away                                                                                                  |
-| `requires`    |                                                                       | what must be in place, each shown as a reason when missing: `disc`, `inputs`, `toolchains`, `python`, `pcsx2`, `godot`, `docker`, `artifact`                      |
-| `artifact`    |                                                                       | a file the action makes (a build) or needs (play the build), relative to the checkout; `{artifact}` in `args`                                                     |
-| `detached`    | default false                                                         | start it and let it run (an emulator, an editor) instead of a job in Tasks                                                                                        |
-| `docs`        |                                                                       | the document for this step, relative to the checkout (`#anchor` allowed); the Docs button opens it                                                                |
-| `todo`        | required while `planned`                                              | for contributors: what is left to do or check                                                                                                                     |
+| Field         |                                                                       | Meaning                                                                                                                                                |
+| ------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`          | required                                                              | unique within its list; what the UI sends back                                                                                                         |
+| `label`       | required                                                              | the button's title, short ("Build")                                                                                                                    |
+| `description` |                                                                       | one or two sentences for players: what it does, how long, what it needs                                                                                |
+| `kind`        | required                                                              | `setup`, `build`, `check`, `play` or `edit`: the game page's section                                                                                   |
+| `state`       | default `planned`                                                     | see above                                                                                                                                              |
+| `program`     | for runnable states                                                   | `{python}`, `{godot}` or `{docker}` (the paths in Settings), a command on PATH (`bash`, `make`), or a path with placeholders (`{dir}/venv/bin/python`) |
+| `args`        |                                                                       | the arguments, one per string; placeholders allowed; never a shell line                                                                                |
+| `cwd`         | default: the version's folder, or the checkout for repository actions | relative to the checkout (`"."` for the checkout itself)                                                                                               |
+| `platforms`   | default: all                                                          | `linux`, `macos`, `windows`; the others' actions are tucked away                                                                                       |
+| `requires`    |                                                                       | what must be in place, each shown as a reason when missing: `disc`, `inputs`, `toolchains`, `python`, `godot`, `docker`, `artifact`                    |
+| `artifact`    |                                                                       | a file the action makes (a build) or needs (play the build), relative to the checkout; `{artifact}` in `args`                                          |
+| `detached`    | default false                                                         | start it and let it run (an emulator, an editor) instead of a job in Tasks                                                                             |
+| `docs`        |                                                                       | the document for this step, relative to the checkout (`#anchor` allowed); the Docs button opens it                                                     |
+| `todo`        | required while `planned`                                              | for contributors: what is left to do or check                                                                                                          |
 
 Placeholders (anything else is rejected by the tests):
 
-| Placeholder                      | Value                                                |
-| -------------------------------- | ---------------------------------------------------- |
-| `{root}`                         | the checkout, absolute                               |
-| `{dir}`                          | the version's folder, absolute (`…/games/rac1/pal`)  |
-| `{python}`, `{pcsx2}`, `{godot}` | the paths in Settings (refused while unset)          |
-| `{docker}`                       | the path in Settings, or `docker` from PATH          |
-| `{disc}`                         | the disc image found for the version (absolute)      |
-| `{boot}`                         | the boot executable `openrac.py setup` placed for it |
-| `{artifact}`                     | the action's `artifact`, absolute                    |
-| `{serial}`, `{key}`              | `SCES_509.16`, `rac1/pal`                            |
+| Placeholder           | Value                                                |
+| --------------------- | ---------------------------------------------------- |
+| `{root}`              | the checkout, absolute                               |
+| `{dir}`               | the version's folder, absolute (`…/games/rac1/pal`)  |
+| `{python}`, `{godot}` | the paths in Settings (refused while unset)          |
+| `{docker}`            | the path in Settings, or `docker` from PATH          |
+| `{disc}`              | the disc image found for the version (absolute)      |
+| `{boot}`              | the boot executable `openrac.py setup` placed for it |
+| `{artifact}`          | the action's `artifact`, absolute                    |
+| `{serial}`, `{key}`   | `SCES_509.16`, `rac1/pal`                            |
 
 `cargo test -p openrac-launcher-core` checks the file against the checkout:
 known versions, unique ids, known placeholders (and no version placeholders in
@@ -117,39 +117,31 @@ with tests in `tools/test_openrac.py`: the flag and its test go there, in a
 
 ### 2. Playing
 
-Every version has a `play-disc` action: `{pcsx2} -- {disc}`, unverified. To
-connect it:
+The games are played in OpenRAC's own runtime
+([runtime/README.md](../../runtime/README.md)): the launcher starts no
+emulator and needs no BIOS. Every version has a `play-runtime` action,
+`runtime/tools/run.py play {serial} {disc}`, which builds the runtime (CMake,
+a C++ compiler, SDL3) and runs the disc in it, in a window. It is not
+detached, so what the build and the runtime print shows in Tasks, and closing
+the game's window ends the job.
 
-- Check PCSX2 2.x's command line (`pcsx2-qt [options] -- <file>`) on each
-  platform, and that it starts the game rather than the library view
-  (`-fastboot`, `-batch`, `-nogui` are its options for that).
-- Linux: PCSX2 is usually a Flatpak, started as `flatpak run net.pcsx2.PCSX2`,
-  which is a program plus arguments, not one path. Either let the PCSX2
-  setting hold a command with arguments (and a `{pcsx2}` placeholder that
-  expands to several), or detect the Flatpak and store `flatpak` plus a
-  prefix. `core/src/detect.rs` (`usual_places`) has the hook.
-- The BIOS is the user's own and PCSX2's business; the launcher should only
-  say so when PCSX2 reports it missing.
+| Version   | State      | How far it gets                                                    |
+| --------- | ---------- | ------------------------------------------------------------------ |
+| rac1/pal  | unverified | menus, memory card, sound, the first level                         |
+| rac1/ntsc | unverified | the main menu and the first level                                  |
+| rac2/ntsc | unverified | the main menu and the start of the first level; movies are skipped |
+| rac3/ntsc | planned    | the runtime has no table for its program yet                       |
+| rac4/ntsc | planned    | the runtime has no table for its program yet                       |
 
-Every version also has a `play-runtime` action: `runtime/tools/run.py play
-{serial} {disc}` builds OpenRAC's own runtime (CMake, a C++ compiler, SDL3)
-and runs the disc in it, in a window, with no emulator. It is not detached, so
-what the build and the runtime print shows in Tasks, and closing the game's
-window ends the job. It is `unverified` for rac1/pal, rac1/ntsc and rac2/ntsc
-(run from a shell on macOS, not yet from the desktop app) and `planned` for
-rac3 and rac4, whose programs the runtime has no table for yet
-([runtime/README.md](../../runtime/README.md#running-a-game)). The repository
-action `runtime-tests` builds it and runs its tests.
+"Unverified" here means run from a shell on macOS, not yet from the desktop
+app. The repository action `runtime-tests` builds the runtime and runs its
+tests.
 
-Playing a build differs per game:
-
-| Version   | How                                                                                                                       | Artifact                                                    |
-| --------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| rac1/pal  | `-elf <build> -- <disc>`: the rebuilt executable with the disc's data; check PCSX2 loads the level programs from the disc | `games/rac1/pal/build-sn/rac1.elf` (confirm)                |
-| rac1/ntsc | `make iso` patches the build into a copy of the image                                                                     | `games/rac1/ntsc/build/Ratchet & Clank (USA) - rebuilt.iso` |
-| rac2      | the reference build lives in its runtime folder; and a PC port in `ports/pal-functional` (SDL2, CMake)                    | to find out                                                 |
-| rac3      | the three programs rebuild byte for byte; how to boot them is to find out                                                 | to find out                                                 |
-| rac4      | nothing is linked yet                                                                                                     | none                                                        |
+What comes next is the port itself: the decompiled C compiled for the host
+and run in place of the retail code, function by function, and a renderer of
+OpenRAC's own on the GPU ([runtime/docs/DESIGN.md](../../runtime/docs/DESIGN.md)).
+When a version's build can be played that way, it gets an action of its own
+here ("Play your build"), with the built library as its `artifact`.
 
 ### 3. Each game's set-up, build and checks
 

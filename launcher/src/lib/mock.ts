@@ -89,7 +89,6 @@ const platform: Platform = "linux";
 let config: Config = {
   root: "/home/you/OpenRAC",
   python: "/usr/bin/python3",
-  pcsx2: null,
   godot: null,
   docker: "/usr/bin/docker",
   // ?setup opens the first-run screen.
@@ -148,7 +147,6 @@ function view(action: RawAction, st: VersionStatus | null): ActionView {
         inputs: !st?.inputsReady,
         toolchains: !toolchains,
         python: !config.python,
-        pcsx2: !config.pcsx2,
         godot: !config.godot,
         docker: !config.docker,
         artifact: true,
@@ -158,7 +156,6 @@ function view(action: RawAction, st: VersionStatus | null): ActionView {
         inputs: "the inputs Place inputs puts in the game",
         toolchains: "the compilers in toolchains/",
         python: "Python (Settings)",
-        pcsx2: "PCSX2 (Settings)",
         godot: "Godot (Settings)",
         docker: "Docker",
         artifact: `${action.artifact ?? "its artifact"}, which an earlier step makes`,
@@ -331,7 +328,6 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay<Detected>({
         roots: [{ path: "/home/you/OpenRAC", source: "next to the launcher" }],
         pythons: [{ path: "/usr/bin/python3", source: "PATH" }],
-        pcsx2s: [],
         godots: [],
         dockers: [{ path: "/usr/bin/docker", source: "PATH" }],
       });

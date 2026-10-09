@@ -8,8 +8,13 @@
       "kind": "setup",
       "state": "connected",
       "program": "{python}",
-      "args": ["tools/openrac.py", "discs"],
-      "requires": ["python"],
+      "args": [
+        "tools/openrac.py",
+        "discs"
+      ],
+      "requires": [
+        "python"
+      ],
       "docs": "baserom/README.md"
     },
     {
@@ -19,8 +24,14 @@
       "kind": "check",
       "state": "connected",
       "program": "{python}",
-      "args": ["tools/openrac.py", "discs", "--full"],
-      "requires": ["python"],
+      "args": [
+        "tools/openrac.py",
+        "discs",
+        "--full"
+      ],
+      "requires": [
+        "python"
+      ],
       "docs": "baserom/README.md"
     },
     {
@@ -30,8 +41,13 @@
       "kind": "setup",
       "state": "connected",
       "program": "{python}",
-      "args": ["tools/openrac.py", "setup"],
-      "requires": ["python"],
+      "args": [
+        "tools/openrac.py",
+        "setup"
+      ],
+      "requires": [
+        "python"
+      ],
       "docs": "docs/LAYOUT.md"
     },
     {
@@ -41,8 +57,16 @@
       "kind": "check",
       "state": "connected",
       "program": "{python}",
-      "args": ["-m", "unittest", "discover", "-s", "tools"],
-      "requires": ["python"],
+      "args": [
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools"
+      ],
+      "requires": [
+        "python"
+      ],
       "docs": "CONTRIBUTING.md#tests"
     },
     {
@@ -52,8 +76,13 @@
       "kind": "check",
       "state": "unverified",
       "program": "{python}",
-      "args": ["runtime/tools/run.py", "test"],
-      "requires": ["python"],
+      "args": [
+        "runtime/tools/run.py",
+        "test"
+      ],
+      "requires": [
+        "python"
+      ],
       "docs": "runtime/README.md",
       "todo": "Run it from the desktop app on each platform. The same command line was run from a shell on macOS (Apple Silicon)."
     },
@@ -75,9 +104,19 @@
         "kind": "setup",
         "state": "unverified",
         "program": "bash",
-        "args": ["tools/docker/run.sh", "bash", "tools/setup_asm.sh"],
-        "platforms": ["linux", "macos"],
-        "requires": ["inputs", "docker"],
+        "args": [
+          "tools/docker/run.sh",
+          "bash",
+          "tools/setup_asm.sh"
+        ],
+        "platforms": [
+          "linux",
+          "macos"
+        ],
+        "requires": [
+          "inputs",
+          "docker"
+        ],
         "docs": "games/rac1/pal/README.md",
         "todo": "Run once from the launcher on Linux and macOS; on a first run the container image is built, which takes several minutes."
       },
@@ -88,9 +127,15 @@
         "kind": "setup",
         "state": "unverified",
         "program": "bash",
-        "args": ["tools/setup_asm.sh"],
-        "platforms": ["windows"],
-        "requires": ["inputs"],
+        "args": [
+          "tools/setup_asm.sh"
+        ],
+        "platforms": [
+          "windows"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "docs": "games/rac1/pal/README.md",
         "todo": "Needs Git Bash's bash.exe on PATH (not WSL's, which sees other paths) and the project's Python packages; check both on Windows."
       },
@@ -101,9 +146,20 @@
         "kind": "build",
         "state": "unverified",
         "program": "bash",
-        "args": ["tools/docker/run.sh", "bash", "tools/build_sn.sh"],
-        "platforms": ["linux", "macos"],
-        "requires": ["inputs", "toolchains", "docker"],
+        "args": [
+          "tools/docker/run.sh",
+          "bash",
+          "tools/build_sn.sh"
+        ],
+        "platforms": [
+          "linux",
+          "macos"
+        ],
+        "requires": [
+          "inputs",
+          "toolchains",
+          "docker"
+        ],
         "artifact": "games/rac1/pal/build-sn/rac1.elf",
         "docs": "games/rac1/pal/docs/CONTAINERS.md",
         "todo": "Confirm build-sn/rac1.elf is the final executable and how the build reports a mismatch (its exit code), so the launcher can say 'matches retail'."
@@ -115,9 +171,16 @@
         "kind": "build",
         "state": "unverified",
         "program": "bash",
-        "args": ["tools/build_sn.sh"],
-        "platforms": ["windows"],
-        "requires": ["inputs", "toolchains"],
+        "args": [
+          "tools/build_sn.sh"
+        ],
+        "platforms": [
+          "windows"
+        ],
+        "requires": [
+          "inputs",
+          "toolchains"
+        ],
         "artifact": "games/rac1/pal/build-sn/rac1.elf",
         "docs": "games/rac1/pal/README.md",
         "todo": "As setup-asm-native: Git Bash on PATH; check on Windows."
@@ -129,8 +192,13 @@
         "kind": "check",
         "state": "connected",
         "program": "{python}",
-        "args": ["tools/gen_progress_report.py", "--check"],
-        "requires": ["python"],
+        "args": [
+          "tools/gen_progress_report.py",
+          "--check"
+        ],
+        "requires": [
+          "python"
+        ],
         "docs": "games/rac1/pal/docs/WORKFLOW.md"
       },
       {
@@ -140,36 +208,19 @@
         "kind": "play",
         "state": "unverified",
         "program": "{python}",
-        "args": ["runtime/tools/run.py", "play", "{serial}", "{disc}"],
+        "args": [
+          "runtime/tools/run.py",
+          "play",
+          "{serial}",
+          "{disc}"
+        ],
         "cwd": ".",
-        "requires": ["disc", "python"],
+        "requires": [
+          "disc",
+          "python"
+        ],
         "docs": "runtime/README.md#running-a-game",
         "todo": "Run it from the desktop app on each platform. The same command line was run from a shell on macOS (Apple Silicon) with the PAL disc: it builds, opens the window and plays."
-      },
-      {
-        "id": "play-disc",
-        "label": "Play your disc",
-        "description": "Starts your own disc image in PCSX2.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["--", "{disc}"],
-        "requires": ["disc", "pcsx2"],
-        "detached": true,
-        "todo": "Check PCSX2 2.x's command line on each platform (a Flatpak PCSX2 is started as 'flatpak run net.pcsx2.PCSX2'); see docs/INTEGRATION.md, 'Playing'."
-      },
-      {
-        "id": "play-build",
-        "label": "Play the build",
-        "description": "Starts the executable you built, with your disc for the game's data.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["-elf", "{artifact}", "--", "{disc}"],
-        "requires": ["disc", "pcsx2", "artifact"],
-        "artifact": "games/rac1/pal/build-sn/rac1.elf",
-        "detached": true,
-        "todo": "Check that PCSX2's -elf override boots the rebuilt executable and that it loads the level programs from the disc; otherwise rebuild an image as rac1/ntsc does (make iso)."
       },
       {
         "id": "editor-extract",
@@ -178,9 +229,17 @@
         "kind": "edit",
         "state": "unverified",
         "program": "{python}",
-        "args": ["editor/extract.py", "godot", "{disc}", "assets/godot"],
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/godot"
+        ],
         "cwd": ".",
-        "requires": ["disc", "python"],
+        "requires": [
+          "disc",
+          "python"
+        ],
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS the same command extracted a level into a new folder and refused an existing one with a clear message. Then offer Open in Godot instead when assets/godot exists."
       },
@@ -191,9 +250,17 @@
         "kind": "edit",
         "state": "unverified",
         "program": "{godot}",
-        "args": ["--path", "assets/godot", "--headless", "--import"],
+        "args": [
+          "--path",
+          "assets/godot",
+          "--headless",
+          "--import"
+        ],
         "cwd": ".",
-        "requires": ["godot", "artifact"],
+        "requires": [
+          "godot",
+          "artifact"
+        ],
         "artifact": "assets/godot/project.godot",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS, Godot 4.7.2 imported one extracted level this way in five seconds; a 4.9 development build crashed on it."
@@ -205,9 +272,16 @@
         "kind": "edit",
         "state": "unverified",
         "program": "{godot}",
-        "args": ["--path", "assets/godot", "-e"],
+        "args": [
+          "--path",
+          "assets/godot",
+          "-e"
+        ],
         "cwd": ".",
-        "requires": ["godot", "artifact"],
+        "requires": [
+          "godot",
+          "artifact"
+        ],
         "artifact": "assets/godot/project.godot",
         "detached": true,
         "docs": "editor/README.md",
@@ -238,9 +312,17 @@
         "kind": "check",
         "state": "unverified",
         "program": "{python}",
-        "args": ["-m", "unittest", "discover", "-s", "editor"],
+        "args": [
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "editor"
+        ],
         "cwd": ".",
-        "requires": ["python"],
+        "requires": [
+          "python"
+        ],
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS: 66 tests, OK."
       }
@@ -253,9 +335,17 @@
         "kind": "setup",
         "state": "unverified",
         "program": "bash",
-        "args": ["setup.sh", "--elf", "config/us/SCUS_971.99"],
-        "platforms": ["linux"],
-        "requires": ["inputs"],
+        "args": [
+          "setup.sh",
+          "--elf",
+          "config/us/SCUS_971.99"
+        ],
+        "platforms": [
+          "linux"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "docs": "games/rac1/ntsc/docs/building.md",
         "todo": "Run once on Linux. On Windows it runs in WSL: decide how the launcher starts WSL (wsl.exe --cd ...)."
       },
@@ -266,9 +356,19 @@
         "kind": "setup",
         "state": "unverified",
         "program": "bash",
-        "args": ["setup.sh", "--docker", "--elf", "config/us/SCUS_971.99"],
-        "platforms": ["macos"],
-        "requires": ["inputs", "docker"],
+        "args": [
+          "setup.sh",
+          "--docker",
+          "--elf",
+          "config/us/SCUS_971.99"
+        ],
+        "platforms": [
+          "macos"
+        ],
+        "requires": [
+          "inputs",
+          "docker"
+        ],
         "docs": "games/rac1/ntsc/docs/building.md",
         "todo": "Run once on macOS."
       },
@@ -279,9 +379,15 @@
         "kind": "build",
         "state": "unverified",
         "program": "make",
-        "args": ["elf"],
-        "platforms": ["linux"],
-        "requires": ["inputs"],
+        "args": [
+          "elf"
+        ],
+        "platforms": [
+          "linux"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "docs": "games/rac1/ntsc/docs/building.md",
         "todo": "Find the executable make elf writes (config/us/build/SCUS_971.99 per docs/building.md) and add it as the artifact; macOS runs make through host/run.sh."
       },
@@ -292,9 +398,15 @@
         "kind": "check",
         "state": "unverified",
         "program": "bash",
-        "args": ["verify-baseline.sh"],
-        "platforms": ["linux"],
-        "requires": ["inputs"],
+        "args": [
+          "verify-baseline.sh"
+        ],
+        "platforms": [
+          "linux"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "docs": "games/rac1/ntsc/docs/building.md"
       },
       {
@@ -304,9 +416,15 @@
         "kind": "build",
         "state": "unverified",
         "program": "make",
-        "args": ["iso"],
-        "platforms": ["linux"],
-        "requires": ["inputs"],
+        "args": [
+          "iso"
+        ],
+        "platforms": [
+          "linux"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "artifact": "games/rac1/ntsc/build/Ratchet & Clank (USA) - rebuilt.iso",
         "docs": "games/rac1/ntsc/docs/building.md",
         "todo": "make iso takes the first dumps/*.iso: openrac.py setup links your image there, so it should be the only one."
@@ -318,36 +436,19 @@
         "kind": "play",
         "state": "unverified",
         "program": "{python}",
-        "args": ["runtime/tools/run.py", "play", "{serial}", "{disc}"],
+        "args": [
+          "runtime/tools/run.py",
+          "play",
+          "{serial}",
+          "{disc}"
+        ],
         "cwd": ".",
-        "requires": ["disc", "python"],
+        "requires": [
+          "disc",
+          "python"
+        ],
         "docs": "runtime/README.md#running-a-game",
         "todo": "As rac1/pal's play-runtime. From a shell on macOS the US disc ran in the window to the main menu, and headless into the first level."
-      },
-      {
-        "id": "play-disc",
-        "label": "Play your disc",
-        "description": "Starts your own disc image in PCSX2.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["--", "{disc}"],
-        "requires": ["disc", "pcsx2"],
-        "detached": true,
-        "todo": "As rac1/pal's play-disc."
-      },
-      {
-        "id": "play-build",
-        "label": "Play the build",
-        "description": "Starts the rebuilt disc image in PCSX2.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["--", "{artifact}"],
-        "requires": ["pcsx2", "artifact"],
-        "artifact": "games/rac1/ntsc/build/Ratchet & Clank (USA) - rebuilt.iso",
-        "detached": true,
-        "todo": "Run once a rebuilt image exists."
       },
       {
         "id": "editor-extract",
@@ -367,8 +468,12 @@
         "kind": "check",
         "state": "unverified",
         "program": "{python}",
-        "args": ["scripts/doctor.py"],
-        "requires": ["python"],
+        "args": [
+          "scripts/doctor.py"
+        ],
+        "requires": [
+          "python"
+        ],
         "docs": "games/rac2/ntsc/docs/START-HERE.md",
         "todo": "Run once; it may need requirements.txt installed first."
       },
@@ -397,8 +502,16 @@
         "kind": "check",
         "state": "unverified",
         "program": "{python}",
-        "args": ["-m", "unittest", "discover", "-s", "tests"],
-        "requires": ["python"],
+        "args": [
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests"
+        ],
+        "requires": [
+          "python"
+        ],
         "docs": "games/rac2/ntsc/README.md",
         "todo": "Fails without rabbitizer: say so, or install the requirements in a launcher-owned venv."
       },
@@ -409,23 +522,19 @@
         "kind": "play",
         "state": "unverified",
         "program": "{python}",
-        "args": ["runtime/tools/run.py", "play", "{serial}", "{disc}"],
+        "args": [
+          "runtime/tools/run.py",
+          "play",
+          "{serial}",
+          "{disc}"
+        ],
         "cwd": ".",
-        "requires": ["disc", "python"],
+        "requires": [
+          "disc",
+          "python"
+        ],
         "docs": "runtime/README.md#running-a-game",
         "todo": "As rac1/pal's play-runtime. From a shell on macOS the disc ran in the window to the main menu, and headless into the first level. Movies are skipped."
-      },
-      {
-        "id": "play-disc",
-        "label": "Play your disc",
-        "description": "Starts your own disc image in PCSX2.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["--", "{disc}"],
-        "requires": ["disc", "pcsx2"],
-        "detached": true,
-        "todo": "As rac1/pal's play-disc."
       },
       {
         "id": "play-port",
@@ -484,18 +593,6 @@
         "todo": "The runtime has no table for this game (runtime/games/SCUS_973.53.hooks): runtime/tools/port_hooks.py finds none of the first game's library functions in the boot executable, which is a loader for the main program. Find the main program first."
       },
       {
-        "id": "play-disc",
-        "label": "Play your disc",
-        "description": "Starts your own disc image in PCSX2.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["--", "{disc}"],
-        "requires": ["disc", "pcsx2"],
-        "detached": true,
-        "todo": "As rac1/pal's play-disc."
-      },
-      {
         "id": "editor-extract",
         "label": "Extract the levels",
         "description": "The level editor reads the first game's PAL disc only, for now.",
@@ -513,9 +610,16 @@
         "kind": "setup",
         "state": "unverified",
         "program": "bash",
-        "args": ["tools/setup_asm.sh"],
-        "platforms": ["linux", "macos"],
-        "requires": ["inputs"],
+        "args": [
+          "tools/setup_asm.sh"
+        ],
+        "platforms": [
+          "linux",
+          "macos"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "docs": "games/rac4/ntsc/README.md",
         "todo": "Run once; check whether it needs the project's venv first."
       },
@@ -526,9 +630,20 @@
         "kind": "build",
         "state": "unverified",
         "program": "bash",
-        "args": ["tools/docker/run.sh", "bash", "tools/build.sh"],
-        "platforms": ["linux", "macos"],
-        "requires": ["inputs", "toolchains", "docker"],
+        "args": [
+          "tools/docker/run.sh",
+          "bash",
+          "tools/build.sh"
+        ],
+        "platforms": [
+          "linux",
+          "macos"
+        ],
+        "requires": [
+          "inputs",
+          "toolchains",
+          "docker"
+        ],
         "docs": "games/rac4/ntsc/README.md",
         "todo": "Nothing is linked yet in rac4: the build writes objects to build/obj, so there is no executable to play."
       },
@@ -539,9 +654,16 @@
         "kind": "check",
         "state": "unverified",
         "program": "{dir}/venv/bin/python",
-        "args": ["tools/audit_matches.py"],
-        "platforms": ["linux", "macos"],
-        "requires": ["inputs"],
+        "args": [
+          "tools/audit_matches.py"
+        ],
+        "platforms": [
+          "linux",
+          "macos"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "docs": "games/rac4/ntsc/README.md",
         "todo": "Uses the project's own venv (venv/): add an action that creates it, or run with {python} once the requirements are known."
       },
@@ -552,8 +674,13 @@
         "kind": "check",
         "state": "connected",
         "program": "{python}",
-        "args": ["tools/gen_progress_report.py", "--check"],
-        "requires": ["python"],
+        "args": [
+          "tools/gen_progress_report.py",
+          "--check"
+        ],
+        "requires": [
+          "python"
+        ],
         "docs": "games/rac4/ntsc/README.md"
       },
       {
@@ -564,18 +691,6 @@
         "state": "planned",
         "docs": "runtime/README.md#running-a-game",
         "todo": "The runtime has no table for this game (runtime/games/SCUS_974.65.hooks): runtime/tools/port_hooks.py finds none of the first game's library functions in the boot executable, which is packed. Unpack it first."
-      },
-      {
-        "id": "play-disc",
-        "label": "Play your disc",
-        "description": "Starts your own disc image in PCSX2.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{pcsx2}",
-        "args": ["--", "{disc}"],
-        "requires": ["disc", "pcsx2"],
-        "detached": true,
-        "todo": "As rac1/pal's play-disc."
       },
       {
         "id": "editor-extract",

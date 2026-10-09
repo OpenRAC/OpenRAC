@@ -1,5 +1,5 @@
 //! Finding what the launcher needs on this machine: the OpenRAC checkout,
-//! Python, PCSX2, Godot and Docker. Each finder returns candidates with
+//! Python, Godot and Docker. Each finder returns candidates with
 //! where they came from; the UI offers them, the user picks, and
 //! [`check_tool`] says whether a pick works.
 
@@ -16,7 +16,6 @@ use crate::is_openrac_root;
 #[serde(rename_all = "camelCase")]
 pub enum Tool {
     Python,
-    Pcsx2,
     Godot,
     Docker,
 }
@@ -34,7 +33,6 @@ pub struct Candidate {
 pub struct Detected {
     pub roots: Vec<Candidate>,
     pub pythons: Vec<Candidate>,
-    pub pcsx2s: Vec<Candidate>,
     pub godots: Vec<Candidate>,
     pub dockers: Vec<Candidate>,
 }
@@ -53,7 +51,6 @@ pub fn detect_all(start: &[PathBuf]) -> Detected {
     Detected {
         roots: roots(start),
         pythons: tool_candidates(Tool::Python),
-        pcsx2s: tool_candidates(Tool::Pcsx2),
         godots: tool_candidates(Tool::Godot),
         dockers: tool_candidates(Tool::Docker),
     }
@@ -108,7 +105,6 @@ fn names(tool: Tool) -> &'static [&'static str] {
     match tool {
         Tool::Python if cfg!(windows) => &["python", "py", "python3"],
         Tool::Python => &["python3", "python"],
-        Tool::Pcsx2 => &["pcsx2-qt", "pcsx2", "PCSX2"],
         Tool::Godot => &["godot", "godot4", "Godot"],
         Tool::Docker => &["docker", "podman"],
     }
@@ -119,19 +115,6 @@ fn usual_places(tool: Tool) -> Vec<PathBuf> {
     let mut places = Vec::new();
     let env = |name: &str| std::env::var_os(name).map(PathBuf::from);
     match tool {
-        Tool::Pcsx2 => {
-            if cfg!(windows) {
-                for base in [env("ProgramFiles"), env("LOCALAPPDATA").map(|d| d.join("Programs"))].into_iter().flatten()
-                {
-                    places.push(base.join("PCSX2").join("pcsx2-qt.exe"));
-                }
-            } else if cfg!(target_os = "macos") {
-                places.push("/Applications/PCSX2.app/Contents/MacOS/PCSX2".into());
-            }
-            // On Linux PCSX2 is usually a Flatpak (net.pcsx2.PCSX2) or an
-            // AppImage the user keeps anywhere: neither has a fixed path, so
-            // the user picks it. See docs/INTEGRATION.md ("Playing").
-        }
         Tool::Godot => {
             if let Some(godot) = env("GODOT") {
                 places.push(godot);
@@ -191,9 +174,6 @@ pub fn tool_candidates(tool: Tool) -> Vec<Candidate> {
 fn version_probe(tool: Tool) -> (&'static [&'static str], &'static str) {
     match tool {
         Tool::Python => (&["--version"], "Python 3."),
-        // PCSX2 has no flag that prints its version without starting the
-        // emulator, so only the file is checked. See docs/INTEGRATION.md.
-        Tool::Pcsx2 => (&[], ""),
         Tool::Godot => (&["--version"], "4."),
         Tool::Docker => (&["--version"], "version"),
     }

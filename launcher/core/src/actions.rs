@@ -21,7 +21,7 @@ pub const FILE: &str = "launcher/actions.json";
 
 /// The only `{name}` placeholders an argument, `program` or `cwd` may hold.
 pub const PLACEHOLDERS: &[&str] =
-    &["root", "dir", "python", "pcsx2", "godot", "docker", "disc", "boot", "artifact", "serial", "key"];
+    &["root", "dir", "python", "godot", "docker", "disc", "boot", "artifact", "serial", "key"];
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -51,7 +51,7 @@ pub struct Action {
     #[serde(default)]
     pub state: State,
     /// The program: a placeholder for a configured tool (`{python}`,
-    /// `{pcsx2}`, `{godot}`, `{docker}`) or a command found on PATH (`bash`, `make`).
+    /// `{godot}`, `{docker}`) or a command found on PATH (`bash`, `make`).
     #[serde(default)]
     pub program: Option<String>,
     #[serde(default)]
@@ -150,7 +150,6 @@ pub enum Requirement {
     /// The shared toolchains/ folder holds a compiler.
     Toolchains,
     Python,
-    Pcsx2,
     Godot,
     Docker,
     /// `artifact` exists (a build to play).
@@ -328,7 +327,6 @@ impl Action {
                         .then_some("the inputs Place inputs puts in the game"),
                     Requirement::Toolchains => (!ctx.toolchains).then_some("the compilers in toolchains/"),
                     Requirement::Python => ctx.config.python.is_none().then_some("Python (Settings)"),
-                    Requirement::Pcsx2 => ctx.config.pcsx2.is_none().then_some("PCSX2 (Settings)"),
                     Requirement::Godot => ctx.config.godot.is_none().then_some("Godot (Settings)"),
                     Requirement::Docker => {
                         (ctx.config.docker.is_none() && crate::detect::which("docker").is_none()).then_some("Docker")
@@ -411,7 +409,6 @@ fn value(name: &str, ctx: &Context) -> Result<String, String> {
     Ok(match name {
         "root" => ctx.root.display().to_string(),
         "python" => path(&ctx.config.python, "Python")?,
-        "pcsx2" => path(&ctx.config.pcsx2, "PCSX2")?,
         "godot" => path(&ctx.config.godot, "Godot")?,
         "docker" => match &ctx.config.docker {
             Some(p) => p.display().to_string(),

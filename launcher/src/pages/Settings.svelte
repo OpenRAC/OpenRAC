@@ -26,7 +26,6 @@
       if (setup) {
         draft.root ??= d.roots[0]?.path ?? null;
         draft.python ??= d.pythons[0]?.path ?? null;
-        draft.pcsx2 ??= d.pcsx2s[0]?.path ?? null;
         draft.godot ??= d.godots[0]?.path ?? null;
         draft.docker ??= d.dockers[0]?.path ?? null;
       }
@@ -34,7 +33,7 @@
   });
 
   const changed = $derived(JSON.stringify(draft) !== JSON.stringify(app.config));
-  const tool = (t: "python" | "pcsx2" | "godot" | "docker") => (path: string) => api.checkTool(t, path);
+  const tool = (t: "python" | "godot" | "docker") => (path: string) => api.checkTool(t, path);
   const root = (path: string): Promise<Check> => api.checkRoot(path);
 
   async function save(finish: boolean) {
@@ -88,13 +87,6 @@
       bind:value={draft.python}
       candidates={found?.pythons}
       check={tool("python")}
-    />
-    <PathField
-      label="PCSX2"
-      hint="The PlayStation 2 emulator, to play your disc or a build. Optional."
-      bind:value={draft.pcsx2}
-      candidates={found?.pcsx2s}
-      check={tool("pcsx2")}
     />
     <PathField
       label="Docker"

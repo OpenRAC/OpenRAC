@@ -48,6 +48,6 @@ export const SECTIONS: { kind: ActionKind; title: string; icon: IconName; blurb:
     icon: "check",
     blurb: "Prove the build matches retail, and the project's own checks.",
   },
-  { kind: "play", title: "Play", icon: "play", blurb: "Your disc or your build, in PCSX2 or as a PC port." },
+  { kind: "play", title: "Play", icon: "play", blurb: "Your disc in OpenRAC's own runtime: no emulator." },
   { kind: "edit", title: "Level editor", icon: "edit", blurb: "Your levels in Godot." },
 ];
