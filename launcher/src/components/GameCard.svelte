@@ -15,8 +15,8 @@
   let isCardHovered = $state(false);
   let activeImportVersion = $state<VersionView | null>(null);
 
-  const GAME_MEDIA: Record<string, { bg: string; gif?: string; video?: string }> = {
-    rac1: { bg: "/img/rac1-bg.webp", video: "/img/rac1-gameplay.mp4", gif: "/img/rac1-gameplay.gif" },
+  const GAME_MEDIA: Record<string, { bg: string; gif: string }> = {
+    rac1: { bg: "/img/rac1-bg.webp", gif: "/img/rac1-gameplay.gif" },
     rac2: { bg: "/img/gc-bg.webp", gif: "/img/rac2-gameplay.gif" },
     rac3: { bg: "/img/uya-bg.webp", gif: "/img/rac3-gameplay.gif" },
     rac4: { bg: "/img/deadlocked-bg.webp", gif: "/img/rac4-gameplay.gif" },
@@ -45,9 +45,7 @@
   {#if media}
     <div class="card-backdrop" aria-hidden="true">
       <img src={media.bg} alt="" class="backdrop-img static" class:dimmed={isCardHovered} />
-      {#if media.video && isCardHovered}
-        <video src={media.video} class="backdrop-img video active" autoplay loop muted playsinline></video>
-      {:else if media.gif}
+      {#if media.gif}
         <img src={media.gif} alt="" class="backdrop-img gif" class:active={isCardHovered} />
       {/if}
       <div class="backdrop-overlay"></div>

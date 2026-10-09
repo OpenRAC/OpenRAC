@@ -63,15 +63,15 @@ fn save_config(state: State<'_, AppState>, config: Config) -> Result<Config, Str
         .clone()
         .unwrap_or_else(|| openrac_launcher_core::discord::DEFAULT_CLIENT_ID.to_string());
     let rpc_enabled = config.discord_rpc;
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut discord = discord.lock().unwrap();
-        discord.ipc.set_client_id(target_id);
-        if rpc_enabled {
-            let app_start = discord.app_start;
-            let _ = discord.ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
-        } else {
-            let _ = discord.ipc.clear();
-        }
+    tauri::async_runtime::spawn(async move {
+        let _ = tauri::async_runtime::spawn_blocking(move || {
+            let mut discord = discord.lock().unwrap();
+            discord.ipc.set_client_id(target_id);
+            if !rpc_enabled {
+                let _ = discord.ipc.clear();
+            }
+        })
+        .await;
     });
 
     Ok(config)
@@ -186,24 +186,25 @@ fn run_action(app: AppHandle, state: State<'_, AppState>, scope: Scope, id: Stri
 }
 
 #[tauri::command]
-async fn set_discord_status(
+fn set_discord_status(
     state: State<'_, AppState>,
     status: openrac_launcher_core::discord::DiscordStatus,
 ) -> Result<(), String> {
     let config = state.config.lock().unwrap().clone();
     let discord = state.discord.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut discord = discord.lock().unwrap();
-        if !config.discord_rpc {
-            let _ = discord.ipc.clear();
-            return Ok(());
-        }
-        let app_start = discord.app_start;
-        let _ = discord.ipc.set_status(&status, app_start);
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn(async move {
+        let _ = tauri::async_runtime::spawn_blocking(move || {
+            let mut discord = discord.lock().unwrap();
+            if !config.discord_rpc {
+                let _ = discord.ipc.clear();
+                return;
+            }
+            let app_start = discord.app_start;
+            let _ = discord.ipc.set_status(&status, app_start);
+        })
+        .await;
+    });
+    Ok(())
 }
 
 #[tauri::command]
