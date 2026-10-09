@@ -15,6 +15,15 @@
   const scope = $derived({ kind: "version" as const, key: v?.key ?? "" });
   const here = $derived(v?.actions.filter((a) => a.thisPlatform) ?? []);
   const elsewhere = $derived(v?.actions.filter((a) => !a.thisPlatform) ?? []);
+
+  const GAME_MEDIA: Record<string, { bg: string; gif?: string; video?: string }> = {
+    rac1: { bg: "/img/rac1-bg.webp", video: "/img/rac1-gameplay.mp4", gif: "/img/rac1-gameplay.gif" },
+    rac2: { bg: "/img/gc-bg.webp", gif: "/img/rac2-gameplay.gif" },
+    rac3: { bg: "/img/uya-bg.webp", gif: "/img/rac3-gameplay.gif" },
+    rac4: { bg: "/img/deadlocked-bg.webp", gif: "/img/rac4-gameplay.gif" },
+  };
+
+  const media = $derived(v ? GAME_MEDIA[v.game] : null);
 </script>
 
 {#if !v || !game}
@@ -24,9 +33,21 @@
   </div>
 {:else}
   <div class="page sections" style={themeStyle(v.game)}>
+    {#if media}
+      <div class="page-ambient-bg" aria-hidden="true">
+        <img src={media.bg} alt="" />
+      </div>
+    {/if}
+
     <button class="ghost back" onclick={() => (app.page = "library")}><Icon name="arrow" size={16} />All games</button>
 
     <section class="banner rise" aria-label={`${v.title} (${v.region})`}>
+      {#if media}
+        <div class="banner-backdrop" aria-hidden="true">
+          <img src={media.bg} alt="" class="banner-bg" />
+          <div class="banner-overlay"></div>
+        </div>
+      {/if}
       <div class="left">
         <div class="title box">
           {v.title}
@@ -161,6 +182,7 @@
 
 <style>
   .page {
+    position: relative;
     max-width: 1180px;
     margin: 0 auto;
     padding: 20px 28px 60px;
@@ -169,11 +191,36 @@
     gap: 20px;
   }
 
+  .page-ambient-bg {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100vw;
+    height: 480px;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+    opacity: 0.22;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 20%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 20%, transparent 80%);
+  }
+
+  .page-ambient-bg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(28px);
+  }
+
   .back {
+    position: relative;
+    z-index: 1;
     align-self: flex-start;
   }
 
   .banner {
+    position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
     gap: 26px;
@@ -183,6 +230,38 @@
     background:
       radial-gradient(90% 70% at 70% 0, var(--from), transparent 70%), linear-gradient(160deg, var(--from), var(--to));
     box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .banner-backdrop {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .banner-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.38;
+    filter: saturate(1.15) contrast(1.05);
+  }
+
+  .banner-overlay {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 90% 80% at 50% 20%, transparent 20%, rgba(14, 16, 22, 0.7) 100%),
+      linear-gradient(180deg, rgba(14, 16, 22, 0.3) 0%, rgba(14, 16, 22, 0.65) 100%);
+  }
+
+  .banner > :not(.banner-backdrop) {
+    position: relative;
+    z-index: 1;
   }
 
   .box {

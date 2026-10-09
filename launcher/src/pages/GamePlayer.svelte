@@ -27,9 +27,19 @@
   const action = (id: string): ActionView | null => v?.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
 
   const play = $derived(action("play-runtime"));
+  const playGodot = $derived(action("play"));
   const extract = $derived(action("editor-extract"));
   const bring = $derived(action("editor-import"));
   const edit = $derived(action("editor-open"));
+
+  const GAME_MEDIA: Record<string, { bg: string; gif?: string; video?: string }> = {
+    rac1: { bg: "/img/rac1-bg.webp", video: "/img/rac1-gameplay.mp4", gif: "/img/rac1-gameplay.gif" },
+    rac2: { bg: "/img/gc-bg.webp", gif: "/img/rac2-gameplay.gif" },
+    rac3: { bg: "/img/uya-bg.webp", gif: "/img/rac3-gameplay.gif" },
+    rac4: { bg: "/img/deadlocked-bg.webp", gif: "/img/rac4-gameplay.gif" },
+  };
+
+  const media = $derived(v ? GAME_MEDIA[v.game] : null);
 
   const disc = $derived(v?.status.disc.state ?? "missing");
   /** The job of one of this version's actions that is queued or running, if any. */
@@ -88,9 +98,21 @@
   </div>
 {:else}
   <div class="page" style={themeStyle(v.game)}>
+    {#if media}
+      <div class="page-ambient-bg" aria-hidden="true">
+        <img src={media.bg} alt="" />
+      </div>
+    {/if}
+
     <button class="ghost back" onclick={() => (app.page = "library")}><Icon name="arrow" size={16} />All games</button>
 
     <section class="hero rise" aria-label={`${v.title} (${v.region})`}>
+      {#if media}
+        <div class="hero-backdrop" aria-hidden="true">
+          <img src={media.bg} alt="" class="hero-bg" />
+          <div class="hero-overlay"></div>
+        </div>
+      {/if}
       <div class="title box">
         {v.title}
         <small>{game.year ? `${game.year} · ` : ""}{v.region}</small>
@@ -178,6 +200,11 @@
     <details class="panel more">
       <summary>More</summary>
       <div class="row wrap">
+        {#if playGodot?.runnable}
+          <button onclick={() => void run(scope, playGodot)}
+            ><Icon name="play" size={16} />Play 3D level in Godot</button
+          >
+        {/if}
         <button onclick={() => void guard(api.openPath(v.dir))}
           ><Icon name="folder" size={16} />Open the game's folder</button
         >
@@ -195,6 +222,7 @@
 
 <style>
   .page {
+    position: relative;
     max-width: 920px;
     margin: 0 auto;
     padding: 20px 28px 60px;
@@ -203,11 +231,36 @@
     gap: 20px;
   }
 
+  .page-ambient-bg {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100vw;
+    height: 480px;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+    opacity: 0.22;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 20%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 20%, transparent 80%);
+  }
+
+  .page-ambient-bg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(28px);
+  }
+
   .back {
+    position: relative;
+    z-index: 1;
     align-self: flex-start;
   }
 
   .hero {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -217,6 +270,38 @@
     background:
       radial-gradient(90% 70% at 70% 0, var(--from), transparent 70%), linear-gradient(160deg, var(--from), var(--to));
     box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .hero-backdrop {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.38;
+    filter: saturate(1.15) contrast(1.05);
+  }
+
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 90% 80% at 50% 20%, transparent 20%, rgba(14, 16, 22, 0.7) 100%),
+      linear-gradient(180deg, rgba(14, 16, 22, 0.3) 0%, rgba(14, 16, 22, 0.65) 100%);
+  }
+
+  .hero > :not(.hero-backdrop) {
+    position: relative;
+    z-index: 1;
   }
 
   .box {
