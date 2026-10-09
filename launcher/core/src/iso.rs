@@ -234,10 +234,7 @@ pub fn inspect_iso(catalog: &Catalog, target_key: &str, iso_path: &Path) -> IsoI
     let (status, message) = if !is_valid_iso {
         (IsoMatchStatus::InvalidIso, format!("{filename} is not a valid ISO 9660 image."))
     } else if not_ps2 || serial.is_none() {
-        (
-            IsoMatchStatus::NotPs2Disc,
-            format!("{filename} is an ISO image, but lacks a valid PS2 SYSTEM.CNF boot file."),
-        )
+        (IsoMatchStatus::NotPs2Disc, format!("{filename} is an ISO image, but lacks a valid PS2 SYSTEM.CNF boot file."))
     } else {
         let ser = serial.as_ref().unwrap();
         if !matches_target_version {
@@ -328,13 +325,7 @@ pub fn extract_iso_files(iso_path: &Path, out_dir: &Path) -> Result<Vec<String>,
     }
 
     // 2. Try bsdtar (standard libarchive utility present in many distros)
-    if let Ok(output) = std::process::Command::new("bsdtar")
-        .arg("-xf")
-        .arg(iso_path)
-        .arg("-C")
-        .arg(out_dir)
-        .output()
-    {
+    if let Ok(output) = std::process::Command::new("bsdtar").arg("-xf").arg(iso_path).arg("-C").arg(out_dir).output() {
         if output.status.success() {
             let mut extracted = Vec::new();
             if let Ok(entries) = fs::read_dir(out_dir) {
@@ -363,8 +354,8 @@ pub fn extract_iso_files(iso_path: &Path, out_dir: &Path) -> Result<Vec<String>,
     let root_lba = u32::from_le_bytes(pvd[158..162].try_into().unwrap());
     let root_size = u32::from_le_bytes(pvd[166..170].try_into().unwrap());
 
-    let entries = read_dir_entries(&mut file, root_lba, root_size)
-        .ok_or_else(|| "Failed to read root directory".to_string())?;
+    let entries =
+        read_dir_entries(&mut file, root_lba, root_size).ok_or_else(|| "Failed to read root directory".to_string())?;
 
     let mut extracted = Vec::new();
     for entry in entries {
@@ -387,12 +378,7 @@ pub fn extract_iso_files(iso_path: &Path, out_dir: &Path) -> Result<Vec<String>,
 /// 2. Links/copies into `baserom/<spec.file>`
 /// 3. Extracts files into `<root>/<game_id>` (and creates a `~/<game_id>` symlink if possible)
 /// 4. Executes `python3 tools/openrac.py setup <target_key>` to place game inputs
-pub fn import_iso(
-    root: &Path,
-    catalog: &Catalog,
-    target_key: &str,
-    source_iso: &Path,
-) -> Result<ImportResult, String> {
+pub fn import_iso(root: &Path, catalog: &Catalog, target_key: &str, source_iso: &Path) -> Result<ImportResult, String> {
     let inspection = inspect_iso(catalog, target_key, source_iso);
     if !inspection.is_valid_iso {
         return Err(format!("Cannot import: {}", inspection.message));
@@ -401,25 +387,13 @@ pub fn import_iso(
         return Err(format!("Cannot import: {}", inspection.message));
     }
 
-    let (game_id, ver_name) = target_key
-        .split_once('/')
-        .ok_or_else(|| format!("Invalid target key: {target_key}"))?;
+    let (game_id, ver_name) = target_key.split_once('/').ok_or_else(|| format!("Invalid target key: {target_key}"))?;
 
-    let game = catalog
-        .games
-        .iter()
-        .find(|g| g.id == game_id)
-        .ok_or_else(|| format!("Game not found: {game_id}"))?;
-    let version = game
-        .versions
-        .iter()
-        .find(|v| v.name == ver_name)
-        .ok_or_else(|| format!("Version not found: {ver_name}"))?;
+    let game = catalog.games.iter().find(|g| g.id == game_id).ok_or_else(|| format!("Game not found: {game_id}"))?;
+    let version =
+        game.versions.iter().find(|v| v.name == ver_name).ok_or_else(|| format!("Version not found: {ver_name}"))?;
 
-    let spec = version
-        .disc
-        .as_ref()
-        .ok_or_else(|| format!("Version {target_key} has no disc spec in game.json"))?;
+    let spec = version.disc.as_ref().ok_or_else(|| format!("Version {target_key} has no disc spec in game.json"))?;
 
     // 1. Link or copy into baserom/
     let baserom_dir = root.join("baserom");
@@ -497,9 +471,7 @@ mod tests {
         let root = checkout();
         let cat = load(&root).unwrap();
 
-        let disc_path = root
-            .join("baserom")
-            .join("Ratchet & Clank (Europe) (En,Fr,De,Es,It) (v2.00).iso");
+        let disc_path = root.join("baserom").join("Ratchet & Clank (Europe) (En,Fr,De,Es,It) (v2.00).iso");
         if disc_path.is_file() {
             let res = inspect_iso(&cat, "rac1/pal", &disc_path);
             assert_eq!(res.status, IsoMatchStatus::ExactMatch);

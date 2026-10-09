@@ -50,18 +50,8 @@ pub struct ActivityAssets {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum DiscordStatus {
     Idle,
-    ViewingGame {
-        title: String,
-        region: String,
-        progress_pct: Option<f64>,
-        game_id: String,
-    },
-    PlayingGame {
-        title: String,
-        region: String,
-        game_id: String,
-        start_time: Option<u64>,
-    },
+    ViewingGame { title: String, region: String, progress_pct: Option<f64>, game_id: String },
+    PlayingGame { title: String, region: String, game_id: String, start_time: Option<u64> },
 }
 
 pub struct DiscordIpc {
@@ -99,7 +89,7 @@ impl DiscordIpc {
     #[cfg(unix)]
     fn connect(&mut self) -> Result<&mut std::os::unix::net::UnixStream, String> {
         if self.stream.is_some() {
-            return Ok(self.stream.as_mut().unwrap());
+            return self.stream.as_mut().ok_or_else(|| "Discord IPC socket closed".to_string());
         }
 
         let socket_paths = find_socket_paths();
@@ -120,8 +110,7 @@ impl DiscordIpc {
                     match read_packet(&mut stream) {
                         Ok((opcode, data)) => {
                             if opcode == 1 {
-                                self.stream = Some(stream);
-                                return Ok(self.stream.as_mut().unwrap());
+                                return Ok(self.stream.insert(stream));
                             } else if opcode == 2 {
                                 if let Ok(err) = std::str::from_utf8(&data) {
                                     eprintln!("[discord-rpc] Handshake error: {err}");
@@ -157,17 +146,11 @@ impl DiscordIpc {
             .to_string();
 
             // Try sending to current or newly connected stream
-            let mut failed = false;
-            match self.connect() {
-                Ok(stream) => {
-                    if send_packet(stream, 1, &payload).is_err() {
-                        failed = true;
-                    } else {
-                        // Drain response non-blockingly
-                        let _ = read_packet(stream);
-                    }
-                }
-                Err(e) => return Err(e),
+            let stream = self.connect()?;
+            let failed = send_packet(stream, 1, &payload).is_err();
+            if !failed {
+                // Drain the response without waiting for it.
+                let _ = read_packet(stream);
             }
 
             if failed {
@@ -192,10 +175,7 @@ impl DiscordIpc {
             DiscordStatus::Idle => Activity {
                 details: Some("In Launcher".into()),
                 state: Some("Browsing Library".into()),
-                timestamps: Some(ActivityTimestamps {
-                    start: Some(app_start),
-                    end: None,
-                }),
+                timestamps: Some(ActivityTimestamps { start: Some(app_start), end: None }),
                 assets: Some(ActivityAssets {
                     large_image: Some("https://openrac.dev/wrench.webp".into()),
                     large_text: Some("OpenRAC Launcher".into()),
@@ -203,12 +183,7 @@ impl DiscordIpc {
                     small_text: None,
                 }),
             },
-            DiscordStatus::ViewingGame {
-                title,
-                region,
-                progress_pct,
-                game_id,
-            } => {
+            DiscordStatus::ViewingGame { title, region, progress_pct, game_id } => {
                 let state_str = match progress_pct {
                     Some(p) => format!("{region} · {p:.1}% matched"),
                     None => region.clone(),
@@ -216,10 +191,7 @@ impl DiscordIpc {
                 Activity {
                     details: Some(format!("Viewing {title}")),
                     state: Some(state_str),
-                    timestamps: Some(ActivityTimestamps {
-                        start: Some(app_start),
-                        end: None,
-                    }),
+                    timestamps: Some(ActivityTimestamps { start: Some(app_start), end: None }),
                     assets: Some(ActivityAssets {
                         large_image: Some(game_image_url(game_id)),
                         large_text: Some(title.clone()),
@@ -228,20 +200,12 @@ impl DiscordIpc {
                     }),
                 }
             }
-            DiscordStatus::PlayingGame {
-                title,
-                region,
-                game_id,
-                start_time,
-            } => {
+            DiscordStatus::PlayingGame { title, region, game_id, start_time } => {
                 let current_sec = now_sec();
                 Activity {
                     details: Some(format!("Playing {title}")),
                     state: Some(format!("In Game ({region})")),
-                    timestamps: Some(ActivityTimestamps {
-                        start: Some(start_time.unwrap_or(current_sec)),
-                        end: None,
-                    }),
+                    timestamps: Some(ActivityTimestamps { start: Some(start_time.unwrap_or(current_sec)), end: None }),
                     assets: Some(ActivityAssets {
                         large_image: Some(game_image_url(game_id)),
                         large_text: Some(title.clone()),
@@ -271,10 +235,7 @@ pub fn game_image_url(game_id: &str) -> String {
 }
 
 pub fn now_sec() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
 }
 
 #[cfg(unix)]
@@ -357,10 +318,7 @@ mod tests {
         let act = Activity {
             details: Some("Playing Ratchet & Clank".into()),
             state: Some("In Game (PAL)".into()),
-            timestamps: Some(ActivityTimestamps {
-                start: Some(1700000000),
-                end: None,
-            }),
+            timestamps: Some(ActivityTimestamps { start: Some(1700000000), end: None }),
             assets: Some(ActivityAssets {
                 large_image: Some(game_image_url("rac1")),
                 large_text: Some("Ratchet & Clank".into()),
