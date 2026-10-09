@@ -355,6 +355,10 @@ bool Machine::boot(std::string* error) {
   }
   std::size_t end = config.find_first_of(";\r\n", at);
   std::string name = config.substr(at + 7, end - at - 7);
+  while (!name.empty() && (name[0] == '\\' || name[0] == '/')) {
+    name.erase(0, 1);
+  }
+  program_name = name;
   auto program = disc.find(name);
   if (!program) {
     return fail("the disc has no " + name);

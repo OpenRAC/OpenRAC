@@ -147,39 +147,8 @@ void add_library_services(Machine& machine) {
     m.result(0);
   });
 
-  // --- the memory card: no card in the slot, for now ---
-  // Every function is accepted and "finishes" at the next sceMcSync, with
-  // the result a console gives when the slot is empty.
-  for (const auto& [name, function] : std::initializer_list<std::pair<const char*, int>>{
-           {"sceMcGetInfo", 1}, {"sceMcOpen", 2}, {"sceMcClose", 3}, {"sceMcSeek", 4}, {"sceMcRead", 5},
-           {"sceMcWrite", 6}, {"sceMcMkdir", 11}, {"sceMcGetDir", 13}, {"sceMcDelete", 15}, {"sceMcFormat", 16},
-           {"sceMcUnformat", 17}}) {
-    machine.add_service(name, [function](Machine& m) {
-      if (function == 1) {
-        // (port, slot, type, free, format): type 0 is "nothing there".
-        for (unsigned n = 2; n < 5; n++) {
-          if (m.arg(n)) {
-            m.ee.write32(m.arg(n), 0);
-          }
-        }
-      }
-      m.mc_function = function;
-      m.mc_result = -10;  // no card
-      m.result(0);
-    });
-  }
-  machine.add_service("sceMcInit", [](Machine& m) { m.result(0); });
-  // sceMcSync(mode, function, result): 1 when the last function has finished.
-  machine.add_service("sceMcSync", [](Machine& m) {
-    if (m.mc_function == 0) {
-      m.result(static_cast<u64>(-1));
-      return;
-    }
-    if (m.arg(1)) m.ee.write32(m.arg(1), static_cast<u32>(m.mc_function));
-    if (m.arg(2)) m.ee.write32(m.arg(2), static_cast<u32>(m.mc_result));
-    m.mc_function = 0;
-    m.result(1);
-  });
+  // --- the memory card ---
+  add_memory_card_services(machine);
 
   // --- the pad ---
   machine.add_service("scePad2GetState", [](Machine& m) { m.result(1); });  // connected and stable

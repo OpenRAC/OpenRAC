@@ -36,6 +36,7 @@ add_library(openrac_sys STATIC
   src/sys/disc.cpp
   src/sys/drawing.cpp
   src/sys/machine.cpp
+  src/sys/memcard.cpp
   src/sys/services.cpp
 )
 target_include_directories(openrac_sys PUBLIC src)

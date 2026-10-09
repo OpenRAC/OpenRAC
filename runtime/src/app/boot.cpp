@@ -8,6 +8,7 @@
 #include <climits>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <algorithm>
 #include <map>
 #include <string>
@@ -42,7 +43,8 @@ bool write_ppm(const std::string& path, const Image& image) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  std::string iso, hooks, ppm, vif_file;
+  std::string iso, hooks, ppm, vif_file, card;
+  bool card_wanted = true;
   int vif_frame = -1;
   int frames = -1, report = 60, states_frame = -1;
   // Threads that draw: by default most of the fast cores, leaving one for the program itself.
@@ -82,6 +84,10 @@ int main(int argc, char** argv) {
       // for your own machine.
       vif_frame = std::atoi(argv[++i]);
       vif_file = argv[++i];
+    } else if (arg == "--card" && i + 1 < argc) {
+      card = argv[++i];  // the directory that is the memory card
+    } else if (arg == "--no-card") {
+      card_wanted = false;
     } else if (arg == "--one-thread") {
       drawing_thread = false;  // the drawing path on the program's own thread
     } else if (arg == "--ntsc") {
@@ -93,7 +99,7 @@ int main(int argc, char** argv) {
     } else {
       std::fprintf(stderr, "usage: openrac-boot DISC.iso [--hooks FILE] [--frames N] [--report N] [--verbose N] "
                            "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--gs-states FRAME] "
-                           "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE]\n");
+                           "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | --no-card]\n");
       return 2;
     }
   }
@@ -112,6 +118,29 @@ int main(int argc, char** argv) {
   if (!machine.boot(&error) || (!hooks.empty() && !machine.load_hooks(hooks, &error))) {
     std::fprintf(stderr, "%s\n", error.c_str());
     return 1;
+  }
+
+  // The memory card: a directory, by default one per disc among the user's
+  // own files.
+  if (card_wanted) {
+    if (card.empty()) {
+      std::filesystem::path home = std::getenv("HOME") ? std::getenv("HOME") : ".";
+#if defined(__APPLE__)
+      std::filesystem::path data = home / "Library" / "Application Support" / "OpenRAC";
+#else
+      std::filesystem::path data = std::getenv("XDG_DATA_HOME") ? std::filesystem::path(std::getenv("XDG_DATA_HOME")) / "openrac"
+                                                                 : home / ".local" / "share" / "openrac";
+#endif
+      card = (data / "memcard" / machine.program_name).string();
+    }
+    std::error_code problem;
+    std::filesystem::create_directories(card, problem);
+    if (problem) {
+      std::fprintf(stderr, "no memory card: cannot make %s (%s)\n", card.c_str(), problem.message().c_str());
+    } else {
+      machine.card.directory = card;
+      std::fprintf(stderr, "memory card: %s\n", card.c_str());
+    }
   }
 
 #ifndef OPENRAC_NO_WINDOW

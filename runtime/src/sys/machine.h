@@ -3,6 +3,7 @@
 #pragma once
 
 #include <array>
+#include <cstdio>
 #include <functional>
 #include <map>
 #include <string>
@@ -60,6 +61,7 @@ class Machine {
   // run it. `hz` is the display's field rate.
   bool boot(std::string* error = nullptr);
   double hz = 50.0;
+  std::string program_name;  // the program's file on the disc, which is the disc's code (SCES_509.16)
 
   // --- running ---
   // Run until the next vertical blank has been announced to the program.
@@ -100,6 +102,15 @@ class Machine {
   void cd_read_finished() { cd_callback_at_ = ee.cycles + 200000; update_event(); }
   // The silent sound server's next handle for a bank, stream or sound.
   u32 sound_next_handle = 0x100;
+  // The memory card in the first slot: a directory of the host (none when
+  // the name is empty), the files the program has open on it, and whether
+  // the program has been told of it yet.
+  struct Card {
+    std::string directory;
+    std::unordered_map<int, std::FILE*> open;
+    bool seen = false;
+    ~Card();
+  } card;
   // The memory card library's "last function and its result".
   int mc_function = 0, mc_result = 0;
 
@@ -170,5 +181,7 @@ class Machine {
 // Services every game shares, registered by `add_default_services` and
 // defined in services.cpp.
 void add_library_services(Machine& machine);
+// The memory card library (memcard.cpp).
+void add_memory_card_services(Machine& machine);
 
 }  // namespace sys
