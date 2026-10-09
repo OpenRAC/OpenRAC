@@ -670,6 +670,10 @@ uint32_t Native::float_op(uint32_t op, uint32_t a, uint32_t b) {
             // The integer `a` as a float.
             return ps2::fp::from_int(static_cast<ps2::s32>(a));
 
+        case 7:
+            // `a` over the square root of `b`, the vector unit's one operation.
+            return ps2::fp::rsqrt(a, b, unused);
+
         default:
             // 6: the float `a` as an integer, cut towards zero and kept in range.
             return static_cast<u32>(ps2::fp::to_int(a));

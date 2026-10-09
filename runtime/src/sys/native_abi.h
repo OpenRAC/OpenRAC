@@ -75,7 +75,8 @@ typedef struct OpenracHost {
      * number. Host code computes with it so that it leaves what the retail code leaves.
      *
      * `op` is 0 to add, 1 to subtract, 2 to multiply, 3 to divide, 4 for the square root of `a`,
-     * 5 to turn the integer `a` into a float, 6 to turn the float `a` into an integer.
+     * 5 to turn the integer `a` into a float, 6 to turn the float `a` into an integer, 7 for `a`
+     * over the square root of `b` (the vector unit's reciprocal square root).
      */
     uint32_t (*float_op)(uint32_t op, uint32_t a, uint32_t b);
 
