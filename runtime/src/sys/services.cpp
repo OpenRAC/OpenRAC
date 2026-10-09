@@ -82,6 +82,7 @@ void add_library_services(Machine& machine) {
   // sceSifBindRpc(client, server, mode): the server is found at once. A
   // program waits for the client record's server pointer (its tenth word).
   machine.add_service("sceSifBindRpc", [](Machine& m) {
+    m.rpc_servers[m.arg(0)] = m.arg(1);
     m.ee.write32(m.arg(0) + 0x24, 1);
     m.result(0);
   });
@@ -99,6 +100,30 @@ void add_library_services(Machine& machine) {
     u32 receive = static_cast<u32>(m.ee.gpr[9].lo), size = static_cast<u32>(m.ee.gpr[10].lo);
     u32 end_function = static_cast<u32>(m.ee.gpr[11].lo);
     u32 end_argument = m.ee.read32(static_cast<u32>(m.ee.gpr[29].lo));
+
+    // Server 0x11 is the games' own "stash": a stretch of the second
+    // processor's memory where a program parks data (sent there with
+    // SifSetDma) to fetch it back later. Function 2 tells where the stretch
+    // is and how long; function 1 copies from an address in it (the word
+    // sent) into the receive buffer.
+    auto server = m.rpc_servers.find(m.arg(0));
+    if (server != m.rpc_servers.end() && server->second == 0x11) {
+      constexpr u32 kStashBase = 0x00080000, kStashBytes = 0x00170000;
+      if (function == 2 && size >= 8) {
+        m.ee.write32(receive, kStashBase);
+        m.ee.write32(receive + 4, kStashBytes);
+      } else if (function == 1) {
+        u32 from = m.ee.read32(send);
+        for (u32 n = 0; n < size; n++) {
+          m.ee.write8(receive + n, m.iop_memory[(from + n) & (Machine::kIopBytes - 1)]);
+        }
+      }
+      if (end_function) {
+        m.ee.call(end_function, end_argument);
+      }
+      m.result(0);
+      return;
+    }
 
     // What a silent server answers. Streams and sounds get handles and are
     // "buffered" at once; nothing is ever still playing.

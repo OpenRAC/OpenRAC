@@ -85,6 +85,11 @@ class Ee {
     next_pc = pc + 4;
   }
 
+  // The program counter left memory: the program is lost. With the last
+  // jumps through a register (from, to), oldest first, to see how.
+  bool lost = false;
+  std::array<std::array<u32, 2>, 16> recent_jumps() const;
+
   u64 unknown = 0;         // instructions the core does not know
   u32 last_unknown_pc = 0, last_unknown = 0;
 
@@ -126,6 +131,11 @@ class Ee {
   GuestMemory& memory_;
   Vu& vu0_;
   bool stop_ = false, returned_ = false;
+  std::array<std::array<u32, 2>, 16> jumps_{};
+  unsigned jump_next_ = 0;
+  void note_jump(u32 from, u32 to) {
+    jumps_[jump_next_++ & 15] = {from, to};
+  }
   u64 vu0_cycles_ = 0;
   u32 vu0_started_at_ = 0;
 };

@@ -105,6 +105,13 @@ class Machine {
   u32 cd_callback = 0;
   // Tell it soon, as the drive would: not before the caller has returned.
   void cd_read_finished() { cd_callback_at_ = ee.cycles + 200000; update_event(); }
+  // Which server each remote-call client was bound to, by the client
+  // record's address.
+  std::unordered_map<u32, u32> rpc_servers;
+  // The second processor's memory, as far as a program uses it itself: the
+  // games park data there (through SifSetDma) and fetch it back.
+  static constexpr u32 kIopBytes = 2 * 1024 * 1024;
+  std::vector<u8> iop_memory = std::vector<u8>(kIopBytes);
   // The silent sound server's next handle for a bank, stream or sound.
   u32 sound_next_handle = 0x100;
   // The memory card in the first slot: a directory of the host (none when

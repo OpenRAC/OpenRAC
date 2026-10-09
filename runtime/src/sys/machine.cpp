@@ -312,10 +312,20 @@ void Machine::kernel(int number) {
     case 0x76:  // SifDmaStat: every transfer is over
       result(static_cast<u64>(-1));
       break;
-    case 0x77:  // SifSetDma: nothing is on the other side
-      note("SifSetDma (no second processor)");
+    case 0x77: {
+      // SifSetDma(records, count): each record copies bytes of this
+      // processor's memory into the second one's (source, destination,
+      // size, attributes). Done at once.
+      for (u32 n = 0; n < a1 && n < 32; n++) {
+        u32 record = a0 + n * 16;
+        u32 from = ee.read32(record), to = ee.read32(record + 4), bytes = ee.read32(record + 8);
+        for (u32 b = 0; b < bytes && b < kIopBytes; b++) {
+          iop_memory[(to + b) & (kIopBytes - 1)] = ee.read8(from + b);
+        }
+      }
       result(static_cast<u64>(next_id_++));
       break;
+    }
     case 0x78:  // SifSetDChain
       result(0);
       break;
@@ -401,6 +411,20 @@ void Machine::run_frame() {
   frame_done_ = false;
   while (!frame_done_ && !halted && !ee.vu0_runaways) {
     ee.run(~u64{0});
+    if (ee.lost) {
+      // The program counter left memory. Say how it got there, and stop:
+      // nothing sensible follows.
+      std::string trail;
+      for (const auto& jump : ee.recent_jumps()) {
+        char text[32];
+        std::snprintf(text, sizeof(text), " %08x>%08x", jump[0], jump[1]);
+        trail += text;
+      }
+      log(0, "the program is lost at %08x (ra %08x); the last jumps through a register:%s", ee.last_unknown_pc,
+          static_cast<u32>(ee.gpr[31].lo), trail.c_str());
+      halted = true;
+      break;
+    }
     if (ee.unknown && verbose >= 0 && last_reported_unknown_ != ee.unknown) {
       last_reported_unknown_ = ee.unknown;
       log(0, "the EE met an instruction it does not know: %08x at %08x (%llu so far)", ee.last_unknown,
@@ -768,6 +792,7 @@ void Machine::hw_write(u32 address, u64 value, unsigned bytes) {
     case 0x10003000:  // GIF_CTRL
     case 0x10003810:  // VIF0_FBRST
     case 0x10003820:  // VIF0_ERR
+    case 0x10003C00:  // VIF1_STAT: only its direction bit can be written, and the DMA channel says the same
     case 0x10003C10:  // VIF1_FBRST
     case 0x10003C20:  // VIF1_ERR
     case 0x1000F100:  // serial control

@@ -171,6 +171,14 @@ u64 Ee::call(u32 function, u64 a0, u64 a1, u64 a2, u64 a3) {
   return result;
 }
 
+std::array<std::array<u32, 2>, 16> Ee::recent_jumps() const {
+  std::array<std::array<u32, 2>, 16> out{};
+  for (unsigned n = 0; n < 16; n++) {
+    out[n] = jumps_[(jump_next_ + n) & 15];
+  }
+  return out;
+}
+
 void Ee::not_known(u32 op, u32 at) {
   unknown++;
   last_unknown = op;
@@ -198,6 +206,7 @@ void Ee::step() {
     op = load<u32>(p);
   } else {
     not_known(0, at);
+    lost = true;
     stop_ = true;
     return;
   }
@@ -218,10 +227,12 @@ void Ee::step() {
       break;
     case 0x02:  // J
       next_pc = ((at + 4) & 0xF0000000u) | ((op & 0x03FFFFFFu) << 2);
+      note_jump(at, next_pc);
       break;
     case 0x03:  // JAL
       gpr[31].lo = at + 8;
       next_pc = ((at + 4) & 0xF0000000u) | ((op & 0x03FFFFFFu) << 2);
+      note_jump(at, next_pc);
       break;
     case 0x04: branch(gpr[rs].lo == gpr[rt].lo, at, imm, false); break;                  // BEQ
     case 0x05: branch(gpr[rs].lo != gpr[rt].lo, at, imm, false); break;                  // BNE
@@ -378,9 +389,13 @@ void Ee::special(u32 op) {
     case 0x04: set32(rd, t32v << (s32v & 31)); break;                                         // SLLV
     case 0x06: set32(rd, t32v >> (s32v & 31)); break;                                         // SRLV
     case 0x07: set32(rd, static_cast<u32>(static_cast<s32>(t32v) >> (s32v & 31))); break;     // SRAV
-    case 0x08: next_pc = s32v; break;                                                         // JR
-    case 0x09:                                                                                // JALR
+    case 0x08:  // JR
       next_pc = s32v;
+      note_jump(at, s32v);
+      break;
+    case 0x09:  // JALR
+      next_pc = s32v;
+      note_jump(at, s32v);
       set64(rd, at + 8);
       break;
     case 0x0A: if (t == 0) set64(rd, s); break;  // MOVZ
