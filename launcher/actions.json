@@ -77,7 +77,7 @@
         "state": "unverified",
         "program": "bash",
         "args": ["tools/setup_asm.sh"],
-        "platforms": ["windows"],
+        "platforms": ["linux", "windows"],
         "requires": ["inputs"],
         "docs": "games/rac1/pal/README.md",
         "todo": "Needs Git Bash's bash.exe on PATH (not WSL's, which sees other paths) and the project's Python packages; check both on Windows."

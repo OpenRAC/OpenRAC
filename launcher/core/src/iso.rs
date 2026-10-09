@@ -300,8 +300,56 @@ pub fn inspect_iso(catalog: &Catalog, target_key: &str, iso_path: &Path) -> IsoI
     }
 }
 
-/// Extracts all top-level files from an ISO image into `out_dir`.
+/// Extracts all files from an ISO image into `out_dir` using standard Linux utilities (7z, bsdtar)
+/// or built-in ISO reader, completely independent of Docker or Podman.
 pub fn extract_iso_files(iso_path: &Path, out_dir: &Path) -> Result<Vec<String>, String> {
+    fs::create_dir_all(out_dir).map_err(|e| format!("{}: {e}", out_dir.display()))?;
+
+    // 1. Try 7z (standard utility available across all popular Linux distributions via 7zip / p7zip)
+    if let Ok(output) = std::process::Command::new("7z")
+        .arg("x")
+        .arg("-y")
+        .arg(format!("-o{}", out_dir.display()))
+        .arg(iso_path)
+        .output()
+    {
+        if output.status.success() {
+            let mut extracted = Vec::new();
+            if let Ok(entries) = fs::read_dir(out_dir) {
+                for entry in entries.flatten() {
+                    extracted.push(entry.file_name().to_string_lossy().to_string());
+                }
+            }
+            if !extracted.is_empty() {
+                extracted.sort();
+                return Ok(extracted);
+            }
+        }
+    }
+
+    // 2. Try bsdtar (standard libarchive utility present in many distros)
+    if let Ok(output) = std::process::Command::new("bsdtar")
+        .arg("-xf")
+        .arg(iso_path)
+        .arg("-C")
+        .arg(out_dir)
+        .output()
+    {
+        if output.status.success() {
+            let mut extracted = Vec::new();
+            if let Ok(entries) = fs::read_dir(out_dir) {
+                for entry in entries.flatten() {
+                    extracted.push(entry.file_name().to_string_lossy().to_string());
+                }
+            }
+            if !extracted.is_empty() {
+                extracted.sort();
+                return Ok(extracted);
+            }
+        }
+    }
+
+    // 3. Fallback to built-in pure Rust ISO 9660 reader (no external tools required)
     let mut file = File::open(iso_path).map_err(|e| format!("{}: {e}", iso_path.display()))?;
 
     // Read PVD
@@ -317,8 +365,6 @@ pub fn extract_iso_files(iso_path: &Path, out_dir: &Path) -> Result<Vec<String>,
 
     let entries = read_dir_entries(&mut file, root_lba, root_size)
         .ok_or_else(|| "Failed to read root directory".to_string())?;
-
-    fs::create_dir_all(out_dir).map_err(|e| format!("{}: {e}", out_dir.display()))?;
 
     let mut extracted = Vec::new();
     for entry in entries {
