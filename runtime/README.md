@@ -42,7 +42,7 @@ M-series Mac, with its music and speech. Sound effects are not made yet.
 | `src/sys/sound.*` | The sound library's streams (music, speech): ADPCM files on the disc, decoded and mixed one field's worth after each field |
 | `src/snd/*` | The sound library's sound effects: banks of sounds, each a short script of steps (tones, waits, loops, random picks, registers, modulators), played on 48 voices with the sound processor's sample format and envelope, and mixed over the streams after each field |
 | `src/sys/memcard.cpp` | The memory card library answered from a directory of the host: a folder on the card is a directory, a file a file |
-| `games/SERIAL.hooks` | Per game: which addresses of its program are which library functions. Addresses and names only |
+| `games/SERIAL.hooks` | Per game: which addresses of its program are which library functions. Addresses and names only. `tools/port_hooks.py` carries a table over to another version of a game |
 | `src/host/window.*` | An SDL3 window that shows one image per frame and reads the keyboard and a game controller |
 | `src/app/boot.cpp` | `openrac-boot`: runs the program on your own disc image, in a window or headless, with scripted input and listings for working on the model |
 | `src/app/gsdemo.cpp` | `openrac-gsdemo`: a scene of its own, written into guest memory as a VIF1 DMA chain and drawn through all of the above, with a cube whose vertices a microprogram written for it transforms on VU1 |
@@ -63,6 +63,17 @@ With your own disc image of Ratchet & Clank (PAL, `SCES_509.16`):
 ```sh
 build/runtime/openrac-boot DISC.iso --hooks runtime/games/SCES_509.16.hooks --window
 ```
+
+The US disc (`SCUS_971.99`) runs the same way with its own table and the
+60 Hz timing:
+
+```sh
+build/runtime/openrac-boot DISC.iso --hooks runtime/games/SCUS_971.99.hooks --ntsc --window
+```
+
+Its table was made from the PAL one by `runtime/tools/port_hooks.py`, which
+finds each replaced function again in another program by the shape of its
+first instructions.
 
 | Control | Key | Control | Key |
 |---|---|---|---|
