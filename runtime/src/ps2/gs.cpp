@@ -289,6 +289,7 @@ void Gs::reset() {
   page_stamp_.fill(0);
   clock_ = 1;
   batch_ = std::make_unique<Batch>();
+  clut_load_ = ClutLoad{};
   pending_write_.clear();
   pending_read_.clear();
   pending_colour_.clear();
@@ -684,6 +685,13 @@ void Gs::ensure_env() {
   if (!env_dirty_ && env_) {
     return;
   }
+  if (clut_load_.waiting) {
+    // The colour table is needed now if this state's texture uses one.
+    u32 prim = prim_bits();
+    if (((prim >> 4) & 1) && (bits(reg_[TEX0_1 + ((prim >> 9) & 1)], 20, 6) & 7) >= 3) {
+      do_clut_load();  // (may hand the batch over)
+    }
+  }
   Batch& batch = *batch_;
   if (batch.primitives.empty()) {
     // Nothing gathered refers to the older states: let them go.
@@ -734,6 +742,10 @@ void Gs::submit(unsigned kind, unsigned count) {
     if (e.tme) {
       need = levels_needed(e, count);
     }
+  }
+  // A colour table load put off must see memory as it was before this.
+  if (clut_load_.waiting && (written.intersects(clut_load_.source) || depth.intersects(clut_load_.source))) {
+    do_clut_load();
   }
   // From here on the state may be replaced by a copy in the next batch:
   // whenever what was gathered is handed over to be drawn.
@@ -918,6 +930,9 @@ void Gs::before_read(const Pages& pages) {
 }
 
 void Gs::before_write(const Pages& pages) {
+  if (clut_load_.waiting && pages.intersects(clut_load_.source)) {
+    do_clut_load();  // a colour table load put off: it reads this memory as it was
+  }
   if (pages.intersects(pending_write_) || pages.intersects(pending_read_)) {
     flush();
   }
@@ -1595,6 +1610,11 @@ u32 Gs::shade(const Env& e, u32 rgba, float u, float v, float lod, u32 fog) cons
 // written, as the CLD field says. Later changes to the memory the table came
 // from do not reach a primitive until the table is loaded again.
 
+// A write to TEX0 or TEX2 can ask for the colour table to be loaded from
+// memory. The load is put off until the table is used (or the memory it
+// comes from is about to change), because a game also sets textures it then
+// draws nothing with, with addresses that point anywhere, and reading memory
+// means waiting for whatever is still to be drawn there.
 void Gs::load_clut(u64 tex0) {
   u32 psm = static_cast<u32>(bits(tex0, 20, 6));
   u32 cbp = static_cast<u32>(bits(tex0, 37, 14));
@@ -1626,33 +1646,45 @@ void Gs::load_clut(u64 tex0) {
       return;
   }
 
-  // The table is read from memory: draw what is waiting to be drawn there.
-  {
-    Pages source;
-    if (csm2) {
-      add_pages(source, PSMCT16, cbp, static_cast<u32>(bits(reg_[TEXCLUT], 0, 6)), 0, 0, 1023, 1023);
-    } else {
-      add_pages(source, cpsm, cbp, 1, 0, 0, 15, 15);
-    }
-    before_read(source);
-  }
-
-  u32 entries;
-  if (psm == PSMT8 || psm == PSMT8H) {
-    entries = 256;
-  } else if (psm == PSMT4 || psm == PSMT4HL || psm == PSMT4HH) {
-    entries = 16;
+  ClutLoad load;
+  load.waiting = true;
+  load.tex0 = tex0;
+  load.texclut = reg_[TEXCLUT];
+  load.count = (psm == PSMT8 || psm == PSMT8H) ? 256 : 16;
+  load.first = (csa * 16) & 0xFF;
+  if (csm2) {
+    add_pages(load.source, PSMCT16, cbp, static_cast<u32>(bits(load.texclut, 0, 6)), 0, 0, 1023, 1023);
   } else {
+    add_pages(load.source, cpsm, cbp, 1, 0, 0, 15, 15);
+  }
+  // One still waiting is done first, unless this one replaces all it would load.
+  if (clut_load_.waiting && !(load.first <= clut_load_.first && load.first + load.count >= clut_load_.first + clut_load_.count)) {
+    do_clut_load();
+  }
+  clut_load_ = load;
+}
+
+void Gs::do_clut_load() {
+  if (!clut_load_.waiting) {
     return;
   }
+  clut_load_.waiting = false;
+  const ClutLoad load = clut_load_;
+  u64 tex0 = load.tex0;
+  u32 cbp = static_cast<u32>(bits(tex0, 37, 14));
+  u32 cpsm = static_cast<u32>(bits(tex0, 51, 4));
+  bool csm2 = bits(tex0, 55, 1) != 0;
+  u32 csa = static_cast<u32>(bits(tex0, 56, 5));
 
-  for (u32 i = 0; i < entries; i++) {
+  // The table is read from memory: what is still to be drawn there comes first.
+  before_read(load.source);
+
+  for (u32 i = 0; i < load.count; i++) {
     u32 raw;
     if (csm2) {
-      u64 texclut = reg_[TEXCLUT];
-      u32 x = static_cast<u32>(bits(texclut, 6, 6)) * 16 + i;
-      raw = memory.read(PSMCT16, cbp, static_cast<u32>(bits(texclut, 0, 6)), x, static_cast<u32>(bits(texclut, 12, 10)));
-    } else if (entries == 256) {
+      u32 x = static_cast<u32>(bits(load.texclut, 6, 6)) * 16 + i;
+      raw = memory.read(PSMCT16, cbp, static_cast<u32>(bits(load.texclut, 0, 6)), x, static_cast<u32>(bits(load.texclut, 12, 10)));
+    } else if (load.count == 256) {
       // Entries 8-15 and 16-23 of every 32 are stored the other way round.
       u32 p = (i & 0xE7) | ((i & 0x08) << 1) | ((i & 0x10) >> 1);
       raw = memory.read(cpsm, cbp, 1, p & 15, p >> 4);
@@ -1935,6 +1967,7 @@ void Gs::copy_local() {
   finish();
   Pages to;
   add_pages(to, dpsm, dbp, dbw, static_cast<s32>(dx), static_cast<s32>(dy), static_cast<s32>(dx + width) - 1, static_cast<s32>(dy + height) - 1);
+  before_write(to);
   stamp(to);
   for (u32 j = 0; j < height; j++) {
     u32 y = (order & 1) ? height - 1 - j : j;

@@ -361,6 +361,14 @@ class Gs {
 
   // Colour lookup table.
   void load_clut(u64 tex0);
+  void do_clut_load();
+  struct ClutLoad {
+    bool waiting = false;
+    u64 tex0 = 0, texclut = 0;
+    Pages source;          // the pages it reads
+    u32 first = 0, count = 0;  // the entries it loads
+  };
+  ClutLoad clut_load_;
   void rebuild_clut();
   static u32 expand16(u16 c, u32 ta0, u32 ta1, bool aem);
 
