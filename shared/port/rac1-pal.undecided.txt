@@ -1,4 +1,9 @@
 # rac1/pal functions whose port from another project waits for a decision. tools/port.py skips every
-# name listed here (games/rac1/game.json, "never"). Empty since 2026-10-04: the eleven that were here
-# (SDK file and SIF I/O, 989snd command senders, newlib internals) were reviewed against
-# docs/policy/SOURCING.md and released; shared/port/README.md has the review.
+# name listed here (games/rac1/game.json, "never"). The eleven that were here until 2026-10-04 (SDK file
+# and SIF I/O, 989snd command senders, newlib internals) were reviewed against docs/policy/SOURCING.md and
+# released; shared/port/README.md has the review.
+#
+# 2026-10-09: sceSifInitIopHeap. Lombyte's unit (src/sdk/rpc/sce_sif_init_iop_heap.c) defines
+# sceSifRpcData and sceSifClientData with what look like the SDK header's own member names, which
+# docs/policy/SOURCING.md does not let through. The function is to be written from the assembly here.
+func_0011CB40

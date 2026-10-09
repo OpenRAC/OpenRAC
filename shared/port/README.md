@@ -28,6 +28,17 @@ with SDK-style names, types or macros.
 Released for porting. Function names such as `sceOpen` are the library's
 public interface, as rac1/pal already uses them.
 
+## Review of 2026-10-09: three more library functions
+
+Lombyte matched three more library functions that rac1/pal lacks. Read in the
+candidates `tools/port.py` wrote:
+
+| rac1/pal | Lombyte's unit | What it is | Finding |
+|---|---|---|---|
+| `func_0011B4C8` | `sdk/rpc/sce_sif_call_rpc.c` | `sceSifCallRpc` | Written from the assembly: its two structs have guessed member names (`request_id`, `semaphore_id`, `end_callback`). Released. |
+| `func_0012DB68` | `textbin/audio/snd_start_sound_system.c` | 989snd's start-up on the EE | Written from the assembly: globals by address, a one-member client struct. Released. |
+| `func_0011CB40` | `sdk/rpc/sce_sif_init_iop_heap.c` | `sceSifInitIopHeap` | Defines `sceSifRpcData` and `sceSifClientData` with member names that read as the SDK header's own. Held back ([rac1-pal.undecided.txt](rac1-pal.undecided.txt)); to be written from the assembly. |
+
 ## What the port into rac1/pal still gets wrong (2026-10-09)
 
 After Lombyte's pull requests 109 to 132, `tools/port.py` gave 206 candidates
