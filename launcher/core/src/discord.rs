@@ -197,7 +197,7 @@ impl DiscordIpc {
                     end: None,
                 }),
                 assets: Some(ActivityAssets {
-                    large_image: Some("openrac".into()),
+                    large_image: Some("https://openrac.dev/wrench.webp".into()),
                     large_text: Some("OpenRAC Launcher".into()),
                     small_image: None,
                     small_text: None,
@@ -221,9 +221,9 @@ impl DiscordIpc {
                         end: None,
                     }),
                     assets: Some(ActivityAssets {
-                        large_image: Some(game_id.clone()),
+                        large_image: Some(game_image_url(game_id)),
                         large_text: Some(title.clone()),
-                        small_image: Some("openrac".into()),
+                        small_image: Some("https://openrac.dev/wrench.webp".into()),
                         small_text: Some("OpenRAC".into()),
                     }),
                 }
@@ -243,9 +243,9 @@ impl DiscordIpc {
                         end: None,
                     }),
                     assets: Some(ActivityAssets {
-                        large_image: Some(game_id.clone()),
+                        large_image: Some(game_image_url(game_id)),
                         large_text: Some(title.clone()),
-                        small_image: Some("openrac".into()),
+                        small_image: Some("https://openrac.dev/wrench.webp".into()),
                         small_text: Some("OpenRAC".into()),
                     }),
                 }
@@ -257,6 +257,16 @@ impl DiscordIpc {
 
     pub fn clear(&mut self) -> Result<(), String> {
         self.update_activity(None)
+    }
+}
+
+pub fn game_image_url(game_id: &str) -> String {
+    match game_id {
+        "rac1" => "https://openrac.dev/img/rac1-bg.webp".to_string(),
+        "rac2" => "https://openrac.dev/img/gc-bg.webp".to_string(),
+        "rac3" => "https://openrac.dev/img/uya-bg.webp".to_string(),
+        "rac4" => "https://openrac.dev/img/deadlocked-bg.webp".to_string(),
+        _ => "https://openrac.dev/wrench.webp".to_string(),
     }
 }
 
@@ -352,9 +362,9 @@ mod tests {
                 end: None,
             }),
             assets: Some(ActivityAssets {
-                large_image: Some("rac1".into()),
+                large_image: Some(game_image_url("rac1")),
                 large_text: Some("Ratchet & Clank".into()),
-                small_image: Some("openrac".into()),
+                small_image: Some("https://openrac.dev/wrench.webp".into()),
                 small_text: Some("OpenRAC".into()),
             }),
         };

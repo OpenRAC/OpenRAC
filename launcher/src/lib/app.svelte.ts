@@ -76,6 +76,7 @@ export async function start() {
       if (job?.state === "failed") toast(`${job.title} failed`, "error");
       if (job) settle(job.key, job.state === "succeeded");
       void refresh();
+      updateDiscordPresence();
       pump();
     }
   });
@@ -156,6 +157,26 @@ export function currentVersion(): VersionView | null {
 }
 
 export function updateDiscordPresence(page: Page = app.page, version: string | null = app.version) {
+  // If a game is actively playing (in runtime, emulator or Godot), keep status as PlayingGame:
+  const playingJob = jobs.list.find(
+    (j) => (j.actionId === "play-runtime" || j.actionId === "play") && j.state === "running",
+  );
+  if (playingJob?.scope.kind === "version") {
+    const scope = playingJob.scope;
+    const versions = app.library?.games.flatMap((g) => g.versions) ?? [];
+    const v = versions.find((ver) => ver.key === scope.key);
+    if (v) {
+      void api.setDiscordStatus({
+        kind: "playingGame",
+        title: v.title,
+        region: v.region,
+        gameId: v.game,
+        startTime: playingJob.startedAt ? Math.floor(playingJob.startedAt / 1000) : null,
+      });
+      return;
+    }
+  }
+
   if (page === "game" && version) {
     const v = currentVersion();
     if (v) {
@@ -179,6 +200,7 @@ export async function run(scope: Scope, action: ActionView) {
   if (action.detached) {
     const started = await guard(api.runAction(scope, action.id));
     if (started) toast(`Started: ${started.title}`);
+    updateDiscordPresence();
     return;
   }
   const job = queue.add(scope, action.id, action.label);
@@ -252,11 +274,13 @@ function pump() {
     (started) => {
       job.title = started.title;
       queue.started(job, started.id, started.command);
+      updateDiscordPresence();
     },
     (e: unknown) => {
       queue.refused(job, errorText(e));
       toast(errorText(e), "error");
       settle(job.key, false);
+      updateDiscordPresence();
       pump();
     },
   );
