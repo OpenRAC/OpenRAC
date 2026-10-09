@@ -12,6 +12,9 @@ where it was:
   matching build's object files (padding, sections).
 - A string literal that runs across lines, which GCC 2.95 accepted, becomes
   one literal per line, concatenated: the same string, the same lines.
+- With candidates (hostgen.json "candidates"), a function the decompilation
+  still has as an assembly stub gets the candidate's C at the end of its file
+  (use_candidates).
 """
 
 from __future__ import annotations
@@ -163,13 +166,43 @@ def prepare(text: str) -> str:
     return widen_long(split_multiline_strings(blank_file_scope_asm(text)))
 
 
-def copy_tree(src: Path, dst: Path, patterns=("*.c", "*.h", "*.inc")) -> int:
-    """Prepares every C file under src into dst; only rewrites what changed."""
+_INCLUDE_ASM = re.compile(r'^[ \t]*INCLUDE_ASM\(\s*"[^"]*"\s*,\s*(\w+)\s*\)\s*;?[ \t]*$', re.M)
+
+
+def use_candidates(text: str, candidates: dict[str, str], used: set[str]) -> str:
+    """Puts candidate C in place of the assembly stubs it is written for.
+
+    A candidate is C for a function the decompilation still has as assembly:
+    a near miss that does what the retail function does without matching its
+    bytes. The stub's line is blanked and the candidate goes at the end of the
+    file, after every declaration it may rely on, so no line of the file moves."""
+    tail = []
+
+    def blank(m: re.Match) -> str:
+        name = m.group(1)
+        if name not in candidates:
+            return m.group(0)
+        used.add(name)
+        tail.append(f"\n/* hostgen: {name} from a candidate, not the matched C */\n"
+                    f"{prepare(candidates[name])}")
+        return ""
+
+    text = _INCLUDE_ASM.sub(blank, text)
+    return text + "".join(tail)
+
+
+def copy_tree(src: Path, dst: Path, patterns=("*.c", "*.h", "*.inc"),
+              candidates: dict[str, str] | None = None, used: set[str] | None = None) -> int:
+    """Prepares every C file under src into dst; only rewrites what changed.
+    candidates (function name -> C) replace their assembly stubs (use_candidates);
+    the names used are added to used."""
     count = 0
     for pattern in patterns:
         for path in src.rglob(pattern):
             out = dst / path.relative_to(src)
             text = prepare(path.read_text(encoding="utf-8", errors="surrogateescape"))
+            if candidates and path.suffix == ".c":
+                text = use_candidates(text, candidates, used if used is not None else set())
             if not out.exists() or out.read_text(encoding="utf-8", errors="surrogateescape") != text:
                 out.parent.mkdir(parents=True, exist_ok=True)
                 out.write_text(text, encoding="utf-8", errors="surrogateescape")

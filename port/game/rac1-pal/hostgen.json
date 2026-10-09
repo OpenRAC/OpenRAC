@@ -27,5 +27,6 @@
   ],
   "host_functions": [
     "func_0020C268"
-  ]
+  ],
+  "candidates": "nonmatching/functional.tsv"
 }

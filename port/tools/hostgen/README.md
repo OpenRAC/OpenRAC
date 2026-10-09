@@ -101,6 +101,7 @@ describes every key). What hostgen itself reads:
 | `symbols` | splat symbol files (`name = 0x00123456;`): named globals and functions with their addresses |
 | `places` | where each level function sits in each level (`config/overlays/functions.tsv` of rac1/pal) |
 | `groups` | parts of the tree that are programs of their own, loaded over part of the executable (Up Your Arsenal's menu, `src/frontbin`): their definitions are their own symbols (`func_00385750__frontbin`) in their own overlay, and their calls find their own functions first |
+| `candidates` | a table in the decompilation (`name<TAB>file` lines, the file relative to the decompilation) of C for functions it still has as assembly: near misses that do what the retail function does without matching its bytes. Each goes at the end of its file in place of the stub ([prep.py](prep.py)); the report counts them. A missing table means none. rac1/pal's is `nonmatching/functional.tsv`, the near misses its `tools/equiv.py` finds to be the same program |
 | `libraries` | the game's table of library entry points ([port/game/rac1-pal/libraries.tsv](../../game/rac1-pal/libraries.tsv)) |
 | `library_api` | the shared replacements' table, `../common/libraries.tsv` by default |
 | `id`, `title`, `game`, `serial`, `frame_rate`, `entry`, `overlay_hook` | the game's description and its entry, written into `game_info.c` |

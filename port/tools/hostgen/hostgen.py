@@ -102,6 +102,27 @@ def load_config(path: Path) -> dict:
     return cfg
 
 
+def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
+    """Candidate C for functions the decompilation still has as assembly
+    (hostgen.json "candidates": a table in the decompilation, one
+    "name<TAB>file" line each, the file relative to the decompilation; lines
+    starting with # are comments). A missing table means none: the
+    decompilation decides what it offers. Each is C that does what the retail
+    function does without matching its bytes; the matching build never sees it."""
+    table = cfg.get("candidates")
+    out: dict[str, str] = {}
+    if not table or not (source / table).is_file():
+        return out
+    for line in (source / table).read_text().splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        name, _, rel = line.partition("\t")
+        path = source / rel.strip()
+        if path.is_file():
+            out[name.strip()] = path.read_text(encoding="utf-8", errors="surrogateescape")
+    return out
+
+
 def library_api(config_dir: Path, cfg: dict) -> dict[str, str]:
     """The library functions every game shares (port/game/common/libraries.tsv):
     name -> signature, implemented by the port as openrac_lib_<name>."""
@@ -351,6 +372,7 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         f"| Functions translated | {summary['functions_translated']} |",
         f"| Functions with C that could not be translated (stubs) | {summary['functions_stubbed']} |",
         f"| Functions with no C (still assembly, or libraries) | {summary['functions_without_c']} |",
+        f"| Functions from candidates (C that is not the matched C) | {len(extra.get('candidates_used', []))} |",
         f"| Functions by code address | {extra.get('addresses', 0)} |",
         f"| Arguments passed through from the caller's registers | {summary['arguments_passed_through']} |",
         f"| Accesses to hardware register addresses | {summary['hardware_accesses']} "
@@ -421,9 +443,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     root = out / "prep"
     started = time.time()
+    candidates = read_candidates(source, cfg)
+    used: set[str] = set()
     for d in sorted(set(cfg["sources"] + cfg["includes"])):
         if (source / d).is_dir():
-            prep.copy_tree(source / d, root / d)
+            prep.copy_tree(source / d, root / d, candidates=candidates, used=used)
     units = units_of(root, cfg)
     if args.only:
         units = [u for u in units if u in args.only]
@@ -461,6 +485,7 @@ def main(argv: list[str] | None = None) -> int:
 
     extra = write_program_files(program, out, cfg.get("title", cfg.get("name", args.game.parent.name)))
     extra["roots"] = cfg.get("roots", [])
+    extra["candidates_used"] = sorted(used)
     extra["bound_libraries"] = write_libraries(program, out, host_rows, library_api(args.game.parent, cfg))
     write_game_info(program, out, cfg)
     extra["index_problems"] = problems

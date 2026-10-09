@@ -224,6 +224,22 @@ class Translate(unittest.TestCase):
         self.assertIn("a va_list passed as a game pointer, or the other way round",
                       self.last_report["stubbed"].values())
 
+    def test_candidate_replaces_an_assembly_stub(self):
+        # The decompilation still has func_00110100 as assembly; its table of
+        # candidates offers C for it, which goes at the end of the file.
+        out = self.run_program({"a.c": """
+            #define INCLUDE_ASM(dir, name)
+            extern int D_00200000;
+            INCLUDE_ASM("asm", func_00110100);
+            extern int func_00110100(int);
+            int test_main(void) { D_00200000 = 40; test_print(func_00110100(2)); return 0; }
+        """}, config={"candidates": "candidates.tsv"}, extra_files={
+            "game/candidates.tsv": "# name\tfile\nfunc_00110100\tcand/func_00110100.c\n",
+            "game/cand/func_00110100.c": "int func_00110100(int x) { return D_00200000 + x; }\n",
+        })
+        self.assertEqual(out, ["42"])
+        self.assertEqual(self.last_report["candidates_used"], ["func_00110100"])
+
     def test_function_pointers_by_code_address(self):
         out = self.run_program({"a.c": """
             int func_00110000(int x) { return x + 1; }
