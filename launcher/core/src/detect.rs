@@ -108,7 +108,7 @@ fn names(tool: Tool) -> &'static [&'static str] {
     match tool {
         Tool::Python if cfg!(windows) => &["python", "py", "python3"],
         Tool::Python => &["python3", "python"],
-        Tool::Pcsx2 => &["pcsx2-qt", "pcsx2", "PCSX2"],
+        Tool::Pcsx2 => &["pcsx2-qt", "pcsx2", "PCSX2", "net.pcsx2.PCSX2"],
         Tool::Godot => &["godot", "godot4", "Godot"],
         Tool::Docker => &["docker", "podman"],
     }
@@ -127,10 +127,21 @@ fn usual_places(tool: Tool) -> Vec<PathBuf> {
                 }
             } else if cfg!(target_os = "macos") {
                 places.push("/Applications/PCSX2.app/Contents/MacOS/PCSX2".into());
+            } else {
+                for p in [
+                    "/var/lib/flatpak/exports/bin/net.pcsx2.PCSX2",
+                    "/usr/bin/pcsx2-qt",
+                    "/usr/bin/pcsx2",
+                    "/usr/bin/PCSX2",
+                    "/usr/local/bin/pcsx2-qt",
+                    "/usr/local/bin/pcsx2",
+                ] {
+                    places.push(PathBuf::from(p));
+                }
+                if let Some(home) = home() {
+                    places.push(home.join(".local/share/flatpak/exports/bin/net.pcsx2.PCSX2"));
+                }
             }
-            // On Linux PCSX2 is usually a Flatpak (net.pcsx2.PCSX2) or an
-            // AppImage the user keeps anywhere: neither has a fixed path, so
-            // the user picks it. See docs/INTEGRATION.md ("Playing").
         }
         Tool::Godot => {
             if let Some(godot) = env("GODOT") {

@@ -263,35 +263,67 @@ fn apply_progress_json(
 
 #[cfg(target_os = "linux")]
 fn ensure_linux_desktop_integration() {
-    let icon_bytes = include_bytes!("../icons/icon.png");
+    let icon_bytes_512 = include_bytes!("../icons/icon.png");
+    let icon_bytes_256 = include_bytes!("../icons/128x128@2x.png");
+    let icon_bytes_128 = include_bytes!("../icons/128x128.png");
+    let icon_bytes_64 = include_bytes!("../icons/64x64.png");
+    let icon_bytes_32 = include_bytes!("../icons/32x32.png");
+
     if let Ok(home) = std::env::var("HOME") {
         let home_path = PathBuf::from(home);
-        let icon_dir = home_path.join(".local/share/icons/hicolor/512x512/apps");
+        let icons_base = home_path.join(".local/share/icons/hicolor");
         let app_dir = home_path.join(".local/share/applications");
-        let _ = std::fs::create_dir_all(&icon_dir);
         let _ = std::fs::create_dir_all(&app_dir);
 
-        let icon_path1 = icon_dir.join("openrac-launcher.png");
-        let icon_path2 = icon_dir.join("dev.openrac.launcher.png");
-        let _ = std::fs::write(&icon_path1, icon_bytes);
-        let _ = std::fs::write(&icon_path2, icon_bytes);
+        let sizes: &[(&str, &[u8])] = &[
+            ("32x32", icon_bytes_32),
+            ("64x64", icon_bytes_64),
+            ("128x128", icon_bytes_128),
+            ("256x256", icon_bytes_256),
+            ("512x512", icon_bytes_512),
+        ];
+
+        for (sz, bytes) in sizes {
+            let dir = icons_base.join(sz).join("apps");
+            let _ = std::fs::create_dir_all(&dir);
+            let _ = std::fs::write(dir.join("dev.openrac.launcher.png"), bytes);
+            let _ = std::fs::write(dir.join("openrac-launcher.png"), bytes);
+        }
+
+        let main_icon = icons_base.join("128x128/apps/dev.openrac.launcher.png");
+        let icon_target = if main_icon.exists() {
+            main_icon.to_string_lossy().to_string()
+        } else {
+            "dev.openrac.launcher".to_string()
+        };
 
         let exe_path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("openrac-launcher"));
         let exe_str = exe_path.to_string_lossy();
 
         let desktop_content1 = format!(
-            "[Desktop Entry]\nType=Application\nName=OpenRAC Launcher\nComment=OpenRAC Launcher\nExec={}\nIcon=openrac-launcher\nTerminal=false\nCategories=Game;Development;\nStartupWMClass=openrac-launcher\n",
-            exe_str
+            "[Desktop Entry]\nType=Application\nName=OpenRAC Launcher\nComment=OpenRAC Launcher\nExec={}\nIcon={}\nTerminal=false\nCategories=Game;Development;\nStartupWMClass=openrac-launcher\n",
+            exe_str, icon_target
         );
         let desktop_content2 = format!(
-            "[Desktop Entry]\nType=Application\nName=OpenRAC Launcher\nComment=OpenRAC Launcher\nExec={}\nIcon=dev.openrac.launcher\nTerminal=false\nCategories=Game;Development;\nStartupWMClass=dev.openrac.launcher\n",
-            exe_str
+            "[Desktop Entry]\nType=Application\nName=OpenRAC Launcher\nComment=OpenRAC Launcher\nExec={}\nIcon={}\nTerminal=false\nCategories=Game;Development;\nStartupWMClass=dev.openrac.launcher\n",
+            exe_str, icon_target
         );
 
-        let desk1 = app_dir.join("openrac-launcher.desktop");
-        let desk2 = app_dir.join("dev.openrac.launcher.desktop");
-        let _ = std::fs::write(desk1, desktop_content1);
-        let _ = std::fs::write(desk2, desktop_content2);
+        let _ = std::fs::write(app_dir.join("openrac-launcher.desktop"), desktop_content1);
+        let _ = std::fs::write(app_dir.join("dev.openrac.launcher.desktop"), desktop_content2);
+
+        // Notify desktop environment and refresh icon caches silently
+        let _ = std::process::Command::new("gtk-update-icon-cache")
+            .arg("-f")
+            .arg("-t")
+            .arg(&icons_base)
+            .status();
+        let _ = std::process::Command::new("update-desktop-database")
+            .arg(&app_dir)
+            .status();
+        let _ = std::process::Command::new("kbuildsycoca6")
+            .arg("--noincremental")
+            .status();
     }
 }
 

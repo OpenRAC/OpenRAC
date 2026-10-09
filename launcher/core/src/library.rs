@@ -138,4 +138,18 @@ mod tests {
         assert!(super::plan(&config, &Scope::Repository, "nope").is_err());
         assert!(super::plan(&config, &Scope::Version("rac9/pal".into()), "build").is_err());
     }
+
+    #[test]
+    fn plans_play_disc_when_pcsx2_and_disc_present() {
+        let config = Config {
+            root: Some(checkout()),
+            pcsx2: Some("/var/lib/flatpak/exports/bin/net.pcsx2.PCSX2".into()),
+            ..Config::default()
+        };
+        let plan = plan(&config, &Scope::Version("rac1/pal".into()), "play-disc").unwrap();
+        assert_eq!(plan.program, PathBuf::from("/var/lib/flatpak/exports/bin/net.pcsx2.PCSX2"));
+        assert!(plan.detached);
+        assert_eq!(plan.args[0], "--");
+        assert!(plan.args[1].contains("baserom"));
+    }
 }
