@@ -9,6 +9,8 @@ creates, lists, saves and loads its files in a folder of yours), a new game
 and the first level, which draws as it should at close to full speed on an
 M-series Mac, with its music and speech. Sound effects are not made yet.
 
+- [docs/CODING_CONVENTIONS.md](docs/CODING_CONVENTIONS.md): how the C++ here
+  is laid out, documented and commented. Read it before writing any.
 - [docs/DESIGN.md](docs/DESIGN.md): what is being built, in which order, and
   what is still open.
 - [docs/RAC1_PAL_SURVEY.md](docs/RAC1_PAL_SURVEY.md): what the decompilation
@@ -118,6 +120,8 @@ demo only). Linux and Windows are meant to work and are not tried yet.
 
 ## Rules for this directory
 
+- The C++ follows [docs/CODING_CONVENTIONS.md](docs/CODING_CONVENTIONS.md);
+  the layout is what `.clang-format` produces.
 - GPL-3.0-or-later ([LICENSE.md](../LICENSE.md)); every source file starts
   with its SPDX line.
 - Written from public hardware documentation and from what the games' own

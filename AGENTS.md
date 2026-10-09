@@ -25,7 +25,7 @@ goal. Start with [docs/LAYOUT.md](docs/LAYOUT.md).
 | rac3 | [games/rac3/ntsc/CONTRIBUTING.md](games/rac3/ntsc/CONTRIBUTING.md), [docs/targets.md](games/rac3/ntsc/docs/targets.md), [docs/wiki/Workflow.md](games/rac3/ntsc/docs/wiki/Workflow.md), [docs/wiki/Matching-Patterns.md](games/rac3/ntsc/docs/wiki/Matching-Patterns.md) |
 | rac4 | [games/rac4/README.md](games/rac4/README.md), [ntsc/CONTRIBUTING.md](games/rac4/ntsc/CONTRIBUTING.md), [ntsc/LEGAL.md](games/rac4/ntsc/LEGAL.md), [ntsc/docs/RESEARCH.md](games/rac4/ntsc/docs/RESEARCH.md) |
 | The editor | [editor/README.md](editor/README.md), [editor/GDSCRIPT_CONVENTIONS.md](editor/GDSCRIPT_CONVENTIONS.md) |
-| The runtime | [runtime/README.md](runtime/README.md), [runtime/docs/DESIGN.md](runtime/docs/DESIGN.md) |
+| The runtime | [runtime/README.md](runtime/README.md), [runtime/docs/DESIGN.md](runtime/docs/DESIGN.md), [runtime/docs/CODING_CONVENTIONS.md](runtime/docs/CODING_CONVENTIONS.md) (before writing any C++ there) |
 | Cross-game knowledge | [docs/engine](docs/engine/README.md), [docs/toolchains](docs/toolchains/README.md), [docs/workflow](docs/workflow/README.md) |
 
 ## Rules
