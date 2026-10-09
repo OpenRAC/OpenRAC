@@ -3,7 +3,7 @@
   // native port, edit its levels in Godot. Each button runs the same actions the
   // developer page lists (launcher/actions.json), found here by their ids.
   import Icon from "$components/Icon.svelte";
-  import SaveManagerModal from "$components/SaveManagerModal.svelte";
+  import SaveManagerBlock from "$components/SaveManagerBlock.svelte";
   import { api, pickDisc, pickFile, type ActionView } from "$lib/api";
   import {
     app,
@@ -21,8 +21,6 @@
   import { GODOT_URL } from "$lib/links";
   import { regionLabel } from "$lib/labels";
   import { themeStyle } from "$lib/themes";
-
-  let showSaveManager = $state(false);
 
   const v = $derived(currentVersion());
   const game = $derived(app.library?.games.find((g) => g.id === v?.game) ?? null);
@@ -200,17 +198,7 @@
       {/if}
     </section>
 
-    <section class="panel saves-panel">
-      <div class="grow">
-        <h2>Save files & Memory Card</h2>
-        <p class="muted">
-          Manage memory card save slots (save0–save4), view save timestamps and create safety backups/snapshots.
-        </p>
-      </div>
-      <button class="primary" onclick={() => (showSaveManager = true)}>
-        <Icon name="save" size={16} />Open save manager
-      </button>
-    </section>
+    <SaveManagerBlock version={v} />
 
     <details class="panel more">
       <summary>More</summary>
@@ -220,7 +208,6 @@
             ><Icon name="play" size={16} />Preview a level in Godot</button
           >
         {/if}
-        <button onclick={() => (showSaveManager = true)}><Icon name="save" size={16} />Save management</button>
         <button onclick={() => void guard(api.openPath(v.dir))}
           ><Icon name="folder" size={16} />Open the game's folder</button
         >
@@ -233,10 +220,6 @@
         >
       </div>
     </details>
-
-    {#if showSaveManager}
-      <SaveManagerModal version={v} onclose={() => (showSaveManager = false)} />
-    {/if}
   </div>
 {/if}
 

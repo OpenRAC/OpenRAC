@@ -4,14 +4,12 @@
   import ActionCard from "$components/ActionCard.svelte";
   import Icon from "$components/Icon.svelte";
   import ProgressBar from "$components/ProgressBar.svelte";
-  import SaveManagerModal from "$components/SaveManagerModal.svelte";
+  import SaveManagerBlock from "$components/SaveManagerBlock.svelte";
   import { api } from "$lib/api";
   import { app, currentVersion, guard, openVersion } from "$lib/app.svelte";
   import { grouped, matchedLine, pct, size } from "$lib/format";
   import { DISC, INPUT, SECTIONS, regionLabel } from "$lib/labels";
   import { themeStyle } from "$lib/themes";
-
-  let showSaveManager = $state(false);
 
   const v = $derived(currentVersion());
   const game = $derived(app.library?.games.find((g) => g.id === v?.game) ?? null);
@@ -119,17 +117,7 @@
       </dl>
     </section>
 
-    <section class="panel saves-panel">
-      <div class="grow">
-        <h2>Save files & Memory Card</h2>
-        <p class="muted blurb">
-          Inspect PS2 memory card directory, active slots (save0–save4), timestamps and snapshot backups.
-        </p>
-      </div>
-      <button class="primary" onclick={() => (showSaveManager = true)}>
-        <Icon name="save" size={16} />Open save manager
-      </button>
-    </section>
+    <SaveManagerBlock version={v} />
 
     <div class="kinds">
       {#each SECTIONS as section (section.kind)}
@@ -190,15 +178,8 @@
           <button onclick={() => void guard(api.openPath(readme))}><Icon name="book" size={16} />README</button>
         {/if}
         <button onclick={() => void guard(api.openPath(v.dir))}><Icon name="folder" size={16} />Open the folder</button>
-        <button onclick={() => (showSaveManager = true)}
-          ><Icon name="save" size={16} />Save management (prototype)</button
-        >
       </div>
     </section>
-
-    {#if showSaveManager}
-      <SaveManagerModal version={v} onclose={() => (showSaveManager = false)} />
-    {/if}
   </div>
 {/if}
 
