@@ -460,6 +460,16 @@ void Machine::vblank() {
   deliver();
   // What the program's handler sent is drawn, then the picture is taken.
   drawing.present();
+  // One field's worth of sound, whether or not anybody listens: the
+  // streams run their course either way.
+  sound_owed_ += Sound::kRate / hz;
+  std::size_t count = static_cast<std::size_t>(sound_owed_);
+  sound_owed_ -= static_cast<double>(count);
+  sound_out_.clear();
+  sound.mix(count, sound_out_);
+  if (on_sound) {
+    on_sound(sound_out_.data(), count);
+  }
   if (on_vblank) {
     on_vblank();
   }

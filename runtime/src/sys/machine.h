@@ -16,6 +16,7 @@
 #include "ps2/ee.h"
 #include "ps2/graphics.h"
 #include "ps2/memory.h"
+#include "sound.h"
 
 namespace sys {
 
@@ -55,6 +56,7 @@ class Machine {
   ps2::Vu vu0{ps2::Vu::Memory{vif0.micro.data(), 4096, vif0.data.data(), 4096}};
   ps2::Ee ee{memory, vu0};
   Disc disc;
+  Sound sound{disc};
 
   // --- starting ---
   // Load the program the disc boots (SYSTEM.CNF's BOOT2) and get ready to
@@ -68,6 +70,9 @@ class Machine {
   void run_frame();
   // Called at each vertical blank, after the game's handlers: show a frame.
   std::function<void()> on_vblank;
+  // Called at each vertical blank with that field's sound: pairs of left
+  // and right at Sound::kRate.
+  std::function<void(const ps2::s16* samples, std::size_t frames)> on_sound;
   bool halted = false;
   u64 frames = 0;
 
@@ -175,6 +180,8 @@ class Machine {
   u32 stack_top_ = ps2::GuestMemory::kRamBytes;
   u64 last_reported_unknown_ = 0;
   u64 cd_callback_at_ = ~u64{0};
+  std::vector<ps2::s16> sound_out_;
+  double sound_owed_ = 0;  // frames of sound not yet made, in fractions
   void update_event();
 };
 

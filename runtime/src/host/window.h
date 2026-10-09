@@ -2,12 +2,15 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #pragma once
 
+#include <cstddef>
+
 #include "ps2/gs.h"
 
 struct SDL_Window;
 struct SDL_Renderer;
 struct SDL_Texture;
 struct SDL_Gamepad;
+struct SDL_AudioStream;
 
 namespace host {
 
@@ -37,6 +40,9 @@ class Window {
   // direction pad, space cross, F square, E circle, R triangle, Q L1, left
   // shift R1, Z L2, C R2, return start, backspace select.
   Controls controls() const;
+  // Sound to be heard: pairs of left and right samples at `rate`. What does
+  // not come in time is silence; what would pile up is dropped.
+  void play(const short* samples, std::size_t frames, int rate);
   void present(const ps2::Image& image, float aspect);
   void close();
 
@@ -45,6 +51,8 @@ class Window {
   SDL_Renderer* renderer_ = nullptr;
   SDL_Texture* texture_ = nullptr;
   SDL_Gamepad* gamepad_ = nullptr;
+  SDL_AudioStream* audio_ = nullptr;
+  int audio_rate_ = 0;
   int texture_width_ = 0, texture_height_ = 0;
 };
 

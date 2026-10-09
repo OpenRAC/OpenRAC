@@ -43,7 +43,7 @@ bool write_ppm(const std::string& path, const Image& image) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  std::string iso, hooks, ppm, vif_file, card;
+  std::string iso, hooks, ppm, vif_file, card, wav;
   bool card_wanted = true;
   int vif_frame = -1;
   int frames = -1, report = 60, states_frame = -1;
@@ -84,6 +84,8 @@ int main(int argc, char** argv) {
       // for your own machine.
       vif_frame = std::atoi(argv[++i]);
       vif_file = argv[++i];
+    } else if (arg == "--wav" && i + 1 < argc) {
+      wav = argv[++i];  // everything heard, as a sound file
     } else if (arg == "--card" && i + 1 < argc) {
       card = argv[++i];  // the directory that is the memory card
     } else if (arg == "--no-card") {
@@ -99,7 +101,7 @@ int main(int argc, char** argv) {
     } else {
       std::fprintf(stderr, "usage: openrac-boot DISC.iso [--hooks FILE] [--frames N] [--report N] [--verbose N] "
                            "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--gs-states FRAME] "
-                           "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | --no-card]\n");
+                           "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | --no-card] [--wav FILE]\n");
       return 2;
     }
   }
@@ -151,6 +153,18 @@ int main(int argc, char** argv) {
 #else
   (void)window_wanted;
 #endif
+
+  std::vector<s16> heard;
+  machine.on_sound = [&](const s16* samples, std::size_t count) {
+    if (!wav.empty()) {
+      heard.insert(heard.end(), samples, samples + count * 2);
+    }
+#ifndef OPENRAC_NO_WINDOW
+    if (window_wanted) {
+      window.play(samples, count, sys::Sound::kRate);
+    }
+#endif
+  };
 
   Image image;
   auto reported_at = std::chrono::steady_clock::now();
@@ -319,6 +333,22 @@ int main(int argc, char** argv) {
                  static_cast<unsigned long long>(machine.graphics.vu1_runaways),
                  static_cast<unsigned long long>(machine.graphics.vu1_starts), machine.graphics.vu1_runaway_start,
                  machine.graphics.vu1_runaway_pc);
+  }
+  if (!wav.empty()) {
+    if (std::FILE* f = std::fopen(wav.c_str(), "wb")) {
+      // A plain sound file: 16-bit, two channels.
+      u32 bytes = static_cast<u32>(heard.size() * 2), rate = sys::Sound::kRate;
+      u8 head[44] = {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'E', 'f', 'm', 't', ' ', 16, 0, 0, 0, 1, 0, 2, 0,
+                     0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 16, 0, 'd', 'a', 't', 'a', 0, 0, 0, 0};
+      store<u32>(head + 4, bytes + 36);
+      store<u32>(head + 24, rate);
+      store<u32>(head + 28, rate * 4);
+      store<u32>(head + 40, bytes);
+      std::fwrite(head, 1, sizeof(head), f);
+      std::fwrite(heard.data(), 2, heard.size(), f);
+      std::fclose(f);
+      std::fprintf(stderr, "%.1f seconds of sound written to %s\n", static_cast<double>(heard.size()) / 2 / rate, wav.c_str());
+    }
   }
   if (!ppm.empty() && machine.drawing.picture(image)) {
     write_ppm(ppm, image);

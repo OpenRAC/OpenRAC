@@ -38,6 +38,7 @@ add_library(openrac_sys STATIC
   src/sys/machine.cpp
   src/sys/memcard.cpp
   src/sys/services.cpp
+  src/sys/sound.cpp
 )
 target_include_directories(openrac_sys PUBLIC src)
 target_link_libraries(openrac_sys PUBLIC openrac_ps2)

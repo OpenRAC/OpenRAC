@@ -13,7 +13,7 @@ Window::~Window() {
 }
 
 bool Window::open(const char* title, int width, int height) {
-  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
+  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
     std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
     return false;
   }
@@ -148,7 +148,33 @@ void Window::present(const ps2::Image& image, float aspect) {
   SDL_RenderPresent(renderer_);
 }
 
+void Window::play(const short* samples, std::size_t frames, int rate) {
+  if (!audio_ || audio_rate_ != rate) {
+    if (audio_) {
+      SDL_DestroyAudioStream(audio_);
+    }
+    SDL_AudioSpec spec{SDL_AUDIO_S16, 2, rate};
+    audio_ = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+    audio_rate_ = rate;
+    if (!audio_) {
+      std::fprintf(stderr, "no sound: %s\n", SDL_GetError());
+      return;
+    }
+    SDL_ResumeAudioStreamDevice(audio_);
+  }
+  // More than a fifth of a second waiting means the machine ran ahead of
+  // the loudspeaker: let it catch up rather than fall ever further behind.
+  if (SDL_GetAudioStreamQueued(audio_) > rate * 4 / 5) {
+    SDL_ClearAudioStream(audio_);
+  }
+  SDL_PutAudioStreamData(audio_, samples, static_cast<int>(frames * 4));
+}
+
 void Window::close() {
+  if (audio_) {
+    SDL_DestroyAudioStream(audio_);
+    audio_ = nullptr;
+  }
   if (gamepad_) {
     SDL_CloseGamepad(gamepad_);
     gamepad_ = nullptr;
