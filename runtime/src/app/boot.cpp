@@ -42,7 +42,8 @@ bool write_ppm(const std::string& path, const Image& image) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  std::string iso, hooks, ppm;
+  std::string iso, hooks, ppm, vif_file;
+  int vif_frame = -1;
   int frames = -1, report = 60, states_frame = -1;
   // Threads that draw: by default most of the fast cores, leaving one for the program itself.
   int gs_threads = static_cast<int>(std::min(12u, std::max(2u, std::thread::hardware_concurrency()) - 1));
@@ -75,6 +76,12 @@ int main(int argc, char** argv) {
       states_frame = std::atoi(argv[++i]);
     } else if (arg == "--gs-threads" && i + 1 < argc) {
       gs_threads = std::atoi(argv[++i]);
+    } else if (arg == "--dump-vif" && i + 2 < argc) {
+      // For openrac-vubench: one frame's display list as VIF1 gets it, with
+      // VU1's memories as they were before it. The file is game data: it is
+      // for your own machine.
+      vif_frame = std::atoi(argv[++i]);
+      vif_file = argv[++i];
     } else if (arg == "--one-thread") {
       drawing_thread = false;  // the drawing path on the program's own thread
     } else if (arg == "--ntsc") {
@@ -86,7 +93,7 @@ int main(int argc, char** argv) {
     } else {
       std::fprintf(stderr, "usage: openrac-boot DISC.iso [--hooks FILE] [--frames N] [--report N] [--verbose N] "
                            "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--gs-states FRAME] "
-                           "[--gs-threads N] [--one-thread]\n");
+                           "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE]\n");
       return 2;
     }
   }
@@ -165,7 +172,25 @@ int main(int argc, char** argv) {
       machine.pad.right_y = c.right_y;
     }
 #endif
+    std::vector<u8> vif_bytes, vif_micro, vif_data;
+    if (frame == vif_frame) {
+      machine.drawing.sync();
+      vif_micro.assign(machine.graphics.vif.micro.begin(), machine.graphics.vif.micro.end());
+      vif_data.assign(machine.graphics.vif.data.begin(), machine.graphics.vif.data.end());
+      machine.drawing.vif_copy = &vif_bytes;
+    }
     machine.run_frame();
+    if (frame == vif_frame) {
+      machine.drawing.vif_copy = nullptr;
+      if (std::FILE* f = std::fopen(vif_file.c_str(), "wb")) {
+        std::fwrite("ORVIF1\0", 1, 8, f);
+        std::fwrite(vif_micro.data(), 1, vif_micro.size(), f);
+        std::fwrite(vif_data.data(), 1, vif_data.size(), f);
+        std::fwrite(vif_bytes.data(), 1, vif_bytes.size(), f);
+        std::fclose(f);
+        std::fprintf(stderr, "frame %d: %zu bytes for VIF1 written to %s\n", frame, vif_bytes.size(), vif_file.c_str());
+      }
+    }
     if (machine.ee.vu0_runaways) {
       break;
     }

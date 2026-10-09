@@ -64,6 +64,9 @@ endif()
 add_executable(openrac-vuscan src/app/vuscan.cpp)
 target_link_libraries(openrac-vuscan PRIVATE openrac_ps2)
 
+add_executable(openrac-vubench src/app/vubench.cpp)
+target_link_libraries(openrac-vubench PRIVATE openrac_ps2)
+
 enable_testing()
 add_executable(openrac-ps2-tests tests/test_ps2.cpp)
 target_link_libraries(openrac-ps2-tests PRIVATE openrac_ps2)

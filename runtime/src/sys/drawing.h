@@ -41,7 +41,12 @@ class Drawing {
   // --- what the EE's side gives, in order ---
   // Data a DMA channel or a FIFO write sends: to VIF1, or to the GIF on path 3.
   // Pieces gather until `send`.
-  void vif(const u8* data, std::size_t bytes) { gather(kVif, data, bytes); }
+  void vif(const u8* data, std::size_t bytes) {
+    if (vif_copy) {
+      vif_copy->insert(vif_copy->end(), data, data + bytes);
+    }
+    gather(kVif, data, bytes);
+  }
   void gif(const u8* data, std::size_t bytes) { gather(kGif, data, bytes); }
   void send();
   // A write to one of the GS's privileged registers.
@@ -52,6 +57,9 @@ class Drawing {
   // wait at a time: with a third, the caller waits, so the EE's side never
   // runs far ahead of what is drawn.
   void present();
+
+  // For tools: when set, everything given to VIF1 is also appended here.
+  std::vector<u8>* vif_copy = nullptr;
 
   // --- what the EE's side asks ---
   // Wait until everything given has been done.
