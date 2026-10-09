@@ -92,3 +92,36 @@ jobs:
         run: |
           npm run build
           cargo clippy --workspace --all-targets -- -D warnings
+
+  # The native port (port/): hostgen's tests, then the whole port built with
+  # Clang (SDL3 fetched by CMake) and its tests, the OpenGL ones on Mesa's
+  # software renderer. The rac1 program is built from games/rac1/pal's C.
+  port:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compilers and SDL's system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build libgl1-mesa-dev libegl1-mesa-dev libgl1-mesa-dri \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
+            libwayland-dev libxkbcommon-dev libasound2-dev libpulse-dev
+
+      - name: hostgen
+        run: python -m unittest discover -s port/tools/hostgen -v
+
+      - name: Build
+        working-directory: port
+        run: |
+          cmake --preset release
+          cmake --build --preset release
+
+      - name: Tests
+        working-directory: port
+        env:
+          SDL_VIDEO_DRIVER: offscreen
+        run: ctest --preset release
+
