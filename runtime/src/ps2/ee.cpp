@@ -742,6 +742,9 @@ void Ee::cop2_op(u32 op, u32 at) {
       }
       break;
     case 0x02:  // CFC2
+      if (rd == 16) {
+        vu0_.status_was_read();
+      }
       set32(rt, vu0_.control(rd));
       break;
     case 0x05:  // QMTC2

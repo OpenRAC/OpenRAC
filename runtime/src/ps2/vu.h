@@ -46,9 +46,13 @@ class Vu {
   bool stopped() const { return !running_; }
 
   // Skip working out MAC and status flags that no instruction of the loaded
-  // programs can read. Safe for VU1, whose flags nothing outside it reads;
-  // VU0's can be read by the EE, so it leaves this off.
+  // programs can read. What a program leaves behind when it ends is always
+  // worked out. Safe for VU1, whose flags nothing outside it reads, and for
+  // VU0 as long as the EE reads no status flags (`status_was_read`).
   bool skip_unread_flags = false;
+  // Something outside read the status flags, whose remembering bits depend
+  // on every instruction: nothing is skipped from now on.
+  void status_was_read();
   // Program memory was written: forget what was worked out about it.
   void program_changed();
 

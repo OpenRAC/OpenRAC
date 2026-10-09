@@ -236,6 +236,16 @@ void Vu::program_changed() {
   program_dirty_ = true;
 }
 
+void Vu::status_was_read() {
+  if (skip_unread_flags) {
+    skip_unread_flags = false;
+    images_.clear();  // what was worked out assumed nobody would
+    image_ = nullptr;
+    needs_ = nullptr;
+    program_dirty_ = true;
+  }
+}
+
 // Find what is known about program memory as it is now, or start afresh.
 void Vu::choose_image() {
   program_dirty_ = false;

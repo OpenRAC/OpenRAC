@@ -33,6 +33,9 @@ Machine::Machine() {
   ee.on_syscall = [this](u32 code) { syscall(code); };
   ee.on_event = [this] { event(); };
   vif0.on_program = [this] { vu0.program_changed(); };
+  // Until the program reads VU0's status flags (these games never do), the
+  // flags no instruction can read are not worked out.
+  vu0.skip_unread_flags = true;
   add_default_services();
 }
 
