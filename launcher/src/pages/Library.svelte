@@ -119,10 +119,10 @@
   }
 
   .games {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
-    align-items: start;
-    gap: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
   }
 
   .start {

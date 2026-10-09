@@ -3,6 +3,7 @@
   // kind (set up, build, check, play, edit), then where it comes from.
   import ActionCard from "$components/ActionCard.svelte";
   import Icon from "$components/Icon.svelte";
+  import ImportModal from "$components/ImportModal.svelte";
   import ProgressBar from "$components/ProgressBar.svelte";
   import { api } from "$lib/api";
   import { app, currentVersion, guard, openVersion } from "$lib/app.svelte";
@@ -10,6 +11,7 @@
   import { DISC, INPUT, SECTIONS, regionLabel } from "$lib/labels";
   import { themeStyle } from "$lib/themes";
 
+  let showImportModal = $state(false);
   const v = $derived(currentVersion());
   const game = $derived(app.library?.games.find((g) => g.id === v?.game) ?? null);
   const scope = $derived({ kind: "version" as const, key: v?.key ?? "" });
@@ -74,6 +76,9 @@
           <span class="sec-num"></span>
           <h2>Your disc</h2>
         </div>
+        <button class="ghost small import-btn" onclick={() => (showImportModal = true)}>
+          <Icon name="disc" size={14} /> Import ISO
+        </button>
         <span class={`pill ${DISC[v.status.disc.state].tone}`}
           ><span class="dot"></span>{DISC[v.status.disc.state].text}</span
         >
@@ -156,6 +161,10 @@
         <button onclick={() => void guard(api.openPath(v.dir))}><Icon name="folder" size={16} />Open the folder</button>
       </div>
     </section>
+
+    {#if showImportModal}
+      <ImportModal version={v} onclose={() => (showImportModal = false)} />
+    {/if}
   </div>
 {/if}
 

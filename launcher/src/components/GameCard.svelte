@@ -1,68 +1,209 @@
 <script lang="ts">
   // One game on the library page, styled like its card on the website
   // (openrac-site src/components/Progress.tsx), one row per version.
-  import type { GameView } from "$lib/api";
+  import type { GameView, VersionView } from "$lib/api";
   import { openVersion } from "$lib/app.svelte";
   import { matchedLine, pct } from "$lib/format";
   import { DISC, regionLabel } from "$lib/labels";
   import { themeStyle } from "$lib/themes";
+  import Icon from "./Icon.svelte";
+  import ImportModal from "./ImportModal.svelte";
   import ProgressBar from "./ProgressBar.svelte";
 
   let { game, delay = 0 }: { game: GameView; delay?: number } = $props();
+
+  let isTitleHovered = $state(false);
+  let activeImportVersion = $state<VersionView | null>(null);
+
+  const GAME_MEDIA: Record<string, { bg: string; gif: string }> = {
+    rac1: { bg: "/img/rac1-bg.webp", gif: "/img/rac1-gameplay.gif" },
+    rac2: { bg: "/img/gc-bg.webp", gif: "/img/rac2-gameplay.gif" },
+    rac3: { bg: "/img/uya-bg.webp", gif: "/img/rac3-gameplay.gif" },
+    rac4: { bg: "/img/deadlocked-bg.webp", gif: "/img/rac4-gameplay.gif" },
+  };
+
+  const media = $derived(GAME_MEDIA[game.id] ?? null);
 </script>
 
-<section class="card rise" style={`${themeStyle(game.id)}; animation-delay: ${delay}ms`} aria-label={game.title}>
-  <div class="title box">
-    {game.title}
-    <small>decompilation{game.year ? ` · ${game.year}` : ""}</small>
-  </div>
+<section
+  class="card rise"
+  class:previewing={isTitleHovered}
+  style={`${themeStyle(game.id)}; animation-delay: ${delay}ms`}
+  aria-label={game.title}
+>
+  {#if media}
+    <div class="card-backdrop" aria-hidden="true">
+      <img src={media.bg} alt="" class="backdrop-img static" class:dimmed={isTitleHovered} />
+      <img src={media.gif} alt="" class="backdrop-img gif" class:active={isTitleHovered} />
+      <div class="backdrop-overlay"></div>
+    </div>
+  {/if}
 
-  {#each game.versions as v (v.key)}
-    <button
-      class="version"
-      onclick={() => {
-        openVersion(v.key);
-      }}
-      aria-label={`${v.title}, ${v.region}`}
-    >
-      <span class="row head">
-        <span class="region box">{regionLabel(v.name)}</span>
-        <span class="serial">{v.serial}</span>
-        <span class="grow"></span>
-        <span class="percent box">{v.progress ? pct(v.progress.percent) : "–"}</span>
-      </span>
-      {#if v.progress}
-        <ProgressBar percent={v.progress.percent} label={`${v.title} (${v.region}) code matched`} />
-        <span class="line">{matchedLine(v.progress.matchedCode, v.progress.totalCode)}</span>
-      {/if}
-      <span class="row pills">
-        <span class={`pill ${DISC[v.status.disc.state].tone}`}
-          ><span class="dot"></span>{DISC[v.status.disc.state].text}</span
+  <div class="card-content">
+    <div class="card-header">
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="title box"
+        class:hovered={isTitleHovered}
+        onmouseenter={() => (isTitleHovered = true)}
+        onmouseleave={() => (isTitleHovered = false)}
+        title="Hover to preview gameplay"
+      >
+        <span class="title-text">{game.title}</span>
+        <small
+          >decompilation{game.year ? ` · ${game.year}` : ""}{#if isTitleHovered}
+            · 🎬 gameplay preview{/if}</small
         >
-        {#if v.inputs.length}
-          <span class={`pill ${v.status.inputsReady ? "ok" : "warn"}`}>
-            <span class="dot"></span>{v.status.inputsReady ? "Inputs placed" : "Inputs missing"}
+      </div>
+
+      {#if game.versions.length === 1}
+        <button
+          type="button"
+          class="import-pill-btn"
+          onclick={() => (activeImportVersion = game.versions[0] ?? null)}
+          title={`Import ISO for ${game.title}`}
+        >
+          <Icon name="disc" size={15} />
+          <span>Import ISO</span>
+        </button>
+      {/if}
+    </div>
+
+    <div class="versions-grid">
+      {#each game.versions as v (v.key)}
+        <div class="version">
+          <div
+            class="version-main"
+            role="button"
+            tabindex="0"
+            onclick={() => {
+              openVersion(v.key);
+            }}
+            onkeydown={(e) => {
+              if (e.key === "Enter" || e.key === " ") openVersion(v.key);
+            }}
+            aria-label={`${v.title}, ${v.region}`}
+          >
+            <span class="row head">
+              <span class="region box">{regionLabel(v.name)}</span>
+              <span class="serial">{v.serial}</span>
+              <span class="grow"></span>
+              <span class="percent box">{v.progress ? pct(v.progress.percent) : "–"}</span>
+            </span>
+            {#if v.progress}
+              <ProgressBar percent={v.progress.percent} label={`${v.title} (${v.region}) code matched`} />
+              <span class="line">{matchedLine(v.progress.matchedCode, v.progress.totalCode)}</span>
+            {/if}
+          </div>
+
+          <span class="row pills">
+            <span class={`pill ${DISC[v.status.disc.state].tone}`}
+              ><span class="dot"></span>{DISC[v.status.disc.state].text}</span
+            >
+            {#if v.inputs.length}
+              <span class={`pill ${v.status.inputsReady ? "ok" : "warn"}`}>
+                <span class="dot"></span>{v.status.inputsReady ? "Inputs placed" : "Inputs missing"}
+              </span>
+            {/if}
+            <span class="grow"></span>
+            <button
+              type="button"
+              class="import-btn"
+              onclick={() => (activeImportVersion = v)}
+              title={`Import ISO for ${v.title} (${v.region})`}
+            >
+              <Icon name="disc" size={13} />
+              <span>Import ISO</span>
+            </button>
+            <button
+              type="button"
+              class="open-btn"
+              onclick={() => {
+                openVersion(v.key);
+              }}
+              title={`Open ${v.title} (${v.region})`}
+            >
+              Open →
+            </button>
           </span>
-        {/if}
-        <span class="grow"></span>
-        <span class="open">Open →</span>
-      </span>
-    </button>
-  {/each}
+        </div>
+      {/each}
+    </div>
+  </div>
 </section>
+
+{#if activeImportVersion}
+  <ImportModal version={activeImportVersion} onclose={() => (activeImportVersion = null)} />
+{/if}
 
 <style>
   .card {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    padding: 22px;
+    padding: 24px;
     border-radius: 30px;
     overflow: hidden;
     background:
       radial-gradient(90% 70% at 70% 0, var(--from), transparent 70%), linear-gradient(160deg, var(--from), var(--to));
     box-shadow: var(--shadow);
+  }
+
+  .card-backdrop {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .backdrop-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out;
+  }
+
+  .backdrop-img.static {
+    opacity: 0.42;
+  }
+
+  .backdrop-img.static.dimmed {
+    opacity: 0;
+  }
+
+  .backdrop-img.gif {
+    opacity: 0;
+  }
+
+  .backdrop-img.gif.active {
+    opacity: 0.85;
+  }
+
+  .backdrop-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.55) 100%);
+    pointer-events: none;
+  }
+
+  .card-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
   }
 
   .box {
@@ -76,9 +217,22 @@
   .title {
     font-family: var(--title-font);
     font-weight: var(--title-weight);
-    font-size: 24px;
+    font-size: 26px;
     line-height: 1.2;
-    padding: 12px 18px;
+    padding: 12px 20px;
+    border-radius: 16px;
+    cursor: pointer;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .title:hover,
+  .title.hovered {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+    border-color: #ffffff;
   }
 
   .title small {
@@ -89,23 +243,66 @@
     color: var(--tx2);
   }
 
+  .import-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 3px solid var(--bd);
+    background: var(--box);
+    color: var(--tx);
+    font-family: var(--title-font);
+    font-size: 14px;
+    font-weight: var(--title-weight);
+    padding: 8px 16px;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition:
+      transform 0.15s ease,
+      background 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .import-pill-btn:hover {
+    transform: translateY(-1px);
+    border-color: #ffffff;
+    background: color-mix(in srgb, var(--box) 80%, white 20%);
+  }
+
+  .versions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 12px;
+  }
+
   .version {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
+    gap: 10px;
     text-align: left;
     border-radius: 18px;
-    border: 1px solid rgb(255 255 255 / 0.1);
-    background: rgb(0 0 0 / 0.28);
-    padding: 12px 14px;
+    border: 1px solid rgb(255 255 255 / 0.14);
+    background: rgb(0 0 0 / 0.42);
+    backdrop-filter: blur(8px);
+    padding: 14px 16px;
     color: var(--text);
     font-weight: 400;
+    transition:
+      border-color 0.2s ease,
+      background 0.2s ease;
   }
 
-  .version:hover:not(:disabled) {
+  .version:hover {
     border-color: var(--bd);
-    background: rgb(0 0 0 / 0.38);
+    background: rgb(0 0 0 / 0.55);
+  }
+
+  .version-main {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    cursor: pointer;
   }
 
   .head {
@@ -141,17 +338,51 @@
   }
 
   .pills {
-    gap: 6px;
+    gap: 8px;
+    align-items: center;
     flex-wrap: wrap;
+    border-top: 1px solid rgb(255 255 255 / 0.08);
+    padding-top: 10px;
   }
 
   .pills .pill {
-    background: rgb(0 0 0 / 0.35);
+    background: rgb(0 0 0 / 0.45);
   }
 
-  .open {
+  .import-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .import-btn:hover {
+    background: rgba(255, 255, 255, 0.24);
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+
+  .open-btn {
+    border: none;
+    background: none;
     font-size: 13px;
     font-weight: 600;
     color: var(--tx);
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: transform 0.15s ease;
+  }
+
+  .open-btn:hover {
+    transform: translateX(2px);
   }
 </style>
