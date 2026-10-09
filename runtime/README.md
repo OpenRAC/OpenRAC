@@ -41,6 +41,8 @@ M-series Mac, with its music and speech. Sound effects are not made yet.
 | `src/sys/services.cpp` | What the replaced library functions do: the disc, the pad, the sound server (streams and sound effects), the display's timing |
 | `src/sys/sound.*` | The sound library's streams (music, speech): ADPCM files on the disc, decoded and mixed one field's worth after each field |
 | `src/snd/*` | The sound library's sound effects: banks of sounds, each a short script of steps (tones, waits, loops, random picks, registers, modulators), played on 48 voices with the sound processor's sample format and envelope, and mixed over the streams after each field |
+| `src/sys/native.*`, `native_abi.h` | Host code in place of guest functions: loads a library built from a game's decompiled C ([port/](port/README.md)) and runs its functions where the retail program would run its own, bound by checksum; can run a call both ways and compare |
+| `port/` | `port.py build GAME/VERSION`: compiles a decompilation's C for the host as that library. 2,235 functions of the first game build; 124 run on the way to its main menu |
 | `src/sys/memcard.cpp` | The memory card library answered from a directory of the host: a folder on the card is a directory, a file a file |
 | `games/SERIAL.hooks` | Per game: which addresses of its program are which library functions. Addresses and names only. `tools/port_hooks.py` carries a table over to another version of a game |
 | `src/host/window.*` | An SDL3 window that shows one image per frame and reads the keyboard and a game controller |
@@ -78,6 +80,15 @@ The US disc (`SCUS_971.99`) runs the same way with its own table and the
 
 ```sh
 build/runtime/openrac-boot DISC.iso --hooks runtime/games/SCUS_971.99.hooks --ntsc --window
+```
+
+To run the decompiled C that is ready in place of the retail code, build the
+library and name it ([port/README.md](port/README.md)):
+
+```sh
+python3 runtime/port/port.py build rac1/pal
+build/runtime/openrac-boot DISC.iso --hooks runtime/games/SCES_509.16.hooks --window \
+    --native build/port/rac1-pal/libopenrac-native.dylib
 ```
 
 Its table was made from the PAL one by `runtime/tools/port_hooks.py`, which

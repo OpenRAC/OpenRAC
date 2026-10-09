@@ -242,7 +242,7 @@ Sony's SDK source, samples and headers are never used
 | M5 | Sound; frame pacing; a faster EE core and vector unit; the drawing path on its own thread | playable (frame pacing **done**; four threads and a faster vector unit bring the first level to 40-48 of 50 frames a second on an M5; music, speech and sound effects play; the sound processor's reverb is open) |
 | M6 | GPU back end and the first native VU1 renderers; wide screen and resolution | a port, visibly |
 | M7 | The other games' hook tables | all four boot |
-| M8 | Host-compiled decompiled C replacing guest functions (route C) | the decompilation runs |
+| M8 | Host-compiled decompiled C replacing guest functions (route C) | the decompilation runs (**started**: 2,235 functions of the first game build as host code, 124 run on the way to its main menu, each bound by checksum and checkable against the retail code; see [port/README.md](../port/README.md)) |
 
 ## 9. Open decisions
 

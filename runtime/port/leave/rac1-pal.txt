@@ -1,0 +1,17 @@
+# Ratchet & Clank (PAL): decompiled functions that the host build leaves to
+# the interpreter, each with the reason. A function is listed when its C
+# matches the retail bytes but does not do what the retail code does once it
+# is compiled for a host; the fix belongs in the decompilation, and the line
+# goes when it is made.
+#
+# How they are found: `openrac-boot --native LIBRARY --native-check N` runs
+# each function both ways and lists the ones that leave something else in
+# memory or in the result (runtime/port/README.md).
+#
+# name            why
+
+# A 64-bit value passes through declarations typed as 32 bits. On the console
+# a register move carries all 64 bits whatever the C says; here the upper half
+# is dropped.
+func_0021C1B0     gives func_001F4868's result (a 64-bit texture register value, declared int here) to the text drawer
+func_0021C6C0     returns a colour that the retail code leaves zero-extended in 64 bits; declared s32, it comes back sign-extended
