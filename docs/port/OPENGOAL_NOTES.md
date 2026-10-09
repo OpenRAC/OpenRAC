@@ -1,4 +1,4 @@
-# How OpenGOAL draws: notes for the runtime
+# How OpenGOAL draws: notes for the native port
 
 [OpenGOAL](https://github.com/open-goal/jak-project) (jak-project, ISC) is the
 native port of the Jak and Daxter games, which ran on the same hardware in

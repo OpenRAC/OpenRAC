@@ -41,7 +41,7 @@ dark only, as the site is.
 
 The fonts are bundled from npm (`@fontsource/audiowide`,
 `@fontsource-variable/orbitron`, `@fontsource-variable/inter`), imported in
-`src/main.ts`: the app never loads anything from the network.
+`src/main.ts`: no font or style loads from the network.
 
 ## Pieces taken from the site
 
@@ -76,8 +76,12 @@ game's colours. A game without a theme gets `FALLBACK` (the launcher's own
 orange); the tests fail until every game in `games/` has one.
 
 The site's cards can show a backdrop image (`/img/<game>-bg.webp`), which the
-site does not ship in its repository; the launcher leaves them out and shows
-the gradient, as the site does when the image is missing.
+site does not ship in its repository. The launcher has carried its own copies
+in `public/img/` since 2026-10-09, with a gameplay clip or animation per game
+shown when a card is hovered (`GameCard.svelte`, `GamePlayer.svelte`). Where
+those images and clips come from, and under what terms, is not recorded yet:
+it belongs in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) before a
+release. Without them the cards show the gradient, as the site does.
 
 ## Rules
 

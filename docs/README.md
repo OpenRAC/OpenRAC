@@ -28,11 +28,12 @@ the first table; go to a game's documents when you work on that game.
 | [progress/](../progress/README.md) | Consolidated progress (generated) |
 | [editor/README.md](../editor/README.md) | The Godot level editor: extracting your levels, what it reads, its code |
 | [editor/GDSCRIPT_CONVENTIONS.md](../editor/GDSCRIPT_CONVENTIONS.md) | Style for the editor's GDScript |
-| [runtime/README.md](../runtime/README.md) | The runtime: the hardware model and renderer that will run the games on a PC, building it |
-| [runtime/docs/DESIGN.md](../runtime/docs/DESIGN.md) | What the runtime is to be, the routes considered, milestones and open decisions |
-| [runtime/docs/RAC1_PAL_SURVEY.md](../runtime/docs/RAC1_PAL_SURVEY.md) | Ratchet & Clank's frame loop, display list, microprograms, menu path, disc, memory card and library surface, from the decompilation |
-| [runtime/docs/VU_PROGRAMS.md](../runtime/docs/VU_PROGRAMS.md) | The games' vector unit programs by name: where the executables list them, which ones the games share, what follows for the renderer |
-| [runtime/docs/OPENGOAL_NOTES.md](../runtime/docs/OPENGOAL_NOTES.md) | How OpenGOAL's renderer and platform layer work, and what carries over |
+| [port/README.md](port/README.md) | The native port, OpenGOAL's way: no emulation; what is decided and open ([DESIGN.md](port/DESIGN.md)), the order of work ([ROADMAP.md](port/ROADMAP.md)) |
+| [port/DECOMP_STATUS.md](port/DECOMP_STATUS.md), [port/PORTABILITY.md](port/PORTABILITY.md) | How much of Ratchet & Clank (PAL) is C a PC could build; what the matching C assumes about the console |
+| [port/RENDERER.md](port/RENDERER.md) | How the game builds a frame, everything it draws, the VU programs, the graphics chip's conventions |
+| [port/RAC1_PAL_SURVEY.md](port/RAC1_PAL_SURVEY.md) | Ratchet & Clank's frame loop, display list, microprograms, menu path, disc, memory card and library surface, from the decompilation |
+| [port/VU_PROGRAMS.md](port/VU_PROGRAMS.md) | The games' vector unit programs by name: where the executables list them, which ones the games share |
+| [port/OPENGOAL_NOTES.md](port/OPENGOAL_NOTES.md) | How OpenGOAL's renderer and platform layer work, and what carries over |
 | [launcher/README.md](../launcher/README.md) | The desktop launcher: developing it, and [connecting a game](../launcher/docs/INTEGRATION.md) to it |
 | [LICENSE.md](../LICENSE.md), [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md), [CREDITS.md](../CREDITS.md) | Licensing by directory, third-party work, the people behind each project |
 
@@ -80,7 +81,6 @@ the first table; go to a game's documents when you work on that game.
 | [docs/RAC1-TO-RAC2.md](../games/rac2/ntsc/docs/RAC1-TO-RAC2.md), [docs/SECOND-C-LOT.md](../games/rac2/ntsc/docs/SECOND-C-LOT.md) | What carries over from RAC1, and the bodies reused from it |
 | [docs/LEVEL-NATIVE-C.md](../games/rac2/ntsc/docs/LEVEL-NATIVE-C.md), [docs/LEVEL-INTEGRATION-PLAN.md](../games/rac2/ntsc/docs/LEVEL-INTEGRATION-PLAN.md), [docs/C-NATIVE-EXPERIMENT-REGISTER.md](../games/rac2/ntsc/docs/C-NATIVE-EXPERIMENT-REGISTER.md) | C in the level overlays, the plan, the register of trials |
 | [docs/PROTOTYPE-BUILDS.md](../games/rac2/ntsc/docs/PROTOTYPE-BUILDS.md), [docs/AUG6-RETAIL-ANCHORS.md](../games/rac2/ntsc/docs/AUG6-RETAIL-ANCHORS.md), [docs/ENGINE-SYMBOL-NAMES.md](../games/rac2/ntsc/docs/ENGINE-SYMBOL-NAMES.md), [docs/ASSERT-MESSAGE-NAMES.md](../games/rac2/ntsc/docs/ASSERT-MESSAGE-NAMES.md) | Prerelease builds and the names drawn from them; names from retail assert messages |
-| [docs/PCSX2-VALIDATION.md](../games/rac2/ntsc/docs/PCSX2-VALIDATION.md) | Booting rebuilt programs in PCSX2 |
 | `docs/*-C-LOT.md`, `docs/*-NATIVE-LOT.md`, [docs/INTEGRATION-FIRST-LOT.md](../games/rac2/ntsc/docs/INTEGRATION-FIRST-LOT.md) | The matching log, one file per lot (28 files) |
 
 ## Ratchet & Clank: Up Your Arsenal ([games/rac3/ntsc](../games/rac3/ntsc))

@@ -63,27 +63,22 @@ edit ([editor/README.md](editor/README.md)):
 python3 editor/extract.py godot baserom/SCES_509.16.iso assets/godot
 ```
 
-The runtime runs the games on a PC with no emulator: a model of the console
-that the retail program runs in, with the library functions answered by
-OpenRAC's own code ([runtime/README.md](runtime/README.md)). Ratchet & Clank
-(PAL and US) plays from the menus into the first level with sound and a
-memory card; Going Commando (US) reaches its first level. With your own disc
-image:
+The goal for playing is a **native PC port** of each game, built the way
+OpenGOAL ported Jak and Daxter: the decompiled code compiled for the PC, a
+renderer of OpenRAC's own, the assets extracted once from your own disc. No
+emulation. The port does not exist yet; [docs/port](docs/port/README.md) has
+the design, the studies of the decompiled code and the order of work.
 
-```sh
-python3 runtime/tools/run.py play SCES_509.16 baserom/SCES_509.16.iso
-```
-
-A desktop launcher that does these steps behind buttons, for every game, is
-in progress ([launcher/README.md](launcher/README.md)). Its "Play in the
-OpenRAC runtime" button runs the command above.
+A desktop launcher ([launcher/README.md](launcher/README.md)) sets a game up
+from your disc (OpenGOAL's way, with [tools/extractor.py](tools/extractor.py)),
+runs the level editor and, with developer tools on, every game's builds and
+checks.
 
 ## Repository layout
 
 ```
 games/       one directory per game, one per version inside (pal, ntsc)
 editor/      the Godot level editor and its extractor
-runtime/     what runs the games on a PC: hardware model, renderer, host
 launcher/    a desktop app to set up, build and play the games (in progress)
 tools/       openrac.py (discs, setup, progress) and sources.py (imports)
 docs/        policy, engine knowledge, toolchains and workflows across games

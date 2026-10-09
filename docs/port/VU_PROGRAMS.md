@@ -1,9 +1,9 @@
 # The games' vector unit programs, by name
 
-How the runtime can tell which of a game's vector unit programs is loaded,
-and which programs the games share. It matters for the renderer: a program
-that is recognised can be drawn by host code written for it instead of being
-interpreted ([DESIGN.md](DESIGN.md), section 4.4).
+Which vector unit programs each game carries, how a game's own executable
+names them, and which programs the games share. It matters for the native
+renderer: each VU1 program is a renderer the port rewrites for the GPU, one
+program at a time ([DESIGN.md](DESIGN.md), [RENDERER.md](RENDERER.md)).
 
 The convention was first written down for the US disc of the first game by
 [ReRAC](https://github.com/re-rac/rerac) (`docs/formats/vu_microprograms.md`,
@@ -56,13 +56,15 @@ The roles are ReRAC's reading of the first game's code. They are a lead: each
 is to be confirmed here by which draw path a program is running under before
 host code is written for it.
 
-## What follows for the runtime
+## What follows for the native renderer
 
-1. **Naming a loaded program** is done: the runtime reads the table at boot
-   (`src/ps2/vu_programs.*`) and counts what each unit runs by program, with
-   no table per game. `openrac-boot --vu-programs` prints the counts at the
-   end of a run. The first level of the first game (PAL), from the boot to
-   40 seconds in:
+1. **How much each program draws.** The executable's table names every
+   program, so a game's frames can be broken down by program. One such
+   measurement exists: it was taken on 2026-10-09 by the `runtime/`
+   experiment (removed the same day; see [README.md](README.md)), which ran
+   the first game (PAL) from boot to 40 seconds into its first level and
+   counted the instructions each unit ran, by program. It is kept here for
+   its numbers, not its method:
 
    | Unit | Program | Role (ReRAC) | Runs started | Share of the unit's instructions |
    |---|---:|---|---:|---:|
@@ -78,15 +80,14 @@ host code is written for it.
    | VU0 | 104691 | helper for mobys | 899,944 | 99.7% |
    | VU0 | 436083 | end of frame, transitions | 39,832 | 0.2% |
 
-   VU0's helper for mobys runs 703 million instructions in that run against
-   1,674 million for all of VU1, and it runs on the thread that runs the
-   game's code.
-2. **Which host renderers first.** Terrain and shrubs are the same programs
-   in both games, so one host renderer for each serves both; ties and mobys
-   were edited between the games and need a look at what changed. By work
-   taken from the interpreter the order is the other way round: ties, mobys
-   and the first shrub program are nine tenths of VU1's instructions in the
-   level measured above, terrain a twentieth.
+   The share of instructions says how much each program works on the
+   console, not how hard it is to rewrite: a native renderer replaces a
+   program by what it draws.
+2. **Which native renderers first.** Terrain and shrubs are the same
+   programs in both games, so one native renderer for each serves both; ties
+   and mobys were edited between the games and need a look at what changed.
+   Ties, mobys and the first shrub program are nine tenths of VU1's work in
+   the level measured above, terrain a twentieth.
 3. **The `<line>` field** is the line of the program's source it started at:
    the same in both games for unchanged programs, shifted for the edited
    ones. It tells which programs to compare first when a later game is

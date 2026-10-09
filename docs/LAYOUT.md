@@ -13,11 +13,11 @@ OpenRAC/
 │   ├── rac3/ntsc/          Up Your Arsenal, SCUS_973.53, from rac3-uya-decomp
 │   └── rac4/ntsc/          Deadlocked, SCUS_974.65, from rac-deadlocked-decomp
 ├── editor/                 Godot level editor and extractor (shared)
-├── runtime/                what runs the games on a PC: hardware model, renderer, host (shared)
 ├── launcher/               desktop app to set up, build and play every game (Tauri)
-├── tools/                  repository-wide tools: openrac.py, sources.py
+├── tools/                  repository-wide tools: openrac.py, extractor.py, sources.py
 ├── docs/                   knowledge and rules that span the games
 │   ├── policy/             sourcing policy, open questions
+│   ├── port/               the native port: design, studies, order of work
 │   ├── engine/             what is known about the engine, across games
 │   ├── toolchains/         which compilers built what
 │   └── workflow/           how matching works in each game
@@ -37,11 +37,11 @@ proven there.
 
 **Shared things live at the top level, and only shared things.** A tool,
 document or component goes to the top level when it serves more than one
-game, or the repository itself: the editor, the runtime, `tools/openrac.py`, the policies,
-the cross-game references. A game may use top-level components (rac1/pal
-uses the editor's readers); the top level never depends on one game's
-internals, apart from the per-game knowledge the editor decodes and the
-per-game tables the runtime is given ([runtime/docs/DESIGN.md](../runtime/docs/DESIGN.md)).
+game, or the repository itself: the editor, the launcher, `tools/openrac.py`,
+the extractor, the policies, the cross-game references. A game may use
+top-level components (rac1/pal uses the editor's readers); the top level
+never depends on one game's internals, apart from the per-game knowledge the
+editor decodes.
 
 **Generated and personal files stay out of git.** Disc images, extracted
 data, assembly, build output, the generated Godot project and toolchains
@@ -59,7 +59,7 @@ are what readers see.
 | A tool that serves several games or the repository | `tools/` (standard library Python where possible), with tests |
 | A file a second game needs unchanged (a library source, a build helper) | a copy in that game, listed with the original in `shared/files.json` ([shared/](../shared/README.md)) |
 | Editor code | `editor/` |
-| Code that runs or draws the games on a PC | `runtime/`, following [its rules](../runtime/README.md#rules-for-this-directory) |
+| A study or decision for the native port | `docs/port/` ([its README](port/README.md)); the port's code gets a top-level directory with its first code ([port/DESIGN.md](port/DESIGN.md), open decision 5) |
 | Launcher code, or a game's actions in the launcher | `launcher/` (a game's actions: `launcher/actions.json`) |
 | A decision or rule for everyone | `docs/policy/`, and `AGENTS.md` and `CONTRIBUTING.md` if it changes how people work |
 | A new game version | `games/<game>/<version>/`, plus its entry in `games/<game>/game.json` |
@@ -72,7 +72,7 @@ are what readers see.
   NTSC-U). A Japanese release would be `ntsc-j`. The serial and disc version
   are in `game.json`.
 - Commit scopes use the same names: `rac1/pal`, `rac1/ntsc`, `rac2`, `rac3`,
-  `rac4`, and `editor`, `launcher`, `runtime`, `tools`, `docs`, `progress` for the top level
+  `rac4`, and `editor`, `launcher`, `port`, `tools`, `docs`, `progress` for the top level
   ([CONTRIBUTING.md](../CONTRIBUTING.md#commits)).
 
 ## Where this is heading

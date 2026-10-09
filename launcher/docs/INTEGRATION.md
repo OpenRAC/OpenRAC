@@ -1,10 +1,14 @@
 # Connecting the games to the launcher
 
 The launcher is scaffolding: the app, its look, the game catalogue, the job
-runner and the first actions work, and every game has its actions written
-down. This document is for whoever wires the rest up: what "connected" means,
-the format of `launcher/actions.json`, and the work left, in packages that can
-be taken one at a time.
+runner, setting a game up from the player's disc and the first actions work,
+and every game has its actions written down. This document is for whoever
+wires the rest up: what "connected" means, the format of
+`launcher/actions.json`, how a game is set up from a disc, and the work left,
+in packages that can be taken one at a time.
+
+Playing is the **native port** ([docs/port](../../docs/port/README.md)): the
+launcher never runs the retail program or a model of the console.
 
 Read [ARCHITECTURE.md](ARCHITECTURE.md) first for how the parts fit.
 
@@ -17,6 +21,8 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) first for how the parts fit.
 | Catalogue from `games/*/game.json` and `progress/summary.json`                                | done, tested against this checkout                                                                                                                                                 |
 | Disc and input status (names, sizes, links)                                                   | done; checksums are `openrac.py discs`'s, see [Disc verification](#disc-verification)                                                                                              |
 | Detecting the checkout, Python, Godot, Docker                                                 | done                                                                                                                                                                               |
+| Setting a game up from the player's disc (OpenGOAL's extract and validate)                    | done; the extractor is tested on synthetic images, not yet run on a real disc from the desktop app                                                                                 |
+| Play (the native port)                                                                        | **planned** for every version: the port does not exist yet                                                                                                                         |
 | Jobs: queue, live output, cancel (whole process tree)                                         | done, tested on Linux                                                                                                                                                              |
 | Repository actions: Identify discs, Verify every checksum, Place inputs, Test OpenRAC's tools | **connected**: Identify discs and the tool tests run from the desktop app on Linux; the other two run with the same command lines from a shell. None yet with a disc in `baserom/` |
 | `report-check` for rac1/pal and rac4                                                          | **connected**: the same command lines run from a shell on Linux (they need no disc)                                                                                                |
@@ -64,7 +70,7 @@ One action:
 | `platforms`   | default: all                                                          | `linux`, `macos`, `windows`; the others' actions are tucked away                                                                                       |
 | `requires`    |                                                                       | what must be in place, each shown as a reason when missing: `disc`, `inputs`, `toolchains`, `python`, `godot`, `docker`, `artifact`                    |
 | `artifact`    |                                                                       | a file the action makes (a build) or needs (play the build), relative to the checkout; `{artifact}` in `args`                                          |
-| `detached`    | default false                                                         | start it and let it run (an emulator, an editor) instead of a job in Tasks                                                                             |
+| `detached`    | default false                                                         | start it and let it run (the game, an editor) instead of a job in Tasks                                                                                |
 | `docs`        |                                                                       | the document for this step, relative to the checkout (`#anchor` allowed); the Docs button opens it                                                     |
 | `todo`        | required while `planned`                                              | for contributors: what is left to do or check                                                                                                          |
 
@@ -103,8 +109,10 @@ coordinates, and keep each commit to one action or one package
 
 ### 1. Disc verification
 
-`core/src/status.rs` finds a disc by name or size and says "found"; it never
-hashes a 4 GB image. The checksums are `tools/openrac.py discs`'s job, which the
+This is about the developer's discs in `baserom/`, which the decompilations'
+builds read; a player's disc is checked by the extractor when the game is set
+up (next section). `core/src/status.rs` finds a disc by name or size and says
+"found"; it never hashes a 4 GB image. The checksums are `tools/openrac.py discs`'s job, which the
 launcher runs as a job and whose output the user reads.
 
 To show "verified" on the cards: give `openrac.py discs` a machine-readable
@@ -115,44 +123,61 @@ modification time so it is not recomputed. `openrac.py` is a top-level tool
 with tests in `tools/test_openrac.py`: the flag and its test go there, in a
 `feat(tools)` commit of its own.
 
-### 2. Playing
+### 2. Setting a game up
 
-The games are played in OpenRAC's own runtime
-([runtime/README.md](../../runtime/README.md)): the launcher starts no
-emulator and needs no BIOS. Every version has a `play-runtime` action,
-`runtime/tools/run.py play {serial} {disc}`, which builds the runtime (CMake,
-a C++ compiler, SDL3) and runs the disc in it, in a window. It is not
-detached, so what the build and the runtime print shows in Tasks, and closing
-the game's window ends the job.
+The player's side follows OpenGOAL's launcher exactly; its own steps and
+OpenRAC's are:
 
-| Version   | State      | How far it gets                                                    |
-| --------- | ---------- | ------------------------------------------------------------------ |
-| rac1/pal  | unverified | menus, memory card, sound, the first level                         |
-| rac1/ntsc | unverified | the main menu and the first level                                  |
-| rac2/ntsc | unverified | the main menu and the start of the first level; movies are skipped |
-| rac3/ntsc | planned    | the runtime has no table for its program yet                       |
-| rac4/ntsc | planned    | the runtime has no table for its program yet                       |
+| Step             | OpenGOAL                                                                        | OpenRAC                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| The player picks | "Install via ISO": their own disc image                                         | **Set up from your disc**: the same, `.iso` only                                                                                    |
+| Extract          | `extractor <iso> --extract --validate --proj-path <install>/active/<game>/data` | `tools/extractor.py <iso> --game <game> --extract --validate --proj-path <install>/active/<game>/data`                              |
+| Validate         | the boot executable's serial and hash against its database of known builds      | against `games/<game>/game.json` (serial, SHA-1 of the boot executable); file count and contents hash too once game.json lists them |
+| Decompile        | the assets into the port's formats                                              | **not available yet** ([docs/port/ROADMAP.md](../../docs/port/ROADMAP.md), P2)                                                      |
+| Compile          | build the game                                                                  | **not available yet** (P5)                                                                                                          |
+| Play             | `gk -boot -fakeiso --proj-path …`                                               | the native port, when it exists: the `play` action (planned)                                                                        |
+| Uninstall        | removes `iso_data`, `decompiler_out` and `out` for the game                     | **Remove the set-up**: the same three folders                                                                                       |
 
-"Unverified" here means run from a shell on macOS, not yet from the desktop
-app. The repository action `runtime-tests` builds the runtime and runs its
-tests.
+- The install folder is a setting (by default the launcher's per-user data
+  folder); each game lives in `active/<game>/data/`, as in OpenGOAL.
+- A failure ends the job with the extractor's message, `error NNNN: ...`,
+  using OpenGOAL's number for the same failure (`tools/extractor.py`,
+  `ERRORS`); the job's output is in Tasks.
+- Ratchet & Clank names only a few files in the disc's ISO 9660 file system
+  (RAC1: `SYSTEM.CNF`, the boot executable and `IOPRP243.IMG`) and reads the
+  rest by sector. So, unlike OpenGOAL's, the extract step also keeps the
+  image itself in `iso_data/<game>/disc.iso` (a hard link, a copy across
+  file systems) for the decompile step to read.
+- A disc set up this way counts as the version's disc for the level editor
+  (`{disc}` in its actions), so a player needs no `baserom/`.
+- Code: `core/src/install.rs` (the layout, the state on disk, the job's plan,
+  uninstall), the Tauri commands `install_game` and `uninstall_game`, and
+  `installGame` in `src/lib/app.svelte.ts`.
 
-The port itself has started: `play-port` (rac1/pal so far, unverified in the
-same sense) is `runtime/tools/run.py play-port {key} {serial} {disc}`. It
-builds the version's decompiled C for the host
-([runtime/port/README.md](../../runtime/port/README.md); it needs LLVM with
-the wasm32 target and WABT) and plays the disc with those functions running
-as native code in place of the game's own, in every level, the interpreter
-keeping the rest. What comes next is a renderer of OpenRAC's own on the GPU
-([runtime/docs/DESIGN.md](../../runtime/docs/DESIGN.md)).
+To do here: run the extractor from the desktop app with a real disc of each
+game and record the result; add each disc's file count and contents hash to
+its game.json (the extractor prints them for an unknown build); then the
+decompile step, which is the port's asset pipeline.
 
-### 3. Each game's set-up, build and checks
+### 3. Playing
+
+Every version has a planned `play` action: the native port, built from the
+decompiled C, drawn by OpenRAC's own renderer, from the assets the set-up
+prepared. Nothing runs yet; [docs/port/ROADMAP.md](../../docs/port/ROADMAP.md)
+says what it needs and in which order. When a version's port can be
+started, its `play` becomes runnable with the port's executable and the
+version's install folder, as OpenGOAL's launcher starts `gk`.
+
+### 4. Each game's set-up, build and checks
 
 The per-version actions carry their own `todo`s; in short:
 
-- **rac1/pal**: `setup-asm` and `build` run in the Docker image on Linux and
-  macOS, natively under Git Bash on Windows. Confirm the artifact and how a
-  mismatch shows (exit code). Mind [BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md):
+- **rac1/pal**: `setup-asm` and `build` run `tools/setup_asm.sh` and
+  `tools/build_sn.sh` directly (since 2026-10-09; they ran in the project's
+  Docker image before). Check this against the project's own
+  [CONTAINERS.md](../../games/rac1/pal/docs/CONTAINERS.md), which says every
+  build runs in the container on Linux and macOS, before marking them
+  connected. Confirm the artifact and how a mismatch shows (exit code). Mind [BUILD_FIDELITY.md](../../games/rac1/pal/docs/BUILD_FIDELITY.md):
   the launcher runs the build; it never changes how it builds.
 - **rac1/ntsc**: `setup.sh` downloads and builds its toolchains (long; Linux,
   WSL, or Docker on macOS); `make elf`, `verify-baseline.sh`, `make iso`.
@@ -161,18 +186,18 @@ The per-version actions carry their own `todo`s; in short:
   `setup.py` creates feeds `build.py`.
 - **rac3**: needs Wrench, wibo and a venv (package 4); then
   `tools/setup_asm.py`, `tools/build.py`, `tools/pr_check.py`.
-- **rac4**: `setup_asm.sh`, the Docker build, `audit_matches.py` with the
-  project's venv.
+- **rac4**: `setup_asm.sh`, the build (`tools/build.sh`, run directly since
+  2026-10-09, as rac1/pal's), `audit_matches.py` with the project's venv.
 
 Each game's own docs are the authority on its commands; the action's `docs`
 field points at them. If a game's tool needs a change to be driven (a flag, a
 machine-readable result), make it in that game's directory under its rules,
 in a commit of its own, and verify the game as its docs say.
 
-### 4. More settings
+### 5. More settings
 
 Some games need tools and folders the launcher does not know yet: rac2's
-runtime folder (outside the tree; `build/rac2-runtime` works) and Wrench's
+working folder for its builds (its "runtime" folder) (outside the tree; `build/rac2-runtime` works) and Wrench's
 `wrenchbuild`; rac3's wibo and Wrench; per-game virtual environments. A design
 that keeps `actions.json` the single place: a `tools` map in `Config`
 (`{"wrench": "/path/to/wrenchbuild", "wibo": ...}`) with placeholders
@@ -183,7 +208,7 @@ the placeholder form to `PLACEHOLDERS` handling and its tests.
 A "Download helpers" action (Wrench, wibo) must pin versions and checksums,
 like rac1/ntsc's `setup.sh` does.
 
-### 5. Windows
+### 6. Windows
 
 rac1/pal and rac4's scripts are bash; rac1/ntsc and rac2 use WSL for their
 compilers. Decide per game between Git Bash (`bash` from Git for Windows) and
@@ -191,7 +216,7 @@ WSL (`wsl.exe --cd <path> -- <command>`, which needs paths converted to
 `/mnt/c/...`: a `{wsl:dir}`-style placeholder). Test the job cancel on
 Windows (`taskkill /T`) against a WSL process.
 
-### 6. Updates
+### 7. Updates
 
 - **The launcher**: Tauri's updater plugin, as the T3SDK launcher does
   (signed `latest.json` on GitHub releases), plus a release workflow that
@@ -200,18 +225,18 @@ Windows (`taskkill /T`) against a WSL process.
   tree is clean, refusing otherwise. Players who do not use git need a
   different answer (open decision below).
 
-### 7. The level editor
+### 8. The level editor
 
 rac1/pal has the whole path written down, in the order a user takes it:
 
-| Action           | State      | What it does                                                                      |
-| ---------------- | ---------- | --------------------------------------------------------------------------------- |
-| `editor-extract` | unverified | the disc's 19 levels into a Godot project in `assets/godot`                       |
-| `editor-import`  | unverified | Godot reads the meshes and textures once, headless, so the first open is quick    |
-| `editor-open`    | unverified | the Godot editor on that project                                                  |
-| `editor-pack`    | planned    | edited scenes back into level data, under `build/`; the packer does not exist yet |
-| `editor-play`    | planned    | the runtime with a packed level in place of the disc's; needs the packer          |
-| `editor-tests`   | unverified | the unit tests of `editor/`                                                       |
+| Action           | State      | What it does                                                                                  |
+| ---------------- | ---------- | --------------------------------------------------------------------------------------------- |
+| `editor-extract` | unverified | the disc's 19 levels into a Godot project in `assets/godot`                                   |
+| `editor-import`  | unverified | Godot reads the meshes and textures once, headless, so the first open is quick                |
+| `editor-open`    | unverified | the Godot editor on that project                                                              |
+| `editor-pack`    | planned    | edited scenes back into level data, under `build/`; the packer does not exist yet             |
+| `editor-preview` | connected  | Godot's player on the first extracted level (Godot showing the editor's scenes, not the game) |
+| `editor-tests`   | unverified | the unit tests of `editor/`                                                                   |
 
 The unverified ones ran from a shell on macOS with a real disc and Godot
 4.7.2 (extract into a new folder, the refusal of an existing one, the
@@ -223,25 +248,25 @@ rule, or a status field). The other versions carry a planned `editor-extract`
 that says what the editor lacks for them
 ([editor/README.md](../../editor/README.md)).
 
-### 8. Release and CI
+### 9. Release and CI
 
 CI runs the launcher's checks (the `launcher` job in
 `.github/workflows/checks.yml`). Building installers in CI, and where they are
-published, waits on the license (below) and package 6.
+published, waits on package 7.
 
 ## Open decisions
 
 These are not the launcher's to settle alone ([AGENTS.md](../../AGENTS.md), rule 11):
 
-- **License.** The launcher's code is under "everything else" in
-  [LICENSE.md](../../LICENSE.md): not chosen yet
-  ([open question 1](../../docs/policy/OPEN_QUESTIONS.md#1-licensing)).
-  Releases wait on it.
 - **How players get OpenRAC.** Today the launcher needs a git checkout. A
   player-facing release could bundle `tools/` and the game folders instead,
   which changes what "update" means and where builds write.
-- **Network.** The launcher fetches nothing today. Live progress (the site's
-  `/progress.json`) and update checks would be its first network calls.
+- **Network.** Since 2026-10-09 the launcher fetches
+  `https://openrac.dev/progress.json` at start-up and rewrites the
+  checkout's `progress/summary.json` with it, and shows Discord Rich Presence
+  unless switched off. `progress/summary.json` is a generated file that
+  `tools/openrac.py progress` writes (AGENTS.md, rule 9): whether the
+  launcher should keep its copy elsewhere is for the maintainers.
 - **Which games and versions to put first.** The launcher shows every version
   in `games/`; the four games are rac1 (PAL and NTSC-U), rac2, rac3 and rac4.
 
