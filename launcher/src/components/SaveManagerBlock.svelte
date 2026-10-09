@@ -123,7 +123,17 @@
           </div>
           <div class="slot-content">
             {#if !slot.isEmpty}
-              <div class="slot-date highlight">{slot.timestamp ?? "Ready"}</div>
+              <div class="slot-planet" title={slot.planetName ?? "Unknown Planet"}>
+                <Icon name="globe" size={13} />
+                <span class="planet-name">{slot.planetName ?? "Unknown Planet"}</span>
+              </div>
+              <div class="slot-stats">
+                <div class="slot-bolts" title="Bolts">
+                  <Icon name="bolt" size={12} />
+                  <span>{slot.bolts != null ? slot.bolts.toLocaleString() : "0"}</span>
+                </div>
+                <div class="slot-date">{slot.timestamp ?? "Ready"}</div>
+              </div>
               <div class="slot-sub">{slot.filename} · {formatBytes(slot.size)}</div>
             {:else}
               <div class="slot-empty-text">No save data</div>
@@ -305,23 +315,53 @@
   .slot-content {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
+  }
+
+  .slot-planet {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tx);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .planet-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .slot-stats {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .slot-bolts {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #eab308;
   }
 
   .slot-date {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--tx);
-  }
-
-  .slot-date.highlight {
-    color: var(--brand, #ff9800);
+    font-size: 11px;
+    color: var(--tx2);
   }
 
   .slot-empty-text {
     font-size: 12px;
     color: var(--tx2);
     font-style: italic;
+    padding: 6px 0;
   }
 
   .slot-sub {

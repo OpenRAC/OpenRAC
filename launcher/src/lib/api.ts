@@ -223,6 +223,9 @@ export interface SaveSlotInfo {
   size: number;
   exists: boolean;
   isEmpty: boolean;
+  bolts: number | null;
+  planetId: number | null;
+  planetName: string | null;
   timestamp: string | null;
   modifiedMillis: number | null;
 }

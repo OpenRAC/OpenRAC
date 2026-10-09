@@ -24,6 +24,12 @@ pub struct SaveSlotInfo {
     pub size: u64,
     pub exists: bool,
     pub is_empty: bool,
+    /// Number of bolts collected in this save file.
+    pub bolts: Option<u32>,
+    /// Planet ID where save was created.
+    pub planet_id: Option<u32>,
+    /// Human-readable planet name (e.g. Veldin, Novalis, Kerwan).
+    pub planet_name: Option<String>,
     /// ISO-8601 formatted timestamp if decoded from in-game save metadata or file mtime.
     pub timestamp: Option<String>,
     pub modified_millis: Option<u64>,
@@ -109,7 +115,86 @@ fn parse_save_timestamp(bytes: &[u8]) -> Option<String> {
     Some(format!("{full_year:04}-{mo:02}-{d:02} {h:02}:{m:02}:{s:02}"))
 }
 
-/// Inspect save files and backups for a game version's serial.
+/// Ratchet & Clank 1 planet names by internal planet ID (0..18).
+pub const RAC1_PLANETS: &[&str] = &[
+    "Veldin (Kyzil Plateau)", // 0
+    "Novalis (Tobruk Crater)", // 1
+    "Aridia (Outpost X11)",   // 2
+    "Kerwan (Metropolis)",    // 3
+    "Eudora (Logging Site)",  // 4
+    "Rilgar (Blackwater City)", // 5
+    "Blarg Station",          // 6
+    "Umbris (Snagglebeast)",  // 7
+    "Batalia (Fort Krontos)", // 8
+    "Gaspar (Jowai Resort)",  // 9
+    "Orxon (Kogor Refinery)", // 10
+    "Pokitaru (Jowai Resort)",// 11
+    "Hoven (Bomb Factory)",   // 12
+    "Gemlik Base",            // 13
+    "Oltanis (Gorda City)",   // 14
+    "Quartu (Robot Plant)",   // 15
+    "Kalebo III (Gadgetron)", // 16
+    "Drek's Fleet",           // 17
+    "Veldin (Return)",        // 18
+];
+
+pub fn get_planet_name(serial: &str, planet_id: u32) -> Option<String> {
+    if serial.contains("509.16") || serial.contains("971.99") {
+        if let Some(&name) = RAC1_PLANETS.get(planet_id as usize) {
+            return Some(name.to_string());
+        }
+    }
+    Some(format!("Planet #{planet_id}"))
+}
+
+#[derive(Debug, Default)]
+struct SaveGameplayInfo {
+    bolts: Option<u32>,
+    planet_id: Option<u32>,
+}
+
+/// Parses internal records from serialized Ratchet & Clank save data:
+/// - Record 0: Current planet ID (D_0015EE84)
+/// - Record 1: Current bolt count (gBolts, D_0015EE98)
+fn parse_save_gameplay_info(bytes: &[u8]) -> SaveGameplayInfo {
+    if bytes.len() < 24 {
+        return SaveGameplayInfo::default();
+    }
+
+    let mut info = SaveGameplayInfo::default();
+    let mut cursor = 16; // Skip size_a (4), size_b (4), prep_size (4), prep_csum (4)
+
+    while cursor + 8 <= bytes.len() {
+        let rec_id = i32::from_le_bytes(bytes[cursor..cursor + 4].try_into().unwrap());
+        let rec_size = i32::from_le_bytes(bytes[cursor + 4..cursor + 8].try_into().unwrap());
+
+        if rec_id == -1 || rec_size < 0 {
+            break;
+        }
+
+        let sz = rec_size as usize;
+        let data_start = cursor + 8;
+        let data_end = data_start + sz;
+
+        if data_end > bytes.len() {
+            break;
+        }
+
+        if rec_id == 0 && sz >= 4 {
+            let pid = u32::from_le_bytes(bytes[data_start..data_start + 4].try_into().unwrap());
+            if pid < 50 {
+                info.planet_id = Some(pid);
+            }
+        } else if rec_id == 1 && sz >= 4 {
+            let b = u32::from_le_bytes(bytes[data_start..data_start + 4].try_into().unwrap());
+            info.bolts = Some(b);
+        }
+
+        cursor = data_start + ((sz + 3) & !3);
+    }
+
+    info
+}
 pub fn inspect_saves(serial: &str) -> GameSaveStatus {
     let card_dir = get_memcard_dir(serial);
     let exists = card_dir.is_dir();
@@ -164,22 +249,34 @@ pub fn inspect_saves(serial: &str) -> GameSaveStatus {
             for i in 0..5 {
                 let fname = format!("save{i}.bin");
                 let save_path = target_dir.join(&fname);
-                let (exists, size, mtime, is_empty, timestamp) = if save_path.is_file() {
-                    let meta = save_path.metadata().ok();
-                    let sz = meta.as_ref().map(|m| m.len()).unwrap_or(0);
-                    let mt = meta.as_ref()
-                        .and_then(|m| m.modified().ok())
-                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                        .map(|d| d.as_millis() as u64);
+                let (exists, size, mtime, is_empty, timestamp, bolts, planet_id, planet_name) =
+                    if save_path.is_file() {
+                        let meta = save_path.metadata().ok();
+                        let sz = meta.as_ref().map(|m| m.len()).unwrap_or(0);
+                        let mt = meta
+                            .as_ref()
+                            .and_then(|m| m.modified().ok())
+                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                            .map(|d| d.as_millis() as u64);
 
-                    let data = fs::read(&save_path).unwrap_or_default();
-                    let ts = parse_save_timestamp(&data);
-                    // In rac1, an initialized but empty save slot has 0x00 at 0x48..0x50 and 0xffffffff at 0x18
-                    let empty = ts.is_none() || (data.len() > 0x1c && data[0x18..0x1c] == [0xff, 0xff, 0xff, 0xff]);
-                    (true, sz, mt, empty, ts)
-                } else {
-                    (false, 0, None, true, None)
-                };
+                        let data = fs::read(&save_path).unwrap_or_default();
+                        let ts = parse_save_timestamp(&data);
+                        // In rac1, an initialized but empty save slot has 0x00 at 0x48..0x50 and 0xffffffff at 0x18
+                        let empty = ts.is_none()
+                            || (data.len() > 0x1c && data[0x18..0x1c] == [0xff, 0xff, 0xff, 0xff]);
+
+                        let (b, pid, pname) = if !empty {
+                            let g = parse_save_gameplay_info(&data);
+                            let pn = g.planet_id.and_then(|p| get_planet_name(serial, p));
+                            (g.bolts, g.planet_id, pn)
+                        } else {
+                            (None, None, None)
+                        };
+
+                        (true, sz, mt, empty, ts, b, pid, pname)
+                    } else {
+                        (false, 0, None, true, None, None, None, None)
+                    };
 
                 slots.push(SaveSlotInfo {
                     slot_index: i,
@@ -188,6 +285,9 @@ pub fn inspect_saves(serial: &str) -> GameSaveStatus {
                     size,
                     exists,
                     is_empty,
+                    bolts,
+                    planet_id,
+                    planet_name,
                     timestamp,
                     modified_millis: mtime,
                 });
