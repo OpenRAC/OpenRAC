@@ -13,6 +13,10 @@ directory lists its own in its `THIRD_PARTY_NOTICES.md` and source comments:
   [games/rac2/ntsc/docs/COMPILER-NOTES.md](games/rac2/ntsc/docs/COMPILER-NOTES.md),
   [games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md](games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md)).
 
+`port/audio/sound_player.h` follows the behaviour of OpenGOAL's 989snd
+(`game/sound/989snd`; ISC License, Copyright (c) 2020-2026 OpenGOAL Team),
+as do the grain type names in `port/assets/sound/sound_bank.h`.
+
 [docs/port/OPENGOAL_NOTES.md](docs/port/OPENGOAL_NOTES.md) describes how
 [OpenGOAL](https://github.com/open-goal/jak-project) (ISC, Copyright (c)
 2020-2026 OpenGOAL Team) works, and the launcher's disc set-up and
@@ -52,6 +56,9 @@ and notes:
 - `port/assets/world/`: the gameplay file, collision and its queries, occlusion,
   cameras, fonts, the HUD and PIF pictures, built on `crates/rc-formats` and
   ReRAC's specs; `port/assets/ps2_float.h` and `image.h`, shared by the parts.
+- `port/assets/sound/`, `port/media/`, `port/audio/`: sound banks, VAG, PSS and
+  ADPCM from `crates/rc-formats`; the MPEG-2 decoder from `crates/rc-video`;
+  the voices, envelope and reverb from `crates/rc-game/src/audio`.
 - `port/extract/`: `openrac-extractor`'s JSON-lines output, crash-safe writes,
   free-space check and decompile step, after `crates/rc-extract`.
 

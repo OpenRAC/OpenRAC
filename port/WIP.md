@@ -14,7 +14,7 @@ agent worked to (rules, layout, legal constraints).
 | Extractor | `extract/`, `tests/extract/` | rc-extract (identify, extract, prepare) | **done**: `openrac-extractor`, built by default; the launcher still runs tools/extractor.py |
 | Geometry | `assets/geometry/`, `tests/geometry/` | rc-formats texture, vif, tfrag, tie, shrub, sky, moby, moby_anim, moby_light, moby_collision, moby_shadow, gadget, lighting | **done**: reviewed, tested, built by default |
 | World data | `assets/world/`, `tests/assets_world/` | rc-formats collision, occlusion, cameras, gameplay, font, hud, pif, spaceships | **done**: reviewed, tested, built by default; water and sea left to the decompiled level code |
-| Sound, movies, audio | `assets/sound/`, `media/`, `audio/`, `tests/sound/`, `tests/media/` | rc-formats sound_bank, vag, pss; rc-video (MPEG-2); rc-game audio (SPU-style mixer, 989snd player, reverb) | writing assets/sound |
+| Sound, movies, audio | `assets/sound/`, `media/`, `audio/`, their tests | rc-formats sound_bank, vag, pss; rc-video (MPEG-2); the voices and reverb; a 989snd player after OpenGOAL's | **done**: reviewed, tested, built by default; VAG stream players and the snd.c hook-up still to do |
 | World renderers | `renderer/world/`, `renderer/shaders/world/` | rc-engine renderers and its 23 WGSL shaders, to GLSL 4.1 | writing the draw-data definitions |
 | Engine docs | `../docs/engine/formats/`, `../docs/engine/systems/` | ReRAC docs/formats and docs/plan | part-way; docs/engine/README.md not updated |
 
