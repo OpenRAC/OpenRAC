@@ -46,6 +46,18 @@
       "docs": "CONTRIBUTING.md#tests"
     },
     {
+      "id": "runtime-tests",
+      "label": "Build and test the runtime",
+      "description": "Builds OpenRAC's own runtime (the hardware model that runs the games with no emulator) and runs its tests. Needs CMake, a C++ compiler and SDL3; no disc.",
+      "kind": "check",
+      "state": "unverified",
+      "program": "{python}",
+      "args": ["runtime/tools/run.py", "test"],
+      "requires": ["python"],
+      "docs": "runtime/README.md",
+      "todo": "Run it from the desktop app on each platform. The same command line was run from a shell on macOS (Apple Silicon)."
+    },
+    {
       "id": "update",
       "label": "Update OpenRAC",
       "description": "Brings the checkout up to date with the published OpenRAC.",
@@ -120,6 +132,19 @@
         "args": ["tools/gen_progress_report.py", "--check"],
         "requires": ["python"],
         "docs": "games/rac1/pal/docs/WORKFLOW.md"
+      },
+      {
+        "id": "play-runtime",
+        "label": "Play in the OpenRAC runtime",
+        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator: menus, memory card, sound and the first level. It builds the runtime first (about a minute the first time; needs CMake, a C++ compiler and SDL3) and then opens the game in a window; what it prints is in Tasks.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{python}",
+        "args": ["runtime/tools/run.py", "play", "{serial}", "{disc}"],
+        "cwd": ".",
+        "requires": ["disc", "python"],
+        "docs": "runtime/README.md#running-a-game",
+        "todo": "Run it from the desktop app on each platform. The same command line was run from a shell on macOS (Apple Silicon) with the PAL disc: it builds, opens the window and plays."
       },
       {
         "id": "play-disc",
@@ -242,6 +267,19 @@
         "todo": "make iso takes the first dumps/*.iso: openrac.py setup links your image there, so it should be the only one."
       },
       {
+        "id": "play-runtime",
+        "label": "Play in the OpenRAC runtime",
+        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator: the main menu and the first level so far. It builds the runtime first (about a minute the first time; needs CMake, a C++ compiler and SDL3) and then opens the game in a window; what it prints is in Tasks.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{python}",
+        "args": ["runtime/tools/run.py", "play", "{serial}", "{disc}"],
+        "cwd": ".",
+        "requires": ["disc", "python"],
+        "docs": "runtime/README.md#running-a-game",
+        "todo": "As rac1/pal's play-runtime; the US disc was run headless into the first level on macOS, not yet in the window."
+      },
+      {
         "id": "play-disc",
         "label": "Play your disc",
         "description": "Starts your own disc image in PCSX2.",
@@ -320,6 +358,19 @@
         "todo": "Fails without rabbitizer: say so, or install the requirements in a launcher-owned venv."
       },
       {
+        "id": "play-runtime",
+        "label": "Play in the OpenRAC runtime",
+        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator. Early: the main menu and the start of the first level. It builds the runtime first (about a minute the first time; needs CMake, a C++ compiler and SDL3) and then opens the game in a window; what it prints is in Tasks.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{python}",
+        "args": ["runtime/tools/run.py", "play", "{serial}", "{disc}"],
+        "cwd": ".",
+        "requires": ["disc", "python"],
+        "docs": "runtime/README.md#running-a-game",
+        "todo": "As rac1/pal's play-runtime; the disc was run headless into the first level on macOS, not yet in the window. Movies are skipped."
+      },
+      {
         "id": "play-disc",
         "label": "Play your disc",
         "description": "Starts your own disc image in PCSX2.",
@@ -368,6 +419,15 @@
         "state": "planned",
         "docs": "games/rac3/ntsc/CONTRIBUTING.md",
         "todo": "tools/pr_check.py --target all with the venv's Python, once Set up works."
+      },
+      {
+        "id": "play-runtime",
+        "label": "Play in the OpenRAC runtime",
+        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator.",
+        "kind": "play",
+        "state": "planned",
+        "docs": "runtime/README.md#running-a-game",
+        "todo": "The runtime has no table for this game (runtime/games/SCUS_973.53.hooks): runtime/tools/port_hooks.py finds none of the first game's library functions in the boot executable, which is a loader for the main program. Find the main program first."
       },
       {
         "id": "play-disc",
@@ -432,6 +492,15 @@
         "args": ["tools/gen_progress_report.py", "--check"],
         "requires": ["python"],
         "docs": "games/rac4/ntsc/README.md"
+      },
+      {
+        "id": "play-runtime",
+        "label": "Play in the OpenRAC runtime",
+        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator.",
+        "kind": "play",
+        "state": "planned",
+        "docs": "runtime/README.md#running-a-game",
+        "todo": "The runtime has no table for this game (runtime/games/SCUS_974.65.hooks): runtime/tools/port_hooks.py finds none of the first game's library functions in the boot executable, which is packed. Unpack it first."
       },
       {
         "id": "play-disc",

@@ -131,6 +131,16 @@ connect it:
 - The BIOS is the user's own and PCSX2's business; the launcher should only
   say so when PCSX2 reports it missing.
 
+Every version also has a `play-runtime` action: `runtime/tools/run.py play
+{serial} {disc}` builds OpenRAC's own runtime (CMake, a C++ compiler, SDL3)
+and runs the disc in it, in a window, with no emulator. It is not detached, so
+what the build and the runtime print shows in Tasks, and closing the game's
+window ends the job. It is `unverified` for rac1/pal, rac1/ntsc and rac2/ntsc
+(run from a shell on macOS, not yet from the desktop app) and `planned` for
+rac3 and rac4, whose programs the runtime has no table for yet
+([runtime/README.md](../../runtime/README.md#running-a-game)). The repository
+action `runtime-tests` builds it and runs its tests.
+
 Playing a build differs per game:
 
 | Version   | How                                                                                                                       | Artifact                                                    |
