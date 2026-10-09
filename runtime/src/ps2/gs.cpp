@@ -799,7 +799,9 @@ void Gs::submit(unsigned kind, unsigned count) {
     pending_write_.add(written);
     pending_colour_.add(colour);
     pending_depth_.add(depth);
-    pending_read_.add(reads);
+    if (in_place) {
+      pending_read_.add(reach);  // (decoded levels were taken when they were looked at)
+    }
     batch_->primitives.push_back(Queued{env_, static_cast<u8>(kind), {queue_[0], queue_[1], queue_[2]}});
     if (batch_->primitives.size() >= 1024) {
       flush();
@@ -1063,8 +1065,8 @@ u32 Gs::levels_needed(const Env& e, unsigned count) const {
 
 // Have a current state, with the levels a primitive needs found. A level is
 // decoded now, from memory as it is, so what is still to be drawn there is
-// drawn first; a large one (a frame buffer read as a texture) is cheaper
-// read in place.
+// drawn first. A large one in a format a frame can have is cheaper read in
+// place: that is a frame buffer read as a texture, new every time.
 void Gs::prepare_levels(u32 need) {
   for (;;) {
     ensure_env();
@@ -1079,7 +1081,7 @@ void Gs::prepare_levels(u32 need) {
     Pages& pages = e.level_pages[level];
     pages.clear();
     add_pages(pages, t.psm, t.tbp[level], t.tbw[level], 0, 0, static_cast<s32>(w) - 1, static_cast<s32>(h) - 1);
-    if (w * h <= 256u * 256u) {
+    if (w * h <= (t.kind >= kTex8 ? 512u * 512u : 256u * 256u)) {
       if (pages.intersects(pending_write_)) {
         flush();  // and start again with the state's copy in the next batch
         continue;
