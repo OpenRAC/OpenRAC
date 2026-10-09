@@ -758,6 +758,7 @@ void Machine::event() {
             in_handler_ = true;
 
             // The callback's argument 1 says that a read finished.
+            ee.call_stack = kHandlerStack;
             ee.call(cd_callback, 1);
             in_handler_ = false;
         }
@@ -875,6 +876,7 @@ void Machine::deliver() {
 
                     // The list is copied: a handler may add or remove handlers while it runs.
                     for (const Handler& h : std::vector<Handler>(dmac_handlers[channel])) {
+                        ee.call_stack = kHandlerStack;
                         ee.call(h.function, channel, h.argument);
                     }
                 }
@@ -882,6 +884,7 @@ void Machine::deliver() {
         } else {
             // Any other cause: its handlers, each called with the cause and its own argument.
             for (const Handler& h : std::vector<Handler>(intc_handlers[cause])) {
+                ee.call_stack = kHandlerStack;
                 ee.call(h.function, cause, h.argument);
             }
         }

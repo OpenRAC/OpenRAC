@@ -273,8 +273,14 @@ u64 Ee::call(u32 function, u64 a0, u64 a1, u64 a2, u64 a3) {
     // Returning to this address is how `step()` sees that the function is done.
     gpr[31].lo = kReturnAddress;
 
-    // The call's stack starts 0x400 bytes below the current stack pointer, aligned to 16 bytes.
-    gpr[29].lo = sext32((static_cast<u32>(gpr[29].lo) - 0x400) & ~0xFu);
+    // The call's stack: the one set aside for it, or 0x400 bytes below the caller's, 16-aligned.
+    u32 own_stack = call_stack;
+    u32 stack = own_stack ? own_stack : static_cast<u32>(gpr[29].lo) - 0x400;
+
+    gpr[29].lo = sext32(stack & ~0xFu);
+
+    // Calls made by the function itself must not start on the same stack.
+    call_stack = 0;
 
     // The function's first instruction is next, and the one after it is 4 bytes on.
     pc = function;

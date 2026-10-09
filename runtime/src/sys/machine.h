@@ -257,6 +257,13 @@ public:
     static constexpr u32 kIopBytes = 2 * 1024 * 1024;
 
     /**
+     * Where the stack of interrupt handlers and callbacks starts: the top of the first megabyte
+     * of main memory. That megabyte is the kernel's on the console (documented); no program is
+     * loaded there and the runtime keeps nothing else in it.
+     */
+    static constexpr u32 kHandlerStack = 0x000FFFF0;
+
+    /**
      * The second processor's memory, as far as a program uses it itself: the
      * games park data there (through SifSetDma) and fetch it back.
      */

@@ -75,6 +75,16 @@ public:
      */
     u64 call(u32 function, u64 a0 = 0, u64 a1 = 0, u64 a2 = 0, u64 a3 = 0);
 
+    /**
+     * Where the stack of the next `call` starts, or 0 for one below the caller's own.
+     *
+     * An interrupt handler or a callback that breaks into running code is given a stack of its
+     * own, as the console's kernel does: the code it interrupts may be using the stack pointer
+     * for something else at that moment (seen in game code). Calls made inside such a call go
+     * below the caller's stack again.
+     */
+    u32 call_stack = 0;
+
     /** Asks `run()` to return after the instruction that is running. */
     void stop() { stop_ = true; }
 
