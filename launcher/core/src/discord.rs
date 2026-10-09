@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_CLIENT_ID: &str = "383226320970055681";
+pub const DEFAULT_CLIENT_ID: &str = "1558096324602363955";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
