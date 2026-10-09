@@ -105,8 +105,8 @@ impl DiscordIpc {
         let socket_paths = find_socket_paths();
         for path in socket_paths {
             if let Ok(mut stream) = std::os::unix::net::UnixStream::connect(&path) {
-                let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
-                let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(2)));
+                let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(250)));
+                let _ = stream.set_write_timeout(Some(std::time::Duration::from_millis(250)));
 
                 // Handshake (Opcode 0): {"v": 1, "client_id": "..."}
                 let payload = serde_json::json!({

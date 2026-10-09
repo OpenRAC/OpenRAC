@@ -4,7 +4,7 @@
 // commands and events is docs/ARCHITECTURE.md's; keep them in step with
 // src/lib/api.ts and src/lib/mock.ts.
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use openrac_launcher_core::actions::{Platform, Scope};
 use openrac_launcher_core::config::{self, Config};
@@ -20,7 +20,7 @@ struct AppState {
     config: Mutex<Config>,
     config_file: Option<PathBuf>,
     jobs: Jobs,
-    discord: Mutex<DiscordState>,
+    discord: Arc<Mutex<DiscordState>>,
 }
 
 struct DiscordState {
@@ -57,18 +57,22 @@ fn save_config(state: State<'_, AppState>, config: Config) -> Result<Config, Str
     config::save(file, &config)?;
     *state.config.lock().unwrap() = config.clone();
 
-    let mut discord = state.discord.lock().unwrap();
+    let discord = state.discord.clone();
     let target_id = config
         .discord_client_id
-        .as_deref()
-        .unwrap_or(openrac_launcher_core::discord::DEFAULT_CLIENT_ID);
-    discord.ipc.set_client_id(target_id);
-    if config.discord_rpc {
-        let app_start = discord.app_start;
-        let _ = discord.ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
-    } else {
-        let _ = discord.ipc.clear();
-    }
+        .clone()
+        .unwrap_or_else(|| openrac_launcher_core::discord::DEFAULT_CLIENT_ID.to_string());
+    let rpc_enabled = config.discord_rpc;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut discord = discord.lock().unwrap();
+        discord.ipc.set_client_id(target_id);
+        if rpc_enabled {
+            let app_start = discord.app_start;
+            let _ = discord.ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
+        } else {
+            let _ = discord.ipc.clear();
+        }
+    });
 
     Ok(config)
 }
@@ -176,19 +180,24 @@ fn run_action(app: AppHandle, state: State<'_, AppState>, scope: Scope, id: Stri
 }
 
 #[tauri::command]
-fn set_discord_status(
+async fn set_discord_status(
     state: State<'_, AppState>,
     status: openrac_launcher_core::discord::DiscordStatus,
 ) -> Result<(), String> {
     let config = state.config.lock().unwrap().clone();
-    let mut discord = state.discord.lock().unwrap();
-    if !config.discord_rpc {
-        let _ = discord.ipc.clear();
-        return Ok(());
-    }
-    let app_start = discord.app_start;
-    let _ = discord.ipc.set_status(&status, app_start);
-    Ok(())
+    let discord = state.discord.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut discord = discord.lock().unwrap();
+        if !config.discord_rpc {
+            let _ = discord.ipc.clear();
+            return Ok(());
+        }
+        let app_start = discord.app_start;
+        let _ = discord.ipc.set_status(&status, app_start);
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -384,7 +393,7 @@ pub fn run() {
                 config: Mutex::new(config),
                 config_file,
                 jobs: Jobs::default(),
-                discord: Mutex::new(DiscordState { ipc, app_start }),
+                discord: Arc::new(Mutex::new(DiscordState { ipc, app_start })),
             });
             Ok(())
         })

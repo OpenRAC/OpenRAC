@@ -45,9 +45,8 @@
   {#if media}
     <div class="card-backdrop" aria-hidden="true">
       <img src={media.bg} alt="" class="backdrop-img static" class:dimmed={isCardHovered} />
-      {#if media.video}
-        <video src={media.video} class="backdrop-img video" class:active={isCardHovered} autoplay loop muted playsinline
-        ></video>
+      {#if media.video && isCardHovered}
+        <video src={media.video} class="backdrop-img video active" autoplay loop muted playsinline></video>
       {:else if media.gif}
         <img src={media.gif} alt="" class="backdrop-img gif" class:active={isCardHovered} />
       {/if}
