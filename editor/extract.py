@@ -4,6 +4,7 @@
   extract.py survey ISO                       disc layout and references, as JSON
   extract.py godot ISO OUT [--level N ...]    a Godot 4 project of editable levels
   extract.py raw ISO OUT --level N            one level's sections, as stored and decoded
+  extract.py port ISO OUT [--level N ...]     levels for the native port's viewer (port/viewer)
 
 OUT must be a new directory under this repository's assets/ or build/,
 both ignored by git. Output is built beside it and moved into place only
@@ -25,6 +26,7 @@ from disc import LEVEL_COUNT, Disc
 from formats import FormatError
 from godot import LevelWriter, write_project
 from level import load_level
+from port import PortLevelWriter
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -74,6 +76,27 @@ def godot(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: 
             raise
 
 
+def export_port_level(iso: Path, info: dict, out: Path, lod: int) -> dict:
+    """One level for the port's viewer; runs in its own process."""
+    with Disc(iso) as disc:
+        return PortLevelWriter(out, load_level(disc, info)).write(lod)
+
+
+def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: Path) -> None:
+    """OUT/level_NN/ per level (port.py), written in parallel like godot()."""
+    out.mkdir(parents=True, exist_ok=True)
+    with ProcessPoolExecutor(min(jobs, len(levels))) as pool:
+        running = [pool.submit(export_port_level, iso, survey["levels"][i], out, lod) for i in levels]
+        try:
+            for done in as_completed(running):
+                stats = done.result()
+                print(f"level {stats['level']:02}: {stats['mesh_instances']} meshes placed, "
+                      f"{stats['triangles']} triangles, {stats['textures']} textures", flush=True)
+        except BaseException:
+            pool.shutdown(cancel_futures=True)
+            raise
+
+
 def raw(disc: Disc, survey: dict, level_id: int, out: Path) -> None:
     level = load_level(disc, survey["levels"][level_id])
     files = {"level_header.bin": level.header, "core_index.bin": level.index,
@@ -100,6 +123,15 @@ def main() -> None:
                         help="levels to export at once (default: one per CPU)")
     export.add_argument("--terrain-lod", type=int, choices=(0, 2), default=0,
                         help="terrain detail: 0 finest (default), 2 coarsest")
+    native = commands.add_parser("port")
+    native.add_argument("iso", type=Path)
+    native.add_argument("out", type=Path)
+    native.add_argument("--level", type=int, action="append", choices=range(LEVEL_COUNT),
+                        help="a level to export (repeatable; default: all)")
+    native.add_argument("--jobs", type=int, default=os.cpu_count() or 1,
+                        help="levels to export at once (default: one per CPU)")
+    native.add_argument("--terrain-lod", type=int, choices=(0, 2), default=0,
+                        help="terrain detail: 0 finest (default), 2 coarsest")
     dump = commands.add_parser("raw")
     dump.add_argument("iso", type=Path)
     dump.add_argument("out", type=Path)
@@ -115,6 +147,10 @@ def main() -> None:
                 levels = sorted(set(args.level or range(LEVEL_COUNT)))
                 dest = publish(args.out, lambda out: godot(args.iso, survey, levels, args.terrain_lod, max(1, args.jobs), out))
                 print(f"Godot project: {dest}")
+            elif args.command == "port":
+                levels = sorted(set(args.level or range(LEVEL_COUNT)))
+                dest = publish(args.out, lambda out: port(args.iso, survey, levels, args.terrain_lod, max(1, args.jobs), out))
+                print(f"Levels for the port's viewer: {dest}")
             else:
                 dest = publish(args.out, lambda out: raw(disc, survey, args.level, out))
                 print(f"Level {args.level} sections: {dest}")
