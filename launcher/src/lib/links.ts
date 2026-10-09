@@ -1,0 +1,5 @@
+// Addresses the launcher links to. The Discord invite is the website's
+// (openrac-site src/lib/projects.ts, DISCORD_URL).
+export const SITE_URL = "https://openrac.dev";
+export const REPO_URL = "https://github.com/OpenRAC/OpenRAC";
+export const DISCORD_URL = "https://discord.gg/Sfd2B54PDG";

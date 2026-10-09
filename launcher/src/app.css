@@ -1,0 +1,356 @@
+/*
+ * The launcher's look, taken from the OpenRAC website (OpenRAC/openrac-site:
+ * src/app/globals.css for the colours and type, src/components/Header.tsx for
+ * the orange bar, src/components/Progress.tsx for the game cards). The tokens
+ * keep the site's names; docs/STYLE.md lists them and says what to keep in
+ * step when the site changes.
+ */
+
+:root {
+  /* The site's @theme colours. */
+  --ink: #181820;
+  --ink-deep: #12121a;
+  --panel: #1d1d28;
+  --panel-hi: #22222f;
+  --brand: #d58a00;
+  --amber: #ffb443;
+  --gold: #ffd08a;
+  --lav: #c8d2ff;
+  --soft: #aab6dc;
+  --dim: #8f9ac4;
+  --line: rgb(156 161 212 / 0.22);
+  --line-strong: rgb(156 161 212 / 0.35);
+  /* Body text and headings, from the site's prose colours. */
+  --text: #e8f0ff;
+  --body: #c3cdea;
+  /* The header bar's gradient and the dark brown it writes on. */
+  --bar-top: #e5a013;
+  --bar-bottom: #cd8300;
+  --bar-ink: #2a1800;
+  --bar-ink-deep: #1b1206;
+  /* States. The site has none; these sit with its palette. */
+  --ok: #8fd694;
+  --warn: var(--amber);
+  --err: #ff8a7a;
+  --info: var(--lav);
+
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-brand: "Audiowide", "Inter Variable", sans-serif;
+  --font-head: "Orbitron Variable", "Inter Variable", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 18px 50px rgb(0 0 0 / 0.45);
+  --shadow-sm: 0 8px 24px rgb(0 0 0 / 0.35);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--ink);
+  color: var(--text);
+  font: 15px/1.55 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+#app {
+  height: 100%;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-head);
+  color: var(--gold);
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+h1 {
+  font-size: 26px;
+}
+
+h2 {
+  font-size: 18px;
+}
+
+h3 {
+  font-size: 15px;
+  color: var(--text);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--amber);
+}
+
+code,
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.muted {
+  color: var(--soft);
+}
+
+.dim {
+  color: var(--dim);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.clip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Section numbers, as on the site: 01, 02, ... */
+.sections {
+  counter-reset: sec;
+}
+
+.sec-num {
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand);
+  letter-spacing: 0.2em;
+}
+
+.sec-num::before {
+  counter-increment: sec;
+  content: "0" counter(sec);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+}
+
+/* Buttons. The primary one is the header bar's orange. */
+button,
+.button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-hi);
+  color: var(--text);
+  padding: 7px 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    filter 0.15s;
+}
+
+button:hover:not(:disabled),
+.button:hover {
+  border-color: var(--soft);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+button.primary {
+  background: linear-gradient(to bottom, var(--bar-top), var(--bar-bottom));
+  border-color: rgb(0 0 0 / 0.3);
+  color: var(--bar-ink-deep);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+
+button.primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  border-color: rgb(0 0 0 / 0.3);
+}
+
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--soft);
+}
+
+button.ghost:hover:not(:disabled) {
+  background: var(--panel-hi);
+  border-color: var(--line);
+}
+
+button.small {
+  font-size: 13px;
+  padding: 4px 12px;
+}
+
+input[type="text"] {
+  font: inherit;
+  font-size: 14px;
+  width: 100%;
+  background: var(--ink-deep);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+
+/* Status pills: a dot and a word. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--soft);
+  white-space: nowrap;
+}
+
+.pill .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pill.ok {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+}
+
+.pill.warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+}
+
+.pill.err {
+  color: var(--err);
+  border-color: color-mix(in srgb, var(--err) 40%, transparent);
+}
+
+.pill.info {
+  color: var(--info);
+  border-color: color-mix(in srgb, var(--info) 40%, transparent);
+}
+
+/* The site's progress bar: a gradient fill with a light sweeping across it. */
+.bar {
+  height: 14px;
+  overflow: hidden;
+  border-radius: 7px;
+  border: 2px solid var(--bd, var(--line-strong));
+  background: rgb(0 0 0 / 0.45);
+}
+
+.bar > i {
+  position: relative;
+  display: block;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: linear-gradient(to right, var(--tx2, var(--brand)), var(--tx, var(--amber)));
+  transition: width 1.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.bar > i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, transparent, rgb(255 255 255 / 0.45), transparent);
+  transform: translateX(-100%);
+  animation: sweep 2.6s ease-in-out 1.6s infinite;
+}
+
+@keyframes sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.8s linear infinite;
+  flex: none;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 10px;
+  border: 2px solid var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

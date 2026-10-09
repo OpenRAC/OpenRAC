@@ -1,0 +1,13 @@
+[package]
+name = "openrac-launcher-core"
+description = "The OpenRAC launcher's logic: games, actions, settings, detection and jobs, without a window"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+
+[dev-dependencies]
+tempfile = "3"

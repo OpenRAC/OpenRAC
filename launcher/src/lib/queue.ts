@@ -1,0 +1,131 @@
+// The job queue's rules, without Svelte or Tauri so they can be tested:
+// jobs run one at a time in the order they were asked for (two builds never
+// share the build container or a game's folder), and the Rust side's events
+// are matched to jobs by id, including events that arrive before the call
+// that started the job has returned.
+import type { JobEvent, Scope } from "./api";
+
+export type JobState = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+
+export interface Line {
+  stream: "stdout" | "stderr";
+  line: string;
+}
+
+export interface Job {
+  /** The launcher's own number for the job. */
+  key: number;
+  scope: Scope;
+  actionId: string;
+  title: string;
+  state: JobState;
+  /** The Rust side's job id, once started. */
+  id: number | null;
+  command: string;
+  lines: Line[];
+  code: number | null;
+  queuedAt: number;
+  startedAt: number | null;
+  endedAt: number | null;
+}
+
+/** Older lines are dropped past this many, so a chatty build cannot exhaust memory. */
+export const MAX_LINES = 5000;
+
+export class Queue {
+  /**
+   * The jobs, oldest first. The app passes a Svelte $state array, so every
+   * change below must go through it (push, splice, its elements), never
+   * replace it or hold on to an object from before it was added.
+   */
+  jobs: Job[];
+  private nextKey = 0;
+  /** Events for ids no job has yet (the start call has not returned). */
+  private early = new Map<number, JobEvent[]>();
+
+  constructor(jobs: Job[] = []) {
+    this.jobs = jobs;
+  }
+
+  add(scope: Scope, actionId: string, title: string, now = Date.now()): Job {
+    const job: Job = {
+      key: ++this.nextKey,
+      scope,
+      actionId,
+      title,
+      state: "queued",
+      id: null,
+      command: "",
+      lines: [],
+      code: null,
+      queuedAt: now,
+      startedAt: null,
+      endedAt: null,
+    };
+    this.jobs.push(job);
+    // The array's own element: a reactive proxy when the array is $state.
+    return this.jobs.at(-1) ?? job;
+  }
+
+  running(): Job | undefined {
+    return this.jobs.find((j) => j.state === "running");
+  }
+
+  /** The job to start now: the oldest queued one, if nothing runs. */
+  next(): Job | undefined {
+    if (this.running()) return undefined;
+    return this.jobs.find((j) => j.state === "queued");
+  }
+
+  /** Jobs not finished: running and queued. */
+  pending(): number {
+    return this.jobs.filter((j) => j.state === "queued" || j.state === "running").length;
+  }
+
+  started(job: Job, id: number, command: string, now = Date.now()) {
+    job.state = "running";
+    job.id = id;
+    job.command = command;
+    job.startedAt = now;
+    for (const event of this.early.get(id) ?? []) this.apply(event, now);
+    this.early.delete(id);
+  }
+
+  /** The start call failed: the job never ran. */
+  refused(job: Job, error: string, now = Date.now()) {
+    job.state = "failed";
+    job.lines.push({ stream: "stderr", line: error });
+    job.endedAt = now;
+  }
+
+  /** A queued job is dropped; a running one is the Rust side's to stop. */
+  dequeue(job: Job, now = Date.now()) {
+    if (job.state !== "queued") return;
+    job.state = "cancelled";
+    job.endedAt = now;
+  }
+
+  apply(event: JobEvent, now = Date.now()) {
+    const job = this.jobs.find((j) => j.id === event.id);
+    if (!job) {
+      this.early.set(event.id, [...(this.early.get(event.id) ?? []), event]);
+      return;
+    }
+    if (event.type === "output") {
+      job.lines.push({ stream: event.stream, line: event.line });
+      if (job.lines.length > MAX_LINES) job.lines.splice(0, job.lines.length - MAX_LINES);
+      return;
+    }
+    job.code = event.code;
+    job.endedAt = now;
+    job.state = event.cancelled ? "cancelled" : event.code === 0 ? "succeeded" : "failed";
+  }
+
+  /** Forgets finished jobs. */
+  clear() {
+    for (let i = this.jobs.length - 1; i >= 0; i--) {
+      const state = this.jobs[i]?.state;
+      if (state !== "queued" && state !== "running") this.jobs.splice(i, 1);
+    }
+  }
+}

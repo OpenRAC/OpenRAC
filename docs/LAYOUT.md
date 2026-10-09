@@ -13,6 +13,7 @@ OpenRAC/
 │   ├── rac3/ntsc/          Up Your Arsenal, SCUS_973.53, from rac3-uya-decomp
 │   └── rac4/ntsc/          Deadlocked, SCUS_974.65, from rac-deadlocked-decomp
 ├── editor/                 Godot level editor and extractor (shared)
+├── launcher/               desktop app to set up, build and play every game (Tauri)
 ├── tools/                  repository-wide tools: openrac.py, sources.py
 ├── docs/                   knowledge and rules that span the games
 │   ├── policy/             sourcing policy, open questions
@@ -56,6 +57,7 @@ are what readers see.
 | A tool that serves several games or the repository | `tools/` (standard library Python where possible), with tests |
 | A file a second game needs unchanged (a library source, a build helper) | a copy in that game, listed with the original in `shared/files.json` ([shared/](../shared/README.md)) |
 | Editor code | `editor/` |
+| Launcher code, or a game's actions in the launcher | `launcher/` (a game's actions: `launcher/actions.json`) |
 | A decision or rule for everyone | `docs/policy/`, and `AGENTS.md` and `CONTRIBUTING.md` if it changes how people work |
 | A new game version | `games/<game>/<version>/`, plus its entry in `games/<game>/game.json` |
 
@@ -67,7 +69,7 @@ are what readers see.
   NTSC-U). A Japanese release would be `ntsc-j`. The serial and disc version
   are in `game.json`.
 - Commit scopes use the same names: `rac1/pal`, `rac1/ntsc`, `rac2`, `rac3`,
-  `rac4`, and `editor`, `tools`, `docs`, `progress` for the top level
+  `rac4`, and `editor`, `launcher`, `tools`, `docs`, `progress` for the top level
   ([CONTRIBUTING.md](../CONTRIBUTING.md#commits)).
 
 ## Where this is heading

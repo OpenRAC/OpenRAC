@@ -24,6 +24,7 @@ goal. Start with [docs/LAYOUT.md](docs/LAYOUT.md).
 | rac3 | [games/rac3/ntsc/CONTRIBUTING.md](games/rac3/ntsc/CONTRIBUTING.md), [docs/targets.md](games/rac3/ntsc/docs/targets.md), [docs/wiki/Workflow.md](games/rac3/ntsc/docs/wiki/Workflow.md), [docs/wiki/Matching-Patterns.md](games/rac3/ntsc/docs/wiki/Matching-Patterns.md) |
 | rac4 | [games/rac4/README.md](games/rac4/README.md), [ntsc/CONTRIBUTING.md](games/rac4/ntsc/CONTRIBUTING.md), [ntsc/LEGAL.md](games/rac4/ntsc/LEGAL.md), [ntsc/docs/RESEARCH.md](games/rac4/ntsc/docs/RESEARCH.md) |
 | The editor | [editor/README.md](editor/README.md), [editor/GDSCRIPT_CONVENTIONS.md](editor/GDSCRIPT_CONVENTIONS.md) |
+| The launcher | [launcher/README.md](launcher/README.md), [docs/INTEGRATION.md](launcher/docs/INTEGRATION.md), [docs/ARCHITECTURE.md](launcher/docs/ARCHITECTURE.md), [docs/STYLE.md](launcher/docs/STYLE.md) |
 | Cross-game knowledge | [docs/engine](docs/engine/README.md), [docs/toolchains](docs/toolchains/README.md), [docs/workflow](docs/workflow/README.md) |
 
 ## Rules
@@ -99,6 +100,7 @@ python3 tools/port.py FROM TO [--check]         # candidates for functions FROM 
 python3 tools/shared.py check|find|sync PATH    # files several games share must stay identical (shared/README.md)
 python3 -m unittest discover -s tools       # tests for tools/
 python3 -m unittest discover -s editor      # tests for the editor
+cd launcher && npm ci && npm run verify && cargo test -p openrac-launcher-core   # the launcher
 ```
 
 Per-game build and check commands are in each game's README and in

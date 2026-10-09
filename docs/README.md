@@ -28,6 +28,7 @@ the first table; go to a game's documents when you work on that game.
 | [progress/](../progress/README.md) | Consolidated progress (generated) |
 | [editor/README.md](../editor/README.md) | The Godot level editor: extracting your levels, what it reads, its code |
 | [editor/GDSCRIPT_CONVENTIONS.md](../editor/GDSCRIPT_CONVENTIONS.md) | Style for the editor's GDScript |
+| [launcher/README.md](../launcher/README.md) | The desktop launcher: developing it, and [connecting a game](../launcher/docs/INTEGRATION.md) to it |
 | [LICENSE.md](../LICENSE.md), [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md), [CREDITS.md](../CREDITS.md) | Licensing by directory, third-party work, the people behind each project |
 
 ## Ratchet & Clank, PAL ([games/rac1/pal](../games/rac1/pal))

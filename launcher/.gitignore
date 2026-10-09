@@ -1,0 +1,7 @@
+# Dependencies and build output
+node_modules/
+dist/
+target/
+.svelte-check/
+# Tauri writes these when it builds
+src-tauri/gen/
