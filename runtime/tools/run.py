@@ -53,7 +53,10 @@ def build(targets=()):
     cmake = find("cmake")
     if not cmake:
         raise SystemExit("run.py: CMake is not installed (https://cmake.org); the runtime needs it")
-    if not (BUILD / "CMakeCache.txt").exists():
+    generator_file = BUILD / ("build.ninja" if find("ninja") else "Makefile")
+    if not generator_file.exists():
+        if BUILD.exists():
+            shutil.rmtree(BUILD)
         configure = [cmake, "-S", str(ROOT / "runtime"), "-B", str(BUILD)]
         ninja = find("ninja")
         if ninja:
