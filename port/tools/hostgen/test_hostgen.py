@@ -188,6 +188,42 @@ class Translate(unittest.TestCase):
         })
         self.assertEqual(out, ["42"])
 
+    def test_pass_through_of_a_record_parameter(self):
+        # The callee is defined with three parameters and called with two: the
+        # third register still held the caller's own third argument, a record.
+        out = self.run_program({
+            "callee.c": """
+                typedef struct { int a; int b; } Pair;
+                int three(int *x, int *y, int z) { return *x + *y + (z != 0); }
+            """,
+            "caller.c": """
+                typedef struct { int a; int b; } Pair;
+                extern int three(int *, int *);
+                int use(int *x, int *y, Pair p) { return three(x, y) + p.b; }
+                int test_main(void) {
+                    int u = 1, v = 2;
+                    Pair p = {5, 7};
+                    test_print(use(&u, &v, p));
+                    return 0;
+                }
+            """,
+        })
+        self.assertEqual(out, ["11"])
+
+    def test_va_list_passed_as_a_pointer_becomes_a_stub(self):
+        # The console's C passes a va_list where a pointer is declared (and the
+        # other way round); the host cannot, so the caller becomes a stub and the
+        # program still builds.
+        self.run_program({"a.c": """
+            #include <stdarg.h>
+            int vcount(int n, va_list ap) { return n; }
+            extern int vcount_p(int n, void *ap) __asm__("vcount");
+            int wrap(int n, void *ap) { return vcount_p(n, ap); }
+            int test_main(void) { test_print(vcount(3, 0)); return 0; }
+        """}, stubs=1)
+        self.assertIn("a va_list passed as a game pointer, or the other way round",
+                      self.last_report["stubbed"].values())
+
     def test_function_pointers_by_code_address(self):
         out = self.run_program({"a.c": """
             int func_00110000(int x) { return x + 1; }

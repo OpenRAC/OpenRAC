@@ -102,6 +102,7 @@ class _Fn:
     report: FnReport | None = None
     labels: dict = field(default_factory=dict)       # label decl id -> name
     int_params: list = field(default_factory=list)   # host names, in register order
+    record_params: set = field(default_factory=set)  # host names of parameters passed as records
     float_params: list = field(default_factory=list)
 
 
@@ -536,6 +537,8 @@ class Unit:
             fn.host[p["id"]] = n
             c = self.cls(self.ty(p))
             (fn.float_params if c == "float" else fn.int_params).append(n)
+            if c == "rec":
+                fn.record_params.add(n)
         self._collect_labels(body)
         prologue = []
         for p, n in zip(params, names):
@@ -1325,7 +1328,14 @@ class Unit:
                 # The callee reads a register the call did not set: on the
                 # console it still held the caller's own argument.
                 self.fn.report.passthrough += 1
-                out.append(self._cast_to(regs[k], p))
+                if regs[k] in self.fn.record_params:
+                    # The caller's own argument was a record: as for a record passed
+                    # where a scalar is taken, the register held its first eight bytes.
+                    canon_p = self.canon(p) or "int"
+                    out.append(f"({{ uint64_t bits_ = 0; memcpy(&bits_, &{regs[k]}, sizeof {regs[k]} < 8 ? "
+                               f"sizeof {regs[k]} : 8); ({canon_p})bits_; }})")
+                else:
+                    out.append(self._cast_to(regs[k], p))
             else:
                 out.append(self._cast_to("0", p))
         if sig.variadic:
@@ -1335,6 +1345,11 @@ class Unit:
 
     def _as_param(self, a: dict, p: ctype.Type) -> str:
         c = self.cls(p)
+        if (c == "valist") != (self.cls(self.ty(a)) == "valist"):
+            # On the console a va_list is a pointer into the caller's argument area,
+            # so C passes one where the other is declared; on the host it is the
+            # compiler's own type, which a game address cannot stand for.
+            raise Unsupported("a va_list passed as a game pointer, or the other way round")
         if c in ("rec", "valist"):
             return self.rv(a)
         return self._cast_to(self.rv(a), p)
