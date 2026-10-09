@@ -221,6 +221,8 @@ export const api = {
   openUrl: (url: string) => call<null>("open_url", { url }),
   inspectIso: (targetKey: string, isoPath: string) => call<IsoInspection>("inspect_iso", { targetKey, isoPath }),
   importIso: (targetKey: string, isoPath: string) => call<ImportResult>("import_iso", { targetKey, isoPath }),
+  syncProgressFromWeb: () => call<Library>("sync_progress_from_web"),
+  applyProgressJson: (json: string) => call<Library>("apply_progress_json", { json }),
 };
 
 /** A folder picker; null when cancelled (or in the browser preview). */

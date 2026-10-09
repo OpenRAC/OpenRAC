@@ -143,6 +143,43 @@ fn import_iso(
     openrac_launcher_core::iso::import_iso(&root, &catalog, &target_key, &iso_path)
 }
 
+#[tauri::command]
+fn sync_progress_from_web(
+    state: State<'_, AppState>,
+) -> Result<openrac_launcher_core::catalog::Catalog, String> {
+    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
+
+    // Attempt to fetch latest numbers from openrac.dev using curl (available across all Linux distros)
+    let output = std::process::Command::new("curl")
+        .arg("-s")
+        .arg("--connect-timeout")
+        .arg("4")
+        .arg("https://openrac.dev/progress.json")
+        .output();
+
+    if let Ok(out) = output {
+        if out.status.success() {
+            if let Ok(json_str) = String::from_utf8(out.stdout) {
+                if let Ok(catalog) = openrac_launcher_core::catalog::update_progress_from_openrac_dev(&root, &json_str) {
+                    return Ok(catalog);
+                }
+            }
+        }
+    }
+
+    // Offline fallback: load from cached summary.json seamlessly
+    openrac_launcher_core::catalog::load(&root)
+}
+
+#[tauri::command]
+fn apply_progress_json(
+    state: State<'_, AppState>,
+    json: String,
+) -> Result<openrac_launcher_core::catalog::Catalog, String> {
+    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
+    openrac_launcher_core::catalog::update_progress_from_openrac_dev(&root, &json)
+}
+
 #[cfg(target_os = "linux")]
 fn ensure_linux_desktop_integration() {
     let icon_bytes = include_bytes!("../icons/icon.png");
@@ -210,6 +247,8 @@ pub fn run() {
             open_url,
             inspect_iso,
             import_iso,
+            sync_progress_from_web,
+            apply_progress_json,
         ])
         .run(tauri::generate_context!())
         .expect("the launcher failed to start");

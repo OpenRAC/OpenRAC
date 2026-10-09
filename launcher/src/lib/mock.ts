@@ -375,6 +375,9 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         setupMessage: `${key}: inputs placed successfully`,
       });
     }
+    case "sync_progress_from_web":
+    case "apply_progress_json":
+      return delay(library());
     case "run_action":
       return delay(start(args.scope as Scope, args.id as string));
     case "cancel_job": {

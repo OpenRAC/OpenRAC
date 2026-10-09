@@ -82,6 +82,7 @@ export async function start() {
   app.config = await api.getConfig();
   if (app.config.lastVersion) app.version = app.config.lastVersion;
   await refresh();
+  void syncProgressWeb();
 }
 
 /** Reads the library again: after a job, on focus, after settings change. */
@@ -96,6 +97,34 @@ export async function refresh() {
     app.libraryError = null;
   } catch (e) {
     app.libraryError = errorText(e);
+  }
+}
+
+/** Fetches latest progress from openrac.dev; caches in summary.json for offline use. */
+export async function syncProgressWeb() {
+  if (!app.config?.root) return;
+  try {
+    const res = await fetch("https://openrac.dev/progress.json", {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.ok) {
+      const text = await res.text();
+      try {
+        localStorage.setItem("openrac_progress_cache", text);
+      } catch {
+        // ignore localStorage errors
+      }
+      app.library = await api.applyProgressJson(text);
+      return;
+    }
+  } catch {
+    // Offline or network error: try backend or keep using cached summary.json
+  }
+
+  try {
+    app.library = await api.syncProgressFromWeb();
+  } catch {
+    // Offline: keep cached library
   }
 }
 

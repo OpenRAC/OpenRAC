@@ -4,13 +4,13 @@
     "region": "PAL (Europe)",
     "serial": "SCES_509.16",
     "progress": {
-      "matched_code": 2202320,
+      "matched_code": 2271268,
       "total_code": 3712808,
-      "matched_functions": 3589,
+      "matched_functions": 3702,
       "total_functions": 5109,
       "fuzzy_percent": 60.99,
       "date": "2026-10-07",
-      "percent": 59.32
+      "percent": 61.17
     },
     "note": "The boot executable and all 19 level programs. Handwritten assembly and linker remnants count as finished; staged near misses (nonmatching/) give the fuzzy figure."
   },
@@ -34,13 +34,13 @@
     "region": "NTSC-U (North America)",
     "serial": "SCUS_972.68",
     "progress": {
-      "matched_code": 531224,
+      "matched_code": 700532,
       "total_code": 48788176,
-      "matched_functions": null,
+      "matched_functions": 10885,
       "total_functions": null,
       "fuzzy_percent": null,
       "date": "2026-10-07",
-      "percent": 1.09
+      "percent": 1.44
     },
     "note": "Integrated C bytes over every executable byte of the boot program and its 27 level overlays (config/progress-scope.json); the rest already rebuilds from reconstructed assembly. Functions are not counted."
   },
@@ -49,13 +49,13 @@
     "region": "NTSC-U (North America)",
     "serial": "SCUS_973.53",
     "progress": {
-      "matched_code": 164764,
-      "total_code": 12838776,
-      "matched_functions": 1292,
-      "total_functions": 31316,
+      "matched_code": 883856,
+      "total_code": 12838884,
+      "matched_functions": 4485,
+      "total_functions": 31400,
       "fuzzy_percent": 1.28,
       "date": "2026-10-01",
-      "percent": 1.28
+      "percent": 6.88
     },
     "note": "The committed report is from 2026-10-01; the project's README counts 1,441 of 31,316 functions matched on 2026-10-03. It covers frontbin.elf, plus the level programs and other executables, which are counted but not compiled yet."
   },

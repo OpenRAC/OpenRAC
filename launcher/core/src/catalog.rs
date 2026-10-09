@@ -223,6 +223,109 @@ fn game(raw: RawGame, summary: &BTreeMap<String, RawSummaryRow>) -> Result<Game,
     Ok(Game { id: raw.id, title: raw.title, year: raw.year, titles: raw.titles, versions })
 }
 
+#[derive(Deserialize)]
+struct SiteProgressResponse {
+    #[serde(default)]
+    projects: Vec<SiteProject>,
+}
+
+#[derive(Deserialize)]
+struct SiteProject {
+    id: String,
+    #[serde(default)]
+    progress: Option<SiteProgressData>,
+}
+
+#[derive(Deserialize)]
+struct SiteProgressData {
+    #[serde(rename = "codePercent", default)]
+    code_percent: f64,
+    code: SiteCodeBytes,
+    #[serde(default)]
+    functions: Option<SiteFunctions>,
+}
+
+#[derive(Deserialize)]
+struct SiteCodeBytes {
+    #[serde(default)]
+    done: u64,
+    #[serde(default)]
+    total: u64,
+}
+
+#[derive(Deserialize)]
+struct SiteFunctions {
+    #[serde(default)]
+    done: Option<u64>,
+    #[serde(default)]
+    total: Option<u64>,
+}
+
+/// Updates progress/summary.json with latest figures from openrac.dev /progress.json
+/// and returns the reloaded Catalog. If called while offline, summary.json provides
+/// the offline cache.
+pub fn update_progress_from_openrac_dev(root: &Path, site_json: &str) -> Result<Catalog, String> {
+    let site: SiteProgressResponse = serde_json::from_str(site_json)
+        .map_err(|e| format!("invalid progress json from openrac.dev: {e}"))?;
+    let summary_path = root.join("progress").join("summary.json");
+    let mut current_summary: serde_json::Value = std::fs::read_to_string(&summary_path)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
+
+    for p in site.projects {
+        let key = match p.id.as_str() {
+            "rac1" => "rac1/pal",
+            "gc" => "rac2/ntsc",
+            "uya" => "rac3/ntsc",
+            "deadlocked" => "rac4/ntsc",
+            _ => continue,
+        };
+
+        if let Some(pr) = p.progress {
+            let (m_funcs, t_funcs) = match pr.functions {
+                Some(f) => (f.done, f.total),
+                None => (None, None),
+            };
+
+            if let Some(entry) = current_summary.get_mut(key) {
+                if let Some(prog) = entry.get_mut("progress") {
+                    prog["matched_code"] = serde_json::json!(pr.code.done);
+                    prog["total_code"] = serde_json::json!(pr.code.total);
+                    prog["percent"] = serde_json::json!(pr.code_percent);
+                    if let Some(md) = m_funcs {
+                        prog["matched_functions"] = serde_json::json!(md);
+                    }
+                    if let Some(td) = t_funcs {
+                        prog["total_functions"] = serde_json::json!(td);
+                    }
+                }
+            } else {
+                current_summary[key] = serde_json::json!({
+                    "progress": {
+                        "matched_code": pr.code.done,
+                        "total_code": pr.code.total,
+                        "percent": pr.code_percent,
+                        "matched_functions": m_funcs,
+                        "total_functions": t_funcs,
+                        "fuzzy_percent": null,
+                        "date": null
+                    }
+                });
+            }
+        }
+    }
+
+    let progress_dir = root.join("progress");
+    let _ = std::fs::create_dir_all(&progress_dir);
+    let formatted = serde_json::to_string_pretty(&current_summary)
+        .map_err(|e| e.to_string())?;
+    std::fs::write(&summary_path, formatted)
+        .map_err(|e| format!("cannot write {}: {e}", summary_path.display()))?;
+
+    load(root)
+}
+
 impl Catalog {
     pub fn version(&self, key: &str) -> Option<&Version> {
         self.games.iter().flat_map(|g| &g.versions).find(|v| v.key == key)
@@ -279,5 +382,43 @@ mod tests {
         let ntsc = catalog.version("rac9/ntsc").unwrap();
         assert_eq!(ntsc.title, "Nine");
         assert!(ntsc.progress.is_none());
+    }
+
+    #[test]
+    fn updates_progress_from_openrac_dev_and_caches_offline() {
+        let dir = tempfile::tempdir().unwrap();
+        let game = dir.path().join("games").join("rac1");
+        std::fs::create_dir_all(&game).unwrap();
+        std::fs::write(
+            game.join("game.json"),
+            r#"{"id": "rac1", "title": "Ratchet & Clank", "versions": {"pal": {"region": "PAL", "serial": "SCES_509.16"}}}"#,
+        )
+        .unwrap();
+
+        let site_json = r#"{
+            "projects": [
+                {
+                    "id": "rac1",
+                    "progress": {
+                        "codePercent": 61.17,
+                        "code": {"done": 2271268, "total": 3712808},
+                        "functions": {"done": 3702, "total": 5109}
+                    }
+                }
+            ]
+        }"#;
+
+        let catalog = update_progress_from_openrac_dev(dir.path(), site_json).unwrap();
+        let pal = catalog.version("rac1/pal").unwrap();
+        let prog = pal.progress.as_ref().unwrap();
+        assert_eq!(prog.percent, 61.17);
+        assert_eq!(prog.matched_code, 2271268);
+        assert_eq!(prog.matched_functions, Some(3702));
+
+        // Verify offline reload from cached summary.json
+        let offline_catalog = load(dir.path()).unwrap();
+        let offline_prog = offline_catalog.version("rac1/pal").unwrap().progress.as_ref().unwrap();
+        assert_eq!(offline_prog.percent, 61.17);
+        assert_eq!(offline_prog.matched_code, 2271268);
     }
 }
