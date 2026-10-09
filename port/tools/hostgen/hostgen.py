@@ -1,0 +1,369 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (c) 2026 the OpenRAC contributors
+"""hostgen: a decompilation's C, written again to run natively in the port.
+
+    python3 port/tools/hostgen/hostgen.py --game port/game/rac1/hostgen.json \\
+        --source games/rac1/pal --out build/port/rac1/gen
+
+reads every C file of the decompilation (as the console's C, through Clang),
+and writes, under --out:
+
+    <unit>.c          each file of the decompilation, as host C (lower.py)
+    game_protos.h     every function of the program, with its definition's signature
+    stubs.c           the functions that have no C yet: they log that they ran
+    functions.c       every function by code address, per overlay, for GFN
+    units.txt         the list of generated .c files, for the build
+    report.json/.md   what was translated, what became a stub and why
+
+The decompilation is never changed; hostgen works on prepared copies under
+--out/prep (prep.py). See port/tools/hostgen/README.md.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import sys
+import time
+from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import clangast  # noqa: E402
+import ctype  # noqa: E402
+import prep  # noqa: E402
+from lower import Unit, UnitReport  # noqa: E402
+from program import Function, Program, Signature, canon, cname, index_unit, merge, read_places  # noqa: E402
+
+HERE = Path(__file__).resolve().parent
+PROGRAM_FILES = ["stubs.c", "functions.c", "game_protos.h"]
+
+_STATE: dict = {}
+
+
+def _init(state: dict) -> None:
+    _STATE.update(state)
+
+
+def _index_one(rel: str):
+    s = _STATE
+    unit, err = clangast.parse_unit(s["clang"], s["root"], rel, s["flags"])
+    if unit is None:
+        return rel, None, [f"Clang could not read it: {err.strip()[:2000]}"], []
+    part = Program()
+    problems = index_unit(part, rel, unit.ast)
+    return rel, part, problems, unit.fixes
+
+
+def _lower_one(rel: str):
+    s = _STATE
+    report = UnitReport(rel)
+    unit, err = clangast.parse_unit(s["clang"], s["root"], rel, s["flags"])
+    if unit is None:
+        report.problems.append(f"Clang could not read it: {err.strip()[:2000]}")
+        return report
+    report.fixes = unit.fixes
+    text = Unit(s["program"], rel, unit.ast, report).emit()
+    out = s["out"] / generated_name(rel)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if not out.exists() or out.read_text() != text:
+        out.write_text(text)
+    return report
+
+
+def generated_name(rel: str) -> str:
+    return rel[4:] if rel.startswith("src/") else rel
+
+
+def load_config(path: Path) -> dict:
+    cfg = json.loads(path.read_text())
+    cfg.setdefault("sources", ["src"])
+    cfg.setdefault("skip", [])
+    cfg.setdefault("includes", ["include", "src"])
+    cfg.setdefault("defines", [])
+    cfg.setdefault("host_functions", [])
+    return cfg
+
+
+def host_table(config_dir: Path, cfg: dict) -> dict[str, str]:
+    """The functions the port writes itself, from the game's library table
+    (port/game/<game>/libraries.tsv: symbol, library, name, port, notes,
+    signature; port = host for those), with their signatures."""
+    out = {}
+    table = cfg.get("libraries")
+    if not table:
+        return out
+    for line in (config_dir / table).read_text().splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        cols = line.split("\t")
+        if len(cols) >= 4 and cols[3].strip() == "host":
+            out[cols[0].strip()] = cols[5].strip() if len(cols) > 5 else ""
+    return out
+
+
+def wrapped(config_dir: Path, cfg: dict) -> set[str]:
+    """Functions whose C is kept under <name>__game, for a host <name> that
+    calls it (libraries.tsv rows with port = wrap)."""
+    out = set()
+    table = cfg.get("libraries")
+    if not table:
+        return out
+    for line in (config_dir / table).read_text().splitlines():
+        cols = line.split("\t")
+        if not line.startswith("#") and len(cols) >= 4 and cols[3].strip() == "wrap":
+            out.add(cols[0].strip())
+    return out
+
+
+def units_of(root: Path, cfg: dict) -> list[str]:
+    units = []
+    for src in cfg["sources"]:
+        for p in sorted((root / src).rglob("*.c")):
+            rel = p.relative_to(root).as_posix()
+            if any(rel == s or rel.startswith(s.rstrip("/") + "/") for s in cfg["skip"]):
+                continue
+            units.append(rel)
+    return units
+
+
+# ---- The program-wide files ----
+
+def prototype(f, typedefs: dict | None = None) -> str | None:
+    sig = f.sig
+    ret = canon(sig.ret, typedefs)
+    if ret is None:
+        return None
+    if not sig.prototyped:
+        return f"{ret} {cname(f.symbol)}()"
+    params = []
+    for i, p in enumerate(sig.params):
+        c = canon(p, typedefs)
+        if c is None:
+            return None
+        params.append(f"{c} a{i}")
+    if sig.variadic:
+        params.append("...")
+    return f"{ret} {cname(f.symbol)}({', '.join(params) or 'void'})"
+
+
+def write_program_files(program: Program, out: Path, game: str) -> dict:
+    head = [
+        f"/* Generated by port/tools/hostgen for {game}. Do not edit. */",
+    ]
+    protos = head + ["#ifndef OPENRAC_GAME_PROTOS_H", "#define OPENRAC_GAME_PROTOS_H",
+                     "#include <stdarg.h>", "#include \"openrac/guest.h\"", ""]
+    unprototyped = []
+    for sym in sorted(program.functions):
+        f = program.functions[sym]
+        p = prototype(f, program.typedefs)
+        if p is None:
+            unprototyped.append(sym)
+            continue
+        protos.append(p + ";")
+        if sym in program.wrap:
+            protos.append(p.replace(f" {cname(sym)}(", f" {cname(sym)}__game(", 1) + ";")
+    protos += ["", "#endif", ""]
+    _write(out / "game_protos.h", "\n".join(protos))
+
+    stubs = head + ["#include \"openrac/guest.h\"", "#include \"game_protos.h\"", ""]
+    stub_count = 0
+    for f in program.stubs():
+        p = prototype(f, program.typedefs)
+        if p is None:
+            continue
+        ret = canon(f.sig.ret, program.typedefs)
+        body = f"    openrac_guest_missing(\"{f.symbol}\");"
+        if ret != "void":
+            body += "\n    return 0;"
+        stubs.append(f"{p} {{\n{body}\n}}\n")
+        stub_count += 1
+    _write(out / "stubs.c", "\n".join(stubs))
+
+    # Every function with a code address, per overlay.
+    tables: dict[int, list[tuple[int, str]]] = {}
+    for sym, f in sorted(program.functions.items()):
+        if prototype(f, program.typedefs) is None:
+            continue
+        for overlay, addr in program.code_places(sym):
+            tables.setdefault(overlay, []).append((addr, sym))
+    fn = head + ["#include \"openrac/guest.h\"", "#include \"game_protos.h\"", ""]
+    for overlay in sorted(tables):
+        name = "exe" if overlay < 0 else f"overlay_{overlay:02d}"
+        fn.append(f"static const openrac_fn_entry k_{name}[] = {{")
+        for addr, sym in sorted(tables[overlay]):
+            fn.append(f"    {{0x{addr:08X}u, (openrac_host_fn){cname(sym)}, \"{sym}\"}},")
+        fn.append("};")
+        fn.append("")
+    fn.append("void openrac_game_register_functions(void) {")
+    for overlay in sorted(tables):
+        name = "exe" if overlay < 0 else f"overlay_{overlay:02d}"
+        fn.append(f"    openrac_guest_register({overlay}, k_{name}, sizeof k_{name} / sizeof k_{name}[0]);")
+    fn.append("}")
+    _write(out / "functions.c", "\n".join(fn) + "\n")
+    return {"stubs": stub_count, "unprototyped": unprototyped,
+            "addresses": sum(len(v) for v in tables.values())}
+
+
+def _write(path: Path, text: str) -> None:
+    if not path.exists() or path.read_text() != text:
+        path.write_text(text)
+
+
+def write_report(out: Path, reports: list[UnitReport], program: Program, extra: dict, game: str) -> dict:
+    fns = [f for r in reports for f in r.functions]
+    translated = [f for f in fns if f.status == "translated"]
+    stubbed = [f for f in fns if f.status == "stub"]
+    reasons: dict[str, int] = {}
+    for f in stubbed:
+        key = f.reason.split(" (")[0] if f.reason.startswith("inline assembly") else f.reason
+        reasons[key] = reasons.get(key, 0) + 1
+    no_c = [f for f in program.stubs()]
+    summary = {
+        "game": game,
+        "units": len(reports),
+        "units_unreadable": [r.unit for r in reports if any(p.startswith("Clang could not") for p in r.problems)],
+        "functions_translated": len(translated),
+        "functions_stubbed": len(stubbed),
+        "functions_without_c": len(no_c),
+        "functions_without_c_asm": sum(1 for f in no_c if f.asm),
+        "arguments_passed_through": sum(f.passthrough for f in fns),
+        "hardware_accesses": sum(f.hw for f in fns),
+        "functions_touching_hardware": sorted(f.name for f in fns if f.hw),
+        "stub_reasons": dict(sorted(reasons.items(), key=lambda kv: -kv[1])),
+        "fixes": {r.unit: r.fixes for r in reports if r.fixes},
+        "problems": {r.unit: r.problems for r in reports if r.problems},
+        "stubbed": {f.name: f.reason for f in stubbed},
+        **extra,
+    }
+    frontier = boot_frontier(fns, program, extra.get("roots", []))
+    summary["frontier"] = frontier
+    (out / "report.json").write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n")
+    md = [
+        f"# hostgen report: {game}",
+        "",
+        "| | |",
+        "|---|---:|",
+        f"| Units read | {summary['units']} |",
+        f"| Functions translated | {summary['functions_translated']} |",
+        f"| Functions with C that could not be translated (stubs) | {summary['functions_stubbed']} |",
+        f"| Functions with no C (still assembly, or libraries) | {summary['functions_without_c']} |",
+        f"| Functions by code address | {extra.get('addresses', 0)} |",
+        f"| Arguments passed through from the caller's registers | {summary['arguments_passed_through']} |",
+        f"| Accesses to hardware register addresses | {summary['hardware_accesses']} "
+        f"in {len(summary['functions_touching_hardware'])} functions |",
+        "",
+        "## Why functions became stubs",
+        "",
+        *[f"- {n} x {why}" for why, n in summary["stub_reasons"].items()],
+        "",
+    ]
+    if frontier["roots"]:
+        md += [
+            "## The frontier: what the program reaches that has no C",
+            "",
+            f"From {', '.join(frontier['roots'])}, following direct calls and functions whose address is",
+            f"taken: {frontier['reachable']} functions reachable, {len(frontier['missing'])} of them without C",
+            "(nearest first; a function is only reached through ones that have C). The port stops",
+            "at the first of these it runs; decompiling them moves it on.",
+            "",
+            "| Function | Depth | Called from |",
+            "|---|---:|---|",
+            *[f"| {m['name']} | {m['depth']} | {m['from']} |" for m in frontier["missing"]],
+            "",
+        ]
+    (out / "report.md").write_text("\n".join(md))
+    return summary
+
+
+def boot_frontier(fns, program: Program, roots: list[str]) -> dict:
+    """Functions reachable from roots, and those among them without C."""
+    calls = {f.name: f.calls for f in fns if f.status == "translated"}
+    seen = {}
+    queue = [(r, 0, "") for r in roots]
+    missing = []
+    while queue:
+        name, depth, parent = queue.pop(0)
+        if name in seen:
+            continue
+        seen[name] = depth
+        if name in program.host or name in calls:
+            for c in sorted(calls.get(name, ())):
+                if c not in seen:
+                    queue.append((c, depth + 1, name))
+        else:
+            missing.append({"name": name, "depth": depth, "from": parent})
+    return {"roots": roots, "reachable": len(seen), "missing": missing}
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--game", type=Path, required=True, help="the game's hostgen.json")
+    ap.add_argument("--source", type=Path, required=True, help="the decompilation's directory")
+    ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--jobs", type=int, default=os.cpu_count() or 2)
+    ap.add_argument("--only", action="append", default=[], help="translate only these units (for checks)")
+    ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--list", action="store_true", help="print the files it would write, and stop (for the build)")
+    args = ap.parse_args(argv)
+
+    cfg = load_config(args.game)
+    source = args.source.resolve()
+    out = args.out.resolve()
+    if args.list:
+        for u in units_of(source, cfg):
+            print(generated_name(u))
+        for name in PROGRAM_FILES:
+            print(name)
+        return 0
+    root = out / "prep"
+    started = time.time()
+    for d in sorted(set(cfg["sources"] + cfg["includes"])):
+        if (source / d).is_dir():
+            prep.copy_tree(source / d, root / d)
+    units = units_of(root, cfg)
+    if args.only:
+        units = [u for u in units if u in args.only]
+    flags = clangast.base_flags([Path(i) for i in cfg["includes"]] + [HERE / "include"], cfg["defines"])
+    state = {"clang": clangast.clang_binary(), "root": root, "flags": flags, "out": out}
+
+    program = Program()
+    problems: list[str] = []
+    if cfg.get("places"):
+        read_places(source / cfg["places"], program)
+    host_sigs = host_table(args.game.parent, cfg)
+    program.host = set(cfg.get("host_functions", [])) | set(host_sigs)
+    program.wrap = wrapped(args.game.parent, cfg)
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(state,)) as ex:
+        for rel, part, probs, _fixes in ex.map(_index_one, units):
+            problems += [f"{rel}: {p}" for p in probs]
+            if part is not None:
+                problems += merge(program, part)
+    for sym, text in host_sigs.items():
+        if text:
+            # The port's own version decides the signature its callers are matched to.
+            sig = Signature.of(ctype.parse(text))
+            f = program.functions.get(sym)
+            program.functions[sym] = Function(sym, sig, None, asm=f.asm if f else False)
+    state["program"] = program
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(state,)) as ex:
+        reports = list(ex.map(_lower_one, units))
+
+    extra = write_program_files(program, out, cfg.get("name", args.game.parent.name))
+    extra["roots"] = cfg.get("roots", [])
+    extra["index_problems"] = problems
+    (out / "units.txt").write_text("".join(generated_name(u) + "\n" for u in units))
+    summary = write_report(out, reports, program, extra, cfg.get("name", ""))
+    if not args.quiet:
+        print(f"hostgen: {summary['units']} units, {summary['functions_translated']} functions translated, "
+              f"{summary['functions_stubbed']} stubbed, {summary['functions_without_c']} without C, "
+              f"in {time.time() - started:.0f} s; report in {out / 'report.md'}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
