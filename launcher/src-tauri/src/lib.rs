@@ -293,6 +293,30 @@ async fn apply_progress_json(state: State<'_, AppState>, json: String) -> Result
         .map_err(|e| e.to_string())?
 }
 
+#[tauri::command]
+fn inspect_saves(serial: String) -> openrac_launcher_core::saves::GameSaveStatus {
+    openrac_launcher_core::saves::inspect_saves(&serial)
+}
+
+#[tauri::command]
+fn backup_saves(serial: String, note: Option<String>) -> Result<openrac_launcher_core::saves::SaveBackupInfo, String> {
+    openrac_launcher_core::saves::backup_saves(&serial, note.as_deref())
+}
+
+#[tauri::command]
+fn restore_backup(serial: String, backup_name: String) -> Result<(), String> {
+    openrac_launcher_core::saves::restore_backup(&serial, &backup_name)
+}
+
+#[tauri::command]
+fn open_saves_folder(app: AppHandle, serial: String) -> Result<(), String> {
+    let dir = openrac_launcher_core::saves::get_memcard_dir(&serial);
+    if !dir.exists() {
+        let _ = std::fs::create_dir_all(&dir);
+    }
+    app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+}
+
 #[cfg(target_os = "linux")]
 fn ensure_linux_desktop_integration() {
     let icon_bytes_512 = include_bytes!("../icons/icon.png");
@@ -413,6 +437,10 @@ pub fn run() {
             sync_progress_from_web,
             apply_progress_json,
             set_discord_status,
+            inspect_saves,
+            backup_saves,
+            restore_backup,
+            open_saves_folder,
         ])
         .run(tauri::generate_context!())
         .expect("the launcher failed to start");

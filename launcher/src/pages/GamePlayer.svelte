@@ -3,6 +3,7 @@
   // native port, edit its levels in Godot. Each button runs the same actions the
   // developer page lists (launcher/actions.json), found here by their ids.
   import Icon from "$components/Icon.svelte";
+  import SaveManagerModal from "$components/SaveManagerModal.svelte";
   import { api, pickDisc, pickFile, type ActionView } from "$lib/api";
   import {
     app,
@@ -20,6 +21,8 @@
   import { GODOT_URL } from "$lib/links";
   import { regionLabel } from "$lib/labels";
   import { themeStyle } from "$lib/themes";
+
+  let showSaveManager = $state(false);
 
   const v = $derived(currentVersion());
   const game = $derived(app.library?.games.find((g) => g.id === v?.game) ?? null);
@@ -205,6 +208,9 @@
             ><Icon name="play" size={16} />Preview a level in Godot</button
           >
         {/if}
+        <button onclick={() => (showSaveManager = true)}
+          ><Icon name="save" size={16} />Save management (prototype)</button
+        >
         <button onclick={() => void guard(api.openPath(v.dir))}
           ><Icon name="folder" size={16} />Open the game's folder</button
         >
@@ -217,6 +223,10 @@
         >
       </div>
     </details>
+
+    {#if showSaveManager}
+      <SaveManagerModal version={v} onclose={() => (showSaveManager = false)} />
+    {/if}
   </div>
 {/if}
 

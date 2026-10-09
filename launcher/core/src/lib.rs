@@ -26,6 +26,7 @@ pub mod discord;
 pub mod iso;
 pub mod jobs;
 pub mod library;
+pub mod saves;
 pub mod status;
 
 use std::path::{Path, PathBuf};

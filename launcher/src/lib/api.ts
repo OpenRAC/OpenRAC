@@ -216,6 +216,34 @@ export interface ImportResult {
   setupMessage: string;
 }
 
+export interface SaveSlotInfo {
+  slotIndex: number;
+  filename: string;
+  path: string;
+  size: number;
+  exists: boolean;
+  isEmpty: boolean;
+  timestamp: string | null;
+  modifiedMillis: number | null;
+}
+
+export interface SaveBackupInfo {
+  name: string;
+  path: string;
+  createdMillis: number;
+  totalSize: number;
+}
+
+export interface GameSaveStatus {
+  serial: string;
+  memcardDir: string;
+  exists: boolean;
+  gameFolderName: string | null;
+  title: string | null;
+  slots: SaveSlotInfo[];
+  backups: SaveBackupInfo[];
+}
+
 // ---- calls ------------------------------------------------------------------------
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -245,6 +273,10 @@ export const api = {
   syncProgressFromWeb: () => call<Library>("sync_progress_from_web"),
   applyProgressJson: (json: string) => call<Library>("apply_progress_json", { json }),
   setDiscordStatus: (status: DiscordStatus) => call<null>("set_discord_status", { status }),
+  inspectSaves: (serial: string) => call<GameSaveStatus>("inspect_saves", { serial }),
+  backupSaves: (serial: string, note?: string) => call<SaveBackupInfo>("backup_saves", { serial, note }),
+  restoreBackup: (serial: string, backupName: string) => call<null>("restore_backup", { serial, backupName }),
+  openSavesFolder: (serial: string) => call<null>("open_saves_folder", { serial }),
 };
 
 /** A folder picker; null when cancelled (or in the browser preview). */
