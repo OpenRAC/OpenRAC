@@ -146,6 +146,12 @@ public:
     /** Runs the host code for the function at an address; false leaves it to the interpreter. */
     std::function<bool(u32 address)> on_native;
 
+    /**
+     * Called with the target of every call instruction (JAL, JALR) the interpreter runs, when
+     * set: for counting which guest functions a run uses. Empty by default.
+     */
+    std::function<void(u32 target)> on_call;
+
     // --- State ---
 
     /** The 32 general registers, 128 bits each (documented). */

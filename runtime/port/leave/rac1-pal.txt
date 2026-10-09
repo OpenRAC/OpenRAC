@@ -17,3 +17,22 @@ func_0021C1B0     gives func_001F4868's result (a 64-bit texture register value,
 func_001F6EA8     keeps func_001F4868's result in an `int` local on its way to the text drawer
 func_001F7560     the same, for each character it draws
 func_0021C6C0     returns a colour that the retail code leaves zero-extended in 64 bits; declared s32, it comes back sign-extended
+
+# A local too small for what a callee does with it: the callee reads or writes
+# the floats after it, which are another local with the retail compiler's
+# stack layout and something else here. The fix is one local of the size the
+# callee uses.
+func_L08_00309050 `float v[2]` goes to a routine that reads three floats
+func_L14_002FDE28 `float v[3]` and `float t[3]` go to routines that read and write four
+func_L06_002EADC8 eight `float [4]` in a row; func_00215328 writes more than four into the first
+
+# A local read before anything set it. The retail code reads what an earlier
+# call left on its stack there, which no host build can reproduce; the check
+# lists these as `unset`. The fix is to set it, when the retail value is known.
+func_L00_00263D68 adds all four floats of a vector of which func_00215C00 set three
+func_L00_00265050 found by the check in level 3; not looked at further
+
+# Differ from the retail code in a level other than the one they are named
+# after; the cause is not found yet. They agree in their own level.
+func_L00_002584A8 level 3: leaves 6 where the retail code leaves 0, in the caller's frame
+func_L00_00261478 level 3: one float of the result is a little off

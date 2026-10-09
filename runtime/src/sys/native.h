@@ -120,6 +120,21 @@ public:
     u64 outside = 0;
 
     /**
+     * Whether calls are counted by level and address, set before `load`: every call instruction
+     * the interpreter runs and every call host code makes. `write_calls` gives the counts. It
+     * shows which guest functions a run uses that no host function stands in for yet.
+     */
+    bool count_calls = false;
+
+    /**
+     * Writes the counted calls, one line for each level and address: the level (-1 for the boot
+     * program), the address in hexadecimal, the number of calls, and 1 if host code ran there.
+     *
+     * @param out Where to write.
+     */
+    void write_calls(std::FILE* out) const;
+
+    /**
      * Writes one line for each function that ran: how often, its address and its name.
      *
      * @param out Where to write.
@@ -143,6 +158,7 @@ private:
         unsigned checked = 0;    // Calls compared with the retail code so far.
         unsigned unchecked = 0;  // Calls that could not be compared: they reached outside.
         std::string differs;     // How it differed from the retail code; empty if it never did.
+        bool unset = false;      // Its result changed with what its stack held before the call.
     };
 
     /** Everything a function may change that is compared or put back: registers and memory. */
@@ -173,6 +189,20 @@ private:
     bool check_call(Function& function);
 
     /**
+     * Says how what one run of a call left differs from what another left.
+     *
+     * @param ours One run's registers and memories.
+     * @param theirs The other run's.
+     * @param sp The caller's stack pointer: the megabyte below it is dead stack and not compared.
+     * @param result What the function returns (`OpenracNativeFunction::result`).
+     * @param who What to call the other run in the text ("the retail code").
+     * @return The first difference in words, or an empty string when there is none.
+     */
+    std::string difference(
+        const Snapshot& ours, const Snapshot& theirs, u32 sp, u32 result, const char* who
+    ) const;
+
+    /**
      * Copies the registers and memories.
      *
      * @param[out] to Where to.
@@ -188,6 +218,13 @@ private:
 
     /** Finds which level's program is in memory and tells the library if it is another. */
     void find_level();
+
+    /**
+     * Counts one call to an address in the level that is in memory.
+     *
+     * @param address The address called.
+     */
+    void note_call(u32 address);
 
     /**
      * Compares the guest's memory at a function's address with the code it stands in for.
@@ -218,7 +255,14 @@ private:
     /** Indexes into `functions_` by guest address: one for each level that has code there. */
     std::unordered_map<u32, std::vector<std::size_t>> by_address_;
 
-    std::vector<u8> marks_;            // One byte a word of main memory, for the core.
+    std::vector<u8> marks_;  // One byte a word of main memory, for the core.
+
+    /** Calls counted, by level plus one in the upper half of the key and address in the lower. */
+    std::unordered_map<u64, u64> call_counts_;
+
+    /** The keys of `call_counts_` at which host code ran. */
+    std::set<u64> host_ran_;
+
     std::size_t bound_ = 0;            // Functions in state `Bound`.
     int level_ = OPENRAC_NATIVE_BOOT;  // The level whose program is in memory.
     bool level_known_ = false;         // `level_` was found since code last changed.
@@ -227,6 +271,7 @@ private:
     bool checking_ = false;            // A call is being compared; calls inside it are not.
     Snapshot before_;                  // The machine before a checked call.
     Snapshot host_result_;             // What the host function left.
+    Snapshot host_again_;              // What it left when run again over another stack.
     Snapshot retail_result_;           // What the retail function left.
 };
 

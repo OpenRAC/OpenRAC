@@ -469,6 +469,12 @@ void Ee::step() {
             gpr[31].lo = at + 8;
             next_pc = ((at + 4) & 0xF0000000u) | ((op & 0x03FFFFFFu) << 2);
             note_jump(at, next_pc);
+
+            // Somebody counts calls.
+            if (on_call) {
+                on_call(next_pc);
+            }
+
             break;
 
         case 0x04:  // BEQ
@@ -840,6 +846,12 @@ void Ee::special(u32 op) {
             next_pc = s32v;
             note_jump(at, s32v);
             set64(rd, at + 8);
+
+            // Somebody counts calls.
+            if (on_call) {
+                on_call(next_pc);
+            }
+
             break;
 
         case 0x0A:  // MOVZ

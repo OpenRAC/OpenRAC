@@ -24,6 +24,13 @@ constexpr u64 kCheckInstructions = 2'000'000;
 constexpr u64 kCheckSlice = 64;
 
 /**
+ * What the host code's dead stack is filled with for the second run of a call that differed, and
+ * how far below the stack pointer: more than any one function's frame.
+ */
+constexpr int kStackFill = 0x5A;
+constexpr u32 kStackFillBytes = 0x8000;
+
+/**
  * The CRC-32 of a run of bytes (the common one: polynomial 0xEDB88320, as zlib computes it).
  *
  * @param data The bytes.
@@ -126,6 +133,13 @@ bool Native::load(const std::string& path, std::string* error) {
         return enter(address);
     };
 
+    // Asked to count calls: the interpreter tells of each call instruction.
+    if (count_calls) {
+        ee_.on_call = [this](u32 target) {
+            note_call(target);
+        };
+    }
+
     return true;
 }
 
@@ -136,6 +150,31 @@ void Native::code_changed() {
 
     bound_ = 0;
     level_known_ = false;
+
+    // Calls are counted by level: it has to be known before the next one, not at the next entry.
+    if (count_calls && library_) {
+        find_level();
+    }
+}
+
+void Native::note_call(u32 address) {
+    u64 level = static_cast<u64>(static_cast<u32>(level_ + 1));
+    u64 key = (level << 32) | (address & (ps2::GuestMemory::kRamBytes - 1));
+
+    call_counts_[key]++;
+}
+
+void Native::write_calls(std::FILE* out) const {
+    for (const auto& [key, count] : call_counts_) {
+        std::fprintf(
+            out,
+            "%d %08x %llu %d\n",
+            static_cast<int>(key >> 32) - 1,
+            static_cast<u32>(key),
+            static_cast<unsigned long long>(count),
+            host_ran_.count(key) ? 1 : 0
+        );
+    }
 }
 
 void Native::find_level() {
@@ -164,6 +203,7 @@ void Native::find_level() {
 void Native::report(std::FILE* out, std::size_t most) const {
     std::vector<const Function*> busiest;
     std::size_t differing = 0;
+    std::size_t unset = 0;
     u64 compared = 0;
     u64 not_compared = 0;
 
@@ -171,6 +211,7 @@ void Native::report(std::FILE* out, std::size_t most) const {
         compared += function.checked;
         not_compared += function.unchecked;
         differing += function.differs.empty() ? 0 : 1;
+        unset += function.unset ? 1 : 0;
 
         // Never ran.
         if (function.calls == 0) {
@@ -186,7 +227,7 @@ void Native::report(std::FILE* out, std::size_t most) const {
 
     std::fprintf(
         out,
-        "host code: %zu functions in the library, %zu ran, %llu calls\n",
+        "host code: %zu places of functions in the library, %zu ran, %llu calls\n",
         functions_.size(),
         busiest.size(),
         static_cast<unsigned long long>(calls)
@@ -196,10 +237,11 @@ void Native::report(std::FILE* out, std::size_t most) const {
     if (check) {
         std::fprintf(
             out,
-            "  compared with the retail code: %llu calls, %zu functions differ; %llu calls reached "
-            "outside memory and were not compared\n",
+            "  compared with the retail code: %llu calls, %zu functions differ (%zu of them read a "
+            "local they never set); %llu calls reached outside memory and were not compared\n",
             static_cast<unsigned long long>(compared),
             differing,
+            unset,
             static_cast<unsigned long long>(not_compared)
         );
 
@@ -211,7 +253,8 @@ void Native::report(std::FILE* out, std::size_t most) const {
 
             std::fprintf(
                 out,
-                "  differs  %08x  %s: %s\n",
+                "  %s  %08x  %s: %s\n",
+                function.unset ? "unset  " : "differs",
                 function.entry.address,
                 function.entry.name,
                 function.differs.c_str()
@@ -286,6 +329,14 @@ bool Native::enter(u32 address) {
 
     function.calls++;
     calls++;
+
+    // For the list of counted calls: host code ran at this address in this level.
+    if (count_calls) {
+        u64 level = static_cast<u64>(static_cast<u32>(level_ + 1));
+
+        host_ran_.insert((level << 32) | function.entry.address);
+    }
+
     function.entry.entry();
 
     return true;
@@ -396,7 +447,31 @@ bool Native::check_call(Function& function) {
     function.entry.entry();
     take(host_result_);
 
-    u64 outside_after_host = outside;
+    u32 sp = static_cast<u32>(before_.gpr[29].lo) & (ps2::GuestMemory::kRamBytes - 1);
+    u32 result = function.entry.result;
+    std::string text = difference(host_result_, retail_result_, sp, result, "the retail code");
+
+    // The host function touched a device or called a library function, and the retail one did not.
+    if (text.empty() && outside != outside_before) {
+        text = "reaches outside memory, the retail code does not";
+    }
+
+    /*
+     * It differs. Once more, over a stack filled with other bytes: a function whose result
+     * changes with that reads a local it never set, and no host build can leave what the retail
+     * code leaves there. The report tells such a function from one whose C does something else.
+     */
+    if (!text.empty()) {
+        put_back(before_);
+
+        u32 top = stack_pointer_;
+        u32 bottom = std::max(kDataEnd, top - std::min(top, kStackFillBytes));
+
+        std::memset(memory_.ram(bottom), kStackFill, top - bottom);
+        function.entry.entry();
+        take(host_again_);
+        function.unset = !difference(host_again_, host_result_, sp, result, "before").empty();
+    }
 
     // What stays is what the retail code left.
     put_back(retail_result_);
@@ -404,29 +479,36 @@ bool Native::check_call(Function& function) {
     checking_ = false;
     function.checked++;
 
-    char text[160] = "";
-    u32 sp = static_cast<u32>(before_.gpr[29].lo) & (ps2::GuestMemory::kRamBytes - 1);
-
-    // The result, by what the function returns.
-    if (function.entry.result == 1 && host_result_.gpr[2].lo != retail_result_.gpr[2].lo) {
-        std::snprintf(
-            text,
-            sizeof(text),
-            "returns %llx, the retail code %llx",
-            static_cast<unsigned long long>(host_result_.gpr[2].lo),
-            static_cast<unsigned long long>(retail_result_.gpr[2].lo)
-        );
-    } else if (function.entry.result == 2 && host_result_.fpr[0] != retail_result_.fpr[0]) {
-        std::snprintf(
-            text,
-            sizeof(text),
-            "returns float bits %08x, the retail code %08x",
-            host_result_.fpr[0],
-            retail_result_.fpr[0]
-        );
+    // It differs: the interpreter runs this function from now on.
+    if (!text.empty()) {
+        function.differs = text;
+        function.state = State::Other;
+        bound_--;
     }
 
-    const u8* retail = retail_result_.ram.data();
+    return true;
+}
+
+std::string Native::difference(
+    const Snapshot& ours, const Snapshot& theirs, u32 sp, u32 result, const char* who
+) const {
+    char text[160] = "";
+
+    // The result, by what the function returns.
+    if (result == 1 && ours.gpr[2].lo != theirs.gpr[2].lo) {
+        std::snprintf(
+            text,
+            sizeof(text),
+            "returns %llx, %s %llx",
+            static_cast<unsigned long long>(ours.gpr[2].lo),
+            who,
+            static_cast<unsigned long long>(theirs.gpr[2].lo)
+        );
+    } else if (result == 2 && ours.fpr[0] != theirs.fpr[0]) {
+        std::snprintf(
+            text, sizeof(text), "returns float bits %08x, %s %08x", ours.fpr[0], who, theirs.fpr[0]
+        );
+    }
 
     /*
      * Memory, but for the megabyte below the caller's stack pointer: the retail function's own
@@ -434,7 +516,7 @@ bool Native::check_call(Function& function) {
      */
     for (u32 at = 0; at < ps2::GuestMemory::kRamBytes && !text[0]; at += 8) {
         // The same eight bytes.
-        if (std::memcmp(retail + at, host_result_.ram.data() + at, 8) == 0) {
+        if (std::memcmp(theirs.ram.data() + at, ours.ram.data() + at, 8) == 0) {
             continue;
         }
 
@@ -448,46 +530,34 @@ bool Native::check_call(Function& function) {
             continue;
         }
 
-        u64 ours = 0;
-        u64 theirs = 0;
+        u64 mine = 0;
+        u64 other = 0;
 
-        std::memcpy(&ours, host_result_.ram.data() + at, 8);
-        std::memcpy(&theirs, retail + at, 8);
+        std::memcpy(&mine, ours.ram.data() + at, 8);
+        std::memcpy(&other, theirs.ram.data() + at, 8);
         std::snprintf(
             text,
             sizeof(text),
-            "leaves %016llx at %08x, the retail code %016llx",
-            static_cast<unsigned long long>(ours),
+            "leaves %016llx at %08x, %s %016llx",
+            static_cast<unsigned long long>(mine),
             at,
-            static_cast<unsigned long long>(theirs)
+            who,
+            static_cast<unsigned long long>(other)
         );
     }
 
-    bool same_scratchpad = std::memcmp(
-                               retail_result_.scratchpad.data(),
-                               host_result_.scratchpad.data(),
-                               ps2::GuestMemory::kScratchpadBytes
-                           )
-                           == 0;
+    bool same_scratchpad =
+        std::memcmp(
+            theirs.scratchpad.data(), ours.scratchpad.data(), ps2::GuestMemory::kScratchpadBytes
+        )
+        == 0;
 
     // The scratchpad, whole.
     if (!text[0] && !same_scratchpad) {
-        std::snprintf(text, sizeof(text), "leaves the scratchpad different from the retail code");
+        std::snprintf(text, sizeof(text), "leaves the scratchpad different from %s", who);
     }
 
-    // The host function touched a device or called a library function, and the retail one did not.
-    if (!text[0] && outside_after_host != outside_before) {
-        std::snprintf(text, sizeof(text), "reaches outside memory, the retail code does not");
-    }
-
-    // It differs: the interpreter runs this function from now on.
-    if (text[0]) {
-        function.differs = text;
-        function.state = State::Other;
-        bound_--;
-    }
-
-    return true;
+    return text;
 }
 
 bool Native::matches(const Function& function) {
@@ -520,6 +590,11 @@ void Native::set_f(void* context, int n, uint32_t bits) {
 
 void Native::call(void* context, uint32_t address) {
     Native* self = static_cast<Native*>(context);
+
+    // A call no instruction of the interpreter makes: counted here.
+    if (self->count_calls) {
+        self->note_call(address);
+    }
 
     // Another host function, or the interpreter. Either way the registers carry the call.
     if (!self->enter(address)) {
