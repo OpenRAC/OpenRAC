@@ -6,7 +6,47 @@ INCLUDE_ASM("config/us/overlays/asm/FUN_L00_00261968.s", FUN_L00_00261968);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L00_00261b48.s", FUN_L00_00261b48);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L00_00261d78.s", FUN_L00_00261d78);
 INCLUDE_ASM("config/us/overlays/asm/FUN_L00_00262030.s", FUN_L00_00262030);
-INCLUDE_ASM("config/us/overlays/asm/FUN_L00_00262360.s", FUN_L00_00262360);
+#include "rnc/math/vector.h"
+
+/* A polyline of evenly spaced points. */
+typedef struct {
+    s32 count;          /* 0x00 */
+    u8 pad4[0xC];
+    Vec4 points[1];     /* 0x10 */
+} PointPath;
+
+extern s32 truncate_float_to_s32(f32) __asm__("FUN_001fa6d0");
+extern f32 s32_to_float(s32) __asm__("FUN_001fa6c0");
+extern void subtract_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a28");
+extern void scale_vector_xyz(void *, void *, f32) __asm__("FUN_001f9bf8");
+extern void add_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a10");
+
+/* Samples path at distance dist (points spacing apart): stores the segment, the distance into it and the point. */
+void FUN_L00_00262360(PointPath *path, s32 *seg_out, f32 *along, Vec4 *out, f32 dist, f32 spacing) {
+    Vec4 tmp;
+    s32 seg;
+
+    seg = truncate_float_to_s32(dist / spacing);
+    *seg_out = seg;
+    if (seg >= path->count - 1) {
+        *seg_out = path->count - 1;
+        *along = 0.0f;
+        out->q = (path->points + *seg_out)->q;
+        return;
+    }
+    if (seg < 0) {
+        *seg_out = 0;
+        *along = 0.0f;
+        out->q = (path->points + *seg_out)->q;
+        return;
+    }
+    *along = dist - s32_to_float(seg) * spacing;
+    subtract_vector_xyz(&tmp, &path->points[*seg_out + 1], &path->points[*seg_out]);
+    out->q = tmp.q;
+    scale_vector_xyz(out, out, *along);
+    add_vector_xyz(&tmp, out, &path->points[*seg_out]);
+    out->q = tmp.q;
+}
 #define NOT_SDA
 
 #define MACRO_ADDR
@@ -17,6 +57,7 @@ extern void FUN_001fa050(void *, void *);
 extern void FUN_001fa378(void *, void *, void *);
 extern void FUN_00214598(void *, void *);
 
+/* Multiplies the 001fa050 matrices of (x, y, z) and of a+0x40, stored back by FUN_00214598. */
 void FUN_L00_00262480(char *a, float x, float y, float z) {
     float in[3];
     float t[16], u[16];
@@ -34,6 +75,7 @@ void FUN_L00_00262480(char *a, float x, float y, float z) {
 
 /* Ported from rac1-decomp (src/overlays/shared/mobyutil_00261B00.c: func_L00_00263578), where it is exact; names translated to the US level program. */
 
+/* Unless the flag at b+0x13C is set: sets it, stores a at 0x134, clears 0x130..0x138. */
 void FUN_L00_00262500(int a, char *b) {
     if (*(int *)(b + 0x13C) == 0) {
         *(int *)(b + 0x134) = a;
@@ -94,10 +136,10 @@ void FUN_L00_00262528(O00262528 *o, s32 a, s32 b) {
     o->x138++;
 }
 #include "qcopy.h"
-typedef int q_262608 __attribute__((mode(TI)));
+#include "rnc/overlay/quad.h"
 typedef struct {
-    q_262608 a[8];
-    q_262608 b[8];
+    OvlQuad a[8];
+    OvlQuad b[8];
     unsigned char pad[0x10];
     int w[8];
     short head;
@@ -171,6 +213,7 @@ void FUN_L00_00262608(S_262608 *s, int dec) {
 
 void mark_moby_for_removal(struct Obj *obj) __asm__("FUN_0020c828");
 
+/* When o+0x13C is set, marks each nonzero moby of the 0x120 list for removal; clears the flag. */
 void FUN_L00_00262840(char *o) {
     int i;
     if (*(int *)(o + 0x13C) != 0) {
@@ -234,6 +277,7 @@ void FUN_L00_002628d8(void *m, unsigned char *p, int c, float fa, float fb) {
 extern float FUN_001f9de0(float);
 extern float fast_add_rotations(float, float) __asm__("FUN_001fa580");
 
+/* Advances angle *p by y and swaps the old x*sin offset in a+0x18 for the new one. */
 void FUN_L00_00262b00(float x, float y, char *a, float *p, float *q) {
     float t;
     *p = fast_add_rotations(*p, y);
@@ -246,6 +290,7 @@ void FUN_L00_00262b00(float x, float y, char *a, float *p, float *q) {
 
 extern float FUN_001f9dc8(float);
 
+/* Sets o[16] and o[17] from r and the sines/cosines of the two angles, then advances the angles by l1 and l2. */
 void FUN_L00_00262b80(float *o, float *a, float *b, float r, float l1, float l2) {
     o[0x10] = r * FUN_001f9de0(*a) * FUN_001f9de0(*b);
     o[0x11] = r * FUN_001f9de0(*a) * FUN_001f9dc8(*b);

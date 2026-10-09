@@ -159,15 +159,15 @@ void FUN_L00_0025da70(u128_0025da70 *a, u128_0025da70 *b, float lim) {
     }
 }
 #include "qcopy.h"
-typedef int T25db00_q __attribute__((mode(TI)));
+#include "rnc/overlay/quad.h"
 void FUN_001f9a28_25db00(void *, void *, void *) __asm__("FUN_001f9a28");
 void FUN_001f9c48_25db00(void *, void *, float) __asm__("FUN_001f9c48");
 float FUN_001f9ab0_25db00(void *, void *) __asm__("FUN_001f9ab0");
 float FUN_001f9b80_25db00(void *, void *) __asm__("FUN_001f9b80");
-float FUN_L00_0025db00(float *out, float *p, T25db00_q *a, T25db00_q *b) {
+float FUN_L00_0025db00(float *out, float *p, OvlQuad *a, OvlQuad *b) {
     float d[4];
     float n[4];
-    T25db00_q c[1];
+    OvlQuad c[1];
     float k;
     int i;
     float *o, *pa, *pb;
@@ -201,7 +201,6 @@ float FUN_L00_0025db00(float *out, float *p, T25db00_q *a, T25db00_q *b) {
     }
     return FUN_001f9b80_25db00(p, out);
 }
-typedef int u128_25dcd8 __attribute__((mode(TI)));
 extern float fabs_25dcd8(float) __asm__("FUN_001f99c0");
 extern float db00_25dcd8(void *, void *, void *, void *) __asm__("FUN_L00_0025db00");
 extern float dist_25dcd8(void *, void *) __asm__("FUN_001f9b80");
@@ -213,11 +212,11 @@ extern void vscl_25dcd8(void *, void *, float) __asm__("FUN_001f9bf8");
 extern void vmul_25dcd8(void *, void *, float) __asm__("FUN_001f9a68");
 extern float dot_25dcd8(void *, void *) __asm__("FUN_001f9ab0");
 extern float da70_25dcd8(void *, void *, float) __asm__("FUN_L00_0025da70");
-float FUN_L00_0025dcd8(u128_25dcd8 *out, u128_25dcd8 *p, u128_25dcd8 *a, u128_25dcd8 *b, float r) {
-    u128_25dcd8 d[2];
-    u128_25dcd8 c[1];
-    u128_25dcd8 e[1];
-    u128_25dcd8 g[1];
+float FUN_L00_0025dcd8(OvlQuad *out, OvlQuad *p, OvlQuad *a, OvlQuad *b, float r) {
+    OvlQuad d[2];
+    OvlQuad c[1];
+    OvlQuad e[1];
+    OvlQuad g[1];
     float *o, *fa, *fb;
     float res, t, u;
     int i;
@@ -266,6 +265,7 @@ float FUN_L00_0025dcd8(u128_25dcd8 *out, u128_25dcd8 *p, u128_25dcd8 *a, u128_25
 }
 INCLUDE_ASM("config/us/overlays/asm/FUN_L00_0025df68.s", FUN_L00_0025df68);
 extern f32 FUN_L00_00200228(void *, f32);
+/* Wraps angle a into -pi..pi. */
 f32 FUN_L00_0025e310(f32 a) {
     f32 out;
     f32 x;
@@ -285,6 +285,7 @@ f32 FUN_L00_0025e310(f32 a) {
 
 extern int FUN_L00_0025e3b8_u(void *) __asm__("FUN_L00_0025e3b8");
 
+/* False for null; true for a moby outside FUN_L00_0025e3b8's range or of class 0x1F6. */
 int FUN_L00_0025e368(char *a) {
     int r;
     if (a == 0) {
@@ -296,6 +297,7 @@ int FUN_L00_0025e368(char *a) {
     }
     return r;
 }
+/* True for a moby of one of eight listed classes. */
 s32 FUN_L00_0025e3f8(void *p) {
     s16 v = *(s16 *)((char *)p + 0xA6);
     if (v == 0xE2 || v == 0xCC || v == 0xDE || v == 0x3EE || v == 0xD6 || v == 0xE1 || v == 0xD5 ||
@@ -305,9 +307,6 @@ s32 FUN_L00_0025e3f8(void *p) {
     return 0;
 }
 INCLUDE_ASM("config/us/overlays/asm/FUN_L00_0025e450.s", FUN_L00_0025e450);
-INCLUDE_ASM("config/us/overlays/asm/FUN_L00_0025f090.s", FUN_L00_0025f090);
-/* Ported from rac1-decomp (src/overlays/shared/mobyutil_00258BC8.c: func_L00_00260460), where it is exact; names translated to the US level program. */
-
 typedef struct { float x, y, z, w; } Vy10 __attribute__((aligned(16)));
 
 typedef struct { int v[6]; } S6y10;
@@ -326,6 +325,67 @@ extern void FUN_L00_0025c088(int *, int *, int *, int);
 extern void FUN_L00_0026a9f0(void *, void *, int, int, float, int, int, int, int, float);
 extern void FUN_L00_002d3838(void *, void *, int, int);
 extern void clear_u64_value(void *) __asm__("func_001F99F8");
+
+extern int FUN_001fa728(void *, float);
+extern void FUN_0022da68(int, int, void *);
+
+typedef struct {
+    u8 pad0[0x160];
+    f32 scale;      /* 0x160 */
+    u8 pad164[4];
+    s32 frames;     /* 0x168 */
+} Shake0025f090;
+
+extern Shake0025f090 D_L00_00166C80;
+
+/* Explosion burst at `pos`: three random-coloured particles, two tinted particles on `owner`, a camera shake when the
+   spot is in view, the owner's sound unless it is dying, and a light flash of intensity `flash` (13 if negative). */
+void FUN_L00_0025f090(u8 *owner, u128 *pos, int sound, float scale, float flash) {
+    Vy10 vel;
+    int i;
+    float sp, big;
+    clear_u64_value(&vel);
+    for (i = 2; i >= 0; i--) {
+        S6y10 c0;
+        S6y10 c1;
+        sp = random_float_between_c(8.0f, 10.0f) * D_0015ED6C;
+        big = scale * 400000.0f;
+        c0 = D_L00_001E9030;
+        c1 = D_L00_001E9048;
+        FUN_L00_0026a9f0(pos, &vel, c0.v[random_integer_below(6)], c1.v[random_integer_below(6)],
+            big, FUN_L00_00257b90(scale_game_frames_c(0xF), scale_game_frames_c(0x14)),
+            FUN_L00_00257b90(scale_game_frames_c(0x19), scale_game_frames_c(0x1E)), 0, 0, sp * scale);
+    }
+    if (owner != 0) {
+        FUN_L00_002ac910(owner, pos, &vel, scale * 4.0f, scale_game_frames_c(0x14), 0x7F, 0x40, 0, 0x30);
+        FUN_L00_002ac910(owner, pos, &vel, scale * 3.0f, scale_game_frames_c(0x1D), 0x60, 0x20, 0, 0x20);
+    }
+    {
+        Vy10 at;
+        *(u128 *)&at = *pos;
+        at.w = 2.0f;
+        if (FUN_001fa728(&at, 10.0f) != -1) {
+            D_L00_00166C80.scale = scale * 0.1f;
+            D_L00_00166C80.frames = scale_game_frames_c(0x14);
+        }
+    }
+    if (owner != 0 && owner[0x20] != 0xFE && owner[0x20] != 0xFD && sound != -1) {
+        FUN_0022da68(sound, 0, owner);
+    }
+    if (flash != 0.0f) {
+        if (flash > 0.0f) {
+            D_L00_001B02F0[9] = flash;
+            D_L00_001B02F0[10] = flash;
+            D_L00_001B02F0[8] = flash;
+        } else {
+            D_L00_001B02F0[9] = 13.0f;
+            D_L00_001B02F0[10] = 13.0f;
+            D_L00_001B02F0[8] = 13.0f;
+        }
+        FUN_L00_002d3838(D_L00_001B02F0, pos, 0, 0);
+    }
+}
+/* Ported from rac1-decomp (src/overlays/shared/mobyutil_00258BC8.c: func_L00_00260460), where it is exact; names translated to the US level program. */
 
 /* Spawns an explosion burst at `pos`: three random-coloured particles, two tinted particles when `owner` is set, and
    (when `flash` is nonzero) a light with intensity `flash` (or 13 if negative). */
@@ -379,6 +439,7 @@ void FUN_L00_0025f3e8(char *owner, char *pos, float scale, float flash) {
 extern float FUN_001f9af0(void *);
 extern void FUN_001f9bf8(void *, void *, float);
 
+/* Clamps vector a to length x: normalizes it to x when FastVecLength is longer. */
 void FUN_L00_0025f730(void *a, float x) {
     if (x < FUN_001f9af0(a)) {
         FUN_001f9bf8(a, a, x);
@@ -392,6 +453,7 @@ void FUN_L00_0025f730(void *a, float x) {
 
 extern int D_L00_0015FFD8;
 
+/* Adds the moby index of a to the short list unless present or the list holds max. */
 void FUN_L00_0025f780(int a, short *list, short max) {
     int k = ((a - D_L00_0015FFD8) << 8) >> 16;
     int i;
@@ -405,6 +467,7 @@ void FUN_L00_0025f780(int a, short *list, short max) {
     }
 }
 extern s32 D_L00_0015FFD8_c2 __asm__("D_L00_0015FFD8");
+/* Removes moby p from the index list a by moving the last entry into its place. */
 void FUN_L00_0025f800(s32 p, s16 *a) {
     s32 i;
     for (i = 1; i <= a[0]; i++) {
@@ -426,6 +489,7 @@ typedef struct {
 } M25f878;
 extern s16 D_L00_001B0770[] __attribute__((section(".data")));
 extern u8 *D_L00_0015FFD8_c3 __asm__("D_L00_0015FFD8");
+/* Finds the moby in the D_L00_001B0770 index list whose data id matches id; 0 when none. */
 M25f878 *FUN_L00_0025f878(s32 id) {
     s32 i;
     for (i = 1; i <= D_L00_001B0770[0]; i++) {
@@ -436,13 +500,15 @@ M25f878 *FUN_L00_0025f878(s32 id) {
     return 0;
 }
 f32 random_float_between(f32, f32) __asm__("FUN_002132a8");
+/* Adds a random offset in [-r, r] to each of v[0..2]. */
 void FUN_L00_0025f8e0(f32 *v, f32 r) {
     v[0] += random_float_between(-r, r);
     v[1] += random_float_between(-r, r);
     v[2] += random_float_between(-r, r);
 }
-extern u8 *D_L00_0015FFD8_c __asm__("D_L00_0015FFD8") __attribute__((sda));
+extern u8 *D_L00_0015FFD8_c __asm__("D_L00_0015FFD8");
 extern u8 *D_L00_0015FFE0 __attribute__((sda));
+/* True for a moby inside the moby table whose class at 0xA6 is 0x1F4..0x21C. */
 s32 FUN_L00_0025e3b8(u8 *m) {
     u32 v;
     if (m == 0) {

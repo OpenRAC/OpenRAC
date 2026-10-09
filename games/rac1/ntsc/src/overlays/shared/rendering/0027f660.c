@@ -83,7 +83,41 @@ char *FUN_L01_00280970(int a, char *b) {
     }
     return p;
 }
-INCLUDE_ASM("config/us/overlays/asm/FUN_L01_00285768.s", FUN_L01_00285768);
+
+extern char *D_L01_001B25A4[];
+extern char *alloc_285768(int) __asm__("FUN_L00_002678b8");
+extern int trunc_285768(float) __asm__("FUN_001fa6d0");
+
+/* Allocates a type 0x29 particle and fills it from the arguments; kind 0xFF
+ * derives the frame from flags and picks one of two blend modes. */
+char *FUN_L01_00285768(float scale, void *pos, int a, int idx, int b, unsigned char flags, short h, unsigned char kind) {
+    char *r = alloc_285768(0x29);
+    if (r != 0) {
+        int *tail = (int *)(r + 0x20);
+        qcopy(r + 0x10, pos);
+        *(int *)(r + 4) = b;
+        if (kind == 0xFF) {
+            r[9] = (flags >> 5) * 16 + trunc_285768(4.0f);
+            if (flags & 1) {
+                r[3] = 0x48;
+            } else {
+                r[3] = 0x44;
+            }
+        } else {
+            r[9] = flags;
+            r[3] = kind;
+        }
+        r[1] = 0;
+        r[2] = D_L01_001B25A4[0][idx];
+        *(float *)(r + 0xC) = scale * 210000.0f;
+        *(short *)(r + 0xA) = h;
+        ((unsigned char *)r)[8] = 0xA0;
+        /* taking the address changes register allocation to match */
+        *tail = *&a;
+    }
+    return r;
+}
+
 #ifndef NOT_SDA
 #endif
 #ifndef MACRO_ADDR
@@ -117,6 +151,7 @@ unsigned char *FUN_L01_00287158(void *a, int b, int c, int d, float f, float g) 
     return r;
 }
 #include "qzero.h"
+#include "rnc/overlay/quad.h"
 
 /* spawns a type-74 particle with transformed offset and velocity */
 /* Ported from rac1-decomp (src/overlays/shared/partupd_00280428.c: func_L01_0028B570), where it is exact; names translated to the US level program. */
@@ -305,7 +340,6 @@ int FUN_L01_0028b878(char *p) {
 
 /* Ported from rac1-decomp (src/overlays/shared/partupd_00280428.c: func_L01_0028C690), where it is exact; names translated to the US level program. */
 
-typedef int u128 __attribute__((mode(TI)));
 
 extern f32 vector_length_xyz(void *a) __asm__("FUN_001f9af0");
 extern void *FUN_L01_0028b7b0(void *, int);
@@ -347,7 +381,7 @@ void FUN_L01_0028b8c8(void *out, int *l, int idx, float a, float b) {
     if (m < len) {
         normalize_vector_xyz(out, v3, m);
     } else {
-        *(u128 *)out = *(u128 *)v3;
+        *(OvlQuad *)out = *(OvlQuad *)v3;
     }
 }
 /* Ported from rac1-decomp (src/overlays/shared/partupd_00280428.c: func_L01_0028C848), where it is exact; names translated to the US level program. */

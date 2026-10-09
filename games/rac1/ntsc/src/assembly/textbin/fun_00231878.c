@@ -5,10 +5,8 @@
 INCLUDE_ASM("config/us/expected/asm/assembly/textbin/fun_00231878/FUN_00231878.s", FUN_00231878);
 #else
 #include "types.h"
-
-typedef struct {
-    u64 data[12];
-} sceGsLoadImage __attribute__((aligned(16)));
+#include "rnc/sdk/libgraph.h"
+#include "rnc/storage/disc_table.h"
 
 struct CommonArchiveMemory {
     u8 pad_0[0x14];
@@ -17,13 +15,6 @@ struct CommonArchiveMemory {
     u64 image_bits;
 };
 
-struct LoadingSlideDiscEntry {
-    u8 pad_0[0x1388];
-    s32 start_sector;
-    s32 sector_count;
-};
-
-extern u8 D_00137B80[];
 extern s32 gs_texture_allocation_cursor __asm__("D_0015EE74");
 extern s32 gs_texture_allocation_start __asm__("D_0015EE78");
 extern s32 gs_texture_allocation_base __asm__("D_0015EE8C");
@@ -63,8 +54,8 @@ void prepare_loading_slide_textures(s32 language_index, s32 first_slide, s32 sec
     archive_memory = &D_001940C0;
     upload_index = 0;
     disc_start_sector =
-        ((struct LoadingSlideDiscEntry *)(D_00137B80 + language_index * 8))->start_sector;
-    disc_sector_count = *(s32 *)(D_00137B80 + 0x138c + language_index * 8);
+        disc_table.loading_slides[language_index].sector;
+    disc_sector_count = disc_table.loading_slides[language_index].size;
     submit_cd_read_request((void *)(archive_memory->archive_base + 0x100000), disc_start_sector,
                            disc_sector_count);
     sceCdSync(0);
@@ -126,8 +117,9 @@ void prepare_loading_slide_textures(s32 language_index, s32 first_slide, s32 sec
     texture_bits = ((u64)texture_bases[0] << 37) | (0xB000ULL << 19);
     image_bits = (u64)(texture_bases[1] | 0x19304000);
     *shared_texture = (image_bits | texture_bits) | (1ULL << 63);
+    texture_bits = ((u64)texture_bases[2] << 37) | (0xB000ULL << 19);
     *first_output = (texture_bases[3] | 0x25320000) |
-                    (((u64)texture_bases[2] << 37) | (0xB000ULL << 19)) | (1ULL << 63);
+                    texture_bits | (1ULL << 63);
     *second_output = (((u64)texture_bases[4] << 37) | (0xB000ULL << 19)) |
                      (texture_bases[5] | 0x25320000) | (1ULL << 63);
 }

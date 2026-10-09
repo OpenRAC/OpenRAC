@@ -3,6 +3,7 @@
 #include "asm.h"
 
 void probe_ground_height(void *, s32, f32) __asm__("FUN_00213508");
+/* Calls probe_ground_height(a, 0x20, 0.5f). */
 void FUN_L00_00259710(void *a) {
     probe_ground_height(a, 0x20, 0.5f);
 }
@@ -31,6 +32,7 @@ int FUN_L00_00259740(float *p, float *v, int n) {
     }
     return r;
 }
+/* True when the pointer at a+0x94 is set and its word at +8 is non-zero. */
 int FUN_L00_00259830(char *a) {
     char *p = *(char **)(a + 0x94);
     if (p && *(int *)(p + 8))
@@ -45,6 +47,7 @@ int FUN_L00_00259830(char *a) {
 
 extern void clear_u64_value(void *) __asm__("FUN_001f99f8");
 
+/* Fills a record with b, c, d and flag 0, and clears the 64-bit value at its start. */
 void FUN_L00_00259858(char *a, int b, int c, float d) {
     *(int *)(a + 0x10) = b;
     *(int *)(a + 0x14) = c;
@@ -53,6 +56,7 @@ void FUN_L00_00259858(char *a, int b, int c, float d) {
     clear_u64_value(a);
 }
 #include "qcopy.h"
+/* Fills a record with b, c, d and flag 1, and copies the vector q into its start. */
 void FUN_L00_00259888(char *a, int b, int c, float d, void *q) {
     *(int *)(a + 0x10) = b;
     *(int *)(a + 0x14) = c;
@@ -210,6 +214,7 @@ void FUN_L00_00259f50(void *a, float *v) {
     FUN_001fa3c0(a, a, &t0);
 }
 #include "eetypes.h"
+#include "rnc/overlay/quad.h"
 typedef struct {
     union {
         u128 a_00259fe8;
@@ -217,7 +222,7 @@ typedef struct {
     } u_00259fe8;
     u128 b;
 } E_259fe8_00259fe8;
-extern int D_L00_0015F434_00259fe8 __asm__("D_L00_0015F434") __attribute__((section(".sdata")));
+extern int D_L00_0015F434_00259fe8 __asm__("D_L00_0015F434");
 extern E_259fe8_00259fe8 D_L00_0016E080_00259fe8[] __asm__("D_L00_0016E080")
     __attribute__((section(".data")));
 extern u128 D_L00_00173E80_00259fe8 __asm__("D_L00_00173E80") __attribute__((section(".data")));
@@ -277,6 +282,7 @@ extern struct Ent_z D_L00_00178100_c[] __asm__("D_L00_00178100") __attribute__((
 static inline u8 load_u8_0025a420(u8 *p) {
     return *p;
 }
+/* Returns the D_L00_00178100 entry linked from p+0xA4 when it matches mask; may unlink it. */
 struct Ent_z *FUN_L00_0025a420(u8 *p, s32 mask, s32 flag) {
     struct Ent_z *e;
     u8 *a = p + 0xA4;
@@ -354,7 +360,6 @@ extern void FUN_001f9c48(void *, void *, f32);
 
 /* FUN_L00_0025a478 is the executable function of the same bytes (src/gameplay). */
 
-typedef int q128_0025a9f8 __attribute__((mode(TI)));
 typedef struct {
     f32 x, y, z, w;
     u8 *self;
@@ -369,10 +374,10 @@ f32 FUN_001f9e90_0025a9f8(f32, f32) __asm__("FUN_001f9e90");
 f32 FUN_001f9dc8_0025a9f8(f32) __asm__("FUN_001f9dc8");
 f32 FUN_001f9de0_0025a9f8(f32) __asm__("FUN_001f9de0");
 void FUN_L00_00259a88_0025a9f8(u8 *, M_0025a9f8 *) __asm__("FUN_L00_00259a88");
-void FUN_L00_0025a9f8(u8 *self, q128_0025a9f8 *pos, u8 **list, s32 n, u8 *skip, s32 k, s32 c0,
+void FUN_L00_0025a9f8(u8 *self, OvlQuad *pos, u8 **list, s32 n, u8 *skip, s32 k, s32 c0,
                       s32 c1, f32 f, f32 spd, f32 z) {
     struct {
-        q128_0025a9f8 p;
+        OvlQuad p;
         M_0025a9f8 m;
     } l;
     f32 *pp = (f32 *)&l.p;
@@ -398,14 +403,13 @@ void FUN_L00_0025a9f8(u8 *self, q128_0025a9f8 *pos, u8 **list, s32 n, u8 *skip, 
         FUN_L00_00259a88_0025a9f8(list[i], &l.m);
     }
 }
-typedef int q128 __attribute__((mode(TI)));
 typedef union {
-    q128 q;
+    OvlQuad q;
     float f[4];
 } U25ab48;
 float FUN_001f9e90(float, float);
 float FUN_001f9b20(void *);
-void FUN_L00_0025ab48(q128 *v, float *ang, float *s1, float *s2) {
+void FUN_L00_0025ab48(OvlQuad *v, float *ang, float *s1, float *s2) {
     U25ab48 t;
     t.q = *v;
     if (t.f[3] != 5627.9248046875f) {
@@ -536,6 +540,7 @@ int FUN_L00_0025b440(O_25b440 *o, S_25b440 *s) {
     }
     return s->state;
 }
+/* Linear interpolation: a + (b - a) * t. */
 f32 FUN_L00_0025b6a8(f32 a, f32 b, f32 t) {
     return a + (b - a) * t;
 }
@@ -549,6 +554,7 @@ INCLUDE_ASM("config/us/overlays/asm/FUN_L00_0025b6b8.s", FUN_L00_0025b6b8);
 extern float fast_add_rotations(float, float) __asm__("FUN_001fa580");
 extern float fast_subtract_rotations(float, float) __asm__("FUN_001fa5c8");
 
+/* Turns from angle a toward angle b by fraction c of the difference. */
 float FUN_L00_0025b750(float a, float b, float c) {
     float r = fast_subtract_rotations(b, a);
     return fast_add_rotations(a, r * c);

@@ -36,7 +36,7 @@ extern void snd_set_playback_mode(s32) __asm__("FUN_0012e240");
 extern void snd_set_mixer_mode(s32, s32) __asm__("FUN_0012e280");
 extern void snd_set_group_voice_range(s32, s32, s32) __asm__("FUN_0012e2b8");
 extern void snd_pre_alloc_reverb_work_area(s32, s32) __asm__("FUN_0012efa8");
-extern void reset_music(void) __asm__("FUN_00215390");
+extern void reset_music(s32) __asm__("FUN_00215390");
 void initialize_gameplay_sound_system(void) __asm__("FUN_0022c8d0");
 
 void initialize_gameplay_sound_system(void) {
@@ -72,12 +72,12 @@ void initialize_gameplay_sound_system(void) {
     scaled_volume_80 = (sound_volume * 8) / 10;
     voice_pool.group_1_volume = music_volume;
     scaled_volume_70 = (sound_volume * 7) / 10;
-    voice_pool.group_2_volume = scaled_volume_80;
-    voice_pool.group_0_volume = scaled_volume_80;
-    voice_pool.group_3_volume = scaled_volume_70;
-    voice_pool.group_4_volume = scaled_volume_70;
+    *(volatile s32 *)&voice_pool.group_0_volume = scaled_volume_80;
+    *(volatile s32 *)&voice_pool.group_2_volume = scaled_volume_80;
+    *(volatile s32 *)&voice_pool.group_3_volume = scaled_volume_70;
+    *(volatile s32 *)&voice_pool.group_4_volume = scaled_volume_70;
     voice_pool.group_5_volume = sound_volume;
-    reset_music();
+    reset_music(10);
     snd_set_master_volume(0, voice_pool.group_0_volume);
     snd_set_master_volume(1, voice_pool.group_1_volume);
     snd_set_master_volume(2, voice_pool.group_2_volume);

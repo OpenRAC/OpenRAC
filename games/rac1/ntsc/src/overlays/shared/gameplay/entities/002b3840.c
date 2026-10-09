@@ -4,9 +4,10 @@
 
 #include "sda.h"
 #include "qcopy.h"
+#include "rnc/overlay/moby_anim.h"
 extern struct Moby *func_0020D348_m_d4168(int) __asm__("FUN_0020c4f8");
 extern int func_001F9850_d4168(int) __asm__("FUN_001f96f8");
-extern float D_0015EE6C_d4168 __asm__("D_0015ED6C") MACRO_ADDR;
+extern float D_0015EE6C_d4168 __asm__("D_0015ED6C");
 char *FUN_L05_002d4168(int owner, char *pos, int arg, float f0, float f1) {
     char *moby = (char *)func_0020D348_m_d4168(0x5C3);
     if (moby != 0) {
@@ -48,35 +49,79 @@ void FUN_L05_002f5190(int a, int b, int i, int c) {
         } while (*(short *)p++ >= 0);
     }
 }
-INCLUDE_ASM("config/us/overlays/asm/FUN_L05_002f5200.s", FUN_L05_002f5200);
+#include "qcopy.h"
+#include "rnc/gameplay/entities/moby.h"
+#include "rnc/gameplay/hero.h"
+
+/* pvars of the trigger moby run by FUN_L05_002f5200 */
+typedef struct {
+    s32 path;          /* -1, or an index into D_L05_001B0930 */
+    f32 radius;        /* > 0: trigger when the target is this close */
+    s32 volumes[6];    /* -1, or a clip volume FUN_00214720 tests */
+    s32 on_lists[12];  /* -1, or a list run by FUN_L05_002f5190 */
+    s32 on_mobys[11];  /* -1, or a moby passed to FUN_L05_002f4f60 */
+    u8 pad7C[2];
+    s8 use_alt_target; /* nonzero: test D_L05_001671C0 instead of the hero */
+} TriggerVars_2f5200;
+
+extern Vec4 D_L05_001671C0_2f5200 __asm__("D_L05_001671C0");
+extern s32 *D_L05_001B0930_2f5200[] __asm__("D_L05_001B0930");
+extern f32 FUN_001f9b48_2f5200(void *, void *) __asm__("FUN_001f9b48");
+extern s32 FUN_L00_00259740_2f5200(void *, void *, s32) __asm__("FUN_L00_00259740");
+extern s32 FUN_00214720_2f5200(void *, s32) __asm__("FUN_00214720");
+extern void FUN_L05_002f5190_2f5200(struct Moby *, TriggerVars_2f5200 *, s32, s32) __asm__("FUN_L05_002f5190");
+extern void FUN_L05_002f4f60_2f5200(s32, TriggerVars_2f5200 *, s32) __asm__("FUN_L05_002f4f60");
+
+void FUN_L05_002f5200(struct Moby *m) {
+    TriggerVars_2f5200 *v = (TriggerVars_2f5200 *)m->pvars;
+    Vec4 target;
+    s32 inside;
+    s32 i;
+    s32 *path;
+
+    m->unk30 = 0xFF;
+    inside = 0;
+    if (v->use_alt_target != 0) {
+        qcopy(&target, &D_L05_001671C0_2f5200);
+    } else {
+        qcopy(&target, &hero.motion.pos);
+    }
+    if (0.0f < v->radius && FUN_001f9b48_2f5200(&m->pos, &target) < v->radius) {
+        inside = 1;
+    }
+    if (!inside && v->path != -1) {
+        path = D_L05_001B0930_2f5200[v->path];
+        inside = FUN_L00_00259740_2f5200(&target, path + 4, path[0]) != 0;
+    }
+    if (!inside) {
+        for (i = 0; i < 6; i++) {
+            if (v->volumes[i] != -1 && FUN_00214720_2f5200(&target, v->volumes[i])) {
+                inside = 1;
+                break;
+            }
+        }
+    }
+    if ((inside && m->unkBC == 0) || (!inside && m->unkBC != 0) || m->state == 0) {
+        if (inside) {
+            m->unkBC = 1;
+        } else {
+            m->unkBC = 0;
+        }
+        m->state = m->unkBC + 1;
+        for (i = 0; i < 12; i++) {
+            if (v->on_lists[i] != -1) {
+                FUN_L05_002f5190_2f5200(m, v, v->on_lists[i], inside);
+            }
+        }
+        for (i = 0; i < 11; i++) {
+            if (v->on_mobys[i] != -1) {
+                FUN_L05_002f4f60_2f5200(v->on_mobys[i], v, inside);
+            }
+        }
+    }
+}
 /* Moby update: plays an animation when its state and a flag allow, then calls the next stage. */
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002CF2C0.c: func_L05_002F9478), where it is exact; names translated to the US level program. */
-
-typedef struct {
-    char _pad00[0x10];
-    unsigned char nframes; /* 0x10 */
-} AnimSeq;
-
-typedef struct {
-    char _pad00[0x48];
-    AnimSeq *seqs[1]; /* 0x48 */
-} AnimClass;
-
-typedef struct {
-    char _pad00[0x24];
-    AnimClass *pClass; /* 0x24 */
-    char _pad28[0x50 - 0x28];
-    unsigned char frame;     /* 0x50 */
-    unsigned char nextFrame; /* 0x51 */
-    unsigned char seq;       /* 0x52 */
-    unsigned char prevSeq;   /* 0x53 */
-    char _pad54[0x5C - 0x54];
-    float unk5C; /* 0x5C */
-    char _pad60[0x68 - 0x60];
-    float *frameData; /* 0x68 */
-    char _pad6C[4];
-    unsigned char unk70; /* 0x70 */
-} MobyAnim;
 
 extern char D_0013F350[];
 extern short D_L05_0015FFD8;
@@ -362,7 +407,7 @@ INCLUDE_ASM("config/us/overlays/asm/FUN_L05_003186f8.s", FUN_L05_003186f8);
 #endif
 extern char *func_L05_0031AAA8_19510(void *, int) __asm__("FUN_L05_00319598");
 extern void func_L16_002E5D68_19510(void *) __asm__("FUN_L05_00319208");
-extern char *D_L16_001601AC_m_19510 __asm__("D_L05_001600EC") MACRO_ADDR;
+extern char *D_L16_001601AC_m_19510 __asm__("D_L05_001600EC");
 void FUN_L05_00319510(void *moby_v) {
     char *moby = moby_v;
     char *data = *(char **)(moby + 0x78);
@@ -382,7 +427,24 @@ void FUN_L05_00319510(void *moby_v) {
     }
     *(short *)(data + 0xB4) = *(unsigned short *)(data + 0xB6);
 }
-INCLUDE_ASM("config/us/overlays/asm/FUN_L05_00319598.s", FUN_L05_00319598);
+/* Finds the pool moby in this moby's class list whose data id at 0xB4 matches. */
+extern unsigned short *D_L05_001ABCC0_9598[] __asm__("D_L05_001ABCC0");
+extern char *D_L05_0015FFD8_9598 __asm__("D_L05_0015FFD8") __attribute__((sda));
+typedef struct { char pad[0x78]; char *data; char pad2[0x84]; } M_9598;
+char *FUN_L05_00319598(unsigned char *arg, int id) {
+    unsigned short *p = D_L05_001ABCC0_9598[arg[0x21]];
+    char *pool; int idx;
+    if (p != 0) {
+        pool = D_L05_0015FFD8_9598;
+        do {
+            idx = *p & 0x7FFF;
+            if (*(short *)(((M_9598 *)pool)[idx].data + 0xB4) == id) goto found;
+        } while ((short)*p++ >= 0);
+    }
+    return 0;
+found:
+    return (char *)&((M_9598 *)D_L05_0015FFD8_9598)[idx];
+}
 #define NOT_SDA
 
 #define MACRO_ADDR

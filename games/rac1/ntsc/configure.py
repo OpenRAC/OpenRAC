@@ -152,40 +152,18 @@ ROUTE_EXCEPTIONS = {
     # fun_00232d00: bind the stash RPC server, read its IOP buffer and reset the
     # stash slots
     "storage/cd/fun_00232d00": "cc_sn_padless",
-    # Game code still built by the patched 991111 compiler (plus the SN assembler).
-    # Promoted by the decomp workbench: exact only under the patched
-    # 991111 profile (fresh SN/EE-GCC 2.9 measurements are lower).
-    "ui/menus/fun_00226848": "cc_ee_gcc_patched",
-    # Promoted by the decomp workbench: exact only under the patched
-    # 991111 profile (fresh SN/EE-GCC 2.9 measurements are lower).
-    "audio/sound/calculate_voice_distance_volume": "cc_ee_gcc_patched",
     # SDK code still built by the patched 991111 compiler (plus the SN assembler).
     # Retail uses classic mult/mflo; the frozen trees emit the R5900 rd-form.
     # 100/100/100 + patha linked-byte equal (0x12D3A0), 2026-09-12.
     "sdk/time/bcd_to_time": "cc_ee_gcc_patched",
-    # _pictureCodingExtension: absolute IPU_CTRL volatile stores must fill the
-    # _nextBit call delay slots; the patched profile splits the AT macro and the
-    # at-store policy brackets it with .set noat. 100/100/100, gate 2026-09-13.
+    # _pictureCodingExtension: the absolute IPU_CTRL volatile stores fill the
+    # _nextBit call delay slots through $at (lui $1 before the call, sw in
+    # the slot), which the patched profile does for every unit.
     "sdk/library/picturecodingextension": "cc_ee_gcc_patched",
-    # _lastFrame: retail keeps two independent count-1 computations in the
-    # _dispRefImage argument setup.  The v3 patched profile blocks the CSE and
-    # reload-CSE folds and reverses load_register_parameters; 100/100/100 and
-    # full-ELF gate 2026-09-13.
-    "sdk/library/_lastFrame": "cc_ee_gcc_patched",
-}
-
-# Per-unit extra flags for the patched 991111 profile.  Every -mastra-* option
-# is opt-in and absent by default; flag-absent output is byte-identical.
-EE_GCC_PATCHED_FLAG_UNITS = {
-    "sdk/library/picturecodingextension": "-mastra-volatile-delay -mastra-sd-saves",
-    "ui/menus/fun_00226848": "-mastra-no-lo-sum-tie",
-    "sdk/library/_lastFrame": "-mastra-sd-saves -mastra-cse-argdup -mastra-call-args-reverse",
 }
 
 # Per-unit assembler policies applied by the generated padless-asm.py helper.
-PADLESS_POLICY_UNITS = {
-    "sdk/library/picturecodingextension": "at-store",
-}
+PADLESS_POLICY_UNITS = {}
 
 # Per-unit extra compiler flags for the native EE-GCC 2.9 units whose
 # exact codegen requires a different scheduling model.  Keyed by the configured
@@ -196,28 +174,6 @@ PADLESS_POLICY_UNITS = {
 # scePad2Read and other already-exact siblings.
 SDK_COMPILER_FLAG_UNITS = {
     "sdk/rpc/sce_sif_init_iop_heap": "-fno-schedule-insns",
-    # Retail writes the absolute global through the assembler `$at` macro
-    # (`lui $1,%hi; sw ...,%lo($1)`); the default split-address sequence uses a
-    # general register instead.  Validated 100/100/100 under EE-GCC 2.9 + flag.
-    # DIntr: Sony libkernel privileged-loop glue.  The ps2sdk glue.c shape
-    # (pinned eie/next/res + `.p2align 3`) matches retail only under the size
-    # optimization with the missing-cse-follow-jumps policy; the default
-    # -O2 compile picks `daddu a0,v1` for the out arm instead of $zero and
-    # schedules the return move out of the jr delay slot.  100/100/100 under
-    # EE-GCC 2.9 with this flag pair (campaign pipeline-2026-09-11-7).
-    "sdk/library/DIntr": "-Os -fno-cse-follow-jumps",
-    # __swrite: retail's field layout is u16@0xC + s16@0xE (not s32@0xE, which
-    # the compiler pads to 0x10) and the s64 return is the dsll32/dsra32
-    # sign-extension pair, which the local compiler only emits when the s32
-    # result is forced through an s64 local + (u32) truncation.  Exact under
-    # -Os -fno-cse-follow-jumps (pipeline-2026-09-13-11).
-    "sdk/library/__swrite": "-Os",
-    # cmd_sem_init: retail stores the first CreateSema result in call 2's
-    # delay slot.  Under -fno-schedule-insns the E8 store is issued before
-    # call 2's `a0 = sp`, so the daddu takes the slot; the empty
-    # `asm("" : "+r"(r1))` one-cycle edge delays the E8 store so reorg fills
-    # the call-2 slot instead (pipeline-2026-09-13-12g).
-    "sdk/library/cmd_sem_init": "-fno-schedule-insns",
     # No -fno-edge-lcm entry remains: the six that did (draw_debug_profiler,
     # fun_0022f778, draw_dialog_text, memcard_update_state, sound_update,
     # setup_fs_aa_buffer) belong to units that are still assembly wrappers,
@@ -229,37 +185,6 @@ SDK_COMPILER_FLAG_UNITS = {
 
 # Per-unit extra flags for GAME_COMPILER_UNITS (exact owner path, as SN_FLAG_UNITS).
 GAME_COMPILER_FLAG_UNITS = {
-    # fun_0012eb20: retail's D_0015EC8C accesses are gp-relative in the body
-    # (the .extern-ordering class); its call loop needs patch
-    # 0046-r5900-pad-unfilled-loops (cc1 eb7a3497...).  100/100/100 and
-    # full-ELF PASS on 2026-09-22.
-    "audio/streaming/snd_init_vag_streaming_ex": "-mastra-r5900-extern-buffer",
-    "ui/menus/fun_00219fa0": "-mastra-r5900-extern-buffer",
-    # fun_00221968: 100/100/100 on the game compiler only with
-    # -fno-expensive-optimizations (the bank flag; without it 90.45).  Its
-    # 2026-09-22 demotion measured cc_game without the flag (62.65).
-    "ui/menus/fun_00221968": "-fno-expensive-optimizations",
-    # FUN_0021b6d8 keeps its retail pseudo values in a0-a3 via fixed-register
-    # constraints; the same four pins reproduce the object on the game compiler.
-    "ui/menus/fun_0021b6d8": "-ffixed-4 -ffixed-5 -ffixed-6 -ffixed-7",
-    "audio/streaming/snd_stream_safe_cd_break": "-mastra-r5900-extern-buffer",
-    "audio/streaming/snd_stream_safe_cd_callback": "-mastra-r5900-extern-buffer",
-    "audio/streaming/snd_stream_safe_cd_get_error": "-mastra-r5900-extern-buffer",
-    "audio/streaming/snd_stream_safe_cd_read": "-mastra-r5900-extern-buffer",
-    # vu1_add_g_sregister needs only the address form: the game compiler already
-    # builds without strict aliasing, so -fno-strict-aliasing changes nothing
-    # here while -mno-split-addresses is required.
-    "rendering/vu1_add_g_sregister": "-mno-split-addresses",
-    "audio/streaming/snd_stream_safe_cd_sync": "-mastra-r5900-extern-buffer",
-    "rendering/state/reset_graphics": "-mno-split-addresses",
-    "ui/menus/draw_menu_selection_marker": "-mastra-r5900-extern-buffer",
-    "audio/rpc/snd_reset_state_and_flush_commands": "-mastra-r5900-extern-buffer",
-    "ui/menus/create_menu_preview_moby": "-fno-schedule-insns",
-    "audio/sound/calculate_voice_volume": "-fno-schedule-insns",
-    # FUN_002075e8: retail materializes the zero return before `jr $ra` and
-    # leaves the delay slot empty; the default pass moves that assignment into
-    # the slot.  100/100/100 with this option (2026-10-03).
-    "ui/menus/fun_002075e8": "-fno-delayed-branch",
 }
 
 SN_FLAG_UNITS = {
@@ -281,84 +206,94 @@ OVERLAY_SN_UNITS = {
     "l01/gameplay/hero/0023cf98.c",
     "l01/gameplay/hero/00242930.c",
     "l02/gameplay/entities/002400c8.c",
+    "l02/gameplay/entities/002e0dc0.c",
     "l02/gameplay/hero/0021b698.c",
     "l02/gameplay/hero/0022b728.c",
     "l02/gameplay/vendor/002ebf20.c",
     "l03/gameplay/entities/00292578.c",
+    "l03/gameplay/entities/002c9eb8.c",
     "l03/gameplay/hero/00205830.c",
     "l03/gameplay/hero/00216648.c",
     "l03/gameplay/hero/0021c668.c",
-    "l03/runtime_startup_0022c728.c",
-    "l03/unclassified_002c9eb8.c",
+    "l03/runtime/startup/0022c728.c",
+    "l04/gameplay/entities/001f3038.c",
+    "l04/gameplay/entities/0024c4f0.c",
     "l04/gameplay/entities/0029eb20.c",
     "l04/gameplay/entities/002ca420.c",
-    "l04/unclassified_001f3038.c",
     "l05/gameplay/entities/002d1688.c",
     "l05/gameplay/entities/0030d6a0.c",
+    "l05/gameplay/hero/00239fc0.c",
     "l05/gameplay/hero/00244a70.c",
     "l05/gameplay/hero/0024cee8.c",
     "l05/gameplay/hero/00255960.c",
+    "l06/gameplay/entities/002b4770.c",
     "l06/gameplay/entities/002fd1a0.c",
     "l06/gameplay/hero/002356a0.c",
     "l06/gameplay/hero/0023b440.c",
-    "l06/unclassified_002b4770.c",
     "l07/gameplay/entities/002cd2b0.c",
-    "l07/gameplay_vendor_0031d2e0.c",
-    "l07/ui_map_00270248.c",
-    "l07/unclassified_00312948.c",
+    "l07/gameplay/entities/00312948.c",
+    "l07/gameplay/vendor/0031d2e0.c",
+    "l07/ui/map/00270248.c",
     "l08/gameplay/entities/002b8228.c",
     "l08/gameplay/entities/002deee0.c",
+    "l08/gameplay/entities/002e9b70.c",
     "l08/gameplay/hero/00230b38.c",
     "l08/gameplay/hero/002370d8.c",
-    "l08/gameplay_vendor_00305138.c",
-    "l08/rendering_00279f00.c",
-    "l08/unclassified_002e9b70.c",
+    "l08/gameplay/vendor/00305138.c",
+    "l08/rendering/00279f00.c",
     "l09/gameplay/entities/0021e538.c",
     "l10/gameplay/entities/00295a38.c",
+    "l10/gameplay/vendor/002df270.c",
     "l10/gameplay/vendor/002ea1f0.c",
-    "l10/gameplay_vendor_002df270.c",
+    "l11/gameplay/entities/002cb668.c",
     "l11/gameplay/hero/0023c7a0.c",
     "l11/gameplay/hero/0024db50.c",
     "l11/gameplay/hero/00253a18.c",
+    "l11/gameplay/vendor/0030c788.c",
     "l11/gameplay/vendor/00315968.c",
-    "l11/gameplay_vendor_0030c788.c",
     "l12/gameplay/entities/002bf140.c",
+    "l12/gameplay/entities/002ec720.c",
     "l12/gameplay/hero/0022de30.c",
     "l12/gameplay/hero/002400d0.c",
     "l12/gameplay/hero/002461f0.c",
-    "l12/gameplay_vendor_003028c8.c",
-    "l12/unclassified_002ec720.c",
+    "l12/gameplay/vendor/003028c8.c",
     "l13/gameplay/entities/002c13b0.c",
     "l13/gameplay/entities/002ea8c8.c",
-    "l13/gameplay_vendor_003058a8.c",
+    "l13/gameplay/vendor/003058a8.c",
+    "l13/rendering/002b8320.c",
     "l14/gameplay/entities/002460f8.c",
+    "l14/gameplay/entities/002d6358.c",
     "l14/gameplay/entities/002df080.c",
+    "l14/gameplay/entities/002fded0.c",
     "l14/gameplay/hero/0022ff58.c",
     "l14/gameplay/hero/00235600.c",
-    "l14/unclassified_002fded0.c",
+    "l15/gameplay/entities/0029aff0.c",
     "l15/gameplay/hero/002044c8.c",
     "l15/gameplay/hero/00216c38.c",
     "l15/gameplay/hero/0021d040.c",
-    "l15/gameplay_vendor_002e73c0.c",
-    "l15/unclassified_0029aff0.c",
+    "l15/gameplay/vendor/002e73c0.c",
     "l16/gameplay/entities/002a3f38.c",
+    "l16/gameplay/entities/002cfc00.c",
     "l16/gameplay/hero/002097a0.c",
     "l16/gameplay/hero/0021e398.c",
     "l16/gameplay/hero/002270c8.c",
     "l16/gameplay/vendor/002e3190.c",
+    "l17/gameplay/entities/002a8da0.c",
     "l17/gameplay/hero/0021e530.c",
     "l17/gameplay/hero/002258a8.c",
-    "l17/gameplay_vendor_002e87d8.c",
-    "l17/gameplay_vendor_002f26d0.c",
-    "l17/ui_help_002020a8.c",
-    "l17/unclassified_002a8da0.c",
+    "l17/gameplay/vendor/002e87d8.c",
+    "l17/gameplay/vendor/002ea418.c",
+    "l17/gameplay/vendor/002f26d0.c",
+    "l17/ui/help/002020a8.c",
     "l18/gameplay/entities/002a7220.c",
     "l18/gameplay/hero/00227dd0.c",
     "l18/gameplay/hero/0022e8f8.c",
     "l18/gameplay/vendor/002efb88.c",
-    "l18/gameplay_vendor_002f88e8.c",
+    "l18/gameplay/vendor/002f88e8.c",
+    "shared/audio/voices/00276368.c",
     "shared/gameplay/animation/00235878.c",
     "shared/gameplay/camera/001eb188.c",
+    "shared/gameplay/camera/001fc008.c",
     "shared/gameplay/entities/00278fd8.c",
     "shared/gameplay/entities/00291918.c",
     "shared/gameplay/entities/002937a0.c",
@@ -368,12 +303,17 @@ OVERLAY_SN_UNITS = {
     "shared/gameplay/entities/002a09a0.c",
     "shared/gameplay/entities/002a4038.c",
     "shared/gameplay/entities/002aa670.c",
+    "shared/gameplay/entities/002aee30.c",
     "shared/gameplay/entities/002b17d8.c",
     "shared/gameplay/entities/002b2100.c",
     "shared/gameplay/entities/002b3840.c",
     "shared/gameplay/entities/002b8c08.c",
     "shared/gameplay/entities/002b94d0.c",
+    "shared/gameplay/entities/002bffa8.c",
+    "shared/gameplay/entities/002c8440.c",
     "shared/gameplay/entities/002c8830.c",
+    "shared/gameplay/entities/002cfcb8.c",
+    "shared/gameplay/entities/002d6810.c",
     "shared/gameplay/entities/002d7f88.c",
     "shared/gameplay/entities/002f6328.c",
     "shared/gameplay/hero/00221310.c",
@@ -382,19 +322,28 @@ OVERLAY_SN_UNITS = {
     "shared/gameplay/state/0027b268.c",
     "shared/gameplay/vendor/002e22d8.c",
     "shared/gameplay/vendor/002e3de8.c",
+    "shared/gameplay/vendor/002e5e38.c",
     "shared/gameplay/vendor/003015d0.c",
     "shared/gameplay/vendor/0030b618.c",
     "shared/gameplay/vendor/0030e690.c",
     "shared/gameplay/vendor/00316f48.c",
     "shared/math/interpolation/00257ef0.c",
+    "shared/math/interpolation/0026d930.c",
+    "shared/math/rotations/002899f8.c",
     "shared/math/vectors/0025c230.c",
     "shared/rendering/00269290.c",
     "shared/rendering/002712b8.c",
+    "shared/rendering/0027f660.c",
     "shared/rendering/commands/0020bc88.c",
+    "shared/rendering/sky/00288ec0.c",
+    "shared/ui/help/001fe778.c",
     "shared/ui/help/0021d0a0.c",
     "shared/ui/help/00231d08.c",
-    "shared/unclassified_00288ec0.c",
-    "shared/unclassified_002aee30.c",
+    "shared/ui/help/00237488.c",
+    "shared/ui/menus/002497f8.c",
+    "shared/ui/menus/0027f448.c",
+    "shared/ui/text/001fb470.c",
+    "shared/ui/text/002377b8.c",
 }
 
 # —— Retail link layout ——
@@ -412,6 +361,11 @@ RODATA_OVERLAYS = {
     # as the splat symbol jtbl_00153AA0, so the compiled .rodata must land at
     # the same VMA/file offset for the relocations to resolve content-equal.
     "_getpic": (0x153AA0, 0x54A20),
+    "sdk/debug/printfloat": (0x152798, 0x53718),  # its three f64 literals (0.1, 0.1, 1e6)
+    "fun_0021fdc8": (0x1E87F0, 0xE9770),  # stream-state switch table
+    # vfprintf_r: blanks/zeroes, the xdigs strings, the short literals (kept in
+    # .rodata via section attributes, in source order) and its switch table.
+    "runtime/newlib/vfprintf_r": (0x1524E0, 0x53460),
     "dispatch_game_state_update": (0x1E8960, 0xE98E0),  # retail switch table
     "gameplay/missions/check_mission_condition": (0x1E8390, 0xE9310),  # unlock-condition switch table
     "draw_menu_preview_objects": (0x1E87A0, 0xE9720),  # item-handle release switch table
@@ -437,6 +391,9 @@ RODATA_OVERLAYS = {
     "fun_001e8d08": (0x1E7640, 0xE85C0),  # switch table
     "fun_00213928": (0x1E84E0, 0xE9460),  # switch table
     "fun_00204428": (0x1E7CE0, 0xE8C60),  # switch table
+    "mode_freeze_init": (0x1E78D0, 0xE8850),  # switch table
+    "fun_0021abf8": (0x1E8770, 0xE96F0),  # menu action switch table
+    "draw_dialog_text": (0x1E7920, 0xE88A0),  # switch table
 }
 
 # Recovered C units that define the small-data variables their original
@@ -674,6 +631,21 @@ def normalize_aliases(text):
     return text
 
 
+def pin_labels_before_align(text):
+    """Keep a local label that precedes a loop alignment at its own address.
+
+    cc1 can emit `$La:` `.p2align 3` `$Lb:` when a branch target ends up just
+    before an aligned loop head.  GNU as (and retail) leave `$La` before the
+    alignment nops; Ps2EeAs moves it past them.  `$La = .` defines the label
+    in place without that move.  Only a local label that is followed, after
+    the alignment, by another label is rewritten.
+    """
+    skip = r"(?:[ \t]*(?:\.set[ \t]+\w+|\.loc[^\n]*|#[^\n]*)?\r?\n)*"
+    pattern = re.compile(r"^(\$L\w+):[ \t]*(\r?\n" + skip + r"[ \t]*\.p2align[ \t]+\d[^\n]*\r?\n"
+                         + skip + r"\$L\w+:)", re.M)
+    return pattern.sub(lambda m: m.group(1) + " = ." + m.group(2), text)
+
+
 def unpad(data):
     if data[:7] != b"\x7fELF\x01\x01\x01" or struct.unpack_from("<H", data, 16)[0] != 1:
         raise ValueError("expected a little-endian ELF32 relocatable object")
@@ -831,28 +803,6 @@ def add_empty_sections(data):
     return bytes(result)
 
 
-def apply_at_store_policy(assembly):
-    import re
-    if re.search(r"\.set[ \t]+noat", assembly):
-        return assembly
-    output = []
-    pending = False
-    for line in assembly.splitlines(keepends=True):
-        if re.match(r"^[ \t]*li[ \t]+\$1[ \t]*,[ \t]*\S+[ \t]*(?:#.*)?$", line):
-            output.append("\t.set\tnoat\n")
-            pending = True
-            output.append(line)
-        elif pending and re.match(r"^[ \t]*sw[ \t]+\$?\w+[ \t]*,[^#\n]*\(\$1\)", line):
-            output.append(line)
-            output.append("\t.set\tat\n")
-            pending = False
-        else:
-            output.append(line)
-    if pending:
-        raise SystemExit("at-store policy: li $1 without a following store through $1")
-    return "".join(output)
-
-
 def apply_la_gprel_policy(assembly):
     """Hoist `.extern` size directives for `la`-only small-data symbols.
 
@@ -939,10 +889,8 @@ def main(argv):
     policy = argv[4] if len(argv) == 5 else "none"
     data = open(source, "rb").read()
     if mode == "normalize":
-        assembly = normalize_aliases(data.decode())
-        if policy == "at-store":
-            assembly = apply_at_store_policy(assembly)
-        elif policy == "la-gprel":
+        assembly = pin_labels_before_align(normalize_aliases(data.decode()))
+        if policy == "la-gprel":
             assembly = apply_la_gprel_policy(assembly)
         elif policy != "none":
             raise SystemExit("unknown assembler policy: " + policy)
@@ -1206,7 +1154,7 @@ def build_stuff(
                 command=(
                     f"mkdir -p $pat_work && cp $in $pat_work/cand.c && "
                     f"'{patched_driver}' -S -B'{patched_root}/' -I'{patched_include}' "
-                    f"-DBUILD_US_VERSION -DMATCHING_DECOMP -O2 -g2 $extra "
+                    f"-DBUILD_US_VERSION -DMATCHING_DECOMP -O2 -g2 "
                     f"$pat_work/cand.c -o $pat_work/cand.s && "
                     f"{sys.executable} padless-asm.py normalize $pat_work/cand.s $pat_work/cand-final.s $policy && "
                     f"{ee_assembler} -o '$pat_work_win/cand-padded.o' '$pat_work_win/cand-final.s' && "
@@ -1290,11 +1238,9 @@ def build_stuff(
                 )
             elif rule == "cc_ee_gcc_patched":
                 pat_work = str(ROOT / "build/patched-work/units" / unit)
-                flags = EE_GCC_PATCHED_FLAG_UNITS.get(unit, "")
                 variables = {
                     "pat_work": pat_work,
                     "pat_work_win": _win_path(pat_work),
-                    "extra": f"{flags} " if flags else "",
                     "policy": PADLESS_POLICY_UNITS.get(unit, "none"),
                 }
                 build(entry.object_path, entry.src_paths, rule, variables=variables)

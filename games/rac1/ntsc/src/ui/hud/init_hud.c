@@ -1,5 +1,21 @@
-#include "rnc/ui/hud/init_hud.h"
 #include "types.h"
+
+struct Globals_0015FA00 {
+    u8 pad_0[0x20];
+    u8 unk20;
+    u8 pad_21[0x3];
+};
+
+struct HudSlot {
+    s32 unk0;
+    u8 pad_4[0x3C];
+    s32 unk40;
+    u8 pad_44[0x4];
+    s32 unk48;
+    u8 pad_4C[0xC];
+    s32 unk58;
+};
+#include "rnc/ui/hud/hud_state.h"
 
 extern u8 D_0015F6D8[];
 extern struct Globals_0015FA00 *D_0015FA00;
@@ -7,7 +23,6 @@ extern s32 D_0015FA04 __attribute__((sda));
 extern s32 D_0015FA08;
 extern s32 D_0015FA0C;
 extern u8 D_00199B60[];
-extern s32 D_0019A3E8[];
 extern s32 func_001F9810();
 extern s32 hud_heap_alloc() __asm__("func_001FF288");
 extern s32 queue_animation_update() __asm__("func_001FF308");
@@ -25,8 +40,8 @@ void init_hud(void) {
         u8 *base = D_00199B60;
         slot = (struct HudSlot *)((u8 *)base + 0x24);
     }
-    D_0019A3E8[0] = 0;
-    D_0019A3E8[1] = 0;
+    hud_state.serial = 0;
+    hud_state.unk4 = 0;
     do {
         slot->unk40 = -1;
         *(s32 *)((u8 *)slot - 0x4) = 0x10000;
