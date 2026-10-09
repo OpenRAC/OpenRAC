@@ -82,3 +82,4 @@ sceVibGetProfile	vib	sceVibGetProfile	host	at 0x001250D8
 sceVu0RotMatrixZ	vu0	sceVu0RotMatrixZ	host	at 0x001252B8
 sceScfGetLanguage	scf	sceScfGetLanguage	host	at 0x0012D240
 sceScfGetLocalTimefromRTC	scf	sceScfGetLocalTimefromRTC	host	at 0x0012D6D8
+FUN_0012d8f8	boot	parse_bin	wrap	copies a level's program in: from then on, level code addresses mean that level's functions (host/boot.c)
