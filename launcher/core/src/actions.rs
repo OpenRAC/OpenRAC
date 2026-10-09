@@ -70,7 +70,7 @@ pub struct Action {
     /// relative to the checkout. `{artifact}` in the arguments.
     #[serde(default)]
     pub artifact: Option<String>,
-    /// Start it and let it run on its own (the emulator, Godot), instead of
+    /// Start it and let it run on its own (the game, Godot), instead of
     /// as a job in Tasks whose output the launcher shows.
     #[serde(default)]
     pub detached: bool,
@@ -92,7 +92,7 @@ pub enum Kind {
     Build,
     /// Proving the build: the match checks, progress.
     Check,
-    /// Playing: the disc or a build in an emulator, or a PC port.
+    /// Playing: the native port.
     Play,
     /// The level editor.
     Edit,

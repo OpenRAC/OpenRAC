@@ -70,23 +70,6 @@
       "docs": "CONTRIBUTING.md#tests"
     },
     {
-      "id": "runtime-tests",
-      "label": "Build and test the runtime",
-      "description": "Builds OpenRAC's own runtime (the hardware model that runs the games with no emulator) and runs its tests. Needs CMake, a C++ compiler and SDL3; no disc.",
-      "kind": "check",
-      "state": "unverified",
-      "program": "{python}",
-      "args": [
-        "runtime/tools/run.py",
-        "test"
-      ],
-      "requires": [
-        "python"
-      ],
-      "docs": "runtime/README.md",
-      "todo": "Run it from the desktop app on each platform. The same command line was run from a shell on macOS (Apple Silicon)."
-    },
-    {
       "id": "update",
       "label": "Update OpenRAC",
       "description": "Brings the checkout up to date with the published OpenRAC.",
@@ -130,10 +113,10 @@
         "docs": "games/rac1/pal/README.md"
       },
       {
-        "id": "play",
-        "label": "Play level",
-        "description": "Runs the extracted 3D game level in the Godot engine.",
-        "kind": "play",
+        "id": "editor-preview",
+        "label": "Preview a level in Godot",
+        "description": "Opens the first extracted level in Godot's player, to walk around it. This is Godot showing the editor's scenes, not the game.",
+        "kind": "edit",
         "state": "connected",
         "program": "{godot}",
         "args": [
@@ -165,49 +148,6 @@
           "python"
         ],
         "docs": "games/rac1/pal/docs/WORKFLOW.md"
-      },
-      {
-        "id": "play-runtime",
-        "label": "Play in the OpenRAC runtime",
-        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator: menus, memory card, sound and the first level. It builds the runtime first (about a minute the first time; needs CMake, a C++ compiler and SDL3) and then opens the game in a window; what it prints is in Tasks.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{python}",
-        "args": [
-          "runtime/tools/run.py",
-          "play",
-          "{serial}",
-          "{disc}"
-        ],
-        "cwd": ".",
-        "requires": [
-          "disc",
-          "python"
-        ],
-        "docs": "runtime/README.md#running-a-game",
-        "todo": "Run it from the desktop app on each platform. The same command line was run from a shell on macOS (Apple Silicon) with the PAL disc: it builds, opens the window and plays."
-      },
-      {
-        "id": "play-port",
-        "label": "Play with the decompiled code",
-        "description": "Builds this version's decompiled C for your computer and plays your disc with those functions running as native code in place of the game's own, in every level; the rest of the game is still interpreted. This is the port as it stands. It needs LLVM with the wasm32 target and WABT besides what the runtime needs; what it prints, and how many functions ran, is in Tasks.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{python}",
-        "args": [
-          "runtime/tools/run.py",
-          "play-port",
-          "{key}",
-          "{serial}",
-          "{disc}"
-        ],
-        "cwd": ".",
-        "requires": [
-          "disc",
-          "python"
-        ],
-        "docs": "runtime/port/README.md",
-        "todo": "Run it from the desktop app. The same command line was run from a shell on macOS (Apple Silicon) with the PAL disc: all nineteen levels start and draw."
       },
       {
         "id": "editor-extract",
@@ -284,15 +224,6 @@
         "todo": "The packer does not exist yet (editor/README.md, 'Regenerate'). The scenes keep what it needs: each object's class, its place in the level's tables and its instance data. Start with moby instances (move, add, delete), write the packed level under build/, never into baserom/."
       },
       {
-        "id": "editor-play",
-        "label": "Play your edited level",
-        "description": "Starts the game in the OpenRAC runtime with your edited level in place of the one on the disc.",
-        "kind": "play",
-        "state": "planned",
-        "docs": "runtime/README.md#running-a-game",
-        "todo": "Needs editor-pack, and an option of openrac-boot that answers the game's reads of a level's sectors from a packed folder instead of the disc image (runtime/docs/RAC1_PAL_SURVEY.md describes how the game finds a level on the disc)."
-      },
-      {
         "id": "editor-tests",
         "label": "Test the level editor",
         "description": "The unit tests of editor/ (no disc needed).",
@@ -312,6 +243,15 @@
         ],
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS: 66 tests, OK."
+      },
+      {
+        "id": "play",
+        "label": "Play",
+        "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
+        "kind": "play",
+        "state": "planned",
+        "docs": "docs/port/README.md",
+        "todo": "The native port does not exist yet: docs/port/ROADMAP.md says what it needs and in which order. When it does, this runs the port's executable with the assets extracted from the player's disc."
       }
     ],
     "rac1/ntsc": [
@@ -397,47 +337,6 @@
         "docs": "games/rac1/ntsc/docs/building.md"
       },
       {
-        "id": "rebuild-iso",
-        "label": "Make a disc image",
-        "description": "Patches the built executable into a copy of your image (make iso).",
-        "kind": "build",
-        "state": "unverified",
-        "program": "make",
-        "args": [
-          "iso"
-        ],
-        "platforms": [
-          "linux"
-        ],
-        "requires": [
-          "inputs"
-        ],
-        "artifact": "games/rac1/ntsc/build/Ratchet & Clank (USA) - rebuilt.iso",
-        "docs": "games/rac1/ntsc/docs/building.md",
-        "todo": "make iso takes the first dumps/*.iso: openrac.py setup links your image there, so it should be the only one."
-      },
-      {
-        "id": "play-runtime",
-        "label": "Play in the OpenRAC runtime",
-        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator: the main menu and the first level so far. It builds the runtime first (about a minute the first time; needs CMake, a C++ compiler and SDL3) and then opens the game in a window; what it prints is in Tasks.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{python}",
-        "args": [
-          "runtime/tools/run.py",
-          "play",
-          "{serial}",
-          "{disc}"
-        ],
-        "cwd": ".",
-        "requires": [
-          "disc",
-          "python"
-        ],
-        "docs": "runtime/README.md#running-a-game",
-        "todo": "As rac1/pal's play-runtime. From a shell on macOS the US disc ran in the window to the main menu, and headless into the first level."
-      },
-      {
         "id": "editor-extract",
         "label": "Extract the levels",
         "description": "The level editor reads the PAL disc only, for now.",
@@ -445,13 +344,22 @@
         "state": "planned",
         "docs": "editor/README.md",
         "todo": "The editor's readers know PAL v2.00 offsets only (editor/README.md); NTSC-U needs its own table."
+      },
+      {
+        "id": "play",
+        "label": "Play",
+        "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
+        "kind": "play",
+        "state": "planned",
+        "docs": "docs/port/README.md",
+        "todo": "As rac1/pal's play: the native port starts with Ratchet & Clank (PAL), whose decompilation is furthest along (docs/port/ROADMAP.md)."
       }
     ],
     "rac2/ntsc": [
       {
         "id": "doctor",
         "label": "Check this machine",
-        "description": "rac2's own report of what this machine can do: Python, the toolchains, WSL, Wrench, PCSX2.",
+        "description": "rac2's own report of what this machine can do: Python, the toolchains, WSL, Wrench.",
         "kind": "check",
         "state": "unverified",
         "program": "{python}",
@@ -503,36 +411,6 @@
         "todo": "Fails without rabbitizer: say so, or install the requirements in a launcher-owned venv."
       },
       {
-        "id": "play-runtime",
-        "label": "Play in the OpenRAC runtime",
-        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator. Early: the main menu and the start of the first level. It builds the runtime first (about a minute the first time; needs CMake, a C++ compiler and SDL3) and then opens the game in a window; what it prints is in Tasks.",
-        "kind": "play",
-        "state": "unverified",
-        "program": "{python}",
-        "args": [
-          "runtime/tools/run.py",
-          "play",
-          "{serial}",
-          "{disc}"
-        ],
-        "cwd": ".",
-        "requires": [
-          "disc",
-          "python"
-        ],
-        "docs": "runtime/README.md#running-a-game",
-        "todo": "As rac1/pal's play-runtime. From a shell on macOS the disc ran in the window to the main menu, and headless into the first level. Movies are skipped."
-      },
-      {
-        "id": "play-port",
-        "label": "Play the PC port",
-        "description": "The non-matching SDL2 port in ports/pal-functional, with your disc's data.",
-        "kind": "play",
-        "state": "planned",
-        "docs": "games/rac2/ntsc/ports/pal-functional/README.md",
-        "todo": "Build it with CMake and find what data it reads; it is PAL-functional, so check which disc it expects."
-      },
-      {
         "id": "editor-extract",
         "label": "Extract the levels",
         "description": "The level editor reads the first game's PAL disc only, for now.",
@@ -540,6 +418,15 @@
         "state": "planned",
         "docs": "editor/README.md",
         "todo": "The editor's readers know Ratchet & Clank PAL v2.00 only. This game's level format is a close relative (docs/engine/README.md): give editor/ a table of its offsets and its section layout."
+      },
+      {
+        "id": "play",
+        "label": "Play",
+        "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
+        "kind": "play",
+        "state": "planned",
+        "docs": "docs/port/README.md",
+        "todo": "As rac1/pal's play: the native port starts with Ratchet & Clank (PAL), whose decompilation is furthest along (docs/port/ROADMAP.md)."
       }
     ],
     "rac3/ntsc": [
@@ -571,15 +458,6 @@
         "todo": "tools/pr_check.py --target all with the venv's Python, once Set up works."
       },
       {
-        "id": "play-runtime",
-        "label": "Play in the OpenRAC runtime",
-        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator.",
-        "kind": "play",
-        "state": "planned",
-        "docs": "runtime/README.md#running-a-game",
-        "todo": "The runtime has no table for this game (runtime/games/SCUS_973.53.hooks): runtime/tools/port_hooks.py finds none of the first game's library functions in the boot executable, which is a loader for the main program. Find the main program first."
-      },
-      {
         "id": "editor-extract",
         "label": "Extract the levels",
         "description": "The level editor reads the first game's PAL disc only, for now.",
@@ -587,6 +465,15 @@
         "state": "planned",
         "docs": "editor/README.md",
         "todo": "As rac2/ntsc's editor-extract: the format is a later relative; its levels are in the WAD the boot program loads."
+      },
+      {
+        "id": "play",
+        "label": "Play",
+        "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
+        "kind": "play",
+        "state": "planned",
+        "docs": "docs/port/README.md",
+        "todo": "As rac1/pal's play: the native port starts with Ratchet & Clank (PAL), whose decompilation is furthest along (docs/port/ROADMAP.md)."
       }
     ],
     "rac4/ntsc": [
@@ -668,15 +555,6 @@
         "docs": "games/rac4/ntsc/README.md"
       },
       {
-        "id": "play-runtime",
-        "label": "Play in the OpenRAC runtime",
-        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator.",
-        "kind": "play",
-        "state": "planned",
-        "docs": "runtime/README.md#running-a-game",
-        "todo": "The runtime has no table for this game (runtime/games/SCUS_974.65.hooks): runtime/tools/port_hooks.py finds none of the first game's library functions in the boot executable, which is packed. Unpack it first."
-      },
-      {
         "id": "editor-extract",
         "label": "Extract the levels",
         "description": "The level editor reads the first game's PAL disc only, for now.",
@@ -684,6 +562,15 @@
         "state": "planned",
         "docs": "editor/README.md",
         "todo": "As rac2/ntsc's editor-extract."
+      },
+      {
+        "id": "play",
+        "label": "Play",
+        "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
+        "kind": "play",
+        "state": "planned",
+        "docs": "docs/port/README.md",
+        "todo": "As rac1/pal's play: the native port starts with Ratchet & Clank (PAL), whose decompilation is furthest along (docs/port/ROADMAP.md)."
       }
     ]
   }

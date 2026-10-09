@@ -1,6 +1,6 @@
 //! Running actions. A job is a child process whose output lines go to a
 //! sink as [`Event`]s (the app forwards them to the UI as `job-output` and
-//! `job-exit`); a detached launch (the emulator, Godot) is started and left
+//! `job-exit`); a detached launch (the game, Godot) is started and left
 //! alone.
 
 use std::collections::{HashMap, HashSet};

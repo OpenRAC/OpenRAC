@@ -265,8 +265,8 @@ struct SiteFunctions {
 /// and returns the reloaded Catalog. If called while offline, summary.json provides
 /// the offline cache.
 pub fn update_progress_from_openrac_dev(root: &Path, site_json: &str) -> Result<Catalog, String> {
-    let site: SiteProgressResponse = serde_json::from_str(site_json)
-        .map_err(|e| format!("invalid progress json from openrac.dev: {e}"))?;
+    let site: SiteProgressResponse =
+        serde_json::from_str(site_json).map_err(|e| format!("invalid progress json from openrac.dev: {e}"))?;
     let summary_path = root.join("progress").join("summary.json");
     let mut current_summary: serde_json::Value = std::fs::read_to_string(&summary_path)
         .ok()
@@ -318,10 +318,8 @@ pub fn update_progress_from_openrac_dev(root: &Path, site_json: &str) -> Result<
 
     let progress_dir = root.join("progress");
     let _ = std::fs::create_dir_all(&progress_dir);
-    let formatted = serde_json::to_string_pretty(&current_summary)
-        .map_err(|e| e.to_string())?;
-    std::fs::write(&summary_path, formatted)
-        .map_err(|e| format!("cannot write {}: {e}", summary_path.display()))?;
+    let formatted = serde_json::to_string_pretty(&current_summary).map_err(|e| e.to_string())?;
+    std::fs::write(&summary_path, formatted).map_err(|e| format!("cannot write {}: {e}", summary_path.display()))?;
 
     load(root)
 }

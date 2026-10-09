@@ -258,9 +258,7 @@ fn import_iso(
 }
 
 #[tauri::command]
-fn sync_progress_from_web(
-    state: State<'_, AppState>,
-) -> Result<openrac_launcher_core::catalog::Catalog, String> {
+fn sync_progress_from_web(state: State<'_, AppState>) -> Result<openrac_launcher_core::catalog::Catalog, String> {
     let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
 
     // Attempt to fetch latest numbers from openrac.dev using curl (available across all Linux distros)
@@ -274,7 +272,8 @@ fn sync_progress_from_web(
     if let Ok(out) = output {
         if out.status.success() {
             if let Ok(json_str) = String::from_utf8(out.stdout) {
-                if let Ok(catalog) = openrac_launcher_core::catalog::update_progress_from_openrac_dev(&root, &json_str) {
+                if let Ok(catalog) = openrac_launcher_core::catalog::update_progress_from_openrac_dev(&root, &json_str)
+                {
                     return Ok(catalog);
                 }
             }
@@ -346,17 +345,9 @@ fn ensure_linux_desktop_integration() {
         let _ = std::fs::write(app_dir.join("dev.openrac.launcher.desktop"), desktop_content2);
 
         // Notify desktop environment and refresh icon caches silently
-        let _ = std::process::Command::new("gtk-update-icon-cache")
-            .arg("-f")
-            .arg("-t")
-            .arg(&icons_base)
-            .status();
-        let _ = std::process::Command::new("update-desktop-database")
-            .arg(&app_dir)
-            .status();
-        let _ = std::process::Command::new("kbuildsycoca6")
-            .arg("--noincremental")
-            .status();
+        let _ = std::process::Command::new("gtk-update-icon-cache").arg("-f").arg("-t").arg(&icons_base).status();
+        let _ = std::process::Command::new("update-desktop-database").arg(&app_dir).status();
+        let _ = std::process::Command::new("kbuildsycoca6").arg("--noincremental").status();
 
         // If Flatpak Discord is running, ensure standard XDG_RUNTIME_DIR socket symlink exists
         if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {

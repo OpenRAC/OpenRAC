@@ -33,6 +33,12 @@
   </div>
 {:else}
   <div class="page sections" style={themeStyle(v.game)}>
+    {#if media}
+      <div class="page-ambient-bg" aria-hidden="true">
+        <img src={media.bg} alt="" />
+      </div>
+    {/if}
+
     <button class="ghost back" onclick={() => (app.page = "library")}><Icon name="arrow" size={16} />All games</button>
 
     <section class="banner rise" aria-label={`${v.title} (${v.region})`}>
@@ -176,6 +182,7 @@
 
 <style>
   .page {
+    position: relative;
     max-width: 1180px;
     margin: 0 auto;
     padding: 20px 28px 60px;
@@ -184,7 +191,30 @@
     gap: 20px;
   }
 
+  .page-ambient-bg {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100vw;
+    height: 480px;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+    opacity: 0.22;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 20%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 20%, transparent 80%);
+  }
+
+  .page-ambient-bg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
   .back {
+    position: relative;
+    z-index: 1;
     align-self: flex-start;
   }
 

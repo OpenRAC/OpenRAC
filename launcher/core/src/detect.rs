@@ -115,7 +115,6 @@ fn usual_places(tool: Tool) -> Vec<PathBuf> {
     let mut places = Vec::new();
     let env = |name: &str| std::env::var_os(name).map(PathBuf::from);
     match tool {
-
         Tool::Godot => {
             if let Some(godot) = env("GODOT") {
                 places.push(godot);
@@ -123,7 +122,8 @@ fn usual_places(tool: Tool) -> Vec<PathBuf> {
             if cfg!(target_os = "macos") {
                 places.push("/Applications/Godot.app/Contents/MacOS/Godot".into());
             } else if cfg!(windows) {
-                for base in [env("ProgramFiles"), env("LOCALAPPDATA").map(|d| d.join("Programs"))].into_iter().flatten() {
+                for base in [env("ProgramFiles"), env("LOCALAPPDATA").map(|d| d.join("Programs"))].into_iter().flatten()
+                {
                     places.push(base.join("Godot").join("Godot.exe"));
                 }
             } else {
