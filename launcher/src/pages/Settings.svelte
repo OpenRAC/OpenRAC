@@ -96,13 +96,6 @@
       check={tool("python")}
     />
     <PathField
-      label="Docker"
-      hint="The build container of Ratchet & Clank (PAL) and Deadlocked runs in it, on Linux and macOS. Optional."
-      bind:value={draft.docker}
-      candidates={found?.dockers}
-      check={tool("docker")}
-    />
-    <PathField
       label="Godot"
       hint="Godot 4 (4.7 or newer), the game's 3D engine and level player. Optional."
       bind:value={draft.godot}
