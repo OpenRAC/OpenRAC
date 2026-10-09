@@ -129,7 +129,12 @@ foreach(part disc geometry world sound)
   openrac_add_module(openrac_assets_${part} assets/${part} openrac_assets_core)
   if(TARGET openrac_assets_${part})
     target_link_libraries(openrac_assets INTERFACE openrac_assets_${part})
-    openrac_add_module_tests(${part} openrac_assets_${part})
+    # tests/world is the world renderers'; the world data's are tests/assets_world
+    if(part STREQUAL "world")
+      openrac_add_module_tests(assets_world openrac_assets_world)
+    else()
+      openrac_add_module_tests(${part} openrac_assets_${part})
+    endif()
   endif()
 endforeach()
 
