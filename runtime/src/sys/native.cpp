@@ -424,16 +424,18 @@ bool Native::check_call(Function& function) {
      */
     if (outside != outside_before) {
         ee_.event_at = event_before;
+        marks_[address >> 2] = 1;
+        function.unchecked++;
 
-        // Still running: until it returns.
+        // Nothing is compared from here on: the calls it makes may be checked themselves.
+        checking_ = false;
+
+        // Still running: until it returns (a program's main function never does).
         if (!returned) {
             ee_.run_call(~u64{0});
         }
 
         ee_.end_call(call);
-        marks_[address >> 2] = 1;
-        function.unchecked++;
-        checking_ = false;
 
         return true;
     }
