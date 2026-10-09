@@ -125,6 +125,13 @@ target_include_directories(openrac_assets_core PRIVATE "${OPENRAC_GENERATED}")
 add_library(openrac_assets INTERFACE)
 target_link_libraries(openrac_assets INTERFACE openrac_assets_core)
 openrac_add_module_tests(assets openrac_assets_core)
+# The ReRAC conversion is unfinished (WIP.md): its parts build only with
+# -DOPENRAC_PORT_WIP=ON until each is reviewed and tested.
+option(OPENRAC_PORT_WIP "Build the unfinished ReRAC conversion (WIP.md)" OFF)
+if(NOT OPENRAC_PORT_WIP)
+  return()
+endif()
+
 foreach(part disc geometry world sound)
   openrac_add_module(openrac_assets_${part} assets/${part} openrac_assets_core)
   if(TARGET openrac_assets_${part})
