@@ -8,8 +8,13 @@
       "kind": "setup",
       "state": "connected",
       "program": "{python}",
-      "args": ["tools/openrac.py", "discs"],
-      "requires": ["python"],
+      "args": [
+        "tools/openrac.py",
+        "discs"
+      ],
+      "requires": [
+        "python"
+      ],
       "docs": "baserom/README.md"
     },
     {
@@ -19,8 +24,14 @@
       "kind": "check",
       "state": "connected",
       "program": "{python}",
-      "args": ["tools/openrac.py", "discs", "--full"],
-      "requires": ["python"],
+      "args": [
+        "tools/openrac.py",
+        "discs",
+        "--full"
+      ],
+      "requires": [
+        "python"
+      ],
       "docs": "baserom/README.md"
     },
     {
@@ -30,8 +41,13 @@
       "kind": "setup",
       "state": "connected",
       "program": "{python}",
-      "args": ["tools/openrac.py", "setup"],
-      "requires": ["python"],
+      "args": [
+        "tools/openrac.py",
+        "setup"
+      ],
+      "requires": [
+        "python"
+      ],
       "docs": "docs/LAYOUT.md"
     },
     {
@@ -41,9 +57,34 @@
       "kind": "check",
       "state": "connected",
       "program": "{python}",
-      "args": ["-m", "unittest", "discover", "-s", "tools"],
-      "requires": ["python"],
+      "args": [
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools"
+      ],
+      "requires": [
+        "python"
+      ],
       "docs": "CONTRIBUTING.md#tests"
+    },
+    {
+      "id": "runtime-tests",
+      "label": "Build and test the runtime",
+      "description": "Builds OpenRAC's own runtime (the hardware model that runs the games with no emulator) and runs its tests. Needs CMake, a C++ compiler and SDL3; no disc.",
+      "kind": "check",
+      "state": "unverified",
+      "program": "{python}",
+      "args": [
+        "runtime/tools/run.py",
+        "test"
+      ],
+      "requires": [
+        "python"
+      ],
+      "docs": "runtime/README.md",
+      "todo": "Run it from the desktop app on each platform. The same command line was run from a shell on macOS (Apple Silicon)."
     },
     {
       "id": "update",
@@ -63,8 +104,12 @@
         "kind": "setup",
         "state": "unverified",
         "program": "bash",
-        "args": ["tools/setup_asm.sh"],
-        "requires": ["inputs"],
+        "args": [
+          "tools/setup_asm.sh"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "docs": "games/rac1/pal/README.md"
       },
       {
@@ -74,21 +119,15 @@
         "kind": "build",
         "state": "unverified",
         "program": "bash",
-        "args": ["tools/build_sn.sh"],
-        "requires": ["inputs", "toolchains"],
+        "args": [
+          "tools/build_sn.sh"
+        ],
+        "requires": [
+          "inputs",
+          "toolchains"
+        ],
         "artifact": "games/rac1/pal/build-sn/rac1.elf",
         "docs": "games/rac1/pal/README.md"
-      },
-      {
-        "id": "report-check",
-        "label": "Check the progress report",
-        "description": "Recomputes progress/report.json from the source and compares it with the committed one, as CI does. Needs neither disc nor toolchain.",
-        "kind": "check",
-        "state": "connected",
-        "program": "{python}",
-        "args": ["tools/gen_progress_report.py", "--check"],
-        "requires": ["python"],
-        "docs": "games/rac1/pal/docs/WORKFLOW.md"
       },
       {
         "id": "play",
@@ -97,40 +136,160 @@
         "kind": "play",
         "state": "connected",
         "program": "{godot}",
-        "args": ["--path", "assets/godot", "res://levels/level_00/level_00.tscn"],
+        "args": [
+          "--path",
+          "assets/godot",
+          "res://levels/level_00/level_00.tscn"
+        ],
         "cwd": ".",
-        "requires": ["godot", "artifact"],
+        "requires": [
+          "godot",
+          "artifact"
+        ],
         "artifact": "assets/godot/project.godot",
         "detached": true,
         "docs": "editor/README.md"
       },
       {
+        "id": "report-check",
+        "label": "Check the progress report",
+        "description": "Recomputes progress/report.json from the source and compares it with the committed one, as CI does. Needs neither disc nor toolchain.",
+        "kind": "check",
+        "state": "connected",
+        "program": "{python}",
+        "args": [
+          "tools/gen_progress_report.py",
+          "--check"
+        ],
+        "requires": [
+          "python"
+        ],
+        "docs": "games/rac1/pal/docs/WORKFLOW.md"
+      },
+      {
+        "id": "play-runtime",
+        "label": "Play in the OpenRAC runtime",
+        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator: menus, memory card, sound and the first level. It builds the runtime first (about a minute the first time; needs CMake, a C++ compiler and SDL3) and then opens the game in a window; what it prints is in Tasks.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "runtime/tools/run.py",
+          "play",
+          "{serial}",
+          "{disc}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "runtime/README.md#running-a-game",
+        "todo": "Run it from the desktop app on each platform. The same command line was run from a shell on macOS (Apple Silicon) with the PAL disc: it builds, opens the window and plays."
+      },
+      {
         "id": "editor-extract",
         "label": "Extract the levels",
-        "description": "Turns the 19 levels on your disc into a Godot 4 project in assets/godot. About 20 seconds and 630 MB. Stops if the project already exists.",
+        "description": "Turns the 19 levels on your disc into a Godot 4 project in assets/godot. About 20 seconds and 630 MB. Stops if the project already exists: it never overwrites your edits.",
         "kind": "edit",
         "state": "unverified",
         "program": "{python}",
-        "args": ["editor/extract.py", "godot", "{disc}", "assets/godot"],
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/godot"
+        ],
         "cwd": ".",
-        "requires": ["disc", "python"],
+        "requires": [
+          "disc",
+          "python"
+        ],
         "docs": "editor/README.md",
-        "todo": "Run with a real disc; then offer Open in Godot instead when assets/godot exists (the extractor never overwrites)."
+        "todo": "Run it from the desktop app. From a shell on macOS the same command extracted a level into a new folder and refused an existing one with a clear message. Then offer Open in Godot instead when assets/godot exists."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import into Godot",
+        "description": "Has Godot read the extracted meshes and textures once, without opening a window, so that the first time you open the editor is quick. About two minutes for all levels.",
+        "kind": "edit",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/godot",
+          "--headless",
+          "--import"
+        ],
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/godot/project.godot",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS, Godot 4.7.2 imported one extracted level this way in five seconds; a 4.9 development build crashed on it."
       },
       {
         "id": "editor-open",
         "label": "Open in Godot",
-        "description": "Opens the extracted levels in the Godot editor.",
+        "description": "Opens the extracted levels in the Godot editor: move, add or delete objects and save. Your edits stay in assets/godot.",
         "kind": "edit",
         "state": "unverified",
         "program": "{godot}",
-        "args": ["--path", "assets/godot", "-e"],
+        "args": [
+          "--path",
+          "assets/godot",
+          "-e"
+        ],
         "cwd": ".",
-        "requires": ["godot", "artifact"],
+        "requires": [
+          "godot",
+          "artifact"
+        ],
         "artifact": "assets/godot/project.godot",
         "detached": true,
         "docs": "editor/README.md",
-        "todo": "Check the project file's name after an extract."
+        "todo": "Run it from the desktop app. The project file is assets/godot/project.godot, as the action expects."
+      },
+      {
+        "id": "editor-pack",
+        "label": "Pack your edited levels",
+        "description": "Turns the levels you edited in Godot back into the game's level data, in a folder of their own; your disc image is never changed.",
+        "kind": "edit",
+        "state": "planned",
+        "docs": "editor/README.md",
+        "todo": "The packer does not exist yet (editor/README.md, 'Regenerate'). The scenes keep what it needs: each object's class, its place in the level's tables and its instance data. Start with moby instances (move, add, delete), write the packed level under build/, never into baserom/."
+      },
+      {
+        "id": "editor-play",
+        "label": "Play your edited level",
+        "description": "Starts the game in the OpenRAC runtime with your edited level in place of the one on the disc.",
+        "kind": "play",
+        "state": "planned",
+        "docs": "runtime/README.md#running-a-game",
+        "todo": "Needs editor-pack, and an option of openrac-boot that answers the game's reads of a level's sectors from a packed folder instead of the disc image (runtime/docs/RAC1_PAL_SURVEY.md describes how the game finds a level on the disc)."
+      },
+      {
+        "id": "editor-tests",
+        "label": "Test the level editor",
+        "description": "The unit tests of editor/ (no disc needed).",
+        "kind": "check",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "editor"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS: 66 tests, OK."
       }
     ],
     "rac1/ntsc": [
@@ -141,9 +300,17 @@
         "kind": "setup",
         "state": "unverified",
         "program": "bash",
-        "args": ["setup.sh", "--elf", "config/us/SCUS_971.99"],
-        "platforms": ["linux"],
-        "requires": ["inputs"],
+        "args": [
+          "setup.sh",
+          "--elf",
+          "config/us/SCUS_971.99"
+        ],
+        "platforms": [
+          "linux"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "docs": "games/rac1/ntsc/docs/building.md",
         "todo": "Run once on Linux. On Windows it runs in WSL: decide how the launcher starts WSL (wsl.exe --cd ...)."
       },
@@ -154,9 +321,19 @@
         "kind": "setup",
         "state": "unverified",
         "program": "bash",
-        "args": ["setup.sh", "--docker", "--elf", "config/us/SCUS_971.99"],
-        "platforms": ["macos"],
-        "requires": ["inputs", "docker"],
+        "args": [
+          "setup.sh",
+          "--docker",
+          "--elf",
+          "config/us/SCUS_971.99"
+        ],
+        "platforms": [
+          "macos"
+        ],
+        "requires": [
+          "inputs",
+          "docker"
+        ],
         "docs": "games/rac1/ntsc/docs/building.md",
         "todo": "Run once on macOS."
       },
@@ -167,9 +344,15 @@
         "kind": "build",
         "state": "unverified",
         "program": "make",
-        "args": ["elf"],
-        "platforms": ["linux"],
-        "requires": ["inputs"],
+        "args": [
+          "elf"
+        ],
+        "platforms": [
+          "linux"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "docs": "games/rac1/ntsc/docs/building.md",
         "todo": "Find the executable make elf writes (config/us/build/SCUS_971.99 per docs/building.md) and add it as the artifact; macOS runs make through host/run.sh."
       },
@@ -180,9 +363,15 @@
         "kind": "check",
         "state": "unverified",
         "program": "bash",
-        "args": ["verify-baseline.sh"],
-        "platforms": ["linux"],
-        "requires": ["inputs"],
+        "args": [
+          "verify-baseline.sh"
+        ],
+        "platforms": [
+          "linux"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "docs": "games/rac1/ntsc/docs/building.md"
       },
       {
@@ -192,12 +381,39 @@
         "kind": "build",
         "state": "unverified",
         "program": "make",
-        "args": ["iso"],
-        "platforms": ["linux"],
-        "requires": ["inputs"],
+        "args": [
+          "iso"
+        ],
+        "platforms": [
+          "linux"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "artifact": "games/rac1/ntsc/build/Ratchet & Clank (USA) - rebuilt.iso",
         "docs": "games/rac1/ntsc/docs/building.md",
         "todo": "make iso takes the first dumps/*.iso: openrac.py setup links your image there, so it should be the only one."
+      },
+      {
+        "id": "play-runtime",
+        "label": "Play in the OpenRAC runtime",
+        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator: the main menu and the first level so far. It builds the runtime first (about a minute the first time; needs CMake, a C++ compiler and SDL3) and then opens the game in a window; what it prints is in Tasks.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "runtime/tools/run.py",
+          "play",
+          "{serial}",
+          "{disc}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "runtime/README.md#running-a-game",
+        "todo": "As rac1/pal's play-runtime. From a shell on macOS the US disc ran in the window to the main menu, and headless into the first level."
       },
       {
         "id": "editor-extract",
@@ -217,8 +433,12 @@
         "kind": "check",
         "state": "unverified",
         "program": "{python}",
-        "args": ["scripts/doctor.py"],
-        "requires": ["python"],
+        "args": [
+          "scripts/doctor.py"
+        ],
+        "requires": [
+          "python"
+        ],
         "docs": "games/rac2/ntsc/docs/START-HERE.md",
         "todo": "Run once; it may need requirements.txt installed first."
       },
@@ -247,10 +467,39 @@
         "kind": "check",
         "state": "unverified",
         "program": "{python}",
-        "args": ["-m", "unittest", "discover", "-s", "tests"],
-        "requires": ["python"],
+        "args": [
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests"
+        ],
+        "requires": [
+          "python"
+        ],
         "docs": "games/rac2/ntsc/README.md",
         "todo": "Fails without rabbitizer: say so, or install the requirements in a launcher-owned venv."
+      },
+      {
+        "id": "play-runtime",
+        "label": "Play in the OpenRAC runtime",
+        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator. Early: the main menu and the start of the first level. It builds the runtime first (about a minute the first time; needs CMake, a C++ compiler and SDL3) and then opens the game in a window; what it prints is in Tasks.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "runtime/tools/run.py",
+          "play",
+          "{serial}",
+          "{disc}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "runtime/README.md#running-a-game",
+        "todo": "As rac1/pal's play-runtime. From a shell on macOS the disc ran in the window to the main menu, and headless into the first level. Movies are skipped."
       },
       {
         "id": "play-port",
@@ -260,6 +509,15 @@
         "state": "planned",
         "docs": "games/rac2/ntsc/ports/pal-functional/README.md",
         "todo": "Build it with CMake and find what data it reads; it is PAL-functional, so check which disc it expects."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "The level editor reads the first game's PAL disc only, for now.",
+        "kind": "edit",
+        "state": "planned",
+        "docs": "editor/README.md",
+        "todo": "The editor's readers know Ratchet & Clank PAL v2.00 only. This game's level format is a close relative (docs/engine/README.md): give editor/ a table of its offsets and its section layout."
       }
     ],
     "rac3/ntsc": [
@@ -289,6 +547,24 @@
         "state": "planned",
         "docs": "games/rac3/ntsc/CONTRIBUTING.md",
         "todo": "tools/pr_check.py --target all with the venv's Python, once Set up works."
+      },
+      {
+        "id": "play-runtime",
+        "label": "Play in the OpenRAC runtime",
+        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator.",
+        "kind": "play",
+        "state": "planned",
+        "docs": "runtime/README.md#running-a-game",
+        "todo": "The runtime has no table for this game (runtime/games/SCUS_973.53.hooks): runtime/tools/port_hooks.py finds none of the first game's library functions in the boot executable, which is a loader for the main program. Find the main program first."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "The level editor reads the first game's PAL disc only, for now.",
+        "kind": "edit",
+        "state": "planned",
+        "docs": "editor/README.md",
+        "todo": "As rac2/ntsc's editor-extract: the format is a later relative; its levels are in the WAD the boot program loads."
       }
     ],
     "rac4/ntsc": [
@@ -299,9 +575,16 @@
         "kind": "setup",
         "state": "unverified",
         "program": "bash",
-        "args": ["tools/setup_asm.sh"],
-        "platforms": ["linux", "macos"],
-        "requires": ["inputs"],
+        "args": [
+          "tools/setup_asm.sh"
+        ],
+        "platforms": [
+          "linux",
+          "macos"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "docs": "games/rac4/ntsc/README.md",
         "todo": "Run once; check whether it needs the project's venv first."
       },
@@ -312,9 +595,17 @@
         "kind": "build",
         "state": "unverified",
         "program": "bash",
-        "args": ["tools/build.sh"],
-        "platforms": ["linux", "macos"],
-        "requires": ["inputs", "toolchains"],
+        "args": [
+          "tools/build.sh"
+        ],
+        "platforms": [
+          "linux",
+          "macos"
+        ],
+        "requires": [
+          "inputs",
+          "toolchains"
+        ],
         "docs": "games/rac4/ntsc/README.md",
         "todo": "Nothing is linked yet in rac4: the build writes objects to build/obj, so there is no executable to play."
       },
@@ -325,9 +616,16 @@
         "kind": "check",
         "state": "unverified",
         "program": "{dir}/venv/bin/python",
-        "args": ["tools/audit_matches.py"],
-        "platforms": ["linux", "macos"],
-        "requires": ["inputs"],
+        "args": [
+          "tools/audit_matches.py"
+        ],
+        "platforms": [
+          "linux",
+          "macos"
+        ],
+        "requires": [
+          "inputs"
+        ],
         "docs": "games/rac4/ntsc/README.md",
         "todo": "Uses the project's own venv (venv/): add an action that creates it, or run with {python} once the requirements are known."
       },
@@ -338,9 +636,32 @@
         "kind": "check",
         "state": "connected",
         "program": "{python}",
-        "args": ["tools/gen_progress_report.py", "--check"],
-        "requires": ["python"],
+        "args": [
+          "tools/gen_progress_report.py",
+          "--check"
+        ],
+        "requires": [
+          "python"
+        ],
         "docs": "games/rac4/ntsc/README.md"
+      },
+      {
+        "id": "play-runtime",
+        "label": "Play in the OpenRAC runtime",
+        "description": "Runs your own disc in OpenRAC's own runtime, with no emulator.",
+        "kind": "play",
+        "state": "planned",
+        "docs": "runtime/README.md#running-a-game",
+        "todo": "The runtime has no table for this game (runtime/games/SCUS_974.65.hooks): runtime/tools/port_hooks.py finds none of the first game's library functions in the boot executable, which is packed. Unpack it first."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "The level editor reads the first game's PAL disc only, for now.",
+        "kind": "edit",
+        "state": "planned",
+        "docs": "editor/README.md",
+        "todo": "As rac2/ntsc's editor-extract."
       }
     ]
   }

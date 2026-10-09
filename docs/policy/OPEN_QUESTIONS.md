@@ -14,11 +14,11 @@ docs it names.
 | `games/rac3/ntsc` | GNU GPL v3 ([LICENSE](../../games/rac3/ntsc/LICENSE)), chosen by the project on 2026-10-04 |
 | `games/rac4/ntsc` | MIT, Kryštof "Lynder063" Malinda ([LICENSE](../../games/rac4/ntsc/LICENSE)); GPL libgcc and newlib libm sources |
 | `editor/` | MIT ([editor/LICENSE](../../editor/LICENSE)), moved here from rac1-decomp while that was MIT |
-| rest of the top level (`tools/`, `docs/`) | not chosen yet; see [LICENSE.md](../../LICENSE.md) |
+| rest of the top level (`tools/`, `docs/`, the shared runtime and renderer) | GNU GPL v3 or later ([COPYING](../../COPYING)), chosen on 2026-10-08 |
 
-To decide: a license for the top level, and how code moves between games
-now that the projects differ. rac1/pal and rac3 are GPL v3 and the others
-MIT, so their code cannot be copied into an MIT directory without its
+The top level's license is settled. Still to decide: how code moves between
+games now that the projects differ. rac1/pal, rac3 and the top level are GPL
+v3 and the others MIT, so their code cannot be copied into an MIT directory without its
 authors' permission, while MIT code can go the other way. For
 [tools/port.py](../../tools/port.py) that means Lombyte to rac1/pal is fine
 and rac1/pal to Lombyte is not, for code written after rac1-decomp's move

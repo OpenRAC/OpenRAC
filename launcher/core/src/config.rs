@@ -13,12 +13,13 @@ pub struct Config {
     pub root: Option<PathBuf>,
     /// Python 3.10+, for tools/openrac.py, the editor and the games' Python tools.
     pub python: Option<PathBuf>,
-    /// PCSX2 (the Qt build, 2.x), to play a disc or a build.
-    pub pcsx2: Option<PathBuf>,
     /// Godot 4 (4.7+), for the level editor.
     pub godot: Option<PathBuf>,
     /// Docker, which rac1/pal's and rac4's builds run in.
     pub docker: Option<PathBuf>,
+    /// Show what contributors use: builds, checks, toolchains, progress.
+    /// Off, the launcher shows a player's three steps: add your disc, play, edit levels.
+    pub developer: bool,
     /// The first-run setup was finished (or skipped).
     pub setup_complete: bool,
     /// The version the launcher showed last (`rac1/pal`).
@@ -34,9 +35,9 @@ impl Default for Config {
         Self {
             root: None,
             python: None,
-            pcsx2: None,
             godot: None,
             docker: None,
+            developer: false,
             setup_complete: false,
             last_version: None,
             discord_rpc: true,

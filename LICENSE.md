@@ -11,11 +11,12 @@ covered by the license of the closest directory below that has one.
 | [`games/rac3/ntsc`](games/rac3/ntsc/LICENSE) | GNU General Public License v3 (since 2026-10-04). |
 | [`games/rac4/ntsc`](games/rac4/ntsc/LICENSE) | MIT, Copyright (c) 2026 Kryštof "Lynder063" Malinda. `src/libgcc/` keeps the GPL with the runtime exception, and `src/libm/` newlib's fdlibm notice ([THIRD_PARTY_NOTICES.md](games/rac4/ntsc/THIRD_PARTY_NOTICES.md)). |
 | [`editor`](editor/LICENSE) | MIT ([editor/LICENSE](editor/LICENSE)): it was written in rac1-decomp and moved here while rac1-decomp was MIT. |
-| Everything else (`tools/`, `docs/`, the top-level files) | **Not chosen yet.** |
+| Everything else (`runtime/`, `tools/`, `docs/` and the top-level files) | GNU General Public License v3 or later ([COPYING](COPYING)), Copyright (c) 2026 the OpenRAC contributors (chosen 2026-10-08). Code adapted from another project keeps that project's notice, listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). |
 
-Code from a GPL directory (rac1/pal, rac3) can only move into another
-directory under the GPL, or with its authors' permission; MIT code can move
-into a GPL directory. Choosing the missing licenses is an
+Code from a GPL directory (rac1/pal, rac3, the top level) can only move
+into another directory under the GPL, or with its authors' permission; MIT
+code can move into a GPL directory. How code moves between games whose
+licenses differ is still an
 [open question](docs/policy/OPEN_QUESTIONS.md#1-licensing).
 
 None of these licenses cover the games. OpenRAC holds no game code or assets:

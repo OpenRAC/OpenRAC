@@ -14,7 +14,7 @@ export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in
 // ---- types: the serde output of core/src (camelCase) ------------------------------
 
 export type Platform = "linux" | "macos" | "windows";
-export type Tool = "python" | "pcsx2" | "godot" | "docker";
+export type Tool = "python" | "godot" | "docker";
 
 export interface AppInfo {
   version: string;
@@ -27,9 +27,10 @@ export interface AppInfo {
 export interface Config {
   root: string | null;
   python: string | null;
-  pcsx2: string | null;
   godot: string | null;
   docker: string | null;
+  /** Show what contributors use (builds, checks, progress); off, a player's three steps. */
+  developer: boolean;
   setupComplete: boolean;
   lastVersion: string | null;
   discordRpc: boolean;
@@ -62,7 +63,6 @@ export interface Candidate {
 export interface Detected {
   roots: Candidate[];
   pythons: Candidate[];
-  pcsx2s: Candidate[];
   godots: Candidate[];
   dockers: Candidate[];
 }
@@ -233,6 +233,8 @@ export const api = {
   checkRoot: (path: string) => call<Check>("check_root", { path }),
   checkTool: (tool: Tool, path: string) => call<Check>("check_tool", { tool, path }),
   library: () => call<Library>("library"),
+  /** Adds the user's disc image for a version (`rac1/pal`); the Rust side checks it is that game. */
+  addDisc: (key: string, path: string) => call<string>("add_disc", { key, path }),
   runAction: (scope: Scope, id: string) => call<Started>("run_action", { scope, id }),
   cancelJob: (id: number) => call<null>("cancel_job", { id }),
   /** A file or folder in the checkout, relative to it (`games/rac1/pal/README.md`). */
@@ -259,17 +261,21 @@ export async function pickFile(title: string): Promise<string | null> {
   return typeof picked === "string" ? picked : null;
 }
 
-/** An ISO image file picker; null when cancelled. */
-export async function pickIsoFile(title = "Select PS2 ISO image"): Promise<string | null> {
-  if (!inTauri) return "/home/lynder063/Downloads/games-ps2/Ratchet & Clank (Europe) (En,Fr,De,Es,It) (v2.00).iso";
+/** A picker for a disc image; null when cancelled (or in the browser preview). */
+export async function pickDisc(title: string): Promise<string | null> {
+  if (!inTauri) return null;
   const picked = await open({
     directory: false,
     multiple: false,
     title,
-    defaultPath: "/home/lynder063/Downloads/games-ps2",
-    filters: [{ name: "PS2 ISO Image", extensions: ["iso"] }],
+    filters: [{ name: "Disc image", extensions: ["iso", "ISO", "bin"] }],
   });
   return typeof picked === "string" ? picked : null;
+}
+
+/** An ISO image file picker; null when cancelled. */
+export async function pickIsoFile(title = "Select PS2 ISO image"): Promise<string | null> {
+  return pickDisc(title);
 }
 
 /** Job output and exits, from `job-output` and `job-exit` events. */

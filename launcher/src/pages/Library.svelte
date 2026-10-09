@@ -1,6 +1,7 @@
 <script lang="ts">
-  // Every game, with each version's progress and what is in place, and the
-  // actions for the checkout as a whole (identify discs, place inputs).
+  // Every game. A player sees which ones are ready to play; with developer
+  // tools on, each version's progress and inputs as well, and the actions
+  // for the checkout as a whole (identify discs, place inputs).
   import ActionCard from "$components/ActionCard.svelte";
   import GameCard from "$components/GameCard.svelte";
   import Icon from "$components/Icon.svelte";
@@ -14,6 +15,7 @@
     lib?.games.flatMap((g) => g.versions).filter((v) => v.status.disc.state === "found").length ?? 0,
   );
   const versions = $derived(lib?.games.flatMap((g) => g.versions).length ?? 0);
+  const developer = $derived(app.config?.developer ?? false);
 </script>
 
 <div class="page sections">
@@ -21,7 +23,9 @@
     <div class="grow">
       <span class="sec-num"></span>
       <h1>Your games</h1>
-      {#if lib}
+      {#if lib && !developer}
+        <p class="muted">Add the image of your own disc, play, and edit levels. OpenRAC never downloads a game.</p>
+      {:else if lib}
         <p class="muted">
           {lib.games.length} games, {versions} versions · {discs} of {versions} discs found ·
           <button class="link mono" onclick={() => void guard(api.openPath("."))} title="Open the folder"
@@ -54,27 +58,30 @@
       {/each}
     </div>
 
-    <section class="panel start">
-      <div class="row">
-        <div class="grow">
-          <span class="sec-num"></span>
-          <h2>Getting started</h2>
+    {#if developer}
+      <section class="panel start">
+        <div class="row">
+          <div class="grow">
+            <span class="sec-num"></span>
+            <h2>Getting started</h2>
+          </div>
         </div>
-      </div>
-      <ol class="steps muted">
-        <li>
-          Copy the images of your own discs into <code>baserom/</code> in the OpenRAC folder. OpenRAC never downloads a game.
-        </li>
-        <li><strong>Identify discs</strong> checks each image against the checksums OpenRAC knows.</li>
-        <li><strong>Place inputs</strong> puts what each game's build reads where it expects it.</li>
-        <li>Open a game to set up its toolchain, build it and play it.</li>
-      </ol>
-      <div class="actions">
-        {#each actions as action (action.id)}
-          <ActionCard {action} scope={repo} icon={action.kind === "check" ? "check" : "disc"} />
-        {/each}
-      </div>
-    </section>
+        <ol class="steps muted">
+          <li>
+            Copy the images of your own discs into <code>baserom/</code> in the OpenRAC folder. OpenRAC never downloads a
+            game.
+          </li>
+          <li><strong>Identify discs</strong> checks each image against the checksums OpenRAC knows.</li>
+          <li><strong>Place inputs</strong> puts what each game's build reads where it expects it.</li>
+          <li>Open a game to set up its toolchain, build it and play it.</li>
+        </ol>
+        <div class="actions">
+          {#each actions as action (action.id)}
+            <ActionCard {action} scope={repo} icon={action.kind === "check" ? "check" : "disc"} />
+          {/each}
+        </div>
+      </section>
+    {/if}
   {/if}
 </div>
 

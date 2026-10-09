@@ -11,6 +11,7 @@ use openrac_launcher_core::config::{self, Config};
 use openrac_launcher_core::detect::{self, Check, Detected, Tool};
 use openrac_launcher_core::jobs::{Event, Jobs, Started};
 use openrac_launcher_core::library::{self, Library};
+use openrac_launcher_core::{catalog, disc};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_opener::OpenerExt;
@@ -97,6 +98,20 @@ async fn check_tool(tool: Tool, path: PathBuf) -> Result<Check, String> {
 async fn library(state: State<'_, AppState>) -> Result<Library, String> {
     let config = state.config.lock().unwrap().clone();
     tauri::async_runtime::spawn_blocking(move || library::library(&config)).await.map_err(|e| e.to_string())?
+}
+
+/// Adds the user's disc image for version `key` (`rac1/pal`): checks that
+/// the image is that game, then links it into baserom/. Returns where.
+#[tauri::command]
+async fn add_disc(state: State<'_, AppState>, key: String, path: PathBuf) -> Result<String, String> {
+    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let catalog = catalog::load(&root)?;
+        let version = catalog.version(&key).ok_or_else(|| format!("no version {key}"))?;
+        disc::add(&root, version, &path).map(|place| place.display().to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Runs action `id` of `scope`: a job whose output streams as `job-output`
@@ -381,6 +396,7 @@ pub fn run() {
             check_root,
             check_tool,
             library,
+            add_disc,
             run_action,
             cancel_job,
             open_path,

@@ -28,6 +28,11 @@ the first table; go to a game's documents when you work on that game.
 | [progress/](../progress/README.md) | Consolidated progress (generated) |
 | [editor/README.md](../editor/README.md) | The Godot level editor: extracting your levels, what it reads, its code |
 | [editor/GDSCRIPT_CONVENTIONS.md](../editor/GDSCRIPT_CONVENTIONS.md) | Style for the editor's GDScript |
+| [runtime/README.md](../runtime/README.md) | The runtime: the hardware model and renderer that will run the games on a PC, building it |
+| [runtime/docs/DESIGN.md](../runtime/docs/DESIGN.md) | What the runtime is to be, the routes considered, milestones and open decisions |
+| [runtime/docs/RAC1_PAL_SURVEY.md](../runtime/docs/RAC1_PAL_SURVEY.md) | Ratchet & Clank's frame loop, display list, microprograms, menu path, disc, memory card and library surface, from the decompilation |
+| [runtime/docs/VU_PROGRAMS.md](../runtime/docs/VU_PROGRAMS.md) | The games' vector unit programs by name: where the executables list them, which ones the games share, what follows for the renderer |
+| [runtime/docs/OPENGOAL_NOTES.md](../runtime/docs/OPENGOAL_NOTES.md) | How OpenGOAL's renderer and platform layer work, and what carries over |
 | [launcher/README.md](../launcher/README.md) | The desktop launcher: developing it, and [connecting a game](../launcher/docs/INTEGRATION.md) to it |
 | [LICENSE.md](../LICENSE.md), [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md), [CREDITS.md](../CREDITS.md) | Licensing by directory, third-party work, the people behind each project |
 

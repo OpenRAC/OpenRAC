@@ -292,6 +292,12 @@ The RAC1 and RAC2 docs name the same four geometry kinds: terrain fragments
   RAC1 PAL's retail strings name `MB_CheckCollPill` (used by `func_00214550`)
   and `Camera_CollPrimTest` ([config/strings.tsv](../../games/rac1/pal/config/strings.tsv)).
 
+How a frame reaches the hardware in RAC1 PAL (the display list as a VIF1 DMA
+chain, the passes of the world renderer in order, which program each draw
+path uploads, every function that touches a hardware register) is in
+[runtime/docs/RAC1_PAL_SURVEY.md](../../runtime/docs/RAC1_PAL_SURVEY.md),
+sections 1 to 4, with a comparison across the sequels in its section 10.
+
 ### VU microprograms
 
 - **RAC2, retail.** `.DVP.ovlytab` has 50 records `{name offset, EE address,

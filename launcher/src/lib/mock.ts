@@ -89,9 +89,10 @@ const platform: Platform = "linux";
 let config: Config = {
   root: "/home/you/OpenRAC",
   python: "/usr/bin/python3",
-  pcsx2: null,
   godot: null,
   docker: "/usr/bin/docker",
+  // ?developer shows the contributor's pages.
+  developer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("developer"),
   // ?setup opens the first-run screen.
   setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup"),
   lastVersion: null,
@@ -150,7 +151,6 @@ function view(action: RawAction, st: VersionStatus | null): ActionView {
         inputs: !st?.inputsReady,
         toolchains: !toolchains,
         python: !config.python,
-        pcsx2: !config.pcsx2,
         godot: !config.godot,
         docker: !config.docker,
         artifact: true,
@@ -160,7 +160,6 @@ function view(action: RawAction, st: VersionStatus | null): ActionView {
         inputs: "the inputs Place inputs puts in the game",
         toolchains: "the compilers in toolchains/",
         python: "Python (Settings)",
-        pcsx2: "PCSX2 (Settings)",
         godot: "Godot (Settings)",
         docker: "Docker",
         artifact: `${action.artifact ?? "its artifact"}, which an earlier step makes`,
@@ -329,11 +328,15 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "save_config":
       config = { ...(args.config as Config) };
       return delay({ ...config });
+    case "add_disc": {
+      const key = args.key as string;
+      discs[key] = "found";
+      return delay(`/home/you/OpenRAC/baserom/${key.replace("/", "-")}.iso`);
+    }
     case "detect":
       return delay<Detected>({
         roots: [{ path: "/home/you/OpenRAC", source: "next to the launcher" }],
         pythons: [{ path: "/usr/bin/python3", source: "PATH" }],
-        pcsx2s: [],
         godots: [],
         dockers: [{ path: "/usr/bin/docker", source: "PATH" }],
       });

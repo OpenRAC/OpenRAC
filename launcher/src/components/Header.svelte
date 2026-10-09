@@ -5,11 +5,12 @@
   import { app, jobs, pendingJobs, runningJob, type Page } from "$lib/app.svelte";
   import { DISCORD_URL, SITE_URL } from "$lib/links";
 
-  const tabs: { page: Page; label: string }[] = [
+  // A player's launcher has no "tasks": what it ran is under Activity.
+  const tabs = $derived<{ page: Page; label: string }[]>([
     { page: "library", label: "Games" },
-    { page: "tasks", label: "Tasks" },
+    { page: "tasks", label: app.config?.developer ? "Tasks" : "Activity" },
     { page: "settings", label: "Settings" },
-  ];
+  ]);
 
   const running = $derived(runningJob());
   const pending = $derived(pendingJobs());
