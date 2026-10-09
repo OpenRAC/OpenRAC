@@ -20,13 +20,13 @@
 
 #pragma once
 
-#include "assets/bytes.h"
-#include "assets/geometry/mesh.h"
-#include "assets/geometry/texture.h"
-
 #include <array>
 #include <string>
 #include <vector>
+
+#include "assets/bytes.h"
+#include "assets/geometry/mesh.h"
+#include "assets/geometry/texture.h"
 
 namespace openrac::assets::rac1 {
 
@@ -36,17 +36,18 @@ struct SkyHeader {
     // 0x04: the frame-clear gate; the loader overwrites it with 1, so the disc
     // value is dead.
     s16 clear_screen = 0;
-    s16 shell_count = 0;            // 0x06: 0..8, drawn in order
-    s16 sprite_count = 0;           // 0x08: run time
-    s16 maximum_sprite_count = 0;   // 0x0a: sprite slots (0x20 bytes each)
-    s16 texture_count = 0;          // 0x0c
-    s16 fx_count = 0;               // 0x0e: bytes at fx_list
-    s32 texture_defs = 0;           // 0x10: SkyTextureDef array
-    s32 texture_data = 0;           // 0x14: base of the palettes and pixels
-    s32 fx_list = 0;                // 0x18: fx_count texture indices
-    s32 sprites = 0;                // 0x1c
-    std::array<s32, 8> shells{};    // 0x20: shell header offsets
+    s16 shell_count = 0;           // 0x06: 0..8, drawn in order
+    s16 sprite_count = 0;          // 0x08: run time
+    s16 maximum_sprite_count = 0;  // 0x0a: sprite slots (0x20 bytes each)
+    s16 texture_count = 0;         // 0x0c
+    s16 fx_count = 0;              // 0x0e: bytes at fx_list
+    s32 texture_defs = 0;          // 0x10: SkyTextureDef array
+    s32 texture_data = 0;          // 0x14: base of the palettes and pixels
+    s32 fx_list = 0;               // 0x18: fx_count texture indices
+    s32 sprites = 0;               // 0x1c
+    std::array<s32, 8> shells{};   // 0x20: shell header offsets
 };
+
 static_assert(sizeof(SkyHeader) == 0x40);
 
 // A texture definition as the disc stores it (0x10 bytes).
@@ -56,6 +57,7 @@ struct SkyTextureDef {
     s32 width = 0;           // a power of two
     s32 height = 0;
 };
+
 static_assert(sizeof(SkyTextureDef) == 0x10);
 
 // A cluster header (0x20 bytes).
@@ -69,6 +71,7 @@ struct SkyClusterHeader {
     s16 tri_offset = 0;     // the face array within data
     s16 data_size = 0;      // bytes the game DMAs; every array lies inside it
 };
+
 static_assert(sizeof(SkyClusterHeader) == 0x20);
 
 // A vertex (8 bytes); the game uses only its direction (the sky is drawn
@@ -81,6 +84,7 @@ struct SkyVertex {
 
     bool operator==(const SkyVertex&) const = default;
 };
+
 static_assert(sizeof(SkyVertex) == 8);
 
 // The per-vertex attribute word: ST for textured shells, RGBA for gouraud ones.
@@ -89,7 +93,9 @@ struct SkyVertexAttr {
 
     // (s, t) as the game reads them: zero-extended u16 (pextlh with zero), 4.12.
     std::array<u16, 2> st_raw() const {
-        return {static_cast<u16>(bytes[0] | bytes[1] << 8), static_cast<u16>(bytes[2] | bytes[3] << 8)};
+        return {
+            static_cast<u16>(bytes[0] | bytes[1] << 8), static_cast<u16>(bytes[2] | bytes[3] << 8)
+        };
     }
 
     std::array<f32, 2> st() const {
@@ -99,6 +105,7 @@ struct SkyVertexAttr {
 
     std::array<u8, 4> rgba() const { return bytes; }
 };
+
 static_assert(sizeof(SkyVertexAttr) == 4);
 
 // A face: cluster-local vertex indices and a texture definition index (0xff
@@ -107,6 +114,7 @@ struct SkyFace {
     std::array<u8, 3> indices{};
     u8 texture = 0;
 };
+
 static_assert(sizeof(SkyFace) == 4);
 
 struct SkyCluster {

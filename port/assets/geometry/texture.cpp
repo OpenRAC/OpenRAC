@@ -8,16 +8,20 @@
 
 #include "assets/geometry/texture.h"
 
-#include "assets/geometry/gs_adgif.h"
-
 #include <algorithm>
 #include <format>
 
+#include "assets/geometry/gs_adgif.h"
+
 namespace openrac::assets {
 
-u32 clut_index(u32 i) { return ((i >> 3) & 1) != ((i >> 4) & 1) ? i ^ 0x18 : i; }
+u32 clut_index(u32 i) {
+    return ((i >> 3) & 1) != ((i >> 4) & 1) ? i ^ 0x18 : i;
+}
 
-u8 scale_alpha(u8 a) { return a < 0x80 ? static_cast<u8>(a * 2) : u8{0xff}; }
+u8 scale_alpha(u8 a) {
+    return a < 0x80 ? static_cast<u8>(a * 2) : u8{0xff};
+}
 
 RgbaImage decode_indexed8(ByteView indices, u32 width, u32 height, ByteView clut) {
     const std::size_t n = std::size_t{width} * height;
@@ -63,10 +67,17 @@ std::string_view texture_table_name(TextureTable table) {
 
 std::string LevelTexture::key() const {
     if (billboard) {
-        return std::format("billboard/{:04}_{}x{}", billboard_class, billboard->width, billboard->height);
+        return std::format(
+            "billboard/{:04}_{}x{}", billboard_class, billboard->width, billboard->height
+        );
     }
     return std::format(
-        "{}/{:03}_{}x{}_t{}", texture_table_name(table), index, entry.width, entry.height, entry.levels
+        "{}/{:03}_{}x{}_t{}",
+        texture_table_name(table),
+        index,
+        entry.width,
+        entry.height,
+        entry.levels
     );
 }
 
@@ -76,7 +87,9 @@ bool has_pixels(const CoreTextureEntry& e) {
     return e.width > 0 && e.height > 0 && e.data_offset >= 0 && e.palette >= 0;
 }
 
-std::size_t block(s16 b) { return static_cast<std::size_t>(b) * 0x100; }
+std::size_t block(s16 b) {
+    return static_cast<std::size_t>(b) * 0x100;
+}
 
 }  // namespace
 
@@ -89,7 +102,8 @@ IndexedImage entry_image(ByteView textures_block, ByteView gs_ram, const CoreTex
     return {
         w,
         h,
-        textures_block.sub(static_cast<std::size_t>(e.data_offset), std::size_t{w} * h, "texture pixels"),
+        textures_block
+            .sub(static_cast<std::size_t>(e.data_offset), std::size_t{w} * h, "texture pixels"),
         gs_ram.sub(block(e.palette), 1024, "texture palette"),
     };
 }
@@ -256,8 +270,8 @@ u64 loaded_clamp(s32 lo, s32 hi, s32 texture_index) {
 u64 loaded_miptbp1(const CoreTextureEntry& t, u32 gs_base) {
     const s64 base = static_cast<s32>(gs_base) >> 8;
     const s64 tbw1 = std::max(s32{t.width} >> 7, 1);
-    const s64 v = tbw1 << 14 | (t.mip2_block + base) << 20 | (t.mip3_block + base) << 40 | s64{1} << 34
-                  | s64{1} << 54;
+    const s64 v = tbw1 << 14 | (t.mip2_block + base) << 20 | (t.mip3_block + base) << 40
+                  | s64{1} << 34 | s64{1} << 54;
     return static_cast<u64>(v);
 }
 

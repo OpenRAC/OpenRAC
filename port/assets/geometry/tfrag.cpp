@@ -9,12 +9,12 @@
 
 #include "assets/geometry/tfrag.h"
 
-#include "assets/geometry/texture.h"
-#include "assets/geometry/vif.h"
-
 #include <algorithm>
 #include <bit>
 #include <cstring>
+
+#include "assets/geometry/texture.h"
+#include "assets/geometry/vif.h"
 
 namespace openrac::assets::rac1 {
 
@@ -24,18 +24,28 @@ std::array<f32, 3> TfragBlockHeader::lod_distances() const {
 
 std::array<s32, 3> TfragBlockHeader::lod_thresholds_raw() const {
     const auto d = lod_distances();
-    return {static_cast<s32>(d[0] * 1024.0f), static_cast<s32>(d[1] * 1024.0f), static_cast<s32>(d[2] * 1024.0f)};
+    return {
+        static_cast<s32>(d[0] * 1024.0f),
+        static_cast<s32>(d[1] * 1024.0f),
+        static_cast<s32>(d[2] * 1024.0f)
+    };
 }
 
-GsWrap TfragAdGifs::wrap_s() const { return gs_wrap(loaded_clamp(clamp.data_lo, clamp.data_hi, tex0.data_lo)); }
+GsWrap TfragAdGifs::wrap_s() const {
+    return gs_wrap(loaded_clamp(clamp.data_lo, clamp.data_hi, tex0.data_lo));
+}
 
 GsWrap TfragAdGifs::wrap_t() const {
     return gs_wrap(loaded_clamp(clamp.data_lo, clamp.data_hi, tex0.data_lo) >> 2);
 }
 
-GsFilter TfragAdGifs::mag_filter() const { return gs_filter(loaded_tex1(1, tex1.data_lo, tex1.data_hi) >> 5 & 1); }
+GsFilter TfragAdGifs::mag_filter() const {
+    return gs_filter(loaded_tex1(1, tex1.data_lo, tex1.data_hi) >> 5 & 1);
+}
 
-GsFilter TfragAdGifs::min_filter() const { return gs_filter(loaded_tex1(1, tex1.data_lo, tex1.data_hi) >> 6); }
+GsFilter TfragAdGifs::min_filter() const {
+    return gs_filter(loaded_tex1(1, tex1.data_lo, tex1.data_hi) >> 6);
+}
 
 u32 TfragAdGifs::mip_levels(const CoreTextureEntry& texture) const {
     return static_cast<u32>((loaded_tex1(texture.levels, tex1.data_lo, tex1.data_hi) >> 2 & 7) + 1);
@@ -103,7 +113,9 @@ namespace {
 
 // A VU qword offset (s16) as a position index; a negative one wraps far out
 // of range, as the reference export's unsigned arithmetic does.
-std::size_t position_of(s16 offset) { return static_cast<std::size_t>(static_cast<s64>(offset)) / 2; }
+std::size_t position_of(s16 offset) {
+    return static_cast<std::size_t>(static_cast<s64>(offset)) / 2;
+}
 
 }  // namespace
 
@@ -115,7 +127,8 @@ std::size_t Tfrag::position_index(std::size_t vinfo) const {
 std::array<f32, 3> Tfrag::world_position(std::size_t vinfo) const {
     const TfragPosition& p = positions.at(position_index(vinfo));
     auto axis = [](s32 o, s16 v) {
-        return static_cast<f32>(static_cast<s32>(static_cast<u32>(o) + static_cast<u32>(s32{v}))) / 1024.0f;
+        return static_cast<f32>(static_cast<s32>(static_cast<u32>(o) + static_cast<u32>(s32{v})))
+               / 1024.0f;
     };
     return {axis(origin[0], p.x), axis(origin[1], p.y), axis(origin[2], p.z)};
 }
@@ -125,7 +138,10 @@ std::vector<TfragTextureSphere> Tfrag::texture_spheres() const {
     for (const auto& s : mspheres) {
         const u32 w = std::bit_cast<u32>(s[3]);
         out.push_back(
-            {{s[0], s[1], s[2]}, static_cast<u16>(w), static_cast<u8>(w >> 16), static_cast<u8>(w >> 24)}
+            {{s[0], s[1], s[2]},
+             static_cast<u16>(w),
+             static_cast<u8>(w >> 16),
+             static_cast<u8>(w >> 24)}
         );
     }
     return out;
@@ -250,7 +266,8 @@ public:
                 const auto row = code.data.read<std::array<s32, 4>>(0, "STROW row");
                 // The origin row precedes every position unpack; the other
                 // rows are the index and vertex-info bases.
-                if (row[0] != kUvBiasRow && static_cast<u32>(row[0]) != t.vu.vertex_info_common_addr) {
+                if (row[0] != kUvBiasRow
+                    && static_cast<u32>(row[0]) != t.vu.vertex_info_common_addr) {
                     t.origin = row;
                     m_have_origin = true;
                 }
@@ -273,7 +290,9 @@ public:
                 if (a == vu.positions_common_addr) {
                     t.positions_common = n;
                 } else if (n != 0 && t.positions_lod01 == 0 && t.positions_lod0 == 0
-                           && a == static_cast<u32>(vu.positions_common_addr) + 2u * t.positions_common) {
+                           && a
+                                  == static_cast<u32>(vu.positions_common_addr)
+                                         + 2u * t.positions_common) {
                     t.positions_lod01 = n;
                 } else {
                     t.positions_lod0 = n;
@@ -290,7 +309,9 @@ public:
                 }
                 t.vertex_info.insert(t.vertex_info.end(), vi.begin(), vi.end());
             } else if (vn == 3 && vl == 2) {
-                auto bytes = [&] { return code.data.sub(0, std::size_t{n} * 4, "V4_8 unpack").to_vector(); };
+                auto bytes = [&] {
+                    return code.data.sub(0, std::size_t{n} * 4, "V4_8 unpack").to_vector();
+                };
                 // An empty region shares its VU address with the next one (with
                 // no LOD-01 extras, unk_indices_2_lod_01_addr equals
                 // parent_indices_lod_0_addr in most tfrags), so a region only
@@ -339,7 +360,9 @@ TfragBlockHeader parse_tfrag_block_header(ByteView block) {
 std::vector<Tfrag> parse_tfrags(ByteView block) {
     const TfragBlockHeader bh = parse_tfrag_block_header(block);
     if (bh.tfrag_count < 0 || bh.tfrag_count > 100'000 || bh.table_offset < 0x10) {
-        fail("tfrag block: implausible header ({} tfrags at {:#x})", bh.tfrag_count, bh.table_offset);
+        fail(
+            "tfrag block: implausible header ({} tfrags at {:#x})", bh.tfrag_count, bh.table_offset
+        );
     }
     std::vector<Tfrag> out;
     out.reserve(static_cast<std::size_t>(bh.tfrag_count));
@@ -376,13 +399,18 @@ std::vector<Tfrag> parse_tfrags(ByteView block) {
         const bool have_origin = walk.have_origin();
         Tfrag t = std::move(walk.tfrag());
 
-        t.rgba = block.read_array<TfragRgba>(base + h.rgba_ofs, std::size_t{h.rgba_size} * 4, "tfrag rgba");
+        t.rgba = block.read_array<TfragRgba>(
+            base + h.rgba_ofs, std::size_t{h.rgba_size} * 4, "tfrag rgba"
+        );
         const auto origin = block.read<std::array<s32, 4>>(base + h.light_ofs, "tfrag origin");
         if (!have_origin) {
             t.origin = origin;
         }
-        t.lights = block.read_array<TfragLight>(base + h.light_ofs + 0x10, h.vert_count, "tfrag lights");
-        t.mspheres = block.read_array<std::array<f32, 4>>(base + h.msphere_ofs, h.msphere_count, "tfrag spheres");
+        t.lights =
+            block.read_array<TfragLight>(base + h.light_ofs + 0x10, h.vert_count, "tfrag lights");
+        t.mspheres = block.read_array<std::array<f32, 4>>(
+            base + h.msphere_ofs, h.msphere_count, "tfrag spheres"
+        );
         t.cube = block.read<std::array<std::array<s16, 4>, 8>>(base + h.cube_ofs, "tfrag cube");
         out.push_back(std::move(t));
     }
@@ -421,7 +449,9 @@ std::vector<TfragTriangle> tfrag_triangles(const Tfrag& t, int lod) {
             const u16 a = l.indices[cursor + i - 2];
             const u16 b = l.indices[cursor + i - 1];
             const u16 c = l.indices[cursor + i];
-            tris.push_back((i & 1) != 0 ? TfragTriangle{b, a, c, ad_gif} : TfragTriangle{a, b, c, ad_gif});
+            tris.push_back(
+                (i & 1) != 0 ? TfragTriangle{b, a, c, ad_gif} : TfragTriangle{a, b, c, ad_gif}
+            );
         }
         cursor += count;
     }

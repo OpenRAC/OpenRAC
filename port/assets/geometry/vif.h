@@ -12,10 +12,10 @@
 
 #pragma once
 
-#include "assets/bytes.h"
-
 #include <cstddef>
 #include <vector>
+
+#include "assets/bytes.h"
 
 namespace openrac::assets::vif {
 
@@ -43,11 +43,11 @@ constexpr u8 kDirecthl = 0x51;
 
 // One code with its payload.
 struct Code {
-    u8 cmd = 0;      // bits 30..24; the interrupt bit 31 is dropped
-    u8 num = 0;      // bits 23..16 (0 means 256 for unpacks)
-    u16 imm = 0;     // bits 15..0
+    u8 cmd = 0;              // bits 30..24; the interrupt bit 31 is dropped
+    u8 num = 0;              // bits 23..16 (0 means 256 for unpacks)
+    u16 imm = 0;             // bits 15..0
     std::size_t offset = 0;  // byte offset of the code word in the list
-    ByteView data;   // inline payload
+    ByteView data;           // inline payload
 
     bool is_unpack() const { return (cmd & 0x60) == 0x60; }
 

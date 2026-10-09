@@ -45,6 +45,10 @@ and notes:
   compression, level data, overlays, scenes, saves, messages, volumes, the
   front end), converted to C++ from `crates/rc-formats` and its specs in
   `docs/formats`; each file names its source.
+- `port/assets/geometry/`: the readers of what the renderer draws (textures,
+  terrain, ties, shrubs, the sky, moby classes and animation, collision and
+  shadow blocks, gadgets) and the lighting passes, converted to C++ from
+  `crates/rc-formats` and its specs; their tests from ReRAC's unit tests.
 - `port/extract/`: `openrac-extractor`'s JSON-lines output, crash-safe writes,
   free-space check and decompile step, after `crates/rc-extract`.
 

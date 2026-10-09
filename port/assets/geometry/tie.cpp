@@ -9,9 +9,9 @@
 
 #include "assets/geometry/tie.h"
 
-#include "assets/geometry/lighting.h"
-
 #include <algorithm>
+
+#include "assets/geometry/lighting.h"
 
 namespace openrac::assets::rac1 {
 
@@ -247,10 +247,14 @@ TiePacket read_packet(ByteView blob, std::size_t lod_table, const TiePacketHeade
     const std::size_t color_bytes = std::size_t{ph.color_count} * 4;
     const std::size_t color_qw = (std::size_t{ph.color_count} + 3) / 4;
     pk.colors = blob.sub(color_start, color_bytes, "tie colour indices").to_vector();
-    pk.colors_b = blob.sub(color_start + color_qw * 0x10, color_bytes, "tie colour indices B").to_vector();
-    pk.slot_table =
-        blob.sub(base + std::size_t{ph.slot_table_ofs} * 0x10, std::size_t{ph.slot_table_size} * 0x10, "tie slot table")
-            .to_vector();
+    pk.colors_b =
+        blob.sub(color_start + color_qw * 0x10, color_bytes, "tie colour indices B").to_vector();
+    pk.slot_table = blob.sub(
+                            base + std::size_t{ph.slot_table_ofs} * 0x10,
+                            std::size_t{ph.slot_table_size} * 0x10,
+                            "tie slot table"
+    )
+                        .to_vector();
     resolve_tie_vertices(pk);
     walk_gs_packet(pk);
     return pk;
@@ -281,7 +285,8 @@ TieClass parse_tie_class(ByteView blob) {
             fail("tie class: LOD {} has packets but no packet table", l);
         }
         const auto table = static_cast<std::size_t>(h.packets[l]);
-        for (const TiePacketHeader& ph : blob.read_array<TiePacketHeader>(table, h.packet_count[l], "tie packets")) {
+        for (const TiePacketHeader& ph :
+             blob.read_array<TiePacketHeader>(table, h.packet_count[l], "tie packets")) {
             tc.lods[l].push_back(read_packet(blob, table, ph));
         }
     }
@@ -299,7 +304,9 @@ std::vector<TieTriangle> tie_triangles(const TiePacket& p) {
             const u16 a = d.vertices[i - 2];
             const u16 b = d.vertices[i - 1];
             const u16 c = d.vertices[i];
-            out.push_back(i % 2 == parity ? TieTriangle{a, b, c, d.ad_gif} : TieTriangle{c, b, a, d.ad_gif});
+            out.push_back(
+                i % 2 == parity ? TieTriangle{a, b, c, d.ad_gif} : TieTriangle{c, b, a, d.ad_gif}
+            );
         }
     }
     return out;
@@ -326,14 +333,19 @@ Mesh tie_mesh(const TieClass& tie, int lod) {
     return mesh;
 }
 
-std::vector<LevelTieClass> parse_level_tie_classes(std::span<const CoreClassEntry> table, ByteView core_data) {
+std::vector<LevelTieClass> parse_level_tie_classes(
+    std::span<const CoreClassEntry> table, ByteView core_data
+) {
     std::vector<LevelTieClass> out;
     for (const CoreClassEntry& e : table) {
         if (e.offset <= 0) {
             continue;
         }
         try {
-            out.push_back({e, parse_tie_class(core_data.tail(static_cast<std::size_t>(e.offset), "tie class"))});
+            out.push_back(
+                {e, parse_tie_class(core_data.tail(static_cast<std::size_t>(e.offset), "tie class"))
+                }
+            );
         } catch (const AssetError& error) {
             fail("tie class {}: {}", e.o_class, error.what());
         }
@@ -355,7 +367,9 @@ std::array<f32, 3> TieInstance::transform_point(const std::array<f32, 3>& p) con
     return out;
 }
 
-std::array<u8, 4> TieInstance::ambient_rgba(u8 slot) const { return pext5(ambient_rgbas[slot & 63]); }
+std::array<u8, 4> TieInstance::ambient_rgba(u8 slot) const {
+    return pext5(ambient_rgbas[slot & 63]);
+}
 
 std::vector<TieInstance> parse_tie_instance_section(ByteView section) {
     const s32 count = section.s32_at(0);

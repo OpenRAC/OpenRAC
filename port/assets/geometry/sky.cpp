@@ -54,13 +54,16 @@ Mesh sky_shell_mesh(const SkyShell& shell) {
             for (std::size_t k = 0; k < 3; ++k) {
                 const SkyGsVertex& g = stream[i + k];
                 MeshVertex v;
-                v.position = {g.position[0] / 1024.0f, g.position[1] / 1024.0f, g.position[2] / 1024.0f};
+                v.position =
+                    {g.position[0] / 1024.0f, g.position[1] / 1024.0f, g.position[2] / 1024.0f};
                 v.uv = g.st;
                 v.rgba = g.rgba;
                 mesh.vertices.push_back(v);
             }
             const u8 texture = stream[i].texture;
-            mesh.triangles.push_back({{base, base + 1, base + 2}, texture == 0xff ? -1 : s32{texture}});
+            mesh.triangles.push_back(
+                {{base, base + 1, base + 2}, texture == 0xff ? -1 : s32{texture}}
+            );
         }
     }
     return mesh;
@@ -74,13 +77,18 @@ Sky parse_sky(ByteView b) {
         fail("sky: shell count {} out of range", h.shell_count);
     }
     if (h.fx_count > 0 && h.fx_list > 0) {
-        sky.fx_list =
-            b.sub(static_cast<std::size_t>(h.fx_list), static_cast<std::size_t>(h.fx_count), "sky fx list")
-                .to_vector();
+        sky.fx_list = b.sub(
+                           static_cast<std::size_t>(h.fx_list),
+                           static_cast<std::size_t>(h.fx_count),
+                           "sky fx list"
+        )
+                          .to_vector();
     }
     if (h.texture_count > 0 && h.texture_defs > 0) {
         sky.texture_defs = b.read_array<SkyTextureDef>(
-            static_cast<std::size_t>(h.texture_defs), static_cast<std::size_t>(h.texture_count), "sky texture defs"
+            static_cast<std::size_t>(h.texture_defs),
+            static_cast<std::size_t>(h.texture_count),
+            "sky texture defs"
         );
     }
     for (std::size_t s = 0; s < static_cast<std::size_t>(h.shell_count); ++s) {
@@ -99,25 +107,33 @@ Sky parse_sky(ByteView b) {
             // array must lie inside them.
             auto within = [&](s16 o, std::size_t length) {
                 return o >= 0 && ch.data_size >= 0
-                       && static_cast<std::size_t>(o) + length <= static_cast<std::size_t>(ch.data_size);
+                       && static_cast<std::size_t>(o) + length
+                              <= static_cast<std::size_t>(ch.data_size);
             };
             const s16 vc = ch.vertex_count;
             const s16 tc = ch.tri_count;
             if (ch.data < 0 || vc < 0 || tc < 0 || !within(ch.vertex_offset, std::size_t(vc) * 8)
-                || !within(ch.st_offset, std::size_t(vc) * 4) || !within(ch.tri_offset, std::size_t(tc) * 4)) {
+                || !within(ch.st_offset, std::size_t(vc) * 4)
+                || !within(ch.tri_offset, std::size_t(tc) * 4)) {
                 fail("sky cluster arrays outside data_size");
             }
             const auto d = static_cast<std::size_t>(ch.data);
             SkyCluster cluster;
             cluster.header = ch;
             cluster.vertices = b.read_array<SkyVertex>(
-                d + static_cast<std::size_t>(ch.vertex_offset), static_cast<std::size_t>(vc), "sky vertices"
+                d + static_cast<std::size_t>(ch.vertex_offset),
+                static_cast<std::size_t>(vc),
+                "sky vertices"
             );
             cluster.attrs = b.read_array<SkyVertexAttr>(
-                d + static_cast<std::size_t>(ch.st_offset), static_cast<std::size_t>(vc), "sky attributes"
+                d + static_cast<std::size_t>(ch.st_offset),
+                static_cast<std::size_t>(vc),
+                "sky attributes"
             );
             cluster.faces = b.read_array<SkyFace>(
-                d + static_cast<std::size_t>(ch.tri_offset), static_cast<std::size_t>(tc), "sky faces"
+                d + static_cast<std::size_t>(ch.tri_offset),
+                static_cast<std::size_t>(tc),
+                "sky faces"
             );
             for (const SkyFace& f : cluster.faces) {
                 for (const u8 i : f.indices) {
@@ -136,7 +152,9 @@ Sky parse_sky(ByteView b) {
     return sky;
 }
 
-std::string SkyTexture::key() const { return std::format("sky/{:02}_{}x{}", index, def.width, def.height); }
+std::string SkyTexture::key() const {
+    return std::format("sky/{:02}_{}x{}", index, def.width, def.height);
+}
 
 IndexedImage sky_texture_image(ByteView block, const Sky& sky, std::size_t index) {
     if (index >= sky.texture_defs.size()) {
@@ -152,7 +170,9 @@ IndexedImage sky_texture_image(ByteView block, const Sky& sky, std::size_t index
     return {
         w,
         h,
-        block.sub(base + offset_of(t.texture_offset, "texture"), std::size_t{w} * h, "sky texture pixels"),
+        block.sub(
+            base + offset_of(t.texture_offset, "texture"), std::size_t{w} * h, "sky texture pixels"
+        ),
         block.sub(base + offset_of(t.palette_offset, "palette"), 1024, "sky palette"),
     };
 }

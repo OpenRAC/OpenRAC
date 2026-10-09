@@ -53,14 +53,18 @@ std::array<f32, 4> shrub_instance_centre(const ShrubClass& shrub, const ShrubIns
     const V4 b = ps2::bits(shrub.header.bsphere);
     V4 c{};
     for (std::size_t k = 0; k < 3; ++k) {
-        c[k] = ps2::add(ps2::add(ps2::mul(m[0][k], b[0]), ps2::mul(m[1][k], b[1])), ps2::mul(m[2][k], b[2]));
+        c[k] = ps2::add(
+            ps2::add(ps2::mul(m[0][k], b[0]), ps2::mul(m[1][k], b[1])), ps2::mul(m[2][k], b[2])
+        );
     }
     const auto lengths = shrub_column_lengths(inst);
     const f32 longest =
         std::max({ps2::to_float(lengths[0]), ps2::to_float(lengths[1]), ps2::to_float(lengths[2])});
     c[3] = ps2::mul(b[3], ps2::bits(longest));
     c = ps2::scale(c, ps2::bits(shrub.header.scale));
-    return ps2::to_floats({ps2::add(c[0], m[3][0]), ps2::add(c[1], m[3][1]), ps2::add(c[2], m[3][2]), c[3]});
+    return ps2::to_floats(
+        {ps2::add(c[0], m[3][0]), ps2::add(c[1], m[3][1]), ps2::add(c[2], m[3][2]), c[3]}
+    );
 }
 
 ShrubLightRegs shrub_light_regs(
@@ -71,7 +75,9 @@ ShrubLightRegs shrub_light_regs(
 ) {
     // Run-time record +0x1c = the low half of dir_lights.
     const auto select = static_cast<u16>(inst.dir_lights);
-    auto set = [&](u32 i) -> const DirLightSet& { return bank.sets[i & 0xf]; };
+    auto set = [&](u32 i) -> const DirLightSet& {
+        return bank.sets[i & 0xf];
+    };
     V4 ca, da, cb, db;
     if ((select & 0xff00) == 0) {
         // lqc2 of the set's four quadwords: no renormalisation.
@@ -114,7 +120,9 @@ ShrubLightRegs shrub_light_regs(
 
     MergedPointLight point;
     if (points && points->bank != nullptr) {
-        point = merge_point_lights(ps2::bits(shrub_instance_centre(shrub, inst)), *points->bank, points->list);
+        point = merge_point_lights(
+            ps2::bits(shrub_instance_centre(shrub, inst)), *points->bank, points->list
+        );
     }
     V4 dp = point.direction;
     V4 cp = point.color;
@@ -127,8 +135,12 @@ ShrubLightRegs shrub_light_regs(
     auto class_space = [&](const V4& d) {
         V4 l{};
         for (std::size_t c = 0; c < 3; ++c) {
-            auto neg = [&](std::size_t k) { return ps2::sub(0, n[c][k]); };
-            l[c] = ps2::add(ps2::add(ps2::mul(neg(0), d[0]), ps2::mul(neg(1), d[1])), ps2::mul(neg(2), d[2]));
+            auto neg = [&](std::size_t k) {
+                return ps2::sub(0, n[c][k]);
+            };
+            l[c] = ps2::add(
+                ps2::add(ps2::mul(neg(0), d[0]), ps2::mul(neg(1), d[1])), ps2::mul(neg(2), d[2])
+            );
         }
         return l;
     };
@@ -145,7 +157,10 @@ ShrubLightRegs shrub_light_regs(
     // lw col0.w; pextlb; pextlh; padduw 0x47800000.
     const u32 word = shrub_packed_ambient(inst);
     regs.ambient = color_floats(
-        {static_cast<u8>(word), static_cast<u8>(word >> 8), static_cast<u8>(word >> 16), static_cast<u8>(word >> 24)}
+        {static_cast<u8>(word),
+         static_cast<u8>(word >> 8),
+         static_cast<u8>(word >> 16),
+         static_cast<u8>(word >> 24)}
     );
     return regs;
 }
@@ -163,7 +178,8 @@ ShrubPalette light_shrub_instance(
     const ShrubLightRegs regs = shrub_light_regs(shrub, inst, bank, points);
     ShrubPalette out{};
     for (std::size_t j = 0; j < kShrubNormals; ++j) {
-        const std::array<s16, 4> n = j < shrub.normals.size() ? shrub.normals[j] : std::array<s16, 4>{};
+        const std::array<s16, 4> n =
+            j < shrub.normals.size() ? shrub.normals[j] : std::array<s16, 4>{};
         out[j] = light_shrub_normal(regs, n);
     }
     return out;
@@ -188,7 +204,9 @@ u16 shrub_vu1_palette_base(u16 buffer, std::size_t k) {
     return static_cast<u16>(buffer + 5 + kShrubVu1SlotQwc * k);
 }
 
-u16 shrub_vu1_colour_address(std::size_t written_vertices, std::size_t vertex, u8 normal, u16 palette_base) {
+u16 shrub_vu1_colour_address(
+    std::size_t written_vertices, std::size_t vertex, u8 normal, u16 palette_base
+) {
     const u32 extra = written_vertices == 6 && vertex == 3 ? palette_base : 0u;
     return static_cast<u16>((u32{normal} + palette_base + extra) % kShrubVu1Qwc);
 }

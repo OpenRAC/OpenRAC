@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "assets/geometry/lighting.h"
-#include "assets/geometry/tfrag.h"
-
 #include <optional>
 #include <vector>
+
+#include "assets/geometry/lighting.h"
+#include "assets/geometry/tfrag.h"
 
 namespace openrac::assets::rac1 {
 
@@ -30,7 +30,9 @@ namespace openrac::assets::rac1 {
 ps2::V4 tfrag_stored_normal(const NormalTable& table, u8 azimuth, u8 elevation);
 
 // The directional pass for one vertex.
-std::array<u8, 4> light_tfrag_vertex(const LightBank& bank, const NormalTable& table, const TfragLight& light);
+std::array<u8, 4> light_tfrag_vertex(
+    const LightBank& bank, const NormalTable& table, const TfragLight& light
+);
 
 // The point lights of one tfrag: the slot bank, the header's nibble list
 // (+0x36; low nibble first, 0xf ends it, at most four) and the integer origin

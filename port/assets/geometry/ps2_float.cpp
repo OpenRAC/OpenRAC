@@ -17,9 +17,13 @@ namespace openrac::assets::ps2 {
 
 namespace {
 
-int exponent(u32 x) { return static_cast<int>((x >> 23) & 0xff); }
+int exponent(u32 x) {
+    return static_cast<int>((x >> 23) & 0xff);
+}
 
-u64 mantissa(u32 x) { return (x & 0x7f'ffff) | 0x80'0000; }
+u64 mantissa(u32 x) {
+    return (x & 0x7f'ffff) | 0x80'0000;
+}
 
 // Packs sign * mag * 2^lsb_exp (mag > 0; lsb_exp is the biased exponent of
 // mag's bit 23), truncating to 24 significant bits.
@@ -121,13 +125,18 @@ u32 itof12(s32 i) {
     if (i == 0) {
         return 0;
     }
-    const u64 magnitude = i < 0 ? u64{0} - static_cast<u64>(static_cast<s64>(i)) : static_cast<u64>(i);
+    const u64 magnitude =
+        i < 0 ? u64{0} - static_cast<u64>(static_cast<s64>(i)) : static_cast<u64>(i);
     return pack(i < 0 ? kSign : 0, magnitude, 127 + 23 - 12);
 }
 
-u32 max(u32 a, u32 b) { return order_key(b) > order_key(a) ? b : a; }
+u32 max(u32 a, u32 b) {
+    return order_key(b) > order_key(a) ? b : a;
+}
 
-u32 min(u32 a, u32 b) { return order_key(b) < order_key(a) ? b : a; }
+u32 min(u32 a, u32 b) {
+    return order_key(b) < order_key(a) ? b : a;
+}
 
 s32 ftoi(u32 x, int n) {
     const int e = exponent(x);

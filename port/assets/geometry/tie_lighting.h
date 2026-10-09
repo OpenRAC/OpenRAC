@@ -21,10 +21,10 @@
 
 #pragma once
 
+#include <optional>
+
 #include "assets/geometry/lighting.h"
 #include "assets/geometry/tie.h"
-
-#include <optional>
 
 namespace openrac::assets::rac1 {
 
@@ -57,7 +57,9 @@ InstanceLightRegs tie_light_regs(
 );
 
 // One slot: the normal and the RGBA5551 ambient.
-std::array<u8, 4> light_tie_slot(const InstanceLightRegs& regs, const std::array<s16, 4>& normal, u16 ambient);
+std::array<u8, 4> light_tie_slot(
+    const InstanceLightRegs& regs, const std::array<s16, 4>& normal, u16 ambient
+);
 
 // LightTies for one instance: the 64 lit colours by light slot (0x80 = 1.0,
 // RGB <= 243, alpha = the ambient's bit 15 as 0x80 or 0).

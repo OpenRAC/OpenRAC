@@ -15,14 +15,14 @@
 
 #pragma once
 
-#include "assets/bytes.h"
-#include "assets/geometry/core_records.h"
-
 #include <cstddef>
 #include <optional>
 #include <span>
 #include <string>
 #include <vector>
+
+#include "assets/bytes.h"
+#include "assets/geometry/core_records.h"
 
 namespace openrac::assets {
 

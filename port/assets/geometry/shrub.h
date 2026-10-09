@@ -28,16 +28,16 @@
 
 #pragma once
 
-#include "assets/bytes.h"
-#include "assets/geometry/core_records.h"
-#include "assets/geometry/gs_adgif.h"
-#include "assets/geometry/mesh.h"
-
 #include <array>
 #include <bit>
 #include <optional>
 #include <span>
 #include <vector>
+
+#include "assets/bytes.h"
+#include "assets/geometry/core_records.h"
+#include "assets/geometry/gs_adgif.h"
+#include "assets/geometry/mesh.h"
 
 namespace openrac::assets::rac1 {
 
@@ -62,13 +62,14 @@ struct ShrubClassHeader {
     s16 s_class = 0;               // 0x26
     s16 packet_count = 0;          // 0x28: the packet table at 0x40
     s16 pad_2a = 0;
-    s32 normals_offset = 0;        // 0x2c: 24 normals
+    s32 normals_offset = 0;  // 0x2c: 24 normals
     s32 pad_30 = 0;
-    s16 drawn_count = 0;           // 0x34..: run-time counters
+    s16 drawn_count = 0;  // 0x34..: run-time counters
     s16 scis_count = 0;
     s16 billboard_count = 0;
     std::array<s16, 3> pad_3a{};
 };
+
 static_assert(sizeof(ShrubClassHeader) == 0x40);
 
 // A packet table entry (8 bytes) at blob + 0x40.
@@ -78,6 +79,7 @@ struct ShrubPacketEntry {
 
     bool operator==(const ShrubPacketEntry&) const = default;
 };
+
 static_assert(sizeof(ShrubPacketEntry) == 8);
 
 // Input-buffer quadword 0.
@@ -87,6 +89,7 @@ struct ShrubPacketHeader {
     s32 vertex_count = 0;   // entries in each vertex table
     s32 vertex_offset = 0;  // input-buffer qw of part 1; part 2 follows vertex_count later
 };
+
 static_assert(sizeof(ShrubPacketHeader) == 0x10);
 
 // A vertex GIF tag: the GIFtag VU1 copies, and its GS slot in the fourth word.
@@ -108,6 +111,7 @@ struct ShrubGifTag {
 
     u8 nreg() const { return static_cast<u8>(tag >> 60); }
 };
+
 static_assert(sizeof(ShrubGifTag) == 0x10);
 
 // The four register values the class init writes over an ad-gif block.
@@ -137,13 +141,17 @@ struct ShrubAdGifs {
     f32 lod_k() const { return static_cast<f32>(lod_k_raw()) / 16.0f; }
 
     // CLAMP WMS / WMT: true = clamp, false = repeat.
-    std::pair<bool, bool> clamp_st() const { return {(clamp.data_lo & 1) != 0, (clamp.data_hi & 1) != 0}; }
+    std::pair<bool, bool> clamp_st() const {
+        return {(clamp.data_lo & 1) != 0, (clamp.data_hi & 1) != 0};
+    }
 
     // The class init's conversion (boot 0x203b08), bit for bit the tfrag
     // rule: `texture_index` is the class entry's textures[tex0.data_lo] (a
     // shrub texture table index), `texture` that entry.
-    ShrubGsRegisters gs_registers(u8 texture_index, const CoreTextureEntry& texture, u32 gs_base) const;
+    ShrubGsRegisters gs_registers(u8 texture_index, const CoreTextureEntry& texture, u32 gs_base)
+        const;
 };
+
 static_assert(sizeof(ShrubAdGifs) == 0x40);
 
 // Vertex part 1 and part 2 as VU1 sees them (V4_16 signed).
@@ -182,7 +190,7 @@ struct ShrubDraw {
     // The class texture slot in effect (tex0.data_lo of the last ad-gif block
     // the GIF read; GS state carries across packets).
     u8 texture = 0;
-    u8 prim = 0;  // 3 = list, 4 = strip (every disc draw)
+    u8 prim = 0;                // 3 = list, 4 = strip (every disc draw)
     std::vector<u16> vertices;  // into ShrubPacket::vertices
 
     bool operator==(const ShrubDraw&) const = default;
@@ -238,6 +246,7 @@ struct ShrubBillboard {
     // TBP1..3 = mip1..3 + base with TBW_k = max(1, width >> (6 + k)).
     ShrubBillboardRegisters gs_registers(const CoreBillboardInfo& info, u32 gs_base) const;
 };
+
 static_assert(sizeof(ShrubBillboard) == 0x40);
 
 struct ShrubClass {
@@ -284,7 +293,9 @@ std::vector<LevelShrubClass> parse_level_shrub_classes(
 u32 packed_column_lengths(const std::array<std::array<f32, 4>, 4>& matrix);
 
 // The billboard quad of one instance in world units: (width, height, z_ofs).
-std::array<f32, 3> billboard_extent(const ShrubBillboard& billboard, f32 class_scale, u32 packed_lengths);
+std::array<f32, 3> billboard_extent(
+    const ShrubBillboard& billboard, f32 class_scale, u32 packed_lengths
+);
 
 // The quad's corners in GS order (a 4-vertex strip), (y, z, s, t): positions
 // (0, y, z, 1) and ST (s, t, 1). Format constants of the game's drawing code.
@@ -299,7 +310,9 @@ constexpr std::array<std::array<f32, 4>, 4> kBillboardCorners = {{
 // unit(t - eye), corner = t + y * W * (d.y, -d.x, 0) + (z * H + Z) * z-hat. The
 // horizontal axis has length cos(elevation), so the quad narrows from above.
 std::array<std::array<f32, 3>, 4> billboard_corners(
-    const std::array<f32, 3>& origin, const std::array<f32, 3>& eye, const std::array<f32, 3>& extent
+    const std::array<f32, 3>& origin,
+    const std::array<f32, 3>& eye,
+    const std::array<f32, 3>& extent
 );
 
 // ShrubProc's mesh and billboard alphas (GS 0..0x80) for an instance that
@@ -332,11 +345,13 @@ s8 sway_table(u32 i);
 // (mode_bits & 6) >> 1, `block` = EE address of the instance's matrix block,
 // `tick` = the frame counter, `rel` = origin - camera (world units). Empty for
 // mode 0 or beyond the range.
-std::optional<std::array<f32, 2>> wind_sway(u16 mode, u32 block, u32 tick, const std::array<f32, 3>& rel);
+std::optional<std::array<f32, 2>> wind_sway(
+    u16 mode, u32 block, u32 tick, const std::array<f32, 3>& rel
+);
 
 // --- Instances
 
-constexpr std::size_t kGameplayShrubClasses = 0x38;    // s32 count, count x s32
+constexpr std::size_t kGameplayShrubClasses = 0x38;  // s32 count, count x s32
 constexpr std::size_t kGameplayShrubInstances = 0x3c;
 
 // A gameplay shrub instance (0x70 bytes). Field use from the level loader
@@ -345,7 +360,7 @@ struct ShrubInstance {
     s32 o_class = 0;
     f32 draw_distance = 0;  // world units; the loader clamps it to >= 16 (and F + 24)
     s32 unused_08 = 0;
-    s32 unused_0c = 0;      // no occlusion index: shrubs are not occlusion-culled
+    s32 unused_0c = 0;  // no occlusion index: shrubs are not occlusion-culled
     // Class to world, column-major, translation in column 3; [3][3] is 0.01
     // on the disc and kept raw.
     std::array<std::array<f32, 4>, 4> matrix{};
@@ -373,6 +388,7 @@ struct ShrubInstance {
 
     LightSets light_sets() const;
 };
+
 static_assert(sizeof(ShrubInstance) == 0x70);
 
 std::vector<ShrubInstance> parse_shrub_instance_section(ByteView section);

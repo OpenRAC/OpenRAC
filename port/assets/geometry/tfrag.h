@@ -23,14 +23,14 @@
 
 #pragma once
 
+#include <array>
+#include <optional>
+#include <vector>
+
 #include "assets/bytes.h"
 #include "assets/geometry/core_records.h"
 #include "assets/geometry/gs_adgif.h"
 #include "assets/geometry/mesh.h"
-
-#include <array>
-#include <optional>
-#include <vector>
 
 namespace openrac::assets::rac1 {
 
@@ -50,6 +50,7 @@ struct TfragBlockHeader {
     // What TfragProc compares against: trunc(D * 1024), raw units.
     std::array<s32, 3> lod_thresholds_raw() const;
 };
+
 static_assert(sizeof(TfragBlockHeader) == 0x10);
 
 // The per-tfrag header (0x40 bytes). Offsets named *_ofs are relative to the
@@ -58,43 +59,44 @@ struct TfragHeader {
     // 0x00: bounding sphere centre and radius in raw units (1024 = one world
     // unit), absolute.
     std::array<f32, 4> bsphere{};
-    s32 data = 0;            // 0x10: the data, relative to table_offset
-    u16 lod_2_ofs = 0;       // 0x14: the LOD-2 strip list
-    u16 shared_ofs = 0;      // 0x16: the common list
-    u16 lod_1_ofs = 0;       // 0x18: the LOD-1 strip list
-    u16 lod_0_ofs = 0;       // 0x1a: the LOD-0+1 refinement list
-    u16 tex_ofs = 0;         // 0x1c: the ad-gif payload inside the common list
-    u16 rgba_ofs = 0;        // 0x1e: the RGBA array; also the end of the LOD-0 list
-    u8 common_size = 0;      // 0x20: common list, quadwords
-    u8 lod_2_size = 0;       // 0x21: LOD-2 + common, quadwords
+    s32 data = 0;        // 0x10: the data, relative to table_offset
+    u16 lod_2_ofs = 0;   // 0x14: the LOD-2 strip list
+    u16 shared_ofs = 0;  // 0x16: the common list
+    u16 lod_1_ofs = 0;   // 0x18: the LOD-1 strip list
+    u16 lod_0_ofs = 0;   // 0x1a: the LOD-0+1 refinement list
+    u16 tex_ofs = 0;     // 0x1c: the ad-gif payload inside the common list
+    u16 rgba_ofs = 0;    // 0x1e: the RGBA array; also the end of the LOD-0 list
+    u8 common_size = 0;  // 0x20: common list, quadwords
+    u8 lod_2_size = 0;   // 0x21: LOD-2 + common, quadwords
     // 0x22: common + LOD-1 + LOD-01, quadwords from shared_ofs; the LOD-0-only
     // list starts at shared_ofs + lod_1_size * 16.
     u8 lod_1_size = 0;
-    u8 lod_0_size = 0;       // 0x23: LOD-01 + LOD-0, quadwords from lod_0_ofs
-    u8 lod_2_rgba_count = 0; // 0x24
-    u8 lod_1_rgba_count = 0; // 0x25
-    u8 lod_0_rgba_count = 0; // 0x26
-    u8 base_only = 0;        // 0x27: non-zero = always LOD 2
-    u8 texture_count = 0;    // 0x28: ad-gif blocks
-    u8 rgba_size = 0;        // 0x29: RGBA array, quadwords (4 colours each)
-    u8 rgba_verts_loc = 0;   // 0x2a
-    u8 occl_index_stash = 0; // 0x2b
-    u8 msphere_count = 0;    // 0x2c: texture spheres at msphere_ofs
-    u8 flags = 0;            // 0x2d
-    u16 msphere_ofs = 0;     // 0x2e
-    u16 light_ofs = 0;       // 0x30: the origin quadword, then the light records
-    u16 light_end_ofs = 0;   // 0x32
-    u8 dir_lights_one = 0;   // 0x34: one light set for the whole tfrag; 0xff = per vertex
-    u8 dir_lights_upd = 0;   // 0x35
-    u16 point_lights = 0;    // 0x36: point light nibble list; 0xffff = none
-    u16 cube_ofs = 0;        // 0x38: the clip box, 8 corners of 4 x s16 (x 64 = raw units)
-    u16 occl_index = 0;      // 0x3a
-    u8 vert_count = 0;       // 0x3c: positions (common + LOD-01 + LOD-0); also light records
-    u8 tri_count = 0;        // 0x3d: LOD-0 triangles
+    u8 lod_0_size = 0;        // 0x23: LOD-01 + LOD-0, quadwords from lod_0_ofs
+    u8 lod_2_rgba_count = 0;  // 0x24
+    u8 lod_1_rgba_count = 0;  // 0x25
+    u8 lod_0_rgba_count = 0;  // 0x26
+    u8 base_only = 0;         // 0x27: non-zero = always LOD 2
+    u8 texture_count = 0;     // 0x28: ad-gif blocks
+    u8 rgba_size = 0;         // 0x29: RGBA array, quadwords (4 colours each)
+    u8 rgba_verts_loc = 0;    // 0x2a
+    u8 occl_index_stash = 0;  // 0x2b
+    u8 msphere_count = 0;     // 0x2c: texture spheres at msphere_ofs
+    u8 flags = 0;             // 0x2d
+    u16 msphere_ofs = 0;      // 0x2e
+    u16 light_ofs = 0;        // 0x30: the origin quadword, then the light records
+    u16 light_end_ofs = 0;    // 0x32
+    u8 dir_lights_one = 0;    // 0x34: one light set for the whole tfrag; 0xff = per vertex
+    u8 dir_lights_upd = 0;    // 0x35
+    u16 point_lights = 0;     // 0x36: point light nibble list; 0xffff = none
+    u16 cube_ofs = 0;         // 0x38: the clip box, 8 corners of 4 x s16 (x 64 = raw units)
+    u16 occl_index = 0;       // 0x3a
+    u8 vert_count = 0;        // 0x3c: positions (common + LOD-01 + LOD-0); also light records
+    u8 tri_count = 0;         // 0x3d: LOD-0 triangles
     // 0x3e: texture paging distance, raw units: textures are paged in only
     // while the tfrag's near distance is within it.
     u16 mip_dist = 0;
 };
+
 static_assert(sizeof(TfragHeader) == 0x40);
 
 // The VU header (20 x u16), unpacked to VU address 0. Each vertex-info tier
@@ -123,6 +125,7 @@ struct TfragVuHeader {
     u16 strips_addr = 0;
     u16 texture_ad_gifs_addr = 0;
 };
+
 static_assert(sizeof(TfragVuHeader) == 0x28);
 
 // A position relative to Tfrag::origin, raw units (1024 per world unit), Z up.
@@ -133,12 +136,13 @@ struct TfragPosition {
 
     bool operator==(const TfragPosition&) const = default;
 };
+
 static_assert(sizeof(TfragPosition) == 6);
 
 // A vertex info, what strip indices name.
 struct TfragVertexInfo {
-    s16 s = 0;       // texture S, 1/4096
-    s16 t = 0;       // texture T, 1/4096
+    s16 s = 0;  // texture S, 1/4096
+    s16 t = 0;  // texture T, 1/4096
     // VU qword offset of the second LOD parent's position (position index =
     // parent / 2); meaningless for common entries.
     s16 parent = 0;
@@ -146,6 +150,7 @@ struct TfragVertexInfo {
 
     bool operator==(const TfragVertexInfo&) const = default;
 };
+
 static_assert(sizeof(TfragVertexInfo) == 8);
 
 // A strip command (see tfrag_triangles).
@@ -155,6 +160,7 @@ struct TfragStrip {
     s8 ad_gif_offset = 0;          // quadword offset into the ad-gifs (index = z / 5); -1 = keep
     s8 pad = 0;
 };
+
 static_assert(sizeof(TfragStrip) == 4);
 
 // A vertex colour, by position index; 0x80 = 1.0.
@@ -166,6 +172,7 @@ struct TfragRgba {
 
     bool operator==(const TfragRgba&) const = default;
 };
+
 static_assert(sizeof(TfragRgba) == 4);
 
 // A light record, by position index, with the meanings the lighting pass
@@ -179,6 +186,7 @@ struct TfragLight {
     // blended with set bits 4..7 by bits 8..15 / 256.
     u16 light_select = 0;
 };
+
 static_assert(sizeof(TfragLight) == 8);
 
 // GS register values the load-time init writes over one ad-gif block.
@@ -222,6 +230,7 @@ struct TfragAdGifs {
     // byte address.
     TfragGsRegisters gs_registers(const CoreTextureEntry& texture, u32 gs_base) const;
 };
+
 static_assert(sizeof(TfragAdGifs) == 0x50);
 
 // The strips and index bytes of one LOD.

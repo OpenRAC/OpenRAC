@@ -25,15 +25,15 @@
 
 #pragma once
 
-#include "assets/bytes.h"
-#include "assets/geometry/core_records.h"
-#include "assets/geometry/gs_adgif.h"
-#include "assets/geometry/mesh.h"
-
 #include <array>
 #include <optional>
 #include <span>
 #include <vector>
+
+#include "assets/bytes.h"
+#include "assets/geometry/core_records.h"
+#include "assets/geometry/gs_adgif.h"
+#include "assets/geometry/mesh.h"
 
 namespace openrac::assets::rac1 {
 
@@ -44,6 +44,7 @@ struct TieLodInfo {
     u32 strip_count = 0;
     u32 pad = 0;
 };
+
 static_assert(sizeof(TieLodInfo) == 0x10);
 
 // The class header at byte 0 of a class blob (0x80 bytes); offsets are
@@ -54,9 +55,9 @@ struct TieClassHeader {
     f32 near_dist = 0;             // 0x10: LOD distances
     f32 mid_dist = 0;
     f32 far_dist = 0;
-    f32 unknown_1c = 0;            // equals unknown_48; TieProc reuses it as counters
+    f32 unknown_1c = 0;                // equals unknown_48; TieProc reuses it as counters
     std::array<u8, 3> packet_count{};  // 0x20: packets per LOD
-    u8 texture_count = 0;          // 0x23: ad-gif blocks at ad_gif_ofs
+    u8 texture_count = 0;              // 0x23: ad-gif blocks at ad_gif_ofs
     // 0x24: render mode bits (TieProc: & 9 skips the class, (& 6) >> 1 picks
     // the path).
     u16 flags_24 = 0;
@@ -70,27 +71,29 @@ struct TieClassHeader {
     u32 unknown_4c = 0;
     std::array<TieLodInfo, 3> lod_info{};  // 0x50
 };
+
 static_assert(sizeof(TieClassHeader) == 0x80);
 
 // A packet header (0x10 bytes); offsets and sizes are quadwords relative to
 // the packet data. Meanings from the DMA chain TieProc builds (spec 3.2).
 struct TiePacketHeader {
-    s32 data = 0;              // 0x0: the packet data, relative to the LOD's packet table
-    u8 shader_count = 0;       // 0x4: ad-gif blocks uploaded
-    u8 ad_gif_qwc = 0;         // 0x5: 5 * shader_count
-    u8 control_count = 0;      // 0x6: 3 + strip_count
-    u8 control_size = 0;       // 0x7: quadwords of unpack header + strips
-    u8 vert_ofs = 0;           // 0x8: the vertex region
-    u8 vert_size = 0;          // 0x9
+    s32 data = 0;          // 0x0: the packet data, relative to the LOD's packet table
+    u8 shader_count = 0;   // 0x4: ad-gif blocks uploaded
+    u8 ad_gif_qwc = 0;     // 0x5: 5 * shader_count
+    u8 control_count = 0;  // 0x6: 3 + strip_count
+    u8 control_size = 0;   // 0x7: quadwords of unpack header + strips
+    u8 vert_ofs = 0;       // 0x8: the vertex region
+    u8 vert_size = 0;      // 0x9
     // 0xa: the colour-index region: two copies (VU buffers A and B) of
     // color_count x 4 bytes, each padded to a quadword.
     u8 color_ofs = 0;
-    u8 color_count = 0;        // 0xb
-    u8 slot_table_ofs = 0;     // 0xc: per-strip-vertex GS slot steps (Wrench's "scissor")
-    u8 slot_table_size = 0;    // 0xd
-    u8 strip_count = 0;        // 0xe
-    u8 strip_vertex_count = 0; // 0xf
+    u8 color_count = 0;         // 0xb
+    u8 slot_table_ofs = 0;      // 0xc: per-strip-vertex GS slot steps (Wrench's "scissor")
+    u8 slot_table_size = 0;     // 0xd
+    u8 strip_count = 0;         // 0xe
+    u8 strip_vertex_count = 0;  // 0xf
 };
+
 static_assert(sizeof(TiePacketHeader) == 0x10);
 
 // The unpack header at packet data + 0x20 (12 bytes). The four *_end bytes are
@@ -100,23 +103,25 @@ struct TieUnpackHeader {
     u8 no_fat = 0;             // non-zero: no fat vertices
     u8 unknown_2 = 0;
     u8 strip_count = 0;
-    u8 dinky_single_end = 0;   // the dinky vertex ending the single-write loop (3 more follow)
-    u8 dinky_double_end = 0;   // the dinky vertex ending the double-write loop (2 more follow)
-    u8 fat_single_end = 0;     // the last single-write fat vertex
-    u8 fat_double_end = 0;     // the last fat vertex
+    u8 dinky_single_end = 0;  // the dinky vertex ending the single-write loop (3 more follow)
+    u8 dinky_double_end = 0;  // the dinky vertex ending the double-write loop (2 more follow)
+    u8 fat_single_end = 0;    // the last single-write fat vertex
+    u8 fat_double_end = 0;    // the last fat vertex
     u8 dinky_qwc_plus_four = 0;
     u8 fat_qwc_plus_six = 0;
     u8 dinky_count = 0;
     u8 fat_count = 0;
 };
+
 static_assert(sizeof(TieUnpackHeader) == 12);
 
 struct TieStrip {
-    u8 vertex_count = 0;    // the strip GIF tag's NLOOP
+    u8 vertex_count = 0;  // the strip GIF tag's NLOOP
     u8 pad = 0;
     u8 gif_tag_offset = 0;  // GS-packet quadword of the strip's GIF tag
     u8 winding = 0;         // non-zero flips the triangle parity (0 on the disc)
 };
+
 static_assert(sizeof(TieStrip) == 4);
 
 // A stored "dinky" vertex (0x10 bytes).
@@ -130,6 +135,7 @@ struct TieDinkyVertex {
     u16 q = 0;
     u16 gs_slot_2 = 0;  // used only in the double-write phase
 };
+
 static_assert(sizeof(TieDinkyVertex) == 0x10);
 
 // A stored "fat" vertex (0x18 bytes) that morphs toward the next LOD: VU1
@@ -148,6 +154,7 @@ struct TieFatVertex {
     u16 q = 0;
     u16 gs_slot_2 = 0;
 };
+
 static_assert(sizeof(TieFatVertex) == 0x18);
 
 // A class's ad-gif block (0x50 bytes). TEX0's TBP/CBP are 0 on the disc
@@ -159,6 +166,7 @@ struct TieAdGifs {
     AdGif clamp;
     AdGif miptbp2;
 };
+
 static_assert(sizeof(TieAdGifs) == 0x50);
 
 // A vertex as VU1 processes it (dinky first, then fat), resolved.
@@ -168,8 +176,8 @@ struct TieVertex {
     std::array<s16, 2> st{};           // 1/4096
     u16 q = 0;                         // 0x1000 = 1.0 on the disc
     u16 gs_slot = 0;
-    u16 gs_slot_2 = 0;                 // the second slot in double-write phases, else 0
-    u8 color = 0;                      // light slot 0..63
+    u16 gs_slot_2 = 0;  // the second slot in double-write phases, else 0
+    u8 color = 0;       // light slot 0..63
     // Fat: the two slots whose average VU1 blends in as the vertex morphs;
     // `color` twice for dinky.
     std::array<u8, 2> morph_colors{};
@@ -216,8 +224,8 @@ struct TiePacket {
     // Colour indices for VU buffer A: one per dinky vertex, then (c0, c1, c2,
     // 0xff) per fat vertex from the next 4-byte boundary.
     std::vector<u8> colors;
-    std::vector<u8> colors_b;     // buffer B: every used index + 0x40
-    std::vector<u8> slot_table;   // raw, not decoded
+    std::vector<u8> colors_b;    // buffer B: every used index + 0x40
+    std::vector<u8> slot_table;  // raw, not decoded
     std::vector<TieVertex> vertices;
     std::vector<TieDraw> draws;
 };
@@ -259,7 +267,9 @@ struct LevelTieClass {
 
 // Every class of the tie class table that has a blob, in table order;
 // `core_data` is the whole decompressed core data.
-std::vector<LevelTieClass> parse_level_tie_classes(std::span<const CoreClassEntry> table, ByteView core_data);
+std::vector<LevelTieClass> parse_level_tie_classes(
+    std::span<const CoreClassEntry> table, ByteView core_data
+);
 
 // The gameplay file's tie instance section pointer.
 constexpr std::size_t kGameplayTieInstances = 0x34;
@@ -290,6 +300,7 @@ struct TieInstance {
     // A slot's ambient colour expanded like PEXT5.
     std::array<u8, 4> ambient_rgba(u8 slot) const;
 };
+
 static_assert(sizeof(TieInstance) == 0xe0);
 
 // An instance section: s32 count, 12 bytes of padding, count records.

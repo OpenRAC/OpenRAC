@@ -50,7 +50,9 @@ struct ActiveSet {
 };
 
 ActiveSet active_set(const LightBank& bank, u16 select) {
-    auto set = [&](u32 i) -> const DirLightSet& { return bank.sets[i & 0xf]; };
+    auto set = [&](u32 i) -> const DirLightSet& {
+        return bank.sets[i & 0xf];
+    };
     ActiveSet s{};
     if ((select & 0xff00) == 0) {
         const DirLightSet& d = set(select);
@@ -107,8 +109,12 @@ ps2::V4 tfrag_stored_normal(const NormalTable& table, u8 azimuth, u8 elevation) 
     return {ps2::sub(0, x), ps2::sub(0, y), ps2::sub(0, z), se};
 }
 
-std::array<u8, 4> light_tfrag_vertex(const LightBank& bank, const NormalTable& table, const TfragLight& l) {
-    return light_with_normal(bank, tfrag_stored_normal(table, l.azimuth, l.elevation), l.color, l.light_select);
+std::array<u8, 4> light_tfrag_vertex(
+    const LightBank& bank, const NormalTable& table, const TfragLight& l
+) {
+    return light_with_normal(
+        bank, tfrag_stored_normal(table, l.azimuth, l.elevation), l.color, l.light_select
+    );
 }
 
 std::optional<std::array<u8, 4>> light_tfrag_point(
@@ -142,7 +148,10 @@ std::optional<std::array<u8, 4>> light_tfrag_point(
 }
 
 std::vector<TfragRgba> light_tfrag(
-    const Tfrag& t, const LightBank& bank, const NormalTable& table, const std::optional<TfragPointLights>& points
+    const Tfrag& t,
+    const LightBank& bank,
+    const NormalTable& table,
+    const std::optional<TfragPointLights>& points
 ) {
     std::vector<TfragRgba> out = t.rgba;
     const std::size_t n = std::min({std::size_t{t.header.vert_count}, t.lights.size(), out.size()});

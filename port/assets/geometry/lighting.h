@@ -19,10 +19,10 @@
 
 #pragma once
 
+#include <array>
+
 #include "assets/bytes.h"
 #include "assets/geometry/ps2_float.h"
-
-#include <array>
 
 namespace openrac::assets::rac1 {
 
@@ -47,6 +47,7 @@ struct DirLightSet {
     std::array<f32, 4> color_b{};
     std::array<f32, 4> dir_b{};
 };
+
 static_assert(sizeof(DirLightSet) == 0x40);
 
 // The EE directional light bank; sets past the level's count are zero.
@@ -66,6 +67,7 @@ struct PointLight {
     std::array<f32, 4> color{};     // w: back-face factor
     std::array<f32, 4> position{};  // world, w = radius
 };
+
 static_assert(sizeof(PointLight) == 0x20);
 
 using PointLightBank = std::array<PointLight, kPointLightSlots>;
@@ -106,7 +108,10 @@ struct InstanceLightRegs {
 // the EE's ppach / ppacb keep each lane's low byte. `ambient` holds the
 // floats 65536 + c / 128.
 std::array<u8, 4> light_instance_normal(
-    const InstanceLightRegs& regs, const std::array<s16, 4>& normal, const ps2::V4& ambient, u32 clamp
+    const InstanceLightRegs& regs,
+    const std::array<s16, 4>& normal,
+    const ps2::V4& ambient,
+    u32 clamp
 );
 
 // The colour clamp of VU0 436083 (its I register): 65536 + 243 / 128. Tie and

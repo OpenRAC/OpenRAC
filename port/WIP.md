@@ -12,7 +12,7 @@ agent worked to (rules, layout, legal constraints).
 |---|---|---|---|
 | Disc | `assets/disc/`, `tests/disc/` | rc-formats iso9660, toc, disc, wad, level, overlays, volumes, sha1, strings, scenes, saves | **done**: reviewed, tested, built by default |
 | Extractor | `extract/`, `tests/extract/` | rc-extract (identify, extract, prepare) | **done**: `openrac-extractor`, built by default; the launcher still runs tools/extractor.py |
-| Geometry | `assets/geometry/` | rc-formats texture, vif, tfrag, tie, shrub, sky, moby, moby_anim, lighting | starting the VIF parser |
+| Geometry | `assets/geometry/`, `tests/geometry/` | rc-formats texture, vif, tfrag, tie, shrub, sky, moby, moby_anim, moby_light, moby_collision, moby_shadow, gadget, lighting | **done**: reviewed, tested, built by default |
 | World data | `assets/world/`, `tests/assets_world/` | rc-formats collision, occlusion, cameras, gameplay, moby_spawn, water, sea, font, hud, pif | at volumes |
 | Sound, movies, audio | `assets/sound/`, `media/`, `audio/`, `tests/sound/`, `tests/media/` | rc-formats sound_bank, vag, pss; rc-video (MPEG-2); rc-game audio (SPU-style mixer, 989snd player, reverb) | writing assets/sound |
 | World renderers | `renderer/world/`, `renderer/shaders/world/` | rc-engine renderers and its 23 WGSL shaders, to GLSL 4.1 | writing the draw-data definitions |

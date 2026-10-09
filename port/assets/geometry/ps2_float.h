@@ -20,10 +20,10 @@
 
 #pragma once
 
-#include "assets/bytes.h"
-
 #include <array>
 #include <bit>
+
+#include "assets/bytes.h"
 
 namespace openrac::assets::ps2 {
 
@@ -35,11 +35,17 @@ constexpr u32 kNegOne = 0xbf80'0000;
 // Four vector lanes as raw float bits.
 using V4 = std::array<u32, 4>;
 
-inline u32 bits(f32 x) { return std::bit_cast<u32>(x); }
+inline u32 bits(f32 x) {
+    return std::bit_cast<u32>(x);
+}
 
-inline f32 to_float(u32 x) { return std::bit_cast<f32>(x); }
+inline f32 to_float(u32 x) {
+    return std::bit_cast<f32>(x);
+}
 
-inline V4 bits(const std::array<f32, 4>& v) { return {bits(v[0]), bits(v[1]), bits(v[2]), bits(v[3])}; }
+inline V4 bits(const std::array<f32, 4>& v) {
+    return {bits(v[0]), bits(v[1]), bits(v[2]), bits(v[3])};
+}
 
 inline std::array<f32, 4> to_floats(const V4& v) {
     return {to_float(v[0]), to_float(v[1]), to_float(v[2]), to_float(v[3])};
@@ -48,7 +54,9 @@ inline std::array<f32, 4> to_floats(const V4& v) {
 u32 mul(u32 a, u32 b);
 u32 add(u32 a, u32 b);
 
-inline u32 sub(u32 a, u32 b) { return add(a, b ^ kSign); }
+inline u32 sub(u32 a, u32 b) {
+    return add(a, b ^ kSign);
+}
 
 // DIV: the truncated quotient; division by zero gives +-kMax.
 u32 div(u32 a, u32 b);
@@ -57,7 +65,9 @@ u32 div(u32 a, u32 b);
 u32 sqrt(u32 x);
 
 // RSQRT a / sqrt(b): the root is truncated first, then divided.
-inline u32 rsqrt(u32 a, u32 b) { return div(a, sqrt(b)); }
+inline u32 rsqrt(u32 a, u32 b) {
+    return div(a, sqrt(b));
+}
 
 // ITOF12: a signed integer / 4096 (integers wider than 24 bits truncate).
 u32 itof12(s32 i);
@@ -77,7 +87,9 @@ inline u32 dot3(const V4& a, const V4& b) {
 }
 
 // Every lane times one scalar.
-inline V4 scale(const V4& a, u32 s) { return {mul(a[0], s), mul(a[1], s), mul(a[2], s), mul(a[3], s)}; }
+inline V4 scale(const V4& a, u32 s) {
+    return {mul(a[0], s), mul(a[1], s), mul(a[2], s), mul(a[3], s)};
+}
 
 inline V4 add(const V4& a, const V4& b) {
     return {add(a[0], b[0]), add(a[1], b[1]), add(a[2], b[2]), add(a[3], b[3])};

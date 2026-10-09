@@ -23,10 +23,10 @@
 
 #pragma once
 
+#include <optional>
+
 #include "assets/geometry/lighting.h"
 #include "assets/geometry/shrub.h"
-
-#include <optional>
 
 namespace openrac::assets::rac1 {
 
@@ -97,7 +97,9 @@ u16 shrub_vu1_palette_base(u16 buffer, std::size_t k);
 // written vertices), the loop leaves with the address already formed for
 // vertex 3 and adds the palette base again, so vertex 3 reads n + 2 * base.
 // Only its RGB is affected; alpha stays the instance's.
-u16 shrub_vu1_colour_address(std::size_t written_vertices, std::size_t vertex, u8 normal, u16 palette_base);
+u16 shrub_vu1_colour_address(
+    std::size_t written_vertices, std::size_t vertex, u8 normal, u16 palette_base
+);
 
 // What an address of VU1 data memory holds while the shrub program runs.
 struct ShrubVu1Data {

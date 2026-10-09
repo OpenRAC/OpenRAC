@@ -9,14 +9,14 @@
 
 #include "assets/geometry/shrub.h"
 
-#include "assets/geometry/texture.h"
-#include "assets/geometry/vif.h"
-
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <limits>
 #include <numbers>
+
+#include "assets/geometry/texture.h"
+#include "assets/geometry/vif.h"
 
 namespace openrac::assets::rac1 {
 
@@ -67,7 +67,12 @@ public:
     // The four lanes truncated to 16 bits: the V4_16 view of a vertex.
     std::array<s16, 4> halves(std::size_t a, std::string_view what) const {
         const auto q = at(a, what);
-        return {static_cast<s16>(q[0]), static_cast<s16>(q[1]), static_cast<s16>(q[2]), static_cast<s16>(q[3])};
+        return {
+            static_cast<s16>(q[0]),
+            static_cast<s16>(q[1]),
+            static_cast<s16>(q[2]),
+            static_cast<s16>(q[3])
+        };
     }
 
     void write(std::size_t a, const std::array<u32, 4>& q) {
@@ -150,7 +155,9 @@ std::array<f32, 3> ShrubVertex::class_position(f32 class_scale) const {
     return {position[0] * k, position[1] * k, position[2] * k};
 }
 
-ShrubGsRegisters ShrubAdGifs::gs_registers(u8 texture_index, const CoreTextureEntry& texture, u32 gs_base) const {
+ShrubGsRegisters ShrubAdGifs::gs_registers(
+    u8 texture_index, const CoreTextureEntry& texture, u32 gs_base
+) const {
     return {
         loaded_tex1(texture.levels, tex1.data_lo, tex1.data_hi),
         loaded_clamp(clamp.data_lo, clamp.data_hi, texture_index),
@@ -163,10 +170,15 @@ f32 ShrubBillboardRegisters::lod_k() const {
     return static_cast<f32>(assets::lod_k_raw(static_cast<s32>(tex1 >> 32))) / 16.0f;
 }
 
-ShrubBillboardRegisters ShrubBillboard::gs_registers(const CoreBillboardInfo& info, u32 gs_base) const {
+ShrubBillboardRegisters ShrubBillboard::gs_registers(const CoreBillboardInfo& info, u32 gs_base)
+    const {
     const s64 base = static_cast<s32>(gs_base) >> 8;
-    auto tbw = [&](int k) { return s64{std::max(s32{info.width} >> (k + 6), 1)}; };
-    auto tbp = [&](s16 v) { return s64{v} + base; };
+    auto tbw = [&](int k) {
+        return s64{std::max(s32{info.width} >> (k + 6), 1)};
+    };
+    auto tbp = [&](s16 v) {
+        return s64{v} + base;
+    };
     ShrubBillboardRegisters r;
     r.tex1 = loaded_tex1(info.levels, tex1.data_lo, tex1.data_hi);
     const s64 t0 = tbp(info.texture_block) | tbw(0) << 14 | ee_log2(info.width) << 26 | 0x0130'0000
@@ -193,7 +205,8 @@ ShrubPacket read_shrub_packet(ByteView list, const ShrubPacketEntry& entry, s32&
         packet_fail("texture_count and gif_tag_count must be >= 1");
     }
     if (h.vertex_count < 0 || h.vertex_offset < 0
-        || static_cast<std::size_t>(h.vertex_offset) + 2 * static_cast<std::size_t>(h.vertex_count) > kShrubInputQwc) {
+        || static_cast<std::size_t>(h.vertex_offset) + 2 * static_cast<std::size_t>(h.vertex_count)
+               > kShrubInputQwc) {
         packet_fail("vertex tables outside the input buffer");
     }
     ShrubPacket pk;
@@ -234,7 +247,12 @@ ShrubPacket read_shrub_packet(ByteView list, const ShrubPacketEntry& entry, s32&
             packet_fail("normal index {} > 23", n & 0x7fff);
         }
         pk.vertices.push_back(
-            {{a[0], a[1], a[2]}, a[3], {b[0], b[1]}, b[2], static_cast<u8>(n & 0x7fff), static_cast<u8>(n >> 15)}
+            {{a[0], a[1], a[2]},
+             a[3],
+             {b[0], b[1]},
+             b[2],
+             static_cast<u8>(n & 0x7fff),
+             static_cast<u8>(n >> 15)}
         );
     }
 
@@ -270,7 +288,8 @@ ShrubPacket read_shrub_packet(ByteView list, const ShrubPacketEntry& entry, s32&
         const Slot s = slot[cursor];
         if (s.kind == Slot::Kind::AdGif && s.part == 0) {
             for (u8 j = 1; j < 5; ++j) {
-                if (cursor + j >= kShrubOutputQwc || slot[cursor + j] != Slot{Slot::Kind::AdGif, s.index, j}) {
+                if (cursor + j >= kShrubOutputQwc
+                    || slot[cursor + j] != Slot{Slot::Kind::AdGif, s.index, j}) {
                     packet_fail("ad-gif block partly overwritten");
                 }
             }
@@ -325,15 +344,17 @@ ShrubClass parse_shrub_class(ByteView blob) {
     if (h.packet_count < 0 || h.packet_count > 1000) {
         fail("shrub class: implausible packet count {}", h.packet_count);
     }
-    const auto entries =
-        blob.read_array<ShrubPacketEntry>(0x40, static_cast<std::size_t>(h.packet_count), "shrub packet table");
+    const auto entries = blob.read_array<ShrubPacketEntry>(
+        0x40, static_cast<std::size_t>(h.packet_count), "shrub packet table"
+    );
     s32 texture = -1;  // GS texture state carries from packet to packet
     for (const ShrubPacketEntry& e : entries) {
         if (e.offset < 0 || e.size < 0) {
             fail("shrub class: negative packet offset or size");
         }
-        const ByteView list =
-            blob.sub(static_cast<std::size_t>(e.offset), static_cast<std::size_t>(e.size), "shrub packet");
+        const ByteView list = blob.sub(
+            static_cast<std::size_t>(e.offset), static_cast<std::size_t>(e.size), "shrub packet"
+        );
         sc.packets.push_back(read_shrub_packet(list, e, texture));
     }
     if (h.normals_offset <= 0) {
@@ -343,7 +364,9 @@ ShrubClass parse_shrub_class(ByteView blob) {
         static_cast<std::size_t>(h.normals_offset), kShrubNormals, "shrub normals"
     );
     if (h.billboard_offset > 0) {
-        sc.billboard = blob.read<ShrubBillboard>(static_cast<std::size_t>(h.billboard_offset), "shrub billboard");
+        sc.billboard = blob.read<ShrubBillboard>(
+            static_cast<std::size_t>(h.billboard_offset), "shrub billboard"
+        );
     }
     return sc;
 }
@@ -397,7 +420,10 @@ std::vector<LevelShrubClass> parse_level_shrub_classes(
         }
         try {
             out.push_back(
-                {e, parse_shrub_class(core_data.tail(static_cast<std::size_t>(e.base.offset), "shrub class"))}
+                {e,
+                 parse_shrub_class(
+                     core_data.tail(static_cast<std::size_t>(e.base.offset), "shrub class")
+                 )}
             );
         } catch (const AssetError& error) {
             fail("shrub class {}: {}", e.base.o_class, error.what());
@@ -407,7 +433,9 @@ std::vector<LevelShrubClass> parse_level_shrub_classes(
 }
 
 u32 packed_column_lengths(const std::array<std::array<f32, 4>, 4>& m) {
-    auto length = [](const std::array<f32, 4>& c) { return std::sqrt(c[0] * c[0] + c[1] * c[1] + c[2] * c[2]); };
+    auto length = [](const std::array<f32, 4>& c) {
+        return std::sqrt(c[0] * c[0] + c[1] * c[1] + c[2] * c[2]);
+    };
     const s32 lo = std::min(trunc_s32((length(m[0]) + length(m[1])) * 0.5f * 4096.0f), 0x10000);
     s32 hi = trunc_s32(length(m[2]) * 4096.0f);
     if (hi >= 0x10001) {
@@ -446,7 +474,9 @@ std::array<std::array<f32, 3>, 4> billboard_corners(
 
 ShrubFade shrub_fade(f32 z, f32 d, std::optional<u8> f) {
     const s32 dz = trunc_s32((d - z) * 4096.0f);  // vftoi12 (D - z)
-    auto far = [&] { return static_cast<u8>(std::min(dz >> 1, 0x8000) >> 8); };
+    auto far = [&] {
+        return static_cast<u8>(std::min(dz >> 1, 0x8000) >> 8);
+    };
     if (!f) {
         return {static_cast<u8>(std::min(dz, 0x8000) >> 8), std::nullopt};
     }
@@ -469,7 +499,9 @@ s8 sway_table(u32 i) {
     return static_cast<s8>(std::trunc(-127.0 * std::sin(angle)));
 }
 
-std::optional<std::array<f32, 2>> wind_sway(u16 mode, u32 block, u32 tick, const std::array<f32, 3>& rel) {
+std::optional<std::array<f32, 2>> wind_sway(
+    u16 mode, u32 block, u32 tick, const std::array<f32, 3>& rel
+) {
     if (mode == 0) {
         return std::nullopt;
     }
@@ -478,7 +510,9 @@ std::optional<std::array<f32, 2>> wind_sway(u16 mode, u32 block, u32 tick, const
         return std::nullopt;
     }
     // lb + sll 5 + vitof12: a table entry / 128.
-    auto s = [](u32 i) { return static_cast<f32>(sway_table(i)) / 128.0f; };
+    auto s = [](u32 i) {
+        return static_cast<f32>(sway_table(i)) / 128.0f;
+    };
     const f32 k = 1.0f - d2 * kSwayVf9[2];
     const bool doubled = (mode >> 1) != 0;
     const u32 u = block * 67u + tick;
@@ -508,7 +542,9 @@ std::array<f32, 3> ShrubInstance::transform_point(const std::array<f32, 3>& p) c
 }
 
 std::array<u8, 4> ShrubInstance::ambient_rgba() const {
-    return {static_cast<u8>(colour[0]), static_cast<u8>(colour[1]), static_cast<u8>(colour[2]), 0x80};
+    return {
+        static_cast<u8>(colour[0]), static_cast<u8>(colour[1]), static_cast<u8>(colour[2]), 0x80
+    };
 }
 
 ShrubInstance::LightSets ShrubInstance::light_sets() const {
@@ -521,7 +557,8 @@ std::vector<ShrubInstance> parse_shrub_instance_section(ByteView section) {
     if (count < 0 || count > 100'000) {
         fail("shrub instances: implausible count {}", count);
     }
-    return section.read_array<ShrubInstance>(0x10, static_cast<std::size_t>(count), "shrub instances");
+    return section
+        .read_array<ShrubInstance>(0x10, static_cast<std::size_t>(count), "shrub instances");
 }
 
 std::vector<ShrubInstance> parse_shrub_instances(ByteView gameplay) {
@@ -541,7 +578,8 @@ std::vector<s32> parse_shrub_class_list(ByteView gameplay) {
     if (count < 0 || count > 10'000) {
         fail("shrub class list: implausible count {}", count);
     }
-    return gameplay.read_array<s32>(offset + 4, static_cast<std::size_t>(count), "shrub class list");
+    return gameplay
+        .read_array<s32>(offset + 4, static_cast<std::size_t>(count), "shrub class list");
 }
 
 }  // namespace openrac::assets::rac1

@@ -21,7 +21,8 @@ LightBank parse_light_bank(ByteView gameplay) {
     }
     LightBank bank;
     bank.count = std::min(static_cast<std::size_t>(n), kMaxLevelLights);
-    const auto sets = gameplay.read_array<DirLightSet>(section + 0x10, bank.count, "directional lights");
+    const auto sets =
+        gameplay.read_array<DirLightSet>(section + 0x10, bank.count, "directional lights");
     for (std::size_t i = 0; i < sets.size(); ++i) {
         bank.sets[i] = sets[i];
     }
@@ -41,7 +42,8 @@ NormalTable NormalTable::computed() {
     NormalTable table;
     for (std::size_t i = 0; i < 256; ++i) {
         const double a = static_cast<double>(i) * 2.0 * std::numbers::pi / 256.0;
-        table.entries[i] = {ps2::bits(static_cast<f32>(std::cos(a))), ps2::bits(static_cast<f32>(std::sin(a)))};
+        table.entries[i] =
+            {ps2::bits(static_cast<f32>(std::cos(a))), ps2::bits(static_cast<f32>(std::sin(a)))};
     }
     table.entries[0] = {ps2::kOne, 0};
     table.entries[64] = {0, ps2::kOne};
@@ -52,7 +54,8 @@ NormalTable NormalTable::computed() {
 
 ByteView elf_read(ByteView elf, u32 address, std::size_t length) {
     const ByteView magic = elf.sub(0, 4, "ELF magic");
-    if (magic.data()[0] != 0x7f || magic.data()[1] != 'E' || magic.data()[2] != 'L' || magic.data()[3] != 'F') {
+    if (magic.data()[0] != 0x7f || magic.data()[1] != 'E' || magic.data()[2] != 'L'
+        || magic.data()[3] != 'F') {
         fail("not an ELF file");
     }
     const std::size_t phoff = elf.u32_at(0x1c);
@@ -76,12 +79,16 @@ ps2::V4 color_floats(const std::array<u8, 4>& c) {
 }
 
 std::array<u8, 4> light_instance_normal(
-    const InstanceLightRegs& regs, const std::array<s16, 4>& normal, const ps2::V4& ambient, u32 clamp
+    const InstanceLightRegs& regs,
+    const std::array<s16, 4>& normal,
+    const ps2::V4& ambient,
+    u32 clamp
 ) {
     // itof15 is exact: |n| < 2^24 and the scale is a power of two.
-    const std::array<u32, 3> n = {
-        ps2::bits(normal[0] / 32768.0f), ps2::bits(normal[1] / 32768.0f), ps2::bits(normal[2] / 32768.0f)
-    };
+    const std::array<u32, 3> n =
+        {ps2::bits(normal[0] / 32768.0f),
+         ps2::bits(normal[1] / 32768.0f),
+         ps2::bits(normal[2] / 32768.0f)};
     std::array<u32, 3> f{};
     for (std::size_t k = 0; k < 3; ++k) {
         const u32 d = ps2::add(
@@ -104,7 +111,9 @@ std::array<u8, 4> light_instance_normal(
     return out;
 }
 
-MergedPointLight merge_point_lights(const ps2::V4& centre, const PointLightBank& bank, u16 list_word) {
+MergedPointLight merge_point_lights(
+    const ps2::V4& centre, const PointLightBank& bank, u16 list_word
+) {
     MergedPointLight merged;
     ps2::V4& dp = merged.direction;
     ps2::V4& cp = merged.color;
@@ -117,7 +126,11 @@ MergedPointLight merge_point_lights(const ps2::V4& centre, const PointLightBank&
         const ps2::V4 pos = ps2::bits(light.position);
         // vdiv Q, vf0w, r; vsub.xyz v = centre - pos (w stays r).
         const u32 inv_r = ps2::div(ps2::kOne, pos[3]);
-        const ps2::V4 v = {ps2::sub(centre[0], pos[0]), ps2::sub(centre[1], pos[1]), ps2::sub(centre[2], pos[2]), pos[3]};
+        const ps2::V4 v =
+            {ps2::sub(centre[0], pos[0]),
+             ps2::sub(centre[1], pos[1]),
+             ps2::sub(centre[2], pos[2]),
+             pos[3]};
         const u32 dist2 = ps2::dot3(v, v);
         // vsubx.w vf0, r * r - |v|^2: the sign flag skips an out-of-range light.
         if ((ps2::sub(ps2::mul(pos[3], pos[3]), dist2) & ps2::kSign) != 0) {

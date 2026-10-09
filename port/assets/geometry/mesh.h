@@ -11,12 +11,12 @@
 
 #pragma once
 
-#include "assets/bytes.h"
-
 #include <array>
 #include <cmath>
 #include <numbers>
 #include <vector>
+
+#include "assets/bytes.h"
 
 namespace openrac::assets {
 
@@ -24,7 +24,7 @@ struct MeshVertex {
     std::array<f32, 3> position{};  // world or class units, as the producer says
     std::array<f32, 2> uv{};
     std::array<u8, 4> rgba{0x80, 0x80, 0x80, 0x80};  // 0x80 = 1.0, as the GS modulates
-    std::array<f32, 3> normal{};    // unit length, or zero when the format has none
+    std::array<f32, 3> normal{};  // unit length, or zero when the format has none
 };
 
 struct MeshTriangle {

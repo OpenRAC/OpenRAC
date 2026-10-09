@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include "assets/bytes.h"
-
 #include <array>
 #include <vector>
+
+#include "assets/bytes.h"
 
 namespace openrac::assets::rac1 {
 
@@ -33,6 +33,7 @@ struct CoreTextureEntry {
     s16 mip2_block = 0;   // 0xc: tfrag textures: gs_ram block (0x100 bytes) of mip level 2
     s16 mip3_block = 0;   // 0xe: tfrag textures: gs_ram block of mip level 3, -1 with 3 levels
 };
+
 static_assert(sizeof(CoreTextureEntry) == 0x10);
 
 // A moby or tie class table entry (0x20 bytes).
@@ -53,6 +54,7 @@ struct CoreClassEntry {
         return textures[static_cast<std::size_t>(slot)];
     }
 };
+
 static_assert(sizeof(CoreClassEntry) == 0x20);
 
 // A shrub class's far-LOD billboard texture: blocks of 0x100 bytes in gs_ram.
@@ -66,6 +68,7 @@ struct CoreBillboardInfo {
     s16 mip2_block = 0;
     s16 mip3_block = 0;
 };
+
 static_assert(sizeof(CoreBillboardInfo) == 0x10);
 
 // A shrub class table entry (0x30 bytes): a class entry and its billboard.
@@ -73,6 +76,7 @@ struct CoreShrubClassEntry {
     CoreClassEntry base;
     CoreBillboardInfo billboard;
 };
+
 static_assert(sizeof(CoreShrubClassEntry) == 0x30);
 
 // A gadget table entry (0x10 bytes): one WAD-compressed moby class blob.
@@ -82,6 +86,7 @@ struct CoreGadgetEntry {
     s32 compressed_size = 0;  // the stream's size (its own header repeats it)
     s32 pad = 0;
 };
+
 static_assert(sizeof(CoreGadgetEntry) == 0x10);
 
 // `count` records of T at `offset` in a core index; none when either is not
@@ -94,7 +99,8 @@ std::vector<T> read_core_table(ByteView index, s32 count, s32 offset, std::strin
     if (count > 100'000) {
         fail("{}: implausible count {}", what, count);
     }
-    return index.read_array<T>(static_cast<std::size_t>(offset), static_cast<std::size_t>(count), what);
+    return index
+        .read_array<T>(static_cast<std::size_t>(offset), static_cast<std::size_t>(count), what);
 }
 
 }  // namespace openrac::assets::rac1

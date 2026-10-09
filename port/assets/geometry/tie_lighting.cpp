@@ -49,7 +49,9 @@ std::array<f32, 4> tie_instance_centre(const TieClass& tie, const TieInstance& i
     // vmulax / vmadday / vmaddaz with the three columns, vmaddw with vf0.
     V4 c{};
     for (std::size_t k = 0; k < 4; ++k) {
-        const u32 acc = ps2::add(ps2::add(ps2::mul(m[0][k], b[0]), ps2::mul(m[1][k], b[1])), ps2::mul(m[2][k], b[2]));
+        const u32 acc = ps2::add(
+            ps2::add(ps2::mul(m[0][k], b[0]), ps2::mul(m[1][k], b[1])), ps2::mul(m[2][k], b[2])
+        );
         c[k] = ps2::add(acc, ps2::mul(k == 3 ? ps2::kOne : 0u, b[3]));
     }
     // The radius: bsphere.w * max(|c0|, |c1|, |c2|) (FPU mul.s; the max is a
@@ -59,15 +61,22 @@ std::array<f32, 4> tie_instance_centre(const TieClass& tie, const TieInstance& i
         std::max({ps2::to_float(lengths[0]), ps2::to_float(lengths[1]), ps2::to_float(lengths[2])});
     c[3] = ps2::mul(b[3], ps2::bits(longest));
     c = ps2::scale(c, ps2::bits(tie.header.scale));
-    return ps2::to_floats({ps2::add(c[0], m[3][0]), ps2::add(c[1], m[3][1]), ps2::add(c[2], m[3][2]), c[3]});
+    return ps2::to_floats(
+        {ps2::add(c[0], m[3][0]), ps2::add(c[1], m[3][1]), ps2::add(c[2], m[3][2]), c[3]}
+    );
 }
 
 InstanceLightRegs tie_light_regs(
-    const TieClass& tie, const TieInstance& inst, const LightBank& bank, const std::optional<TiePointLights>& points
+    const TieClass& tie,
+    const TieInstance& inst,
+    const LightBank& bank,
+    const std::optional<TiePointLights>& points
 ) {
     // Run-time record +0x1c = the low half of directional_lights.
     const auto select = static_cast<u16>(inst.directional_lights);
-    auto set = [&](u32 i) -> const DirLightSet& { return bank.sets[i & 0xf]; };
+    auto set = [&](u32 i) -> const DirLightSet& {
+        return bank.sets[i & 0xf];
+    };
     V4 ca, da, cb, db;
     if ((select & 0xff00) == 0) {
         const DirLightSet& s = set(select);
@@ -102,7 +111,9 @@ InstanceLightRegs tie_light_regs(
 
     MergedPointLight point;
     if (points && points->bank != nullptr) {
-        point = merge_point_lights(ps2::bits(tie_instance_centre(tie, inst)), *points->bank, points->list);
+        point = merge_point_lights(
+            ps2::bits(tie_instance_centre(tie, inst)), *points->bank, points->list
+        );
     }
     V4 dp = point.direction;
     V4 cp = point.color;
@@ -117,8 +128,12 @@ InstanceLightRegs tie_light_regs(
     auto class_space = [&](const V4& d) {
         V4 l{};
         for (std::size_t c = 0; c < 3; ++c) {
-            auto neg = [&](std::size_t k) { return ps2::sub(0, n[c][k]); };
-            l[c] = ps2::add(ps2::add(ps2::mul(neg(0), d[0]), ps2::mul(neg(1), d[1])), ps2::mul(neg(2), d[2]));
+            auto neg = [&](std::size_t k) {
+                return ps2::sub(0, n[c][k]);
+            };
+            l[c] = ps2::add(
+                ps2::add(ps2::mul(neg(0), d[0]), ps2::mul(neg(1), d[1])), ps2::mul(neg(2), d[2])
+            );
         }
         return l;
     };
@@ -135,12 +150,17 @@ InstanceLightRegs tie_light_regs(
     return regs;
 }
 
-std::array<u8, 4> light_tie_slot(const InstanceLightRegs& regs, const std::array<s16, 4>& normal, u16 ambient) {
+std::array<u8, 4> light_tie_slot(
+    const InstanceLightRegs& regs, const std::array<s16, 4>& normal, u16 ambient
+) {
     return light_instance_normal(regs, normal, color_floats(pext5(ambient)), kInstanceColorClamp);
 }
 
 std::array<std::array<u8, 4>, kTieLightSlots> light_tie_instance(
-    const TieClass& tie, const TieInstance& inst, const LightBank& bank, const std::optional<TiePointLights>& points
+    const TieClass& tie,
+    const TieInstance& inst,
+    const LightBank& bank,
+    const std::optional<TiePointLights>& points
 ) {
     const InstanceLightRegs regs = tie_light_regs(tie, inst, bank, points);
     std::array<std::array<u8, 4>, kTieLightSlots> out{};

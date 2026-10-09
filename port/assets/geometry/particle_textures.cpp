@@ -16,7 +16,8 @@ namespace openrac::assets::rac1 {
 std::pair<u32, u32> PartTextureEntry::runtime_words(u32 bank) const {
     // The exponent of a power of two (the TW / TH field), as the boot helper
     // at NTSC-U 0x1f97a0 computes it.
-    const u32 log2_side = side > 0 ? 31u - static_cast<u32>(std::countl_zero(static_cast<u32>(side))) : 0u;
+    const u32 log2_side =
+        side > 0 ? 31u - static_cast<u32>(std::countl_zero(static_cast<u32>(side))) : 0u;
     const u32 lo = (bank + static_cast<u32>(palette)) * 16u + static_cast<u32>(csa);
     const u32 hi = (bank + static_cast<u32>(texture)) * 16u + log2_side;
     return {lo, hi};
@@ -60,7 +61,10 @@ std::vector<u8> PartDefs::frames(std::size_t type) const {
             end = std::min(end, *other);
         }
     }
-    return {blob.begin() + static_cast<std::ptrdiff_t>(*s), blob.begin() + static_cast<std::ptrdiff_t>(end)};
+    return {
+        blob.begin() + static_cast<std::ptrdiff_t>(*s),
+        blob.begin() + static_cast<std::ptrdiff_t>(end)
+    };
 }
 
 PartDefs parse_part_defs(ByteView index, s32 offset) {
@@ -78,11 +82,14 @@ PartDefs parse_part_defs(ByteView index, s32 offset) {
     if (data_offset < 0 || data_size < 0) {
         fail("part_defs: negative blob range");
     }
-    defs.offsets = index.read_array<s32>(base + 0x10, static_cast<std::size_t>(count), "part_defs offsets");
+    defs.offsets =
+        index.read_array<s32>(base + 0x10, static_cast<std::size_t>(count), "part_defs offsets");
     defs.blob = index
-                    .sub(base + static_cast<std::size_t>(data_offset),
-                         static_cast<std::size_t>(data_size),
-                         "part_defs blob")
+                    .sub(
+                        base + static_cast<std::size_t>(data_offset),
+                        static_cast<std::size_t>(data_size),
+                        "part_defs blob"
+                    )
                     .to_vector();
     return defs;
 }
@@ -112,15 +119,19 @@ ParticleTextures parse_particle_textures(
     out.entries = read_core_table<PartTextureEntry>(
         index, refs.part_texture_count, refs.part_texture_offset, "part_textures"
     );
-    out.fx_entries =
-        read_core_table<FxTextureEntry>(index, refs.fx_texture_count, refs.fx_texture_offset, "fx_textures");
+    out.fx_entries = read_core_table<FxTextureEntry>(
+        index, refs.fx_texture_count, refs.fx_texture_offset, "fx_textures"
+    );
     out.defs = parse_part_defs(index, refs.part_defs_offset);
     for (const PartTextureEntry& e : out.entries) {
-        out.textures.push_back(decode_bank_texture(part_bank, e.palette, e.texture, e.side, e.side));
+        out.textures.push_back(decode_bank_texture(part_bank, e.palette, e.texture, e.side, e.side)
+        );
     }
     for (const FxTextureEntry& e : out.fx_entries) {
         if (e.present()) {
-            out.fx_textures.emplace_back(decode_bank_texture(fx_bank, e.palette, e.texture, e.width, e.height));
+            out.fx_textures.emplace_back(
+                decode_bank_texture(fx_bank, e.palette, e.texture, e.width, e.height)
+            );
         } else {
             out.fx_textures.emplace_back(std::nullopt);
         }

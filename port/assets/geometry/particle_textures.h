@@ -21,12 +21,12 @@
 
 #pragma once
 
-#include "assets/bytes.h"
-#include "assets/geometry/texture.h"
-
 #include <optional>
 #include <utility>
 #include <vector>
+
+#include "assets/bytes.h"
+#include "assets/geometry/texture.h"
 
 namespace openrac::assets::rac1 {
 
@@ -48,6 +48,7 @@ struct PartTextureEntry {
     // 4), the CSA (lo & 0xf) and the image (hi >> 4).
     std::pair<u32, u32> runtime_words(u32 bank) const;
 };
+
 static_assert(sizeof(PartTextureEntry) == 0x10);
 
 // One fx_textures entry (0x10 bytes); all -1 when absent (every RAC1 entry).
@@ -59,6 +60,7 @@ struct FxTextureEntry {
 
     bool present() const { return width > 0 && height > 0 && palette >= 0 && texture >= 0; }
 };
+
 static_assert(sizeof(FxTextureEntry) == 0x10);
 
 // part_defs: a header {count (81), texture count, data offset, data size},

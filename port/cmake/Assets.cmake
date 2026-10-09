@@ -129,7 +129,7 @@ openrac_add_module_tests(assets openrac_assets_core)
 # default once it is reviewed and tested and listed here; the others only
 # with -DOPENRAC_PORT_WIP=ON.
 option(OPENRAC_PORT_WIP "Build the unfinished parts of the ReRAC conversion (WIP.md)" OFF)
-set(OPENRAC_PORT_READY disc extract)
+set(OPENRAC_PORT_READY disc extract geometry)
 function(openrac_part_enabled part out)
   if(OPENRAC_PORT_WIP OR part IN_LIST OPENRAC_PORT_READY)
     set(${out} ON PARENT_SCOPE)
@@ -154,6 +154,11 @@ foreach(part disc geometry world sound)
     endif()
   endif()
 endforeach()
+
+# Gadget classes are WAD streams inside the core data.
+if(TARGET openrac_assets_geometry AND TARGET openrac_assets_disc)
+  target_link_libraries(openrac_assets_geometry PUBLIC openrac_assets_disc)
+endif()
 
 openrac_part_enabled(media enabled)
 if(enabled)

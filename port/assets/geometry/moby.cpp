@@ -8,15 +8,18 @@
 
 #include "assets/geometry/moby.h"
 
-#include "assets/geometry/vif.h"
-
 #include <cstring>
+
+#include "assets/geometry/vif.h"
 
 namespace openrac::assets::rac1 {
 
 std::vector<std::array<u8, 4>> MobyPacket::rgba_multiplier_records() const {
     const std::size_t n =
-        is_metal ? 0 : std::min<std::size_t>(std::size_t{vertex_table.transfer_vertex_count} * 4, rgba_multipliers.size());
+        is_metal ? 0
+                 : std::min<std::size_t>(
+                       std::size_t{vertex_table.transfer_vertex_count} * 4, rgba_multipliers.size()
+                   );
     std::vector<std::array<u8, 4>> out(n / 4);
     if (!out.empty()) {
         std::memcpy(out.data(), rgba_multipliers.data(), out.size() * 4);
@@ -36,7 +39,9 @@ std::array<f32, 3> MobyClass::position(const MobyVertex& v) const {
     return {v.x * k, v.y * k, v.z * k};
 }
 
-std::vector<u16> vertex_cache_ids(std::span<const std::array<u8, 16>> records, std::size_t in_file) {
+std::vector<u16> vertex_cache_ids(
+    std::span<const std::array<u8, 16>> records, std::size_t in_file
+) {
     std::vector<u16> ids;
     for (std::size_t i = 7; i < records.size(); ++i) {
         ids.push_back(static_cast<u16>((records[i][0] | records[i][1] << 8) & 0x1ff));
@@ -151,6 +156,7 @@ Walk walk_indices(const MobyPacket& sub) {
         bool no_kick;
         s32 texture;
     };
+
     s32 texture = sub.initial_texture;
     std::vector<Push> pushes;
     std::size_t secret = 0;
@@ -193,7 +199,9 @@ Walk walk_indices(const MobyPacket& sub) {
     Walk walk;
     for (std::size_t n = 2; n < pushes.size(); ++n) {
         if (!pushes[n].no_kick) {
-            walk.triangles.push_back({pushes[n - 2].index, pushes[n - 1].index, pushes[n].index, pushes[n].texture});
+            walk.triangles.push_back(
+                {pushes[n - 2].index, pushes[n - 1].index, pushes[n].index, pushes[n].texture}
+            );
         }
     }
     walk.texture = texture;
@@ -209,7 +217,8 @@ struct ListState {
 
 MobyPacket read_packet(ByteView blob, const MobyPacketEntry& e, bool metal, ListState& state) {
     // The VIF list: ST (regular only), the index stream, optional ad-gifs.
-    const ByteView list = blob.sub(e.vif_list_offset, std::size_t{e.vif_list_size} * 0x10, "moby VIF list");
+    const ByteView list =
+        blob.sub(e.vif_list_offset, std::size_t{e.vif_list_size} * 0x10, "moby VIF list");
     std::vector<vif::Code> unpacks;
     for (const vif::Code& c : vif::parse(list)) {
         if (c.is_unpack()) {
@@ -255,12 +264,15 @@ MobyPacket read_packet(ByteView blob, const MobyPacketEntry& e, bool metal, List
 
     const std::size_t vo = e.vertex_offset;
     if (metal) {
-        sub.metal_header = blob.read<MobyMetalVertexTableHeader>(vo, "moby metal vertex table header");
+        sub.metal_header =
+            blob.read<MobyMetalVertexTableHeader>(vo, "moby metal vertex table header");
         const s32 count = sub.metal_header.vertex_count;
         if (count < 0 || count > 4096) {
             fail("moby metal packet: implausible vertex count {}", count);
         }
-        sub.raw_vertices = blob.sub(vo + 0x10, static_cast<std::size_t>(count) * 0x10, "moby metal vertices").to_vector();
+        sub.raw_vertices =
+            blob.sub(vo + 0x10, static_cast<std::size_t>(count) * 0x10, "moby metal vertices")
+                .to_vector();
         for (std::size_t i = 0; i < static_cast<std::size_t>(count); ++i) {
             const u8* r = sub.raw_vertices.data() + i * 16;
             MobyVertex v;
@@ -291,7 +303,9 @@ MobyPacket read_packet(ByteView blob, const MobyPacketEntry& e, bool metal, List
         if (e.positions_qwc != (tvc * 6 + 15) / 16 || e.colours_qwc != (tvc + 3) / 4) {
             fail("moby packet: redundant entry fields do not match");
         }
-        sub.transfers = blob.read_array<MobyMatrixTransfer>(vo + 0x20, h.matrix_transfer_count, "moby transfers");
+        sub.transfers = blob.read_array<MobyMatrixTransfer>(
+            vo + 0x20, h.matrix_transfer_count, "moby transfers"
+        );
         std::size_t ofs = vo + 0x20 + std::size_t{h.matrix_transfer_count} * 2;
         if (ofs % 4 != 0) {
             ofs += 2;
@@ -299,11 +313,13 @@ MobyPacket read_packet(ByteView blob, const MobyPacketEntry& e, bool metal, List
         if (ofs % 8 != 0) {
             ofs += 4;
         }
-        sub.duplicates = blob.read_array<u16>(ofs, h.duplicate_vertex_count, "moby duplicate vertices");
+        sub.duplicates =
+            blob.read_array<u16>(ofs, h.duplicate_vertex_count, "moby duplicate vertices");
         if (h.multipliers_offset < h.vertex_table_offset) {
             fail("moby packet: the multipliers come before the vertex table");
         }
-        const std::size_t epilogue = (h.multipliers_offset - h.vertex_table_offset) / 0x10 - in_file;
+        const std::size_t epilogue =
+            (h.multipliers_offset - h.vertex_table_offset) / 0x10 - in_file;
         if (epilogue < 1 || epilogue >= 7) {
             fail("moby packet: epilogue vertex count {}", static_cast<std::ptrdiff_t>(epilogue));
         }
@@ -311,13 +327,19 @@ MobyPacket read_packet(ByteView blob, const MobyPacketEntry& e, bool metal, List
         if (mult_size < h.multipliers_offset) {
             fail("moby packet: the multipliers start past the vertex data");
         }
-        sub.rgba_multipliers =
-            blob.sub(vo + h.multipliers_offset, mult_size - h.multipliers_offset, "moby RGBA multipliers").to_vector();
-        if (sub.rgba_multipliers.size() != (std::size_t{h.transfer_vertex_count} * 4 + 15) / 16 * 16) {
+        sub.rgba_multipliers = blob.sub(
+                                       vo + h.multipliers_offset,
+                                       mult_size - h.multipliers_offset,
+                                       "moby RGBA multipliers"
+        )
+                                   .to_vector();
+        if (sub.rgba_multipliers.size()
+            != (std::size_t{h.transfer_vertex_count} * 4 + 15) / 16 * 16) {
             fail("moby packet: the multipliers are not align16(4 * transfer_vertex_count)");
         }
         sub.raw_vertices =
-            blob.sub(vo + h.vertex_table_offset, (in_file + epilogue) * 0x10, "moby vertices").to_vector();
+            blob.sub(vo + h.vertex_table_offset, (in_file + epilogue) * 0x10, "moby vertices")
+                .to_vector();
         std::vector<std::array<u8, 16>> records(in_file + epilogue);
         std::memcpy(records.data(), sub.raw_vertices.data(), sub.raw_vertices.size());
         const std::vector<u16> ids = vertex_cache_ids(records, in_file);
@@ -329,7 +351,9 @@ MobyPacket read_packet(ByteView blob, const MobyPacketEntry& e, bool metal, List
             const auto& r = records[i];
             MobyVertex v;
             std::memcpy(v.raw.data(), r.data(), 8);
-            v.kind = i < n2 ? MobyVertexKind::TwoWay : i < n2 + n3 ? MobyVertexKind::ThreeWay : MobyVertexKind::Single;
+            v.kind = i < n2        ? MobyVertexKind::TwoWay
+                     : i < n2 + n3 ? MobyVertexKind::ThreeWay
+                                   : MobyVertexKind::Single;
             v.skin = state.slots.vertex(v.kind, v.raw);
             v.normal_azimuth = r[8];
             v.normal_elevation = r[9];
@@ -373,14 +397,17 @@ MobyPacket read_packet(ByteView blob, const MobyPacketEntry& e, bool metal, List
 
 }  // namespace
 
-std::vector<MobyTriangle> moby_triangles(const MobyPacket& packet) { return walk_indices(packet).triangles; }
+std::vector<MobyTriangle> moby_triangles(const MobyPacket& packet) {
+    return walk_indices(packet).triangles;
+}
 
 MobyClass parse_moby_class(ByteView blob) {
     MobyClass mc;
     mc.header = blob.read<MobyClassHeader>(0, "moby class header");
     const MobyClassHeader& h = mc.header;
     if (h.sequence_count > 0) {
-        mc.sequence_pointers = blob.read_array<s32>(0x48, h.sequence_count, "moby sequence pointers");
+        mc.sequence_pointers =
+            blob.read_array<s32>(0x48, h.sequence_count, "moby sequence pointers");
     }
     if (h.packet_table_offset > 0) {
         const std::size_t total = std::size_t{h.high_lod_count} + h.low_lod_count + h.metal_count;
@@ -390,12 +417,13 @@ MobyClass parse_moby_class(ByteView blob) {
         const auto entries = blob.read_array<MobyPacketEntry>(
             static_cast<std::size_t>(h.packet_table_offset), total, "moby packet table"
         );
-        auto list = [&](std::size_t first, std::size_t count, bool metal, std::vector<MobyPacket>& out) {
-            ListState state;
-            for (std::size_t i = first; i < first + count; ++i) {
-                out.push_back(read_packet(blob, entries[i], metal, state));
-            }
-        };
+        auto list =
+            [&](std::size_t first, std::size_t count, bool metal, std::vector<MobyPacket>& out) {
+                ListState state;
+                for (std::size_t i = first; i < first + count; ++i) {
+                    out.push_back(read_packet(blob, entries[i], metal, state));
+                }
+            };
         list(0, h.high_lod_count, false, mc.high_lod);
         list(h.high_lod_count, h.low_lod_count, false, mc.low_lod);
         list(h.metal_begin, h.metal_count, true, mc.metal);
@@ -407,8 +435,9 @@ MobyClass parse_moby_class(ByteView blob) {
         );
     }
     if (h.common_trans > 0 && jc > 0) {
-        mc.skeleton.trans =
-            blob.read_array<MobyTrans>(static_cast<std::size_t>(h.common_trans), jc, "moby common trans");
+        mc.skeleton.trans = blob.read_array<MobyTrans>(
+            static_cast<std::size_t>(h.common_trans), jc, "moby common trans"
+        );
     }
     return mc;
 }
@@ -432,14 +461,19 @@ MobyMesh moby_mesh(const MobyClass& moby, std::span<const MobyPacket> packets) {
     return out;
 }
 
-std::vector<LevelMobyClass> parse_level_moby_classes(std::span<const CoreClassEntry> table, ByteView core_data) {
+std::vector<LevelMobyClass> parse_level_moby_classes(
+    std::span<const CoreClassEntry> table, ByteView core_data
+) {
     std::vector<LevelMobyClass> out;
     for (const CoreClassEntry& e : table) {
         if (e.offset <= 0) {
             continue;
         }
         try {
-            out.push_back({e, parse_moby_class(core_data.tail(static_cast<std::size_t>(e.offset), "moby class"))});
+            out.push_back(
+                {e,
+                 parse_moby_class(core_data.tail(static_cast<std::size_t>(e.offset), "moby class"))}
+            );
         } catch (const AssetError& error) {
             fail("moby class {}: {}", e.o_class, error.what());
         }

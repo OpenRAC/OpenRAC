@@ -12,10 +12,10 @@
 
 #pragma once
 
-#include "assets/bytes.h"
-
 #include <array>
 #include <bit>
+
+#include "assets/bytes.h"
 
 namespace openrac::assets {
 
@@ -40,6 +40,7 @@ struct AdGif {
         );
     }
 };
+
 static_assert(sizeof(AdGif) == 0x10);
 
 // GS CLAMP_1 wrap mode (WMS / WMT).
@@ -50,7 +51,9 @@ enum class GsWrap : u8 {
     RegionRepeat,
 };
 
-inline GsWrap gs_wrap(u64 bits) { return static_cast<GsWrap>(bits & 3); }
+inline GsWrap gs_wrap(u64 bits) {
+    return static_cast<GsWrap>(bits & 3);
+}
 
 // GS TEX1_1 MMAG / MMIN filter. MMAG only uses the first two.
 enum class GsFilter : u8 {
@@ -77,7 +80,9 @@ inline s64 ee_log2(s32 x) {
 // TEX1 K as the signed 12-bit raw value in 1/16 mip levels, from the stored
 // low word.
 inline s16 lod_k_raw(s32 tex1_lo) {
-    return static_cast<s16>(static_cast<s16>(static_cast<u16>((static_cast<u32>(tex1_lo) & 0xfff) << 4)) >> 4);
+    return static_cast<s16>(
+        static_cast<s16>(static_cast<u16>((static_cast<u32>(tex1_lo) & 0xfff) << 4)) >> 4
+    );
 }
 
 // A 64-bit register field.
