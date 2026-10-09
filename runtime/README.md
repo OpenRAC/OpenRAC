@@ -75,6 +75,11 @@ Its table was made from the PAL one by `runtime/tools/port_hooks.py`, which
 finds each replaced function again in another program by the shape of its
 first instructions.
 
+Ratchet & Clank: Going Commando (US, `SCUS_972.68`) boots to its main menu
+and into its first level with a table made the same way
+(`runtime/games/SCUS_972.68.hooks`, also with `--ntsc`). It is early: nothing
+beyond that has been tried.
+
 | Control | Key | Control | Key |
 |---|---|---|---|
 | Left stick | W A S D | Right stick | I J K L |
