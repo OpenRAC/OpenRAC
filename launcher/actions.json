@@ -277,7 +277,7 @@
         "cwd": ".",
         "requires": ["disc", "python"],
         "docs": "runtime/README.md#running-a-game",
-        "todo": "As rac1/pal's play-runtime; the US disc was run headless into the first level on macOS, not yet in the window."
+        "todo": "As rac1/pal's play-runtime. From a shell on macOS the US disc ran in the window to the main menu, and headless into the first level."
       },
       {
         "id": "play-disc",
@@ -368,7 +368,7 @@
         "cwd": ".",
         "requires": ["disc", "python"],
         "docs": "runtime/README.md#running-a-game",
-        "todo": "As rac1/pal's play-runtime; the disc was run headless into the first level on macOS, not yet in the window. Movies are skipped."
+        "todo": "As rac1/pal's play-runtime. From a shell on macOS the disc ran in the window to the main menu, and headless into the first level. Movies are skipped."
       },
       {
         "id": "play-disc",
