@@ -173,7 +173,7 @@
         "checkout": "~/Projects/rac1-decomp-ntsc",
         "license": "MIT (GPL-2.0 and newlib parts)",
         "exclude": [],
-        "commit": "9a455b48e944dc93bb83b85adcfc098595e5b09e",
+        "commit": "5a199f1e58d842ce81f32b5ec2f29120780079dd",
         "date": "2026-10-09",
         "imported": "2026-10-09"
       },
