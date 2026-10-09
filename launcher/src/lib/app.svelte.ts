@@ -157,10 +157,8 @@ export function currentVersion(): VersionView | null {
 }
 
 export function updateDiscordPresence(page: Page = app.page, version: string | null = app.version) {
-  // If a game is actively playing (in runtime, emulator or Godot), keep status as PlayingGame:
-  const playingJob = jobs.list.find(
-    (j) => (j.actionId === "play-runtime" || j.actionId === "play") && j.state === "running",
-  );
+  // While the game (the native port) runs, the status stays PlayingGame:
+  const playingJob = jobs.list.find((j) => j.actionId === "play" && j.state === "running");
   if (playingJob?.scope.kind === "version") {
     const scope = playingJob.scope;
     const versions = app.library?.games.flatMap((g) => g.versions) ?? [];
@@ -195,7 +193,7 @@ export function updateDiscordPresence(page: Page = app.page, version: string | n
 
 // ---- actions and jobs ---------------------------------------------------------------------
 
-/** Runs an action: a detached one (the emulator) at once, anything else through the queue. */
+/** Runs an action: a detached one (the game, Godot) at once, anything else through the queue. */
 export async function run(scope: Scope, action: ActionView) {
   if (action.detached) {
     const started = await guard(api.runAction(scope, action.id));

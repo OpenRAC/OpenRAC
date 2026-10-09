@@ -139,16 +139,50 @@ mod tests {
         assert!(super::plan(&config, &Scope::Version("rac9/pal".into()), "build").is_err());
     }
 
+    /// A copy of the checkout's game manifests and actions in a temporary
+    /// folder, so a test can put files in place without touching the checkout.
+    fn scratch_checkout() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let root = checkout();
+        for entry in std::fs::read_dir(root.join("games")).unwrap() {
+            let manifest = entry.unwrap().path().join("game.json");
+            if manifest.is_file() {
+                let game = manifest.parent().unwrap().file_name().unwrap().to_owned();
+                std::fs::create_dir_all(dir.path().join("games").join(&game)).unwrap();
+                std::fs::copy(&manifest, dir.path().join("games").join(&game).join("game.json")).unwrap();
+            }
+        }
+        std::fs::create_dir_all(dir.path().join("launcher")).unwrap();
+        std::fs::copy(root.join(actions::FILE), dir.path().join(actions::FILE)).unwrap();
+        dir
+    }
+
     #[test]
-    fn plans_play_level_when_godot_present() {
-        let config = Config {
-            root: Some(checkout()),
-            godot: Some("/usr/bin/godot".into()),
-            ..Config::default()
-        };
-        let plan = plan(&config, &Scope::Version("rac1/pal".into()), "play").unwrap();
+    fn previews_a_level_once_the_godot_project_exists() {
+        let dir = scratch_checkout();
+        let config =
+            Config { root: Some(dir.path().to_path_buf()), godot: Some("/usr/bin/godot".into()), ..Config::default() };
+        let scope = Scope::Version("rac1/pal".into());
+        let err = plan(&config, &scope, "editor-preview").unwrap_err();
+        assert!(err.contains("assets/godot/project.godot"), "{err}");
+
+        std::fs::create_dir_all(dir.path().join("assets/godot")).unwrap();
+        std::fs::write(dir.path().join("assets/godot/project.godot"), "").unwrap();
+        let plan = plan(&config, &scope, "editor-preview").unwrap();
         assert_eq!(plan.program, PathBuf::from("/usr/bin/godot"));
         assert!(plan.detached);
-        assert_eq!(plan.args, vec!["--path", "assets/godot", "res://levels/level_00/level_00.tscn"]);
+        assert_eq!(plan.args, ["--path", "assets/godot", "res://levels/level_00/level_00.tscn"]);
+    }
+
+    #[test]
+    fn the_native_port_is_not_playable_yet() {
+        let config = Config { root: Some(checkout()), ..Config::default() };
+        let library = library(&config).unwrap();
+        for version in library.games.iter().flat_map(|g| &g.versions) {
+            let play = version.actions.iter().find(|a| a.id == "play");
+            let play = play.unwrap_or_else(|| panic!("{} has no play action", version.version.key));
+            assert_eq!(play.kind, actions::Kind::Play);
+            assert!(!play.runnable, "{}: play runs before the port exists", version.version.key);
+        }
     }
 }

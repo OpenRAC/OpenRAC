@@ -27,7 +27,7 @@
 
   /** A version in a player's words: can it be played, and what is missing. */
   function playerState(v: VersionView): { text: string; tone: "ok" | "warn" | "info" } {
-    const play = v.actions.find((a) => a.id === "play-runtime" || a.id === "play");
+    const play = v.actions.find((a) => a.id === "play");
     if (!play || play.state === "planned") return { text: "Not playable yet", tone: "info" };
     if (v.status.disc.state !== "found") return { text: "Add your disc", tone: "warn" };
     return { text: "Ready to play", tone: "ok" };

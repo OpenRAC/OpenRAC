@@ -1,6 +1,6 @@
 <script lang="ts">
-  // A game as a player meets it: add your own disc, play it in OpenRAC's
-  // runtime, edit its levels in Godot. Each button runs the same actions the
+  // A game as a player meets it: set it up from your own disc, play the
+  // native port, edit its levels in Godot. Each button runs the same actions the
   // developer page lists (launcher/actions.json), found here by their ids.
   import Icon from "$components/Icon.svelte";
   import { api, pickDisc, pickFile, type ActionView } from "$lib/api";
@@ -26,8 +26,8 @@
   const scope = $derived({ kind: "version" as const, key: v?.key ?? "" });
   const action = (id: string): ActionView | null => v?.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
 
-  const play = $derived(action("play-runtime"));
-  const playGodot = $derived(action("play"));
+  const play = $derived(action("play"));
+  const playGodot = $derived(action("editor-preview"));
   const extract = $derived(action("editor-extract"));
   const bring = $derived(action("editor-import"));
   const edit = $derived(action("editor-open"));
@@ -51,7 +51,7 @@
         ids.includes(j.actionId) &&
         (j.state === "queued" || j.state === "running"),
     );
-  const playing = $derived(jobOf(["play-runtime"]));
+  const playing = $derived(jobOf(["play"]));
   const preparing = $derived(jobOf(["editor-extract", "editor-import"]));
 
   let adding = $state(false);
@@ -130,7 +130,7 @@
       <div class="go">
         {#if !play || play.state === "planned"}
           <button class="big" disabled><Icon name="play" size={22} />Not playable yet</button>
-          <p class="line">OpenRAC cannot start this game yet. It is being worked on.</p>
+          <p class="line">The native port of this game is not built yet: its decompilation comes first.</p>
         {:else if playing}
           <button class="big" onclick={() => void cancel(playing)}>
             <span class="spinner"></span>{playing.state === "queued" ? "Waiting…" : "Stop the game"}
@@ -148,7 +148,7 @@
           </p>
         {:else if play.runnable}
           <button class="big primary" onclick={() => void run(scope, play)}><Icon name="play" size={22} />Play</button>
-          <p class="line">Runs natively in OpenRAC's own engine. No emulator.</p>
+          <p class="line">The decompiled game, built for this computer.</p>
         {:else}
           <button class="big" disabled><Icon name="play" size={22} />Play</button>
           <p class="line">Not ready: it needs {needs(play).join(", ")}.</p>
@@ -196,7 +196,7 @@
       <div class="row wrap">
         {#if playGodot?.runnable}
           <button onclick={() => void run(scope, playGodot)}
-            ><Icon name="play" size={16} />Play 3D level in Godot</button
+            ><Icon name="play" size={16} />Preview a level in Godot</button
           >
         {/if}
         <button onclick={() => void guard(api.openPath(v.dir))}

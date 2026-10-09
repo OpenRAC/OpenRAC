@@ -174,7 +174,7 @@ export interface Library {
 
 /** core/src/jobs.rs */
 export interface Started {
-  /** 0 for a detached launch (the emulator, Godot), which has no job. */
+  /** 0 for a detached launch (the game, Godot), which has no job. */
   id: number;
   title: string;
   command: string;
