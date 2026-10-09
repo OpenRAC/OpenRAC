@@ -46,6 +46,9 @@ jobs:
       - name: rac1/ntsc tools
         working-directory: games/rac1/ntsc
         run: |
+          # scripts/data-refs.py and its tests read the executable with these
+          # (the versions requirements.txt pins).
+          python -m pip install capstone==5.0.7 pyelftools==0.33
           python scripts/test_public_tools.py -v
           python -m py_compile scripts/*.py
 
