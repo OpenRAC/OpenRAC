@@ -10,7 +10,8 @@
 #   openrac-extractor  sets a game up from the player's disc: extract/
 #
 # Each library takes every .cpp of its directory; each tests/<module>/*.cpp is
-# a test program of its own (tests/<module>/foo.cpp -> <module>_foo_test).
+# a test program of its own (tests/<module>/foo.cpp -> <module>_foo_test;
+# the module of assets/disc is \"disc\").
 # A test that needs the player's disc or extracted data reads its path from
 # the environment (OPENRAC_DISC_<ID>, OPENRAC_DATA_<ID>; ID as RAC1_NTSC) and
 # returns 77, reported as skipped, without it.
@@ -108,23 +109,45 @@ endfunction()
 set(OPENRAC_GENERATED "${CMAKE_CURRENT_BINARY_DIR}/generated")
 openrac_write_versions("${OPENRAC_GENERATED}/assets_versions.inc")
 
-openrac_add_module(openrac_assets assets)
-target_include_directories(openrac_assets PRIVATE "${OPENRAC_GENERATED}")
-openrac_add_module_tests(assets openrac_assets)
+# openrac_assets is its parts, each a library of its own so each builds and
+# is tested alone:
+#   assets/           the byte reader, the table of versions
+#   assets/disc/      the disc: ISO 9660, the table of contents, WAD
+#                     compression, the level files, overlays, saves, text
+#   assets/geometry/  what the renderer draws: textures, terrain (tfrag),
+#                     ties, shrubs, the sky, moby classes and animation,
+#                     baked lighting
+#   assets/world/     what the game reads about a level: collision,
+#                     occlusion, cameras, the gameplay file, water, fonts, HUD
+#   assets/sound/     sound banks, VAG, PSS movies (containers)
+openrac_add_module(openrac_assets_core assets)
+target_include_directories(openrac_assets_core PRIVATE "${OPENRAC_GENERATED}")
+add_library(openrac_assets INTERFACE)
+target_link_libraries(openrac_assets INTERFACE openrac_assets_core)
+openrac_add_module_tests(assets openrac_assets_core)
+foreach(part disc geometry world sound)
+  openrac_add_module(openrac_assets_${part} assets/${part} openrac_assets_core)
+  if(TARGET openrac_assets_${part})
+    target_link_libraries(openrac_assets INTERFACE openrac_assets_${part})
+    openrac_add_module_tests(${part} openrac_assets_${part})
+  endif()
+endforeach()
 
 openrac_add_module(openrac_media media openrac_assets)
 openrac_add_module_tests(media openrac_media)
 
 if(TARGET openrac_media)
   openrac_add_module(openrac_audio audio openrac_assets openrac_media)
+  openrac_add_module_tests(audio openrac_audio)
 endif()
-openrac_add_module_tests(audio openrac_audio)
 
+# The extractor: every extract/*.cpp but main.cpp is openrac_extract (tested),
+# main.cpp is openrac-extractor.
 file(GLOB extractor_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/extract/*.cpp")
-if(extractor_sources AND TARGET openrac_media)
-  list(FILTER extractor_sources EXCLUDE REGEX "/main\\.cpp$")
+list(FILTER extractor_sources EXCLUDE REGEX "/main\\.cpp$")
+if(extractor_sources)
   add_library(openrac_extract STATIC ${extractor_sources})
-  target_link_libraries(openrac_extract PUBLIC openrac_assets openrac_media)
+  target_link_libraries(openrac_extract PUBLIC openrac_assets)
   openrac_warnings(openrac_extract)
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extract/main.cpp")
     add_executable(openrac-extractor extract/main.cpp)

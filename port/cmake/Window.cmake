@@ -71,6 +71,21 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
 target_link_libraries(openrac_renderer PUBLIC openrac_common)
 openrac_warnings(openrac_renderer)
 
+# ---- the world's renderers: renderer/world, shaders in renderer/shaders/world ----
+file(GLOB world_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/renderer/world/*.cpp")
+if(world_sources)
+  add_library(openrac_renderer_world STATIC ${world_sources})
+  file(GLOB world_shaders CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/world/*.vert"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/world/*.frag"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/world/*.glsl")
+  list(SORT world_shaders)
+  openrac_embed_shaders(openrac_renderer_world world openrac::renderer::world ${world_shaders})
+  target_link_libraries(openrac_renderer_world PUBLIC openrac_renderer)
+  openrac_warnings(openrac_renderer_world)
+  openrac_add_module_tests(world openrac_renderer_world openrac_platform)
+endif()
+
 # ---- the level viewer ----
 # cgltf and stb are compiled once, as C, without the port's warnings.
 add_library(openrac_viewer_third_party STATIC viewer/third_party.c)
