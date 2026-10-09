@@ -30,6 +30,18 @@ add_library(openrac_ps2 STATIC
 )
 target_include_directories(openrac_ps2 PUBLIC src/ps2 src)
 
+# The games' sound library, sound effect side: banks, scripts, voices.
+add_library(openrac_snd STATIC
+  src/snd/bank.cpp
+  src/snd/envelope.cpp
+  src/snd/player.cpp
+  src/snd/sfx.cpp
+  src/snd/tuning.cpp
+  src/snd/voice.cpp
+)
+target_include_directories(openrac_snd PUBLIC src)
+target_link_libraries(openrac_snd PUBLIC openrac_ps2)
+
 # The machine around the hardware model: kernel services, the disc, the
 # library functions answered by the runtime.
 add_library(openrac_sys STATIC
@@ -69,6 +81,9 @@ target_link_libraries(openrac-vuscan PRIVATE openrac_ps2)
 add_executable(openrac-vubench src/app/vubench.cpp)
 target_link_libraries(openrac-vubench PRIVATE openrac_ps2)
 
+add_executable(openrac-sndbank src/app/sndbank.cpp)
+target_link_libraries(openrac-sndbank PRIVATE openrac_snd openrac_sys)
+
 enable_testing()
 add_executable(openrac-ps2-tests tests/test_ps2.cpp)
 target_link_libraries(openrac-ps2-tests PRIVATE openrac_ps2)
@@ -76,3 +91,6 @@ add_test(NAME ps2 COMMAND openrac-ps2-tests)
 add_executable(openrac-vu-tests tests/test_vu.cpp)
 target_link_libraries(openrac-vu-tests PRIVATE openrac_ps2)
 add_test(NAME vu COMMAND openrac-vu-tests)
+add_executable(openrac-snd-tests tests/test_snd.cpp)
+target_link_libraries(openrac-snd-tests PRIVATE openrac_snd)
+add_test(NAME snd COMMAND openrac-snd-tests)

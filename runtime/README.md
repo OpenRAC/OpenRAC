@@ -40,14 +40,16 @@ M-series Mac, with its music and speech. Sound effects are not made yet.
 | `src/sys/drawing.*` | The drawing path on a thread of its own: the EE's side copies what a DMA channel sends, and VIF1, VU1, the GIF and the GS take the copies in order |
 | `src/sys/services.cpp` | What the replaced library functions do: the disc, the pad, a silent sound server, the display's timing |
 | `src/sys/sound.*` | The sound library's streams (music, speech): ADPCM files on the disc, decoded and mixed one field's worth after each field |
+| `src/snd/*` | The sound library's sound effects: banks of sounds, each a short script of steps (tones, waits, loops, random picks, registers, modulators), played on 48 voices with the sound processor's sample format and envelope. Not yet connected to the machine |
 | `src/sys/memcard.cpp` | The memory card library answered from a directory of the host: a folder on the card is a directory, a file a file |
 | `games/SERIAL.hooks` | Per game: which addresses of its program are which library functions. Addresses and names only |
 | `src/host/window.*` | An SDL3 window that shows one image per frame and reads the keyboard and a game controller |
 | `src/app/boot.cpp` | `openrac-boot`: runs the program on your own disc image, in a window or headless, with scripted input and listings for working on the model |
 | `src/app/gsdemo.cpp` | `openrac-gsdemo`: a scene of its own, written into guest memory as a VIF1 DMA chain and drawn through all of the above, with a cube whose vertices a microprogram written for it transforms on VU1 |
 | `src/app/vubench.cpp` | `openrac-vubench FILE`: times the vector unit on one frame of a game's own display list (written by `openrac-boot --dump-vif` on your machine) and prints a sum over what VU1 sends, to show that a change computes the same |
+| `src/app/sndbank.cpp` | `openrac-sndbank DISC.iso SECTOR [--sound N] [--wav FILE]`: reads a sound effect bank from your own disc, lists its sounds and their steps, and plays each one into a sound file |
 | `src/app/vuscan.cpp` | `openrac-vuscan FILE`: finds the VU1 microprograms in an executable from your own disc, loads each through VIF1 as the game would and reports whether the interpreter decodes every instruction. It prints counts, never the programs |
-| `tests/test_ps2.cpp`, `tests/test_vu.cpp` | Tests of the model against the documented layouts, formats, equations and timing |
+| `tests/test_ps2.cpp`, `tests/test_vu.cpp`, `tests/test_snd.cpp` | Tests of the model against the documented layouts, formats, equations and timing; the sound tests build their own bank |
 
 Not here yet, in the order of [the milestones](docs/DESIGN.md#8-milestones):
 sound effects (the banks), the last of the speed (the first level runs at
