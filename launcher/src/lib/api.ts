@@ -166,6 +166,37 @@ export type JobEvent =
   | { type: "output"; id: number; stream: "stdout" | "stderr"; line: string }
   | { type: "exit"; id: number; code: number | null; cancelled: boolean };
 
+/** core/src/iso.rs */
+export type IsoMatchStatus = "exactMatch" | "revisionMismatch" | "wrongGame" | "notPs2Disc" | "invalidIso";
+
+export interface IsoInspection {
+  path: string;
+  filename: string;
+  size: number;
+  isValidIso: boolean;
+  serial: string | null;
+  detectedGameId: string | null;
+  detectedGameTitle: string | null;
+  detectedVersionName: string | null;
+  detectedRegion: string | null;
+  targetGameId: string;
+  targetVersionKey: string;
+  targetSerial: string | null;
+  targetExpectedSize: number | null;
+  matchesTargetGame: boolean;
+  matchesTargetVersion: boolean;
+  status: IsoMatchStatus;
+  message: string;
+}
+
+export interface ImportResult {
+  targetKey: string;
+  baseromPath: string;
+  extractedAssetsDir: string;
+  extractedFiles: string[];
+  setupMessage: string;
+}
+
 // ---- calls ------------------------------------------------------------------------
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -188,6 +219,8 @@ export const api = {
   /** A file or folder in the checkout, relative to it (`games/rac1/pal/README.md`). */
   openPath: (path: string) => call<null>("open_path", { path }),
   openUrl: (url: string) => call<null>("open_url", { url }),
+  inspectIso: (targetKey: string, isoPath: string) => call<IsoInspection>("inspect_iso", { targetKey, isoPath }),
+  importIso: (targetKey: string, isoPath: string) => call<ImportResult>("import_iso", { targetKey, isoPath }),
 };
 
 /** A folder picker; null when cancelled (or in the browser preview). */
@@ -201,6 +234,19 @@ export async function pickFolder(title: string): Promise<string | null> {
 export async function pickFile(title: string): Promise<string | null> {
   if (!inTauri) return null;
   const picked = await open({ directory: false, multiple: false, title });
+  return typeof picked === "string" ? picked : null;
+}
+
+/** An ISO image file picker; null when cancelled. */
+export async function pickIsoFile(title = "Select PS2 ISO image"): Promise<string | null> {
+  if (!inTauri) return "/home/lynder063/Downloads/games-ps2/Ratchet & Clank (Europe) (En,Fr,De,Es,It) (v2.00).iso";
+  const picked = await open({
+    directory: false,
+    multiple: false,
+    title,
+    defaultPath: "/home/lynder063/Downloads/games-ps2",
+    filters: [{ name: "PS2 ISO Image", extensions: ["iso"] }],
+  });
   return typeof picked === "string" ? picked : null;
 }
 

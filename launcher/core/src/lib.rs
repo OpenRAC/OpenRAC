@@ -20,6 +20,7 @@ pub mod actions;
 pub mod catalog;
 pub mod config;
 pub mod detect;
+pub mod iso;
 pub mod jobs;
 pub mod library;
 pub mod status;

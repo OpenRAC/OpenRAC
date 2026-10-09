@@ -121,11 +121,76 @@ fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn inspect_iso(
+    state: State<'_, AppState>,
+    target_key: String,
+    iso_path: PathBuf,
+) -> Result<openrac_launcher_core::iso::IsoInspection, String> {
+    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
+    let catalog = openrac_launcher_core::catalog::load(&root)?;
+    Ok(openrac_launcher_core::iso::inspect_iso(&catalog, &target_key, &iso_path))
+}
+
+#[tauri::command]
+fn import_iso(
+    state: State<'_, AppState>,
+    target_key: String,
+    iso_path: PathBuf,
+) -> Result<openrac_launcher_core::iso::ImportResult, String> {
+    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
+    let catalog = openrac_launcher_core::catalog::load(&root)?;
+    openrac_launcher_core::iso::import_iso(&root, &catalog, &target_key, &iso_path)
+}
+
+#[cfg(target_os = "linux")]
+fn ensure_linux_desktop_integration() {
+    let icon_bytes = include_bytes!("../icons/icon.png");
+    if let Ok(home) = std::env::var("HOME") {
+        let home_path = PathBuf::from(home);
+        let icon_dir = home_path.join(".local/share/icons/hicolor/512x512/apps");
+        let app_dir = home_path.join(".local/share/applications");
+        let _ = std::fs::create_dir_all(&icon_dir);
+        let _ = std::fs::create_dir_all(&app_dir);
+
+        let icon_path1 = icon_dir.join("openrac-launcher.png");
+        let icon_path2 = icon_dir.join("dev.openrac.launcher.png");
+        let _ = std::fs::write(&icon_path1, icon_bytes);
+        let _ = std::fs::write(&icon_path2, icon_bytes);
+
+        let exe_path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("openrac-launcher"));
+        let exe_str = exe_path.to_string_lossy();
+
+        let desktop_content1 = format!(
+            "[Desktop Entry]\nType=Application\nName=OpenRAC Launcher\nComment=OpenRAC Launcher\nExec={}\nIcon=openrac-launcher\nTerminal=false\nCategories=Game;Development;\nStartupWMClass=openrac-launcher\n",
+            exe_str
+        );
+        let desktop_content2 = format!(
+            "[Desktop Entry]\nType=Application\nName=OpenRAC Launcher\nComment=OpenRAC Launcher\nExec={}\nIcon=dev.openrac.launcher\nTerminal=false\nCategories=Game;Development;\nStartupWMClass=dev.openrac.launcher\n",
+            exe_str
+        );
+
+        let desk1 = app_dir.join("openrac-launcher.desktop");
+        let desk2 = app_dir.join("dev.openrac.launcher.desktop");
+        let _ = std::fs::write(desk1, desktop_content1);
+        let _ = std::fs::write(desk2, desktop_content2);
+    }
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            #[cfg(target_os = "linux")]
+            ensure_linux_desktop_integration();
+
+            if let Some(window) = app.get_webview_window("main") {
+                if let Some(icon) = app.default_window_icon() {
+                    let _ = window.set_icon(icon.clone());
+                }
+            }
+
             let config_file = app.path().app_config_dir().ok().map(|dir| dir.join("launcher.json"));
             let config = config_file.as_deref().map(config::load).unwrap_or_default();
             app.manage(AppState { config: Mutex::new(config), config_file, jobs: Jobs::default() });
@@ -143,6 +208,8 @@ pub fn run() {
             cancel_job,
             open_path,
             open_url,
+            inspect_iso,
+            import_iso,
         ])
         .run(tauri::generate_context!())
         .expect("the launcher failed to start");
