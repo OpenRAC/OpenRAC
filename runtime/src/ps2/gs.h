@@ -167,7 +167,7 @@ class Gs {
   // For tools: called for every primitive drawn, with a line describing the
   // state it is drawn with (target, scissor, texture, tests, blending) and
   // its bounding box in the target.
-  std::function<void(const std::string& state, int x0, int y0, int x1, int y1)> on_primitive;
+  std::function<void(const std::string& state, int x0, int y0, int x1, int y1, float lod0, float lod1)> on_primitive;
 
   GsMemory memory;
 

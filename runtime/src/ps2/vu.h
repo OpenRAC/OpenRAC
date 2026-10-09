@@ -17,7 +17,8 @@ namespace ps2 {
 // cycles later, and an instruction that needs it sooner waits; flags appear
 // four cycles after the instruction that set them; Q and P arrive when their
 // dividers and function units finish; a branch tests the value an integer
-// register had before the instruction just ahead of it; XGKICK sends its
+// register had before the instruction just ahead of it, unless that
+// instruction read flags into it or the branch had to wait; XGKICK sends its
 // packet one instruction late. Arithmetic is the
 // console's own (fp.h), on raw bit patterns.
 class Vu {
@@ -67,6 +68,8 @@ class Vu {
 
   // XGKICK: a GIF packet starts at this quadword of data memory.
   std::function<void(u32 quadword)> on_kick;
+  // For looking into a program: called before each pair runs.
+  std::function<void(u32 at, u32 upper, u32 lower)> on_step;
   // XTOP and XITOP read VIF registers.
   std::function<u32()> on_top, on_itop;
 
@@ -119,6 +122,7 @@ class Vu {
 
   void write_vf(unsigned reg, u32 mask, const std::array<u32, 4>& value);
   void write_vi(unsigned reg, u16 value);
+  void write_vi_from_flags(unsigned reg, u16 value);
   u16 branch_vi(unsigned reg) const;
   void branch(u32 target);
   void start_q(u32 value, unsigned latency, u32 divide_flags);

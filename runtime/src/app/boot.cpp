@@ -116,11 +116,12 @@ int main(int argc, char** argv) {
     // how many primitives and the area they span.
     struct Use {
       int count = 0, x0 = 1 << 30, y0 = 1 << 30, x1 = -(1 << 30), y1 = -(1 << 30), first = 0;
+      float lod0 = 1e9f, lod1 = -1e9f;
     };
     std::map<std::string, Use> states;
     int order = 0;
     if (frame == states_frame) {
-      machine.graphics.gs.on_primitive = [&](const std::string& state, int x0, int y0, int x1, int y1) {
+      machine.graphics.gs.on_primitive = [&](const std::string& state, int x0, int y0, int x1, int y1, float lod0, float lod1) {
         Use& u = states[state];
         if (u.count++ == 0) {
           u.first = order;
@@ -130,6 +131,8 @@ int main(int argc, char** argv) {
         u.y0 = std::min(u.y0, y0);
         u.x1 = std::max(u.x1, x1);
         u.y1 = std::max(u.y1, y1);
+        u.lod0 = std::min(u.lod0, lod0);
+        u.lod1 = std::max(u.lod1, lod1);
       };
     }
     machine.pad.buttons = 0;
@@ -148,7 +151,11 @@ int main(int argc, char** argv) {
       for (const auto& [state, u] : states) {
         char head[96];
         std::snprintf(head, sizeof(head), "%6d x%-6d [%4d,%4d - %4d,%4d] ", u.first, u.count, u.x0, u.y0, u.x1, u.y1);
-        lines.push_back({u.first, head + state});
+        char tail[48] = "";
+        if (u.lod1 >= u.lod0 && (u.lod0 != 0 || u.lod1 != 0)) {
+          std::snprintf(tail, sizeof(tail), " | lod %.2f..%.2f", static_cast<double>(u.lod0), static_cast<double>(u.lod1));
+        }
+        lines.push_back({u.first, head + state + tail});
       }
       std::sort(lines.begin(), lines.end());
       for (const auto& line : lines) {

@@ -320,6 +320,45 @@ void test_branch_sees_the_older_integer() {
   CHECK_EQ(u.vu.vi[4], 0u);
 }
 
+void test_branch_after_a_flag_read() {
+  // The instructions that read flags into an integer register are done in
+  // time for a branch right after them (the games' clipping code tests two
+  // flag reads this way).
+  Unit u;
+  u.vu.set_f(1, 3, -2.0f);
+  Program p;
+  p.hi(add(W, 2, 1, 1));      // 0: negative: the sign flag
+  p.hi(nop());                // 1
+  p.hi(nop());                // 2
+  p.hi(nop());                // 3
+  p.lo(fsand(5, 2));          // 4: vi5 = 2
+  p.lo(ibne(5, 0, 2));        // 5: tests the 2 just read: taken, to 8
+  p.hi(nop());                // 6
+  p.lo(iaddiu(6, 0, 7));      // 7: skipped
+  finish(p);
+  u.run(p);
+  CHECK_EQ(u.vu.vi[5], 2u);
+  CHECK_EQ(u.vu.vi[6], 0u);
+}
+
+void test_branch_that_waits_sees_the_new_integer() {
+  // A branch whose pair has to wait for a float register no longer tests the
+  // old value: the write ahead of it has got through by then.
+  Unit u;
+  u.vu.set_f(1, 0, 1.0f);
+  Program p;
+  p.lo(iaddiu(1, 0, 1));                // 0
+  p.hi(nop());                          // 1
+  p.add(add(X, 2, 1, 1), iaddi(1, 1, -1));  // 2: vi1 becomes 0, vf2 on its way
+  p.add(add(X, 3, 2, 2), ibne(1, 0, 2));    // 3: waits for vf2: tests 0, not taken
+  p.hi(nop());                          // 4
+  p.lo(iaddiu(4, 0, 7));                // 5: runs
+  finish(p);
+  u.run(p);
+  CHECK_EQ(u.vu.vi[1], 0u);
+  CHECK_EQ(u.vu.vi[4], 7u);
+}
+
 void test_memory_and_integers() {
   Unit u;
   for (u32 f = 0; f < 4; f++) {
@@ -503,6 +542,8 @@ int main() {
       {"function unit", test_function_unit},
       {"branches", test_branches},
       {"a branch sees the older integer", test_branch_sees_the_older_integer},
+      {"a branch after a flag read", test_branch_after_a_flag_read},
+      {"a branch that waits sees the new integer", test_branch_that_waits_sees_the_new_integer},
       {"memory and integers", test_memory_and_integers},
       {"four-field arithmetic", test_quad_arithmetic},
       {"kick through vif", test_kick_through_vif},

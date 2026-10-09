@@ -304,6 +304,9 @@ void Vu::step() {
   u32 at = pc;
   u32 low = load<u32>(memory_.micro + at * 8), up = load<u32>(memory_.micro + at * 8 + 4);
   pc = (pc + 1) & pc_mask_;
+  if (on_step) [[unlikely]] {
+    on_step(at, up, low);
+  }
 
   // When this pair runs: the next cycle, or later if it reads a float
   // register not yet readable, or needs a unit that is busy.
@@ -327,6 +330,12 @@ void Vu::step() {
   }
   if (needs.wait == 1 && q_at_ > ready) ready = q_at_;
   if (needs.wait == 2 && p_at_ > ready) ready = p_at_;
+  // A branch tests the value an integer register had before the instruction
+  // just ahead of it, unless it had to wait: then the write got through.
+  if (backup_ttl_) {
+    u64 passed = ready - cycle_;
+    backup_ttl_ = passed >= backup_ttl_ ? 0 : backup_ttl_ - static_cast<unsigned>(passed);
+  }
   cycle_ = ready;
   // What has arrived by then.
   while (flag_count_ && flag_pipe_[flag_first_].at <= cycle_) {
@@ -384,9 +393,6 @@ void Vu::step() {
   }
   if (branch_in_ && --branch_in_ == 0) {
     pc = branch_target_;
-  }
-  if (backup_ttl_) {
-    backup_ttl_--;
   }
   timed_ = false;
   if (stop_in_ && --stop_in_ == 0) {
@@ -532,6 +538,19 @@ void Vu::write_vi(unsigned reg, u16 value) {
     backup_value_ = vi[reg];
   }
   backup_ttl_ = 2;
+  vi[reg] = value;
+}
+
+// The instructions that read flags into an integer register finish early: a
+// branch right after one tests the new value.
+void Vu::write_vi_from_flags(unsigned reg, u16 value) {
+  reg &= 15;
+  if (reg == 0) {
+    return;
+  }
+  if (backup_reg_ == reg) {
+    backup_ttl_ = 0;
+  }
   vi[reg] = value;
 }
 
@@ -920,42 +939,42 @@ void Vu::lower(u32 code, u32 at) {
       write_vi(it, static_cast<u16>(vi[is & 15] - imm15));
       break;
     case 0x10:  // FCEQ
-      write_vi(1, (clip & 0xFFFFFF) == imm24);
+      write_vi_from_flags(1, (clip & 0xFFFFFF) == imm24);
       break;
     case 0x11:  // FCSET
       clip_latest_ = imm24;
       post();
       break;
     case 0x12:  // FCAND
-      write_vi(1, (clip & imm24) != 0);
+      write_vi_from_flags(1, (clip & imm24) != 0);
       break;
     case 0x13:  // FCOR
-      write_vi(1, ((clip | imm24) & 0xFFFFFF) == 0xFFFFFF);
+      write_vi_from_flags(1, ((clip | imm24) & 0xFFFFFF) == 0xFFFFFF);
       break;
     case 0x14:  // FSEQ
-      write_vi(it, (status & 0xFFF) == imm12);
+      write_vi_from_flags(it, (status & 0xFFF) == imm12);
       break;
     case 0x15:  // FSSET: the remembered bits only
       status_latest_ = (status_latest_ & 0x3F) | (imm12 & 0xFC0);
       post();
       break;
     case 0x16:  // FSAND
-      write_vi(it, static_cast<u16>(status & imm12));
+      write_vi_from_flags(it, static_cast<u16>(status & imm12));
       break;
     case 0x17:  // FSOR
-      write_vi(it, static_cast<u16>((status | imm12) & 0xFFF));
+      write_vi_from_flags(it, static_cast<u16>((status | imm12) & 0xFFF));
       break;
     case 0x18:  // FMEQ
-      write_vi(it, (mac & 0xFFFF) == vi[is & 15]);
+      write_vi_from_flags(it, (mac & 0xFFFF) == vi[is & 15]);
       break;
     case 0x1A:  // FMAND
-      write_vi(it, static_cast<u16>(mac & vi[is & 15]));
+      write_vi_from_flags(it, static_cast<u16>(mac & vi[is & 15]));
       break;
     case 0x1B:  // FMOR
-      write_vi(it, static_cast<u16>(mac | vi[is & 15]));
+      write_vi_from_flags(it, static_cast<u16>(mac | vi[is & 15]));
       break;
     case 0x1C:  // FCGET
-      write_vi(it, static_cast<u16>(clip & 0xFFF));
+      write_vi_from_flags(it, static_cast<u16>(clip & 0xFFF));
       break;
     case 0x20:  // B
       branch(next);

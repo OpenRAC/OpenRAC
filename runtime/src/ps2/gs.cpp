@@ -727,7 +727,7 @@ void Gs::flush() {
 }
 
 void Gs::report(const Env& e, unsigned count) const {
-  char text[320];
+  char text[448];
   u32 prim = prim_bits();
   int n = std::snprintf(text, sizeof(text), "prim %u%s%s%s%s ctx%u | frame %u/%u psm %02x mask %08x | z %u psm %02x%s | scissor %d-%d,%d-%d | test %s%u/%02x/%u%s z%s%u | ",
                         prim & 7, e.iip ? " gouraud" : "", e.fge ? " fog" : "", e.abe ? " blend" : "", e.fst ? " uv" : "",
@@ -739,9 +739,12 @@ void Gs::report(const Env& e, unsigned count) const {
   }
   if (e.tme) {
     const Texture& t = e.tex;
-    std::snprintf(text + n, sizeof(text) - static_cast<std::size_t>(n), "tex %u/%u psm %02x %ux%u tfx %u%s wrap %u%u filter %u%u mxl %u k %.2f%s",
-                  t.tbp[0], t.tbw[0], t.psm, 1u << t.tw, 1u << t.th, t.tfx, t.tcc ? " tcc" : "", t.wms, t.wmt, t.mmag, t.mmin,
-                  t.mxl, static_cast<double>(t.k), t.lcm ? " lcm" : "");
+    n += std::snprintf(text + n, sizeof(text) - static_cast<std::size_t>(n), "tex %u/%u psm %02x %ux%u tfx %u%s wrap %u%u filter %u%u mxl %u l %u k %.2f%s",
+                       t.tbp[0], t.tbw[0], t.psm, 1u << t.tw, 1u << t.th, t.tfx, t.tcc ? " tcc" : "", t.wms, t.wmt, t.mmag, t.mmin,
+                       t.mxl, t.l, static_cast<double>(t.k), t.lcm ? " lcm" : "");
+    for (u32 level = 1; level <= t.mxl && n < static_cast<int>(sizeof(text)) - 16; level++) {
+      n += std::snprintf(text + n, sizeof(text) - static_cast<std::size_t>(n), "%s%u/%u", level == 1 ? " mips " : ",", t.tbp[level], t.tbw[level]);
+    }
   } else {
     std::snprintf(text + n, sizeof(text) - static_cast<std::size_t>(n), "no texture");
   }
@@ -753,7 +756,18 @@ void Gs::report(const Env& e, unsigned count) const {
     x1 = std::max(x1, x);
     y1 = std::max(y1, y);
   }
-  on_primitive(text, x0, y0, x1, y1);
+  // The level of detail at the vertices, where the texture has levels.
+  float lod0 = 0, lod1 = 0;
+  if (e.tme && e.tex.lod_per_pixel) {
+    lod0 = 1e9f;
+    lod1 = -1e9f;
+    for (unsigned v = 0; v < count; v++) {
+      float lod = static_cast<float>(-std::log2(std::fabs(static_cast<double>(queue_[v].q))) * static_cast<double>(1u << e.tex.l)) + e.tex.k;
+      lod0 = std::min(lod0, lod);
+      lod1 = std::max(lod1, lod);
+    }
+  }
+  on_primitive(text, x0, y0, x1, y1, lod0, lod1);
 }
 
 // --- decoded textures ----------------------------------------------------------
