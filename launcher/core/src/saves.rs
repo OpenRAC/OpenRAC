@@ -11,9 +11,9 @@
 //! holds `icon.sys`, `static.ico`, and save files `save0.bin` ... `save4.bin`.
 //! This module reads, backs up, restores, and inspects these save files.
 
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -70,9 +70,7 @@ pub fn get_memcard_dir(serial: &str) -> PathBuf {
 }
 
 fn dirs_home() -> PathBuf {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."))
+    std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."))
 }
 
 /// Decode BCD (Binary Coded Decimal) byte: e.g. 0x26 -> 26.
@@ -117,25 +115,25 @@ fn parse_save_timestamp(bytes: &[u8]) -> Option<String> {
 
 /// Ratchet & Clank 1 planet names by internal planet ID (0..18).
 pub const RAC1_PLANETS: &[&str] = &[
-    "Veldin (Kyzil Plateau)", // 0
-    "Novalis (Tobruk Crater)", // 1
-    "Aridia (Outpost X11)",   // 2
-    "Kerwan (Metropolis)",    // 3
-    "Eudora (Logging Site)",  // 4
+    "Veldin (Kyzil Plateau)",   // 0
+    "Novalis (Tobruk Crater)",  // 1
+    "Aridia (Outpost X11)",     // 2
+    "Kerwan (Metropolis)",      // 3
+    "Eudora (Logging Site)",    // 4
     "Rilgar (Blackwater City)", // 5
-    "Blarg Station",          // 6
-    "Umbris (Snagglebeast)",  // 7
-    "Batalia (Fort Krontos)", // 8
-    "Gaspar (Jowai Resort)",  // 9
-    "Orxon (Kogor Refinery)", // 10
-    "Pokitaru (Jowai Resort)",// 11
-    "Hoven (Bomb Factory)",   // 12
-    "Gemlik Base",            // 13
-    "Oltanis (Gorda City)",   // 14
-    "Quartu (Robot Plant)",   // 15
-    "Kalebo III (Gadgetron)", // 16
-    "Drek's Fleet",           // 17
-    "Veldin (Return)",        // 18
+    "Blarg Station",            // 6
+    "Umbris (Snagglebeast)",    // 7
+    "Batalia (Fort Krontos)",   // 8
+    "Gaspar (Jowai Resort)",    // 9
+    "Orxon (Kogor Refinery)",   // 10
+    "Pokitaru (Jowai Resort)",  // 11
+    "Hoven (Bomb Factory)",     // 12
+    "Gemlik Base",              // 13
+    "Oltanis (Gorda City)",     // 14
+    "Quartu (Robot Plant)",     // 15
+    "Kalebo III (Gadgetron)",   // 16
+    "Drek's Fleet",             // 17
+    "Veldin (Return)",          // 18
 ];
 
 pub fn get_planet_name(serial: &str, planet_id: u32) -> Option<String> {
@@ -213,7 +211,9 @@ pub fn inspect_saves(serial: &str) -> GameSaveStatus {
 
                 if file_name.starts_with(".backup_") && path.is_dir() {
                     let total_size = dir_size(&path);
-                    let mtime = path.metadata().ok()
+                    let mtime = path
+                        .metadata()
+                        .ok()
                         .and_then(|m| m.modified().ok())
                         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                         .map(|d| d.as_millis() as u64)
@@ -249,34 +249,32 @@ pub fn inspect_saves(serial: &str) -> GameSaveStatus {
             for i in 0..5 {
                 let fname = format!("save{i}.bin");
                 let save_path = target_dir.join(&fname);
-                let (exists, size, mtime, is_empty, timestamp, bolts, planet_id, planet_name) =
-                    if save_path.is_file() {
-                        let meta = save_path.metadata().ok();
-                        let sz = meta.as_ref().map(|m| m.len()).unwrap_or(0);
-                        let mt = meta
-                            .as_ref()
-                            .and_then(|m| m.modified().ok())
-                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                            .map(|d| d.as_millis() as u64);
+                let (exists, size, mtime, is_empty, timestamp, bolts, planet_id, planet_name) = if save_path.is_file() {
+                    let meta = save_path.metadata().ok();
+                    let sz = meta.as_ref().map(|m| m.len()).unwrap_or(0);
+                    let mt = meta
+                        .as_ref()
+                        .and_then(|m| m.modified().ok())
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|d| d.as_millis() as u64);
 
-                        let data = fs::read(&save_path).unwrap_or_default();
-                        let ts = parse_save_timestamp(&data);
-                        // In rac1, an initialized but empty save slot has 0x00 at 0x48..0x50 and 0xffffffff at 0x18
-                        let empty = ts.is_none()
-                            || (data.len() > 0x1c && data[0x18..0x1c] == [0xff, 0xff, 0xff, 0xff]);
+                    let data = fs::read(&save_path).unwrap_or_default();
+                    let ts = parse_save_timestamp(&data);
+                    // In rac1, an initialized but empty save slot has 0x00 at 0x48..0x50 and 0xffffffff at 0x18
+                    let empty = ts.is_none() || (data.len() > 0x1c && data[0x18..0x1c] == [0xff, 0xff, 0xff, 0xff]);
 
-                        let (b, pid, pname) = if !empty {
-                            let g = parse_save_gameplay_info(&data);
-                            let pn = g.planet_id.and_then(|p| get_planet_name(serial, p));
-                            (g.bolts, g.planet_id, pn)
-                        } else {
-                            (None, None, None)
-                        };
-
-                        (true, sz, mt, empty, ts, b, pid, pname)
+                    let (b, pid, pname) = if !empty {
+                        let g = parse_save_gameplay_info(&data);
+                        let pn = g.planet_id.and_then(|p| get_planet_name(serial, p));
+                        (g.bolts, g.planet_id, pn)
                     } else {
-                        (false, 0, None, true, None, None, None, None)
+                        (None, None, None)
                     };
+
+                    (true, sz, mt, empty, ts, b, pid, pname)
+                } else {
+                    (false, 0, None, true, None, None, None, None)
+                };
 
                 slots.push(SaveSlotInfo {
                     slot_index: i,
@@ -295,7 +293,7 @@ pub fn inspect_saves(serial: &str) -> GameSaveStatus {
         }
     }
 
-    backups.sort_by(|a, b| b.created_millis.cmp(&a.created_millis));
+    backups.sort_by_key(|b| std::cmp::Reverse(b.created_millis));
 
     GameSaveStatus {
         serial: serial.to_string(),
@@ -315,10 +313,8 @@ pub fn backup_saves(serial: &str, note: Option<&str>) -> Result<SaveBackupInfo, 
         return Err(format!("no save directory for {serial}"));
     }
 
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| e.to_string())?
-        .as_secs();
+    let timestamp =
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|e| e.to_string())?.as_secs();
 
     let backup_name = match note {
         Some(n) if !n.trim().is_empty() => {
@@ -340,7 +336,9 @@ pub fn backup_saves(serial: &str, note: Option<&str>) -> Result<SaveBackupInfo, 
     }
 
     let total_size = dir_size(&backup_path);
-    let mtime = backup_path.metadata().ok()
+    let mtime = backup_path
+        .metadata()
+        .ok()
         .and_then(|m| m.modified().ok())
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as u64)
@@ -484,9 +482,8 @@ mod tests {
     fn decodes_shift_jis_title() {
         // "Ratchet & Clank" in PS2 SJIS:
         let bytes = [
-            0x82, 0x71, 0x82, 0x81, 0x82, 0x94, 0x82, 0x83, 0x82, 0x88, 0x82, 0x85, 0x82, 0x94,
-            0x81, 0x40, 0x81, 0x95, 0x81, 0x40,
-            0x82, 0x62, 0x82, 0x8c, 0x82, 0x81, 0x82, 0x8e, 0x82, 0x8b, 0x00,
+            0x82, 0x71, 0x82, 0x81, 0x82, 0x94, 0x82, 0x83, 0x82, 0x88, 0x82, 0x85, 0x82, 0x94, 0x81, 0x40, 0x81, 0x95,
+            0x81, 0x40, 0x82, 0x62, 0x82, 0x8c, 0x82, 0x81, 0x82, 0x8e, 0x82, 0x8b, 0x00,
         ];
         let decoded = decode_shift_jis_or_ascii(&bytes);
         assert_eq!(decoded, Some("Ratchet & Clank".to_string()));

@@ -270,9 +270,7 @@ async fn sync_progress_from_web(state: State<'_, AppState>) -> Result<Library, S
         }
     }
 
-    tauri::async_runtime::spawn_blocking(move || library::library(&config))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || library::library(&config)).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -280,9 +278,7 @@ async fn apply_progress_json(state: State<'_, AppState>, json: String) -> Result
     let config = state.config.lock().unwrap().clone();
     let root = config.root.clone().ok_or("the OpenRAC folder is not set")?;
     openrac_launcher_core::catalog::update_progress_from_openrac_dev(&root, &json)?;
-    tauri::async_runtime::spawn_blocking(move || library::library(&config))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || library::library(&config)).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
