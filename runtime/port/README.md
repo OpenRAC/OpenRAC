@@ -127,7 +127,7 @@ the game. `hand/<game>-<version>/` has them in C, written from the
 instructions of each routine: the same operations in the same order, so
 that rounding agrees. They are built and bound like any other source file,
 at every copy in every level, and the check compares them with the retail
-routines like any other function (28 so far; all pass in all 19 levels).
+routines like any other function (31 so far; all pass in the levels they were checked in).
 
 What they do not reproduce is what a routine leaves in the vector unit's own
 registers, so a routine whose result depends on what an earlier one left
