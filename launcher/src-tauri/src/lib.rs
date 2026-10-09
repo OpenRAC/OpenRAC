@@ -143,15 +143,18 @@ fn run_action(app: AppHandle, state: State<'_, AppState>, scope: Scope, id: Stri
             if let Ok(catalog) = openrac_launcher_core::catalog::load(root) {
                 if let Scope::Version(key) = &scope {
                     if let Some(v) = catalog.version(key) {
-                        let mut discord = state.discord.lock().unwrap();
+                        let discord = state.discord.clone();
                         let play_status = openrac_launcher_core::discord::DiscordStatus::PlayingGame {
                             title: v.title.clone(),
                             region: v.region.clone(),
                             game_id: v.game.clone(),
                             start_time: Some(openrac_launcher_core::discord::now_sec()),
                         };
-                        let app_start = discord.app_start;
-                        let _ = discord.ipc.set_status(&play_status, app_start);
+                        tauri::async_runtime::spawn_blocking(move || {
+                            let mut discord = discord.lock().unwrap();
+                            let app_start = discord.app_start;
+                            let _ = discord.ipc.set_status(&play_status, app_start);
+                        });
                     }
                 }
             }
@@ -167,9 +170,12 @@ fn run_action(app: AppHandle, state: State<'_, AppState>, scope: Scope, id: Stri
                     if let Some(st) = app_handle.try_state::<AppState>() {
                         let cfg = st.config.lock().unwrap().clone();
                         if cfg.discord_rpc {
-                            let mut discord = st.discord.lock().unwrap();
-                            let app_start = discord.app_start;
-                            let _ = discord.ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
+                            let discord = st.discord.clone();
+                            tauri::async_runtime::spawn_blocking(move || {
+                                let mut discord = discord.lock().unwrap();
+                                let app_start = discord.app_start;
+                                let _ = discord.ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
+                            });
                         }
                     }
                 }

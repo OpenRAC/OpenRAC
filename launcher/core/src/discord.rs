@@ -207,7 +207,7 @@ impl DiscordIpc {
                 title,
                 region,
                 progress_pct,
-                game_id,
+                game_id: _,
             } => {
                 let state_str = match progress_pct {
                     Some(p) => format!("{region} · {p:.1}% matched"),
@@ -221,10 +221,10 @@ impl DiscordIpc {
                         end: None,
                     }),
                     assets: Some(ActivityAssets {
-                        large_image: Some(game_image_url(game_id)),
-                        large_text: Some(title.clone()),
-                        small_image: Some("https://openrac.dev/wrench.webp".into()),
-                        small_text: Some("OpenRAC".into()),
+                        large_image: Some("https://openrac.dev/wrench.webp".into()),
+                        large_text: Some("OpenRAC Launcher".into()),
+                        small_image: None,
+                        small_text: None,
                     }),
                 }
             }
