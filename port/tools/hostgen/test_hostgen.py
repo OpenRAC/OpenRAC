@@ -370,6 +370,20 @@ class SharedLibraries(unittest.TestCase):
         self.assertEqual(header.count(" openrac_lib_"), len(names))
 
 
+class Places(unittest.TestCase):
+    def test_an_executable_function_the_levels_carry_keeps_its_address(self):
+        import re
+        from program import Program
+        program = Program()
+        program.code_names = [re.compile(r"^func_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{8})$")]
+        program.places["func_001E94E8"] = [(0, 0x001EB1B0), (1, 0x0020CD30)]
+        program.places["func_L00_001EB0B0"] = [(0, 0x001EB0B0), (1, 0x0020CCB0)]
+        self.assertEqual(program.code_places("func_001E94E8"),
+                         [(-1, 0x001E94E8), (0, 0x001EB1B0), (1, 0x0020CD30)])
+        self.assertEqual(program.code_places("func_L00_001EB0B0"), [(0, 0x001EB0B0), (1, 0x0020CCB0)])
+        self.assertEqual(program.code_places("func_00112380"), [(-1, 0x00112380)])
+
+
 class TypeStrings(unittest.TestCase):
     def test_declarators(self):
         cases = {

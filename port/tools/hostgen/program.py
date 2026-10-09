@@ -112,16 +112,22 @@ class Program:
             tail = "__" + g["suffix"]
             if symbol.endswith(tail):
                 return [(g["overlay"], addr) for _, addr in self.code_places(symbol[:-len(tail)])]
-        if symbol in self.places:
-            return self.places[symbol]
+        named: list[tuple[int, int]] = []
         for pattern in self.code_names:
             m = pattern.match(symbol)
             if m:
                 overlay = m.groupdict().get("overlay")
-                return [(int(overlay) if overlay is not None else -1, int(m.group("addr"), 16))]
-        if symbol in self.symbols:
-            return [(-1, self.symbols[symbol])]
-        return []
+                named = [(int(overlay) if overlay is not None else -1, int(m.group("addr"), 16))]
+                break
+        if not named and symbol in self.symbols:
+            named = [(-1, self.symbols[symbol])]
+        if symbol in self.places:
+            # A function of the executable that the levels' programs also
+            # carry is in the catalogue with its level places only: it keeps
+            # its place in the executable too, first, as its own address.
+            exe = [p for p in named if p[0] < 0 and p not in self.places[symbol]]
+            return exe + self.places[symbol]
+        return named
 
     def data_address(self, symbol: str) -> int | None:
         if symbol in self.symbols:
