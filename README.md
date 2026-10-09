@@ -72,12 +72,16 @@ cmake -S runtime -B build/runtime -G Ninja && cmake --build build/runtime
 build/runtime/openrac-gsdemo
 ```
 
+A desktop launcher that does these steps behind buttons, for every game, is
+in progress ([launcher/README.md](launcher/README.md)).
+
 ## Repository layout
 
 ```
 games/       one directory per game, one per version inside (pal, ntsc)
 editor/      the Godot level editor and its extractor
 runtime/     what will run the games on a PC: hardware model, renderer, host
+launcher/    a desktop app to set up, build and play the games (in progress)
 tools/       openrac.py (discs, setup, progress) and sources.py (imports)
 docs/        policy, engine knowledge, toolchains and workflows across games
 progress/    consolidated progress, generated

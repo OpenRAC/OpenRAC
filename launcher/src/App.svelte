@@ -1,0 +1,67 @@
+<script lang="ts">
+  import Header from "$components/Header.svelte";
+  import Toasts from "$components/Toasts.svelte";
+  import { app, refresh, start, type Page } from "$lib/app.svelte";
+  import Game from "./pages/Game.svelte";
+  import Library from "./pages/Library.svelte";
+  import Settings from "./pages/Settings.svelte";
+  import Tasks from "./pages/Tasks.svelte";
+
+  $effect(() => {
+    // ?page=tasks (and ?version=rac1/pal) open a page directly: handy for screenshots.
+    const params = new URLSearchParams(location.search);
+    void start().then(() => {
+      const version = params.get("version");
+      if (version) {
+        app.version = version;
+        app.page = "game";
+      }
+      const page = params.get("page") as Page | null;
+      if (page) app.page = page;
+    });
+    // Pick up what changed outside the launcher (a build in a terminal, a new disc).
+    const onFocus = () => void refresh();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+    };
+  });
+</script>
+
+{#if !app.config}
+  <div class="loading"><span class="spinner"></span></div>
+{:else}
+  <div class="shell">
+    {#if app.config.setupComplete}<Header />{/if}
+    <main>
+      {#if !app.config.setupComplete}<Settings setup />
+      {:else if app.page === "game"}<Game />
+      {:else if app.page === "tasks"}<Tasks />
+      {:else if app.page === "settings"}<Settings />
+      {:else}<Library />
+      {/if}
+    </main>
+  </div>
+{/if}
+<Toasts />
+
+<style>
+  .loading {
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: var(--amber);
+  }
+
+  .shell {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  main {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+</style>

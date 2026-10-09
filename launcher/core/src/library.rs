@@ -1,0 +1,141 @@
+//! The catalogue, each version's status and its actions, put together for
+//! the UI in one call; and the way back, from an action's name to its plan.
+
+use std::path::PathBuf;
+
+use serde::Serialize;
+
+use crate::actions::{self, ActionFile, ActionView, Context, Plan, Platform, Scope};
+use crate::catalog::{self, Version};
+use crate::config::Config;
+use crate::status::{self, VersionStatus};
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Library {
+    pub root: PathBuf,
+    pub platform: Platform,
+    /// toolchains/ holds a compiler.
+    pub toolchains: bool,
+    pub repository: Vec<ActionView>,
+    pub games: Vec<GameView>,
+    /// launcher/actions.json could not be read: why. The games still show,
+    /// without actions.
+    pub actions_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameView {
+    pub id: String,
+    pub title: String,
+    pub year: Option<u32>,
+    pub versions: Vec<VersionView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionView {
+    #[serde(flatten)]
+    pub version: Version,
+    pub status: VersionStatus,
+    pub actions: Vec<ActionView>,
+}
+
+pub fn library(config: &Config) -> Result<Library, String> {
+    let root = config.root()?.to_path_buf();
+    let catalog = catalog::load(&root)?;
+    let (file, actions_error) = match actions::load(&root) {
+        Ok(file) => (Some(file), None),
+        Err(e) => (None, Some(e)),
+    };
+    let toolchains = status::toolchains_present(&root);
+    let platform = Platform::current();
+    let views = |list: Option<&Vec<actions::Action>>, ctx: &Context| -> Vec<ActionView> {
+        list.map(|l| l.iter().map(|a| a.view(ctx)).collect()).unwrap_or_default()
+    };
+
+    let repo_ctx = Context { root: &root, config, version: None, status: None, toolchains, platform };
+    let repository = views(file.as_ref().map(|f| &f.repository), &repo_ctx);
+    let games = catalog
+        .games
+        .into_iter()
+        .map(|game| GameView {
+            versions: game
+                .versions
+                .into_iter()
+                .map(|version| {
+                    let status = status::version_status(&root, &version);
+                    let ctx = Context {
+                        root: &root,
+                        config,
+                        version: Some(&version),
+                        status: Some(&status),
+                        toolchains,
+                        platform,
+                    };
+                    let actions = views(file.as_ref().and_then(|f| f.versions.get(&version.key)), &ctx);
+                    VersionView { version, status, actions }
+                })
+                .collect(),
+            id: game.id,
+            title: game.title,
+            year: game.year,
+        })
+        .collect();
+    Ok(Library { root, platform, toolchains, repository, games, actions_error })
+}
+
+/// The command line for action `id` in `scope`, checked against the
+/// checkout as it is now (not as the UI last saw it).
+pub fn plan(config: &Config, scope: &Scope, id: &str) -> Result<Plan, String> {
+    let root = config.root()?;
+    let file: ActionFile = actions::load(root)?;
+    let action = file.find(scope, id).ok_or_else(|| format!("no action {id:?} for {scope:?}"))?;
+    let toolchains = status::toolchains_present(root);
+    let platform = Platform::current();
+    match scope {
+        Scope::Repository => action.plan(&Context { root, config, version: None, status: None, toolchains, platform }),
+        Scope::Version(key) => {
+            let catalog = catalog::load(root)?;
+            let version = catalog.version(key).ok_or_else(|| format!("no version {key}"))?;
+            let status = status::version_status(root, version);
+            action.plan(&Context { root, config, version: Some(version), status: Some(&status), toolchains, platform })
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::checkout;
+
+    #[test]
+    fn the_checkout_makes_a_library() {
+        let config = Config { root: Some(checkout()), ..Config::default() };
+        let library = library(&config).unwrap();
+        assert_eq!(library.actions_error, None);
+        assert_eq!(library.games.len(), 4);
+        assert!(library.repository.iter().any(|a| a.id == "discs"));
+        let json = serde_json::to_value(&library).unwrap();
+        // The version's own fields sit next to status and actions.
+        let pal = &json["games"][0]["versions"][0];
+        assert_eq!(pal["key"], "rac1/pal");
+        assert!(pal["status"]["disc"]["state"].is_string());
+        assert!(pal["actions"].is_array());
+    }
+
+    #[test]
+    fn plans_are_refused_until_their_needs_are_met() {
+        let config = Config { root: Some(checkout()), ..Config::default() };
+        let err = plan(&config, &Scope::Repository, "discs").unwrap_err();
+        assert!(err.contains("Python"), "{err}");
+        let python = crate::detect::which("python3").unwrap_or_else(|| "/usr/bin/python3".into());
+        let config = Config { python: Some(python.clone()), ..config };
+        let plan = plan(&config, &Scope::Repository, "discs").unwrap();
+        assert_eq!(plan.program, python);
+        assert_eq!(plan.args, ["tools/openrac.py", "discs"]);
+        assert!(super::plan(&config, &Scope::Repository, "nope").is_err());
+        assert!(super::plan(&config, &Scope::Version("rac9/pal".into()), "build").is_err());
+    }
+}

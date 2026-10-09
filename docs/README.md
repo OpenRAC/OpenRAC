@@ -32,6 +32,7 @@ the first table; go to a game's documents when you work on that game.
 | [runtime/docs/DESIGN.md](../runtime/docs/DESIGN.md) | What the runtime is to be, the routes considered, milestones and open decisions |
 | [runtime/docs/RAC1_PAL_SURVEY.md](../runtime/docs/RAC1_PAL_SURVEY.md) | Ratchet & Clank's frame loop, display list, microprograms, menu path, disc, memory card and library surface, from the decompilation |
 | [runtime/docs/OPENGOAL_NOTES.md](../runtime/docs/OPENGOAL_NOTES.md) | How OpenGOAL's renderer and platform layer work, and what carries over |
+| [launcher/README.md](../launcher/README.md) | The desktop launcher: developing it, and [connecting a game](../launcher/docs/INTEGRATION.md) to it |
 | [LICENSE.md](../LICENSE.md), [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md), [CREDITS.md](../CREDITS.md) | Licensing by directory, third-party work, the people behind each project |
 
 ## Ratchet & Clank, PAL ([games/rac1/pal](../games/rac1/pal))
