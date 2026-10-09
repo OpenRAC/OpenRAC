@@ -15,8 +15,8 @@
   let isCardHovered = $state(false);
   let activeImportVersion = $state<VersionView | null>(null);
 
-  const GAME_MEDIA: Record<string, { bg: string; gif?: string; video?: string }> = {
-    rac1: { bg: "/img/rac1-bg.webp", video: "/img/rac1-gameplay.mp4", gif: "/img/rac1-gameplay.gif" },
+  const GAME_MEDIA: Record<string, { bg: string; gif: string }> = {
+    rac1: { bg: "/img/rac1-bg.webp", gif: "/img/rac1-gameplay.gif" },
     rac2: { bg: "/img/gc-bg.webp", gif: "/img/rac2-gameplay.gif" },
     rac3: { bg: "/img/uya-bg.webp", gif: "/img/rac3-gameplay.gif" },
     rac4: { bg: "/img/deadlocked-bg.webp", gif: "/img/rac4-gameplay.gif" },
@@ -45,9 +45,7 @@
   {#if media}
     <div class="card-backdrop" aria-hidden="true">
       <img src={media.bg} alt="" class="backdrop-img static" class:dimmed={isCardHovered} />
-      {#if media.video && isCardHovered}
-        <video src={media.video} class="backdrop-img video active" autoplay loop muted playsinline></video>
-      {:else if media.gif}
+      {#if media.gif}
         <img src={media.gif} alt="" class="backdrop-img gif" class:active={isCardHovered} />
       {/if}
       <div class="backdrop-overlay"></div>
@@ -87,10 +85,14 @@
             role="button"
             tabindex="0"
             onclick={() => {
+              isCardHovered = false;
               openVersion(v.key);
             }}
             onkeydown={(e) => {
-              if (e.key === "Enter" || e.key === " ") openVersion(v.key);
+              if (e.key === "Enter" || e.key === " ") {
+                isCardHovered = false;
+                openVersion(v.key);
+              }
             }}
             aria-label={`${v.title}, ${v.region}`}
           >
@@ -138,6 +140,7 @@
               type="button"
               class="open-btn"
               onclick={() => {
+                isCardHovered = false;
                 openVersion(v.key);
               }}
               title={`Open ${v.title} (${v.region})`}
@@ -241,9 +244,7 @@
     align-items: flex-start;
     padding: 12px 22px;
     border-radius: 18px;
-    background: rgba(12, 14, 20, 0.68);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: rgba(12, 14, 20, 0.88);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
     cursor: pointer;
@@ -314,9 +315,7 @@
     align-items: center;
     gap: 8px;
     border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(18, 20, 28, 0.68);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: rgba(18, 20, 28, 0.9);
     color: #ffffff;
     font-family: var(--font-sans);
     font-size: 13px;
@@ -351,8 +350,7 @@
     text-align: left;
     border-radius: 18px;
     border: 1px solid rgb(255 255 255 / 0.14);
-    background: rgb(0 0 0 / 0.42);
-    backdrop-filter: blur(8px);
+    background: rgba(8, 10, 16, 0.8);
     padding: 14px 16px;
     color: var(--text);
     font-weight: 400;

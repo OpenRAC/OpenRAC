@@ -241,9 +241,16 @@
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
-    opacity: 0.22;
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 20%, transparent 80%);
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 20%, transparent 80%);
+    opacity: 0.18;
+  }
+
+  .page-ambient-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 70% 60% at 50% 20%, transparent 20%, var(--ink) 80%),
+      linear-gradient(to bottom, transparent 60%, var(--ink) 100%);
   }
 
   .page-ambient-bg img {
