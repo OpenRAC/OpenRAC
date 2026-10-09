@@ -164,6 +164,10 @@ class Gs {
 
   // What the display circuits show, or false when no circuit is enabled.
   bool display(Image& out);
+  // The same without waiting: the picture as it is after everything given so
+  // far is taken when the drawing gets there, into `buffer`, and `done` is
+  // called with it, on whichever thread that is.
+  void display_later(Image&& buffer, std::function<void(bool shown, Image& picture)> done);
   // A rectangle of any buffer as RGBA, for tools and tests.
   Image snapshot(u32 fbp, u32 fbw, u32 psm, int width, int height);
 
@@ -280,6 +284,8 @@ class Gs {
     // Its primitives depend on each other's pixels: they are drawn one
     // after the other, each top to bottom, not by bands.
     bool serial = false;
+    // Not primitives but something to do in their place in the order.
+    std::function<void()> task;
     std::vector<Queued> primitives;
     std::array<std::vector<u32>, 128> bands;  // by 16 scan lines: the primitives that reach each band
     std::vector<u16> used_bands;
@@ -379,6 +385,13 @@ class Gs {
   // The current state is gone afterwards: `ensure_env` makes the next.
   void flush();
   void wait_for_drawing();
+  struct Shown {
+    bool on = false;
+    u32 bp = 0, bw = 0, psm = 0, x = 0, y = 0;
+    int width = 0, height = 0;
+  };
+  Shown shown() const;
+  void copy_shown(const Shown& what, Image& out) const;
   // Before reading or writing pages of GS memory outside drawing.
   void before_read(const Pages& pages);
   void before_write(const Pages& pages);

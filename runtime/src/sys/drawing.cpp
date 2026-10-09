@@ -131,30 +131,31 @@ void Drawing::run(Command& command) {
       break;
     case kPresent:
       graphics_.gif.run([this, counted = thread_.joinable()] {
-        ps2::Image image;
+        ps2::Image buffer;
         {
           // The buffer is used again; only its contents are replaced.
           std::lock_guard<std::mutex> lock(picture_mutex_);
-          image = std::move(spare_picture_);
+          buffer = std::move(spare_picture_);
         }
-        bool shown = graphics_.gs.display(image);
-        {
-          std::lock_guard<std::mutex> lock(picture_mutex_);
-          if (shown) {
-            spare_picture_ = std::move(picture_);
-            picture_ = std::move(image);
-          } else {
-            spare_picture_ = std::move(image);
-          }
-          picture_shown_ = shown;
-        }
-        if (counted) {
+        graphics_.gs.display_later(std::move(buffer), [this, counted](bool shown, ps2::Image& image) {
           {
-            std::lock_guard<std::mutex> lock(mutex_);
-            presents_waiting_--;
+            std::lock_guard<std::mutex> lock(picture_mutex_);
+            if (shown) {
+              spare_picture_ = std::move(picture_);
+              picture_ = std::move(image);
+            } else {
+              spare_picture_ = std::move(image);
+            }
+            picture_shown_ = shown;
           }
-          done_.notify_all();
-        }
+          if (counted) {
+            {
+              std::lock_guard<std::mutex> lock(mutex_);
+              presents_waiting_--;
+            }
+            done_.notify_all();
+          }
+        });
       });
       break;
   }

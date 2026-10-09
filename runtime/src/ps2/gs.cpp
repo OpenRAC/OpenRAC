@@ -234,6 +234,7 @@ class Gs::Raster {
 
 void Gs::Batch::clear() {
   serial = false;
+  task = nullptr;
   primitives.clear();
   for (u16 band : used_bands) {
     bands[band].clear();
@@ -844,7 +845,9 @@ void Gs::render_band(const Batch& batch, unsigned band) {
 // Draw a batch: on the calling thread alone when it is small or there is no
 // pool, else with the pool, a band at a time each.
 void Gs::render(const Batch& batch) {
-  if (batch.serial) {
+  if (batch.task) {
+    batch.task();
+  } else if (batch.serial) {
     for (const Queued& q : batch.primitives) {
       draw(q, 0, 2047);
     }
@@ -1600,6 +1603,11 @@ void Gs::load_clut(u64 tex0) {
   u32 csa = static_cast<u32>(bits(tex0, 56, 5));
   u32 cld = static_cast<u32>(bits(tex0, 61, 3));
 
+  // Only a texture format that uses the table loads it (and only then is
+  // the address remembered for the "if it changed" kinds of load).
+  if ((psm & 7) < 3) {
+    return;
+  }
   switch (cld) {
     case 1:
       break;
@@ -1959,37 +1967,83 @@ Image Gs::snapshot(u32 bp, u32 bw, u32 psm, int width, int height) {
   return image;
 }
 
-bool Gs::display(Image& out) {
-  fp::want_nearest();
-  finish();
+// What the display circuits are set to show now.
+Gs::Shown Gs::shown() const {
+  Shown what;
   u64 pmode = priv_[0];
   int circuit = (pmode & 1) ? 0 : (pmode & 2) ? 1 : -1;
   if (circuit < 0) {
-    return false;
+    return what;
   }
   u64 fb = priv_[circuit == 0 ? 0x7 : 0x9], disp = priv_[circuit == 0 ? 0x8 : 0xA];
-  u32 bp = static_cast<u32>(bits(fb, 0, 9)) * 32, bw = static_cast<u32>(bits(fb, 9, 6));
-  u32 psm = static_cast<u32>(bits(fb, 15, 5));
-  u32 dbx = static_cast<u32>(bits(fb, 32, 11)), dby = static_cast<u32>(bits(fb, 43, 11));
-  int width = static_cast<int>((bits(disp, 32, 12) + 1) / (bits(disp, 23, 4) + 1));
-  int height = static_cast<int>((bits(disp, 44, 11) + 1) / (bits(disp, 27, 2) + 1));
-  if (bw == 0 || width <= 0 || height <= 0) {
-    return false;
+  what.bp = static_cast<u32>(bits(fb, 0, 9)) * 32;
+  what.bw = static_cast<u32>(bits(fb, 9, 6));
+  what.psm = static_cast<u32>(bits(fb, 15, 5));
+  what.x = static_cast<u32>(bits(fb, 32, 11));
+  what.y = static_cast<u32>(bits(fb, 43, 11));
+  what.width = static_cast<int>((bits(disp, 32, 12) + 1) / (bits(disp, 23, 4) + 1));
+  what.height = static_cast<int>((bits(disp, 44, 11) + 1) / (bits(disp, 27, 2) + 1));
+  if (what.bw == 0 || what.width <= 0 || what.height <= 0) {
+    return what;
   }
-  width = std::min(width, static_cast<int>(bw * 64));
+  what.width = std::min(what.width, static_cast<int>(what.bw * 64));
+  what.on = true;
+  return what;
+}
+
+void Gs::copy_shown(const Shown& what, Image& out) const {
+  int width = what.width, height = what.height;
   out.width = width;
   out.height = height;
   out.pixels.resize(static_cast<std::size_t>(width) * static_cast<std::size_t>(height));
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
-      u32 v = memory.read(psm, bp, bw, (dbx + static_cast<u32>(x)) & 2047, (dby + static_cast<u32>(y)) & 2047);
-      if (is16(psm)) {
+      u32 v = memory.read(what.psm, what.bp, what.bw, (what.x + static_cast<u32>(x)) & 2047, (what.y + static_cast<u32>(y)) & 2047);
+      if (is16(what.psm)) {
         v = pack((v & 0x1F) << 3, ((v >> 5) & 0x1F) << 3, ((v >> 10) & 0x1F) << 3, 0);
       }
       out.pixels[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)] = v | kA;
     }
   }
-  return true;
+}
+
+bool Gs::display(Image& out) {
+  fp::want_nearest();
+  finish();
+  Shown what = shown();
+  if (what.on) {
+    copy_shown(what, out);
+  }
+  return what.on;
+}
+
+void Gs::display_later(Image&& buffer, std::function<void(bool shown, Image& picture)> done) {
+  fp::want_nearest();
+  Shown what = shown();
+  flush();
+  if (!raster_) {
+    if (what.on) {
+      copy_shown(what, buffer);
+    }
+    done(what.on, buffer);
+    return;
+  }
+  // In its place in the order of the batches; the pages it reads count as
+  // read in place by a batch on its way.
+  if (what.on) {
+    add_pages(inflight_read_, what.psm, what.bp, what.bw, static_cast<s32>(what.x), static_cast<s32>(what.y),
+              static_cast<s32>(what.x) + what.width - 1, static_cast<s32>(what.y) + what.height - 1);
+  }
+  auto picture = std::make_shared<Image>(std::move(buffer));
+  batch_->task = [this, what, picture, done = std::move(done)] {
+    if (what.on) {
+      copy_shown(what, *picture);
+    }
+    done(what.on, *picture);
+  };
+  batch_ = raster_->give(std::move(batch_));
+  env_ = nullptr;
+  env_dirty_ = clut_copy_dirty_ = true;
 }
 
 }  // namespace ps2
