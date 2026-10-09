@@ -183,12 +183,7 @@ impl DiscordIpc {
                     small_text: None,
                 }),
             },
-            DiscordStatus::ViewingGame {
-                title,
-                region,
-                progress_pct,
-                game_id: _,
-            } => {
+            DiscordStatus::ViewingGame { title, region, progress_pct, game_id: _ } => {
                 let state_str = match progress_pct {
                     Some(p) => format!("{region} · {p:.1}% matched"),
                     None => region.clone(),

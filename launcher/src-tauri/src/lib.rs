@@ -160,7 +160,9 @@ fn run_action(app: AppHandle, state: State<'_, AppState>, scope: Scope, id: Stri
                             tauri::async_runtime::spawn_blocking(move || {
                                 let mut discord = discord.lock().unwrap();
                                 let app_start = discord.app_start;
-                                let _ = discord.ipc.set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
+                                let _ = discord
+                                    .ipc
+                                    .set_status(&openrac_launcher_core::discord::DiscordStatus::Idle, app_start);
                             });
                         }
                     }
