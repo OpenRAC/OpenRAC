@@ -96,3 +96,22 @@ Consulted for what formats and fields mean; no code from them is included
 ([editor/README.md](editor/README.md#credits)):
 [Wrench](https://github.com/chaoticgd/wrench) (GPL-3.0-or-later) and
 [Replanetizer](https://github.com/RatchetModding/Replanetizer).
+
+## The native port's libraries
+
+The port ([port/](port/README.md)) builds with these libraries. CMake fetches
+each at a pinned version ([port/cmake/Dependencies.cmake](port/cmake/Dependencies.cmake));
+none is copied into OpenRAC.
+
+| Library | Version | License | Used by |
+|---|---|---|---|
+| [SDL](https://github.com/libsdl-org/SDL) | 3.2.24 | zlib | the platform layer: window, OpenGL context, input, audio |
+| [cgltf](https://github.com/jkuhlmann/cgltf) | 1.15 | MIT | the level viewer: reading the editor's glTF meshes |
+| [stb_image](https://github.com/nothings/stb) | commit 2c980bb | MIT or public domain | the level viewer: reading textures (PNG) |
+
+The renderer's conventions (colour 0x80 as 1.0, reversed depth, the double
+draw for alpha-test fail modes, textures identified by the game's base
+pointer) follow OpenGOAL's renderer as
+[docs/port/OPENGOAL_NOTES.md](docs/port/OPENGOAL_NOTES.md) describes it; no
+code from OpenGOAL or from any emulator is in the port.
+

@@ -1,0 +1,1044 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+
+#include "renderer/direct.h"
+
+#include <algorithm>
+#include <bit>
+#include <cmath>
+#include <cstring>
+#include <format>
+
+#include "common/log.h"
+#include "renderer/gl.h"
+#include "renderer_shaders.h"
+
+namespace openrac::renderer {
+
+using namespace openrac::gl;
+
+namespace {
+
+std::uint64_t read64(std::span<const std::uint8_t> data, std::size_t offset) {
+    std::uint64_t v = 0;
+    std::memcpy(&v, data.data() + offset, 8);
+    return v;
+}
+
+std::uint32_t read32(std::span<const std::uint8_t> data, std::size_t offset) {
+    std::uint32_t v = 0;
+    std::memcpy(&v, data.data() + offset, 4);
+    return v;
+}
+
+float as_float(std::uint32_t bits) {
+    return std::bit_cast<float>(bits);
+}
+
+}  // namespace
+
+// ---------------------------------------------------------------------------
+// GifInterpreter
+
+GifInterpreter::GifInterpreter(TexturePool& textures, DirectConfig config)
+    : m_textures(textures),
+      m_config(config) {
+    // What the game's draw environment sets up (RENDERER.md section 5): the
+    // picture centred at (2048, 2048) of the chip's coordinate space, the
+    // whole screen as the scissor, 24-bit depth, the depth test passing.
+    for (Context& c : m_context) {
+        c.xyoffset =
+            {static_cast<std::uint32_t>((2048 - config.screen_width / 2) << 4),
+             static_cast<std::uint32_t>((2048 - config.screen_height / 2) << 4)};
+        c.scissor =
+            {0,
+             static_cast<std::uint32_t>(config.screen_width - 1),
+             0,
+             static_cast<std::uint32_t>(config.screen_height - 1)};
+        c.test.zte = true;
+        c.test.ztst = gs::DepthTest::Always;
+        c.zbuf.psm = 1;
+    }
+}
+
+void GifInterpreter::clear() {
+    m_vertices.clear();
+    m_draws.clear();
+    m_error.clear();
+}
+
+bool GifInterpreter::fail(std::string message) {
+    m_error = std::move(message);
+    return false;
+}
+
+const gs::Prim& GifInterpreter::attributes() const {
+    return m_use_prim_attributes ? m_prim : m_prmode;
+}
+
+const GifInterpreter::Context& GifInterpreter::context() const {
+    return m_context[attributes().ctxt ? 1 : 0];
+}
+
+bool GifInterpreter::gif(std::span<const std::uint8_t> packet) {
+    std::size_t at = 0;
+    while (at + 16 <= packet.size()) {
+        const gs::GifTag tag = gs::GifTag::decode(read64(packet, at), read64(packet, at + 8));
+        const std::size_t tag_at = at;
+        at += 16;
+        switch (tag.flg) {
+            case gs::GifTag::kPacked: {
+                if (tag.pre) {
+                    write_prim(tag.prim);
+                }
+                const std::size_t size = std::size_t{tag.nloop} * tag.nreg * 16;
+                if (at + size > packet.size()) {
+                    return fail(
+                        std::format("GIF tag at {:#x}: PACKED data runs past the packet", tag_at)
+                    );
+                }
+                for (std::uint32_t loop = 0; loop < tag.nloop; ++loop) {
+                    for (std::uint32_t r = 0; r < tag.nreg; ++r) {
+                        const std::uint64_t lo = read64(packet, at);
+                        const std::uint64_t hi = read64(packet, at + 8);
+                        at += 16;
+                        switch (tag.reg(r)) {
+                            case gs::kPackedPrim:
+                                write_prim(lo & 0x7FF);
+                                break;
+                            case gs::kPackedRgbaq:
+                                m_current.rgba[0] = static_cast<std::uint8_t>(lo);
+                                m_current.rgba[1] = static_cast<std::uint8_t>(lo >> 32);
+                                m_current.rgba[2] = static_cast<std::uint8_t>(hi);
+                                m_current.rgba[3] = static_cast<std::uint8_t>(hi >> 32);
+                                m_current.q = m_packed_q;
+                                break;
+                            case gs::kPackedSt:
+                                m_current.s = as_float(static_cast<std::uint32_t>(lo));
+                                m_current.t = as_float(static_cast<std::uint32_t>(lo >> 32));
+                                m_packed_q = as_float(static_cast<std::uint32_t>(hi));
+                                break;
+                            case gs::kPackedUv:
+                                m_current.u = gs::bits(lo, 0, 14);
+                                m_current.v = gs::bits(lo, 32, 14);
+                                break;
+                            case gs::kPackedXyzf2:
+                            case gs::kPackedXyzf3: {
+                                m_current.x = gs::bits(lo, 0, 16);
+                                m_current.y = gs::bits(lo, 32, 16);
+                                m_current.z = gs::bits(hi, 4, 24);
+                                m_current.fog = static_cast<std::uint8_t>(gs::bits(hi, 36, 8));
+                                const bool adc = gs::bits(hi, 47, 1) != 0;
+                                kick(tag.reg(r) == gs::kPackedXyzf2 && !adc);
+                                break;
+                            }
+                            case gs::kPackedXyz2:
+                            case gs::kPackedXyz3: {
+                                m_current.x = gs::bits(lo, 0, 16);
+                                m_current.y = gs::bits(lo, 32, 16);
+                                m_current.z = gs::bits(hi, 0, 32);
+                                const bool adc = gs::bits(hi, 47, 1) != 0;
+                                kick(tag.reg(r) == gs::kPackedXyz2 && !adc);
+                                break;
+                            }
+                            case gs::kPackedTex0_1:
+                            case gs::kPackedTex0_2:
+                            case gs::kPackedClamp1:
+                            case gs::kPackedClamp2:
+                                // These descriptors are the registers' own addresses.
+                                write_register(static_cast<std::uint8_t>(tag.reg(r)), lo);
+                                break;
+                            case gs::kPackedFog:
+                                m_current.fog = static_cast<std::uint8_t>(gs::bits(hi, 36, 8));
+                                break;
+                            case gs::kPackedAd:
+                                write_register(static_cast<std::uint8_t>(hi & 0xFF), lo);
+                                break;
+                            default:  // NOP, and the reserved 0xB
+                                break;
+                        }
+                    }
+                }
+                break;
+            }
+            case gs::GifTag::kReglist: {
+                const std::size_t words = std::size_t{tag.nloop} * tag.nreg;
+                const std::size_t size = ((words + 1) / 2) * 16;  // padded to whole quadwords
+                if (at + size > packet.size()) {
+                    return fail(
+                        std::format("GIF tag at {:#x}: REGLIST data runs past the packet", tag_at)
+                    );
+                }
+                for (std::size_t i = 0; i < words; ++i) {
+                    const auto reg =
+                        static_cast<std::uint8_t>(tag.reg(static_cast<std::uint32_t>(i % tag.nreg))
+                        );
+                    // In a REGLIST the descriptor is the register's address;
+                    // A+D and NOP write nothing.
+                    if (reg != gs::kPackedAd && reg != gs::kPackedNop) {
+                        write_register(reg, read64(packet, at + i * 8));
+                    }
+                }
+                at += size;
+                break;
+            }
+            case gs::GifTag::kImage:
+            case gs::GifTag::kDisable: {
+                const std::size_t size = std::size_t{tag.nloop} * 16;
+                if (at + size > packet.size()) {
+                    return fail(
+                        std::format("GIF tag at {:#x}: IMAGE data runs past the packet", tag_at)
+                    );
+                }
+                image_data(packet.subspan(at, size));
+                at += size;
+                break;
+            }
+        }
+    }
+    if (at != packet.size()) {
+        return fail(std::format("GIF packet of {} bytes ends inside a tag", packet.size()));
+    }
+    return true;
+}
+
+bool GifInterpreter::vif(std::span<const std::uint8_t> stream) {
+    std::size_t at = 0;
+    while (at + 4 <= stream.size()) {
+        const std::uint32_t code = read32(stream, at);
+        const std::size_t code_at = at;
+        at += 4;
+        const std::uint32_t command = (code >> 24) & 0x7F;
+        const std::uint32_t immediate = code & 0xFFFF;
+        switch (command) {
+            case 0x00:  // NOP
+            case 0x01:  // STCYCL
+            case 0x02:  // OFFSET
+            case 0x03:  // BASE
+            case 0x04:  // ITOP
+            case 0x05:  // STMOD
+            case 0x06:  // MSKPATH3
+            case 0x07:  // MARK
+            case 0x10:  // FLUSHE
+            case 0x11:  // FLUSH
+            case 0x13:  // FLUSHA
+                break;
+            case 0x20:  // STMASK, one word
+                at += 4;
+                break;
+            case 0x30:  // STROW
+            case 0x31:  // STCOL, four words
+                at += 16;
+                break;
+            case 0x50:    // DIRECT
+            case 0x51: {  // DIRECTHL
+                const std::size_t size = std::size_t{immediate == 0 ? 65536u : immediate} * 16;
+                if (at + size > stream.size()) {
+                    return fail(std::format("VIF DIRECT at {:#x} runs past the stream", code_at));
+                }
+                if (!gif(stream.subspan(at, size))) {
+                    return false;
+                }
+                at += size;
+                break;
+            }
+            default:
+                return fail(std::format(
+                    "VIF command {:#04x} at {:#x} feeds a VU program; the direct renderer reads "
+                    "only DIRECT data",
+                    command,
+                    code_at
+                ));
+        }
+    }
+    return true;
+}
+
+void GifInterpreter::write_prim(std::uint64_t value) {
+    m_prim = gs::Prim::decode(value);
+    m_queued = 0;  // a PRIM write starts a new primitive
+    m_state_dirty = true;
+}
+
+void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
+    Context& c1 = m_context[0];
+    Context& c2 = m_context[1];
+    switch (address) {
+        case gs::kPrim:
+            write_prim(value);
+            return;
+        case gs::kRgbaq:
+            for (int i = 0; i < 4; ++i) {
+                m_current.rgba[i] = static_cast<std::uint8_t>(value >> (i * 8));
+            }
+            m_current.q = as_float(gs::bits(value, 32, 32));
+            return;
+        case gs::kSt:
+            m_current.s = as_float(gs::bits(value, 0, 32));
+            m_current.t = as_float(gs::bits(value, 32, 32));
+            return;
+        case gs::kUv:
+            m_current.u = gs::bits(value, 0, 14);
+            m_current.v = gs::bits(value, 16, 14);
+            return;
+        case gs::kXyzf2:
+        case gs::kXyzf3:
+            m_current.x = gs::bits(value, 0, 16);
+            m_current.y = gs::bits(value, 16, 16);
+            m_current.z = gs::bits(value, 32, 24);
+            m_current.fog = static_cast<std::uint8_t>(gs::bits(value, 56, 8));
+            kick(address == gs::kXyzf2);
+            return;
+        case gs::kXyz2:
+        case gs::kXyz3:
+            m_current.x = gs::bits(value, 0, 16);
+            m_current.y = gs::bits(value, 16, 16);
+            m_current.z = gs::bits(value, 32, 32);
+            kick(address == gs::kXyz2);
+            return;
+        case gs::kFog:
+            m_current.fog = static_cast<std::uint8_t>(gs::bits(value, 56, 8));
+            return;
+        case gs::kTex0_1:
+            c1.tex0 = gs::Tex0::decode(value);
+            break;
+        case gs::kTex0_2:
+            c2.tex0 = gs::Tex0::decode(value);
+            break;
+        case gs::kTex2_1:
+        case gs::kTex2_2: {
+            // TEX2 rewrites TEX0's format and CLUT fields, nothing else.
+            Context& c = address == gs::kTex2_1 ? c1 : c2;
+            const gs::Tex0 t = gs::Tex0::decode(value);
+            c.tex0.psm = t.psm;
+            c.tex0.cbp = t.cbp;
+            c.tex0.cpsm = t.cpsm;
+            c.tex0.csm = t.csm;
+            c.tex0.csa = t.csa;
+            c.tex0.cld = t.cld;
+            break;
+        }
+        case gs::kTex1_1:
+            c1.tex1 = gs::Tex1::decode(value);
+            break;
+        case gs::kTex1_2:
+            c2.tex1 = gs::Tex1::decode(value);
+            break;
+        case gs::kClamp1:
+            c1.clamp = gs::Clamp::decode(value);
+            break;
+        case gs::kClamp2:
+            c2.clamp = gs::Clamp::decode(value);
+            break;
+        case gs::kXyoffset1:
+            c1.xyoffset = gs::Xyoffset::decode(value);
+            break;
+        case gs::kXyoffset2:
+            c2.xyoffset = gs::Xyoffset::decode(value);
+            break;
+        case gs::kScissor1:
+            c1.scissor = gs::Scissor::decode(value);
+            break;
+        case gs::kScissor2:
+            c2.scissor = gs::Scissor::decode(value);
+            break;
+        case gs::kAlpha1:
+            c1.alpha = gs::Alpha::decode(value);
+            break;
+        case gs::kAlpha2:
+            c2.alpha = gs::Alpha::decode(value);
+            break;
+        case gs::kTest1:
+            c1.test = gs::Test::decode(value);
+            break;
+        case gs::kTest2:
+            c2.test = gs::Test::decode(value);
+            break;
+        case gs::kFrame1:
+            c1.frame = gs::Frame::decode(value);
+            break;
+        case gs::kFrame2:
+            c2.frame = gs::Frame::decode(value);
+            break;
+        case gs::kZbuf1:
+            c1.zbuf = gs::Zbuf::decode(value);
+            break;
+        case gs::kZbuf2:
+            c2.zbuf = gs::Zbuf::decode(value);
+            break;
+        case gs::kPrmodecont:
+            m_use_prim_attributes = (value & 1) != 0;
+            break;
+        case gs::kPrmode:
+            m_prmode = gs::Prim::decode(value);
+            break;
+        case gs::kTexa:
+            m_texa = gs::Texa::decode(value);
+            break;
+        case gs::kFogcol:
+            m_fog_colour = gs::bits(value, 0, 24);
+            break;
+        case gs::kBitbltbuf:
+            m_bitbltbuf = gs::Bitbltbuf::decode(value);
+            return;
+        case gs::kTrxpos:
+            m_trxpos = gs::Trxpos::decode(value);
+            return;
+        case gs::kTrxreg:
+            m_trxreg = gs::Trxreg::decode(value);
+            return;
+        case gs::kTrxdir: {
+            const std::uint32_t direction = gs::bits(value, 0, 2);
+            if (direction == 0) {
+                // Host to chip: the IMAGE data that follows is the rectangle.
+                m_upload = ImageUpload{
+                    m_bitbltbuf.dbp,
+                    m_bitbltbuf.dbw,
+                    m_bitbltbuf.dpsm,
+                    m_trxpos.dsax,
+                    m_trxpos.dsay,
+                    m_trxreg.rrw,
+                    m_trxreg.rrh,
+                    {}
+                };
+                m_upload_bytes = image_bytes(
+                    m_bitbltbuf.dpsm, static_cast<int>(m_trxreg.rrw), static_cast<int>(m_trxreg.rrh)
+                );
+                m_upload.data.reserve(m_upload_bytes);
+            } else if (direction == 2) {
+                // A copy inside the chip's memory. OpenGOAL's direct renderer
+                // does not draw these either; the game side moves textures.
+                log::debug(
+                    "GS local-to-local transfer ignored (block {:#x} to {:#x})",
+                    m_bitbltbuf.sbp,
+                    m_bitbltbuf.dbp
+                );
+            }
+            return;
+        }
+        default:
+            // TEXCLUT, MIPTBP, TEXFLUSH, DIMX, DTHE, COLCLAMP, PABE, FBA,
+            // SCANMSK, HWREG, SIGNAL, FINISH, LABEL: nothing a draw call
+            // depends on yet (colour is always clamped; dithering is off).
+            return;
+    }
+    m_state_dirty = true;
+}
+
+void GifInterpreter::image_data(std::span<const std::uint8_t> data) {
+    if (m_upload_bytes == 0) {
+        log::debug("GIF IMAGE data without a transfer ({} bytes)", data.size());
+        return;
+    }
+    const std::size_t take = std::min(data.size(), m_upload_bytes - m_upload.data.size());
+    m_upload.data.insert(
+        m_upload.data.end(), data.begin(), data.begin() + static_cast<std::ptrdiff_t>(take)
+    );
+    if (m_upload.data.size() >= m_upload_bytes) {
+        m_textures.upload(std::move(m_upload));
+        m_upload = ImageUpload{};
+        m_upload_bytes = 0;
+        m_state_dirty = true;  // the bound texture may be the one just replaced
+    }
+}
+
+void GifInterpreter::kick(bool draw) {
+    m_queue[m_queued++] = m_current;
+    switch (m_prim.kind) {
+        case gs::PrimKind::Point:
+            if (draw) {
+                emit_point(m_queue[0]);
+            }
+            m_queued = 0;
+            break;
+        case gs::PrimKind::Line:
+            if (m_queued == 2) {
+                if (draw) {
+                    emit_line(m_queue[0], m_queue[1]);
+                }
+                m_queued = 0;
+            }
+            break;
+        case gs::PrimKind::LineStrip:
+            if (m_queued == 2) {
+                if (draw) {
+                    emit_line(m_queue[0], m_queue[1]);
+                }
+                m_queue[0] = m_queue[1];
+                m_queued = 1;
+            }
+            break;
+        case gs::PrimKind::Triangle:
+            if (m_queued == 3) {
+                if (draw) {
+                    emit_triangle(m_queue[0], m_queue[1], m_queue[2], m_queue[2]);
+                }
+                m_queued = 0;
+            }
+            break;
+        case gs::PrimKind::TriangleStrip:
+            if (m_queued == 3) {
+                if (draw) {
+                    emit_triangle(m_queue[0], m_queue[1], m_queue[2], m_queue[2]);
+                }
+                m_queue[0] = m_queue[1];
+                m_queue[1] = m_queue[2];
+                m_queued = 2;
+            }
+            break;
+        case gs::PrimKind::TriangleFan:
+            if (m_queued == 3) {
+                if (draw) {
+                    emit_triangle(m_queue[0], m_queue[1], m_queue[2], m_queue[2]);
+                }
+                m_queue[1] = m_queue[2];
+                m_queued = 2;
+            }
+            break;
+        case gs::PrimKind::Sprite:
+            if (m_queued == 2) {
+                if (draw) {
+                    emit_sprite(m_queue[0], m_queue[1]);
+                }
+                m_queued = 0;
+            }
+            break;
+        case gs::PrimKind::Invalid:
+            m_queued = 0;
+            break;
+    }
+}
+
+void GifInterpreter::screen_position(const GsVertex& v, float& x, float& y) const {
+    const Context& c = context();
+    x = (static_cast<float>(v.x) - static_cast<float>(c.xyoffset.ofx)) / 16.0f;
+    y = (static_cast<float>(v.y) - static_cast<float>(c.xyoffset.ofy)) / 16.0f;
+}
+
+DirectVertex GifInterpreter::convert(const GsVertex& v) const {
+    const Context& c = context();
+    DirectVertex out{};
+    float px = 0.0f;
+    float py = 0.0f;
+    screen_position(v, px, py);
+    out.x = px / static_cast<float>(m_config.screen_width) * 2.0f - 1.0f;
+    out.y = 1.0f - py / static_cast<float>(m_config.screen_height) * 2.0f;
+    // The chip's depth, bigger nearer, straight into GL's [0, 1] window
+    // depth: with the buffer cleared to 0 and GEQUAL, as on the console.
+    const double depth = std::clamp(static_cast<double>(v.z) / c.zbuf.max_z(), 0.0, 1.0);
+    out.z = static_cast<float>(depth * 2.0 - 1.0);
+    if (attributes().fst) {
+        // Texel coordinates in 12.4 fixed point, over the texture's size.
+        out.s = static_cast<float>(v.u) / 16.0f / static_cast<float>(c.tex0.width());
+        out.t = static_cast<float>(v.v) / 16.0f / static_cast<float>(c.tex0.height());
+        out.q = 1.0f;
+    } else {
+        out.s = v.s;
+        out.t = v.t;
+        out.q = v.q;
+    }
+    std::memcpy(out.rgba, v.rgba, 4);
+    out.fog = static_cast<float>(v.fog) / 255.0f;
+    return out;
+}
+
+void GifInterpreter::ensure_draw() {
+    if (m_state_dirty) {
+        const gs::Prim& p = attributes();
+        const Context& c = context();
+        DirectState s;
+        s.textured = p.tme;
+        if (s.textured) {
+            s.texture = m_textures.resolve(c.tex0, m_texa);
+            s.texture_full_alpha = m_textures.alpha_scale(s.texture) == AlphaScale::Full;
+            s.tcc = c.tex0.tcc;
+            s.tfx = c.tex0.tfx;
+            s.linear_mag = c.tex1.mmag;
+            s.linear_min = c.tex1.mmin == 1 || c.tex1.mmin == 4 || c.tex1.mmin == 5;
+            // Region clamp and repeat have no GL equivalent; clamp is the
+            // closer of the two for the 2D path.
+            s.clamp_s = c.clamp.wms != gs::Wrap::Repeat;
+            s.clamp_t = c.clamp.wmt != gs::Wrap::Repeat;
+        }
+        s.blend = p.abe;
+        if (s.blend) {
+            s.alpha = c.alpha;
+        }
+        s.test = c.test;
+        s.depth_write = !c.zbuf.zmsk;
+        s.fbmsk = c.frame.fbmsk;
+        s.scissor = c.scissor;
+        s.fog = p.fge;
+        if (s.fog) {
+            s.fog_colour = m_fog_colour;
+        }
+        m_state = s;
+        m_state_dirty = false;
+    }
+    if (m_draws.empty() || !(m_draws.back().state == m_state)) {
+        m_draws.push_back({m_state, static_cast<std::uint32_t>(m_vertices.size()), 0});
+    }
+}
+
+void GifInterpreter::emit_triangle(
+    const GsVertex& a, const GsVertex& b, const GsVertex& c, const GsVertex& colour_from
+) {
+    ensure_draw();
+    DirectVertex v[3] = {convert(a), convert(b), convert(c)};
+    if (!attributes().iip) {
+        // Flat shading: the colour of the vertex that completed the primitive.
+        for (DirectVertex& x : v) {
+            std::memcpy(x.rgba, colour_from.rgba, 4);
+        }
+    }
+    m_vertices.insert(m_vertices.end(), v, v + 3);
+    m_draws.back().count += 3;
+}
+
+void GifInterpreter::emit_quad(const DirectVertex corners[4]) {
+    ensure_draw();
+    // Corners 0 1 / 2 3: two triangles.
+    const DirectVertex order[6] =
+        {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]};
+    m_vertices.insert(m_vertices.end(), order, order + 6);
+    m_draws.back().count += 6;
+}
+
+void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
+    // A sprite is a rectangle from two corners; depth, colour and fog come
+    // from the second vertex. Texture coordinates go to S/Q, T/Q per corner
+    // (a sprite has no perspective).
+    DirectVertex p = convert(a);
+    DirectVertex q = convert(b);
+    const float s0 = p.s / p.q;
+    const float t0 = p.t / p.q;
+    const float s1 = q.s / q.q;
+    const float t1 = q.t / q.q;
+    DirectVertex corners[4];
+    for (int i = 0; i < 4; ++i) {
+        corners[i] = q;
+        corners[i].q = 1.0f;
+    }
+    corners[0].x = p.x;
+    corners[0].y = p.y;
+    corners[0].s = s0;
+    corners[0].t = t0;
+    corners[1].x = q.x;
+    corners[1].y = p.y;
+    corners[1].s = s1;
+    corners[1].t = t0;
+    corners[2].x = p.x;
+    corners[2].y = q.y;
+    corners[2].s = s0;
+    corners[2].t = t1;
+    corners[3].x = q.x;
+    corners[3].y = q.y;
+    corners[3].s = s1;
+    corners[3].t = t1;
+    emit_quad(corners);
+}
+
+void GifInterpreter::emit_line(const GsVertex& a, const GsVertex& b) {
+    // A line is a quad one pixel wide (GL core profile draws no wide lines,
+    // and one draw call takes triangles only).
+    float ax = 0.0f;
+    float ay = 0.0f;
+    float bx = 0.0f;
+    float by = 0.0f;
+    screen_position(a, ax, ay);
+    screen_position(b, bx, by);
+    float nx = -(by - ay);
+    float ny = bx - ax;
+    const float length = std::sqrt(nx * nx + ny * ny);
+    if (length > 0.0f) {
+        nx = nx / length * 0.5f;
+        ny = ny / length * 0.5f;
+    } else {
+        nx = 0.5f;
+        ny = 0.0f;
+    }
+    const float dx = nx / static_cast<float>(m_config.screen_width) * 2.0f;
+    const float dy = -ny / static_cast<float>(m_config.screen_height) * 2.0f;
+    DirectVertex p = convert(a);
+    DirectVertex q = convert(b);
+    if (!attributes().iip) {
+        std::memcpy(p.rgba, q.rgba, 4);
+    }
+    DirectVertex corners[4] = {p, p, q, q};
+    corners[0].x += dx;
+    corners[0].y += dy;
+    corners[1].x -= dx;
+    corners[1].y -= dy;
+    corners[2].x += dx;
+    corners[2].y += dy;
+    corners[3].x -= dx;
+    corners[3].y -= dy;
+    emit_quad(corners);
+}
+
+void GifInterpreter::emit_point(const GsVertex& a) {
+    DirectVertex p = convert(a);
+    const float w = 2.0f / static_cast<float>(m_config.screen_width);
+    const float h = 2.0f / static_cast<float>(m_config.screen_height);
+    DirectVertex corners[4] = {p, p, p, p};
+    corners[1].x += w;
+    corners[2].y -= h;
+    corners[3].x += w;
+    corners[3].y -= h;
+    emit_quad(corners);
+}
+
+// ---------------------------------------------------------------------------
+// DirectRenderer
+
+namespace {
+
+// The chip blends Cv = (A - B) * C + D, A, B, D each one of Cs, Cd, 0 and C
+// one of As, Ad, FIX (0x80 = 1.0). Expanded, the colour is a multiple of Cs
+// plus a multiple of Cd, each multiple k * C + m with k in {-1, 0, 1} and m
+// in {0, 1}; GL's factors and equation express every such pair whose sign
+// works out, which covers every mode the games use.
+struct GlBlend {
+    GLenum src = GL_ONE;
+    GLenum dst = GL_ZERO;
+    GLenum equation = GL_FUNC_ADD;
+    float constant = 0.0f;
+    bool exact = true;
+};
+
+GlBlend translate_blend(const gs::Alpha& alpha) {
+    auto coefficient = [&](std::uint8_t which, int& k, int& m) {
+        k = (alpha.a == which ? 1 : 0) - (alpha.b == which ? 1 : 0);
+        m = alpha.d == which ? 1 : 0;
+    };
+    int ks = 0;
+    int ms = 0;
+    int kd = 0;
+    int md = 0;
+    coefficient(0, ks, ms);  // Cs
+    coefficient(1, kd, md);  // Cd
+
+    GlBlend out;
+    GLenum factor = GL_SRC_ALPHA;
+    GLenum one_minus = GL_ONE_MINUS_SRC_ALPHA;
+    if (alpha.c == 1) {
+        factor = GL_DST_ALPHA;
+        one_minus = GL_ONE_MINUS_DST_ALPHA;
+    } else if (alpha.c == 2) {
+        factor = GL_CONSTANT_ALPHA;
+        one_minus = GL_ONE_MINUS_CONSTANT_ALPHA;
+        out.constant = std::min(1.0f, static_cast<float>(alpha.fix) / 128.0f);
+    }
+    // One term's factor and sign.
+    auto term = [&](int k, int m, GLenum& f, int& sign) {
+        sign = 1;
+        if (k == 0) {
+            f = m != 0 ? GL_ONE : GL_ZERO;
+        } else if (k == 1 && m == 0) {
+            f = factor;
+        } else if (k == -1 && m == 1) {
+            f = one_minus;
+        } else if (k == -1 && m == 0) {
+            f = factor;
+            sign = -1;
+        } else {  // C + 1: more than GL's factors reach
+            f = GL_ONE;
+            out.exact = false;
+        }
+    };
+    int src_sign = 1;
+    int dst_sign = 1;
+    term(ks, ms, out.src, src_sign);
+    term(kd, md, out.dst, dst_sign);
+    if (src_sign > 0 && dst_sign > 0) {
+        out.equation = GL_FUNC_ADD;
+    } else if (src_sign < 0 && dst_sign > 0) {
+        out.equation = GL_FUNC_REVERSE_SUBTRACT;  // dst - src
+    } else if (src_sign > 0 && dst_sign < 0) {
+        out.equation = GL_FUNC_SUBTRACT;  // src - dst
+    } else {
+        // Both negative: the result is never above 0, and colour clamps.
+        out.src = GL_ZERO;
+        out.dst = GL_ZERO;
+        out.equation = GL_FUNC_ADD;
+    }
+    return out;
+}
+
+GLenum depth_func(gs::DepthTest test) {
+    switch (test) {
+        case gs::DepthTest::Never:
+            return GL_NEVER;
+        case gs::DepthTest::Always:
+            return GL_ALWAYS;
+        case gs::DepthTest::Gequal:
+            return GL_GEQUAL;
+        case gs::DepthTest::Greater:
+            return GL_GREATER;
+    }
+    return GL_ALWAYS;
+}
+
+}  // namespace
+
+DirectRenderer::DirectRenderer(std::string name, Bucket bucket, DirectConfig config, Input input)
+    : BucketRenderer(std::move(name), bucket),
+      m_config(config),
+      m_input(input) {}
+
+DirectRenderer::~DirectRenderer() = default;
+
+bool DirectRenderer::init(RenderState& state, std::string& error) {
+    m_interpreter = std::make_unique<GifInterpreter>(state.textures, m_config);
+    if (!m_shader.build("direct", shaders::direct_vert, shaders::direct_frag, error)) {
+        return false;
+    }
+    m_uniforms.textured = m_shader.uniform("textured");
+    m_uniforms.tcc = m_shader.uniform("tcc");
+    m_uniforms.tfx = m_shader.uniform("tfx");
+    m_uniforms.tex_alpha_scale = m_shader.uniform("tex_alpha_scale");
+    m_uniforms.fog_enable = m_shader.uniform("fog_enable");
+    m_uniforms.fog_colour = m_shader.uniform("fog_colour");
+    m_uniforms.alpha_test = m_shader.uniform("alpha_test");
+    m_uniforms.alpha_ref = m_shader.uniform("alpha_ref");
+    m_uniforms.alpha_keep_failing = m_shader.uniform("alpha_keep_failing");
+
+    glGenVertexArrays(1, &m_vao);
+    glGenBuffers(1, &m_vbo);
+    glBindVertexArray(m_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+    constexpr auto stride = static_cast<GLsizei>(sizeof(DirectVertex));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(
+        0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<const void*>(offsetof(DirectVertex, x))
+    );
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(
+        1, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<const void*>(offsetof(DirectVertex, s))
+    );
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(
+        2,
+        4,
+        GL_UNSIGNED_BYTE,
+        GL_TRUE,
+        stride,
+        reinterpret_cast<const void*>(offsetof(DirectVertex, rgba))
+    );
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(
+        3, 1, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<const void*>(offsetof(DirectVertex, fog))
+    );
+    glBindVertexArray(0);
+    return true;
+}
+
+void DirectRenderer::release() {
+    m_shader.release();
+    if (m_vbo != 0) {
+        glDeleteBuffers(1, &m_vbo);
+        m_vbo = 0;
+    }
+    if (m_vao != 0) {
+        glDeleteVertexArrays(1, &m_vao);
+        m_vao = 0;
+    }
+}
+
+bool DirectRenderer::submit(std::span<const std::uint8_t> packets) {
+    const bool ok =
+        m_input == Input::Vif ? m_interpreter->vif(packets) : m_interpreter->gif(packets);
+    if (!ok && m_interpreter->error() != m_last_error) {
+        m_last_error = m_interpreter->error();
+        log::warn("{}: {}", name(), m_last_error);
+    }
+    return ok;
+}
+
+void DirectRenderer::render(const FrameInput& input, RenderState& state) {
+    const auto packets = input.packets[static_cast<std::size_t>(bucket())];
+    if (packets.empty()) {
+        return;
+    }
+    submit(packets);
+    flush(state);
+}
+
+void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
+    glUniform1i(m_uniforms.textured, s.textured ? 1 : 0);
+    if (s.textured) {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, render_state.textures.gl_texture(s.texture));
+        glTexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MAG_FILTER,
+            static_cast<GLint>(s.linear_mag ? GL_LINEAR : GL_NEAREST)
+        );
+        glTexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MIN_FILTER,
+            static_cast<GLint>(s.linear_min ? GL_LINEAR : GL_NEAREST)
+        );
+        glTexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_WRAP_S,
+            static_cast<GLint>(s.clamp_s ? GL_CLAMP_TO_EDGE : GL_REPEAT)
+        );
+        glTexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_WRAP_T,
+            static_cast<GLint>(s.clamp_t ? GL_CLAMP_TO_EDGE : GL_REPEAT)
+        );
+        glUniform1i(m_uniforms.tcc, s.tcc ? 1 : 0);
+        glUniform1i(m_uniforms.tfx, static_cast<GLint>(s.tfx));
+        glUniform1f(m_uniforms.tex_alpha_scale, s.texture_full_alpha ? 0.5f : 1.0f);
+    }
+    glUniform1i(m_uniforms.fog_enable, s.fog ? 1 : 0);
+    glUniform3f(
+        m_uniforms.fog_colour,
+        static_cast<float>(s.fog_colour & 0xFF),
+        static_cast<float>((s.fog_colour >> 8) & 0xFF),
+        static_cast<float>((s.fog_colour >> 16) & 0xFF)
+    );
+
+    if (s.blend) {
+        const GlBlend b = translate_blend(s.alpha);
+        if (!b.exact) {
+            log::debug(
+                "blend mode A={} B={} C={} D={} approximated",
+                s.alpha.a,
+                s.alpha.b,
+                s.alpha.c,
+                s.alpha.d
+            );
+        }
+        glEnable(GL_BLEND);
+        glBlendEquation(b.equation);
+        // The chip writes the source alpha as it is; it never blends alpha.
+        glBlendFuncSeparate(b.src, b.dst, GL_ONE, GL_ZERO);
+        glBlendColor(0.0f, 0.0f, 0.0f, b.constant);
+    } else {
+        glDisable(GL_BLEND);
+    }
+
+    if (!s.test.zte) {
+        glDisable(GL_DEPTH_TEST);
+    } else {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(depth_func(s.test.ztst));
+    }
+
+    // The scissor, from the chip's 512 x 448 pixels to the target's.
+    const float sx =
+        static_cast<float>(render_state.target.width) / static_cast<float>(m_config.screen_width);
+    const float sy =
+        static_cast<float>(render_state.target.height) / static_cast<float>(m_config.screen_height);
+    const auto x0 = static_cast<GLint>(std::floor(static_cast<float>(s.scissor.x0) * sx));
+    const auto x1 = static_cast<GLint>(std::ceil(static_cast<float>(s.scissor.x1 + 1) * sx));
+    const auto y0 = static_cast<GLint>(std::floor(static_cast<float>(s.scissor.y0) * sy));
+    const auto y1 = static_cast<GLint>(std::ceil(static_cast<float>(s.scissor.y1 + 1) * sy));
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(x0, render_state.target.height - y1, std::max(0, x1 - x0), std::max(0, y1 - y0));
+}
+
+void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
+    const DirectState& s = d.state;
+    apply(s, render_state);
+
+    // FRAME.FBMSK: a channel whose bits are all masked is not written.
+    const GLboolean red = (s.fbmsk & 0x000000FFu) != 0x000000FFu ? GL_TRUE : GL_FALSE;
+    const GLboolean green = (s.fbmsk & 0x0000FF00u) != 0x0000FF00u ? GL_TRUE : GL_FALSE;
+    const GLboolean blue = (s.fbmsk & 0x00FF0000u) != 0x00FF0000u ? GL_TRUE : GL_FALSE;
+    const GLboolean alpha = (s.fbmsk & 0xFF000000u) != 0xFF000000u ? GL_TRUE : GL_FALSE;
+    const GLboolean depth = s.depth_write ? GL_TRUE : GL_FALSE;
+
+    auto call = [&](int test,
+                    bool keep_failing,
+                    GLboolean colour,
+                    GLboolean write_alpha,
+                    GLboolean write_depth) {
+        glUniform1i(m_uniforms.alpha_test, test);
+        glUniform1f(m_uniforms.alpha_ref, static_cast<float>(s.test.aref));
+        glUniform1i(m_uniforms.alpha_keep_failing, keep_failing ? 1 : 0);
+        glColorMask(red & colour, green & colour, blue & colour, alpha & write_alpha);
+        glDepthMask(depth & write_depth);
+        glDrawArrays(GL_TRIANGLES, static_cast<GLint>(d.first), static_cast<GLsizei>(d.count));
+        ++render_state.stats.draw_calls;
+        render_state.stats.triangles += d.count / 3;
+    };
+
+    const bool testing = s.test.ate && s.test.atst != gs::AlphaTest::Always;
+    if (!testing) {
+        call(0, false, GL_TRUE, GL_TRUE, GL_TRUE);
+        return;
+    }
+    // What a pixel that fails still writes: colour, depth, alpha.
+    GLboolean fail_colour = GL_FALSE;
+    GLboolean fail_alpha = GL_FALSE;
+    GLboolean fail_depth = GL_FALSE;
+    switch (s.test.afail) {
+        case gs::AlphaFail::Keep:
+            break;
+        case gs::AlphaFail::FbOnly:
+            fail_colour = GL_TRUE;
+            fail_alpha = GL_TRUE;
+            break;
+        case gs::AlphaFail::ZbOnly:
+            fail_depth = GL_TRUE;
+            break;
+        case gs::AlphaFail::RgbOnly:
+            fail_colour = GL_TRUE;
+            break;
+    }
+    if (s.test.atst == gs::AlphaTest::Never) {
+        // Every pixel fails: one draw with the fail mode's writes (the
+        // game's quads use NEVER with FB_ONLY for colour without depth).
+        if (s.test.afail != gs::AlphaFail::Keep) {
+            call(0, false, fail_colour, fail_alpha, fail_depth);
+        }
+        return;
+    }
+    // OpenGOAL's double draw: the passing pixels with every write, then, if
+    // failing ones still write something, those with only that.
+    call(static_cast<int>(s.test.atst), false, GL_TRUE, GL_TRUE, GL_TRUE);
+    if (s.test.afail != gs::AlphaFail::Keep) {
+        call(static_cast<int>(s.test.atst), true, fail_colour, fail_alpha, fail_depth);
+    }
+}
+
+void DirectRenderer::flush(RenderState& state) {
+    const auto& vertices = m_interpreter->vertices();
+    if (vertices.empty()) {
+        m_interpreter->clear();
+        return;
+    }
+    glBindVertexArray(m_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+    const std::size_t bytes = vertices.size() * sizeof(DirectVertex);
+    // A fresh store each frame, so the driver need not wait on the last one.
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        static_cast<GLsizeiptr>(std::max(bytes, m_vbo_bytes)),
+        nullptr,
+        GL_STREAM_DRAW
+    );
+    glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(bytes), vertices.data());
+    m_vbo_bytes = std::max(bytes, m_vbo_bytes);
+    m_shader.use();
+    for (const DirectDraw& d : m_interpreter->draws()) {
+        if (d.count != 0) {
+            draw(d, state);
+        }
+    }
+    // Leave GL as the next renderer expects it.
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_BLEND);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GEQUAL);
+    glBindVertexArray(0);
+    m_interpreter->clear();
+}
+
+}  // namespace openrac::renderer

@@ -63,6 +63,10 @@ target_link_libraries(runtime_test PRIVATE openrac_runtime)
 openrac_warnings(runtime_test)
 add_test(NAME runtime COMMAND runtime_test)
 
+if(OPENRAC_PORT_WINDOW)
+  include(Window)
+endif()
+
 # ---- the games, from their decompilations ----
 if(OPENRAC_PORT_GAMES)
   include(Games)
