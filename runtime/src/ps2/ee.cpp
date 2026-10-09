@@ -137,7 +137,8 @@ u8* Ee::pointer(u32 address) {
         return memory_.ram(physical);
     }
 
-    return nullptr;
+    // What host code keeps in guest-addressable memory, or nothing.
+    return memory_.host(address);
 }
 
 u8 Ee::read8(u32 address) {

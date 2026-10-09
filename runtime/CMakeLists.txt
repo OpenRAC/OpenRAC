@@ -25,6 +25,7 @@ add_library(openrac_ps2 STATIC
   src/ps2/gif.cpp
   src/ps2/gs.cpp
   src/ps2/gs_memory.cpp
+  src/ps2/memory.cpp
   src/ps2/vif.cpp
   src/ps2/vu.cpp
 )

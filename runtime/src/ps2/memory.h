@@ -2,26 +2,31 @@
 // Copyright (c) 2026 the OpenRAC contributors
 
 /**
- * The memory a game program sees: main memory and the scratchpad.
+ * The memory a game program sees: main memory and the scratchpad, laid out as the console's
+ * address space.
  *
- * Every address a program uses is turned into a pointer to host memory by masking, so an address
- * the program got wrong lands somewhere inside the two buffers and never outside them.
- * Memory-mapped registers and the other segments of the address space are not modelled here.
+ * The interpreter turns every address a program uses into a pointer to host memory by masking, so
+ * an address the program got wrong lands somewhere inside the two memories and never outside
+ * them. Host code compiled from a game's decompiled C uses guest addresses as they are, as
+ * offsets from one base: for that, the memories are mapped inside one 4 GB reservation, main
+ * memory at each of its mirrors. Memory-mapped registers are not modelled here.
  *
- * Sources: the EE's memory sizes as publicly documented.
+ * Sources: the EE's memory sizes and address map as publicly documented.
  */
 
 #pragma once
 
-#include <vector>
+#include <cstddef>
 
 #include "types.h"
 
 namespace ps2 {
 
 /**
- * The memory a game program sees: 32 MB of main memory and the 16 KB scratchpad. Every address the
- * game stores is an offset into one of them.
+ * The memory a game program sees: 32 MB of main memory and the 16 KB scratchpad, and a region for
+ * what host code compiled from a decompilation keeps in guest-addressable memory.
+ *
+ * It owns a 4 GB reservation of address space, most of it unmapped. Not copyable.
  */
 class GuestMemory {
 public:
@@ -31,8 +36,52 @@ public:
     /** Size of the scratchpad in bytes: 16 KB (documented). */
     static constexpr u32 kScratchpadBytes = 16 * 1024;
 
-    /** Allocates both memories, zero-filled. */
-    GuestMemory() : ram_(kRamBytes), scratchpad_(kScratchpadBytes) {}
+    /** Where the scratchpad is in the address space (documented). */
+    static constexpr u32 kScratchpadBase = 0x70000000;
+
+    /**
+     * Where host code's own data and stack are in the address space, and how much there is.
+     *
+     * No console memory is at these addresses, so a guest program never names them by itself; it
+     * sees them only when host code passes it a pointer to its own data.
+     */
+    static constexpr u32 kHostBase = 0x40000000;
+    static constexpr u32 kHostBytes = 64 * 1024 * 1024;
+
+    /** Reserves the address space and maps the memories into it, zero-filled. */
+    GuestMemory();
+
+    /** Gives the address space back. */
+    ~GuestMemory();
+
+    GuestMemory(const GuestMemory&) = delete;
+    GuestMemory& operator=(const GuestMemory&) = delete;
+
+    /**
+     * The base of the address space: a guest address is an offset from it.
+     *
+     * Main memory answers at 0, 0x20000000, 0x80000000 and 0xA0000000 (the cached and uncached
+     * segments, documented), the scratchpad at `kScratchpadBase`, the host region at
+     * `kHostBase`. Anything else is unmapped: touching it stops the process.
+     *
+     * @return The base, or null on a host where the mirrors could not be mapped.
+     */
+    u8* space() { return mirrored_ ? space_ : nullptr; }
+
+    /**
+     * Turns an address of the host region into a host pointer.
+     *
+     * @param address A guest address.
+     * @return The pointer, or null when the address is not in the host region.
+     */
+    u8* host(u32 address) {
+        // Outside the region.
+        if (address < kHostBase || address - kHostBase >= kHostBytes) {
+            return nullptr;
+        }
+
+        return space_ + address;
+    }
 
     /**
      * Turns a DMA address into a host pointer.
@@ -46,9 +95,9 @@ public:
     u8* dma(u32 address) {
         // SPR flag: the address is an offset into the scratchpad.
         if (address & 0x80000000u) {
-            return scratchpad_.data() + (address & (kScratchpadBytes - 1) & ~0xFu);
+            return scratchpad_ + (address & (kScratchpadBytes - 1) & ~0xFu);
         }
-        return ram_.data() + (address & (kRamBytes - 1));
+        return ram_ + (address & (kRamBytes - 1));
     }
 
     /**
@@ -57,7 +106,7 @@ public:
      * @param address An address in any segment; the bits above the memory size are dropped.
      * @return A pointer into main memory.
      */
-    u8* ram(u32 address) { return ram_.data() + (address & (kRamBytes - 1)); }
+    u8* ram(u32 address) { return ram_ + (address & (kRamBytes - 1)); }
 
     /**
      * Turns a scratchpad offset into a host pointer.
@@ -65,7 +114,7 @@ public:
      * @param offset Byte offset in the scratchpad; the bits above its size are dropped.
      * @return A pointer into the scratchpad.
      */
-    u8* scratchpad(u32 offset) { return scratchpad_.data() + (offset & (kScratchpadBytes - 1)); }
+    u8* scratchpad(u32 offset) { return scratchpad_ + (offset & (kScratchpadBytes - 1)); }
 
     /**
      * Reads a value from main memory.
@@ -92,11 +141,17 @@ public:
     }
 
 private:
-    /** Main memory. */
-    std::vector<u8> ram_;
+    /** The 4 GB reservation; a guest address is an offset into it. */
+    u8* space_ = nullptr;
 
-    /** The scratchpad. */
-    std::vector<u8> scratchpad_;
+    /** Main memory: the reservation's first 32 MB. */
+    u8* ram_ = nullptr;
+
+    /** The scratchpad, at `kScratchpadBase` in the reservation. */
+    u8* scratchpad_ = nullptr;
+
+    /** True when main memory also answers at its mirrors, so that `space()` can be used. */
+    bool mirrored_ = false;
 };
 
 }  // namespace ps2
