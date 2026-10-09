@@ -18,8 +18,11 @@
  */
 
 #include <ctime>
+#include <vector>
 
 #include "machine.h"
+#include "snd/bank.h"
+#include "snd/player.h"
 
 namespace sys {
 
@@ -35,6 +38,122 @@ namespace {
  */
 u8 bcd(int v) {
     return static_cast<u8>(((v / 10) << 4) | (v % 10));
+}
+
+/**
+ * Loads a sound effect bank from the disc, where a program names it by its first sector.
+ *
+ * @param m The machine.
+ * @param handle The number the program will name the bank by.
+ * @param sector The bank file's first sector.
+ * @return True if a bank was there and is loaded.
+ */
+bool load_bank_from_disc(Machine& m, u32 handle, u32 sector) {
+    std::vector<u8> file(Disc::kSector);
+
+    // The first sector holds the table that says how long the file is.
+    if (!m.disc.read(sector, 1, file.data())) {
+        return false;
+    }
+
+    std::size_t bytes = snd::Bank::file_bytes(file.data());
+    u32 sectors = static_cast<u32>((bytes + Disc::kSector - 1) / Disc::kSector);
+
+    // Not a bank, or the disc ends before it does.
+    file.resize(std::size_t{sectors} * Disc::kSector);
+
+    if (bytes == 0 || !m.disc.read(sector, sectors, file.data())) {
+        return false;
+    }
+
+    return m.effects.load_bank(handle, file.data(), bytes);
+}
+
+/**
+ * Loads a sound effect bank that the program has read into its own memory.
+ *
+ * @param m The machine.
+ * @param handle The number the program will name the bank by.
+ * @param address Where the bank file starts in the EE's memory.
+ * @return True if a bank was there and is loaded.
+ */
+bool load_bank_from_memory(Machine& m, u32 handle, u32 address) {
+    u8 table[snd::Bank::kTableBytes];
+
+    for (u32 n = 0; n < sizeof(table); n++) {
+        table[n] = m.ee.read8(address + n);
+    }
+
+    std::size_t bytes = snd::Bank::file_bytes(table);
+    const u8* first = m.ee.pointer(address);
+
+    // Not a bank, or one that does not lie whole in main memory.
+    if (bytes == 0 || !first
+        || m.ee.pointer(address + static_cast<u32>(bytes) - 1) != first + bytes - 1) {
+        return false;
+    }
+
+    return m.effects.load_bank(handle, first, bytes);
+}
+
+/**
+ * Starts a sound effect: the library's play call with volume, pan, pitch modifier and pitch bend.
+ *
+ * @param m The machine.
+ * @param data Address of the command's six words: bank, sound, volume, pan, modifier, bend.
+ * @return The new sound's handle, or 0 when it did not start.
+ */
+u32 play_effect(Machine& m, u32 data) {
+    snd::SoundStart how;
+    u32 bank = m.ee.read32(data);
+
+    // The words after the bank, 4 bytes each, in the order of the call's arguments.
+    how.index = m.ee.read32(data + 4);
+    how.volume = static_cast<s32>(m.ee.read32(data + 8));
+    how.pan = static_cast<s32>(m.ee.read32(data + 12));
+    how.pitch_modifier = static_cast<s32>(m.ee.read32(data + 16));
+    how.pitch_bend = static_cast<s32>(m.ee.read32(data + 20));
+
+    u32 handle = m.sound_next_handle++;
+
+    return m.effects.play(handle, bank, how) ? handle : 0;
+}
+
+/**
+ * Changes a playing sound effect: the library's call that sets several of its parameters at once.
+ *
+ * @param m The machine.
+ * @param data Address of the command's six words: handle, which to set, volume, pan, modifier,
+ *     bend.
+ * @return The sound's handle, or 0 when it is no longer playing.
+ */
+u32 change_effect(Machine& m, u32 data) {
+    u32 handle = m.ee.read32(data);
+    u32 which = m.ee.read32(data + 4);
+    snd::PlayingSound* playing = m.effects.sound(handle);
+
+    // Over already.
+    if (!playing) {
+        return 0;
+    }
+
+    // Bit 0 of `which` is the volume, bit 1 the pan, bit 2 the modifier, bit 3 the bend (assumed).
+    s32 volume = which & 1 ? static_cast<s32>(m.ee.read32(data + 8)) : snd::SoundStart::kKeepVolume;
+    s32 pan = which & 2 ? static_cast<s32>(m.ee.read32(data + 12)) : snd::SoundStart::kKeepPan;
+
+    playing->set_volume_pan(volume, pan);
+
+    // The pitch modifier was named.
+    if (which & 4) {
+        playing->set_pitch_modifier(static_cast<s32>(m.ee.read32(data + 16)));
+    }
+
+    // The pitch bend was named.
+    if (which & 8) {
+        playing->set_pitch_bend(static_cast<s32>(m.ee.read32(data + 20)));
+    }
+
+    return handle;
 }
 
 }  // namespace
@@ -142,12 +261,12 @@ void add_library_services(Machine& machine) {
     });
     machine.add_service("sceSifCheckStatRpc", [](Machine& m) { m.result(0); });  // never busy
     /*
-     * sceSifCallRpc as the 989snd sound library uses it, answered by a sound server that makes
-     * no sound yet. The library has two clients. The loader's calls return one word, the handle
-     * of what was loaded. The command client's calls return a word of all ones, one result word
-     * a command, and all ones again; function 0x4D carries a batch (a count, then for each
-     * command its number and size as half-words and its data, padded to a word), any other
-     * function is one command with its data.
+     * sceSifCallRpc as the 989snd sound library uses it, answered by a sound server of the
+     * runtime's own (`Machine::sound` and `Machine::effects`). The library has two clients. The
+     * loader's calls return one word, the handle of what was loaded. The command client's calls
+     * return a word of all ones, one result word a command, and all ones again; function 0x4D
+     * carries a batch (a count, then for each command its number and size as half-words and its
+     * data, padded to a word), any other function is one command with its data.
      */
     machine.add_service("sceSifCallRpc.989snd", [](Machine& m) {
         /*
@@ -194,22 +313,42 @@ void add_library_services(Machine& machine) {
         }
 
         /*
-         * What the sound server answers. The streams (music, speech) are
-         * played; sounds from the banks get a handle and are over at once.
+         * What the sound server answers: streams (music, speech) and the sounds of the banks.
          * Called below for each command, on the EE's thread, with its number and data address.
          */
         auto command = [&m](u32 number, u32 data) -> u32 {
             switch (number) {
-                case 0x11:
-                case 0x21:  // play a sound
-                    // A sound from a bank gets a handle and is over at once.
-                    return m.sound_next_handle++;
+                case 0x11:  // play a sound from a bank
+                    return play_effect(m, data);
 
-                case 0x09:  // the volume of a group of sounds (group, volume)
-                    m.sound.set_group_volume(
-                        m.ee.read32(data), static_cast<int>(m.ee.read32(data + 4))
-                    );
+                case 0x21:  // change a playing sound
+                    return change_effect(m, data);
+
+                case 0x06:  // unload a bank (its handle)
+                    m.effects.unload_bank(m.ee.read32(data));
                     return 0;
+
+                case 0x16:  // pause the sounds of some groups (one bit a group)
+                    m.effects.set_groups_paused(m.ee.read32(data), true);
+                    return 0;
+
+                case 0x17:  // and let them go on
+                    m.effects.set_groups_paused(m.ee.read32(data), false);
+                    return 0;
+
+                case 0x18:  // stop every sound of the banks
+                    m.effects.stop_all();
+                    return 0;
+
+                case 0x09: {  // the volume of a group of sounds (group, volume)
+                    u32 group = m.ee.read32(data);
+                    s32 volume = static_cast<s32>(m.ee.read32(data + 4));
+
+                    // Streams and sound effects share the groups.
+                    m.sound.set_group_volume(group, volume);
+                    m.effects.set_group_volume(group, volume);
+                    return 0;
+                }
 
                 case 0x2C: {
                     /*
@@ -246,6 +385,7 @@ void add_library_services(Machine& machine) {
 
                 case 0x15:  // stop a sound, or a stream
                     m.sound.stop(m.ee.read32(data));
+                    m.effects.stop(m.ee.read32(data));
                     return 0;
 
                 case 0x34:  // stop every stream
@@ -258,7 +398,9 @@ void add_library_services(Machine& machine) {
 
                 case 0x19: {  // is it still playing? Its handle if so.
                     u32 handle = m.ee.read32(data);
-                    return m.sound.playing(handle) ? handle : 0;
+                    bool playing = m.sound.playing(handle) || m.effects.is_playing(handle);
+
+                    return playing ? handle : 0;
                 }
 
                 case 0x32:  // time left in the stream
@@ -284,7 +426,23 @@ void add_library_services(Machine& machine) {
             }
 
             // The handle sits in the upper half of the word.
-            m.ee.write32(receive, m.sound_next_handle++ << 16);
+            u32 handle = m.sound_next_handle++ << 16;
+            bool loaded = false;
+
+            // Function 3 loads a bank from a sector of the disc (seen in game code).
+            if (function == 3) {
+                loaded = load_bank_from_disc(m, handle, m.ee.read32(send));
+            }
+
+            // Function 0x57 loads a bank the program holds in its memory (seen in game code).
+            if (function == 0x57) {
+                loaded = load_bank_from_memory(m, handle, m.ee.read32(send));
+            }
+
+            m.log(
+                2, "sound loader call %x: handle %x%s", function, handle, loaded ? ", a bank" : ""
+            );
+            m.ee.write32(receive, handle);
         } else if (size >= 8) {
             // The command client: a word of all ones, one result word per command, all ones again.
             m.ee.write32(receive, 0xFFFFFFFFu);

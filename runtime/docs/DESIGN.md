@@ -236,7 +236,7 @@ Sony's SDK source, samples and headers are never used
 | M2 | The EE's vector instructions and VU0 microprograms on the same interpreter; the games' VU1 programs run; the title screen and main menu draw | first real picture (**done**) |
 | M3 | Memory card as files, pad input, the save and load screens | the menu is usable (**done**: the game creates, lists, saves and loads its files in a host directory) |
 | M4 | Level 0 loads and plays | first level (**done**: it loads, draws and takes input) |
-| M5 | Sound; frame pacing; a faster EE core and vector unit; the drawing path on its own thread | playable (frame pacing **done**; four threads and a faster vector unit bring the first level to 40-48 of 50 frames a second on an M5; music and speech play, sound effects are open) |
+| M5 | Sound; frame pacing; a faster EE core and vector unit; the drawing path on its own thread | playable (frame pacing **done**; four threads and a faster vector unit bring the first level to 40-48 of 50 frames a second on an M5; music, speech and sound effects play; the sound processor's reverb is open) |
 | M6 | GPU back end and the first native VU1 renderers; wide screen and resolution | a port, visibly |
 | M7 | The other games' hook tables | all four boot |
 | M8 | Host-compiled decompiled C replacing guest functions (route C) | the decompilation runs |

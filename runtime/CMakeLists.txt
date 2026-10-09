@@ -53,7 +53,7 @@ add_library(openrac_sys STATIC
   src/sys/sound.cpp
 )
 target_include_directories(openrac_sys PUBLIC src)
-target_link_libraries(openrac_sys PUBLIC openrac_ps2)
+target_link_libraries(openrac_sys PUBLIC openrac_ps2 openrac_snd)
 
 if(OPENRAC_RUNTIME_WINDOW)
   find_package(SDL3 REQUIRED CONFIG)
@@ -82,7 +82,7 @@ add_executable(openrac-vubench src/app/vubench.cpp)
 target_link_libraries(openrac-vubench PRIVATE openrac_ps2)
 
 add_executable(openrac-sndbank src/app/sndbank.cpp)
-target_link_libraries(openrac-sndbank PRIVATE openrac_snd openrac_sys)
+target_link_libraries(openrac-sndbank PRIVATE openrac_sys)
 
 enable_testing()
 add_executable(openrac-ps2-tests tests/test_ps2.cpp)

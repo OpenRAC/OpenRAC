@@ -806,6 +806,16 @@ void Machine::vblank() {
     sound_out_.clear();
     sound.mix(count, sound_out_);
 
+    // The sound effects go on top of the streams; the sum is clipped to 16 bits.
+    effect_sums_.assign(count * 2, 0);
+    effects.mix(count, effect_sums_.data());
+
+    for (std::size_t n = 0; n < effect_sums_.size(); n++) {
+        s32 sum = sound_out_[n] + effect_sums_[n];
+
+        sound_out_[n] = static_cast<ps2::s16>(std::clamp(sum, -32768, 32767));
+    }
+
     // A listener, if any, takes the field's sound.
     if (on_sound) {
         on_sound(sound_out_.data(), count);

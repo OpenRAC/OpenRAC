@@ -38,9 +38,9 @@ M-series Mac, with its music and speech. Sound effects are not made yet.
 | `src/sys/disc.*` | A disc image: sectors and the ISO 9660 directory |
 | `src/sys/machine.*` | The console as a game program needs it: memory, the DMA controller, timers, the interrupt controller, the kernel's services, and the replacing of library functions by name |
 | `src/sys/drawing.*` | The drawing path on a thread of its own: the EE's side copies what a DMA channel sends, and VIF1, VU1, the GIF and the GS take the copies in order |
-| `src/sys/services.cpp` | What the replaced library functions do: the disc, the pad, a silent sound server, the display's timing |
+| `src/sys/services.cpp` | What the replaced library functions do: the disc, the pad, the sound server (streams and sound effects), the display's timing |
 | `src/sys/sound.*` | The sound library's streams (music, speech): ADPCM files on the disc, decoded and mixed one field's worth after each field |
-| `src/snd/*` | The sound library's sound effects: banks of sounds, each a short script of steps (tones, waits, loops, random picks, registers, modulators), played on 48 voices with the sound processor's sample format and envelope. Not yet connected to the machine |
+| `src/snd/*` | The sound library's sound effects: banks of sounds, each a short script of steps (tones, waits, loops, random picks, registers, modulators), played on 48 voices with the sound processor's sample format and envelope, and mixed over the streams after each field |
 | `src/sys/memcard.cpp` | The memory card library answered from a directory of the host: a folder on the card is a directory, a file a file |
 | `games/SERIAL.hooks` | Per game: which addresses of its program are which library functions. Addresses and names only |
 | `src/host/window.*` | An SDL3 window that shows one image per frame and reads the keyboard and a game controller |
@@ -52,7 +52,7 @@ M-series Mac, with its music and speech. Sound effects are not made yet.
 | `tests/test_ps2.cpp`, `tests/test_vu.cpp`, `tests/test_snd.cpp` | Tests of the model against the documented layouts, formats, equations and timing; the sound tests build their own bank |
 
 Not here yet, in the order of [the milestones](docs/DESIGN.md#8-milestones):
-sound effects (the banks), the last of the speed (the first level runs at
+the last of the speed (the first level runs at
 40 to 48 frames a second of 50 on an M5), a GPU back end, the other games'
 tables.
 

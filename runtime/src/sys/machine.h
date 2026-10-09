@@ -29,6 +29,7 @@
 #include "ps2/ee.h"
 #include "ps2/graphics.h"
 #include "ps2/memory.h"
+#include "snd/player.h"
 #include "sound.h"
 
 namespace sys {
@@ -103,6 +104,9 @@ public:
 
     /** The sound library's streams, read from `disc`. */
     Sound sound{disc};
+
+    /** The sound library's sound effects, played from the banks a program loads. */
+    snd::Player effects;
 
     /**
      * Loads the program the disc boots (SYSTEM.CNF's BOOT2) and gets ready to run it.
@@ -258,7 +262,7 @@ public:
      */
     std::vector<u8> iop_memory = std::vector<u8>(kIopBytes);
 
-    /** The silent sound server's next handle for a bank, stream or sound. */
+    /** The sound server's next handle for a bank, stream or sound. */
     u32 sound_next_handle = 0x100;
 
     /**
@@ -492,6 +496,9 @@ private:
 
     /** The sound made at the latest vertical blank. */
     std::vector<ps2::s16> sound_out_;
+
+    /** The sound effects' part of it, as sums before clipping; kept to use the buffer again. */
+    std::vector<ps2::s32> effect_sums_;
 
     /** Frames of sound not yet made, in fractions. */
     double sound_owed_ = 0;
