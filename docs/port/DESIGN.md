@@ -37,6 +37,20 @@ plan, open to change), **open** (needs a decision).
    ([SOURCING.md](../policy/SOURCING.md)).
 6. **First game: Ratchet & Clank (PAL)**, `games/rac1/pal`, whose
    decompilation is the furthest along.
+7. **Pointers are OpenGOAL's offsets** (decided 2026-10-09; open decision 1
+   below). Game memory is one 4 GB reservation whose offsets are the
+   console's addresses; a pointer in the game is a 32-bit offset into it.
+   The decompiled C is written again for that model by
+   [port/tools/hostgen](../../port/tools/hostgen/README.md), so the
+   matching sources stay as they are and every 64-bit platform works,
+   Apple Silicon included.
+8. **The renderer starts on OpenGL 4.1 core, through SDL3** (decided
+   2026-10-09; open decision 2), as OpenGOAL ships it everywhere. The
+   renderer keeps the graphics API behind its own interface so that a
+   second backend can follow.
+9. **The port's own code is C++20, built with CMake, in
+   [port/](../../port/README.md)** (decided 2026-10-09; open decision 5).
+   The games stay the decompilation's C, compiled as C and linked in.
 
 ## 2. The shape of the port (proposed)
 
@@ -57,11 +71,12 @@ decompiled C (games/<game>/<version>/src) ──► the game, built for the PC
                                                sky, particles, 2D, effects
 ```
 
-- **The game.** The decompiled C of `games/<game>/<version>` is built for
-  the PC through a port header dialect ([PORTABILITY.md](PORTABILITY.md),
-  section 6), with C written for the code that is hand-written assembly
-  (the renderer cores' game side, collision, the vector helpers) and for
-  the code not decompiled yet.
+- **The game.** The decompiled C of `games/<game>/<version>` is written
+  again by hostgen for game memory (decided item 7) and compiled for the
+  PC, with C written for the code that is hand-written assembly (the
+  renderer cores' game side, collision, the vector helpers) and for the
+  code not decompiled yet. hostgen's report lists, nearest first, what the
+  program reaches that has no C.
 - **The platform layer** replaces the Sony and 989 libraries at their
   calls: disc reads become reads of the extracted files, the memory card
   becomes save files, the pad library reads SDL, 989snd is replaced at its
@@ -94,27 +109,22 @@ OpenGOAL's `extractor`, step by step:
 | extract | copy every file out of the ISO 9660 image into `iso_data/<game>/`, hash them | the same, into `iso_data/<game>/` |
 | validate | find the boot executable, hash it, look the serial and hash up in its database of known builds; refuse an unknown or damaged image with an error code | the same, against `games/<game>/game.json` (serial, size and SHA-1 of the boot executable); the same error codes |
 | decompile | turn levels, textures, art and text into the port's formats (`decompiler_out/`, `out/<game>/fr3`) | planned: the editor's readers ([editor/](../../editor/README.md)) are the start |
-| compile | build the game | planned: the port does not exist yet |
+| compile | build the game | the port is built from source today ([port/](../../port/README.md)); a player's copy will come built |
 
 The launcher runs these steps for the player, as OpenGOAL's launcher does
 ([launcher/docs/INTEGRATION.md](../../launcher/docs/INTEGRATION.md)).
 
 ## 4. Open decisions
 
-1. **The pointer model** ([PORTABILITY.md](PORTABILITY.md), section 6):
-   the console's 32-bit address space kept (not available natively on macOS
-   on Apple Silicon), OpenGOAL's offsets into one memory buffer, or real C
-   with typed pointers. Everything in the game's build follows from it.
-2. **The graphics API**: OpenGL 4.1 core, as OpenGOAL uses everywhere
-   (deprecated on macOS but present), or SDL3's GPU API (Metal, Vulkan,
-   Direct3D 12 from one code base).
+1. ~~The pointer model~~: decided, OpenGOAL's offsets (section 1, item 7).
+2. ~~The graphics API~~: decided, OpenGL 4.1 core through SDL3 (item 8).
 3. **The hand-off** (section 2): reading the game's display list, or draw
    lists from rewritten renderer cores, or the first and then the second.
 4. **Floating point**: the console's arithmetic exactly, or IEEE with the
    cases the game relies on clamped ([PORTABILITY.md](PORTABILITY.md),
    section 2).
-5. **Where the port's code lives**: a top-level directory (the way `editor/`
-   is), with its build. It is created with the first code, not before.
+5. ~~Where the port's code lives~~: decided, [port/](../../port/README.md)
+   (item 9).
 6. **The asset formats** the extractor writes: OpenGOAL's own (`fr3`, a
    compressed level of converted geometry), glTF, or formats of OpenRAC's.
 

@@ -66,8 +66,11 @@ python3 editor/extract.py godot baserom/SCES_509.16.iso assets/godot
 The goal for playing is a **native PC port** of each game, built the way
 OpenGOAL ported Jak and Daxter: the decompiled code compiled for the PC, a
 renderer of OpenRAC's own, the assets extracted once from your own disc. No
-emulation. The port does not exist yet; [docs/port](docs/port/README.md) has
-the design, the studies of the decompiled code and the order of work.
+emulation. [port/](port/README.md) is its code: it builds Ratchet & Clank
+(PAL)'s whole decompilation into a native program, which runs the game's
+`main` and stops where the decompilation is still assembly (the boot
+stage); [docs/port](docs/port/README.md) has the design, the studies of the
+decompiled code and the order of work.
 
 A desktop launcher ([launcher/README.md](launcher/README.md)) sets a game up
 from your disc (OpenGOAL's way, with [tools/extractor.py](tools/extractor.py)),
@@ -80,6 +83,7 @@ checks.
 games/       one directory per game, one per version inside (pal, ntsc)
 editor/      the Godot level editor and its extractor
 launcher/    a desktop app to set up, build and play the games (in progress)
+port/        the native PC port: runtime, hostgen, renderer, platform, the games' programs
 tools/       openrac.py (discs, setup, progress) and sources.py (imports)
 docs/        policy, engine knowledge, toolchains and workflows across games
 progress/    consolidated progress, generated

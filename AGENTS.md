@@ -27,7 +27,7 @@ to play a game. Start with [docs/LAYOUT.md](docs/LAYOUT.md).
 | rac3 | [games/rac3/ntsc/CONTRIBUTING.md](games/rac3/ntsc/CONTRIBUTING.md), [docs/targets.md](games/rac3/ntsc/docs/targets.md), [docs/wiki/Workflow.md](games/rac3/ntsc/docs/wiki/Workflow.md), [docs/wiki/Matching-Patterns.md](games/rac3/ntsc/docs/wiki/Matching-Patterns.md) |
 | rac4 | [games/rac4/README.md](games/rac4/README.md), [ntsc/CONTRIBUTING.md](games/rac4/ntsc/CONTRIBUTING.md), [ntsc/LEGAL.md](games/rac4/ntsc/LEGAL.md), [ntsc/docs/RESEARCH.md](games/rac4/ntsc/docs/RESEARCH.md) |
 | The editor | [editor/README.md](editor/README.md), [editor/GDSCRIPT_CONVENTIONS.md](editor/GDSCRIPT_CONVENTIONS.md) |
-| The native port | [docs/port/README.md](docs/port/README.md), [DESIGN.md](docs/port/DESIGN.md), [ROADMAP.md](docs/port/ROADMAP.md), and the studies beside them |
+| The native port | [port/README.md](port/README.md), [docs/port/README.md](docs/port/README.md), [DESIGN.md](docs/port/DESIGN.md), [ROADMAP.md](docs/port/ROADMAP.md), [hostgen](port/tools/hostgen/README.md) |
 | The launcher | [launcher/README.md](launcher/README.md), [docs/INTEGRATION.md](launcher/docs/INTEGRATION.md), [docs/ARCHITECTURE.md](launcher/docs/ARCHITECTURE.md), [docs/STYLE.md](launcher/docs/STYLE.md) |
 | Cross-game knowledge | [docs/engine](docs/engine/README.md), [docs/toolchains](docs/toolchains/README.md), [docs/workflow](docs/workflow/README.md) |
 
@@ -106,6 +106,8 @@ python3 -m unittest discover -s tools       # tests for tools/
 python3 -m unittest discover -s editor      # tests for the editor
 python3 tools/extractor.py IMAGE --game rac1   # set a game up from your disc, OpenGOAL's way (docs/port/DESIGN.md)
 cd launcher && npm ci && npm run verify && cargo test -p openrac-launcher-core   # the launcher
+cd port && cmake --preset release && cmake --build --preset release && ctest --preset release   # the native port
+python3 -m unittest discover -s port/tools/hostgen   # hostgen's tests (needs Clang)
 ```
 
 Per-game build and check commands are in each game's README and in

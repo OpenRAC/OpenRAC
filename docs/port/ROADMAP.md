@@ -33,7 +33,7 @@ frame path (the level loop, `DrawWorld`, the loaders) is C.
 | P2 | Assets: the extractor's decompile step, from the editor's readers to port-ready meshes and RGBA8 textures; the formats chosen (open decision 6) | P1 | a level, its models and textures in the port's formats |
 | P3 | A native level viewer: terrain, ties, shrubs, static mobys and sky on the GPU, the console's conventions in shaders, a free camera; the graphics API chosen (open decision 2) | P2 | the first picture, with no game code |
 | P4 | The renderer cores and VU1 programs read and documented, then drawn natively: ties, mobys, shrubs, terrain (level of detail, lighting), moby skinning and animation, sky, particles, the 2D path | P3, the player's disc for each program's disassembly | the viewer draws what the game draws, as the game draws it |
-| P5 | The port's build of the game: the pointer model chosen (open decision 1), the header dialect, the data as C, the platform layer, C for the hand-written assembly | the decompilation of the boot, title and frame path | the game's code running natively: boot to the title screen |
+| P5 | The port's build of the game: game memory and hostgen (pointer model: OpenGOAL's offsets), the library replacements, C for the hand-written assembly | the decompilation of the boot, title and frame path | the game's code running natively: boot to the title screen (**started**: [port/](../../port/README.md) builds all of rac1/pal's C into `openrac-rac1`, which runs `main` and stops at the boot stage, still assembly) |
 | P6 | Game and renderer together: the hand-off at the sync points (open decision 3), the first level playable | P4, P5 | a native Ratchet & Clank |
 | P7 | The sequels: Going Commando first (it shares the terrain and shrub programs and the frame's contract) | P6, their decompilations | |
 
@@ -45,6 +45,28 @@ decompiled C that the earlier compile passes found (the 14 files with
 conflicting prototypes, the left-out functions:
 [PORTABILITY.md](PORTABILITY.md), section 4), and C for the hand-written
 assembly once its meaning is known.
+
+## Where the port stands (2026-10-09)
+
+[port/](../../port/README.md) holds the scaffolding for every phase:
+
+- **P1**: the extractor and the launcher's set-up flow.
+- **P2/P3**: the editor writes a level for the port (glTF, PNG, placements),
+  and `openrac-viewer` draws it ([port/viewer](../../port/viewer)).
+- **P4**: the renderer's frame of per-subsystem renderers, the direct
+  renderer for the 2D path, texture conversion ([port/renderer](../../port/renderer)).
+- **P5**: game memory and the guest contract ([port/runtime](../../port/runtime)),
+  hostgen, which writes all of rac1/pal's C again for it
+  ([port/tools/hostgen](../../port/tools/hostgen/README.md)), and the
+  library replacements ([port/game/rac1](../../port/game/rac1/README.md)).
+  `openrac-rac1` builds from the whole decompilation, loads the player's
+  executable data and runs the game's `main`.
+
+What moves it on is the frontier in hostgen's report: the functions the
+program reaches that have no C. For OpenRAC's decompilation today they are
+the boot stage (`func_001E99D8`), the title loop (`func_001EBB48`) and the
+level loop (`func_L00_002465F8`), all still assembly. A further-along copy
+of the decompilation builds the same way (`-DOPENRAC_RAC1_SOURCE`).
 
 ## What can be taken now
 

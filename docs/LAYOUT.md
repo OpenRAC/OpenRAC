@@ -14,6 +14,7 @@ OpenRAC/
 │   └── rac4/ntsc/          Deadlocked, SCUS_974.65, from rac-deadlocked-decomp
 ├── editor/                 Godot level editor and extractor (shared)
 ├── launcher/               desktop app to set up, build and play every game (Tauri)
+├── port/                   the native PC port: runtime, hostgen, renderer, platform, the games' programs
 ├── tools/                  repository-wide tools: openrac.py, extractor.py, sources.py
 ├── docs/                   knowledge and rules that span the games
 │   ├── policy/             sourcing policy, open questions
@@ -59,7 +60,8 @@ are what readers see.
 | A tool that serves several games or the repository | `tools/` (standard library Python where possible), with tests |
 | A file a second game needs unchanged (a library source, a build helper) | a copy in that game, listed with the original in `shared/files.json` ([shared/](../shared/README.md)) |
 | Editor code | `editor/` |
-| A study or decision for the native port | `docs/port/` ([its README](port/README.md)); the port's code gets a top-level directory with its first code ([port/DESIGN.md](port/DESIGN.md), open decision 5) |
+| A study or decision for the native port | `docs/port/` ([its README](port/README.md)) |
+| The native port's code | `port/` ([its README](../port/README.md)): a game's own part in `port/game/<game>/` |
 | Launcher code, or a game's actions in the launcher | `launcher/` (a game's actions: `launcher/actions.json`) |
 | A decision or rule for everyone | `docs/policy/`, and `AGENTS.md` and `CONTRIBUTING.md` if it changes how people work |
 | A new game version | `games/<game>/<version>/`, plus its entry in `games/<game>/game.json` |

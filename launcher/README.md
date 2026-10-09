@@ -7,8 +7,10 @@ disc, plays the **native PC port**, and can open the levels in Godot to edit
 them. **There is no emulation**: the launcher never runs the retail program
 or a model of the console ([docs/port](../docs/port/README.md)).
 
-The native ports do not exist yet, so today a player can set a game up from
-their disc and edit levels, and Play says the port is not built yet. With
+The native ports are not playable yet ([port/](../port/README.md) builds
+Ratchet & Clank (PAL) up to its boot stage), so today a player can set a
+game up from their disc and edit levels, and Play says what the port still
+needs. With
 **developer tools** switched on in Settings, the launcher is also a
 contributor's console: place what each decompilation's build needs, set up
 the toolchains, build, check, and see each decompilation's progress. Either
