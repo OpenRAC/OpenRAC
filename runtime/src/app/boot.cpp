@@ -77,7 +77,7 @@ bool write_ppm(const std::string& path, const Image& image) {
  */
 int main(int argc, char** argv) {
     // Settings from the command line. A frame number of -1 means the option was not given.
-    std::string iso, hooks, ppm, vif_file, card, wav, native;
+    std::string iso, hooks, ppm, vif_file, card, wav, native, native_calls;
     bool card_wanted = true;
     int vif_frame = -1;
     int frames = -1, report = 60, states_frame = -1;
@@ -100,6 +100,20 @@ int main(int argc, char** argv) {
     };
 
     std::vector<Press> presses;
+
+    /**
+     * A scripted change of the program's memory: a word kept at a value for some fields. For
+     * reaching a state that no script of presses reaches, such as starting in a later level.
+     */
+    struct Write {
+        /** The first field of the change and how many fields it lasts. */
+        int frame, length;
+
+        /** The guest address of the 32-bit word and the value written at each field's start. */
+        unsigned address, value;
+    };
+
+    std::vector<Write> writes;
     sys::Machine machine;
 
     // One option per pass; a value-taking option reads the next argument as well.
@@ -127,6 +141,11 @@ int main(int argc, char** argv) {
             Press p{0, 4, 0};
             std::sscanf(argv[++i], "%d:%x:%d", &p.frame, &p.buttons, &p.length);
             presses.push_back(p);
+        } else if (arg == "--write" && i + 1 < argc) {
+            // FRAME:ADDRESS:VALUE[:FRAMES], address and value in hexadecimal; one field by default.
+            Write w{0, 1, 0, 0};
+            std::sscanf(argv[++i], "%d:%x:%x:%d", &w.frame, &w.address, &w.value, &w.length);
+            writes.push_back(w);
         } else if (arg == "--gs-states" && i + 1 < argc) {
             // The field whose drawing states are listed.
             states_frame = std::atoi(argv[++i]);
@@ -162,6 +181,10 @@ int main(int argc, char** argv) {
         } else if (arg == "--native-name" && i + 1 < argc) {
             // Print the name of the function at a place of the library's table.
             machine.native.name_at = std::atol(argv[++i]);
+        } else if (arg == "--native-calls" && i + 1 < argc) {
+            // Count calls by level and address and write them to this file at the end.
+            native_calls = argv[++i];
+            machine.native.count_calls = true;
         } else if (arg == "--native-skip" && i + 1 < argc) {
             // A file of function names, one a line, that the interpreter keeps running.
             std::ifstream names(argv[++i]);
@@ -201,7 +224,8 @@ int main(int argc, char** argv) {
                 "FRAME] "
                 "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | "
                 "--no-card] [--wav FILE] [--native LIBRARY] [--native-check CALLS] [--native-range "
-                "FIRST:LAST] [--native-skip FILE]\n"
+                "FIRST:LAST] [--native-skip FILE] [--native-calls FILE] [--write "
+                "FRAME:ADDRESS:VALUE[:FRAMES]]\n"
             );
             return 2;
         }
@@ -387,6 +411,16 @@ int main(int argc, char** argv) {
             // The press covers fields from its start for its length.
             if (frame >= p.frame && frame < p.frame + p.length) {
                 machine.pad.buttons |= static_cast<u16>(p.buttons);
+            }
+        }
+
+        for (const Write& w : writes) {
+            bool covered = frame >= w.frame && frame < w.frame + w.length;
+            bool inside = w.address + 4 <= GuestMemory::kRamBytes;
+
+            // The change covers this field and the word is in main memory.
+            if (covered && inside) {
+                std::memcpy(machine.memory.ram(w.address), &w.value, 4);
             }
         }
 
@@ -644,6 +678,17 @@ int main(int argc, char** argv) {
         // What host code ran, the 20 busiest functions first.
         if (!native.empty()) {
             machine.native.report(stderr, 20);
+        }
+
+        // The counted calls were asked for.
+        if (!native_calls.empty()) {
+            std::FILE* out = std::fopen(native_calls.c_str(), "w");
+
+            // If the file cannot be made nothing is written and no message is given.
+            if (out) {
+                machine.native.write_calls(out);
+                std::fclose(out);
+            }
         }
 
         // A sound file was asked for.

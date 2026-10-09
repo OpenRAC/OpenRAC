@@ -82,15 +82,6 @@ The US disc (`SCUS_971.99`) runs the same way with its own table and the
 build/runtime/openrac-boot DISC.iso --hooks runtime/games/SCUS_971.99.hooks --ntsc --window
 ```
 
-To run the decompiled C that is ready in place of the retail code, build the
-library and name it ([port/README.md](port/README.md)):
-
-```sh
-python3 runtime/port/port.py build rac1/pal
-build/runtime/openrac-boot DISC.iso --hooks runtime/games/SCES_509.16.hooks --window \
-    --native build/port/rac1-pal/libopenrac-native.dylib
-```
-
 Its table was made from the PAL one by `runtime/tools/port_hooks.py`, which
 finds each replaced function again in another program by the shape of its
 first instructions.
@@ -99,6 +90,17 @@ Ratchet & Clank: Going Commando (US, `SCUS_972.68`) boots to its main menu
 and into its first level with a table made the same way
 (`runtime/games/SCUS_972.68.hooks`, also with `--ntsc`). It is early: nothing
 beyond that has been tried.
+
+To play with the decompiled C running as host code in place of the retail
+functions, in every level ([port/README.md](port/README.md)):
+
+```sh
+python3 runtime/tools/run.py play-port rac1/pal SCES_509.16 path/to/your-disc.iso
+```
+
+which builds the library (`runtime/port/port.py build rac1/pal`) and passes
+it to `openrac-boot` with `--native`. The launcher's developer view has it
+as "Play with the decompiled code".
 
 | Control | Key | Control | Key |
 |---|---|---|---|
