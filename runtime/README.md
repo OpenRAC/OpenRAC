@@ -58,7 +58,16 @@ tables.
 
 ## Running a game
 
-With your own disc image of Ratchet & Clank (PAL, `SCES_509.16`):
+With your own disc image of Ratchet & Clank (PAL, `SCES_509.16`), one
+command builds the runtime and opens the game in a window:
+
+```sh
+python3 runtime/tools/run.py play SCES_509.16 DISC.iso
+```
+
+The [launcher](../launcher/README.md)'s "Play in the OpenRAC runtime" button
+runs the same command. `run.py build` and `run.py test` build and test without
+a disc. By hand, after building:
 
 ```sh
 build/runtime/openrac-boot DISC.iso --hooks runtime/games/SCES_509.16.hooks --window
