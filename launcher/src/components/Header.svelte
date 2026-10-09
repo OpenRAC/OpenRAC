@@ -80,6 +80,8 @@
   }
 
   .brand {
+    display: inline-flex;
+    align-items: center;
     gap: 8px;
     font-family: var(--font-brand);
     font-size: 26px;
@@ -116,6 +118,7 @@
 
   nav {
     display: flex;
+    align-items: center;
     gap: 4px;
   }
 

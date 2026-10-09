@@ -95,8 +95,8 @@ impl DiscordIpc {
         let socket_paths = find_socket_paths();
         for path in socket_paths {
             if let Ok(mut stream) = std::os::unix::net::UnixStream::connect(&path) {
-                let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(250)));
-                let _ = stream.set_write_timeout(Some(std::time::Duration::from_millis(250)));
+                let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(150)));
+                let _ = stream.set_write_timeout(Some(std::time::Duration::from_millis(150)));
 
                 // Handshake (Opcode 0): {"v": 1, "client_id": "..."}
                 let payload = serde_json::json!({
@@ -183,7 +183,12 @@ impl DiscordIpc {
                     small_text: None,
                 }),
             },
-            DiscordStatus::ViewingGame { title, region, progress_pct, game_id } => {
+            DiscordStatus::ViewingGame {
+                title,
+                region,
+                progress_pct,
+                game_id: _,
+            } => {
                 let state_str = match progress_pct {
                     Some(p) => format!("{region} · {p:.1}% matched"),
                     None => region.clone(),
@@ -193,10 +198,10 @@ impl DiscordIpc {
                     state: Some(state_str),
                     timestamps: Some(ActivityTimestamps { start: Some(app_start), end: None }),
                     assets: Some(ActivityAssets {
-                        large_image: Some(game_image_url(game_id)),
-                        large_text: Some(title.clone()),
-                        small_image: Some("https://openrac.dev/wrench.webp".into()),
-                        small_text: Some("OpenRAC".into()),
+                        large_image: Some("https://openrac.dev/wrench.webp".into()),
+                        large_text: Some("OpenRAC Launcher".into()),
+                        small_image: None,
+                        small_text: None,
                     }),
                 }
             }
@@ -242,6 +247,12 @@ pub fn now_sec() -> u64 {
 fn find_socket_paths() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
 
+    let mut add_candidate = |p: PathBuf| {
+        if p.exists() && !candidates.contains(&p) {
+            candidates.push(p);
+        }
+    };
+
     let flatpak_subdirs = [
         ".flatpak/com.discordapp.Discord/xdg-run",
         "app/dev.vencord.Vesktop",
@@ -250,33 +261,34 @@ fn find_socket_paths() -> Vec<PathBuf> {
         "app/com.discordapp.Discord",
     ];
 
-    // Check XDG_RUNTIME_DIR or /run/user/<uid>
+    // Check XDG_RUNTIME_DIR
     if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
         let base = PathBuf::from(&runtime_dir);
         for i in 0..10 {
-            candidates.push(base.join(format!("discord-ipc-{i}")));
+            add_candidate(base.join(format!("discord-ipc-{i}")));
         }
         for sub in &flatpak_subdirs {
             for i in 0..10 {
-                candidates.push(base.join(sub).join(format!("discord-ipc-{i}")));
+                add_candidate(base.join(sub).join(format!("discord-ipc-{i}")));
             }
         }
     }
 
     if let Ok(uid) = std::env::var("UID") {
+        let base = PathBuf::from(format!("/run/user/{uid}"));
         for sub in &flatpak_subdirs {
             for i in 0..10 {
-                candidates.push(PathBuf::from(format!("/run/user/{uid}/{sub}/discord-ipc-{i}")));
+                add_candidate(base.join(sub).join(format!("discord-ipc-{i}")));
             }
         }
         for i in 0..10 {
-            candidates.push(PathBuf::from(format!("/run/user/{uid}/discord-ipc-{i}")));
+            add_candidate(base.join(format!("discord-ipc-{i}")));
         }
     }
 
     // Fallback: /tmp
     for i in 0..10 {
-        candidates.push(PathBuf::from(format!("/tmp/discord-ipc-{i}")));
+        add_candidate(PathBuf::from(format!("/tmp/discord-ipc-{i}")));
     }
 
     candidates

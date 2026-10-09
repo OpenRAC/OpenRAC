@@ -145,7 +145,6 @@ export async function saveConfig(config: Config) {
 export function openVersion(key: string) {
   app.version = key;
   app.page = "game";
-  updateDiscordPresence();
   if (app.config && app.config.lastVersion !== key) {
     void guard(api.saveConfig({ ...app.config, lastVersion: key })).then((saved) => {
       if (saved) app.config = saved;
