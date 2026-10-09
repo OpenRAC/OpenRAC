@@ -1,5 +1,6 @@
 <script lang="ts">
   // In-page save manager section block for a game version (memory card slots & snapshots).
+  // Styled strictly with OpenRAC launcher design tokens (panels, pills, cards, retro badges).
   import Icon from "$components/Icon.svelte";
   import { api, type GameSaveStatus, type VersionView } from "$lib/api";
   import { toast } from "$lib/app.svelte";
@@ -12,7 +13,6 @@
   let backupNote = $state("");
   let creatingBackup = $state(false);
   let restoringBackupName = $state<string | null>(null);
-  let showBackups = $state(false);
 
   async function loadStatus() {
     loading = true;
@@ -32,7 +32,6 @@
       const res = await api.backupSaves(version.serial, backupNote.trim() || undefined);
       toast(`Backup created: ${res.name}`, "info");
       backupNote = "";
-      showBackups = true;
       await loadStatus();
     } catch (e) {
       toast(`Backup failed: ${String(e)}`, "error");
@@ -82,28 +81,25 @@
   });
 </script>
 
-<section class="panel save-block" aria-label="Save files & Memory Card">
-  <div class="block-top">
+<section class="panel saves-section" aria-label="Memory Card & Saves">
+  <div class="row header-row">
     <div class="grow">
-      <div class="title-row">
-        <Icon name="save" size={20} />
-        <h2>Save files & Memory Card</h2>
-      </div>
+      <h2>Memory Card & Save Files</h2>
       <p class="muted blurb">
         {#if status?.exists}
-          Memory card ready ({status.gameFolderName ?? version.serial}). 5 hardware save slots (save0–save4).
+          Memory card ready ({status.gameFolderName ?? version.serial}). Five hardware save slots.
         {:else}
-          Save directory will be created automatically in <code>openrac/memcard/{version.serial}</code> when the game runs.
+          Save directory will be created in <code class="mono">memcard/{version.serial}</code> when the game runs.
         {/if}
       </p>
     </div>
 
-    <div class="header-actions">
-      <button class="ghost small-btn" onclick={openFolder} title="Open host memory card directory">
-        <Icon name="folder" size={15} />Open folder
+    <div class="header-tools">
+      <button class="ghost small" onclick={openFolder} title="Open host memory card directory">
+        <Icon name="folder" size={14} />Folder
       </button>
-      <button class="ghost small-btn" onclick={loadStatus} disabled={loading} title="Refresh save slots">
-        {#if loading}<span class="spinner"></span>{:else}<Icon name="refresh" size={15} />{/if}
+      <button class="ghost small icon-only" onclick={loadStatus} disabled={loading} title="Refresh save slots">
+        {#if loading}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}
       </button>
     </div>
   </div>
@@ -111,347 +107,351 @@
   {#if loading && !status}
     <div class="loading-state">
       <span class="spinner"></span>
-      <span class="muted">Scanning save files...</span>
+      <span class="muted">Scanning memory card...</span>
     </div>
   {:else if status}
-    <div class="slots-row">
+    <div class="slots-grid">
       {#each status.slots as slot (slot.slotIndex)}
-        <div class="slot-card" class:active={!slot.isEmpty} class:empty={slot.isEmpty}>
-          <div class="slot-top">
-            <span class="slot-tag">Slot {slot.slotIndex + 1}</span>
-            <span class="slot-badge">{slot.isEmpty ? "Empty" : "Saved"}</span>
+        <div class="slot-box" class:slot-active={!slot.isEmpty} class:slot-empty={slot.isEmpty}>
+          <div class="slot-head">
+            <span class="slot-title">SLOT {slot.slotIndex + 1}</span>
+            <span class={`pill ${slot.isEmpty ? "info" : "ok"}`}>
+              <span class="dot"></span>{slot.isEmpty ? "Empty" : "Saved"}
+            </span>
           </div>
-          <div class="slot-content">
-            {#if !slot.isEmpty}
-              <div class="slot-planet" title={slot.planetName ?? "Unknown Planet"}>
-                <Icon name="globe" size={13} />
-                <span class="planet-name">{slot.planetName ?? "Unknown Planet"}</span>
+
+          {#if !slot.isEmpty}
+            <div class="slot-body">
+              <div class="planet-display" title={slot.planetName ?? "Unknown Planet"}>
+                <Icon name="globe" size={14} />
+                <span class="planet-text">{slot.planetName ?? "Unknown"}</span>
               </div>
-              <div class="slot-stats">
-                <div class="slot-bolts" title="Bolts">
-                  <Icon name="bolt" size={12} />
-                  <span>{slot.bolts != null ? slot.bolts.toLocaleString() : "0"}</span>
-                </div>
-                <div class="slot-date">{slot.timestamp ?? "Ready"}</div>
+
+              <div class="bolt-row">
+                <span class="bolt-badge">
+                  <Icon name="bolt" size={14} />
+                  <strong>{slot.bolts != null ? slot.bolts.toLocaleString() : "0"}</strong>
+                </span>
+                <span class="save-time">{slot.timestamp ?? "Ready"}</span>
               </div>
-              <div class="slot-sub">{slot.filename} · {formatBytes(slot.size)}</div>
-            {:else}
-              <div class="slot-empty-text">No save data</div>
-              <div class="slot-sub">{slot.filename}</div>
-            {/if}
-          </div>
+
+              <div class="slot-footer">
+                <span class="mono dim">{slot.filename}</span>
+                <span class="dim">{formatBytes(slot.size)}</span>
+              </div>
+            </div>
+          {:else}
+            <div class="slot-empty-body">
+              <p class="muted">No save data</p>
+              <span class="mono dim">{slot.filename}</span>
+            </div>
+          {/if}
         </div>
       {/each}
     </div>
 
-    <!-- Snapshots & Backup section inside block -->
-    <div class="snapshot-section">
-      <div class="snapshot-controls">
-        <input
-          type="text"
-          placeholder="Snapshot note (e.g. before_boss, 100_percent)"
-          bind:value={backupNote}
-          disabled={creatingBackup}
-          onkeydown={(e) => {
-            if (e.key === "Enter") void createBackup();
-          }}
-        />
-        <button class="primary" disabled={creatingBackup || !status.exists} onclick={createBackup}>
-          {#if creatingBackup}<span class="spinner"></span>{:else}<Icon name="save" size={15} />{/if}
+    <!-- Snapshots & Backups subsection -->
+    <div class="snapshots-box">
+      <div class="snapshot-bar">
+        <div class="snapshot-input-wrap">
+          <input
+            type="text"
+            placeholder="Backup note (e.g. before_drek, 100_percent)"
+            bind:value={backupNote}
+            disabled={creatingBackup}
+            onkeydown={(e) => {
+              if (e.key === "Enter") void createBackup();
+            }}
+          />
+        </div>
+        <button class="primary small" disabled={creatingBackup || !status.exists} onclick={createBackup}>
+          {#if creatingBackup}<span class="spinner"></span>{:else}<Icon name="save" size={14} />{/if}
           Take snapshot
         </button>
-        {#if status.backups.length > 0}
-          <button class="ghost toggle-btn" onclick={() => (showBackups = !showBackups)}>
-            {showBackups ? "Hide backups" : `Backups (${status.backups.length})`}
-          </button>
-        {/if}
       </div>
 
-      {#if showBackups && status.backups.length > 0}
-        <div class="backups-list">
-          {#each status.backups as backup (backup.name)}
-            <div class="backup-item">
-              <div class="backup-meta">
-                <span class="backup-name">{backup.name}</span>
-                <span class="backup-date">
-                  {new Date(backup.createdMillis).toLocaleString()} · {formatBytes(backup.totalSize)}
-                </span>
+      {#if status.backups.length > 0}
+        <details class="backups-details">
+          <summary>Saved snapshots ({status.backups.length})</summary>
+          <div class="backups-table">
+            {#each status.backups as backup (backup.name)}
+              <div class="backup-row">
+                <div class="backup-label">
+                  <span class="mono backup-name">{backup.name}</span>
+                  <span class="dim backup-date">
+                    {new Date(backup.createdMillis).toLocaleString()} · {formatBytes(backup.totalSize)}
+                  </span>
+                </div>
+                <button
+                  class="ghost small restore-action"
+                  disabled={restoringBackupName === backup.name}
+                  onclick={() => void restoreBackup(backup.name)}
+                >
+                  {#if restoringBackupName === backup.name}
+                    <span class="spinner"></span>
+                  {:else}
+                    <Icon name="refresh" size={13} />
+                  {/if}
+                  Restore
+                </button>
               </div>
-              <button
-                class="ghost small-btn restore-btn"
-                disabled={restoringBackupName === backup.name}
-                onclick={() => void restoreBackup(backup.name)}
-              >
-                {#if restoringBackupName === backup.name}
-                  <span class="spinner"></span>
-                {:else}
-                  <Icon name="refresh" size={13} />
-                {/if}
-                Restore
-              </button>
-            </div>
-          {/each}
-        </div>
+            {/each}
+          </div>
+        </details>
       {/if}
     </div>
   {/if}
 </section>
 
 <style>
-  .save-block {
+  .saves-section {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 20px 24px;
-    background: var(--box);
-    border: 1px solid var(--bd);
-    border-radius: 20px;
   }
 
-  .block-top {
-    display: flex;
+  .header-row {
     align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
   }
 
-  .title-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--tx);
-  }
-
-  .title-row h2 {
-    font-size: 18px;
-    font-weight: 600;
-    margin: 0;
-  }
-
-  .blurb {
-    margin: 6px 0 0;
-    font-size: 13px;
-    color: var(--tx2);
-  }
-
-  .blurb code {
-    background: var(--code-bg, rgba(255, 255, 255, 0.06));
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-  }
-
-  .header-actions {
+  .header-tools {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
   }
 
-  .small-btn {
-    padding: 6px 12px;
-    font-size: 12px;
-    gap: 6px;
-    border-radius: 8px;
+  .icon-only {
+    padding: 6px;
+    border-radius: 999px;
+  }
+
+  .blurb {
+    margin-top: 4px;
+    font-size: 13.5px;
+  }
+
+  .blurb code {
+    background: var(--ink-deep);
+    border: 1px solid var(--line);
+    padding: 2px 6px;
+    border-radius: 4px;
   }
 
   .loading-state {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 0;
-    font-size: 13px;
+    gap: 12px;
+    padding: 24px 0;
   }
 
-  .slots-row {
+  /* Grid of save cards matching OpenRAC layout */
+  .slots-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
   }
 
-  .slot-card {
-    background: var(--bg);
-    border: 1px solid var(--bd);
-    border-radius: 12px;
-    padding: 12px;
+  .slot-box {
+    background: var(--panel-hi);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition:
+      border-color 0.15s,
+      background 0.15s;
+  }
+
+  .slot-box.slot-active {
+    border-color: rgba(234, 179, 8, 0.4);
+    background: linear-gradient(180deg, var(--panel-hi) 0%, rgba(234, 179, 8, 0.05) 100%);
+  }
+
+  .slot-box.slot-empty {
+    opacity: 0.55;
+    border-style: dashed;
+  }
+
+  .slot-box.slot-empty:hover {
+    opacity: 0.8;
+  }
+
+  .slot-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .slot-title {
+    font-family: var(--font-head);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.12em;
+  }
+
+  .slot-body {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    transition:
-      border-color 0.2s,
-      background 0.2s;
   }
 
-  .slot-card.active {
-    border-color: rgba(var(--tint-rgb, 255, 140, 0), 0.45);
-    background: linear-gradient(180deg, var(--bg) 0%, rgba(var(--tint-rgb, 255, 140, 0), 0.06) 100%);
-  }
-
-  .slot-card.empty {
-    opacity: 0.6;
-  }
-
-  .slot-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .slot-tag {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--tx);
-  }
-
-  .slot-badge {
-    font-size: 10px;
-    color: var(--tx2);
-  }
-
-  .slot-card.active .slot-badge {
-    color: var(--ok, #4ade80);
-    font-weight: 600;
-  }
-
-  .slot-content {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .slot-planet {
+  .planet-display {
     display: flex;
     align-items: center;
     gap: 6px;
+    color: var(--text);
     font-size: 13px;
     font-weight: 600;
-    color: var(--tx);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
-  .planet-name {
+  .planet-text {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .slot-stats {
+  .bolt-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 6px;
+    background: var(--ink-deep);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 5px 8px;
   }
 
-  .slot-bolts {
+  .bolt-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    font-weight: 600;
+    gap: 5px;
     color: #eab308;
+    font-size: 12.5px;
   }
 
-  .slot-date {
-    font-size: 11px;
-    color: var(--tx2);
+  .bolt-badge strong {
+    font-variant-numeric: tabular-nums;
   }
 
-  .slot-empty-text {
-    font-size: 12px;
-    color: var(--tx2);
-    font-style: italic;
-    padding: 6px 0;
+  .save-time {
+    font-size: 10.5px;
+    color: var(--soft);
+    font-variant-numeric: tabular-nums;
   }
 
-  .slot-sub {
-    font-size: 10px;
-    color: var(--tx2);
-    font-family: var(--mono);
-  }
-
-  .snapshot-section {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--bd);
-  }
-
-  .snapshot-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-
-  .snapshot-controls input {
-    flex: 1;
-    background: var(--input-bg, rgba(0, 0, 0, 0.25));
-    border: 1px solid var(--bd);
-    border-radius: 8px;
-    padding: 7px 12px;
-    color: var(--tx);
-    font-size: 13px;
-  }
-
-  .snapshot-controls input:focus {
-    outline: none;
-    border-color: var(--brand, #ff9800);
-  }
-
-  .toggle-btn {
-    font-size: 12px;
-    padding: 7px 12px;
-    border-radius: 8px;
-  }
-
-  .backups-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-height: 160px;
-    overflow-y: auto;
-    background: var(--bg);
-    border: 1px solid var(--bd);
-    border-radius: 10px;
-    padding: 8px;
-  }
-
-  .backup-item {
+  .slot-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 10px;
-    border-radius: 6px;
-    background: var(--box);
+    font-size: 11px;
+    padding-top: 2px;
   }
 
-  .backup-meta {
+  .slot-empty-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 0 6px;
+  }
+
+  .slot-empty-body p {
+    font-size: 12.5px;
+    font-style: italic;
+  }
+
+  /* Snapshots Box */
+  .snapshots-box {
+    background: var(--ink-deep);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .snapshot-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .snapshot-input-wrap {
+    flex: 1;
+  }
+
+  .snapshot-input-wrap input {
+    background: var(--panel);
+    border-color: var(--line);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+
+  .backups-details summary {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--soft);
+    cursor: pointer;
+  }
+
+  .backups-details summary:hover {
+    color: var(--text);
+  }
+
+  .backups-table {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+
+  .backup-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 12px;
+  }
+
+  .backup-label {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    overflow: hidden;
   }
 
   .backup-name {
     font-size: 12px;
-    font-weight: 500;
-    color: var(--tx);
-    font-family: var(--mono);
+    color: var(--text);
   }
 
   .backup-date {
-    font-size: 11px;
-    color: var(--tx2);
+    font-size: 10.5px;
   }
 
-  .restore-btn:hover {
-    color: var(--brand, #ff9800);
+  .restore-action {
+    flex-shrink: 0;
+  }
+
+  .restore-action:hover {
+    color: var(--amber);
   }
 
   .spinner {
     display: inline-block;
-    width: 13px;
-    height: 13px;
+    width: 14px;
+    height: 14px;
     border: 2px solid rgba(255, 255, 255, 0.2);
     border-top-color: currentColor;
     border-radius: 50%;

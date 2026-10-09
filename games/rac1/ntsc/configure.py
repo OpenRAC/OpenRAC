@@ -220,6 +220,7 @@ OVERLAY_SN_UNITS = {
     "l04/gameplay/entities/0024c4f0.c",
     "l04/gameplay/entities/0029eb20.c",
     "l04/gameplay/entities/002ca420.c",
+    "l04/runtime/dma/002922d0.c",
     "l05/gameplay/entities/002d1688.c",
     "l05/gameplay/entities/0030d6a0.c",
     "l05/gameplay/hero/00239fc0.c",
@@ -362,6 +363,10 @@ RODATA_OVERLAYS = {
     # the same VMA/file offset for the relocations to resolve content-equal.
     "_getpic": (0x153AA0, 0x54A20),
     "sdk/debug/printfloat": (0x152798, 0x53718),  # its three f64 literals (0.1, 0.1, 1e6)
+    "audio/rpc/snd_send_iop_command_and_wait": (0x153D20, 0x54CA0),  # its RPC-collision message
+    "audio/banks/snd_bank_load_by_loc": (0x153DA8, 0x54D28),  # its two error messages
+    "audio/rpc/snd_send_iop_command_no_wait": (0x154010, 0x54F90),  # its buffer-full message
+    "rendering/image/jump_to_image_setup": (0x153AD8, 0x54A58),  # its error message
     "fun_0021fdc8": (0x1E87F0, 0xE9770),  # stream-state switch table
     # vfprintf_r: blanks/zeroes, the xdigs strings, the short literals (kept in
     # .rodata via section attributes, in source order) and its switch table.
@@ -407,7 +412,47 @@ SDATA_OVERLAYS = {
     "audio/rpc/snd_returns": (0x15EC80, 0x5FC00),
     "rendering/debug/print_debug_text": (0x15F000, 0x5FF80),
     "runtime/resources/update_resource_counter": (0x15F8F8, 0x60878),
+    "runtime/callbacks/count_vsync": (0x15ED40, 0x5FCC0),
+    "runtime/time/set_video_timing": (0x15ED60, 0x5FCE0),
+    "ui/fonts/load_debug_font": (0x15EEC8, 0x5FE48),
+    "gameplay/state/fun_00204428": (0x15EE50, 0x5FDD0),
+    "rendering/draw_debug_profiler": (0x15EE40, 0x5FDC0),
+    "gameplay/camera/camera_activation_check_priority": (0x15EF40, 0x5FEC0),
+    "gameplay/camera/execute_camera_post_update_callbacks": (0x15EF8C, 0x5FF0C),
+    "gameplay/camera/refresh_camera_control_flags": (0x15EF98, 0x5FF18),
+    "audio/voices/pause_all_sounds": (0x15F674, 0x605F4),
+    "gameplay/entities/create_moby": (0x15FEFC, 0x60E7C),
     "rendering/vu1_chain": (0x160EE0, 0x61E60),
+}
+
+# The same for a unit's `.data`: data only that unit reads, defined in it.
+DATA_OVERLAYS = {
+    "sdk/library/supplement_crt0": (0x130320, 0x312A0),
+    "runtime/data/get_core_data_table": (0x132D40, 0x33CC0),
+    "sdk/video/ipu/send_ipu_command": (0x132E70, 0x33DF0),
+    "sdk/debug/sce_scf_get_language": (0x1330D4, 0x34054),
+    "assembly/textbin/video/display/set_pal_mode": (0x13D100, 0x3E080),
+    "rendering/texture/append_palette_transfer_packet": (0x151B60, 0x52AE0),
+    "textbin/render_queued_rotated_sprites": (0x189300, 0x8A280),
+    "gameplay/camera/backup_current_cam": (0x1893D0, 0x8A350),
+    "textbin/append_billboard_batch": (0x18ED00, 0x8FC80),
+    "textbin/passes_projected_region_callback_0": (0x1A03B0, 0xA1330),
+    "textbin/initialize_level_runtime": (0x1CAAC0, 0xCBA40),
+    "assembly/textbin/world/data/select_world_object_resource_tables": (0x1CBBE0, 0xCCB60),
+    "assembly/textbin/fun_002196b8": (0x1CE2C0, 0xCF240),
+    "textbin/gameplay/gadgets/load_hand_gadget": (0x1D52E8, 0xD6268),
+    "assembly/textbin/fun_00225e70": (0x1D6080, 0xD7000),
+    "assembly/textbin/fun_00203b08": (0x1D8030, 0xD8FB0),
+    "gameplay/fun_0022e1b0": (0x1D9890, 0xDA810),
+    "assembly/textbin/fun_0022e420": (0x1D9A10, 0xDA990),
+    "assembly/textbin/fun_001fd748": (0x1DDE28, 0xDEDA8),
+    "assembly/textbin/fun_00203730": (0x1E1900, 0xE2880),
+    "assembly/textbin/fun_00238310": (0x1E6018, 0xE6F98),
+    "assembly/textbin/fun_00239780": (0x1E6218, 0xE7198),
+    "textbin/render_vendor_capture_texture_overlays_pass": (0x1E6620, 0xE75A0),
+    "textbin/rebuild_configured_text_label_list": (0x1E8728, 0xE96A8),
+    "textbin/fun_0021fdc8": (0x1E87D0, 0xE9750),
+    "textbin/video/player/init_all": (0x1E8AF0, 0xE9A70),
 }
 
 # —— Code ——
@@ -877,14 +922,29 @@ def hoist_sda_externs(assembly, source):
     return "\n".join(first + rest)
 
 
+def reference_assembly(assembly):
+    """Drop `.set noreorder` and `.set nomacro` from the copy GNU as reads.
+
+    GNU as only measures the data sections for `finish`, so its .text does
+    not matter.  It asserts (tc-mips.c:11454) when a relaxable access sits in
+    a noreorder delay slot and an unsized symbol is loaded later in the same
+    frag; in reorder mode the access gets its own frag.
+    """
+    return re.sub(r"^[ \t]*\.set[ \t]+no(?:reorder|macro)[ \t]*\r?\n", "", assembly, flags=re.M)
+
+
 def main(argv):
     if len(argv) == 5 and argv[1] == "externs":
         _, _, source, destination, c_source = argv
         assembly = hoist_sda_externs(open(source).read(), open(c_source, errors="replace").read())
         open(destination, "w").write(assembly)
         return
+    if len(argv) == 4 and argv[1] == "reference":
+        open(argv[3], "w").write(reference_assembly(open(argv[2]).read()))
+        return
     if len(argv) not in (4, 5):
-        raise SystemExit("usage: padless-asm.py normalize IN OUT [POLICY] | finish IN OUT [REFERENCE] | externs IN OUT SOURCE")
+        raise SystemExit("usage: padless-asm.py normalize IN OUT [POLICY] | finish IN OUT [REFERENCE] | "
+                         "externs IN OUT SOURCE | reference IN OUT")
     mode, source, destination = argv[1:4]
     policy = argv[4] if len(argv) == 5 else "none"
     data = open(source, "rb").read()
@@ -1720,6 +1780,15 @@ def apply_retail_link_layout(config: dict[str, Any], linkerscript_path: Path):
                     f"        build/src/{unit}.c.o(.sdata);\n"
                     "    } :data_alt"
                 )
+    for unit in c_units:
+        for suffix, (vram, at) in DATA_OVERLAYS.items():
+            if unit.endswith(suffix):
+                rodata_overlay_sections.append(
+                    f"    {suffix.replace('/', '.')}.data 0x{vram:X} : AT(0x{at:X}) SUBALIGN(4)\n"
+                    "    {\n"
+                    f"        build/src/{unit}.c.o(.data);\n"
+                    "    } :data_alt"
+                )
     rodata_overlay = (
         "\n\n".join(rodata_overlay_sections) if rodata_overlay_sections else ""
     )
@@ -1877,10 +1946,14 @@ def build_overlays() -> Path:
     ee_assembler = _windows_exe(str(sn_root / "ee/bin/Ps2EeAs.exe"))
     ninja_path = OVERLAYS_BUILD / "build.ninja"
     ninja = ninja_syntax.Writer(open(str(ninja_path), "w"), width=9999)
+    # obj/ only checks that the file compiles as written; its code is never
+    # compared.  -G0 keeps GNU as from relaxing bare symbol accesses, which
+    # it asserts on (tc-mips.c:11454) when one sits in a noreorder delay slot
+    # and an unsized symbol is loaded later in the same frag.
     ninja.rule(
         "overlay-cc",
         description="overlay-cc $in",
-        command=f"{game_root}/ee-gcc -c {includes} {LANG_DEFINE} {COMPILER_FLAGS} $in -o $out",
+        command=f"{game_root}/ee-gcc -c {includes} -Wa,-G0 {LANG_DEFINE} {COMPILER_FLAGS} $in -o $out",
     )
     ninja.rule(
         "c-only",
@@ -1897,7 +1970,8 @@ def build_overlays() -> Path:
             f"{game_root}/ee-gcc -S {includes} {LANG_DEFINE} -DMATCHING_DECOMP -O2 $in -o {work}/cand.s && "
             f"{sys.executable} padless-asm.py normalize {work}/cand.s {work}/cand-final.s none && "
             f"{ee_assembler} -o '$work_win/cand-padded.o' '$work_win/cand-final.s' && "
-            f"{game_root}/as -mabi=eabi -o {work}/cand-ref.o {work}/cand-final.s && "
+            f"{sys.executable} padless-asm.py reference {work}/cand-final.s {work}/cand-ref.s && "
+            f"{game_root}/as -mabi=eabi -o {work}/cand-ref.o {work}/cand-ref.s && "
             f"{sys.executable} padless-asm.py finish {work}/cand-padded.o $out {work}/cand-ref.o"
         ),
     )
@@ -1916,7 +1990,8 @@ def build_overlays() -> Path:
             f"{sys.executable} padless-asm.py normalize {work}/cand.s {work}/cand-norm.s none && "
             f"{sys.executable} padless-asm.py externs {work}/cand-norm.s {work}/cand-final.s $in && "
             f"{ee_assembler} -o '$work_win/cand-padded.o' '$work_win/cand-final.s' && "
-            f"{game_root}/as -mabi=eabi -o {work}/cand-ref.o {work}/cand-final.s && "
+            f"{sys.executable} padless-asm.py reference {work}/cand-final.s {work}/cand-ref.s && "
+            f"{game_root}/as -mabi=eabi -o {work}/cand-ref.o {work}/cand-ref.s && "
             f"{sys.executable} padless-asm.py finish {work}/cand-padded.o $out {work}/cand-ref.o"
         ),
     )
