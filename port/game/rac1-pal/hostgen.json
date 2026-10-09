@@ -26,7 +26,10 @@
     "func_L00_002465F8"
   ],
   "host_functions": [
-    "func_0020C268"
+    "func_0020C268",
+    "openrac_sqrt",
+    "openrac_rsqrt"
   ],
-  "candidates": "nonmatching/functional.tsv"
+  "candidates": "nonmatching/functional.tsv",
+  "hand": "hand/hand.tsv"
 }

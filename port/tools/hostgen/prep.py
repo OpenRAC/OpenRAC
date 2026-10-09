@@ -177,14 +177,17 @@ def use_candidates(text: str, candidates: dict[str, str], used: set[str]) -> str
     bytes. The stub's line is blanked and the candidate goes at the end of the
     file, after every declaration it may rely on, so no line of the file moves."""
     tail = []
+    added: set[int] = set()
 
     def blank(m: re.Match) -> str:
         name = m.group(1)
         if name not in candidates:
             return m.group(0)
         used.add(name)
-        tail.append(f"\n/* hostgen: {name} from a candidate, not the matched C */\n"
-                    f"{prepare(candidates[name])}")
+        text = candidates[name]
+        if id(text) not in added:   # one file of C for several functions goes in once
+            added.add(id(text))
+            tail.append(f"\n/* hostgen: {name} from a candidate, not the matched C */\n{prepare(text)}")
         return ""
 
     text = _INCLUDE_ASM.sub(blank, text)

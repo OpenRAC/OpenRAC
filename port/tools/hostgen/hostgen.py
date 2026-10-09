@@ -102,6 +102,35 @@ def load_config(path: Path) -> dict:
     return cfg
 
 
+def read_table_of_c(table: Path) -> dict[str, str]:
+    """name -> C from a "name<TAB>file" table (files relative to the table's
+    directory); several names may share one file, which
+    then stands for all of them (the same text object)."""
+    out: dict[str, str] = {}
+    texts: dict[Path, str] = {}
+    for line in table.read_text().splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        name, _, rel = line.partition("\t")
+        path = (table.parent / rel.strip()).resolve()
+        if path.is_file():
+            if path not in texts:
+                texts[path] = path.read_text(encoding="utf-8", errors="surrogateescape")
+            out[name.strip()] = texts[path]
+    return out
+
+
+def read_hand(config_dir: Path, cfg: dict) -> dict[str, str]:
+    """The port's own C for the game's hand-written assembly (hostgen.json
+    "hand": a table beside the game's configuration, files relative to it):
+    written from what each retail routine does, in the decompilation's
+    dialect, and translated like the game's C."""
+    table = cfg.get("hand")
+    if not table or not (config_dir / table).is_file():
+        return {}
+    return read_table_of_c(config_dir / table)
+
+
 def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
     """Candidate C for functions the decompilation still has as assembly
     (hostgen.json "candidates": a table in the decompilation, one
@@ -110,16 +139,19 @@ def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
     decompilation decides what it offers. Each is C that does what the retail
     function does without matching its bytes; the matching build never sees it."""
     table = cfg.get("candidates")
-    out: dict[str, str] = {}
     if not table or not (source / table).is_file():
-        return out
+        return {}
+    out: dict[str, str] = {}
+    texts: dict[Path, str] = {}
     for line in (source / table).read_text().splitlines():
         if not line.strip() or line.startswith("#"):
             continue
         name, _, rel = line.partition("\t")
         path = source / rel.strip()
         if path.is_file():
-            out[name.strip()] = path.read_text(encoding="utf-8", errors="surrogateescape")
+            if path not in texts:
+                texts[path] = path.read_text(encoding="utf-8", errors="surrogateescape")
+            out[name.strip()] = texts[path]
     return out
 
 
@@ -443,7 +475,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     root = out / "prep"
     started = time.time()
-    candidates = read_candidates(source, cfg)
+    # The port's own C for hand-written assembly first; a decompilation's
+    # candidate for the same function stands aside.
+    candidates = {**read_candidates(source, cfg), **read_hand(args.game.parent, cfg)}
     used: set[str] = set()
     for d in sorted(set(cfg["sources"] + cfg["includes"])):
         if (source / d).is_dir():
