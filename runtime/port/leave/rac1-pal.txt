@@ -10,12 +10,10 @@
 #
 # name            why
 
-# A 64-bit value passes through declarations typed as 32 bits. On the console
+# A 64-bit value passes through a declaration typed as 32 bits. On the console
 # a register move carries all 64 bits whatever the C says; here the upper half
-# is dropped.
-func_0021C1B0     gives func_001F4868's result (a 64-bit texture register value, declared int here) to the text drawer
-func_001F6EA8     keeps func_001F4868's result in an `int` local on its way to the text drawer
-func_001F7560     the same, for each character it draws
+# is dropped. (The build finds by itself the functions that cut the result of
+# a function listed in wide/; this one is another value.)
 func_0021C6C0     returns a colour that the retail code leaves zero-extended in 64 bits; declared s32, it comes back sign-extended
 
 # A local too small for what a callee does with it: the callee reads or writes

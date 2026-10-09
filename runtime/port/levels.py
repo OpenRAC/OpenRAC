@@ -183,17 +183,19 @@ class Places:
             self.references[name] = (where[0], words, forms(words, self.gp)) if words else None
         return self.references[name]
 
-    def pairs(self, name, frame):
-        """Returns what a function's copy in another frame says, or None when it has no single like copy there.
+    def pairs(self, name, frame, address=None):
+        """Returns what a function's copy in another frame says, or None when it is no like copy.
 
         A pair of lists: (target here, target there) for each call, and (address here, address
-        there) for each address its instructions hold.
+        there) for each address its instructions hold. The copy is the one at `address`, or the
+        function's one place in the frame when no address is given (None if it has several).
         """
-        key = (name, frame)
+        if address is None:
+            address = self.single(name, frame)
+        key = (name, frame, address)
         if key not in self.pair_cache:
             result = None
             reference = self.reference(name)
-            address = self.single(name, frame)
             if reference and address is not None:
                 _, words, found = reference
                 other = self.words(frame, address, self.size_of(name))
@@ -279,9 +281,10 @@ class Places:
             module.referenced[level] = found
         return module.referenced[level]
 
-    def held(self, name, frame):
-        """Returns the addresses a function's one copy in a frame's program holds, or an empty set."""
-        address = self.single(name, frame)
+    def held(self, name, frame, address=None):
+        """Returns the addresses a function's copy in a frame's program holds, or an empty set."""
+        if address is None:
+            address = self.single(name, frame)
         words = self.words(frame, address, self.size_of(name)) if address is not None else None
         return {form[3] for form in forms(words or (), self.gp)}
 
@@ -332,23 +335,33 @@ class Places:
                     return known[here]
         return None
 
-    def usable(self, module, name, frame):
-        """Returns whether a module's function may stand in for its copy in another frame's program.
+    def usable(self, module, name, frame, address=None):
+        """Returns whether a module's function may stand in for its copy at an address of a frame's program.
+
+        Without an address, the copy is the function's one place in the frame. A name with
+        several places there (functions that differ only in the globals they use went under one
+        name) is asked about place by place: the function stands in where the copy uses what
+        its own code uses.
 
         It may when the copy is the same instructions, every function it calls is where the
         module's names lead in that frame, and every address it holds is where the module's
         names for globals lead. A call to another function of the same module needs that one
         usable too: host code calls it directly.
         """
-        key = (name, frame)
+        if address is None:
+            address = self.single(name, frame)
+        if address is None:
+            return False
+        key = (name, frame, address)
         if key in module.usable:
             return module.usable[key]
-        source = frame_and_address(name)[0]
+        source, own = frame_and_address(name)
+        same = source == frame and own == address
         module.usable[key] = True  # a function that calls itself does not stand in its own way
-        module.usable[key] = self.agrees(module, name, frame) and (source == frame or self.fits(module, name, source, frame))
+        module.usable[key] = self.agrees(module, name, frame, address) and (same or self.fits(module, name, source, frame, address))
         return module.usable[key]
 
-    def agrees(self, module, name, frame):
+    def agrees(self, module, name, frame, address=None):
         """Returns whether a function's copy means the same copies of duplicated functions as its module.
 
         A module has one address for a name in a level. A function whose retail code holds
@@ -356,7 +369,7 @@ class Places:
         """
         if frame is None:
             return True
-        held = self.held(name, frame)
+        held = self.held(name, frame, address)
         for callee in module.function_names:
             candidates = self.catalogue[callee][1].get(frame, []) if callee in self.catalogue else []
             if len(candidates) > 1:
@@ -379,9 +392,9 @@ class Places:
         code = self.bytes_at(frame, one, size)
         return code is not None and code == self.bytes_at(frame, other, size)
 
-    def fits(self, module, name, source, frame):
-        """Does the work of `usable` for one function and frame."""
-        pairs = self.pairs(name, frame)
+    def fits(self, module, name, source, frame, address):
+        """Does the work of `usable` for one function and one copy of it."""
+        pairs = self.pairs(name, frame, address)
         if pairs is None:
             return False
         calls, data = pairs
@@ -389,7 +402,7 @@ class Places:
         for here, there in calls:
             if here in own:
                 callee = own[here]
-                if self.single(callee, frame) != there or not self.usable(module, callee, frame):
+                if there not in self.places(callee, frame) or not self.usable(module, callee, frame, there):
                     return False
                 continue
             if not self.leads(module, source, frame, here, there):

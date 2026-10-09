@@ -177,6 +177,9 @@ BUILTINS = {
     "memcpy": "memcpy(openrac_host->space + a0, openrac_host->space + a1, a2); return a0;",
     "memmove": "memmove(openrac_host->space + a0, openrac_host->space + a1, a2); return a0;",
     "memset": "memset(openrac_host->space + a0, (int)a1, a2); return a0;",
+    # The console's square root and reciprocal square root, for the port's own C (runtime/port/hand).
+    "openrac_sqrt": "return openrac_float(4, a0, 0.0f);",
+    "openrac_rsqrt": "return openrac_float(7, a0, a1);",
 }
 
 # The translated code's load and store, with the console's device addresses set apart: the
@@ -232,7 +235,9 @@ class Module:
     def __init__(self, source, game_dir, out_dir, index):
         self.source = source
         self.name = f"m{index}"
-        self.stem = out_dir / str(source.relative_to(game_dir)).replace("/", "_")[:-2]
+        # A file of the port's own (runtime/port/hand) is named from this folder, a game's from the game's.
+        home = game_dir if game_dir in source.parents else HERE
+        self.stem = out_dir / str(source.relative_to(home)).replace("/", "_")[:-2]
         self.error = None
         self.imports = []        # (C name, plain name, result, [parameter types])
         self.exports = []        # the same
@@ -422,6 +427,44 @@ def written_only(ll):
     return found
 
 
+# Functions that some source file hands a cut 64-bit result to (see `narrowed`); filled while translating.
+NARROW_TAKERS = set()
+
+WIDE_CALL = re.compile(r"^\s+(%[\w.]+) = (?:tail )?call i64 @\"?(?:\\01)?(func_(?:L\d\d_)?[0-9A-Fa-f]{8})")
+
+
+def narrowed(ll):
+    """Returns {function: [callees]} from unoptimised LLVM IR: 64-bit results of `WIDE_RESULTS` cut to 32 bits.
+
+    The retail code moves such a result on in a 64-bit register whatever the C says, so a
+    function that keeps it in an `int` or hands it to an `int` parameter matches the retail
+    bytes and loses the upper half on a host. The fix is the type in the decompilation.
+    """
+    found = {}
+    function = None
+    wide, cut_values = {}, set()
+    for line in ll.split("\n"):
+        start = DEFINE.match(line)
+        if start:
+            function, wide, cut_values = start.group(1), {}, set()
+            continue
+        call = WIDE_CALL.match(line)
+        if call and call.group(2) in WIDE_RESULTS:
+            wide[call.group(1)] = call.group(2)
+            continue
+        cut = re.match(r"^\s+(%[\w.]+) = trunc i64 (%[\w.]+) to i32", line)
+        if cut and function and cut.group(2) in wide:
+            found.setdefault(function, []).append(wide[cut.group(2)])
+            cut_values.add(cut.group(1))
+            continue
+        # The cut value handed on: the function that takes it has a 32-bit parameter for it, and
+        # loses the upper half itself when retail code calls it.
+        taker = re.match(r"^\s+(?:%[\w.]+ = )?(?:tail )?call [^@]*@\"?(?:\\01)?(func_(?:L\d\d_)?[0-9A-Fa-f]{8})[^(]*\((.*)\)", line)
+        if taker and any(value in re.findall(r"%[\w.]+", taker.group(2)) for value in cut_values):
+            NARROW_TAKERS.add(taker.group(1))
+    return found
+
+
 def translate(job):
     """Compiles, links and translates one source file. Sets module.error when a step fails."""
     module, tools, game_dir = job
@@ -470,9 +513,11 @@ def translate(job):
     generated.write_text(code)
     read_interface(module, tools)
     # Which functions depend on the retail compiler's stack layout; without the listing, none are known.
-    module.layout = {}
+    module.layout, module.narrow = {}, {}
     if not run(layout_command):
-        module.layout = written_only(module.stem.with_suffix(".ll").read_text(errors="replace"))
+        listing = module.stem.with_suffix(".ll").read_text(errors="replace")
+        module.layout = written_only(listing)
+        module.narrow = narrowed(listing)
     return module
 
 
@@ -593,16 +638,17 @@ class Retail:
         """Returns (address, size, crc, level or None) for each place a module's function may be used at.
 
         The place it is named after comes first. The others are its copies in the levels'
-        programs, where `Places.usable` says that the module's names lead to the right addresses.
+        programs, where `Places.usable` says that the module's names lead to the right addresses;
+        a level may have several.
         """
         size = self.where.size_of(name)
         source = levels.frame_and_address(name)[0]
         found = []
         for frame in [source] + [level for level in self.where.levels if level != source]:
-            address = self.where.single(name, frame)
-            code = self.where.bytes_at(frame, address, size) if address is not None else None
-            if code and self.where.usable(module, name, frame):
-                found.append((address, size, self.crc32(code) & 0xFFFFFFFF, frame))
+            for address in self.where.places(name, frame):
+                code = self.where.bytes_at(frame, address, size)
+                if code and self.where.usable(module, name, frame, address):
+                    found.append((address, size, self.crc32(code) & 0xFFFFFFFF, frame))
         return found
 
     def probe_rows(self):
@@ -675,6 +721,7 @@ def marshal(parameters):
 LEFT = {
     "listed": ("are in the game's list of functions to leave (runtime/port/leave)", None),
     "layout": ("fill locals that only a callee reads, through a neighbour's address", "left_by_stack_layout.txt"),
+    "narrow": ("keep a 64-bit result (runtime/port/wide) in 32 bits, or take one in a 32-bit parameter", "left_by_narrowing.txt"),
     "copy": ("use two copies of a function under one name", "left_by_copy.txt"),
     "caller": ("call one of the functions above directly, in the same source file", "left_by_call.txt"),
 }
@@ -695,6 +742,8 @@ def decide(module, retail):
     module.data_names = sorted(plain for plain in named if plain.startswith("D_"))
     module.left = {plain: "listed" for plain in candidates if plain in retail.leave}
     module.left.update({plain: "layout" for plain in candidates if plain in module.layout and plain not in module.left})
+    module.left.update({plain: "narrow" for plain in candidates
+                        if (plain in module.narrow or plain in NARROW_TAKERS) and plain not in module.left})
 
     def settle():
         module.own = [plain for plain in candidates if plain not in module.left]
@@ -1008,6 +1057,8 @@ def build(key, out_dir, only):
         raise SystemExit(f"port.py: no source folders are listed for {key}")
     sources = sorted(path for folder in SOURCE_DIRS[key] for path in (game_dir / folder).rglob("*.c")
                      if "movie" not in path.parts and (not only or only in str(path)))
+    # The game's hand-written assembly routines that the port has in C (runtime/port/hand).
+    sources += sorted(path for path in (HERE / "hand" / key.replace("/", "-")).glob("*.c") if not only or only in str(path))
     out_dir.mkdir(parents=True, exist_ok=True)
     tools = {name: find_tool(name) for name in ("clang", "wasm-ld", "wasm2c", "wasm-objdump")}
     modules = [Module(source, game_dir, out_dir, index) for index, source in enumerate(sources)]

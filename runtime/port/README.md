@@ -20,13 +20,12 @@ only. The sizes and checksums of the retail functions it stands in for are
 read from your own disc's files, which `tools/openrac.py setup` and the
 game's own set-up put in `games/<game>/<version>/baserom/`.
 
-State on 2026-10-09, Ratchet & Clank (PAL): 299 of 316 source files are in
-the library, 2,168 functions standing in for 18,465 places in the boot
+State on 2026-10-09, Ratchet & Clank (PAL): 300 of 317 source files are in
+the library, 2,178 functions standing in for 21,157 places in the boot
 program and the 19 level programs. Every level starts and draws with host
-code: 390 to 460 functions run in each (1.5 to 5.5 million calls in the
-first 40 seconds), and checked both ways (below) none differs from the
-retail code. About a fifth of all calls are host code; most of the rest go
-to the game's small hand-written vector routines, which have no C yet.
+code: 450 to 530 functions run in each (4 to 19 million calls in the first
+40 seconds), and checked both ways (below) none differs from the retail
+code. Two calls in three are host code.
 
 ## How it works
 
@@ -118,6 +117,24 @@ interpreted takes fewer: pictures of the same field number are not
 comparable between the two ways of running. Compare what does not move (a
 menu's text), or use the check above.
 
+## The game's assembly routines
+
+The game's small vector and number routines (add two vectors, the length of
+one, a matrix times a vector, an angle wrapped to a turn) are hand-written
+assembly for the vector unit and the FPU. No C compiles to them, so the
+decompilation keeps them as assembly, and they are the most called code in
+the game. `hand/<game>-<version>/` has them in C, written from the
+instructions of each routine: the same operations in the same order, so
+that rounding agrees. They are built and bound like any other source file,
+at every copy in every level, and the check compares them with the retail
+routines like any other function (28 so far; all pass in all 19 levels).
+
+What they do not reproduce is what a routine leaves in the vector unit's own
+registers, so a routine whose result depends on what an earlier one left
+there is not written yet (the cross product stores a fourth field it never
+computed), nor are the ones that call the vector unit's microprograms (sine,
+cosine, the matrix builders).
+
 ## Any level, and what to decompile next
 
 A run starts in the first level. To start in another, keep the word that
@@ -151,14 +168,18 @@ the match, and the line goes when it is made. Two causes so far:
   names the functions whose integer result is 64 bits wide whatever a file
   declares (one so far, the texture register value); the build reads every
   declaration of them as returning `long`, which is enough where the caller
-  stores the result in a 64-bit place. A caller that keeps it in an `int` of
-  its own is listed in `leave/`.
+  stores the result in a 64-bit place. A function that keeps the result in
+  an `int` of its own, or takes it in an `int` parameter, is found from the
+  unoptimised compiler output (the 64-bit result cut to 32 bits) and left
+  out; the names are in `left_by_narrowing.txt` (20 today).
 - **Two functions under one name.** Functions that differ only in the globals
   they use (the four that add a callback to one of four lists) have one
   fingerprint, and the catalogue has them as one name with several places in
   a level. A source file's name can stand for one of them only; a function
   whose retail code means another is left out, and the names are written to
-  `left_by_copy.txt` (29 today). The fix is a name for each.
+  `left_by_copy.txt` (29 today). The fix is a name for each. (Such a
+  function is itself bound place by place: at each copy that uses the
+  globals its own code uses.)
 - **Locals laid out for a callee.** A function fills a structure that
   nothing reads and passes the address of the local next to it: the callee
   reads across both, which works only with the retail compiler's stack
