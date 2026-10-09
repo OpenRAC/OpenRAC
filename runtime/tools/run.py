@@ -6,6 +6,10 @@
     run.py build                        configure if needed, then build everything
     run.py test                         build, then run the runtime's tests
     run.py play SERIAL DISC [OPTIONS]   build, then run a disc image in a window
+    run.py port GAME/VERSION            build the game's decompiled C as a host library
+    run.py play-port GAME/VERSION SERIAL DISC [OPTIONS]
+                                        both builds, then play with the decompiled
+                                        functions running as host code
 
 SERIAL is the disc's serial as the game folders write it (SCES_509.16). The
 runtime needs a table for the game, runtime/games/SERIAL.hooks; without one
@@ -13,7 +17,9 @@ this says so and stops. OPTIONS go to openrac-boot unchanged (--card DIR,
 --no-card, --frames N and so on; see runtime/README.md).
 
 The build goes to build/runtime in the checkout. It needs CMake, a C++20
-compiler and SDL3; Ninja is used when it is installed.
+compiler and SDL3; Ninja is used when it is installed. The host library goes
+to build/port/GAME-VERSION and needs LLVM with the wasm32 target and WABT as
+well (runtime/port/README.md).
 """
 import os
 import shutil
@@ -84,6 +90,13 @@ def play(serial, disc, options):
     run(command + list(options))
 
 
+def port(key):
+    """Builds a game version's decompiled C as a host library and returns the library's path."""
+    run([sys.executable, str(ROOT / "runtime" / "port" / "port.py"), "build", key])
+    folder = ROOT / "build" / "port" / key.replace("/", "-")
+    return folder / ("libopenrac-native.dylib" if sys.platform == "darwin" else "libopenrac-native.so")
+
+
 def main():
     arguments = sys.argv[1:]
     if arguments == ["build"]:
@@ -92,6 +105,10 @@ def main():
         test()
     elif len(arguments) >= 3 and arguments[0] == "play":
         play(arguments[1], arguments[2], arguments[3:])
+    elif len(arguments) == 2 and arguments[0] == "port":
+        print(port(arguments[1]))
+    elif len(arguments) >= 4 and arguments[0] == "play-port":
+        play(arguments[2], arguments[3], ["--native", str(port(arguments[1]))] + arguments[4:])
     else:
         raise SystemExit(__doc__)
 

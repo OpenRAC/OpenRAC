@@ -223,6 +223,28 @@
         "todo": "Run it from the desktop app on each platform. The same command line was run from a shell on macOS (Apple Silicon) with the PAL disc: it builds, opens the window and plays."
       },
       {
+        "id": "play-port",
+        "label": "Play with the decompiled code",
+        "description": "Builds this version's decompiled C for your computer and plays your disc with those functions running as native code in place of the game's own, in every level; the rest of the game is still interpreted. This is the port as it stands. It needs LLVM with the wasm32 target and WABT besides what the runtime needs; what it prints, and how many functions ran, is in Tasks.",
+        "kind": "play",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "runtime/tools/run.py",
+          "play-port",
+          "{key}",
+          "{serial}",
+          "{disc}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "runtime/port/README.md",
+        "todo": "Run it from the desktop app. The same command line was run from a shell on macOS (Apple Silicon) with the PAL disc: all nineteen levels start and draw."
+      },
+      {
         "id": "editor-extract",
         "label": "Extract the levels",
         "description": "Turns the 19 levels on your disc into a Godot 4 project in assets/godot. About 20 seconds and 630 MB. Stops if the project already exists: it never overwrites your edits.",

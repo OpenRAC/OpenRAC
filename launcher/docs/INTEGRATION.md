@@ -137,11 +137,14 @@ the game's window ends the job.
 app. The repository action `runtime-tests` builds the runtime and runs its
 tests.
 
-What comes next is the port itself: the decompiled C compiled for the host
-and run in place of the retail code, function by function, and a renderer of
-OpenRAC's own on the GPU ([runtime/docs/DESIGN.md](../../runtime/docs/DESIGN.md)).
-When a version's build can be played that way, it gets an action of its own
-here ("Play your build"), with the built library as its `artifact`.
+The port itself has started: `play-port` (rac1/pal so far, unverified in the
+same sense) is `runtime/tools/run.py play-port {key} {serial} {disc}`. It
+builds the version's decompiled C for the host
+([runtime/port/README.md](../../runtime/port/README.md); it needs LLVM with
+the wasm32 target and WABT) and plays the disc with those functions running
+as native code in place of the game's own, in every level, the interpreter
+keeping the rest. What comes next is a renderer of OpenRAC's own on the GPU
+([runtime/docs/DESIGN.md](../../runtime/docs/DESIGN.md)).
 
 ### 3. Each game's set-up, build and checks
 
