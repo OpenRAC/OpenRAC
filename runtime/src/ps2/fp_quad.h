@@ -148,8 +148,20 @@ inline bool quad_add(const u32* a, const u32* b, u32 dest, u32* out, bool subtra
   return true;
 }
 
+// to = from in the fields of `dest`.
+inline void quad_merge(u32* to, const u32* from, u32 dest) {
+  vst1q_u32(to, vbslq_u32(quad_detail::fields(dest), vld1q_u32(from), vld1q_u32(to)));
+}
+
 #else
 
+inline void quad_merge(u32* to, const u32* from, u32 dest) {
+  for (unsigned field = 0; field < 4; field++) {
+    if (dest & (8u >> field)) {
+      to[field] = from[field];
+    }
+  }
+}
 inline bool quad_mul(const u32*, const u32*, u32, u32*) { return false; }
 inline bool quad_add(const u32*, const u32*, u32, u32*, bool = false) { return false; }
 

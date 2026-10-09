@@ -79,7 +79,11 @@ int main(int argc, char** argv) {
     kicks++;
     kicked += count;
   };
-  vif.on_program = [&] { vu1.program_changed(); };
+  u64 loads = 0;
+  vif.on_program = [&] {
+    vu1.program_changed();
+    loads++;
+  };
   vif.on_start = [&](u32 address, bool resume) {
     auto before = std::chrono::steady_clock::now();
     instructions += resume ? vu1.resume(4'000'000) : vu1.run(address, 4'000'000);
@@ -103,8 +107,9 @@ int main(int argc, char** argv) {
   double total = std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
   double vu = std::chrono::duration<double>(in_vu).count();
 
-  std::printf("%d times: %llu program starts, %llu instruction pairs, %llu packets of %llu quadwords\n", times,
-              static_cast<unsigned long long>(starts), static_cast<unsigned long long>(instructions),
+  std::printf("%d times: %llu program loads, %llu program starts, %llu instruction pairs, %llu packets of %llu quadwords\n",
+              times, static_cast<unsigned long long>(loads), static_cast<unsigned long long>(starts),
+              static_cast<unsigned long long>(instructions),
               static_cast<unsigned long long>(kicks), static_cast<unsigned long long>(kicked));
   std::printf("VU1: %.2f ms a frame, %.2f ns a pair; everything: %.2f ms a frame\n", vu * 1e3 / times,
               instructions ? vu * 1e9 / static_cast<double>(instructions) : 0.0, total * 1e3 / times);

@@ -2,6 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #include "vu.h"
 
+#include <cstring>
+
 #include <cfenv>
 #include <cmath>
 
@@ -37,7 +39,7 @@ constexpr unsigned kDiv = 7, kSqrt = 7, kRsqrt = 13;
 
 }  // namespace
 
-Vu::Vu(Memory memory) : memory_(memory), pc_mask_(memory.micro_bytes / 8 - 1), needs_(memory.micro_bytes / 8) {
+Vu::Vu(Memory memory) : memory_(memory), pc_mask_(memory.micro_bytes / 8 - 1) {
   reset();
 }
 
@@ -56,6 +58,7 @@ void Vu::reset() {
   q_at_ = p_at_ = 0;
   cycle_ = 0;
   readable_ = {};
+  register_ready_ = {};
   branch_in_ = stop_in_ = kick_in_ = 0;
   backup_ttl_ = 0;
   pc = 0;
@@ -203,13 +206,60 @@ void Vu::work_out(Needs& needs, u32 up, u32 low) const {
       }
     }
   }
+
+  // How the two halves are run.
+  needs.upper_run = kUpperRuns[fn < 0x3C ? fn : 64 + ((((up >> 6) & 0x1F) << 2) | (up & 3))];
+  {
+    u32 op = low >> 25, lfn = low & 0x3F;
+    needs.lower_run = kLowerRuns[op != 0x40 ? op : lfn < 0x3C ? 128 + lfn : 192 + ((((low >> 6) & 0x1F) << 2) | (low & 3))];
+  }
+  needs.upper_nop = (up & 0x7FF) == 0x2FF;
+  needs.lower_nop = !(up & 0x80000000u) && low == 0x8000033Cu;  // MOVE of nothing, the usual filler
+  // The float register the upper instruction writes: fd for the arithmetic
+  // that has one, ft for the conversions and ABS, none for ACC and CLIP.
+  unsigned written = 0;
+  if (fn < 0x30) {
+    written = (up >> 6) & 31;
+  } else if (fn >= 0x3C) {
+    u32 index = (((up >> 6) & 0x1F) << 2) | (up & 3);
+    if ((index >= 0x10 && index < 0x18) || index == 0x1D) {
+      written = ft;
+    }
+  } else {
+    written = 32;  // not an instruction: take the careful way
+  }
+  // Any lower instruction names its float registers in these two places.
+  needs.together = written != 0 && (written == 32 || ((low >> 16) & 31) == written || ((low >> 11) & 31) == written);
 }
 
 void Vu::program_changed() {
-  for (Needs& n : needs_) {
-    n.known = false;
+  program_dirty_ = true;
+}
+
+// Find what is known about program memory as it is now, or start afresh.
+void Vu::choose_image() {
+  program_dirty_ = false;
+  u64 sum = 0xCBF29CE484222325ull;
+  for (u32 n = 0; n < memory_.micro_bytes; n += 8) {
+    sum = (sum ^ load<u64>(memory_.micro + n)) * 0x100000001B3ull;
   }
-  programs_looked_at_ = false;
+  std::unique_ptr<Image>& slot = images_[sum];
+  if (slot && std::memcmp(slot->micro.data(), memory_.micro, memory_.micro_bytes) != 0) {
+    slot.reset();  // another content with the same sum
+  }
+  if (!slot) {
+    if (images_.size() > 256) {
+      images_.clear();  // (`slot` is gone with it)
+      choose_image();
+      return;
+    }
+    slot = std::make_unique<Image>();
+    slot->micro.assign(memory_.micro, memory_.micro + memory_.micro_bytes);
+    slot->needs.resize(memory_.micro_bytes / 8);
+  }
+  image_ = slot.get();
+  needs_ = image_->needs.data();
+  sticky_readers_ = image_->sticky_readers;
 }
 
 namespace {
@@ -239,8 +289,8 @@ inline bool reads_flags(u32 low) {
 // What is in program memory as a whole: does anything read flags in a way
 // that depends on every instruction (the bits that remember, the MAC flags)?
 void Vu::look_at_programs() {
-  programs_looked_at_ = true;
-  sticky_readers_ = false;
+  image_->looked_at = true;
+  image_->sticky_readers = sticky_readers_ = false;
   for (u32 n = 0; n <= pc_mask_; n++) {
     u32 low = load<u32>(memory_.micro + n * 8), up = load<u32>(memory_.micro + n * 8 + 4);
     if (up & 0x80000000u) {
@@ -249,7 +299,7 @@ void Vu::look_at_programs() {
     u32 op = low >> 25;
     u32 imm12 = ((low >> 10) & 0x800) | (low & 0x7FF);
     if (op == 0x15 || op == 0x18 || op == 0x1A || op == 0x1B || ((op == 0x14 || op == 0x16 || op == 0x17) && (imm12 & 0xFC0))) {
-      sticky_readers_ = true;
+      image_->sticky_readers = sticky_readers_ = true;
       return;
     }
   }
@@ -294,35 +344,45 @@ bool Vu::flags_can_be_read(u32 at) const {
 }
 
 void Vu::step() {
+  if (program_dirty_) [[unlikely]] {
+    choose_image();
+  }
   u32 at = pc;
-  u32 low = load<u32>(memory_.micro + at * 8), up = load<u32>(memory_.micro + at * 8 + 4);
   pc = (pc + 1) & pc_mask_;
+  Needs& needs = needs_[at];
+  if (!needs.known) [[unlikely]] {
+    if (!image_->looked_at) {
+      look_at_programs();
+    }
+    u32 low_word = load<u32>(memory_.micro + at * 8), up_word = load<u32>(memory_.micro + at * 8 + 4);
+    work_out(needs, up_word, low_word);
+    needs.flags_wanted = !sets_flags(up_word) || flags_can_be_read(at);
+  }
+  const u32 low = needs.low, up = needs.up;
   if (on_step) [[unlikely]] {
     on_step(at, up, low);
   }
 
   // When this pair runs: the next cycle, or later if it reads a float
   // register not yet readable, or needs a unit that is busy.
-  Needs& needs = needs_[at];
-  if (!needs.known || needs.up != up || needs.low != low) {
-    if (!programs_looked_at_) {
-      look_at_programs();
-    }
-    work_out(needs, up, low);
-    needs.flags_wanted = !sets_flags(up) || flags_can_be_read(at);
-  }
   flags_wanted_ = needs.flags_wanted;
   u64 ready = cycle_ + 1;
   for (unsigned n = 0; n < needs.count; n++) {
-    const std::array<u64, 4>& fields = readable_[needs.reg[n]];
-    u32 mask = needs.mask[n];
-    if ((mask & 8) && fields[0] > ready) ready = fields[0];
-    if ((mask & 4) && fields[1] > ready) ready = fields[1];
-    if ((mask & 2) && fields[2] > ready) ready = fields[2];
-    if ((mask & 1) && fields[3] > ready) ready = fields[3];
+    unsigned reg = needs.reg[n];
+    if (register_ready_[reg] > ready) [[unlikely]] {
+      // Written in the last three cycles: which fields?
+      const std::array<u64, 4>& fields = readable_[reg];
+      u32 mask = needs.mask[n];
+      if ((mask & 8) && fields[0] > ready) ready = fields[0];
+      if ((mask & 4) && fields[1] > ready) ready = fields[1];
+      if ((mask & 2) && fields[2] > ready) ready = fields[2];
+      if ((mask & 1) && fields[3] > ready) ready = fields[3];
+    }
   }
-  if (needs.wait == 1 && q_at_ > ready) ready = q_at_;
-  if (needs.wait == 2 && p_at_ > ready) ready = p_at_;
+  if (needs.wait) [[unlikely]] {
+    if (needs.wait == 1 && q_at_ > ready) ready = q_at_;
+    if (needs.wait == 2 && p_at_ > ready) ready = p_at_;
+  }
   // A branch tests the value an integer register had before the instruction
   // just ahead of it, unless it had to wait: then the write got through.
   if (backup_ttl_) {
@@ -348,50 +408,60 @@ void Vu::step() {
   }
   timed_ = true;
 
-
-  in_upper_ = true;
-  upper_reg_ = 0;
-  if (up & 0x20000000u) {
+  if (up & 0x20000000u) [[unlikely]] {
     sync_point_ = true;  // the M bit
   }
   if (up & 0x80000000u) {
     // The I bit: the lower word is a number for the I register, not an
     // instruction. The upper instruction of the same pair still reads the
     // old I (the games' own sine routine depends on it).
-    upper(up);
-    in_upper_ = false;
+    if (!needs.upper_nop) {
+      needs.upper_run(*this, up);
+    }
     i = low;
+  } else if (!needs.together) {
+    // Neither half touches what the other writes (but for the integer
+    // registers and memory, which only the lower half has).
+    if (!needs.upper_nop) {
+      needs.upper_run(*this, up);
+    }
+    if (!needs.lower_nop) {
+      needs.lower_run(*this, low, at);
+    }
   } else {
-    upper(up);
-    in_upper_ = false;
     // Both halves read the registers as they were. So the lower instruction
     // runs with the upper one's register put back, and the upper one's
     // result goes in afterwards, over anything the lower one wrote there.
+    in_upper_ = true;
+    upper_reg_ = 0;
+    needs.upper_run(*this, up);
+    in_upper_ = false;
     std::array<u32, 4> result{};
     if (upper_reg_) {
       result = vf[upper_reg_];
       vf[upper_reg_] = upper_old_;
     }
-    lower(low, at);
+    needs.lower_run(*this, low, at);
     if (upper_reg_) {
       vf[upper_reg_] = result;
     }
   }
 
-  if ((up & 0x40000000u) && !stop_in_) {
-    stop_in_ = 2;  // the E bit: this instruction and the next, then stop
-  }
-  if (kick_in_ && --kick_in_ == 0) {
-    fire_kick();
-  }
-  if (branch_in_ && --branch_in_ == 0) {
-    pc = branch_target_;
-  }
-  timed_ = false;
-  if (stop_in_ && --stop_in_ == 0) {
-    running_ = false;
-    // Nothing is left waiting when a program has stopped.
-    settle();
+  if (kick_in_ | branch_in_ | stop_in_ | (up & 0x40000000u)) [[unlikely]] {
+    if ((up & 0x40000000u) && !stop_in_) {
+      stop_in_ = 2;  // the E bit: this instruction and the next, then stop
+    }
+    if (kick_in_ && --kick_in_ == 0) {
+      fire_kick();
+    }
+    if (branch_in_ && --branch_in_ == 0) {
+      pc = branch_target_;
+    }
+    if (stop_in_ && --stop_in_ == 0) {
+      running_ = false;
+      // Nothing is left waiting when a program has stopped.
+      settle();
+    }
   }
 }
 
@@ -422,6 +492,7 @@ void Vu::settle() {
 void Vu::macro(u32 code) {
   fp::want_toward_zero();
   in_upper_ = false;
+  timed_ = false;  // the EE's own instructions are not
   flags_wanted_ = true;
   u32 fn = code & 0x3F;
   if (fn < 0x30) {
@@ -496,21 +567,30 @@ void Vu::set_control(unsigned reg, u32 value) {
 
 // --- helpers -----------------------------------------------------------------
 
-void Vu::write_vf(unsigned reg, u32 mask, const std::array<u32, 4>& value) {
-  if (reg == 0) {
-    return;
-  }
+// What goes with a write to fields of a float register (not VF0): the upper
+// instruction's old value is kept for the lower one, and the fields are
+// readable four cycles on.
+inline void Vu::about_to_write_vf(unsigned reg, u32 mask) {
   if (in_upper_) {
     upper_reg_ = reg;
     upper_old_ = vf[reg];
   }
   if (timed_) {
-    for (unsigned field = 0; field < 4; field++) {
-      if (has(mask, field)) {
-        readable_[reg][field] = cycle_ + 4;
-      }
-    }
+    u64 from = cycle_ + 4;
+    register_ready_[reg] = from;
+    std::array<u64, 4>& fields = readable_[reg];
+    if (mask & 8) fields[0] = from;
+    if (mask & 4) fields[1] = from;
+    if (mask & 2) fields[2] = from;
+    if (mask & 1) fields[3] = from;
   }
+}
+
+void Vu::write_vf(unsigned reg, u32 mask, const std::array<u32, 4>& value) {
+  if (reg == 0) {
+    return;
+  }
+  about_to_write_vf(reg, mask);
   for (unsigned field = 0; field < 4; field++) {
     if (has(mask, field)) {
       vf[reg][field] = value[field];
@@ -628,11 +708,13 @@ void Vu::post_flags(u32 mac_bits) {
   post();
 }
 
-void Vu::arith(u32 code, Op op, From from, bool to_acc) {
+// The arithmetic instructions, one function for each operation, source of
+// the second operand and target, so that nothing about those is decided
+// while a program runs.
+template <Vu::Op op, Vu::From from, bool to_acc>
+void Vu::arith(u32 code) {
   u32 dest = (code >> 21) & 0xF;
   unsigned ft = (code >> 16) & 31, fs = (code >> 11) & 31, fd = (code >> 6) & 31;
-  std::array<u32, 4> out = to_acc ? acc : vf[fd];
-  u32 flags = 0;
 
   // The second operand, a value a field.
   std::array<u32, 4> b;
@@ -673,19 +755,18 @@ void Vu::arith(u32 code, Op op, From from, bool to_acc) {
              fp::quad_add(acc.data(), product.data(), dest, quick.data(), true);
       break;
   }
-  if (fast && !flags_wanted_) {
-    for (unsigned field = 0; field < 4; field++) {
-      if (has(dest, field)) {
-        out[field] = quick[field];
-      }
-    }
+  if (fast && !flags_wanted_) [[likely]] {
     if (to_acc) {
-      acc = out;
-    } else {
-      write_vf(fd, dest, out);
+      fp::quad_merge(acc.data(), quick.data(), dest);
+    } else if (fd) {
+      about_to_write_vf(fd, dest);
+      fp::quad_merge(vf[fd].data(), quick.data(), dest);
     }
     return;
   }
+
+  std::array<u32, 4> out = to_acc ? acc : vf[fd];
+  u32 flags = 0;
   if (fast) {
     for (unsigned field = 0; field < 4; field++) {
       if (has(dest, field)) {
@@ -743,34 +824,37 @@ void Vu::min_max(u32 code, From from, bool max) {
 
 // --- upper instructions --------------------------------------------------------
 
-void Vu::upper(u32 code) {
-  u32 fn = code & 0x3F;
+// The four families of instructions are each written as one switch; the
+// function for an instruction at a known place in program memory is the
+// switch with its selector fixed (see `upper_as` and `lower_as` below), so
+// nothing is decoded while a program runs.
+[[gnu::always_inline]] inline void Vu::upper_body(u32 code, u32 fn) {
   switch (fn) {
-    case 0x00: case 0x01: case 0x02: case 0x03: arith(code, Op::Add, From::Bc, false); break;
-    case 0x04: case 0x05: case 0x06: case 0x07: arith(code, Op::Sub, From::Bc, false); break;
-    case 0x08: case 0x09: case 0x0A: case 0x0B: arith(code, Op::Madd, From::Bc, false); break;
-    case 0x0C: case 0x0D: case 0x0E: case 0x0F: arith(code, Op::Msub, From::Bc, false); break;
+    case 0x00: case 0x01: case 0x02: case 0x03: arith<Op::Add, From::Bc, false>(code); break;
+    case 0x04: case 0x05: case 0x06: case 0x07: arith<Op::Sub, From::Bc, false>(code); break;
+    case 0x08: case 0x09: case 0x0A: case 0x0B: arith<Op::Madd, From::Bc, false>(code); break;
+    case 0x0C: case 0x0D: case 0x0E: case 0x0F: arith<Op::Msub, From::Bc, false>(code); break;
     case 0x10: case 0x11: case 0x12: case 0x13: min_max(code, From::Bc, true); break;
     case 0x14: case 0x15: case 0x16: case 0x17: min_max(code, From::Bc, false); break;
-    case 0x18: case 0x19: case 0x1A: case 0x1B: arith(code, Op::Mul, From::Bc, false); break;
-    case 0x1C: arith(code, Op::Mul, From::Q, false); break;
+    case 0x18: case 0x19: case 0x1A: case 0x1B: arith<Op::Mul, From::Bc, false>(code); break;
+    case 0x1C: arith<Op::Mul, From::Q, false>(code); break;
     case 0x1D: min_max(code, From::I, true); break;
-    case 0x1E: arith(code, Op::Mul, From::I, false); break;
+    case 0x1E: arith<Op::Mul, From::I, false>(code); break;
     case 0x1F: min_max(code, From::I, false); break;
-    case 0x20: arith(code, Op::Add, From::Q, false); break;
-    case 0x21: arith(code, Op::Madd, From::Q, false); break;
-    case 0x22: arith(code, Op::Add, From::I, false); break;
-    case 0x23: arith(code, Op::Madd, From::I, false); break;
-    case 0x24: arith(code, Op::Sub, From::Q, false); break;
-    case 0x25: arith(code, Op::Msub, From::Q, false); break;
-    case 0x26: arith(code, Op::Sub, From::I, false); break;
-    case 0x27: arith(code, Op::Msub, From::I, false); break;
-    case 0x28: arith(code, Op::Add, From::Ft, false); break;
-    case 0x29: arith(code, Op::Madd, From::Ft, false); break;
-    case 0x2A: arith(code, Op::Mul, From::Ft, false); break;
+    case 0x20: arith<Op::Add, From::Q, false>(code); break;
+    case 0x21: arith<Op::Madd, From::Q, false>(code); break;
+    case 0x22: arith<Op::Add, From::I, false>(code); break;
+    case 0x23: arith<Op::Madd, From::I, false>(code); break;
+    case 0x24: arith<Op::Sub, From::Q, false>(code); break;
+    case 0x25: arith<Op::Msub, From::Q, false>(code); break;
+    case 0x26: arith<Op::Sub, From::I, false>(code); break;
+    case 0x27: arith<Op::Msub, From::I, false>(code); break;
+    case 0x28: arith<Op::Add, From::Ft, false>(code); break;
+    case 0x29: arith<Op::Madd, From::Ft, false>(code); break;
+    case 0x2A: arith<Op::Mul, From::Ft, false>(code); break;
     case 0x2B: min_max(code, From::Ft, true); break;
-    case 0x2C: arith(code, Op::Sub, From::Ft, false); break;
-    case 0x2D: arith(code, Op::Msub, From::Ft, false); break;
+    case 0x2C: arith<Op::Sub, From::Ft, false>(code); break;
+    case 0x2D: arith<Op::Msub, From::Ft, false>(code); break;
     case 0x2E: {  // OPMSUB: the second half of a cross product
       unsigned ft = (code >> 16) & 31, fs = (code >> 11) & 31, fd = (code >> 6) & 31;
       std::array<u32, 4> out = vf[fd];
@@ -793,15 +877,22 @@ void Vu::upper(u32 code) {
   }
 }
 
+void Vu::upper(u32 code) {
+  upper_body(code, code & 0x3F);
+}
+
 void Vu::upper_special(u32 code) {
-  u32 fn = (((code >> 6) & 0x1F) << 2) | (code & 3);
+  upper_special_body(code, (((code >> 6) & 0x1F) << 2) | (code & 3));
+}
+
+[[gnu::always_inline]] inline void Vu::upper_special_body(u32 code, u32 fn) {
   u32 dest = (code >> 21) & 0xF;
   unsigned ft = (code >> 16) & 31, fs = (code >> 11) & 31;
   switch (fn) {
-    case 0x00: case 0x01: case 0x02: case 0x03: arith(code, Op::Add, From::Bc, true); break;
-    case 0x04: case 0x05: case 0x06: case 0x07: arith(code, Op::Sub, From::Bc, true); break;
-    case 0x08: case 0x09: case 0x0A: case 0x0B: arith(code, Op::Madd, From::Bc, true); break;
-    case 0x0C: case 0x0D: case 0x0E: case 0x0F: arith(code, Op::Msub, From::Bc, true); break;
+    case 0x00: case 0x01: case 0x02: case 0x03: arith<Op::Add, From::Bc, true>(code); break;
+    case 0x04: case 0x05: case 0x06: case 0x07: arith<Op::Sub, From::Bc, true>(code); break;
+    case 0x08: case 0x09: case 0x0A: case 0x0B: arith<Op::Madd, From::Bc, true>(code); break;
+    case 0x0C: case 0x0D: case 0x0E: case 0x0F: arith<Op::Msub, From::Bc, true>(code); break;
     case 0x10: case 0x11: case 0x12: case 0x13: {  // ITOF0, 4, 12, 15
       static constexpr s32 shift[4] = {0, 4, 12, 15};
       std::array<u32, 4> out{};
@@ -820,8 +911,8 @@ void Vu::upper_special(u32 code) {
       write_vf(ft, dest, out);
       break;
     }
-    case 0x18: case 0x19: case 0x1A: case 0x1B: arith(code, Op::Mul, From::Bc, true); break;
-    case 0x1C: arith(code, Op::Mul, From::Q, true); break;
+    case 0x18: case 0x19: case 0x1A: case 0x1B: arith<Op::Mul, From::Bc, true>(code); break;
+    case 0x1C: arith<Op::Mul, From::Q, true>(code); break;
     case 0x1D: {  // ABS
       std::array<u32, 4> out{};
       for (unsigned field = 0; field < 4; field++) {
@@ -830,7 +921,7 @@ void Vu::upper_special(u32 code) {
       write_vf(ft, dest, out);
       break;
     }
-    case 0x1E: arith(code, Op::Mul, From::I, true); break;
+    case 0x1E: arith<Op::Mul, From::I, true>(code); break;
     case 0x1F: {  // CLIP: x, y and z of fs against plus and minus |w| of ft
       s64 w = fp::key(vf[ft][3] & ~fp::kSign);
       u32 now = 0;
@@ -843,19 +934,19 @@ void Vu::upper_special(u32 code) {
       post();
       break;
     }
-    case 0x20: arith(code, Op::Add, From::Q, true); break;
-    case 0x21: arith(code, Op::Madd, From::Q, true); break;
-    case 0x22: arith(code, Op::Add, From::I, true); break;
-    case 0x23: arith(code, Op::Madd, From::I, true); break;
-    case 0x24: arith(code, Op::Sub, From::Q, true); break;
-    case 0x25: arith(code, Op::Msub, From::Q, true); break;
-    case 0x26: arith(code, Op::Sub, From::I, true); break;
-    case 0x27: arith(code, Op::Msub, From::I, true); break;
-    case 0x28: arith(code, Op::Add, From::Ft, true); break;
-    case 0x29: arith(code, Op::Madd, From::Ft, true); break;
-    case 0x2A: arith(code, Op::Mul, From::Ft, true); break;
-    case 0x2C: arith(code, Op::Sub, From::Ft, true); break;
-    case 0x2D: arith(code, Op::Msub, From::Ft, true); break;
+    case 0x20: arith<Op::Add, From::Q, true>(code); break;
+    case 0x21: arith<Op::Madd, From::Q, true>(code); break;
+    case 0x22: arith<Op::Add, From::I, true>(code); break;
+    case 0x23: arith<Op::Madd, From::I, true>(code); break;
+    case 0x24: arith<Op::Sub, From::Q, true>(code); break;
+    case 0x25: arith<Op::Msub, From::Q, true>(code); break;
+    case 0x26: arith<Op::Sub, From::I, true>(code); break;
+    case 0x27: arith<Op::Msub, From::I, true>(code); break;
+    case 0x28: arith<Op::Add, From::Ft, true>(code); break;
+    case 0x29: arith<Op::Madd, From::Ft, true>(code); break;
+    case 0x2A: arith<Op::Mul, From::Ft, true>(code); break;
+    case 0x2C: arith<Op::Sub, From::Ft, true>(code); break;
+    case 0x2D: arith<Op::Msub, From::Ft, true>(code); break;
     case 0x2E: {  // OPMULA: the first half of a cross product
       u32 flags = 0;
       std::array<u32, 4> out = acc;
@@ -880,7 +971,14 @@ void Vu::upper_special(u32 code) {
 // --- lower instructions --------------------------------------------------------
 
 void Vu::lower(u32 code, u32 at) {
-  u32 op = code >> 25;
+  lower_body(code, at, code >> 25);
+}
+
+void Vu::lower_special(u32 code) {
+  lower_special_body(code, code & 0x3F, (((code >> 6) & 0x1F) << 2) | (code & 3));
+}
+
+[[gnu::always_inline]] inline void Vu::lower_body(u32 code, u32 at, u32 op) {
   u32 dest = (code >> 21) & 0xF;
   unsigned it = (code >> 16) & 31, is = (code >> 11) & 31;
   s32 imm11 = sign_extend(code & 0x7FF, 11);
@@ -1016,11 +1114,10 @@ void Vu::lower(u32 code, u32 at) {
   }
 }
 
-void Vu::lower_special(u32 code) {
+[[gnu::always_inline]] inline void Vu::lower_special_body(u32 code, u32 fn, u32 index) {
   u32 dest = (code >> 21) & 0xF;
   unsigned it = (code >> 16) & 31, is = (code >> 11) & 31, id = (code >> 6) & 31;
   unsigned fsf = (code >> 21) & 3, ftf = (code >> 23) & 3;
-  u32 fn = code & 0x3F;
 
   if (fn < 0x3C) {
     switch (fn) {
@@ -1063,7 +1160,6 @@ void Vu::lower_special(u32 code) {
     u32 x = (r >> 4) & 1, y = (r >> 22) & 1;
     r = (((r << 1) ^ x ^ y) & 0x7FFFFF) | 0x3F800000;
   };
-  u32 index = (((code >> 6) & 0x1F) << 2) | (code & 3);
   // The function unit's operands, for the instructions that use it.
   double x = 0, y = 0, z = 0, one = 0;
   if (index >= 0x70) {
@@ -1190,5 +1286,44 @@ void Vu::lower_special(u32 code) {
       break;
   }
 }
+
+// --- an instruction's function, found once -----------------------------------
+
+// Upper slots: 0-63 by the function field, then 64-191 the special ones by
+// their index. Lower slots: 0-127 by the operation field, 128-191 the
+// integer operations of the special group by function field, 192-319 the
+// rest of that group by index.
+template <unsigned Slot>
+void Vu::upper_as(Vu& vu, u32 code) {
+  if (Slot < 64) {
+    vu.upper_body(code, Slot);
+  } else {
+    vu.upper_special_body(code, Slot - 64);
+  }
+}
+
+template <unsigned Slot>
+void Vu::lower_as(Vu& vu, u32 code, u32 at) {
+  if (Slot < 128) {
+    vu.lower_body(code, at, Slot);
+  } else if (Slot < 192) {
+    vu.lower_special_body(code, Slot - 128, 0);
+  } else {
+    vu.lower_special_body(code, 0x3C, Slot - 192);
+  }
+}
+
+template <std::size_t... N>
+constexpr std::array<Vu::UpperRun, sizeof...(N)> Vu::upper_runs(std::index_sequence<N...>) {
+  return {&Vu::upper_as<N>...};
+}
+
+template <std::size_t... N>
+constexpr std::array<Vu::LowerRun, sizeof...(N)> Vu::lower_runs(std::index_sequence<N...>) {
+  return {&Vu::lower_as<N>...};
+}
+
+const std::array<Vu::UpperRun, 192> Vu::kUpperRuns = Vu::upper_runs(std::make_index_sequence<192>{});
+const std::array<Vu::LowerRun, 320> Vu::kLowerRuns = Vu::lower_runs(std::make_index_sequence<320>{});
 
 }  // namespace ps2

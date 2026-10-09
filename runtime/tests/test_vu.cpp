@@ -31,6 +31,7 @@ struct Unit {
 
   u64 run(const Program& program, u32 at = 0) {
     std::memcpy(micro.data(), program.words().data(), program.words().size() * 4);
+    vu.program_changed();
     u64 ran = vu.run(at);
     fp::want_nearest();  // the checks compute as the host does
     return ran;
