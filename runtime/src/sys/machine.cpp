@@ -345,7 +345,7 @@ void Machine::kernel(int number) {
         case 0x12: {  // AddDmacHandler(channel, handler, next, arg)
             // The INTC cause or the DMA channel picks the list; both are numbers below 16.
             auto& list = (number == 0x10 ? intc_handlers : dmac_handlers)[a0 & 15];
-            Handler h{a1, a3, next_id_++};
+            Handler h{a1, a3, next_id_++, static_cast<u32>(ee.gpr[28].lo)};
 
             if (a2 == 0) {
                 // "next 0" puts it at the head.
@@ -443,6 +443,15 @@ void Machine::kernel(int number) {
         case 0x3E:  // EndOfHeap
             // The same margin below the stack as SetupHeap leaves.
             result(stack_top_ - 0x4000);
+            break;
+
+        case 0x4B:  // GetOsdConfigParam(config)
+            /*
+             * The console's settings as one word: a non-Japanese console (bit 4), the settings
+             * layout with the full list of languages (2 in bits 13-15), English (1 in bits
+             * 16-20), everything else zero (documented in the open ps2sdk; values assumed).
+             */
+            ee.write32(a0, 0x00014010);
             break;
 
         case 0x40: {  // CreateSema(param): the initial count is the third word
@@ -758,8 +767,7 @@ void Machine::event() {
             in_handler_ = true;
 
             // The callback's argument 1 says that a read finished.
-            ee.call_stack = kHandlerStack;
-            ee.call(cd_callback, 1);
+            call_handler(cd_callback, cd_callback_gp, 1);
             in_handler_ = false;
         }
     }
@@ -832,6 +840,16 @@ void Machine::vblank() {
     ee.stop();
 }
 
+void Machine::call_handler(u32 function, u32 gp, u64 a0, u64 a1) {
+    u64 interrupted_gp = ee.gpr[28].lo;
+
+    // `call` puts back every register but takes the global pointer as it finds it.
+    ee.gpr[28].lo = static_cast<u64>(static_cast<s64>(static_cast<s32>(gp)));
+    ee.call_stack = kHandlerStack;
+    ee.call(function, a0, a1);
+    ee.gpr[28].lo = interrupted_gp;
+}
+
 void Machine::deliver() {
     // Handlers run with interrupts off, one cause at a time, and only when the
     // program has interrupts on.
@@ -876,16 +894,14 @@ void Machine::deliver() {
 
                     // The list is copied: a handler may add or remove handlers while it runs.
                     for (const Handler& h : std::vector<Handler>(dmac_handlers[channel])) {
-                        ee.call_stack = kHandlerStack;
-                        ee.call(h.function, channel, h.argument);
+                        call_handler(h.function, h.gp, channel, h.argument);
                     }
                 }
             }
         } else {
             // Any other cause: its handlers, each called with the cause and its own argument.
             for (const Handler& h : std::vector<Handler>(intc_handlers[cause])) {
-                ee.call_stack = kHandlerStack;
-                ee.call(h.function, cause, h.argument);
+                call_handler(h.function, h.gp, cause, h.argument);
             }
         }
     }

@@ -236,6 +236,9 @@ public:
     /** The function the program asked to be told when a disc read finishes. */
     u32 cd_callback = 0;
 
+    /** The global pointer (register 28) of the code that named `cd_callback`. */
+    u32 cd_callback_gp = 0;
+
     /**
      * Tells the program soon that a disc read finished, as the drive would: not before the caller
      * has returned.
@@ -330,6 +333,9 @@ public:
 
         /** The number the program uses to remove the handler. */
         int id = 0;
+
+        /** The global pointer (register 28) of the code that added the handler. */
+        u32 gp = 0;
     };
 
     /** The interrupt handlers the program added, per INTC cause, in the order they are called. */
@@ -413,6 +419,20 @@ private:
 
     /** Runs the handlers of the interrupts that are pending, enabled, and allowed by the EE. */
     void deliver();
+
+    /**
+     * Calls a handler or callback of the program that breaks into whatever code is running.
+     *
+     * It runs on the handlers' stack with the global pointer of the code that registered it, as
+     * under the console's kernel: the code it interrupts may be using both registers for
+     * something else (seen in game code).
+     *
+     * @param function Address of the function.
+     * @param gp The global pointer to give it.
+     * @param a0 Its first argument.
+     * @param a1 Its second argument.
+     */
+    void call_handler(u32 function, u32 gp, u64 a0, u64 a1 = 0);
 
     /**
      * Handles a SYSCALL: a replaced library function or a kernel call.

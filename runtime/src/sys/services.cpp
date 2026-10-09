@@ -220,6 +220,7 @@ void add_library_services(Machine& machine) {
     machine.add_service("sceCdCallback", [](Machine& m) {
         m.result(m.cd_callback);
         m.cd_callback = m.arg(0);
+        m.cd_callback_gp = static_cast<u32>(m.ee.gpr[28].lo);
     });
     /*
      * A read that announces its end through that callback (sceCdRead used
