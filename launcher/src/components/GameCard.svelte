@@ -12,7 +12,7 @@
 
   let { game, delay = 0 }: { game: GameView; delay?: number } = $props();
 
-  let isTitleHovered = $state(false);
+  let isCardHovered = $state(false);
   let activeImportVersion = $state<VersionView | null>(null);
 
   const GAME_MEDIA: Record<string, { bg: string; gif?: string; video?: string }> = {
@@ -27,25 +27,20 @@
 
 <section
   class="card rise"
-  class:previewing={isTitleHovered}
+  class:previewing={isCardHovered}
   style={`${themeStyle(game.id)}; animation-delay: ${delay}ms`}
   aria-label={game.title}
+  onmouseenter={() => (isCardHovered = true)}
+  onmouseleave={() => (isCardHovered = false)}
 >
   {#if media}
     <div class="card-backdrop" aria-hidden="true">
-      <img src={media.bg} alt="" class="backdrop-img static" class:dimmed={isTitleHovered} />
+      <img src={media.bg} alt="" class="backdrop-img static" class:dimmed={isCardHovered} />
       {#if media.video}
-        <video
-          src={media.video}
-          class="backdrop-img video"
-          class:active={isTitleHovered}
-          autoplay
-          loop
-          muted
-          playsinline
+        <video src={media.video} class="backdrop-img video" class:active={isCardHovered} autoplay loop muted playsinline
         ></video>
       {:else if media.gif}
-        <img src={media.gif} alt="" class="backdrop-img gif" class:active={isTitleHovered} />
+        <img src={media.gif} alt="" class="backdrop-img gif" class:active={isCardHovered} />
       {/if}
       <div class="backdrop-overlay"></div>
     </div>
@@ -53,18 +48,11 @@
 
   <div class="card-content">
     <div class="card-header">
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div
-        class="title"
-        class:hovered={isTitleHovered}
-        onmouseenter={() => (isTitleHovered = true)}
-        onmouseleave={() => (isTitleHovered = false)}
-        title="Hover to preview gameplay"
-      >
+      <div class="title" class:hovered={isCardHovered}>
         <span class="title-text">{game.title}</span>
         <div class="title-meta">
           <span class="title-sub">decompilation{game.year ? ` · ${game.year}` : ""}</span>
-          {#if isTitleHovered}
+          {#if isCardHovered}
             <span class="preview-badge"><span class="pulse-dot"></span>Live preview</span>
           {/if}
         </div>
