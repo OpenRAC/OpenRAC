@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
   int frames = -1, report = 60, states_frame = -1;
   // Threads that draw: by default most of the fast cores, leaving one for the program itself.
   int gs_threads = static_cast<int>(std::min(12u, std::max(2u, std::thread::hardware_concurrency()) - 1));
-  bool window_wanted = false;
+  bool window_wanted = false, drawing_thread = true;
   // Scripted input: hold these buttons from one frame for some frames.
   struct Press {
     int frame, length;
@@ -75,6 +75,8 @@ int main(int argc, char** argv) {
       states_frame = std::atoi(argv[++i]);
     } else if (arg == "--gs-threads" && i + 1 < argc) {
       gs_threads = std::atoi(argv[++i]);
+    } else if (arg == "--one-thread") {
+      drawing_thread = false;  // the drawing path on the program's own thread
     } else if (arg == "--ntsc") {
       machine.hz = 59.94;
     } else if (arg == "--window") {
@@ -83,7 +85,8 @@ int main(int argc, char** argv) {
       iso = arg;
     } else {
       std::fprintf(stderr, "usage: openrac-boot DISC.iso [--hooks FILE] [--frames N] [--report N] [--verbose N] "
-                           "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]]\n");
+                           "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--gs-states FRAME] "
+                           "[--gs-threads N] [--one-thread]\n");
       return 2;
     }
   }
@@ -95,6 +98,9 @@ int main(int argc, char** argv) {
     return 1;
   }
   machine.graphics.gs.set_threads(static_cast<unsigned>(std::max(gs_threads, 0)));
+  if (drawing_thread) {
+    machine.drawing.start();
+  }
   std::string error;
   if (!machine.boot(&error) || (!hooks.empty() && !machine.load_hooks(hooks, &error))) {
     std::fprintf(stderr, "%s\n", error.c_str());
@@ -128,6 +134,7 @@ int main(int argc, char** argv) {
     std::map<std::string, Use> states;
     int order = 0;
     if (frame == states_frame) {
+      machine.drawing.sync();
       machine.graphics.gs.on_primitive = [&](const std::string& state, int x0, int y0, int x1, int y1, float lod0, float lod1) {
         Use& u = states[state];
         if (u.count++ == 0) {
@@ -163,6 +170,7 @@ int main(int argc, char** argv) {
       break;
     }
     if (frame == states_frame) {
+      machine.drawing.sync();
       machine.graphics.gs.on_primitive = nullptr;
       std::vector<std::pair<int, std::string>> lines;
       for (const auto& [state, u] : states) {
@@ -179,7 +187,7 @@ int main(int argc, char** argv) {
         std::printf("%s\n", line.second.c_str());
       }
     }
-    bool shown = machine.graphics.gs.display(image);
+    bool shown = machine.drawing.picture(image);
 #ifndef OPENRAC_NO_WINDOW
     if (window_wanted && shown) {
       window.present(image, 4.0f / 3.0f);
@@ -198,6 +206,7 @@ int main(int argc, char** argv) {
     (void)shown;
 #endif
     if (report > 0 && (frame + 1) % report == 0) {
+      machine.drawing.sync();
       auto now = std::chrono::steady_clock::now();
       double seconds = std::chrono::duration<double>(now - reported_at).count();
       reported_at = now;
@@ -209,6 +218,7 @@ int main(int argc, char** argv) {
     }
   }
 
+  machine.drawing.sync();
   std::fprintf(stderr, "gs: %llu texture levels decoded (%llu texels), %llu transfers, %llu batches drawn\n",
                static_cast<unsigned long long>(machine.graphics.gs.stats.texture_decodes),
                static_cast<unsigned long long>(machine.graphics.gs.stats.texels_decoded),
@@ -256,7 +266,7 @@ int main(int argc, char** argv) {
                  static_cast<unsigned long long>(machine.graphics.vu1_starts), machine.graphics.vu1_runaway_start,
                  machine.graphics.vu1_runaway_pc);
   }
-  if (!ppm.empty() && machine.graphics.gs.display(image)) {
+  if (!ppm.empty() && machine.drawing.picture(image)) {
     write_ppm(ppm, image);
   }
   return 0;

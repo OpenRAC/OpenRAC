@@ -34,6 +34,7 @@ target_include_directories(openrac_ps2 PUBLIC src/ps2 src)
 # library functions answered by the runtime.
 add_library(openrac_sys STATIC
   src/sys/disc.cpp
+  src/sys/drawing.cpp
   src/sys/machine.cpp
   src/sys/services.cpp
 )

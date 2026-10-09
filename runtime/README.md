@@ -33,6 +33,7 @@ and the first level draw as they should, slowly and without sound.
 | `src/ps2/vu_dis.h` | A disassembler for microprograms, for the terminal |
 | `src/sys/disc.*` | A disc image: sectors and the ISO 9660 directory |
 | `src/sys/machine.*` | The console as a game program needs it: memory, the DMA controller, timers, the interrupt controller, the kernel's services, and the replacing of library functions by name |
+| `src/sys/drawing.*` | The drawing path on a thread of its own: the EE's side copies what a DMA channel sends, and VIF1, VU1, the GIF and the GS take the copies in order |
 | `src/sys/services.cpp` | What the replaced library functions do: the disc, the memory card (an empty slot for now), the pad, a silent sound server, the display's timing |
 | `games/SERIAL.hooks` | Per game: which addresses of its program are which library functions. Addresses and names only |
 | `src/host/window.*` | An SDL3 window that shows one image per frame and reads the keyboard and a game controller |
@@ -67,7 +68,8 @@ Headless, for working on the model: `--frames N` stops after N fields,
 `--ppm FILE` writes the last picture, `--press FRAME:BUTTONS[:FRAMES]` holds
 buttons (a hexadecimal mask; cross is 4000, start 8), `--report N` prints
 counts and the speed every N fields, `--gs-states FRAME` lists what that
-frame is drawn with, state by state.
+frame is drawn with, state by state, `--one-thread` keeps the drawing path
+on the program's thread (the picture is the same either way).
 
 ## What it has been run against
 

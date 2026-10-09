@@ -448,9 +448,11 @@ void Machine::vblank() {
   vblank_end_at_ = vblank_at_ + frame_cycles_ / 12;
   vblank_at_ += frame_cycles_;
   frames++;
-  graphics.gs.vblank(odd_field());
+  drawing.vblank(odd_field());
   raise(2);
   deliver();
+  // What the program's handler sent is drawn, then the picture is taken.
+  drawing.present();
   if (on_vblank) {
     on_vblank();
   }
@@ -519,10 +521,12 @@ void Machine::dma_start(unsigned channel) {
   switch (channel) {
     case kVif0:
     case kVif1: {
-      Vif1& vif = channel == kVif0 ? vif0 : graphics.vif;
-      DmaSink sink = [&vif](const u8* data, std::size_t bytes) { vif.write(data, bytes); };
+      // VIF0 is the EE's own; what goes to VIF1 is copied for the drawing side.
+      DmaSink sink = channel == kVif0 ? DmaSink([this](const u8* data, std::size_t bytes) { vif0.write(data, bytes); })
+                                      : DmaSink([this](const u8* data, std::size_t bytes) { drawing.vif(data, bytes); });
       if (!from_memory) {
         // To memory: what the GS sends back from a local-to-host transfer.
+        drawing.sync();
         graphics.gs.transfer_out(memory.dma(ch.madr), std::size_t{ch.qwc} * 16);
         ch.madr += ch.qwc * 16;
         ch.qwc = 0;
@@ -535,10 +539,13 @@ void Machine::dma_start(unsigned channel) {
         ch.madr += ch.qwc * 16;
         ch.qwc = 0;
       }
+      if (channel == kVif1) {
+        drawing.send();
+      }
       break;
     }
     case kGifChannel: {
-      DmaSink sink = [this](const u8* data, std::size_t bytes) { graphics.gif.write(3, data, bytes / 16); };
+      DmaSink sink = [this](const u8* data, std::size_t bytes) { drawing.gif(data, bytes); };
       if (mode == 1) {
         ch.chcr &= ~0x40u;  // GIF chains carry no data in their tags
         run_source_chain(memory, ch, sink);
@@ -547,6 +554,7 @@ void Machine::dma_start(unsigned channel) {
         ch.madr += ch.qwc * 16;
         ch.qwc = 0;
       }
+      drawing.send();
       break;
     }
     case kFromSpr: {
@@ -615,6 +623,7 @@ u32 Machine::timer_count(const Timer& t) const {
 u64 Machine::hw_read(u32 address, unsigned bytes) {
   (void)bytes;
   if (address >= 0x12000000 && address < 0x12002000) {
+    drawing.sync();
     return graphics.gs.read_privileged(address & ~0xFu);
   }
   if (address >= 0x10000000 && address < 0x10002000) {
@@ -670,7 +679,7 @@ void Machine::hw_write(u32 address, u64 value, unsigned bytes) {
   (void)bytes;
   u32 v = static_cast<u32>(value);
   if (address >= 0x12000000 && address < 0x12002000) {
-    graphics.gs.write_privileged(address & ~0xFu, value);
+    drawing.privileged(address & ~0xFu, value);
     return;
   }
   if (address >= 0x10000000 && address < 0x10002000) {
@@ -761,8 +770,8 @@ void Machine::hw_write128(u32 address, u64 lo, u64 hi) {
   store<u64>(quad + 8, hi);
   switch (address) {
     case 0x10004000: vif0.write(quad, 16); break;          // VIF0 FIFO
-    case 0x10005000: graphics.vif.write(quad, 16); break;  // VIF1 FIFO
-    case 0x10006000: graphics.gif.write(3, quad, 1); break;  // GIF FIFO
+    case 0x10005000: drawing.vif(quad, 16); break;  // VIF1 FIFO
+    case 0x10006000: drawing.gif(quad, 16); break;  // GIF FIFO
     default:
       hw_write(address, lo, 8);
       hw_write(address + 8, hi, 8);

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "disc.h"
+#include "drawing.h"
 #include "ps2/dma.h"
 #include "ps2/ee.h"
 #include "ps2/graphics.h"
@@ -44,6 +45,10 @@ class Machine {
   // --- the parts ---
   ps2::GuestMemory memory;
   ps2::Graphics graphics;  // VIF1, VU1, GIF, GS
+  // How the machine reaches them: in order, and on a thread of their own
+  // once `drawing.start()` has been called. Reading `graphics` directly is
+  // for after `drawing.sync()`.
+  Drawing drawing{graphics};
   ps2::Gif unused_gif{graphics.gs};
   ps2::Vif1 vif0{unused_gif};
   ps2::Vu vu0{ps2::Vu::Memory{vif0.micro.data(), 4096, vif0.data.data(), 4096}};
