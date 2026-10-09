@@ -250,8 +250,8 @@
         "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
         "kind": "play",
         "state": "planned",
-        "docs": "port/game/rac1/README.md",
-        "todo": "openrac-rac1 builds from the whole decompilation (port/, cmake --preset release) and runs the game's main, but stops at the boot stage, which is still assembly: port/tools/hostgen's report lists what it reaches without C. When it plays, this runs it with --data <install>/active/rac1/data."
+        "docs": "port/game/rac1-pal/README.md",
+        "todo": "openrac-rac1-pal builds from the whole decompilation (port/, cmake --preset release) and runs the game's main, but stops at the boot stage, which is still assembly: port/tools/hostgen's report lists what it reaches without C. When it plays, this runs it with --data <install>/active/rac1/data."
       }
     ],
     "rac1/ntsc": [
@@ -351,8 +351,8 @@
         "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
         "kind": "play",
         "state": "planned",
-        "docs": "docs/port/README.md",
-        "todo": "As rac1/pal's play: the native port starts with Ratchet & Clank (PAL), whose decompilation is furthest along (docs/port/ROADMAP.md)."
+        "docs": "port/game/README.md",
+        "todo": "openrac-rac1-ntsc builds from this version's decompilation (port/, cmake --preset release); before it runs it needs the game's main in port/game/rac1-ntsc/hostgen.json and its library table (port/game/README.md). rac1/pal is furthest along."
       }
     ],
     "rac2/ntsc": [
@@ -425,8 +425,8 @@
         "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
         "kind": "play",
         "state": "planned",
-        "docs": "docs/port/README.md",
-        "todo": "As rac1/pal's play: the native port starts with Ratchet & Clank (PAL), whose decompilation is furthest along (docs/port/ROADMAP.md)."
+        "docs": "port/game/README.md",
+        "todo": "openrac-rac2-ntsc builds from this version's decompilation (port/, cmake --preset release); before it runs it needs the game's main in port/game/rac2-ntsc/hostgen.json and its library table (port/game/README.md). rac1/pal is furthest along."
       }
     ],
     "rac3/ntsc": [
@@ -472,8 +472,8 @@
         "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
         "kind": "play",
         "state": "planned",
-        "docs": "docs/port/README.md",
-        "todo": "As rac1/pal's play: the native port starts with Ratchet & Clank (PAL), whose decompilation is furthest along (docs/port/ROADMAP.md)."
+        "docs": "port/game/README.md",
+        "todo": "openrac-rac3-ntsc builds from this version's decompilation (port/, cmake --preset release); before it runs it needs the game's main in port/game/rac3-ntsc/hostgen.json and its library table (port/game/README.md). rac1/pal is furthest along."
       }
     ],
     "rac4/ntsc": [
@@ -569,8 +569,8 @@
         "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
         "kind": "play",
         "state": "planned",
-        "docs": "docs/port/README.md",
-        "todo": "As rac1/pal's play: the native port starts with Ratchet & Clank (PAL), whose decompilation is furthest along (docs/port/ROADMAP.md)."
+        "docs": "port/game/README.md",
+        "todo": "openrac-rac4-ntsc builds from this version's decompilation (port/, cmake --preset release); before it runs it needs the game's main in port/game/rac4-ntsc/hostgen.json and its library table (port/game/README.md). rac1/pal is furthest along."
       }
     ]
   }

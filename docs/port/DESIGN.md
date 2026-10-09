@@ -76,7 +76,10 @@ decompiled C (games/<game>/<version>/src) ──► the game, built for the PC
   PC, with C written for the code that is hand-written assembly (the
   renderer cores' game side, collision, the vector helpers) and for the
   code not decompiled yet. hostgen's report lists, nearest first, what the
-  program reaches that has no C.
+  program reaches that has no C. Every game version is built this way: a
+  version is a directory in [port/game](../../port/game/README.md) (its
+  hostgen configuration and the table of the libraries it calls), and the
+  library replacements and the program are shared by all of them.
 - **The platform layer** replaces the Sony and 989 libraries at their
   calls: disc reads become reads of the extracted files, the memory card
   becomes save files, the pad library reads SDL, 989snd is replaced at its

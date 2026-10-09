@@ -25,7 +25,7 @@ a window (no SDL3): the runtime, the games and their tests.
 |---|---|
 | [runtime/](runtime) | game memory, laid out as the console's (a 4 GB reservation whose offsets are its addresses), the contract translated code is written against ([guest.h](runtime/include/openrac/guest.h)), the executable's data loader, the crash handler |
 | [tools/hostgen/](tools/hostgen/README.md) | writes a decompilation's C again for game memory: pointers as 32-bit game addresses, calls matched to their definitions as the EE passed arguments, calls through code addresses. It reports the frontier: what the program reaches that has no C |
-| [game/rac1/](game/rac1/README.md) | Ratchet & Clank (PAL): hostgen's configuration, the table of the libraries it calls, their replacements (disc, memory card, graphics hand-off, kernel, pads, sound) and `openrac-rac1` |
+| [game/](game/README.md) | the games, one directory per version (`rac1-pal`, `rac1-ntsc`, `rac2-ntsc`, `rac3-ntsc`, `rac4-ntsc`): each its hostgen configuration and the table of the libraries it calls. [game/common/](game/common) is what they share: the library replacements (disc, memory card, graphics hand-off, kernel, pads, sound) and the program, `openrac-<id>` |
 | [platform/](platform) | the window, input as the console's pad, audio output, timing (SDL3) |
 | [renderer/](renderer) | the renderer: per-subsystem renderers in OpenGOAL's manner, the direct renderer for the 2D path, texture conversion (OpenGL 4.1) |
 | [viewer/](viewer) | `openrac-viewer`: a level, extracted from the player's disc by the editor, drawn natively with a free camera |
@@ -39,10 +39,11 @@ games/rac1/pal (the decompilation, read only)
    │  hostgen: Clang reads each file as the console's C,
    │  hostgen writes it again for game memory
    ▼
-build/.../games/rac1/gen/*.c  +  game/rac1/host/*.c (library replacements)
+build/.../games/rac1-pal/gen/*.c  +  game/common/lib/*.c (library replacements, shared)
+                                 +  game/rac1-pal/host/*.c (the game's own, if any)
    │  compiled as C, linked with runtime/
    ▼
-openrac-rac1 --data <install>/active/rac1/data
+openrac-rac1-pal --data <install>/active/rac1/data
    loads the player's executable's data to its addresses, registers every
    function by code address, runs the game's main()
 ```
@@ -50,8 +51,13 @@ openrac-rac1 --data <install>/active/rac1/data
 The program stops at the first function that has no C yet and names it.
 For OpenRAC's decompilation that is the boot stage, still assembly; a copy
 of the decompilation that is further along builds the same way
-(`-DOPENRAC_RAC1_SOURCE=<dir>`), and hostgen's report says what it reaches
+(`-DOPENRAC_RAC1_PAL_SOURCE=<dir>`), and hostgen's report says what it reaches
 next.
+
+Every version in [game/](game/README.md) is built the same way when its
+decompilation is present. The other four build today but do not run yet:
+their `main` is not identified and their library tables are partly or not
+filled; [game/README.md](game/README.md) says what each needs.
 
 ## Rules
 
