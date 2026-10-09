@@ -264,7 +264,7 @@ class Gs {
     u32 looked_at = 0, in_place = 0;     // levels found; levels read from GS memory
     std::array<Pages, 7> level_pages{};  // the pages each level lies in
     u32 last_need = 0;                   // the levels the last primitive needed,
-    Pages need_pages, in_place_pages;    // their pages, and those of them read in place
+    Pages decoded_pages, in_place_pages; // their pages: of those decoded, of those read in place
   };
 
   // A primitive waiting to be drawn.
@@ -334,6 +334,7 @@ class Gs {
   u32 levels_needed(const Env& e, unsigned count) const;
   // Have a current state with those levels found: decoded copies, or in place.
   void prepare_levels(u32 need);
+  bool in_place_reach(const Env& e, unsigned count, u32 need, Pages& pages) const;
   // Note a write to pages: decoded copies of them are stale from now on.
   void stamp(const Pages& pages);
   // A level is known by where and how it is stored, and by what turns its

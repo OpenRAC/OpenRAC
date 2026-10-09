@@ -742,12 +742,22 @@ void Gs::submit(unsigned kind, unsigned count) {
   // whose depth values go where its colours go (a game clears a buffer
   // through the depth side that way): the two are laid out differently in
   // memory, so one row's depth is another row's colour.
-  bool feeds_itself = (need && (env_->need_pages.intersects(written) || env_->need_pages.intersects(depth))) ||
-                      depth.intersects(written);
+  // (Of a level read in place, a frame as a rule, only the part the
+  // primitive's coordinates reach counts, where that can be told.)
+  Pages reach, reads = env_->decoded_pages;
+  bool in_place = need && (need & env_->in_place);
+  if (in_place) {
+    if (!in_place_reach(*env_, count, need, reach)) {
+      reach = env_->in_place_pages;
+    }
+    reads.add(reach);
+  }
+  bool feeds_itself = (need && (reads.intersects(written) || reads.intersects(depth))) || depth.intersects(written);
   // And colours and depth values of different primitives must not meet in
   // one batch, whose bands are drawn side by side.
   if (depth.intersects(pending_colour_) || written.intersects(pending_depth_)) {
     flush();
+    prepare_levels(need);
   }
   Pages colour = written;
   written.add(depth);
@@ -766,7 +776,7 @@ void Gs::submit(unsigned kind, unsigned count) {
   // Start another batch if this primitive reads in place what the gathered
   // ones write, writes what they read in place, or draws to other buffers.
   // (Decoded levels were taken when they were looked at.)
-  if ((need && env_->in_place_pages.intersects(pending_write_)) || written.intersects(pending_read_) ||
+  if ((in_place && reach.intersects(pending_write_)) || written.intersects(pending_read_) ||
       (!batch_->primitives.empty() && env_->target != pending_target_)) {
     flush();
     prepare_levels(need);
@@ -778,8 +788,8 @@ void Gs::submit(unsigned kind, unsigned count) {
   pending_write_.add(written);
   pending_colour_.add(colour);
   pending_depth_.add(depth);
-  if (need && e.in_place) {
-    pending_read_.add(e.in_place_pages);
+  if (in_place) {
+    pending_read_.add(reach);
   }
   u32 index = static_cast<u32>(batch.primitives.size());
   batch.primitives.push_back(Queued{&e, static_cast<u8>(kind), {queue_[0], queue_[1], queue_[2]}});
@@ -1042,17 +1052,67 @@ void Gs::prepare_levels(u32 need) {
   Env& e = *env_;
   if (need != e.last_need) {
     e.last_need = need;
-    e.need_pages.clear();
+    e.decoded_pages.clear();
     e.in_place_pages.clear();
     for (u32 level = 0; level < 7; level++) {
       if (need & (1u << level)) {
-        e.need_pages.add(e.level_pages[level]);
-        if (e.in_place & (1u << level)) {
-          e.in_place_pages.add(e.level_pages[level]);
-        }
+        (e.in_place & (1u << level) ? e.in_place_pages : e.decoded_pages).add(e.level_pages[level]);
       }
     }
   }
+}
+
+// The pages a primitive reads of a level it reads in place, when its
+// coordinates say so plainly: texel coordinates (UV), the first level only.
+// A texture declared larger than what was drawn into it (a 512 by 448 frame
+// read as 1,024 by 1,024) then counts for the part that is read. False: the
+// whole level counts.
+bool Gs::in_place_reach(const Env& e, unsigned count, u32 need, Pages& pages) const {
+  const Texture& t = e.tex;
+  if (!e.fst || need != 1) {
+    return false;
+  }
+  s32 u0 = INT_MAX, v0 = INT_MAX, u1 = INT_MIN, v1 = INT_MIN;
+  for (unsigned n = 0; n < count; n++) {
+    s32 u = queue_[n].u >> 4, v = queue_[n].v >> 4;
+    u0 = std::min(u0, u);
+    v0 = std::min(v0, v);
+    u1 = std::max(u1, u);
+    v1 = std::max(v1, v);
+  }
+  // A texel either side for filtering; then where those fall in the level.
+  struct Span {
+    s32 from[2], to[2];
+    int count;
+  };
+  auto spans = [](s32 a, s32 b, s32 size, u32 mode, Span& out) {
+    a -= 1;
+    b += 1;
+    if (mode == 1) {
+      out = {{std::clamp(a, 0, size - 1), 0}, {std::clamp(b, 0, size - 1), 0}, 1};
+    } else if (mode != 0) {
+      return false;  // a region inside the texture: leave it to the caller
+    } else if (b - a + 1 >= size) {
+      out = {{0, 0}, {size - 1, 0}, 1};
+    } else if (a < 0) {
+      out = {{0, a + size}, {b, size - 1}, 2};
+    } else if (b >= size) {
+      out = {{a, 0}, {size - 1, b - size}, 2};
+    } else {
+      out = {{a, 0}, {b, 0}, 1};
+    }
+    return true;
+  };
+  Span across, down;
+  if (!spans(u0, u1, 1 << t.tw, t.wms, across) || !spans(v0, v1, 1 << t.th, t.wmt, down)) {
+    return false;
+  }
+  for (int i = 0; i < across.count; i++) {
+    for (int j = 0; j < down.count; j++) {
+      add_pages(pages, t.psm, t.tbp[0], t.tbw[0], across.from[i], down.from[j], across.to[i], down.to[j]);
+    }
+  }
+  return true;
 }
 
 std::shared_ptr<std::vector<u32>> Gs::cached_level(const Texture& t, u32 level) {
