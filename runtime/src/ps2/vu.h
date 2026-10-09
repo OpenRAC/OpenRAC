@@ -117,6 +117,9 @@ class Vu {
     // The lower instruction may read or write the float register the upper
     // one writes, so the two have to be kept apart with care.
     bool together = true;
+    // None of the three pairs before it in memory writes a float register it
+    // reads: coming to it in a straight line, it never waits for one.
+    bool no_wait = false;
   };
   enum class Op { Add, Sub, Mul, Madd, Msub };
   enum class From { Ft, Bc, Q, I };
@@ -160,6 +163,7 @@ class Vu {
   void branch(u32 target);
   void start_q(u32 value, unsigned latency, u32 divide_flags);
   void work_out(Needs& needs, u32 up, u32 low) const;
+  bool never_waits(const Needs& needs, u32 at) const;
   bool flags_can_be_read(u32 at) const;
   void look_at_programs();
   void start_p(double value, unsigned latency);
@@ -205,6 +209,7 @@ class Vu {
   u64 q_at_ = 0, p_at_ = 0;  // the cycle the result arrives, 0 when none is on its way
 
   unsigned branch_in_ = 0, stop_in_ = 0, kick_in_ = 0;
+  u64 straight_ = 0;  // pairs run since the program was started or a branch was taken
   u32 branch_target_ = 0, kick_address_ = 0;
 
   unsigned backup_reg_ = 0, backup_ttl_ = 0;

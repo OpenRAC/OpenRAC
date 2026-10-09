@@ -69,12 +69,14 @@ void Vu::reset() {
 
 u64 Vu::run(u32 address, u64 limit) {
   pc = address & pc_mask_;
+  straight_ = 0;
   branch_in_ = stop_in_ = 0;
   return resume(limit);
 }
 
 void Vu::start(u32 address) {
   pc = address & pc_mask_;
+  straight_ = 0;
   branch_in_ = stop_in_ = 0;
   running_ = true;
 }
@@ -232,6 +234,39 @@ void Vu::work_out(Needs& needs, u32 up, u32 low) const {
   needs.together = written != 0 && (written == 32 || ((low >> 16) & 31) == written || ((low >> 11) & 31) == written);
 }
 
+// Is no float register this pair reads written by one of the three pairs
+// before it in memory? (Generously: any register a pair might write counts.)
+bool Vu::never_waits(const Needs& needs, u32 at) const {
+  for (u32 back = 1; back <= 3; back++) {
+    u32 where = (at - back) & pc_mask_;
+    u32 low = load<u32>(memory_.micro + where * 8), up = load<u32>(memory_.micro + where * 8 + 4);
+    unsigned written[2] = {0, 0};
+    u32 fn = up & 0x3F;
+    if (fn < 0x30) {
+      written[0] = (up >> 6) & 31;
+    } else if (fn >= 0x3C) {
+      u32 index = (((up >> 6) & 0x1F) << 2) | (up & 3);
+      if ((index >= 0x10 && index < 0x18) || index == 0x1D) {
+        written[0] = (up >> 16) & 31;
+      }
+    } else {
+      return false;  // not an instruction
+    }
+    if (!(up & 0x80000000u)) {
+      u32 op = low >> 25;
+      if (op == 0x00 || (op == 0x40 && (low & 0x3F) >= 0x3C)) {
+        written[1] = (low >> 16) & 31;
+      }
+    }
+    for (unsigned n = 0; n < needs.count; n++) {
+      if (needs.reg[n] == written[0] || needs.reg[n] == written[1]) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 void Vu::program_changed() {
   program_dirty_ = true;
 }
@@ -367,6 +402,7 @@ void Vu::step() {
     u32 low_word = load<u32>(memory_.micro + at * 8), up_word = load<u32>(memory_.micro + at * 8 + 4);
     work_out(needs, up_word, low_word);
     needs.flags_wanted = !sets_flags(up_word) || flags_can_be_read(at);
+    needs.no_wait = never_waits(needs, at);
   }
   const u32 low = needs.low, up = needs.up;
   if (on_step) [[unlikely]] {
@@ -377,18 +413,22 @@ void Vu::step() {
   // register not yet readable, or needs a unit that is busy.
   flags_wanted_ = needs.flags_wanted;
   u64 ready = cycle_ + 1;
-  for (unsigned n = 0; n < needs.count; n++) {
-    unsigned reg = needs.reg[n];
-    if (register_ready_[reg] > ready) [[unlikely]] {
-      // Written in the last three cycles: which fields?
-      const std::array<u64, 4>& fields = readable_[reg];
-      u32 mask = needs.mask[n];
-      if ((mask & 8) && fields[0] > ready) ready = fields[0];
-      if ((mask & 4) && fields[1] > ready) ready = fields[1];
-      if ((mask & 2) && fields[2] > ready) ready = fields[2];
-      if ((mask & 1) && fields[3] > ready) ready = fields[3];
+  // (A register can only be in flight from one of the last three pairs run.)
+  if (!needs.no_wait || straight_ < 3) {
+    for (unsigned n = 0; n < needs.count; n++) {
+      unsigned reg = needs.reg[n];
+      if (register_ready_[reg] > ready) [[unlikely]] {
+        // Written in the last three cycles: which fields?
+        const std::array<u64, 4>& fields = readable_[reg];
+        u32 mask = needs.mask[n];
+        if ((mask & 8) && fields[0] > ready) ready = fields[0];
+        if ((mask & 4) && fields[1] > ready) ready = fields[1];
+        if ((mask & 2) && fields[2] > ready) ready = fields[2];
+        if ((mask & 1) && fields[3] > ready) ready = fields[3];
+      }
     }
   }
+  straight_++;
   if (needs.wait) [[unlikely]] {
     if (needs.wait == 1 && q_at_ > ready) ready = q_at_;
     if (needs.wait == 2 && p_at_ > ready) ready = p_at_;
@@ -466,6 +506,7 @@ void Vu::step() {
     }
     if (branch_in_ && --branch_in_ == 0) {
       pc = branch_target_;
+      straight_ = 0;
     }
     if (stop_in_ && --stop_in_ == 0) {
       running_ = false;
