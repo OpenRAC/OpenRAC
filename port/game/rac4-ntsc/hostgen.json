@@ -1,0 +1,27 @@
+{
+  "id": "rac4-ntsc",
+  "title": "Ratchet: Deadlocked (NTSC-U)",
+  "game": "rac4",
+  "serial": "SCUS_974.65",
+  "source": "games/rac4/ntsc",
+  "frame_rate": 60,
+  "entry": null,
+  "sources": [
+    "src"
+  ],
+  "skip": [
+    "src/libgcc",
+    "src/libm"
+  ],
+  "includes": [
+    "include",
+    "src",
+    "."
+  ],
+  "defines": [],
+  "symbols": [
+    "config/symbol_addrs.txt"
+  ],
+  "libraries": "libraries.tsv",
+  "roots": []
+}

@@ -1,0 +1,84 @@
+# The libraries Ratchet & Clank (NTSC-U) calls, by entry point, and what the port does with
+# each: the same columns and port values as port/game/rac1-pal/libraries.tsv.
+# Seeded from the decompilation's config/us/symbol_addrs.txt: every function there whose name is one of the
+# replacements every game shares (port/game/common/libraries.tsv). Entry points
+# the game calls that are not here are stubs until a row binds them.
+#
+# symbol	library	name	port	notes	signature (optional)
+memcmp	libc	memcmp	host	at 0x001151B4
+memcpy	libc	memcpy	host	at 0x00115248
+memset	libc	memset	host	at 0x001153FC
+strchr	libc	strchr	host	at 0x00116428
+strcpy	libc	strcpy	host	at 0x001165B8 (the PAL survey has strcmp at this address; NTSC's libc is laid out differently after memset: to check)
+strlen	libc	strlen	host	at 0x001166CC
+strncpy	libc	strncpy	host	at 0x00116808
+AddIntcHandler	kernel	AddIntcHandler	host	at 0x00118790
+RemoveIntcHandler	kernel	RemoveIntcHandler	host	at 0x001187A0
+AddDmacHandler	kernel	AddDmacHandler	host	at 0x001187B0
+RemoveDmacHandler	kernel	RemoveDmacHandler	host	at 0x001187D0
+CreateThread	kernel	CreateThread	host	at 0x00118850
+DeleteThread	kernel	DeleteThread	host	at 0x00118860
+TerminateThread	kernel	TerminateThread	host	at 0x00118880
+ChangeThreadPriority	kernel	ChangeThreadPriority	host	at 0x001188A0
+RotateThreadReadyQueue	kernel	RotateThreadReadyQueue	host	at 0x001188C0
+GetThreadId	kernel	GetThreadId	host	at 0x001188E0
+CreateSema	kernel	CreateSema	host	at 0x00118970
+DeleteSema	kernel	DeleteSema	host	at 0x00118980
+SignalSema	kernel	SignalSema	host	at 0x00118990
+WaitSema	kernel	WaitSema	host	at 0x001189B0
+EnableCache	kernel	EnableCache	host	at 0x00118A60
+FlushCache	kernel	FlushCache	host	at 0x00118A80
+sceSifDmaStat	kernel	sceSifDmaStat	host	at 0x00118B10
+sceSifSetDma	kernel	sceSifSetDma	host	at 0x00118B20
+sceSifInitRpc	sif	sceSifInitRpc	host	at 0x0011AB20
+sceSifBindRpc	sif	sceSifBindRpc	host	at 0x0011AFF8
+sceSifCallRpc	sif	sceSifCallRpc	host	at 0x0011B1C8
+sceFsReset	fileio	sceFsReset	host	at 0x0011BC48
+sceOpen	fileio	sceOpen	host	at 0x0011BC80
+sceClose	fileio	sceClose	host	at 0x0011BF08
+sceLseek	fileio	sceLseek	host	at 0x0011C088
+sceRead	fileio	sceRead	host	at 0x0011C2C0
+sceWrite	fileio	sceWrite	host	at 0x0011C520
+sceSifInitIopHeap	sif	sceSifInitIopHeap	host	at 0x0011C840
+sceSifAllocIopHeap	sif	sceSifAllocIopHeap	host	at 0x0011C8C8
+sceSifSyncIop	sif	sceSifSyncIop	host	at 0x0011CF10
+sceSifRebootIop	sif	sceSifRebootIop	host	at 0x0011CF48
+DIntr	kernel	DIntr	host	at 0x0011D660
+sceCdSync	cdvd	sceCdSync	host	at 0x00120C30
+sceCdInit	cdvd	sceCdInit	host	at 0x00120EB0
+sceCdMmode	cdvd	sceCdMmode	host	at 0x00121388
+sceCdRead	cdvd	sceCdRead	host	at 0x00121450
+sceCdGetError	cdvd	sceCdGetError	host	at 0x00121630
+sceCdBreak	cdvd	sceCdBreak	host	at 0x001216C8
+sceCdReadClock	cdvd	sceCdReadClock	host	at 0x00121780
+sceGsResetGraph	graph	sceGsResetGraph	host	at 0x00121878
+sceGsSetDefDispEnv	graph	sceGsSetDefDispEnv	host	at 0x00121AC8
+sceGsPutDispEnv	graph	sceGsPutDispEnv	host	at 0x00121E40
+sceGsPutDrawEnv	graph	sceGsPutDrawEnv	host	at 0x001221B0
+sceGsSyncV	graph	sceGsSyncV	host	at 0x00122298
+sceGsSetDefLoadImage	graph	sceGsSetDefLoadImage	host	at 0x00122330
+sceGsExecLoadImage	graph	sceGsExecLoadImage	host	at 0x00122658
+sceGsSyncVCallback	graph	sceGsSyncVCallback	host	at 0x00122E68
+sceDmaReset	dma	sceDmaReset	host	at 0x00123008
+sceDmaSend	dma	sceDmaSend	host	at 0x001232C8
+sceMcInit	mc	sceMcInit	host	at 0x001233F0
+sceMcOpen	mc	sceMcOpen	host	at 0x001235B0
+sceMcMkdir	mc	sceMcMkdir	host	at 0x001236D8
+sceMcClose	mc	sceMcClose	host	at 0x00123710
+sceMcSeek	mc	sceMcSeek	host	at 0x001237C8
+sceMcRead	mc	sceMcRead	host	at 0x00123930
+sceMcWrite	mc	sceMcWrite	host	at 0x00123A48
+sceMcSync	mc	sceMcSync	host	at 0x00123C30
+sceMcGetInfo	mc	sceMcGetInfo	host	at 0x00123D68
+sceMcGetDir	mc	sceMcGetDir	host	at 0x00123EF0
+sceMcDelete	mc	sceMcDelete	host	at 0x001242D0
+sceDbcInit	dbc	sceDbcInit	host	at 0x00124510
+scePad2Init	pad2	scePad2Init	host	at 0x00124A48
+scePad2CreateSocket	pad2	scePad2CreateSocket	host	at 0x00124A88
+scePad2Read	pad2	scePad2Read	host	at 0x00124BD8
+scePad2GetButtonProfile	pad2	scePad2GetButtonProfile	host	at 0x00124CB0
+scePad2GetState	pad2	scePad2GetState	host	at 0x00124DA0
+sceVibGetProfile	vib	sceVibGetProfile	host	at 0x001250D8
+sceVu0RotMatrixZ	vu0	sceVu0RotMatrixZ	host	at 0x001252B8
+sceScfGetLanguage	scf	sceScfGetLanguage	host	at 0x0012D240
+sceScfGetLocalTimefromRTC	scf	sceScfGetLocalTimefromRTC	host	at 0x0012D6D8

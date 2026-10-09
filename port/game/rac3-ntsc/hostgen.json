@@ -1,0 +1,35 @@
+{
+  "id": "rac3-ntsc",
+  "title": "Ratchet & Clank: Up Your Arsenal (NTSC-U)",
+  "game": "rac3",
+  "serial": "SCUS_973.53",
+  "source": "games/rac3/ntsc",
+  "frame_rate": 60,
+  "entry": null,
+  "sources": [
+    "src"
+  ],
+  "skip": [
+    "src/libgcc",
+    "src/i5bootn",
+    "src/boot_elf/core/libgcc"
+  ],
+  "includes": [
+    "include",
+    "src",
+    "."
+  ],
+  "defines": [],
+  "symbols": [
+    "symbol_addrs.txt"
+  ],
+  "libraries": "libraries.tsv",
+  "roots": [],
+  "groups": [
+    {
+      "path": "src/frontbin",
+      "suffix": "frontbin",
+      "overlay": 100
+    }
+  ]
+}
