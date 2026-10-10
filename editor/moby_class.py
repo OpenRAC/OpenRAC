@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 import math
 import struct
 
-from formats import FormatError, Texture, span, unpack
+from formats import wad, FormatError, Texture, span, unpack
 from mesh import Mesh
 from moby_anim import Skeleton, class_sequences, ratchet_sequences, skeleton
 
@@ -287,10 +287,25 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
     for every entry of the core index's moby class table. Ratchet (class 0)
     takes the level's ratchet sequences."""
     result = {}
+    # Ratchet's hand-held items (the wrench, the weapons and gadgets) are the core's gadget table
+    # (index +0x80: offset of a WAD stream in the core data, o_class, compressed size, pad); each
+    # stream is an ordinary class blob, and its texture slots are its moby class table entry's
+    # (ReRAC's rc-formats gadget.rs; ISC License, Copyright (c) 2026 ReRAC contributors).
+    gadgets = {}
+    for g in level.table(0x80, 16):
+        offset, class_id, size, _pad = unpack("<iiii", g)
+        if offset > 0 and size > 0 and offset + size <= len(level.core):
+            gadgets[class_id] = level.core[offset:offset + size]
     for entry in level.table(0x18, 32):
         start, class_id = unpack("<ii", entry)
         if class_id in result:
             raise FormatError(f"duplicate moby class {class_id}")
+        if not start and class_id in gadgets:
+            try:
+                result[class_id] = moby_class(wad(gadgets[class_id]), entry[16:32], f"moby_{class_id}")
+            except FormatError:
+                result[class_id] = None
+            continue
         if not start:
             result[class_id] = None
             continue
