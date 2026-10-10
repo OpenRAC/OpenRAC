@@ -86,6 +86,7 @@ void func_00212578(int a0, int a1) {
 /* the moby renderer */
 int func_00212658(int a0, int a1, int a2, int a3) {
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
+    openrac_game_mobys_drawn((gaddr)a0, a2);
     (void)a0;
     (void)a1;
     (void)a2;
@@ -303,12 +304,12 @@ int func_L00_002963D8(void) {
 void func_L00_00299B68(int a0) {
     (void)a0;
 }
-/* moby_anim_eval_chain (hand-written VU0, 2640 bytes): a moby's joint matrices from its animation.
- * Not written yet: mobys keep their rest pose. ReRAC's moby animation code is the reference for
- * the port's own evaluator. */
+/* moby_anim_eval_chain (hand-written VU0, 2640 bytes): the pose matrices of the joints marked in
+ * a1 for the moby a0, into the scratchpad (MobyGetBoneMatrix reads them: the menu panels' corners,
+ * items in Ratchet's hands). The port's evaluator (viewer/moby_pose, after ReRAC's evaluate_chains;
+ * post-scale records are not skipped yet as the chain form does). */
 void func_00211808(gaddr a0, gaddr a1) {
-    (void)a0;
-    (void)a1;
+    openrac_game_moby_chain(a0, a1);
 }
 /* The space flight's quads (loading between planets), for the console's renderer. */
 void func_0022F738(int a0) {

@@ -110,6 +110,17 @@ void openrac_game_load_image(const openrac_game_image* image);
 #define OPENRAC_DRAW_MOBYS 16u
 void openrac_game_draw(unsigned layers);
 
+/* The moby at `moby`'s current pose, for the game's own use: each joint marked in `marks` (128
+ * bytes: nonzero for a joint to evaluate, byte 0x7F the joint count) gets its pose matrix, four rows
+ * of four floats, in the scratchpad at 0x70000000 + 0x40 * joint, as the game's hand-written chain
+ * evaluator leaves it. Nothing without the window's evaluator. */
+void openrac_game_moby_chain(gaddr moby, gaddr marks);
+
+/* The game's moby renderer was asked to draw `count` mobys from `first` (0x100 bytes each; count
+ * -1: the whole list, the world's draw). A list drawn on its own (the page menu's frame objects)
+ * may be drawn with a camera of its own: the window draws those mobys as that camera saw them. */
+void openrac_game_mobys_drawn(gaddr first, int count);
+
 /* Plays a PSS movie from the disc in the window, blocking as the game's own player does: `bytes`
  * bytes at sector `lsn`, the ADPCM channel `channel` (the language; channel 0 when the file has no
  * such channel). Start skips it when `start_skips` (the console's readMpeg rule for the caller).

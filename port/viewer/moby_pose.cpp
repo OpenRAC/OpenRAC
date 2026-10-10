@@ -52,7 +52,23 @@ std::optional<rac1::MobyFrame> key_at(
 
 }  // namespace
 
+namespace {
+
+std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, std::uint32_t moby, bool bind);
+
+}  // namespace
+
 std::vector<rac1::JointMatrix> moby_palette(std::span<const std::uint8_t> ram, std::uint32_t moby) {
+    return evaluate_moby(ram, moby, true);
+}
+
+std::vector<rac1::JointMatrix> moby_pose_matrices(std::span<const std::uint8_t> ram, std::uint32_t moby) {
+    return evaluate_moby(ram, moby, false);
+}
+
+namespace {
+
+std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, std::uint32_t moby, bool bind) {
     const auto cls = at<std::uint32_t>(ram, moby + 0x24);
     if (!inside(ram, cls, 0x48)) {
         return {};
@@ -99,9 +115,9 @@ std::vector<rac1::JointMatrix> moby_palette(std::span<const std::uint8_t> ram, s
     for (std::size_t j = 0; j < joints; ++j) {
         for (std::size_t r = 0; r < 4; ++r) {
             for (std::size_t c = 0; c < 4; ++c) {
-                anim.skeleton[j][r][c] = at<float>(
+                anim.skeleton[j][r][c] = bind ? at<float>(
                     ram, skeleton + static_cast<std::uint32_t>(0x40 * j + 0x10 * r + 4 * c)
-                );
+                ) : rac1::kIdentityJoint[r][c];
             }
         }
         const auto rec = common_trans + static_cast<std::uint32_t>(0x10 * j);
@@ -110,5 +126,7 @@ std::vector<rac1::JointMatrix> moby_palette(std::span<const std::uint8_t> ram, s
     }
     return rac1::evaluate_keys(anim, &*a, b ? &*b : nullptr, t, plain);
 }
+
+}  // namespace
 
 }  // namespace openrac::viewer

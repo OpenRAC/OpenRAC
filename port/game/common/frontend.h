@@ -22,6 +22,14 @@ namespace openrac::frontend {
 bool open(const std::string& game_id, const std::filesystem::path& levels, std::string& error);
 
 // Draws a frame from the game's main memory and reads the input; false once the window was closed.
+// The game's world renderers are drawing now: the camera they draw with is kept for this frame's
+// world (a menu may set its own camera afterwards to draw its frame objects).
+void world_drawn(std::span<const std::uint8_t> ram);
+
+// The game drew `count` mobys from `first` with the camera it holds now (the page menu's frame
+// objects, drawn with the menu's camera): they are drawn as that camera saw them.
+void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int count);
+
 // `draws`: the layers the game's renderers drew this frame (bit n = renderer::Bucket n; all bits
 // when the game does not report them).
 bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws);

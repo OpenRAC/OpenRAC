@@ -39,4 +39,11 @@ namespace openrac::viewer {
  */
 std::vector<assets::rac1::JointMatrix> moby_palette(std::span<const std::uint8_t> ram, std::uint32_t moby);
 
+/**
+ * The pose matrices P_j of the same moby (each joint's frame in the model, before the inverse bind
+ * matrix): what MobyAnimEvalChain leaves in the scratchpad for the game's own use (bone points,
+ * attachments). Empty as for moby_palette.
+ */
+std::vector<assets::rac1::JointMatrix> moby_pose_matrices(std::span<const std::uint8_t> ram, std::uint32_t moby);
+
 }  // namespace openrac::viewer

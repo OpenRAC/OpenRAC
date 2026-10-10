@@ -44,6 +44,7 @@
 #ifdef OPENRAC_FRONTEND
 #include "frontend.h"
 #include "renderer/texture.h"
+#include "viewer/moby_pose.h"
 #endif
 #ifdef OPENRAC_MOVIES
 #include "media/movie.h"
@@ -175,6 +176,13 @@ static bool g_reports_draws = false;
 void openrac_game_draw(unsigned layers) {
     g_draws |= layers;
     g_reports_draws = true;
+#ifdef OPENRAC_FRONTEND
+    // The world's terrain: the camera it is drawn with is the frame's world camera.
+    if (g_window && (layers & OPENRAC_DRAW_TERRAIN) != 0) {
+        const auto* ram = runtime::Memory::get().base();
+        frontend::world_drawn(std::span<const std::uint8_t>(ram, 32u * 1024 * 1024));
+    }
+#endif
 }
 
 int openrac_game_vsync(void) {
@@ -375,6 +383,35 @@ int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start
     (void)channel;
     (void)start_skips;
     return 0;
+#endif
+}
+
+void openrac_game_mobys_drawn(gaddr first, int count) {
+#ifdef OPENRAC_FRONTEND
+    if (g_window && count > 0) {
+        const auto* ram = runtime::Memory::get().base();
+        frontend::mobys_drawn(std::span<const std::uint8_t>(ram, 32u * 1024 * 1024), first, count);
+    }
+#else
+    (void)first;
+    (void)count;
+#endif
+}
+
+void openrac_game_moby_chain(gaddr moby, gaddr marks) {
+#ifdef OPENRAC_FRONTEND
+    const auto* ram = runtime::Memory::get().base();
+    const auto pose = viewer::moby_pose_matrices(std::span<const std::uint8_t>(ram, 32u * 1024 * 1024), moby);
+    const auto* mark = static_cast<const std::uint8_t*>(G(marks));
+    const std::size_t count = std::min<std::size_t>(mark[0x7F], pose.size());
+    for (std::size_t j = 0; j < count; ++j) {
+        if (mark[j] != 0) {
+            std::memcpy(G(0x70000000u + static_cast<gaddr>(j) * 0x40), pose[j].data(), 0x40);
+        }
+    }
+#else
+    (void)moby;
+    (void)marks;
 #endif
 }
 

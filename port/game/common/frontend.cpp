@@ -49,6 +49,10 @@ struct State {
     // Every image the game sent outside the display list, oldest first, the latest per
     // rectangle: given again to each renderer made (use_level makes a new one per level).
     std::vector<renderer::ImageUpload> images;
+    // The camera the game's world renderers drew with this frame (world_drawn), if they ran.
+    std::optional<viewer::GameState> world_camera;
+    // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
+    std::vector<std::pair<std::uint32_t, viewer::GameState>> moby_cameras;
 };
 
 std::unique_ptr<State> g;
@@ -200,6 +204,21 @@ void present(unsigned framebuffer, int width, int height, int window_width, int 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 }
 
+// The inverse of a view matrix (a rotation and a translation, column-major).
+renderer::Mat4 rigid_inverse(const renderer::Mat4& m) {
+    renderer::Mat4 r{};
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            r[4 * j + i] = m[4 * i + j];
+        }
+    }
+    for (int i = 0; i < 3; ++i) {
+        r[12 + i] = -(r[i] * m[12] + r[4 + i] * m[13] + r[8 + i] * m[14]);
+    }
+    r[15] = 1.0f;
+    return r;
+}
+
 // The extracted level the title world is written as (editor/level.py load_title).
 constexpr int kTitleWorld = 99;
 
@@ -320,6 +339,29 @@ void upload_image(
     g->images.push_back(std::move(image));
 }
 
+void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int count) {
+    if (!g) {
+        return;
+    }
+    const int level = openrac_game_loaded_overlay();
+    const viewer::GameAddresses& a =
+        level >= 0 && level < 19 ? viewer::kRac1PalLevels[level] : viewer::kRac1Pal;
+    const viewer::GameState camera = viewer::read_game_state(ram, a);
+    for (int i = 0; i < count; ++i) {
+        g->moby_cameras.emplace_back(first + static_cast<std::uint32_t>(i) * 0x100u, camera);
+    }
+}
+
+void world_drawn(std::span<const std::uint8_t> ram) {
+    if (!g || g->world_camera) {
+        return;
+    }
+    const int level = openrac_game_loaded_overlay();
+    const viewer::GameAddresses& a =
+        level >= 0 && level < 19 ? viewer::kRac1PalLevels[level] : viewer::kRac1Pal;
+    g->world_camera = viewer::read_game_state(ram, a);
+}
+
 bool show_picture(const std::uint8_t* rgba, int width, int height, float black) {
     using namespace gl;
     if (!g || width <= 0 || height <= 0) {
@@ -390,16 +432,28 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     const viewer::GameAddresses& a =
         level >= 0 && level < 19 ? viewer::kRac1PalLevels[level] : viewer::kRac1Pal;
     use_level(level >= 0 && level < 19 ? level : -1);
-    const viewer::GameState state = viewer::read_game_state(ram, a);
+    viewer::GameState state = viewer::read_game_state(ram, a);
+    // The world is drawn from the camera the game's world renderers used, not from whatever the
+    // camera globals hold at the end of the frame (the page menu sets its own camera, at
+    // (256, 256, 64) facing +x, to draw its frame objects, as ReRAC notes).
+    if (g->world_camera) {
+        state.camera_position = g->world_camera->camera_position;
+        state.forward = g->world_camera->forward;
+        state.left = g->world_camera->left;
+        state.up = g->world_camera->up;
+        state.tan_half_fov_x = g->world_camera->tan_half_fov_x;
+        state.tan_half_fov_y = g->world_camera->tan_half_fov_y;
+        g->world_camera.reset();
+    }
 
     // OPENRAC_DEBUG: the game's state each 100 frames, for bring-up.
     static const bool debug = std::getenv("OPENRAC_DEBUG") != nullptr;
     if (debug && g->index % 100 == 0) {
         log::info(
-            "frame {}: level {}, camera {:.1f} {:.1f} {:.1f}, forward {:.2f} {:.2f} {:.2f}, fov {:.3f}, {} mobys",
+            "frame {}: level {}, camera {:.1f} {:.1f} {:.1f}, forward {:.2f} {:.2f} {:.2f}, fov {:.3f}, {} mobys, layers drawn {:#x}",
             g->index, level, state.camera_position[0], state.camera_position[1],
             state.camera_position[2], state.forward[0], state.forward[1], state.forward[2],
-            state.tan_half_fov_y, state.mobys.size()
+            state.tan_half_fov_y, state.mobys.size(), draws
         );
         log::info("  mode {} dialog kind {} step {} level word {} title exit {} pad {:#x}",
                   static_cast<int>(word_at(ram, 0x0015F6E8)), static_cast<int>(word_at(ram, 0x00193400)),
@@ -424,6 +478,17 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
             continue;
         }
         viewer::Instance instance{cls->second.first, m.matrix, {1, 1, 1, 1}};
+        // Drawn by the game with a camera of its own: placed so the world's camera sees it where
+        // that camera did (M' = V_world^-1 V_own M), as ReRAC draws the menu's frame objects.
+        for (const auto& [address, camera] : g->moby_cameras) {
+            if (address == m.address
+                && (camera.camera_position != state.camera_position || camera.forward != state.forward)) {
+                instance.matrix = renderer::multiply(
+                    rigid_inverse(state.view()), renderer::multiply(camera.view(), instance.matrix)
+                );
+                break;
+            }
+        }
         const int joints = g->level.models[instance.model].joints;
         if (animate && joints > 0) {
             const auto pose = viewer::moby_palette(ram, m.address);
@@ -452,6 +517,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         }
         live.push_back(instance);
     }
+    g->moby_cameras.clear();
     if (!g->level.models.empty()) {
         g->scene.set_palette(palette);
         g->scene.set_instances(viewer::Layer::Mobys, live);
