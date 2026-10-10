@@ -1245,6 +1245,39 @@ the integer sign test on the float difference and all caller signatures
 paths and z/w preservation, then rerun the strict 2400-frame attack route.
 Local commits only; no push or assistant credit trailer.
 
+### Planar speed limiter, 2026-10-10 continuation
+
+Particle type 53 is committed as 81a9e33. Recovered handwritten
+func_L00_001FF5B0 in native C, including the shared return-zero tail.
+Preserve no-write paths, equality returning 1, separate sqrt and divide,
+the signed test of the float-difference bits, source/output aliasing and
+exact z/w bits. Limit is the first argument, then output/input pointers.
+This is a native replacement for VU assembly, not matching compiler C.
+
+Build and 65/65 CTest pass (.tools/native-planar-limit-build.log); focused
+fixture passes on i686. Tests include just-above/below limits, equality,
+zero/negative limits, signed zero, unchanged output on early return,
+overlapping buffers and signed-zero/NaN bit preservation in copied lanes.
+Local audit .tools/audit-planar-limit.py confirms identical body and return
+tail in all 19 catalogue copies (.tools/planar-limit-audit.log).
+Generated signature, guest loads/stores, bit tests and openrac_fdiv were
+reviewed. Hostgen: 3846 translated, no unreadable units or problems.
+
+Strict planar-limit-verified route passes frame 1817, continues into a
+fall (hero z=1.10 by 1900), then stops at func_L00_002862E0 at frame 1905,
+exit 2. Log/screenshots are in parent .tools/native-run/. No missing-call
+checks were bypassed. A fall/respawn is now the reproduced blocker; the
+current route does not distinguish an intended ledge from collision issues.
+
+Next action: recover func_L00_002862E0 (0x1B4 bytes), snapshot restoration
+in shared/pause_00277208.c. Review the candidate against retail: its
+unsigned-char snapshot declaration must not turn word reads into byte
+reads, and pointer-valued copy/range arguments need native-safe types.
+Handle both invalid-snapshot clearing and complete restoration, including
+hero vectors, moby fields, status, mode-dependent search and callbacks.
+Then repeat the strict 2400-frame route to test respawn. Existing dirty
+work preserved. Local commits only, no push or assistant credit trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,

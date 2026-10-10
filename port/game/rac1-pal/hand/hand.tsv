@@ -82,3 +82,4 @@ func_L00_002147C0	level_hero_vertical.c
 func_L00_00211A18	level_hero_object.c
 func_L00_0020DAF8	level_hero_object.c
 func_L00_00273090	level_particle53.c
+func_L00_001FF5B0	level_planar_limit.c
