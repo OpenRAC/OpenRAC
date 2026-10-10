@@ -309,10 +309,6 @@ int func_0021A610(void) {
     return 0;
 }
 
-/* The freeze screen's draw (dialogs: countdowns, gauges, message lines), text and sprites for the
- * console's renderer. Left out until the port draws dialogs itself; the dialog logic runs. */
-void func_001FBE80(void) {
-}
 
 /* The space flight's quads (loading between planets), for the console's renderer. */
 void func_0022F738(int a0) {

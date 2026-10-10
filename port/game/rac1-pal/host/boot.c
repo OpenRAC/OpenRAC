@@ -35,3 +35,19 @@ gaddr func_0012DA38(void) {
 int openrac_game_loaded_overlay(void) {
     return loaded_level >= 0 && loaded_level < LEVELS ? loaded_level : OPENRAC_OVERLAY_EXE;
 }
+
+/* SetupGifPaging, every frame before the texture paging. The four words at 0x18A3D0 are flags the
+ * draw code tests (shrubs at +0, mobys at +8, the effect-texture uploads at +0xC: without that one
+ * the font and the title's logo are never uploaded). Retail has all four set to 1 by its first
+ * frame; no code in the game stores them by name, so they are set here, once for each program
+ * (the executable, then each level, whose copies are elsewhere: OPENRAC_DATA). */
+void func_001F4630(int arg0) {
+    static int set_for = -2;
+    if (set_for != loaded_level) {
+        set_for = loaded_level;
+        for (unsigned i = 0; i < 4; ++i) {
+            GREF(int, OPENRAC_DATA(0x0018A3D0u + i * 4)) = 1;
+        }
+    }
+    func_001F4630__game(arg0);
+}

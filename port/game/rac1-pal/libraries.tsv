@@ -158,6 +158,7 @@ func_0012F288	989snd	snd_UpdateMovieADPCM	host
 func_0012F2B8	989snd	snd_GetMovieNAX	host
 func_0012F2E0	989snd	snd_GetDopplerPitchMod	host
 func_0012DA38	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's functions
+func_001F4630	draw	SetupGifPaging	wrap	sets the four draw flags at 0x18A3D0 retail has on before its first frame (nothing in the game's code stores them by name)
 func_0012F348	wad	wad_GetSectors	game
 func_0012F3F8	wad	load_disc_sectors_into_global_buffer	game
 func_0012F4A8	wad	read_file_entry_with_retry	game
@@ -217,7 +218,6 @@ func_L00_002963D8	game	func_L00_002963D8	host	the port's own (host/render_native
 func_L00_00299B68	game	func_L00_00299B68	host	the port's own (host/render_native.c); its signature decides the prototype	void (int)
 func_00211808	game	func_00211808	host	the port's own (host/render_native.c); its signature decides the prototype	void (unsigned int, unsigned int)
 func_0021A610	game	func_0021A610	host	the port's own (host/render_native.c); its signature decides the prototype	int (void)
-func_001FBE80	game	func_001FBE80	host	the port's own (host/render_native.c); its signature decides the prototype	void (void)
 func_0022F738	game	func_0022F738	host	the port's own (host/render_native.c); its signature decides the prototype	void (int)
 func_0020C268	game	func_0020C268	host	the port's own (host/hand.c); its signature decides the prototype	void (void)
 func_002347F0	game	func_002347F0	host	the port's own (host/hand.c); its signature decides the prototype	void (unsigned int)
