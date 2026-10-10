@@ -69,6 +69,11 @@ add_test(NAME crate_init COMMAND crate_init_test)
 
 include(Assets)
 
+add_executable(joint_matrices_test tests/joint_matrices_test.c)
+target_compile_options(joint_matrices_test PRIVATE -fno-strict-aliasing)
+openrac_warnings(joint_matrices_test)
+add_test(NAME joint_matrices COMMAND joint_matrices_test)
+
 if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()

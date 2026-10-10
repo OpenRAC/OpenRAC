@@ -164,12 +164,34 @@ are staged for the crate commit. The full runtime result depends on that
 working-tree baseline; this commit alone does not supply those earlier
 startup fixes. `rac1-decomp/tools/organize_asm.py` remains untouched.
 
-Next action: reconstruct native `func_002116A0` (handwritten joint-matrix
-selection) from `rac1-decomp/asm/nonmatchings/text/func_002116A0.s` and test
-its chain marks, terminal joints and 64-byte matrix copies. Its evaluator
-callee `func_00211808` already has a native binding. Reproduce New Game
-again after the fix; do not replace the missing selector with an empty
-return or assume that existing pose evaluation is fully correct.
+### Joint matrix selection, 2026-10-10
+
+Local commit subject: `feat(rac1/pal): implement native joint matrix selection`;
+previous fix is `368205a`. Implemented `func_002116A0`, PAL's handwritten
+chain selector, in native C. It builds dependency marks and terminal
+indices, invokes the existing native `func_00211808`, and copies full
+64-byte matrices in request order. Matching code/reports remain untouched.
+
+- `Build-Native.ps1`: 43/43 CTest tests pass;
+  `.tools/native-joint-build-final.log`. The selector fixture also passes
+  with the 32-bit compiler, exercising duplicate requests, dependency
+  unions, terminal bounds, untouched bytes and retail's zero-count loop.
+- Hostgen: 3,809 functions, 193 candidates, 3 stubs, 1,152 without C;
+  378 readable units and no index problems. An initial declaration conflict
+  was caught by the unreadable-unit gate, corrected to the source's
+  `void *, int, int *, void *` signature, and rebuilt before runtime testing.
+- Same reproduction command/environment as above, with
+  `-Name joints-verified`: exit 2, frame 2809, now at `func_00218928`.
+  Artifacts: `.tools/native-run/joints-verified.log` and
+  `joints-verified-2800.png`. This verifies passing the selector call, not
+  complete pose fidelity or playable Veldin. Existing evaluator limitations
+  (for example post-scale chain behavior) remain outside this selector fix.
+
+Next action: implement the native particle allocator entry
+`func_00218928` and its handwritten body `func_00218930`, using their PAL
+assembly and including the internal labels through `func_00218A70`.
+Test allocation flags, bitmap advancement and exhaustion without turning
+failed allocation into success. Then repeat New Game with the same probe.
 
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
