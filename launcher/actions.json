@@ -245,6 +245,19 @@
         "todo": "Run it from the desktop app. From a shell on macOS: 66 tests, OK."
       },
       {
+        "id": "port-build",
+        "label": "Build the game",
+        "description": "Compiles the decompiled game for this computer with the compilers it finds (on Windows, Visual Studio's C++ tools, Clang and Ninja). A few minutes the first time; later builds redo only what changed.",
+        "kind": "build",
+        "state": "unverified",
+        "program": "{python}",
+        "args": ["tools/build_port.py", "rac1-pal"],
+        "cwd": ".",
+        "requires": ["python"],
+        "docs": "port/README.md",
+        "todo": "Run it from the desktop app on each platform. tools/build_port.py ran from a shell on Windows 11 (Visual Studio 2026, Clang 21): an incremental build, a rerun of hostgen, nothing to do. Another copy of the decompilation is chosen once, with tools/build_port.py --source DIR; the launcher has no setting for it yet."
+      },
+      {
         "id": "play",
         "label": "Play",
         "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
@@ -256,7 +269,7 @@
         "requires": ["artifact"],
         "artifact": "port/build/release/openrac-rac1-pal.exe",
         "docs": "port/game/rac1-pal/README.md",
-        "todo": "Windows only for now (the artifact's .exe). Needs port/ built (cmake --preset release; -DOPENRAC_RAC1_PAL_SOURCE=<a decompilation further along>), decompiler_out from openrac-extractor --decompile, and the levels from editor/extract.py port in <data>/port."
+        "todo": "Windows only for now (the artifact's .exe), built by port-build. The port also needs decompiler_out (openrac-extractor --decompile) and the levels (editor/extract.py port) in <data>/port, which the launcher does not make yet."
       }
     ],
     "rac1/ntsc": [
