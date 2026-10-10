@@ -32,6 +32,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <algorithm>
 #include <format>
 #include <string>
 #include <thread>
@@ -219,6 +220,13 @@ int openrac_game_vsync(void) {
     // only paced, at the game's frame rate.
 #ifdef OPENRAC_FRONTEND
     if (g_window) {
+        // The tick about to be drawn was due at the time the last one set (frames between ticks
+        // count from it).
+        const auto period = std::chrono::microseconds(
+            1000000 / (openrac_game.frame_rate > 0 ? openrac_game.frame_rate : 60));
+        const auto now = std::chrono::steady_clock::now();
+        frontend::set_tick(g_next_frame.time_since_epoch().count() == 0 || now > g_next_frame + period
+                               ? now : g_next_frame, period);
         const auto* ram = runtime::Memory::get().base();
         const std::uint32_t draws = g_reports_draws ? g_draws : ~0u;
         g_draws = 0;
@@ -287,8 +295,19 @@ int openrac_game_vsync(void) {
     if (g_next_frame.time_since_epoch().count() == 0 || now > g_next_frame + milliseconds(100)) {
         g_next_frame = now;
     }
-    g_next_frame +=
-        microseconds(1000000 / (openrac_game.frame_rate > 0 ? openrac_game.frame_rate : 60));
+    const auto period = microseconds(1000000 / (openrac_game.frame_rate > 0 ? openrac_game.frame_rate : 60));
+    g_next_frame += period;
+#ifdef OPENRAC_FRONTEND
+    // Until the next tick is due, frames at the display's rate (each swap waits for a refresh),
+    // the scene moved on from the last tick's to this one's by when each is shown.
+    if (g_window && frontend::wants_between()) {
+        for (int drawn; (drawn = frontend::between(g_next_frame)) != 0;) {
+            if (drawn < 0) {
+                std::exit(0);
+            }
+        }
+    }
+#endif
     std::this_thread::sleep_until(g_next_frame);
     return static_cast<int>(g_frame & 1);
 }
@@ -602,7 +621,18 @@ static void load_level_program(int level) {
     }
 }
 
+#if defined(_WIN32)
+// winmm's timer resolution, without windows.h (its macros clash with the port's names).
+extern "C" __declspec(dllimport) unsigned int __stdcall timeBeginPeriod(unsigned int);
+#pragma comment(lib, "winmm.lib")
+#endif
+
 int main(int argc, char** argv) {
+#if defined(_WIN32)
+    // Windows sleeps in steps of 15.6 ms unless a program asks for 1 ms: the wait for the next
+    // 20 ms tick would overshoot by up to a step, and the frames stagger.
+    timeBeginPeriod(1);
+#endif
     g_options = parse(argc, argv);
     const fs::path iso = g_options.data / "iso_data" / openrac_game.game;
     const fs::path exe = iso / openrac_game.serial;

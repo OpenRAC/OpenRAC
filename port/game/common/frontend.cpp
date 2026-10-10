@@ -9,6 +9,8 @@
 #include <array>
 #include <cmath>
 #include <format>
+#include <chrono>
+#include <thread>
 #include <unordered_map>
 #include <memory>
 #include <optional>
@@ -38,6 +40,27 @@ extern "C" int openrac_game_loaded_overlay(void);
 namespace openrac::frontend {
 
 namespace {
+
+// One tick's scene, as frame() read it from the game, for the frames drawn until the next tick
+// (between), and the last tick's camera and moby matrices to move them from.
+struct Kept {
+    int level = -3;  // the level the mobys belong to: another one starts over
+    viewer::GameState state, prev_state;
+    bool has_state = false, has_prev_state = false;
+    std::vector<viewer::Instance> live;
+    std::vector<std::uint32_t> addresses;  // each live moby's address, for its last matrix
+    std::unordered_map<std::uint32_t, renderer::Mat4> prev_matrices;
+    std::vector<viewer::LevelScene::JointColumns> palette;
+    std::vector<std::uint8_t> packets;  // the 2D path
+    std::size_t before_world = 0;
+    std::vector<renderer::EffectVertex> strip_vertices;
+    std::vector<renderer::EffectStrip> strips;
+    std::vector<renderer::EffectQuad> effects;
+    std::vector<renderer::ImageUpload> effect_uploads;
+    std::uint32_t draws = 0;
+    bool has_camera = false;
+    std::uint64_t frame = 0;
+};
 
 struct State {
     std::string game;
@@ -74,6 +97,7 @@ struct State {
     std::vector<Particle> particles;
     // The sky sprites the game drew since the last frame (sky_sprite): record, TEX0.
     std::vector<std::pair<std::array<std::uint8_t, 0x20>, std::uint64_t>> sky_sprites;
+    Kept kept;
 };
 
 std::unique_ptr<State> g;
@@ -760,16 +784,14 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     config.title = "OpenRAC: Ratchet & Clank (native)";
     config.width = 1280;
     config.height = 960;
-    // The game paces itself (main.cpp: its frame rate, 50 Hz for PAL); a swap that also waited for
-    // the display's refresh (60 or 120 Hz) would make two clocks fight and the frames stagger.
-    config.vsync = false;
+    // The game ticks at its own rate (main.cpp: 50 Hz for PAL) and the window draws at the
+    // display's, the frames between ticks moving the scene on (between), each shown at a refresh.
+    // With one frame a tick (OPENRAC_UNCAPPED, OPENRAC_NO_BLEND) nothing waits for the display:
+    // 50 frames a second shown at 60 or 120 Hz stagger.
+    config.vsync = std::getenv("OPENRAC_UNCAPPED") == nullptr && std::getenv("OPENRAC_NO_BLEND") == nullptr;
     g->window = platform::Window::open(config, error);
     if (!g->window) {
         return false;
-    }
-    // OPENRAC_UNCAPPED (main.cpp): no wait for the display's refresh either.
-    if (std::getenv("OPENRAC_UNCAPPED") != nullptr) {
-        g->window->set_vsync(false);
     }
     std::string missing;
     if (!gl::load(platform::Window::gl_loader(), missing)) {
@@ -963,6 +985,223 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black) 
     return true;
 }
 
+namespace {
+
+// When frames reach the display, for drawing between ticks (set_tick, between): the tick the kept
+// scene belongs to and the game's tick length; the last swap that waited (a refresh) and the
+// display's refresh interval; what drawing a frame costs before its swap.
+struct Pacing {
+    std::chrono::steady_clock::time_point tick{};
+    std::chrono::duration<double> period{0.02};
+    std::chrono::steady_clock::time_point last_swap{};
+    double interval = 0.0;  // seconds; 0 when the display does not say
+    int gap_count = 0;  // swaps, for reading the display's mode now and then
+    double cost = 0.004;  // seconds
+} pacing;
+
+// The frames between ticks show the game half a tick late, so that the next tick is ready before
+// the refresh that needs it.
+constexpr double kLagTicks = 0.5;
+
+// The refresh a frame started now is shown at: the first after the frame is drawn.
+std::chrono::steady_clock::time_point next_display(std::chrono::steady_clock::time_point now) {
+    using namespace std::chrono;
+    const auto ready = now + duration_cast<steady_clock::duration>(duration<double>(pacing.cost));
+    if (pacing.interval <= 0.0 || pacing.last_swap.time_since_epoch().count() == 0) {
+        return ready;
+    }
+    const double since = duration<double>(ready - pacing.last_swap).count();
+    const double n = std::max(1.0, std::ceil(since / pacing.interval));
+    return pacing.last_swap + duration_cast<steady_clock::duration>(duration<double>(n * pacing.interval));
+}
+
+// How far the scene is from the last tick's to the kept one's at that refresh.
+float alpha_at(std::chrono::steady_clock::time_point display) {
+    using namespace std::chrono;
+    const double t = duration<double>(display - pacing.tick).count() / pacing.period.count() - kLagTicks;
+    return static_cast<float>(std::clamp(t, 0.0, 1.0));
+}
+
+void swapped(std::chrono::steady_clock::time_point started) {
+    using namespace std::chrono;
+    const auto before = steady_clock::now();
+    g->window->swap();
+    const auto after = steady_clock::now();
+    pacing.cost = 0.8 * pacing.cost + 0.2 * duration<double>(before - started).count();
+    // The refresh interval: the display's mode (read again now and then: the window may move).
+    if (pacing.gap_count++ % 120 == 0) {
+        const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(g->window->sdl()));
+        pacing.interval = mode != nullptr && mode->refresh_rate > 20.0f ? 1.0 / mode->refresh_rate : 0.0;
+    }
+    // A swap that did not wait for a refresh gives no phase; the frames are then paced at the
+    // display's rate here.
+    if (duration<double>(after - before).count() < 0.0005) {
+        pacing.last_swap = {};
+        if (pacing.interval > 0.0) {
+            std::this_thread::sleep_until(started + duration_cast<steady_clock::duration>(duration<double>(pacing.interval)));
+        }
+        return;
+    }
+    pacing.last_swap = after;
+}
+
+// A moby's matrix part way from the last tick's to this one's, or this one's when it moved too far
+// or turned too much in a tick to be the same thing moving (a moby slot used again, a teleport).
+renderer::Mat4 blend_matrix(const renderer::Mat4& from, const renderer::Mat4& to, float t) {
+    const float dx = to[12] - from[12], dy = to[13] - from[13], dz = to[14] - from[14];
+    if (dx * dx + dy * dy + dz * dz > 16.0f) {
+        return to;
+    }
+    float dot = 0.0f, la = 0.0f, lb = 0.0f;
+    for (int i = 0; i < 3; ++i) {
+        dot += from[i] * to[i];
+        la += from[i] * from[i];
+        lb += to[i] * to[i];
+    }
+    if (la <= 0.0f || lb <= 0.0f || dot < 0.7f * std::sqrt(la * lb)) {
+        return to;
+    }
+    renderer::Mat4 m = to;
+    for (int i = 0; i < 15; ++i) {
+        m[i] = from[i] + (to[i] - from[i]) * t;
+    }
+    return m;
+}
+
+renderer::Vec3 normalised(renderer::Vec3 v) {
+    const float l = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    return l > 0.0f ? renderer::Vec3{v[0] / l, v[1] / l, v[2] / l} : v;
+}
+
+renderer::Vec3 cross(const renderer::Vec3& a, const renderer::Vec3& b) {
+    return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
+}
+
+// The camera part way from the last tick's to this one's (a cut is not blended).
+viewer::GameState blend_camera(const viewer::GameState& from, const viewer::GameState& to, float t) {
+    viewer::GameState c = to;
+    const renderer::Vec3& p0 = from.camera_position;
+    const renderer::Vec3& p1 = to.camera_position;
+    const float d2 = (p1[0] - p0[0]) * (p1[0] - p0[0]) + (p1[1] - p0[1]) * (p1[1] - p0[1])
+                     + (p1[2] - p0[2]) * (p1[2] - p0[2]);
+    const float turn = from.forward[0] * to.forward[0] + from.forward[1] * to.forward[1]
+                       + from.forward[2] * to.forward[2];
+    if (d2 > 64.0f || turn < 0.7f) {
+        return c;
+    }
+    for (int i = 0; i < 3; ++i) {
+        c.camera_position[i] = p0[i] + (p1[i] - p0[i]) * t;
+    }
+    renderer::Vec3 f, u;
+    for (int i = 0; i < 3; ++i) {
+        f[i] = from.forward[i] + (to.forward[i] - from.forward[i]) * t;
+        u[i] = from.up[i] + (to.up[i] - from.up[i]) * t;
+    }
+    c.forward = normalised(f);
+    c.left = normalised(cross(u, c.forward));
+    c.up = cross(c.forward, c.left);
+    return c;
+}
+
+}  // namespace
+
+// Draws the kept tick, the camera and mobys `alpha` of the way from the last tick's to its own,
+// and shows it. `first`: the tick's own frame (shots, the frame read back by store_image).
+void draw_kept(bool first) {
+    const auto started = std::chrono::steady_clock::now();
+    const float alpha = interpolating() ? alpha_at(next_display(started)) : 1.0f;
+    // OPENRAC_PACING: each frame shown, when (ms), how far between ticks, the refresh interval.
+    static const bool pacing_log = std::getenv("OPENRAC_PACING") != nullptr;
+    if (pacing_log) {
+        static const auto t0 = started;
+        log::info("pace {} {:.2f} ms alpha {:.3f} {} refresh {:.2f} ms cost {:.2f} ms", g->kept.frame,
+                  std::chrono::duration<double, std::milli>(started - t0).count(), alpha, first ? "tick" : "between",
+                  pacing.interval * 1000.0, pacing.cost * 1000.0);
+    }
+    Kept& k = g->kept;
+    const viewer::GameState state =
+        k.has_prev_state && alpha < 1.0f ? blend_camera(k.prev_state, k.state, alpha) : k.state;
+    if (!g->level.models.empty()) {
+        std::vector<viewer::Instance> live = k.live;
+        if (alpha < 1.0f) {
+            for (std::size_t i = 0; i < live.size() && i < k.addresses.size(); ++i) {
+                auto it = k.prev_matrices.find(k.addresses[i]);
+                if (it != k.prev_matrices.end()) {
+                    live[i].matrix = blend_matrix(it->second, live[i].matrix, alpha);
+                }
+            }
+        }
+        g->scene.set_palette(k.palette);
+        g->scene.set_instances(viewer::Layer::Mobys, live);
+    }
+
+    int window_width = 0;
+    int window_height = 0;
+    g->window->drawable_size(window_width, window_height);
+    const Box box = frame_box(window_width, window_height);
+    const int width = box.width;
+    const int height = box.height;
+    std::string error;
+    if (width > 0 && height > 0 && (g->frame.width() != width || g->frame.height() != height)) {
+        g->frame.create(width, height, error);
+    }
+    renderer::FrameInput input;
+    // No camera yet (loading, fades between programs): a black frame, not the level's background.
+    const bool has_camera = k.has_camera;
+    input.clear_colour = has_camera
+        ? std::array<float, 4>{g->level.background[0], g->level.background[1], g->level.background[2], 1}
+        : std::array<float, 4>{0, 0, 0, 1};
+    for (auto& r : g->renderer ? g->renderer->renderers() : std::span<const std::unique_ptr<renderer::BucketRenderer>>{}) {
+        if (r->bucket() == renderer::Bucket::Particles) {
+            // The effect quads are there only when the game drew them.
+            r->enabled = has_camera;
+        } else if (r->bucket() != renderer::Bucket::Hud) {
+            r->enabled = has_camera && (k.draws & (1u << static_cast<unsigned>(r->bucket()))) != 0;
+        }
+    }
+    input.camera.view = state.view();
+    // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
+    // the TV's 4:3, which they were made for), not the window's shape.
+    input.camera.projection = state.projection(
+        state.tan_half_fov_y > 0.0f ? state.tan_half_fov_x / state.tan_half_fov_y : 4.0f / 3.0f, 0.05f, 2000.0f
+    );
+    input.camera.position = state.camera_position;
+    input.frame = k.frame;
+    input.strip_vertices = k.strip_vertices;
+    input.strips = k.strips;
+    input.direct_before_world = std::span<const std::uint8_t>(k.packets).first(k.before_world);
+    input.packets[static_cast<std::size_t>(renderer::Bucket::Hud)] =
+        std::span<const std::uint8_t>(k.packets).subspan(k.before_world);
+    input.effects = k.effects;
+    input.effect_uploads = k.effect_uploads;
+    if (g->renderer) {
+        g->renderer->render(input, {g->frame.id(), width, height});
+        if (first && has_camera && (k.draws & 0x1Fu) != 0 && width > 0 && height > 0) {
+            if (g->last_world.width() != width || g->last_world.height() != height) {
+                g->last_world.create(width, height, error);
+            }
+            g->frame.blit_to(g->last_world.id(), width, height);
+        }
+    }
+    // OPENRAC_SHOT=FRAME:FILE.png writes that frame (for checking without looking at the screen).
+    if (const char* shot = first ? std::getenv("OPENRAC_SHOT") : nullptr) {
+        const char* colon = std::strchr(shot, ':');
+        const std::uint64_t every = static_cast<std::uint64_t>(std::atoll(shot));
+        // OPENRAC_SHOT_FROM=FRAME: no shots before that frame.
+        static const std::uint64_t shot_from = [] {
+            const char* v = std::getenv("OPENRAC_SHOT_FROM");
+            return v != nullptr ? std::strtoull(v, nullptr, 10) : 0ull;
+        }();
+        if (colon && every > 0 && input.frame % every == 0 && input.frame >= shot_from) {
+            const std::string path = std::string(colon + 1) + std::to_string(input.frame) + ".png";
+            viewer::write_png(path, width, height, g->frame.read_rgba());
+            log::info("frame {} written to {}", input.frame, path);
+        }
+    }
+    present(g->frame.id(), width, height, window_width, window_height, false);
+    swapped(started);
+}
+
 bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws) {
     if (!g) {
         return true;
@@ -1070,6 +1309,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         return v == nullptr || std::strcmp(v, "0") != 0;
     }();
     std::vector<viewer::Instance> live;
+    std::vector<std::uint32_t> live_addresses;
     std::vector<viewer::LevelScene::JointColumns> palette;
     for (const viewer::LiveMoby& m : state.mobys) {
         // Hidden (mode bit 0): MobyProc does not draw it (the parked ship while the landing one comes
@@ -1152,6 +1392,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
             }
         }
         live.push_back(instance);
+        live_addresses.push_back(m.address);
     }
     g->moby_cameras.clear();
     g->scene.set_fog(state.fog_colour, state.fog_near, state.fog_far, state.fog_near_f,
@@ -1167,112 +1408,108 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
             g->scene.set_light_sets(sets);
         }
     }
-    if (!g->level.models.empty()) {
-        g->scene.set_palette(palette);
-        g->scene.set_instances(viewer::Layer::Mobys, live);
+    // What this tick drew, kept for the frames drawn until the next one (between): the scene
+    // then moves from the last tick's camera and mobys to this one's.
+    Kept& k = g->kept;
+    if (k.level != g->loaded) {
+        k.has_state = false;
+        k.live.clear();
+        k.addresses.clear();
+        k.level = g->loaded;
     }
-
-    int window_width = 0;
-    int window_height = 0;
-    g->window->drawable_size(window_width, window_height);
-    const Box box = frame_box(window_width, window_height);
-    const int width = box.width;
-    const int height = box.height;
-    std::string error;
-    if (width > 0 && height > 0 && (g->frame.width() != width || g->frame.height() != height)) {
-        g->frame.create(width, height, error);
+    k.prev_state = k.state;
+    k.has_prev_state = k.has_state;
+    k.prev_matrices.clear();
+    for (std::size_t i = 0; i < k.live.size() && i < k.addresses.size(); ++i) {
+        k.prev_matrices[k.addresses[i]] = k.live[i].matrix;
     }
-    renderer::FrameInput input;
-    // No camera yet (loading, fades between programs): a black frame, not the level's background.
-    const bool has_camera = state.forward[0] != 0.0f || state.forward[1] != 0.0f || state.forward[2] != 0.0f;
-    input.clear_colour = has_camera
-        ? std::array<float, 4>{g->level.background[0], g->level.background[1], g->level.background[2], 1}
-        : std::array<float, 4>{0, 0, 0, 1};
-    for (auto& r : g->renderer ? g->renderer->renderers() : std::span<const std::unique_ptr<renderer::BucketRenderer>>{}) {
-        if (r->bucket() == renderer::Bucket::Particles) {
-            // The effect quads are there only when the game drew them.
-            r->enabled = has_camera;
-        } else if (r->bucket() != renderer::Bucket::Hud) {
-            r->enabled = has_camera && (draws & (1u << static_cast<unsigned>(r->bucket()))) != 0;
-        }
-    }
-    input.camera.view = state.view();
-    // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
-    // the TV's 4:3, which they were made for), not the window's shape.
-    input.camera.projection = state.projection(
-        state.tan_half_fov_y > 0.0f ? state.tan_half_fov_x / state.tan_half_fov_y : 4.0f / 3.0f, 0.05f, 2000.0f
-    );
-    input.camera.position = state.camera_position;
+    k.state = state;
+    k.has_state = true;
+    k.live = std::move(live);
+    k.addresses = std::move(live_addresses);
+    k.palette = std::move(palette);
+    k.draws = draws;
+    k.has_camera = state.forward[0] != 0.0f || state.forward[1] != 0.0f || state.forward[2] != 0.0f;
+    k.frame = g->index++;
     // OPENRAC_DUMP_DRAWS=N or N-M: the frames whose 2D draws are logged.
     static const char* dump_at = std::getenv("OPENRAC_DUMP_DRAWS");
     if (dump_at) {
         char* end = nullptr;
         const std::uint64_t first = std::strtoull(dump_at, &end, 10);
         const std::uint64_t last = *end == '-' ? std::strtoull(end + 1, nullptr, 10) : first;
-        renderer::g_dump_draws = g->index >= first && g->index <= last;
+        renderer::g_dump_draws = k.frame >= first && k.frame <= last;
     }
     if (renderer::g_dump_draws) {
-        log::info("frame {}: the 2D path's draws", g->index);
+        log::info("frame {}: the 2D path's draws", k.frame);
     }
-    input.frame = g->index++;
     // The 2D path: the frame's direct GIF data, drawn by the direct renderer.
     (void)chain;
-    std::vector<renderer::EffectVertex> strip_vertices;
-    std::vector<renderer::EffectStrip> strips;
+    k.strip_vertices.clear();
+    k.strips.clear();
     std::size_t before_world = SIZE_MAX;
-    const std::vector<std::uint8_t> packets = direct_packets(ram, viewer::shown_chain(ram, a), &strip_vertices,
-                                                             &strips, &g->effect_uploads, &before_world);
+    k.packets = direct_packets(ram, viewer::shown_chain(ram, a), &k.strip_vertices, &k.strips, &g->effect_uploads,
+                               &before_world);
     // Only a level's frame is ordered so: the boot program (title, main menu) starts VU1 programs
     // of its own before its 2D path, and draws its world natively, all of its 2D path after it.
-    before_world = level >= 0 && level < 19 ? std::min(before_world, packets.size()) : 0;
-    input.strip_vertices = strip_vertices;
-    input.strips = strips;
-    if (debug && input.frame % 100 == 0 && !strips.empty()) {
+    k.before_world = level >= 0 && level < 19 ? std::min(before_world, k.packets.size()) : 0;
+    if (debug && k.frame % 100 == 0 && !k.strips.empty()) {
         int bare = 0;
-        for (const auto& st : strips) {
+        for (const auto& st : k.strips) {
             bare += st.upload_count == 0 ? 1 : 0;
         }
         log::info("  {} strips ({} vertices, {} without their texture's upload), the first TEX0 {:#x} ALPHA {:#x}",
-                  strips.size(), strip_vertices.size(), bare, strips.front().tex0, strips.front().alpha);
+                  k.strips.size(), k.strip_vertices.size(), bare, k.strips.front().tex0, k.strips.front().alpha);
     }
-    input.direct_before_world = std::span<const std::uint8_t>(packets).first(before_world);
-    input.packets[static_cast<std::size_t>(renderer::Bucket::Hud)] =
-        std::span<const std::uint8_t>(packets).subspan(before_world);
     sky_sprite_quads(state);
     particle_quads(ram, state);
-    input.effects = g->effects;
-    input.effect_uploads = g->effect_uploads;
-    if (g->renderer) {
-        g->renderer->render(input, {g->frame.id(), width, height});
-        if (has_camera && (draws & 0x1Fu) != 0 && width > 0 && height > 0) {
-            if (g->last_world.width() != width || g->last_world.height() != height) {
-                g->last_world.create(width, height, error);
-            }
-            g->frame.blit_to(g->last_world.id(), width, height);
-        }
-    }
+    k.effects = std::move(g->effects);
+    k.effect_uploads = std::move(g->effect_uploads);
     g->effects.clear();
     g->effect_uploads.clear();
     g->particles.clear();
     g->sky_sprites.clear();
-    // OPENRAC_SHOT=FRAME:FILE.png writes that frame (for checking without looking at the screen).
-    if (const char* shot = std::getenv("OPENRAC_SHOT")) {
-        const char* colon = std::strchr(shot, ':');
-        const std::uint64_t every = static_cast<std::uint64_t>(std::atoll(shot));
-        // OPENRAC_SHOT_FROM=FRAME: no shots before that frame.
-        static const std::uint64_t shot_from = [] {
-            const char* v = std::getenv("OPENRAC_SHOT_FROM");
-            return v != nullptr ? std::strtoull(v, nullptr, 10) : 0ull;
-        }();
-        if (colon && every > 0 && input.frame % every == 0 && input.frame >= shot_from) {
-            const std::string path = std::string(colon + 1) + std::to_string(input.frame) + ".png";
-            viewer::write_png(path, width, height, g->frame.read_rgba());
-            log::info("frame {} written to {}", input.frame, path);
-        }
-    }
-    present(g->frame.id(), width, height, window_width, window_height, false);
-    g->window->swap();
+    // The tick's own frame (when frames are drawn between ticks, part way from the last tick's
+    // scene, by the refresh it is shown at).
+    draw_kept(true);
     return true;
+}
+
+void set_tick(std::chrono::steady_clock::time_point tick, std::chrono::duration<double> period) {
+    pacing.tick = tick;
+    pacing.period = period;
+}
+
+bool interpolating() {
+    static const bool on = std::getenv("OPENRAC_UNCAPPED") == nullptr && std::getenv("OPENRAC_NO_BLEND") == nullptr;
+    return on && g && g->window;
+}
+
+bool wants_between() {
+    return interpolating() && g->kept.has_state && g->kept.has_camera;
+}
+
+int between(std::chrono::steady_clock::time_point next_tick) {
+    if (!g) {
+        return 0;
+    }
+    // A frame only for a refresh the kept tick is still shown at (the next tick's, with the lag).
+    const auto lag = std::chrono::duration_cast<std::chrono::steady_clock::duration>(pacing.period * kLagTicks);
+    if (next_display(std::chrono::steady_clock::now()) >= next_tick + lag) {
+        return 0;
+    }
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_EVENT_QUIT
+            || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) {
+            return -1;
+        }
+        g->input.handle_event(event);
+    }
+    const bool dump = renderer::g_dump_draws;
+    renderer::g_dump_draws = false;
+    draw_kept(false);
+    renderer::g_dump_draws = dump;
+    return 1;
 }
 
 bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {

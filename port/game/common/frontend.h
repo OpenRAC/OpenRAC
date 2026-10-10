@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <span>
@@ -45,6 +46,17 @@ void particle(std::span<const std::uint8_t> ram, const std::uint8_t* record, std
 // `draws`: the layers the game's renderers drew this frame (bit n = renderer::Bucket n; all bits
 // when the game does not report them).
 bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws);
+
+// Frames between the game's ticks: the window draws at the display's rate, the camera and mobys
+// moved from the last tick's to the latest's by when each frame is shown (OPENRAC_UNCAPPED or
+// OPENRAC_NO_BLEND: one frame a tick). set_tick: when the tick about to be drawn was due, and the
+// tick's length. interpolating: it is on; wants_between: the latest tick has a world to move;
+// between: draws one if a refresh before `next_tick` (plus the lag) still shows this tick, and
+// reads the window's events: 1 drawn, 0 none due, -1 the window was closed.
+void set_tick(std::chrono::steady_clock::time_point tick, std::chrono::duration<double> period);
+bool interpolating();
+bool wants_between();
+int between(std::chrono::steady_clock::time_point next_tick);
 
 // An image the game sent to the GS outside the display list (its library's image transfer): kept
 // for every renderer the window makes, as the chip keeps it in its memory. `base` in 256-byte
