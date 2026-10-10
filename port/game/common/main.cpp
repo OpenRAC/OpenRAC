@@ -27,6 +27,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <span>
 #include <string>
 #include <thread>
 #include <vector>
@@ -36,6 +37,10 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/memory.h"
+
+#ifdef OPENRAC_FRONTEND
+#include "frontend.h"
+#endif
 
 extern "C" {
 const char* openrac_game_disc_image = nullptr;
@@ -53,10 +58,14 @@ struct Options {
     fs::path cards;
     long frames = -1;
     bool keep_going = false;
+    bool window = false;
+    fs::path levels;  // the extracted levels the window draws (level_00, ...)
 };
 
 Options g_options;
 long g_frame = 0;
+gaddr g_chain = 0;  // the display list sent this frame
+bool g_window = false;
 std::chrono::steady_clock::time_point g_next_frame;
 
 std::string program_name() {
@@ -106,6 +115,10 @@ Options parse(int argc, char** argv) {
             o.data = value();
         } else if (a == "--cards") {
             o.cards = value();
+        } else if (a == "--window") {
+            o.window = true;
+        } else if (a == "--levels") {
+            o.levels = value();
         } else if (a == "--frames") {
             o.frames = std::stol(value());
         } else if (a == "--keep-going") {
@@ -144,8 +157,16 @@ void finish() {
 extern "C" {
 
 int openrac_game_vsync(void) {
-    // Until the window and renderer are connected (port/platform,
-    // port/renderer), a frame is only paced, at the game's frame rate.
+    // With a window, the renderer draws the frame from the game's memory; without one, a frame is
+    // only paced, at the game's frame rate.
+#ifdef OPENRAC_FRONTEND
+    if (g_window) {
+        const auto* ram = runtime::Memory::get().base();
+        if (!frontend::frame(std::span<const std::uint8_t>(ram, 32u * 1024 * 1024), g_chain)) {
+            std::exit(0);
+        }
+    }
+#endif
     g_frame++;
     if (g_options.frames >= 0 && g_frame >= g_options.frames) {
         std::exit(0);  // finish() runs at exit
@@ -162,6 +183,7 @@ int openrac_game_vsync(void) {
 }
 
 void openrac_game_dma_send(gaddr channel, gaddr tag) {
+    g_chain = tag;
     log::debug("frame {}: DMA chain at {:#010x} to channel {:#010x}", g_frame, tag, channel);
 }
 
@@ -186,6 +208,11 @@ void openrac_game_load_image(const openrac_game_image* image) {
 }
 
 int openrac_game_pad(int port, uint16_t* buttons, uint8_t analog[4]) {
+#ifdef OPENRAC_FRONTEND
+    if (g_window && frontend::pad(port, buttons, analog)) {
+        return 1;
+    }
+#endif
     (void)port;
     *buttons = 0xFFFF;  // nothing pressed (active low)
     std::memset(analog, 0x80, 4);
@@ -235,6 +262,17 @@ int main(int argc, char** argv) {
     static std::string cards_path = g_options.cards.string();
     openrac_game_disc_image = disc_path.c_str();
     openrac_game_card_dir = cards_path.c_str();
+
+#ifdef OPENRAC_FRONTEND
+    if (g_options.window) {
+        std::string why;
+        fs::path levels = g_options.levels.empty() ? g_options.data / "port" : g_options.levels;
+        if (!frontend::open(openrac_game.id, levels, why)) {
+            log::fatalf("no window: {}", why);
+        }
+        g_window = true;
+    }
+#endif
 
     openrac_game_register_functions();
     openrac_guest_set_overlay_source(openrac_game_loaded_overlay);
