@@ -1098,6 +1098,38 @@ Prior tracked edits and all 18 baseline untracked files remain preserved;
 the latter were hash-checked against the pre-merge snapshot. Release the
 heading claim after this local commit. No push or assistant credit trailer.
 
+### Surface lookup recovery, 2026-10-10 continuation
+
+Starting HEAD d26df14. Recovered native func_L00_0020D3A0 after reviewing
+the full 0x24C retail body. Preserve exclusion/require filters, active
+surface checks, radius equality, strict planar/height limits, first-hit
+outputs and table count reloads. Fields and output are pointer typed;
+filters retain the existing integer ABI and compare guest address bits.
+This is native-only recovery, not a proven matching decompilation.
+
+An initial pointer-typed signature conflicted with the source declaration;
+Build-Native caught the unreadable unit. Corrected the interface and
+rebuilt successfully: 62/62 CTest, i686 contact fixture, 3841 translated
+functions and no hostgen problems/index problems/unreadable units.
+Reviewed generated table: 32-byte entries, pointer at +16, index at +20,
+and a four-byte guest output store. The helper func_L00_0025EFC0 remains
+unimplemented; strict checks still stop if it is reached. Successful
+surface hits are fixture-tested, not established by this runtime probe.
+
+Strict contact-verified forward/jump probe passes the old frame-1330
+blocker, moves the hero to (147.25,120.68,29.48) by frame 1500 and reaches
+the scheduled jump. Stops at func_L00_002147C0, frame 1501, exit 2.
+Logs: parent .tools/native-hero-contact-final-build.log and
+.tools/native-run/contact-verified.log. No bypasses or memory-write cheats.
+
+Next: recover func_L00_002147C0 from its candidate and full 0x5A0 retail
+body, then repeat both forward/jump and neutral-stick jump probes. Correct
+the earlier candidate/handoff interpretation: this is vertical movement,
+jump impulse and gravity, not camera easing. func_L00_002342F8 returns
+the component along the movement frame's up axis; 002343A0 sets it.
+The routine is claimed by codex-contact during ongoing implementation.
+Existing dirty work preserved; local commits only, no push or credit trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
