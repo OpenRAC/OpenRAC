@@ -143,6 +143,7 @@ void openrac_lib_snd_UnloadBank(int);
 void openrac_lib_snd_SetMasterVolume(int, int);
 void openrac_lib_snd_SetPlaybackMode(int);
 void openrac_lib_snd_StopAllSounds(void);
+void openrac_lib_snd_StopSound(int);
 void openrac_lib_snd_PauseAllSoundsInGroup(int);
 void openrac_lib_snd_ContinueAllSoundsInGroup(int);
 void openrac_lib_snd_SoundIsStillPlaying_CB(int, int, int);

@@ -1398,6 +1398,13 @@ class Unit:
         if sym == HOSTGEN_ASM:
             raise Unsupported("inline assembly Clang cannot read")
         f = self.program.lookup(self.unit, sym)
+        if sym in ("memcpy", "memmove", "memset") and (f is None or (f.unit is None and sym not in self.program.host)):
+            # The C library's, which the game declares by name without defining it (its own copies
+            # sit at other addresses): on game memory, as the builtins are.
+            v = [self.rv(a) for a in args]
+            if sym == "memset":
+                return f"((gaddr)({v[0]}), memset(G({v[0]}), {v[1]}, {v[2]}), (gaddr)({v[0]}))"
+            return f"((gaddr)({v[0]}), {sym}(G({v[0]}), G({v[1]}), {v[2]}), (gaddr)({v[0]}))"
         if sym in HOST_MATH and (f is None or (f.unit is None and sym not in self.program.host)):
             # A C library maths function the game calls without defining it (declared or
             # not): the host's, on values.
