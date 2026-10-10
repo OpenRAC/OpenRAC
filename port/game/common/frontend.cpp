@@ -214,20 +214,29 @@ void use_level(int number) {
         return;
     }
     g->loaded = wanted;
-    g->renderer.reset();
+    // One renderer for the whole run: a new level replaces the subsystem renderers, but its texture
+    // pool is the GS memory, which keeps what the game uploaded (a card's text uploaded through the
+    // display list, the fonts) across the change.
+    const bool fresh = !g->renderer;
+    if (fresh) {
+        g->renderer = std::make_unique<renderer::Renderer>();
+        for (const renderer::ImageUpload& image : g->images) {
+            g->renderer->textures().upload(image);
+        }
+    } else {
+        g->renderer->clear_renderers();
+    }
     g->scene.release();
     g->scene = viewer::LevelScene();
     g->level = viewer::LevelData();
-    g->renderer = std::make_unique<renderer::Renderer>();
-    for (const renderer::ImageUpload& image : g->images) {
-        g->renderer->textures().upload(image);
-    }
     std::string error;
     const auto dir = g->levels / std::format("level_{:02d}", wanted);
     if (!viewer::load_level(dir, g->level, error)) {
         log::warn("level {}: {} (extract it with editor/extract.py port)", wanted, error);
         g->renderer->add(std::make_unique<renderer::DirectRenderer>("hud", renderer::Bucket::Hud), error);
-        g->renderer->init(error);
+        if (fresh) {
+            g->renderer->init(error);
+        }
         return;
     }
     if (!g->scene.upload(g->level, g->renderer->textures(), error)) {
@@ -241,7 +250,9 @@ void use_level(int number) {
         );
     }
     g->renderer->add(std::make_unique<renderer::DirectRenderer>("hud", renderer::Bucket::Hud), error);
-    g->renderer->init(error);
+    if (fresh) {
+        g->renderer->init(error);
+    }
     log::info("drawing level {} natively ({} models)", wanted, g->level.models.size());
 }
 

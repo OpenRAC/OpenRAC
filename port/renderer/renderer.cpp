@@ -92,6 +92,13 @@ void Renderer::render(const FrameInput& input, const RenderTarget& target) {
     m_textures.end_frame();
 }
 
+void Renderer::clear_renderers() {
+    for (auto& r : m_renderers) {
+        r->release();
+    }
+    m_renderers.clear();
+}
+
 void Renderer::release() {
     for (auto& r : m_renderers) {
         r->release();

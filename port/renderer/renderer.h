@@ -139,6 +139,10 @@ public:
     // Free every GL object (the context must still be current).
     void release();
 
+    // Drop every subsystem renderer (released first) but keep the texture pool: the console's GS
+    // memory outlives a change of level, and what the game uploaded stays there.
+    void clear_renderers();
+
     TexturePool& textures() { return m_textures; }
 
     std::span<const std::unique_ptr<BucketRenderer>> renderers() const { return m_renderers; }
