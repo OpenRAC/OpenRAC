@@ -37,6 +37,10 @@ target_link_libraries(openrac_game_common PUBLIC openrac_runtime)
 if(TARGET openrac_assets_disc)
   target_link_libraries(openrac_game_common PUBLIC openrac_assets_disc)
 endif()
+# The moby animation code the blend snapshot runs (lib/moby_snapshot.cpp).
+if(TARGET openrac_assets_geometry)
+  target_link_libraries(openrac_game_common PUBLIC openrac_assets_geometry)
+endif()
 target_compile_options(openrac_game_common PRIVATE ${OPENRAC_GAME_C_FLAGS} -Wall -Wextra)
 
 function(openrac_add_game config)

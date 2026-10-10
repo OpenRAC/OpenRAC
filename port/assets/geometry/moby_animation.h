@@ -211,6 +211,14 @@ std::vector<JointMatrix> evaluate_keys(
     const MobyAnimClass& anim, const MobyFrame* a, const MobyFrame* b, f32 t, bool plain
 );
 
+// The blend snapshot (0x20ede8 / PAL func_0020FC38 with flags 0x300, after ReRAC's moby_anim.rs
+// snapshot): the current local pose from keys A and B (B read only when t is not 0) re-encoded as
+// a keyframe, header and payload, as the game writes it into a blend slot for key A to point at
+// while the moby blends to its next sequence. Empty when key A is missing.
+std::vector<u8> encode_snapshot(
+    const MobyAnimClass& anim, const MobyFrame* a, const MobyFrame* b, f32 t, bool plain
+);
+
 // A quaternion's rotation rows as the game builds them.
 std::array<ps2::V4, 3> quat_rows(const ps2::V4& q);
 

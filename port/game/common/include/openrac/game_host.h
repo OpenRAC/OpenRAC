@@ -129,6 +129,11 @@ int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start
 
 /* The buttons of a pad, in the console's bit order (active low, as the pad
  * library reports them) and its analog values; false if none is connected. */
+/* Ratchet & Clank's blend snapshot: moby `moby`'s current pose (its keys A and B and the blend
+ * between them) written at `dst` as a keyframe, as the game's VU0 routine leaves it in a blend slot.
+ * Nonzero when written. */
+int openrac_game_moby_snapshot(gaddr moby, gaddr dst);
+
 /* Nonzero: no memory card is inserted in either port (--no-card). */
 extern int openrac_game_no_card;
 

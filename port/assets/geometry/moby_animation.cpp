@@ -3,6 +3,7 @@
 
 #include "assets/geometry/moby_animation.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace openrac::assets::rac1 {
@@ -674,6 +675,181 @@ std::vector<JointMatrix> evaluate_keys(
         }
         out.push_back(m);
     }
+    return out;
+}
+
+std::vector<u8> encode_snapshot(
+    const MobyAnimClass& anim, const MobyFrame* fa, const MobyFrame* fb, f32 t_f, bool plain
+) {
+    using ps2::add;
+    using ps2::kOne;
+    using ps2::mul;
+    using ps2::sub;
+    if (fa == nullptr) {
+        return {};
+    }
+    const u32 t = ps2::bits(t_f);
+    if (t != 0 && fb == nullptr) {
+        return {};
+    }
+    constexpr std::size_t kJoints = 256;
+    const std::size_t jc = std::min(anim.joint_count, kJoints);
+    const V4 unit = {kOne, kOne, kOne, 0};
+    std::vector<std::array<V4, 4>> rec(kJoints);
+    for (std::size_t j = 0; j < jc; ++j) {
+        const V4 c = with_w(anim.rest[j], anim.parent_word[j]);
+        rec[j] = {unit, unit, c, V4{mul(c[0], kOne), mul(c[1], kOne), mul(c[2], kOne), 0}};
+    }
+    const auto flag_word = [](u8 flags) { return static_cast<u32>(flags >> 6) - 1u; };
+    constexpr u32 kListed = static_cast<u32>(-4);
+    if (t == 0) {
+        for (const MobyScaleRecord& r : fa->scales) {
+            const auto v = scale_value(r);
+            rec[r.joint][1] = with_w(v, flag_word(r.flags));
+        }
+        for (const MobyTransRecord& r : fa->trans) {
+            rec[r.joint][2] = with_w(trans_value(r), rec[r.joint][2][3]);
+        }
+        for (std::size_t j = 0; j < jc; ++j) {
+            rec[j][0] = quat_bits(fa->quat_at(j));
+        }
+    } else {
+        const u32 u = sub(kOne, t);
+        std::vector<std::size_t> sl, tl;
+        for (const MobyScaleRecord& r : fa->scales) {
+            sl.push_back(r.joint);
+            rec[r.joint][1][3] = flag_word(r.flags);
+            rec[r.joint][0] = with_w(scale_value(r), kListed);
+        }
+        for (const MobyTransRecord& r : fa->trans) {
+            tl.push_back(r.joint);
+            rec[r.joint][2] = with_w(trans_value(r), rec[r.joint][2][3]);
+            rec[r.joint][3][3] = kListed;
+        }
+        for (const MobyScaleRecord& r : fb->scales) {
+            if (rec[r.joint][0][3] != kListed) {
+                sl.push_back(r.joint);
+            }
+            rec[r.joint][1] = with_w(scale_value(r), flag_word(r.flags));
+        }
+        for (const MobyTransRecord& r : fb->trans) {
+            if (rec[r.joint][3][3] != kListed) {
+                tl.push_back(r.joint);
+            }
+            rec[r.joint][3] = with_w(trans_value(r), kOne);
+        }
+        // The pipelined interpolation loops: entry i+1's operands are loaded before entry i is
+        // stored; the result keeps the destination slot's w word.
+        const auto pass = [&](const std::vector<std::size_t>& list, int a, int b, int dst) {
+            if (list.empty()) {
+                return;
+            }
+            V4 va = rec[list[0]][a], vb = rec[list[0]][b];
+            for (std::size_t i = 0; i < list.size(); ++i) {
+                const std::size_t j = list[i];
+                V4 r{};
+                for (int k = 0; k < 3; ++k) {
+                    r[k] = add(mul(va[k], u), mul(vb[k], t));
+                }
+                const u32 w = rec[j][dst][3];
+                if (i + 1 < list.size()) {
+                    va = rec[list[i + 1]][a];
+                    vb = rec[list[i + 1]][b];
+                }
+                rec[j][dst] = {r[0], r[1], r[2], w};
+            }
+        };
+        pass(sl, 0, 1, 1);
+        pass(tl, 2, 3, 2);
+        for (std::size_t j = 0; j < jc; ++j) {
+            const V4 qa = quat_bits(fa->quat_at(j)), qb = quat_bits(fb->quat_at(j));
+            V4 q{};
+            if (plain) {
+                for (int k = 0; k < 4; ++k) {
+                    q[k] = add(mul(qa[k], u), mul(qb[k], t));
+                }
+            } else {
+                V4 a{}, b{}, p{};
+                for (int k = 0; k < 4; ++k) {
+                    a[k] = mul(qa[k], u);
+                    b[k] = mul(qb[k], t);
+                    p[k] = mul(a[k], b[k]);
+                }
+                const u32 d = add(add(add(p[1], p[0]), mul(kOne, p[2])), mul(kOne, p[3]));
+                for (int k = 0; k < 4; ++k) {
+                    q[k] = (d & ps2::kSign) == 0 ? add(a[k], b[k]) : sub(a[k], b[k]);
+                }
+                V4 sq{};
+                for (int k = 0; k < 4; ++k) {
+                    sq[k] = mul(q[k], q[k]);
+                }
+                const u32 n = add(add(add(sq[0], sq[1]), mul(kOne, sq[2])), mul(kOne, sq[3]));
+                const u32 qq = ps2::rsqrt(kOne, n);
+                for (int k = 0; k < 4; ++k) {
+                    q[k] = mul(q[k], qq);
+                }
+            }
+            rec[j][0] = q;
+        }
+    }
+
+    // Encode: quaternions in 1.15 (clamped), scale records where the scale is not 1, translation
+    // records where it differs from the rest translation, then the terminator word.
+    std::vector<u8> quats, scales, trans;
+    std::size_t scale_count = 0, trans_count = 0;
+    const auto put16 = [](std::vector<u8>& out, u16 v) {
+        out.push_back(static_cast<u8>(v));
+        out.push_back(static_cast<u8>(v >> 8));
+    };
+    for (std::size_t j = 0; j < jc; ++j) {
+        for (int k = 0; k < 4; ++k) {
+            put16(quats, static_cast<u16>(static_cast<s16>(std::clamp(ps2::ftoi(rec[j][0][k], 15), -0x8000, 0x7fff))));
+        }
+        std::array<u16, 3> sc{};
+        for (int k = 0; k < 3; ++k) {
+            const s32 v = static_cast<s32>(static_cast<u32>(ps2::ftoi(rec[j][1][k], 15)) >> 3);
+            sc[k] = static_cast<u16>(std::clamp(v, 0, 0xffff));
+        }
+        if (sc != std::array<u16, 3>{0x1000, 0x1000, 0x1000}) {
+            for (u16 v : sc) {
+                put16(scales, v);
+            }
+            scales.push_back(static_cast<u8>(j));
+            scales.push_back(static_cast<u8>((rec[j][1][3] & 0x80) ^ 0x80));
+            ++scale_count;
+        }
+        std::array<s16, 3> tv{}, rest{};
+        for (int k = 0; k < 3; ++k) {
+            tv[k] = static_cast<s16>(ps2::ftoi(rec[j][2][k], 0));
+            rest[k] = static_cast<s16>(ps2::ftoi(ps2::bits(anim.rest[j][k]), 0));
+        }
+        if (tv != rest) {
+            for (s16 v : tv) {
+                put16(trans, static_cast<u16>(v));
+            }
+            trans.push_back(static_cast<u8>(j));
+            trans.push_back(0);
+            ++trans_count;
+        }
+    }
+    const std::size_t quat_bytes = 8 * jc;
+    const std::size_t qwc = (quat_bytes + 8 * scale_count + 8 * trans_count + 8) >> 4;
+    std::vector<u8> out(16, 0);
+    const auto set16 = [&](std::size_t at, u16 v) {
+        out[at] = static_cast<u8>(v);
+        out[at + 1] = static_cast<u8>(v >> 8);
+    };
+    set16(6, static_cast<u16>(qwc));
+    set16(8, static_cast<u16>(quat_bytes));
+    set16(10, static_cast<u16>(scale_count));
+    set16(12, static_cast<u16>(quat_bytes + 8 * scale_count));
+    set16(14, static_cast<u16>(trans_count));
+    out.insert(out.end(), quats.begin(), quats.end());
+    out.insert(out.end(), scales.begin(), scales.end());
+    out.insert(out.end(), trans.begin(), trans.end());
+    const u8 terminator[8] = {1, 0, 0, 0, 0, 0, 0, 0};
+    out.insert(out.end(), terminator, terminator + 8);
+    out.resize(16 + qwc * 16, 0);
     return out;
 }
 
