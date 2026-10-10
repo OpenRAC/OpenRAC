@@ -387,27 +387,42 @@ void LevelScene::draw_layer(
     glDisable(GL_BLEND);
     glDisable(GL_CULL_FACE);  // the editor's materials are double-sided
     glActiveTexture(GL_TEXTURE0);
-    for (const Group& g : groups) {
-        glBindVertexArray(g.vao);
-        for (const Primitive& p : m_models[g.model].primitives) {
-            const Material& m = m_materials[static_cast<std::size_t>(p.material)];
-            const renderer::TextureHandle texture =
-                m.image >= 0 ? m_textures[static_cast<std::size_t>(m.image)] : m_white;
-            glBindTexture(GL_TEXTURE_2D, state.textures.gl_texture(texture));
-            glUniform1i(cutout, m.cutout ? 1 : 0);
-            glUniform4f(colour, m.colour[0], m.colour[1], m.colour[2], m.colour[3]);
-            glDrawElementsInstanced(
-                GL_TRIANGLES,
-                static_cast<GLsizei>(p.index_count),
-                GL_UNSIGNED_INT,
-                offset(p.first_index * sizeof(std::uint32_t)),
-                g.count
-            );
-            ++state.stats.draw_calls;
-            state.stats.triangles +=
-                static_cast<std::uint64_t>(p.index_count / 3) * static_cast<std::uint64_t>(g.count);
+    // Mobys in two passes: their solid faces, then their glow faces blended over them as the GS
+    // blends them (ALPHA 0x44: (Cs - Cd) As + Cd), without writing depth.
+    const int glow_pass = m_mesh.uniform("glow_pass");
+    const int passes = layer == Layer::Mobys ? 2 : 1;
+    for (int pass = 0; pass < passes; ++pass) {
+        glUniform1i(glow_pass, pass);
+        if (pass == 1) {
+            glEnable(GL_BLEND);
+            glBlendEquation(GL_FUNC_ADD);
+            glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+            glDepthMask(GL_FALSE);
+        }
+        for (const Group& g : groups) {
+            glBindVertexArray(g.vao);
+            for (const Primitive& p : m_models[g.model].primitives) {
+                const Material& m = m_materials[static_cast<std::size_t>(p.material)];
+                const renderer::TextureHandle texture =
+                    m.image >= 0 ? m_textures[static_cast<std::size_t>(m.image)] : m_white;
+                glBindTexture(GL_TEXTURE_2D, state.textures.gl_texture(texture));
+                glUniform1i(cutout, m.cutout ? 1 : 0);
+                glUniform4f(colour, m.colour[0], m.colour[1], m.colour[2], m.colour[3]);
+                glDrawElementsInstanced(
+                    GL_TRIANGLES,
+                    static_cast<GLsizei>(p.index_count),
+                    GL_UNSIGNED_INT,
+                    offset(p.first_index * sizeof(std::uint32_t)),
+                    g.count
+                );
+                ++state.stats.draw_calls;
+                state.stats.triangles +=
+                    static_cast<std::uint64_t>(p.index_count / 3) * static_cast<std::uint64_t>(g.count);
+            }
         }
     }
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
     glBindVertexArray(0);
     if (palettes) {
         glActiveTexture(GL_TEXTURE0 + kPaletteUnit);

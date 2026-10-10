@@ -12,12 +12,14 @@ in vec2 v_uv;
 in vec4 v_colour;
 in vec3 v_normal;
 flat in int v_lit;
+flat in int v_glow;
 noperspective in float v_fog;
 
 uniform sampler2D tex_T0;
 uniform vec4 material_colour;
 uniform int cutout;
 uniform int lighting;
+uniform int glow_pass;  // mobys: 0 the solid faces, 1 the glow faces (blended)
 uniform vec4 fog_colour;  // FOGCOL; w = 1: fog on
 
 layout(location = 0) out vec4 out_colour;
@@ -26,6 +28,9 @@ layout(location = 0) out vec4 out_colour;
 const vec3 kSun = vec3(0.36, 0.48, 0.80);
 
 void main() {
+    if (v_glow != glow_pass) {
+        discard;
+    }
     vec4 c = texture(tex_T0, v_uv) * v_colour * material_colour;
     if (cutout != 0 && c.a < 0.5) {
         discard;
@@ -40,5 +45,5 @@ void main() {
     if (fog_colour.w > 0.5) {
         rgb = mix(fog_colour.rgb, rgb, v_fog);
     }
-    out_colour = vec4(rgb, 1.0);
+    out_colour = vec4(rgb, v_glow != 0 ? clamp(c.a, 0.0, 1.0) : 1.0);
 }

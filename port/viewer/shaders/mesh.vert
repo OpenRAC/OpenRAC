@@ -42,6 +42,7 @@ out vec2 v_uv;
 out vec4 v_colour;
 out vec3 v_normal;
 flat out int v_lit;
+flat out int v_glow;  // a glow packet's vertex drawn in the moby's glow colour
 // GS F / 255: interpolated in screen space, as the GS does.
 noperspective out float v_fog;
 
@@ -80,6 +81,7 @@ void main() {
     v_uv = uv;
     v_colour = colour * tint;
     v_lit = 0;
+    v_glow = 0;
     // A lit tie's vertex takes its instance's colour for its light slot, as VU1 does
     // (0x80 = 1.0 under the GS's MODULATE).
     if (lights >= 0.0 && light_slot >= 0.0) {
@@ -116,6 +118,7 @@ void main() {
             int glow = int(moby_ambient.w - 1.0 + 0.5);
             v_colour = vec4(float(glow & 255), float((glow >> 8) & 255), float((glow >> 16) & 255), 128.0)
                      / 128.0 * tint;
+            v_glow = 1;
         }
         v_lit = 1;
     }
