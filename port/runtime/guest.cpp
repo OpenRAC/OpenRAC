@@ -47,6 +47,10 @@ using Table = std::unordered_map<gaddr, Entry>;
 
 Table g_exe;
 std::map<int, Table> g_overlays;
+// Functions registered at two or more addresses of one program: tiny functions the catalogue
+// folded into one name (their bytes are the same but for the address they call), each place a
+// different function. A call through one of their addresses goes where its code calls.
+std::unordered_map<openrac_host_fn, int> g_ambiguous;
 int g_overlay = OPENRAC_OVERLAY_EXE;
 thread_local gaddr g_unknown_target = 0;
 
@@ -139,6 +143,12 @@ gaddr openrac_guest_string(const char* s, size_t size) {
 
 void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t count) {
     Table& table = overlay == OPENRAC_OVERLAY_EXE ? g_exe : g_overlays[overlay];
+    std::unordered_map<openrac_host_fn, int> places;
+    for (size_t i = 0; i < count; i++) {
+        if (++places[entries[i].fn] == 2) {
+            g_ambiguous[entries[i].fn] = 1;
+        }
+    }
     for (size_t i = 0; i < count; i++) {
         auto [it, added] = table.emplace(entries[i].address, Entry{entries[i].fn, entries[i].name});
         if (!added && it->second.fn != entries[i].fn) {
@@ -163,6 +173,23 @@ int openrac_guest_overlay(void) {
 
 openrac_host_fn openrac_guest_function(gaddr address) {
     if (const Entry* e = find(address)) {
+        // A folded wrapper (addiu sp, -16; sq ra; jal T; nop; lq ra; jr ra; addiu sp, 16): this
+        // place's own target, read from the program in memory.
+        for (int depth = 0; depth < 4 && g_ambiguous.count(e->fn) != 0; ++depth) {
+            std::uint32_t w[7];
+            std::memcpy(w, G(address), sizeof(w));
+            if (w[0] != 0x27BDFFF0u || w[1] != 0x7FBF0000u || (w[2] >> 26) != 3 || w[3] != 0
+                || w[4] != 0x7BBF0000u || w[5] != 0x03E00008u || w[6] != 0x27BD0010u) {
+                break;
+            }
+            const gaddr target = (address & 0xF0000000u) | ((w[2] & 0x03FFFFFFu) << 2);
+            const Entry* t = find(target);
+            if (t == nullptr) {
+                break;
+            }
+            address = target;
+            e = t;
+        }
         return e->fn;
     }
     if (strict()) {
@@ -174,6 +201,28 @@ openrac_host_fn openrac_guest_function(gaddr address) {
     }
     g_unknown_target = address;
     return unknown_function;
+}
+
+gaddr openrac_guest_nearest(const uint32_t* places, int count, gaddr caller) {
+    // places: (overlay + 1) << 24 | address; the loaded program's place nearest the caller (the
+    // caller and the copy it calls come from one object file, so they sit together).
+    const int overlay = g_overlay_source != nullptr ? g_overlay_source() : g_overlay;
+    gaddr best = 0;
+    gaddr fallback = 0;
+    for (int i = 0; i < count; ++i) {
+        const int o = static_cast<int>(places[i] >> 24) - 1;
+        const gaddr a = places[i] & 0x00FFFFFFu;
+        if (fallback == 0 || o == OPENRAC_OVERLAY_EXE) {
+            fallback = a;
+        }
+        if (o == overlay) {
+            const auto distance = [caller](gaddr x) { return x > caller ? x - caller : caller - x; };
+            if (best == 0 || distance(a) < distance(best)) {
+                best = a;
+            }
+        }
+    }
+    return best != 0 ? best : fallback;
 }
 
 const char* openrac_guest_function_name(gaddr address) {

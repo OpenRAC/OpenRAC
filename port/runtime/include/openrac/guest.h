@@ -177,6 +177,11 @@ static inline gaddr OPENRAC_CODE(gaddr a) {
     return openrac_relocate_high != 0 ? openrac_relocate_code(a) : a;
 }
 
+/* Of a function the catalogue folded (one name for tiny functions at several addresses of one
+ * program), the loaded program's place nearest `caller`; places are (overlay + 1) << 24 |
+ * address. A call through that place goes where its code calls (openrac_guest_function). */
+gaddr openrac_guest_nearest(const uint32_t* places, int count, gaddr caller);
+
 /* Level to level: a function several levels' programs carry is written with the addresses of the
  * level its name gives (rac1: func_L05_... has level 5's). OPENRAC_LDATA and OPENRAC_LCODE give
  * the loaded level's address for one of that level's; the tables come from pairing the function's
@@ -189,6 +194,24 @@ gaddr openrac_relocate_level_data(int from, gaddr address);
 gaddr openrac_relocate_level_code(int from, gaddr address);
 #define OPENRAC_LDATA(from, a) openrac_relocate_level_data((from), (a))
 #define OPENRAC_LCODE(from, a) openrac_relocate_level_code((from), (a))
+
+/* The EE FPU's divide, for the game's float `/`: no infinities or NaNs. A divisor of zero (or a
+ * denormal, which the EE reads as zero) gives +-FLT_MAX with the operands' signs XORed, and a
+ * quotient too large saturates the same way, where the host would give infinity (and NaN from
+ * there on: an animation loop that never ends). */
+static inline float openrac_fdiv(float a, float b) {
+    uint32_t ua, ub;
+    memcpy(&ua, &a, 4);
+    memcpy(&ub, &b, 4);
+    if ((ub & 0x7F800000u) == 0) {
+        return ((ua ^ ub) & 0x80000000u) != 0 ? -3.40282347e38f : 3.40282347e38f;
+    }
+    const float q = a / b;
+    if (__builtin_isinf(q)) {
+        return q < 0.0f ? -3.40282347e38f : 3.40282347e38f;
+    }
+    return q;
+}
 
 /* A function the game calls that has no C in the port yet: still assembly in
  * the decompilation, or a library the port has not replaced. Logged once per

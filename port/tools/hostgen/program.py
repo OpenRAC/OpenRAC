@@ -74,6 +74,7 @@ class Program:
     functions: dict[str, Function] = field(default_factory=dict)
     statics: dict[tuple[str, str], Function] = field(default_factory=dict)
     places: dict[str, list[tuple[int, int]]] = field(default_factory=dict)  # symbol -> (overlay, addr)
+    sizes: dict[str, int] = field(default_factory=dict)  # catalogued symbol -> bytes
     symbols: dict[str, int] = field(default_factory=dict)  # other named globals -> address
     typedefs: dict[str, set] = field(default_factory=dict)  # name -> desugared type strings
     host: set = field(default_factory=set)  # functions the port writes by hand (port/game/<game>/)
@@ -272,6 +273,8 @@ def read_places(path: Path, program: Program) -> int:
                 places.append((int(level), int(addr, 16)))
         if places:
             program.places[cols[0]] = places
+            if cols[2].isdigit():
+                program.sizes[cols[0]] = int(cols[2])
             count += 1
     return count
 
