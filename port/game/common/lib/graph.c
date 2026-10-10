@@ -113,7 +113,17 @@ static void set_transfer(
     t->trxreg_reg = 0x52;
     t->trxdir = (uint64_t)dir;
     t->trxdir_reg = 0x53;
-    t->image_tag[0] = bits(2, 58, 2); /* IMAGE; NLOOP is set when it is sent */
+    /* IMAGE, with the rectangle's size in quadwords as NLOOP: the game also sends a transfer
+     * built here in its own display list (the pause menu's frame snapshot, 64 x 64 strips), and
+     * the GS then takes exactly that much image data after the tag. */
+    if (dir == 0) {
+        const int bpp = psm == 0x00 ? 32 : psm == 0x01 ? 24 : (psm == 0x02 || psm == 0x0A) ? 16
+                        : psm == 0x13 ? 8 : psm == 0x14 ? 4 : 32;
+        const uint64_t qwords = ((uint64_t)w * (uint64_t)h * (uint64_t)bpp / 8 + 15) / 16;
+        t->image_tag[0] = bits(qwords > 0x7FFF ? 0x7FFF : qwords, 0, 15) | bits(1, 15, 1) | bits(2, 58, 2);
+    } else {
+        t->image_tag[0] = bits(2, 58, 2); /* IMAGE; nothing follows a GS-to-host transfer's tag */
+    }
     t->image_tag[1] = 0;
 }
 
