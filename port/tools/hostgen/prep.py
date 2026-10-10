@@ -173,6 +173,39 @@ def prepare(text: str) -> str:
 _INCLUDE_ASM = re.compile(r'^[ \t]*(?:INCLUDE_ASM|ASM_FUNC|LINKER_REMNANT)\(\s*"[^"]*"\s*,\s*(\w+)\s*\)\s*;?[ \t]*(?:/\*.*?\*/)?[ \t]*$', re.M)
 
 
+# A file-scope declaration of a game symbol (data or function) with no assembler name of its own.
+_GAME_DECL = re.compile(
+    r'^(?:extern[ \t]+)?[A-Za-z_][\w \t\*]*?[ \t\*]((?:D|func)_\w+)([^;{}=]*);', re.M)
+_DEFINED = re.compile(r'^[A-Za-z_][\w \t\*]*?[ \t\*]((?:D|func)_\w+)\s*\([^;{}]*\)\s*\{', re.M)
+
+
+def own_declarations(text: str, tag: str) -> str:
+    """The candidate's declarations of game symbols, under names of its own.
+
+    Several candidates can end up in one file, beside the matched C, and each
+    declares what it uses its own way (a table as int * here, as char there).
+    C rejects two declarations of one name with different types, so each
+    declared name becomes NAME<tag> with the assembler name NAME: the same
+    symbol for hostgen, a separate declaration for Clang. Names the candidate
+    defines keep theirs."""
+    defined = set(_DEFINED.findall(text))
+    names = []
+    for m in _GAME_DECL.finditer(text):
+        name, tail = m.group(1), m.group(2)
+        if name in defined or "__asm__" in tail or "SDATA(" in tail or "__attribute__" in tail or "," in tail.split("(")[0]:
+            continue
+        if name not in names:
+            names.append(name)
+    for name in names:
+        text = re.sub(r'"(?:\\.|[^"\\\n])*"|\b' + name + r'\b',
+                      lambda m: m.group(0) if m.group(0).startswith('"') else name + tag, text)
+        # The assembler name goes after the declarator, before attribute macros (MACRO_ADDR).
+        text = re.sub(r'^((?:extern[ \t]+)?[A-Za-z_][\w \t\*]*?[ \t\*]' + name + tag
+                      + r'\b[^;{}=]*?)((?:[ \t]+[A-Z][A-Z0-9_]*(?:\([^;()]*\))?)*)[ \t]*;',
+                      lambda m: f'{m.group(1)} __asm__("{name}"){m.group(2)};', text, flags=re.M)
+    return text
+
+
 def use_candidates(text: str, candidates: dict[str, str], used: set[str]) -> str:
     """Puts candidate C in place of the assembly stubs it is written for.
 
@@ -191,7 +224,8 @@ def use_candidates(text: str, candidates: dict[str, str], used: set[str]) -> str
         text = candidates[name]
         if id(text) not in added:   # one file of C for several functions goes in once
             added.add(id(text))
-            tail.append(f"\n/* hostgen: {name} from a candidate, not the matched C */\n{prepare(text)}")
+            tail.append(f"\n/* hostgen: {name} from a candidate, not the matched C */\n"
+                        f"{own_declarations(prepare(text), f'_hc{len(added)}')}")
         return ""
 
     text = _INCLUDE_ASM.sub(blank, text)

@@ -44,6 +44,11 @@ static __inline__ void put(float *out, float x, float y, float z, unsigned w) {
     ((unsigned *)out)[3] = w;
 }
 
+/* out = (0, 0, 1, 0): the unit vector $vf0 rotated one field to the left. (vmr32) */
+void func_001F9BC8(float *out) {
+    put(out, 0.0f, 0.0f, 1.0f, 0);
+}
+
 /* out = a + b in x, y and z; w is a's. (vadd.xyz) */
 void func_001F9BD8(float *out, float *a, float *b) {
     float x = a[0] + b[0];
