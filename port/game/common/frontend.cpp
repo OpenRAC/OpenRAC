@@ -221,12 +221,18 @@ renderer::Mat4 rigid_inverse(const renderer::Mat4& m) {
 
 // The extracted level the title world is written as (editor/level.py load_title).
 constexpr int kTitleWorld = 99;
+// The flight between planets' sky, written as a level of its own (editor/level.py load_flight).
+constexpr int kFlightWorld = 98;
+// The game mode word (0x15F6E8); 6 in the boot program is the flight between planets.
+constexpr std::uint32_t kGameMode = 0x0015F6E8;
 
 // Uploads a level's geometry; while the boot program runs (the title and the main menu), the title
 // world's, or level 0's when the title world was not extracted.
 void use_level(int number) {
     int wanted = number;
-    if (number < 0) {
+    if (number == -2 && std::filesystem::exists(g->levels / std::format("level_{:02d}", kFlightWorld))) {
+        wanted = kFlightWorld;
+    } else if (number < 0) {
         wanted = std::filesystem::exists(g->levels / std::format("level_{:02d}", kTitleWorld)) ? kTitleWorld : 0;
     }
     if (wanted == g->loaded) {
@@ -434,7 +440,8 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     const int level = openrac_game_loaded_overlay();
     const viewer::GameAddresses& a =
         level >= 0 && level < 19 ? viewer::kRac1PalLevels[level] : viewer::kRac1Pal;
-    use_level(level >= 0 && level < 19 ? level : -1);
+    // The boot program's worlds: the flight between planets (game mode 6), else the title world.
+    use_level(level >= 0 && level < 19 ? level : word_at(ram, kGameMode) == 6 ? -2 : -1);
     viewer::GameState state = viewer::read_game_state(ram, a);
     // The world is drawn from the camera the game's world renderers used, not from whatever the
     // camera globals hold at the end of the frame (the page menu sets its own camera, at

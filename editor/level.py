@@ -164,3 +164,28 @@ def load_title(disc: Disc, survey: dict) -> Level:
     level.boundaries = core_boundaries(level)
     level.textures = textures(level, lump[h(0):base])
     return level
+
+
+# The flight between planets: the transition lump (global table 0x13b8) that the levels'
+# EnterSpaceLoadingLoop loads. As ReRAC reads it (crates/rc-formats/src/transition.rs; ISC License,
+# Copyright (c) 2026 ReRAC contributors), header word 1 is the data base and word 0x12 the sky
+# block (six shells with their own textures), which LoadSky makes the flight's sky. Exported as
+# level 98 with that sky alone: the planet picture, the caption and the ship are the game's draws.
+FLIGHT_ID = 98
+
+
+def load_flight(disc: Disc, survey: dict) -> Level:
+    ref = next(r for r in survey["global_references"] if r["group"] == "transition")
+    lump = decoded(disc.sectors(ref["lba"], (ref["bytes"] + SECTOR - 1) // SECTOR))
+    base, sky_at = unpack("<I", lump, 4)[0], unpack("<I", lump, 0x12 * 4)[0]
+    if not 0 < base <= len(lump) or not 0 < sky_at < len(lump) - base:
+        raise FormatError(f"flight: data base {base:#x}, sky {sky_at:#x}")
+    data = lump[base:]
+    header = bytearray(TITLE_INDEX_TABLES)
+    struct.pack_into("<I", header, 0x10, sky_at)
+    struct.pack_into("<I", header, 0x8c, len(data))
+    level = Level(FLIGHT_ID, b"", {}, bytes(header), data, bytes(0x100), {"entry_point": 0, "sections": []})
+    level.boundaries = core_boundaries(level)
+    level.textures = {}
+    return level
+
