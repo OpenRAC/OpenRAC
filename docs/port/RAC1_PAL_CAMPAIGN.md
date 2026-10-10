@@ -1278,6 +1278,60 @@ hero vectors, moby fields, status, mode-dependent search and callbacks.
 Then repeat the strict 2400-frame route to test respawn. Existing dirty
 work preserved. Local commits only, no push or assistant credit trailer.
 
+### Checkpoint restoration, 2026-10-10 continuation
+
+Planar limiter is committed as 9a0cdbe. Recovered func_L00_002862E0
+(0x1B4) in native hand/level_checkpoint_restore.c. Reviewed the complete
+retail body and its hero-switch callee. Preserve the full-word validity
+flag, 0xC60 clear/copy, hero vector bits, moby fields, status bytes and
+halfword, mode-dependent object search, and callback ordering. Correct
+the candidate's omitted third argument: the found object remains in a2
+and is consumed by func_L00_002110C0. Keep pointer arguments native-safe
+and reload the hero object after callbacks. This is native-only recovery;
+no matching source or progress change, and no missing-call bypass.
+
+Final build and 66/66 CTest pass without compiler warnings:
+.tools/native-checkpoint-restore-final-build.log. Focused fixture also
+passes on i686 (.tools/checkpoint_restore-test32.exe). Covers invalid and
+high-byte-valid flags, complete copies with guard bytes, unchanged source
+and unrelated fields, vector NaN/signed-zero bits, mode 0/3 skipping,
+mode 1/2 first-match/exhaustion/empty/reversed ranges, invalid-mode assert
+callback, found-object argument, callback order and hero pointer reload.
+Initial build exposed C89 loop-variable scope; fixed before final checks.
+Generated guest pointers, full-word mode arguments, 0x100 search stride,
+copy alias and retail sound-wrapper call routing were inspected. Hostgen:
+3847 translated, no unreadable units, index problems or other problems.
+
+Strict direct-Veldin probes, movies skipped, isolated no-card state,
+OPENRAC_TRACE_INPUT=1, no keep-going:
+- checkpoint-restore-verified, 2400 frames, ShotEvery 200, exit 0.
+  Press: 0:0:1200:128:128,100:4000:5,1200:0:700:128:0,1450:8000:5,1600:4000:5,1620:4000:5
+  Passes the old frame-1905 stop and respawns at (132.09,115.48,31.43)
+  by frame 2000. Reviewed screenshot 2000: hero back beside the ship.
+- checkpoint-resume-verified, 2700 frames, ShotEvery 100, exit 0.
+  Same Press plus: ,1900:0:300:128:128,2200:0:150:128:0,2380:4000:5
+  After respawn, moves to (147.25,120.68), jumps to z=30.80 at 2400,
+  and lands at z=29.48 by 2500. Posed joints remain finite.
+Logs/screenshots: parent .tools/native-run/<probe-name>*.
+These prove this fall/respawn and subsequent movement/jump route, not
+every saved-checkpoint mode or full combat/double-jump behavior. The
+original fall still needs an intended-ledge versus collision assessment.
+
+No new strict missing call was reached on these routes. Next action:
+claim func_L00_0025EFC0 (0x39C), the remaining projection dependency in
+shared/mobyutil_00258BC8.c; no nonmatching/shared candidate exists.
+Review the complete retail routine and callees, and callers in
+help_002180F8.c / help_0022A340.c. Preserve its three vector/path pointers,
+segment-index and fraction outputs, integer mode, three float arguments
+and integer return. Reproduce its branch behavior with a focused fixture
+before implementing; do not treat its current void stub/zero coercion as
+valid output. Then extend strict Veldin collision/combat exploration to
+exercise it. Saves, other levels and the full campaign remain unverified.
+
+Existing tracked work and all 18 baseline untracked C files are preserved
+(hash-checked). No game left running. Release the restoration claim after
+commit. Local commits only; no push or assistant credit trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
