@@ -5,8 +5,11 @@
  * everything below it ran on the IOP (docs/port/RAC1_PAL_SURVEY.md, section
  * 8). Until the port's sound engine exists (banks, voices, VAG streams,
  * music, movie sound: docs/port/ROADMAP.md), the game is silent: banks
- * "load", sounds finish at once, streams are never buffered. Disc reads made
- * through the library's stream-safe calls go to the disc replacement. */
+ * "load" and sounds finish at once. A VAG stream (music, a scene's sound)
+ * answers as if the IOP had it buffered at once and played it until it is
+ * stopped, so what waits on a stream (a level's landing scene waits for its
+ * sound to be playing) goes on. Disc reads made through the library's
+ * stream-safe calls go to the disc replacement. */
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
@@ -75,10 +78,39 @@ void openrac_lib_snd_ContinueAllSoundsInGroup(int group) {
     (void)group;
 } /* snd_ContinueAllSoundsInGroup */
 
+/* The streams playing: handles this library gave out, tagged so that a sound's handle is never
+ * taken for one. */
+#define STREAM_TAG 0x40000000u
+#define STREAMS 16
+static uint32_t streams[STREAMS];
+static uint32_t next_stream = 1;
+
+static int stream_live(uint32_t handle) {
+    if ((handle & 0xFF000000u) != STREAM_TAG) {
+        return 0;
+    }
+    for (int i = 0; i < STREAMS; ++i) {
+        if (streams[i] == handle) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void stream_stop(uint32_t handle) {
+    for (int i = 0; i < STREAMS; ++i) {
+        if (streams[i] == handle || handle == 0) {
+            streams[i] = 0;
+        }
+    }
+}
+
+/* snd_SoundIsStillPlaying_CB(handle, callback, argument): callback(handle) while it plays,
+ * callback(0) once it has ended (a sound at once; a stream when stopped). */
 void openrac_lib_snd_SoundIsStillPlaying_CB(int a, int b, int c) {
-    (void)a;
-    (void)b;
-    (void)c;
+    if (b != 0) {
+        GFN(void (*)(int, long long), (gaddr)b)(stream_live((uint32_t)a) ? a : 0, (long long)c);
+    }
 } /* snd_SoundIsStillPlaying_CB */
 
 void openrac_lib_snd_reset_state_and_flush_commands(void) {
@@ -92,8 +124,19 @@ int openrac_lib_snd_InitVAGStreamingEx(int a, int b, int c, int d) {
     return 0;
 } /* snd_InitVAGStreamingEx */
 
-void openrac_lib_snd_StopAllStreams(void) {} /* snd_StopAllStreams */
+void openrac_lib_snd_StopAllStreams(void) {
+    stream_stop(0);
+} /* snd_StopAllStreams */
 
+/* snd_StopSound(handle): a sound has ended already; a stream ends. */
+void openrac_lib_snd_StopSound(int handle) {
+    if (handle != 0) {
+        stream_stop((uint32_t)handle);
+    }
+} /* snd_StopSound */
+
+/* snd_PlayVAGStreamByLocEx_CB(..., callback, argument): the stream starts; the callback gets its
+ * handle, as the IOP's answer would. */
 void openrac_lib_snd_PlayVAGStreamByLocEx_CB(
     int a, int b, int c, int d, int e, int f, int g, int h, int i, int j, long long k
 ) {
@@ -106,8 +149,16 @@ void openrac_lib_snd_PlayVAGStreamByLocEx_CB(
     (void)g;
     (void)h;
     (void)i;
-    (void)j;
-    (void)k;
+    uint32_t handle = STREAM_TAG | (next_stream++ & 0x00FFFFFFu);
+    for (int s = 0; s < STREAMS; ++s) {
+        if (streams[s] == 0) {
+            streams[s] = handle;
+            break;
+        }
+    }
+    if (j != 0) {
+        GFN(void (*)(int, long long), (gaddr)j)((int)handle, k);
+    }
 } /* snd_PlayVAGStreamByLocEx_CB */
 
 void openrac_lib_snd_PauseVAGStream(int stream) {
@@ -118,16 +169,19 @@ void openrac_lib_snd_ContinueVAGStream(int stream) {
     (void)stream;
 } /* snd_ContinueVAGStream */
 
+/* snd_GetVAGStreamTimeRemaining_CB(handle, callback, argument): a playing stream has a minute
+ * left (no stream is read yet, so none ends by itself); a stopped one none. */
 void openrac_lib_snd_GetVAGStreamTimeRemaining_CB(int a, int b, int c) {
-    (void)a;
-    (void)b;
-    (void)c;
+    if (b != 0) {
+        GFN(void (*)(int, long long), (gaddr)b)(stream_live((uint32_t)a) ? 60000 : 0, (long long)c);
+    }
 } /* snd_GetVAGStreamTimeRemaining_CB */
 
+/* snd_IsVAGStreamBuffered_CB(handle, callback, argument): a playing stream is buffered. */
 void openrac_lib_snd_IsVAGStreamBuffered_CB(int a, int b, int c) {
-    (void)a;
-    (void)b;
-    (void)c;
+    if (b != 0) {
+        GFN(void (*)(int, long long), (gaddr)b)(stream_live((uint32_t)a), (long long)c);
+    }
 } /* snd_IsVAGStreamBuffered_CB */
 
 void openrac_lib_snd_StreamSafeCheckCDIdle(int a) {

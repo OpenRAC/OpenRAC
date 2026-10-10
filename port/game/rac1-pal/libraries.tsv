@@ -132,6 +132,7 @@ func_0012E2E8	989snd	snd_ResolveBankXREFS	host
 func_0012E318	989snd	snd_UnloadBank	host
 func_0012E348	989snd	snd_SetMasterVolume	host
 func_0012E380	989snd	snd_SetPlaybackMode	host
+func_0012E4A8	989snd	snd_StopSound	host
 func_0012E4F8	989snd	snd_StopAllSounds	host
 func_0012E528	989snd	snd_PauseAllSoundsInGroup	host
 func_0012E558	989snd	snd_ContinueAllSoundsInGroup	host
