@@ -159,6 +159,7 @@ func_0012F2B8	989snd	snd_GetMovieNAX	host
 func_0012F2E0	989snd	snd_GetDopplerPitchMod	host
 func_0012DA38	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's functions
 func_001F4630	draw	SetupGifPaging	wrap	sets the four draw flags at 0x18A3D0 retail has on before its first frame (nothing in the game's code stores them by name)
+func_00209DC0	memcard	NewGameInit	wrap	a new game starts in level 0; with --level N it starts in level N instead (host/boot.c)
 func_0012F348	wad	wad_GetSectors	game
 func_0012F3F8	wad	load_disc_sectors_into_global_buffer	game
 func_0012F4A8	wad	read_file_entry_with_retry	game

@@ -6,6 +6,7 @@
 // (openrac_game, generated from port/game/<id>/hostgen.json).
 //
 //   openrac-<id> --data <install>/active/<game>/data [--cards DIR] [--frames N] [--keep-going]
+//                [--level N]
 //
 // The data folder is what the extractor made from the player's disc
 // (tools/extractor.py; the launcher's "Set up from your disc"). The program
@@ -56,6 +57,7 @@ const char* openrac_game_disc_image = nullptr;
 const char* openrac_game_card_dir = nullptr;
 int openrac_game_language = 1;
 int openrac_game_no_card = 0;
+int openrac_game_start_level = -1;
 }
 
 namespace {
@@ -86,7 +88,7 @@ std::string program_name() {
 [[noreturn]] void usage(const std::string& why) {
     log::error("{}", why);
     log::error(
-        "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--keep-going]",
+        "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--keep-going] [--level N]",
         program_name(),
         openrac_game.game
     );
@@ -134,6 +136,8 @@ Options parse(int argc, char** argv) {
             o.levels = value();
         } else if (a == "--frames") {
             o.frames = std::stol(value());
+        } else if (a == "--level") {
+            openrac_game_start_level = std::stoi(value());
         } else if (a == "--keep-going") {
             o.keep_going = true;
         } else if (a == "--help" || a == "-h") {

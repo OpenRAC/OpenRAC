@@ -132,6 +132,10 @@ int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start
 /* Nonzero: no memory card is inserted in either port (--no-card). */
 extern int openrac_game_no_card;
 
+/* --level N: the level a new game starts in (the game's own number), or -1 for the game's own
+ * first level. For getting to a level directly, as the behaviour checker's level write does. */
+extern int openrac_game_start_level;
+
 int openrac_game_pad(int port, uint16_t* buttons, uint8_t analog[4]);
 
 /* ---- Inside the replacements ---- */

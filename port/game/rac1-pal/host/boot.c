@@ -51,3 +51,13 @@ void func_001F4630(int arg0) {
     }
     func_001F4630__game(arg0);
 }
+
+/* NewGameInit: a new game's state is a fresh save restored from the disc, with the level set to 0
+ * (Veldin); the level's files are read right after. With --level N the new game starts in level N
+ * instead, the way the behaviour checker reaches a level with its level write. */
+void func_00209DC0(void) {
+    func_00209DC0__game();
+    if (openrac_game_start_level >= 0 && openrac_game_start_level < LEVELS) {
+        GREF(int, CURRENT_LEVEL) = openrac_game_start_level;
+    }
+}
