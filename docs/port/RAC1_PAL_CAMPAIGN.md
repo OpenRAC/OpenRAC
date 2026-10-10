@@ -452,6 +452,43 @@ workspace remains untouched at `c71be5c`; the merge is on local branch
 the working branch forward while preserving its edits before resuming
 campaign work there.
 
+### Equipment attachment, 2026-10-10 continuation
+
+Fast-forwarded the working branch to the verified PR merge `359e61a` and
+restored the existing local edits. The only obsolete local code was the
+uncapped timing block, now supplied by upstream; removed its duplicate
+declaration. The backup stash is retained (its ID is in the parent
+`.tools/native-resume-stash.txt`). The excluded credit-preference edits
+and unrelated startup implementations remain uncommitted.
+
+Implemented native-only `func_L00_0020FC18` from PAL 0020FC18..0021033C and
+the sibling's shared candidate. Explicit pointer fields preserve EE
+layout. Covers seven slots, secondary items, detached/Euler/matrix modes,
+glove/head/boot poses, auxiliary allocation and pulsing color. The joint
+buffer is one 64-byte matrix, with translation at +0x30; the old candidate's
+separate arrays did not guarantee that layout. Preserves the zero-period
+trap. No matching sources or reports changed.
+
+- Full build and 48/48 CTest tests pass: `.tools/native-attach-build.log`.
+- Synthetic fixture also passes independent 32-bit and 64-bit builds;
+  EE offset assertions, slot filtering, flag preservation, pose selection,
+  matrix output, scratch restoration, failed/deleted/inactive auxiliary
+  models, color limits and invalid-period handling are covered.
+- Hostgen: 378 readable units, 3,818 translated functions, 199 candidates,
+  3 stubs, 1,145 without C; no unreadable units or index problems.
+- Fresh New Game probe before: exit 2 at frame 2827, missing attachment.
+  After: exit 2 at frame 2828, missing `func_0020EEE8`. Logs:
+  `.tools/native-run/attach-before.log` and `attach-verified.log`.
+  Uses the earlier 5200-frame input sequence and isolated no-card setup,
+  now with `--stop-on-missing` explicitly added to `Invoke-NativeProbe.ps1`.
+  No frame-3000 screenshot or playable gameplay is claimed.
+
+Exact next action: implement the handwritten `func_0020EEE8` stored-row
+bounding-sphere update, including the shared `func_0020ED80` tail in
+`asm/handwritten/text/func_0020ED48.s`. Validate sequence blend/cache,
+reflected basis, world extent and packed grid update, then rerun this
+strict New Game probe. Local commits only; no new push.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,

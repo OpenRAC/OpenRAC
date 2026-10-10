@@ -93,6 +93,11 @@ target_compile_options(hero_items_test PRIVATE -fno-strict-aliasing -ffp-contrac
 openrac_warnings(hero_items_test)
 add_test(NAME hero_items COMMAND hero_items_test)
 
+add_executable(hero_attach_test tests/hero_attach_test.c)
+target_compile_options(hero_attach_test PRIVATE -fno-strict-aliasing -ffp-contract=off)
+openrac_warnings(hero_attach_test)
+add_test(NAME hero_attach COMMAND hero_attach_test)
+
 if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()
