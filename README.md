@@ -15,7 +15,7 @@ OpenRAC holds no game code or assets. You build it from your own discs.
 | Game | Version | Code matched | Functions | Fuzzy |
 |---|---|---:|---:|---:|
 | Ratchet & Clank | SCES_509.16 ([`games/rac1/pal`](games/rac1/pal)) | 78.50% (2,914,476 / 3,712,808 bytes) | 4,214 / 5,109 | 79.78% |
-| Ratchet & Clank | SCUS_971.99 ([`games/rac1/ntsc`](games/rac1/ntsc)) | 68.20% (2,419,468 / 3,547,428 bytes) | 3,532 / 4,237 | 69.82% |
+| Ratchet & Clank | SCUS_971.99 ([`games/rac1/ntsc`](games/rac1/ntsc)) | 68.55% (2,431,648 / 3,547,428 bytes) | 3,549 / 4,237 | 70.14% |
 | Ratchet & Clank: Going Commando | SCUS_972.68 ([`games/rac2/ntsc`](games/rac2/ntsc)) | 1.09% (531,224 / 48,788,176 bytes) | not counted | – |
 | Ratchet & Clank: Up Your Arsenal | SCUS_973.53 ([`games/rac3/ntsc`](games/rac3/ntsc)) | 1.28% (164,764 / 12,838,776 bytes) | 1,292 / 31,316 | 1.28% |
 | Ratchet: Deadlocked | SCUS_974.65 ([`games/rac4/ntsc`](games/rac4/ntsc)) | 0.51% (26,572 / 5,175,440 bytes) | 243 / 15,056 | 0.51% |

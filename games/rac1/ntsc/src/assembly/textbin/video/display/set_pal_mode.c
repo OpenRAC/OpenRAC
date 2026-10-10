@@ -2,12 +2,14 @@
 #include "asm.h"
 #include "sda.h"
 #include "rnc/rendering/draw_environment.h"
+#include "rnc/globals.h"
 
 #ifndef NON_MATCHING
 INCLUDE_ASM("config/us/expected/asm/assembly/textbin/video/display/set_pal_mode/FUN_001f34e8.s",
             FUN_001f34e8);
 #else
 #include "types.h"
+#include "rnc/globals.h"
 #include "rnc/rendering/fs_aa_buffer.h"
 #include "rnc/rendering/image_clear_buffer.h"
 #include "rnc/rendering/screen.h"
@@ -18,7 +20,6 @@ extern s32 first_image_buffer_address __asm__("D_0015EE74");
 extern s32 second_image_buffer_address __asm__("D_0015EE78");
 extern s32 display_buffer_address __asm__("D_0015EE80");
 extern s32 draw_buffer_address __asm__("D_0015EE84");
-extern s32 depth_buffer_address __asm__("D_0015EE88");
 extern s32 image_buffer_address __asm__("D_0015EE8C");
 extern void FillTransferWords(u8 *, s32, s32);
 extern void FlushCache(s32);
@@ -70,16 +71,16 @@ void set_pal_mode(void) {
     zbuf = (depth_buffer_address >> 13) | 0x1000000;
     frame = (draw_buffer_address >> 13) | ((u64)(screen_extent.width >> 6) << 16);
     scissor = ((u64)(screen_extent.width - 1) << 16) | ((u64)(screen_extent.height - 1) << 48);
-    draw_environment.scissor1 = scissor;
     first_image_buffer_address = image_buffer_address;
+    draw_environment.scissor1 = scissor;
     masked_depth_buffer_register = zbuf | ((u64)0x8000 << 17);
     second_image_buffer_address = image_buffer_address;
-    draw_environment.zbuf2 = zbuf;
     draw_environment.zbuf1 = zbuf;
+    draw_environment.zbuf2 = zbuf;
+    depth_buffer_register = zbuf;
     draw_environment.frame2 = draw_environment.frame1 = frame;
     draw_environment.xyoffset2 = screen_extent.left | ((u64)screen_extent.top << 32);
     draw_environment.xyoffset1 = screen_extent.left | ((u64)screen_extent.top << 32);
-    depth_buffer_register = zbuf;
     draw_environment.scissor2 = scissor;
     FlushCache(0);
     put_draw_buffer_large();

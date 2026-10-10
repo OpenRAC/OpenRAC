@@ -1,5 +1,6 @@
 #include "types.h"
 #include "asm.h"
+#include "rnc/globals.h"
 
 #ifndef NON_MATCHING
 INCLUDE_ASM("config/us/expected/asm/assembly/textbin/audio/voices/sound_update/FUN_0022ca50.s",
@@ -75,7 +76,6 @@ typedef struct {
 
 extern VoiceRuntimeState D_0013E550;
 extern f32 D_0013F640[];
-extern f32 D_0015ED6C;
 extern s32 D_0015F5E8;
 extern s32 D_0015F604;
 extern s32 D_0015F60C;
@@ -176,15 +176,14 @@ s32 sound_update(void) {
         history_index %= 4;
         *history_position = history_index;
     }
-    qcopy(&D_0013E550.listener_history[history_index], &D_00187080);
-
     listener_sample_count = 0;
+    qcopy(&D_0013E550.listener_history[history_index], &D_00187080);
     previous_history_index = (history_index + 3) % 4;
     if (previous_history_index != history_index) {
         do {
             subtract_vector_xyz(&relative_velocity, &D_0013E550.listener_history[history_index],
                                 &D_0013E550.listener_history[previous_history_index]);
-            if (!(vector_length_xyz(&relative_velocity) < D_0015ED6C * 60.0f)) {
+            if (!(vector_length_xyz(&relative_velocity) < frame_time * 60.0f)) {
                 break;
             }
             listener_sample_count++;
