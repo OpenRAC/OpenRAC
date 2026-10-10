@@ -158,6 +158,11 @@ private:
     TexturePool& m_textures;
     DirectConfig m_config;
 
+    // The frame buffers drawn to since the last clear, as texture base pointers (blocks): a
+    // primitive textured from one of them reads back what was drawn (a full-screen blur, a
+    // copy). Without render-to-texture those are left out rather than drawn with a wrong texture.
+    std::vector<std::uint32_t> m_targets;
+
     Context m_context[2];
     gs::Prim m_prim{};
     gs::Prim m_prmode{};

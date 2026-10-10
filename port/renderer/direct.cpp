@@ -3,6 +3,8 @@
 
 #include "renderer/direct.h"
 
+#include <cstdlib>
+
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -62,6 +64,7 @@ GifInterpreter::GifInterpreter(TexturePool& textures, DirectConfig config)
 }
 
 void GifInterpreter::clear() {
+    m_targets.clear();
     m_vertices.clear();
     m_draws.clear();
     m_error.clear();
@@ -356,9 +359,11 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
             break;
         case gs::kFrame1:
             c1.frame = gs::Frame::decode(value);
+            m_targets.push_back(c1.frame.fbp * 32);
             break;
         case gs::kFrame2:
             c2.frame = gs::Frame::decode(value);
+            m_targets.push_back(c2.frame.fbp * 32);
             break;
         case gs::kZbuf1:
             c1.zbuf = gs::Zbuf::decode(value);
@@ -444,6 +449,15 @@ void GifInterpreter::image_data(std::span<const std::uint8_t> data) {
 
 void GifInterpreter::kick(bool draw) {
     m_queue[m_queued++] = m_current;
+    if (draw && attributes().tme) {
+        const std::uint32_t tbp = context().tex0.tbp0;
+        for (const std::uint32_t target : m_targets) {
+            if (tbp == target) {
+                draw = false;  // reads a frame buffer back (see m_targets)
+                break;
+            }
+        }
+    }
     switch (m_prim.kind) {
         case gs::PrimKind::Point:
             if (draw) {
@@ -605,6 +619,17 @@ void GifInterpreter::emit_quad(const DirectVertex corners[4]) {
 }
 
 void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
+    // An untextured sprite as tall as the scissor rectangle fills the frame (a clear, in strips, or a
+    // full-screen fade). The game draws those before its world; the port's world renderers draw
+    // before the 2D path, which would put the fill on top. The frame is cleared by the renderer,
+    // so fills are left out until the direct path is ordered with the world buckets.
+    if (!attributes().tme) {
+        const gs::Scissor& sc = context().scissor;
+        const std::int64_t height = std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16;
+        if (height + 2 >= static_cast<std::int64_t>(sc.y1) - static_cast<std::int64_t>(sc.y0)) {
+            return;
+        }
+    }
     // A sprite is a rectangle from two corners; depth, colour and fog come
     // from the second vertex. Texture coordinates go to S/Q, T/Q per corner
     // (a sprite has no perspective).
