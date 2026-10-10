@@ -22,7 +22,9 @@ namespace openrac::frontend {
 bool open(const std::string& game_id, const std::filesystem::path& levels, std::string& error);
 
 // Draws a frame from the game's main memory and reads the input; false once the window was closed.
-bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain);
+// `draws`: the layers the game's renderers drew this frame (bit n = renderer::Bucket n; all bits
+// when the game does not report them).
+bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws);
 
 // An image the game sent to the GS outside the display list (its library's image transfer): kept
 // for every renderer the window makes, as the chip keeps it in its memory. `base` in 256-byte

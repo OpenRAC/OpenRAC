@@ -359,7 +359,7 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black) 
     return true;
 }
 
-bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
+bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws) {
     if (!g) {
         return true;
     }
@@ -427,7 +427,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
         : std::array<float, 4>{0, 0, 0, 1};
     for (auto& r : g->renderer ? g->renderer->renderers() : std::span<const std::unique_ptr<renderer::BucketRenderer>>{}) {
         if (r->bucket() != renderer::Bucket::Hud) {
-            r->enabled = has_camera;
+            r->enabled = has_camera && (draws & (1u << static_cast<unsigned>(r->bucket()))) != 0;
         }
     }
     input.camera.view = state.view();

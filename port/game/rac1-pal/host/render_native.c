@@ -85,6 +85,7 @@ void func_00212578(int a0, int a1) {
 
 /* the moby renderer */
 int func_00212658(int a0, int a1, int a2, int a3) {
+    openrac_game_draw(OPENRAC_DRAW_MOBYS);
     (void)a0;
     (void)a1;
     (void)a2;
@@ -131,6 +132,7 @@ void func_002298B0(int a0, int a1) {
 
 /* ShrubProc, the shrub renderer */
 void func_00229F00(void) {
+    openrac_game_draw(OPENRAC_DRAW_SHRUBS);
 }
 
 /* BuildShrubTextureDma */
@@ -147,20 +149,24 @@ void func_0022B8F8(gaddr a0, gaddr a1) {
 
 /* SkyDrawShellTextured */
 void func_0022CA00(gaddr a0) {
+    openrac_game_draw(OPENRAC_DRAW_SKY);
     (void)a0;
 }
 
 /* SkyDrawShellGouraud */
 void func_0022CC40(gaddr a0) {
+    openrac_game_draw(OPENRAC_DRAW_SKY);
     (void)a0;
 }
 
 /* SkySpriteProc */
 void func_0022CEB8(void) {
+    openrac_game_draw(OPENRAC_DRAW_SKY);
 }
 
 /* TfragProc, the terrain renderer */
 void func_002352C8(void) {
+    openrac_game_draw(OPENRAC_DRAW_TERRAIN);
 }
 
 /* ComputeTfragTextureUsage */
@@ -180,6 +186,7 @@ void func_002362B0(gaddr a0) {
 
 /* TieProc, the tie renderer */
 void func_00236F00(void) {
+    openrac_game_draw(OPENRAC_DRAW_TIES);
 }
 
 /* BuildTieTextureDma */

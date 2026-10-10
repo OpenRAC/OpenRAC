@@ -98,6 +98,18 @@ typedef struct openrac_game_image {
 
 void openrac_game_load_image(const openrac_game_image* image);
 
+/* The game's own renderers were asked to draw these layers this frame (bits: 1 sky, 2 terrain,
+ * 4 ties, 8 shrubs, 16 mobys; renderer::Bucket's order). Its renderer entry points call this in
+ * the port, where they hand over to the port's renderers: the window draws a layer only in a
+ * frame the game drew it (no world behind a loading card or a menu over black). A game that never
+ * calls it gets its world drawn whenever it has a camera. */
+#define OPENRAC_DRAW_SKY 1u
+#define OPENRAC_DRAW_TERRAIN 2u
+#define OPENRAC_DRAW_TIES 4u
+#define OPENRAC_DRAW_SHRUBS 8u
+#define OPENRAC_DRAW_MOBYS 16u
+void openrac_game_draw(unsigned layers);
+
 /* Plays a PSS movie from the disc in the window, blocking as the game's own player does: `bytes`
  * bytes at sector `lsn`, the ADPCM channel `channel` (the language; channel 0 when the file has no
  * such channel). Start skips it when `start_skips` (the console's readMpeg rule for the caller).

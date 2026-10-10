@@ -168,6 +168,15 @@ void finish() {
 
 extern "C" {
 
+// What the game's renderers drew since the last frame (openrac_game_draw), and whether it reports.
+static unsigned g_draws = 0;
+static bool g_reports_draws = false;
+
+void openrac_game_draw(unsigned layers) {
+    g_draws |= layers;
+    g_reports_draws = true;
+}
+
 int openrac_game_vsync(void) {
     g_vsync_since_kick = true;
     // With a window, the renderer draws the frame from the game's memory; without one, a frame is
@@ -175,7 +184,9 @@ int openrac_game_vsync(void) {
 #ifdef OPENRAC_FRONTEND
     if (g_window) {
         const auto* ram = runtime::Memory::get().base();
-        if (!frontend::frame(std::span<const std::uint8_t>(ram, 32u * 1024 * 1024), g_chain)) {
+        const std::uint32_t draws = g_reports_draws ? g_draws : ~0u;
+        g_draws = 0;
+        if (!frontend::frame(std::span<const std::uint8_t>(ram, 32u * 1024 * 1024), g_chain, draws)) {
             std::exit(0);
         }
     }
@@ -331,13 +342,18 @@ int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start
                 std::exit(0);
             }
         }
+        // Start skips when pressed during the movie: what is held as it starts is not a press.
         std::uint16_t buttons = 0xFFFF;
         std::uint8_t analog[4];
         frontend::pad(0, &buttons, analog);
+        if (blank == 0) {
+            previous = buttons;
+        }
         const bool start_now = (buttons & 0x0008) == 0;
         const bool start_before = (previous & 0x0008) == 0;
         previous = buttons;
         if (start_skips && start_now && !start_before) {
+            log::info("movie at sector {}: Start pressed (pad {:#06x})", lsn, buttons);
             skipped = 1;
             break;
         }
