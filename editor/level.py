@@ -2,6 +2,7 @@
 
 from bisect import bisect_right
 from dataclasses import dataclass, field
+import struct
 
 from disc import LEVEL_HEADER_SIZE, SECTOR, Disc
 from formats import FormatError, Texture, overlay_sections, span, unpack, wad
@@ -107,3 +108,59 @@ def textures(level: Level, gs: bytes) -> dict[tuple[str, int], Texture]:
             result[(group, i)] = Texture(width, height, span(level.core, base + pixels, width * height),
                                          span(gs, palette * 256, 1024))
     return result
+
+
+# The title world: the space flight behind the title and the main menu (the boot program's
+# transition_load_wad). Its lump (global table 0x14e8) is a level core whose header lists the same
+# tables in another order; as ReRAC's TitleWorld (crates/rc-formats/src/frontend.rs; ISC License,
+# Copyright (c) 2026 ReRAC contributors) a level core index is rebuilt over it, so the level readers
+# read it unchanged. Exported as level 99.
+TITLE_ID = 99
+TITLE_INDEX_TABLES = 0x100
+
+
+def load_title(disc: Disc, survey: dict) -> Level:
+    ref = next(r for r in survey["global_references"] if r["group"] == "unknown_wad")
+    lump = decoded(disc.sectors(ref["lba"], (ref["bytes"] + SECTOR - 1) // SECTOR))
+
+    def h(i: int) -> int:
+        return unpack("<i", lump, i * 4)[0]
+
+    base, p = h(1), TITLE_INDEX_TABLES
+    if not 0 < base <= len(lump):
+        raise FormatError(f"title world: data base {base:#x}")
+    header = bytearray(TITLE_INDEX_TABLES)
+
+    def put(at: int, value: int) -> None:
+        struct.pack_into("<i", header, at, value)
+
+    def table(at: int, count: int, offset: int) -> None:
+        put(at, h(count))
+        put(at + 4, h(offset) + p)
+
+    table(0x00, 2, 3)          # the GS upload
+    put(0x08, h(4))            # tfrags
+    put(0x10, h(5))            # sky
+    table(0x18, 6, 7)          # moby classes
+    table(0x20, 8, 9)          # tie classes
+    table(0x28, 0xa, 0xb)      # shrub classes
+    table(0x30, 0xc, 0xd)      # tfrag textures
+    table(0x38, 0xe, 0xf)      # moby textures
+    table(0x40, 0x10, 0x11)    # tie textures
+    table(0x48, 0x12, 0x13)    # shrub textures
+    table(0x50, 0x14, 0x15)    # particle textures
+    table(0x58, 0x16, 0x17)    # effect textures
+    put(0x60, h(0x18))         # texture data
+    put(0x64, h(0x19))         # particle bank
+    put(0x68, h(0x1a))         # effect bank
+    put(0x6c, h(0x1b) + p)     # particle definitions
+    put(0x90, h(0x1c))         # chrome map texture
+    put(0x94, h(0x1d))         # chrome map palette
+    data = lump[base:]
+    put(0x8c, len(data))
+    index = bytes(header) + lump[:base]
+    gameplay = data[h(0x1f):]
+    level = Level(TITLE_ID, b"", {}, index, data, gameplay, {"entry_point": 0, "sections": []})
+    level.boundaries = core_boundaries(level)
+    level.textures = textures(level, lump[h(0):base])
+    return level

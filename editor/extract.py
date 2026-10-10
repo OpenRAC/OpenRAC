@@ -25,7 +25,7 @@ import tempfile
 from disc import LEVEL_COUNT, Disc
 from formats import FormatError
 from godot import LevelWriter, write_project
-from level import load_level
+from level import load_level, load_title
 from port import PortLevelWriter
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -82,11 +82,18 @@ def export_port_level(iso: Path, info: dict, out: Path, lod: int) -> dict:
         return PortLevelWriter(out, load_level(disc, info)).write(lod)
 
 
+def export_port_title(iso: Path, survey: dict, out: Path, lod: int) -> dict:
+    """The title world as level 99 for the port's viewer (level.load_title)."""
+    with Disc(iso) as disc:
+        return PortLevelWriter(out, load_title(disc, survey)).write(lod)
+
+
 def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: Path) -> None:
     """OUT/level_NN/ per level (port.py), written in parallel like godot()."""
     out.mkdir(parents=True, exist_ok=True)
     with ProcessPoolExecutor(min(jobs, len(levels))) as pool:
         running = [pool.submit(export_port_level, iso, survey["levels"][i], out, lod) for i in levels]
+        running.append(pool.submit(export_port_title, iso, survey, out, lod))
         try:
             for done in as_completed(running):
                 stats = done.result()

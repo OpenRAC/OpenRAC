@@ -111,7 +111,9 @@ class PortLevelWriter(LevelWriter):
         shrubs = shrub_classes(level)
         self.write_objects("shrub", shrubs, shrub_instances(level.gameplay, shrubs))
         self.write_mobys(moby_instances(level.gameplay), moby_classes(level))
-        self.write_collision(level.block(unpack("<I", level.index, 0x14)[0]))
+        collision, = unpack("<I", level.index, 0x14)
+        if collision:  # the title world has none
+            self.write_collision(level.block(collision))
         return self.finish()
 
     def write_objects(self, family: str, classes: dict[int, Mesh], placements: list[dict]) -> None:
