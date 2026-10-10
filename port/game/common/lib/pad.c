@@ -6,10 +6,13 @@
  *
  * Not done yet: the layout of what scePad2Read fills in. The game's own
  * reader (func_00217F68, matched C) and its post-processing (func_002181F0)
- * show which bytes it takes; until that is written down, a read reports no
- * data, which the game takes for a pad that is not connected. */
+ * show which bytes it takes; the layout below is the one OpenRAC's earlier
+ * runtime answered with, which the game played with. */
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
+#include "openrac/guest.h"
+
+#include <stdint.h>
 
 int openrac_lib_sceDbcInit(void) {
     return 1;
@@ -28,21 +31,42 @@ int openrac_lib_scePad2CreateSocket(gaddr params, gaddr work) { /* scePad2Create
     return next_socket++;
 }
 
+/* scePad2Read(socket, data): two bytes of buttons (a clear bit is a pressed
+ * button), the right stick, the left stick, then twelve pressures in the
+ * order right, left, up, down, triangle, circle, cross, square, L1, R1, L2,
+ * R2 (full when pressed). The result is the number of bytes written. The
+ * socket number is the port. */
 int openrac_lib_scePad2Read(int socket, gaddr data) { /* scePad2Read */
-    (void)socket;
-    (void)data;
-    return 0;
+    static const unsigned bit[12] = {5, 7, 4, 6, 12, 13, 14, 15, 10, 11, 8, 9};
+    uint16_t buttons = 0xFFFF;
+    uint8_t analog[4] = {0x80, 0x80, 0x80, 0x80};
+    uint8_t *out = (uint8_t *)G(data);
+    unsigned n;
+
+    openrac_game_pad(socket, &buttons, analog);
+    out[0] = (uint8_t)buttons;
+    out[1] = (uint8_t)(buttons >> 8);
+    out[2] = analog[0];
+    out[3] = analog[1];
+    out[4] = analog[2];
+    out[5] = analog[3];
+    for (n = 0; n < 12; n++) {
+        out[6 + n] = (buttons >> bit[n]) & 1 ? 0 : 0xFF;
+    }
+    return 18;
 }
 
+/* Which buttons exist: every button and both sticks. */
 int openrac_lib_scePad2GetButtonProfile(int socket, gaddr profile) { /* scePad2GetButtonProfile */
+    uint32_t all = 0xFFFFFFFFu;
     (void)socket;
-    (void)profile;
-    return 0;
+    __builtin_memcpy(G(profile), &all, 4);
+    return 4;
 }
 
 int openrac_lib_scePad2GetState(int socket) { /* scePad2GetState */
     (void)socket;
-    return 0; /* disconnected, until scePad2Read fills its data */
+    return 1; /* connected and stable */
 }
 
 int openrac_lib_sceVibGetProfile(int socket, gaddr profile) { /* sceVibGetProfile */
