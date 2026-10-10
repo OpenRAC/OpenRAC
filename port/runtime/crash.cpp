@@ -16,6 +16,7 @@
 #include <windows.h>
 #else
 #include <csignal>
+#include <execinfo.h>
 #include <unistd.h>
 #endif
 
@@ -51,6 +52,10 @@ LONG WINAPI on_exception(EXCEPTION_POINTERS* info) {
 
 void on_signal(int sig, siginfo_t* info, void*) {
     report(info->si_addr, sig == SIGBUS ? "bus error" : "access");
+    // The host functions on the way there (the translated game code is named after the game's).
+    void* frames[32];
+    const int count = backtrace(frames, 32);
+    backtrace_symbols_fd(frames, count, STDERR_FILENO);
     _exit(3);
 }
 

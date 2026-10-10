@@ -81,6 +81,11 @@ const Entry* find(gaddr address) {
 
 // What a call through an unknown code address runs: it logs and returns, so
 // that bring-up can go on (OPENRAC_STRICT=1 stops instead).
+// What a callback that is only `jr ra` does: nothing, with 0 in v0.
+std::uint64_t returns_nothing() {
+    return 0;
+}
+
 void unknown_function() {
     static std::mutex lock;
     static std::map<gaddr, int> seen;
@@ -194,6 +199,16 @@ openrac_host_fn openrac_guest_function(gaddr address) {
         openrac_guest_last_entry = address;
         openrac_guest_last_fn = e->fn;
         return e->fn;
+    }
+    // A leaf that only returns (jr ra; and in its delay slot nothing, or v0 = 0): the tail of
+    // another function, which the game points at as a callback that does nothing.
+    if (address + 8 <= 0x02000000u && (address & 3) == 0) {
+        std::uint32_t w[2];
+        std::memcpy(w, G(address), sizeof(w));
+        const bool returns_zero = w[1] == 0 || w[1] == 0x0000102Du || w[1] == 0x00001025u || w[1] == 0x00001021u;
+        if (w[0] == 0x03E00008u && returns_zero) {
+            return reinterpret_cast<openrac_host_fn>(&returns_nothing);
+        }
     }
     if (strict()) {
         fatalf(
