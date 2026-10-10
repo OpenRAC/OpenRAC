@@ -43,6 +43,9 @@ struct Vertex {
     // 0 for a vertex that is not skinned). The joints are the game's joint numbers.
     std::uint8_t joints[4];
     float weights[4];
+    // A tie vertex's light slot (0..63): which of its instance's 64 lit colours it takes; -1
+    // for a vertex that keeps its own colour.
+    float light_slot;
 };
 
 struct Material {
@@ -73,6 +76,8 @@ struct Instance {
     // A live moby's joint palette: the first of its matrices in the scene's palette
     // (LevelScene::set_palette); -1 draws the mesh as stored (its bind pose).
     int palette = -1;
+    // A lit tie: the first of its 64 colours in LevelData::light_colours; -1 none.
+    int lights = -1;
 };
 
 // What the viewer draws, in the game's order.
@@ -101,6 +106,8 @@ struct LevelData {
     std::array<std::vector<Instance>, kLayerCount> instances;
     // Moby classes: model and whether it is the stand-in box, for placing live mobys.
     std::map<int, std::pair<std::uint32_t, bool>> moby_classes;
+    // The ties' lit colours, 64 per instance, RGBA bytes (0x80 = 1.0), from placements.json.
+    std::vector<std::uint32_t> light_colours;
     std::array<float, 3> background{0.0f, 0.0f, 0.0f};  // where no sky shell covers
     Vec3 bounds_min{};
     Vec3 bounds_max{};

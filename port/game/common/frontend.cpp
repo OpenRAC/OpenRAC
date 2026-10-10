@@ -446,6 +446,11 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         state.up = g->world_camera->up;
         state.tan_half_fov_x = g->world_camera->tan_half_fov_x;
         state.tan_half_fov_y = g->world_camera->tan_half_fov_y;
+        state.fog_colour = g->world_camera->fog_colour;
+        state.fog_near = g->world_camera->fog_near;
+        state.fog_far = g->world_camera->fog_far;
+        state.fog_near_f = g->world_camera->fog_near_f;
+        state.fog_far_f = g->world_camera->fog_far_f;
         g->world_camera.reset();
     }
 
@@ -462,6 +467,9 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
                   static_cast<int>(word_at(ram, 0x0015F6E8)), static_cast<int>(word_at(ram, 0x00193400)),
                   static_cast<int>(word_at(ram, 0x00193400 + 0x1C)), static_cast<int>(word_at(ram, 0x0015EE84)),
                   static_cast<int>(word_at(ram, 0x0015F690)), word_at(ram, 0x0013CBE4));
+        log::info("  fog colour {:.0f} {:.0f} {:.0f}, depth {:.0f} to {:.0f}, F {:.0f} to {:.0f}",
+                  state.fog_colour[0] * 255, state.fog_colour[1] * 255, state.fog_colour[2] * 255,
+                  state.fog_near, state.fog_far, state.fog_near_f, state.fog_far_f);
         log::info("  load stage {:#x} retries {} snd state {:#x}", word_at(ram, 0x0015EF48),
                   word_at(ram, 0x0015EFBC), word_at(ram, word_at(ram, 0x001517D0) + 8) & 0xFFFF);
     }
@@ -521,6 +529,8 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         live.push_back(instance);
     }
     g->moby_cameras.clear();
+    g->scene.set_fog(state.fog_colour, state.fog_near, state.fog_far, state.fog_near_f,
+                     state.fog_far_f);
     if (!g->level.models.empty()) {
         g->scene.set_palette(palette);
         g->scene.set_instances(viewer::Layer::Mobys, live);

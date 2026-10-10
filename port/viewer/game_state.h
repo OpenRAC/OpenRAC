@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <span>
@@ -59,6 +60,11 @@ struct GameState {
     renderer::Vec3 forward{1, 0, 0}, left{0, 1, 0}, up{0, 0, 1};
     float tan_half_fov_x = 0.63f, tan_half_fov_y = 0.48f;
     std::vector<LiveMoby> mobys;
+    /** The fog UpdateFog left in the view context (+0x218): FOGCOL (display bytes, 0..1), the
+     *  depths it starts and ends at (raw units, game units x 1024) and the GS fog value F at those
+     *  depths (255 = none). F is linear in camera depth, clamped between the two. */
+    std::array<float, 3> fog_colour{0, 0, 0};
+    float fog_near = 0.0f, fog_far = 1.0f, fog_near_f = 255.0f, fog_far_f = 255.0f;
 
     /** The camera's view matrix, in the renderer's convention (looking down -Z, Y up). */
     renderer::Mat4 view() const;

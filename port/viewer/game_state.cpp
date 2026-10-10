@@ -107,6 +107,16 @@ GameState read_game_state(std::span<const std::uint8_t> ram, const GameAddresses
         s.tan_half_fov_y = ty > 0.05f && ty < 10.0f ? ty : tx * a.vertical_factor;
     }
 
+    // UpdateFog (func_001F2930): the colour as three words at +0x230, then near and far depth
+    // at +0x218 and +0x21C, near and far F at +0x228 and +0x22C.
+    for (int c = 0; c < 3; ++c) {
+        s.fog_colour[c] = static_cast<float>(at<std::uint32_t>(ram, a.view_context + 0x230 + 4 * c) & 0xFF) / 255.0f;
+    }
+    s.fog_near = at<float>(ram, a.view_context + 0x218);
+    s.fog_far = at<float>(ram, a.view_context + 0x21C);
+    s.fog_near_f = at<float>(ram, a.view_context + 0x228);
+    s.fog_far_f = at<float>(ram, a.view_context + 0x22C);
+
     const auto first = at<std::uint32_t>(ram, a.moby_first) & 0x01FFFFFF;
     const auto end = at<std::uint32_t>(ram, a.moby_end) & 0x01FFFFFF;
     if (first == 0 || end <= first || end > ram.size() || (end - first) % 0x100 != 0) {

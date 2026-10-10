@@ -47,6 +47,12 @@ public:
 
     bool lighting = true;
 
+    // The game's fog for this frame (GameState): FOGCOL 0..1, the depths in raw units (game
+    // units x 1024) and the GS F at them (255 = none). The world layers are fogged as the GS
+    // fogs them: C = FOGCOL + (C - FOGCOL) x F / 255, F linear in camera depth, clamped.
+    void set_fog(const std::array<float, 3>& colour, float near_depth, float far_depth,
+                 float near_f, float far_f);
+
 private:
     struct Group {
         std::uint32_t model = 0;
@@ -66,6 +72,9 @@ private:
     unsigned m_vertices = 0;
     unsigned m_indices = 0;
     unsigned m_palette = 0;  // RGBA32F texture, four texels per matrix
+    unsigned m_lights = 0;   // RGBA8 texture, the ties' lit colours
+    std::array<float, 4> m_fog_colour{0, 0, 0, 0};  // w = 1: fog on
+    std::array<float, 4> m_fog_params{0, 255, 255, 255};  // slope, offset, lower, upper clamp
     std::vector<JointColumns> m_palette_data;
     renderer::Shader m_mesh;
     renderer::Shader m_sky;

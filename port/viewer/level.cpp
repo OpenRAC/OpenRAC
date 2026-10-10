@@ -202,6 +202,13 @@ std::optional<std::uint32_t> load_model(
             const cgltf_accessor* normals = attribute(prim, cgltf_attribute_type_normal);
             const cgltf_accessor* uvs = attribute(prim, cgltf_attribute_type_texcoord);
             const cgltf_accessor* colours = attribute(prim, cgltf_attribute_type_color);
+            const cgltf_accessor* light_slots = nullptr;
+            for (cgltf_size a = 0; a < prim.attributes_count; ++a) {
+                if (prim.attributes[a].name != nullptr
+                    && std::strcmp(prim.attributes[a].name, "_LIGHT_SLOT") == 0) {
+                    light_slots = prim.attributes[a].data;
+                }
+            }
             const cgltf_accessor* joints =
                 skin_joints.empty() ? nullptr : attribute(prim, cgltf_attribute_type_joints);
             const cgltf_accessor* weights =
@@ -230,6 +237,10 @@ std::optional<std::uint32_t> load_model(
                     cgltf_accessor_read_float(
                         colours, i, v.colour, colours->type == cgltf_type_vec3 ? 3 : 4
                     );
+                }
+                v.light_slot = -1.0f;
+                if (light_slots != nullptr) {
+                    cgltf_accessor_read_float(light_slots, i, &v.light_slot, 1);
                 }
                 if (joints != nullptr && weights != nullptr) {
                     cgltf_uint js[4] = {0, 0, 0, 0};
@@ -296,6 +307,7 @@ std::uint32_t add_box_model(LevelData& level) {
             const float u = (corner & 1) != 0 ? 1.0f : -1.0f;
             const float w = (corner & 2) != 0 ? 1.0f : -1.0f;
             Vertex v{};
+            v.light_slot = -1.0f;
             for (int i = 0; i < 3; ++i) {
                 v.position[i] = 0.25f * (normal[i] + u * a[i] + w * b[i]);
                 v.normal[i] = normal[i];
@@ -438,6 +450,12 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error) {
             }
             if (cls->second.box) {
                 instance.tint = class_colour(id);
+            }
+            if (layer == Layer::Ties && p["colours"].items().size() == 64) {
+                instance.lights = static_cast<int>(out.light_colours.size());
+                for (const json::Value& c : p["colours"].items()) {
+                    out.light_colours.push_back(static_cast<std::uint32_t>(c.number(0)));
+                }
             }
             out.instances[static_cast<std::size_t>(layer)].push_back(instance);
         }

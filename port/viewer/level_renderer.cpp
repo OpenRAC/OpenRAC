@@ -19,12 +19,16 @@ struct InstanceData {
     float matrix[16];
     float tint[4];
     float palette;  // the first matrix of its joint palette; -1 none
+    float lights;   // a lit tie: the first of its 64 colours in the light texture; -1 none
 };
 
 // The joint palette texture: RGBA32F, four texels (columns) per matrix, this many texels a row.
 constexpr int kPaletteWidth = 1024;
 constexpr GLenum kRgba32f = 0x8814;
 constexpr GLenum kPaletteUnit = 1;
+// The ties' lit colours: RGBA8, one texel per colour, this many a row.
+constexpr int kLightWidth = 1024;
+constexpr GLenum kLightUnit = 2;
 
 Bucket bucket_of(Layer layer) {
     switch (layer) {
@@ -87,6 +91,19 @@ bool LevelScene::upload(
         GL_STATIC_DRAW
     );
 
+    if (!level.light_colours.empty()) {
+        const std::size_t rows = (level.light_colours.size() + kLightWidth - 1) / kLightWidth;
+        std::vector<std::uint32_t> texels(rows * kLightWidth, 0u);
+        std::copy(level.light_colours.begin(), level.light_colours.end(), texels.begin());
+        glGenTextures(1, &m_lights);
+        glBindTexture(GL_TEXTURE_2D, m_lights);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kLightWidth, static_cast<GLsizei>(rows), 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, texels.data());
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
     for (std::size_t layer = 0; layer < kLayerCount; ++layer) {
         build_groups(static_cast<Layer>(layer), level.instances[layer]);
     }
@@ -108,6 +125,7 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         std::copy(instance.matrix.begin(), instance.matrix.end(), data.matrix);
         std::copy(instance.tint.begin(), instance.tint.end(), data.tint);
         data.palette = static_cast<float>(instance.palette);
+        data.lights = static_cast<float>(instance.lights);
         it->second.push_back(data);
     }
     for (std::uint32_t model : order) {
@@ -136,6 +154,10 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         );
         glEnableVertexAttribArray(10);
         glVertexAttribIPointer(10, 4, GL_UNSIGNED_BYTE, stride, offset(offsetof(Vertex, joints)));
+        glEnableVertexAttribArray(12);
+        glVertexAttribPointer(
+            12, 1, GL_FLOAT, GL_FALSE, stride, offset(offsetof(Vertex, light_slot))
+        );
         glEnableVertexAttribArray(11);
         glVertexAttribPointer(
             11, 4, GL_FLOAT, GL_FALSE, stride, offset(offsetof(Vertex, weights))
@@ -171,6 +193,11 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
             9, 1, GL_FLOAT, GL_FALSE, instance_stride, offset(offsetof(InstanceData, palette))
         );
         glVertexAttribDivisor(9, 1);
+        glEnableVertexAttribArray(13);
+        glVertexAttribPointer(
+            13, 1, GL_FLOAT, GL_FALSE, instance_stride, offset(offsetof(InstanceData, lights))
+        );
+        glVertexAttribDivisor(13, 1);
         m_groups[static_cast<std::size_t>(layer)].push_back(g);
     }
     glBindVertexArray(0);
@@ -238,8 +265,27 @@ void LevelScene::release() {
         glDeleteBuffers(1, &m_indices);
         m_indices = 0;
     }
+    if (m_lights != 0) {
+        glDeleteTextures(1, &m_lights);
+        m_lights = 0;
+    }
     m_mesh.release();
     m_sky.release();
+}
+
+void LevelScene::set_fog(const std::array<float, 3>& colour, float near_depth, float far_depth,
+                         float near_f, float far_f) {
+    // UpdateViewContext's terms (renderer/world/fog.h): F = depth x slope + offset, clamped to
+    // [far F, near F]. Equal depths or no fog asked for (both F 255) leave it off.
+    const float range = far_depth - near_depth;
+    if (!(range > 0.0f) || (near_f >= 255.0f && far_f >= 255.0f)) {
+        m_fog_colour = {colour[0], colour[1], colour[2], 0.0f};
+        return;
+    }
+    const float slope = (far_f - near_f) / range;
+    const float offset = (near_f * far_depth - far_f * near_depth) / range;
+    m_fog_colour = {colour[0], colour[1], colour[2], 1.0f};
+    m_fog_params = {slope, offset, std::min(near_f, far_f), std::max(near_f, far_f)};
 }
 
 void LevelScene::draw_sky(const renderer::FrameInput& input, renderer::RenderState& state) {
@@ -296,11 +342,21 @@ void LevelScene::draw_layer(
         renderer::multiply(input.camera.projection, input.camera.view);
     m_mesh.use();
     glUniformMatrix4fv(m_mesh.uniform("view_projection"), 1, GL_FALSE, view_projection.data());
-    glUniform1i(m_mesh.uniform("lighting"), lighting ? 1 : 0);
+    // The terrain's vertex colours are the game's own lighting (the extractor lights it as
+    // LightTfrags does): it gets no viewer sun.
+    glUniform1i(m_mesh.uniform("lighting"), lighting && layer != Layer::Terrain ? 1 : 0);
     // The joint palettes (live mobys): unit 1; the textures go on unit 0.
     const bool palettes = layer == Layer::Mobys && m_palette != 0;
     glUniform1i(m_mesh.uniform("skinning"), palettes ? 1 : 0);
     glUniform1i(m_mesh.uniform("palette_texture"), static_cast<GLint>(kPaletteUnit));
+    glUniform1i(m_mesh.uniform("light_texture"), static_cast<GLint>(kLightUnit));
+    glUniform4f(m_mesh.uniform("fog_colour"), m_fog_colour[0], m_fog_colour[1], m_fog_colour[2],
+                m_fog_colour[3]);
+    glUniform4f(m_mesh.uniform("fog_params"), m_fog_params[0], m_fog_params[1], m_fog_params[2],
+                m_fog_params[3]);
+    glUniformMatrix4fv(m_mesh.uniform("view"), 1, GL_FALSE, input.camera.view.data());
+    glActiveTexture(GL_TEXTURE0 + kLightUnit);
+    glBindTexture(GL_TEXTURE_2D, m_lights);
     if (palettes) {
         glActiveTexture(GL_TEXTURE0 + kPaletteUnit);
         glBindTexture(GL_TEXTURE_2D, m_palette);

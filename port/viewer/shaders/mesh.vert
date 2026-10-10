@@ -10,6 +10,9 @@
 // MobyAnimEval builds it), applied to the bind-pose vertex. The palettes are
 // a float texture, four texels (the matrix's columns) per joint; `palette` is
 // the instance's first matrix, -1 for an object drawn as stored.
+//
+// A lit tie (`lights` >= 0) colours each vertex with its instance's colour for
+// the vertex's light slot, from the light texture: what LightTies computed.
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 normal;
@@ -20,16 +23,26 @@ layout(location = 8) in vec4 tint;
 layout(location = 9) in float palette;
 layout(location = 10) in uvec4 joints;
 layout(location = 11) in vec4 weights;
+layout(location = 12) in float light_slot;
+layout(location = 13) in float lights;
 
 uniform mat4 view_projection;
+uniform mat4 view;
+// The game's fog line (LevelScene::set_fog): F = depth x slope + offset, clamped to [z, w].
+uniform vec4 fog_params;
 uniform int skinning;
 uniform sampler2D palette_texture;
+uniform sampler2D light_texture;
 
 out vec2 v_uv;
 out vec4 v_colour;
 out vec3 v_normal;
+flat out int v_lit;
+// GS F / 255: interpolated in screen space, as the GS does.
+noperspective out float v_fog;
 
 const int kPaletteWidth = 1024;
+const int kLightWidth = 1024;
 
 mat4 joint_matrix(int index) {
     int texel = 4 * index;
@@ -55,8 +68,21 @@ void main() {
         p = vec4((skin * p).xyz, 1.0);
         n = mat3(skin) * n;
     }
-    gl_Position = view_projection * (model * p);
+    vec4 world = model * p;
+    gl_Position = view_projection * world;
+    // Camera depth in the game's raw units (game units x 1024); the view looks down -Z.
+    float depth = -(view * world).z * 1024.0;
+    v_fog = trunc(clamp(depth * fog_params.x + fog_params.y, fog_params.z, fog_params.w)) / 255.0;
     v_uv = uv;
     v_colour = colour * tint;
+    v_lit = 0;
+    // A lit tie's vertex takes its instance's colour for its light slot, as VU1 does
+    // (0x80 = 1.0 under the GS's MODULATE).
+    if (lights >= 0.0 && light_slot >= 0.0) {
+        int texel = int(lights + 0.5) + int(light_slot + 0.5);
+        v_colour = texelFetch(light_texture, ivec2(texel % kLightWidth, texel / kLightWidth), 0)
+                 * (255.0 / 128.0) * tint;
+        v_lit = 1;
+    }
     v_normal = mat3(model) * n;
 }
