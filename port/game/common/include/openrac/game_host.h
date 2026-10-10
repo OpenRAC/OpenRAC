@@ -98,6 +98,12 @@ typedef struct openrac_game_image {
 
 void openrac_game_load_image(const openrac_game_image* image);
 
+/* Plays a PSS movie from the disc in the window, blocking as the game's own player does: `bytes`
+ * bytes at sector `lsn`, the ADPCM channel `channel` (the language; channel 0 when the file has no
+ * such channel). Start skips it when `start_skips` (the console's readMpeg rule for the caller).
+ * Returns 1 if skipped, 0 if played to the end or when there is no window to play it in. */
+int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips);
+
 /* The buttons of a pad, in the console's bit order (active low, as the pad
  * library reports them) and its analog values; false if none is connected. */
 /* Nonzero: no memory card is inserted in either port (--no-card). */

@@ -188,16 +188,16 @@ float func_001F9FA8(float a) {
 }
 
 /*
- * The game's movie player (logos, cut scenes). Not played yet: it returns at once with 0, as if
- * the movie ended, until the port's own MPEG player (media/) is connected here.
+ * The game's movie player (the boot logos, the story movies between levels): `a0` the movie's first
+ * sector on the disc, `a1` its size in bytes, then the two buffers the console decodes into, which the
+ * port does not need. Played in the window by the port's MPEG player (game/common, media/), in the
+ * language channel 0; Start skips it, as readMpeg lets it outside normal play.
  */
 int func_0023B670(int a0, int a1, int a2, gaddr a3, int a4) {
-    (void)a0;
-    (void)a1;
     (void)a2;
     (void)a3;
     (void)a4;
-    fprintf(stderr, "[info] movie skipped (the port does not play movies yet)\n");
+    openrac_game_play_movie((uint32_t)a0, (uint32_t)a1, 0, 1);
     return 0;
 }
 

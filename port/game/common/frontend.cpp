@@ -40,6 +40,7 @@ struct State {
     platform::Input input;
     std::unique_ptr<renderer::Renderer> renderer;
     renderer::FrameBuffer frame;
+    renderer::FrameBuffer picture;  // show_picture's: a movie frame, a boot still
     viewer::LevelData level;
     viewer::LevelScene scene;
     int loaded = -2;  // the level whose geometry is uploaded; -2 none
@@ -208,7 +209,7 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     g = std::make_unique<State>();
     g->game = game_id;
     g->levels = levels;
-    g->sdl = std::make_unique<platform::Platform>(platform::kVideo | platform::kGamepad);
+    g->sdl = std::make_unique<platform::Platform>(platform::kVideo | platform::kGamepad | platform::kAudio);
     if (!g->sdl->ok()) {
         error = g->sdl->error();
         return false;
@@ -264,6 +265,60 @@ void upload_image(
         g->renderer->textures().upload(image);
     }
     g->images.push_back(std::move(image));
+}
+
+bool show_picture(const std::uint8_t* rgba, int width, int height, float black) {
+    using namespace gl;
+    if (!g || width <= 0 || height <= 0) {
+        return true;
+    }
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_EVENT_QUIT
+            || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) {
+            return false;
+        }
+        g->input.handle_event(event);
+    }
+    g->input.update();
+
+    // The fade, on the bytes as the chip's black quad blends them: C * (1 - coverage).
+    std::vector<std::uint8_t> pixels(rgba, rgba + static_cast<std::size_t>(width) * height * 4);
+    if (black > 0.0f) {
+        const float keep = black >= 1.0f ? 0.0f : 1.0f - black;
+        for (std::size_t i = 0; i < pixels.size(); i += 4) {
+            for (int c = 0; c < 3; ++c) {
+                pixels[i + c] = static_cast<std::uint8_t>(static_cast<float>(pixels[i + c]) * keep);
+            }
+        }
+    }
+    std::string error;
+    if (g->picture.width() != width || g->picture.height() != height) {
+        g->picture.create(width, height, error);
+    }
+    glBindTexture(GL_TEXTURE_2D, g->picture.colour_texture());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+
+    int window_width = 0;
+    int window_height = 0;
+    g->window->drawable_size(window_width, window_height);
+    const std::uint64_t index = g->index++;
+    if (const char* shot = std::getenv("OPENRAC_SHOT")) {
+        const char* colon = std::strchr(shot, ':');
+        const std::uint64_t every = static_cast<std::uint64_t>(std::atoll(shot));
+        if (colon && every > 0 && index % every == 0) {
+            const std::string path = std::string(colon + 1) + std::to_string(index) + ".png";
+            viewer::write_png(path, width, height, pixels);
+            log::info("frame {} written to {}", index, path);
+        }
+    }
+    // The picture fills the frame the game's own frames fill; its first row is the top.
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, g->picture.id());
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, width, height, 0, window_height, window_width, 0, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    g->window->swap();
+    return true;
 }
 
 bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
@@ -402,6 +457,7 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
 void close() {
     if (g) {
         g->frame.release();
+        g->picture.release();
         g->renderer.reset();
         g->scene.release();
         g.reset();

@@ -38,6 +38,12 @@ void upload_image(
     std::span<const std::uint8_t> pixels
 );
 
+// Shows one full-screen picture the game puts straight into its display buffer (a movie's frame,
+// a boot still), RGBA rows top to bottom, with `black` (0 to 1) of black over it (the game's
+// FadeToBlack), and reads the input. Counts as a frame (shots, OPENRAC_PRESS). False once the window
+// was closed.
+bool show_picture(const std::uint8_t* rgba, int width, int height, float black);
+
 // The pad of a port as the game's pad library reads it: buttons active low, then the right and
 // left sticks (x, y each).
 bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]);
