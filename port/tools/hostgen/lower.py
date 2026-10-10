@@ -347,7 +347,8 @@ class Unit:
             return self._renamed(f"openrac_td_{self.tag_of[decl['id']]}")
         return None
 
-    def record(self, decl: dict, indent: str = "", member: bool = False) -> list[str]:
+    def record(self, decl: dict, indent: str = "", member: bool = False,
+               hoist: list[str] | None = None) -> list[str]:
         tag_word = decl.get("tagUsed", "struct")
         tag = self.record_tag(decl)
         if tag is None and not member:
@@ -356,6 +357,11 @@ class Unit:
             return [f"{indent}{tag_word} {tag};"] if tag else []
         if tag:
             self.emitted_tags.add(tag)
+        # A tag declared inside a record belongs to the enclosing scope in C, so
+        # it is written before the outermost record instead of in it: with
+        # Microsoft's extensions (Clang's default when targeting Windows) a
+        # tagged declaration inside a record is an anonymous member.
+        before = [] if hoist is None else hoist
         attrs = []
         lines = [f"{indent}{tag_word}{(' ' + tag) if tag else ''} {{"]
         children = _inner(decl)
@@ -371,18 +377,18 @@ class Unit:
                 nxt = children[i + 1] if i + 1 < len(children) else {}
                 if nxt.get("kind") == "FieldDecl" and nxt.get("isImplicit"):
                     # An anonymous member: written untagged, in place.
-                    body = self.record(c, indent + "    ", member=True)
+                    body = self.record(c, indent + "    ", member=True, hoist=before)
                     body[-1] = body[-1].rstrip(";") + ";"
                     lines.extend(body)
                     i += 2
                     continue
-                lines.extend(self.record(c, indent + "    "))
+                before.extend(self.record(c, indent, hoist=before))
             elif k == "FieldDecl":
                 lines.append(indent + "    " + self.field(c) + ";")
             i += 1
         attr = f" __attribute__(({', '.join(attrs)}))" if attrs else ""
         lines.append(f"{indent}}}{attr};")
-        return lines
+        return lines if hoist is not None else before + lines
 
     def _attr_value(self, attr: dict) -> str:
         for c in _inner(attr):
