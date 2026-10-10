@@ -212,13 +212,53 @@ introduced. These functions remain classified assembly in the decomp.
   and is black, consistent with being early in the transition; no visible
   Veldin scene or player control has yet been demonstrated.
 
-Next action: correct the native candidate for `func_L00_00267290`.
+The next stop identified a bad native candidate for `func_L00_00267290`.
 `rac1-decomp/nonmatching/game/func_L00_00267290.c` declares and twice calls
 the nonexistent `func_L00_00217AE8`. Retail calls at `002673D4` and
 `002674E8` name the existing `func_00217AE8` (its Veldin copy is at
-`002677B8`, as `config/overlays/functions.tsv` records). Correct the call
-binding while preserving the real stream/event processing; do not add a
-no-op for the nonexistent symbol. Then rebuild and repeat the same probe.
+`002677B8`, as `config/overlays/functions.tsv` records).
+
+### Stream call binding and current next action, 2026-10-10
+
+Local commit subject: `fix(rac1/pal): bind stream requests to the implemented callee`;
+particle allocation was committed as `2436458`. Added a native override
+of the existing `func_L00_00267290` candidate, correcting only the callee
+declaration and its two call sites to `func_00217AE8`. A direct comparison
+against the sibling candidate confirms the remaining logic is unchanged.
+No fallback or fabricated implementation was added for the bad symbol.
+This remains nonmatching native code; the candidate in `rac1-decomp/`
+is preserved for a later matching review.
+
+- `Build-Native.ps1`: 44/44 CTest tests pass;
+  `.tools/native-stream-build.log`. All 378 source units are readable and
+  `index_problems` is empty. Generated stream calls now name the real C
+  callee at both sites.
+- Hostgen remains at 3,811 translated functions and 195 candidates, with
+  3 stubs. The no-C count is 1,149 and address count 48,344 because the
+  nonexistent symbol was removed, not because another function was
+  decompiled.
+- Same New Game input sequence, `-Name stream-verified -ShotEvery 3000
+  -Frames 5200`: exit 2 at frame 2828, stopping at
+  `func_L00_00232EF0`. `.tools/native-run/stream-verified.log` is the latest
+  runtime evidence. No frame-3000 screenshot was produced because execution
+  stopped earlier. The last inspected level-transition capture remains
+  the black `particles-level-2820.png`; visible gameplay is unverified.
+
+**Exact next action:** review
+`rac1-decomp/nonmatching/shared/func_L00_00232EF0.c` against
+`rac1-decomp/asm/overlays/func_L00_00232EF0.s` (1,312 bytes), then implement
+or register a verified native version of Ratchet's animation advancement.
+The existing candidate reports a 1,288-byte PS2 attempt; it is not exact
+and is not selected in `nonmatching/functional.tsv`. Check frame stepping,
+sequence transitions, looping/end conditions and animation events with
+synthetic tests before repeating `stream-verified`'s probe. Do not merely
+enable an unreviewed candidate or suppress the missing-function stop.
+The function was unclaimed at this handoff; check again before editing.
+
+No matching source or report changed this session. The decomp still has
+its original dirty `tools/organize_asm.py`; the earlier native working-tree
+changes remain uncommitted and separate. All four fixes were committed
+locally, no push was made, and this session's function claims are released.
 
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for

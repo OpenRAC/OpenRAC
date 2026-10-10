@@ -55,3 +55,4 @@ func_L00_002D1168	level_crate_init.c
 func_002116A0	game_joint_matrices.c
 func_00218928	game_particle_allocate.c
 func_00218930	game_particle_allocate.c
+func_L00_00267290	level_stream_request.c
