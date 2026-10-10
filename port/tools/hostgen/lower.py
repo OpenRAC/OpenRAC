@@ -1107,6 +1107,8 @@ class Unit:
                 return f"((gaddr)({self.rv(a)}) {op} (gaddr)({self.rv(b)}) * {self.pointee_size(ta)})"
             if pb:
                 return f"((gaddr)({self.rv(b)}) + (gaddr)({self.rv(a)}) * {self.pointee_size(tb)})"
+        if op == "/" and self.cls(self.ty(n)) == "float":
+            return f"openrac_fdiv({self.rv(a)}, {self.rv(b)})"  # the EE's divide (guest.h)
         return f"({self.rv(a)} {op} {self.rv(b)})"
 
     def rv_CompoundAssignOperator(self, n: dict) -> str:
@@ -1116,6 +1118,8 @@ class Unit:
         ta = self.ty(a)
         if self.cls(ta) == "ptr" and op in ("+=", "-="):
             return f"({lv.text} {op} (gaddr)({self.rv(b)}) * {self.pointee_size(ta)})"
+        if op == "/=" and self.cls(ta) == "float" and self.cls(self.ty(b)) == "float":
+            return f"({lv.text} = openrac_fdiv({lv.text}, {self.rv(b)}))"
         return f"({lv.text} {op} {self.rv(b)})"
 
     def rv_ConditionalOperator(self, n: dict) -> str:
@@ -1311,8 +1315,19 @@ class Unit:
         if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "FunctionToPointerDecay":
             target = _strip_parens(_inner(c)[0])
             if target.get("kind") == "DeclRefExpr" and target["referencedDecl"].get("kind") == "FunctionDecl":
-                return self.direct_call(self._callee_symbol(target), args, result_t)
-            fp = self.function_value(target)
+                sym = self._callee_symbol(target)
+                places = self._folded_places(sym)
+                if not places:
+                    return self.direct_call(sym, args, result_t)
+                # A name the catalogue folded: each place is its own function (guest.h,
+                # openrac_guest_nearest); the call goes through the place nearest this function,
+                # with the call site's own type.
+                self.fn.report.calls.add(sym)
+                literal = ", ".join(f"0x{(o + 1) << 24 | a:08X}u" for o, a in places)
+                fp = (f"openrac_guest_nearest((const uint32_t[]){{{literal}}}, {len(places)}, "
+                      f"{self._own_address()})")
+            else:
+                fp = self.function_value(target)
         else:
             fp = self.rv(callee)
         # A call through a code address: the call site's own type.
@@ -1324,6 +1339,31 @@ class Unit:
                             ft.variadic, ft.prototyped)
         values = [self.rv(a) for a in args]
         return f"GFN({ctype.fn_pointer(hostft)}, {fp})({', '.join(values)})"
+
+    def _folded_places(self, sym: str) -> list[tuple[int, int]]:
+        """The places of a wrapper the catalogue folded, or []: a 28-byte function (frame, one
+        call, return) at two or more addresses of one program, each calling something else.
+        Folded copies of a whole function are the same code and need nothing."""
+        cache = getattr(self.program, "folded_cache", None)
+        if cache is None:
+            cache = self.program.folded_cache = {}
+        if sym not in cache:
+            wrapper = getattr(self.program, "sizes", {}).get(sym) == 28
+            places = self.program.code_places(sym) if wrapper and getattr(self.program, "relocate", None) else []
+            overlays = [o for o, _ in places]
+            cache[sym] = places if len(overlays) != len(set(overlays)) else []
+        return cache[sym]
+
+    def _own_address(self) -> str:
+        """This function's address in the program loaded when it runs."""
+        places = self.program.code_places(self.fn.name)
+        if not places:
+            return "0u"
+        level = self._shared_level()
+        if level is not None:
+            own = next((a for o, a in places if o == level), places[0][1])
+            return f"OPENRAC_LCODE({level}, {hexaddr(own)})"
+        return hexaddr(places[0][1])
 
     def _canon_type(self, t: ctype.Type) -> ctype.Type:
         c = self.canon(t)
@@ -1358,9 +1398,9 @@ class Unit:
         if sym == HOSTGEN_ASM:
             raise Unsupported("inline assembly Clang cannot read")
         f = self.program.lookup(self.unit, sym)
-        if f is None and sym in HOST_MATH:
-            # A C library maths function the game calls without declaring or
-            # defining it: the host's, on values.
+        if sym in HOST_MATH and (f is None or (f.unit is None and sym not in self.program.host)):
+            # A C library maths function the game calls without defining it (declared or
+            # not): the host's, on values.
             return f"{sym}({', '.join(self.rv(a) for a in args)})"
         if f is None:
             raise Unsupported(f"call to {sym}, which the program does not know")
