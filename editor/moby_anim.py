@@ -223,9 +223,13 @@ def skeleton(data: bytes, sequences: list[tuple[str, bytes, int]]) -> Skeleton |
     """
     joint_count = data[8]
     matrices, common = unpack("<2i", data, 0x14)
-    if not joint_count or not matrices or not common or not sequences:
+    if not joint_count or not matrices or not common:
         return None
     joints, rest = bind_pose(data, joint_count, matrices, common)
+    if not sequences:
+        # No sequences of its own (Ratchet's come from ratchet_seq, or the game fills the slots at
+        # run time): the skin still matters, the port poses it from the game's memory.
+        return Skeleton(joints, [])
     decoded = [(name, *keys(base, at, joint_count, rest)) for name, base, at in sequences]
 
     def bind(channel):
@@ -243,7 +247,7 @@ def skeleton(data: bytes, sequences: list[tuple[str, bytes, int]]) -> Skeleton |
     channels = sorted({channel for _, _, values, _ in decoded for key in values for channel, value in key.items()
                        if moves(channel, value)})
     if not channels:
-        return None  # Every key is the bind pose.
+        return Skeleton(joints, [])  # Every key is the bind pose; the skin is still needed.
     for joint, path in channels:
         joints[joint].post_scale |= path == "post_scale"
     animations = []

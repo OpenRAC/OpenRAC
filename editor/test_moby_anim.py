@@ -92,7 +92,10 @@ class SkeletonTests(unittest.TestCase):
         data = bytearray(fixture())
         struct.pack_into("<i", data, 0x14, 0)
         self.assertIsNone(skeleton(bytes(data), class_sequences(bytes(data))))
-        self.assertIsNone(skeleton(fixture(), []))
+        # No sequences: still a skeleton (the port poses it from the game's memory), no animations.
+        bare = skeleton(fixture(), [])
+        self.assertIsNotNone(bare)
+        self.assertEqual(bare.animations, [])
         with self.assertRaisesRegex(FormatError, "parent"):
             skeleton(fixture(0x70000040), class_sequences(fixture()))  # Joint 1 as its own parent.
         data = bytearray(fixture())
