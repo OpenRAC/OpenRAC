@@ -18,7 +18,13 @@ namespace {
 struct InstanceData {
     float matrix[16];
     float tint[4];
+    float palette;  // the first matrix of its joint palette; -1 none
 };
+
+// The joint palette texture: RGBA32F, four texels (columns) per matrix, this many texels a row.
+constexpr int kPaletteWidth = 1024;
+constexpr GLenum kRgba32f = 0x8814;
+constexpr GLenum kPaletteUnit = 1;
 
 Bucket bucket_of(Layer layer) {
     switch (layer) {
@@ -101,6 +107,7 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         InstanceData data{};
         std::copy(instance.matrix.begin(), instance.matrix.end(), data.matrix);
         std::copy(instance.tint.begin(), instance.tint.end(), data.tint);
+        data.palette = static_cast<float>(instance.palette);
         it->second.push_back(data);
     }
     for (std::uint32_t model : order) {
@@ -126,6 +133,12 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         glEnableVertexAttribArray(3);
         glVertexAttribPointer(
             3, 4, GL_FLOAT, GL_FALSE, stride, offset(offsetof(Vertex, colour))
+        );
+        glEnableVertexAttribArray(10);
+        glVertexAttribIPointer(10, 4, GL_UNSIGNED_BYTE, stride, offset(offsetof(Vertex, joints)));
+        glEnableVertexAttribArray(11);
+        glVertexAttribPointer(
+            11, 4, GL_FLOAT, GL_FALSE, stride, offset(offsetof(Vertex, weights))
         );
         glGenBuffers(1, &g.instances);
         glBindBuffer(GL_ARRAY_BUFFER, g.instances);
@@ -153,6 +166,11 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
             8, 4, GL_FLOAT, GL_FALSE, instance_stride, offset(offsetof(InstanceData, tint))
         );
         glVertexAttribDivisor(8, 1);
+        glEnableVertexAttribArray(9);
+        glVertexAttribPointer(
+            9, 1, GL_FLOAT, GL_FALSE, instance_stride, offset(offsetof(InstanceData, palette))
+        );
+        glVertexAttribDivisor(9, 1);
         m_groups[static_cast<std::size_t>(layer)].push_back(g);
     }
     glBindVertexArray(0);
@@ -169,7 +187,42 @@ void LevelScene::set_instances(Layer layer, const std::vector<Instance>& instanc
     build_groups(layer, instances);
 }
 
+void LevelScene::set_palette(const std::vector<JointColumns>& matrices) {
+    if (matrices.empty()) {
+        return;
+    }
+    if (m_palette == 0) {
+        glGenTextures(1, &m_palette);
+        glBindTexture(GL_TEXTURE_2D, m_palette);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    }
+    // Whole rows: the matrices, then zeros to the end of the last row.
+    constexpr std::size_t per_row = kPaletteWidth / 4;
+    const std::size_t rows = (matrices.size() + per_row - 1) / per_row;
+    m_palette_data.assign(rows * per_row, JointColumns{});
+    std::copy(matrices.begin(), matrices.end(), m_palette_data.begin());
+    glBindTexture(GL_TEXTURE_2D, m_palette);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        static_cast<GLint>(kRgba32f),
+        kPaletteWidth,
+        static_cast<GLsizei>(rows),
+        0,
+        GL_RGBA,
+        GL_FLOAT,
+        m_palette_data.data()
+    );
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 void LevelScene::release() {
+    if (m_palette != 0) {
+        glDeleteTextures(1, &m_palette);
+        m_palette = 0;
+    }
     for (auto& groups : m_groups) {
         for (Group& g : groups) {
             glDeleteVertexArrays(1, &g.vao);
@@ -244,6 +297,14 @@ void LevelScene::draw_layer(
     m_mesh.use();
     glUniformMatrix4fv(m_mesh.uniform("view_projection"), 1, GL_FALSE, view_projection.data());
     glUniform1i(m_mesh.uniform("lighting"), lighting ? 1 : 0);
+    // The joint palettes (live mobys): unit 1; the textures go on unit 0.
+    const bool palettes = layer == Layer::Mobys && m_palette != 0;
+    glUniform1i(m_mesh.uniform("skinning"), palettes ? 1 : 0);
+    glUniform1i(m_mesh.uniform("palette_texture"), static_cast<GLint>(kPaletteUnit));
+    if (palettes) {
+        glActiveTexture(GL_TEXTURE0 + kPaletteUnit);
+        glBindTexture(GL_TEXTURE_2D, m_palette);
+    }
     const int cutout = m_mesh.uniform("cutout");
     const int colour = m_mesh.uniform("material_colour");
     glEnable(GL_DEPTH_TEST);
@@ -274,6 +335,11 @@ void LevelScene::draw_layer(
         }
     }
     glBindVertexArray(0);
+    if (palettes) {
+        glActiveTexture(GL_TEXTURE0 + kPaletteUnit);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE0);
+    }
 }
 
 LayerRenderer::LayerRenderer(LevelScene& scene, Layer layer)

@@ -39,6 +39,10 @@ struct Vertex {
     float normal[3];
     float uv[2];
     float colour[4];
+    // A moby vertex's skin: up to four joints of its class and their weights (summing to 1; all
+    // 0 for a vertex that is not skinned). The joints are the game's joint numbers.
+    std::uint8_t joints[4];
+    float weights[4];
 };
 
 struct Material {
@@ -59,12 +63,16 @@ struct Model {
     std::vector<Primitive> primitives;
     Vec3 min{};
     Vec3 max{};
+    int joints = 0;  // a skinned mesh: one past the highest joint its vertices use
 };
 
 struct Instance {
     std::uint32_t model = 0;
     Mat4 matrix = renderer::identity();
     std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 1.0f};
+    // A live moby's joint palette: the first of its matrices in the scene's palette
+    // (LevelScene::set_palette); -1 draws the mesh as stored (its bind pose).
+    int palette = -1;
 };
 
 // What the viewer draws, in the game's order.
@@ -104,8 +112,9 @@ struct LevelData {
 bool load_level(const std::filesystem::path& dir, LevelData& out, std::string& error);
 
 // Load one glTF or GLB file as one model (every mesh node, in its node's
-// transform, except skinned meshes, which are drawn in their bind pose).
-// Returns the model's index.
+// transform, except skinned meshes, which are stored in their bind pose with
+// their skin: the joints by the number in their node's name, joint_NNN, the
+// game's joint numbers). Returns the model's index.
 std::optional<std::uint32_t> load_model(
     const std::filesystem::path& path, LevelData& level, std::string& error
 );

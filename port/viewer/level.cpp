@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cgltf.h>
 #include <cmath>
+#include <cstdlib>
+#include <cstring>
 #include <format>
 #include <map>
 #include <stb_image.h>
@@ -170,10 +172,23 @@ std::optional<std::uint32_t> load_model(
         if (node.mesh == nullptr) {
             continue;
         }
-        // A skinned mesh is drawn in its bind pose: its vertices as stored.
+        // A skinned mesh is stored in its bind pose: its vertices as stored, with their skin.
         Mat4 world = renderer::identity();
         if (node.skin == nullptr) {
             cgltf_node_transform_world(&node, world.data());
+        }
+        // The skin's joints as the game numbers them (the exporter names them joint_NNN).
+        std::vector<std::uint8_t> skin_joints;
+        if (node.skin != nullptr) {
+            for (cgltf_size j = 0; j < node.skin->joints_count; ++j) {
+                const cgltf_node* joint = node.skin->joints[j];
+                int number = static_cast<int>(j);
+                if (joint != nullptr && joint->name != nullptr
+                    && std::strncmp(joint->name, "joint_", 6) == 0) {
+                    number = std::atoi(joint->name + 6);
+                }
+                skin_joints.push_back(static_cast<std::uint8_t>(std::clamp(number, 0, 255)));
+            }
         }
         for (cgltf_size p = 0; p < node.mesh->primitives_count; ++p) {
             const cgltf_primitive& prim = node.mesh->primitives[p];
@@ -187,6 +202,10 @@ std::optional<std::uint32_t> load_model(
             const cgltf_accessor* normals = attribute(prim, cgltf_attribute_type_normal);
             const cgltf_accessor* uvs = attribute(prim, cgltf_attribute_type_texcoord);
             const cgltf_accessor* colours = attribute(prim, cgltf_attribute_type_color);
+            const cgltf_accessor* joints =
+                skin_joints.empty() ? nullptr : attribute(prim, cgltf_attribute_type_joints);
+            const cgltf_accessor* weights =
+                skin_joints.empty() ? nullptr : attribute(prim, cgltf_attribute_type_weights);
             const auto base_vertex = static_cast<std::uint32_t>(level.vertices.size());
             for (cgltf_size i = 0; i < positions->count; ++i) {
                 Vertex v{};
@@ -211,6 +230,19 @@ std::optional<std::uint32_t> load_model(
                     cgltf_accessor_read_float(
                         colours, i, v.colour, colours->type == cgltf_type_vec3 ? 3 : 4
                     );
+                }
+                if (joints != nullptr && weights != nullptr) {
+                    cgltf_uint js[4] = {0, 0, 0, 0};
+                    cgltf_accessor_read_uint(joints, i, js, 4);
+                    cgltf_accessor_read_float(weights, i, v.weights, 4);
+                    for (int k = 0; k < 4; ++k) {
+                        v.joints[k] = js[k] < skin_joints.size() ? skin_joints[js[k]] : 0;
+                        if (js[k] >= skin_joints.size()) {
+                            v.weights[k] = 0.0f;
+                        } else if (v.weights[k] > 0.0f) {
+                            model.joints = std::max(model.joints, v.joints[k] + 1);
+                        }
+                    }
                 }
                 level.vertices.push_back(v);
             }

@@ -7,7 +7,9 @@
 //
 // Every mesh shares one vertex and one index buffer; the instances of a class
 // are drawn with one instanced call per material, their matrices in an
-// instance buffer. Textures go through the renderer's texture pool. The
+// instance buffer. Live mobys are skinned in the vertex shader with the joint
+// palettes the game's animation fields give (moby_pose.h), from a float
+// texture each instance indexes. Textures go through the renderer's texture pool. The
 // conventions are the game's: Z up, reversed depth (cleared to 0, GEQUAL).
 // Lighting is a fixed sun and ambient, only so shapes read: the game's own
 // lights (tie and shrub light indices, the level's directional lights) are
@@ -36,6 +38,13 @@ public:
     // Replaces a layer's instances (live mobys, each frame).
     void set_instances(Layer layer, const std::vector<Instance>& instances);
 
+    // One joint matrix of a palette, as the vertex shader takes it: four columns (the images of
+    // the axes, then the translation, in the mesh's units), column-major.
+    using JointColumns = std::array<float, 16>;
+
+    // Replaces the joint palettes the mobys' instances index (Instance::palette), each frame.
+    void set_palette(const std::vector<JointColumns>& matrices);
+
     bool lighting = true;
 
 private:
@@ -56,6 +65,8 @@ private:
     std::array<std::vector<Group>, kLayerCount> m_groups;
     unsigned m_vertices = 0;
     unsigned m_indices = 0;
+    unsigned m_palette = 0;  // RGBA32F texture, four texels per matrix
+    std::vector<JointColumns> m_palette_data;
     renderer::Shader m_mesh;
     renderer::Shader m_sky;
 };

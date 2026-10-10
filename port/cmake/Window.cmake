@@ -103,6 +103,7 @@ add_library(openrac_viewer_lib STATIC
   viewer/json.cpp
   viewer/level.cpp
   viewer/level_renderer.cpp
+  viewer/moby_pose.cpp
   viewer/screenshot.cpp
 )
 openrac_embed_shaders(openrac_viewer_lib viewer openrac::viewer
@@ -111,7 +112,8 @@ openrac_embed_shaders(openrac_viewer_lib viewer openrac::viewer
   "${CMAKE_CURRENT_SOURCE_DIR}/viewer/shaders/sky.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/viewer/shaders/sky.frag"
 )
-target_link_libraries(openrac_viewer_lib PUBLIC openrac_renderer openrac_viewer_third_party)
+target_link_libraries(openrac_viewer_lib PUBLIC openrac_renderer openrac_viewer_third_party
+  openrac_assets_geometry)
 openrac_warnings(openrac_viewer_lib)
 
 add_executable(openrac-viewer viewer/main.cpp)

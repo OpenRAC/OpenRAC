@@ -35,11 +35,18 @@ over the level's background colour, no depth), then terrain, ties, shrubs
 and mobys, instanced per class, with reversed depth (cleared to 0, GEQUAL)
 and in the game's axes (Z up). Textures go through the renderer's texture
 pool. A moby is its class mesh in the bind pose, scaled by the class scale
-times its placement; a class without a mesh is a box coloured by class.
+times its placement; a class without a mesh is a box coloured by class. In
+the native port the live mobys are posed: each frame `moby_pose.h` evaluates
+a moby's joint palette from its animation fields in game memory (the two keys
+it points at, the blend between them, its class's skeleton), as the game's
+VU0 evaluator did, and the vertex shader skins the class mesh with it (the
+exporter's per-vertex joints and weights, the palettes in a float texture).
 
 ## Placeholder
 
 The lighting is a fixed sun only so shapes read; the game's lights (tie and
 shrub light indices, moby colours, the level's directional lights), fog,
-level of detail, occlusion, animation and the collision layer are not drawn
-yet.
+level of detail, occlusion, animation in the viewer itself (it has no game
+to read poses from), the runtime pose layers and joint modifiers (moby +0x60
+and +0x64: Ratchet's head and blinks, look-ats) and the collision layer are
+not drawn yet.
