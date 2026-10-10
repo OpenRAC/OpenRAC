@@ -57,20 +57,23 @@ the disc image and saves are kept.
 
 ## Develop
 
-You need Node 20+ and Rust (stable). For the desktop app on Linux, Tauri's
+You need Node 20+, Yarn (the version `package.json` names, through Corepack:
+`corepack enable`) and Rust (stable). For the desktop app on Linux, Tauri's
 system libraries too (Debian and Ubuntu:
 `libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev`; see
 [Tauri's prerequisites](https://tauri.app/start/prerequisites/) for the others).
+On Windows, Tauri builds with Rust's MSVC toolchain; if your default is the GNU
+one, `rustup override set stable-x86_64-pc-windows-msvc` in this folder.
 
 ```sh
 cd launcher
-npm ci
-npm run dev           # the UI in a browser at http://localhost:1430, with mock data (no Rust needed)
-npm run tauri dev     # the desktop app, with the real Rust side
-npm run tauri build   # an installer for this platform, in target/release/bundle/
+yarn install
+yarn dev           # the UI in a browser at http://localhost:1430, with mock data (no Rust needed)
+yarn tauri dev     # the desktop app, with the real Rust side
+yarn tauri build   # an installer for this platform, in target/release/bundle/
 ```
 
-The browser preview (`npm run dev`) reads the real `games/*/game.json`,
+The browser preview (`yarn dev`) reads the real `games/*/game.json`,
 `progress/summary.json` and `actions.json`, and makes up the rest (which
 games are set up, what a job prints): see `src/lib/mock.ts`. Add `?setup` to
 the address for the first-run screen, `?version=rac1/pal` for a game page,
@@ -79,7 +82,7 @@ the address for the first-run screen, `?version=rac1/pal` for a game page,
 ## Check
 
 ```sh
-npm run verify                                         # svelte-check, ESLint, Prettier, Vitest
+yarn verify                                            # svelte-check, ESLint, Prettier, Vitest
 cargo test -p openrac-launcher-core                    # the Rust logic; no WebKit needed
 cargo clippy --workspace --all-targets -- -D warnings  # needs Tauri's system libraries
 cargo fmt --all --check

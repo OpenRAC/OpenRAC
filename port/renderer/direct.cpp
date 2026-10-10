@@ -108,10 +108,11 @@ bool GifInterpreter::gif(std::span<const std::uint8_t> input) {
         m_gif_pending.assign(packet.begin() + static_cast<std::ptrdiff_t>(from), packet.end());
         return true;
     };
-    // A register tag (PACKED, REGLIST) cut off by the end of a VIF DIRECT: the game's own packets
-    // always finish them inside the DIRECT (only image data runs on into the next one), so this is
-    // a transfer of something that is not GIF data (a reference to memory the port has put other
-    // bytes in). Dropped, so that the next DIRECT is read from its first tag again.
+    // A register tag (PACKED, REGLIST) cut off by the end of a VIF DIRECT, or image data with no
+    // transfer open: the game's own packets always finish those inside the DIRECT (only a
+    // transfer's image data runs on into the next one), so this is a transfer of something that
+    // is not GIF data (a reference to memory the port has put other bytes in). Dropped, so that
+    // the next DIRECT is read from its first tag again.
     const auto cut = [&](std::size_t from) {
         if (!m_in_direct) {
             return carry(from);
@@ -221,7 +222,9 @@ bool GifInterpreter::gif(std::span<const std::uint8_t> input) {
             case gs::GifTag::kDisable: {
                 const std::size_t size = std::size_t{tag.nloop} * 16;
                 if (at + size > packet.size()) {
-                    return carry(tag_at);
+                    // Image data runs on into the next DIRECT only for a transfer the game opened
+                    // (TRXDIR); without one this is not GIF data either.
+                    return m_upload_bytes == 0 ? cut(tag_at) : carry(tag_at);
                 }
                 image_data(packet.subspan(at, size));
                 at += size;
@@ -525,11 +528,116 @@ void GifInterpreter::image_data(std::span<const std::uint8_t> data) {
             );
         }
         std::erase_if(m_frame_copies, [&](const FrameCopy& f) { return f.dbp == m_upload.dbp; });
+        if (m_upload.dpsm == gs::kPsmct32 && m_upload.dbp >= kDrawBufferBlock
+            && m_upload.dbp < kDrawBufferBlock + kDrawBufferWidth * (kDrawBufferLines / 32) * 32) {
+            draw_frame_upload(m_upload);
+        }
         m_textures.upload(std::move(m_upload));
         m_upload = ImageUpload{};
         m_upload_bytes = 0;
         m_state_dirty = true;  // the bound texture may be the one just replaced
     }
+}
+
+bool frame_pixel(std::uint32_t base, std::uint32_t width, int x, int y, int& frame_x, int& frame_y) {
+    if (base < kDrawBufferBlock || (base - kDrawBufferBlock) % 32 != 0 || width == 0) {
+        return false;
+    }
+    const int page = static_cast<int>((base - kDrawBufferBlock) / 32) + (y / 32) * static_cast<int>(width) + x / 64;
+    frame_x = (page % static_cast<int>(kDrawBufferWidth)) * 64 + x % 64;
+    frame_y = (page / static_cast<int>(kDrawBufferWidth)) * 32 + y % 32;
+    return frame_y < kDrawBufferLines;
+}
+
+void GifInterpreter::draw_frame_upload(const ImageUpload& upload) {
+    int fx = 0;
+    int fy = 0;
+    if (!frame_pixel(upload.dbp, upload.dbw, static_cast<int>(upload.x), static_cast<int>(upload.y), fx, fy)) {
+        return;
+    }
+    // The pixels the port answered a read-back with: drawn from the frame as it was drawn.
+    const bool snapshot =
+        g_frame_snapshot.texture != 0
+        && std::find(g_frame_snapshot.answered.begin(), g_frame_snapshot.answered.end(),
+                     hash_bytes(upload.data.data(), upload.data.size()))
+               != g_frame_snapshot.answered.end();
+    if (g_dump_draws) {
+        log::info("frame upload to block {:#x}: frame pixel {},{}, {} (snapshot of {} blocks)", upload.dbp, fx, fy,
+                  snapshot ? "from the snapshot" : "its own pixels", g_frame_snapshot.answered.size());
+    }
+    DirectState s;
+    s.textured = true;
+    s.snapshot = snapshot;
+    if (!snapshot) {
+        // The transfer itself, as a texture of its own size at its block.
+        gs::Tex0 t{};
+        t.tbp0 = upload.dbp;
+        t.tbw = std::max<std::uint32_t>(upload.dbw, 1);
+        t.psm = gs::kPsmct32;
+        t.tw = static_cast<std::uint32_t>(std::bit_width(std::max<std::uint32_t>(upload.width, 1) - 1));
+        t.th = static_cast<std::uint32_t>(std::bit_width(std::max<std::uint32_t>(upload.height, 1) - 1));
+        t.tcc = false;
+        // Keyed past the chip's 14-bit blocks, so that the rectangle stays one texture.
+        ImageUpload copy = upload;
+        copy.dbp = 0x10000u + upload.dbp;
+        copy.x = 0;
+        copy.y = 0;
+        m_textures.upload(std::move(copy));
+        t.tbp0 = 0x10000u + upload.dbp;
+        s.texture = m_textures.resolve(t, m_texa);
+    }
+    s.tfx = gs::Tfx::Decal;
+    s.tcc = false;
+    s.clamp_s = true;
+    s.clamp_t = true;
+    s.depth_write = false;
+    s.scissor = {0, static_cast<std::uint32_t>(m_config.screen_width - 1), 0,
+                 static_cast<std::uint32_t>(m_config.screen_height - 1)};
+    m_draws.push_back({s, static_cast<std::uint32_t>(m_vertices.size()), 0});
+    const float tw = static_cast<float>(std::bit_ceil(std::max<std::uint32_t>(upload.width, 1)));
+    const float th = static_cast<float>(std::bit_ceil(std::max<std::uint32_t>(upload.height, 1)));
+    // One quad per run of a page row: 64 pixels across at most, 32 lines down at most.
+    for (std::uint32_t y0 = 0; y0 < upload.height; y0 = (y0 / 32 + 1) * 32) {
+        const std::uint32_t y1 = std::min(upload.height, (y0 / 32 + 1) * 32);
+        for (std::uint32_t x0 = 0; x0 < upload.width; x0 = (x0 / 64 + 1) * 64) {
+            const std::uint32_t x1 = std::min(upload.width, (x0 / 64 + 1) * 64);
+            if (!frame_pixel(upload.dbp, upload.dbw, static_cast<int>(upload.x + x0),
+                             static_cast<int>(upload.y + y0), fx, fy)) {
+                continue;
+            }
+            const float px0 = static_cast<float>(fx);
+            const float py0 = static_cast<float>(fy);
+            const float px1 = px0 + static_cast<float>(x1 - x0);
+            const float py1 = py0 + static_cast<float>(y1 - y0);
+            DirectVertex corners[4]{};
+            const float xs[2] = {px0, px1};
+            const float ys[2] = {py0, py1};
+            const float us[2] = {static_cast<float>(x0), static_cast<float>(x1)};
+            const float vs[2] = {static_cast<float>(y0), static_cast<float>(y1)};
+            for (int k = 0; k < 4; ++k) {
+                DirectVertex& v = corners[k];
+                const int i = k & 1;
+                const int j = k >> 1;
+                v.x = xs[i] / static_cast<float>(m_config.screen_width) * 2.0f - 1.0f;
+                v.y = 1.0f - ys[j] / static_cast<float>(m_config.screen_height) * 2.0f;
+                v.z = -1.0f;
+                if (snapshot) {
+                    v.s = xs[i] / static_cast<float>(m_config.screen_width);
+                    v.t = 1.0f - ys[j] / static_cast<float>(kDrawBufferLines);
+                } else {
+                    v.s = us[i] / tw;
+                    v.t = vs[j] / th;
+                }
+                v.q = 1.0f;
+                v.rgba[0] = v.rgba[1] = v.rgba[2] = v.rgba[3] = 0x80;
+                v.fog = 1.0f;
+            }
+            const DirectVertex order[6] = {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]};
+            m_vertices.insert(m_vertices.end(), order, order + 6);
+            m_draws.back().count += 6;
+        }
+    }
+    m_state_dirty = true;  // the next primitive's state is its own again
 }
 
 void GifInterpreter::kick(bool draw) {
@@ -1157,7 +1265,9 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     glUniform1i(m_uniforms.textured, s.textured ? 1 : 0);
     if (s.textured) {
         glActiveTexture(GL_TEXTURE0);
-        if (s.source != 0) {
+        if (s.snapshot) {
+            glBindTexture(GL_TEXTURE_2D, g_frame_snapshot.texture);
+        } else if (s.source != 0) {
             // A panel the game rendered off-screen, as the chip would read it from its memory.
             glBindTexture(GL_TEXTURE_2D, offscreen(s.source).texture);
         } else if (s.frame_source) {
@@ -1264,7 +1374,7 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
     const GLboolean green = (s.fbmsk & 0x0000FF00u) != 0x0000FF00u ? GL_TRUE : GL_FALSE;
     const GLboolean blue = (s.fbmsk & 0x00FF0000u) != 0x00FF0000u ? GL_TRUE : GL_FALSE;
     const GLboolean alpha = (s.fbmsk & 0xFF000000u) != 0xFF000000u ? GL_TRUE : GL_FALSE;
-    const GLboolean depth = s.depth_write ? GL_TRUE : GL_FALSE;
+    const GLboolean depth = s.depth_write && !m_background ? GL_TRUE : GL_FALSE;
 
     auto call = [&](int test,
                     bool keep_failing,
@@ -1320,7 +1430,8 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
     }
 }
 
-void DirectRenderer::flush(RenderState& state) {
+void DirectRenderer::flush(RenderState& state, bool background) {
+    m_background = background;
     const auto& vertices = m_interpreter->vertices();
     if (vertices.empty()) {
         m_interpreter->clear();

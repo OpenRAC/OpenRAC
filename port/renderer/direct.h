@@ -100,6 +100,9 @@ struct DirectState {
     // Textured from a frame buffer, or from a copy of part of one (the game's blur, bands and
     // washes): the texture is the render target as drawn so far.
     bool frame_source = false;
+    // Textured from the frame snapshot (FrameSnapshot): pixels the game read back from its frame
+    // buffer and sends back into it.
+    bool snapshot = false;
     // Drawn into an off-screen target (the GS block of a FRAME narrower than the screen: the menu's
     // panels), or textured from one; 0 for the main frame / a texture of the pool.
     std::uint32_t target = 0;
@@ -121,6 +124,28 @@ inline bool g_dump_draws = false;
 // use), drawn at kOffscreenScale times that resolution.
 inline constexpr int kOffscreenPixels = 512;
 inline constexpr int kOffscreenScale = 2;
+
+// The game reading its frame buffer back (sceGsExecStoreImage: the pause and vendor menus keep the
+// frame they open over, and send it back into the frame each frame as image transfers). The port
+// answers the read with the frame it drew, scaled to the chip's pixels (frame_pixel says where each
+// pixel of a transfer is), and keeps that frame at full resolution here: a transfer back into the
+// draw buffer whose pixels are ones it answered with is drawn from this texture instead.
+struct FrameSnapshot {
+    unsigned texture = 0;                   // GL, the frame as drawn (first row at the bottom)
+    std::vector<std::uint64_t> answered;  // hash_bytes() of each block of pixels handed back
+};
+inline FrameSnapshot g_frame_snapshot;
+
+// The draw buffer the games read back and write into (PAL Ratchet & Clank: block 0x1000, 8 x 64
+// pixels wide, 448 lines).
+inline constexpr std::uint32_t kDrawBufferBlock = 0x1000;
+inline constexpr std::uint32_t kDrawBufferWidth = 8;
+inline constexpr int kDrawBufferLines = 448;
+
+// Where pixel (x, y) of a PSMCT32 rectangle at block `base`, `width` 64-pixel units wide, is in the
+// draw buffer: through the chip's 64 x 32 pixel pages (the same pages whichever buffer width the
+// transfer gives). False if the base is not on a page of the draw buffer.
+bool frame_pixel(std::uint32_t base, std::uint32_t width, int x, int y, int& frame_x, int& frame_y);
 
 class GifInterpreter {
 public:
@@ -183,6 +208,8 @@ private:
     void emit_line(const GsVertex& a, const GsVertex& b);
     void emit_point(const GsVertex& a);
     void emit_quad(const DirectVertex corners[4]);
+    // An image transfer into the draw buffer: its pixels drawn where the chip would store them.
+    void draw_frame_upload(const ImageUpload& upload);
     DirectVertex convert(const GsVertex& v) const;
     void screen_position(const GsVertex& v, float& x, float& y) const;
     void ensure_draw();
@@ -269,13 +296,16 @@ public:
     // As a component of another renderer: feed packets, then flush() draws
     // what was fed.
     bool submit(std::span<const std::uint8_t> packets);
-    void flush(RenderState& state);
+    // `background`: the part of the frame before the world (DirectBackground), drawn without
+    // depth writes, since the world it is under is drawn after it.
+    void flush(RenderState& state, bool background = false);
 
     GifInterpreter& interpreter() { return *m_interpreter; }
 
 private:
     void apply(const DirectState& state, RenderState& render_state);
     void draw(const DirectDraw& draw, RenderState& render_state);
+    bool m_background = false;  // flush(): the part before the world
 
     DirectConfig m_config;
     Input m_input;
@@ -302,6 +332,26 @@ private:
         int textured, tcc, tfx, tex_alpha_scale, fog_enable, fog_colour, alpha_test, alpha_ref,
             alpha_keep_failing;
     } m_uniforms{};
+};
+
+// The part of a DirectRenderer's frame that comes before the world (FrameInput::
+// direct_before_world), drawn by that renderer when this one's turn comes: added ahead of the world
+// renderers, the DirectRenderer itself after them. Its registers carry on from one part to the next.
+class DirectBackground : public BucketRenderer {
+public:
+    explicit DirectBackground(DirectRenderer& direct)
+        : BucketRenderer(direct.name() + " (before the world)", direct.bucket()),
+          m_direct(direct) {}
+
+    void render(const FrameInput& input, RenderState& state) override {
+        if (!input.direct_before_world.empty()) {
+            m_direct.submit(input.direct_before_world);
+            m_direct.flush(state, true);
+        }
+    }
+
+private:
+    DirectRenderer& m_direct;
 };
 
 }  // namespace openrac::renderer

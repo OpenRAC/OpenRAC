@@ -34,6 +34,13 @@ void func_0020E3D0(Moby *m) {
     if (rateBits == 0 || speedBits == 0) {
         goto tail;
     }
+    /* The EE FPU has no infinity: 1.0f / 0 (func_00213DE0's rate for a blend of 0 frames) is
+       FLT_MAX there, and FLT_MAX / FLT_MAX = 1 ends the key loop below. A host infinity here would
+       make it NaN and never end. */
+    if ((rateBits & 0x7F800000) == 0x7F800000) {
+        rateBits = (rateBits & 0x80000000) | 0x7F7FFFFF;
+        rate = *(float *)&rateBits;
+    }
 
     seq = m->pClass->seqs[seqB];
     if (seqA == seqB) {
@@ -61,7 +68,13 @@ void func_0020E3D0(Moby *m) {
                 voice = 0xFF;
                 trig = 0;
             }
-            t = t / rate;
+            /* The EE FPU's divide saturates: x / 0 is +-FLT_MAX (and FLT_MAX * 0 = 0), which ends
+               the loop; the host's infinity would not. */
+            if (rate != 0.0f) {
+                t = t / rate;
+            } else {
+                *(unsigned int *)&t = (*(unsigned int *)&t & 0x80000000) | 0x7F7FFFFF;
+            }
             flags |= 1;
             fc = ((unsigned char *)seq)[0x10];
             ovr = *(int *)((char *)seq + 0x18);
@@ -88,7 +101,13 @@ void func_0020E3D0(Moby *m) {
     } else if (ti < 0) {
         /* backward: the key passes its start, possibly more than once */
         do {
-            t = t / rate;
+            /* The EE FPU's divide saturates: x / 0 is +-FLT_MAX (and FLT_MAX * 0 = 0), which ends
+               the loop; the host's infinity would not. */
+            if (rate != 0.0f) {
+                t = t / rate;
+            } else {
+                *(unsigned int *)&t = (*(unsigned int *)&t & 0x80000000) | 0x7F7FFFFF;
+            }
             newB = m->frame;
             newA = newB - 1;
             flags |= 1;

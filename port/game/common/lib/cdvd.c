@@ -54,7 +54,12 @@ int openrac_lib_sceCdRead(unsigned int sector, unsigned int count, gaddr buffer,
         last_error = 0x01; /* any non-zero error: the game retries */
         return 0;
     }
+#if defined(_WIN32)
+    /* Windows' C library has no fseeko; _fseeki64 is its 64-bit seek. */
+    if (_fseeki64(f, (long long)sector * SECTOR, SEEK_SET) != 0
+#else
     if (fseeko(f, (off_t)sector * SECTOR, SEEK_SET) != 0
+#endif
         || fread(G(buffer), SECTOR, count, f) != count) {
         fprintf(stderr, "[error] disc read of %u sectors at %u failed\n", count, sector);
         last_error = 0x32;

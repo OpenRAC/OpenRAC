@@ -416,6 +416,42 @@ here. The next decomp task remains the equipment attachment routine and
 matrix-buffer correction described above. PR #4 targets
 `OpenRAC/OpenRAC:master` from `PeterFarber:setup/windows-native`.
 
+### PR #4 upstream merge, 2026-10-10
+
+Merged upstream `69920f8` into the PR branch in the isolated
+`.tools/push-verify-9850bfe` worktree. The only textual conflict was
+`port/cmake/Games.cmake`: both branches fixed hostgen's dependency glob.
+Kept upstream's equivalent `OPENRAC_HOSTGEN` directory resolution and
+verified that Ninja tracks the translator modules. The Windows path and
+newer Clang compatibility fixes remain combined with upstream's changes.
+
+The merged build exposed upstream's unconditional `execinfo.h` include in
+missing-call tracing. Windows now captures and prints stack addresses with
+`CaptureStackBackTrace`; Unix retains its existing backtrace path. Checks:
+
+- Full Windows release build succeeds; all 42 CTest tests pass using the
+  sibling `rac1-decomp`. Logs in the parent workspace:
+  `.tools/pr4-merge-build-fixed.log` and `.tools/pr4-merge-tests.log`.
+- Hostgen: 8 passed, 17 POSIX-only tests skipped;
+  `.tools/pr4-merge-hostgen-tests.log`.
+- Synthetic missing-call probes cover tracing enabled/disabled and
+  stopping enabled/disabled. Traces contain stack addresses, duplicate
+  calls trace once, and stop-on-missing exits with code 2 in both modes.
+  `.tools/pr4-merge-probes.log` also verifies CMake dependency inputs.
+- The PR diff against upstream passes the whitespace check. Two existing
+  trailing spaces in upstream imported candidates are unchanged.
+
+Upstream now continues past missing functions by default. Future gameplay
+validation MUST pass `--stop-on-missing` explicitly; continuing is not
+evidence of implemented behavior. No gameplay probe is claimed here.
+Next action: reconcile the existing equipment attachment investigation
+with upstream's newly imported candidate before implementing it, and use
+the explicit stop flag for the next New Game probe. The original dirty
+workspace remains untouched at `c71be5c`; the merge is on local branch
+`fix/pr4-upstream-conflict`, published to the existing PR branch. Bring
+the working branch forward while preserving its edits before resuming
+campaign work there.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,

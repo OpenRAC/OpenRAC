@@ -85,8 +85,10 @@ function(openrac_add_game config)
   file(GLOB_RECURSE inputs CONFIGURE_DEPENDS
     "${game_source}/src/*.c" "${game_source}/src/*.h" "${game_source}/include/*.h"
     "${game_source}/candidates/*.c" "${game_source}/nonmatching/*.tsv" "${game_source}/nonmatching/*.c")
-  # Resolve against this function's module, not the caller's CMakeLists.txt.
-  file(GLOB tool CONFIGURE_DEPENDS "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../tools/hostgen/*.py")
+  # hostgen's own code (in a function, CMAKE_CURRENT_LIST_DIR is the caller's directory, so the
+  # tool's is taken from OPENRAC_HOSTGEN, set where this file was read).
+  get_filename_component(hostgen_dir "${OPENRAC_HOSTGEN}" DIRECTORY)
+  file(GLOB tool CONFIGURE_DEPENDS "${hostgen_dir}/*.py")
   file(GLOB tables CONFIGURE_DEPENDS "${config_dir}/*.json" "${config_dir}/*.tsv"
        "${config_dir}/hand/*" "${OPENRAC_GAME_DIR}/common/*.tsv")
   # hostgen rewrites only the files whose text changed, so after an edit only
@@ -124,7 +126,8 @@ function(openrac_add_game config)
   target_link_libraries(openrac-${id} PRIVATE openrac_${target_id}_game openrac_runtime)
   # The window: the renderer draws what the game holds in memory (game/common/frontend.h).
   if(TARGET openrac_viewer_lib AND TARGET openrac_platform)
-    target_sources(openrac-${id} PRIVATE "${OPENRAC_GAME_DIR}/common/frontend.cpp")
+    target_sources(openrac-${id} PRIVATE "${OPENRAC_GAME_DIR}/common/frontend.cpp"
+                                         "${OPENRAC_GAME_DIR}/common/debug_menu.cpp")
     target_link_libraries(openrac-${id} PRIVATE openrac_viewer_lib openrac_platform)
     target_compile_definitions(openrac-${id} PRIVATE OPENRAC_FRONTEND=1)
     if(TARGET openrac_media)

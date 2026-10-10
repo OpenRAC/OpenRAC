@@ -480,7 +480,3 @@ void func_L00_00299B68(int a0) {
 void func_00211808(gaddr a0, gaddr a1) {
     openrac_game_moby_chain(a0, a1);
 }
-/* The space flight's quads (loading between planets), for the console's renderer. */
-void func_0022F738(int a0) {
-    (void)a0;
-}

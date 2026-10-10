@@ -356,21 +356,22 @@ void func_L00_00236AB8(HudElem *e) {
     func_L00_0023B440((char *)e + 0x40);
 }
 INCLUDE_ASM("asm/overlays", func_L00_00236BF8);
-extern void func_L00_00236830_v() __asm__("func_L00_00236830");
+extern void func_L00_00236830_v(HudElem *) __asm__("func_L00_00236830");
 extern int D_L00_0015F4F8 MACRO_ADDR;
 extern float D_L00_0017E760[][4];
 extern short D_L00_0015F830;
 extern short D_L00_0015F834;
 extern short D_L00_0015F838;
 
-/* bounces the drifting particles around a box that depends on their index */
-void func_L00_00236DE8(void) {
+/* bounces the drifting particles around a box that depends on their index, after updating its
+   HUD element (the element it is the callback of, passed on in $a0) */
+void func_L00_00236DE8(HudElem *e) {
     int i;
     int cnt;
     int par;
     float *p;
 
-    func_L00_00236830_v();
+    func_L00_00236830_v(e);
     cnt = D_L00_0015F4F8;
     par = cnt - (cnt / 2) * 2;
     p = D_L00_0017E760[par];

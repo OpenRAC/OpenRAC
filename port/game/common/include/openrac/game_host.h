@@ -67,6 +67,10 @@ extern int openrac_game_language;
  * console would report (0 or 1, alternating). */
 int openrac_game_vsync(void);
 
+/* Called by the window's frame loop with the frame number, after each vertical blank, when a game
+ * installs it (rac1: the direct start into a level, boot.c). */
+extern void (*openrac_game_on_frame)(unsigned frame);
+
 /* The game sends a DMA chain (sceDmaSend): channel is the game address of
  * the channel's registers (0x10009000 is VIF1, the display list; 0x1000A000
  * is the GIF), tag the address of the chain's first tag. The renderer reads
@@ -97,6 +101,11 @@ typedef struct openrac_game_image {
 } openrac_game_image;
 
 void openrac_game_load_image(const openrac_game_image* image);
+
+/* The game reading a rectangle of the GS's memory back (sceGsExecStoreImage):
+ * the source, and the game address the pixels go to. The renderer answers
+ * reads of the frame buffer with the frame it drew. */
+void openrac_game_store_image(const openrac_game_image* image);
 
 /* The game's own renderers were asked to draw these layers this frame (bits: 1 sky, 2 terrain,
  * 4 ties, 8 shrubs, 16 mobys; renderer::Bucket's order). Its renderer entry points call this in

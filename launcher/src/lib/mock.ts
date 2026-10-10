@@ -1,4 +1,4 @@
-// The browser preview's stand-in for the Rust side (`npm run dev` without
+// The browser preview's stand-in for the Rust side (`yarn dev` without
 // Tauri). It reads the same files the desktop app reads (games/*/game.json,
 // progress/summary.json, launcher/actions.json, bundled at build time), so
 // the preview shows the real games and actions; the disc and tool states

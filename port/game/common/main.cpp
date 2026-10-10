@@ -5,7 +5,7 @@
 // file, linked with that game's translated C and its description
 // (openrac_game, generated from port/game/<id>/hostgen.json).
 //
-//   openrac-<id> --data <install>/active/<game>/data [--cards DIR] [--frames N] [--keep-going]
+//   openrac-<id> --data <install>/active/<game>/data [--cards DIR] [--frames N] [--stop-on-missing]
 //                [--level N]
 //
 // The data folder is what the extractor made from the player's disc
@@ -20,9 +20,9 @@
 //      program that is loaded deciding which ones a level address means;
 //   4. the game's main.
 //
-// While the port is being brought up, the program stops at the first function
-// that has no C yet (still assembly in the decompilation, or a library not
-// replaced yet) and says which; --keep-going logs it and carries on.
+// A function that has no C yet (still assembly in the decompilation, or a
+// library not replaced yet) is logged and returns, and the game carries on;
+// --stop-on-missing stops at the first one instead and says which, for checks.
 
 #include <chrono>
 #include <cstdlib>
@@ -32,6 +32,8 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <algorithm>
+#include <format>
 #include <string>
 #include <thread>
 #include <vector>
@@ -58,6 +60,7 @@ const char* openrac_game_card_dir = nullptr;
 int openrac_game_language = 1;
 int openrac_game_no_card = 0;
 int openrac_game_start_level = -1;
+void (*openrac_game_on_frame)(unsigned frame) = nullptr;
 }
 
 namespace {
@@ -69,7 +72,7 @@ struct Options {
     fs::path data;
     fs::path cards;
     long frames = -1;
-    bool keep_going = false;
+    bool keep_going = true;
     bool window = false;
     fs::path levels;  // the extracted levels the window draws (level_00, ...)
 };
@@ -88,7 +91,7 @@ std::string program_name() {
 [[noreturn]] void usage(const std::string& why) {
     log::error("{}", why);
     log::error(
-        "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--keep-going] [--level N]",
+        "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--stop-on-missing] [--level N]",
         program_name(),
         openrac_game.game
     );
@@ -140,6 +143,8 @@ Options parse(int argc, char** argv) {
             openrac_game_start_level = std::stoi(value());
         } else if (a == "--keep-going") {
             o.keep_going = true;
+        } else if (a == "--stop-on-missing") {
+            o.keep_going = false;
         } else if (a == "--help" || a == "-h") {
             usage(program_name() + ": " + openrac_game.title + ", native");
         } else {
@@ -217,6 +222,13 @@ int openrac_game_vsync(void) {
     // only paced, at the game's frame rate.
 #ifdef OPENRAC_FRONTEND
     if (g_window) {
+        // The tick about to be drawn was due at the time the last one set (frames between ticks
+        // count from it).
+        const auto period = std::chrono::microseconds(
+            1000000 / (openrac_game.frame_rate > 0 ? openrac_game.frame_rate : 60));
+        const auto now = std::chrono::steady_clock::now();
+        frontend::set_tick(g_next_frame.time_since_epoch().count() == 0 || now > g_next_frame + period
+                               ? now : g_next_frame, period);
         const auto* ram = runtime::Memory::get().base();
         const std::uint32_t draws = g_reports_draws ? g_draws : ~0u;
         g_draws = 0;
@@ -226,16 +238,78 @@ int openrac_game_vsync(void) {
     }
 #endif
     g_frame++;
+    if (openrac_game_on_frame != nullptr) {
+        openrac_game_on_frame(static_cast<unsigned>(g_frame));
+    }
     if (g_options.frames >= 0 && g_frame >= g_options.frames) {
         std::exit(0);  // finish() runs at exit
     }
     using namespace std::chrono;
     const auto now = steady_clock::now();
+    // OPENRAC_FPS: the frames per second over each 300 frames, in the log. OPENRAC_UNCAPPED: no wait
+    // for the next frame's time (the game then runs as fast as the machine allows: a measure, not a
+    // way to play, since the game's tick is its frame).
+    static const bool fps = std::getenv("OPENRAC_FPS") != nullptr;
+    static const bool uncapped = std::getenv("OPENRAC_UNCAPPED") != nullptr;
+    static steady_clock::time_point fps_from = now;
+    // OPENRAC_WATCH=ADDRESS:COUNT[:i],...: COUNT floats (or words, with i) from each ADDRESS, each
+    // frame, in the log.
+    static const char* watch = std::getenv("OPENRAC_WATCH");
+    if (watch != nullptr) {
+        std::string line;
+        for (const char* at = watch; at && *at;) {
+            unsigned long address = 0, count = 1;
+            char kind = 'f';
+            std::sscanf(at, "%lx:%lu:%c", &address, &count, &kind);
+            for (unsigned long i = 0; i < count && i < 32; ++i) {
+                std::uint32_t w;
+                std::memcpy(&w, G(static_cast<gaddr>(address + 4 * i)), 4);
+                float f;
+                std::memcpy(&f, &w, 4);
+                line += kind == 'i' ? std::format(" {}", static_cast<std::int32_t>(w)) : std::format(" {:.4f}", f);
+            }
+            line += " |";
+            at = std::strchr(at, ',');
+            at = at ? at + 1 : nullptr;
+        }
+        log::info("frame {} watch{}", g_frame, line);
+    }
+    // OPENRAC_HITCH: each frame that took more than twice the frame time, with how long, in the log.
+    static const bool hitch = std::getenv("OPENRAC_HITCH") != nullptr;
+    static steady_clock::time_point last = now;
+    if (hitch) {
+        const double ms = duration<double, std::milli>(now - last).count();
+        if (ms > 1.25 * 1000.0 / (openrac_game.frame_rate > 0 ? openrac_game.frame_rate : 60)) {
+            log::info("frame {}: {:.1f} ms", g_frame, ms);
+        }
+    }
+    last = now;
+    if (fps && g_frame % 300 == 0) {
+        const double seconds = duration<double>(now - fps_from).count();
+        if (seconds > 0.0) {
+            log::info("frame {}: {:.1f} frames per second", g_frame, 300.0 / seconds);
+        }
+        fps_from = now;
+    }
+    if (uncapped) {
+        return static_cast<int>(g_frame & 1);
+    }
     if (g_next_frame.time_since_epoch().count() == 0 || now > g_next_frame + milliseconds(100)) {
         g_next_frame = now;
     }
-    g_next_frame +=
-        microseconds(1000000 / (openrac_game.frame_rate > 0 ? openrac_game.frame_rate : 60));
+    const auto period = microseconds(1000000 / (openrac_game.frame_rate > 0 ? openrac_game.frame_rate : 60));
+    g_next_frame += period;
+#ifdef OPENRAC_FRONTEND
+    // Until the next tick is due, frames at the display's rate (each swap waits for a refresh),
+    // the scene moved on from the last tick's to this one's by when each is shown.
+    if (g_window && frontend::wants_between()) {
+        for (int drawn; (drawn = frontend::between(g_next_frame)) != 0;) {
+            if (drawn < 0) {
+                std::exit(0);
+            }
+        }
+    }
+#endif
     std::this_thread::sleep_until(g_next_frame);
     return static_cast<int>(g_frame & 1);
 }
@@ -295,6 +369,27 @@ void openrac_game_load_image(const openrac_game_image* image) {
 #endif
 }
 
+void openrac_game_store_image(const openrac_game_image* image) {
+    if (image->width <= 0 || image->height <= 0) {
+        return;
+    }
+    const std::size_t bytes =
+        static_cast<std::size_t>(image->width) * static_cast<std::size_t>(image->height) * 4;
+    auto* out = static_cast<std::uint8_t*>(G(image->pixels));
+#ifdef OPENRAC_FRONTEND
+    if (g_window && frontend::store_image(static_cast<std::uint32_t>(image->base),
+                                          static_cast<std::uint32_t>(image->width_units),
+                                          static_cast<std::uint8_t>(image->psm), image->x, image->y,
+                                          image->width, image->height, std::span<std::uint8_t>(out, bytes))) {
+        return;
+    }
+#endif
+    // Nothing to answer with: black, as an empty frame buffer reads.
+    if (image->psm == 0) {
+        std::memset(out, 0, bytes);
+    }
+}
+
 /*
  * The movie player, after ReRAC's movie mode (crates/rc-game/src/movie_player.rs,
  * crates/rc-engine/src/movie_render.rs; ISC License, Copyright (c) 2026 ReRAC contributors):
@@ -314,8 +409,13 @@ int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start
         if (disc == nullptr) {
             return 0;
         }
-        const bool read = fseeko(disc, static_cast<off_t>(lsn) * 2048, SEEK_SET) == 0
-                          && std::fread(file.data(), 1, file.size(), disc) == file.size();
+#if defined(_WIN32)
+        // Windows' C library has no fseeko; _fseeki64 is its 64-bit seek.
+        const bool sought = _fseeki64(disc, static_cast<long long>(lsn) * 2048, SEEK_SET) == 0;
+#else
+        const bool sought = fseeko(disc, static_cast<off_t>(lsn) * 2048, SEEK_SET) == 0;
+#endif
+        const bool read = sought && std::fread(file.data(), 1, file.size(), disc) == file.size();
         std::fclose(disc);
         if (!read) {
             log::warn("movie at sector {}: the disc image is too short", lsn);
@@ -523,7 +623,18 @@ static void load_level_program(int level) {
     }
 }
 
+#if defined(_WIN32)
+// winmm's timer resolution, without windows.h (its macros clash with the port's names).
+extern "C" __declspec(dllimport) unsigned int __stdcall timeBeginPeriod(unsigned int);
+#pragma comment(lib, "winmm.lib")
+#endif
+
 int main(int argc, char** argv) {
+#if defined(_WIN32)
+    // Windows sleeps in steps of 15.6 ms unless a program asks for 1 ms: the wait for the next
+    // 20 ms tick would overshoot by up to a step, and the frames stagger.
+    timeBeginPeriod(1);
+#endif
     g_options = parse(argc, argv);
     const fs::path iso = g_options.data / "iso_data" / openrac_game.game;
     const fs::path exe = iso / openrac_game.serial;

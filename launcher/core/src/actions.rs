@@ -21,7 +21,7 @@ pub const FILE: &str = "launcher/actions.json";
 
 /// The only `{name}` placeholders an argument, `program` or `cwd` may hold.
 pub const PLACEHOLDERS: &[&str] =
-    &["root", "dir", "python", "godot", "docker", "disc", "boot", "artifact", "serial", "key"];
+    &["root", "dir", "python", "godot", "docker", "disc", "boot", "artifact", "serial", "key", "data"];
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -192,6 +192,8 @@ pub struct Plan {
     pub args: Vec<String>,
     pub cwd: PathBuf,
     pub detached: bool,
+    /// Environment variables set for it besides the usual ones.
+    pub env: Vec<(String, String)>,
 }
 
 /// Everything an action's placeholders and requirements are filled from.
@@ -275,7 +277,7 @@ impl ActionFile {
 }
 
 /// Placeholders that only mean something for a version.
-const VERSION_ONLY: &[&str] = &["dir", "disc", "boot", "serial", "key"];
+const VERSION_ONLY: &[&str] = &["dir", "disc", "boot", "serial", "key", "data"];
 
 /// The `{name}`s in `text`.
 fn placeholders(text: &str) -> Vec<String> {
@@ -365,7 +367,13 @@ impl Action {
             Some(v) => format!("{} · {} ({})", self.label, v.title, v.region),
             None => self.label.clone(),
         };
-        Ok(Plan { title, program, args, cwd, detached: self.detached })
+        // Developer tools on: the native port offers its developer features (a level select in the
+        // front end's Options).
+        let mut env = Vec::new();
+        if self.kind == Kind::Play && ctx.config.developer {
+            env.push(("OPENRAC_DEVELOPER".to_string(), "1".to_string()));
+        }
+        Ok(Plan { title, program, args, cwd, detached: self.detached, env })
     }
 }
 
@@ -424,6 +432,11 @@ fn value(name: &str, ctx: &Context) -> Result<String, String> {
         "boot" => {
             let boot = ctx.status.and_then(|s| s.boot.as_ref()).ok_or("this version places no boot executable")?;
             under(ctx.root, &boot.path).display().to_string()
+        }
+        // The folder setting the game up from the disc wrote (install.rs), which the port reads.
+        "data" => {
+            let install = ctx.config.install_dir.as_ref().ok_or("the install folder is not set (Settings)")?;
+            crate::install::data_dir(install, &version()?.game).display().to_string()
         }
         other => return Err(format!("unknown placeholder {{{other}}}")),
     })
@@ -522,5 +535,17 @@ mod tests {
         let view = windows_only.view(&ctx(&ready));
         assert!(!view.this_platform);
         assert_eq!(view.blockers, ["runs on Windows only"]);
+
+        // {data}: the folder the game was set up in, which the port reads.
+        let play: Action = serde_json::from_str(
+            r#"{"id": "p", "label": "Play", "kind": "play", "state": "unverified", "program": "{python}",
+                "args": ["--data", "{data}"]}"#,
+        )
+        .unwrap();
+        assert!(play.plan(&ctx(&ready)).is_err(), "no install folder");
+        let installed = Config { install_dir: Some("/games".into()), ..ready.clone() };
+        let plan = play.plan(&ctx(&installed)).unwrap();
+        let data = Path::new("/games").join("active").join("rac1").join("data");
+        assert_eq!(plan.args[1], data.display().to_string());
     }
 }

@@ -75,6 +75,7 @@ class Program:
     statics: dict[tuple[str, str], Function] = field(default_factory=dict)
     places: dict[str, list[tuple[int, int]]] = field(default_factory=dict)  # symbol -> (overlay, addr)
     sizes: dict[str, int] = field(default_factory=dict)  # catalogued symbol -> bytes
+    splits: dict[str, list] = field(default_factory=dict)  # symbol -> places split off to variants
     symbols: dict[str, int] = field(default_factory=dict)  # other named globals -> address
     typedefs: dict[str, set] = field(default_factory=dict)  # name -> desugared type strings
     host: set = field(default_factory=set)  # functions the port writes by hand (port/game/<game>/)
@@ -276,6 +277,38 @@ def read_places(path: Path, program: Program) -> int:
             if cols[2].isdigit():
                 program.sizes[cols[0]] = int(cols[2])
             count += 1
+    return count
+
+
+def read_split_places(path: Path, program: Program) -> int:
+    """Places the catalogue folded into a function by its fingerprint although their code differs
+    in a constant or a field offset (port/game/<id>/split_places.tsv: function, the variant's name,
+    its places as level:address,...): each variant gets those places as its own, and calls to the
+    function are resolved through the caller's own jal (lower.py, _folded_places)."""
+    if not path.exists():
+        return 0
+    count = 0
+    for line in path.read_text().splitlines():
+        if line.startswith("#") or not line.strip():
+            continue
+        cols = line.split("\t")
+        if len(cols) < 3:
+            continue
+        name, variant = cols[0].strip(), cols[1].strip()
+        places = []
+        for item in cols[2].split(","):
+            level, _, addr = item.strip().partition(":")
+            if level and addr:
+                places.append((int(level), int(addr, 16)))
+        if not places:
+            continue
+        if name in program.places:
+            program.places[name] = [p for p in program.places[name] if p not in places]
+        program.places[variant] = places
+        if name in program.sizes:
+            program.sizes[variant] = program.sizes[name]
+        program.splits.setdefault(name, []).extend(places)
+        count += 1
     return count
 
 

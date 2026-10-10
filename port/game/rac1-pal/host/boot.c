@@ -3,6 +3,8 @@
  *
  * Around the game's own start-up code (libraries.tsv, port = wrap). */
 #include "game_protos.h"
+
+#include <stdlib.h>
 #include "openrac/game_host.h"
 
 /* The level being played, or -1 (docs/port/RAC1_PAL_SURVEY.md). */
@@ -57,6 +59,42 @@ void func_001F4630(int arg0) {
 /* NewGameInit: a new game's state is a fresh save restored from the disc, with the level set to 0
  * (Veldin); the level's files are read right after. With --level N the new game starts in level N
  * instead, the way the behaviour checker reaches a level with its level write. */
+/*
+ * OPENRAC_DIRECT with --level N: straight into the level from the title, as the save page's
+ * "continue without saving" starts a new game (NewGameInit, then the menus closed and the start
+ * flag at 0x13E15A set), so a test skips the title's wait and the menus.
+ */
+static void direct_start(unsigned frame) {
+    static int done = 0;
+    static unsigned title_from = 0;
+    (void)frame;
+    if (done) {
+        return;
+    }
+    if (openrac_game_start_level < 0 || getenv("OPENRAC_DIRECT") == NULL) {
+        done = 1;
+        return;
+    }
+    /* The title world is up once the boot program's camera has a forward row (0x187390). */
+    if (GREF(float, 0x00187390u) == 0.0f && GREF(float, 0x00187394u) == 0.0f) {
+        return;
+    }
+    if (title_from == 0) {
+        title_from = frame;
+    }
+    if (frame < title_from + 60) {
+        return;
+    }
+    done = 1;
+    func_00209DC0();
+    func_0022F4A0(0);
+    GREF(short, 0x0013E15Au) = 1;
+}
+
+__attribute__((constructor)) static void install_direct_start(void) {
+    openrac_game_on_frame = direct_start;
+}
+
 void func_00209DC0(void) {
     func_00209DC0__game();
     if (openrac_game_start_level >= 0 && openrac_game_start_level < LEVELS) {

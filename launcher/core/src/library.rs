@@ -196,14 +196,21 @@ mod tests {
     }
 
     #[test]
-    fn the_native_port_is_not_playable_yet() {
-        let config = Config { root: Some(checkout()), ..Config::default() };
+    fn play_runs_only_once_the_port_is_built() {
+        let root = checkout();
+        let config = Config { root: Some(root.clone()), ..Config::default() };
         let library = library(&config).unwrap();
+        let file = actions::load(&root).unwrap();
         for version in library.games.iter().flat_map(|g| &g.versions) {
+            let key = &version.version.key;
             let play = version.actions.iter().find(|a| a.id == "play");
-            let play = play.unwrap_or_else(|| panic!("{} has no play action", version.version.key));
+            let play = play.unwrap_or_else(|| panic!("{key} has no play action"));
             assert_eq!(play.kind, actions::Kind::Play);
-            assert!(!play.runnable, "{}: play runs before the port exists", version.version.key);
+            let built = file
+                .find(&Scope::Version(key.clone()), "play")
+                .and_then(|a| a.artifact.as_deref())
+                .is_some_and(|artifact| crate::under(&root, artifact).exists());
+            assert!(!play.runnable || built, "{key}: play runs before the port is built");
         }
     }
 }

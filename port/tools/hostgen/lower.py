@@ -347,7 +347,8 @@ class Unit:
             return self._renamed(f"openrac_td_{self.tag_of[decl['id']]}")
         return None
 
-    def record(self, decl: dict, indent: str = "", member: bool = False) -> list[str]:
+    def record(self, decl: dict, indent: str = "", member: bool = False,
+               hoist: list[str] | None = None) -> list[str]:
         tag_word = decl.get("tagUsed", "struct")
         tag = self.record_tag(decl)
         if tag is None and not member:
@@ -356,6 +357,11 @@ class Unit:
             return [f"{indent}{tag_word} {tag};"] if tag else []
         if tag:
             self.emitted_tags.add(tag)
+        # A tag declared inside a record belongs to the enclosing scope in C, so
+        # it is written before the outermost record instead of in it: with
+        # Microsoft's extensions (Clang's default when targeting Windows) a
+        # tagged declaration inside a record is an anonymous member.
+        before = [] if hoist is None else hoist
         attrs = []
         lines = [f"{indent}{tag_word}{(' ' + tag) if tag else ''} {{"]
         children = _inner(decl)
@@ -371,18 +377,18 @@ class Unit:
                 nxt = children[i + 1] if i + 1 < len(children) else {}
                 if nxt.get("kind") == "FieldDecl" and nxt.get("isImplicit"):
                     # An anonymous member: written untagged, in place.
-                    body = self.record(c, indent + "    ", member=True)
+                    body = self.record(c, indent + "    ", member=True, hoist=before)
                     body[-1] = body[-1].rstrip(";") + ";"
                     lines.extend(body)
                     i += 2
                     continue
-                lines.extend(self.record(c, indent + "    "))
+                before.extend(self.record(c, indent, hoist=before))
             elif k == "FieldDecl":
                 lines.append(indent + "    " + self.field(c) + ";")
             i += 1
         attr = f" __attribute__(({', '.join(attrs)}))" if attrs else ""
         lines.append(f"{indent}}}{attr};")
-        return lines
+        return lines if hoist is not None else before + lines
 
     def _attr_value(self, attr: dict) -> str:
         for c in _inner(attr):
@@ -862,8 +868,10 @@ class Unit:
         if k == "InitListExpr":
             r = self.resolve(t)
             items = _inner(init)
-            if "array_filler" in init:
-                items = items + []
+            if "array_filler" in init and not items:
+                # A partly initialised array: Clang gives the filler (the zeros after the last
+                # element), then the elements, under array_filler and no inner.
+                items = init["array_filler"][1:]
             if isinstance(r, ctype.Arr):
                 parts = [self.initializer(i, r.of) for i in items]
                 return "{" + ", ".join(parts) + "}" if parts else "{0}"
@@ -1354,6 +1362,11 @@ class Unit:
                     fp = f"openrac_call_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {hexaddr(own)})"
                 elif not places:
                     return self.direct_call(sym, args, result_t)
+                elif (sym in getattr(self.program, "splits", {})
+                      and not getattr(self.program, "sizes", {}).get(self.fn.name)
+                      and all(o < 0 for o, _ in self.program.code_places(self.fn.name))):
+                    # Code of the executable alone calls the executable's own function.
+                    return self.direct_call(sym, args, result_t)
                 else:
                     # A name the catalogue folded: each place is its own function (guest.h,
                     # openrac_guest_nearest); the call goes through the place nearest this function,
@@ -1408,6 +1421,10 @@ class Unit:
         cache = getattr(self.program, "folded_cache", None)
         if cache is None:
             cache = self.program.folded_cache = {}
+        if sym not in cache and getattr(self.program, "splits", {}).get(sym):
+            # Some of its places are other functions (split_places.tsv): the caller's own jal says
+            # which one it calls.
+            cache[sym] = self.program.code_places(sym) + self.program.splits[sym]
         if sym not in cache:
             wrapper = 0 < (getattr(self.program, "sizes", {}).get(sym) or 0) <= 64
             places = self.program.code_places(sym) if wrapper and getattr(self.program, "relocate", None) else []

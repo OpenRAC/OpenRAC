@@ -119,7 +119,7 @@ python3 tools/shared.py check|find|sync PATH    # files several games share must
 python3 -m unittest discover -s tools       # tests for tools/
 python3 -m unittest discover -s editor      # tests for the editor
 python3 tools/extractor.py IMAGE --game rac1   # set a game up from your disc, OpenGOAL's way (docs/port/DESIGN.md)
-cd launcher && npm ci && npm run verify && cargo test -p openrac-launcher-core   # the launcher
+cd launcher && yarn install && yarn verify && cargo test -p openrac-launcher-core   # the launcher
 cd port && cmake --preset release && cmake --build --preset release && ctest --preset release   # the native port
 python3 -m unittest discover -s port/tools/hostgen   # hostgen's tests (needs Clang)
 ```
