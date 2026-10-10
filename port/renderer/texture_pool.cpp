@@ -4,6 +4,10 @@
 #include "renderer/texture_pool.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <format>
+#include <string>
 #include <utility>
 
 #include "common/log.h"
@@ -214,6 +218,32 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     const std::vector<std::uint8_t> raster = texture_raster(it->second, tex0);
     Rgba8Image image =
         convert(raster, tex0.psm, tex0.width(), tex0.height(), colours, texa, AlphaScale::Gs);
+    // OPENRAC_DUMP_TEXTURE=BLOCK (hex): each conversion of a texture at that block is written as
+    // a PPM (RGB) and its alpha as a PGM, for checking uploads and palettes.
+    static const char* dump = std::getenv("OPENRAC_DUMP_TEXTURE");
+    if (dump != nullptr && std::strtoul(dump, nullptr, 16) == tex0.tbp0) {
+        static int n = 0;
+        const std::string base = std::format("texture_{:04x}_{}", tex0.tbp0, n++);
+        std::FILE* rgb = std::fopen((base + ".ppm").c_str(), "wb");
+        std::FILE* a = std::fopen((base + ".pgm").c_str(), "wb");
+        if (rgb != nullptr && a != nullptr) {
+            std::fprintf(rgb, "P6 %d %d 255\n", image.width, image.height);
+            std::fprintf(a, "P5 %d %d 255\n", image.width, image.height);
+            for (int y = 0; y < image.height; ++y) {
+                for (int x = 0; x < image.width; ++x) {
+                    const std::uint32_t t = image.texel(x, y);
+                    const unsigned char px[3] = {static_cast<unsigned char>(t), static_cast<unsigned char>(t >> 8),
+                                                 static_cast<unsigned char>(t >> 16)};
+                    std::fwrite(px, 1, 3, rgb);
+                    std::fputc(static_cast<int>(t >> 24), a);
+                }
+            }
+            log::info("texture {:#x} ({}x{}, psm {:#x}, clut {:#x} cpsm {:#x}) written to {}", tex0.tbp0,
+                      image.width, image.height, tex0.psm, tex0.cbp, tex0.cpsm, base);
+        }
+        if (rgb != nullptr) std::fclose(rgb);
+        if (a != nullptr) std::fclose(a);
+    }
     const TextureHandle h = add(std::move(image), AlphaScale::Gs, "upload");
     m_entries[h - 1].from_upload = true;
     m_entries[h - 1].key = key;

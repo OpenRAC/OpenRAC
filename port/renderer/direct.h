@@ -114,7 +114,7 @@ public:
     // A GIF packet: tags and their data, as the game sends to the chip
     // (PATH3, or DIRECT through VIF1). Returns false if it is malformed;
     // error() says where. Draws accumulate until clear().
-    bool gif(std::span<const std::uint8_t> packet);
+    bool gif(std::span<const std::uint8_t> input);
 
     // A VIF1 stream carrying GIF data in DIRECT and DIRECTHL commands, with
     // the bookkeeping codes around them (NOP, FLUSH, STCYCL...). A command
@@ -227,6 +227,8 @@ private:
     std::vector<DirectVertex> m_vertices;
     std::vector<DirectDraw> m_draws;
     std::string m_error;
+    // A GIF tag and the part of its data that has come so far, finished by the next packet.
+    std::vector<std::uint8_t> m_gif_pending;
 };
 
 class DirectRenderer : public BucketRenderer {
