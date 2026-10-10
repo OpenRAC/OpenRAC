@@ -464,6 +464,17 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         g->world_camera.reset();
     }
 
+    // OPENRAC_DUMP_RAM=FRAME: the game's 32 MB of main memory at that frame, to ram_FRAME.bin.
+    static const char* dump_ram = std::getenv("OPENRAC_DUMP_RAM");
+    if (dump_ram != nullptr && g->index == std::strtoull(dump_ram, nullptr, 10)) {
+        const std::string path = std::format("ram_{}.bin", g->index);
+        if (std::FILE* f = std::fopen(path.c_str(), "wb")) {
+            std::fwrite(ram.data(), 1, ram.size(), f);
+            std::fclose(f);
+            log::info("main memory written to {}", path);
+        }
+    }
+
     // OPENRAC_DEBUG: the game's state each 100 frames, for bring-up.
     static const bool debug = std::getenv("OPENRAC_DEBUG") != nullptr;
     if (debug && g->index % 100 == 0) {

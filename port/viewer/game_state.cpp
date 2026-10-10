@@ -117,8 +117,14 @@ GameState read_game_state(std::span<const std::uint8_t> ram, const GameAddresses
     s.fog_near_f = at<float>(ram, a.view_context + 0x228);
     s.fog_far_f = at<float>(ram, a.view_context + 0x22C);
 
-    const auto first = at<std::uint32_t>(ram, a.moby_first) & 0x01FFFFFF;
+    // The table starts at the word before moby_first (the mobys the level places, the hero first);
+    // moby_first itself is where the spawned ones begin.
+    auto first = at<std::uint32_t>(ram, a.moby_first) & 0x01FFFFFF;
     const auto end = at<std::uint32_t>(ram, a.moby_end) & 0x01FFFFFF;
+    const auto start = at<std::uint32_t>(ram, a.moby_first - 4) & 0x01FFFFFF;
+    if (start != 0 && start < first && (first - start) % 0x100 == 0) {
+        first = start;
+    }
     if (first == 0 || end <= first || end > ram.size() || (end - first) % 0x100 != 0) {
         return s;
     }
