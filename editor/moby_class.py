@@ -126,8 +126,10 @@ class ListState:
 
 
 def packet(data: bytes, entry: bytes, state: ListState, mesh: Mesh, remap: bytes,
-           skins: list) -> None:
-    """Add one regular packet's vertices and drawn triangles to mesh."""
+           skins: list, glow: bool = False) -> None:
+    """Add one regular packet's vertices and drawn triangles to mesh. A glow packet's
+    vertices get light slot -2 (the others -1): with the moby's mode bit 0x10 the game draws
+    them unlit in its glow colour (MobyProc's glow list, ReRAC moby_skinning_lighting.md 10)."""
     list_offset, list_size, _, table, data_size, positions_qwc, colours_qwc, transfer = unpack("<IHHIBBBB", entry)
     commands = unpacks(span(data, list_offset, list_size * 16))
     if [c[0] for c in commands] not in ([ST, INDICES], [ST, INDICES, GS_BLOCKS]):
@@ -197,6 +199,8 @@ def packet(data: bytes, entry: bytes, state: ListState, mesh: Mesh, remap: bytes
         mesh.normals.append(n)
         if mesh.colours is not None:
             mesh.colours.append(tuple(b / 128 for b in multiplier[i * 4:i * 4 + 4]))
+        if mesh.light_slots is not None:
+            mesh.light_slots.append(-2 if glow else -1)
         skins.append(skin)
 
     # Index stream: 1-based, bit 7 suppresses the drawing kick. A 0 switches
@@ -260,10 +264,11 @@ def moby_class(data: bytes, remap: bytes, name: str, sequences: list | None = No
         return MobyClass(scale, None, joint_count)
     if metal and metal_begin != high + low:
         raise FormatError("unexpected moby metal packet position")
-    mesh, skins, state = Mesh(name, normals=[], colours=[]), [], ListState()
+    mesh, skins, state = Mesh(name, normals=[], colours=[], light_slots=[]), [], ListState()
+    glow_from = header[0xa]  # the high LOD's first glow packet
     for i in range(high):
         try:
-            packet(data, span(data, packet_table + i * 16, 16), state, mesh, remap, skins)
+            packet(data, span(data, packet_table + i * 16, 16), state, mesh, remap, skins, i >= glow_from)
         except FormatError as exc:
             raise FormatError(f"packet {i}: {exc}") from exc
     if not mesh.triangles:

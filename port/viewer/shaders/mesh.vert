@@ -26,7 +26,7 @@ layout(location = 11) in vec4 weights;
 layout(location = 12) in float light_slot;
 layout(location = 13) in float lights;
 layout(location = 14) in vec4 moby_light;    // set 0, set 1, cross-fade, 1 to light
-layout(location = 15) in vec4 moby_ambient;  // ambient RGB / 128
+layout(location = 15) in vec4 moby_ambient;  // ambient RGB / 128; w: 1 + glow RGB (mode 0x10), else 0
 
 uniform mat4 view_projection;
 uniform mat4 view;
@@ -110,6 +110,13 @@ void main() {
         fb = max(fb, -abs(cb.w) * fb);
         vec3 lit = moby_ambient.rgb + ca.rgb * fa + cb.rgb * fb;
         v_colour = vec4(min(lit * colour.rgb, vec3(255.0 / 128.0)), colour.a) * tint;
+        // A glow packet's vertex (slot -2) of a moby whose mode has 0x10: its glow RGB, unlit,
+        // with no multiplier (MobyProc's glow list overwrites the lit colours).
+        if (light_slot < -1.5 && moby_ambient.w > 0.5) {
+            int glow = int(moby_ambient.w - 1.0 + 0.5);
+            v_colour = vec4(float(glow & 255), float((glow >> 8) & 255), float((glow >> 16) & 255), 128.0)
+                     / 128.0 * tint;
+        }
         v_lit = 1;
     }
     v_normal = mat3(model) * n;

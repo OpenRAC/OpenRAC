@@ -498,11 +498,15 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         viewer::Instance instance{cls->second.first, m.matrix, {1, 1, 1, 1}};
         // Its light word (+0x38: set 0, set 1, the cross-fade) and ambient colour (+0x3C), as
         // MobyProc reads them to light it.
-        if (!g->level.light_sets.empty() && m.address + 0x40 <= ram.size()) {
+        if (!g->level.light_sets.empty() && m.address + 0x100 <= ram.size()) {
             const std::uint8_t* b = ram.data() + m.address;
             instance.moby_light = {static_cast<float>(b[0x38]), static_cast<float>(b[0x39]),
                                    static_cast<float>(b[0x3A]) / 256.0f, 1.0f};
-            instance.moby_ambient = {b[0x3C] / 128.0f, b[0x3D] / 128.0f, b[0x3E] / 128.0f, 1.0f};
+            // w: with mode bit 0x10, 1 + its glow word's RGB (+0x90), which MobyProc's glow list
+            // draws its glow packets in; 0 without (a 24-bit integer is exact in a float).
+            const std::uint32_t glow = static_cast<std::uint32_t>(b[0x90] | b[0x91] << 8 | b[0x92] << 16);
+            instance.moby_ambient = {b[0x3C] / 128.0f, b[0x3D] / 128.0f, b[0x3E] / 128.0f,
+                                     (b[0x34] & 0x10) != 0 ? static_cast<float>(glow) + 1.0f : 0.0f};
         }
         // Drawn by the game with a camera of its own: placed so the world's camera sees it where
         // that camera did (M' = V_world^-1 V_own M), as ReRAC draws the menu's frame objects.
