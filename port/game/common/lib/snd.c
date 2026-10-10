@@ -9,12 +9,25 @@
  * through the library's stream-safe calls go to the disc replacement. */
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
+#include "openrac/guest.h"
 
 int openrac_lib_snd_StartSoundSystem(void) {
     return 0;
 } /* snd_StartSoundSystem */
 
+/* The disc read of snd_StreamSafeCdRead and the callback the game gave for its end
+ * (snd_StreamSafeCdCallback). The read itself is done at once; the callback is
+ * called with 1 (done) at the next command flush, as the IOP's answer reaches the
+ * EE after the call has returned (the game marks the read as running only once
+ * it has). */
+static gaddr cd_callback;
+static int cd_done_pending;
+
 int openrac_lib_snd_FlushSoundCommands(void) {
+    if (cd_done_pending && cd_callback != 0) {
+        cd_done_pending = 0;
+        GFN(void (*)(int), cd_callback)(1);
+    }
     return 0;
 } /* snd_FlushSoundCommands */
 
@@ -117,7 +130,9 @@ void openrac_lib_snd_StreamSafeCheckCDIdle(int a) {
 } /* snd_StreamSafeCheckCDIdle */
 
 int openrac_lib_snd_StreamSafeCdRead(int sector, int count, int buffer) { /* snd_StreamSafeCdRead */
-    return openrac_lib_sceCdRead((unsigned int)sector, (unsigned int)count, (gaddr)buffer, 0);
+    const int ok = openrac_lib_sceCdRead((unsigned int)sector, (unsigned int)count, (gaddr)buffer, 0);
+    cd_done_pending = ok != 0;
+    return ok;
 }
 
 int openrac_lib_snd_StreamSafeCdSync(int mode) {
@@ -133,8 +148,9 @@ int openrac_lib_snd_StreamSafeCdGetError(void) {
 } /* snd_StreamSafeCdGetError */
 
 int openrac_lib_snd_StreamSafeCdCallback(int callback) {
-    (void)callback;
-    return 0;
+    const gaddr old = cd_callback;
+    cd_callback = (gaddr)callback;
+    return (int)old;
 } /* snd_StreamSafeCdCallback */
 
 void openrac_lib_snd_PreAllocReverbWorkArea(int a, int b) {
