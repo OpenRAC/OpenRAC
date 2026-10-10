@@ -19,6 +19,14 @@ You need CMake 3.24+, Ninja, Clang (it builds the port, and hostgen uses it
 to read the decompilation) and Python 3. `--preset headless` builds without
 a window (no SDL3): the runtime, the games and their tests.
 
+To build a game's program without any of that by hand, run
+`python3 tools/build_port.py [GAME] [--source DIR]` from the top of OpenRAC:
+the launcher's "Build the game" runs it. It configures `build/release` the
+first time and then builds only what changed. On Windows it sets up Visual
+Studio's x64 environment itself (the MSVC libraries and the Windows SDK) and
+finds Clang and Ninja. `--source` builds from your own copy of the
+decompilation and is remembered by the build folder.
+
 ## What is here
 
 | Directory | |
