@@ -768,6 +768,48 @@ and dependencies, validate the implementation, and rerun the strict probe.
 The target is unclaimed; no missing functions have been bypassed.
 The merge is local. Nothing has been pushed or published by this session.
 
+### Vendor reflection mesh and native quads, 2026-10-10 continuation
+
+After master integration `381cb5f`, reproduced `func_L00_002D2E60` at
+frame 2828. Reconstructed the complete retail 0x4CC-byte draw callback in
+native-only C: 102 transformed vertices, reflection UVs, distance/state
+branches, transition timer and saved UVs, then 74 indexed four-corner
+packets. The old nonmatching sketch has incorrect gp addresses, a truncated
+texture return and separate locals where the renderer needs one 0x90-byte
+record; it was not promoted into matching source. The native implementation
+uses level gp 00166D00 and preserves the full 64-bit texture/blend words.
+
+The level quad host entry was empty. It now uses the existing world-effect
+quad renderer, whose record and optional matrix agree with both retail
+entry points. Moved that shared adapter into host/effect_quad.c for direct
+validation. The existing native renderer projects/clips and draws the
+submitted quads; this is not a PS2 packet/microcode interpreter.
+
+- Windows build and 56/56 CTest tests pass, including new vendor_draw and
+  effect_quad fixtures: parent `.tools/native-vendor-build.log`.
+- Vendor fixture also passes independently as a 32-bit executable:
+  `.tools/vendor-draw-test32.exe`. Tests cover the 0x90-byte layout, all
+  74 packets, signed alpha packing, 64-bit TEX0, distance boundaries,
+  first-use/near/far paths, timer interpolation, UV snapshot and bounds.
+- Host fixture verifies real submission for both entry points, optional
+  matrix, full state, relocated texture upload records and cached sources.
+- Reviewed generated guest C: correct level globals, four-byte pointer
+  reads, packet layout and 64-bit texture return. Hostgen: 378 readable
+  units, 3830 translated, 209 candidates, 3 stubs, 1135 without C; no
+  unreadable units or index problems. Matching source/progress unchanged.
+- Same strict no-card New Game input sequence and 5200-frame limit:
+  `vendor-before` stops at the vendor callback, frame 2828, exit 2;
+  `vendor-verified` passes it and stops at `func_00205270`, frame 2829,
+  exit 2. Logs are in parent `.tools/native-run/`. Still no frame-3000
+  screenshot or playable-gameplay claim. No missing calls bypassed.
+
+Exact next action: review `func_00205270` in game/loaders.c against its
+0x2AC-byte retail body in asm/nonmatchings/text. It selects a streamed
+resource bank, loads its model data and rebuilds resource tables. Inspect
+its loader callees, recover the full behavior and repeat the strict probe.
+Vendor and level-quad claims released; unrelated work preserved. Local
+commit only; no push and no assistant co-author trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
