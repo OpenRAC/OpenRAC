@@ -74,6 +74,10 @@ target_compile_options(joint_matrices_test PRIVATE -fno-strict-aliasing)
 openrac_warnings(joint_matrices_test)
 add_test(NAME joint_matrices COMMAND joint_matrices_test)
 
+add_executable(particle_allocate_test tests/particle_allocate_test.c)
+openrac_warnings(particle_allocate_test)
+add_test(NAME particle_allocate COMMAND particle_allocate_test)
+
 if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()

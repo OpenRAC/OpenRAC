@@ -187,11 +187,38 @@ indices, invokes the existing native `func_00211808`, and copies full
   complete pose fidelity or playable Veldin. Existing evaluator limitations
   (for example post-scale chain behavior) remain outside this selector fix.
 
-Next action: implement the native particle allocator entry
-`func_00218928` and its handwritten body `func_00218930`, using their PAL
-assembly and including the internal labels through `func_00218A70`.
-Test allocation flags, bitmap advancement and exhaustion without turning
-failed allocation into success. Then repeat New Game with the same probe.
+### Particle allocation, 2026-10-10
+
+Local commit subject: `feat(rac1/pal): implement native particle allocation`;
+joint selection was committed as `ba91985`. Implemented the two public
+handwritten entries `func_00218928` and `func_00218930` using the PAL body
+through `00218A74`. Preserve allocation order, bitmap/high-water/count
+updates, NULL on exhaustion and the original clearing of only 32 bytes of
+each 64-byte record. The reverse reuse path and secondary bitmap stores
+are unreachable behind unconditional retail jumps; no new fallback was
+introduced. These functions remain classified assembly in the decomp.
+
+- `Build-Native.ps1`: 44/44 CTest tests pass;
+  `.tools/native-particle-build.log`. The fixture fills all 2,048 slots,
+  checks sparse holes and byte-aligned rescan order, exhaustion, untouched
+  secondary bitmap and preserved payload bytes.
+- Hostgen: 3,811 functions (including helpers), 195 candidates, 3 stubs,
+  1,150 without C; 378 readable units, no index problems.
+- Same New Game probe with `-Name particles-verified`: exit 2, frame 2828,
+  now at `func_L00_00217AE8`. Runtime logs entry into the native level-0
+  draw path with 199 models, but this does not prove visible gameplay.
+- A second probe with `-Name particles-level -ShotEvery 2820` (all other
+  arguments unchanged) also exits 2 at 2828. Its frame-2820 PNG was viewed
+  and is black, consistent with being early in the transition; no visible
+  Veldin scene or player control has yet been demonstrated.
+
+Next action: correct the native candidate for `func_L00_00267290`.
+`rac1-decomp/nonmatching/game/func_L00_00267290.c` declares and twice calls
+the nonexistent `func_L00_00217AE8`. Retail calls at `002673D4` and
+`002674E8` name the existing `func_00217AE8` (its Veldin copy is at
+`002677B8`, as `config/overlays/functions.tsv` records). Correct the call
+binding while preserving the real stream/event processing; do not add a
+no-op for the nonexistent symbol. Then rebuild and repeat the same probe.
 
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
