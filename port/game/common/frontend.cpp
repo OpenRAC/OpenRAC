@@ -1232,6 +1232,11 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     // The world is drawn from the camera the game's world renderers used, not from whatever the
     // camera globals hold at the end of the frame (the page menu sets its own camera, at
     // (256, 256, 64) facing +x, to draw its frame objects, as ReRAC notes).
+    // A tick on which the world renderers did not run but mobys were drawn with a camera of their
+    // own (a page menu's frame objects): only those are drawn, as the game drew no others (the
+    // pause page skips the Goodies frame while it has none).
+    const bool world_ran = g->world_camera.has_value();
+    const bool only_own_camera = !world_ran && !g->moby_cameras.empty();
     if (g->world_camera) {
         state.camera_position = g->world_camera->camera_position;
         state.forward = g->world_camera->forward;
@@ -1321,6 +1326,11 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         // Hidden (mode bit 0): MobyProc does not draw it (the parked ship while the landing one comes
         // down, Clank's spare parts).
         if (m.address + 0x36 <= ram.size() && (ram[m.address + 0x34] & 1) != 0) {
+            continue;
+        }
+        if (only_own_camera
+            && std::none_of(g->moby_cameras.begin(), g->moby_cameras.end(),
+                            [&](const auto& c) { return c.first == m.address; })) {
             continue;
         }
         auto cls = g->level.moby_classes.find(m.class_id);
