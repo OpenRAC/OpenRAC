@@ -10,6 +10,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* InitDma: sets the DMA controller's priority bit, enables it and clears the
  * tag address of the VIF0, VIF1, GIF, IPU and SPR channels. The port has no
@@ -49,4 +50,158 @@ void func_0020C468(int src, int dst) {
     const gaddr to = (gaddr)dst;
     openrac_lib_wad_decompress((const uint8_t *)G(src), (uint8_t *)G(to),
                                to < end_of_ram ? end_of_ram - to : 0);
+}
+
+/*
+ * FastCos and FastSin. The retail routines hand the angle to a VU0 microprogram (the patch
+ * InitOnce uploads from D_0010E4C0 to VU0 address 0xC80): the entry at 0xC80 adds pi/2 and goes on
+ * into the sine at 0xC90, which folds the angle into [-pi/2, pi/2] (max(min(x, pi - x), -pi - x))
+ * and sums x + c0 x^3 + c1 x^5 + c2 x^7 + c3 x^9 in that order. (ReRAC's moby_light.rs describes
+ * the same microprogram, as a reference.) The constants are the microprogram's own: they are read
+ * from its I-register immediates in the game's memory the first time, so nothing of the game is
+ * copied here; the Taylor terms stand in only if they cannot be found.
+ */
+
+
+/* A word of the VU0 patch microprogram in the game's memory (D_0010E4C0). */
+static unsigned word(int i) {
+    unsigned w;
+    memcpy(&w, G(0x0010E4C0u + (gaddr)i * 4u), 4);
+    return w;
+}
+
+static float as_float(unsigned w) {
+    float f;
+    memcpy(&f, &w, 4);
+    return f;
+}
+
+static float sincos_half_pi = 1.57079625f;
+static float sincos_pi = 3.1415925f;
+static float sincos_c[4] = {-1.0f / 6.0f, 1.0f / 120.0f, -1.0f / 5040.0f, 1.0f / 362880.0f};
+static int sincos_ready;
+
+/* True when `v` lies within a tenth of a percent of `want`. */
+static int sincos_near(float v, float want) {
+    float d = v - want;
+    float tolerance = want * 0.001f;
+    if (tolerance < 0.0f) {
+        tolerance = -tolerance;
+    }
+    return d <= tolerance && d >= -tolerance;
+}
+
+static void sincos_init(void) {
+    int i;
+    int found = 0;
+
+    sincos_ready = 1;
+    /* The program follows its MPG code (0x4A, 0x5E instructions, at 0x190); the immediates are the
+       lower words of the pairs whose upper word has the I bit (bit 31) set. */
+    for (i = 0; i < 64; i++) {
+        if (word(i) == 0x4A5E0190u) {
+            break;
+        }
+    }
+    if (i == 64) {
+        return;
+    }
+    i++;
+    if (i & 1) {
+        i++;
+    }
+    for (; i + 1 < 64 + 0x5E * 2; i += 2) {
+        unsigned upper = word(i + 1);
+        float v;
+
+        if ((upper & 0x80000000u) == 0) {
+            continue;
+        }
+        v = as_float(word(i));
+        if (sincos_near(v, 1.5707963f)) {
+            sincos_half_pi = v;
+            found |= 1;
+        } else if (sincos_near(v, 3.1415926f)) {
+            sincos_pi = v;
+            found |= 2;
+        } else if (sincos_near(v, -1.0f / 6.0f)) {
+            sincos_c[0] = v;
+            found |= 4;
+        } else if (sincos_near(v, 1.0f / 120.0f)) {
+            sincos_c[1] = v;
+            found |= 8;
+        } else if (sincos_near(v, -1.0f / 5040.0f) || (v < -1.9e-4f && v > -2.0e-4f)) {
+            sincos_c[2] = v;
+            found |= 16;
+        } else if (v > 2.5e-6f && v < 2.9e-6f) {
+            sincos_c[3] = v;
+            found |= 32;
+        }
+    }
+    (void)found;
+}
+
+/* The microprogram's sine of an angle in radians (entry 0xC90). */
+static float vu0_sine(float a) {
+    float x, folded, x2, x3, x5, x7, x9, sum;
+
+    if (!sincos_ready) {
+        sincos_init();
+    }
+    /* min(x, pi - x), then max with -pi - x */
+    folded = sincos_pi - a;
+    x = a < folded ? a : folded;
+    folded = -sincos_pi - a;
+    x = x > folded ? x : folded;
+    x2 = x * x;
+    x3 = x * x2;
+    x5 = x3 * x2;
+    x7 = x5 * x2;
+    x9 = x7 * x2;
+    sum = x;
+    sum = sum + x3 * sincos_c[0];
+    sum = sum + x5 * sincos_c[1];
+    sum = sum + x7 * sincos_c[2];
+    sum = sum + x9 * sincos_c[3];
+    return sum;
+}
+
+/* FastCos(a): the sine of a + pi/2 (entry 0xC80). */
+float func_001F9F90(float a) {
+    if (!sincos_ready) {
+        sincos_init();
+    }
+    return vu0_sine(a + sincos_half_pi);
+}
+
+/* FastSin(a) (entry 0xC90). */
+float func_001F9FA8(float a) {
+    return vu0_sine(a);
+}
+
+/*
+ * The game's movie player (logos, cut scenes). Not played yet: it returns at once with 0, as if
+ * the movie ended, until the port's own MPEG player (media/) is connected here.
+ */
+int func_0023B670(int a0, int a1, int a2, gaddr a3, int a4) {
+    (void)a0;
+    (void)a1;
+    (void)a2;
+    (void)a3;
+    (void)a4;
+    fprintf(stderr, "[info] movie skipped (the port does not play movies yet)\n");
+    return 0;
+}
+
+/*
+ * The VIF1 DMA interrupt handler (hand-written assembly, installed by DMAC_VIF1_Enable). On the
+ * console a display list's fence tags interrupt here and each clears its bit in the fence word at
+ * D_00160FE0 that the game waits on; the end of the list clears all five. The port sends no list to
+ * hardware (the renderer takes it as it is), so every transfer has ended at once.
+ */
+void func_00235118(void) {
+    uint32_t fences;
+    memcpy(&fences, G(0x00160FE0u), 4);
+    fences &= ~0x1Fu;
+    memcpy(G(0x00160FE0u), &fences, 4);
 }
