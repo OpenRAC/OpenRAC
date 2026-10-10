@@ -742,6 +742,11 @@ it otherwise). In parentheses, Lombyte's name.
 - `src/overlays/shared/help_00214D60.c`: `func_L00_00217DE0` (`FUN_L00_00217658`)
 - `src/overlays/shared/mobyutil_00261B00.c`: `func_L00_00264140` (`FUN_L00_002630c8`)
 
+One more was carried over by machine on 2026-10-10, from Lombyte's pull request 139 (the same tool, the
+same rule). In parentheses, Lombyte's name.
+
+- `src/overlays/l12_hoven/vendor_002EDAA0.c`: `func_L12_00307730` (`FUN_L12_00306350`)
+
 One more is this project's own port of a function it has from Lombyte: `func_L00_001EB890` in
 `src/overlays/shared/camera_001EB508.c` is the level programs' copy of `func_001EC2B8` (Lombyte's
 `switch_active_camera_record`), with the same C under the level's symbols.
