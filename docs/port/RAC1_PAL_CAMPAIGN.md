@@ -1172,6 +1172,46 @@ and was not reached. Other levels, saves, full combat and campaign remain
 unverified. All 18 baseline untracked files hash-check unchanged; tracked
 dirty work preserved. Local commits only, no push or assistant trailer.
 
+### Attack object queries, 2026-10-10 continuation
+
+Vertical movement is committed as b10216c. Recovered native object-type
+predicate func_L00_00211A18 and module-object accessor func_L00_0020DAF8.
+The predicate returns false for null, otherwise compares signed short
++0xA6 with 0x47. The accessor uses resident hero + slot*0x50, returns the
+pointer at +0x1090 only if the state at +0x10B4 is 2, otherwise null.
+Its catalogue body ends before the success and failure return tails at
+0020DB1C and 0020DB24; both tails were reviewed and included in the C.
+
+Local audit .tools/audit-hero-object.py verified all 19 predicate bodies
+and their null return-zero targets, and all 19 complete accessor bodies
+including both split tails. Audit output: .tools/hero-object-audit.log.
+No retail bytes were committed. Generated code reviewed: signed short
+load, 0x50 guest stride and four-byte pointer load/return. Native-only
+recovery, not a byte-identical PS2 match. Matching checkout unchanged.
+
+Windows build and 63/63 existing CTest pass:
+.tools/native-hero-object-final-build.log. Hostgen has 3844 translated
+functions with no unreadable units or reported problems. Predicate-only
+attack-verified first exposed the accessor at frame 1450. Final strict
+attack-object-verified passes both, continues through Square at 1450 and
+Cross at 1600/1620, then stops at missing func_L00_00273090 at frame 1701,
+exit 2. At 1700 the hero is at (169.59,125.53,29.48), joints finite.
+This does not establish full combat or a complete double jump. The prior
+isolated single-jump ascent/landing and walking probes passed separately.
+
+Exact next action: claim and recover func_L00_00273090 (0x240 bytes),
+particle type 53 update in shared/partupd_00272158.c. Candidate exists at
+nonmatching/shared/func_L00_00273090.c. Review size/alpha interpolation,
+byte wrap, signed lifetime counters, drift/gravity and kill boundaries
+against the full retail body; add focused boundary/lifetime validation.
+Repeat Test-Native.ps1 -Name particle53-verified -Frames 2400 -ShotEvery 200
+-Press '0:0:1200:128:128,100:4000:5,1200:0:700:128:0,1450:8000:5,1600:4000:5,1620:4000:5'
+Use strict missing-call checks. Logs/screenshots are in .tools/native-run/.
+The separate contact projection helper func_L00_0025EFC0 is still absent.
+No active game is left running. Release both object-query claims after
+commit. Existing tracked edits and all 18 baseline untracked files are
+preserved. No pushes, history rewrites or assistant credit trailers.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
