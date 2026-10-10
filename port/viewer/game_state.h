@@ -48,6 +48,7 @@ const GameAddresses& rac1_pal_addresses(std::span<const std::uint8_t> ram);
 
 /** A moby as the renderers place it. */
 struct LiveMoby {
+    std::uint32_t address = 0;  // the moby in game memory (its animation fields, its class)
     int class_id = 0;
     renderer::Mat4 matrix = renderer::identity();  // game axes, the moby's scale included
 };

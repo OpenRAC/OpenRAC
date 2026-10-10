@@ -20,6 +20,7 @@
 #include "viewer/game_state.h"
 #include "viewer/level.h"
 #include "viewer/level_renderer.h"
+#include "viewer/moby_pose.h"
 #include "viewer/screenshot.h"
 
 #include <cstdio>
@@ -397,15 +398,51 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
                   word_at(ram, 0x0015EFBC), word_at(ram, word_at(ram, 0x001517D0) + 8) & 0xFFFF);
     }
 
-    // The live mobys, by class.
+    // The live mobys, by class, each in the pose its animation fields give (viewer/moby_pose.h):
+    // its joint palette goes to the scene, which skins the class's mesh with it. OPENRAC_ANIM=0
+    // draws every moby in its bind pose.
+    static const bool animate = [] {
+        const char* v = std::getenv("OPENRAC_ANIM");
+        return v == nullptr || std::strcmp(v, "0") != 0;
+    }();
     std::vector<viewer::Instance> live;
+    std::vector<viewer::LevelScene::JointColumns> palette;
     for (const viewer::LiveMoby& m : state.mobys) {
         auto cls = g->level.moby_classes.find(m.class_id);
-        if (cls != g->level.moby_classes.end()) {
-            live.push_back({cls->second.first, m.matrix, {1, 1, 1, 1}});
+        if (cls == g->level.moby_classes.end()) {
+            continue;
         }
+        viewer::Instance instance{cls->second.first, m.matrix, {1, 1, 1, 1}};
+        const int joints = g->level.models[instance.model].joints;
+        if (animate && joints > 0) {
+            const auto pose = viewer::moby_palette(ram, m.address);
+            if (!pose.empty()) {
+                instance.palette = static_cast<int>(palette.size());
+                for (int j = 0; j < joints; ++j) {
+                    // Columns: the images of the axes, then the translation, which the palette
+                    // has in packed units (the mesh is in packed units / 1024).
+                    viewer::LevelScene::JointColumns c{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+                    if (static_cast<std::size_t>(j) < pose.size()) {
+                        const auto& f = pose[static_cast<std::size_t>(j)];
+                        for (int i = 0; i < 3; ++i) {
+                            c[4 * i + 0] = f[i][0];
+                            c[4 * i + 1] = f[i][1];
+                            c[4 * i + 2] = f[i][2];
+                            c[4 * i + 3] = 0.0f;
+                        }
+                        c[12] = f[3][0] / 1024.0f;
+                        c[13] = f[3][1] / 1024.0f;
+                        c[14] = f[3][2] / 1024.0f;
+                        c[15] = 1.0f;
+                    }
+                    palette.push_back(c);
+                }
+            }
+        }
+        live.push_back(instance);
     }
     if (!g->level.models.empty()) {
+        g->scene.set_palette(palette);
         g->scene.set_instances(viewer::Layer::Mobys, live);
     }
 

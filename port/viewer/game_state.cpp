@@ -124,6 +124,7 @@ GameState read_game_state(std::span<const std::uint8_t> ram, const GameAddresses
             continue;
         }
         LiveMoby live;
+        live.address = m;
         live.class_id = at<std::int16_t>(ram, m + 0xA6);
         // X first, then Y, then Z, as the game's Euler matrices; the class mesh is in unscaled
         // units and the moby's scale already includes the class's.
