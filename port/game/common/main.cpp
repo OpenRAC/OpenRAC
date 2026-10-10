@@ -314,8 +314,13 @@ int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start
         if (disc == nullptr) {
             return 0;
         }
-        const bool read = fseeko(disc, static_cast<off_t>(lsn) * 2048, SEEK_SET) == 0
-                          && std::fread(file.data(), 1, file.size(), disc) == file.size();
+#if defined(_WIN32)
+        // Windows' C library has no fseeko; _fseeki64 is its 64-bit seek.
+        const bool sought = _fseeki64(disc, static_cast<long long>(lsn) * 2048, SEEK_SET) == 0;
+#else
+        const bool sought = fseeko(disc, static_cast<off_t>(lsn) * 2048, SEEK_SET) == 0;
+#endif
+        const bool read = sought && std::fread(file.data(), 1, file.size(), disc) == file.size();
         std::fclose(disc);
         if (!read) {
             log::warn("movie at sector {}: the disc image is too short", lsn);
