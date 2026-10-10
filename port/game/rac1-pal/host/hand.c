@@ -36,3 +36,17 @@ void game_openrac_game_trap(void) {
 void func_002347F0(gaddr program) {
     (void)program;
 }
+
+/* The asset readers' WAD decompressor (game/common/lib/wad.cpp). */
+uint32_t openrac_lib_wad_decompress(const uint8_t *src, uint8_t *dst, uint32_t capacity);
+
+/* WadDecompress (func_0020C468, hand-written): decompresses the WAD stream at src into dst. The
+ * retail routine streams through the scratchpad with its DMA channel and returns the size it wrote,
+ * which the game's declarations of it do not read; the port decompresses straight from game
+ * memory. Its output may run to the end of main memory. */
+void func_0020C468(int src, int dst) {
+    const uint32_t end_of_ram = 0x02000000u;
+    const gaddr to = (gaddr)dst;
+    openrac_lib_wad_decompress((const uint8_t *)G(src), (uint8_t *)G(to),
+                               to < end_of_ram ? end_of_ram - to : 0);
+}

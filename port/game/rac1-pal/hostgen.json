@@ -30,7 +30,8 @@
     "openrac_sqrt",
     "openrac_rsqrt",
     "openrac_game_trap",
-    "func_002347F0"
+    "func_002347F0",
+    "func_0020C468"
   ],
   "candidates": "nonmatching/functional.tsv",
   "hand": "hand/hand.tsv"

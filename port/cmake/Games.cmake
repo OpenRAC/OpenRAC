@@ -28,10 +28,15 @@ set(OPENRAC_REPO_DIR "${CMAKE_CURRENT_LIST_DIR}/../..")
 set(OPENRAC_GAME_C_FLAGS -fno-strict-aliasing -fwrapv -fsigned-char -ffp-contract=off)
 
 # The library replacements every game shares (port/game/common/lib).
-file(GLOB openrac_game_common_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/lib/*.c")
+file(GLOB openrac_game_common_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/lib/*.c"
+     "${OPENRAC_GAME_DIR}/common/lib/*.cpp")
 add_library(openrac_game_common STATIC ${openrac_game_common_sources})
 target_include_directories(openrac_game_common PUBLIC "${OPENRAC_GAME_DIR}/common/include")
 target_link_libraries(openrac_game_common PUBLIC openrac_runtime)
+# The asset readers the library replacements use (the WAD decompressor).
+if(TARGET openrac_assets_disc)
+  target_link_libraries(openrac_game_common PUBLIC openrac_assets_disc)
+endif()
 target_compile_options(openrac_game_common PRIVATE ${OPENRAC_GAME_C_FLAGS} -Wall -Wextra)
 
 function(openrac_add_game config)
