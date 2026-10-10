@@ -45,6 +45,8 @@ int openrac_lib_EnableCache(int);
 void openrac_lib_FlushCache(int);
 int openrac_lib_sceSifDmaStat(unsigned int);
 unsigned int openrac_lib_sceSifSetDma(gaddr, int);
+void openrac_lib_SetGsCrt(int interlace, int mode, int field);
+void openrac_lib_GsPutIMR(unsigned int mask);
 int openrac_lib_EnableIntc(int);
 int openrac_lib_DisableIntc(int);
 int openrac_lib_DisableDmac(int);

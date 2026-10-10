@@ -39,10 +39,15 @@ unsigned int openrac_lib_snd_BankLoadByLoc(int sector, int offset) { /* snd_Bank
     return next_bank++;
 }
 
-void openrac_lib_snd_BankLoadFromEE_CB(int a, int b, long long callback) {
-    (void)a;
-    (void)b;
-    (void)callback;
+/* snd_BankLoadFromEE_CB(bank, callback, argument): a bank in EE memory; the
+ * port has no sound server yet, so the bank gets a handle at once and the
+ * callback is told, as the IOP's answer would: callback(handle, argument). */
+void openrac_lib_snd_BankLoadFromEE_CB(int bank, int callback, long long argument) {
+    const unsigned int handle = next_bank++;
+    (void)bank;
+    if (callback != 0) {
+        GFN(void (*)(int, long long), (gaddr)callback)((int)handle, argument);
+    }
 } /* snd_BankLoadFromEE_CB */
 
 void openrac_lib_snd_ResolveBankXREFS(void) {} /* snd_ResolveBankXREFS */

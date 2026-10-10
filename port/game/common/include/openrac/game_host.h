@@ -100,6 +100,9 @@ void openrac_game_load_image(const openrac_game_image* image);
 
 /* The buttons of a pad, in the console's bit order (active low, as the pad
  * library reports them) and its analog values; false if none is connected. */
+/* Nonzero: no memory card is inserted in either port (--no-card). */
+extern int openrac_game_no_card;
+
 int openrac_game_pad(int port, uint16_t* buttons, uint8_t analog[4]);
 
 /* ---- Inside the replacements ---- */

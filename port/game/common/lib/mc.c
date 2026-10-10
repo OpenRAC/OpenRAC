@@ -86,6 +86,9 @@ static int card_path(int port, const char* name, char* out, size_t size) {
 
 static int card_present(int port) {
     char path[1024];
+    if (openrac_game_no_card) {
+        return 0;
+    }
     struct stat st;
     if (!card_path(port, "", path, sizeof path)) {
         return 0;

@@ -244,13 +244,21 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
     use_level(level >= 0 && level < 19 ? level : -1);
     const viewer::GameState state = viewer::read_game_state(ram, a);
 
-    if (g->index % 100 == 0) {
+    // OPENRAC_DEBUG: the game's state each 100 frames, for bring-up.
+    static const bool debug = std::getenv("OPENRAC_DEBUG") != nullptr;
+    if (debug && g->index % 100 == 0) {
         log::info(
             "frame {}: level {}, camera {:.1f} {:.1f} {:.1f}, forward {:.2f} {:.2f} {:.2f}, fov {:.3f}, {} mobys",
             g->index, level, state.camera_position[0], state.camera_position[1],
             state.camera_position[2], state.forward[0], state.forward[1], state.forward[2],
             state.tan_half_fov_y, state.mobys.size()
         );
+        log::info("  mode {} dialog kind {} step {} level word {} title exit {} pad {:#x}",
+                  static_cast<int>(word_at(ram, 0x0015F6E8)), static_cast<int>(word_at(ram, 0x00193400)),
+                  static_cast<int>(word_at(ram, 0x00193400 + 0x1C)), static_cast<int>(word_at(ram, 0x0015EE84)),
+                  static_cast<int>(word_at(ram, 0x0015F690)), word_at(ram, 0x0013CBE4));
+        log::info("  load stage {:#x} retries {} snd state {:#x}", word_at(ram, 0x0015EF48),
+                  word_at(ram, 0x0015EFBC), word_at(ram, word_at(ram, 0x001517D0) + 8) & 0xFFFF);
     }
 
     // The live mobys, by class.
@@ -273,7 +281,16 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
         g->frame.create(width, height, error);
     }
     renderer::FrameInput input;
-    input.clear_colour = {g->level.background[0], g->level.background[1], g->level.background[2], 1};
+    // No camera yet (loading, fades between programs): a black frame, not the level's background.
+    const bool has_camera = state.forward[0] != 0.0f || state.forward[1] != 0.0f || state.forward[2] != 0.0f;
+    input.clear_colour = has_camera
+        ? std::array<float, 4>{g->level.background[0], g->level.background[1], g->level.background[2], 1}
+        : std::array<float, 4>{0, 0, 0, 1};
+    for (auto& r : g->renderer ? g->renderer->renderers() : std::span<const std::unique_ptr<renderer::BucketRenderer>>{}) {
+        if (r->bucket() != renderer::Bucket::Hud) {
+            r->enabled = has_camera;
+        }
+    }
     input.camera.view = state.view();
     input.camera.projection = state.projection(
         static_cast<float>(width) / static_cast<float>(height > 0 ? height : 1), 0.05f, 2000.0f
@@ -281,14 +298,6 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
     input.camera.position = state.camera_position;
     input.frame = g->index++;
     // The 2D path: the frame's direct GIF data, drawn by the direct renderer.
-    if (g->index == 250) {
-        log::info("chain: bases {:#x} {:#x}, building {}, shown {:#x}, cursor {:#x}",
-                  word_at(ram, a.chain_bases), word_at(ram, a.chain_bases + 4),
-                  word_at(ram, a.chain_index), viewer::shown_chain(ram, a), word_at(ram, 0x00161000));
-        setenv("OPENRAC_DUMP_VIF", "/tmp/openrac_vif_250.bin", 1);
-    } else {
-        unsetenv("OPENRAC_DUMP_VIF");
-    }
     (void)chain;
     const std::vector<std::uint8_t> packets = direct_packets(ram, viewer::shown_chain(ram, a));
     input.packets[static_cast<std::size_t>(renderer::Bucket::Hud)] = packets;

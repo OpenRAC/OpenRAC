@@ -393,3 +393,14 @@ void openrac_lib_sceScfGetLocalTimefromRTC(gaddr clock
 ) { /* sceScfGetLocalTimefromRTC: the clock is local already */
     (void)clock;
 }
+
+/* SetGsCrt(interlace, mode, field): the display mode; the port shows the
+ * game's frames in its window whatever the mode. */
+void openrac_lib_SetGsCrt(int interlace, int mode, int field) {
+    openrac_game_set_video_mode(interlace, mode, field);
+} /* SetGsCrt */
+
+/* GsPutIMR(mask): which GS events interrupt; the port has no GS interrupts. */
+void openrac_lib_GsPutIMR(unsigned int mask) {
+    (void)mask;
+} /* GsPutIMR */

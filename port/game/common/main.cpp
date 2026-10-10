@@ -46,6 +46,7 @@ extern "C" {
 const char* openrac_game_disc_image = nullptr;
 const char* openrac_game_card_dir = nullptr;
 int openrac_game_language = 1;
+int openrac_game_no_card = 0;
 }
 
 namespace {
@@ -65,6 +66,7 @@ struct Options {
 Options g_options;
 long g_frame = 0;
 gaddr g_chain = 0;  // the display list sent this frame
+bool g_vsync_since_kick = true;  // a vertical blank was waited for since the last frame was sent
 bool g_window = false;
 std::chrono::steady_clock::time_point g_next_frame;
 
@@ -115,6 +117,8 @@ Options parse(int argc, char** argv) {
             o.data = value();
         } else if (a == "--cards") {
             o.cards = value();
+        } else if (a == "--no-card") {
+            openrac_game_no_card = 1;
         } else if (a == "--window") {
             o.window = true;
         } else if (a == "--levels") {
@@ -157,6 +161,7 @@ void finish() {
 extern "C" {
 
 int openrac_game_vsync(void) {
+    g_vsync_since_kick = true;
     // With a window, the renderer draws the frame from the game's memory; without one, a frame is
     // only paced, at the game's frame rate.
 #ifdef OPENRAC_FRONTEND
@@ -184,6 +189,16 @@ int openrac_game_vsync(void) {
 
 void openrac_game_dma_send(gaddr channel, gaddr tag) {
     g_chain = tag;
+    // A frame sent to VIF1 with no vertical blank waited for since the last one: on the console
+    // the loop is paced by the DMA and the interrupts (the title loop never calls sceGsSyncV), so
+    // the frame ends here, with the vertical blank's handlers, as if the hardware had done it.
+    if (channel == 0x10009000u) {
+        if (!g_vsync_since_kick) {
+            openrac_game_vsync();
+            openrac_game_run_vsync_handlers();
+        }
+        g_vsync_since_kick = false;
+    }
     log::debug("frame {}: DMA chain at {:#010x} to channel {:#010x}", g_frame, tag, channel);
 }
 
