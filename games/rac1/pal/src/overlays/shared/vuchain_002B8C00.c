@@ -2,7 +2,48 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L01_002B8C00);
+typedef struct VuChainSlot {
+    char data[0x400];
+    char blocks[6][0x40];
+    char tail[0x18];
+    char pad[0x28];
+} VuChainSlot;
+typedef struct VuChainRecord {
+    char pad0[0x20];
+    int f20, f24;
+    float f28, f2C, f30, f34, f38, f3C, f40;
+    int f44;
+    char pad48[8];
+    VuChainSlot slots[3];
+} VuChainRecord;
+extern void func_001153FC(void *, int, int);
+/* Clears each record's three buffer groups and resets its scalar parameters. */
+void func_L01_002B8C00(VuChainRecord *records, int count) {
+    int i;
+    for (i = 0; i < count; i++) {
+        int j;
+        for (j = 0; j < 3; j++) {
+            func_001153FC(records[i].slots[j].data, 0, 0x400);
+            func_001153FC(records[i].slots[j].blocks[0], 0, 0x40);
+            func_001153FC(records[i].slots[j].blocks[1], 0, 0x40);
+            func_001153FC(records[i].slots[j].blocks[2], 0, 0x40);
+            func_001153FC(records[i].slots[j].blocks[4], 0, 0x40);
+            func_001153FC(records[i].slots[j].blocks[3], 0, 0x40);
+            func_001153FC(records[i].slots[j].blocks[5], 0, 0x40);
+            func_001153FC(records[i].slots[j].tail, 0, 0x18);
+        }
+        records[i].f30 = 1.57079637f;
+        records[i].f34 = -1.57079637f;
+        records[i].f38 = 0.02f;
+        records[i].f3C = -0.031f;
+        records[i].f40 = 0.03f;
+        records[i].f20 = 0;
+        records[i].f24 = 0;
+        records[i].f28 = -0.0016f;
+        records[i].f2C = -0.0016f;
+        records[i].f44 = 0;
+    }
+}
 extern float D_L01_001CAF80[];
 extern int func_001FA898_r(float) __asm__("func_001FA898");
 

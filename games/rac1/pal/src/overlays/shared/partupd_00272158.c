@@ -20,18 +20,18 @@ unsigned char *func_L00_00272158(void *pos, float *vec, int s, int a, int col, i
         *(int *)(m + 4) = (a << 24) | col;
         *(float *)(m + 0x1C) = pw;
         q = m + 0x20;
-        m[9] = func_001FA898(4.0f) + 0x40;
+        m[9] = truncate_float_to_s32(4.0f) + 0x40;
         *(float *)(m + 0xC) = x;
         m[1] = 0;
         m[3] = 0x48;
-        m[8] = func_002140B0(0xFF);
+        m[8] = random_integer_below(0xFF);
         m[2] = *D_L00_001B24B0;
         *(short *)(m + 0xA) = s;
         t = (float)n * D_0015EE60;
         *(float *)(q + 0) = vec[0];
         *(float *)(q + 4) = vec[1];
         *(float *)(q + 8) = vec[2];
-        q[0x10] = func_001FA898(t);
+        q[0x10] = truncate_float_to_s32(t);
         d = D_0015EE60;
         *(float *)(q + 0xC) = w;
         q[0x12] = col >> 8;
@@ -65,13 +65,13 @@ void func_L00_002722F0(unsigned char *p) {
     float a;
     int w;
 
-    if (func_001F9938(p + 0xA)) {
-        func_L00_002688A8(p);
+    if (FastDecTimer(p + 0xA)) {
+        KillPart(p);
     } else {
         q = p + 0x20;
         r = p + 0x10;
         a = func_001FA888(*(short *)(q + 0x1E));
-        w = func_001FA898(a * ((float)*(short *)(p + 0xA) / func_001FA888(*(short *)(q + 0x1C))));
+        w = truncate_float_to_s32(a * ((float)*(short *)(p + 0xA) / func_001FA888(*(short *)(q + 0x1C))));
         w = (w << 24) | (q[0x13] << 16);
         w |= q[0x12] << 8;
         w |= q[0x11];
@@ -80,13 +80,13 @@ void func_L00_002722F0(unsigned char *p) {
         v[1] = *(float *)(q + 4);
         v[2] = *(float *)(q + 8);
         *(int *)&v[3] = 0;
-        func_001F9BD8(r, r, v);
+        FastVecAdd(r, r, v);
         t[0] = *(Q *)(D_0013E633 + 0xF5D);
         func_L00_001FF2C8(m, t, *(float *)(p + 0x1C));
         func_L00_001FF240(m, r, t);
-        func_001F9C30(m, D_0013E633 + 0xF5D + 0x150, *(float *)(q + 0xC));
-        func_001F9BD8(v, v, m);
-        func_001F9C30(v, v, *(float *)(q + 0x18));
+        FastVecScale(m, D_0013E633 + 0xF5D + 0x150, *(float *)(q + 0xC));
+        FastVecAdd(v, v, m);
+        FastVecScale(v, v, *(float *)(q + 0x18));
         *(float *)(p + 0x20) = v[0];
         *(float *)(q + 4) = v[1];
         *(float *)(q + 8) = v[2];
@@ -433,15 +433,15 @@ void func_L00_002732D8(unsigned char *m) {
     old = *pos;
     q->f4 += q->f8;
     func_L00_002633D8(q->i0, &x, &y, pos, q->f4, q->fc);
-    if (func_001F9938(m + 0xA)) {
-        func_L00_002688A8(m);
+    if (FastDecTimer(m + 0xA)) {
+        KillPart(m);
         return;
     }
-    if ((float)*(short *)(m + 0xA) < (float)func_001F9850(0x1E) * 0.25f) {
+    if ((float)*(short *)(m + 0xA) < (float)scale_ticks(0x1E) * 0.25f) {
         float a = func_001FA888(*(short *)(m + 0xA));
-        *(int *)(m + 4) = func_L00_0025D038(0.7f, 0.7f, 0.7f, a * 0.08f / ((float)func_001F9850(0x1E) * 0.25f));
+        *(int *)(m + 4) = func_L00_0025D038(0.7f, 0.7f, 0.7f, a * 0.08f / ((float)scale_ticks(0x1E) * 0.25f));
     }
-    r = func_L00_001F2BE8(0.15f, pos, 0x10, q->p14, 0);
+    r = coll_sphere_mobys(0.15f, pos, 0x10, q->p14, 0);
     t = *pos;
     func_L00_0025BA50(q->p14, (void *)&t, D_L00_00178000, r, 0, 0x810001, 2, 1, 2.0f, 1.0f, 1.0f);
 }
@@ -637,11 +637,11 @@ void func_L00_00273A60(unsigned char *p) {
     case 0:
         {
             float n = func_001FA888(q[0x11]);
-            *(int *)(p + 4) = func_001FA8A8(0xFF4080FF, 0, (n - func_001FA888(*(short *)(p + 0xA))) / n);
+            *(int *)(p + 4) = FastTweenColor(0xFF4080FF, 0, (n - func_001FA888(*(short *)(p + 0xA))) / n);
         }
-        if (func_001F9938(p + 0xA)) {
+        if (FastDecTimer(p + 0xA)) {
             if (q[0x10] == 1) {
-                func_L00_002688A8(p);
+                KillPart(p);
             } else {
                 q[0x14] = 1;
                 *(short *)(p + 0xA) = q[0x12];
@@ -655,20 +655,20 @@ void func_L00_00273A60(unsigned char *p) {
             qcopy(t, p + 0x10);
             m = 1.0f;
             func_L00_00260958(t, 0.05f);
-            if (*(short *)(p + 0xA) < func_001F9850(10)) {
-                m = func_001FA888(*(short *)(p + 0xA)) / (float)func_001F9850(10);
+            if (*(short *)(p + 0xA) < scale_ticks(10)) {
+                m = func_001FA888(*(short *)(p + 0xA)) / (float)scale_ticks(10);
             }
             func_L00_00273868(t, 2, q[0x11], q[0x12], q[0x13], q[0x15], *(int *)(q + 0x18), *(float *)(q + 0x1C), m);
         }
         }
-        if (func_001F9938(p + 0xA)) {
-            func_L00_002688A8(p);
+        if (FastDecTimer(p + 0xA)) {
+            KillPart(p);
         }
         c = D_0013E633 + 0xE9D;
         if (func_001F9D48(p + 0x10, c) < 0.3f) {
             g = (P_272bc0 *)(c - 0x80);
             if (g->f88 < *(float *)(p + 0x18) + 1.2f) {
-                func_001F9BF0(t, c, p + 0x10);
+                FastVecSub(t, c, p + 0x10);
                 func_L00_001FF4B0(t, t, 1.0f);
                 t[2] = 1.0f;
                 func_L00_0025AC00(g->i2080, *(int *)(q + 0x18), 1, p + 0x10, t, *(float *)(q + 0x1C));
@@ -676,11 +676,11 @@ void func_L00_00273A60(unsigned char *p) {
         }
         break;
     case 2:
-        func_001F9BD8(p + 0x10, p + 0x10, q);
+        FastVecAdd(p + 0x10, p + 0x10, q);
         a = func_001FA888(q[0x15]);
         k = a - func_001FA888(*(short *)(p + 0xA));
         k = k / a;
-        *(int *)(p + 4) = func_001FA8A8((q[0x16] << 24) | 0x4060, 0x8FAFFF, k);
+        *(int *)(p + 4) = FastTweenColor((q[0x16] << 24) | 0x4060, 0x8FAFFF, k);
         if (k < 0.6f) {
             *(float *)(p + 0xC) += D_0015EE60 * 0.043f * 210000.0f;
         } else {
@@ -692,8 +692,8 @@ void func_L00_00273A60(unsigned char *p) {
         } else {
             p[8]--;
         }
-        if (func_001F9938(p + 0xA)) {
-            func_L00_002688A8(p);
+        if (FastDecTimer(p + 0xA)) {
+            KillPart(p);
         }
         break;
     }
@@ -839,7 +839,7 @@ void func_L00_002742E8(P_p *p) {
         return;
     }
     e = &p->e;
-    if (func_001F9938(&p->hA) || e->m == 0 || e->m->b20 < 0) {
+    if (FastDecTimer(&p->hA) || e->m == 0 || e->m->b20 < 0) {
         goto kill;
     }
     e->hC = (e->hC + 1) & 0xF;
@@ -855,7 +855,7 @@ void func_L00_002742E8(P_p *p) {
         }
     }
     e->f8 += D_0015EE60 * 0.001f;
-    p->b8 = func_001FA898(e->f8 * 255.0f);
+    p->b8 = truncate_float_to_s32(e->f8 * 255.0f);
     p->b2 = D_L00_001B24F4[e->hC];
     if (p->fC <= 159600.0f || 0.0f < e->f10) {
         float *q = &e->f4;
@@ -873,7 +873,7 @@ void func_L00_002742E8(P_p *p) {
         if (!(lim < x)) {
             if (x < 0.0f) {
             kill:
-                func_L00_002688A8(p);
+                KillPart(p);
                 return;
             }
         } else {
@@ -881,12 +881,12 @@ void func_L00_002742E8(P_p *p) {
             e->f4 = x + e->f10;
         }
     }
-    p->w4 = (p->w4 & 0xFFFFFF) + (func_001FA898(e->f4 * 256.0f) << 24);
+    p->w4 = (p->w4 & 0xFFFFFF) + (truncate_float_to_s32(e->f4 * 256.0f) << 24);
     e->f14 += (1.0f - e->f14) * (D_0015EE60 * 0.175f);
     func_L00_00250800(e->m, e->hE, a);
-    func_001F9BF0(v, D_L00_00166EC0, a);
+    FastVecSub(v, D_L00_00166EC0, a);
     func_L00_001FF4B0(v, v, e->f14);
-    func_001F9BD8(p->pos, a, v);
+    FastVecAdd(p->pos, a, v);
 }
 extern unsigned char *D_L00_001B24F8;
 
@@ -931,8 +931,133 @@ void func_L00_002746A0(char *a) {
         *(int *)(a + 4) = (w & 0xFFFFFF) | (t << 24);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_00274788);
-INCLUDE_ASM("asm/overlays", func_L00_00274908);
+extern unsigned char *D_L00_001B2500;
+
+/* Spawns a type-64 particle at pos moving with vel, sprite size chosen by distance to the hero. */
+unsigned char *func_L00_00274788(void *pos, void *vel, float scale, int life, float f1, int col, float f2, int a4, int big) {
+    unsigned char *r = func_00218928(0x40);
+    unsigned char *u;
+    if (r != 0) {
+        u = r + 0x20;
+        qcopy(r + 0x10, pos);
+        if (func_001F9D48(D_0013E633 + 0xE9D, pos) < 80.0f) {
+            r[9] = truncate_float_to_s32(1.0f) + 0x30;
+        } else {
+            r[9] = truncate_float_to_s32(1.0f) + 0x20;
+        }
+        r[3] = big ? 0x48 : 0x44;
+        r[1] = 0;
+        r[2] = D_L00_001B2500[1];
+        *(int *)(r + 4) = col;
+        *(float *)(r + 0xC) = scale * 210000.0f;
+        r[8] = (int)random_float_between(0.0f, 255.0f);
+        *(short *)(r + 0xA) = life;
+        qcopy(u, vel);
+        *(float *)(u + 0x10) = f1;
+        *(float *)(u + 0x14) = f2;
+        *(int *)(u + 0x18) = a4;
+    }
+    return r;
+}
+typedef u32 u128_74908 __attribute__((mode(TI), aligned(16)));
+typedef union {
+    u128_74908 q;
+    f32 f[4];
+    s32 i[4];
+} Vec4;
+unsigned char *func_L00_00272488(void *pos, int x, int color, float size, float w);
+f32 func_002140F8(f32, f32);
+void func_L00_001FF4B0(void *, void *, f32);
+s32 func_002140B0(s32 arg0);
+struct EmberMotion {
+    Vec4 vel; /* 0x0 */
+    f32 floor_z; /* 0x10: bursts once pos.z drops below this */
+    f32 gravity; /* 0x14 */
+    s32 color2; /* 0x18: smoke end colour */
+};
+struct EmberParticle {
+    u8 unk0;
+    u8 unk1;
+    u8 tex; /* 0x2: passed on to the smoke puff (FUN_L00_0026bb70) */
+    u8 blend; /* 0x3: passed on to the smoke puff */
+    s32 color; /* 0x4: 0xAABBGGRR */
+    u8 spin; /* 0x8 */
+    u8 unk9;
+    s16 life; /* 0xA: frames left (FUN_001f9770) */
+    f32 size; /* 0xC */
+    Vec4 pos; /* 0x10 */
+    struct EmberMotion m; /* 0x20 */
+};
+extern s32 func_L00_00258BC8(s32, s32);
+extern s32 func_001F9850(s32);
+extern unsigned char *func_L00_0026CA10(void *a, void *b, int c, int d, float f, int n, int e, int g, int h);
+extern unsigned char *func_L00_0026CD70(void *a, void *b, int c, int d, float f, int n, int k);
+extern int func_L00_00237B70_74908(int, int, float) __asm__("func_L00_00237B70");
+extern short D_L00_001602E8;
+extern f32 D_0015EE6C MACRO_ADDR;
+extern s32 D_0015EE84 MACRO_ADDR;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/rendering/002712b8.c, FUN_L00_00273a68. */
+void func_L00_00274908(struct EmberParticle *p) {
+    struct EmberMotion *m = &p->m;
+    Vec4 t;
+    s32 cr, cg, cb;
+    s32 n, c1, c2;
+    f32 f;
+
+    if (FastDecTimer(&p->life))
+        m->vel.f[2] -= m->gravity;
+    FastVecAdd(&p->pos, &p->pos, &m->vel);
+    p->spin += 2;
+    if (!(p->pos.f[2] < m->floor_z))
+        return;
+    cr = p->color & 0xFF;
+    cg = (p->color & 0xFF00) >> 8;
+    cb = ((u32)p->color >> 16) & 0xFF;
+    if (!random_integer_below((*(u32 *)&D_L00_001602E8) - 1)) {
+        p->pos.f[2] = m->floor_z;
+        m->vel.f[0] *= random_float_between(1.0f, 3.5f);
+        m->vel.f[1] *= random_float_between(1.0f, 3.5f);
+        m->vel.f[2] *= random_float_between(-1.0f, -1.5f);
+        f = p->size;
+        f *= 0.5f;
+        n = rand_range(scale_ticks(0x3C), scale_ticks(0x78));
+        func_L00_0026CA10(&p->pos, &m->vel, p->color, m->color2, f, n, 0, p->tex, p->blend);
+    } else {
+        p->pos.f[2] = m->floor_z;
+        m->vel.f[0] += random_float_between(-5.0f, 5.0f) * D_0015EE6C;
+        m->vel.f[1] += random_float_between(-5.0f, 5.0f) * D_0015EE6C;
+        m->vel.f[2] *= random_float_between(-0.5f, -1.0f);
+        f = p->size;
+        f *= 0.25f;
+        n = rand_range(scale_ticks(0x1E), scale_ticks(0x3C));
+        func_L00_0026CA10(&p->pos, &m->vel, p->color, m->color2, f, n, 0, p->tex, p->blend);
+    }
+    if (D_0015EE84 == 10) {
+        if (!random_integer_below(0x13)) {
+            t.q = p->pos.q;
+            t.f[2] += 0.1f;
+            func_L00_00272488(&t, 0, ((random_integer_below(6) + 0x34) << 24) | (cb << 16) | (cg << 8) | cr,
+                             0.05f, 10500.0f);
+        }
+        if (!random_integer_below(9)) {
+            c1 = func_L00_00237B70_74908(0x7F000000, 0x7F000000 | (cb << 16) | (cg << 8) | cr,
+                                  random_float_between(0.25f, 1.0f));
+            c2 = func_L00_00237B70_74908(0, 0x5F00, random_float_between(0.5f, 1.0f));
+            m->vel.f[0] = random_float_between(-1.0f, 1.0f);
+            m->vel.f[1] = random_float_between(-1.0f, 1.0f);
+            m->vel.f[2] = 0.0f;
+            func_L00_001FF4B0(&m->vel, &m->vel, random_float_between(1.5f, 3.0f) * D_0015EE6C);
+            m->vel.f[2] = D_0015EE6C * 3.0f;
+            t.q = p->pos.q;
+            t.f[2] -= 1.5f;
+            f = random_float_between(420000.0f, 630000.0f);
+            n = rand_range(scale_ticks(0x5A), scale_ticks(0x96));
+            func_L00_0026CD70(&t, &m->vel, c1, c2, f, n, 3);
+        }
+    }
+    KillPart(p);
+}
 typedef struct { int a[4]; } V __attribute__((aligned(16)));
 extern float D_0015EE64 MACRO_ADDR;
 extern V D_L00_00173F60;
@@ -951,11 +1076,11 @@ void func_L00_00274D80(unsigned char *o) {
     d = D_0015EE60;
     c[7] += d * 0.0f;
     *(float *)(o + 0xC) += d * -100.0f;
-    func_001F9BD8(&out, b, c);
+    FastVecAdd(&out, b, c);
     if (*(float *)(o + 0x20) != 0.0f || c[1] != 0.0f || c[2] != 0.0f) {
         if (func_L00_001EFFF0(o + 0x10, &out, 2, o, 0)) {
             *(V *)(o + 0x10) = D_L00_00173F60;
-            func_001F9BC0(c);
+            clear_u64_value(c);
             *(float *)(o + 0xC) += *(float *)(o + 0xC);
         } else {
             *(V *)(o + 0x10) = out;
@@ -966,9 +1091,9 @@ void func_L00_00274D80(unsigned char *o) {
             }
         }
     }
-    if (c[7] <= 0.0f || func_001F9938(o + 0xA) || *(float *)(o + 0xC) < 0.0f ||
+    if (c[7] <= 0.0f || FastDecTimer(o + 0xA) || *(float *)(o + 0xC) < 0.0f ||
         ((float *)&out)[0] < 0.01f || ((float *)&out)[1] < 0.01f || ((float *)&out)[2] < 0.01f) {
-        func_L00_002688A8(o);
+        KillPart(o);
         return;
     }
     c[4] += D_0015EE60 * -0.01f;
@@ -1084,57 +1209,57 @@ void func_L00_002753B8(char *m) {
     float t, u, e;
     if (*(short *)(s + 0x1C) == 0) {
         if (func_L00_0025A468_q(m + 4, *(short *)(s + 0x1A))) {
-            func_L00_002688A8(m);
+            KillPart(m);
             return;
         }
         if (*(int *)(s + 0xC) == 0) return;
         vv[0] = *(float *)(m + 0x20);
         vv[1] = *(float *)(s + 4);
         vv[2] = *(float *)(s + 8);
-        func_001F9C30(vv, vv, func_001FA888(*(short *)(s + 0x18)));
-        func_001F9BD8(m + 0x10, *(char **)(s + 0xC) + 0x10, vv);
+        FastVecScale(vv, vv, func_001FA888(*(short *)(s + 0x18)));
+        FastVecAdd(m + 0x10, *(char **)(s + 0xC) + 0x10, vv);
         return;
     }
-    if (func_001F9938(m + 0xA) ||
-        (*(short *)(m + 0xA) < func_001F9850(10) && func_L00_0025A468_q(m + 4, 0x10))) {
-        func_L00_002688A8(m);
+    if (FastDecTimer(m + 0xA) ||
+        (*(short *)(m + 0xA) < scale_ticks(10) && func_L00_0025A468_q(m + 4, 0x10))) {
+        KillPart(m);
         return;
     }
     if (*(short *)(s + 0x1C) == 1) {
         z = 0.0f;
-        func_L00_00275248_2753B8(z, 0, m + 0x10, z, func_001F9850(10), 0, *(signed char *)(m + 7), 0);
+        func_L00_00275248_2753B8(z, 0, m + 0x10, z, scale_ticks(10), 0, *(signed char *)(m + 7), 0);
         q = m + 0x10;
     } else {
         vv[0] = *(float *)(s + 0);
         vv[1] = *(float *)(s + 4);
         vv[2] = *(float *)(s + 8);
         z = 0.0f;
-        o = func_L00_00275248_2753B8(z, *(void **)(s + 0xC), m + 0x10, z, func_001F9850(10), 0, *(signed char *)(m + 7), vv);
+        o = func_L00_00275248_2753B8(z, *(void **)(s + 0xC), m + 0x10, z, scale_ticks(10), 0, *(signed char *)(m + 7), vv);
         q = m + 0x10;
         if (o != 0) *(short *)(o + 0x38) = *(unsigned short *)(s + 0x18);
     }
     if (*(short *)(s + 0x1C) != 1) return;
     qcopy(q, *(char **)(s + 0xC) + 0x10);
-    vv[0] = func_001F9F90(*(float *)(s + 0x10)) * 2.25f;
-    vv[1] = func_001F9FA8(*(float *)(s + 0x10)) * 2.25f;
+    vv[0] = FastCos(*(float *)(s + 0x10)) * 2.25f;
+    vv[1] = FastSin(*(float *)(s + 0x10)) * 2.25f;
     vv[2] = vv[0];
     *(int *)&vv[0] = 0;
-    vv[4] = func_001F9F90(*(float *)(s + 0x14)) * 0.28f;
-    vv[5] = func_001F9FA8(*(float *)(s + 0x14)) * 0.28f;
+    vv[4] = FastCos(*(float *)(s + 0x14)) * 0.28f;
+    vv[5] = FastSin(*(float *)(s + 0x14)) * 0.28f;
     vv[6] = vv[4];
     *(int *)&vv[4] = 0;
-    func_001F9BC0((vv + 8));
+    clear_u64_value((vv + 8));
     vv[9] = *(float *)(s + 0x10);
     func_001FA218((vv + 12), (vv + 8));
     func_001F9EE8((vv + 4), (vv + 4), (vv + 12));
-    func_001F9BD8(vv, vv, (vv + 4));
+    FastVecAdd(vv, vv, (vv + 4));
     func_001F9EC0(vv, vv, *(char **)(s + 0xC) + 0xC0);
-    func_001F9BD8(q, q, vv);
-    t = func_001FA748(*(float *)(s + 0x10), D_0015EE6C * 0.9599311f);
+    FastVecAdd(q, q, vv);
+    t = FastAddRots(*(float *)(s + 0x10), D_0015EE6C * 0.9599311f);
     u = D_0015EE6C * 4.3633232f;
     e = *(float *)(s + 0x14);
     *(float *)(s + 0x10) = t;
-    *(float *)(s + 0x14) = func_001FA748(e, u);
+    *(float *)(s + 0x14) = FastAddRots(e, u);
 }
 extern float func_002140F8(float, float);
 extern void func_L00_00250800(void *, int, void *);
@@ -1382,7 +1507,73 @@ void func_L00_00276180(char *a) {
         KillPart(a);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_002761C0);
+typedef int OvlQuad __attribute__((mode(TI)));
+typedef union {
+    OvlQuad q;
+    float f[4];
+} V_275320;
+typedef struct {
+    unsigned char pad0[0x10];
+    V_275320 pos;
+    V_275320 vel;
+} O_275320;
+extern float D_L00_00160310[];
+extern float D_L00_00160318 MACRO_ADDR;
+extern float D_L00_00160320 MACRO_ADDR;
+extern float func_L00_002644E0(void *);
+extern void func_L00_00264570(void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/rendering/002712b8.c, FUN_L00_00275320. */
+void func_L00_002761C0(O_275320 *o) {
+    V_275320 tmp;
+    V_275320 t2;
+    V_275320 t3;
+    V_275320 *vel = &o->vel;
+    float h;
+    int ix;
+    int iy;
+    V_275320 *p;
+
+    h = vel->f[3];
+    if (o->pos.f[0] < 0.0f || o->pos.f[1] < 0.0f || 512.0f < o->pos.f[0] || 512.0f < o->pos.f[1]) {
+        KillPart(o);
+        return;
+    }
+    if (o->pos.f[2] < h) {
+        tmp.q = o->pos.q;
+        func_L00_00264570(&tmp);
+        KillPart(o);
+        return;
+    }
+    tmp.q = o->vel.q;
+    ix = o->pos.f[0];
+    iy = o->pos.f[1];
+    tmp.f[3] = 0.0f;
+    FastVecAdd(&o->pos, &o->pos, &tmp);
+    FastVecAdd(&o->pos, &o->pos, D_L00_00160310);
+    if (ix != (int)o->pos.f[0] || iy != (int)o->pos.f[1]) {
+        t2.q = o->pos.q;
+        h = func_L00_002644E0(&t2);
+        if (h < D_L00_00160320) {
+            h = D_L00_00160320;
+        } else {
+            t3.q = o->pos.q;
+            h = func_L00_002644E0(&t3);
+        }
+        if (o->pos.f[2] < h) {
+            t2.q = o->pos.q;
+            func_L00_00264570(&t2);
+            KillPart(o);
+            return;
+        }
+    }
+    tmp.f[0] = 0.0f;
+    tmp.f[1] = 0.0f;
+    tmp.f[3] = 0.0f;
+    tmp.f[2] = -(D_0015EE70 * 0.5f);
+    FastVecAdd(vel, &tmp, vel);
+    vel->f[3] = h + D_L00_00160318;
+}
 extern void func_001F9EC0(void *, void *, void *);
 extern int func_L00_00237B70(float, int, int);
 extern float D_0015EE60 MACRO_ADDR;
@@ -1499,7 +1690,7 @@ unsigned char *func_L00_002767B0(void *pos, int s, int col, int mode, int b, flo
         qcopy(m + 0x10, pos);
         *(int *)(m + 4) = col;
         m[3] = 0x48;
-        m[9] = func_001FA898(4.0f) + 0x20;
+        m[9] = truncate_float_to_s32(4.0f) + 0x20;
         m[1] = 0;
         m[2] = *D_L00_001B2538;
         *(short *)(m + 0xA) = s;
@@ -1509,7 +1700,7 @@ unsigned char *func_L00_002767B0(void *pos, int s, int col, int mode, int b, flo
         } else if (mode == 1) {
             m[8] = 0x20;
         } else {
-            m[8] = func_002140B0(0xFF);
+            m[8] = random_integer_below(0xFF);
         }
         *(float *)(q + 0) = *(float *)(m + 0xC);
         *(float *)(q + 4) = y * 210000.0f;
@@ -1598,8 +1789,8 @@ void func_L00_00276F18(void) {
     for (i = 0; i < 20; i++) {
         int sz = D_00137C80.e[i].n << 7;
         if (sz) {
-            func_002176C8(h, D_00137C80.e[i].a, D_00137C80.e[i].n);
-            D_L00_001BA070.o[i] = func_00234158(h, sz, sz, (int)&D_L00_00160390);
+            Load(h, D_00137C80.e[i].a, D_00137C80.e[i].n);
+            D_L00_001BA070.o[i] = Stash_SendData(h, sz, sz, (int)&D_L00_00160390);
         }
     }
 }

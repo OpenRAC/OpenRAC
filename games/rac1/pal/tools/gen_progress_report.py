@@ -84,11 +84,11 @@ OVERLAY_STUB = re.compile(r'^\s*(?:INCLUDE_ASM|LINKER_REMNANT)\([^)]*\b(func_L\d
 OVERLAY_REMNANT = re.compile(r'^\s*LINKER_REMNANT\("asm/overlays",\s*(func_L\d{2}_[0-9A-Fa-f]{8})\);', re.M)
 OVERLAY_REMNANTS = Path("config/overlays/linker_remnants.txt")
 OVERLAY_JOINED = Path("config/overlays/joined.tsv")
-OVERLAY_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_L\d{2}_[0-9A-Fa-f]{8})\s*\(")
+OVERLAY_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_L\d{2}_[0-9A-Fa-f]{8})(?:_r)?\s*\(")
 
 # Same patterns as tools/sweep_matches.py (see the comments there on why
 # the definition regex is lazy and skips `extern`).
-FUNC_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_[0-9A-Fa-f]{8})\s*\(", re.M)
+FUNC_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_[0-9A-Fa-f]{8})(?:_r)?\s*\(", re.M)
 STUB = re.compile(r"INCLUDE_ASM\([^)]*\b(func_[0-9A-Fa-f]{8})\)")
 ORIGINAL_ASM = re.compile(
     r"\b(ASM_FUNC|LINKER_REMNANT)\(\"asm/(handwritten|remnants)/(core_text|text)\",\s*"

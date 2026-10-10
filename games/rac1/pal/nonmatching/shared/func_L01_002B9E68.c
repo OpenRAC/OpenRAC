@@ -1,10 +1,12 @@
 /* NON_MATCHING func_L01_002B9E68 -- src/overlays/shared/vendor_002B90A8.c
- * Best so far: BYTES 11/740 (98.5% of the bytes match), checked 2026-10-07.
+ * Best so far: BYTES 6/740 (99.2% of the bytes match), checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   mini16 a02: clips four grid-cell corners and selects draw mode. Best p6.c or p7.c BYTES 11/740, both full clip
  *   Stopped budget 8/8. Only seven homogeneous/depth-coordinate stores differ in order at +a4..+140; reverse chain
+ *   hq12/s16 (6 runs, p8-p13): a grid-cell corner clip (740 bytes). Best p11 at 6/740: the corner z/w stores split
+ *   Would unblock: a way to keep corners[2][1] and corners[3][1] (the same value y + y1) as separate scheduled sto
  */
 extern void func_001F9BF0(void *, void *, void *);
 extern void func_001F9C30(void *, void *, float);
@@ -38,8 +40,14 @@ void func_L01_002B9E68(float *pos, int cell, int mode) {
         box.corners[1][0] = x + x1; box.corners[1][1] = y + y0;
         box.corners[2][0] = x + x0; box.corners[2][1] = y + y1;
         box.corners[3][0] = x + x1; box.corners[3][1] = y + y1;
-        box.corners[3][3] = box.corners[2][3] = box.corners[1][3] = box.corners[0][3] = 1.0f;
-        box.corners[3][2] = box.corners[2][2] = box.corners[1][2] = box.corners[0][2] = pos[2];
+        box.corners[0][2] = pos[2];
+        box.corners[0][3] = 1.0f;
+        box.corners[1][2] = pos[2];
+        box.corners[1][3] = 1.0f;
+        box.corners[2][2] = pos[2];
+        box.corners[2][3] = 1.0f;
+        box.corners[3][2] = pos[2];
+        box.corners[3][3] = 1.0f;
         depth = 0;
         clip = 0;
         for (i = 0; i < 4; i++) {

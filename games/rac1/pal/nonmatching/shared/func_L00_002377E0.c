@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L00_002377E0 -- src/overlays/shared/hud_00235960.c
- * Best so far: SIZE ours 840 / retail 832, checked 2026-10-03.
+ * Best so far: SIZE ours 840 / retail 832, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -15,7 +15,6 @@ extern void func_001F9BF0(void *, void *, void *);
 extern void func_L00_001FF2F8(void *, void *, void *);
 extern void func_001F9BD8(void *, void *, void *);
 extern void func_002008B8(int, int, int, int, int, int);
-extern char D_L00_0017E760[];
 extern float D_L00_0017E764[];
 extern short D_L00_0015F840;
 extern short D_L00_0015F844;

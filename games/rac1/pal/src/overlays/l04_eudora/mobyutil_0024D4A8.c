@@ -17,14 +17,14 @@ float func_L04_0024D618(float *dst, float *a, float *b, float *c) {
     float d3[4];
     float det, t, r;
 
-    func_001F9BF0(d0, b, a);
-    func_001F9BF0(d2, a, c);
+    FastVecSub(d0, b, a);
+    FastVecSub(d2, a, c);
     d3[0] = d0[1];
     d3[1] = -d0[0];
-    func_001F9BD8(d3, c, d3);
-    func_001F9BF0(d1, c, d3);
+    FastVecAdd(d3, c, d3);
+    FastVecSub(d1, c, d3);
     det = d0[1] * d1[0] - d0[0] * d1[1];
-    if (func_001F9B88(det) < 0.0001f) {
+    if (FastAbsF(det) < 0.0001f) {
         qcopy(dst, a);
         return 0.0f;
     }
@@ -34,8 +34,8 @@ float func_L04_0024D618(float *dst, float *a, float *b, float *c) {
     r = t;
     if (r < 0.0f) r = 0.0f;
     if (1.0f < r) r = 1.0f;
-    func_001F9C30(dst, d0, r);
-    func_001F9BD8(dst, dst, a);
+    FastVecScale(dst, d0, r);
+    FastVecAdd(dst, dst, a);
     return t;
 }
 extern int func_L04_0024D4A8(float *, float *, int);

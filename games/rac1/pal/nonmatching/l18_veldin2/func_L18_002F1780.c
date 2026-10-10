@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L18_002F1780 -- src/overlays/l18_veldin2/vendor_002A8400.c
- * Best so far: SIZE ours 824 / retail 816, checked 2026-10-03.
+ * Best so far: SIZE ours 824 / retail 816, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * Cannot land as written (#define in a candidate): rewrite that in plain C first.

@@ -15,7 +15,7 @@ extern long D_0015EFC8 MACRO_ADDR;
 void func_L00_001EB380(void) {
     long localbuf[3];
 
-    func_002176C8(D_L00_0018F040, D_00137C80[2], D_00137C80[3]);
-    func_001E94E8(D_L00_0018F040, localbuf, D_0015EF88 + 0xC0000, 0x3FFC00);
+    Load(D_L00_0018F040, D_00137C80[2], D_00137C80[3]);
+    LoadPifAsPSMT8H(D_L00_0018F040, localbuf, D_0015EF88 + 0xC0000, 0x3FFC00);
     D_0015EFC8 = localbuf[0];
 }

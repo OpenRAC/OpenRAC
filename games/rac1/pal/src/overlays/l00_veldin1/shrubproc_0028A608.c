@@ -20,17 +20,17 @@ void func_L00_0028A608(void) {
     SkyRotVec rot;
 
     *(short *)(D_L00_001605DC + 4) = 0;
-    func_0022C9A8(0);
-    func_0022C9A8(1);
+    SkyDrawShell(0);
+    SkyDrawShell(1);
     if (*(short *)(D_L00_001605DC + 8) == 0) func_L00_0028A198(0xF4, 0xC);
     func_L00_0028A3E0();
-    func_0022CEB8();
-    func_00234C98(0x42, 0x8000000044L);
-    func_0022C9A8(2);
+    SkySpriteProc();
+    VU1_addGSregister(0x42, 0x8000000044L);
+    SkyDrawShell(2);
     qzero(&rot);
     rot.f[2] = (f32)(*(volatile int *)&D_L00_0015F6B0 & 0x7FFF) * 1.9174760e-4f - 3.1415927f;
     func_L00_001FFA40(D_L00_001BDB70, &rot);
-    func_0022C9A8(3);
+    SkyDrawShell(3);
     func_001FA190(D_L00_001BDB70);
-    func_0022C9A8(4);
+    SkyDrawShell(4);
 }

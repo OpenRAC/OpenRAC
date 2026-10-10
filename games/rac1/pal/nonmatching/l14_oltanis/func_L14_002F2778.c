@@ -2,6 +2,7 @@
  * Best so far: BYTES 9/112 (92.0% of the bytes match), checked 2026-10-07.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   - Lombyte: `tools/lombyte.py` reports no Lombyte checkout here (it wants $LOMBYTE or
  *   ~/Projects/Lombyte, and neither exists), so nothing was ported.

@@ -38,13 +38,13 @@ void func_L08_0026B0E8(void *out, void *dir, float roll) {
     ang[0] = 0.0f;
     ang[1] = 0.0f;
     func_L00_001FFA40(Rx, ang);
-    func_001FA540(M, Rz, M);
-    func_001FA540(M, Ry, M);
-    func_001FA540(M, Rx, M);
+    sce_vu0_mul_matrix(M, Rz, M);
+    sce_vu0_mul_matrix(M, Ry, M);
+    sce_vu0_mul_matrix(M, Rx, M);
     func_001FA4A0(Ry, Ry);
-    func_001FA540(M, Ry, M);
+    sce_vu0_mul_matrix(M, Ry, M);
     func_001FA4A0(Rz, Rz);
-    func_001FA540(M, Rz, M);
+    sce_vu0_mul_matrix(M, Rz, M);
     qcopy(d, dir);
     func_001F9EE8(d, d, M);
     func_001FA480(out, M);

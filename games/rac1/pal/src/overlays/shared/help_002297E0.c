@@ -41,26 +41,26 @@ void func_L00_00229B78(void) {
         }
         if (func_L00_00222B80(2, 0)) {
             *(int *)(c + 0x2088) = 1;
-            n = func_001F9850(8);
-            if (func_001F9850(5) < *(int *)(c + 0x418)) n = func_001F9850(14);
+            n = scale_ticks(8);
+            if (scale_ticks(5) < *(int *)(c + 0x418)) n = scale_ticks(14);
             func_L00_00232C10(4, D_L00_0015F7BC, (float)n);
             *(short *)(c + 0x3BC) = 1;
         }
         return;
     }
     d = D_0013E633 + 0xE1D;
-    if ((*(float *)&D_0015EE6C_229B78 * 3.0f < *(float *)(d + 0x168) && func_001F9850(3) < *(int *)(d + 0x418)) || *(int *)(d + 0x2084) == 0x10) {
+    if ((*(float *)&D_0015EE6C_229B78 * 3.0f < *(float *)(d + 0x168) && scale_ticks(3) < *(int *)(d + 0x418)) || *(int *)(d + 0x2084) == 0x10) {
         if (func_L00_00222B80(3, 0)) {
             func_L00_00232C10(5, 0, -1.0f);
             func_L00_002607A8(D_0013E633 + 0xF6D, *(float *)((char *)&D_0015EE64 + 8) * 5.0f);
         }
         return;
     }
-    if (func_001F9850(12) < *(int *)(d + 0x418) || (*(int *)(d + 0xA98) & 2)) {
+    if (scale_ticks(12) < *(int *)(d + 0x418) || (*(int *)(d + 0xA98) & 2)) {
         if (func_L00_00222B80(0, 0)) {
             if (func_L00_00205618(0) == 0x54) {
                 n = func_L00_00205618(0);
-                func_L00_00232C10(n, 0, (float)func_001F9850(15));
+                func_L00_00232C10(n, 0, (float)scale_ticks(15));
             } else if (*(int *)(d + 0xA98) & 2) {
                 func_L00_00232C10(func_L00_00205618(0), 0, -2.0f);
             }
@@ -89,20 +89,20 @@ int func_L00_00229E30(void) {
         return 0;
     }
     n = func_L00_00222520();
-    t = func_001F9850(5);
+    t = scale_ticks(5);
     if ((*(int *)(D_0013A5E0 + 0x2600) & 0xA) != 0 && n > 0 && func_L00_00267C48(0x40, 0x1F000, t + n, n) != 0) {
         m = 0xB;
 found:
         func_L00_00222B80(m, 1);
         return 1;
     }
-    k = func_001F9850(9);
+    k = scale_ticks(9);
     p = (char *)D_0013E633 + 0xE1D;
-    if (func_001F9850(6) < *(int *)(p + 0x198)) {
+    if (scale_ticks(6) < *(int *)(p + 0x198)) {
         if (func_L00_00267BA8(0x40, k, 0) == 0) {
             return 0;
         }
-        if (func_L00_0020DB30(3) == 2 && D_0013D5CA != 0 && *(short *)(p + 0x22D8) == 0 &&
+        if (func_L00_0020DB30(3) == 2 && gHaveHeliPack != 0 && *(short *)(p + 0x22D8) == 0 &&
             (2.5f < *(float *)(p + 0x248) || *(float *)(p + 0x250) < 0.785398185f) &&
             0.7f < *(float *)(p + 0x229C) && D_0015EE6C * 0.9f < *(float *)(p + 0x168)) {
             m = 0xA;
@@ -130,7 +130,7 @@ found:
         }
         if (func_L00_0020DB30(3) == 2) {
             char *s = (char *)D_0013E633 + 0xE1D;
-            if (*(short *)(s + 0x22D8) == 0 && D_0013D5CA != 0) {
+            if (*(short *)(s + 0x22D8) == 0 && gHaveHeliPack != 0) {
                 m = 0xF;
                 goto found;
             }
@@ -153,14 +153,14 @@ int func_L00_0022A0E0(void) {
     char *g = (char *)D_0013E633 + 0xE1D;
     Vec4 a, b;
     float t, d;
-    if (*(float *)(g + 0x164) < *(float *)(g + 0x234) / (float)func_001F9850(0x14))
+    if (*(float *)(g + 0x164) < *(float *)(g + 0x234) / (float)scale_ticks(0x14))
         return 0;
-    t = func_001FA850(func_L00_001FF860(*(float *)(g + 0x100), *(float *)(g + 0x104)), *(float *)(g + 0x98));
+    t = FastDiffRots(func_L00_001FF860(*(float *)(g + 0x100), *(float *)(g + 0x104)), *(float *)(g + 0x98));
     if (0.5235988f < t)
         return 0;
     qcopy(&a, g + 0x80);
-    a.x += func_001F9F90(*(float *)(g + 0x98)) * *(float *)(g + 0x234) * 0.75f;
-    a.y += func_001F9FA8(*(float *)(g + 0x98)) * *(float *)(g + 0x234) * 0.75f;
+    a.x += FastCos(*(float *)(g + 0x98)) * *(float *)(g + 0x234) * 0.75f;
+    a.y += FastSin(*(float *)(g + 0x98)) * *(float *)(g + 0x234) * 0.75f;
     qcopy(&b, &a);
     a.z += 0.47f;
     b.z -= 1.0f;

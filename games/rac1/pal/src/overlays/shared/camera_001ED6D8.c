@@ -59,7 +59,7 @@ void func_L00_001ED6D8(void) {
     func_L00_001FF4B0(p1, (char *)(*(int *)(base + 0x2080) + 0xE0), 1.0f);
     qcopy(g1 + 0x1C0, p1);
     qcopy(g1 + 0x1D0, p1);
-    func_001F9BC0(g1 + 0x1E0);
+    clear_u64_value(g1 + 0x1E0);
     qcopy(g1 + 0x1F0, base + 0x80);
     {
         float f0 = *(float *)(base + 0x98);

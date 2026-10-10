@@ -479,7 +479,128 @@ void func_0022FD20(int arg0) {
 
 INCLUDE_ASM("asm/nonmatchings/text", func_0022FDC0);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_002305A0);
+extern s32 D_0015EE84_305A0 __asm__("D_0015EE84") MACRO_ADDR;
+struct LevelRenderState_305A0 {
+    u8 pad_0[0x58];
+    s32 mode;
+};
+struct LevelDisplayState_305A0 {
+    u8 pad_0[0x4];
+    s32 screen_height;
+};
+struct LevelProjectionState_305A0 {
+    u8 pad_0[0xB0];
+    f32 projection_scale;
+};
+/* PAL: the two fields tested sit 8 bytes further than in the US build. */
+struct MemoryCardState_305A0 {
+    u8 pad_0[0xDC];
+    s32 state; /* 0xDC */
+    s32 pad_E0;
+    s32 pending_state; /* 0xE4 */
+};
+extern struct MemoryCardState_305A0 D_0013D390_305A0 __asm__("D_0013D390");
+extern u8 D_0013DE4B[];
+extern struct LevelRenderState_305A0 D_0013E130_305A0 __asm__("D_0013E130");
+extern s32 D_0015F538 MACRO_ADDR;
+extern f32 D_0015F53C MACRO_ADDR;
+extern s32 D_0015F704_305A0 SDATA(D_0015F704);
+extern s32 D_0018CC54[];
+extern s32 D_0018CD98[];
+extern struct LevelProjectionState_305A0 D_0018CE00;
+extern void func_00235290(u32);
+extern void func_001F2608();
+extern void func_001F3140();
+extern void func_001F3C10();
+extern void func_001F4630(s32);
+extern void func_001F4748();
+extern s64 func_001F4868_305A0(s32) __asm__("func_001F4868");
+extern void func_001F55C0(s32, s32, s32, s32);
+extern void func_001F5800(s32, s32, s32, s32, s32, s32, s32, s32, s64, s64);
+extern s32 func_001FA898_305A0(f32) __asm__("func_001FA898");
+extern void func_001FB530();
+extern void func_00200E38(f32, f32, f32, f32, s32, s32, s64, f32);
+extern void func_0020DAB0(void);
+extern void func_0020DD48();
+extern void func_0020E2B0(void);
+extern void func_0022C5A0();
+extern void func_0022F738(s32);
+extern void func_0022FBE0();
+extern void func_0022FD20(s32);
+extern void func_00233AB8_305A0(s32) __asm__("func_00233AB8");
+extern void func_00234AC8(s32);
+extern void func_00234C98_305A0(s32, s64) __asm__("func_00234C98");
+extern struct LevelDisplayState_305A0 D_0013E600_305A0 __asm__("D_0013E600");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/render_level_frame.c, render_level_frame. */
+void func_002305A0(void) {
+    f32 rotation_angle;
+    f32 screen_y;
+    f32 quad_extent;
+    s32 overlay_alpha;
+    f32 saved_projection_scale;
+    struct LevelDisplayState_305A0 *display_state;
+    s64 texture;
+    framebuf_appendLargeSetup();
+    func_001F2608();
+    func_0020DAB0();
+    ResetGsRegisters();
+    saved_projection_scale = D_0018CE00.projection_scale;
+    D_0015F704_305A0 = -1;
+    if (saved_projection_scale < 0.63f) {
+        D_0018CE00.projection_scale = 0.63f;
+    }
+    UpdateViewContext();
+    func_001F2608();
+    func_0022C5A0();
+    D_0018CE00.projection_scale = saved_projection_scale;
+    UpdateViewContext();
+    func_001F2608();
+    if (D_0013E130_305A0.mode == 4) {
+        SetupGifPaging(1);
+        func_0022FBE0();
+        DoGifPaging();
+    }
+    DrawMobys();
+    Vif1ChainCmd(0x02080000);
+    SetupGifPaging(1);
+    if ((D_0015EE84_305A0 != 0) && ((D_0015EE84_305A0 != 1) || (D_0013DE4B[0] != 0))) {
+        func_0022F738(D_0018CD98[0]);
+    }
+    if ((D_0013E130_305A0.mode == 4) && (D_0018CC54[0] >= 0x3D)) {
+        overlay_alpha = (D_0018CC54[0] - 0x3C) * 2;
+        if (overlay_alpha >= 0x81) {
+            overlay_alpha = 0x80;
+        }
+        func_0022FD20(overlay_alpha);
+    }
+    if ((D_0015EE84_305A0 != 0) && ((D_0015EE84_305A0 != 1) || (D_0013DE4B[0] != 0))) {
+        func_00233AB8_305A0(D_0018CD98[0]);
+    }
+    if ((D_0013D390_305A0.state >= 3) || (D_0013D390_305A0.pending_state >= 0)) {
+        func_00234C98_305A0(0x47, 0x3004B);
+        quad_extent = 272.0f;
+        texture = func_001F4868_305A0(2);
+        display_state = &D_0013E600_305A0;
+        DrawTexturedQuad(0x2C, display_state->screen_height - 0x60, 0x40, 0x40, 0, 0, 0x40, 0x40,
+                           0x80808080, texture);
+        screen_y = (f32)((display_state->screen_height - 0x40) * 16);
+        rotation_angle = ((D_0015F538 % 55) * (-6.2831855f)) / 55.0f;
+        /* The frame counter contributes only the sprite angle modulo 55. */
+        /* Retail passes the full texture value in a2 and the five floats in f12-f16. */
+        func_00200E38(1216.0f, screen_y, quad_extent, 272.0f, 0x40, 0x40,
+                            func_001F4868_305A0(3), rotation_angle);
+    }
+    DoGifPaging();
+    if (D_0015F53C > 0.0f) {
+        if (D_0015F53C > 1.0f) {
+            D_0015F53C = 1.0f;
+        }
+        emit_rgba_draw_packet(0, 0, 0, func_001FA898_305A0(D_0015F53C * 128.0f));
+    }
+    VU1_syncChain(0x10);
+    PatchMobyGifs();
+}
 
 extern float D_001D9EF0[][6][4];
 extern float D_0015EE6C MACRO_ADDR;
@@ -497,23 +618,861 @@ void func_002308C8(char *m, float z) {
     int c;
 
     for (i = 0; i < 6; i++) {
-        vel[0] = func_002140F8(-D_0015EE6C, D_0015EE6C);
-        vel[1] = func_002140F8(-D_0015EE6C, D_0015EE6C);
-        vel[2] = z + func_002140F8(D_0015EE6C * -0.25f, D_0015EE6C * 0.25f);
+        vel[0] = random_float_between(-D_0015EE6C, D_0015EE6C);
+        vel[1] = random_float_between(-D_0015EE6C, D_0015EE6C);
+        vel[2] = z + random_float_between(D_0015EE6C * -0.25f, D_0015EE6C * 0.25f);
         vel[3] = 0.4f;
         qcopy(vel2, vel);
         vel2[3] = 0.6f;
         qcopy(pos, D_001D9EF0[D_0013E130.set][i]);
         func_001F9EC0(pos, pos, m + 0xC0);
-        func_001F9BD8(pos, pos, m + 0x10);
+        FastVecAdd(pos, pos, m + 0x10);
         a = func_001F98C0(4);
         b = func_001F98C0(4);
         c = func_001F98C0(4);
-        func_00219780(pos, vel, vel2, 0x24C0C0C0, 0x14C0C0C0, a, b, c + func_002140B0(func_001F98C0(4)), -1);
+        func_00219780(pos, vel, vel2, 0x24C0C0C0, 0x14C0C0C0, a, b, c + random_integer_below(func_001F98C0(4)), -1);
     }
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00230A90);
+/* Adapted from Lombyte (MIT): src/gameplay/update_resident_gameplay_state.c. */
+typedef unsigned int u128 __attribute__((mode(TI)));
+
+typedef union {
+    u128 quadword;
+    f32 components[4];
+    u8 bytes[16];
+} Vector4_230A90;
+
+typedef struct {
+    u8 pad0[6];
+    u8 unk6;
+    u8 pad7[5];
+    u8 count; /* 0x0C */
+    u8 padD[0x48 - 0xD];
+    s32 frames[1]; /* 0x48 */
+} RenderModel_230A90;
+
+typedef struct ResidentRenderObject_230A90 {
+    u8 pad0[0x10];
+    Vector4_230A90 position; /* 0x10 */
+    u8 state;         /* 0x20 */
+    u8 pad21[3];
+    RenderModel_230A90 *model; /* 0x24 */
+    u8 pad28[0xA];
+    s16 selected_index; /* 0x32 */
+    u16 flags;          /* 0x34 */
+    u8 pad36[2];
+    s64 lifetime_stamp; /* 0x38 */
+    Vector4_230A90 rotation;   /* 0x40 */
+    u8 current_frame;
+    u8 next_frame;
+    u8 selected_a;
+    u8 selected_b;
+    f32 blend; /* 0x54 */
+    u8 pad58[0x71 - 0x58];
+    u8 cached_selector;
+    u8 opacity;
+    u8 unk73;
+    u8 pad74[4];
+    u8 *animation_positions; /* 0x78 */
+    u8 pad7C[3];
+    u8 unk7F;
+    u8 pad80[0x10];
+    s32 color; /* 0x90 */
+    s32 unk94; /* 0x94 */
+    u8 pad98[0xE];
+    s16 class_id; /* 0xA6 */
+    u8 padA8[0xA];
+    s16 unkB2; /* 0xB2 */
+    u8 padB4[8];
+    u8 unkBC; /* 0xBC */
+    u8 padBD[3];
+    Vector4_230A90 transform[4]; /* 0xC0 */
+} ResidentRenderObject_230A90;
+
+typedef struct {
+    Vector4_230A90 position;
+    f32 rotation[4];
+} CameraKeyframe_230A90;
+
+typedef struct {
+    u8 pad0[0x34];
+    s32 time;           /* 0x34 */
+    s32 frame;          /* 0x38 */
+    s32 sequence_frame; /* 0x3C */
+    s16 end;            /* 0x40 */
+    u8 pad42[2];
+    s16 count; /* 0x44 */
+    u8 pad46[0x54 - 0x46];
+    CameraKeyframe_230A90 *frames; /* 0x54 */
+    u8 pad58[0x178 - 0x58];
+    ResidentRenderObject_230A90 *objects[1]; /* 0x178 */
+} ResidentPlaybackState_230A90;
+
+typedef struct {
+    ResidentRenderObject_230A90 *player; /* 0x00 */
+    u8 pad4[4];
+    ResidentRenderObject_230A90 *attachment; /* 0x08 */
+    u8 padC[4];
+    ResidentRenderObject_230A90 *companion_a; /* 0x10 */
+    ResidentRenderObject_230A90 *companion_b; /* 0x14 */
+    u8 pad18[8];
+    s32 state;           /* 0x20 */
+    s16 timer;           /* 0x24 */
+    s16 content_variant; /* 0x26 */
+    s16 skip;            /* 0x28 */
+    u8 pad2A[2];
+    s16 unk2C; /* 0x2C */
+    u8 pad2E[2];
+    s32 path;                     /* 0x30 */
+    s32 source_camera_index;      /* 0x34 */
+    s32 destination_camera_index; /* 0x38 */
+    f32 path_progress;            /* 0x3C */
+    f32 speed;                    /* 0x40 */
+    f32 path_segment_length;      /* 0x44 */
+    f32 blend;                    /* 0x48 */
+    f32 interpolation_velocity;   /* 0x4C */
+    s32 trail;                    /* 0x50 */
+    s32 history_count;            /* 0x54 */
+    u8 pad58[8];
+    Vector4_230A90 unk60;    /* 0x60 */
+    Vector4_230A90 unk70;    /* 0x70 */
+    Vector4_230A90 startPos; /* 0x80 */
+    Vector4_230A90 pathPos;  /* 0x90 */
+    Vector4_230A90 startRot; /* 0xA0 */
+    f32 unkB0;
+    f32 rotY; /* 0xB4 */
+    f32 rotZ; /* 0xB8 */
+    f32 unkBC;
+    Vector4_230A90 trailA[32]; /* 0xC0 */
+    Vector4_230A90 trailB[32]; /* 0x2C0 */
+} ResidentCinematicState_230A90;
+
+typedef struct {
+    s32 point_count;
+    s32 pad[3];
+    Vector4_230A90 p[1]; /* 0x10: x, y, z, angle */
+} ScriptedPath_230A90;
+
+typedef struct {
+    u8 pad0[0x30];
+    Vector4_230A90 position; /* 0x30 */
+    u8 pad40[0x34];
+    f32 rotY; /* 0x74 */
+    f32 rotZ; /* 0x78 */
+    u8 pad7C[4];
+} CameraBlendNode_230A90;
+
+typedef struct {
+    u8 pad0[0x140];
+    Vector4_230A90 position; /* 0x140 */
+    Vector4_230A90 unk150;   /* 0x150 */
+    u8 pad160[0x350 - 0x160];
+    Vector4_230A90 forward; /* 0x350 */
+    Vector4_230A90 right;   /* 0x360 */
+    Vector4_230A90 up;      /* 0x370 */
+} ResidentCameraState_230A90;
+
+typedef struct {
+    u8 pad0[0x1C];
+    s32 unk1C;
+    u8 pad20[0x3A];
+    u16 unk5A;
+} DialoguePlaybackState_230A90;
+
+typedef struct {
+    u8 pad0[0x2080];
+    ResidentRenderObject_230A90 *reference_object;
+} LevelObjectState_230A90;
+
+typedef struct {
+    Vector4_230A90 a;
+    Vector4_230A90 b;
+} PositionPair_230A90;
+
+extern s32 resident_data_0013CBE4[] __asm__("D_0013CBE4");
+extern u8 resident_data_0013D5C8[] __asm__("D_0013D5C8");
+extern ResidentCinematicState_230A90 resident_data_0013E130 __asm__("D_0013E130");
+extern LevelObjectState_230A90 resident_data_0013F450 __asm__("D_0013F450");
+extern u8 resident_data_001414F5[] __asm__("D_001414F5");
+extern DialoguePlaybackState_230A90 resident_data_001517D0 __asm__("D_001517D0");
+extern f32 resident_data_0015EE60 __asm__("D_0015EE60") MACRO_ADDR;
+extern f32 resident_data_0015EE6C __asm__("D_0015EE6C") MACRO_ADDR;
+extern f32 resident_data_0015EE70 __asm__("D_0015EE70") MACRO_ADDR;
+extern s32 resident_data_0015EE80 __asm__("D_0015EE80") MACRO_ADDR;
+extern s32 resident_data_0015EE84 __asm__("D_0015EE84") MACRO_ADDR;
+extern u8 resident_data_0015EEB4[4] __asm__("D_0015EEB4") MACRO_ADDR;
+extern f32 resident_data_0015F53C __asm__("D_0015F53C") MACRO_ADDR;
+extern f32 resident_data_0015F540 __asm__("D_0015F540") MACRO_ADDR;
+extern s16 resident_data_0015F690 __asm__("D_0015F690");
+extern s32 resident_data_0015F6E8 __asm__("D_0015F6E8") MACRO_ADDR;
+extern s32 resident_data_0015F6FC[1] __asm__("D_0015F6FC") MACRO_ADDR;
+extern ResidentRenderObject_230A90 *resident_data_0016001C __asm__("D_0016001C") MACRO_ADDR;
+extern CameraBlendNode_230A90 *resident_data_00160134 __asm__("D_00160134") MACRO_ADDR;
+extern s16 resident_duration_base SDATA(D_00160610);
+extern ResidentCameraState_230A90 resident_data_00187040 __asm__("D_00187040");
+extern ResidentPlaybackState_230A90 resident_data_0018CC20 __asm__("D_0018CC20");
+extern f32 resident_data_0018CEB0[4] __asm__("D_0018CEB0");
+extern ScriptedPath_230A90 *resident_data_001CC730[] __asm__("D_001CC730");
+extern s32 resident_data_001D5F70 __asm__("D_001D5F70") NOT_SDA;
+extern PositionPair_230A90 resident_data_001D9D40[] __asm__("D_001D9D40");
+extern Vector4_230A90 resident_data_001DA010[] __asm__("D_001DA010");
+extern Vector4_230A90 resident_data_001DA040[] __asm__("D_001DA040");
+extern u8 resident_effect_entry[] __asm__("func_0022F4C0");
+
+extern void resident_call_002348B8(void) __asm__("func_002348B8");
+extern void resident_call_00216EF0(s32) __asm__("func_00216EF0");
+extern void resident_call_00216F28(void) __asm__("func_00216F28");
+extern void resident_call_00125358(void *) __asm__("func_00125358");
+extern void resident_call_001254A0(void *, void *, f32) __asm__("func_001254A0");
+extern void resident_call_00125548(void *, void *, f32) __asm__("func_00125548");
+extern void resident_call_001253F8(void *, void *, f32) __asm__("func_001253F8");
+extern s32 resident_call_00122598(s32) __asm__("func_00122598");
+extern void resident_call_001E9770(void *, void *, s32, s32, s32) __asm__("func_001E9770");
+extern void resident_call_001E9778(void *) __asm__("func_001E9778");
+extern void resident_call_001E9780(void *) __asm__("func_001E9780");
+extern void resident_call_001E9788(void) __asm__("func_001E9788");
+extern void resident_call_001E9790(ResidentRenderObject_230A90 *) __asm__("func_001E9790");
+extern void resident_call_001E9798(ResidentRenderObject_230A90 *) __asm__("func_001E9798");
+extern void resident_call_001E97A0(void) __asm__("func_001E97A0");
+extern void resident_call_001E97A8(void) __asm__("func_001E97A8");
+extern void resident_call_001E97B0(void) __asm__("func_001E97B0");
+extern void resident_call_001E97B8(void) __asm__("func_001E97B8");
+extern void resident_call_001E97C0(void *, void *, s32, s32) __asm__("func_001E97C0");
+extern void resident_call_001E97D0(ResidentRenderObject_230A90 *, ResidentRenderObject_230A90 *) __asm__("func_001E97D0");
+extern void resident_call_001EDE50(void) __asm__("func_001EDE50");
+extern void resident_call_001F3140(void) __asm__("func_001F3140");
+extern void resident_call_001F49B0(void *, ResidentRenderObject_230A90 *) __asm__("func_001F49B0");
+extern void resident_call_001F4B68(void *, ResidentRenderObject_230A90 *) __asm__("func_001F4B68");
+extern void resident_call_001F4E08(s32) __asm__("func_001F4E08");
+extern f32 resident_call_001F98B0(f32) __asm__("func_001F98B0");
+extern s32 resident_call_001F98C0(s32) __asm__("func_001F98C0");
+extern f32 resident_call_001F9B88(f32) __asm__("func_001F9B88");
+extern void resident_call_001F9BC0(void *) __asm__("func_001F9BC0");
+extern void resident_call_001F9BD8(void *, void *, void *) __asm__("func_001F9BD8");
+extern void resident_call_001F9C08(void *, void *, void *, f32) __asm__("func_001F9C08");
+extern void resident_call_001F9C30(void *, void *, f32) __asm__("func_001F9C30");
+extern void resident_call_001F9CA0(void *, void *, void *) __asm__("func_001F9CA0");
+extern f32 resident_call_001F9D10(void *, void *) __asm__("func_001F9D10");
+extern f32 resident_call_001F9D48(void *, void *, void *) __asm__("func_001F9D48");
+extern void resident_call_001F9EC0(void *, void *, void *) __asm__("func_001F9EC0");
+extern f32 resident_call_001F9F90(f32) __asm__("func_001F9F90");
+extern f32 resident_call_001FA058(f32, f32) __asm__("func_001FA058");
+extern f32 resident_call_001FA748(f32, f32) __asm__("func_001FA748");
+extern f32 resident_call_001FA790(f32, f32) __asm__("func_001FA790");
+extern f32 resident_call_001FA888(s32) __asm__("func_001FA888");
+extern void resident_call_00202260(void) __asm__("func_00202260");
+extern void resident_call_00205220(s32) __asm__("func_00205220");
+extern ResidentRenderObject_230A90 *resident_call_0020D348(s32) __asm__("func_0020D348");
+extern void resident_call_0020D678(ResidentRenderObject_230A90 *) __asm__("func_0020D678");
+extern void resident_call_0020D6D0(ResidentRenderObject_230A90 *) __asm__("func_0020D6D0");
+extern void resident_call_0020DE20(void) __asm__("func_0020DE20");
+extern void resident_call_0020ED48(ResidentRenderObject_230A90 *) __asm__("func_0020ED48");
+extern void resident_call_00213C78(void) __asm__("func_00213C78");
+extern void resident_call_00214550(ResidentRenderObject_230A90 *) __asm__("func_00214550");
+extern f32 resident_call_00214D88(f32 *, f32 *, f32, f32, f32, f32) __asm__("func_00214D88");
+extern void resident_call_00215CA8(ScriptedPath_230A90 *, s32, void *, void *, s32,
+                               f32) __asm__("func_00215CA8");
+extern void resident_call_00216960(void) __asm__("func_00216960");
+extern void resident_call_00217748(s32) __asm__("func_00217748");
+extern void resident_call_00218A80(void) __asm__("func_00218A80");
+extern void resident_call_00219C70(s32) __asm__("func_00219C70");
+extern void resident_call_0022DD68(void) __asm__("func_0022DD68");
+extern void resident_call_0022EF68(void) __asm__("func_0022EF68");
+extern void resident_call_0022FDC0(void) __asm__("func_0022FDC0");
+extern void resident_call_002308C8(ResidentRenderObject_230A90 *, f32) __asm__("func_002308C8");
+extern void resident_call_0022F258() __asm__("func_0022F258");
+extern void resident_call_0022F738() __asm__("func_0022F738");
+extern void resident_call_00233AB8() __asm__("func_00233AB8");
+
+void func_00230A90(void) {
+    Vector4_230A90 scratch_vectors[4];
+    s32 keyframe_flags;
+    s32 ticks_per_bank;
+    s32 skip;
+    s32 object_index;
+    s32 point_index;
+    ResidentRenderObject_230A90 *object;
+    ResidentRenderObject_230A90 *object_cursor;
+    ResidentRenderObject_230A90 *expired_object;
+    s32 release_index;
+    s32 bank_tick_limit;
+    ResidentRenderObject_230A90 *player;
+    s32 path_point_index;
+    f32 camera_blend_step;
+    CameraKeyframe_230A90 *keyframe;
+    f32 *keyframe_angles;
+    u8 *animation_positions;
+    s32 current_frame;
+    ScriptedPath_230A90 *path;
+    f32 segment_angle;
+    f32 maximum_turn;
+    f32 turn_scale;
+    f32 blend;
+
+    resident_data_0013E130.timer++;
+    switch (resident_data_0013E130.state) {
+    case 0:
+    case 8:
+        resident_call_001E97B0();
+        resident_call_00213C78();
+        resident_call_0022EF68();
+        resident_call_001E97A0();
+        resident_call_00218A80();
+        resident_data_0015F53C -= 0.125f;
+        resident_data_0018CC20.frame++;
+        resident_data_0018CC20.time++;
+        if (resident_data_0015F53C < 0.0f) {
+            resident_data_0015F53C = 0.0f;
+        }
+        ticks_per_bank = resident_data_0015EE80 ? 0x50 : 0x60;
+        skip = resident_data_0013E130.skip;
+        if ((resident_data_0013CBE4[0] & 0x70) && resident_call_001F98C0(30) < resident_data_0018CC20.time &&
+            resident_data_0015F53C == 0.0f) {
+            if (resident_data_0013E130.state == 0 &&
+                resident_data_0018CC20.time <
+                    resident_call_001F98C0(((s32 *)&resident_duration_base)[resident_data_0013E130.content_variant] - 30)) {
+                skip = 1;
+            }
+            if (resident_data_0013E130.state == 8 &&
+                resident_data_0018CC20.time < resident_data_0018CC20.end - resident_call_001F98C0(30)) {
+                skip = 1;
+            }
+        }
+        if (skip) {
+            if (resident_data_001517D0.unk5A != 6 && resident_data_001517D0.unk5A != 7) {
+                resident_data_001517D0.unk5A = 5;
+            }
+            if (resident_data_0013E130.state == 0) {
+                resident_data_0018CC20.time = resident_call_001F98C0(((s32 *)&resident_duration_base)[resident_data_0013E130.content_variant]);
+                resident_data_0018CC20.sequence_frame = resident_data_0018CC20.time / ticks_per_bank;
+                resident_call_00205220(resident_data_0018CC20.sequence_frame);
+                resident_data_0018CC20.frame = resident_data_0018CC20.time % ticks_per_bank;
+                if (resident_data_0013E130.skip) {
+                    resident_data_0013E130.skip = 0;
+                } else {
+                    resident_call_001F4E08(4);
+                }
+                resident_data_0015F53C = 1.0f;
+            } else {
+                resident_data_0018CC20.time = resident_data_0018CC20.end;
+            }
+        }
+        if (resident_data_0018CC20.time >= resident_data_0018CC20.end) {
+            if (resident_data_001517D0.unk5A != 6 && resident_data_001517D0.unk5A != 7) {
+                resident_data_001517D0.unk5A = 5;
+            }
+            resident_call_002348B8();
+            resident_data_0018CEB0[0] = 0.63f;
+            resident_call_001F3140();
+            /* Retail releases the attachment once per sequence object, even when that object is null. */
+            for (release_index = 0; release_index < resident_data_0018CC20.count; release_index++) {
+                expired_object = resident_data_0018CC20.objects[release_index];
+                if (expired_object != 0) {
+                    expired_object->model->count--;
+                    expired_object->model->frames[expired_object->model->count] = 0;
+                    resident_call_0020D678(expired_object);
+                }
+                if (resident_data_0013E130.attachment != 0) {
+                    resident_call_0020D678(resident_data_0013E130.attachment);
+                }
+            }
+            resident_data_0013E130.player->flags &= ~1;
+            for (object_cursor = resident_data_0016001C; object_cursor->state != 0xFF; object_cursor++) {
+                if (!(object_cursor->state & 0x80) &&
+                    (object_cursor->class_id == 0x4A || object_cursor->class_id == 0xCB)) {
+                    object_cursor->flags &= ~0x80;
+                }
+            }
+            if (resident_data_0013E130.state == 0) {
+                resident_call_00219C70(0);
+                resident_data_001D5F70 = 0xE;
+                resident_data_0015F6FC[0] = 1;
+                return;
+            }
+            resident_data_0015F6E8 = 0;
+            resident_call_00216F28();
+            resident_data_0015F6FC[0] = 1;
+            resident_data_001414F5[0] = 0;
+            resident_call_001E97B8();
+            if (resident_data_0013E130.unk2C != 0) {
+                resident_call_001E9788();
+                return;
+            }
+            resident_call_001E97C0(&resident_data_0013E130.unk60, &resident_data_0013E130.unk70, 0, 1);
+            return;
+        }
+        bank_tick_limit = resident_data_0015EE80 ? 0x50 : 0x60;
+        if (resident_data_0018CC20.frame >= bank_tick_limit) {
+            resident_call_00205220(++resident_data_0018CC20.sequence_frame);
+        }
+        keyframe = &resident_data_0018CC20.frames[resident_data_0018CC20.frame];
+        keyframe_angles = keyframe->rotation;
+        keyframe_flags = keyframe->position.bytes[12];
+        resident_data_0018CEB0[0] = keyframe_angles[3];
+        resident_call_001F3140();
+        qcopy(&resident_data_00187040.position, &keyframe->position);
+        resident_call_001F9EC0(&resident_data_00187040.position, &resident_data_00187040.position,
+                      resident_data_0013E130.player->transform);
+        resident_call_001F9BD8(&resident_data_00187040.position, &resident_data_00187040.position,
+                    &resident_data_0013E130.player->position);
+        segment_angle = resident_call_001FA748(keyframe_angles[2],
+                                           resident_data_0013E130.player->rotation.components[2]);
+        resident_call_00125358(scratch_vectors);
+        resident_call_001254A0(scratch_vectors, scratch_vectors, keyframe->rotation[0]);
+        resident_call_00125548(scratch_vectors, scratch_vectors, keyframe_angles[1]);
+        resident_call_001253F8(scratch_vectors, scratch_vectors, segment_angle);
+        resident_data_00187040.forward.components[0] = -scratch_vectors[2].components[0];
+        resident_data_00187040.right.components[0] = -scratch_vectors[0].components[0];
+        resident_data_00187040.up.components[0] = scratch_vectors[1].components[0];
+        resident_data_00187040.forward.components[1] = -scratch_vectors[2].components[1];
+        resident_data_00187040.right.components[1] = -scratch_vectors[0].components[1];
+        resident_data_00187040.up.components[1] = scratch_vectors[1].components[1];
+        resident_data_00187040.forward.components[2] = -scratch_vectors[2].components[2];
+        resident_data_00187040.right.components[2] = -scratch_vectors[0].components[2];
+        resident_data_00187040.up.components[2] = scratch_vectors[1].components[2];
+        if (resident_data_0015EEB4[0] != 0) {
+            resident_call_001F9CA0(&resident_data_00187040.right, &resident_data_00187040.up, &resident_data_00187040.forward);
+        }
+        for (object_index = 0; object_index < resident_data_0018CC20.count; object_index++) {
+            object = resident_data_0018CC20.objects[object_index];
+            current_frame = resident_data_0018CC20.frame >> 1;
+            object->current_frame = current_frame;
+            object->next_frame = current_frame + 1;
+            resident_call_0020D6D0(object);
+            object->blend = resident_call_001FA888(resident_data_0018CC20.frame & 1) * 0.5f;
+            if (keyframe_flags != 0 && (resident_data_0018CC20.frame & 1)) {
+                object->blend = 1.0f;
+            }
+            animation_positions = object->animation_positions;
+            resident_call_001F9C30(&scratch_vectors[0], animation_positions + object->current_frame * 16,
+                         1.0f - object->blend);
+            resident_call_001F9C30(&scratch_vectors[1], animation_positions + object->next_frame * 16,
+                         object->blend);
+            resident_call_001F9BD8(&object->position, &scratch_vectors[0], &scratch_vectors[1]);
+            resident_call_001F9EC0(&object->position, &object->position,
+                          resident_data_0013E130.player->transform);
+            resident_call_001F9BD8(&object->position, &object->position, &resident_data_0013E130.player->position);
+            object->rotation.components[2] = resident_data_0013E130.player->rotation.components[2];
+            object->cached_selector = 0xFF;
+            resident_call_0020ED48(object);
+            if (object->class_id == 0) {
+                if (resident_data_0013E130.state == 0) {
+                    if (resident_data_0015EE84 == 10 && resident_data_0013D5C8[6] == 0) {
+                        object->unk7F = 0;
+                    } else if (resident_data_0018CC20.time <= resident_call_001F98C0(0x3E)) {
+                        object->unk7F = 0x18;
+                    } else {
+                        object->unk7F = 0;
+                    }
+                } else if (resident_call_001F98C0(360) < resident_data_0018CC20.time) {
+                    if (resident_data_0015EE84 == 10 && resident_data_0013D5C8[6] == 0) {
+                        object->unk7F = 0;
+                    } else {
+                        object->unk7F = 0x18;
+                    }
+                } else {
+                    object->unk7F = 0;
+                }
+            } else if (object->class_id == 10) {
+                if (resident_data_0013E130.state == 0) {
+                    if (resident_data_0018CC20.time <= resident_call_001F98C0(350)) {
+                        object->unk7F = 0x18;
+                    } else {
+                        object->unk7F = 0;
+                    }
+                } else if (resident_data_0018CC20.time <= resident_call_001F98C0(524)) {
+                    object->unk7F = 0;
+                } else {
+                    object->unk7F = 0x18;
+                }
+            }
+            if (object->unk7F != 0) {
+                resident_call_00214550(object);
+            }
+            if (object->class_id == 10) {
+                resident_call_001E9798(object);
+            }
+            if (object->class_id == 0) {
+                resident_call_001E9790(object);
+                if ((resident_data_0015EE84 == 10 && resident_data_0013D5C8[6] != 0) ||
+                    resident_data_0015EE84 == 13) {
+                    if (resident_data_0013E130.attachment == 0) {
+                        resident_data_0013E130.attachment = resident_call_0020D348(0x509);
+                        resident_data_0013E130.attachment->selected_index = 0x40;
+                        resident_data_0013E130.attachment->flags |= 0x806;
+                        resident_data_0013E130.attachment->lifetime_stamp = object->lifetime_stamp;
+                        if (resident_data_0013E130.attachment->model->unk6 != 0) {
+                            resident_data_0013E130.attachment->unk73 = 0x18;
+                        }
+                    }
+                    resident_call_001E97D0(object, resident_data_0013E130.attachment);
+                }
+            }
+            if ((u16)object->class_id - 0x213U < 3) {
+                resident_call_001F4B68(resident_call_00233AB8, object);
+                resident_call_001F49B0(resident_call_0022F258, object);
+                if (resident_data_0013E130.state == 0) {
+                    if (resident_data_0018CC20.time < resident_call_001F98C0(360)) {
+                        s32 color_intensity =
+                            (s32)(resident_call_001F9F90(
+                                      resident_call_001FA888((resident_data_0018CC20.time & 0x3F) - 32) *
+                                      0.09817477f) *
+                                  80.0f) +
+                            120;
+                        if (object->class_id == 0x215) {
+                            object->color = (color_intensity >> 1) | (color_intensity << 8) |
+                                            (color_intensity << 16);
+                        } else {
+                            object->color =
+                                color_intensity | (color_intensity << 8) | (color_intensity << 16);
+                        }
+                    } else if (resident_data_0018CC20.time < resident_call_001F98C0(0x1F8)) {
+                        s32 color_intensity =
+                            (s32)(((f32)resident_data_0018CC20.time - resident_call_001F98B0(360.0f)) *
+                                  (resident_data_0015EE60 * 1.25f));
+                        if (color_intensity >= 256) {
+                            color_intensity = 255;
+                        }
+                        if (object->class_id == 0x215) {
+                            object->color = (color_intensity << 8) | (color_intensity << 16);
+                        } else {
+                            object->color =
+                                color_intensity | (color_intensity << 8) | (color_intensity << 16);
+                        }
+                        if (resident_call_001F98C0(0x1A4) < resident_data_0018CC20.time) {
+                            resident_data_0013E130.player->unkBC =
+                                (s32)(((f32)resident_data_0018CC20.time - resident_call_001F98B0(420.0f)) *
+                                      (resident_data_0015EE60 * 1.2f));
+                            resident_data_0013E130.player->unkB2 = 0;
+                            resident_call_001F49B0(resident_effect_entry + 8, resident_data_0013E130.player);
+                        }
+                        if (resident_call_001F98C0(0x1D0) < resident_data_0018CC20.time) {
+                            resident_data_0015F540 += 0.025f;
+                            if (resident_data_0015F540 > 1.0f) {
+                                resident_data_0015F540 = 1.0f;
+                            }
+                        }
+                    } else {
+                        object->color = 0xA0A0A0;
+                        resident_data_0015F540 -= 0.025f;
+                        if (resident_data_0015F540 < 0.0f) {
+                            resident_data_0015F540 = 0.0f;
+                        }
+                    }
+                } else if (resident_data_0018CC20.time < resident_call_001F98C0(0xF0)) {
+                    s32 color_intensity;
+                    if (resident_data_0018CC20.time < resident_call_001F98C0(0xC8)) {
+                        resident_call_002308C8(object, resident_data_0015EE6C * -4.0f);
+                        resident_call_002308C8(object, resident_data_0015EE6C * -3.0f);
+                    }
+                    color_intensity = (s32)(resident_call_001F9F90(resident_call_001FA888(
+                                                         (resident_data_0018CC20.time & 0x3F) - 32) *
+                                                     0.09817477f) *
+                                            80.0f) +
+                                      120;
+                    if (object->class_id == 0x215) {
+                        object->color = (color_intensity >> 1) | (color_intensity << 8) |
+                                        (color_intensity << 16);
+                    } else {
+                        object->color =
+                            color_intensity | (color_intensity << 8) | (color_intensity << 16);
+                    }
+                    object->unkBC = 0x32;
+                    object->unkB2 = 10;
+                    resident_call_001F49B0(resident_effect_entry + 8, object);
+                } else if (resident_data_0018CC20.time <= resident_call_001F98C0(360)) {
+                    s32 color_intensity;
+                    if (resident_data_0018CC20.time < resident_call_001F98C0(300)) {
+                        resident_data_0013E130.player->unkBC =
+                            (s32)((resident_call_001F98B0(300.0f) - (f32)resident_data_0018CC20.time) *
+                                  (resident_data_0015EE60 * 1.5f));
+                        resident_data_0013E130.player->unkB2 = 0;
+                        resident_call_001F49B0(resident_effect_entry + 8, resident_data_0013E130.player);
+                    }
+                    color_intensity = (s32)((resident_call_001F98B0(360.0f) - (f32)resident_data_0018CC20.time) *
+                                            (resident_data_0015EE60 * 1.25f));
+                    if (object->class_id == 0x215) {
+                        object->color = (color_intensity << 8) | (color_intensity << 16);
+                    } else {
+                        object->color =
+                            color_intensity | (color_intensity << 8) | (color_intensity << 16);
+                    }
+                } else {
+                    s32 color_intensity = (s32)(resident_call_001F9F90(resident_call_001FA888(
+                                                             (resident_data_0018CC20.time & 0x3F) - 32) *
+                                                         0.09817477f) *
+                                                80.0f) +
+                                          120;
+                    if (object->class_id == 0x215) {
+                        object->color = (color_intensity >> 1) | (color_intensity << 8) |
+                                        (color_intensity << 16);
+                    } else {
+                        object->color =
+                            color_intensity | (color_intensity << 8) | (color_intensity << 16);
+                    }
+                }
+            }
+        }
+        resident_call_0022DD68();
+        resident_call_00202260();
+        resident_call_0020DE20();
+        resident_call_001E97A8();
+        break;
+
+    case 3:
+        resident_call_001E97B0();
+        resident_call_00213C78();
+        resident_call_0022EF68();
+        resident_call_001E97A0();
+        resident_call_00218A80();
+        if (resident_data_0013E130.timer == 0) {
+            resident_call_00216EF0(0);
+            resident_call_00217748(0);
+            resident_data_001517D0.unk1C = resident_data_0013E130.content_variant + 0x9C4F;
+            resident_call_001F4E08(resident_call_001F98C0(12));
+            while ((s16)resident_data_001517D0.unk5A != 3) {
+                resident_call_0022DD68();
+                resident_call_00122598(0);
+            }
+            resident_call_00216960();
+            resident_data_0013E130.player->selected_a = 1;
+            resident_data_0013E130.player->selected_b = 2;
+            resident_data_0013E130.player->blend = 0.0f;
+            resident_call_0020D6D0(resident_data_0013E130.player);
+            resident_data_0013E130.player->opacity = 0xFF;
+            resident_data_0013E130.player->unk94 = 0;
+            if (resident_data_0013E130.path >= 0) {
+                resident_data_0013E130.companion_a = resident_call_0020D348(0);
+                resident_data_0013E130.companion_a->selected_index = 0x1FF;
+                resident_data_0013E130.companion_a->opacity = 0xFF;
+                resident_data_0013E130.companion_a->unk94 = 0;
+                resident_data_0013E130.companion_a->flags |= 6;
+                resident_data_0013E130.companion_a->lifetime_stamp =
+                    resident_data_0013F450.reference_object->lifetime_stamp;
+                resident_data_0013E130.companion_b = resident_call_0020D348(10);
+                resident_data_0013E130.companion_b->selected_index = 0x1FF;
+                resident_data_0013E130.companion_b->opacity = 0xFF;
+                resident_data_0013E130.companion_b->unk94 = 0;
+                resident_data_0013E130.companion_b->flags |= 6;
+                resident_data_0013E130.companion_b->lifetime_stamp =
+                    resident_data_0013F450.reference_object->lifetime_stamp;
+            }
+            resident_call_001E9770(&resident_data_00187040.position, &resident_data_00187040.unk150, 1, 0, 0);
+            resident_data_0013E130.blend = 0.0f;
+            resident_data_0013E130.interpolation_velocity = 0.0f;
+            if (resident_data_0013E130.path >= 0) {
+                path = resident_data_001CC730[resident_data_0013E130.path];
+                maximum_turn = resident_data_0013E130.blend;
+                path->p[0].components[3] = maximum_turn;
+                for (path_point_index = 1; path_point_index < path->point_count - 1;
+                     path_point_index++) {
+                    segment_angle = resident_call_001FA058(path->p[path_point_index].components[0] -
+                                                      path->p[path_point_index - 1].components[0],
+                                                  path->p[path_point_index].components[1] -
+                                                      path->p[path_point_index - 1].components[1]);
+                    path->p[path_point_index].components[3] = resident_call_001FA790(
+                        resident_call_001FA058(path->p[path_point_index + 1].components[0] -
+                                          path->p[path_point_index].components[0],
+                                      path->p[path_point_index + 1].components[1] -
+                                          path->p[path_point_index].components[1]),
+                        segment_angle);
+                    if (maximum_turn < resident_call_001F9B88(path->p[path_point_index].components[3])) {
+                        maximum_turn = resident_call_001F9B88(path->p[path_point_index].components[3]);
+                    }
+                }
+                segment_angle = resident_call_001FA058(path->p[path->point_count - 1].components[0] -
+                                                  path->p[path->point_count - 2].components[0],
+                                              path->p[path->point_count - 1].components[1] -
+                                                  path->p[path->point_count - 2].components[1]);
+                path->p[path->point_count - 1].components[3] = resident_call_001FA790(
+                    resident_call_001FA058(
+                        path->p[0].components[0] - path->p[path->point_count - 1].components[0],
+                        path->p[0].components[1] - path->p[path->point_count - 1].components[1]),
+                    segment_angle);
+                turn_scale = 0.34906584f / maximum_turn;
+                for (point_index = 0; point_index < path->point_count; point_index++) {
+                    path->p[point_index].components[3] *= turn_scale;
+                }
+                resident_data_0013E130.path_segment_length = resident_call_001F9D10(&path->p[0], &path->p[1]);
+                resident_data_0013E130.path_progress = 0.0f;
+                resident_data_0013E130.speed = 0.0f;
+                resident_data_0013E130.trail = 0;
+                resident_data_0013E130.history_count = 0;
+                player = resident_data_0013E130.player;
+                qcopy(&resident_data_0013E130.startPos, &player->position);
+                qcopy(&resident_data_0013E130.pathPos, &path->p[0]);
+                qcopy(&resident_data_0013E130.startRot, &player->rotation);
+                resident_data_0013E130.rotY = resident_call_001FA058(
+                    resident_call_001F9D48(&path->p[1], &path->p[0], &resident_data_0013E130.startPos),
+                    path->p[0].components[2] - path->p[1].components[2]);
+                resident_data_0013E130.rotZ =
+                    resident_call_001FA058(path->p[1].components[0] - path->p[0].components[0],
+                                  path->p[1].components[1] - path->p[0].components[1]);
+            }
+        }
+        if (resident_data_0013E130.source_camera_index >= 0 &&
+            resident_data_0013E130.destination_camera_index >= 0) {
+            camera_blend_step = resident_data_0015EE70 * 0.666f;
+            resident_call_00214D88(&resident_data_0013E130.blend,
+                                       &resident_data_0013E130.interpolation_velocity, 1.0f,
+                                       camera_blend_step, camera_blend_step, resident_data_0015EE6C * 0.5f);
+            resident_call_001F9C08(&scratch_vectors[0],
+                          &resident_data_00160134[resident_data_0013E130.source_camera_index].position,
+                          &resident_data_00160134[resident_data_0013E130.destination_camera_index].position,
+                          resident_data_0013E130.blend);
+            resident_call_001F9BC0(&scratch_vectors[1]);
+            scratch_vectors[1].components[1] =
+                resident_call_001FA790(
+                    resident_data_00160134[resident_data_0013E130.destination_camera_index].rotY,
+                    resident_data_00160134[resident_data_0013E130.source_camera_index].rotY) *
+                resident_data_0013E130.blend;
+            scratch_vectors[1].components[1] =
+                resident_call_001FA748(resident_data_00160134[resident_data_0013E130.source_camera_index].rotY,
+                                   scratch_vectors[1].components[1]);
+            scratch_vectors[1].components[2] =
+                resident_call_001FA790(
+                    resident_data_00160134[resident_data_0013E130.destination_camera_index].rotZ,
+                    resident_data_00160134[resident_data_0013E130.source_camera_index].rotZ) *
+                resident_data_0013E130.blend;
+            scratch_vectors[1].components[2] =
+                resident_call_001FA748(resident_data_00160134[resident_data_0013E130.source_camera_index].rotZ,
+                                   scratch_vectors[1].components[2]);
+            resident_call_001E9778(&scratch_vectors[0]);
+            resident_call_001E9780(&scratch_vectors[1]);
+        }
+        if (resident_data_0013E130.path >= 0) {
+            if (resident_data_0013E130.timer < resident_call_001F98C0(150)) {
+                blend =
+                    (1.0f - resident_call_001F9F90(resident_call_001FA888(resident_data_0013E130.timer) *
+                                     (3.1415927f / resident_call_001FA888(resident_call_001F98C0(120))))) *
+                    0.5f;
+                if (resident_data_0013E130.timer >= resident_call_001F98C0(120)) {
+                    blend = 1.0f;
+                }
+                resident_data_0013E130.player->blend = blend;
+                resident_call_001F9C08(&resident_data_0013E130.player->position, &resident_data_0013E130.startPos,
+                              &resident_data_0013E130.pathPos, blend);
+                resident_data_0013E130.player->rotation.components[0] = 0.0f;
+                resident_data_0013E130.player->rotation.components[1] = resident_call_001FA748(
+                    resident_data_0013E130.startRot.components[1],
+                    resident_call_001FA790(resident_data_0013E130.rotY,
+                                            resident_data_0013E130.startRot.components[1]) *
+                        blend);
+                resident_data_0013E130.player->rotation.components[2] = resident_call_001FA748(
+                    resident_data_0013E130.startRot.components[2],
+                    resident_call_001FA790(resident_data_0013E130.rotZ,
+                                            resident_data_0013E130.startRot.components[2]) *
+                        blend);
+                if (resident_data_0015F53C > 0.0f) {
+                    resident_data_0015F53C -= 0.125f;
+                    if (resident_data_0015F53C < 0.0f) {
+                        resident_data_0015F53C = 0.0f;
+                    }
+                }
+                if (blend < 1.0f) {
+                    resident_call_002308C8(resident_data_0013E130.player, resident_data_0015EE6C * -3.75f);
+                }
+            } else {
+                ScriptedPath_230A90 *active_path;
+                resident_data_0013E130.speed += 0.8f;
+                active_path = resident_data_001CC730[resident_data_0013E130.path];
+                if (resident_data_0013E130.speed > 100.0f) {
+                    resident_data_0013E130.speed = 100.0f;
+                }
+                if ((resident_data_0013CBE4[0] & 0x70) && resident_data_0015F53C < 0.0625f) {
+                    resident_data_0015F53C = 0.0625f;
+                }
+                if ((f32)(active_path->point_count - 6) < resident_data_0013E130.path_progress &&
+                    resident_data_0015F53C < 0.0625f) {
+                    resident_data_0015F53C = 0.0625f;
+                }
+                if (resident_data_0013E130.content_variant < 2) {
+                    resident_data_0013E130.player->unkBC = 0x32;
+                    resident_data_0013E130.player->unkB2 = 10;
+                    resident_call_001F49B0(resident_effect_entry + 8, resident_data_0013E130.player);
+                }
+                resident_data_0013E130.path_progress +=
+                    resident_data_0013E130.speed * resident_data_0015EE6C / resident_data_0013E130.path_segment_length;
+                if ((f32)(active_path->point_count - 1) < resident_data_0013E130.path_progress ||
+                    resident_data_0015F53C >= 1.0f) {
+                    *(s32 *)&resident_data_0015F690 = 1;
+                    resident_data_0015F6FC[0] = 1;
+                } else {
+                    resident_call_00215CA8(active_path, 1, &resident_data_0013E130.player->position,
+                                       &resident_data_0013E130.player->rotation, 0,
+                                       resident_data_0013E130.path_progress);
+                    resident_data_0013E130.player->rotation.components[0] =
+                        resident_data_0013E130.player->rotation.components[3];
+                    resident_data_0013E130.trail = (resident_data_0013E130.trail + 1) & 0x1F;
+                    if (resident_data_0013E130.history_count < 0x20) {
+                        resident_data_0013E130.history_count++;
+                    }
+                    resident_call_001F9EC0(&resident_data_0013E130.trailA[resident_data_0013E130.trail],
+                                  &resident_data_001D9D40[resident_data_0013E130.content_variant].a,
+                                  resident_data_0013E130.player->transform);
+                    resident_call_001F9BD8(&resident_data_0013E130.trailA[resident_data_0013E130.trail],
+                                &resident_data_0013E130.trailA[resident_data_0013E130.trail],
+                                &resident_data_0013E130.player->position);
+                    resident_data_0013E130.trailA[resident_data_0013E130.trail].components[3] = 1.0f;
+                    resident_call_001F9EC0(&resident_data_0013E130.trailB[resident_data_0013E130.trail],
+                                  &resident_data_001D9D40[resident_data_0013E130.content_variant].b,
+                                  resident_data_0013E130.player->transform);
+                    resident_call_001F9BD8(&resident_data_0013E130.trailB[resident_data_0013E130.trail],
+                                &resident_data_0013E130.trailB[resident_data_0013E130.trail],
+                                &resident_data_0013E130.player->position);
+                    resident_data_0013E130.trailB[resident_data_0013E130.trail].components[3] = 1.0f;
+                    resident_call_001F49B0(resident_call_0022F738,
+                                            resident_data_0013E130.player);
+                    if (resident_data_0015F53C > 0.0f) {
+                        resident_data_0015F53C += 0.0625f;
+                        if (resident_data_0015F53C > 1.0f) {
+                            resident_data_0015F53C = 1.0f;
+                        }
+                    }
+                }
+            }
+            {
+                ResidentRenderObject_230A90 *p = resident_data_0013E130.player;
+                ResidentRenderObject_230A90 *scratch_vectors = resident_data_0013E130.companion_a;
+                qcopy(&scratch_vectors->rotation, &p->rotation);
+                resident_call_001F9EC0(&scratch_vectors->position,
+                              &resident_data_001DA010[resident_data_0013E130.content_variant], p->transform);
+            }
+            resident_call_001F9BD8(&resident_data_0013E130.companion_a->position,
+                        &resident_data_0013E130.companion_a->position,
+                        &resident_data_0013E130.player->position);
+            resident_call_0020ED48(resident_data_0013E130.companion_a);
+            {
+                ResidentRenderObject_230A90 *scratch_vectors = resident_data_0013E130.companion_b;
+                ResidentRenderObject_230A90 *p = resident_data_0013E130.player;
+                qcopy(&scratch_vectors->rotation, &p->rotation);
+                resident_call_001F9EC0(&scratch_vectors->position,
+                              &resident_data_001DA040[resident_data_0013E130.content_variant], p->transform);
+            }
+            resident_call_001F9BD8(&resident_data_0013E130.companion_b->position,
+                        &resident_data_0013E130.companion_b->position,
+                        &resident_data_0013E130.player->position);
+            resident_call_0020ED48(resident_data_0013E130.companion_b);
+        }
+        resident_call_001EDE50();
+        resident_call_0022DD68();
+        resident_call_00202260();
+        resident_call_0020DE20();
+        resident_call_001E97A8();
+        break;
+
+    case 4:
+        resident_call_0022FDC0();
+        break;
+    case 1:
+    case 2:
+    case 5:
+    case 6:
+    case 7:
+        break;
+    }
+}
 
 extern int D_0013E150;
 extern void func_001F45F0(void);
@@ -645,7 +1604,143 @@ void func_00232A00(int x, int y, int w, int h, unsigned long rgba,
 
 INCLUDE_ASM("asm/nonmatchings/text", func_00232B90);
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00232EF0);
+typedef struct {
+    u8 pad_0[0xC];
+    s32 half_height;
+} ScreenOfs_32EF0;
+extern u8 D_0013CED0[];
+/* The memory card state: only the two words the loop tests (PAL offsets, 8 further than the US build). */
+struct MemoryCardState_32EF0 {
+    u8 pad_0[0xDC];
+    s32 state; /* 0xDC */
+    s32 pad_E0;
+    s32 pending_state; /* 0xE4 */
+};
+extern struct MemoryCardState_32EF0 D_0013D390_32EF0 __asm__("D_0013D390");
+struct DmaTag_32EF0 {
+    u32 tag;
+    u32 addr;
+    u32 vif0;
+    u32 vif1;
+};
+struct GifTag_32EF0;
+union PacketCursor_32EF0 {
+    struct DmaTag_32EF0 *tag;
+    struct GifTag_32EF0 *gif;
+    s32 *words;
+    u8 *bytes;
+    s32 addr;
+};
+extern union PacketCursor_32EF0 D_00161000_32EF0 __asm__("D_00161000") MACRO_ADDR;
+extern ScreenOfs_32EF0 D_0013E600_32EF0 __asm__("D_0013E600");
+/* Retail stores both with `lui $at`: unsized, or the two-byte size makes them small data. */
+extern s16 D_0015EF48_32EF0[] __asm__("D_0015EF48") MACRO_ADDR;
+extern s16 D_0015EF4A_32EF0[] __asm__("D_0015EF4A") MACRO_ADDR;
+extern void func_0012F4A8_32EF0(s32) __asm__("func_0012F4A8");
+extern void func_001F3C10(void);
+extern void func_001F3D00(void);
+extern void func_001F4E08(s32);
+extern void func_001F5800_32EF0(s32, s32, s32, s32, s32, s32, s32, s32, u64, u64) __asm__("func_001F5800");
+extern f32 func_001FA888(s32);
+extern void func_001FB598(void);
+extern s32 func_00204C60(void);
+extern void func_00209070(void);
+extern void func_00209E68(void);
+extern void func_00232A00_32EF0(s32, s32, s32, s32, u64, u64, f32, f32, f32, f32) __asm__("func_00232A00");
+extern void func_00232B90(s32, s32, s32, u64 *, u64 *, u64 *);
+extern void func_002348E8(void);
+extern void func_00234948(void);
+extern void func_002349B8(void);
+extern void func_00234AC8(s32);
+extern void func_00234C98_32EF0(s32, u64) __asm__("func_00234C98");
+extern void func_00122598(s32);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/play_level_loading_slides.c, play_level_loading_slides. */
+void func_00232EF0(s32 language_index, s32 first_slide, s32 second_slide,
+                               s32 duration_ticks, s32 preload_level) {
+    u64 shared_texture;
+    u64 first_texture;
+    u64 second_texture;
+    s32 frame;
+    s32 alpha;
+    s32 fade_in_alpha;
+    f32 scroll_phase;
+    f32 scroll_start;
+    f32 scroll_end;
+
+    func_00232B90(language_index, first_slide, second_slide, &shared_texture,
+                                   &first_texture, &second_texture);
+    if (preload_level != 0) {
+        func_0012F4A8_32EF0((*(s32 *)&D_0015EE84));
+        D_0015EF48_32EF0[0] = 0;
+        D_0015EF4A_32EF0[0] = 0;
+    }
+    func_00122598(0);
+    VU1_initChain();
+    for (frame = 0; frame < duration_ticks && D_0013D390_32EF0.state < 3 && D_0013D390_32EF0.pending_state < 0;
+         frame++) {
+        alpha = 0x80;
+        ResetGsRegisters();
+        PutDrawBufferSmall();
+        func_00234C98_32EF0(1, (u64)0x8000 << 16);
+        func_00234C98_32EF0(8, 0);
+        D_00161000_32EF0.words[0] = 0x30000014;
+        fade_in_alpha = frame * 4;
+        if (frame <= 0x1F) {
+            alpha = fade_in_alpha;
+        }
+        D_00161000_32EF0.words[1] = (s32)D_0013CED0;
+        D_00161000_32EF0.words[2] = 0;
+        D_00161000_32EF0.words[3] = 0x50000014;
+        D_00161000_32EF0.words += 4;
+        if (duration_ticks - 0x10 < frame) {
+            alpha = (duration_ticks - frame) * 8;
+        }
+        scroll_phase = func_001FA888(frame % 600) * 0.0016666667f;
+        if (first_slide == second_slide) {
+            func_00232A00_32EF0(0, D_0013E600_32EF0.half_height - 0x20, 0x200, 0x40,
+                                           (alpha << 24) | 0x808080, shared_texture, 0.0f, 4.0f,
+                                           scroll_phase + 0.0f, scroll_phase + 0.4f);
+            func_001F5800_32EF0(0, D_0013E600_32EF0.half_height - 0x20, 0x200, 0x40, 0, 0, 0x200, 0x40,
+                               0x80808080, first_texture);
+        } else {
+            scroll_start = scroll_phase + 0.0f;
+            scroll_end = scroll_phase + 0.4f;
+            func_00232A00_32EF0(0, D_0013E600_32EF0.half_height - 0x2E, 0x200, 0x40,
+                                           (alpha << 24) | 0x808080, shared_texture, 0.0f, 4.0f,
+                                           scroll_start, scroll_end);
+            func_001F5800_32EF0(0, D_0013E600_32EF0.half_height - 0x2E, 0x200, 0x40, 0, 0, 0x200, 0x40,
+                               0x80808080, first_texture);
+            if (frame > 0x40) {
+                if (frame < 0x60) {
+                    alpha = (frame - 0x40) * 4;
+                }
+                func_00232A00_32EF0(0, D_0013E600_32EF0.half_height, 0x200, 0x40,
+                                               (alpha << 24) | 0x808080, shared_texture, 0.0f, 4.0f,
+                                               scroll_start, scroll_end);
+                func_001F5800_32EF0(0, D_0013E600_32EF0.half_height, 0x200, 0x40, 0, 0, 0x200, 0x40,
+                                   0x80808080, second_texture);
+            }
+        }
+        func_00209E68();
+        func_00209070();
+        VU1_syncChain(1);
+        func_00122598(0);
+        ResetGsRegistersPr();
+        VU1_sendChain();
+        VU1_swapChain();
+        if (preload_level != 0) {
+            if (func_00204C60() == 0) {
+                if (duration_ticks < frame + 0x14) {
+                    duration_ticks = frame + 0x14;
+                }
+            } else {
+                preload_level = 0;
+            }
+        }
+    }
+    FadeToBlack(2);
+}
 
 typedef struct {
     int pad0[4];
@@ -689,7 +1784,7 @@ extern Blk3D390 D_0013D390_b __asm__("D_0013D390");
 extern char *D_0015F714 MACRO_ADDR;
 extern int D_0015F538 MACRO_ADDR;
 extern int D_0015EE5C_m __asm__("D_0015EE5C") MACRO_ADDR;
-extern short D_0015EF48_m __asm__("D_0015EF48");
+extern short D_0015EF48_m SDATA(D_0015EF48);
 extern int D_0015EF4A_i __asm__("D_0015EF4A") MACRO_ADDR;
 extern char D_001E8CB8[];
 extern int func_00122598_i(int) __asm__("func_00122598");
@@ -741,13 +1836,13 @@ void func_00233308(void) {
     func_0012F0A8(2, 0, 0, 0, 0);
     func_0012EC40();
     func_0012DDC0();
-    func_0022EFE8();
-    func_00216D88();
+    sound_StopAllSounds();
+    music_Stop();
     D_001517D0_b.fB = 1;
     if (D_0015F714 != 0) {
         func_0012E318(*(int *)(D_0015F714 + 0x1C));
         func_0012E2E8();
-        func_001E9730(D_001E8CB8, *(int *)(D_0015F714 + 0x1C));
+        STUB_printf(D_001E8CB8, *(int *)(D_0015F714 + 0x1C));
     }
     D_0015EE5C_m = 0;
     func_0012F068(0);
@@ -759,22 +1854,22 @@ void func_00233308(void) {
     D_0018CE00_b.f234 = 0;
     D_0018CE00_b.f218 = 0;
     D_0018CE00_b.f22C = 128.0f;
-    func_001FB448(0, 0, 0);
+    SetBackgroundColor(0, 0, 0);
     if (D_0015F6E4 < 0) {
         while (D_0013D390_b.fDC >= 3 || D_0013D390_b.fE4 >= 0) {
             func_00209E68();
             func_00209070();
         }
-        func_001F4E08(func_001F98C0(6));
+        FadeToBlack(func_001F98C0(6));
         D_0015EE84_m = D_0015F6E4;
         func_00204BE8();
         func_00120F30_i(0);
         D_001517D0_b.fB = 0;
-        func_002350A8();
+        DMAC_VIF1_Disable();
         return;
     }
     if (D_0015F6E4 == 0 && D_0013DE60[0] == 0) {
-        func_001F4E08(func_001F98C0(6));
+        FadeToBlack(func_001F98C0(6));
         func_00232EF0(lvl, 0, 1, func_001F98C0(240), 0);
         func_00232920(0);
         func_00232EF0(lvl, 2, 2, func_001F98C0(180), 0);
@@ -783,7 +1878,7 @@ void func_00233308(void) {
         func_00232EF0(lvl, 3, 4, func_001F98C0(240), 1);
         func_00232920(2);
     } else if (D_0015EE84_m == 0 && D_0015F6E4 == 1 && D_0013DE60[1] == 0) {
-        func_001F4E08(func_001F98C0(6));
+        FadeToBlack(func_001F98C0(6));
         func_00232EF0(lvl, 5, 6, func_001F98C0(240), 0);
         func_00232920(3);
         func_00232920(4);
@@ -794,27 +1889,27 @@ void func_00233308(void) {
         func_00232EF0(lvl, 8, 8, func_001F98C0(240), 1);
     } else {
         if (D_0015F6E4 == 4 && D_0013DE60[4] == 0) {
-            func_001F4E08(func_001F98C0(12));
+            FadeToBlack(func_001F98C0(12));
             func_00232EF0(lvl, 9, 10, func_001F98C0(240), 0);
             func_00232920(6);
         }
         if (D_0015EE84_m == 7 && D_0013DE60[7] != 2 && D_0013DE48_b.f8 != 0) {
-            func_001F4E08(func_001F98C0(12));
+            FadeToBlack(func_001F98C0(12));
             func_00232EF0(lvl, 11, 11, func_001F98C0(240), 0);
             func_00232920(7);
         }
         if (D_0015F6E4 == 13 && D_0013DE60[13] == 0) {
-            func_001F4E08(func_001F98C0(12));
+            FadeToBlack(func_001F98C0(12));
             func_00232EF0(lvl, 12, 13, func_001F98C0(240), 0);
             func_00232920(8);
         }
         if (D_0015EE84_m == 14 && D_0013DE60[14] != 2 && D_0013DE48_b.fF != 0) {
-            func_001F4E08(func_001F98C0(12));
+            FadeToBlack(func_001F98C0(12));
             func_00232EF0(lvl, 14, 14, func_001F98C0(240), 0);
             func_00232920(9);
         }
         if (D_0015F6E4 == 16 && D_0013DE60[16] == 0) {
-            func_001F4E08(func_001F98C0(12));
+            FadeToBlack(func_001F98C0(12));
             func_00232EF0(lvl, 15, 16, func_001F98C0(240), 0);
             func_00232920(10);
         }
@@ -837,17 +1932,17 @@ void func_00233308(void) {
         func_00232278();
         func_0012F4A8(D_0015EE84_m);
         while (D_0015F6FC_m == 0) {
-            func_002349B8();
-            func_00234948();
-            func_001FB598();
-            func_001FB8A8();
-            func_001FB498();
-            func_00218908();
+            VU1_sendChain();
+            VU1_swapChain();
+            PutDrawBufferSmall();
+            framebuf_appendSmallSetup();
+            PutDrawBufferLarge();
+            UpdatePad();
             func_00230A90();
-            func_00232200();
+            dispatch_game_state_update();
             func_00209E68();
             func_00209070();
-            func_00234AC8(1);
+            VU1_syncChain(1);
             func_00122598_i(0);
             D_0015F538++;
             func_00228110();
@@ -874,7 +1969,168 @@ void func_00233308(void) {
     }
     func_00120F30_i(0);
     D_001517D0_b.fB = 0;
-    func_002350A8();
+    DMAC_VIF1_Disable();
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00233AB8);
+typedef u32 u128_33AB8 __attribute__((mode(TI), aligned(16)));
+typedef union {
+    u128_33AB8 q;
+    f32 f[4];
+    s32 i[4];
+} Vec4;
+typedef float FloatVector4[4] __attribute__((aligned(16)));
+typedef struct {
+    s16 vertex_index;
+    s16 pad;
+} QuadCornerIndex;
+typedef struct {
+    QuadCornerIndex corners[4];
+} IndexedQuad;
+typedef struct {
+    u8 pad0[0x10];
+    float position_x;
+    float position_y;
+    u8 pad18[0x8E];
+    s16 class_id;
+} EnvironmentMappedObject;
+typedef struct {
+    u8 pad0[0x140];
+    float position_x;
+    float position_y;
+} EnvironmentCameraState;
+extern s32 D_0013E150_33AB8[] __asm__("D_0013E150");
+extern s32 D_0015F6E8 MACRO_ADDR;
+extern short D_001605A4;
+extern short D_001605A8;
+extern short D_001605AC;
+extern short D_00160620;
+extern short D_00160630;
+extern short D_00160640;
+extern short D_00160650;
+extern short D_00160660;
+extern short D_00160670;
+extern EnvironmentCameraState D_00187040_33AB8 __asm__("D_00187040");
+extern FloatVector4 D_00187180_33AB8 __asm__("D_00187180");
+extern Vec4 D_001DC870[];
+extern float D_001DCED0[][2];
+extern float D_001DD200[][2];
+extern u64 func_001F4868_33AB8(int) __asm__("func_001F4868");
+extern void func_001F9908(s32 *);
+extern float func_001F9B50(float);
+extern float func_001F9B88(float);
+extern float func_001F9C78(void *, void *);
+extern float func_001FA888(int);
+extern void func_0020DAF8(EnvironmentMappedObject *, int, void *);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/rendering/render_environment_mapped_object.c, render_environment_mapped_object. */
+void func_00233AB8(EnvironmentMappedObject *object) {
+    Vec4 quad_positions[4];
+    int colors[4];
+    float texture_coordinates[4][2];
+    u64 quad_state[4];
+    FloatVector4 object_transform[4];
+    FloatVector4 normal;
+    FloatVector4 reflection;
+    FloatVector4 view_direction;
+    IndexedQuad *indexed_quads;
+    Vec4 *positions;
+    Vec4 *normals;
+    int quad_count;
+    int vertex_count;
+    int class_index;
+    int color;
+    int mapping_enabled;
+    float transition_fraction;
+    float sphere_denominator;
+    float coordinate;
+    int element_index;
+    int corner_index;
+
+    class_index = object->class_id - 0x212;
+    positions = (((Vec4 * *)&D_00160660))[class_index];
+    normals = (((Vec4 * *)&D_00160650))[class_index];
+    indexed_quads = (((IndexedQuad * *)&D_00160670))[class_index];
+    quad_count = (((s32 *)&D_00160640))[class_index];
+    vertex_count = (((s32 *)&D_00160630))[class_index];
+    if (D_0015F6E8 == 6 && D_0013E150_33AB8[0] == 4) {
+        quad_state[1] = func_001F4868_33AB8(1);
+    } else {
+        quad_state[1] = func_001F4868_33AB8(0x15);
+    }
+    mapping_enabled = 0;
+    color = (((s32 *)&D_00160620))[class_index];
+    quad_state[2] = 0xFF9000000260;
+    quad_state[3] = 0x8000000044;
+    quad_state[0] = 0;
+    colors[3] = color;
+    colors[2] = color;
+    colors[1] = color;
+    colors[0] = color;
+    func_0020DAF8(object, 0, object_transform);
+    if (D_0015F6E8 != 0 || (FastAbsF(D_00187040_33AB8.position_x - object->position_x) < 16.0f &&
+                            FastAbsF(D_00187040_33AB8.position_y - object->position_y) < 16.0f)) {
+        mapping_enabled = 1;
+    }
+    if (D_0015F6E8 == 6 && D_0013E150_33AB8[0] == 4) {
+        mapping_enabled = 0;
+    }
+    if (mapping_enabled != 0 || (*(s32 *)&D_001605A4) == 1) {
+        (*(s32 *)&D_001605A8) = 1;
+        func_001F9908(&(*(s32 *)&D_001605AC));
+        transition_fraction =
+            func_001FA888((*(s32 *)&D_001605AC)) / func_001FA888(func_001F98C0(0x3C));
+        for (element_index = 0; element_index < vertex_count; element_index++) {
+            func_001F9EE8(&D_001DC870[element_index], &positions[element_index],
+                             object_transform);
+            FastVecSub(view_direction, &D_001DC870[element_index], D_00187180_33AB8);
+            func_001F9DC0(view_direction, view_direction, 1.0f);
+            func_001F9EE8(normal, &normals[element_index], object_transform);
+            func_001F9DC0(normal, normal, 0.1f);
+            FastVecScale(reflection, normal, FastVecDot(normal, view_direction) * 2.0f);
+            FastVecSub(reflection, view_direction, reflection);
+            func_001F9DC0(reflection, reflection, 1.0f);
+            reflection[2] += 1.0f;
+            sphere_denominator = func_001F9B50(reflection[2] * 2.0f) * 2.0f;
+            if ((*(s32 *)&D_001605A4) == 1 || (*(s32 *)&D_001605AC) == 0) {
+                D_001DCED0[element_index][0] = reflection[0] / sphere_denominator + 0.5f;
+                D_001DCED0[element_index][1] = reflection[1] / sphere_denominator + 0.5f;
+            } else {
+                coordinate = reflection[0] / sphere_denominator + 0.5f;
+                D_001DCED0[element_index][0] =
+                    coordinate + (D_001DD200[element_index][0] - coordinate) * transition_fraction;
+                coordinate = reflection[1] / sphere_denominator + 0.5f;
+                D_001DCED0[element_index][1] =
+                    coordinate + (D_001DD200[element_index][1] - coordinate) * transition_fraction;
+            }
+        }
+        if ((*(s32 *)&D_001605A4) == 1) {
+            (*(s32 *)&D_001605A4) = 2;
+        }
+    } else {
+        if ((*(s32 *)&D_001605A8) == 1) {
+            (*(s32 *)&D_001605A8) = 0;
+            for (element_index = 0; element_index < vertex_count; element_index++) {
+                D_001DD200[element_index][0] = D_001DCED0[element_index][0];
+                D_001DD200[element_index][1] = D_001DCED0[element_index][1];
+                func_001F9EE8(&D_001DC870[element_index], &positions[element_index],
+                                 object_transform);
+            }
+        } else {
+            for (element_index = 0; element_index < vertex_count; element_index++) {
+                func_001F9EE8(&D_001DC870[element_index], &positions[element_index],
+                                 object_transform);
+            }
+        }
+        (*(s32 *)&D_001605AC) = func_001F98C0(0x3C);
+    }
+    for (element_index = 0; element_index < quad_count; element_index++) {
+        for (corner_index = 0; corner_index < 4; corner_index++) {
+            int vertex_index = indexed_quads[element_index].corners[corner_index].vertex_index;
+
+            qcopy(&quad_positions[corner_index], &D_001DC870[vertex_index]);
+            texture_coordinates[corner_index][0] = D_001DCED0[vertex_index][0];
+            texture_coordinates[corner_index][1] = D_001DCED0[vertex_index][1];
+        }
+        func_001F7EF8(quad_positions, 0, 0);
+    }
+}

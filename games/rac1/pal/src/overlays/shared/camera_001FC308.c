@@ -2,4 +2,19 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L02_001FC308);
+extern int D_L02_0015F04C MACRO_ADDR;
+extern int D_L02_00169670[];
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/camera/001fc008.c, FUN_L02_001fc008. */
+void func_L02_001FC308(int x) {
+    int i;
+
+    if (D_L02_0015F04C < 16) {
+        for (i = 0; i < D_L02_0015F04C; i++) {
+            if (x == D_L02_00169670[i]) {
+                return;
+            }
+        }
+        D_L02_00169670[D_L02_0015F04C++] = x;
+    }
+}

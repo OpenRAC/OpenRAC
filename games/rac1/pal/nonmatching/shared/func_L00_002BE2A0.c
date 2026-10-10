@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L00_002BE2A0 -- src/overlays/shared/vendor_002BA7C8.c
- * Best so far: SIZE ours 252 / retail 260, checked 2026-10-06.
+ * Best so far: SIZE ours 264 / retail 260, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -8,6 +8,8 @@
  *   Would need the original's declaration of that flag (likely a header with another type) and the true statement 
  *   mini13/a03 three-identical stop: p7 corrected flag macro/exact DC260 alias, p8 reversed pointer increments, p9
  *   Rebuilds camera tables; remaining source base+16 is folded, initialization lacks retail nop, and trailing poin
+ *   ## hq3 s05 round (p10-p15)
+ *   Best stays p12 (252/260). Tried: pointer-form second loop with d/e pointers (p10, p11, p12), the store to 1618
  */
 extern int D_L00_0016188C_m __asm__("D_L00_0016188C") MACRO_ADDR;
 extern short D_L00_001617AC;
@@ -32,11 +34,13 @@ void func_L00_002BE2A0(char *m) {
         float f;
         char v[16];
         int i, j;
-        char *b, *a;
+        char *a, *b;
+        int *e;
+        char *d;
         D_L00_0016188C_m = 0;
         f = *(float *)&D_L00_001617AC / func_001FA888(12);
-        *(float *)&D_L00_0016189C = f;
         func_001F9C30(v, m + 0xD0, -f);
+        *(float *)&D_L00_0016189C = f;
         qcopy(D_L00_001DC260_b, p);
         a = D_L00_001DC260_b + 16;
         b = D_L00_001DC250 + 16;
@@ -47,12 +51,16 @@ void func_L00_002BE2A0(char *m) {
         }
         *(int *)&D_L00_001617E8 = 0;
         *(int *)&D_L00_001617F0 = 0;
+        d = D_L00_001DD3D0;
         *(int *)&D_L00_001617F4 = 0;
         D_L00_001618A0 = 0;
+        e = D_L00_001618E8;
         D_L00_001618F4 = 0;
-        for (j = 0; j < 3; j++) {
-            D_L00_001618E8[j] = 0;
-            qcopy(D_L00_001DD3D0 + j * 16, v);
+        for (j = 2; j >= 0; j--) {
+            *e = 0;
+            qcopy(d, v);
+            d += 16;
+            e++;
         }
     }
 }

@@ -63,7 +63,7 @@ unsigned char *func_L17_00270C98(char *pos, int mode, int step) {
                 *(short *)(p + 0xA) = d;
                 if (step != 0) {
                     float a = func_001FA888((short)d - 1);
-                    *(int *)(p + 4) = func_001FA8A8(0x603F1008, *(int *)(p + 4), a / func_001FA888(*(short *)(p + 0xA)));
+                    *(int *)(p + 4) = FastTweenColor(0x603F1008, *(int *)(p + 4), a / func_001FA888(*(short *)(p + 0xA)));
                 }
             } else {
                 int d = 5 - step;
@@ -73,11 +73,11 @@ unsigned char *func_L17_00270C98(char *pos, int mode, int step) {
                 *(short *)(p + 0xA) = d;
                 if (step != 0) {
                     float a = func_001FA888((short)d - 1);
-                    *(int *)(p + 4) = func_001FA8A8(0x30FFFFFF, *(int *)(p + 4), a / func_001FA888(*(short *)(p + 0xA)));
+                    *(int *)(p + 4) = FastTweenColor(0x30FFFFFF, *(int *)(p + 4), a / func_001FA888(*(short *)(p + 0xA)));
                 }
             }
             p[1] = 0;
-            p[8] = func_002140B0(0xFF);
+            p[8] = random_integer_below(0xFF);
             p[2] = *D_L17_001B2D54;
         }
         return p;

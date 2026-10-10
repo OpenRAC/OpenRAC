@@ -1,11 +1,13 @@
 /* NON_MATCHING func_L00_00284410 -- src/overlays/shared/pause_00277208.c
- * Best so far: SIZE ours 508 / retail 512, checked 2026-10-03.
+ * Best so far: SIZE ours 508 / retail 516, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   Cheat-code recorder: each pad press (masks 0xF0A0) is appended to a 20-entry short log (D_L00_001BA838); at 20
  *   Best p5.c/p7.c: 508 vs 512 bytes, structure and registers otherwise match (found in $7, locals a/b/c computed 
  *   Would unblock: the source shape that makes the count pseudo a copy of the loaded value; budget spent.
+ *   t03/q28: p8 (int n = 0x93 bound), p9 (D[cnt]=k; idx=cnt+1), p10 (nested ifs, no early returns) all compile to 
+ *   hq13 s05 (4 runs): p11/p12 (the loop limit 0x93 held in a declared local set before the loop) and p13 (one cou
  */
 extern void func_L00_00261848(int);
 extern int func_0022EE28(int, int, int);

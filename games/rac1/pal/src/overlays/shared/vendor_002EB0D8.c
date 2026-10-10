@@ -37,19 +37,19 @@ void func_L00_002EB170(char *p) {
     func_L00_001FF4B0(a, *(char **)(g + 0x2080) + 0xE0, 1.0f);
     m = *(unsigned char *)(g + 0x20A4);
     if (m == 2) {
-        func_001F9C30(b, a, 9.5f);
+        FastVecScale(b, a, 9.5f);
     } else if (m == 1) {
         if (*(unsigned char *)&D_0015EEB3) {
-            func_001F9C30(b, a, 1.2f);
+            FastVecScale(b, a, 1.2f);
         } else {
-            func_001F9C30(b, a, 0.9f);
+            FastVecScale(b, a, 0.9f);
         }
     } else {
-        func_001F9C30(b, a, 1.6f);
+        FastVecScale(b, a, 1.6f);
     }
     p += 0x30;
-    func_001F9BD8(p, D_0013E633 + 0xE9D, b);
-    func_001F9BD8(p, D_0013E633 + 0xE9D + 0xC0, p);
+    FastVecAdd(p, D_0013E633 + 0xE9D, b);
+    FastVecAdd(p, D_0013E633 + 0xE9D + 0xC0, p);
 }
 extern void func_L00_001FF4B0(void *, void *, float);
 extern void func_001F9C30(void *, void *, float);
@@ -140,28 +140,28 @@ void func_L00_002EB3E8(u8 *o) {
     if (t == 0.0f) t = -D_0013CA40.f100;
     if (t == 0.0f) t = func_001FA888((D_0013CA40.i1A0 >> 15) & 1);
     if (t == 0.0f) t = -func_001FA888((D_0013CA40.i1A0 >> 13) & 1);
-    r = func_001F9B88(st->a);
+    r = FastAbsF(st->a);
     k = (*(float *)&D_L00_00161E90) + ((*(float *)&D_L00_00161E94) - (*(float *)&D_L00_00161E90)) * r;
     st->a = r = func_001EC120_EB3E8(st->a, t, (*(float *)&D_L00_00161E98), (*(float *)&D_L00_00161E9C), (*(float *)&D_L00_00161EA0), &st->va);
-    if (r != 0.0f) func_002156E0(o, o, &up, k * r);
+    if (r != 0.0f) build_look_at_matrix(o, o, &up, k * r);
     if (D_0013F450_EB3E8.f14C != 0.0f && D_0013F450_EB3E8.s308 == 0)
-        func_002156E0(o, o, &up, D_0013F450_EB3E8.f14C);
+        build_look_at_matrix(o, o, &up, D_0013F450_EB3E8.f14C);
     t = -D_0013CA40.f10C;
     if (t == 0.0f) t = -D_0013CA40.f104;
     if (t == 0.0f) t = func_001FA888((D_0013CA40.i1A0 >> 12) & 1);
     if (t == 0.0f) t = -func_001FA888((D_0013CA40.i1A0 >> 14) & 1);
     if (D_L00_00166D80_EB3E8.s270 != 0 && D_0013F450_EB3E8.i2090 == 2) t = 0.0f;
     if (D_0015EEDC == 0) t = -t;
-    r = func_001F9B88(st->b);
+    r = FastAbsF(st->b);
     k = (*(float *)&D_L00_00161E90) + ((*(float *)&D_L00_00161E94) - (*(float *)&D_L00_00161E90)) * r;
     st->b = func_001EC120_EB3E8(st->b, t, (*(float *)&D_L00_00161E98), (*(float *)&D_L00_00161E9C), (*(float *)&D_L00_00161EA0), &st->vb);
     if (st->b != 0.0f) {
         float a, n, z;
-        func_001F9CA0(&side, o, &up);
+        FastVecCross(&side, o, &up);
         a = k * st->b;
-        n = func_001F9B88(func_001FA748(st->ang, a));
-        if (1.1170107f < n && func_001F9B88(st->ang) < n)
-            a += (0.0f - a) * (func_001FA790(n, 1.1170107f) / 0.3490659f);
+        n = FastAbsF(FastAddRots(st->ang, a));
+        if (1.1170107f < n && FastAbsF(st->ang) < n)
+            a += (0.0f - a) * (FastSubRots(n, 1.1170107f) / 0.3490659f);
         if (n >= 1.1152654f && st->ang > 0.0f)
             st->z = func_001EC120_EB3E8(st->z, 0.5f, 0.005f, 0.2f, 0.0f, &st->vz);
         else
@@ -172,19 +172,19 @@ void func_L00_002EB3E8(u8 *o) {
         d.f[3] = z;
         d.f[2] = z;
         func_L00_001FF4B0(&d, &d, st->z);
-        func_001F9BD8(o + 0x30, o + 0x30, &d);
-        if (func_L00_001F10E0(o + 0x30, 0x12, D_0013F450_EB3E8.p2080, 0.3f))
+        FastVecAdd(o + 0x30, o + 0x30, &d);
+        if (coll_sphere(o + 0x30, 0x12, D_0013F450_EB3E8.p2080, 0.3f))
             st->z = func_001EC120_EB3E8(st->z, z, 0.005f, 0.2f, z, &st->vz);
-        n = func_001FA748(st->ang, a);
-        if (func_001F9B88(n) > 1.4660766f)
-            { float m = 1.4660766f; if (!(z < n)) m = -1.4660766f; a = func_001FA790(m, st->ang); }
-        func_002156E0(o, o, &side, a);
-        st->ang = func_001FA748(st->ang, a);
+        n = FastAddRots(st->ang, a);
+        if (FastAbsF(n) > 1.4660766f)
+            { float m = 1.4660766f; if (!(z < n)) m = -1.4660766f; a = FastSubRots(m, st->ang); }
+        build_look_at_matrix(o, o, &side, a);
+        st->ang = FastAddRots(st->ang, a);
     }
     func_L00_001FF4B0(o, o, 1.0f);
-    func_001F9CA0(o + 0x10, o, &up);
+    FastVecCross(o + 0x10, o, &up);
     func_L00_001FF4B0(o + 0x10, o + 0x10, 1.0f);
-    func_001F9CA0(o + 0x20, o + 0x10, o);
+    FastVecCross(o + 0x20, o + 0x10, o);
 }
 typedef int q_2eb938 __attribute__((mode(TI)));
 typedef struct { f32 f[4]; } V_2eb938;
@@ -327,15 +327,15 @@ void func_L00_002EBCC0(char *m) {
         return;
     }
     v = (char *)g + 0x1C0;
-    func_001F9C30(&a, v, func_001F9C78(v, m));
-    func_001F9BF0(&b, m, &a);
-    func_001F9C30(&a, v, func_001F9C78(v, *(char **)(p + 0x2080) + 0xC0));
-    func_001F9BF0(&c, *(char **)(p + 0x2080) + 0xC0, &a);
-    len = func_001F9CB8(&c);
+    FastVecScale(&a, v, FastVecDot(v, m));
+    FastVecSub(&b, m, &a);
+    FastVecScale(&a, v, FastVecDot(v, *(char **)(p + 0x2080) + 0xC0));
+    FastVecSub(&c, *(char **)(p + 0x2080) + 0xC0, &a);
+    len = FastVecLength(&c);
     if (len != 0.0f) {
-        len *= func_001F9CB8(&b);
+        len *= FastVecLength(&b);
         if (len != 0.0f) {
-            t = 1.5707964f - func_001F9FC0(func_001F9C78(&c, &b) / len);
+            t = 1.5707964f - FastArcSin(FastVecDot(&c, &b) / len);
             if (1.3962634f <= t) {
                 g->s = 0;
                 *(short *)(m + 0x7E) = 4;
@@ -688,7 +688,7 @@ int func_L00_002ECAF8(char *a, char *t) {
     ((float *)v)[0] = D_L00_00161EA4;
     n = *(char **)(t + 0x78);
     func_001F9EC0(v, v, t + 0xC0);
-    func_001F9BD8(w, t + 0x10, v);
+    FastVecAdd(w, t + 0x10, v);
     pw = w;
     if (*(int *)(n + 0x10) == -1) {
         func_L00_001EB448(c, a + 0x50, 0.0f);
@@ -698,14 +698,14 @@ int func_L00_002ECAF8(char *a, char *t) {
         func_L00_002EC7D0(a, c, w, 0.0f);
     }
     if (*(int *)(n + 0x10) > 0) goto pos;
-    *(float *)(m + 0xAC) = func_001FA748(*(float *)(m + 0xAC), *(float *)(n + 0x18));
+    *(float *)(m + 0xAC) = FastAddRots(*(float *)(m + 0xAC), *(float *)(n + 0x18));
     *(float *)(n + 0x18) *= 0.97f;
     g = (char *)D_0013E633 + 0xE1D;
     cam = D_L00_00166D80_c;
     pp = g + 0x80;
     cp = cam + 0x140;
     ang = func_L00_001FF860(*(float *)(cam + 0x140) - *(float *)(g + 0x80), *(float *)(cam + 0x144) - *(float *)(g + 0x84));
-    ang = func_001FA850(ang, *(float *)(cam + 0x158));
+    ang = FastDiffRots(ang, *(float *)(cam + 0x158));
     d1 = func_001F9D48(pp, cp);
     if (d1 < func_001F9D48(*(char **)(g + 0x1090) + 0x10, cp)) {
         x = func_001F9D48(pp, cp);
@@ -929,11 +929,11 @@ s32 func_L00_002EDC98(A_2ec7e8 *a) {
     } else if ((s16)w == 4 && D_001416D4[0] == 3) {
         v17 = 0 < o->f2E;
     }
-    if (o->f0C >= 0 && (v17 || func_00215570(&D_0013F4D0[0], o->f0C))) return 1;
-    if (o->f4C >= 0 && (v17 || func_00215570(&D_0013F4D0[0], o->f4C))) return 1;
-    if (o->f10 >= 0 && (v17 || func_L00_00260AB0(&D_0013F4D0[0], o->f10))) return 1;
-    if (o->f08 >= 0 && (v17 || func_L00_00260B68_EDC98(&D_0013F4D0[0], o->f08))) return 1;
-    if (o->f14 >= 0 && (v17 || func_L00_0025A778(&D_0013F4D0[0], D_L00_001B0830[o->f14] + 0x10, *(s32 *)D_L00_001B0830[o->f14]))) return 1;
+    if (o->f0C >= 0 && (v17 || is_point_inside_clip_volume(&gHeroPos[0], o->f0C))) return 1;
+    if (o->f4C >= 0 && (v17 || is_point_inside_clip_volume(&gHeroPos[0], o->f4C))) return 1;
+    if (o->f10 >= 0 && (v17 || func_L00_00260AB0(&gHeroPos[0], o->f10))) return 1;
+    if (o->f08 >= 0 && (v17 || func_L00_00260B68_EDC98(&gHeroPos[0], o->f08))) return 1;
+    if (o->f14 >= 0 && (v17 || func_L00_0025A778(&gHeroPos[0], D_L00_001B0830[o->f14] + 0x10, *(s32 *)D_L00_001B0830[o->f14]))) return 1;
     return 0;
 }
 INCLUDE_ASM("asm/overlays", func_L00_002EDE38);
@@ -1033,7 +1033,7 @@ void func_L00_002EEE00(u8 *m) {
     S_2ed950 *s = *(S_2ed950 **)(m + 8);
     f32 d, r;
     if (s->id < 0) return;
-    d = func_001F9D10(D_L00_00166EC0_EEE00, m + 0x40);
+    d = FastVecDist(D_L00_00166EC0_EEE00, m + 0x40);
     r = *(f32 *)(m + 0xC);
     if (d < r) {
         E_2ed950 *e = ((E_2ed950 *)((u8 *)D_0013E650 + (s->snd) * 0x70));
@@ -1044,7 +1044,7 @@ void func_L00_002EEE00(u8 *m) {
         if (!func_001F9908(&s->wC)) return;
         s->snd = func_L00_0028F0B0_EEE00(s->id, fl, m, 0x400);
         if (s->w8 > 0) {
-            s->wC = func_001F9850(s->w4 + func_002140B0(s->w8 - s->w4)) * 60.0f;
+            s->wC = scale_ticks(s->w4 + random_integer_below(s->w8 - s->w4)) * 60.0f;
         }
     } else if (r + 1.0f < d) {
         s32 h = s->snd;
@@ -1071,29 +1071,29 @@ void func_L00_002EEF88(char *m) {
     v[4] = f;
     v[5] = f;
     v[6] = f;
-    func_001F9BF0(v, D_L00_00166EC0, m + 0x40);
+    FastVecSub(v, D_L00_00166EC0, m + 0x40);
     v[3] = 0;
     func_001F9EC0(v + 8, v, m + 0x50);
     func_001F9EC0(v + 12, v + 4, m + 0x50);
-    if (!(func_001F9B88(v[8]) <= func_001F9B88(v[12]) + 1.0f)) return;
-    if (!(func_001F9B88(v[9]) <= func_001F9B88(v[13]) + 1.0f)) return;
-    if (!(func_001F9B88(v[10]) <= func_001F9B88(v[14]) + 1.0f)) return;
+    if (!(FastAbsF(v[8]) <= FastAbsF(v[12]) + 1.0f)) return;
+    if (!(FastAbsF(v[9]) <= FastAbsF(v[13]) + 1.0f)) return;
+    if (!(FastAbsF(v[10]) <= FastAbsF(v[14]) + 1.0f)) return;
     e = (char *)D_0013E633 + 0x1D + d[4] * 0x70;
     if (*(char **)(e + 0x8C) == m && *(unsigned char *)(e + 0x74) != 0) return;
     if (func_001F9908(d + 3)) {
         d[4] = func_L00_0028F0B0(d[0], 0, (int)m, 0x400);
         if (d[4] != -1) {
-            v[16] = func_002140F8(-1.0f, 1.0f);
-            v[17] = func_002140F8(-1.0f, 1.0f);
-            v[18] = func_002140F8(-1.0f, 1.0f);
+            v[16] = random_float_between(-1.0f, 1.0f);
+            v[17] = random_float_between(-1.0f, 1.0f);
+            v[18] = random_float_between(-1.0f, 1.0f);
             p = v + 16;
             func_001F9EC0(p, p, m + 0x10);
-            func_001F9BD8(p, p, m + 0x40);
+            FastVecAdd(p, p, m + 0x40);
             qcopy((char *)D_0013E633 + 0x1D + 0x90 + d[4] * 0x70, p);
         }
         if (d[2] > 0) {
-            int t = func_002140B0(d[2] - d[1]);
-            d[3] = (int)((float)func_001F9850(d[1] + t) * 60.0f);
+            int t = random_integer_below(d[2] - d[1]);
+            d[3] = (int)((float)scale_ticks(d[1] + t) * 60.0f);
         }
     } else {
         d[4] = -1;

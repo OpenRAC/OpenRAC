@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L11_00317500 -- src/overlays/l11_pokitaru/vendor_00312BD8.c
- * Best so far: BYTES 4/148 (97.3% of the bytes match), checked 2026-10-06.
+ * Best so far: BYTES 4/148 (97.3% of the bytes match), checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:

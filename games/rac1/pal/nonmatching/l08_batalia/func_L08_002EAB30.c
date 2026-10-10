@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L08_002EAB30 -- src/overlays/l08_batalia/vendor_002E0258.c
- * Best so far: SIZE ours 692 / retail 700, checked 2026-10-03.
+ * Best so far: SIZE ours 692 / retail 700, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -8,13 +8,11 @@
  *   Retail keeps the two release bodies separate (pointer s17 in one, s19 in the other), so the two copies differ 
  */
 #include "common.h"
-extern char *func_L00_0025B478(void *, int, int);
 extern void func_L00_00260108(void *, void *, int, float, float);
 extern void func_001F9BF0(void *, void *, void *);
 extern void func_L00_001FF4B0(void *, void *, float);
 extern float func_002140F8(float, float);
 extern int func_001FA898_r(float) __asm__("func_001FA898");
-extern void func_0022ED80(int, int, int);
 extern float D_0015EE6C MACRO_ADDR;
 
 /* Picks which of the 17 slots' mobys were reached, advances a counter and releases one moby near the end. */

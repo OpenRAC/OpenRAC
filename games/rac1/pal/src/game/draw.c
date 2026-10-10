@@ -253,8 +253,8 @@ void func_001F2608(void) {
     *(int *)&g->f[0xC / 4] = 0;
     *(int *)&g->f[0x1C / 4] = 0;
     *(int *)&g->f[0x2C / 4] = 0;
-    func_001FA540(&g->f[0x40 / 4], x, g);
-    func_001FA540(&g->f[0x80 / 4], x + 0x40, g);
+    sce_vu0_mul_matrix(&g->f[0x40 / 4], x, g);
+    sce_vu0_mul_matrix(&g->f[0x80 / 4], x + 0x40, g);
     a = xf[0x1A0 / 4];
     b = xf[0x1A4 / 4];
     c = xf[0x1A8 / 4];
@@ -270,16 +270,16 @@ void func_001F2608(void) {
     g->f[0xB0 / 4] += g->f[0xBC / 4] * a;
     g->f[0xB4 / 4] += g->f[0xBC / 4] * b;
     g->f[0xB8 / 4] += g->f[0xBC / 4] * c;
-    func_001FA540(&g->f[0xC0 / 4], x + 0x80, g);
+    sce_vu0_mul_matrix(&g->f[0xC0 / 4], x + 0x80, g);
     func_001F9C48(&g->f[0x100 / 4], x + 0x80, xf[0x1C0 / 4]);
     func_001F9C48(&g->f[0x110 / 4], x + 0x90, xf[0x1C0 / 4]);
     qcopy(&g->f[0x120 / 4], x + 0xA0);
     qcopy(&g->f[0x130 / 4], x + 0xB0);
-    func_001FA540(&g->f[0x100 / 4], &g->f[0x100 / 4], g);
+    sce_vu0_mul_matrix(&g->f[0x100 / 4], &g->f[0x100 / 4], g);
     qcopy(D_0018D080, g);
     qcopy(D_0018D080 + 0x10, &g->f[0x10 / 4]);
     qcopy(D_0018D080 + 0x20, &g->f[0x20 / 4]);
-    func_001F9C30(D_0018D080 + 0x30, &g->f[0x140 / 4], 1024.0f);
+    FastVecScale(D_0018D080 + 0x30, &g->f[0x140 / 4], 1024.0f);
     *(float *)(D_0018D080 + 0x3C) = 1024.0f;
 }
 
@@ -419,47 +419,47 @@ void func_001F2BC8(void) {
     x = func_001FA898_r(D_00187040_cam.focus[0] * scale);
     y = func_001FA898_r(D_00187040_cam.focus[1] * scale);
     z = func_001FA898_r(D_00187040_cam.focus[2] * scale);
-    vis = (char *)func_001F2A38(x, y, z);
+    vis = (char *)ParseOcclGrid(x, y, z);
     if (vis != 0) {
         D_0015F72C = 0;
-        func_001F9A98(D_001940C0, vis, 0x80);
+        FastMemCopy(D_001940C0, vis, 0x80);
         D_0015F730 = vis;
     } else {
         D_0015F72C = 1;
         if (D_0015F728 == 0) {
-            gx = (char *)func_001F2B10(x - 1, y, z, x + 1, y, z,
+            gx = (char *)GetOcclGridFromPair(x - 1, y, z, x + 1, y, z,
                                        D_00187040_cam.focus[0] * scale - func_001FA888(x));
-            gy = (char *)func_001F2B10(x, y - 1, z, x, y + 1, z,
+            gy = (char *)GetOcclGridFromPair(x, y - 1, z, x, y + 1, z,
                                        D_00187040_cam.focus[1] * scale - func_001FA888(y));
-            gz = (char *)func_001F2B10(x, y, z - 1, x, y, z + 1,
+            gz = (char *)GetOcclGridFromPair(x, y, z - 1, x, y, z + 1,
                                        D_00187040_cam.focus[2] * scale - func_001FA888(z));
             if (gx != 0 || gy != 0 || gz != 0) {
-                func_001F99D8(D_00194140, 0x80);
+                FastMemZero16(D_00194140, 0x80);
                 if (gx != 0) {
-                    func_001F9AC0(D_00194140, D_00194140, gx, 0x80);
+                    FastMemOr16(D_00194140, D_00194140, gx, 0x80);
                 }
                 if (gy != 0) {
-                    func_001F9AC0(D_00194140, D_00194140, gy, 0x80);
+                    FastMemOr16(D_00194140, D_00194140, gy, 0x80);
                 }
                 if (gz != 0) {
-                    func_001F9AC0(D_00194140, D_00194140, gz, 0x80);
+                    FastMemOr16(D_00194140, D_00194140, gz, 0x80);
                 }
                 vis = D_00194140;
                 D_0015F730 = vis;
-                func_001F9A98(D_001940C0, vis, 0x80);
+                FastMemCopy(D_001940C0, vis, 0x80);
             }
         }
         if (vis == 0) {
             switch (D_0015F728) {
             case 0:
                 if (D_0018C42C == 0 && D_0015F730 != 0) {
-                    func_001F9A98(D_001940C0, D_0015F730, 0x80);
+                    FastMemCopy(D_001940C0, D_0015F730, 0x80);
                 } else {
-                    func_001F99B0(D_001940C0, -1, 0x80);
+                    FastMemSet(D_001940C0, -1, 0x80);
                 }
                 break;
             case 1:
-                func_001F99B0(D_001940C0, -1, 0x80);
+                FastMemSet(D_001940C0, -1, 0x80);
                 break;
             case 2:
                 p = D_0015F724;
@@ -467,11 +467,11 @@ void func_001F2BC8(void) {
                     bx = 0.0f < D_00187040_cam.focus[0] - p[0];
                     by = 0.0f < D_00187040_cam.focus[1] - p[1];
                     bz = 0.0f < D_00187040_cam.focus[2] - p[2];
-                    func_001F9A98(D_001940C0, (char *)p + ((bz + by * 2 + bx * 4) * 0x80 + 0x10), 0x80);
+                    FastMemCopy(D_001940C0, (char *)p + ((bz + by * 2 + bx * 4) * 0x80 + 0x10), 0x80);
                 } else if (D_0018C42C == 0 && D_0015F730 != 0) {
-                    func_001F9A98(D_001940C0, D_0015F730, 0x80);
+                    FastMemCopy(D_001940C0, D_0015F730, 0x80);
                 } else {
-                    func_001F99B0(D_001940C0, -1, 0x80);
+                    FastMemSet(D_001940C0, -1, 0x80);
                 }
                 break;
             }
@@ -680,7 +680,292 @@ void func_001F3D00(void) {
     *(volatile long *)0x120000D0 = 0;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001F3D78); /* DrawDebugProfiler */
+extern short D_0015F450;             /* SDA, gp -0x78B0: Stripes * */
+extern char *D_0016055C MACRO_ADDR;
+extern int D_0018C44C[];
+extern int D_0015F534_f __asm__("D_0015F534") MACRO_ADDR;
+extern int D_0015F704 MACRO_ADDR;
+extern int D_0015F6E8 MACRO_ADDR;
+extern unsigned char D_0015EF40_F3D78[] __asm__("D_0015EF40") MACRO_ADDR;
+extern float D_0015F53C MACRO_ADDR;
+extern float D_0015F540 MACRO_ADDR;
+extern float D_0015F6F8 MACRO_ADDR;
+extern unsigned char D_001611C0_F3D78[] __asm__("D_001611C0") MACRO_ADDR;
+extern unsigned char D_001611C1_F3D78[] __asm__("D_001611C1") MACRO_ADDR;
+extern unsigned char D_001611C2_F3D78[] __asm__("D_001611C2") MACRO_ADDR;
+extern unsigned char D_001611C3_F3D78[] __asm__("D_001611C3") MACRO_ADDR;
+extern unsigned short D_0010FA90 NOT_SDA;
+extern char D_0010FAA0[];
+extern char D_0015F480[];
+extern char D_0015F490[];
+extern char D_0015F4A0[];
+extern char D_0015F4B0[];
+extern char D_0015F4C0[];
+extern char D_0015F4D0[];
+extern char D_0015F4E0[];
+extern char D_0015F4F0[];
+extern char D_0015F4F8[];
+extern char D_0015F500[];
+extern char D_0015F510[];
+extern char D_0015F518[];
+extern char D_0015F528[];
+extern char D_001E7BA0[];
+extern char D_001E7BB8[];
+extern char D_00100AE0[];
+extern char D_001E1600[];
+extern char D_001E3500[];
+extern char D_001D9240[];
+
+extern void func_001F2558_a(void *, int) __asm__("func_001F2558");
+extern void func_001F2560_a(void *, int) __asm__("func_001F2560");
+extern void func_001F2930_v(void) __asm__("func_001F2930");
+extern void func_001FB530(void);
+extern void func_001F2608(void);
+extern void func_0020DAB0(void);
+extern void func_001E9E70(void);
+extern void func_002346C0(void);
+extern void func_00235290(int);
+extern void func_00236CA8(void);
+extern void func_00236BE0(void);
+extern void func_00234F40(void);
+extern void func_001F4630(int);
+extern void func_001F4A78(void);
+extern void func_001F4748(void);
+extern void func_00234EE0(void);
+extern void func_00229E50(void);
+extern void func_001F54E8(char *);
+extern void func_001F7B70(void);
+extern void func_001F4AF0(void);
+extern void func_0020E2B0(void);
+extern void func_00234B48(void *, int);
+extern void func_001F4A00(void);
+extern void func_001EDFF8(void);
+extern void func_001F4C30(void);
+extern void func_00118D80(int);
+extern void func_00218B10(void);
+extern void func_001F4BB8(void);
+extern void func_001F9478(void);
+extern void func_001EE6E0(void);
+extern void func_001FB848(void);
+extern void func_00238D88(void);
+extern void func_001FFFB8(void);
+extern void func_001FF1B0(void);
+extern void func_001F5148(void);
+extern void func_001F4F90(void);
+extern void func_001F55C0(int, int, int, int);
+extern void func_001F5368(void);
+extern void func_002347F0(void *);
+extern void func_00234AC8(int mask);
+extern void func_002362B0(void *);
+extern void func_00234620(void);
+extern void func_00236BB0(void);
+extern void func_00236B58(void);
+extern void func_00238688(void *);
+extern void func_00236A98(void);
+extern void func_0022B8F8(void *);
+extern void func_00229D48(void);
+extern void func_0020DD48(void);
+
+/* Draws the whole frame: each world layer's DMA chain in order, then the fades and the per-layer profiler bars. Adapted from Lombyte (MIT) for PAL: rendering/draw_debug_profiler.c, draw_debug_profiler. */
+void func_001F3D78(void) {
+    float t;
+    float div;
+
+    if (D_0016055C == 0 || *(short *)(D_0016055C + 4) != 0 || ((D_0015F534_f ^ 1) & 1) || D_0018A3B0[2] == 0 ||
+        D_0018C44C[0] != 0) {
+        framebuf_appendLargeSetup();
+    }
+    func_001F2608();
+    func_0020DAB0();
+    UpdateOcclusion();
+    ResetGsRegisters();
+    D_0015F704 = -1;
+    func_001F2558_a(D_0015F480, 0xF);
+    func_001F2560_a(D_0015F480, 0xF);
+    if (D_0016055C != 0 && (D_0015F534_f & 1)) {
+        if (D_0018A3B0[2] != 0) {
+            Transition_DrawSky();
+        }
+        func_001F2560_a(D_0015F490, 0xE);
+        func_001F2558_a(D_0015F490, 0xE);
+    }
+    if (D_0015F534_f & 2) {
+        DrawTfrag();
+    }
+    Vif1ChainCmd(0x02010000);
+    if (D_0015F534_f & 4) {
+        if (D_0015EE80 != 0) {
+            DrawTies_2();
+        } else {
+            DrawTies_1();
+        }
+    }
+    Vif1ChainCmd(0x02020000);
+    if (D_0018A3B0[0x34 / 4] != 0 && D_0015F56C != 0) {
+        func_00234F40();
+        SetupGifPaging(1);
+        ExecuteDrawCallbacks3();
+        DoGifPaging();
+        VU1_gsRegsNormal();
+    }
+    func_001F2558_a(D_0015F4A0, 6);
+    func_001F2560_a(D_0015F4A0, 6);
+    if (D_0015F534_f & 8) {
+        DrawShrubs();
+    }
+    Vif1ChainCmd(0x02040000);
+    if (D_0018A3B0[0x44 / 4] != 0 && *(int *)&D_0015F470 != 0) {
+        draw_fogged_fullscreen_sprite((char *)&D_0015F470);
+    }
+    if (D_0015F534_f & 0x20) {
+        SetupGifPaging(1);
+        func_001F7B70();
+        DoGifPaging();
+    }
+    if (D_0018A3B0[0x34 / 4] != 0 && D_0015F570 != 0) {
+        func_00234F40();
+        SetupGifPaging(1);
+        ExecuteDrawCallbacks4();
+        DoGifPaging();
+        VU1_gsRegsNormal();
+    }
+    if (D_0015F534_f & 0x10) {
+        DrawMobys();
+    }
+    Vif1ChainCmd(0x02080000);
+    SetupGifPaging(0);
+    if ((D_0015F534_f & 0x20) && D_0018A3B0[0x30 / 4] != 0 && D_0015F704 != 6) {
+        VU1_addDataRef(D_0010FAA0, D_0010FA90);
+        D_0015F704 = 6;
+    }
+    func_001F2560_a(D_0015F4B0, 4);
+    func_001F2558_a(D_0015F4B0, 4);
+    if (D_0015F534_f & 0x20) {
+        func_00234F40();
+        if (D_0018A3B0[0x34 / 4] != 0) {
+            if (D_0015F564 != 0) {
+                ExecuteDrawCallbacks();
+            }
+            VU1_addGSregister(0x42, 0x8000000048L);
+            func_001EDFF8();
+            func_00234F40();
+            func_001F4C30();
+        }
+        func_001F2558_a(D_0015F4C0, 6);
+        func_001F2560_a(D_0015F4C0, 6);
+        if (D_0018A3B0[0x38 / 4] != 0) {
+            VU1_addGSregister(8, 5);
+            func_00234F40();
+            func_00118D80(0);
+            PartProc();
+            D_0015F704 = 8;
+        }
+        func_001F2558_a(D_0015F4D0, 8);
+        func_001F2560_a(D_0015F4D0, 8);
+        if (D_0018A3B0[0x3C / 4] != 0) {
+            if (D_0015F568 != 0) {
+                func_00234F40();
+                ExecuteDrawCallbacks2();
+            }
+            if (D_0015F6E8 == 0) {
+                func_001F9478();
+            }
+            VU1_addGSregister(0x42, 0x8000000044L);
+            func_001EE6E0();
+        }
+        func_001F2558_a(D_0015F4E0, 6);
+        func_001F2560_a(D_0015F4E0, 6);
+    }
+    if (D_0018A3B0[0x48 / 4] != 0) {
+        AA_BlurPass();
+    }
+    func_001F2560_a(D_0015F4F0, 0xF);
+    func_00234F40();
+    if (D_0015F534_f & 0x10000) {
+        func_00238D88();
+    }
+    if ((D_0015F534_f & 0x80) && D_0018A3B0[0x40 / 4] != 0) {
+        HudDraw();
+        func_001FF1B0();
+        func_001F5148();
+    }
+    if (D_0015F6E8 == 2 && D_0015EF40_F3D78[0] != 0) {
+        func_001F4F90();
+    }
+    func_001F2560_a(D_0015F4F8, 0xE);
+    func_001F2558_a(D_0015F4F8, 0xE);
+    DoGifPaging();
+    if (D_0015F534_f & 0x40) {
+        if (D_0018A3B0[0x44 / 4] != 0) {
+            VU1_addGSregister(0x42, 0x8000000044L);
+            if (D_001873D4 != 0) {
+                emit_rgba_draw_packet(D_001611C0_F3D78[0], D_001611C1_F3D78[0], D_001611C2_F3D78[0], D_001611C3_F3D78[0]);
+            }
+            if (D_0015F53C > 0.0f) {
+                if (D_0015F53C > 1.0f) {
+                    D_0015F53C = 1.0f;
+                }
+                emit_rgba_draw_packet(0, 0, 0, func_001FA898_r(D_0015F53C * 128.0f));
+            }
+            if (D_0015F540 > 0.0f) {
+                if (D_0015F540 > 1.0f) {
+                    D_0015F540 = 1.0f;
+                }
+                emit_rgba_draw_packet(0xFF, 0xFF, 0xFF, func_001FA898_r(D_0015F540 * 128.0f));
+            }
+            if (*(int *)&D_0015F44C != 0 && *(int *)&D_0015F450 != 0) {
+                DrawScreenEffect();
+            }
+        }
+        func_001F2560_a(D_0015F500, 0xA);
+    }
+    VU0_loadMicroProgram(D_00100AE0);
+    func_00118D80(0);
+    t = func_001FA888(*(volatile int *)0x10000800);
+    D_0015F6F8 = t / (D_0015EE80 != 0 ? 11520.0f : 9600.0f);
+    VU1_syncChain(2);
+    func_001F2558_a(D_0015F510, 0x11);
+    if (D_0015F534_f & 2) {
+        if (D_0018A3B0[0x10 / 4] != 0) {
+            LightTfrags(D_001E1600);
+            PatchTfragGifs();
+        }
+        func_001F2558_a(D_001E7BA0, 2);
+    }
+    VU1_syncChain(4);
+    func_001F2558_a(D_0015F510, 0x11);
+    if (D_0015F534_f & 4) {
+        if (D_0018A3B0[0x18 / 4] != 0) {
+            if (D_0015EE80 != 0) {
+                func_00236BB0();
+                copy_render_buffer_pair();
+            } else {
+                LightTies(D_001E3500);
+                PatchTieGifs();
+            }
+        }
+        func_001F2558_a(D_0015F518, 5);
+    }
+    VU1_syncChain(8);
+    func_001F2558_a(D_0015F510, 0x11);
+    if (D_0015F534_f & 8) {
+        if (D_0018A3B0[0x20 / 4] != 0) {
+            LightShrubs(D_001D9240);
+            PatchShrubGifs();
+        }
+        func_001F2558_a(D_001E7BB8, 7);
+    }
+    VU1_syncChain(0x10);
+    func_001F2558_a(D_0015F510, 0x11);
+    if (D_0015F534_f & 0x10) {
+        if (D_0018A3B0[0x28 / 4] != 0) {
+            PatchMobyGifs();
+        }
+        func_001F2558_a(D_0015F528, 3);
+    }
+    func_001F2930_v();
+    D_0015F728 = 0;
+}
 
 extern int D_0015F6FC;
 extern short D_0015F534;              /* SDA, gp -0x77CC */
@@ -1440,7 +1725,140 @@ void func_001F5BB8(float x, float y, float w, float h, int u, int v, int uw, int
     D_00161000 = (int *)((char *)D_00161000 + 0x70);
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001F5E60);
+struct Screen {
+    s32 width; /* 0x0: display width (D_00151780 +0x150) */
+    s32 height; /* 0x4: display height (D_00151780 +0x152) */
+    s32 half_width; /* 0x8: width >> 1 */
+    s32 half_height; /* 0xC: height >> 1 */
+    s32 left; /* 0x10: (0x800 - half_width) << 4 */
+    s32 top; /* 0x14: (0x800 - half_height) << 4 */
+    s32 right; /* 0x18: (0x800 + half_width) << 4 */
+    s32 bottom; /* 0x1C: (0x800 + half_height) << 4 */
+};
+extern struct Screen D_0013E600_F5E60 __asm__("D_0013E600");
+struct DmaTag {
+    u32 tag;
+    u32 addr;
+    u32 vif0;
+    u32 vif1;
+};
+struct GifTag;
+union PacketCursor {
+    struct DmaTag *tag;
+    struct GifTag *gif;
+    s32 *words;
+    u8 *bytes;
+    s32 addr;
+};
+extern union PacketCursor D_00161000_F5E60 __asm__("D_00161000") MACRO_ADDR;
+typedef struct {
+    f32 x;
+    f32 y;
+    f32 z;
+    f32 w;
+} Vec4f;
+extern void func_001F9BD8(void *, void *, void *);
+extern void func_001F9BF0(void *, void *, void *);
+extern void func_001F9C30(void *, void *, f32);
+extern f32 func_001F9F90(f32);
+extern f32 func_001F9FA8(f32);
+extern s32 func_001FA898(f32);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/rendering/append_rotated_sprite_quad.c, append_rotated_sprite_quad. */
+void func_001F5E60(f32 center_x, f32 center_y, f32 quad_width, f32 quad_height,
+                                f32 angle, s32 texture_width, s32 texture_height,
+                                s64 texture_tex0, s64 z_and_fog, s32 color, u8 flip_u, u8 flip_v,
+                                f32 pivot_u, f32 pivot_v) {
+    Vec4f vertical_edge;
+    Vec4f horizontal_edge;
+    Vec4f center;
+    Vec4f temporary;
+    Vec4f top_left;
+    Vec4f top_right;
+    Vec4f bottom_left;
+    Vec4f bottom_right;
+    struct DmaTag *tag;
+    u64 *packet_words;
+    s32 texture_left;
+    s32 texture_right;
+    s32 texture_top;
+    s32 texture_bottom;
+    f32 inverse_pivot_u;
+    f32 inverse_pivot_v;
+
+    if (flip_u != 0) {
+        texture_left = ((u32)texture_width << 4);
+        texture_right = 0x10;
+    } else {
+        texture_right = ((u32)texture_width << 4);
+        texture_left = 0x10;
+    }
+    if (flip_v != 0) {
+        texture_top = ((u32)texture_height << 20);
+        texture_bottom = 0x100000;
+    } else {
+        texture_bottom = ((u32)texture_height << 20);
+        texture_top = 0x100000;
+    }
+    center.x = center_x;
+    center.y = center_y;
+    inverse_pivot_v = 1.0f - pivot_v;
+    vertical_edge.x = quad_height * FastSin(angle);
+    vertical_edge.y = quad_height * FastCos(angle);
+    horizontal_edge.x = quad_width * FastCos(angle);
+    horizontal_edge.y = -quad_width * FastSin(angle);
+    inverse_pivot_u = 1.0f - pivot_u;
+    FastVecScale(&temporary, &vertical_edge, inverse_pivot_v);
+    FastVecAdd(&top_left, &center, &temporary);
+    FastVecScale(&temporary, &horizontal_edge, inverse_pivot_u);
+    FastVecSub(&top_left, &top_left, &temporary);
+    FastVecScale(&temporary, &vertical_edge, inverse_pivot_v);
+    FastVecAdd(&top_right, &center, &temporary);
+    FastVecScale(&temporary, &horizontal_edge, pivot_u);
+    FastVecAdd(&top_right, &top_right, &temporary);
+    FastVecScale(&temporary, &vertical_edge, pivot_v);
+    FastVecSub(&bottom_left, &center, &temporary);
+    FastVecScale(&temporary, &horizontal_edge, inverse_pivot_u);
+    FastVecSub(&bottom_left, &bottom_left, &temporary);
+    FastVecScale(&temporary, &vertical_edge, pivot_v);
+    FastVecSub(&bottom_right, &center, &temporary);
+    FastVecScale(&temporary, &horizontal_edge, pivot_u);
+    FastVecAdd(&bottom_right, &bottom_right, &temporary);
+    D_00161000_F5E60.tag->tag = 0x10000007;
+    D_00161000_F5E60.tag->addr = 0;
+    D_00161000_F5E60.tag->vif0 = 0;
+    D_00161000_F5E60.tag->vif1 = 0x50000007;
+    tag = D_00161000_F5E60.tag;
+    packet_words = (u64 *)(tag + 1);
+    D_00161000_F5E60.tag = tag + 1;
+    packet_words[0] = 0xB400000000008001;
+    packet_words[1] = 0x53535353106;
+    packet_words[2] = texture_tex0;
+    packet_words[3] = 0x154;
+    packet_words[4] = color;
+    packet_words[5] = texture_left | texture_top;
+    packet_words[6] =
+        (truncate_float_to_s32(top_left.x * 16.0f) + D_0013E600_F5E60.left - 8) |
+        ((u64)(truncate_float_to_s32(top_left.y * 16.0f) + D_0013E600_F5E60.top - 8) << 16) |
+        ((u64)z_and_fog << 32);
+    packet_words[7] = texture_right | texture_top;
+    packet_words[8] =
+        (truncate_float_to_s32(top_right.x * 16.0f) + D_0013E600_F5E60.left - 8) |
+        ((u64)(truncate_float_to_s32(top_right.y * 16.0f) + D_0013E600_F5E60.top - 8) << 16) |
+        ((u64)z_and_fog << 32);
+    packet_words[9] = texture_left | texture_bottom;
+    packet_words[10] =
+        (truncate_float_to_s32(bottom_left.x * 16.0f) + D_0013E600_F5E60.left - 8) |
+        ((u64)(truncate_float_to_s32(bottom_left.y * 16.0f) + D_0013E600_F5E60.top - 8) << 16) |
+        ((u64)z_and_fog << 32);
+    packet_words[11] = texture_right | texture_bottom;
+    packet_words[12] =
+        (truncate_float_to_s32(bottom_right.x * 16.0f) + D_0013E600_F5E60.left - 8) |
+        ((u64)(truncate_float_to_s32(bottom_right.y * 16.0f) + D_0013E600_F5E60.top - 8) << 16) |
+        ((u64)z_and_fog << 32);
+    packet_words[13] = 0;
+    D_00161000_F5E60.tag = (struct DmaTag *)((u8 *)D_00161000_F5E60.tag + 0x70);
+}
 
 LINKER_REMNANT("asm/remnants/text", func_001F62C0);
 
@@ -1577,7 +1995,79 @@ int func_001F6640(unsigned char *arg0, int arg1) {
  */
 __asm__(".section .text\n\tnop\n\tnop\n");
 
-INCLUDE_ASM("asm/nonmatchings/text", func_001F6668); /* FontPrint */
+struct Glyph_F6668 {
+    u8 u;
+    u8 v;
+    s8 top;
+    s8 adv;
+};
+extern s32 D_0015F5A0_F6668 __asm__("D_0015F5A0") MACRO_ADDR;
+extern s32 D_0015F59C_F6668 SDATA(D_0015F59C);
+extern s32 D_0018CBF8_F6668[] __asm__("D_0018CBF8");
+extern void func_001F5800_F6668(s32, s32, s32, s32, s32, s32, s32, s32, s64, s64) __asm__("func_001F5800");
+
+/* FontPrint: draws a string glyph by glyph; bytes 8..15 switch the colour, 0x80..0xA7 add an accent glyph,
+   bytes below 0x20 are 24-pixel grey button glyphs.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/ui/text/font_print.c, font_print. */
+void func_001F6668_r(s32 x, s32 y, u64 color, u8 *text, s32 character_limit, s64 texture,
+                      struct Glyph_F6668 *glyphs) __asm__("func_001F6668");
+void func_001F6668_r(s32 x, s32 y, u64 color, u8 *text, s32 character_limit, s64 texture,
+                      struct Glyph_F6668 *glyphs) {
+    s32 character_count;
+    u8 *cursor;
+    u8 character;
+    struct Glyph_F6668 *overlay_glyph;
+    s32 gray_value;
+    s32 gray_color;
+
+    if (D_0015F5A0_F6668 == 0) {
+        D_0018CBF8_F6668[0] = color;
+    }
+    character_count = 0;
+    if (character_limit == 0 || *text == 0) {
+        return;
+    }
+    cursor = text;
+    do {
+        /* Bytes 8..15 select a palette color, preserving the current alpha. */
+        if ((u8)(*cursor - 8) < 8) {
+            if (D_0015F59C_F6668 != 0) {
+                color &= 0xFF000000;
+                color |= D_0018CBF8_F6668[*cursor - 8] & 0xFFFFFF;
+            }
+        } else {
+            character = *cursor;
+            if (glyphs[character].adv != 0) {
+                /* Characters 0x80..0xa7 also draw the glyph 0x40 entries later. */
+                if ((u8)(character + 0x80) < 0x28) {
+                    overlay_glyph = (struct Glyph_F6668 *)(((character + 0x40) << 2) + (s32)glyphs);
+                    func_001F5800_F6668(x + overlay_glyph->adv, y + overlay_glyph->top, 16, 16,
+                                       overlay_glyph->u, overlay_glyph->v, 16, 16, color, texture);
+                }
+                /* Control glyphs use 24-pixel grayscale sprites. */
+                if (*cursor < 0x20) {
+                    gray_value =
+                        (s32)((color & 0xFF) + ((color >> 8) & 0xFF) + ((color >> 16) & 0xFF)) / 3;
+                    gray_color = (s32)(color & 0xFF000000);
+                    gray_color += gray_value << 16;
+                    gray_color += gray_value << 8;
+                    gray_value += gray_color;
+                    func_001F5800_F6668(x, y + glyphs[*cursor].top, 24, 16, glyphs[*cursor].u,
+                                       glyphs[*cursor].v, 24, 16, gray_value, texture);
+                } else if (*cursor > 0x20) {
+                    func_001F5800_F6668(x, y + glyphs[*cursor].top, 16, 16, glyphs[*cursor].u,
+                                       glyphs[*cursor].v, 16, 16, color, texture);
+                }
+                x += glyphs[*cursor].adv;
+            }
+        }
+        character_count++;
+        if (character_count == character_limit) {
+            break;
+        }
+        cursor++;
+    } while (*cursor != 0);
+}
 
 extern void func_001F6668(void *, void *, void *, void *, void *, int,
                           unsigned char *);

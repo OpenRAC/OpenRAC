@@ -403,4 +403,208 @@ int func_0020CDB8(void) {
     return base[0x21] != 0;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_0020CDE0);
+typedef struct {
+    u8 pad0[0x24];
+    s16 active;
+    u8 pad26[2];
+} MapIconLink_0CDE0;
+
+typedef struct {
+    f32 x;
+    f32 y;
+    f32 z;
+    s32 flag;
+} MapPoint_0CDE0;
+
+typedef struct {
+    u8 pad0[0x10];
+    f32 x;
+    f32 y;
+    u8 pad18[0x30];
+    f32 z;
+} MapWorldObject_0CDE0;
+
+struct TextRegion_0CDE0 {
+    s16 top;
+    s16 bottom;
+    s16 left;
+    s16 right;
+    s16 anchor_x;
+    s16 anchor_y;
+    s16 measured_width;
+    s16 rendered_height;
+    s16 line_advance;
+    u16 flags;
+    s16 subpixel_x_sixteenths;
+    s16 subpixel_y_sixteenths;
+};
+/* One entry of a level's map icon list; the list ends at the first entry with flags bit 4. */
+struct MapIcon_0CDE0 {
+    s16 id;             /* 0x00: moby index (current level) or D_0013D6B8 index; -1..-9 are fixed positions */
+    s16 link;           /* 0x02: -1 always active, else the link's active word decides */
+    u16 flags;          /* 0x04: 0x4 ends the list, 0x10 label shown */
+    u16 texture_id;     /* 0x06 */
+    s16 frame_index;    /* 0x08 */
+    s16 label_text_id;  /* 0x0A: 0 = no label */
+    s16 label_item;     /* 0x0C */
+    u16 label_width;    /* 0x0E */
+    u16 label_height;   /* 0x10 */
+    s16 label_offset_x; /* 0x12 */
+    s16 label_offset_y; /* 0x14 */
+    u8 pad16[0x2];
+    f32 x;              /* 0x18: map position 0..1 */
+    f32 y;              /* 0x1C */
+    f32 angle;          /* 0x20 */
+    s32 active;         /* 0x24 */
+};
+/* Map screen state at D_001A01F0, as far as this function reads it. */
+struct MapState_0CDE0 {
+    u8 pad0[0x20];
+    struct MapIcon_0CDE0 *icons; /* 0x020: icon list of the shown level */
+    u8 pad24[0xE0];
+    s32 pan_x[20];               /* 0x104 */
+    s32 pan_y[20];               /* 0x154 */
+};
+struct HeroPos_0CDE0 {
+    u8 pad0[0x80];
+    f32 pos[4];                  /* 0x80: world position */
+};
+extern struct MapState_0CDE0 D_001A01F0_0CDE0 __asm__("D_001A01F0");
+extern struct HeroPos_0CDE0 D_0013F450_0CDE0 __asm__("D_0013F450");
+extern s32 D_0015EE84_0CDE0 __asm__("D_0015EE84") MACRO_ADDR;
+extern u8 D_0013DE60_0CDE0[] __asm__("D_0013DE60");
+extern struct MapIcon_0CDE0 *D_001A2F40_0CDE0[] __asm__("D_001A2F40");
+extern s32 D_001A02F4_0CDE0[] __asm__("D_001A02F4");
+extern s32 D_0015FE20_0CDE0 __asm__("D_0015FE20") MACRO_ADDR;
+extern MapWorldObject_0CDE0 *D_00199578_0CDE0[] __asm__("D_00199578");
+extern MapPoint_0CDE0 D_0013D6B8_0CDE0[] __asm__("D_0013D6B8");
+extern s32 D_0013D6C4_0CDE0[] __asm__("D_0013D6C4");
+extern struct {
+    u8 pad0[0x10];
+    MapIconLink_0CDE0 *links;
+} D_001A2F90_0CDE0 __asm__("D_001A2F90");
+
+extern void func_00208C38_0CDE0(f32 *outx, f32 *outy, s32 view, f32 x,
+                                f32 y) __asm__("func_00208C38");
+extern void func_00208AB0_0CDE0(s32 idx, char *dst) __asm__("func_00208AB0");
+extern void func_001F75D0_0CDE0(struct TextRegion_0CDE0 *, long, char *,
+                                    int) __asm__("func_001F75D0");
+
+/* Map screen icon refresh: picks the level's icon list, centres the map on the hero when
+   it is the current level, places the fixed icons (-1..-9) and projects the others to map
+   coordinates, then sets each icon's active flag and sizes its label box.
+   Adapted from Lombyte (MIT) for PAL: src/ui/map/update_map_icons.c, update_map_icons. */
+void func_0020CDE0(s32 level, s32 flag) {
+    char label_text[128];
+    f32 map_x;
+    f32 map_y;
+    struct MapIcon_0CDE0 *icon;
+    s32 icon_index;
+
+    if (level < 19 && D_0013DE60_0CDE0[level] != 0) {
+        D_001A01F0_0CDE0.icons = D_001A2F40_0CDE0[level];
+    } else {
+        D_001A01F0_0CDE0.icons = 0;
+    }
+
+    if (D_0013F450_0CDE0.pos[2] != 0.0f && level == D_0015EE84_0CDE0 && flag) {
+        func_00208C38_0CDE0(&map_x, &map_y, D_0015FE20_0CDE0 ? level + 100 : level, D_0013F450_0CDE0.pos[0],
+                            D_0013F450_0CDE0.pos[1]);
+        D_001A01F0_0CDE0.pan_x[level] = (s32)(map_x * 4096.0f) << 16;
+        D_001A01F0_0CDE0.pan_y[level] = (s32)(map_y * 4096.0f) << 16;
+    } else {
+        /* D_001A02F4_0CDE0 is &D_001A01F0_0CDE0.posx: a null-guarded reset that can
+           never run, but retail still emits it with p folded to 0. */
+        s32 *p = D_001A02F4_0CDE0;
+        if (p == 0) {
+            p[level] = 0x8000000;
+            p[level + 20] = 0x8000000;
+        }
+    }
+
+    if (D_001A01F0_0CDE0.icons == 0) {
+        return;
+    }
+
+    if (!(D_001A01F0_0CDE0.icons->flags & 4)) {
+        icon_index = 0;
+        do {
+            icon = &D_001A01F0_0CDE0.icons[icon_index];
+            if (icon->id == -1) {
+                icon->x = 0.234375f;
+                icon->y = 0.30078125f;
+            } else if (icon->id == -2) {
+                icon->x = 0.5390625f;
+                icon->y = 0.365234375f;
+            } else if (icon->id == -3) {
+                icon->x = 0.58203125f;
+                icon->y = 0.6875f;
+            } else if (icon->id == -4) {
+                icon->x = 0.720703125f;
+                icon->y = 0.728515625f;
+            } else if (icon->id == -5) {
+                icon->x = 0.384765625f;
+                icon->y = 0.396484375f;
+            } else if (icon->id == -7) {
+                icon->x = 0.8671875f;
+                icon->y = 0.23046875f;
+            } else if (icon->id == -8) {
+                icon->x = 0.48046875f;
+                icon->y = 0.5703125f;
+            } else if (icon->id == -9) {
+                icon->x = 0.625f;
+                icon->y = 0.72265625f;
+            } else {
+                if (level == D_0015EE84_0CDE0) {
+                    if (D_00199578_0CDE0[icon->id] != 0) {
+                        func_00208C38_0CDE0(&icon->x, &icon->y, level, D_00199578_0CDE0[icon->id]->x,
+                                            D_00199578_0CDE0[icon->id]->y);
+                        D_001A01F0_0CDE0.icons[icon_index].angle = D_00199578_0CDE0[icon->id]->z;
+                    }
+                } else {
+                    func_00208C38_0CDE0(&icon->x, &icon->y, level, D_0013D6B8_0CDE0[icon->id].x,
+                                        D_0013D6B8_0CDE0[icon->id].y);
+                    D_001A01F0_0CDE0.icons[icon_index].angle = D_0013D6B8_0CDE0[icon->id].z;
+                }
+            }
+            icon_index++;
+        } while (!(D_001A01F0_0CDE0.icons[icon_index].flags & 4));
+    }
+
+    for (icon_index = 0; !(D_001A01F0_0CDE0.icons[icon_index].flags & 4); icon_index++) {
+        icon = &D_001A01F0_0CDE0.icons[icon_index];
+        icon->flags &= ~0x10;
+        icon->active = 0;
+        if (icon->link == -1) {
+            icon->active = 1;
+        } else {
+            icon->active = D_001A2F90_0CDE0.links[icon->link].active == 1;
+        }
+        if ((icon->flags & 0x1000) && (D_0013D6C4_0CDE0[icon->id * 4] ^ 1) & 1) {
+            icon->active = 0;
+        }
+        if (D_001A01F0_0CDE0.icons[icon_index].label_text_id != 0) {
+            s32 label_height_changed = 0;
+            s16 previous_label_height;
+
+            D_001A01F0_0CDE0.icons[icon_index].flags |= 0x10;
+            func_00208AB0_0CDE0(icon_index, label_text);
+            {
+                struct TextRegion_0CDE0 text_window = {
+                    0, icon->label_height, 0, icon->label_width, 4, 4, 0, 0, 0xF, 4};
+                func_001F75D0_0CDE0(&text_window, 0x80FFA888L, label_text, -1);
+                icon->label_height = text_window.rendered_height + 8;
+                previous_label_height = text_window.rendered_height;
+                do {
+                    text_window.right -= 4;
+                    func_001F75D0_0CDE0(&text_window, 0x80FFA888L, label_text, -1);
+                    if (text_window.rendered_height != previous_label_height) {
+                        label_height_changed = 1;
+                    }
+                } while (!label_height_changed);
+                icon->label_width = text_window.right + 4;
+            }
+        }
+    }
+}
+__asm__(".section .text\n\tnop\n\tnop\n");

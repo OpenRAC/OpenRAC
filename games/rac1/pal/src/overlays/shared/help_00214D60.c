@@ -113,10 +113,10 @@ void func_L00_00214D60(void) {
         qcopy(&D_0013F450_s.v150, &D_0013F450_s.v920);
         D_0013F450_s.f194 = D_0013F450_s.f164;
     } else if (state == 16) {
-        if (func_001F9850(0x36) < D_0013F450_s.i198) {
+        if (scale_ticks(0x36) < D_0013F450_s.i198) {
             func_00214D28(&D_0013F450_s.f4A0, D_0015EE70 * 25.0f, D_0015EE70 * 7.0f);
         }
-        if (D_0013F450_s.i198 < func_001F9850(0x37)) {
+        if (D_0013F450_s.i198 < scale_ticks(0x37)) {
             D_0013F450_s.f190 = D_0013F450_s.f3F4;
         } else {
             D_0013F450_s.f190 = D_0015EE6C * 3.5f;
@@ -125,7 +125,7 @@ void func_L00_00214D60(void) {
         func_L00_00234420(D_0013F450_s.vE0.f, D_0013F450_s.vE0.f, 0.0f);
         func_L00_00233F88(&D_0013F450_s.vE0, &D_0013F450_s.vE0, D_0013F450_s.f194);
     } else if (state == 0x1C) {
-        if (func_001F9850(0x28) < D_0013F450_s.i198) {
+        if (scale_ticks(0x28) < D_0013F450_s.i198) {
             func_L00_002124E8(0, D_0015EE64 * 0.04f, D_0015EE64 * 0.2f, D_0015EE6C * 15.009831f);
             func_L00_00214520(D_0015EE70 * 20.0f);
         }
@@ -136,8 +136,8 @@ void func_L00_00214D60(void) {
                 func_00214D28(&D_0013F450_s.f45C, D_0015EE6C * 2.0f, D_0015EE70 * 8.0f);
             }
         }
-        D_0013F450_s.vE0.f[0] = func_001F9F90(D_0013F450_s.f98) * D_0013F450_s.f45C;
-        D_0013F450_s.vE0.f[1] = func_001F9FA8(D_0013F450_s.f98) * D_0013F450_s.f45C;
+        D_0013F450_s.vE0.f[0] = FastCos(D_0013F450_s.f98) * D_0013F450_s.f45C;
+        D_0013F450_s.vE0.f[1] = FastSin(D_0013F450_s.f98) * D_0013F450_s.f45C;
     } else if (state == 0x4C) {
         if (5.0f <= D_0013F450_s.fAA8 && D_0013F450_s.fAA8 <= 18.0f) {
             if (15.0f < D_0013F450_s.fAA8) {
@@ -146,10 +146,10 @@ void func_L00_00214D60(void) {
                 func_00214D28(&D_0013F450_s.f45C, D_0015EE6C * 1.25f, D_0015EE70 * 8.0f);
             }
         }
-        D_0013F450_s.vE0.f[0] = func_001F9F90(D_0013F450_s.f98) * D_0013F450_s.f45C;
-        D_0013F450_s.vE0.f[1] = func_001F9FA8(D_0013F450_s.f98) * D_0013F450_s.f45C;
+        D_0013F450_s.vE0.f[0] = FastCos(D_0013F450_s.f98) * D_0013F450_s.f45C;
+        D_0013F450_s.vE0.f[1] = FastSin(D_0013F450_s.f98) * D_0013F450_s.f45C;
     } else if (state == 11 || state == 12) {
-        if (D_0015EE84 != 0xE && func_L00_0020DB30(3) == 3 && D_0013F450_s.i198 == func_001F9850(5)) {
+        if (D_0015EE84 != 0xE && func_L00_0020DB30(3) == 3 && D_0013F450_s.i198 == scale_ticks(5)) {
             func_L00_00217570(1, 0);
         }
         D_0013F450_s.f180 = D_0013F450_s.f43C;
@@ -160,33 +160,33 @@ void func_L00_00214D60(void) {
             D_0013F450_s.f194 = 0.0f;
         }
         if (D_0013F450_s.i2084 == 11) {
-            if (D_0013F450_s.s41E != 0 && D_0013F450_s.i44C < func_001F9850(0xC)) {
+            if (D_0013F450_s.s41E != 0 && D_0013F450_s.i44C < scale_ticks(0xC)) {
                 func_00214D28(&D_0013F450_s.f458, 0.0f, D_0015EE70 * 8.0f);
             } else {
                 func_00214D28(&D_0013F450_s.f458, D_0015EE6C * 4.2f, D_0015EE70 * 8.0f);
             }
         }
-        D_0013F450_s.vE0.f[0] = func_001F9F90(D_0013F450_s.f438) * D_0013F450_s.f458;
-        D_0013F450_s.vE0.f[1] = func_001F9FA8(D_0013F450_s.f438) * D_0013F450_s.f458;
-        a = D_0013F450_s.f454 * func_001F9FA8(func_001FA850(D_0013F450_s.f43C, D_0013F450_s.f438));
-        D_0013F450_s.vE0.f[0] += func_001F9F90(D_0013F450_s.f43C) * a;
-        D_0013F450_s.vE0.f[1] += func_001F9FA8(D_0013F450_s.f43C) * a;
+        D_0013F450_s.vE0.f[0] = FastCos(D_0013F450_s.f438) * D_0013F450_s.f458;
+        D_0013F450_s.vE0.f[1] = FastSin(D_0013F450_s.f438) * D_0013F450_s.f458;
+        a = D_0013F450_s.f454 * FastSin(FastDiffRots(D_0013F450_s.f43C, D_0013F450_s.f438));
+        D_0013F450_s.vE0.f[0] += FastCos(D_0013F450_s.f43C) * a;
+        D_0013F450_s.vE0.f[1] += FastSin(D_0013F450_s.f43C) * a;
         func_L00_00213970(0.7f, D_0015EE6C * 0.0f);
         qcopy(&D_0013F450_s.v150, &D_0013F450_s.v920);
     } else if (state == 0x11) {
         D_0013F450_s.f180 = D_0013F450_s.v470.f[3];
         qcopy(&D_0013F450_s.v170, &D_0013F450_s.v470);
-        if (func_001F9850(9) < D_0013F450_s.i198) {
+        if (scale_ticks(9) < D_0013F450_s.i198) {
             func_L00_002124E8(-1, D_0015EE64 * 0.042f, D_0015EE64 * 0.2f, D_0015EE6C * 11.868238f);
         }
-        if (func_001F9850(9) <= D_0013F450_s.i198) {
+        if (scale_ticks(9) <= D_0013F450_s.i198) {
             if (D_0013F450_s.s308 == 0) {
-                D_0013F450_s.vE0.f[0] = func_001F9F90(D_0013F450_s.f180) * (D_0015EE6C * 4.9f);
-                D_0013F450_s.vE0.f[1] = func_001F9FA8(D_0013F450_s.f180) * (D_0015EE6C * 4.9f);
+                D_0013F450_s.vE0.f[0] = FastCos(D_0013F450_s.f180) * (D_0015EE6C * 4.9f);
+                D_0013F450_s.vE0.f[1] = FastSin(D_0013F450_s.f180) * (D_0015EE6C * 4.9f);
             } else {
                 func_L00_00234420(D_0013F450_s.vE0.f, D_0013F450_s.vE0.f, 0.0f);
                 func_L00_001FF4B0(&tmp, &D_0013F450_s.v170, D_0015EE6C * 4.9f);
-                func_001F9BD8(&D_0013F450_s.vE0, &D_0013F450_s.vE0, &tmp);
+                FastVecAdd(&D_0013F450_s.vE0, &D_0013F450_s.vE0, &tmp);
             }
         }
         D_0013F450_s.f194 = D_0013F450_s.f164;
@@ -194,7 +194,7 @@ void func_L00_00214D60(void) {
         if (state == 0x2D) {
             x = D_0013F450_s.f98;
             D_0013F450_s.f188 = func_L00_0025CCF0_214d60(&x, D_0013F450_s.f180, &D_0013F450_s.f184, 0, D_0015EE64 * 0.018f, D_0015EE64 * 0.2f, D_0015EE6C * 7.330383f);
-            a = func_001FA790(x, D_0013F450_s.f98);
+            a = FastSubRots(x, D_0013F450_s.f98);
             func_L00_00209850(0.0f, 0.0f, a);
         } else {
             func_L00_002124E8(0, D_0015EE64 * 0.04f, D_0015EE64 * 0.2f, D_0013F450_s.f414);
@@ -289,7 +289,7 @@ void func_L00_002162B8(void) {
         t = PF(0x188) * 0.5f;
         if (0.7f < t) t = 0.7f;
         else if (t < -0.7f) t = -0.7f;
-        t = t * func_001F9B88(t) * 1.25f;
+        t = t * FastAbsF(t) * 1.25f;
         h = D_0013E633 + 0xE1D;
         r = *(float *)(h + 0x164) / (D_0015EE6C * 3.0f);
         x = D_L00_0017A780;
@@ -301,7 +301,7 @@ void func_L00_002162B8(void) {
         XF(0x1240) = XF(0x1240) * r;
         XF(0x10E0) = n * 0.35f;
         XF(0x1198) = t * 1.35f;
-        XF(0x1194) = func_001F9B88(t) * 0.25f;
+        XF(0x1194) = FastAbsF(t) * 0.25f;
         return;
     }
     if (PI(0x2084) == 0x4F) {
@@ -319,7 +319,7 @@ void func_L00_002162B8(void) {
         X2B(0x10E8) = t * 0.58f;
         if (0.7f < b) X2B(0x1198) = 0.7f;
         else if (b < -0.7f) X2B(0x1198) = -0.7f;
-        d = func_001F9B88(t) * 0.2f;
+        d = FastAbsF(t) * 0.2f;
         x2c = D_L00_0017A780;
         X2C(0x1194) = d;
         c = 0.2f;
@@ -329,7 +329,7 @@ void func_L00_002162B8(void) {
 st94:
             X2C(0x1194) = c;
         }
-        d = func_001F9B88(t) * 0.16f;
+        d = FastAbsF(t) * 0.16f;
         x2d = D_L00_0017A780;
         X2D(0x1190) = d;
         return;
@@ -344,7 +344,748 @@ st94:
         X3(0x1198) = u * 0.87f;
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_00216648);
+typedef u32 u128 __attribute__((mode(TI), aligned(16)));
+typedef struct {
+    f32 x;
+    f32 y;
+    f32 z;
+    f32 w;
+} Vec4f;
+typedef union {
+    u128 q;
+    f32 f[4];
+    s32 i[4];
+} Vec4;
+struct Moby;
+struct MobyTrail {
+    Vec4 pos[8]; /* 0x00: ring of source positions */
+    Vec4 rot[8]; /* 0x80: ring of source rotations */
+    s32 copy_fade[4]; /* 0x100: start of copy moby byte 0x23; all 0 ends the trail */
+    s32 delay[4]; /* 0x110: frames each copy lags behind */
+    struct Moby *copies[4]; /* 0x120 */
+    s16 head; /* 0x130: next ring slot */
+    s16 count; /* 0x132: ring entries filled (max 8) */
+    struct Moby *source; /* 0x134 */
+    s32 copy_count; /* 0x138: copies in use (max 4) */
+    s32 active; /* 0x13C */
+};
+struct HeroItemSlot {
+    struct Moby *moby; /* 0x00: item moby */
+    struct Moby *moby2; /* 0x04: second item moby */
+    u8 pad_08[0x8];
+    s32 button_mask; /* 0x10: pad buttons that hold the gadget states */
+    s32 unk14; /* 0x14: set on release */
+    s16 timer; /* 0x18: counts down; a slot change waits for 0 */
+    u8 unk1A; /* 0x1A: cleared on a slot change */
+    u8 pad_1B[0x1];
+    u8 unk1C; /* 0x1C: 2 blocks a slot change, 1 reloads timer */
+    u8 timer_reload; /* 0x1D: timer reload value */
+    u8 pad_1E[0x2];
+    s32 unk20; /* 0x20 */
+    s32 state; /* 0x24: 0 empty, 2 ready, 3 released */
+    s32 item_id; /* 0x28: item in the slot */
+    u8 pad_2C[0x24];
+};
+struct HeroMotion {
+    Vec4 pos; /* 0x80: world position */
+    Vec4 rot; /* 0x90: rotation; z is the yaw */
+    Vec4 unkA0; /* 0xA0 */
+    Vec4 unkB0; /* 0xB0 */
+    Vec4 unkC0; /* 0xC0 */
+    Vec4 unkD0; /* 0xD0 */
+    Vec4 velocity; /* 0xE0: per-frame velocity */
+    Vec4 unkF0; /* 0xF0 */
+    Vec4 unk100; /* 0x100 */
+    Vec4 unk110; /* 0x110 */
+    Vec4 unk120; /* 0x120 */
+    Vec4 unk130; /* 0x130 */
+    Vec4 unk140; /* 0x140 */
+    Vec4 unk150; /* 0x150: copied from unk110/unk100 on hero_set_state */
+    f32 unk160; /* 0x160 */
+    f32 unk164; /* 0x164 */
+    f32 unk168; /* 0x168 */
+    f32 unk16C; /* 0x16C */
+    Vec4 unk170; /* 0x170 */
+    f32 unk180; /* 0x180: angle, compared with rot.z */
+    f32 unk184; /* 0x184 */
+    f32 unk188; /* 0x188 */
+    u8 pad_18C[0x4];
+};
+struct HeroRandTimer {
+    s32 fired; /* 0xFF0: 1 once the deadline passed */
+    s32 deadline; /* 0xFF4: frame count to wait for */
+    s32 range; /* 0xFF8: random span; 0 holds the timer off */
+};
+struct HeroState {
+    s32 current; /* 0x2084: state id; hero_set_state sets it */
+    s32 step; /* 0x2088: sub-step, 0 on state change */
+    s32 control_mode; /* 0x208C */
+    s32 prev; /* 0x2090: state before the last change */
+    s32 prev_control_mode; /* 0x2094: control_mode before the last change */
+    s32 prev_timer; /* 0x2098: state_timer before the last change */
+    s32 prev2; /* 0x209C: state before prev */
+    s32 prev2_control_mode; /* 0x20A0: control mode before prev_control_mode */
+};
+struct HeroHealth {
+    s32 hp; /* 0x22A8: hit points; 0 = dead */
+    s32 unk22AC; /* 0x22AC: swapped with health.hp */
+    s16 unk22B0; /* 0x22B0: s16 copy of health.hp */
+    s16 unk22B2; /* 0x22B2 */
+};
+struct Hero {
+    u8 pad_0[0x40];
+    f32 unk40[16]; /* 0x40 */
+    struct HeroMotion motion; /* 0x80 */
+    f32 unk190; /* 0x190 */
+    f32 unk194; /* 0x194 */
+    s32 state_timer; /* 0x198: frames in the current state */
+    s32 unk19C; /* 0x19C */
+    s32 unk1A0; /* 0x1A0 */
+    s32 unk1A4; /* 0x1A4 */
+    s32 unk1A8; /* 0x1A8 */
+    s32 unk1AC; /* 0x1AC */
+    s16 unk1B0; /* 0x1B0 */
+    s16 unk1B2; /* 0x1B2 */
+    s32 unk1B4; /* 0x1B4 */
+    s32 unk1B8; /* 0x1B8 */
+    s32 unk1BC; /* 0x1BC */
+    s32 unk1C0; /* 0x1C0 */
+    s32 unk1C4; /* 0x1C4 */
+    s16 unk1C8; /* 0x1C8 */
+    s16 unk1CA; /* 0x1CA */
+    s32 unk1CC; /* 0x1CC */
+    s32 unk1D0; /* 0x1D0 */
+    s32 unk1D4; /* 0x1D4 */
+    s16 unk1D8; /* 0x1D8 */
+    s16 unk1DA; /* 0x1DA */
+    s16 unk1DC; /* 0x1DC */
+    s16 unk1DE; /* 0x1DE */
+    s16 unk1E0; /* 0x1E0 */
+    s16 unk1E2; /* 0x1E2 */
+    s16 unk1E4; /* 0x1E4 */
+    s16 unk1E6; /* 0x1E6 */
+    s16 unk1E8; /* 0x1E8 */
+    s16 unk1EA; /* 0x1EA */
+    s16 unk1EC; /* 0x1EC */
+    s16 unk1EE; /* 0x1EE */
+    s16 unk1F0; /* 0x1F0 */
+    s16 unk1F2; /* 0x1F2 */
+    s16 unk1F4; /* 0x1F4 */
+    s16 unk1F6; /* 0x1F6 */
+    s16 unk1F8; /* 0x1F8 */
+    u8 pad_1FA[0x6];
+    Vec4 unk200; /* 0x200 */
+    Vec4 unk210; /* 0x210 */
+    f32 unk220; /* 0x220 */
+    f32 unk224; /* 0x224 */
+    f32 unk228; /* 0x228 */
+    f32 unk22C; /* 0x22C */
+    f32 unk230; /* 0x230 */
+    f32 unk234; /* 0x234 */
+    u8 pad_238[0x4];
+    u8 *coll_hit_moby; /* 0x23C: moby of the last push-out collision hit */
+    s32 unk240; /* 0x240 */
+    u8 pad_244[0x4];
+    f32 unk248; /* 0x248 */
+    u8 pad_24C[0xB];
+    u8 unk257; /* 0x257 */
+    u8 pad_258[0x18];
+    Vec4 unk270; /* 0x270 */
+    Vec4 unk280; /* 0x280 */
+    Vec4 unk290; /* 0x290 */
+    Vec4 unk2A0; /* 0x2A0 */
+    Vec4 unk2B0; /* 0x2B0 */
+    union { f32 f[2]; s32 i[2]; } unk2C0; /* 0x2C0: written as floats and zeroed as ints */
+    union { f32 f[2]; s32 i[2]; } unk2C8; /* 0x2C8: written as floats and zeroed as ints */
+    union { f32 f[2]; s32 i[2]; } unk2D0; /* 0x2D0: written as floats and zeroed as ints */
+    union { f32 f; s32 i; } unk2D8; /* 0x2D8: written as a float and zeroed as an int */
+    f32 unk2DC; /* 0x2DC */
+    union { f32 f; s32 i; } unk2E0; /* 0x2E0: written as a float and zeroed as an int */
+    union { f32 f; s32 i; } unk2E4; /* 0x2E4: written as a float and zeroed as an int */
+    union { f32 f; s32 i; } unk2E8; /* 0x2E8: written as a float and zeroed as an int */
+    f32 unk2EC; /* 0x2EC */
+    f32 height_threshold; /* 0x2F0 */
+    f32 unk2F4; /* 0x2F4 */
+    s32 unk2F8; /* 0x2F8 */
+    struct Moby *unk2FC; /* 0x2FC */
+    s32 unk300; /* 0x300 */
+    f32 unk304; /* 0x304 */
+    s16 unk308; /* 0x308 */
+    s16 unk30A; /* 0x30A */
+    union { s16 s; u16 u; } unk30C; /* 0x30C: read signed, incremented unsigned */
+    union { s16 s; u16 u; } unk30E; /* 0x30E: read signed, incremented unsigned */
+    u8 pad_310[0xA0];
+    f32 unk3B0; /* 0x3B0 */
+    s32 unk3B4; /* 0x3B4 */
+    s16 unk3B8; /* 0x3B8 */
+    u8 pad_3BA[0x2];
+    s16 unk3BC; /* 0x3BC */
+    s16 unk3BE; /* 0x3BE */
+    u8 pad_3C0[0x10];
+    s32 unk3D0; /* 0x3D0 */
+    s32 unk3D4; /* 0x3D4 */
+    f32 unk3D8; /* 0x3D8 */
+    f32 unk3DC; /* 0x3DC */
+    s32 unk3E0; /* 0x3E0 */
+    u8 *unk3E4; /* 0x3E4 */
+    s32 unk3E8; /* 0x3E8 */
+    u8 pad_3EC[0x8];
+    f32 unk3F4; /* 0x3F4 */
+    f32 unk3F8; /* 0x3F8 */
+    u8 pad_3FC[0x4];
+    Vec4 unk400; /* 0x400 */
+    f32 unk410; /* 0x410 */
+    f32 unk414; /* 0x414 */
+    s32 unk418; /* 0x418: set when velocity.z clamps to unk500.z, counts up */
+    s16 unk41C; /* 0x41C */
+    s16 unk41E; /* 0x41E: set to 1 when FUN_L00_00233a78(velocity) < 0.001 */
+    s32 unk420; /* 0x420: per-state scale_game_frames(N), compared with state_timer */
+    f32 unk424; /* 0x424 */
+    f32 unk428; /* 0x428 */
+    f32 unk42C; /* 0x42C */
+    f32 unk430; /* 0x430 */
+    f32 unk434; /* 0x434 */
+    f32 unk438; /* 0x438 */
+    f32 unk43C; /* 0x43C */
+    f32 unk440; /* 0x440 */
+    f32 unk444; /* 0x444 */
+    f32 unk448; /* 0x448 */
+    s32 unk44C; /* 0x44C */
+    s32 unk450; /* 0x450 */
+    f32 unk454; /* 0x454 */
+    f32 unk458; /* 0x458 */
+    f32 unk45C; /* 0x45C */
+    Vec4 unk460; /* 0x460 */
+    Vec4 unk470; /* 0x470 */
+    f32 unk480; /* 0x480 */
+    f32 unk484; /* 0x484 */
+    f32 unk488; /* 0x488 */
+    f32 unk48C; /* 0x48C */
+    f32 unk490; /* 0x490 */
+    f32 unk494; /* 0x494 */
+    s16 unk498; /* 0x498 */
+    s16 unk49A; /* 0x49A */
+    s16 unk49C; /* 0x49C */
+    s16 unk49E; /* 0x49E */
+    f32 unk4A0; /* 0x4A0 */
+    s16 unk4A4; /* 0x4A4 */
+    s16 unk4A6; /* 0x4A6 */
+    s16 unk4A8; /* 0x4A8 */
+    s16 unk4AA; /* 0x4AA */
+    s16 unk4AC; /* 0x4AC */
+    u8 unk4AE; /* 0x4AE */
+    u8 unk4AF; /* 0x4AF */
+    f32 unk4B0; /* 0x4B0 */
+    u8 pad_4B4[0x4];
+    f32 unk4B8; /* 0x4B8 */
+    s32 unk4BC; /* 0x4BC */
+    f32 unk4C0; /* 0x4C0 */
+    s32 unk4C4; /* 0x4C4 */
+    u8 pad_4C8[0x8];
+    Vec4 unk4D0; /* 0x4D0 */
+    u8 pad_4E0[0x4];
+    f32 unk4E4; /* 0x4E4 */
+    s32 unk4E8; /* 0x4E8 */
+    f32 unk4EC; /* 0x4EC */
+    f32 unk4F0; /* 0x4F0 */
+    u8 pad_4F4[0x4];
+    s32 unk4F8; /* 0x4F8: first argument of FUN_L00_00233f80 (FUN_L01_00233de0) */
+    u8 pad_4FC[0x4];
+    Vec4 unk500; /* 0x500 */
+    Vec4 unk510; /* 0x510 */
+    Vec4 unk520; /* 0x520 */
+    Vec4 unk530; /* 0x530 */
+    Vec4 unk540; /* 0x540 */
+    Vec4 unk550; /* 0x550 */
+    s32 unk560; /* 0x560 */
+    s32 unk564; /* 0x564 */
+    f32 unk568; /* 0x568 */
+    s32 unk56C; /* 0x56C */
+    s32 unk570; /* 0x570 */
+    f32 unk574; /* 0x574 */
+    s32 unk578; /* 0x578 */
+    f32 unk57C; /* 0x57C */
+    f32 unk580; /* 0x580 */
+    s32 unk584; /* 0x584 */
+    f32 unk588; /* 0x588 */
+    s32 unk58C; /* 0x58C */
+    s32 unk590; /* 0x590 */
+    s32 unk594; /* 0x594 */
+    s32 unk598; /* 0x598 */
+    f32 unk59C; /* 0x59C */
+    s32 unk5A0; /* 0x5A0 */
+    s32 unk5A4; /* 0x5A4 */
+    s32 unk5A8; /* 0x5A8 */
+    union { f32 f; s32 i; } unk5AC; /* 0x5AC: float approached toward a speed, zeroed as an int */
+    f32 unk5B0; /* 0x5B0 */
+    s32 unk5B4; /* 0x5B4 */
+    s32 unk5B8; /* 0x5B8 */
+    s16 unk5BC; /* 0x5BC */
+    s16 unk5BE; /* 0x5BE */
+    s32 unk5C0; /* 0x5C0 */
+    s32 unk5C4; /* 0x5C4 */
+    f32 unk5C8; /* 0x5C8 */
+    f32 unk5CC; /* 0x5CC */
+    f32 unk5D0; /* 0x5D0 */
+    f32 unk5D4; /* 0x5D4 */
+    struct Moby *unk5D8; /* 0x5D8 */
+    f32 unk5DC; /* 0x5DC */
+    Vec4 unk5E0; /* 0x5E0 */
+    s32 *unk5F0; /* 0x5F0 */
+    s32 unk5F4; /* 0x5F4 */
+    f32 unk5F8; /* 0x5F8 */
+    s32 unk5FC; /* 0x5FC */
+    s32 unk600; /* 0x600 */
+    f32 unk604; /* 0x604 */
+    u8 pad_608[0x4];
+    s32 unk60C; /* 0x60C */
+    f32 unk610; /* 0x610 */
+    f32 unk614; /* 0x614 */
+    union { f32 f; s32 i; } unk618; /* 0x618: float distance clamp, zeroed as an int */
+    u8 pad_61C[0x54];
+    f32 unk670; /* 0x670 */
+    f32 unk674; /* 0x674 */
+    u8 pad_678[0x10];
+    f32 unk688; /* 0x688 */
+    u8 pad_68C[0x4];
+    f32 unk690; /* 0x690 */
+    f32 unk694; /* 0x694 */
+    s32 unk698; /* 0x698 */
+    f32 unk69C; /* 0x69C */
+    s32 unk6A0; /* 0x6A0 */
+    struct Moby *unk6A4; /* 0x6A4 */
+    u8 pad_6A8[0x18];
+    Vec4 unk6C0; /* 0x6C0: 0x60 bytes cleared by FillTransferWords */
+    f32 unk6D0; /* 0x6D0 */
+    f32 unk6D4; /* 0x6D4 */
+    u8 pad_6D8[0x48];
+    Vec4 unk720; /* 0x720 */
+    u8 pad_730[0x10];
+    Vec4 unk740; /* 0x740 */
+    Vec4 unk750; /* 0x750 */
+    Vec4 unk760; /* 0x760 */
+    Vec4 unk770; /* 0x770 */
+    Vec4 unk780; /* 0x780 */
+    Vec4 unk790; /* 0x790 */
+    u8 pad_7A0[0x30];
+    f32 unk7D0[0x20]; /* 0x7D0 */
+    u8 pad_850[0x4];
+    f32 unk854; /* 0x854 */
+    f32 unk858; /* 0x858 */
+    f32 unk85C; /* 0x85C */
+    f32 unk860; /* 0x860 */
+    s32 unk864; /* 0x864 */
+    f32 unk868; /* 0x868 */
+    u8 *unk86C; /* 0x86C */
+    s32 unk870; /* 0x870 */
+    f32 unk874; /* 0x874 */
+    f32 unk878; /* 0x878 */
+    f32 unk87C; /* 0x87C */
+    u8 pad_880[0x4];
+    s16 unk884; /* 0x884 */
+    s16 unk886; /* 0x886 */
+    s16 unk888; /* 0x888 */
+    s16 unk88A; /* 0x88A */
+    u8 unk88C; /* 0x88C */
+    u8 unk88D; /* 0x88D */
+    u8 unk88E; /* 0x88E */
+    u8 unk88F; /* 0x88F */
+    u8 pad_890[0x4];
+    s32 unk894; /* 0x894: frame counter shown as m:ss.hh on the HUD (FUN_L05_00266710) */
+    s16 unk898; /* 0x898 */
+    s16 unk89A; /* 0x89A: shown + 1 (capped at 3) on the HUD (FUN_L05_00266320) */
+    s16 unk89C; /* 0x89C */
+    s16 unk89E; /* 0x89E */
+    f32 unk8A0; /* 0x8A0 */
+    f32 unk8A4; /* 0x8A4 */
+    s32 unk8A8; /* 0x8A8: count shown on the HUD (FUN_L05_00266710) */
+    s16 unk8AC; /* 0x8AC */
+    u8 pad_8AE[0x1];
+    u8 unk8AF; /* 0x8AF */
+    s16 unk8B0; /* 0x8B0 */
+    s16 unk8B2; /* 0x8B2 */
+    void *unk8B4; /* 0x8B4 */
+    union { f32 f; s32 i; } unk8B8; /* 0x8B8: read as a float, zeroed as an int */
+    s16 unk8BC; /* 0x8BC */
+    s16 unk8BE; /* 0x8BE */
+    s32 unk8C0; /* 0x8C0: 1..3 picks the HUD rank string (FUN_L05_00266320) */
+    s32 unk8C4; /* 0x8C4 */
+    u8 pad_8C8[0x4];
+    s16 unk8CC; /* 0x8CC */
+    u8 unk8CE; /* 0x8CE */
+    u8 pad_8CF[0x1];
+    Vec4 unk8D0; /* 0x8D0 */
+    s32 unk8E0; /* 0x8E0 */
+    f32 unk8E4; /* 0x8E4 */
+    f32 unk8E8; /* 0x8E8 */
+    f32 unk8EC; /* 0x8EC */
+    s32 unk8F0; /* 0x8F0 */
+    s32 unk8F4; /* 0x8F4 */
+    s16 unk8F8; /* 0x8F8 */
+    u8 pad_8FA[0x2];
+    f32 unk8FC; /* 0x8FC */
+    s16 unk900; /* 0x900 */
+    s16 unk902; /* 0x902 */
+    u8 pad_904[0x6];
+    s16 unk90A; /* 0x90A */
+    s16 unk90C; /* 0x90C */
+    s16 unk90E; /* 0x90E */
+    s32 unk910; /* 0x910 */
+    s32 unk914; /* 0x914 */
+    u8 pad_918[0x8];
+    Vec4 unk920; /* 0x920 */
+    f32 unk930; /* 0x930 */
+    u8 pad_934[0xC];
+    f32 unk940; /* 0x940 */
+    f32 unk944; /* 0x944 */
+    f32 unk948; /* 0x948 */
+    f32 unk94C; /* 0x94C */
+    f32 unk950; /* 0x950 */
+    f32 unk954; /* 0x954 */
+    u8 pad_958[0x8];
+    f32 unk960; /* 0x960 */
+    struct Moby *unk964; /* 0x964 */
+    s32 unk968; /* 0x968 */
+    f32 unk96C; /* 0x96C */
+    f32 unk970; /* 0x970 */
+    s32 unk974; /* 0x974 */
+    u8 pad_978[0x4];
+    f32 unk97C; /* 0x97C */
+    f32 unk980; /* 0x980 */
+    f32 unk984; /* 0x984 */
+    s32 unk988; /* 0x988 */
+    u8 pad_98C[0x4];
+    struct Moby *unk990; /* 0x990 */
+    struct Moby *unk994; /* 0x994 */
+    f32 unk998; /* 0x998 */
+    s16 unk99C; /* 0x99C */
+    s16 unk99E; /* 0x99E */
+    f32 unk9A0; /* 0x9A0 */
+    f32 unk9A4; /* 0x9A4 */
+    f32 unk9A8; /* 0x9A8 */
+    f32 unk9AC; /* 0x9AC */
+    f32 unk9B0; /* 0x9B0 */
+    f32 unk9B4; /* 0x9B4 */
+    f32 unk9B8; /* 0x9B8 */
+    s16 unk9BC; /* 0x9BC */
+    s16 unk9BE; /* 0x9BE */
+    u8 pad_9C0[0x4];
+    f32 unk9C4; /* 0x9C4 */
+    f32 unk9C8; /* 0x9C8 */
+    f32 unk9CC; /* 0x9CC */
+    f32 unk9D0; /* 0x9D0: rail yaw (FUN_L01_002f6328) */
+    f32 unk9D4; /* 0x9D4 */
+    u8 pad_9D8[0x4];
+    f32 unk9DC; /* 0x9DC: rail speed, eased toward the rail's speed */
+    f32 unk9E0; /* 0x9E0: pull toward the rail, capped at the distance */
+    f32 unk9E4; /* 0x9E4 */
+    f32 unk9E8; /* 0x9E8 */
+    u8 pad_9EC[0x64];
+    u8 *unkA50; /* 0xA50 */
+    struct Moby *unkA54; /* 0xA54 */
+    s32 unkA58; /* 0xA58 */
+    f32 unkA5C; /* 0xA5C */
+    s32 unkA60; /* 0xA60 */
+    s32 unkA64; /* 0xA64 */
+    f32 unkA68; /* 0xA68 */
+    f32 unkA6C; /* 0xA6C */
+    f32 unkA70; /* 0xA70 */
+    u8 pad_A74[0x8];
+    s32 unkA7C; /* 0xA7C */
+    s32 unkA80; /* 0xA80 */
+    u8 *unkA84; /* 0xA84 */
+    u8 *unkA88; /* 0xA88 */
+    void *unkA8C; /* 0xA8C */
+    f32 unkA90; /* 0xA90 */
+    f32 unkA94; /* 0xA94 */
+    s32 unkA98; /* 0xA98 */
+    s32 unkA9C; /* 0xA9C */
+    s32 unkAA0; /* 0xAA0 */
+    s32 unkAA4; /* 0xAA4 */
+    f32 unkAA8; /* 0xAA8 */
+    u8 pad_AAC[0x8];
+    s32 unkAB4; /* 0xAB4 */
+    u8 pad_AB8[0x248];
+    u8*unkD00; /* 0xD00 */
+    u8*unkD04; /* 0xD04 */
+    u8 *unkD08[2]; /* 0xD08: per item slot 0/1: moby from FUN_L00_0024f028 */
+    u8 *unkD10; /* 0xD10 */
+    s32 unkD14; /* 0xD14 */
+    u8 pad_D18[0x2D8];
+    struct HeroRandTimer rand_timer;/* 0xFF0 */
+    u8 pad_FFC[0x14];
+    s32 unk1010; /* 0x1010 */
+    u8 pad_1014[0x7C];
+    struct HeroItemSlot items[4]; /* 0x1090: item slots; slot 0 is the equipped gadget */
+    u8 pad_11D0[0x110];
+    s16 unk12E0; /* 0x12E0 */
+    u8 unk12E2; /* 0x12E2 */
+    u8 unk12E3; /* 0x12E3 */
+    u8 base_condition; /* 0x12E4 */
+    u8 selector_1; /* 0x12E5 */
+    u8 selector_3; /* 0x12E6 */
+    u8 unk12E7; /* 0x12E7 */
+    u8 unk12E8; /* 0x12E8 */
+    u8 unk12E9; /* 0x12E9 */
+    u8 unk12EA; /* 0x12EA */
+    u8 selector_11; /* 0x12EB */
+    u8 selector_13; /* 0x12EC */
+    u8 unk12ED; /* 0x12ED */
+    u8 unk12EE; /* 0x12EE */
+    u8 pad_12EF[0x301];
+    struct Moby *ship_moby; /* 0x15F0: the ship the hero is flying (l17 FUN_L17_002ed018) */
+    s16 ship_oclass; /* 0x15F4: its oclass, -1 when none */
+    u8 ship_ammo; /* 0x15F6: shots left in the space levels; firing needs one and takes it (FUN_L11_003126f8) */
+    u8 ship_ammo_max; /* 0x15F7: ammo pips the ship HUD draws, lit while below ship_ammo */
+    u8 unk15F8; /* 0x15F8 */
+    u8 unk15F9; /* 0x15F9 */
+    u8 unk15FA; /* 0x15FA */
+    u8 unk15FB; /* 0x15FB */
+    f32 ship_hp; /* 0x15FC: ship health; l17 subtracts collision damage and explodes the ship below 0 */
+    f32 ship_hp_max; /* 0x1600: full ship_hp; the HUD bar shows ship_hp over it */
+    f32 unk1604; /* 0x1604 */
+    s32 ship_hp_percent; /* 0x1608: ship_hp as a percentage for the HUD */
+    s16 unk160C; /* 0x160C */
+    u8 unk160E; /* 0x160E */
+    u8 ship_flags; /* 0x160F: 2 = being steered back from the edge or height limit of the space arena (FUN_L11_00313f60) */
+    u8 pad_1610[0x4];
+    s32 unk1614; /* 0x1614 */
+    u8 pad_1618[0x8];
+    void *unk1620; /* 0x1620 */
+    void *unk1624; /* 0x1624 */
+    u8 pad_1628[0x8];
+    s32 unk1630; /* 0x1630 */
+    s16 unk1634; /* 0x1634 */
+    s16 unk1636; /* 0x1636 */
+    u8 pad_1638[0x8];
+    Vec4 unk1640; /* 0x1640 */
+    s32 unk1650; /* 0x1650 */
+    u8 pad_1654[0xC];
+    s32 unk1660; /* 0x1660 */
+    u8 pad_1664[0xC];
+    struct MobyTrail trail; /* 0x1670: trail of moby copies following hero.moby */
+    u8 pad_17B0[0x350];
+    Vec4 unk1B00[32]; /* 0x1B00: ring of 32 quads indexed by unk21B0 */
+    u8 pad_1D00[0x20];
+    f32 unk1D20; /* 0x1D20 */
+    f32 unk1D24; /* 0x1D24 */
+    u8 pad_1D28[0x238];
+    u8 unk1F60[0x40]; /* 0x1F60: 0x40-byte buffer cleared by FUN_L00_002b58d8 */
+    u8 unk1FA0[0x40]; /* 0x1FA0: 0x40-byte buffer cleared by FUN_L00_002b58d8 */
+    u8 *unk1FE0; /* 0x1FE0: moby set by FUN_L00_002b58d8 */
+    u8 pad_1FE4[0x11];
+    u8 unk1FF5; /* 0x1FF5 */
+    u8 ammo_used; /* 0x1FF6 */
+    u8 ammo_capacity; /* 0x1FF7 */
+    u8 pad_1FF8[0x48];
+    struct Moby *unk2040; /* 0x2040: nearest oclass 0x25D moby (FUN_L00_002d2ee8) */
+    f32 unk2044; /* 0x2044: distance to unk2040; 100000 when none */
+    s32 unk2048; /* 0x2048 */
+    u8 pad_204C[0x34];
+    struct Moby *moby; /* 0x2080: the hero's moby */
+    struct HeroState state; /* 0x2084 */
+    u8 unk20A4; /* 0x20A4 */
+    u8 unk20A5; /* 0x20A5 */
+    u8 unk20A6; /* 0x20A6: forces slot 0 to item 8 */
+    u8 unk20A7; /* 0x20A7 */
+    u8 unk20A8; /* 0x20A8 */
+    u8 unk20A9; /* 0x20A9 */
+    u8 unk20AA; /* 0x20AA */
+    u8 unk20AB; /* 0x20AB */
+    u8 unk20AC; /* 0x20AC */
+    u8 unk20AD; /* 0x20AD */
+    u8 unk20AE; /* 0x20AE */
+    u8 unk20AF; /* 0x20AF */
+    u8 pad_20B0[0x1];
+    u8 unk20B1; /* 0x20B1 */
+    u8 unk20B2; /* 0x20B2 */
+    u8 unk20B3; /* 0x20B3 */
+    u8 unk20B4; /* 0x20B4 */
+    u8 pad_20B5[0x3];
+    s32 pending_item[7]; /* 0x20B8: per slot: item to switch to */
+    s32 selected_item[7]; /* 0x20D4: per slot: item after a switch */
+    s32 saved_item[7]; /* 0x20F0: per slot: item kept while another is forced in */
+    s32 restore_item[7]; /* 0x210C: per slot: 1 puts saved_item back */
+    u8 pad_2128[0x88];
+    s32 unk21B0; /* 0x21B0: unk1B00 ring index */
+    s32 unk21B4; /* 0x21B4: unk1B00 ring count */
+    u8 pad_21B8[0x60];
+    s32 unk2218; /* 0x2218 */
+    u8 pad_221C[0x4];
+    s32 unk2220; /* 0x2220 */
+    s32 unk2224; /* 0x2224 */
+    s32 unk2228; /* 0x2228 */
+    s32 unk222C; /* 0x222C */
+    s32 unk2230; /* 0x2230 */
+    s32 unk2234; /* 0x2234 */
+    u8 pad_2238[0x38];
+    s32 unk2270; /* 0x2270 */
+    s32 unk2274; /* 0x2274 */
+    u8 pad_2278[0x8];
+    struct Moby *unk2280; /* 0x2280 */
+    s32 unk2284; /* 0x2284 */
+    f32 unk2288; /* 0x2288 */
+    f32 unk228C; /* 0x228C */
+    f32 unk2290; /* 0x2290 */
+    s32 unk2294; /* 0x2294 */
+    s32 unk2298; /* 0x2298 */
+    f32 unk229C; /* 0x229C */
+    s32 unk22A0; /* 0x22A0 */
+    f32 unk22A4; /* 0x22A4 */
+    struct HeroHealth health; /* 0x22A8 */
+    s32 unk22B4; /* 0x22B4 */
+    f32 unk22B8; /* 0x22B8: distance to the nearest carrying path this frame (FUN_L01_002f3120 keeps the minimum) */
+    u8 pad_22BC[0x8];
+    s32 unk22C4; /* 0x22C4 */
+    s16 unk22C8; /* 0x22C8 */
+    u8 unk22CA; /* 0x22CA */
+    u8 unk22CB; /* 0x22CB */
+    s16 unk22CC; /* 0x22CC */
+    s16 unk22CE; /* 0x22CE */
+    u8 pad_22D0[0x2];
+    s16 unk22D2; /* 0x22D2 */
+    s16 unk22D4; /* 0x22D4: countdown set on pad bit 0x10 press */
+    s16 unk22D6; /* 0x22D6: countdown; nonzero with unk22D4 switches pending_item[0] */
+    s16 unk22D8; /* 0x22D8 */
+    s16 unk22DA; /* 0x22DA */
+    s16 unk22DC; /* 0x22DC */
+    s16 unk22DE; /* 0x22DE */
+    s16 unk22E0; /* 0x22E0 */
+    u8 pad_22E2[0x12];
+    s32 unk22F4; /* 0x22F4 */
+    s32 unk22F8; /* 0x22F8 */
+    s16 unk22FC; /* 0x22FC */
+};
+extern struct Hero D_0013F450_16648 __asm__("D_0013F450");
+struct Manip;
+struct GifEntry;
+struct AnimSeq;
+struct MobyClass {
+    u8 pad_0[0xC];
+    u8 seq_count; /* number of entries in seqs[] (menu previews clamp the sequence to it) */
+    u8 pad_D[3];
+    u32 unk10; /* copied into Moby.unk94 when a moby is (re)classed */
+    u8 pad_14[0x8];
+    void *unk1C; /* word table, indexed id * 4 + 4 (0024eec0) */
+    struct GifEntry *gifs; /* patched by patch_moby_gifs */
+    f32 scale; /* default draw scale: copied into Moby.scale, divides it */
+    s32 unk28;
+    void **callbacks; /* function-pointer table, called with the moby */
+    u8 pad_30[0x14];
+    u16 flags; /* initial Moby.flags */
+    s16 unk46; /* class category; 5 is tested by targeting code */
+    struct AnimSeq *seqs[1]; /* animation sequences, indexed by Moby.seq */
+};
+struct Moby {
+    Vec4f bsphere;
+    Vec4f pos;
+    u8 state; /* >= 0xFE: dead, waiting to respawn */
+    u8 group; /* linked group: index into the level moby-list table D_Lxx_001ABCC0 (0xFF: none) */
+    u8 unk22; /* class slot: pclass = D_L00_00197300[unk22] (FUN_L00_002cf218) */
+    u8 unk23; /* 0x40 for the smoke trail FUN_L09_00307ba8 spawns */
+    struct MobyClass *pclass;
+    struct Moby *next;
+    f32 scale; /* draw scale (FUN_L01_002fa068 halves it, FUN_L00_00215ef8 divides by it) */
+    u8 unk30; /* set to 0xFF (0x7F for beams) by spawners */
+    u8 unk31; /* set to 1 by spawners */
+    s16 unk32; /* set to 0xFF (0x7F for beams) by spawners */
+    u16 flags;
+    u16 unk36; /* set to 0x7F80 by spawners */
+    u64 spawn_frame; /* frame count at which it may respawn */
+    Vec4f rot; /* z: yaw (FUN_L00_00266448 compares it with atan2 to the hero) */
+    u8 frame; /* animation frame */
+    u8 prev_frame; /* frame index in prev_seq */
+    u8 seq; /* animation sequence id */
+    u8 prev_seq;
+    f32 unk54;
+    f32 unk58;
+    u8 pad5C[8];
+    struct Manip *manips;
+    void *cur_frame_data;
+    void *prev_frame_data;
+    u8 unk70;
+    u8 unk71; /* set to 0xFF when a moby changes class */
+    u8 unk72;
+    u8 unk73;
+    void (*update)(struct Moby *moby);
+    u8 *pvars;
+    u8 unk7C;
+    u8 pad7D;
+    u8 unk7E;
+    u8 unk7F; /* set to 0x17 by FUN_L09_002c5990 near D_L09_00166F40 */
+    u8 pad80[0x10];
+    s32 unk90;
+    u32 unk94; /* set from the class header's word 0x10 */
+    s32 unk98; /* set to 1 while a carrier holds the moby (FUN_L00_002c7a58) */
+    u8 pad9C[8];
+    u8 unkA4;
+    u8 padA5;
+    s16 oclass;
+    u8 padA8[8];
+    u8 unkB0; /* 0xB0: index into the level's D_0014C050 row (0xFF: not spawned) */
+    u8 padB1;
+    u16 save_id; /* index into the level collected[]/killed[] tables and save bits D_0014C190[level][id >> 5] */
+    s16 unkB4;
+    u8 padB6[2];
+    void *unkB8; /* 0xB8: bolt source record; its byte 0xB1 is a per-level id (FUN_L00_002a6b70) */
+    u8 unkBC;
+    u8 padBD[3];
+    Vec4f unkC0; /* 0xC0: first row of a matrix built from rot (FUN_001fa030) */
+    Vec4f unkD0;
+    Vec4f unkE0;
+    u8 padF0[0x10];
+};
+typedef struct {
+    u8 pad_000[0xCC8];
+    f32 fCC8; /* lean angle, clamped to +-75 degrees */
+    u8 pad_CCC[0x2C];
+    f32 fCF8; /* sway amount scaled by 1024 / moby scale */
+    u8 pad_CFC[0x8];
+    f32 fD04;
+    f32 fD08;
+} LeanState;
+extern LeanState D_L00_0017A780_16648 __asm__("D_L00_0017A780");
+extern f32 D_L00_0017B48C[];
+extern short D_0015EF18;
+extern u8 D_0015EEB0_16648[] __asm__("D_0015EEB0") MACRO_ADDR;
+extern f32 func_001F9B88(f32);
+
+/* In hero state 2, sets the lean values from motion.unk188 (clamped to +-1.4); needs the moby in item slot 3.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui/help/00214658.c, FUN_L00_00215ef8. */
+void func_L00_00216648(void)
+{
+    struct Hero *h = &D_0013F450_16648;
+    f32 scale;
+    f32 a;
+    f32 lean;
+    f32 sway;
+
+    if (h->items[3].moby2 == 0)
+        return;
+    if (D_0015EEB0_16648[3] != 0)
+        D_L00_0017B48C[0] = (*(f32 *)&D_0015EF18);
+    scale = 1024.0f / h->items[3].moby2->scale;
+    if (h->state.current == 2) {
+        a = h->motion.unk188;
+        D_L00_0017A780_16648.fD04 = 0.02f;
+        D_L00_0017A780_16648.fD08 = 0.35f;
+        if (a > 1.4f)
+            a = 1.4f;
+        else if (a < -1.4f)
+            a = -1.4f;
+        lean = -a * 1.2f;
+        if (lean > 1.3089969f)
+            lean = 1.3089969f;
+        else if (lean < -1.3089969f)
+            lean = -1.3089969f;
+        D_L00_0017A780_16648.fCC8 = lean;
+        sway = 0.1f;
+        sway = FastAbsF(a) * sway + sway;
+        if (sway > 0.07f)
+            sway = 0.07f;
+        D_L00_0017A780_16648.fCF8 = sway * scale;
+    }
+}
 typedef struct { float x, y, z, w; } Vx __attribute__((aligned(16)));
 typedef struct { int a[16]; } Mx __attribute__((aligned(16)));
 extern char D_0013E633[] NOT_SDA;
@@ -394,23 +1135,23 @@ void func_L00_00216880(V_c *v, M_c *m, void *p, float a, float b, float c) {
         d->q[2] = s->q[2];
         d->q[3] = s->q[3];
     }
-    d = func_001F9C78(v, &m->r[2]);
+    d = FastVecDot(v, &m->r[2]);
     pitch = func_L00_001FF860(d, func_001F9B50(1.0f - d * d));
-    func_001F9CA0(&x, v, &m->r[2]);
+    FastVecCross(&x, v, &m->r[2]);
     if (x.f[2] < 0.99f) {
         roll = func_L00_001FF860(x.f[0], x.f[1]);
         r.f[0] = 0.0f;
         r.f[1] = 0.0f;
         r.f[2] = -roll;
         func_L00_001FFA40(&m1, &r);
-        func_001FA540(m, &m1, m);
+        sce_vu0_mul_matrix(m, &m1, m);
         func_001F9EE8(&x, &x, &m1);
         yaw = func_L00_001FF860(x.f[2], x.f[0]);
         r.f[0] = 0.0f;
         r.f[2] = 0.0f;
         r.f[1] = -yaw;
         func_L00_001FFA40(&m0, &r);
-        func_001FA540(m, &m0, m);
+        sce_vu0_mul_matrix(m, &m0, m);
         func_001F9EE8(&x, &x, &m0);
     } else {
         roll = 0.0f;
@@ -426,15 +1167,15 @@ void func_L00_00216880(V_c *v, M_c *m, void *p, float a, float b, float c) {
     }
     r.f[1] = 0.0f;
     func_L00_001FFA40(&m1, &r);
-    func_001FA540(m, &m1, m);
+    sce_vu0_mul_matrix(m, &m1, m);
     r.f[1] = yaw;
     r.f[2] = 0.0f;
     func_L00_001FFA40(&m0, &r);
-    func_001FA540(m, &m0, m);
+    sce_vu0_mul_matrix(m, &m0, m);
     r.f[2] = roll;
     r.f[1] = 0.0f;
     func_L00_001FFA40(&m1, &r);
-    func_001FA540(m, &m1, m);
+    sce_vu0_mul_matrix(m, &m1, m);
     if (p) func_002153E8(m, p);
     else func_002153E8(m, D_0013E633 + 0xEAD);
 }
@@ -460,9 +1201,9 @@ void func_L00_00216B40(void) {
     c.f[2] = k;
     func_001F9EE8(&b, &b, g);
     *(U128 *)&a = *(U128 *)(g + 0x270);
-    if (g[0x20B3] == 2) func_001F9C30(&a, g + 0x290, -1.0f);
+    if (g[0x20B3] == 2) FastVecScale(&a, g + 0x290, -1.0f);
     if (g[0x20B3] == 1) {
-        if (*(short *)(g + 0x30E) < func_001F9850(10) || *(float *)(g + 0x2DC) < one)
+        if (*(short *)(g + 0x30E) < scale_ticks(10) || *(float *)(g + 0x2DC) < one)
             *(U128 *)&a = *(U128 *)(g + 0x270);
     }
     h = (unsigned char *)D_0013E633 + 0xE1D;
@@ -475,8 +1216,8 @@ void func_L00_00216B40(void) {
     unsigned char *n = (unsigned char *)D_0013E633 + 0xE1D;
     if (n[0x20B3] == 1 && *(short *)(n + 0x30E) != 0) {
         func_001F9EE8(&c, &c, &m);
-        func_001F9BF0(n + 0x80, n + 0x80, &c);
-        func_001F9BD8(n + 0x80, n + 0x80, &b);
+        FastVecSub(n + 0x80, n + 0x80, &c);
+        FastVecAdd(n + 0x80, n + 0x80, &b);
     }
     }
 }
@@ -612,8 +1353,8 @@ void func_L00_00216F58(void) {
         D_0013F450_16F58.f190 = 0.0f;
     }
     f20 = 5.9f;
-    v0.f[0] = func_001F9F90(D_0013F450_16F58.f180) * D_0013F450_16F58.f190 * (D_0015EE6C * f20);
-    h = func_001F9FA8(D_0013F450_16F58.f180) * D_0013F450_16F58.f190;
+    v0.f[0] = FastCos(D_0013F450_16F58.f180) * D_0013F450_16F58.f190 * (D_0015EE6C * f20);
+    h = FastSin(D_0013F450_16F58.f180) * D_0013F450_16F58.f190;
     v0.f[2] = 0.0f;
     d = D_0015EE6C;
     f20 = d * f20;
@@ -623,8 +1364,8 @@ void func_L00_00216F58(void) {
     if (f21 < D_0013F450_16F58.f930) {
         func_L00_00213970(0.7f, d * f21);
         qcopy(&v2, &D_0013F450_16F58.f920);
-        func_001F9BD8(&v0, &v0, &D_0013F450_16F58.f920);
-        func_001F9BC0(&D_0013F450_16F58.f920);
+        FastVecAdd(&v0, &v0, &D_0013F450_16F58.f920);
+        clear_u64_value(&D_0013F450_16F58.f920);
     }
     f20 = -(D_0013F450_16F58.fE0[0] * v0.f[0] + D_0013F450_16F58.fE0[1] * v0.f[1]);
     if (f21 < f20) {
@@ -642,7 +1383,7 @@ void func_L00_00216F58(void) {
     if (D_0013CC14[0]) {
         f21 = D_0015EE70 * 1.1f;
     }
-    if (D_0013F450_16F58.i2084 == 0x13 && D_0013F450_16F58.i198 < func_001F9850(0xF) && D_0013F450_16F58.f160 < D_0015EE6C * 3.0f) {
+    if (D_0013F450_16F58.i2084 == 0x13 && D_0013F450_16F58.i198 < scale_ticks(0xF) && D_0013F450_16F58.f160 < D_0015EE6C * 3.0f) {
         f21 = D_0015EE70 * 11.0f;
     }
     if (D_0015EE6C * 5.9f < D_0013F450_16F58.f160) {
@@ -651,8 +1392,8 @@ void func_L00_00216F58(void) {
     e = D_0013F450_16F58.f930;
     f22 = 0.0f;
     if (f22 < e) {
-        f20 = -func_001F9C78(&v1, &v2);
-        e = func_001F9CB8(&v1);
+        f20 = -FastVecDot(&v1, &v2);
+        e = FastVecLength(&v1);
         if (f22 < e) {
             f20 = f20 / e;
         }
@@ -669,13 +1410,13 @@ void func_L00_00216F58(void) {
             f21 = b;
         }
     }
-    func_001F9BF0(&v3, &v0, D_0013F580);
+    FastVecSub(&v3, &v0, D_0013F580);
     v3.f[2] = 0.0f;
-    if (f21 < func_001F9CB8(&v3)) {
+    if (f21 < FastVecLength(&v3)) {
         func_L00_001FF4B0(&v3, &v3, f21);
     }
     r = (V4 *)(D_0013F580 - 0x50);
-    func_001F9BD8(r, D_0013F580, &v3);
+    FastVecAdd(r, D_0013F580, &v3);
     q = (H *)(D_0013F580 - 0x130);
     if (0.0872664601f < q->f2E0) {
         f21 = func_L00_001FF860(q->f270, q->f274);
@@ -684,30 +1425,30 @@ void func_L00_00216F58(void) {
         f20 = f20 * q->f2E0;
         f20 = f20 / 0.785398185f;
         f22 = D_0015EE70 * 8.5f * q->f2E0 / 0.785398185f;
-        v3.f[0] = func_001F9F90(f21) * f20;
-        v3.f[1] = func_001F9FA8(f21) * f20;
+        v3.f[0] = FastCos(f21) * f20;
+        v3.f[1] = FastSin(f21) * f20;
         v3.f[2] = 0.0f;
-        func_001F9BF0(&v4, &v3, r);
+        FastVecSub(&v4, &v3, r);
         v4.f[2] = 0.0f;
-        if (f22 < func_001F9CB8(&v4)) {
+        if (f22 < FastVecLength(&v4)) {
             func_L00_001FF4B0(&v4, &v4, f22);
         }
-        func_001F9BD8(r, r, &v4);
+        FastVecAdd(r, r, &v4);
     }
     qcopy(&v3, D_0013F530);
     v3.f[2] = 0.0f;
     m = (G_167d0 *)(D_0013F530 - 0xE0);
-    m->f3B0 = func_001F9C78(&v3, &v0);
-    k = func_001F9CB8(&v0);
+    m->f3B0 = FastVecDot(&v3, &v0);
+    k = FastVecLength(&v0);
     if (0.0f < k) {
         m->f3B0 = m->f3B0 / (k * (D_0015EE6C * 5.9f));
     }
     func_L00_002129D0(0);
     if (m->f3B4 < 0.0174532924f && 0.0872664601f < m->f2E4) {
-        func_001F9C30(D_0013F530, D_0013F530, func_001F9F90(m->f2E4));
+        FastVecScale(D_0013F530, D_0013F530, FastCos(m->f2E4));
     }
     D_0013F450_16F58.f3B4 = D_0013F450_16F58.f2E4;
-    if (func_001F9B88(D_0013F450_16F58.f88 - D_0013F450_16F58.f2D8) < 0.15f) {
+    if (FastAbsF(D_0013F450_16F58.f88 - D_0013F450_16F58.f2D8) < 0.15f) {
         D_0013F450_16F58.f88 = D_0013F450_16F58.f2D8;
     }
 }
@@ -888,7 +1629,7 @@ void func_L00_002178A0(float a, float b)
         func_L00_00233F88(t, t, b);
     }
     func_L00_002343A0_178A0(t, t, 0.0f);
-    func_001F9BD8(t, t, D_0013F4D0_178A0);
+    FastVecAdd(t, t, D_0013F4D0_178A0);
     qcopy(u, t);
     func_L00_00234090(t, t, 0.3f);
     D_0013F450_178A0 = D_0013F4D0_178A0 - 0x80;
@@ -956,28 +1697,855 @@ void func_L00_00217BD8(void) {
     int a, b;
     float s, ang, e, r;
 
-    t = func_001F9850(0x28);
-    q = D_0013F4D0;
+    t = scale_ticks(0x28);
+    q = gHeroPos;
     g = q - 0x80;
     i = 9;
     do {
-        a = func_001FA898(func_002140F8(4200.0f, 7350.0f) / 1000.0f);
-        b = func_001FA898(func_002140F8(21000.0f, 31500.002f) / 1000.0f);
-        s = func_002140F8(D_0015EE6C * 0.15f, D_0015EE6C * 0.7f);
+        a = truncate_float_to_s32(random_float_between(4200.0f, 7350.0f) / 1000.0f);
+        b = truncate_float_to_s32(random_float_between(21000.0f, 31500.002f) / 1000.0f);
+        s = random_float_between(D_0015EE6C * 0.15f, D_0015EE6C * 0.7f);
         qcopy(pos, q);
         if (D_0015EE84 != 6) {
             pos[0].f[2] = *(float *)(g + 0x2F4);
         }
         i--;
-        ang = func_00214158();
-        e = func_002140F8(0.34906584f, 1.3962634f);
-        r = func_002140F8(0.05f, *(float *)(g + 0x234) + 0.2f);
+        ang = random_angle_radians();
+        e = random_float_between(0.34906584f, 1.3962634f);
+        r = random_float_between(0.05f, *(float *)(g + 0x234) + 0.2f);
         func_00215C00(&out, s, ang, e);
-        pos[0].f[0] += func_001F9F90(ang) * r;
-        pos[0].f[1] += func_001F9FA8(ang) * r;
+        pos[0].f[0] += FastCos(ang) * r;
+        pos[0].f[1] += FastSin(ang) * r;
         func_L00_0026A7F8(pos, &out, 0x7000C0F0, 0x70F0, t, a, b, 1);
     } while (i >= 0);
     if (!ang) {
     }
 }
-INCLUDE_ASM("asm/overlays", func_L00_00217DE0);
+typedef u32 u128_17DE0 __attribute__((mode(TI), aligned(16)));
+typedef struct {
+    f32 x;
+    f32 y;
+    f32 z;
+    f32 w;
+} Vec4f_17DE0;
+typedef union {
+    u128_17DE0 q;
+    f32 f[4];
+    s32 i[4];
+} Vec4_17DE0;
+struct Moby_17DE0;
+struct MobyTrail_17DE0 {
+    Vec4_17DE0 pos[8]; /* 0x00: ring of source positions */
+    Vec4_17DE0 rot[8]; /* 0x80: ring of source rotations */
+    s32 copy_fade[4]; /* 0x100: start of copy moby byte 0x23; all 0 ends the trail */
+    s32 delay[4]; /* 0x110: frames each copy lags behind */
+    struct Moby_17DE0 *copies[4]; /* 0x120 */
+    s16 head; /* 0x130: next ring slot */
+    s16 count; /* 0x132: ring entries filled (max 8) */
+    struct Moby_17DE0 *source; /* 0x134 */
+    s32 copy_count; /* 0x138: copies in use (max 4) */
+    s32 active; /* 0x13C */
+};
+struct HeroEase {
+    u8 unk0; /* 0x00 */
+    u8 attached; /* 0x01: attached to its moby (FUN_0020cb10 / FUN_0020cb88) */
+    u8 pad_2[0xE];
+    Vec4_17DE0 quat; /* 0x10: rotation built from rot (FUN_L00_00259f50) */
+    Vec4_17DE0 scale3; /* 0x20: x/y/z = scale */
+    Vec4_17DE0 translation; /* 0x30: copy of pos */
+    Vec4_17DE0 rot; /* 0x40: eased toward rot_target */
+    Vec4_17DE0 rot_vel; /* 0x50 */
+    Vec4_17DE0 rot_target; /* 0x60: cleared every frame */
+    Vec4_17DE0 pos; /* 0x70: eased toward pos_target */
+    Vec4_17DE0 pos_vel; /* 0x80 */
+    Vec4_17DE0 pos_target; /* 0x90: cleared every frame */
+    s16 unkA0; /* 0xA0: -1 = unused */
+    s16 kind; /* 0xA2: picks the moby (FUN_L00_00205110) */
+    f32 accel; /* 0xA4 */
+    f32 max_speed; /* 0xA8 */
+    f32 scale; /* 0xAC: reset to 1 every frame */
+};
+struct HeroItemSlot_17DE0 {
+    struct Moby_17DE0 *moby; /* 0x00: item moby */
+    struct Moby_17DE0 *moby2; /* 0x04: second item moby */
+    u8 pad_08[0x8];
+    s32 button_mask; /* 0x10: pad buttons that hold the gadget states */
+    s32 unk14; /* 0x14: set on release */
+    s16 timer; /* 0x18: counts down; a slot change waits for 0 */
+    u8 unk1A; /* 0x1A: cleared on a slot change */
+    u8 unk1B; /* 0x1B: counts releases (FUN_L00_00210748, state 3) */
+    u8 unk1C; /* 0x1C: 2 blocks a slot change, 1 reloads timer */
+    u8 timer_reload; /* 0x1D: timer reload value */
+    u8 pad_1E[0x2];
+    s32 unk20; /* 0x20 */
+    s32 state; /* 0x24: 0 empty, 2 ready, 3 released */
+    s32 item_id; /* 0x28: item in the slot */
+    u8 pad_2C[0x24];
+};
+struct HeroVelocityKey {
+    f32 value;
+    f32 delta;
+    s32 frames;
+};
+struct HeroMotion_17DE0 {
+    Vec4_17DE0 pos; /* 0x80: world position */
+    Vec4_17DE0 rot; /* 0x90: rotation; z is the yaw */
+    Vec4_17DE0 unkA0; /* 0xA0 */
+    Vec4_17DE0 unkB0; /* 0xB0 */
+    Vec4_17DE0 unkC0; /* 0xC0 */
+    Vec4_17DE0 unkD0; /* 0xD0 */
+    Vec4_17DE0 velocity; /* 0xE0: per-frame velocity */
+    Vec4_17DE0 unkF0; /* 0xF0 */
+    Vec4_17DE0 unk100; /* 0x100 */
+    Vec4_17DE0 unk110; /* 0x110 */
+    Vec4_17DE0 unk120; /* 0x120 */
+    Vec4_17DE0 unk130; /* 0x130 */
+    Vec4_17DE0 unk140; /* 0x140 */
+    Vec4_17DE0 unk150; /* 0x150: copied from unk110/unk100 on hero_set_state */
+    f32 unk160; /* 0x160 */
+    f32 unk164; /* 0x164 */
+    f32 unk168; /* 0x168 */
+    f32 unk16C; /* 0x16C */
+    Vec4_17DE0 unk170; /* 0x170 */
+    f32 unk180; /* 0x180: angle, compared with rot.z */
+    f32 unk184; /* 0x184 */
+    f32 unk188; /* 0x188 */
+    u8 pad_18C[0x4];
+};
+struct HeroRandTimer_17DE0 {
+    s32 fired; /* 0xFF0: 1 once the deadline passed */
+    s32 deadline; /* 0xFF4: frame count to wait for */
+    s32 range; /* 0xFF8: random span; 0 holds the timer off */
+};
+struct HeroState_17DE0 {
+    s32 current; /* 0x2084: state id; hero_set_state sets it */
+    s32 step; /* 0x2088: sub-step, 0 on state change */
+    s32 control_mode; /* 0x208C */
+    s32 prev; /* 0x2090: state before the last change */
+    s32 prev_control_mode; /* 0x2094: control_mode before the last change */
+    s32 prev_timer; /* 0x2098: state_timer before the last change */
+    s32 prev2; /* 0x209C: state before prev */
+    s32 prev2_control_mode; /* 0x20A0: control mode before prev_control_mode */
+};
+struct HeroHealth_17DE0 {
+    s32 hp; /* 0x22A8: hit points; 0 = dead */
+    s32 unk22AC; /* 0x22AC: swapped with health.hp */
+    s16 unk22B0; /* 0x22B0: s16 copy of health.hp */
+    s16 unk22B2; /* 0x22B2 */
+};
+struct Hero_17DE0 {
+    u8 pad_0[0x40];
+    f32 unk40[16]; /* 0x40 */
+    struct HeroMotion_17DE0 motion; /* 0x80 */
+    f32 unk190; /* 0x190 */
+    f32 unk194; /* 0x194 */
+    s32 state_timer; /* 0x198: frames in the current state */
+    s32 unk19C; /* 0x19C */
+    s32 unk1A0; /* 0x1A0 */
+    s32 unk1A4; /* 0x1A4 */
+    s32 unk1A8; /* 0x1A8 */
+    s32 unk1AC; /* 0x1AC */
+    s16 unk1B0; /* 0x1B0 */
+    s16 unk1B2; /* 0x1B2 */
+    s32 unk1B4; /* 0x1B4 */
+    s32 unk1B8; /* 0x1B8 */
+    s32 unk1BC; /* 0x1BC */
+    s32 unk1C0; /* 0x1C0 */
+    s32 unk1C4; /* 0x1C4 */
+    s16 unk1C8; /* 0x1C8 */
+    s16 unk1CA; /* 0x1CA */
+    s32 unk1CC; /* 0x1CC */
+    s32 unk1D0; /* 0x1D0 */
+    s32 unk1D4; /* 0x1D4 */
+    s16 unk1D8; /* 0x1D8 */
+    s16 unk1DA; /* 0x1DA */
+    s16 unk1DC; /* 0x1DC */
+    s16 unk1DE; /* 0x1DE */
+    s16 unk1E0; /* 0x1E0 */
+    s16 unk1E2; /* 0x1E2 */
+    s16 unk1E4; /* 0x1E4 */
+    s16 unk1E6; /* 0x1E6 */
+    s16 unk1E8; /* 0x1E8 */
+    s16 unk1EA; /* 0x1EA */
+    s16 unk1EC; /* 0x1EC */
+    s16 unk1EE; /* 0x1EE */
+    s16 unk1F0; /* 0x1F0 */
+    s16 unk1F2; /* 0x1F2 */
+    s16 unk1F4; /* 0x1F4 */
+    s16 unk1F6; /* 0x1F6 */
+    s16 unk1F8; /* 0x1F8 */
+    u8 pad_1FA[0x6];
+    Vec4_17DE0 unk200; /* 0x200 */
+    Vec4_17DE0 unk210; /* 0x210 */
+    f32 unk220; /* 0x220 */
+    f32 unk224; /* 0x224 */
+    f32 unk228; /* 0x228 */
+    f32 unk22C; /* 0x22C */
+    f32 unk230; /* 0x230 */
+    f32 unk234; /* 0x234 */
+    u8 pad_238[0x4];
+    u8 *coll_hit_moby; /* 0x23C: moby of the last push-out collision hit */
+    s32 unk240; /* 0x240 */
+    u8 pad_244[0x4];
+    f32 unk248; /* 0x248 */
+    u8 pad_24C[0x4];
+    f32 unk250; /* 0x250 */
+    u8 unk254; /* 0x254 */
+    u8 unk255; /* 0x255 */
+    u8 pad_256[0x1];
+    u8 unk257; /* 0x257 */
+    f32 unk258; /* 0x258 */
+    f32 unk25C; /* 0x25C */
+    s32 unk260; /* 0x260 */
+    u8 pad_264[0xC];
+    Vec4_17DE0 unk270; /* 0x270 */
+    Vec4_17DE0 unk280; /* 0x280 */
+    Vec4_17DE0 unk290; /* 0x290 */
+    Vec4_17DE0 unk2A0; /* 0x2A0 */
+    Vec4_17DE0 unk2B0; /* 0x2B0 */
+    union { f32 f[2]; s32 i[2]; } unk2C0; /* 0x2C0: written as floats and zeroed as ints */
+    union { f32 f[2]; s32 i[2]; } unk2C8; /* 0x2C8: written as floats and zeroed as ints */
+    union { f32 f[2]; s32 i[2]; } unk2D0; /* 0x2D0: written as floats and zeroed as ints */
+    union { f32 f; s32 i; } unk2D8; /* 0x2D8: written as a float and zeroed as an int */
+    f32 unk2DC; /* 0x2DC */
+    union { f32 f; s32 i; } unk2E0; /* 0x2E0: written as a float and zeroed as an int */
+    union { f32 f; s32 i; } unk2E4; /* 0x2E4: written as a float and zeroed as an int */
+    union { f32 f; s32 i; } unk2E8; /* 0x2E8: written as a float and zeroed as an int */
+    f32 unk2EC; /* 0x2EC */
+    f32 height_threshold; /* 0x2F0 */
+    f32 unk2F4; /* 0x2F4 */
+    s32 unk2F8; /* 0x2F8 */
+    struct Moby_17DE0 *unk2FC; /* 0x2FC */
+    s32 unk300; /* 0x300 */
+    f32 unk304; /* 0x304 */
+    s16 unk308; /* 0x308 */
+    s16 unk30A; /* 0x30A */
+    union { s16 s; u16 u; } unk30C; /* 0x30C: read signed, incremented unsigned */
+    union { s16 s; u16 u; } unk30E; /* 0x30E: read signed, incremented unsigned */
+    u8 pad_310[0xA0];
+    f32 unk3B0; /* 0x3B0 */
+    s32 unk3B4; /* 0x3B4 */
+    s16 unk3B8; /* 0x3B8 */
+    u8 pad_3BA[0x2];
+    s16 unk3BC; /* 0x3BC */
+    s16 unk3BE; /* 0x3BE */
+    u8 pad_3C0[0x10];
+    s32 unk3D0; /* 0x3D0 */
+    s32 unk3D4; /* 0x3D4 */
+    f32 unk3D8; /* 0x3D8 */
+    f32 unk3DC; /* 0x3DC */
+    s32 unk3E0; /* 0x3E0 */
+    struct HeroVelocityKey *unk3E4; /* 0x3E4: keys run by FUN_L00_00214108 while unk41C is set */
+    s32 unk3E8; /* 0x3E8: current key in unk3E4, -1 before the first */
+    s32 unk3EC; /* 0x3EC: frames spent in the current key */
+    f32 unk3F0; /* 0x3F0: value added to velocity.z each frame */
+    f32 unk3F4; /* 0x3F4 */
+    f32 unk3F8; /* 0x3F8 */
+    u8 pad_3FC[0x4];
+    Vec4_17DE0 unk400; /* 0x400 */
+    f32 unk410; /* 0x410 */
+    f32 unk414; /* 0x414 */
+    s32 unk418; /* 0x418: set when velocity.z clamps to unk500.z, counts up */
+    s16 unk41C; /* 0x41C */
+    s16 unk41E; /* 0x41E: set to 1 when FUN_L00_00233a78(velocity) < 0.001 */
+    s32 unk420; /* 0x420: per-state scale_game_frames(N), compared with state_timer */
+    f32 unk424; /* 0x424 */
+    f32 unk428; /* 0x428 */
+    f32 unk42C; /* 0x42C */
+    f32 unk430; /* 0x430 */
+    f32 unk434; /* 0x434 */
+    f32 unk438; /* 0x438 */
+    f32 unk43C; /* 0x43C */
+    f32 unk440; /* 0x440 */
+    f32 unk444; /* 0x444 */
+    f32 unk448; /* 0x448 */
+    s32 unk44C; /* 0x44C */
+    s32 unk450; /* 0x450 */
+    f32 unk454; /* 0x454 */
+    f32 unk458; /* 0x458 */
+    f32 unk45C; /* 0x45C */
+    Vec4_17DE0 unk460; /* 0x460 */
+    Vec4_17DE0 unk470; /* 0x470 */
+    f32 unk480; /* 0x480 */
+    f32 unk484; /* 0x484 */
+    f32 unk488; /* 0x488 */
+    f32 unk48C; /* 0x48C */
+    f32 unk490; /* 0x490 */
+    f32 unk494; /* 0x494 */
+    s16 unk498; /* 0x498 */
+    s16 unk49A; /* 0x49A */
+    s16 unk49C; /* 0x49C */
+    s16 unk49E; /* 0x49E */
+    f32 unk4A0; /* 0x4A0 */
+    s16 unk4A4; /* 0x4A4 */
+    s16 unk4A6; /* 0x4A6 */
+    s16 unk4A8; /* 0x4A8 */
+    s16 unk4AA; /* 0x4AA */
+    s16 unk4AC; /* 0x4AC */
+    u8 unk4AE; /* 0x4AE */
+    u8 unk4AF; /* 0x4AF */
+    f32 unk4B0; /* 0x4B0 */
+    u8 pad_4B4[0x4];
+    f32 unk4B8; /* 0x4B8 */
+    s32 unk4BC; /* 0x4BC */
+    f32 unk4C0; /* 0x4C0 */
+    s32 unk4C4; /* 0x4C4 */
+    u8 pad_4C8[0x8];
+    Vec4_17DE0 unk4D0; /* 0x4D0 */
+    u8 pad_4E0[0x4];
+    f32 unk4E4; /* 0x4E4 */
+    s32 unk4E8; /* 0x4E8 */
+    f32 unk4EC; /* 0x4EC */
+    f32 unk4F0; /* 0x4F0 */
+    u8 pad_4F4[0x4];
+    s32 unk4F8; /* 0x4F8: first argument of FUN_L00_00233f80 (FUN_L01_00233de0) */
+    u8 pad_4FC[0x4];
+    Vec4_17DE0 unk500; /* 0x500 */
+    Vec4_17DE0 unk510; /* 0x510 */
+    Vec4_17DE0 unk520; /* 0x520 */
+    Vec4_17DE0 unk530; /* 0x530 */
+    Vec4_17DE0 unk540; /* 0x540 */
+    Vec4_17DE0 unk550; /* 0x550 */
+    s32 unk560; /* 0x560 */
+    s32 unk564; /* 0x564 */
+    f32 unk568; /* 0x568 */
+    s32 unk56C; /* 0x56C */
+    s32 unk570; /* 0x570 */
+    f32 unk574; /* 0x574 */
+    s32 unk578; /* 0x578 */
+    f32 unk57C; /* 0x57C */
+    f32 unk580; /* 0x580 */
+    s32 unk584; /* 0x584 */
+    f32 unk588; /* 0x588 */
+    s32 unk58C; /* 0x58C */
+    s32 unk590; /* 0x590 */
+    s32 unk594; /* 0x594 */
+    s32 unk598; /* 0x598 */
+    f32 unk59C; /* 0x59C */
+    s32 unk5A0; /* 0x5A0 */
+    s32 unk5A4; /* 0x5A4 */
+    s32 unk5A8; /* 0x5A8 */
+    union { f32 f; s32 i; } unk5AC; /* 0x5AC: float approached toward a speed, zeroed as an int */
+    f32 unk5B0; /* 0x5B0 */
+    s32 unk5B4; /* 0x5B4 */
+    s32 unk5B8; /* 0x5B8 */
+    s16 unk5BC; /* 0x5BC */
+    s16 unk5BE; /* 0x5BE */
+    s32 unk5C0; /* 0x5C0 */
+    s32 unk5C4; /* 0x5C4 */
+    f32 unk5C8; /* 0x5C8 */
+    f32 unk5CC; /* 0x5CC */
+    f32 unk5D0; /* 0x5D0 */
+    f32 unk5D4; /* 0x5D4 */
+    struct Moby_17DE0 *unk5D8; /* 0x5D8 */
+    f32 unk5DC; /* 0x5DC */
+    Vec4_17DE0 unk5E0; /* 0x5E0 */
+    s32 *unk5F0; /* 0x5F0 */
+    s32 unk5F4; /* 0x5F4 */
+    f32 unk5F8; /* 0x5F8 */
+    s32 unk5FC; /* 0x5FC */
+    s32 unk600; /* 0x600 */
+    f32 unk604; /* 0x604 */
+    u8 pad_608[0x4];
+    s32 unk60C; /* 0x60C */
+    f32 unk610; /* 0x610 */
+    f32 unk614; /* 0x614 */
+    union { f32 f; s32 i; } unk618; /* 0x618: float distance clamp, zeroed as an int */
+    u8 pad_61C[0x54];
+    f32 unk670; /* 0x670 */
+    f32 unk674; /* 0x674 */
+    u8 pad_678[0x10];
+    f32 unk688; /* 0x688 */
+    u8 pad_68C[0x4];
+    f32 unk690; /* 0x690 */
+    f32 unk694; /* 0x694 */
+    s32 unk698; /* 0x698 */
+    f32 unk69C; /* 0x69C */
+    s32 unk6A0; /* 0x6A0 */
+    struct Moby_17DE0 *unk6A4; /* 0x6A4 */
+    u8 pad_6A8[0x18];
+    Vec4_17DE0 unk6C0; /* 0x6C0: 0x60 bytes cleared by FillTransferWords */
+    f32 unk6D0; /* 0x6D0 */
+    f32 unk6D4; /* 0x6D4 */
+    u8 pad_6D8[0x48];
+    Vec4_17DE0 unk720; /* 0x720 */
+    u8 pad_730[0x10];
+    Vec4_17DE0 unk740; /* 0x740 */
+    Vec4_17DE0 unk750; /* 0x750 */
+    Vec4_17DE0 unk760; /* 0x760 */
+    Vec4_17DE0 unk770; /* 0x770 */
+    Vec4_17DE0 unk780; /* 0x780 */
+    Vec4_17DE0 unk790; /* 0x790 */
+    u8 pad_7A0[0x30];
+    f32 unk7D0[0x20]; /* 0x7D0 */
+    u8 pad_850[0x4];
+    f32 unk854; /* 0x854 */
+    f32 unk858; /* 0x858 */
+    f32 unk85C; /* 0x85C */
+    f32 unk860; /* 0x860 */
+    s32 unk864; /* 0x864 */
+    f32 unk868; /* 0x868 */
+    u8 *unk86C; /* 0x86C */
+    s32 unk870; /* 0x870 */
+    f32 unk874; /* 0x874 */
+    f32 unk878; /* 0x878 */
+    f32 unk87C; /* 0x87C */
+    u8 pad_880[0x4];
+    s16 unk884; /* 0x884 */
+    s16 unk886; /* 0x886 */
+    s16 unk888; /* 0x888 */
+    s16 unk88A; /* 0x88A */
+    u8 unk88C; /* 0x88C */
+    u8 unk88D; /* 0x88D */
+    u8 unk88E; /* 0x88E */
+    u8 unk88F; /* 0x88F */
+    u8 pad_890[0x4];
+    s32 unk894; /* 0x894: frame counter shown as m:ss.hh on the HUD (FUN_L05_00266710) */
+    s16 unk898; /* 0x898 */
+    s16 unk89A; /* 0x89A: shown + 1 (capped at 3) on the HUD (FUN_L05_00266320) */
+    s16 unk89C; /* 0x89C */
+    s16 unk89E; /* 0x89E */
+    f32 unk8A0; /* 0x8A0 */
+    f32 unk8A4; /* 0x8A4 */
+    s32 unk8A8; /* 0x8A8: count shown on the HUD (FUN_L05_00266710) */
+    s16 unk8AC; /* 0x8AC */
+    u8 pad_8AE[0x1];
+    u8 unk8AF; /* 0x8AF */
+    s16 unk8B0; /* 0x8B0 */
+    s16 unk8B2; /* 0x8B2 */
+    void *unk8B4; /* 0x8B4 */
+    union { f32 f; s32 i; } unk8B8; /* 0x8B8: read as a float, zeroed as an int */
+    s16 unk8BC; /* 0x8BC */
+    s16 unk8BE; /* 0x8BE */
+    s32 unk8C0; /* 0x8C0: 1..3 picks the HUD rank string (FUN_L05_00266320) */
+    s32 unk8C4; /* 0x8C4 */
+    u8 pad_8C8[0x4];
+    s16 unk8CC; /* 0x8CC */
+    u8 unk8CE; /* 0x8CE */
+    u8 pad_8CF[0x1];
+    Vec4_17DE0 unk8D0; /* 0x8D0 */
+    s32 unk8E0; /* 0x8E0 */
+    f32 unk8E4; /* 0x8E4 */
+    f32 unk8E8; /* 0x8E8 */
+    f32 unk8EC; /* 0x8EC */
+    s32 unk8F0; /* 0x8F0 */
+    s32 unk8F4; /* 0x8F4 */
+    s16 unk8F8; /* 0x8F8 */
+    u8 pad_8FA[0x2];
+    f32 unk8FC; /* 0x8FC */
+    s16 unk900; /* 0x900 */
+    s16 unk902; /* 0x902 */
+    u8 pad_904[0x6];
+    s16 unk90A; /* 0x90A */
+    s16 unk90C; /* 0x90C */
+    s16 unk90E; /* 0x90E */
+    s32 unk910; /* 0x910 */
+    s32 unk914; /* 0x914 */
+    u8 pad_918[0x8];
+    Vec4_17DE0 unk920; /* 0x920 */
+    f32 unk930; /* 0x930 */
+    u8 pad_934[0xC];
+    f32 unk940; /* 0x940 */
+    f32 unk944; /* 0x944 */
+    f32 unk948; /* 0x948 */
+    f32 unk94C; /* 0x94C */
+    f32 unk950; /* 0x950 */
+    f32 unk954; /* 0x954 */
+    u8 pad_958[0x8];
+    f32 unk960; /* 0x960 */
+    struct Moby_17DE0 *unk964; /* 0x964 */
+    s32 unk968; /* 0x968 */
+    f32 unk96C; /* 0x96C */
+    f32 unk970; /* 0x970 */
+    s32 unk974; /* 0x974 */
+    u8 pad_978[0x4];
+    f32 unk97C; /* 0x97C */
+    f32 unk980; /* 0x980 */
+    f32 unk984; /* 0x984 */
+    s32 unk988; /* 0x988 */
+    u8 pad_98C[0x4];
+    struct Moby_17DE0 *unk990; /* 0x990 */
+    struct Moby_17DE0 *unk994; /* 0x994 */
+    f32 unk998; /* 0x998 */
+    s16 unk99C; /* 0x99C */
+    s16 unk99E; /* 0x99E */
+    f32 unk9A0; /* 0x9A0 */
+    f32 unk9A4; /* 0x9A4 */
+    f32 unk9A8; /* 0x9A8 */
+    f32 unk9AC; /* 0x9AC */
+    f32 unk9B0; /* 0x9B0 */
+    f32 unk9B4; /* 0x9B4 */
+    f32 unk9B8; /* 0x9B8 */
+    s16 unk9BC; /* 0x9BC */
+    s16 unk9BE; /* 0x9BE */
+    u8 pad_9C0[0x4];
+    f32 unk9C4; /* 0x9C4 */
+    f32 unk9C8; /* 0x9C8 */
+    f32 unk9CC; /* 0x9CC */
+    f32 unk9D0; /* 0x9D0: rail yaw (FUN_L01_002f6328) */
+    f32 unk9D4; /* 0x9D4 */
+    u8 pad_9D8[0x4];
+    f32 unk9DC; /* 0x9DC: rail speed, eased toward the rail's speed */
+    f32 unk9E0; /* 0x9E0: pull toward the rail, capped at the distance */
+    f32 unk9E4; /* 0x9E4 */
+    f32 unk9E8; /* 0x9E8 */
+    u8 pad_9EC[0x64];
+    u8 *unkA50; /* 0xA50 */
+    struct Moby_17DE0 *unkA54; /* 0xA54 */
+    s32 unkA58; /* 0xA58 */
+    f32 unkA5C; /* 0xA5C */
+    s32 unkA60; /* 0xA60 */
+    s32 unkA64; /* 0xA64 */
+    f32 unkA68; /* 0xA68 */
+    f32 unkA6C; /* 0xA6C */
+    f32 unkA70; /* 0xA70 */
+    f32 aim_yaw; /* 0xA74: gadget aim yaw (FUN_L00_00217658) */
+    f32 aim_pitch; /* 0xA78: gadget aim pitch */
+    s32 unkA7C; /* 0xA7C */
+    s32 unkA80; /* 0xA80 */
+    u8 *unkA84; /* 0xA84 */
+    u8 *unkA88; /* 0xA88 */
+    void *unkA8C; /* 0xA8C */
+    f32 unkA90; /* 0xA90 */
+    f32 unkA94; /* 0xA94 */
+    s32 unkA98; /* 0xA98 */
+    s32 unkA9C; /* 0xA9C */
+    s32 unkAA0; /* 0xAA0 */
+    s32 unkAA4; /* 0xAA4 */
+    f32 unkAA8; /* 0xAA8 */
+    u8 pad_AAC[0x8];
+    s32 unkAB4; /* 0xAB4 */
+    u8 pad_AB8[0x248];
+    u8*unkD00; /* 0xD00 */
+    u8*unkD04; /* 0xD04 */
+    u8 *unkD08[2]; /* 0xD08: per item slot 0/1: moby from FUN_L00_0024f028 */
+    u8 *unkD10; /* 0xD10 */
+    s32 unkD14; /* 0xD14 */
+    u8 pad_D18[0x2D8];
+    struct HeroRandTimer_17DE0 rand_timer;/* 0xFF0 */
+    u8 pad_FFC[0x14];
+    s32 unk1010; /* 0x1010 */
+    u8 pad_1014[0x7C];
+    struct HeroItemSlot_17DE0 items[7]; /* 0x1090: item slots; slot 0 is the equipped gadget */
+    u8 pad_12C0[0x20];
+    s16 unk12E0; /* 0x12E0 */
+    u8 unk12E2; /* 0x12E2 */
+    u8 unk12E3; /* 0x12E3 */
+    u8 base_condition; /* 0x12E4 */
+    u8 selector_1; /* 0x12E5 */
+    u8 selector_3; /* 0x12E6 */
+    u8 unk12E7; /* 0x12E7 */
+    u8 unk12E8; /* 0x12E8 */
+    u8 unk12E9; /* 0x12E9 */
+    u8 unk12EA; /* 0x12EA */
+    u8 selector_11; /* 0x12EB */
+    u8 selector_13; /* 0x12EC */
+    u8 unk12ED; /* 0x12ED */
+    u8 unk12EE; /* 0x12EE */
+    u8 pad_12EF[0x301];
+    struct Moby_17DE0 *ship_moby; /* 0x15F0: the ship the hero is flying (l17 FUN_L17_002ed018) */
+    s16 ship_oclass; /* 0x15F4: its oclass, -1 when none */
+    u8 ship_ammo; /* 0x15F6: shots left in the space levels; firing needs one and takes it (FUN_L11_003126f8) */
+    u8 ship_ammo_max; /* 0x15F7: ammo pips the ship HUD draws, lit while below ship_ammo */
+    u8 unk15F8; /* 0x15F8 */
+    u8 unk15F9; /* 0x15F9 */
+    u8 unk15FA; /* 0x15FA */
+    u8 unk15FB; /* 0x15FB */
+    f32 ship_hp; /* 0x15FC: ship health; l17 subtracts collision damage and explodes the ship below 0 */
+    f32 ship_hp_max; /* 0x1600: full ship_hp; the HUD bar shows ship_hp over it */
+    f32 unk1604; /* 0x1604 */
+    s32 ship_hp_percent; /* 0x1608: ship_hp as a percentage for the HUD */
+    s16 unk160C; /* 0x160C */
+    u8 unk160E; /* 0x160E */
+    u8 ship_flags; /* 0x160F: 2 = being steered back from the edge or height limit of the space arena (FUN_L11_00313f60) */
+    u8 pad_1610[0x4];
+    s32 unk1614; /* 0x1614 */
+    u8 pad_1618[0x8];
+    void *unk1620; /* 0x1620 */
+    void *unk1624; /* 0x1624 */
+    u8 pad_1628[0x8];
+    s32 unk1630; /* 0x1630 */
+    s16 unk1634; /* 0x1634 */
+    s16 unk1636; /* 0x1636 */
+    u8 pad_1638[0x8];
+    Vec4_17DE0 unk1640; /* 0x1640 */
+    s32 unk1650; /* 0x1650 */
+    u8 pad_1654[0xC];
+    s32 unk1660; /* 0x1660 */
+    u8 pad_1664[0xC];
+    struct MobyTrail_17DE0 trail; /* 0x1670: trail of moby copies following hero.moby */
+    u8 pad_17B0[0x140];
+    struct HeroEase unk18F0[3]; /* 0x18F0: eased records, kind 5 set when an item slot is ready (FUN_L00_00210748) */
+    Vec4_17DE0 unk1B00[32]; /* 0x1B00: ring of 32 quads indexed by unk21B0 */
+    u8 pad_1D00[0x20];
+    f32 unk1D20; /* 0x1D20 */
+    f32 unk1D24; /* 0x1D24 */
+    u8 pad_1D28[0x238];
+    u8 unk1F60[0x40]; /* 0x1F60: 0x40-byte buffer cleared by FUN_L00_002b58d8 */
+    u8 unk1FA0[0x40]; /* 0x1FA0: 0x40-byte buffer cleared by FUN_L00_002b58d8 */
+    u8 *unk1FE0; /* 0x1FE0: moby set by FUN_L00_002b58d8 */
+    u8 pad_1FE4[0x11];
+    u8 unk1FF5; /* 0x1FF5 */
+    u8 ammo_used; /* 0x1FF6 */
+    u8 ammo_capacity; /* 0x1FF7 */
+    u8 pad_1FF8[0x48];
+    struct Moby_17DE0 *unk2040; /* 0x2040: nearest oclass 0x25D moby (FUN_L00_002d2ee8) */
+    f32 unk2044; /* 0x2044: distance to unk2040; 100000 when none */
+    s32 unk2048; /* 0x2048 */
+    u8 pad_204C[0x34];
+    struct Moby_17DE0 *moby; /* 0x2080: the hero's moby */
+    struct HeroState_17DE0 state; /* 0x2084 */
+    u8 unk20A4; /* 0x20A4 */
+    u8 unk20A5; /* 0x20A5 */
+    u8 unk20A6; /* 0x20A6: forces slot 0 to item 8 */
+    u8 unk20A7; /* 0x20A7 */
+    u8 unk20A8; /* 0x20A8 */
+    u8 unk20A9; /* 0x20A9 */
+    u8 unk20AA; /* 0x20AA */
+    u8 unk20AB; /* 0x20AB */
+    u8 unk20AC; /* 0x20AC */
+    u8 unk20AD; /* 0x20AD */
+    u8 unk20AE; /* 0x20AE */
+    u8 unk20AF; /* 0x20AF */
+    u8 pad_20B0[0x1];
+    u8 unk20B1; /* 0x20B1 */
+    u8 unk20B2; /* 0x20B2 */
+    u8 unk20B3; /* 0x20B3 */
+    u8 unk20B4; /* 0x20B4 */
+    u8 pad_20B5[0x3];
+    s32 pending_item[7]; /* 0x20B8: per slot: item to switch to */
+    s32 selected_item[7]; /* 0x20D4: per slot: item after a switch */
+    s32 saved_item[7]; /* 0x20F0: per slot: item kept while another is forced in */
+    s32 restore_item[7]; /* 0x210C: per slot: 1 puts saved_item back */
+    f32 unk2128[32]; /* 0x2128: ring of 32 yaws (motion.rot.z) indexed by unk21A8 */
+    s32 unk21A8; /* 0x21A8: unk2128 ring index */
+    s32 unk21AC; /* 0x21AC: unk2128 ring count */
+    s32 unk21B0; /* 0x21B0: unk1B00 ring index */
+    s32 unk21B4; /* 0x21B4: unk1B00 ring count */
+    u8 pad_21B8[0x60];
+    s32 unk2218; /* 0x2218 */
+    u8 pad_221C[0x4];
+    s32 unk2220; /* 0x2220 */
+    s32 unk2224; /* 0x2224 */
+    s32 unk2228; /* 0x2228 */
+    s32 unk222C; /* 0x222C */
+    s32 unk2230; /* 0x2230 */
+    s32 unk2234; /* 0x2234 */
+    struct Moby_17DE0 *unk2238[8]; /* 0x2238: per sound slot (unk2218 + i * 4): moby the sound plays on, 0 = hero.moby */
+    u8 pad_2258[0x18];
+    s32 unk2270; /* 0x2270 */
+    s32 unk2274; /* 0x2274 */
+    u8 pad_2278[0x8];
+    struct Moby_17DE0 *unk2280; /* 0x2280 */
+    s32 unk2284; /* 0x2284 */
+    f32 unk2288; /* 0x2288 */
+    f32 unk228C; /* 0x228C */
+    f32 unk2290; /* 0x2290 */
+    s32 unk2294; /* 0x2294 */
+    s32 unk2298; /* 0x2298 */
+    f32 unk229C; /* 0x229C */
+    s32 unk22A0; /* 0x22A0 */
+    f32 unk22A4; /* 0x22A4 */
+    struct HeroHealth_17DE0 health; /* 0x22A8 */
+    s32 unk22B4; /* 0x22B4 */
+    f32 unk22B8; /* 0x22B8: distance to the nearest carrying path this frame (FUN_L01_002f3120 keeps the minimum) */
+    u8 pad_22BC[0x8];
+    s32 unk22C4; /* 0x22C4 */
+    s16 unk22C8; /* 0x22C8 */
+    u8 unk22CA; /* 0x22CA */
+    u8 unk22CB; /* 0x22CB */
+    s16 unk22CC; /* 0x22CC */
+    s16 unk22CE; /* 0x22CE */
+    u8 pad_22D0[0x2];
+    s16 unk22D2; /* 0x22D2 */
+    s16 unk22D4; /* 0x22D4: countdown set on pad bit 0x10 press */
+    s16 unk22D6; /* 0x22D6: countdown; nonzero with unk22D4 switches pending_item[0] */
+    s16 unk22D8; /* 0x22D8 */
+    s16 unk22DA; /* 0x22DA */
+    s16 unk22DC; /* 0x22DC */
+    s16 unk22DE; /* 0x22DE */
+    s16 unk22E0; /* 0x22E0 */
+    u8 pad_22E2[0x12];
+    s32 unk22F4; /* 0x22F4 */
+    s32 unk22F8; /* 0x22F8 */
+    s16 unk22FC; /* 0x22FC */
+};
+extern struct Hero_17DE0 D_0013F450_17DE0 __asm__("D_0013F450");
+struct Manip;
+struct GifEntry;
+struct AnimSeq;
+struct MobyClass_17DE0 {
+    u8 pad_0[0xC];
+    u8 seq_count; /* number of entries in seqs[] (menu previews clamp the sequence to it) */
+    u8 pad_D[3];
+    u32 unk10; /* copied into Moby.unk94 when a moby is (re)classed */
+    u8 pad_14[0x8];
+    void *unk1C; /* word table, indexed id * 4 + 4 (0024eec0) */
+    struct GifEntry *gifs; /* patched by patch_moby_gifs */
+    f32 scale; /* default draw scale: copied into Moby.scale, divides it */
+    s32 unk28;
+    void **callbacks; /* function-pointer table, called with the moby */
+    u8 pad_30[0x14];
+    u16 flags; /* initial Moby.flags */
+    s16 unk46; /* class category; 5 is tested by targeting code */
+    struct AnimSeq *seqs[1]; /* animation sequences, indexed by Moby.seq */
+};
+struct Moby_17DE0 {
+    Vec4f_17DE0 bsphere;
+    Vec4f_17DE0 pos;
+    u8 state; /* >= 0xFE: dead, waiting to respawn */
+    u8 group; /* linked group: index into the level moby-list table D_Lxx_001ABCC0 (0xFF: none) */
+    u8 unk22; /* class slot: pclass = D_L00_00197300[unk22] (FUN_L00_002cf218) */
+    u8 unk23; /* 0x40 for the smoke trail FUN_L09_00307ba8 spawns */
+    struct MobyClass_17DE0 *pclass;
+    struct Moby_17DE0 *next;
+    f32 scale; /* draw scale (FUN_L01_002fa068 halves it, FUN_L00_00215ef8 divides by it) */
+    u8 unk30; /* set to 0xFF (0x7F for beams) by spawners */
+    u8 unk31; /* set to 1 by spawners */
+    s16 unk32; /* set to 0xFF (0x7F for beams) by spawners */
+    u16 flags;
+    u16 unk36; /* set to 0x7F80 by spawners */
+    u64 spawn_frame; /* frame count at which it may respawn */
+    Vec4f_17DE0 rot; /* z: yaw (FUN_L00_00266448 compares it with atan2 to the hero) */
+    u8 frame; /* animation frame */
+    u8 prev_frame; /* frame index in prev_seq */
+    u8 seq; /* animation sequence id */
+    u8 prev_seq;
+    f32 unk54;
+    f32 unk58;
+    u8 pad5C[8];
+    struct Manip *manips;
+    void *cur_frame_data;
+    void *prev_frame_data;
+    u8 unk70;
+    u8 unk71; /* set to 0xFF when a moby changes class */
+    u8 unk72;
+    u8 unk73;
+    void (*update)(struct Moby_17DE0 *moby);
+    u8 *pvars;
+    u8 unk7C;
+    u8 pad7D;
+    u8 unk7E;
+    u8 unk7F; /* set to 0x17 by FUN_L09_002c5990 near D_L09_00166F40 */
+    u8 pad80[0x10];
+    s32 unk90;
+    u32 unk94; /* set from the class header's word 0x10 */
+    s32 unk98; /* set to 1 while a carrier holds the moby (FUN_L00_002c7a58) */
+    u8 pad9C[8];
+    u8 unkA4;
+    u8 padA5;
+    s16 oclass;
+    u8 padA8[8];
+    u8 unkB0; /* 0xB0: index into the level's D_0014C050 row (0xFF: not spawned) */
+    u8 padB1;
+    u16 save_id; /* index into the level collected[]/killed[] tables and save bits D_0014C190[level][id >> 5] */
+    s16 unkB4;
+    u8 padB6[2];
+    void *unkB8; /* 0xB8: bolt source record; its byte 0xB1 is a per-level id (FUN_L00_002a6b70) */
+    u8 unkBC;
+    u8 padBD[3];
+    Vec4f_17DE0 unkC0; /* 0xC0: first row of a matrix built from rot (FUN_001fa030) */
+    Vec4f_17DE0 unkD0;
+    Vec4f_17DE0 unkE0;
+    u8 padF0[0x10];
+};
+extern void func_001F9BF0_17DE0(void *, void *, void *) __asm__("func_001F9BF0");
+typedef struct {
+    u8 pad00[0x40];
+    f32 unk40[4]; /* 0x40: launch direction */
+    f32 unk50[4]; /* 0x50 */
+    f32 unk60; /* 0x60: speed */
+    s32 unk64;
+    u8 pad68[0xE];
+    s16 unk76;
+    u8 pad78[6];
+    s16 unk7E;
+} ThrowPvars_217658;
+extern f32 D_L00_00166D80[];
+extern char D_00140C00[];
+extern int func_L00_00211A18(void *);
+extern void func_L00_00233EE0(void *, f32, f32, f32);
+extern float func_001FA748(float, float);
+extern void func_L00_00233F88(void *, void *, f32);
+extern void func_00215C00(void *, f32, f32, f32);
+extern void func_001FA4F0(void *, void *, void *);
+extern void func_001FA460(void *, void *);
+extern void func_L00_00263578(void *, char *);
+extern void func_L00_002635A0(char *, int, int);
+extern void func_00213DE0(void *, s32, s32, s32);
+
+/* Launches the equipped gadget moby: aims it at its target (or along the camera), builds its orientation matrix and starts its animation/sound.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui/help/00214658.c, FUN_L00_00217658. */
+void func_L00_00217DE0(void) {
+    f32 dir[4];
+    f32 delta[4];
+    f32 mat[12];
+    f32 cam_mat[12];
+    f32 out_mat[16];
+    struct Moby_17DE0 *target;
+    struct Moby_17DE0 *item;
+    ThrowPvars_217658 *tpv;
+    ThrowPvars_217658 *pv;
+    s32 aimed;
+    s32 has_target;
+    s32 state;
+
+    state = D_0013F450_17DE0.state.current;
+    aimed = (state == 1 || state == 0x1E) && scale_ticks(0x14) < D_0013F450_17DE0.state_timer;
+    if (aimed) {
+        target = D_0013F450_17DE0.items[0].moby;
+        has_target = 0;
+        if (target != 0 && func_L00_00211A18(target)) {
+            tpv = (ThrowPvars_217658 *)target->pvars;
+            if (tpv->unk7E) {
+                has_target = 1;
+                func_L00_00233EE0(dir, 0.5f, 0.0f, 0.5f);
+                func_001F9BF0_17DE0(delta, tpv->unk50, dir);
+                D_0013F450_17DE0.aim_yaw = func_L00_001FF860(delta[0], delta[1]);
+                D_0013F450_17DE0.aim_pitch = func_L00_001FF860(func_001F9CE8(delta), delta[2]);
+            }
+        }
+        if (!has_target) {
+            D_0013F450_17DE0.aim_yaw = D_L00_00166D80[0x158 / 4];
+            D_0013F450_17DE0.aim_pitch = FastAddRots(-D_L00_00166D80[0x154 / 4], 0.12217305f);
+        }
+    }
+    item = D_0013F450_17DE0.items[0].moby;
+    if (!func_L00_00211A18(item)) {
+        return;
+    }
+    D_0013F450_17DE0.items[0].unk1A = 1;
+    if (aimed) {
+        func_L00_00217570(0x1B, 0);
+    }
+    item->state = 10;
+    pv = (ThrowPvars_217658 *)item->pvars;
+    if (D_0013F450_17DE0.unk248 < 1.2f && 0.6632251f < D_0013F450_17DE0.unk250 && !D_0013F450_17DE0.unk254) {
+        pv->unk76 = 1;
+    }
+    clear_u64_value(pv->unk40);
+    if (!aimed) {
+        func_L00_00233F88(pv->unk40, pv->unk40, 1.0f);
+    } else {
+        func_00215C00(pv->unk40, 1.0f, D_0013F450_17DE0.aim_yaw, D_0013F450_17DE0.aim_pitch);
+    }
+    clear_u64_value(dir);
+    func_001FA1F8(mat, dir);
+    if (aimed) {
+        dir[0] = D_L00_00166D80[0x150 / 4];
+        dir[1] = D_L00_00166D80[0x154 / 4];
+        dir[2] = D_L00_00166D80[0x158 / 4];
+        func_001FA1F8(cam_mat, dir);
+        func_001FA4F0(mat, cam_mat, mat);
+    } else {
+        func_001FA4F0(mat, &D_0013F450_17DE0.moby->unkC0, mat);
+    }
+    func_001FA460(out_mat, mat);
+    func_002153E8(out_mat, &item->rot);
+    pv->unk64 = 0;
+    pv->unk60 = D_0015EE6C * 23.0f;
+    func_L00_00263578(item, D_00140C00);
+    func_L00_002635A0(D_00140C00, 0x30, 3);
+    func_L00_002635A0(D_00140C00, 0x17, 5);
+    func_00213DE0(item, 6, 0, scale_ticks(5));
+}

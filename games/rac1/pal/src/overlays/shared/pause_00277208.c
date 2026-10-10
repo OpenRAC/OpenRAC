@@ -173,7 +173,7 @@ void func_L00_00277A88(void) {
             *(int *)&D_L00_001600CC = -1;
             func_00205270(GS.unk140, GS.unk144);
         }
-        func_001F2930();
+        UpdateFog();
         D_L00_0015F6BC = 1;
         GS.unk108 = 0;
         GS.unk10C = 0;
@@ -181,40 +181,40 @@ void func_L00_00277A88(void) {
         GS.unk10 = 0;
         if (GS.unkC == 2) {
             char *w = D_L00_001842F0;
-            func_001E9730(D_L00_001E9530, *(int *)(w + 0x224));
+            STUB_printf(D_L00_001E9530, *(int *)(w + 0x224));
             func_L00_00290030(*(int *)(w + 0x224));
         } else if (GS.unkC == 3) {
             tmp = D_0015EFD8;
             D_0015EFD8 = 2;
             GS.unk130 = tmp;
-            func_001F4E08(func_001F9850(0x10));
+            FadeToBlack(scale_ticks(0x10));
             D_L00_0015F6A8 = 0;
             func_L00_0029A7D0((int)GS.unkE4);
         } else if (GS.unkC == 4) {
             tmp = D_0015EFD8;
             D_0015EFD8 = 1;
             GS.unk130 = tmp;
-            func_001F4E08(func_001F9850(0x10));
+            FadeToBlack(scale_ticks(0x10));
             D_L00_0015F6A8 = 0;
             func_L00_0029A8D0((int)GS.unkE4);
         } else if (GS.unkC == 6) {
             tmp = D_0015EFD8;
             D_0015EFD8 = 1;
             GS.unk130 = tmp;
-            func_001F4E08(func_001F9850(0x10));
+            FadeToBlack(scale_ticks(0x10));
             D_L00_0015F6A8 = 0;
             func_L00_0029A868((int)GS.unkE4);
         } else if (GS.unkC == 5) {
             tmp = D_0015EFD8;
             D_0015EFD8 = 1;
             GS.unk130 = tmp;
-            func_001F4E08(func_001F9850(0x10));
+            FadeToBlack(scale_ticks(0x10));
             D_L00_0015F6A8 = 0;
             func_L00_00299B68((int)GS.unkE4);
         } else if (GS.unkC == 7) {
             tmp = D_0015EFD8;
             GS.unk130 = tmp;
-            func_001F4E08(func_001F9850(0x10));
+            FadeToBlack(scale_ticks(0x10));
             D_L00_0015F6A8 = 0;
             func_L00_0029ADD8();
         } else {
@@ -222,10 +222,10 @@ void func_L00_00277A88(void) {
         }
         func_0012E558(0x1D);
         if (GS.unkC != 2) {
-            func_00216F28();
+            music_Unpause();
         }
         func_0012DDC0();
-        func_0022DD68();
+        sound_update();
         return;
     }
     v = GS.state;
@@ -317,7 +317,7 @@ L2:
         }
     }
     func_00213C78();
-    func_0022DD68();
+    sound_update();
     if (GS.unkC != 0) {
         func_L00_002777C0();
     }
@@ -388,24 +388,24 @@ void func_L00_002781D8(int arg0) {
     int pass;
     int flags;
 
-    func_001FB530();
+    framebuf_appendLargeSetup();
     pp = 0;
     func_L00_002A2258(PM.unk10, D_0015EF84, *(int *)((char *)D_0013E15A + 0x4AA) << 11);
     if (arg0 != 0) {
         return;
     }
-    func_001F3C10();
-    func_001F55C0(0, 0, 0, 0x30);
+    ResetGsRegisters();
+    emit_rgba_draw_packet(0, 0, 0, 0x30);
     if (PM.state == 0x14) {
         return;
     }
-    func_00234C98(0x47, 0x5360B);
-    func_0020E0C8();
-    func_0020E040();
-    func_0020E068();
+    VU1_addGSregister(0x47, 0x5360B);
+    DrawMobysSetup();
+    InitMobyClassDists();
+    StashMobyClassDists();
     for (i = 0; i < 14; i++) {
         if (D_L00_001B2740[i] != 0 && D_L00_001BA220[i] != 0 && (i != 6 || PM.unkD8 != 0)) {
-            func_0020E180((int)D_L00_001BA220[i], 1);
+            DrawMobyList((int)D_L00_001BA220[i], 1);
         }
     }
     if (PM.owner != 0) {
@@ -495,8 +495,8 @@ void func_L00_002781D8(int arg0) {
             func_002017C8(0, 0, su, sv, D_L00_00160330, 0, 0);
             r = (*(int (**)(char *))(pp[j] + 4))(pp[j]);
             func_001F7B40();
-            func_00234C98(0x42, 0x8000000064L);
-            func_00234C98(0x47, 0x43);
+            VU1_addGSregister(0x42, 0x8000000064L);
+            VU1_addGSregister(0x47, 0x43);
             if (r & 1) {
                 continue;
             }
@@ -535,29 +535,65 @@ void func_L00_002781D8(int arg0) {
             } else if (!(r & 0x10)) {
                 continue;
             }
-            func_001F5800(px, py, pw, ph, u, v, u1 - u, v1 - v, 0x80808080L, D_0015EFD0);
+            DrawTexturedQuad(px, py, pw, ph, u, v, u1 - u, v1 - v, 0x80808080L, D_0015EFD0);
         }
         if (pass == 0) {
-            func_0020E098();
-            func_0020E200();
-            func_00234AC8(0x10);
-            func_0020DD48();
+            RestoreMobyClassDists();
+            DrawMobysCleanUp();
+            VU1_syncChain(0x10);
+            PatchMobyGifs();
         }
     }
-    func_001F4630(0);
+    SetupGifPaging(0);
     for (n = 0; n < 14; n++) {
         if (D_L00_001B2740[n] != 0 && (n != 6 || PM.unkD8 != 0)) {
             func_002250B8((int)D_L00_001BA220[n]);
         }
     }
-    func_001F4748();
+    DoGifPaging();
 }
 LINKER_REMNANT("asm/overlays", func_L00_002788C8);
 INCLUDE_ASM("asm/overlays", func_L00_002788E0);
 INCLUDE_ASM("asm/overlays", func_L00_00278904);
 INCLUDE_ASM("asm/overlays", func_L00_00278930);
 INCLUDE_ASM("asm/overlays", func_L00_0027895C);
-INCLUDE_ASM("asm/overlays", func_L00_0027A398);
+extern char D_L00_001BA070[] NOT_SDA;
+
+// Skips the linked menu entries the two active pause filters exclude and, if it moved, makes the entry it stopped on the current one.
+int func_L00_0027A398(char *arg0, int arg1) {
+    int ok = 0;
+    int found = 0;
+
+    if (arg1 != 0) {
+        return 0;
+    }
+    {
+        char *g = D_L00_001BA070;
+        if (*(int *)(g + 0x134) != 0 && (*(int *)(arg0 + 0x30) & 8)) {
+            ok = 1;
+        }
+        if (*(int *)(g + 0x138) != 0 && (*(int *)(arg0 + 0x30) & 4)) {
+            ok = 1;
+        }
+    }
+    while (ok) {
+        char *g = D_L00_001BA070;
+        found = 1;
+        arg0 = *(char **)(arg0 + 0x4C);
+        ok = 0;
+        if (*(int *)(g + 0x134) != 0 && (*(int *)(arg0 + 0x30) & 8)) {
+            ok = 1;
+        }
+        if (*(int *)(g + 0x138) != 0 && (*(int *)(arg0 + 0x30) & 4)) {
+            ok = 1;
+        }
+    }
+    if (found) {
+        char *g2 = D_L00_001BA070;
+        *(char **)(*(char **)(g2 + 4) + 0x80) = arg0;
+    }
+    return 0;
+}
 INCLUDE_ASM("asm/overlays", func_L00_0027A3AC);
 INCLUDE_ASM("asm/overlays", func_L00_0027D3D8);
 INCLUDE_ASM("asm/overlays", func_L00_0027D454);

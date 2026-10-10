@@ -39,7 +39,7 @@ void func_L00_00299148(void) {
     D_L00_0015F6B0++;
     D_0015EFA4++;
     if (D_L00_0015F678) {
-        if ((*(int *)&D_L00_001610B0) < (int)((float)func_001F9850(15) * 60.0f)) {
+        if ((*(int *)&D_L00_001610B0) < (int)((float)scale_ticks(15) * 60.0f)) {
             D_0015EF28++;
         }
     }
@@ -135,7 +135,7 @@ void func_L00_00299250(void) {
     }
     noctl = ((PadS *)(D_0013A5E0 + 0x2460))->w19C == 0;
     if (D_L00_001BA160 && lvl == 0) {
-        func_00219C70(0);
+        PauseAllSounds(0);
         return;
     }
     area = D_0015EE84;
@@ -170,7 +170,7 @@ void func_L00_00299250(void) {
         && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x32 && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x1D
         && !((HeroS *)(D_0013E633 + 0xE1D))->b20B1 && ((HeroS *)(D_0013E633 + 0xE1D))->w22A8
         && ((AreaS *)(D_0013D355 + 0x3B))->wDC < 3 && ((AreaS *)(D_0013D355 + 0x3B))->wE4 < 0 && lvl == 0) {
-        func_00219C70(0);
+        PauseAllSounds(0);
         return;
     }
     if (!(D_L00_0016C158.w8 & 0x10) && D_L00_0015F6AC >= 8 && (((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x500)
@@ -179,12 +179,12 @@ void func_L00_00299250(void) {
         && !((HeroS *)(D_0013E633 + 0xE1D))->b20B1 && ((HeroS *)(D_0013E633 + 0xE1D))->w22A8
         && ((AreaS *)(D_0013D355 + 0x3B))->wDC < 3 && ((AreaS *)(D_0013D355 + 0x3B))->wE4 < 0
         && lvl == 0 && !special && !D_L00_0016C158.wEC) {
-        func_00219C70(10);
+        PauseAllSounds(10);
         return;
     }
     if (((AreaS *)(D_0013D355 + 0x3B))->wFC && !(r = (unsigned char *)(D_0013D355_b + 0x13B))[0x10] && D_L00_0015F6AC >= 8
         && !D_0015EF20 && !((HeroS *)(D_0013E633 + 0xE1D))->b20B1 && ((HeroS *)(D_0013E633 + 0xE1D))->w22A8
-        && func_001F9850(0x1E) < D_L00_0015F6B0 && D_0015EE84) {
+        && scale_ticks(0x1E) < D_L00_0015F6B0 && D_0015EE84) {
         func_001FBC80(5, 0, 0);
         r[0x10] = 1;
         return;
@@ -194,14 +194,14 @@ void func_L00_00299250(void) {
         && ((HeroS *)(D_0013E633 + 0xE1D))->w2084 != 0x32) {
         int x;
         x = func_L00_00235790_r();
-        func_L00_002367A8(x, func_001F9850(0xB4));
-        x = func_001FFB38(2, 0x754E, (int)func_L00_0023A658, (int)func_L00_0023A690, (int)func_L00_0023A788, (int)&D_0015EE98, 9999999);
-        func_L00_002367A8(x, func_001F9850(0xB4));
+        func_L00_002367A8(x, scale_ticks(0xB4));
+        x = queue_animation_update(2, 0x754E, (int)func_L00_0023A658, (int)func_L00_0023A690, (int)func_L00_0023A788, (int)&gBolts, 9999999);
+        func_L00_002367A8(x, scale_ticks(0xB4));
     }
     if (D_L00_00184314) {
         HitS *h = (HitS *)(D_0014171B + 0x22D);
         if (h->h48 < 0xFFFF) h->h48++;
-        if (func_001F9850(D_0015EFA4) / 600 > h->h4A) h->h4A = func_001F9850(D_0015EFA4) / 600;
+        if (scale_ticks(D_0015EFA4) / 600 > h->h4A) h->h4A = scale_ticks(D_0015EFA4) / 600;
         h->w4C = h->w4C | (1 << D_0015EE84) | 0x80000000;
     }
     if (D_L00_0015F710) {
@@ -222,7 +222,7 @@ void func_L00_00299250(void) {
     if ((D_L00_0016C158.w8 & 1) || ((D_L00_0016C158.w8 & 0x10) && (((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x200))) func_L00_002076E8();
     func_001E9768_a(D_L00_001610C8, 7);
     if ((D_L00_0016C158.w8 & 4) || ((D_L00_0016C158.w8 & 0x10) && (((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x200))) {
-        func_00218A80();
+        UpdateParts();
         func_L00_001FE9C8();
     }
     func_001E9768_a(D_L00_001610D8, 5);
@@ -233,12 +233,12 @@ void func_L00_00299250(void) {
         if (D_L00_0016C158.w14 == 2) func_L00_001F4810();
     }
     func_001E9768_a(D_L00_001610E8, 8);
-    func_0022DD68();
+    sound_update();
     func_001E9768_a(D_L00_001610F8, 6);
-    func_00202260();
+    UpdateAllPointLights();
     func_0020DE20();
     func_L00_0023B610_r(1);
-    func_001FE6C0();
+    Help_Update();
     if ((D_L00_0016C158.w8 & 2) || ((D_L00_0016C158.w8 & 0x10) && (((PadS *)(D_0013A5E0 + 0x2460))->w1A4 & 0x200))) func_L00_00299148();
     if (D_L00_0016C158.w18 == 2) func_001E9768_b();
     if (D_L00_0016C158.w18 == 3) func_001E9768_b();
@@ -292,19 +292,19 @@ void func_L00_00299E70(void) {
     if ((unsigned short)(h->x5a - 6) >= 2) h->x5a = 5;
     D_L00_0015F6BC = 1;
     func_002348B8();
-    func_001F4E08(12);
+    FadeToBlack(12);
     func_L00_00299108();
     D_L00_00167114 = D_L00_0016C960_c.x4b;
     D_L00_0016CBF0 = 0.63f;
     D_L00_0015F6A8 = 0;
     D_L00_0015F4FC = 0;
-    func_001F3140();
+    UpdateViewContext();
     for (i = 0; i < D_L00_0016C960_c.n; i++) {
         Mob *m = D_L00_0016C960_c.m[i];
         if (m) {
             m->cls->n--;
             m->cls->x48[m->cls->n] = 0;
-            func_0020D678(m);
+            DeleteMoby(m);
         }
     }
     for (o = D_L00_0016009C; o->st != 0xFF; o++) {
@@ -315,14 +315,14 @@ void func_L00_00299E70(void) {
     g = func_00214358(p, 0, 0.5f);
     if (2.0f < g) {
         p -= 0x80;
-        if (func_001F9B88(*(float *)(p + 0x88) - g) < 4.5f) *(float *)(p + 0x88) = g;
+        if (FastAbsF(*(float *)(p + 0x88) - g) < 4.5f) *(float *)(p + 0x88) = g;
     }
     b = D_0013E633 + 0xE1D;
     b[0x20A5] = 0;
     func_L00_00233950();
     if (D_L00_0016C960_c.x4a) {
         f = func_00214358(D_L00_0016C960_c.v, 0, 0.5f);
-        if (2.0f < f && func_001F9B88(D_L00_0016C960_c.v[2] - f) < 2.0f) D_L00_0016C960_c.v[2] = f;
+        if (2.0f < f && FastAbsF(D_L00_0016C960_c.v[2] - f) < 2.0f) D_L00_0016C960_c.v[2] = f;
         func_L00_00217718(D_L00_0016C970, D_L00_0016C970 + 0x10, 0, 1);
     }
     if (D_L00_00179200.a) D_L00_00179200.a->flags &= ~1;
@@ -337,7 +337,7 @@ void func_L00_00299E70(void) {
         D_L00_00179200.b = 0;
         func_00217AE8(a, b, 1);
     }
-    func_L00_002666C8(func_001F9850(30));
+    func_L00_002666C8(scale_ticks(30));
 }
 extern void func_001F3140(void);
 extern void func_00125358(float *);
@@ -404,7 +404,279 @@ unsigned char func_L00_0029A158(void) {
     }
     return r;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0029A300);
+extern s32 D_0015EE84 MACRO_ADDR;
+extern s32 D_0015EE80 MACRO_ADDR;
+typedef u32 u128 __attribute__((mode(TI), aligned(16)));
+typedef union {
+    u128 q;
+    f32 f[4];
+    s32 i[4];
+} Vec4;
+struct PadStateWords {
+    char pad0[0x100];
+    f32 analog[4]; /* 0x100: stick axes */
+    char pad110[0x1A0 - 0x110];
+    union {
+        u64 held_pressed; /* 0x1A0: held | pressed << 32 */
+        struct {
+            s32 held; /* 0x1A0 */
+            s32 pressed; /* 0x1A4 */
+        } w;
+    } buttons;
+    char pad1A8[0x1D8 - 0x1A8];
+    s32 stick_moved; /* 0x1D8: analog[2] or analog[3] nonzero */
+};
+typedef struct {
+    s32 unknown_00;
+    s32 draw_flags;
+    s32 update_flags;
+    s32 selected_column;
+    s32 selected_row;
+    s32 control_mode;
+    s32 profiler_mode;
+    s32 occlusion_mode;
+    s32 bookmark_enabled;
+    s32 invincibility_enabled;
+    s32 draw_distance_override;
+    s32 collision_mode;
+    s32 television_mode;
+    s32 screen_mode;
+    s32 scene_index;
+    s32 segment_index;
+    s32 unknown_40;
+    s32 unknown_44;
+    s32 unknown_48;
+    s32 unknown_4c;
+    s32 unknown_50;
+    s32 unknown_54;
+    s32 unknown_58;
+    s32 unknown_5c;
+    s32 unknown_60;
+    s32 unknown_64;
+    s32 unknown_68;
+    s32 unknown_6c;
+    f32 movement_speed;
+    f32 vertical_speed;
+    f32 roll_speed;
+    f32 pitch_speed;
+    f32 yaw_speed;
+    f32 target_yaw;
+    f32 target_angle;
+    f32 target_distance;
+    f32 target_height;
+    s32 unknown_94;
+    s32 unknown_98;
+    s32 unknown_9c;
+    s32 unknown_a0;
+    s32 unknown_a4;
+    s32 unknown_a8;
+    s32 unknown_ac;
+    s32 unknown_b0;
+    s32 unknown_b4;
+    s32 unknown_b8;
+    s32 unknown_bc;
+    s32 unknown_c0;
+    s32 unknown_c4;
+    s32 unknown_c8;
+    s32 unknown_cc;
+    s32 unknown_d0;
+    s32 unknown_d4;
+    s32 unknown_d8;
+    s32 unknown_dc;
+    s32 unknown_e0;
+    s32 unknown_e4;
+    s32 unknown_e8;
+    s32 unknown_ec;
+    s32 battle_camera_enabled;
+    s32 actuator_enabled;
+    u8 start_capture_status;
+    u8 sample_capture_status;
+} DebugMenuState;
+extern DebugMenuState D_L00_0016C158_9A300 __asm__("D_L00_0016C158");
+void func_L00_00299108(void);
+extern struct PadStateWords D_0013CA40_9A300 __asm__("D_0013CA40");
+int func_001F9850(int);
+void func_L00_00299148(void);
+extern s32 D_0015EF20 MACRO_ADDR;
+extern u8 D_L00_001610B8_9A300[] __asm__("D_L00_001610B8");
+extern u8 D_L00_001610C8_9A300[] __asm__("D_L00_001610C8");
+extern u8 D_L00_001610D8_9A300[] __asm__("D_L00_001610D8");
+extern u8 D_L00_001610E8_9A300[] __asm__("D_L00_001610E8");
+extern u8 D_L00_001610F8_9A300[] __asm__("D_L00_001610F8");
+extern void func_001E9768(void *, s32);
+void func_L00_00299E70(void);
+int func_L00_0029A158_9A300(void) __asm__("func_L00_0029A158");
+typedef struct {
+    u8 pad0[0xC];
+    u8 count; /* 0x0C */
+    u8 pad0D[0x3B];
+    s32 slots[1]; /* 0x48 */
+} VendorMobyClass;
+typedef struct {
+    u8 pad0[0x10];
+    Vec4 pos; /* 0x10 */
+    u8 pad20[2];
+    u8 class_id; /* 0x22 */
+    u8 pad23;
+    VendorMobyClass *pclass; /* 0x24 */
+    u8 pad28[0xA];
+    u16 h32; /* 0x32 */
+    u8 pad34[0xC];
+    Vec4 rot; /* 0x40 */
+    u8 frame; /* 0x50 */
+    u8 next_frame; /* 0x51 */
+    u8 pad52;
+    u8 b53; /* 0x53 */
+    f32 blend; /* 0x54 */
+    f32 f58; /* 0x58 */
+    u8 pad5C[0x14];
+    u8 b70; /* 0x70 */
+    u8 b71; /* 0x71 */
+    u8 pad72[6];
+    Vec4 *keys; /* 0x78 */
+    u8 pad7C[3];
+    u8 b7F; /* 0x7F */
+    u8 pad80[0x26];
+    s16 oclass; /* 0xA6 */
+    u8 padA8[0x18];
+    Vec4 mtx[4]; /* 0xC0 */
+} VendorMoby;
+typedef struct { f32 pos[3]; u8 flag; u8 padD[3]; f32 rot[4]; } CutsceneCameraKey;
+typedef struct {
+    char pad0[0x34];
+    s32 f34;
+    s32 f38;
+    s32 f3C;
+    s16 h40;
+    s16 pad42;
+    s16 h44;
+    s16 h46; /* 0x46: PAL reads its func_00216960 frame here (US: 0x48) */
+    s16 h48; /* 0x48: frame at which FUN_00215b10 runs */
+    char pad4A[0xA];
+    CutsceneCameraKey *f54;
+    char pad58[0x120];
+    VendorMoby *f178[1];
+} VendorCutscene;
+extern u32 D_0013CBE4;
+extern f32 D_L00_0015F4FC_9A300 __asm__("D_L00_0015F4FC") MACRO_ADDR;
+extern VendorCutscene D_L00_0016C960_9A300 __asm__("D_L00_0016C960");
+extern short D_0015EFA0;
+extern s32 D_0015EFD8 MACRO_ADDR;
+extern void func_L00_0023EC00(void);
+extern void func_00216960(void);
+extern s32 func_00217748(s32);
+extern void func_00204FC0(void);
+extern void func_L00_00245B88(s32);
+extern void func_0020D6D0(void *);
+extern f32 func_001FA888(s32);
+extern void func_001F9C30(void *, void *, f32);
+extern void func_001F9BD8(void *, void *, void *);
+extern void func_L00_00251E30(void *);
+extern void func_00214550(void *);
+extern void func_L00_002353B8(void *);
+extern void func_L00_00207A48(void *);
+
+/* Per-frame update while the cutscene in D_L00_0016C860 plays: runs the debug-gated subsystem updates, fades, advances the frame counters and either finishes the cutscene (end frame reached or skipped) or steps each of its mobys between two keyframes.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/entities/00295100.c, FUN_L00_00298f90. */
+void func_L00_0029A300(void) {
+    VendorCutscene *cs;
+    VendorMoby *m;
+    s32 done;
+    s32 last;
+    s32 i;
+    s32 id;
+    s32 lim;
+    Vec4 *keys;
+    f32 fade;
+    f32 a[4] __attribute__((aligned(16)));
+    f32 b[4] __attribute__((aligned(16)));
+
+    if ((D_L00_0016C158_9A300.update_flags & 2) || ((D_L00_0016C158_9A300.update_flags & 0x10) && (D_0013CBE4 & 0x200))) {
+        func_L00_00299108();
+    }
+    if (!(D_L00_0016C158_9A300.update_flags & 0x10) || (D_0013CBE4 & 0x220)) {
+        func_L00_0023EC00();
+    }
+    if ((D_L00_0016C158_9A300.update_flags & 2) || ((D_L00_0016C158_9A300.update_flags & 0x10) && (D_0013CBE4 & 0x200))) {
+        func_00213C78();
+        func_0022EF68();
+    }
+    func_001E9768(D_L00_001610B8_9A300, 3);
+    if ((D_L00_0016C158_9A300.update_flags & 1) || ((D_L00_0016C158_9A300.update_flags & 0x10) && (D_0013CBE4 & 0x200))) {
+        func_L00_002076E8();
+    }
+    func_001E9768(D_L00_001610C8_9A300, 7);
+    if ((D_L00_0016C158_9A300.update_flags & 4) || ((D_L00_0016C158_9A300.update_flags & 0x10) && (D_0013CBE4 & 0x200))) {
+        UpdateParts();
+    }
+    func_001E9768(D_L00_001610D8_9A300, 5);
+    cs = &D_L00_0016C960_9A300;
+    fade = D_L00_0015F4FC_9A300 - 0.34f;
+    cs->f34++;
+    cs->f38++;
+    D_L00_0015F4FC_9A300 = fade;
+    if (D_L00_0015F4FC_9A300 < 0.0f) {
+        D_L00_0015F4FC_9A300 = 0.0f;
+    }
+    if (cs->f34 >= cs->h46) {
+        func_00216960();
+    }
+    done = cs->f34 >= cs->h40;
+    if (cs->f34 >= scale_ticks(0x12) && D_L00_0015F4FC_9A300 == 0.0f) {
+
+        if (((*(s32 *)&D_0015EFA0) || D_0015EF20 || D_0015EFD8 || D_0015EE84 <= 0) && (D_0013CA40_9A300.buttons.w.pressed & 0x800)) {
+            done = 1;
+        } else if ((D_0013CA40_9A300.buttons.held_pressed & 0x8000000000FUL) == 0x8000000000FUL) {
+            done = 1;
+        }
+    }
+    if (done) {
+        func_L00_00299E70();
+    } else {
+        lim = D_0015EE80 ? 0x50 : 0x60;
+        if (D_L00_0016C960_9A300.f38 >= lim) {
+            func_00217748(1);
+            D_L00_0016C960_9A300.f3C++;
+            func_00204FC0();
+            func_L00_00245B88(D_L00_0016C960_9A300.f3C + 1);
+        }
+        last = func_L00_0029A158_9A300();
+        for (i = 0; i < D_L00_0016C960_9A300.h44; i++) {
+            m = D_L00_0016C960_9A300.f178[i];
+            id = D_L00_0016C960_9A300.f38 >> 1;
+            m->frame = id;
+            m->next_frame = id + 1;
+            update_moby_animation_state(m);
+            m->blend = func_001FA888(D_L00_0016C960_9A300.f38 & 1) * 0.5f;
+            if (last && (D_L00_0016C960_9A300.f38 & 1)) {
+                m->blend = 1.0f;
+            }
+            keys = m->keys;
+            FastVecScale(a, &keys[m->frame], 1.0f - m->blend);
+            FastVecScale(b, &keys[m->next_frame], m->blend);
+            FastVecAdd(&m->pos, a, b);
+            m->b71 = 0xFF;
+            func_L00_00251E30(m);
+            if (m->b7F) {
+                func_00214550(m);
+            }
+            if (m->oclass == 0) {
+                func_L00_002353B8(m);
+            }
+            if (m->oclass == 10 || m->oclass == 0x1A3 || m->oclass == 0x555) {
+                func_L00_00207A48(m);
+            }
+        }
+    }
+    func_001E9768(D_L00_001610E8_9A300, 8);
+    sound_update();
+    func_001E9768(D_L00_001610F8_9A300, 6);
+    UpdateAllPointLights();
+    func_0020DE20();
+    if ((D_L00_0016C158_9A300.update_flags & 2) || ((D_L00_0016C158_9A300.update_flags & 0x10) && (D_0013CBE4 & 0x200))) {
+        func_L00_00299148();
+    }
+}
 extern int D_0015EE80 MACRO_ADDR;
 extern int D_0015EE88 MACRO_ADDR;
 extern char D_0013E633[];

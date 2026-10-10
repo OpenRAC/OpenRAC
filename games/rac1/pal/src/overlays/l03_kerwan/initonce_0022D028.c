@@ -23,22 +23,22 @@ void func_L03_0022D028(void) {
  if (D_0015EE84 != 3) return;
  g = (char *)&D_L03_0016C9E0;
  if (*(int *)(g + 0x30) != 5) return;
- if (func_001F9850(900) >= *(int *)(g + 0x34)) return;
- if (*(int *)(g + 0x34) >= func_001F9850(1100)) return;
+ if (scale_ticks(900) >= *(int *)(g + 0x34)) return;
+ if (*(int *)(g + 0x34) >= scale_ticks(1100)) return;
  moby = *(char **)(g + 0x184);
  if (!moby) return;
  for (i = 0; i < 4; i++) {
   float a, b, size;
   int lo, hi, value;
-  func_001F9BC0(direction);
+  clear_u64_value(direction);
   func_L00_00250800(moby, i % 2, position);
-  a = func_00214158();
-  b = func_00214158();
-  size = func_002140F8(D_0015EE6C * 0.7f, D_0015EE6C * 2.2f);
+  a = random_angle_radians();
+  b = random_angle_radians();
+  size = random_float_between(D_0015EE6C * 0.7f, D_0015EE6C * 2.2f);
   func_00215C00(direction, size, a, b);
-  lo = func_001F9850(12);
-  hi = func_001F9850(35);
-  value = func_L00_00258BC8(lo, hi);
+  lo = scale_ticks(12);
+  hi = scale_ticks(35);
+  value = rand_range(lo, hi);
   func_L00_0026DD70(position, direction, 0x80808080, 0x808080, value, 147000.0f);
  }
 }

@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 460 / retail 464, checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Checks 10 tracked mobys (idx table at data+0x40) against a position (D_L12_00167180+0x140..) and updates data+
  *   Body nearly matches; the loop is strength-reduced by our gcc (pointer increment, bgez) while retail keeps i in
@@ -13,7 +14,6 @@ extern float func_001FA850(float, float);
 extern void func_001F9908(int *arg0);
 extern int func_001F9850(int);
 extern char D_L12_00167180;
-extern char *D_L12_00160058 MACRO_ADDR;
 
 /* Checks whether any of ten tracked mobys is near the vendor and updates its timer. */
 void func_L12_00304750(char *moby) {

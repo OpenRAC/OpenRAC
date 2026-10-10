@@ -2,6 +2,7 @@
  * Best so far: BYTES 36/988 (96.4% of the bytes match), checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   `$a2 = p + 0x88` and `$a3 = p + 0x8C` before the call, and the callee's own
  *   prologue copies `$6` and `$7` into saved registers. (`asm/overlays/
@@ -14,7 +15,6 @@
  */
 typedef struct { float v[4]; } __attribute__((aligned(16))) QV;
 extern short D_EE70_s __asm__("D_0015EE70");
-extern void func_001F49B0(void (*)(void), void *);
 extern float func_001FA748(float, float);
 extern float func_001F9FA8(float);
 extern int func_001FA8A8(int, int, float);

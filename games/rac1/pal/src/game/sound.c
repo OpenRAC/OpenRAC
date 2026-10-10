@@ -411,7 +411,197 @@ void func_0022EAB0(int idx) {
     }
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_0022EB08);
+typedef int u128_2EB08 __attribute__((mode(TI)));
+typedef union {
+    u128_2EB08 q;
+    f32 f[4];
+} VoiceVector_2EB08;
+typedef struct {
+    u8 pad0[0x10];
+    s32 pitch_bend_min;
+    s32 pitch_bend_max;
+    u8 source_state;
+    u8 pad19;
+    u16 source_value;
+    s32 pad1C;
+} VoiceDefinition_2EB08;
+typedef struct {
+    u8 pad0[0x10];
+    VoiceVector_2EB08 position;
+    u8 pad20[0x86];
+    s16 class_id;
+} VoiceMoby_2EB08;
+typedef struct {
+    u32 handle;
+    u8 state;
+    u8 flags;
+    u8 pad6[2];
+    VoiceDefinition_2EB08 *definition;
+    u16 source_value;
+    s16 linked_index;
+    s32 volume;
+    s32 pitch_bend;
+    VoiceMoby_2EB08 *owner;
+    s32 reserved1C;
+    VoiceVector_2EB08 position;
+    VoiceVector_2EB08 position_offset;
+    s32 history_position;
+    u8 history[0x2C];
+} VoiceSlot_2EB08;
+typedef struct {
+    u8 header[0x70];
+    VoiceSlot_2EB08 voices[30];
+} VoicePool_2EB08;
+/* Each selected voice is reached relative to the pool base. */
+typedef struct {
+    u8 header[0x70];
+    VoiceSlot_2EB08 voice;
+} VoicePoolWindow_2EB08;
+typedef struct {
+    VoiceVector_2EB08 value;
+    u8 pad10[0x60];
+} VoicePositionRecord_2EB08;
+typedef struct {
+    u8 pad0[0x1090];
+    VoiceMoby_2EB08 *item0_moby;
+    u8 pad1094[0xFEC];
+    VoiceMoby_2EB08 *moby;
+} Hero_2EB08;
+extern VoicePool_2EB08 D_0013E650_2EB08 __asm__("D_0013E650");
+extern Hero_2EB08 D_0013F450_2EB08 __asm__("D_0013F450");
+extern VoicePositionRecord_2EB08 D_0013E6E0_2EB08[] __asm__("D_0013E6E0");
+extern u8 D_0013E6C0_2EB08[] __asm__("D_0013E6C0");
+extern void func_001F9BC0_2EB08(VoiceVector_2EB08 *) __asm__("func_001F9BC0");
+extern s32 func_002140B0_2EB08(s32) __asm__("func_002140B0");
+extern s32 func_0022DB00_2EB08(VoiceSlot_2EB08 *, VoiceVector_2EB08 *) __asm__("func_0022DB00");
+
+s32 func_0022EB08_r(VoiceDefinition_2EB08 *, u32, VoiceMoby_2EB08 *, VoiceVector_2EB08 *,
+                    s32) __asm__("func_0022EB08");
+
+/* Takes a free voice of the sound pool for a definition (26 voices, 30 for the hero, the
+   held item and class 0x472), places it at the moby or the given position, drops it when
+   it would be inaudible and picks its pitch bend. Returns the voice index or -1.
+   Adapted from Lombyte (MIT) for PAL: src/textbin/fun_0022d7f0.c, allocate_voice_slot. */
+s32 func_0022EB08_r(VoiceDefinition_2EB08 *definition, u32 flags, VoiceMoby_2EB08 *moby,
+                    VoiceVector_2EB08 *position, s32 volume) {
+    s32 volume_offset;
+    s32 pitch_bend_max;
+    s32 pitch_bend_min;
+    s32 slot_index;
+    s32 result;
+    s32 slot_limit;
+    s32 pitch_bend;
+    s32 source_inactive;
+    VoicePoolWindow_2EB08 *committed_slot;
+    VoicePoolWindow_2EB08 *slot;
+    VoicePoolWindow_2EB08 *pitch_slot;
+    VoicePoolWindow_2EB08 *position_slot;
+
+    source_inactive = definition->source_state == 0;
+    if ((flags & 4) == 0) {
+        if ((source_inactive ^ 1) != 0) {
+            result = -1;
+            goto return_result;
+        }
+        slot_limit = 0x1A;
+        goto check_moby;
+    } else {
+        if (source_inactive) {
+            result = -1;
+            goto return_result;
+        }
+        slot_limit = 0x1A;
+    }
+check_moby:
+    if (moby == 0) {
+        goto find_free_slot;
+    }
+    if (D_0013F450_2EB08.moby == moby) {
+        goto use_extended_pool;
+    }
+    if (D_0013F450_2EB08.item0_moby == moby) {
+        goto use_extended_pool;
+    }
+    if (moby->class_id != 0x472) {
+        goto find_free_slot;
+    }
+use_extended_pool:
+    slot_limit = 0x1E;
+find_free_slot:
+    for (slot_index = 0; slot_index < slot_limit; slot_index++) {
+        if (D_0013E650_2EB08.voices[slot_index].state == 0) {
+            break;
+        }
+    }
+    if (slot_index >= slot_limit) {
+        goto allocation_failed;
+    }
+    slot = (VoicePoolWindow_2EB08 *)((u8 *)&D_0013E650_2EB08 + slot_index * 0x70);
+    slot->voice.definition = definition;
+    slot->voice.source_value = (u16)definition->source_value;
+    slot->voice.linked_index = -1;
+    slot->voice.volume = volume;
+    slot->voice.owner = 0;
+    slot->voice.reserved1C = 0;
+    qzero(&D_0013E650_2EB08.voices[slot_index].position_offset);
+    if (position != 0) {
+        goto set_position;
+    }
+    if (moby == 0) {
+        goto clear_position;
+    }
+set_position:
+    if (moby == 0) {
+        goto copy_explicit_position;
+    }
+    qcopy(&D_0013E6E0_2EB08[slot_index].value, &moby->position);
+    position_slot = (VoicePoolWindow_2EB08 *)((u8 *)D_0013E6E0_2EB08 + slot_index * 0x70 - 0x90);
+    position_slot->voice.position.f[2] += 1.0f;
+    goto calculate_volume;
+copy_explicit_position:
+    qcopy(&D_0013E6E0_2EB08[slot_index].value, position);
+    goto calculate_volume;
+clear_position:
+    flags |= 0x11;
+    func_001F9BC0_2EB08(&D_0013E6E0_2EB08[slot_index].value);
+calculate_volume:
+    if (flags & 0x10) {
+        goto commit_if_audible;
+    }
+    volume_offset = slot_index * 0x70;
+    result = func_0022DB00_2EB08((VoiceSlot_2EB08 *)(D_0013E6C0_2EB08 + volume_offset),
+                                 (VoiceVector_2EB08 *)(D_0013E6C0_2EB08 + volume_offset + 0x20));
+    goto check_calculated_volume;
+commit_if_audible:
+    result = volume;
+check_calculated_volume:
+    if (result < 0x20) {
+        result = -1;
+        goto return_result;
+    }
+    committed_slot = (VoicePoolWindow_2EB08 *)((u8 *)&D_0013E650_2EB08 + slot_index * 0x70);
+    committed_slot->voice.flags = flags;
+    committed_slot->voice.state = 7;
+    committed_slot->voice.history_position = 0;
+    pitch_bend_max = definition->pitch_bend_max;
+    pitch_bend_min = definition->pitch_bend_min;
+    if (pitch_bend_max != pitch_bend_min) {
+        pitch_bend =
+            func_002140B0_2EB08(pitch_bend_max - pitch_bend_min) + definition->pitch_bend_min;
+    } else {
+        pitch_bend = pitch_bend_max;
+    }
+    pitch_slot = (VoicePoolWindow_2EB08 *)((u8 *)&D_0013E650_2EB08 + slot_index * 0x70);
+    pitch_slot->voice.pitch_bend = pitch_bend;
+    pitch_slot->voice.handle = 0xFFFFFFFF;
+    goto return_index;
+allocation_failed:
+    slot_index = -1;
+return_index:
+    result = slot_index;
+return_result:
+    return result;
+}
 
 extern int func_0022EB08(void *, int, int, int, int);
 

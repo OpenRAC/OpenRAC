@@ -2,6 +2,7 @@
  * Best so far: BYTES 65/824 (92.1% of the bytes match), checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   ## Round 1
  *   Particle/quad effect update (moby 0x78 state d: d[2] scroll phase, d[3] alpha cap). Builds 4 Quads (0x90 each:
@@ -30,7 +31,6 @@ extern short D_L18_00162374;
 extern short D_L18_00162378;
 extern short D_L18_0016237C;
 extern short D_L18_00162380;
-extern char D_L18_00167840[];
 extern float D_L18_001DA620[][2];
 extern QRx D_L18_001DA640[];
 extern void func_001FA460(void *, void *);

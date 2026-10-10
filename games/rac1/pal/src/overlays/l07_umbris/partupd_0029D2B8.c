@@ -30,4 +30,71 @@ void func_L07_0029D2B8(void *pos, void *pos2) {
         qcopy(f, pos2);
     }
 }
-INCLUDE_ASM("asm/overlays", func_L07_0029F4A8);
+extern void func_001F9BF0(void *dst, void *a, void *b);
+extern float func_001F9C78(void *a, void *b);
+extern void func_001F9C30(void *, void *, float);
+extern void func_001F9BD8(void *, void *, void *);
+extern float func_001F9D10(void *, void *);
+extern float func_001F9B50(float);
+extern float func_001F9CB8(void *a);
+extern float func_001F9B88(float);
+
+typedef int u128 __attribute__((mode(TI)));
+
+/* Clamped closest-approach point of a moving sphere on level 7; writes the point to dst, returns its distance term. */
+float func_L07_0029F4A8(char *dst, char *a1, char *a2, char *a3, char *a4, float f) {
+    u128 v[5];
+    u128 *q4;
+    float r1, r2, r3, t20, lo, hi, L, d, f21, t22, thr, ap;
+
+    FastVecSub(v + 0, a3, a2);
+    FastVecSub(v + 1, a4, a3);
+    L = FastVecDot(v + 1, v + 1);
+    d = FastVecDot(v + 0, v + 1);
+    f21 = -d / L;
+    FastVecScale(v + 2, v + 1, f21);
+    FastVecAdd(v + 2, v + 2, a3);
+    r1 = FastVecDist(v + 2, a2);
+    if (r1 < f) {
+        ap = f * f - r1 * r1;
+        t20 = func_001F9B50(ap);
+        t20 = t20 / FastVecLength(v + 1);
+        lo = f21 - t20;
+        if (lo < 0) lo = 0;
+        else if (lo > 1) lo = 1;
+        hi = f21 + t20;
+        if (hi < 0) hi = 0;
+        else if (hi > 1) hi = 1;
+        FastVecScale(v + 3, v + 1, lo);
+        FastVecAdd(v + 3, v + 3, a3);
+        r2 = FastVecDist(v + 3, a2);
+        t22 = FastAbsF(r2 - f);
+        thr = f * 0.01f;
+        if (t22 < thr) t22 = 0;
+        q4 = v + 4;
+        FastVecScale(q4, v + 1, hi);
+        FastVecAdd(q4, q4, a3);
+        r3 = FastVecDist(q4, a2);
+        f21 = FastAbsF(r3 - f);
+        if (f21 < thr) f21 = 0;
+        if (t22 < f21 || (t22 == f21 && FastVecDist(v + 3, a1) < FastVecDist(q4, a1))) {
+            qcopy(dst, v + 3);
+            r1 = t22;
+        } else {
+            qcopy(dst, q4);
+            r1 = f21;
+        }
+    } else {
+        if (f21 < 0) {
+            qcopy(dst, a3);
+            r1 = FastAbsF(FastVecDist(dst, a2) - f);
+        } else if (1.0f < f21) {
+            qcopy(dst, a4);
+            r1 = FastAbsF(FastVecDist(dst, a2) - f);
+        } else {
+            qcopy(dst, v + 2);
+        }
+        if (r1 < f * 0.01f) r1 = 0;
+    }
+    return r1;
+}

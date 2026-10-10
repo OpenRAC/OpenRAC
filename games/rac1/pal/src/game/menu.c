@@ -217,15 +217,15 @@ s32 func_00207408(s32 projected_x, s32 projected_y, f32 x, f32 y, f32 z);
 s32 func_00207408(s32 projected_x, s32 projected_y, f32 x, f32 y, f32 z) {
     s32 special_state;
 
-    if (func_00209048(projected_x, projected_y, 0x189, 0x16F, 0x87, 0xED)) {
-        if (func_00209048(projected_x, projected_y, 0x75, 0x146, 0x18B, 0x1CC) &&
-            func_00209048(projected_x, projected_y, 0x141, 0x130, 0xB0, 0x130)) {
+    if (menu_pointIsClockwise(projected_x, projected_y, 0x189, 0x16F, 0x87, 0xED)) {
+        if (menu_pointIsClockwise(projected_x, projected_y, 0x75, 0x146, 0x18B, 0x1CC) &&
+            menu_pointIsClockwise(projected_x, projected_y, 0x141, 0x130, 0xB0, 0x130)) {
             if (43.9f <= z) {
                 return 1;
             }
             return 0;
         }
-    } else if (func_00209048(projected_x, projected_y, 0x191, 0xCD, 0xD2, 0x13B)) {
+    } else if (menu_pointIsClockwise(projected_x, projected_y, 0x191, 0xCD, 0xD2, 0x13B)) {
         union RegionVector position;
         union RegionVector region_center;
 
@@ -238,7 +238,7 @@ s32 func_00207408(s32 projected_x, s32 projected_y, f32 x, f32 y, f32 z) {
         if (func_001F9D48_07408(&position, &region_center) <= 7.0f) {
             return 1;
         }
-        if (func_00209048(projected_x, projected_y, 0x142, 0x12A, 0x173, 0xFC) && D_001A04B0[0]) {
+        if (menu_pointIsClockwise(projected_x, projected_y, 0x142, 0x12A, 0x173, 0xFC) && D_001A04B0[0]) {
             return 1;
         }
         return 0;
@@ -247,10 +247,10 @@ s32 func_00207408(s32 projected_x, s32 projected_y, f32 x, f32 y, f32 z) {
         if ((u32)(D_0013F450_07408.active_state - 0x11) < 2 || D_0013F450_07408.region_mode == 1) {
             special_state = 1;
         }
-        if (special_state && func_00209048(projected_x, projected_y, 0x12B, 0xB8, 0x13A, 0xF2) &&
-            func_00209048(projected_x, projected_y, 0x130, 0xED, 0x165, 0xCB) &&
-            func_00209048(projected_x, projected_y, 0x161, 0xDC, 0x13B, 0xB0) &&
-            func_00209048(projected_x, projected_y, 0x156, 0xA8, 0x119, 0xD1)) {
+        if (special_state && menu_pointIsClockwise(projected_x, projected_y, 0x12B, 0xB8, 0x13A, 0xF2) &&
+            menu_pointIsClockwise(projected_x, projected_y, 0x130, 0xED, 0x165, 0xCB) &&
+            menu_pointIsClockwise(projected_x, projected_y, 0x161, 0xDC, 0x13B, 0xB0) &&
+            menu_pointIsClockwise(projected_x, projected_y, 0x156, 0xA8, 0x119, 0xD1)) {
             return 1;
         }
     }
@@ -1056,7 +1056,7 @@ void func_00208D38(int left, int top, int right, int bottom) {
             func_00201640(sx - D_0015FE70, sy - D_0015FE70, sx + D_0015FE70,
                           sy + D_0015FE70, m->sub, 1);
         } else {
-            int tex = func_00200198(m->icon, m->sub);
+            int tex = GetIconFrame(m->icon, m->sub);
             int *st = D_001A01F0;
             float *sc = (float *)(st + 0x2D);   /* the zoom scale table, at 0xB4 of the same block (the assembly's D_001A02A4) */
             char *arena = D_0019A4E8_raw;

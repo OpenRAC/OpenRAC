@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from libgcc_units import SEGMENT_SOURCES  # noqa: E402
 
-FUNC_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_[0-9A-Fa-f]{8})\s*\(", re.M)
+FUNC_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_[0-9A-Fa-f]{8})(?:_r)?\s*\(", re.M)
 STUB = re.compile(r"INCLUDE_ASM\([^)]*\b(func_[0-9A-Fa-f]{8})\)")
 JTBL = re.compile(r"%hi\((jtbl_(?:L\d\d_)?[0-9A-F]{8})\)")
 

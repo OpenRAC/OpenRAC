@@ -33,18 +33,18 @@ void func_L08_00273A80(float *pos, int kind, float *vec, float scale) {
         case 0:
             c = 0x14;
             f20 = 0.015f;
-            s = func_002140F8(0.01f, 1.0f);
+            s = random_float_between(0.01f, 1.0f);
             break;
         case 1:
             c = 0xD;
             f20 = 0.5f;
-            s = func_002140F8(1.0f, 5.0f);
+            s = random_float_between(1.0f, 5.0f);
             break;
         case 2:
             c = 0xD;
             f20 = 1.0f;
             k = 1;
-            s = func_002140F8(20.0f, 30.0f);
+            s = random_float_between(20.0f, 30.0f);
             break;
         }
         *(u128 *)w = *(u128 *)vp;
@@ -57,7 +57,7 @@ void func_L08_00273A80(float *pos, int kind, float *vec, float scale) {
         p[1] = 3;
         p[2] = D_L08_001B2B80[k];
         *(u128 *)(p + 0x10) = *(u128 *)pos;
-        func_001F9BD8(u, pos, w);
+        FastVecAdd(u, pos, w);
         *(u128 *)(p + 0x20) = *(u128 *)u;
         *(float *)(p + 0x1C) = f20;
         *(float *)(p + 0x2C) = 1.0f;

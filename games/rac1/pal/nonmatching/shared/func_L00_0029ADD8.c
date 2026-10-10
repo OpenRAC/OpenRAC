@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L00_0029ADD8 -- src/overlays/shared/tieproc_00299108.c
- * Best so far: SIZE ours 400 / retail 404, checked 2026-10-03.
+ * Best so far: SIZE ours 400 / retail 404, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -7,7 +7,6 @@
  *   Best try p7.c (400/404 bytes, SIZE mismatch): the code and the load/store order match retail, but the compiler
  *   Unblock: a declaration form for D_L00_0015F700+{2,8,0xC} that makes the store length 8 to the compiler (not sl
  */
-extern void func_00217748(int);
 extern void func_001F4E08(int);
 extern void func_001F99B0(void *, int, int);
 extern int func_00217628_w(int, int, int) __asm__("func_00217628");

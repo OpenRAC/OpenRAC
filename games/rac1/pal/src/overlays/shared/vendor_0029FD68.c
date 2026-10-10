@@ -111,33 +111,252 @@ void func_L00_002A0F60(void *m) {
     ids = D_L00_00161238;
     func_0020DB98(m, 3, &ids, out);
     qcopy(base, out);
-    func_001F9BF0(d1, &out[1], out);
-    func_001F9BF0(d2, &out[2], out);
-    len = func_001F9CB8(d1);
+    FastVecSub(d1, &out[1], out);
+    FastVecSub(d2, &out[2], out);
+    len = FastVecLength(d1);
     func_L00_001FF4B0(tmp, d1, 0.03f);
-    func_001F9BD8(base, base, tmp);
+    FastVecAdd(base, base, tmp);
     func_L00_001FF4B0(d1, d1, len - 0.06f);
-    len = func_001F9CB8(d2);
+    len = FastVecLength(d2);
     func_L00_001FF4B0(tmp, d2, 0.04f);
-    func_001F9BD8(base, base, tmp);
+    FastVecAdd(base, base, tmp);
     func_L00_001FF4B0(d2, d2, len - 0.04f);
     qcopy(&c[0], base);
-    func_001F9BD8(&c[1], base, d1);
-    func_001F9BD8(&c[2], base, d2);
-    func_001F9BD8(&c[3], &c[2], d1);
+    FastVecAdd(&c[1], base, d1);
+    FastVecAdd(&c[2], base, d2);
+    FastVecAdd(&c[3], &c[2], d1);
     a = c[0];
     b = c[3];
     func_00238D90(&a, &b, &x, &y, &w, &h);
     func_0023A948(9, 7, 1.0f);
     func_001FB908(0x200, 0x200);
-    func_00234C98(0x42, 0x8000000064L);
+    VU1_addGSregister(0x42, 0x8000000064L);
     func_L00_0029FD68(m, x, y);
     func_0023A5E0(6, (float)x, (float)y);
     func_001F7B40();
     func_001FB908(0x200, 0x200);
-    func_00234C98(0x42, 0x8000000064L);
-    func_0020E180((int)m, 1);
-    func_001F5800(w, h, x, y, 0, 0, x, y, 0x80808080L, D_0015EFD0);
+    VU1_addGSregister(0x42, 0x8000000064L);
+    DrawMobyList((int)m, 1);
+    DrawTexturedQuad(w, h, x, y, 0, 0, x, y, 0x80808080L, D_0015EFD0);
 }
 INCLUDE_ASM("asm/overlays", func_L00_002A11E8);
-INCLUDE_ASM("asm/overlays", func_L00_002A1540);
+typedef int u128_2A1540 __attribute__((mode(TI)));
+typedef struct {
+    char pad[0x8];
+    s32 f8;
+    s32 fC;
+    s32 f10;
+    s32 f14;
+    s32 f18;
+    u8 *f1C;
+    u8 *f20;
+    char pad24[8];
+    s32 f2C;
+    char pad30[0x10];
+    s32 f40;
+    char pad44[0x14];
+    s32 f58;
+    s32 f5C;
+    char pad60[0x10];
+    u128_2A1540 f70;
+    char pad80[0x50];
+    struct {
+        s32 a;
+        s32 b;
+        s32 c[3];
+    } arr[4];
+} A02b0_obj_2A1540;
+typedef struct {
+    char pad[0x30];
+    s32 f30;
+    char pad2[0xC];
+} A02b0_tab_2A1540;
+/* The four floats this function sets in D_L00_00166D80. */
+typedef struct {
+    char pad[0x350];
+    f32 f350;
+    char pad354[0x10];
+    f32 f364;
+    char pad368[0x10];
+    f32 f378;
+    f32 f37C;
+} A02b0_mtx_2A1540;
+/* The disc table entry read here (D_00137C80 + 0x198: sector and size of one stream). */
+typedef struct {
+    char pad[0x198];
+    s32 sector;
+    s32 size;
+} A02b0_disc_2A1540;
+
+extern s32 D_L00_0015F6BC_2A1540 __asm__("D_L00_0015F6BC") MACRO_ADDR;
+extern char D_L00_001CA7C0_2A1540[] __asm__("D_L00_001CA7C0");
+extern s32 D_L00_0015F4F4_2A1540 __asm__("D_L00_0015F4F4") MACRO_ADDR;
+extern s32 D_L00_0015F4F8_2A1540 __asm__("D_L00_0015F4F8") MACRO_ADDR;
+extern s32 D_L00_0016128C_2A1540 __asm__("D_L00_0016128C") MACRO_ADDR;
+extern s32 D_L00_0016124C_2A1540 __asm__("D_L00_0016124C") MACRO_ADDR;
+extern s32 D_L00_00161F34_2A1540 __asm__("D_L00_00161F34") MACRO_ADDR;
+extern s16 D_001517D8_2A1540[] __asm__("D_001517D8");
+extern u32 D_0013E604_2A1540[] __asm__("D_0013E604");
+extern u32 D_0015EF84_2A1540 __asm__("D_0015EF84") MACRO_ADDR;
+extern char D_00137C80_2A1540[] __asm__("D_00137C80");
+extern u128_2A1540 D_L00_00166ED0_2A1540[] __asm__("D_L00_00166ED0");
+extern u128_2A1540 D_L00_00166080_2A1540[] __asm__("D_L00_00166080");
+extern u128_2A1540 D_L00_001670E0_2A1540[] __asm__("D_L00_001670E0");
+extern u128_2A1540 D_L00_001670F0_2A1540[] __asm__("D_L00_001670F0");
+extern u128_2A1540 D_L00_001670D0_2A1540[] __asm__("D_L00_001670D0");
+extern char D_L00_00166D80_2A1540[] __asm__("D_L00_00166D80");
+extern A02b0_tab_2A1540 D_L00_001C92F0_2A1540[] __asm__("D_L00_001C92F0");
+
+extern void func_001FB530_2A1540(void) __asm__("func_001FB530");
+extern void func_001F3D78_2A1540(void) __asm__("func_001F3D78");
+extern void func_00234AC8_2A1540(s32) __asm__("func_00234AC8");
+extern s32 func_00122598_2A1540(s32) __asm__("func_00122598");
+extern void func_002349B8_2A1540(void) __asm__("func_002349B8");
+extern void func_00234948_2A1540(void) __asm__("func_00234948");
+extern void func_L00_001F9D40_2A1540(s32) __asm__("func_L00_001F9D40");
+extern void func_001F2608_2A1540(void) __asm__("func_001F2608");
+extern void func_001F9CA0_2A1540(void *, void *, void *) __asm__("func_001F9CA0");
+extern void func_0020D440_2A1540(void *, s32) __asm__("func_0020D440");
+extern void func_L00_00251E30_2A1540(void *) __asm__("func_L00_00251E30");
+extern void func_0020E340_2A1540(void *, s32, s32, s32, s32) __asm__("func_0020E340");
+extern void func_L00_0029C9E8_2A1540(void) __asm__("func_L00_0029C9E8");
+extern void func_001F99D8_2A1540(void *, s32) __asm__("func_001F99D8");
+extern s32 func_00217628_2A1540(void *, s32, s32) __asm__("func_00217628");
+extern void func_L00_002A2258_2A1540(s32, u32, u32) __asm__("func_L00_002A2258");
+extern void func_001F4630_2A1540(s32) __asm__("func_001F4630");
+extern void func_001F3C10_2A1540(void) __asm__("func_001F3C10");
+extern void func_0020E0C8_2A1540(void) __asm__("func_0020E0C8");
+extern void func_0020E040_2A1540(void) __asm__("func_0020E040");
+extern void func_0020E068_2A1540(void) __asm__("func_0020E068");
+extern void func_0020E180_2A1540(void *, s32) __asm__("func_0020E180");
+extern void func_L00_002A11E8_2A1540(void) __asm__("func_L00_002A11E8");
+extern void func_0023AA38_2A1540(s32) __asm__("func_0023AA38");
+extern void func_L00_002A0F60_2A1540(void *) __asm__("func_L00_002A0F60");
+extern void func_L00_002A0C20_2A1540(char *) __asm__("func_L00_002A0C20");
+extern void func_00234C98_2A1540(s32, s64) __asm__("func_00234C98");
+extern void func_001FFFB8_2A1540(void) __asm__("func_001FFFB8");
+extern void func_001F4748_2A1540(void) __asm__("func_001F4748");
+extern void func_0020E098_2A1540(void) __asm__("func_0020E098");
+extern void func_0020E200_2A1540(void) __asm__("func_0020E200");
+extern void func_0020DD48_2A1540(void) __asm__("func_0020DD48");
+
+/* Vendor screen frame: on the first frame sets up the camera rows, the two preview mobys and the stream read; then
+ * draws the vendor mobys, the capture pass and the HUD.
+ * Adapted from Lombyte (MIT) for PAL: overlays/shared/gameplay/entities/0029f990.c, FUN_L00_002a02b0. */
+void func_L00_002A1540(void) {
+    A02b0_obj_2A1540 *e;
+    A02b0_tab_2A1540 *g;
+
+    if (D_L00_0015F6BC_2A1540 != 0) {
+        return;
+    }
+    func_001FB530_2A1540();
+    switch (((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f8) {
+    case 0:
+        if (((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->fC != 0) {
+            *(u16 *)(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f1C + 0x34) |= 1;
+        }
+        D_L00_0015F4F4_2A1540 = 0x100FF;
+        if (((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->fC != 0 || *(s32 *)D_L00_001CA7C0_2A1540 == 3) {
+            D_L00_0015F4F4_2A1540 = 0x7F;
+        }
+        func_001F3D78_2A1540();
+        if (((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->fC == 0) {
+            return;
+        }
+        ((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f8 = 1;
+        ((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->fC = 0;
+        func_00234AC8_2A1540(1);
+        func_00122598_2A1540(0);
+        D_L00_0015F4F8_2A1540 = D_L00_0015F4F8_2A1540 + 1;
+        func_002349B8_2A1540();
+        func_00234948_2A1540();
+        D_L00_0016128C_2A1540 = 0x60000;
+        func_L00_001F9D40_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f10);
+        *(u16 *)(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f1C + 0x34) &= 0xFFFE;
+        *(f32 *)(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f1C + 0x2C) = 0.14190800487995148f;
+        if (((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f40 != 0) {
+            qcopy(&((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f70, &D_L00_00166ED0_2A1540[0]);
+            {
+                u128_2A1540 *s = &D_L00_00166ED0_2A1540[32];
+                D_L00_00166080_2A1540[0] = s[0];
+                D_L00_00166080_2A1540[1] = s[1];
+                D_L00_00166080_2A1540[2] = s[2];
+                qzero(s);
+            }
+            qzero(D_L00_001670E0_2A1540);
+            qzero(D_L00_001670F0_2A1540);
+            ((A02b0_mtx_2A1540 *)D_L00_00166D80_2A1540)->f350 = 1.0f;
+            ((A02b0_mtx_2A1540 *)D_L00_00166D80_2A1540)->f364 = 1.0f;
+            ((A02b0_mtx_2A1540 *)D_L00_00166D80_2A1540)->f378 = 1.0f;
+            ((A02b0_mtx_2A1540 *)D_L00_00166D80_2A1540)->f37C = 1.0f;
+            func_001F2608_2A1540();
+        } else {
+            D_L00_00166080_2A1540[0] = D_L00_001670D0_2A1540[0];
+            D_L00_00166080_2A1540[1] = D_L00_001670D0_2A1540[1];
+            D_L00_00166080_2A1540[2] = D_L00_001670D0_2A1540[2];
+            func_001F9CA0_2A1540(&D_L00_001670D0_2A1540[1], &D_L00_001670D0_2A1540[0], &D_L00_001670D0_2A1540[2]);
+        }
+        ((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f20 = ((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f14 + 0x100;
+        func_0020D440_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f20, 0xD);
+        *(u16 *)(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f20 + 0x32) = 0x40;
+        func_L00_00251E30_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f20);
+        func_0020E340_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f20, 0x202020, 0xE, 0xE, 0);
+        func_0020D440_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f20 + 0x500, 0xD);
+        *(u16 *)(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f20 + 0x532) = 0x40;
+        func_L00_00251E30_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f20 + 0x500);
+        func_0020E340_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f20 + 0x500, 0x202020, 0xE, 0xE, 0);
+        func_L00_0029C9E8_2A1540();
+        ((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f2C = ((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f14 + 0x1400;
+        func_001F99D8_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f2C, 0x400);
+        ((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f18 = ((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f2C + 0x400;
+        if (D_001517D8_2A1540[0] == 0) {
+            if (func_00217628_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f18 + 0x80000, ((A02b0_disc_2A1540 *)D_00137C80_2A1540)->sector,
+                                        ((A02b0_disc_2A1540 *)D_00137C80_2A1540)->size) != 0) {
+                D_L00_0016124C_2A1540 = 1;
+            } else {
+                D_L00_0016124C_2A1540 = 0;
+            }
+        } else {
+            D_L00_0016124C_2A1540 = 0;
+        }
+        break;
+    case 1:
+        break;
+    default:
+        return;
+    }
+    func_L00_002A2258_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f10, D_0015EF84_2A1540, D_0013E604_2A1540[0] << 11);
+    func_001F4630_2A1540(0);
+    func_001F2608_2A1540();
+    func_001F3C10_2A1540();
+    func_0020E0C8_2A1540();
+    func_0020E040_2A1540();
+    func_0020E068_2A1540();
+    if (D_L00_00161F34_2A1540 == 0 && ((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f40 == 0) {
+        if (((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->arr[((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f58].b == 1) {
+            g = &D_L00_001C92F0_2A1540[((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->arr[((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f58].a];
+            if (g->f30 != 0) {
+                func_0020E180_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f20 + 0x200, 1);
+            }
+        } else {
+            func_0020E180_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f20 + 0x300, 1);
+        }
+    }
+    func_0020E180_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f1C, 1);
+    if (((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f40 == 0) {
+        func_L00_002A11E8_2A1540();
+    }
+    func_0023AA38_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f1C);
+    if (((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f5C != 0) {
+        func_L00_002A0F60_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f20 + 0x400);
+    }
+    func_L00_002A0C20_2A1540(((A02b0_obj_2A1540 *)D_L00_001CA7C0_2A1540)->f1C);
+    func_00234C98_2A1540(0x42, 0x8000000044LL);
+    func_001FFFB8_2A1540();
+    func_001F4748_2A1540();
+    func_0020E098_2A1540();
+    func_0020E200_2A1540();
+    func_00234AC8_2A1540(0x10);
+    func_0020DD48_2A1540();
+}

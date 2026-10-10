@@ -3,7 +3,92 @@
 #include "include_asm.h"
 
 LINKER_REMNANT("asm/overlays", func_L09_0021E3E8);
-INCLUDE_ASM("asm/overlays", func_L09_0021E410);
+typedef struct Strip_21E410 {
+    char pad0[8];
+    unsigned short a; /* 0x8 */
+    unsigned short b; /* 0xA */
+    char padC[4];
+} Strip_21E410;
+extern long func_001F4868_21E410(int) __asm__("func_001F4868");
+extern void func_L02_00250C78_21E410(void *, void *, void *, void *, void *, int) __asm__("func_L02_00250C78");
+extern void func_00234C98_21E410(int, long) __asm__("func_00234C98");
+extern int *D_L09_00161240_21E410 __asm__("D_L09_00161240") MACRO_ADDR;
+extern char D_L09_0016D380_21E410[] __asm__("D_L09_0016D380");
+extern long D_L09_00162040_21E410[] __asm__("D_L09_00162040");
+extern char *D_L09_0015F520_21E410 __asm__("D_L09_0015F520") MACRO_ADDR;
+extern int D_0015EF74_21E410 __asm__("D_0015EF74") MACRO_ADDR;
+
+/* Queues the GS packet for a draw (a == b), or builds the strip between two table entries and queues it. */
+void func_L09_0021E410(int a, int b) {
+    if (a == b) {
+        int *q;
+        long *g;
+
+        D_L09_00161240_21E410[0] = 0x10000002;
+        D_L09_00161240_21E410[1] = 0;
+        D_L09_00161240_21E410[2] = 0;
+        D_L09_00161240_21E410[3] = 0x50000002;
+        q = D_L09_00161240_21E410;
+        D_L09_00161240_21E410 = q + 4;
+        g = (long *)(q + 4);
+        g[0] = 0x1000000000008001L;
+        g[1] = 0xEEEEEEE;
+        g[2] = func_001F4868_21E410(b);
+        g[3] = 6;
+        D_L09_00161240_21E410 = q + 12;
+    } else {
+        int *q;
+        long *g;
+        int a1 = ((Strip_21E410 *)D_L09_0016D380_21E410)[a].b;
+        int a0 = ((Strip_21E410 *)D_L09_0016D380_21E410)[a].a;
+        int b1 = ((Strip_21E410 *)D_L09_0016D380_21E410)[b].b;
+        int b0 = ((Strip_21E410 *)D_L09_0016D380_21E410)[b].a;
+
+        D_L09_00162040_21E410[0] = 0x0800000000000400L;
+        D_L09_00162040_21E410[1] = 0;
+        func_L02_00250C78_21E410(&D_L09_00162040_21E410[2], D_L09_0015F520_21E410 + (a0 << 4), D_L09_0015F520_21E410 + (a1 << 4),
+                                 D_L09_0015F520_21E410 + (b0 << 4), D_L09_0015F520_21E410 + (b1 << 4), 0x1000);
+        D_L09_00161240_21E410[0] = 0x10000006;
+        D_L09_00161240_21E410[1] = 0;
+        D_L09_00161240_21E410[2] = 0;
+        D_L09_00161240_21E410[3] = 0x50000006;
+        q = D_L09_00161240_21E410;
+        D_L09_00161240_21E410 = q + 4;
+        g = (long *)(q + 4);
+        g[0] = 0x5000000000008001L;
+        g[1] = 0xEEEEEEE;
+        g[2] = (long)(D_0015EF74_21E410 >> 8) | 0x18100000 | (0xB000L << 19);
+        g[3] = 6;
+        g[4] = (long)(D_0015EF74_21E410 >> 8) << 32 | 0x1000000000000L;
+        g[5] = 0x50;
+        g[6] = 0;
+        g[7] = 0x51;
+        g[8] = 0x4000000040L;
+        g[9] = 0x52;
+        g[10] = 0;
+        g[11] = 0x53;
+        D_L09_00161240_21E410 = q + 28;
+        D_L09_00161240_21E410[0] = 0x30000401;
+        D_L09_00161240_21E410[1] = (int)D_L09_00162040_21E410;
+        D_L09_00161240_21E410[2] = 0;
+        D_L09_00161240_21E410[3] = 0x50000401;
+        D_L09_00161240_21E410 += 4;
+        D_L09_00161240_21E410[0] = 0x10000002;
+        D_L09_00161240_21E410[1] = 0;
+        D_L09_00161240_21E410[2] = 0;
+        D_L09_00161240_21E410[3] = 0x50000002;
+        D_L09_00161240_21E410 += 4;
+        q = D_L09_00161240_21E410;
+        g = (long *)q;
+        g[0] = 0x1000000000008001L;
+        g[1] = 0xE;
+        g[2] = 0;
+        g[3] = 0x3F;
+        D_L09_00161240_21E410 = q + 8;
+        func_00234C98_21E410(7, (long)(D_0015EF74_21E410 >> 8) | 0x18100000 | (0xB000L << 19));
+        D_0015EF74_21E410 += 0x4000;
+    }
+}
 extern void func_L09_0021E410(int, int);
 extern void func_001F7868(void);
 extern int func_L00_00200290(char *, float);
@@ -38,7 +123,7 @@ void func_L09_0021E770(char *list, int count, long tex0, long tex1) {
     }
     for (i = 0; i < count; i++) {
         char *e = list + i * 64;
-        idx = func_L00_00200290(e, 256.0f);
+        idx = FastBSphereCheck(e, 256.0f);
         if (idx == -1) continue;
         for (j = 0; j < *(int *)(e + 0x1C); j++) {
             int n;

@@ -307,8 +307,9 @@ Measured on 2026-09-26/27 (Sonnet workers, one function each):
 ### Landing
 
 - `land` compiles each candidate again and runs the full build per
-  function. `try_func` masks relocations, so an `EXACT` can still fail
-  there (func_001E9808). When it does, change that function's
+  function. `try_func` resolves relocations to retail's addresses but
+  needs no link, so an `EXACT` can still fail there (an unpaired `%hi`,
+  func_001E9808). When it does, change that function's
   `RESULT.md` from `EXACT`, or every later `land` rebuilds it again.
 - The candidate's comments go into `src/` as they are. Rewrite worker
   notes into what the function does plus the one fact that is
@@ -341,8 +342,10 @@ match`.
   `TRY_CFLAGS=-mno-split-addresses` (and `-fopt-stack`), record which files
   match better, and give those files their flags in `Makefile.sn`, the way
   UYA's `tools/text_parts.txt` does.
-- **Resolve relocations in `try_func`** instead of masking them, as UYA
-  does, so false `EXACT`s stop reaching `land`.
+- ~~Resolve relocations in `try_func`~~: done 2026-10-07, after
+  rac3-uya-decomp's `try_func.py`. Every executable C function still
+  comes out `EXACT` under it; 24 keep a few masked bytes (references into
+  their own `.rodata`).
 - **Stage near-misses in `src/`.** Candidates and notes live only in
   `build-sn/try/`, which is not tracked. Lombyte keeps unfinished C under
   `#else` of a `NON_MATCHING` guard, beside the retail assembly, so the

@@ -316,7 +316,7 @@ void func_002032D0(void) {
     d941c0 = D_001941C0;
     size24 = ALIGN64(base->bank[0].size);
     header = (HudHdr *) func_001FFAB8_d(size24, 0, fname, 0x23B);
-    func_001F9A98(header, (void *) (base->bank[0].off + (int) base), size24);
+    FastMemCopy(header, (void *) (base->bank[0].off + (int) base), size24);
 
     D_0019A4E8_arena.header = header;
     D_0019A4E8_arena.unk1C = (char *) header + header->unk04;
@@ -327,35 +327,35 @@ void func_002032D0(void) {
 
     if (header->unk54 != 0) {
         shift54 = (unsigned int) ALIGN64(base->bank[1].size) >> 4;
-        func_00203548(0, bank2);
-        D_0019A4E8_arena.header->unk94 = func_00234158(
+        LoadCompressedHudBank(0, bank2);
+        D_0019A4E8_arena.header->unk94 = Stash_SendData(
             base->bank[1].off + (int) base, shift54, shift54, (int) D_0015FC80);
-        func_001FF958(0, (void *) bank2, 1);
+        Hud_SendResidentBank(0, (void *) bank2, 1);
     }
 
     size58 = D_0019A4E8_arena.header->unk58;
     if (size58 != 0) {
         bank58 = func_001FFAB8_d(size58, 0, fname, 0x262);
-        func_00203548(1, (int) bank58);
+        LoadCompressedHudBank(1, (int) bank58);
         func_00118D80(0);
-        func_001FF7F0(1, (int) bank58);
+        LinkHudBank(1, (int) bank58);
     }
 
     if (D_0019A4E8_arena.header->unk5C != 0) {
         shift5C = (unsigned int) ALIGN64(base->bank[3].size) >> 4;
-        D_0019A4E8_arena.header->unk9C = func_00234158(
+        D_0019A4E8_arena.header->unk9C = Stash_SendData(
             base->bank[3].off + (int) base, shift5C, shift5C, (int) D_0015FC90);
     }
 
     if (D_0019A4E8_arena.header->unk60 != 0) {
         shift60 = (unsigned int) ALIGN64(base->bank[4].size) >> 4;
-        D_0019A4E8_arena.header->unkA0 = func_00234158(
+        D_0019A4E8_arena.header->unkA0 = Stash_SendData(
             base->bank[4].off + (int) base, shift60, shift60, (int) D_0015FCA0);
     }
 
     if (D_0019A4E8_arena.header->unk64 != 0) {
         shift64 = (unsigned int) ALIGN64(base->bank[5].size) >> 4;
-        D_0019A4E8_arena.header->unkA4 = func_00234158(
+        D_0019A4E8_arena.header->unkA4 = Stash_SendData(
             base->bank[5].off + (int) base, shift64, shift64, (int) D_0015FCB0);
     }
 }
@@ -539,7 +539,183 @@ void func_00203B18(char *arg0, int idx) {
     }
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00203B70);
+typedef u32 u128_03B70 __attribute__((mode(TI), aligned(16)));
+typedef union MaterialMap_03B70 {
+    u128_03B70 q;
+    u8 b[16];
+} MaterialMap_03B70;
+typedef struct {
+    s32 draw_high;
+    s32 draw_shift;
+    u8 pad8[0x8];
+    s32 material_base;
+    s32 material_shift;
+    u8 pad18[0x8];
+    s32 material_index;
+    u8 pad24[0x1C];
+} ResidentRenderPacket_03B70;
+typedef struct {
+    s32 blocks;
+    s32 count;
+    s32 auxiliary_data;
+    s32 unused_C;
+} ResidentRenderGroup_03B70;
+typedef struct {
+    u8 first_selector;
+    u8 pad1[0xB];
+    s32 target;
+} MaterialRun_03B70;
+typedef struct {
+    u8 pad0[0x10];
+    u8 count;
+    u8 pad11[3];
+    s32 optional_data_14;
+    u8 pad18[4];
+    s32 entry_offsets[1];
+} NestedRenderTable_03B70;
+typedef struct {
+    s32 groups;
+    u8 group_count_0;
+    u8 group_count_1;
+    u8 group_count_2;
+    u8 pad7[5];
+    u8 nested_table_count;
+    u8 padD[3];
+    s32 optional_table_10;
+    s32 optional_data_14;
+    s32 optional_table_18;
+    s32 *counted_pointers;
+    s32 material_runs;
+    u8 pad24[4];
+    s32 runtime_table;
+    u8 pad2C[0x1C];
+    s32 nested_tables[1];
+} ResidentClassRenderHeader_03B70;
+extern u8 D_001B3E40_03B70[] __asm__("D_001B3E40");
+extern MaterialMap_03B70 D_001B6C00_03B70[] __asm__("D_001B6C00");
+extern void func_002035B0_03B70(ResidentRenderPacket_03B70 *, void *, s32, s32, s32, s32, s32) __asm__("func_002035B0");
+extern void func_00203808_03B70(ResidentRenderPacket_03B70 *packet, s32 draw_high, s32 draw_shift, s32 material_base, s32 material_shift, s32 material_index) __asm__("func_00203808");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/prepare_resident_class_render_data.c, prepare_resident_class_render_data. */
+void func_00203B70_r(ResidentClassRenderHeader_03B70 *header, u8 *textures, u8 *material_map, s32 class_id)
+    __asm__("func_00203B70");
+void func_00203B70_r(ResidentClassRenderHeader_03B70 *header, u8 *textures, u8 *material_map, s32 class_id) {
+    s32 group_count;
+    s32 class_slot;
+    s32 group_index;
+    s32 packet_quadword;
+    s32 groups_remaining;
+    s32 packet_extent;
+    ResidentRenderGroup_03B70 *group;
+    ResidentRenderGroup_03B70 *relocation_group;
+    MaterialRun_03B70 *material_run;
+    u8 *selector;
+    NestedRenderTable_03B70 *nested_table;
+    s32 *entry_offset;
+    MaterialMap_03B70 *slot_materials;
+    ResidentRenderPacket_03B70 *packet;
+    s32 packed_extent;
+    s32 packet_start;
+    s32 material_index;
+    s32 pointer_count;
+    s32 pointer_index;
+    s32 nested_table_index;
+    s32 nested_entry_index;
+
+    /* Serialized pointers are relative to the entire class blob. */
+    group_count = header->group_count_0 + header->group_count_1 + header->group_count_2;
+    if (header->groups != 0) {
+        header->groups = (s32)header + header->groups;
+        relocation_group = (ResidentRenderGroup_03B70 *)header->groups;
+        if (group_count != 0) {
+            groups_remaining = group_count;
+            do {
+                relocation_group->blocks += (s32)header;
+                relocation_group->auxiliary_data += (s32)header;
+                groups_remaining--;
+                relocation_group++;
+            } while (groups_remaining != 0);
+        }
+    }
+    if (header->optional_table_10 != 0) {
+        header->optional_table_10 = (s32)header + header->optional_table_10;
+    }
+    if (header->optional_data_14 != 0) {
+        header->optional_data_14 = (s32)header + header->optional_data_14;
+    }
+    if (header->optional_table_18 != 0) {
+        header->optional_table_18 = (s32)header + header->optional_table_18;
+    }
+    if (header->counted_pointers != 0) {
+        header->counted_pointers = (s32 *)((u8 *)header + (s32)header->counted_pointers);
+        pointer_count = header->counted_pointers[0];
+        for (pointer_index = 0; pointer_index < pointer_count; pointer_index++) {
+            header->counted_pointers[pointer_index + 1] += (s32)header;
+        }
+    }
+    if (header->material_runs != 0) {
+        header->material_runs = (s32)header + header->material_runs;
+        material_run = (MaterialRun_03B70 *)header->material_runs;
+        do {
+            material_run->target += (s32)header;
+            selector = &material_run->first_selector;
+            if (material_run->first_selector != 0xFF) {
+                do {
+                    *selector = material_map[*selector];
+                    selector++;
+                } while (*selector != 0xFF);
+            }
+        } while (material_run->target >= 0 && (material_run++, 1));
+    }
+    if (header->runtime_table != 0) {
+        header->runtime_table = (s32)header + header->runtime_table;
+    }
+    for (nested_table_index = 0; nested_table_index < header->nested_table_count;
+         nested_table_index++) {
+        if (header->nested_tables[nested_table_index] != 0) {
+            nested_table =
+                (NestedRenderTable_03B70 *)((u8 *)header + header->nested_tables[nested_table_index]);
+            header->nested_tables[nested_table_index] = (s32)nested_table;
+            if (nested_table->optional_data_14 != 0) {
+                nested_table->optional_data_14 = (s32)header + nested_table->optional_data_14;
+            }
+            for (nested_entry_index = 0; nested_entry_index < nested_table->count;
+                 nested_entry_index++) {
+                nested_table->entry_offsets[nested_entry_index] =
+                    (s32)header + nested_table->entry_offsets[nested_entry_index];
+            }
+        }
+    }
+
+    class_slot = D_001B3E40_03B70[class_id];
+    slot_materials = &D_001B6C00_03B70[class_slot];
+    qcopy(slot_materials, material_map);
+    group = (ResidentRenderGroup_03B70 *)header->groups;
+    for (group_index = 0; group_index < group_count; group_index++, group++) {
+        /* High half counts encoded quadwords; low half locates the packet end. */
+        packed_extent = group->count;
+        packet_extent = packed_extent >> 16;
+        packet_start = packed_extent & 0xFFFF;
+        group->count = packet_start;
+        packet = (ResidentRenderPacket_03B70 *)(group->blocks + (packet_start - packet_extent) * 16);
+        for (packet_quadword = 0; packet_quadword < packet_extent; packet_quadword += 4) {
+            material_index = packet->material_index;
+            if (material_index >= 0) {
+                material_index = slot_materials->b[material_index];
+            }
+            if (textures != 0) {
+                func_002035B0_03B70(
+                    packet, textures + material_index * 16, packet->draw_high, packet->draw_shift,
+                    packet->material_base, packet->material_shift, material_index);
+            } else {
+                func_00203808_03B70(packet, packet->draw_high, packet->draw_shift,
+                                                      packet->material_base, packet->material_shift,
+                                                      material_index);
+            }
+            packet++;
+        }
+    }
+}
 
 extern int D_00160000 MACRO_ADDR;
 extern unsigned char D_001B3E40[] NOT_SDA;
@@ -593,7 +769,194 @@ int func_00204BE8(void) {
     return 1;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00204C60);
+struct DiscFile_04C60 {
+    s32 sector;
+    s32 size;
+};
+struct DiscTable_04C60 {
+    u8 pad_0[0x12C8];
+    struct DiscFile_04C60 level_archives[24]; /* 0x12C8, by level index */
+    u8 pad_1388[0x15E0];
+    struct DiscFile_04C60 shared_archive;     /* 0x2968 */
+    struct DiscFile_04C60 sound_archive;      /* 0x2970 */
+    struct DiscFile_04C60 sound_archive_alt;  /* 0x2978, while D_0015EE80 is set */
+};
+struct LevelArchiveDiscEntry_04C60 {
+    u8 pad_0[0x12C8];
+    s32 start_sector;
+    s32 sector_count;
+};
+struct LevelArchiveHeader_04C60 {
+    u8 pad_0[8];
+    s32 sound_bank_offset;
+};
+
+extern struct DiscTable_04C60 D_00137C80_04C60 __asm__("D_00137C80");
+extern s16 D_0013E156_04C60[] __asm__("D_0013E156");
+extern s32 D_0015EE58_04C60 __asm__("D_0015EE58") MACRO_ADDR;
+extern u32 D_0015EE5C_04C60 __asm__("D_0015EE5C") MACRO_ADDR;
+extern s32 D_0015EE80_04C60 __asm__("D_0015EE80") MACRO_ADDR;
+/* The load's state is one small-data object: the stage at its start is reached in one
+   instruction (through $gp in a delay slot), the members behind it never are. */
+struct LevelArchiveLoad_04C60 {
+    u16 stage;                                /* D_0015EF48 */
+    s16 busy;                                 /* D_0015EF4A */
+    struct LevelArchiveHeader_04C60 *shared;  /* D_0015EF4C */
+    u8 *sound;                                /* D_0015EF50 */
+    u8 *level;                                /* D_0015EF54 */
+};
+extern struct LevelArchiveLoad_04C60 D_0015EF48_04C60 __asm__("D_0015EF48") MACRO_ADDR;
+extern s32 D_0015EFBC_04C60 __asm__("D_0015EFBC") MACRO_ADDR;
+extern s32 D_0015EFC0_04C60 __asm__("D_0015EFC0") MACRO_ADDR;
+extern u8 D_1FF8000_04C60[] __asm__("D_1FF8000");
+extern void func_0022F090_04C60() __asm__("func_0022F090");
+extern s32 func_0012DDC0_04C60() __asm__("func_0012DDC0");
+extern void func_0012E1C8_04C60(s32, s32, u64) __asm__("func_0012E1C8");
+extern void func_0012E2E8_04C60() __asm__("func_0012E2E8");
+extern s32 func_0012E318_04C60(s32) __asm__("func_0012E318");
+extern void func_0012E4F8_04C60() __asm__("func_0012E4F8");
+extern s32 func_002175C8_04C60(void *, u32, u32) __asm__("func_002175C8");
+extern s32 func_001219C8_04C60() __asm__("func_001219C8");
+extern s32 func_00121930_04C60() __asm__("func_00121930");
+extern s32 func_00120F30_04C60(s32) __asm__("func_00120F30");
+
+/* One step of the level archive load: waits for the disc, steps back a stage on a read
+   error or a 720-frame stall, then by stage reads the shared, level and sound archives
+   below 0x1FF8000 and swaps the level's sound bank. Returns 1 when everything is in.
+   Adapted from Lombyte (MIT) for PAL: src/gameplay/state/fun_00204428.c, service_level_archive_load. */
+s32 func_00204C60(void) {
+    s32 stage;
+    u16 next_stage;
+    s32 retry_stage;
+    s32 archive_start_or_bytes;
+    s32 sound_aligned_bytes;
+    s32 level_archive_sectors;
+    s32 archive_start_or_sectors;
+    s32 shared_start_sector;
+    u8 *sound_archive_buffer;
+    u8 *level_archive_buffer;
+    u8 *shared_archive_buffer;
+    struct LevelArchiveDiscEntry_04C60 *disc_entry;
+    struct LevelArchiveDiscEntry_04C60 *next_disc_entry;
+    s32 level_index;
+    struct LevelArchiveHeader_04C60 *shared_header;
+
+    level_index = D_0013E156_04C60[0] + 1;
+    if (func_00120F30_04C60(1) != 0) {
+        D_0015EFBC_04C60 = D_0015EFBC_04C60 + 1;
+        if (D_0015EE58_04C60 == 1) {
+            if (D_0015EFBC_04C60 >= 0x2D1) {
+                D_0015EFC0_04C60 = D_0015EE58_04C60;
+                retry_stage = D_0015EF48_04C60.stage - 1;
+                D_0015EE58_04C60 = 0;
+                if ((u16)retry_stage < 3) {
+                    D_0015EF48_04C60.stage = retry_stage;
+                }
+                func_001219C8_04C60();
+            }
+        }
+        return 0;
+    }
+    if (func_00121930_04C60() != 0) {
+        if (D_0015EFC0_04C60 == 0) {
+            D_0015EFC0_04C60 = 1;
+            retry_stage = D_0015EF48_04C60.stage - 1;
+            D_0015EE58_04C60 = 0;
+            if ((u16)retry_stage < 3) {
+                D_0015EF48_04C60.stage = retry_stage;
+            }
+        }
+    }
+    stage = (s16)D_0015EF48_04C60.stage;
+    switch (stage) {
+    case 0:
+        if (D_0015EE80_04C60 != 0) {
+            sound_aligned_bytes =
+                ((D_00137C80_04C60.sound_archive_alt.size << 11) + 0xFFF) & 0xFFFFF000;
+        } else {
+            sound_aligned_bytes = ((D_00137C80_04C60.sound_archive.size << 11) + 0xFFF) & 0xFFFFF000;
+        }
+        disc_entry = (struct LevelArchiveDiscEntry_04C60 *)((u8 *)&D_00137C80_04C60 + level_index * 8);
+        level_archive_sectors = *(s32 *)((u8 *)&D_00137C80_04C60 + level_index * 8 + 0x12CC);
+        sound_archive_buffer = D_1FF8000_04C60 - sound_aligned_bytes;
+        sound_aligned_bytes = ((level_archive_sectors << 11) + 0xFFF) & 0xFFFFF000;
+        level_archive_buffer = sound_archive_buffer - sound_aligned_bytes;
+        archive_start_or_sectors = D_00137C80_04C60.shared_archive.size;
+        sound_aligned_bytes = ((archive_start_or_sectors << 11) + 0xFFF) & 0xFFFFF000;
+        shared_archive_buffer = level_archive_buffer - sound_aligned_bytes;
+        archive_start_or_bytes = D_00137C80_04C60.shared_archive.sector;
+        D_0015EF48_04C60.level = level_archive_buffer;
+        D_0015EF48_04C60.sound = sound_archive_buffer;
+        D_0015EF48_04C60.shared = (struct LevelArchiveHeader_04C60 *)shared_archive_buffer;
+        func_002175C8_04C60(shared_archive_buffer, archive_start_or_bytes,
+                            archive_start_or_sectors);
+        D_0015EF48_04C60.stage = D_0015EF48_04C60.stage + 1;
+        break;
+    case 1:
+        next_disc_entry = (struct LevelArchiveDiscEntry_04C60 *)((u8 *)&D_00137C80_04C60 + level_index * 8);
+        func_002175C8_04C60(D_0015EF48_04C60.level, *(s32 *)((s32)&D_00137C80_04C60 + (level_index << 3) + 0x12C8), *(s32 *)((s32)&D_00137C80_04C60 + (level_index << 3) + 0x12CC));
+        D_0015EF48_04C60.stage = D_0015EF48_04C60.stage + 1;
+        break;
+    case 2:
+        if (D_0015EE80_04C60 != 0) {
+            func_002175C8_04C60(D_0015EF48_04C60.sound, D_00137C80_04C60.sound_archive_alt.sector,
+                                D_00137C80_04C60.sound_archive_alt.size);
+        } else {
+            func_002175C8_04C60(D_0015EF48_04C60.sound, D_00137C80_04C60.sound_archive.sector,
+                                D_00137C80_04C60.sound_archive.size);
+        }
+        D_0015EF48_04C60.stage = D_0015EF48_04C60.stage + 1;
+        break;
+    case 3:
+        if (D_0015EF48_04C60.busy != 0) {
+            return 0;
+        }
+        func_0012E4F8_04C60();
+        if (D_0015EE5C_04C60 != 0) {
+            next_stage = D_0015EF48_04C60.stage;
+            D_0015EF48_04C60.stage = next_stage + 1;
+        } else {
+            D_0015EF48_04C60.stage = 6;
+        }
+        break;
+    case 4:
+        if (func_0012DDC0_04C60() != 0) {
+            return 0;
+        }
+        func_0012E318_04C60(D_0015EE5C_04C60);
+        next_stage = D_0015EF48_04C60.stage;
+        D_0015EE5C_04C60 = 0;
+        D_0015EF48_04C60.stage = next_stage + 1;
+        break;
+    case 5:
+        if (func_0012DDC0_04C60() != 0) {
+            return 0;
+        }
+        func_0012E2E8_04C60();
+        D_0015EF48_04C60.stage = D_0015EF48_04C60.stage + 1;
+        break;
+    case 6:
+        if (func_0012DDC0_04C60() != 0) {
+            return 0;
+        }
+        shared_header = D_0015EF48_04C60.shared;
+        D_0015EE5C_04C60 = 0xFFFFFFFFU;
+        func_0012E1C8_04C60(shared_header->sound_bank_offset + (s32)shared_header,
+                            (s32)func_0022F090_04C60, (u32)&D_0015EE5C_04C60);
+        D_0015EF48_04C60.stage = D_0015EF48_04C60.stage + 1;
+        break;
+    case 7:
+        if (func_0012DDC0_04C60() != 0) {
+            return 0;
+        }
+        if ((u32)D_0015EE5C_04C60 == 0xFFFFFFFFU) {
+            return 0;
+        }
+        func_0012E2E8_04C60();
+        return 1;
+    }
+    return 0;
+}
 
 struct PartList {
     unsigned char pad00[6];

@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L00_00299B68 -- src/overlays/shared/tieproc_00299108.c
- * Best so far: SIZE ours 780 / retail 772, checked 2026-10-03.
+ * Best so far: SIZE ours 780 / retail 772, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -33,10 +33,8 @@ extern char *D_L00_001BA15C;
 extern unsigned char *D_L00_0016009C_m __asm__("D_L00_0016009C") MACRO_ADDR;
 extern void func_L00_00211908(void);
 extern void func_00216EF0(int);
-extern void func_00217748(int);
 extern void func_001F99B0(void *, int, int);
 extern void func_L00_00203FB8(void);
-extern void func_L00_00222B80(int, int);
 extern void func_L00_00233868(void);
 extern void func_L00_00245B88(int);
 extern int func_001F9850(int);
@@ -44,7 +42,6 @@ extern void func_001F4E08(int);
 extern void func_00204FC0_v(void) __asm__("func_00204FC0");
 extern void func_0022DD68(void);
 extern void func_00122598(int);
-extern int func_00216960(void);
 
 // Sets up the vendor screen state from the requested entry and runs it until the screen closes.
 void func_L00_00299B68(int arg) {

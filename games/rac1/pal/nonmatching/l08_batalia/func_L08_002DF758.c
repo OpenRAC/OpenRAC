@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 320 / retail 324, checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Spawns moby class 0x1B3, aims it (yaw/pitch via func_L00_001FF860) at the fixed point D_L08_00167640, sets col
  *   p1 (base symbol D_L08_00167500, index 0x50..0x52, which reproduces the -0x140 base register) is size-exact, 28
@@ -13,7 +14,6 @@ extern float func_001F9D48(void *, void *);
 extern float func_L00_001FF860(float, float);
 extern void func_L00_00251328(void *, int, int, int);
 extern void func_L00_00251E30(void *);
-extern float D_L08_00167500[];
 extern short D_L08_00161AD0;
 extern short D_L08_00161AC8;
 extern short D_L08_00161ACC;

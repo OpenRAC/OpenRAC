@@ -823,4 +823,179 @@ void func_00216F48(MusicPlaying *p) {
     }
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00217130); /* music_Update(void) */
+struct MusicStreamChannel {
+    s32 handle; /* 0x00: stream handle from the start callback; -1 while starting */
+    s16 track; /* 0x04 */
+    s16 volume; /* 0x06 */
+    s16 flags; /* 0x08 */
+    s16 state; /* 0x0A: set 1 on start, 1 -> 2 in the start callback */
+    s16 fade_flags; /* 0x0C: -0x8000 on music_pause, 4 on music_unpause */
+    s16 unkE; /* 0x0E: cleared by music_pause */
+    s16 crossfade_enabled; /* 0x10: remaining-time callback starts the crossfade */
+    u8 pad_12[0x2];
+    s32 poll_interval; /* 0x14 */
+    s32 remaining_time; /* 0x18: set by music_remaining_time_callback */
+};
+struct MusicCdReadMode {
+    u8 trycount; /* 0x20 from reset_music */
+    u8 spindlctrl;
+    u8 datapattern;
+    u8 pad;
+};
+struct MusicStreamState {
+    s32 unk0; /* 0x00: cleared by reset_music */
+    u8 pad_4[0x4];
+    s16 read_state; /* 0x08: 0 idle, 1 reading, 2 done */
+    u8 break_requested; /* 0x0A: set by request_audio_stream_break */
+    u8 updates_suspended; /* 0x0B: set around space transitions */
+    s32 read_sector; /* 0x0C */
+    s32 read_sector_count; /* 0x10 */
+    s32 read_dst; /* 0x14 */
+    u8 pad_18[0x4];
+    s32 queued_secondary_track; /* 0x1C: -1 = none; overlays queue track + 40000 (l13 lines: + 50000) and wait for secondary.state == 3 */
+    s16 crossfade_state; /* 0x20: 1 -> 2 in music_remaining_time_callback */
+    s8 requested_track; /* 0x22: -1 = none */
+    s8 requested_transition_track; /* 0x23 */
+    s32 crossfade_remaining_time; /* 0x24 */
+    s32 crossfade_interval; /* 0x28: remaining time / 4 */
+    s32 retry_timer; /* 0x2C */
+    struct MusicCdReadMode cd_mode; /* 0x30: 4th sceCdRead argument */
+    struct MusicStreamChannel primary; /* 0x34 */
+    struct MusicStreamChannel secondary; /* 0x50 */
+    struct MusicStreamChannel transition; /* 0x6C */
+};
+extern struct MusicStreamState D_001517D0_17130 __asm__("D_001517D0");
+extern void func_0012E600(s32, s32, s32, s32, s32, s32, void (*)(u32, s64), s64);
+extern void func_00217A08_17130(u32, s64) __asm__("func_00217A08");
+extern void func_0012EDE0_17130(s32) __asm__("func_0012EDE0");
+extern s32 func_0012EF48(s32);
+extern s32 func_001F98C0(s32);
+extern s32 func_001F9908(void *);
+extern void func_002167C0(s32, s32, s32);
+extern void func_002169B8(s32, s32, s32);
+extern void func_00216A90(s32, s32, s32);
+extern void func_00216B68(s32, s32, s32);
+extern s32 func_00216C50(s32, s32, s32, s32);
+extern void func_00216F48_17130(void *) __asm__("func_00216F48");
+extern s32 func_00217628(s32, s32, s32);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/audio/music/music_update.c, music_update. */
+void func_00217130(void) {
+    s8 requested_track;
+    s32 fade_volume;
+    s32 handle;
+    s16 pending_state;
+
+    if (D_001517D0_17130.updates_suspended != 0) {
+        return;
+    }
+    if (!(D_001517D0_17130.primary.fade_flags & 0x8000) && !(D_001517D0_17130.primary.state & 0x8000)) {
+        if (D_001517D0_17130.primary.handle == 0 && (D_001517D0_17130.primary.flags & 1) &&
+            D_001517D0_17130.requested_track == -1) {
+            music_StartTrack(D_001517D0_17130.primary.track, (s16)D_001517D0_17130.primary.flags,
+                              D_001517D0_17130.primary.volume);
+        } else if (D_001517D0_17130.primary.state != 9 && D_001517D0_17130.primary.handle != 0) {
+            if (D_001517D0_17130.primary.handle != 0xFFFFFFFF && D_001517D0_17130.primary.state == 8) {
+                music_StartTrackBody(D_001517D0_17130.primary.track, D_001517D0_17130.primary.flags,
+                                       D_001517D0_17130.primary.volume);
+            }
+        }
+    }
+    if (func_001F9908(&D_001517D0_17130.retry_timer) != 0) {
+        requested_track = D_001517D0_17130.requested_track;
+        if (requested_track != -1 && D_001517D0_17130.crossfade_state == 0) {
+            if (D_001517D0_17130.primary.track != requested_track) {
+                if (D_001517D0_17130.requested_transition_track == -1 ||
+                    music_Transition(requested_track, D_001517D0_17130.requested_transition_track,
+                                     D_001517D0_17130.primary.flags, D_001517D0_17130.primary.volume) != 0) {
+                    D_001517D0_17130.retry_timer = func_001F98C0(7) * 60.0f;
+                }
+            } else {
+                D_001517D0_17130.requested_track = -1;
+            }
+        }
+    }
+    if (D_001517D0_17130.queued_secondary_track >= 0) {
+        if (D_001517D0_17130.secondary.handle != 0) {
+            if ((u16)D_001517D0_17130.secondary.state - 6 >= 2U) {
+                D_001517D0_17130.secondary.state = 5;
+            }
+        } else {
+            music_start_track_by_id(D_001517D0_17130.queued_secondary_track, 0, 0x400);
+            D_001517D0_17130.queued_secondary_track = -1;
+        }
+    }
+    if (D_001517D0_17130.primary.state != 9 && D_001517D0_17130.primary.handle != 0xFFFFFFFF &&
+        !(D_001517D0_17130.primary.fade_flags & 0x8000) && !(D_001517D0_17130.primary.state & 0x8000) &&
+        !(D_001517D0_17130.transition.fade_flags & 0x8000) && !(D_001517D0_17130.transition.state & 0x8000)) {
+        switch (D_001517D0_17130.crossfade_state) {
+        case 2:
+            /* Fade the primary stream against the transition's remaining time. */
+            fade_volume =
+                D_001517D0_17130.primary.volume *
+                (D_001517D0_17130.crossfade_interval -
+                 (D_001517D0_17130.crossfade_remaining_time - D_001517D0_17130.transition.remaining_time)) /
+                D_001517D0_17130.crossfade_interval;
+            if (fade_volume <= 0 ||
+                ((D_001517D0_17130.transition.state != 4 ||
+                  D_001517D0_17130.transition.crossfade_enabled == 0) &&
+                 D_001517D0_17130.transition.handle == 0) ||
+                (handle = D_001517D0_17130.primary.handle) == 0) {
+                D_001517D0_17130.crossfade_state = 3;
+                D_001517D0_17130.primary.state = 5;
+            } else if (D_001517D0_17130.primary.state != 9) {
+                /* The callback receives the old handle; mark its slot pending before submission. */
+                *(u32 *)&D_001517D0_17130.primary.handle = 0xFFFFFFFF;
+                func_0012E600(handle, 5, fade_volume, 0, 0, 0, func_00217A08_17130,
+                                        (s64)&D_001517D0_17130.primary.handle);
+            }
+            break;
+        case 3:
+            if (D_001517D0_17130.primary.state == 0 && (D_001517D0_17130.transition.crossfade_enabled != 0 ||
+                                                   D_001517D0_17130.transition.handle == 0)) {
+                music_PreseekTrack(D_001517D0_17130.requested_track, D_001517D0_17130.primary.flags,
+                                    D_001517D0_17130.primary.volume);
+                D_001517D0_17130.requested_track = -1;
+                D_001517D0_17130.crossfade_state = 4;
+            }
+            break;
+        case 4:
+            if (D_001517D0_17130.primary.state == 3) {
+                if (D_001517D0_17130.transition.remaining_time < D_001517D0_17130.crossfade_interval ||
+                    D_001517D0_17130.transition.state != 4 ||
+                    (D_001517D0_17130.transition.crossfade_enabled == 0 &&
+                     D_001517D0_17130.transition.handle == 0)) {
+                    func_0012EDE0_17130(D_001517D0_17130.primary.handle);
+                    D_001517D0_17130.primary.state = 8;
+                    D_001517D0_17130.crossfade_state = 5;
+                }
+            }
+            break;
+        case 5:
+            if (D_001517D0_17130.transition.state != 4 ||
+                D_001517D0_17130.transition.crossfade_enabled == 0) {
+                D_001517D0_17130.crossfade_state = 0;
+            }
+            break;
+        }
+    }
+    func_00216F48_17130(&D_001517D0_17130.primary.handle);
+    func_00216F48_17130(&D_001517D0_17130.transition.handle);
+    func_00216F48_17130(&D_001517D0_17130.secondary.handle);
+    if (D_001517D0_17130.break_requested != 0) {
+        if (func_0012EF48(1) == 0) {
+            D_001517D0_17130.read_state = 0;
+            D_001517D0_17130.break_requested = 0;
+        }
+    } else {
+        pending_state = D_001517D0_17130.read_state;
+        if (pending_state == 2) {
+            D_001517D0_17130.read_state = 0;
+            start_audio_stream_read(D_001517D0_17130.read_dst, D_001517D0_17130.read_sector,
+                                    D_001517D0_17130.read_sector_count);
+            if (D_001517D0_17130.read_state == 0) {
+                D_001517D0_17130.read_state = pending_state;
+            }
+        }
+    }
+}

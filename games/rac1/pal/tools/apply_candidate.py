@@ -61,7 +61,7 @@ def main() -> None:
         cand.pop(0)
     # The definition's first line: its signature may wrap onto more lines.
     d = next((i for i, l in enumerate(cand)
-              if re.match(rf"^(?!extern\b)[A-Za-z_][\w \t\*]*\b{a.name}\s*\(", l)
+              if re.match(rf"^(?!extern\b)[A-Za-z_][\w \t\*]*\b{a.name}(?:_r)?\s*\(", l)
               and not l.rstrip().endswith(";")), None)
     if d is None:
         sys.exit(f"{a.candidate}: no definition of {a.name}")

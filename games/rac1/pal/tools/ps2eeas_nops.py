@@ -7,7 +7,7 @@ GNU as this build uses, and ps2eeas inserts nops GNU as does not.
 core_text was assembled by the same GNU as the build runs (the compiler
 driver's ee/bin/as.exe), so this runs on src/game/ objects, plus
 989snd.o, whose retail code has ps2eeas's short-loop padding on loops
-with calls (func_0012E688, func_0012EC60). Three rules:
+with calls (func_0012E688, func_0012EC60). Four rules:
 
 1. Short loops (the R5900 short-loop erratum). Every backward branch
    whose loop -- the target through the branch itself -- is shorter than
@@ -55,9 +55,22 @@ with calls (func_0012E688, func_0012EC60). Three rules:
    retail code is hand-written noreorder assembly (every mtc1 there is
    directly followed by its reader), even where our C reproduces it.
 
-ps2eeas itself cannot be used here: it recurses without end on some of
-the retail stubs that INCLUDE_ASM feeds it, and it has no -G small-data
-expansion (docs/DECOMP_PROGRESS.md).
+4. FPU to GPR move, then a branch. A reorder-mode `mfc1 $x, $fN`
+   followed by the compiler's own noreorder branch that reads $x: GNU as
+   puts a nop between them and ps2eeas did not (measured on ps2eeas,
+   docs/DECOMP_PROGRESS.md; in retail's compiled text the pair occurs
+   four times, in func_L00_00269BE8 and func_L00_002761C0, adjacent each
+   time, and never with a nop). The `mfc1` is put in a noreorder block
+   of its own, where GNU as leaves the pair as written. Only pairs GNU
+   as padded in the assembled object are touched, and source and object
+   must show the same pairs.
+
+ps2eeas itself is not the build's assembler yet (docs/BUILD_FIDELITY.md,
+"Checked against the real ps2eeas"): it cannot read the GNU macros the
+retail-assembly stubs use, and in one pass it only uses $gp for symbols
+whose size it has seen. tools/check_ps2eeas.py runs it on the same compiler
+output and compares: this tool and its two siblings give its code for
+98.4% of the C functions.
 
 Two passes, so that nothing is guessed about macro expansion or delay
 slots: IN.o is IN.s assembled. Everything is measured in it, per compiled
@@ -328,6 +341,70 @@ def fp_label_nop(lines, start, j, text, addr):
     return False
 
 
+def reads_gpr(word: int, reg: int) -> bool:
+    """Is WORD a conditional branch that reads general register REG?"""
+    op, rs, rt = word >> 26, (word >> 21) & 31, (word >> 16) & 31
+    if op in (0x04, 0x05, 0x14, 0x15):          # beq bne beql bnel
+        return reg in (rs, rt)
+    return op in (0x01, 0x06, 0x07, 0x16, 0x17) and reg == rs   # REGIMM, blez bgtz blezl bgtzl
+
+
+def mfc1_branches(start, size, text):
+    """[(address of the mfc1, padded)] for every `mfc1 $x,$fN`, not in a
+    delay slot, whose next instruction -- past one nop when PADDED -- is
+    a branch that reads $x."""
+    def word(a):
+        return int.from_bytes(text[a:a + 4], "little")
+    sites = []
+    for addr in range(start, start + size - 4, 4):
+        w = word(addr)
+        if w & 0xFFE007FF != 0x44000000:
+            continue
+        if addr > start:
+            before = decode(text, addr - 4)
+            if before.isBranch() or before.isJump():
+                continue
+        reg = (w >> 16) & 31
+        if reads_gpr(word(addr + 4), reg):
+            sites.append((addr, False))
+        elif word(addr + 4) == 0 and addr + 8 < start + size and reads_gpr(word(addr + 8), reg):
+            sites.append((addr, True))
+    return sites
+
+
+MFC1_LINE = re.compile(r"^\s*mfc1\s+(\$\w+)\s*,\s*\$f\d+\s*(#.*)?$")
+
+
+def mfc1_sites(lines, start, end):
+    """Source lines of a reorder-mode `mfc1 $x,$fN` whose next instruction
+    is a branch, in the compiler's noreorder block, that reads $x."""
+    sites, reorder = [], True
+    for j in range(start, end):
+        stripped = lines[j].strip()
+        if stripped in (".set\tnoreorder", ".set noreorder"):
+            reorder = False
+        elif stripped in (".set\treorder", ".set reorder"):
+            reorder = True
+        m = MFC1_LINE.match(lines[j])
+        if not m or not reorder:
+            continue
+        k, entered = j + 1, False
+        while k < end:
+            s = lines[k].split("#")[0].strip()
+            if s in (".set\tnoreorder", ".set noreorder"):
+                entered = True
+            elif s and s not in (".set\tnomacro", ".set nomacro"):
+                break
+            k += 1
+        bm = re.match(r"^\s*([a-z]+)\s+([^#]*)", lines[k]) if k < end and entered else None
+        if not bm or bm.group(1) not in BRANCHES:
+            continue
+        used = re.compile(re.escape(m.group(1)) + r"(?![0-9])")
+        if any(used.fullmatch(o.strip()) for o in bm.group(2).split(",")[:-1]):
+            sites.append(j)
+    return sites
+
+
 def main() -> None:
     src_path, obj_path, dst_path = sys.argv[1:4]
     lines = open(src_path).readlines()
@@ -340,6 +417,7 @@ def main() -> None:
 
     inserts = {}  # line index -> number of nops to put before it
     as_words = set()  # branch lines to write as .word (GNU as over-padded them)
+    unpad_moves = set()  # mfc1 lines to put in a noreorder block of their own (rule 4)
     loops = fps = moves = fp_labels = 0
     hand_written = noreorder_ranges()
     i = 0
@@ -376,6 +454,14 @@ def main() -> None:
             sys.exit(f"ps2eeas_nops: {name}: object has {len(obj_back)} backward branches, "
                      f"{len(obj_fp)} bc1, {len(obj_moves)} mtc1 uses; source has "
                      f"{len(src_back)}, {len(src_bc1)}, {len(src_moves)} -- refusing to guess")
+        obj_mfc1, src_mfc1 = mfc1_branches(start, size, text), mfc1_sites(lines, i, end)
+        if len(obj_mfc1) != len(src_mfc1):
+            sys.exit(f"ps2eeas_nops: {name}: object has {len(obj_mfc1)} mfc1 then branch pairs, "
+                     f"source has {len(src_mfc1)} -- refusing to guess")
+        # The nops GNU as put after an mfc1 and ps2eeas did not: they go, so
+        # a loop around one is that much shorter.
+        gone = [addr + 4 for addr, padded in obj_mfc1 if padded]
+        unpad_moves.update(j for (addr, padded), j in zip(obj_mfc1, src_mfc1) if padded)
         fp_nops = [addr for addr, needs in obj_fp if needs] + obj_moves
         for (addr, needs), j in zip(obj_fp, src_bc1):
             if needs or label_before_hazard(lines, j):
@@ -388,7 +474,8 @@ def main() -> None:
             inserts[j] = inserts.get(j, 0) + 1
             moves += 1
         for (target, branch), j in zip(obj_back, src_back):
-            span = (branch - target) // 4 + 1 + sum(1 for a in fp_nops if target <= a <= branch)
+            span = (branch - target) // 4 + 1 + sum(1 for a in fp_nops if target <= a <= branch) \
+                - sum(1 for a in gone if target <= a < branch - 4)
             gnu = gnu_padding(text, start, branch, lines, j)
             need = max(0, MIN_SPAN - (span - gnu))
             if gnu > need:
@@ -426,11 +513,15 @@ def main() -> None:
                 sys.exit(f"ps2eeas_nops: {src_path}:{j + 1}: GNU as pads this branch more "
                          f"than ps2eeas did, and it cannot be written as a .word here: {stripped}")
             line = word
+        if j in unpad_moves:
+            out += ["\t.set\tnoreorder\n", line, "\t.set\treorder\n"]
+            continue
         out.append(line)
     open(dst_path, "w").writelines(out)
     print(f"ps2eeas_nops: padded {loops} short loop(s), {fps} FP compare(s), "
           f"{moves} mtc1 use(s), placed {fp_labels} shared FP label(s), "
-          f"unpadded {len(as_words)} branch(es) {src_path} -> {dst_path}")
+          f"unpadded {len(as_words)} branch(es), {len(unpad_moves)} mfc1 use(s) "
+          f"{src_path} -> {dst_path}")
 
 
 if __name__ == "__main__":

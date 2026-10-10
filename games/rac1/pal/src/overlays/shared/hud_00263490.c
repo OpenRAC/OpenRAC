@@ -2,7 +2,31 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L05_00263490);
+typedef struct {
+    u8 pad[0x48];
+    s16 unk48;
+    s16 unk4A;
+    u8 pad2[0x7C - 0x4C];
+    s32 unk7C;
+} HudElemX;
+extern s32 func_001F9850(s32);
+extern void func_L00_00236610(void *);
+extern s32 D_L05_0015FBB4 MACRO_ADDR;
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui/text/00262ae8.c, FUN_L05_00262ae8. */
+void func_L05_00263490(HudElemX *e) {
+    s32 i;
+    s32 *p;
+    e->unk7C = scale_ticks(0xB4) + 0x1E;
+    e->unk48 = 0;
+    e->unk4A = 0;
+    i = 3;
+    p = &D_L05_0015FBB4;
+    for (; i >= 0; i--) {
+        *p-- = -1;
+    }
+    func_L00_00236610(e);
+}
 INCLUDE_ASM("asm/overlays", func_L05_00263500);
 INCLUDE_ASM("asm/overlays", func_L05_002638F8);
 extern void func_001FFDA0(int arg0, int arg1);
@@ -52,4 +76,91 @@ void func_L05_00266BD8(char *moby)
     }
 }
 INCLUDE_ASM("asm/overlays", func_L05_00266D10);
-INCLUDE_ASM("asm/overlays", func_L05_002670A0);
+typedef struct {
+    char pad0[0x58];
+    int w;
+    int h;
+    char pad60[0xC];
+    int unk6C;
+} HudElem_002670A0;
+typedef struct {
+    char pad0[0x894];
+    s32 unk894;
+    char pad898[0x10];
+    s32 unk8A8;
+} Hero_002670A0;
+extern Hero_002670A0 hero_002670A0 __asm__("D_0013F450");
+extern int D_0013E600_002670A0[] __asm__("D_0013E600");
+extern int D_0015EE80_002670A0 __asm__("D_0015EE80") MACRO_ADDR;
+extern u8 D_0013D490_002670A0[] __asm__("D_0013D490");
+extern int D_L05_0015FACC_002670A0 SDATA(D_L05_0015FACC);
+extern int D_L05_0015FAD0_002670A0 SDATA(D_L05_0015FAD0);
+extern int D_L05_0015FAD4_002670A0 SDATA(D_L05_0015FAD4);
+extern int D_L05_0015FAD8_002670A0 SDATA(D_L05_0015FAD8);
+extern int D_L05_0015FADC_002670A0 SDATA(D_L05_0015FADC);
+extern int D_L05_0015FAE0_002670A0 SDATA(D_L05_0015FAE0);
+extern int D_L05_0015FAE4_002670A0 SDATA(D_L05_0015FAE4);
+extern int D_L05_0015FAE8_002670A0 SDATA(D_L05_0015FAE8);
+extern int D_L05_0015FAEC_002670A0 SDATA(D_L05_0015FAEC);
+extern int D_L05_0015FAFC_002670A0 SDATA(D_L05_0015FAFC);
+extern char D_L05_0015F868_002670A0[] __asm__("D_L05_0015F868");
+extern char D_L05_0015FAB0_002670A0[] __asm__("D_L05_0015FAB0");
+extern char D_L05_0015FB08_002670A0[] __asm__("D_L05_0015FB08");
+extern char D_L05_0015FB10_002670A0[] __asm__("D_L05_0015FB10");
+extern char D_L05_0015FB20_002670A0[] __asm__("D_L05_0015FB20");
+extern char D_L05_0015FB28_002670A0[] __asm__("D_L05_0015FB28");
+extern void func_00201960_002670A0(int, int, int, int, int) __asm__("func_00201960");
+extern char *func_001FE540_002670A0(int) __asm__("func_001FE540");
+extern int func_00116248_002670A0(char *, const char *, ...) __asm__("func_00116248");
+extern int func_001F6600_002670A0(char *, int) __asm__("func_001F6600");
+extern void func_L00_001FB7F8_002670A0(int x, int y, u64 color, char *text, int len) __asm__("func_L00_001FB7F8");
+
+/* Draws the race timer HUD: the lap count line when laps are shown, then the time split into minutes, seconds and hundredths; returns the element's width.
+   Adapted from Lombyte (MIT) for PAL: src/overlays/shared/ui/hud/002661a0.c, FUN_L05_00266710. */
+int func_L05_002670A0(HudElem_002670A0 *e) {
+    char buf[64];
+    int y0, y1, y2;
+    int frames, per_min, per_sec;
+    int min, sec, hund;
+    int x;
+
+    if (e->unk6C <= 0) {
+        return 0;
+    }
+    y0 = -(D_0015EE80_002670A0 ? D_L05_0015FAD0_002670A0 + 10 : D_L05_0015FAD0_002670A0 + 18) + D_0013E600_002670A0[1];
+    y1 = -(D_0015EE80_002670A0 ? D_L05_0015FAEC_002670A0 + 10 : D_L05_0015FAEC_002670A0 + 18) + D_0013E600_002670A0[1];
+    y2 = -(D_0015EE80_002670A0 ? D_L05_0015FAFC_002670A0 + 10 : D_L05_0015FAFC_002670A0 + 18) + D_0013E600_002670A0[1];
+    per_min = D_0015EE80_002670A0 ? 3000 : 3600;
+    per_sec = per_min / 60;
+    frames = hero_002670A0.unk894;
+    min = frames / per_min;
+    frames -= min * per_min;
+    sec = frames / per_sec;
+    frames -= sec * per_sec;
+    hund = frames * 100 / per_sec;
+
+    if (D_0013D490_002670A0[0]) {
+        func_00201960_002670A0(D_L05_0015FACC_002670A0, y0, D_L05_0015FAD4_002670A0, D_L05_0015FAD8_002670A0, D_L05_0015FADC_002670A0);
+        x = D_L05_0015FAE8_002670A0;
+        func_00116248_002670A0(buf, D_L05_0015F868_002670A0, func_001FE540_002670A0(0x50A6), hero_002670A0.unk8A8);
+        x -= func_001F6600_002670A0(buf, -1) >> 1;
+        func_00116248_002670A0(buf, D_L05_0015FAB0_002670A0, func_001FE540_002670A0(0x50A6));
+        func_L00_001FB7F8_002670A0(x + 1, y1 + 1, 0x80000000, buf, -1);
+        func_L00_001FB7F8_002670A0(x, y1, D_L05_0015FAE0_002670A0, buf, -1);
+        x += func_001F6600_002670A0(buf, -1);
+        func_00116248_002670A0(buf, D_L05_0015FB08_002670A0, hero_002670A0.unk8A8);
+        func_L00_001FB7F8_002670A0(x + 1, y1 + 1, 0x80000000, buf, -1);
+        func_L00_001FB7F8_002670A0(x, y1, D_L05_0015FAE4_002670A0, buf, -1);
+    }
+    x = D_L05_0015FAE8_002670A0;
+    func_00116248_002670A0(buf, D_L05_0015FB10_002670A0, func_001FE540_002670A0(0x5246));
+    x -= func_001F6600_002670A0(buf, -1) >> 1;
+    func_00116248_002670A0(buf, D_L05_0015FB20_002670A0, func_001FE540_002670A0(0x5246));
+    func_L00_001FB7F8_002670A0(x + 1, y2 + 1, 0x80000000, buf, -1);
+    func_L00_001FB7F8_002670A0(x, y2, D_L05_0015FAE0_002670A0, buf, -1);
+    x += func_001F6600_002670A0(buf, -1);
+    func_00116248_002670A0(buf, D_L05_0015FB28_002670A0, min, sec, hund);
+    func_L00_001FB7F8_002670A0(x + 1, y2 + 1, 0x80000000, buf, -1);
+    func_L00_001FB7F8_002670A0(x, y2, D_L05_0015FAE4_002670A0, buf, -1);
+    return e->w;
+}

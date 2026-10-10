@@ -2,6 +2,7 @@
  * Best so far: BYTES 45/672 (93.3% of the bytes match), checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   mini12/a03 budget8 spent. Computes sampled curve segment lengths, accumulates total, optionally draws debug sa
  *   Only prologue offsets24-64 differ: draw argument spill scheduled before saves/initial reads, then scalar sched
@@ -9,7 +10,6 @@
  */
 #include "common.h"
 typedef int Curve958Quad __attribute__((mode(TI)));
-extern void func_L01_00286530(void *,int,int,unsigned int,int,int,int,float);
 extern void func_L01_0028C690_f(void *,int *,float,float,int) __asm__("func_L01_0028C690");
 extern int func_L01_0028C5F0(char *,int);
 extern void func_L01_0028C848(float,void *,void *,void *,void *,void *);

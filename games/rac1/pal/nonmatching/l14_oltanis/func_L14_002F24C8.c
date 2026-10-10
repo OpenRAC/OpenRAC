@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L14_002F24C8 -- src/overlays/l14_oltanis/vendor_002E0538.c
- * Best so far: SIZE ours 248 / retail 252, checked 2026-10-03.
+ * Best so far: SIZE ours 248 / retail 252, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -8,7 +8,6 @@
  *   Needs a source form that makes `data+0x80` a separate pseudo computed at the loop test; not found in 9 runs.
  */
 extern float func_001F9D10(void *, void *);
-extern char *D_L14_001601AC MACRO_ADDR;
 
 /* Picks the first of five candidate points within range and copies its vectors. */
 void func_L14_002F24C8(char *moby) {

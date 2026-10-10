@@ -292,6 +292,7 @@ class Placer:
         self.base_rodata = None
         self.rodata_error = None
         self.retail = None         # retail's bytes of the function, once known
+        self.shared_lo = {}        # offset of a %hi without a %lo of its own -> the LO16 it shares
 
     def place_text_offset(self, toff: int, near: int) -> int:
         """Where offset TOFF of our .text lands. The assembler writes a
@@ -392,6 +393,8 @@ class Placer:
                 after = [r for r in same if r["r_offset"] > h["rel"]["r_offset"]]
                 shared = after[0] if after else (same[-1] if same else None)
                 lo_imm = self.word_at(orig, shared["r_offset"]) & 0xFFFF if shared is not None else 0
+                if shared is not None:
+                    self.shared_lo[h["rel"]["r_offset"]] = shared
                 out.append((h["rel"], None, h["imm"], lo_imm))
         return out
 
@@ -498,10 +501,14 @@ class Placer:
                     continue
             # A function with several identical copies in this level: the
             # address is right if it is any of them, so take the copy
-            # retail's %hi/%lo pair names (as for calls below).
-            if self.retail is not None and lo_rel is not None:
+            # retail's %hi/%lo pair names (as for calls below). A %hi that
+            # shares another one's %lo (three paths loading one callback and
+            # joining on one addiu, func_L00_002C9820) reads retail's low
+            # half at the shared %lo.
+            named_lo = lo_rel if lo_rel is not None else self.shared_lo.get(hi_off)
+            if self.retail is not None and named_lo is not None:
                 r_hi = self.word_at(self.retail, hi_off - self.off) & 0xFFFF
-                r_lo = self.word_at(self.retail, lo_rel["r_offset"] - self.off) & 0xFFFF
+                r_lo = self.word_at(self.retail, named_lo["r_offset"] - self.off) & 0xFFFF
                 theirs = ((r_hi << 16) + sign16(r_lo)) & 0xFFFFFFFF
                 if theirs != value and same_function(self.level, value, theirs):
                     value = theirs

@@ -23,22 +23,22 @@ void func_L08_002803B8(void *pos, int kind, void *vel, float f) {
         case 0:
             c = 0x20;
             s = 0.12f;
-            func_002140F8(0.25f, 0.25f);
+            random_float_between(0.25f, 0.25f);
             break;
         case 1:
             c = 0xD;
             s = 0.5f;
-            func_002140F8(1.0f, 1.0f);
+            random_float_between(1.0f, 1.0f);
             break;
         }
-        *(short *)(p + 0xA) = func_001F9850(0x37);
+        *(short *)(p + 0xA) = scale_ticks(0x37);
         *(int *)(p + 4) = (c << 24) | 0xFFFFFF;
         p[9] = func_001FA898_r(4.0f) + 0x20;
         p[3] = 0x48;
         p[1] = 0;
         p[2] = D_L08_001B2CA4[kind];
         *(float *)(p + 0xC) = s * 210000.0f;
-        p[8] = (int)func_002140F8(0.0f, 360.0f);
+        p[8] = (int)random_float_between(0.0f, 360.0f);
         *(u128 *)(p + 0x10) = *(u128 *)pos;
         *(u128 *)(p + 0x20) = *(u128 *)vp;
         *(float *)(p + 0x2C) = f;

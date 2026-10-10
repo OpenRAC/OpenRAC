@@ -25,7 +25,138 @@ void func_L02_0023D600(char *m) {
     }
     *(int *)(m + 0x74) = **(int **)(m + 0xC);
 }
-INCLUDE_ASM("asm/overlays", func_L02_0023D6E0);
+typedef struct {
+    char pad0[0x8];
+    int unk08;
+    int *unk0C;
+    char pad10[0x34];
+    int icon; /* 0x44: icon sprite id */
+    short unk48;
+    short unk4A;
+    char pad4C[0x4];
+    int unk50;
+    int unk54;
+    int w;
+    int h;
+    int flags;
+    char pad64[0x8];
+    int unk6C;
+    unsigned char cnt[4];
+    int unk74;
+    int unk78;
+    int unk7C;
+    void *unk80;
+} HudElem;
+extern int func_L00_00236400(HudElem *, int *, int *);
+extern f32 func_001FA888(s32);
+extern s32 func_001FA898(f32);
+extern int func_00116248(char *str, const char *fmt, ...);
+extern s32 func_00200198(s32, s32);
+extern void func_00200468(s32, s32, s32, s32, s32, s32);
+extern void func_00200650(s32, s32, s32, s32, s32, s32);
+extern void func_L00_0023BAB8(void *, int, int, int, int, int);
+extern int func_001FA8A8(int, int, float);
+extern void func_001F6CF8(s32, s32, s32, char *, s32);
+extern s32 D_0013E604[];
+extern s32 D_0015EE80 MACRO_ADDR;
+extern char D_L02_0015F930[];
+extern short D_L02_0015F9F4;
+extern short D_L02_0015F9F8;
+extern short D_L02_0015FA1C;
+extern short D_L02_0015FA20;
+extern short D_L02_0015FA28;
+extern short D_L02_0015FA2C;
+extern short D_L02_0015FA30;
+extern short D_L02_0015FA34;
+
+/* Draws the counter: a stretched bar behind the icon and the count, on whichever side of the screen it sits.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l02/ui/text/0023ccc8.c, FUN_L02_0023cda8. */
+s32 func_L02_0023D6E0(HudElem *m) {
+    char text[16];
+    int x;
+    int y;
+    unsigned char *fade = m->cnt;
+    int left;
+    f32 grow;
+    f32 shade;
+    int alpha;
+    int width;
+    int frame;
+    int bright;
+    int dark;
+    int len;
+    int px;
+    int bar;
+    int bottom;
+
+    if (fade[0] == 0) {
+        return m->w;
+    }
+    x = m->unk50;
+    y = m->unk54;
+    func_L00_00236400(m, &x, &y);
+    left = x < 0x101;
+    if (left) {
+        x = (*(s32 *)&D_L02_0015FA1C);
+    } else {
+        x = (*(s32 *)&D_L02_0015FA20);
+    }
+    bottom = D_0013E604[0];
+    y = D_0015EE80 != 0 ? bottom - 0x2A : bottom - 0x32;
+    grow = func_001FA888(fade[0]) / func_001FA888((*(s32 *)&D_L02_0015F9F4));
+    if (1.0f < grow) {
+        grow = 1.0f;
+    } else if (grow < 0.0f) {
+        grow = 0.0f;
+    }
+    shade = func_001FA888(fade[1]) / func_001FA888((*(s32 *)&D_L02_0015F9F8));
+    if (1.0f < shade) {
+        shade = 1.0f;
+    } else if (shade < 0.0f) {
+        shade = 0.0f;
+    }
+    func_00116248(text, D_L02_0015F930, m->unk74);
+    alpha = truncate_float_to_s32((f32)truncate_float_to_s32(grow * 128.0f) * 0.7f);
+    if (m->unk08 < 10) {
+        len = (*(s32 *)&D_L02_0015FA30);
+    } else {
+        len = (*(s32 *)&D_L02_0015FA34);
+    }
+    px = x;
+    bar = px + 4;
+    width = truncate_float_to_s32((f32)len * grow);
+    if (left) {
+        frame = GetIconFrame(0x7580, 1);
+        HudSprite(frame, px - 0x1C, y, 0x20, 0x20, alpha);
+        frame = GetIconFrame(0x7580, 0);
+        HudSprite(frame, bar, y, width, 0x20, alpha);
+        frame = GetIconFrame(0x7580, 1);
+        func_00200650(frame, bar + width, y, 0x20, 0x20, alpha);
+    } else {
+        frame = GetIconFrame(0x7580, 1);
+        func_00200650(frame, bar, y, 0x20, 0x20, alpha);
+        px = bar - width;
+        frame = GetIconFrame(0x7580, 0);
+        HudSprite(frame, px, y, width, 0x20, alpha);
+        frame = GetIconFrame(0x7580, 1);
+        HudSprite(frame, px - 0x20, y, 0x20, 0x20, alpha);
+    }
+    if (left) {
+        HudFrame(m, m->icon, x, y, 0, 0x80);
+    } else {
+        HudFrame(m, m->icon, x - 0x16, y, 0, 0x80);
+    }
+    bright = FastTweenColor((*(s32 *)&D_L02_0015FA28), (*(s32 *)&D_L02_0015FA2C), shade);
+    dark = FastTweenColor(0, 0x80000000, shade);
+    if (left) {
+        font_print_right(x + 0x43, y + 9, dark, text, -1);
+        font_print_right(x + 0x42, y + 8, bright, text, -1);
+    } else {
+        font_print_right(x - 0x19, y + 9, dark, text, -1);
+        font_print_right(x - 0x1A, y + 8, bright, text, -1);
+    }
+    return m->w;
+}
 extern void func_0022C7E0(void);
 extern int D_0015EE84_m __asm__("D_0015EE84") MACRO_ADDR;
 extern void func_L00_0028A878(void);

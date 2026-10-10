@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L01_003171B8 -- src/overlays/shared/vendor_002F7700.c
- * Best so far: SIZE ours 596 / retail 588, checked 2026-10-05.
+ * Best so far: SIZE ours 596 / retail 588, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -15,8 +15,6 @@ extern void func_001F9BF0(void *dst, void *a, void *b);
 extern float func_001F9CB8(void *a);
 extern void func_L00_001FF4B0(void *, void *, float);
 extern float func_001F9C78(void *a, void *b);
-extern void func_L01_00316270(void *);
-extern char *D_L01_0015F050 MACRO_ADDR;
 extern char *D_L01_00167304 MACRO_ADDR;
 extern char *D_L01_001B0C30[];
 extern char D_0013E633[];

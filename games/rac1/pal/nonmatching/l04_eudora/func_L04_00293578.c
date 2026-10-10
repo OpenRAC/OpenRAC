@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L04_00293578 -- src/overlays/l04_eudora/vuchain_00293490.c
- * Best so far: SIZE ours 712 / retail 716, checked 2026-10-06.
+ * Best so far: SIZE ours 712 / retail 716, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  */

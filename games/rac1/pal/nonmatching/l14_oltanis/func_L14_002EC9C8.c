@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 676 / retail 680, checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Updates48 particles: inactive slots spawn, active slots fade/move and may be shortened near camera; registers 
  *   mini12 a01 budget8 spent; p2 size676 versus680 restores zero-based interpolation, p6/p7 size672 defer initiali
@@ -11,7 +12,6 @@ extern float func_001F9F90(float);
 extern float func_001F9FA8(float);
 extern int func_00215570(void *,int);
 extern int func_001F9938(void *);
-extern void func_L14_002EC7E8(void *,int,void *);
 extern float func_001FA888(int);
 extern int func_001FA898_r(float) __asm__("func_001FA898");
 extern void func_001F9C30(void *,void *,float);
@@ -20,7 +20,6 @@ extern float func_001F9B88(float);
 extern float func_001FA850(float,float);
 extern int func_001F9850(int);
 extern void func_001F49B0(void *,void *);
-extern void func_L14_002ECC70(void);
 extern char camera_c9[] __asm__("D_L14_00167480");
 extern short D_L14_00161CFC;
 extern short D_L14_00161CE0;

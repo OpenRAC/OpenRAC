@@ -2,7 +2,122 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L01_0031AD00);
+typedef struct {
+    int cls;
+    int tmin;
+    int tmax;
+    int timer;
+    int handle;
+} Inst_0031AD00;
+typedef struct {
+    char pad0[0xC];
+    int fC;
+    char pad10[8];
+    unsigned char f18;
+    char pad19[7];
+} Row_0031AD00;
+typedef struct {
+    char pad0[8];
+    Inst_0031AD00 *inst;
+    float radius;
+    float f10[4];
+    char pad20[0x20];
+    float pos[4];
+    float mtx[4];
+} Moby_0031AD00;
+extern void func_001F9BF0_0031AD00(void *, void *, void *) __asm__("func_001F9BF0");
+extern void func_001F9EC0_0031AD00(void *, void *, void *) __asm__("func_001F9EC0");
+extern float func_001F9CB8_0031AD00(void *a) __asm__("func_001F9CB8");
+extern float func_001F9B88_0031AD00(float) __asm__("func_001F9B88");
+extern int func_0022DA10_0031AD00(void *, float, float, float) __asm__("func_0022DA10");
+extern int func_001F9908_0031AD00(int *arg0) __asm__("func_001F9908");
+extern int func_L00_0028F0B0_0031AD00(int, int, void *, int) __asm__("func_L00_0028F0B0");
+extern int func_002140B0_0031AD00(int) __asm__("func_002140B0");
+extern int func_001F9850_0031AD00(int) __asm__("func_001F9850");
+extern int func_L00_0028F210_0031AD00(int, int) __asm__("func_L00_0028F210");
+extern void func_001F9BD8_0031AD00(void *, void *, void *) __asm__("func_001F9BD8");
+extern void func_L00_0028EBF0_0031AD00(int) __asm__("func_L00_0028EBF0");
+extern char D_L01_001672C0_0031AD00[] __asm__("D_L01_001672C0");
+extern Row_0031AD00 *D_L01_0015F6D4_0031AD00 __asm__("D_L01_0015F6D4") MACRO_ADDR;
+extern char D_0013E650_0031AD00[] __asm__("D_0013E650");
+extern char D_0013E6E0_0031AD00[] __asm__("D_0013E6E0");
+
+/* Sound box update: while the listener is inside the box's outer radius keeps the box's sound playing (restarting it on its timer) at a volume that falls off outside the unit box, placed at the nearest point of the box; outside, stops it. */
+void func_L01_0031AD00(Moby_0031AD00 *m) {
+    float d[4];
+    float r[4];
+    float b[4];
+    float c[4];
+    Inst_0031AD00 *p = m->inst;
+    float outer, inner, t;
+    int vol;
+    int flags;
+    int idx;
+    char *e;
+
+    r[0] = m->radius;
+    r[1] = m->radius;
+    r[2] = m->radius;
+    func_001F9BF0_0031AD00(d, D_L01_001672C0_0031AD00, m->pos);
+    d[3] = 0;
+    func_001F9EC0_0031AD00(b, d, m->mtx);
+    func_001F9EC0_0031AD00(c, r, m->mtx);
+    outer = func_001F9CB8_0031AD00(c);
+    inner = func_001F9CB8_0031AD00(b);
+    if (inner < outer) {
+        flags = 0x10;
+        if (func_001F9B88_0031AD00(b[0]) <= 1.0f && func_001F9B88_0031AD00(b[1]) <= 1.0f && func_001F9B88_0031AD00(b[2]) <= 1.0f) {
+            vol = D_L01_0015F6D4_0031AD00[p->cls].fC;
+        } else {
+            if (b[0] > 1.0f) {
+                b[0] = 1.0f;
+            } else if (b[0] < -1.0f) {
+                b[0] = -1.0f;
+            }
+            if (b[1] > 1.0f) {
+                b[1] = 1.0f;
+            } else if (b[1] < -1.0f) {
+                b[1] = -1.0f;
+            }
+            if (b[2] > 1.0f) {
+                b[2] = 1.0f;
+            } else if (b[2] < -1.0f) {
+                b[2] = -1.0f;
+            }
+            t = func_001F9CB8_0031AD00(b);
+            vol = func_0022DA10_0031AD00((char *)D_L01_0015F6D4_0031AD00 + (p->cls << 5), inner, t, outer);
+        }
+        e = D_0013E650_0031AD00 + p->handle * 0x70;
+        if (D_L01_0015F6D4_0031AD00[p->cls].f18) {
+            flags = 0x14;
+        }
+        if (!(*(Moby_0031AD00 **)(e + 0x8C) == m && *(unsigned char *)(e + 0x74))) {
+            if (func_001F9908_0031AD00(&p->timer)) {
+                p->handle = func_L00_0028F0B0_0031AD00(p->cls, flags, m, vol);
+                if (p->tmax > 0) {
+                    p->timer = (float)func_001F9850_0031AD00(p->tmin + func_002140B0_0031AD00(p->tmax - p->tmin)) * 60.0f;
+                }
+            } else {
+                p->handle = -1;
+            }
+        }
+        if (p->handle != -1) {
+            func_L00_0028F210_0031AD00(p->handle, vol);
+            func_001F9EC0_0031AD00(d, b, m->f10);
+            func_001F9BD8_0031AD00(d, d, m->pos);
+            qcopy(D_0013E6E0_0031AD00 + p->handle * 0x70, d);
+        }
+    } else {
+        idx = p->handle;
+        if (idx != -1) {
+            char *e2 = D_0013E650_0031AD00 + idx * 0x70;
+            if (*(Moby_0031AD00 **)(e2 + 0x8C) == m && *(unsigned char *)(e2 + 0x74)) {
+                func_L00_0028EBF0_0031AD00(idx);
+            }
+        }
+        p->handle = -1;
+    }
+}
 extern void func_001F9BF0(void *, void *, void *);
 extern void func_001F9EC0(void *, void *, void *);
 extern float func_001F9B88(float);
@@ -16,10 +131,10 @@ void func_L01_0031B2F0(char *moby) {
     float a[4];
     float b[4];
     unsigned char *data = *(unsigned char **)(moby + 8);
-    func_001F9BF0(a, D_0013E633 + 0xE9D, moby + 0x40);
+    FastVecSub(a, D_0013E633 + 0xE9D, moby + 0x40);
     a[3] = 0;
     func_001F9EC0(b, a, moby + 0x50);
-    if (func_001F9B88(b[0]) <= 1.0f && func_001F9B88(b[1]) <= 1.0f && func_001F9B88(b[2]) <= 1.0f) {
+    if (FastAbsF(b[0]) <= 1.0f && FastAbsF(b[1]) <= 1.0f && FastAbsF(b[2]) <= 1.0f) {
         float t = (b[0] + 1.0f) * 0.5f;
         int v = func_001FA898_r(func_001FA888(*(int *)(data + 4)) * t);
         int w = *(int *)(data + 4);

@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 192 / retail 200, checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Finds a class 0x244 state 0x1A object and transfers its count to/from the caller.
  *   p2/p3/p4 compile identically: missing saved base/ID copies and second indexed address calculation, while const

@@ -7,7 +7,11 @@ INCLUDE_ASM("asm/overlays", func_L00_001FEFE0);
 INCLUDE_ASM("asm/overlays", func_L00_001FF040);
 INCLUDE_ASM("asm/overlays", func_L00_001FF088);
 INCLUDE_ASM("asm/overlays", func_L00_001FF0B0);
-INCLUDE_ASM("asm/overlays", func_L00_001FF200);
+void func_L00_001FF200(s64 *v) {
+    v[0] = 0;
+    __asm__ volatile ("nop");
+    ((s32 *)v)[2] = 0;
+}
 INCLUDE_ASM("asm/overlays", func_L00_001FF240);
 INCLUDE_ASM("asm/overlays", func_L00_001FF270);
 INCLUDE_ASM("asm/overlays", func_L00_001FF2C8);

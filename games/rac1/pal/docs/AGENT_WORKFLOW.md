@@ -424,7 +424,7 @@ same.
 
 The queue tools accept the executable's functions too (`plan` without
 `--overlay`), but no queue wave has been run on them yet. Two things
-differ there: `try_func` masks relocations, so an `EXACT` still has to
-pass the full build, and `land` (without `--batch`) runs that build per
+differ there: `try_func` resolves relocations but links nothing, so an
+`EXACT` still has to pass the full build, and `land` (without `--batch`) runs that build per
 function. What is left of the executable is mostly large functions
 without relatives, so level code is where the waves go.

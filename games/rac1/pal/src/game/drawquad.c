@@ -131,30 +131,30 @@ void func_001F9478(void) {
     s64 *packet_words;
     BillboardRecord *records;
 
-    func_00234C98(0x42, 0x8000000048);
+    VU1_addGSregister(0x42, 0x8000000048);
     for (record_index = 0; record_index < 16; record_index++) {
         records = D_0018EE00;
         record = records + record_index;
         if (record->active_count <= 0) {
             continue;
         }
-        func_001F9BF0(&projected_position, record, D_00187180);
+        FastVecSub(&projected_position, record, D_00187180);
         projected_position.w = 1.0f;
-        distance = func_001F9CB8(&projected_position);
-        func_001F9C30(&projected_position, &projected_position, 1024.0f);
+        distance = FastVecLength(&projected_position);
+        FastVecScale(&projected_position, &projected_position, 1024.0f);
         func_001F9EE8(&projected_position, &projected_position, D_00187180 - 0x100);
         func_001F9C60(&clip_position, &projected_position,
                                    (char *)&D_0018CE00 + 0x180);
         if (func_001F9B20(&clip_position) != 0) {
-            func_001F99B0(record, 0, 0x20);
+            FastMemSet(record, 0, 0x20);
             continue;
         }
-        func_001F9C30(&projected_position, &projected_position,
+        FastVecScale(&projected_position, &projected_position,
                        D_0018CE00.projection_scale / projected_position.w);
         color = (record->alpha << 24) | 0x808080;
-        x = func_001FA898(projected_position.x * 16.0f) + 0x8000;
-        y = func_001FA898(projected_position.y * 16.0f) + 0x8000;
-        packed_position = ((s64)func_001FA898(projected_position.z * 0.9997f +
+        x = truncate_float_to_s32(projected_position.x * 16.0f) + 0x8000;
+        y = truncate_float_to_s32(projected_position.y * 16.0f) + 0x8000;
+        packed_position = ((s64)truncate_float_to_s32(projected_position.z * 0.9997f +
                                                          D_0018CE00.depth_offset)
                            << 32) |
                           ((s64)y << 16) | x;
@@ -165,8 +165,8 @@ void func_001F9478(void) {
         }
         radius = record->radius_scale * (func_001FA888(record->alpha + 16) * 0.015625f) *
                  ((24.0f - distance) * 16.0f);
-        sine_offset = func_001FA898(radius * func_001F9FA8(record->angle));
-        cosine_offset = func_001FA898(radius * func_001F9F90(record->angle));
+        sine_offset = truncate_float_to_s32(radius * FastSin(record->angle));
+        cosine_offset = truncate_float_to_s32(radius * FastCos(record->angle));
         D_00161000.p->tag = 0x10000009;
         D_00161000.p->addr = 0;
         D_00161000.p->vif0 = 0;
@@ -194,5 +194,5 @@ void func_001F9478(void) {
         packet_words[15] = 0;
         D_00161000.p = (struct DmaTag *)((u8 *)D_00161000.p + 0x80);
     }
-    func_00234C98(0x42, 0x8000000044);
+    VU1_addGSregister(0x42, 0x8000000044);
 }

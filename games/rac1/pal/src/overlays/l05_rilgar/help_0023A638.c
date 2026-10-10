@@ -277,7 +277,7 @@ void func_L05_00240968(void) {
     D_0013F450_40968.xI274 = 0;
     D_0013F450_40968.u2e0.I = 0;
     D_0013F450_40968.u2d8.I = 0;
-    func_001F9BC0((u8 *)&D_0013F450_40968 + 0x2A0);
+    clear_u64_value((u8 *)&D_0013F450_40968 + 0x2A0);
     D_0013F450_40968.xH30a = 0;
     D_0013F450_40968.xF2dc = 32.0f;
     D_0013F450_40968.xI2fc = 0;
@@ -294,12 +294,12 @@ void func_L05_00240968(void) {
     if (func_L00_001EFFF0(&v10, &v0, 2, D_0013F450_40968.xI2080, 0) == 0) {
         goto tail;
     }
-    r = func_L00_001F3988();
+    r = CollSoundClass();
     if (r == -1) {
         r = 3;
     }
     D_0013F450_40968.xB12ed = r;
-    D_0013F450_40968.xH12e0 = func_L00_001F3958();
+    D_0013F450_40968.xH12e0 = CollType();
     if (D_0013F450_40968.xH12e0 == 0) {
         D_0013F450_40968.xF2f0 = func_00214440(D_L05_00174360, (u8 *)&D_0013F450_40968 + 0x280);
         if (D_0013F450_40968.xF88 < D_0013F450_40968.xF2f0 && D_0013F450_40968.xI2f8 <= 0) {
@@ -308,7 +308,7 @@ void func_L05_00240968(void) {
         if (func_L00_001EFFF0(&v10, &v0, 0x24, D_0013F450_40968.xI2080, 0) == 0) {
             goto d1;
         }
-        r = func_L00_001F3988();
+        r = CollSoundClass();
         if (D_0015EE84 == 1 || D_0015EE84 == 0x12) {
             r = 3;
         }
@@ -350,13 +350,13 @@ void func_L05_00240968(void) {
     if (D_L05_00174340.i1C > 0) {
         qcopy((u8 *)&D_0013F450_40968 + 0x2A0, &D_L05_00174340.v20);
         D_0013F450_40968.u2d8.F = D_L05_00174340.v20.f[2];
-        D_0013F450_40968.xF2dc = func_001F9D10((u8 *)&D_0013F450_40968 + 0x80, ((u8 *)&D_0013F450_40968 + 0x2A0));
+        D_0013F450_40968.xF2dc = FastVecDist((u8 *)&D_0013F450_40968 + 0x80, ((u8 *)&D_0013F450_40968 + 0x2A0));
         D_0013F450_40968.xI2fc = D_L05_00174340.i18;
         func_001252C0((u8 *)&D_0013F450_40968 + 0x270, (u8 *)&D_L05_00174340.f40);
         D_0013F450_40968.u2e0.F = func_L00_002345B0((u8 *)&D_L05_00174340.f40);
         D_0013F450_40968.xF2ec = func_L00_001FF860(D_L05_00174340.f40, D_L05_00174340.f44);
-        func_001F9BF0(&v20, ((u8 *)&D_0013F450_40968 + 0x2A0), (u8 *)&D_0013F450_40968 + 0x80);
-        if (0.0f < func_001F9C78(&v20, (u8 *)&D_0013F450_40968 + 0x270)) {
+        FastVecSub(&v20, ((u8 *)&D_0013F450_40968 + 0x2A0), (u8 *)&D_0013F450_40968 + 0x80);
+        if (0.0f < FastVecDot(&v20, (u8 *)&D_0013F450_40968 + 0x270)) {
             D_0013F450_40968.xF2dc = -D_0013F450_40968.xF2dc;
         }
         if (D_0013F450_40968.xF2dc < 0.02f) {
@@ -378,17 +378,17 @@ tail:
         D_0013F450_40968.xI2f8 = 0;
     }
 d1:
-    func_001F9BC0(((u8 *)&D_0013F450_40968 + 0x290));
+    clear_u64_value(((u8 *)&D_0013F450_40968 + 0x290));
     switch (D_0013F450_40968.xB20b3) {
     case 0:
         D_0013F450_40968.xF298 = -1.0f;
         break;
     case 1:
         qcopy((u8 *)&D_0013F450_40968 + 0x290, ((u8 *)&D_0013F450_40968 + 0x290) - 0x20);
-        func_001F9C30(((u8 *)&D_0013F450_40968 + 0x290), ((u8 *)&D_0013F450_40968 + 0x290), -1.0f);
+        FastVecScale(((u8 *)&D_0013F450_40968 + 0x290), ((u8 *)&D_0013F450_40968 + 0x290), -1.0f);
         break;
     case 2:
-        func_001F9BF0(((u8 *)&D_0013F450_40968 + 0x290), ((u8 *)&D_0013F450_40968 + 0x290) - 0x1E0, ((u8 *)&D_0013F450_40968 + 0x290) - 0x210);
+        FastVecSub(((u8 *)&D_0013F450_40968 + 0x290), ((u8 *)&D_0013F450_40968 + 0x290) - 0x1E0, ((u8 *)&D_0013F450_40968 + 0x290) - 0x210);
         func_L00_001FF4B0(((u8 *)&D_0013F450_40968 + 0x290), ((u8 *)&D_0013F450_40968 + 0x290), 1.0f);
         break;
     }
@@ -423,7 +423,7 @@ d1:
         if (func_L00_001EFFF0(&v30, &v0, 0x22, D_0013F450_40968.xI2080, 0)) {
             f = D_L05_00174340.v20.f[2] - D_0013F450_40968.u2d8.F;
             D_0013F450_40968.a2c0.f[i] = f;
-            if (0.4f < func_001F9B88(f)) {
+            if (0.4f < FastAbsF(f)) {
                 D_0013F450_40968.a2c0.f[i] = 0.0f;
             }
             func_001252C0(&v60, (u8 *)&D_L05_00174340.f40);
@@ -542,4 +542,212 @@ int func_L05_00241590(int mode) {
     }
     return 1;
 }
-INCLUDE_ASM("asm/overlays", func_L05_00241AA0);
+extern char *D_L05_00174358;
+extern float D_0015EE6C MACRO_ADDR;
+extern void func_L00_00234800(int, void *, void *);
+extern float func_L00_00234250(float *v);
+extern float func_L00_002342F8(float *);
+extern void func_L00_002343A0(float *, float *, float);
+extern s32 func_L00_001EFFF0(void *, void *, s32, s32, s32);
+extern float func_001F9CE8(void *);
+extern void func_L00_001FF500(void *, void *, float);
+extern void func_L00_00213E60(void);
+extern void func_L05_00240968(void);
+extern void func_L00_002136A8(void);
+extern f32 func_001F9C78(void *, void *);
+extern void func_L00_00234150(float *, float *);
+extern void func_L00_00234420(float *, float *, float);
+extern float func_L00_00213A08(void *);
+extern void func_001F9C30(void *, void *, f32);
+typedef struct {
+    char pad00[0x80];
+    float position[4];
+    float rotation[4];
+    char padA0[0x40];
+    float velocity[4];
+    float contact[4];
+    float external[4];
+    float delta[4];
+    float vertical_delta[4];
+    float horizontal_delta[4];
+    float frame_delta[4];
+    char pad150[0x10];
+    float speed;
+    float horizontal_speed;
+    float vertical_speed;
+    float slope;
+    char pad170[0x5C];
+    int unconstrained;
+    char pad1D0[0x64];
+    float speed_limit;
+    char pad238[4];
+    int contact_state;
+    char pad240[0x17];
+    unsigned char contact_flag;
+    char pad258[0x84];
+    float gravity_limit;
+    char pad2E0[0x218];
+    int physics_mode;
+    char pad4FC[0x424];
+    float extra_step[4];
+    char pad930[0x1754];
+    int state;
+    char pad2088[4];
+    int mode;
+} L05MovementPlayer;
+
+/* Integrate player motion, resolve contacts, and measure the resulting movement. */
+void func_L05_00241AA0(void) {
+    V previous;
+    V work;
+    V plane;
+    L05MovementPlayer *contact_player;
+    L05MovementPlayer *motion_player;
+    L05MovementPlayer *cap_player;
+    float *position = (float *)(D_0013E633 + 0xE9D);
+    L05MovementPlayer *player;
+    float *delta;
+    float *vertical;
+    float *horizontal;
+    float *extra_step;
+    float *velocity;
+    float *new_position;
+    float *contact;
+    float *external;
+    float magnitude;
+
+    qcopy(previous.f, position);
+    player = (L05MovementPlayer *)((char *)position - 0x80);
+    func_L00_00234800(player->physics_mode, (char *)position + 0x70, (char *)position + 0x10);
+    if (player->state == 34 || player->state == 20) {
+        float limit;
+        float *limited_velocity;
+
+        if (!player->unconstrained) {
+            float length;
+
+            position = (float *)((char *)position + 0x60);
+            length = func_L00_00234250(position);
+            limit = player->speed_limit - 0.02f;
+            if (limit < length) func_L00_001FF4B0(position, position, limit);
+        }
+        limited_velocity = (float *)(D_0013E633 + 0xEFD);
+        magnitude = func_L00_002342F8(limited_velocity);
+        limit = -*(float *)((char *)limited_velocity + 0x1FC);
+        if (magnitude < limit) {
+            if (limit > 0.0f) limit = 0.0f;
+            func_L00_002343A0(limited_velocity, limited_velocity, limit);
+        }
+    } else if (player->mode == 22) {
+        qcopy(work.f, position);
+        work.f[2] += 0.5f;
+        FastVecAdd(plane.f, work.f, (char *)position + 0x60);
+        if (func_L00_001EFFF0(position, plane.f, 2, 0, 0)) {
+            char *hit = D_L05_00174358;
+
+            if (!hit || *(short *)(hit + 0xA6) == 0x1F6 || *(short *)(hit + 0xA6) == 0x59F) {
+                player = (L05MovementPlayer *)(D_0013E633 + 0xE1D);
+                if (!player->unconstrained) {
+                    float length;
+                    float limit;
+
+                    position = player->velocity;
+                    length = func_001F9CE8(position);
+                    limit = player->speed_limit - 0.02f;
+                    if (limit < length) func_L00_001FF500(position, position, limit);
+                }
+            }
+        }
+    } else if (player->mode != 13) {
+        if (player->mode != 14) {
+            if (!player->unconstrained) {
+                float length;
+                float limit;
+
+                position = (float *)((char *)position + 0x60);
+                length = FastVecLength(position);
+                limit = player->speed_limit - 0.02f;
+                if (limit < length) func_L00_001FF4B0(position, position, limit);
+            }
+        }
+    }
+    position = (float *)(D_0013E633 + 0xE9D);
+    FastVecAdd(position, position, (char *)position + 0x60);
+    extra_step = (float *)((char *)position + 0x8A0);
+    FastVecAdd(position, position, extra_step);
+    clear_u64_value(extra_step);
+    contact_player = (L05MovementPlayer *)((char *)position - 0x80);
+    contact_player->contact_flag = 0;
+    contact_player->contact_state = 0;
+    if (FastVecLength((char *)position + 0x70) <= 0.0001f) {
+        func_L00_00213E60();
+        func_L05_00240968();
+        FastVecSub((char *)position + 0x80, position, previous.f);
+        func_L00_002136A8();
+    } else {
+        func_L05_00240968();
+    }
+    delta = (float *)(D_0013E633 + 0xF2D);
+    new_position = (float *)((char *)delta - 0x90);
+    horizontal = (float *)((char *)delta + 0x20);
+    FastVecSub(delta, new_position, previous.f);
+    qcopy(horizontal, delta);
+    vertical = (float *)((char *)delta + 0x10);
+    qcopy(vertical, delta);
+    velocity = (float *)((char *)delta - 0x30);
+    func_L00_001FF4B0(delta, delta, 1.0f);
+    magnitude = FastVecDot(delta, velocity);
+    if (magnitude < 0.0f) magnitude = 0.0f;
+    func_L00_001FF4B0(delta, velocity, magnitude);
+    qcopy(work.f, velocity);
+    func_L00_00234150(work.f, work.f);
+    func_L00_00234150(horizontal, horizontal);
+    func_L00_001FF4B0(horizontal, horizontal, 1.0f);
+    magnitude = FastVecDot(horizontal, work.f);
+    if (magnitude < 0.0f) magnitude = 0.0f;
+    func_L00_001FF4B0(horizontal, work.f, magnitude);
+    qcopy(plane.f, velocity);
+    func_L00_00234420(plane.f, plane.f, 0.0f);
+    func_L00_00234420(vertical, vertical, 0.0f);
+    func_L00_001FF4B0(vertical, vertical, 1.0f);
+    magnitude = FastVecDot(vertical, plane.f);
+    if (magnitude < 0.0f) magnitude = 0.0f;
+    func_L00_001FF4B0(vertical, plane.f, magnitude);
+    motion_player = (L05MovementPlayer *)((char *)delta - 0x110);
+    motion_player->speed = FastVecLength(delta);
+    motion_player->horizontal_speed = func_001F9CE8(delta);
+    work.q = *(Q *)delta;
+    motion_player->vertical_speed = func_L00_00213A08(work.f);
+    if (motion_player->vertical_speed < 0.0f) motion_player->vertical_speed = 0.0f;
+    qcopy(work.f, new_position);
+    contact = (float *)((char *)delta - 0x20);
+    external = (float *)((char *)delta - 0x10);
+    if (FastVecLength(contact) > 0.0001f) {
+        float saved;
+
+        FastVecAdd(new_position, new_position, contact);
+        saved = motion_player->contact[3];
+        clear_u64_value(contact);
+        motion_player->contact[3] = saved;
+        func_L00_00213E60();
+        func_L05_00240968();
+        FastVecSub(external, new_position, previous.f);
+        func_L00_002136A8();
+    }
+    FastVecSub((char *)delta + 0x30, new_position, work.f);
+    motion_player->frame_delta[3] = motion_player->contact[3];
+    motion_player->contact[3] = 0.0f;
+    FastVecSub(external, new_position, previous.f);
+    motion_player->slope = 0.0f;
+    if (motion_player->horizontal_speed > 0.004f) {
+        motion_player->slope = motion_player->external[2] / motion_player->horizontal_speed;
+        if (motion_player->slope > 0.5f) motion_player->slope = 0.5f;
+        else if (motion_player->slope < -0.5f) motion_player->slope = -0.5f;
+    }
+    cap_player = (L05MovementPlayer *)(D_0013E633 + 0xE1D);
+    magnitude = D_0015EE6C * 52.0f;
+    if (magnitude < cap_player->speed) {
+        FastVecScale(cap_player->external, cap_player->external, magnitude / cap_player->speed);
+        cap_player->speed = D_0015EE6C * 52.0f;
+    }
+}
