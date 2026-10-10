@@ -357,3 +357,124 @@ void func_001FA588(float *out, float *a, float *b) {
     out[2] = sz + cz;
     out[3] = ww - dot;
 }
+
+/* --- Memory, timers and small numbers (written from the retail routines). --- */
+
+/* The port's report of a trap the game's code raises on purpose. */
+void openrac_game_trap(void);
+
+/* log2dim: the index of the highest bit that differs from the sign bit (the floor of log2 for a
+ * positive value), from the EE's count of leading sign bits. */
+int func_001F9968(int x) {
+    unsigned int u = x < 0 ? ~(unsigned int)x : (unsigned int)x;
+    int same = 31;  /* leading bits equal to the sign bit, less one */
+    while (u != 0) {
+        u >>= 1;
+        same--;
+    }
+    return 30 - same;
+}
+
+/* A trap the game raises on purpose (teq $0, $0): an assertion that failed. */
+void func_001F9978(void) {
+    openrac_game_trap();
+}
+
+/* A short busy wait, two counts a pass: nothing to wait for on the PC. */
+void func_001F9988(int count) {
+    (void)count;
+}
+
+/* FastMemSet: stores the word at least once, then until the byte count is used up. */
+void func_001F99B0(int *dst, int value, int bytes) {
+    do {
+        *dst++ = value;
+        bytes -= 4;
+    } while (bytes > 0);
+}
+
+/* FastMemZero16: clears 16 bytes at least once, then until the byte count is used up. */
+void func_001F99D8(int *dst, int bytes) {
+    do {
+        dst[0] = 0;
+        dst[1] = 0;
+        dst[2] = 0;
+        dst[3] = 0;
+        dst += 4;
+        bytes -= 16;
+    } while (bytes > 0);
+}
+
+/* FastMemCopy: copies 16 bytes at least once, then until the byte count is used up. */
+void func_001F9A98(void *to, void *from, int bytes) {
+    int *dst = to;
+    int *src = from;
+    do {
+        int a = src[0], b = src[1], c = src[2], d = src[3];
+        dst[0] = a;
+        dst[1] = b;
+        dst[2] = c;
+        dst[3] = d;
+        src += 4;
+        dst += 4;
+        bytes -= 16;
+    } while (bytes > 0);
+}
+
+/* FastMemOr16: dst = a | b, 16 bytes at a time, at least once. */
+void func_001F9AC0(int *dst, int *a, int *b, int bytes) {
+    do {
+        int x = a[0] | b[0], y = a[1] | b[1], z = a[2] | b[2], w = a[3] | b[3];
+        dst[0] = x;
+        dst[1] = y;
+        dst[2] = z;
+        dst[3] = w;
+        a += 4;
+        b += 4;
+        dst += 4;
+        bytes -= 16;
+    } while (bytes > 0);
+}
+
+/* FastDecTimer: 1 if the timer was already zero (nothing stored); otherwise it counts down from at
+ * least 1 and the result is 0 while it stays above zero, 2 when it reaches it. */
+int func_001F9908(int *timer) {
+    int v = *timer;
+    if (v == 0) {
+        return 1;
+    }
+    if (v < 1) {
+        v = 1;
+    }
+    v = v - 1;
+    *timer = v;
+    return v > 0 ? 0 : 2;
+}
+
+/* FastDecTimer for a 16-bit timer. */
+int func_001F9938(short *timer) {
+    int v = *timer;
+    if (v == 0) {
+        return 1;
+    }
+    if (v < 1) {
+        v = 1;
+    }
+    v = v - 1;
+    *timer = (short)v;
+    return v > 0 ? 0 : 2;
+}
+
+/* Whether two spheres (centre in x, y, z, radius in w) overlap: 1 when the squared distance of
+ * the centres is below the square of the summed radii. The sums are taken in the vector unit's
+ * order: (dy^2 + dx^2) + dz^2, then minus (ra + rb)^2. */
+int func_001F9D78(float *a, float *b) {
+    float dx = a[0] - b[0];
+    float dy = a[1] - b[1];
+    float dz = a[2] - b[2];
+    float r = a[3] + b[3];
+    float d = dy * dy + dx * dx;
+    d = d + dz * dz;
+    d = d - r * r;
+    return d < 0.0f ? 1 : 0;
+}

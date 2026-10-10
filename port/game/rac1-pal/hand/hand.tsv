@@ -31,3 +31,14 @@ func_L00_001FF500	overlays_shared_fastfunc_001FEF78.c
 func_L00_001FEF78	overlays_shared_fastfunc_001FEF78.c
 func_L00_002001D8	overlays_shared_fastfunc_001FEF78.c
 func_L00_00251328	overlays_shared_mobyfunc_0024FD50.c
+func_001F9968	game_fastfunc.c
+func_001F9978	game_fastfunc.c
+func_001F9988	game_fastfunc.c
+func_001F99B0	game_fastfunc.c
+func_001F99D8	game_fastfunc.c
+func_001F9A98	game_fastfunc.c
+func_001F9AC0	game_fastfunc.c
+func_001F9908	game_fastfunc.c
+func_001F9938	game_fastfunc.c
+func_001F9D78	game_fastfunc.c
+func_001F0F00	game_collproc.c

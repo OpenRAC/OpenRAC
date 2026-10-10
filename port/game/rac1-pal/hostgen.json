@@ -28,7 +28,9 @@
   "host_functions": [
     "func_0020C268",
     "openrac_sqrt",
-    "openrac_rsqrt"
+    "openrac_rsqrt",
+    "openrac_game_trap",
+    "func_002347F0"
   ],
   "candidates": "nonmatching/functional.tsv",
   "hand": "hand/hand.tsv"

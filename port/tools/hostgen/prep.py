@@ -166,7 +166,7 @@ def prepare(text: str) -> str:
     return widen_long(split_multiline_strings(blank_file_scope_asm(text)))
 
 
-_INCLUDE_ASM = re.compile(r'^[ \t]*INCLUDE_ASM\(\s*"[^"]*"\s*,\s*(\w+)\s*\)\s*;?[ \t]*(?:/\*.*?\*/)?[ \t]*$', re.M)
+_INCLUDE_ASM = re.compile(r'^[ \t]*(?:INCLUDE_ASM|ASM_FUNC|LINKER_REMNANT)\(\s*"[^"]*"\s*,\s*(\w+)\s*\)\s*;?[ \t]*(?:/\*.*?\*/)?[ \t]*$', re.M)
 
 
 def use_candidates(text: str, candidates: dict[str, str], used: set[str]) -> str:
