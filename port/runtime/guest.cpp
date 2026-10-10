@@ -336,11 +336,47 @@ void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::u
                gaddr low, gaddr high, std::map<gaddr, std::int32_t>& out) {
     std::uint32_t ve[32] = {}, vl[32] = {};
     bool known[32] = {};
+    // A branch's target gets the registers as the branch leaves them (after its delay slot), so a
+    // value formed in a delay slot (lui in a branch-likely's slot, the addiu at the target) pairs.
+    struct Registers {
+        std::uint32_t ve[32], vl[32];
+        bool known[32];
+    };
+    std::map<std::uint32_t, Registers> at_target;
+    std::uint32_t pending_from = 0, pending_target = 0;
+    bool pending = false;
     for (std::uint32_t i = 0; i + 4 <= size; i += 4) {
+        if (pending && i == pending_from + 8) {
+            Registers& r = at_target[pending_target];
+            std::memcpy(r.ve, ve, sizeof(ve));
+            std::memcpy(r.vl, vl, sizeof(vl));
+            std::memcpy(r.known, known, sizeof(known));
+            pending = false;
+        }
+        if (auto t = at_target.find(i); t != at_target.end()) {
+            for (int r = 0; r < 32; ++r) {
+                if (t->second.known[r]) {
+                    ve[r] = t->second.ve[r];
+                    vl[r] = t->second.vl[r];
+                    known[r] = true;
+                }
+            }
+        }
         const std::uint32_t we = reference(program, exe + i), wl = game_word(level + i);
         const std::uint32_t op = we >> 26;
         if (op != (wl >> 26)) {
             break;  // not the same code any more (the copy ends, or another function)
+        }
+        const bool branch = (op >= 0x04 && op <= 0x07) || (op >= 0x14 && op <= 0x17) || op == 0x01
+                            || (op == 0x11 && ((we >> 21) & 31) == 8);
+        if (branch) {
+            const std::int32_t offset = static_cast<std::int16_t>(we & 0xFFFF);
+            const std::int64_t target = static_cast<std::int64_t>(i) + 4 + static_cast<std::int64_t>(offset) * 4;
+            if (target > static_cast<std::int64_t>(i) + 4 && target < static_cast<std::int64_t>(size)) {
+                pending = true;
+                pending_from = i;
+                pending_target = static_cast<std::uint32_t>(target);
+            }
         }
         const std::uint32_t rs = (we >> 21) & 31, rt = (we >> 16) & 31;
         const std::int32_t se = static_cast<std::int16_t>(we & 0xFFFF);
@@ -521,13 +557,19 @@ LevelMap& level_pair_map(int from, int loaded) {
 
 gaddr relocate_by(const LevelMap& map, gaddr address) {
     auto it = std::upper_bound(map.data.begin(), map.data.end(), std::make_pair(address, INT32_MAX));
-    if (it == map.data.begin()) {
+    if (it == map.data.begin() || address - std::prev(it)->first > 0x100) {
+        // OPENRAC_TRACE_RELOCATION: each level address no paired one is near, once.
+        static const bool trace = std::getenv("OPENRAC_TRACE_RELOCATION") != nullptr;
+        if (trace) {
+            static std::map<gaddr, bool> told;
+            if (!told[address]) {
+                told[address] = true;
+                warn("level address {:#x} has no paired address within 0x100 below it; kept", address);
+            }
+        }
         return address;
     }
     --it;
-    if (address - it->first > 0x100) {
-        return address;
-    }
     return address + static_cast<gaddr>(it->second);
 }
 
