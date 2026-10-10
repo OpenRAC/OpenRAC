@@ -438,6 +438,20 @@ void openrac_game_effect_quad(const openrac_game_quad* quad) {
 #endif
 }
 
+void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut, int log2_side) {
+#ifdef OPENRAC_FRONTEND
+    if (g_window) {
+        const auto* ram = runtime::Memory::get().base();
+        frontend::particle(std::span<const std::uint8_t>(ram, 32u * 1024 * 1024), record, pixels, clut, log2_side);
+    }
+#else
+    (void)record;
+    (void)pixels;
+    (void)clut;
+    (void)log2_side;
+#endif
+}
+
 void openrac_game_moby_chain(gaddr moby, gaddr marks) {
 #ifdef OPENRAC_FRONTEND
     const auto* ram = runtime::Memory::get().base();

@@ -6,7 +6,10 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <format>
+#include <unordered_map>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -59,6 +62,13 @@ struct State {
     // The world effect quads the game drew since the last frame (effect_quad).
     std::vector<renderer::EffectQuad> effects;
     std::vector<renderer::ImageUpload> effect_uploads;  // the quads' textures (EffectQuad::uploads)
+    // The live particles the game drew since the last frame (particle): record, texture source.
+    struct Particle {
+        std::array<std::uint8_t, 0x40> record;
+        std::uint32_t pixels, clut;
+        int log2_side;
+    };
+    std::vector<Particle> particles;
 };
 
 std::unique_ptr<State> g;
@@ -329,6 +339,162 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
         g->effect_uploads.push_back(std::move(image));
     }
     g->effects.push_back(q);
+}
+
+void particle(std::span<const std::uint8_t> ram, const std::uint8_t* record, std::uint32_t pixels,
+              std::uint32_t clut, int log2_side) {
+    (void)ram;
+    State::Particle p;
+    std::memcpy(p.record.data(), record, p.record.size());
+    p.pixels = pixels & 0x01FFFFFF;
+    p.clut = clut & 0x01FFFFFF;
+    p.log2_side = log2_side;
+    g->particles.push_back(p);
+}
+
+// The frame's particles as effect quads, as the game's VU1 sprite program draws them (ReRAC's
+// particle notes, docs/plan/particles.md section 7; ISC License, Copyright (c) 2026 ReRAC
+// contributors): culled and faded by depth (the record's near and far, at most 500 units), back to
+// front; a sprite faces the camera, its half-diagonal size / 210000 units (y scaled by 1.0625 as the
+// game does on screen), turned by its rotation byte; a flat quad lies in the world's XY plane; a
+// ribbon joins its two ends across the view. Lines are not drawn yet.
+void particle_quads(std::span<const std::uint8_t> ram, const viewer::GameState& state) {
+    const auto f32 = [](const std::uint8_t* b) {
+        float v;
+        std::memcpy(&v, b, 4);
+        return v;
+    };
+    const auto u32 = [](const std::uint8_t* b) {
+        std::uint32_t v;
+        std::memcpy(&v, b, 4);
+        return v;
+    };
+    const std::array<float, 3> cam = state.camera_position;
+    const std::array<float, 3> fwd = state.forward;
+    const std::array<float, 3> right{-state.left[0], -state.left[1], -state.left[2]};
+    const std::array<float, 3> down{-state.up[0], -state.up[1], -state.up[2]};
+    struct Item {
+        float depth;
+        renderer::EffectQuad quad;
+    };
+    std::vector<Item> items;
+    std::unordered_map<std::uint32_t, std::uint32_t> slots;  // pixels address -> pool key
+    for (const State::Particle& p : g->particles) {
+        const std::uint8_t* r = p.record.data();
+        const int kind = r[1] & 3;
+        if (kind == 2 || p.pixels == 0 || p.clut == 0) {
+            continue;
+        }
+        std::array<float, 3> p1{f32(r + 0x10), f32(r + 0x14), f32(r + 0x18)};
+        std::array<float, 3> p2{f32(r + 0x20), f32(r + 0x24), f32(r + 0x28)};
+        std::array<float, 3> centre = p1;
+        if (kind == 3) {
+            for (int i = 0; i < 3; ++i) {
+                centre[i] = (p1[i] + p2[i]) * 0.5f;
+            }
+        }
+        const float z = (centre[0] - cam[0]) * fwd[0] + (centre[1] - cam[1]) * fwd[1] + (centre[2] - cam[2]) * fwd[2];
+        const int z12 = static_cast<int>(z * 4096.0f);
+        const int near12 = (r[9] & 0xF) << 10;
+        const int far12 = std::min((r[9] >> 4) << 17, 0x1F4000);
+        if (z12 <= near12 || z12 >= far12) {
+            continue;
+        }
+        const int fade = std::min({(far12 - z12) >> 4, z12 - near12, 0x1000});
+        const auto faded = [fade](std::uint32_t c) {
+            return (c & 0x00FFFFFFu) | (((c >> 24) * static_cast<std::uint32_t>(fade) >> 12) << 24);
+        };
+        renderer::EffectQuad q{};
+        const std::uint32_t c1 = faded(u32(r + 4));
+        for (std::uint32_t& c : q.rgba) {
+            c = c1;
+        }
+        const float st[4][2] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+        std::memcpy(q.st, st, sizeof(st));
+        const float theta = static_cast<float>(r[8]) * 6.2831853f / 256.0f;
+        const float c = std::cos(theta);
+        const float s = std::sin(theta);
+        if (kind == 0) {
+            const float h = f32(r + 0xC) / 210000.0f * (z / (z + 0.5f));
+            float a[3];
+            float b[3];
+            for (int i = 0; i < 3; ++i) {
+                a[i] = (c * right[i] + 1.0625f * s * down[i]) * h;
+                b[i] = (-s * right[i] + 1.0625f * c * down[i]) * h;
+            }
+            for (int i = 0; i < 3; ++i) {
+                q.corner[0][i] = p1[i] + a[i];
+                q.corner[1][i] = p1[i] + b[i];
+                q.corner[2][i] = p1[i] - b[i];
+                q.corner[3][i] = p1[i] - a[i];
+            }
+        } else if (kind == 1) {
+            const float h = f32(r + 0xC) / 420000.0f;
+            const float d[4][2] = {{c, s}, {-s, c}, {s, -c}, {-c, -s}};
+            for (int k = 0; k < 4; ++k) {
+                q.corner[k][0] = p1[0] + d[k][0] * h;
+                q.corner[k][1] = p1[1] + d[k][1] * h;
+                q.corner[k][2] = p1[2];
+            }
+        } else {
+            const float w1 = f32(r + 0x1C);
+            const float k2 = f32(r + 0x2C);
+            const float e[3] = {p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]};
+            const float m[3] = {centre[0] - cam[0], centre[1] - cam[1], centre[2] - cam[2]};
+            float n[3] = {e[1] * m[2] - e[2] * m[1], e[2] * m[0] - e[0] * m[2], e[0] * m[1] - e[1] * m[0]};
+            const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            if (len <= 0.0f) {
+                continue;
+            }
+            for (float& v : n) {
+                v /= len;
+            }
+            for (int i = 0; i < 3; ++i) {
+                q.corner[0][i] = p1[i] + n[i] * w1;
+                q.corner[1][i] = p1[i] - n[i] * w1;
+                q.corner[2][i] = p2[i] + n[i] * w1 * k2;
+                q.corner[3][i] = p2[i] - n[i] * w1 * k2;
+            }
+            const std::uint32_t c2 = faded(u32(r + 0xC));
+            q.rgba[2] = c2;
+            q.rgba[3] = c2;
+        }
+        // Its texture: 32 x 32 PSMT8 and a 16 x 16 CLUT, kept at a pool key of its own per pixels.
+        const auto [slot, added] = slots.try_emplace(p.pixels, 0x10000u + static_cast<std::uint32_t>(slots.size()) * 8);
+        const std::uint32_t side = 1u << p.log2_side;
+        q.tbp = slot->second + 4;
+        q.cbp = slot->second;
+        q.tex0 = 1ull << 14 | 0x13ull << 20 | static_cast<std::uint64_t>(p.log2_side) << 26
+                 | static_cast<std::uint64_t>(p.log2_side) << 30 | 1ull << 34 | 4ull << 61;
+        q.clamp = 5;
+        q.tex1 = 0xFF9000000120ull;
+        q.alpha = r[3];
+        if (added && p.pixels + side * side <= ram.size() && p.clut + 1024 <= ram.size()) {
+            renderer::ImageUpload palette;
+            palette.dbp = q.cbp;
+            palette.dbw = 1;
+            palette.dpsm = 0x00;
+            palette.width = 16;
+            palette.height = 16;
+            palette.data.assign(ram.data() + p.clut, ram.data() + p.clut + 1024);
+            renderer::ImageUpload image;
+            image.dbp = q.tbp;
+            image.dbw = 1;
+            image.dpsm = 0x13;
+            image.width = side;
+            image.height = side;
+            image.data.assign(ram.data() + p.pixels, ram.data() + p.pixels + side * side);
+            q.uploads = static_cast<int>(g->effect_uploads.size());
+            g->effect_uploads.push_back(std::move(palette));
+            g->effect_uploads.push_back(std::move(image));
+        }
+        items.push_back({z, q});
+    }
+    std::stable_sort(items.begin(), items.end(), [](const Item& a, const Item& b) { return a.depth > b.depth; });
+    for (const Item& it : items) {
+        g->effects.push_back(it.quad);
+    }
+    g->particles.clear();
 }
 
 bool open(const std::string& game_id, const std::filesystem::path& levels, std::string& error) {
@@ -706,6 +872,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     (void)chain;
     const std::vector<std::uint8_t> packets = direct_packets(ram, viewer::shown_chain(ram, a));
     input.packets[static_cast<std::size_t>(renderer::Bucket::Hud)] = packets;
+    particle_quads(ram, state);
     input.effects = g->effects;
     input.effect_uploads = g->effect_uploads;
     if (g->renderer) {
@@ -713,6 +880,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     }
     g->effects.clear();
     g->effect_uploads.clear();
+    g->particles.clear();
     // OPENRAC_SHOT=FRAME:FILE.png writes that frame (for checking without looking at the screen).
     if (const char* shot = std::getenv("OPENRAC_SHOT")) {
         const char* colon = std::strchr(shot, ':');

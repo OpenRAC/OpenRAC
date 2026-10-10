@@ -70,7 +70,11 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     const gs::Texa texa{0, false, 0x80};
     std::vector<Vertex> vertices(4);
     for (const EffectQuad& q : input.effects) {
-        const gs::Tex0 tex0 = gs::Tex0::decode(q.tex0);
+        gs::Tex0 tex0 = gs::Tex0::decode(q.tex0);
+        if (q.tbp != 0) {
+            tex0.tbp0 = q.tbp;
+            tex0.cbp = q.cbp;
+        }
         const gs::Tex1 tex1 = gs::Tex1::decode(q.tex1);
         const gs::Clamp clamp = gs::Clamp::decode(q.clamp);
         if (q.uploads >= 0 && static_cast<std::size_t>(q.uploads) + 1 < input.effect_uploads.size()) {

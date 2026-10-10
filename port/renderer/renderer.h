@@ -64,6 +64,9 @@ struct EffectQuad {
     // blocks just before this quad (the game pages its effect textures through the same blocks
     // during a frame); -1 when the texture is already in the pool.
     int uploads = -1;
+    // When nonzero, the texture's and CLUT's blocks in the pool instead of TEX0's (a texture the
+    // window keeps at a key of its own, past the GS's 14-bit blocks).
+    std::uint32_t tbp = 0, cbp = 0;
 };
 
 struct FrameInput {

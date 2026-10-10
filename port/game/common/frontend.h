@@ -35,6 +35,10 @@ void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int cou
 // A world effect quad the game drew this frame (openrac_game_effect_quad).
 void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& quad);
 
+// A live particle the game drew this frame (openrac_game_particle).
+void particle(std::span<const std::uint8_t> ram, const std::uint8_t* record, std::uint32_t pixels,
+              std::uint32_t clut, int log2_side);
+
 // `draws`: the layers the game's renderers drew this frame (bit n = renderer::Bucket n; all bits
 // when the game does not report them).
 bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws);
