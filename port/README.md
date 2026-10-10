@@ -90,6 +90,12 @@ fresh-game level loading, not saved progression or menu/movie playback.
 Keep `--stop-on-missing` enabled and also run the normal New Game path
 without these shortcuts when validating startup behavior.
 
+To diagnose controller input, set `OPENRAC_TRACE_INPUT=1`: it logs the pad
+report passed to the game every 25 frontend frames in which a port is read,
+including scripted input. With `OPENRAC_DEBUG=1`, RAC1 PAL also logs the
+processed pad state and stick axes every 100 frontend frames. Compare these
+with the player position to distinguish device input from game-state bugs.
+
 ## Rules
 
 OpenRAC's rules hold here ([AGENTS.md](../AGENTS.md),

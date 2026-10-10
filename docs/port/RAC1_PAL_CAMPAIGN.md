@@ -950,6 +950,41 @@ level's input/update path to explain the unchanged hero position in the
 normal movement probe. Preserve missing-function checks. Existing dirty
 work remains preserved; local commit only, no push or assistant trailer.
 
+### Controller routing, 2026-10-10 continuation
+
+Fast-launch support is committed as `87ce8ad`. Reproduced unchanged hero
+position with the direct `input-before` probe. Trace revealed pad reads
+stopped after title frame 334 despite pad socket 0 remaining in state 1.
+The catalogue folded the level UpdatePad(void) wrappers into sound wrapper
+func_00216270. Generated code selected the pad callee but still supplied
+OPENRAC_CODE(0x2177F0), a callback address, instead of the pad data address
+0x13CA40. The real pad was never updated during gameplay.
+
+Split all 19 pad wrappers onto existing func_00218908. Parent local audit
+`.tools/audit-pad-routing.py` verified every 32-byte retail body equals
+the executable pad wrapper except its correctly relocated jal; all other
+instructions, including the fixed data address, are identical. Audit log:
+`.tools/pad-routing-audit.log`. Matching source/catalogue unchanged.
+Added optional frontend input trace and processed-pad diagnostics so raw
+reports and game state can be compared without memory-write shortcuts.
+
+Validation: Windows build and 58/58 CTest pass
+(`.tools/native-pad-routing-build.log`). Hostgen tests: 25 discovered,
+8 passed, 17 POSIX-only tests skipped on Windows. Generated table now
+routes level-0 0x268738 and the other 18 copies to func_00218908 and
+retains its executable entry. Strict `input-fixed` probe restores
+controller reads after level loading at frame 958, then stops at missing
+func_L00_00215A90, frame 1013, exit 2. The scripted movement was scheduled
+for 1200; the owner confirmed moving the physical Xbox left stick just
+before the stop. Hardware input now reaches gameplay; movement is not
+yet validated because the hero-lean path is unimplemented.
+
+Next action: recover func_L00_00215A90 (2084-byte procedural hero lean),
+starting with nonmatching/shared/func_L00_00215A90.c and reviewing all
+retail branches and four distinct joint-modifier setter destinations.
+It is claimed by codex-pad-routing while implementation continues.
+Existing dirty work preserved. No pushes or assistant credit trailers.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,

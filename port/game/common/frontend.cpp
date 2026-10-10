@@ -1276,6 +1276,13 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
                   static_cast<int>(word_at(ram, 0x0015F6E8)), static_cast<int>(word_at(ram, 0x00193400)),
                   static_cast<int>(word_at(ram, 0x00193400 + 0x1C)), static_cast<int>(word_at(ram, 0x0015EE84)),
                   static_cast<int>(word_at(ram, 0x0015F690)), word_at(ram, 0x0013CBE4));
+        if (g->game == "rac1-pal") {
+            float axes[4]{};
+            std::memcpy(axes, ram.data() + 0x0013CB40, sizeof axes);
+            log::info("  pad socket {} state {} held {:#x}, right {:.3f} {:.3f}, left {:.3f} {:.3f}",
+                      word_at(ram, 0x0013CBD4), word_at(ram, 0x0013CBD8), word_at(ram, 0x0013CBE0),
+                      axes[0], axes[1], axes[2], axes[3]);
+        }
         log::info("  fog colour {:.0f} {:.0f} {:.0f}, depth {:.0f} to {:.0f}, F {:.0f} to {:.0f}",
                   state.fog_colour[0] * 255, state.fog_colour[1] * 255, state.fog_colour[2] * 255,
                   state.fog_near, state.fog_far, state.fog_near_f, state.fog_far_f);
@@ -1562,6 +1569,14 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     }
     if (port == 0) {
         debug_menu::filter_pad(*buttons, g->game.c_str(), openrac_game_loaded_overlay());
+    }
+    if (std::getenv("OPENRAC_TRACE_INPUT") != nullptr) {
+        static std::uint64_t last_frame[platform::kPadPorts]{};
+        if (g->index >= last_frame[port] + 25) {
+            last_frame[port] = g->index;
+            log::info("input frame {} port {}: buttons {:#x}, right {} {}, left {} {}",
+                      g->index, port, *buttons, analog[0], analog[1], analog[2], analog[3]);
+        }
     }
     return true;
 }
