@@ -26,25 +26,6 @@ void func_001F8B6C(void) {
 void func_001F91B8(void) {
 }
 
-/* BuildMobyAdGif */
-void func_002035B0(gaddr a0, gaddr a1, int a2, int a3, int a4, int a5, int a6) {
-    (void)a0;
-    (void)a1;
-    (void)a2;
-    (void)a3;
-    (void)a4;
-    (void)a5;
-    (void)a6;
-}
-
-/* tie_ad_gif_convert */
-void func_00203F68(gaddr a0, gaddr a1, gaddr a2, int a3) {
-    (void)a0;
-    (void)a1;
-    (void)a2;
-    (void)a3;
-}
-
 /* shrub_class_init (the shrub draw data) */
 void func_00204340(gaddr a0, gaddr a1, gaddr a2, gaddr a3, int a4) {
     (void)a0;
@@ -52,12 +33,6 @@ void func_00204340(gaddr a0, gaddr a1, gaddr a2, gaddr a3, int a4) {
     (void)a2;
     (void)a3;
     (void)a4;
-}
-
-/* RelocateTfrags */
-void func_00204918(gaddr a0, gaddr a1) {
-    (void)a0;
-    (void)a1;
 }
 
 /* a moby texture DMA */
@@ -132,8 +107,9 @@ int func_0022B648(int a0) {
 }
 
 /* LightShrubs */
-void func_0022B8F8(gaddr a0) {
+void func_0022B8F8(gaddr a0, gaddr a1) {
     (void)a0;
+    (void)a1;
 }
 
 /* SkyDrawShellTextured */
@@ -180,6 +156,22 @@ int func_002383D8(int a0) {
 }
 
 /* LightTies */
-void func_00238688(gaddr a0) {
+void func_00238688(gaddr a0, gaddr a1) {
     (void)a0;
+    (void)a1;
+}
+/* PatchMobyGifs: texture addresses into the GS packets of the console's renderer */
+void func_0020DD48(void) {
+}
+
+/* PatchShrubGifs: texture addresses into the GS packets of the console's renderer */
+void func_00229D48(void) {
+}
+
+/* PatchTfragGifs: texture addresses into the GS packets of the console's renderer */
+void func_00234620(void) {
+}
+
+/* PatchTieGifs: texture addresses into the GS packets of the console's renderer */
+void func_00236A98(void) {
 }

@@ -125,7 +125,7 @@ func_0012BC50	mpeg	sceMpegAddCallback	todo
 func_0012D380	scf	sceScfGetLanguage	host	from the port's settings
 func_0012D818	scf	sceScfGetLocalTimefromRTC	host
 func_0012DB68	989snd	snd_StartSoundSystem	host	sound is silent until the port's sound engine exists
-func_0012DDC0	989snd	snd_FlushSoundCommands	host
+func_0012DDC0	989snd	SndFlushPal	host	the shared flush plus the PAL buffers marked sent (host/hand.c)	int (void)
 func_0012E060	989snd	snd_BankLoadByLoc	host
 func_0012E1C8	989snd	snd_BankLoadFromEE_CB	host
 func_0012E2E8	989snd	snd_ResolveBankXREFS	host
@@ -161,3 +161,4 @@ func_0012DA38	boot	ParseBin	wrap	copies a level's program in: from then on, leve
 func_0012F348	wad	wad_GetSectors	game
 func_0012F3F8	wad	load_disc_sectors_into_global_buffer	game
 func_0012F4A8	wad	read_file_entry_with_retry	game
+func_0020C468	game	WadDecompress	host	the WAD decompressor (hand-written assembly), answered with the asset readers' own; returns the size it made	int (int, int)

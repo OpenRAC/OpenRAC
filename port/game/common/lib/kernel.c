@@ -11,6 +11,10 @@
 
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
+#include "openrac/guest.h"
+
+#include <stdint.h>
+#include <string.h>
 
 #define MAX_HANDLERS 8
 
@@ -214,20 +218,59 @@ int openrac_lib_sceSifDmaStat(unsigned int id) {
     return -1;
 } /* sceSifDmaStat: done */
 
+/* The second processor's memory, for what the game parks there: the "stash"
+ * (IOP_stash_daemon, RPC server 0x11) keeps data the game sends with
+ * sceSifSetDma and fetches back by RPC. Nothing else of the IOP is modelled. */
+#define IOP_BYTES (2u * 1024 * 1024)
+static uint8_t iop_memory[IOP_BYTES];
+
+/* sceSifSetDma(transfers, count): each transfer is {source, destination,
+ * size, attributes}, the destination an address in the IOP's memory. */
 unsigned int openrac_lib_sceSifSetDma(gaddr transfers, int count) { /* sceSifSetDma */
-    (void)transfers;
-    (void)count;
+    int i;
+    for (i = 0; i < count; i++) {
+        uint32_t t[4];
+        memcpy(t, G(transfers + (gaddr)i * 16u), 16);
+        if (t[1] < IOP_BYTES && t[2] <= IOP_BYTES - t[1]) {
+            memcpy(iop_memory + t[1], G(t[0]), t[2]);
+        }
+    }
     return 1;
+}
+
+/* Which RPC server each bound client is for, by client address. */
+#define RPC_CLIENTS 16
+static gaddr rpc_client[RPC_CLIENTS];
+static unsigned int rpc_server[RPC_CLIENTS];
+
+static unsigned int server_of(gaddr client) {
+    int i;
+    for (i = 0; i < RPC_CLIENTS; i++) {
+        if (rpc_client[i] == client) {
+            return rpc_server[i];
+        }
+    }
+    return 0;
 }
 
 void openrac_lib_sceSifInitRpc(int mode) {
     (void)mode;
 } /* sceSifInitRpc */
 
+/* Binding succeeds at once: the word at 0x24 of the client (its server) is
+ * what the game waits on to become non-zero. */
 int openrac_lib_sceSifBindRpc(gaddr client, unsigned int number, int mode) { /* sceSifBindRpc */
-    (void)client;
-    (void)number;
+    int i;
+    uint32_t one = 1;
     (void)mode;
+    for (i = 0; i < RPC_CLIENTS; i++) {
+        if (rpc_client[i] == 0 || rpc_client[i] == client) {
+            rpc_client[i] = client;
+            rpc_server[i] = number;
+            break;
+        }
+    }
+    memcpy(G(client + 0x24u), &one, 4);
     return 0;
 }
 
@@ -242,15 +285,26 @@ int openrac_lib_sceSifCallRpc(
     gaddr end,
     gaddr end_param
 ) { /* sceSifCallRpc */
-    (void)client;
-    (void)number;
     (void)mode;
-    (void)send;
     (void)ssize;
-    (void)receive;
-    (void)rsize;
-    (void)end;
-    (void)end_param;
+    /* The stash: function 2 says where it is in the IOP's memory and how long;
+     * function 1 copies from the address sent into the receive buffer. */
+    if (server_of(client) == 0x11) {
+        const uint32_t base = 0x00080000u, bytes = 0x00170000u;
+        if (number == 2 && rsize >= 8) {
+            memcpy(G(receive), &base, 4);
+            memcpy(G(receive + 4u), &bytes, 4);
+        } else if (number == 1 && rsize > 0) {
+            uint32_t from;
+            memcpy(&from, G(send), 4);
+            if (from < IOP_BYTES && (uint32_t)rsize <= IOP_BYTES - from) {
+                memcpy(G(receive), iop_memory + from, (size_t)rsize);
+            }
+        }
+        if (end != 0) {
+            GFN(void (*)(gaddr), end)(end_param);
+        }
+    }
     return 0;
 }
 

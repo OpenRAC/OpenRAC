@@ -6,6 +6,7 @@
  * written from what the retail routine does, never from its bytes. */
 #include "game_protos.h"
 #include "openrac/game_host.h"
+#include "openrac/game_lib.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -45,11 +46,12 @@ uint32_t openrac_lib_wad_decompress(const uint8_t *src, uint8_t *dst, uint32_t c
  * retail routine streams through the scratchpad with its DMA channel and returns the size it wrote,
  * which the game's declarations of it do not read; the port decompresses straight from game
  * memory. Its output may run to the end of main memory. */
-void func_0020C468(int src, int dst) {
+int func_0020C468(int src, int dst) {
     const uint32_t end_of_ram = 0x02000000u;
     const gaddr to = (gaddr)dst;
-    openrac_lib_wad_decompress((const uint8_t *)G(src), (uint8_t *)G(to),
-                               to < end_of_ram ? end_of_ram - to : 0);
+    const uint32_t made = openrac_lib_wad_decompress((const uint8_t *)G(src), (uint8_t *)G(to),
+                                                     to < end_of_ram ? end_of_ram - to : 0);
+    return (int)made;
 }
 
 /*
@@ -204,4 +206,35 @@ void func_00235118(void) {
     memcpy(&fences, G(0x00160FE0u), 4);
     fences &= ~0x1Fu;
     memcpy(G(0x00160FE0u), &fences, 4);
+}
+
+/*
+ * printf (newlib, in the executable): the game's debug output. Its format string goes to the log
+ * as it is, without the arguments, until the formatter (sprintf is translated) is shared with it.
+ */
+int func_00116078(gaddr format, ...) {
+    const char *text = (const char *)G(format);
+    fprintf(stderr, "[game] %s", text);
+    return 0;
+}
+
+/*
+ * snd_FlushSoundCommands (989snd, matched C in the decompilation, replaced here). The port has no
+ * IOP sound server yet: a finished disc read is reported through the shared library, and the
+ * command buffer being filled is marked as sent, as snd_SendCurrentBatch leaves it (no command
+ * left, all its 0xFFC bytes free), so the game never waits for the IOP. The commands themselves are
+ * dropped until the port's sound player takes them. PAL addresses: the buffer in use D_0015EDC0,
+ * the counts D_0015EDA0[2] (pointers), the space left D_0015EDA8[2].
+ */
+int func_0012DDC0(void) {
+    uint32_t cur, count_at, free_bytes = 0xFFC, zero = 0;
+    openrac_lib_snd_FlushSoundCommands();
+    memcpy(&cur, G(0x0015EDC0u), 4);
+    cur &= 1;
+    memcpy(&count_at, G(0x0015EDA0u + cur * 4u), 4);
+    if (count_at != 0) {
+        memcpy(G(count_at), &zero, 4);
+    }
+    memcpy(G(0x0015EDA8u + cur * 4u), &free_bytes, 4);
+    return 0;
 }

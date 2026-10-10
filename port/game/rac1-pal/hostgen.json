@@ -31,7 +31,6 @@
     "openrac_rsqrt",
     "openrac_game_trap",
     "func_002347F0",
-    "func_0020C468",
     "func_001F9F90",
     "func_001F9FA8",
     "func_0023B670",
@@ -39,10 +38,7 @@
     "func_001F7EF8",
     "func_001F8B6C",
     "func_001F91B8",
-    "func_002035B0",
-    "func_00203F68",
     "func_00204340",
-    "func_00204918",
     "func_00212258",
     "func_00212508",
     "func_00212578",
@@ -66,7 +62,12 @@
     "func_002362B0",
     "func_00236F00",
     "func_002383D8",
-    "func_00238688"
+    "func_00238688",
+    "func_0020DD48",
+    "func_00229D48",
+    "func_00234620",
+    "func_00236A98",
+    "func_00116078"
   ],
   "candidates": "nonmatching/functional.tsv",
   "hand": "hand/hand.tsv"

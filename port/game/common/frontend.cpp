@@ -298,9 +298,11 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
     // OPENRAC_SHOT=FRAME:FILE.png writes that frame (for checking without looking at the screen).
     if (const char* shot = std::getenv("OPENRAC_SHOT")) {
         const char* colon = std::strchr(shot, ':');
-        if (colon && static_cast<std::uint64_t>(std::atoll(shot)) == input.frame) {
-            viewer::write_png(colon + 1, width, height, g->frame.read_rgba());
-            log::info("frame {} written to {}", input.frame, colon + 1);
+        const std::uint64_t every = static_cast<std::uint64_t>(std::atoll(shot));
+        if (colon && every > 0 && input.frame % every == 0) {
+            const std::string path = std::string(colon + 1) + std::to_string(input.frame) + ".png";
+            viewer::write_png(path, width, height, g->frame.read_rgba());
+            log::info("frame {} written to {}", input.frame, path);
         }
     }
     g->frame.blit_to(0, width, height);
