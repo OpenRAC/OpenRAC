@@ -249,7 +249,7 @@ void func_001EC2B8(struct UpdateCam *next_camera) {
             D_00187040_EC2B8.transition_mode = 2;
             if (transition_duration > 0.0f) {
                 D_00187040_EC2B8.configured_frames =
-                    func_001FA898(transition_duration);
+                    truncate_float_to_s32(transition_duration);
             } else {
                 D_00187040_EC2B8.configured_frames = 40;
             }
@@ -295,14 +295,14 @@ void func_001EC2B8(struct UpdateCam *next_camera) {
     previous_camera->handoff_state = 0;
     previous_camera->activation_blocked = 0;
     D_00187040_EC2B8.previous = previous_camera;
-    func_001F9A98(D_00189750, D_00189750 - 0x280,
+    FastMemCopy(D_00189750, D_00189750 - 0x280,
                            0x280);
     D_00187040_EC2B8.previous->saved_state = D_00189750;
     D_00187040_EC2B8.current = next_camera;
     next_camera->saved_state = D_00189750 - 0x280;
     D_00187040_EC2B8.snapshot_pending = 0;
     func_001EC270_EC2B8(next_camera);
-    func_001EC038();
+    BackupCurrentCam();
     /* The callbacks run before this flag is read; previous_position is updated either way. */
     if (D_0018C42C_EC2B8[0] == 0) {
         qcopy(&D_00187040_EC2B8.published_position, &next_camera->pos);
@@ -809,11 +809,11 @@ int func_001ED080(void *arg0, void *arg1) {
     }
     step = 1.0f / func_00214220(1.0f, (float)*(int *)(b + 5), (float)*(int *)(b + 3) * b[4]);
     if (D_001872B2 == 2) {
-        qcopy(&target, D_0013F4D0);
+        qcopy(&target, gHeroPos);
         qcopy(&fwd, b + 8);
         qcopy(&up, b + 12);
-        func_001F9CA0(&side, &fwd, &up);
-        func_001EC8D8(ang.v, cam + 0x30, &target, &fwd, &side, &up);
+        FastVecCross(&side, &fwd, &up);
+        Camera_Pos2Polar3d(ang.v, cam + 0x30, &target, &fwd, &side, &up);
     } else {
         qcopy(&target, cam + 0x30);
         g = D_0013F450;
@@ -823,31 +823,31 @@ int func_001ED080(void *arg0, void *arg1) {
         ang.v[1] = 0.0f;
         ang.v[0] = 3.1415927f;
     }
-    dyaw = func_001FA790(ang.v[0], b[0]);
-    b[0] = func_001FA748(b[0], dyaw * step);
-    dpitch = func_001FA790(ang.v[1], b[1]);
-    b[1] = func_001FA748(b[1], dpitch * step);
+    dyaw = FastSubRots(ang.v[0], b[0]);
+    b[0] = FastAddRots(b[0], dyaw * step);
+    dpitch = FastSubRots(ang.v[1], b[1]);
+    b[1] = FastAddRots(b[1], dpitch * step);
     b[2] = b[2] + (ang.v[2] - b[2]) * step;
     func_001F9DC0(&pos, &fwd, b[2]);
-    func_002156E0(&pos, &pos, &up, b[0]);
-    func_001F9CA0(&side, &pos, &up);
+    build_look_at_matrix(&pos, &pos, &up, b[0]);
+    FastVecCross(&side, &pos, &up);
     func_001F9DC0(&side, &side, 1.0f);
-    func_002156E0(&pos, &pos, &side, b[1]);
-    func_001F9BD8(b + 20, &target, &pos);
+    build_look_at_matrix(&pos, &pos, &side, b[1]);
+    FastVecAdd(b + 20, &target, &pos);
     if (D_0018C42C == 0) {
         qcopy(D_00187180, b + 20);
     }
     func_001FA648(b + 16, m);
-    d = func_001F9C78(&m[2], cam);
-    func_001F9C30(&proj, &m[2], d);
-    func_001F9BF0(&diff, cam, &proj);
-    yaw = 1.5707964f - func_001F9FC0(func_001F9C78(&m[0], &diff) / func_001F9CB8(&diff));
+    d = FastVecDot(&m[2], cam);
+    FastVecScale(&proj, &m[2], d);
+    FastVecSub(&diff, cam, &proj);
+    yaw = 1.5707964f - FastArcSin(FastVecDot(&m[0], &diff) / FastVecLength(&diff));
     sign = -1.0f;
-    if (func_001F9C78(&diff, &m[1]) >= 0.0f) {
+    if (FastVecDot(&diff, &m[1]) >= 0.0f) {
         sign = 1.0f;
     }
     yaw = yaw * sign;
-    if (func_001F9B88(dyaw) > 1.5707964f
+    if (FastAbsF(dyaw) > 1.5707964f
         && ((dyaw >= 0.0f && sign < 0.0f) || (dyaw < 0.0f && sign >= 0.0f))) {
         if (yaw < 0.0f) {
             yaw += 6.2831855f;
@@ -856,32 +856,32 @@ int func_001ED080(void *arg0, void *arg1) {
         }
     }
     turn = yaw * step;
-    if (func_001F9B88(turn) < 1e-5f) {
+    if (FastAbsF(turn) < 1e-5f) {
         qcopy(&r0, &m[0]);
         qcopy(&r1, &m[1]);
     } else {
-        func_00215380(&r2, &m[2], turn);
+        build_quaternion_from_axis_angle(&r2, &m[2], turn);
         func_00215650(&r0, &m[0], &r2);
         func_00215650(&r1, &m[1], &r2);
     }
-    if (func_001F9B88(yaw) < 1e-5f) {
+    if (FastAbsF(yaw) < 1e-5f) {
         qcopy(&r2, &m[0]);
     } else {
-        func_00215380(&q, &m[2], yaw);
+        build_quaternion_from_axis_angle(&q, &m[2], yaw);
         func_00215650(&r2, &m[0], &q);
     }
-    yaw = 1.5707964f - func_001F9FC0(func_001F9C78(&r2, cam));
-    d = func_001F9C78(&r2, cam + 0x20);
+    yaw = 1.5707964f - FastArcSin(FastVecDot(&r2, cam));
+    d = FastVecDot(&r2, cam + 0x20);
     s2 = -1.0f;
     if (d >= 0.0f) {
         s2 = 1.0f;
     }
     yaw *= s2;
-    func_002156E0(&r0, &r0, &r1, yaw * step);
+    build_look_at_matrix(&r0, &r0, &r1, yaw * step);
     func_001F9DC0(D_00187390, &r0, 1.0f);
-    func_001F9CA0(D_00187390 + 0x10, D_00187390, D_0013F6E0);
+    FastVecCross(D_00187390 + 0x10, D_00187390, D_0013F6E0);
     func_001F9DC0(D_00187390 + 0x10, D_00187390 + 0x10, -1.0f);
-    func_001F9CA0(D_00187390 + 0x20, D_00187390 + 0x10, D_00187390);
+    FastVecCross(D_00187390 + 0x20, D_00187390 + 0x10, D_00187390);
     func_00215328(b + 24, D_00187390);
     func_00215328(b + 16, D_00187390);
     func_001F9908((int *)(b + 3));
@@ -1069,7 +1069,7 @@ void func_001ED818(void) {
     func_001F9DC0(&dir, &D_0013F450_ED818.unk290, -1.0f);
     qcopy(&cam->unk40, &cam->unk30);
     qcopy(&cam->unk30, &dir);
-    if (func_001F9C78(&cam->dir, &dir) < -0.98f) {
+    if (FastVecDot(&cam->dir, &dir) < -0.98f) {
         dir.f[0] += 0.2f;
         dir.f[1] += 0.2f;
         dir.f[2] += 0.2f;
@@ -1082,15 +1082,15 @@ void func_001ED818(void) {
         func_001EC120_ED818(&cam->dir_vel[2], cam->dir.f[2], dir.f[2], 0.015f, 0.2f, 0.0f);
     func_001F9DC0(&cam->dir, &cam->dir, 1.0f);
 
-    func_001F9BF0(&cam->unk70, &D_0013F450_ED818.pos, &cam->unk60);
-    cam->unkA0 = func_001F9CB8(&cam->unk70);
-    d = func_001F9C78(&cam->unk70, &dir);
+    FastVecSub(&cam->unk70, &D_0013F450_ED818.pos, &cam->unk60);
+    cam->unkA0 = FastVecLength(&cam->unk70);
+    d = FastVecDot(&cam->unk70, &dir);
     cam->unkA8 = d;
     func_001F9DC0(&proj, &dir, d);
     qcopy(&cam->unk90, &proj);
-    func_001F9BF0(&cam->unk80, &cam->unk70, &proj);
-    cam->unkA4 = func_001F9CB8(&cam->unk80);
-    func_001F9C30(&cam->unk80, &cam->unk80, 1.0f / cam->unkA4);
+    FastVecSub(&cam->unk80, &cam->unk70, &proj);
+    cam->unkA4 = FastVecLength(&cam->unk80);
+    FastVecScale(&cam->unk80, &cam->unk80, 1.0f / cam->unkA4);
     qcopy(&cam->unk60, &D_0013F450_ED818.pos);
 
     if (D_0013F450_ED818.unk2284 != 0x50 || D_0013F450_ED818.unk2084 == 0x11) {
@@ -1113,7 +1113,7 @@ void func_001ED818(void) {
     if (m != 0 && m->oclass != 0x4BA && m->oclass != 0x336) {
         if (m == cam->unkD4) {
             cam->unkDC = m->pos.z - cam->unkD8;
-            if (func_001F9B88(cam->unkDC) < 0.001f) {
+            if (FastAbsF(cam->unkDC) < 0.001f) {
                 cam->unkDC = 0.0f;
             }
             cam->unkD8 = cam->unkD4->pos.z;

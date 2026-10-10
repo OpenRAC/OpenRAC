@@ -3,7 +3,77 @@
 #include "include_asm.h"
 
 INCLUDE_ASM("asm/overlays", func_L07_0031BDB8);
-INCLUDE_ASM("asm/overlays", func_L07_0031C7C0);
+typedef union { int i; float f; } EaseWord1C7C0;
+typedef struct { int target; int startState; int endState; float speed; float decay; float limit; EaseWord1C7C0 value; } EaseData1C7C0;
+typedef struct { char pad[0x20]; unsigned char state; char pad1[0x23]; EaseWord1C7C0 angle; char pad2[0x30]; EaseData1C7C0 *data; char pad3[0x84]; } EaseMoby1C7C0;
+extern int func_0022ED80(int, int, int);
+extern float func_001F9F90(float);
+extern float func_001FA748(float, float);
+extern float func_001FA790(float, float);
+extern float D_0015EE6C MACRO_ADDR;
+extern EaseMoby1C7C0 *D_L07_00160058_ease __asm__("D_L07_00160058") MACRO_ADDR;
+
+// UpdateMoby_1133: state machine that eases a value toward targets while the linked moby is alive.
+void func_L07_0031C7C0(EaseMoby1C7C0 *moby) {
+    EaseData1C7C0 *d = moby->data;
+    EaseMoby1C7C0 *o;
+    float v, w;
+    if (d) {
+        switch (moby->state) {
+        case 0:
+            moby->angle.i = 0;
+            moby->state = 1;
+            d->value.i = 0;
+            break;
+        case 1:
+            if (d->target != -1 && (o = D_L07_00160058_ease + d->target) != 0 &&
+                o->state != 0xFE && o->state != 0xFD &&
+                o->state != d->startState) {
+                return;
+            }
+            {
+                float dt = D_0015EE6C;
+                v = d->speed * dt;
+            }
+            d->value.f = v;
+            moby->angle.f = v;
+            func_0022ED80(0, 0, (int)moby);
+            moby->state = 3;
+            break;
+        case 3:
+            d->value.f = FastAddRots(d->value.f, FastCos(moby->angle.f) * (d->speed * D_0015EE6C));
+            moby->angle.f = FastAddRots(moby->angle.f, d->value.f);
+            o = D_L07_00160058_ease + d->target;
+            d->value.f = d->value.f * d->decay;
+            if (o != 0 && o->state != 0xFE && o->state != 0xFD) {
+                if (o->state != d->endState) {
+                    return;
+                }
+                moby->state = 4;
+            }
+            break;
+        case 4:
+            if (d->target == -1 || (o = D_L07_00160058_ease + d->target) == 0 ||
+                o->state == 0xFE || o->state == 0xFD ||
+                o->state == d->startState) {
+                func_0022ED80(0, 0, (int)moby);
+                moby->state = 2;
+            } else {
+                w = FastSubRots(moby->angle.f, d->limit);
+                moby->angle.f = w;
+                if (0.0f < w) {
+                    moby->angle.f = 0.0f;
+                    d->value.f = 0.0f;
+                    moby->state = 1;
+                }
+            }
+            break;
+        case 2:
+        case 5:
+            break;
+        }
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L07_0031E6B0);
 typedef struct { char pad[0x178]; int arr[8]; } L07SparkState;
 extern void func_L00_00264870(int);
@@ -44,23 +114,23 @@ void func_L07_0031FF78(char *m) {
         }
         if (*(int *)(S + 0x30) != a) return;
         k = 7;
-        if (*(int *)(S + 0x34) != func_001F9850(0xA8A)) k = 0;
-        if (*(int *)(S + 0x34) == func_001F9850(0xACE)) k = 6;
+        if (*(int *)(S + 0x34) != scale_ticks(0xA8A)) k = 0;
+        if (*(int *)(S + 0x34) == scale_ticks(0xACE)) k = 6;
         if (k != 0) {
             mob = (char *)((L07SparkState *)S)->arr[k];
             for (i = 0; i < 4; i++) {
                 func_L00_00250800(mob, i, buf);
                 for (j = 9; j >= 0; j--) {
-                    float d = func_002140F8(20000.0f, 200000.0f);
-                    int col = (func_L00_00258BC8(0x20, 0x80) << 24) | 0x7F7F7F;
-                    int v = func_L00_00258BC8(0, 4);
+                    float d = random_float_between(20000.0f, 200000.0f);
+                    int col = (rand_range(0x20, 0x80) << 24) | 0x7F7F7F;
+                    int v = rand_range(0, 4);
                     char *p;
                     char *q;
-                    if (func_002140B0(2) != 0) v = -v;
+                    if (random_integer_below(2) != 0) v = -v;
                     p = func_L00_0026DEA0_c(buf, v, D_L07_0015F660, col, 0.6f, 1.0f, 1.01f, d);
                     if (p != 0) {
                         q = p + 0x20;
-                        *(short *)(p + 0xA) = func_001F9850(func_L00_00258BC8(0x3C, 0x5A));
+                        *(short *)(p + 0xA) = scale_ticks(rand_range(0x3C, 0x5A));
                         *(int *)(q + 4) = 2;
                         *(char *)(q + 0xA) = col >> 24;
                         *(char *)(q + 0xB) = *(unsigned char *)(p + 0xA);
@@ -104,7 +174,7 @@ void func_L07_003207A8(char *m) {
         func_L00_00265050(m, 0x674, p, q, 0, 0, 0.0f, d, d, d);
         func_L00_00265050(m, 0x675, p, q, 0, 0, 0.0f, d, d, d);
         func_L00_00265050(m, 0x676, p, q, 0, 0, 0.0f, d, d, d);
-        n = func_0020D348(0x673);
+        n = CreateMoby(0x673);
         if (n != 0) {
             n[0x31] = 1;
             *(short *)(n + 0x32) = 0xFF;
@@ -113,7 +183,7 @@ void func_L07_003207A8(char *m) {
             *(long *)(n + 0x38) = *(long *)(m + 0x38);
             func_L00_00251E30(n);
         }
-        func_0020D678(m);
+        DeleteMoby(m);
         break;
     }
 }
@@ -152,7 +222,7 @@ void func_L07_00320980(char *self) {
             *(long *)(m + 0x38) = *(long *)(self + 0x38);
             upd_a(m);
         }
-        func_0020D678(self);
+        DeleteMoby(self);
         break;
     }
     }
@@ -190,7 +260,7 @@ void func_L07_00320B50(unsigned char *m) {
         func_L00_00265050(m, 0x698, pos, vel, 0, 0, z, p, p, p);
         func_L00_00265050(m, 0x699, pos, vel, 0, 0, z, p, p, p);
         func_L00_00265050(m, 0x69A, pos, vel, 0, 0, z, p, p, p);
-        func_0020D678(m);
+        DeleteMoby(m);
         break;
     }
 }
@@ -226,17 +296,17 @@ void func_L07_00320CD0(unsigned char *moby) {
                 o = *(char **)(g - (-(idx * 4)) + 0x178);
                 func_L00_00250800(o, 0, a0);
                 func_L00_00250800(o, 3, b0);
-                func_001F9BF0(c0, a0, b0);
+                FastVecSub(c0, a0, b0);
                 func_L00_001FF4B0(c0, c0, *(float *)&D_L07_00161D68);
                 func_L00_00264BE8(a0, a0, c0, *(float *)&D_L07_00161D6C, *(float *)&D_L07_00161D70);
                 func_L00_00250800(o, 1, a1);
                 func_L00_00250800(o, 4, b1);
-                func_001F9BF0(c1, a1, b1);
+                FastVecSub(c1, a1, b1);
                 func_L00_001FF4B0(c1, c1, *(float *)&D_L07_00161D68);
                 func_L00_00264BE8(a1, a1, c1, *(float *)&D_L07_00161D6C, *(float *)&D_L07_00161D70);
                 func_L00_00250800(o, 2, a2);
                 func_L00_00250800(o, 5, b2);
-                func_001F9BF0(c2, a2, b2);
+                FastVecSub(c2, a2, b2);
                 func_L00_001FF4B0(c2, c2, *(float *)&D_L07_00161D68);
                 func_L00_00264BE8(a2, a2, c2, *(float *)&D_L07_00161D6C, *(float *)&D_L07_00161D70);
             }

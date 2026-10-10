@@ -316,7 +316,7 @@ void func_001FE6C0(void) {
 
     case 0:
         if (HS.pending >= 0) {
-            HS.msg = func_001FE4D0(HS.pending);
+            HS.msg = Help_FindIndex(HS.pending);
             HS.pending = -1;
             if (HS.msg >= 0) {
                 func_001FE588();
@@ -327,7 +327,7 @@ void func_001FE6C0(void) {
     case 1: {
         int id;
 
-        func_00216028(5, 0);
+        force_help_message(5, 0);
         id = D_0015F780[HS.msg].unk_08;
         if (id >= 0 && D_001517D0.unk50 == 0 && D_001517D0.unk1C == -1) {
             D_001517D0.unk1C = id + 0x7530;
@@ -348,7 +348,7 @@ void func_001FE6C0(void) {
     case 2: {
         int id;
 
-        func_00216028(5, 0);
+        force_help_message(5, 0);
         if (D_0013CBE4 & 0x10) {
             RECORD_COUNT();
             RECORD_BEST();
@@ -367,7 +367,7 @@ void func_001FE6C0(void) {
     }
 
     case 3:
-        func_00216028(5, 0);
+        force_help_message(5, 0);
         if (D_0013CBE4 & 0x10) {
             RECORD_COUNT();
             RECORD_BEST();
@@ -383,7 +383,7 @@ void func_001FE6C0(void) {
     case 4: {
         int id;
 
-        func_00216028(5, 0);
+        force_help_message(5, 0);
         if (D_0013CBE4 & 0x10) {
             RECORD_COUNT();
             RECORD_BEST();
@@ -404,7 +404,7 @@ void func_001FE6C0(void) {
     case 5: {
         int id;
 
-        func_00216028(5, 0);
+        force_help_message(5, 0);
         if ((HS.timer >= func_001F98C0(0x1A4)
              && ((id = D_0015F780[HS.msg].unk_08) == -1
                  || id != D_001517D0.unk54 - 0x7530
@@ -429,7 +429,7 @@ void func_001FE6C0(void) {
     case 7: {
         int id;
 
-        func_00216028(5, 0);
+        force_help_message(5, 0);
         id = D_0015F780[HS.msg].unk_08;
         if (id != -1 && id == D_001517D0.unk54 - 0x7530
             && (unsigned short)D_001517D0.unk5A - 6U >= 2) {

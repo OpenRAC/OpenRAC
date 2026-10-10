@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L00_0029AFB8 -- src/overlays/shared/tieproc_00299108.c
- * Best so far: SIZE ours 748 / retail 756, checked 2026-10-03.
+ * Best so far: SIZE ours 748 / retail 756, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * Cannot land as written (#define in a candidate): rewrite that in plain C first.
@@ -8,7 +8,6 @@
  *   Structure and all gp/lui forms match except SIZE 748 vs 756: retail never fills the delay slots of the branche
  *   Would unblock: knowing why retail's scheduler does not thread the tail load into those slots (probably a diffe
  */
-extern void func_00217748(int);
 extern void func_L00_0029AF70(void);
 extern void func_00234AC8(int);
 extern int func_00217628_a(int *, int, int) __asm__("func_00217628");
@@ -26,7 +25,6 @@ extern int *D_L00_0015F708 MACRO_ADDR;
 extern int *D_L00_0015F70C MACRO_ADDR;
 extern int D_0015EE80 MACRO_ADDR;
 extern char D_00137C80[];
-extern unsigned char D_0013A5E0[];
 extern unsigned char D_0014171B[] NOT_SDA;
 
 void func_L00_0029AFB8(void) {

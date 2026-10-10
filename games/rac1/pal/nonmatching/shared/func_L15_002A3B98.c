@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 556 / retail 568, checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Per-moby draw loop: builds a view matrix B (orient to camera at D_L15_00167300+0x140), then for 4 rows copies 
  *   Best p3.c (SIZE 556 vs 568): prologue, GIF-style sd stores (use long, not long long), first copy loop and the 

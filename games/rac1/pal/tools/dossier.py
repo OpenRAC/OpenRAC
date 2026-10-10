@@ -51,7 +51,7 @@ ALIAS = re.compile(r'__asm__\("((?:func|D)_(?:L\d{2}_)?[0-9A-Fa-f]{8})"\)')
 OVERLAY_NAME = re.compile(r"^func_L\d{2}_[0-9A-Fa-f]{8}$")
 OVERLAY_DATA_L = re.compile(r"^D_L\d{2}_[0-9A-Fa-f]{8}$")
 OVERLAY_STUB = re.compile(r"INCLUDE_ASM\([^)]*\b(func_L\d{2}_[0-9A-Fa-f]{8})\)")
-OVERLAY_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_L\d{2}_[0-9A-Fa-f]{8})\s*\(")
+OVERLAY_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_L\d{2}_[0-9A-Fa-f]{8})(?:_r)?\s*\(")
 ALL_LEVELS = 19  # docs/OVERLAYS.md: every level; a "shared" function may be in fewer.
 
 

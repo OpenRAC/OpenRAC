@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L00_002353B8 -- src/overlays/shared/help_00232560.c
- * Best so far: BYTES 26/588 (95.6% of the bytes match), checked 2026-10-03.
+ * Best so far: SIZE ours 604 / retail 588, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -7,16 +7,16 @@
  *   p5.c is same size as retail (26 bytes differ): retail copies the loop base register (`daddu $6,$3,$0` then `ad
  *   Tried: separate base locals, do-while with explicit pre-test, second constant load for the loop base, pointer-
  *   Idioms found: `extern int D_0015EE84 MACRO_ADDR;` alone gives retail's gp delay-slot load + lui reload; func_L
+ *   y03 (fz5): hero glow setup. p9-p12 (pp from global, do-while with explicit guard, count read via global, block
+ *   hq12 s06 (5 runs, stopped): best.c did not compile: its `extern float D_0015EE6C MACRO_ADDR;` and `void func_0
  */
 extern short D_0015EF14;
 extern int D_0015EE84 MACRO_ADDR;
 extern char D_L00_0017C440[];
 extern char D_L00_0016C960[];
-extern float D_0015EE6C MACRO_ADDR;
 extern char D_0013E633[] NOT_SDA;
 extern float func_001FA748(float, float);
 extern int func_001FA8A8(int, int, float);
-extern void func_0020D960(char *, int, void *);
 
 // Sets up the hero's camera-shake/glow object: clamps a scale, scales attached objects and sets a colour from a wobble.
 void func_L00_002353B8(char *obj) {
@@ -25,10 +25,7 @@ void func_L00_002353B8(char *obj) {
     char *q;
     char *q2;
     char *b;
-    char *b1;
-    char **pp;
     int c1, c0;
-    int i;
     float t;
     if (D_L00_0015F6A8 == 6) {
         if (1.33f < f20) f20 = 1.33f;
@@ -41,8 +38,9 @@ void func_L00_002353B8(char *obj) {
         *(float *)(s0 + 0x28) = f20;
     }
     if (D_0015EE84 == 2 || D_0015EE84 == 9 || D_0015EE84 == 0xB || D_0015EE84 == 0xD) {
-        b1 = D_L00_0016C960;
-        pp = (char **)(b1 + 0x178);
+        int i;
+        char *b1 = D_L00_0016C960;
+        char **pp = (char **)(b1 + 0x178);
         for (i = 0; i < *(short *)(b1 + 0x44); i++) {
             char *m = pp[i];
             if (m != 0) {

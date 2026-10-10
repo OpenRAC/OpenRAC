@@ -26,4 +26,7 @@ int func_L00_002951A8(unsigned int slot) {
     if (slot >= 0x40) return -3;
     return D_L00_001C1668[slot].qwc;
 }
-INCLUDE_ASM("asm/overlays", func_L00_002951C8);
+// Returns the constant -3.
+int func_L00_002951C8(void) {
+    return -3;
+}

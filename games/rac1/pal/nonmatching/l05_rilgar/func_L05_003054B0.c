@@ -2,9 +2,9 @@
  * Best so far: BYTES 465/712 (34.7% of the bytes match), checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  */
 extern void func_001F9BF0(void *, void *, void *);
-extern void func_L00_001FF4B0(void *, void *, float);
 extern void func_001F9CA0(void *, void *, void *);
 extern float func_001F9B88(float);
 extern float func_001F9CB8(void *);

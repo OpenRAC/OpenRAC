@@ -160,30 +160,30 @@ void func_L00_0028F458(unsigned char *m) {
     if (m[0x20] != 0x2A) {
         if (m[0x31] != 0) {
             m[0xBC] += 2;
-            v = (int)(func_001F9F90(func_001FA888((unsigned char)m[0xBC] - 0x80) * 0.024543693f) * 50.0f) + 0x96;
+            v = (int)(FastCos(func_001FA888((unsigned char)m[0xBC] - 0x80) * 0.024543693f) * 50.0f) + 0x96;
             if (*(short *)(m + 0xA6) == 0x215) {
                 *(int *)(m + 0x90) = (v >> 1) | (v << 8) | (v << 16);
             } else {
                 *(int *)(m + 0x90) = v | (v << 8) | (v << 16);
             }
-            func_001F49B0(func_00233AB8, m);
+            AddDrawCallback(func_00233AB8, m);
             if (func_001F9D48(m + 0x10, D_L00_00166EC0) < 32.0f) {
-                func_001F49B0(func_0022F258, m);
+                AddDrawCallback(func_0022F258, m);
             }
         }
         p = (float *)(m + 0x10);
         if (*(short *)(d + 0xC) != 0) {
             func_001F9EC0(tmp, D_L00_001BDC10 + D_0013E156[0] * 16, m + 0xC0);
-            func_001F9BD8(tmp, tmp, p);
-            if (func_001F9D10(tmp, D_0013E633 + 0xE9D) > 4.1f) {
+            FastVecAdd(tmp, tmp, p);
+            if (FastVecDist(tmp, D_0013E633 + 0xE9D) > 4.1f) {
                 *(short *)(d + 0xC) = 0;
             }
         } else {
             q = (unsigned char *)D_0013E633 + 0xE9D;
             if (func_001F9D48(p, q) < 6.0f) {
                 func_001F9EC0(tmp, D_L00_001BDC10 + D_0013E156[0] * 16, m + 0xC0);
-                func_001F9BD8(tmp, tmp, p);
-                if (func_001F9D10(tmp, q) < 4.0f) {
+                FastVecAdd(tmp, tmp, p);
+                if (FastVecDist(tmp, q) < 4.0f) {
                     *(short *)(d + 0xC) = 1;
                 }
             }
@@ -192,7 +192,7 @@ void func_L00_0028F458(unsigned char *m) {
             *(short *)(d + 0xC) = 0;
         }
         if (*(short *)(d + 0xC) != 0) {
-            int r = func_00215F80(2, 0x53E9) != 0;
+            int r = try_set_help_message(2, 0x53E9) != 0;
             if ((*(int *)(D_0013A5E0 + 0x2604) & 0x10) && r) {
                 if (D_0015EE84_m == 10 && *(unsigned char *)(D_0013E633 + 0x2EC1) == 1) {
                     m[0x20] = 0x2A;
@@ -208,7 +208,7 @@ void func_L00_0028F458(unsigned char *m) {
     } else {
         if (D_L00_0015F6A8 != 2) {
             q = D_0013D355 + 0x13B;
-            if (q[0x48] == 0 && D_0013D5DD[7] != 0) {
+            if (q[0x48] == 0 && gHaveMorphORay[7] != 0) {
                 func_L00_00299B68(4);
                 q[0x48] = 1;
             } else if ((q = D_0013D355 + 0x13B)[0x49] == 0 && D_0013DE4B[8] != 0) {

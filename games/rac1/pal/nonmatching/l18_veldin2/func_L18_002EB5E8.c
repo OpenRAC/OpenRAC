@@ -2,6 +2,7 @@
  * Best so far: BYTES 172/924 (81.4% of the bytes match), checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Started from p4 (199). p9 (color before uv in j loop): 281. p10 (all fields via p->): SIZE 812. p11 (p->b = i+
  *   Remaining diff in p4: spill-slot numbering of hoisted addresses (0x35C..0x374), a2/a3 and s0/s2/s3 permutation

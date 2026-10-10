@@ -338,6 +338,176 @@ void func_002391A8(int arg0) {
     *(int *)(b + 0x44) = 0;
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_002391E8);
+typedef struct {
+    u8 pad0[0x20];
+    u8 state;
+    u8 pad21[0x32];
+    u8 anim;
+    u8 pad54[0x1C];
+    u8 flags;
+} Moby_391E8;
+typedef struct {
+    u8 pad0[0x34];
+    s32 timer;
+    s32 base;
+    s32 pick;
+} BossVars_391E8;
+typedef struct {
+    u8 pad0;
+    u8 active;
+    u8 pad2[0x1E];
+    f32 x;
+    f32 y;
+    f32 z;
+} Cam_391E8;
+extern s32 D_001517EC;
+extern s16 D_0015182A NOT_SDA;
+extern u8 D_0015EEB0_391E8[] __asm__("D_0015EEB0") MACRO_ADDR;
+extern short D_00161130;
+extern short D_00161138;
+extern short D_00161140;
+extern s32 D_001611B0 MACRO_ADDR;
+extern s32 D_001611B4 MACRO_ADDR;
+extern BossVars_391E8 D_001E66C0_391E8 __asm__("D_001E66C0");
+extern s32 D_001E66FC;
+extern Cam_391E8 D_001E68E0;
+extern s32 func_001F98C0(s32);
+extern void func_0020D960(Moby_391E8 *, s32, Cam_391E8 *);
+extern void func_0020D9D8(Moby_391E8 *, Cam_391E8 *);
+extern void func_00213DE0(Moby_391E8 *, s32, s32, s32);
+extern s32 func_002140B0(s32);
+extern s32 func_00215B18(Moby_391E8 *, f32);
+extern s32 func_00216960(void);
+
+/* Per-frame state machine of one boss-like moby: keeps a manipulator node attached while D_0015EEB0 is set,
+   then steps the state byte at +0x20 through its animation and timer states.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/gameplay/vendor/fun_00237ed0.c, FUN_00237ed0. */
+void func_002391E8(Moby_391E8 *m) {
+    s32 r;
+    s32 a;
+
+    if (D_0015EEB0_391E8[0] != 0) {
+        if (D_001E68E0.active == 0) {
+            AttachManipulator(m, 0, &D_001E68E0);
+        }
+        D_001E68E0.x = 2.37f;
+        D_001E68E0.y = 2.37f;
+        D_001E68E0.z = 2.37f;
+    } else if (D_001E68E0.active != 0) {
+        DetachManipulator(m, &D_001E68E0);
+    }
+    switch (m->state) {
+    case 0:
+        if (D_001E66C0_391E8.timer > func_001F98C0(600)) {
+            r = random_integer_below(2);
+            D_001E66C0_391E8.pick = r;
+            D_001517EC = (r * 3 + 1) * 6 + D_001E66C0_391E8.base + 10000;
+            D_001611B0 = 1;
+            D_001611B4 = 0;
+            if (m->anim != 2) {
+                func_00213DE0(m, 2, 0, func_001F98C0(0x12));
+            }
+            m->state = 12;
+            D_001E66C0_391E8.timer = 0;
+        }
+        D_001E66C0_391E8.timer++;
+        break;
+    case 2:
+        if (D_001E66C0_391E8.timer > func_001F98C0(600)) {
+            if (m->anim != 3) {
+                func_00213DE0(m, 3, 0, func_001F98C0(0x12));
+            }
+            m->state = 3;
+            D_001E66C0_391E8.timer = 0;
+        }
+        D_001E66C0_391E8.timer++;
+        break;
+    case 3:
+        if (m->flags & 2) {
+            if (m->anim != 0) {
+                func_00213DE0(m, 0, 0, func_001F98C0(0x12));
+            }
+            m->state = 0;
+        }
+        break;
+    case 4:
+        if (func_00215B18(m, (((s32 *)&D_00161130))[D_001E66C0_391E8.pick]) != 0 &&
+            D_001611B4 != 0) {
+            D_001611B4 = 0;
+            func_00216960();
+        }
+        if (m->flags & 2) {
+            if (m->anim != 2) {
+                func_00213DE0(m, 2, 0, func_001F98C0(0x12));
+            }
+            m->state = 2;
+            D_001E66C0_391E8.timer = 0;
+        }
+        break;
+    case 5:
+        if (func_00215B18(m, (((s32 *)&D_00161138))[D_001E66C0_391E8.pick]) != 0 &&
+            D_001611B4 != 0) {
+            D_001611B4 = 0;
+            func_00216960();
+        }
+        if (m->flags & 2) {
+            if (m->anim != 2) {
+                func_00213DE0(m, 2, 0, func_001F98C0(0x12));
+            }
+            m->state = 2;
+            D_001E66C0_391E8.timer = 0;
+        }
+        break;
+    case 6:
+        if (func_00215B18(m, (((s32 *)&D_00161140))[D_001E66C0_391E8.pick]) != 0 &&
+            D_001611B4 != 0) {
+            D_001611B4 = 0;
+            func_00216960();
+        }
+        if (m->flags & 2) {
+            if (m->anim != 2) {
+                func_00213DE0(m, 2, 0, func_001F98C0(0x12));
+            }
+            m->state = 2;
+            D_001E66C0_391E8.timer = 0;
+        }
+        break;
+    case 10:
+        if (D_0015182A == 3 && D_001611B0 != 0) {
+            D_001611B0 = 0;
+            D_001611B4 = 1;
+        }
+        if (m->flags & 2) {
+            a = D_001E66FC * 3 + 4;
+            if (m->anim != a) {
+                func_00213DE0(m, a, 0, func_001F98C0(0xC));
+            }
+            m->state = 4;
+        }
+        break;
+    case 12:
+        if (D_0015182A == 3 && D_001611B0 != 0) {
+            D_001611B4 = 1;
+            D_001611B0 = 0;
+            a = D_001E66FC * 3 + 5;
+            if (m->anim != a) {
+                func_00213DE0(m, a, 0, func_001F98C0(0x12));
+            }
+            m->state = 5;
+        }
+        break;
+    case 11:
+        if (D_0015182A == 3 && D_001611B0 != 0) {
+            D_001611B4 = 1;
+            D_001611B0 = 0;
+            a = D_001E66FC * 3 + 6;
+            if (m->anim != a) {
+                func_00213DE0(m, a, 0, func_001F98C0(0x12));
+            }
+            m->state = 6;
+        }
+        break;
+    }
+}
 
 LINKER_REMNANT("asm/remnants/text", func_00239610);

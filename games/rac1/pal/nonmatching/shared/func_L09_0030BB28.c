@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 616 / retail 620, checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Spawns a child moby (func_L00_0025A208 into stack slot `n`), copies pos in, inits fields from its template at 
  *   Best p2.c (612 vs 620 bytes; same as p5): retail keeps moby in $s0 copy with res in $s2 and branches `bnez` on

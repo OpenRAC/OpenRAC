@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 700 / retail 708, checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Page-menu close (PageMenuClose): if page state (+0x110) >= 10, runs each object's close handler (+0xC) for 14 
  *   Best: p2.c, SIZE 700/708. Body and call order are right (same frame, same 9 saved registers); `x ? x : 0x26` r
@@ -26,7 +27,6 @@ extern char D_L00_001BA070[] NOT_SDA;
 extern char D_L00_0017E5D8[];
 extern char *D_L00_00197680[] NOT_SDA;
 extern int D_L00_00173F40[];
-extern int D_L00_001BA220[];
 extern unsigned char D_0014171B NOT_SDA;
 extern unsigned char D_0013E633 NOT_SDA;
 extern int D_0015EE98 MACRO_ADDR;

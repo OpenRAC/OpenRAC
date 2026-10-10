@@ -42,7 +42,7 @@ void func_L01_0027F6C8(int owner, float *pos, int snd, unsigned char arg, unsign
             *(int *)(u + 0xC) = owner;
             *(float *)(p + 0xC) = scale;
             p[8] = (int)(f21 * 255.0f);
-            *(short *)(p + 0xA) = func_001F9850(snd);
+            *(short *)(p + 0xA) = scale_ticks(snd);
             u[0x1B] = 0;
             *(int *)(p + 4) = func_L00_0025D038(r, g, b, a);
         }

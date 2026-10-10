@@ -39,7 +39,7 @@ LINKED_ELF = "build-sn/rac1.elf"
 # stub the function silently dropped out of the audit -- it read as "not
 # decompiled" rather than as a failure. Found by writing exactly that
 # one-liner. Take the FIRST name on the line: that is the one defined.
-FUNC_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_[0-9A-Fa-f]{8})\s*\(", re.M)
+FUNC_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_[0-9A-Fa-f]{8})(?:_r)?\s*\(", re.M)
 STUB = re.compile(r"INCLUDE_ASM\([^)]*\b(func_[0-9A-Fa-f]{8})\)")
 NONMATCHING = re.compile(r"nonmatching\s+(func_[0-9A-Fa-f]{8}),\s*(0x[0-9A-Fa-f]+)")
 

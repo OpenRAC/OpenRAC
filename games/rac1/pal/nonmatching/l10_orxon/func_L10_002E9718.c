@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L10_002E9718 -- src/overlays/l10_orxon/vendor_002E30F8.c
- * Best so far: SIZE ours 600 / retail 608, checked 2026-10-03.
+ * Best so far: SIZE ours 600 / retail 608, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -9,7 +9,6 @@
  *   0x271C/0x271D select comes out as movz instead of retail's beqz + delay-slot li. Control flow otherwise identi
  *   Moving d's assignment, int* vs char* for d and if/else forms did not move the allocation.
  */
-extern void func_001F9908(int *);
 extern float func_L00_001FF860(float, float);
 extern float func_001FA850(float, float);
 extern float func_001F9D48(void *, void *);

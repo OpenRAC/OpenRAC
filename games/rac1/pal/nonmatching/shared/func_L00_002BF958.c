@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 568 / retail 576, checked 2026-10-05.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Draws up to three billboard quads (QuadPkt from func_L00_002ADE90): per active slot i, builds an orthogonal fr
  *   Best: p5.c (ours 568 bytes, retail 576). Whole body matches structurally; the only difference is loop-top sche

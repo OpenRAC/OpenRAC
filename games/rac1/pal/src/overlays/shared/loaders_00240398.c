@@ -2,7 +2,131 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L00_00240398);
+typedef struct G137C80_240398 {
+    char pad[0x12CC];
+    struct {
+        int a;
+        int b;
+    } e[1];
+} G137C80_240398;
+typedef struct Lvl_240398 {
+    char pad0[0x26];
+    short f26;
+} Lvl_240398;
+typedef struct Hdr_240398 {
+    int a;                        /* 0x00 */
+    int off;                      /* 0x04 */
+    int b;                        /* 0x08 */
+    int c;                        /* 0x0C */
+} Hdr_240398;
+typedef struct Rec_240398 {
+    short h[8];
+} Rec_240398;
+typedef struct Q_240398 {
+    int w[4];
+} Q_240398;
+extern G137C80_240398 D_00137C80_240398 __asm__("D_00137C80");
+extern char D_0013DE6E_240398[] __asm__("D_0013DE6E");
+extern char *D_0015EF54_240398 __asm__("D_0015EF54") MACRO_ADDR;
+extern int D_0015EF88_240398[2] __asm__("D_0015EF88") MACRO_ADDR;
+extern Q_240398 D_L00_001AEF40_240398[] __asm__("D_L00_001AEF40");
+extern int D_L00_00160088_240398 __asm__("D_L00_00160088") MACRO_ADDR;
+extern Rec_240398 D_L00_0015FCC0_240398 SDATA(D_L00_0015FCC0);
+extern Rec_240398 D_L00_0015FCD0_240398 SDATA(D_L00_0015FCD0);
+extern Rec_240398 D_L00_0015FCC0_m240398 __asm__("D_L00_0015FCC0") MACRO_ADDR;
+extern Rec_240398 D_L00_0015FCD0_m240398 __asm__("D_L00_0015FCD0") MACRO_ADDR;
+extern unsigned char D_L00_0015FCE0_240398 SDATA(D_L00_0015FCE0);
+extern unsigned char D_L00_00197F40_240398[] __asm__("D_L00_00197F40");
+extern unsigned int D_L00_00199E00_240398[] __asm__("D_L00_00199E00");
+extern int D_L00_00160608_240398[] __asm__("D_L00_00160608");
+extern int D_L00_00160618_240398[] __asm__("D_L00_00160618");
+extern int D_L00_00160628_240398 __asm__("D_L00_00160628") MACRO_ADDR;
+extern int D_L00_00160624_240398 __asm__("D_L00_00160624") MACRO_ADDR;
+extern int D_L00_0016062C_240398 __asm__("D_L00_0016062C") MACRO_ADDR;
+extern void func_001F9A98_240398(void *, void *, int) __asm__("func_001F9A98");
+extern int func_00122630_240398(void *, short, short, short, short, short, short, short) __asm__("func_00122630");
+extern void func_00118D80_240398(int) __asm__("func_00118D80");
+extern int func_00122958_240398(void *, void *) __asm__("func_00122958");
+extern int func_00120858_240398(int, unsigned short) __asm__("func_00120858");
+extern void func_00203E78_240398(void *, void *, void *, int) __asm__("func_00203E78");
+
+/* Loads a level's four packed images through the GS loader and registers the image records and their data blocks. */
+char *func_L00_00240398(char *buf, int *tbl) {
+    int img[24];
+    int i = 0;
+    int a;
+    int off;
+    int b;
+    int c;
+    char *p;
+    char *src;
+    char *dst;
+    char *base;
+    int idx;
+    int idx2;
+
+    func_001F9A98_240398(buf, D_0015EF54_240398, D_00137C80_240398.e[((Lvl_240398 *)(D_0013DE6E_240398 + 0x2C2))->f26 + 1].a << 11);
+    a = ((Hdr_240398 *)buf)->a;
+    off = ((Hdr_240398 *)buf)->off;
+    p = buf + off;
+    b = ((Hdr_240398 *)buf)->b;
+    c = ((Hdr_240398 *)buf)->c;
+    do {
+        if (i == 0) {
+            func_00122630_240398(img, (D_0015EF88_240398[1] + tbl[0x2B]) >> 8, 1, 0x13, 0, 0, 0x40, 0x40);
+            src = buf + off;
+            dst = p + 0x14430;
+        } else if (i == 1) {
+            func_00122630_240398(img, (D_0015EF88_240398[1] + tbl[0x2C]) >> 8, 1, 0x13, 0, 0, 0x20, 0x20);
+            src = buf + off;
+            dst = p + 0x15430;
+        } else if (i == 2) {
+            func_00122630_240398(img, (D_0015EF88_240398[1] + tbl[0x2D]) >> 8, 1, 0, 0, 0, 0x10, 0x10);
+            dst = p + 0x30;
+            src = buf + off;
+        } else {
+            func_00122630_240398(img, (D_0015EF88_240398[1] + tbl[0x2E]) >> 8, 1, 0, 0, 0, 0x10, 0x10);
+            src = buf + off;
+            dst = buf + c + 0x30;
+        }
+        func_00118D80_240398(0);
+        i++;
+        func_00122958_240398(img, dst);
+        func_00120858_240398(0, 0);
+    } while (i < 4);
+    base = buf;
+    buf = src;
+    D_L00_0015FCC0_m240398.h[5] = tbl[0x2D] >> 8;
+    idx = D_L00_00160088_240398;
+    D_L00_0015FCC0_m240398.h[6] = tbl[0x2B] >> 8;
+    D_L00_0015FCC0_m240398.h[7] = tbl[0x2C] >> 8;
+    qcopy(&D_L00_001AEF40_240398[idx], &D_L00_0015FCC0_240398);
+    D_L00_00199E00_240398[idx] = (unsigned int)buf - 0x80000000U;
+    func_001F9A98_240398(buf, base + off + 0x430, 0x14000);
+    buf += 0x14000;
+    D_L00_0015FCE0_240398 = D_L00_00160088_240398;
+    if (D_L00_00197F40_240398[D_L00_00160608_240398[((Lvl_240398 *)(D_0013DE6E_240398 + 0x2C2))->f26]] == 0xFF) {
+        func_00203E78_240398(base + a, &D_L00_0015FCC0_240398 - D_L00_00160088_240398, &D_L00_0015FCE0_240398,
+                             D_L00_00160608_240398[((Lvl_240398 *)(D_0013DE6E_240398 + 0x2C2))->f26]);
+    }
+    idx2 = D_L00_00160088_240398 + 1;
+    D_L00_0015FCD0_m240398.h[5] = tbl[0x2E] >> 8;
+    D_L00_00160088_240398 = idx2;
+    qcopy(&D_L00_001AEF40_240398[idx2], &D_L00_0015FCD0_240398);
+    D_L00_00199E00_240398[idx2] = (unsigned int)buf + 0x70000000U;
+    func_001F9A98_240398(buf, base + c + 0x430, 0x4000);
+    buf += 0x4000;
+    D_L00_0015FCE0_240398 = D_L00_00160088_240398;
+    if (D_L00_00197F40_240398[D_L00_00160618_240398[((Lvl_240398 *)(D_0013DE6E_240398 + 0x2C2))->f26]] == 0xFF) {
+        func_00203E78_240398(base + b, &D_L00_0015FCD0_240398 - D_L00_00160088_240398, &D_L00_0015FCE0_240398,
+                             D_L00_00160618_240398[((Lvl_240398 *)(D_0013DE6E_240398 + 0x2C2))->f26]);
+    }
+    D_L00_00160624_240398 = 1;
+    D_L00_00160628_240398 = 1;
+    D_L00_00160088_240398 = D_L00_00160088_240398 + 1;
+    D_L00_0016062C_240398 = 0;
+    return buf;
+}
 extern u64 D_L00_00182740[];
 extern u64 D_L00_001828C0[];
 extern u64 D_L00_001828D8[];
@@ -39,7 +163,34 @@ void func_L00_00240CE0(char *out,int a,int b,u64 c,int d,int idx) {
 }
 INCLUDE_ASM("asm/overlays", func_L00_00240D80);
 INCLUDE_ASM("asm/overlays", func_L00_00240DE0);
-INCLUDE_ASM("asm/overlays", func_L00_002420C0);
+extern int D_L00_00173F40_a[] __asm__("D_L00_00173F40");
+extern const int *D_L00_0015F6F8 SDATA(D_L00_0015F6F8);
+
+// Relocates the collision header's offsets into pointers.
+void func_L00_002420C0(char *p) {
+    const int *q;
+    int i;
+    int *e;
+    int cnt;
+
+    if (*(int *)p != 0) {
+        *D_L00_00173F40_a = (int)(p + *(int *)p);
+    }
+    if (*(int *)(p + 4) != 0) {
+        q = (const int *)(p + *(int *)(p + 4));
+        cnt = q[0];
+        D_L00_0015F6F8 = q;
+        i = 0;
+        if (cnt > 0) {
+            e = (int *)q + 7;
+            do {
+                *e = (int)q + *e;
+                e += 4;
+                i++;
+            } while (i < *q);
+        }
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L00_00242120);
 typedef struct {
     int f0;
@@ -275,7 +426,7 @@ typedef struct {
 
 extern void func_002176C8_422D8(void *, int, int) __asm__("func_002176C8");
 extern void func_00118D80(int);
-extern void func_0020C468(void *, void *);
+extern int func_0020C468(void *, void *);
 extern void func_001F99B0(void *, int, int);
 extern void func_001160C8(int);
 extern void func_L00_002623D0(int);
@@ -453,9 +604,9 @@ char *func_L00_002422D8(int arg0) {
     func_00118D80(0);
     func_0020C468(D_0015EF4C_422D8[1], hdr);
     func_00118D80(0);
-    func_001F99B0(&D_0013F450, 0, 0x2310);
-    func_001F99B0(D_L00_00166D80, 0, 0x3A0);
-    func_001F99B0(D_L00_0018EEC0, 0, 0x180);
+    FastMemSet(&D_0013F450, 0, 0x2310);
+    FastMemSet(D_L00_00166D80, 0, 0x3A0);
+    FastMemSet(D_L00_0018EEC0, 0, 0x180);
     func_001160C8(0x4D2);
     if (D_0015EE80 != 0) {
         if (D_0015EE60 == 1.0f) {
@@ -471,8 +622,8 @@ char *func_L00_002422D8(int arg0) {
     D_L00_00173F40.fC = 0;
     D_L00_00173F40.f10 = 0;
     D_L00_00173F40.f14 = 0;
-    func_001F99D8(D_L00_0019BB60, 0x10000);
-    func_001F99D8(D_L00_001ABB60, 0x60);
+    FastMemZero16(D_L00_0019BB60, 0x10000);
+    FastMemZero16(D_L00_001ABB60, 0x60);
     {
         int *p = (int *)((char *)hdr + hdr->f0);
         int *c;
@@ -495,24 +646,24 @@ char *func_L00_002422D8(int arg0) {
         D_0013E130.f34 = c[1];
         D_0013E130.f38 = c[2];
     }
-    func_001F2930();
+    UpdateFog();
     D_L00_00161040 = 512000.0f;
     D_L00_001610A0 = 720.0f;
     D_L00_00160564 = 500.0f;
     D_L00_001600B0 = 500;
     D_L00_0016023C = 0x1F4000;
-    func_001FB448(D_L00_0016CB40.f23C, D_L00_0016CB40.f240, D_L00_0016CB40.f244);
-    func_002347F0(D_00100AE0);
-    func_001F99D8(D_L00_001803C0, 0x100);
-    func_001F99D8(D_L00_001805C0, 0x180);
-    func_001F99D8(D_L00_0017FFC0, 0x400);
+    SetBackgroundColor(D_L00_0016CB40.f23C, D_L00_0016CB40.f240, D_L00_0016CB40.f244);
+    VU0_loadMicroProgram(D_00100AE0);
+    FastMemZero16(D_L00_001803C0, 0x100);
+    FastMemZero16(D_L00_001805C0, 0x180);
+    FastMemZero16(D_L00_0017FFC0, 0x400);
     {
         char *p = (char *)hdr + hdr->f4;
         int n = *(int *)p;
 
         p += 0x10;
         if (n >= 12) {
-            func_001E9730(D_L00_001E89D8);
+            STUB_printf(D_L00_001E89D8);
             n = 12;
         }
         if (n != 0) {
@@ -563,7 +714,7 @@ char *func_L00_002422D8(int arg0) {
                 i++;
             }
             *q = 0xFFFF;
-            func_002362B0((void *)0x70003000);
+            LightTfrags((void *)0x70003000);
         }
     }
     if (hdr->f10[0] != 0) {
@@ -599,13 +750,13 @@ char *func_L00_002422D8(int arg0) {
         D_L00_0016108C = n;
         mem += n << 5;
         if (n != 0) {
-            func_001F99B0(D_L00_00161080, 0, n << 5);
+            FastMemSet(D_L00_00161080, 0, n << 5);
         }
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         D_L00_00161088 = (TieMtx_422D8 *)mem;
         mem += D_L00_0016108C * 0x1C0;
         if (D_L00_0016108C != 0) {
-            func_001F99B0(D_L00_00161088, 0, D_L00_0016108C * 0x1C0);
+            FastMemSet(D_L00_00161088, 0, D_L00_0016108C * 0x1C0);
         }
         last = -1;
         D_L00_00161084 = D_L00_00161080 + D_L00_0016108C;
@@ -636,14 +787,14 @@ char *func_L00_002422D8(int arg0) {
             p += 0x50;
             mtx->f3C = D_L00_001C5B00[inst->f1A]->f40;
             func_001F9EC0(inst, D_L00_001C5B00[inst->f1A]->f30, mtx);
-            scale = func_001F9CB8(mtx);
-            scale = func_001F9B90(scale, func_001F9CB8(mtx->m1));
-            inst->fC = D_L00_001C5B00[inst->f1A]->f3C * func_001F9B90(scale, func_001F9CB8(mtx->m2));
+            scale = FastVecLength(mtx);
+            scale = func_001F9B90(scale, FastVecLength(mtx->m1));
+            inst->fC = D_L00_001C5B00[inst->f1A]->f3C * func_001F9B90(scale, FastVecLength(mtx->m2));
             func_001F9C48(inst, inst, mtx->f3C);
-            func_001F9BD8(inst, inst, mtx->m3);
-            D_L00_00161088[i].fC = 1.0f / func_001F9CB8(&D_L00_00161088[i]);
-            D_L00_00161088[i].f1C = 1.0f / func_001F9CB8(D_L00_00161088[i].m1);
-            D_L00_00161088[i].f2C = 1.0f / func_001F9CB8(D_L00_00161088[i].m2);
+            FastVecAdd(inst, inst, mtx->m3);
+            D_L00_00161088[i].fC = 1.0f / FastVecLength(&D_L00_00161088[i]);
+            D_L00_00161088[i].f1C = 1.0f / FastVecLength(D_L00_00161088[i].m1);
+            D_L00_00161088[i].f2C = 1.0f / FastVecLength(D_L00_00161088[i].m2);
             func_L00_001FF040(mtx->f140, p, 0x80);
             p += 0x80;
             inst->f1C = *(unsigned short *)p;
@@ -658,7 +809,7 @@ char *func_L00_002422D8(int arg0) {
             *q++ = i;
         }
         *q = 0xFFFF;
-        func_00238688((void *)0x70000000);
+        LightTies((void *)0x70000000);
     }
     {
         char *p = (char *)hdr + hdr->f3C;
@@ -671,19 +822,19 @@ char *func_L00_002422D8(int arg0) {
         D_L00_00160550 = n;
         mem += n << 5;
         if (n != 0) {
-            func_001F99B0(D_L00_00160554, 0, n << 5);
+            FastMemSet(D_L00_00160554, 0, n << 5);
         }
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         D_L00_0016055C = (ShrubMtx_422D8 *)mem;
         mem += D_L00_00160550 << 6;
         if (D_L00_00160550 != 0) {
-            func_001F99B0(D_L00_0016055C, 0, D_L00_00160550 << 6);
+            FastMemSet(D_L00_0016055C, 0, D_L00_00160550 << 6);
         }
         D_L00_00160560 = (unsigned char *)mem;
         mem += D_L00_00160550 * 0x60;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (D_L00_00160550 != 0) {
-            func_001F99B0(D_L00_00160560, 0, D_L00_00160550 * 0x60);
+            FastMemSet(D_L00_00160560, 0, D_L00_00160550 * 0x60);
         }
         last = -1;
         D_L00_00160C30[1] = (int)D_L00_00160560;
@@ -711,7 +862,7 @@ char *func_L00_002422D8(int arg0) {
             if (D_L00_001BC3C0[cls]->f1C != 0) {
                 float d;
 
-                inst->f17 = func_001FA898(*D_L00_001BC3C0[cls]->f1C);
+                inst->f17 = truncate_float_to_s32(*D_L00_001BC3C0[cls]->f1C);
                 d = func_001FA888(inst->f17) + 24.0f;
                 if (inst->f10 < d) {
                     inst->f10 = d;
@@ -724,10 +875,10 @@ char *func_L00_002422D8(int arg0) {
             p += 0x50;
             mtx->f3C = D_L00_001BC3C0[cls]->f20;
             {
-                float a = (func_001F9CB8(mtx) + func_001F9CB8(mtx->m1)) * 0.5f;
-                float b = func_001F9CB8(mtx->m2);
-                int ia = func_001FA898(a * 4096.0f);
-                int ib = func_001FA898(b * 4096.0f);
+                float a = (FastVecLength(mtx) + FastVecLength(mtx->m1)) * 0.5f;
+                float b = FastVecLength(mtx->m2);
+                int ia = truncate_float_to_s32(a * 4096.0f);
+                int ib = truncate_float_to_s32(b * 4096.0f);
 
                 if (ib > 0x10000) {
                     ib = 0x10000;
@@ -754,11 +905,11 @@ char *func_L00_002422D8(int arg0) {
             inst->f1C = *(unsigned short *)p;
             p += 0x10;
             func_001F9EC0(inst, D_L00_001BC3C0[cls], mtx);
-            scale = func_001F9CB8(mtx);
-            scale = func_001F9B90(scale, func_001F9CB8(mtx->m1));
-            inst->fC = D_L00_001BC3C0[cls]->fC * func_001F9B90(scale, func_001F9CB8(mtx->m2));
+            scale = FastVecLength(mtx);
+            scale = func_001F9B90(scale, FastVecLength(mtx->m1));
+            inst->fC = D_L00_001BC3C0[cls]->fC * func_001F9B90(scale, FastVecLength(mtx->m2));
             func_001F9C48(inst, inst, mtx->f3C);
-            func_001F9BD8(inst, inst, mtx->m3);
+            FastVecAdd(inst, inst, mtx->m3);
         }
     }
     {
@@ -769,7 +920,7 @@ char *func_L00_002422D8(int arg0) {
             *q++ = i;
         }
         *q = 0xFFFF;
-        func_0022B8F8((void *)0x70000000);
+        LightShrubs((void *)0x70000000);
     }
     {
         int i;
@@ -804,7 +955,7 @@ char *func_L00_002422D8(int arg0) {
         D_L00_0015F054 = n;
         mem += n << 5;
         if (n != 0) {
-            func_001F99B0(D_L00_0015F050, 0, n << 5);
+            FastMemSet(D_L00_0015F050, 0, n << 5);
         }
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         for (i = 0; i < D_L00_0015F054; i++) {
@@ -835,7 +986,7 @@ char *func_L00_002422D8(int arg0) {
             D_0013E650.fD94 = (SndInst_422D8 *)mem;
             mem += size;
             mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
-            func_001F99B0(D_0013E650.fD94, 0, size);
+            FastMemSet(D_0013E650.fD94, 0, size);
             for (i = 0; i < D_0013E650.fD90; i++) {
                 SndInst_422D8 *e = D_0013E650.fD94 + i;
 
@@ -860,7 +1011,7 @@ char *func_L00_002422D8(int arg0) {
         n2 = *(int *)p;
         p += 0xC;
         D_L00_00160098 = (Moby_422D8 *)mem;
-        func_001F99B0(mem, 0, (n + n2) << 8);
+        FastMemSet(mem, 0, (n + n2) << 8);
         for (i = 0; i < n; i++) {
             int mission;
             int flags;
@@ -940,7 +1091,7 @@ char *func_L00_002422D8(int arg0) {
 
                 idx[i] = count;
                 m = D_L00_00160098 + count;
-                func_0020D440(m, *(int *)p);
+                InitMobyInstance(m, *(int *)p);
                 p += 4;
                 m->fB1 = vis;
                 m->fB2 = uid;
@@ -1035,7 +1186,7 @@ char *func_L00_002422D8(int arg0) {
                 char *src = pv + tbl[k].f0;
 
                 D_L00_0015F050[i].f1C = (int)mem;
-                func_001F9A98(mem, src, size);
+                FastMemCopy(mem, src, size);
                 tbl[k].f0 = (int)mem;
                 mem += size;
             }
@@ -1050,7 +1201,7 @@ char *func_L00_002422D8(int arg0) {
                 char *src = pv + tbl[k].f0;
 
                 D_0013E650.fD94[i].f8 = (int)mem;
-                func_001F9A98(mem, src, size);
+                FastMemCopy(mem, src, size);
                 tbl[k].f0 = (int)mem;
                 mem += size;
             }
@@ -1065,7 +1216,7 @@ char *func_L00_002422D8(int arg0) {
                 char *src = pv + tbl[k].f0;
 
                 m->f78 = (int)mem;
-                func_001F9A98(mem, src, size);
+                FastMemCopy(mem, src, size);
                 tbl[k].f0 = (int)mem;
                 mem += size;
             }
@@ -1122,9 +1273,9 @@ char *func_L00_002422D8(int arg0) {
         q = (char *)offs + (n << 2);
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (size != 0) {
-            func_001F9A98(base, q, size);
+            FastMemCopy(base, q, size);
         }
-        func_001F99B0(D_L00_001ABBC0, 0, 0x1C0);
+        FastMemSet(D_L00_001ABBC0, 0, 0x1C0);
         for (i = 0; i < n; i++, offs++) {
             tmp = *offs;
             if (tmp >= 0) {
@@ -1176,7 +1327,7 @@ char *func_L00_002422D8(int arg0) {
         mem += size;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (size != 0) {
-            func_001F9A98(base, q, size);
+            FastMemCopy(base, q, size);
         }
         q += size;
         tbl = (PvarEnt_422D8 *)((char *)hdr + hdr->f54);
@@ -1205,7 +1356,7 @@ char *func_L00_002422D8(int arg0) {
         q += 0x10;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (size != 0) {
-            func_001F9A98(D_L00_001601C8, src, size);
+            FastMemCopy(D_L00_001601C8, src, size);
         }
         for (i = 0; i < D_L00_001601C4; i++) {
             D_L00_001B0830[i] = D_L00_001601C8 + *(int *)q;
@@ -1244,7 +1395,7 @@ char *func_L00_002422D8(int arg0) {
         mem += size;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (size != 0) {
-            func_001F9A98(base, src, size);
+            FastMemCopy(base, src, size);
         }
         for (i = 0; i < D_L00_0015F7F0; i++) {
             D_L00_0015F7EC[i].f10 = base + *(int *)q;
@@ -1262,7 +1413,7 @@ char *func_L00_002422D8(int arg0) {
         mem += n * 0x90;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (n != 0) {
-            func_001F99B0(D_L00_001601A4, 0, n * 0x90);
+            FastMemSet(D_L00_001601A4, 0, n * 0x90);
         }
         for (i = 0; i < D_L00_001601A8; i++) {
             func_L00_001FF040(D_L00_001601A4 + i * 0x90, q, 0x90);
@@ -1280,7 +1431,7 @@ char *func_L00_002422D8(int arg0) {
         mem += n << 7;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (n != 0) {
-            func_001F99B0(D_L00_001601AC, 0, n << 7);
+            FastMemSet(D_L00_001601AC, 0, n << 7);
         }
         for (i = 0; i < D_L00_001601B0; i++) {
             func_L00_001FF040(D_L00_001601AC + (i << 7), q, 0x80);
@@ -1298,7 +1449,7 @@ char *func_L00_002422D8(int arg0) {
         mem += n << 7;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (n != 0) {
-            func_001F99B0(D_L00_001601B4, 0, n << 7);
+            FastMemSet(D_L00_001601B4, 0, n << 7);
         }
         for (i = 0; i < D_L00_001601B8; i++) {
             func_L00_001FF040(D_L00_001601B4 + (i << 7), q, 0x80);
@@ -1316,7 +1467,7 @@ char *func_L00_002422D8(int arg0) {
         mem += n << 7;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (n != 0) {
-            func_001F99B0(D_L00_001601BC, 0, n << 7);
+            FastMemSet(D_L00_001601BC, 0, n << 7);
         }
         for (i = 0; i < D_L00_001601C0; i++) {
             func_L00_001FF040(D_L00_001601BC + (i << 7), q, 0x80);
@@ -1376,7 +1527,7 @@ char *func_L00_002422D8(int arg0) {
     D_L00_00160234 = -1;
     D_L00_00160230 = 0;
     D_L00_00160238 = 0;
-    func_001F99D8(D_L00_001B1C00, 0x200);
+    FastMemZero16(D_L00_001B1C00, 0x200);
     D_0013E130.f0 = 0;
     if (0.0f < ship[0]) {
         Moby_422D8 *m;
@@ -1395,7 +1546,7 @@ char *func_L00_002422D8(int arg0) {
         if (D_0013E130.f0 == 0) {
             float rot;
 
-            m = func_0020D348(D_L00_00160608[D_0013E130.f26]);
+            m = CreateMoby(D_L00_00160608[D_0013E130.f26]);
             m->f10 = ship[0];
             m->f14 = ship[1];
             m->f18 = ship[2];
@@ -1483,13 +1634,13 @@ char *func_L00_002422D8(int arg0) {
                 }
             }
             if (flag) {
-                func_001E9730(D_L00_001E8A28, cnt, k);
+                STUB_printf(D_L00_001E8A28, cnt, k);
             }
         }
         if (bad1) {
             int i;
 
-            func_001E9730(D_L00_001E8A60);
+            STUB_printf(D_L00_001E8A60);
             for (i = 0; i < D_L00_00161010; i++) {
                 D_L00_0016100C[i].f3A = 0x7F80;
             }
@@ -1529,7 +1680,7 @@ char *func_L00_002422D8(int arg0) {
                     t->f18 = ((w >> 3) << 8) | (1 << (w & 7));
                 }
             }
-            func_001E9730(D_L00_001E8A88, cnt, k);
+            STUB_printf(D_L00_001E8A88, cnt, k);
         } else {
             int i;
 
@@ -1547,7 +1698,7 @@ char *func_L00_002422D8(int arg0) {
         TieInst_422D8 *t;
         int i;
 
-        func_001E9730(D_L00_001E8AC0);
+        STUB_printf(D_L00_001E8AC0);
         for (m = D_L00_00160098; m != D_L00_001600A0; m++) {
             m->f36 = 0x7F80;
         }
@@ -1564,7 +1715,7 @@ char *func_L00_002422D8(int arg0) {
     func_L00_00205598();
     func_L00_001ED6D8();
     func_L00_001ED428();
-    func_00217EC0();
+    pad_resetState();
     func_001F6598();
     D_L00_001B0AF0[0] = 0;
     D_L00_001B0B30[0] = 0;
@@ -1599,7 +1750,46 @@ char *func_L00_002422D8(int arg0) {
     return mem;
 }
 INCLUDE_ASM("asm/overlays", func_L00_00244AE0);
-INCLUDE_ASM("asm/overlays", func_L00_00245B88);
+struct SectorListPair {
+    s32 x[71]; /* 0x000 */
+    s32 y[77]; /* 0x11C: used while D_0015ED80 is set */
+};
+struct SectorListTable {
+    u8 pad0[0x2AFC];
+    struct SectorListPair lists[1]; /* 0x2AFC, 0x250 apart */
+};
+struct StreamLoader {
+    u8 pad0[0x30];
+    s32 list; /* 0x30 */
+    u8 pad34[0x28];
+    u8 *buf; /* 0x5C */
+};
+extern s32 D_0015EE80 MACRO_ADDR;
+extern struct SectorListTable D_00137C80_45B88 __asm__("D_00137C80");
+extern struct StreamLoader D_L00_0016C960_45B88 __asm__("D_L00_0016C960");
+extern s32 func_00217628_45B88(void *, s32, s32) __asm__("func_00217628");
+extern void func_00217748(s32);
+
+/* streams entry i of the current sector list into the loader buffer.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/world/loaders/00240348.c, FUN_L00_002451b8. */
+s32 func_L00_00245B88(s32 i) {
+    u8 *buf = D_L00_0016C960_45B88.buf;
+    s32 start;
+    s32 size;
+
+    if (D_0015EE80 != 0) {
+        size = D_00137C80_45B88.lists[D_L00_0016C960_45B88.list].y[i + 1] - D_00137C80_45B88.lists[D_L00_0016C960_45B88.list].y[i];
+        start = D_00137C80_45B88.lists[D_L00_0016C960_45B88.list].y[i];
+    } else {
+        size = D_00137C80_45B88.lists[D_L00_0016C960_45B88.list].x[i + 1] - D_00137C80_45B88.lists[D_L00_0016C960_45B88.list].x[i];
+        start = D_00137C80_45B88.lists[D_L00_0016C960_45B88.list].x[i];
+    }
+    if (size > 0) {
+        func_00217628_45B88(buf, start, size);
+        func_00217748(0);
+    }
+    return 1;
+}
 typedef struct {
     int a;
     int b;

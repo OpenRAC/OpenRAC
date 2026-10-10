@@ -80,9 +80,9 @@ void func_L00_0028FCA0(int a) {
     D_L00_0015F6BC_m = 1;
     D_0013E130_s.x20 = a;
     D_0013E130_s.x8 = 0;
-    func_001F99B0(&D_L00_0016C960_s, 0, 0x1C0);
-    func_001F99B0(D_L00_0017C440, 0, 0x40);
-    func_001F99B0(D_L00_0017C480, 0, 0x40);
+    FastMemSet(&D_L00_0016C960_s, 0, 0x1C0);
+    FastMemSet(D_L00_0017C440, 0, 0x40);
+    FastMemSet(D_L00_0017C480, 0, 0x40);
     func_002348B8();
     u = D_L00_0016128C - 0x60000;
     D_L00_0016C960_s.x58 = D_L00_00173F00_s.x4 + u;
@@ -102,14 +102,14 @@ void func_L00_0028FCA0(int a) {
         n = D_0013E130_s.x26;
         m = n + 1;
         t = n + 6;
-        if (D_0015EE84_m == 10 && n == 1 && D_0013D5CA[4] == 0) {
+        if (D_0015EE84_m == 10 && n == 1 && gHaveHeliPack[4] == 0) {
             m = 0;
             t = 11;
         } else if (D_0015EE84_m == 14 && D_0013E130_s.x26 == 2) {
             m = 8;
             t = 14;
         }
-        func_L00_00245FE0(m, func_001F9850(6));
+        func_L00_00245FE0(m, scale_ticks(6));
     } else {
         int k, r;
         n = D_0013E130_s.x26;
@@ -117,7 +117,7 @@ void func_L00_0028FCA0(int a) {
         t = n + 3;
         if (k) t = n;
         m2 = n + 5;
-        if (D_0015EE84_m == 10 && n == 1 && D_0013D5CA[4] == 0) {
+        if (D_0015EE84_m == 10 && n == 1 && gHaveHeliPack[4] == 0) {
             t = 10;
             if (k) t = 9;
             m2 = 4;
@@ -127,14 +127,14 @@ void func_L00_0028FCA0(int a) {
             m2 = 9;
         }
         r = 0;
-        if (!D_0013E130_s.x2c) r = func_001F9850(6);
+        if (!D_0013E130_s.x2c) r = scale_ticks(6);
         func_L00_00245FE0(m2, r);
     }
     z = (S_171b *)(D_0014171B + 0x100B5);
     z->x1c = t + 40000;
     func_00205220(0);
     while (3 != z->x5a) {
-        func_0022DD68();
+        sound_update();
         func_00122598(0);
     }
     func_00216960();
@@ -205,14 +205,14 @@ void func_L00_00290030(int dest) {
         int t;
         func_L00_0028FCA0(8);
         if (D_0015EE80) d = 0x50;
-        v = func_001F9850(((int *)&D_L00_00160630)[*(short *)(g + 0x26)]);
+        v = scale_ticks(((int *)&D_L00_00160630)[*(short *)(g + 0x26)]);
         *(int *)(h + 0x34) = v;
         t = v / d;
         *(int *)(h + 0x3C) = t;
         func_00205220(t);
         *(int *)(h + 0x38) = *(int *)(h + 0x34) % d;
     } else {
-        func_0020BFC8(0, dest);
+        memcard_Save(0, dest);
         D_L00_0015F6A4 = dest;
         *(int *)(g + 0x20) = 3;
         *(short *)(g + 0x24) = -1;
@@ -288,7 +288,7 @@ void func_L00_002902A0(unsigned char *m) {
     tbl = D_L00_001BDD40;
     if (D_0013E130_902A0.h26 == 1) tbl = D_L00_001BDDC0;
     else if (D_0013E130_902A0.h26 == 2) tbl = D_L00_001BDDE0;
-    quad.tex = func_001F4868(5);
+    quad.tex = GetEffectTex(5);
     quad.unk80 = 0xFF9000000260L;
     quad.unk88 = 0x8000000048L;
     quad.unk70 = 0;
@@ -296,21 +296,21 @@ void func_L00_002902A0(unsigned char *m) {
         quad.uv[j].u = ((float (*)[2])D_L00_001BDD20)[j][0];
         quad.uv[j].v = ((float (*)[2])D_L00_001BDD20)[j][1];
     }
-    func_001F9C30(0.0009765625f, &v, m);
+    FastVecScale(0.0009765625f, &v, m);
     for (i = 0; i < (((int *)&D_L00_00160640))[D_0013E130_902A0.h26]; i++) {
         int c = m[0xBC];
         unsigned int col;
         float s;
-        if (*(short *)(m + 0xB2)) c += func_002140B0(*(short *)(m + 0xB2));
+        if (*(short *)(m + 0xB2)) c += random_integer_below(*(short *)(m + 0xB2));
         s = func_001FA888(c) * (tbl[i].f[3] / 40.0f);
         col = (c << 24) | 0x2058B0;
         if (*(short *)(m + 0xA6) == 0x215) col = (c << 24) | 0x308000;
         for (k = 0; k < 4; k++) {
             quad.color[k] = col;
-            func_001F9C30(s, &quad.corner[k], &D_L00_001BDE00[k]);
-            func_001F9BD8(&quad.corner[k], &quad.corner[k], &tbl[i]);
+            FastVecScale(s, &quad.corner[k], &D_L00_001BDE00[k]);
+            FastVecAdd(&quad.corner[k], &quad.corner[k], &tbl[i]);
             func_001F9EC0(&quad.corner[k], &quad.corner[k], D_0013E130_902A0.p0 + 0xC0);
-            func_001F9BD8(&quad.corner[k], &quad.corner[k], &v);
+            FastVecAdd(&quad.corner[k], &quad.corner[k], &v);
         }
         func_L00_001FD1D8(&quad, 0, 0);
     }

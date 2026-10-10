@@ -1,8 +1,12 @@
 /* NON_MATCHING func_L01_002F0B48 -- src/overlays/shared/vendor_002B90A8.c
- * Best so far: BYTES 17/788 (97.8% of the bytes match), checked 2026-10-06.
+ * Best so far: BYTES 5/788 (99.4% of the bytes match), checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * What the last attempts found:
+ *   mini40: started from staged17/788. First copy qcopy_nc p0 retains point address acrosscopy and reduces5/788, s
  */
+typedef struct { char pad0[0x250]; float jitter; } DebrisSettings_2F0B48;
+typedef struct { char pad0[0x10]; float position[4]; char pad20[0x58]; DebrisSettings_2F0B48 *data; } DebrisSource_2F0B48;
 extern short D_L01_00161A7C, D_L01_00161A80, D_L01_00161A84, D_L01_00161A88, D_L01_00161A8C, D_L01_00161A90;
 extern short D_L01_00161A94, D_L01_00161A98, D_L01_00161A9C, D_L01_00161AA0, D_L01_00161AA4, D_L01_00161AA8;
 extern short D_L01_00161AAC, D_L01_00161AB0, D_L01_00161AB4, D_L01_00161AB8, D_L01_00161ABC, D_L01_00161AC0;
@@ -22,18 +26,18 @@ extern char *func_00219780(void *, void *, void *, int, int, int, int, int, int)
 
 /* Table-driven debris burst (same shape as func_L05_002DC4C8; the start jitter scales with d->250): throws pieces along dir with random
  * spread, each trailing smoke puffs; counts, speeds, colours and lifetimes come from the level table. */
-void func_L01_002F0B48(void *m, void *dir) {
+void func_L01_002F0B48(DebrisSource_2F0B48 *m, float *dir) {
     float p[4];
     float v[4];
     float a[4];
-    char *d = *(char **)((char *)m + 0x78);
+    DebrisSettings_2F0B48 *d = m->data;
 
     int i, j;
     for (i = 0; i < *(int *)&D_L01_00161A7C; i++) {
-        char *pos = (char *)m + 0x10;
+        float *pos = m->position;
         float ang, sp, up;
-        qcopy(p, pos);
-        func_L00_00260958(p, *(float *)&D_L01_00161A84 * *(float *)(d + 0x250));
+        qcopy_nc(p, pos);
+        func_L00_00260958(p, *(float *)&D_L01_00161A84 * d->jitter);
         p[2] += 1.0f;
         ang = func_00214158();
         sp = func_002140F8(*(float *)&D_L01_00161A90, *(float *)&D_L01_00161A94);

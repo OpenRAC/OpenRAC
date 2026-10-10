@@ -90,7 +90,7 @@ void func_L08_00280BC8(char *a, char *b, int c, float f) {
         m[2] = *D_L08_001B2CB4;
         m[8] = 0xA0;
         *(float *)(m + 0xC) = f * 210000.0f;
-        t = func_001F9850(c);
+        t = scale_ticks(c);
         *(short *)(m + 0xA) = t;
         *(U128 *)(m + 0x20) = *(U128 *)b;
         *(float *)(q + 0xC) = func_001FA888((short)t);

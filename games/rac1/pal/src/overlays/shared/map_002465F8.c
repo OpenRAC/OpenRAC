@@ -5,7 +5,20 @@
 INCLUDE_ASM("asm/overlays", func_L00_002465F8);
 INCLUDE_ASM("asm/overlays", func_L00_00246EC0);
 INCLUDE_ASM("asm/overlays", func_L00_002472D0);
-INCLUDE_ASM("asm/overlays", func_L00_00247478);
+extern int D_L00_00184568[];
+
+/* finds an occupied slot with an unset key in the requested order (joined with func_L00_002474C4) */
+int func_L00_00247478(int reverse) {
+    int i = 0;
+    int *base = D_L00_00184568;
+    int *keys = base + 5;
+    do {
+        int slot = reverse ? 4 - i : i;
+        if (base[slot] && keys[slot] == -1) return slot;
+        ++i;
+    } while (i < 5);
+    return -1;
+}
 INCLUDE_ASM("asm/overlays", func_L00_002474C4);
 INCLUDE_ASM("asm/overlays", func_L00_00247620);
 INCLUDE_ASM("asm/overlays", func_L00_00247650);

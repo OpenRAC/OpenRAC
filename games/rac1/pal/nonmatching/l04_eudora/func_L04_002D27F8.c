@@ -2,6 +2,7 @@
  * Best so far: BYTES 42/496 (91.5% of the bytes match), checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Copies 13 words from the parent's table into the moby data block, then sets byte flags and float defaults (x D
  *   Best p3.c (BYTES 42/496): the 13-word copy matches; the float block differs only in FPU register numbering (re

@@ -563,7 +563,83 @@ check:;
     return result;
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_0012E820); /* snd_SendIOPCommandNoWait */
+typedef struct {
+    int func;
+    int pad;
+    long data;
+} SndCb_2E820;
+
+extern short D_0015EDC0;
+extern short D_0015EDA0;
+extern short D_0015EDA8;
+extern short D_0015EDB0;
+extern char D_00154110[];
+extern char D_00154170[];
+extern void func_0012EAE0(void);
+extern int func_00116078_p(const char *, ...) __asm__("func_00116078");
+
+/* snd_SendIOPCommandNoWait: sends a bare command at once when nothing is queued or pending; otherwise waits
+   for room in the current batch, appends the command and its data, and records the callback for its reply.
+   Adapted from Lombyte (MIT) for PAL: src/audio/rpc/snd_send_iop_command_no_wait.c, snd_send_iop_command_no_wait. */
+void func_0012E820_r(int cmd, int size, unsigned char *data, int cb, long cb_data) __asm__("func_0012E820");
+/* snd_SendIOPCommandNoWait */
+void func_0012E820_r(int cmd, int size, unsigned char *data, int cb, long cb_data) {
+    int need;
+    int tries;
+    int held;
+    int i;
+    int slot;
+    unsigned char *p;
+
+    held = 0;
+    if (*(int *)&D_0015EDC4 == 0 && *(int *)&D_0015ED80 == 0 && size == 0 && cb == 0) {
+        func_0012E038_s(D_00133200_w, 1);
+        while (func_0011B6B8(&D_0015ECC0) != 0) {
+            func_00116078_p(D_00153E20);
+            func_0012DDC0();
+            func_00118D80(0);
+        }
+        func_0011B4C8(&D_0015ECC0, cmd, 1, 0, 0, D_00133200_w, 0xC, 0, 0);
+        return;
+    }
+    need = size + 4;
+    tries = 0;
+    if (need % 4 != 0) {
+        need += 4 - need % 4;
+    }
+    while (*((int **)&D_0015EDA0)[*(int *)&D_0015EDC0] == 0x100 ||
+           ((int *)&D_0015EDA8)[*(int *)&D_0015EDC0] < need) {
+        if (*(int *)&D_0015EDC4 != 0) {
+            *(int *)&D_0015EDC4 = 0;
+            held = 1;
+        }
+        func_0012DDC0();
+        if (tries == 1) {
+            func_00116078_p(D_00154110, *(int *)&D_0015EDC0, *((int **)&D_0015EDA0)[*(int *)&D_0015EDC0]);
+        }
+        tries++;
+    }
+    if (tries != 0) {
+        func_00116078_p(D_00154170, tries);
+    }
+    if (held != 0) {
+        *(int *)&D_0015EDC4 = 1;
+    }
+    p = (unsigned char *)((int **)&D_0015EDA0)[*(int *)&D_0015EDC0] -
+        (((int *)&D_0015EDA8)[*(int *)&D_0015EDC0] - 0x1000);
+    *(short *)p = cmd;
+    p += 2;
+    *(short *)p = size;
+    p += 2;
+    for (i = 0; i < size; i++) {
+        p[i] = data[i];
+    }
+    ((int *)&D_0015EDA8)[*(int *)&D_0015EDC0] -= need;
+    slot = *(int *)&D_0015EDC0;
+    ((SndCb_2E820 **)&D_0015EDB0)[slot][*((int **)&D_0015EDA0)[slot]].func = cb;
+    ((SndCb_2E820 **)&D_0015EDB0)[slot][*((int **)&D_0015EDA0)[slot]].data = cb_data;
+    func_0012EAE0();
+}
 
 /* gp-relative, no retail symbol: gp 0x166D00 - 0x7F40 = 0x15EDC0
    (message-queue index) and gp 0x166D00 - 0x7F60 = 0x15EDA0 (array of

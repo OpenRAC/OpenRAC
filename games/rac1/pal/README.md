@@ -96,7 +96,7 @@ This project builds upon years of dedicated reverse-engineering research and too
 - **GFI (Game Fuckery Inc.)** – Special thanks to the GFI Discord community for years of reverse engineering, game research, and technical insights that made this decompilation possible.
 - **[Lombyte](https://github.com/mateuszklysz/Lombyte)** by mateuszklysz – Matching decompilation of the NTSC build of *Ratchet & Clank*. Invaluable reference for function pairing, struct definitions, and symbol names ([`docs/SIBLING_DECOMPS.md`](docs/SIBLING_DECOMPS.md)).
 - **[ReRAC](https://github.com/re-rac/rerac)** by the ReRAC team – Native PC port of the US release. Essential documentation of formats (mobys, models, collision), symbol names ([`config/names.tsv`](config/names.tsv)), and overlay mechanics ([`docs/OVERLAYS.md`](docs/OVERLAYS.md)).
-- **[ratchet-uya-decomp](https://github.com/OpenRAC/ratchet-uya-decomp)** by vetusmagnus – Matching decompilation of *Ratchet & Clank: Up Your Arsenal*. Foundation for SN Systems compiler flag discoveries and build setup.
+- **[rac3-uya-decomp](https://github.com/OpenRAC/rac3-uya-decomp)** by vetusmagnus – Matching decompilation of *Ratchet & Clank: Up Your Arsenal*. Foundation for SN Systems compiler flag discoveries and build setup.
 - **[Wrench](https://github.com/chaoticgd/wrench)** by chaoticgd – Ratchet & Clank PS2 modding tools and asset format specifications ([OpenRAC's `editor/README.md`](../../../editor/README.md)).
 - **Decompilation Tooling & Ecosystem**:
   - [splat](https://github.com/ethteck/splat) & [spimdisasm](https://github.com/Decompollaborate/spimdisasm) – Binary splitting and MIPS disassembly.

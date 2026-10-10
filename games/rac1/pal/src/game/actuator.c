@@ -103,9 +103,9 @@ s32 func_001E9088(s32 *p1)
             } else {
                 f = 3.1415927f - func_001FA888(rem - e->f0c) * 3.1415927f / func_001FA888(e->f0a);
             }
-            f = func_001F9F90(f);
+            f = FastCos(f);
             g = func_001FA888(e->f0e);
-            res = func_001FA898((f * g + g) * 0.5f) + e->f0f;
+            res = truncate_float_to_s32((f * g + g) * 0.5f) + e->f0f;
             if (res >= 256) {
                 res = 255;
             }

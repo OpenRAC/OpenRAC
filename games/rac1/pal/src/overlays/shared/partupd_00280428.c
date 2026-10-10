@@ -66,7 +66,39 @@ char *func_L01_00281738(int a, char *b) {
     }
     return p;
 }
-INCLUDE_ASM("asm/overlays", func_L01_00286530);
+extern char * D_L01_001B28A4[];
+extern char *func_00218928_86530(int) __asm__("func_00218928");
+extern int func_001FA898(float);
+
+/* Allocates a type 0x29 particle and fills it from the arguments; kind 0xFF derives the frame from flags and picks one of two blend modes.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/rendering/0027f660.c, FUN_L01_00285768. */
+char *func_L01_00286530(float scale, void *pos, int a, int idx, int b, unsigned char flags, short h, unsigned char kind) {
+    char *r = func_00218928_86530(0x29);
+    if (r != 0) {
+        int *tail = (int *)(r + 0x20);
+        qcopy(r + 0x10, pos);
+        *(int *)(r + 4) = b;
+        if (kind == 0xFF) {
+            r[9] = (flags >> 5) * 16 + truncate_float_to_s32(4.0f);
+            if (flags & 1) {
+                r[3] = 0x48;
+            } else {
+                r[3] = 0x44;
+            }
+        } else {
+            r[9] = flags;
+            r[3] = kind;
+        }
+        r[1] = 0;
+        r[2] = D_L01_001B28A4[0][idx];
+        *(float *)(r + 0xC) = scale * 210000.0f;
+        *(short *)(r + 0xA) = h;
+        ((unsigned char *)r)[8] = 0xA0;
+        /* taking the address changes register allocation to match */
+        *tail = *&a;
+    }
+    return r;
+}
 extern int func_001FA898(float);
 extern int func_002140B0(int);
 extern float func_001FA888(int);
@@ -114,7 +146,7 @@ unsigned char *func_L01_0028B570(char *m,char *pos,float *vel,char *cfg,int flag
  p[8]=func_001160D8(); *(int *)(p+0xc)=0;
  qcopy(p+0x10,pos);
  *(float *)q=vel[0]; *(float *)(q+4)=vel[1]; *(float *)(q+8)=vel[2];
- func_001F9BF0(v,pos,m+0x10);
+ FastVecSub(v,pos,m+0x10);
  qzero(mat);qzero(mat+4);qzero(mat+8);qzero(mat+12);
  func_001FA4A0(mat,m+0xc0);
  func_001F9EE8(v,v,mat);
@@ -141,7 +173,7 @@ void func_L01_0028C1D8(char *p)
     for (i = 0; i < **(int **)(p + 0x10); i++) {
         q = *(char **)(p + 0x10);
         off = i << 4;
-        *(float *)(*(char **)(p + 0x10) + off + 0x1C) = func_001F9D10(q + (off + 0x10), q + ((((i + 1) % *(int *)q) << 4) + 0x10));
+        *(float *)(*(char **)(p + 0x10) + off + 0x1C) = FastVecDist(q + (off + 0x10), q + ((((i + 1) % *(int *)q) << 4) + 0x10));
         *(float *)(*(char **)(p + 0x10) + off + 0x18) += 0.5f;
         *(float *)(*(char **)(p + 0x10) + off + 0x18) -= 0.5f;
     }
@@ -181,12 +213,12 @@ int func_L01_0028C3A8(char *a0, List_8C3A8 *list, char *pt, char *out) {
     int idx1 = -1;
     float best0 = 10000.0f;
     float best1 = 10000.0f;
-    float d_init = func_001F9D10(a0 + 0x10, pt);
+    float d_init = FastVecDist(a0 + 0x10, pt);
     int i;
 
     for (i = 0; i < list->count; i++) {
-        float d_pt = func_001F9D10(list->e[i], pt);
-        float d_a0 = func_001F9D10(list->e[i], a0 + 0x10);
+        float d_pt = FastVecDist(list->e[i], pt);
+        float d_a0 = FastVecDist(list->e[i], a0 + 0x10);
         if (d_a0 < best0) {
             best0 = d_a0;
             idx0 = i;
@@ -213,7 +245,22 @@ int func_L01_0028C3A8(char *a0, List_8C3A8 *list, char *pt, char *out) {
     qcopy(out, pt);
     return -1;
 }
-INCLUDE_ASM("asm/overlays", func_L01_0028C578);
+typedef struct { int n; int pad[3]; float e[1][4]; } List_0028C578;
+typedef struct { int cur; signed char f4; char pad5[11]; List_0028C578 *list; } Eff_0028C578;
+
+// Returns the list entry for a step count, wrapping past the end and counting back from it when negative.
+void *func_L01_0028C578(void *effect, int steps) {
+    int count = ((Eff_0028C578 *)effect)->f4 < 0 ? 0 : ((Eff_0028C578 *)effect)->list->n - 1;
+    List_0028C578 *l = ((Eff_0028C578 *)effect)->list;
+    if (steps < 0) {
+        return l->e[count + steps + 1];
+    }
+    if (count < steps) {
+        count++;
+        return l->e[steps % count];
+    }
+    return l->e[steps];
+}
 INCLUDE_ASM("asm/overlays", func_L01_0028C5B8);
 INCLUDE_ASM("asm/overlays", func_L01_0028C5D0);
 // Computes a bounded animation index from an effect and step count.
@@ -269,16 +316,16 @@ void func_L01_0028C690(void *out, int *l, int idx, float a, float b) {
         wb = (1.0f - a) * (b + 1.0f) * 0.5f;
         wa = (1.0f - a) * (1.0f - b) * 0.5f;
     }
-    d1 = func_001F9D10(p[0], p[1]);
-    d2 = func_001F9D10(p[1], p[2]);
+    d1 = FastVecDist(p[0], p[1]);
+    d2 = FastVecDist(p[1], p[2]);
     if (d1 < d2) m = d1; else m = d2;
-    func_001F9BF0(v1, p[1], p[0]);
-    func_001F9C30(v1, v1, wb);
-    func_001F9BF0(v2, p[2], p[1]);
-    func_001F9C30(v2, v2, wa);
-    func_001F9BD8(v3, v1, v2);
+    FastVecSub(v1, p[1], p[0]);
+    FastVecScale(v1, v1, wb);
+    FastVecSub(v2, p[2], p[1]);
+    FastVecScale(v2, v2, wa);
+    FastVecAdd(v3, v1, v2);
     m = m * 1.1f;
-    len = func_001F9CB8(v3);
+    len = FastVecLength(v3);
     if (m < len) {
         func_L00_001FF4B0(out, v3, m);
     } else {

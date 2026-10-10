@@ -22,7 +22,182 @@ extern float D_L18_001624E4_b __asm__("D_L18_001624E4");
 extern float D_L18_001624E0_b __asm__("D_L18_001624E0");
 extern short D_L18_00162590;
 
-INCLUDE_ASM("asm/overlays", func_L18_002FB080);
+typedef struct {
+    f32 x;
+    f32 y;
+    f32 z;
+    f32 w;
+} Vec4f_FB080;
+struct Manip;
+struct GifEntry;
+struct AnimSeq;
+struct MobyClass_FB080 {
+    u8 pad_0[0xC];
+    u8 seq_count; /* number of entries in seqs[] (menu previews clamp the sequence to it) */
+    u8 pad_D[3];
+    u32 unk10; /* copied into Moby_FB080.unk94 when a moby is (re)classed */
+    u8 pad_14[0x8];
+    void *unk1C; /* word table, indexed id * 4 + 4 (0024eec0) */
+    struct GifEntry *gifs; /* patched by patch_moby_gifs */
+    f32 scale; /* default draw scale: copied into Moby_FB080.scale, divides it */
+    s32 unk28;
+    void **callbacks; /* function-pointer table, called with the moby */
+    u8 pad_30[0x14];
+    u16 flags; /* initial Moby_FB080.flags */
+    s16 unk46; /* class category; 5 is tested by targeting code */
+    struct AnimSeq *seqs[1]; /* animation sequences, indexed by Moby_FB080.seq */
+};
+struct Moby_FB080 {
+    Vec4f_FB080 bsphere;
+    Vec4f_FB080 pos;
+    u8 state; /* >= 0xFE: dead, waiting to respawn */
+    u8 group; /* linked group: index into the level moby-list table D_Lxx_001ABCC0 (0xFF: none) */
+    u8 unk22; /* class slot: pclass = D_L00_00197300[unk22] (FUN_L00_002cf218) */
+    u8 unk23; /* 0x40 for the smoke trail FUN_L09_00307ba8 spawns */
+    struct MobyClass_FB080 *pclass;
+    struct Moby_FB080 *next;
+    f32 scale; /* draw scale (FUN_L01_002fa068 halves it, FUN_L00_00215ef8 divides by it) */
+    u8 unk30; /* set to 0xFF (0x7F for beams) by spawners */
+    u8 unk31; /* set to 1 by spawners */
+    s16 unk32; /* set to 0xFF (0x7F for beams) by spawners */
+    u16 flags;
+    u16 unk36; /* set to 0x7F80 by spawners */
+    u64 spawn_frame; /* frame count at which it may respawn */
+    Vec4f_FB080 rot; /* z: yaw (FUN_L00_00266448 compares it with atan2 to the hero) */
+    u8 frame; /* animation frame */
+    u8 prev_frame; /* frame index in prev_seq */
+    u8 seq; /* animation sequence id */
+    u8 prev_seq;
+    f32 unk54;
+    f32 unk58;
+    u8 pad5C[8];
+    struct Manip *manips;
+    void *cur_frame_data;
+    void *prev_frame_data;
+    u8 unk70;
+    u8 unk71; /* set to 0xFF when a moby changes class */
+    u8 unk72;
+    u8 unk73;
+    void (*update)(struct Moby_FB080 *moby);
+    u8 *pvars;
+    u8 unk7C;
+    u8 pad7D;
+    u8 unk7E;
+    u8 unk7F; /* set to 0x17 by FUN_L09_002c5990 near D_L09_00166F40 */
+    u8 pad80[0x10];
+    s32 unk90;
+    u32 unk94; /* set from the class header's word 0x10 */
+    s32 unk98; /* set to 1 while a carrier holds the moby (FUN_L00_002c7a58) */
+    u8 pad9C[8];
+    u8 unkA4;
+    u8 padA5;
+    s16 oclass;
+    u8 padA8[8];
+    u8 unkB0; /* 0xB0: index into the level's D_0014C050 row (0xFF: not spawned) */
+    u8 padB1;
+    u16 save_id; /* index into the level collected[]/killed[] tables and save bits D_0014C190[level][id >> 5] */
+    s16 unkB4;
+    u8 padB6[2];
+    void *unkB8; /* 0xB8: bolt source record; its byte 0xB1 is a per-level id (FUN_L00_002a6b70) */
+    u8 unkBC;
+    u8 padBD[3];
+    Vec4f_FB080 unkC0; /* 0xC0: first row of a matrix built from rot (FUN_001fa030) */
+    Vec4f_FB080 unkD0;
+    Vec4f_FB080 unkE0;
+    u8 padF0[0x10];
+};
+typedef unsigned int u128_9c20 __attribute__((mode(TI)));
+typedef struct {
+    float m[4][4];
+    int col[4];
+    float uv[8];
+    unsigned long a, b, c, d;
+} Pk_9c20;
+typedef struct {
+    char pad[0x34];
+    int n;
+} ML_9c20;
+extern ML_9c20 D_L18_0016D2E0_FB080 __asm__("D_L18_0016D2E0");
+extern short D_L18_0016254C;
+extern int D_L18_001625F0 MACRO_ADDR;
+extern int D_L18_001625F4 MACRO_ADDR;
+extern float D_L18_001625F8 MACRO_ADDR;
+extern float D_L18_001625FC MACRO_ADDR;
+extern int D_L18_001625B4 MACRO_ADDR;
+extern short D_L18_00162594;
+extern short D_L18_00162598;
+extern short D_L18_0016259C;
+extern short D_L18_001625A0;
+extern float D_L18_001DFE50[4][4];
+extern char D_L18_00167840[];
+extern unsigned long func_001F4868(int);
+extern void func_00234C98(int, long);
+extern void func_001F9EC0(void *, void *, void *);
+extern void func_001F9BD8(void *, void *, void *);
+extern void func_L00_001FF4B0(void *, void *, float);
+extern void func_001F9CA0(void *, void *, void *);
+extern void func_001F9EE8(void *, void *, void *);
+extern void func_L00_001FD1D8(void *, void *, int);
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l18/gameplay/vendor/002f88e8.c, FUN_L18_002f9c20. */
+void func_L18_002FB080(struct Moby_FB080 *m) {
+    Pk_9c20 pk;
+    float mat[4][4];
+    float up[4];
+    int c;
+    int c2;
+    int i;
+    if (D_L18_0016D2E0_FB080.n == scale_ticks((*(int *)&D_L18_0016254C) + 1)) {
+        D_L18_001625F8 = -45.0f;
+        D_L18_001625FC = 1.0f;
+        D_L18_001625F0 = 0;
+        D_L18_001625F4 = 0;
+    }
+    pk.b = GetEffectTex(0xB);
+    pk.c = 0x0000FF9000000260ULL;
+    pk.d = 0x8000000048ULL;
+    pk.a = 0;
+    VU1_addGSregister(0x4A, 0);
+    VU1_addGSregister(0x47, 0x51001);
+    func_001F9EC0(mat[3], &D_L18_001625F0, &m->unkC0);
+    FastVecAdd(mat[3], mat[3], &m->pos);
+    FastVecSub(mat[0], mat[3], D_L18_00167840);
+    func_L00_001FF4B0(mat[0], mat[0], 1.0f);
+    *(u128_9c20 *)up = 0;
+    up[2] = 1.0f;
+    up[3] = 1.0f;
+    FastVecCross(mat[1], mat[0], up);
+    func_L00_001FF4B0(mat[1], mat[1], 1.0f);
+    FastVecCross(mat[2], mat[1], mat[0]);
+    c = (*(int *)&D_L18_00162594) | (D_L18_001625B4 << 24);
+    pk.uv[0] = 1.0f;
+    pk.uv[1] = 1.0f;
+    pk.uv[2] = 0.0f;
+    pk.uv[3] = 1.0f;
+    pk.uv[4] = 1.0f;
+    pk.uv[5] = 0.0f;
+    pk.uv[6] = 0.0f;
+    pk.uv[7] = 0.0f;
+    pk.col[3] = c;
+    pk.col[2] = c;
+    pk.col[1] = c;
+    pk.col[0] = c;
+    for (i = 0; i < 4; i++) {
+        FastVecScale(pk.m[i], D_L18_001DFE50[i], (*(float *)&D_L18_00162598));
+        func_001F9EE8(pk.m[i], pk.m[i], mat);
+    }
+    func_L00_001FD1D8(&pk, 0, 0);
+    c2 = (*(int *)&D_L18_001625A0) | (D_L18_001625B4 << 24);
+    pk.col[3] = c2;
+    pk.col[2] = c2;
+    pk.col[1] = c2;
+    pk.col[0] = c2;
+    for (i = 0; i < 4; i++) {
+        FastVecScale(pk.m[i], D_L18_001DFE50[i], (*(float *)&D_L18_0016259C));
+        func_001F9EE8(pk.m[i], pk.m[i], mat);
+    }
+    func_L00_001FD1D8(&pk, 0, 0);
+}
 INCLUDE_ASM("asm/overlays", func_L18_002FB318);
 extern int func_002140B0(int);
 extern int func_001FA898_r(float) __asm__("func_001FA898");
@@ -39,11 +214,11 @@ void func_L18_002FB6B0(void *a, void *b, void *c, float f0, float f1) {
     qcopy(v0, a);
     qcopy(v1, b);
     for (i = 1; i >= 0; i--) {
-        m = (char *)func_002140B0(16);
-        m = func_L00_0026DEA0_c(v0, func_002140B0(2) ? -(int)m : (int)m, c, 0.0f, 1.0f, 0.9f, f0, 0x7F204080);
+        m = (char *)random_integer_below(16);
+        m = func_L00_0026DEA0_c(v0, random_integer_below(2) ? -(int)m : (int)m, c, 0.0f, 1.0f, 0.9f, f0, 0x7F204080);
         p = m + 0x20;
         if (m) {
-            *(short *)(m + 0xA) = func_001F9850(15);
+            *(short *)(m + 0xA) = scale_ticks(15);
             m[9] = func_001FA898_r(4.0f) + 0x40;
             *(int *)(p + 4) = 2;
             p[0xA] = 0x7F;
@@ -61,8 +236,8 @@ void func_L18_002FB6B0(void *a, void *b, void *c, float f0, float f1) {
         p = m + 0x20;
         if (m) {
             m[9] = func_001FA898_r(4.0f) + 0x40;
-            *(short *)(m + 0xA) = func_001F9850(4);
-            m[8] = func_002140B0(0xFF);
+            *(short *)(m + 0xA) = scale_ticks(4);
+            m[8] = random_integer_below(0xFF);
             *(int *)(p + 4) = k2;
             p[0xA] = k7f;
             p[0xB] = m[0xA];
@@ -211,7 +386,7 @@ void func_L18_002FC188(M2 *m) {
                 p = D_L18_0016D2E0.arr[idx];
                 func_L00_00250800(p, 8, buf);
                 func_L00_00250800(p, 9, buf2);
-                func_001F9BF0(buf3, buf, buf2);
+                FastVecSub(buf3, buf, buf2);
                 func_L00_001FF4B0(buf3, buf3, *(float *)&D_L18_00162608);
                 func_L00_00264BE8(buf, buf, buf3, *(float *)&D_L18_0016260C, *(float *)&D_L18_00162610);
             }
@@ -255,7 +430,7 @@ void func_L18_002FD058(unsigned char *m) {
     case 0: {
         unsigned short h;
         m[0x20] = 8;
-        if (func_002140B0(2)) *(unsigned short *)(m + 0x34) |= 0x8000;
+        if (random_integer_below(2)) *(unsigned short *)(m + 0x34) |= 0x8000;
         else *(unsigned short *)(m + 0x34) &= 0x7FFF;
         *(unsigned short *)(m + 0x34) |= 0x100;
         m[0x73] = D_L18_00162698;
@@ -265,7 +440,7 @@ void func_L18_002FD058(unsigned char *m) {
         *(short *)(e + 0x24) = 1;
         e[0x5C] = 1;
         *(float *)(e + 0x30) = 0.5f;
-        *(float *)(e + 0x1F8) = func_00214158();
+        *(float *)(e + 0x1F8) = random_angle_radians();
         m[0x30] = 0xFF;
         h = *(unsigned short *)(m + 0x34);
         *(short *)(m + 0x32) = 0xFF;
@@ -281,14 +456,14 @@ void func_L18_002FD058(unsigned char *m) {
         float r;
         s0 = m + 0x10;
         *(float *)(e + 0x1D8) = *(float *)(e + 0x1D8) - D_0015EE70 * a;
-        func_001F9BD8(s0, s0, e + 0x1D0);
+        FastVecAdd(s0, s0, e + 0x1D0);
         qcopy(tmp, s0);
         ((float *)tmp)[2] += 1.0f;
         r = func_00214358(tmp, 0, 0.5f);
         if (*(float *)(m + 0x18) < r) {
             *(float *)(m + 0x18) = r;
             m[0x20] = 2;
-            if (m[0x53]) func_00213DE0(m, 0, 0, func_001F9850(10));
+            if (m[0x53]) func_00213DE0(m, 0, 0, scale_ticks(10));
         } else if (*(float *)(m + 0x18) < a) {
             m[0x20] = 6;
         }
@@ -305,7 +480,7 @@ void func_L18_002FD058(unsigned char *m) {
             if (!(10.0f < f9d48_i(m + 0x10, e + 0x180))) break;
         }
         m[0x20] = 3;
-        if (m[0x53] != 1) func_00213DE0(m, 1, 0, func_001F9850(10));
+        if (m[0x53] != 1) func_00213DE0(m, 1, 0, scale_ticks(10));
         break;
     case 3: {
         float f;
@@ -313,14 +488,14 @@ void func_L18_002FD058(unsigned char *m) {
         f = fd9a0_c(m, tmp);
         if (*(int *)(e + 0x1C4) == 2 && f < 5.0f) {
             m[0x20] = 2;
-            if (m[0x53]) func_00213DE0(m, 0, 0, func_001F9850(10));
+            if (m[0x53]) func_00213DE0(m, 0, 0, scale_ticks(10));
             break;
         }
         if (f < 1.5f) {
             m[0x20] = 4;
             if (m[0x53] != 2) {
                 int v = (int)*(float *)&D_L18_00162690;
-                func_00213DE0(m, 2, v, func_001F9850(5));
+                func_00213DE0(m, 2, v, scale_ticks(5));
             }
         }
         break;
@@ -337,12 +512,12 @@ void func_L18_002FD058(unsigned char *m) {
         if (m[0x70] & 2) {
             if (*(int *)(e + 0x1C4) == 2) {
                 m[0x20] = 2;
-                if (m[0x53]) func_00213DE0(m, 0, 0, func_001F9850(10));
+                if (m[0x53]) func_00213DE0(m, 0, 0, scale_ticks(10));
                 break;
             }
             if (!(2.5f < f9d48_i(m + 0x10, e + 0x180))) break;
             m[0x20] = 3;
-            if (m[0x53] != 1) func_00213DE0(m, 1, 0, func_001F9850(10));
+            if (m[0x53] != 1) func_00213DE0(m, 1, 0, scale_ticks(10));
             break;
         }
         break;
@@ -354,7 +529,7 @@ void func_L18_002FD058(unsigned char *m) {
         ((float *)tmp)[2] += 0.5f;
         func_L00_0025F4A8_alt(m, e + 0x40, tmp, 0.0f, 0.0f, 5, 2, 4, 1.0f, 0.5f, 9.0f, 0.5f, 4, 0.0f, 0, 1, -1, 0);
         m[0x20] = 8;
-        if (m[0x53]) func_00213DE0(m, 0, 0, func_001F9850(10));
+        if (m[0x53]) func_00213DE0(m, 0, 0, scale_ticks(10));
         *(int *)(m + 0x94) = 0;
         *(unsigned short *)(m + 0x34) = (*(unsigned short *)(m + 0x34) | 0x41) & 0xEFFF;
         break;
@@ -365,11 +540,11 @@ void func_L18_002FD058(unsigned char *m) {
         float g;
         func_00214D28((float *)(e + 0x1F4), 0.0f, D_0015EE6C * 4.0f);
         g = 1.0f;
-        func_001F9C30(m + 0xE0, m + 0xE0, *(float *)(e + 0x1F4) + g);
+        FastVecScale(m + 0xE0, m + 0xE0, *(float *)(e + 0x1F4) + g);
         g = g - *(float *)(e + 0x1F4);
-        func_001F9C30(s0, s0, g);
-        func_001F9C30(m + 0xD0, m + 0xD0, g);
-        func_001F49B0(func_L18_002FDD20, m);
+        FastVecScale(s0, s0, g);
+        FastVecScale(m + 0xD0, m + 0xD0, g);
+        AddDrawCallback(func_L18_002FDD20, m);
     }
 }
 INCLUDE_ASM("asm/overlays", func_L18_002FD5C0);
@@ -394,23 +569,236 @@ float func_L18_002FD9A0(char *self, float *src) {
     float dist;
     *(QVec *)&a = *(QVec *)src;
     {
-        float d = func_001FA748(func_L00_001FF860(a.v[0] - *(float *)(self + 0x10), a.v[1] - *(float *)(self + 0x14)), *(float *)(o + 0x1EC));
+        float d = FastAddRots(func_L00_001FF860(a.v[0] - *(float *)(self + 0x10), a.v[1] - *(float *)(self + 0x14)), *(float *)(o + 0x1EC));
         func_L00_0025CE58((float *)(self + 0x48), (float *)(o + 0x1E8), d, D_0015EE70 * 6.2831855f, D_0015EE70 * 6.2831855f, D_0015EE6C * 6.2831855f);
     }
     b[0] = z;
     dist = func_001F9D48((float *)(self + 0x10), a.v);
     func_00214D88(b, (float *)(o + 0x1F0), dist, D_0015EE70 * 6.0f, D_0015EE70 * 6.0f, D_0015EE6C * 5.0f);
-    v[0] = func_001F9F90(*(float *)(self + 0x48)) * *(float *)(o + 0x1F0);
-    v[1] = func_001F9FA8(*(float *)(self + 0x48)) * *(float *)(o + 0x1F0);
+    v[0] = FastCos(*(float *)(self + 0x48)) * *(float *)(o + 0x1F0);
+    v[1] = FastSin(*(float *)(self + 0x48)) * *(float *)(o + 0x1F0);
     v[2] = -(D_0015EE6C + D_0015EE6C);
     func_L00_00259868((int)self, (int)v, h, h, z, 0);
     func_L00_00262DF0(h, *(void **)(o + 0x1E0), self + 0x10, self + 0x10);
     return dist;
 }
-INCLUDE_ASM("asm/overlays", func_L18_002FDB28);
+typedef struct {
+    f32 x;
+    f32 y;
+    f32 z;
+    f32 w;
+} Vec4f;
+struct Manip;
+struct GifEntry;
+struct AnimSeq;
+struct MobyClass {
+    u8 pad_0[0xC];
+    u8 seq_count; /* number of entries in seqs[] (menu previews clamp the sequence to it) */
+    u8 pad_D[3];
+    u32 unk10; /* copied into Moby.unk94 when a moby is (re)classed */
+    u8 pad_14[0x8];
+    void *unk1C; /* word table, indexed id * 4 + 4 (0024eec0) */
+    struct GifEntry *gifs; /* patched by patch_moby_gifs */
+    f32 scale; /* default draw scale: copied into Moby.scale, divides it */
+    s32 unk28;
+    void **callbacks; /* function-pointer table, called with the moby */
+    u8 pad_30[0x14];
+    u16 flags; /* initial Moby.flags */
+    s16 unk46; /* class category; 5 is tested by targeting code */
+    struct AnimSeq *seqs[1]; /* animation sequences, indexed by Moby.seq */
+};
+struct Moby {
+    Vec4f bsphere;
+    Vec4f pos;
+    u8 state; /* >= 0xFE: dead, waiting to respawn */
+    u8 group; /* linked group: index into the level moby-list table D_Lxx_001ABCC0 (0xFF: none) */
+    u8 unk22; /* class slot: pclass = D_L00_00197300[unk22] (FUN_L00_002cf218) */
+    u8 unk23; /* 0x40 for the smoke trail FUN_L09_00307ba8 spawns */
+    struct MobyClass *pclass;
+    struct Moby *next;
+    f32 scale; /* draw scale (FUN_L01_002fa068 halves it, FUN_L00_00215ef8 divides by it) */
+    u8 unk30; /* set to 0xFF (0x7F for beams) by spawners */
+    u8 unk31; /* set to 1 by spawners */
+    s16 unk32; /* set to 0xFF (0x7F for beams) by spawners */
+    u16 flags;
+    u16 unk36; /* set to 0x7F80 by spawners */
+    u64 spawn_frame; /* frame count at which it may respawn */
+    Vec4f rot; /* z: yaw (FUN_L00_00266448 compares it with atan2 to the hero) */
+    u8 frame; /* animation frame */
+    u8 prev_frame; /* frame index in prev_seq */
+    u8 seq; /* animation sequence id */
+    u8 prev_seq;
+    f32 unk54;
+    f32 unk58;
+    u8 pad5C[8];
+    struct Manip *manips;
+    void *cur_frame_data;
+    void *prev_frame_data;
+    u8 unk70;
+    u8 unk71; /* set to 0xFF when a moby changes class */
+    u8 unk72;
+    u8 unk73;
+    void (*update)(struct Moby *moby);
+    u8 *pvars;
+    u8 unk7C;
+    u8 pad7D;
+    u8 unk7E;
+    u8 unk7F; /* set to 0x17 by FUN_L09_002c5990 near D_L09_00166F40 */
+    u8 pad80[0x10];
+    s32 unk90;
+    u32 unk94; /* set from the class header's word 0x10 */
+    s32 unk98; /* set to 1 while a carrier holds the moby (FUN_L00_002c7a58) */
+    u8 pad9C[8];
+    u8 unkA4;
+    u8 padA5;
+    s16 oclass;
+    u8 padA8[8];
+    u8 unkB0; /* 0xB0: index into the level's D_0014C050 row (0xFF: not spawned) */
+    u8 padB1;
+    u16 save_id; /* index into the level collected[]/killed[] tables and save bits D_0014C190[level][id >> 5] */
+    s16 unkB4;
+    u8 padB6[2];
+    void *unkB8; /* 0xB8: bolt source record; its byte 0xB1 is a per-level id (FUN_L00_002a6b70) */
+    u8 unkBC;
+    u8 padBD[3];
+    Vec4f unkC0; /* 0xC0: first row of a matrix built from rot (FUN_001fa030) */
+    Vec4f unkD0;
+    Vec4f unkE0;
+    u8 padF0[0x10];
+};
+extern int D_L18_001AC540_FDB28[] __asm__("D_L18_001AC540");
+extern struct Moby * D_L18_00160058 MACRO_ADDR;
+typedef struct {
+    u8 pad0[0x1D0];
+    f32 velocity[4]; /* 0x1D0: launch direction scaled to speed; [2] replaced by the arc speed */
+    u8 pad1E0[0xC];
+    f32 spin; /* 0x1EC: random 15..45 degrees, in radians */
+    u8 pad1F0[4];
+    f32 unk1F4; /* 0x1F4: set to 1.0 on launch */
+} LaunchedMobyVars;
+extern float func_L00_0025BC48(void *, void *, float, float, int);
+extern float func_L00_00258C80(float, float);
+
+/* Launches the first idle (state 8) class-0x772 moby of group `group` from `from` towards `to` at `speed`. Returns 1 when one was launched.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l18/gameplay/vendor/002f88e8.c, FUN_L18_002fc668. */
+int func_L18_002FDB28(int group, void *from, void *to, float speed) {
+    unsigned short *p = (unsigned short *)D_L18_001AC540_FDB28[group];
+    struct Moby *table;
+    struct Moby *moby;
+
+    if (p == 0)
+        return 0;
+    table = D_L18_00160058;
+    for (;;) {
+        moby = &table[*p & 0x7FFF];
+        if (moby->oclass == 0x772) {
+            if (moby->state == 8) {
+                LaunchedMobyVars *v = (LaunchedMobyVars *)moby->pvars;
+                moby->flags &= ~0x41;
+                moby->unk94 = moby->pclass->unk10;
+                moby->flags |= 0x1000;
+                qcopy(&moby->pos, from);
+                moby->state = 1;
+                v->unk1F4 = 1.0f;
+                FastVecSub(v->velocity, to, from);
+                v->velocity[2] = 0.0f;
+                func_L00_001FF4B0(v->velocity, v->velocity, speed);
+                v->velocity[2] = func_L00_0025BC48(from, to, speed, -(D_0015EE70 * 10.0f), 0);
+                v->spin = randf_sym(15.0f, 45.0f) * 0.017453292f;
+                return 1;
+            }
+        }
+        if ((short)*p++ < 0)
+            return 0;
+    }
+}
 INCLUDE_ASM("asm/overlays", func_L18_002FDCA0);
 INCLUDE_ASM("asm/overlays", func_L18_002FDCC4);
-INCLUDE_ASM("asm/overlays", func_L18_002FDD20);
+typedef struct {
+    f32 x;
+    f32 y;
+    f32 z;
+    f32 w;
+} Vec4f_2FDD20;
+struct Moby_2FDD20 {
+    Vec4f_2FDD20 bsphere;
+    Vec4f_2FDD20 pos; /* 0x10 */
+    u8 pad20[0x58];
+    u8 *pvars; /* 0x78 */
+};
+extern int func_001FA8A8_2FDD20(int, int, float) __asm__("func_001FA8A8");
+typedef struct {
+    float m[4][4];
+    int col[4];
+    float uv[4][2];
+    unsigned long a, b, c, d;
+} Pk_2FDD20;
+extern short D_L18_001626BC_2FDD20 __asm__("D_L18_001626BC");
+extern short D_L18_001626C0_2FDD20 __asm__("D_L18_001626C0");
+extern short D_L18_001626C4_2FDD20 __asm__("D_L18_001626C4");
+extern short D_L18_001626C8_2FDD20 __asm__("D_L18_001626C8");
+extern short D_L18_001626CC_2FDD20 __asm__("D_L18_001626CC");
+extern short D_L18_001626D0_2FDD20 __asm__("D_L18_001626D0");
+extern short D_L18_001626D4_2FDD20 __asm__("D_L18_001626D4");
+extern short D_L18_001626D8_2FDD20 __asm__("D_L18_001626D8");
+extern short D_L18_001626DC_2FDD20 __asm__("D_L18_001626DC");
+extern short D_L18_001626E0_2FDD20 __asm__("D_L18_001626E0");
+extern char D_L18_00167840_2FDD20[] __asm__("D_L18_00167840");
+extern float D_L18_001EFF90_2FDD20[4][2] __asm__("D_L18_001EFF90");
+extern void func_001F9BC0_2FDD20(void *) __asm__("func_001F9BC0");
+extern void func_001F9BF0_2FDD20(void *, void *, void *) __asm__("func_001F9BF0");
+extern void func_001F9CA0_2FDD20(void *, void *, void *) __asm__("func_001F9CA0");
+extern void func_L00_001FF4B0_2FDD20(void *, void *, float) __asm__("func_L00_001FF4B0");
+extern unsigned long func_001F4868_2FDD20(int) __asm__("func_001F4868");
+extern void func_L00_001FD1D8_2FDD20(void *, void *, int) __asm__("func_L00_001FD1D8");
+
+void func_L18_002FDD20_r(struct Moby_2FDD20 *m) __asm__("func_L18_002FDD20");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l18/gameplay/vendor/002f88e8.c, FUN_L18_002fc860. */
+void func_L18_002FDD20_r(struct Moby_2FDD20 *m) {
+    char *d = (char *)m->pvars;
+    Pk_2FDD20 pk;
+    float mat[4][4];
+    float w;
+    float h;
+    int c;
+    int i;
+    float *p;
+    h = *(float *)(d + 0x1F4) + 1.0f + (*(float *)&D_L18_001626DC_2FDD20);
+    w = 1.0f - *(float *)(d + 0x1F4) + (*(float *)&D_L18_001626E0_2FDD20);
+    qcopy(mat[3], &m->pos);
+    mat[3][2] -= (*(float *)&D_L18_001626D8_2FDD20);
+    func_001F9BC0_2FDD20(mat[2]);
+    mat[2][2] = h;
+    func_001F9BF0_2FDD20(mat[0], D_L18_00167840_2FDD20, &m->pos);
+    func_001F9CA0_2FDD20(mat[1], mat[0], mat[2]);
+    func_001F9CA0_2FDD20(mat[0], mat[1], mat[2]);
+    func_L00_001FF4B0_2FDD20(mat[0], mat[0], w);
+    func_L00_001FF4B0_2FDD20(mat[1], mat[1], w);
+    pk.b = func_001F4868_2FDD20((*(int *)&D_L18_001626D4_2FDD20));
+    pk.c = 0x0000FF9000000260ULL;
+    pk.a = 0;
+    pk.d = (unsigned long)(*(int *)&D_L18_001626BC_2FDD20) | ((unsigned long)(*(int *)&D_L18_001626C0_2FDD20) << 2) | ((unsigned long)(*(int *)&D_L18_001626C4_2FDD20) << 4) |
+           ((unsigned long)(*(int *)&D_L18_001626C8_2FDD20) << 6) | 0x8000000000ULL;
+    c = func_001FA8A8_2FDD20((*(int *)&D_L18_001626CC_2FDD20), (*(int *)&D_L18_001626D0_2FDD20), *(float *)(d + 0x1F4));
+    for (i = 0; i < 4; i++) {
+        pk.uv[i][0] = D_L18_001EFF90_2FDD20[i][0];
+        pk.uv[i][1] = D_L18_001EFF90_2FDD20[i][1];
+        p = pk.m[i];
+        func_001F9BC0_2FDD20(p);
+        if (i & 1)
+            p[2] = 1.0f;
+        else
+            p[2] = 0.0f;
+        if (i < 2)
+            p[1] = 1.0f;
+        else
+            p[1] = -1.0f;
+        p[3] = 1.0f;
+        pk.col[i] = c;
+    }
+    func_L00_001FD1D8_2FDD20(&pk, mat, 0);
+}
 extern unsigned short *D_L18_001AC540[];
 extern unsigned char *D_L18_00160058_m __asm__("D_L18_00160058") MACRO_ADDR;
 extern short D_L18_001626E4;

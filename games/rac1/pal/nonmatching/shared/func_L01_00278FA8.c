@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L01_00278FA8 -- src/overlays/shared/mobyutil_0026E8E0.c
- * Best so far: SIZE ours 80 / retail 88, checked 2026-10-06.
+ * Best so far: SIZE ours 80 / retail 88, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:

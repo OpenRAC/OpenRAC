@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 668 / retail 664, checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Selects a damaged child moby, accumulates state credit, launches a chosen/random child, and advances parent st
  *   Remaining differences: prologue save/constant scheduling, selected path scale load moved into gp branch slot r
@@ -13,7 +14,6 @@ extern void func_001F9BF0(void *, void *, void *);
 extern void func_L00_001FF4B0(void *, void *, float);
 extern float func_002140F8(float, float);
 extern int func_001FA898_r(float) __asm__("func_001FA898");
-extern int func_0022ED80(int, int, int);
 extern float D_0015EE6C MACRO_ADDR;
 /* Selects a damaged child moby, launches it, and advances the parent's state. */
 void func_L08_002E35C8(char *parent) {

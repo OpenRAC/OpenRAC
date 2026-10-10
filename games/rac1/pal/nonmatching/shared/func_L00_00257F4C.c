@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L00_00257F4C -- src/overlays/shared/mobyproc_00251A78.c
- * Best so far: BYTES 86/104 (17.3% of the bytes match), checked 2026-10-07.
+ * Best so far: SIZE ours 112 / retail 104, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -21,12 +21,14 @@ extern char *D_L00_0015FC80 MACRO_ADDR;
 extern int func_L00_00257FB4(void *, void *);
 
 int func_L00_00257F4C(Vec4 *p) {
+    Vec4 v;
     unsigned int xi;
     unsigned int yi;
     int value;
 
-    xi = (unsigned int)(int)p->f[0] >> 4;
-    yi = (unsigned int)(int)p->f[1] >> 4;
+    v = *p;
+    xi = (unsigned int)(int)v.f[0] >> 4;
+    yi = (unsigned int)(int)v.f[1] >> 4;
     value = ((int *)D_L00_0015FC80)[(yi << 6) + xi];
     if (value != 0) {
         return func_L00_00257FB4(p, D_L00_0015FC80 + value);

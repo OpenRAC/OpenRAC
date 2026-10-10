@@ -350,7 +350,221 @@ void func_00218188(PadClr *p) {
     }
 }
 
-INCLUDE_ASM("asm/nonmatchings/text", func_002181F0);
+typedef struct Pad_181F0 {
+    u8 pad0[0x100];
+    float axes[16]; /* 0x100 */
+    float prev[16]; /* 0x140 */
+    u8 pad180[0xC];
+    s16 x18C;  /* 0x18C: on pad 0, nonzero suppresses pressed/released (PAL) */
+    s16 idx;   /* 0x18E */
+    s32 count; /* 0x190 */
+    u8 pad194[0xC];
+    s32 held;     /* 0x1A0 */
+    s32 pressed;  /* 0x1A4 */
+    s32 released; /* 0x1A8 */
+    s32 old;      /* 0x1AC */
+    s32 raw;      /* 0x1B0 */
+    s32 x1B4;     /* 0x1B4 */
+    s32 x1B8;     /* 0x1B8 */
+    s32 x1BC;     /* 0x1BC */
+    s32 x1C0;     /* 0x1C0 */
+    s32 x1C4;     /* 0x1C4 */
+    s32 x1C8;     /* 0x1C8 */
+    s32 mode;     /* 0x1CC */
+    s32 none;     /* 0x1D0 */
+    s32 nodir;    /* 0x1D4 */
+    s32 moving;   /* 0x1D8 */
+    u8 pad1DC[4];
+    s32 hist_btn[30];   /* 0x1E0 */
+    float hist_ang[30]; /* 0x258 */
+    float hist_mag[30]; /* 0x2D0 */
+    s32 x348;           /* 0x348 */
+    u8 pad34C;
+    u8 rep_delay; /* 0x34D */
+    u8 rep_rate;  /* 0x34E */
+    u8 rep_timer; /* 0x34F */
+} Pad_181F0;
+
+/* A 12-byte small-data block (func_00227DB0 saves it whole); the byte at +4 mirrors left and
+   right. A member behind the start of the object is a two-instruction access for the
+   compiler, so it never lands in a delay slot. */
+struct PadOptions_181F0 {
+    s32 unk0;
+    u8 mirror;                /* D_0015EEB4 */
+    u8 pad5[7];
+};
+extern struct PadOptions_181F0 D_0015EEB0_181F0 __asm__("D_0015EEB0") MACRO_ADDR;
+extern Pad_181F0 D_0013CA40_181F0 __asm__("D_0013CA40");
+extern s32 func_001F98C0_181F0(s32) __asm__("func_001F98C0");
+extern float func_001F9CE8_181F0(float *) __asm__("func_001F9CE8");
+extern float func_001FA058_181F0(float, float) __asm__("func_001FA058");
+extern float func_001FA850_181F0(float, float) __asm__("func_001FA850");
+extern float func_001FA888_181F0(s32) __asm__("func_001FA888");
+
+void func_002181F0_r(Pad_181F0 *p, u8 *buf, s32 len) __asm__("func_002181F0");
+
+/* Turns one pad report into the pad's state: buttons, the four stick axes with a dead zone
+   and the twelve pressure values, the left/right mirror option, stick directions as buttons,
+   pressed/released edges, the two input-lock modes, a stick flick detector over the last
+   30 frames, and key repeat.
+   Adapted from Lombyte (MIT) for PAL: src/input/pad/process_pad_input.c, process_pad_input. */
+void func_002181F0_r(Pad_181F0 *p, u8 *buf, s32 len) {
+    float v[2];
+    s32 i, j, k;
+    s32 cur, old, ncur, nold;
+    float mag, ang;
+
+    p->raw = p->held = ((buf[0] << 8) | buf[1]) ^ 0xFFFF;
+    for (i = 15; i >= 0; i--) {
+        p->axes[i] = 0;
+    }
+    if (len >= 6) {
+        for (i = 0; i < 4; i++) {
+            s32 d = buf[i + 2] - 0x7F;
+            if (d < 0)
+                d = -d;
+            if (d >= 0x30) {
+                float f = func_001FA888_181F0(d - 0x30) / func_001FA888_181F0(0x4C);
+                p->axes[i] = f;
+                if (f > 1.0f) {
+                    p->axes[i] = 1.0f;
+                }
+                if (buf[i + 2] < 0x7F) {
+                    p->axes[i] = -p->axes[i];
+                }
+            }
+        }
+    }
+    if (len >= 0x12) {
+        for (i = 4; i < 16; i++) {
+            p->axes[i] = func_001FA888_181F0(buf[i + 2]) * 0.003921569f;
+        }
+    }
+    if (D_0015EEB0_181F0.mirror) {
+        p->axes[2] = -p->axes[2];
+        p->axes[0] = -p->axes[0];
+        if (p->held & 0x8000) {
+            p->held = (p->held & ~0x8000) | 0x2000;
+        } else if (p->held & 0x2000) {
+            p->held = (p->held & ~0x2000) | 0x8000;
+        }
+        p->raw = p->held;
+    }
+    {
+        float *dst = p->prev, *src = p->axes;
+        for (i = 15; i >= 0; i--) {
+            *dst++ = *src++;
+        }
+    }
+    if (p->axes[2] != 0.0f || p->axes[3] != 0.0f) {
+        p->moving = 1;
+    } else {
+        p->moving = 0;
+    }
+    if (p->axes[2] < 0.0f)
+        p->held |= 0x8000;
+    if (p->axes[2] > 0.0f)
+        p->held |= 0x2000;
+    if (p->axes[3] < 0.0f)
+        p->held |= 0x1000;
+    if (p->axes[3] > 0.0f)
+        p->held |= 0x4000;
+    if (D_0013CA40_181F0.x18C != 0) {
+        p->pressed = 0;
+        p->released = 0;
+    } else {
+        p->pressed = ~p->old & p->held;
+        p->released = ~p->held & p->old;
+    }
+    p->none = p->held == 0;
+    p->nodir = (p->held & 0xF000) == 0;
+    p->x1B4 = ~p->old & p->raw;
+    p->x1B8 = ~p->held & p->x1BC;
+    p->x1C4 = p->pressed;
+    p->x1C8 = p->released;
+    p->x1C0 = p->held;
+    p->x348 = p->held;
+    if (D_0015EEB0_181F0.mirror) {
+        p->prev[2] = -p->prev[2];
+        p->prev[0] = -p->prev[0];
+        if (p->x1C0 & 0x8000) {
+            p->x1C0 = (p->x1C0 & ~0x8000) | 0x2000;
+        } else if (p->x1C0 & 0x2000) {
+            p->x1C0 = (p->x1C0 & ~0x2000) | 0x8000;
+        }
+        if (p->x1C4 & 0x8000) {
+            p->x1C4 = (p->x1C4 & ~0x8000) | 0x2000;
+        } else if (p->x1C4 & 0x2000) {
+            p->x1C4 = (p->x1C4 & ~0x2000) | 0x8000;
+        }
+        if (p->x1C8 & 0x8000) {
+            p->x1C8 = (p->x1C8 & ~0x8000) | 0x2000;
+        } else if (p->x1C8 & 0x2000) {
+            p->x1C8 = (p->x1C8 & ~0x2000) | 0x8000;
+        }
+    }
+    if (p->mode == 1) {
+        p->held &= ~0x5030;
+        p->pressed &= ~0x5030;
+        p->released &= ~0x5030;
+        p->axes[0] = 0.0f;
+        p->axes[1] = 0.0f;
+        p->mode = 0;
+    }
+    if (p->mode == 2) {
+        p->held &= 0x900;
+        p->pressed &= 0x900;
+        p->released &= 0x900;
+        p->raw &= 0x900;
+        p->nodir = 1;
+        p->axes[2] = 0.0f;
+        p->axes[3] = 0.0f;
+        p->mode = 0;
+    }
+    v[0] = p->axes[2];
+    v[1] = p->axes[3];
+    mag = func_001F9CE8_181F0(v);
+    ang = func_001FA058_181F0(v[0], v[1]);
+    p->hist_mag[p->idx] = mag;
+    p->hist_ang[p->idx] = ang;
+    if (mag > 0.9f) {
+        for (j = 1; j < func_001F98C0_181F0(4); j++) {
+            float m = p->hist_mag[(p->idx - j + 30) % 30];
+            if (m > 0.9f)
+                break;
+            if (m < 0.25f) {
+                p->pressed |= 0x10000;
+                break;
+            }
+        }
+        if (!(p->pressed & 0x10000)) {
+            for (k = 1; k < func_001F98C0_181F0(5); k++) {
+                if (func_001FA850_181F0(p->hist_ang[(p->idx - k + 30) % 30], ang) >
+                    0.9599311f) {
+                    p->pressed |= 0x10000;
+                    break;
+                }
+            }
+        }
+    }
+    p->hist_btn[p->idx] = p->pressed;
+    p->idx = (p->idx + 1) % 30;
+    if (++p->count > 30) {
+        p->count = 30;
+    }
+    if (p->rep_rate) {
+        cur = p->held;
+        if (cur != 0 && cur == p->old) {
+            u8 t = --p->rep_timer;
+            if (0 == t || t == 0xFF) {
+                p->rep_timer = p->rep_rate;
+                p->pressed = cur;
+            }
+        } else {
+            p->rep_timer = p->rep_delay;
+        }
+    }
+}
 
 extern void func_00217F68(void *);
 

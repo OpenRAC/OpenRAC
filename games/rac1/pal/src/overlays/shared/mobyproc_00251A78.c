@@ -58,7 +58,7 @@ void func_L00_002584A8(unsigned char *m, int flags, int arg) {
     unsigned char *g;
 
     amt = *(short *)(m + 0xB4);
-    func_001E9730(D_L00_001E9280, *(short *)(m + 0xA6), *(short *)(m + 0xB2), *(short *)(m + 0xB4), *(short *)(m + 0xB6));
+    STUB_printf(D_L00_001E9280, *(short *)(m + 0xA6), *(short *)(m + 0xB2), *(short *)(m + 0xB4), *(short *)(m + 0xB6));
     if (m[0xB1] == 0xFE) {
         return;
     }
@@ -86,7 +86,7 @@ void func_L00_002584A8(unsigned char *m, int flags, int arg) {
         if (amt < 1.0f) {
             amt = 1.0f;
         }
-        func_001E9730(D_L00_001E92A8, func_001FA898(amt));
+        STUB_printf(D_L00_001E92A8, truncate_float_to_s32(amt));
     }
     f = 1;
     if (flags & 0x100) {
@@ -95,7 +95,7 @@ void func_L00_002584A8(unsigned char *m, int flags, int arg) {
     if (D_0013F450.b20B2 || (flags & 0x200)) {
         f |= 2;
     }
-    if (D_0013F450.i2084 == 0x10 && func_001F9D10(D_0013F450.v80, m + 0x10) < 4.0f) {
+    if (D_0013F450.i2084 == 0x10 && FastVecDist(D_0013F450.v80, m + 0x10) < 4.0f) {
         f |= 2;
     }
     cnt = D_L00_0016007C;
@@ -114,12 +114,12 @@ void func_L00_002584A8(unsigned char *m, int flags, int arg) {
     if (amt > 0.0f) {
         r = 0;
         if (amt >= 8.0f) {
-            r = func_001FA898(amt * 0.25f);
+            r = truncate_float_to_s32(amt * 0.25f);
         } else if (amt >= 2.0f) {
             r = 1;
         }
         {
-        int n2 = func_001FA898(amt);
+        int n2 = truncate_float_to_s32(amt);
         int hi = n2 + r;
         n2 -= r;
         func_L00_00261B00(m, n2, hi, f, arg);

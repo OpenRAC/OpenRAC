@@ -175,7 +175,7 @@ void func_00201E88(void) {
     } while (func_0011D248(D_001E7E10) == 0);
     do {
     } while (func_0011D210() == 0);
-    func_001E9730(D_0015FB40);
+    STUB_printf(D_0015FB40);
     func_00118D60(3);
     func_0011AE20(0);
     func_0011D960();
@@ -193,9 +193,9 @@ void func_00201E88(void) {
     func_00209A60(buf);
 
     func_00121B78(0, 1, (D_0015EE80 != 0) ? 3 : 2, 0);
-    func_0020C268();
-    func_001F3890();
-    func_002347F0(&D_0010E4C0);
+    InitDma();
+    SetPalMode();
+    VU0_loadMicroProgram(&D_0010E4C0);
     func_0012F3F8();
 
     base = (int)D_0024272F & 0xFFFFC000;
@@ -205,40 +205,40 @@ void func_00201E88(void) {
     func_00118D80(0);
     func_0020C468(seg, tbl);
     func_00118D80(0);
-    func_00201D58((void *)(tbl[0x1C] + (int)tbl), (void *)(int)tbl[0x1D]);
-    func_00201D58((void *)(tbl[0x1E] + (int)tbl), (void *)(int)tbl[0x1F]);
-    func_00201D58((void *)(tbl[0x20] + (int)tbl), (void *)(int)tbl[0x21]);
-    func_00201D58((void *)(tbl[0x22] + (int)tbl), (void *)(int)tbl[0x23]);
-    func_00201D58((void *)(tbl[0x24] + (int)tbl), (void *)(int)tbl[0x25]);
-    func_00201D58((void *)(tbl[0x26] + (int)tbl), (void *)(int)tbl[0x27]);
-    func_00201D58((void *)(tbl[0x26] + (int)tbl), (void *)(int)tbl[0x27]);
-    func_00201D58((void *)(tbl[0x2A] + (int)tbl), (void *)(int)tbl[0x2B]);
-    func_00201D58((void *)(tbl[0x2C] + (int)tbl), (void *)(int)tbl[0x2D]);
-    func_00201D58((void *)(tbl[0x28] + (int)tbl), (void *)(int)tbl[0x29]);
+    LoadIRXModule((void *)(tbl[0x1C] + (int)tbl), (void *)(int)tbl[0x1D]);
+    LoadIRXModule((void *)(tbl[0x1E] + (int)tbl), (void *)(int)tbl[0x1F]);
+    LoadIRXModule((void *)(tbl[0x20] + (int)tbl), (void *)(int)tbl[0x21]);
+    LoadIRXModule((void *)(tbl[0x22] + (int)tbl), (void *)(int)tbl[0x23]);
+    LoadIRXModule((void *)(tbl[0x24] + (int)tbl), (void *)(int)tbl[0x25]);
+    LoadIRXModule((void *)(tbl[0x26] + (int)tbl), (void *)(int)tbl[0x27]);
+    LoadIRXModule((void *)(tbl[0x26] + (int)tbl), (void *)(int)tbl[0x27]);
+    LoadIRXModule((void *)(tbl[0x2A] + (int)tbl), (void *)(int)tbl[0x2B]);
+    LoadIRXModule((void *)(tbl[0x2C] + (int)tbl), (void *)(int)tbl[0x2D]);
+    LoadIRXModule((void *)(tbl[0x28] + (int)tbl), (void *)(int)tbl[0x29]);
 
-    func_001E9730(D_001E7E28);
+    STUB_printf(D_001E7E28);
     func_00121490(0);
     func_00217EE8();
     func_00123168(func_0012F308);
     D_0016100C = 0x160000;
-    func_00201E10();
+    InitMemSlots();
     func_00121490(0);
-    func_0020BAA8();
-    func_001F3008();
-    func_001F3140();
-    func_002348E8();
+    memcard_Init();
+    InitViewContext();
+    UpdateViewContext();
+    VU1_initChain();
     func_00121490(0);
     func_0022DBE8();
-    func_001F99B0(D_001942C0, 0x80808080, 0x100);
+    FastMemSet(D_001942C0, 0x80808080, 0x100);
     func_00122630(buf, 0x3FFB, 1, 0, 0, 0, 8, 8);
     func_00118D80(0);
     func_00122958(buf, D_001942C0);
     func_00120858(0, 0);
-    func_001E96B8();
+    LoadDebugFont();
     *(volatile int *)0x10000810 = 0x82;
     *(volatile int *)0x10000800 = 0;
-    func_00233FF8();
-    func_001F7BF8();
+    initialize_sif_rpc();
+    buildBitSwapLut();
 
     lang = func_0012D380();
     switch (lang) {
@@ -255,7 +255,7 @@ void func_00201E88(void) {
         D_0015EE88 = 5;
         return;
     default:
-        func_001E9730(D_001E7E40, lang);
+        STUB_printf(D_001E7E40, lang);
         /* fallthrough */
     case 1:
         D_0015EE88 = 0;

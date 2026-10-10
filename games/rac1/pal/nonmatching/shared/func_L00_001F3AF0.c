@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 620 / retail 624, checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   func_L00_001F3AF0: appends a line of font glyph quads (x, y, color, string) to the packet buffer D_L00_0016128
  *   p8.c (620 vs 624) has the same instruction sequence as retail: loop body, constants, stores all match in order

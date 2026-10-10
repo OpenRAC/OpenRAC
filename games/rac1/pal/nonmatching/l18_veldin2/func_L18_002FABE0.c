@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 784 / retail 792, checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   MACRO_ADDR the prologue/ML hoisting matches retail exactly, BUT tools/ps2eeas_nops.py refuses ("object has 0 m
  *   source `li.s $f0,-0.15 ; $L5: s.s $f0,D_1625E8` counts as an li.s read site, while in the object a macro `lui 
@@ -16,7 +17,6 @@
 typedef struct { char pad[0x30]; int st; unsigned int n; } ML2;
 extern ML2 D_L18_0016D2E0_b __asm__("D_L18_0016D2E0");
 extern int func_001F9850(int);
-extern int func_001F4868(int);
 extern void func_00234C98(int, long);
 extern void func_001F9EC0(void *, void *, void *);
 extern void func_001F9BD8(void *, void *, void *);
@@ -31,7 +31,6 @@ extern int D_L18_001625E4 MACRO_ADDR;
 extern float D_L18_001625E8;
 extern float D_L18_001625EC MACRO_ADDR;
 extern char D_L18_00167A50[];
-extern char D_L18_001DFE50[];
 extern float D_L18_001625B0 MACRO_ADDR;
 extern short D_L18_00162528;
 extern short D_L18_00162588;

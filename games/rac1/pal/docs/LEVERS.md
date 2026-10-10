@@ -46,7 +46,12 @@ go in `$f12`, `$f13`, `$f14`... `long` is 64-bit, `long long` 128-bit.
   the function with another type (boilerplate like
   `extern int func_X(void *);`, or a `void (void)` update-pointer type),
   define it as `T name(args) __asm__("func_X")` and say so in NOTES.md;
-  the file's prototype gets fixed when it lands.
+  the file's prototype gets fixed when it lands. When fixing it would
+  change the callers (a callback type, another parameter order that
+  matched code relies on), the definition may stay under the alias,
+  named `func_X_r`: `T func_X_r(args) __asm__("func_X");` on one line,
+  then `T func_X_r(args) { ... }`. The report, the file check and
+  `tools/apply_candidate.py` read a definition of `func_X_r` as `func_X`.
 - `CONTEXT.md` is written when the wave is planned. A neighbour may have
   landed since: check the file for declarations it doesn't list.
 - Read the note above a stub, but don't trust it: many were wrong.
@@ -164,7 +169,8 @@ in `config/core_rodata.txt`).
 11. **Orphan `%hi`.** When loop optimisation hoists a global's `lui`
     and never pairs it with a `%lo` (retail does this too, e.g. a `%hi`
     copied to a saved register nothing reads), our linker fills that
-    `lui` wrongly while try_func, which masks relocations, says `EXACT`.
+    `lui` wrongly while try_func, which cannot resolve an unpaired `%hi`
+    and masks it, says `EXACT`.
     `tools/fix_orphan_hi.py` (run by the build and try_func) writes such
     a `%hi` of a `D_`/`func_` symbol as a constant, so this is handled;
     if the full build still disagrees on one `lui`, look here first.
@@ -221,6 +227,60 @@ in `config/core_rodata.txt`).
       them with a file-scope `__asm__(".section .text\n\tnop...")`
       (func_0022F258), or the whole segment shifts.
 
+13. **From rac3-uya-decomp** (the same compiler family, working with
+    us): [RAC3_PATTERNS.md](RAC3_PATTERNS.md) has what carries over:
+    int/float order in prototypes, arguments retail never sets, float
+    constants and gcse, loop constants, stack slot order, switch tables,
+    cross-jumping. For a register tie, `bash tools/docker/run.sh python
+    tools/regalloc.py func_X CANDIDATE.c` prints the allocator's order and
+    priorities: change what outranks or overlaps the variable.
+
+14. **Address copies are the compiler's.** When retail copies an address
+    into a second register (`addiu $s2,$s0,0x10` ... `move $a0,$s2`), do
+    not answer with a pointer local (`float *pos = moby + 0x10;`): it
+    makes another pseudo and other registers. Global CSE inserts the
+    computation where every path needs it and a later pass turns it into
+    the copy. Write the address out at every use (`moby + 0x10`,
+    `&d->v30`, `TABLE[d->idx].field`, `d->slots[i]->field`) and drop the
+    pointer locals. Nine near misses out of nine matched on this
+    (2026-10-09). With it:
+    - The first local in the frame is never kept in a register; every
+      other stack address is, once it has been passed to a call.
+    - In a loop with calls, an invariant used once stays in the loop;
+      used twice it is hoisted (`Rec *t = TABLE;` inside the loop, used
+      twice, when retail holds the table in a saved register).
+    - A constant address is derived from a register that already holds
+      the same symbol at another offset: a block-local `h = HERO;` after
+      the call that takes `D_0013E633 + 0xE9D`. A struct symbol folds the
+      member offsets into the symbol instead.
+    - A tail retail has once after two arms is often written in both:
+      the extra references decide who gets the saved register, and
+      cross-jumping merges the copies.
+    - An 8-byte block copied with `ldl`/`ldr`/`sdl`/`sdr` is a struct of
+      two ints copied by assignment.
+
+15. **How an address is spelled.** Twenty near misses matched on this
+    alone (2026-10-09), no statement changed:
+    - A struct symbol folds the member offset into the symbol
+      (`%hi(sym+off)`). Where retail keeps the base in a register and
+      the offsets in the accesses, write `((T *)D_sym)->field` at every
+      use with `D_sym` a `char []` alias. Choose per block of data.
+    - Separate blocks get separate symbols (`D_0013F450` hero,
+      `D_0013E650` voice slots, `D_0013CA40` pad, `D_0013F4D0` hero
+      position). As offsets of one symbol, CSE derives one address from
+      the other (`addiu $a0,$s0,-0xE00`), which moves registers, can stop
+      a cross-jump and move a delay slot.
+    - On a `MACRO_ADDR` symbol, symbol+offset counts as two instructions
+      and never fills a delay slot; the bare symbol counts as one and
+      can. A `float[4] MACRO_ADDR` with stores to `[3]` and `[2]` keeps
+      both out of the slot.
+    - A plain extern pointer (no `MACRO_ADDR`) where retail has
+      `beqz` / `lui` in the slot / `lw` on one register.
+    - `extern short X_n __asm__("X");` is not private: it writes
+      `.extern X, 2`, and the assembler goes by the last `.extern` it
+      reads, so the file's `lui` accesses to X can turn `$gp`-relative.
+      Use `SDATA(X)` with the real type (lever 2).
+
 ## Known walls: stop and report
 
 No plain-C wording has reached these. Name the one you hit in NOTES.md
@@ -261,6 +321,15 @@ and stop, rather than spending the budget on it:
   wrong callee or global fails here.
 - Don't build the executable to check one: it doesn't include
   `src/overlays/`.
+- A candidate that is exact alone and does not compile in its file, or
+  changes a neighbour's size there, clashes with the file's declarations:
+  the same type name defined twice, a callee with another prototype, or a
+  global the file reaches another way (a plain `extern short X;` makes X
+  a `$gp` symbol for the whole file). `python3 tools/privatize.py IN.c
+  OUT.c <address> --func <FUNC>` gives every type, callee and global of
+  the candidate a name of its own, statements untouched; then check the
+  whole file (`tools/overlay_file_check.py`). Forty-odd candidates landed
+  that way on 2026-10-09.
 
 ## What to hand back
 

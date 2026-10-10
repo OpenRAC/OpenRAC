@@ -61,7 +61,54 @@ void func_L01_00276680(char *vec, float scale)
     func_001F9C48(scratch, vec, 0.0009765625f);
     FastBSphereCheck(scratch, scale);
 }
-INCLUDE_ASM("asm/overlays", func_L01_00277A38);
+extern void func_001F9BF0(void *dst, void *a, void *b);
+extern void func_001F9CA0(void *, void *, void *);
+extern void func_L00_001FF4B0(void *, void *, float);
+extern void func_001F9BD8(void *, void *, void *);
+extern int func_L00_002629E0(int, void *, void *);
+extern char *D_L01_001B0C30[];
+typedef int u128 __attribute__((mode(TI)));
+
+// Returns a bitmask of the table's spheres that no listed object touches, testing swept offsets.
+int func_L01_00277A38(int *objs, int n, int idx, float f, float *pos)
+{
+    char *t = D_L01_001B0C30[idx];
+    int mask = 0;
+    int k;
+    int j;
+    int found;
+    float v[4];
+    float w1[4];
+    float w2[4];
+    float zv[4];
+
+    float fz = f;
+    for (k = 0; k < *(int *)t; k++) {
+        found = 0;
+        for (j = 0; j < n; j++) {
+            if (fz != 0.0f) {
+                char *e = t + (k * 16 + 0x10);
+                *(u128 *)zv = 0;
+                zv[2] = 1.0f;
+                FastVecSub(v, pos, e);
+                FastVecCross(v, v, zv);
+                func_L00_001FF4B0(v, v, fz);
+                FastVecSub(w1, pos, v);
+                FastVecAdd(w2, pos, v);
+                if (func_L00_002629E0(objs[j], w1, e) != 0) {
+                    found = 1;
+                } else if (func_L00_002629E0(objs[j], w2, e) != 0) {
+                    found = 1;
+                }
+            } else {
+                if (func_L00_002629E0(objs[j], pos, t + (k * 16 + 0x10)) != 0) found = 1;
+            }
+            if (found) break;
+        }
+        if (!found) mask |= 1 << k;
+    }
+    return mask;
+}
 extern char *D_L01_001B0C30[];
 
 // Expands a bit mask through a table of per-bit masks until it meets another mask.

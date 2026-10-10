@@ -29,13 +29,13 @@ extern void func_L00_0028C478(void);
 extern void b8f8_a(void) __asm__("func_L00_0028B8F8");
 extern void b8f8_b(void) __asm__("func_L00_0028B8F8");
 void func_L00_0023E300(void) {
-    func_0022C7E0();
+    SetupSkyGifPaging();
     switch (D_0015EE84_m) {
     case 0:
         func_L00_0028A608();
         break;
     case 1:
-        func_L00_0028A6F8();
+        UpdateSkyShellsAnimated();
         break;
     case 2:
         func_L00_0028A878();
@@ -92,12 +92,12 @@ void func_L00_0023E300(void) {
         func_L00_0028C478();
         break;
     default:
-        func_L00_0028A5A8();
+        UpdateSkyShellsStatic();
         break;
     }
-    func_0022C870();
-    func_00234C98(0x47, 0x5360B);
-    func_00234C98(0x4E, 0x1000000 | (D_0015EF88 >> 13));
+    DoSkyGifPaging();
+    VU1_addGSregister(0x47, 0x5360B);
+    VU1_addGSregister(0x4E, 0x1000000 | (D_0015EF88 >> 13));
 }
 typedef struct {
     u8 pad0[0x34];
@@ -155,7 +155,7 @@ void func_L00_0023EC00(void) {
     if (D_0015EE84_m == 0) {
         for (i = 0; i < D_L00_0016C960.count; i++) {
             if (D_L00_0016C960.mobys[i]->oClass == 0x212) {
-                func_001F49B0((void *)func_00233AB8, (void *)D_L00_0016C960.mobys[i]);
+                AddDrawCallback((void *)func_00233AB8, (void *)D_L00_0016C960.mobys[i]);
             }
         }
     }
@@ -167,30 +167,30 @@ void func_L00_0023EC00(void) {
             }
         }
     }
-    if (D_0015EE84_m == 3 && D_L00_0016C960.state == 5 && func_001F9850(900) < D_L00_0016C960.timer
-        && D_L00_0016C960.timer < func_001F9850(1100)) {
+    if (D_0015EE84_m == 3 && D_L00_0016C960.state == 5 && scale_ticks(900) < D_L00_0016C960.timer
+        && D_L00_0016C960.timer < scale_ticks(1100)) {
         src = D_L00_0016C960.unk184;
         if (src != 0) {
             for (n = 0; n < 4; n++) {
-                func_001F9BC0(v);
+                clear_u64_value(v);
                 func_L00_00250800(src, n % 2, buf);
-                a = func_00214158();
-                b = func_00214158();
-                func_00215C00(v, func_002140F8(D_0015EE6C * 0.7f, D_0015EE6C * 2.2f), a, b);
-                r = func_001F9850(0xC);
-                func_L00_0026DD70(buf, v, 0x80808080, 0x808080, func_L00_00258BC8(r, func_001F9850(0x23)), 147000.0f);
+                a = random_angle_radians();
+                b = random_angle_radians();
+                func_00215C00(v, random_float_between(D_0015EE6C * 0.7f, D_0015EE6C * 2.2f), a, b);
+                r = scale_ticks(0xC);
+                func_L00_0026DD70(buf, v, 0x80808080, 0x808080, rand_range(r, scale_ticks(0x23)), 147000.0f);
             }
         }
     }
     if (D_0015EE84_m == 7 && D_L00_0016C960.state == 4 && D_L00_0016C960.unk188 != 0
         && D_L00_0016C960.unk188->oClass == 0x214) {
-        func_001F49B0((void *)func_00233AB8, (void *)D_L00_0016C960.unk188);
+        AddDrawCallback((void *)func_00233AB8, (void *)D_L00_0016C960.unk188);
     }
     if (D_0015EE84_m == 14 && D_L00_0016C960.state == 0) {
         m = D_L00_0016C960.unk17C;
         if (m != 0 && (u32)(D_L00_0016C960.timer - 0x1C) < 6) {
             func_L00_0023E9A0(m);
-            func_001F49B0((void *)func_L00_0023E4C8, (void *)m);
+            AddDrawCallback((void *)func_L00_0023E4C8, (void *)m);
         }
     }
     if (D_0015EE84_m == 15 && (u32)(D_L00_0016C960.state - 3) < 2) {

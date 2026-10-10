@@ -6,7 +6,7 @@ extern int D_L00_001CA7C0[];
 extern unsigned char D_L00_00197F4C NOT_SDA;
 extern char *D_L00_00197680[] NOT_SDA;
 extern void func_00118D80(int);
-extern void func_0020C468(int, int);
+extern int func_0020C468(int, int);
 extern void func_00203B18(char *arg0, int idx);
 
 // load a table of 16 offsets relative to the base pointer and register each entry
@@ -69,10 +69,10 @@ void func_L00_0029BED8(int a) {
     func_L00_00233950();
     if (*(int *)(g + 0x40) == 0) {
         func_001F9EC0(&v, &D_L00_00161130, *(char **)(g + 0x1C) + 0xC0);
-        func_001F9BD8(&v, &v, *(char **)(g + 0x1C) + 0x10);
+        FastVecAdd(&v, &v, *(char **)(g + 0x1C) + 0x10);
         r.x = 0.0f;
         r.y = 0.0f;
-        r.z = func_001FA748(*(float *)(*(char **)(g + 0x1C) + 0x48), 3.1415927f);
+        r.z = FastAddRots(*(float *)(*(char **)(g + 0x1C) + 0x48), 3.1415927f);
         if (a == 0) {
             func_L00_00217718(&v, &r, 0, 0);
             func_L00_002EC0C8(2);
@@ -85,10 +85,10 @@ void func_L00_0029BED8(int a) {
         char *q = (char *)D_0014171B + 0x100B5;
         *(*(char **)(h + 0x1C) + 0x20) = 1;
         if ((unsigned short)(*(unsigned short *)(q + 0x5A) - 6) >= 2) *(short *)(q + 0x5A) = 5;
-        if (*(int *)(h + 0x40)) func_0020D678(*(void **)(h + 0x1C));
+        if (*(int *)(h + 0x40)) DeleteMoby(*(void **)(h + 0x1C));
     }
     func_0012E558(0x1D);
-    func_00216F28();
+    music_Unpause();
     func_0012DDC0();
 }
 INCLUDE_ASM("asm/overlays", func_L00_0029C070);

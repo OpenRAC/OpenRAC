@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L18_002FB318 -- src/overlays/l18_veldin2/vendor_002F9D48.c
- * Best so far: SIZE ours 904 / retail 920, checked 2026-10-03.
+ * Best so far: SIZE ours 904 / retail 920, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -16,7 +16,6 @@
 typedef struct {
     float v[4];
 } __attribute__((aligned(16))) QVb318;
-extern int func_001F4868(int);
 extern void func_00234C98(int, long);
 extern void func_001F9EC0(void *, void *, void *);
 extern void func_001F9BD8(void *, void *, void *);
@@ -25,8 +24,6 @@ extern void func_001F9CA0(void *, void *, void *);
 extern void func_L00_001FF4B0(void *, void *, float);
 extern void func_001F9EE8(void *, void *, void *);
 extern void func_L00_001FD1D8(void *, void *, int);
-extern float D_L18_00167840[];
-extern QVb318 D_L18_001625F0;
 extern QVb318 D_L18_001DFE90[];
 extern float D_L18_001625BC;
 extern short D_L18_00162594;

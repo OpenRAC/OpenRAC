@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L18_002FDCC4 -- src/overlays/l18_veldin2/vendor_002F9D48.c
- * Best so far: SIZE ours 88 / retail 92, checked 2026-10-03.
+ * Best so far: SIZE ours 88 / retail 92, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -7,7 +7,6 @@
  *   Closest: p1/p5 (100 bytes vs 92): shape matches (bnel, same branches) but gcc strength-reduces the (short) n i
  *   Short param, K&R short param, int param with cast, short temp all give the hoisted form; something stops loop.
  */
-extern char *D_L18_00160058;
 
 // Counts mobys of class 0x772 not in state 8 along a list ended by a negative id.
 int func_L18_002FDCC4(int a, unsigned short *list, int b, int n) {

@@ -2,7 +2,48 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L15_0025F0A0);
+typedef struct { char pad[0x10]; float pos[4]; } Owner5F0A0;
+typedef union { int bits __attribute__((mode(TI))); float v[4]; } ParticleVector5F0A0;
+typedef struct { unsigned char pad; unsigned char flags; unsigned char pad1; unsigned char type; int color; unsigned char frame; unsigned char alpha; short life; int rgb; ParticleVector5F0A0 pos; ParticleVector5F0A0 velocity; Owner5F0A0 *owner; } Particle5F0A0;
+typedef int u128 __attribute__((mode(TI)));
+extern unsigned char *func_00218928(int);
+extern int func_001FA898_r(float) __asm__("func_001FA898");
+extern void func_001F9BF0(void *dst, void *a, void *b);
+extern void func_001F9C30(void *, void *, float);
+extern void func_001F9BD8(void *, void *, void *);
+extern int func_001F9850(int);
+extern int D_L15_0016027C SDATA(D_L15_0016027C);
+
+// spawns a particle at a position offset from a moby
+void func_L15_0025F0A0(int a0, void *a1, char *a2) {
+    struct { u128 pos, s, d; } scratch;
+    Particle5F0A0 *p;
+    Owner5F0A0 *owner = (Owner5F0A0 *)a2;
+    scratch.pos = *(u128 *)a1;
+    p = (Particle5F0A0 *)func_00218928(0x1F);
+    if (p != 0) {
+        u128 *dp = &scratch.d;
+        float *q = owner->pos;
+        FastVecSub(dp, &scratch.pos, q);
+        scratch.s = scratch.d;
+        {
+        u128 *sp = &scratch.s;
+        FastVecScale(sp, sp, 0.25f);
+        FastVecAdd(dp, q, sp);
+        p->pos.bits = scratch.d;
+        p->velocity.bits = scratch.pos;
+        p->color = a0;
+        p->rgb = a0 & 0xFFFFFF;
+        p->alpha = func_001FA898_r(4.0f) + 0x70;
+        p->type = 0x44;
+        p->flags = 2;
+        {
+            p->life = scale_ticks(D_L15_0016027C);
+            p->owner = owner;
+        }
+        }
+    }
+}
 extern int *D_L15_001B2A70;
 extern unsigned char *func_00218928(int);
 extern int func_001FA898_r(float) __asm__("func_001FA898");

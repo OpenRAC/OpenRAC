@@ -31,18 +31,18 @@ void func_L00_0028A198(int a, int b) {
             e->f1C = 0.16f;
         } else {
             e->b0 = 1;
-            e->hC = func_002140B0(0x100);
+            e->hC = random_integer_below(0x100);
             e->b2 = (func_001160D8() >> 16) & 1;
             e->b3 = 0x48;
-            e->f8 = func_00214158();
-            e->f1C = func_001FA888(func_002140B0(0x30) + 0x20) * 0.00390625f;
-            x = func_00214158();
-            y = func_00214158();
-            e->f10 = func_001F9F90(x) * func_001F9FA8(y) * 50.0f;
-            e->f14 = func_001F9FA8(x) * func_001F9FA8(y) * 50.0f;
-            e->f18 = func_001F9F90(y) * func_001F9F90(y) * 36.0f + 16.0f;
-            t = func_002140B0(0x18);
-            u = func_002140B0(0x20) << 24;
+            e->f8 = random_angle_radians();
+            e->f1C = func_001FA888(random_integer_below(0x30) + 0x20) * 0.00390625f;
+            x = random_angle_radians();
+            y = random_angle_radians();
+            e->f10 = FastCos(x) * FastSin(y) * 50.0f;
+            e->f14 = FastSin(x) * FastSin(y) * 50.0f;
+            e->f18 = FastCos(y) * FastCos(y) * 36.0f + 16.0f;
+            t = random_integer_below(0x18);
+            u = random_integer_below(0x20) << 24;
             if ((func_001160D8() >> 16) & 1) {
                 c = t << 16;
                 c += 0x30505050;
@@ -92,9 +92,9 @@ void func_L00_0028A3E0(void) {
             h[1]++;
             a = func_001FA888((e->hC & 0xFFF) - 0x800) * 0.0015339808f;
             b = func_001FA888((h[1] & 0xFFF) - 0x800) * 0.0015339808f;
-            e->f10 = func_001F9F90(a) * func_001F9FA8(b) * 50.0f;
-            e->f14 = func_001F9FA8(a) * func_001F9FA8(b) * 50.0f;
-            e->f18 = func_001F9B88(func_001F9F90(b)) * 50.0f;
+            e->f10 = FastCos(a) * FastSin(b) * 50.0f;
+            e->f14 = FastSin(a) * FastSin(b) * 50.0f;
+            e->f18 = FastAbsF(FastCos(b)) * 50.0f;
             if ((e->hC & 0x3F) < 8) {
                 e->w4 = 0x702020F0;
             } else {
@@ -138,7 +138,7 @@ void func_L00_0028A6F8(void) {
  case 4: v[2]=(unsigned short)D_L00_0015F6B0*0.000095873800f-3.14159265f; func_L00_001FFA40(D_L00_001BDB70,v); break;
  default:func_001FA190(D_L00_001BDB70);
  }
- func_0022C9A8(i);
+ SkyDrawShell(i);
  }
 }
 extern void func_0022CEB8(void);
@@ -175,8 +175,8 @@ void func_L00_0028A878(void) {
     int t16, t18, r;
     SKY->s4 = 0;
     func_001FA190(D_L00_001BDB70);
-    func_0022C9A8(0);
-    func_0022C9A8(1);
+    SkyDrawShell(0);
+    SkyDrawShell(1);
     if (SKY->count == 0) {
         SKY->count = 0x100;
         for (i = 0; i < SKY->count; i++) {
@@ -192,21 +192,21 @@ void func_L00_0028A878(void) {
                 s->f1C = 0.16f;
             } else {
                 s->type = 3;
-                s->c.h.a = func_002140B0(0x100);
+                s->c.h.a = random_integer_below(0x100);
                 {
                     int q = func_001160D8() >> 16;
                     s->b3 = 0x48;
                     s->b2 = (q & 1) + 2;
                 }
-                s->f8 = func_00214158();
-                s->f1C = func_001FA888(func_002140B0(0x30) + 0x20) * (1.0f / 256.0f);
-                a = func_00214158();
-                b = func_00214158();
-                s->x = func_001F9F90(a) * func_001F9FA8(b) * 50.0f;
-                s->y = func_001F9FA8(a) * func_001F9FA8(b) * 50.0f;
-                s->z = func_001F9F90(b) * func_001F9F90(b) * 36.0f + 16.0f;
-                t16 = func_002140B0(0x18);
-                t18 = func_002140B0(0x20) << 24;
+                s->f8 = random_angle_radians();
+                s->f1C = func_001FA888(random_integer_below(0x30) + 0x20) * (1.0f / 256.0f);
+                a = random_angle_radians();
+                b = random_angle_radians();
+                s->x = FastCos(a) * FastSin(b) * 50.0f;
+                s->y = FastSin(a) * FastSin(b) * 50.0f;
+                s->z = FastCos(b) * FastCos(b) * 36.0f + 16.0f;
+                t16 = random_integer_below(0x18);
+                t18 = random_integer_below(0x20) << 24;
                 {
                     u32 u, w;
                     if ((func_001160D8() >> 16) & 1) { u = (t16 << 16) + 0x30505050; w = t18 + u; }
@@ -224,9 +224,9 @@ void func_L00_0028A878(void) {
             h[1]++;
             a = func_001FA888((s->c.h.a & 0xFFF) - 0x800) * 0.0015339808f;
             b = func_001FA888((h[1] & 0xFFF) - 0x800) * 0.0015339808f;
-            s->x = func_001F9F90(a) * func_001F9FA8(b) * 50.0f;
-            s->y = func_001F9FA8(a) * func_001F9FA8(b) * 50.0f;
-            s->z = func_001F9B88(func_001F9F90(b)) * 50.0f;
+            s->x = FastCos(a) * FastSin(b) * 50.0f;
+            s->y = FastSin(a) * FastSin(b) * 50.0f;
+            s->z = FastAbsF(FastCos(b)) * 50.0f;
             if ((s->c.h.a & 0x3F) < 8) s->color = 0x702020F0;
             else s->color = 0x202020F0;
         } else if (s->type == 3) {
@@ -234,10 +234,10 @@ void func_L00_0028A878(void) {
             { u32 u = ((r & 0x1F00) << 10) + 0xFFDFDFE0; u32 c = s->c.w + u; c += (r & 0x1F0) << 6; c += (r & 0x1F) << 2; s->color = c; }
         }
     }
-    func_0022CEB8();
-    func_00234C98(0x42, 0x8000000044L);
-    func_0022C9A8(2);
-    func_0022C9A8(3);
+    SkySpriteProc();
+    VU1_addGSregister(0x42, 0x8000000044L);
+    SkyDrawShell(2);
+    SkyDrawShell(3);
 }
 extern int D_L00_0015F6B0 MACRO_ADDR;
 void func_L00_001FFA40(void *,void *);
@@ -246,14 +246,14 @@ void func_L00_0028AC80(void) {
  float v[4] __attribute__((aligned(16)));
  *(short *)(D_L00_001605DC+4)=0;
  func_001FA190(D_L00_001BDB70);
- func_0022C9A8(0);
+ SkyDrawShell(0);
  qzero(v);
  v[2]=(unsigned short)D_L00_0015F6B0*0.000095873800f-3.14159265f;
  func_L00_001FFA40(D_L00_001BDB70,v);
- func_0022C9A8(1);
+ SkyDrawShell(1);
  v[2]=(D_L00_0015F6B0&0x1ffff)*0.000047936900f-3.14159265f;
  func_L00_001FFA40(D_L00_001BDB70,v);
- func_0022C9A8(2);
+ SkyDrawShell(2);
 }
 extern void func_L00_001FFA40(void *,void *);
 /* draws sky shells with two animated rotation offsets */
@@ -267,7 +267,7 @@ void func_L00_0028AD68(void) {
  func_L00_001FFA40(D_L00_001BDB70,v); break;
  default: func_001FA190(D_L00_001BDB70); break;
  }
- func_0022C9A8(i);
+ SkyDrawShell(i);
  }
 }
 void func_L00_0028A198(s32 a, s32 b);
@@ -285,15 +285,15 @@ void func_L00_001FFA40(void *, void *);
 void func_L00_0028AEB0(void) {
     float v[4] __attribute__((aligned(16)));
     func_001FA190(D_L00_001BDB70);
-    func_0022C9A8(0);
+    SkyDrawShell(0);
     if (*(short *)(D_L00_001605DC + 8) == 0) func_L00_0028A198(0x78, 8);
     func_L00_0028A3E0();
-    func_0022CEB8();
-    func_00234C98(0x42, (0x8000L << 24) | 0x44);
+    SkySpriteProc();
+    VU1_addGSregister(0x42, (0x8000L << 24) | 0x44);
     qzero(v);
     v[2] = (D_L00_0015F6B0 % 50000) * 0.000125663704f - 3.14159265f;
     func_L00_001FFA40(D_L00_001BDB70, v);
-    func_0022C9A8(1);
+    SkyDrawShell(1);
 }
 typedef union {
     struct { s16 h0; s16 h2; } h;
@@ -354,7 +354,7 @@ void func_L00_0028AF90(void) {
 
     D_L00_001605DC_8AF90->h4 = 0;
     func_001FA190(D_L00_001BDB70_8AF90);
-    func_0022C9A8(0);
+    SkyDrawShell(0);
     if (D_L00_001605DC_8AF90->count == 0) {
         D_L00_001605DC_8AF90->count = 0x100;
         for (i = 0; i < D_L00_001605DC_8AF90->count; i++) {
@@ -374,7 +374,7 @@ void func_L00_0028AF90(void) {
                 k = r >> 1;
                 p->b3 = 0x48;
                 j = r & 1;
-                p->f8 = func_00214158();
+                p->f8 = random_angle_radians();
                 p->type = 2;
                 {
                     s32 paletteOffset=k*4;
@@ -392,18 +392,18 @@ void func_L00_0028AF90(void) {
                 }
             } else {
                 p->type = 3;
-                p->u.h.h0 = func_002140B0(0x100);
+                p->u.h.h0 = random_integer_below(0x100);
                 p->b2 = (func_001160D8() >> 16) & 1;
                 p->b3 = 0x48;
-                p->f8 = func_00214158();
-                p->f1C = func_001FA888(func_002140B0(0x30) + 0x20) * 0.00390625f;
-                a = func_00214158();
-                b = func_00214158();
-                p->f10 = func_001F9F90(a) * func_001F9FA8(b) * 50.0f;
-                p->f14 = func_001F9FA8(a) * func_001F9FA8(b) * 50.0f;
-                p->f18 = func_001F9F90(b) * 50.0f;
-                r1 = func_002140B0(0x18) + 8;
-                r2 = func_002140B0(0x20) << 24;
+                p->f8 = random_angle_radians();
+                p->f1C = func_001FA888(random_integer_below(0x30) + 0x20) * 0.00390625f;
+                a = random_angle_radians();
+                b = random_angle_radians();
+                p->f10 = FastCos(a) * FastSin(b) * 50.0f;
+                p->f14 = FastSin(a) * FastSin(b) * 50.0f;
+                p->f18 = FastCos(b) * 50.0f;
+                r1 = random_integer_below(0x18) + 8;
+                r2 = random_integer_below(0x20) << 24;
                 if ((func_001160D8() >> 16) & 1) {
                     { u32 t = (r1 << 16) + 0x30505050; p->u.w = r2 - -t; }
                 } else {
@@ -420,9 +420,9 @@ void func_L00_0028AF90(void) {
             q2->h.h2++;
             a = func_001FA888((p2->u.h.h0 & 0xFFF) - 0x800) * 0.0015339808f;
             b = func_001FA888((q2->h.h2 & 0xFFF) - 0x800) * 0.0015339808f;
-            p2->f10 = func_001F9F90(a) * func_001F9FA8(b) * 50.0f;
-            p2->f14 = func_001F9FA8(a) * func_001F9FA8(b) * 50.0f;
-            p2->f18 = func_001F9F90(b) * 50.0f;
+            p2->f10 = FastCos(a) * FastSin(b) * 50.0f;
+            p2->f14 = FastSin(a) * FastSin(b) * 50.0f;
+            p2->f18 = FastCos(b) * 50.0f;
             p2->col &= 0xFFFFFF;
             if (((u16)p2->u.h.h0 & 0x3F) < 8) {
                 p2->col |= 0x70000000;
@@ -460,10 +460,10 @@ void func_L00_0028AF90(void) {
             p2->col = x;
         }
     }
-    func_0022CEB8();
+    SkySpriteProc();
     func_00234C98_8AF90(0x42, 0x8000000044LL);
-    func_0022C9A8(1);
-    func_0022C9A8(2);
+    SkyDrawShell(1);
+    SkyDrawShell(2);
 }
 void func_L00_0028A198(s32 a, s32 b);
 void func_L00_0028A3E0(void);
@@ -477,16 +477,16 @@ void func_L00_001FFA40(void *, void *);
 void func_L00_0028B4E0(void) {
     float v[4] __attribute__((aligned(16)));
     func_001FA190(D_L00_001BDB70);
-    func_0022C9A8(0);
+    SkyDrawShell(0);
     if (*(short *)(D_L00_001605DC + 8) == 0) func_L00_0028A198(0x78, 8);
     func_L00_0028A3E0();
-    func_0022CEB8();
-    func_00234C98(0x42, (0x8000L << 24) | 0x44);
-    func_0022C9A8(1);
+    SkySpriteProc();
+    VU1_addGSregister(0x42, (0x8000L << 24) | 0x44);
+    SkyDrawShell(1);
     qzero(v);
     v[2] = (D_L00_0015F6B0 % 50000) * 0.000125663704f - 3.14159265f;
     func_L00_001FFA40(D_L00_001BDB70, v);
-    func_0022C9A8(2);
+    SkyDrawShell(2);
 }
 void func_001FA190();
 typedef int q128 __attribute__((mode(TI)));
@@ -502,13 +502,13 @@ void func_L00_0028B5C8(void) {
     V0028a2f0 t;
     *(s16 *)(D_L00_001605DC_8B5C8 + 4) = 0;
     func_001FA190(D_L00_001BDB70_8B5C8);
-    func_0022C9A8(0);
+    SkyDrawShell(0);
     qzero(&t);
     t.f[2] = (f32)(D_L00_0015F6B0 % 40000) * 0.00015707963029854f - 3.1415927f;
     func_L00_001FFA40(D_L00_001BDB70_8B5C8, &t);
-    func_0022C9A8(1);
+    SkyDrawShell(1);
     func_001FA190(D_L00_001BDB70_8B5C8);
-    func_0022C9A8(2);
+    SkyDrawShell(2);
 }
 extern int D_L00_0015F6B0 MACRO_ADDR;
 extern void func_L00_001FFA40(void *, void *);
@@ -563,7 +563,7 @@ void func_L00_0028B758(void)
             func_001FA190(D_L00_001BDB70);
             break;
         }
-        func_0022C9A8(i);
+        SkyDrawShell(i);
     }
 }
 extern short D_L00_0015F6B0_s __asm__("D_L00_0015F6B0");
@@ -589,7 +589,7 @@ void func_L00_0028B8F8(void) {
     break;
    default: func_001FA190(D_L00_001BDB70); break;
   }
-  func_0022C9A8(i);
+  SkyDrawShell(i);
  }
 }
 extern char D_L00_001BDB70[] NOT_SDA;
@@ -618,14 +618,14 @@ void func_L00_001FFA40(void *, void *);
 void func_L00_0028BC70(void) {
     float v[4] __attribute__((aligned(16)));
     func_001FA190(D_L00_001BDB70);
-    func_0022C9A8(0);
+    SkyDrawShell(0);
     qzero(v);
     v[2] = (D_L00_0015F6B0 % 50000) * 0.000125663704f - 3.14159265f;
     func_L00_001FFA40(D_L00_001BDB70, v);
-    func_0022C9A8(1);
+    SkyDrawShell(1);
     v[2] = (D_L00_0015F6B0 % 100000) * 0.0000628318521f - 3.14159265f;
     func_L00_001FFA40(D_L00_001BDB70, v);
-    func_0022C9A8(2);
+    SkyDrawShell(2);
 }
 /* Shrub proc init variant: set up, conditional call, finish. */
 void func_L00_0028BD70(void) {
@@ -647,7 +647,7 @@ void func_L00_0028BF60(void) {
     int t16, t18, r;
     SKY->s4 = 0;
     func_001FA190(D_L00_001BDB70);
-    func_0022C9A8(0);
+    SkyDrawShell(0);
     if (SKY->count == 0) {
         SKY->count = 0x100;
         for (i = 0; i < SKY->count; i++) {
@@ -667,21 +667,21 @@ void func_L00_0028BF60(void) {
                 }
             } else {
                 s->type = 1;
-                s->c.h.a = func_002140B0(0x100);
+                s->c.h.a = random_integer_below(0x100);
                 {
                     int q = func_001160D8() >> 16;
                     s->b3 = 0x48;
                     s->b2 = q & 1;
                 }
-                s->f8 = func_00214158();
-                s->f1C = func_001FA888(func_002140B0(0x30) + 0x20) * (1.0f / 256.0f);
-                a = func_00214158();
-                b = func_00214158();
-                s->x = func_001F9F90(a) * func_001F9FA8(b) * 50.0f;
-                s->y = func_001F9FA8(a) * func_001F9FA8(b) * 50.0f;
-                s->z = func_001F9F90(b) * 50.0f;
-                t16 = func_002140B0(0x18) + 8;
-                t18 = func_002140B0(0x20) << 24;
+                s->f8 = random_angle_radians();
+                s->f1C = func_001FA888(random_integer_below(0x30) + 0x20) * (1.0f / 256.0f);
+                a = random_angle_radians();
+                b = random_angle_radians();
+                s->x = FastCos(a) * FastSin(b) * 50.0f;
+                s->y = FastSin(a) * FastSin(b) * 50.0f;
+                s->z = FastCos(b) * 50.0f;
+                t16 = random_integer_below(0x18) + 8;
+                t18 = random_integer_below(0x20) << 24;
                 {
                     u32 u, w;
                     if ((func_001160D8() >> 16) & 1) { u = (t16 << 16) + 0x30505050; w = t18 + u; }
@@ -699,9 +699,9 @@ void func_L00_0028BF60(void) {
             h[1]++;
             a = func_001FA888((s->c.h.a & 0xFFF) - 0x800) * 0.0015339808f;
             b = func_001FA888((h[1] & 0xFFF) - 0x800) * 0.0015339808f;
-            s->x = func_001F9F90(a) * func_001F9FA8(b) * 50.0f;
-            s->y = func_001F9FA8(a) * func_001F9FA8(b) * 50.0f;
-            s->z = func_001F9F90(b) * 50.0f;
+            s->x = FastCos(a) * FastSin(b) * 50.0f;
+            s->y = FastSin(a) * FastSin(b) * 50.0f;
+            s->z = FastCos(b) * 50.0f;
             s->color &= 0xFFFFFF;
             if ((s->c.h.a & 0x3F) < 8) s->color |= 0x70000000;
             else s->color |= 0x24000000;
@@ -710,10 +710,10 @@ void func_L00_0028BF60(void) {
             { u32 u = ((r & 0x1F00) << 10) + 0xFFDFDFE0; u32 c = s->c.w + u; c += (r & 0x1F0) << 6; c += (r & 0x1F) << 2; s->color = c; }
         }
     }
-    func_0022CEB8();
-    func_00234C98(0x42, 0x8000000044L);
-    func_0022C9A8(1);
-    func_0022C9A8(2);
+    SkySpriteProc();
+    VU1_addGSregister(0x42, 0x8000000044L);
+    SkyDrawShell(1);
+    SkyDrawShell(2);
 }
 void func_001FA190();
 void func_0022C9A8();
@@ -723,19 +723,19 @@ void func_L00_001FFA40(void *, void *);
 void func_L00_0028C358(void) {
     float v[4] __attribute__((aligned(16)));
     *(short *)(D_L00_001605DC + 4) = 0;
-    func_0022C9A8(0);
-    func_0022C9A8(1);
-    func_0022C9A8(2);
-    func_0022C9A8(3);
+    SkyDrawShell(0);
+    SkyDrawShell(1);
+    SkyDrawShell(2);
+    SkyDrawShell(3);
     qzero(v);
     v[2] = (D_L00_0015F6B0 % 40000) * 0.000157079637f - 3.14159265f;
     func_L00_001FFA40(D_L00_001BDB70, v);
-    func_0022C9A8(4);
+    SkyDrawShell(4);
     v[2] = (D_L00_0015F6B0 % 60000) * 0.000104719758f - 3.14159265f;
     func_L00_001FFA40(D_L00_001BDB70, v);
-    func_0022C9A8(5);
+    SkyDrawShell(5);
     func_001FA190(D_L00_001BDB70);
-    func_0022C9A8(6);
+    SkyDrawShell(6);
 }
 typedef int q_28b1a0 __attribute__((mode(TI)));
 typedef struct { short h0, h2, h4, h6; unsigned char pad[0x18]; unsigned char *e[1]; } S_28b1a0;

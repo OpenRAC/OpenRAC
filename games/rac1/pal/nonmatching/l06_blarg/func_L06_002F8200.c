@@ -2,11 +2,11 @@
  * Best so far: BYTES 59/560 (89.5% of the bytes match), checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Draws nine transformed matrices (GS register setup, a loop building arr[9][16] via func_001FA218/540/9EE8/9BD8
  *   Left: register naming only (retail keeps the arr base in $s7 and the struct pointer in $fp; ours swaps them) p
  */
-extern void func_001FA218(float *, float *);
 extern void func_001FA1C0(float *, float);
 extern void func_001FA540(void *, void *, void *);
 extern int func_001F4868(int);
@@ -14,14 +14,11 @@ extern void func_00234C98(int, long);
 extern void func_001F7868(void);
 extern void func_001F9EE8(void *, void *, void *);
 extern void func_001F9BD8(void *, void *, void *);
-extern int func_001FA8A8(int, float);
 extern void func_L06_00216B38(void *, void *);
 extern float D_L06_001DB3B0[];
 extern float D_L06_001DB320[];
 extern int D_L06_00161EE0 MACRO_ADDR;
 extern int D_L06_00161EE4 MACRO_ADDR;
-extern char D_L06_001DB440[];
-extern char D_L06_00161ED0[];
 extern short D_L06_00161E9C;
 extern short D_L06_00161E64;
 extern short D_L06_00161E60;

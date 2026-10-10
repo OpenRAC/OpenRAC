@@ -2,8 +2,240 @@
 #include "common.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/overlays", func_L00_002697A0);
-INCLUDE_ASM("asm/overlays", func_L00_00269BE8);
+extern void func_L00_002689B0_2697A0() __asm__("func_L00_002689B0");
+extern void func_L00_00269BE8_2697A0() __asm__("func_L00_00269BE8");
+extern void func_L00_00269E88_2697A0() __asm__("func_L00_00269E88");
+extern void func_L00_0026A130_2697A0() __asm__("func_L00_0026A130");
+extern void func_L00_0026A398_2697A0() __asm__("func_L00_0026A398");
+extern void func_L00_0026A910_2697A0() __asm__("func_L00_0026A910");
+extern void func_L00_0026AB10_2697A0() __asm__("func_L00_0026AB10");
+extern void func_L00_0026ABC0_2697A0() __asm__("func_L00_0026ABC0");
+extern void func_L00_0026B458_2697A0() __asm__("func_L00_0026B458");
+extern void func_L00_0026B590_2697A0() __asm__("func_L00_0026B590");
+extern void func_L00_0026B720_2697A0() __asm__("func_L00_0026B720");
+extern void func_L00_0026BB18_2697A0() __asm__("func_L00_0026BB18");
+extern void func_L00_0026C3A0_2697A0() __asm__("func_L00_0026C3A0");
+extern void func_L00_0026C7B0_2697A0() __asm__("func_L00_0026C7B0");
+extern void func_L00_0026C908_2697A0() __asm__("func_L00_0026C908");
+extern void func_L00_0026CB48_2697A0() __asm__("func_L00_0026CB48");
+extern void func_L00_0026CF28_2697A0() __asm__("func_L00_0026CF28");
+extern void func_L00_0026D3F8_2697A0() __asm__("func_L00_0026D3F8");
+extern void func_L00_0026D690_2697A0() __asm__("func_L00_0026D690");
+extern void func_L00_0026D700_2697A0() __asm__("func_L00_0026D700");
+extern void func_L00_0026DB50_2697A0() __asm__("func_L00_0026DB50");
+extern void func_L00_0026E050_2697A0() __asm__("func_L00_0026E050");
+extern void func_L00_0026E310_2697A0() __asm__("func_L00_0026E310");
+extern void func_L00_0026E5A0_2697A0() __asm__("func_L00_0026E5A0");
+extern void func_L00_0026EA80_2697A0() __asm__("func_L00_0026EA80");
+extern void func_L00_0026ECA0_2697A0() __asm__("func_L00_0026ECA0");
+extern void func_L00_0026EFF0_2697A0() __asm__("func_L00_0026EFF0");
+extern void func_L00_0026F248_2697A0() __asm__("func_L00_0026F248");
+extern void func_L00_0026F510_2697A0() __asm__("func_L00_0026F510");
+extern void func_L00_0026FA28_2697A0() __asm__("func_L00_0026FA28");
+extern void func_L00_0026FCE8_2697A0() __asm__("func_L00_0026FCE8");
+extern void func_L00_0026FEE8_2697A0() __asm__("func_L00_0026FEE8");
+extern void func_L00_00270120_2697A0() __asm__("func_L00_00270120");
+extern void func_L00_00270500_2697A0() __asm__("func_L00_00270500");
+extern void func_L00_00270738_2697A0() __asm__("func_L00_00270738");
+extern void func_L00_002708A0_2697A0() __asm__("func_L00_002708A0");
+extern void func_L00_002709A0_2697A0() __asm__("func_L00_002709A0");
+extern void func_L00_00270AD8_2697A0() __asm__("func_L00_00270AD8");
+extern void func_L00_00270DB0_2697A0() __asm__("func_L00_00270DB0");
+extern void func_L00_002715B0_2697A0() __asm__("func_L00_002715B0");
+extern void func_L00_002717E8_2697A0() __asm__("func_L00_002717E8");
+extern void func_L00_00271F40_2697A0() __asm__("func_L00_00271F40");
+extern void func_L00_002722F0_2697A0() __asm__("func_L00_002722F0");
+extern void func_L00_002725E8_2697A0() __asm__("func_L00_002725E8");
+extern void func_L00_00272890_2697A0() __asm__("func_L00_00272890");
+extern void func_L00_00272A88_2697A0() __asm__("func_L00_00272A88");
+extern void func_L00_00272B28_2697A0() __asm__("func_L00_00272B28");
+extern void func_L00_00272BC0_2697A0() __asm__("func_L00_00272BC0");
+extern void func_L00_00272C98_2697A0() __asm__("func_L00_00272C98");
+extern void func_L00_00272D68_2697A0() __asm__("func_L00_00272D68");
+extern void func_L00_00272E60_2697A0() __asm__("func_L00_00272E60");
+extern void func_L00_00273090_2697A0() __asm__("func_L00_00273090");
+extern void func_L00_002732D8_2697A0() __asm__("func_L00_002732D8");
+extern void func_L00_00273578_2697A0() __asm__("func_L00_00273578");
+extern void func_L00_002736D8_2697A0() __asm__("func_L00_002736D8");
+extern void func_L00_00273788_2697A0() __asm__("func_L00_00273788");
+extern void func_L00_00273A60_2697A0() __asm__("func_L00_00273A60");
+extern void func_L00_00273F28_2697A0() __asm__("func_L00_00273F28");
+extern void func_L00_00274138_2697A0() __asm__("func_L00_00274138");
+extern void func_L00_002742E8_2697A0() __asm__("func_L00_002742E8");
+extern void func_L00_002746A0_2697A0() __asm__("func_L00_002746A0");
+extern void func_L00_00274908_2697A0() __asm__("func_L00_00274908");
+extern void func_L00_00274D80_2697A0() __asm__("func_L00_00274D80");
+extern void func_L00_002751A8_2697A0() __asm__("func_L00_002751A8");
+extern void func_L00_002753B8_2697A0() __asm__("func_L00_002753B8");
+extern void func_L00_002756B8_2697A0() __asm__("func_L00_002756B8");
+extern void func_L00_00275910_2697A0() __asm__("func_L00_00275910");
+extern void func_L00_00275C80_2697A0() __asm__("func_L00_00275C80");
+extern void func_L00_00275CE8_2697A0() __asm__("func_L00_00275CE8");
+extern void func_L00_00276180_2697A0() __asm__("func_L00_00276180");
+extern void func_L00_002761C0_2697A0() __asm__("func_L00_002761C0");
+extern void func_L00_002763B0_2697A0() __asm__("func_L00_002763B0");
+extern void func_L00_00276590_2697A0() __asm__("func_L00_00276590");
+extern void func_L00_002766B0_2697A0() __asm__("func_L00_002766B0");
+extern void func_L00_00276700_2697A0() __asm__("func_L00_00276700");
+extern void func_L00_00276940_2697A0() __asm__("func_L00_00276940");
+extern void func_L00_00276C08_2697A0() __asm__("func_L00_00276C08");
+extern void func_L00_00276D50_2697A0() __asm__("func_L00_00276D50");
+extern void func_L00_0026B2B8_2697A0() __asm__("func_L00_0026B2B8");
+extern void func_L00_0026D268_2697A0() __asm__("func_L00_0026D268");
+extern void func_L00_00274750_2697A0() __asm__("func_L00_00274750");
+extern void *D_L00_001B2200_2697A0[] __asm__("D_L00_001B2200");
+
+/* Registers the particle-type callbacks in the 81-entry table D_L00_001B2200. Entries 7, 17 and 63 are the
+ * identical copies at 0x26B2B8 (of func_L00_0026AB10), 0x26D268 (an empty function, func_001E9768's code) and
+ * 0x274750 (of func_L00_0026FEE8), named by their own addresses as retail stores them. */
+void func_L00_002697A0(void) {
+    D_L00_001B2200_2697A0[0] = func_L00_00269BE8_2697A0;
+    D_L00_001B2200_2697A0[1] = func_L00_00269E88_2697A0;
+    D_L00_001B2200_2697A0[2] = func_L00_0026A130_2697A0;
+    D_L00_001B2200_2697A0[3] = func_L00_0026A398_2697A0;
+    D_L00_001B2200_2697A0[4] = func_L00_0026A910_2697A0;
+    D_L00_001B2200_2697A0[5] = func_L00_0026AB10_2697A0;
+    D_L00_001B2200_2697A0[6] = func_L00_0026ABC0_2697A0;
+    D_L00_001B2200_2697A0[7] = func_L00_0026B2B8_2697A0;
+    D_L00_001B2200_2697A0[8] = func_L00_0026B458_2697A0;
+    D_L00_001B2200_2697A0[9] = func_L00_0026B590_2697A0;
+    D_L00_001B2200_2697A0[10] = func_L00_0026B720_2697A0;
+    D_L00_001B2200_2697A0[11] = func_L00_0026BB18_2697A0;
+    D_L00_001B2200_2697A0[12] = func_L00_0026C3A0_2697A0;
+    D_L00_001B2200_2697A0[13] = func_L00_0026C7B0_2697A0;
+    D_L00_001B2200_2697A0[14] = func_L00_0026C908_2697A0;
+    D_L00_001B2200_2697A0[15] = func_L00_0026CB48_2697A0;
+    D_L00_001B2200_2697A0[16] = func_L00_0026CF28_2697A0;
+    D_L00_001B2200_2697A0[17] = func_L00_0026D268_2697A0;
+    D_L00_001B2200_2697A0[18] = func_L00_0026D3F8_2697A0;
+    D_L00_001B2200_2697A0[19] = func_L00_0026D690_2697A0;
+    D_L00_001B2200_2697A0[20] = func_L00_0026D700_2697A0;
+    D_L00_001B2200_2697A0[21] = func_L00_0026DB50_2697A0;
+    D_L00_001B2200_2697A0[22] = func_L00_002689B0_2697A0;
+    D_L00_001B2200_2697A0[23] = func_L00_0026E050_2697A0;
+    D_L00_001B2200_2697A0[24] = func_L00_0026E310_2697A0;
+    D_L00_001B2200_2697A0[25] = func_L00_0026E5A0_2697A0;
+    D_L00_001B2200_2697A0[26] = func_L00_0026EA80_2697A0;
+    D_L00_001B2200_2697A0[27] = func_L00_0026ECA0_2697A0;
+    D_L00_001B2200_2697A0[28] = func_L00_0026EFF0_2697A0;
+    D_L00_001B2200_2697A0[29] = func_L00_0026F248_2697A0;
+    D_L00_001B2200_2697A0[30] = func_L00_0026F510_2697A0;
+    D_L00_001B2200_2697A0[31] = func_L00_0026FA28_2697A0;
+    D_L00_001B2200_2697A0[32] = func_L00_0026FCE8_2697A0;
+    D_L00_001B2200_2697A0[33] = func_L00_0026FEE8_2697A0;
+    D_L00_001B2200_2697A0[34] = func_L00_00270120_2697A0;
+    D_L00_001B2200_2697A0[35] = func_L00_00270500_2697A0;
+    D_L00_001B2200_2697A0[36] = func_L00_00270738_2697A0;
+    D_L00_001B2200_2697A0[37] = func_L00_002708A0_2697A0;
+    D_L00_001B2200_2697A0[38] = func_L00_002709A0_2697A0;
+    D_L00_001B2200_2697A0[39] = func_L00_00270AD8_2697A0;
+    D_L00_001B2200_2697A0[40] = func_L00_00270DB0_2697A0;
+    D_L00_001B2200_2697A0[41] = func_L00_002715B0_2697A0;
+    D_L00_001B2200_2697A0[42] = func_L00_002717E8_2697A0;
+    D_L00_001B2200_2697A0[43] = func_L00_00271F40_2697A0;
+    D_L00_001B2200_2697A0[44] = func_L00_002722F0_2697A0;
+    D_L00_001B2200_2697A0[45] = func_L00_002725E8_2697A0;
+    D_L00_001B2200_2697A0[46] = func_L00_00272890_2697A0;
+    D_L00_001B2200_2697A0[47] = func_L00_00272A88_2697A0;
+    D_L00_001B2200_2697A0[48] = func_L00_00272B28_2697A0;
+    D_L00_001B2200_2697A0[49] = func_L00_00272BC0_2697A0;
+    D_L00_001B2200_2697A0[50] = func_L00_00272C98_2697A0;
+    D_L00_001B2200_2697A0[51] = func_L00_00272D68_2697A0;
+    D_L00_001B2200_2697A0[52] = func_L00_00272E60_2697A0;
+    D_L00_001B2200_2697A0[53] = func_L00_00273090_2697A0;
+    D_L00_001B2200_2697A0[54] = func_L00_002732D8_2697A0;
+    D_L00_001B2200_2697A0[55] = func_L00_00273578_2697A0;
+    D_L00_001B2200_2697A0[56] = func_L00_002736D8_2697A0;
+    D_L00_001B2200_2697A0[57] = func_L00_00273788_2697A0;
+    D_L00_001B2200_2697A0[58] = func_L00_00273A60_2697A0;
+    D_L00_001B2200_2697A0[59] = func_L00_00273F28_2697A0;
+    D_L00_001B2200_2697A0[60] = func_L00_00274138_2697A0;
+    D_L00_001B2200_2697A0[61] = func_L00_002742E8_2697A0;
+    D_L00_001B2200_2697A0[62] = func_L00_002746A0_2697A0;
+    D_L00_001B2200_2697A0[63] = func_L00_00274750_2697A0;
+    D_L00_001B2200_2697A0[64] = func_L00_00274908_2697A0;
+    D_L00_001B2200_2697A0[65] = func_L00_00274D80_2697A0;
+    D_L00_001B2200_2697A0[66] = func_L00_002751A8_2697A0;
+    D_L00_001B2200_2697A0[67] = func_L00_002753B8_2697A0;
+    D_L00_001B2200_2697A0[68] = func_L00_002756B8_2697A0;
+    D_L00_001B2200_2697A0[69] = func_L00_00275910_2697A0;
+    D_L00_001B2200_2697A0[70] = func_L00_00275C80_2697A0;
+    D_L00_001B2200_2697A0[71] = func_L00_00275CE8_2697A0;
+    D_L00_001B2200_2697A0[72] = func_L00_00276180_2697A0;
+    D_L00_001B2200_2697A0[73] = func_L00_002761C0_2697A0;
+    D_L00_001B2200_2697A0[74] = func_L00_002763B0_2697A0;
+    D_L00_001B2200_2697A0[75] = func_L00_00276590_2697A0;
+    D_L00_001B2200_2697A0[76] = func_L00_002766B0_2697A0;
+    D_L00_001B2200_2697A0[77] = func_L00_00276700_2697A0;
+    D_L00_001B2200_2697A0[78] = func_L00_00276940_2697A0;
+    D_L00_001B2200_2697A0[79] = func_L00_00276C08_2697A0;
+    D_L00_001B2200_2697A0[80] = func_L00_00276D50_2697A0;
+}
+typedef u32 u128 __attribute__((mode(TI), aligned(16)));
+typedef union {
+    u128 q;
+    f32 f[4];
+    s32 i[4];
+} Vec4;
+typedef struct {
+    u8 pad_00[0xA];
+    s16 unk0A; /* 2 skips the ground test (a timer in sibling kinds) */
+    u8 pad_0C[4];
+    Vec4 pos; /* 0x10: drawn position */
+    Vec4 probe; /* 0x20: point tested against the ground */
+    Vec4 vel; /* 0x30: w = ground height + clearance */
+} FallingParticle;
+extern short D_0015EE70;
+extern Vec4 D_L00_00160310 MACRO_ADDR;
+typedef struct {
+    f32 value;
+} ParticleClearance;
+extern ParticleClearance D_L00_00160318 MACRO_ADDR;
+extern f32 D_L00_00160320 MACRO_ADDR;
+extern void func_001F9BD8(void *, void *, void *);
+extern f32 func_L00_002644E0(Vec4 *);
+extern void func_L00_002688A8_69BE8(FallingParticle *) __asm__("func_L00_002688A8");
+
+/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/rendering/effects/00268900.c, FUN_L00_00268d48. */
+void func_L00_00269BE8(FallingParticle *p)
+{
+    Vec4 step;
+    Vec4 tmp1;
+    Vec4 tmp2;
+    Vec4 *vel = &p->vel;
+    f32 ground = vel->f[3];
+    s32 cell_x;
+    s32 cell_y;
+
+    if (p->pos.f[2] < ground || p->pos.f[0] < 0.0f || p->pos.f[1] < 0.0f
+        || 512.0f < p->pos.f[0] || 512.0f < p->pos.f[1])
+        goto die;
+
+    cell_x = p->probe.f[0];
+    cell_y = p->probe.f[1];
+    FastVecAdd(&step, vel, &D_L00_00160310);
+    FastVecAdd(&p->probe, &p->probe, &step);
+    FastVecAdd(&p->pos, &p->pos, &step);
+    if (p->unk0A != 2) {
+        if (cell_x != (s32)p->probe.f[0] || cell_y != (s32)p->probe.f[1]) {
+            tmp1.q = p->probe.q;
+            if (func_L00_002644E0(&tmp1) < D_L00_00160320) {
+                ground = D_L00_00160320;
+            } else {
+                tmp2.q = p->probe.q;
+                ground = func_L00_002644E0(&tmp2);
+            }
+            if (p->probe.f[2] < ground) {
+                /* shared exit; retail has one call site for all kill paths */
+            die:
+                func_L00_002688A8_69BE8(p);
+                return;
+            }
+        }
+    }
+    vel->f[2] -= (*(f32 *)&D_0015EE70) * 9.8f;
+    vel->f[3] = ground + D_L00_00160318.value;
+}
 extern void *func_00218928(int);
 extern int func_001FA898_r(float) __asm__("func_001FA898");
 extern int func_001F9850(int);

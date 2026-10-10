@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 668 / retail 660, checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   AirAccel: switch on g[0x20B3] (0: scale stick vector, project, clamp to [1,3 or 1.7], update g[0x194]; 1,2: mo
  *   Best p0.c (628 vs 660 bytes): control flow and calls right, diff is addressing: retail never keeps g=D_0013E63
@@ -19,7 +20,6 @@ extern void func_L00_001FF500(void *, void *, float);
 extern void func_001F9BD8(void *, void *, void *);
 extern float func_L00_00213A08(float *);
 extern float func_L00_00234250(float *v);
-extern float func_00214D28(float *p, float target, float maxstep);
 extern void func_L00_00234420(float *dst, float *src, float z);
 extern void func_L00_00233F88(float *dst, float *src, float r);
 extern float D_0015EE6C MACRO_ADDR;

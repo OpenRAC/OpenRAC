@@ -477,9 +477,9 @@ f32 func_L00_00233410(f32 a, f32 b, f32 c) {
     switch ((&D_0013F450_33410)->mode) {
     case 0:
         if (c < 0.0f) {
-            func_001F9C30(t, &(&D_0013F450_33410)->vE0, a);
+            FastVecScale(t, &(&D_0013F450_33410)->vE0, a);
             t[2] -= ((a * a + a) * 0.5f) * b;
-            func_001F9BD8(t, t, &(&D_0013F450_33410)->v80);
+            FastVecAdd(t, t, &(&D_0013F450_33410)->v80);
             v.q = (&D_0013F450_33410)->v80.q;
             func_L00_0025E290(&v, t);
             qcopy(&v, &(&D_0013F450_33410)->v80);
@@ -499,11 +499,11 @@ f32 func_L00_00233410(f32 a, f32 b, f32 c) {
     case 1:
         qcopy(&v, &(&D_0013F450_33410)->v270);
         func_L00_001FF4B0(&v, &v, b);
-        func_001F9C30(&v, &v, -1.0f);
-        func_001F9C30(t, &(&D_0013F450_33410)->vE0, a);
-        func_001F9C30(&t1, &v, ((a * a + a) * 0.5f) * b);
-        func_001F9BD8(t, &t1, t);
-        func_001F9BD8(t, &(&D_0013F450_33410)->v80, t);
+        FastVecScale(&v, &v, -1.0f);
+        FastVecScale(t, &(&D_0013F450_33410)->vE0, a);
+        FastVecScale(&t1, &v, ((a * a + a) * 0.5f) * b);
+        FastVecAdd(t, &t1, t);
+        FastVecAdd(t, &(&D_0013F450_33410)->v80, t);
         v2.q = (&D_0013F450_33410)->v80.q;
         func_L00_0025E290(&v2, t);
         if (func_L00_001EFFF0(&(&D_0013F450_33410)->v80, t, 0x24, 0, 0) != 0) {
@@ -522,13 +522,13 @@ f32 func_L00_00233410(f32 a, f32 b, f32 c) {
         t1.f[2] = 100.0f;
         t1.f[1] = 100.0f;
         t1.f[0] = 100.0f;
-        func_001F9BF0(&v, &(&D_0013F450_33410)->v80, &t1);
+        FastVecSub(&v, &(&D_0013F450_33410)->v80, &t1);
         func_L00_001FF4B0(&v, &v, b);
-        func_001F9C30(&v, &v, -1.0f);
-        func_001F9C30(t, &(&D_0013F450_33410)->vE0, a);
-        func_001F9C30(&t1, &v, ((a * a + a) * 0.5f) * b);
-        func_001F9BD8(t, &t1, t);
-        func_001F9BD8(t, &(&D_0013F450_33410)->v80, t);
+        FastVecScale(&v, &v, -1.0f);
+        FastVecScale(t, &(&D_0013F450_33410)->vE0, a);
+        FastVecScale(&t1, &v, ((a * a + a) * 0.5f) * b);
+        FastVecAdd(t, &t1, t);
+        FastVecAdd(t, &(&D_0013F450_33410)->v80, t);
         v2.q = (&D_0013F450_33410)->v80.q;
         func_L00_0025E290(&v2, t);
         if (func_L00_001EFFF0(&(&D_0013F450_33410)->v80, t, 0x24, 0, 0) != 0) {
@@ -1104,7 +1104,221 @@ INCLUDE_ASM("asm/overlays", func_L00_002347B8);
 int func_L00_002347F0(void) {
     return 2;
 }
-INCLUDE_ASM("asm/overlays", func_L00_00234800);
+typedef struct {
+    float x, y, z, w;
+} __attribute__((aligned(16))) Vec_234800;
+typedef struct Hero_234800 {
+    char p0[0x80];
+    Vec_234800 pos;
+    Vec_234800 v90;
+    char pA0[0x5C];
+    float fFC;
+    char p100[0x50];
+    Vec_234800 v150;
+    char p160[0x24];
+    float f184;
+    char p188[0x6E];
+    short h1F6;
+    char p1F8[0x104];
+    void *p2FC;
+    char p300[0xE];
+    short h30E;
+    Vec_234800 v310;
+    Vec_234800 v320;
+    Vec_234800 v330;
+    char p340[0x10];
+    Vec_234800 v350;
+    void *p360;
+    int i364;
+    char p368[0x168];
+    Vec_234800 v4D0;
+    char p4E0[0x4];
+    float f4E4;
+    char p4E8[0x10];
+    void *p4F8;
+    char p4FC[0x1B84];
+    int i2080;
+    int i2084;
+    char p2088[0x4];
+    int i208C;
+    char p2090[0x15];
+    unsigned char b20A5;
+} Hero_234800;
+typedef struct {
+    char p0[0x3C];
+    int i3C;
+} Plat_234800;
+extern char D_0013E633_234800[] __asm__("D_0013E633");
+extern float D_0015EE70_234800 __asm__("D_0015EE70") MACRO_ADDR;
+extern int func_001F9850_234800(int) __asm__("func_001F9850");
+extern void func_001F9850_v_234800(int) __asm__("func_001F9850");
+extern float func_001FA888_234800(int) __asm__("func_001FA888");
+extern Plat_234800 *func_L00_0025D390_234800(void *) __asm__("func_L00_0025D390");
+extern float func_001F9CB8_234800(void *) __asm__("func_001F9CB8");
+extern float func_001FA748_234800(float, float) __asm__("func_001FA748");
+extern float func_001F9F90_234800(float) __asm__("func_001F9F90");
+extern float func_001F9FA8_234800(float) __asm__("func_001F9FA8");
+extern void func_L00_00261478_234800(int, void *, void *, void *, void *, void *) __asm__("func_L00_00261478");
+extern int func_L00_002616E0_234800(int, void *, void *, void *, void *, void *) __asm__("func_L00_002616E0");
+extern void func_L00_00261568_234800(int, void *, void *, void *, void *, void *) __asm__("func_L00_00261568");
+extern void func_001F9BC0_234800(void *) __asm__("func_001F9BC0");
+extern float func_001F9CE8_234800(void *) __asm__("func_001F9CE8");
+extern float func_00214D28_234800(float *, float, float) __asm__("func_00214D28");
+extern void func_L00_001FF500_234800(void *, void *, float) __asm__("func_L00_001FF500");
+extern void func_001F9BF0_234800(void *, void *, void *) __asm__("func_001F9BF0");
+extern void func_001F9BD8_234800(void *, void *, void *) __asm__("func_001F9BD8");
+extern float func_L00_001FF860_234800(float, float) __asm__("func_L00_001FF860");
+extern float func_001FA790_234800(float, float) __asm__("func_001FA790");
+
+/* The hero on a moving platform: finds the platform the hero stands on or hangs from, tracks the platform's motion
+   between frames (its attach points at 0x310-0x330) and carries the hero (position, facing, ledge-grab point) with it. */
+void func_L00_00234800(void) {
+    Vec_234800 v0, v10, v20, v30, v40, v50, v60, v70, v80, v90, vA0;
+    float sB0, sB4;
+    float amt, ang;
+    int mode;
+    Plat_234800 *plat;
+
+    mode = 0;
+    amt = 0.0f;
+    ang = ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90.z;
+    if (((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->h30E == 0) {
+        if (((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p2FC != 0) {
+            mode = 1;
+            if (((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360 != ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p2FC) {
+                ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 &= ~1;
+            }
+            ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360 = ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p2FC;
+        } else {
+            ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360 = 0;
+            ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 &= ~1;
+            ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 &= ~2;
+        }
+    } else if (((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2084 == 0x1C && ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p4F8 != 0) {
+        ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360 = ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p4F8;
+        mode = 1;
+    } else if (((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i208C == 3 && ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p4F8 != 0) {
+        ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360 = ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p4F8;
+        mode = 1;
+    } else if (((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360 != 0) {
+        mode = 1;
+        func_001FA888_234800(func_001F9850_234800(120) - ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->h30E);
+        func_001F9850_v_234800(120);
+        amt = ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->h30E;
+    } else {
+        ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360 = 0;
+        ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 &= ~1;
+        ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 &= ~2;
+    }
+    if (!mode) {
+        return;
+    }
+    plat = func_L00_0025D390_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360);
+    if (plat == 0) {
+        return;
+    }
+    if (((((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i208C == 0 || ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i208C == 12) && func_001F9CB8_234800(&((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v150) == 0.0f && ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->h30E == 0 && ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->h1F6 == 0)
+        || (unsigned int)(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2084 - 0x18) < 2) {
+        if ((((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 ^ 1) & 1) {
+            if ((unsigned int)(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2084 - 0x18) < 2) {
+                qcopy(&v20, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v4D0);
+                v20.x += func_001F9F90_234800(func_001FA748_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->f4E4, 3.1415925f)) * 0.45f;
+                v20.y += func_001F9FA8_234800(func_001FA748_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->f4E4, 3.1415925f)) * 0.45f;
+                v20.z -= -1.43f;
+                func_L00_00261478_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2080, ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v4D0, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90, &v30, &v40);
+                func_L00_00261478_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2080, ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360, &v20, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90, &v20, &v40);
+                func_L00_002616E0_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2080, ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v4D0, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v310, &v40);
+                func_L00_002616E0_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2080, ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360, &v20, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v330, &v40);
+            } else if (plat->i3C & 4) {
+                func_L00_002616E0_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2080, ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->pos, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v310, &v20);
+            } else {
+                func_L00_00261478_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2080, ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->pos, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90, &v30, &v40);
+                func_L00_002616E0_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2080, ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360, &v30, &v40, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v310, &v20);
+            }
+            ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 |= 1;
+        }
+    } else {
+        ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 &= ~1;
+    }
+    if ((((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i208C == 0 || ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i208C == 12) && ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->f184 == 0.0f && ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->h30E == 0) {
+        if (!(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 & 2)) {
+            func_L00_002616E0_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2080, ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->pos, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90, &v20, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v320);
+            ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 |= 2;
+        }
+    } else {
+        ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 &= ~2;
+    }
+    if (((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 & 3) {
+        mode = 2;
+    }
+    func_001F9BC0_234800(&v20);
+    func_001F9BC0_234800(&v30);
+    if (amt != 0.0f) {
+        sB4 = func_001F9CE8_234800(&((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v350);
+        sB0 = ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v350.z;
+        if (!(plat->i3C & 2)) {
+            func_00214D28_234800(&sB0, 0.0f, D_0015EE70_234800 * 25.0f * amt);
+            func_00214D28_234800(&sB4, 0.0f, (D_0015EE70_234800 + D_0015EE70_234800) * amt);
+            func_L00_001FF500_234800(&v20, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v350, sB4);
+            v20.z = sB0;
+        } else {
+            qcopy(&v20, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v350);
+        }
+        qcopy(&v30, &v20);
+    } else if (mode == 1) {
+        func_L00_00261478_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2080, ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->pos, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90, &v0, &v10);
+        ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90.z = v10.z;
+        func_001F9BF0_234800(&v20, &v0, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->pos);
+        qcopy((Vec_234800 *)(D_0013E633_234800 + 0x116D), &v20);
+    } else if (mode == 2) {
+        func_L00_00261478_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2080, ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->pos, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90, &v40, &v50);
+        func_L00_00261568_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2080, ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v310, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v320, &v60, &v70);
+        func_L00_00261568_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2080, ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->p360, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v330, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v320, &v80, &v90);
+        if ((((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2084 == 1 || ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2084 == 0x1E) && ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->b20A5 != 0) {
+            ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90.z = v50.z;
+        } else if (((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 & 2) {
+            ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90.z = v70.z;
+        } else {
+            ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90.z = v50.z;
+        }
+        if (((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 & 1) {
+            if ((unsigned int)(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i2084 - 0x18) < 2) {
+                vA0.x = func_001F9F90_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->f4E4) * 0.45f;
+                vA0.y = func_001F9FA8_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->f4E4) * 0.45f;
+                vA0.z = 0.0f;
+                func_001F9BD8_234800(&vA0, &vA0, &v80);
+                vA0.z += -1.43f;
+                func_001F9BF0_234800(&v20, &v40, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->pos);
+                qcopy(&((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v4D0, &vA0);
+                ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->f4E4 = func_L00_001FF860_234800(v60.x - v80.x, v60.y - v80.y);
+            } else {
+                float len;
+
+                func_001F9BF0_234800(&v20, &v60, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->pos);
+                len = func_001F9CB8_234800(&v20);
+                if (len < 0.0001f) {
+                    func_001F9BC0_234800(&v20);
+                    qcopy(&((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->pos, &v60);
+                } else if (2.0f < len) {
+                    func_001F9BC0_234800(&v20);
+                    ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 &= ~2;
+                    ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 &= ~1;
+                }
+                func_001F9BD8_234800(D_0013E633_234800 + 0x12ED, D_0013E633_234800 + 0x12ED, &v20);
+                func_001F9BF0_234800(&vA0, &v20, D_0013E633_234800 + 0xF5D);
+                if (0.1f < func_001F9CB8_234800(&vA0)) {
+                    ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->i364 &= ~1;
+                }
+            }
+        } else {
+            func_001F9BF0_234800(&v20, &v40, &((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->pos);
+            qcopy(&v30, &v20);
+        }
+        qcopy((Vec_234800 *)(D_0013E633_234800 + 0x116D), &v20);
+    }
+    func_001F9BD8_234800(D_0013E633_234800 + 0xF0D, D_0013E633_234800 + 0xF0D, &v20);
+    ((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->fFC = func_001FA790_234800(((Hero_234800 *)(D_0013E633_234800 + 0xE1D))->v90.z, ang);
+}
 extern int func_L00_002630A8(int, void *, void *, float);
 
 /* Calls func_L00_002630A8 with the id at D_0013F450 + 0x22DA, the vector
@@ -1139,31 +1353,31 @@ void func_L00_00235088(void) {
     f32 t;
     m0 = D_0013F450_35088.m11D0;
     if (m0) {
-        if (D_L00_0015F6A8 == 2) D_0013F450_35088.f22E8 = func_001FA748(D_0013F450_35088.f22E8, (*(f32 *)&D_0015EE6C) * 1.2217305f);
-        else D_0013F450_35088.f22E8 = func_001FA748(D_0013F450_35088.f22E8, (*(f32 *)&D_0015EE6C) * 2.0943952f);
-        *(s32 *)(m0 + 0x90) = func_001FA8A8(0xD2D2D2, 0x285050, func_001F9FA8(D_0013F450_35088.f22E8) * 0.5f + 0.5f);
+        if (D_L00_0015F6A8 == 2) D_0013F450_35088.f22E8 = FastAddRots(D_0013F450_35088.f22E8, (*(f32 *)&D_0015EE6C) * 1.2217305f);
+        else D_0013F450_35088.f22E8 = FastAddRots(D_0013F450_35088.f22E8, (*(f32 *)&D_0015EE6C) * 2.0943952f);
+        *(s32 *)(m0 + 0x90) = FastTweenColor(0xD2D2D2, 0x285050, FastSin(D_0013F450_35088.f22E8) * 0.5f + 0.5f);
     }
     m1 = D_0013F450_35088.m11D4;
     if (m1) {
         if (D_L00_0015F6A8 != 2) {
             f32 v;
-            D_0013F450_35088.f22EC = v = func_001FA748(D_0013F450_35088.f22EC, (*(f32 *)&D_0015EE6C) * 2.9670596f);
+            D_0013F450_35088.f22EC = v = FastAddRots(D_0013F450_35088.f22EC, (*(f32 *)&D_0015EE6C) * 2.9670596f);
             b = 0x1EE628;
             if (0.0f < v && v < 1.9198622f) b = 0x1E1ED2;
-            *(s32 *)(m1 + 0x90) = func_001FA8A8(*(s32 *)(m1 + 0x90), b, 0.07f);
+            *(s32 *)(m1 + 0x90) = FastTweenColor(*(s32 *)(m1 + 0x90), b, 0.07f);
         } else {
             f32 v;
-            D_0013F450_35088.f22EC = v = func_001FA748(D_0013F450_35088.f22EC, (*(f32 *)&D_0015EE6C) * 1.5707964f);
-            *(s32 *)(m1 + 0x90) = func_001FA8A8(0x1E1ED2, 0x1E1E50, func_001F9FA8(v) * 0.5f + 0.5f);
+            D_0013F450_35088.f22EC = v = FastAddRots(D_0013F450_35088.f22EC, (*(f32 *)&D_0015EE6C) * 1.5707964f);
+            *(s32 *)(m1 + 0x90) = FastTweenColor(0x1E1ED2, 0x1E1E50, FastSin(v) * 0.5f + 0.5f);
         }
     }
     m2 = D_0013F450_35088.m1220;
     if (m2) {
-        if (D_L00_0015F6A8 == 2) D_0013F450_35088.f22F0 = func_001FA748(D_0013F450_35088.f22EC, (*(f32 *)&D_0015EE6C) * 1.3962634f);
-        else D_0013F450_35088.f22F0 = func_001FA748(D_0013F450_35088.f22EC, (*(f32 *)&D_0015EE6C) * 1.9198622f);
-            *(s32 *)(m2 + 0x90) = func_001FA8A8(0xAAC8AA, 0x965050, func_001F9FA8(D_0013F450_35088.f22F0) * 0.5f + 0.5f);
+        if (D_L00_0015F6A8 == 2) D_0013F450_35088.f22F0 = FastAddRots(D_0013F450_35088.f22EC, (*(f32 *)&D_0015EE6C) * 1.3962634f);
+        else D_0013F450_35088.f22F0 = FastAddRots(D_0013F450_35088.f22EC, (*(f32 *)&D_0015EE6C) * 1.9198622f);
+            *(s32 *)(m2 + 0x90) = FastTweenColor(0xAAC8AA, 0x965050, FastSin(D_0013F450_35088.f22F0) * 0.5f + 0.5f);
         if (m2) {
-            if (!D_0013F450_35088.b1D91) func_0020D960(m2, 0, &D_0013F450_35088.b1D90);
+            if (!D_0013F450_35088.b1D91) AttachManipulator(m2, 0, &D_0013F450_35088.b1D90);
             else func_L00_001FFED8(D_0013F450_35088.v1DA0, 0, D_0013F450_35088.f22F0);
         }
     }

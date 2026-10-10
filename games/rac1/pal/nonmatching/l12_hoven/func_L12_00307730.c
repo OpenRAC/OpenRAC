@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 400 / retail 404, checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Randomizes member speed and rotation; p2/p3/p4 compile identically at SIZE 400/404.
  *   Stopped at three distinct equivalent wordings: member/data saved-register assignment and global float load/pro
@@ -10,7 +11,6 @@
 extern float func_002140F8(float, float);
 extern float func_L00_00258C80(float, float);
 extern int D_L12_001FB948[];
-extern char *D_L12_00160058 MACRO_ADDR;
 extern float D_0015EE70 MACRO_ADDR;
 extern float D_0015EE6C MACRO_ADDR;
 /* Randomizes per-member speed and rotation parameters. */

@@ -48,14 +48,22 @@ extern unsigned char D_0013D4E7[];
 int func_L00_0024A460(float a, float b, float x) {
     return x <= 180.0f && D_0013D4E7[0] != 0;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0024A490);
+int func_L00_0024A490(int a, float b, float c, float x) {
+    if (a < 221) return x >= 238.0f && x <= 241.0f;
+    return x <= 180.0f && D_0013D4E7[1] != 0;
+}
+/* Joined to func_L00_0024A490. */
 INCLUDE_ASM("asm/overlays", func_L00_0024A4DC);
 INCLUDE_ASM("asm/overlays", func_L00_0024A510);
 extern unsigned char D_0013D4EA[];
 int func_L00_0024A570(float a, float b, float x) {
     return x >= 233.0f && x <= 235.0f && D_0013D4EA[0] != 0;
 }
-INCLUDE_ASM("asm/overlays", func_L00_0024A5C0);
+int func_L00_0024A5C0(int a, float b, float c, float x) {
+    if (a < 351) return x >= 228.0f && x <= 230.0f;
+    return x >= 233.0f && x <= 235.0f && D_0013D4EA[1] != 0;
+}
+/* Joined to func_L00_0024A5C0. */
 INCLUDE_ASM("asm/overlays", func_L00_0024A60C);
 INCLUDE_ASM("asm/overlays", func_L00_0024A798);
 extern int D_0015EE84_m __asm__("D_0015EE84") MACRO_ADDR;
@@ -132,6 +140,8 @@ INCLUDE_ASM("asm/overlays", func_L00_0024B9B4);
 INCLUDE_ASM("asm/overlays", func_L00_0024BA10);
 INCLUDE_ASM("asm/overlays", func_L00_0024BA60);
 INCLUDE_ASM("asm/overlays", func_L00_0024BA70);
+extern int D_0015EFB0;
+
 INCLUDE_ASM("asm/overlays", func_L00_0024BA8C);
 INCLUDE_ASM("asm/overlays", func_L00_0024BAE8);
 INCLUDE_ASM("asm/overlays", func_L00_0024BB5C);

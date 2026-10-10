@@ -2,18 +2,18 @@
 
 Other projects decompile or reimplement Ratchet & Clank games. Lombyte
 and the NTSC decomp match the US build of this game, and the NTSC decomp has mapped per-file
-compiler flags; ReRAC documents what the code does; ratchet-uya-decomp
-mapped retail's flags for a later game. None is part of this build.
+compiler flags; ReRAC documents what the code does; rac3-uya-decomp
+mapped retail's flags for a later game and works with this project. None is part of this build.
 
 Inside OpenRAC, Lombyte is [games/rac1/ntsc](../../ntsc/README.md) and
-ratchet-uya-decomp is [games/rac3/ntsc](../../../rac3/ntsc/README.md); the tools find
+rac3-uya-decomp is [games/rac3/ntsc](../../../rac3/ntsc/README.md); the tools find
 Lombyte there. ReRAC is still cloned next to OpenRAC. In a standalone
 checkout, clone them next to this repository:
 
 ```sh
 git clone https://github.com/re-rac/rerac ~/Projects/rerac
-git clone https://github.com/mateuszklysz/Lombyte ~/Projects/Lombyte
-git clone https://github.com/vetusmagnus/ratchet-uya-decomp ~/Projects/ratchet-uya-decomp
+git clone https://github.com/lombyte-project/Lombyte ~/Projects/Lombyte
+git clone https://github.com/OpenRAC/rac3-uya-decomp ~/Projects/rac3-decomp
 ```
 
 ## Lombyte: the same game, US build
@@ -177,12 +177,15 @@ and notes for our functions into `config/overlays/rerac_notes.tsv`
 (crediting ReRAC and its commit), and `tools/dossier.py` puts them in
 a worker's `CONTEXT.md` marked "ReRAC (ISC)".
 
-## ratchet-uya-decomp: Up Your Arsenal
+## rac3-uya-decomp: Up Your Arsenal
 
-[ratchet-uya-decomp](https://github.com/vetusmagnus/ratchet-uya-decomp)
-matches R&C 3's `frontbin.elf` with the compiler our game code uses, SN
-ee-gcc 2.95.3. Its [compiler matrix](https://github.com/vetusmagnus/ratchet-uya-decomp/blob/main/docs/compiler_matrix_findings.md)
-tested 15 compilers and 8 flag sets. What carries over:
+[rac3-uya-decomp](https://github.com/OpenRAC/rac3-uya-decomp) (formerly
+ratchet-uya-decomp) matches R&C 3's `frontbin.elf`, its main executable
+`boot_elf.elf` and its launcher `i5bootn.elf` with the compiler our game
+code uses, SN ee-gcc 2.95.3, and works directly with this project. Its
+[compiler matrix](https://github.com/OpenRAC/rac3-uya-decomp/blob/main/docs/compiler_matrix_findings.md)
+tested 15 compilers and 8 flag sets; the C patterns that carry over are in
+[RAC3_PATTERNS.md](RAC3_PATTERNS.md). What else carries over:
 
 - **Retail compiled some files with `-mno-split-addresses`.** Such a
   file loads a global with one assembler macro (`lw $v0, X`), so the
@@ -200,7 +203,14 @@ tested 15 compilers and 8 flag sets. What carries over:
   for its `mtc1` hazard nops and inline float constants.
 - Its `try_func.py` resolves relocations to real addresses instead of
   masking them, so two stores to different globals in the wrong order
-  no longer pass.
+  no longer pass. Ours does too since 2026-10-07, for executable
+  functions (level functions always went through `tools/overlay_check.py`).
+- Its `tools/regalloc.py` prints GCC's global allocation order; ours is
+  `tools/regalloc.py func_X CANDIDATE.c`.
+- **SN 2.95.3 never emits a sibling call** (`j func` in place of `jal`
+  and `jr $ra`); Sony's 2.9-ee-991111 does. Its launcher matrix showed
+  it, and our `tools/rank_candidates.py` blocks a tail jump outside the
+  `ee29` objects for the same reason.
 - It counts hand-written functions and linker remnants as done: they live
   in `asm/handwritten/` and `asm/remnants/`, included with `ASM_FUNC` /
   `LINKER_REMNANT`. We adopted that reporting policy for the 212 confirmed
@@ -217,8 +227,10 @@ tested 15 compilers and 8 flag sets. What carries over:
   gcc's alignment adds) into the source ahead of time, with a
   `TEXT_PADDING(N)` macro (`tools/trailing_padding.py`), so converting the
   function to C needs no special step. Here workers still emit those nops
-  themselves after the function (LEVERS.md); doing it ahead of time is
-  worth copying.
+  themselves after the function (LEVERS.md). Counted on 2026-10-07, only
+  three open executable stubs have such padding (func_0023B210,
+  func_001F9F30, func_0020CDE0), and level functions are placed one at a
+  time, so the setup step it would need is not worth adding.
 
 Try a flag on one candidate with `TRY_CFLAGS`, set inside the container:
 
@@ -246,9 +258,31 @@ files need which flags is not mapped yet.
   flag stays a per-function experiment for other files.
 - Both SN assemblers UYA uses are in our toolchain mirrors
   (`sn-prodg-3.01/.../ee/bin/Ps2EeAs.exe`, `sn-prodg-24/.../ee/bin/ps2eeas.exe`).
-  Using ps2eeas for the whole text segment was measured before and is
-  worse (DECOMP_PROGRESS.md); `tools/ps2eeas_nops.py` reproduces the nops
-  it adds. UYA's per-function `@ps2as` is not tried here yet.
+  The earlier attempt to assemble the text segment with them failed
+  because every file includes `include/labels.inc`, GNU assembler macros
+  ps2eeas cannot read (it overflows its stack); UYA never feeds it those.
+  Without that line ps2eeas assembles our compiler output, and
+  `tools/check_ps2eeas.py` compares it with the build function by function
+  (docs/BUILD_FIDELITY.md, "Checked against the real assembler").
+
+### Measured on this build on 2026-10-07
+
+- **`-mvu0-use-vf0-vf2`**, which UYA builds everything with because the
+  register range it adds moves loop.c's hoisting thresholds: on all our
+  level code it breaks 19 of 2,056 matched functions and makes none of
+  410 near misses exact, so retail RAC1 was not built with it.
+- **Its 23 functions with identical code here**: 16 are VU0 inline
+  assembly in UYA (not allowed here), 7 are the movie player's buffers
+  (never ported, docs/MOVIE.md). None came over.
+- **`_exit`** (func_0012DA28, a bare `j exit` with `$a0` cleared):
+  UYA's launcher has an `_exit` that matches as 2.9-ee C, but ours sits
+  between the two handwritten functions of `crt0`, an assembly object, so
+  it is assembly too; marking it handwritten is upstream's call
+  (docs/ASM_CLASSIFICATION.md).
+- **Its short-loop padding fixes** (counting `jal`, loops with a `div`, a
+  `$gp` load in a poll loop) correct a filter that counts lines of the
+  compiler's output; `tools/ps2eeas_nops.py` measures loops in the
+  assembled object, so those cases were never miscounted here.
 
 ### `nop; nop` before `div.s`, `sqrt.s` and `rsqrt.s` (2026-09-30)
 

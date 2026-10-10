@@ -110,7 +110,7 @@ ALL_LEVELS = 19  # docs/OVERLAYS.md: how many levels there are in total
 
 OVERLAY_NAME = re.compile(r"^func_L\d{2}_[0-9A-Fa-f]{8}$")
 OVERLAY_STUB_LINE = re.compile(r"^\s*INCLUDE_ASM\([^)]*\bfunc_L\d{2}_[0-9A-Fa-f]{8}\)")
-OVERLAY_DEF_LINE = re.compile(r"^(?!extern\b)[A-Za-z_].*?\bfunc_L\d{2}_[0-9A-Fa-f]{8}\s*\(")
+OVERLAY_DEF_LINE = re.compile(r"^(?!extern\b)[A-Za-z_].*?\bfunc_L\d{2}_[0-9A-Fa-f]{8}(?:_r)?\s*\(")
 # The same trailing-comment convention exe stubs use for a known real name
 # (tools/triage.py's NAME_COMMENT); overlay stubs don't have one yet, but a
 # worker or a future generator may leave one the same way.
@@ -190,7 +190,7 @@ def choose_overlay_near(args) -> list[str]:
             record = json.loads(other.read_text())
         except ValueError:
             continue
-        if record.get("near"):
+        if isinstance(record, dict) and record.get("near"):
             queued.update(record.get("functions", []))
     rows = []
     for name, _path in overlay_stubs(findex):
@@ -514,6 +514,19 @@ def claim(args) -> None:
     start from. Creating the claim file is the lock."""
     wave = load(args.name)
     claims(wave).mkdir(parents=True, exist_ok=True)
+    # A worker that still holds a function it has not worked (no run logged, no
+    # NOTES.md written this wave) gets that packet again: workers re-ran claim to
+    # see their packet and took functions they never worked.
+    started = wave.get("started", 0)
+    held = [p.name for p in sorted(claims(wave).iterdir())
+            if p.read_text().strip() == args.id
+            and not (TRY / p.name / "runs.log").exists()
+            and not ((TRY / p.name / "NOTES.md").exists()
+                     and (TRY / p.name / "NOTES.md").stat().st_mtime >= started)]
+    if held:
+        for name in held:
+            print(packet(name, wave["budget"], wave.get("near", False)))
+        return
     got = []
     for name in wave["functions"]:
         if len(got) == args.count:

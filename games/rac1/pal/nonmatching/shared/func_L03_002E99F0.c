@@ -1,5 +1,5 @@
 /* NON_MATCHING func_L03_002E99F0 -- src/overlays/shared/vendor_00292AC0.c
- * Best so far: SIZE ours 268 / retail 260, checked 2026-10-06.
+ * Best so far: SIZE ours 264 / retail 260, checked 2026-10-09.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
  * What the last attempts found:
@@ -9,6 +9,7 @@
  *   mini13 a01: initializer p8 reaches260 bytes by sharing the data pointer for final three stores; floating const
  *   Verified mapping wall: config/overlays/functions.tsv maps func_001F9978 to both03:001F88A0 and03:002405A0; equ
  *   Stopped under lead mapping rule; unblock needs a distinct valid existing symbol/mapping repair. No numeric fun
+ *   hq3 s07: p11 (the 0x70 reloads split into two groups, as retail) brings the size to 260 (48/260). Left: the ja
  */
 extern void func_001F9978(void);
 extern void func_001FA218(void *, void *);
@@ -19,15 +20,18 @@ void func_L03_002E99F0(char *moby) {
     char *tab = (char *)D_L03_0015F050;
     char *q = *(char **)(moby + 0x70) + 0x10;
     char *e;
+    char *d;
     float a[4];
     float b[16];
+    e = tab + *(short *)(moby + 0x84) * 32;
     *(float *)(q + 0x4C) = 1.5f;
     *(int *)(q + 0x40) = 0;
-    *(int *)(*(char **)(moby + 0x70) + 0x80) = 0;
-    *(float *)(*(char **)(moby + 0x70) + 4) = 0.02f;
-    *(float *)(*(char **)(moby + 0x70) + 8) = 0.1f;
-    *(int *)(*(char **)(moby + 0x70) + 0xC) = 0;
-    e = tab + *(short *)(moby + 0x84) * 32;
+    d = *(char **)(moby + 0x70);
+    *(int *)(d + 0x80) = 0;
+    d = *(char **)(moby + 0x70);
+    *(float *)(d + 4) = 0.02f;
+    *(float *)(d + 8) = 0.1f;
+    *(int *)(d + 0xC) = 0;
     if (*(short *)(moby + 0x84) < 0) {
         func_001F9978();
     } else {

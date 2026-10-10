@@ -48,7 +48,10 @@ Your budget is the number in `<ARM>/BUDGET` (30 runs for a first pass); try_func
    everything else identical. Never rewrite a part that already matches.
 5. **After every run**, add one line to `<ARM>/NOTES.md`: run number,
    verdict, what you changed.
-6. **Stop** at `EXACT`, when the budget is spent, on a wall, or when three
+6. **Registers only:** `bash tools/docker/run.sh python tools/regalloc.py <FUNC> <ARM>/pK.c`
+   prints the allocator's order and priorities (no budget run); change
+   what outranks or overlaps the variable (docs/RAC3_PATTERNS.md).
+7. **Stop** at `EXACT`, when the budget is spent, on a wall, or when three
    changes in a row leave the same differences.
 
 ## Final message

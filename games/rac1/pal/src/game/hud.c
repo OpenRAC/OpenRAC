@@ -538,7 +538,143 @@ int func_00200198(int iconId, int sub) {
 
 __asm__(".section .text\n\tnop\n");
 
-INCLUDE_ASM("asm/nonmatchings/text", func_00200248); /* GetFrameTex(int) */
+extern s32 D_0015EF74_00248 __asm__("D_0015EF74") MACRO_ADDR;
+struct TextureUpload_00248 {
+    s32 clut_data; /* 0x00: EE address of the CLUT (fun_00204cf0: texture CLUT pointer) */
+    s16 unk4; /* 0x04: every writer stores 0 */
+    s16 cbp; /* 0x06: GS block of the CLUT, TEX0.CBP */
+    s32 image_data; /* 0x08: EE address of the pixels (fun_00204cf0: texture pixel pointer) */
+    u8 tw; /* 0x0C: log2 width, TEX0.TW */
+    u8 th; /* 0x0D: log2 height, TEX0.TH */
+    s16 tbp; /* 0x0E: GS block of the pixels, TEX0.TBP0 */
+};
+struct FrameTextureRef_00248 {
+    s16 palette_index;
+    s16 image_index;
+};
+struct FramePalettePage_00248 {
+    s32 source_address;
+    u16 gs_block_offset;
+};
+struct FrameImagePage_00248 {
+    s32 source_address;
+    u16 gs_block_offset;
+    u8 width_log2;
+    u8 height_log2;
+};
+extern s32 D_0015EF8C_00248 __asm__("D_0015EF8C") MACRO_ADDR;
+extern s32 D_0015F558_00248 __asm__("D_0015F558") MACRO_ADDR;
+extern struct TextureUpload_00248 D_0018D140_00248[] __asm__("D_0018D140");
+struct FrameTextureTables_00248 {
+    u8 pad00[0x20];
+    s32 frame_references_address;
+    s32 image_pages_address;
+    s32 palette_pages_address;
+};
+extern struct FrameTextureTables_00248 D_0019A4E8_00248 __asm__("D_0019A4E8");
+
+/* GetFrameTex: returns the TEX0 word of a HUD frame, allocating GS blocks for its palette and image pages
+   and queueing their uploads the first time.
+   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/gameplay/animation/get_frame_texture.c, get_frame_texture. */
+u64 func_00200248_r(s32 frame_id) __asm__("func_00200248");
+/* GetFrameTex(int) */
+u64 func_00200248_r(s32 frame_id) {
+    struct FrameTextureRef_00248 *frame;
+    struct FramePalettePage_00248 *palette_page;
+    struct FrameImagePage_00248 *image_page;
+    struct TextureUpload_00248 *packet;
+    struct TextureUpload_00248 *initial_packet;
+    struct TextureUpload_00248 *palette_packet;
+    u32 packet_offset;
+    u32 queued_transfer;
+    s32 image_upload_count;
+    s32 allocation_cursor;
+    u8 width_log2;
+    u8 height_log2;
+    s32 palette_source_address;
+    s32 return_mode;
+    s32 return_shift;
+    u64 tex0_word;
+    u64 palette_word;
+
+    frame =
+        (struct FrameTextureRef_00248 *)(frame_id * 4 + D_0019A4E8_00248.frame_references_address);
+    palette_page = (struct FramePalettePage_00248 *)(D_0019A4E8_00248.palette_pages_address +
+                                               frame->palette_index * 8);
+    image_page = (struct FrameImagePage_00248 *)(D_0019A4E8_00248.image_pages_address +
+                                           frame->image_index * 8);
+    queued_transfer = 0;
+
+    if (palette_page->gs_block_offset == 0 || image_page->gs_block_offset == 0) {
+        /* Retail fills this first packet even when the queue is already full. */
+        packet_offset = D_0015F558_00248 * 0x10;
+        palette_source_address = palette_page->source_address;
+        initial_packet = D_0018D140_00248 + D_0015F558_00248;
+        initial_packet->clut_data = palette_source_address;
+        initial_packet->unk4 = 0;
+        initial_packet->cbp = 0x3FF0;
+        *(s32 *)((u8 *)D_0018D140_00248 + packet_offset + 8) = palette_page->source_address;
+        initial_packet->tw = 5;
+        initial_packet->th = 5;
+        initial_packet->tbp = 0x3FF0;
+    }
+
+    if (palette_page->gs_block_offset == 0) {
+        palette_page->gs_block_offset = D_0015EF74_00248 >> 8;
+        D_0015EF74_00248 += 0x400;
+        if (D_0015F558_00248 < 0x40) {
+            queued_transfer = 1;
+            palette_packet = D_0018D140_00248 + D_0015F558_00248;
+            palette_packet->clut_data = palette_page->source_address;
+            palette_packet->unk4 = 0;
+            palette_packet->cbp = palette_page->gs_block_offset;
+        }
+    }
+
+    if (image_page->gs_block_offset == 0) {
+        height_log2 = image_page->height_log2;
+        width_log2 = image_page->width_log2;
+        allocation_cursor = D_0015EF74_00248;
+        image_page->gs_block_offset = allocation_cursor >> 8;
+        if (height_log2 < width_log2) {
+            height_log2 += width_log2 - height_log2;
+        }
+        D_0015EF74_00248 = allocation_cursor + (1 << (height_log2 * 2));
+        image_upload_count = D_0015F558_00248;
+        if (image_upload_count < 0x40) {
+            queued_transfer = 1;
+            packet = D_0018D140_00248 + image_upload_count;
+            *(s32 *)((u8 *)D_0018D140_00248 + image_upload_count * 0x10 + 8) =
+                image_page->source_address;
+            packet->tw = image_page->width_log2;
+            packet->th = image_page->height_log2;
+            packet->tbp = image_page->gs_block_offset;
+        }
+    }
+
+    if (queued_transfer != 0) {
+        D_0015F558_00248 += 1;
+    }
+
+    return_shift = image_page->width_log2 - 6;
+    if (return_shift < 0) {
+        return_shift = 0;
+    }
+    return_mode = 0x13;
+    if (image_page->gs_block_offset < (D_0015EF8C_00248 >> 8)) {
+        return_mode = 0x1B;
+    }
+    return_shift = 1 << return_shift;
+    tex0_word = image_page->gs_block_offset | ((u64)return_shift << 14);
+    tex0_word |= (u64)return_mode << 20;
+    tex0_word |= (u64)image_page->width_log2 << 26;
+    tex0_word |= (u64)image_page->height_log2 << 30;
+    palette_word = (u64)palette_page->gs_block_offset << 37;
+    palette_word |= (u64)0x8000 << 19;
+    tex0_word |= palette_word;
+    tex0_word |= (u64)-1 << 63;
+    return tex0_word;
+}
 
 extern int *D_00161000 MACRO_ADDR;
 extern int D_0013E600[];
@@ -1101,7 +1237,7 @@ void func_00201A38(s32 x, s32 y, s32 color, s32 text) {
     }
     text_left = func_001F6FD8_01A38(x + 1, y + 1, (s64)color & (s64)(s32)0xFF000000, text, -1);
     left = text_left - 0x20;
-    func_00201960(left, y - 8, (x - left) * 2, 0x20, alpha);
+    draw_stretchable_ui_frame(left, y - 8, (x - left) * 2, 0x20, alpha);
     func_001F6FD8_01A38(x, y, color, text, -1);
 }
 

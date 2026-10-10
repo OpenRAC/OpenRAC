@@ -36,8 +36,12 @@ Symbols the assembler already treats as small (.extern size <= -G) are
 one gp-relative instruction anyway and are left alone. A symbol declared
 more than once with different sizes (a candidate's `extern short` alias
 beside the file's own 4-byte declaration, say) counts as small only if
-EVERY declaration is small: the assembler goes by the largest, so the
-access really is a two-instruction macro and does need the rewrite.
+EVERY declaration is small: the assembler goes by the last `.extern` it
+reads for the name (measured 2026-10-09: 4 then 2 assembles one
+$gp-relative instruction, 2 then 4 a lui pair), which may be the 4-byte
+one, so the access is taken as a two-instruction macro and rewritten.
+Where the last one is the small one the rewrite gives the instruction
+the assembler would have given anyway.
 
 A scalar the C declares as the file's own small data (`SDATA(sym)` in
 include/common.h: its assembler label is `sym__gp`) gets the same

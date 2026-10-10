@@ -303,7 +303,7 @@ void func_001EE858(void *position) {
     if (!(region->flags & 2)) {
         return;
     }
-    positive_weight = func_001FA898(blend * 255.0f);
+    positive_weight = truncate_float_to_s32(blend * 255.0f);
     negative_weight = 255 - positive_weight;
     inverse_blend = 1.0f - blend;
     positive_color = region->positive_color;

@@ -112,10 +112,10 @@ s32 func_L08_00222E18(s32 arg) {
             flag = 1;
         }
     } else if (tbl->p20 != 0) {
-        func_001F9BF0(&v, (u8 *)&D_0013F450 + 0x80, tbl->p20 + 0x10);
+        FastVecSub(&v, (u8 *)&D_0013F450 + 0x80, tbl->p20 + 0x10);
     } else {
-        v.f[0] = func_001F9F90(func_001FA748(D_0013F450.f98, 3.1415927f));
-        v.f[1] = func_001F9FA8(func_001FA748(D_0013F450.f98, 3.1415927f));
+        v.f[0] = FastCos(FastAddRots(D_0013F450.f98, 3.1415927f));
+        v.f[1] = FastSin(FastAddRots(D_0013F450.f98, 3.1415927f));
         v.i[2] = 0;
     }
     switch (D_0013F450.b20A4) {
@@ -182,7 +182,7 @@ s32 func_L08_00222E18(s32 arg) {
         func_L00_00211338(&v, flag, D_0015EE6C * 5.0f, D_0015EE6C * 2.4f);
         break;
     }
-    func_001F9BD8(D_0013F530, D_0013F530, &v);
-    func_001F9BD8(D_0013F530 + 0x20, D_0013F530 + 0x20, &v);
+    FastVecAdd(D_0013F530, D_0013F530, &v);
+    FastVecAdd(D_0013F530 + 0x20, D_0013F530 + 0x20, &v);
     return 1;
 }

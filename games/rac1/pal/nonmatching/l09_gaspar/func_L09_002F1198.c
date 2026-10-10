@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 496 / retail 500, checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Spawns moby 0x1A1 with random heading/speed, velocity from two vectors, scale 0x2C by (pi-h)*2+1.
  *   Only difference left (p1/p3, 496 vs 500 bytes): ours CSEs/hoists (pi-h) to before the second func_L00_001FF4B0

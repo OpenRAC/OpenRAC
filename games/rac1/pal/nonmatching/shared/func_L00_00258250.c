@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 584 / retail 596, checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Picks one of up to 12 candidate ids from D_0015EED0 (byte & 0x3F) weighted by table entries (D_0013D50F+0xB9 f
  *   Best candidate p6.c (SIZE 580 vs retail 596; p4.c 572): the logic and most instructions match (bit test, three
@@ -11,7 +12,6 @@ extern int func_002140B0(int);
 extern unsigned char D_0015EED0[] MACRO_ADDR;
 struct Ent { char pad[0xE]; unsigned short v; char pad2[8]; };
 extern struct Ent D_L00_001C43B0[];
-extern short D_0015EE84;
 extern char D_0014171B[];
 extern char D_0013D50F[];
 

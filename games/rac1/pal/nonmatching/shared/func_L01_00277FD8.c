@@ -2,12 +2,12 @@
  * Best so far: SIZE ours 628 / retail 632, checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  */
 extern void func_001F9BF0(void *,void *,void *);
 extern void func_L00_001FF4B0(void *,void *,float);
 extern void func_001F9BD8(void *,void *,void *);
 extern int func_L00_002629E0(int,void *,void *);
-extern int func_L01_00277A38(float,int *,int,int,void *);
 extern int func_L01_00277C30(int,int,int);
 extern float func_001F9D48(void *,void *);
 extern char *D_L01_001B0C30[];

@@ -54,10 +54,10 @@ void func_L01_002AFD00(char *m, int lvl) {
     int n;
     int r;
     func_0012E528(0x1D);
-    func_00216EF0(0);
+    music_Pause(0);
     func_0012DDC0();
     D_L01_0015F6BC = 1;
-    func_001F99B0(s, 0, 0x220);
+    FastMemSet(s, 0, 0x220);
     *(int *)D_L01_001CABC0 = 3;
     D_L01_0015F6A8 = 5;
     *(int *)(s + 4) = 0;
@@ -70,13 +70,13 @@ void func_L01_002AFD00(char *m, int lvl) {
     g[0x20A5] = 1;
     func_L00_00233868();
     func_001F9EC0(sc, &D_L01_00161180, m + 0xC0);
-    func_001F9BD8(sc, sc, m + 0x10);
+    FastVecAdd(sc, sc, m + 0x10);
     *(float *)(s + 0xC8) = func_00214358(sc, 0, 0.5f);
-    func_001F9BC0(s + 0xB0);
-    *(float *)(s + 0xB8) = func_001FA748(*(float *)(m + 0x48), -1.5707964f);
+    clear_u64_value(s + 0xB0);
+    *(float *)(s + 0xB8) = FastAddRots(*(float *)(m + 0x48), -1.5707964f);
     func_001FA1F8(s + 0x80, s + 0xB0);
-    func_001F99B0(c, 0, 0x1C0);
-    func_001F99B0(D_L01_0017C840, 0, 0x40);
+    FastMemSet(c, 0, 0x1C0);
+    FastMemSet(D_L01_0017C840, 0, 0x40);
     func_002348B8();
     n = D_L01_0016124C + (int)0xFFFC0000;
     *(int *)(c + 0x58) = D_L01_00174300[1] + n;
@@ -93,7 +93,7 @@ void func_L01_002AFD00(char *m, int lvl) {
     *(int *)(q + 0x1C) = 0x2734;
     func_00205220(0);
     while (qq = (char *)D_0014171B + 0x100B5, *(short *)(qq + 0x5A) != 3) {
-        func_0022DD68();
+        sound_update();
         func_00122598(0);
     }
     c2 = D_L01_0016CD60;

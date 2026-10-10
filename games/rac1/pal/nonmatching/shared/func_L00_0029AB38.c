@@ -2,6 +2,7 @@
  * Best so far: BYTES 88/480 (81.7% of the bytes match), checked 2026-10-06.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   func_L00_0029AB38 (MovieExitToGameplay): sets D_L00_0015F6BC, resets the loader, then two frame-drawing loops 
  *   Best is p6.c: frame size and all instruction shapes agree (movn for the counts, MACRO_ADDR gp-in-delay-slot ac
@@ -18,13 +19,9 @@ extern void func_0012F308(void);
 extern void func_00122818(void *, int, int, int, int, int, int, int);
 extern void func_00122AD8(void *, int);
 extern void func_00216A90(int, int, int);
-extern void func_00217AE8(int, int, int);
 extern int D_0015EF88 MACRO_ADDR;
 extern short D_0015EF78;
-extern int D_0015EFD8_m __asm__("D_0015EFD8") MACRO_ADDR;
-extern short D_0015EFD8;
 extern short D_L00_0015F6BC_g __asm__("D_L00_0015F6BC");
-extern int D_L00_00179200[];
 
 /* Leaves a movie: runs the two fade-out loops that draw frames, clears the movie flags and restores the player's flag. */
 void func_L00_0029AB38(void) {

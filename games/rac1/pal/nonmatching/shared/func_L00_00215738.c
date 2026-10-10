@@ -2,6 +2,7 @@
  * Best so far: SIZE ours 848 / retail 852, checked 2026-10-03.
  * Not built into anything: the retail assembly stays in the source file
  * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * No longer builds in its file (COMPILE failed, 2026-10-09): match its declarations to the file's first.
  * What the last attempts found:
  *   Head-look clamp: reads rotated vector v (func_001F9EE8), clamps components to limits chosen by state at b+0x20
  *   Left (p2.c 860 vs 852 / p5.c 836): retail keeps the hi part of D_L00_0017A780 in a copy ($v1=daddu of lui) and
