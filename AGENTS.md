@@ -4,6 +4,20 @@ These rules apply to any AI agent working in OpenRAC (Claude, Codex and
 others), on top of [CONTRIBUTING.md](CONTRIBUTING.md), which applies to
 everyone. When a game's own instructions are stricter, follow them as well.
 
+## Active local campaign
+
+The workspace owner's standing objective is the complete decompilation of
+Ratchet & Clank PAL and a fully playable native PC build. On a request to
+start, continue or resume the decomp, follow
+[RAC1_PAL_CAMPAIGN.md](docs/port/RAC1_PAL_CAMPAIGN.md): reproduce the current
+blocker, implement and verify a coherent fix, commit it locally, update the
+handoff and continue. Honor more specific user requests. Local commits of
+each verified fix are explicitly authorized; no further confirmation is
+needed. The rule against unrequested pushes and publishing still applies.
+Preserve existing uncommitted work and only commit changes this task owns.
+When using the sibling `../rac1-decomp/`, read its `AGENTS.md`; the configured
+local build uses that checkout rather than `games/rac1/pal/`.
+
 ## What this repository is
 
 OpenRAC brings together the decompilation projects of the PlayStation 2
