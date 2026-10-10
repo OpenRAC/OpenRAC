@@ -108,10 +108,11 @@ bool GifInterpreter::gif(std::span<const std::uint8_t> input) {
         m_gif_pending.assign(packet.begin() + static_cast<std::ptrdiff_t>(from), packet.end());
         return true;
     };
-    // A register tag (PACKED, REGLIST) cut off by the end of a VIF DIRECT: the game's own packets
-    // always finish them inside the DIRECT (only image data runs on into the next one), so this is
-    // a transfer of something that is not GIF data (a reference to memory the port has put other
-    // bytes in). Dropped, so that the next DIRECT is read from its first tag again.
+    // A register tag (PACKED, REGLIST) cut off by the end of a VIF DIRECT, or image data with no
+    // transfer open: the game's own packets always finish those inside the DIRECT (only a
+    // transfer's image data runs on into the next one), so this is a transfer of something that
+    // is not GIF data (a reference to memory the port has put other bytes in). Dropped, so that
+    // the next DIRECT is read from its first tag again.
     const auto cut = [&](std::size_t from) {
         if (!m_in_direct) {
             return carry(from);
@@ -221,7 +222,9 @@ bool GifInterpreter::gif(std::span<const std::uint8_t> input) {
             case gs::GifTag::kDisable: {
                 const std::size_t size = std::size_t{tag.nloop} * 16;
                 if (at + size > packet.size()) {
-                    return carry(tag_at);
+                    // Image data runs on into the next DIRECT only for a transfer the game opened
+                    // (TRXDIR); without one this is not GIF data either.
+                    return m_upload_bytes == 0 ? cut(tag_at) : carry(tag_at);
                 }
                 image_data(packet.subspan(at, size));
                 at += size;
