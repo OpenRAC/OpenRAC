@@ -259,11 +259,18 @@ std::uint32_t game_word(gaddr at) {
 // Pairs the address operands of a function's executable code and its copy: known register values
 // (lui, then addiu or ori), loads and stores through them or through $gp. The two codes are the
 // same instructions apart from addresses, so every pair computed in step is a correspondence.
-void pair_code(gaddr exe, gaddr level, std::uint32_t size, std::map<gaddr, std::int32_t>& out) {
+using WordReader = std::uint32_t (*)(int program, gaddr at);
+
+std::uint32_t exe_reader(int, gaddr at) {
+    return exe_word(at);
+}
+
+void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::uint32_t size,
+               gaddr low, gaddr high, std::map<gaddr, std::int32_t>& out) {
     std::uint32_t ve[32] = {}, vl[32] = {};
     bool known[32] = {};
     for (std::uint32_t i = 0; i + 4 <= size; i += 4) {
-        const std::uint32_t we = exe_word(exe + i), wl = game_word(level + i);
+        const std::uint32_t we = reference(program, exe + i), wl = game_word(level + i);
         const std::uint32_t op = we >> 26;
         if (op != (wl >> 26)) {
             break;  // not the same code any more (the copy ends, or another function)
@@ -314,7 +321,7 @@ void pair_code(gaddr exe, gaddr level, std::uint32_t size, std::map<gaddr, std::
         if (!have) {
             continue;
         }
-        if (ae - openrac_relocate_low < openrac_relocate_high - openrac_relocate_low) {
+        if (ae - low < high - low) {
             out.emplace(ae, static_cast<std::int32_t>(al - ae));
         }
     }
@@ -353,13 +360,108 @@ LevelMap& level_map(int overlay) {
             if (place != exe[k].first) {
                 map.code.emplace(exe[k].first, place);
             }
-            pair_code(exe[k].first, place, size, pairs);
+            pair_code(exe_reader, 0, exe[k].first, place, size, openrac_relocate_low,
+                      openrac_relocate_high, pairs);
         }
     }
     map.data.assign(pairs.begin(), pairs.end());
     info("level program {}: {} functions and {} global addresses relocated", overlay, map.code.size(),
          map.data.size());
     return map;
+}
+
+// ---- Level to level ----
+//
+// A function several levels' programs carry is written with the addresses of the level its name
+// gives (func_L05_...: level 5's). Its globals and the functions whose addresses it takes are
+// looked up the same way as an executable function's, by pairing its code in that level's program
+// (read from the player's data, through openrac_guest_set_level_programs) with its copy in the
+// level loaded.
+
+struct Chunk {
+    gaddr base;
+    std::vector<std::uint8_t> bytes;
+};
+
+void (*g_level_program_source)(int level) = nullptr;
+std::map<int, std::vector<Chunk>> g_level_programs;
+std::map<std::pair<int, int>, LevelMap> g_level_pair_maps;  // (from, loaded)
+constexpr gaddr kLevelLow = 0x0015F000u, kLevelHigh = 0x00400000u;
+
+const std::vector<Chunk>& level_program(int level) {
+    auto found = g_level_programs.find(level);
+    if (found == g_level_programs.end()) {
+        g_level_programs[level];
+        if (g_level_program_source != nullptr) {
+            g_level_program_source(level);  // fills g_level_programs[level]
+        }
+        found = g_level_programs.find(level);
+    }
+    return found->second;
+}
+
+std::uint32_t level_reader(int level, gaddr at) {
+    for (const Chunk& c : level_program(level)) {
+        if (at >= c.base && at + 4 <= c.base + c.bytes.size()) {
+            std::uint32_t w;
+            std::memcpy(&w, c.bytes.data() + (at - c.base), 4);
+            return w;
+        }
+    }
+    return 0;
+}
+
+LevelMap& level_pair_map(int from, int loaded) {
+    const auto key = std::make_pair(from, loaded);
+    auto found = g_level_pair_maps.find(key);
+    if (found != g_level_pair_maps.end()) {
+        return found->second;
+    }
+    LevelMap& map = g_level_pair_maps[key];
+    auto source = g_overlays.find(from);
+    auto level = g_overlays.find(loaded);
+    if (source == g_overlays.end() || level == g_overlays.end() || level_program(from).empty()) {
+        return map;
+    }
+    std::vector<std::pair<gaddr, openrac_host_fn>> own;
+    own.reserve(source->second.size());
+    for (const auto& [address, entry] : source->second) {
+        own.emplace_back(address, entry.fn);
+    }
+    std::sort(own.begin(), own.end());
+    std::unordered_map<openrac_host_fn, std::vector<gaddr>> copies;
+    for (const auto& [address, entry] : level->second) {
+        copies[entry.fn].push_back(address);
+    }
+    std::map<gaddr, std::int32_t> pairs;
+    for (std::size_t k = 0; k < own.size(); ++k) {
+        auto copy = copies.find(own[k].second);
+        if (copy == copies.end()) {
+            continue;
+        }
+        const std::uint32_t size =
+            k + 1 < own.size() ? std::min<std::uint32_t>(own[k + 1].first - own[k].first, 0x8000) : 0x400;
+        for (const gaddr place : copy->second) {
+            map.code.emplace(own[k].first, place);
+            pair_code(level_reader, from, own[k].first, place, size, kLevelLow, kLevelHigh, pairs);
+        }
+    }
+    map.data.assign(pairs.begin(), pairs.end());
+    info("level program {} for level {}'s functions: {} functions and {} global addresses relocated",
+         loaded, from, map.code.size(), map.data.size());
+    return map;
+}
+
+gaddr relocate_by(const LevelMap& map, gaddr address) {
+    auto it = std::upper_bound(map.data.begin(), map.data.end(), std::make_pair(address, INT32_MAX));
+    if (it == map.data.begin()) {
+        return address;
+    }
+    --it;
+    if (address - it->first > 0x100) {
+        return address;
+    }
+    return address + static_cast<gaddr>(it->second);
 }
 
 }  // namespace
@@ -404,6 +506,34 @@ gaddr openrac_relocate_code(gaddr address) {
     }
     std::scoped_lock hold(g_relocate_lock);
     const LevelMap& map = level_map(overlay);
+    auto it = map.code.find(address);
+    return it == map.code.end() ? address : it->second;
+}
+
+void openrac_guest_set_level_programs(void (*load)(int level)) {
+    g_level_program_source = load;
+}
+
+void openrac_guest_add_level_program(int level, gaddr base, const uint8_t* bytes, uint32_t size) {
+    g_level_programs[level].push_back(Chunk{base, std::vector<std::uint8_t>(bytes, bytes + size)});
+}
+
+gaddr openrac_relocate_level_data(int from, gaddr address) {
+    const int overlay = current_overlay();
+    if (overlay == from || overlay == OPENRAC_OVERLAY_EXE || address - kLevelLow >= kLevelHigh - kLevelLow) {
+        return address;
+    }
+    std::scoped_lock hold(g_relocate_lock);
+    return relocate_by(level_pair_map(from, overlay), address);
+}
+
+gaddr openrac_relocate_level_code(int from, gaddr address) {
+    const int overlay = current_overlay();
+    if (overlay == from || overlay == OPENRAC_OVERLAY_EXE) {
+        return address;
+    }
+    std::scoped_lock hold(g_relocate_lock);
+    const LevelMap& map = level_pair_map(from, overlay);
     auto it = map.code.find(address);
     return it == map.code.end() ? address : it->second;
 }

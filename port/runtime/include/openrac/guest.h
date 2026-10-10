@@ -177,6 +177,19 @@ static inline gaddr OPENRAC_CODE(gaddr a) {
     return openrac_relocate_high != 0 ? openrac_relocate_code(a) : a;
 }
 
+/* Level to level: a function several levels' programs carry is written with the addresses of the
+ * level its name gives (rac1: func_L05_... has level 5's). OPENRAC_LDATA and OPENRAC_LCODE give
+ * the loaded level's address for one of that level's; the tables come from pairing the function's
+ * code in that level's program with its copy in the loaded one. The game says where a level's
+ * program is (openrac_guest_set_level_programs: called with a level, it hands each piece of the
+ * program over with openrac_guest_add_level_program, at the address the piece is loaded to). */
+void openrac_guest_set_level_programs(void (*load)(int level));
+void openrac_guest_add_level_program(int level, gaddr base, const uint8_t* bytes, uint32_t size);
+gaddr openrac_relocate_level_data(int from, gaddr address);
+gaddr openrac_relocate_level_code(int from, gaddr address);
+#define OPENRAC_LDATA(from, a) openrac_relocate_level_data((from), (a))
+#define OPENRAC_LCODE(from, a) openrac_relocate_level_code((from), (a))
+
 /* A function the game calls that has no C in the port yet: still assembly in
  * the decompilation, or a library the port has not replaced. Logged once per
  * function and counted (openrac_guest_report_missing at exit). While the

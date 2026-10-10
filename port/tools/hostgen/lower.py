@@ -36,6 +36,9 @@ from program import BUILTINS, Program, canon, cname, has_body, symbol_of
 
 VA_NAMES = {"va_list", "__builtin_va_list", "__gnuc_va_list"}
 HW_RANGES = [(0x10000000, 0x12002000)]  # EE registers, VU memory, GS registers
+# Level programs' addresses (rac1: 0x15F000 up, with their data): what a shared level function's
+# globals are relocated in (_shared_level).
+LEVEL_RELOCATE = (0x0015F000, 0x00400000)
 
 
 # Type names the host's standard headers (included by guest.h) define.
@@ -1021,6 +1024,10 @@ class Unit:
                 raise Unsupported(f"the address of {sym}, which has none")
             if getattr(self.program, "relocate", None) and self.fn is not None                     and not self.fn.name.startswith("func_L") and places[0][0] < 0:
                 return f"OPENRAC_CODE({hexaddr(places[0][1])})"
+            level = self._shared_level()
+            if level is not None and places[0][0] >= 0:
+                own = next((a for o, a in places if o == level), places[0][1])
+                return f"OPENRAC_LCODE({level}, {hexaddr(own)})"
             return hexaddr(places[0][1])
         if n.get("kind") == "UnaryOperator" and n["opcode"] == "*":
             return self.rv(_inner(n)[0])
@@ -1227,7 +1234,28 @@ class Unit:
         addr = hexaddr(address)
         if self._relocated(address):
             addr = f"OPENRAC_DATA({addr})"
+        else:
+            level = self._shared_level()
+            if level is not None and LEVEL_RELOCATE[0] <= address < LEVEL_RELOCATE[1]:
+                addr = f"OPENRAC_LDATA({level}, {addr})"
         return LV(self.gref(t, addr), addr)
+
+    def _shared_level(self) -> int | None:
+        """For a function several levels' programs carry (func_LNN_..., placed in more than one
+        level), the level whose addresses it is written with: its globals and the functions whose
+        addresses it takes are looked up for the level loaded (guest.h, level to level)."""
+        fn = self.fn
+        if fn is None or not getattr(self.program, "relocate", None):
+            return None
+        cached = getattr(fn, "shared_level", False)
+        if cached is not False:
+            return cached
+        m = re.match(r"func_L(\d\d)_", fn.name)
+        level = None
+        if m and len({o for o, _ in self.program.code_places(fn.name)}) > 1:
+            level = int(m.group(1))
+        fn.shared_level = level
+        return level
 
     def _relocated(self, address: int) -> bool:
         """An executable function's global in the range that level programs move (hostgen.json
