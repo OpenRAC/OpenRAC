@@ -868,8 +868,10 @@ class Unit:
         if k == "InitListExpr":
             r = self.resolve(t)
             items = _inner(init)
-            if "array_filler" in init:
-                items = items + []
+            if "array_filler" in init and not items:
+                # A partly initialised array: Clang gives the filler (the zeros after the last
+                # element), then the elements, under array_filler and no inner.
+                items = init["array_filler"][1:]
             if isinstance(r, ctype.Arr):
                 parts = [self.initializer(i, r.of) for i in items]
                 return "{" + ", ".join(parts) + "}" if parts else "{0}"
