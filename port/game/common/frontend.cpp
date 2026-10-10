@@ -516,6 +516,26 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
             }
         }
         const int joints = g->level.models[instance.model].joints;
+        if (debug && g->index % 100 == 0 && m.class_id == 0) {
+            // The hero, for bring-up: where he is and what his animation fields and pose say.
+            const auto pose = viewer::moby_palette(ram, m.address);
+            const std::uint8_t* b = ram.data() + m.address;
+            float t = 0.0f;
+            std::memcpy(&t, b + 0x54, 4);
+            bool finite = !pose.empty();
+            for (const auto& f : pose) {
+                for (const auto& row : f) {
+                    for (float x : row) {
+                        finite = finite && std::isfinite(x) && std::fabs(x) < 1.0e6f;
+                    }
+                }
+            }
+            log::info("  hero at {:#x}: position {:.2f} {:.2f} {:.2f}, scale {:.3f}, keys {}:{} -> {}:{} t {:.3f}, "
+                      "{} joints posed ({} in the mesh), {}, mode {:#x}",
+                      m.address, m.matrix[12], m.matrix[13], m.matrix[14], m.matrix[0], b[0x52], b[0x50],
+                      b[0x53], b[0x51], t, pose.size(), joints, finite ? "finite" : "NOT finite",
+                      static_cast<unsigned>(b[0x34] | b[0x35] << 8));
+        }
         if (animate && joints > 0) {
             const auto pose = viewer::moby_palette(ram, m.address);
             if (!pose.empty()) {
