@@ -108,6 +108,18 @@ bool GifInterpreter::gif(std::span<const std::uint8_t> input) {
         m_gif_pending.assign(packet.begin() + static_cast<std::ptrdiff_t>(from), packet.end());
         return true;
     };
+    // A register tag (PACKED, REGLIST) cut off by the end of a VIF DIRECT: the game's own packets
+    // always finish them inside the DIRECT (only image data runs on into the next one), so this is
+    // a transfer of something that is not GIF data (a reference to memory the port has put other
+    // bytes in). Dropped, so that the next DIRECT is read from its first tag again.
+    const auto cut = [&](std::size_t from) {
+        if (!m_in_direct) {
+            return carry(from);
+        }
+        log::debug("a GIF register tag runs past the end of its DIRECT ({} bytes left): dropped",
+                   packet.size() - from);
+        return true;
+    };
     std::size_t at = 0;
     while (at + 16 <= packet.size()) {
         const gs::GifTag tag = gs::GifTag::decode(read64(packet, at), read64(packet, at + 8));
@@ -117,7 +129,7 @@ bool GifInterpreter::gif(std::span<const std::uint8_t> input) {
             case gs::GifTag::kPacked: {
                 const std::size_t size = std::size_t{tag.nloop} * tag.nreg * 16;
                 if (at + size > packet.size()) {
-                    return carry(tag_at);
+                    return cut(tag_at);
                 }
                 if (tag.pre) {
                     write_prim(tag.prim);
@@ -190,7 +202,7 @@ bool GifInterpreter::gif(std::span<const std::uint8_t> input) {
                 const std::size_t words = std::size_t{tag.nloop} * tag.nreg;
                 const std::size_t size = ((words + 1) / 2) * 16;  // padded to whole quadwords
                 if (at + size > packet.size()) {
-                    return carry(tag_at);
+                    return cut(tag_at);
                 }
                 for (std::size_t i = 0; i < words; ++i) {
                     const auto reg =
@@ -257,7 +269,10 @@ bool GifInterpreter::vif(std::span<const std::uint8_t> stream) {
                 if (at + size > stream.size()) {
                     return fail(std::format("VIF DIRECT at {:#x} runs past the stream", code_at));
                 }
-                if (!gif(stream.subspan(at, size))) {
+                m_in_direct = true;
+                const bool read = gif(stream.subspan(at, size));
+                m_in_direct = false;
+                if (!read) {
                     return false;
                 }
                 at += size;
@@ -284,12 +299,16 @@ void GifInterpreter::write_prim(std::uint64_t value) {
 void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
     if (g_dump_draws
         && (address == gs::kFrame1 || address == gs::kFrame2 || address == gs::kTrxdir
-            || address == gs::kXyoffset1 || address == gs::kScissor1 || address == gs::kTex0_1 || address == 0x19 || address == 0x41 || address == 0x4d)) {
+            || address == gs::kXyoffset1 || address == gs::kScissor1 || address == gs::kTex0_1 || address == gs::kTex0_2 || address == 0x19 || address == 0x41 || address == 0x4d)) {
         log::info(
             "reg {:#04x} = {:#018x} (bitbltbuf sbp {:#x} dbp {:#x} dbw {} trxpos {},{}->{},{} trxreg {}x{})",
             address, value, m_bitbltbuf.sbp, m_bitbltbuf.dbp, m_bitbltbuf.dbw, m_trxpos.ssax, m_trxpos.ssay,
             m_trxpos.dsax, m_trxpos.dsay, m_trxreg.rrw, m_trxreg.rrh
         );
+        if (address == gs::kTex0_1 || address == gs::kTex0_2) {
+            const gs::Tex0 t = gs::Tex0::decode(value);
+            log::info("  tex0 tbp {:#x} psm {:#x} cbp {:#x} csa {} cld {}", t.tbp0, t.psm, t.cbp, t.csa, t.cld);
+        }
     }
     Context& c1 = m_context[0];
     Context& c2 = m_context[1];

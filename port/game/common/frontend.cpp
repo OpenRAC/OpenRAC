@@ -105,19 +105,30 @@ std::vector<std::uint8_t> direct_packets(std::span<const std::uint8_t> ram, std:
             vif.insert(vif.end(), ram.data() + at, ram.data() + at + bytes);
         }
     };
+    // A tag whose address has bit 31 set sends its data from the scratchpad (16 KB at 0x70000000
+    // in game memory), where the game builds some packets (the page menus' 2D setup among them).
+    auto append_scratchpad = [&](std::uint32_t at, std::uint32_t bytes) {
+        at &= 0x3FF0;
+        const std::uint8_t* spr = static_cast<const std::uint8_t*>(G(0x70000000u));
+        if (at + bytes <= 0x4000u) {
+            vif.insert(vif.end(), spr + at, spr + at + bytes);
+        }
+    };
     for (int steps = 0; tag_at != 0 && steps < 20000; ++steps) {
         const std::uint32_t lo = word_at(ram, tag_at);
-        const std::uint32_t addr = word_at(ram, tag_at + 4) & 0x7FFFFFF0;
+        const std::uint32_t raw_addr = word_at(ram, tag_at + 4);
+        const bool from_spr = (raw_addr & 0x80000000u) != 0;
+        const std::uint32_t addr = raw_addr & 0x7FFFFFF0;
         const std::uint32_t qwc = lo & 0xFFFF;
         const std::uint32_t id = (lo >> 28) & 7;
         append(tag_at + 8, 8);  // the two VIF codes in the tag
         const std::uint32_t after = tag_at + 16;
-        if (addr & 0x80000000u) {
-            break;  // the scratchpad: not followed
+        if (from_spr && id != 0 && id != 3 && id != 4) {
+            break;  // a chain continuing in the scratchpad: not followed
         }
         switch (id) {
             case 0:  // refe
-                append(addr, qwc * 16);
+                from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
                 tag_at = 0;
                 break;
             case 1:  // cnt
@@ -130,7 +141,7 @@ std::vector<std::uint8_t> direct_packets(std::span<const std::uint8_t> ram, std:
                 break;
             case 3:  // ref
             case 4:  // refs
-                append(addr, qwc * 16);
+                from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
                 tag_at = after;
                 break;
             case 5:  // call
@@ -258,6 +269,11 @@ std::vector<std::uint8_t> direct_packets(std::span<const std::uint8_t> ram, std:
             if (at + size > vif.size()) {
                 break;
             }
+            // Each DIRECT's data stays a DIRECT of its own (NOP NOP NOP DIRECT, then the data), so
+            // the direct renderer reads every one from its first tag.
+            const std::uint32_t head[4] = {0, 0, 0, 0x50000000u | (imm & 0xFFFF)};
+            gif.insert(gif.end(), reinterpret_cast<const std::uint8_t*>(head),
+                       reinterpret_cast<const std::uint8_t*>(head) + sizeof(head));
             gif.insert(gif.end(), vif.data() + at, vif.data() + at + size);
             if (strips != nullptr) {
                 track_direct(vif.data() + at, size);
@@ -419,7 +435,7 @@ void use_level(int number) {
     const auto dir = g->levels / std::format("level_{:02d}", wanted);
     if (!viewer::load_level(dir, g->level, error)) {
         log::warn("level {}: {} (extract it with editor/extract.py port)", wanted, error);
-        g->renderer->add(std::make_unique<renderer::DirectRenderer>("hud", renderer::Bucket::Hud), error);
+        g->renderer->add(std::make_unique<renderer::DirectRenderer>("hud", renderer::Bucket::Hud, renderer::DirectConfig{}, renderer::DirectRenderer::Input::Vif), error);
         if (fresh) {
             g->renderer->init(error);
         }
@@ -438,7 +454,7 @@ void use_level(int number) {
     if (g->renderer->add(std::make_unique<renderer::EffectRenderer>(), error) == nullptr) {
         log::error("effect renderer: {}", error);
     }
-    g->renderer->add(std::make_unique<renderer::DirectRenderer>("hud", renderer::Bucket::Hud), error);
+    g->renderer->add(std::make_unique<renderer::DirectRenderer>("hud", renderer::Bucket::Hud, renderer::DirectConfig{}, renderer::DirectRenderer::Input::Vif), error);
     if (fresh) {
         g->renderer->init(error);
     }
@@ -737,6 +753,10 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     g->window = platform::Window::open(config, error);
     if (!g->window) {
         return false;
+    }
+    // OPENRAC_UNCAPPED (main.cpp): no wait for the display's refresh either.
+    if (std::getenv("OPENRAC_UNCAPPED") != nullptr) {
+        g->window->set_vsync(false);
     }
     std::string missing;
     if (!gl::load(platform::Window::gl_loader(), missing)) {

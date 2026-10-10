@@ -244,6 +244,8 @@ private:
     std::string m_error;
     // A GIF tag and the part of its data that has come so far, finished by the next packet.
     std::vector<std::uint8_t> m_gif_pending;
+    // Reading one VIF DIRECT's data (vif()): a register tag it cuts off is dropped, not carried.
+    bool m_in_direct = false;
 };
 
 class DirectRenderer : public BucketRenderer {
