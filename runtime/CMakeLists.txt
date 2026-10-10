@@ -53,10 +53,16 @@ add_library(openrac_sys STATIC
   src/sys/memcard.cpp
   src/sys/native.cpp
   src/sys/services.cpp
+  src/sys/snapshot.cpp
   src/sys/sound.cpp
 )
 target_include_directories(openrac_sys PUBLIC src)
-target_link_libraries(openrac_sys PUBLIC openrac_ps2 openrac_snd)
+find_package(ZLIB REQUIRED)
+target_link_libraries(openrac_sys PUBLIC openrac_ps2 openrac_snd ZLIB::ZLIB)
+
+# Checks a function written in C against the retail one by what they do (tools/fcheck.py).
+add_executable(openrac-fcheck src/app/fcheck.cpp)
+target_link_libraries(openrac-fcheck PRIVATE openrac_sys)
 
 if(OPENRAC_RUNTIME_WINDOW)
   find_package(SDL3 REQUIRED CONFIG)

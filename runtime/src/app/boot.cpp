@@ -29,6 +29,9 @@
 
 #include "ps2/vu_dis.h"
 #include "sys/machine.h"
+#include "sys/snapshot.h"
+
+#include <zlib.h>
 
 #ifndef OPENRAC_NO_WINDOW
 #include "host/window.h"
@@ -149,13 +152,44 @@ int main(int argc, char** argv) {
     };
 
     std::vector<Write> writes;
+
+    /**
+     * For checking functions by what they do (`openrac-fcheck`): the machine's state is written at
+     * the first calls of each listed function. The list has a line per function: its address,
+     * how many of its first bytes to compare and their CRC-32 (so that a level's function is
+     * taken only where that level's code is loaded), its name, and how many calls to take.
+     */
+    struct Capture {
+        unsigned address, bytes, crc, wanted, taken;
+        std::string name;
+    };
+
+    std::vector<Capture> captures;
+    std::string capture_dir;
     sys::Machine machine;
 
     // One option per pass; a value-taking option reads the next argument as well.
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
 
-        if (arg == "--hooks" && i + 1 < argc) {
+        if (arg == "--capture" && i + 2 < argc) {
+            // A list of functions and the directory their call states go to.
+            std::ifstream list(argv[++i]);
+            capture_dir = argv[++i];
+            std::string line;
+
+            while (std::getline(list, line)) {
+                Capture c{};
+                char name[128] = "";
+
+                // Lines that do not parse (comments, blank lines) are skipped.
+                if (std::sscanf(line.c_str(), "%x %u %x %127s %u", &c.address, &c.bytes, &c.crc, name, &c.wanted) >= 4) {
+                    c.name = name;
+                    c.wanted = c.wanted ? c.wanted : 3;
+                    captures.push_back(c);
+                }
+            }
+        } else if (arg == "--hooks" && i + 1 < argc) {
             // The table that says which addresses of the program are which library functions.
             hooks = argv[++i];
         } else if (arg == "--frames" && i + 1 < argc) {
@@ -263,7 +297,7 @@ int main(int argc, char** argv) {
                 "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | "
                 "--no-card] [--wav FILE] [--native LIBRARY] [--native-check CALLS] [--native-range "
                 "FIRST:LAST] [--native-skip FILE] [--native-calls FILE] [--write "
-                "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs]\n"
+                "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs] [--capture LIST DIRECTORY]\n"
             );
             return 2;
         }
@@ -300,6 +334,54 @@ int main(int argc, char** argv) {
     if (!native.empty() && !machine.native.load(native, &error)) {
         std::fprintf(stderr, "%s: %s\n", native.c_str(), error.c_str());
         return 1;
+    }
+
+    std::vector<u8> capture_marks;
+
+    // Call states were asked for: mark the functions' first instructions for the interpreter.
+    if (!captures.empty()) {
+        // Host code uses the same marks; the two do not go together.
+        if (!native.empty()) {
+            std::fprintf(stderr, "--capture and --native do not go together\n");
+            return 2;
+        }
+
+        std::filesystem::create_directories(capture_dir);
+        capture_marks.assign(GuestMemory::kRamBytes / 4, 0);
+
+        for (const Capture& c : captures) {
+            capture_marks[(c.address & (GuestMemory::kRamBytes - 1)) >> 2] = 1;
+        }
+
+        machine.ee.native_marks = capture_marks.data();
+
+        // Reached a marked word: take the state if it is one of the listed functions' first calls.
+        machine.ee.on_native = [&](u32 address) {
+            for (Capture& c : captures) {
+                bool here = (c.address & (GuestMemory::kRamBytes - 1)) == (address & (GuestMemory::kRamBytes - 1));
+
+                if (!here || c.taken >= c.wanted) {
+                    continue;
+                }
+
+                // Another program's code is at this address now (a level's).
+                if (crc32(0, machine.memory.ram(c.address), c.bytes) != c.crc) {
+                    continue;
+                }
+
+                sys::CallState state;
+                state.take(machine.ee, machine.vu0, machine.memory, machine.vif0.micro.data(), machine.vif0.data.data());
+                state.address = address;
+                std::string path = capture_dir + "/" + c.name + "." + std::to_string(c.taken) + ".snap";
+
+                // The file is counted only when it was written.
+                if (state.save(path)) {
+                    c.taken++;
+                }
+            }
+
+            return false;
+        };
     }
 
     // The memory card: a directory, by default one per disc among the user's
