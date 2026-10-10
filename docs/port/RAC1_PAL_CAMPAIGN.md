@@ -378,6 +378,44 @@ The equipment commit is `f1a7a4e`, and effects remains `28bc3ea`.
 The prior dirty files remain separate, the index is clear after each
 commit, all task claims are released, and no push has been made.
 
+### PR #4 build and test fixes, 2026-10-10
+
+The owner authorized resolving the draft PR's build/test failures and
+updating the published branch. Commits `47a46a2` and `591293a` adopt and
+verify the required pending fixes, keeping unrelated startup work local.
+The earlier excluded credit-preference edit is still uncommitted.
+
+- Hostgen now normalizes Windows source paths, recognizes newer Clang's
+  owned anonymous tags, and uses the desugared sizeof/pointer-difference
+  types. CMake tracks the translator modules from the function's module
+  directory. The portable synthetic regression failed before the fixes
+  and passes afterward, covering struct/union/enum typedefs, sizeof,
+  pointer subtraction and a nested source path containing spaces.
+- The renderer tests now cover the existing raw-GIF continuation behavior
+  while still rejecting truncated tags. The viewer expects both moby
+  passes and verifies that disabling mobys removes both submissions;
+  all prior pixel assertions remain. No renderer behavior or gameplay
+  missing-call checks were relaxed.
+- Verified the exact committed `591293a` tree in the clean detached
+  `.tools/push-verify-9850bfe` checkout. Full Windows release build succeeds,
+  using the sibling `rac1-decomp` and LLVM MinGW. All 42 CTest tests pass.
+  Logs: `.tools/pr4-committed-build.log` and
+  `.tools/pr4-committed-tests.log` in the parent workspace.
+- Hostgen reads all 378 units, with no unreadable units or index problems:
+  3,785 translated functions, 179 candidates, 3 translation stubs, 1,165
+  without C. These differ from the integrated working checkout because
+  its additional startup implementations remain uncommitted.
+- Hostgen's Python suite: 25 tests, 8 passed and 17 POSIX-only tests skipped
+  on Windows; `.tools/pr4-hostgen-tests.log`. Skipped tests are not claimed
+  as passing validation. GitHub's upstream checks remain separate.
+
+These fixes remove the two reported test failures and committed Windows
+build failure. They do not establish playable gameplay. The last integrated
+New Game stop remains `func_L00_0020FC18`; no new runtime probe is counted
+here. The next decomp task remains the equipment attachment routine and
+matrix-buffer correction described above. PR #4 targets
+`OpenRAC/OpenRAC:master` from `PeterFarber:setup/windows-native`.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
