@@ -389,11 +389,15 @@ void LevelScene::draw_layer(
     glActiveTexture(GL_TEXTURE0);
     // Mobys in two passes: their solid faces, then their glow faces blended over them as the GS
     // blends them (ALPHA 0x44: (Cs - Cd) As + Cd), without writing depth.
+    // Then the translucent texels of cutout materials, blended the same way, without depth.
     const int glow_pass = m_mesh.uniform("glow_pass");
-    const int passes = layer == Layer::Mobys ? 2 : 1;
+    const int translucent_pass = m_mesh.uniform("translucent_pass");
+    const int passes = layer == Layer::Mobys ? 3 : 2;
     for (int pass = 0; pass < passes; ++pass) {
-        glUniform1i(glow_pass, pass);
-        if (pass == 1) {
+        const bool translucent = pass == passes - 1;
+        glUniform1i(glow_pass, layer == Layer::Mobys && pass == 1 ? 1 : 0);
+        glUniform1i(translucent_pass, translucent ? 1 : 0);
+        if (pass >= 1) {
             glEnable(GL_BLEND);
             glBlendEquation(GL_FUNC_ADD);
             glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
@@ -403,6 +407,9 @@ void LevelScene::draw_layer(
             glBindVertexArray(g.vao);
             for (const Primitive& p : m_models[g.model].primitives) {
                 const Material& m = m_materials[static_cast<std::size_t>(p.material)];
+                if (translucent && !m.cutout) {
+                    continue;
+                }
                 const renderer::TextureHandle texture =
                     m.image >= 0 ? m_textures[static_cast<std::size_t>(m.image)] : m_white;
                 glBindTexture(GL_TEXTURE_2D, state.textures.gl_texture(texture));

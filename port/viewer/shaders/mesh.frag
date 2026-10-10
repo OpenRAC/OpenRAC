@@ -20,6 +20,9 @@ uniform vec4 material_colour;
 uniform int cutout;
 uniform int lighting;
 uniform int glow_pass;  // mobys: 0 the solid faces, 1 the glow faces (blended)
+// Cutout materials in two passes, as the GS draws them (alpha test GEQUAL 0x80, failing pixels
+// written as colour only): 0 the opaque texels, with depth; 1 the translucent ones, blended.
+uniform int translucent_pass;
 uniform vec4 fog_colour;  // FOGCOL; w = 1: fog on
 
 layout(location = 0) out vec4 out_colour;
@@ -32,7 +35,10 @@ void main() {
         discard;
     }
     vec4 c = texture(tex_T0, v_uv) * v_colour * material_colour;
-    if (cutout != 0 && c.a < 0.5) {
+    if (cutout != 0 && translucent_pass == 0 && c.a < 0.99) {
+        discard;
+    }
+    if (translucent_pass != 0 && (cutout == 0 || c.a >= 0.99 || c.a < 0.02)) {
         discard;
     }
     float light = 1.0;
@@ -45,5 +51,5 @@ void main() {
     if (fog_colour.w > 0.5) {
         rgb = mix(fog_colour.rgb, rgb, v_fog);
     }
-    out_colour = vec4(rgb, v_glow != 0 ? clamp(c.a, 0.0, 1.0) : 1.0);
+    out_colour = vec4(rgb, v_glow != 0 || translucent_pass != 0 ? clamp(c.a, 0.0, 1.0) : 1.0);
 }
