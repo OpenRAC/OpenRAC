@@ -78,6 +78,11 @@ add_executable(particle_allocate_test tests/particle_allocate_test.c)
 openrac_warnings(particle_allocate_test)
 add_test(NAME particle_allocate COMMAND particle_allocate_test)
 
+add_executable(hero_animation_test tests/hero_animation_test.c)
+target_compile_options(hero_animation_test PRIVATE -fno-strict-aliasing -ffp-contract=off)
+openrac_warnings(hero_animation_test)
+add_test(NAME hero_animation COMMAND hero_animation_test)
+
 if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()

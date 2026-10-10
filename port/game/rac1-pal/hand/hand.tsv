@@ -56,3 +56,4 @@ func_002116A0	game_joint_matrices.c
 func_00218928	game_particle_allocate.c
 func_00218930	game_particle_allocate.c
 func_L00_00267290	level_stream_request.c
+func_L00_00232EF0	level_hero_animation.c

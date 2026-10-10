@@ -260,6 +260,43 @@ its original dirty `tools/organize_asm.py`; the earlier native working-tree
 changes remain uncommitted and separate. All four fixes were committed
 locally, no push was made, and this session's function claims are released.
 
+### Hero animation advancement, 2026-10-10 continuation
+
+Local commit subject: `feat(rac1/pal): advance native hero animation`.
+Starting from native `949b5d9` and decomp `87162f57`, the working trees
+still contained the earlier uncommitted startup work, with no staged work
+or active claims. Reproduced `func_L00_00232EF0` at frame 2828, exit 2,
+in `.tools/native-run/anim-before.log` before changing the implementation.
+
+Implemented native-only hero animation advancement after reviewing the
+existing candidate against the full PAL body. Explicit pointer fields
+preserve EE layout through hostgen. Frame blending, curve transitions,
+multi-key stepping, looping, restart paths, sound-event intervals and
+sound ownership follow the retail branches. No PS2 match is claimed and
+the sibling candidate/source/report remain unchanged.
+
+- `Build-Native.ps1`: 45/45 CTest tests pass;
+  `.tools/native-hero-animation-build.log`.
+- The synthetic hero-animation fixture also passes as a 32-bit executable
+  built with `i686-w64-mingw32-clang.exe -std=c11 -O2
+  -fno-strict-aliasing -ffp-contract=off`. It asserts EE field offsets and
+  covers step rates, strict snap boundaries, multi-key wrap, transition
+  curves, forced loops, event endpoints, stale voices and muted modes.
+- Hostgen: 3,813 translated functions (one entry plus one helper added),
+  196 candidates, 3 stubs, 1,148 without C; 378 readable units, no index
+  problems. Level globals retain level relocation in generated code.
+- The same documented New Game sequence with `-Name anim-verified
+  -ShotEvery 3000 -Frames 5200` passes the animation call and stops at
+  `func_L00_00205FF0`, frame 2828, exit 2. Log:
+  `.tools/native-run/anim-verified.log`. No frame-3000 image was produced;
+  visible gameplay and player movement remain unverified.
+
+Current next action: review and implement `func_L00_00205FF0` from its
+retail overlay assembly, checking any existing candidate first, then
+repeat the same New Game probe. Keep the missing-function trap enabled.
+Only this task's implementation, test, registrations and handoff are
+included in the local commit; earlier uncommitted work is preserved.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
