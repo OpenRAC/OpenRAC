@@ -1017,6 +1017,38 @@ the old and new sequences and actual 32-bit guest table strides. It is
 claimed by codex-pad-routing while work continues. Matching checkout
 unchanged; prior dirty work preserved. No push or assistant credit.
 
+### Walk/run animation and first movement, 2026-10-10 continuation
+
+Hero lean is committed as `5d23adf`. Recovered func_L00_002293E8 from
+the existing candidate after reviewing all 0x390 bytes of retail code.
+Native implementation preserves timer/lock gates, threshold hysteresis,
+sequence phase transfer, transition offsets and mode-specific animation
+rates. Sequence slots use pointer types so hostgen preserves 4-byte guest
+strides while the standalone fixture also works on 64-bit hosts.
+
+Windows build and 60/60 CTest pass (`.tools/native-hero-gait-build.log`).
+The dedicated fixture also passes on i686 (`.tools/hero-gait-test32.exe`),
+covering both transition directions, fractional phase truncation/wrapping,
+gates and their recheck, threshold equality/scaling, hysteresis and rate
+clamps. Reviewed generated pointer strides and relocated globals. Hostgen:
+3839 translated, no unreadable units or index problems. Native-only work;
+no matching source or progress changes.
+
+Strict `gait-verified` probe uses the same neutral/forward input as
+lean-final, plus Cross scheduled at 1500. Forward at 1200 now moves the
+hero from (132.09,115.48,31.43) to (140.73,118.44,31.23) by frame 1300;
+camera position moves from (125.8,113.3,33.0) to (134.3,116.2,33.1).
+The pose stays finite. At frame 1330 it stops at func_L00_00214520, exit 2.
+Jump was not reached. Log: `.tools/native-run/gait-verified.log`.
+This is first measured native walking, not full gameplay validation.
+
+Next action: implement func_L00_00214520, 0x2A0 bytes, movement-heading
+adjustment/velocity damping. Candidate:
+nonmatching/shared/func_L00_00214520.c. Review the typed hero offsets,
+vector helpers and mode gates against retail, validate, then repeat the
+same strict forward/jump probe. All earlier dirty work is preserved.
+Local commits only, no push or assistant trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
