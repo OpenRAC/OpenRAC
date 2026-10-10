@@ -179,8 +179,10 @@ void func_00218B10(void) {
     if (openrac_guest_overlay() < 0) {
         return;  // the boot program (title, menus, the flight) keeps no particle pool there
     }
-    const gaddr pool = GREF(gaddr, OPENRAC_DATA(0x0016022Cu));
-    const int high = GREF(int, OPENRAC_DATA(0x00160234u));
+    // The pool's globals are the level programs' own (level 0's addresses, relocated to the level
+    // loaded); the boot program keeps other things there.
+    const gaddr pool = GREF(gaddr, OPENRAC_LDATA(0, 0x0016022Cu));
+    const int high = GREF(int, OPENRAC_LDATA(0, 0x00160234u));
     const gaddr table = OPENRAC_LDATA(0, 0x001B1C00u) + 0x200;
     if (pool == 0 || pool >= 0x01FE0000u || table >= 0x01FFF000u) {
         return;

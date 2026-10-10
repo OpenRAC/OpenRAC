@@ -711,6 +711,14 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
                           e.rgba[0], e.st[0][0], e.st[0][1], e.st[3][0], e.st[3][1], e.tex0, e.alpha, e.clamp);
             }
         }
+        if (!g->particles.empty()) {
+            int kinds[4] = {0, 0, 0, 0};
+            for (const State::Particle& p : g->particles) {
+                kinds[p.record[1] & 3]++;
+            }
+            log::info("  {} particles (sprites {}, flat {}, lines {}, ribbons {})", g->particles.size(), kinds[0],
+                      kinds[1], kinds[2], kinds[3]);
+        }
         if (!g->effects.empty()) {
             const renderer::EffectQuad& e = g->effects.front();
             log::info("  {} effect quads; the first at {:.1f} {:.1f} {:.1f}, TEX0 {:#x}, ALPHA {:#x}, RGBA {:#x}",
