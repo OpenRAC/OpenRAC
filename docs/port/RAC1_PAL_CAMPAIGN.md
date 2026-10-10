@@ -297,6 +297,36 @@ repeat the same New Game probe. Keep the missing-function trap enabled.
 Only this task's implementation, test, registrations and handoff are
 included in the local commit; earlier uncommitted work is preserved.
 
+### Hero model effects, 2026-10-10 continuation
+
+Local commit subject: `feat(rac1/pal): implement native hero model effects`;
+hero animation was committed as `9c5ad64`. Implemented `func_L00_00205FF0`
+from the complete 1,232-byte PAL body. It preserves model selection, color
+pulse and flash timing, four joint manipulator templates, envelope updates
+and final detach. A zero pulse period remains fatal, as retail's break is;
+there is no missing-call bypass. This is native-only, not a PS2 match.
+
+- `Build-Native.ps1`: 46/46 CTest tests pass;
+  `.tools/native-hero-effects-build.log`. The effects fixture also passes
+  with the 32-bit compiler and the same flags documented above. It checks
+  selection/early exits, color values and phase, flash boundaries, timer
+  scaling, attachment initialization/reuse/cleanup and the invalid-period
+  trap. Generated code retains level relocation for all effect tables.
+- Hostgen: 3,814 functions, 197 candidates, 3 stubs, 1,147 without C;
+  378 readable units and no index problems. The external source remains
+  the sibling `rac1-decomp/` checkout.
+- Before: `anim-verified.log`, frame 2828 at `func_L00_00205FF0`.
+  After: the same New Game probe with `-Name effects-verified
+  -ShotEvery 3000 -Frames 5200`, exit 2 at frame 2827, now missing
+  `func_L00_0020F118`. Log: `.tools/native-run/effects-verified.log`.
+  No frame-3000 screenshot was produced. Visible gameplay remains unverified.
+
+Exact next action: review the PAL assembly and any existing candidate for
+`func_L00_0020F118`, implement the full behavior, then repeat this probe.
+Earlier uncommitted work and all matching sources/reports remain untouched.
+Per the owner's instruction during this continuation, new local commits
+omit the assistant co-author trailer. No push is authorized or performed.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
