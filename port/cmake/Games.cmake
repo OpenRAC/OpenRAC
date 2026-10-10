@@ -85,10 +85,26 @@ function(openrac_add_game config)
   file(GLOB_RECURSE inputs CONFIGURE_DEPENDS
     "${game_source}/src/*.c" "${game_source}/src/*.h" "${game_source}/include/*.h"
     "${game_source}/candidates/*.c" "${game_source}/nonmatching/*.tsv" "${game_source}/nonmatching/*.c")
+  # The decompilation's own tables that hostgen.json names ("places", "symbols").
+  string(JSON places ERROR_VARIABLE no_places GET "${json}" places)
+  if(NOT no_places AND EXISTS "${game_source}/${places}")
+    list(APPEND inputs "${game_source}/${places}")
+  endif()
+  string(JSON symbol_count ERROR_VARIABLE no_symbols LENGTH "${json}" symbols)
+  if(NOT no_symbols AND symbol_count GREATER 0)
+    math(EXPR last "${symbol_count} - 1")
+    foreach(i RANGE ${last})
+      string(JSON symbols GET "${json}" symbols ${i})
+      if(EXISTS "${game_source}/${symbols}")
+        list(APPEND inputs "${game_source}/${symbols}")
+      endif()
+    endforeach()
+  endif()
   # hostgen's own code (in a function, CMAKE_CURRENT_LIST_DIR is the caller's directory, so the
-  # tool's is taken from OPENRAC_HOSTGEN, set where this file was read).
+  # tool's is taken from OPENRAC_HOSTGEN, set where this file was read), and the headers it reads
+  # the decompilation with.
   get_filename_component(hostgen_dir "${OPENRAC_HOSTGEN}" DIRECTORY)
-  file(GLOB tool CONFIGURE_DEPENDS "${hostgen_dir}/*.py")
+  file(GLOB tool CONFIGURE_DEPENDS "${hostgen_dir}/*.py" "${hostgen_dir}/include/*.h")
   file(GLOB tables CONFIGURE_DEPENDS "${config_dir}/*.json" "${config_dir}/*.tsv"
        "${config_dir}/hand/*" "${OPENRAC_GAME_DIR}/common/*.tsv")
   # hostgen rewrites only the files whose text changed, so after an edit only
