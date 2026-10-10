@@ -256,9 +256,12 @@ void openrac_game_dma_send(gaddr channel, gaddr tag) {
 }
 
 void openrac_game_set_display(const openrac_game_display* d) {
-    log::debug(
-        "display: {}x{} at page {}, format {:#x}", d->width, d->height, d->frame_base, d->psm
-    );
+    static openrac_game_display last{};
+    if (std::memcmp(&last, d, sizeof(last)) != 0) {
+        last = *d;
+        log::info("display: {}x{} at page {} (width {}), format {:#x}, at {},{}", d->width, d->height,
+                  d->frame_base, d->frame_width, d->psm, d->x, d->y);
+    }
 }
 
 void openrac_game_set_video_mode(int interlace, int mode, int field_mode) {

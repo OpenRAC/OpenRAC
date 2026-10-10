@@ -832,6 +832,14 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
             return;
         }
     }
+    // The copy of the finished draw buffer into the display buffer, in strips: stretched in the menus,
+    // 1:1 between borders in play. The picture already is that frame (both buffers map onto it by
+    // their sizes), so drawing the copy would only shrink it into the middle of itself.
+    if (attributes().tme && context().tex0.tbp0 == m_config.frame_blocks[1]
+        && context().frame.fbp * 32 == m_config.frame_blocks[0]
+        && std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16 >= kFrameFillLines) {
+        return;
+    }
     // A sprite is a rectangle from two corners; depth, colour and fog come
     // from the second vertex. Texture coordinates go to S/Q, T/Q per corner
     // (a sprite has no perspective).
