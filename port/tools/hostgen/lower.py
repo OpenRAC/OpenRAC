@@ -546,8 +546,18 @@ class Unit:
             if p["id"] in memory_ids:
                 f = self._frame_field(p, n)
                 fn.memory[p["id"]] = f
-        # Locals: frame fields for memory-resident ones (found while walking).
-        for vid in memory_ids:
+        # Locals: frame fields for memory-resident ones, in declaration order (a set's order
+        # changes from run to run, and with it the frame's layout: a candidate that overruns a
+        # buffer would then fail in one build and not the next).
+        order = []
+        stack = [body]
+        while stack:
+            n = stack.pop()
+            if n.get("kind") == "VarDecl" and n.get("id") in memory_ids:
+                order.append(n["id"])
+            stack.extend(reversed(_inner(n)))
+        order += sorted(v for v in memory_ids if v not in set(order))
+        for vid in order:
             d = self.decls.get(vid)
             if d is not None and d.get("kind") == "VarDecl" and vid not in fn.memory:
                 if d.get("storageClass") == "static":
