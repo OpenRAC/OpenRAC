@@ -1,0 +1,460 @@
+# Ratchet and Clank PAL native PC campaign
+
+Complete the decompilation of Ratchet & Clank (2002), PAL SCES_509.16, and
+make the full game playable natively on Windows. Implement, validate and
+commit each logical fix locally, then continue with the next task during
+the active session. The owner authorized these commits on 2026-10-10.
+Pushing and publishing need a specific request.
+
+## Repository and startup map
+
+The configured parent workspace contains two independent Git repositories:
+
+| Work | Repository and location |
+|---|---|
+| Retail matching C, declarations and match reports | `rac1-decomp/` |
+| Native runtime, renderer, hostgen and platform fixes | `OpenRAC-native/port/` |
+| Native implementations awaiting matching C | `OpenRAC-native/port/game/rac1-pal/hand/`, registered in `hand.tsv` |
+| Shared campaign handoff | This file |
+| Machine setup and launchers | Parent `SETUP.txt`, `Enter-Decomp.ps1`, `Build-Native.ps1`, `Run-Native.ps1` |
+
+`OPENRAC_RAC1_PAL_SOURCE` in `port/build/release/CMakeCache.txt` points to the
+sibling `rac1-decomp/`. Check that binding at startup. Editing the imported
+`games/rac1/pal/` does not change this local build. On a different machine,
+use the actual configured source path and its instructions.
+
+Before editing, read both repositories' instructions, inspect their Git
+status/staged diffs and recent commits, then read the latest hostgen report
+and relevant run log. Check for concurrent work before rebuilding shared
+outputs or choosing a function someone is already implementing. Preserve
+other work. Use a topic branch if starting from `main`.
+
+## Task selection and acceptance
+
+1. Reproduce the earliest blocker on the normal boot, New Game and first
+   level path. Diagnose the missing function, bad translation, invalid
+   state or rendering fault from current evidence. Do not assume an old
+   log still identifies a missing function: check source and registrations.
+2. Prefer matching C in `rac1-decomp/` when recovering game logic. A native
+   implementation can unblock play before a match, but must be based on
+   retail behavior, tested and explicitly labeled nonmatching. Keep it in
+   the native tree. Do not alter PS2 matching code just for host ABI needs.
+3. Fix missing callees and state transitions in dependency order. A stub,
+   forced success, skipped dialog or disabled stop-on-missing is not a fix.
+   Test the behavior and failure/edge cases relevant to the change.
+4. Once the current path runs, cover movement, camera, collision, combat,
+   gadgets, enemy behavior, death/restart, saves and planet transitions.
+   Extend coverage through every level and the ending. Investigate audio,
+   cutscenes and rendering defects as game behavior, not just build issues.
+5. Continue the remaining executable and overlay decompilation even after
+   a playable path exists. Use rank/triage tools and reusable function
+   families; preserve evidence when a function is blocked and move to an
+   independent task instead of repeating unproductive attempts.
+
+Keep the missing-function trap enabled. `--keep-going` and memory-write
+shortcuts must never count as gameplay validation. A frame-count exit, a
+title screenshot, and a free-camera level viewer do not prove playability.
+
+## Validation and commits
+
+Run commands from their documented directory and stop on a failed exit
+code. PowerShell does not automatically throw on native command failure.
+
+- Matching work: use `rac1-decomp/AGENTS.md` and its workflow. Require
+  strict per-function/file checks, executable layout/image checks where
+  applicable, and a regenerated `progress/report.json` committed with the
+  matching source. Do not weaken build-fidelity or existing test gates.
+- Native work on this machine: from the workspace run
+  `.\Build-Native.ps1`. It configures the external PAL source, builds the
+  release preset and runs CTest with `SDL_VIDEO_DRIVER=windows`. Read and
+  address failures; record pre-existing failures separately with evidence.
+- Translator changes: also dot-source `Enter-Native.ps1`, then from
+  `OpenRAC-native/` run `python -m unittest discover -s port/tools/hostgen`.
+  Report skipped tests as skipped, not as validation on Windows.
+- Reproduce the affected native scenario using `Run-Native.ps1` or the
+  executable with documented inputs. Record exact arguments, input timing,
+  environment and level/save state, exit code, log and screenshot paths.
+  Save local artifacts under the workspace `.tools/` directory. Never
+  overwrite a player's saves; use an isolated test card directory.
+- Review the diff and stage only explicit owned files. One coherent fix
+  per local commit, with why it changed, validation and limitations in the
+  body, plus the assistant co-author trailer required by `CONTRIBUTING.md`.
+  Include related tests; keep unrelated fixes in separate commits. Commit
+  corresponding changes separately in each repository and cross-reference
+  the prerequisite commit when a native change needs decomp changes.
+- Update this handoff with the completed task, evidence, remaining blocker
+  and exact next action. Use commit subjects for the current commit and
+  hashes of earlier commits; do not try to embed a commit's own hash in it.
+
+## Evidence at setup on 2026-10-10
+
+These are observed artifacts, not a fresh full-game validation. Both
+repositories already contain uncommitted implementation work; the setup
+commit deliberately does not absorb it.
+
+- Decomp baseline: `4b86e4fc`. `progress/report.json` reports 4,214 of 5,109
+  functions matched/finished (82.48%) and 78.50% matched code. The report
+  includes classified original assembly; these numbers are not pure C
+  coverage or proof that all remaining native paths work.
+- Native baseline: `6321d39`, branch `setup/windows-native`. The observed
+  generated report at `port/build/release/games/rac1-pal/gen/report.md`
+  lists 3,798 translated functions, 187 from candidates, 3 translation
+  stubs and 1,158 functions without C. Its call frontier is a prioritization
+  aid, not exhaustive dynamic coverage.
+- Parent `.tools/native-gameplay-tests.log` records 39/39 tests passing.
+  Treat this as prior evidence for that working tree, not a test of later
+  edits. Older `SETUP.txt` counts and blocker descriptions have been
+  superseded by ongoing source changes.
+- `.tools/native-run/zone.log` stopped at `func_L00_002E74B0`. A local
+  `level_camera_hero.c` and its `hand.tsv` registration now exist.
+  `game_freeze.c` also implements the former `func_001FBE80` blocker.
+  Review and reproduce before implementing either again. The observed
+  `camera.log` was still advancing and does not establish completion.
+
+## Next session handoff
+
+### Crate initialization, 2026-10-10
+
+Local commit subject: `feat(rac1/pal): implement native crate initialization`.
+Recovered `func_L00_002D1168` from the PAL retail instructions in a native
+hand implementation. It handles independent crates, saved-counter removal,
+group support links, moving-platform attachment, stack state propagation,
+and list transitions. No matching source or matching report was changed;
+this is not an exact PS2 match. Helpers receive overlay globals from the
+level entry point so hostgen retains the correct level relocation context.
+
+Validation on the existing working tree:
+
+- `Build-Native.ps1`: 42/42 CTest tests pass; log
+  `.tools/native-crate-build-final.log` in the parent workspace.
+- `crate_init_test.c` also compiles and passes with the local
+  `i686-w64-mingw32-clang.exe -std=c11 -O2 -fno-strict-aliasing
+  -ffp-contract=off`, checking EE structure offsets as well as synthetic
+  ground, miss, saved-counter, stack, platform and list scenarios.
+- Hostgen: 378 units, 3,808 translated functions (includes new helpers),
+  192 candidates, 3 stubs, 1,153 without C. Both `units_unreadable` and
+  `index_problems` are empty.
+- Before: `.tools/native-run/crate-before.log`, exit 2 at frame 2809,
+  missing `func_L00_002D1168`. After: `crate-verified.log`, exit 2 at frame
+  2809, missing `func_002116A0`. The crate call is passed; first-level
+  gameplay is still blocked. Screenshots use the corresponding prefix,
+  including `crate-verified-2800.png` (opening movie, not gameplay).
+
+Exact reproduction, from the parent workspace in PowerShell:
+
+```powershell
+$p = .\.tools\Invoke-NativeProbe.ps1 -Name crate-verified -Frames 5200 -Press '100:4000:5,1200:8:5,1400:4000:5,1700:4000:5,2200:8:5,2500:8:5,2800:8:5,3700:4000:5,4000:0:150:128:0'
+$p.WaitForExit()
+$p.ExitCode
+```
+
+The local helper launches `port/build/release/openrac-rac1-pal.exe` with
+`--data <native>/build/native-data --cards <native>/build/native-test-cards
+--window --levels <native>/build/native-data/port --frames 5200 --no-card`.
+It sets `OPENRAC_DEBUG=1`, `OPENRAC_UNCAPPED=1`, `OPENRAC_PRESS` to the
+sequence above and `OPENRAC_SHOT=200:<workspace>/.tools/native-run/<name>-`.
+This is fresh New Game, skips three opening movies with Start, uses no
+player save, and keeps stop-on-missing enabled. Exit codes were captured
+from the process object after `WaitForExit`.
+
+Existing uncommitted camera, grid, dialog, vector, translator and renderer
+changes were present at session start and remain separate. Only this
+task's new implementation, test, registration, CMake target and handoff
+are staged for the crate commit. The full runtime result depends on that
+working-tree baseline; this commit alone does not supply those earlier
+startup fixes. `rac1-decomp/tools/organize_asm.py` remains untouched.
+
+### Joint matrix selection, 2026-10-10
+
+Local commit subject: `feat(rac1/pal): implement native joint matrix selection`;
+previous fix is `368205a`. Implemented `func_002116A0`, PAL's handwritten
+chain selector, in native C. It builds dependency marks and terminal
+indices, invokes the existing native `func_00211808`, and copies full
+64-byte matrices in request order. Matching code/reports remain untouched.
+
+- `Build-Native.ps1`: 43/43 CTest tests pass;
+  `.tools/native-joint-build-final.log`. The selector fixture also passes
+  with the 32-bit compiler, exercising duplicate requests, dependency
+  unions, terminal bounds, untouched bytes and retail's zero-count loop.
+- Hostgen: 3,809 functions, 193 candidates, 3 stubs, 1,152 without C;
+  378 readable units and no index problems. An initial declaration conflict
+  was caught by the unreadable-unit gate, corrected to the source's
+  `void *, int, int *, void *` signature, and rebuilt before runtime testing.
+- Same reproduction command/environment as above, with
+  `-Name joints-verified`: exit 2, frame 2809, now at `func_00218928`.
+  Artifacts: `.tools/native-run/joints-verified.log` and
+  `joints-verified-2800.png`. This verifies passing the selector call, not
+  complete pose fidelity or playable Veldin. Existing evaluator limitations
+  (for example post-scale chain behavior) remain outside this selector fix.
+
+### Particle allocation, 2026-10-10
+
+Local commit subject: `feat(rac1/pal): implement native particle allocation`;
+joint selection was committed as `ba91985`. Implemented the two public
+handwritten entries `func_00218928` and `func_00218930` using the PAL body
+through `00218A74`. Preserve allocation order, bitmap/high-water/count
+updates, NULL on exhaustion and the original clearing of only 32 bytes of
+each 64-byte record. The reverse reuse path and secondary bitmap stores
+are unreachable behind unconditional retail jumps; no new fallback was
+introduced. These functions remain classified assembly in the decomp.
+
+- `Build-Native.ps1`: 44/44 CTest tests pass;
+  `.tools/native-particle-build.log`. The fixture fills all 2,048 slots,
+  checks sparse holes and byte-aligned rescan order, exhaustion, untouched
+  secondary bitmap and preserved payload bytes.
+- Hostgen: 3,811 functions (including helpers), 195 candidates, 3 stubs,
+  1,150 without C; 378 readable units, no index problems.
+- Same New Game probe with `-Name particles-verified`: exit 2, frame 2828,
+  now at `func_L00_00217AE8`. Runtime logs entry into the native level-0
+  draw path with 199 models, but this does not prove visible gameplay.
+- A second probe with `-Name particles-level -ShotEvery 2820` (all other
+  arguments unchanged) also exits 2 at 2828. Its frame-2820 PNG was viewed
+  and is black, consistent with being early in the transition; no visible
+  Veldin scene or player control has yet been demonstrated.
+
+The next stop identified a bad native candidate for `func_L00_00267290`.
+`rac1-decomp/nonmatching/game/func_L00_00267290.c` declares and twice calls
+the nonexistent `func_L00_00217AE8`. Retail calls at `002673D4` and
+`002674E8` name the existing `func_00217AE8` (its Veldin copy is at
+`002677B8`, as `config/overlays/functions.tsv` records).
+
+### Stream call binding and current next action, 2026-10-10
+
+Local commit subject: `fix(rac1/pal): bind stream requests to the implemented callee`;
+particle allocation was committed as `2436458`. Added a native override
+of the existing `func_L00_00267290` candidate, correcting only the callee
+declaration and its two call sites to `func_00217AE8`. A direct comparison
+against the sibling candidate confirms the remaining logic is unchanged.
+No fallback or fabricated implementation was added for the bad symbol.
+This remains nonmatching native code; the candidate in `rac1-decomp/`
+is preserved for a later matching review.
+
+- `Build-Native.ps1`: 44/44 CTest tests pass;
+  `.tools/native-stream-build.log`. All 378 source units are readable and
+  `index_problems` is empty. Generated stream calls now name the real C
+  callee at both sites.
+- Hostgen remains at 3,811 translated functions and 195 candidates, with
+  3 stubs. The no-C count is 1,149 and address count 48,344 because the
+  nonexistent symbol was removed, not because another function was
+  decompiled.
+- Same New Game input sequence, `-Name stream-verified -ShotEvery 3000
+  -Frames 5200`: exit 2 at frame 2828, stopping at
+  `func_L00_00232EF0`. `.tools/native-run/stream-verified.log` is the latest
+  runtime evidence. No frame-3000 screenshot was produced because execution
+  stopped earlier. The last inspected level-transition capture remains
+  the black `particles-level-2820.png`; visible gameplay is unverified.
+
+**Exact next action:** review
+`rac1-decomp/nonmatching/shared/func_L00_00232EF0.c` against
+`rac1-decomp/asm/overlays/func_L00_00232EF0.s` (1,312 bytes), then implement
+or register a verified native version of Ratchet's animation advancement.
+The existing candidate reports a 1,288-byte PS2 attempt; it is not exact
+and is not selected in `nonmatching/functional.tsv`. Check frame stepping,
+sequence transitions, looping/end conditions and animation events with
+synthetic tests before repeating `stream-verified`'s probe. Do not merely
+enable an unreviewed candidate or suppress the missing-function stop.
+The function was unclaimed at this handoff; check again before editing.
+
+No matching source or report changed this session. The decomp still has
+its original dirty `tools/organize_asm.py`; the earlier native working-tree
+changes remain uncommitted and separate. All four fixes were committed
+locally, no push was made, and this session's function claims are released.
+
+### Hero animation advancement, 2026-10-10 continuation
+
+Local commit subject: `feat(rac1/pal): advance native hero animation`.
+Starting from native `949b5d9` and decomp `87162f57`, the working trees
+still contained the earlier uncommitted startup work, with no staged work
+or active claims. Reproduced `func_L00_00232EF0` at frame 2828, exit 2,
+in `.tools/native-run/anim-before.log` before changing the implementation.
+
+Implemented native-only hero animation advancement after reviewing the
+existing candidate against the full PAL body. Explicit pointer fields
+preserve EE layout through hostgen. Frame blending, curve transitions,
+multi-key stepping, looping, restart paths, sound-event intervals and
+sound ownership follow the retail branches. No PS2 match is claimed and
+the sibling candidate/source/report remain unchanged.
+
+- `Build-Native.ps1`: 45/45 CTest tests pass;
+  `.tools/native-hero-animation-build.log`.
+- The synthetic hero-animation fixture also passes as a 32-bit executable
+  built with `i686-w64-mingw32-clang.exe -std=c11 -O2
+  -fno-strict-aliasing -ffp-contract=off`. It asserts EE field offsets and
+  covers step rates, strict snap boundaries, multi-key wrap, transition
+  curves, forced loops, event endpoints, stale voices and muted modes.
+- Hostgen: 3,813 translated functions (one entry plus one helper added),
+  196 candidates, 3 stubs, 1,148 without C; 378 readable units, no index
+  problems. Level globals retain level relocation in generated code.
+- The same documented New Game sequence with `-Name anim-verified
+  -ShotEvery 3000 -Frames 5200` passes the animation call and stops at
+  `func_L00_00205FF0`, frame 2828, exit 2. Log:
+  `.tools/native-run/anim-verified.log`. No frame-3000 image was produced;
+  visible gameplay and player movement remain unverified.
+
+Current next action: review and implement `func_L00_00205FF0` from its
+retail overlay assembly, checking any existing candidate first, then
+repeat the same New Game probe. Keep the missing-function trap enabled.
+Only this task's implementation, test, registrations and handoff are
+included in the local commit; earlier uncommitted work is preserved.
+
+### Hero model effects, 2026-10-10 continuation
+
+Local commit subject: `feat(rac1/pal): implement native hero model effects`;
+hero animation was committed as `9c5ad64`. Implemented `func_L00_00205FF0`
+from the complete 1,232-byte PAL body. It preserves model selection, color
+pulse and flash timing, four joint manipulator templates, envelope updates
+and final detach. A zero pulse period remains fatal, as retail's break is;
+there is no missing-call bypass. This is native-only, not a PS2 match.
+
+- `Build-Native.ps1`: 46/46 CTest tests pass;
+  `.tools/native-hero-effects-build.log`. The effects fixture also passes
+  with the 32-bit compiler and the same flags documented above. It checks
+  selection/early exits, color values and phase, flash boundaries, timer
+  scaling, attachment initialization/reuse/cleanup and the invalid-period
+  trap. Generated code retains level relocation for all effect tables.
+- Hostgen: 3,814 functions, 197 candidates, 3 stubs, 1,147 without C;
+  378 readable units and no index problems. The external source remains
+  the sibling `rac1-decomp/` checkout.
+- Before: `anim-verified.log`, frame 2828 at `func_L00_00205FF0`.
+  After: the same New Game probe with `-Name effects-verified
+  -ShotEvery 3000 -Frames 5200`, exit 2 at frame 2827, now missing
+  `func_L00_0020F118`. Log: `.tools/native-run/effects-verified.log`.
+  No frame-3000 screenshot was produced. Visible gameplay remains unverified.
+
+Exact next action: review the PAL assembly and any existing candidate for
+`func_L00_0020F118`, implement the full behavior, then repeat this probe.
+Earlier uncommitted work and all matching sources/reports remain untouched.
+Per the owner's instruction during this continuation, new local commits
+omit the assistant co-author trailer. No push is authorized or performed.
+
+### Hero equipment creation, 2026-10-10 continuation
+
+Local commit subject: `feat(rac1/pal): create native hero equipment models`;
+model effects was committed as `28bc3ea`. Reviewed the existing near-match
+candidate against PAL `0020F118..0020F750` and implemented the full equipment
+creation routine with explicit EE pointer fields. Primary item selection,
+saved/override precedence, scratch clearing, model initialization, optional
+and paired items, special items and allocation failures are preserved.
+This is native-only; matching source, candidate and report are unchanged.
+
+- `Build-Native.ps1`: 47/47 CTest tests pass;
+  `.tools/native-hero-items-build-final.log`. The first build was rejected
+  by the unreadable-unit gate because a struct tag collided with an
+  existing source definition; renaming the native tag resolved it. No
+  runtime claim uses that failed build (`native-hero-items-build.log`).
+- The fixture also passes on the 32-bit compiler with the documented flags,
+  including static assertions for slot/model/hero EE offsets. Scenarios
+  cover selection precedence, retry/failure, paired allocation ordering,
+  hidden flags, model initialization and scratch bounds. Hostgen's emitted
+  structures use 32-bit guest pointers and tables use level relocation.
+- Hostgen: 3,816 functions (entry plus helper added), 198 candidates,
+  3 stubs, 1,146 without C, 378 readable units, no index problems.
+- Same New Game probe, `-Name items-verified -ShotEvery 3000 -Frames 5200`:
+  exit 2, frame 2827, passes equipment creation and now stops at
+  `func_L00_0020FC18`. Log: `.tools/native-run/items-verified.log`.
+  No frame-3000 screenshot; visible gameplay remains unverified.
+
+Exact next action: review
+`rac1-decomp/nonmatching/shared/func_L00_0020FC18.c` against the complete
+1,828-byte retail body. This walks seven equipment slots, advances and
+attaches their models, and maintains the auxiliary model at hero+0x118C.
+The candidate's 1,776-byte attempt is not verified for native use. In
+particular, replace its separate `ta[0x30]` / `tb[0x10]` locals with one
+64-byte matrix: retail passes sp+0x20 to `func_0020DAF8`, which writes a
+whole matrix, and uses sp+0x50 as its translation row. Separate C arrays
+do not guarantee that layout. Preserve the explicit zero-period trap at
+002101FC. Review all remaining branches before enabling the routine.
+Test slot filtering, both item pointers, attachment modes, the auxiliary
+model allocation failure, matrix bounds and color animation, then repeat
+the documented New Game probe. The function is unclaimed at this handoff.
+Preserve the existing dirty baseline and keep missing-call traps enabled.
+
+A separate local credit-cleanup change occurred during this continuation:
+native `aacbd91` and decomp `a863e5ec` record the owner's trailer preference.
+Earlier commits were rewritten without code-tree changes. Current hashes
+for the animation and stream fixes are `72de54e` and `0f1d640`; the earlier
+handoff's `9c5ad64` and `949b5d9` refer to their pre-cleanup identities.
+The equipment commit is `f1a7a4e`, and effects remains `28bc3ea`.
+The prior dirty files remain separate, the index is clear after each
+commit, all task claims are released, and no push has been made.
+
+### PR #4 build and test fixes, 2026-10-10
+
+The owner authorized resolving the draft PR's build/test failures and
+updating the published branch. Commits `47a46a2` and `591293a` adopt and
+verify the required pending fixes, keeping unrelated startup work local.
+The earlier excluded credit-preference edit is still uncommitted.
+
+- Hostgen now normalizes Windows source paths, recognizes newer Clang's
+  owned anonymous tags, and uses the desugared sizeof/pointer-difference
+  types. CMake tracks the translator modules from the function's module
+  directory. The portable synthetic regression failed before the fixes
+  and passes afterward, covering struct/union/enum typedefs, sizeof,
+  pointer subtraction and a nested source path containing spaces.
+- The renderer tests now cover the existing raw-GIF continuation behavior
+  while still rejecting truncated tags. The viewer expects both moby
+  passes and verifies that disabling mobys removes both submissions;
+  all prior pixel assertions remain. No renderer behavior or gameplay
+  missing-call checks were relaxed.
+- Verified the exact committed `591293a` tree in the clean detached
+  `.tools/push-verify-9850bfe` checkout. Full Windows release build succeeds,
+  using the sibling `rac1-decomp` and LLVM MinGW. All 42 CTest tests pass.
+  Logs: `.tools/pr4-committed-build.log` and
+  `.tools/pr4-committed-tests.log` in the parent workspace.
+- Hostgen reads all 378 units, with no unreadable units or index problems:
+  3,785 translated functions, 179 candidates, 3 translation stubs, 1,165
+  without C. These differ from the integrated working checkout because
+  its additional startup implementations remain uncommitted.
+- Hostgen's Python suite: 25 tests, 8 passed and 17 POSIX-only tests skipped
+  on Windows; `.tools/pr4-hostgen-tests.log`. Skipped tests are not claimed
+  as passing validation. GitHub's upstream checks remain separate.
+
+These fixes remove the two reported test failures and committed Windows
+build failure. They do not establish playable gameplay. The last integrated
+New Game stop remains `func_L00_0020FC18`; no new runtime probe is counted
+here. The next decomp task remains the equipment attachment routine and
+matrix-buffer correction described above. PR #4 targets
+`OpenRAC/OpenRAC:master` from `PeterFarber:setup/windows-native`.
+
+### PR #4 upstream merge, 2026-10-10
+
+Merged upstream `69920f8` into the PR branch in the isolated
+`.tools/push-verify-9850bfe` worktree. The only textual conflict was
+`port/cmake/Games.cmake`: both branches fixed hostgen's dependency glob.
+Kept upstream's equivalent `OPENRAC_HOSTGEN` directory resolution and
+verified that Ninja tracks the translator modules. The Windows path and
+newer Clang compatibility fixes remain combined with upstream's changes.
+
+The merged build exposed upstream's unconditional `execinfo.h` include in
+missing-call tracing. Windows now captures and prints stack addresses with
+`CaptureStackBackTrace`; Unix retains its existing backtrace path. Checks:
+
+- Full Windows release build succeeds; all 42 CTest tests pass using the
+  sibling `rac1-decomp`. Logs in the parent workspace:
+  `.tools/pr4-merge-build-fixed.log` and `.tools/pr4-merge-tests.log`.
+- Hostgen: 8 passed, 17 POSIX-only tests skipped;
+  `.tools/pr4-merge-hostgen-tests.log`.
+- Synthetic missing-call probes cover tracing enabled/disabled and
+  stopping enabled/disabled. Traces contain stack addresses, duplicate
+  calls trace once, and stop-on-missing exits with code 2 in both modes.
+  `.tools/pr4-merge-probes.log` also verifies CMake dependency inputs.
+- The PR diff against upstream passes the whitespace check. Two existing
+  trailing spaces in upstream imported candidates are unchanged.
+
+Upstream now continues past missing functions by default. Future gameplay
+validation MUST pass `--stop-on-missing` explicitly; continuing is not
+evidence of implemented behavior. No gameplay probe is claimed here.
+Next action: reconcile the existing equipment attachment investigation
+with upstream's newly imported candidate before implementing it, and use
+the explicit stop flag for the next New Game probe. The original dirty
+workspace remains untouched at `c71be5c`; the merge is on local branch
+`fix/pr4-upstream-conflict`, published to the existing PR branch. Bring
+the working branch forward while preserving its edits before resuming
+campaign work there.
+
+Full completion requires all recoverable game code accounted for, no
+unimplemented required native calls, documented native replacements for
+console-specific assembly, matching audits passing without new mismatches,
+and recorded native gameplay validation from New Game through the ending
+with save/reload, level transitions, controls, graphics, audio and cutscenes.
+Neither matching percentages alone nor a passing CTest suite proves this.

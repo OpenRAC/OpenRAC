@@ -70,7 +70,9 @@ def run(clang: str, path: Path, cwd: Path, flags: list[str], json_out: bool) -> 
     cmd = [clang, *flags]
     if json_out:
         cmd += ["-Xclang", "-ast-dump=json"]
-    cmd.append(str(path))
+    # Keep source locations comparable with hostgen's slash-separated unit names,
+    # including the locations embedded in Clang's anonymous type names.
+    cmd.append(path.as_posix())
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, errors="replace")
 
 
@@ -298,6 +300,17 @@ def annotate(ast: dict) -> None:
         return state["file"], state["line"], loc.get("col", 0)
 
     def walk(node: dict):
+        # Clang 23 spells sizeof/pointer-difference types with internal aliases
+        # that have no declaration in the AST. Use the target type it reports,
+        # rather than leaking those aliases into the generated host C.
+        typ = node.get("type", {})
+        if typ.get("qualType") in ("__size_t", "__ptrdiff_t") and "desugaredQualType" in typ:
+            typ["qualType"] = typ["desugaredQualType"]
+        # Newer Clang puts ownership on the RecordType/EnumType itself instead
+        # of an enclosing ElaboratedType. Keep the representation the readers
+        # use for typedefs of anonymous records and enums.
+        if node.get("isTagOwned") and "decl" in node:
+            node.setdefault("ownedTagDecl", node["decl"])
         where = visit_loc(node.get("loc"))
         rng = node.get("range")
         begin = None

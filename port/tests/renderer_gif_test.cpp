@@ -171,11 +171,26 @@ void packed_and_reglist() {
     CHECK(gif.gif(r.bytes));
     CHECK(gif.vertices().size() == 6);
 
-    // Truncated data is refused.
-    GifBuilder bad;
-    bad.tag(4, true, gs::GifTag::kPacked, 1, gs::kPackedAd);
-    bad.qword(0, gs::kPrim);
-    CHECK(!gif.gif(bad.bytes));
+    // A register payload can span raw GIF transfers. Nothing is drawn until
+    // the rest arrives, and then the sprite is emitted exactly once.
+    gif.clear();
+    GifBuilder first;
+    first.tag(3, true, gs::GifTag::kPacked, 1, gs::kPackedAd);
+    first.qword(prim(gs::PrimKind::Sprite, false, false, false), gs::kPrim);
+    CHECK(gif.gif(first.bytes));
+    CHECK(gif.vertices().empty());
+    CHECK(gif.error().empty());
+    GifBuilder rest;
+    rest.qword(xyz2(0, 0, 0), gs::kXyz2);
+    rest.qword(xyz2(4, 4, 0), gs::kXyz2);
+    CHECK(gif.gif(rest.bytes));
+    CHECK(gif.vertices().size() == 6);
+    CHECK(gif.error().empty());
+
+    // A transfer ending inside the tag itself is still malformed.
+    gif.clear();
+    first.bytes.resize(8);
+    CHECK(!gif.gif(first.bytes));
     CHECK(!gif.error().empty());
 }
 

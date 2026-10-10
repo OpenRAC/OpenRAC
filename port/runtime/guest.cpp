@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
-#include <execinfo.h>
 #include <format>
 #include <map>
 #include <mutex>
@@ -18,6 +17,14 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#else
+#include <execinfo.h>
+#endif
 
 #include "common/log.h"
 #include "openrac/memory.h"
@@ -300,9 +307,16 @@ void openrac_guest_missing(const char* name) {
     static const bool trace = std::getenv("OPENRAC_TRACE_MISSING") != nullptr;
     if (trace) {
         void* frames[16];
-        const int count = backtrace(frames, 16);
         warn("first call to {}:", name);
+#if defined(_WIN32)
+        const auto count = CaptureStackBackTrace(0, 16, frames, nullptr);
+        for (unsigned i = 0; i < count; ++i) {
+            std::fprintf(stderr, "%p\n", frames[i]);
+        }
+#else
+        const int count = backtrace(frames, 16);
         backtrace_symbols_fd(frames, count, 2);
+#endif
     }
     if (g_stop_on_missing) {
         error("the game called {}, which has no C in the port yet; stopping here", name);

@@ -62,7 +62,36 @@ openrac_warnings(runtime_test)
 add_test(NAME runtime COMMAND runtime_test)
 
 # ---- assets, media, audio, the extractor: no window ----
+add_executable(crate_init_test tests/crate_init_test.c)
+target_compile_options(crate_init_test PRIVATE -fno-strict-aliasing -fwrapv -ffp-contract=off)
+openrac_warnings(crate_init_test)
+add_test(NAME crate_init COMMAND crate_init_test)
+
 include(Assets)
+
+add_executable(joint_matrices_test tests/joint_matrices_test.c)
+target_compile_options(joint_matrices_test PRIVATE -fno-strict-aliasing)
+openrac_warnings(joint_matrices_test)
+add_test(NAME joint_matrices COMMAND joint_matrices_test)
+
+add_executable(particle_allocate_test tests/particle_allocate_test.c)
+openrac_warnings(particle_allocate_test)
+add_test(NAME particle_allocate COMMAND particle_allocate_test)
+
+add_executable(hero_animation_test tests/hero_animation_test.c)
+target_compile_options(hero_animation_test PRIVATE -fno-strict-aliasing -ffp-contract=off)
+openrac_warnings(hero_animation_test)
+add_test(NAME hero_animation COMMAND hero_animation_test)
+
+add_executable(hero_effects_test tests/hero_effects_test.c)
+target_compile_options(hero_effects_test PRIVATE -fno-strict-aliasing -ffp-contract=off)
+openrac_warnings(hero_effects_test)
+add_test(NAME hero_effects COMMAND hero_effects_test)
+
+add_executable(hero_items_test tests/hero_items_test.c)
+target_compile_options(hero_items_test PRIVATE -fno-strict-aliasing -ffp-contract=off)
+openrac_warnings(hero_items_test)
+add_test(NAME hero_items COMMAND hero_items_test)
 
 if(OPENRAC_PORT_WINDOW)
   include(Window)
