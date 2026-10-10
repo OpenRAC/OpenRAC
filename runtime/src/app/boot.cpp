@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
      * taken only where that level's code is loaded), its name, and how many calls to take.
      */
     struct Capture {
-        unsigned address, bytes, crc, wanted, taken;
+        unsigned address, bytes, crc, wanted, taken, every, calls;
         std::string name;
     };
 
@@ -183,7 +183,8 @@ int main(int argc, char** argv) {
                 char name[128] = "";
 
                 // Lines that do not parse (comments, blank lines) are skipped.
-                if (std::sscanf(line.c_str(), "%x %u %x %127s %u", &c.address, &c.bytes, &c.crc, name, &c.wanted) >= 4) {
+                if (std::sscanf(line.c_str(), "%x %u %x %127s %u %u", &c.address, &c.bytes, &c.crc, name, &c.wanted, &c.every) >= 4) {
+                    c.every = c.every ? c.every : 1;
                     c.name = name;
                     c.wanted = c.wanted ? c.wanted : 3;
                     captures.push_back(c);
@@ -337,6 +338,7 @@ int main(int argc, char** argv) {
     }
 
     std::vector<u8> capture_marks;
+    int capture_frame = 0;
 
     // Call states were asked for: mark the functions' first instructions for the interpreter.
     if (!captures.empty()) {
@@ -369,10 +371,15 @@ int main(int argc, char** argv) {
                     continue;
                 }
 
+                // Only every so many calls (a state per so many frames for a per-frame function).
+                if (c.calls++ % c.every != 0) {
+                    continue;
+                }
+
                 sys::CallState state;
                 state.take(machine.ee, machine.vu0, machine.memory, machine.vif0.micro.data(), machine.vif0.data.data());
                 state.address = address;
-                std::string path = capture_dir + "/" + c.name + "." + std::to_string(c.taken) + ".snap";
+                std::string path = capture_dir + "/" + c.name + "." + std::to_string(c.taken) + ".f" + std::to_string(capture_frame) + ".snap";
 
                 // The file is counted only when it was written.
                 if (state.save(path)) {
@@ -484,6 +491,7 @@ int main(int argc, char** argv) {
 
     // Before a field runs: the window, the pad, and what a tool asked to record.
     auto before_field = [&] {
+        capture_frame = frame;
 #ifndef OPENRAC_NO_WINDOW
         // The user closed the window (or pressed Escape).
         if (window_wanted && !window.pump()) {

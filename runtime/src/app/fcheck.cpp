@@ -136,52 +136,58 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    auto machine = std::make_unique<sys::Machine>();
-    Ee& ee = machine->ee;
+    std::unique_ptr<sys::Machine> machine;
     std::vector<Outside>* log = nullptr;
 
-    // Everything that leaves memory is written down, then done as the machine does it.
-    auto syscall = ee.on_syscall;
-    auto read = ee.on_read;
-    auto write = ee.on_write;
-    auto write128 = ee.on_write128;
+    // A machine of its own for each run: device and kernel state (a semaphore a retail run took)
+    // must not carry over from one run into the other.
+    auto fresh = [&] {
+        machine = std::make_unique<sys::Machine>();
+        Ee& ee = machine->ee;
+        auto syscall = ee.on_syscall;
+        auto read = ee.on_read;
+        auto write = ee.on_write;
+        auto write128 = ee.on_write128;
+        Ee* core = &ee;
 
-    ee.on_syscall = [&](u32 c) {
-        if (log) {
-            log->push_back({'s', c, ee.gpr[3].lo, ee.gpr[4].lo});
-        }
-        if (syscall) {
-            syscall(c);
-        }
+        ee.on_syscall = [&, syscall, core](u32 c) {
+            if (log) {
+                log->push_back({'s', c, core->gpr[3].lo, core->gpr[4].lo});
+            }
+            if (syscall) {
+                syscall(c);
+            }
+        };
+        ee.on_read = [&, read](u32 a, unsigned n) -> u64 {
+            if (log) {
+                log->push_back({'r', a, n, 0});
+            }
+            return read ? read(a, n) : 0;
+        };
+        ee.on_write = [&, write](u32 a, u64 v, unsigned n) {
+            if (log) {
+                log->push_back({'w', a, v, n});
+            }
+            if (write) {
+                write(a, v, n);
+            }
+        };
+        ee.on_write128 = [&, write128](u32 a, u64 lo, u64 hi) {
+            if (log) {
+                log->push_back({'q', a, lo, hi});
+            }
+            if (write128) {
+                write128(a, lo, hi);
+            }
+        };
     };
-    ee.on_read = [&](u32 a, unsigned n) -> u64 {
-        if (log) {
-            log->push_back({'r', a, n, 0});
-        }
-        return read ? read(a, n) : 0;
-    };
-    ee.on_write = [&](u32 a, u64 v, unsigned n) {
-        if (log) {
-            log->push_back({'w', a, v, n});
-        }
-        if (write) {
-            write(a, v, n);
-        }
-    };
-    ee.on_write128 = [&](u32 a, u64 lo, u64 hi) {
-        if (log) {
-            log->push_back({'q', a, lo, hi});
-        }
-        if (write128) {
-            write128(a, lo, hi);
-        }
-    };
-
-    u8* micro = machine->vif0.micro.data();
-    u8* data = machine->vif0.data.data();
 
     // Runs one call from a state, the retail function or the candidate.
     auto run = [&](const sys::CallState& state, u32 start, bool candidate) {
+        fresh();
+        Ee& ee = machine->ee;
+        u8* micro = machine->vif0.micro.data();
+        u8* data = machine->vif0.data.data();
         Result r;
         state.put(ee, machine->vu0, machine->memory, micro, data);
 
@@ -212,7 +218,7 @@ int main(int argc, char** argv) {
         return r;
     };
 
-    int differing = 0;
+    int differing = 0, compared = 0;
 
     for (const std::string& path : states) {
         sys::CallState state;
@@ -233,6 +239,8 @@ int main(int argc, char** argv) {
                         path.c_str(), static_cast<unsigned long long>(kLimit));
             continue;
         }
+
+        compared++;
 
         if (!ours.returned) {
             notes.push_back("the candidate did not return (an endless loop, or it jumped away)");
@@ -375,5 +383,12 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Every state was skipped: nothing was compared, which is not a pass.
+    if (compared == 0) {
+        std::printf("NOTHING COMPARED: the retail function returned from none of the states\n");
+        return 4;
+    }
+
+    std::printf("compared %d of %zu states\n", compared, states.size());
     return differing ? 1 : 0;
 }
