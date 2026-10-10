@@ -122,6 +122,10 @@ add_executable(particle_update_test tests/particle_update_test.c)
 openrac_warnings(particle_update_test)
 add_test(NAME particle_update COMMAND particle_update_test)
 
+add_executable(scale_matrix_test tests/scale_matrix_test.c)
+openrac_warnings(scale_matrix_test)
+add_test(NAME scale_matrix COMMAND scale_matrix_test)
+
 if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()

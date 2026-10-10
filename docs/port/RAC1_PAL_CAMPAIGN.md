@@ -698,6 +698,37 @@ The particle claim is released. All 18 earlier untracked files still
 match the retained stash. Only this implementation, fixture, registration
 and handoff are committed locally; no push or assistant credit trailer.
 
+### Uniform-scale matrix constructor, 2026-10-10 continuation
+
+Particle dispatch is committed as `cbe88df`. Its strict runtime probe
+reproduced `func_001FA1C0`. Implemented the complete PAL VU constructor
+001FA1C0..001FA1F4 in native C: clear the matrix, add the scalar to each
+spatial diagonal and set the homogeneous diagonal to 1. All 16 elements
+are written. This is a native-only replacement; no PS2 match is claimed
+and matching source/progress are untouched.
+
+- Windows release build succeeds and 54/54 CTest tests pass:
+  `.tools/native-scale-build.log` in the parent workspace.
+- The matrix fixture passes independently on the 32-bit compiler as
+  `.tools/scale-matrix-test32.exe`. Tests cover positive, negative and
+  fractional scales, both signed zeros, complete initialization and guard
+  values before/after the 64-byte matrix. Generated C was reviewed.
+- Hostgen: 378 readable units, 3,828 translated functions, 207 candidates,
+  3 stubs, 1,137 without C; no unreadable units or index problems.
+- Same strict New Game probe with the documented no-card input sequence
+  and 5200-frame limit: `scale-verified` passes the matrix constructor and
+  stops at `func_L00_002D2E60`, frame 2828, exit 2. Log:
+  `.tools/native-run/scale-verified.log`. No playable-gameplay claim.
+
+Exact next action: claim `func_L00_002D2E60`, inspect its full retail body and
+any existing candidate/callees, reproduce from this strict probe, implement
+the complete required behavior and repeat the same New Game validation.
+Keep `--stop-on-missing` enabled; do not bypass missing rendering calls.
+
+The matrix claim is released at handoff. Existing dirty work remains
+preserved. Only this fix, its fixture/registration and handoff are committed
+locally; nothing is pushed and no assistant co-author trailer is added.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
