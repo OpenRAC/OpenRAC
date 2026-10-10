@@ -29,6 +29,8 @@
 #include "openrac/game_host.h"
 
 #include <fenv.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <float.h>
 #include <math.h>
 #include <stdint.h>
@@ -1230,6 +1232,29 @@ static int coll_volume(const Ctx* x, float radius, float height, gaddr centre, u
     return 1;
 }
 
+/* ---- A count of queries and hits (OPENRAC_COLL_TRACE: logged every 2000 queries) ---- */
+
+static void trace(int kind, int hit) {
+    static int on = -1;
+    static unsigned long calls[6], hits[6], total;
+    static const char* names[6] = {"line", "sphere", "capsule", "sphere-mobys", "hero-groups", "boot line"};
+    if (on < 0) {
+        on = getenv("OPENRAC_COLL_TRACE") != NULL;
+    }
+    if (!on) {
+        return;
+    }
+    calls[kind]++;
+    hits[kind] += hit != 0;
+    if (++total % 2000 == 0) {
+        fprintf(stderr, "[debug] collision:");
+        for (int k = 0; k < 6; ++k) {
+            fprintf(stderr, " %s %lu/%lu", names[k], hits[k], calls[k]);
+        }
+        fprintf(stderr, "\n");
+    }
+}
+
 /* ---- The entry points ---- */
 
 /* The globals of the level program loaded: level 0's addresses moved to the loaded level's. */
@@ -1251,6 +1276,7 @@ int func_001EFE10(gaddr a0, gaddr a1, int a2, int a3, int a4) {
     fesetround(FE_TOWARDZERO);
     const Ctx* x = openrac_game_loaded_overlay() >= 0 ? level_ctx() : &BOOT;
     const int r = coll_line(x, a0, a1, (uint32_t)a2, (gaddr)a3, (gaddr)a4);
+    trace(5, r);
     fesetround(fr);
     return r;
 }
@@ -1261,6 +1287,7 @@ int func_L00_001EFFF0(gaddr a0, gaddr a1, int a2, int a3, int a4) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
     const int r = coll_line(level_ctx(), a0, a1, (uint32_t)a2, (gaddr)a3, (gaddr)a4);
+    trace(0, r);
     fesetround(fr);
     return r;
 }
@@ -1271,6 +1298,7 @@ int func_L00_001F10E0(float a0, gaddr a1, int a2, gaddr a3) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
     const int r = coll_volume(level_ctx(), a0, 0.0f, a1, (uint32_t)a2, a3, 0);
+    trace(1, r);
     fesetround(fr);
     return r;
 }
@@ -1280,6 +1308,7 @@ int func_L00_001F1D20(float a0, float a1, gaddr a2, int a3, int a4) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
     const int r = coll_volume(level_ctx(), a0, a1, a2, (uint32_t)a3, (gaddr)a4, 1);
+    trace(2, r);
     fesetround(fr);
     return r;
 }
@@ -1403,6 +1432,7 @@ int func_L00_001F2BE8(float a0, gaddr a1, int a2, gaddr a3, gaddr a4) {
         }
         result = (int)((cursor - x->list) >> 2);
     }
+    trace(3, result);
     fesetround(fr);
     return result;
 }
@@ -1484,6 +1514,7 @@ int func_L00_001F34F0(float a0, gaddr a1) {
             result = 1;
         }
     }
+    trace(4, result);
     fesetround(fr);
     return result;
 }
