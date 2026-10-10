@@ -354,10 +354,29 @@ This is native-only; matching source, candidate and report are unchanged.
   `func_L00_0020FC18`. Log: `.tools/native-run/items-verified.log`.
   No frame-3000 screenshot; visible gameplay remains unverified.
 
-Exact next action: review `func_L00_0020FC18` and its existing candidate,
-if any, against the complete retail body, implement and test its behavior,
-then repeat the documented New Game probe. Preserve the existing dirty
-baseline and keep missing-call traps enabled. No push has been made.
+Exact next action: review
+`rac1-decomp/nonmatching/shared/func_L00_0020FC18.c` against the complete
+1,828-byte retail body. This walks seven equipment slots, advances and
+attaches their models, and maintains the auxiliary model at hero+0x118C.
+The candidate's 1,776-byte attempt is not verified for native use. In
+particular, replace its separate `ta[0x30]` / `tb[0x10]` locals with one
+64-byte matrix: retail passes sp+0x20 to `func_0020DAF8`, which writes a
+whole matrix, and uses sp+0x50 as its translation row. Separate C arrays
+do not guarantee that layout. Preserve the explicit zero-period trap at
+002101FC. Review all remaining branches before enabling the routine.
+Test slot filtering, both item pointers, attachment modes, the auxiliary
+model allocation failure, matrix bounds and color animation, then repeat
+the documented New Game probe. The function is unclaimed at this handoff.
+Preserve the existing dirty baseline and keep missing-call traps enabled.
+
+A separate local credit-cleanup change occurred during this continuation:
+native `aacbd91` and decomp `a863e5ec` record the owner's trailer preference.
+Earlier commits were rewritten without code-tree changes. Current hashes
+for the animation and stream fixes are `72de54e` and `0f1d640`; the earlier
+handoff's `9c5ad64` and `949b5d9` refer to their pre-cleanup identities.
+The equipment commit is `f1a7a4e`, and effects remains `28bc3ea`.
+The prior dirty files remain separate, the index is clear after each
+commit, all task claims are released, and no push has been made.
 
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
