@@ -230,3 +230,5 @@ func_00235118	game	func_00235118	host	the port's own (host/hand.c); its signatur
 func_00116078	game	func_00116078	host	the port's own (host/hand.c); its signature decides the prototype	int (unsigned int, ...)
 func_00201AF0	draw	draw_bootImage	wrap	the picture shown while a level loads goes into the frame buffer by an image transfer, which the 2D path keeps only as a texture: the port also draws it there (host/boot_picture.c)
 func_001F7680	draw	func_001F7680	wrap	the boot loop's screen-high picture goes into the frame buffer by an image transfer, which the 2D path keeps only as a texture: the port also draws it there (host/boot_picture.c)
+func_L00_002EDB68	game	func_L00_002EDB68	host	the tail of func_L00_002EDB58 (jr ra; v0 = 0), which the game calls by address as a do-nothing callback (host/vector.c)	int (void)
+func_L00_001EB6A8	game	func_L00_001EB6A8	host	the camera steer: retail returns FastAddRots in $f0, which the void matched C loses (host/camera.c)	float (unsigned int, float, float, float, float, float)
