@@ -98,7 +98,9 @@
     "func_L00_001F1D20",
     "func_L00_001F2BE8",
     "func_L00_001F34F0",
-    "func_001252C0"
+    "func_001252C0",
+    "func_0020FC38",
+    "func_L00_00252D20"
   ],
   "candidates": "nonmatching/functional.tsv",
   "hand": "hand/hand.tsv"
