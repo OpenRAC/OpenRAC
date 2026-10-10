@@ -489,6 +489,43 @@ bounding-sphere update, including the shared `func_0020ED80` tail in
 reflected basis, world extent and packed grid update, then rerun this
 strict New Game probe. Local commits only; no new push.
 
+### Stored-basis bounding sphere, 2026-10-10 continuation
+
+Attachment is committed as `1be5ddb`. Implemented native-only
+`func_0020EEE8` and its shared tail from `func_0020ED48`: sequence blend
+and cached sphere selection, stored/reflected basis, scaled world sphere,
+revision count and packed grid update. Preserves the retail signed versus
+unsigned grid comparison and uses the native collision code's saturating
+float-to-integer convention. Handwritten PS2 code is replaced for native
+execution only; matching source and progress reports are untouched.
+
+- Full Windows build succeeds and 49/49 CTest tests pass:
+  `.tools/native-bounds-build.log` in the parent workspace.
+- Independent 32-bit and 64-bit fixtures pass, including EE layout,
+  inactive models, cache reuse, sequence blending and snapshot selection,
+  reflected rows, radius scaling, revision wrap, grid boundary rejection,
+  unchanged cells and packed-word sign extension.
+- Hostgen: 378 readable units, 3,820 translated functions, 200 candidates,
+  3 stubs, 1,144 without C; no unreadable units or index problems.
+- Same strict New Game probe as above, `-Name bounds-verified`: exit 2
+  at frame 2828, now missing `func_L00_0020E3B8`. The former
+  `func_0020EEE8` stop is passed. Log:
+  `.tools/native-run/bounds-verified.log`; no frame-3000 screenshot.
+
+Exact next action: claim and review the complete 0x63C-byte PAL body at
+`rac1-decomp/asm/overlays/func_L00_0020E3B8.s`, whose source is still
+`INCLUDE_ASM` in `src/overlays/shared/help_0020CDF0.c`. No sibling candidate
+was found. It manages hero joint manipulators via `func_L00_00250060`,
+`func_L00_00250120` and `func_L00_002501C8`; recover every branch and test
+allocation/removal and state transitions before enabling it. Repeat the
+documented probe with `--stop-on-missing`. Visible gameplay is still
+unverified. Both task claims are released and commits remain local.
+
+The pre-existing untracked files were checked against the retained stash
+and all 18 are preserved. Only the two implementations, their fixtures,
+registrations and these handoff sections were staged. Credit-preference
+edits and unrelated startup work remain uncommitted; nothing was pushed.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,

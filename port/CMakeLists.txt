@@ -98,6 +98,11 @@ target_compile_options(hero_attach_test PRIVATE -fno-strict-aliasing -ffp-contra
 openrac_warnings(hero_attach_test)
 add_test(NAME hero_attach COMMAND hero_attach_test)
 
+add_executable(moby_bounds_test tests/moby_bounds_test.c)
+target_compile_options(moby_bounds_test PRIVATE -fno-strict-aliasing -ffp-contract=off)
+openrac_warnings(moby_bounds_test)
+add_test(NAME moby_bounds COMMAND moby_bounds_test)
+
 if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()
