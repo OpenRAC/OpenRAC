@@ -526,6 +526,47 @@ and all 18 are preserved. Only the two implementations, their fixtures,
 registrations and these handoff sections were staged. Credit-preference
 edits and unrelated startup work remain uncommitted; nothing was pushed.
 
+### Hero pose manipulators, 2026-10-10 continuation
+
+Bounds was committed as `ec0635a`. Reproduced the next missing call,
+`func_L00_0020E3B8`, then reconstructed its entire PAL 0020E3B8..0020E9F4
+body in native C. It maintains two pose nodes: selection/allocation,
+fade/removal, interaction with the extra node, category transitions,
+special-pose entry and release, frame/sequence propagation and buffer
+selection. Explicit pointer fields preserve EE layout. Required allocation
+failure remains fatal; no missing calls are bypassed. This is native-only,
+not a matching PS2 decompilation; the sibling source/report is unchanged.
+
+- Full Windows build succeeds; 50/50 CTest tests pass:
+  `.tools/native-manip-build.log` in the parent workspace.
+- Independent 32-bit and 64-bit fixtures pass. Covers layout assertions,
+  both selectors, required allocation failure, forced and completed fades,
+  extra-node suppression, category transition completion, special-pose
+  thresholds/release, buffer bounds and preservation of inactive pointers.
+- Hostgen: 378 readable units, 3,821 translated functions, 201 candidates,
+  3 translation stubs, 1,143 without C; no unreadable units/index problems.
+- Same strict 5200-frame New Game probe and input sequence, with no card:
+  `manip-before` stops at the modifier call at frame 2828 (exit 2).
+  `manip-verified` now stops at `func_L00_00248EF8` at frame 2827 (exit 2).
+  Logs: `.tools/native-run/manip-before.log` and `manip-verified.log`.
+  Frame timing varies by one frame; progress is the changed missing call,
+  not the frame number. No frame-3000 screenshot or playable-gameplay claim.
+
+Exact next action: claim and review map reveal `func_L00_00248EF8`, the
+0x710-byte body in `rac1-decomp/asm/overlays/func_L00_00248EF8.s`, against
+`nonmatching/shared/func_L00_00248EF8.c` (1,796-byte candidate versus 1,808
+retail; not verified). Recover zone flags, altitude filters, all eight
+predicates and the brush/tile-cache bitmap walk. Test map bounds, nibble
+selection, callback rejection, alternate maps and reveal-mask changes;
+preserve the retail loop limits rather than guessing inclusive edges.
+Then repeat the strict probe. The modifier's special-pose helper
+`func_L00_0020DC68` and removal helper `func_L00_00250120` are still missing
+on other paths; keep their traps. The former's jump table includes tails
+outside its nominal 0x44-byte body, so review 0020DCAC..0020DCEC too.
+
+The task claim is released, unrelated dirty work remains uncommitted, and
+the fix is committed locally without a push or assistant credit trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,

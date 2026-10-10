@@ -61,3 +61,4 @@ func_L00_00205FF0	level_hero_effects.c
 func_L00_0020F118	level_hero_items.c
 func_L00_0020FC18	level_hero_attach.c
 func_0020EEE8	game_moby_bounds.c
+func_L00_0020E3B8	level_hero_manipulators.c
