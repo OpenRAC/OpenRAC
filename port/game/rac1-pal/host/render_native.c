@@ -11,6 +11,9 @@
 #include "game_protos.h"
 #include "openrac/game_host.h"
 
+#include <stdint.h>
+#include <string.h>
+
 /* a quad renderer */
 void func_001F7EF8(gaddr a0, int a1, int a2) {
     (void)a0;
@@ -26,13 +29,43 @@ void func_001F8B6C(void) {
 void func_001F91B8(void) {
 }
 
-/* shrub_class_init (the shrub draw data) */
+/*
+ * shrub_class_init: registers a shrub class (a0) under its class number (a4) and slot. What the level
+ * loader reads afterwards is kept: the slot tables (class number to slot, slot to class number and to
+ * class), the class's draw distance, its offsets made pointers, and its 16-byte block (a2). What is
+ * left out is the GS texture registers it writes into the class's packets (a1, a3), which only the
+ * game's shrub renderer reads. In a level, its tables are the level program's copies.
+ */
 void func_00204340(gaddr a0, gaddr a1, gaddr a2, gaddr a3, int a4) {
-    (void)a0;
     (void)a1;
-    (void)a2;
     (void)a3;
-    (void)a4;
+    uint8_t* cls = G(a0);
+    const uint32_t slot = GREF(uint32_t, OPENRAC_DATA(0x001604CCu));
+
+    GREF(uint8_t, OPENRAC_DATA(0x001D8440u) + (uint32_t)a4) = (uint8_t)slot;
+    GREF(uint16_t, OPENRAC_DATA(0x001D83C0u) + slot * 2) = (uint16_t)a4;
+    GREF(gaddr, OPENRAC_DATA(0x001D82C0u) + slot * 4) = a0;
+    *(uint16_t*)(cls + 0x26) = (uint16_t)slot;
+
+    float distance;
+    memcpy(&distance, cls + 0x10, 4);
+    GREF(int, OPENRAC_DATA(0x001D9040u) + slot * 4) = func_001FA898(distance * 1024.0f);
+    GREF(uint32_t, OPENRAC_DATA(0x001604CCu)) = slot + 1;
+
+    *(uint32_t*)(cls + 0x18) = 0;
+    *(uint16_t*)(cls + 0x16) = 0;
+    if (*(uint32_t*)(cls + 0x2C) != 0) {
+        *(uint32_t*)(cls + 0x2C) += a0;
+    }
+    const int16_t packets = *(int16_t*)(cls + 0x28);
+    for (int i = 0; i < packets; ++i) {
+        *(uint32_t*)(cls + 0x40 + i * 8) += a0;
+    }
+    if (*(uint32_t*)(cls + 0x1C) != 0) {
+        *(uint32_t*)(cls + 0x1C) += a0;
+    }
+
+    memcpy(G(OPENRAC_DATA(0x001D9640u) + slot * 16), G(a2), 16);
 }
 
 /* a moby texture DMA */
