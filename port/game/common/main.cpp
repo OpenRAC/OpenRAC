@@ -295,6 +295,27 @@ void openrac_game_load_image(const openrac_game_image* image) {
 #endif
 }
 
+void openrac_game_store_image(const openrac_game_image* image) {
+    if (image->width <= 0 || image->height <= 0) {
+        return;
+    }
+    const std::size_t bytes =
+        static_cast<std::size_t>(image->width) * static_cast<std::size_t>(image->height) * 4;
+    auto* out = static_cast<std::uint8_t*>(G(image->pixels));
+#ifdef OPENRAC_FRONTEND
+    if (g_window && frontend::store_image(static_cast<std::uint32_t>(image->base),
+                                          static_cast<std::uint32_t>(image->width_units),
+                                          static_cast<std::uint8_t>(image->psm), image->x, image->y,
+                                          image->width, image->height, std::span<std::uint8_t>(out, bytes))) {
+        return;
+    }
+#endif
+    // Nothing to answer with: black, as an empty frame buffer reads.
+    if (image->psm == 0) {
+        std::memset(out, 0, bytes);
+    }
+}
+
 /*
  * The movie player, after ReRAC's movie mode (crates/rc-game/src/movie_player.rs,
  * crates/rc-engine/src/movie_render.rs; ISC License, Copyright (c) 2026 ReRAC contributors):

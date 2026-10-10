@@ -158,12 +158,20 @@ int openrac_lib_sceGsExecLoadImage(gaddr transfer, gaddr pixels) {
 }
 
 /* sceGsExecStoreImage(transfer, destination): reading the GS's memory back.
- * The renderer does not keep GS memory; what the game reads back (a
- * screenshot for a save, render to texture) is to be answered by it. */
+ * The renderer keeps no GS memory; it answers what it can (the frame buffer,
+ * which the pause and vendor menus read to draw themselves over). */
 int openrac_lib_sceGsExecStoreImage(gaddr transfer, gaddr destination) {
-    (void)transfer;
-    (void)destination;
-    openrac_guest_missing("sceGsExecStoreImage (readback from the renderer)");
+    const image_transfer* t = (const image_transfer*)G(transfer);
+    openrac_game_image image;
+    image.base = (int)(t->bitbltbuf & 0x3FFF);
+    image.width_units = (int)((t->bitbltbuf >> 16) & 0x3F);
+    image.psm = (int)((t->bitbltbuf >> 24) & 0x3F);
+    image.x = (int)(t->trxpos & 0x7FF);
+    image.y = (int)((t->trxpos >> 16) & 0x7FF);
+    image.width = (int)(t->trxreg & 0xFFF);
+    image.height = (int)((t->trxreg >> 32) & 0xFFF);
+    image.pixels = destination;
+    openrac_game_store_image(&image);
     return 0;
 }
 

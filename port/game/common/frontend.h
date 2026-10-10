@@ -60,6 +60,12 @@ void upload_image(
     std::span<const std::uint8_t> pixels
 );
 
+// The game reading a PSMCT32 rectangle of its draw buffer back (sceGsExecStoreImage): answered
+// with the last frame drawn, scaled to the chip's pixels. False if the rectangle is not in the
+// draw buffer (nothing written).
+bool store_image(std::uint32_t base, std::uint32_t width_units, std::uint8_t psm, int x, int y,
+                 int width, int height, std::span<std::uint8_t> out);
+
 // Shows one full-screen picture the game puts straight into its display buffer (a movie's frame,
 // a boot still), RGBA rows top to bottom, with `black` (0 to 1) of black over it (the game's
 // FadeToBlack), and reads the input. Counts as a frame (shots, OPENRAC_PRESS). False once the window

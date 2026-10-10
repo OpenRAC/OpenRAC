@@ -48,6 +48,9 @@ struct State {
     std::unique_ptr<renderer::Renderer> renderer;
     renderer::FrameBuffer frame;
     renderer::FrameBuffer picture;  // show_picture's: a movie frame, a boot still
+    // The last frame the game drew its world in: what its draw buffer still holds on a frame it
+    // draws nothing in (the tick a page menu opens), and so what reading the frame back answers.
+    renderer::FrameBuffer last_world;
     viewer::LevelData level;
     viewer::LevelScene scene;
     int loaded = -2;  // the level whose geometry is uploaded; -2 none
@@ -94,7 +97,8 @@ std::uint32_t word_at(std::span<const std::uint8_t> ram, std::uint32_t at) {
 std::vector<std::uint8_t> direct_packets(std::span<const std::uint8_t> ram, std::uint32_t chain,
                                          std::vector<renderer::EffectVertex>* strip_vertices = nullptr,
                                          std::vector<renderer::EffectStrip>* strips = nullptr,
-                                         std::vector<renderer::ImageUpload>* uploads = nullptr) {
+                                         std::vector<renderer::ImageUpload>* uploads = nullptr,
+                                         std::size_t* before_world = nullptr) {
     std::vector<std::uint8_t> vif;
     std::uint32_t tag_at = chain & 0x01FFFFF0;
     std::uint32_t stack[2] = {0, 0};
@@ -305,7 +309,12 @@ std::vector<std::uint8_t> direct_packets(std::span<const std::uint8_t> ram, std:
                 }
             }
             at += size;
-        } else if ((command == 0x14 || command == 0x15 || command == 0x17) && strips != nullptr) {
+        } else if ((command == 0x14 || command == 0x15 || command == 0x17) && before_world != nullptr
+                   && *before_world == SIZE_MAX) {
+            // The first VU1 program the frame starts: the 2D data so far comes before the world.
+            *before_world = gif.size();
+        }
+        if ((command == 0x14 || command == 0x15 || command == 0x17) && strips != nullptr) {
             if (strip_tag && strip_st != nullptr && strip_rgba != nullptr && strip_xyz != nullptr) {
                 renderer::EffectStrip strip;
                 strip.first = static_cast<std::uint32_t>(strip_vertices->size());
@@ -445,6 +454,10 @@ void use_level(int number) {
         log::error("level {}: {}", wanted, error);
         return;
     }
+    // The 2D path: its part before the world first, the rest after the world renderers.
+    auto hud = std::make_unique<renderer::DirectRenderer>("hud", renderer::Bucket::Hud, renderer::DirectConfig{},
+                                                          renderer::DirectRenderer::Input::Vif);
+    g->renderer->add(std::make_unique<renderer::DirectBackground>(*hud), error);
     for (std::size_t layer = 0; layer < viewer::kLayerCount; ++layer) {
         g->renderer->add(
             std::make_unique<viewer::LayerRenderer>(g->scene, static_cast<viewer::Layer>(layer)),
@@ -454,7 +467,7 @@ void use_level(int number) {
     if (g->renderer->add(std::make_unique<renderer::EffectRenderer>(), error) == nullptr) {
         log::error("effect renderer: {}", error);
     }
-    g->renderer->add(std::make_unique<renderer::DirectRenderer>("hud", renderer::Bucket::Hud, renderer::DirectConfig{}, renderer::DirectRenderer::Input::Vif), error);
+    g->renderer->add(std::move(hud), error);
     if (fresh) {
         g->renderer->init(error);
     }
@@ -803,6 +816,79 @@ void upload_image(
     g->images.push_back(std::move(image));
 }
 
+bool store_image(std::uint32_t base, std::uint32_t width_units, std::uint8_t psm, int x, int y,
+                 int width, int height, std::span<std::uint8_t> out) {
+    int fx = 0;
+    int fy = 0;
+    // The draw buffer as the game left it: the last frame with its world in.
+    const renderer::FrameBuffer* source = g && g->last_world.id() != 0 ? &g->last_world : g ? &g->frame : nullptr;
+    if (source == nullptr || psm != 0 || source->id() == 0 || source->width() <= 0
+        || !renderer::frame_pixel(base, width_units, x, y, fx, fy)) {
+        return false;
+    }
+    // The last frame drawn, read once per frame however many strips the game reads: kept at full
+    // resolution for drawing it back, and scaled to the chip's 512 x 448 for the answer.
+    static std::uint64_t read_at = ~0ull;
+    static std::vector<std::uint8_t> chip;  // 512 x 448 RGBA, top row first
+    constexpr int kChipWidth = 512;
+    const int lines = renderer::kDrawBufferLines;
+    if (read_at != g->index) {
+        using namespace openrac::gl;
+        read_at = g->index;
+        renderer::FrameSnapshot& snap = renderer::g_frame_snapshot;
+        snap.answered.clear();
+        if (snap.texture == 0) {
+            glGenTextures(1, &snap.texture);
+        }
+        glBindTexture(GL_TEXTURE_2D, snap.texture);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, source->id());
+        static int snap_w = 0;
+        static int snap_h = 0;
+        if (snap_w != source->width() || snap_h != source->height()) {
+            snap_w = source->width();
+            snap_h = source->height();
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, snap_w, snap_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        }
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, snap_w, snap_h);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        const std::vector<std::uint8_t> full = source->read_rgba();
+        const int fw = source->width();
+        const int fh = source->height();
+        chip.assign(static_cast<std::size_t>(kChipWidth) * lines * 4, 0);
+        for (int cy = 0; cy < lines; ++cy) {
+            const int sy = std::min(fh - 1, (2 * cy + 1) * fh / (2 * lines));
+            for (int cx = 0; cx < kChipWidth; ++cx) {
+                const int sx = std::min(fw - 1, (2 * cx + 1) * fw / (2 * kChipWidth));
+                const std::uint8_t* p = full.data() + (static_cast<std::size_t>(sy) * fw + sx) * 4;
+                std::uint8_t* q = chip.data() + (static_cast<std::size_t>(cy) * kChipWidth + cx) * 4;
+                q[0] = p[0];
+                q[1] = p[1];
+                q[2] = p[2];
+                q[3] = 0x80;
+            }
+        }
+        // OPENRAC_DUMP_SNAPSHOT=FILE.png: the answer, as the game gets it.
+        if (const char* dump = std::getenv("OPENRAC_DUMP_SNAPSHOT")) {
+            viewer::write_png(dump, kChipWidth, lines, chip);
+            log::info("frame read back at window frame {}, written to {}", g->index, dump);
+        }
+    }
+    for (int r = 0; r < height; ++r) {
+        for (int c = 0; c < width; ++c) {
+            std::uint8_t* q = out.data() + (static_cast<std::size_t>(r) * width + c) * 4;
+            if (renderer::frame_pixel(base, width_units, x + c, y + r, fx, fy)) {
+                std::memcpy(q, chip.data() + (static_cast<std::size_t>(fy) * kChipWidth + fx) * 4, 4);
+            } else {
+                std::memset(q, 0, 4);
+            }
+        }
+    }
+    renderer::g_frame_snapshot.answered.push_back(renderer::hash_bytes(out.data(), out.size()));
+    return true;
+}
+
 void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int count) {
     if (!g) {
         return;
@@ -986,6 +1072,11 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     std::vector<viewer::Instance> live;
     std::vector<viewer::LevelScene::JointColumns> palette;
     for (const viewer::LiveMoby& m : state.mobys) {
+        // Hidden (mode bit 0): MobyProc does not draw it (the parked ship while the landing one comes
+        // down, Clank's spare parts).
+        if (m.address + 0x36 <= ram.size() && (ram[m.address + 0x34] & 1) != 0) {
+            continue;
+        }
         auto cls = g->level.moby_classes.find(m.class_id);
         if (cls == g->level.moby_classes.end()) {
             continue;
@@ -1128,8 +1219,12 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     (void)chain;
     std::vector<renderer::EffectVertex> strip_vertices;
     std::vector<renderer::EffectStrip> strips;
-    const std::vector<std::uint8_t> packets =
-        direct_packets(ram, viewer::shown_chain(ram, a), &strip_vertices, &strips, &g->effect_uploads);
+    std::size_t before_world = SIZE_MAX;
+    const std::vector<std::uint8_t> packets = direct_packets(ram, viewer::shown_chain(ram, a), &strip_vertices,
+                                                             &strips, &g->effect_uploads, &before_world);
+    // Only a level's frame is ordered so: the boot program (title, main menu) starts VU1 programs
+    // of its own before its 2D path, and draws its world natively, all of its 2D path after it.
+    before_world = level >= 0 && level < 19 ? std::min(before_world, packets.size()) : 0;
     input.strip_vertices = strip_vertices;
     input.strips = strips;
     if (debug && input.frame % 100 == 0 && !strips.empty()) {
@@ -1140,13 +1235,21 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         log::info("  {} strips ({} vertices, {} without their texture's upload), the first TEX0 {:#x} ALPHA {:#x}",
                   strips.size(), strip_vertices.size(), bare, strips.front().tex0, strips.front().alpha);
     }
-    input.packets[static_cast<std::size_t>(renderer::Bucket::Hud)] = packets;
+    input.direct_before_world = std::span<const std::uint8_t>(packets).first(before_world);
+    input.packets[static_cast<std::size_t>(renderer::Bucket::Hud)] =
+        std::span<const std::uint8_t>(packets).subspan(before_world);
     sky_sprite_quads(state);
     particle_quads(ram, state);
     input.effects = g->effects;
     input.effect_uploads = g->effect_uploads;
     if (g->renderer) {
         g->renderer->render(input, {g->frame.id(), width, height});
+        if (has_camera && (draws & 0x1Fu) != 0 && width > 0 && height > 0) {
+            if (g->last_world.width() != width || g->last_world.height() != height) {
+                g->last_world.create(width, height, error);
+            }
+            g->frame.blit_to(g->last_world.id(), width, height);
+        }
     }
     g->effects.clear();
     g->effect_uploads.clear();
@@ -1208,6 +1311,7 @@ void close() {
     if (g) {
         g->frame.release();
         g->picture.release();
+        g->last_world.release();
         g->renderer.reset();
         g->scene.release();
         g.reset();
