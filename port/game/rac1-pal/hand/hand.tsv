@@ -70,3 +70,4 @@ func_00218A80	game_particle_update.c
 func_001FA1C0	game_scale_matrix.c
 func_001FA648	game_fastfunc.c
 func_L00_002D2E60	level_vendor_draw.c
+func_00205270	game_resource_bank.c

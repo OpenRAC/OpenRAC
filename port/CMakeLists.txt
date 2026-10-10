@@ -140,6 +140,11 @@ target_compile_options(effect_quad_test PRIVATE -fno-strict-aliasing -ffp-contra
 openrac_warnings(effect_quad_test)
 add_test(NAME effect_quad COMMAND effect_quad_test)
 
+add_executable(resource_bank_test tests/resource_bank_test.c)
+target_compile_options(resource_bank_test PRIVATE -fno-strict-aliasing)
+openrac_warnings(resource_bank_test)
+add_test(NAME resource_bank COMMAND resource_bank_test)
+
 if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()

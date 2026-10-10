@@ -810,6 +810,50 @@ its loader callees, recover the full behavior and repeat the strict probe.
 Vendor and level-quad claims released; unrelated work preserved. Local
 commit only; no push and no assistant co-author trailer.
 
+### Resource-bank loader, 2026-10-10 continuation
+
+Vendor rendering is committed as `acf9521`. Its strict probe reproduced
+`func_00205270`, the 0x2AC-byte resource-bank loader. Reconstructed the
+complete routine in native-only C: already-loaded check, class-table scan,
+automatic/explicit 0x18000-byte buffer selection, real WAD decompression,
+model registration/relocation, all 16 signed material references, and the
+first matching item of the 37-entry upgrade table. Upgrade state retains
+both 64-bit writes at the last render group's packet tail. The actual WAD
+and class-relocation callees run; no missing functions are bypassed.
+
+- Windows build and 57/57 CTest tests pass:
+  parent `.tools/native-bank-build.log`.
+- The new resource_bank fixture also passes on i686:
+  `.tools/resource-bank-test32.exe`. It asserts EE structure offsets and
+  tests both buffers, toggle/explicit selection, repeat-load early return,
+  class search/terminal index, call order, pre-relocation metadata,
+  post-relocation pointers/current index, signed material filtering, full
+  table bounds, first-match upgrade conditions and exact packet writes.
+- Reviewed generated C: guest pointers and 0x10/0x20/0x4C record strides,
+  executable/level data relocation and actual loader calls. Hostgen:
+  378 readable units, 3831 translated, 210 candidates, 3 stubs, 1134
+  without C; no unreadable units or index problems. No PS2 match claimed;
+  matching source/progress remain unchanged.
+- Same strict no-card New Game scenario, inputs and 5200-frame limit:
+  `vendor-verified` stops at resource loading, frame 2829, exit 2;
+  `bank-verified` passes it and stops at `func_0020EA70`, frame 2833,
+  exit 2. Logs are in parent `.tools/native-run/`. No frame-3000
+  screenshot, playable-gameplay claim or disabled missing-call traps.
+
+Exact next action: inspect the complete 0x2D4-byte handwritten
+`func_0020EA70` in asm/nonmatchings/text (mobyproc.c refers through
+asm/handwritten/text), including its internal entry/tails. It updates the
+moby grid rooted at D_001B7A60. Related level routine func_L00_00251B58
+already has an UNCOMMITTED implementation and fixture in
+hand/level_moby_grid.c and tests/moby_grid_test.c. Compare both retail
+bodies and their globals before reusing behavior; preserve that existing
+work and stage only the new verified fix. Then repeat the strict probe.
+
+The bank claim is released. All 22 earlier dirty files were checked and
+preserved (18 untracked C files byte-for-byte; tracked text with line endings
+normalized for comparison). Only this fix, fixture/registration and handoff
+are committed locally. No push or assistant credit trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
