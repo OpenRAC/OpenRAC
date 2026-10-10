@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 
 #include "frontend.h"
+#include "debug_menu.h"
 
 #include <SDL3/SDL.h>
 
@@ -1183,6 +1184,7 @@ void draw_kept(bool first) {
             g->frame.blit_to(g->last_world.id(), width, height);
         }
     }
+    debug_menu::draw(g->frame.id(), width, height);
     // OPENRAC_SHOT=FRAME:FILE.png writes that frame (for checking without looking at the screen).
     if (const char* shot = first ? std::getenv("OPENRAC_SHOT") : nullptr) {
         const char* colon = std::strchr(shot, ':');
@@ -1212,9 +1214,13 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
             || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) {
             return false;
         }
+        if (debug_menu::event(event, g->game.c_str(), openrac_game_loaded_overlay())) {
+            continue;  // the port's debug menu (debug_menu.h)
+        }
         g->input.handle_event(event);
     }
     g->input.update();
+    debug_menu::update(g->game.c_str(), openrac_game_loaded_overlay(), g->index);
 
     // The level program loaded now (-1: the boot program, title and menus), as the port knows it.
     const int level = openrac_game_loaded_overlay();
@@ -1503,6 +1509,9 @@ int between(std::chrono::steady_clock::time_point next_tick) {
             || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) {
             return -1;
         }
+        if (debug_menu::event(event, g->game.c_str(), openrac_game_loaded_overlay())) {
+            continue;
+        }
         g->input.handle_event(event);
     }
     const bool dump = renderer::g_dump_draws;
@@ -1541,11 +1550,15 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
             at = at ? at + 1 : nullptr;
         }
     }
+    if (port == 0) {
+        debug_menu::filter_pad(*buttons, g->game.c_str(), openrac_game_loaded_overlay());
+    }
     return true;
 }
 
 void close() {
     if (g) {
+        debug_menu::release();
         g->frame.release();
         g->picture.release();
         g->last_world.release();
