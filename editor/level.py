@@ -187,5 +187,6 @@ def load_flight(disc: Disc, survey: dict) -> Level:
     level = Level(FLIGHT_ID, b"", {}, bytes(header), data, bytes(0x100), {"entry_point": 0, "sections": []})
     level.boundaries = core_boundaries(level)
     level.textures = {}
+    level.no_terrain = True
     return level
 

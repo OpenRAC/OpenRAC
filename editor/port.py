@@ -110,8 +110,10 @@ class PortLevelWriter(LevelWriter):
         sky_offset, = unpack("<I", level.index, 0x10)
         self.write_environment(sky(level.block(sky_offset)) if sky_offset else None)
         lights = (light_bank(level.gameplay), self.normals) if self.normals is not None else None
+        # The terrain block (usually at the core's start, offset 0); the flight world has none.
         tfrags, = unpack("<I", level.index, 0x08)
-        self.write_terrain(terrain(level.block(tfrags), lod, lights) if tfrags else [], lod)
+        has_terrain = not getattr(level, "no_terrain", False)
+        self.write_terrain(terrain(level.block(tfrags), lod, lights) if has_terrain else [], lod)
         ties = tie_classes(level)
         tie_placements = tie_instances(level.gameplay, ties)
         if lights is not None:
