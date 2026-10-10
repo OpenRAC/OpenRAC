@@ -170,23 +170,43 @@ def load_title(disc: Disc, survey: dict) -> Level:
 # EnterSpaceLoadingLoop loads. As ReRAC reads it (crates/rc-formats/src/transition.rs; ISC License,
 # Copyright (c) 2026 ReRAC contributors), header word 1 is the data base and word 0x12 the sky
 # block (six shells with their own textures), which LoadSky makes the flight's sky. Exported as
-# level 98 with that sky alone: the planet picture, the caption and the ship are the game's draws.
+# level 98 with that sky and the lump's moby classes (the ships, words 4 and 5, with their textures:
+# words 6, 7 and 0xc); the planet picture and the caption are the game's draws.
 FLIGHT_ID = 98
 
 
 def load_flight(disc: Disc, survey: dict) -> Level:
     ref = next(r for r in survey["global_references"] if r["group"] == "transition")
     lump = decoded(disc.sectors(ref["lba"], (ref["bytes"] + SECTOR - 1) // SECTOR))
-    base, sky_at = unpack("<I", lump, 4)[0], unpack("<I", lump, 0x12 * 4)[0]
+
+    def h(i: int) -> int:
+        return unpack("<i", lump, i * 4)[0]
+
+    base, sky_at, p = h(1), h(0x12), TITLE_INDEX_TABLES
     if not 0 < base <= len(lump) or not 0 < sky_at < len(lump) - base:
         raise FormatError(f"flight: data base {base:#x}, sky {sky_at:#x}")
-    data = lump[base:]
     header = bytearray(TITLE_INDEX_TABLES)
-    struct.pack_into("<I", header, 0x10, sky_at)
-    struct.pack_into("<I", header, 0x8c, len(data))
-    level = Level(FLIGHT_ID, b"", {}, bytes(header), data, bytes(0x100), {"entry_point": 0, "sections": []})
+
+    def put(at: int, value: int) -> None:
+        struct.pack_into("<i", header, at, value)
+
+    def table(at: int, count: int, offset: int) -> None:
+        put(at, h(count))
+        put(at + 4, h(offset) + p)
+
+    table(0x00, 2, 3)          # the GS upload
+    put(0x10, sky_at)          # sky
+    table(0x18, 4, 5)          # moby classes: the ships (531, 532, 533)
+    table(0x38, 6, 7)          # moby textures
+    put(0x60, h(0xc))          # texture data
+    put(0x90, h(0x10))         # chrome map texture
+    put(0x94, h(0x11))         # chrome map palette
+    data = lump[base:]
+    put(0x8c, len(data))
+    index = bytes(header) + lump[:base]
+    level = Level(FLIGHT_ID, b"", {}, index, data, bytes(0x100), {"entry_point": 0, "sections": []})
     level.boundaries = core_boundaries(level)
-    level.textures = {}
+    level.textures = textures(level, lump[h(0):base])
     level.no_terrain = True
     return level
 

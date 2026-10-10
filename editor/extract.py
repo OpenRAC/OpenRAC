@@ -25,6 +25,7 @@ import tempfile
 from disc import LEVEL_COUNT, Disc
 from formats import FormatError
 from godot import LevelWriter, write_project
+from spaceships import add_spaceships
 from level import load_flight, load_level, load_title
 from lighting import normal_table
 from port import PortLevelWriter
@@ -80,7 +81,9 @@ def godot(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: 
 def export_port_level(iso: Path, info: dict, out: Path, lod: int) -> dict:
     """One level for the port's viewer; runs in its own process."""
     with Disc(iso) as disc:
-        return PortLevelWriter(out, load_level(disc, info), normal_table(disc.executable())).write(lod)
+        level = load_level(disc, info)
+        level.extra_moby_classes = add_spaceships(disc, disc.survey(), level)
+        return PortLevelWriter(out, level, normal_table(disc.executable())).write(lod)
 
 
 def export_port_title(iso: Path, survey: dict, out: Path, lod: int) -> dict:

@@ -136,7 +136,9 @@ class PortLevelWriter(LevelWriter):
                                            p["directional_lights"], lights[0])
                 p["colours"] = [r | g << 8 | b << 16 | a << 24 for r, g, b, a in lit]
         self.write_objects("shrub", shrubs, shrub_placements)
-        self.write_mobys(moby_instances(level.gameplay), moby_classes(level))
+        # The level's own classes, and the ones the loader adds (the ships, spaceships.py).
+        self.write_mobys(moby_instances(level.gameplay),
+                         {**getattr(level, "extra_moby_classes", {}), **moby_classes(level)})
         collision, = unpack("<I", level.index, 0x14)
         if collision:  # the title world has none
             self.write_collision(level.block(collision))
