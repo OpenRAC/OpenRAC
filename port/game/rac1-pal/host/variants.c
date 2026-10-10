@@ -140,3 +140,99 @@ void func_L00_002E9A88(float a, float b) {
         }
     }
 }
+
+/* func_L05_0031AAA8 (levels 5 and 16; no C in the decompilation): the moby of the class list
+ * D_L05_001AC040[moby +0x21] (moby indices, the last with its top bit set) whose variables
+ * (+0x78) hold ID at +0xB4, or 0. Level 16's copy compares +0xAC. */
+static gaddr moby_with_id(gaddr moby, int id, uint32_t field) {
+    const gaddr list = GREF(gaddr, OPENRAC_LDATA(5, 0x001AC040u) + 4u * GREF(uint8_t, moby + 0x21));
+    if (list == 0) {
+        return 0;
+    }
+    const gaddr base = GREF(gaddr, OPENRAC_LDATA(5, 0x00160098u));
+    for (gaddr p = list;; p += 2) {
+        const uint16_t w = GREF(uint16_t, p);
+        const gaddr m = base + (gaddr)(w & 0x7FFF) * 0x100u;
+        if (GREF(int16_t, GREF(gaddr, m + 0x78) + field) == id) {
+            return m;
+        }
+        if (w & 0x8000) {
+            return 0;
+        }
+    }
+}
+
+gaddr func_L05_0031AAA8(gaddr moby, int id) { return moby_with_id(moby, id, 0xB4); }
+gaddr func_L16_002E6048(gaddr moby, int id) { return moby_with_id(moby, id, 0xAC); }
+
+/* func_L11_0030FB58's level 12 copy: the record index at +0xC of the variables, not +0x4. */
+void func_L12_002C08A0(gaddr moby) {
+    gaddr p = GREF(gaddr, OPENRAC_LDATA(11, 0x001AC540u) + 4u * GREF(uint8_t, moby + 0x21));
+    const gaddr base = GREF(gaddr, OPENRAC_LDATA(11, 0x00160058u));
+    int16_t w;
+    do {
+        w = GREF(int16_t, p);
+        p += 2;
+        const gaddr e = base + (gaddr)(w & 0x7FFF) * 256u;
+        GREF(float, e + 0x18) = GREF(float, moby + 0x18);
+        const gaddr s = OPENRAC_LDATA(11, 0x001DAB40u) + (gaddr)(GREF(int, GREF(gaddr, e + 0x78) + 0xC) * 0x1190);
+        GREF(float, s + 8) = GREF(float, moby + 0x18);
+    } while (w >= 0);
+}
+
+/* func_L06_00300AB0's level 13 copy: the effect's data 0x20 lower (+0x210 points, +0x1F0 centre,
+ * +0x21C fades). Fifteen strips of quads between the points and a sag toward the centre, each
+ * drawn twice, 0.25 apart. QuadPacket: pos[4][4] +0, col[4] +0x40, uv[4][2] +0x50, tag[4] +0x70. */
+void func_L13_0030AD88(gaddr moby) {
+    enum { PK = 0x90, MAT = 2 * PK, TMP = MAT + 0x40, SIZE = TMP + 0x10 };
+    GFRAME(frame_, SIZE);
+    const gaddr data = GREF(gaddr, moby + 0x78);
+    const gaddr uvs = OPENRAC_LDATA(6, 0x001F31E0u);
+    func_00234C98(71, 342027);
+    for (int k = 0; k < 2; ++k) {
+        GREF(uint64_t, frame_ + k * PK + 0x78) = (uint64_t)func_001F4868(GREF(int, OPENRAC_LDATA(6, 0x00162080u)));
+    }
+    uint64_t regs = (uint64_t)(uint32_t)GREF(int, OPENRAC_LDATA(6, 0x0016206Cu));
+    regs |= (uint64_t)(uint32_t)GREF(int, OPENRAC_LDATA(6, 0x00162070u)) << 2;
+    regs |= (uint64_t)(uint32_t)GREF(int, OPENRAC_LDATA(6, 0x00162074u)) << 4;
+    regs |= (uint64_t)(uint32_t)GREF(int, OPENRAC_LDATA(6, 0x00162078u)) << 6;
+    regs |= (uint64_t)(uint32_t)GREF(int, OPENRAC_LDATA(6, 0x0016207Cu)) << 32;
+    for (int k = 0; k < 2; ++k) {
+        GREF(uint64_t, frame_ + k * PK + 0x80) = 0x0000FF9000000260ULL;
+        GREF(uint64_t, frame_ + k * PK + 0x70) = 0;
+        GREF(uint64_t, frame_ + k * PK + 0x88) = regs;
+    }
+    func_001FA190(frame_ + MAT);
+    for (int i = 0; i < 15; ++i) {
+        GREF(float, uvs + 1 * 8 + 4) = GREF(float, uvs + 3 * 8 + 4);
+        GREF(float, uvs + 3 * 8 + 4) = func_002140F8(0.0f, 0.2f);
+        for (int j = 0; j < 4; ++j) {
+            const gaddr v = frame_ + 0x10u * j;
+            const int off = (i + j / 2) * 16;
+            openrac_qcopy(v, data + off + 0x210);
+            if (j & 1) {
+                func_001F9BF0(frame_ + TMP, v, data + 0x1F0);
+                func_L00_001FF4B0(frame_ + TMP, frame_ + TMP, 0.5f);
+                func_001F9BF0(v, v, frame_ + TMP);
+                GREF(float, v + 8) -= 0.125f;
+                GREF(uint32_t, frame_ + 0x40 + 4u * j) = func_001FA8A8(
+                    GREF(int, OPENRAC_LDATA(6, 0x0016208Cu)), GREF(int, OPENRAC_LDATA(6, 0x00162090u)),
+                    GREF(float, data + off + 0x21C));
+            } else {
+                GREF(uint32_t, frame_ + 0x40 + 4u * j) = func_001FA8A8(
+                    GREF(int, OPENRAC_LDATA(6, 0x00162084u)), GREF(int, OPENRAC_LDATA(6, 0x00162088u)),
+                    GREF(float, data + off + 0x21C));
+            }
+            for (int k = 0; k < 2; ++k) {
+                GREF(float, frame_ + k * PK + 0x50 + 8u * j) = GREF(float, uvs + 8u * j);
+                GREF(float, frame_ + k * PK + 0x54 + 8u * j) = GREF(float, uvs + 8u * j + 4);
+            }
+        }
+        func_L00_001FD1D8(frame_, frame_ + MAT, 0);
+        for (int j = 1; j < 4; j += 2) {
+            GREF(float, frame_ + 0x10u * j + 8) += 0.25f;
+        }
+        func_L00_001FD1D8(frame_, frame_ + MAT, 0);
+    }
+    func_00234C98(71, 341515);
+}
