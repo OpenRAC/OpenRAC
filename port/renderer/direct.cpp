@@ -502,10 +502,10 @@ void GifInterpreter::kick(bool draw) {
     if (g_dump_draws && m_prim.kind != gs::PrimKind::Sprite) {
         const gs::Alpha& al = context().alpha;
         log::info(
-            "prim {} ({},{}) uv ({},{}) stq ({},{},{}) fst {} rgba {:02x}{:02x}{:02x}{:02x} tme {} tbp {:#x} tw {} th {} abe {} alpha {}{}{}{} fbp {:#x}",
+            "prim {} ({},{}) uv ({},{}) stq ({},{},{}) fst {} rgba {:02x}{:02x}{:02x}{:02x} tme {} psm {:#x} cbp {:#x} tbw {} tbp {:#x} tw {} th {} abe {} alpha {}{}{}{} fbp {:#x}",
             static_cast<int>(m_prim.kind), m_current.x / 16.0, m_current.y / 16.0, m_current.u / 16.0, m_current.v / 16.0, m_current.s, m_current.t, m_current.q, attributes().fst, m_current.rgba[0],
             m_current.rgba[1], m_current.rgba[2], m_current.rgba[3], attributes().tme,
-            context().tex0.tbp0, context().tex0.width(), context().tex0.height(), attributes().abe,
+            context().tex0.psm, context().tex0.cbp, context().tex0.tbw, context().tex0.tbp0, context().tex0.width(), context().tex0.height(), attributes().abe,
             al.a, al.b, al.c, al.d, context().frame.fbp
         );
     }
@@ -596,9 +596,26 @@ bool GifInterpreter::frame_source(std::uint32_t tbp, int& x, int& y) const {
 }
 
 void GifInterpreter::screen_position(const GsVertex& v, float& x, float& y) const {
+    // Each buffer the games draw into is centred on the chip's coordinate 2048 (its XYOFFSET is
+    // 2048 minus half its size), and each fills the whole picture: on PAL the 448-line draw buffer
+    // is stretched into the 512-line display buffer, where the text and menus are drawn after the
+    // copy, and the TV shows all 512 lines at 4:3. So a buffer's own pixels map onto the picture by
+    // its own size, taken from its offset.
     const Context& c = context();
-    x = (static_cast<float>(v.x) - static_cast<float>(c.xyoffset.ofx)) / 16.0f;
-    y = (static_cast<float>(v.y) - static_cast<float>(c.xyoffset.ofy)) / 16.0f;
+    const float ofx = static_cast<float>(c.xyoffset.ofx) / 16.0f;
+    const float ofy = static_cast<float>(c.xyoffset.ofy) / 16.0f;
+    const float width = 2.0f * (2048.0f - ofx);
+    const float height = 2.0f * (2048.0f - ofy);
+    const float sw = static_cast<float>(m_config.screen_width);
+    const float sh = static_cast<float>(m_config.screen_height);
+    x = static_cast<float>(v.x) / 16.0f - ofx;
+    y = static_cast<float>(v.y) / 16.0f - ofy;
+    if (width >= 64.0f && width <= 1024.0f) {
+        x *= sw / width;
+    }
+    if (height >= 64.0f && height <= 1024.0f) {
+        y *= sh / height;
+    }
 }
 
 DirectVertex GifInterpreter::convert(const GsVertex& v) const {
@@ -679,7 +696,21 @@ void GifInterpreter::ensure_draw() {
         s.test = c.test;
         s.depth_write = !c.zbuf.zmsk;
         s.fbmsk = c.frame.fbmsk;
-        s.scissor = c.scissor;
+        // The scissor is in this buffer's own pixels: scaled onto the picture as its draws are
+        // (screen_position), so it clips where they land.
+        {
+            const float ofx = static_cast<float>(c.xyoffset.ofx) / 16.0f;
+            const float ofy = static_cast<float>(c.xyoffset.ofy) / 16.0f;
+            const float width = 2.0f * (2048.0f - ofx);
+            const float height = 2.0f * (2048.0f - ofy);
+            const float kx = width >= 64.0f && width <= 1024.0f ? static_cast<float>(m_config.screen_width) / width : 1.0f;
+            const float ky = height >= 64.0f && height <= 1024.0f ? static_cast<float>(m_config.screen_height) / height : 1.0f;
+            auto scale = [](std::uint32_t v, float k, bool end) {
+                const float r = end ? (static_cast<float>(v) + 1.0f) * k - 1.0f : static_cast<float>(v) * k;
+                return static_cast<std::uint32_t>(r < 0.0f ? 0.0f : r);
+            };
+            s.scissor = {scale(c.scissor.x0, kx, false), scale(c.scissor.x1, kx, true), scale(c.scissor.y0, ky, false), scale(c.scissor.y1, ky, true)};
+        }
         s.fog = p.fge;
         if (s.fog) {
             s.fog_colour = m_fog_colour;
@@ -721,9 +752,9 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
         const gs::Alpha& al = context().alpha;
         const gs::Scissor& sc = context().scissor;
         log::info(
-            "sprite ({},{})-({},{}) rgba {:02x}{:02x}{:02x}{:02x} tme {} tbp {:#x} abe {} alpha {}{}{}{} fix {:#x} scissor {}-{}x{}-{} fbp {:#x} test {:#x}",
+            "sprite ({},{})-({},{}) rgba {:02x}{:02x}{:02x}{:02x} tme {} psm {:#x} cbp {:#x} tbw {} tbp {:#x} abe {} alpha {}{}{}{} fix {:#x} scissor {}-{}x{}-{} fbp {:#x} test {:#x}",
             a.x / 16.0, a.y / 16.0, b.x / 16.0, b.y / 16.0, b.rgba[0], b.rgba[1], b.rgba[2], b.rgba[3],
-            attributes().tme, context().tex0.tbp0, attributes().abe, al.a, al.b, al.c, al.d, al.fix,
+            attributes().tme, context().tex0.psm, context().tex0.cbp, context().tex0.tbw, context().tex0.tbp0, attributes().abe, al.a, al.b, al.c, al.d, al.fix,
             sc.x0, sc.x1, sc.y0, sc.y1, context().frame.fbp, 0
         );
     }
