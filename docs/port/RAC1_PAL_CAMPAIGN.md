@@ -854,6 +854,52 @@ preserved (18 untracked C files byte-for-byte; tracked text with line endings
 normalized for comparison). Only this fix, fixture/registration and handoff
 are committed locally. No push or assistant credit trailer.
 
+### Executable moby grid, 2026-10-10 continuation
+
+Resource-bank loading is committed as `ee1eb65`. A fresh strict probe
+`grid-before` hit the same func_0020EA70 blocker, this time at frame 393
+in the title sequence (earlier bank-verified hit it at 2833 in level 0).
+Reconstructed its full 0x2D4-byte body, register-only continuation labels,
+and bitmap allocate/release callees 0020E9F0/0020E990 in native C.
+Executable and level bodies each contain 181 instructions; the eight
+instruction differences are global-address loads and code targets.
+Existing UNCOMMITTED level_moby_grid.c and its fixture remain untouched.
+
+The executable implementation maintains cell overlap, swap-with-last
+removal, allocation order, resize thresholds and capacity-sized block
+copies. Native invalid-range/allocation-exhaustion checks fail explicitly;
+retail's missing-member/double-release traps remain fatal. This is native
+recovery, not a byte-matched PS2 decompilation.
+
+- Windows build and 58/58 CTest tests pass:
+  parent `.tools/native-exe-grid-build.log`.
+- Independent i686 fixture `.tools/exe-grid-test32.exe` passes. Tests
+  cover bitmap allocation/fragmentation/last block/exhaustion, release
+  across words, corruption traps, full 32-bit ID comparisons, boundary
+  cells, overlap, shrink thresholds and 500 randomized membership changes
+  checked against an independent membership/bitmap oracle.
+- Hostgen: 378 readable units, 3837 translated functions (including three
+  local helpers), 213 candidates, 3 stubs, 1131 without C; no unreadable
+  units/index problems. Reviewed guest pointer and data relocations.
+- Normal strict New Game probe `grid-verified` completes 5200 frames,
+  exit 0, with no missing-function report. Inputs match the earlier
+  campaign sequence, including the requested analog movement at 4000.
+  Log: `.tools/native-run/grid-verified.log` in the parent workspace.
+- Inspected `.tools/native-run/grid-verified-3000.png`: Ratchet and the
+  first Veldin scene are visibly rendered. Level 0 has 291 mobys and 75
+  effect quads. The pose remains finite. This is initial scene validation,
+  not proof of playability: the sampled hero position stays at
+  (132.09, 115.48, 31.43), including after the scripted movement interval.
+
+Next action: finish the owner's requested fast test launch (existing
+OPENRAC_DIRECT with --level 0, explicit movie skipping), verify it loads
+Veldin through NewGameInit and the normal loader, then investigate why the
+movement probe does not change the hero position. Compare frontend input
+frame timing, pad socket/read state and the level's input/update path before
+changing gameplay. Keep the full New Game run as a separate regression.
+Grid claims released; earlier dirty files remain preserved. Local commit
+only, no push, no assistant co-author trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,

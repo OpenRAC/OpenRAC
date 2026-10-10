@@ -145,6 +145,11 @@ target_compile_options(resource_bank_test PRIVATE -fno-strict-aliasing)
 openrac_warnings(resource_bank_test)
 add_test(NAME resource_bank COMMAND resource_bank_test)
 
+add_executable(exe_moby_grid_test tests/exe_moby_grid_test.c)
+target_compile_options(exe_moby_grid_test PRIVATE -fno-strict-aliasing)
+openrac_warnings(exe_moby_grid_test)
+add_test(NAME exe_moby_grid COMMAND exe_moby_grid_test)
+
 if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()
