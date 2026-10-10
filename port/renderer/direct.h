@@ -45,6 +45,11 @@ struct DirectConfig {
     // The game's frame buffer: 512 x 448 for PAL Ratchet & Clank.
     int screen_width = 512;
     int screen_height = 448;
+    // The game's frame buffers (block addresses): what it displays and what it draws the frame
+    // in (PAL Ratchet & Clank: the 512-line display buffer at 0, the draw buffer at 0x1000). Any
+    // other target is drawn off screen, to be sampled later, however wide it is (the save page
+    // draws its 512 x 128 hint panel at 0x1E00, right after the draw buffer).
+    std::uint32_t frame_blocks[2] = {0x0000, 0x1000};
 };
 
 // One vertex as the GPU gets it (32 bytes).
@@ -193,6 +198,7 @@ private:
     std::vector<std::uint32_t> m_offscreen;
     // The off-screen target the current context draws into (its block), or 0.
     std::uint32_t offscreen_target() const;
+    bool is_offscreen(const gs::Frame& f) const;  // a target that is not one of the frame buffers
     // Whether a texture at `tbp` is a frame buffer or a copy of one; if so, where its texel (0, 0)
     // is in the frame.
     bool frame_source(std::uint32_t tbp, int& x, int& y) const;

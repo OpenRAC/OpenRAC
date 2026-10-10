@@ -379,7 +379,7 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
         case gs::kFrame1:
             c1.frame = gs::Frame::decode(value);
             m_targets.push_back(c1.frame.fbp * 32);
-            if (static_cast<int>(c1.frame.fbw) * 64 < m_config.screen_width) {
+            if (is_offscreen(c1.frame)) {
                 if (std::find(m_offscreen.begin(), m_offscreen.end(), c1.frame.fbp * 32) == m_offscreen.end()) {
                     m_offscreen.push_back(c1.frame.fbp * 32);
                 }
@@ -392,7 +392,7 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
         case gs::kFrame2:
             c2.frame = gs::Frame::decode(value);
             m_targets.push_back(c2.frame.fbp * 32);
-            if (static_cast<int>(c2.frame.fbw) * 64 < m_config.screen_width) {
+            if (is_offscreen(c2.frame)) {
                 if (std::find(m_offscreen.begin(), m_offscreen.end(), c2.frame.fbp * 32) == m_offscreen.end()) {
                     m_offscreen.push_back(c2.frame.fbp * 32);
                 }
@@ -582,9 +582,15 @@ void GifInterpreter::kick(bool draw) {
     }
 }
 
+bool GifInterpreter::is_offscreen(const gs::Frame& f) const {
+    const std::uint32_t block = f.fbp * 32;
+    return static_cast<int>(f.fbw) * 64 < m_config.screen_width
+        || (block != m_config.frame_blocks[0] && block != m_config.frame_blocks[1]);
+}
+
 std::uint32_t GifInterpreter::offscreen_target() const {
     const gs::Frame& f = context().frame;
-    return static_cast<int>(f.fbw) * 64 < m_config.screen_width ? f.fbp * 32 : 0;
+    return is_offscreen(f) ? f.fbp * 32 : 0;
 }
 
 bool GifInterpreter::frame_source(std::uint32_t tbp, int& x, int& y) const {
