@@ -53,6 +53,14 @@ public:
     void set_fog(const std::array<float, 3>& colour, float near_depth, float far_depth,
                  float near_f, float far_f);
 
+    // The light bank the mobys are lit from this frame (16 sets of 16 floats, as the game holds
+    // it); until set, the level's exported sets.
+    void set_light_sets(const std::vector<float>& sets) {
+        if (sets.size() == 16 * 16) {
+            m_light_sets = sets;
+        }
+    }
+
 private:
     struct Group {
         std::uint32_t model = 0;
