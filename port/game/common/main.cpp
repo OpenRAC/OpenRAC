@@ -5,7 +5,7 @@
 // file, linked with that game's translated C and its description
 // (openrac_game, generated from port/game/<id>/hostgen.json).
 //
-//   openrac-<id> --data <install>/active/<game>/data [--cards DIR] [--frames N] [--keep-going]
+//   openrac-<id> --data <install>/active/<game>/data [--cards DIR] [--frames N] [--stop-on-missing]
 //                [--level N]
 //
 // The data folder is what the extractor made from the player's disc
@@ -20,9 +20,9 @@
 //      program that is loaded deciding which ones a level address means;
 //   4. the game's main.
 //
-// While the port is being brought up, the program stops at the first function
-// that has no C yet (still assembly in the decompilation, or a library not
-// replaced yet) and says which; --keep-going logs it and carries on.
+// A function that has no C yet (still assembly in the decompilation, or a
+// library not replaced yet) is logged and returns, and the game carries on;
+// --stop-on-missing stops at the first one instead and says which, for checks.
 
 #include <chrono>
 #include <cstdlib>
@@ -72,7 +72,7 @@ struct Options {
     fs::path data;
     fs::path cards;
     long frames = -1;
-    bool keep_going = false;
+    bool keep_going = true;
     bool window = false;
     fs::path levels;  // the extracted levels the window draws (level_00, ...)
 };
@@ -91,7 +91,7 @@ std::string program_name() {
 [[noreturn]] void usage(const std::string& why) {
     log::error("{}", why);
     log::error(
-        "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--keep-going] [--level N]",
+        "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--stop-on-missing] [--level N]",
         program_name(),
         openrac_game.game
     );
@@ -143,6 +143,8 @@ Options parse(int argc, char** argv) {
             openrac_game_start_level = std::stoi(value());
         } else if (a == "--keep-going") {
             o.keep_going = true;
+        } else if (a == "--stop-on-missing") {
+            o.keep_going = false;
         } else if (a == "--help" || a == "-h") {
             usage(program_name() + ": " + openrac_game.title + ", native");
         } else {
