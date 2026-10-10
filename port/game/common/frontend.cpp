@@ -290,6 +290,9 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     config.title = "OpenRAC: Ratchet & Clank (native)";
     config.width = 1280;
     config.height = 960;
+    // The game paces itself (main.cpp: its frame rate, 50 Hz for PAL); a swap that also waited for
+    // the display's refresh (60 or 120 Hz) would make two clocks fight and the frames stagger.
+    config.vsync = false;
     g->window = platform::Window::open(config, error);
     if (!g->window) {
         return false;
