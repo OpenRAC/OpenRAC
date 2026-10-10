@@ -21,6 +21,10 @@ using namespace openrac::gl;
 
 namespace {
 
+// A scissor this many lines tall or more covers the frame (the chip's frame is 448 lines; a game
+// may leave a few out at the edges).
+constexpr std::int64_t kFrameFillLines = 400;
+
 std::uint64_t read64(std::span<const std::uint8_t> data, std::size_t offset) {
     std::uint64_t v = 0;
     std::memcpy(&v, data.data() + offset, 8);
@@ -619,14 +623,16 @@ void GifInterpreter::emit_quad(const DirectVertex corners[4]) {
 }
 
 void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
-    // An untextured sprite as tall as the scissor rectangle fills the frame (a clear, in strips, or a
+    // An untextured sprite as tall as a whole-frame scissor fills the frame (a clear, in strips, or a
     // full-screen fade). The game draws those before its world; the port's world renderers draw
     // before the 2D path, which would put the fill on top. The frame is cleared by the renderer,
-    // so fills are left out until the direct path is ordered with the world buckets.
+    // so fills are left out until the direct path is ordered with the world buckets. A sprite
+    // clipped to a smaller scissor is an ordinary rectangle and is drawn.
     if (!attributes().tme) {
         const gs::Scissor& sc = context().scissor;
+        const std::int64_t scissor_height = static_cast<std::int64_t>(sc.y1) - static_cast<std::int64_t>(sc.y0);
         const std::int64_t height = std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16;
-        if (height + 2 >= static_cast<std::int64_t>(sc.y1) - static_cast<std::int64_t>(sc.y0)) {
+        if (scissor_height >= kFrameFillLines && height + 2 >= scissor_height) {
             return;
         }
     }
