@@ -113,6 +113,11 @@ target_compile_options(map_reveal_test PRIVATE -fno-strict-aliasing -ffp-contrac
 openrac_warnings(map_reveal_test)
 add_test(NAME map_reveal COMMAND map_reveal_test)
 
+add_executable(moby_lighting_test tests/moby_lighting_test.c)
+target_compile_options(moby_lighting_test PRIVATE -fno-strict-aliasing -ffp-contract=off)
+openrac_warnings(moby_lighting_test)
+add_test(NAME moby_lighting COMMAND moby_lighting_test)
+
 if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()

@@ -613,6 +613,53 @@ branches and output fields and repeat the strict New Game probe.
 Only this task's files, registrations and handoff are committed locally;
 earlier edits and excluded credit preferences remain uncommitted. No push.
 
+### Moby lighting and spatial queries, 2026-10-10 continuation
+
+Map reveal is committed as `e5405f9`. The strict `map-verified` run then
+reproduced missing `func_L00_0025805C`. Recovered this native lighting
+update and both dependencies, `func_L00_00257E18` and
+`func_L00_00257F4C`, from the complete PAL 00257E18..00258248 instructions.
+The query implementations include the split 00257EBC and
+00257FB4/0025804C branch tails. They do not dispatch to missing tail stubs.
+This is a native replacement for handwritten PS2 code, not a matching
+decompilation; sibling source and progress reports are unchanged.
+
+Preserves the inclusive region scan, XY broad phase, first-hit cube
+rejection, translation with w=1, relative grid lists, strict point-light
+radius and first-light selection. Ambient blending follows the packed
+byte saturation, which discards low product bytes before adding high
+bytes; an ordinary lerp differs by one. Final light contribution saturates
+each channel independently and leaves unrelated moby fields untouched.
+
+- Windows release build succeeds; 52/52 CTest tests pass:
+  `.tools/native-lighting-build.log` in the parent workspace.
+- Independent 64-bit and 32-bit fixtures pass, covering layouts, region
+  count/clip/boundary rules, first hit versus nearest, grid stride/offsets,
+  XY distance, blend endpoints, packed light IDs, channel saturation,
+  disabled/no regions, no point light and unaffected object bytes.
+- Hostgen: 378 readable units, 3,826 translated functions (three entries
+  and a conversion helper added), 205 candidates, 3 stubs, 1,139 without C;
+  no unreadable units or index problems. Reviewed generated guest pointers,
+  level data relocation and the existing native FPU division helper.
+- Same strict 5200-frame New Game probe and no-card input sequence:
+  `lighting-verified` passes moby lighting and stops at `func_00218A80`,
+  frame 2828, exit 2. Log: `.tools/native-run/lighting-verified.log`.
+  No frame-3000 screenshot. Visible gameplay is still unverified.
+
+Exact next action: claim and review particle update dispatcher
+`func_00218A80`, the 0x8C-byte handwritten body in
+`rac1-decomp/asm/handwritten/text/func_00218A80.s` (source game/partproc.c).
+It scans 0x40-byte particle entries, skips negative active bytes, dispatches
+through D_001CE100 and reloads its saved cursor/end after callbacks. Recover
+the gp-relative globals and inspect the actual callback signatures before
+implementing it; test filtering, callback mutation and cursor restoration,
+then repeat the strict New Game probe. Keep all missing-call traps enabled.
+
+All six lighting entry/tail claims are released at handoff. The 18 earlier
+untracked files match the retained stash byte-for-byte. Earlier tracked
+edits and excluded credit preferences remain uncommitted. This fix is
+committed locally without a push or assistant co-author trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
