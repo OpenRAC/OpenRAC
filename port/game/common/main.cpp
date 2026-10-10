@@ -40,6 +40,7 @@
 
 #ifdef OPENRAC_FRONTEND
 #include "frontend.h"
+#include "renderer/texture.h"
 #endif
 
 extern "C" {
@@ -220,6 +221,23 @@ void openrac_game_load_image(const openrac_game_image* image) {
         image->psm,
         image->base
     );
+#ifdef OPENRAC_FRONTEND
+    if (g_window && image->width > 0 && image->height > 0) {
+        const std::size_t bytes = renderer::image_bytes(
+            static_cast<std::uint8_t>(image->psm), image->width, image->height
+        );
+        frontend::upload_image(
+            static_cast<std::uint32_t>(image->base),
+            static_cast<std::uint32_t>(image->width_units),
+            static_cast<std::uint8_t>(image->psm),
+            static_cast<std::uint32_t>(image->x),
+            static_cast<std::uint32_t>(image->y),
+            static_cast<std::uint32_t>(image->width),
+            static_cast<std::uint32_t>(image->height),
+            std::span<const std::uint8_t>(static_cast<const std::uint8_t*>(G(image->pixels)), bytes)
+        );
+    }
+#endif
 }
 
 int openrac_game_pad(int port, uint16_t* buttons, uint8_t analog[4]) {

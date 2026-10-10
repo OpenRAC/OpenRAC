@@ -44,6 +44,9 @@ struct State {
     viewer::LevelScene scene;
     int loaded = -2;  // the level whose geometry is uploaded; -2 none
     std::uint64_t index = 0;
+    // Every image the game sent outside the display list, oldest first, the latest per
+    // rectangle: given again to each renderer made (use_level makes a new one per level).
+    std::vector<renderer::ImageUpload> images;
 };
 
 std::unique_ptr<State> g;
@@ -173,6 +176,9 @@ void use_level(int number) {
     g->scene = viewer::LevelScene();
     g->level = viewer::LevelData();
     g->renderer = std::make_unique<renderer::Renderer>();
+    for (const renderer::ImageUpload& image : g->images) {
+        g->renderer->textures().upload(image);
+    }
     std::string error;
     const auto dir = g->levels / std::format("level_{:02d}", wanted);
     if (!viewer::load_level(dir, g->level, error)) {
@@ -221,6 +227,43 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
         return false;
     }
     return true;
+}
+
+void upload_image(
+    std::uint32_t base,
+    std::uint32_t width_units,
+    std::uint8_t psm,
+    std::uint32_t x,
+    std::uint32_t y,
+    std::uint32_t width,
+    std::uint32_t height,
+    std::span<const std::uint8_t> pixels
+) {
+    if (!g) {
+        return;
+    }
+    log::debug(
+        "library image to block {:#x} width {} psm {:#x} at {},{} size {}x{}", base, width_units, psm, x,
+        y, width, height
+    );
+    renderer::ImageUpload image;
+    image.dbp = base;
+    image.dbw = width_units;
+    image.dpsm = psm;
+    image.x = x;
+    image.y = y;
+    image.width = width;
+    image.height = height;
+    image.data.assign(pixels.begin(), pixels.end());
+    // A later image to the same rectangle replaces the earlier one.
+    std::erase_if(g->images, [&](const renderer::ImageUpload& old) {
+        return old.dbp == base && old.dpsm == psm && old.x == x && old.y == y && old.width == width
+               && old.height == height;
+    });
+    if (g->renderer) {
+        g->renderer->textures().upload(image);
+    }
+    g->images.push_back(std::move(image));
 }
 
 bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
@@ -296,6 +339,17 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
         static_cast<float>(width) / static_cast<float>(height > 0 ? height : 1), 0.05f, 2000.0f
     );
     input.camera.position = state.camera_position;
+    // OPENRAC_DUMP_DRAWS=N or N-M: the frames whose 2D draws are logged.
+    static const char* dump_at = std::getenv("OPENRAC_DUMP_DRAWS");
+    if (dump_at) {
+        char* end = nullptr;
+        const std::uint64_t first = std::strtoull(dump_at, &end, 10);
+        const std::uint64_t last = *end == '-' ? std::strtoull(end + 1, nullptr, 10) : first;
+        renderer::g_dump_draws = g->index >= first && g->index <= last;
+    }
+    if (renderer::g_dump_draws) {
+        log::info("frame {}: the 2D path's draws", g->index);
+    }
     input.frame = g->index++;
     // The 2D path: the frame's direct GIF data, drawn by the direct renderer.
     (void)chain;

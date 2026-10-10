@@ -24,6 +24,20 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
 // Draws a frame from the game's main memory and reads the input; false once the window was closed.
 bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain);
 
+// An image the game sent to the GS outside the display list (its library's image transfer): kept
+// for every renderer the window makes, as the chip keeps it in its memory. `base` in 256-byte
+// blocks, `width_units` in 64 pixels, `pixels` in raster order in `psm`.
+void upload_image(
+    std::uint32_t base,
+    std::uint32_t width_units,
+    std::uint8_t psm,
+    std::uint32_t x,
+    std::uint32_t y,
+    std::uint32_t width,
+    std::uint32_t height,
+    std::span<const std::uint8_t> pixels
+);
+
 // The pad of a port as the game's pad library reads it: buttons active low, then the right and
 // left sticks (x, y each).
 bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]);
