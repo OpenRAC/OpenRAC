@@ -19,11 +19,13 @@ gaddr func_0012DA38(void) {
     /* Before the first level is copied in: the executable's code as the
      * pattern its level copies are paired against (guest.h, per-level
      * relocation). The executable's code and data are 0x100000-0x240000;
-     * what a level's program moves is its data from 0x15F000 (resident below);
+     * what a level's program moves is its data from 0x15F000 (resident below)
+     * and the end-of-program address InitMemSlots plans memory from
+     * (0x24272F: the end rounded up, which a level's copy has as its own);
      * $gp is 0x166D00 in every program. */
     if (!relocation_set) {
         relocation_set = 1;
-        openrac_guest_set_relocation(0x0015F000u, 0x00240000u, 0x00166D00u,
+        openrac_guest_set_relocation(0x0015F000u, 0x00250000u, 0x00166D00u,
                                      (const uint8_t *)G(0x00100000u), 0x00100000u, 0x00140000u);
     }
     const gaddr entry = func_0012DA38__game();

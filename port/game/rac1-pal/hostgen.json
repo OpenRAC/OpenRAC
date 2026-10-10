@@ -21,7 +21,7 @@
   "symbols": ["config/port_symbols.txt"],
   "libraries": "libraries.tsv",
   "overlay_hook": true,
-  "relocate": [1437696, 2359296],
+  "relocate": [1437696, 2424832],
   "returns_64": ["func_001F4868"],
   "roots": [
     "func_0012DB18",
