@@ -186,12 +186,17 @@ def packet(data: bytes, entry: bytes, state: ListState, mesh: Mesh, remap: bytes
     if st_count < len(vertices):
         raise FormatError("moby packet has fewer texture coordinates than vertices")
 
+    # Each transferred vertex's RGBA multiplier (0x80 = 1.0), which the game's lighting pass
+    # scales its lit colour by (ReRAC's moby_light.rs); as the vertex colour, / 128.
+    multiplier = span(data, table + multipliers, transfer * 4)
     base = len(mesh.positions)
     for i, (position, n, skin) in enumerate(vertices):
         s, t = unpack("<2h", st, i * 4)
         mesh.positions.append(position)
         mesh.uvs.append((s / 4096, t / 4096))
         mesh.normals.append(n)
+        if mesh.colours is not None:
+            mesh.colours.append(tuple(b / 128 for b in multiplier[i * 4:i * 4 + 4]))
         skins.append(skin)
 
     # Index stream: 1-based, bit 7 suppresses the drawing kick. A 0 switches
@@ -255,7 +260,7 @@ def moby_class(data: bytes, remap: bytes, name: str, sequences: list | None = No
         return MobyClass(scale, None, joint_count)
     if metal and metal_begin != high + low:
         raise FormatError("unexpected moby metal packet position")
-    mesh, skins, state = Mesh(name, normals=[]), [], ListState()
+    mesh, skins, state = Mesh(name, normals=[], colours=[]), [], ListState()
     for i in range(high):
         try:
             packet(data, span(data, packet_table + i * 16, 16), state, mesh, remap, skins)

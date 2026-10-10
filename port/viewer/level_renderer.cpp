@@ -20,6 +20,8 @@ struct InstanceData {
     float tint[4];
     float palette;  // the first matrix of its joint palette; -1 none
     float lights;   // a lit tie: the first of its 64 colours in the light texture; -1 none
+    float moby_light[4];    // a lit moby: sets, cross-fade, 1 (Instance::moby_light)
+    float moby_ambient[4];  // its ambient colour / 128
 };
 
 // The joint palette texture: RGBA32F, four texels (columns) per matrix, this many texels a row.
@@ -60,6 +62,7 @@ bool LevelScene::upload(
     }
     m_models = level.models;
     m_materials = level.materials;
+    m_light_sets = level.light_sets;
     renderer::Rgba8Image white(1, 1);
     white.set_texel(0, 0, 0xFFFFFFFFu);
     m_white = textures.add(std::move(white), renderer::AlphaScale::Full, "white");
@@ -126,6 +129,8 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         std::copy(instance.tint.begin(), instance.tint.end(), data.tint);
         data.palette = static_cast<float>(instance.palette);
         data.lights = static_cast<float>(instance.lights);
+        std::copy(instance.moby_light.begin(), instance.moby_light.end(), data.moby_light);
+        std::copy(instance.moby_ambient.begin(), instance.moby_ambient.end(), data.moby_ambient);
         it->second.push_back(data);
     }
     for (std::uint32_t model : order) {
@@ -198,6 +203,16 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
             13, 1, GL_FLOAT, GL_FALSE, instance_stride, offset(offsetof(InstanceData, lights))
         );
         glVertexAttribDivisor(13, 1);
+        glEnableVertexAttribArray(14);
+        glVertexAttribPointer(
+            14, 4, GL_FLOAT, GL_FALSE, instance_stride, offset(offsetof(InstanceData, moby_light))
+        );
+        glVertexAttribDivisor(14, 1);
+        glEnableVertexAttribArray(15);
+        glVertexAttribPointer(
+            15, 4, GL_FLOAT, GL_FALSE, instance_stride, offset(offsetof(InstanceData, moby_ambient))
+        );
+        glVertexAttribDivisor(15, 1);
         m_groups[static_cast<std::size_t>(layer)].push_back(g);
     }
     glBindVertexArray(0);
@@ -350,6 +365,9 @@ void LevelScene::draw_layer(
     glUniform1i(m_mesh.uniform("skinning"), palettes ? 1 : 0);
     glUniform1i(m_mesh.uniform("palette_texture"), static_cast<GLint>(kPaletteUnit));
     glUniform1i(m_mesh.uniform("light_texture"), static_cast<GLint>(kLightUnit));
+    if (m_light_sets.size() == 16 * 16) {
+        glUniform4fv(m_mesh.uniform("light_sets"), 64, m_light_sets.data());
+    }
     glUniform4f(m_mesh.uniform("fog_colour"), m_fog_colour[0], m_fog_colour[1], m_fog_colour[2],
                 m_fog_colour[3]);
     glUniform4f(m_mesh.uniform("fog_params"), m_fog_params[0], m_fog_params[1], m_fog_params[2],

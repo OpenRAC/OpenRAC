@@ -24,6 +24,7 @@ as the game does. Nothing here is ever committed (docs/policy/SOURCING.md).
 """
 
 import json
+import struct
 from pathlib import Path
 
 from formats import png, unpack
@@ -192,6 +193,12 @@ class PortLevelWriter(LevelWriter):
                     "sky": self.sky, "classes": self.classes, "placements": "placements.json",
                     "textures": sorted(f"textures/{name}.png" for name in self.textures),
                     "bounds": self.stats["bounds"], "stats": self.stats}
+        if self.normals is not None:
+            # The 16 directional light sets the level loader copies from the gameplay file
+            # (colour A with its back factor in w, direction A, colour B, direction B): what
+            # the game lights its mobys with.
+            manifest["lights"] = [[list(struct.unpack("<4f", struct.pack("<4I", *v))) for v in s]
+                                  for s in light_bank(self.level.gameplay)]
         (self.dir / "placements.json").write_text(json.dumps(self.placements, indent=1, allow_nan=False) + "\n")
         (self.dir / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
         return self.stats

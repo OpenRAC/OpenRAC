@@ -73,6 +73,7 @@ private:
     unsigned m_indices = 0;
     unsigned m_palette = 0;  // RGBA32F texture, four texels per matrix
     unsigned m_lights = 0;   // RGBA8 texture, the ties' lit colours
+    std::vector<float> m_light_sets;  // the level's 16 directional light sets (LevelData)
     std::array<float, 4> m_fog_colour{0, 0, 0, 0};  // w = 1: fog on
     std::array<float, 4> m_fog_params{0, 255, 255, 255};  // slope, offset, lower, upper clamp
     std::vector<JointColumns> m_palette_data;

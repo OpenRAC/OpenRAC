@@ -489,6 +489,14 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
             continue;
         }
         viewer::Instance instance{cls->second.first, m.matrix, {1, 1, 1, 1}};
+        // Its light word (+0x38: set 0, set 1, the cross-fade) and ambient colour (+0x3C), as
+        // MobyProc reads them to light it.
+        if (!g->level.light_sets.empty() && m.address + 0x40 <= ram.size()) {
+            const std::uint8_t* b = ram.data() + m.address;
+            instance.moby_light = {static_cast<float>(b[0x38]), static_cast<float>(b[0x39]),
+                                   static_cast<float>(b[0x3A]) / 256.0f, 1.0f};
+            instance.moby_ambient = {b[0x3C] / 128.0f, b[0x3D] / 128.0f, b[0x3E] / 128.0f, 1.0f};
+        }
         // Drawn by the game with a camera of its own: placed so the world's camera sees it where
         // that camera did (M' = V_world^-1 V_own M), as ReRAC draws the menu's frame objects.
         for (const auto& [address, camera] : g->moby_cameras) {

@@ -25,6 +25,8 @@ layout(location = 10) in uvec4 joints;
 layout(location = 11) in vec4 weights;
 layout(location = 12) in float light_slot;
 layout(location = 13) in float lights;
+layout(location = 14) in vec4 moby_light;    // set 0, set 1, cross-fade, 1 to light
+layout(location = 15) in vec4 moby_ambient;  // ambient RGB / 128
 
 uniform mat4 view_projection;
 uniform mat4 view;
@@ -33,6 +35,8 @@ uniform vec4 fog_params;
 uniform int skinning;
 uniform sampler2D palette_texture;
 uniform sampler2D light_texture;
+// The level's 16 directional sets: colour A (w = back factor), direction A, colour B, direction B.
+uniform vec4 light_sets[64];
 
 out vec2 v_uv;
 out vec4 v_colour;
@@ -82,6 +86,30 @@ void main() {
         int texel = int(lights + 0.5) + int(light_slot + 0.5);
         v_colour = texelFetch(light_texture, ivec2(texel % kLightWidth, texel / kLightWidth), 0)
                  * (255.0 / 128.0) * tint;
+        v_lit = 1;
+    }
+    // A live moby, lit as MobyProc and its VU0 pass light it: its set's two directional
+    // lights (or two sets cross-faded) on the skinned normal, with the leaky back clamp
+    // max(d, -|K| d), plus its ambient colour, times the vertex's multiplier (all 0x80 = 1.0).
+    if (moby_light.w > 0.5) {
+        int s0 = (int(moby_light.x + 0.5) & 15) * 4;
+        int s1 = (int(moby_light.y + 0.5) & 15) * 4;
+        float t = moby_light.z;
+        vec4 ca = light_sets[s0], cb = light_sets[s0 + 2];
+        vec3 da = light_sets[s0 + 1].xyz, db = light_sets[s0 + 3].xyz;
+        if (t > 0.0) {
+            ca = mix(ca, light_sets[s1], t);
+            cb = mix(cb, light_sets[s1 + 2], t);
+            da = normalize(mix(da, light_sets[s1 + 1].xyz, t));
+            db = normalize(mix(db, light_sets[s1 + 3].xyz, t));
+        }
+        vec3 nw = normalize(mat3(model) * n);
+        float fa = dot(-da, nw);
+        float fb = dot(-db, nw);
+        fa = max(fa, -abs(ca.w) * fa);
+        fb = max(fb, -abs(cb.w) * fb);
+        vec3 lit = moby_ambient.rgb + ca.rgb * fa + cb.rgb * fb;
+        v_colour = vec4(min(lit * colour.rgb, vec3(255.0 / 128.0)), colour.a) * tint;
         v_lit = 1;
     }
     v_normal = mat3(model) * n;
