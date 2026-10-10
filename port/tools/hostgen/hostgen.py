@@ -501,6 +501,9 @@ def main(argv: list[str] | None = None) -> int:
     host_sigs = {sym: sig for sym, (_name, sig) in host_rows.items()}
     program.host = set(cfg.get("host_functions", [])) | set(host_rows)
     program.wrap = wrapped(args.game.parent, cfg)
+    # The executable's data that level programs carry at other addresses (guest.h, per-level
+    # relocation): [low, high), or none.
+    program.relocate = cfg.get("relocate")
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(state,)) as ex:
         for rel, part, probs, _fixes in ex.map(_index_one, units):
             problems += [f"{rel}: {p}" for p in probs]

@@ -957,6 +957,8 @@ class Unit:
             places = self.program.code_places(sym)
             if not places:
                 raise Unsupported(f"the address of {sym}, which has none")
+            if getattr(self.program, "relocate", None) and self.fn is not None                     and not self.fn.name.startswith("func_L") and places[0][0] < 0:
+                return f"OPENRAC_CODE({hexaddr(places[0][1])})"
             return hexaddr(places[0][1])
         if n.get("kind") == "UnaryOperator" and n["opcode"] == "*":
             return self.rv(_inner(n)[0])
@@ -1158,7 +1160,15 @@ class Unit:
         if address is None:
             raise Unsupported(f"global {sym} has no known address")
         addr = hexaddr(address)
+        if self._relocated(address):
+            addr = f"OPENRAC_DATA({addr})"
         return LV(self.gref(t, addr), addr)
+
+    def _relocated(self, address: int) -> bool:
+        """An executable function's global in the range that level programs move (hostgen.json
+        "relocate"): its address is looked up for the level loaded (guest.h)."""
+        rel = getattr(self.program, "relocate", None)
+        return bool(rel) and self.fn is not None and not self.fn.name.startswith("func_L")             and rel[0] <= address < rel[1]
 
     def lv_member(self, n: dict) -> LV:
         name = n.get("name", "")

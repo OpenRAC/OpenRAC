@@ -152,6 +152,31 @@ const char* openrac_guest_function_name(gaddr address);
  * set: the game knows (rac1 keeps its current level in a global). */
 void openrac_guest_set_overlay_source(int (*current)(void));
 
+/* ---- Per-level relocation ----
+ *
+ * A level's program carries its own copy of much of the executable's code,
+ * whose globals sit at other addresses (rac1: each level's copy of the engine).
+ * The port has one host function for both, written with the executable's
+ * addresses, so an executable function's global address goes through
+ * OPENRAC_DATA and a function address it takes through OPENRAC_CODE: with a
+ * level loaded, an address in the relocated range becomes that level's. The
+ * tables are built when a level's code is first used, by pairing the address
+ * operands of each function's executable code with its copy in the level's
+ * code (the two differ only in addresses), so nothing of the game is stored. */
+void openrac_guest_set_relocation(gaddr low, gaddr high, gaddr gp, const uint8_t* exe_code,
+                                  gaddr exe_base, uint32_t exe_size);
+extern gaddr openrac_relocate_low, openrac_relocate_high;
+gaddr openrac_relocate_data(gaddr address);
+gaddr openrac_relocate_code(gaddr address);
+static inline gaddr OPENRAC_DATA(gaddr a) {
+    return a - openrac_relocate_low < openrac_relocate_high - openrac_relocate_low
+               ? openrac_relocate_data(a)
+               : a;
+}
+static inline gaddr OPENRAC_CODE(gaddr a) {
+    return openrac_relocate_high != 0 ? openrac_relocate_code(a) : a;
+}
+
 /* A function the game calls that has no C in the port yet: still assembly in
  * the decompilation, or a library the port has not replaced. Logged once per
  * function and counted (openrac_guest_report_missing at exit). While the
