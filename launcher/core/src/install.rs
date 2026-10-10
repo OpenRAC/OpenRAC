@@ -102,6 +102,7 @@ pub fn plan_extract(config: &Config, install: &Path, game: &str, image: &Path) -
         ],
         cwd: root.to_path_buf(),
         detached: false,
+        env: Vec::new(),
     })
 }
 

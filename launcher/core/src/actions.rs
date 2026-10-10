@@ -192,6 +192,8 @@ pub struct Plan {
     pub args: Vec<String>,
     pub cwd: PathBuf,
     pub detached: bool,
+    /// Environment variables set for it besides the usual ones.
+    pub env: Vec<(String, String)>,
 }
 
 /// Everything an action's placeholders and requirements are filled from.
@@ -365,7 +367,13 @@ impl Action {
             Some(v) => format!("{} · {} ({})", self.label, v.title, v.region),
             None => self.label.clone(),
         };
-        Ok(Plan { title, program, args, cwd, detached: self.detached })
+        // Developer tools on: the native port offers its developer features (a level select in the
+        // front end's Options).
+        let mut env = Vec::new();
+        if self.kind == Kind::Play && ctx.config.developer {
+            env.push(("OPENRAC_DEVELOPER".to_string(), "1".to_string()));
+        }
+        Ok(Plan { title, program, args, cwd, detached: self.detached, env })
     }
 }
 

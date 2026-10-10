@@ -76,6 +76,7 @@ impl Jobs {
         let mut cmd = crate::detect::quiet(&plan.program);
         cmd.args(&plan.args).current_dir(&plan.cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
         environment(&mut cmd, root);
+        cmd.envs(plan.env.iter().map(|(k, v)| (k, v)));
         own_group(&mut cmd);
         let mut child = cmd.spawn().map_err(|e| format!("cannot start {}: {e}", plan.program.display()))?;
 
@@ -134,6 +135,7 @@ pub fn launch(plan: &Plan, root: Option<&std::path::Path>) -> Result<Started, St
     let mut cmd = Command::new(&plan.program);
     cmd.args(&plan.args).current_dir(&plan.cwd).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     environment(&mut cmd, root);
+    cmd.envs(plan.env.iter().map(|(k, v)| (k, v)));
     let mut child = cmd.spawn().map_err(|e| format!("cannot start {}: {e}", plan.program.display()))?;
     // Reap it when it ends, so it never lingers as a zombie on Unix.
     std::thread::spawn(move || child.wait());
@@ -274,6 +276,7 @@ mod tests {
             args: vec!["tools/openrac.py".into(), "my disc.iso".into(), "".into()],
             cwd: ".".into(),
             detached: false,
+            env: Vec::new(),
         };
         assert_eq!(command_line(&plan), "python3 tools/openrac.py \"my disc.iso\" \"\"");
     }
@@ -286,6 +289,7 @@ mod tests {
             args: vec!["-c".into(), script.into()],
             cwd: std::env::temp_dir(),
             detached: false,
+            env: Vec::new(),
         }
     }
 
