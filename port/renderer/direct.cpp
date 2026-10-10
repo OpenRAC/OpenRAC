@@ -25,6 +25,12 @@ namespace {
 // may leave a few out at the edges).
 constexpr std::int64_t kFrameFillLines = 400;
 
+// A frame buffer is read back as a texture only in a colour format; an indexed texture (PSMT8,
+// PSMT4) at the same address is a texture of its own that the game pages in there.
+bool is_colour_format(std::uint8_t psm) {
+    return psm == 0x00 || psm == 0x01 || psm == 0x02 || psm == 0x0A;
+}
+
 std::uint64_t read64(std::span<const std::uint8_t> data, std::size_t offset) {
     std::uint64_t v = 0;
     std::memcpy(&v, data.data() + offset, 8);
@@ -268,6 +274,15 @@ void GifInterpreter::write_prim(std::uint64_t value) {
 }
 
 void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
+    if (g_dump_draws
+        && (address == gs::kFrame1 || address == gs::kFrame2 || address == gs::kTrxdir
+            || address == gs::kXyoffset1 || address == gs::kScissor1 || address == gs::kTex0_1)) {
+        log::info(
+            "reg {:#04x} = {:#018x} (bitbltbuf sbp {:#x} dbp {:#x} dbw {} trxpos {},{}->{},{} trxreg {}x{})",
+            address, value, m_bitbltbuf.sbp, m_bitbltbuf.dbp, m_bitbltbuf.dbw, m_trxpos.ssax, m_trxpos.ssay,
+            m_trxpos.dsax, m_trxpos.dsay, m_trxreg.rrw, m_trxreg.rrh
+        );
+    }
     Context& c1 = m_context[0];
     Context& c2 = m_context[1];
     switch (address) {
@@ -364,10 +379,20 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
         case gs::kFrame1:
             c1.frame = gs::Frame::decode(value);
             m_targets.push_back(c1.frame.fbp * 32);
+            if (std::none_of(m_frame_buffers.begin(), m_frame_buffers.end(), [&](const FrameBuffer& f) {
+                    return f.block == c1.frame.fbp * 32;
+                })) {
+                m_frame_buffers.push_back({c1.frame.fbp * 32, c1.frame.fbw});
+            }
             break;
         case gs::kFrame2:
             c2.frame = gs::Frame::decode(value);
             m_targets.push_back(c2.frame.fbp * 32);
+            if (std::none_of(m_frame_buffers.begin(), m_frame_buffers.end(), [&](const FrameBuffer& f) {
+                    return f.block == c2.frame.fbp * 32;
+                })) {
+                m_frame_buffers.push_back({c2.frame.fbp * 32, c2.frame.fbw});
+            }
             break;
         case gs::kZbuf1:
             c1.zbuf = gs::Zbuf::decode(value);
@@ -415,13 +440,26 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
                 );
                 m_upload.data.reserve(m_upload_bytes);
             } else if (direction == 2) {
-                // A copy inside the chip's memory. OpenGOAL's direct renderer
-                // does not draw these either; the game side moves textures.
-                log::debug(
-                    "GS local-to-local transfer ignored (block {:#x} to {:#x})",
-                    m_bitbltbuf.sbp,
-                    m_bitbltbuf.dbp
-                );
+                // A copy inside the chip's memory. Out of a frame buffer, it is the game taking
+                // part of the frame as a texture: kept as where that texture's texels are in the
+                // frame, for the draws that read it. Other copies move textures the pool does not
+                // follow yet.
+                int x = 0;
+                int y = 0;
+                std::erase_if(m_frame_copies, [&](const FrameCopy& f) { return f.dbp == m_bitbltbuf.dbp; });
+                if (frame_source(m_bitbltbuf.sbp, x, y)) {
+                    m_frame_copies.push_back(
+                        {m_bitbltbuf.dbp,
+                         x + static_cast<int>(m_trxpos.ssax) - static_cast<int>(m_trxpos.dsax),
+                         y + static_cast<int>(m_trxpos.ssay) - static_cast<int>(m_trxpos.dsay)}
+                    );
+                } else {
+                    log::debug(
+                        "GS local-to-local transfer ignored (block {:#x} to {:#x})",
+                        m_bitbltbuf.sbp,
+                        m_bitbltbuf.dbp
+                    );
+                }
             }
             return;
         }
@@ -444,6 +482,14 @@ void GifInterpreter::image_data(std::span<const std::uint8_t> data) {
         m_upload.data.end(), data.begin(), data.begin() + static_cast<std::ptrdiff_t>(take)
     );
     if (m_upload.data.size() >= m_upload_bytes) {
+        if (g_dump_draws) {
+            log::info(
+                "upload to block {:#x} width {} psm {:#x} at {},{} size {}x{}",
+                m_upload.dbp, m_upload.dbw, m_upload.dpsm, m_upload.x, m_upload.y, m_upload.width,
+                m_upload.height
+            );
+        }
+        std::erase_if(m_frame_copies, [&](const FrameCopy& f) { return f.dbp == m_upload.dbp; });
         m_textures.upload(std::move(m_upload));
         m_upload = ImageUpload{};
         m_upload_bytes = 0;
@@ -453,14 +499,15 @@ void GifInterpreter::image_data(std::span<const std::uint8_t> data) {
 
 void GifInterpreter::kick(bool draw) {
     m_queue[m_queued++] = m_current;
-    if (draw && attributes().tme) {
-        const std::uint32_t tbp = context().tex0.tbp0;
-        for (const std::uint32_t target : m_targets) {
-            if (tbp == target) {
-                draw = false;  // reads a frame buffer back (see m_targets)
-                break;
-            }
-        }
+    if (g_dump_draws && m_prim.kind != gs::PrimKind::Sprite) {
+        const gs::Alpha& al = context().alpha;
+        log::info(
+            "prim {} ({},{}) uv ({},{}) stq ({},{},{}) fst {} rgba {:02x}{:02x}{:02x}{:02x} tme {} tbp {:#x} tw {} th {} abe {} alpha {}{}{}{} fbp {:#x}",
+            static_cast<int>(m_prim.kind), m_current.x / 16.0, m_current.y / 16.0, m_current.u / 16.0, m_current.v / 16.0, m_current.s, m_current.t, m_current.q, attributes().fst, m_current.rgba[0],
+            m_current.rgba[1], m_current.rgba[2], m_current.rgba[3], attributes().tme,
+            context().tex0.tbp0, context().tex0.width(), context().tex0.height(), attributes().abe,
+            al.a, al.b, al.c, al.d, context().frame.fbp
+        );
     }
     switch (m_prim.kind) {
         case gs::PrimKind::Point:
@@ -527,6 +574,27 @@ void GifInterpreter::kick(bool draw) {
     }
 }
 
+bool GifInterpreter::frame_source(std::uint32_t tbp, int& x, int& y) const {
+    for (const FrameCopy& f : m_frame_copies) {
+        if (f.dbp == tbp) {
+            x = f.x;
+            y = f.y;
+            return true;
+        }
+    }
+    for (const FrameBuffer& f : m_frame_buffers) {
+        // A frame buffer is rows of pages (64 x 32 pixels, 32 blocks each), `width` pages a row:
+        // a texture that starts on one of its page rows is the frame from that row down.
+        const std::uint32_t row = std::max<std::uint32_t>(f.width, 1) * 32;
+        if (tbp >= f.block && tbp < f.block + row * 16 && (tbp - f.block) % row == 0) {
+            x = 0;
+            y = static_cast<int>((tbp - f.block) / row * 32);
+            return true;
+        }
+    }
+    return false;
+}
+
 void GifInterpreter::screen_position(const GsVertex& v, float& x, float& y) const {
     const Context& c = context();
     x = (static_cast<float>(v.x) - static_cast<float>(c.xyoffset.ofx)) / 16.0f;
@@ -539,13 +607,29 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
     float px = 0.0f;
     float py = 0.0f;
     screen_position(v, px, py);
+    // The chip samples a pixel at its integer coordinates, GL at the pixel's centre: half a pixel
+    // on, so a rectangle ending at 511.5 covers pixel 511 here as it does on the console.
+    px += 0.5f;
+    py += 0.5f;
     out.x = px / static_cast<float>(m_config.screen_width) * 2.0f - 1.0f;
     out.y = 1.0f - py / static_cast<float>(m_config.screen_height) * 2.0f;
     // The chip's depth, bigger nearer, straight into GL's [0, 1] window
     // depth: with the buffer cleared to 0 and GEQUAL, as on the console.
     const double depth = std::clamp(static_cast<double>(v.z) / c.zbuf.max_z(), 0.0, 1.0);
     out.z = static_cast<float>(depth * 2.0 - 1.0);
-    if (attributes().fst) {
+    int frame_x = 0;
+    int frame_y = 0;
+    if (attributes().tme && is_colour_format(c.tex0.psm) && frame_source(c.tex0.tbp0, frame_x, frame_y)) {
+        // A texel of the frame: its pixel, over the frame's size; the copy of the render target
+        // the draw samples has its first row at the bottom, as GL keeps it.
+        const float u = attributes().fst ? static_cast<float>(v.u) / 16.0f
+                                         : v.s / v.q * static_cast<float>(c.tex0.width());
+        const float w = attributes().fst ? static_cast<float>(v.v) / 16.0f
+                                         : v.t / v.q * static_cast<float>(c.tex0.height());
+        out.s = (u + static_cast<float>(frame_x)) / static_cast<float>(m_config.screen_width);
+        out.t = 1.0f - (w + static_cast<float>(frame_y)) / static_cast<float>(m_config.screen_height);
+        out.q = 1.0f;
+    } else if (attributes().fst) {
         // Texel coordinates in 12.4 fixed point, over the texture's size.
         out.s = static_cast<float>(v.u) / 16.0f / static_cast<float>(c.tex0.width());
         out.t = static_cast<float>(v.v) / 16.0f / static_cast<float>(c.tex0.height());
@@ -566,7 +650,17 @@ void GifInterpreter::ensure_draw() {
         const Context& c = context();
         DirectState s;
         s.textured = p.tme;
-        if (s.textured) {
+        int frame_x = 0;
+        int frame_y = 0;
+        s.frame_source = s.textured && is_colour_format(c.tex0.psm) && frame_source(c.tex0.tbp0, frame_x, frame_y);
+        if (s.frame_source) {
+            s.tcc = c.tex0.tcc;
+            s.tfx = c.tex0.tfx;
+            s.linear_mag = c.tex1.mmag;
+            s.linear_min = c.tex1.mmin == 1 || c.tex1.mmin == 4 || c.tex1.mmin == 5;
+            s.clamp_s = true;
+            s.clamp_t = true;
+        } else if (s.textured) {
             s.texture = m_textures.resolve(c.tex0, m_texa);
             s.texture_full_alpha = m_textures.alpha_scale(s.texture) == AlphaScale::Full;
             s.tcc = c.tex0.tcc;
@@ -623,12 +717,29 @@ void GifInterpreter::emit_quad(const DirectVertex corners[4]) {
 }
 
 void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
+    if (g_dump_draws) {
+        const gs::Alpha& al = context().alpha;
+        const gs::Scissor& sc = context().scissor;
+        log::info(
+            "sprite ({},{})-({},{}) rgba {:02x}{:02x}{:02x}{:02x} tme {} tbp {:#x} abe {} alpha {}{}{}{} fix {:#x} scissor {}-{}x{}-{} fbp {:#x} test {:#x}",
+            a.x / 16.0, a.y / 16.0, b.x / 16.0, b.y / 16.0, b.rgba[0], b.rgba[1], b.rgba[2], b.rgba[3],
+            attributes().tme, context().tex0.tbp0, attributes().abe, al.a, al.b, al.c, al.d, al.fix,
+            sc.x0, sc.x1, sc.y0, sc.y1, context().frame.fbp, 0
+        );
+    }
     // An untextured sprite as tall as a whole-frame scissor fills the frame (a clear, in strips, or a
     // full-screen fade). The game draws those before its world; the port's world renderers draw
     // before the 2D path, which would put the fill on top. The frame is cleared by the renderer,
     // so fills are left out until the direct path is ordered with the world buckets. A sprite
-    // clipped to a smaller scissor is an ordinary rectangle and is drawn.
-    if (!attributes().tme) {
+    // clipped to a smaller scissor is an ordinary rectangle and is drawn, and so is one blended
+    // at less than full strength: a tint over the finished frame (the title's blue wash, a fade
+    // part way). The game also clears with blending on at full alpha, which replaces the frame
+    // all the same: that is a clear.
+    const gs::Alpha& al = context().alpha;
+    const bool standard = al.a == 0 && al.b == 1 && al.d == 1;  // (Cs - Cd) * C + Cd
+    const bool replaces = !attributes().abe
+                          || (standard && ((al.c == 0 && b.rgba[3] >= 0x80) || (al.c == 2 && al.fix >= 0x80)));
+    if (!attributes().tme && replaces) {
         const gs::Scissor& sc = context().scissor;
         const std::int64_t scissor_height = static_cast<std::int64_t>(sc.y1) - static_cast<std::int64_t>(sc.y0);
         const std::int64_t height = std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16;
@@ -874,6 +985,10 @@ void DirectRenderer::release() {
         glDeleteVertexArrays(1, &m_vao);
         m_vao = 0;
     }
+    if (m_frame_copy != 0) {
+        glDeleteTextures(1, &m_frame_copy);
+        m_frame_copy = 0;
+    }
 }
 
 bool DirectRenderer::submit(std::span<const std::uint8_t> packets) {
@@ -899,7 +1014,24 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     glUniform1i(m_uniforms.textured, s.textured ? 1 : 0);
     if (s.textured) {
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, render_state.textures.gl_texture(s.texture));
+        if (s.frame_source) {
+            // What the frame holds now, as the chip would read it from its memory.
+            const int w = render_state.target.width;
+            const int h = render_state.target.height;
+            if (m_frame_copy == 0) {
+                glGenTextures(1, &m_frame_copy);
+            }
+            glBindTexture(GL_TEXTURE_2D, m_frame_copy);
+            if (w != m_frame_copy_width || h != m_frame_copy_height) {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+                m_frame_copy_width = w;
+                m_frame_copy_height = h;
+            }
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, render_state.target.framebuffer);
+            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, w, h);
+        } else {
+            glBindTexture(GL_TEXTURE_2D, render_state.textures.gl_texture(s.texture));
+        }
         glTexParameteri(
             GL_TEXTURE_2D,
             GL_TEXTURE_MAG_FILTER,

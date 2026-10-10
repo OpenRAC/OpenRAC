@@ -77,6 +77,9 @@ struct DirectState {
     gs::Scissor scissor{0, 511, 0, 447};
     bool fog = false;
     std::uint32_t fog_colour = 0;
+    // Textured from a frame buffer, or from a copy of part of one (the game's blur, bands and
+    // washes): the texture is the render target as drawn so far.
+    bool frame_source = false;
 
     bool operator==(const DirectState&) const = default;
 };
@@ -86,6 +89,9 @@ struct DirectDraw {
     std::uint32_t first = 0;  // first vertex
     std::uint32_t count = 0;  // vertices (three per triangle)
 };
+
+// Debugging: while set, every sprite and primitive the 2D path draws is logged (OPENRAC_DUMP_DRAWS).
+inline bool g_dump_draws = false;
 
 class GifInterpreter {
 public:
@@ -162,6 +168,20 @@ private:
     // primitive textured from one of them reads back what was drawn (a full-screen blur, a
     // copy). Without render-to-texture those are left out rather than drawn with a wrong texture.
     std::vector<std::uint32_t> m_targets;
+    // Frame buffers ever drawn to (block, width in 64 pixels), and copies the game made of parts
+    // of them inside the chip: a texel (u, v) at `dbp` is the frame's pixel (u + x, v + y).
+    struct FrameBuffer {
+        std::uint32_t block, width;
+    };
+    struct FrameCopy {
+        std::uint32_t dbp;
+        int x, y;
+    };
+    std::vector<FrameBuffer> m_frame_buffers;
+    std::vector<FrameCopy> m_frame_copies;
+    // Whether a texture at `tbp` is a frame buffer or a copy of one; if so, where its texel (0, 0)
+    // is in the frame.
+    bool frame_source(std::uint32_t tbp, int& x, int& y) const;
 
     Context m_context[2];
     gs::Prim m_prim{};
@@ -223,6 +243,10 @@ private:
     Shader m_shader;
     unsigned m_vao = 0;
     unsigned m_vbo = 0;
+    // The render target as drawn so far, copied for a draw that reads the frame (frame_source).
+    unsigned m_frame_copy = 0;
+    int m_frame_copy_width = 0;
+    int m_frame_copy_height = 0;
     std::size_t m_vbo_bytes = 0;
     std::string m_last_error;
 

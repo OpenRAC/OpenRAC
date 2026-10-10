@@ -181,6 +181,8 @@ inline constexpr GLenum GL_FRAMEBUFFER_COMPLETE = 0x8CD5;
     X(void, glPixelStorei, (GLenum pname, GLint param))                                            \
     X(void, glReadPixels, (GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type,     \
                            void *pixels))                                                          \
+    X(void, glCopyTexSubImage2D, (GLenum target, GLint level, GLint xoff, GLint yoff, GLint x,      \
+                                  GLint y, GLsizei w, GLsizei h))                                  \
     X(void, glFinish, (void))                                                                      \
     X(void, glGenTextures, (GLsizei n, GLuint *textures))                                          \
     X(void, glDeleteTextures, (GLsizei n, const GLuint *textures))                                 \
