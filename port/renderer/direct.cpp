@@ -276,7 +276,7 @@ void GifInterpreter::write_prim(std::uint64_t value) {
 void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
     if (g_dump_draws
         && (address == gs::kFrame1 || address == gs::kFrame2 || address == gs::kTrxdir
-            || address == gs::kXyoffset1 || address == gs::kScissor1 || address == gs::kTex0_1)) {
+            || address == gs::kXyoffset1 || address == gs::kScissor1 || address == gs::kTex0_1 || address == 0x19 || address == 0x41 || address == 0x4d)) {
         log::info(
             "reg {:#04x} = {:#018x} (bitbltbuf sbp {:#x} dbp {:#x} dbw {} trxpos {},{}->{},{} trxreg {}x{})",
             address, value, m_bitbltbuf.sbp, m_bitbltbuf.dbp, m_bitbltbuf.dbw, m_trxpos.ssax, m_trxpos.ssay,
@@ -379,7 +379,11 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
         case gs::kFrame1:
             c1.frame = gs::Frame::decode(value);
             m_targets.push_back(c1.frame.fbp * 32);
-            if (std::none_of(m_frame_buffers.begin(), m_frame_buffers.end(), [&](const FrameBuffer& f) {
+            if (static_cast<int>(c1.frame.fbw) * 64 < m_config.screen_width) {
+                if (std::find(m_offscreen.begin(), m_offscreen.end(), c1.frame.fbp * 32) == m_offscreen.end()) {
+                    m_offscreen.push_back(c1.frame.fbp * 32);
+                }
+            } else if (std::none_of(m_frame_buffers.begin(), m_frame_buffers.end(), [&](const FrameBuffer& f) {
                     return f.block == c1.frame.fbp * 32;
                 })) {
                 m_frame_buffers.push_back({c1.frame.fbp * 32, c1.frame.fbw});
@@ -388,7 +392,11 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
         case gs::kFrame2:
             c2.frame = gs::Frame::decode(value);
             m_targets.push_back(c2.frame.fbp * 32);
-            if (std::none_of(m_frame_buffers.begin(), m_frame_buffers.end(), [&](const FrameBuffer& f) {
+            if (static_cast<int>(c2.frame.fbw) * 64 < m_config.screen_width) {
+                if (std::find(m_offscreen.begin(), m_offscreen.end(), c2.frame.fbp * 32) == m_offscreen.end()) {
+                    m_offscreen.push_back(c2.frame.fbp * 32);
+                }
+            } else if (std::none_of(m_frame_buffers.begin(), m_frame_buffers.end(), [&](const FrameBuffer& f) {
                     return f.block == c2.frame.fbp * 32;
                 })) {
                 m_frame_buffers.push_back({c2.frame.fbp * 32, c2.frame.fbw});
@@ -574,6 +582,11 @@ void GifInterpreter::kick(bool draw) {
     }
 }
 
+std::uint32_t GifInterpreter::offscreen_target() const {
+    const gs::Frame& f = context().frame;
+    return static_cast<int>(f.fbw) * 64 < m_config.screen_width ? f.fbp * 32 : 0;
+}
+
 bool GifInterpreter::frame_source(std::uint32_t tbp, int& x, int& y) const {
     for (const FrameCopy& f : m_frame_copies) {
         if (f.dbp == tbp) {
@@ -604,6 +617,12 @@ void GifInterpreter::screen_position(const GsVertex& v, float& x, float& y) cons
     const Context& c = context();
     const float ofx = static_cast<float>(c.xyoffset.ofx) / 16.0f;
     const float ofy = static_cast<float>(c.xyoffset.ofy) / 16.0f;
+    if (offscreen_target() != 0) {
+        // An off-screen target keeps its own pixels (convert maps them onto its square).
+        x = static_cast<float>(v.x) / 16.0f - ofx;
+        y = static_cast<float>(v.y) / 16.0f - ofy;
+        return;
+    }
     const float width = 2.0f * (2048.0f - ofx);
     const float height = 2.0f * (2048.0f - ofy);
     const float sw = static_cast<float>(m_config.screen_width);
@@ -628,15 +647,29 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
     // on, so a rectangle ending at 511.5 covers pixel 511 here as it does on the console.
     px += 0.5f;
     py += 0.5f;
-    out.x = px / static_cast<float>(m_config.screen_width) * 2.0f - 1.0f;
-    out.y = 1.0f - py / static_cast<float>(m_config.screen_height) * 2.0f;
+    const bool offscreen = offscreen_target() != 0;
+    const float target_w = offscreen ? static_cast<float>(kOffscreenPixels) : static_cast<float>(m_config.screen_width);
+    const float target_h = offscreen ? static_cast<float>(kOffscreenPixels) : static_cast<float>(m_config.screen_height);
+    out.x = px / target_w * 2.0f - 1.0f;
+    out.y = 1.0f - py / target_h * 2.0f;
     // The chip's depth, bigger nearer, straight into GL's [0, 1] window
     // depth: with the buffer cleared to 0 and GEQUAL, as on the console.
     const double depth = std::clamp(static_cast<double>(v.z) / c.zbuf.max_z(), 0.0, 1.0);
     out.z = static_cast<float>(depth * 2.0 - 1.0);
     int frame_x = 0;
     int frame_y = 0;
-    if (attributes().tme && is_colour_format(c.tex0.psm) && frame_source(c.tex0.tbp0, frame_x, frame_y)) {
+    if (attributes().tme
+        && std::find(m_offscreen.begin(), m_offscreen.end(), c.tex0.tbp0) != m_offscreen.end()) {
+        // A texel of an off-screen target: its pixel, over the target's square (first row on top,
+        // as it was drawn).
+        const float u = attributes().fst ? static_cast<float>(v.u) / 16.0f
+                                         : v.s / v.q * static_cast<float>(c.tex0.width());
+        const float w = attributes().fst ? static_cast<float>(v.v) / 16.0f
+                                         : v.t / v.q * static_cast<float>(c.tex0.height());
+        out.s = u / static_cast<float>(kOffscreenPixels);
+        out.t = 1.0f - w / static_cast<float>(kOffscreenPixels);
+        out.q = 1.0f;
+    } else if (attributes().tme && is_colour_format(c.tex0.psm) && frame_source(c.tex0.tbp0, frame_x, frame_y)) {
         // A texel of the frame: its pixel, over the frame's size; the copy of the render target
         // the draw samples has its first row at the bottom, as GL keeps it.
         const float u = attributes().fst ? static_cast<float>(v.u) / 16.0f
@@ -669,8 +702,13 @@ void GifInterpreter::ensure_draw() {
         s.textured = p.tme;
         int frame_x = 0;
         int frame_y = 0;
-        s.frame_source = s.textured && is_colour_format(c.tex0.psm) && frame_source(c.tex0.tbp0, frame_x, frame_y);
-        if (s.frame_source) {
+        s.target = offscreen_target();
+        s.source = s.textured && std::find(m_offscreen.begin(), m_offscreen.end(), c.tex0.tbp0) != m_offscreen.end()
+                       ? c.tex0.tbp0
+                       : 0;
+        s.frame_source = s.source == 0 && s.textured && is_colour_format(c.tex0.psm)
+                         && frame_source(c.tex0.tbp0, frame_x, frame_y);
+        if (s.source != 0 || s.frame_source) {
             s.tcc = c.tex0.tcc;
             s.tfx = c.tex0.tfx;
             s.linear_mag = c.tex1.mmag;
@@ -709,7 +747,9 @@ void GifInterpreter::ensure_draw() {
                 const float r = end ? (static_cast<float>(v) + 1.0f) * k - 1.0f : static_cast<float>(v) * k;
                 return static_cast<std::uint32_t>(r < 0.0f ? 0.0f : r);
             };
-            s.scissor = {scale(c.scissor.x0, kx, false), scale(c.scissor.x1, kx, true), scale(c.scissor.y0, ky, false), scale(c.scissor.y1, ky, true)};
+            s.scissor = s.target != 0 ? c.scissor
+                                      : gs::Scissor{scale(c.scissor.x0, kx, false), scale(c.scissor.x1, kx, true),
+                                                    scale(c.scissor.y0, ky, false), scale(c.scissor.y1, ky, true)};
         }
         s.fog = p.fge;
         if (s.fog) {
@@ -1020,6 +1060,13 @@ void DirectRenderer::release() {
         glDeleteTextures(1, &m_frame_copy);
         m_frame_copy = 0;
     }
+    for (auto& [block, o] : m_offscreen_targets) {
+        (void)block;
+        glDeleteFramebuffers(1, &o.framebuffer);
+        glDeleteRenderbuffers(1, &o.depth);
+        glDeleteTextures(1, &o.texture);
+    }
+    m_offscreen_targets.clear();
 }
 
 bool DirectRenderer::submit(std::span<const std::uint8_t> packets) {
@@ -1041,11 +1088,51 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     flush(state);
 }
 
+const DirectRenderer::Offscreen& DirectRenderer::offscreen(std::uint32_t block) {
+    for (const auto& [b, o] : m_offscreen_targets) {
+        if (b == block) {
+            return o;
+        }
+    }
+    const int size = kOffscreenPixels * kOffscreenScale;
+    Offscreen o;
+    glGenTextures(1, &o.texture);
+    glBindTexture(GL_TEXTURE_2D, o.texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, size, size, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenRenderbuffers(1, &o.depth);
+    glBindRenderbuffer(GL_RENDERBUFFER, o.depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, size, size);
+    glGenFramebuffers(1, &o.framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, o.framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, o.texture, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, o.depth);
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClearDepth(0.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    m_offscreen_targets.emplace_back(block, o);
+    return m_offscreen_targets.back().second;
+}
+
 void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
+    // Where the draw goes: an off-screen target's square, or the frame.
+    if (s.target != 0) {
+        const Offscreen& o = offscreen(s.target);
+        glBindFramebuffer(GL_FRAMEBUFFER, o.framebuffer);
+        glViewport(0, 0, kOffscreenPixels * kOffscreenScale, kOffscreenPixels * kOffscreenScale);
+    } else {
+        glBindFramebuffer(GL_FRAMEBUFFER, render_state.target.framebuffer);
+        glViewport(0, 0, render_state.target.width, render_state.target.height);
+    }
     glUniform1i(m_uniforms.textured, s.textured ? 1 : 0);
     if (s.textured) {
         glActiveTexture(GL_TEXTURE0);
-        if (s.frame_source) {
+        if (s.source != 0) {
+            // A panel the game rendered off-screen, as the chip would read it from its memory.
+            glBindTexture(GL_TEXTURE_2D, offscreen(s.source).texture);
+        } else if (s.frame_source) {
             // What the frame holds now, as the chip would read it from its memory.
             const int w = render_state.target.width;
             const int h = render_state.target.height;
@@ -1060,6 +1147,8 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
             }
             glBindFramebuffer(GL_READ_FRAMEBUFFER, render_state.target.framebuffer);
             glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, w, h);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER,
+                              s.target != 0 ? offscreen(s.target).framebuffer : render_state.target.framebuffer);
         } else {
             glBindTexture(GL_TEXTURE_2D, render_state.textures.gl_texture(s.texture));
         }
@@ -1122,17 +1211,20 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         glDepthFunc(depth_func(s.test.ztst));
     }
 
-    // The scissor, from the chip's 512 x 448 pixels to the target's.
-    const float sx =
-        static_cast<float>(render_state.target.width) / static_cast<float>(m_config.screen_width);
-    const float sy =
-        static_cast<float>(render_state.target.height) / static_cast<float>(m_config.screen_height);
+    // The scissor, from the chip's pixels to the target's: the picture's 512 x 448 onto the frame,
+    // or an off-screen target's square onto its texture.
+    const int target_width = s.target != 0 ? kOffscreenPixels * kOffscreenScale : render_state.target.width;
+    const int target_height = s.target != 0 ? kOffscreenPixels * kOffscreenScale : render_state.target.height;
+    const float sx = static_cast<float>(target_width)
+                     / static_cast<float>(s.target != 0 ? kOffscreenPixels : m_config.screen_width);
+    const float sy = static_cast<float>(target_height)
+                     / static_cast<float>(s.target != 0 ? kOffscreenPixels : m_config.screen_height);
     const auto x0 = static_cast<GLint>(std::floor(static_cast<float>(s.scissor.x0) * sx));
     const auto x1 = static_cast<GLint>(std::ceil(static_cast<float>(s.scissor.x1 + 1) * sx));
     const auto y0 = static_cast<GLint>(std::floor(static_cast<float>(s.scissor.y0) * sy));
     const auto y1 = static_cast<GLint>(std::ceil(static_cast<float>(s.scissor.y1 + 1) * sy));
     glEnable(GL_SCISSOR_TEST);
-    glScissor(x0, render_state.target.height - y1, std::max(0, x1 - x0), std::max(0, y1 - y0));
+    glScissor(x0, target_height - y1, std::max(0, x1 - x0), std::max(0, y1 - y0));
 }
 
 void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
@@ -1225,6 +1317,8 @@ void DirectRenderer::flush(RenderState& state) {
         }
     }
     // Leave GL as the next renderer expects it.
+    glBindFramebuffer(GL_FRAMEBUFFER, state.target.framebuffer);
+    glViewport(0, 0, state.target.width, state.target.height);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_BLEND);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);

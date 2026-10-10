@@ -80,6 +80,10 @@ struct DirectState {
     // Textured from a frame buffer, or from a copy of part of one (the game's blur, bands and
     // washes): the texture is the render target as drawn so far.
     bool frame_source = false;
+    // Drawn into an off-screen target (the GS block of a FRAME narrower than the screen: the menu's
+    // panels), or textured from one; 0 for the main frame / a texture of the pool.
+    std::uint32_t target = 0;
+    std::uint32_t source = 0;
 
     bool operator==(const DirectState&) const = default;
 };
@@ -92,6 +96,11 @@ struct DirectDraw {
 
 // Debugging: while set, every sprite and primitive the 2D path draws is logged (OPENRAC_DUMP_DRAWS).
 inline bool g_dump_draws = false;
+
+// An off-screen target covers this many chip pixels across and down (the largest the games' panels
+// use), drawn at kOffscreenScale times that resolution.
+inline constexpr int kOffscreenPixels = 512;
+inline constexpr int kOffscreenScale = 2;
 
 class GifInterpreter {
 public:
@@ -179,6 +188,11 @@ private:
     };
     std::vector<FrameBuffer> m_frame_buffers;
     std::vector<FrameCopy> m_frame_copies;
+    // Off-screen targets ever drawn to (their GS block): a FRAME narrower than the screen, which the
+    // game renders a panel into and then draws as a texture.
+    std::vector<std::uint32_t> m_offscreen;
+    // The off-screen target the current context draws into (its block), or 0.
+    std::uint32_t offscreen_target() const;
     // Whether a texture at `tbp` is a frame buffer or a copy of one; if so, where its texel (0, 0)
     // is in the frame.
     bool frame_source(std::uint32_t tbp, int& x, int& y) const;
@@ -247,6 +261,14 @@ private:
     unsigned m_frame_copy = 0;
     int m_frame_copy_width = 0;
     int m_frame_copy_height = 0;
+    // The off-screen targets' GL side, by GS block: a square of kOffscreenPixels chip pixels.
+    struct Offscreen {
+        unsigned framebuffer = 0;
+        unsigned texture = 0;
+        unsigned depth = 0;
+    };
+    std::vector<std::pair<std::uint32_t, Offscreen>> m_offscreen_targets;
+    const Offscreen& offscreen(std::uint32_t block);
     std::size_t m_vbo_bytes = 0;
     std::string m_last_error;
 
