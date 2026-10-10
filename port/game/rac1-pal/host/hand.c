@@ -340,3 +340,17 @@ int func_00116248(gaddr buffer, gaddr format, ...) {
     memcpy(G(buffer), out, n + 1);
     return (int)n;
 }
+
+/*
+ * FontPrintWindow in the large (mode 1) and small (mode 2) font: the effect texture's TEX0 from
+ * GetEffectTex and the font's glyph table. The decompilation's matching C keeps the TEX0 in an int,
+ * which is right on the console (the register holds all 64 bits) but cuts it to 32 here, so the
+ * glyphs would be drawn with a wrong palette and size; the port passes it whole.
+ */
+void func_001F7560(gaddr a, gaddr b, gaddr c, gaddr d) {
+    func_001F7070(a, b, c, d, func_001F4868(1), OPENRAC_DATA(0x001DF3D0u));
+}
+
+void func_001F75D0(gaddr a, gaddr b, gaddr c, gaddr d) {
+    func_001F7070(a, b, c, d, func_001F4868(2), OPENRAC_DATA(0x001DF770u));
+}

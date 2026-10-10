@@ -28,6 +28,8 @@
     "func_L00_002465F8"
   ],
   "host_functions": [
+    "func_001F7560",
+    "func_001F75D0",
     "func_0020C268",
     "openrac_sqrt",
     "openrac_rsqrt",
@@ -87,7 +89,6 @@
     "func_L00_002963D8",
     "func_L00_00299B68",
     "func_00211808",
-    "func_0021A610",
     "func_00116248",
     "func_0022F738"
   ],

@@ -310,13 +310,6 @@ void func_00211808(gaddr a0, gaddr a1) {
     (void)a0;
     (void)a1;
 }
-/* The pause and main menus' draw (the alternative to DrawMobys): the menu mobys and text drawn
- * into textures for the console's renderer. Left out until the port draws menus itself. */
-int func_0021A610(void) {
-    return 0;
-}
-
-
 /* The space flight's quads (loading between planets), for the console's renderer. */
 void func_0022F738(int a0) {
     (void)a0;
