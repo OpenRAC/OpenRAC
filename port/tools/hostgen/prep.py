@@ -7,7 +7,8 @@ its own build directory and changes the copies in ways that keep every line
 where it was:
 
 - `long` becomes `long long`: the EE's GCC has a 64-bit long, where Clang's
-  32-bit MIPS target has a 32-bit one. `long long` stays as it is.
+  32-bit MIPS target has a 32-bit one. `long long` stays as it is. So does an
+  integer constant's L suffix: `1UL << 60` is a 64-bit shift on the console.
 - File-scope `__asm__(...)` statements are blanked: they only lay out the
   matching build's object files (padding, sections).
 - A string literal that runs across lines, which GCC 2.95 accepted, becomes
@@ -31,6 +32,8 @@ _SKIP = re.compile(
     re.S,
 )
 _LONG = re.compile(r"\blong\b(\s+(?:long|double)\b)?")
+# An integer constant with one L in its suffix (L, UL, LU), not LL.
+_LONG_SUFFIX = re.compile(r"\b((?:0[xX][0-9A-Fa-f]+|\d+)(?:[uU]?))([lL])(?![lL])([uU]?)\b")
 
 
 def widen_long(text: str) -> str:
@@ -46,7 +49,8 @@ def widen_long(text: str) -> str:
 
 
 def _widen(code: str) -> str:
-    return _LONG.sub(lambda m: m.group(0) if m.group(1) else "long long", code)
+    code = _LONG.sub(lambda m: m.group(0) if m.group(1) else "long long", code)
+    return _LONG_SUFFIX.sub(lambda m: m.group(1) + m.group(2) * 2 + m.group(3), code)
 
 
 def blank_file_scope_asm(text: str) -> str:

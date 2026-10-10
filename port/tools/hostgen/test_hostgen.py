@@ -460,6 +460,12 @@ class TypeStrings(unittest.TestCase):
 
 
 class Preparation(unittest.TestCase):
+    def test_long_constant_suffix_is_widened(self):
+        # The EE's long is 64 bits: 1UL << 60 must stay a 64-bit shift.
+        src = 'x = 1UL << 60; y = 0xFE00L; z = 3LU; w = 5ULL; s = "2L";'
+        self.assertEqual(prep.widen_long(src),
+                         'x = 1ULL << 60; y = 0xFE00LL; z = 3LLU; w = 5ULL; s = "2L";')
+
     def test_long_is_64_bit(self):
         src = 'long a; unsigned long b; long long c; char *s = "long"; /* long */'
         self.assertEqual(prep.widen_long(src),
