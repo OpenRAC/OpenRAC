@@ -68,11 +68,8 @@ static void effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clu
  * w * row3). The game projects the quad with its camera and sends it to the GS as a strip; the
  * window draws it in the world (openrac_game_effect_quad).
  */
-#include <execinfo.h>
-#include <stdlib.h>
 void func_001F7EF8(gaddr a0, int a1, int a2) {
     (void)a2;
-    if (getenv("OPENRAC_QUAD_TRACE")) { static int n = 0; if (n++ < 3) { void* b[8]; backtrace_symbols_fd(b, backtrace(b, 8), 2); } }
     const uint8_t* r = G(a0);
     openrac_game_quad q;
     memcpy(q.corner, r, sizeof(q.corner));
