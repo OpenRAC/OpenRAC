@@ -105,7 +105,7 @@ class WriterTests(unittest.TestCase):
         empty_collision = SimpleNamespace(cells=0, faces=0, triangles=[], surfaces=dict, hero_groups=0)
         with mock.patch.object(port, "sky", lambda block: synthetic_sky()), \
                 mock.patch.object(port, "PANORAMA", (16, 8)), \
-                mock.patch.object(port, "terrain", lambda block, lod: [square("terrain_000", ("terrain", 0), 2.0)]), \
+                mock.patch.object(port, "terrain", lambda block, lod, lights=None: [square("terrain_000", ("terrain", 0), 2.0)]), \
                 mock.patch.object(port, "tie_classes", lambda level: ties), \
                 mock.patch.object(port, "tie_instances", lambda gameplay, classes: tie_placements), \
                 mock.patch.object(port, "shrub_classes", lambda level: shrubs), \

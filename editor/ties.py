@@ -31,7 +31,7 @@ def tie_mesh(data: bytes, remap: bytes, name: str) -> Mesh:
         raise FormatError("tie material has no texture")
     span(data, unpack("<I", header, 0x2c)[0], material_count * 80)
     table = span(data, packet_table, header[0x20] * 16)
-    mesh = Mesh(name)
+    mesh = Mesh(name, light_slots=[])
     for packet_id in range(header[0x20]):
         entry = table[packet_id * 16:(packet_id + 1) * 16]
         start = packet_table + unpack("<I", entry)[0]
@@ -53,10 +53,18 @@ def tie_mesh(data: bytes, remap: bytes, name: str) -> Mesh:
             x, y, z = unpack("<3h", fat, at + 8)
             s, t, q, second = unpack("<3hH", fat, at + 16)
             raw.append((x, y, z, unpack("<H", fat, at + 6)[0], s, t, q, second))
+        # Each vertex's light slot (ReRAC's tie.rs): one byte per regular vertex, then from the
+        # next 4-byte boundary four per extended vertex, the first its own (the other two are
+        # what it blends towards as it morphs away, which LOD 0 never does).
+        regular_count = (dinky - 4) // 2
+        slot_bytes = span(data, start + entry[10] * 16, entry[11] * 4)
+        fat_base = (regular_count + 3) // 4 * 4
+        slots = [slot_bytes[i] if i < regular_count else slot_bytes[fat_base + 4 * (i - regular_count)]
+                 for i in range(len(raw))]
         writes = {}
-        for x, y, z, first, s, t, q, second in raw:
+        for (x, y, z, first, s, t, q, second), slot in zip(raw, slots):
             for address in {first, second} - {0}:
-                if writes.setdefault(address, (x, y, z, s, t, q)) != (x, y, z, s, t, q):
+                if writes.setdefault(address, (x, y, z, s, t, q, slot)) != (x, y, z, s, t, q, slot):
                     raise FormatError("conflicting tie vertex writes")
         address, shader, strip_index = 6, 1, 0
         material, primitive, expected, winding = sources[0], [], 0, 0
@@ -87,12 +95,13 @@ def tie_mesh(data: bytes, remap: bytes, name: str) -> Mesh:
             elif address in writes:
                 if not strip_index:
                     raise FormatError("tie vertex precedes its strip")
-                x, y, z, s, t, q = writes.pop(address)
+                x, y, z, s, t, q, slot = writes.pop(address)
                 if q != 4096:
                     raise FormatError("unsupported tie perspective texture coordinate")
                 primitive.append(len(mesh.positions))
                 mesh.positions.append((x * scale / 1024, y * scale / 1024, z * scale / 1024))
                 mesh.uvs.append((s / 4096, t / 4096))
+                mesh.light_slots.append(slot & 0x3F)
                 address += 3
             elif shader < 4 and destinations[shader - 1] == address:
                 if expected:
@@ -122,6 +131,18 @@ def tie_classes(level) -> dict[int, Mesh]:
     return result
 
 
+def tie_slot_normals(level) -> dict[int, list[tuple[int, int, int]]]:
+    """Class ID -> its 64 light-slot normals (s16 x, y, z; unit length in 1/32768), at the
+    class header's 0x0C."""
+    result = {}
+    for entry in level.table(0x20, 32):
+        start, class_id = unpack("<II", entry)
+        data = level.block(start)
+        at, = unpack("<I", data, 0x0C)
+        result[class_id] = [unpack("<3h", data, at + 8 * j) for j in range(64)]
+    return result
+
+
 def placement(record: bytes, what: str) -> tuple[list[float], float]:
     """A column-major affine matrix at +0x10, and the W the game stores (0.01)."""
     matrix = list(unpack("<16f", record, 0x10))
@@ -148,5 +169,7 @@ def tie_instances(gameplay: bytes, classes) -> list[dict]:
         lights, uid = unpack("<2i", record, 0xd0)
         result.append({"index": i, "class_id": class_id, "matrix": matrix, "stored_w": stored_w,
                        "draw_distance": draw_distance, "occlusion_index": occlusion,
-                       "directional_lights": lights, "uid": uid})
+                       "directional_lights": lights, "uid": uid,
+                       # One 5:5:5:1 ambient colour per light slot (LightTies' input).
+                       "ambient": list(unpack("<64H", record, 0x50))})
     return result

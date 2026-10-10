@@ -10,6 +10,7 @@ import math
 import struct
 
 from formats import FormatError, span, unpack
+import lighting
 from mesh import Mesh
 
 FRAGMENT_SIZE = 0x40
@@ -176,8 +177,10 @@ def refinement(data, start, header, vu, origin, positions, infos):
     return indices, strips
 
 
-def fragment(data: bytes, table_offset: int, header: bytes, lod: int, name: str) -> Mesh:
-    """One tfrag: common vertices, then LOD-2 strips or both refinements."""
+def fragment(data: bytes, table_offset: int, header: bytes, lod: int, name: str, lights=None) -> Mesh:
+    """One tfrag: common vertices, then LOD-2 strips or both refinements. With `lights`
+    (the level's light bank and the normal table, lighting.py), each vertex gets the colour
+    the game lights it with at level load, as RGBA / 128 (0x80 = 1.0 under MODULATE)."""
     start = table_offset + unpack("<I", header, 0x10)[0]
     low, shared, high = unpack("<3H", header, 0x14)
     if not low < shared < high:
@@ -225,12 +228,24 @@ def fragment(data: bytes, table_offset: int, header: bytes, lod: int, name: str)
     if not all(math.isfinite(x) for x in sphere) or sphere[3] < 0:
         raise FormatError("invalid terrain bounding sphere")
     mesh = Mesh(name)
+    colours = None
+    if lights is not None:
+        # One light record per position (common, LOD-01, LOD-0), after the origin quadword.
+        light_offset, = unpack("<H", header, 0x30)
+        records = span(data, start + light_offset + 0x10, header[0x3c] * 8)
+        single = struct.unpack("<b", header[0x34:0x35])[0]
+        colours = lighting.light_records(records, single, *lights)
+        if len(colours) < len(positions):
+            raise FormatError("terrain light records do not cover the positions")
+        mesh.colours = []
     for s, t, _parent, position in infos:
         if position < 0 or position % 2 or position // 2 >= len(positions):
             raise FormatError("invalid terrain vertex reference")
         mesh.positions.append(tuple((origin[j] + positions[position // 2][j]) / 1024 for j in range(3)))
         # Negative coordinates are halved, as in Wrench; not yet traced in VU code.
         mesh.uvs.append((s / (8192 if s < 0 else 4096), t / (8192 if t < 0 else 4096)))
+        if colours is not None:
+            mesh.colours.append(tuple(c / 128 for c in colours[position // 2]))
     for material, face in strip_faces(indices, strips, materials):
         if max(face) >= len(mesh.positions):
             raise FormatError("terrain face index outside the vertex infos")
@@ -238,8 +253,9 @@ def fragment(data: bytes, table_offset: int, header: bytes, lod: int, name: str)
     return mesh
 
 
-def terrain(data: bytes, lod: int = 0) -> list[Mesh]:
-    """Every fragment of a tfrag block at one static LOD, as Terrain_NNN meshes."""
+def terrain(data: bytes, lod: int = 0, lights=None) -> list[Mesh]:
+    """Every fragment of a tfrag block at one static LOD, as Terrain_NNN meshes (lit when
+    `lights` is given, as fragment() says)."""
     if lod not in (0, 2):
         raise FormatError("terrain LOD must be 0 or 2")
     table_offset, count = unpack("<II", data)
@@ -248,7 +264,7 @@ def terrain(data: bytes, lod: int = 0) -> list[Mesh]:
     for i in range(count):
         try:
             header = table[i * FRAGMENT_SIZE:(i + 1) * FRAGMENT_SIZE]
-            meshes.append(fragment(data, table_offset, header, lod, f"Terrain_{i:03}"))
+            meshes.append(fragment(data, table_offset, header, lod, f"Terrain_{i:03}", lights))
         except FormatError as exc:
             raise FormatError(f"terrain fragment {i}: {exc}") from exc
     return meshes

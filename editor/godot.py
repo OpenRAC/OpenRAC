@@ -271,7 +271,8 @@ class LevelWriter:
                   for class_id, mesh in classes.items()}
         self.scene.node(group, "Game", "Node3D")
         for p in placements:
-            fields = {f"metadata__rc1_{k}": v for k, v in p.items() if k not in ("class_id", "matrix", "stored_w")}
+            fields = {f"metadata__rc1_{k}": v for k, v in p.items()
+                      if k not in ("class_id", "matrix", "stored_w", "ambient", "colours")}
             if p["stored_w"] != STORED_W:
                 fields["metadata__rc1_matrix_w"] = p["stored_w"]
             self.scene.node(f"{title}_{p['index']:04}", f"Game/{group}", instance=scenes[p["class_id"]],

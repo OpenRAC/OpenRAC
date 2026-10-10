@@ -45,6 +45,11 @@ and notes:
   faces and surface bytes), from `docs/formats/collision_rac1.md`,
   `docs/plan/collision_queries.md` and `crates/rc-formats/src/collision.rs`;
   described in [ASSETS.md](games/rac1/pal/docs/ASSETS.md) ("Collision").
+- `editor/lighting.py`: the terrain and tie lighting passes (`LightTfrags`,
+  `LightTies`) and the PS2 float arithmetic they run on, from
+  `crates/rc-formats/src/tfrag_light.rs` and `tie_light.rs`; their checks from
+  ReRAC's unit tests. The tie light slots in `editor/ties.py` after
+  `crates/rc-formats/src/tie.rs`.
 - `port/assets/disc/`: the disc readers (ISO 9660, table of contents, WAD
   compression, level data, overlays, scenes, saves, messages, volumes, the
   front end), converted to C++ from `crates/rc-formats` and its specs in

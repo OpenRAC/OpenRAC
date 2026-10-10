@@ -112,6 +112,10 @@ class Gltf:
                               "TEXCOORD_0": self.floats([mesh.uvs[v] for v in used])}
                 if mesh.skins is not None:
                     attributes.update(self.skin_attributes([mesh.skins[v] for v in used]))
+                if mesh.colours is not None:
+                    attributes["COLOR_0"] = self.floats([mesh.colours[v] for v in used])
+                if mesh.light_slots is not None:
+                    attributes["_LIGHT_SLOT"] = self.floats([(mesh.light_slots[v],) for v in used])
                 primitives.append({"attributes": attributes, "indices": self.indices([local[v] for v in corners]),
                                    "material": materials[key], "mode": 4})
                 continue
@@ -119,6 +123,10 @@ class Gltf:
             attributes = {"POSITION": self.floats([mesh.positions[v] for v in corners], bounds=True),
                           "NORMAL": self.floats([n for n in flat for _ in range(3)]),
                           "TEXCOORD_0": self.floats([mesh.uvs[v] for v in corners])}
+            if mesh.colours is not None:
+                attributes["COLOR_0"] = self.floats([mesh.colours[v] for v in corners])
+            if mesh.light_slots is not None:
+                attributes["_LIGHT_SLOT"] = self.floats([(mesh.light_slots[v],) for v in corners])
             primitives.append({"attributes": attributes, "material": materials[key], "mode": 4})
         self.doc["meshes"].append({"name": mesh.name, "primitives": primitives})
         return len(self.doc["meshes"]) - 1

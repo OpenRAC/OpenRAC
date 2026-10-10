@@ -26,6 +26,7 @@ from disc import LEVEL_COUNT, Disc
 from formats import FormatError
 from godot import LevelWriter, write_project
 from level import load_level, load_title
+from lighting import normal_table
 from port import PortLevelWriter
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -79,13 +80,13 @@ def godot(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: 
 def export_port_level(iso: Path, info: dict, out: Path, lod: int) -> dict:
     """One level for the port's viewer; runs in its own process."""
     with Disc(iso) as disc:
-        return PortLevelWriter(out, load_level(disc, info)).write(lod)
+        return PortLevelWriter(out, load_level(disc, info), normal_table(disc.executable())).write(lod)
 
 
 def export_port_title(iso: Path, survey: dict, out: Path, lod: int) -> dict:
     """The title world as level 99 for the port's viewer (level.load_title)."""
     with Disc(iso) as disc:
-        return PortLevelWriter(out, load_title(disc, survey)).write(lod)
+        return PortLevelWriter(out, load_title(disc, survey), normal_table(disc.executable())).write(lod)
 
 
 def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: Path) -> None:

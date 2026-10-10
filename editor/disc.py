@@ -104,6 +104,13 @@ class Disc:
                             "bytes": unpack("<I", record, 10)[0]})
         return records
 
+    def executable(self) -> bytes:
+        """SCES_509.16, the game's executable."""
+        exe = next((f for f in self.files() if f["name"] == EXE_NAME), None)
+        if exe is None:
+            raise FormatError(f"the disc has no {EXE_NAME}")
+        return self.read(exe["lba"] * SECTOR, exe["bytes"])
+
     def survey(self) -> dict:
         """Check the disc is PAL v2.00 and list every sector reference.
 

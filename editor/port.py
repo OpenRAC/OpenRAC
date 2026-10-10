@@ -30,13 +30,14 @@ from formats import png, unpack
 from gltf import Gltf
 from godot import PANORAMA, STORED_W, LevelWriter
 from level import Level
+from lighting import light_bank, light_tie_instance
 from mesh import Mesh
 from moby_class import MobyClass, moby_classes
 from mobys import moby_class_names, moby_instances
 from shrubs import shrub_classes, shrub_instances
 from sky import Sky, panorama, sky
 from terrain import terrain
-from ties import tie_classes, tie_instances
+from ties import tie_classes, tie_instances, tie_slot_normals
 
 FORMAT = 1
 
@@ -78,7 +79,7 @@ def placement(p: dict) -> dict:
     """A tie or shrub placement: class and matrix first, then the stored
     fields; matrix_w only where the game stores something other than 0.01."""
     out = {"index": p["index"], "class": p["class_id"], "matrix": p["matrix"]}
-    out.update({k: v for k, v in p.items() if k not in ("index", "class_id", "matrix", "stored_w")})
+    out.update({k: v for k, v in p.items() if k not in ("index", "class_id", "matrix", "stored_w", "ambient")})
     if p["stored_w"] != STORED_W:
         out["matrix_w"] = p["stored_w"]
     return out
@@ -93,9 +94,11 @@ class PortLevelWriter(LevelWriter):
     needs the class table and the shells, not Godot's marker scenes.
     """
 
-    def __init__(self, out: Path, level: Level):
+    def __init__(self, out: Path, level: Level, normals=None):
         super().__init__(out, level)
         self.dir = out / self.name
+        # The executable's (cos, sin) table: with it the terrain is lit as the game lights it.
+        self.normals = normals
         self.classes = {"tie": {}, "shrub": {}, "moby": {}}
         self.placements = {"format": FORMAT, "ties": [], "shrubs": [], "mobys": []}
         self.sky = None
@@ -105,9 +108,19 @@ class PortLevelWriter(LevelWriter):
         self.dir.mkdir(parents=True)
         sky_offset, = unpack("<I", level.index, 0x10)
         self.write_environment(sky(level.block(sky_offset)) if sky_offset else None)
-        self.write_terrain(terrain(level.block(unpack("<I", level.index, 0x08)[0]), lod), lod)
+        lights = (light_bank(level.gameplay), self.normals) if self.normals is not None else None
+        self.write_terrain(terrain(level.block(unpack("<I", level.index, 0x08)[0]), lod, lights), lod)
         ties = tie_classes(level)
-        self.write_objects("tie", ties, tie_instances(level.gameplay, ties))
+        tie_placements = tie_instances(level.gameplay, ties)
+        if lights is not None:
+            # Each instance's 64 colours as LightTies leaves them at level load, RGBA bytes
+            # packed little-endian (0x80 = 1.0); a vertex takes the one of its light slot.
+            normals = tie_slot_normals(level)
+            for p in tie_placements:
+                lit = light_tie_instance(normals[p["class_id"]], p["matrix"], p["ambient"],
+                                         p["directional_lights"], lights[0])
+                p["colours"] = [r | g << 8 | b << 16 | a << 24 for r, g, b, a in lit]
+        self.write_objects("tie", ties, tie_placements)
         shrubs = shrub_classes(level)
         self.write_objects("shrub", shrubs, shrub_instances(level.gameplay, shrubs))
         self.write_mobys(moby_instances(level.gameplay), moby_classes(level))

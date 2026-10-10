@@ -11,13 +11,15 @@ REMAP = bytes((7, 8)) + bytes(14)
 
 
 def fixture():
-    data = bytearray(0x120 + 160)
+    data = bytearray(0x120 + 160 + 16)
     struct.pack_into("<I", data, 0, 0x70)
     data[0x20], data[0x23] = 1, 2
     struct.pack_into("<I", data, 0x2c, 0x120)
     struct.pack_into("<f", data, 0x40, 2)
     struct.pack_into("<I", data, 0x70, 16)
     data[0x78], data[0x79] = 4, 6
+    data[0x7a], data[0x7b] = 20, 2  # Light slots at 0x80 + 20 qwords: four regular, one extended.
+    data[0x1c0:0x1c8] = bytes((1, 2, 3, 4, 5, 9, 9, 255))
     struct.pack_into("<i", data, 0x80, 16)
     struct.pack_into("<4i", data, 0x90, 0, 80, 0, 0)
     data[0xa3], data[0xa8] = 2, 12
@@ -39,6 +41,7 @@ class TieTests(unittest.TestCase):
         self.assertEqual(mesh.positions, [(0, 0, 0), (2, 0, 0), (0, 2, 0), (0, 0, 0), (2, 2, 0), (0, 0, 2)])
         self.assertEqual(mesh.uvs[0], (-1, 0))
         self.assertEqual(mesh.faces, {("tie", 7): [(0, 1, 2)], ("tie", 8): [(3, 4, 5)]})
+        self.assertEqual(mesh.light_slots, [2, 3, 1, 2, 4, 5])
 
     def test_bad_materials_gs_addresses_counts_and_q(self):
         for offset, value in ((0x90, 1), (0xaf, 2), (0xac, 4), (0xc6, 12), (0xcc, 1)):
