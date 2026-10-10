@@ -327,6 +327,38 @@ Earlier uncommitted work and all matching sources/reports remain untouched.
 Per the owner's instruction during this continuation, new local commits
 omit the assistant co-author trailer. No push is authorized or performed.
 
+### Hero equipment creation, 2026-10-10 continuation
+
+Local commit subject: `feat(rac1/pal): create native hero equipment models`;
+model effects was committed as `28bc3ea`. Reviewed the existing near-match
+candidate against PAL `0020F118..0020F750` and implemented the full equipment
+creation routine with explicit EE pointer fields. Primary item selection,
+saved/override precedence, scratch clearing, model initialization, optional
+and paired items, special items and allocation failures are preserved.
+This is native-only; matching source, candidate and report are unchanged.
+
+- `Build-Native.ps1`: 47/47 CTest tests pass;
+  `.tools/native-hero-items-build-final.log`. The first build was rejected
+  by the unreadable-unit gate because a struct tag collided with an
+  existing source definition; renaming the native tag resolved it. No
+  runtime claim uses that failed build (`native-hero-items-build.log`).
+- The fixture also passes on the 32-bit compiler with the documented flags,
+  including static assertions for slot/model/hero EE offsets. Scenarios
+  cover selection precedence, retry/failure, paired allocation ordering,
+  hidden flags, model initialization and scratch bounds. Hostgen's emitted
+  structures use 32-bit guest pointers and tables use level relocation.
+- Hostgen: 3,816 functions (entry plus helper added), 198 candidates,
+  3 stubs, 1,146 without C, 378 readable units, no index problems.
+- Same New Game probe, `-Name items-verified -ShotEvery 3000 -Frames 5200`:
+  exit 2, frame 2827, passes equipment creation and now stops at
+  `func_L00_0020FC18`. Log: `.tools/native-run/items-verified.log`.
+  No frame-3000 screenshot; visible gameplay remains unverified.
+
+Exact next action: review `func_L00_0020FC18` and its existing candidate,
+if any, against the complete retail body, implement and test its behavior,
+then repeat the documented New Game probe. Preserve the existing dirty
+baseline and keep missing-call traps enabled. No push has been made.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
