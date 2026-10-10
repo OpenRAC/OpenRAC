@@ -1,0 +1,7 @@
+# The libraries Ratchet & Clank: Going Commando (NTSC-U) calls, by entry point, and what the port does with
+# each: the same columns and port values as port/game/rac1-pal/libraries.tsv.
+# Empty for now: the decompilation does not name its library functions yet.
+# A row binds an entry point to one of the replacements every game shares
+# (port/game/common/libraries.tsv); until then such calls are stubs.
+#
+# symbol	library	name	port	notes	signature (optional)

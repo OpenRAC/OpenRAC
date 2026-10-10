@@ -1,0 +1,28 @@
+{
+  "id": "rac2-ntsc",
+  "title": "Ratchet & Clank: Going Commando (NTSC-U)",
+  "game": "rac2",
+  "serial": "SCUS_972.68",
+  "source": "games/rac2/ntsc",
+  "frame_rate": 60,
+  "entry": null,
+  "sources": [
+    "candidates"
+  ],
+  "skip": [],
+  "includes": [
+    "include"
+  ],
+  "defines": [],
+  "names": {
+    "code": [
+      "^LVL_(?P<overlay>\\d+)_\\w+?_FUN_(?P<addr>[0-9A-Fa-f]{8})$",
+      "^(?:\\w+?_)?FUN_(?P<addr>[0-9A-Fa-f]{8})$"
+    ],
+    "data": [
+      "^(?:\\w+?_)?D_(?P<addr>[0-9A-Fa-f]{6,8})(?:_\\w*)?$"
+    ]
+  },
+  "libraries": "libraries.tsv",
+  "roots": []
+}

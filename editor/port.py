@@ -1,0 +1,182 @@
+"""Write extracted levels for the native port's level viewer (port/viewer).
+
+Each level goes to OUT/level_NN/, with the meshes and textures the Godot
+export writes (godot.py), in the same files, and two JSON files the viewer
+reads in place of the Godot scene:
+
+    manifest.json      format 1: the level, its files, its classes (mesh,
+                       moby class scale and name), bounds and counts
+    placements.json    ties, shrubs and mobys: class, 4x4 matrix
+                       (column-major, game units and axes, Z up) and the
+                       fields the game stores per instance
+    terrain.glb        one node per terrain fragment
+    collision.glb      the collision mesh, coloured by surface type
+    ties/tie_<class>.glb, shrubs/shrub_<class>.glb
+    mobys/moby_<class>.glb   mesh, skeleton (bind pose) and animations
+    sky.glb            the sky's shells, one node each in drawing order,
+                       with vertex colours (alpha 0x80 = 1.0, as 0..1)
+    sky.png            the sky as a panorama, as for Godot
+    textures/*.png     shared by every mesh
+
+A moby placement's matrix is the instance's own (position, rotation, scale);
+the class scale in the manifest multiplies in when the class mesh is drawn,
+as the game does. Nothing here is ever committed (docs/policy/SOURCING.md).
+"""
+
+import json
+from pathlib import Path
+
+from formats import png, unpack
+from gltf import Gltf
+from godot import PANORAMA, STORED_W, LevelWriter
+from level import Level
+from mesh import Mesh
+from moby_class import MobyClass, moby_classes
+from mobys import moby_class_names, moby_instances
+from shrubs import shrub_classes, shrub_instances
+from sky import Sky, panorama, sky
+from terrain import terrain
+from ties import tie_classes, tie_instances
+
+FORMAT = 1
+
+
+def sky_glb(data: Sky, texture_uri) -> bytes:
+    """The shells as a GLB: one node per shell, in drawing order; one
+    primitive per texture with POSITION, TEXCOORD_0 and COLOR_0 (RGBA 0..1).
+    Textured faces get a blended material with the texture at
+    texture_uri(index); untextured faces a blended material without one,
+    so the vertex colour alone shows."""
+    gltf = Gltf()
+    untextured = None
+    for shell in data.shells:
+        primitives = []
+        for key, faces in shell.faces.items():
+            corners = [v for face in faces for v in face]
+            if not corners:
+                continue
+            if key is None:
+                if untextured is None:
+                    gltf.doc["materials"].append({"name": "sky_untextured", "doubleSided": True, "alphaMode": "BLEND",
+                                                  "pbrMetallicRoughness": {"metallicFactor": 0}})
+                    untextured = len(gltf.doc["materials"]) - 1
+                material = untextured
+            else:
+                material = gltf.material(f"sky_{key[1]:04}", texture_uri(key[1]))
+                gltf.doc["materials"][material]["alphaMode"] = "BLEND"
+            attributes = {"POSITION": gltf.floats([shell.positions[v] for v in corners], bounds=True),
+                          "TEXCOORD_0": gltf.floats([shell.uvs[v] for v in corners]),
+                          "COLOR_0": gltf.floats([shell.colours[v] for v in corners])}
+            primitives.append({"attributes": attributes, "material": material, "mode": 4})
+        if primitives:
+            gltf.doc["meshes"].append({"name": shell.name, "primitives": primitives})
+            gltf.node(shell.name, len(gltf.doc["meshes"]) - 1)
+    return gltf.glb()
+
+
+def placement(p: dict) -> dict:
+    """A tie or shrub placement: class and matrix first, then the stored
+    fields; matrix_w only where the game stores something other than 0.01."""
+    out = {"index": p["index"], "class": p["class_id"], "matrix": p["matrix"]}
+    out.update({k: v for k, v in p.items() if k not in ("index", "class_id", "matrix", "stored_w")})
+    if p["stored_w"] != STORED_W:
+        out["matrix_w"] = p["stored_w"]
+    return out
+
+
+class PortLevelWriter(LevelWriter):
+    """The Godot writer's meshes and textures, with JSON instead of a scene.
+
+    The terrain, tie, shrub and collision meshes come from LevelWriter
+    unchanged (it still builds its scene text in memory; only these files
+    are written). Mobys and the sky have writers of their own here: the port
+    needs the class table and the shells, not Godot's marker scenes.
+    """
+
+    def __init__(self, out: Path, level: Level):
+        super().__init__(out, level)
+        self.dir = out / self.name
+        self.classes = {"tie": {}, "shrub": {}, "moby": {}}
+        self.placements = {"format": FORMAT, "ties": [], "shrubs": [], "mobys": []}
+        self.sky = None
+
+    def write(self, lod: int) -> dict:
+        level = self.level
+        self.dir.mkdir(parents=True)
+        sky_offset, = unpack("<I", level.index, 0x10)
+        self.write_environment(sky(level.block(sky_offset)) if sky_offset else None)
+        self.write_terrain(terrain(level.block(unpack("<I", level.index, 0x08)[0]), lod), lod)
+        ties = tie_classes(level)
+        self.write_objects("tie", ties, tie_instances(level.gameplay, ties))
+        shrubs = shrub_classes(level)
+        self.write_objects("shrub", shrubs, shrub_instances(level.gameplay, shrubs))
+        self.write_mobys(moby_instances(level.gameplay), moby_classes(level))
+        self.write_collision(level.block(unpack("<I", level.index, 0x14)[0]))
+        return self.finish()
+
+    def write_objects(self, family: str, classes: dict[int, Mesh], placements: list[dict]) -> None:
+        super().write_objects(family, classes, placements)
+        self.classes[family] = {str(c): {"mesh": f"{family}s/{family}_{c}.glb"} for c in sorted(classes)}
+        self.placements[f"{family}s"] = [placement(p) for p in placements]
+
+    def write_mobys(self, placements: list[dict], classes: dict[int, MobyClass | None]) -> None:
+        """One GLB per class with a mesh, and the class table: mesh (or null
+        for a class the viewer draws as a box), class scale and name."""
+        names = moby_class_names()
+        placed = {p["class_id"] for p in placements}
+        models = {}
+        for class_id in sorted(set(classes) | placed):
+            moby = classes.get(class_id)
+            entry = {"mesh": None, "scale": moby.scale if moby is not None else 1.0}
+            if moby is not None and moby.mesh is not None:
+                self.moby_glb(f"mobys/moby_{class_id}.glb", moby)
+                entry["mesh"] = f"mobys/moby_{class_id}.glb"
+                models[class_id] = moby
+            if class_id in names:
+                entry["name"] = names[class_id]
+            self.classes["moby"][str(class_id)] = entry
+        self.placements["mobys"] = [
+            {"index": p["index"], "class": p["class_id"], "matrix": p["matrix"], "rotation": list(p["rotation"]),
+             "scale": p["scale"], "colour": p["fields"].get("colour"), "fields": p["fields"]}
+            for p in placements]
+        animated = [m.skeleton for m in models.values() if m.skeleton is not None]
+        self.stats["mobys"] = {"classes": len(set(classes) | placed), "instances": len(placements),
+                               "model_classes": len(models),
+                               "class_triangles": sum(m.mesh.triangles for m in models.values()),
+                               "animated_classes": len(animated),
+                               "animations": sum(len(s.animations) for s in animated)}
+
+    def write_environment(self, data: Sky | None) -> None:
+        """sky.png as for Godot, sky.glb with the shells, and the background."""
+        if data is None:
+            return
+        width, height = PANORAMA
+        (self.dir / "sky.png").write_bytes(png(width, height, 2, panorama(data, width, height)))
+        for i, texture in enumerate(data.textures):
+            self.textures[f"sky_{i:04}"] = texture
+        (self.dir / "sky.glb").write_bytes(sky_glb(data, lambda i: f"textures/sky_{i:04}.png"))
+        self.sky = {"mesh": "sky.glb", "panorama": "sky.png", "background": list(data.background)}
+        self.stats["sky"] = {"shells": len(data.shells), "triangles": sum(m.triangles for m in data.shells),
+                             "textures": len(data.textures), "panorama": [width, height]}
+
+    def finish(self) -> dict:
+        """Textures, placements.json and manifest.json."""
+        (self.dir / "textures").mkdir(parents=True, exist_ok=True)
+        for name, texture in sorted(self.textures.items()):
+            (self.dir / "textures" / f"{name}.png").write_bytes(texture.png())
+        self.stats["textures"] = len(self.textures)
+        # LevelWriter keeps corners in Godot's axes, (x, z, -y).
+        corners = [(x, 0.0 - z, y) for x, y, z in self.corners]  # 0.0 - z: never -0.0
+        bounds = ([min(p[i] for p in corners) for i in range(3)],
+                  [max(p[i] for p in corners) for i in range(3)]) if corners else ([0, 0, 0], [0, 0, 0])
+        self.stats["bounds"] = [list(bounds[0]), list(bounds[1])]
+        manifest = {"format": FORMAT, "game": "rac1", "version": "pal", "level": self.level.id,
+                    "axes": "game units, Z up; matrices column-major",
+                    "terrain": "terrain.glb" if (self.dir / "terrain.glb").exists() else None,
+                    "collision": "collision.glb" if (self.dir / "collision.glb").exists() else None,
+                    "sky": self.sky, "classes": self.classes, "placements": "placements.json",
+                    "textures": sorted(f"textures/{name}.png" for name in self.textures),
+                    "bounds": self.stats["bounds"], "stats": self.stats}
+        (self.dir / "placements.json").write_text(json.dumps(self.placements, indent=1, allow_nan=False) + "\n")
+        (self.dir / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
+        return self.stats

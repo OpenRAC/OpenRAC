@@ -6,14 +6,11 @@
   import { matchedLine, pct } from "$lib/format";
   import { DISC, regionLabel } from "$lib/labels";
   import { themeStyle } from "$lib/themes";
-  import Icon from "./Icon.svelte";
-  import ImportModal from "./ImportModal.svelte";
   import ProgressBar from "./ProgressBar.svelte";
 
   let { game, delay = 0 }: { game: GameView; delay?: number } = $props();
 
   let isCardHovered = $state(false);
-  let activeImportVersion = $state<VersionView | null>(null);
 
   const GAME_MEDIA: Record<string, { bg: string; gif: string }> = {
     rac1: { bg: "/img/rac1-bg.webp", gif: "/img/rac1-gameplay.gif" },
@@ -25,11 +22,14 @@
   const media = $derived(GAME_MEDIA[game.id] ?? null);
   const developer = $derived(app.config?.developer ?? false);
 
-  /** A version in a player's words: can it be played, and what is missing. */
+  /** A version in a player's words: is it set up from the disc, can it be played. */
   function playerState(v: VersionView): { text: string; tone: "ok" | "warn" | "info" } {
     const play = v.actions.find((a) => a.id === "play");
-    if (!play || play.state === "planned") return { text: "Not playable yet", tone: "info" };
-    if (v.status.disc.state !== "found") return { text: "Add your disc", tone: "warn" };
+    const setUp = game.install?.extracted?.version === v.key;
+    if (!play || play.state === "planned") {
+      return setUp ? { text: "Disc set up", tone: "ok" } : { text: "Not playable yet", tone: "info" };
+    }
+    if (!setUp) return { text: "Set up from your disc", tone: "warn" };
     return { text: "Ready to play", tone: "ok" };
   }
 </script>
@@ -63,18 +63,6 @@
           {/if}
         </div>
       </div>
-
-      {#if game.versions.length === 1}
-        <button
-          type="button"
-          class="import-pill-btn"
-          onclick={() => (activeImportVersion = game.versions[0] ?? null)}
-          title={`Import ISO for ${game.title}`}
-        >
-          <Icon name="disc" size={15} />
-          <span>Import ISO</span>
-        </button>
-      {/if}
     </div>
 
     <div class="versions-grid">
@@ -129,15 +117,6 @@
             <span class="grow"></span>
             <button
               type="button"
-              class="import-btn"
-              onclick={() => (activeImportVersion = v)}
-              title={`Import ISO for ${v.title} (${v.region})`}
-            >
-              <Icon name="disc" size={13} />
-              <span>Import ISO</span>
-            </button>
-            <button
-              type="button"
               class="open-btn"
               onclick={() => {
                 isCardHovered = false;
@@ -153,10 +132,6 @@
     </div>
   </div>
 </section>
-
-{#if activeImportVersion}
-  <ImportModal version={activeImportVersion} onclose={() => (activeImportVersion = null)} />
-{/if}
 
 <style>
   .card {
@@ -310,32 +285,6 @@
     box-shadow: 0 0 6px #4ade80;
   }
 
-  .import-pill-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(18, 20, 28, 0.9);
-    color: #ffffff;
-    font-family: var(--font-sans);
-    font-size: 13px;
-    font-weight: 600;
-    padding: 8px 16px;
-    border-radius: 12px;
-    cursor: pointer;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-    transition:
-      transform 0.15s ease,
-      background 0.15s ease,
-      border-color 0.15s ease;
-  }
-
-  .import-pill-btn:hover {
-    transform: translateY(-1px);
-    border-color: rgba(255, 255, 255, 0.4);
-    background: rgba(30, 34, 48, 0.85);
-  }
-
   .versions-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
@@ -413,28 +362,6 @@
 
   .pills .pill {
     background: rgb(0 0 0 / 0.45);
-  }
-
-  .import-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #fff;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    padding: 4px 10px;
-    cursor: pointer;
-    transition:
-      background 0.15s ease,
-      border-color 0.15s ease;
-  }
-
-  .import-btn:hover {
-    background: rgba(255, 255, 255, 0.24);
-    border-color: rgba(255, 255, 255, 0.4);
   }
 
   .open-btn {

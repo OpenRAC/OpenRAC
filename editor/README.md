@@ -72,7 +72,12 @@ against a fresh export shows each edit.
 ```sh
 python3 editor/extract.py survey baserom/SCES_509.16.iso      # disc layout, as JSON
 python3 editor/extract.py raw baserom/SCES_509.16.iso build/level-00 --level 0
+python3 editor/extract.py port baserom/SCES_509.16.iso build/port-levels --level 0
 ```
+
+`port` writes each level for the native port's level viewer
+([port/viewer](../port/viewer/README.md)): the same meshes and textures as
+the Godot export, the sky as a mesh, and the placements as JSON.
 
 `raw` writes one level's sections as stored on the disc and decompressed,
 with a manifest of their sizes and hashes.

@@ -8,7 +8,8 @@ use serde::Serialize;
 use crate::actions::{self, ActionFile, ActionView, Context, Plan, Platform, Scope};
 use crate::catalog::{self, Version};
 use crate::config::Config;
-use crate::status::{self, VersionStatus};
+use crate::install::{self, InstallState};
+use crate::status::{self, DiscState, VersionStatus};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,6 +31,9 @@ pub struct GameView {
     pub id: String,
     pub title: String,
     pub year: Option<u32>,
+    /// How far the game is set up from the player's disc; None while no
+    /// install directory is known.
+    pub install: Option<InstallState>,
     pub versions: Vec<VersionView>,
 }
 
@@ -40,6 +44,22 @@ pub struct VersionView {
     pub version: Version,
     pub status: VersionStatus,
     pub actions: Vec<ActionView>,
+}
+
+/// A version's status, with the disc image a set-up from the player's disc
+/// kept counting as its disc when `baserom/` has none.
+fn version_status(root: &std::path::Path, config: &Config, version: &Version) -> VersionStatus {
+    let mut status = status::version_status(root, version);
+    if status.disc.state != DiscState::Found {
+        let installed =
+            config.install_dir.as_deref().and_then(|dir| install::disc_image(dir, &version.game, &version.serial));
+        if let Some(image) = installed {
+            status.disc.state = DiscState::Found;
+            status.disc.message = "set up from your disc".into();
+            status.disc.path = Some(image);
+        }
+    }
+    status
 }
 
 pub fn library(config: &Config) -> Result<Library, String> {
@@ -61,11 +81,12 @@ pub fn library(config: &Config) -> Result<Library, String> {
         .games
         .into_iter()
         .map(|game| GameView {
+            install: config.install_dir.as_deref().map(|dir| install::state(dir, &game.id)),
             versions: game
                 .versions
                 .into_iter()
                 .map(|version| {
-                    let status = status::version_status(&root, &version);
+                    let status = version_status(&root, config, &version);
                     let ctx = Context {
                         root: &root,
                         config,
@@ -99,7 +120,7 @@ pub fn plan(config: &Config, scope: &Scope, id: &str) -> Result<Plan, String> {
         Scope::Version(key) => {
             let catalog = catalog::load(root)?;
             let version = catalog.version(key).ok_or_else(|| format!("no version {key}"))?;
-            let status = status::version_status(root, version);
+            let status = version_status(root, config, version);
             action.plan(&Context { root, config, version: Some(version), status: Some(&status), toolchains, platform })
         }
     }

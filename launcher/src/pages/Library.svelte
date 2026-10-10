@@ -24,7 +24,9 @@
       <span class="sec-num"></span>
       <h1>Your games</h1>
       {#if lib && !developer}
-        <p class="muted">Add the image of your own disc, play, and edit levels. OpenRAC never downloads a game.</p>
+        <p class="muted">
+          Set a game up from your own disc, play its native port, edit its levels. OpenRAC never downloads a game.
+        </p>
       {:else if lib}
         <p class="muted">
           {lib.games.length} games, {versions} versions · {discs} of {versions} discs found ·

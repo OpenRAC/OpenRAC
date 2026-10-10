@@ -1,0 +1,41 @@
+{
+  "id": "rac1-ntsc",
+  "title": "Ratchet & Clank (NTSC-U)",
+  "game": "rac1",
+  "serial": "SCUS_971.99",
+  "source": "games/rac1/ntsc",
+  "frame_rate": 60,
+  "entry": "FUN_0012d9d8",
+  "sources": [
+    "src"
+  ],
+  "skip": [
+    "src/libgcc"
+  ],
+  "includes": [
+    "include",
+    "src"
+  ],
+  "defines": [],
+  "symbols": [
+    "config/us/symbol_addrs.txt"
+  ],
+  "places": "config/overlays/us/functions.tsv",
+  "libraries": "libraries.tsv",
+  "overlay_hook": true,
+  "roots": [
+    "FUN_0012d9d8",
+    "FUN_001e9658",
+    "FUN_L00_00245c28"
+  ],
+  "names": {
+    "code": [
+      "^func_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{8})(?:_\\w*)?$",
+      "^FUN_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{8})$"
+    ],
+    "data": [
+      "^(?:D|func)_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{6,8})(?:_\\w*)?$",
+      "^DAT_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{8})$"
+    ]
+  }
+}

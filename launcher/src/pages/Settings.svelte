@@ -35,6 +35,9 @@
   const changed = $derived(JSON.stringify(draft) !== JSON.stringify(app.config));
   const tool = (t: "python" | "godot" | "docker") => (path: string) => api.checkTool(t, path);
   const root = (path: string): Promise<Check> => api.checkRoot(path);
+  /** The install folder only has to be a place to write; the extractor makes what it needs inside. */
+  const installFolder = (path: string): Promise<Check> =>
+    Promise.resolve({ ok: true, version: null, message: `games are set up in ${path}/active/<game>/data` });
 
   async function save(finish: boolean) {
     saving = true;
@@ -83,6 +86,13 @@
         choose its folder here.
       </p>
     {/if}
+    <PathField
+      label="Install folder"
+      hint="Where games are set up from your discs: the disc's files, and later the prepared assets and the built game. A few GB per game."
+      folder
+      bind:value={draft.installDir}
+      check={installFolder}
+    />
   </section>
 
   <section class="panel">
@@ -152,7 +162,7 @@
         <input type="checkbox" bind:checked={draft.developer} />
         <span>
           Show what contributors use: each game's build, checks, toolchains and decompilation progress. Off, the
-          launcher shows a player's three steps: add your disc, play, edit levels.
+          launcher shows a player's three steps: set up from your disc, play, edit levels.
         </span>
       </label>
     </section>

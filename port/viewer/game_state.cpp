@@ -1,0 +1,165 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+
+#include "viewer/game_state.h"
+
+#include <cmath>
+#include <cstring>
+#include <format>
+#include <fstream>
+
+namespace openrac::viewer {
+
+/*
+ * PAL addresses (the US ones, documented in docs/engine and in ReRAC's game_camera_fog.md, are
+ * 0x100 lower here):
+ * - 0x187180: the camera's position (the camera block at 0x187040 + 0x140), game units.
+ * - 0x187390: the camera's rotation rows forward, left, up, which the per-frame camera matrices
+ *   function (func_001F2608) turns into the view matrix at 0x187040.
+ * - 0x18CE00: UpdateViewContext's block: +0xB0 the tangent of half the horizontal field of view,
+ *   +0xB4 the vertical one (the horizontal one times the TV correction).
+ * - 0x16001C / 0x160020: the first moby and the end of the table, as CreateMoby (func_0020D348)
+ *   walks it; a moby is 0x100 bytes and a state of 0xFE or more marks a free slot.
+ */
+const GameAddresses kRac1Pal{0x00187180, 0x00187390, 0x0018CE00, 0x0016001C, 0x00160020, 0.756f, 0x00160FF8, 0x00161010};
+
+/*
+ * The same globals in each level's program, found by comparing the boot program's camera matrices
+ * function (func_001F2608) and CreateMoby (func_0020D348) with their copies in the level's code,
+ * instruction by instruction: the copies differ only in the addresses.
+ */
+const GameAddresses kRac1PalLevels[19] = {
+    {0x00166EC0, 0x001670D0, 0x0016CB40, 0x0016009C, 0x001600A0, 0.756f, 0x00161278, 0x00161290},  // 0
+    {0x001672C0, 0x001674D0, 0x0016CF40, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 1
+    {0x00167440, 0x00167650, 0x0016D0C0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 2
+    {0x00166F40, 0x00167150, 0x0016CBC0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 3
+    {0x00166FC0, 0x001671D0, 0x0016CC40, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 4
+    {0x001672C0, 0x001674D0, 0x0016CF40, 0x0016009C, 0x001600A0, 0.756f, 0x00161278, 0x00161290},  // 5
+    {0x00167640, 0x00167850, 0x0016D2C0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 6
+    {0x00166EC0, 0x001670D0, 0x0016CB40, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 7
+    {0x00167640, 0x00167850, 0x0016D2C0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 8
+    {0x00166FC0, 0x001671D0, 0x0016CC40, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 9
+    {0x001672C0, 0x001674D0, 0x0016CF40, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 10
+    {0x00167840, 0x00167A50, 0x0016D4C0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 11
+    {0x001672C0, 0x001674D0, 0x0016CF40, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 12
+    {0x00167140, 0x00167350, 0x0016CDC0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 13
+    {0x001675C0, 0x001677D0, 0x0016D240, 0x0016009C, 0x001600A0, 0.756f, 0x00161278, 0x00161290},  // 14
+    {0x00167440, 0x00167650, 0x0016D0C0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 15
+    {0x00167240, 0x00167450, 0x0016CEC0, 0x0016009C, 0x001600A0, 0.756f, 0x00161278, 0x00161290},  // 16
+    {0x00167740, 0x00167950, 0x0016D3C0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 17
+    {0x00167840, 0x00167A50, 0x0016D4C0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 18
+};
+
+namespace {
+
+template <typename T>
+T at(std::span<const std::uint8_t> ram, std::uint32_t address) {
+    T value{};
+    address &= 0x01FFFFFF;
+    if (address + sizeof(T) <= ram.size()) {
+        std::memcpy(&value, ram.data() + address, sizeof(T));
+    }
+    return value;
+}
+
+renderer::Vec3 vec3(std::span<const std::uint8_t> ram, std::uint32_t address) {
+    return {at<float>(ram, address), at<float>(ram, address + 4), at<float>(ram, address + 8)};
+}
+
+// Column-major rotations about X, Y and Z.
+renderer::Mat4 rotation_x(float a) {
+    const float c = std::cos(a), s = std::sin(a);
+    return {1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1};
+}
+
+renderer::Mat4 rotation_y(float a) {
+    const float c = std::cos(a), s = std::sin(a);
+    return {c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1};
+}
+
+renderer::Mat4 rotation_z(float a) {
+    const float c = std::cos(a), s = std::sin(a);
+    return {c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+}
+
+}  // namespace
+
+renderer::Mat4 GameState::view() const {
+    return renderer::look_along(camera_position, forward, up);
+}
+
+renderer::Mat4 GameState::projection(float aspect, float near_z, float far_z) const {
+    // The game's vertical field of view; the horizontal one follows the target's shape.
+    return renderer::perspective_reversed(2.0f * std::atan(tan_half_fov_y), aspect, near_z, far_z);
+}
+
+GameState read_game_state(std::span<const std::uint8_t> ram, const GameAddresses& a) {
+    GameState s;
+    s.camera_position = vec3(ram, a.camera_position);
+    s.forward = vec3(ram, a.camera_rows);
+    s.left = vec3(ram, a.camera_rows + 0x10);
+    s.up = vec3(ram, a.camera_rows + 0x20);
+
+    const float tx = at<float>(ram, a.view_context + 0xB0);
+    const float ty = at<float>(ram, a.view_context + 0xB4);
+    if (tx > 0.05f && tx < 10.0f) {
+        s.tan_half_fov_x = tx;
+        s.tan_half_fov_y = ty > 0.05f && ty < 10.0f ? ty : tx * a.vertical_factor;
+    }
+
+    const auto first = at<std::uint32_t>(ram, a.moby_first) & 0x01FFFFFF;
+    const auto end = at<std::uint32_t>(ram, a.moby_end) & 0x01FFFFFF;
+    if (first == 0 || end <= first || end > ram.size() || (end - first) % 0x100 != 0) {
+        return s;
+    }
+    for (std::uint32_t m = first; m < end; m += 0x100) {
+        // A state of 0xFE or more: a free slot (0xFF ends the used part).
+        if (at<std::uint8_t>(ram, m + 0x20) >= 0xFE) {
+            continue;
+        }
+        const renderer::Vec3 pos = vec3(ram, m + 0x10);
+        const renderer::Vec3 rot = vec3(ram, m + 0x40);
+        const float scale = at<float>(ram, m + 0x2C);
+        if (!std::isfinite(pos[0]) || !std::isfinite(scale) || scale <= 0.0f || scale > 1000.0f) {
+            continue;
+        }
+        LiveMoby live;
+        live.class_id = at<std::int16_t>(ram, m + 0xA6);
+        // X first, then Y, then Z, as the game's Euler matrices; the class mesh is in unscaled
+        // units and the moby's scale already includes the class's.
+        live.matrix = renderer::multiply(
+            renderer::translation(pos),
+            renderer::multiply(
+                rotation_z(rot[2]),
+                renderer::multiply(
+                    rotation_y(rot[1]),
+                    renderer::multiply(rotation_x(rot[0]), renderer::scale(scale))
+                )
+            )
+        );
+        s.mobys.push_back(live);
+    }
+    return s;
+}
+
+std::uint32_t shown_chain(std::span<const std::uint8_t> ram, const GameAddresses& a) {
+    const auto building = at<std::uint32_t>(ram, a.chain_index) & 1;
+    return at<std::uint32_t>(ram, a.chain_bases + 4 * (1 - building));
+}
+
+const GameAddresses& rac1_pal_addresses(std::span<const std::uint8_t> ram) {
+    const auto level = at<std::int32_t>(ram, 0x0015EE84);
+    return level >= 0 && level < 19 ? kRac1PalLevels[level] : kRac1Pal;
+}
+
+bool load_memory(const std::filesystem::path& path, std::vector<std::uint8_t>& out, std::string& error) {
+    std::ifstream f(path, std::ios::binary);
+    out.assign(std::istreambuf_iterator<char>(f), {});
+    if (out.size() != 32u * 1024 * 1024) {
+        error = std::format("{}: not a 32 MB memory picture ({} bytes)", path.string(), out.size());
+        return false;
+    }
+    return true;
+}
+
+}  // namespace openrac::viewer

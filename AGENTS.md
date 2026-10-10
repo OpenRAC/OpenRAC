@@ -8,11 +8,13 @@ everyone. When a game's own instructions are stricter, follow them as well.
 
 OpenRAC brings together the decompilation projects of the PlayStation 2
 Ratchet & Clank games: one self-contained project per game version under
-`games/`, a shared level editor in `editor/`, the runtime that will run the
-games on a PC in `runtime/`, repository tools in `tools/`,
-and the cross-game docs in `docs/`. Matching decompilation is the method and
-the proof of correctness; C that compiles and runs on PC is the long-term
-goal. Start with [docs/LAYOUT.md](docs/LAYOUT.md).
+`games/`, a shared level editor in `editor/`, a desktop launcher in
+`launcher/`, repository tools in `tools/`, and the cross-game docs in
+`docs/`. Matching decompilation is the method and the proof of correctness;
+a native PC port of each game, built the way OpenGOAL ported Jak and Daxter,
+is the long-term goal ([docs/port](docs/port/README.md)). There is no
+emulation: nothing in OpenRAC runs the retail program or models the console
+to play a game. Start with [docs/LAYOUT.md](docs/LAYOUT.md).
 
 ## Where to read first
 
@@ -25,7 +27,7 @@ goal. Start with [docs/LAYOUT.md](docs/LAYOUT.md).
 | rac3 | [games/rac3/ntsc/CONTRIBUTING.md](games/rac3/ntsc/CONTRIBUTING.md), [docs/targets.md](games/rac3/ntsc/docs/targets.md), [docs/wiki/Workflow.md](games/rac3/ntsc/docs/wiki/Workflow.md), [docs/wiki/Matching-Patterns.md](games/rac3/ntsc/docs/wiki/Matching-Patterns.md) |
 | rac4 | [games/rac4/README.md](games/rac4/README.md), [ntsc/CONTRIBUTING.md](games/rac4/ntsc/CONTRIBUTING.md), [ntsc/LEGAL.md](games/rac4/ntsc/LEGAL.md), [ntsc/docs/RESEARCH.md](games/rac4/ntsc/docs/RESEARCH.md) |
 | The editor | [editor/README.md](editor/README.md), [editor/GDSCRIPT_CONVENTIONS.md](editor/GDSCRIPT_CONVENTIONS.md) |
-| The runtime | [runtime/README.md](runtime/README.md), [runtime/docs/DESIGN.md](runtime/docs/DESIGN.md), [runtime/docs/CODING_CONVENTIONS.md](runtime/docs/CODING_CONVENTIONS.md) (before writing any C++ there) |
+| The native port | [port/README.md](port/README.md), [docs/port/README.md](docs/port/README.md), [DESIGN.md](docs/port/DESIGN.md), [ROADMAP.md](docs/port/ROADMAP.md), [hostgen](port/tools/hostgen/README.md) |
 | The launcher | [launcher/README.md](launcher/README.md), [docs/INTEGRATION.md](launcher/docs/INTEGRATION.md), [docs/ARCHITECTURE.md](launcher/docs/ARCHITECTURE.md), [docs/STYLE.md](launcher/docs/STYLE.md) |
 | Cross-game knowledge | [docs/engine](docs/engine/README.md), [docs/toolchains](docs/toolchains/README.md), [docs/workflow](docs/workflow/README.md) |
 
@@ -102,8 +104,10 @@ python3 tools/port.py FROM TO [--check]         # candidates for functions FROM 
 python3 tools/shared.py check|find|sync PATH    # files several games share must stay identical (shared/README.md)
 python3 -m unittest discover -s tools       # tests for tools/
 python3 -m unittest discover -s editor      # tests for the editor
-cmake -S runtime -B build/runtime -G Ninja && cmake --build build/runtime && ctest --test-dir build/runtime   # the runtime
+python3 tools/extractor.py IMAGE --game rac1   # set a game up from your disc, OpenGOAL's way (docs/port/DESIGN.md)
 cd launcher && npm ci && npm run verify && cargo test -p openrac-launcher-core   # the launcher
+cd port && cmake --preset release && cmake --build --preset release && ctest --preset release   # the native port
+python3 -m unittest discover -s port/tools/hostgen   # hostgen's tests (needs Clang)
 ```
 
 Per-game build and check commands are in each game's README and in

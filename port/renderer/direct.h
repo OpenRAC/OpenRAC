@@ -1,0 +1,235 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// The direct renderer: the GIF packets the game builds for its 2D path (HUD,
+// text, fades, letterbox, the screen clears) turned into GPU draw calls, after
+// OpenGOAL's DirectRenderer (OPENGOAL_NOTES.md, sections 4.4 and 5.1).
+//
+// Two halves:
+//
+//   - GifInterpreter, on the CPU: reads GIF tags (PACKED, REGLIST, IMAGE)
+//     and A+D register writes, keeps the drawing registers' values, assembles
+//     each primitive's vertices into triangles, and groups them into draws
+//     that share one GPU state. Image transfers go to the texture pool. It
+//     makes no GL calls, so it is tested on its own.
+//   - DirectRenderer, the bucket renderer: runs the interpreter over its
+//     bucket's packets and issues one draw call per group, with the state
+//     translated to GL (blend equation, depth test, alpha test in the shader,
+//     scissor, texture).
+//
+// This is a translation of register state to draw calls. It rasterises
+// nothing itself and keeps no image of the chip's memory: textures come from
+// the pool, frame buffer and depth buffer are the GPU's.
+//
+// Conventions, from the chip and OpenGOAL's shaders: colours are in the
+// chip's units (0x80 is 1.0 when modulating), the alpha test compares the
+// chip's alpha, depth is reversed (bigger is nearer; cleared to 0), and a
+// failed alpha test that still writes colour or depth is drawn twice
+// (the "double draw").
+
+#pragma once
+
+#include <cstdint>
+#include <span>
+#include <string>
+#include <vector>
+
+#include "renderer/gs.h"
+#include "renderer/renderer.h"
+#include "renderer/shader.h"
+#include "renderer/texture_pool.h"
+
+namespace openrac::renderer {
+
+struct DirectConfig {
+    // The game's frame buffer: 512 x 448 for PAL Ratchet & Clank.
+    int screen_width = 512;
+    int screen_height = 448;
+};
+
+// One vertex as the GPU gets it (32 bytes).
+struct DirectVertex {
+    float x, y, z;         // normalised device coordinates; z from the chip's depth
+    float s, t, q;         // texture coordinates times q (divided per pixel)
+    std::uint8_t rgba[4];  // the chip's colour, 0x80 = 1.0
+    float fog;             // 1: no fog, 0: all fog colour
+};
+
+static_assert(sizeof(DirectVertex) == 32);
+
+// The GPU state of a draw: everything a register write can change that the
+// draw call depends on. Two draws with equal states are merged.
+struct DirectState {
+    bool textured = false;
+    TextureHandle texture = 0;
+    bool texture_full_alpha = false;  // the texture's alpha runs to 0xFF, not 0x80
+    bool tcc = false;
+    gs::Tfx tfx = gs::Tfx::Modulate;
+    bool linear_mag = false;
+    bool linear_min = false;
+    bool clamp_s = false;
+    bool clamp_t = false;
+    bool blend = false;
+    gs::Alpha alpha{0, 1, 0, 1, 0};
+    gs::Test test{};
+    bool depth_write = true;
+    std::uint32_t fbmsk = 0;
+    gs::Scissor scissor{0, 511, 0, 447};
+    bool fog = false;
+    std::uint32_t fog_colour = 0;
+
+    bool operator==(const DirectState&) const = default;
+};
+
+struct DirectDraw {
+    DirectState state;
+    std::uint32_t first = 0;  // first vertex
+    std::uint32_t count = 0;  // vertices (three per triangle)
+};
+
+class GifInterpreter {
+public:
+    GifInterpreter(TexturePool& textures, DirectConfig config = {});
+
+    // A GIF packet: tags and their data, as the game sends to the chip
+    // (PATH3, or DIRECT through VIF1). Returns false if it is malformed;
+    // error() says where. Draws accumulate until clear().
+    bool gif(std::span<const std::uint8_t> packet);
+
+    // A VIF1 stream carrying GIF data in DIRECT and DIRECTHL commands, with
+    // the bookkeeping codes around them (NOP, FLUSH, STCYCL...). A command
+    // that starts a VU program (MSCAL, UNPACK, MPG) is not the direct path:
+    // the call returns false.
+    bool vif(std::span<const std::uint8_t> stream);
+
+    // One register write, as an A+D pair carries it.
+    void write_register(std::uint8_t address, std::uint64_t value);
+
+    // Forget this frame's vertices and draws; the registers keep their values.
+    void clear();
+
+    const std::vector<DirectVertex>& vertices() const { return m_vertices; }
+
+    const std::vector<DirectDraw>& draws() const { return m_draws; }
+
+    const std::string& error() const { return m_error; }
+
+private:
+    // A vertex as the chip holds it between the kick and the primitive.
+    struct GsVertex {
+        std::uint32_t x = 0, y = 0;  // 12.4 fixed point, before XYOFFSET
+        std::uint32_t z = 0;
+        std::uint8_t fog = 0xFF;
+        std::uint8_t rgba[4] = {0x80, 0x80, 0x80, 0x80};
+        float s = 0.0f, t = 0.0f, q = 1.0f;
+        std::uint32_t u = 0, v = 0;  // 12.4 texel coordinates (PRIM.FST)
+    };
+
+    // The registers that come in two copies, one per drawing context.
+    struct Context {
+        gs::Tex0 tex0{};
+        gs::Tex1 tex1{};
+        gs::Clamp clamp{};
+        gs::Xyoffset xyoffset{};
+        gs::Scissor scissor{};
+        gs::Alpha alpha{0, 1, 0, 1, 0};
+        gs::Test test{};
+        gs::Frame frame{};
+        gs::Zbuf zbuf{};
+    };
+
+    void write_prim(std::uint64_t value);
+    void kick(bool draw);
+    void emit_triangle(
+        const GsVertex& a, const GsVertex& b, const GsVertex& c, const GsVertex& colour_from
+    );
+    void emit_sprite(const GsVertex& a, const GsVertex& b);
+    void emit_line(const GsVertex& a, const GsVertex& b);
+    void emit_point(const GsVertex& a);
+    void emit_quad(const DirectVertex corners[4]);
+    DirectVertex convert(const GsVertex& v) const;
+    void screen_position(const GsVertex& v, float& x, float& y) const;
+    void ensure_draw();
+    const gs::Prim& attributes() const;
+    const Context& context() const;
+    void image_data(std::span<const std::uint8_t> data);
+    bool fail(std::string message);
+
+    TexturePool& m_textures;
+    DirectConfig m_config;
+
+    // The frame buffers drawn to since the last clear, as texture base pointers (blocks): a
+    // primitive textured from one of them reads back what was drawn (a full-screen blur, a
+    // copy). Without render-to-texture those are left out rather than drawn with a wrong texture.
+    std::vector<std::uint32_t> m_targets;
+
+    Context m_context[2];
+    gs::Prim m_prim{};
+    gs::Prim m_prmode{};
+    bool m_use_prim_attributes = true;  // PRMODECONT.AC
+    gs::Texa m_texa{0, false, 0x80};
+    std::uint32_t m_fog_colour = 0;
+    GsVertex m_current;       // the vertex registers (RGBAQ, ST, UV, FOG)
+    float m_packed_q = 1.0f;  // Q from a PACKED ST, taken by the next RGBAQ
+
+    GsVertex m_queue[3];
+    int m_queued = 0;
+
+    // An image transfer in progress.
+    gs::Bitbltbuf m_bitbltbuf{};
+    gs::Trxpos m_trxpos{};
+    gs::Trxreg m_trxreg{};
+    ImageUpload m_upload;
+    std::size_t m_upload_bytes = 0;  // expected; 0 when no transfer is open
+
+    bool m_state_dirty = true;
+    DirectState m_state;
+    std::vector<DirectVertex> m_vertices;
+    std::vector<DirectDraw> m_draws;
+    std::string m_error;
+};
+
+class DirectRenderer : public BucketRenderer {
+public:
+    // The packets in a bucket are GIF data, or a VIF1 stream carrying it.
+    enum class Input {
+        Gif,
+        Vif
+    };
+
+    DirectRenderer(
+        std::string name, Bucket bucket, DirectConfig config = {}, Input input = Input::Gif
+    );
+    ~DirectRenderer() override;
+
+    bool init(RenderState& state, std::string& error) override;
+    void render(const FrameInput& input, RenderState& state) override;
+    void release() override;
+
+    // As a component of another renderer: feed packets, then flush() draws
+    // what was fed.
+    bool submit(std::span<const std::uint8_t> packets);
+    void flush(RenderState& state);
+
+    GifInterpreter& interpreter() { return *m_interpreter; }
+
+private:
+    void apply(const DirectState& state, RenderState& render_state);
+    void draw(const DirectDraw& draw, RenderState& render_state);
+
+    DirectConfig m_config;
+    Input m_input;
+    std::unique_ptr<GifInterpreter> m_interpreter;
+    Shader m_shader;
+    unsigned m_vao = 0;
+    unsigned m_vbo = 0;
+    std::size_t m_vbo_bytes = 0;
+    std::string m_last_error;
+
+    struct Uniforms {
+        int textured, tcc, tfx, tex_alpha_scale, fog_enable, fog_colour, alpha_test, alpha_ref,
+            alpha_keep_failing;
+    } m_uniforms{};
+};
+
+}  // namespace openrac::renderer

@@ -14,15 +14,30 @@ OpenRAC's goal for playing the games is a **native PC port**, built the way
 **No emulation.** OpenRAC does not interpret the console's processors, run the
 retail program, or model the GS, the vector units or the DMA controller to
 play a game. An earlier experiment that did, `runtime/` (2026-10-08 to
-2026-10-09), is being taken out of the repository; git history keeps it, and
-the studies it produced about the games move to this folder.
+2026-10-09), was removed on 2026-10-09; git history keeps it, and the
+studies it produced about the games are in this folder.
 
 Nothing from the games is ever committed: no code bytes, data, microcode or
 media taken from a disc ([SOURCING.md](../policy/SOURCING.md)). The player
 supplies their disc; the port reads what was extracted from it.
 
-## Where it starts
+The port starts with Ratchet & Clank (PAL), [games/rac1/pal](../../games/rac1/pal),
+whose matching decompilation is the furthest along. The sequels follow,
+sharing the renderer where their engines agree
+([docs/engine](../engine/README.md)).
 
-With Ratchet & Clank (PAL), [games/rac1/pal](../../games/rac1/pal), whose
-matching decompilation is the furthest along. The sequels follow, sharing the
-renderer where their engines agree ([docs/engine](../engine/README.md)).
+The code is in [port/](../../port/README.md).
+
+## Documents
+
+| Document | For |
+|---|---|
+| [DESIGN.md](DESIGN.md) | What is decided, the shape of the port, the open decisions |
+| [ROADMAP.md](ROADMAP.md) | The order of work, and whether the decompilation must be finished first |
+| [DECOMP_STATUS.md](DECOMP_STATUS.md) | How much of Ratchet & Clank (PAL) is C a PC could build, and what is not |
+| [RENDERER.md](RENDERER.md) | How the game builds a frame, everything it draws, the VU programs, the graphics chip's conventions |
+| [PORTABILITY.md](PORTABILITY.md) | What the matching C assumes about the console, and the choices for a PC build |
+| [RAC1_PAL_SURVEY.md](RAC1_PAL_SURVEY.md) | The first survey of the game for a native build (2026-10-08): frame loop, display list, menu path, disc, memory card, library surface |
+| [VU_PROGRAMS.md](VU_PROGRAMS.md) | The games' vector unit programs by name, and which the games share |
+| [OPENGOAL_NOTES.md](OPENGOAL_NOTES.md) | How OpenGOAL's renderer and platform layer work, and what carries over |
+| [tools/extractor.py](../../tools/extractor.py) | The disc extractor (OpenGOAL's `extractor`, for OpenRAC) |

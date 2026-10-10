@@ -9,6 +9,8 @@ import actionsFile from "../../actions.json";
 import summaryFile from "../../../progress/summary.json";
 import type {
   ActionView,
+  BuildInfo,
+  InstallState,
   AppInfo,
   Check,
   Config,
@@ -95,10 +97,31 @@ let config: Config = {
   developer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("developer"),
   // ?setup opens the first-run screen.
   setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup"),
+  installDir: "/home/you/.local/share/dev.openrac.launcher",
   lastVersion: null,
   discordRpc: true,
   discordClientId: null,
 };
+
+/** Which games pretend to be set up from the player's disc, and as which version. */
+const installs: Record<string, BuildInfo | undefined> = {
+  rac1: {
+    serial: "SCES_509.16",
+    version: "rac1/pal",
+    elfSha1: "79956931bd62fafd8d20fa2eae796dbaf2e15e83",
+    files: 3,
+    image: "Ratchet & Clank.iso",
+  },
+};
+
+function installState(game: string): InstallState {
+  return {
+    dir: `${config.installDir ?? ""}/active/${game}/data`,
+    extracted: installs[game] ?? null,
+    decompiled: false,
+    compiled: false,
+  };
+}
 
 /** Which versions pretend to have their disc found and their inputs placed. */
 const discs: Record<string, "found" | "missing" | "mismatch"> = {
@@ -234,7 +257,7 @@ function library(): Library {
           actions: (actions.versions[key] ?? []).map((a) => view(a, st)),
         };
       });
-      return { id: g.id, title: g.title, year: g.year ?? null, versions };
+      return { id: g.id, title: g.title, year: g.year ?? null, install: installState(g.id), versions };
     });
   return {
     root: config.root ?? "",
@@ -280,15 +303,20 @@ function start(scope: Scope, id: string): Started {
   const command = [action.program ?? "?", ...(action.args ?? [])].join(" ");
   if (action.detached) return { id: 0, title: action.label, command, detached: true };
 
-  const job = ++nextJob;
   const lines = [
     `$ ${command}`,
     "(browser preview: nothing really runs)",
     "working…",
-    "✔ step one",
-    "✔ step two",
+    "\u2714 step one",
+    "\u2714 step two",
     "done",
   ];
+  return fakeJob(action.label, command, lines, () => undefined);
+}
+
+/** A job that prints LINES one by one, then succeeds and calls DONE. */
+function fakeJob(title: string, command: string, lines: string[], done: () => void): Started {
+  const job = ++nextJob;
   let i = 0;
   timers.set(
     job,
@@ -300,10 +328,30 @@ function start(scope: Scope, id: string): Started {
       }
       clearInterval(timers.get(job));
       timers.delete(job);
+      done();
       emit({ type: "exit", id: job, code: 0, cancelled: false });
     }, 450),
   );
-  return { id: job, title: action.label, command, detached: false };
+  return { id: job, title, command, detached: false };
+}
+
+function install(game: string, image: string): Started {
+  const g = Object.values(manifests).find((m) => m.id === game);
+  const [name, v] = Object.entries(g?.versions ?? {})[0] ?? [];
+  if (!g || !name || !v) throw new Error(`no game ${game}`);
+  const serial = v.serial ?? "";
+  const command = `python3 tools/extractor.py ${image} --game ${game} --extract --validate`;
+  const lines = [
+    `${image}: 3 files on the disc, boot executable ${serial}`,
+    "  SYSTEM.CNF: 58 bytes",
+    `  ${serial}: ${v.boot?.size ?? 0} bytes`,
+    `validated: ${g.title} (${v.region ?? ""}, ${serial}), boot executable SHA-1 matches games/${game}/game.json`,
+    "  disc.iso: linked",
+    "extracted (browser preview: nothing really runs)",
+  ];
+  return fakeJob(`Set up ${game} from your disc`, command, lines, () => {
+    installs[game] = { serial, version: `${game}/${name}`, elfSha1: v.boot?.sha1 ?? "", files: 3, image };
+  });
 }
 
 // ---- the commands ------------------------------------------------------------------
@@ -328,11 +376,6 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "save_config":
       config = { ...(args.config as Config) };
       return delay({ ...config });
-    case "add_disc": {
-      const key = args.key as string;
-      discs[key] = "found";
-      return delay(`/home/you/OpenRAC/baserom/${key.replace("/", "-")}.iso`);
-    }
     case "detect":
       return delay<Detected>({
         roots: [{ path: "/home/you/OpenRAC", source: "next to the launcher" }],
@@ -346,40 +389,11 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay<Check>({ ok: true, version: "Python 3.12.4", message: "Python 3.12.4" });
     case "library":
       return delay(library());
-    case "inspect_iso": {
-      const key = typeof args.targetKey === "string" ? args.targetKey : "rac1/pal";
-      const path = typeof args.isoPath === "string" ? args.isoPath : "/path/to/game.iso";
-      return delay({
-        path,
-        filename: "Ratchet & Clank.iso",
-        size: 4214784000,
-        isValidIso: true,
-        serial: "SCES_509.16",
-        detectedGameId: "rac1",
-        detectedGameTitle: "Ratchet & Clank",
-        detectedVersionName: "pal",
-        detectedRegion: "PAL (Europe)",
-        targetGameId: key.split("/")[0],
-        targetVersionKey: key,
-        targetSerial: "SCES_509.16",
-        targetExpectedSize: 4214784000,
-        matchesTargetGame: true,
-        matchesTargetVersion: true,
-        status: "exactMatch",
-        message: "Exact match! Detected Ratchet & Clank (PAL, SCES_509.16) with expected size.",
-      });
-    }
-    case "import_iso": {
-      const key = typeof args.targetKey === "string" ? args.targetKey : "rac1/pal";
-      const gId = key.split("/")[0];
-      return delay({
-        targetKey: key,
-        baseromPath: `/home/you/OpenRAC/baserom/${gId}.iso`,
-        extractedAssetsDir: `/home/you/OpenRAC/${gId}`,
-        extractedFiles: ["SYSTEM.CNF", "SCES_509.16", "IOPRP243.IMG"],
-        setupMessage: `${key}: inputs placed successfully`,
-      });
-    }
+    case "install_game":
+      return delay(install(args.game as string, args.image as string));
+    case "uninstall_game":
+      installs[args.game as string] = undefined;
+      return delay(null);
     case "sync_progress_from_web":
     case "apply_progress_json":
       return delay(library());

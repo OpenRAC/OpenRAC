@@ -13,52 +13,17 @@ directory lists its own in its `THIRD_PARTY_NOTICES.md` and source comments:
   [games/rac2/ntsc/docs/COMPILER-NOTES.md](games/rac2/ntsc/docs/COMPILER-NOTES.md),
   [games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md](games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md)).
 
-The runtime (`runtime/`) is OpenRAC's own code under GPL-3.0-or-later. It
-links [SDL3](https://libsdl.org) (zlib licence), taken from the system and not
-included here. [runtime/docs/OPENGOAL_NOTES.md](runtime/docs/OPENGOAL_NOTES.md)
-describes how [OpenGOAL](https://github.com/open-goal/jak-project) (ISC,
-Copyright (c) 2020-2026 OpenGOAL Team) works. The runtime's sound effect
-player is adapted from the sound library reimplementation in that project
-(see "989snd" below); no other code from it is included.
+`port/audio/sound_player.h` follows the behaviour of OpenGOAL's 989snd
+(`game/sound/989snd`; ISC License, Copyright (c) 2020-2026 OpenGOAL Team),
+as do the grain type names in `port/assets/sound/sound_bank.h`.
 
-## 989snd (from OpenGOAL)
-
-The games use the same sound library as the Jak and Daxter games. Its open
-reimplementation by Ziemas in
-[OpenGOAL](https://github.com/open-goal/jak-project) (`game/sound/989snd`,
-`game/sound/common`) is where the following take their bank format and their
-behaviour from, rewritten for this code base:
-
-- `runtime/src/snd/bank.*`: the sound effect block, its sound records and the
-  two layouts of a step, from `sfxblock.cpp`, `sfxgrain.h` and `loader.cpp`.
-- `runtime/src/snd/sfx.*`: what each step does, the modulators and the
-  handling of volume, pan and pitch of a playing sound, from
-  `blocksound_handler.cpp`, `sfxgrain.cpp` and `lfo.cpp`.
-- `runtime/src/snd/player.*`: the instance limits, group volumes and the 240
-  ticks a second, from `player.cpp`, `sfxblock.cpp` and `vagvoice.cpp`.
-- `runtime/src/snd/tuning.*`: note to pitch and volume and pan to levels,
-  from `util.cpp`.
-- `runtime/src/snd/envelope.*`: the envelope's step rule, from
-  `common/envelope.cpp`.
-
-ISC License
-
-Copyright: 2021 - 2024, Ziemas
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-The level editor (`editor/`) is distributed under rac1-decomp's MIT license
-([editor/LICENSE](editor/LICENSE)). It uses the following.
+[docs/port/OPENGOAL_NOTES.md](docs/port/OPENGOAL_NOTES.md) describes how
+[OpenGOAL](https://github.com/open-goal/jak-project) (ISC, Copyright (c)
+2020-2026 OpenGOAL Team) works, and the launcher's disc set-up and
+`tools/extractor.py` follow how OpenGOAL's launcher and extractor behave
+(their steps, folder layout and error numbers); no code from OpenGOAL is in
+OpenRAC. The launcher lists its own notices in
+[launcher/THIRD_PARTY_NOTICES.md](launcher/THIRD_PARTY_NOTICES.md).
 
 ## ReRAC
 
@@ -80,6 +45,22 @@ and notes:
   faces and surface bytes), from `docs/formats/collision_rac1.md`,
   `docs/plan/collision_queries.md` and `crates/rc-formats/src/collision.rs`;
   described in [ASSETS.md](games/rac1/pal/docs/ASSETS.md) ("Collision").
+- `port/assets/disc/`: the disc readers (ISO 9660, table of contents, WAD
+  compression, level data, overlays, scenes, saves, messages, volumes, the
+  front end), converted to C++ from `crates/rc-formats` and its specs in
+  `docs/formats`; each file names its source.
+- `port/assets/geometry/`: the readers of what the renderer draws (textures,
+  terrain, ties, shrubs, the sky, moby classes and animation, collision and
+  shadow blocks, gadgets) and the lighting passes, converted to C++ from
+  `crates/rc-formats` and its specs; their tests from ReRAC's unit tests.
+- `port/assets/world/`: the gameplay file, collision and its queries, occlusion,
+  cameras, fonts, the HUD and PIF pictures, built on `crates/rc-formats` and
+  ReRAC's specs; `port/assets/ps2_float.h` and `image.h`, shared by the parts.
+- `port/assets/sound/`, `port/media/`, `port/audio/`: sound banks, VAG, PSS and
+  ADPCM from `crates/rc-formats`; the MPEG-2 decoder from `crates/rc-video`;
+  the voices, envelope and reverb from `crates/rc-game/src/audio`.
+- `port/extract/`: `openrac-extractor`'s JSON-lines output, crash-safe writes,
+  free-space check and decompile step, after `crates/rc-extract`.
 
 ISC License
 
@@ -135,3 +116,22 @@ Consulted for what formats and fields mean; no code from them is included
 ([editor/README.md](editor/README.md#credits)):
 [Wrench](https://github.com/chaoticgd/wrench) (GPL-3.0-or-later) and
 [Replanetizer](https://github.com/RatchetModding/Replanetizer).
+
+## The native port's libraries
+
+The port ([port/](port/README.md)) builds with these libraries. CMake fetches
+each at a pinned version ([port/cmake/Dependencies.cmake](port/cmake/Dependencies.cmake));
+none is copied into OpenRAC.
+
+| Library | Version | License | Used by |
+|---|---|---|---|
+| [SDL](https://github.com/libsdl-org/SDL) | 3.2.24 | zlib | the platform layer: window, OpenGL context, input, audio |
+| [cgltf](https://github.com/jkuhlmann/cgltf) | 1.15 | MIT | the level viewer: reading the editor's glTF meshes |
+| [stb_image](https://github.com/nothings/stb) | commit 2c980bb | MIT or public domain | the level viewer: reading textures (PNG) |
+
+The renderer's conventions (colour 0x80 as 1.0, reversed depth, the double
+draw for alpha-test fail modes, textures identified by the game's base
+pointer) follow OpenGOAL's renderer as
+[docs/port/OPENGOAL_NOTES.md](docs/port/OPENGOAL_NOTES.md) describes it; no
+code from OpenGOAL or from any emulator is in the port.
+
