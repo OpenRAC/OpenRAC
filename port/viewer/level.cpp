@@ -328,6 +328,27 @@ std::uint32_t add_box_model(LevelData& level) {
     return static_cast<std::uint32_t>(level.models.size() - 1);
 }
 
+std::vector<renderer::Rgba8Image> load_sky_textures(const fs::path& dir) {
+    std::vector<renderer::Rgba8Image> out;
+    for (int i = 0; i < 64; ++i) {
+        const fs::path path = dir / "textures" / std::format("sky_{:04d}.png", i);
+        if (!fs::exists(path)) {
+            break;
+        }
+        int w = 0;
+        int h = 0;
+        int channels = 0;
+        renderer::Rgba8Image image;
+        if (unsigned char* pixels = stbi_load(path.string().c_str(), &w, &h, &channels, 4)) {
+            image = renderer::Rgba8Image(w, h);
+            std::copy(pixels, pixels + static_cast<std::ptrdiff_t>(w) * h * 4, image.pixels.begin());
+            stbi_image_free(pixels);
+        }
+        out.push_back(std::move(image));
+    }
+    return out;
+}
+
 bool load_level(const fs::path& dir, LevelData& out, std::string& error) {
     out = LevelData{};
     out.dir = dir;

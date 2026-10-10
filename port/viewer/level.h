@@ -126,6 +126,10 @@ struct LevelData {
 // mesh cannot be read; a missing texture only counts in missing_images.
 bool load_level(const std::filesystem::path& dir, LevelData& out, std::string& error);
 
+// The level's sky textures (textures/sky_NNNN.png, by the sky's own texture numbers), including the
+// ones only its sprites use; an empty image where one is missing.
+std::vector<renderer::Rgba8Image> load_sky_textures(const std::filesystem::path& dir);
+
 // Load one glTF or GLB file as one model (every mesh node, in its node's
 // transform, except skinned meshes, which are stored in their bind pose with
 // their skin: the joints by the number in their node's name, joint_NNN, the

@@ -69,6 +69,8 @@ struct State {
         int log2_side;
     };
     std::vector<Particle> particles;
+    // The sky sprites the game drew since the last frame (sky_sprite): record, TEX0.
+    std::vector<std::pair<std::array<std::uint8_t, 0x20>, std::uint64_t>> sky_sprites;
 };
 
 std::unique_ptr<State> g;
@@ -378,6 +380,8 @@ renderer::Mat4 rigid_inverse(const renderer::Mat4& m) {
 constexpr int kTitleWorld = 99;
 // The flight between planets' sky, written as a level of its own (editor/level.py load_flight).
 constexpr int kFlightWorld = 98;
+// Where the sky's textures are placed in the texture pool, past the GS's 14-bit blocks.
+constexpr std::uint32_t kSkyTextureKey = 0x20000;
 // The game mode word (0x15F6E8); 6 in the boot program is the flight between planets.
 constexpr std::uint32_t kGameMode = 0x0015F6E8;
 // The directional light bank, in the executable's terms (relocated to the loaded program's copy).
@@ -438,6 +442,15 @@ void use_level(int number) {
     if (fresh) {
         g->renderer->init(error);
     }
+    // The sky's textures at pool keys of their own (kSkyTextureKey + number), for its sprites.
+    const auto sky = viewer::load_sky_textures(dir);
+    for (std::size_t i = 0; i < sky.size(); ++i) {
+        if (sky[i].width > 0) {
+            const renderer::TextureHandle h = g->renderer->textures().add(sky[i], renderer::AlphaScale::Full,
+                                                                          std::format("sky {} of level {}", i, wanted));
+            g->renderer->textures().place(kSkyTextureKey + static_cast<std::uint32_t>(i), h);
+        }
+    }
     log::info("drawing level {} natively ({} models)", wanted, g->level.models.size());
 }
 
@@ -478,6 +491,74 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
         g->effect_uploads.push_back(std::move(image));
     }
     g->effects.push_back(q);
+}
+
+void sky_sprite(const std::uint8_t* record, std::uint64_t tex0) {
+    std::array<std::uint8_t, 0x20> r;
+    std::memcpy(r.data(), record, r.size());
+    g->sky_sprites.emplace_back(r, tex0);
+}
+
+// The sky sprites as effect quads, as SkySpriteProc draws them with the particle program (ReRAC's
+// sky_stars.rs; ISC License, Copyright (c) 2026 ReRAC contributors): around the eye, facing it,
+// the half-diagonal size * 832 / depth frame-buffer pixels, turned by the rotation, additive, behind
+// everything. Drawn far out along their direction (kSkyDistance, inside the far plane) and scaled to
+// match, so the world's depth hides them where it is in front of the sky.
+void sky_sprite_quads(const viewer::GameState& state) {
+    constexpr float kSkyDistance = 1900.0f;
+    const std::array<float, 3> cam = state.camera_position;
+    const std::array<float, 3> fwd = state.forward;
+    const std::array<float, 3> right{-state.left[0], -state.left[1], -state.left[2]};
+    const std::array<float, 3> down{-state.up[0], -state.up[1], -state.up[2]};
+    const float tan_y = state.tan_half_fov_y > 0.0f ? state.tan_half_fov_y : 0.476f;
+    for (const auto& [r, tex0] : g->sky_sprites) {
+        float pos[3];
+        float theta;
+        float size;
+        std::uint32_t rgba;
+        std::memcpy(pos, r.data() + 0x10, 12);
+        std::memcpy(&theta, r.data() + 8, 4);
+        std::memcpy(&size, r.data() + 0x1C, 4);
+        std::memcpy(&rgba, r.data() + 4, 4);
+        const float len = std::sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
+        const float z = pos[0] * fwd[0] + pos[1] * fwd[1] + pos[2] * fwd[2];
+        if (!(len > 0.0f) || !(z > 0.0f) || !std::isfinite(size)) {
+            continue;
+        }
+        const float k = kSkyDistance / len;
+        const float h = 4.0f * size * tan_y * k;
+        const float c = std::cos(theta);
+        const float s = std::sin(theta);
+        renderer::EffectQuad q{};
+        float centre[3];
+        float a[3];
+        float b[3];
+        for (int i = 0; i < 3; ++i) {
+            centre[i] = cam[i] + pos[i] * k;
+            a[i] = (c * right[i] + 1.0625f * s * down[i]) * h;
+            b[i] = (-s * right[i] + 1.0625f * c * down[i]) * h;
+        }
+        for (int i = 0; i < 3; ++i) {
+            q.corner[0][i] = centre[i] + a[i];
+            q.corner[1][i] = centre[i] + b[i];
+            q.corner[2][i] = centre[i] - b[i];
+            q.corner[3][i] = centre[i] - a[i];
+        }
+        for (std::uint32_t& col : q.rgba) {
+            col = rgba;
+        }
+        const float st[4][2] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+        std::memcpy(q.st, st, sizeof(st));
+        (void)tex0;
+        q.tex0 = 1ull << 34;  // TCC, MODULATE; the texture is the sky's own (kSkyTextureKey)
+        q.tbp = kSkyTextureKey + r[2];
+        q.cbp = 0;
+        q.clamp = 5;
+        q.tex1 = 0xFF9000000120ull;
+        q.alpha = r[3];
+        g->effects.insert(g->effects.begin(), q);
+    }
+    g->sky_sprites.clear();
 }
 
 void particle(std::span<const std::uint8_t> ram, const std::uint8_t* record, std::uint32_t pixels,
@@ -634,6 +715,7 @@ void particle_quads(std::span<const std::uint8_t> ram, const viewer::GameState& 
         g->effects.push_back(it.quad);
     }
     g->particles.clear();
+    g->sky_sprites.clear();
 }
 
 bool open(const std::string& game_id, const std::filesystem::path& levels, std::string& error) {
@@ -850,6 +932,13 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
                           e.rgba[0], e.st[0][0], e.st[0][1], e.st[3][0], e.st[3][1], e.tex0, e.alpha, e.clamp);
             }
         }
+        if (!g->sky_sprites.empty()) {
+            const auto& [r, tex0] = g->sky_sprites.front();
+            float size;
+            std::memcpy(&size, r.data() + 0x1C, 4);
+            log::info("  {} sky sprites; the first RGBA {:#x} size {:.3f} TEX0 {:#x} ALPHA {:#x}", g->sky_sprites.size(),
+                      r[4] | r[5] << 8 | r[6] << 16 | static_cast<std::uint32_t>(r[7]) << 24, size, tex0, r[3]);
+        }
         if (!g->particles.empty()) {
             int kinds[4] = {0, 0, 0, 0};
             for (const State::Particle& p : g->particles) {
@@ -1032,6 +1121,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
                   strips.size(), strip_vertices.size(), bare, strips.front().tex0, strips.front().alpha);
     }
     input.packets[static_cast<std::size_t>(renderer::Bucket::Hud)] = packets;
+    sky_sprite_quads(state);
     particle_quads(ram, state);
     input.effects = g->effects;
     input.effect_uploads = g->effect_uploads;
@@ -1041,6 +1131,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     g->effects.clear();
     g->effect_uploads.clear();
     g->particles.clear();
+    g->sky_sprites.clear();
     // OPENRAC_SHOT=FRAME:FILE.png writes that frame (for checking without looking at the screen).
     if (const char* shot = std::getenv("OPENRAC_SHOT")) {
         const char* colon = std::strchr(shot, ':');

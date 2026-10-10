@@ -452,6 +452,17 @@ void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut
 #endif
 }
 
+void openrac_game_sky_sprite(const uint8_t* record, uint64_t tex0) {
+#ifdef OPENRAC_FRONTEND
+    if (g_window) {
+        frontend::sky_sprite(record, tex0);
+    }
+#else
+    (void)record;
+    (void)tex0;
+#endif
+}
+
 void openrac_game_moby_chain(gaddr moby, gaddr marks) {
 #ifdef OPENRAC_FRONTEND
     const auto* ram = runtime::Memory::get().base();

@@ -149,6 +149,11 @@ void openrac_game_effect_quad(const openrac_game_quad* quad);
  * back to front (renderer/effects.h). */
 void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut, int log2_side);
 
+/* A sky sprite (rac1: SkySpriteProc, the stars and glows between the sky shells): its 0x20-byte
+ * record (+0x03 ALPHA_1's low byte, +0x04 RGBA, +0x08 rotation in radians, +0x10 position around
+ * the eye, +0x1C size) and the TEX0 of its sky texture. The window draws them behind the world. */
+void openrac_game_sky_sprite(const uint8_t* record, uint64_t tex0);
+
 /* Plays a PSS movie from the disc in the window, blocking as the game's own player does: `bytes`
  * bytes at sector `lsn`, the ADPCM channel `channel` (the language; channel 0 when the file has no
  * such channel). Start skips it when `start_skips` (the console's readMpeg rule for the caller).

@@ -261,9 +261,32 @@ void func_0022CC40(gaddr a0) {
     (void)a0;
 }
 
-/* SkySpriteProc */
+/*
+ * SkySpriteProc: the sky's sprites (stars, glows), from the sky header (+0x08 their count, +0x10 the
+ * texture table, 16 bytes an entry with the TEX0 first, +0x1C the 0x20-byte records; a negative
+ * texture byte +0x02 is not drawn), each to the window (openrac_game_sky_sprite).
+ */
 void func_0022CEB8(void) {
     openrac_game_draw(OPENRAC_DRAW_SKY);
+    const gaddr sky = GREF(gaddr, OPENRAC_DATA(0x0016055Cu));
+    if (sky == 0 || sky >= 0x01FFF000u) {
+        return;
+    }
+    const gaddr records = GREF(gaddr, sky + 0x1C);
+    const int count = GREF(uint16_t, sky + 0x08);
+    const gaddr textures = GREF(gaddr, sky + 0x10);
+    if (records == 0 || textures == 0 || records >= 0x01FFF000u) {
+        return;
+    }
+    for (int i = 0; i < count && i < 1024; ++i) {
+        const uint8_t* r = G(records + (gaddr)i * 0x20);
+        if ((int8_t)r[2] < 0) {
+            continue;
+        }
+        uint64_t tex0;
+        memcpy(&tex0, G(textures + (gaddr)r[2] * 16), 8);
+        openrac_game_sky_sprite(r, tex0);
+    }
 }
 
 /* TfragProc, the terrain renderer */
