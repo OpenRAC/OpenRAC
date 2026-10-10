@@ -51,3 +51,4 @@ func_001FA9E8	game_fastfunc.c
 func_001F9E10	game_fastfunc.c
 func_L00_001FDE48	overlays_shared_drawquad_001FD1D8.c
 func_0022F4C0	game_space.c
+func_L00_002D1168	level_crate_init.c

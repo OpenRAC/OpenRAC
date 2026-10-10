@@ -113,12 +113,63 @@ commit deliberately does not absorb it.
 
 ## Next session handoff
 
-First inspect ongoing native changes and the latest logs. Determine the
-current New Game / first-level blocker after the camera work, reproduce it
-with the normal game path, and take one unowned fix through verification
-and a local commit. If that work is still owned by another session, select
-an independent missing decomp function from rank/triage instead. Update
-this section when the state changes; do not keep following a stale target.
+### Crate initialization, 2026-10-10
+
+Local commit subject: `feat(rac1/pal): implement native crate initialization`.
+Recovered `func_L00_002D1168` from the PAL retail instructions in a native
+hand implementation. It handles independent crates, saved-counter removal,
+group support links, moving-platform attachment, stack state propagation,
+and list transitions. No matching source or matching report was changed;
+this is not an exact PS2 match. Helpers receive overlay globals from the
+level entry point so hostgen retains the correct level relocation context.
+
+Validation on the existing working tree:
+
+- `Build-Native.ps1`: 42/42 CTest tests pass; log
+  `.tools/native-crate-build-final.log` in the parent workspace.
+- `crate_init_test.c` also compiles and passes with the local
+  `i686-w64-mingw32-clang.exe -std=c11 -O2 -fno-strict-aliasing
+  -ffp-contract=off`, checking EE structure offsets as well as synthetic
+  ground, miss, saved-counter, stack, platform and list scenarios.
+- Hostgen: 378 units, 3,808 translated functions (includes new helpers),
+  192 candidates, 3 stubs, 1,153 without C. Both `units_unreadable` and
+  `index_problems` are empty.
+- Before: `.tools/native-run/crate-before.log`, exit 2 at frame 2809,
+  missing `func_L00_002D1168`. After: `crate-verified.log`, exit 2 at frame
+  2809, missing `func_002116A0`. The crate call is passed; first-level
+  gameplay is still blocked. Screenshots use the corresponding prefix,
+  including `crate-verified-2800.png` (opening movie, not gameplay).
+
+Exact reproduction, from the parent workspace in PowerShell:
+
+```powershell
+$p = .\.tools\Invoke-NativeProbe.ps1 -Name crate-verified -Frames 5200 -Press '100:4000:5,1200:8:5,1400:4000:5,1700:4000:5,2200:8:5,2500:8:5,2800:8:5,3700:4000:5,4000:0:150:128:0'
+$p.WaitForExit()
+$p.ExitCode
+```
+
+The local helper launches `port/build/release/openrac-rac1-pal.exe` with
+`--data <native>/build/native-data --cards <native>/build/native-test-cards
+--window --levels <native>/build/native-data/port --frames 5200 --no-card`.
+It sets `OPENRAC_DEBUG=1`, `OPENRAC_UNCAPPED=1`, `OPENRAC_PRESS` to the
+sequence above and `OPENRAC_SHOT=200:<workspace>/.tools/native-run/<name>-`.
+This is fresh New Game, skips three opening movies with Start, uses no
+player save, and keeps stop-on-missing enabled. Exit codes were captured
+from the process object after `WaitForExit`.
+
+Existing uncommitted camera, grid, dialog, vector, translator and renderer
+changes were present at session start and remain separate. Only this
+task's new implementation, test, registration, CMake target and handoff
+are staged for the crate commit. The full runtime result depends on that
+working-tree baseline; this commit alone does not supply those earlier
+startup fixes. `rac1-decomp/tools/organize_asm.py` remains untouched.
+
+Next action: reconstruct native `func_002116A0` (handwritten joint-matrix
+selection) from `rac1-decomp/asm/nonmatchings/text/func_002116A0.s` and test
+its chain marks, terminal joints and 64-byte matrix copies. Its evaluator
+callee `func_00211808` already has a native binding. Reproduce New Game
+again after the fix; do not replace the missing selector with an empty
+return or assume that existing pose evaluation is fully correct.
 
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for

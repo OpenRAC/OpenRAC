@@ -62,6 +62,11 @@ openrac_warnings(runtime_test)
 add_test(NAME runtime COMMAND runtime_test)
 
 # ---- assets, media, audio, the extractor: no window ----
+add_executable(crate_init_test tests/crate_init_test.c)
+target_compile_options(crate_init_test PRIVATE -fno-strict-aliasing -fwrapv -ffp-contract=off)
+openrac_warnings(crate_init_test)
+add_test(NAME crate_init COMMAND crate_init_test)
+
 include(Assets)
 
 if(OPENRAC_PORT_WINDOW)
