@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The port's debug menu (not the game's): a level selector over the title and main menu, for
-// testing. F1 (or Select on a pad) opens it while the boot program runs; Up and Down pick a level,
+// The port's developer features (the launcher's developer mode: OPENRAC_DEVELOPER=1; without it
+// the menus are exactly the game's). In Ratchet & Clank PAL the front end's Options list gets a
+// "Planets" entry, a page of the game's own making that lists the levels and starts the one
+// picked. As a fallback, a level selector the port draws itself over the title and main menu:
+// F1 (or Select on a pad) opens it while the boot program runs; Up and Down pick a level,
 // Return / Space / Cross starts it, F1 / Backspace / Triangle closes it. The level is started the
 // way --level N with OPENRAC_DIRECT does (game/rac1-pal/host/boot.c): NewGameInit for that level,
 // then the menus closed and the start flag set, so the game loads it as a new game's first level.
