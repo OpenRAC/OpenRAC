@@ -602,3 +602,25 @@ void func_001F9E10(float *out, float *v, float len) {
     ((unsigned *)out)[2] = z;
     ((unsigned *)out)[3] = w;
 }
+
+/* The rotation of the quaternion q (x, y, z, w) as three matrix rows; out's fourth row is left
+ * as it was. (Two products of q with 2q, then the usual sums; the rows' w are 0.) */
+void func_001FA648(float *q, float *out) {
+    const float x = q[0], y = q[1], z = q[2], w = q[3];
+    const float x2 = x + x, y2 = y + y, z2 = z + z;
+    const float wx = x2 * w, wy = y2 * w, wz = z2 * w;
+    const float xx = x2 * x, xy = y2 * x, xz = z2 * x;
+    const float yy = y2 * y, yz = z2 * y, zz = z2 * z;
+    out[0] = 1.0f - yy - zz;
+    out[1] = xy - wz;
+    out[2] = xz + wy;
+    out[3] = 0.0f;
+    out[4] = wz + xy;
+    out[5] = 1.0f - xx - zz;
+    out[6] = yz - wx;
+    out[7] = 0.0f;
+    out[8] = xz - wy;
+    out[9] = wx + yz;
+    out[10] = 1.0f - xx - yy;
+    out[11] = 0.0f;
+}
