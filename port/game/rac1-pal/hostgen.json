@@ -18,6 +18,7 @@
   ],
   "defines": [],
   "places": "config/overlays/functions.tsv",
+  "split_places": "split_places.tsv",
   "symbols": ["config/port_symbols.txt"],
   "libraries": "libraries.tsv",
   "overlay_hook": true,

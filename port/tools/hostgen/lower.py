@@ -1360,6 +1360,11 @@ class Unit:
                     fp = f"openrac_call_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {hexaddr(own)})"
                 elif not places:
                     return self.direct_call(sym, args, result_t)
+                elif (sym in getattr(self.program, "splits", {})
+                      and not getattr(self.program, "sizes", {}).get(self.fn.name)
+                      and all(o < 0 for o, _ in self.program.code_places(self.fn.name))):
+                    # Code of the executable alone calls the executable's own function.
+                    return self.direct_call(sym, args, result_t)
                 else:
                     # A name the catalogue folded: each place is its own function (guest.h,
                     # openrac_guest_nearest); the call goes through the place nearest this function,
@@ -1414,6 +1419,10 @@ class Unit:
         cache = getattr(self.program, "folded_cache", None)
         if cache is None:
             cache = self.program.folded_cache = {}
+        if sym not in cache and getattr(self.program, "splits", {}).get(sym):
+            # Some of its places are other functions (split_places.tsv): the caller's own jal says
+            # which one it calls.
+            cache[sym] = self.program.code_places(sym) + self.program.splits[sym]
         if sym not in cache:
             wrapper = 0 < (getattr(self.program, "sizes", {}).get(sym) or 0) <= 64
             places = self.program.code_places(sym) if wrapper and getattr(self.program, "relocate", None) else []

@@ -37,7 +37,7 @@ import clangast  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, canon, cname, index_unit, merge, read_places, read_symbols  # noqa: E402
+from program import Function, Program, Signature, canon, cname, index_unit, merge, read_places, read_split_places, read_symbols  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PROGRAM_FILES = ["stubs.c", "functions.c", "libraries.c", "game_info.c", "game_protos.h"]
@@ -497,6 +497,8 @@ def main(argv: list[str] | None = None) -> int:
     problems: list[str] = []
     if cfg.get("places"):
         read_places(source / cfg["places"], program)
+    if cfg.get("split_places"):
+        read_split_places(args.game.parent / cfg["split_places"], program)
     host_rows = host_table(args.game.parent, cfg)
     host_sigs = {sym: sig for sym, (_name, sig) in host_rows.items()}
     program.host = set(cfg.get("host_functions", [])) | set(host_rows)
