@@ -6,7 +6,7 @@
 // (openrac_game, generated from port/game/<id>/hostgen.json).
 //
 //   openrac-<id> --data <install>/active/<game>/data [--cards DIR] [--frames N] [--stop-on-missing]
-//                [--level N]
+//                [--level N] [--skip-movies]
 //
 // The data folder is what the extractor made from the player's disc
 // (tools/extractor.py; the launcher's "Set up from your disc"). The program
@@ -74,6 +74,7 @@ struct Options {
     long frames = -1;
     bool keep_going = true;
     bool window = false;
+    bool skip_movies = false;  // development probes; not movie-playback validation
     fs::path levels;  // the extracted levels the window draws (level_00, ...)
 };
 
@@ -91,7 +92,7 @@ std::string program_name() {
 [[noreturn]] void usage(const std::string& why) {
     log::error("{}", why);
     log::error(
-        "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--stop-on-missing] [--level N]",
+        "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--stop-on-missing] [--level N] [--skip-movies]",
         program_name(),
         openrac_game.game
     );
@@ -141,6 +142,8 @@ Options parse(int argc, char** argv) {
             o.frames = std::stol(value());
         } else if (a == "--level") {
             openrac_game_start_level = std::stoi(value());
+        } else if (a == "--skip-movies") {
+            o.skip_movies = true;
         } else if (a == "--keep-going") {
             o.keep_going = true;
         } else if (a == "--stop-on-missing") {
@@ -399,6 +402,10 @@ void openrac_game_store_image(const openrac_game_image* image) {
  * When the video ends (or is skipped) the last picture stays up for the console's FadeToBlack(4).
  */
 int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
+    if (g_options.skip_movies) {
+        log::info("movie at sector {}: skipped by --skip-movies (development probe)", lsn);
+        return 1;  // the same result as the movie player's Start-skip path
+    }
 #if defined(OPENRAC_FRONTEND) && defined(OPENRAC_MOVIES)
     if (!g_window || openrac_game_disc_image == nullptr || bytes == 0) {
         return 0;

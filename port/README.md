@@ -67,6 +67,29 @@ decompilation is present. The other four build today but do not run yet:
 their `main` is not identified and their library tables are partly or not
 filled; [game/README.md](game/README.md) says what each needs.
 
+## Direct level probes (RAC1 PAL)
+
+For development, `OPENRAC_DIRECT=1` with `--level 0` starts a fresh game
+in Veldin once the title world has initialized. It calls NewGameInit and
+the normal level loader without menu input. Add `--skip-movies` to return
+the movie player's skipped result immediately, including for intros.
+Every skipped movie is logged. This flag is off by default.
+
+From a configured PowerShell build environment, for example:
+
+```powershell
+$env:OPENRAC_DIRECT = '1'
+$env:OPENRAC_PRESS = '100:4000:5' # acknowledge the initial no-card warning
+.\build\release\openrac-rac1-pal.exe --data <extracted-data> --window --no-card --level 0 --skip-movies --stop-on-missing
+Remove-Item Env:OPENRAC_DIRECT
+Remove-Item Env:OPENRAC_PRESS
+```
+
+Use an isolated card directory if testing saves. Direct probes exercise
+fresh-game level loading, not saved progression or menu/movie playback.
+Keep `--stop-on-missing` enabled and also run the normal New Game path
+without these shortcuts when validating startup behavior.
+
 ## Rules
 
 OpenRAC's rules hold here ([AGENTS.md](../AGENTS.md),

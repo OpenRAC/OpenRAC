@@ -900,6 +900,56 @@ changing gameplay. Keep the full New Game run as a separate regression.
 Grid claims released; earlier dirty files remain preserved. Local commit
 only, no push, no assistant co-author trailer.
 
+### Fast Veldin development launch, 2026-10-10 continuation
+
+The executable moby-grid recovery is committed as `661f313`. The owner
+requested avoiding menu navigation on each development run. Added opt-in
+`--skip-movies` to the native executable; it logs each skipped movie and
+returns the existing movie-skip result. Normal playback is unchanged.
+The existing RAC1 PAL OPENRAC_DIRECT + --level path still calls NewGameInit
+and the normal loader. No new matching code or missing-call bypass.
+
+Workspace launchers (local, outside either Git repository):
+
+- `./Run-Native.ps1 -Direct`: fresh Veldin start, skip movies, no card,
+  isolated native-test-cards path, stop-on-missing, no frame limit.
+- `./Test-Native.ps1`: same startup, uncapped, 2400-frame limit, screenshots
+  every 800 frames, log/screenshots in `.tools/native-run/direct-test*`.
+- `./Test-Native.ps1 -FullStartup`: retains the normal 5200-frame campaign
+  input sequence and movie playback. Run it for startup regressions.
+- Both fast launchers accept `-Level N`; only level 0 is verified here.
+
+Both fast launchers send Cross at frontend frame 100 for five frames to
+acknowledge the initial no-card warning. Without this input, the game
+correctly waits before the title world/direct-start hook. Earlier
+`fast-verified`/`fast-long` probes supplied input late and ended during
+transition. `fast-complete` had no input and was manually terminated at
+that warning; its frame-2000 screenshot identified the delay. These
+earlier runs are not successful level validation.
+
+Validation:
+
+- Native build and 58/58 CTest tests pass (`.tools/native-fast-probe-build.log`).
+- `Test-Native.ps1 -Name direct-verified -Frames 2400 -ShotEvery 800`
+  completes, exit 0, no missing-function/error report. Level 0 is loaded
+  by logged frame 1000; four movie skips are logged. Inspected
+  `.tools/native-run/direct-verified-1600.png`: Ratchet and Veldin render
+  with 291 mobys, 75 effect quads and a finite 111-joint pose.
+- PowerShell parser checks pass for both launchers and Invoke-NativeProbe.
+- `Run-Native.ps1 -Direct -Frames 1200` independently reaches level 0 by
+  logged frame 1000, exits successfully and restores OPENRAC_DIRECT and
+  OPENRAC_PRESS. Log: `.tools/native-run/direct-launcher.log`.
+- Normal New Game validation remains the 5200-frame `grid-verified` run
+  recorded above; movie skipping is explicitly excluded from that evidence.
+
+This validates automatic entry into the first scene, not playable movement,
+other levels, saves or cutscenes. Exact next action: run a direct probe with
+`-Press '100:4000:5,1400:0:150:128:0'`, correlate frontend input frame indices
+with the logged game frames, then trace pad socket/read state and the
+level's input/update path to explain the unchanged hero position in the
+normal movement probe. Preserve missing-function checks. Existing dirty
+work remains preserved; local commit only, no push or assistant trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
