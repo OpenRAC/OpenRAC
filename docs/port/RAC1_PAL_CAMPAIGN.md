@@ -1212,6 +1212,39 @@ No active game is left running. Release both object-query claims after
 commit. Existing tracked edits and all 18 baseline untracked files are
 preserved. No pushes, history rewrites or assistant credit trailers.
 
+### Particle type 53 recovery, 2026-10-10 continuation
+
+Starting HEAD 1c026ec. Recovered func_L00_00273090 in native-only
+hand/level_particle53.c from the full 0x240 retail body and existing
+candidate. Preserve two-phase size/alpha interpolation, RGB bytes,
+wrapping byte accumulation, signed lifetime counters, position drift,
+gravity ordering and inclusive position bounds [2,1021]. Out-of-bounds
+particles are removed before decrementing their lifetime. No matching
+source/progress changes or stub bypasses.
+
+Windows build and 64/64 CTest pass (.tools/native-particle53-build.log).
+The focused fixture also passes on i686 (.tools/particle53-test32.exe),
+covering the phase boundary, odd alpha truncation, zero/negative lifetime,
+byte wrap, unchanged fields, drift/gravity, each axis boundary and removal
+ordering. Reviewed generated guest accesses. Hostgen: 3845 translated,
+no unreadable units or reported problems. Existing dirty work preserved;
+all 18 baseline untracked files still hash-check unchanged.
+
+Strict particle53-verified attack/jump route passes the old frame-1701
+stop. At frame 1800 hero position is (176.80,129.33,28.77), pose finite.
+Stops at missing func_L00_001FF5B0 at frame 1817, exit 2. Log/screenshots:
+parent .tools/native-run/particle53-verified*. Keep the same probe inputs.
+
+Next action: recover the handwritten 0x58-byte planar speed limiter
+func_L00_001FF5B0 from retail, including the shared return-zero branch.
+It leaves output untouched for zero planar length or a requested limit
+above the current length; equality takes the scaling path and returns 1.
+Otherwise it scales x/y by limit/length and preserves z/w bits. Review
+the integer sign test on the float difference and all caller signatures
+(limit first, then output/input pointers). Validate aliases, no-write
+paths and z/w preservation, then rerun the strict 2400-frame attack route.
+Local commits only; no push or assistant credit trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
