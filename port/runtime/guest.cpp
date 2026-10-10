@@ -13,6 +13,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -190,6 +191,8 @@ openrac_host_fn openrac_guest_function(gaddr address) {
             address = target;
             e = t;
         }
+        openrac_guest_last_entry = address;
+        openrac_guest_last_fn = e->fn;
         return e->fn;
     }
     if (strict()) {
@@ -574,6 +577,62 @@ gaddr openrac_relocate_level_data(int from, gaddr address) {
     }
     std::scoped_lock hold(g_relocate_lock);
     return relocate_by(level_pair_map(from, overlay), address);
+}
+
+gaddr openrac_guest_last_entry = 0;
+openrac_host_fn openrac_guest_last_fn = nullptr;
+
+gaddr openrac_code_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target) {
+    const int overlay = current_overlay();
+    const gaddr fallback = openrac_relocate_level_code(from, target);
+    if (self == 0 || (self == canon && overlay == from)) {
+        return fallback;
+    }
+    static std::map<std::tuple<int, int, gaddr, gaddr, gaddr>, gaddr> found;
+    std::scoped_lock hold(g_relocate_lock);
+    const auto key = std::make_tuple(from, overlay, canon, self, target);
+    if (auto it = found.find(key); it != found.end()) {
+        return it->second;
+    }
+    // Where the copy at canon forms target: a lui and the addiu or ori that completes it.
+    const auto canon_word = [&](gaddr at) -> std::uint32_t {
+        if (overlay == from) {
+            std::uint32_t w;
+            std::memcpy(&w, G(at), 4);
+            return w;
+        }
+        return level_reader(from, at);
+    };
+    const auto self_word = [&](gaddr at) {
+        std::uint32_t w;
+        std::memcpy(&w, G(at), 4);
+        return w;
+    };
+    const auto formed = [](std::uint32_t hi, std::uint32_t lo) -> gaddr {
+        const std::uint32_t upper = (hi & 0xFFFFu) << 16;
+        const std::uint32_t imm = lo & 0xFFFFu;
+        return (lo >> 26) == 0x0D ? (upper | imm) : upper + static_cast<std::uint32_t>(static_cast<std::int16_t>(imm));
+    };
+    gaddr result = fallback;
+    std::uint32_t hi_at[32] = {};
+    bool hi_set[32] = {};
+    for (std::uint32_t i = 0; i * 4 < size; ++i) {
+        const std::uint32_t w = canon_word(canon + i * 4);
+        const std::uint32_t op = w >> 26, rs = (w >> 21) & 31, rt = (w >> 16) & 31;
+        if (op == 0x0F) {
+            hi_at[rt] = i;
+            hi_set[rt] = true;
+        } else if ((op == 0x09 || op == 0x0D) && hi_set[rs]
+                   && formed(canon_word(canon + hi_at[rs] * 4), w) == target) {
+            const std::uint32_t hi = self_word(self + hi_at[rs] * 4), lo = self_word(self + i * 4);
+            if ((hi >> 26) == 0x0F && (lo >> 26) == op) {
+                result = formed(hi, lo);
+            }
+            break;
+        }
+    }
+    found.emplace(key, result);
+    return result;
 }
 
 gaddr openrac_relocate_level_code(int from, gaddr address) {

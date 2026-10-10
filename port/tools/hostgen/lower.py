@@ -582,6 +582,8 @@ class Unit:
             prologue.insert(0, f"    static gaddr {var};")
             init = self._static_init(d, var)
             prologue.append(f"    if ({var} == 0) {{ {var} = openrac_guest_static(sizeof({self.host(self.ty(d))})); {init}}}")
+        if getattr(fn, "uses_self", False):
+            prologue.insert(0, f"    const gaddr openrac_self_ = openrac_guest_entry((openrac_host_fn){cname(fn.name)});")
         text = "{\n" + "\n".join(prologue + lines[1:])
         return ("\n".join(frame_decl) + "\n" if frame_decl else ""), text
 
@@ -1025,6 +1027,13 @@ class Unit:
             if getattr(self.program, "relocate", None) and self.fn is not None                     and not self.fn.name.startswith("func_L") and places[0][0] < 0:
                 return f"OPENRAC_CODE({hexaddr(places[0][1])})"
             level = self._shared_level()
+            copy = self._copy_places()
+            if copy is not None and places[0][0] >= 0:
+                # One C for copies at several places: the address this copy forms (guest.h).
+                home, canon, size = copy
+                own = next((a for o, a in places if o == home), places[0][1])
+                self.fn.uses_self = True
+                return f"openrac_code_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {hexaddr(own)})"
             if level is not None and places[0][0] >= 0:
                 own = next((a for o, a in places if o == level), places[0][1])
                 return f"OPENRAC_LCODE({level}, {hexaddr(own)})"
@@ -1260,6 +1269,22 @@ class Unit:
             level = int(m.group(1))
         fn.shared_level = level
         return level
+
+    def _copy_places(self) -> tuple[int, int, int] | None:
+        """For a level function at more than one place (folded copies in one program, or copies
+        in several levels' programs): the program it is written for, its place there and its
+        size; else None."""
+        fn = self.fn
+        if fn is None or not getattr(self.program, "relocate", None) or not fn.name.startswith("func_L"):
+            return None
+        places = [(o, a) for o, a in self.program.code_places(fn.name) if o >= 0]
+        if len(places) < 2:
+            return None
+        level = self._shared_level()
+        home = level if level is not None else places[0][0]
+        canon = next((a for o, a in places if o == home), places[0][1])
+        size = getattr(self.program, "sizes", {}).get(fn.name) or 0x400
+        return home, canon, size
 
     def _relocated(self, address: int) -> bool:
         """An executable function's global in the range that level programs move (hostgen.json

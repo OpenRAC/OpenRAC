@@ -195,6 +195,21 @@ gaddr openrac_relocate_level_code(int from, gaddr address);
 #define OPENRAC_LDATA(from, a) openrac_relocate_level_data((from), (a))
 #define OPENRAC_LCODE(from, a) openrac_relocate_level_code((from), (a))
 
+/* One C function for copies of the same code at several places, each copy taking the address of
+ * its own neighbour (rac1: a moby's update, the same code in each class, passing that class's
+ * draw callback). The function asks at entry which place it was called at (openrac_guest_entry:
+ * the place of the last call through a code address, when that call came to it; 0 otherwise), and
+ * a code address it takes is read from that copy's own instructions: openrac_code_in_copy finds
+ * where the copy at `canon` (in level `from`'s program, `size` bytes) forms `target`, and reads
+ * the same instructions at `self`. Without a place, or one that does not form it, it is
+ * OPENRAC_LCODE's. */
+extern gaddr openrac_guest_last_entry;
+extern openrac_host_fn openrac_guest_last_fn;
+static inline gaddr openrac_guest_entry(openrac_host_fn self) {
+    return openrac_guest_last_fn == self ? openrac_guest_last_entry : 0;
+}
+gaddr openrac_code_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target);
+
 /* The EE FPU's divide, for the game's float `/`: no infinities or NaNs. A divisor of zero (or a
  * denormal, which the EE reads as zero) gives +-FLT_MAX with the operands' signs XORed, and a
  * quotient too large saturates the same way, where the host would give infinity (and NaN from
