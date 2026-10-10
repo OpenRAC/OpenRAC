@@ -660,6 +660,44 @@ untracked files match the retained stash byte-for-byte. Earlier tracked
 edits and excluded credit preferences remain uncommitted. This fix is
 committed locally without a push or assistant co-author trailer.
 
+### Particle update dispatch, 2026-10-10 continuation
+
+Lighting is committed as `01e10e9`. Reproduced `func_00218A80`, then
+implemented its full handwritten PAL 00218A80..00218B08 loop in native C.
+The 64-byte particle stride, signed active/type bytes, inclusive high
+index, initial pool/end snapshot and callback-driven saved cursor/end
+reloads follow retail. Inactive entries do not alter the saved cursor.
+Callback entries retain normal missing-call traps. All 74 implemented
+registered callbacks take one guest pointer; seven registrations still
+resolve to missing/alias entries. No matching PS2 claim or source change.
+
+- Windows build and 53/53 CTest tests pass:
+  `.tools/native-particle-build.log` in the parent workspace.
+- Independent 64-bit and 32-bit fixtures pass. Covers empty/single pools,
+  signed inactive filtering, callback selection, payload changes, cursor
+  redirection, end extension/truncation, pool/high snapshot behavior and
+  mutation of pending entries. The 32-bit fixture needed a standard
+  asInvoker manifest because Windows' installer detection requested
+  elevation; it then ran without elevation and exited 0. Local artifact:
+  `.tools/particle-dispatch-test32.exe`.
+- Hostgen: 378 readable units, 3,827 translated functions, 206 candidates,
+  3 stubs, 1,138 without C; no unreadable units or index problems. Reviewed
+  generated 32-bit pointer globals, callback dispatch and data relocation.
+- Same strict New Game probe and input sequence: `particle-before`
+  stops at dispatch, frame 2827, exit 2; `particle-verified` passes it and
+  stops at `func_001FA1C0`, frame 2827, exit 2. Logs in
+  `.tools/native-run/`; no frame-3000 screenshot or playable-gameplay claim.
+
+Exact next action: implement the complete 0x38-byte VU matrix constructor
+`func_001FA1C0` from `asm/nonmatchings/text/func_001FA1C0.s`: clear all
+16 elements, set the three spatial diagonal entries from f12 and set the
+homogeneous diagonal to 1. Test complete writes and bounds, then repeat
+the strict probe. Source is still INCLUDE_ASM in game/fastfunc.c.
+
+The particle claim is released. All 18 earlier untracked files still
+match the retained stash. Only this implementation, fixture, registration
+and handoff are committed locally; no push or assistant credit trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,

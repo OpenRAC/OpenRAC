@@ -118,6 +118,10 @@ target_compile_options(moby_lighting_test PRIVATE -fno-strict-aliasing -ffp-cont
 openrac_warnings(moby_lighting_test)
 add_test(NAME moby_lighting COMMAND moby_lighting_test)
 
+add_executable(particle_update_test tests/particle_update_test.c)
+openrac_warnings(particle_update_test)
+add_test(NAME particle_update COMMAND particle_update_test)
+
 if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()
