@@ -78,3 +78,4 @@ func_L00_00215A90	level_hero_lean.c
 func_L00_002293E8	level_hero_gait.c
 func_L00_00214520	level_hero_heading.c
 func_L00_0020D3A0	level_hero_contact.c
+func_L00_002147C0	level_hero_vertical.c

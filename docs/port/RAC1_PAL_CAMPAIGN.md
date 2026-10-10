@@ -1130,6 +1130,48 @@ the component along the movement frame's up axis; 002343A0 sets it.
 The routine is claimed by codex-contact during ongoing implementation.
 Existing dirty work preserved; local commits only, no push or credit trailer.
 
+### Vertical movement and first complete jump, 2026-10-10 continuation
+
+Surface lookup is committed as 14c8eac. Recovered func_L00_002147C0 from
+the full 0x5A0 retail body and existing candidate. Correct interpretation:
+hero jump impulse, timed vertical acceleration, hover lift and gravity,
+not camera easing. Keep original helper calls and their order, timer
+gates, sequence sentinel, impulse accumulation and downward speed clamps.
+Use resident hero/global symbols and a pointer-typed sequence table.
+Native-only implementation; no matching source/progress changes.
+
+Final Windows build and 63/63 CTest pass without compiler warnings:
+.tools/native-hero-vertical-final-build.log. Focused fixture also passes
+on i686, covering ramp activation/timeout, accumulated impulse, sequence
+phase/duration/sentinel, hover thresholds/classification, gravity clamps
+and an alternate up axis. Generated sequence offsets are 0x14/18/1C/20,
+step stride 12 and folded timing-call ordinals 0..4 are preserved.
+Hostgen: 3842 translated, no unreadable units or reported problems.
+
+All probes retain strict missing-function checks and skip movies:
+- vertical-jump: neutral stick, Cross at 1100, 1700 frames, exit 0.
+- vertical-walk-jump: forward at 1200 for 150 frames, Cross at 1500,
+  2200 frames, exit 0. Hero ends at (147.25,120.68,29.48).
+- vertical-airborne: Cross at 1080, 1400 frames, exit 0. Height changes
+  from 31.43 at 1000 to 32.75 at 1100, then returns to 31.43 by 1200.
+  Reviewed the 1100 screenshot: visibly airborne, finite posed joints.
+  This establishes one complete native jump and landing in Veldin.
+- vertical-explore: forward for 700 frames from 1200, Square at 1450,
+  Cross at 1600/1620. Stops at func_L00_00211A18 at 1450, exit 2.
+  Attack and double jump are not yet validated by this probe.
+Logs/screenshots are in parent .tools/native-run/.
+
+Exact next action: recover func_L00_00211A18, a 24-byte object-type
+predicate checking signed short +0xA6 against 0x47. Verify its null
+branch to func_001E97C8 before implementation, then repeat:
+Test-Native.ps1 -Name attack-verified -Frames 2400 -ShotEvery 200
+-Press '0:0:1200:128:128,100:4000:5,1200:0:700:128:0,1450:8000:5,1600:4000:5,1620:4000:5'
+No candidate exists in nonmatching/shared for this small function.
+The contact projection dependency func_L00_0025EFC0 remains unimplemented
+and was not reached. Other levels, saves, full combat and campaign remain
+unverified. All 18 baseline untracked files hash-check unchanged; tracked
+dirty work preserved. Local commits only, no push or assistant trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
