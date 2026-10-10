@@ -47,6 +47,13 @@ float as_float(std::uint32_t bits) {
     return std::bit_cast<float>(bits);
 }
 
+// TEST for the draw dumps: alpha test, its fail mode, destination alpha test, depth test.
+std::string test_text(const gs::Test& t) {
+    return std::format("a{}{}/{:02x}/f{} d{}{} z{}{}", t.ate ? 1 : 0, static_cast<int>(t.atst), t.aref,
+                       static_cast<int>(t.afail), t.date ? 1 : 0, t.datm ? 1 : 0, t.zte ? 1 : 0,
+                       static_cast<int>(t.ztst));
+}
+
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -645,11 +652,11 @@ void GifInterpreter::kick(bool draw) {
     if (g_dump_draws && m_prim.kind != gs::PrimKind::Sprite) {
         const gs::Alpha& al = context().alpha;
         log::info(
-            "prim {} ({},{}) uv ({},{}) stq ({},{},{}) fst {} rgba {:02x}{:02x}{:02x}{:02x} tme {} psm {:#x} cbp {:#x} tbw {} tbp {:#x} tw {} th {} abe {} alpha {}{}{}{} fbp {:#x}",
+            "prim {} ({},{}) uv ({},{}) stq ({},{},{}) fst {} rgba {:02x}{:02x}{:02x}{:02x} tme {} psm {:#x} cbp {:#x} tbw {} tbp {:#x} tw {} th {} abe {} alpha {}{}{}{} fbp {:#x} fbmsk {:#x} test {}",
             static_cast<int>(m_prim.kind), m_current.x / 16.0, m_current.y / 16.0, m_current.u / 16.0, m_current.v / 16.0, m_current.s, m_current.t, m_current.q, attributes().fst, m_current.rgba[0],
             m_current.rgba[1], m_current.rgba[2], m_current.rgba[3], attributes().tme,
             context().tex0.psm, context().tex0.cbp, context().tex0.tbw, context().tex0.tbp0, context().tex0.width(), context().tex0.height(), attributes().abe,
-            al.a, al.b, al.c, al.d, context().frame.fbp
+            al.a, al.b, al.c, al.d, context().frame.fbp, context().frame.fbmsk, test_text(context().test)
         );
     }
     switch (m_prim.kind) {
@@ -933,10 +940,10 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
         const gs::Alpha& al = context().alpha;
         const gs::Scissor& sc = context().scissor;
         log::info(
-            "sprite ({},{})-({},{}) rgba {:02x}{:02x}{:02x}{:02x} tme {} psm {:#x} cbp {:#x} tbw {} tbp {:#x} abe {} alpha {}{}{}{} fix {:#x} scissor {}-{}x{}-{} fbp {:#x} test {:#x}",
+            "sprite ({},{})-({},{}) rgba {:02x}{:02x}{:02x}{:02x} tme {} psm {:#x} cbp {:#x} tbw {} tbp {:#x} abe {} alpha {}{}{}{} fix {:#x} scissor {}-{}x{}-{} fbp {:#x} fbmsk {:#x} test {}",
             a.x / 16.0, a.y / 16.0, b.x / 16.0, b.y / 16.0, b.rgba[0], b.rgba[1], b.rgba[2], b.rgba[3],
             attributes().tme, context().tex0.psm, context().tex0.cbp, context().tex0.tbw, context().tex0.tbp0, attributes().abe, al.a, al.b, al.c, al.d, al.fix,
-            sc.x0, sc.x1, sc.y0, sc.y1, context().frame.fbp, 0
+            sc.x0, sc.x1, sc.y0, sc.y1, context().frame.fbp, context().frame.fbmsk, test_text(context().test)
         );
     }
     // An untextured sprite as tall as a whole-frame scissor fills the frame (a clear, in strips, or a
@@ -951,7 +958,9 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
     const bool standard = al.a == 0 && al.b == 1 && al.d == 1;  // (Cs - Cd) * C + Cd
     const bool replaces = !attributes().abe
                           || (standard && ((al.c == 0 && b.rgba[3] >= 0x80) || (al.c == 2 && al.fix >= 0x80)));
-    if (!attributes().tme && replaces) {
+    // (Only in the frame: an off-screen panel's clear is drawn, however tall the panel. The
+    // Load Game page's slot list is 512 lines: its clear left old highlight frames in place.)
+    if (!attributes().tme && replaces && offscreen_target() == 0) {
         const gs::Scissor& sc = context().scissor;
         const std::int64_t scissor_height = static_cast<std::int64_t>(sc.y1) - static_cast<std::int64_t>(sc.y0);
         const std::int64_t height = std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16;

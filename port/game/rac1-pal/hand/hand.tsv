@@ -59,3 +59,4 @@ func_L00_00267290	level_stream_request.c
 func_L00_00232EF0	level_hero_animation.c
 func_L00_00205FF0	level_hero_effects.c
 func_L00_0020F118	level_hero_items.c
+func_001FA648	game_fastfunc.c
