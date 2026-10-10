@@ -11,6 +11,7 @@
 #include "game_protos.h"
 #include "openrac/game_host.h"
 
+#include <math.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -156,8 +157,52 @@ void func_00212578(int a0, int a1) {
     (void)a1;
 }
 
+/*
+ * What MobyProc decides for each moby of the list before drawing it, which the game reads back:
+ * +0x31, drawn this frame (the moby loop keeps a drawn moby active; vehicles, enemies and effects
+ * test it). Its culls, as ReRAC's moby_lod.rs replays them: the bounding sphere (+0x00, x y z r in
+ * units of 1/1024) beyond the draw distance (+0x32, s16 units), wholly in front of the near plane,
+ * or wholly outside a side plane of the view; a hidden moby (mode bit 0) is not drawn.
+ */
+static void mark_drawn_mobys(gaddr first, int count) {
+    float cam[3], rows[12];
+    memcpy(cam, G(OPENRAC_DATA(0x00187180u)), sizeof(cam));
+    memcpy(rows, G(OPENRAC_DATA(0x00187390u)), sizeof(rows));
+    float tx, ty;
+    memcpy(&tx, G(OPENRAC_DATA(0x0018CE00u) + 0xB0), 4);
+    memcpy(&ty, G(OPENRAC_DATA(0x0018CE00u) + 0xB4), 4);
+    if (!(tx > 0.05f && tx < 10.0f)) {
+        tx = 0.63f;
+    }
+    if (!(ty > 0.05f && ty < 10.0f)) {
+        ty = tx * 0.756f;
+    }
+    const float kx = sqrtf(1.0f + tx * tx), ky = sqrtf(1.0f + ty * ty);
+    gaddr end = count < 0 ? GREF(gaddr, OPENRAC_DATA(0x00160020u)) : first + (gaddr)count * 0x100u;
+    if (end < first || end - first > 0x100u * 4096u) {
+        return;
+    }
+    for (gaddr m = first; m < end; m += 0x100) {
+        uint8_t* b = G(m);
+        float sphere[4];
+        memcpy(sphere, b, sizeof(sphere));
+        const float r = sphere[3] / 1024.0f;
+        const float d[3] = {sphere[0] / 1024.0f - cam[0], sphere[1] / 1024.0f - cam[1], sphere[2] / 1024.0f - cam[2]};
+        const float z = d[0] * rows[0] + d[1] * rows[1] + d[2] * rows[2];
+        const float x = d[0] * rows[4] + d[1] * rows[5] + d[2] * rows[6];
+        const float y = d[0] * rows[8] + d[1] * rows[9] + d[2] * rows[10];
+        const int distance = *(int16_t*)(b + 0x32);
+        const uint16_t mode = *(uint16_t*)(b + 0x34);
+        int drawn = (mode & 1) == 0 && b[0x20] != 0xFF;
+        drawn = drawn && z <= (float)distance && z + r > 32.0f / 1024.0f;
+        drawn = drawn && fabsf(x) - r * kx <= tx * z && fabsf(y) - r * ky <= ty * z;
+        b[0x31] = (uint8_t)(drawn ? 1 : 0);
+    }
+}
+
 /* the moby renderer */
 int func_00212658(int a0, int a1, int a2, int a3) {
+    mark_drawn_mobys((gaddr)a0, a2);
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
     openrac_game_mobys_drawn((gaddr)a0, a2);
     (void)a0;

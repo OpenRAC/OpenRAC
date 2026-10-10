@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <format>
 #include <map>
 #include <mutex>
 #include <string>
@@ -243,6 +244,45 @@ gaddr openrac_guest_nearest(const uint32_t* places, int count, gaddr caller) {
     return best != 0 ? best : fallback;
 }
 
+gaddr openrac_folded_call(const uint32_t* places, int count, gaddr caller, uint32_t size, int k) {
+    const int overlay = g_overlay_source != nullptr ? g_overlay_source() : g_overlay;
+    if (size == 0 || caller == 0 || caller + size > 0x02000000u) {
+        return openrac_guest_nearest(places, count, caller);
+    }
+    static std::mutex lock;
+    // The places come in a compound literal (automatic storage): keyed by content, not address.
+    static std::map<std::tuple<int, gaddr, std::uint32_t, int, int>, gaddr> found;
+    std::scoped_lock hold(lock);
+    const auto key = std::make_tuple(overlay, caller, places[0], count, k);
+    if (auto it = found.find(key); it != found.end()) {
+        return it->second;
+    }
+    gaddr result = 0;
+    int seen = 0;
+    for (std::uint32_t i = 0; i * 4 < size && result == 0; ++i) {
+        std::uint32_t w;
+        std::memcpy(&w, G(caller + i * 4), 4);
+        if ((w >> 26) != 3) {
+            continue;
+        }
+        const gaddr target = (caller & 0xF0000000u) | ((w & 0x03FFFFFFu) << 2);
+        for (int p = 0; p < count; ++p) {
+            const int o = static_cast<int>(places[p] >> 24) - 1;
+            if ((places[p] & 0x00FFFFFFu) == target && (o == overlay || o == OPENRAC_OVERLAY_EXE)) {
+                if (seen++ == k) {
+                    result = target;
+                }
+                break;
+            }
+        }
+    }
+    if (result == 0) {
+        result = openrac_guest_nearest(places, count, caller);
+    }
+    found.emplace(key, result);
+    return result;
+}
+
 const char* openrac_guest_function_name(gaddr address) {
     const Entry* e = find(address);
     return e == nullptr ? nullptr : e->name;
@@ -294,6 +334,7 @@ namespace {
 struct LevelMap {
     std::vector<std::pair<gaddr, std::int32_t>> data;  // executable address, delta; sorted
     std::unordered_map<gaddr, gaddr> code;              // executable function -> level copy
+    std::unordered_map<gaddr, gaddr> searched;          // found by search_pair (0: none)
 };
 
 gaddr g_relocate_gp = 0;
@@ -573,6 +614,95 @@ gaddr relocate_by(const LevelMap& map, gaddr address) {
     return address + static_cast<gaddr>(it->second);
 }
 
+// An instruction with its address fields cleared (the immediates of lui, addiu, ori, the loads and
+// stores; the targets of j and jal), for comparing the same code in two programs.
+std::uint32_t without_addresses(std::uint32_t w) {
+    const std::uint32_t op = w >> 26;
+    if (op == 0x0F || op == 0x09 || op == 0x0D || op == 0x19 || (op >= 0x20 && op <= 0x2F) || op == 0x31
+        || op == 0x39 || op == 0x37 || op == 0x3F || op == 0x1E || op == 0x1F) {
+        return w & 0xFFFF0000u;
+    }
+    if (op == 0x02 || op == 0x03) {
+        return w & 0xFC000000u;
+    }
+    return w;
+}
+
+// An executable address no paired function reaches (code the catalogue does not list in the level,
+// such as the hand-written routines): the executable code that forms it (a lui and the instruction
+// completing it), found again in the loaded level's program by its instructions, and paired there.
+// 0 when that fails.
+gaddr search_pair(gaddr address, int overlay) {
+    const auto& chunks = level_program(overlay);
+    const std::size_t words = g_exe_code.size() / 4;
+    if (chunks.empty() || words == 0) {
+        return 0;
+    }
+    const auto exe_at = [](std::size_t i) {
+        std::uint32_t w;
+        std::memcpy(&w, g_exe_code.data() + i * 4, 4);
+        return w;
+    };
+    constexpr std::size_t kBefore = 6, kLength = 24;
+    for (std::size_t i = 0; i < words; ++i) {
+        const std::uint32_t w = exe_at(i);
+        if ((w >> 26) != 0x0F) {
+            continue;
+        }
+        const std::uint32_t rt = (w >> 16) & 31;
+        const std::uint32_t hi = (w & 0xFFFF) << 16;
+        bool forms = false;
+        for (std::size_t j = i + 1; j < std::min(words, i + 12) && !forms; ++j) {
+            const std::uint32_t u = exe_at(j);
+            const std::uint32_t op = u >> 26;
+            const bool use = op == 0x09 || op == 0x0D || (op >= 0x20 && op <= 0x2F) || op == 0x31 || op == 0x39
+                             || op == 0x37 || op == 0x3F || op == 0x1E || op == 0x1F;
+            if (use && ((u >> 21) & 31) == rt) {
+                const gaddr a = op == 0x0D ? (hi | (u & 0xFFFF)) : hi + static_cast<std::uint32_t>(static_cast<std::int16_t>(u & 0xFFFF));
+                forms = a == address;
+            }
+        }
+        if (!forms) {
+            continue;
+        }
+        const std::size_t start = i >= kBefore ? i - kBefore : 0;
+        const std::size_t length = std::min(kLength, words - start);
+        std::uint32_t pattern[kLength];
+        for (std::size_t k = 0; k < length; ++k) {
+            pattern[k] = without_addresses(exe_at(start + k));
+        }
+        gaddr found = 0;
+        int matches = 0;
+        for (const Chunk& c : chunks) {
+            const std::size_t n = c.bytes.size() / 4;
+            for (std::size_t p = 0; p + length <= n && matches < 2; ++p) {
+                std::size_t k = 0;
+                for (; k < length; ++k) {
+                    std::uint32_t lw;
+                    std::memcpy(&lw, c.bytes.data() + (p + k) * 4, 4);
+                    if (without_addresses(lw) != pattern[k]) {
+                        break;
+                    }
+                }
+                if (k == length) {
+                    found = c.base + static_cast<gaddr>(p * 4);
+                    ++matches;
+                }
+            }
+        }
+        if (matches != 1) {
+            continue;
+        }
+        std::map<gaddr, std::int32_t> pairs;
+        pair_code(exe_reader, 0, g_exe_base + static_cast<gaddr>(start * 4), found, static_cast<std::uint32_t>(length * 4),
+                  openrac_relocate_low, openrac_relocate_high, pairs);
+        if (auto it = pairs.find(address); it != pairs.end()) {
+            return address + static_cast<gaddr>(it->second);
+        }
+    }
+    return 0;
+}
+
 }  // namespace
 
 extern "C" {
@@ -598,13 +728,20 @@ gaddr openrac_relocate_data(gaddr address) {
     // A global's own address is what the code names (offsets are added after): exact pairs first;
     // otherwise the nearest pair below it, if close (inside the same object).
     auto it = std::upper_bound(map.data.begin(), map.data.end(), std::make_pair(address, INT32_MAX));
-    if (it == map.data.begin()) {
-        return address;
+    if (it == map.data.begin() || address - std::prev(it)->first > 0x100) {
+        LevelMap& found = level_map(overlay);
+        auto s = found.searched.find(address);
+        if (s == found.searched.end()) {
+            s = found.searched.emplace(address, search_pair(address, overlay)).first;
+            static const bool trace = std::getenv("OPENRAC_TRACE_RELOCATION") != nullptr;
+            if (trace) {
+                warn("executable address {:#x} has no paired address within 0x100 below it in level {}; {}",
+                     address, overlay, s->second != 0 ? std::format("found by its code at {:#x}", s->second) : "kept");
+            }
+        }
+        return s->second != 0 ? s->second : address;
     }
     --it;
-    if (address - it->first > 0x100) {
-        return address;
-    }
     return address + static_cast<gaddr>(it->second);
 }
 
@@ -684,6 +821,45 @@ gaddr openrac_code_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gad
             const std::uint32_t hi = self_word(self + hi_at[rs] * 4), lo = self_word(self + i * 4);
             if ((hi >> 26) == 0x0F && (lo >> 26) == op) {
                 result = formed(hi, lo);
+            }
+            break;
+        }
+    }
+    found.emplace(key, result);
+    return result;
+}
+
+gaddr openrac_call_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target) {
+    const int overlay = current_overlay();
+    const gaddr fallback = from < 0 ? OPENRAC_CODE(target) : openrac_relocate_level_code(from, target);
+    if (self == 0 || self == canon) {
+        return fallback;
+    }
+    static std::map<std::tuple<int, int, gaddr, gaddr, gaddr>, gaddr> found;
+    std::scoped_lock hold(g_relocate_lock);
+    const auto key = std::make_tuple(from, overlay, canon, self, target);
+    if (auto it = found.find(key); it != found.end()) {
+        return it->second;
+    }
+    const auto canon_word = [&](gaddr at) -> std::uint32_t {
+        if (from < 0) {
+            return exe_word(at);
+        }
+        if (overlay == from) {
+            std::uint32_t w;
+            std::memcpy(&w, G(at), 4);
+            return w;
+        }
+        return level_reader(from, at);
+    };
+    gaddr result = fallback;
+    for (std::uint32_t i = 0; i * 4 < size; ++i) {
+        const std::uint32_t w = canon_word(canon + i * 4);
+        if ((w >> 26) == 3 && ((w & 0x03FFFFFFu) << 2) == (target & 0x0FFFFFFFu)) {
+            std::uint32_t mine;
+            std::memcpy(&mine, G(self + i * 4), 4);
+            if ((mine >> 26) == 3) {
+                result = (self & 0xF0000000u) | ((mine & 0x03FFFFFFu) << 2);
             }
             break;
         }

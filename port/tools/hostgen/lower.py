@@ -1342,15 +1342,34 @@ class Unit:
             if target.get("kind") == "DeclRefExpr" and target["referencedDecl"].get("kind") == "FunctionDecl":
                 sym = self._callee_symbol(target)
                 places = self._folded_places(sym)
-                if not places:
+                copy = self._small_folded()
+                callee_places = self.program.code_places(sym) if copy is not None and not places else []
+                if not places and callee_places:
+                    # Inside a small function the catalogue folded (copies that differ in what they
+                    # call): the function this copy's own call at that place calls (guest.h).
+                    home, canon, size = copy
+                    own = next((a for o, a in callee_places if o == home), callee_places[0][1])
+                    self.fn.report.calls.add(sym)
+                    self.fn.uses_self = True
+                    fp = f"openrac_call_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {hexaddr(own)})"
+                elif not places:
                     return self.direct_call(sym, args, result_t)
-                # A name the catalogue folded: each place is its own function (guest.h,
-                # openrac_guest_nearest); the call goes through the place nearest this function,
-                # with the call site's own type.
-                self.fn.report.calls.add(sym)
-                literal = ", ".join(f"0x{(o + 1) << 24 | a:08X}u" for o, a in places)
-                fp = (f"openrac_guest_nearest((const uint32_t[]){{{literal}}}, {len(places)}, "
-                      f"{self._own_address()})")
+                else:
+                    # A name the catalogue folded: each place is its own function (guest.h,
+                    # openrac_guest_nearest); the call goes through the place nearest this function,
+                    # with the call site's own type.
+                    # The k-th call to it here is taken to be this function's k-th call to any of
+                    # its places (openrac_folded_call), the nearest place when that fails.
+                    self.fn.report.calls.add(sym)
+                    literal = ", ".join(f"0x{(o + 1) << 24 | a:08X}u" for o, a in places)
+                    calls = getattr(self.fn, "folded_calls", None)
+                    if calls is None:
+                        calls = self.fn.folded_calls = {}
+                    k = calls.get(sym, 0)
+                    calls[sym] = k + 1
+                    own_size = getattr(self.program, "sizes", {}).get(self.fn.name) or 0
+                    fp = (f"openrac_folded_call((const uint32_t[]){{{literal}}}, {len(places)}, "
+                          f"{self._own_address()}, {own_size}u, {k})")
             else:
                 fp = self.function_value(target)
         else:
@@ -1365,15 +1384,32 @@ class Unit:
         values = [self.rv(a) for a in args]
         return f"GFN({ctype.fn_pointer(hostft)}, {fp})({', '.join(values)})"
 
+    def _small_folded(self) -> tuple[int, int, int] | None:
+        """For a small function (at most 64 bytes: a wrapper of a call or two) the catalogue folded
+        (two or more places in one program, whose calls may go to different functions): the
+        program of its first place, that place and its size; else None."""
+        fn = self.fn
+        if fn is None or not getattr(self.program, "relocate", None):
+            return None
+        size = getattr(self.program, "sizes", {}).get(fn.name)
+        if not size or size > 64:
+            return None
+        places = self.program.code_places(fn.name)
+        overlays = [o for o, _ in places]
+        if len(overlays) == len(set(overlays)):
+            return None
+        home = places[0][0]
+        return home, places[0][1], size
+
     def _folded_places(self, sym: str) -> list[tuple[int, int]]:
-        """The places of a wrapper the catalogue folded, or []: a 28-byte function (frame, one
-        call, return) at two or more addresses of one program, each calling something else.
-        Folded copies of a whole function are the same code and need nothing."""
+        """The places of a wrapper the catalogue folded, or []: a function of at most 64 bytes (a
+        frame and a call or two) at two or more addresses of one program, each calling something
+        else. Folded copies of a whole function are the same code and need nothing."""
         cache = getattr(self.program, "folded_cache", None)
         if cache is None:
             cache = self.program.folded_cache = {}
         if sym not in cache:
-            wrapper = getattr(self.program, "sizes", {}).get(sym) == 28
+            wrapper = 0 < (getattr(self.program, "sizes", {}).get(sym) or 0) <= 64
             places = self.program.code_places(sym) if wrapper and getattr(self.program, "relocate", None) else []
             overlays = [o for o, _ in places]
             cache[sym] = places if len(overlays) != len(set(overlays)) else []

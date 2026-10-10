@@ -181,6 +181,10 @@ static inline gaddr OPENRAC_CODE(gaddr a) {
  * program), the loaded program's place nearest `caller`; places are (overlay + 1) << 24 |
  * address. A call through that place goes where its code calls (openrac_guest_function). */
 gaddr openrac_guest_nearest(const uint32_t* places, int count, gaddr caller);
+/* The place of a folded function a call goes to: the k-th call in the caller's code (at `caller`,
+ * `size` bytes, in the program loaded) to any of `places`; openrac_guest_nearest's when the caller's
+ * code has no such call (or its size is not known). */
+gaddr openrac_folded_call(const uint32_t* places, int count, gaddr caller, uint32_t size, int k);
 
 /* Level to level: a function several levels' programs carry is written with the addresses of the
  * level its name gives (rac1: func_L05_... has level 5's). OPENRAC_LDATA and OPENRAC_LCODE give
@@ -209,6 +213,10 @@ static inline gaddr openrac_guest_entry(openrac_host_fn self) {
     return openrac_guest_last_fn == self ? openrac_guest_last_entry : 0;
 }
 gaddr openrac_code_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target);
+/* The same for a call: the function the copy at `self` calls where the copy at `canon` calls
+ * `target` (a small wrapper the catalogue folded, whose copies call different functions); `from`
+ * -1 is the executable. Without a place, `target` (OPENRAC_CODE's or OPENRAC_LCODE's). */
+gaddr openrac_call_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target);
 
 /* The EE FPU's divide, for the game's float `/`: no infinities or NaNs. A divisor of zero (or a
  * denormal, which the EE reads as zero) gives +-FLT_MAX with the operands' signs XORed, and a

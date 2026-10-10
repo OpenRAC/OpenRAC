@@ -1136,7 +1136,12 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     if (const char* shot = std::getenv("OPENRAC_SHOT")) {
         const char* colon = std::strchr(shot, ':');
         const std::uint64_t every = static_cast<std::uint64_t>(std::atoll(shot));
-        if (colon && every > 0 && input.frame % every == 0) {
+        // OPENRAC_SHOT_FROM=FRAME: no shots before that frame.
+        static const std::uint64_t shot_from = [] {
+            const char* v = std::getenv("OPENRAC_SHOT_FROM");
+            return v != nullptr ? std::strtoull(v, nullptr, 10) : 0ull;
+        }();
+        if (colon && every > 0 && input.frame % every == 0 && input.frame >= shot_from) {
             const std::string path = std::string(colon + 1) + std::to_string(input.frame) + ".png";
             viewer::write_png(path, width, height, g->frame.read_rgba());
             log::info("frame {} written to {}", input.frame, path);
