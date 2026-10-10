@@ -74,3 +74,4 @@ func_00205270	game_resource_bank.c
 func_0020E990	game_moby_grid.c
 func_0020E9F0	game_moby_grid.c
 func_0020EA70	game_moby_grid.c
+func_L00_00215A90	level_hero_lean.c

@@ -985,6 +985,38 @@ retail branches and four distinct joint-modifier setter destinations.
 It is claimed by codex-pad-routing while implementation continues.
 Existing dirty work preserved. No pushes or assistant credit trailers.
 
+### Hero lean recovery, 2026-10-10 continuation
+
+Controller routing is committed as `bdbeac1`. Recovered procedural hero
+lean func_L00_00215A90 in native-only hand/level_hero_lean.c. Reviewed
+all 0x824 retail bytes against the existing nonmatching candidate and
+corrected its nonlinear gain (1.25 rather than 2), fallback selection
+(+0x208C equal to 2 or 4, not primary state 4), and the one-ULP error in
+the 25-degree clamp. Preserve all 12 call ordinals so hostgen resolves
+the four distinct modifier setters from the retail call sites.
+
+Validation: Windows build and 59/59 CTest pass
+(`.tools/native-hero-lean-final-build.log`); the dedicated fixture also
+passes as `.tools/hero-lean-test32.exe`. It covers primary-state priority,
+fallback states, both walking branches, nonlinear gain, signed clamps,
+speed weighting, airborne state 8, state 0x81 velocity-heading override,
+threshold equality, angular offset, unchanged fields and setter parameters.
+Generated C retains ordinals 0 through 11 and the correct guest globals.
+Hostgen has 3838 translated functions, no unreadable units/index problems.
+
+Strict final-source probe `lean-final` uses neutral left stick before 1200,
+Cross at 100 and full forward at 1200 for 150 frames. At frame 1200 the
+processed left stick is (0,-1), held direction 0x1000. The probe passes
+the lean function and stops at func_L00_002293E8 (walk/run animation),
+frame 1202, exit 2. Logs/screenshots are in parent `.tools/native-run/`.
+Hero displacement and jump are still unverified; checks remain enabled.
+
+Next action: recover the 0x390-byte walk/run animation function from
+nonmatching/shared/func_L00_002293E8.c, including phase transfer between
+the old and new sequences and actual 32-bit guest table strides. It is
+claimed by codex-pad-routing while work continues. Matching checkout
+unchanged; prior dirty work preserved. No push or assistant credit.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
