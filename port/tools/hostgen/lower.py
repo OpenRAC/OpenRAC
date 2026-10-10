@@ -104,6 +104,7 @@ class _Fn:
     int_params: list = field(default_factory=list)   # host names, in register order
     record_params: set = field(default_factory=set)  # host names of parameters passed as records
     float_params: list = field(default_factory=list)
+    wide: set = field(default_factory=set)           # locals kept 64-bit (returns_64)
 
 
 def _inner(n: dict) -> list:
@@ -553,6 +554,7 @@ class Unit:
                     fn.statics[vid] = f"{d.get('name')}_at_"
                 else:
                     fn.memory[vid] = self._frame_field(d, d.get("name", "v"))
+        fn.wide = self._wide_locals(body)
         lines = self.compound(body, 1, top=True)
         frame_decl = []
         if fn.frame:
@@ -757,6 +759,54 @@ class Unit:
             return n["value"]
         return self.rv(n)
 
+    # ---- Values the console keeps 64-bit in a register (hostgen.json "returns_64") ----
+    #
+    # A function that returns a 64-bit value which the matching C declares as int (GetEffectTex's
+    # TEX0): on the console its caller's int local or expression still holds all 64 bits in the
+    # register, and passes them on whole. Here such a call keeps its 64 bits, and a local that only
+    # receives it is declared 64-bit.
+
+    def _wide_call(self, n: dict) -> bool:
+        while n.get("kind") in ("ParenExpr", "ImplicitCastExpr", "CStyleCastExpr"):
+            if n.get("kind") == "CStyleCastExpr" and self.cls(self.ty(n)) != "int":
+                return False
+            n = _inner(n)[0]
+        if n.get("kind") != "CallExpr":
+            return False
+        c = _strip_parens(_inner(n)[0])
+        if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "FunctionToPointerDecay":
+            target = _strip_parens(_inner(c)[0])
+            if target.get("kind") == "DeclRefExpr" and target["referencedDecl"].get("kind") == "FunctionDecl":
+                return self._callee_symbol(target) in getattr(self.program, "returns_64", ())
+        return False
+
+    def _is_int32(self, t: ctype.Type) -> bool:
+        r = self.resolve(t)
+        return isinstance(r, ctype.Base) and r.name in ("int", "signed int", "unsigned int", "unsigned")
+
+    def _wide_locals(self, body: dict) -> set:
+        wide = set()
+        returns = getattr(self.program, "returns_64", ())
+        if not returns:
+            return wide
+        stack = [body]
+        while stack:
+            n = stack.pop()
+            k = n.get("kind")
+            if k == "VarDecl" and n.get("init") and n["id"] not in self.fn.memory and n.get("storageClass") not in ("static", "extern"):
+                init = [c for c in _inner(n) if c.get("kind") not in ("AlignedAttr", "AsmLabelAttr", "SectionAttr")]
+                if init and self._is_int32(self.ty(n)) and self._wide_call(init[0]):
+                    wide.add(n["id"])
+            elif k == "BinaryOperator" and n.get("opcode") == "=":
+                a, b = _inner(n)
+                a = _strip_parens(a)
+                if a.get("kind") == "DeclRefExpr" and a["referencedDecl"].get("kind") == "VarDecl":
+                    vid = a["referencedDecl"]["id"]
+                    if vid not in self.fn.memory and self._is_int32(self.ty(a)) and self._wide_call(b):
+                        wide.add(vid)
+            stack.extend(_inner(n))
+        return wide
+
     def local_decl(self, d: dict, depth: int) -> list[str]:
         pad = "    " * depth
         k = d.get("kind")
@@ -785,6 +835,8 @@ class Unit:
                 text += f" = {value}"
             return [pad + text + ";"]
         fn.host[d["id"]] = name
+        if d["id"] in fn.wide:
+            t = ctype.Base("long long")
         text = self.declare(t, name)
         if init is not None:
             text += f" = {self.initializer(init, t)}"
@@ -1025,6 +1077,9 @@ class Unit:
         a, b = _inner(n)
         if op == "=":
             lv = self.lv(a)
+            sa = _strip_parens(a)
+            if sa.get("kind") == "DeclRefExpr" and sa["referencedDecl"].get("id") in self.fn.wide:
+                return f"({lv.text} = {self.convert(b, ctype.Base('long long'))})"
             return f"({lv.text} = {self.convert(b, self.ty(a))})"
         if op in ("+", "-"):
             ta, tb = self.ty(a), self.ty(b)
@@ -1286,6 +1341,8 @@ class Unit:
             return f"(gaddr)({text})"
         if result_cls == "rec":
             return text
+        if sym in getattr(self.program, "returns_64", ()) and result_cls == "int":
+            return f"((long long)({text}))"  # all 64 bits, as the register holds them
         return f"(({self.host(ctype.strip_quals(result_t))})({text}))"
 
     def _arg_class(self, a: dict) -> str:

@@ -504,6 +504,7 @@ def main(argv: list[str] | None = None) -> int:
     # The executable's data that level programs carry at other addresses (guest.h, per-level
     # relocation): [low, high), or none.
     program.relocate = cfg.get("relocate")
+    program.returns_64 = set(cfg.get("returns_64", []))
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(state,)) as ex:
         for rel, part, probs, _fixes in ex.map(_index_one, units):
             problems += [f"{rel}: {p}" for p in probs]
