@@ -129,6 +129,10 @@ struct MobySequence {
     std::vector<u32> triggers;
 };
 
+// A keyframe (header and payload) at `offset` of `base`: a class blob, or the
+// game's memory, where a moby's +0x68 / +0x6c point at its two keys.
+MobyFrame parse_frame(ByteView base, std::size_t offset);
+
 // A sequence at `offset` of `base`; frame pointers are relative to `base`
 // (the class blob, or a ratchet_seq lump for Ratchet's own sequences).
 MobySequence parse_sequence(ByteView base, std::size_t offset);
@@ -198,6 +202,14 @@ std::vector<u8> post_scale_list(std::span<const u8> a, std::span<const u8> b);
 // The joint palette for a state: one matrix per joint (one identity for a
 // class without joints; identity for every joint when a key is missing).
 std::vector<JointMatrix> evaluate(const MobyAnimClass& anim, const AnimState& state);
+
+// The palette for two given keys, as MobyAnimEval takes them from the moby
+// (+0x68 / +0x6c, +0x54): key A, key B (read only when t is not 0), t, and
+// whether A and B are consecutive keys of one sequence (a plain lerp, no
+// normalisation). Identity for every joint when a key it needs is missing.
+std::vector<JointMatrix> evaluate_keys(
+    const MobyAnimClass& anim, const MobyFrame* a, const MobyFrame* b, f32 t, bool plain
+);
 
 // A quaternion's rotation rows as the game builds them.
 std::array<ps2::V4, 3> quat_rows(const ps2::V4& q);

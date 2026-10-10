@@ -33,7 +33,7 @@ std::optional<std::size_t> scratchpad_record(u32 word) {
     return i < kRecords ? std::optional<std::size_t>(i) : std::nullopt;
 }
 
-MobyFrame parse_frame(ByteView b, std::size_t at) {
+MobyFrame read_frame(ByteView b, std::size_t at) {
     MobyFrame f;
     f.header = b.read<MobyFrameHeader>(at, "moby frame header");
     const std::size_t qb = f.header.quat_bytes;
@@ -120,6 +120,10 @@ std::array<f32, 3> trans_value(const MobyTransRecord& r) {
 
 }  // namespace
 
+MobyFrame parse_frame(ByteView base, std::size_t offset) {
+    return read_frame(base, offset);
+}
+
 std::array<s16, 4> MobyFrame::quat_at(std::size_t j) const {
     std::array<s16, 4> q{};
     for (std::size_t k = 0; k < 4; ++k) {
@@ -144,7 +148,7 @@ MobySequence parse_sequence(ByteView base, std::size_t offset) {
         if (p >> 28 != 0) {
             fail("moby sequence: frame pointer {:#x} has a non-zero top nibble", p);
         }
-        s.frames.push_back(parse_frame(base, p));
+        s.frames.push_back(read_frame(base, p));
     }
     return s;
 }
@@ -471,17 +475,33 @@ std::vector<JointMatrix> evaluate(const MobyAnimClass& anim, const AnimState& s)
     if (jc == 0) {
         return {kIdentityJoint};
     }
-    const u32 t = ps2::bits(s.t);
     const MobyFrame* fa = anim.frame(s.seq_a, s.frame_a);
     if (fa == nullptr) {
         return std::vector<JointMatrix>(jc, kIdentityJoint);
     }
     const MobyFrame* fb = nullptr;
-    if (t != 0) {
+    if (ps2::bits(s.t) != 0) {
         fb = anim.frame(s.seq_b, s.frame_b);
         if (fb == nullptr) {
             return std::vector<JointMatrix>(jc, kIdentityJoint);
         }
+    }
+    return evaluate_keys(anim, fa, fb, s.t, consecutive(s));
+}
+
+std::vector<JointMatrix> evaluate_keys(
+    const MobyAnimClass& anim, const MobyFrame* fa, const MobyFrame* fb, f32 t_value, bool plain
+) {
+    const std::size_t jc = anim.joint_count;
+    if (jc == 0) {
+        return {kIdentityJoint};
+    }
+    const u32 t = ps2::bits(t_value);
+    if (fa == nullptr || (t != 0 && fb == nullptr)) {
+        return std::vector<JointMatrix>(jc, kIdentityJoint);
+    }
+    if (t == 0) {
+        fb = nullptr;
     }
     const u32 u = ps2::sub(kOne, t);
     const std::size_t n = std::min(jc, kRecords);
@@ -583,7 +603,6 @@ std::vector<JointMatrix> evaluate(const MobyAnimClass& anim, const AnimState& s)
                 rec[j][2] = lanes_lerp(rec[j][2], rec[j][3], u, t, 3, rec[j][2]);
             }
         }
-        const bool plain = consecutive(s);
         for (std::size_t j = 0; j < n; ++j) {
             const V4 qa = quat_bits(fa->quat_at(j));
             const V4 qb = quat_bits(fb->quat_at(j));

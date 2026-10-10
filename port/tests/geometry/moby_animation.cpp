@@ -290,6 +290,31 @@ void hard_cuts() {
     CHECK(!hard_cut(s, c, 5, 0));
 }
 
+// The keys as a live moby points at them (+0x68 / +0x6c): read with parse_frame from where they
+// lie, then evaluated as MobyAnimEval takes them; the same palette as from the state.
+void keys_from_memory() {
+    const MobyAnimClass c = two_joints();
+    ByteWriter w;
+    w.put_bytes(std::vector<u8>(0x30, 0xEE));  // whatever lies before
+    for (const MobyFrame& f : c.sequences[0]->frames) {
+        w.put(f.header);
+        w.put_bytes(f.payload);
+    }
+    const std::vector<u8> memory = w.bytes();
+    const MobyFrame a = parse_frame(memory, 0x30);
+    const MobyFrame b = parse_frame(memory, 0x30 + 0x10 + c.sequences[0]->frames[0].payload.size());
+    CHECK(a.header.rate == 0.25f && b.trans.size() == 1 && b.scales.size() == 1);
+    AnimState s = AnimState::spawn(c);
+    s.frame_b = 1;
+    s.t = 0.5f;
+    CHECK((evaluate_keys(c, &a, &b, 0.5f, true) == evaluate(c, s)));
+    // t = 0: key A alone, B not read.
+    s.t = 0.0f;
+    CHECK((evaluate_keys(c, &a, nullptr, 0.0f, true) == evaluate(c, s)));
+    // A key it needs missing: identity.
+    CHECK((evaluate_keys(c, &a, nullptr, 0.5f, true) == std::vector<JointMatrix>(2, kIdentityJoint)));
+}
+
 }  // namespace
 
 int main() {
@@ -301,5 +326,6 @@ int main() {
     snap_window();
     post_scale_lists();
     hard_cuts();
+    keys_from_memory();
     return openrac::test::result();
 }
