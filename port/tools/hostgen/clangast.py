@@ -108,7 +108,7 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
     diags = list(_DIAG.finditer(stderr))
     inserts: dict[int, list[str]] = {}
     for k, d in enumerate(diags):
-        if d["kind"] != "error" or not d["file"].endswith(rel):
+        if d["kind"] != "error" or not d["file"].replace("\\", "/").endswith(rel):
             continue
         msg = d["msg"]
         line = int(d["line"]) - 1
@@ -291,7 +291,8 @@ def annotate(ast: dict) -> None:
             visit_loc(loc["spellingLoc"])
             return visit_loc(loc["expansionLoc"])
         if "file" in loc:
-            state["file"] = loc["file"]
+            # As the units are named (POSIX paths), also where Clang writes "\".
+            state["file"] = loc["file"].replace("\\", "/")
         if "line" in loc:
             state["line"] = loc["line"]
         return state["file"], state["line"], loc.get("col", 0)
