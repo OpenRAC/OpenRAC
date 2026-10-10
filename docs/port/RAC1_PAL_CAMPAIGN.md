@@ -1332,6 +1332,57 @@ Existing tracked work and all 18 baseline untracked C files are preserved
 (hash-checked). No game left running. Release the restoration claim after
 commit. Local commits only; no push or assistant credit trailer.
 
+### Push and PR preparation, 2026-10-10
+
+PR #4 was merged into upstream master. Fetched origin/fork; both master
+and fork/setup/windows-native were cece44d. The local branch contains that
+upstream tip. Existing commits are suitable for a new PR. No push or PR
+creation was performed during this preparation. A fork push dry-run passed.
+The excluded aacbd916 commit is not an ancestor; outgoing commits contain
+no Codex co-author trailers, game bytes, toolchains or build products.
+
+Clean detached checkout: parent .tools/push-verify-6a31139. Its code is
+6a31139; documentation was advanced to 176116f, which fixes a stale PAL
+revision/date in docs/SOURCES.md using tools/openrac.py tables. Generated
+tables now have no diff. The final preparation handoff changes only docs.
+
+Two Windows LLVM MinGW release configurations of the committed tree pass
+the full PAL build and 61/61 committed CTest tests:
+- Sibling rac1-decomp source: 3816 translated functions, no hostgen problems.
+  Strict direct startup stops at func_L00_00251E30, frame 939, exit 2.
+- Bundled games/rac1/pal source (import 6127cb448010): 3934 translated,
+  no hostgen problems. Strict 2700-frame Veldin probe exits 0. Respawn at
+  (132.09,115.48,31.43), subsequent walking, jump z=30.80 at frame 2400,
+  landing z=29.48 by 2500, joints finite. This clean checkout demonstrates
+  the committed port's tested route using its newer bundled source.
+Build logs: .tools/next-pr-clean-{external,bundled}-build.log.
+Probe logs/screenshots: .tools/native-run/next-pr-clean-{external,bundled}*.
+Commands/settings recorded in .tools/verify-next-pr.ps1 and
+.tools/probe-next-pr.ps1. Strict checks, movie skip, no-card isolated state;
+no memory-write overrides. No running game remains.
+
+Linux/WSL: hostgen 25/25 (no skips), tools 64/64, editor 75/75 pass.
+Shared-file check and PAL/RAC4 progress checks pass. Native Windows Python
+tools/editor runs encountered path/symlink limitations; Linux passes the
+same suites. Initial Windows table generation had encoding/newline issues;
+regenerated with Linux and verified against the final committed docs.
+Some compiler warnings remain (callback casts and existing runtime/SDL
+warnings); this is not a warning-free full rebuild. Launcher and other
+game builds were not rerun; they have no changes in the outgoing diff.
+
+Publication preparation: local .tools/next-native-pr-body.txt and
+.tools/next-native-pr-request.json contain the proposed PR. Target
+OpenRAC/OpenRAC:master from PeterFarber:setup/windows-native. Recheck the
+remote tips before publishing; push normally, never force. No open PR
+exists for this head as of this check. The user's request was preparation.
+
+Campaign follow-up: compare the sibling checkout with the newer bundled
+PAL import before recovering another apparently missing function. The
+normal workspace remains configured against the sibling, as required;
+no imported source, sibling source, or existing uncommitted implementation
+was changed or included. All 18 baseline untracked C files hash-check
+unchanged. Full combat, saves, other planets and campaign remain unverified.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
