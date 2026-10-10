@@ -68,8 +68,11 @@ static void effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clu
  * w * row3). The game projects the quad with its camera and sends it to the GS as a strip; the
  * window draws it in the world (openrac_game_effect_quad).
  */
+#include <execinfo.h>
+#include <stdlib.h>
 void func_001F7EF8(gaddr a0, int a1, int a2) {
     (void)a2;
+    if (getenv("OPENRAC_QUAD_TRACE")) { static int n = 0; if (n++ < 3) { void* b[8]; backtrace_symbols_fd(b, backtrace(b, 8), 2); } }
     const uint8_t* r = G(a0);
     openrac_game_quad q;
     memcpy(q.corner, r, sizeof(q.corner));
@@ -479,8 +482,4 @@ void func_L00_00299B68(int a0) {
  * post-scale records are not skipped yet as the chain form does). */
 void func_00211808(gaddr a0, gaddr a1) {
     openrac_game_moby_chain(a0, a1);
-}
-/* The space flight's quads (loading between planets), for the console's renderer. */
-void func_0022F738(int a0) {
-    (void)a0;
 }
