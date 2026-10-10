@@ -16,6 +16,8 @@
 #include <span>
 #include <string>
 
+#include "openrac/game_host.h"
+
 namespace openrac::frontend {
 
 // Opens the window. `levels` holds the extracted levels (level_00, level_01, ...).
@@ -29,6 +31,9 @@ void world_drawn(std::span<const std::uint8_t> ram);
 // The game drew `count` mobys from `first` with the camera it holds now (the page menu's frame
 // objects, drawn with the menu's camera): they are drawn as that camera saw them.
 void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int count);
+
+// A world effect quad the game drew this frame (openrac_game_effect_quad).
+void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& quad);
 
 // `draws`: the layers the game's renderers drew this frame (bit n = renderer::Bucket n; all bits
 // when the game does not report them).

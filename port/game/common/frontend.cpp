@@ -5,6 +5,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <format>
 #include <memory>
 #include <optional>
@@ -15,6 +16,7 @@
 #include "platform/input.h"
 #include "platform/window.h"
 #include "renderer/direct.h"
+#include "renderer/effects.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/renderer.h"
@@ -54,6 +56,9 @@ struct State {
     std::optional<viewer::GameState> world_camera;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, viewer::GameState>> moby_cameras;
+    // The world effect quads the game drew since the last frame (effect_quad).
+    std::vector<renderer::EffectQuad> effects;
+    std::vector<renderer::ImageUpload> effect_uploads;  // the quads' textures (EffectQuad::uploads)
 };
 
 std::unique_ptr<State> g;
@@ -277,6 +282,9 @@ void use_level(int number) {
             error
         );
     }
+    if (g->renderer->add(std::make_unique<renderer::EffectRenderer>(), error) == nullptr) {
+        log::error("effect renderer: {}", error);
+    }
     g->renderer->add(std::make_unique<renderer::DirectRenderer>("hud", renderer::Bucket::Hud), error);
     if (fresh) {
         g->renderer->init(error);
@@ -285,6 +293,43 @@ void use_level(int number) {
 }
 
 }  // namespace
+
+void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& quad) {
+    renderer::EffectQuad q;
+    std::memcpy(q.corner, quad.corner, sizeof(q.corner));
+    std::memcpy(q.rgba, quad.rgba, sizeof(q.rgba));
+    std::memcpy(q.st, quad.st, sizeof(q.st));
+    q.clamp = quad.clamp;
+    q.tex0 = quad.tex0;
+    q.tex1 = quad.tex1;
+    q.alpha = quad.alpha;
+    const std::uint32_t pixels = quad.pixels & 0x01FFFFFF;
+    const std::uint32_t clut = quad.clut & 0x01FFFFFF;
+    const std::uint32_t tbp = static_cast<std::uint32_t>(quad.tex0 & 0x3FFF);
+    const std::uint32_t cbp = static_cast<std::uint32_t>((quad.tex0 >> 37) & 0x3FFF);
+    const std::uint32_t width = 1u << ((quad.tex0 >> 26) & 0xF);
+    const std::uint32_t height = 1u << ((quad.tex0 >> 30) & 0xF);
+    if (pixels != 0 && clut != 0 && pixels + width * height <= ram.size() && clut + 1024 <= ram.size()) {
+        renderer::ImageUpload palette;
+        palette.dbp = cbp;
+        palette.dbw = 1;
+        palette.dpsm = 0x00;  // PSMCT32
+        palette.width = 16;
+        palette.height = 16;
+        palette.data.assign(ram.data() + clut, ram.data() + clut + 1024);
+        renderer::ImageUpload image;
+        image.dbp = tbp;
+        image.dbw = std::max<std::uint32_t>(1, width / 64);
+        image.dpsm = 0x13;  // PSMT8
+        image.width = width;
+        image.height = height;
+        image.data.assign(ram.data() + pixels, ram.data() + pixels + width * height);
+        q.uploads = static_cast<int>(g->effect_uploads.size());
+        g->effect_uploads.push_back(std::move(palette));
+        g->effect_uploads.push_back(std::move(image));
+    }
+    g->effects.push_back(q);
+}
 
 bool open(const std::string& game_id, const std::filesystem::path& levels, std::string& error) {
     g = std::make_unique<State>();
@@ -491,6 +536,20 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         log::info("  fog colour {:.0f} {:.0f} {:.0f}, depth {:.0f} to {:.0f}, F {:.0f} to {:.0f}",
                   state.fog_colour[0] * 255, state.fog_colour[1] * 255, state.fog_colour[2] * 255,
                   state.fog_near, state.fog_far, state.fog_near_f, state.fog_far_f);
+        static const char* fx_dump = std::getenv("OPENRAC_FX_DUMP");
+        if (fx_dump != nullptr && g->index >= std::strtoull(fx_dump, nullptr, 10) && g->index < std::strtoull(fx_dump, nullptr, 10) + 100) {
+            for (const renderer::EffectQuad& e : g->effects) {
+                log::info("    quad {:.1f} {:.1f} {:.1f} {:.2f} | {:.1f} {:.1f} {:.1f} | {:.1f} {:.1f} {:.1f} | {:.1f} {:.1f} {:.1f} rgba {:#x} st {:.2f},{:.2f} {:.2f},{:.2f} tex0 {:#x} alpha {:#x} clamp {:#x}",
+                          e.corner[0][0], e.corner[0][1], e.corner[0][2], e.corner[0][3], e.corner[1][0], e.corner[1][1], e.corner[1][2],
+                          e.corner[2][0], e.corner[2][1], e.corner[2][2], e.corner[3][0], e.corner[3][1], e.corner[3][2],
+                          e.rgba[0], e.st[0][0], e.st[0][1], e.st[3][0], e.st[3][1], e.tex0, e.alpha, e.clamp);
+            }
+        }
+        if (!g->effects.empty()) {
+            const renderer::EffectQuad& e = g->effects.front();
+            log::info("  {} effect quads; the first at {:.1f} {:.1f} {:.1f}, TEX0 {:#x}, ALPHA {:#x}, RGBA {:#x}",
+                      g->effects.size(), e.corner[0][0], e.corner[0][1], e.corner[0][2], e.tex0, e.alpha, e.rgba[0]);
+        }
         log::info("  load stage {:#x} retries {} snd state {:#x}", word_at(ram, 0x0015EF48),
                   word_at(ram, 0x0015EFBC), word_at(ram, word_at(ram, 0x001517D0) + 8) & 0xFFFF);
     }
@@ -617,7 +676,10 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         ? std::array<float, 4>{g->level.background[0], g->level.background[1], g->level.background[2], 1}
         : std::array<float, 4>{0, 0, 0, 1};
     for (auto& r : g->renderer ? g->renderer->renderers() : std::span<const std::unique_ptr<renderer::BucketRenderer>>{}) {
-        if (r->bucket() != renderer::Bucket::Hud) {
+        if (r->bucket() == renderer::Bucket::Particles) {
+            // The effect quads are there only when the game drew them.
+            r->enabled = has_camera;
+        } else if (r->bucket() != renderer::Bucket::Hud) {
             r->enabled = has_camera && (draws & (1u << static_cast<unsigned>(r->bucket()))) != 0;
         }
     }
@@ -644,9 +706,13 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     (void)chain;
     const std::vector<std::uint8_t> packets = direct_packets(ram, viewer::shown_chain(ram, a));
     input.packets[static_cast<std::size_t>(renderer::Bucket::Hud)] = packets;
+    input.effects = g->effects;
+    input.effect_uploads = g->effect_uploads;
     if (g->renderer) {
         g->renderer->render(input, {g->frame.id(), width, height});
     }
+    g->effects.clear();
+    g->effect_uploads.clear();
     // OPENRAC_SHOT=FRAME:FILE.png writes that frame (for checking without looking at the screen).
     if (const char* shot = std::getenv("OPENRAC_SHOT")) {
         const char* colon = std::strchr(shot, ':');

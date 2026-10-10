@@ -56,6 +56,7 @@ openrac_warnings(openrac_platform)
 # ---- renderer ----
 add_library(openrac_renderer STATIC
   renderer/direct.cpp
+  renderer/effects.cpp
   renderer/framebuffer.cpp
   renderer/gl.cpp
   renderer/renderer.cpp
@@ -67,6 +68,7 @@ add_library(openrac_renderer STATIC
 openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/direct.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/direct.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/effect.vert"
 )
 target_link_libraries(openrac_renderer PUBLIC openrac_common)
 openrac_warnings(openrac_renderer)

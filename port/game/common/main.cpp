@@ -427,6 +427,17 @@ void openrac_game_mobys_drawn(gaddr first, int count) {
 #endif
 }
 
+void openrac_game_effect_quad(const openrac_game_quad* quad) {
+#ifdef OPENRAC_FRONTEND
+    if (g_window) {
+        const auto* ram = runtime::Memory::get().base();
+        frontend::effect_quad(std::span<const std::uint8_t>(ram, 32u * 1024 * 1024), *quad);
+    }
+#else
+    (void)quad;
+#endif
+}
+
 void openrac_game_moby_chain(gaddr moby, gaddr marks) {
 #ifdef OPENRAC_FRONTEND
     const auto* ram = runtime::Memory::get().base();

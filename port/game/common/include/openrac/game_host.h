@@ -121,6 +121,24 @@ void openrac_game_moby_chain(gaddr moby, gaddr marks);
  * may be drawn with a camera of its own: the window draws those mobys as that camera saw them. */
 void openrac_game_mobys_drawn(gaddr first, int count);
 
+/* A textured quad the game draws in the world (rac1: func_001F7EF8, the draw callbacks' quad
+ * routine): its corners in world space (x, y, z, w), the strip 0 1 2, 1 2 3; RGBA bytes and
+ * normalised ST per corner; the GS registers CLAMP_1, TEX0_1, TEX1_1 and ALPHA_1 it draws with;
+ * and, for an effect texture, where its pixels are.
+ * The window draws the frame's quads after the mobys (renderer/effects.h). */
+typedef struct openrac_game_quad {
+    float corner[4][4];
+    uint32_t rgba[4];
+    float st[4][2];
+    uint64_t clamp, tex0, tex1, alpha;
+    /* Where the texture's pixels (PSMT8) and CLUT (16 x 16 PSMCT32) are in the game's memory, as
+     * its effect texture paging sends them to TEX0's blocks; 0 when the texture is already in the
+     * GS's memory some other way. */
+    uint32_t pixels, clut;
+} openrac_game_quad;
+
+void openrac_game_effect_quad(const openrac_game_quad* quad);
+
 /* Plays a PSS movie from the disc in the window, blocking as the game's own player does: `bytes`
  * bytes at sector `lsn`, the ADPCM channel `channel` (the language; channel 0 when the file has no
  * such channel). Start skips it when `start_skips` (the console's readMpeg rule for the caller).

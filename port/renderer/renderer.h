@@ -52,11 +52,28 @@ struct Camera {
     Vec3 position{};
 };
 
+// A textured quad the game drew in the world from a draw callback (rac1's func_001F7EF8, ReRAC's
+// FastDrawQuadReal): four corners in world space, drawn as the strip 0 1 2, 1 2 3, with the GS
+// registers the game gave it. Colours are the chip's RGBA bytes (0x80 = 1.0); ST are normalised.
+struct EffectQuad {
+    float corner[4][4];
+    std::uint32_t rgba[4];
+    float st[4][2];
+    std::uint64_t clamp, tex0, tex1, alpha;
+    // FrameInput::effect_uploads[uploads], [uploads + 1]: the CLUT and the pixels put at TEX0's
+    // blocks just before this quad (the game pages its effect textures through the same blocks
+    // during a frame); -1 when the texture is already in the pool.
+    int uploads = -1;
+};
+
 struct FrameInput {
     // The packets the game built for each bucket this frame (empty when a
     // bucket has nothing, or its renderer draws from elsewhere).
     std::array<std::span<const std::uint8_t>, kBucketCount> packets{};
     Camera camera;
+    // The frame's world effect quads, in the order the game drew them.
+    std::span<const EffectQuad> effects{};
+    std::span<const ImageUpload> effect_uploads{};
     std::array<float, 4> clear_colour{0.0f, 0.0f, 0.0f, 1.0f};
     std::uint64_t frame = 0;
     double seconds = 0.0;

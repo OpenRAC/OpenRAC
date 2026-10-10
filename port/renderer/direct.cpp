@@ -926,21 +926,6 @@ void GifInterpreter::emit_point(const GsVertex& a) {
 // ---------------------------------------------------------------------------
 // DirectRenderer
 
-namespace {
-
-// The chip blends Cv = (A - B) * C + D, A, B, D each one of Cs, Cd, 0 and C
-// one of As, Ad, FIX (0x80 = 1.0). Expanded, the colour is a multiple of Cs
-// plus a multiple of Cd, each multiple k * C + m with k in {-1, 0, 1} and m
-// in {0, 1}; GL's factors and equation express every such pair whose sign
-// works out, which covers every mode the games use.
-struct GlBlend {
-    GLenum src = GL_ONE;
-    GLenum dst = GL_ZERO;
-    GLenum equation = GL_FUNC_ADD;
-    float constant = 0.0f;
-    bool exact = true;
-};
-
 GlBlend translate_blend(const gs::Alpha& alpha) {
     auto coefficient = [&](std::uint8_t which, int& k, int& m) {
         k = (alpha.a == which ? 1 : 0) - (alpha.b == which ? 1 : 0);
@@ -999,6 +984,8 @@ GlBlend translate_blend(const gs::Alpha& alpha) {
     }
     return out;
 }
+
+namespace {
 
 GLenum depth_func(gs::DepthTest test) {
     switch (test) {
