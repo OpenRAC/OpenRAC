@@ -690,6 +690,11 @@ gaddr search_pair(gaddr address, int overlay) {
                 }
             }
         }
+        static const bool trace = std::getenv("OPENRAC_TRACE_RELOCATION") != nullptr;
+        if (trace) {
+            info("  {:#x}: formed at {:#x} in the executable, {} matches in the level", address,
+                 g_exe_base + static_cast<gaddr>(i * 4), matches);
+        }
         if (matches != 1) {
             continue;
         }
