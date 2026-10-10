@@ -567,6 +567,52 @@ outside its nominal 0x44-byte body, so review 0020DCAC..0020DCEC too.
 The task claim is released, unrelated dirty work remains uncommitted, and
 the fix is committed locally without a push or assistant credit trailer.
 
+### Map reveal, 2026-10-10 continuation
+
+Hero pose manipulators was committed as `47b0229`. Reproduced map reveal
+`func_L00_00248EF8` and reviewed its complete PAL 00248EF8..00249604 body
+against the sibling's shared candidate. The native-only implementation
+preserves projection/alternate maps, zone altitude and state filters,
+eight ordered predicates, brush clipping, cache loads and packed zone IDs.
+It retains retail's exclusive upper limit of 511. Matching C and its
+progress report are unchanged; this is not a PS2 matching claim.
+
+The actual callback table contains C definitions with differing signatures.
+Native calls place integers first; four existing height predicates omit gy
+and are called through their own signature. Explicit casts select these
+signatures (Clang warns about the function-type casts in the raw fixture).
+Generated code retains level relocation for both tables and code addresses.
+Missing callback entries still trap; none are substituted or skipped.
+
+- Full Windows build and 51/51 CTest tests pass:
+  `.tools/native-map-build-final.log`. Earlier `native-map-build.log`
+  predates the callback ABI correction and is not final validation.
+- Independent 64-bit and 32-bit fixtures pass, covering EE field offsets,
+  every filter and callback, callback rejection/order, both ABI signatures,
+  clipping, alternate maps, all packed zone IDs, brush masks, cache hits,
+  unchanged fog bits, invalid coordinates and guard bytes.
+- Additional local fixture `.tools/map-reveal-generated-test.c` passes
+  against a verbatim test-only extraction of hostgen's emitted function.
+  It exercises guest pointer/stack layout, relocated globals and all four
+  height callback addresses plus the full callback signature. The full
+  unit could not link in isolation because of unrelated function references;
+  production generated files were not modified.
+- Hostgen: 378 readable units, 3,822 translated functions, 202 candidates,
+  3 stubs, 1,142 without C; no unreadable units or index problems.
+- Same strict no-card New Game probe, 5200-frame limit and prior input
+  sequence: `map-before` stops at map reveal, frame 2828, exit 2;
+  `map-verified` passes it and stops at `func_L00_0025805C`, frame 2828,
+  exit 2. Logs are in `.tools/native-run/`. No frame-3000 screenshot or
+  playable-gameplay claim. Keep `--stop-on-missing` enabled.
+
+Exact next action: claim and review handwritten `func_L00_0025805C`
+(0x1F0 bytes) in `asm/overlays/`, plus its spatial-query callees
+`func_L00_00257E18` and `func_L00_00257F4C`, before implementing the moby
+update. It is still INCLUDE_ASM in shared/mobyproc_00251A78.c. Validate all
+branches and output fields and repeat the strict New Game probe.
+Only this task's files, registrations and handoff are committed locally;
+earlier edits and excluded credit preferences remain uncommitted. No push.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,

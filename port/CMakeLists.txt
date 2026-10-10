@@ -108,6 +108,11 @@ target_compile_options(hero_manipulators_test PRIVATE -fno-strict-aliasing -ffp-
 openrac_warnings(hero_manipulators_test)
 add_test(NAME hero_manipulators COMMAND hero_manipulators_test)
 
+add_executable(map_reveal_test tests/map_reveal_test.c)
+target_compile_options(map_reveal_test PRIVATE -fno-strict-aliasing -ffp-contract=off)
+openrac_warnings(map_reveal_test)
+add_test(NAME map_reveal COMMAND map_reveal_test)
+
 if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()
