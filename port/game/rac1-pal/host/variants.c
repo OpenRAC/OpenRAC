@@ -63,7 +63,11 @@ static void packet_call(uint32_t count, gaddr data) {
 }
 
 void func_L00_00201300(void) { packet_call(0x29, 0x00151C60u); }
-void func_L00_002A2020(void) { packet_call(0x03, OPENRAC_DATA(0x001DF180u)); }
+/* Three neighbours in each level, each calling its own three quadwords: level 0's data addresses,
+ * relocated to the loaded level's by pairing each with its copy there. */
+void func_L00_002A2020(void) { packet_call(0x03, OPENRAC_LDATA(0, 0x001C3280u)); }
+void func_L00_002A2080(void) { packet_call(0x03, OPENRAC_LDATA(0, 0x001C2840u)); }
+void func_L00_002A20E0(void) { packet_call(0x03, OPENRAC_LDATA(0, 0x001C2870u)); }
 void func_L00_002A2148(void) { packet_call(0x0B, 0x0013D010u); }
 
 /* func_0020CC88's level copy: flags +0x20 and +0x21 of D_0013D5C8, not +0x21 and +0x1F. */
