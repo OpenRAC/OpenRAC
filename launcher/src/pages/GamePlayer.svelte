@@ -30,6 +30,7 @@
   const action = (id: string): ActionView | null => v?.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
 
   const play = $derived(action("play"));
+  const build = $derived(action("port-build"));
   const playGodot = $derived(action("editor-preview"));
   const extract = $derived(action("editor-extract"));
   const bring = $derived(action("editor-import"));
@@ -55,6 +56,8 @@
         (j.state === "queued" || j.state === "running"),
     );
   const playing = $derived(jobOf(["play"]));
+  /** Building the game (the native port), if that is queued or running. */
+  const building = $derived(jobOf(["port-build"]));
   /** Setting this game up from the disc, if that is queued or running. */
   const installing = $derived(
     jobs.list.find((j) => j.actionId === `install:${v?.game ?? ""}` && (j.state === "queued" || j.state === "running")),
@@ -65,6 +68,8 @@
     setUp && setUp.version !== v?.key ? (game?.versions.find((other) => other.key === setUp.version) ?? null) : null,
   );
   const preparing = $derived(jobOf(["editor-extract", "editor-import"]));
+  /** The game is built: compiled into the set-up (OpenGOAL's way), or the port's program is there to play. */
+  const built = $derived(!!game?.install?.compiled || !!play?.runnable);
 
   let opening = $state(false);
 
@@ -176,9 +181,25 @@
           <p class="line clip">
             {playing.lines.at(-1)?.line ?? "Getting the game ready (the first time takes a minute)…"}
           </p>
+        {:else if building}
+          <button class="big" onclick={() => void cancel(building)}>
+            <span class="spinner"></span>{building.state === "queued" ? "Waiting…" : "Stop the build"}
+          </button>
+          <p class="line clip">{building.lines.at(-1)?.line ?? "Building the game for this computer…"}</p>
         {:else if play.runnable}
           <button class="big primary" onclick={() => void run(scope, play)}><Icon name="play" size={22} />Play</button>
           <p class="line">The decompiled game, built for this computer.</p>
+          {#if build?.runnable}
+            <button
+              title="After updating OpenRAC or the decompilation: compiles again what changed"
+              onclick={() => void run(scope, build)}><Icon name="build" size={16} />Rebuild</button
+            >
+          {/if}
+        {:else if build?.runnable}
+          <button class="big primary" onclick={() => void run(scope, build)}
+            ><Icon name="build" size={22} />Build the game</button
+          >
+          <p class="line">Compiles the decompiled game for this computer: a few minutes the first time.</p>
         {:else}
           <button class="big" disabled><Icon name="play" size={22} />Play</button>
           <p class="line">Not ready: it needs {needs(play).join(", ")}.</p>
@@ -190,8 +211,8 @@
         <li class:done={game.install?.decompiled}>
           Prepare the assets{#if !game.install?.decompiled}<small>not available yet</small>{/if}
         </li>
-        <li class:done={game.install?.compiled}>
-          Build the game{#if !game.install?.compiled}<small>not available yet</small>{/if}
+        <li class:done={built}>
+          Build the game{#if !built}<small>{build ? "not built yet" : "not available yet"}</small>{/if}
         </li>
       </ol>
     </section>

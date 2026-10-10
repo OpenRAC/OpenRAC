@@ -22,7 +22,7 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) first for how the parts fit.
 | Disc and input status (names, sizes, links)                                                   | done; checksums are `openrac.py discs`'s, see [Disc verification](#disc-verification)                                                                                              |
 | Detecting the checkout, Python, Godot, Docker                                                 | done                                                                                                                                                                               |
 | Setting a game up from the player's disc (OpenGOAL's extract and validate)                    | done; the extractor is tested on synthetic images, not yet run on a real disc from the desktop app                                                                                 |
-| Play (the native port)                                                                        | **planned** for every version: the port ([port/](../../port/README.md)) does not play yet                                                                                          |
+| Play (the native port)                                                                        | **unverified** for rac1/pal on Windows: `port-build` builds the port (tools/build_port.py), `play` runs it; **planned** for every other version                                    |
 | Jobs: queue, live output, cancel (whole process tree)                                         | done, tested on Linux                                                                                                                                                              |
 | Repository actions: Identify discs, Verify every checksum, Place inputs, Test OpenRAC's tools | **connected**: Identify discs and the tool tests run from the desktop app on Linux; the other two run with the same command lines from a shell. None yet with a disc in `baserom/` |
 | `report-check` for rac1/pal and rac4                                                          | **connected**: the same command lines run from a shell on Linux (they need no disc)                                                                                                |
@@ -162,12 +162,25 @@ decompile step, which is the port's asset pipeline.
 
 ### 3. Playing
 
-Every version has a planned `play` action: the native port, built from the
+Every version has a `play` action: the native port, built from the
 decompiled C, drawn by OpenRAC's own renderer, from the assets the set-up
-prepared. Nothing runs yet; [docs/port/ROADMAP.md](../../docs/port/ROADMAP.md)
-says what it needs and in which order. When a version's port can be
-started, its `play` becomes runnable with the port's executable and the
-version's install folder, as OpenGOAL's launcher starts `gk`.
+prepared. [docs/port/ROADMAP.md](../../docs/port/ROADMAP.md) says what each
+needs and in which order. A version whose port can be started gets two
+actions, as rac1/pal has on Windows:
+
+- `port-build`, "Build the game": `tools/build_port.py <id>`, which
+  configures `port/` the first time and then rebuilds only what changed.
+  On Windows it sets up Visual Studio's environment itself and finds Clang
+  and Ninja, so a player never types a compiler's command. The game page
+  offers it in place of Play until the game is built, and as Rebuild after.
+- `play`: the port's executable with `--data {data} --window`, the
+  version's install folder, as OpenGOAL's launcher starts `gk`.
+
+To do here: make the assets the port reads from the set-up (`decompiler_out`
+from `openrac-extractor --decompile`, the levels from `editor/extract.py
+port` in `<data>/port`), the "Prepare the assets" step; a setting for the
+copy of the decompilation to build from, which today is chosen once with
+`tools/build_port.py --source DIR`.
 
 ### 4. Each game's set-up, build and checks
 

@@ -729,6 +729,45 @@ The matrix claim is released at handoff. Existing dirty work remains
 preserved. Only this fix, its fixture/registration and handoff are committed
 locally; nothing is pushed and no assistant co-author trailer is added.
 
+### Upstream master integration, 2026-10-10 continuation
+
+The owner requested the latest upstream master during campaign work.
+First committed verified particle dispatch as `cbe88df` and the scale
+matrix constructor as `ee8cda9`, then fetched and merged
+`OpenRAC/OpenRAC:master` at `cece44d`. Upstream now includes PR #4.
+The only merge conflict was hand.tsv: retained both all local native
+implementations and upstream's `func_001FA648` quaternion registration.
+No local campaign functions were replaced by imported near-match candidates.
+
+All 22 pre-existing dirty files were saved and restored separately from
+the merge index. The hand table additionally retains the upstream entry;
+earlier credit preferences and unfinished startup work stay uncommitted.
+The backup stash is retained, with its ID in the parent workspace's
+`.tools/master-merge-stash.txt`. The sibling decomp checkout is untouched.
+
+- Full Windows native build and 54/54 CTest tests pass:
+  `.tools/master-merge-native-build.log` in the parent workspace.
+- The new tools/test_build_port.py suite passes 12/12 tests via
+  `python -m unittest discover -s tools -p test_build_port.py -v`.
+- Confirmed CMake still binds to sibling rac1-decomp. Ninja now tracks
+  the source overlay-function table and hostgen include headers.
+- Hostgen: 378 readable units, 3,829 translated functions, 208 candidates,
+  3 stubs, 1,136 without C; no unreadable units/index problems.
+- Launcher checks were not run: its node_modules and Yarn are not
+  installed in this checkout. Native and build-tool checks above passed.
+- Strict no-card New Game probe `master-merge-verified`, using the same
+  5200-frame limit and inputs, stops at `func_L00_002D2E60`,
+  frame 2828, exit 2. Log:
+  `.tools/native-run/master-merge-verified.log`. Gameplay remains blocked.
+
+Exact next campaign action: review `func_L00_002D2E60` (0x4CC bytes) in
+asm/overlays against nonmatching/shared/func_L00_002D2E60.c. Its source is
+still INCLUDE_ASM in shared/vendor_002D1168.c and it is scheduled as a
+draw callback by func_L00_002D3330. Recover the complete rendering behavior
+and dependencies, validate the implementation, and rerun the strict probe.
+The target is unclaimed; no missing functions have been bypassed.
+The merge is local. Nothing has been pushed or published by this session.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
