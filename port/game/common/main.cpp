@@ -32,6 +32,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <format>
 #include <string>
 #include <thread>
 #include <vector>
@@ -58,6 +59,7 @@ const char* openrac_game_card_dir = nullptr;
 int openrac_game_language = 1;
 int openrac_game_no_card = 0;
 int openrac_game_start_level = -1;
+void (*openrac_game_on_frame)(unsigned frame) = nullptr;
 }
 
 namespace {
@@ -226,11 +228,62 @@ int openrac_game_vsync(void) {
     }
 #endif
     g_frame++;
+    if (openrac_game_on_frame != nullptr) {
+        openrac_game_on_frame(static_cast<unsigned>(g_frame));
+    }
     if (g_options.frames >= 0 && g_frame >= g_options.frames) {
         std::exit(0);  // finish() runs at exit
     }
     using namespace std::chrono;
     const auto now = steady_clock::now();
+    // OPENRAC_FPS: the frames per second over each 300 frames, in the log. OPENRAC_UNCAPPED: no wait
+    // for the next frame's time (the game then runs as fast as the machine allows: a measure, not a
+    // way to play, since the game's tick is its frame).
+    static const bool fps = std::getenv("OPENRAC_FPS") != nullptr;
+    static const bool uncapped = std::getenv("OPENRAC_UNCAPPED") != nullptr;
+    static steady_clock::time_point fps_from = now;
+    // OPENRAC_WATCH=ADDRESS:COUNT[:i],...: COUNT floats (or words, with i) from each ADDRESS, each
+    // frame, in the log.
+    static const char* watch = std::getenv("OPENRAC_WATCH");
+    if (watch != nullptr) {
+        std::string line;
+        for (const char* at = watch; at && *at;) {
+            unsigned long address = 0, count = 1;
+            char kind = 'f';
+            std::sscanf(at, "%lx:%lu:%c", &address, &count, &kind);
+            for (unsigned long i = 0; i < count && i < 32; ++i) {
+                std::uint32_t w;
+                std::memcpy(&w, G(static_cast<gaddr>(address + 4 * i)), 4);
+                float f;
+                std::memcpy(&f, &w, 4);
+                line += kind == 'i' ? std::format(" {}", static_cast<std::int32_t>(w)) : std::format(" {:.4f}", f);
+            }
+            line += " |";
+            at = std::strchr(at, ',');
+            at = at ? at + 1 : nullptr;
+        }
+        log::info("frame {} watch{}", g_frame, line);
+    }
+    // OPENRAC_HITCH: each frame that took more than twice the frame time, with how long, in the log.
+    static const bool hitch = std::getenv("OPENRAC_HITCH") != nullptr;
+    static steady_clock::time_point last = now;
+    if (hitch) {
+        const double ms = duration<double, std::milli>(now - last).count();
+        if (ms > 1.25 * 1000.0 / (openrac_game.frame_rate > 0 ? openrac_game.frame_rate : 60)) {
+            log::info("frame {}: {:.1f} ms", g_frame, ms);
+        }
+    }
+    last = now;
+    if (fps && g_frame % 300 == 0) {
+        const double seconds = duration<double>(now - fps_from).count();
+        if (seconds > 0.0) {
+            log::info("frame {}: {:.1f} frames per second", g_frame, 300.0 / seconds);
+        }
+        fps_from = now;
+    }
+    if (uncapped) {
+        return static_cast<int>(g_frame & 1);
+    }
     if (g_next_frame.time_since_epoch().count() == 0 || now > g_next_frame + milliseconds(100)) {
         g_next_frame = now;
     }
