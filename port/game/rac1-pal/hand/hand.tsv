@@ -44,3 +44,10 @@ func_001F9D78	game_fastfunc.c
 func_001F0F00	game_collproc.c
 func_001F9B70	game_fastfunc.c
 func_001F9BC8	game_fastfunc.c
+func_L00_002689B0	overlays_shared_pad_00268760.c
+func_L00_00268A88	overlays_shared_pad_00268760.c
+func_001FA8F0	game_fastfunc.c
+func_001FA9E8	game_fastfunc.c
+func_001F9E10	game_fastfunc.c
+func_L00_001FDE48	overlays_shared_drawquad_001FD1D8.c
+func_0022F4C0	game_space.c

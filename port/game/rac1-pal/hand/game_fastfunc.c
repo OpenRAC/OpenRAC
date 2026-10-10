@@ -491,3 +491,114 @@ int func_001F9B70(int x) {
     }
     return x;
 }
+
+/* The view the sphere tests below use (the camera's, written each frame): +0x00..+0x20 the
+ * rotation's rows, +0x30 the camera position (w: a scale), +0x40..+0x70 the frustum's slopes and
+ * planes. */
+extern float D_0018D080[32];
+
+/* A float's sign bit, as the routines test it (-0 counts as negative). */
+static __inline__ int negative(float f) {
+    return (*(unsigned *)&f >> 31) != 0;
+}
+
+/*
+ * Where a sphere (centre p, radius r, scaled by the view's w) is against the view: -1 outside,
+ * 0 across an edge, 1 inside. far is what the depth test leaves over (the radius past the
+ * sphere's depth), which func_001FA9E8 turns into a fade.
+ */
+static int sphere_in_view(float *p, float r, float *far) {
+    float *m = D_0018D080;
+    float s = m[0x30 / 4 + 3];
+    float x = p[0] * s - m[12];
+    float y = p[1] * s - m[13];
+    float z = p[2] * s - m[14];
+    float w = p[3] * s;
+    float vx = m[0] * x + m[4] * y + m[8] * z;
+    float vy = m[1] * x + m[5] * y + m[9] * z;
+    float vz = m[2] * x + m[6] * y + m[10] * z;
+    float nearx = w + vz;
+    float neary = -w + vz;
+    float t3x = 0.0f - nearx;
+    float t3y = r * s - neary;
+    float e8x = m[0x60 / 4] * w;
+    float e8y = m[0x60 / 4 + 1] * w;
+    float e5x = m[0x40 / 4] * vz;
+    float e5y = m[0x40 / 4 + 1] * vz;
+    float ax = vx < 0.0f ? -vx : vx;
+    float ay = vy < 0.0f ? -vy : vy;
+    float e7x = e8x * m[0x60 / 4 + 2];
+    float e7y = e8y * m[0x60 / 4 + 2];
+    float e9x = e5x * m[0x50 / 4];
+    float e9y = e5y * m[0x50 / 4 + 1];
+    float e6x = ax - e8x;
+    float e6y = ay - e8y;
+    float o8x = ax + e7x;
+    float o8y = ay + e7y;
+    float e4x = nearx - m[0x70 / 4];
+    float e4y = neary - m[0x70 / 4 + 1];
+    float o7x = e5x - e6x;
+    float o7y = e5y - e6y;
+    float f8x = e9x - o8x;
+    float f8y = e9y - o8y;
+
+    *far = t3y;
+    if (negative(t3y) || !negative(t3x)) {
+        return -1;
+    }
+    if (negative(o7y) || negative(o7x)) {
+        return -1;
+    }
+    if (negative(f8y) || negative(e4y) || negative(f8x) || !negative(e4x)) {
+        return 0;
+    }
+    return 1;
+}
+
+/* Is the sphere at p (all four fields scaled by the view's w; w is its depth extent) with radius r
+ * in view: -1 no, 0 partly, 1 wholly. */
+int func_001FA8F0(float *p, float r) {
+    float far;
+    return sphere_in_view(p, r, &far);
+}
+
+/*
+ * func_001FA8F0's test, and an alpha from it in *alpha: what is left of the radius past the
+ * sphere's depth, as an integer, over 128 and at most 128 (0 when the sphere is out of view).
+ */
+int func_001FA9E8(float *p, int *alpha, float r) {
+    float far;
+    int in = sphere_in_view(p, r, &far);
+    int v;
+    unsigned a;
+
+    if (in < 0) {
+        *alpha = 0;
+        return in;
+    }
+    v = far >= 2147483647.0f ? 0x7FFFFFFF : far <= -2147483648.0f ? (int)0x80000000 : (int)far;
+    a = (unsigned)v >> 7;
+    *alpha = a > 0x80 ? 0x80 : (int)a;
+    return in;
+}
+
+/* out = v with x and y scaled to length len; (0, 0) when they are both zero. z and w are v's. */
+void func_001F9E10(float *out, float *v, float len) {
+    float x = v[0];
+    float y = v[1];
+    unsigned z = bits_of(v, 2);
+    unsigned w = bits_of(v, 3);
+    float sq = x * x + y * y;
+    float q;
+
+    if (*(unsigned *)&sq == 0) {
+        out[0] = 0.0f;
+        out[1] = 0.0f;
+    } else {
+        q = openrac_rsqrt(len, sq);
+        out[0] = x * q;
+        out[1] = y * q;
+    }
+    ((unsigned *)out)[2] = z;
+    ((unsigned *)out)[3] = w;
+}
