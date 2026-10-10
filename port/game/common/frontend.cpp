@@ -165,9 +165,50 @@ std::vector<std::uint8_t> direct_packets(std::span<const std::uint8_t> ram, std:
     return gif;
 }
 
-// Uploads a level's geometry; the boot program's title world is drawn with level 0's for now.
+// The game's frame as the TV showed it: 4:3 (the PS2's 512x448 PAL / 512x416 NTSC buffer), the
+// largest such box in the window, centred; the rest of the window is black. As ReRAC's game frame
+// (crates/rc-engine/src/display.rs; ISC License, Copyright (c) 2026 ReRAC contributors): the frame
+// keeps the game's framing whatever the window's shape.
+struct Box {
+    int x, y, width, height;
+};
+
+Box frame_box(int window_width, int window_height) {
+    int width = window_width;
+    int height = width * 3 / 4;
+    if (height > window_height) {
+        height = window_height;
+        width = height * 4 / 3;
+    }
+    return {(window_width - width) / 2, (window_height - height) / 2, width, height};
+}
+
+// Draws `framebuffer` (width x height) into the window's box, black around it; `flip`: its first
+// row is the top (an uploaded picture) rather than the bottom (a rendered frame).
+void present(unsigned framebuffer, int width, int height, int window_width, int window_height, bool flip) {
+    using namespace gl;
+    const Box b = frame_box(window_width, window_height);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+    const int y0 = flip ? b.y + b.height : b.y;
+    const int y1 = flip ? b.y : b.y + b.height;
+    glBlitFramebuffer(0, 0, width, height, b.x, y0, b.x + b.width, y1, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+}
+
+// The extracted level the title world is written as (editor/level.py load_title).
+constexpr int kTitleWorld = 99;
+
+// Uploads a level's geometry; while the boot program runs (the title and the main menu), the title
+// world's, or level 0's when the title world was not extracted.
 void use_level(int number) {
-    const int wanted = number < 0 ? 0 : number;
+    int wanted = number;
+    if (number < 0) {
+        wanted = std::filesystem::exists(g->levels / std::format("level_{:02d}", kTitleWorld)) ? kTitleWorld : 0;
+    }
     if (wanted == g->loaded) {
         return;
     }
@@ -313,10 +354,7 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black) 
         }
     }
     // The picture fills the frame the game's own frames fill; its first row is the top.
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, g->picture.id());
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glBlitFramebuffer(0, 0, width, height, 0, window_height, window_width, 0, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    present(g->picture.id(), width, height, window_width, window_height, true);
     g->window->swap();
     return true;
 }
@@ -371,9 +409,12 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
         g->scene.set_instances(viewer::Layer::Mobys, live);
     }
 
-    int width = 0;
-    int height = 0;
-    g->window->drawable_size(width, height);
+    int window_width = 0;
+    int window_height = 0;
+    g->window->drawable_size(window_width, window_height);
+    const Box box = frame_box(window_width, window_height);
+    const int width = box.width;
+    const int height = box.height;
     std::string error;
     if (width > 0 && height > 0 && (g->frame.width() != width || g->frame.height() != height)) {
         g->frame.create(width, height, error);
@@ -390,8 +431,10 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
         }
     }
     input.camera.view = state.view();
+    // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
+    // the TV's 4:3, which they were made for), not the window's shape.
     input.camera.projection = state.projection(
-        static_cast<float>(width) / static_cast<float>(height > 0 ? height : 1), 0.05f, 2000.0f
+        state.tan_half_fov_y > 0.0f ? state.tan_half_fov_x / state.tan_half_fov_y : 4.0f / 3.0f, 0.05f, 2000.0f
     );
     input.camera.position = state.camera_position;
     // OPENRAC_DUMP_DRAWS=N or N-M: the frames whose 2D draws are logged.
@@ -423,7 +466,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
             log::info("frame {} written to {}", input.frame, path);
         }
     }
-    g->frame.blit_to(0, width, height);
+    present(g->frame.id(), width, height, window_width, window_height, false);
     g->window->swap();
     return true;
 }
