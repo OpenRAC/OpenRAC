@@ -85,7 +85,8 @@ function(openrac_add_game config)
   file(GLOB_RECURSE inputs CONFIGURE_DEPENDS
     "${game_source}/src/*.c" "${game_source}/src/*.h" "${game_source}/include/*.h"
     "${game_source}/candidates/*.c" "${game_source}/nonmatching/*.tsv" "${game_source}/nonmatching/*.c")
-  file(GLOB tool CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/../tools/hostgen/*.py")
+  # Resolve against this function's module, not the caller's CMakeLists.txt.
+  file(GLOB tool CONFIGURE_DEPENDS "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../tools/hostgen/*.py")
   file(GLOB tables CONFIGURE_DEPENDS "${config_dir}/*.json" "${config_dir}/*.tsv"
        "${config_dir}/hand/*" "${OPENRAC_GAME_DIR}/common/*.tsv")
   # hostgen rewrites only the files whose text changed, so after an edit only
