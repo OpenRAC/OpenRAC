@@ -82,75 +82,91 @@ bool LevelScene::upload(
     );
 
     for (std::size_t layer = 0; layer < kLayerCount; ++layer) {
-        // Instances grouped by class model, in first-seen order.
-        std::map<std::uint32_t, std::vector<InstanceData>> by_model;
-        std::vector<std::uint32_t> order;
-        for (const Instance& instance : level.instances[layer]) {
-            auto [it, fresh] = by_model.try_emplace(instance.model);
-            if (fresh) {
-                order.push_back(instance.model);
-            }
-            InstanceData data{};
-            std::copy(instance.matrix.begin(), instance.matrix.end(), data.matrix);
-            std::copy(instance.tint.begin(), instance.tint.end(), data.tint);
-            it->second.push_back(data);
-        }
-        for (std::uint32_t model : order) {
-            const auto& list = by_model[model];
-            Group g;
-            g.model = model;
-            g.count = static_cast<int>(list.size());
-            glGenVertexArrays(1, &g.vao);
-            glBindVertexArray(g.vao);
-            glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indices);
-            constexpr auto stride = static_cast<GLsizei>(sizeof(Vertex));
-            glEnableVertexAttribArray(0);
-            glVertexAttribPointer(
-                0, 3, GL_FLOAT, GL_FALSE, stride, offset(offsetof(Vertex, position))
-            );
-            glEnableVertexAttribArray(1);
-            glVertexAttribPointer(
-                1, 3, GL_FLOAT, GL_FALSE, stride, offset(offsetof(Vertex, normal))
-            );
-            glEnableVertexAttribArray(2);
-            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, offset(offsetof(Vertex, uv)));
-            glEnableVertexAttribArray(3);
-            glVertexAttribPointer(
-                3, 4, GL_FLOAT, GL_FALSE, stride, offset(offsetof(Vertex, colour))
-            );
-            glGenBuffers(1, &g.instances);
-            glBindBuffer(GL_ARRAY_BUFFER, g.instances);
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                static_cast<GLsizeiptr>(list.size() * sizeof(InstanceData)),
-                list.data(),
-                GL_STATIC_DRAW
-            );
-            constexpr auto instance_stride = static_cast<GLsizei>(sizeof(InstanceData));
-            for (GLuint column = 0; column < 4; ++column) {
-                glEnableVertexAttribArray(4 + column);
-                glVertexAttribPointer(
-                    4 + column,
-                    4,
-                    GL_FLOAT,
-                    GL_FALSE,
-                    instance_stride,
-                    offset(column * 4 * sizeof(float))
-                );
-                glVertexAttribDivisor(4 + column, 1);
-            }
-            glEnableVertexAttribArray(8);
-            glVertexAttribPointer(
-                8, 4, GL_FLOAT, GL_FALSE, instance_stride, offset(offsetof(InstanceData, tint))
-            );
-            glVertexAttribDivisor(8, 1);
-            m_groups[layer].push_back(g);
-        }
+        build_groups(static_cast<Layer>(layer), level.instances[layer]);
     }
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     return true;
+}
+
+void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instances) {
+    // Instances grouped by class model, in first-seen order.
+    std::map<std::uint32_t, std::vector<InstanceData>> by_model;
+    std::vector<std::uint32_t> order;
+    for (const Instance& instance : instances) {
+        auto [it, fresh] = by_model.try_emplace(instance.model);
+        if (fresh) {
+            order.push_back(instance.model);
+        }
+        InstanceData data{};
+        std::copy(instance.matrix.begin(), instance.matrix.end(), data.matrix);
+        std::copy(instance.tint.begin(), instance.tint.end(), data.tint);
+        it->second.push_back(data);
+    }
+    for (std::uint32_t model : order) {
+        const auto& list = by_model[model];
+        Group g;
+        g.model = model;
+        g.count = static_cast<int>(list.size());
+        glGenVertexArrays(1, &g.vao);
+        glBindVertexArray(g.vao);
+        glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indices);
+        constexpr auto stride = static_cast<GLsizei>(sizeof(Vertex));
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(
+            0, 3, GL_FLOAT, GL_FALSE, stride, offset(offsetof(Vertex, position))
+        );
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(
+            1, 3, GL_FLOAT, GL_FALSE, stride, offset(offsetof(Vertex, normal))
+        );
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, offset(offsetof(Vertex, uv)));
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(
+            3, 4, GL_FLOAT, GL_FALSE, stride, offset(offsetof(Vertex, colour))
+        );
+        glGenBuffers(1, &g.instances);
+        glBindBuffer(GL_ARRAY_BUFFER, g.instances);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(list.size() * sizeof(InstanceData)),
+            list.data(),
+            GL_STATIC_DRAW
+        );
+        constexpr auto instance_stride = static_cast<GLsizei>(sizeof(InstanceData));
+        for (GLuint column = 0; column < 4; ++column) {
+            glEnableVertexAttribArray(4 + column);
+            glVertexAttribPointer(
+                4 + column,
+                4,
+                GL_FLOAT,
+                GL_FALSE,
+                instance_stride,
+                offset(column * 4 * sizeof(float))
+            );
+            glVertexAttribDivisor(4 + column, 1);
+        }
+        glEnableVertexAttribArray(8);
+        glVertexAttribPointer(
+            8, 4, GL_FLOAT, GL_FALSE, instance_stride, offset(offsetof(InstanceData, tint))
+        );
+        glVertexAttribDivisor(8, 1);
+        m_groups[static_cast<std::size_t>(layer)].push_back(g);
+    }
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void LevelScene::set_instances(Layer layer, const std::vector<Instance>& instances) {
+    auto& groups = m_groups[static_cast<std::size_t>(layer)];
+    for (Group& g : groups) {
+        glDeleteVertexArrays(1, &g.vao);
+        glDeleteBuffers(1, &g.instances);
+    }
+    groups.clear();
+    build_groups(layer, instances);
 }
 
 void LevelScene::release() {

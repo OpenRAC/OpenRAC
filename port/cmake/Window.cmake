@@ -99,6 +99,7 @@ endif()
 
 add_library(openrac_viewer_lib STATIC
   viewer/camera.cpp
+  viewer/game_state.cpp
   viewer/json.cpp
   viewer/level.cpp
   viewer/level_renderer.cpp

@@ -365,6 +365,10 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error) {
         }
     }
 
+    for (const auto& [id, cls] : mobys) {
+        out.moby_classes[id] = {cls.model, cls.box};
+    }
+
     const std::string placements_file =
         manifest["placements"].is_string() ? manifest["placements"].string() : "placements.json";
     json::Value placements;

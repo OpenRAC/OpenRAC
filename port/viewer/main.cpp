@@ -22,6 +22,7 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <optional>
 #include <format>
 #include <string>
 #include <string_view>
@@ -36,6 +37,7 @@
 #include "renderer/gl.h"
 #include "renderer/renderer.h"
 #include "viewer/camera.h"
+#include "viewer/game_state.h"
 #include "viewer/level.h"
 #include "viewer/level_renderer.h"
 #include "viewer/screenshot.h"
@@ -55,6 +57,7 @@ struct Options {
     bool lighting = true;
     bool camera_given = false;
     float camera[5] = {};  // x, y, z, yaw and pitch in degrees
+    std::filesystem::path state;  // a 32 MB memory picture of the running game
 };
 
 constexpr const char* kUsage =
@@ -65,7 +68,8 @@ constexpr const char* kUsage =
     "  --size WxH           window or screenshot size (default 1280x720)\n"
     "  --camera X,Y,Z,YAW,PITCH   start here (game units; degrees) instead of framing the level\n"
     "  --fullscreen | --borderless\n"
-    "  --no-vsync  --no-lighting\n";
+    "  --no-vsync  --no-lighting\n"
+    "  --state FILE         the game's main memory at one frame (32 MB): its camera and live mobys\n";
 
 bool parse_floats(std::string_view text, float* out, int count) {
     for (int i = 0; i < count; ++i) {
@@ -123,6 +127,8 @@ bool parse(int argc, char** argv, Options& o) {
             o.mode = platform::DisplayMode::Borderless;
         } else if (arg == "--no-vsync") {
             o.vsync = false;
+        } else if (arg == "--state") {
+            o.state = std::filesystem::path(next());
         } else if (arg == "--no-lighting") {
             o.lighting = false;
         } else if (!arg.empty() && arg[0] != '-' && o.level.empty()) {
@@ -204,6 +210,39 @@ int run(const Options& options) {
     if (!renderer.init(error)) {
         log::error("{}", error);
         return 1;
+    }
+
+    // The running game's camera and mobys, from its memory.
+    std::optional<viewer::GameState> game;
+    if (!options.state.empty()) {
+        std::vector<std::uint8_t> ram;
+        if (!viewer::load_memory(options.state, ram, error)) {
+            log::error("{}", error);
+            return 1;
+        }
+        game = viewer::read_game_state(ram, viewer::rac1_pal_addresses(ram));
+        std::vector<viewer::Instance> live;
+        int unknown = 0;
+        for (const viewer::LiveMoby& m : game->mobys) {
+            auto cls = level.moby_classes.find(m.class_id);
+            if (cls == level.moby_classes.end()) {
+                ++unknown;
+                continue;
+            }
+            viewer::Instance instance;
+            instance.model = cls->second.first;
+            instance.matrix = m.matrix;
+            live.push_back(instance);
+        }
+        scene.set_instances(viewer::Layer::Mobys, live);
+        log::info(
+            "game state: camera at {:.1f} {:.1f} {:.1f}, {} live mobys ({} of classes the level does not have)",
+            game->camera_position[0],
+            game->camera_position[1],
+            game->camera_position[2],
+            game->mobys.size(),
+            unknown
+        );
     }
 
     viewer::FlyCamera camera;
@@ -306,6 +345,13 @@ int run(const Options& options) {
         input.camera.projection =
             camera.projection(static_cast<float>(width) / static_cast<float>(height));
         input.camera.position = camera.position;
+        if (game) {
+            input.camera.view = game->view();
+            input.camera.projection = game->projection(
+                static_cast<float>(width) / static_cast<float>(height), 0.05f, 2000.0f
+            );
+            input.camera.position = game->camera_position;
+        }
         input.frame = index;
         input.seconds = static_cast<double>(now - start) / 1e9;
         renderer.render(input, {frame.id(), width, height});

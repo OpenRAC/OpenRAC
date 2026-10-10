@@ -19,6 +19,7 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -90,6 +91,8 @@ struct LevelData {
     std::vector<renderer::Rgba8Image> images;
     std::vector<std::string> image_paths;
     std::array<std::vector<Instance>, kLayerCount> instances;
+    // Moby classes: model and whether it is the stand-in box, for placing live mobys.
+    std::map<int, std::pair<std::uint32_t, bool>> moby_classes;
     std::array<float, 3> background{0.0f, 0.0f, 0.0f};  // where no sky shell covers
     Vec3 bounds_min{};
     Vec3 bounds_max{};

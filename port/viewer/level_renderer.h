@@ -33,6 +33,9 @@ public:
 
     void draw_layer(Layer layer, const renderer::FrameInput& input, renderer::RenderState& state);
 
+    // Replaces a layer's instances (live mobys, each frame).
+    void set_instances(Layer layer, const std::vector<Instance>& instances);
+
     bool lighting = true;
 
 private:
@@ -44,6 +47,7 @@ private:
     };
 
     void draw_sky(const renderer::FrameInput& input, renderer::RenderState& state);
+    void build_groups(Layer layer, const std::vector<Instance>& instances);
 
     std::vector<Model> m_models;
     std::vector<Material> m_materials;
