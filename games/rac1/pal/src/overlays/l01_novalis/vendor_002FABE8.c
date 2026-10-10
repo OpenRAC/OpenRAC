@@ -1011,8 +1011,9 @@ void func_L01_002FED78(char *m) {
     }
 }
 extern char D_L01_001FBF40[];
-void func_L01_002FFF00(void) {
-    DefaultVtbl_DeleteMoby();
+/* The moby comes in $a0 and goes on to the delete, untouched. */
+void func_L01_002FFF00(void *moby) {
+    DefaultVtbl_DeleteMoby(moby);
     func_L01_002BA898(4, D_L01_001FBF40);
 }
 typedef u32 u128_FFF30 __attribute__((mode(TI), aligned(16)));
@@ -1032,7 +1033,7 @@ extern WaterLayer D_L01_001FBF40_FFF30[] __asm__("D_L01_001FBF40");
 extern short D_L01_00161D70;
 extern s32 D_L01_0015F6B0 MACRO_ADDR;
 extern f32 func_001FA888(s32);
-extern void func_L01_002FFF00(void);
+extern void func_L01_002FFF00(void *);
 extern int func_001F49B0_FFF30(void (*)(void), void *) __asm__("func_001F49B0");
 
 /* On first use, lowers and ripples the layers' vertices; every frame, pulses their glow and queues FUN_L01_002feb28.
@@ -1461,17 +1462,17 @@ void func_L01_00309020(void *arg) {
 }
 extern char D_L01_00203040[];
 extern int D_L01_0015F6B0 MACRO_ADDR;
-extern void func_L00_00237B70(void);
+extern void func_L00_00237B70(void *);
 extern void func_L01_002BA898(int, void *);
 extern float func_001FA888(int);
 extern float func_001F9FA8(float);
 
 /* draw callback: pulses three colour entries from a sine of the frame counter */
-void func_L01_0030AFD0(void) {
+void func_L01_0030AFD0(void *moby) {
     float *p;
     float v;
     int i;
-    DefaultVtbl_DeleteMoby();
+    DefaultVtbl_DeleteMoby(moby);
     func_L01_002BA898(3, D_L01_00203040);
     v = FastSin((func_001FA888(D_L01_0015F6B0 & 0x3F) - 32.0f) * 0.09817477f) * 0.5f + 0.5f;
     p = (float *)(D_L01_00203040 + 0x11C);
@@ -1480,7 +1481,7 @@ void func_L01_0030AFD0(void) {
         p -= 24;
     }
 }
-extern void func_L01_0030AFD0(void);
+extern void func_L01_0030AFD0(void *);
 extern void func_001F49B0(void *, void *);
 
 void func_L01_0030B070(unsigned char *moby) {

@@ -2811,17 +2811,18 @@ void func_L01_002F5AE8(Moby_2F5AE8 *self)
     }
 }
 INCLUDE_ASM("asm/overlays", func_L01_002F5D38);
-extern void func_L00_00237B70(void);
+extern void func_L00_00237B70(void *);
 extern void func_L01_002BA898(int, void *);
 extern char D_L01_001E32A0[];
 
-void func_L01_002F74D0(void) {
-    DefaultVtbl_DeleteMoby();
+/* The moby comes in $a0 and goes on to the delete, untouched. */
+void func_L01_002F74D0(void *moby) {
+    DefaultVtbl_DeleteMoby(moby);
     func_L01_002BA898(8, D_L01_001E32A0);
 }
 extern char D_L01_001E3660[];
-void func_L01_002F7528(void) {
-    DefaultVtbl_DeleteMoby();
+void func_L01_002F7528(void *moby) {
+    DefaultVtbl_DeleteMoby(moby);
     func_L01_002BA898(2, D_L01_001E3660);
 }
 typedef u32 u128_F7558 __attribute__((mode(TI), aligned(16)));
@@ -2841,7 +2842,7 @@ extern BoundGroup D_L01_001E3660_F7558[] __asm__("D_L01_001E3660");
 extern void func_001F9C30(void *, void *, float);
 extern f32 func_001F9CB8(void *);
 extern f32 func_001FA888(s32);
-extern void func_L01_002F7528(void);
+extern void func_L01_002F7528(void *);
 void func_001F49B0(void *fn, void *arg);
 
 /* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/l01/unclassified_002b96e0.c, FUN_L01_002f6180. */

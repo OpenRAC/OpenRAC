@@ -44,6 +44,9 @@ DISC = OPENRAC / "baserom/SCES_509.16.iso"
 HOOKS = OPENRAC / "runtime/games/SCES_509.16.hooks"
 WORK = ROOT / "build-sn/fcheck"
 STATES = WORK / "states"
+# OpenRAC dropped runtime/ with its emulator; the hooks file is kept beside the states.
+if not HOOKS.exists():
+    HOOKS = WORK / "SCES_509.16.hooks"
 BASE = 0x000A0000          # where the candidate goes: below the game, unused by it
 LIMIT = 0x000F0000
 # Into level 0 with no memory card: cross past the warning, start, new game.

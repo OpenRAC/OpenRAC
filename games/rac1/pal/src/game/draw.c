@@ -1171,6 +1171,8 @@ typedef struct {
 extern FRow D_0018CBA0[4];
 extern LightRec D_0018E440[];
 extern int func_001F4868(int);
+/* GetEffectTex as it really returns: the 64-bit TEX0 (for the callers that keep it whole). */
+extern long GetEffectTex64(int) __asm__("func_001F4868");
 extern void func_001F9DC0(void *dst, void *src, float len);
 extern void func_001F7EF8(void *, int, int);
 
@@ -2069,7 +2071,7 @@ void func_001F6668_r(s32 x, s32 y, u64 color, u8 *text, s32 character_limit, s64
     } while (*cursor != 0);
 }
 
-extern void func_001F6668(void *, void *, void *, void *, void *, int,
+extern void func_001F6668(void *, void *, void *, void *, void *, long,
                           unsigned char *);
 
 /* Same shape as func_001F7560/func_001F75D0 below, one argument wider:
@@ -2077,14 +2079,14 @@ extern void func_001F6668(void *, void *, void *, void *, void *, int,
    the fifth through seventh in $8/$9/$10. */
 /* FontPrintLarge */
 void func_001F68E8(void *a, void *b, void *c, void *d, void *e) {
-    int mode = GetEffectTex(1);
+    long mode = GetEffectTex64(1);
 
     FontPrint(a, b, c, d, e, mode, D_001DF3D0);
 }
 
 /* FontPrintSmall */
 void func_001F6968(void *a, void *b, void *c, void *d, void *e) {
-    int mode = GetEffectTex(2);
+    long mode = GetEffectTex64(2);
 
     FontPrint(a, b, c, d, e, mode, D_001DF770);
 }
@@ -2100,11 +2102,11 @@ struct Glyph {
 extern s32 D_0015F5A0 MACRO_ADDR;
 extern s32 D_0018CBF8[];
 extern f32 func_001FA888(s32);
-extern void func_001F5BB8_F69F0(f32, f32, f32, f32, s32, s32, s32, s32, u64, s32) __asm__("func_001F5BB8");
-void func_001F69F0(u64 color, u8 *s, s32 n, s32 tex, struct Glyph *g, f32 x, f32 y, f32 scale);
+extern void func_001F5BB8_F69F0(f32, f32, f32, f32, s32, s32, s32, s32, u64, s64) __asm__("func_001F5BB8");
+void func_001F69F0(u64 color, u8 *s, s32 n, s64 tex, struct Glyph *g, f32 x, f32 y, f32 scale);
 
 /* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/audio/music/process_bgm_display_text_event.c, process_bgm_display_text_event. */
-void func_001F69F0(u64 color, u8 *str, s32 n, s32 tex, struct Glyph *g, f32 x, f32 y, f32 scale) {
+void func_001F69F0(u64 color, u8 *str, s32 n, s64 tex, struct Glyph *g, f32 x, f32 y, f32 scale) {
     u8 *s;
     s32 i;
     f32 size;
@@ -2170,21 +2172,21 @@ extern int func_001F6620(unsigned char *, int);
    helper returns. */
 void func_001F6CF8(char *a, void *b, void *c, unsigned char *d, int e) {
     char *p = a - func_001F6600(d, e);
-    int mode = GetEffectTex(1);
+    long mode = GetEffectTex64(1);
 
     FontPrint(p, b, c, d, (void *)e, mode, D_001DF3D0);
 }
 
 void func_001F6D88(char *a, void *b, void *c, unsigned char *d, int e) {
     char *p = a - func_001F6620(d, e);
-    int mode = GetEffectTex(2);
+    long mode = GetEffectTex64(2);
 
     FontPrint(p, b, c, d, (void *)e, mode, D_001DF770);
 }
 
 void func_001F6E18(char *a, void *b, void *c, unsigned char *d, int e) {
     char *p = a - func_001F6640(d, e);
-    int mode = GetEffectTex(3);
+    long mode = GetEffectTex64(3);
 
     FontPrint(p, b, c, d, (void *)e, mode, D_001DFB10);
 }
@@ -2196,7 +2198,7 @@ void func_001F6E18(char *a, void *b, void *c, unsigned char *d, int e) {
 /* FontPrintCenter */
 int func_001F6EA8(int a, int b, int c, int d, int e) {
     int p = a - (func_001F6600((unsigned char *)d, e) >> 1);
-    int mode = GetEffectTex(1);
+    long mode = GetEffectTex64(1);
 
     FontPrint((void *)p, (void *)b, (void *)c, (void *)d, (void *)e,
                   mode, D_001DF3D0);
@@ -2206,7 +2208,7 @@ int func_001F6EA8(int a, int b, int c, int d, int e) {
 /* FontPrintCenterSmall */
 int func_001F6F40(int a, int b, int c, int d, int e) {
     int p = a - (func_001F6620((unsigned char *)d, e) >> 1);
-    int mode = GetEffectTex(2);
+    long mode = GetEffectTex64(2);
 
     FontPrint((void *)p, (void *)b, (void *)c, (void *)d, (void *)e,
                   mode, D_001DF770);
@@ -2216,7 +2218,7 @@ int func_001F6F40(int a, int b, int c, int d, int e) {
 /* FontPrintCenterLarge */
 int func_001F6FD8(int a, int b, int c, int d, int e) {
     int p = a - (func_001F6640((unsigned char *)d, e) >> 1);
-    int mode = GetEffectTex(3);
+    long mode = GetEffectTex64(3);
 
     FontPrint((void *)p, (void *)b, (void *)c, (void *)d, (void *)e,
                   mode, D_001DFB10);

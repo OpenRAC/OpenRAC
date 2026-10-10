@@ -17,7 +17,7 @@ extern s32 func_L00_00267618_290(void *) __asm__("func_L00_00267618");
 extern float func_001F9D10(void *, void *);
 extern float func_L00_001FF860(float, float);
 extern float func_001FA850(float, float);
-extern void func_L00_00217AE8(void *, void *, int);
+extern void func_00217AE8(void *, void *, int);
 extern int func_L00_002367A8(int, int);
 extern int func_001FFB38_290(int, int, void *, void *, void *, void *, int) __asm__("func_001FFB38");
 extern int func_001F9850(int);
@@ -92,7 +92,7 @@ s32 func_L00_00267290(void *a0, void *b0) {
             return 0;
     }
 
-    func_L00_00217AE8(a, b, 0);
+    func_00217AE8(a, b, 0);
 
     g2 = D_L00_00179200;
     if (D_L00_0015F6B0 < *(s32 *)(g2 + 0x10))
@@ -123,7 +123,7 @@ s32 func_L00_00267290(void *a0, void *b0) {
         }
         h4 = *(s16 *)(E + 0x4);
         if (h4 == -1) {
-            func_L00_00217AE8(a, b, 1);
+            func_00217AE8(a, b, 1);
             return 1;
         }
         *(s32 *)(g2 + 0xC) = (s32)b;

@@ -46,7 +46,7 @@ extern void func_001FB470(void);
 extern void func_00216A90(int, int, int);
 extern void func_001E9768(void *, int);
 extern void func_001E9768_v() __asm__("func_001E9768");
-extern void func_00216270(void);
+extern void func_00218908(void); /* UpdatePad: the catalogue once filed its level copies under func_00216270 */
 extern void func_L00_001F4918(void);
 extern void func_L00_001F5C60(void);
 extern void func_L00_00299250(void);
@@ -199,12 +199,12 @@ void func_L00_002465F8(void) {
         v = D_L00_0015F6A8;
         switch (v) {
         case -1:
-            func_00216270();
+            func_00218908();
             func_L00_001F4918();
             func_L00_001F5C60();
             break;
         case 0:
-            func_00216270();
+            func_00218908();
             func_L00_00299250();
             func_L00_001F91B0();
             break;
@@ -212,32 +212,32 @@ void func_L00_002465F8(void) {
             func_L00_0029AD18();
             break;
         case 2:
-            func_00216270();
+            func_00218908();
             func_L00_0029A300();
             func_001F45F0();
             break;
         case 3:
-            func_00216270();
+            func_00218908();
             func_L00_00277A88();
             func_L00_001F92C0();
             break;
         case 4:
-            func_00216270();
+            func_00218908();
             func_001FD3E8();
             func_L00_001F9248();
             break;
         case 5:
-            func_00216270();
+            func_00218908();
             func_L00_0029D988();
             func_L00_002A1540();
             break;
         case 6:
-            func_00216270();
+            func_00218908();
             func_00230A90();
             func_00232200();
             break;
         case 7:
-            func_00216270();
+            func_00218908();
             func_L00_0029AFB8();
             func_L00_001F92E8();
             break;
@@ -303,10 +303,10 @@ void func_L00_002465F8(void) {
                 }
                 if (thr < hw) {
                     if (v == 0) {
-                        func_00216270();
+                        func_00218908();
                         func_L00_00299250();
                     } else if (*(short *)D_L00_0016C9B0 == 0) {
-                        func_00216270();
+                        func_00218908();
                         func_L00_0029A300();
                     }
                 }

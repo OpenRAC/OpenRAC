@@ -142,7 +142,7 @@ draw:
                 f1 = (float)win[4];
             f13 = (float)win[11] * 0.0625f;
             f13 = (float)y + f13;
-            func_001F69F0((u64)(long)D_0018CBF8[colr_arr[k]], text + s, cnt, (int)a4,
+            func_001F69F0((u64)(long)D_0018CBF8[colr_arr[k]], text + s, cnt, a4,
                           (struct Glyph *)glyphs, f1 + f0, f13, 1.0f);
         } else {
             if (flags & 1) {
