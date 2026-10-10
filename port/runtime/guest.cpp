@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <execinfo.h>
 #include <format>
 #include <map>
 #include <mutex>
@@ -294,6 +295,14 @@ void openrac_guest_missing(const char* name) {
         if (g_missing[name]++ != 0) {
             return;
         }
+    }
+    // OPENRAC_TRACE_MISSING: the host stack of the first call to each function without C.
+    static const bool trace = std::getenv("OPENRAC_TRACE_MISSING") != nullptr;
+    if (trace) {
+        void* frames[16];
+        const int count = backtrace(frames, 16);
+        warn("first call to {}:", name);
+        backtrace_symbols_fd(frames, count, 2);
     }
     if (g_stop_on_missing) {
         error("the game called {}, which has no C in the port yet; stopping here", name);
@@ -870,6 +879,9 @@ gaddr openrac_call_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gad
         }
     }
     found.emplace(key, result);
+    if (std::getenv("OPENRAC_TRACE_RELOCATION") != nullptr) {
+        std::fprintf(stderr, "call in copy %08X+%08X: %08X -> %08X\n", canon, self, target, result);
+    }
     return result;
 }
 
