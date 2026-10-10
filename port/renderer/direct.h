@@ -128,7 +128,8 @@ public:
 
     // A GIF packet: tags and their data, as the game sends to the chip
     // (PATH3, or DIRECT through VIF1). Returns false if it is malformed;
-    // error() says where. Draws accumulate until clear().
+    // error() says where. An unfinished payload continues in the next call;
+    // draws accumulate until clear().
     bool gif(std::span<const std::uint8_t> input);
 
     // A VIF1 stream carrying GIF data in DIRECT and DIRECTHL commands, with

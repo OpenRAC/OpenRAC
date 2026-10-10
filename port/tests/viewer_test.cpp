@@ -209,7 +209,14 @@ int draw(viewer::LevelData& level) {
     CHECK(terrain[0] > 150 && terrain[1] < 60 && terrain[2] < 60);
     const std::uint8_t* tie = at(64, 64);
     CHECK(tie[2] > 150 && tie[0] < 60);
-    CHECK(renderer.last_stats().draw_calls == 3);
+    // Terrain and tie each draw once. Mobys also submit a glow pass; this
+    // fixture has no glow faces, so that pass discards all its fragments.
+    CHECK(renderer.last_stats().draw_calls == 4);
+
+    // Removing the moby layer removes both its solid and glow submissions.
+    renderer.renderers()[static_cast<std::size_t>(viewer::Layer::Mobys)]->enabled = false;
+    renderer.render(input, {frame.id(), 128, 128});
+    CHECK(renderer.last_stats().draw_calls == 2);
 
     frame.release();
     scene.release();
