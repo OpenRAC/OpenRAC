@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+    "verify": "yarn typecheck && yarn lint && yarn format:check && yarn test",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -41,5 +41,6 @@
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "packageManager": "yarn@4.18.1"
 }

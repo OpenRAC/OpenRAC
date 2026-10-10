@@ -70,8 +70,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: launcher/package-lock.json
+      - name: Yarn (the version package.json names, through Corepack)
+        run: corepack enable
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -82,8 +82,8 @@ jobs:
 
       - name: UI (svelte-check, ESLint, Prettier, Vitest)
         run: |
-          npm ci
-          npm run verify
+          yarn install --immutable
+          yarn verify
 
       - name: Rust format
         run: cargo fmt --all --check
@@ -93,7 +93,7 @@ jobs:
 
       - name: Rust lints (the whole app)
         run: |
-          npm run build
+          yarn build
           cargo clippy --workspace --all-targets -- -D warnings
 
   # The native port (port/): hostgen's tests, then the whole port built with

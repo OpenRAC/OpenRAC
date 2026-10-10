@@ -1,5 +1,5 @@
 // Typed wrappers around the Rust commands (src-tauri/src/lib.rs, whose data
-// types live in ../core). In a plain browser (`npm run dev` without Tauri)
+// types live in ../core). In a plain browser (`yarn dev` without Tauri)
 // every call goes to mock.ts instead, so the UI can be worked on and
 // screenshotted without the desktop app, a disc or a toolchain.
 //
