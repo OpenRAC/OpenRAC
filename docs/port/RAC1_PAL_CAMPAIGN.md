@@ -1049,6 +1049,55 @@ vector helpers and mode gates against retail, validate, then repeat the
 same strict forward/jump probe. All earlier dirty work is preserved.
 Local commits only, no push or assistant trailer.
 
+### Heading adjustment and controller validation, 2026-10-10 continuation
+
+Walk/run animation is committed as `ddebdc1`. Recovered native-only
+func_L00_00214520, reviewing the complete 0x2A0 retail body against
+nonmatching/shared/func_L00_00214520.c. Preserve heading-dependent turn
+gain, mode and boost gates, airborne speed limit, planar vector lengths,
+previous velocity, projection copy and alternate-mode helper ordering.
+Use the actual resident hero symbol and float timestep global. Initialize
+the unused scratch w lane; the final result preserves velocity w.
+
+Windows build and 61/61 CTest pass
+(`.tools/native-hero-heading-build.log`); the focused test also passes as
+`.tools/hero-heading-test32.exe`. It asserts all used hero field offsets,
+same/opposite/orthogonal turns, both zero-length cases, gain caps, heading,
+boost gates, airborne cap, projection isolation and damping call order.
+Generated C reviewed: guest-addressed locals and resident hero fields are
+correct. Hostgen: 3840 translated functions, no unreadable units, problems
+or index problems. No matching source or matching progress was changed.
+
+Strict `heading-verified` repeats neutral left stick through 1199,
+forward from 1200 for 150 frames and Cross scheduled at 1500. Walking
+and camera displacement reproduce the previous result at frame 1300.
+It passes the recovered routine, then stops at missing func_L00_0020D3A0
+at frame 1330, exit 2. The walking probe still does not reach its jump.
+Separate strict `heading-jump` keeps the stick neutral and presses Cross
+at 1100: processed held 0x40, hero animation changes to sequence 7,
+then missing func_L00_002147C0 stops execution at 1101, exit 2. A complete
+jump is not verified. Logs/screenshots: parent `.tools/native-run/`.
+The physical Xbox left-stick path was independently confirmed by the
+owner earlier in this session; these two final probes use scripted input.
+
+Exact next action: claim and recover func_L00_0020D3A0 (0x24C bytes),
+the nearby surface-contact table lookup. Start with its candidate in
+nonmatching/shared/, review all retail branches, preserve 32-byte guest
+table entries and pointer-valued filters/results, and test rejection,
+threshold equality and successful output writes. Repeat:
+`Test-Native.ps1 -Name contact-verified -Frames 2200 -ShotEvery 500
+-Press '0:0:1200:128:128,100:4000:5,1200:0:150:128:0,1500:4000:5'`.
+Then recover func_L00_002147C0 (0x5A0 bytes, camera length/offset easing)
+from its existing candidate and repeat the independent jump probe:
+`Test-Native.ps1 -Name jump-verified -Frames 1700 -ShotEvery 250
+-Press '0:0:1700:128:128,100:4000:5,1100:4000:5'`.
+Both runs retain strict missing-function checks and development movie
+skipping. They do not validate normal startup, other levels or full play.
+
+Prior tracked edits and all 18 baseline untracked files remain preserved;
+the latter were hash-checked against the pre-merge snapshot. Release the
+heading claim after this local commit. No push or assistant credit trailer.
+
 Full completion requires all recoverable game code accounted for, no
 unimplemented required native calls, documented native replacements for
 console-specific assembly, matching audits passing without new mismatches,
