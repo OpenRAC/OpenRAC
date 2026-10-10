@@ -263,3 +263,25 @@ int func_L00_002963D8(void) {
 void func_L00_00299B68(int a0) {
     (void)a0;
 }
+/* moby_anim_eval_chain (hand-written VU0, 2640 bytes): a moby's joint matrices from its animation.
+ * Not written yet: mobys keep their rest pose. ReRAC's moby animation code is the reference for
+ * the port's own evaluator. */
+void func_00211808(gaddr a0, gaddr a1) {
+    (void)a0;
+    (void)a1;
+}
+/* The pause and main menus' draw (the alternative to DrawMobys): the menu mobys and text drawn
+ * into textures for the console's renderer. Left out until the port draws menus itself. */
+int func_0021A610(void) {
+    return 0;
+}
+
+/* The freeze screen's draw (dialogs: countdowns, gauges, message lines), text and sprites for the
+ * console's renderer. Left out until the port draws dialogs itself; the dialog logic runs. */
+void func_001FBE80(void) {
+}
+
+/* The space flight's quads (loading between planets), for the console's renderer. */
+void func_0022F738(int a0) {
+    (void)a0;
+}

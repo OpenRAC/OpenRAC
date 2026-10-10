@@ -42,3 +42,4 @@ func_001F9908	game_fastfunc.c
 func_001F9938	game_fastfunc.c
 func_001F9D78	game_fastfunc.c
 func_001F0F00	game_collproc.c
+func_001F9B70	game_fastfunc.c

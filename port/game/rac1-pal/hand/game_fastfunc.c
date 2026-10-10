@@ -478,3 +478,11 @@ int func_001F9D78(float *a, float *b) {
     d = d - r * r;
     return d < 0.0f ? 1 : 0;
 }
+
+/* The absolute value of an integer (negated when below zero; the most negative value stays). */
+int func_001F9B70(int x) {
+    if (x < 0) {
+        x = -x;
+    }
+    return x;
+}

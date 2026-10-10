@@ -21,6 +21,7 @@
   "symbols": ["config/port_symbols.txt"],
   "libraries": "libraries.tsv",
   "overlay_hook": true,
+  "relocate": [1437696, 2359296],
   "roots": [
     "func_0012DB18",
     "func_001EBB48",
@@ -84,7 +85,12 @@
     "func_L00_001FE688",
     "func_L00_0028D958",
     "func_L00_002963D8",
-    "func_L00_00299B68"
+    "func_L00_00299B68",
+    "func_00211808",
+    "func_0021A610",
+    "func_001FBE80",
+    "func_00116248",
+    "func_0022F738"
   ],
   "candidates": "nonmatching/functional.tsv",
   "hand": "hand/hand.tsv"

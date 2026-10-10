@@ -9,6 +9,7 @@
 #include "openrac/game_lib.h"
 
 #include <math.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +52,11 @@ int func_0020C468(int src, int dst) {
     const gaddr to = (gaddr)dst;
     const uint32_t made = openrac_lib_wad_decompress((const uint8_t *)G(src), (uint8_t *)G(to),
                                                      to < end_of_ram ? end_of_ram - to : 0);
+    if (getenv("OPENRAC_TRACE_WAD")) {
+        const uint8_t *in = (const uint8_t *)G(src);
+        fprintf(stderr, "[debug] WAD %08x -> %08x: %02x%02x%02x%02x, %u bytes\n", (unsigned)src,
+                (unsigned)to, in[0], in[1], in[2], in[3], (unsigned)made);
+    }
     return (int)made;
 }
 
@@ -203,9 +209,9 @@ int func_0023B670(int a0, int a1, int a2, gaddr a3, int a4) {
  */
 void func_00235118(void) {
     uint32_t fences;
-    memcpy(&fences, G(0x00160FE0u), 4);
+    memcpy(&fences, G(OPENRAC_DATA(0x00160FE0u)), 4);
     fences &= ~0x1Fu;
-    memcpy(G(0x00160FE0u), &fences, 4);
+    memcpy(G(OPENRAC_DATA(0x00160FE0u)), &fences, 4);
 }
 
 /*
@@ -256,4 +262,81 @@ void game_D_0023B578(gaddr moby) {
         memcpy(G(moby + 0x58u), &zero, 4);
     }
     func_0023B5D0(moby);
+}
+
+/*
+ * sprintf (newlib, in the executable). The translated formatter passes a va_list into game
+ * memory, which hostgen cannot carry, so the port formats here: the conversions the game uses
+ * (d i u x X o c s f %, with flags, width and precision). A string argument is a game address;
+ * the result is written into game memory at `buffer`.
+ */
+int func_00116248(gaddr buffer, gaddr format, ...) {
+    char out[1024];
+    size_t n = 0;
+    const char *f = (const char *)G(format);
+    va_list args;
+
+    va_start(args, format);
+    while (*f != '\0' && n + 1 < sizeof(out)) {
+        char spec[32];
+        size_t k = 0;
+        char piece[512];
+        int made = 0;
+
+        if (*f != '%') {
+            out[n++] = *f++;
+            continue;
+        }
+        spec[k++] = *f++;
+        while (*f != '\0' && strchr("-+ #0123456789.", *f) != NULL && k + 2 < sizeof(spec)) {
+            spec[k++] = *f++;
+        }
+        while (*f == 'l' || *f == 'h') {
+            f++;  /* the game's int and long are passed as host ints here */
+        }
+        if (*f == '\0') {
+            break;
+        }
+        spec[k++] = *f;
+        spec[k] = '\0';
+        switch (*f++) {
+            case 'd':
+            case 'i':
+            case 'u':
+            case 'x':
+            case 'X':
+            case 'o':
+            case 'c':
+                made = snprintf(piece, sizeof(piece), spec, va_arg(args, int));
+                break;
+            case 's': {
+                const gaddr s = (gaddr)va_arg(args, int);
+                made = snprintf(piece, sizeof(piece), spec, s != 0 ? (const char *)G(s) : "(null)");
+                break;
+            }
+            case 'f':
+            case 'e':
+            case 'g':
+                made = snprintf(piece, sizeof(piece), spec, va_arg(args, double));
+                break;
+            case '%':
+                made = snprintf(piece, sizeof(piece), "%%");
+                break;
+            default:
+                made = 0;
+                break;
+        }
+        if (made > 0) {
+            size_t take = (size_t)made < sizeof(piece) ? (size_t)made : sizeof(piece) - 1;
+            if (n + take >= sizeof(out)) {
+                take = sizeof(out) - 1 - n;
+            }
+            memcpy(out + n, piece, take);
+            n += take;
+        }
+    }
+    va_end(args);
+    out[n] = '\0';
+    memcpy(G(buffer), out, n + 1);
+    return (int)n;
 }
