@@ -185,8 +185,30 @@ void openrac_game_draw(unsigned layers) {
 #endif
 }
 
+// OPENRAC_WRITE=FRAME:ADDRESS:VALUE[:FRAMES],...: a 32-bit word written into the game's memory at
+// each vertical blank from FRAME for FRAMES blanks (default 1), hexadecimal address and value; the
+// old interpreter's --write, for getting somewhere directly (0x15EE84, the level being played, set
+// around a new game's transition loads that level).
+static void apply_writes() {
+    static const char* script = std::getenv("OPENRAC_WRITE");
+    if (script == nullptr) {
+        return;
+    }
+    for (const char* at = script; at && *at;) {
+        unsigned long frame = 0, address = 0, value = 0, length = 1;
+        if (std::sscanf(at, "%lu:%lx:%lx:%lu", &frame, &address, &value, &length) >= 3
+            && g_frame >= frame && g_frame < frame + length) {
+            const std::uint32_t word = static_cast<std::uint32_t>(value);
+            std::memcpy(G(static_cast<gaddr>(address)), &word, 4);
+        }
+        at = std::strchr(at, ',');
+        at = at ? at + 1 : nullptr;
+    }
+}
+
 int openrac_game_vsync(void) {
     g_vsync_since_kick = true;
+    apply_writes();
     // With a window, the renderer draws the frame from the game's memory; without one, a frame is
     // only paced, at the game's frame rate.
 #ifdef OPENRAC_FRONTEND
