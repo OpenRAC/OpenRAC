@@ -89,7 +89,10 @@ std::uint32_t word_at(std::span<const std::uint8_t> ram, std::uint32_t at) {
  * VU1 (UNPACK, MPG and the rest) are stepped over by their sizes: what VU1 draws, the world, has
  * renderers of its own.
  */
-std::vector<std::uint8_t> direct_packets(std::span<const std::uint8_t> ram, std::uint32_t chain) {
+std::vector<std::uint8_t> direct_packets(std::span<const std::uint8_t> ram, std::uint32_t chain,
+                                         std::vector<renderer::EffectVertex>* strip_vertices = nullptr,
+                                         std::vector<renderer::EffectStrip>* strips = nullptr,
+                                         std::vector<renderer::ImageUpload>* uploads = nullptr) {
     std::vector<std::uint8_t> vif;
     std::uint32_t tag_at = chain & 0x01FFFFF0;
     std::uint32_t stack[2] = {0, 0};
@@ -153,6 +156,87 @@ std::vector<std::uint8_t> direct_packets(std::span<const std::uint8_t> ram, std:
         }
     }
     std::vector<std::uint8_t> gif;
+    // The GS registers the strips are drawn with, as the DIRECT data before them leaves them (A+D
+    // writes), and the strip being unpacked: its GIF tag at VU address 0, then ST (V2-32) at 1,
+    // RGBA (V4-8) at 2 and positions (V3-32) at 3, drawn by an MSCAL (func_L00_001FDE48's packet).
+    std::uint64_t reg_tex0 = 0, reg_tex1 = 0, reg_clamp = 0, reg_alpha = 0x44;
+    const std::uint8_t* strip_st = nullptr;
+    const std::uint8_t* strip_rgba = nullptr;
+    const std::uint8_t* strip_xyz = nullptr;
+    std::uint32_t strip_count = 0;
+    bool strip_tag = false;
+    // The images sent through the DIRECT data (BITBLTBUF, TRXREG, then IMAGE data), latest per
+    // destination block: a strip takes the ones at its TEX0's blocks.
+    std::uint64_t reg_bitbltbuf = 0, reg_trxreg = 0;
+    std::unordered_map<std::uint32_t, renderer::ImageUpload> images;
+    renderer::ImageUpload* filling = nullptr;
+    std::size_t filling_bytes = 0;
+    const auto start_image = [&]() {
+        renderer::ImageUpload image;
+        image.dbp = static_cast<std::uint32_t>((reg_bitbltbuf >> 32) & 0x3FFF);
+        image.dbw = static_cast<std::uint32_t>((reg_bitbltbuf >> 48) & 0x3F);
+        image.dpsm = static_cast<std::uint8_t>((reg_bitbltbuf >> 56) & 0x3F);
+        image.width = static_cast<std::uint32_t>(reg_trxreg & 0xFFF);
+        image.height = static_cast<std::uint32_t>((reg_trxreg >> 32) & 0xFFF);
+        const std::uint32_t bits = image.dpsm == 0x00 ? 32 : image.dpsm == 0x01 ? 24 : image.dpsm == 0x02 || image.dpsm == 0x0A ? 16
+                                   : image.dpsm == 0x13 ? 8 : image.dpsm == 0x14 ? 4 : 32;
+        filling_bytes = static_cast<std::size_t>(image.width) * image.height * bits / 8;
+        renderer::ImageUpload& slot = images[image.dbp];
+        slot = std::move(image);
+        filling = &slot;
+    };
+    std::size_t image_left = 0;  // IMAGE data a tag announced that runs on into the next DIRECT
+    const auto track_direct = [&](const std::uint8_t* d, std::size_t size) {
+        std::size_t p = 0;
+        if (image_left > 0) {
+            const std::size_t bytes = std::min(image_left, size);
+            if (filling != nullptr && filling->data.size() < filling_bytes) {
+                const std::size_t take = std::min(bytes, filling_bytes - filling->data.size());
+                filling->data.insert(filling->data.end(), d, d + take);
+            }
+            image_left -= bytes;
+            p = bytes;
+        }
+        while (p + 16 <= size) {
+            std::uint64_t lo, hi;
+            std::memcpy(&lo, d + p, 8);
+            std::memcpy(&hi, d + p + 8, 8);
+            p += 16;
+            const std::uint32_t nloop = static_cast<std::uint32_t>(lo & 0x7FFF);
+            const std::uint32_t flg = static_cast<std::uint32_t>((lo >> 58) & 3);
+            const std::uint32_t nreg = static_cast<std::uint32_t>((lo >> 60) & 0xF) == 0 ? 16 : static_cast<std::uint32_t>((lo >> 60) & 0xF);
+            if (flg == 0) {
+                for (std::uint32_t i = 0; i < nloop * nreg && p + 16 <= size; ++i, p += 16) {
+                    if (((hi >> (4 * (i % nreg))) & 0xF) != 0xE) {
+                        continue;
+                    }
+                    std::uint64_t value, address;
+                    std::memcpy(&value, d + p, 8);
+                    std::memcpy(&address, d + p + 8, 8);
+                    switch (address & 0xFF) {
+                        case 0x50: reg_bitbltbuf = value; break;
+                        case 0x52: reg_trxreg = value; break;
+                        case 0x53: if ((value & 3) == 0) { start_image(); } break;
+                        case 0x06: reg_tex0 = value; break;
+                        case 0x08: reg_clamp = value; break;
+                        case 0x14: reg_tex1 = value; break;
+                        case 0x42: reg_alpha = value; break;
+                        default: break;
+                    }
+                }
+            } else if (flg == 1) {
+                p += ((static_cast<std::size_t>(nloop) * nreg + 1) / 2) * 16;
+            } else {
+                const std::size_t bytes = std::min(static_cast<std::size_t>(nloop) * 16, size - p);
+                image_left = static_cast<std::size_t>(nloop) * 16 - bytes;
+                if (filling != nullptr && filling->data.size() < filling_bytes) {
+                    const std::size_t take = std::min(bytes, filling_bytes - filling->data.size());
+                    filling->data.insert(filling->data.end(), d + p, d + p + take);
+                }
+                p += bytes;
+            }
+        }
+    };
     std::size_t at = 0;
     while (at + 4 <= vif.size()) {
         std::uint32_t code;
@@ -173,6 +257,9 @@ std::vector<std::uint8_t> direct_packets(std::span<const std::uint8_t> ram, std:
                 break;
             }
             gif.insert(gif.end(), vif.data() + at, vif.data() + at + size);
+            if (strips != nullptr) {
+                track_direct(vif.data() + at, size);
+            }
             at += size;
         } else if (command >= 0x60) {
             const std::uint32_t vn = (command >> 2) & 3;
@@ -180,7 +267,59 @@ std::vector<std::uint8_t> direct_packets(std::span<const std::uint8_t> ram, std:
             const std::uint32_t bits = vl == 0 ? 32 : vl == 1 ? 16 : vl == 2 ? 8 : 16;
             const std::uint32_t count = num == 0 ? 256 : num;
             const std::uint32_t components = vl == 3 ? 1 : vn + 1;
-            at += ((count * components * bits + 31) / 32) * 4;
+            const std::size_t size = ((count * components * bits + 31) / 32) * 4;
+            if (strips != nullptr && at + size <= vif.size()) {
+                const std::uint32_t address = imm & 0x3FF;
+                const std::uint8_t* data = vif.data() + at;
+                if (vn == 3 && vl == 0 && count == 1 && address == 0) {
+                    // A strip's GIF tag: a triangle strip (PRIM 4) of NLOOP vertices.
+                    std::uint64_t tag;
+                    std::memcpy(&tag, data, 8);
+                    strip_tag = ((tag >> 47) & 7) == 4 && (tag & 0x7FFF) >= 3;
+                    strip_count = static_cast<std::uint32_t>(tag & 0x7FFF);
+                    strip_st = strip_rgba = strip_xyz = nullptr;
+                } else if (strip_tag && address == 1 && vn == 1 && vl == 0 && count == strip_count) {
+                    strip_st = data;
+                } else if (strip_tag && address == 2 && vn == 3 && vl == 2 && count == strip_count) {
+                    strip_rgba = data;
+                } else if (strip_tag && address == 3 && vn == 2 && vl == 0 && count == strip_count) {
+                    strip_xyz = data;
+                }
+            }
+            at += size;
+        } else if ((command == 0x14 || command == 0x15 || command == 0x17) && strips != nullptr) {
+            if (strip_tag && strip_st != nullptr && strip_rgba != nullptr && strip_xyz != nullptr) {
+                renderer::EffectStrip strip;
+                strip.first = static_cast<std::uint32_t>(strip_vertices->size());
+                strip.count = strip_count;
+                strip.tex0 = reg_tex0;
+                strip.tex1 = reg_tex1;
+                strip.clamp = reg_clamp;
+                strip.alpha = reg_alpha;
+                if (uploads != nullptr) {
+                    const std::uint32_t tbp = static_cast<std::uint32_t>(reg_tex0 & 0x3FFF);
+                    const std::uint32_t cbp = static_cast<std::uint32_t>((reg_tex0 >> 37) & 0x3FFF);
+                    for (const std::uint32_t block : {cbp, tbp}) {
+                        auto found = images.find(block);
+                        if (found != images.end() && found->second.data.size() > 0) {
+                            if (strip.uploads < 0) {
+                                strip.uploads = static_cast<int>(uploads->size());
+                            }
+                            uploads->push_back(found->second);
+                            strip.upload_count++;
+                        }
+                    }
+                }
+                for (std::uint32_t k = 0; k < strip_count; ++k) {
+                    renderer::EffectVertex v;
+                    std::memcpy(&v.x, strip_xyz + k * 12, 12);
+                    std::memcpy(&v.s, strip_st + k * 8, 8);
+                    std::memcpy(&v.rgba, strip_rgba + k * 4, 4);
+                    strip_vertices->push_back(v);
+                }
+                strips->push_back(strip);
+            }
+            strip_tag = false;
         }
     }
     return gif;
@@ -878,7 +1017,20 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     input.frame = g->index++;
     // The 2D path: the frame's direct GIF data, drawn by the direct renderer.
     (void)chain;
-    const std::vector<std::uint8_t> packets = direct_packets(ram, viewer::shown_chain(ram, a));
+    std::vector<renderer::EffectVertex> strip_vertices;
+    std::vector<renderer::EffectStrip> strips;
+    const std::vector<std::uint8_t> packets =
+        direct_packets(ram, viewer::shown_chain(ram, a), &strip_vertices, &strips, &g->effect_uploads);
+    input.strip_vertices = strip_vertices;
+    input.strips = strips;
+    if (debug && input.frame % 100 == 0 && !strips.empty()) {
+        int bare = 0;
+        for (const auto& st : strips) {
+            bare += st.upload_count == 0 ? 1 : 0;
+        }
+        log::info("  {} strips ({} vertices, {} without their texture's upload), the first TEX0 {:#x} ALPHA {:#x}",
+                  strips.size(), strip_vertices.size(), bare, strips.front().tex0, strips.front().alpha);
+    }
     input.packets[static_cast<std::size_t>(renderer::Bucket::Hud)] = packets;
     particle_quads(ram, state);
     input.effects = g->effects;

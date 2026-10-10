@@ -69,6 +69,23 @@ struct EffectQuad {
     std::uint32_t tbp = 0, cbp = 0;
 };
 
+// A strip the game sent to its VU1 strip program (rac1: func_L00_001FDE48's packets: the seas,
+// liquids and other callback meshes): count vertices from first in FrameInput::strip_vertices, in
+// world space, drawn as a triangle strip with the GS registers in effect when the game sent it.
+struct EffectVertex {
+    float x, y, z;
+    float s, t;
+    std::uint32_t rgba;  // the chip's bytes, R low (0x80 = 1.0)
+};
+
+struct EffectStrip {
+    std::uint32_t first = 0, count = 0;
+    std::uint64_t clamp = 0, tex0 = 0, tex1 = 0, alpha = 0x44;
+    // FrameInput::effect_uploads[uploads..uploads + upload_count): the images the game sent to
+    // TEX0's blocks just before the strip; put in the pool before it is drawn.
+    int uploads = -1, upload_count = 0;
+};
+
 struct FrameInput {
     // The packets the game built for each bucket this frame (empty when a
     // bucket has nothing, or its renderer draws from elsewhere).
@@ -77,6 +94,8 @@ struct FrameInput {
     // The frame's world effect quads, in the order the game drew them.
     std::span<const EffectQuad> effects{};
     std::span<const ImageUpload> effect_uploads{};
+    std::span<const EffectVertex> strip_vertices{};
+    std::span<const EffectStrip> strips{};
     std::array<float, 4> clear_colour{0.0f, 0.0f, 0.0f, 1.0f};
     std::uint64_t frame = 0;
     double seconds = 0.0;

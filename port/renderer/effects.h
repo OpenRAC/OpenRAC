@@ -5,7 +5,8 @@
 // quad routine (glows, beams, the space scenes' pictures, shadows), drawn with the GS state the
 // game gave each one: its texture from TEX0, filtering from TEX1, wrapping from CLAMP, blending
 // from ALPHA, the texture function and alpha as the direct renderer does (direct.frag). Depth is
-// tested against the world and not written, as the game's effect list draws.
+// tested against the world and not written, as the game's effect list draws. The strips the game
+// sends to its VU1 strip program (FrameInput::strips) are drawn first, the same way.
 
 #pragma once
 
@@ -25,6 +26,10 @@ public:
     void release() override;
 
 private:
+    // Binds TEX0's texture with TEX1's filtering and CLAMP's wrapping, and sets ALPHA's blend.
+    void apply(std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp, std::uint64_t alpha, RenderState& state,
+               std::uint32_t tbp = 0, std::uint32_t cbp = 0);
+
     struct Vertex {
         float x, y, z;
         float s, t;
