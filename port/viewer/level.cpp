@@ -461,7 +461,8 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error) {
             if (cls->second.box) {
                 instance.tint = class_colour(id);
             }
-            if (layer == Layer::Ties && p["colours"].items().size() == 64) {
+            const std::size_t lit = p["colours"].items().size();
+            if ((layer == Layer::Ties && lit == 64) || (layer == Layer::Shrubs && lit == 24)) {
                 instance.lights = static_cast<int>(out.light_colours.size());
                 for (const json::Value& c : p["colours"].items()) {
                     out.light_colours.push_back(static_cast<std::uint32_t>(c.number(0)));

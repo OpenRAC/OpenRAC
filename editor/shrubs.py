@@ -28,7 +28,7 @@ def shrub_mesh(data: bytes, remap: bytes, name: str) -> Mesh:
         raise FormatError("invalid shrub scale or packet count")
     table = span(data, 64, count * 8)
     normal_table = list(struct.iter_unpack("<4h", span(data, unpack("<I", header, 0x2c)[0], 24 * 8)))
-    mesh, normals = Mesh(name), []
+    mesh, normals = Mesh(name, light_slots=[]), []
     for packet_id, (offset, size) in enumerate(struct.iter_unpack("<ii", table)):
         p = program(span(data, offset, size), [STCYCL, STMOD, 0x6c, STMOD, 0x6d, STMOD, 0x6d])
         if (p[0].immediate, p[1].immediate, p[3].immediate, p[5].immediate) != (0x404, 0, 0, 0):
@@ -103,6 +103,7 @@ def shrub_mesh(data: bytes, remap: bytes, name: str) -> Mesh:
                 mesh.positions.append((x * scale / 1024, y * scale / 1024, z * scale / 1024))
                 mesh.uvs.append((s / 4096, t / 4096))
                 normals.append(normal_table[n & 0x7fff][:3])
+                mesh.light_slots.append(n & 0x7fff)  # which of the instance's 24 lit colours
                 vi += 1
                 address += 3
             elif (vi and ti == tag_count and mi == materials
@@ -127,6 +128,17 @@ def shrub_classes(level) -> dict[int, Mesh]:
             result[class_id] = shrub_mesh(level.block(start), entry[16:32], f"shrub_{class_id}")
         except FormatError as exc:
             raise FormatError(f"shrub class {class_id}: {exc}") from exc
+    return result
+
+
+def shrub_class_normals(level) -> dict[int, list[tuple[int, int, int]]]:
+    """Class ID -> its 24 normals (s16 x, y, z; unit length in 1/32768), at the header's 0x2C."""
+    result = {}
+    for entry in level.table(0x28, 48):
+        start, class_id = unpack("<II", entry)
+        data = level.block(start)
+        at, = unpack("<I", data, 0x2c)
+        result[class_id] = [unpack("<3h", data, at + 8 * j) for j in range(24)]
     return result
 
 

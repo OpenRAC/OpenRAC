@@ -31,11 +31,11 @@ from formats import png, unpack
 from gltf import Gltf
 from godot import PANORAMA, STORED_W, LevelWriter
 from level import Level
-from lighting import light_bank, light_tie_instance
+from lighting import light_bank, light_shrub_instance, light_tie_instance
 from mesh import Mesh
 from moby_class import MobyClass, moby_classes
 from mobys import moby_class_names, moby_instances
-from shrubs import shrub_classes, shrub_instances
+from shrubs import shrub_class_normals, shrub_classes, shrub_instances
 from sky import Sky, panorama, sky
 from terrain import terrain
 from ties import tie_classes, tie_instances, tie_slot_normals
@@ -123,7 +123,16 @@ class PortLevelWriter(LevelWriter):
                 p["colours"] = [r | g << 8 | b << 16 | a << 24 for r, g, b, a in lit]
         self.write_objects("tie", ties, tie_placements)
         shrubs = shrub_classes(level)
-        self.write_objects("shrub", shrubs, shrub_instances(level.gameplay, shrubs))
+        shrub_placements = shrub_instances(level.gameplay, shrubs)
+        if lights is not None:
+            # Each instance's 24 colours as LightShrubs leaves them at level load, one per
+            # class normal; a vertex takes the one of its normal (_LIGHT_SLOT).
+            normals = shrub_class_normals(level)
+            for p in shrub_placements:
+                lit = light_shrub_instance(normals[p["class_id"]], p["matrix"], p["colour"],
+                                           p["directional_lights"], lights[0])
+                p["colours"] = [r | g << 8 | b << 16 | a << 24 for r, g, b, a in lit]
+        self.write_objects("shrub", shrubs, shrub_placements)
         self.write_mobys(moby_instances(level.gameplay), moby_classes(level))
         collision, = unpack("<I", level.index, 0x14)
         if collision:  # the title world has none

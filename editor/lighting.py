@@ -275,3 +275,62 @@ def light_tie_instance(normals, matrix: list[float], ambient: list[int], select:
     columns = [bits(matrix[c * 4:c * 4 + 3]) for c in range(3)]
     colours, back, rows = tie_light_rows(columns, bank, select)
     return [tie_light_slot(colours, back, rows, normals[j], ambient[j]) for j in range(TIE_SLOTS)]
+
+
+# Shrubs (LightShrubs, func_0022B8F8; ReRAC's shrub_light.rs): the same pass as the ties' on
+# the class's 24 normals, except that a blended set scales only xyz (so the back factors add),
+# and the ambient is the instance's one colour with alpha 0x80.
+SHRUB_NORMALS = 24
+
+
+def light_shrub_instance(normals, matrix: list[float], colour: list[int], select: int, bank) -> list[tuple]:
+    """The instance's 24 lit RGBA colours, by class normal (0x80 = 1.0 under MODULATE)."""
+    select &= 0xFFFF
+    if select & 0xFF00 == 0:
+        ca, da, cb, db = (list(v) for v in bank[select & 0xF])
+    else:
+        t = itof12((select >> 4) & 0xFF0)
+        w = sub(ONE, t)
+        a, b = bank[select & 0xF], bank[(select >> 4) & 0xF]
+
+        def blend(x, y):
+            return [add(mul(x[0], w), mul(y[0], t)), add(mul(x[1], w), mul(y[1], t)),
+                    add(mul(x[2], w), mul(y[2], t)), add(x[3], y[3])]
+
+        ca, cb, da, db = blend(a[0], b[0]), blend(a[2], b[2]), blend(a[1], b[1]), blend(a[3], b[3])
+        for d in (da, db):
+            q = div(ONE, sqrt(_len2(d)))
+            d[0], d[1], d[2] = mul(d[0], q), mul(d[1], q), mul(d[2], q)
+    wa, wb = add(0, ca[3]), add(0, cb[3])
+    ca[3] = cb[3] = 0
+    units = []
+    for c in range(3):
+        col = bits(matrix[c * 4:c * 4 + 3])
+        q = div(ONE, sqrt(_len2(col)))
+        units.append([mul(col[0], q), mul(col[1], q), mul(col[2], q)])
+
+    def class_space(d):
+        return [add(add(mul(sub(0, units[c][0]), d[0]), mul(sub(0, units[c][1]), d[1])),
+                    mul(sub(0, units[c][2]), d[2])) for c in range(3)]
+
+    la, lb = class_space(da), class_space(db)
+    rows = [[add(0, la[i]), add(0, lb[i]), 0, 0] for i in range(3)]
+    colours, back = [ca, cb, [0, 0, 0, 0]], [wa, wb, 0]
+    ambient = [0x47800000 | (colour[k] & 0xFF) for k in range(3)] + [0x47800000 | 0x80]
+    out = []
+    for j in range(SHRUB_NORMALS):
+        n = bits([normals[j][k] / 32768.0 for k in range(3)])
+        f = []
+        for k in range(3):
+            d = add(add(mul(rows[0][k], n[0]), mul(rows[1][k], n[1])), mul(rows[2][k], n[2]))
+            f.append(fmax(d, mul(d, back[k])))
+        lit = []
+        for c in range(4):
+            acc = mul(ambient[c], ONE)
+            for light in range(3):
+                acc = add(acc, mul(colours[light][c], f[light]))
+            if c < 3:
+                acc = fmin(acc, TIE_COLOUR_CLAMP)
+            lit.append(acc & 0xFF)
+        out.append(tuple(lit))
+    return out
