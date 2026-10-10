@@ -281,11 +281,11 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain) {
     input.camera.position = state.camera_position;
     input.frame = g->index++;
     // The 2D path: the frame's direct GIF data, drawn by the direct renderer.
-    if (g->index == 300) {
+    if (g->index == 250) {
         log::info("chain: bases {:#x} {:#x}, building {}, shown {:#x}, cursor {:#x}",
                   word_at(ram, a.chain_bases), word_at(ram, a.chain_bases + 4),
                   word_at(ram, a.chain_index), viewer::shown_chain(ram, a), word_at(ram, 0x00161000));
-        setenv("OPENRAC_DUMP_VIF", "/tmp/openrac_vif_300.bin", 1);
+        setenv("OPENRAC_DUMP_VIF", "/tmp/openrac_vif_250.bin", 1);
     } else {
         unsetenv("OPENRAC_DUMP_VIF");
     }

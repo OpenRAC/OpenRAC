@@ -238,3 +238,22 @@ int func_0012DDC0(void) {
     memcpy(G(0x0015EDA8u + cur * 4u), &free_bytes, 4);
     return 0;
 }
+
+/*
+ * The function at 0x0023B578, which the pause menu stores in its mobys (+0x74) as their update:
+ * inside what the catalogue calls func_0023B510 (whose start is not code), so the decompilation
+ * names it D_0023B578 and has no C for it. If flag 2 of +0x70 is set, +0x54 becomes 0 when +0x58
+ * is above 0 and 1 otherwise, and +0x58 is cleared; then func_0023B5D0 runs. Written from its
+ * instructions.
+ */
+void game_D_0023B578(gaddr moby) {
+    if (*(uint8_t *)G(moby + 0x70u) & 2) {
+        float v;
+        float zero = 0.0f, result;
+        memcpy(&v, G(moby + 0x58u), 4);
+        result = zero < v ? zero : 1.0f;
+        memcpy(G(moby + 0x54u), &result, 4);
+        memcpy(G(moby + 0x58u), &zero, 4);
+    }
+    func_0023B5D0(moby);
+}

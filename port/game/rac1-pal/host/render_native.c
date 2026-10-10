@@ -175,3 +175,91 @@ void func_00234620(void) {
 /* PatchTieGifs: texture addresses into the GS packets of the console's renderer */
 void func_00236A98(void) {
 }
+/* drawquad.c: a renderer of the console's (the port draws natively) */
+int func_001F7C60(void) {
+    return 0;
+}
+
+/* drawquad.c: a renderer of the console's (the port draws natively) */
+int func_001F7DD8(void) {
+    return 0;
+}
+
+/* drawquad.c: a renderer of the console's (the port draws natively) */
+int func_001F7E98(void) {
+    return 0;
+}
+
+/* drawquad.c: a renderer of the console's (the port draws natively) */
+int func_001F84AC(void) {
+    return 0;
+}
+
+/* drawquad.c: a renderer of the console's (the port draws natively) */
+int func_001F852C(void) {
+    return 0;
+}
+
+/* drawquad.c: a renderer of the console's (the port draws natively) */
+int func_001F856C(void) {
+    return 0;
+}
+
+/* skyproc.c: a renderer of the console's (the port draws natively) */
+int func_0022D2AC(int a0, int a1, int a2, int a3) {
+    (void)a0;
+    (void)a1;
+    (void)a2;
+    (void)a3;
+    return 0;
+}
+
+/* skyproc.c: a renderer of the console's (the port draws natively) */
+void func_0022D3F8(int a0, int a1, int a2, int a3) {
+    (void)a0;
+    (void)a1;
+    (void)a2;
+    (void)a3;
+}
+
+/* skyproc.c: a renderer of the console's (the port draws natively) */
+void func_0022D520(int a0, int a1, int a2, int a3) {
+    (void)a0;
+    (void)a1;
+    (void)a2;
+    (void)a3;
+}
+
+/* skyproc.c: a renderer of the console's (the port draws natively) */
+void func_0022D7E0(gaddr a0, int a1, gaddr a2) {
+    (void)a0;
+    (void)a1;
+    (void)a2;
+}
+
+/* drawquad_001FD1D8.c: a renderer of the console's (the port draws natively) */
+void func_L00_001FD1D8(gaddr a0, gaddr a1, int a2) {
+    (void)a0;
+    (void)a1;
+    (void)a2;
+}
+
+/* drawquad_001FD1D8.c: a renderer of the console's (the port draws natively) */
+int func_L00_001FE688(void) {
+    return 0;
+}
+
+/* skyproc_0028D958.c: a renderer of the console's (the port draws natively) */
+int func_L00_0028D958(void) {
+    return 0;
+}
+
+/* tfragproc_002963D8.c: a renderer of the console's (the port draws natively) */
+int func_L00_002963D8(void) {
+    return 0;
+}
+
+/* tieproc_00299108.c: a renderer of the console's (the port draws natively) */
+void func_L00_00299B68(int a0) {
+    (void)a0;
+}

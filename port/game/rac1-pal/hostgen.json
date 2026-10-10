@@ -18,6 +18,7 @@
   ],
   "defines": [],
   "places": "config/overlays/functions.tsv",
+  "symbols": ["config/port_symbols.txt"],
   "libraries": "libraries.tsv",
   "overlay_hook": true,
   "roots": [
@@ -67,7 +68,23 @@
     "func_00229D48",
     "func_00234620",
     "func_00236A98",
-    "func_00116078"
+    "func_00116078",
+    "D_0023B578",
+    "func_001F7C60",
+    "func_001F7DD8",
+    "func_001F7E98",
+    "func_001F84AC",
+    "func_001F852C",
+    "func_001F856C",
+    "func_0022D2AC",
+    "func_0022D3F8",
+    "func_0022D520",
+    "func_0022D7E0",
+    "func_L00_001FD1D8",
+    "func_L00_001FE688",
+    "func_L00_0028D958",
+    "func_L00_002963D8",
+    "func_L00_00299B68"
   ],
   "candidates": "nonmatching/functional.tsv",
   "hand": "hand/hand.tsv"
