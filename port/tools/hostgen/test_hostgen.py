@@ -230,7 +230,7 @@ class Translate(unittest.TestCase):
         out = self.run_program({"a.c": """
             #define INCLUDE_ASM(dir, name)
             extern int D_00200000;
-            INCLUDE_ASM("asm", func_00110100);
+            INCLUDE_ASM("asm", func_00110100); /* a note the decompilation keeps beside it */
             extern int func_00110100(int);
             int test_main(void) { D_00200000 = 40; test_print(func_00110100(2)); return 0; }
         """}, config={"candidates": "candidates.tsv"}, extra_files={
