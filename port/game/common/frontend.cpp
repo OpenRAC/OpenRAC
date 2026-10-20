@@ -65,6 +65,7 @@ extern const unsigned int openrac_icon_png_size;
 #define OPENRAC_GAME_TITLE "OpenRAC"
 #endif
 
+// A test branch: does the arm64 job build the game from scratch?
 namespace openrac::frontend {
 
 namespace {
