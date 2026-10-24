@@ -70,7 +70,7 @@ import sys
 import tempfile
 
 sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
-from openrac_common import digest  # noqa: E402
+from openrac_common import digest, files as file_ops  # noqa: E402
 
 import games  # noqa: E402
 import gltf_read  # noqa: E402
@@ -471,7 +471,7 @@ def export(levels: Path, out: Path, level_ids: list[int], what: str, classes: li
         (temporary / "export.json").write_text(json.dumps(summary, indent=1) + "\n")
         (temporary / "README.txt").write_text(README)
         out.parent.mkdir(parents=True, exist_ok=True)
-        temporary.rename(out)
+        file_ops.rename(temporary, out)
     finally:
         if temporary.exists():
             shutil.rmtree(temporary)

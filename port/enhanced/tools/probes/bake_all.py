@@ -32,7 +32,7 @@ import threading
 import time
 
 sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
-from openrac_common import background, digest  # noqa: E402
+from openrac_common import background, digest, files as file_ops  # noqa: E402
 
 import bake_level  # noqa: E402
 import seed_regions as seeds  # noqa: E402
@@ -263,7 +263,7 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
         path = output_dir/'bake-all-result.json'
         part = path.with_name(path.name + '.part')
         part.write_text(json.dumps(report, indent=2, allow_nan=False)+'\n', encoding='utf-8')
-        part.replace(path)
+        file_ops.replace(part, path)
 
     def finished(index, result, what):
         with lock:
@@ -329,7 +329,7 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
                 failed = output_dir/f'.{level.name}.failed'
                 if failed.exists():
                     shutil.rmtree(failed)
-                work.rename(failed)  # its logs, for the report
+                file_ops.rename(work, failed)  # its logs, for the report
             finished(index, result, 'failed')
             return
         if update:
@@ -337,7 +337,7 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
             (work/STAMP).write_text(json.dumps(stamp, indent=2)+'\n', encoding='utf-8')
             if final.exists():
                 shutil.rmtree(final)
-            work.rename(final)
+            file_ops.rename(work, final)
             sparse = final/sparse.name if sparse is not None else None
             shutil.rmtree(output_dir/f'.{level.name}.failed', ignore_errors=True)
         if sparse is None:

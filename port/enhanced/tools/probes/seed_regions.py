@@ -21,7 +21,7 @@ import sys
 import tempfile
 
 sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
-from openrac_common import digest, paths  # noqa: E402
+from openrac_common import digest, files as file_ops, paths  # noqa: E402
 
 ROOT = paths.repo_root(__file__)
 
@@ -188,7 +188,7 @@ def register_regions(coarse: Path, assets: list[Path], backup_dir: Path | None =
         out.flush()
         os.fsync(out.fileno())
     try:
-        os.replace(temporary, sidecar)
+        file_ops.replace(temporary, sidecar)
     finally:
         temporary.unlink(missing_ok=True)
     return sidecar

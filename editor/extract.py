@@ -27,6 +27,9 @@ import sys
 import tempfile
 import time
 
+sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
+from openrac_common import files as file_ops  # noqa: E402
+
 from disc import LEVEL_COUNT, Disc
 from formats import FormatError
 from godot import SCHEMA as GODOT_SCHEMA, SCRIPTS, LevelWriter, install_addon, write_project
@@ -111,7 +114,7 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
         backup = dest.parent / f"{dest.name}-backups" / time.strftime("%Y%m%d-%H%M%S")
         backup.mkdir(parents=True, exist_ok=True)
         for i in report["replaced"]:
-            place(i).rename(backup / f"level_{i:02}")
+            file_ops.rename(place(i), backup / f"level_{i:02}")
         report["backup"] = backup
     if todo:
         fresh = Path(tempfile.mkdtemp(prefix=f".{dest.name}-", dir=dest.parent))
@@ -120,7 +123,7 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
             for i in todo:
                 source = fresh / f"level_{i:02}" if split else fresh / "levels" / f"level_{i:02}"
                 place(i).parent.mkdir(parents=True, exist_ok=True)
-                source.rename(place(i))
+                file_ops.rename(source, place(i))
         finally:
             shutil.rmtree(fresh, ignore_errors=True)
     for project in ([place(i) for i in levels] if split else [dest]):
@@ -182,7 +185,7 @@ def adopt_flat_export(out: Path, version: str, kind: str = "port") -> bool:
     files = ("verified", "patches.tsv", "packed.json", "changes.txt")
     for item in sorted(parent.iterdir()):
         if (item.is_dir() and item.name.startswith("level_")) or (item.is_file() and item.name.startswith(files)):
-            item.rename(out / item.name)
+            file_ops.rename(item, out / item.name)
     return True
 
 
@@ -197,11 +200,11 @@ def publish(path: Path, build, anywhere: bool = False, replace: bool = False) ->
         build(temporary)
         if dest.exists():
             old = Path(tempfile.mkdtemp(prefix=f".{dest.name}-old-", dir=dest.parent))
-            dest.rename(old / dest.name)
-            temporary.rename(dest)
+            file_ops.rename(dest, old / dest.name)
+            file_ops.rename(temporary, dest)
             shutil.rmtree(old)
         else:
-            temporary.rename(dest)
+            file_ops.rename(temporary, dest)
     finally:
         if temporary.exists():
             shutil.rmtree(temporary)

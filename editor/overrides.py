@@ -76,7 +76,7 @@ import tempfile
 import zipfile
 
 sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
-from openrac_common import digest  # noqa: E402
+from openrac_common import digest, files as file_ops  # noqa: E402
 
 import disc  # noqa: E402
 import games  # noqa: E402
@@ -300,7 +300,7 @@ def save_state(folder: Path, state: dict) -> None:
     path = Path(folder) / STATE
     temporary = path.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(state, indent=1) + "\n")
-    os.replace(temporary, path)
+    file_ops.replace(temporary, path)
 
 
 def pack_id(name: str, taken) -> str:
@@ -330,13 +330,13 @@ def install(staged: Path, folder: Path, replace_export: str | None = None) -> st
                 existing = entry["id"]
     if existing:
         old = folder / "packs" / f".{existing}-old"
-        (folder / "packs" / existing).rename(old)
-        staged.rename(folder / "packs" / existing)
+        file_ops.rename(folder / "packs" / existing, old)
+        file_ops.rename(staged, folder / "packs" / existing)
         shutil.rmtree(old)
         save_state(folder, state)
         return existing
     new = pack_id(manifest["name"], taken)
-    staged.rename(folder / "packs" / new)
+    file_ops.rename(staged, folder / "packs" / new)
     state["packs"].append({"id": new, "enabled": True})
     save_state(folder, state)
     return new
@@ -789,11 +789,11 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
         (temporary / MARKER).write_text("made by editor/overrides.py stack; it is replaced each time\n")
         if out.exists():
             old = Path(tempfile.mkdtemp(prefix=f".{out.name}-old-", dir=out.parent))
-            out.rename(old / out.name)
-            temporary.rename(out)
+            file_ops.rename(out, old / out.name)
+            file_ops.rename(temporary, out)
             shutil.rmtree(old)
         else:
-            temporary.rename(out)
+            file_ops.rename(temporary, out)
     finally:
         if temporary.exists():
             shutil.rmtree(temporary)
