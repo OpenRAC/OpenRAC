@@ -449,26 +449,6 @@ std::vector<renderer::Rgba8Image> load_sky_textures(const fs::path& dir) {
     return out;
 }
 
-std::uint8_t tie_lod(
-    const LevelData::TieLod& lods,
-    const Model& model,
-    const Mat4& matrix,
-    const Vec3& eye,
-    const Vec3& forward
-) {
-    const Vec3 centre = bounds_centre(model, matrix);
-    const float depth = std::max(
-        0.0f,
-        (centre[0] - eye[0]) * forward[0] + (centre[1] - eye[1]) * forward[1]
-            + (centre[2] - eye[2]) * forward[2]
-    );
-    return tie_lod_at(lods, depth);
-}
-
-std::uint8_t tie_lod_at(const LevelData::TieLod& lods, float depth) {
-    return depth <= lods.mid ? 0 : depth <= lods.far ? 1 : 2;
-}
-
 Vec3 bounds_centre(const Model& model, const Mat4& matrix) {
     return renderer::transform_point(
         matrix,
@@ -621,24 +601,6 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
                     return false;
                 }
                 (*table)[id] = {*model, scale, false};
-                // A tie class's lower LODs, when the export has them; one that does not read
-                // leaves the class at LOD 0 everywhere (the setting is a low-end option).
-                const json::Value& lods = cls["lods"];
-                const json::Value& distances = cls["lod_distances"];
-                if (table == &ties && lods.items().size() == 2 && distances.items().size() == 3) {
-                    std::string lod_error;
-                    std::swap(error, lod_error);
-                    const auto lod1 = model_at(lods.items()[0]);
-                    const auto lod2 = lod1 ? model_at(lods.items()[1]) : std::nullopt;
-                    std::swap(error, lod_error);
-                    const auto mid = static_cast<float>(distances.items()[1].number(-1.0));
-                    const auto far = static_cast<float>(distances.items()[2].number(-1.0));
-                    if (lod1 && lod2 && mid >= 0.0f && far >= mid) {
-                        out.tie_lods[*model] = {{*model, *lod1, *lod2}, mid, far};
-                    } else if (!lod_error.empty()) {
-                        log::warn("tie class {}: its lower LODs are not drawn: {}", id, lod_error);
-                    }
-                }
             } else {
                 if (!box) {
                     box = add_box_model(out);

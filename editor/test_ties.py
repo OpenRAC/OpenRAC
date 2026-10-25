@@ -57,24 +57,6 @@ class TieTests(unittest.TestCase):
         self.assertEqual(mesh.faces, {("tie", 7): [(0, 1, 2)], ("tie", 8): [(3, 4, 5)]})
         self.assertEqual(mesh.light_slots, [2, 3, 1, 2, 4, 5])
 
-    def test_lower_lods_read_their_own_packet_tables(self):
-        data = fixture()
-        with self.assertRaises(FormatError):
-            tie_mesh(data, REMAP, "tie", lod=1)  # no table, no packets
-        # LOD 1 and 2 pointing at the same packets as LOD 0: the same mesh.
-        struct.pack_into("<2I", data, 4, 0x70, 0x70)
-        data[0x21], data[0x22] = 1, 1
-        lod0 = tie_mesh(data, REMAP, "tie")
-        for lod in (1, 2):
-            mesh = tie_mesh(data, REMAP, "tie", lod=lod)
-            self.assertEqual(mesh.positions, lod0.positions)
-            self.assertEqual(mesh.faces, lod0.faces)
-        data[0x22] = 0
-        with self.assertRaises(FormatError):
-            tie_mesh(data, REMAP, "tie", lod=2)
-        with self.assertRaises(FormatError):
-            tie_mesh(data, REMAP, "tie", lod=3)
-
     def test_bad_materials_gs_addresses_counts_and_q(self):
         for offset, value in ((0x90, 1), (0xaf, 2), (0xac, 4), (0xc6, 12), (0xcc, 1)):
             data = fixture()

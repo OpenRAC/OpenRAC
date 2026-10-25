@@ -18,7 +18,6 @@
 #pragma once
 
 #include <array>
-#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -92,22 +91,14 @@ public:
     // Replaces a layer's instances (live mobys, each frame).
     void set_instances(Layer layer, const std::vector<Instance>& instances);
 
-    // "Scenery detail: Original" (settings.h), from the camera at `eye` looking along `forward`
-    // through `projection`: each tie of a class with lower LODs (LevelData::tie_lods) drawn with
-    // the LOD the game picks at its centre's depth (tie_lod.h, a hard switch without the game's
-    // morph), and the ties and shrubs beyond their draw distances (LevelData::draw_distances) left
-    // out. A layer is grouped again only when one of its instances changes, so the tests hold back
-    // by a few units: an instance leaves only some way past its distance, by straight-line
-    // distance however the camera turns, and keeps its LOD within a band about each switch; it
-    // comes back as soon as the game would draw it. Off, the instances as loaded: never set again
-    // unless the setting was on, so the default draws the level's resident ties and shrubs
-    // untouched.
-    void choose_scenery(
-        bool original,
-        const renderer::Vec3& eye,
-        const renderer::Vec3& forward,
-        const renderer::Mat4& projection
-    );
+    // "Scenery detail: Original" (settings.h), from the camera at `eye` seeing through
+    // `projection`: the ties and shrubs beyond their draw distances (LevelData::draw_distances) left
+    // out, every one drawn at its most detailed LOD. A layer is grouped again only when one of its
+    // instances changes, so the test holds back by a few units: an instance leaves only some way
+    // past its distance, by straight-line distance however the camera turns; it comes back as soon
+    // as the game would draw it. Off, the instances as loaded: never set again unless the setting
+    // was on, so the default draws the level's resident ties and shrubs untouched.
+    void choose_scenery(bool original, const renderer::Vec3& eye, const renderer::Mat4& projection);
 
     // Draws depth-tested rigid and skinned velocities into the caller's target, without changing history.
     void draw_motion(
@@ -361,9 +352,9 @@ private:
 
     std::vector<Model> m_models;
 
-    // choose_scenery: the tie classes' LODs, and per layer (the ties, the shrubs) the instances
-    // as loaded, their draw distances (empty: no limit) and what each is drawn as now, 0 left out
-    // or 1 + its LOD (empty while the setting is off). An empty source is never chosen.
+    // choose_scenery: per layer (the ties, the shrubs) the instances as loaded, their draw
+    // distances and whether each is drawn now, 1 or 0 (empty while the setting is off). A layer
+    // whose export has no distances keeps an empty source and is never chosen.
     struct Scenery {
         std::vector<Instance> source;
         std::vector<float> distances;
@@ -371,7 +362,6 @@ private:
     };
 
     static constexpr std::array<Layer, 2> kSceneryLayers{Layer::Ties, Layer::Shrubs};
-    std::map<std::uint32_t, LevelData::TieLod> m_tie_lods;
     std::array<Scenery, kSceneryLayers.size()> m_scenery;
     std::vector<std::vector<bool>> m_shadow_solid_primitives;
 

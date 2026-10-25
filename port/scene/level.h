@@ -159,17 +159,6 @@ struct LevelData {
     // Moby classes: model and whether it is the stand-in box, for placing live mobys.
     std::map<int, std::pair<std::uint32_t, bool>> moby_classes;
 
-    // A tie class's lower LODs (the manifest's "lods" and "lod_distances", editor/port.py), by
-    // its LOD 0 model: the models of LOD 0, 1 and 2 and the camera depths the game switches at
-    // (tie_lod.h: LOD 1 beyond mid, LOD 2 beyond far). Drawn only with the "Scenery detail:
-    // Original" setting (LevelScene::choose_scenery); an older export has none.
-    struct TieLod {
-        std::array<std::uint32_t, 3> models{};
-        float mid = 0.0f;
-        float far = 0.0f;
-    };
-
-    std::map<std::uint32_t, TieLod> tie_lods;
     // Each tie's and shrub's draw distance as the game's loader and renderer leave it (parallel to
     // instances; game units of camera depth): a tie's own, capped at 720 (TieProc; 0 is never
     // drawn), a shrub's raised to 16 and, for a class with a billboard, to its fade distance + 24,
@@ -190,20 +179,6 @@ struct LevelData {
     Vec3 bounds_max{};
     int missing_images = 0;
 };
-
-// The LOD (0, 1 or 2) a tie of a class with `lods`, drawn with `model` (its LOD 0) at `matrix`, is
-// drawn with as the game picks it (tie_lod.h, without its morph): its bounds' centre's depth along
-// `forward` from `eye`, never below 0, against the class's mid and far distances.
-std::uint8_t tie_lod(
-    const LevelData::TieLod& lods,
-    const Model& model,
-    const Mat4& matrix,
-    const Vec3& eye,
-    const Vec3& forward
-);
-
-// The LOD (0, 1 or 2) the game picks for a tie of a class with `lods` at camera depth `depth`.
-std::uint8_t tie_lod_at(const LevelData::TieLod& lods, float depth);
 
 // The world centre of `model`'s bounds drawn at `matrix`.
 Vec3 bounds_centre(const Model& model, const Mat4& matrix);

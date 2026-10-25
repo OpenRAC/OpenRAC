@@ -204,57 +204,33 @@ void write_level(const fs::path& dir) {
 })");
 }
 
-// A tie class's lower LODs from the manifest, and the LOD each depth picks; a class whose LOD
-// file is missing keeps LOD 0 and the level still loads.
-void tie_lods(const fs::path& dir) {
-    const fs::path lods = dir / "tie-lods";
-    write_level(lods);
-    write_square(lods / "ties" / "tie_5_lod1.gltf", 2.0f, 0.0f, "../textures/tie_0001.png");
-    write_square(lods / "ties" / "tie_5_lod2.gltf", 2.0f, 0.0f, "../textures/tie_0001.png");
+// The ties' and shrubs' draw distances "Scenery detail: Original" keeps to, as the game's loader
+// and renderer leave them.
+void draw_distances(const fs::path& dir) {
+    const fs::path ties = dir / "tie-distances";
+    write_level(ties);
     const std::string manifest = R"({
   "format": 3, "game": "rac1", "version": "pal", "level": 3,
   "terrain": "terrain.glb.gltf",
   "sky": {"background": [10, 20, 30], "mesh": null, "panorama": "sky.png"},
   "classes": {
-    "tie": {"5": {"mesh": "ties/tie_5.gltf", "lods": ["ties/tie_5_lod1.gltf", "ties/tie_5_lod2.gltf"],
-                  "lod_distances": [10, 20, 40]}},
+    "tie": {"5": {"mesh": "ties/tie_5.gltf"}},
     "shrub": {},
     "moby": {}
   },
   "placements": "placements.json"
 })";
-    write_text(lods / "manifest.json", manifest);
+    write_text(ties / "manifest.json", manifest);
     scene::LevelData level;
     std::string error;
-    CHECK(scene::load_level(lods, level, error));
-    CHECK(level.tie_lods.size() == 1);
-    const auto& tie = level.instances[static_cast<std::size_t>(scene::Layer::Ties)][0];
-    const auto found = level.tie_lods.find(tie.model);
-    CHECK(found != level.tie_lods.end());
-    if (found != level.tie_lods.end()) {
-        const auto& lod = found->second;
-        CHECK(lod.models[0] == tie.model && lod.models[1] != lod.models[2]);
-        CHECK(lod.mid == 20.0f && lod.far == 40.0f);
-        const scene::Model& model = level.models[tie.model];
-        const scene::Vec3 forward{1, 0, 0};
-        // The tie's centre is near (0, 0, 1): its depth is the eye's distance behind it on x.
-        CHECK(scene::tie_lod(lod, model, tie.matrix, {-5, 0, 0}, forward) == 0);
-        CHECK(scene::tie_lod(lod, model, tie.matrix, {-30, 0, 0}, forward) == 1);
-        CHECK(scene::tie_lod(lod, model, tie.matrix, {-50, 0, 0}, forward) == 2);
-        CHECK(scene::tie_lod(lod, model, tie.matrix, {50, 0, 0}, forward) == 0);  // behind: depth 0
-    }
-    // The draw distances "Scenery detail: Original" keeps to: the tie's own (100, under the cap of
-    // 720); no shrub limits without the shrub classes' billboard fades.
+    CHECK(scene::load_level(ties, level, error));
+    // The tie's own (100, under the cap of 720); no shrub limits without the shrub classes'
+    // billboard fades.
     CHECK(
         (level.draw_distances[static_cast<std::size_t>(scene::Layer::Ties)]
          == std::vector<float>{100.0f})
     );
     CHECK(level.draw_distances[static_cast<std::size_t>(scene::Layer::Shrubs)].empty());
-
-    fs::remove(lods / "ties" / "tie_5_lod2.gltf");
-    scene::LevelData partial;
-    CHECK(scene::load_level(lods, partial, error));
-    CHECK(partial.tie_lods.empty());
 
     // Shrubs: raised to 16, and to a billboard class's fade distance + 24; capped at 500.
     const fs::path shrubs = dir / "shrub-distances";
@@ -850,20 +826,14 @@ int draw(scene::LevelData& level) {
         scene.lighting = false;
         renderer.render(input, {frame.id(), 128, 128});
         const auto all = renderer.last_stats().draw_calls;
-        scene.choose_scenery(
-            true, {0.0f, 0.0f, 300.0f}, {0.0f, 0.0f, -1.0f}, input.camera.projection
-        );
+        scene.choose_scenery(true, {0.0f, 0.0f, 300.0f}, input.camera.projection);
         renderer.render(input, {frame.id(), 128, 128});
         CHECK(renderer.last_stats().draw_calls == all - 1);
-        scene.choose_scenery(
-            true, {0.0f, 0.0f, 30.0f}, {0.0f, 0.0f, -1.0f}, input.camera.projection
-        );
+        scene.choose_scenery(true, {0.0f, 0.0f, 30.0f}, input.camera.projection);
         renderer.render(input, {frame.id(), 128, 128});
         CHECK(renderer.last_stats().draw_calls == all);
-        scene.choose_scenery(
-            true, {0.0f, 0.0f, 300.0f}, {0.0f, 0.0f, -1.0f}, input.camera.projection
-        );
-        scene.choose_scenery(false, {}, {}, input.camera.projection);
+        scene.choose_scenery(true, {0.0f, 0.0f, 300.0f}, input.camera.projection);
+        scene.choose_scenery(false, {}, input.camera.projection);
         renderer.render(input, {frame.id(), 128, 128});
         CHECK(renderer.last_stats().draw_calls == all);
     }
@@ -1101,7 +1071,7 @@ int main(int argc, char** argv) {
     denser_terrain(dir);
     translucent_texels(dir);
     pvs_loader(dir);
-    tie_lods(dir);
+    draw_distances(dir);
     if (openrac::test::failures() != 0) {
         return openrac::test::result();
     }

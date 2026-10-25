@@ -1,4 +1,4 @@
-"""Ties (static instanced meshes): class meshes (LOD 0; LOD 1 and 2 for the low-end option) and placements.
+"""Ties (static instanced meshes): LOD-0 class meshes and PAL placements.
 
 Layouts follow Wrench's tie reader (games/rac1/docs/ASSETS.md); func_00236A98
 confirms the GIF table pointer, material count and 80-byte stride.
@@ -12,20 +12,15 @@ import games
 from mesh import Mesh, unit_normal
 
 
-def tie_mesh(data: bytes, remap: bytes, name: str, fmt: games.Format = games.RAC1, lod: int = 0) -> Mesh:
-    """Recover LOD `lod` (0, the most detail, to 2) by replaying each packet's GS writes in address
-    order. The header keeps each LOD's packet table at 4 * lod and its packet count a byte after
-    the previous one's. A lower LOD's extended vertices are drawn where they start, before VU1
-    morphs them toward the next LOD (its factor 0, as the game draws them at the LOD's near end).
+def tie_mesh(data: bytes, remap: bytes, name: str, fmt: games.Format = games.RAC1) -> Mesh:
+    """Recover LOD 0 by replaying each packet's GS writes in address order.
 
     GS qword costs: a material (AD GIF) takes 6, a strip's GIF tag 1 and
     a vertex 3. A vertex may be written to two addresses. Missing or
     conflicting writes raise instead of being guessed.
     """
-    if lod not in (0, 1, 2):
-        raise FormatError(f"tie LOD {lod}")
     header = span(data, 0, 0x70)
-    packet_table, = unpack("<I", header, 4 * lod)
+    packet_table, = unpack("<I", header)
     scale, = unpack("<f", header, 0x40)
     if not math.isfinite(scale) or scale <= 0:
         raise FormatError("invalid tie scale")
@@ -37,9 +32,7 @@ def tie_mesh(data: bytes, remap: bytes, name: str, fmt: games.Format = games.RAC
     if 255 in textures:
         raise FormatError("tie material has no texture")
     span(data, unpack("<I", header, layout.ad_gifs)[0], material_count * 80)
-    packet_count = header[layout.packet_count + lod]
-    if lod and (not packet_count or not packet_table):
-        raise FormatError(f"tie has no LOD {lod}")
+    packet_count = header[layout.packet_count]
     table = span(data, packet_table, packet_count * 16)
     mesh = Mesh(name, light_slots=[])
     normal_offset, = unpack("<I", header, layout.normals)
@@ -159,31 +152,6 @@ def tie_classes(level) -> dict[int, Mesh]:
                 raise FormatError(f"tie class {class_id}: {exc}") from exc
             # A later game's class that does not decode is left out, and its instances with it.
             level.problems.append(f"tie class {class_id}: not extracted ({exc})")
-    return result
-
-
-def tie_lods(level) -> dict[int, dict]:
-    """Class ID -> {"meshes": [LOD 1, LOD 2], "distances": [near, mid, far]}, for the low-end
-    option that draws far ties as the game does (the port draws LOD 0 by default). Only where the
-    header's distances are known (games.TieHeader.lod_distances), and only classes whose two lower
-    LODs both decode and whose distances rise: the rest keep LOD 0 at every distance."""
-    fmt = games.of(level)
-    at = fmt.tie_header.lod_distances
-    result = {}
-    if at is None:
-        return result
-    for entry in level.table(0x20, 32):
-        start, class_id = unpack("<II", entry)
-        if not start:
-            continue
-        data = level.block(start)
-        try:
-            distances = list(unpack("<3f", span(data, 0, 0x70), at))
-            meshes = [tie_mesh(data, entry[16:32], f"tie_{class_id}_lod{lod}", fmt, lod) for lod in (1, 2)]
-        except FormatError:
-            continue
-        if all(map(math.isfinite, distances)) and 0 <= distances[0] <= distances[1] <= distances[2]:
-            result[class_id] = {"meshes": meshes, "distances": distances}
     return result
 
 

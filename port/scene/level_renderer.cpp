@@ -278,16 +278,14 @@ bool LevelScene::upload(
         }
     }
     m_models = level.models;
-    m_tie_lods = level.tie_lods;
     for (std::size_t k = 0; k < m_scenery.size(); ++k) {
         Scenery& scenery = m_scenery[k];
         const auto layer = static_cast<std::size_t>(kSceneryLayers[k]);
         const auto& distances = level.draw_distances[layer];
         const bool sized = distances.size() == level.instances[layer].size();
-        const bool chosen = (sized && !distances.empty())
-                            || (kSceneryLayers[k] == Layer::Ties && !m_tie_lods.empty());
+        const bool chosen = sized && !distances.empty();
         scenery.source = chosen ? level.instances[layer] : std::vector<Instance>{};
-        scenery.distances = chosen && sized ? distances : std::vector<float>{};
+        scenery.distances = chosen ? distances : std::vector<float>{};
         scenery.drawn.clear();
     }
     // The primitives without a glow packet's vertex, which the mobys' glow pass would draw only to
@@ -343,14 +341,6 @@ bool LevelScene::upload(
         for (const Instance& instance : level.instances[static_cast<std::size_t>(layer)]) {
             if (instance.model < fixed.size()) {
                 fixed[instance.model] = true;
-            }
-        }
-    }
-    // The ties' lower LODs (choose_scenery) are static models as well, placed only later.
-    for (const auto& entry : level.tie_lods) {
-        for (const std::uint32_t lod : entry.second.models) {
-            if (lod < fixed.size()) {
-                fixed[lod] = true;
             }
         }
     }
@@ -910,10 +900,7 @@ void LevelScene::set_instances(Layer layer, const std::vector<Instance>& instanc
 }
 
 void LevelScene::choose_scenery(
-    bool original,
-    const renderer::Vec3& eye,
-    const renderer::Vec3& forward,
-    const renderer::Mat4& projection
+    bool original, const renderer::Vec3& eye, const renderer::Mat4& projection
 ) {
     // How much farther than its depth a point in the view can be: 1 / the cosine of the view's
     // corner, from the projection's tangents. Within it, a straight-line distance below this times
@@ -922,7 +909,6 @@ void LevelScene::choose_scenery(
     const float ty = projection[5] != 0.0f ? 1.0f / projection[5] : 0.0f;
     const float reach = std::sqrt(1.0f + tx * tx + ty * ty);
     constexpr float kLeaveMargin = 8.0f;  // game units past its distance before one is left out
-    constexpr float kLodBand = 2.0f;      // game units either side of a LOD switch
     bool rebuilt = false;
     for (std::size_t k = 0; k < m_scenery.size(); ++k) {
         Scenery& scenery = m_scenery[k];
@@ -948,27 +934,12 @@ void LevelScene::choose_scenery(
             }
             const Vec3 centre = bounds_centre(m_models[instance.model], instance.matrix);
             const Vec3 to{centre[0] - eye[0], centre[1] - eye[1], centre[2] - eye[2]};
-            const std::uint8_t was = first ? 0 : scenery.drawn[i];
-            bool shown = true;
-            if (!scenery.distances.empty()) {
-                const float limit = scenery.distances[i] * reach;
-                const float away = std::sqrt(to[0] * to[0] + to[1] * to[1] + to[2] * to[2]);
-                shown =
-                    limit > 0.0f && (away < limit || (was != 0 && away <= limit + kLeaveMargin));
-            }
-            std::uint8_t lod = 0;
-            if (const auto it = m_tie_lods.find(instance.model);
-                shown && layer == Layer::Ties && it != m_tie_lods.end()) {
-                const float depth =
-                    std::max(0.0f, to[0] * forward[0] + to[1] * forward[1] + to[2] * forward[2]);
-                lod = tie_lod_at(it->second, depth);
-                const auto kept = static_cast<std::uint8_t>(was - 1);
-                if (was != 0 && kept >= tie_lod_at(it->second, depth - kLodBand)
-                    && kept <= tie_lod_at(it->second, depth + kLodBand)) {
-                    lod = kept;
-                }
-            }
-            const std::uint8_t drawn = shown ? static_cast<std::uint8_t>(1 + lod) : 0;
+            const bool was = !first && scenery.drawn[i] != 0;
+            const float limit = scenery.distances[i] * reach;
+            const float away = std::sqrt(to[0] * to[0] + to[1] * to[1] + to[2] * to[2]);
+            const bool shown =
+                limit > 0.0f && (away < limit || (was && away <= limit + kLeaveMargin));
+            const std::uint8_t drawn = shown ? 1 : 0;
             changed = changed || scenery.drawn[i] != drawn;
             scenery.drawn[i] = drawn;
         }
@@ -981,12 +952,7 @@ void LevelScene::choose_scenery(
             if (scenery.drawn[i] == 0) {
                 continue;
             }
-            Instance instance = scenery.source[i];
-            if (const auto it = m_tie_lods.find(instance.model);
-                layer == Layer::Ties && it != m_tie_lods.end()) {
-                instance.model = it->second.models[scenery.drawn[i] - 1];
-            }
-            chosen.push_back(instance);
+            chosen.push_back(scenery.source[i]);
         }
         set_instances(layer, chosen);
         rebuilt = true;
@@ -2041,7 +2007,6 @@ void LevelScene::release() {
     m_pvs_models.clear();
     m_cpu_indices.clear();
     // Nothing to choose from until the next level (choose_scenery).
-    m_tie_lods.clear();
     m_scenery = {};
     m_sky.release();
 }
