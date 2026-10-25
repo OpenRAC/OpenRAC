@@ -107,6 +107,15 @@ describe("Android launcher", () => {
     expect(await page.locator(".hero-bg").evaluate((e) => getComputedStyle(e).animationName)).toBe("none");
   });
 
+  it("offers Rebuild for a game that is not built, and in the menu for one that is", async () => {
+    await open("version=rac1/pal");
+    await expect(page.locator(".go .big").textContent()).resolves.toContain("Rebuild");
+    await open("built&version=rac1/pal");
+    await expect(page.locator(".go .big").textContent()).resolves.toContain("Play");
+    await page.locator(".go-row").getByRole("button", { name: "More actions" }).click();
+    await expect(page.getByRole("menuitem", { name: "Rebuild the game" }).count()).resolves.toBe(1);
+  });
+
   it("spins the disc while a game starts", async () => {
     await open("launch&version=rac1/pal");
     await page.locator(".launch .disc").waitFor();

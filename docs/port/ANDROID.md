@@ -122,12 +122,17 @@ The app keeps everything in its own storage (`files/`): the games
 game reads the disc for as long as it runs, so the image is copied once into
 `files/discs/`, after a free-space check and with progress shown. A `.chd`
 image (from `chdman createdvd`) is unpacked to `.iso` instead
-(`launcher/core/src/chd.rs`).
+(`launcher/core/src/chd.rs`). A CHD is known by its first bytes too, as a
+picker may drop the name's extension, and one the picker streams rather than
+opens is copied first and unpacked from the copy. A failure is shown with its
+reason, as is the extractor's when it refuses a disc.
 
 **The setup** is the desktop's: `tools/extractor.py`, `editor/extract.py port`
 for the levels, then the game's `--check-levels`, with their output in the
-launcher. Android runs programs only from an app's native library folder, so
-the APK carries them as libraries:
+launcher. These steps name Android in `launcher/actions.json`; building the
+game does not, as the APK carries it. Rebuild, in the game's menu, reads the
+levels again and checks them. Android runs programs only from an app's native
+library folder, so the APK carries them as libraries:
 
 | Library | What it is |
 |---|---|

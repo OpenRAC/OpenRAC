@@ -38,7 +38,14 @@
   import { tick } from "svelte";
   import { fly } from "svelte/transition";
   import { place, when } from "$lib/reports";
-  import { isBuilt, playerAct, playerState, playerVersion } from "$lib/player.svelte";
+  import {
+    isBuilt,
+    playerAct,
+    playerState,
+    playerVersion,
+    rebuild as rebuildGame,
+    rebuildSteps,
+  } from "$lib/player.svelte";
   import { themeStyle } from "$lib/themes";
 
   // One game, whatever the region: the page plays the version your disc is (playerVersion),
@@ -52,7 +59,6 @@
   const choice = $derived(developer && game ? choiceFor(app.discChoices, game.id) : null);
   const action = (id: string): ActionView | null => v?.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
 
-  const build = $derived(action("port-build"));
   const rebuild = $derived(action("port-rebuild"));
   const levels = $derived(action("port-levels"));
   const levelsCheck = $derived(action("port-levels-check"));
@@ -160,10 +166,10 @@
     if (next?.kind === "return") {
       items.push({ label: "Stop the game", icon: "x", danger: true, run: () => void gameWindow(true) });
     }
-    // From scratch: everything built before is deleted first (tools/build_port.py --clean).
-    const again = rebuild?.runnable ? rebuild : build;
-    if (again?.runnable && built && next?.kind === "play") {
-      items.push({ label: "Rebuild the game", icon: "build", run: () => void run(scope, again) });
+    // From scratch: everything built before is deleted first (tools/build_port.py --clean); on
+    // Android, the levels are read from the disc again (rebuildSteps).
+    if (built && (next?.kind === "play" || next?.kind === "levels") && rebuildSteps(v)) {
+      items.push({ label: "Rebuild the game", icon: "build", run: () => void rebuildGame(v) });
     }
     if (playGodot?.runnable) {
       items.push({ label: "Preview a level in Godot", icon: "play", run: () => void run(scope, playGodot) });
