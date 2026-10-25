@@ -47,8 +47,13 @@ void pad() {
     // Each thread's processor time at the end of its last call: its work since then is padded.
     thread_local double last = -1.0;
     const int k = g_factor;
+    // Off: nothing read, and counting starts again from the next call once it is on.
+    if (k <= 1) {
+        last = -1.0;
+        return;
+    }
     const double now = thread_seconds();
-    if (k > 1 && last >= 0.0 && now > last) {
+    if (last >= 0.0 && now > last) {
         // Spun, not slept: a slower processor would be busy, and the scheduler sees it so.
         const auto until = std::chrono::steady_clock::now()
                            + std::chrono::duration<double>((now - last) * (k - 1));
@@ -56,7 +61,7 @@ void pad() {
         }
     }
     // The spin itself is not work to pad again.
-    last = k > 1 ? thread_seconds() : -1.0;
+    last = thread_seconds();
 }
 
 }  // namespace openrac::slow_cpu

@@ -353,11 +353,13 @@ private:
     std::vector<Model> m_models;
 
     // choose_scenery: per layer (the ties, the shrubs) the instances as loaded, their draw
-    // distances and whether each is drawn now, 1 or 0 (empty while the setting is off). A layer
-    // whose export has no distances keeps an empty source and is never chosen.
+    // distances, their bounds' world centres and whether each is drawn now, 1 or 0 (empty while
+    // the setting is off). A layer whose export has no distances keeps an empty source and is
+    // never chosen.
     struct Scenery {
         std::vector<Instance> source;
         std::vector<float> distances;
+        std::vector<renderer::Vec3> centres;
         std::vector<std::uint8_t> drawn;
     };
 

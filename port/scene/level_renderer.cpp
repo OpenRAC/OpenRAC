@@ -286,6 +286,14 @@ bool LevelScene::upload(
         const bool chosen = sized && !distances.empty();
         scenery.source = chosen ? level.instances[layer] : std::vector<Instance>{};
         scenery.distances = chosen ? distances : std::vector<float>{};
+        scenery.centres.clear();
+        for (const Instance& instance : scenery.source) {
+            scenery.centres.push_back(
+                instance.model < level.models.size()
+                    ? bounds_centre(level.models[instance.model], instance.matrix)
+                    : Vec3{instance.matrix[12], instance.matrix[13], instance.matrix[14]}
+            );
+        }
         scenery.drawn.clear();
     }
     // The primitives without a glow packet's vertex, which the mobys' glow pass would draw only to
@@ -928,17 +936,15 @@ void LevelScene::choose_scenery(
         scenery.drawn.resize(scenery.source.size(), 1);
         bool changed = first;
         for (std::size_t i = 0; i < scenery.source.size(); ++i) {
-            const Instance& instance = scenery.source[i];
-            if (instance.model >= m_models.size()) {
-                continue;
-            }
-            const Vec3 centre = bounds_centre(m_models[instance.model], instance.matrix);
+            const Vec3& centre = scenery.centres[i];
             const Vec3 to{centre[0] - eye[0], centre[1] - eye[1], centre[2] - eye[2]};
             const bool was = !first && scenery.drawn[i] != 0;
+            // Squared, so that the test needs no root: limit and limit + margin, both positive.
             const float limit = scenery.distances[i] * reach;
-            const float away = std::sqrt(to[0] * to[0] + to[1] * to[1] + to[2] * to[2]);
+            const float reach_to = was ? limit + kLeaveMargin : limit;
+            const float away = to[0] * to[0] + to[1] * to[1] + to[2] * to[2];
             const bool shown =
-                limit > 0.0f && (away < limit || (was && away <= limit + kLeaveMargin));
+                limit > 0.0f && (was ? away <= reach_to * reach_to : away < reach_to * reach_to);
             const std::uint8_t drawn = shown ? 1 : 0;
             changed = changed || scenery.drawn[i] != drawn;
             scenery.drawn[i] = drawn;
