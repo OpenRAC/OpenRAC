@@ -9,12 +9,15 @@
 #include <cstdio>
 #include <cstring>
 #include <format>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "common/env.h"
 #include "common/log.h"
+#include "common/parallel.h"
+#include "common/stats.h"
 #include "renderer/gl.h"
 #include "renderer/shader.h"
 
@@ -639,59 +642,79 @@ namespace {
 // transform (Felzenszwalb and Huttenlocher) took about 20 ms for a 1024 x 512 field. A texel's
 // distance is the least dx^2 + dy^2 over the set texels, so the columns' nearest dy^2 first, then
 // the least dx^2 + column within reach along each row: whole numbers, the same as the full one.
+// Runs body(begin, end) over [0, n) in bands, on the threads of common/parallel.h.
+void in_bands(int n, const std::function<void(int, int)>& body) {
+    constexpr int kBands = 16;
+    parallel::for_each(kBands, [&](std::size_t band) {
+        const int begin =
+            static_cast<int>(static_cast<long long>(n) * static_cast<int>(band) / kBands);
+        const int end =
+            static_cast<int>(static_cast<long long>(n) * (static_cast<int>(band) + 1) / kBands);
+        if (begin < end) {
+            body(begin, end);
+        }
+    });
+}
+
 std::vector<float> distance_2d(const std::vector<std::uint8_t>& inside, int w, int h, int reach) {
     const int far = reach + 1;
     std::vector<int> column(static_cast<std::size_t>(w * h));
-    std::vector<int> run(static_cast<std::size_t>(w), far);
-    for (int y = 0; y < h; ++y) {
-        for (int x = 0; x < w; ++x) {
-            const std::size_t i = static_cast<std::size_t>(y * w + x);
-            run[static_cast<std::size_t>(x)] =
-                inside[i] ? 0 : std::min(run[static_cast<std::size_t>(x)] + 1, far);
-            column[i] = run[static_cast<std::size_t>(x)];
+    // Columns, a band of them on each thread: down, then up.
+    in_bands(w, [&](int x0, int x1) {
+        std::vector<int> run(static_cast<std::size_t>(x1 - x0), far);
+        for (int y = 0; y < h; ++y) {
+            for (int x = x0; x < x1; ++x) {
+                const std::size_t i = static_cast<std::size_t>(y * w + x);
+                int& r = run[static_cast<std::size_t>(x - x0)];
+                r = inside[i] ? 0 : std::min(r + 1, far);
+                column[i] = r;
+            }
         }
-    }
-    std::fill(run.begin(), run.end(), far);
-    for (int y = h - 1; y >= 0; --y) {
-        for (int x = 0; x < w; ++x) {
-            const std::size_t i = static_cast<std::size_t>(y * w + x);
-            run[static_cast<std::size_t>(x)] =
-                inside[i] ? 0 : std::min(run[static_cast<std::size_t>(x)] + 1, far);
-            const int dy = std::min(column[i], run[static_cast<std::size_t>(x)]);
-            column[i] = dy * dy;
+        std::fill(run.begin(), run.end(), far);
+        for (int y = h - 1; y >= 0; --y) {
+            for (int x = x0; x < x1; ++x) {
+                const std::size_t i = static_cast<std::size_t>(y * w + x);
+                int& r = run[static_cast<std::size_t>(x - x0)];
+                r = inside[i] ? 0 : std::min(r + 1, far);
+                const int dy = std::min(column[i], r);
+                column[i] = dy * dy;
+            }
         }
-    }
+    });
+    // Rows, a band of them on each thread.
     std::vector<float> grid(static_cast<std::size_t>(w * h));
-    std::vector<int> gap(static_cast<std::size_t>(w));  // to the nearest column within reach
-    for (int y = 0; y < h; ++y) {
-        const int* row = &column[static_cast<std::size_t>(y * w)];
-        int last = far;
-        for (int x = 0; x < w; ++x) {
-            last = row[x] < far * far ? 0 : std::min(last + 1, far);
-            gap[static_cast<std::size_t>(x)] = last;
-        }
-        last = far;
-        for (int x = w - 1; x >= 0; --x) {
-            last = row[x] < far * far ? 0 : std::min(last + 1, far);
-            gap[static_cast<std::size_t>(x)] = std::min(gap[static_cast<std::size_t>(x)], last);
-        }
-        for (int x = 0; x < w; ++x) {
-            int best = row[x];
-            if (gap[static_cast<std::size_t>(x)] == far) {
+    in_bands(h, [&](int y0, int y1) {
+        std::vector<int> gap(static_cast<std::size_t>(w));  // to the nearest column within reach
+        for (int y = y0; y < y1; ++y) {
+            const int* row = &column[static_cast<std::size_t>(y * w)];
+            int last = far;
+            for (int x = 0; x < w; ++x) {
+                last = row[x] < far * far ? 0 : std::min(last + 1, far);
+                gap[static_cast<std::size_t>(x)] = last;
+            }
+            last = far;
+            for (int x = w - 1; x >= 0; --x) {
+                last = row[x] < far * far ? 0 : std::min(last + 1, far);
+                gap[static_cast<std::size_t>(x)] = std::min(gap[static_cast<std::size_t>(x)], last);
+            }
+            for (int x = 0; x < w; ++x) {
+                int best = row[x];
+                if (gap[static_cast<std::size_t>(x)] == far) {
+                    grid[static_cast<std::size_t>(y * w + x)] = static_cast<float>(best);
+                    continue;  // no set texel within reach
+                }
+                for (int dx = 1; dx <= reach && dx * dx < best; ++dx) {
+                    if (x >= dx) {
+                        best = std::min(best, dx * dx + row[x - dx]);
+                    }
+                    if (x + dx < w) {
+                        best = std::min(best, dx * dx + row[x + dx]);
+                    }
+                }
                 grid[static_cast<std::size_t>(y * w + x)] = static_cast<float>(best);
-                continue;  // no set texel within reach
             }
-            for (int dx = 1; dx <= reach && dx * dx < best; ++dx) {
-                if (x >= dx) {
-                    best = std::min(best, dx * dx + row[x - dx]);
-                }
-                if (x + dx < w) {
-                    best = std::min(best, dx * dx + row[x + dx]);
-                }
-            }
-            grid[static_cast<std::size_t>(y * w + x)] = static_cast<float>(best);
         }
-    }
+    });
     return grid;
 }
 
@@ -726,6 +749,8 @@ TextureHandle TexturePool::distance_field(TextureHandle source) {
         m_entries[it->second - 1].last_used = m_frame;
         return it->second;
     }
+    // Timed apart in a capture: the HUD's frame that makes one is a hitch.
+    const stats::Scope timing("distance field");
     constexpr int kScale = 4;
     const int w = src.width * kScale;
     const int h = src.height * kScale;
@@ -765,42 +790,53 @@ TextureHandle TexturePool::distance_field(TextureHandle source) {
         column0[static_cast<std::size_t>(x)] = static_cast<int>(std::floor(sx));
         column_weight[static_cast<std::size_t>(x)] = sx - std::floor(sx);
     }
-    for (int y = 0; y < h; ++y) {
-        const float sy = (static_cast<float>(y) + 0.5f) / kScale - 0.5f;
-        const int y0 = static_cast<int>(std::floor(sy));
-        const float fy = sy - static_cast<float>(y0);
-        for (int x = 0; x < w; ++x) {
-            const int x0 = column0[static_cast<std::size_t>(x)];
-            const float fx = column_weight[static_cast<std::size_t>(x)];
-            // Only the alpha is filtered: the field is made from it alone.
-            const float a00 = texel(x0, y0, 3), a10 = texel(x0 + 1, y0, 3);
-            const float a01 = texel(x0, y0 + 1, 3), a11 = texel(x0 + 1, y0 + 1, 3);
-            const float alpha =
-                (a00 * (1.0f - fx) + a10 * fx) * (1.0f - fy) + (a01 * (1.0f - fx) + a11 * fx) * fy;
-            const std::size_t i = static_cast<std::size_t>(y * w + x);
-            // R: the glyph's own opacity here, from the nearest opaque-enough texel of the four (so
-            // it holds up to the edge instead of fading with the filter), 0..1 as 0..255.
-            const float near_alpha = std::max(std::max(a00, a10), std::max(a01, a11));
-            const float near_local = (local_at(x0, y0) * (1.0f - fx) + local_at(x0 + 1, y0) * fx) * (1.0f - fy)
-                                     + (local_at(x0, y0 + 1) * (1.0f - fx) + local_at(x0 + 1, y0 + 1) * fx) * fy;
-            const float edge = std::max(near_local * 0.5f, opaque / 32.0f);
-            const float own =
-                alpha >= edge ? std::max(alpha, std::min(near_alpha, alpha * 2.0f)) : near_alpha;
-            out.pixels[i * 4 + 0] = static_cast<std::uint8_t>(std::clamp(own / opaque, 0.0f, 1.0f) * 255.0f + 0.5f);
-            out.pixels[i * 4 + 1] = 0;
-            out.pixels[i * 4 + 2] = 0;
-            inside[i] = alpha >= edge;
-            outside[i] = !inside[i];
+    in_bands(h, [&](int band_begin, int band_end) {
+        for (int y = band_begin; y < band_end; ++y) {
+            const float sy = (static_cast<float>(y) + 0.5f) / kScale - 0.5f;
+            const int y0 = static_cast<int>(std::floor(sy));
+            const float fy = sy - static_cast<float>(y0);
+            for (int x = 0; x < w; ++x) {
+                const int x0 = column0[static_cast<std::size_t>(x)];
+                const float fx = column_weight[static_cast<std::size_t>(x)];
+                // Only the alpha is filtered: the field is made from it alone.
+                const float a00 = texel(x0, y0, 3), a10 = texel(x0 + 1, y0, 3);
+                const float a01 = texel(x0, y0 + 1, 3), a11 = texel(x0 + 1, y0 + 1, 3);
+                const float alpha = (a00 * (1.0f - fx) + a10 * fx) * (1.0f - fy)
+                                    + (a01 * (1.0f - fx) + a11 * fx) * fy;
+                const std::size_t i = static_cast<std::size_t>(y * w + x);
+                // R: the glyph's own opacity here, from the nearest opaque-enough texel of the four (so
+                // it holds up to the edge instead of fading with the filter), 0..1 as 0..255.
+                const float near_alpha = std::max(std::max(a00, a10), std::max(a01, a11));
+                const float near_local =
+                    (local_at(x0, y0) * (1.0f - fx) + local_at(x0 + 1, y0) * fx) * (1.0f - fy)
+                    + (local_at(x0, y0 + 1) * (1.0f - fx) + local_at(x0 + 1, y0 + 1) * fx) * fy;
+                const float edge = std::max(near_local * 0.5f, opaque / 32.0f);
+                const float own = alpha >= edge
+                                      ? std::max(alpha, std::min(near_alpha, alpha * 2.0f))
+                                      : near_alpha;
+                out.pixels[i * 4 + 0] =
+                    static_cast<std::uint8_t>(std::clamp(own / opaque, 0.0f, 1.0f) * 255.0f + 0.5f);
+                out.pixels[i * 4 + 1] = 0;
+                out.pixels[i * 4 + 2] = 0;
+                inside[i] = alpha >= edge;
+                outside[i] = !inside[i];
+            }
         }
-    }
+    });
     const float spread = 2.0f * kScale;  // two source texels either side of the edge
     const std::vector<float> to_inside = distance_2d(inside, w, h, 2 * kScale);
     const std::vector<float> to_outside = distance_2d(outside, w, h, 2 * kScale);
-    for (std::size_t i = 0; i < inside.size(); ++i) {
-        const float signed_distance = inside[i] ? std::sqrt(to_outside[i]) : -std::sqrt(to_inside[i]);
-        const float value = 0.5f + signed_distance / (2.0f * spread);
-        out.pixels[i * 4 + 3] = static_cast<std::uint8_t>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
-    }
+    in_bands(h, [&](int band_begin, int band_end) {
+        for (std::size_t i = static_cast<std::size_t>(band_begin * w);
+             i < static_cast<std::size_t>(band_end * w);
+             ++i) {
+            const float signed_distance =
+                inside[i] ? std::sqrt(to_outside[i]) : -std::sqrt(to_inside[i]);
+            const float value = 0.5f + signed_distance / (2.0f * spread);
+            out.pixels[i * 4 + 3] =
+                static_cast<std::uint8_t>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
+        }
+    });
     const TextureHandle handle = add(std::move(out), AlphaScale::Full, name(source) + " (distance field)");
     m_entries[handle - 1].field = true;
     m_entries[handle - 1].field_hash = hash;
