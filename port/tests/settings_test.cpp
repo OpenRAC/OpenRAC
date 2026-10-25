@@ -31,6 +31,32 @@ void test_temporal_settings(const std::filesystem::path& file) {
     CHECK(settings::get().temporal_sharpness == .2f);
 }
 
+void test_sunlight_settings(const std::filesystem::path& file) {
+    namespace settings = openrac::settings;
+    CHECK(!settings::Settings{}.sunlight_direction());
+    std::ofstream(file) << "sun_direction_override = 1\nsun_azimuth = 90\nsun_elevation = 0\n";
+    settings::load(file);
+    auto direction = settings::get().sunlight_direction();
+    CHECK(direction.has_value());
+    CHECK(std::abs((*direction)[0]) < 1e-6f);
+    CHECK(std::abs((*direction)[1] + 1.f) < 1e-6f);
+    CHECK(std::abs((*direction)[2]) < 1e-6f);
+    settings::get().sun_elevation = 90;
+    settings::save();
+    settings::load(file);
+    CHECK(settings::get().sun_direction_override);
+    CHECK(settings::get().sun_azimuth == 90);
+    direction = settings::get().sunlight_direction();
+    CHECK(std::abs((*direction)[2] + 1.f) < 1e-6f);
+    settings::get().sun_direction_override = false;
+    CHECK(!settings::get().sunlight_direction());
+    std::ofstream(file) << "sun_direction_override = bad\nsun_azimuth = nan\nsun_elevation = 91\n";
+    settings::load(file);
+    CHECK(!settings::get().sun_direction_override);
+    CHECK(settings::get().sun_azimuth == 0);
+    CHECK(settings::get().sun_elevation == 45);
+}
+
 // Persists all counter modes, wraps both directions and accepts existing boolean settings.
 void test_frame_counter_modes(const std::filesystem::path& file) {
     namespace settings = openrac::settings;
@@ -116,6 +142,7 @@ int main() {
     CHECK(settings::get().ceiling_area_lights);
     CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
     test_temporal_settings(file);
+    test_sunlight_settings(file);
     test_frame_counter_modes(file);
     test_game_options_load_from_the_file(file);
     test_game_options_are_saved_when_they_change(file);

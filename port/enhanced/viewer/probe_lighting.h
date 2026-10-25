@@ -75,16 +75,19 @@ public:
         std::optional<lighting::Float3> player = std::nullopt
     );
 
+    const std::string& load_error() const { return m_load_error; }
+
     bool has_data() const { return m_textures[0] != 0; }
 
     bool active() const { return enabled && has_data() && mode != 0; }
 
-    // Returns the verified level override for enhanced shadows, or the authored travel direction.
+    // Resolves the runtime override, verified level override, then authored travel direction.
     lighting::Float3 sunlight_direction(lighting::Float3 authored) const {
-        // Original lighting retains the level's unmodified direction.
-        return active() ? m_sunlight_direction.value_or(authored) : authored;
+        // The submitted frame clears the runtime override outside enhanced graphics.
+        return runtime_sunlight_direction.value_or(active() ? m_sunlight_direction.value_or(authored) : authored);
     }
 
+    std::optional<lighting::Float3> runtime_sunlight_direction;
     bool enabled = true;
     float gi_multiplier = 1.0f;
     float normal_bias = 0.5f;
@@ -108,6 +111,7 @@ private:
     );
     DebugLines m_volume_bounds;  // Player-containing boxes, owned by the rendering thread.
     std::vector<int> m_containing_regions;  // Cached dense indices, or -1 for sparse fallback.
+    std::string m_load_error;
     bool m_volume_bounds_failed = false;    // Suppresses repeated shader errors until release.
     AreaLightOverlay m_area_lights;  // Companion report geometry, owned by the rendering thread.
     std::array<unsigned, 3> m_textures{};

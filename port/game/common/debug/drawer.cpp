@@ -324,7 +324,7 @@ void drawer_note(const char* line) {
 // Enhanced graphics (port/enhanced, the launcher's Mods entry) as the drawer's own rows: the
 // switches and the two values a player changes, large enough for a thumb and moved through by a
 // gamepad. The diagnostics (probe spheres, receiver biases, GTAO's directions and steps) are the
-// debug overlay's and the desktop's Enhanced menu's. When the game cannot have it, the card says
+// debug overlay's and the desktop's Enhanced Settings window's. When the game cannot have it, the card says
 // why and what to do instead of leaving the player to guess.
 void drawer_enhanced() {
 #if defined(OPENRAC_ENHANCED_RENDERING) && OPENRAC_ENHANCED_RENDERING

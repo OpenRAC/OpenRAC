@@ -496,7 +496,7 @@ void toggle_drawer() {
 }
 
 bool visible() {
-    return s.visible;
+    return s.visible || s.enhanced_settings;
 }
 
 bool event(const SDL_Event& e) {
@@ -552,7 +552,7 @@ bool event(const SDL_Event& e) {
             settings::save();
         }
     }
-    if (!(s.visible || menu_bar_shown() || s.drawer_open) || !s.initialised) {
+    if (!(s.visible || s.enhanced_settings || menu_bar_shown() || s.drawer_open) || !s.initialised) {
         return false;
     }
     ImGui_ImplSDL3_ProcessEvent(&e);
@@ -661,7 +661,7 @@ void draw(const Shown& shown) {
         s.paused || s.stretch != 1.0 || !s.toast.empty() || !s.notice.empty() || capture_busy();
     const bool drawer_out =
         s.drawer_open || s.drawer_at > 0.0f || s.shot_when_shut || s.touch_editing;
-    if (!(s.visible || menu_bar_shown() || badge || drawer_out || !s.shot_path.empty()) || shown.window == nullptr
+    if (!(s.visible || s.enhanced_settings || menu_bar_shown() || badge || drawer_out || !s.shot_path.empty()) || shown.window == nullptr
         || !initialise(shown.window)) {
         return;
     }
@@ -692,6 +692,7 @@ void draw(const Shown& shown) {
     if (menu_bar_shown()) {
         menu_bar();
     }
+    enhanced_settings_window();
     if (s.visible) {
         panel(shown);
         inspector_window();

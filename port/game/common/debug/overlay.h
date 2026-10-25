@@ -173,6 +173,7 @@ struct State {
     // Mobys.
     std::uint32_t selected = 0;  // address; 0 none
     bool follow_hero = false;    // "inspect": the hero is selected, whichever moby he is now
+    bool enhanced_settings = false; // Independent Enhanced Settings window.
     bool inspector = false;      // the moby inspector window is open
     bool labels = false;         // the mobys' classes written in the picture
     bool near_hero = true;       // the list holds only the mobys within `radius` of the hero
@@ -413,7 +414,7 @@ bool menu_bar_shown();
 // port's key for it does. Defined in debug/menu_bar.cpp.
 void press(SDL_Keycode key);
 
-// Draws the menu bar: View, Graphics, Enhanced (where the renderer has it), Sound and Developer.
+// Draws the menu bar: View, Graphics, Sound and Developer.
 // Defined in debug/menu_bar.cpp.
 void menu_bar();
 
@@ -422,10 +423,11 @@ void menu_bar();
 // file's, so moving the aspect skips it. Defined in debug/controls.cpp.
 void change_setting(int row, int by);
 
-// Draws the enhanced graphics' switches and sliders, GTAO's under a header of their own; disabled
+// Draws the independent Enhanced Settings window with launcher-ordered main choices and advanced
+// tuning, diagnostics and water sections; disabled
 // where the level has no compatible probe data. A change is saved and marked for the window to
 // apply. Defined in debug/controls.cpp.
-void enhanced_controls();
+void enhanced_settings_window();
 
 // ---- The performance capture (common/perf_capture.h) ----
 

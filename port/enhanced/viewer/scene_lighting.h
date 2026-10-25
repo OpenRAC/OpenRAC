@@ -29,7 +29,7 @@ class SceneLighting final : public scene::LevelLighting {
 public:
     std::string mesh_fragment(std::string source) const override;
     std::string early_fragment(std::string source) const override;
-    // Resolves the bake profile's primary sunlight direction for direct lighting and shadows.
+    // Resolves the primary sunlight override for direct lighting and shadows.
     renderer::Vec3 sunlight_direction(renderer::Vec3 authored) const override;
 
     bool early_supported() const override;
@@ -38,11 +38,13 @@ public:
     void release() override;
 
     bool has_data() const override;
+    std::string_view load_error() const override;
     bool active() const override;
     int mode() const override;
     void set_mode(int mode) override;
     void set_lighting(bool enabled, float multiplier) override;
     void set_bias(float normal, float view) override;
+    void set_sunlight_direction(std::optional<renderer::Vec3> direction) override;
     void set_spheres(bool shown) override;
     void set_area_lights(bool shown) override;
     bool compute_selection() const override;
@@ -75,9 +77,8 @@ public:
         const renderer::FrameInput& input,
         const renderer::RenderState& state
     ) const override;
-    bool early_matches(
-        const renderer::FrameInput& input, const renderer::RenderState& state
-    ) const override;
+    bool early_matches(const renderer::FrameInput& input, const renderer::RenderState& state)
+        const override;
 
     // Uploads a probe volume an in-memory provider made (and its dense volume); the provider has
     // checked the scene's and the bake's identity. False with `error` when it cannot be uploaded.

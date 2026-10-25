@@ -32,6 +32,7 @@ namespace openrac::frontend::debug_overlay {
 // Shown from the start (--debug-overlay), as OPENRAC_OVERLAY does.
 void request();
 
+// Any desktop overlay window holding the mouse, including Enhanced Settings.
 bool visible();
 
 // A window event: true if the overlay took it (its keys, or the mouse and keyboard while they are

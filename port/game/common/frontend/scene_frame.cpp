@@ -150,6 +150,9 @@ void set_lighting(SceneFrame& frame) {
     owner.scene
         .set_probe_lighting(enhanced && graphics.probe_lighting, graphics.probe_gi_multiplier);
     owner.scene.set_probe_bias(graphics.probe_normal_bias, graphics.probe_view_bias);
+    if (auto* lighting = owner.scene.level_lighting()) {
+        lighting->set_sunlight_direction(enhanced ? graphics.sunlight_direction() : std::nullopt);
+    }
     owner.scene.set_probe_spheres(graphics.probe_spheres);
     owner.scene.set_area_lights(graphics.ceiling_area_lights);
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows

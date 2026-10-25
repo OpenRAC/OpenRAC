@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <algorithm>
 #include <cmath>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
 
 #include "enhanced/lighting/probes.h"
 #include "enhanced/renderer/gtao.h"
@@ -18,6 +21,27 @@ using namespace openrac::gl;
 
 namespace {
 using lighting::Float3;
+
+void rejected_bake_message() {
+    const auto folder = std::filesystem::temp_directory_path()
+        / ("openrac-probe-error-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::filesystem::create_directories(folder / "level_01");
+    std::ofstream(folder / "level_01/sparse.orpg", std::ios::binary) << "invalid-probe";
+    const auto previous_root = lighting::probe_root();
+    lighting::set_probe_root(folder);
+    lighting::ProbeLighting probes;
+    scene::LevelData level;
+    level.dir = folder / "level_01";
+    level.level = 1;
+    probes.load(level);
+    CHECK(!probes.has_data());
+    CHECK(!probes.load_error().empty());
+    probes.release();
+    CHECK(probes.load_error().empty());
+    lighting::set_probe_root(previous_root);
+    std::filesystem::remove_all(folder); // Only this fixture's newly created data.
+}
+
 renderer::Shader* zero_weight_reference = nullptr;
 constexpr const char* vertex = R"glsl(#version 410 core
 void main() {
@@ -85,6 +109,13 @@ void check(
     }
     const auto reference_volume = packed_reference(volume);
     const auto reference_dense = dense ? std::optional{packed_reference(*dense)} : std::nullopt;
+    // Runtime orientation takes priority; clearing it restores the level direction.
+    const Float3 authored{0, 0, -1};
+    const auto original_direction = probes.sunlight_direction(authored);
+    probes.runtime_sunlight_direction = Float3{0, -1, 0};
+    CHECK(probes.sunlight_direction(authored) == (Float3{0, -1, 0}));
+    probes.runtime_sunlight_direction.reset();
+    CHECK(probes.sunlight_direction(authored) == original_direction);
     // Reuse the uploaded probes while varying each slider independently.
     const std::array<std::array<float, 2>, 4> biases{
         {{0.5f, 0.5f}, {0.5f, 0.0f}, {0.0f, 0.5f}, {0.5f, 0.5f}}
@@ -1615,6 +1646,7 @@ void main() {
     sphere_overlay();
     dense_sphere_fade();
     camera_facing_normals();
+    rejected_bake_message();
     sunlight_rgb_correction();
     return test::result();
 }

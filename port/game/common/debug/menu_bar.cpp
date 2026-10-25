@@ -89,10 +89,10 @@ void menu_bar() {
             }
         }
         ImGui::PopItemFlag();
-        ImGui::EndMenu();
-    }
-    if (gl::enhanced_rendering_available() && ImGui::BeginMenu("Enhanced")) {
-        enhanced_controls();
+        if (gl::enhanced_rendering_available()) {
+            ImGui::Separator();
+            ImGui::MenuItem("Enhanced Settings", nullptr, &s.enhanced_settings);
+        }
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Sound")) {

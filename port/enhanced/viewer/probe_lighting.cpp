@@ -381,6 +381,7 @@ const std::filesystem::path& probe_root() {
 }
 
 void ProbeLighting::load(const scene::LevelData& level) {
+    m_load_error.clear();
     if (!enhanced_rendering_available()) {
         return;
     }
@@ -537,7 +538,8 @@ void ProbeLighting::load(const scene::LevelData& level) {
                   "user setting");
     } catch (const std::exception& why) {
         release();
-        log::warn("probe GI inactive for level {}: {}", level.level, why.what());
+        m_load_error = why.what();
+        log::warn("probe GI inactive for level {}: {}", level.level, m_load_error);
     }
 }
 
@@ -571,13 +573,14 @@ void ProbeLighting::bind(
         m_sunlight_scale[2]
     );
     glUniform1f(shader.uniform("probe_normal_bias"), normal_bias);
-    const auto direction = m_sunlight_direction.value_or(lighting::Float3{});
+    const auto direction_override = runtime_sunlight_direction ? runtime_sunlight_direction : m_sunlight_direction;
+    const auto direction = direction_override.value_or(lighting::Float3{});
     glUniform4f(
         shader.uniform("probe_sunlight_direction"),
         direction[0],
         direction[1],
         direction[2],
-        m_sunlight_direction.has_value() ? 1.0f : 0.0f
+        direction_override.has_value() ? 1.0f : 0.0f
     );
     glUniform1f(shader.uniform("probe_view_bias"), view_bias);
     glUniform1i(shader.uniform("probe_effect"), 0);
@@ -756,6 +759,7 @@ void ProbeLighting::draw_spheres(
 }
 
 void ProbeLighting::release() {
+    m_load_error.clear();
     m_volume_bounds.release();
     m_containing_regions.clear();
     m_volume_bounds_failed = false;
@@ -763,6 +767,7 @@ void ProbeLighting::release() {
     show_area_lights = false;
     m_sunlight_scale = {1, 1, 1};
     m_sunlight_direction.reset();
+    runtime_sunlight_direction.reset();
     m_terrain_vertex_albedo = false;
     m_selection.release();
     m_full_residency = false;

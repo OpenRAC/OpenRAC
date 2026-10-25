@@ -165,6 +165,7 @@ bool hold();
 
 // Current level has validated, uploaded probes and a supported renderer.
 bool enhanced_graphics_available();
+std::string enhanced_graphics_error();
 
 void close();
 

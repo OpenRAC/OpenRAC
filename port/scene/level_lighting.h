@@ -16,6 +16,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "renderer/renderer.h"
 #include "renderer/shader.h"
@@ -59,6 +60,9 @@ public:
     // Returns whether probe data is uploaded.
     virtual bool has_data() const = 0;
 
+    // Why this level's bake was rejected, if loading failed.
+    virtual std::string_view load_error() const { return {}; }
+
     // Returns whether probe lighting is on and has data.
     virtual bool active() const = 0;
 
@@ -74,6 +78,9 @@ public:
 
     // Sets the normal and view biases of the probe lookups, in scene units.
     virtual void set_bias(float normal, float view) = 0;
+
+    // Runtime primary-light override; null restores the verified profile/authored direction.
+    virtual void set_sunlight_direction(std::optional<renderer::Vec3> /*direction*/) {}
 
     // Shows or hides the probe placement overlay.
     virtual void set_spheres(bool shown) = 0;

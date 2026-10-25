@@ -17,6 +17,15 @@
 
 namespace openrac::settings {
 
+std::optional<std::array<float, 3>> Settings::sunlight_direction() const {
+    if (!sun_direction_override) return std::nullopt;
+    constexpr float radians = 3.14159265358979323846f / 180.f;
+    const float azimuth = sun_azimuth * radians, elevation = sun_elevation * radians;
+    // The shader and shadow renderer use ray travel, opposite the source direction.
+    return std::array<float, 3>{-std::cos(elevation) * std::cos(azimuth),
+                                -std::cos(elevation) * std::sin(azimuth), -std::sin(elevation)};
+}
+
 namespace {
 
 Settings g_settings;
@@ -249,6 +258,12 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 2.0f, s.probe_view_bias);
         } else if (key == "probe_gi_multiplier") {
             known = parse_float(value, 0.0f, 5.0f, s.probe_gi_multiplier);
+        } else if (key == "sun_direction_override") {
+            known = parse_bool(value, s.sun_direction_override);
+        } else if (key == "sun_azimuth") {
+            known = parse_float(value, -180.f, 180.f, s.sun_azimuth);
+        } else if (key == "sun_elevation") {
+            known = parse_float(value, -90.f, 90.f, s.sun_elevation);
         } else if (key == "gtao") {
             known = parse_bool(value, s.gtao);
         } else if (key == "gtao_quality") {
@@ -408,6 +423,9 @@ void save() {
         << "probe_gi_multiplier = " << s.probe_gi_multiplier << "\n"
         << "probe_normal_bias = " << s.probe_normal_bias << "\n"
         << "probe_view_bias = " << s.probe_view_bias << "\n"
+        << "sun_direction_override = " << (s.sun_direction_override ? 1 : 0) << "\n"
+        << "sun_azimuth = " << s.sun_azimuth << "\n"
+        << "sun_elevation = " << s.sun_elevation << "\n"
         << "gtao = " << (s.gtao ? 1 : 0) << "\n"
         << "gtao_quality = " << kGtaoQuality[static_cast<int>(s.gtao_settings.quality)] << "\n"
         << "gtao_slices = " << s.gtao_settings.slices << "\n"

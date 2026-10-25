@@ -9,9 +9,11 @@
 // docs/port/SETTINGS.md lists every key, and what OpenGOAL and ReRAC offer beside them.
 #pragma once
 
+#include <array>
 #include <filesystem>
 #include <functional>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -98,6 +100,9 @@ struct Settings {
     float probe_gi_multiplier = 1.0f;
     float probe_normal_bias = 0.5f;  // receiver offsets in world units
     float probe_view_bias = 0.5f;
+    bool sun_direction_override = false;
+    float sun_azimuth = 0, sun_elevation = 45; // Light-source angles, degrees; Z is up.
+    std::optional<std::array<float, 3>> sunlight_direction() const;
     bool gtao = true;  // ground-truth ambient occlusion when enhanced rendering is enabled
     renderer::TemporalQuality temporal_quality =
         renderer::TemporalQuality::Quality;  // Enhanced Vulkan only.

@@ -196,6 +196,11 @@ bool frame_due(std::chrono::steady_clock::time_point now) {
 
 // ---- The kept tick ----
 
+std::string enhanced_graphics_error() {
+    const auto* lighting = g ? g->scene.level_lighting() : nullptr;
+    return lighting ? std::string(lighting->load_error()) : std::string{};
+}
+
 bool enhanced_graphics_available() {
     return g && gl::enhanced_rendering_available() && g->scene.probe_data_available();
 }
