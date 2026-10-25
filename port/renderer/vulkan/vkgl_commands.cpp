@@ -629,14 +629,16 @@ void begin_buffers() {
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(f.upload, &begin);
     vkBeginCommandBuffer(f.main, &begin);
-    if (f.timestamps != VK_NULL_HANDLE && f.timestamp_used == 0) {
+    const bool reset = f.timestamps != VK_NULL_HANDLE && f.timestamp_used == 0;
+    if (reset) {
         vkCmdResetQueryPool(f.upload, f.timestamps, 0, kTimestamps);
         count_command(Command::Query);
         f.frame_timing = Frame::FrameTiming::None;  // a start the pool held is gone with it
     }
-    // The whole frame's GPU time from here to the end of `main` (stats::gpu_frame_begin).
-    if (f.timestamps != VK_NULL_HANDLE && g->timestamp_bits != 0 && stats::enabled()
-        && f.frame_timing == Frame::FrameTiming::None) {
+    // The whole frame's GPU time from here to the end of `main` (stats::gpu_frame_begin). Only
+    // into a pool reset just now: buffers begun again after a submit within the frame (its
+    // sections' queries still in use) would write the frame's queries a second time unreset.
+    if (reset && g->timestamp_bits != 0 && stats::enabled()) {
         vkCmdWriteTimestamp(
             f.upload, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, f.timestamps, kFrameTimestamp
         );
