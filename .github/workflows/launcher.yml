@@ -21,7 +21,8 @@
 # are its own. What a run would redo is kept between runs: the game's C as
 # hostgen writes it (skipped when its inputs are the same), CMake's
 # configuration, every compile (ccache), the link's ThinLTO cache, the Rust
-# dependencies (rust-cache) and Gradle's. Every thread of the runner compiles. The Linux games are carried without their debug info.
+# dependencies (rust-cache) and Gradle's. Every thread of the runner compiles.
+# The Linux games are carried without their debug info.
 #
 # Every action is pinned to a commit (Dependabot, .github/dependabot.yml,
 # moves the pins), and every download is checked against its SHA-256.
