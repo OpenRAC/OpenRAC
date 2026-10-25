@@ -112,9 +112,11 @@ The app keeps everything in its own storage (`files/`): the games
   Settings has an Open Files button.
 - `hasFragileUserData` makes uninstalling ask whether to keep the data; it
   comes back when the same app, signed with the same key, is reinstalled.
-- An older install (shared storage's `OpenRAC`, or the app's data folder) is
-  moved into `files/games` at the first start (`install::settle_games_dir`),
-  and the first-run folder screen is skipped.
+- An older install in the app's data folder is moved into `files/games` at the
+  first start (`install::settle_games_dir`), and the first-run folder screen
+  is skipped. One in shared storage's `OpenRAC` cannot be moved (another file
+  system) and the app may not rename folders there, so it is left as it is and
+  the game is set up again from its disc; the old folder can be deleted.
 
 ## Setting up a game
 

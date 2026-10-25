@@ -31,7 +31,7 @@ from disc import LEVEL_COUNT, Disc
 from formats import FormatError
 from godot import SCHEMA as GODOT_SCHEMA, SCRIPTS, LevelWriter, install_addon, write_project
 from spaceships import add_spaceships
-from level import load_flight, load_level, load_title
+from level import FLIGHT_ID, TITLE_ID, load_flight, load_level, load_title
 from level import load_wad_level
 from occlusion import write_stamp as write_pvs_stamp
 from lighting import normal_table
@@ -41,6 +41,9 @@ from util import sha256
 import wads
 
 ROOT = Path(__file__).resolve().parents[1]
+# The port's own levels beside the disc's, by the numbers it gives them (level.py): named in what
+# the export prints, as "level 99" alone told the player nothing.
+PORT_LEVELS = {TITLE_ID: "the title world", FLIGHT_ID: "the flight between planets"}
 
 
 def output_path(path: Path, anywhere: bool = False, replace: bool = False) -> Path:
@@ -356,7 +359,9 @@ def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: P
         try:
             for done in as_completed(running):
                 stats = done.result()
-                print(f"level {stats['level']:02}: {stats['mesh_instances']} meshes placed, "
+                extra = PORT_LEVELS.get(stats["level"]) if game == "rac1" else None
+                name = f" ({extra})" if extra else ""
+                print(f"level {stats['level']:02}{name}: {stats['mesh_instances']} meshes placed, "
                       f"{stats['triangles']} triangles, {stats['textures']} textures", flush=True)
         except BaseException:
             pool.shutdown(cancel_futures=True)

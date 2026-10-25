@@ -68,6 +68,9 @@ describe("readProgress", () => {
   it("counts the levels the reader has finished, without a total", () => {
     const lines = out("level 03: 9 meshes", "level 00: 1 meshes");
     expect(readProgress("port-levels", lines)).toEqual({ percent: null, note: "2 levels read" });
+    // The title world and the flight say what they are.
+    const named = out("level 99 (the title world): 4 meshes", "level 98 (the flight between planets): 1 meshes");
+    expect(readProgress("port-levels", named).note).toBe("2 levels read");
     expect(readProgress("port-levels", out("level 03: x")).note).toBe("1 level read");
     expect(readProgress("port-build", lines).note).toBeNull();
   });

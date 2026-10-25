@@ -42,7 +42,8 @@ export interface JobProgress {
 
 const NINJA = /^\s*\[\s*(\d+)\s*\/\s*(\d+)\s*\]/; // "[1351/2273] Building C object ..."
 const PERCENT = /(?:^|[\s[(])(\d{1,3}(?:\.\d+)?)\s?%/; // "[ 45%] Building ...", "copying 62 %"
-const LEVEL = /^level \d+:/; // editor/extract.py, one line for each level it finished
+// editor/extract.py, one line for each level it finished ("level 99 (the title world): ...").
+const LEVEL = /^level \d+(?: \([^)]*\))?:/;
 // "Lighting 42.5% (about 12 minutes left)": the probe bake (bake_all.py, show_progress).
 const LEFT = /\(((?:about|less than) [^)]* left)\)\s*$/;
 
