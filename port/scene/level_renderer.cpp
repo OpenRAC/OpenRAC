@@ -346,6 +346,14 @@ bool LevelScene::upload(
             }
         }
     }
+    // The ties' lower LODs (choose_scenery) are static models as well, placed only later.
+    for (const auto& entry : level.tie_lods) {
+        for (const std::uint32_t lod : entry.second.models) {
+            if (lod < fixed.size()) {
+                fixed[lod] = true;
+            }
+        }
+    }
     for (std::uint32_t m = 0; m < m_opaque.size(); ++m) {
         m_opaque[m] = m;
         const Model& model = m_models[m];
