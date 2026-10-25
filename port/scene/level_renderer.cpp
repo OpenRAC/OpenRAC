@@ -2039,6 +2039,9 @@ void LevelScene::release() {
     }
     m_pvs_models.clear();
     m_cpu_indices.clear();
+    // Nothing to choose from until the next level (choose_scenery).
+    m_tie_lods.clear();
+    m_scenery = {};
     m_sky.release();
 }
 

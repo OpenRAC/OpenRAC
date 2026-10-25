@@ -71,6 +71,18 @@ void cpu_bound() {
     CHECK(has(v, "in render: terrain 9.00 ms"));
     CHECK(has(v, "Costliest pass on the GPU: mobys 4.50 ms"));
 
+    // The whole frame timed on the GPU, its passes' times near 0 (the Vulkan renderer's): no pass
+    // is named.
+    capture::Recorder whole(20.0);
+    for (std::uint64_t i = 0; i < 100; ++i) {
+        stats::Frame f = frame(i, 50.0, 30.0, 12.0, 0.004);
+        f.gpu_frame_ms = 8.0;
+        whole.add(f);
+    }
+    const std::string w = whole.verdict();
+    CHECK(!has(w, "Costliest pass on the GPU"));
+    CHECK(has(w, "passes' GPU times are not measured"));
+
     capture::Context context;
     context.title = "rac1-pal, Kerwan";
     context.lines.emplace_back("gpu", "a test");

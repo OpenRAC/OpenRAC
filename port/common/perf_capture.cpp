@@ -259,7 +259,17 @@ std::string Recorder::verdict() const {
         return name;
     };
     const std::string cpu_pass = pass(false);
-    const std::string gpu_pass = pass(true);
+    // The passes' own GPU times, when they hold the frame's: the Vulkan renderer times only the
+    // whole frame on the GPU (its passes' times are near 0), so no pass is named there.
+    double passes_gpu = 0.0;
+    for (const Series& s : m_series) {
+        if (s.depth == 1 && s.parent >= 0
+            && m_series[static_cast<std::size_t>(s.parent)].name == "render") {
+            passes_gpu += s.gpu_sum / static_cast<double>(m_frames.size());
+        }
+    }
+    const bool passes_timed = gpu < 0.0 || passes_gpu >= 0.25 * gpu;
+    const std::string gpu_pass = passes_timed ? pass(true) : std::string();
 
     std::string out;
     if (frame <= m_target_ms * 1.05) {
@@ -301,6 +311,8 @@ std::string Recorder::verdict() const {
     put(out, ".");
     if (!gpu_pass.empty()) {
         put(out, " Costliest pass on the GPU: {}.", gpu_pass);
+    } else if (!passes_timed) {
+        put(out, " The passes' GPU times are not measured, only the whole frame's.");
     }
     return out;
 }
