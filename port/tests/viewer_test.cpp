@@ -465,10 +465,9 @@ int draw(scene::LevelData& level) {
     CHECK(terrain[0] > 150 && terrain[1] < 60 && terrain[2] < 60);
     const std::uint8_t* tie = at(64, 64);
     CHECK(tie[2] > 150 && tie[0] < 60);
-    // Terrain and tie each draw once. Mobys also submit their glow pass, in two draws split at
-    // the GS's alpha reference (scene/moby_passes.h); this fixture has no glow faces, so they
-    // discard all their fragments.
-    CHECK(renderer.last_stats().draw_calls == 5);
+    // Terrain, tie and moby each draw once. The mobys' glow pass leaves out primitives without a
+    // glow face (moby-glow-skip, scene/moby_passes.h): this fixture has none, so it draws nothing.
+    CHECK(renderer.last_stats().draw_calls == 3);
 
     // Removing the moby layer removes its solid and glow submissions.
     renderer.renderers()[static_cast<std::size_t>(scene::Layer::Mobys)]->enabled = false;
@@ -506,7 +505,7 @@ int draw(scene::LevelData& level) {
     input.camera.view = camera.view();
     input.camera.position = camera.position;
     renderer.render(input, {frame.id(), 128, 128});
-    CHECK(renderer.last_stats().draw_calls == (gl::is_vulkan() ? 2 : 5));
+    CHECK(renderer.last_stats().draw_calls == (gl::is_vulkan() ? 2 : 3));
     auto pvs_pixels = frame.read_rgba();
     if (gl::is_vulkan()) {
         CHECK(pvs_pixels[(64 * 128 + 64) * 4] > 150);  // hidden blue tie exposes red terrain
@@ -517,12 +516,12 @@ int draw(scene::LevelData& level) {
     input.camera.position = camera.position;
     input.camera.view = camera.view();
     renderer.render(input, {frame.id(), 128, 128});
-    CHECK(renderer.last_stats().draw_calls == 5);  // alternate fragment, tie and moby survive
+    CHECK(renderer.last_stats().draw_calls == 3);  // alternate fragment, tie and moby survive
     camera.position[0] = 0;
     input.camera.position = camera.position;
     input.camera.view = camera.view();
     renderer.render(input, {frame.id(), 128, 128});
-    CHECK(renderer.last_stats().draw_calls == (gl::is_vulkan() ? 2 : 5));  // camera cache refresh
+    CHECK(renderer.last_stats().draw_calls == (gl::is_vulkan() ? 2 : 3));  // camera cache refresh
 
     if (gl::is_vulkan()) {
         stats::set_enabled(stats::Client::Overlay, true);
