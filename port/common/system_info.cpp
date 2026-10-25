@@ -50,7 +50,13 @@ std::string uname_text() {
     if (uname(&u) != 0) {
         return {};
     }
-    return std::format("{} {}, {}", u.sysname, u.release, u.machine);
+    // As C strings: formatted as arrays, the fields kept their trailing NULs (Android, libc++).
+    return std::format(
+        "{} {}, {}",
+        static_cast<const char*>(u.sysname),
+        static_cast<const char*>(u.release),
+        static_cast<const char*>(u.machine)
+    );
 }
 #endif
 
