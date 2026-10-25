@@ -604,6 +604,17 @@ void drawer(const Shown& shown) {
                 s.shot_when_shut = true;
                 set_drawer(false);
             }
+            // A performance capture: starts a moment after the drawer has gone; opening it again
+            // ends the capture, whose report is copied and saved (debug/capture.cpp).
+            if (const int by = drawer_choice("Capture length", capture_length_name(), true, true)) {
+                step_capture_length(by);
+            }
+            if (drawer_row(
+                    capture_busy() ? "Cancel performance recording" : "Record performance"
+                )) {
+                toggle_capture(true);
+                set_drawer(false);
+            }
             if (s.developer && drawer_row("Level select")) {
                 set_drawer(false);
                 press(SDLK_F1);

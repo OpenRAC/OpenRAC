@@ -4,7 +4,9 @@
 // The debug overlay's menu bar (debug/overlay.h): the menus along the window's top on Windows and
 // Linux, whose items press the keys the port already answers or move its settings on.
 
+#include <format>
 #include <imgui.h>
+#include <string>
 
 #include <SDL3/SDL.h>
 
@@ -120,6 +122,22 @@ void menu_bar() {
         ImGui::Separator();
         if (ImGui::MenuItem("Screenshot", "F12")) {
             press(SDLK_F12);
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem(
+                capture_busy() ? "Stop performance recording" : "Record performance", "Ctrl+F3"
+            )) {
+            toggle_capture(false);
+        }
+        if (ImGui::BeginMenu("Recording length")) {
+            for (const double seconds : {15.0, 30.0, 60.0, 120.0, 0.0}) {
+                const std::string name =
+                    seconds > 0.0 ? std::format("{:.0f} s", seconds) : std::string("Until stopped");
+                if (ImGui::MenuItem(name.c_str(), nullptr, s.capture_seconds == seconds)) {
+                    s.capture_seconds = seconds;
+                }
+            }
+            ImGui::EndMenu();
         }
         if (s.developer) {
             ImGui::Separator();
