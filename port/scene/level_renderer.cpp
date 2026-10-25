@@ -810,8 +810,8 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         }
 
 #if defined(OPENRAC_VULKAN)
-        // A static group's instances never change after the upload: registered once, a view's
-        // GPU batch of them sends only the view (gpu-resident-instances, RENDER_PERF.md).
+        // A static group's instances change only when the layer is set again: registered then, a
+        // view's GPU batch of them sends only the view (gpu-resident-instances, RENDER_PERF.md).
         if (!live && native_gpu_bounds
             && renderer::render_opt::enabled(renderer::render_opt::Opt::GpuResidentInstances)) {
             vkgl::gpu_register_instances(g.instances, g.gpu_bounds);
@@ -900,7 +900,8 @@ void LevelScene::set_instances(Layer layer, const std::vector<Instance>& instanc
         idle.end(), std::make_move_iterator(groups.begin()), std::make_move_iterator(groups.end())
     );
     groups.clear();
-    build_groups(layer, instances, true);
+    // A static layer set again (choose_scenery) keeps its bounds and resident instances.
+    build_groups(layer, instances, layer == Layer::Mobys);
 
     // The moby groups as build_groups made them: where each instance went, for the next call.
     if (layer == Layer::Mobys) {

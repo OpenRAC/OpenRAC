@@ -191,6 +191,7 @@ struct GpuResident {
     struct Group {
         std::uint32_t first = 0;    // Its first instance's first word in `words`.
         std::uint32_t count = 0;    // Its instances.
+        std::uint32_t room = 0;     // The instances its words have room for (registered again).
         std::uint64_t version = 0;  // The buffer's version when registered: another is stale.
     };
 
@@ -198,6 +199,7 @@ struct GpuResident {
     std::vector<std::uint32_t> words;  // Per instance, 8 words of bounds then 30 of its data.
     Chunk buffer;                      // `words` in device memory; empty until a batch needs it.
     bool dirty = false;                // `words` changed since `buffer` was made.
+    std::size_t unused = 0;            // Words no group holds (outgrown by its buffer).
 };
 
 // The cull, front face, depth and stencil state of a draw, as Vulkan's numbers: what a pipeline
