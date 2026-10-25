@@ -1000,6 +1000,7 @@ TickMobys pose_mobys(
             continue;
         }
         scene::Instance instance{cls->second.first, m.matrix, {1, 1, 1, 1}};
+        instance.gameplay_essential = g->profile->gameplay_essential(m.class_id);
         instance.occlusion = m.occlusion;
         if (extra || into_texture.contains(m.address)) {
             instance.occlusion = scene::Pvs::always;
@@ -1137,6 +1138,7 @@ TickMobys pose_mobys(
         instance.hero_shadow_caster = (owned_by_hero || instance.hero_shadow_anchor)
                                       && g->loaded >= 0 && g->loaded < 19
                                       && instance.moby_light[3] < 1.5f && instance.tint[3] > 0;
+        instance.gameplay_essential |= owned_by_hero || instance.hero_shadow_anchor;
         live_joints.push_back(instance.palette >= 0 ? joints : 0);
         if (g->profile->shadow_directions() != 0 && g->loaded >= 0 && g->loaded < 19 && animate
             && m.class_id == 0 && !extra && instance.moby_light[3] < 1.5f

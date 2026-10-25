@@ -246,6 +246,18 @@ void load(const std::filesystem::path& file) {
             known = parse_bool(value, s.enhanced_graphics);
         } else if (key == "enhanced_shadows") {
             known = parse_bool(value, s.enhanced_shadows);
+        } else if (key == "rim_light") {
+            known = parse_bool(value, s.rim_light);
+        } else if (key == "rim_shadow_lift") {
+            known = parse_bool(value, s.rim_shadow_lift);
+        } else if (key == "rim_lift_exponent") {
+            known = parse_float(value, 0.01f, 1.0f, s.rim_lift_exponent);
+        } else if (key == "rim_lift_max_gain") {
+            known = parse_float(value, 1.0f, 16.0f, s.rim_lift_max_gain);
+        } else if (key == "rim_light_strength") {
+            known = parse_float(value, 0.0f, 1.0f, s.rim_light_strength);
+        } else if (key == "rim_light_falloff") {
+            known = parse_float(value, 1.0f, 8.0f, s.rim_light_falloff);
         } else if (key == "probe_lighting") {
             known = parse_bool(value, s.probe_lighting);
         } else if (key == "probe_spheres") {
@@ -417,6 +429,12 @@ void save() {
         << "enhanced_rendering = " << (s.enhanced_rendering ? 1 : 0) << "\n"
         << "enhanced_graphics = " << (s.enhanced_graphics ? 1 : 0) << "\n"
         << "enhanced_shadows = " << (s.enhanced_shadows ? 1 : 0) << "\n"
+        << "rim_light = " << (s.rim_light ? 1 : 0) << "\n"
+        << "rim_shadow_lift = " << (s.rim_shadow_lift ? 1 : 0) << "\n"
+        << "rim_lift_exponent = " << s.rim_lift_exponent << "\n"
+        << "rim_lift_max_gain = " << s.rim_lift_max_gain << "\n"
+        << "rim_light_strength = " << s.rim_light_strength << "\n"
+        << "rim_light_falloff = " << s.rim_light_falloff << "\n"
         << "probe_lighting = " << (s.probe_lighting ? 1 : 0) << "\n"
         << "probe_spheres = " << (s.probe_spheres ? 1 : 0) << "\n"
         << "ceiling_area_lights = " << (s.ceiling_area_lights ? 1 : 0) << "\n"

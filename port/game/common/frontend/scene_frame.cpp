@@ -149,6 +149,12 @@ void set_lighting(SceneFrame& frame) {
     input.texture_filter = enhanced ? graphics.texture_filter : renderer::TextureFilter::Normal;
     owner.scene
         .set_probe_lighting(enhanced && graphics.probe_lighting, graphics.probe_gi_multiplier);
+    owner.scene.set_gameplay_rim(
+        enhanced && graphics.rim_light, graphics.rim_light_strength, graphics.rim_light_falloff
+    );
+    owner.scene.set_gameplay_rim_lift(
+        graphics.rim_shadow_lift, graphics.rim_lift_exponent, graphics.rim_lift_max_gain
+    );
     owner.scene.set_probe_bias(graphics.probe_normal_bias, graphics.probe_view_bias);
     if (auto* lighting = owner.scene.level_lighting()) {
         lighting->set_sunlight_direction(enhanced ? graphics.sunlight_direction() : std::nullopt);

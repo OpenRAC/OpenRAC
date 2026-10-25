@@ -89,6 +89,8 @@ vec3 surface_emission(vec4 texel) {
 
 // probes.glsl is inserted after the version line by probe_mesh_fragment().
 #ifdef OPENRAC_EARLY_LIGHTING
+uniform int gameplay_rim_enabled;
+vec3 gameplay_rim(vec3 indirect, vec3 normal_view, vec3 toward_camera);
 bool early_surface(
     vec3 eye_position,
     vec3 normal_view,
@@ -120,7 +122,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     bool cached_coverage;
     vec4 cached_lighting;
     float hero_visibility;
-    early_surface(
+    bool cached_surface = early_surface(
         eye_position, mat3(view) * n, cached_lighting, cached_coverage, hero_visibility
     );
     if (!hero_shadow_applies(n)) {
@@ -194,9 +196,19 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     if (probe_mode != 2) {
         illumination *= hero_cue;
     }
+    vec3 rim = vec3(0.0);
+#ifdef OPENRAC_EARLY_LIGHTING
+    // Essential opaque world objects pick up their surroundings at grazing angles.
+    // Diagnostic views, UI, effects and receivers without early-lit GI keep their existing result.
+    if (gameplay_rim_enabled != 0 && probe_receiver == 2 && probe_mode == 1 && cached_surface
+        && covered && translucent_pass == 0 && effect_pass == 0) {
+        rim = gameplay_rim(indirect, eye_normal, -eye_position);
+    }
+#endif
     // Emission is independent of GI exposure, AO and shadow visibility.
     return probe_display(
-        albedo * illumination * material_diffuse_scale + (probe_mode == 1 ? emitted : vec3(0.0))
+        albedo * illumination * material_diffuse_scale + rim
+        + (probe_mode == 1 ? emitted : vec3(0.0))
     );
 }
 
@@ -238,6 +250,23 @@ void main() {
     if (metal_pass != 0) {
         vec4 m = sample_upscaled_texture_colours(v_uv) * v_colour;
         vec3 mrgb = min(m.rgb, vec3(1.0));
+#ifdef OPENRAC_EARLY_LIGHTING
+        // Chrome blends over the diffuse pass: give both layers the edge reflection so the
+        // overlay's opacity cannot erase it. Use cached GI without another probe lookup.
+        if (gameplay_rim_enabled != 0 && probe_receiver == 2 && probe_mode == 1
+            && v_probe_selector.w < 1.5) {
+            vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
+            vec3 geometric = cross(dFdx(eye_position), dFdy(eye_position));
+            vec3 normal_view = orient_shading_normal(mat3(view) * v_normal, geometric, -eye_position);
+            vec4 cached;
+            bool covered;
+            float hero_visibility;
+            if (early_surface(eye_position, normal_view, cached, covered, hero_visibility) && covered) {
+                vec3 rim = gameplay_rim(cached.rgb * probe_gi_multiplier, normal_view, -eye_position);
+                mrgb = probe_display(probe_linear(mrgb) + rim);
+            }
+        }
+#endif
         if (fog_colour.w > 0.5) {
             mrgb = mix(fog_colour.rgb, mrgb, v_fog);
         }

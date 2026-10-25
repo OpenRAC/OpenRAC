@@ -146,6 +146,16 @@ public:
         }
     }
 
+    // Controls the GI-coloured edge light on essential gameplay objects.
+    void set_gameplay_rim(bool enabled, float strength, float falloff) {
+        m_gameplay_rim = {enabled ? strength : 0.0f, falloff};
+    }
+
+    // Compresses dim GI luminance for the rim only; exponent one leaves it unchanged.
+    void set_gameplay_rim_lift(bool enabled, float exponent, float max_gain) {
+        m_gameplay_rim_lift = {enabled ? exponent : 1.0f, max_gain};
+    }
+
     void set_probe_bias(float normal, float view) {
         // Without registered lighting there are no probe lookups to bias.
         if (m_lighting) {
@@ -272,6 +282,7 @@ private:
 
     struct Group {
         bool hero_shadow_caster = false;
+        bool gameplay_essential = false;
         bool shadow_solid_instances = false;  // tint/glow cannot discard opaque static faces
         std::uint32_t model = 0;
         int blend = 0;  // Instance::blend of all its instances
@@ -442,6 +453,8 @@ private:
     unsigned m_lights = 0;            // RGBA8 texture, the ties' lit colours
     std::vector<float> m_light_sets;  // the level's 16 directional light sets (LevelData)
     std::array<float, 64> m_point_lights{};
+    std::array<float, 2> m_gameplay_rim{0.30f, 6.46f};
+    std::array<float, 2> m_gameplay_rim_lift{0.09f, 7.1f};
     std::unique_ptr<LevelLighting> m_lighting;  // The probe and early lighting; null: none.
     bool m_early_capable = false;
     void bind_hero_shadow(const renderer::Shader& shader) const;

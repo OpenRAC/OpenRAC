@@ -53,6 +53,22 @@ coverage. It preserves the existing sky/background and reuses depth for world co
 Original rendering and OpenGL retain the minimal depth-only path. Probe formats and bake transport
 are unchanged.
 
+Essential gameplay objects receive a subtle rim light in the combined enhanced view. Its colour
+comes from the early-lit GI at the surface; it adds no probe samples or render targets. The effect
+uses smooth normals, fades towards front-facing surfaces, and is bounded to avoid bright outlines.
+It needs valid probe coverage and does not affect emission, diagnostic views, UI or blended effects.
+Ratchet, attached equipment, pickups, crates, enemies, NPCs and tool targets are selected by rac1's
+explicit class list in `port/game/rac1/gameplay_lighting.h`. Toggle Gameplay rim light in Enhanced
+Settings; Advanced contains its strength and falloff controls. These update immediately and are saved.
+Higher falloff narrows the edge; its colour always follows local GI. The edge reflection is
+added separately from diffuse texture and vertex tint, so dark materials remain readable.
+Chrome overlays preserve the same edge reflection, including on Clank.
+Optional Rim shadow lift in Advanced brightens rims in dim surroundings. It applies a shared
+linear RGB gain `clamp((max(luminance / 0.18, 0.000001))^(exponent - 1), 1, maximum_gain)` before
+the existing rim brightness limit. This preserves RGB ratios and leaves zero GI black.
+The default exponent is 0.09 and maximum gain is 7.10; lift is on by default. Exponent 1 or maximum
+gain 1 reproduces the unlifted rim. Lighting brighter than 18% linear grey is unchanged.
+
 Level exports preserve authored normals for terrain, ties, shrubs and mobys. Older exports
 flattened terrain and static meshes, so re-extract those levels to restore smooth shading.
 Changed mesh files require a matching probe bake under the existing source-fingerprint checks.

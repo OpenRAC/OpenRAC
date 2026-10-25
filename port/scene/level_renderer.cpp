@@ -630,9 +630,10 @@ bool LevelScene::same_palette(
 }
 
 // Returns the key build_groups groups `instance` by: its class model, its blend and whether it
-// casts the hero's shadow, in that order of significance.
+// is a gameplay subject and casts the hero's shadow.
 std::uint32_t LevelScene::group_key(const Instance& instance) {
-    return instance.model << 3 | (static_cast<std::uint32_t>(instance.blend & 3) << 1)
+    return instance.model << 4 | (instance.gameplay_essential ? 8u : 0u)
+           | (static_cast<std::uint32_t>(instance.blend & 3) << 1)
            | (instance.hero_shadow_caster ? 1u : 0u);
 }
 
@@ -744,7 +745,7 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
     auto& groups = m_groups[static_cast<std::size_t>(layer)];
     auto& idle = m_idle[static_cast<std::size_t>(layer)];
     for (std::size_t i = 0; i < used; ++i) {
-        const std::uint32_t model = m_grouping[i].key >> 3;
+        const std::uint32_t model = m_grouping[i].key >> 4;
         // A live layer draws the same classes frame after frame: each keeps its vertex array and
         // buffer, and only the instances are sent again.
         auto kept = std::find_if(idle.begin(), idle.end(), [&](const Group& g) {
@@ -762,6 +763,7 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         }
         g.blend = static_cast<int>((m_grouping[i].key >> 1) & 3);
         g.hero_shadow_caster = (m_grouping[i].key & 1) != 0;
+        g.gameplay_essential = (m_grouping[i].key & 8) != 0;
         fill_group(g, m_grouping[i].instances, live ? GL_STREAM_DRAW : GL_STATIC_DRAW);
         g.cpu_instances = m_grouping[i].instances;
         g.shadow_solid_instances = solid_shadow_instances(g.cpu_instances);
@@ -2544,8 +2546,10 @@ void LevelScene::draw_layer(
         if (mobys && !state.depth_prepass && state.opaque_colour_phase < 0) {
             layer_pass.emplace(moby_pass_names[pass], stats::kGpu);
         }
-        const bool early = !state.depth_prepass && (mobys ? pass == 0 : pass <= 1) && m_lighting
-                           && m_lighting->early_matches(input, state);
+        // Chrome overlays reuse the same cached GI so they preserve gameplay edge reflections.
+        const bool early = !state.depth_prepass
+                           && (mobys ? pass == kMobySolid || pass == kMobyMetal : pass <= 1)
+                           && m_lighting && m_lighting->early_matches(input, state);
         const bool batch_shader = colour_batch && state.opaque_colour_phase >= 0;
         static const bool& specialisation_off = stats::probe(
             "OPENRAC_OPAQUE_SPECIALISE_OFF", "Reference: unspecialised mesh colour shaders"
@@ -2617,7 +2621,13 @@ void LevelScene::draw_layer(
             glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
             glDepthMask(mobys && moby_step.depth_write ? GL_TRUE : GL_FALSE);
         }
+        glUniform2f(
+            program->uniform("gameplay_rim_lift"), m_gameplay_rim_lift[0], m_gameplay_rim_lift[1]
+        );
         glUniform1i(program->uniform("glow_split"), glow_split);
+        glUniform2f(
+            program->uniform("gameplay_rim_parameters"), m_gameplay_rim[0], m_gameplay_rim[1]
+        );
         for (std::size_t gi = 0; gi < groups.size(); ++gi) {
             Group& g = groups[gi];
             if (!visible[gi] || (!metal && (g.blend != 0) != effects)) {
@@ -2635,6 +2645,10 @@ void LevelScene::draw_layer(
             }
             glUniform1i(program->uniform("probe_effect"), g.blend == 2 ? 1 : 0);
             glUniform1i(program->uniform("hero_shadow_receiver"), g.hero_shadow_caster ? 1 : 0);
+            glUniform1i(
+                program->uniform("gameplay_rim_enabled"),
+                mobys && g.gameplay_essential && m_gameplay_rim[0] > 0 ? 1 : 0
+            );
             glBindVertexArray(instances == g.count ? g.vao : culled ? g.camera_vao : g.pvs_vao);
             auto batch = g.gpu_camera;
             if (batch && !culled) {

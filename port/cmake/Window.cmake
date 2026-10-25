@@ -604,6 +604,14 @@ openrac_add_test(bake_liquids SOURCES enhanced/tests/bake_liquids_test.cpp LIBS 
 
 include(Fsr3)
 
+openrac_add_test(gameplay_rim SOURCES enhanced/tests/gameplay_rim_test.cpp
+  LIBS openrac_enhanced_viewer openrac_platform)
+set_tests_properties(gameplay_rim PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+  "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+if(WIN32)
+  set_property(TEST gameplay_rim APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+endif()
+
 openrac_add_test(water_mesh SOURCES enhanced/tests/water_mesh_test.cpp LIBS openrac_enhanced_viewer)
 
 foreach(water_test IN ITEMS water_gpu water_runtime)

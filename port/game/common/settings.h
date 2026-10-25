@@ -94,6 +94,12 @@ struct Settings {
     bool enhanced_rendering = false;
     bool enhanced_graphics = true;  // F4 within it; retains individual feature preferences
     bool enhanced_shadows = true;   // cascades and Ratchet map; off restores original shadows
+    bool rim_light = true;
+    bool rim_shadow_lift = true;
+    float rim_lift_exponent = 0.09f;
+    float rim_lift_max_gain = 7.1f;
+    float rim_light_strength = 0.30f;
+    float rim_light_falloff = 6.46f;  // Higher values narrow the lit edge.
     bool probe_lighting = true;     // uses a verified bake when one is loaded
     bool probe_spheres = false;     // diagnostic placement/fade overlay
     bool ceiling_area_lights = false;  // Baked source rectangles and emitting-direction arrows.

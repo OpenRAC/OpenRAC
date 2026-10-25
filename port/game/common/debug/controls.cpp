@@ -166,6 +166,9 @@ void enhanced_settings_window() {
 
     // Same main choices and order as the launcher's Enhanced graphics page.
     changed |= ImGui::Checkbox("Probe lighting", &graphics.probe_lighting);
+    ImGui::BeginDisabled(!graphics.probe_lighting);
+    changed |= ImGui::Checkbox("Gameplay rim light", &graphics.rim_light);
+    ImGui::EndDisabled();
     changed |= ImGui::Checkbox("Modern shadows", &graphics.enhanced_shadows);
     changed |= ImGui::Checkbox("Ambient occlusion", &graphics.gtao);
     ImGui::BeginDisabled(!graphics.gtao);
@@ -220,6 +223,38 @@ void enhanced_settings_window() {
             5,
             "%.2fx",
             ImGuiSliderFlags_AlwaysClamp
+        );
+        ImGui::EndDisabled();
+        ImGui::SeparatorText("Gameplay rim light");
+        ImGui::BeginDisabled(!graphics.probe_lighting || !graphics.rim_light);
+        changed |= ImGui::SliderFloat(
+            "Rim strength", &graphics.rim_light_strength, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        changed |= ImGui::SliderFloat(
+            "Rim falloff", &graphics.rim_light_falloff, 1, 8, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        changed |= ImGui::Checkbox("Rim shadow lift", &graphics.rim_shadow_lift);
+        ImGui::BeginDisabled(!graphics.rim_shadow_lift);
+        changed |= ImGui::SliderFloat(
+            "Lift exponent",
+            &graphics.rim_lift_exponent,
+            0.01f,
+            1,
+            "%.2f",
+            ImGuiSliderFlags_AlwaysClamp
+        );
+        changed |= ImGui::SliderFloat(
+            "Maximum lift gain",
+            &graphics.rim_lift_max_gain,
+            1,
+            16,
+            "%.2fx",
+            ImGuiSliderFlags_AlwaysClamp
+        );
+        ImGui::EndDisabled();
+        ImGui::TextWrapped(
+            "Higher falloff narrows the edge. Lower lift exponents brighten dim surroundings, "
+            "preserving the local bounced-light colour. Exponent 1 leaves brightness unchanged."
         );
         ImGui::EndDisabled();
         ImGui::BeginDisabled(!graphics.gtao);

@@ -370,6 +370,14 @@ void drawer_enhanced() {
             changed = true;
         }
         if (set.probe_lighting) {
+            if (drawer_switch("Gameplay rim light", set.rim_light)) {
+                set.rim_light = !set.rim_light;
+                changed = true;
+            }
+            if (set.rim_light && drawer_switch("Rim shadow lift", set.rim_shadow_lift)) {
+                set.rim_shadow_lift = !set.rim_shadow_lift;
+                changed = true;
+            }
             const float gi = set.probe_gi_multiplier;
             if (const int by = drawer_choice(
                     "Bounce strength", std::format("{:g}x", gi), gi > 0.05f, gi < 4.95f

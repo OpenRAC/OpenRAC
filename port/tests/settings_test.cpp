@@ -194,6 +194,12 @@ int main() {
     CHECK(settings::get().enhanced_shadows);
     CHECK(settings::get().probe_lighting);
     CHECK(!settings::get().probe_spheres);
+    CHECK(settings::get().rim_shadow_lift);
+    CHECK(settings::get().rim_lift_exponent == 0.09f);
+    CHECK(settings::get().rim_lift_max_gain == 7.1f);
+    CHECK(settings::get().rim_light);
+    CHECK(settings::get().rim_light_strength == 0.30f);
+    CHECK(settings::get().rim_light_falloff == 6.46f);
     CHECK(settings::get().probe_gi_multiplier == 1.0f);
     CHECK(settings::get().probe_normal_bias == 0.5f);
     CHECK(settings::get().probe_view_bias == 0.5f);
@@ -214,6 +220,12 @@ int main() {
     options.probe_lighting = false;
     options.probe_spheres = true;
     CHECK(options.probe_normal_bias == 0.5f && options.probe_view_bias == 0.5f);
+    options.rim_shadow_lift = false;
+    options.rim_lift_exponent = 0.09f;
+    options.rim_lift_max_gain = 8.0f;
+    options.rim_light = false;
+    options.rim_light_strength = 0.4f;
+    options.rim_light_falloff = 6.0f;
     options.probe_gi_multiplier = 2.5f;
     options.probe_normal_bias = 0.25f;
     options.probe_view_bias = 1.25f;
@@ -224,6 +236,12 @@ int main() {
     CHECK(!options.enhanced_graphics && !options.probe_lighting);
     CHECK(options.probe_spheres);
     CHECK(!options.enhanced_shadows);
+    CHECK(!options.rim_shadow_lift);
+    CHECK(options.rim_lift_exponent == 0.09f);
+    CHECK(options.rim_lift_max_gain == 8.0f);
+    CHECK(!options.rim_light);
+    CHECK(options.rim_light_strength == 0.4f);
+    CHECK(options.rim_light_falloff == 6.0f);
     CHECK(options.probe_gi_multiplier == 2.5f);
     CHECK(options.probe_normal_bias == 0.25f);
     CHECK(options.probe_view_bias == 1.25f);
@@ -238,6 +256,20 @@ int main() {
     settings::save();
     settings::load(file);
     CHECK(options.enhanced_shadows);
+    std::ofstream(file) << "rim_light = bad\nrim_light_strength = nan\n"
+                           "rim_light_strength = -1\nrim_light_strength = 2\n"
+                           "rim_light_falloff = inf\nrim_light_falloff = 0\n"
+                           "rim_light_falloff = 9\nrim_shadow_lift = bad\n"
+                           "rim_lift_exponent = nan\nrim_lift_exponent = 0\n"
+                           "rim_lift_exponent = 2\nrim_lift_max_gain = inf\n"
+                           "rim_lift_max_gain = 0\nrim_lift_max_gain = 17\n";
+    settings::load(file);
+    CHECK(options.rim_shadow_lift);
+    CHECK(options.rim_lift_exponent == 0.09f);
+    CHECK(options.rim_lift_max_gain == 7.1f);
+    CHECK(options.rim_light);
+    CHECK(options.rim_light_strength == 0.30f);
+    CHECK(options.rim_light_falloff == 6.46f);
     std::ofstream(file) << "probe_gi_multiplier = nan\nprobe_gi_multiplier = 6\n"
                            "probe_gi_multiplier = -1\n";
     settings::load(file);

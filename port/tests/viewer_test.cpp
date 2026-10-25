@@ -23,6 +23,7 @@
 #include "common/json.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "game/rac1/game_state.h"
+#include "game/rac1/gameplay_lighting.h"
 #include "gpu_draw_reference.h"
 #include "renderer/framebuffer.h"
 #include "renderer/renderer.h"
@@ -1102,6 +1103,14 @@ void moby_world_sphere() {
 }  // namespace
 
 int main(int argc, char** argv) {
+    // The gameplay allowlist stays sorted for binary lookup and excludes scenery and effects.
+    CHECK(std::is_sorted(game::rac1::kEssentialMobys.begin(), game::rac1::kEssentialMobys.end()));
+    for (int id : {0, 11, 13, 71, 87, 188, 280, 419, 500, 607, 615, 758, 803, 909, 1048, 1134}) {
+        CHECK(game::rac1::essential_moby(id));
+    }
+    for (int id : {-1, 41, 348, 357, 462, 704, 754, 831, 1042, 1973, 65535}) {
+        CHECK(!game::rac1::essential_moby(id));
+    }
     test::gpu_draw_reference(true);
     const fs::path dir =
         argc > 1 ? fs::path(argv[1]) : fs::temp_directory_path() / "openrac_viewer_test";
