@@ -34,6 +34,7 @@
 
 #include "common/env.h"
 #include "common/log.h"
+#include "common/parallel.h"
 #include "common/stats.h"
 #include "debug_menu.h"
 #include "debug_overlay.h"
@@ -879,6 +880,16 @@ TickMobys pose_mobys(
     std::uint32_t shadow_moby = 0;
     scene::MobyShadowState shadow_state;
     std::vector<Kept::TargetMoby> target_mobys;
+
+    // A moby to pose: its address and joints, and its instance (in target_mobys or in live).
+    struct PoseJob {
+        std::uint32_t address = 0;
+        int joints = 0;
+        bool target = false;
+        std::size_t index = 0;
+    };
+
+    std::vector<PoseJob> pose_jobs;
     // Mobys the game drew into a texture, and the ones it drew that are not in its list. The game
     // renders some mobys into a target the 2D layer then copies onto the screen: the vendor's item
     // and salesman screens (ReRAC interaction.md 9.3), the page menus' widgets (the 3D Ratchet and
@@ -1093,32 +1104,12 @@ TickMobys pose_mobys(
                 static_cast<unsigned>(b[0x34] | b[0x35] << 8)
             );
         }
+        // Its pose, evaluated after the loop with the others' on several threads.
         if (animate && joints > 0) {
-            const auto pose = scene::moby_palette(ram, m.address);
-            if (!pose.empty()) {
-                instance.palette = static_cast<int>(palette.size());
-                for (int j = 0; j < joints; ++j) {
-                    // Columns: the images of the axes, then the translation, which the palette
-                    // has in packed units (the mesh is in packed units / 1024).
-                    scene::LevelScene::JointColumns c{
-                        1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
-                    };
-                    if (static_cast<std::size_t>(j) < pose.size()) {
-                        const auto& f = pose[static_cast<std::size_t>(j)];
-                        for (int i = 0; i < 3; ++i) {
-                            c[4 * i + 0] = f[i][0];
-                            c[4 * i + 1] = f[i][1];
-                            c[4 * i + 2] = f[i][2];
-                            c[4 * i + 3] = 0.0f;
-                        }
-                        c[12] = f[3][0] / 1024.0f;
-                        c[13] = f[3][1] / 1024.0f;
-                        c[14] = f[3][2] / 1024.0f;
-                        c[15] = 1.0f;
-                    }
-                    palette.push_back(c);
-                }
-            }
+            const bool target = into_texture.contains(m.address);
+            pose_jobs.push_back(
+                {m.address, joints, target, target ? target_mobys.size() : live.size()}
+            );
         }
         if (const auto t = into_texture.find(m.address); t != into_texture.end()) {
             target_mobys.push_back({m.address, instance, *t->second});
@@ -1163,6 +1154,44 @@ TickMobys pose_mobys(
         }
         live.push_back(instance);
         live_addresses.push_back(m.address);
+    }
+    // The poses: each a pure function of the game's memory, evaluated in parallel (the costliest
+    // part of reading the scene, about 1.5 ms a tick for 180 mobys on a phone's fast core), then
+    // given palette slots in the loop's order, as one thread gave them.
+    std::vector<std::vector<assets::rac1::JointMatrix>> poses(pose_jobs.size());
+    parallel::for_each(pose_jobs.size(), [&](std::size_t i) {
+        poses[i] = scene::moby_palette(ram, pose_jobs[i].address);
+    });
+    for (std::size_t k = 0; k < pose_jobs.size(); ++k) {
+        const PoseJob& job = pose_jobs[k];
+        const auto& pose = poses[k];
+        if (pose.empty()) {
+            continue;
+        }
+        scene::Instance& instance = job.target ? target_mobys[job.index].instance : live[job.index];
+        instance.palette = static_cast<int>(palette.size());
+        if (!job.target) {
+            live_joints[job.index] = job.joints;
+        }
+        for (int j = 0; j < job.joints; ++j) {
+            // Columns: the images of the axes, then the translation, which the palette has in
+            // packed units (the mesh is in packed units / 1024).
+            scene::LevelScene::JointColumns c{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+            if (static_cast<std::size_t>(j) < pose.size()) {
+                const auto& f = pose[static_cast<std::size_t>(j)];
+                for (int i = 0; i < 3; ++i) {
+                    c[4 * i + 0] = f[i][0];
+                    c[4 * i + 1] = f[i][1];
+                    c[4 * i + 2] = f[i][2];
+                    c[4 * i + 3] = 0.0f;
+                }
+                c[12] = f[3][0] / 1024.0f;
+                c[13] = f[3][1] / 1024.0f;
+                c[14] = f[3][2] / 1024.0f;
+                c[15] = 1.0f;
+            }
+            palette.push_back(c);
+        }
     }
     return {
         std::move(live),
