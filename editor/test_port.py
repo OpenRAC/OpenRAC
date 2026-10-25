@@ -111,6 +111,7 @@ class WriterTests(unittest.TestCase):
                 mock.patch.object(port, "tie_lods", lambda level: lods or {}), \
                 mock.patch.object(port, "shrub_classes", lambda level: shrubs), \
                 mock.patch.object(port, "shrub_instances", lambda gameplay, classes, *_: shrub_placements), \
+                mock.patch.object(port, "shrub_billboard_fades", lambda level: {6: 40}), \
                 mock.patch.object(port, "moby_classes", lambda level: mobys), \
                 mock.patch.object(port, "moby_instances", lambda gameplay, *_: moby_placements), \
                 mock.patch.object(godot, "decode", lambda block: empty_collision):
@@ -160,6 +161,8 @@ class WriterTests(unittest.TestCase):
             self.assertIsNone(manifest["collision"])
             self.assertEqual(manifest["sky"], {"mesh": "sky.glb", "panorama": "sky.png", "background": [10, 20, 30]})
             self.assertEqual(manifest["classes"]["tie"], {"5": {"mesh": "ties/tie_5.glb"}})
+            self.assertEqual(manifest["classes"]["shrub"]["6"]["billboard_fade"], 40)
+            self.assertEqual(stats["shrub_billboards"], 1)
             names = moby_class_names()
             for class_id, mesh, scale in ((7, "mobys/moby_7.glb", 0.25), (8, None, 1.0)):
                 entry = manifest["classes"]["moby"][str(class_id)]

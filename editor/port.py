@@ -40,7 +40,7 @@ from lighting import light_bank, light_shrub_instance, light_tie_instance
 from mesh import Mesh
 from moby_class import MobyClass, moby_classes
 from mobys import moby_class_names, moby_instances
-from shrubs import shrub_class_normals, shrub_classes, shrub_instances
+from shrubs import shrub_billboard_fades, shrub_class_normals, shrub_classes, shrub_instances
 from sky import Sky, panorama, sky
 from terrain import terrain
 from occlusion import export_pvs
@@ -161,6 +161,7 @@ class PortLevelWriter(LevelWriter):
                                            p["directional_lights"], lights[0])
                 p["colours"] = [r | g << 8 | b << 16 | a << 24 for r, g, b, a in lit]
         self.write_objects("shrub", shrubs, shrub_placements)
+        self.write_shrub_billboards(shrub_billboard_fades(level))
         # The level's own classes, and the ones the loader adds (the ships, spaceships.py).
         self.write_mobys(moby_instances(level.gameplay, fmt),
                          {**getattr(level, "extra_moby_classes", {}), **moby_classes(level)})
@@ -173,6 +174,14 @@ class PortLevelWriter(LevelWriter):
         super().write_objects(family, classes, placements)
         self.classes[family] = {str(c): {"mesh": f"{family}s/{family}_{c}.glb"} for c in sorted(classes)}
         self.placements[f"{family}s"] = [placement(p) for p in placements]
+
+    def write_shrub_billboards(self, fades: dict[int, int]) -> None:
+        """Each shrub class's billboard fade distance in the class table ("billboard_fade", -1 for
+        none): with the instances' draw distances, how far the game draws the class (its loader
+        raises a billboard class's to F + 24), for the port's Scenery detail: Original."""
+        for class_id, entry in self.classes["shrub"].items():
+            entry["billboard_fade"] = fades.get(int(class_id), -1)
+        self.stats["shrub_billboards"] = sum(1 for f in fades.values() if f >= 0)
 
     def write_tie_lods(self, lods: dict[int, dict], classes: dict[int, Mesh]) -> None:
         """The lower LODs of the tie classes that have them, ties/tie_<class>_lod1.glb and _lod2,

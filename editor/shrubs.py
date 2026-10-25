@@ -147,6 +147,24 @@ def shrub_class_normals(level) -> dict[int, list[tuple[int, int, int]]]:
     return result
 
 
+def billboard_fade(data: bytes) -> int:
+    """A class's billboard fade distance F as ShrubProc reads it, trunc(fade) & 0xff (0: billboard
+    only), from the billboard record the class header's 0x1c points to; -1 for a class without one
+    (or a fade that is not a finite number). The loader raises its instances' draw distance to at
+    least F + 24, and beyond F + 8 the game draws the billboard in place of the mesh."""
+    at, = unpack("<i", data, 0x1c)
+    if at <= 0:
+        return -1
+    fade, = unpack("<f", data, at)
+    return math.trunc(fade) & 0xff if math.isfinite(fade) else -1
+
+
+def shrub_billboard_fades(level) -> dict[int, int]:
+    """Class ID -> billboard_fade of its class block (-1: no billboard)."""
+    return {class_id: billboard_fade(level.block(start))
+            for start, class_id in (unpack("<II", entry) for entry in level.table(0x28, 48)) if start}
+
+
 def shrub_instances(gameplay: bytes, classes, fmt: games.Format = games.RAC1,
                     problems: list | None = None) -> list[dict]:
     """Shrub instances: the gameplay header word fmt.shrubs (Ratchet & Clank's +0x3c) points to a
