@@ -354,14 +354,24 @@ void present_frame(FramePresentation& output) {
     frame_cost.submit += output.record_seconds;
     frame_cost.gpu += output.gpu_seconds;
     frame_cost.mark = resumed;
-    debug_menu::draw(shown, width, height);
-    if (settings::get().show_fps != settings::FrameCounter::Off) {
-        renderer::ui::fps_counter::draw(shown, width, height);
+    // The window thread's own parts of a frame, measured apart (performance captures).
+    {
+        const stats::Scope menus("menus");
+        debug_menu::draw(shown, width, height);
+        if (settings::get().show_fps != settings::FrameCounter::Off) {
+            renderer::ui::fps_counter::draw(shown, width, height);
+        }
     }
-    capture_frame(output);
-    slow_frame();
+    {
+        const stats::Scope capture("capture");
+        capture_frame(output);
+        slow_frame();
+    }
     present(shown, width, height, window_width, window_height, false, aspect);
-    draw_touch_pad(window_width, window_height);
+    {
+        const stats::Scope touch("touch pad");
+        draw_touch_pad(window_width, window_height);
+    }
     draw_overlay(output);
     const stats::Scope swap_scope("swap");
     swapped(started);
@@ -510,16 +520,19 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     if (!pacing.first_pending && pacing.last_alpha >= 1.0f && alpha_at(display) >= 1.0f) {
         return 0;
     }
-    SDL_Event event;
-    while (platform::poll_event(event)) {
-        if (event.type == SDL_EVENT_QUIT) {
-            return -1;
+    {
+        const stats::Scope events("events");
+        SDL_Event event;
+        while (platform::poll_event(event)) {
+            if (event.type == SDL_EVENT_QUIT) {
+                return -1;
+            }
+            if (window_key(event) || debug_overlay::event(event)
+                || debug_menu::event(event, openrac_game_loaded_overlay())) {
+                continue;
+            }
+            g->input.handle_event(event);
         }
-        if (window_key(event) || debug_overlay::event(event)
-            || debug_menu::event(event, openrac_game_loaded_overlay())) {
-            continue;
-        }
-        g->input.handle_event(event);
     }
     const bool dump = renderer::g_dump_draws;
     renderer::g_dump_draws = false;

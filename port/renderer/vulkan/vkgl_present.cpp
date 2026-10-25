@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -520,10 +521,12 @@ bool present_to_screen() {
     note_finished_presents(0);
     // The wait for a free image of the swapchain, measured: the game thread blocks here.
     const Clock::time_point acquiring = Clock::now();
+    std::optional<stats::Scope> step(std::in_place, "vulkan acquire");
     VkResult r = vkAcquireNextImageKHR(
         g->device, g->swapchain, UINT64_MAX, f.acquired, VK_NULL_HANDLE, &index
     );
     g->acquire_wait_s = seconds_since(acquiring);
+    step.reset();
     if (r == VK_ERROR_OUT_OF_DATE_KHR) {
         if (!make_swapchain()) {
             return false;
@@ -564,7 +567,11 @@ bool present_to_screen() {
     swapchain_barrier(
         cmd, screen, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
     );
+    // The frame's GPU-driven work recorded and everything handed to the queue; then the present,
+    // which a driver may hold until the display or the GPU has room for another picture.
+    step.emplace("vulkan submit");
     submit(f.acquired, g->rendered[index], false, own);
+    step.emplace("vulkan queue present");
     VkPresentInfoKHR info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
     info.waitSemaphoreCount = 1;
     info.pWaitSemaphores = &g->rendered[index];
