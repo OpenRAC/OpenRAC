@@ -86,7 +86,7 @@ class PlacementTests(unittest.TestCase):
 
 
 class WriterTests(unittest.TestCase):
-    def export(self, out: Path, level: Level | None = None) -> dict:
+    def export(self, out: Path, level: Level | None = None, lods: dict | None = None) -> dict:
         ties = {5: square("tie_5", ("tie", 1))}
         shrubs = {6: square("shrub_6", ("shrub", 2), 0.5)}
         mobys = {7: MobyClass(0.25, square("moby_7", ("moby", 4))), 8: None}
@@ -108,6 +108,7 @@ class WriterTests(unittest.TestCase):
                 mock.patch.object(port, "terrain", lambda block, lod, lights=None, problems=None: [square("terrain_000", ("terrain", 0), 2.0)]), \
                 mock.patch.object(port, "tie_classes", lambda level: ties), \
                 mock.patch.object(port, "tie_instances", lambda gameplay, classes, *_: tie_placements), \
+                mock.patch.object(port, "tie_lods", lambda level: lods or {}), \
                 mock.patch.object(port, "shrub_classes", lambda level: shrubs), \
                 mock.patch.object(port, "shrub_instances", lambda gameplay, classes, *_: shrub_placements), \
                 mock.patch.object(port, "moby_classes", lambda level: mobys), \
@@ -126,6 +127,23 @@ class WriterTests(unittest.TestCase):
             manifest = json.loads((directory / "manifest.json").read_text())
             self.assertEqual((manifest["game"], manifest["version"], manifest["level"]), ("rac1", "ntsc", 1))
             self.assertEqual((directory / "probe-bake.json").read_bytes(), source.read_bytes())
+
+    def test_tie_lods_beside_their_class(self):
+        """The lower LODs of a class that has them, and their distances in its class entry."""
+        lods = {5: {"meshes": [square("tie_5_lod1", ("tie", 1)), square("tie_5_lod2", ("tie", 1))],
+                    "distances": [10.0, 20.0, 40.0]},
+                9: {"meshes": [square("tie_9_lod1", ("tie", 1))] * 2, "distances": [1.0, 2.0, 3.0]}}
+        with tempfile.TemporaryDirectory() as temp:
+            stats = self.export(Path(temp), lods=lods)
+            level = Path(temp) / "level_03"
+            self.assertTrue((level / "ties" / "tie_5_lod1.glb").is_file())
+            self.assertTrue((level / "ties" / "tie_5_lod2.glb").is_file())
+            self.assertFalse((level / "ties" / "tie_9_lod1.glb").exists())  # no such class placed
+            manifest = json.loads((level / "manifest.json").read_text())
+            self.assertEqual(manifest["classes"]["tie"]["5"],
+                             {"mesh": "ties/tie_5.glb", "lods": ["ties/tie_5_lod1.glb", "ties/tie_5_lod2.glb"],
+                              "lod_distances": [10.0, 20.0, 40.0]})
+            self.assertEqual(stats["tie_lods"]["classes"], 1)
 
     def test_files_manifest_and_placements(self):
         with tempfile.TemporaryDirectory() as temp:

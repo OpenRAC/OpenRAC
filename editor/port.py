@@ -44,7 +44,7 @@ from shrubs import shrub_class_normals, shrub_classes, shrub_instances
 from sky import Sky, panorama, sky
 from terrain import terrain
 from occlusion import export_pvs
-from ties import tie_classes, tie_instances, tie_slot_normals
+from ties import tie_classes, tie_instances, tie_lods, tie_slot_normals
 
 # The export's format: the port reads only its own (viewer/level.h kManifestFormat), and its level
 # check names the format in the stamp the launcher waits for, so levels exported before a change
@@ -149,6 +149,7 @@ class PortLevelWriter(LevelWriter):
                                          p["directional_lights"], lights[0])
                 p["colours"] = [r | g << 8 | b << 16 | a << 24 for r, g, b, a in lit]
         self.write_objects("tie", ties, tie_placements)
+        self.write_tie_lods(tie_lods(level), ties)
         shrubs = shrub_classes(level)
         shrub_placements = shrub_instances(level.instances, shrubs, fmt, problems)
         if lights is not None:
@@ -172,6 +173,21 @@ class PortLevelWriter(LevelWriter):
         super().write_objects(family, classes, placements)
         self.classes[family] = {str(c): {"mesh": f"{family}s/{family}_{c}.glb"} for c in sorted(classes)}
         self.placements[f"{family}s"] = [placement(p) for p in placements]
+
+    def write_tie_lods(self, lods: dict[int, dict], classes: dict[int, Mesh]) -> None:
+        """The lower LODs of the tie classes that have them, ties/tie_<class>_lod1.glb and _lod2,
+        and their distances in the class table ("lods", "lod_distances"): what the game's
+        "Original LOD" option draws far ties with (port/scene/level.cpp)."""
+        lods = {class_id: lod for class_id, lod in lods.items() if class_id in classes}
+        for class_id, lod in sorted(lods.items()):
+            paths = [f"ties/tie_{class_id}_lod{n}.glb" for n in (1, 2)]
+            for path, mesh in zip(paths, lod["meshes"]):
+                self.glb(path, [mesh], 1)
+            entry = self.classes["tie"][str(class_id)]
+            entry["lods"] = paths
+            entry["lod_distances"] = lod["distances"]
+        self.stats["tie_lods"] = {"classes": len(lods),
+                                  "triangles": [sum(lod["meshes"][n].triangles for lod in lods.values()) for n in (0, 1)]}
 
     def write_mobys(self, placements: list[dict], classes: dict[int, MobyClass | None]) -> None:
         """One GLB per class with a mesh, and the class table: mesh (or null

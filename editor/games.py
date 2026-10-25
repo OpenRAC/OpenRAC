@@ -96,9 +96,13 @@ class TieHeader:
     normals: int
     light_slots: bool           # packet bytes 0xa and 0xb locate each vertex's light slot (Ratchet & Clank)
     winding_flag: bool = False  # a strip's last byte is a flag (any non-zero turns it), not 0 or 1
+    # The near, mid and far LOD distances (three floats), where the header is known to keep them
+    # (Ratchet & Clank's 0x10, tie.h TieClassHeader); None: the lower LODs are not exported.
+    lod_distances: int | None = None
 
 
-RAC1_TIE = TieHeader(packet_count=0x20, texture_count=0x23, ad_gifs=0x2c, normals=0x0c, light_slots=True)
+RAC1_TIE = TieHeader(packet_count=0x20, texture_count=0x23, ad_gifs=0x2c, normals=0x0c, light_slots=True,
+                     lod_distances=0x10)
 GC_TIE = TieHeader(packet_count=0x0c, texture_count=0x0f, ad_gifs=0x1c, normals=0x34, light_slots=False)
 UYA_DL_TIE = TieHeader(packet_count=0x0c, texture_count=0x0f, ad_gifs=0x1c, normals=0x34, light_slots=False,
                        winding_flag=True)
