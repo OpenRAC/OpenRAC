@@ -26,7 +26,6 @@
 
 #include "renderer/math.h"
 #include "renderer/texture.h"
-#include "scene/emission.h"
 #include "scene/pvs.h"
 
 namespace openrac::scene {
@@ -64,8 +63,9 @@ struct Material {
     bool clamp_t = false;
     std::array<float, 4> colour{1.0f, 1.0f, 1.0f, 1.0f};
     Vec3 emission{};  // shared linear emitted radiance, independent of diffuse lighting
+    // Optional absolute texture multiplier for baking; absent uses runtime emission.
+    std::optional<float> bake_intensity;
     int emission_image = -1;
-    EmissionMask emission_mask = EmissionMask::None;
     bool emission_vertex_colour = false;
     float diffuse_scale = 1;
 };
@@ -148,7 +148,6 @@ struct LevelData {
     int overridden_models = 0;
     int overridden_images = 0;
     int level = -1;
-    unsigned emission_profile_revision = 0;  // built-in bake-affecting material defaults
     // Authored animated surfaces exported for static transport, never drawn twice.
     std::vector<Instance> bake_surfaces;
     std::vector<Vertex> vertices;

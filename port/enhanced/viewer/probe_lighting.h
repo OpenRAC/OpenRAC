@@ -6,7 +6,9 @@
 
 #include "enhanced/lighting/probe_regions.h"
 #include "enhanced/lighting/probes.h"
+#include "enhanced/viewer/area_light_overlay.h"
 #include "enhanced/viewer/probe_selection.h"
+#include "enhanced/viewer/probe_sphere_culling.h"
 #include "renderer/renderer.h"
 #include "renderer/shader.h"
 #include "scene/level.h"
@@ -44,6 +46,9 @@ public:
 
     bool compute_selection() const { return active() && m_selection.available(); }
 
+    // True when the most recent sphere draw consumed device-generated instances and arguments.
+    bool gpu_spheres_active() const { return m_sphere_indirect; }
+
     void select_visible_regions(
         unsigned depth, const renderer::Camera& camera, int width, int height
     ) {
@@ -63,8 +68,12 @@ public:
         bool depth_matched = true
     ) const;
     void release();
-    // Optional placement overlay, drawn after the world's moby layer.
-    void draw_spheres(const renderer::FrameInput& input, renderer::RenderState& state);
+    // Draws placement overlays and the nominal volumes containing the optional snapshot player.
+    void draw_spheres(
+        const renderer::FrameInput& input,
+        renderer::RenderState& state,
+        std::optional<lighting::Float3> player = std::nullopt
+    );
 
     bool has_data() const { return m_textures[0] != 0; }
 
@@ -83,11 +92,26 @@ public:
     int mode = 1;
     bool backlight = false;
     bool show_spheres = false;
+    bool gpu_spheres = true;  // GPU compaction; false retains the CPU reference for verification.
+    bool show_area_lights = false;  // Exact generated source rectangles and emitting directions.
     bool environment_spheres = false;
     bool sphere_xray = false;
 
 private:
+    // Two baked rows share each runtime row before further widening for device height limits.
+    static constexpr unsigned kMinimumAtlasTilesX = 128;
+    // Draws nominal boxes around the supplied snapshot player, never around the camera.
+    void draw_volume_bounds(
+        const renderer::FrameInput& input,
+        renderer::RenderState& state,
+        std::optional<lighting::Float3> player
+    );
+    DebugLines m_volume_bounds;  // Player-containing boxes, owned by the rendering thread.
+    std::vector<int> m_containing_regions;  // Cached dense indices, or -1 for sparse fallback.
+    bool m_volume_bounds_failed = false;    // Suppresses repeated shader errors until release.
+    AreaLightOverlay m_area_lights;  // Companion report geometry, owned by the rendering thread.
     std::array<unsigned, 3> m_textures{};
+    unsigned m_atlas_tiles_x = kMinimumAtlasTilesX;  // Runtime width in probe tiles.
     lighting::ProbeGrid m_grid;
     lighting::Float3 m_sunlight_scale{1, 1, 1};
     // Loaded only after scene and bake settings verification; cleared on release.
@@ -96,7 +120,7 @@ private:
     std::vector<lighting::ProbeVolume> m_regions;
     std::vector<lighting::ProbeGrid> m_region_grids;
     lighting::ProbeRegionSelector m_selector;
-    std::array<int, lighting::kDenseProbeSlots> m_gpu_regions{-1, -1};
+    std::array<int, lighting::kDenseProbeSlots> m_gpu_regions{-1, -1, -1};
     std::size_t m_region_capacity = 0;
     ProbeSelection m_selection;
     bool m_full_residency = false;
@@ -104,16 +128,23 @@ private:
     bool m_camera_started = false;
     std::chrono::steady_clock::time_point m_region_time{};
     void upload_region(unsigned slot, int region);
+    // Uploads complete canonical rows at `offset` without changing the packed probe bytes.
     void upload_volume(const lighting::ProbeVolume& volume, std::size_t offset);
     std::size_t m_sparse_capacity = 0;
     std::size_t region_offset(unsigned slot, int region) const;
 
-    struct Sphere {
-        std::array<float, 4> position_radius;
-        std::array<float, 3> colour;
-        int region = -1;
-        float opacity = 1;
-    };
+    // Shared packed CPU/compute instance record.
+    using Sphere = ProbeSphere;
+    ProbeSphereCulling
+        m_sphere_culling;  // Resident source and generated instance/argument buffers.
+    bool m_sphere_gpu_attempted = false;  // Failed preparation is not retried each frame.
+    bool m_sphere_indirect = false;       // Current draw uses the generated command.
+    // Prepares the GPU candidate list; false selects the CPU reference/fallback path.
+    bool prepare_gpu_spheres(const renderer::FrameInput& input, float range);
+    // Filters and uploads the reference list when GPU compaction is unavailable.
+    void prepare_cpu_spheres(const renderer::FrameInput& input, float range);
+    // Binds the packed record layout for either CPU or compute output.
+    void bind_sphere_attributes(unsigned buffer);
 
     std::vector<Sphere> m_spheres, m_visible_spheres;
     renderer::Shader m_sphere_shader;

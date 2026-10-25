@@ -79,7 +79,8 @@ def planner_hash() -> str:
     Not this file, which only runs the levels: a change to how they are run keeps every bake."""
     digest = hashlib.sha256()
     directory = Path(__file__).parent
-    paths = list(directory.glob('*.py'))+[directory/'moby_seed_whitelist.json']
+    profiles = seeds.ROOT/'port/enhanced/lighting/profiles'
+    paths = list(directory.glob('*.py'))+list(profiles.glob('*/moby-seeds.json'))
     for path in sorted(paths):
         if not path.name.startswith('test_') and path.name != Path(__file__).name:
             digest.update(path.name.encode())
@@ -108,6 +109,8 @@ def level_stamp(level: Path, baker_hash: str, options) -> dict:
     return {'version': STAMP_VERSION, 'planner_sha256': planner_hash(),
             'region_settings_sha256': digest.sha256(level/'probe-regions.json') if (level/'probe-regions.json').exists() else None,
             'profile_sha256': digest.sha256(level/'probe-bake.json') if (level/'probe-bake.json').exists() else None,
+            'emission_sha256': digest.sha256(level/'probe-emission.json') if (level/'probe-emission.json').exists() else None,
+            'interiors_sha256': digest.sha256(level/'probe-interiors.json') if (level/'probe-interiors.json').exists() else None,
             'manifest_sha256': digest.sha256(manifest), 'levels_format': levels_format,
             'baker_profile_sha256': baker_hash, 'options': bake_options(options)}
 
@@ -287,6 +290,7 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
         final = output_dir/level.name
         stamp = profile = None
         try:
+            bake_level.prepare_emission(level)
             if update:
                 text = baker_profile(baker, level, options)
                 profile = json.loads(text)
@@ -322,6 +326,8 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
         try:
             sparse = bake_level.bake_level(level, work, baker, disc=disc, options=options, resume=update,
                                            progress=level_progress(index))
+            # Preparation can refresh generated interior sources beside the export.
+            stamp = level_stamp(level, hashlib.sha256(text.encode()).hexdigest(), options) if update else None
         except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
             result['error'] = str(error)
             print(f'{level.name}: {error}', file=sys.stderr, flush=True)

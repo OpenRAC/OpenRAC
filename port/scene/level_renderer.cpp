@@ -2649,9 +2649,6 @@ void LevelScene::draw_layer(
                             m.emission[2]
                         );
                         glUniform1i(
-                            program->uniform("emission_mask"), static_cast<int>(m.emission_mask)
-                        );
-                        glUniform1i(
                             program->uniform("emission_vertex_colour"),
                             m.emission_vertex_colour ? 1 : 0
                         );

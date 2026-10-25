@@ -107,9 +107,16 @@ void enhanced_controls() {
     changed |= ImGui::Checkbox("Probe lighting", &graphics.probe_lighting);
     ImGui::BeginDisabled(!graphics.probe_lighting);
     changed |= ImGui::Checkbox("Probe spheres", &graphics.probe_spheres);
+    changed |= ImGui::Checkbox("Ceiling area lights", &graphics.ceiling_area_lights);
+    // Source rectangles show emission hue; cyan arrows identify their emitting side.
+    if (graphics.ceiling_area_lights) {
+        ImGui::TextDisabled("Source-coloured frames; cyan arrows point outward.");
+        ImGui::TextDisabled("Hidden edges are faintly visible through geometry.");
+    }
     if (graphics.probe_spheres) {
         ImGui::TextDisabled("Cyan: sparse   Green: dense");
-        ImGui::TextDisabled("Gold: relocated   Magenta: invalid");
+        ImGui::TextDisabled("Gold: individually relocated   Magenta: invalid");
+        ImGui::TextDisabled("Boxes at player: yellow dense, cyan sparse; hidden edges faint");
     }
     ImGui::PushItemWidth(dp(170.0f));
     changed |= ImGui::SliderFloat(

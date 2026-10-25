@@ -413,7 +413,8 @@ void draw(
     std::uintptr_t index_offset,
     GLint first,
     GpuPage* gpu_page,
-    unsigned gpu_command
+    unsigned gpu_command,
+    unsigned indirect_buffer
 ) {
     // The draw's count, and its time for the vk_draw_ms gauge. The two clock reads are taken only
     // while the debug tools measure (vk-draw-clock): the gauge is published only then.
@@ -501,9 +502,10 @@ void draw(
             // Small persistent instance buffers corrupt vertex fetches on the
             // AMD Windows driver. Keep instance data in the frame ring; large
             // per-vertex and index buffers can still use persistent storage.
+            // Compute-written storage must keep its device backing rather than upload a stale CPU mirror.
             const BufferRef r = gpu_page && attr.divisor
                                     ? BufferRef{gpu_page->output.buffer, 0, gpu_page->output.size}
-                                    : resolve(*b, attr.divisor == 0);
+                                    : resolve(*b, attr.divisor == 0 || b->storage);
             const GLsizei stride =
                 attr.stride != 0 ? attr.stride : attr.size * type_bytes(attr.type);
             inputs[n] =
@@ -575,6 +577,20 @@ void draw(
             vk_index = bytes == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
             first_index = static_cast<std::uint32_t>(index_offset / bytes);
         }
+    }
+
+    BufferRef indirect{};
+
+    // Compute-written commands retain the same storage backing used by their dispatch.
+    if (indirect_buffer) {
+        auto* arguments = g->buffers.find(indirect_buffer);
+
+        if (!arguments || !arguments->storage
+            || arguments->size < sizeof(VkDrawIndexedIndirectCommand)) {
+            return;
+        }
+
+        indirect = resolve(*arguments);
     }
 
     ensure_rendering(t);
@@ -663,7 +679,13 @@ void draw(
     record_blend_and_stencil(cmd);
     if (indexed) {
         record_index_buffer(cmd, index, vk_index);
-        if (gpu_page) {
+        if (indirect.buffer) {
+            vkCmdDrawIndexedIndirect(
+                cmd, indirect.buffer, indirect.offset, 1, sizeof(VkDrawIndexedIndirectCommand)
+            );
+            count_command(Command::Draw);
+            ++g->measures.native_draws;
+        } else if (gpu_page) {
             g->gpu.pending_bindings = gpu_bindings;
             g->gpu.pending_arguments = gpu_page->arguments.buffer;
             g->gpu.pending_offset = argument_offset;

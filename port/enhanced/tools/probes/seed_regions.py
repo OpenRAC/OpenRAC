@@ -141,7 +141,7 @@ def coarse_header(path: Path) -> dict:
     with path.open('rb') as source:
         header = source.read(256)
     magic, version = struct.unpack_from('<2I', header)
-    if magic != 0x5047524f or version != 3:
+    if magic != 0x5047524f or version != 4:
         raise ValueError("unsupported sparse asset header")
     bake_version = struct.unpack_from('<I', header, 8)[0]
     name_at = 16
@@ -229,6 +229,21 @@ def read_gameplay(level_dir: Path, manifest: dict, disc_path: Path | None = None
         return decoded(disc.sectors(span['lba'], span['sectors']))
 
 
+def finalise_regions(regions, spacing, max_probes):
+    """Fix coverage before native alignment: compact boxes, then rebuild narrow blend bands."""
+    from region_compaction import compact_regions
+    from region_repartition import add_blend_aprons, repartition_regions
+    regions, compaction = compact_regions(regions, spacing, max_probes)
+    regions, repartition = repartition_regions(add_blend_aprons(regions, spacing), spacing, max_probes)
+    return regions, compaction, repartition
+
+
+def dense_resident_bytes(regions, profile):
+    """Match runtime atlas padding: 64 probe tiles per row and a one-texel map border."""
+    capacity = sum(math.ceil(region['probe_count']/64)*64 for region in regions)
+    return capacity*(12*(profile.get('resolution', 6)+2)**2+8)
+
+
 def plan_level(level_dir: Path, coarse: dict, profile: dict, gameplay: bytes, options) -> dict:
     """Shared bake-time planner: authored volumes, gameplay seeds and surfaces."""
     manifest = json.loads((level_dir/'manifest.json').read_text())
@@ -254,8 +269,9 @@ def plan_level(level_dir: Path, coarse: dict, profile: dict, gameplay: bytes, op
         geometry = moby_seeds.Ground.read_triangles(ground)
         geometry_hash = digest.sha256(ground)
     if has_ground and not options.no_moby_seeds:
-        allowed = moby_seeds.whitelist(options.moby_whitelist)
-        whitelist_hash = digest.sha256(options.moby_whitelist)
+        whitelist = options.moby_whitelist or moby_seeds.default_whitelist_path(manifest["game"])
+        allowed = moby_seeds.whitelist(whitelist)
+        whitelist_hash = digest.sha256(whitelist)
         placements = json.loads((level_dir/'placements.json').read_text())
         ground = moby_seeds.Ground(geometry)
         boxes, markers, bad_mobys = moby_seeds.candidates(placements, allowed, ground, gameplay,
@@ -267,18 +283,17 @@ def plan_level(level_dir: Path, coarse: dict, profile: dict, gameplay: bytes, op
     if regions and geometry is not None and not options.no_geometry_coverage:
         from surface_coverage import extend_regions
         regions, coverage = extend_regions(regions, geometry, coarse, spacing, options.max_probes,
-                                            options.geometry_max_rise, options.geometry_padding)
-    # Match the runtime's padded atlas accounting (64 probe tiles per row).
-    capacity = sum(math.ceil(region['probe_count']/64)*64 for region in regions)
-    resident_bytes = capacity*(12*(profile.get('resolution', 6)+2)**2+8)
+                                            options.geometry_max_rise, options.geometry_padding, markers=markers)
+    regions, compaction, repartition = finalise_regions(regions, spacing, options.max_probes)
+    resident_bytes = dense_resident_bytes(regions, profile)
     report = {'level': manifest['level'], 'game_version': coarse['game_version'],
               'source': 'authored environment transitions (lighting bit 0) and whitelisted initial moby placements',
               'gameplay_sha256': hashlib.sha256(gameplay).hexdigest(),
               'bake_profile': profile, 'authored_count': len(records), 'moby_whitelist_sha256': whitelist_hash,
               'moby_seeds': markers, 'regions': regions, 'skipped': skipped,
-              'geometry_coverage': coverage,
+              'geometry_coverage': coverage, 'region_compaction': compaction, 'region_repartition': repartition,
               'dense_resident_bytes': resident_bytes,
-              'dense_residency_budget_exceeded': resident_bytes > 128*1024*1024,
+              'dense_residency_budget_exceeded': resident_bytes > 256*1024*1024,
               'geometry_sha256': geometry_hash,
               'note': 'Light-bank IDs are seed evidence; bake transport uses the sparse bake lighting inputs.'}
     return report
@@ -302,7 +317,7 @@ def main() -> None:
     parser.add_argument('--geometry-padding', type=float, default=3,
                         help='height beyond nearby surfaces; at least one vertical cell')
     parser.add_argument('--no-moby-seeds', action='store_true')
-    parser.add_argument('--moby-whitelist', type=Path, default=Path(__file__).with_name('moby_seed_whitelist.json'))
+    parser.add_argument('--moby-whitelist', type=Path, help='override the game-wide moby seed profile')
     parser.add_argument('--replace-registration', action='store_true',
                         help='activate verified replacement bakes, saving the previous registry in the new output directory')
     parser.add_argument('--bake', action='store_true')
@@ -339,7 +354,9 @@ def main() -> None:
     files = []
     for i, region in enumerate(regions):
         file = args.output_dir/f'region-{i:03d}.orpg'
-        options = ['--spacing', ','.join(map(str, spacing)), '--bounds', ','.join(map(str, region['bounds'])),
+        bounds_option = '--lattice-bounds' if 'lattice_bounds' in region else '--bounds'
+        bounds = region.get('lattice_bounds', region['bounds'])
+        options = ['--spacing', ','.join(map(str, spacing)), bounds_option, ','.join(map(str, bounds)),
                    '--max-distance', str(1.5 * math.sqrt(sum(s*s for s in spacing)))]
         with (args.output_dir/f'region-{i:03d}.bake.log').open('x') as log:
             subprocess.run(common+options+['--output', str(file.resolve())],

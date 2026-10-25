@@ -5,6 +5,7 @@ layout(location = 1) in vec3 status_colour;
 layout(location = 2) in float region_opacity;
 layout(location = 3) in int region_id;
 uniform int probe_gpu_selection;
+uniform int probe_compacted;
 uniform int probe_region_count;
 uniform vec2 probe_tile_extent;
 uniform usamplerBuffer probe_region_masks;
@@ -25,7 +26,7 @@ void main() {
     v_colour = status_colour;
     v_opacity = region_opacity;
     int selected_slot = -1;
-    if (probe_gpu_selection != 0 && region_id >= 0) {
+    if (probe_compacted == 0 && probe_gpu_selection != 0 && region_id >= 0) {
         int count = int(texelFetch(probe_region_masks, 0).r);
         for (int slot = 0; slot < count; ++slot) {
             if (int(texelFetch(probe_region_masks, 1 + slot).r) == region_id) {

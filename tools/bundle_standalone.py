@@ -13,7 +13,7 @@ OUT (launcher/src-tauri/resources/openrac for an installer) gets:
   tools/, editor/            the set-up and the level tools, as they are here
                              (tools/openrac_common with them: they import it)
   port/enhanced/tools/probes the probe baker's Python half (bake_all.py)
-  port/enhanced/lighting/profiles  per-level settings included by native level export
+  port/enhanced/lighting/profiles  authored lighting settings, emission catalogs and moby seeds
   games/*/game.json          the catalogue the launcher lists
   progress/summary.json      how far each decompilation is
   launcher/actions.json      the player's actions only, writing to the
@@ -253,7 +253,7 @@ def main() -> int:
     files.copy_tree(ROOT / PROBE_TOOLS, out / PROBE_TOOLS,
                     lambda rel: not rel.name.startswith("test_") and rel.suffix in (".py", ".json"))
     files.copy_tree(ROOT / PROBE_PROFILES, out / PROBE_PROFILES,
-                    lambda rel: rel.name == "probe-bake.json")
+                    lambda rel: rel.suffix == ".json")
     for manifest in sorted((ROOT / "games").glob("*/game.json")):
         dest = out / manifest.relative_to(ROOT)
         dest.parent.mkdir(parents=True, exist_ok=True)

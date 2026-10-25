@@ -44,7 +44,6 @@ uniform mat4 view;
 uniform int gtao_enabled;
 uniform vec3 material_emission;
 uniform sampler2D emission_texture;
-uniform int emission_mask;
 uniform int emission_vertex_colour;
 uniform float material_diffuse_scale;
 uniform sampler2D gtao_visibility;
@@ -79,16 +78,11 @@ vec3 emission_texel(bool authored_tint) {
 }
 
 vec3 surface_emission(vec4 texel) {
-    vec3 emitted = probe_linear(texel.rgb) * v_script_emission;
+    // Scripted brightness follows the original encoded GS modulation, then decodes once.
+    vec3 emitted = probe_linear(clamp(texel.rgb * v_script_emission, vec3(0.0), vec3(1.0)));
     if (any(greaterThan(material_emission, vec3(0.0)))) {
         vec3 radiance = emission_texel(emission_vertex_colour != 0);
-        float coverage = 1.0;
-        if (emission_mask == 1) {
-            vec3 mask = emission_vertex_colour != 0 ? emission_texel(false) : radiance;
-            float chroma = (mask.g - max(mask.r, mask.b)) / max(mask.g, 1e-5);
-            coverage = smoothstep(0.25, 0.5, chroma);
-        }
-        emitted += material_emission * radiance * coverage;
+        emitted += material_emission * radiance;
     }
     return emitted;
 }

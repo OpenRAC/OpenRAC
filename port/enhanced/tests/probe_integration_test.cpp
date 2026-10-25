@@ -29,6 +29,7 @@ struct Input {
 Input fixture() {
     Input input;
     constexpr unsigned kRays = 129;
+
     for (unsigned i = 0; i < kRays; ++i) {
         const float z = 1 - 2 * (static_cast<float>(i) + .5f) / kRays;
         const float r = std::sqrt(std::max(0.0f, 1 - z * z));
@@ -39,6 +40,7 @@ Input fixture() {
              i % 5 == 0 ? input.cap : .25f * static_cast<float>(i)}
         );
     }
+
     input.emission = {{{0, 0, 1}, {1, 2, .5f}}, {{0, -1, 0}, {.1f, .2f, .3f}}};
     return input;
 }
@@ -46,6 +48,7 @@ Input fixture() {
 // Zero-initialised inactive lanes reproduce the final partial block of an odd map resolution.
 DirectionBlock footprint(unsigned active) {
     DirectionBlock block;
+
     for (unsigned lane = 0; lane < active; ++lane) {
         for (unsigned sample = 0; sample < kIntegrationDirections; ++sample) {
             const unsigned sample_row = sample / 2;
@@ -60,6 +63,7 @@ DirectionBlock footprint(unsigned active) {
             block.z[sample][lane] = direction[2];
         }
     }
+
     return block;
 }
 
@@ -67,9 +71,11 @@ DirectionBlock footprint(unsigned active) {
 IntegratedSample reference(const DirectionBlock& block, std::size_t lane, const Input& input) {
     IntegratedSample result;
     double weight = 0, first = 0, second = 0;
+
     for (const auto& ray : input.rays) {
         float cosine = 0;
         double w = 0;
+
         for (std::size_t sample = 0; sample < kIntegrationDirections; ++sample) {
             const float c = std::max(
                 0.0f,
@@ -79,18 +85,23 @@ IntegratedSample reference(const DirectionBlock& block, std::size_t lane, const 
             cosine += c / 4;
             w += std::pow(static_cast<double>(c), input.exponent) / 4;
         }
+
         for (unsigned c = 0; c < 3; ++c) {
             result.irradiance[c] += ray.radiance[c] * cosine;
         }
+
         weight += w;
         first += w * ray.distance;
         second += w * ray.distance * ray.distance;
     }
+
     for (auto& channel : result.irradiance) {
         channel *= 4 * std::numbers::pi_v<float> / static_cast<float>(input.rays.size());
     }
+
     for (const auto& light : input.emission) {
         float cosine = 0;
+
         for (std::size_t sample = 0; sample < kIntegrationDirections; ++sample) {
             cosine += std::max(
                           0.0f,
@@ -100,15 +111,19 @@ IntegratedSample reference(const DirectionBlock& block, std::size_t lane, const 
                       )
                       / 4;
         }
+
         for (unsigned c = 0; c < 3; ++c) {
             result.irradiance[c] +=
                 light.radiance_weight[c] * cosine / static_cast<float>(input.emission.size());
         }
     }
+
     result.moments = {input.cap, input.cap * input.cap};
+
     if (weight > 1e-20) {
         result.moments = {static_cast<float>(first / weight), static_cast<float>(second / weight)};
     }
+
     return result;
 }
 
@@ -117,6 +132,7 @@ void check_sample(
     const IntegratedSample& actual, const IntegratedSample& expected, float exponent
 ) {
     CHECK(actual.irradiance == expected.irradiance);
+
     for (unsigned c = 0; c < 2; ++c) {
         const auto a = std::bit_cast<std::uint32_t>(actual.moments[c]);
         const auto b = std::bit_cast<std::uint32_t>(expected.moments[c]);
@@ -131,6 +147,7 @@ void check_sample(
 void check_block(const DirectionBlock& block, const Input& input) {
     const auto actual =
         integrate_probe_block(block, input.rays, input.emission, input.exponent, input.cap);
+
     for (std::size_t lane = 0; lane < kIntegrationLanes; ++lane) {
         check_sample(actual[lane], reference(block, lane, input), input.exponent);
     }
@@ -139,12 +156,15 @@ void check_block(const DirectionBlock& block, const Input& input) {
 // The exact exponent dispatch must retain general powers, empty emission and single-ray inputs.
 void test_kernels() {
     auto input = fixture();
+
     for (const float exponent : {1.0f, 7.5f, 32.0f, 32.25f, 256.0f}) {
         input.exponent = exponent;
+
         for (const unsigned active : {0u, 1u, 3u, 4u}) {
             check_block(footprint(active), input);
         }
     }
+
     input.emission.clear();
     input.exponent = 32;
     check_block(footprint(4), input);
@@ -162,6 +182,7 @@ void test_rounding_mode(int mode) {
 
 int main() {
     const int rounding = std::fegetround();
+
     try {
         for (const int mode : {FE_TONEAREST, FE_TOWARDZERO}) {
             test_rounding_mode(mode);
@@ -171,6 +192,7 @@ int main() {
         std::fprintf(stderr, "integration fixture failed: %s\n", error.what());
         return 1;
     }
+
     CHECK(std::fesetround(rounding) == 0);
     return openrac::test::result();
 }

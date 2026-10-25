@@ -25,8 +25,8 @@ inside `openrac_renderer`, with its shaders.
 The probe and early lighting of a level (`viewer/scene_lighting.h`) is the
 scene's lighting hook (`port/scene/level_lighting.h`): whoever makes a
 `LevelScene` registers it with `lighting::use_scene_lighting`. The materials
-that emit (`kAuthoredEmissions`) are the scene's level data
-(`port/scene/emission.h`), which the baker reads too.
+that emit are explicit material definitions resolved into the exported
+`probe-emission.json`, which the scene loader and baker read together.
 
 Shared integration and core Vulkan optimisations stay in `port/renderer/` and
 `port/scene/`. Editor bake inputs live in `editor/enhanced/`.

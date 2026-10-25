@@ -70,6 +70,10 @@ void SceneLighting::set_spheres(bool shown) {
     m_probes.show_spheres = shown || m_probes.environment_spheres;
 }
 
+void SceneLighting::set_area_lights(bool shown) {
+    m_probes.show_area_lights = shown;
+}
+
 bool SceneLighting::compute_selection() const {
     return m_probes.compute_selection();
 }
@@ -85,8 +89,12 @@ void SceneLighting::update_regions(const renderer::Camera& camera, float seconds
     m_probes.update_regions(camera.position, seconds, &clip);
 }
 
-void SceneLighting::draw_spheres(const renderer::FrameInput& input, renderer::RenderState& state) {
-    m_probes.draw_spheres(input, state);
+void SceneLighting::draw_spheres(
+    const renderer::FrameInput& input,
+    renderer::RenderState& state,
+    std::optional<renderer::Vec3> player
+) {
+    m_probes.draw_spheres(input, state, player);
 }
 
 void SceneLighting::bind(

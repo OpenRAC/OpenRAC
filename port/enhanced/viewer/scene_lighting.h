@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -43,13 +44,18 @@ public:
     void set_lighting(bool enabled, float multiplier) override;
     void set_bias(float normal, float view) override;
     void set_spheres(bool shown) override;
+    void set_area_lights(bool shown) override;
     bool compute_selection() const override;
     void select_visible_regions(
         unsigned depth, const renderer::Camera& camera, int width, int height
     ) override;
     void update_regions(const renderer::Camera& camera, float seconds) override;
 
-    void draw_spheres(const renderer::FrameInput& input, renderer::RenderState& state) override;
+    void draw_spheres(
+        const renderer::FrameInput& input,
+        renderer::RenderState& state,
+        std::optional<renderer::Vec3> player = std::nullopt
+    ) override;
     void bind(
         const renderer::Shader& shader,
         scene::Layer layer,

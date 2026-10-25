@@ -44,13 +44,14 @@ ambiguous. Correcting triangle winding alone cannot resolve them.
 ## Probe data and sampling
 
 Probes store octahedral irradiance and distance-moment maps with filtering
-borders, plus relocation and validity. Format 3 uploads packed texture planes
+borders, plus relocation and validity. Format 4, bake revision 3, uploads packed texture planes
 directly. Older formats and stale scene/settings hashes are rejected.
 
 Sampling biases the receiver along its normal and view direction, then blends
 eight neighbours using relocation, validity, position, surface direction and
-visibility. Distance variance is clamped nonnegative; a receiver-plane guard
-also limits leaks. Thin walls and sparse grids can still leak.
+visibility. Distance variance is clamped nonnegative and halved for sparse probes when
+the receiver lies beyond the mean blocker distance. Unobstructed fill stays unchanged. A receiver-plane guard also limits leaks.
+Thin walls can still be missed by finite ray sampling.
 
 Irradiance is stored and texture-filtered as E^(1/5), raised to 2.5, blended as
 sqrt(E), then squared back to E. Diffuse shading divides by pi once. CPU checks
@@ -63,11 +64,13 @@ and whitelisted gameplay mobys, extending to nearby walls and ceilings. Large
 regions split with overlap; planning reports record coverage limits. Halving
 spacing on all axes costs about eight times as many probes.
 
-Vulkan selects up to two resident regions per fragment using screen tiles and
-depth. The CPU fallback uploads two camera-prioritised regions and fades changes.
+Vulkan selects up to three resident regions per fragment using screen tiles and
+depth. The CPU fallback uploads three camera-prioritised regions and fades changes.
 Regions calculate visibility separately before blending light. Missing support
 can use sparse GI; valid but blocked support stays dark. Boundary weights smooth
-transitions, and weak visibility fades to black instead of a bright patch.
+transitions, and weak visibility fades to black instead of a bright patch. Planning adds
+an outer probe apron, keeping intended interior coverage at full strength while fading
+to sparse lighting beyond its boundary.
 
 ## Limits and troubleshooting
 

@@ -1452,6 +1452,7 @@ VertexArray& vertex_array();
 // indices of `index_type` at `index_offset` when `indexed`, `instances` times. With `gpu_page`
 // it is command `gpu_command` of that GPU-driven page: the instances come from the page's
 // culled output and the draw is indirect, merged with its neighbours where it can be.
+// `indirect_buffer`, when nonzero, supplies an independent compute-written indexed command at offset zero.
 void draw(
     GLenum mode,
     GLsizei count,
@@ -1461,7 +1462,8 @@ void draw(
     std::uintptr_t index_offset,
     GLint first,
     GpuPage* gpu_page = nullptr,
-    unsigned gpu_command = 0
+    unsigned gpu_command = 0,
+    unsigned indirect_buffer = 0
 );
 
 // True when the native material path is on: the device can index its textures and

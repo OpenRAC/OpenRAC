@@ -124,6 +124,10 @@ bool draw_gpu_instances(
     renderer::GpuInstanceBatch batch, unsigned first_index, unsigned index_count
 );
 
+// Draws triangles with uint32 indices from the current vertex array using a compute-written command.
+// `arguments` is a storage buffer beginning with VkDrawIndexedIndirectCommand; false for invalid inputs.
+[[nodiscard]] bool draw_indexed_indirect(unsigned arguments, unsigned index_count);
+
 // Registers the instances of a static instance buffer once, with their culling bounds: while the
 // buffer is unchanged and gpu-resident-instances is on, gpu_instances of it sends the GPU only the
 // view and a group record, and the culling reads the instances from device memory

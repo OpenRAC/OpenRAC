@@ -249,11 +249,37 @@ class AllLevelBake(unittest.TestCase):
         initial = batch.level_stamp(level, 'native', [])
         with patch.object(batch, 'planner_hash', return_value='changed planner'):
             self.assertNotEqual(initial, batch.level_stamp(level, 'native', []))
-        (level/'probe-regions.json').write_text('{"version": 1, "geometry_max_rise": 24}')
+        (level/'probe-bake.json').write_text('{"version": 1, "regions": {"geometry_max_rise": 24}}')
         regions = batch.level_stamp(level, 'native', [])
         self.assertNotEqual(initial, regions)
         (level/'probe-bake.json').write_text('{"version": 1, "dense_spacing": [4, 4, 2]}')
         self.assertNotEqual(regions, batch.level_stamp(level, 'native', []))
+
+    def test_update_tracks_explicit_and_generated_interior_sources(self):
+        bake = self.fake_bake()
+        def generating(level, output, baker, **kwargs):
+            (level/'probe-interiors.json').write_text('{"version":1,"samples":[]}')
+            return bake(level, output, baker, **kwargs)
+        with patch.object(batch.bake_level, 'bake_level', side_effect=generating):
+            self.assertTrue(batch.bake_all(self.levels, self.output, self.baker, update=True))
+        # The committed stamp describes preparation's final sidecar, so the next run is a cache hit.
+        with patch.object(batch.bake_level, 'bake_level', side_effect=bake) as run:
+            self.assertTrue(batch.bake_all(self.levels, self.output, self.baker, update=True))
+        run.assert_not_called()
+        (self.levels/'level_02/probe-interiors.json').write_text('{"version":1,"samples":[{}]}')
+        with patch.object(batch.bake_level, 'bake_level', side_effect=bake) as run:
+            self.assertTrue(batch.bake_all(self.levels, self.output, self.baker, update=True))
+        self.assertEqual([call.args[0].name for call in run.call_args_list], ['level_02'])
+
+    def test_planner_hash_tracks_game_seed_profiles(self):
+        profiles = self.root/'port/enhanced/lighting/profiles/rac1'
+        profiles.mkdir(parents=True)
+        whitelist = profiles/'moby-seeds.json'
+        whitelist.write_text('{"version":1,"game":"rac1","classes":[]}')
+        with patch.object(batch.seeds, 'ROOT', self.root):
+            original = batch.planner_hash()
+            whitelist.write_text('{"version":1,"game":"rac1","classes":[{"class":0}]}')
+            self.assertNotEqual(original, batch.planner_hash())
 
     def test_jobs_share_the_budget_unless_told(self):
         self.assertEqual(batch.with_threads(['--threads', '2'], 4), ['--threads', '2'])

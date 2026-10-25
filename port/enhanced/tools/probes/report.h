@@ -11,6 +11,11 @@
 #include "enhanced/tools/probes/level_scene.h"
 
 namespace openrac::lighting {
+struct LevelBakeProfile;
+
+// Machine-readable resolved transport and grid settings, including room-local emission gains.
+std::string describe_level_bake_profile(const LevelBakeProfile& profile);
+
 // Shared human-readable transport/grid description for both CLI paths.
 std::string describe_probe_bake(
     const scene::LevelData& level,

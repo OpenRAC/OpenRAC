@@ -1,0 +1,14 @@
+{
+  "static_mobys": [1042],
+  "textures/moby_0172.png": {"runtime_intensity": 1, "bake_intensity": 4},
+  "textures/moby_0173.png": {"runtime_intensity": 1, "bake_intensity": 4},
+  "textures/moby_0174.png": {"runtime_intensity": 1, "bake_intensity": 4},
+  "textures/moby_0175.png": {"runtime_intensity": 1, "bake_intensity": 4},
+  "textures/moby_0178.png": {"runtime_intensity": 1, "bake_intensity": 4},
+  "textures/moby_0179.png": {"runtime_intensity": 1, "bake_intensity": 4},
+  "textures/shrub_0055.png": {"runtime_intensity": 1, "bake_intensity": 4},
+  "textures/shrub_0056.png": {"runtime_intensity": 1, "bake_intensity": 4},
+  "textures/shrub_0057.png": {"runtime_intensity": 1, "bake_intensity": 4},
+  "textures/shrub_0058.png": {"runtime_intensity": 1, "bake_intensity": 4},
+  "textures/shrub_0059.png": {"runtime_intensity": 1, "bake_intensity": 4}
+}

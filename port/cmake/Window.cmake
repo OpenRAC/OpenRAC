@@ -242,7 +242,14 @@ openrac_warnings(openrac_scene)
 
 # Scene conversion/fingerprinting is shared by activation checks and the
 # offline tool. It contains no Embree calls and is available in normal builds.
-add_library(openrac_probe_scene STATIC enhanced/tools/probes/level_scene.cpp enhanced/tools/probes/activation.cpp enhanced/tools/probes/liquids.cpp)
+add_library(openrac_probe_scene STATIC
+  enhanced/tools/probes/level_scene.cpp
+  enhanced/tools/probes/probe_grid.cpp
+  enhanced/tools/probes/probe_fingerprint.cpp
+  enhanced/tools/probes/scene_geometry.cpp
+  enhanced/tools/probes/activation.cpp
+  enhanced/tools/probes/liquids.cpp
+)
 target_link_libraries(openrac_probe_scene PUBLIC openrac_lighting openrac_scene openrac_assets_disc)
 openrac_warnings(openrac_probe_scene)
 
@@ -276,17 +283,25 @@ openrac_warnings(openrac_scene_renderer)
 # with their embedded shaders (enhanced_viewer_shaders.h). Above the scene: it links the scene
 # renderer, never the other way round.
 add_library(openrac_enhanced_viewer STATIC
+  enhanced/viewer/area_light_overlay.cpp
+  enhanced/viewer/debug_lines.cpp
+  enhanced/viewer/probe_volume_overlay.cpp
   enhanced/viewer/early_lighting.cpp
   enhanced/viewer/probe_lighting.cpp
   enhanced/viewer/probe_selection.cpp
+  enhanced/viewer/probe_sphere_culling.cpp
+  enhanced/viewer/probe_sphere_instances.cpp
   enhanced/viewer/scene_lighting.cpp
 )
 openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/area_light_overlay.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/area_light_overlay.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/early_lighting.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/probe_selection.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/early_lighting.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/lighting/probes.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/probe_spheres.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/probe_spheres.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/probe_spheres.frag"
 )
 target_link_libraries(openrac_enhanced_viewer PUBLIC openrac_scene_renderer openrac_probe_scene)
@@ -295,6 +310,24 @@ if(OPENRAC_VULKAN)
   target_compile_definitions(openrac_enhanced_viewer PRIVATE OPENRAC_VULKAN=1)
 endif()
 openrac_warnings(openrac_enhanced_viewer)
+
+openrac_add_test(area_light_overlay SOURCES enhanced/tests/area_light_overlay_test.cpp
+                LIBS openrac_enhanced_viewer openrac_platform)
+if(OPENRAC_VULKAN)
+  openrac_add_test(probe_sphere_culling SOURCES enhanced/tests/probe_sphere_culling_test.cpp
+                  LIBS openrac_enhanced_viewer openrac_platform openrac_renderer_vulkan)
+  set_tests_properties(probe_sphere_culling PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  if(WIN32)
+    set_property(TEST probe_sphere_culling APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+  endif()
+  add_test(NAME area_light_overlay_vulkan COMMAND area_light_overlay_test --gpu)
+  set_tests_properties(area_light_overlay_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  if(WIN32)
+    set_property(TEST area_light_overlay_vulkan APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+  endif()
+endif()
 
 # ---- the level viewer ----
 # The viewer program's own code: its free camera. The programs and the tests that draw a level link
@@ -344,7 +377,8 @@ if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
     ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
 
-openrac_add_test(probe_scene SOURCES enhanced/tests/probe_scene_test.cpp LIBS openrac_probe_scene)
+openrac_add_test(probe_scene SOURCES enhanced/tests/probe_scene_test.cpp
+                enhanced/tools/probes/report.cpp LIBS openrac_probe_scene)
 
 add_executable(hero_shadow_test tests/hero_shadow_test.cpp)
 target_link_libraries(hero_shadow_test PRIVATE openrac_viewer_lib openrac_platform)
@@ -374,8 +408,10 @@ endif()
 # window or creates a graphics context. Embree stays out of viewer/game targets.
 if(OPENRAC_PROBE_BAKER)
   add_executable(openrac-probe-bake enhanced/tools/probes/main.cpp
-    enhanced/tools/probes/batch.cpp enhanced/tools/probes/report.cpp)
+    enhanced/tools/probes/batch.cpp enhanced/tools/probes/report.cpp
+    enhanced/tools/probes/interior_sources.cpp)
   target_link_libraries(openrac-probe-bake PRIVATE openrac_probe_scene openrac_probe_bake)
+  add_dependencies(openrac-probe-bake openrac-interior-infer)
   openrac_warnings(openrac-probe-bake)
   if(ANDROID)
     # Android runs programs only from the app's library folder: named like a library, as the

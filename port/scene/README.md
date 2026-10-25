@@ -26,7 +26,6 @@ package P2-39b).
 | [`pvs.h`](pvs.h) | `Pvs`, rac1's baked camera visibility (`pvs.json`, `pvs.bin`): the grid's lookup of which instances a camera position can see |
 | [`level_renderer.h`](level_renderer.h) | `LevelScene`, a loaded level on the GPU (shared buffers, instanced draws per class and material, skinned live mobys, culling, the enhanced lighting and shadows when they are on), and `LayerRenderer`, one of its layers as a bucket of `renderer::Renderer` |
 | [`level_lighting.h`](level_lighting.h) | `LevelLighting`, the level renderer's lighting hook: what a `LevelScene` asks of the probe and early lighting registered with `set_level_lighting` (the shaders' lighting GLSL, the bake's load, the uniforms, the early pass); the enhanced renderer's `lighting::SceneLighting` implements it |
-| [`emission.h`](emission.h) | `EmissionMask` and `kAuthoredEmissions`: the reviewed materials that emit, which `load_level` applies to a level's materials and the probe baker reads |
 | [`moby_pose.h`](moby_pose.h) | `moby_palette` and `moby_pose_matrices`: a live moby's joint matrices, evaluated from its animation fields in game memory as the game's VU0 evaluator did |
 | [`sun_shadow.h`](sun_shadow.h) | `sun_cascades` and `SunCascades`: the sun's four cascades over the camera's view, their snapped matrices and caster volumes; `StaticShadowKey`, what the static shadow cache compares |
 | [`hero_shadow.h`](hero_shadow.h) | `hero_shadow_projection`, the view Ratchet's shadow map is drawn from, and `hero_airborne`, read from game memory |

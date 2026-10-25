@@ -25,6 +25,37 @@ struct SelectedEmitter {
     double probability;             // Probability before point/area conversion.
 };
 
+// Samples a finite one-sided rectangle with an area PDF and ordinary shadow visibility.
+EmissionSample sample_rectangle(
+    const Scene& scene, const SelectedEmitter& selected, Float3 origin, float bias, Random& random
+) {
+    const auto index = selected.emitter.triangle - scene.input.triangles.size()
+                       - scene.input.point_emitters.size();
+    const auto& light = scene.input.area_emitters.at(index);
+    const float u = 2 * random.next() - 1;
+    const float v = 2 * random.next() - 1;
+    const auto position = add(light.position, add(mul(light.axis_u, u), mul(light.axis_v, v)));
+    const auto delta = add(position, mul(origin, -1));
+    const float squared = dot(delta, delta);
+    const float distance = std::sqrt(squared);
+
+    // Coincident endpoints cannot form a visibility interval.
+    if (distance <= 4 * bias) {
+        return {};
+    }
+
+    const auto direction = mul(delta, 1 / distance);
+    const float cosine = std::max(0.0f, -dot(selected.emitter.normal, direction));
+
+    // Only the emitting side contributes, and real geometry still blocks it.
+    if (cosine <= 0 || scene.occluded(origin, direction, bias, distance - 2 * bias)) {
+        return {};
+    }
+
+    const double weight = cosine * selected.emitter.area / (squared * selected.probability);
+    return {direction, mul(light.radiance, static_cast<float>(weight))};
+}
+
 // Samples inverse-square point lighting over a finite visibility segment.
 EmissionSample sample_point_emitter(
     const Scene& scene, const SelectedEmitter& selected, Float3 origin, float bias
@@ -89,6 +120,31 @@ EmissionSample sample_area_emitter(
         mul(bake_emission(scene.input, triangle, u, v),
             static_cast<float>(double(cosine) / (double(squared) * pdf_area)))
     };
+}
+
+// Requires complete source containment so reused materials outside a room retain their original gain.
+bool contains_source(const SurfaceEmissionRegion& region, const BakeTriangle& triangle) {
+    for (const auto& position : triangle.vertices) {
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            // A triangle crossing a room boundary retains the global gain.
+            if (position[axis] < region.minimum[axis] || position[axis] > region.maximum[axis]) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// Resolves absolute surface gain without modifying authored material brightness.
+float surface_emission_scale(const BakeTriangle& triangle, const BakeSettings& settings) {
+    float scale = settings.surface_emission_scale;
+    for (const auto& region : settings.surface_emission_regions) {
+        // Later entries explicitly override earlier rooms.
+        if (contains_source(region, triangle)) {
+            scale = region.scale;
+        }
+    }
+    return scale;
 }
 
 // Counts accepted crossings and retains the nearest relocation exit, independent of winding.
@@ -188,7 +244,8 @@ struct BounceLighting {
             acceleration,
             add(surface.position, mul(surface.normal, settings.ray_bias)),
             settings.ray_bias,
-            random
+            random,
+            settings
         );
         const float cosine = std::max(0.0f, dot(surface.normal, light.direction));
 
@@ -247,7 +304,9 @@ struct BounceLighting {
 // Area/power selection and uniform triangle barycentrics. The returned value
 // is Le / pdf(solid angle); multiply by the receiving cosine and average.
 // Two-sided emission deliberately does not depend on authored normals/winding.
-EmissionSample sample_emitter(const Scene& scene, Float3 origin, float bias, Random& random) {
+EmissionSample sample_emitter(
+    const Scene& scene, Float3 origin, float bias, Random& random, const BakeSettings& settings
+) {
     // A scene without emitters consumes no emitter random samples.
     if (scene.emitters.empty()) {
         return {};
@@ -269,12 +328,21 @@ EmissionSample sample_emitter(const Scene& scene, Float3 origin, float bias, Ran
     const double previous = it == scene.emitters.begin() ? 0 : (it - 1)->cumulative;
     const SelectedEmitter selected{*it, (it->cumulative - previous) / scene.emission_weight};
 
+    // Non-geometric rectangles occupy indices after the original surface and point sources.
+    if (it->triangle >= scene.input.triangles.size() + scene.input.point_emitters.size()) {
+        return sample_rectangle(scene, selected, origin, bias, random);
+    }
+
     // Point lights use inverse-square falloff instead of an area PDF.
     if (it->area == 0) {
         return sample_point_emitter(scene, selected, origin, bias);
     }
 
-    return sample_area_emitter(scene, selected, origin, bias, random);
+    auto sample = sample_area_emitter(scene, selected, origin, bias, random);
+    const float scale =
+        surface_emission_scale(scene.input.triangles[selected.emitter.triangle], settings);
+    sample.radiance_weight = mul(sample.radiance_weight, scale);
+    return sample;
 }
 
 Placement classify(

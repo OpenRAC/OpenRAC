@@ -272,9 +272,9 @@ void json_reader() {
     using json::Value;
     Value v;
     std::string error;
-    CHECK(json::parse(
-        R"({"a": [1, 2.5e1, -3], "b": {"c": "xé\n"}, "t": true, "n": null})", v, error
-    ));
+    CHECK(
+        json::parse(R"({"a": [1, 2.5e1, -3], "b": {"c": "xé\n"}, "t": true, "n": null})", v, error)
+    );
     CHECK(v["a"].items().size() == 3);
     CHECK(v["a"][1].number() == 25.0);
     CHECK(v["a"][2].number() == -3.0);
@@ -326,28 +326,32 @@ void loader(const fs::path& dir, scene::LevelData& level) {
           "terrain":"terrain.glb.gltf","placements":"placements.json",
           "classes":{"tie":{"5":{"mesh":"ties/tie_5.gltf"}}}
         })");
+        write_text(ooze_dir / "probe-emission.json", R"({
+          "textures/terrain_0012.png":{"runtime_intensity":1,"vertex_colour":true,"diffuse_scale":0}
+        })");
         scene::LevelData ooze;
         CHECK(scene::load_level(ooze_dir, ooze, error));
         CHECK((ooze.materials[0].emission == scene::Vec3{1, 1, 1}));
-        CHECK(ooze.emission_profile_revision == 2);
         CHECK(ooze.materials[0].emission_vertex_colour);
         CHECK(ooze.materials[0].diffuse_scale == 0);
         CHECK((ooze.materials[1].emission == scene::Vec3{0, .5f, 0}));
         const auto source_emission = ooze.materials[0].emission;
         write_text(ooze_dir / "probe-emission.json", R"({
-          "textures/terrain_0012.png":{"preserve_authored_lighting":false}
+          "textures/terrain_0012.png":{"runtime_intensity":1,"vertex_colour":true,"diffuse_scale":0,
+            "preserve_authored_lighting":false}
         })");
         CHECK(scene::load_level(ooze_dir, ooze, error));
-        CHECK(ooze.materials[0].emission_mask == scene::EmissionMask::None);
         CHECK(ooze.materials[0].emission == source_emission);
         for (const char* window : {"textures/tie_0048.png", "textures/terrain_0059.png"}) {
             write_png(ooze_dir / window, 80, 220, 30);
             write_square(ooze_dir / "terrain.glb.gltf", 20, 0, window);
+            write_text(
+                ooze_dir / "probe-emission.json",
+                std::string("{\"") + window + "\":{\"runtime_intensity\":1}}"
+            );
             CHECK(scene::load_level(ooze_dir, ooze, error));
-            CHECK(ooze.materials[0].emission_mask == scene::EmissionMask::Green);
             CHECK(!ooze.materials[0].emission_vertex_colour);
             CHECK(ooze.materials[0].diffuse_scale == 1);
-            CHECK(ooze.materials[1].emission_mask == scene::EmissionMask::None);
             CHECK(ooze.materials[0].emission == source_emission);
         }
         write_square(ooze_dir / "lava.gltf", 20, 0, "textures/probe_gaspar_lava.png");
@@ -356,11 +360,13 @@ void loader(const fs::path& dir, scene::LevelData& level) {
           "format":4,"game":"rac1","version":"ntsc","level":9,
           "terrain":"terrain.glb.gltf","placements":"placements.json"
         })");
-        write_text(ooze_dir / "probe-emission.json", R"({"surfaces":[{"mesh":"lava.gltf"}]})");
+        write_text(
+            ooze_dir / "probe-emission.json", R"({"surfaces":[{"mesh":"lava.gltf"}],
+          "textures/probe_gaspar_lava.png":{"runtime_intensity":1,"vertex_colour":true,"diffuse_scale":0}})"
+        );
         CHECK(scene::load_level(ooze_dir, ooze, error));
         CHECK(ooze.bake_surfaces.size() == 1);
         CHECK(ooze.instances[static_cast<std::size_t>(scene::Layer::Terrain)].size() == 1);
-        CHECK(ooze.emission_profile_revision == 1);
         const auto lava_model = ooze.bake_surfaces[0].model;
         const auto lava_material = ooze.models[lava_model].primitives[0].material;
         CHECK((ooze.materials[lava_material].emission == scene::Vec3{1, 1, 1}));
@@ -379,49 +385,77 @@ void loader(const fs::path& dir, scene::LevelData& level) {
           "classes":{"moby":{
             "817":{"mesh":"ties/tie_5.gltf"},
             "1827":{"mesh":"ties/tie_5.gltf","bake_static":false},
-            "500":{"mesh":null,"bake_static":true}}}
+            "500":{"mesh":null,"bake_static":true},
+            "501":{"mesh":"ties/tie_5.gltf"}}}
         })");
         write_text(selection_dir / "placements.json", R"({"mobys":[
           {"class":817,"matrix":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
           {"class":817,"bake_static":false,"matrix":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
           {"class":1827,"matrix":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
           {"class":1827,"bake_static":true,"matrix":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
-          {"class":500,"matrix":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]}]})");
+          {"class":500,"matrix":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
+          {"class":501,"matrix":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
+          {"class":501,"bake_static":false,"matrix":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]}]})");
         scene::LevelData selected;
         CHECK(scene::load_level(selection_dir, selected, error));
         const auto& props = selected.instances[static_cast<std::size_t>(scene::Layer::Mobys)];
-        CHECK(props.size() == 5);
+        CHECK(props.size() == 7);
         CHECK(props[0].bake_static && !props[0].stand_in);
         CHECK(!props[1].bake_static && !props[2].bake_static);
         CHECK(props[3].bake_static);
         CHECK(props[4].bake_static && props[4].stand_in);
+        CHECK(!props[5].bake_static && !props[6].bake_static);
         const auto source_emission = selected.materials[0].emission;
         write_text(selection_dir / "probe-emission.json", R"({
-            "textures/terrain_0000.png":{"colour":[0.25,0.5,1],"intensity":4,"use_base_texture":false,"preserve_authored_lighting":true}
+            "textures/terrain_0000.png":{"runtime_intensity":4,"use_base_texture":false,"preserve_authored_lighting":true}
         })");
         CHECK(scene::load_level(selection_dir, selected, error));
-        CHECK((selected.materials[0].emission == scene::Vec3{1, 2, 4}));
+        CHECK((selected.materials[0].emission == scene::Vec3{4, 4, 4}));
+        write_text(selection_dir / "probe-emission.json", R"({"static_mobys":[501]})");
+        CHECK(scene::load_level(selection_dir, selected, error));
+        const auto& static_props =
+            selected.instances[static_cast<std::size_t>(scene::Layer::Mobys)];
+        CHECK(static_props[5].bake_static && !static_props[6].bake_static);
+        write_text(selection_dir / "probe-emission.json", R"({"static_mobys":[-1]})");
+        CHECK(!scene::load_level(selection_dir, selected, error));
+        write_text(selection_dir / "probe-emission.json", R"({
+            "textures/terrain_0000.png":{"runtime_intensity":4,"use_base_texture":false}
+        })");
+        CHECK(scene::load_level(selection_dir, selected, error));
         CHECK(selected.materials[0].emission_image == -1);
-        CHECK(selected.materials[0].emission_mask == scene::EmissionMask::None);
         write_text(selection_dir / "probe-emission.json", R"({
             "textures/terrain_0000.png":{"preserve_authored_lighting":true}
         })");
         CHECK(scene::load_level(selection_dir, selected, error));
-        CHECK(selected.materials[0].emission_mask == scene::EmissionMask::None);
         CHECK(selected.materials[0].emission == source_emission);
         write_text(selection_dir / "probe-emission.json", R"({
-            "textures/terrain_0000.png":{"colour":[1,2,3],"texture":"textures/tie_0001.png","mask":"green"}
+            "textures/terrain_0000.png":{"runtime_intensity":2,"texture":"textures/tie_0001.png"}
         })");
         CHECK(scene::load_level(selection_dir, selected, error));
-        CHECK((selected.materials[0].emission == scene::Vec3{1, 2, 3}));
-        CHECK(selected.materials[0].emission_mask == scene::EmissionMask::Green);
+        CHECK((selected.materials[0].emission == scene::Vec3{2, 2, 2}));
         CHECK(selected.materials[0].emission_image != selected.materials[0].image);
+        // Bake intensity is absolute and does not alter the runtime glow.
         write_text(selection_dir / "probe-emission.json", R"({
-            "textures/terrain_0000.png":{"mask":"bad"}
+            "textures/terrain_0000.png":{"runtime_intensity":2,"bake_intensity":4}
+        })");
+        CHECK(scene::load_level(selection_dir, selected, error));
+        CHECK((selected.materials[0].emission == scene::Vec3{2, 2, 2}));
+        CHECK(selected.materials[0].bake_intensity == 4);
+        write_text(selection_dir / "probe-emission.json", R"({
+            "textures/terrain_0000.png":{"bake_intensity":-1}
         })");
         CHECK(!scene::load_level(selection_dir, selected, error));
         write_text(selection_dir / "probe-emission.json", R"({
-            "textures/terrain_0000.png":{"intensity":-1}
+            "textures/terrain_0000.png":{"runtime_intensity":-1}
+        })");
+        CHECK(!scene::load_level(selection_dir, selected, error));
+        write_text(selection_dir / "probe-emission.json", R"({
+            "textures/terrain_0000.png":{"intensity":2}
+        })");
+        CHECK(!scene::load_level(selection_dir, selected, error));
+        CHECK(error.find("runtime_intensity") != std::string::npos);
+        write_text(selection_dir / "probe-emission.json", R"({
+            "textures/terrain_0000.png":{"runtime_intensity":"invalid"}
         })");
         CHECK(!scene::load_level(selection_dir, selected, error));
         write_square(selection_dir / "unsupported.gltf", 2, 0, "textures/tie_0001.png");
@@ -856,7 +890,9 @@ void overrides(const fs::path& dir) {
         green[i + 1] = 200;
         green[i + 3] = 255;
     }
-    stbi_write_png((mods / "textures" / "terrain_0000.png").string().c_str(), 8, 8, 4, green.data(), 8 * 4);
+    stbi_write_png(
+        (mods / "textures" / "terrain_0000.png").string().c_str(), 8, 8, 4, green.data(), 8 * 4
+    );
     write_square(mods / "ties" / "tie_5.gltf", 6.0f, 0.0f, "../textures/tie_0001.png");
 
     scene::LevelData level;
@@ -876,14 +912,18 @@ void overrides(const fs::path& dir) {
     // Without the mod's folder, the level's own.
     scene::LevelData plain;
     CHECK(scene::load_level(dir, plain, error));
-    CHECK(plain.overridden_models == 0 && plain.overridden_images == 0 && plain.images[0].width == 2);
+    CHECK(
+        plain.overridden_models == 0 && plain.overridden_images == 0 && plain.images[0].width == 2
+    );
     fs::remove_all(mods.parent_path());
 }
 
 // A terrain as editor/assets.py imports a denser one: an N x N grid of quads, side `size`,
 // centred on the origin at height z, with vertex colours (the game's lighting, 0x80 = 1.0, so up
 // to 2) and 32-bit indices.
-void write_grid(const fs::path& path, int n, float size, float z, float colour, const std::string& image) {
+void write_grid(
+    const fs::path& path, int n, float size, float z, float colour, const std::string& image
+) {
     std::vector<float> positions;
     std::vector<float> normals;
     std::vector<float> uvs;
@@ -923,8 +963,9 @@ void write_grid(const fs::path& path, int n, float size, float z, float colour, 
     const float h = size / 2;
     std::string views;
     for (std::size_t k = 0; k + 1 < offsets.size(); ++k) {
-        views += (k != 0 ? "," : "") + std::string(R"({"buffer":0,"byteOffset":)") + std::to_string(offsets[k])
-                 + R"(,"byteLength":)" + std::to_string(offsets[k + 1] - offsets[k]) + "}";
+        views += (k != 0 ? "," : "") + std::string(R"({"buffer":0,"byteOffset":)")
+                 + std::to_string(offsets[k]) + R"(,"byteLength":)"
+                 + std::to_string(offsets[k + 1] - offsets[k]) + "}";
     }
     const std::string gltf =
         std::string(R"({"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],)")
@@ -938,8 +979,8 @@ void write_grid(const fs::path& path, int n, float size, float z, float colour, 
         + R"({"bufferView":1,"componentType":5126,"count":)" + count + R"(,"type":"VEC3"},)"
         + R"({"bufferView":2,"componentType":5126,"count":)" + count + R"(,"type":"VEC2"},)"
         + R"({"bufferView":3,"componentType":5126,"count":)" + count + R"(,"type":"VEC4"},)"
-        + R"({"bufferView":4,"componentType":5125,"count":)" + std::to_string(indices.size()) + R"(,"type":"SCALAR"}],)"
-        + R"("bufferViews":[)" + views + "],"
+        + R"({"bufferView":4,"componentType":5125,"count":)" + std::to_string(indices.size())
+        + R"(,"type":"SCALAR"}],)" + R"("bufferViews":[)" + views + "],"
         + R"("buffers":[{"byteLength":)" + std::to_string(buffer.size())
         + R"(,"uri":"data:application/octet-stream;base64,)" + base64(buffer) + R"("}]})";
     write_text(path, gltf);
@@ -949,7 +990,8 @@ void write_grid(const fs::path& path, int n, float size, float z, float colour, 
 // the level's: drawn in its place whatever its vertex count, lit by its vertex colours, naming the
 // level's terrain texture it does not carry.
 void denser_terrain(const fs::path& dir) {
-    const fs::path mods = dir.parent_path() / (dir.filename().string() + "_terrain_mods") / "level_03";
+    const fs::path mods =
+        dir.parent_path() / (dir.filename().string() + "_terrain_mods") / "level_03";
     fs::remove_all(mods.parent_path());
     constexpr int kQuads = 300;  // 90601 vertices, more than 16-bit indices hold
     write_grid(mods / "terrain.glb.gltf", kQuads, 20.0f, 0.5f, 1.5f, "textures/terrain_0000.png");
@@ -973,7 +1015,10 @@ void denser_terrain(const fs::path& dir) {
         highest = std::max(highest, level.indices[model.primitives[0].first_index + i]);
     }
     CHECK(highest == static_cast<std::uint32_t>((kQuads + 1) * (kQuads + 1)) - 1);
-    CHECK(std::fabs(level.vertices[highest].colour[0] - 1.5f) < 1e-6f && level.vertices[highest].light_slot == -1.0f);
+    CHECK(
+        std::fabs(level.vertices[highest].colour[0] - 1.5f) < 1e-6f
+        && level.vertices[highest].light_slot == -1.0f
+    );
     CHECK(level.images.size() == 2 && level.images[0].width == 2);
     fs::remove_all(mods.parent_path());
 }
@@ -984,7 +1029,8 @@ void denser_terrain(const fs::path& dir) {
 void translucent_texels(const fs::path& dir) {
     const fs::path glass = dir.parent_path() / (dir.filename().string() + "_glass");
     write_level(glass);
-    const std::uint8_t pane[] = {30, 30, 220, 255, 30, 30, 220, 62, 30, 30, 220, 62, 30, 30, 220, 62};
+    const std::uint8_t pane[] =
+        {30, 30, 220, 255, 30, 30, 220, 62, 30, 30, 220, 62, 30, 30, 220, 62};
     stbi_write_png((glass / "textures" / "tie_0001.png").string().c_str(), 2, 2, 4, pane, 8);
 
     scene::LevelData level;
@@ -1000,7 +1046,6 @@ void translucent_texels(const fs::path& dir) {
     CHECK(material_of(scene::Layer::Ties).cutout);
     fs::remove_all(glass);
 }
-
 
 // MobyProc's distance cull as the port replays it: a moby whose sphere is past its draw distance
 // along the view, or wholly behind the eye, is not drawn; one with no sphere yet is.

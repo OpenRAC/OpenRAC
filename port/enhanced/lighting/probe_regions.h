@@ -3,7 +3,8 @@
 #include "enhanced/lighting/probes.h"
 
 namespace openrac::lighting {
-inline constexpr unsigned kDenseProbeSlots = 2;
+// Maximum dense contributors per receiver, mirrored by the shared probe and debug shaders.
+inline constexpr unsigned kDenseProbeSlots = 3;
 
 struct ProbeRegionSlot {
     int region = -1;
@@ -35,7 +36,7 @@ struct WeightedProbeRegion {
     float weight = 0;
 };
 
-// Order-independent overlap of up to two locals, with a sparse fallback.
+// Order-independent overlap of up to three locals, with a sparse fallback.
 std::optional<ProbeSample> sample_probe_regions(
     const ProbeVolume& coarse,
     std::span<const WeightedProbeRegion> regions,

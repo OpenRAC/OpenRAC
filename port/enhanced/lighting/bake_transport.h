@@ -29,7 +29,9 @@ struct Placement {
 };
 
 // Sample a visible emitter without depending on authored shading normals.
-EmissionSample sample_emitter(const Scene& scene, Float3 origin, float bias, Random& random);
+EmissionSample sample_emitter(
+    const Scene& scene, Float3 origin, float bias, Random& random, const BakeSettings& settings = {}
+);
 // Classify a probe with paired rays so winding cannot decide occupancy.
 Placement classify(
     const Scene& scene,

@@ -17,18 +17,18 @@ uniform vec4 probe_sunlight_direction;
 uniform int probe_terrain_albedo;
 uniform float probe_normal_bias;
 uniform float probe_view_bias;
-uniform vec3 probe_dense_origin[2];
-uniform vec3 probe_dense_spacing[2];
-uniform vec3 probe_dense_dimensions[2];
-uniform int probe_dense_offset[2];
-uniform float probe_dense_weight[2];
+uniform vec3 probe_dense_origin[3];
+uniform vec3 probe_dense_spacing[3];
+uniform vec3 probe_dense_dimensions[3];
+uniform int probe_dense_offset[3];
+uniform float probe_dense_weight[3];
 uniform int probe_gpu_selection;
 uniform int probe_region_count;
 uniform vec2 probe_tile_extent;
 uniform usamplerBuffer probe_region_masks;
 
 layout(std140) uniform ProbeRegions {
-    vec4 probe_regions[1536];
+    vec4 probe_regions[3072];
 };
 
 uniform int probe_mode;      // 0 original, 1 combined, 2 indirect, 3 direct, 4 coverage
@@ -145,7 +145,9 @@ bool sample_probe_grid(
         if (distance > 1e-6) {
             vec2 moments = texture(probe_moments, probe_map_uv(tile, delta / distance)).xy;
             if (distance > moments.x) {
-                float variance = max(0.0, moments.y - moments.x * moments.x);
+                // Preserve open-direction fill; reduce sparse uncertainty only behind the mean blocker.
+                float variance = max(0.0, moments.y - moments.x * moments.x)
+                                 * (index_offset == 0 ? 0.5 : 1.0);
                 float difference = distance - moments.x;
                 float denominator = variance + difference * difference;
                 float visibility = denominator > 0.0 ? variance / denominator : 0.0;
@@ -194,9 +196,9 @@ uint probe_candidate_word(ivec2 pixel, int word) {
         .r;
 }
 
-ivec2 probe_choose_regions(vec3 p) {
-    ivec2 best = ivec2(-1);
-    vec2 scores = vec2(0);
+ivec3 probe_choose_regions(vec3 p) {
+    ivec3 best = ivec3(-1);
+    vec3 scores = vec3(0);
     int count = int(texelFetch(probe_region_masks, 0).r);
     for (int word = 0; word < (count + 31) / 32; ++word) {
 #ifdef OPENRAC_PROBE_PIXEL
@@ -217,13 +219,20 @@ ivec2 probe_choose_regions(vec3 p) {
             float influence = smoothstep(0.0, 1.0, min(edge.x, min(edge.y, edge.z)));
             float score = influence / (step.x * step.y * step.z);
             if (score > scores.x || (score > 0.0 && score == scores.x && id < best.x)) {
+                best.z = best.y;
+                scores.z = scores.y;
                 best.y = best.x;
                 scores.y = scores.x;
                 best.x = id;
                 scores.x = score;
             } else if (score > scores.y || (score > 0.0 && score == scores.y && id < best.y)) {
+                best.z = best.y;
+                scores.z = scores.y;
                 best.y = id;
                 scores.y = score;
+            } else if (score > scores.z || (score > 0.0 && score == scores.z && id < best.z)) {
+                best.z = id;
+                scores.z = score;
             }
         }
     }
@@ -234,11 +243,11 @@ bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradia
     vec3 locals = vec3(0.0);
     float total = 0.0;
     float confidence = 0.0;
-    ivec2 chosen = ivec2(-1);
+    ivec3 chosen = ivec3(-1);
     if (probe_gpu_selection != 0) {
         chosen = probe_choose_regions(p);
     }
-    for (int slot = 0; slot < 2; ++slot) {
+    for (int slot = 0; slot < 3; ++slot) {
         int id = chosen[slot];
         if (probe_gpu_selection != 0 && id < 0) {
             continue;
@@ -258,15 +267,19 @@ bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradia
         if (weight <= 0.0) {
             continue;
         }
+        vec3 coordinate = (p - origin) / spacing;
+        vec3 edge = min(coordinate, dimensions - 1.0 - coordinate);
+        float boundary = smoothstep(0.0, 1.0, min(edge.x, min(edge.y, edge.z))) * weight;
+        // Zero-influence borders cannot contribute even when their probes are valid.
+        if (boundary <= 0.0) {
+            continue;
+        }
         vec3 local;
         bool local_valid = sample_probe_grid(
             p, n, surface_bias, origin, spacing, dimensions, offset, true, local, confidence
         );
         if (local_valid) {
-            vec3 coordinate = (p - origin) / spacing;
-            vec3 edge = min(coordinate, dimensions - 1.0 - coordinate);
-            float blend = smoothstep(0.0, 1.0, min(edge.x, min(edge.y, edge.z)))
-                          * smoothstep(0.0, 1.0, confidence) * weight;
+            float blend = boundary * smoothstep(0.0, 1.0, confidence);
             locals += local * blend;
             total += blend;
         }

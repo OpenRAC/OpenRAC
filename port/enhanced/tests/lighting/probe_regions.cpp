@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "enhanced/lighting/probe_regions.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -8,7 +9,58 @@
 #include "tests/check.h"
 using namespace openrac::lighting;
 
+namespace {
+// Builds constant, unobstructed irradiance fixtures with analytic RGB expectations.
+ProbeVolume constant_region(const ProbeGrid& grid, Float3 colour) {
+    auto volume = ProbeVolume::allocate(grid);
+    for (auto& probe : volume.probes) {
+        probe.valid = true;
+    }
+    std::fill(volume.irradiance.begin(), volume.irradiance.end(), colour);
+    // Constant 1024-unit visibility keeps all fixture receivers unobstructed.
+    std::fill(
+        volume.distance_moments.begin(), volume.distance_moments.end(), Float2{1024, 1048576}
+    );
+    return volume;
+}
+
+// Three equal RGB contributors average to grey; incomplete dense support retains sparse white.
+void test_three_region_blend() {
+    ProbeGrid grid;
+    grid.spacing = {4, 4, 4};
+    grid.dimensions = {5, 5, 5};
+    const auto coarse = constant_region(ProbeGrid{}, {1, 1, 1});
+    const auto red = constant_region(grid, {1, 0, 0});
+    const auto green = constant_region(grid, {0, 1, 0});
+    auto blue = constant_region(grid, {0, 0, 1});
+    std::array<WeightedProbeRegion, 3> regions{{{&red, 1}, {&green, 1}, {&blue, 1}}};
+    auto sample = sample_probe_regions(coarse, regions, {8, 8, 8}, {0, 0, 1});
+    CHECK(sample.has_value());
+    // Equal red, green and blue produce one-third irradiance per channel.
+    for (unsigned channel = 0; channel < 3; ++channel) {
+        CHECK(sample && std::abs(sample->irradiance[channel] - 1.0f / 3.0f) < 0.0001f);
+    }
+    // Three quarter-strength locals leave one quarter of the sparse white contribution.
+    for (auto& region : regions) {
+        region.weight = 0.25f;
+    }
+    sample = sample_probe_regions(coarse, regions, {8, 8, 8}, {0, 0, 1});
+    CHECK(sample && sample->irradiance == (Float3{0.5f, 0.5f, 0.5f}));
+    // Occluded support stays a dark contributor rather than exposing bright sparse lighting.
+    for (auto& region : regions) {
+        region.weight = 1;
+    }
+    std::fill(
+        blue.distance_moments.begin(), blue.distance_moments.end(), Float2{0.001f, 0.000001f}
+    );
+    sample = sample_probe_regions(coarse, regions, {8, 8, 8}, {0, 0, 1});
+    CHECK(sample && sample->irradiance[2] == 0);
+    CHECK(sample && std::abs(sample->irradiance[0] - 1.0f / 3.0f) < 0.0001f);
+}
+}  // namespace
+
 int main() {
+    test_three_region_blend();
     ProbeGrid grid;
     grid.spacing = {4, 4, 4};
     grid.dimensions = {5, 5, 5};
@@ -34,12 +86,18 @@ int main() {
     CHECK(selector.slots[1].weight > 0 && selector.slots[1].weight < 1);
     selector.update(grids, {4000, 0, 0}, 1);
     CHECK(selector.slots[0].region == -1 && selector.slots[1].region == -1);
-    // Three coincident candidates select exactly two with stable IDs.
-    grids.assign(3, grid);
+    // Four coincident candidates select three with stable IDs.
+    grids.assign(4, grid);
     selector.update(grids, {8, 8, 8}, 1);
-    CHECK(selector.slots[0].region == 0 && selector.slots[1].region == 1);
+    CHECK(
+        selector.slots[0].region == 0 && selector.slots[1].region == 1
+        && selector.slots[2].region == 2
+    );
     selector.update(grids, {8.01f, 8, 8}, 0.1f);
-    CHECK(selector.slots[0].region == 0 && selector.slots[1].region == 1);
+    CHECK(
+        selector.slots[0].region == 0 && selector.slots[1].region == 1
+        && selector.slots[2].region == 2
+    );
     selector.update(grids, {80, 8, 8}, 1);  // 64 units outside the AABB: halfway fade
     CHECK(std::abs(selector.slots[0].weight - 0.5f) < 0.0001f);
     selector.update(grids, {std::numeric_limits<float>::quiet_NaN(), 0, 0}, 1);
@@ -76,23 +134,36 @@ int main() {
     ProbeGrid farther_front = front;
     farther_front.origin[0] = 60;
     grids = {rear, side, front, farther_front};
+    grids[1].origin = {0, 20, 0};  // Nearby side box is entirely outside the forward frustum.
     selector = {};
     selector.update(grids, {0, 0, 0}, 1);
-    CHECK(selector.slots[0].region == 0 && selector.slots[1].region == 2);
+    CHECK(
+        selector.slots[0].region == 0 && selector.slots[1].region == 1
+        && selector.slots[2].region == 2
+    );
     selector.update(grids, {0, 0, 0}, 0.1f, &clip);
-    CHECK(selector.slots[0].region == 0 && selector.slots[0].weight > 0);  // Safe retirement.
-    CHECK(selector.slots[1].region == 2 && selector.slots[1].weight == 1);
+    CHECK(selector.slots[1].region == 1 && selector.slots[1].weight > 0);
     selector.update(grids, {0, 0, 0}, 1, &clip);
-    CHECK(selector.slots[0].region == 3 && selector.slots[1].region == 2);
-    CHECK(selector.slots[0].weight > 0 && selector.slots[0].weight < 1);  // Distance fade retained.
+    CHECK(
+        selector.slots[0].region == 0 && selector.slots[1].region == 3
+        && selector.slots[2].region == 2
+    );
+    CHECK(selector.slots[1].weight > 0 && selector.slots[1].weight < 1);
+
     const auto turned = openrac::renderer::multiply(
         projection, openrac::renderer::look_along({0, 0, 0}, {-1, 0, 0}, {0, 0, 1})
     );
     selector.update(grids, {0, 0, 0}, 1, &turned);
-    CHECK(selector.slots[0].region == 0);  // Turning in place brings the rear region in.
-    CHECK(selector.slots[1].region == 2);  // Offscreen fallback uses the spare slot.
+    // The rear box becomes visible; the two nearest offscreen boxes fill the spare slots.
+    CHECK(
+        selector.slots[0].region == 0 && selector.slots[1].region == 1
+        && selector.slots[2].region == 2
+    );
     selector.update(grids, {0, 0, 0}, 0.01f, &turned);
-    CHECK(selector.slots[0].region == 0 && selector.slots[1].region == 2);
+    CHECK(
+        selector.slots[0].region == 0 && selector.slots[1].region == 1
+        && selector.slots[2].region == 2
+    );
 
     ProbeGrid coarse_grid;
     auto coarse = ProbeVolume::allocate(coarse_grid);

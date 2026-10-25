@@ -488,7 +488,8 @@ constexpr VkDeviceSize kResidentBytes = 64 * 1024;
 constexpr VkBufferUsageFlags kOwnUsage =
     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
     | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT
-    | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+    | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
 
 // Works out, once, which memory a static buffer's own copy goes into (StaticMemory).
 const StaticMemory& static_memory_of() {

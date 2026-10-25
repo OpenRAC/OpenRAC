@@ -1848,8 +1848,27 @@ void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z) {
     g->bound_pipeline = VK_NULL_HANDLE;
 }
 
-void OPENRAC_GLAPI memory_barrier(GLbitfield) {
+void OPENRAC_GLAPI memory_barrier(GLbitfield bits) {
     end_rendering(PassEnd::Barrier);
+    // GPU-generated geometry needs read/write ordering across repeated draws and subsequent dispatches.
+    if (bits & (GL_COMMAND_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT)) {
+        constexpr VkPipelineStageFlags kStages =
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT
+            | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT
+            | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        constexpr VkAccessFlags kAccess = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT
+                                          | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT
+                                          | VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+        VkMemoryBarrier dependency{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+        dependency.srcAccessMask = kAccess;
+        dependency.dstAccessMask = kAccess;
+        vkCmdPipelineBarrier(
+            frame().main, kStages, kStages, 0, 1, &dependency, 0, nullptr, 0, nullptr
+        );
+        count_barrier(kStages, kStages);
+        return;
+    }
+
     // Shader writes (compute's, the only shaders that write) before every later use of what they
     // wrote: shader and uniform reads, vertices and indices, indirect arguments, copies (the R-08
     // table). The reference path: every stage.

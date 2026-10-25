@@ -235,10 +235,10 @@ std::array<float, 4> bake_material(
 }
 
 Float3 bake_emission(const BakeScene& scene, const BakeTriangle& triangle, float u, float v) {
-    BakeTriangle mask{};
-    mask.diffuse = {1, 1, 1};
-    mask.texture = triangle.emission_texture;
-    mask.uv = triangle.uv;
+    BakeTriangle emission_material{};
+    emission_material.diffuse = {1, 1, 1};
+    emission_material.texture = triangle.emission_texture;
+    emission_material.uv = triangle.uv;
     Float3 tint{1, 1, 1};
 
     // Authored bright colours can modulate emission independently of albedo.
@@ -250,21 +250,11 @@ Float3 bake_emission(const BakeScene& scene, const BakeTriangle& triangle, float
         }
     }
 
-    const auto radiance = bake_material(scene, mask, u, v, {tint});
-    float coverage = 1;
-
-    // Masks isolate luminous parts of an otherwise ordinary texture.
-    if (triangle.emission_mask != scene::EmissionMask::None) {
-        const auto texture =
-            triangle.emission_vertex_colour ? bake_material(scene, mask, u, v) : radiance;
-        coverage =
-            scene::emission_mask(triangle.emission_mask, {texture[0], texture[1], texture[2]});
-    }
-
+    const auto radiance = bake_material(scene, emission_material, u, v, {tint});
     return {
-        triangle.emission[0] * radiance[0] * coverage,
-        triangle.emission[1] * radiance[1] * coverage,
-        triangle.emission[2] * radiance[2] * coverage
+        triangle.emission[0] * radiance[0],
+        triangle.emission[1] * radiance[1],
+        triangle.emission[2] * radiance[2]
     };
 }
 

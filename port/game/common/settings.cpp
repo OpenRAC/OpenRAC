@@ -241,6 +241,8 @@ void load(const std::filesystem::path& file) {
             known = parse_bool(value, s.probe_lighting);
         } else if (key == "probe_spheres") {
             known = parse_bool(value, s.probe_spheres);
+        } else if (key == "ceiling_area_lights") {
+            known = parse_bool(value, s.ceiling_area_lights);
         } else if (key == "probe_normal_bias") {
             known = parse_float(value, 0.0f, 2.0f, s.probe_normal_bias);
         } else if (key == "probe_view_bias") {
@@ -402,6 +404,7 @@ void save() {
         << "enhanced_shadows = " << (s.enhanced_shadows ? 1 : 0) << "\n"
         << "probe_lighting = " << (s.probe_lighting ? 1 : 0) << "\n"
         << "probe_spheres = " << (s.probe_spheres ? 1 : 0) << "\n"
+        << "ceiling_area_lights = " << (s.ceiling_area_lights ? 1 : 0) << "\n"
         << "probe_gi_multiplier = " << s.probe_gi_multiplier << "\n"
         << "probe_normal_bias = " << s.probe_normal_bias << "\n"
         << "probe_view_bias = " << s.probe_view_bias << "\n"

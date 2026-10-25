@@ -31,6 +31,7 @@ template <bool Power32>
 RayWeights ray_weights(const DirectionBlock& block, Float3 direction, float exponent) {
     RayWeights result;
     constexpr float kSampleWeight = 1 / static_cast<float>(kIntegrationDirections);
+
     for (std::size_t sample = 0; sample < kIntegrationDirections; ++sample) {
         for (std::size_t lane = 0; lane < kIntegrationLanes; ++lane) {
             const float cosine = std::max(
@@ -40,6 +41,7 @@ RayWeights ray_weights(const DirectionBlock& block, Float3 direction, float expo
             );
             result.cosine[lane] += cosine * kSampleWeight;
             double weight;
+
             // Exact exponent dispatch leaves other configured exponents on their original kernel.
             if constexpr (Power32) {
                 weight = static_cast<double>(cosine);
@@ -51,9 +53,11 @@ RayWeights ray_weights(const DirectionBlock& block, Float3 direction, float expo
             } else {
                 weight = std::pow(static_cast<double>(cosine), exponent);
             }
+
             result.distance[lane] += weight * kSampleWeight;
         }
     }
+
     return result;
 }
 
@@ -61,6 +65,7 @@ RayWeights ray_weights(const DirectionBlock& block, Float3 direction, float expo
 Lanes<float> emission_weights(const DirectionBlock& block, Float3 direction) {
     Lanes<float> result{};
     constexpr float kSampleWeight = 1 / static_cast<float>(kIntegrationDirections);
+
     for (std::size_t sample = 0; sample < kIntegrationDirections; ++sample) {
         for (std::size_t lane = 0; lane < kIntegrationLanes; ++lane) {
             const float cosine = std::max(
@@ -71,6 +76,7 @@ Lanes<float> emission_weights(const DirectionBlock& block, Float3 direction) {
             result[lane] += cosine * kSampleWeight;
         }
     }
+
     return result;
 }
 
@@ -80,8 +86,10 @@ Accumulator accumulate_rays(
     const DirectionBlock& directions, std::span<const RaySample> rays, float exponent
 ) {
     Accumulator result;
+
     for (const auto& ray : rays) {
         const auto weights = ray_weights<Power32>(directions, ray.direction, exponent);
+
         for (std::size_t lane = 0; lane < kIntegrationLanes; ++lane) {
             result.red[lane] += ray.radiance[0] * weights.cosine[lane];
             result.green[lane] += ray.radiance[1] * weights.cosine[lane];
@@ -91,6 +99,7 @@ Accumulator accumulate_rays(
             result.second[lane] += weights.distance[lane] * ray.distance * ray.distance;
         }
     }
+
     return result;
 }
 
@@ -100,10 +109,12 @@ std::array<IntegratedSample, kIntegrationLanes> finish_rays(
 ) {
     std::array<IntegratedSample, kIntegrationLanes> result{};
     const float scale = 4 * std::numbers::pi_v<float> / static_cast<float>(ray_count);
+
     for (std::size_t lane = 0; lane < kIntegrationLanes; ++lane) {
         result[lane].irradiance =
             {sums.red[lane] * scale, sums.green[lane] * scale, sums.blue[lane] * scale};
         result[lane].moments = {max_distance, max_distance * max_distance};
+
         // Unsupported footprints retain capped distances rather than introducing zero-distance walls.
         if (sums.weight[lane] > 1e-20) {
             result[lane].moments =
@@ -111,8 +122,10 @@ std::array<IntegratedSample, kIntegrationLanes> finish_rays(
                  static_cast<float>(sums.second[lane] / sums.weight[lane])};
         }
     }
+
     return result;
 }
+
 }  // namespace
 
 std::array<IntegratedSample, kIntegrationLanes> integrate_probe_block(
@@ -127,8 +140,10 @@ std::array<IntegratedSample, kIntegrationLanes> integrate_probe_block(
                           ? accumulate_rays<true>(directions, rays, distance_exponent)
                           : accumulate_rays<false>(directions, rays, distance_exponent);
     auto result = finish_rays(sums, rays.size(), max_distance);
+
     for (const auto& light : emission) {
         const auto weights = emission_weights(directions, light.direction);
+
         for (std::size_t lane = 0; lane < kIntegrationLanes; ++lane) {
             for (unsigned channel = 0; channel < 3; ++channel) {
                 result[lane].irradiance[channel] += light.radiance_weight[channel] * weights[lane]
@@ -136,6 +151,7 @@ std::array<IntegratedSample, kIntegrationLanes> integrate_probe_block(
             }
         }
     }
+
     return result;
 }
 

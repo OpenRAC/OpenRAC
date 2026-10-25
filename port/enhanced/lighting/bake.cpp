@@ -13,6 +13,8 @@
 #include <thread>
 
 #include "common/joining_thread.h"
+#include "common/log.h"
+#include "enhanced/lighting/bake_alignment.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_transport.h"
 
@@ -107,7 +109,7 @@ struct ProbeWork {
     ProbeVolume& out;                  // Workers write only their claimed probe's storage.
 
     // Seeks a nearby geometric exit without moving a probe out of its nominal cell.
-    void relocate(std::size_t probe) const {
+    void relocate_from_current(std::size_t probe) const {
         const auto& grid = out.grid;
         // Seek a nearby exit from geometric occupancy before baking. Keep
         // the nominal cell fixed and cap displacement to avoid moving a
@@ -137,6 +139,26 @@ struct ProbeWork {
         out.probes[probe].valid = !placement.inside;
     }
 
+    // Retries the original position when alignment consumes an exit's displacement budget.
+    void relocate(std::size_t probe) const {
+        const auto initial = out.probes[probe].offset;
+        relocate_from_current(probe);
+
+        // Alignment must not discard a placement the original relocation could recover.
+        if (!out.probes[probe].valid && initial != Float3{}) {
+            const auto aligned = out.probes[probe].offset;
+            out.probes[probe].offset = {};
+            relocate_from_current(probe);
+
+            // Retain the aligned candidate when neither starting point can leave the geometry.
+            if (!out.probes[probe].valid) {
+                out.probes[probe].offset = aligned;
+            }
+        }
+
+        out.probes[probe].relocated = out.probes[probe].offset != initial;
+    }
+
     // Traces the original primary sequence and independent explicit-emitter sequence.
     void sample(
         std::size_t probe, std::vector<RaySample>& rays, std::vector<EmissionSample>& emission
@@ -152,7 +174,7 @@ struct ProbeWork {
 
         // Explicit emitters use a separate sequence from primary rays and their moments.
         for (auto& light : emission) {
-            light = sample_emitter(scene, origin, settings.ray_bias, emission_random);
+            light = sample_emitter(scene, origin, settings.ray_bias, emission_random, settings);
         }
 
         // Preserve primary order so transport random consumption stays independent of worker scheduling.
@@ -434,6 +456,19 @@ ProbeVolume ProbeBaker::bake(
     }
 
     auto out = ProbeVolume::allocate(grid);
+    const auto alignment = bake_detail::align_probe_grid(scene, settings, out);
+    log::verbose(
+        "probe alignment: offset {},{},{} score {} -> {}, near {} -> {}, inside {} -> {}",
+        alignment.offset[0],
+        alignment.offset[1],
+        alignment.offset[2],
+        alignment.before.mean,
+        alignment.after.mean,
+        alignment.before.near,
+        alignment.after.near,
+        alignment.before.inside,
+        alignment.after.inside
+    );
 
     const ProbeWork work{scene, settings, m_impl->directions(grid.map_resolution), out};
 

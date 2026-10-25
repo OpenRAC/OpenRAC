@@ -116,6 +116,8 @@ void main() {
         int texel = int(lights + 0.5) + int(light_slot + 0.5);
         v_colour = texelFetch(light_texture, ivec2(texel % kLightWidth, texel / kLightWidth), 0)
                  * (255.0 / 128.0) * tint;
+        // Explicit static emission uses the same authored instance colour as the original surface.
+        v_emission_colour = v_colour.rgb;
         v_lit = 1;
     }
     // A live moby, lit as MobyProc and its VU0 pass light it: its set's two directional

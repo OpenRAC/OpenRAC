@@ -160,6 +160,14 @@ public:
         }
     }
 
+    // Shows generated ceiling sources through the registered lighting provider.
+    void set_area_lights(bool shown) {
+        // Ordinary rendering has no enhanced source diagnostics.
+        if (m_lighting) {
+            m_lighting->set_area_lights(shown);
+        }
+    }
+
     void update_probe_regions(const renderer::Camera& camera, float seconds = -1) {
         // Without registered lighting there are no probe regions to stream.
         if (m_lighting) {
@@ -186,7 +194,7 @@ public:
     void draw_probe_spheres(const renderer::FrameInput& input, renderer::RenderState& state) {
         // Without registered lighting there are no probes to draw.
         if (m_lighting) {
-            m_lighting->draw_spheres(input, state);
+            m_lighting->draw_spheres(input, state, m_hero_centre);
         }
     }
 

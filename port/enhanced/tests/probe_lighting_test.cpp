@@ -285,24 +285,19 @@ void emissive_transport() {
     CHECK(std::abs(textured.irradiance[at][1] / direct.irradiance[at][1] - .21586f) < .0001f);
     scene.triangles[0].emission_texture = -1;
     {
-        // The runtime's masked window fixture uses exactly this colour and mask.
+        // Runtime and bake multiply every texture colour, including neutral grey texels.
         auto window = scene.triangles[0];
         window.emission = {.25f, .125f, .0625f};
         window.emission_texture = 0;
-        window.emission_mask = openrac::scene::EmissionMask::Green;
         scene.textures[0].rgba = {0, 255, 0, 255};
         CHECK((bake_emission(scene, window, 0, 0) == Float3{0, .125f, 0}));
         scene.textures[0].rgba = {128, 128, 128, 255};
-        CHECK((bake_emission(scene, window, 0, 0) == Float3{}));
-        CHECK(
-            openrac::scene::emission_mask(openrac::scene::EmissionMask::Green, {.2f, .4f, .2f}) == 1
-        );
-        CHECK(
-            openrac::scene::emission_mask(openrac::scene::EmissionMask::Green, {.3f, .4f, .3f})
-            < .00001f
-        );
+        const auto grey = bake_emission(scene, window, 0, 0);
+        const float linear_grey = .21586f;  // sRGB 128/255 decoded to linear.
+        CHECK(std::abs(grey[0] - .25f * linear_grey) < .00001f);
+        CHECK(std::abs(grey[1] - .125f * linear_grey) < .00001f);
+        CHECK(std::abs(grey[2] - .0625f * linear_grey) < .00001f);
         window.emission = {1, 1, 1};
-        window.emission_mask = openrac::scene::EmissionMask::None;
         window.emission_vertex_colour = true;
         window.emission_colours.fill({.25f, 1, .5f});
         scene.textures[0].rgba = {255, 128, 0, 255};

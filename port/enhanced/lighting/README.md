@@ -1,5 +1,7 @@
 # Baked probe lighting
 
+The [probe baking tools](../tools/probes/README.md) describe the planning and native bake pipeline.
+
 Probe GI needs Vulkan, enhanced rendering switched on at start and a valid
 level bake. Without probes, original lighting applies and Enhanced controls are
 disabled; settings are kept. OpenGL, and enhanced rendering off (the default),
@@ -126,6 +128,7 @@ retain their directions. Changing it requires rebaking the level.
 
 The saved [Novalis NTSC profile](profiles/rac1-ntsc/level_01/probe-bake.json)
 sets sky intensity to 0.5, sky weight to 0.3 and the primary sunlight direction.
+Its dense spacing is 8/3 units on each axis, two-thirds of the standard 4-unit spacing.
 Native level export automatically copies the matching profile from
 `profiles/<game>-<version>/level_NN/probe-bake.json` into the exported level.
 Launcher bundles carry these profiles too. The baker and runtime read
@@ -151,25 +154,32 @@ bounces; each channel accepts 0 to 4. Equal channels change strength without
 changing colour. `terrain_vertex_albedo` keeps authored terrain lighting as a
 material tint. Both settings require a rebake.
 
-Optional `probe-regions.json` controls dense placement:
+The optional `regions` section in `probe-bake.json` controls local probe placement:
 
 ```json
 {
   "version": 1,
-  "enabled": true,
-  "padding": 8,
-  "vertical_padding": 4,
-  "max_probes": 4096,
-  "max_regions": 512,
-  "no_moby_seeds": false,
-  "no_geometry_coverage": false,
-  "geometry_max_rise": 32,
-  "geometry_padding": 3
+  "regions": {
+    "enabled": true,
+    "coarse_bounds": "local_regions",
+    "coarse_padding": 128,
+    "padding": 8,
+    "vertical_padding": 4,
+    "max_probes": 4096,
+    "max_regions": 1024,
+    "no_moby_seeds": false,
+    "no_geometry_coverage": false,
+    "geometry_max_rise": 32,
+    "geometry_padding": 3
+  }
 }
 ```
 
-Only `version` is required. `enabled: false` makes a sparse-only level; space
-levels can use wider sparse spacing. Dense seeds include authored lighting
+Only the profile's `version` is required. Coarse bounds default to the union of local
+regions plus 128 units of padding, snapped outward to coarse cells. `"scene"` uses
+exported scene bounds instead. Levels with no local regions use scene bounds automatically.
+These bounds limit allocation, not ray tracing. `regions.enabled: false` makes a sparse-only
+level; space levels can use wider sparse spacing. Local seeds include authored lighting
 volumes, gameplay markers, crates, bolts, pistons and enemies. Planning covers
 piston travel and jump clearance. High airborne markers use separate ground and
 actor bands instead of filling the empty air between them; known piston travel
@@ -186,7 +196,7 @@ unresolved seeds keep their original height. Roof-only overhangs do not qualify.
 
 Regions crossing indoor/outdoor boundaries are partitioned before bounded
 merging and overlapping budget splits. Existing spacing and height/probe limits, plus the
-512-region and 128 MiB runtime limits, remain in force; the planner does not
+1,024-region and 256 MiB runtime limits, remain in force; the planner does not
 silently increase them. A 4,096-sample cap per seed bounds enclosure work.
 `geometry_max_rise` still limits added height; ceilings beyond that cap are
 reported as incomplete coverage. Missing collision ceilings remain unresolved.
@@ -197,13 +207,13 @@ classification does not create lights from authored light-bank IDs.
 connected cells added, height caps and sampling-cap diagnostics. Dense regions
 are split with overlap. `seed-plan.json` records skipped seeds and limits;
 enemy patrol routes are excluded. The all-level bake cache includes planner
-scripts and per-level region/bake settings, so planner changes invalidate cached
+scripts, per-level region/bake settings and emission/interior sidecars, so changes invalidate cached
 layouts even when the native baker executable has not changed.
 `seed_regions.py` can inspect or replace regions for an existing sparse bake, saving the previous list.
 
 ## Formats and compatibility
 
-Only **file format 3, bake revision 1** is supported. Rebake older data.
+Only **file format 4, bake revision 3** is supported. Rebake older data.
 Each texel integrates a regular 2x2 angular footprint, including emission.
 Irradiance and distance moments combine the four directions before normalising.
 The footprint softens visibility boundaries; thin walls can still leak.
@@ -221,10 +231,11 @@ layout. Values are little-endian; texture planes upload without repacking:
 | --- | --- | --- |
 | Irradiance | R11G11B10F | E^(1/5), including map borders |
 | Distance | RG32F | Mean distance and mean squared distance |
-| Metadata | RGBA16F | Relocation XYZ and validity |
+| Metadata | RGBA16F | Total offset XYZ, validity and individual-relocation status |
 
 Volumes use rows of 64 probe tiles, with unused tiles zeroed. Runtime keeps
-file bytes for upload/streaming; Vulkan still needs a staging copy. CPU tools
+file bytes for upload/streaming; Vulkan still needs a staging copy. Inspection reports
+count these padded GPU planes separately from the file header. CPU tools
 can expand maps. Sampling blends sqrt(E), squares back to E and divides by pi
 once for diffuse shading. Distances and biases use game units; Z is height.
 
@@ -234,30 +245,121 @@ Default sky light is `0.3 * primary directional colour + 0.7 * sky_intensity * s
 `sky_weight` changes that mix. Terrain, ties, shrubs and selected static mobys
 block and bounce light. Moving objects receive GI without updating the bake.
 
-Runtime and bake share emission textures, colours and masks for lamps, energy
+Runtime and bake share emission textures and colours for lamps, energy
 spheres, Orxon ooze/windows and Gaspar lava. `probe-emission.json` overrides
 emission; ordinary prelighting is not emission. Animated liquids are averaged,
 and prepared legacy lava takes priority to avoid double counting.
+
+Matching `probe-emission.json` profiles are copied with the bake settings during
+level export and included in standalone bundles. `static_mobys` lists reviewed
+class IDs whose initial scenery meshes can participate in the bake; explicit
+manifest or placement `bake_static` flags still take precedence. Animated meshes
+remain excluded. Emission profiles multiply the complete texture colour by a scalar
+`runtime_intensity`, without a colour mask or an extra RGB tint. The old `intensity`
+key is rejected; older exports need their emission profiles refreshed and probes rebaked.
+In Novalis, the rigid mushroom
+underside supplies baked light while the animated cap retains its runtime emission.
+An optional `bake_intensity` replaces `runtime_intensity` for baked transport only;
+it defaults to the runtime emission when omitted. Explicit bake intensities bypass
+automatic interior emitter boosts. Novalis mushrooms use runtime intensity 2 and bake
+intensity 4.
+
+Reviewed static emission is defined in the version's `emission-materials.json` catalog.
+Each entry identifies exported PNG content with SHA-256, so the same authored light
+receives its definition across levels and texture renumbering. The exporter and bake
+preparation resolve these entries into `probe-emission.json`; runtime has no catalog
+or repository dependency. Per-level definitions override catalog defaults, including
+an explicit zero intensity. `_catalog_defaults` records catalog and tracked per-level
+defaults so existing exports can refresh them without replacing independent local
+authoring. Changing texture content
+requires a reviewed catalog identity; brightness never creates emission automatically.
+Static emission with `vertex_colour` uses the original instance light-slot colours for
+ties and shrubs in both runtime shading and transport, rather than their base mesh colour.
+An empty emission object records a reviewed ordinary material without overriding any
+emission explicitly authored in glTF.
+
+Each bake writes `emission-audit.json` listing fully bright static surfaces and whether
+they have a definition. Undefined entries are review candidates, not proof of emission.
+Dynamic scripted brightness and glow packets retain their runtime paths; moving geometry
+is not silently converted into static bake sources.
+
+### Emission GI gains
+
+`surface_emission_scale` in `probe-bake.json` defaults to 1. This gain
+multiplies direct and bounced GI from all geometric emissive surfaces, including
+explicit `bake_intensity` values, after interior boosts. It leaves visible emission,
+sky, sunlight, point lights and generated ceiling area lights unchanged.
+Changing it requires a rebake.
+
+`surface_emission_regions` in the same profile supplies room-local absolute gains:
+
+```json
+"surface_emission_regions": [
+  {"minimum": [135, 83, 30], "maximum": [158, 105, 42], "scale": 8}
+]
+```
+Only emissive triangles fully contained in a box use its gain; later matching boxes
+win. Veldin uses this box for Ratchet's garage, including its green panels and blue
+instruments. Reused textures outside the garage retain the global 1x gain. These
+overrides affect neither visible glow nor generated ceiling area lights.
+
+Probes include visible direct light from emissive surfaces, finite point emitters
+and generated ceiling area lights, even with zero surface bounces. These sources
+also illuminate bounce surfaces. Explicit source sampling applies finite shadow
+visibility and the receiving cosine during probe-map integration; adding ray-hit
+emission again would count the same direct energy twice. Analytic sun direct
+lighting remains a runtime contribution.
 
 The offline baker separates scene validation/Embree ownership (`bake_scene.*`),
 materials and sky (`bake_material.*`), transport (`bake_transport.*`), and probe
 workers (`bake.cpp`). `bake_integration.*` contains the portable texel kernel.
 
+Before individual relocation, `bake_alignment.*` tries 27 shared interior-grid
+offsets using a deterministic preview of up to 64 probes. A full-grid check must
+confirm the winning offset improves mean capped squared clearance with penalties
+for near-surface and inside placements. Short two-sided rays estimate clearance;
+paired crossing parity estimates occupancy without authored normals. Outer-face
+coordinates stay anchored, retaining coverage, probe counts and atlas sizes.
+Alignment and subsequent relocation share the existing cell-local offset limit.
+If an aligned probe cannot be relocated successfully, the baker retries its original
+position so the shared phase cannot discard a recoverable placement.
+
 The baker derives normals from triangles. Runtime uses camera-facing normals,
 receiver biases and distance moments to limit leaks; thin walls can still leak.
 
+## Interior lighting
+
+The default bake pipeline uses [interior inference](../../../docs/port/RAC1_INTERIOR_INFERENCE.md)
+to boost existing emitters within bounds and place finite ceiling area lights using
+transition-labelled collision samples. It generates `probe-interiors.json` beside
+the exported level before baking; explicit sidecars are preserved. Set
+`regions.interior_lighting` to `false` in `probe-bake.json` to skip automatic preparation.
+This switch removes automatically generated sidecars; explicit sidecars remain authoritative.
+Levels without suitable authored labels get no generated sources.
+Sources are baked into the existing probe format; runtime emission appearance is unchanged.
+The authored ceiling target is reflected radiance. Generation converts it to irradiance
+with a factor of pi, matching the probe shader's diffuse E/pi conversion. Existing emitter
+estimates use the same irradiance units before generated fill is reduced.
+Ceiling rectangles follow nearby geometric ceiling normals averaged over a 3 by 3
+sample footprint, facing into the room independently of mesh winding or sunlight.
+
 ## Dense regions
 
-A sparse grid covers the level. Vulkan retains up to 512 dense regions within
-128 MiB of atlases. A GPU pass frustum-culls and ranks regions by squared camera
-distance to their bounds, breaking ties by region ID. The nearest 128 visible
+A sparse grid covers the level. Vulkan retains up to 1,024 dense regions within
+256 MiB of atlases, subject to the device's maximum texture dimensions. Runtime
+atlases start at 128 tiles wide and widen further when needed to fit the height
+limit. Uploads place complete 64-tile baked rows side by side without decoding
+or repacking their bytes; the baked format is unchanged. A GPU pass frustum-culls
+and ranks regions by squared camera distance to their bounds, breaking ties by
+region ID. The nearest 128 visible
 regions share a lookup; each 16x16 screen tile stores a 128-bit candidate mask.
-Fragments sample at most two dense volumes, checking visibility before blending
-at boundaries. Regions outside the lookup use sparse lighting.
+Fragments sample at most three dense volumes, checking visibility before blending
+at boundaries. Dense weights are normalised; incomplete support fades to sparse lighting.
+Regions outside the lookup use sparse lighting.
 
 Secondary cameras build their own lookup. Transparent receivers use that lookup
 without opaque-depth tile rejection. When GPU selection or atlas capacity is
-insufficient, the CPU chooses two camera-visible regions and fades changes.
+insufficient, the CPU chooses three camera-visible regions and fades changes.
 
 `<sparse.orpg>.regions.json` loads automatically. `OPENRAC_PROBE_REGIONS` selects
 another list (`0` disables it); paths are relative to the list.
@@ -280,6 +382,15 @@ F4 toggles enhanced lighting. The Enhanced menu also provides:
 - Separate probe-lighting and modern-shadow toggles.
 - GI/GTAO strength (default 1) and normal/view biases (default 0.5 units).
 - Probe spheres: cyan sparse, green dense, gold relocated, magenta invalid.
+  Gold marks individual relocation only; shared grid alignment retains cyan or green.
+  The existing metadata status channel records this distinction without extra GPU storage.
+  Vulkan uploads their source records once. Compute filters range, frustum and
+  selected regions, compacts the visible records and writes an indirect draw count.
+  The overlay retains region fades and optional faint hidden spheres, with no
+  per-frame CPU probe scan or instance upload. A CPU reference remains available
+  for verification and fallback; debug triangles are not counted on the GPU path.
+- Ceiling area lights: source-coloured rectangles and cyan emitting-direction
+  arrows from the completed bake report, with faint hidden edges.
 
 GTAO mainly darkens indirect light. Modern shadows retain 10% directional/fill
 light. Ratchet casts along sunlight when grounded and downward when airborne,
@@ -301,3 +412,32 @@ Details: [GI](../docs/RAC1_PROBE_GI.md),
 [Ratchet's shadow](../docs/RAC1_HERO_SHADOW.md).
 [NVIDIA RTXGI-DDGI](https://github.com/NVIDIAGameWorks/RTXGI-DDGI) informed
 irradiance encoding and blending.
+
+With probe spheres enabled, yellow wireframes show every dense volume whose nominal bounds contain
+the player. A cyan wireframe shows the sparse grid when no dense volume contains the player. Bounds
+follow the render snapshot's player position, independently of camera selection and per-probe
+relocation. Hidden edges are faint; missing player snapshots show no boxes.
+
+The final region planner compacts overlapping grids against their complete existing cell coverage.
+Merged boxes contain their source boxes, preserve edge-fade support, stay within the original dense
+coverage and respect the per-volume probe budget. The merge also preserves existing native grid
+extents when float rounding gives them an extra edge cell. Grid alignment and individual relocation run
+after this step. The seed report records region and probe counts before and after compaction.
+
+After merging, dense coverage is repartitioned using disjoint full-strength cores. Each new box
+adds one cell around its core, giving two-cell overlap bands at shared boundaries. The union of
+native coverage and the maximum edge-fade influence are preserved; thin grids retain their existing
+partial-strength support. Source IDs follow intersecting boxes. The final plan stores exact integer
+`lattice_bounds`, which the baker converts directly to grid origins and dimensions without another
+floating-point bounds expansion. Alignment and individual relocation follow repartitioning.
+
+The planner tries all six world-axis seed orders and selects the initial layout with the least duplicated
+cell coverage, then the lowest probe count. Repartitioning can produce more, smaller volumes while
+reducing duplicated probes. The seed report records before/after counts and the one-cell border.
+
+A local refinement pass then reshapes face-adjacent cores. Its cost includes a penalty for each
+additional box, a fixed penalty where a third volume overlaps, and a quadratic penalty for further
+contributors. Only edits that reduce the complete layout cost are accepted, within the probe budget.
+Coverage, disjoint cores and the one-cell fade border are preserved. This reduces crowded junctions;
+it does not impose a strict two-volume limit on every point where several box boundaries meet.
+The seed report records crowded-cell counts, peak overlap, probe counts and the layout cost.

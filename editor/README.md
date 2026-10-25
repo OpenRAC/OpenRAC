@@ -260,6 +260,9 @@ the Godot export, the sky as a mesh, and the placements as JSON. Its
 manifests say which disc they came from (`"version": "pal"` or `"ntsc"`);
 the format is the same for both. When a matching tracked lighting profile exists,
 export copies it to `level_NN/probe-bake.json` for both the baker and runtime.
+Matching `probe-emission.json` profiles are copied alongside it, keeping reviewed
+emission colours and static scenery selection shared with the bake.
+The bake profile's `regions` section configures region planning, coarse bounds and padding.
 Profiles live under `port/enhanced/lighting/profiles/<game>-<version>/level_NN/`;
 levels without one use built-in defaults. Re-export and rebake after changing a
 tracked profile. Each version's export has a folder of its

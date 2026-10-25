@@ -94,6 +94,7 @@ struct Settings {
     bool enhanced_shadows = true;   // cascades and Ratchet map; off restores original shadows
     bool probe_lighting = true;     // uses a verified bake when one is loaded
     bool probe_spheres = false;     // diagnostic placement/fade overlay
+    bool ceiling_area_lights = false;  // Baked source rectangles and emitting-direction arrows.
     float probe_gi_multiplier = 1.0f;
     float probe_normal_bias = 0.5f;  // receiver offsets in world units
     float probe_view_bias = 0.5f;

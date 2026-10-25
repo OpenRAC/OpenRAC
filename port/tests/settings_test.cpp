@@ -109,6 +109,11 @@ int main() {
     const auto file = folder / "settings.ini";
     settings::load(file);
     CHECK(settings::get().gtao);
+    CHECK(!settings::get().ceiling_area_lights);
+    settings::get().ceiling_area_lights = true;
+    settings::save();
+    settings::load(file);
+    CHECK(settings::get().ceiling_area_lights);
     CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
     test_temporal_settings(file);
     test_frame_counter_modes(file);

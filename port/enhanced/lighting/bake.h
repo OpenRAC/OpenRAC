@@ -6,7 +6,6 @@
 #include <optional>
 
 #include "enhanced/lighting/probes.h"
-#include "scene/emission.h"
 
 namespace openrac::lighting {
 
@@ -23,9 +22,10 @@ struct BakeTriangle {
     float alpha_cutoff = 0.5f;
     // Authored unlit moby multipliers, not terrain/tie prelighting.
     std::array<std::array<float, 4>, 3> multipliers{{{1, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 1}}};
-    Float3 emission{};          // linear radiance; independent of diffuse reflectance
-    int emission_texture = -1;  // sRGB RGB mask, alpha comes from the diffuse material
-    scene::EmissionMask emission_mask = scene::EmissionMask::None;
+    Float3 emission{};  // linear radiance; independent of diffuse reflectance
+    // Explicit bake intensities bypass automatic interior emitter boosts.
+    bool fixed_emission = false;
+    int emission_texture = -1;  // sRGB emission texture, alpha comes from the diffuse material
     bool emission_vertex_colour = false;
     std::array<Float3, 3> emission_colours{{{1, 1, 1}, {1, 1, 1}, {1, 1, 1}}};
     bool terrain_prelighting = false;
@@ -38,7 +38,7 @@ struct BakeTexture {
     std::vector<std::uint8_t> rgba;  // sRGB colour, linear alpha, top row first
 };
 
-// Colour controls shared by ordinary material and emission-mask sampling.
+// Colour controls shared by ordinary material and emission-texture sampling.
 struct BakeMaterialOptions {
     Float3 texture_tint{1, 1, 1};       // GS/sRGB modulation before decoding.
     bool terrain_vertex_albedo = true;  // Decode authored terrain after filtering and tinting.
@@ -67,10 +67,19 @@ struct BakePointEmitter {
     Float3 intensity{};  // linear radiant intensity; irradiance falls as 1 / distance squared
 };
 
+// A one-sided rectangular source without geometry, sampled only by next-event estimation.
+struct BakeAreaEmitter {
+    Float3 position{};  // Rectangle centre in world units.
+    Float3 axis_u{};    // First half-edge; cross(axis_u, axis_v) faces the emitting hemisphere.
+    Float3 axis_v{};    // Second half-edge, perpendicular to the first.
+    Float3 radiance{};  // Linear emitted radiance, independent of receiver reflectance.
+};
+
 struct BakeScene {
     std::vector<BakeTriangle> triangles;
     std::vector<BakeSun> suns;
     std::vector<BakePointEmitter> point_emitters;  // emission only; no occlusion geometry
+    std::vector<BakeAreaEmitter> area_emitters;    // Bake-only rectangular sources; never blockers.
     Float3 primary_directional_colour{};           // authored linear RGB, before irradiance * pi
     std::vector<BakeTexture> textures;
     Float3 environment{0.1f, 0.1f, 0.1f};  // uniform fallback when no sky is selected
@@ -79,11 +88,20 @@ struct BakeScene {
     std::vector<Float3> sky_radiance;
 };
 
+// Spatial override for geometric surface emission, selected by full source-triangle containment.
+struct SurfaceEmissionRegion {
+    Float3 minimum{};  // Inclusive world-space lower bound.
+    Float3 maximum{};  // Inclusive world-space upper bound.
+    float scale = 1;   // Absolute bake gain; the last matching region wins.
+};
+
 struct BakeSettings {
     bool use_level_sky = true;
     float sky_intensity = 1.0f;
-    float sky_weight = 0.7f;            // remaining environment colour comes from the primary light
-    Float3 sunlight_scale{1, 1, 1};     // fixed per-level linear RGB correction, primary sun only
+    float surface_emission_scale = 1.0f;  // Bake-only gain for geometric emissive surfaces.
+    std::vector<SurfaceEmissionRegion> surface_emission_regions;  // Optional local gain overrides.
+    float sky_weight = 0.7f;         // remaining environment colour comes from the primary light
+    Float3 sunlight_scale{1, 1, 1};  // fixed per-level linear RGB correction, primary sun only
     // Optional world-space light travel direction; absent preserves authored primary directions.
     std::optional<Float3> sunlight_direction;
     bool terrain_vertex_albedo = true;  // preserve authored terrain shading as an artistic tint
