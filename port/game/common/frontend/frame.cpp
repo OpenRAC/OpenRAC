@@ -56,6 +56,9 @@ namespace openrac::frontend {
 
 namespace {
 
+// Bound consecutive omitted pictures so a heavily loaded game still presents regularly.
+constexpr int kMostSkipped = 3;
+
 // A range of frames, both ends included.
 struct FrameRange {
     std::uint64_t first = 0;
@@ -1279,12 +1282,13 @@ void keep_tick(
         k.shadow_moby = 0;
         k.level = g->loaded;
     }
+    const bool adjacent = g->index == k.frame + 1;
     k.prev_state = k.state;
-    k.has_prev_state = k.has_state;
+    k.has_prev_state = k.has_state && adjacent;
     k.prev_matrices.clear();
     k.prev_spheres.clear();
     k.prev_poses.clear();
-    for (std::size_t i = 0; i < k.live.size() && i < k.addresses.size(); ++i) {
+    for (std::size_t i = 0; adjacent && i < k.live.size() && i < k.addresses.size(); ++i) {
         k.prev_matrices[k.addresses[i]] = k.live[i].matrix;
         k.prev_spheres[k.addresses[i]] = k.live[i].world_sphere;
         if (i < k.joints.size() && k.joints[i] > 0 && k.live[i].palette >= 0) {
@@ -1294,6 +1298,12 @@ void keep_tick(
     k.prev_palette = std::move(k.palette);
     k.prev_shadows = std::move(k.shadows);
     k.prev_shadow_moby = k.shadow_moby;
+    // A captured-pose gap has no valid one-tick interpolation endpoint.
+    if (!adjacent) {
+        k.prev_palette.clear();
+        k.prev_shadows.clear();
+        k.prev_shadow_moby = 0;
+    }
     k.shadows = std::move(mobys.shadows);
     k.shadow_moby = mobys.shadow_moby;
     k.prev_shadow_state = k.shadow_state;
@@ -1316,20 +1326,33 @@ void keep_tick(
     k.frame = g->index++;
 }
 
+// The current tick's packet data is cheap to capture even when its world pose will be dropped.
+struct TickPackets {
+    std::vector<std::uint8_t> packets;
+    std::vector<renderer::EffectVertex> strip_vertices;
+    std::vector<renderer::EffectStrip> strips;
+    std::size_t before_world = 0;
+    const std::vector<renderer::UiQuad>* named_quads = nullptr;
+};
+
 // Keeps this tick's 2D path (the display list's direct GIF data, from `chain` where the game
 // sends it so, else the list the game's profile says is shown in the program `level`) and where its
 // world goes in it. Returns the native quads its markers name, if they are still kept.
-const std::vector<renderer::UiQuad>* keep_2d_path(
-    std::span<const std::uint8_t> ram, std::uint32_t chain, int level, bool debug
+TickPackets capture_2d_path(
+    std::span<const std::uint8_t> ram,
+    std::uint32_t chain,
+    int level,
+    std::uint32_t draws,
+    bool debug
 ) {
-    Kept& k = *g->kept;
+    TickPackets k;
     // OPENRAC_DUMP_DRAWS=N or N-M: the frames whose 2D draws are logged.
     static const std::optional<FrameRange> dump_at = env_frames(env::Var::DumpDraws);
     if (dump_at) {
-        renderer::g_dump_draws = dump_at->holds(k.frame);
+        renderer::g_dump_draws = dump_at->holds(g->index);
     }
     if (renderer::g_dump_draws) {
-        log::info("frame {}: the 2D path's draws", k.frame);
+        log::info("frame {}: the 2D path's draws", g->index);
     }
     // The 2D path: the frame's direct GIF data, drawn by the direct renderer.
     // RAC1 keeps two alternating list buffers and the sent list is one tick behind; Deadlocked
@@ -1399,11 +1422,12 @@ const std::vector<renderer::UiQuad>* keep_2d_path(
     if (world_marker != SIZE_MAX) {
         before_world = std::min(before_world, world_marker);
     }
-    if (before_world == SIZE_MAX && (k.draws & 0x10u) != 0) {
+    if (before_world == SIZE_MAX && (draws & 0x10u) != 0) {
         before_world = first_offscreen;
     }
     k.before_world = level >= 0 && level < 19 ? std::min(before_world, k.packets.size()) : 0;
-    return named_quads;
+    k.named_quads = named_quads;
+    return k;
 }
 
 // Decides how this tick's frames start (frontend/tick_picture.h): the last frame standing, the last
@@ -1446,7 +1470,7 @@ void choose_repeat_frame(int level, bool debug) {
 }
 
 // Keeps the world effects, the sky and the particles the game drew this tick, and the native
-// quads its 2D list names (`named_quads`, keep_2d_path), and clears what was gathered.
+// quads its 2D list names (`named_quads`, capture_2d_path), and clears what was gathered.
 void keep_effects(
     std::span<const std::uint8_t> ram,
     const host::GameState& state,
@@ -1539,6 +1563,16 @@ bool sends_image(std::span<const std::uint8_t> packets) {
     return false;
 }
 
+// A skipped gameplay picture still applies its uploads; menu/background copies need a drawn frame.
+bool retain_tick_uploads() {
+    const Kept& tick = *g->kept;
+    if (!sends_image(tick.packets)) {
+        return true;
+    }
+    return g->hud && (tick.draws & OPENRAC_DRAW_TERRAIN) != 0
+           && g->hud->retain_uploads(tick.packets);
+}
+
 // Whether the tick's own frame is left out because the tick came late. Counts and warns.
 bool leave_late_frame() {
     // The tick's own frame (when frames are drawn between ticks, part way from the last tick's
@@ -1546,7 +1580,6 @@ bool leave_late_frame() {
     // machine draws frames slower than the game ticks) is not drawn, so that drawing never slows
     // the game's time: the next tick's frame shows where the game got to. At most three in a row,
     // so that a picture still comes; a machine slower than that runs the game slow, as it must.
-    constexpr int kMostSkipped = 3;
     // Said when it goes on (a quarter of a hundred ticks' frames left out), not for the odd tick
     // that comes late after the system held the program up.
     static int ticks = 0;
@@ -1568,7 +1601,7 @@ bool leave_late_frame() {
         left_out = 0;
     }
     if (pacing.late > pacing.period && g->skipped < kMostSkipped && g->kept->has_camera
-        && g->index > 1 && !sends_image(g->kept->packets)) {
+        && g->index > 1 && retain_tick_uploads()) {
         ++g->skipped;
         ++left_out;
         return true;
@@ -1612,7 +1645,7 @@ void draw_tick_frame() {
     // The frame cap may hold the tick's own frame back: the tick is never made to wait for it. The
     // frame is then drawn between ticks, when it is due (between), or not at all when the next
     // tick comes first (a cap under the game's tick rate).
-    if (!frame_due(std::chrono::steady_clock::now())) {
+    if (!frame_due(std::chrono::steady_clock::now()) && retain_tick_uploads()) {
         pacing.first_pending = true;
         return;
     }
@@ -1668,6 +1701,10 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
         return true;
     }
 
+    // Late ticks may discard their world snapshot after retaining the packet uploads.
+    if (pacing.late > pacing.period && g->skipped < kMostSkipped && g->world_camera) {
+        return true;
+    }
     const auto started = std::chrono::steady_clock::now();
     PreparedTick prepared;
     prepared.level = g->loaded;
@@ -1740,6 +1777,22 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         log_tick_state(ram, state, level, draws);
     }
     log_mobys_near_hero(ram, state);
+    auto packets = capture_2d_path(ram, chain, level, draws, debug);
+    // Catch up before posing hundreds of objects for a picture that will never be displayed.
+    if (pacing.late > pacing.period && g->skipped < kMostSkipped && g->index > 1 && world_ran
+        && (draws & OPENRAC_DRAW_TERRAIN) != 0 && g->hud
+        && g->hud->retain_uploads(packets.packets)) {
+        ++g->skipped;
+        ++g->index;
+        g->ui_quads.clear();
+        g->moby_cameras.clear();
+        g->effects.clear();
+        g->effect_uploads.clear();
+        g->particles.clear();
+        g->sky_sprites.clear();
+        g->sky_shell_mask = 0;
+        return true;
+    }
     part.emplace("moby poses");
     TickMobys mobys = prepared ? std::move(prepared->mobys)
                                : pose_mobys(ram, state, world_ran, only_own_camera, debug);
@@ -1749,10 +1802,12 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     light_scene(ram, state);
     part.emplace("tick kept");
     keep_tick(ram, state, draws, std::move(mobys));
-    part.emplace("2d path");
-    const std::vector<renderer::UiQuad>* named_quads = keep_2d_path(ram, chain, level, debug);
+    g->kept->packets = std::move(packets.packets);
+    g->kept->strip_vertices = std::move(packets.strip_vertices);
+    g->kept->strips = std::move(packets.strips);
+    g->kept->before_world = packets.before_world;
     part.reset();
-    return finish_tick(ram, state, named_quads, level, debug, scene);
+    return finish_tick(ram, state, packets.named_quads, level, debug, scene);
 }
 
 }  // namespace openrac::frontend

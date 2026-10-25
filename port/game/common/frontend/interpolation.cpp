@@ -495,7 +495,9 @@ bool interpolating() {
 }
 
 bool wants_between() {
-    return interpolating() && g->kept->has_state && g->kept->has_camera;
+    // A skipped capture keeps the last complete picture for pause, but cannot interpolate a new tick.
+    return interpolating() && g->kept->frame + 1 == g->index && g->kept->has_state
+           && g->kept->has_camera;
 }
 
 int between(std::chrono::steady_clock::time_point next_tick) {

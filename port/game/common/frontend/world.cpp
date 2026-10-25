@@ -89,6 +89,7 @@ void use_level(int number) {
     // pool is the GS memory, which keeps what the game uploaded (a card's text uploaded through the
     // display list, the fonts) across the change.
     const bool fresh = !g->renderer;
+    g->hud = nullptr;
     if (fresh) {
         g->renderer = std::make_unique<renderer::Renderer>();
         // The enhanced renderer's ambient occlusion, drawn when the player's settings ask for it.
@@ -166,6 +167,7 @@ void use_level(int number) {
     auto hud = std::make_unique<renderer::DirectRenderer>(
         "hud", renderer::Bucket::Hud, renderer::DirectConfig{}, renderer::DirectRenderer::Input::Vif
     );
+    g->hud = hud.get();
     g->renderer->add(std::make_unique<renderer::DirectBackground>(*hud), error);
     static const bool& hero_pixel_shadow = stats::probe(
         "OPENRAC_HERO_SHADOW",

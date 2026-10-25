@@ -43,6 +43,10 @@
 
 union SDL_Event;
 
+namespace openrac::renderer {
+class DirectRenderer;
+}
+
 // The environment's variables (common/env.h), named here only for env_string's declaration.
 namespace openrac::env {
 enum class Var : std::uint16_t;
@@ -163,6 +167,8 @@ struct State {
     bool capture_wanted = false;  // a mod's asking (capture_mouse)
     bool keyboard_taken = false;  // a mod took the keyboard (take_keyboard)
     std::unique_ptr<renderer::Renderer> renderer;
+    renderer::DirectRenderer* hud =
+        nullptr;  // Owned by renderer; consumes uploads on skipped ticks.
     std::unique_ptr<enhanced::Fsr3>
         temporal;  // Optional enhanced upscaler, released before the window.
     renderer::FrameBuffer frame;

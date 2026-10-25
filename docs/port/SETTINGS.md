@@ -122,6 +122,11 @@ The game's time is kept apart from the drawing in both directions:
   runs at its speed. Only a machine that cannot draw one frame in four ticks
   (80 ms) slows the game, and says so in the log.
 
+Catch-up gameplay ticks retain texture uploads and input handling, but omit world pose and effect
+capture for pictures that will not be shown. HUD uploads therefore do not force a full world render.
+Loading and menu ticks keep their complete capture. Game speed can still fall if simulation and
+the minimum rendering work exceed the available CPU time.
+
 Measured in level 0 (Apple M5 Max, 120 Hz display, 640 x 480 window, 400
 ticks from tick 900):
 

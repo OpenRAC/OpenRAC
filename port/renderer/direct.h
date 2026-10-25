@@ -361,6 +361,9 @@ public:
     // As a component of another renderer: feed packets, then flush() draws
     // what was fed.
     bool submit(std::span<const std::uint8_t> packets);
+    // Retains a skipped frame's texture uploads and register state, without drawing its geometry.
+    // Requires exclusive graphics ownership, just like submit().
+    bool retain_uploads(std::span<const std::uint8_t> packets);
     // `background`: the part of the frame before the world (DirectBackground), drawn without
     // depth writes, since the world it is under is drawn after it.
     void flush(RenderState& state, bool background = false);
