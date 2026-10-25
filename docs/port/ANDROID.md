@@ -121,7 +121,7 @@ The app keeps everything in its own storage (`files/`): the games
 **The disc.** Android's picker hands over an open file, not a path, and the
 game reads the disc for as long as it runs, so the image is copied once into
 `files/discs/`, after a free-space check and with progress shown. A `.chd`
-image (from `chdman createdvd`) is unpacked to `.iso` instead
+image (from `chdman createdvd` or `createcd`) is unpacked to `.iso` instead
 (`launcher/core/src/chd.rs`). A CHD is known by its first bytes too, as a
 picker may drop the name's extension, and one the picker streams rather than
 opens is copied first and unpacked from the copy. A failure is shown with its
