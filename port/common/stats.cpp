@@ -57,6 +57,9 @@ struct State {
     GpuHooks gpu;
     std::FILE* dump = nullptr;
     std::uint64_t dump_next = 0;  // the serial of the next frame to write
+    FrameReader reader = nullptr;
+    void* reader_user = nullptr;
+    std::uint64_t reader_next = 0;  // the serial of the next frame to hand the reader
 };
 
 State& state() {
@@ -128,26 +131,35 @@ void write_frame(std::FILE* out, const Frame& f) {
     std::fputs("}}\n", out);
 }
 
-// Writes the closed frames whose GPU times are back, or that have waited long enough (`all`: every
-// closed frame).
-void flush_dump(bool all) {
+// Hands `take` the closed frames from serial `next` on whose GPU times are back, or that have
+// waited long enough (`all`: every closed frame), moving `next` past them.
+template <typename Take>
+void flush_frames(std::uint64_t& next, bool all, Take&& take) {
     State& s = state();
-    if (s.dump == nullptr) {
-        return;
-    }
-    while (s.dump_next < s.next_serial) {
-        if (s.next_serial - s.dump_next > kHistory) {
-            s.dump_next = s.next_serial - kHistory;  // fell out of the ring unwritten
+    while (next < s.next_serial) {
+        if (s.next_serial - next > kHistory) {
+            next = s.next_serial - kHistory;  // fell out of the ring unread
         }
-        const Frame* f = frame_of(s.dump_next);
+        const Frame* f = frame_of(next);
         if (f == nullptr || !f->closed) {
             break;
         }
-        if (!all && f->pending_gpu > 0 && s.next_serial - s.dump_next < kDumpWait) {
+        if (!all && f->pending_gpu > 0 && s.next_serial - next < kDumpWait) {
             break;
         }
-        write_frame(s.dump, *f);
-        ++s.dump_next;
+        take(*f);
+        ++next;
+    }
+}
+
+// Writes the frames due to the dump and hands the reader its own.
+void flush_dump(bool all) {
+    State& s = state();
+    if (s.dump != nullptr) {
+        flush_frames(s.dump_next, all, [&s](const Frame& f) { write_frame(s.dump, f); });
+    }
+    if (s.reader != nullptr) {
+        flush_frames(s.reader_next, all, [&s](const Frame& f) { s.reader(f, s.reader_user); });
     }
 }
 
@@ -435,7 +447,7 @@ void close_dump() {
         return;
     }
     close_open(Clock::now());
-    flush_dump(true);
+    flush_frames(s.dump_next, true, [&s](const Frame& f) { write_frame(s.dump, f); });
     std::fclose(s.dump);
     s.dump = nullptr;
     set_enabled(Client::Dump, false);
@@ -443,6 +455,14 @@ void close_dump() {
 
 bool dumping() {
     return state().dump != nullptr;
+}
+
+void set_reader(FrameReader reader, void* user) {
+    State& s = state();
+    s.reader = reader;
+    s.reader_user = user;
+    s.reader_next = s.next_serial;
+    set_enabled(Client::Capture, reader != nullptr);
 }
 
 namespace {

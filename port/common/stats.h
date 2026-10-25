@@ -70,6 +70,7 @@ enum class Client : std::uint8_t {
     Overlay,
     Dump,
     FrameCounter,
+    Capture,  // a performance capture (common/perf_capture.h)
     Count
 };
 
@@ -194,6 +195,17 @@ std::string gpu_section_name(std::uint64_t serial, int section);
 bool open_dump(const std::string& path, std::string& error);
 void close_dump();  // writes the frames still held; also done when the program ends
 bool dumping();
+
+// ---- A frame reader: each closed frame handed to code, in order, as the dump writes it ----
+//
+// The reader is called with each frame once its GPU times are back (or it has waited as long as
+// the dump waits), from the thread that begins frames. One reader at a time: setting one replaces
+// the last, from the next frame begun on; null removes it. It keeps the measurements on
+// (Client::Capture) while it is set. The performance capture is the reader (common/perf_capture.h).
+
+using FrameReader = void (*)(const Frame& frame, void* user);
+
+void set_reader(FrameReader reader, void* user);
 
 // ---- Probes: the OPENRAC_* switches read from the environment ----
 //

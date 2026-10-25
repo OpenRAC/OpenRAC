@@ -75,6 +75,7 @@ add_library(openrac_common STATIC
   common/env.cpp
   common/json.cpp
   common/log.cpp
+  common/perf_capture.cpp
   common/process.cpp
   common/ps2_float.cpp
   common/stats.cpp
@@ -99,6 +100,7 @@ find_package(Threads REQUIRED)
 openrac_add_test(joining_thread LIBS openrac_common Threads::Threads)
 openrac_add_test(env LIBS openrac_common)
 openrac_add_test(stats LIBS openrac_common)
+openrac_add_test(perf_capture LIBS openrac_common)
 openrac_add_test(result INCLUDES .)
 openrac_add_test(c_boundary LIBS openrac_common)
 openrac_add_test(frame_pacing INCLUDES .)
