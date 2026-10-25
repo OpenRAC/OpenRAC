@@ -208,6 +208,25 @@ void grow(Vec3& low, Vec3& high, const Vec3& p) {
     }
 }
 
+// A tie's or shrub's draw distance as Ratchet & Clank's loader and renderer leave it
+// (LevelData::draw_distances): `stored` is the placement's, `fade` the shrub class's billboard fade
+// distance (-1 none). A placement without one is drawn as far as any.
+float game_draw_distance(Layer layer, const json::Value& stored, int fade) {
+    constexpr float kTieCap = 720.0f;    // TieProc's (draw_data.h kRac1Constants)
+    constexpr float kShrubCap = 500.0f;  // ShrubProc's
+    constexpr float kShrubMin = 16.0f;   // the loader's minimum
+    constexpr float kFadeBand = 24.0f;   // a billboard class's: its fade distance + 24
+    if (!stored.is_number()) {
+        return layer == Layer::Ties ? kTieCap : kShrubCap;
+    }
+    const auto d = static_cast<float>(stored.number());
+    if (layer == Layer::Ties) {
+        return std::min(d, kTieCap);
+    }
+    const float raised = std::max(d, fade >= 0 ? static_cast<float>(fade) + kFadeBand : kShrubMin);
+    return std::min(std::max(raised, kShrubMin), kShrubCap);
+}
+
 }  // namespace
 
 std::optional<std::uint32_t> load_model(
@@ -437,18 +456,26 @@ std::uint8_t tie_lod(
     const Vec3& eye,
     const Vec3& forward
 ) {
-    const Vec3 centre = renderer::transform_point(
-        matrix,
-        {(model.min[0] + model.max[0]) * 0.5f,
-         (model.min[1] + model.max[1]) * 0.5f,
-         (model.min[2] + model.max[2]) * 0.5f}
-    );
+    const Vec3 centre = bounds_centre(model, matrix);
     const float depth = std::max(
         0.0f,
         (centre[0] - eye[0]) * forward[0] + (centre[1] - eye[1]) * forward[1]
             + (centre[2] - eye[2]) * forward[2]
     );
+    return tie_lod_at(lods, depth);
+}
+
+std::uint8_t tie_lod_at(const LevelData::TieLod& lods, float depth) {
     return depth <= lods.mid ? 0 : depth <= lods.far ? 1 : 2;
+}
+
+Vec3 bounds_centre(const Model& model, const Mat4& matrix) {
+    return renderer::transform_point(
+        matrix,
+        {(model.min[0] + model.max[0]) * 0.5f,
+         (model.min[1] + model.max[1]) * 0.5f,
+         (model.min[2] + model.max[2]) * 0.5f}
+    );
 }
 
 bool load_level(const fs::path& dir, LevelData& out, std::string& error, const fs::path& edited) {
@@ -571,6 +598,11 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
     std::map<int, ClassModel> ties;
     std::map<int, ClassModel> shrubs;
     std::map<int, ClassModel> mobys;
+    // The shrub classes' billboard fade distances ("billboard_fade", -1 none), when every class
+    // has one; and the game's caps, known for Ratchet & Clank's (renderer/world/draw_data.h).
+    std::map<int, int> billboard_fades;
+    bool fades_known = true;
+    const bool known_caps = manifest["game"].string() == "rac1";
     std::optional<std::uint32_t> box;
     const json::Value& classes = manifest["classes"];
     const std::pair<const char*, std::map<int, ClassModel>*> families[] =
@@ -579,6 +611,10 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
         for (const auto& [key, cls] : classes[family].members()) {
             const int id = std::atoi(key.c_str());
             const auto scale = static_cast<float>(cls["scale"].number(1.0));
+            if (table == &shrubs) {
+                fades_known = fades_known && cls["billboard_fade"].is_number();
+                billboard_fades[id] = static_cast<int>(cls["billboard_fade"].number(-1));
+            }
             if (cls["mesh"].is_string()) {
                 auto model = model_at(cls["mesh"]);
                 if (!model) {
@@ -709,6 +745,11 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
                 }
             }
             out.instances[static_cast<std::size_t>(layer)].push_back(instance);
+            if (known_caps && (layer == Layer::Ties || (layer == Layer::Shrubs && fades_known))) {
+                out.draw_distances[static_cast<std::size_t>(layer)].push_back(
+                    game_draw_distance(layer, p["draw_distance"], billboard_fades[id])
+                );
+            }
         }
     }
 

@@ -243,10 +243,53 @@ void tie_lods(const fs::path& dir) {
         CHECK(scene::tie_lod(lod, model, tie.matrix, {-50, 0, 0}, forward) == 2);
         CHECK(scene::tie_lod(lod, model, tie.matrix, {50, 0, 0}, forward) == 0);  // behind: depth 0
     }
+    // The draw distances "Scenery detail: Original" keeps to: the tie's own (100, under the cap of
+    // 720); no shrub limits without the shrub classes' billboard fades.
+    CHECK(
+        (level.draw_distances[static_cast<std::size_t>(scene::Layer::Ties)]
+         == std::vector<float>{100.0f})
+    );
+    CHECK(level.draw_distances[static_cast<std::size_t>(scene::Layer::Shrubs)].empty());
+
     fs::remove(lods / "ties" / "tie_5_lod2.gltf");
     scene::LevelData partial;
     CHECK(scene::load_level(lods, partial, error));
     CHECK(partial.tie_lods.empty());
+
+    // Shrubs: raised to 16, and to a billboard class's fade distance + 24; capped at 500.
+    const fs::path shrubs = dir / "shrub-distances";
+    write_level(shrubs);
+    write_square(shrubs / "shrubs" / "shrub_6.gltf", 2.0f, 0.0f, "../textures/tie_0001.png");
+    write_square(shrubs / "shrubs" / "shrub_7.gltf", 2.0f, 0.0f, "../textures/tie_0001.png");
+    std::string with_shrubs = manifest;
+    with_shrubs.replace(
+        with_shrubs.find(R"("shrub": {})"),
+        std::strlen(R"("shrub": {})"),
+        R"("shrub": {"6": {"mesh": "shrubs/shrub_6.gltf", "billboard_fade": -1},
+                    "7": {"mesh": "shrubs/shrub_7.gltf", "billboard_fade": 40}})"
+    );
+    write_text(shrubs / "manifest.json", with_shrubs);
+    write_text(shrubs / "placements.json", R"({
+  "format": 3,
+  "ties": [{"index": 0, "class": 5, "matrix": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,1,1], "draw_distance": 0}],
+  "shrubs": [
+    {"index": 0, "class": 6, "matrix": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1], "draw_distance": 8},
+    {"index": 1, "class": 6, "matrix": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1], "draw_distance": 32},
+    {"index": 2, "class": 7, "matrix": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1], "draw_distance": 32},
+    {"index": 3, "class": 6, "matrix": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1], "draw_distance": 900}
+  ],
+  "mobys": []
+})");
+    scene::LevelData limited;
+    CHECK(scene::load_level(shrubs, limited, error));
+    CHECK(
+        (limited.draw_distances[static_cast<std::size_t>(scene::Layer::Shrubs)]
+         == std::vector<float>{16.0f, 32.0f, 64.0f, 500.0f})
+    );
+    CHECK(
+        (limited.draw_distances[static_cast<std::size_t>(scene::Layer::Ties)]
+         == std::vector<float>{0.0f})
+    );  // never drawn by the game
 }
 
 void json_reader() {
@@ -797,6 +840,32 @@ int draw(scene::LevelData& level) {
         }
         CHECK(draws[1] == draws[0] + 2);
         CHECK(triangles[1] == triangles[0] + 2);
+    }
+
+    // Scenery detail: Original leaves out the tie (draw distance 100) for an eye 300 units away,
+    // and the setting off brings it back.
+    {
+        scene.release();
+        CHECK(scene.upload(level, renderer.textures(), error));
+        scene.lighting = false;
+        renderer.render(input, {frame.id(), 128, 128});
+        const auto all = renderer.last_stats().draw_calls;
+        scene.choose_scenery(
+            true, {0.0f, 0.0f, 300.0f}, {0.0f, 0.0f, -1.0f}, input.camera.projection
+        );
+        renderer.render(input, {frame.id(), 128, 128});
+        CHECK(renderer.last_stats().draw_calls == all - 1);
+        scene.choose_scenery(
+            true, {0.0f, 0.0f, 30.0f}, {0.0f, 0.0f, -1.0f}, input.camera.projection
+        );
+        renderer.render(input, {frame.id(), 128, 128});
+        CHECK(renderer.last_stats().draw_calls == all);
+        scene.choose_scenery(
+            true, {0.0f, 0.0f, 300.0f}, {0.0f, 0.0f, -1.0f}, input.camera.projection
+        );
+        scene.choose_scenery(false, {}, {}, input.camera.projection);
+        renderer.render(input, {frame.id(), 128, 128});
+        CHECK(renderer.last_stats().draw_calls == all);
     }
 
     frame.release();

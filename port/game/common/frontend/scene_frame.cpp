@@ -218,7 +218,9 @@ void set_camera(SceneFrame& frame) {
         2000.0f
     );
     input.camera.position = state.camera_position;
-    owner.scene.choose_tie_lods(frame.graphics.original_lod, state.camera_position, state.forward);
+    owner.scene.choose_scenery(
+        frame.graphics.original_lod, state.camera_position, state.forward, input.camera.projection
+    );
     owner.scene.update_probe_regions(input.camera);
     input.after_world_depth =
         owner.scene.compute_probe_selection()

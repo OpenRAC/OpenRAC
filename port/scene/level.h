@@ -162,7 +162,7 @@ struct LevelData {
     // A tie class's lower LODs (the manifest's "lods" and "lod_distances", editor/port.py), by
     // its LOD 0 model: the models of LOD 0, 1 and 2 and the camera depths the game switches at
     // (tie_lod.h: LOD 1 beyond mid, LOD 2 beyond far). Drawn only with the "Scenery detail:
-    // Original" setting (LevelScene::choose_tie_lods); an older export has none.
+    // Original" setting (LevelScene::choose_scenery); an older export has none.
     struct TieLod {
         std::array<std::uint32_t, 3> models{};
         float mid = 0.0f;
@@ -170,6 +170,13 @@ struct LevelData {
     };
 
     std::map<std::uint32_t, TieLod> tie_lods;
+    // Each tie's and shrub's draw distance as the game's loader and renderer leave it (parallel to
+    // instances; game units of camera depth): a tie's own, capped at 720 (TieProc; 0 is never
+    // drawn), a shrub's raised to 16 and, for a class with a billboard, to its fade distance + 24,
+    // capped at 500 (ShrubProc; shrub_sky.md section 4). Empty for a layer whose export does not
+    // carry them (shrubs before "billboard_fade") or a game whose caps are not known. Drawn by only
+    // "Scenery detail: Original" (LevelScene::choose_scenery).
+    std::array<std::vector<float>, kLayerCount> draw_distances;
     // The ties' and shrubs' lit colours, 64 or 24 per instance, RGBA bytes (0x80 = 1.0), from
     // placements.json.
     std::vector<std::uint32_t> light_colours;
@@ -194,6 +201,12 @@ std::uint8_t tie_lod(
     const Vec3& eye,
     const Vec3& forward
 );
+
+// The LOD (0, 1 or 2) the game picks for a tie of a class with `lods` at camera depth `depth`.
+std::uint8_t tie_lod_at(const LevelData::TieLod& lods, float depth);
+
+// The world centre of `model`'s bounds drawn at `matrix`.
+Vec3 bounds_centre(const Model& model, const Mat4& matrix);
 
 // Load a level directory. Returns false with a reason if the manifest or a
 // mesh cannot be read; a missing texture only counts in missing_images.

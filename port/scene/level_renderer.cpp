@@ -279,9 +279,17 @@ bool LevelScene::upload(
     }
     m_models = level.models;
     m_tie_lods = level.tie_lods;
-    m_tie_source = m_tie_lods.empty() ? std::vector<Instance>{}
-                                      : level.instances[static_cast<std::size_t>(Layer::Ties)];
-    m_tie_lod_of.clear();
+    for (std::size_t k = 0; k < m_scenery.size(); ++k) {
+        Scenery& scenery = m_scenery[k];
+        const auto layer = static_cast<std::size_t>(kSceneryLayers[k]);
+        const auto& distances = level.draw_distances[layer];
+        const bool sized = distances.size() == level.instances[layer].size();
+        const bool chosen = (sized && !distances.empty())
+                            || (kSceneryLayers[k] == Layer::Ties && !m_tie_lods.empty());
+        scenery.source = chosen ? level.instances[layer] : std::vector<Instance>{};
+        scenery.distances = chosen && sized ? distances : std::vector<float>{};
+        scenery.drawn.clear();
+    }
     // The primitives without a glow packet's vertex, which the mobys' glow pass would draw only to
     // discard every fragment (mesh.frag: v_glow != glow_pass): left out of it (draw_layer).
     for (Model& model : m_models) {
@@ -892,43 +900,92 @@ void LevelScene::set_instances(Layer layer, const std::vector<Instance>& instanc
     }
 }
 
-void LevelScene::choose_tie_lods(
-    bool on, const renderer::Vec3& eye, const renderer::Vec3& forward
+void LevelScene::choose_scenery(
+    bool original,
+    const renderer::Vec3& eye,
+    const renderer::Vec3& forward,
+    const renderer::Mat4& projection
 ) {
-    if (m_tie_lods.empty()) {
-        return;
-    }
-    // Off again after being on: the ties as loaded, once.
-    if (!on) {
-        if (!m_tie_lod_of.empty()) {
-            m_tie_lod_of.clear();
-            set_instances(Layer::Ties, m_tie_source);
+    // How much farther than its depth a point in the view can be: 1 / the cosine of the view's
+    // corner, from the projection's tangents. Within it, a straight-line distance below this times
+    // the draw distance holds every instance the game draws.
+    const float tx = projection[0] != 0.0f ? 1.0f / projection[0] : 0.0f;
+    const float ty = projection[5] != 0.0f ? 1.0f / projection[5] : 0.0f;
+    const float reach = std::sqrt(1.0f + tx * tx + ty * ty);
+    constexpr float kLeaveMargin = 8.0f;  // game units past its distance before one is left out
+    constexpr float kLodBand = 2.0f;      // game units either side of a LOD switch
+    bool rebuilt = false;
+    for (std::size_t k = 0; k < m_scenery.size(); ++k) {
+        Scenery& scenery = m_scenery[k];
+        const Layer layer = kSceneryLayers[k];
+        if (scenery.source.empty()) {
+            continue;
         }
-        return;
-    }
-    const bool first = m_tie_lod_of.empty();
-    m_tie_lod_of.resize(m_tie_source.size(), 0);
-    bool changed = first;
-    for (std::size_t i = 0; i < m_tie_source.size(); ++i) {
-        const Instance& tie = m_tie_source[i];
-        std::uint8_t lod = 0;
-        if (const auto it = m_tie_lods.find(tie.model);
-            it != m_tie_lods.end() && tie.model < m_models.size()) {
-            lod = tie_lod(it->second, m_models[tie.model], tie.matrix, eye, forward);
+        // Off again after being on: the instances as loaded, once.
+        if (!original) {
+            if (!scenery.drawn.empty()) {
+                scenery.drawn.clear();
+                set_instances(layer, scenery.source);
+            }
+            continue;
         }
-        changed = changed || m_tie_lod_of[i] != lod;
-        m_tie_lod_of[i] = lod;
-    }
-    if (!changed) {
-        return;
-    }
-    std::vector<Instance> ties = m_tie_source;
-    for (std::size_t i = 0; i < ties.size(); ++i) {
-        if (const auto it = m_tie_lods.find(ties[i].model); it != m_tie_lods.end()) {
-            ties[i].model = it->second.models[m_tie_lod_of[i]];
+        const bool first = scenery.drawn.empty();
+        scenery.drawn.resize(scenery.source.size(), 1);
+        bool changed = first;
+        for (std::size_t i = 0; i < scenery.source.size(); ++i) {
+            const Instance& instance = scenery.source[i];
+            if (instance.model >= m_models.size()) {
+                continue;
+            }
+            const Vec3 centre = bounds_centre(m_models[instance.model], instance.matrix);
+            const Vec3 to{centre[0] - eye[0], centre[1] - eye[1], centre[2] - eye[2]};
+            const std::uint8_t was = first ? 0 : scenery.drawn[i];
+            bool shown = true;
+            if (!scenery.distances.empty()) {
+                const float limit = scenery.distances[i] * reach;
+                const float away = std::sqrt(to[0] * to[0] + to[1] * to[1] + to[2] * to[2]);
+                shown =
+                    limit > 0.0f && (away < limit || (was != 0 && away <= limit + kLeaveMargin));
+            }
+            std::uint8_t lod = 0;
+            if (const auto it = m_tie_lods.find(instance.model);
+                shown && layer == Layer::Ties && it != m_tie_lods.end()) {
+                const float depth =
+                    std::max(0.0f, to[0] * forward[0] + to[1] * forward[1] + to[2] * forward[2]);
+                lod = tie_lod_at(it->second, depth);
+                const auto kept = static_cast<std::uint8_t>(was - 1);
+                if (was != 0 && kept >= tie_lod_at(it->second, depth - kLodBand)
+                    && kept <= tie_lod_at(it->second, depth + kLodBand)) {
+                    lod = kept;
+                }
+            }
+            const std::uint8_t drawn = shown ? static_cast<std::uint8_t>(1 + lod) : 0;
+            changed = changed || scenery.drawn[i] != drawn;
+            scenery.drawn[i] = drawn;
         }
+        if (!changed) {
+            continue;
+        }
+        std::vector<Instance> chosen;
+        chosen.reserve(scenery.source.size());
+        for (std::size_t i = 0; i < scenery.source.size(); ++i) {
+            if (scenery.drawn[i] == 0) {
+                continue;
+            }
+            Instance instance = scenery.source[i];
+            if (const auto it = m_tie_lods.find(instance.model);
+                layer == Layer::Ties && it != m_tie_lods.end()) {
+                instance.model = it->second.models[scenery.drawn[i] - 1];
+            }
+            chosen.push_back(instance);
+        }
+        set_instances(layer, chosen);
+        rebuilt = true;
     }
-    set_instances(Layer::Ties, ties);
+    // How often the layers are grouped again (a frame's average: the share of frames).
+    if (stats::enabled()) {
+        stats::gauge("scenery regroups", rebuilt ? 1 : 0);
+    }
 }
 
 void LevelScene::remember_mobys(const std::vector<Instance>& instances) {
