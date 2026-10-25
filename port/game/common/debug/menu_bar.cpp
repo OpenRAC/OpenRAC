@@ -11,6 +11,7 @@
 #include <SDL3/SDL.h>
 
 #include "common/env.h"
+#include "common/slow_cpu.h"
 #include "debug/overlay.h"
 #include "options_menu.h"
 #include "renderer/gl.h"
@@ -136,6 +137,16 @@ void menu_bar() {
                     seconds > 0.0 ? std::format("{:.0f} s", seconds) : std::string("Until stopped");
                 if (ImGui::MenuItem(name.c_str(), nullptr, s.capture_seconds == seconds)) {
                     s.capture_seconds = seconds;
+                }
+            }
+            ImGui::EndMenu();
+        }
+        // A weaker device's processor, for testing how the game copes (common/slow_cpu.h).
+        if (slow_cpu::available() && ImGui::BeginMenu("Simulate slow CPU")) {
+            for (const int factor : {1, 2, 4, 6}) {
+                const std::string name = factor > 1 ? std::format("{}x", factor) : "Off";
+                if (ImGui::MenuItem(name.c_str(), nullptr, slow_cpu::factor() == factor)) {
+                    slow_cpu::set_factor(factor);
                 }
             }
             ImGui::EndMenu();

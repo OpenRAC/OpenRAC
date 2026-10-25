@@ -25,6 +25,7 @@
 #include "common/env.h"
 #include "common/log.h"
 #include "common/perf_capture.h"
+#include "common/slow_cpu.h"
 #include "common/stats.h"
 #include "common/system_info.h"
 #include "common/zip_writer.h"
@@ -43,6 +44,8 @@ using Clock = std::chrono::steady_clock;
 
 // The capture lengths the drawer and the menu offer, in seconds; 0 runs until stopped.
 constexpr double kLengths[] = {15.0, 30.0, 60.0, 120.0, 0.0};
+// The simulated slow processor's factors they offer (common/slow_cpu.h); 1 is off.
+constexpr int kSlowFactors[] = {1, 2, 4, 6};
 
 // What the capture keeps between frames.
 struct Capture {
@@ -226,6 +229,15 @@ perf_capture::Context context(const Shown& shown) {
             std::format("{}{} {}", settings_line.empty() ? "" : ", ", label(row), value(row));
     }
     add("settings", settings_line);
+    if (slow_cpu::factor() > 1) {
+        add("simulated slow cpu",
+            std::format(
+                "{}x: the window and render threads' processor times here are {} times this "
+                "device's (the GPU's are not)",
+                slow_cpu::factor(),
+                slow_cpu::factor()
+            ));
+    }
     const auto& graphics = settings::get();
     if (gl::enhanced_rendering_available()) {
         add("enhanced",
@@ -344,6 +356,21 @@ const char* capture_length_name() {
     static std::string name;
     name = seconds > 0.0 ? std::format("{:.0f} s", seconds) : std::string("Until stopped");
     return name.c_str();
+}
+
+std::string slow_cpu_name() {
+    return slow_cpu::factor() > 1 ? std::format("{}x", slow_cpu::factor()) : std::string("Off");
+}
+
+void step_slow_cpu(int by) {
+    constexpr int n = static_cast<int>(std::size(kSlowFactors));
+    int at = 0;
+    for (int i = 0; i < n; ++i) {
+        if (kSlowFactors[i] == slow_cpu::factor()) {
+            at = i;
+        }
+    }
+    slow_cpu::set_factor(kSlowFactors[(at + by + n) % n]);
 }
 
 void step_capture_length(int by) {

@@ -16,6 +16,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "common/slow_cpu.h"
 #include "debug/overlay.h"
 #include "fixes.h"
 #include "frontend.h"
@@ -617,6 +618,12 @@ void drawer(const Shown& shown) {
                 toggle_capture(true);
                 if (starts) {
                     set_drawer(false);
+                }
+            }
+            // A weaker device's processor, for testing how the game copes (common/slow_cpu.h).
+            if (slow_cpu::available()) {
+                if (const int by = drawer_choice("Simulate slow CPU", slow_cpu_name())) {
+                    step_slow_cpu(by);
                 }
             }
             if (s.developer && drawer_row("Level select")) {

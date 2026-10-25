@@ -438,6 +438,11 @@ void toggle_capture(bool after_drawer);
 const char* capture_length_name();
 void step_capture_length(int by);
 
+// The simulated slow processor's factor as the drawer and the menu show it ("Off", "4x"), and moved
+// on by `by` (common/slow_cpu.h; only where slow_cpu::available()).
+std::string slow_cpu_name();
+void step_slow_cpu(int by);
+
 // Says whether a capture runs or is about to start (or one is due by script), so that the
 // overlay is drawn for its badge; and whether one is counting down to its start.
 bool capture_busy();

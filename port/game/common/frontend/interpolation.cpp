@@ -28,6 +28,7 @@
 
 #include "common/env.h"
 #include "common/log.h"
+#include "common/slow_cpu.h"
 #include "common/stats.h"
 #include "debug_menu.h"
 #include "debug_overlay.h"
@@ -299,6 +300,9 @@ void queue_frame(const std::shared_ptr<FramePresentation>& output) {
     const bool queued = g->render_worker->submit(
         [&owner, snapshot = std::move(snapshot)] {
             render_scene(owner, *snapshot->scene, snapshot->graphics, *snapshot->presentation);
+            // [debug tools] The render thread's share of a simulated slow processor.
+            const stats::Scope slow("simulated slow cpu");
+            slow_cpu::pad();
         },
         error
     );
@@ -417,6 +421,16 @@ bool finish_render() try {
 }
 
 void draw_kept(bool first) try {
+    // [debug tools] A simulated slow processor (common/slow_cpu.h): the window thread's work since
+    // the last frame, padded before it waits for the render thread, as a slower one would be.
+    // Measured only when no render job holds the profiler's section stack.
+    {
+        std::optional<stats::Scope> slow;
+        if (!render_pending()) {
+            slow.emplace("simulated slow cpu");
+        }
+        slow_cpu::pad();
+    }
     // One in-flight snapshot bounds both latency and ownership of the current scene.
     if (!finish_render()) {
         return;

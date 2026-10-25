@@ -41,6 +41,19 @@ A scenario worth recording is short and repeatable: one place of one level
 fight), the same settings, 30 seconds. Record the same scenario before and
 after a change, and on each device.
 
+### A weaker device, simulated
+
+"Simulate slow CPU" (the drawer's Developer tools, or the Developer menu on
+Windows and Linux) makes the processor 2, 4 or 6 times slower: once a frame
+the window thread and the render thread each spin for that many times the
+processor time they used, less one (`common/slow_cpu.h`, the section
+`simulated slow cpu`). The frame pacing, the ticks catching up and a capture
+then behave as on a device that much slower; a capture says the factor in
+its `simulated slow cpu` line. Every part slows alike, the GPU not at all,
+and a weak phone's caches and memory are slower still: a guide, not a
+measurement of one. It needs a thread's processor time (Linux, Android,
+macOS) and is off when the game starts.
+
 ## What the report holds
 
 - **The run**: build and commit, the system and device, the processor and its
@@ -50,9 +63,16 @@ after a change, and on each device.
   frame buffer sizes, the pacing and the picture's settings.
 - **Verdict**: whether the frame keeps its target (the game's tick, 20 ms in
   PAL, or the display's interval when frames are drawn between ticks); if not,
-  whether the GPU or the CPU holds it up, and the costliest part on each.
+  whether the GPU or the CPU holds it up, and the costliest part on each;
+  then how much slower a device's processor and GPU may be and still keep
+  60 fps (16.7 ms over the 90th percentile of each side's work, below).
 - **Frame times**: average, median, 90th and 99th percentile and worst of the
-  frame, the game's code and the GPU.
+  frame, the game's code and the GPU; and each side's work without its waits:
+  the window thread's (the frame less the waits for the next tick, the render
+  thread, a swapchain image and the queue's present) and the render
+  thread's (`render`, with the Vulkan renderer). Above the display's refresh
+  much of a frame is waiting; a weaker device has only the work, so these and
+  the GPU time are what carry over to it.
 - **Sections**: every timed part of the frame in its tree, CPU time per
   frame with its 95th percentile and worst, GPU time, draw calls and
   triangles.
