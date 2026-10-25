@@ -22,6 +22,8 @@ constexpr int kMaxDepth = 16;
 constexpr std::size_t kWorstFrames = 8;
 // The time line's rows at most: a long capture puts more than a second in a row.
 constexpr double kTimeLineRows = 60.0;
+// The frame time a weak device should keep: 60 frames a second, the game's own rate.
+constexpr double kLowEndBudgetMs = 1000.0 / 60.0;
 // A capture run until stopped ends by itself after this long, so its rows stay a few megabytes.
 constexpr double kLongestCapture = 600.0;
 
@@ -102,6 +104,29 @@ void Recorder::add(const stats::Frame& f) {
     row.gpu_ms = f.pending_gpu == 0 ? f.gpu_ms() : -1.0;
     row.counters = f.counters;
     row.top.fill({-1, 0.0});
+
+    // What the window thread waited for, not worked at: the next tick, the render thread, a free
+    // swapchain image and the queue's present (a driver holds it while the display or the GPU has
+    // no room for another picture), the frame slot's fence.
+    double waited = 0.0;
+    for (const stats::Section& section : f.sections) {
+        if ((section.depth == 0 && section.name == "wait") || section.name == "vulkan acquire"
+            || section.name == "vulkan queue present" || section.name == "vulkan frame wait") {
+            waited += section.cpu_ms;
+        }
+        if (section.depth == 0 && section.name == "render") {
+            row.render_work_ms = std::max(row.render_work_ms, 0.0) + section.cpu_ms;
+        }
+    }
+    const auto worker = std::find_if(f.gauges.begin(), f.gauges.end(), [](const auto& g) {
+        return g.first == "render thread wait ms";
+    });
+    if (worker != f.gauges.end()) {
+        waited += worker->second;
+    } else {
+        row.render_work_ms = -1.0;  // recorded on the window thread: part of its work
+    }
+    row.main_work_ms = std::max(0.0, f.interval_ms - waited);
 
     // A section's series is found by its path, its parents' names and its own: the same name may
     // be timed inside two passes. A section timed twice in a frame adds up.
@@ -213,6 +238,24 @@ double Recorder::mean_gpu() const {
     return n == 0 ? -1.0 : sum / static_cast<double>(n);
 }
 
+std::array<double, 3> Recorder::work_p90() const {
+    std::vector<float> main, render, gpu;
+    for (const FrameRow& f : m_frames) {
+        main.push_back(static_cast<float>(f.main_work_ms));
+        if (f.render_work_ms >= 0.0) {
+            render.push_back(static_cast<float>(f.render_work_ms));
+        }
+        if (f.gpu_ms >= 0.0) {
+            gpu.push_back(static_cast<float>(f.gpu_ms));
+        }
+    }
+    return {
+        percentile(main, 0.9),
+        render.empty() ? -1.0 : percentile(render, 0.9),
+        gpu.empty() ? -1.0 : percentile(gpu, 0.9)
+    };
+}
+
 std::string Recorder::verdict() const {
     if (m_frames.empty()) {
         return "No frame was measured.";
@@ -314,6 +357,20 @@ std::string Recorder::verdict() const {
     } else if (!passes_timed) {
         put(out, " The passes' GPU times are not measured, only the whole frame's.");
     }
+    // How much slower a device's processor and GPU can be and still keep 60 frames a second, from
+    // each side's work without its waits (p90): the measure that carries over to a weaker device.
+    const auto [main_work, render_work, gpu_work] = work_p90();
+    const double cpu_work = std::max(main_work, render_work);
+    if (cpu_work > 0.0) {
+        put(out,
+            " For 60 fps ({:.1f} ms) a device's processor may be {:.1f}x slower than this one's",
+            kLowEndBudgetMs,
+            kLowEndBudgetMs / cpu_work);
+        if (gpu_work > 0.0) {
+            put(out, ", its GPU {:.1f}x slower at this resolution", kLowEndBudgetMs / gpu_work);
+        }
+        put(out, ".");
+    }
     return out;
 }
 
@@ -385,6 +442,18 @@ std::string Recorder::report(const Context& context) const {
     line("frame", frame_ms);
     line("game tick", game_ms);
     line("gpu", gpu_ms);
+    // Each side's work without its waits: on a slower device the frame is at least the largest.
+    std::vector<float> main_work, render_work;
+    for (const FrameRow& f : m_frames) {
+        main_work.push_back(static_cast<float>(f.main_work_ms));
+        if (f.render_work_ms >= 0.0) {
+            render_work.push_back(static_cast<float>(f.render_work_ms));
+        }
+    }
+    line("window work", main_work);
+    if (!render_work.empty()) {
+        line("render work", render_work);
+    }
     put(out,
         "```\n\n{:.1f} frames/s, {:.1f} ticks/s; {} frames over twice the median ({:.1f} ms).\n",
         length > 0.0 ? static_cast<double>(m_frames.size()) / length : 0.0,

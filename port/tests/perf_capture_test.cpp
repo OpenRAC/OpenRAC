@@ -116,6 +116,33 @@ void keeps_up() {
     CHECK(has(r.verdict(), "Keeps its target"));
 }
 
+// Each side's work without its waits: the window thread's frame less the waits for the tick, the
+// render thread and the present; the render thread's `render`; and what that leaves for 60 fps.
+void work_without_waits() {
+    capture::Recorder r(8.0);
+    for (std::uint64_t i = 0; i < 20; ++i) {
+        stats::Frame f = frame(i, 6.0, 1.0, 2.5, -1.0);
+        f.gpu_frame_ms = 3.0;
+        f.sections.push_back({"vulkan present", 1, 1.2, -1.0, 0, 0});
+        f.sections.push_back({"vulkan queue present", 2, 1.0, -1.0, 0, 0});
+        f.sections.push_back({"wait", 0, 1.0, -1.0, 0, 0});
+        f.gauges.emplace_back("render thread wait ms", 2.0);
+        r.add(f);
+    }
+    const std::string report = r.report({});
+    CHECK(has(report, "window work       2.00"));
+    CHECK(has(report, "render work       2.50"));
+    const std::string v = r.verdict();
+    CHECK(has(v, "processor may be 6.7x slower"));
+    CHECK(has(v, "GPU 5.6x slower"));
+
+    // Recorded on the window thread (no render thread to wait for): no render work of its own.
+    capture::Recorder direct(8.0);
+    direct.add(frame(0, 6.0, 1.0, 2.5, -1.0));
+    CHECK(has(direct.report({}), "window work       6.00"));
+    CHECK(!has(direct.report({}), "render work"));
+}
+
 void skips_paused_frames() {
     capture::Recorder r(20.0);
     stats::Frame held = frame(0, 20.0, 0.0, 1.0, -1.0);
@@ -168,6 +195,7 @@ int main() {
     cpu_bound();
     gpu_bound();
     keeps_up();
+    work_without_waits();
     skips_paused_frames();
     empty_report();
     through_stats();

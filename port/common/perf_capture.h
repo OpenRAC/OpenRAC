@@ -69,6 +69,11 @@ private:
         double frame_ms = 0.0;
         double game_ms = -1.0;  // the game's code on a tick's frame; -1 on the others
         double gpu_ms = -1.0;   // -1: not measured
+        // The window thread's work: the frame without its waits (for the next tick, the render
+        // thread, the swapchain and the display). The render thread's (a threaded renderer's
+        // `render`), -1 when the world is recorded on the window thread, inside the first.
+        double main_work_ms = 0.0;
+        double render_work_ms = -1.0;
         std::array<std::uint64_t, stats::kCounterCount> counters{};
         // The three costliest top-level sections, by CPU time.
         std::array<std::pair<int, double>, 3> top{};  // section series and its time; -1: none
@@ -95,6 +100,9 @@ private:
     double mean_cpu(const char* name) const;
     double mean_game() const;  // the game's time per frame
     double mean_gpu() const;   // over the frames timed on the GPU; -1 when none was
+    // The p90 of each side's work (FrameRow): the window thread, the render thread (-1: none) and
+    // the GPU (-1: not measured). What a slower device has to do in each frame.
+    std::array<double, 3> work_p90() const;
 
     double m_target_ms;
     std::vector<FrameRow> m_frames;
