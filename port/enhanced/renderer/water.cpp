@@ -747,7 +747,7 @@ void set_water_debug_settings(WaterDebugSettings settings) {
     settings.current_scale = bounded(settings.current_scale, 0, 2.5f, 1);
     settings.friction = bounded(settings.friction, 0, 4, .12f);
     settings.outlet_damping = bounded(settings.outlet_damping, 0, 30, 12);
-    settings.interaction_strength = bounded(settings.interaction_strength, 0, 4, 3);
+    settings.interaction_strength = bounded(settings.interaction_strength, 0, 4, 1.4f);
     settings.interaction_radius = bounded(settings.interaction_radius, .1f, 2, .54772256f);
     settings.displacement_limit = bounded(settings.displacement_limit, 0, .5f, .25f);
     settings.fine_normal_strength = bounded(settings.fine_normal_strength, 0, 2, 1);

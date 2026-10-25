@@ -16,7 +16,7 @@ struct WaterDebugSettings {
     float current_scale = 1;
     float friction = .12f;
     float outlet_damping = 12;
-    float interaction_strength = 3;
+    float interaction_strength = 1.4f;
     float interaction_radius = .54772256f;
     float displacement_limit = .25f;
     float fine_normal_strength = 1;
