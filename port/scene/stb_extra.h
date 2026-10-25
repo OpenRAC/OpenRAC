@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright (c) 2026 the OpenRAC contributors
  *
- * What third_party.c compiles that its libraries' headers do not declare. */
+ * What viewer/third_party.c compiles of stb that its headers do not declare. */
 
 #pragma once
 

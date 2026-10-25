@@ -32,8 +32,8 @@
 #include "options_menu.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
+#include "scene/stb_extra.h"
 #include "settings.h"
-#include "viewer/third_party.h"
 
 namespace openrac::frontend::debug_overlay {
 
@@ -247,7 +247,7 @@ perf_capture::Context context(const Shown& shown) {
     return ctx;
 }
 
-// Raw deflate by stb_image_write's compressor (viewer/third_party.h): a zlib stream, whose two-byte
+// Raw deflate by stb_image_write's compressor (scene/stb_extra.h): a zlib stream, whose two-byte
 // header and four-byte checksum zip does not keep.
 std::vector<std::uint8_t> deflate(std::span<const std::uint8_t> data) {
     int length = 0;
