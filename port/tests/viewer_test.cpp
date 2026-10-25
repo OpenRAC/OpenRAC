@@ -204,6 +204,51 @@ void write_level(const fs::path& dir) {
 })");
 }
 
+// A tie class's lower LODs from the manifest, and the LOD each depth picks; a class whose LOD
+// file is missing keeps LOD 0 and the level still loads.
+void tie_lods(const fs::path& dir) {
+    const fs::path lods = dir / "tie-lods";
+    write_level(lods);
+    write_square(lods / "ties" / "tie_5_lod1.gltf", 2.0f, 0.0f, "../textures/tie_0001.png");
+    write_square(lods / "ties" / "tie_5_lod2.gltf", 2.0f, 0.0f, "../textures/tie_0001.png");
+    const std::string manifest = R"({
+  "format": 3, "game": "rac1", "version": "pal", "level": 3,
+  "terrain": "terrain.glb.gltf",
+  "sky": {"background": [10, 20, 30], "mesh": null, "panorama": "sky.png"},
+  "classes": {
+    "tie": {"5": {"mesh": "ties/tie_5.gltf", "lods": ["ties/tie_5_lod1.gltf", "ties/tie_5_lod2.gltf"],
+                  "lod_distances": [10, 20, 40]}},
+    "shrub": {},
+    "moby": {}
+  },
+  "placements": "placements.json"
+})";
+    write_text(lods / "manifest.json", manifest);
+    scene::LevelData level;
+    std::string error;
+    CHECK(scene::load_level(lods, level, error));
+    CHECK(level.tie_lods.size() == 1);
+    const auto& tie = level.instances[static_cast<std::size_t>(scene::Layer::Ties)][0];
+    const auto found = level.tie_lods.find(tie.model);
+    CHECK(found != level.tie_lods.end());
+    if (found != level.tie_lods.end()) {
+        const auto& lod = found->second;
+        CHECK(lod.models[0] == tie.model && lod.models[1] != lod.models[2]);
+        CHECK(lod.mid == 20.0f && lod.far == 40.0f);
+        const scene::Model& model = level.models[tie.model];
+        const scene::Vec3 forward{1, 0, 0};
+        // The tie's centre is near (0, 0, 1): its depth is the eye's distance behind it on x.
+        CHECK(scene::tie_lod(lod, model, tie.matrix, {-5, 0, 0}, forward) == 0);
+        CHECK(scene::tie_lod(lod, model, tie.matrix, {-30, 0, 0}, forward) == 1);
+        CHECK(scene::tie_lod(lod, model, tie.matrix, {-50, 0, 0}, forward) == 2);
+        CHECK(scene::tie_lod(lod, model, tie.matrix, {50, 0, 0}, forward) == 0);  // behind: depth 0
+    }
+    fs::remove(lods / "ties" / "tie_5_lod2.gltf");
+    scene::LevelData partial;
+    CHECK(scene::load_level(lods, partial, error));
+    CHECK(partial.tie_lods.empty());
+}
+
 void json_reader() {
     using json::Value;
     Value v;
@@ -955,6 +1000,7 @@ int main(int argc, char** argv) {
     denser_terrain(dir);
     translucent_texels(dir);
     pvs_loader(dir);
+    tie_lods(dir);
     if (openrac::test::failures() != 0) {
         return openrac::test::result();
     }

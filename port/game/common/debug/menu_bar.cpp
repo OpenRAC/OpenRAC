@@ -78,8 +78,9 @@ void menu_bar() {
         // Each item moves its setting on, its value beside it, and leaves the menu open.
         ImGui::PushItemFlag(ImGuiItemFlags_AutoClosePopups, false);
         using namespace options_menu;
-        for (const int row :
-             {kAspect, kHud, kRenderScale, kMsaa, kAnisotropy, kFrameRate, kVSync}) {
+        for (const int row : {
+                 kAspect, kHud, kRenderScale, kMsaa, kAnisotropy, kSceneryDetail, kFrameRate, kVSync
+             }) {
             const bool shown_for =
                 row != kHud || settings::get().aspect != settings::Aspect::Standard;
             if (ImGui::MenuItem(label(row), value(row).c_str(), false, shown_for)) {

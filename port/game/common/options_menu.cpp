@@ -35,6 +35,7 @@ constexpr const char* kLabels[kRows] = {
     "Render scale",
     "Anti-aliasing",
     "Anisotropic filtering",
+    "Scenery detail",
     "VSync",
     "Frame rate",
     "Frame cap",
@@ -119,6 +120,8 @@ std::string value_of(int row) {
                 s.anisotropy_samples(gl::enhanced_rendering_available() && s.enhanced_graphics);
             return samples > 1 ? std::format("Anisotropic {}x", samples) : std::string("Trilinear");
         }
+        case kSceneryDetail:
+            return s.original_lod ? "Original" : "Full";
         case kVSync:
             return settings::name(s.vsync);
         case kFrameRate:
@@ -195,6 +198,9 @@ void step_value(int row, int by) {
                     static_cast<int>(renderer::TexturePool::max_anisotropy())
                 )
             );
+            break;
+        case kSceneryDetail:
+            s.original_lod = !s.original_lod;
             break;
         case kVSync:
             s.vsync = stepped_enum(s.vsync, by);

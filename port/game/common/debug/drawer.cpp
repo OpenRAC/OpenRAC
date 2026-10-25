@@ -516,6 +516,7 @@ void drawer(const Shown& shown) {
         setting_row(options_menu::kRenderScale);
         setting_row(options_menu::kMsaa);
         setting_row(options_menu::kAnisotropy);
+        setting_row(options_menu::kSceneryDetail);
         setting_row(options_menu::kFrameRate);
         setting_row(options_menu::kVSync);
         if (const int by = drawer_choice(

@@ -278,6 +278,10 @@ bool LevelScene::upload(
         }
     }
     m_models = level.models;
+    m_tie_lods = level.tie_lods;
+    m_tie_source = m_tie_lods.empty() ? std::vector<Instance>{}
+                                      : level.instances[static_cast<std::size_t>(Layer::Ties)];
+    m_tie_lod_of.clear();
     // The primitives without a glow packet's vertex, which the mobys' glow pass would draw only to
     // discard every fragment (mesh.frag: v_glow != glow_pass): left out of it (draw_layer).
     for (Model& model : m_models) {
@@ -856,6 +860,45 @@ void LevelScene::set_instances(Layer layer, const std::vector<Instance>& instanc
     if (layer == Layer::Mobys) {
         remember_mobys(instances);
     }
+}
+
+void LevelScene::choose_tie_lods(
+    bool on, const renderer::Vec3& eye, const renderer::Vec3& forward
+) {
+    if (m_tie_lods.empty()) {
+        return;
+    }
+    // Off again after being on: the ties as loaded, once.
+    if (!on) {
+        if (!m_tie_lod_of.empty()) {
+            m_tie_lod_of.clear();
+            set_instances(Layer::Ties, m_tie_source);
+        }
+        return;
+    }
+    const bool first = m_tie_lod_of.empty();
+    m_tie_lod_of.resize(m_tie_source.size(), 0);
+    bool changed = first;
+    for (std::size_t i = 0; i < m_tie_source.size(); ++i) {
+        const Instance& tie = m_tie_source[i];
+        std::uint8_t lod = 0;
+        if (const auto it = m_tie_lods.find(tie.model);
+            it != m_tie_lods.end() && tie.model < m_models.size()) {
+            lod = tie_lod(it->second, m_models[tie.model], tie.matrix, eye, forward);
+        }
+        changed = changed || m_tie_lod_of[i] != lod;
+        m_tie_lod_of[i] = lod;
+    }
+    if (!changed) {
+        return;
+    }
+    std::vector<Instance> ties = m_tie_source;
+    for (std::size_t i = 0; i < ties.size(); ++i) {
+        if (const auto it = m_tie_lods.find(ties[i].model); it != m_tie_lods.end()) {
+            ties[i].model = it->second.models[m_tie_lod_of[i]];
+        }
+    }
+    set_instances(Layer::Ties, ties);
 }
 
 void LevelScene::remember_mobys(const std::vector<Instance>& instances) {

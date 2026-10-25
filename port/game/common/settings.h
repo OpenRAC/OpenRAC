@@ -103,6 +103,10 @@ struct Settings {
     float temporal_sharpness = 0.2f;         // AMD RCAS strength in [0, 1].
     renderer::TextureFilter texture_filter = renderer::TextureFilter::EdgeAware;
     int anisotropy = 0;  // 0: mode default; otherwise 1 (off), 2, 4, 8, 16
+    // Scenery detail: false draws every tie at its most detailed LOD (the port's default); true,
+    // "Original", draws far ties with the game's lower LODs at its distances (a low-end option,
+    // scene::LevelScene::choose_tie_lods; levels exported before it have none).
+    bool original_lod = false;
 
     int anisotropy_samples(bool enhanced) const {
         return anisotropy ? anisotropy : enhanced ? 4 : 1;

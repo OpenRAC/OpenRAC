@@ -18,6 +18,7 @@
 #pragma once
 
 #include <array>
+#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -90,6 +91,13 @@ public:
 
     // Replaces a layer's instances (live mobys, each frame).
     void set_instances(Layer layer, const std::vector<Instance>& instances);
+
+    // "Scenery detail: Original" (settings.h): each tie of a class with lower LODs
+    // (LevelData::tie_lods) drawn with the LOD the game picks at its centre's depth along the
+    // camera's `forward` from `eye` (tie_lod.h, a hard switch without the game's morph), the ties
+    // grouped again only when one changes LOD. Off, the ties as loaded: never set again unless
+    // the setting was on, so the default draws the level's resident ties untouched.
+    void choose_tie_lods(bool on, const renderer::Vec3& eye, const renderer::Vec3& forward);
 
     // Draws depth-tested rigid and skinned velocities into the caller's target, without changing history.
     void draw_motion(
@@ -342,6 +350,11 @@ private:
     );
 
     std::vector<Model> m_models;
+    // choose_tie_lods: the classes' LODs, the ties as loaded and the LOD each is drawn with now
+    // (empty while the setting is off).
+    std::map<std::uint32_t, LevelData::TieLod> m_tie_lods;
+    std::vector<Instance> m_tie_source;
+    std::vector<std::uint8_t> m_tie_lod_of;
     std::vector<std::vector<bool>> m_shadow_solid_primitives;
 
     Group m_shadow_compact;

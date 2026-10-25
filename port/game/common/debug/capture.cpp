@@ -214,7 +214,14 @@ perf_capture::Context context(const Shown& shown) {
     std::string settings_line;
     using namespace options_menu;
     for (const int row :
-         {kAspect, kRenderScale, kMsaa, kAnisotropy, kFrameRate, kFrameCap, kVSync}) {
+         {kAspect,
+          kRenderScale,
+          kMsaa,
+          kAnisotropy,
+          kSceneryDetail,
+          kFrameRate,
+          kFrameCap,
+          kVSync}) {
         settings_line +=
             std::format("{}{} {}", settings_line.empty() ? "" : ", ", label(row), value(row));
     }

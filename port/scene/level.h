@@ -153,6 +153,18 @@ struct LevelData {
     std::array<std::vector<Instance>, kLayerCount> instances;
     // Moby classes: model and whether it is the stand-in box, for placing live mobys.
     std::map<int, std::pair<std::uint32_t, bool>> moby_classes;
+
+    // A tie class's lower LODs (the manifest's "lods" and "lod_distances", editor/port.py), by
+    // its LOD 0 model: the models of LOD 0, 1 and 2 and the camera depths the game switches at
+    // (tie_lod.h: LOD 1 beyond mid, LOD 2 beyond far). Drawn only with the "Scenery detail:
+    // Original" setting (LevelScene::choose_tie_lods); an older export has none.
+    struct TieLod {
+        std::array<std::uint32_t, 3> models{};
+        float mid = 0.0f;
+        float far = 0.0f;
+    };
+
+    std::map<std::uint32_t, TieLod> tie_lods;
     // The ties' and shrubs' lit colours, 64 or 24 per instance, RGBA bytes (0x80 = 1.0), from
     // placements.json.
     std::vector<std::uint32_t> light_colours;
@@ -166,6 +178,17 @@ struct LevelData {
     Vec3 bounds_max{};
     int missing_images = 0;
 };
+
+// The LOD (0, 1 or 2) a tie of a class with `lods`, drawn with `model` (its LOD 0) at `matrix`, is
+// drawn with as the game picks it (tie_lod.h, without its morph): its bounds' centre's depth along
+// `forward` from `eye`, never below 0, against the class's mid and far distances.
+std::uint8_t tie_lod(
+    const LevelData::TieLod& lods,
+    const Model& model,
+    const Mat4& matrix,
+    const Vec3& eye,
+    const Vec3& forward
+);
 
 // Load a level directory. Returns false with a reason if the manifest or a
 // mesh cannot be read; a missing texture only counts in missing_images.
