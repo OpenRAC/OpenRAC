@@ -116,6 +116,14 @@ describe("Android launcher", () => {
     await expect(page.getByRole("menuitem", { name: "Rebuild the game" }).count()).resolves.toBe(1);
   });
 
+  it("draws a running step's strip over the band's picture, not under its shade", async () => {
+    await open("version=rac1/pal");
+    await page.locator(".go .big").click();
+    const strip = page.locator(".hero > .job");
+    await strip.waitFor();
+    expect(await strip.evaluate((e) => getComputedStyle(e).zIndex)).toBe("1");
+  });
+
   it("spins the disc while a game starts", async () => {
     await open("launch&version=rac1/pal");
     await page.locator(".launch .disc").waitFor();

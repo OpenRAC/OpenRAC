@@ -497,7 +497,9 @@
       linear-gradient(180deg, rgba(14, 16, 22, 0.3) 0%, rgba(14, 16, 22, 0.65) 100%);
   }
 
-  .hero > :not(.hero-backdrop) {
+  /* :global: a component's root (JobProgress) carries no class of this page's, and would stay
+     under the picture and its shade. */
+  .hero > :global(:not(.hero-backdrop)) {
     position: relative;
     z-index: 1;
   }
