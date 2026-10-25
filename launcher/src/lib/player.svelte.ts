@@ -8,6 +8,7 @@ import {
   cancel,
   copyingDisc,
   gameWindow,
+  guard,
   installGame,
   jobs,
   refresh,
@@ -103,7 +104,7 @@ export async function chooseGamesFolder(): Promise<number | null> {
   if (onAndroid) {
     // Android's picker gives files, not folders: the player picks a disc image, which is copied
     // into the app's own games folder (the Rust side's default there); its games are set up below.
-    if (!(await copyingDisc((progress) => pickIso("Select your legitimately obtained disc image", progress))))
+    if (!(await copyingDisc((progress) => guard(pickIso("Select your legitimately obtained disc image", progress)))))
       return null;
   } else {
     const dir = await pickFolder("Choose the folder with your PlayStation 2 games");

@@ -15,6 +15,18 @@ pub fn is_chd(path: &Path) -> bool {
     path.extension().is_some_and(|e| e.eq_ignore_ascii_case("chd"))
 }
 
+/// Whether `file` begins as a CHD image does ("MComprHD"), whatever it is called: a picker can
+/// give a name without its extension. Read in place, so the file's position is left as it was;
+/// false when it cannot be read there (a pipe).
+pub fn starts_as_chd(file: &File) -> bool {
+    let mut magic = [0u8; 8];
+    #[cfg(unix)]
+    let read = std::os::unix::fs::FileExt::read_exact_at(file, &mut magic, 0).is_ok();
+    #[cfg(windows)]
+    let read = std::os::windows::fs::FileExt::seek_read(file, &mut magic, 0).is_ok_and(|n| n == magic.len());
+    read && &magic == b"MComprHD"
+}
+
 /// The plain image a CHD is unpacked into: `Game (Europe).chd` gives `Game (Europe).iso`.
 pub fn iso_name(name: &str) -> String {
     let stem =
@@ -235,6 +247,19 @@ pub(crate) mod tests {
         // Already there: kept.
         to_iso(Cursor::new(chd_of(&plain, 4096)), &dest, |_, _| {}).unwrap();
         assert_eq!(std::fs::read(&dest).unwrap(), plain);
+    }
+
+    #[test]
+    fn knows_one_by_its_first_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let (chd, iso) = (dir.path().join("game"), dir.path().join("game.iso"));
+        std::fs::write(&chd, chd_of(&data(4096), 4096)).unwrap();
+        std::fs::write(&iso, data(4096)).unwrap();
+        let file = File::open(&chd).unwrap();
+        assert!(starts_as_chd(&file));
+        assert!(!starts_as_chd(&File::open(&iso).unwrap()));
+        // The file is still read from its start.
+        assert!(ChdImage::new(file).is_ok());
     }
 
     #[test]
