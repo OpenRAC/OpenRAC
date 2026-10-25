@@ -1558,16 +1558,22 @@ void draw_tick_frame() {
 }
 
 // Keeps effects and schedules the committed tick unless pacing leaves it out.
+// `scene`: the measurement of reading the tick (common/stats.h), ended before the frame is drawn.
 bool finish_tick(
     std::span<const std::uint8_t> ram,
     const host::GameState& state,
     const std::vector<renderer::UiQuad>* named_quads,
     int level,
-    bool debug
+    bool debug,
+    std::optional<stats::Scope>& scene
 ) {
     choose_repeat_frame(level, debug);
-    keep_effects(ram, state, named_quads);
+    {
+        const stats::Scope part("effects read");
+        keep_effects(ram, state, named_quads);
+    }
     report_tick(ram, level);
+    scene.reset();
 
     // A late simulation tick may deliberately leave its displayed frame out.
     if (leave_late_frame()) {
@@ -1635,11 +1641,17 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         return false;
     }
 
+    // [debug tools] Reading the tick from the game's memory, in parts: the "scene" row of the
+    // overlay and of a performance capture (debug_overlay::begin times what is left of it).
+    std::optional<stats::Scope> scene(std::in_place, "scene");
+
     // The level program loaded now (-1: the boot program, title and menus), as the port knows it.
     const int level = openrac_game_loaded_overlay();
     use_world(ram, level);
     auto prepared = std::exchange(g->prepared_tick, std::nullopt);
+    std::optional<stats::Scope> part(std::in_place, "game state");
     host::GameState state = captured_state(ram, level, prepared);
+    part.reset();
     // The world is drawn from the camera the game's world renderers used, not from whatever the
     // camera globals hold at the end of the frame (the page menu sets its own camera, at
     // (256, 256, 64) facing +x, to draw its frame objects, as ReRAC notes).
@@ -1665,14 +1677,19 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         log_tick_state(ram, state, level, draws);
     }
     log_mobys_near_hero(ram, state);
+    part.emplace("moby poses");
     TickMobys mobys = prepared ? std::move(prepared->mobys)
                                : pose_mobys(ram, state, world_ran, only_own_camera, debug);
     g->moby_cameras.clear();
     stats::gauge("render preparation ms", prepared ? prepared->seconds * 1000.0 : 0.0);
+    part.emplace("lights");
     light_scene(ram, state);
+    part.emplace("tick kept");
     keep_tick(ram, state, draws, std::move(mobys));
+    part.emplace("2d path");
     const std::vector<renderer::UiQuad>* named_quads = keep_2d_path(ram, chain, level, debug);
-    return finish_tick(ram, state, named_quads, level, debug);
+    part.reset();
+    return finish_tick(ram, state, named_quads, level, debug, scene);
 }
 
 }  // namespace openrac::frontend
