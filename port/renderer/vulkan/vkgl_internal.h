@@ -80,6 +80,9 @@ inline constexpr int kUnits = 32;
 inline constexpr int kAttributes = 16;
 inline constexpr int kUniformBindings = 16;
 inline constexpr VkDeviceSize kChunk = 8u << 20;
+// A frame slot's timestamp queries; the last two time the whole frame (Frame::frame_timing).
+inline constexpr std::uint32_t kTimestamps = 512;
+inline constexpr std::uint32_t kFrameTimestamp = kTimestamps - 2;
 
 // GL enums the headers do not list, which the functions below are asked about.
 inline constexpr GLenum kGlActiveUniforms = 0x8B86;
@@ -267,6 +270,14 @@ struct Frame {
 
     VkQueryPool timestamps = VK_NULL_HANDLE;
     std::uint32_t timestamp_used = 0;
+    // The whole frame's two timestamps, the pool's last two (kFrameTimestamp): written at the start
+    // of `upload` and after `main`'s last render pass, for the stats frame `frame_serial`.
+    enum class FrameTiming : std::uint8_t {
+        None,
+        Started,
+        Ended
+    } frame_timing = FrameTiming::None;
+    std::uint64_t frame_serial = 0;
     int active_timing = -1;
     std::vector<Timing> timings;
     VkCommandPool pool = VK_NULL_HANDLE;

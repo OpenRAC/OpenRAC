@@ -611,8 +611,18 @@ void begin_buffers() {
     vkBeginCommandBuffer(f.upload, &begin);
     vkBeginCommandBuffer(f.main, &begin);
     if (f.timestamps != VK_NULL_HANDLE && f.timestamp_used == 0) {
-        vkCmdResetQueryPool(f.upload, f.timestamps, 0, 512);
+        vkCmdResetQueryPool(f.upload, f.timestamps, 0, kTimestamps);
         count_command(Command::Query);
+        f.frame_timing = Frame::FrameTiming::None;  // a start the pool held is gone with it
+    }
+    // The whole frame's GPU time from here to the end of `main` (stats::gpu_frame_begin).
+    if (f.timestamps != VK_NULL_HANDLE && g->timestamp_bits != 0 && stats::enabled()
+        && f.frame_timing == Frame::FrameTiming::None) {
+        vkCmdWriteTimestamp(
+            f.upload, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, f.timestamps, kFrameTimestamp
+        );
+        count_command(Command::Query);
+        f.frame_timing = Frame::FrameTiming::Started;
     }
     g->upload_used = false;
     f.secondary_at = 0;
@@ -628,7 +638,7 @@ bool timing_begin(std::uint64_t serial, int section) {
     }
     gpu_flush_draws();
     auto& f = frame();
-    if (f.active_timing >= 0 || f.timestamp_used + 2 > 512) {
+    if (f.active_timing >= 0 || f.timestamp_used + 2 > kFrameTimestamp) {
         return false;
     }
     f.active_timing = static_cast<int>(f.timings.size());
@@ -690,6 +700,28 @@ void timing_end() {
 
 void timing_results(Frame& f) {
     gpu_results(f);
+    const auto mask =
+        g->timestamp_bits == 64 ? UINT64_MAX : (std::uint64_t{1} << g->timestamp_bits) - 1;
+    if (f.frame_timing == Frame::FrameTiming::Ended) {
+        std::uint64_t values[2]{};
+        if (f.frame_serial != stats::kNoFrame
+            && vkGetQueryPoolResults(
+                   g->device,
+                   f.timestamps,
+                   kFrameTimestamp,
+                   2,
+                   sizeof(values),
+                   values,
+                   sizeof(std::uint64_t),
+                   VK_QUERY_RESULT_64_BIT
+               ) == VK_SUCCESS) {
+            const double ticks = static_cast<double>((values[1] - values[0]) & mask);
+            stats::gpu_frame_result(
+                f.frame_serial, ticks * g->properties.limits.timestampPeriod / 1e6
+            );
+        }
+    }
+    f.frame_timing = Frame::FrameTiming::None;
     for (auto& timing : f.timings) {
         if (!timing.complete || timing.reported) {
             continue;
@@ -706,8 +738,6 @@ void timing_results(Frame& f) {
                 VK_QUERY_RESULT_64_BIT
             )
             == VK_SUCCESS) {
-            const auto mask =
-                g->timestamp_bits == 64 ? UINT64_MAX : (std::uint64_t{1} << g->timestamp_bits) - 1;
             const double ticks = static_cast<double>((values[1] - values[0]) & mask);
             stats::gpu_result(
                 timing.serial, timing.section, ticks * g->properties.limits.timestampPeriod / 1e6
@@ -746,6 +776,15 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
 
     vkCmdPipelineBarrier(f.upload, source, destination, 0, 1, &m, 0, nullptr, 0, nullptr);
     count_barrier(source, destination);
+    // The frame's work ends here, outside any render pass (end_rendering above).
+    if (f.frame_timing == Frame::FrameTiming::Started) {
+        vkCmdWriteTimestamp(
+            f.main, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, f.timestamps, kFrameTimestamp + 1
+        );
+        count_command(Command::Query);
+        f.frame_timing = Frame::FrameTiming::Ended;
+        f.frame_serial = stats::gpu_frame_begin();
+    }
     vkEndCommandBuffer(f.upload);
     vkEndCommandBuffer(f.main);
     const VkCommandBuffer buffers[] = {f.upload, f.main};

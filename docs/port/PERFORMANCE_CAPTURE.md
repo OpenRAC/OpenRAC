@@ -75,7 +75,7 @@ get them in order once their GPU times are back, as the frame dump does.
 |---|---|---|
 | CPU sections (`stats::Scope`, steady clock) | yes | yes |
 | GPU time on OpenGL: `GL_TIME_ELAPSED` queries, read a few frames late | core since 3.3 | `GL_EXT_disjoint_timer_query`: Adreno yes; Mali on most current drivers |
-| GPU time on Vulkan: `vkCmdWriteTimestamp` | where the queue has `timestampValidBits` | the same (Adreno, Mali, Turnip) |
+| GPU time on Vulkan: `vkCmdWriteTimestamp`, per pass and for the whole frame | where the queue has `timestampValidBits` | the same (Adreno, Mali, Turnip) |
 | Counters (draws, triangles, uploads, binds; `vk_*`) | always counted | always counted |
 | Processor clocks | Linux (`/sys/devices/system/cpu`) | where the kernel lets apps read them |
 | Thermal state and headroom | no | Android 11 and 12 on (`AThermal_*`) |
@@ -85,6 +85,13 @@ pass: well under a millisecond a frame on a phone. Timer queries on tiled
 GPUs (Adreno, Mali) can split a render pass where one ends, so a pass's GPU
 time is a good guide to its share and a slight overestimate of its cost; the
 frame times and the verdict are measured from the CPU side and are not.
+On Vulkan the frame's GPU time is not the passes' sum: a timestamp pair outside every render pass
+spans the frame's command buffers, from the uploads to the last pass (on a tiled GPU, timestamps
+inside a render pass may be written per bin and come out near zero). OpenGL sums its passes.
+
+The game's `scene` section, the reading of what the frame draws from the game's state, is split
+into `game state`, `moby poses`, `lights`, `tick kept`, `2d path` and `effects read`, so that a
+capture says which part of it to make cheaper.
 
 ## Other profilers, for a closer look
 

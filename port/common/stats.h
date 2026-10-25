@@ -145,13 +145,17 @@ struct Frame {
     double game_ms = 0.0;      // the game's own code since the last tick (a tick's frame only)
     bool closed = false;
     int pending_gpu = 0;       // GPU times asked for and not back yet
+    // The GPU's time for the whole frame, where the backend measures it around all its work
+    // (gpu_frame_begin); -1 when it does not.
+    double gpu_frame_ms = -1.0;
     std::array<std::uint64_t, kCounterCount> counters{};
     std::vector<Section> sections;
     std::vector<std::pair<std::string, double>> gauges;
 
     // The time of the top-level section of that name, or 0.
     double cpu_ms(std::string_view section) const;
-    // All the GPU time measured in the frame, or -1 when none was.
+    // The frame's GPU time: the whole frame's where the backend measured it, else the sum of the
+    // sections timed on the GPU; -1 when none was.
     double gpu_ms() const;
 };
 
@@ -186,6 +190,15 @@ struct GpuHooks {
 void set_gpu_hooks(const GpuHooks& hooks);
 bool gpu_timers();  // hooks are installed
 void gpu_result(std::uint64_t serial, int section, double ms);
+
+// The GPU time of a whole frame, timed by a backend around all of its work. Vulkan does this
+// outside its render passes: on a tiled GPU (Adreno, Mali) a timestamp inside a render pass is
+// written per tile and says nearly nothing, and the GPU-driven draws are recorded after the
+// sections that asked for them. gpu_frame_begin returns the open frame's serial, counted as
+// waiting for that time, or kNoFrame when no frame is open or nobody measures.
+inline constexpr std::uint64_t kNoFrame = ~0ull;
+std::uint64_t gpu_frame_begin();
+void gpu_frame_result(std::uint64_t serial, double ms);
 #if defined(OPENRAC_GPU_MARKERS)
 std::string gpu_section_name(std::uint64_t serial, int section);
 #endif

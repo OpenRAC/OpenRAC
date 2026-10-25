@@ -309,6 +309,9 @@ double Frame::cpu_ms(std::string_view section) const {
 }
 
 double Frame::gpu_ms() const {
+    if (gpu_frame_ms >= 0.0) {
+        return gpu_frame_ms;
+    }
     double total = 0.0;
     bool any = false;
     for (const Section& s : sections) {
@@ -349,6 +352,7 @@ void begin_frame(FrameKind kind, std::uint64_t tick, float alpha) {
     f.game_ms = 0.0;
     f.closed = false;
     f.pending_gpu = 0;
+    f.gpu_frame_ms = -1.0;
     f.counters.fill(0);
     f.sections.clear();
     f.gauges.clear();
@@ -421,6 +425,26 @@ void gpu_result(std::uint64_t serial, int section, double ms) {
         return;
     }
     f->sections[static_cast<std::size_t>(section)].gpu_ms = ms;
+    if (f->pending_gpu > 0) {
+        f->pending_gpu--;
+    }
+}
+
+std::uint64_t gpu_frame_begin() {
+    State& s = state();
+    if (!g_enabled || s.open == nullptr) {
+        return kNoFrame;
+    }
+    s.open->pending_gpu++;
+    return s.open->serial;
+}
+
+void gpu_frame_result(std::uint64_t serial, double ms) {
+    Frame* f = frame_of(serial);
+    if (f == nullptr) {
+        return;
+    }
+    f->gpu_frame_ms = ms;
     if (f->pending_gpu > 0) {
         f->pending_gpu--;
     }
