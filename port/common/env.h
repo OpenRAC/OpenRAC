@@ -166,6 +166,7 @@ enum class Var : std::uint16_t {
     VulkanPipelineCache,
     VulkanValidation,
     Watch,
+    WaterOff,
     Write,
 };
 

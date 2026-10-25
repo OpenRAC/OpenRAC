@@ -23,12 +23,14 @@
 #include <utility>
 #include <vector>
 
+#include "common/c_boundary.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "debug_overlay.h"
 #include "enhanced/renderer/gtao.h"
 #include "enhanced/renderer/texture_upscale.h"
+#include "enhanced/renderer/water.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "frontend.h"
 #include "game/common/frontend/geometry.h"
@@ -206,7 +208,14 @@ void use_level(int number) {
         }
     }
     if (g->renderer->add(
-            std::make_unique<renderer::EffectRenderer>("effects", renderer::EffectPart::Rest), error
+            std::make_unique<renderer::EffectRenderer>(
+                "effects",
+                renderer::EffectPart::Rest,
+                renderer::Bucket::Particles,
+                wanted == 1 && g->game == "rac1-ntsc" ? enhanced::make_water(g->scene, dir)
+                                                      : nullptr
+            ),
+            error
         )
         == nullptr) {
         log::error("effect renderer: {}", error);
@@ -724,3 +733,15 @@ int ui_quad(const openrac_game_ui_rect& quad) {
 }
 
 }  // namespace openrac::frontend
+
+// Called on the game thread: disable legacy displacement only with a working replacement.
+extern "C" int openrac_game_enhanced_water(void) {
+    using namespace openrac;
+    return c_boundary::call("openrac_game_enhanced_water", 0, [] {
+        return int(
+            frontend::g && frontend::g->game == "rac1-ntsc" && frontend::g->loaded == 1
+            && frontend::enhanced_graphics_available() && settings::get().enhanced_graphics
+            && enhanced::water_available()
+        );
+    });
+}

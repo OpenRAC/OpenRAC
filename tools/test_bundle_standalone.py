@@ -204,6 +204,9 @@ class Bundle(unittest.TestCase):
             subprocess.run([sys.executable, "-I", "-c", script, str(out / bundle.PROBE_TOOLS),
                             str(out / "port/enhanced/lighting/profiles/rac1/moby-seeds.json")],
                            cwd=tmp, check=True)
+            water_profile = "port/enhanced/water/profiles/rac1-ntsc/level_01/water-boundaries.json"
+            self.assertEqual((out / water_profile).read_bytes(), (bundle.ROOT / water_profile).read_bytes())
+            self.assertEqual((exported / "water-boundaries.json").read_bytes(), (bundle.ROOT / water_profile).read_bytes())
 
     def test_games_as_built(self):
         # On macOS a game is its bundle, carried whole; the build folder's link to it is not.

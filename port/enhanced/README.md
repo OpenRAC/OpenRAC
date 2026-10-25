@@ -1,6 +1,6 @@
 # Enhanced rendering
 
-Probe GI, modern shadows, GTAO, FSR temporal upscaling and edge-aware texture upscaling run through
+Probe GI, modern shadows, GTAO, stylised water, FSR temporal upscaling and edge-aware texture upscaling run through
 Vulkan when enhanced rendering is enabled. With it off, or on OpenGL, the game
 uses original lighting. Embree is needed only for offline baking.
 
@@ -56,3 +56,9 @@ are unchanged.
 Level exports preserve authored normals for terrain, ties, shrubs and mobys. Older exports
 flattened terrain and static meshes, so re-extract those levels to restore smooth shading.
 Changed mesh files require a matching probe bake under the existing source-fingerprint checks.
+
+Novalis NTSC has optional [enhanced water](docs/water.md), enabled with enhanced graphics when a
+local `water.bin` and `water.mesh` bakes are present beside the level manifest. The water bake records banks, rest
+heights, dense mesh and open outlets separately from GI. Compute shaders displace that baked mesh
+with Ratchet's ripples and bank
+reflections; a filtered lighting cache keeps the original painted blue textures responsive to light.

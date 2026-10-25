@@ -19,6 +19,7 @@ reads in place of the Godot scene:
     textures/*.png     shared by every mesh
     probe-bake.json    matching authored lighting profile, when one exists
     probe-emission.json matching shared runtime/bake emission profile, when one exists
+    water-boundaries.json matching authored water outlets, when one exists
 
 A moby placement's matrix is the instance's own (position, rotation, scale);
 the class scale in the manifest multiplies in when the class mesh is drawn,

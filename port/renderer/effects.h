@@ -18,7 +18,9 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "renderer/renderer.h"
@@ -36,11 +38,37 @@ enum class EffectPart : std::uint8_t {
 // A strip drawn as a solid surface: ALPHA 0x64 ((Cs - Cd) FIX + Cd) with FIX above 0x60.
 bool liquid_strip(std::uint64_t alpha);
 
+// Optional material extension supplied by enhanced rendering. Core owns no Vulkan dependency.
+class EffectMaterial {
+public:
+    virtual ~EffectMaterial() = default;
+    virtual std::string fragment_source() const = 0;
+
+    virtual std::string vertex_source() const { return {}; }
+
+    // Return true when the optional material replaces this strip's triangle stream.
+    virtual bool mesh(const EffectStrip&, std::span<const EffectVertex>, std::vector<EffectVertex>&)
+        const {
+        return false;
+    }
+
+    virtual bool init(std::string& error) = 0;
+    virtual void prepare(const FrameInput& input) = 0;
+    virtual void bind(const Shader& shader, std::uint32_t surface, const FrameInput& input) = 0;
+    virtual void release() = 0;
+};
+
 class EffectRenderer : public BucketRenderer {
 public:
-    explicit EffectRenderer(std::string name = "effects", EffectPart part = EffectPart::All,
-                            Bucket bucket = Bucket::Particles)
-        : BucketRenderer(std::move(name), bucket), m_part(part) {}
+    explicit EffectRenderer(
+        std::string name = "effects",
+        EffectPart part = EffectPart::All,
+        Bucket bucket = Bucket::Particles,
+        std::unique_ptr<EffectMaterial> material = {}
+    )
+        : BucketRenderer(std::move(name), bucket),
+          m_part(part),
+          m_material(std::move(material)) {}
 
     bool init(RenderState& state, std::string& error) override;
     void render(const FrameInput& input, RenderState& state) override;
@@ -49,8 +77,15 @@ public:
 private:
     // Binds TEX0's texture with TEX1's filtering and CLAMP's wrapping, and sets ALPHA's blend.
     // False when the pool has nothing at TEX0's block (the draw is left out, not the placeholder).
-    bool apply(std::uint64_t tex0, std::uint64_t tex1, std::uint64_t clamp, std::uint64_t alpha, RenderState& state,
-               std::uint32_t tbp = 0, std::uint32_t cbp = 0);
+    bool apply(
+        std::uint64_t tex0,
+        std::uint64_t tex1,
+        std::uint64_t clamp,
+        std::uint64_t alpha,
+        RenderState& state,
+        std::uint32_t tbp = 0,
+        std::uint32_t cbp = 0
+    );
 
     struct Vertex {
         float x, y, z;
@@ -73,6 +108,7 @@ private:
 
     EffectPart m_part = EffectPart::All;
     Shader m_shader;
+    std::unique_ptr<EffectMaterial> m_material;
     TextureFilter m_texture_filter = TextureFilter::Normal;
     int m_view_projection = -1;
     int m_textured = -1, m_tcc = -1, m_tfx = -1, m_tex_alpha_scale = -1;

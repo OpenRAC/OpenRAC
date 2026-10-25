@@ -1,4 +1,4 @@
-"""Copy authored lighting settings into a native level export, shared by bake and runtime."""
+"""Copy authored enhanced graphics settings into a native level export, shared by bake and runtime."""
 
 import json
 from pathlib import Path
@@ -7,15 +7,18 @@ import shutil
 from .emission import apply_materials
 
 
+WATER_PROFILE_ROOT = Path(__file__).resolve().parents[2] / "port/enhanced/water/profiles"
 PROFILE_ROOT = Path(__file__).resolve().parents[2] / "port/enhanced/lighting/profiles"
 
 
 def write_bake_profile(level, directory: Path) -> None:
     """Copy only this game's, disc version's and level's profile into the new export."""
-    source = PROFILE_ROOT / f"{level.game}-{level.version}" / f"level_{level.id:02}"
-    profile = source / "probe-bake.json"
-    if profile.is_file():
-        shutil.copyfile(profile, directory / profile.name)
+    for root, filename in ((PROFILE_ROOT, "probe-bake.json"),
+                           (WATER_PROFILE_ROOT, "water-boundaries.json")):
+        source = root / f"{level.game}-{level.version}" / f"level_{level.id:02}" / filename
+        # Unconfigured levels use the baker and runtime's built-in defaults.
+        if source.is_file():
+            shutil.copyfile(source, directory / source.name)
     write_emission_profile(level, directory)
 
 

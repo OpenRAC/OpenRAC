@@ -65,6 +65,7 @@ struct Kept {
     std::uint32_t shadow_moby = 0, prev_shadow_moby = 0;
     scene::MobyShadowState shadow_state, prev_shadow_state;
     std::optional<bool> hero_airborne;
+    std::array<std::optional<renderer::Vec3>, 2> water_hands{};
     // The last tick's poses, by moby: where its joints start in prev_palette and how many.
     std::vector<scene::LevelScene::JointColumns> prev_palette;
     std::unordered_map<std::uint32_t, std::pair<int, int>> prev_poses;
@@ -103,6 +104,7 @@ struct TickMobys {
     std::uint32_t shadow_moby = 0;                         // Identity of the shadow owner.
     scene::MobyShadowState shadow_state;                   // Captured shadow direction and scale.
     std::vector<Kept::TargetMoby> target_mobys;            // Mobys drawn in private camera spaces.
+    std::array<std::optional<renderer::Vec3>, 2> water_hands{};
 };
 
 // The producer's next scene while the worker owns the previous rendered snapshot.

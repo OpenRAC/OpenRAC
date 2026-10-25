@@ -90,6 +90,7 @@ TOOLS = ("openrac-probe-bake",)
 PROBE_TOOLS = "port/enhanced/tools/probes"
 # Authored settings travel with the exporter, rather than depending on a source checkout.
 PROBE_PROFILES = "port/enhanced/lighting/profiles"
+WATER_PROFILES = "port/enhanced/water/profiles"
 
 
 def levels_folder(key: str) -> str:
@@ -254,6 +255,8 @@ def main() -> int:
                     lambda rel: not rel.name.startswith("test_") and rel.suffix in (".py", ".json"))
     files.copy_tree(ROOT / PROBE_PROFILES, out / PROBE_PROFILES,
                     lambda rel: rel.suffix == ".json")
+    files.copy_tree(ROOT / WATER_PROFILES, out / WATER_PROFILES,
+                    lambda rel: rel.name == "water-boundaries.json")
     for manifest in sorted((ROOT / "games").glob("*/game.json")):
         dest = out / manifest.relative_to(ROOT)
         dest.parent.mkdir(parents=True, exist_ok=True)

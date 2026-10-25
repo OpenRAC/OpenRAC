@@ -903,10 +903,18 @@ bool copy_buffer_to_texture(unsigned buffer, unsigned texture, int width, int he
     }
     auto* b = g->buffers.find(buffer);
     auto* t = g->textures.find(texture);
-    const auto bytes = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * 4;
-    if (!b || !t || !t->image || width <= 0 || height <= 0 || t->image->width != width
-        || t->image->height != height || t->image->format != VK_FORMAT_R8G8B8A8_UNORM
-        || b->size < bytes) {
+    if (!b || !t || !t->image) {
+        return false;
+    }
+    unsigned texel_bytes = 0;
+    switch (t->image->format) {
+        case VK_FORMAT_R8G8B8A8_UNORM: texel_bytes = 4; break;
+        case VK_FORMAT_R32G32_SFLOAT: texel_bytes = 8; break;
+        case VK_FORMAT_R32G32B32A32_SFLOAT: texel_bytes = 16; break;
+        default: return false;
+    }
+    const auto bytes = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * texel_bytes;
+    if (t->image->width != width || t->image->height != height || b->size < bytes) {
         return false;
     }
     end_rendering(PassEnd::Copy);

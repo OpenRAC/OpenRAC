@@ -214,6 +214,9 @@ public:
 
     // The light bank the mobys are lit from this frame (16 sets of 16 floats, as the game holds
     // it); until set, the level's exported sets.
+    // Shared lighting for optional world materials outside the mesh renderer.
+    void bind_surface_lighting(const renderer::Shader& shader, const renderer::Camera& camera) const;
+
     void set_light_sets(const std::vector<float>& sets) {
         if (sets.size() == 16 * 16) {
             m_light_sets = sets;

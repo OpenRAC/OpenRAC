@@ -90,6 +90,7 @@ struct EffectStrip {
     // FrameInput::effect_uploads[uploads..uploads + upload_count): the images the game sent to
     // TEX0's blocks just before the strip; put in the pool before it is drawn.
     int uploads = -1, upload_count = 0;
+    std::uint32_t surface = 0;  // Native semantic marker; 0 leaves the original material alone.
 };
 
 // A textured quad of the 2D layer the game drew through one of its 2D routines (rac1:
@@ -119,6 +120,9 @@ struct FrameInput {
     bool sun_pixel_shadow = false;
     bool hero_pixel_shadow = false;
     bool hero_airborne = false;
+    bool enhanced_water = false;
+    std::optional<Vec3> water_interactor;  // Captured hero position, never live game memory.
+    std::array<std::optional<Vec3>, 2> water_hands{};  // Animated hand positions at this tick.
     bool gtao = false;
     GtaoSettings gtao_settings;
     std::span<const ShadowCapsule> shadow_capsules;

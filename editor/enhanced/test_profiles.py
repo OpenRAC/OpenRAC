@@ -30,13 +30,23 @@ class ProfileTests(unittest.TestCase):
             source = root / "profiles/rac1-ntsc/level_01/probe-bake.json"
             source.parent.mkdir(parents=True)
             source.write_bytes(b'{"version":1,"sky_intensity":0.5}\n')
+            water_source = root / "water/rac1-ntsc/level_01/water-boundaries.json"
+            water_source.parent.mkdir(parents=True)
+            water_source.write_bytes(b'{"open_edges":[]}\n')
             for game, version, number in (("rac1", "ntsc", 1), ("rac1", "pal", 1),
                                           ("rac2", "ntsc", 1), ("rac1", "ntsc", 2)):
                 with self.subTest(game=game, version=version, level=number):
                     directory = root / f"{game}-{version}-{number}"
                     directory.mkdir()
-                    with mock.patch.object(profiles, "PROFILE_ROOT", root / "profiles"):
+                    with mock.patch.object(profiles, "PROFILE_ROOT", root / "profiles"), \
+                            mock.patch.object(profiles, "WATER_PROFILE_ROOT", root / "water"):
                         profiles.write_bake_profile(SimpleNamespace(game=game, version=version, id=number), directory)
+                    water_copy = directory / "water-boundaries.json"
+                    self.assertEqual(water_copy.exists(), (game, version, number) == ("rac1", "ntsc", 1))
+                    if water_copy.exists():
+                        self.assertEqual(water_copy.read_bytes(), water_source.read_bytes())
+                        water_copy.write_bytes(b'{}')
+                        self.assertEqual(water_source.read_bytes(), b'{"open_edges":[]}\n')
                     copied = directory / "probe-bake.json"
                     self.assertEqual(copied.exists(), (game, version, number) == ("rac1", "ntsc", 1))
                     if copied.exists():
@@ -97,6 +107,18 @@ class ProfileTests(unittest.TestCase):
             with mock.patch.object(profiles, "PROFILE_ROOT", root / "profiles"), \
                     mock.patch.object(profiles.shutil, "copyfile", side_effect=OSError("cannot copy profile")):
                 with self.assertRaisesRegex(OSError, "cannot copy profile"):
+                    profiles.write_bake_profile(SimpleNamespace(game="rac1", version="ntsc", id=1), root)
+
+    def test_water_copy_errors_abort_export(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "water/rac1-ntsc/level_01/water-boundaries.json"
+            source.parent.mkdir(parents=True)
+            source.write_text('{"open_edges":[]}')
+            with mock.patch.object(profiles, "PROFILE_ROOT", root / "lighting"), \
+                    mock.patch.object(profiles, "WATER_PROFILE_ROOT", root / "water"), \
+                    mock.patch.object(profiles.shutil, "copyfile", side_effect=OSError("cannot copy water profile")):
+                with self.assertRaisesRegex(OSError, "cannot copy water profile"):
                     profiles.write_bake_profile(SimpleNamespace(game="rac1", version="ntsc", id=1), root)
 
 

@@ -362,6 +362,9 @@ int openrac_game_pad_through_mods(int port, uint16_t* buttons, uint8_t analog[4]
  * rows it adds to the game's options), or 0 when the id is the game's. */
 gaddr openrac_game_text(int id);
 
+/* Nonzero only while the enhanced Novalis water replacement is ready and enabled. */
+int openrac_game_enhanced_water(void);
+
 /* ---- Inside the replacements ---- */
 
 /* Interrupt handlers the game installed (AddIntcHandler, sceGsSyncVCallback,

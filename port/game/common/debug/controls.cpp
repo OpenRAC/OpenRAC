@@ -8,6 +8,7 @@
 
 #include "debug/overlay.h"
 #include "enhanced/fsr3/fsr3.h"
+#include "enhanced/renderer/water.h"
 #include "frontend.h"
 #include "options_menu.h"
 #include "settings.h"
@@ -15,6 +16,85 @@
 namespace openrac::frontend::debug_overlay {
 
 namespace {
+
+// Live, session-only water controls; the render worker consumes a locked copy.
+void water_controls() {
+    auto options = enhanced::water_debug_settings();
+    ImGui::TextDisabled("Session only; changes are not saved.");
+    ImGui::BeginDisabled(!enhanced::water_available());
+    bool changed = ImGui::Checkbox("Pause simulation", &options.paused);
+    ImGui::PushItemWidth(dp(170.f));
+    changed |= ImGui::SliderFloat(
+        "Current speed", &options.current_scale, 0, 2.5f, "%.2fx", ImGuiSliderFlags_AlwaysClamp
+    );
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Changing current speed resets the water. The pond has no base current.");
+    }
+    changed |= ImGui::SliderFloat(
+        "Friction", &options.friction, 0, 4, "%.2f", ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |= ImGui::SliderFloat(
+        "Outlet damping", &options.outlet_damping, 0, 30, "%.1f", ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |= ImGui::SliderFloat(
+        "Ratchet strength",
+        &options.interaction_strength,
+        0,
+        4,
+        "%.2fx",
+        ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |= ImGui::SliderFloat(
+        "Ratchet radius",
+        &options.interaction_radius,
+        .1f,
+        2,
+        "%.2f units",
+        ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |= ImGui::SliderFloat(
+        "Displacement limit",
+        &options.displacement_limit,
+        0,
+        .5f,
+        "%.2f units",
+        ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |= ImGui::SliderFloat(
+        "Fine ripples", &options.fine_normal_strength, 0, 2, "%.2fx", ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |=
+        ImGui::Combo("Water view", &options.view, "Lit\0Height\0Velocity\0Banks\0Flow detail\0");
+    ImGui::PopItemWidth();
+    if (options.view == 1) {
+        ImGui::TextDisabled("Red: raised  Blue: lowered  Gray: rest");
+    }
+    if (options.view == 2) {
+        ImGui::TextDisabled("Red/green encode X/Y velocity.");
+    }
+    if (options.view == 3) {
+        ImGui::TextDisabled("Red: active water  Green: shore influence");
+    }
+    if (options.view == 4) {
+        ImGui::TextDisabled("Surface pattern carried by the simulated flow.");
+    }
+    if (ImGui::Button("Reset simulation")) {
+        enhanced::reset_water_simulation();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Restore water defaults")) {
+        options = enhanced::WaterDebugSettings{};
+        changed = true;
+        enhanced::reset_water_simulation();
+    }
+    if (changed) {
+        enhanced::set_water_debug_settings(options);
+    }
+    ImGui::EndDisabled();
+    if (!enhanced::water_available()) {
+        ImGui::TextDisabled("A valid Novalis water bake is required.");
+    }
+}
 
 // Draws GTAO's controls: its quality, its resolution, its directions and steps, its radius and
 // strength, and a button that resets them. A change is saved and marked for the window to apply.
@@ -148,6 +228,9 @@ void enhanced_controls() {
     changed |= ImGui::Checkbox("GTAO", &graphics.gtao);
     if (ImGui::CollapsingHeader("GTAO settings")) {
         gtao_controls();
+    }
+    if (ImGui::CollapsingHeader("Water simulation")) {
+        water_controls();
     }
     ImGui::EndDisabled();
     ImGui::EndDisabled();

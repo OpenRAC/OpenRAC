@@ -286,6 +286,8 @@ add_library(openrac_enhanced_viewer STATIC
   enhanced/viewer/area_light_overlay.cpp
   enhanced/viewer/debug_lines.cpp
   enhanced/viewer/probe_volume_overlay.cpp
+  enhanced/renderer/water.cpp
+  enhanced/renderer/water_mesh.cpp
   enhanced/viewer/early_lighting.cpp
   enhanced/viewer/probe_lighting.cpp
   enhanced/viewer/probe_selection.cpp
@@ -296,6 +298,13 @@ add_library(openrac_enhanced_viewer STATIC
 openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/area_light_overlay.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/area_light_overlay.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_lighting.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_vertex.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_swell.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_window.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_window.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/early_lighting.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/probe_selection.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/early_lighting.glsl"
@@ -594,3 +603,27 @@ endif()
 openrac_add_test(bake_liquids SOURCES enhanced/tests/bake_liquids_test.cpp LIBS openrac_probe_scene)
 
 include(Fsr3)
+
+openrac_add_test(water_mesh SOURCES enhanced/tests/water_mesh_test.cpp LIBS openrac_enhanced_viewer)
+
+foreach(water_test IN ITEMS water_gpu water_runtime)
+  openrac_add_test(${water_test} SOURCES enhanced/tests/${water_test}_test.cpp
+    INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_enhanced_viewer openrac_platform)
+  set_tests_properties(${water_test} PROPERTIES SKIP_RETURN_CODE 77
+    ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  if(WIN32)
+    set_property(TEST ${water_test} APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+  endif()
+  if(OPENRAC_VULKAN)
+    target_compile_definitions(${water_test}_test PRIVATE OPENRAC_VULKAN=1)
+    target_link_libraries(${water_test}_test PRIVATE openrac_renderer_vulkan)
+  endif()
+endforeach()
+add_test(NAME water_bake COMMAND "${Python3_EXECUTABLE}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/tools/water/test_bake_water.py")
+
+add_executable(water_host_test enhanced/tests/water_host_test.c game/rac1-ntsc/host/water.c)
+target_include_directories(water_host_test PRIVATE enhanced/tests/water_host_stubs
+  game/common/include runtime/include)
+openrac_warnings(water_host_test)
+add_test(NAME water_host COMMAND water_host_test)

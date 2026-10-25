@@ -329,6 +329,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_PACING` | any (set) | Each frame shown, logs when (ms), how far between ticks it is (alpha), whether it is a tick or in-between frame, the refresh interval and the draw cost. | `port/game/common/frontend.cpp` |
 | `OPENRAC_FPS` | any (set) | Every 300 frames, logs the frames per second over that span. | `port/game/common/main.cpp` |
 | `OPENRAC_HITCH` | any (set) | Logs each frame that took more than 1.25 times the frame time, with its duration in ms. | `port/game/common/main.cpp` |
+| `OPENRAC_WATER_OFF` | `1` | Original Novalis water reference: disables enhanced water shading and simulation. Vulkan enhanced rendering otherwise loads a local `water.bin` bake beside the level manifest. | `port/enhanced/renderer/water.cpp` |
 | `OPENRAC_WATCH` | `ADDRESS:COUNT[:i],...` | Each frame, logs `COUNT` values (at most 32) from each hexadecimal game `ADDRESS`: floats by default, words with the third field `i`. `COUNT` is decimal. | `port/game/common/main.cpp` |
 | `OPENRAC_GUARD` | `FRAME:ADDRESS:BYTES[:SKIP]` | From window frame `FRAME` on, the first write (after `SKIP` of them) into `BYTES` bytes of game memory at `ADDRESS` ends the program with the host's stack, to find what corrupts them. `FRAME` and `SKIP` are decimal, `ADDRESS` and `BYTES` hexadecimal (default 4). | `port/game/common/main.cpp` |
 | `OPENRAC_TRACE_INPUT` | any (set) | Logs a port's buttons and stick values, at most every 25 frames per port. | `port/game/common/frontend.cpp` |

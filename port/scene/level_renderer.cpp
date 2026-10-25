@@ -2129,6 +2129,23 @@ void LevelScene::bind_hero_shadow(const renderer::Shader& shader) const {
     }
 }
 
+void LevelScene::bind_surface_lighting(const renderer::Shader& shader, const renderer::Camera& camera) const {
+    if (m_light_sets.size() == 16 * 16) {
+        glUniform4fv(shader.uniform("light_sets"), 64, m_light_sets.data());
+    }
+    std::array<float,32> positions{},colours{};
+    for (std::size_t i=0;i<8;++i) {
+        std::copy_n(m_point_lights.data()+i*8,4,colours.data()+i*4);
+        std::copy_n(m_point_lights.data()+i*8+4,4,positions.data()+i*4);
+    }
+    glUniform4fv(shader.uniform("probe_point_position"),8,positions.data());
+    glUniform4fv(shader.uniform("probe_point_colour"),8,colours.data());
+    if (m_lighting) {
+        m_lighting->bind(shader, Layer::Terrain, true, &camera, false);
+    }
+    bind_sun_shadow(shader, camera);
+}
+
 void LevelScene::bind_sun_shadow(const renderer::Shader& shader, const renderer::Camera& camera)
     const {
     if (!enhanced_rendering_available()) {

@@ -190,6 +190,7 @@ std::vector<std::uint8_t> direct_packets(
     const std::uint8_t* strip_xyz = nullptr;
     std::uint32_t strip_count = 0;
     bool strip_tag = false;
+    std::uint32_t surface = 0;
     // The images sent through the DIRECT data (BITBLTBUF, TRXREG, then IMAGE data), latest per
     // destination block: a strip takes the ones at its TEX0's blocks.
     std::uint64_t reg_bitbltbuf = 0, reg_trxreg = 0;
@@ -246,6 +247,11 @@ std::vector<std::uint8_t> direct_packets(
                     std::memcpy(&value, d + p, 8);
                     std::memcpy(&address, d + p + 8, 8);
                     switch (address & 0xFF) {
+                        case 0x7F:
+                            if ((value >> 48) == 0x5754) {
+                                surface = static_cast<std::uint32_t>(value);
+                            }
+                            break;
                         case 0x50:
                             reg_bitbltbuf = value;
                             break;
@@ -386,6 +392,7 @@ std::vector<std::uint8_t> direct_packets(
                 strip.tex1 = reg_tex1;
                 strip.clamp = reg_clamp;
                 strip.alpha = reg_alpha;
+                strip.surface = surface;
                 if (uploads != nullptr) {
                     const std::uint32_t tbp = static_cast<std::uint32_t>(reg_tex0 & 0x3FFF);
                     const std::uint32_t cbp = static_cast<std::uint32_t>((reg_tex0 >> 37) & 0x3FFF);
@@ -890,6 +897,7 @@ TickMobys pose_mobys(
     };
 
     std::vector<PoseJob> pose_jobs;
+    std::array<std::optional<renderer::Vec3>, 2> water_hands{};
     // Mobys the game drew into a texture, and the ones it drew that are not in its list. The game
     // renders some mobys into a target the 2D layer then copies onto the screen: the vendor's item
     // and salesman screens (ReRAC interaction.md 9.3), the page menus' widgets (the 3D Ratchet and
@@ -1152,6 +1160,28 @@ TickMobys pose_mobys(
                 );
             }
         }
+        if (animate && instance.hero_shadow_anchor && g->game == "rac1-ntsc" && g->loaded == 1
+            && enhanced_graphics_available() && settings::get().enhanced_graphics) {
+            const auto pose = scene::moby_pose_matrices(ram, m.address);
+            // Ratchet's two palm roots, identified by their finger children in the
+            // extracted class-0 skeleton; joint 56 also carries the wrench attachment.
+            constexpr std::array<unsigned, 2> palms{56, 76};
+            for (unsigned hand = 0; hand < palms.size(); ++hand) {
+                if (palms[hand] >= pose.size()) {
+                    continue;
+                }
+                const auto& translation = pose[palms[hand]][3];
+                const auto point = renderer::transform_point(
+                    m.matrix,
+                    {translation[0] / 1024.f, translation[1] / 1024.f, translation[2] / 1024.f}
+                );
+                if (std::all_of(point.begin(), point.end(), [](float value) {
+                        return std::isfinite(value);
+                    })) {
+                    water_hands[hand] = point;
+                }
+            }
+        }
         live.push_back(instance);
         live_addresses.push_back(m.address);
     }
@@ -1201,7 +1231,8 @@ TickMobys pose_mobys(
         std::move(shadows),
         shadow_moby,
         shadow_state,
-        std::move(target_mobys)
+        std::move(target_mobys),
+        water_hands
     };
 }
 
@@ -1267,6 +1298,7 @@ void keep_tick(
     k.shadow_moby = mobys.shadow_moby;
     k.prev_shadow_state = k.shadow_state;
     k.shadow_state = mobys.shadow_state;
+    k.water_hands = mobys.water_hands;
     k.hero_airborne = g->profile->hero_state() != 0
                           ? scene::hero_airborne(ram, OPENRAC_DATA(g->profile->hero_state()))
                           : std::nullopt;
