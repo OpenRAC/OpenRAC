@@ -438,8 +438,10 @@ void toggle_capture(bool after_drawer);
 const char* capture_length_name();
 void step_capture_length(int by);
 
-// Says whether a capture runs or is about to start, so that the overlay is drawn for its badge.
+// Says whether a capture runs or is about to start (or one is due by script), so that the
+// overlay is drawn for its badge; and whether one is counting down to its start.
 bool capture_busy();
+bool capture_pending();
 
 // The status badge's line for the capture ("REC 12 / 30 s"); empty when none runs.
 std::string capture_badge();

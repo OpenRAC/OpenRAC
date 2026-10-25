@@ -7,9 +7,7 @@
 // clipboard, ready to paste. docs/port/PERFORMANCE_CAPTURE.md describes it.
 
 #include <chrono>
-#include <cstdio>
 #include <cstdlib>
-#include <ctime>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -48,6 +46,7 @@ struct Capture {
     bool wait_for_drawer = false;               // and once the drawer is out of the picture
     std::string path;                           // the report's file; empty: one of its own
     bool hid_panel = false;                     // the panel was hidden for the capture
+    bool opened_dump = false;                   // the frame dump beside it is the capture's own
     // OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]: a capture by script.
     std::uint64_t script_frame = 0;
     double script_seconds = 0.0;
@@ -125,9 +124,10 @@ void begin_capture(const Shown& shown, double seconds, std::string path) {
     // The panel costs a frame time of its own: hidden while the capture runs (the badge stays).
     c.hid_panel = s.visible;
     if (s.visible) {
-        s.visible = false;
+        set_visible(false);
     }
     // The frames themselves as well, beside the report, unless a dump is open already.
+    c.opened_dump = false;
     if (!stats::dumping()) {
         std::string error;
         std::filesystem::path frames = c.path;
@@ -135,7 +135,8 @@ void begin_capture(const Shown& shown, double seconds, std::string path) {
         if (c.path.empty()) {
             frames = capture_dir() / "capture_frames.jsonl";  // renamed with the report
         }
-        if (!stats::open_dump(frames.string(), error)) {
+        c.opened_dump = stats::open_dump(frames.string(), error);
+        if (!c.opened_dump) {
             log::warn("performance capture: {}", error);
         }
     }
@@ -236,12 +237,14 @@ perf_capture::Context context(const Shown& shown) {
 
 void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) {
     const std::string report = recorder.report(context(shown));
-    if (stats::dumping()) {
+    if (c.opened_dump) {
         stats::close_dump();
     }
-    std::time_t now = std::time(nullptr);
-    char stamp[32] = {};
-    std::strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", std::localtime(&now));
+    // UTC, which every system's library formats the same way.
+    const std::string stamp = std::format(
+        "{:%Y%m%d-%H%M%S}",
+        std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now())
+    );
     const std::filesystem::path dir = capture_dir();
     const std::filesystem::path path =
         c.path.empty() ? dir / std::format("perf_{}_{}.md", s.game.empty() ? "game" : s.game, stamp)
@@ -250,9 +253,10 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
     std::filesystem::path frames = path;
     frames.replace_extension(".jsonl");
     std::error_code ignored;
-    if (c.path.empty()) {
+    if (c.path.empty() && c.opened_dump) {
         std::filesystem::rename(dir / "capture_frames.jsonl", frames, ignored);
     }
+    c.opened_dump = false;
     bool written = false;
     if (std::ofstream out(path, std::ios::binary); out) {
         out << report;
@@ -273,7 +277,7 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
     s.toast_until = ImGui::GetTime() + 8.0;
     s.message = s.toast;
     if (c.hid_panel) {
-        s.visible = true;
+        set_visible(true);
         c.hid_panel = false;
     }
 }
@@ -314,7 +318,13 @@ void toggle_capture(bool after_drawer) {
 }
 
 bool capture_busy() {
+    // Asked before every picture's overlay, so the script's capture is known from the first one.
+    configure_capture();
     return c.start_at.has_value() || perf_capture::active() || c.scripted;
+}
+
+bool capture_pending() {
+    return c.start_at.has_value();
 }
 
 std::string capture_badge() {

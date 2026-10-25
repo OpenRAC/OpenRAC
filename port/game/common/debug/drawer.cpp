@@ -610,10 +610,13 @@ void drawer(const Shown& shown) {
                 step_capture_length(by);
             }
             if (drawer_row(
-                    capture_busy() ? "Cancel performance recording" : "Record performance"
+                    capture_pending() ? "Cancel performance recording" : "Record performance"
                 )) {
+                const bool starts = !capture_pending();
                 toggle_capture(true);
-                set_drawer(false);
+                if (starts) {
+                    set_drawer(false);
+                }
             }
             if (s.developer && drawer_row("Level select")) {
                 set_drawer(false);

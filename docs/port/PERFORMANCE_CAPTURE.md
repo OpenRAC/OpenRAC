@@ -16,7 +16,7 @@ capture is started.
 
 | Where | How |
 |---|---|
-| Android (the drawer) | Developer tools, "Capture length" (15, 30, 60, 120 s or until stopped), then "Record performance". The drawer shuts and recording starts three seconds later; a red `REC 12 / 30 s` line at the top of the picture counts. Opening the drawer again ends it early. Everything is reachable with a gamepad. |
+| Android (the drawer) | Developer tools, "Capture length" (15, 30, 60, 120 s or until stopped, at most ten minutes), then "Record performance". The drawer shuts and recording starts three seconds later; a red `REC 12 / 30 s` line at the top of the picture counts. Opening the drawer again ends it early. Everything is reachable with a gamepad. |
 | Windows and Linux (the menu bar) | Developer, "Record performance" (Ctrl+F3), and "Recording length". |
 | Any system | Ctrl+F3 starts and stops a capture; the overlay's panel has a "record performance" button. |
 | By script | `OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]` starts one at that window frame, for that many seconds, with the report to `FILE`. With `OPENRAC_PRESS` and `--frames` a scenario runs the same way each time. |

@@ -22,6 +22,8 @@ constexpr int kMaxDepth = 16;
 constexpr std::size_t kWorstFrames = 8;
 // The time line's rows at most: a long capture puts more than a second in a row.
 constexpr double kTimeLineRows = 60.0;
+// A capture run until stopped ends by itself after this long, so its rows stay a few megabytes.
+constexpr double kLongestCapture = 600.0;
 
 template <typename... Args>
 void put(std::string& out, std::format_string<Args...> fmt, Args&&... args) {
@@ -230,7 +232,7 @@ std::string Recorder::verdict() const {
                        + mean_cpu("present") + mean_cpu("overlay");
 
     // The costliest top-level section and, inside `render`, the costliest pass on each side.
-    std::string costliest = game >= 0.0 ? "game tick" : "";
+    std::string costliest = "game tick";
     double costliest_ms = game;
     for (const Series& s : m_series) {
         const double v = s.cpu_sum / static_cast<double>(m_frames.size());
@@ -292,13 +294,11 @@ std::string Recorder::verdict() const {
             frame,
             m_target_ms);
     }
-    if (!costliest.empty()) {
-        put(out, "Costliest on the CPU: {} {:.2f} ms", costliest, costliest_ms);
-        if (!cpu_pass.empty()) {
-            put(out, " (in render: {})", cpu_pass);
-        }
-        put(out, ".");
+    put(out, "Costliest on the CPU: {} {:.2f} ms", costliest, costliest_ms);
+    if (!cpu_pass.empty()) {
+        put(out, " (in render: {})", cpu_pass);
     }
+    put(out, ".");
     if (!gpu_pass.empty()) {
         put(out, " Costliest pass on the GPU: {}.", gpu_pass);
     }
@@ -574,7 +574,8 @@ void read(const stats::Frame& frame, void*) {
     if (s.first_start < 0.0) {
         s.first_start = frame.start_s;
     }
-    if (s.length > 0.0 && frame.start_s - s.first_start >= s.length) {
+    const double length = s.length > 0.0 ? s.length : kLongestCapture;
+    if (frame.start_s - s.first_start >= length) {
         s.finished = std::move(s.running);
         return;
     }

@@ -158,8 +158,11 @@ void flush_dump(bool all) {
     if (s.dump != nullptr) {
         flush_frames(s.dump_next, all, [&s](const Frame& f) { write_frame(s.dump, f); });
     }
-    if (s.reader != nullptr) {
-        flush_frames(s.reader_next, all, [&s](const Frame& f) { s.reader(f, s.reader_user); });
+    // Read once: the reader may be taken away between two frames, never in the middle of one.
+    if (const FrameReader reader = s.reader; reader != nullptr) {
+        flush_frames(s.reader_next, all, [&s, reader](const Frame& f) {
+            reader(f, s.reader_user);
+        });
     }
 }
 

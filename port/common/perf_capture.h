@@ -109,8 +109,9 @@ double percentile(std::vector<float> values, double p);
 
 // ---- The capture ----
 
-// Starts measuring: from the next frame begun, for `seconds` (0: until stop()). False when a
-// capture runs already. The frames are measured whether the overlay is shown or not.
+// Starts measuring: from the next frame begun, for `seconds` (0: until stop(), at most ten
+// minutes). False when a capture runs already. The frames are measured whether the overlay is
+// shown or not.
 bool start(double seconds, double target_ms);
 
 // Ends the capture now; the frames begun until now are still taken as their GPU times come back.
