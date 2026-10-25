@@ -3,7 +3,7 @@
 //
 // The debug overlay's performance capture (debug/overlay.h, common/perf_capture.h): started from
 // the drawer, the Developer menu, Ctrl+F3 or OPENRAC_PERF_CAPTURE, shown in the status badge while
-// it runs, and once it is finished written beside the frames it measured and copied to the
+// it runs, and once it is finished zipped with the frames it measured and copied to the
 // clipboard, ready to paste. docs/port/PERFORMANCE_CAPTURE.md describes it.
 
 #include <chrono>
@@ -13,8 +13,11 @@
 #include <fstream>
 #include <imgui.h>
 #include <iterator>
+#include <memory>
 #include <optional>
+#include <span>
 #include <string>
+#include <vector>
 
 #include <SDL3/SDL.h>
 
@@ -24,11 +27,13 @@
 #include "common/perf_capture.h"
 #include "common/stats.h"
 #include "common/system_info.h"
+#include "common/zip_writer.h"
 #include "debug/overlay.h"
 #include "options_menu.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
 #include "settings.h"
+#include "viewer/third_party.h"
 
 namespace openrac::frontend::debug_overlay {
 
@@ -133,7 +138,7 @@ void begin_capture(const Shown& shown, double seconds, std::string path) {
         std::filesystem::path frames = c.path;
         frames.replace_extension(".jsonl");
         if (c.path.empty()) {
-            frames = capture_dir() / "capture_frames.jsonl";  // renamed with the report
+            frames = capture_dir() / "capture_frames.jsonl";  // zipped with the report
         }
         c.opened_dump = stats::open_dump(frames.string(), error);
         if (!c.opened_dump) {
@@ -235,6 +240,28 @@ perf_capture::Context context(const Shown& shown) {
     return ctx;
 }
 
+// Raw deflate by stb_image_write's compressor (viewer/third_party.h): a zlib stream, whose two-byte
+// header and four-byte checksum zip does not keep.
+std::vector<std::uint8_t> deflate(std::span<const std::uint8_t> data) {
+    int length = 0;
+    const std::unique_ptr<unsigned char, decltype(&std::free)> packed(
+        stbi_zlib_compress(
+            const_cast<unsigned char*>(data.data()), static_cast<int>(data.size()), &length, 8
+        ),
+        &std::free
+    );
+    std::vector<std::uint8_t> raw;
+    if (packed != nullptr && length > 6) {
+        raw.assign(packed.get() + 2, packed.get() + length - 4);
+    }
+    return raw;
+}
+
+std::vector<std::uint8_t> file_bytes(const std::filesystem::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+}
+
 void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) {
     const std::string report = recorder.report(context(shown));
     if (c.opened_dump) {
@@ -246,21 +273,42 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
         std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now())
     );
     const std::filesystem::path dir = capture_dir();
-    const std::filesystem::path path =
-        c.path.empty() ? dir / std::format("perf_{}_{}.md", s.game.empty() ? "game" : s.game, stamp)
-                       : std::filesystem::path(c.path);
-    // The frames were written under a name of their own until the report's was known.
-    std::filesystem::path frames = path;
-    frames.replace_extension(".jsonl");
+    const std::string base = std::format("perf_{}_{}", s.game.empty() ? "game" : s.game, stamp);
+    std::filesystem::path path =
+        c.path.empty() ? dir / (base + ".md") : std::filesystem::path(c.path);
     std::error_code ignored;
-    if (c.path.empty() && c.opened_dump) {
-        std::filesystem::rename(dir / "capture_frames.jsonl", frames, ignored);
+    bool written = false;
+    if (c.path.empty()) {
+        // One zip of the report and its frames, a tenth of their size (a minute of frames is tens
+        // of megabytes as text), to be sent on whole.
+        std::vector<zip_writer::Entry> entries;
+        entries.push_back({base + ".md", std::vector<std::uint8_t>(report.begin(), report.end())});
+        const std::filesystem::path frames = dir / "capture_frames.jsonl";
+        if (c.opened_dump) {
+            entries.push_back({base + ".jsonl", file_bytes(frames)});
+        }
+        std::string error;
+        const std::filesystem::path zip = dir / (base + ".zip");
+        written = zip_writer::write(zip, entries, deflate, error);
+        if (written) {
+            path = zip;
+            if (c.opened_dump) {
+                std::filesystem::remove(frames, ignored);
+            }
+        } else {
+            log::warn("performance capture: {}", error);
+            // The loose files, then.
+            if (c.opened_dump) {
+                std::filesystem::rename(frames, dir / (base + ".jsonl"), ignored);
+            }
+        }
     }
     c.opened_dump = false;
-    bool written = false;
-    if (std::ofstream out(path, std::ios::binary); out) {
-        out << report;
-        written = static_cast<bool>(out);
+    if (!written) {
+        if (std::ofstream out(path, std::ios::binary); out) {
+            out << report;
+            written = static_cast<bool>(out);
+        }
     }
     const bool copied = SDL_SetClipboardText(report.c_str());
     log::info(

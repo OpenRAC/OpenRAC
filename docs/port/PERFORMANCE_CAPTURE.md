@@ -6,8 +6,8 @@ and sums it up into one short text report: the device, the GPU and its
 driver, the settings, the frame times, a verdict, where each frame's time
 went on the CPU and on the GPU, the counters, the time line and the worst
 frames. The report is a few kilobytes of Markdown, made to be pasted into an
-issue or a chat whole; the frames themselves are written beside it as a
-frame dump (`.jsonl`) for a closer look.
+issue or a chat whole; the frames themselves go with it as a frame dump
+(`.jsonl`) for a closer look, the two in one zip.
 
 It works the same on a desktop and on Android. Nothing of it runs until a
 capture is started.
@@ -31,7 +31,10 @@ When it ends, the report is **copied to the clipboard** and saved:
   app (the app's `files/perf`).
 - Desktop: `perf/` in the folder the game runs in.
 
-The file is `perf_<game>_<date>-<time>.md`, the frames `…​.jsonl` beside it.
+The file is `perf_<game>_<date>-<time>.zip`: the report (`.md`) and its frames (`.jsonl`) in
+one archive, deflated to about a tenth (30 s of frames, 19 MB as text, is under 2 MB), nothing
+lost. Send the zip whole. A capture by script (`OPENRAC_PERF_CAPTURE` with a file) writes the
+report there and the frames beside it, unzipped.
 
 A scenario worth recording is short and repeatable: one place of one level
 (standing at the start of Kerwan, running through the first area of Orxon, a

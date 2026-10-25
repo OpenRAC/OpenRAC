@@ -80,6 +80,7 @@ add_library(openrac_common STATIC
   common/ps2_float.cpp
   common/stats.cpp
   common/system_info.cpp
+  common/zip_writer.cpp
   "${OPENRAC_BUILD_INFO}"
 )
 add_dependencies(openrac_common openrac_build_info)
@@ -101,6 +102,7 @@ openrac_add_test(joining_thread LIBS openrac_common Threads::Threads)
 openrac_add_test(env LIBS openrac_common)
 openrac_add_test(stats LIBS openrac_common)
 openrac_add_test(perf_capture LIBS openrac_common)
+openrac_add_test(zip_writer LIBS openrac_common)
 openrac_add_test(result INCLUDES .)
 openrac_add_test(c_boundary LIBS openrac_common)
 openrac_add_test(frame_pacing INCLUDES .)
