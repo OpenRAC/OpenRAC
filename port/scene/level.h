@@ -72,6 +72,9 @@ struct Primitive {
     int shell = -1;  // a sky's: the game's shell number (its node Sky_N), for the shell's matrix
     int terrain_fragment = -1;
     std::uint16_t occlusion = Pvs::always;
+    // Whether any of its vertices is a glow packet's (light slot -2, mesh.vert): only those can be
+    // drawn by the mobys' glow pass, which leaves the others out (LevelScene::upload sets it).
+    bool glow_vertices = true;
 };
 
 struct Model {

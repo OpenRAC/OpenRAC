@@ -62,6 +62,7 @@ before and after, and how its frames are shown to be the same.
 | `vk-persistent-descriptors` | on | none (exact) | On the path without bindless materials, a descriptor set binding only textures, samplers and the frame's ring is kept across frames instead of made each frame ([R-14](#r-14-descriptor-sets-kept-across-frames)). |
 | `vk-last-pipeline` | on | none (exact) | Each program keeps its last graphics pipeline and the whole key it was found by; a draw with the same key takes it back before hashing the key or looking it up ([vk-last-pipeline](#vk-last-pipeline-a-programs-last-pipeline)). |
 | `fsr-motion-batch` | on | none (exact) | Enhanced Vulkan with FSR only: the object-motion pass instances consecutive objects of one geometry and material from one pose buffer instead of one draw per object ([fsr-motion-batch](#fsr-motion-batch-object-motion-in-batches)). |
+| `moby-glow-skip` | on | none (exact) | The mobys' two glow draws leave out the primitives with no glow packet vertex, whose every fragment they would discard ([moby-glow-skip](#moby-glow-skip-glow-draws-without-the-faces-they-discard)). |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
 unknown name kept apart; it runs in the headless preset too) and `render_opt_environment` (the
@@ -1586,3 +1587,18 @@ material run (`scene::MotionSubmission::Batched`). Off, it draws each object on 
 `OPENRAC_FSR_MOTION_BATCH_OFF` before it joined the registry. The synthetic scene does not run
 FSR, so `render_equivalence_vulkan` compares it only as a switch that changes nothing there;
 `fsr3_motion` (enhanced preset) draws the two submissions and compares their motion targets.
+
+## moby-glow-skip: glow draws without the faces they discard
+
+From the performance captures of an Ayn Odin 3. The mobys' glow passes (`kMobyGlow`, drawn
+before and after the translucent ones) draw every primitive of every moby again, and
+`mesh.frag` discards each fragment whose vertex is not a glow packet's (`v_glow != glow_pass`):
+on most models that is all of them, so the passes cost their vertex work and draw calls for
+nothing. `LevelScene::upload` marks each primitive that has at least one glow packet vertex
+(`light_slot < -1.5`, `Primitive::glow_vertices`, kept when its indices run past the level's),
+and `draw_layer` leaves the others out of the glow passes. Off, every primitive is drawn there
+as before.
+
+**Equivalence.** Exact by construction: a primitive left out has no vertex the fragment shader
+would keep in a glow pass, so no fragment, depth or blend write changes. The draw calls and
+triangles of the glow passes fall (`draw_calls`, `triangles` of the `mobys` layer).

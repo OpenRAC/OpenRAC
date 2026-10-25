@@ -278,6 +278,22 @@ bool LevelScene::upload(
         }
     }
     m_models = level.models;
+    // The primitives without a glow packet's vertex, which the mobys' glow pass would draw only to
+    // discard every fragment (mesh.frag: v_glow != glow_pass): left out of it (draw_layer).
+    for (Model& model : m_models) {
+        for (Primitive& p : model.primitives) {
+            if (static_cast<std::size_t>(p.first_index) + p.index_count > level.indices.size()) {
+                continue;  // kept as drawn
+            }
+            p.glow_vertices = std::any_of(
+                level.indices.begin() + p.first_index,
+                level.indices.begin() + p.first_index + p.index_count,
+                [&level](std::uint32_t i) {
+                    return i >= level.vertices.size() || level.vertices[i].light_slot < -1.5f;
+                }
+            );
+        }
+    }
     m_materials = level.materials;
     m_light_sets = level.light_sets;
     renderer::Rgba8Image white(1, 1);
@@ -2615,6 +2631,11 @@ void LevelScene::draw_layer(
             for (const Primitive& p : *primitives) {
                 const bool is_metal = m_materials[static_cast<std::size_t>(p.material)].metal;
                 if (is_metal != metal) {
+                    continue;
+                }
+                // The glow pass draws a glow packet's faces only: the rest would be discarded.
+                if (mobys && pass == kMobyGlow && !p.glow_vertices
+                    && renderer::render_opt::enabled(renderer::render_opt::Opt::MobyGlowSkip)) {
                     continue;
                 }
                 const bool is_cutout = m_materials[static_cast<std::size_t>(p.material)].cutout;
