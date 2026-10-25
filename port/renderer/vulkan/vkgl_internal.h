@@ -962,6 +962,9 @@ struct Context {
     Measures measures;
     SubmissionCounters submission, reported_submission;
     SubmissionCounters published;  // The render counters as the last frame's gauges left them.
+    // This frame's pass ends and full-screen copies by section ("vk_pass_end copy in hud"), while
+    // measuring; kept at 0 between frames so that each frame shows each one.
+    std::unordered_map<std::string, double> where;
     // The frames_presented at which begin_pipeline_warmup's warm-up ends; never, until it is called.
     std::uint64_t warmup_end = UINT64_MAX;
     SDL_Window* window = nullptr;
@@ -1102,6 +1105,9 @@ inline void count_barrier(VkPipelineStageFlags source, VkPipelineStageFlags dest
     }
 }
 
+// Counts `event` in the section open now, as a gauge of this frame (published by present).
+void count_where(std::string_view event);
+
 // Counts one copy, blit or resolve into a region `width` by `height` texels: a full-screen copy
 // as well when that is the default framebuffer's size or the screen's.
 inline void count_copy(std::uint32_t width, std::uint32_t height) {
@@ -1114,6 +1120,9 @@ inline void count_copy(std::uint32_t width, std::uint32_t height) {
     // The whole picture read and written again, the costliest copy on a tiled GPU.
     if (frame_sized || screen_sized) {
         ++g->submission.fullscreen_copies;
+        if (stats::enabled()) {
+            count_where("vk_fullscreen_copy");
+        }
     }
 }
 
@@ -1184,9 +1193,25 @@ Slice ring_copy(const void* data, VkDeviceSize size);
 // This frame's `upload` command buffer, marked used so that it is submitted.
 VkCommandBuffer upload_cmd();
 
+// What ends a render pass before the frame does: a pass on another target, a copy or upload into
+// an image (cmd_for), a draw that samples an image a pass wrote, a compute dispatch, a memory
+// barrier, a submit (a read-back, the frame's end), the present. Counted by the frame's section
+// while measuring (vk_pass_end gauges), so a capture says which part of the frame splits it: on a
+// tiled GPU each split stores the attachments and the next pass loads them again.
+enum class PassEnd : std::uint8_t {
+    Target,
+    Copy,
+    Sample,
+    Compute,
+    Barrier,
+    Submit,
+    Present,
+    Other
+};
+
 // Flushes the merged draws and ends the rendering pass `main` is in, if any, forgetting the
-// bound pipeline.
-void end_rendering();
+// bound pipeline; `why` is counted when a pass was open.
+void end_rendering(PassEnd why = PassEnd::Other);
 
 // The command buffer for an operation on `image`, outside any drawing: `upload` while this
 // recording has not used it in `main` (it then runs before everything `main` does), else `main`.

@@ -233,6 +233,14 @@ void set_enabled(Client client, bool on) {
     g_enabled = enabled;
 }
 
+std::string open_section() {
+    const State& s = state();
+    if (!g_enabled || s.open == nullptr || s.stack.empty()) {
+        return {};
+    }
+    return s.open->sections[static_cast<std::size_t>(s.stack.back().index)].name;
+}
+
 void Scope::begin(std::string_view name, unsigned flags) {
     State& s = state();
     if (s.open == nullptr) {

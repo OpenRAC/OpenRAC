@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <format>
 #include <functional>
 #include <utility>
 #include <volk.h>
@@ -423,7 +424,7 @@ void end_deferred(const Target& t) {
 }
 
 void begin_rendering(const Target& t, const Clear& clear) {
-    end_rendering();
+    end_rendering(PassEnd::Target);
 
     // The operations chosen at the pass's end, or as it begins (the reference path).
     if (!render_opt::enabled(render_opt::Opt::AttachmentDiscard) || !begin_deferred(t, clear)) {
@@ -536,9 +537,27 @@ VkCommandBuffer upload_cmd() {
     return frame().upload;
 }
 
-void end_rendering() {
+void count_where(std::string_view event) {
+    std::string section = stats::open_section();
+    g->where[std::format("{} in {}", event, section.empty() ? "frame" : section)] += 1.0;
+}
+
+void end_rendering(PassEnd why) {
     gpu_flush_draws();
     if (g->rendering) {
+        if (stats::enabled()) {
+            constexpr std::array<std::string_view, 8> kWhy = {
+                "vk_pass_end target",
+                "vk_pass_end copy",
+                "vk_pass_end sample",
+                "vk_pass_end compute",
+                "vk_pass_end barrier",
+                "vk_pass_end submit",
+                "vk_pass_end present",
+                "vk_pass_end other",
+            };
+            count_where(kWhy[static_cast<std::size_t>(why)]);
+        }
         // Not rendering from here on: the poison of a deferred pass's end records outside it.
         g->rendering = false;
         g->bound_pipeline = VK_NULL_HANDLE;
@@ -560,7 +579,7 @@ VkCommandBuffer cmd_for(Image* image, bool force_main) {
     if (!force_main && image != nullptr && image->touched != g->recording) {
         return upload_cmd();
     }
-    end_rendering();
+    end_rendering(PassEnd::Copy);
     if (image != nullptr) {
         image->touched = g->recording;
     }
@@ -748,7 +767,7 @@ void timing_results(Frame& f) {
 }
 
 void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommandBuffer present) {
-    end_rendering();
+    end_rendering(PassEnd::Submit);
     Frame& f = frame();
     gpu_record();
     const bool tight = render_opt::enabled(render_opt::Opt::VkTightSync);

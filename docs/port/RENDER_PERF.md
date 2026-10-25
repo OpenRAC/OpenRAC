@@ -107,6 +107,8 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_submits` | frame | `vkQueueSubmit`: one per frame, and one per read-back (`glReadPixels`, `glFinish`) | `vkgl_commands.cpp` | R-08 |
 | `vk_frames_presented` | total | Frames ended by `present()` | `vkgl_present.cpp` | |
 | `vk_fullscreen_copies` | frame | Copies, blits and resolves whose destination is the default framebuffer's size or the screen's | each copy | R-07 |
+| `vk_pass_end <why> in <section>` | frame | Render passes ended before the frame's end, by what ended them (`target`, `copy`, `sample`, `compute`, `barrier`, `submit`, `present`, `other`: `PassEnd`) and the stats section open then; on a tiled GPU each one stores the attachments and the next pass loads them | `end_rendering` and its callers | R-06 |
+| `vk_fullscreen_copy in <section>` | frame | The full-screen copies above, by the section open then | `count_copy` | R-07 |
 | `vk_ring_bytes` | frame | Bytes taken from the frame's upload ring (vertices, indices, uniforms, texels); the older `vk_ring_kb` is the same in KiB | `vkgl_commands.cpp` | R-05, R-15 |
 | `vk_texture_creations` | frame | Images made: textures, render targets, the default framebuffer, mip chains made again | `vkgl_resources.cpp` | R-13 |
 | `vk_texture_upload_bytes` | frame | Texel bytes staged for upload into images | `vkgl_resources.cpp` | R-13 |

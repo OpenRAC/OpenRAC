@@ -326,6 +326,7 @@ void publish_counters() {
     // Nobody is measuring: the next frame that is measured shows only its own part.
     if (!stats::enabled()) {
         g->published = now;
+        g->where.clear();
         return;
     }
 
@@ -334,6 +335,12 @@ void publish_counters() {
     // The counts and bytes, each as its row of the table says.
     for (const Gauge& gauge : kGauges) {
         stats::gauge(gauge.name, gauge_value(gauge, now, before));
+    }
+
+    // Where the frame's passes were split and the whole picture copied (count_where).
+    for (auto& [event, count] : g->where) {
+        stats::gauge(event, count);
+        count = 0.0;
     }
 
     stats::gauge(
@@ -531,7 +538,7 @@ bool present_to_screen() {
     if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR) {
         return false;
     }
-    end_rendering();
+    end_rendering(PassEnd::Present);
     const VkImage screen = g->swapchain_images[index];
     const bool composed = composable();
 

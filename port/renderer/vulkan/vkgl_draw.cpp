@@ -478,7 +478,7 @@ void draw(
             continue;
         }
         if (image->layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-            end_rendering();
+            end_rendering(PassEnd::Sample);
             barrier(frame().main, *image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
         image->touched = g->recording;

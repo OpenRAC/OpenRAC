@@ -124,6 +124,10 @@ void lap(std::string_view name);
 // A value of the frame that is open, by name (the last one given wins).
 void gauge(std::string_view name, double value);
 
+// The innermost section open now, its name ("hud", "ties solid"); empty when none is or nothing is
+// measured. For a backend that says where in the frame a costly event happened.
+std::string open_section();
+
 // ---- Frames ----
 
 enum class FrameKind : std::uint8_t {
