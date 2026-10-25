@@ -75,6 +75,11 @@ struct Primitive {
     // Whether any of its vertices is a glow packet's (light slot -2, mesh.vert): only those can be
     // drawn by the mobys' glow pass, which leaves the others out (LevelScene::upload sets it).
     bool glow_vertices = true;
+    // Of those, its triangles with a glow vertex, in their order, as indices of their own (glow_first,
+    // glow_count; LevelScene::upload): the glow pass's draw, whose other triangles it would discard.
+    // A count of 0 draws the whole primitive there.
+    std::uint32_t glow_first = 0;
+    std::uint32_t glow_count = 0;
 };
 
 struct Model {

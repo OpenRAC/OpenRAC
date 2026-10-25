@@ -360,6 +360,36 @@ bool LevelScene::upload(
         m_models.push_back(std::move(sorted));
     }
 
+    // The glow primitives' triangles with a glow vertex, copied after the rest: a triangle without
+    // one has v_glow 0 at its provoking vertex, whichever that is, so the glow pass discards all of
+    // it (mesh.frag). The kept triangles keep their order, so what the pass draws is unchanged.
+    for (Model& model : m_models) {
+        for (Primitive& p : model.primitives) {
+            const std::size_t end = static_cast<std::size_t>(p.first_index) + p.index_count;
+            if (!p.glow_vertices || p.index_count % 3 != 0 || end > level.indices.size()) {
+                continue;
+            }
+            const auto first = static_cast<std::uint32_t>(indices.size());
+            for (std::size_t t = p.first_index; t < end; t += 3) {
+                const auto triangle = level.indices.begin() + static_cast<std::ptrdiff_t>(t);
+                const bool glows = std::any_of(triangle, triangle + 3, [&level](std::uint32_t i) {
+                    return i >= level.vertices.size() || level.vertices[i].light_slot < -1.5f;
+                });
+                if (glows) {
+                    indices.insert(indices.end(), triangle, triangle + 3);
+                }
+            }
+            const auto count = static_cast<std::uint32_t>(indices.size()) - first;
+            // Every triangle glows: the primitive's own indices serve.
+            if (count == p.index_count) {
+                indices.resize(first);
+                continue;
+            }
+            p.glow_first = first;
+            p.glow_count = count;
+        }
+    }
+
     if (gl::is_vulkan()) {
         m_cpu_indices = indices;
         m_pvs_models.resize(m_models.size());
@@ -2688,14 +2718,23 @@ void LevelScene::draw_layer(
                 if (solid && is_cutout) {
                     continue;
                 }
+                // Only its glowing triangles there, from the level's own index buffer (a
+                // PVS-compacted one holds the whole primitives alone).
+                std::uint32_t first = p.first_index;
+                std::uint32_t count = p.index_count;
+                if (mobys && pass == kMobyGlow && p.glow_count != 0 && !compact_indices
+                    && renderer::render_opt::enabled(renderer::render_opt::Opt::MobyGlowSkip)) {
+                    first = p.glow_first;
+                    count = p.glow_count;
+                }
                 if (run_count != 0 && (p.material == run_material || (state.depth_prepass && solid))
-                    && p.first_index == run_first + run_count) {
-                    run_count += p.index_count;
+                    && first == run_first + run_count) {
+                    run_count += count;
                     continue;
                 }
                 flush();
-                run_first = p.first_index;
-                run_count = p.index_count;
+                run_first = first;
+                run_count = count;
                 run_material = p.material;
             }
             flush();

@@ -766,6 +766,39 @@ int draw(scene::LevelData& level) {
     }
 #endif
 
+    // The mobys' glow pass draws only a primitive's triangles with a glow vertex (moby-glow-skip):
+    // one triangle of the moby given glow vertices of its own adds that one triangle to each of the
+    // pass's two draws, not the whole primitive.
+    {
+        auto glowing = level;
+        const std::uint32_t moby_model =
+            glowing.instances[static_cast<std::size_t>(scene::Layer::Mobys)][0].model;
+        const auto& moby = glowing.models[moby_model];
+        CHECK(!moby.primitives.empty() && moby.primitives[0].index_count >= 6);
+        const std::uint32_t first = moby.primitives[0].first_index;
+        for (std::uint32_t k = 0; k < 3; ++k) {
+            scene::Vertex vertex = glowing.vertices[glowing.indices[first + k]];
+            vertex.light_slot = -2.0f;
+            glowing.indices[first + k] = static_cast<std::uint32_t>(glowing.vertices.size());
+            glowing.vertices.push_back(vertex);
+        }
+        camera.position = {0.0f, 0.0f, 30.0f};
+        input.camera.position = camera.position;
+        input.camera.view = camera.view();
+        std::uint64_t triangles[2]{};
+        std::uint64_t draws[2]{};
+        for (int with_glow = 0; with_glow < 2; ++with_glow) {
+            scene.release();
+            CHECK(scene.upload(with_glow != 0 ? glowing : level, renderer.textures(), error));
+            scene.lighting = false;
+            renderer.render(input, {frame.id(), 128, 128});
+            triangles[with_glow] = renderer.last_stats().triangles;
+            draws[with_glow] = renderer.last_stats().draw_calls;
+        }
+        CHECK(draws[1] == draws[0] + 2);
+        CHECK(triangles[1] == triangles[0] + 2);
+    }
+
     frame.release();
     scene.release();
     renderer.release();
