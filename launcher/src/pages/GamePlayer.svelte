@@ -269,7 +269,8 @@
               >
                 {#if next.job}<span class="spinner"></span>{:else}<Icon name={next.icon} size={22} />{/if}{next.label}
               </button>
-              <Menu items={menu} />
+              <!-- An empty menu is not shown, but keeps its place: the button does not move when it fills. -->
+              {#if menu.length}<Menu items={menu} />{:else}<span class="menu-slot" aria-hidden="true"></span>{/if}
             </div>
             {#if choice}<DiscSwitch {game} {choice} busy={!!next.job} />{/if}
             {#if next.hint && !next.job}<p class="line">{next.hint}</p>{/if}
@@ -543,7 +544,17 @@
     gap: 10px;
   }
 
+  /* The menu's place while it has nothing in it (Menu.svelte's trigger is 44 px). */
+  .menu-slot {
+    flex: none;
+    width: 44px;
+    height: 44px;
+  }
+
   .big {
+    /* Play, Rebuild and Stop are one width: the button keeps its place from one to the next. */
+    min-width: 13.5rem;
+    justify-content: center;
     white-space: nowrap;
     font-size: 1.375rem;
     font-weight: 700;

@@ -124,6 +124,20 @@ describe("Android launcher", () => {
     expect(await strip.evaluate((e) => getComputedStyle(e).zIndex)).toBe("1");
   });
 
+  it("shows no empty menu beside Set up, and keeps the main button in its place after it", async () => {
+    const centre = async () => {
+      const box = await page.locator(".go .big").boundingBox();
+      return Math.round((box?.x ?? 0) + (box?.width ?? 0) / 2);
+    };
+    await open("fresh&version=rac1/pal");
+    await page.locator(".go .big").waitFor();
+    expect(await page.locator(".go-row").getByRole("button", { name: "More actions" }).count()).toBe(0);
+    const setUp = await centre();
+    await open("built&version=rac1/pal");
+    await page.locator(".go .big").waitFor();
+    expect(Math.abs((await centre()) - setUp)).toBeLessThanOrEqual(1);
+  });
+
   it("spins the disc while a game starts", async () => {
     await open("launch&version=rac1/pal");
     await page.locator(".launch .disc").waitFor();
