@@ -114,7 +114,6 @@ pub fn settings() -> Vec<SettingSpec> {
         Choice { value: "performance".into(), name: "Performance".into() },
     ];
     vec![
-        spec("probe_lighting", "Probe lighting", "bool", true.into(), "Light that bounces off the world."),
         spec("enhanced_shadows", "Modern shadows", "bool", true.into(), "Sharp sun shadows, and Ratchet's own."),
         spec("gtao", "Ambient occlusion", "bool", true.into(), "Soft shade in corners and under objects."),
         quality,
@@ -460,13 +459,14 @@ mod tests {
         let home = temp("settings");
         let file = settings_file(&home, "rac1", "pal");
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-        std::fs::write(&file, "msaa = 4\ngtao = 1\n").unwrap();
+        std::fs::write(&file, "msaa = 4\ngtao = 1\nprobe_lighting = 0\n").unwrap();
         let v = view(&home, "rac1", "pal", BakeStatus::default());
         assert!(!v.entry.enabled);
         let value =
             |v: &EnhancedView, key: &str| v.entry.settings.iter().find(|s| s.spec.key == key).unwrap().value.clone();
         assert_eq!(value(&v, "gtao"), Value::Bool(true));
-        assert_eq!(value(&v, "probe_lighting"), Value::Bool(true));
+        assert!(v.entry.settings.iter().all(|s| s.spec.key != "probe_lighting"));
+        assert!(set_setting(&home, "rac1", "pal", "probe_lighting", &Value::Bool(false)).is_err());
         assert_eq!(value(&v, "probe_gi_multiplier"), Value::from(1.0));
         assert_eq!(value(&v, "texture_filter"), Value::from("edge-aware"));
         assert_eq!(value(&v, "temporal_quality"), Value::from("quality"));

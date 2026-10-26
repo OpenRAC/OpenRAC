@@ -16,14 +16,6 @@ export const mockEnhanced: EnhancedView = {
     blocked: "",
     settings: [
       {
-        key: "probe_lighting",
-        name: "Probe lighting",
-        type: "bool",
-        default: true,
-        value: true,
-        description: "Light that bounces off the world.",
-      },
-      {
         key: "enhanced_shadows",
         name: "Modern shadows",
         type: "bool",

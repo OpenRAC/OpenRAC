@@ -100,7 +100,6 @@ struct Settings {
     float rim_lift_max_gain = 7.1f;
     float rim_light_strength = 0.30f;
     float rim_light_falloff = 6.46f;  // Higher values narrow the lit edge.
-    bool probe_lighting = true;     // uses a verified bake when one is loaded
     bool probe_spheres = false;     // diagnostic placement/fade overlay
     bool ceiling_area_lights = false;  // Baked source rectangles and emitting-direction arrows.
     float probe_gi_multiplier = 1.0f;

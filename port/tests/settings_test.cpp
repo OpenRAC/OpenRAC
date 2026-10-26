@@ -192,7 +192,6 @@ int main() {
     CHECK(!settings::get().enhanced_rendering);
     CHECK(settings::get().enhanced_graphics);
     CHECK(settings::get().enhanced_shadows);
-    CHECK(settings::get().probe_lighting);
     CHECK(!settings::get().probe_spheres);
     CHECK(settings::get().rim_shadow_lift);
     CHECK(settings::get().rim_lift_exponent == 0.09f);
@@ -210,14 +209,21 @@ int main() {
     settings::load(file);
     CHECK(settings::get().texture_filter == renderer::TextureFilter::EdgeAware);
     auto& options = settings::get();
-    CHECK(options.enhanced_graphics && options.probe_lighting && options.gtao);
+    CHECK(options.enhanced_graphics && options.gtao);
     CHECK(!options.enhanced_rendering);
     CHECK(options.gtao_settings.quality == renderer::GtaoQuality::Performance);
     CHECK(options.enhanced_shadows);
+    // A legacy disabled probe preference cannot disable required enhanced lighting.
+    std::ofstream(file) << "enhanced_graphics = 1\nprobe_lighting = 0\n";
+    settings::load(file);
+    CHECK(options.enhanced_graphics);
+    settings::save();
+    const std::string migrated{std::istreambuf_iterator<char>(std::ifstream(file).rdbuf()), {}};
+    CHECK(migrated.find("probe_lighting =") == std::string::npos);
+    options.gtao_settings.strength = .7f;
     options.enhanced_rendering = true;
     options.enhanced_graphics = false;
     options.enhanced_shadows = false;
-    options.probe_lighting = false;
     options.probe_spheres = true;
     CHECK(options.probe_normal_bias == 0.5f && options.probe_view_bias == 0.5f);
     options.rim_shadow_lift = false;
@@ -233,7 +239,7 @@ int main() {
     options = settings::Settings{};
     settings::load(file);
     CHECK(options.enhanced_rendering);
-    CHECK(!options.enhanced_graphics && !options.probe_lighting);
+    CHECK(!options.enhanced_graphics);
     CHECK(options.probe_spheres);
     CHECK(!options.enhanced_shadows);
     CHECK(!options.rim_shadow_lift);
@@ -249,7 +255,7 @@ int main() {
     options.enhanced_graphics = true;
     settings::save();
     settings::load(file);
-    CHECK(options.enhanced_graphics && !options.probe_lighting && options.gtao);
+    CHECK(options.enhanced_graphics && options.gtao);
     CHECK(!options.enhanced_shadows);
     CHECK(options.probe_gi_multiplier == 2.5f);
     options.enhanced_shadows = true;

@@ -165,10 +165,7 @@ void enhanced_settings_window() {
     ImGui::PushItemWidth(dp(190));
 
     // Same main choices and order as the launcher's Enhanced graphics page.
-    changed |= ImGui::Checkbox("Probe lighting", &graphics.probe_lighting);
-    ImGui::BeginDisabled(!graphics.probe_lighting);
     changed |= ImGui::Checkbox("Gameplay rim light", &graphics.rim_light);
-    ImGui::EndDisabled();
     changed |= ImGui::Checkbox("Modern shadows", &graphics.enhanced_shadows);
     changed |= ImGui::Checkbox("Ambient occlusion", &graphics.gtao);
     ImGui::BeginDisabled(!graphics.gtao);
@@ -215,7 +212,6 @@ void enhanced_settings_window() {
             ImGuiSliderFlags_AlwaysClamp
         );
         ImGui::EndDisabled();
-        ImGui::BeginDisabled(!graphics.probe_lighting);
         changed |= ImGui::SliderFloat(
             "Bounce light",
             &graphics.probe_gi_multiplier,
@@ -224,9 +220,8 @@ void enhanced_settings_window() {
             "%.2fx",
             ImGuiSliderFlags_AlwaysClamp
         );
-        ImGui::EndDisabled();
         ImGui::SeparatorText("Gameplay rim light");
-        ImGui::BeginDisabled(!graphics.probe_lighting || !graphics.rim_light);
+        ImGui::BeginDisabled(!graphics.rim_light);
         changed |= ImGui::SliderFloat(
             "Rim strength", &graphics.rim_light_strength, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
         );
@@ -291,7 +286,6 @@ void enhanced_settings_window() {
         );
     }
     if (ImGui::CollapsingHeader("Diagnostics")) {
-        ImGui::BeginDisabled(!graphics.probe_lighting);
         changed |= ImGui::Checkbox("Probe spheres", &graphics.probe_spheres);
         changed |= ImGui::Checkbox("Ceiling area lights", &graphics.ceiling_area_lights);
         if (graphics.ceiling_area_lights) {
@@ -319,7 +313,6 @@ void enhanced_settings_window() {
             "%.2f units",
             ImGuiSliderFlags_AlwaysClamp
         );
-        ImGui::EndDisabled();
     }
     if (ImGui::CollapsingHeader("Water simulation")) {
         water_controls();

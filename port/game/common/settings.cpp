@@ -259,7 +259,9 @@ void load(const std::filesystem::path& file) {
         } else if (key == "rim_light_falloff") {
             known = parse_float(value, 1.0f, 8.0f, s.rim_light_falloff);
         } else if (key == "probe_lighting") {
-            known = parse_bool(value, s.probe_lighting);
+            // Legacy preference: probe lighting now follows enhanced graphics.
+            bool ignored = true;
+            known = parse_bool(value, ignored);
         } else if (key == "probe_spheres") {
             known = parse_bool(value, s.probe_spheres);
         } else if (key == "ceiling_area_lights") {
@@ -435,7 +437,6 @@ void save() {
         << "rim_lift_max_gain = " << s.rim_lift_max_gain << "\n"
         << "rim_light_strength = " << s.rim_light_strength << "\n"
         << "rim_light_falloff = " << s.rim_light_falloff << "\n"
-        << "probe_lighting = " << (s.probe_lighting ? 1 : 0) << "\n"
         << "probe_spheres = " << (s.probe_spheres ? 1 : 0) << "\n"
         << "ceiling_area_lights = " << (s.ceiling_area_lights ? 1 : 0) << "\n"
         << "probe_gi_multiplier = " << s.probe_gi_multiplier << "\n"

@@ -50,7 +50,6 @@ needs the game started again.
 | Enhanced graphics (F4) | `enhanced_graphics` | `1` (default), `0` | With enhanced rendering on: the in-game master switch for probe lighting, modern sun/Ratchet shadows, GTAO and FSR. Turning it off restores original lighting/stencil shadows and native rendering without changing individual preferences |
 | FSR temporal upscaling | `temporal_quality` | `off`, `native-aa`, `quality` (default), `balanced`, `performance` | Enhanced Vulkan only, with compatible probe data. Reconstructs the world before the full-resolution HUD; no frame generation. Quality uses a 1.5x display-to-render ratio, Balanced 1.7x and Performance 2x. Native AA uses the existing render resolution. Active FSR replaces MSAA while preserving its saved setting. Requires a build with `OPENRAC_FSR3`; unsupported backends keep native rendering |
 | FSR sharpening | `temporal_sharpness` | `0.0` to `1.0` (default `0.2`) | RCAS sharpening after temporal reconstruction; zero disables sharpening |
-| Probe lighting | `probe_lighting` | `1` (default), `0` | Uses the verified level bake when loaded; toggle in the Enhanced Settings window. Disabling retains the bake for immediate switching back |
 | Probe spheres | `probe_spheres` | `0` (default), `1` | Enhanced Settings window placement overlay: cyan sparse, green dense, gold relocated, magenta invalid. Dense sphere opacity follows the region fade; only the two selected dense regions are shown |
 | Modern shadows | `enhanced_shadows` | `1` (default), `0` | Independently toggles sun cascades and Ratchet's shadow map in the Enhanced Settings window. Off restores original stencil shadows while keeping GI and GTAO preferences |
 | Probe normal bias | `probe_normal_bias` | `0.0` to `2.0` world units (default `0.5`) | Offsets the GI visibility receiver along the camera-facing surface normal; updates immediately |
@@ -461,3 +460,6 @@ Ratchet & Clank's fixes now, all on by default and all for both discs:
 | `fix_wide_liquids` | the draw callback lists and the liquid grid's cull ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: seas, lava and sand are missing near the sides |
 
 At 4:3 none of them changes anything.
+
+Probe lighting is required by enhanced graphics and follows its master switch.
+The legacy `probe_lighting` key is accepted but ignored and is omitted when saving.
