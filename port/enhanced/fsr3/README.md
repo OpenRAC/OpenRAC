@@ -83,3 +83,13 @@ reference is the registry's `fsr-motion-batch` switched off (`OPENRAC_RENDER_OPT
 ## Further reading
 
 [AMD's integration guide](https://gpuopen.com/manuals/fidelityfx_sdk/techniques/super-resolution-upscaler/).
+
+
+The native late packet stream also contains depth-tested world effects, including
+pickup glimmers. After temporal resolve clears the display depth for the HUD,
+`late_world_depth.frag` restores world depth at display resolution before these
+packets run. It samples the current world depth with raster jitter compensated;
+ordinary HUD packets retain their own GS depth-test state. The original
+`before_hud` hook still runs after depth restoration. The `fsr3_frame` fixture
+checks occlusion of a late effect behind a wall, visibility in front and exact
+native HUD coverage across Quality, Performance and Native AA modes.

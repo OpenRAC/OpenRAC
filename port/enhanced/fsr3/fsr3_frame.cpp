@@ -188,6 +188,30 @@ void Fsr3::State::draw_reactive() {
     glBindVertexArray(0);
 }
 
+void Fsr3::State::restore_world_depth() {
+    const stats::Scope timing("FSR late world depth", stats::kGpu);
+    glBindFramebuffer(GL_FRAMEBUFFER, display.framebuffer);
+    glViewport(0, 0, display.width, display.height);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_STENCIL_TEST);
+    glDisable(GL_BLEND);
+    glDisable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+    glDepthMask(GL_TRUE);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glBindVertexArray(vao);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, world.depth_texture());
+    late_world_depth.use();
+    glUniform2f(late_world_depth.uniform("display_size"), float(display.width), float(display.height));
+    glUniform2f(late_world_depth.uniform("jitter"), dispatch.jitter[0], dispatch.jitter[1]);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthFunc(GL_GEQUAL);
+    glBindVertexArray(0);
+}
+
 void Fsr3::State::resolve(renderer::RenderTarget& target) {
     const stats::Scope timing("FSR frame resolve");
     draw_motion();
