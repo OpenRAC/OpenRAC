@@ -88,8 +88,13 @@ pub fn settings() -> Vec<SettingSpec> {
         Choice { value: "performance".into(), name: "Performance".into() },
         Choice { value: "quality".into(), name: "Quality".into() },
     ];
-    let mut shadows = spec("shadow_quality", "Shadow quality", "choice", "high".into(),
-        "Medium uses smaller shadow textures. High keeps the sharpest shadows.");
+    let mut shadows = spec(
+        "shadow_quality",
+        "Shadow quality",
+        "choice",
+        "high".into(),
+        "Medium uses smaller shadow textures. High keeps the sharpest shadows.",
+    );
     shadows.choices = vec![
         Choice { value: "medium".into(), name: "Medium".into() },
         Choice { value: "high".into(), name: "High".into() },
