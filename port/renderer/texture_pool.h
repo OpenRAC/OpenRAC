@@ -118,6 +118,15 @@ public:
     // the glyphs' own opacity (0..1) held up to that edge; made once per content of the source.
     TextureHandle distance_field(TextureHandle source);
 
+    // The distance fields made from scratch so far: a field asked for again soon after it was
+    // dropped is taken from those resting (kRestingFields), not made again.
+    std::size_t fields_made() const { return m_fields_made; }
+
+    // The dropped fields whose texels are kept, the latest: text that comes back after a pause
+    // (a counter shown again) gets its field without the frame's hitch of making it, about 9 ms on
+    // a fast phone and four times that on a slow one. A 256 x 128 page's field is 2 MB.
+    static constexpr std::size_t kRestingFields = 4;
+
     const Rgba8Image& image(TextureHandle texture) const;
     AlphaScale alpha_scale(TextureHandle texture) const;
     const std::string& name(TextureHandle texture) const;
@@ -227,6 +236,15 @@ private:
     // The CLUT an indexed texture reads: the one loaded from its block, else memory's (into `now`).
     // Null when there is none (drawn transparent).
     const Clut* palette_clut(const gs::Tex0& tex0, Clut& now);
+    // Adds a distance field of `source` (whose content hashes to `hash`, sampled as `sample`) and
+    // remembers it by both.
+    TextureHandle add_field(
+        Rgba8Image image,
+        std::string name,
+        std::uint64_t hash,
+        std::uint64_t sample,
+        TextureHandle source
+    );
 
     std::unique_ptr<UpscaledTextureColours> m_upscaled_texture_colours;
 
@@ -243,6 +261,16 @@ private:
     std::unordered_map<std::uint64_t, TextureHandle> m_distance_fields;  // by the source's content
     // The field last given for a handle, with a sample of its texels (distance_field).
     std::unordered_map<TextureHandle, std::pair<std::uint64_t, TextureHandle>> m_field_of_handle;
+
+    // Dropped fields, the oldest first (kRestingFields).
+    struct RestingField {
+        std::uint64_t hash = 0;  // the source's content, as m_distance_fields keys it
+        Rgba8Image image;
+        std::string name;
+    };
+
+    std::vector<RestingField> m_resting_fields;
+    std::size_t m_fields_made = 0;
 };
 
 // A 64-bit hash of the bytes, for the cache keys.

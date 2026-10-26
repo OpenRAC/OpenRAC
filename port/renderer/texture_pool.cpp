@@ -641,6 +641,11 @@ void TexturePool::end_frame() {
             if (auto it = m_distance_fields.find(e.field_hash); it != m_distance_fields.end() && it->second == handle) {
                 m_distance_fields.erase(it);
             }
+            // Its texels rest a while, in case the text comes back (kRestingFields).
+            if (m_resting_fields.size() == kRestingFields) {
+                m_resting_fields.erase(m_resting_fields.begin());
+            }
+            m_resting_fields.push_back({e.field_hash, std::move(e.image), std::move(e.name)});
             std::erase_if(m_field_of_handle, [&](const auto& seen) { return seen.second.second == handle; });
         }
         // The handle goes to the next conversion, and the field found by it (distance_field) with
@@ -777,6 +782,17 @@ TextureHandle TexturePool::distance_field(TextureHandle source) {
         m_entries[it->second - 1].last_used = m_frame;
         return it->second;
     }
+    // Dropped a little while ago: its texels are kept.
+    const auto resting = std::find_if(
+        m_resting_fields.begin(), m_resting_fields.end(), [hash](const RestingField& field) {
+            return field.hash == hash;
+        }
+    );
+    if (resting != m_resting_fields.end()) {
+        RestingField field = std::move(*resting);
+        m_resting_fields.erase(resting);
+        return add_field(std::move(field.image), std::move(field.name), hash, sample, source);
+    }
     // Timed apart in a capture: the HUD's frame that makes one is a hitch.
     const stats::Scope timing("distance field");
     constexpr int kScale = 4;
@@ -865,7 +881,18 @@ TextureHandle TexturePool::distance_field(TextureHandle source) {
                 static_cast<std::uint8_t>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
         }
     });
-    const TextureHandle handle = add(std::move(out), AlphaScale::Full, name(source) + " (distance field)");
+    ++m_fields_made;
+    return add_field(std::move(out), name(source) + " (distance field)", hash, sample, source);
+}
+
+TextureHandle TexturePool::add_field(
+    Rgba8Image image,
+    std::string name,
+    std::uint64_t hash,
+    std::uint64_t sample,
+    TextureHandle source
+) {
+    const TextureHandle handle = add(std::move(image), AlphaScale::Full, std::move(name));
     m_entries[handle - 1].field = true;
     m_entries[handle - 1].field_hash = hash;
     m_distance_fields.emplace(hash, handle);
