@@ -12,7 +12,7 @@
 // AFAIL RGB_ONLY): renderer/world/gs_pass.h draws a batch once or twice and
 // tells this shader which half it is.
 
-in vec2 v_uv;
+centroid in vec2 v_uv;
 noperspective in vec4 v_colour;
 noperspective in float v_fog;
 in float v_depth;

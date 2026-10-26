@@ -9,7 +9,7 @@
 // the GS mip rule, the instance's fog), drawn once or as the alpha-test
 // split of TEST_1 0x5360b (inherited by the main tie list).
 
-in vec2 v_uv;
+centroid in vec2 v_uv;
 noperspective in vec4 v_colour;
 flat in float v_fog;
 in float v_depth;

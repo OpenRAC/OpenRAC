@@ -11,7 +11,7 @@ layout(location = 2) in vec4 colour;  // normalised bytes
 
 uniform mat4 view_projection;
 
-out vec3 v_stq;
+centroid out vec3 v_stq;  // at the centroid, as world/tfrag.vert says why
 out vec4 v_colour;  // the chip's units: 0..255, 0x80 = 1.0 when modulating
 out float v_fog;
 
