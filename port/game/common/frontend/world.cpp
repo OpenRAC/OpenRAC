@@ -229,22 +229,6 @@ void use_level(int number) {
 void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& quad) {
     renderer::EffectQuad q;
     std::memcpy(q.corner, quad.corner, sizeof(q.corner));
-    // The corners are the game's (x, y, z, w), which it projects whole: one whose w is not 1 is
-    // (x, y, z) / w, and one at w 0 or below is at or past infinity, where the console shows
-    // nothing. Drawn at (x, y, z), the zapper bots' ground glow on Oltanis, whose corners keep
-    // their table's w through vmulx.xyz and vadd.xyz, lay as a lit square on the floor under them.
-    for (float (&corner)[4] : q.corner) {
-        if (corner[3] == 1.0f) {
-            continue;
-        }
-        if (!(corner[3] > 0.0f)) {
-            return;
-        }
-        for (int i = 0; i < 3; ++i) {
-            corner[i] /= corner[3];
-        }
-        corner[3] = 1.0f;
-    }
     std::memcpy(q.rgba, quad.rgba, sizeof(q.rgba));
     std::memcpy(q.st, quad.st, sizeof(q.st));
     q.clamp = quad.clamp;
