@@ -1,144 +1,85 @@
 # Diagnostics recordings
 
-A diagnostics recording (in the code and these pages, a performance capture: it began as one,
-and now carries debug data as well) records a stretch of play, measured as the F3 overlay
-measures it ([DEBUGGING.md](DEBUGGING.md), [RENDER_PERF.md](RENDER_PERF.md)),
-and sums it up into one short text report: the device, the GPU and its
-driver, the settings, the frame times, a verdict, where each frame's time
-went on the CPU and on the GPU, the counters, the time line and the worst
-frames. The report is a few kilobytes of Markdown, made to be pasted into an
-issue or a chat whole; the frames themselves go with it as a frame dump
-(`.jsonl`) for a closer look, the two in one zip.
+A diagnostics recording measures a short stretch of play. It produces a small report
+that says where each frame's time goes. Attach it to a bug report or paste it into a
+chat. In the code it is called a *performance capture*.
 
-It works the same on a desktop and on Android. Nothing of it runs until a
-capture is started.
+It works the same on desktop and Android. Nothing runs until you start one.
 
-## Recording one
+## How to record
 
 | Where | How |
 |---|---|
-| Android (the drawer) | Developer tools, "Recording length" (15, 30, 60, 120 s or until stopped, at most ten minutes), then "Record diagnostics". The drawer shuts and recording starts three seconds later; a red `REC 12 / 30 s` line at the top of the picture counts. Opening the drawer again ends it early. Everything is reachable with a gamepad. |
-| Windows and Linux (the menu bar) | Developer, "Record diagnostics" (Ctrl+F3), and "Recording length". |
-| Any system | Ctrl+F3 starts and stops a capture; the overlay's panel has a "record diagnostics" button. |
-| By script | `OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]` starts one at that window frame, for that many seconds, with the report to `FILE`. With `OPENRAC_PRESS` and `--frames` a scenario runs the same way each time. |
+| Android | Drawer > Developer tools: pick a **Recording length**, then **Record diagnostics**. Recording starts 3 s after the drawer closes. Opening the drawer stops it. |
+| Desktop | Developer menu > **Record diagnostics**, or **Ctrl+F3** to start and stop. |
+| Script | `OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]` starts one at that frame. Combine it with `OPENRAC_PRESS` and `--frames` to get repeatable runs. |
 
-While it records, the overlay's panel is hidden (it costs frame time of its
-own) and comes back afterwards. Paused frames and the game's own full-screen
-pictures (movies) are left out of the numbers.
+While it records, a red `REC` line shows at the top and the debug panel is hidden.
+Paused frames and movies are not counted.
 
-When it ends, the report is **copied to the clipboard** and saved:
+When it finishes, the report is **copied to the clipboard** and saved as
+`perf_<game>_<date>-<time>.zip`, which holds the report (`.md`) and every frame (`.jsonl`).
+Send the whole zip.
 
-- Android: the "Diagnostics recordings" folder of OpenRAC in the system's Files
-  app (the app's `files/perf`).
-- Desktop: `perf/` in the folder the game runs in.
+- Android: the **Diagnostics recordings** folder in the Files app.
+- Desktop: `perf/` next to the game.
 
-The file is `perf_<game>_<date>-<time>.zip`: the report (`.md`) and its frames (`.jsonl`) in
-one archive, deflated to about a tenth (30 s of frames, 19 MB as text, is under 2 MB), nothing
-lost. Send the zip whole. A capture by script (`OPENRAC_PERF_CAPTURE` with a file) writes the
-report there and the frames beside it, unzipped.
+**Tips:** keep it short and repeatable. Stay in one place in one level, keep the same
+settings and record for 30 s. Record the same scene before and after a change.
 
-A scenario worth recording is short and repeatable: one place of one level
-(standing at the start of Kerwan, running through the first area of Orxon, a
-fight), the same settings, 30 seconds. Record the same scenario before and
-after a change, and on each device.
+### Simulating a slower device
 
-### A weaker device, simulated
+**Simulate slow CPU** (2x, 4x, 6x), in the same menus, makes the game's threads that many
+times slower. The GPU is not slowed. It gives a rough idea, not an exact match for a real
+weak phone. Works on Linux, Android and macOS.
 
-"Simulate slow CPU" (the drawer's Developer tools, or the Developer menu on
-Windows and Linux) makes the processor 2, 4 or 6 times slower: the window
-thread and the render thread each spin for that many times the processor
-time they used, less one, where that work ends (`common/slow_cpu.h`, the
-section `simulated slow cpu`): the render thread after each frame, the
-window thread before each wait for the render thread, so that the game's
-slowed tick overlaps the drawing as on a slower device. The frame pacing, the ticks catching up and a capture
-then behave as on a device that much slower; a capture says the factor in
-its `simulated slow cpu` line. Every part slows alike, the GPU not at all,
-and a weak phone's caches and memory are slower still: a guide, not a
-measurement of one. It needs a thread's processor time (Linux, Android,
-macOS) and is off when the game starts.
+## What the report contains
 
-## What the report holds
-
-- **The run**: build and commit, the system and device, the processor and its
-  clocks at the start and the end (a phone that runs below its top clock at
-  the end is throttling), Android's thermal state and headroom, the graphics
-  API, GPU, driver version and whether GPU timers exist, the window and
-  frame buffer sizes, the pacing and the picture's settings.
-- **Verdict**: whether the frame keeps its target (the game's tick, 20 ms in
-  PAL, or the display's interval when frames are drawn between ticks); if not,
-  whether the GPU or the CPU holds it up, and the costliest part on each;
-  then how much slower a device's processor and GPU may be and still keep
-  60 fps (16.7 ms over the 90th percentile of each side's work, below).
-- **Frame times**: average, median, 90th and 99th percentile and worst of the
-  frame, the game's code and the GPU; and each side's work without its waits:
-  the window thread's (the frame less the waits for the next tick, the render
-  thread, a swapchain image and the queue's present) and the render
-  thread's (`render`, with the Vulkan renderer). Above the display's refresh
-  much of a frame is waiting; a weaker device has only the work, so these and
-  the GPU time are what carry over to it.
-- **Sections**: every timed part of the frame in its tree, CPU time per
-  frame with its 95th percentile and worst, GPU time, draw calls and
+- **Setup**: build, device, CPU and its clock speeds, thermal state (Android), GPU and
+  driver, window size and settings.
+- **Verdict**: whether frames hit their target and, if not, whether the CPU or the GPU is
+  the bottleneck. It also says how much slower a CPU and GPU could be and still run at
+  60 fps.
+- **Frame times**: average, median, 90th and 99th percentile and worst, for the frame, the
+  game code and the GPU. It also shows the *work* of each thread, without time spent
+  waiting. On a weaker device only the work counts.
+- **Sections**: every timed part of the frame, with CPU time, GPU time, draw calls and
   triangles.
-- **Counters and gauges**: draw calls, triangles, texture and buffer uploads,
-  program and framebuffer binds; the gauges the renderers publish (mobys,
-  the Vulkan backend's `vk_*`), each as average and maximum.
-- **Time line**: one row a second (more in a long capture): frames a second,
-  the average and worst frame, the game's time, the GPU's. A falling frame
-  rate with steady work is heat.
-- **Worst frames**: the eight longest, each with its three costliest
-  sections and its uploads.
-- **Hot functions** (Android and Linux): the window thread's and the render
-  thread's thirty costliest functions by the time spent in each itself,
-  from a sample once a millisecond of the thread's own processor time
-  (`common/sampler.h`). This is where the game's own code (its translated
-  functions, `func_...`) shows what it costs, which no section says. Named
-  from the libraries' symbol tables: on Android every function the game
-  exports; a desktop executable exports none, so there it names only the
-  libraries. A function without a symbol (libc's memcpy, a static
-  function) is also listed by the function it returns to, on aarch64,
-  which says whose work it is. The simulated slow processor's spin is
-  left out, so a slowed capture lists the same work.
+- **Counters and gauges**: draws, uploads, binds and renderer stats.
+- **Timeline**: one row per second. A frame rate that drops while the work stays the same
+  means the device is overheating.
+- **Worst frames**: the 8 slowest frames and what they spent time on.
+- **Hot functions** (Linux and Android): the 30 functions each thread spends the most time
+  in, found by sampling.
 
-The code is [common/perf_capture.h](../../port/common/perf_capture.h) (the
-summary, no window or GPU, tested by `perf_capture`) and
-[game/common/debug/capture.cpp](../../port/game/common/debug/capture.cpp)
-(starting, the badge, the device's details, the files and the clipboard).
-The capture is a reader of stats' closed frames (`stats::set_reader`), which
-get them in order once their GPU times are back, as the frame dump does.
+## What is measured, and where
 
-## What is measured where, and what it costs
-
-| Source | Desktop | Android |
+| | Desktop | Android |
 |---|---|---|
-| CPU sections (`stats::Scope`, steady clock) | yes | yes |
-| GPU time on OpenGL: `GL_TIME_ELAPSED` queries, read a few frames late | core since 3.3 | `GL_EXT_disjoint_timer_query`: Adreno yes; Mali on most current drivers |
-| GPU time on Vulkan: `vkCmdWriteTimestamp`, per pass and for the whole frame | where the queue has `timestampValidBits` | the same (Adreno, Mali, Turnip) |
-| Counters (draws, triangles, uploads, binds; `vk_*`) | always counted | always counted |
-| Processor clocks | Linux (`/sys/devices/system/cpu`) | where the kernel lets apps read them |
-| Thermal state and headroom | no | Android 11 and 12 on (`AThermal_*`) |
+| CPU time per section | yes | yes |
+| GPU time (OpenGL) | yes | Adreno, most Mali |
+| GPU time (Vulkan) | yes | yes |
+| Counters | yes | yes |
+| CPU clock speeds | Linux | if the system allows it |
+| Thermal state | no | Android 11+ |
 
-Measuring costs a few `steady_clock` reads and one GPU query pair per timed
-pass: well under a millisecond a frame on a phone. Timer queries on tiled
-GPUs (Adreno, Mali) can split a render pass where one ends, so a pass's GPU
-time is a good guide to its share and a slight overestimate of its cost; the
-frame times and the verdict are measured from the CPU side and are not.
-On Vulkan the frame's GPU time is not the passes' sum: a timestamp pair outside every render pass
-spans the frame's command buffers, from the uploads to the last pass (on a tiled GPU, timestamps
-inside a render pass may be written per bin and come out near zero). OpenGL sums its passes.
+Measuring costs well under 1 ms per frame. On phone GPUs (Adreno, Mali) the per-pass GPU
+times are a little high. The whole-frame times and the verdict are accurate.
 
-The game's `scene` section, the reading of what the frame draws from the game's state, is split
-into `game state`, `moby poses`, `lights`, `tick kept`, `2d path` and `effects read`, so that a
-capture says which part of it to make cheaper.
+## Going deeper
 
-## Other profilers, for a closer look
+The report tells you *which* part is slow. To look inside it:
 
-The capture says which part is slow. To see inside one part:
+- **Android GPU Inspector**, **Perfetto**, **Snapdragon Profiler** (Adreno),
+  **Arm Performance Studio** (Mali)
+- **RenderDoc** for a single frame. A build with `OPENRAC_GPU_MARKERS=ON` labels the passes
+  ([DEBUGGING.md](DEBUGGING.md)).
 
-- **Android GPU Inspector** and **Perfetto** (system traces: threads, CPU
-  clocks, the GPU's counters on Adreno and Mali), **Snapdragon Profiler**
-  (Adreno), **Arm Performance Studio / Streamline** (Mali).
-- **RenderDoc** (one frame, every call; desktop and Android, OpenGL ES and
-  Vulkan) and the Vulkan labels of an `OPENRAC_GPU_MARKERS=ON` build in AMD
-  RGP and others ([DEBUGGING.md](DEBUGGING.md)).
-- **Tracy** would take the same `stats::Scope` sections if the port ever
-  needs a live timeline; it is not part of the build.
+## Code
+
+- [common/perf_capture.h](../../port/common/perf_capture.h): builds the report (tested by
+  `perf_capture`).
+- [game/common/debug/capture.cpp](../../port/game/common/debug/capture.cpp): starting,
+  saving and copying.
+- [common/sampler.h](../../port/common/sampler.h): hot functions.
+- [common/slow_cpu.h](../../port/common/slow_cpu.h): slow CPU simulation.
