@@ -38,7 +38,7 @@ layout(location = 5) in uint a_instance;  // per instance
 uniform usamplerBuffer tex_T1;  // instance records
 uniform usamplerBuffer tex_T2;  // per-frame records
 
-centroid out vec2 v_uv;  // at the centroid (tfrag.vert)
+out vec2 v_uv;
 noperspective out vec4 v_colour;
 flat out float v_fog;
 out float v_depth;

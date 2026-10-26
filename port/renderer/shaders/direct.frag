@@ -6,7 +6,7 @@
 // units (colour bytes 0..255, 0x80 = 1.0 when modulating; alpha 0x80 opaque).
 // Blending and the depth test are GL's fixed-function state.
 
-centroid in vec3 v_stq;
+in vec3 v_stq;
 in vec4 v_colour;
 in float v_fog;
 

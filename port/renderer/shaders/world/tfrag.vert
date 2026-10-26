@@ -33,12 +33,7 @@
 // the morph blends, as VU1 reads the relit RGBA block.
 //
 // The colour and F are interpolated in screen space like the GS (IIP = 1
-// Gouraud: noperspective), ST perspective-correctly (divided by Q). ST is
-// taken at the centroid: with anti-aliasing a pixel on a triangle's edge is
-// shaded at its centre, which can lie outside the triangle, and the ST there
-// runs past the texture's edge (a repeated texture's other side, a
-// transparent texel), a line along the seam between two triangles. The GS
-// draws one sample a pixel, inside the triangle.
+// Gouraud: noperspective), ST perspective-correctly (divided by Q).
 
 layout(location = 0) in uvec2 a_ref;  // vertex info, tfrag | list << 16 | TEX1 K (s12) << 18
 
@@ -51,7 +46,7 @@ uniform vec4 u_k668;
 uniform vec4 u_k669;
 uniform float u_w_slope;  // VU w per integer unit of depth
 
-centroid out vec2 v_uv;
+out vec2 v_uv;
 noperspective out vec4 v_colour;  // bytes, 0x80 = 1.0
 noperspective out float v_fog;
 out float v_depth;            // integer units, perspective-correct (= n / Q per pixel)
