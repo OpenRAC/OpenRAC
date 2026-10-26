@@ -108,6 +108,10 @@ void menu_bar() {
         if (ImGui::MenuItem("Debug overlay", "F3", s.visible)) {
             press(SDLK_F3);
         }
+        bool picker = picker_enabled();
+        if (ImGui::MenuItem("Moby picker", nullptr, &picker)) {
+            set_picker_enabled(picker);
+        }
         ImGui::Separator();
         if (ImGui::MenuItem("Pause", "F5", s.paused)) {
             press(SDLK_F5);

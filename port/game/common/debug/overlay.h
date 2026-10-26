@@ -178,7 +178,9 @@ struct State {
     bool labels = false;         // the mobys' classes written in the picture
     bool near_hero = true;       // the list holds only the mobys within `radius` of the hero
     float radius = 30.0f;        // in the game's units
-    bool pick = false;           // a click in the game's picture selects the nearest moby
+    scene::PickResult picker_result;
+    double picker_export_at = -1;
+    std::string picker_error;
 
     // Memory.
     bool memory_viewer = false;               // the memory viewer window is open
@@ -460,9 +462,10 @@ void capture_frame(const Shown& shown);
 // ---- What is drawn over the game's picture ----
 
 // Draws the marks over the game's picture (`shown`): a ring round the selected moby and the
-// mobys' labels (s.labels, within s.radius of the hero); with s.pick, a click near a moby selects
-// it and opens the inspector. Defined in debug/picture.cpp.
+// mobys' labels (s.labels, within s.radius of the hero). The click picker and bottom
+// details are separate in debug/picker.cpp.
 void picture_marks(const Shown& shown);
+void picker_overlay(const Shown& shown);
 
 // Draws the status badge at the top of the picture, whether the panel is shown or not: the pause
 // and the speed the keys have set, the toast while it lasts and the notice. Hidden while the

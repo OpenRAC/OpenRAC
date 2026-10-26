@@ -234,6 +234,7 @@ endif()
 add_library(openrac_scene STATIC
   scene/hero_shadow.cpp
   scene/level.cpp
+  scene/object_picker.cpp
   scene/moby_pose.cpp
   scene/moby_shadow.cpp
   scene/screenshot.cpp
@@ -398,6 +399,8 @@ endif()
 
 openrac_add_test(probe_scene SOURCES enhanced/tests/probe_scene_test.cpp
                 enhanced/tools/probes/report.cpp LIBS openrac_probe_scene)
+
+openrac_add_test(object_picker SOURCES tests/object_picker_test.cpp LIBS openrac_scene)
 
 add_executable(hero_shadow_test tests/hero_shadow_test.cpp)
 target_link_libraries(hero_shadow_test PRIVATE openrac_viewer_lib openrac_platform)

@@ -9,6 +9,7 @@
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "scene/moby_pose.h"
+#include "debug_overlay.h"
 
 namespace openrac::frontend {
 namespace {
@@ -178,6 +179,12 @@ void upload_instances(SceneFrame& frame) {
     }
 
     frame.owner.scene.set_instances(scene::Layer::Mobys, live);
+    if (debug_overlay::picker_enabled()) {
+        frame.output.picker_live = live;
+        frame.output.picker_palette = palette;
+        frame.output.picker_level = frame.scene.level;
+        frame.output.picker_layers = frame.scene.draws;
+    }
 }
 
 void blend_shadows(SceneFrame& frame) {

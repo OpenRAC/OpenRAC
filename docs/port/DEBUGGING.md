@@ -138,8 +138,34 @@ into the program.
   function, pvars, glow colour, class) and all of its 0x100 bytes as words
   and floats, with buttons to open it or its pvars in the memory viewer.
 - "labels in the picture" names every listed moby where it stands.
-- "click picks": a click in the game's picture selects the moby whose
-  origin is nearest (within 40 pixels).
+- "click picks (mobys, ties, terrain)" enables selection of live mobys,
+  placed ties/shrubs and terrain meshes by clicking their visible geometry.
+  Developer > Moby picker enables the same tool with the F3 panel hidden.
+  Clicks outside the picture or over ImGui controls do not select objects.
+  There is no camera-forward or automatic centre-screen selection.
+
+The selected object gets a yellow box, a highlighted triangle and a hit marker.
+Terrain boxes bound the selected primitive rather than the whole level.
+A panel at the bottom shows its layer, model/name, instance, material,
+primitive, triangle, texture, position and distance. Mobys also show class
+and address, and open the existing inspector. Selection follows their current
+interpolated pose and clears if they disappear or the level changes.
+Clicking empty space or Clear selection clears it. Copy details copies JSON.
+
+While enabled, the tool writes `moby-picker.json` in the game's working folder
+at most twice a second (and immediately after selection changes). An agent
+can read that file to identify the selected object without screenshots or
+memory dumps. It contains schema version, enabled state, game, level, tick,
+and a nullable hit with model/instance/material IDs, class/address identity,
+texture path, hit and object positions, and world-space bounds. Check its
+modification time and the game process before treating an old report as live.
+`OPENRAC_OVERLAY=picker` enables the same click tool at startup.
+
+Picking uses mesh triangles and the submitted animated joint palette. Texture
+alpha holes, PVS-hidden primitives and shader-only displacement are not resolved;
+particles and callback effect strips (including enhanced water) are not pickable.
+The mesh acceleration structure is built lazily on the first click, and the
+extra pose capture is off while the picker is disabled.
 
 `OPENRAC_OVERLAY=...,inspect` selects the hero and opens the inspector;
 `labels` turns the labels on; `memview` opens the memory viewer.
@@ -262,7 +288,7 @@ same variables, so a new variable gets a row in both.
 
 | Variable | Value | What it does | Read in |
 | --- | --- | --- | --- |
-| `OPENRAC_OVERLAY` | `1`, or a list of `frame`, `renderer`, `memory`, `mobys`, `game`, `shaders`, `all`, `inspect`, `labels`, `memview`, `wireframe` | Shows the overlay from the start (`0`: not). The section names open those sections; `inspect` selects the hero and opens the moby inspector, `labels` names the mobys in the picture, `memview` opens the memory viewer, `wireframe` draws the frame in lines. | `port/game/common/debug_overlay.cpp` |
+| `OPENRAC_OVERLAY` | `1`, or a list of `frame`, `renderer`, `memory`, `mobys`, `game`, `shaders`, `all`, `inspect`, `labels`, `memview`, `wireframe`, `picker` | Shows the overlay from the start (`0`: not). The section names open those sections; `inspect` selects the hero and opens the moby inspector, `labels` names the mobys in the picture, `memview` opens the memory viewer, `wireframe` draws the frame in lines, `picker` enables click selection and its JSON report. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_OVERLAY_SHOT` | `N:PREFIX` | With the overlay shown: every `N` ticks, the window with the overlay to `PREFIX<tick>.png`, from `OPENRAC_SHOT_FROM` on; while paused one more, `PREFIX<tick>_held.png`. (`OPENRAC_SHOT` writes the game's frame without the overlay.) | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_KEYS` | `FRAME[+HELD]:KEY,...` | Keys and clicks by script, put in the window's event queue at those window frames, as `OPENRAC_PRESS` presses pad buttons. `KEY` is SDL's name of a key (`F3`, `F5`, `Return`) or `click@X,Y`, a left click at that place of the window (in the window's own units, not pixels). `+HELD`: that many pictures later while the game is paused at `FRAME`, where frames do not count. An event is read on the frame after it was put. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_MENU_BAR` | any (set) | macOS: the overlay's menus in a bar along the window's top as well, as on Windows and Linux (macOS has them in its own menu bar). | `port/game/common/debug_overlay.cpp` |

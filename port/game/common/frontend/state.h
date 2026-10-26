@@ -37,6 +37,7 @@
 #include "renderer/renderer.h"
 #include "renderer/shadows.h"
 #include "scene/level.h"
+#include "scene/object_picker.h"
 #include "scene/level_renderer.h"
 #include "scene/moby_shadow.h"
 #include "settings.h"
@@ -126,6 +127,10 @@ struct FramePresentation {
     std::chrono::steady_clock::time_point
         finished{};           // Worker completion, excluding handoff idle time.
     renderer::Camera camera;  // Camera of the submitted scene, for the debug UI.
+    std::vector<scene::Instance> picker_live;
+    std::vector<renderer::Mat4> picker_palette;
+    int picker_level = -1;
+    unsigned picker_layers = 0;
     std::uint64_t tick = 0;   // Submitted window-frame number, including interpolation metadata.
 
     int window_width = 0;   // Drawable window extent, read on the window thread.
@@ -181,6 +186,7 @@ struct State {
     std::array<renderer::FrameBuffer, 4> views;
     std::vector<std::pair<unsigned, unsigned>> view_targets;  // the mod's texture, its framebuffer
     scene::LevelData level;
+    scene::ObjectPicker picker;
     scene::LevelScene scene;
     int loaded = -2;  // the level whose geometry is uploaded; -2 none
     std::uint64_t index = 0;

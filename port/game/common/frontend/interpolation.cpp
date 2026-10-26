@@ -347,7 +347,14 @@ void draw_overlay(const FramePresentation& output) {
          interpolating(),
          pacing.interval,
          pacing.cost,
-         pacing.period.count()}
+         pacing.period.count(),
+         &g->picker,
+         &g->level,
+         output.picker_live,
+         output.picker_palette,
+         output.picker_level,
+         output.tick,
+         output.picker_layers}
     );
 }
 

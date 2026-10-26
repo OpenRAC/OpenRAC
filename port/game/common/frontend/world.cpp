@@ -105,6 +105,7 @@ void use_level(int number) {
     // The enhanced renderer's probe and early lighting, drawn when the player's settings ask.
     lighting::use_scene_lighting(g->scene);
     g->level = scene::LevelData();
+    g->picker.clear();
     std::string error;
     const auto dir = g->levels / std::format("level_{:02d}", wanted);
     // An edited level's scenery (--mods): the editor's pack writes it beside its gameplay file.

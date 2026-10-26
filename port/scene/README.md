@@ -102,6 +102,7 @@ switched off with `OPENRAC_RENDER_OPT_OFF`): `texture-prepare`, `gpu-resident-in
 | `probe_scene`, `bake_liquids` | the probe tools turn a `LevelData` into the scene they bake |
 | `hero_shadow_cpu`, `sun_shadow_cpu` | the shadow arithmetic: the cascades' split, snapping and caster volumes, the static cache's key, the hero's projection and airborne flag (`tests/sun_shadow_test.cpp`, `tests/hero_shadow_test.cpp`) |
 | `hero_shadow_vulkan`, `sun_shadow_vulkan`, `sun_shadow_filter_reference_vulkan`, `probe_gpu_vulkan`, `early_lighting_vulkan`, `gtao_vulkan`, `enhanced_rendering_compat` | the enhanced passes the level renderer draws, and that a build with them switched off draws as one without |
+| `object_picker` | click hit testing, BVH traversal, nearest geometry, animated poses, stable selection and JSON reports |
 | `geometry_moby_animation` | the pose arithmetic `moby_pose.h` runs, against the game's own (in `assets/geometry`) |
 
 `moby_pose.h` and `moby_shadow.h` have no test of their own: what they read of game memory is
