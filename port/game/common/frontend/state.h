@@ -214,12 +214,8 @@ struct State {
     std::vector<std::pair<std::array<std::uint32_t, 3>, std::pair<std::uint64_t, std::uint64_t>>>
         effect_hashed;
     // Since the last frame, for the capture's gauges (effect_textures): the effect quads by where
-    // their texture's source was found (none, the paging records, remembered), and the first
-    // ground glow's (DrawMobyGlow) source.
+    // their texture's source was found (none, the paging records, remembered).
     std::array<int, 3> effect_sources{};
-    int effect_glow_source = -1;
-    // TEX0 -> the texture hash it was last drawn with, for the gauge of TEX0s whose texture changed.
-    std::unordered_map<std::uint64_t, std::uint64_t> effect_tex0_ids;
     // The sky sprites the game drew since the last frame (sky_sprite): record, TEX0.
     std::vector<std::pair<std::array<std::uint8_t, 0x20>, std::uint64_t>> sky_sprites;
     // The 2D layer's quads drawn natively since the last frame (ui_quad), by marker index.
@@ -395,7 +391,7 @@ void sky_sprite_quads(const host::GameState& state);
 // The particles the game drew since the last frame, as effect quads back to front, seen from
 // `state`'s camera; their textures read from `ram` (frontend/world.cpp).
 void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& state);
-// The effect quads' textures at keys of their own, by content, and the capture's gauges of them.
+// The effect quads' textures at keys of their own, by content, and a capture's gauges of them.
 void effect_textures();
 
 // Whether the frame cap lets a frame start now (frontend/interpolation.cpp).

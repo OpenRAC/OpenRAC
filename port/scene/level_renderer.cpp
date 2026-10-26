@@ -296,6 +296,11 @@ bool LevelScene::upload(
         }
         scenery.drawn.clear();
     }
+    // A glow packet's vertex (light slot -2, mesh.vert); an index past the vertices counts as one,
+    // so that a broken primitive is still drawn.
+    const auto glow_vertex = [&level](std::uint32_t i) {
+        return i >= level.vertices.size() || level.vertices[i].light_slot < -1.5f;
+    };
     // The primitives without a glow packet's vertex, which the mobys' glow pass would draw only to
     // discard every fragment (mesh.frag: v_glow != glow_pass): left out of it (draw_layer).
     for (Model& model : m_models) {
@@ -306,9 +311,7 @@ bool LevelScene::upload(
             p.glow_vertices = std::any_of(
                 level.indices.begin() + p.first_index,
                 level.indices.begin() + p.first_index + p.index_count,
-                [&level](std::uint32_t i) {
-                    return i >= level.vertices.size() || level.vertices[i].light_slot < -1.5f;
-                }
+                glow_vertex
             );
         }
     }
@@ -386,10 +389,7 @@ bool LevelScene::upload(
             const auto first = static_cast<std::uint32_t>(indices.size());
             for (std::size_t t = p.first_index; t < end; t += 3) {
                 const auto triangle = level.indices.begin() + static_cast<std::ptrdiff_t>(t);
-                const bool glows = std::any_of(triangle, triangle + 3, [&level](std::uint32_t i) {
-                    return i >= level.vertices.size() || level.vertices[i].light_slot < -1.5f;
-                });
-                if (glows) {
+                if (std::any_of(triangle, triangle + 3, glow_vertex)) {
                     indices.insert(indices.end(), triangle, triangle + 3);
                 }
             }

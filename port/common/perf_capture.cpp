@@ -238,21 +238,26 @@ double Recorder::mean_gpu() const {
     return n == 0 ? -1.0 : sum / static_cast<double>(n);
 }
 
-std::array<double, 3> Recorder::work_p90() const {
-    std::vector<float> main, render, gpu;
+Recorder::Work Recorder::work() const {
+    Work w;
     for (const FrameRow& f : m_frames) {
-        main.push_back(static_cast<float>(f.main_work_ms));
+        w.main.push_back(static_cast<float>(f.main_work_ms));
         if (f.render_work_ms >= 0.0) {
-            render.push_back(static_cast<float>(f.render_work_ms));
+            w.render.push_back(static_cast<float>(f.render_work_ms));
         }
         if (f.gpu_ms >= 0.0) {
-            gpu.push_back(static_cast<float>(f.gpu_ms));
+            w.gpu.push_back(static_cast<float>(f.gpu_ms));
         }
     }
+    return w;
+}
+
+std::array<double, 3> Recorder::work_p90() const {
+    const Work w = work();
     return {
-        percentile(main, 0.9),
-        render.empty() ? -1.0 : percentile(render, 0.9),
-        gpu.empty() ? -1.0 : percentile(gpu, 0.9)
+        percentile(w.main, 0.9),
+        w.render.empty() ? -1.0 : percentile(w.render, 0.9),
+        w.gpu.empty() ? -1.0 : percentile(w.gpu, 0.9)
     };
 }
 
@@ -384,7 +389,7 @@ std::string Recorder::report(const Context& context) const {
         put(out, "- {}: {}\n", name, value);
     }
     std::size_t ticks = 0, between = 0;
-    std::vector<float> frame_ms, game_ms, gpu_ms;
+    std::vector<float> frame_ms, game_ms;
     for (const FrameRow& f : m_frames) {
         frame_ms.push_back(static_cast<float>(f.frame_ms));
         if (f.kind == stats::FrameKind::Tick) {
@@ -392,9 +397,6 @@ std::string Recorder::report(const Context& context) const {
             game_ms.push_back(static_cast<float>(std::max(f.game_ms, 0.0)));
         } else {
             between++;
-        }
-        if (f.gpu_ms >= 0.0) {
-            gpu_ms.push_back(static_cast<float>(f.gpu_ms));
         }
     }
     const double length = seconds();
@@ -439,20 +441,14 @@ std::string Recorder::report(const Context& context) const {
             percentile(v, 1.0),
             v.size());
     };
+    const Work w = work();
     line("frame", frame_ms);
     line("game tick", game_ms);
-    line("gpu", gpu_ms);
+    line("gpu", w.gpu);
     // Each side's work without its waits: on a slower device the frame is at least the largest.
-    std::vector<float> main_work, render_work;
-    for (const FrameRow& f : m_frames) {
-        main_work.push_back(static_cast<float>(f.main_work_ms));
-        if (f.render_work_ms >= 0.0) {
-            render_work.push_back(static_cast<float>(f.render_work_ms));
-        }
-    }
-    line("window work", main_work);
-    if (!render_work.empty()) {
-        line("render work", render_work);
+    line("window work", w.main);
+    if (!w.render.empty()) {
+        line("render work", w.render);
     }
     put(out,
         "```\n\n{:.1f} frames/s, {:.1f} ticks/s; {} frames over twice the median ({:.1f} ms).\n",

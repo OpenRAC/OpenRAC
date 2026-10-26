@@ -340,7 +340,7 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
         copied ? ", copied to the clipboard" : ""
     );
     s.toast = std::format(
-        "Performance report {}{}",
+        "Diagnostics report {}{}",
         copied ? "copied to the clipboard" : "ready",
         written ? " · saved to " + path.string() : std::string(" (could not be saved)")
     );

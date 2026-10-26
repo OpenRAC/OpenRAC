@@ -503,6 +503,7 @@ PreparedTextures TexturePool::prepare(std::span<const TextureHandle> textures) {
 
 void TexturePool::create_gl(Entry& e) {
     glGenTextures(1, &e.gl);
+    e.wrap = 0;  // a new texture repeats (set_wrap)
     glBindTexture(GL_TEXTURE_2D, e.gl);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);  // rows of whole RGBA8 texels, four bytes each
     glTexImage2D(
@@ -687,12 +688,6 @@ namespace openrac::renderer {
 
 namespace {
 
-// The squared distance of every texel to the nearest texel where `inside` is set, exact up to
-// `reach` texels; a farther one is (reach + 1)^2, only known to be farther. The field needs no more
-// (its value is clamped there), and bounding it costs a few operations a texel where the full
-// transform (Felzenszwalb and Huttenlocher) took about 20 ms for a 1024 x 512 field. A texel's
-// distance is the least dx^2 + dy^2 over the set texels, so the columns' nearest dy^2 first, then
-// the least dx^2 + column within reach along each row: whole numbers, the same as the full one.
 // Runs body(begin, end) over [0, n) in bands, on the threads of common/parallel.h.
 void in_bands(int n, const std::function<void(int, int)>& body) {
     constexpr int kBands = 16;
@@ -707,6 +702,12 @@ void in_bands(int n, const std::function<void(int, int)>& body) {
     });
 }
 
+// The squared distance of every texel to the nearest texel where `inside` is set, exact up to
+// `reach` texels; a farther one is (reach + 1)^2, only known to be farther. The field needs no more
+// (its value is clamped there), and bounding it costs a few operations a texel where the full
+// transform (Felzenszwalb and Huttenlocher) took about 20 ms for a 1024 x 512 field. A texel's
+// distance is the least dx^2 + dy^2 over the set texels, so the columns' nearest dy^2 first, then
+// the least dx^2 + column within reach along each row: whole numbers, the same as the full one.
 std::vector<float> distance_2d(const std::vector<std::uint8_t>& inside, int w, int h, int reach) {
     const int far = reach + 1;
     std::vector<int> column(static_cast<std::size_t>(w * h));

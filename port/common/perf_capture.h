@@ -100,8 +100,14 @@ private:
     double mean_cpu(const char* name) const;
     double mean_game() const;  // the game's time per frame
     double mean_gpu() const;   // over the frames timed on the GPU; -1 when none was
-    // The p90 of each side's work (FrameRow): the window thread, the render thread (-1: none) and
-    // the GPU (-1: not measured). What a slower device has to do in each frame.
+    // Each side's work in every frame it was measured (FrameRow): the window thread, the render
+    // thread and the GPU. What a slower device has to do in each frame.
+    struct Work {
+        std::vector<float> main, render, gpu;
+    };
+
+    Work work() const;
+    // Their p90s; -1 for the render thread or the GPU when none was measured.
     std::array<double, 3> work_p90() const;
 
     double m_target_ms;
