@@ -18,6 +18,7 @@
 
 #include "common/slow_cpu.h"
 #include "debug/overlay.h"
+#include "enhanced/fsr3/fsr3.h"
 #include "fixes.h"
 #include "frontend.h"
 #include "options_menu.h"
@@ -377,6 +378,34 @@ void drawer_enhanced() {
                     std::round((gi + 0.25f * static_cast<float>(by)) * 4.0f) / 4.0f, 0.0f, 5.0f
                 );
                 changed = true;
+            }
+        }
+        // AMD FSR's temporal upscaling (enhanced/fsr3): its preset, and its sharpening while on.
+        if (enhanced::Fsr3::available()) {
+            constexpr int kModes = static_cast<int>(renderer::TemporalQuality::Count);
+            const int mode = static_cast<int>(set.temporal_quality);
+            if (const int by = drawer_choice(
+                    "FSR upscaling", renderer::kTemporalNames[mode], mode > 0, mode < kModes - 1
+                )) {
+                set.temporal_quality =
+                    static_cast<renderer::TemporalQuality>(std::clamp(mode + by, 0, kModes - 1));
+                changed = true;
+            }
+            if (set.temporal_quality != renderer::TemporalQuality::Off) {
+                const float sharp = set.temporal_sharpness;
+                if (const int by = drawer_choice(
+                        "FSR sharpening",
+                        std::format("{:.0f}%", sharp * 100.0f),
+                        sharp > 0.05f,
+                        sharp < 0.95f
+                    )) {
+                    set.temporal_sharpness = std::clamp(
+                        std::round((sharp + 0.1f * static_cast<float>(by)) * 10.0f) / 10.0f,
+                        0.0f,
+                        1.0f
+                    );
+                    changed = true;
+                }
             }
         }
         if (drawer_switch("Ambient occlusion", set.gtao)) {
