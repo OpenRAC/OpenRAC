@@ -406,6 +406,8 @@ struct Attribute {
     GLenum type = GL_FLOAT;
     bool normalized = false;
     bool integer = false;
+    // vertex_format() of the four above, worked out when they are set rather than at every draw.
+    VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT;
     GLsizei stride = 0;
     std::uintptr_t offset = 0;
     GLuint buffer = 0;
