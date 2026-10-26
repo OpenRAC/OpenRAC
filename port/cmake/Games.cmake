@@ -196,13 +196,17 @@ function(openrac_add_game config)
   # hostgen rewrites only the files whose text changed, so after an edit only
   # those recompile: the stamp says when it last ran, the files are byproducts
   # whose times the build looks at again.
+  # Handwritten replacements can live below hand/functional and other subfolders.
+  # Track their contents, not only the immediate directory entry, on edits.
+  file(GLOB_RECURSE hand_inputs CONFIGURE_DEPENDS "${config_dir}/hand/*")
+
   add_custom_command(
     OUTPUT "${gen}/hostgen.stamp"
     BYPRODUCTS ${outputs}
     COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_HOSTGEN}" --game "${config}"
             --source "${game_source}" --out "${gen}" --quiet ${asm_args}
     COMMAND "${CMAKE_COMMAND}" -E touch "${gen}/hostgen.stamp"
-    DEPENDS ${inputs} ${tool} ${tables}
+    DEPENDS ${inputs} ${tool} ${tables} ${hand_inputs}
     COMMENT "hostgen: ${id} from ${game_source}"
     JOB_POOL openrac_hostgen
     VERBATIM)
