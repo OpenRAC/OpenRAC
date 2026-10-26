@@ -35,7 +35,6 @@
 #include "common/env.h"
 #include "common/log.h"
 #include "common/parallel.h"
-#include "common/slow_cpu.h"
 #include "common/stats.h"
 #include "debug_menu.h"
 #include "debug_overlay.h"
@@ -1659,17 +1658,6 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
 }
 
 bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws) {
-    // [debug tools] The simulated slow processor's share of the tick just run (the game's code and
-    // the next frame's preparation), spent while the render thread still draws the last frame, as
-    // a slower processor would spend it: padded after the wait instead, it held the render thread
-    // idle. Measured only when no render job holds the profiler's section stack.
-    {
-        std::optional<stats::Scope> slow;
-        if (!render_pending()) {
-            slow.emplace("simulated slow cpu");
-        }
-        slow_cpu::pad();
-    }
     // Resource changes require exclusive graphics ownership.
     if (!finish_render()) {
         return false;

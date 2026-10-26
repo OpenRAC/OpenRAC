@@ -391,6 +391,18 @@ bool render_pending() {
 }
 
 bool finish_render() try {
+    // [debug tools] A simulated slow processor (common/slow_cpu.h): the window thread's work since
+    // it last waited (the game's tick, the next frame's preparation, the frame it hands over),
+    // padded before it waits for the render thread, as a slower processor would still be busy
+    // while the render thread draws. Measured only when no render job holds the profiler's
+    // section stack.
+    {
+        std::optional<stats::Scope> slow;
+        if (!render_pending()) {
+            slow.emplace("simulated slow cpu");
+        }
+        slow_cpu::pad();
+    }
     // Synchronous frames and initialisation have no handoff to drain.
     if (!render_pending()) {
         return !g || !g->render_failed;
@@ -424,17 +436,8 @@ bool finish_render() try {
 
 void draw_kept(bool first) try {
     sampler::note_thread("window");  // [debug tools] sampled while a capture runs
-    // [debug tools] A simulated slow processor (common/slow_cpu.h): the window thread's work since
-    // the last frame, padded before it waits for the render thread, as a slower one would be.
-    // Measured only when no render job holds the profiler's section stack.
-    {
-        std::optional<stats::Scope> slow;
-        if (!render_pending()) {
-            slow.emplace("simulated slow cpu");
-        }
-        slow_cpu::pad();
-    }
-    // One in-flight snapshot bounds both latency and ownership of the current scene.
+    // One in-flight snapshot bounds both latency and ownership of the current scene (and the
+    // simulated slow processor's share of the window thread is spent there).
     if (!finish_render()) {
         return;
     }
