@@ -4,6 +4,7 @@
 #include "renderer/texture_pool.h"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -52,12 +53,27 @@ std::size_t chain_bytes(int width, int height) {
 }  // namespace
 
 std::uint64_t hash_bytes(const std::uint8_t* data, std::size_t size) {
-    std::uint64_t h = 0xcbf29ce484222325ull;
-    for (std::size_t i = 0; i < size; ++i) {
-        h ^= data[i];
-        h *= 0x100000001b3ull;
+    // Eight bytes a step (a byte a step made it one of the render thread's costliest functions on
+    // a phone), each word mixed in by a multiply and a rotate, and the whole finished by
+    // splitmix64's mix so that every input bit reaches every output bit.
+    constexpr std::uint64_t kMul = 0x9E3779B97F4A7C15ull;
+    std::uint64_t h = 0xcbf29ce484222325ull ^ (size * kMul);
+    std::size_t i = 0;
+    for (; i + 8 <= size; i += 8) {
+        std::uint64_t w;
+        std::memcpy(&w, data + i, 8);
+        h = std::rotl(h ^ (w * kMul), 29) * 0xBF58476D1CE4E5B9ull;
     }
-    return h;
+    if (i < size) {
+        std::uint64_t w = 0;
+        std::memcpy(&w, data + i, size - i);
+        h = std::rotl(h ^ (w * kMul), 29) * 0xBF58476D1CE4E5B9ull;
+    }
+    h ^= h >> 30;
+    h *= 0xBF58476D1CE4E5B9ull;
+    h ^= h >> 27;
+    h *= 0x94D049BB133111EBull;
+    return h ^ (h >> 31);
 }
 
 std::size_t TexturePool::KeyHash::operator()(const Key& key) const {
@@ -127,6 +143,18 @@ void TexturePool::clear_placements() {
 // ---- Source uploads ----
 
 void TexturePool::upload(ImageUpload upload) {
+    // The same transfer again (the 2D layer sends its pages every frame): only its order changes,
+    // as upload_cached() keeps it, without hashing the bytes again.
+    if (auto found = m_uploads.find(upload.dbp); found != m_uploads.end()) {
+        const ImageUpload& old = found->second.upload;
+        if (old.dbw == upload.dbw && old.dpsm == upload.dpsm && old.x == upload.x
+            && old.y == upload.y && old.width == upload.width && old.height == upload.height
+            && old.data == upload.data) {
+            found->second.sequence = ++m_sequence;
+            m_placed.erase(upload.dbp);
+            return;
+        }
+    }
     Stored stored;
     const std::uint64_t shape[] = {upload.width, upload.height, upload.dpsm, upload.dbw, upload.x, upload.y};
     stored.hash = hash_bytes(upload.data.data(), upload.data.size())
@@ -283,36 +311,29 @@ void TexturePool::load_clut(const gs::Tex0& tex0) {
     }
 }
 
-std::vector<std::uint32_t> TexturePool::palette(
-    const gs::Tex0& tex0, const gs::Texa& texa, std::uint64_t& hash
-) {
+const TexturePool::Clut* TexturePool::palette_clut(const gs::Tex0& tex0, Clut& now) {
     const int entries = palette_entries(tex0.psm);
-    hash = 0;
-    if (entries == 0) {
-        return {};
-    }
     if (tex0.csm) {
         // CSM2 (a CLUT as one row of a larger image, placed by TEXCLUT) is
         // not used by the games read so far.
         log::debug("CSM2 CLUT at block {:#x} read as CSM1", tex0.cbp);
     }
     // The CLUT as last loaded from this block, else as memory holds it now.
-    Clut now;
-    const Clut* clut = nullptr;
     if (auto it = m_cluts.find(tex0.cbp); it != m_cluts.end() && it->second.entries >= entries) {
-        clut = &it->second;
-    } else if (clut_in_memory(tex0, now)) {
-        clut = &now;
+        return &it->second;
     }
-    if (clut == nullptr) {
-        static log::Capped told(50);
-        if (log::verbose_on() && told()) {
-            log::verbose("2D: no CLUT at block {:#x} for the texture at {:#x}: drawn transparent", tex0.cbp, tex0.tbp0);
-        }
-        return std::vector<std::uint32_t>(static_cast<std::size_t>(entries), 0);
+    if (clut_in_memory(tex0, now)) {
+        return &now;
     }
-    hash = clut->hash;
-    return clut_csm1(clut->data, clut->cpsm, clut->width, entries, texa);
+    static log::Capped told(50);
+    if (log::verbose_on() && told()) {
+        log::verbose(
+            "2D: no CLUT at block {:#x} for the texture at {:#x}: drawn transparent",
+            tex0.cbp,
+            tex0.tbp0
+        );
+    }
+    return nullptr;
 }
 
 TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& texa) {
@@ -329,12 +350,12 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     if (stored == nullptr) {
         return 0;
     }
-    std::uint64_t clut_hash = 0;
-    std::vector<std::uint32_t> colours;
-    const bool indexed = palette_entries(tex0.psm) != 0;
-    if (indexed) {
-        colours = palette(tex0, texa, clut_hash);
-    }
+    // The palette's identity is part of the key; its colours are worked out only for a conversion.
+    const int entries = palette_entries(tex0.psm);
+    const bool indexed = entries != 0;
+    Clut now;
+    const Clut* clut = indexed ? palette_clut(tex0, now) : nullptr;
+    const std::uint64_t clut_hash = clut != nullptr ? clut->hash : 0;
     const Key key{
         tex0.tbp0,
         tex0.tbw,
@@ -349,6 +370,12 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     };
     if (auto found = m_converted.find(key); found != m_converted.end()) {
         return found->second;
+    }
+    std::vector<std::uint32_t> colours;
+    if (indexed) {
+        colours = clut != nullptr
+                      ? clut_csm1(clut->data, clut->cpsm, clut->width, entries, texa)
+                      : std::vector<std::uint32_t>(static_cast<std::size_t>(entries), 0);
     }
     const std::vector<std::uint8_t> raster = texture_raster(*stored, tex0);
     Rgba8Image image =

@@ -221,9 +221,9 @@ private:
     void create_gl(Entry& e);
     TextureHandle convert_upload(const gs::Tex0& tex0, const gs::Texa& texa);
     std::vector<std::uint8_t> texture_raster(const Stored& stored, const gs::Tex0& tex0) const;
-    std::vector<std::uint32_t> palette(
-        const gs::Tex0& tex0, const gs::Texa& texa, std::uint64_t& hash
-    );
+    // The CLUT an indexed texture reads: the one loaded from its block, else memory's (into `now`).
+    // Null when there is none (drawn transparent).
+    const Clut* palette_clut(const gs::Tex0& tex0, Clut& now);
 
     std::unique_ptr<UpscaledTextureColours> m_upscaled_texture_colours;
 
@@ -242,7 +242,7 @@ private:
     std::unordered_map<TextureHandle, std::pair<std::uint64_t, TextureHandle>> m_field_of_handle;
 };
 
-// FNV-1a, for the cache keys.
+// A 64-bit hash of the bytes, for the cache keys.
 std::uint64_t hash_bytes(const std::uint8_t* data, std::size_t size);
 
 }  // namespace openrac::renderer
