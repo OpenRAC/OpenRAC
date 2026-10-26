@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -366,17 +367,34 @@ void publish_counters() {
     g->published = now;
 }
 
+// Selects the next slot without blocking simulation or CPU scene preparation after presentation.
 void advance() {
     g->frame = (g->frame + 1) % kFrames;
-    Frame& f = frame();
+    ++g->frame_count;
+    g->frame_pending = true;
+}
+
+// Pools and upload memory remain untouched until this slot's previous submission has completed.
+void prepare_frame() {
+    if (!g || !g->frame_pending) {
+        return;
+    }
+    const profiling::Zone trace("Prepare Vulkan frame slot");
+    Frame& f = g->frames[static_cast<std::size_t>(g->frame)];
     if (f.submitted) {
         const stats::Scope wait("vulkan frame wait");
         const Clock::time_point start = Clock::now();
-        vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX);
+        if (!check(
+                vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX), "frame-slot fence"
+            )) {
+            throw std::runtime_error("cannot reclaim Vulkan frame slot");
+        }
         g->measures.wait_s += seconds_since(start);
         timing_results(f);
         f.submitted = false;
     }
+    // Helpers below also access frame(); exclusive graphics ownership prevents concurrent reuse.
+    g->frame_pending = false;
     run_deferred(f);
     f.timings.clear();
     f.timestamp_used = 0;
@@ -388,7 +406,6 @@ void advance() {
     f.pool_at = 0;
     f.chunk_at = 0;
     f.chunk_used = 0;
-    ++g->frame_count;
     begin_buffers();
 
     // A copy that waited for a screen there was not (no window, or none shown): made now, so the

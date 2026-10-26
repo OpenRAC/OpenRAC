@@ -130,8 +130,8 @@ struct DirectDraw {
     bool clear_depth = false;
 };
 
-// Debugging: while set, every sprite and primitive the 2D path draws is logged (OPENRAC_DUMP_DRAWS).
-inline bool g_dump_draws = false;
+// Draw diagnostics belong to the graphics owner; render jobs capture the producer's setting.
+inline thread_local bool g_dump_draws = false;
 
 // An off-screen target covers this many chip pixels across and down (the largest the games' panels
 // use), drawn at kOffscreenScale times that resolution.

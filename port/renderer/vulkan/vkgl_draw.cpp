@@ -440,6 +440,7 @@ void draw(
     if (p == nullptr || !p->linked || count <= 0 || instances <= 0) {
         return;
     }
+    prepare_frame();
     const Target t = target_of(g->state.draw_framebuffer);
     if ((t.colour == nullptr && t.depth == nullptr) || t.width <= 0 || t.height <= 0) {
         return;

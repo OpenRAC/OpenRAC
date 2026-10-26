@@ -274,7 +274,7 @@ void json_reader() {
     Value v;
     std::string error;
     CHECK(
-        json::parse(R"({"a": [1, 2.5e1, -3], "b": {"c": "xé\n"}, "t": true, "n": null})", v, error)
+        json::parse(R"({"a": [1, 2.5e1, -3], "b": {"c": "xÃ©\n"}, "t": true, "n": null})", v, error)
     );
     CHECK(v["a"].items().size() == 3);
     CHECK(v["a"][1].number() == 25.0);
@@ -636,8 +636,8 @@ int draw(scene::LevelData& level) {
 #endif
         }
 #if defined(OPENRAC_VULKAN)
-        // Counters are asynchronous: recording a frame must not read or wait for
-        // its result. Slot retirement returns the prior frame, including zeros.
+        // Counters arrive when a slot is reused, now deferred until its first GPU
+        // operation. Match recording IDs rather than assuming collection at present.
         std::array<std::uint64_t, 2> expected_draws{}, expected_triangles{};
         test::gpu_draw_reference(true);
         for (unsigned n = 0; n < 2; ++n) {
@@ -650,21 +650,28 @@ int draw(scene::LevelData& level) {
             frame.read_rgba();
         }
         test::gpu_draw_reference(false);
+        const auto baseline = vkgl::gpu_completed_draws().recording;
+        unsigned collected = 0;
         for (unsigned n = 0; n < 8; ++n) {
             const auto before = vkgl::gpu_completed_draws();
             camera.position[0] = n % 2 ? 50000.f : 0.f;
             input.camera.position = camera.position;
             input.camera.view = camera.view();
             renderer.render(input, {frame.id(), 128, 128});
-            CHECK(vkgl::gpu_completed_draws().recording == before.recording);
-            vkgl::present();  // only the existing frame-slot fence may wait
+            vkgl::present();
             const auto completed = vkgl::gpu_completed_draws();
             CHECK(completed.recording >= before.recording);
-            if (n > 0) {
-                CHECK(completed.draws == expected_draws[(n - 1) % 2]);
-                CHECK(completed.triangles == expected_triangles[(n - 1) % 2]);
+            if (completed.recording > baseline) {
+                const auto sample = completed.recording - baseline - 1;
+                CHECK(sample <= n);
+                CHECK(completed.draws == expected_draws[sample % 2]);
+                CHECK(completed.triangles == expected_triangles[sample % 2]);
+                if (completed.recording > before.recording) {
+                    ++collected;
+                }
             }
         }
+        CHECK(collected >= 6);
         // Synchronous pixel readback completes a newer, empty recording. An
         // older in-flight slot retiring afterward must not rewind that result.
         frame.read_rgba();

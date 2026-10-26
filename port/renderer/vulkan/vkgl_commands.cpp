@@ -534,8 +534,9 @@ Slice ring_copy(const void* data, VkDeviceSize size) {
 // ---- Command buffers and the order of things ----
 
 VkCommandBuffer upload_cmd() {
+    Frame& f = frame();
     g->upload_used = true;
-    return frame().upload;
+    return f.upload;
 }
 
 void count_where(std::string_view event) {
@@ -577,6 +578,7 @@ void end_rendering(PassEnd why) {
 }
 
 VkCommandBuffer cmd_for(Image* image, bool force_main) {
+    Frame& f = frame();
     if (!force_main && image != nullptr && image->touched != g->recording) {
         return upload_cmd();
     }
@@ -584,7 +586,7 @@ VkCommandBuffer cmd_for(Image* image, bool force_main) {
     if (image != nullptr) {
         image->touched = g->recording;
     }
-    return frame().main;
+    return f.main;
 }
 
 void barrier(VkCommandBuffer cmd, Image& image, VkImageLayout to) {

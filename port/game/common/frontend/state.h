@@ -142,6 +142,7 @@ struct FramePresentation {
     Box box{};              // Picture rectangle in the window.
 
     bool first = false;         // First displayed frame for this game tick.
+    bool dump_draws = false;    // Draw diagnostics captured before graphics ownership transfers.
     bool measure_cost = false;  // Enables the deliberately blocking frame-cost diagnostic.
     double scene_seconds = 0;   // Snapshot interpolation and pose upload time.
     double record_seconds = 0;  // World and native HUD command recording time.

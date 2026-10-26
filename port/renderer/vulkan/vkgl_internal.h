@@ -1016,7 +1016,8 @@ struct Context {
 
     std::array<Frame, kFrames> frames;
     int frame = 0;
-    std::uint64_t frame_count = 1;  // frames begun
+    bool frame_pending = false;     // Selected slot has not yet been reclaimed for recording.
+    std::uint64_t frame_count = 1;  // frames selected
     std::uint64_t recording = 1;    // command buffers begun (a flush begins new ones)
     bool upload_used = false;
 
@@ -1087,8 +1088,14 @@ inline bool check(VkResult result, const char* what) {
     return false;
 }
 
-// The frame slot being recorded.
+// Reclaims the selected slot before its first resource or command-buffer use.
+void prepare_frame();
+
+// The frame slot being recorded; its first use may wait for the previous GPU submission.
 inline Frame& frame() {
+    if (g->frame_pending) {
+        prepare_frame();
+    }
     return g->frames[static_cast<std::size_t>(g->frame)];
 }
 
@@ -1557,7 +1564,7 @@ bool make_swapchain();
 // frame as presented in any case. Called by present(), once per frame, before advance().
 void publish_counters();
 
-// The next frame: its slot's last use waited for, its leftovers freed, its buffers begun.
+// Selects the next slot; frame() reclaims it only when graphics work needs its resources.
 void advance();
 
 // Copies the default framebuffer into the next swapchain image and presents it, making a new

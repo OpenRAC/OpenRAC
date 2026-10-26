@@ -1814,6 +1814,7 @@ VkDescriptorSet descriptors(Program& p, std::span<const Sampled> samplers) {
 }
 
 void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z) {
+    prepare_frame();
     auto* p = g->programs.find(g->state.program);
     if (!p || !p->linked || !p->compute_pipeline || !x || !y || !z) {
         return;
@@ -1855,6 +1856,7 @@ void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z) {
 }
 
 void OPENRAC_GLAPI memory_barrier(GLbitfield bits) {
+    prepare_frame();
     end_rendering(PassEnd::Barrier);
     // GPU-generated geometry needs read/write ordering across repeated draws and subsequent dispatches.
     if (bits & (GL_COMMAND_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT)) {

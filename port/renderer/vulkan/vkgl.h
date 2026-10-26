@@ -283,7 +283,7 @@ PresentTiming present_timing();
 // False at once when present-timing is off or the device has no VK_KHR_present_wait.
 bool wait_for_present(std::chrono::nanoseconds timeout);
 
-// Shows the default framebuffer and starts the next frame.
+// Shows the default framebuffer. The next frame slot is reclaimed on its first graphics use.
 void present();
 
 // The wait for the display, as platform::SwapInterval counts it: -1 adaptive, 0 none, 1 vsync.

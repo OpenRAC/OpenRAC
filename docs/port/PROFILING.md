@@ -37,6 +37,16 @@ worker idle time and completion waits. Simulation ticks and displayed pictures h
 streams. A displayed-picture marker records presentation through the graphics API, not a measured
 physical scanout time.
 
+Vulkan interpolation jobs can cross a simulation tick boundary. They retain their owned snapshot
+until completion; CPU simulation and pose preparation can continue before graphics ownership is
+needed again. The window thread presents completed jobs, with at most one frame in flight.
+The `Queue interpolated frame` zone identifies these submissions. OpenGL and synchronous Vulkan
+retain their existing window-thread path.
+
+Vulkan selects the next frame slot after presentation but waits for its fence only when graphics
+work first needs that slot. `Prepare Vulkan frame slot` includes deferred cleanup and command-buffer
+setup; its nested `vulkan frame wait` measures the remaining fence wait before resources are reused.
+
 Existing `stats::Scope` sections also emit independent Tracy CPU zones. GPU-marked sections use
 separate Vulkan query pools and appear on the Vulkan uploads and Vulkan graphics timelines.
 Both streams run on the same queue. GPU scopes crossing submissions are split into recording segments.
