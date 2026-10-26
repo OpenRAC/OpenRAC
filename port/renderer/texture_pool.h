@@ -197,6 +197,9 @@ private:
     // The upload a texture or CLUT at `block` is in: the one there, else the latest whose pages
     // reach over it (`offset` says how far into it, in blocks). Null when there is none.
     const Stored* upload_at(std::uint32_t block, std::uint32_t& offset) const;
+    // Whether `upload` is the transfer already stored at its base pointer, byte for byte: then
+    // only its order is renewed (and a texture placed there forgotten), as a new upload's would be.
+    bool repeat_upload(const ImageUpload& upload);
     // The CLUT at tex0.cbp as it is in memory now; false when nothing was put there.
     bool clut_in_memory(const gs::Tex0& tex0, Clut& out) const;
 

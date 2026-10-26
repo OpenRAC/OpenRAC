@@ -541,6 +541,7 @@ bool gpu_register(unsigned buffer, std::span<const renderer::GpuCullBounds> boun
             }
             resident.words = std::move(packed);
             resident.unused = 0;
+            resident.dirty = true;
         }
         first = resident.words.size();
 

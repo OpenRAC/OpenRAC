@@ -142,18 +142,29 @@ void TexturePool::clear_placements() {
 
 // ---- Source uploads ----
 
+bool TexturePool::repeat_upload(const ImageUpload& upload) {
+    auto found = m_uploads.find(upload.dbp);
+    if (found == m_uploads.end()) {
+        return false;
+    }
+    Stored& stored = found->second;
+    const ImageUpload& old = stored.upload;
+    if (old.dbw != upload.dbw || old.dpsm != upload.dpsm || old.x != upload.x || old.y != upload.y
+        || old.width != upload.width || old.height != upload.height || old.data != upload.data) {
+        return false;
+    }
+    // Even unchanged transfers are ordering events. A later overlapping upload must not hide this
+    // one, nor can a placement survive it.
+    stored.sequence = ++m_sequence;
+    m_placed.erase(upload.dbp);
+    return true;
+}
+
 void TexturePool::upload(ImageUpload upload) {
     // The same transfer again (the 2D layer sends its pages every frame): only its order changes,
-    // as upload_cached() keeps it, without hashing the bytes again.
-    if (auto found = m_uploads.find(upload.dbp); found != m_uploads.end()) {
-        const ImageUpload& old = found->second.upload;
-        if (old.dbw == upload.dbw && old.dpsm == upload.dpsm && old.x == upload.x
-            && old.y == upload.y && old.width == upload.width && old.height == upload.height
-            && old.data == upload.data) {
-            found->second.sequence = ++m_sequence;
-            m_placed.erase(upload.dbp);
-            return;
-        }
+    // without hashing the bytes again.
+    if (repeat_upload(upload)) {
+        return;
     }
     Stored stored;
     const std::uint64_t shape[] = {upload.width, upload.height, upload.dpsm, upload.dbw, upload.x, upload.y};
@@ -174,18 +185,8 @@ void TexturePool::upload(ImageUpload upload) {
 }
 
 bool TexturePool::upload_cached(const ImageUpload& upload) {
-    if (auto found = m_uploads.find(upload.dbp); found != m_uploads.end()) {
-        auto& stored = found->second;
-        const auto& old = stored.upload;
-        if (old.dbw == upload.dbw && old.dpsm == upload.dpsm && old.x == upload.x
-            && old.y == upload.y && old.width == upload.width && old.height == upload.height
-            && old.data == upload.data) {
-            // Even unchanged transfers are ordering events. A later overlapping
-            // upload must not hide this one, nor can a placement survive it.
-            stored.sequence = ++m_sequence;
-            m_placed.erase(upload.dbp);
-            return true;
-        }
+    if (repeat_upload(upload)) {
+        return true;
     }
     this->upload(upload);
     return false;
