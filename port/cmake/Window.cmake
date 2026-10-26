@@ -291,6 +291,7 @@ add_library(openrac_enhanced_viewer STATIC
   enhanced/viewer/probe_volume_overlay.cpp
   enhanced/renderer/water.cpp
   enhanced/renderer/water_mesh.cpp
+  enhanced/renderer/water_mesh_gpu.cpp
   enhanced/viewer/early_lighting.cpp
   enhanced/viewer/probe_lighting.cpp
   enhanced/viewer/probe_selection.cpp
@@ -305,6 +306,9 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_lighting.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_vertex.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_uv.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_mesh.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_uv.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_swell.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_window.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_window.comp"
@@ -627,7 +631,7 @@ endif()
 
 openrac_add_test(water_mesh SOURCES enhanced/tests/water_mesh_test.cpp LIBS openrac_enhanced_viewer)
 
-foreach(water_test IN ITEMS water_gpu water_runtime)
+foreach(water_test IN ITEMS water_gpu water_runtime water_mesh_gpu)
   openrac_add_test(${water_test} SOURCES enhanced/tests/${water_test}_test.cpp
     INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_enhanced_viewer openrac_platform)
   set_tests_properties(${water_test} PROPERTIES SKIP_RETURN_CODE 77

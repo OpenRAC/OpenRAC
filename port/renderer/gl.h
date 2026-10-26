@@ -263,6 +263,7 @@ inline constexpr GLenum GL_FRAMEBUFFER_COMPLETE = 0x8CD5;
                                      const void *pointer))                                         \
     X(void, glVertexAttribDivisor, (GLuint index, GLuint divisor))                                 \
     X(void, glDrawArrays, (GLenum mode, GLint first, GLsizei count))                               \
+    X(void, glDrawArraysInstanced, (GLenum mode, GLint first, GLsizei count, GLsizei instances))   \
     X(void, glDrawElements, (GLenum mode, GLsizei count, GLenum type, const void *indices))        \
     X(void, glDrawElementsInstanced, (GLenum mode, GLsizei count, GLenum type,                     \
                                       const void *indices, GLsizei instances))                     \

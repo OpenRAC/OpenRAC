@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -38,6 +39,13 @@ enum class EffectPart : std::uint8_t {
 // A strip drawn as a solid surface: ALPHA 0x64 ((Cs - Cd) FIX + Cd) with FIX above 0x60.
 bool liquid_strip(std::uint64_t alpha);
 
+// A material-owned mesh for one strip; counts let core keep its existing rendering statistics.
+struct EffectMesh {
+    std::size_t handle = 0;
+    std::uint64_t vertices = 0;
+    std::uint32_t draws = 0;
+};
+
 // Optional material extension supplied by enhanced rendering. Core owns no Vulkan dependency.
 class EffectMaterial {
 public:
@@ -46,15 +54,25 @@ public:
 
     virtual std::string vertex_source() const { return {}; }
 
-    // Return true when the optional material replaces this strip's triangle stream.
-    virtual bool mesh(const EffectStrip&, std::span<const EffectVertex>, std::vector<EffectVertex>&)
-        const {
-        return false;
+    // Return a mesh handle when the material replaces this strip's triangle stream.
+    virtual std::optional<EffectMesh> mesh(const EffectStrip&, std::span<const EffectVertex>) {
+        return std::nullopt;
     }
+
+    // Upload the small per-pass instance stream after collecting strips, before any draws.
+    virtual void upload_meshes() {}
+
+    // Draw an earlier mesh handle using the material's resident geometry.
+    virtual void draw_mesh(const Shader&, const EffectMesh&) {}
 
     virtual bool init(std::string& error) = 0;
     virtual void prepare(const FrameInput& input) = 0;
-    virtual void bind(const Shader& shader, std::uint32_t surface, const FrameInput& input) = 0;
+    virtual void bind(
+        const Shader& shader,
+        std::uint32_t surface,
+        const FrameInput& input,
+        const EffectUvMotion& motion
+    ) = 0;
     virtual void release() = 0;
 };
 

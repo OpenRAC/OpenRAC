@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -195,6 +196,9 @@ std::vector<std::uint8_t> direct_packets(
     std::uint32_t strip_count = 0;
     bool strip_tag = false;
     std::uint32_t surface = 0;
+    renderer::EffectUvMotion uv_motion{};
+    std::array<float, 4> uv_offsets{};
+    bool second_texture = false;
     // The images sent through the DIRECT data (BITBLTBUF, TRXREG, then IMAGE data), latest per
     // destination block: a strip takes the ones at its TEX0's blocks.
     std::uint64_t reg_bitbltbuf = 0, reg_trxreg = 0;
@@ -254,6 +258,19 @@ std::vector<std::uint8_t> direct_packets(
                         case 0x7F:
                             if ((value >> 48) == 0x5754) {
                                 surface = static_cast<std::uint32_t>(value);
+                                uv_motion = {};
+                                uv_offsets = {};
+                            } else if ((value >> 48) == 0x5755) {
+                                const auto field = static_cast<unsigned>((value >> 32) & 0xFFFF);
+                                const auto bits = static_cast<std::uint32_t>(value);
+                                if (field == 0) {
+                                    uv_motion.enabled = true;
+                                    uv_motion.amplitude = std::bit_cast<float>(bits);
+                                } else if (field == 1) {
+                                    uv_motion.phase = bits;
+                                } else if (field < 6) {
+                                    uv_offsets[field - 2] = std::bit_cast<float>(bits);
+                                }
                             }
                             break;
                         case 0x50:
@@ -369,6 +386,7 @@ std::vector<std::uint8_t> direct_packets(
                     std::memcpy(&tag, data, 8);
                     strip_tag = ((tag >> 47) & 7) == 4 && (tag & 0x7FFF) >= 3;
                     strip_count = static_cast<std::uint32_t>(tag & 0x7FFF);
+                    second_texture = ((tag >> 56) & 1) != 0;
                     strip_st = strip_rgba = strip_xyz = nullptr;
                 } else if (strip_tag && address == 1 && vn == 1 && vl == 0
                            && count == strip_count) {
@@ -397,6 +415,12 @@ std::vector<std::uint8_t> direct_packets(
                 strip.clamp = reg_clamp;
                 strip.alpha = reg_alpha;
                 strip.surface = surface;
+                strip.uv_motion = uv_motion;
+                const auto uv_at = second_texture ? 2u : 0u;
+                strip.uv_motion.offset = {uv_offsets[uv_at], uv_offsets[uv_at + 1]};
+                if (second_texture) {
+                    strip.uv_motion.amplitude = -strip.uv_motion.amplitude;
+                }
                 if (uploads != nullptr) {
                     const std::uint32_t tbp = static_cast<std::uint32_t>(reg_tex0 & 0x3FFF);
                     const std::uint32_t cbp = static_cast<std::uint32_t>((reg_tex0 >> 37) & 0x3FFF);

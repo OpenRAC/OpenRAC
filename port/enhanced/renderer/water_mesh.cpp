@@ -10,6 +10,7 @@
 #include <string_view>
 
 #include "common/log.h"
+#include "common/profiler.h"
 #include "common/stats.h"
 
 namespace openrac::enhanced {
@@ -61,6 +62,7 @@ WaterMesh::WaterMesh(const std::filesystem::path& path, const std::array<char, 3
             }
         }
     }
+    m_weights = {{{0, 0}}, {{1, 0}}, {{0, 1}}};
     std::size_t dense_vertices = 0;
     for (unsigned i = 0; i < template_count; ++i) {
         std::array<int, 4> shape{};
@@ -71,13 +73,14 @@ WaterMesh::WaterMesh(const std::filesystem::path& path, const std::array<char, 3
         if (count == 0 || count % 3 != 0 || dense_vertices > 4 * 1024 * 1024) {
             throw std::runtime_error("invalid baked water mesh vertex count");
         }
-        auto& vertices = m_templates[shape];
-        if (!vertices.empty()) {
+        const auto first = static_cast<unsigned>(m_weights.size());
+        if (!m_templates.emplace(shape, Shape{first, count}).second) {
             throw std::runtime_error("duplicate water mesh shape");
         }
-        vertices.resize(count);
-        mesh_file.read(reinterpret_cast<char*>(vertices.data()), std::streamsize(count * 8));
-        for (const auto& w : vertices) {
+        m_weights.resize(first + count);
+        mesh_file
+            .read(reinterpret_cast<char*>(m_weights.data() + first), std::streamsize(count * 8));
+        for (const auto& w : std::span(m_weights).subspan(first, count)) {
             if (!std::isfinite(w[0]) || !std::isfinite(w[1]) || w[0] < 0 || w[1] < 0
                 || w[0] + w[1] > 1.000001f) {
                 throw std::runtime_error("invalid baked water mesh mapping");
@@ -121,144 +124,94 @@ float WaterMesh::rest_height(const renderer::EffectVertex& p, unsigned surface) 
     return result;
 }
 
-bool WaterMesh::build(
-    const renderer::EffectStrip& strip,
-    std::span<const renderer::EffectVertex> vertices,
-    std::vector<renderer::EffectVertex>& output
+// Starts a pass without freeing the vectors reused by subsequent frames.
+void WaterMesh::begin_pass() {
+    m_sources.clear();
+    m_used = 0;
+}
+
+// Each instance references the original coarse triangle, never an expanded CPU vertex stream.
+renderer::EffectMesh WaterMesh::prepare(
+    const renderer::EffectStrip& strip, std::span<const renderer::EffectVertex> vertices
 ) {
-    if (vertices.size() < 3 || strip.surface == 0 || strip.surface > 7) {
-        return false;
+    const profiling::Zone trace("Water coarse instances");
+    if (m_used == m_plans.size()) {
+        m_plans.emplace_back();
     }
+    auto& plan = m_plans[m_used];
+    plan.batches.clear();
+    plan.vertices = 0;
     std::vector<renderer::EffectVertex> rest(vertices.begin(), vertices.end());
     for (auto& p : rest) {
         p.z = rest_height(p, strip.surface);
     }
-    std::uint64_t key = 14695981039346656037ull;
-    const auto hash = [&](std::uint32_t word) {
-        key = (key ^ word) * 1099511628211ull;
-    };
-    hash(strip.surface);
-    hash(unsigned(rest.size()));
-    for (const auto& p : rest) {
-        hash(std::bit_cast<std::uint32_t>(p.x));
-        hash(std::bit_cast<std::uint32_t>(p.y));
-        hash(std::bit_cast<std::uint32_t>(p.z));
-    }
-    const auto map_baked_vertices = [&] {
-        output.clear();
-        static constexpr unsigned orders[6][3] =
-            {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
-        for (std::size_t k = 0; k + 2 < rest.size(); ++k) {
-            // Strip restart connectors have no area and are not part of the water mesh.
-            const auto& p = rest[k];
-            const auto& q = rest[k + 1];
-            const auto& r = rest[k + 2];
-            if (std::abs((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x)) < 1e-8f) {
-                continue;
-            }
-            bool matched = false;
-            for (const auto& order : orders) {
-                const auto& a = rest[k + order[0]];
-                const auto& b = rest[k + order[1]];
-                const auto& c = rest[k + order[2]];
-                const auto quantize = [](float x) {
-                    return int(std::floor(x * 256 + .5f));
-                };
-                std::array<int, 4> shape{
-                    quantize(b.x - a.x),
-                    quantize(b.y - a.y),
-                    quantize(c.x - a.x),
-                    quantize(c.y - a.y)
-                };
-                auto found = m_templates.find(shape);
-                if (found == m_templates.end()) {
-                    continue;
-                }
-                for (const auto& weights : found->second) {
-                    float v = weights[0], w = weights[1], u = 1 - v - w;
-                    renderer::EffectVertex p{};
-                    p.x = a.x * u + b.x * v + c.x * w;
-                    p.y = a.y * u + b.y * v + c.y * w;
-                    p.z = a.z * u + b.z * v + c.z * w;
-                    p.s = a.s * u + b.s * v + c.s * w;
-                    p.t = a.t * u + b.t * v + c.t * w;
-                    for (unsigned shift = 0; shift < 32; shift += 8) {
-                        auto value = unsigned(std::lround(
-                            float((a.rgba >> shift) & 255) * u + float((b.rgba >> shift) & 255) * v
-                            + float((c.rgba >> shift) & 255) * w
-                        ));
-                        p.rgba |= std::min(value, 255u) << shift;
-                    }
-                    output.push_back(p);
-                }
+    constexpr unsigned orders[6][3] =
+        {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
+    for (std::size_t k = 0; k + 2 < rest.size(); ++k) {
+        const auto& p = rest[k];
+        const auto& q = rest[k + 1];
+        const auto& r = rest[k + 2];
+        // Strip restart connectors have no visible triangle.
+        if (std::abs((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x)) < 1e-8f) {
+            continue;
+        }
+        Shape shape{0, 3};  // The first resident template is a flat, untessellated fallback.
+        const unsigned* order = orders[0];
+        bool matched = false;
+        for (const auto& candidate : orders) {
+            const auto& a = rest[k + candidate[0]];
+            const auto& b = rest[k + candidate[1]];
+            const auto& c = rest[k + candidate[2]];
+            const auto quantize = [](float x) {
+                return int(std::floor(x * 256 + .5f));
+            };
+            const std::array<int, 4> key{
+                quantize(b.x - a.x), quantize(b.y - a.y), quantize(c.x - a.x), quantize(c.y - a.y)
+            };
+            auto found = m_templates.find(key);
+            if (found != m_templates.end()) {
+                shape = found->second;
+                order = candidate;
                 matched = true;
                 break;
             }
-            if (!matched) {
-                // Preserve a flat rest triangle for an unsupported draw layout, never tessellate at runtime.
-                if (!m_missing_template) {
-                    log::warn(
-                        "water bake missing mesh shape: surface {}, edges ({}, {}) ({}, {})",
-                        strip.surface,
-                        rest[k + 1].x - rest[k].x,
-                        rest[k + 1].y - rest[k].y,
-                        rest[k + 2].x - rest[k].x,
-                        rest[k + 2].y - rest[k].y
-                    );
-                    m_missing_template = true;
-                }
-                output.insert(output.end(), rest.begin() + k, rest.begin() + k + 3);
-            }
         }
+        if (!matched && !m_missing_template) {
+            log::warn(
+                "Water bake missing mesh shape for surface {}; using coarse triangle", strip.surface
+            );
+            m_missing_template = true;
+        }
+        const auto first = static_cast<unsigned>(m_sources.size());
+        Source source{};
+        for (unsigned i = 0; i < 3; ++i) {
+            const auto& a = rest[k + order[i]];
+            source[i * 2] =
+                {std::bit_cast<std::uint32_t>(a.x),
+                 std::bit_cast<std::uint32_t>(a.y),
+                 std::bit_cast<std::uint32_t>(a.z),
+                 a.rgba};
+            source[i * 2 + 1] =
+                {std::bit_cast<std::uint32_t>(a.s), std::bit_cast<std::uint32_t>(a.t), 0, 0};
+        }
+        source[6] =
+            {std::bit_cast<std::uint32_t>(strip.uv_motion.offset[0]),
+             std::bit_cast<std::uint32_t>(strip.uv_motion.offset[1]),
+             std::bit_cast<std::uint32_t>(strip.uv_motion.amplitude),
+             (strip.uv_motion.phase & 511u) | (strip.uv_motion.enabled ? 0x80000000u : 0u)};
+        m_sources.push_back(source);
+        if (!plan.batches.empty() && plan.batches.back().shape == shape) {
+            ++plan.batches.back().count;
+        } else {
+            plan.batches.push_back({shape, first, 1});
+        }
+        plan.vertices += shape.count;
+    }
+    const renderer::EffectMesh result{
+        m_used++, plan.vertices, static_cast<std::uint32_t>(plan.batches.size())
     };
-    auto found = m_mesh_cache.find(key);
-    bool reused = false;
-    if (found != m_mesh_cache.end() && found->second.source.size() == rest.size()) {
-        const auto& cached = found->second;
-        float ds = rest[0].s - cached.source[0].s, dt = rest[0].t - cached.source[0].t;
-        bool translation = true, uniform_colour = true;
-        for (std::size_t i = 0; i < rest.size(); ++i) {
-            const auto& a = rest[i];
-            const auto& b = cached.source[i];
-            translation = translation && a.x == b.x && a.y == b.y && a.z == b.z
-                          && std::abs(a.s - b.s - ds) < 1e-5f && std::abs(a.t - b.t - dt) < 1e-5f;
-            uniform_colour = uniform_colour && a.rgba == rest[0].rgba;
-        }
-        bool same_colour = true;
-        for (std::size_t i = 0; i < rest.size(); ++i) {
-            same_colour = same_colour && rest[i].rgba == cached.source[i].rgba;
-        }
-        if (translation && (same_colour || uniform_colour)) {
-            output = cached.triangles;
-            for (auto& p : output) {
-                p.s += ds;
-                p.t += dt;
-                if (!same_colour) {
-                    p.rgba = rest[0].rgba;
-                }
-            }
-            reused = true;
-        }
-    }
-    if (!reused) {
-        map_baked_vertices();
-        // Bound optional CPU storage; displacement history always stays on the GPU.
-        const auto old_size = found != m_mesh_cache.end() ? found->second.triangles.size() : 0;
-        if (m_cached_vertices - old_size + output.size() <= 4 * 1024 * 1024) {
-            if (found != m_mesh_cache.end()) {
-                m_cached_vertices -= found->second.triangles.size();
-            }
-            m_cached_vertices += output.size();
-            m_mesh_cache[key] = {rest, output};
-        }
-    }
-    stats::gauge("water mesh reused", reused ? 1. : 0.);
-    stats::gauge("water mesh vertices", double(output.size()));
-    return true;
-}
-
-void WaterMesh::clear_cache() {
-    m_mesh_cache.clear();
-    m_cached_vertices = 0;
+    stats::gauge("water coarse triangles", double(m_sources.size()));
+    stats::gauge("water CPU expanded vertices", 0.);
+    return result;
 }
 }  // namespace openrac::enhanced

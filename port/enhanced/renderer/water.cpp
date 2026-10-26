@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "common/log.h"
+#include "common/profiler.h"
 #include "common/stats.h"
 #include "enhanced/renderer/water_mesh.h"
 #include "enhanced/renderer/water_window.h"
@@ -156,17 +157,26 @@ public:
     }
 
     std::string vertex_source() const override {
-        return std::string(lighting::shaders::water_window_glsl) + "\n"
+        return std::string(lighting::shaders::water_uv_glsl) + "\n"
+               + std::string(lighting::shaders::water_mesh_glsl) + "\n"
+               + std::string(lighting::shaders::water_window_glsl) + "\n"
                + std::string(lighting::shaders::water_swell_glsl) + "\n"
                + std::string(lighting::shaders::water_vertex_glsl);
     }
 
-    bool mesh(
-        const renderer::EffectStrip& strip,
-        std::span<const renderer::EffectVertex> vertices,
-        std::vector<renderer::EffectVertex>& output
-    ) const override {
-        return m_enabled && m_mesh->build(strip, vertices, output);
+    std::optional<renderer::EffectMesh> mesh(
+        const renderer::EffectStrip& strip, std::span<const renderer::EffectVertex> vertices
+    ) override {
+        if (!m_enabled || strip.surface == 0 || strip.surface > 7 || vertices.size() < 3) {
+            return std::nullopt;
+        }
+        return m_mesh->prepare(strip, vertices);
+    }
+
+    void upload_meshes() override { m_mesh->upload(); }
+
+    void draw_mesh(const renderer::Shader& shader, const renderer::EffectMesh& mesh) override {
+        m_mesh->draw(shader, mesh);
     }
 
     bool init(std::string& error) override {
@@ -202,6 +212,9 @@ public:
             return false;
         }
         glGenBuffers(kBufferCount, m_buffers.data());
+        if (!m_mesh->init(error)) {
+            return false;
+        }
         for (unsigned i : {unsigned(kWindowCoast), unsigned(kWindowHydraulics)}) {
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_buffers[i]);
             glBufferData(
@@ -323,6 +336,9 @@ public:
     }
 
     void prepare(const renderer::FrameInput& input) override {
+        const profiling::Zone trace("Prepare enhanced water");
+
+        m_mesh->begin_pass();
         m_bound = false;
         const auto options = water_debug_settings();
         const auto epoch = water_reset_epoch.load();
@@ -609,8 +625,21 @@ public:
     }
 
     void bind(
-        const renderer::Shader& shader, std::uint32_t surface, const renderer::FrameInput& input
+        const renderer::Shader& shader,
+        std::uint32_t surface,
+        const renderer::FrameInput& input,
+        const renderer::EffectUvMotion& motion
     ) override {
+        m_mesh->bind(shader);
+        glUniform1i(shader.uniform("water_mesh"), 0);
+        glUniform1i(shader.uniform("water_uv_animate"), motion.enabled ? 1 : 0);
+        glUniform4f(
+            shader.uniform("water_uv_motion"),
+            motion.offset[0],
+            motion.offset[1],
+            motion.amplitude,
+            float(motion.phase & 511u)
+        );
         glUniform1i(shader.uniform("water_debug_view"), m_debug.view);
         glUniform1f(shader.uniform("water_debug_height_limit"), m_debug.displacement_limit);
         glUniform1f(shader.uniform("water_fine_strength"), m_debug.fine_normal_strength);
@@ -676,7 +705,7 @@ public:
         if (m_maps[0]) {
             glDeleteTextures(2, m_maps.data());
         }
-        m_mesh->clear_cache();
+        m_mesh->release();
         m_maps = {};
         m_buffers = {};
         m_textures = {};

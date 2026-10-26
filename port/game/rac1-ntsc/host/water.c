@@ -20,6 +20,30 @@ static void water_marker(unsigned surface) {
     GREF(gaddr, cursor) = at + 48;
 }
 
+/* Snapshot shader UV parameters into harmless NOPs beside this layer's draw packets.
+ * The original layer update still owns scroll wrapping and the animation counter. */
+static void water_uv_motion(gaddr layer) {
+    const gaddr cursor = OPENRAC_LDATA(1, 0x001611C0u);
+    const gaddr at = GREF(gaddr, cursor);
+    const uint32_t fields[] =
+        {GREF(uint32_t, layer + 0x18),
+         GREF(uint32_t, layer + 0x50),
+         GREF(uint32_t, layer + 0x40),
+         GREF(uint32_t, layer + 0x44),
+         GREF(uint32_t, layer + 0x48),
+         GREF(uint32_t, layer + 0x4C)};
+    GREF(uint32_t, at) = 0x10000007u;
+    GREF(uint32_t, at + 4) = GREF(uint32_t, at + 8) = 0;
+    GREF(uint32_t, at + 12) = 0x50000007u;
+    GREF(uint64_t, at + 16) = 6ull | (1ull << 15) | (1ull << 60);
+    GREF(uint64_t, at + 24) = 0xE;
+    for (unsigned i = 0; i < 6; ++i) {
+        GREF(uint64_t, at + 32 + i * 16) = (0x5755ull << 48) | ((uint64_t)i << 32) | fields[i];
+        GREF(uint64_t, at + 40 + i * 16) = 0x7F;
+    }
+    GREF(gaddr, cursor) = at + 128;
+}
+
 void game_FUN_L01_002fd0c0(void) {
     water_marker(1);
     game_FUN_L01_002fd0c0__game();
@@ -113,6 +137,12 @@ void game_FUN_L01_00262618(gaddr layer) {
     }
     /* Packet building runs synchronously on the game thread; no recursive call uses this scratch. */
     static float saved[4096 * 2];
+    const float amplitude = GREF(float, layer + 0x18);
+    float offsets[4];
+    memcpy(offsets, G(layer + 0x40), sizeof(offsets));
+    water_uv_motion(layer);
+    GREF(float, layer + 0x18) = 0;
+    memset(G(layer + 0x40), 0, sizeof(offsets));
     for (unsigned i = 0; i < count; ++i) {
         const gaddr at = vertices + i * 16u;
         saved[i * 2] = GREF(float, at + 8);
@@ -120,9 +150,11 @@ void game_FUN_L01_00262618(gaddr layer) {
         const float rest = (saved[i * 2] + saved[i * 2 + 1]) * .5f;
         GREF(float, at + 8) = GREF(float, at + 12) = rest;
     }
-    /* The original packet builder still supplies UVs/colour, but its two height endpoints
-     * are identical. The enhanced renderer owns mesh displacement. */
+    /* Capture base UVs and static heights. The GPU applies the snapshotted UV motion and
+     * enhanced displacement; the original packet layout and colour remain unchanged. */
     game_FUN_L01_00262618__game(layer);
+    GREF(float, layer + 0x18) = amplitude;
+    memcpy(G(layer + 0x40), offsets, sizeof(offsets));
     for (unsigned i = 0; i < count; ++i) {
         const gaddr at = vertices + i * 16u;
         GREF(float, at + 8) = saved[i * 2];

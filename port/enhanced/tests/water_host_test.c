@@ -17,7 +17,7 @@ void game_FUN_L00_002a3ec8(gaddr, int, int, float, float, float, float);
 void game_FUN_L01_00262618(gaddr);
 uint8_t* openrac_guest_base;
 static int enabled, steps, impulses, builds;
-static float captured_z, captured_w;
+static float captured_z, captured_w, captured_amplitude, captured_scroll;
 
 gaddr openrac_relocate_level_data(int from, gaddr at) {
     (void)from;
@@ -62,13 +62,16 @@ void game_FUN_L01_00262618__game(gaddr layer) {
     gaddr vertices = GREF(gaddr, layer);
     captured_z = GREF(float, vertices + 8);
     captured_w = GREF(float, vertices + 12);
-    GREF(float, layer + 0x40) += .125f;  // UV scrolling still runs in enhanced mode.
+    captured_amplitude = GREF(float, layer + 0x18);
+    captured_scroll = GREF(float, layer + 0x40);
 }
 
 int main(void) {
     openrac_guest_base = calloc(1, GUEST_RAM_SIZE);
     CHECK(openrac_guest_base);
     const gaddr pool = 0x001E34C0u, layer = 0x001FBC80u, vertices = 0x300000u;
+    const gaddr cursor = 0x001611C0u, packet = 0x00500000u;
+    GREF(gaddr, cursor) = packet;
     memset(G(pool), 0x5A, 0x1190);
     game_FUN_L01_002b7fe0(pool, 1);
     CHECK(steps == 1);
@@ -93,7 +96,14 @@ int main(void) {
         GREF(float, vertices + i * 16 + 8) = 2;
         GREF(float, vertices + i * 16 + 12) = 4;
     }
+    GREF(float, layer + 0x18) = .25f;
+    GREF(float, layer + 0x40) = .125f;
+    GREF(unsigned, layer + 0x50) = 77;
     game_FUN_L01_00262618(layer);
+    CHECK(captured_amplitude == 0 && captured_scroll == 0);
+    CHECK(GREF(float, layer + 0x18) == .25f);
+    CHECK((GREF(uint64_t, packet + 32) >> 48) == 0x5755);
+    CHECK(GREF(unsigned, packet + 48) == 77);
     CHECK(builds == 1 && captured_z == 3 && captured_w == 3);
     CHECK(GREF(float, layer + 0x40) == .125f);
     CHECK(
@@ -109,8 +119,6 @@ int main(void) {
     /* Cave layers get distinct tags, retain UV scrolling, and suppress only
      * their legacy height endpoints when enhanced mode is active. */
     enabled = 1;
-    const gaddr cursor = 0x001611C0u;
-    const gaddr packet = 0x00500000u;
     GREF(gaddr, cursor) = packet;
     for (unsigned i = 0; i < 3; ++i) {
         const gaddr cave = 0x00202D80u + i * 0x60u;
@@ -119,11 +127,11 @@ int main(void) {
         game_FUN_L01_00262618(cave);
         CHECK(captured_z == 3 && captured_w == 3);
         CHECK(GREF(float, vertices + 8) == 2 && GREF(float, vertices + 12) == 4);
-        CHECK((GREF(uint64_t, packet + i * 48u + 32u) & 0xffffu) == 5u + i);
-        CHECK(GREF(float, cave + 0x40u) == .125f);
+        CHECK((GREF(uint64_t, packet + i * 176u + 32u) & 0xffffu) == 5u + i);
+        CHECK(GREF(float, cave + 0x40u) == 0.f);
     }
     game_FUN_L01_00309bf8();
-    CHECK((GREF(uint64_t, packet + 3u * 48u + 32u) & 0xffffu) == 0);
+    CHECK((GREF(uint64_t, packet + 3u * 176u + 32u) & 0xffffu) == 0);
     enabled = 0;
     game_FUN_L01_00262618(0x00202D80u);
     CHECK(captured_z == 2 && captured_w == 4);

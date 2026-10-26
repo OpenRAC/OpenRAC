@@ -44,8 +44,8 @@ struct WaterTestBake {
         put(std::uint32_t(1));
         put(std::array<float, 9>{0, 0, 1, 1, 0, 1, 0, 1, 1});
         put(std::array<std::int32_t, 4>{256, 0, 0, 256});
-        put(std::uint32_t(3));
-        put(std::array<float, 6>{0, 0, 1, 0, 0, 1});
+        put(std::uint32_t(6));
+        put(std::array<float, 12>{0, 0, .5f, 0, 0, 1, .5f, 0, 1, 0, 0, 1});
         if (!out) {
             throw std::runtime_error("cannot write test mesh");
         }

@@ -47,3 +47,9 @@ vec3 effect_position(vec3 p) {
     }
     return p;
 }
+
+// Keep the shared effect interface separate from baked-mesh interpolation.
+void effect_vertex(inout vec3 p, inout vec2 uv, inout vec4 rgba) {
+    water_mesh_vertex(p, uv, rgba);
+    p = effect_position(p);
+}

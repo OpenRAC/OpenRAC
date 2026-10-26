@@ -347,6 +347,8 @@ result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;})";
     // Disabling the material must leave the original position exactly unchanged.
     renderer::Shader displaced;
     std::string displacement_vertex = "#version 410 core\n";
+    displacement_vertex += lighting::shaders::water_uv_glsl;
+    displacement_vertex += lighting::shaders::water_mesh_glsl;
     displacement_vertex += lighting::shaders::water_window_glsl;
     displacement_vertex += lighting::shaders::water_swell_glsl;
     displacement_vertex += lighting::shaders::water_vertex_glsl;
@@ -1390,7 +1392,9 @@ uint bits=floatBitsToUint(value);result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)
     water_vertex.insert(water_vertex.find('\n') + 1, "#define OPENRAC_EFFECT_POSITION 1\n");
     water_vertex.insert(
         water_vertex.find("void main()"),
-        std::string(lighting::shaders::water_window_glsl)
+        std::string(lighting::shaders::water_uv_glsl)
+            + std::string(lighting::shaders::water_mesh_glsl)
+            + std::string(lighting::shaders::water_window_glsl)
             + std::string(lighting::shaders::water_swell_glsl)
             + std::string(lighting::shaders::water_vertex_glsl)
     );

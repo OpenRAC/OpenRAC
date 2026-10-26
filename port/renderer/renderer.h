@@ -84,6 +84,15 @@ struct EffectVertex {
     std::uint32_t rgba;  // the chip's bytes, R low (0x80 = 1.0)
 };
 
+// Optional authored UV motion, captured with the draw packet so pauses and delayed frames agree.
+struct EffectUvMotion {
+    std::array<float, 2> offset{};
+    float amplitude = 0;
+    std::uint32_t phase = 0;
+    bool enabled = false;
+    bool operator==(const EffectUvMotion&) const = default;
+};
+
 struct EffectStrip {
     std::uint32_t first = 0, count = 0;
     std::uint64_t clamp = 0, tex0 = 0, tex1 = 0, alpha = 0x44;
@@ -91,6 +100,7 @@ struct EffectStrip {
     // TEX0's blocks just before the strip; put in the pool before it is drawn.
     int uploads = -1, upload_count = 0;
     std::uint32_t surface = 0;  // Native semantic marker; 0 leaves the original material alone.
+    EffectUvMotion uv_motion{};
 };
 
 // A textured quad of the 2D layer the game drew through one of its 2D routines (rac1:

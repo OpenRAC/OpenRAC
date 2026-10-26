@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+// Baked shape reuse is independent of changing UVs and colours, with ordered coarse instances.
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <filesystem>
 
@@ -20,43 +23,34 @@ int main() {
          {1, 0, 1.1f, 1, 0, 0x80808080},
          {0, 1, 1.1f, 0, 1, 0x80808080}}
     };
-    std::vector<renderer::EffectVertex> output;
-    CHECK(mesh.build(strip, source, output));
-    CHECK(output.size() == 3);
-    for (const auto& v : output) {
-        CHECK(std::abs(v.z - 1.f) < 1e-6);
+    const auto* baked = mesh.weights().data();
+    for (unsigned frame = 0; frame < 3; ++frame) {
+        mesh.begin_pass();
+        source[1].s = 1.f + float(frame) * .3f;
+        source[1].rgba = 0x20406080;
+        strip.uv_motion = {{.2f, -.3f}, .05f, frame * 77, true};
+        const auto output = mesh.prepare(strip, source);
+        CHECK(output.vertices == 6 && output.draws == 1);
+        CHECK(mesh.sources().size() == 1);
+        CHECK(mesh.weights().data() == baked);
+        const auto& coarse = mesh.sources()[0];
+        for (unsigned i = 0; i < 3; ++i) {
+            CHECK(std::bit_cast<float>(coarse[i * 2][2]) == 1.f);
+            CHECK(coarse[i * 2][3] == source[i].rgba);
+            CHECK(std::bit_cast<float>(coarse[i * 2 + 1][0]) == source[i].s);
+        }
+        CHECK(coarse[6][3] == (0x80000000u | frame * 77));
+        CHECK(mesh.plan(output.handle).batches[0].count == 1);
     }
-    for (auto& v : source) {
-        v.s += .25f;
-        v.t -= .5f;
-        v.rgba = 0x40404040;
-    }
-    CHECK(mesh.build(strip, source, output));
-    for (unsigned i = 0; i < 3; ++i) {
-        CHECK(output[i].rgba == source[i].rgba);
-        CHECK(std::abs(output[i].s - source[i].s) < 1e-6);
-        CHECK(std::abs(output[i].t - source[i].t) < 1e-6);
-    }
-    // Non-uniform UV and colour changes must rebuild rather than reuse a translation.
-    source[1].s += .3f;
-    source[1].rgba = 0x20406080;
-    CHECK(mesh.build(strip, source, output));
-    for (unsigned i = 0; i < 3; ++i) {
-        CHECK(output[i].rgba == source[i].rgba);
-        CHECK(output[i].s == source[i].s);
-    }
+    // Permutations still resolve the authored triangle, without changing the baked stream.
     std::swap(source[1], source[2]);
-    CHECK(mesh.build(strip, source, output));
-    CHECK(output.size() == 3);
-    for (const auto& v : output) {
-        CHECK(v.z == 1.f);
-    }
-    CHECK(!mesh.build(strip, {}, output));
-    strip.surface = 0;
-    CHECK(!mesh.build(strip, source, output));
-    strip.surface = 1;
-    mesh.clear_cache();
-    CHECK(mesh.build(strip, source, output));
+    mesh.begin_pass();
+    CHECK(mesh.prepare(strip, source).vertices == 6);
+    CHECK(mesh.weights().data() == baked);
+    // Several strips keep distinct instance ranges until the pass is drawn.
+    const auto second = mesh.prepare(strip, source);
+    CHECK(second.handle == 1);
+    CHECK(mesh.plan(second.handle).batches[0].first == 1);
     auto wrong = data.fingerprint;
     wrong[0] = 'y';
     bool rejected = false;

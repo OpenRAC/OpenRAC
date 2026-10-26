@@ -166,7 +166,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         };
     };
     std::vector<GLsizei> strip_counts;
-    std::vector<EffectVertex> material_vertices;
+    std::vector<std::optional<EffectMesh>> material_meshes;
     for (const EffectStrip& strip : input.strips) {
         if (strip.count < 3
             || static_cast<std::size_t>(strip.first) + strip.count > input.strip_vertices.size()
@@ -174,24 +174,26 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
             continue;
         }
         const auto start = m_vertices.size();
-        material_vertices.clear();
-        if (m_material
-            && m_material->mesh(
-                strip,
-                std::span(input.strip_vertices).subspan(strip.first, strip.count),
-                material_vertices
-            )) {
-            for (const auto& v : material_vertices) {
-                m_vertices.push_back(vertex(v));
-            }
-        } else {
+        auto mesh =
+            m_material
+                ? m_material->mesh(
+                      strip, std::span(input.strip_vertices).subspan(strip.first, strip.count)
+                  )
+                : std::nullopt;
+        // Resident material meshes never enter the core's expanded vertex upload.
+        if (!mesh) {
             for (std::uint32_t k = 0; k + 2 < strip.count; ++k) {
                 for (std::uint32_t c = 0; c < 3; ++c) {
                     m_vertices.push_back(vertex(input.strip_vertices[strip.first + k + c]));
                 }
             }
         }
+        material_meshes.push_back(mesh);
         strip_counts.push_back(static_cast<GLsizei>(m_vertices.size() - start));
+    }
+    if (m_material) {
+        m_material->upload_meshes();
+        m_shader.use();
     }
     const std::size_t quads_from = m_vertices.size();
     for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
@@ -226,6 +228,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     struct State {
         std::uint64_t tex0, tex1, clamp, alpha;
         std::uint32_t tbp, cbp, surface;
+        EffectUvMotion motion{};
         bool operator==(const State&) const = default;
     };
 
@@ -248,7 +251,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
                 wanted.tex0, wanted.tex1, wanted.clamp, wanted.alpha, state, wanted.tbp, wanted.cbp
             );
             if (m_material) {
-                m_material->bind(m_shader, wanted.surface, input);
+                m_material->bind(m_shader, wanted.surface, input, wanted.motion);
             }
             set = wanted;
         }
@@ -284,8 +287,29 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
                 }
             }
         }
+        const auto mesh = material_meshes[strip_index];
         const auto count = strip_counts[strip_index++];
-        add({strip.tex0, strip.tex1, strip.clamp, strip.alpha, 0, 0, strip.surface},
+        // Keep the original strip order and texture uploads around each material draw.
+        if (mesh) {
+            flush();
+            set.reset();
+            apply(strip.tex0, strip.tex1, strip.clamp, strip.alpha, state);
+            m_material->bind(m_shader, strip.surface, input, strip.uv_motion);
+            m_material->draw_mesh(m_shader, *mesh);
+            state.stats.draw_calls += mesh->draws;
+            state.stats.triangles += mesh->vertices / 3;
+            glBindVertexArray(m_vao);
+            glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+            continue;
+        }
+        add({strip.tex0,
+             strip.tex1,
+             strip.clamp,
+             strip.alpha,
+             0,
+             0,
+             strip.surface,
+             strip.uv_motion},
             at,
             count,
             false);

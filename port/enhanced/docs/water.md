@@ -152,18 +152,20 @@ frames do not advance it twice. Original mode bypasses the entire solver.
 
 
 The bake also writes `water.mesh`, containing every authored rest triangle and painted layer,
+plus dense subdivision templates and barycentric mappings. The baker uses longest-edge bisection
+to produce at most 0.5 game-unit edges without wasting vertices on long, thin strips.
 
-plus precomputed dense triangles and barycentric mappings for the original animated texture coordinates.
+These templates are uploaded once. The renderer instances them using the original coarse
+triangles, resolves their rest heights and uploads only the small coarse attribute stream.
+Dense positions, UVs and rounded vertex colours are interpolated on the GPU. Runtime does not
+subdivide or build expanded CPU vertex streams. Existing mesh/coastline bakes remain valid.
 
-The baker uses longest-edge bisection to produce at most 0.5 game-unit edges without wasting vertices
-
-on long, thin strips. Enhanced mode loads this geometry, replaces the game's animated water positions
-
-with its fixed rest surface, and samples the compute height image in the vertex shader. Runtime does
-
-not subdivide or decide mesh topology. It preserves scrolling UVs and colour on the baked triangles;
-
-static geometry and texture translations are cached.
+Scrolling layers carry their authored offsets, signed distortion amplitude and animation counter
+in the captured draw packet. A compute shader evaluates UV distortion once per coarse vertex;
+the dense vertex shader interpolates the result before applying water displacement. This retains
+the original two opposed texture layers and game-update timing through pauses and render-thread
+handoffs. Other strips retain their captured UV animation. Strip order, GS alpha and texture
+uploads remain in their original sequence.
 
 The simulation therefore displaces real geometry rather than layering new normals over retail ripples.
 
@@ -219,11 +221,12 @@ Novalis hooks bypass the original pond height-field step and reject original poo
 
 They clear all three old displacement buffers, including waves left over when toggling enhanced on.
 
-The original draw/material/UV callbacks still run. For river/cave/pipe packet generation, the two
-
-legacy height endpoints are temporarily replaced by their midpoint, then restored. The baker uses
-
-the same midpoint as its rest surface, so a captured retail ripple is not baked into the new mesh.
+The original layer update and material callbacks still run. For river/cave/pipe packet generation,
+the two legacy height endpoints are temporarily replaced by their midpoint. UV distortion amplitude
+and scrolling offsets are temporarily zeroed so the packet contains base UVs. Their original values
+are copied into NOP metadata beside the draw packet and restored immediately after the builder.
+The baker uses the same midpoint as its rest surface, so captured retail ripples are not baked
+into the new mesh. The GPU owns UV motion and enhanced displacement; game state is preserved.
 
 Only shallow-water compute output changes the enhanced mesh height. Game collision and swimming
 
