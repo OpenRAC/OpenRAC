@@ -29,6 +29,10 @@ def resolve_materials(directory, catalog_path):
             if key == 'vertex_colour':
                 if not isinstance(value, bool):
                     raise ValueError('emission vertex_colour requires a boolean')
+            elif key == 'contrast':
+                if (isinstance(value, bool) or not isinstance(value, (int, float))
+                        or not math.isfinite(value) or not 1 <= value <= 4):
+                    raise ValueError('emission contrast must be between one and four')
             elif key in ('runtime_intensity', 'bake_intensity', 'diffuse_scale'):
                 if (isinstance(value, bool) or not isinstance(value, (int, float))
                         or not math.isfinite(value) or value < 0 or (key == 'diffuse_scale' and value > 1)):

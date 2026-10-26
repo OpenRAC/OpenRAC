@@ -45,6 +45,7 @@ uniform int gtao_enabled;
 uniform vec3 material_emission;
 uniform sampler2D emission_texture;
 uniform int emission_vertex_colour;
+uniform float material_emission_contrast;
 uniform float material_diffuse_scale;
 uniform sampler2D gtao_visibility;
 #endif
@@ -82,6 +83,10 @@ vec3 surface_emission(vec4 texel) {
     vec3 emitted = probe_linear(clamp(texel.rgb * v_script_emission, vec3(0.0), vec3(1.0)));
     if (any(greaterThan(material_emission, vec3(0.0)))) {
         vec3 radiance = emission_texel(emission_vertex_colour != 0);
+        if (material_emission_contrast > 1.) {
+            float luminance = dot(radiance, vec3(.2126, .7152, .0722));
+            radiance *= pow(max(luminance, 0.) / .18, material_emission_contrast - 1.);
+        }
         emitted += material_emission * radiance;
     }
     return emitted;

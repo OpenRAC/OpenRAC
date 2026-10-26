@@ -114,6 +114,10 @@ void validate_triangle(
         throw std::runtime_error("invalid bake diffuse scale");
     }
 
+    if (!std::isfinite(triangle.emission_contrast) || triangle.emission_contrast < 1
+        || triangle.emission_contrast > 4) {
+        throw std::runtime_error("invalid bake emission contrast");
+    }
     validate_colour(triangle.diffuse, true);
     validate_colour(triangle.emission, false);
 

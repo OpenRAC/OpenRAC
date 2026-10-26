@@ -86,6 +86,8 @@ bool material_program(Program& p, const std::string& vertex, const std::string& 
         {{"material_colour", "O_MATERIAL.colour", 0},
          {"material_emission", "O_MATERIAL.emission_diffuse.xyz", 16},
          {"material_diffuse_scale", "O_MATERIAL.emission_diffuse.w", 28},
+         // Spare material word: preserves batching and the existing 96-byte layout.
+         {"material_emission_contrast", "uintBitsToFloat(O_MATERIAL.texture_indices.y)", 84},
          {"cutout", "int(O_MATERIAL.flags.x)", 32},
          {"emission_mask", "int(O_MATERIAL.flags.y)", 36},
          {"emission_vertex_colour", "int(O_MATERIAL.flags.z)", 40},

@@ -2688,6 +2688,7 @@ void LevelScene::draw_layer(
                             m.emission_vertex_colour ? 1 : 0
                         );
                         glUniform1f(program->uniform("material_diffuse_scale"), m.diffuse_scale);
+                        glUniform1f(program->uniform("material_emission_contrast"), m.emission_contrast);
                         glUniform1i(program->uniform("emission_texture"), 12);
                         const auto emission_texture =
                             m.emission_image >= 0

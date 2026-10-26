@@ -264,6 +264,16 @@ it defaults to the runtime emission when omitted. Explicit bake intensities bypa
 automatic interior emitter boosts. Novalis mushrooms use runtime intensity 2 and bake
 intensity 4.
 
+Per-material `contrast` in `probe-emission.json` controls a hue-preserving emission
+power curve (1 to 4; default 1 leaves emission unchanged). After linear texture
+filtering and optional vertex tint, RGB is multiplied by
+`(luminance / 0.18)^(contrast - 1)`, before the intensity multiplier. Higher values
+reduce dark emission below middle grey and amplify bright areas above it. Black
+stays black; alpha and diffuse colour are unchanged. Runtime and baked transport
+use the same curve. Novalis mushroom emitters use 1.5; other materials retain 1.
+Changing contrast requires rebaking probes, then reloading the level. For example:
+`{"runtime_intensity": 1, "bake_intensity": 4, "contrast": 1.5}`.
+
 Reviewed static emission is defined in the version's `emission-materials.json` catalog.
 Each entry identifies exported PNG content with SHA-256, so the same authored light
 receives its definition across levels and texture renumbering. The exporter and bake

@@ -267,7 +267,8 @@ void material_path(
     bool textured_emission = false,
     bool grey_texel = false,
     bool mixed_texel = false,
-    bool authored_tint = false
+    bool authored_tint = false,
+    float emission_contrast = 1
 ) {
     scene::LevelData level;
     level.light_sets.resize(256);
@@ -322,6 +323,7 @@ void material_path(
         level.image_paths.push_back("emission-test");
         level.materials.back().emission_image = 0;
     }
+    level.materials.back().emission_contrast = emission_contrast;
     scene::Model model;
     model.primitives.push_back({0, 3, 0});
     level.models.push_back(model);
@@ -442,7 +444,11 @@ void material_path(
                 } else if (mixed_texel) {
                     texture_green = linear(160.f / 255);
                 }
-                const float e = .125f * texture_green;
+                float luminance = textured_emission ? .7152f : 1.f;
+                if (grey_texel) luminance = texture_green;
+                else if (mixed_texel) luminance = .7152f*texture_green + .2848f*linear(128.f/255);
+                const float gain = emission_contrast > 1 ? std::pow(luminance/.18f, emission_contrast-1) : 1.f;
+                const float e = .125f * texture_green * gain;
                 float display =
                     e <= .0031308f ? e * 12.92f : 1.055f * std::pow(e, 1.f / 2.4f) - .055f;
                 CHECK(std::abs(int(pixels[at + 1]) - int(std::round(display * 255))) <= 2);
@@ -1647,6 +1653,10 @@ void main() {
     dense_sphere_fade();
     camera_facing_normals();
     rejected_bake_message();
+    // Per-material power curve agrees with CPU luminance shaping for colour and grey.
+    material_path(scene::Layer::Mobys, 0, false, false, false, true, true, false, false, false, 1.5f);
+    material_path(scene::Layer::Mobys, 0, false, false, false, true, true, true, false, false, 1.5f);
+    material_path(scene::Layer::Mobys, 0, false, false, false, true, true, false, true, false, 1.5f);
     sunlight_rgb_correction();
     return test::result();
 }

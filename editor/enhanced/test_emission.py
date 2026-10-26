@@ -92,6 +92,16 @@ class EmissionTests(unittest.TestCase):
         self.assertNotIn('static_mobys', copied)
         self.assertEqual(copied['textures/renamed.png'], self.definition)
 
+    def test_emission_contrast_validation_and_export(self):
+        self.definition['contrast'] = 1.5
+        self.write_catalog()
+        self.assertEqual(resolve_materials(self.level, self.catalog)['textures/renamed.png']['contrast'], 1.5)
+        for value in (0, 4.1, True, '2', float('nan')):
+            self.definition['contrast'] = value
+            self.write_catalog()
+            with self.assertRaisesRegex(ValueError, 'contrast'):
+                resolve_materials(self.level, self.catalog)
+
     def test_invalid_or_duplicate_identities_fail(self):
         self.catalog.write_text(json.dumps(dict(version=1, materials=[self.material, self.material])))
         with self.assertRaisesRegex(ValueError, 'duplicate'):

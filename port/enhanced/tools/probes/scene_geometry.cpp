@@ -206,6 +206,7 @@ private:
             triangle.fixed_emission = material.bake_intensity.has_value();
             triangle.emission_texture = texture_index(material.emission_image);
             triangle.emission_vertex_colour = material.emission_vertex_colour;
+            triangle.emission_contrast = material.emission_contrast;
             triangle.diffuse = as_float3(material.colour.data());
             triangle.diffuse_scale = material.diffuse_scale;
             // Masked packets use half alpha; other opaque packets discard near-zero alpha.

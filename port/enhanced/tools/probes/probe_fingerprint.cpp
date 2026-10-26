@@ -173,6 +173,10 @@ void triangle_hash(Hash& hash, const BakeTriangle& triangle) {
     }
 
     hash.u32(static_cast<std::uint32_t>(triangle.emission_texture));
+    if (triangle.emission_contrast != 1) {
+        hash.u32(0x45434f4e); // Emission contrast changes transport.
+        hash.f32(triangle.emission_contrast);
+    }
 
     // Only enabled vertex emission contributes its colour payload.
     if (triangle.emission_vertex_colour) {

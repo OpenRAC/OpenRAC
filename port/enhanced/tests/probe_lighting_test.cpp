@@ -307,6 +307,29 @@ void emissive_transport() {
         CHECK(ooze[2] == 0 && ooze[1] > ooze[0]);
         scene.textures[0].rgba = {128, 128, 128, 255};
     }
+    {
+        BakeTriangle source{};
+        source.emission = {1, 1, 1};
+        source.emission_texture = 0;
+        source.emission_contrast = 2;
+        scene.textures[0].rgba = {32, 32, 32, 255};
+        const auto dark = bake_emission(scene, source, 0, 0);
+        source.emission_contrast = 1;
+        const auto original_dark = bake_emission(scene, source, 0, 0);
+        CHECK(dark[0] < original_dark[0] && dark[0] > 0);
+        source.emission_contrast = 2;
+        scene.textures[0].rgba = {255, 128, 0, 0};
+        const auto bright = bake_emission(scene, source, 0, 0);
+        source.emission_contrast = 1;
+        const auto original_bright = bake_emission(scene, source, 0, 0);
+        CHECK(bright[0] > original_bright[0]);
+        CHECK(std::abs(bright[0]/bright[1] - original_bright[0]/original_bright[1]) < 1e-5f);
+        CHECK(bright[2] == 0);
+        source.emission_contrast = 4;
+        scene.textures[0].rgba = {0, 0, 0, 255};
+        CHECK((bake_emission(scene, source, 0, 0) == Float3{}));
+        scene.textures[0].rgba = {128, 128, 128, 255};
+    }
     BakeTriangle blocker{};
     blocker.vertices = {Float3{-4, -4, 1}, Float3{4, -4, 1}, Float3{0, 4, 1}};
     blocker.diffuse = {};

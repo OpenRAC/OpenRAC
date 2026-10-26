@@ -137,11 +137,16 @@ int main() {
         CHECK(shared.scene_hash != export_probe_scene(emitting, 0, {.1f, .1f, .1f}).scene_hash);
         emitting.materials[0].emission[0] = 1;
         emitting.materials[0].emission_vertex_colour = true;
+        emitting.materials[0].emission_contrast = 1.5f;
         emitting.materials[0].diffuse_scale = 0;
         emitting.vertices[0].colour[0] = .25f;
         emitting.vertices[0].colour[1] = 1;
         const auto tinted = export_probe_scene(emitting, 0, {.1f, .1f, .1f});
         CHECK(tinted.scene.triangles[0].emission_vertex_colour);
+        CHECK(tinted.scene.triangles[0].emission_contrast == 1.5f);
+        emitting.materials[0].emission_contrast = 2;
+        CHECK(tinted.scene_hash != export_probe_scene(emitting, 0, {.1f, .1f, .1f}).scene_hash);
+        emitting.materials[0].emission_contrast = 1.5f;
         CHECK(tinted.scene.triangles[0].emission_colours[0][0] == .25f);
         CHECK(tinted.scene.triangles[0].diffuse_scale == 0);
         emitting.light_colours = {32u | (64u << 8) | (128u << 16)};

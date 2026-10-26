@@ -67,6 +67,7 @@ struct Material {
     std::optional<float> bake_intensity;
     int emission_image = -1;
     bool emission_vertex_colour = false;
+    float emission_contrast = 1; // Luminance power curve around linear middle grey (0.18).
     float diffuse_scale = 1;
 };
 

@@ -335,6 +335,21 @@ void loader(const fs::path& dir, scene::LevelData& level) {
         CHECK((ooze.materials[0].emission == scene::Vec3{1, 1, 1}));
         CHECK(ooze.materials[0].emission_vertex_colour);
         CHECK(ooze.materials[0].diffuse_scale == 0);
+        CHECK(ooze.materials[0].emission_contrast == 1);
+        write_text(ooze_dir / "probe-emission.json", R"({
+          "textures/terrain_0012.png":{"runtime_intensity":1,"contrast":1.5}
+        })");
+        CHECK(scene::load_level(ooze_dir, ooze, error));
+        CHECK(ooze.materials[0].emission_contrast == 1.5f);
+        for (const char* value : {"0", "4.1", "\"bad\"", "true"}) {
+            write_text(ooze_dir / "probe-emission.json", std::string(
+                "{\"textures/terrain_0012.png\":{\"contrast\":") + value + "}}");
+            CHECK(!scene::load_level(ooze_dir, ooze, error));
+        }
+        write_text(ooze_dir / "probe-emission.json", R"({
+          "textures/terrain_0012.png":{"runtime_intensity":1,"vertex_colour":true,"diffuse_scale":0}
+        })");
+        CHECK(scene::load_level(ooze_dir, ooze, error));
         CHECK((ooze.materials[1].emission == scene::Vec3{0, .5f, 0}));
         const auto source_emission = ooze.materials[0].emission;
         write_text(ooze_dir / "probe-emission.json", R"({

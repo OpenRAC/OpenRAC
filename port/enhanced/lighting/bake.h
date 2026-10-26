@@ -27,6 +27,7 @@ struct BakeTriangle {
     bool fixed_emission = false;
     int emission_texture = -1;  // sRGB emission texture, alpha comes from the diffuse material
     bool emission_vertex_colour = false;
+    float emission_contrast = 1;
     std::array<Float3, 3> emission_colours{{{1, 1, 1}, {1, 1, 1}, {1, 1, 1}}};
     bool terrain_prelighting = false;
     std::array<Float3, 3> authored_colours{{{1, 1, 1}, {1, 1, 1}, {1, 1, 1}}};
