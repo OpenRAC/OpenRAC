@@ -9,9 +9,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <format>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
 
 #include "common/env.h"
 #include "common/log.h"
@@ -76,59 +79,71 @@ Frame* frame_of(std::uint64_t serial) {
     return f.serial == serial ? &f : nullptr;
 }
 
-void write_json_string(std::FILE* out, std::string_view text) {
-    std::fputc('"', out);
+void write_json_string(std::string& out, std::string_view text) {
+    out += '"';
     for (const char c : text) {
         if (c == '"' || c == '\\') {
-            std::fputc('\\', out);
-            std::fputc(c, out);
+            out += '\\';
+            out += c;
         } else if (static_cast<unsigned char>(c) < 0x20) {
-            std::fprintf(out, "\\u%04x", c);
+            std::format_to(std::back_inserter(out), "\\u{:04x}", c);
         } else {
-            std::fputc(c, out);
+            out += c;
         }
     }
-    std::fputc('"', out);
+    out += '"';
 }
 
+// One frame as a line of JSON, made in memory and written at once: hundreds of small writes, each
+// taking the file's lock, cost a phone's window thread more than the frame's own counting.
 void write_frame(std::FILE* out, const Frame& f) {
-    std::fprintf(out, "{\"frame\":%llu,\"tick\":%llu,\"kind\":\"%s\",\"alpha\":%.3f,\"t\":%.6f,\"frame_ms\":%.3f",
-                 static_cast<unsigned long long>(f.serial), static_cast<unsigned long long>(f.tick),
-                 frame_kind_name(f.kind), static_cast<double>(f.alpha), f.start_s, f.interval_ms);
+    thread_local std::string line;
+    line.clear();
+    const auto add = std::back_inserter(line);
+    std::format_to(
+        add,
+        "{{\"frame\":{},\"tick\":{},\"kind\":\"{}\",\"alpha\":{:.3f},\"t\":{:.6f},\"frame_ms\":{:."
+        "3f}",
+        f.serial,
+        f.tick,
+        frame_kind_name(f.kind),
+        static_cast<double>(f.alpha),
+        f.start_s,
+        f.interval_ms
+    );
     if (f.kind == FrameKind::Tick) {
-        std::fprintf(out, ",\"game_ms\":%.3f", f.game_ms);
+        std::format_to(add, ",\"game_ms\":{:.3f}", f.game_ms);
     }
     const double gpu = f.gpu_ms();
     if (gpu >= 0.0) {
-        std::fprintf(out, ",\"gpu_ms\":%.3f", gpu);
+        std::format_to(add, ",\"gpu_ms\":{:.3f}", gpu);
     } else {
-        std::fputs(",\"gpu_ms\":null", out);
+        line += ",\"gpu_ms\":null";
     }
     for (std::size_t i = 0; i < kCounterCount; ++i) {
-        std::fprintf(out, ",\"%s\":%llu", counter_name(static_cast<Counter>(i)),
-                     static_cast<unsigned long long>(f.counters[i]));
+        std::format_to(add, ",\"{}\":{}", counter_name(static_cast<Counter>(i)), f.counters[i]);
     }
-    std::fputs(",\"sections\":[", out);
+    line += ",\"sections\":[";
     for (std::size_t i = 0; i < f.sections.size(); ++i) {
         const Section& s = f.sections[i];
-        std::fputs(i == 0 ? "{\"name\":" : ",{\"name\":", out);
-        write_json_string(out, s.name);
-        std::fprintf(out, ",\"depth\":%d,\"cpu_ms\":%.3f", s.depth, s.cpu_ms);
+        line += i == 0 ? "{\"name\":" : ",{\"name\":";
+        write_json_string(line, s.name);
+        std::format_to(add, ",\"depth\":{},\"cpu_ms\":{:.3f}", s.depth, s.cpu_ms);
         if (s.gpu_ms >= 0.0) {
-            std::fprintf(out, ",\"gpu_ms\":%.3f", s.gpu_ms);
+            std::format_to(add, ",\"gpu_ms\":{:.3f}", s.gpu_ms);
         }
-        std::fprintf(out, ",\"draw_calls\":%llu,\"triangles\":%llu}", static_cast<unsigned long long>(s.draw_calls),
-                     static_cast<unsigned long long>(s.triangles));
+        std::format_to(add, ",\"draw_calls\":{},\"triangles\":{}}}", s.draw_calls, s.triangles);
     }
-    std::fputs("],\"gauges\":{", out);
+    line += "],\"gauges\":{";
     for (std::size_t i = 0; i < f.gauges.size(); ++i) {
         if (i != 0) {
-            std::fputc(',', out);
+            line += ',';
         }
-        write_json_string(out, f.gauges[i].first);
-        std::fprintf(out, ":%.6g", f.gauges[i].second);
+        write_json_string(line, f.gauges[i].first);
+        std::format_to(add, ":{:.6g}", f.gauges[i].second);
     }
-    std::fputs("}}\n", out);
+    line += "}}\n";
+    std::fwrite(line.data(), 1, line.size(), out);
 }
 
 // Hands `take` the closed frames from serial `next` on whose GPU times are back, or that have
