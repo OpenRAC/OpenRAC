@@ -31,7 +31,7 @@ import java.io.FileNotFoundException
  *   Disc images         files/discs          the images picked in the launcher
  *   GPU drivers         files/gpu_drivers    the driver packages (OpenracPlugin.kt)
  *   Screenshots         files/screenshots    the drawer's screenshots (debug_overlay.cpp)
- *   Performance         files/perf           the drawer's performance captures (debug/capture.cpp)
+ *   Diagnostics         files/perf           the drawer's diagnostics recordings (debug/capture.cpp)
  *
  * A document's id is "root", a folder's key, or "<key>/<path inside it>".
  */
@@ -46,7 +46,7 @@ class FilesProvider : DocumentsProvider() {
       Place("discs", "Disc images", "discs"),
       Place("drivers", "GPU drivers", "gpu_drivers"),
       Place("screenshots", "Screenshots", "screenshots"),
-      Place("perf", "Performance captures", "perf"),
+      Place("perf", "Diagnostics recordings", "perf"),
     )
     private val ROOT_COLUMNS = arrayOf(
       Root.COLUMN_ROOT_ID, Root.COLUMN_FLAGS, Root.COLUMN_ICON, Root.COLUMN_TITLE,

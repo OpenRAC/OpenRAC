@@ -376,7 +376,7 @@ std::string Recorder::verdict() const {
 
 std::string Recorder::report(const Context& context) const {
     std::string out;
-    put(out, "# OpenRAC performance capture\n\n");
+    put(out, "# OpenRAC diagnostics recording\n\n");
     if (!context.title.empty()) {
         put(out, "{}\n\n", context.title);
     }

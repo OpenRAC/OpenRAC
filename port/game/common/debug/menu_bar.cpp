@@ -127,7 +127,7 @@ void menu_bar() {
         }
         ImGui::Separator();
         if (ImGui::MenuItem(
-                capture_busy() ? "Stop performance recording" : "Record performance", "Ctrl+F3"
+                capture_busy() ? "Stop recording diagnostics" : "Record diagnostics", "Ctrl+F3"
             )) {
             toggle_capture(false);
         }

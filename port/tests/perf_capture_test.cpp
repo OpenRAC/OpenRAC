@@ -87,7 +87,7 @@ void cpu_bound() {
     context.title = "rac1-pal, Kerwan";
     context.lines.emplace_back("gpu", "a test");
     const std::string report = r.report(context);
-    CHECK(has(report, "# OpenRAC performance capture"));
+    CHECK(has(report, "# OpenRAC diagnostics recording"));
     CHECK(has(report, "rac1-pal, Kerwan"));
     CHECK(has(report, "- gpu: a test"));
     CHECK(has(report, "100 frames (100 tick, 0 between ticks)"));

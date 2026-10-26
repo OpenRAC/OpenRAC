@@ -375,7 +375,7 @@ void panel(const Shown& shown) {
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button(keys ? "record performance (Ctrl+F3)" : "record performance")) {
+        if (ImGui::Button(keys ? "record diagnostics (Ctrl+F3)" : "record diagnostics")) {
             toggle_capture(false);
         }
         if (!s.message.empty()) {

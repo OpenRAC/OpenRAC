@@ -92,7 +92,7 @@ void configure_capture() {
 }
 
 // The folder the captures go to: the working folder's perf/; on Android, whose apps run in "/",
-// the app's own files (HOME), which the Files app shows as "Performance captures".
+// the app's own files (HOME), which the Files app shows as "Diagnostics recordings".
 std::filesystem::path capture_dir() {
     std::filesystem::path dir = "perf";
 #if defined(__ANDROID__)

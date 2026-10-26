@@ -1,6 +1,7 @@
-# Performance captures
+# Diagnostics recordings
 
-A performance capture records a stretch of play, measured as the F3 overlay
+A diagnostics recording (in the code and these pages, a performance capture: it began as one,
+and now carries debug data as well) records a stretch of play, measured as the F3 overlay
 measures it ([DEBUGGING.md](DEBUGGING.md), [RENDER_PERF.md](RENDER_PERF.md)),
 and sums it up into one short text report: the device, the GPU and its
 driver, the settings, the frame times, a verdict, where each frame's time
@@ -16,9 +17,9 @@ capture is started.
 
 | Where | How |
 |---|---|
-| Android (the drawer) | Developer tools, "Capture length" (15, 30, 60, 120 s or until stopped, at most ten minutes), then "Record performance". The drawer shuts and recording starts three seconds later; a red `REC 12 / 30 s` line at the top of the picture counts. Opening the drawer again ends it early. Everything is reachable with a gamepad. |
-| Windows and Linux (the menu bar) | Developer, "Record performance" (Ctrl+F3), and "Recording length". |
-| Any system | Ctrl+F3 starts and stops a capture; the overlay's panel has a "record performance" button. |
+| Android (the drawer) | Developer tools, "Recording length" (15, 30, 60, 120 s or until stopped, at most ten minutes), then "Record diagnostics". The drawer shuts and recording starts three seconds later; a red `REC 12 / 30 s` line at the top of the picture counts. Opening the drawer again ends it early. Everything is reachable with a gamepad. |
+| Windows and Linux (the menu bar) | Developer, "Record diagnostics" (Ctrl+F3), and "Recording length". |
+| Any system | Ctrl+F3 starts and stops a capture; the overlay's panel has a "record diagnostics" button. |
 | By script | `OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]` starts one at that window frame, for that many seconds, with the report to `FILE`. With `OPENRAC_PRESS` and `--frames` a scenario runs the same way each time. |
 
 While it records, the overlay's panel is hidden (it costs frame time of its
@@ -27,7 +28,7 @@ pictures (movies) are left out of the numbers.
 
 When it ends, the report is **copied to the clipboard** and saved:
 
-- Android: the "Performance captures" folder of OpenRAC in the system's Files
+- Android: the "Diagnostics recordings" folder of OpenRAC in the system's Files
   app (the app's `files/perf`).
 - Desktop: `perf/` in the folder the game runs in.
 
