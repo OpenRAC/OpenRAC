@@ -10,44 +10,44 @@
  */
 
 /* Declarations in scope here before the split. */
-extern char D_0013E650[];
-extern int D_0015F694;
-extern void func_001F9A98(void *, void *, int);
-extern char D_00189310[];
-extern char D_001899D0[];
-extern void *D_001871C0 NOT_SDA;
-extern DispatchRec D_001E8F80[];
-extern int D_0018A3B0[];
-extern void func_001F99B0();
-extern void func_001F2BC8(void);
-extern int D_0018C434 NOT_SDA;
-extern char D_001940C0[];
-extern long D_00151888[3];
-extern int D_0015F6FC;
-extern short D_0015F534;
-extern void func_001FB530(void);
-extern void func_001F3D78(void);
-extern int D_0015F564;
-extern int D_0018DD40[];
-extern int D_0018DC40[];
-extern short D_0015F59C;
-extern int func_001F65B0(unsigned char *arg0, int arg1, void *arg2);
-extern unsigned char D_001DF3D0[];
-extern unsigned char D_001DF770[];
-extern unsigned char D_001DFB10[];
-extern void func_001F6668(void *, void *, void *, void *, void *, int,
+extern char voice_pool[];
+extern int bank_sound_count;
+extern void FastMemCopy(void *, void *, int);
+extern char backup_cam[];
+extern char gCamBackupState[];
+extern void *cur_cam NOT_SDA;
+extern DispatchRec camera_types[];
+extern int draw_config[];
+extern void FastMemSet();
+extern void BuildOcclVisibility(void);
+extern int occl_update NOT_SDA;
+extern char occl_visibility[];
+extern long gs_display_settings[3];
+extern int space_load_in_progress;
+extern short draw_enable_mask;
+extern void append_gif_transfer_packet(void);
+extern void DrawDebugProfiler(void);
+extern int draw_callback_count;
+extern int draw_callback_args[];
+extern int draw_callback_funcs[];
+extern short GlobalStateFlag;
+extern int measure_text_width(unsigned char *arg0, int arg1, void *arg2);
+extern unsigned char normal_font_metrics[];
+extern unsigned char small_font_metrics[];
+extern unsigned char large_font_metrics[];
+extern void FontPrint(void *, void *, void *, void *, void *, int,
                           unsigned char *);
-extern int func_001F6600(unsigned char *, int);
-extern int func_001F6620(unsigned char *, int);
-extern int func_001F4868(int);
-extern void func_001FB498(void);
-extern void func_001F3008(void);
-extern void func_001F3140(void);
-extern int D_0018E840[];
-extern long D_00152178 NOT_SDA;
+extern int measure_text_width_regular(unsigned char *, int);
+extern int measure_text_width_small(unsigned char *, int);
+extern int GetEffectTex(int);
+extern void PutDrawBufferLarge(void);
+extern void InitViewContext(void);
+extern void UpdateViewContext(void);
+extern int bit_swap_lut[];
+extern long background_rgbaq NOT_SDA;
 
-extern int D_001941C0[];
-extern int D_0016100C MACRO_ADDR;
+extern int level_resource_buffers[];
+extern int current_vu_chain MACRO_ADDR;
 
 /* Start of a `size`-byte block at the end of each of the two VU1 chain
    buffers (D_001941C0[1]/[2], D_0016100C bytes long, as VU1_initChain
@@ -60,8 +60,8 @@ int calculate_ring_buffer_bounds(unsigned int size, int *out1, int *out2) {
         *out2 = 0;
         return -1;
     }
-    *out1 = level_resource_buffers[1] + D_0016100C - size;
-    *out2 = level_resource_buffers[2] + D_0016100C - size;
+    *out1 = level_resource_buffers[1] + current_vu_chain - size;
+    *out2 = level_resource_buffers[2] + current_vu_chain - size;
     return 0;
 }
 
@@ -77,8 +77,8 @@ typedef struct {
     s32 label_text;
     s32 pad4[2];
 } LevelMapMarkerText_FDF78;
-extern LevelMapMarkerText_FDF78 D_001DE0C4[19];
-extern LevelMapMarker_FDF78 D_001DE1A8[20];
+extern LevelMapMarkerText_FDF78 level_map_labels[19];
+extern LevelMapMarker_FDF78 level_map_markers[20];
 struct MapIcon;
 struct MapMarker;
 struct MapHdr;
@@ -125,37 +125,38 @@ struct MapState_FDF78 {
     s32 sel; /* 0x2A0: slot being filled, -1 none */
     s32 slot_size[5]; /* 0x2A4 */
 };
-extern struct MapState_FDF78 D_001A01F0;
-extern u8 D_0013DE48[20];
-extern u8 D_0013DE60[20];
-extern s32 D_0015EE80 MACRO_ADDR;
-extern s32 D_0015F538 MACRO_ADDR;
-extern short D_0015F770;
-extern void func_001F4630(s32);
-extern void func_001F4748(void);
-extern s32 func_001F6600(u8 *, s32);
-extern void func_001F68E8(s32, s32, u64, u8 *, s32);
-extern s32 func_001F98C0(s32);
-extern f32 func_001F9CE8(f32 *);
-extern void *func_001FE540(s32);
-extern s32 func_00200198(s32, s32);
-extern void func_00200468(s32, s32, s32, s32, s32, s32);
-extern void func_00200A90(s32, s32, s32, s32, s32, s32, s32, s32);
-extern void func_002014B8(s32, s32, s32, s32, u64, s32);
-extern void func_00201640(s32, s32, s32, s32, u64, s32);
-extern void func_00234C98(s32, u64);
+extern struct MapState_FDF78 level_map_selection;
+extern u8 level_available[20];
+extern u8 level_visit_state[20];
+extern s32 pal_mode MACRO_ADDR;
+extern s32 game_frame_counter MACRO_ADDR;
+extern short map_label_text_y_offset;
+extern void SetupGifPaging(s32);
+extern void DoGifPaging(void);
+extern s32 measure_text_width_regular(u8 *, s32);
+extern void FontPrintLarge(s32, s32, u64, u8 *, s32);
+extern s32 scale_game_frame_count(s32);
+extern f32 vec_length_xy(f32 *);
+extern void *msg_string(s32);
+extern s32 GetIconFrame(s32, s32);
+extern void HudSprite(s32, s32, s32, s32, s32, s32);
+extern void draw_hud_sprite_uv(s32, s32, s32, s32, s32, s32, s32, s32);
+extern void draw_hud_rect(s32, s32, s32, s32, u64, s32);
+extern void draw_hud_rect_blended(s32, s32, s32, s32, u64, s32);
+extern void VU1_addGSregister(s32, u64);
 
+/* Map state of a level: 3 when visited, 2 when available, else 0. */
 static inline s32 map_availability_FDF78(s32 level_index) {
     if (level_visit_state[level_index] != 0) {
         return 3;
     }
-    if (D_0013DE48[level_index] != 0) {
+    if (level_available[level_index] != 0) {
         return 2;
     }
     return 0;
 }
 
-/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/assembly/textbin/fun_001fd748.c, draw_level_selection_map. */
+/* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/assembly/textbin/fun_001fd748.c, draw_level_selection_map. */
 void draw_level_selection_map(s32 left, s32 right, s32 top, s32 bottom) {
     f32 label_direction[4];
     s32 level_index;
@@ -179,7 +180,7 @@ void draw_level_selection_map(s32 left, s32 right, s32 top, s32 bottom) {
     SetupGifPaging(0);
     VU1_addGSregister(0x42, 0x8000000044);
     VU1_addGSregister(0x47, 0x4B);
-    func_00201640(0, 0, 0x200, 0x1C0, 0x80000000, 0);
+    draw_hud_rect_blended(0, 0, 0x200, 0x1C0, 0x80000000, 0);
     texture_index = GetIconFrame(0xE99A, 0xE);
     screen_width_subpixels = (right - left) * 16;
     screen_height_subpixels = (bottom - top) * 16;
@@ -187,7 +188,7 @@ void draw_level_selection_map(s32 left, s32 right, s32 top, s32 bottom) {
                        0x80);
     VU1_addGSregister(8, 0);
     draw_hud_sprite_uv(GetIconFrame(0xE99A, 0xF), 0, 0, screen_width_subpixels,
-                       screen_height_subpixels, D_0015F538 & 0xFFF, 0, 0x80);
+                       screen_height_subpixels, game_frame_counter & 0xFFF, 0, 0x80);
     VU1_addGSregister(8, 5);
     for (level_index = 1; level_index < 20; level_index++) {
         if (level_map_markers[level_index].x == 0) {
@@ -199,13 +200,13 @@ void draw_level_selection_map(s32 left, s32 right, s32 top, s32 bottom) {
         }
         marker_x = level_map_markers[level_index].x;
         marker_y = level_map_markers[level_index].y;
-        if (D_0015EE80 != 0) {
+        if (pal_mode != 0) {
             marker_y = marker_y * 0x1C0 / 0x1A0;
         }
         if (availability == 3 ||
             (availability == 2 &&
-             D_0015F538 % (func_001F98C0(0x16) + func_001F98C0(8)) <
-                 func_001F98C0(0x16))) {
+             game_frame_counter % (scale_game_frame_count(0x16) + scale_game_frame_count(8)) <
+                 scale_game_frame_count(0x16))) {
             HudSprite(GetIconFrame(0xE99A, 0xC), marker_x - 5,
                             marker_y - 5, 10, 10, 0x80);
         }
@@ -214,7 +215,7 @@ void draw_level_selection_map(s32 left, s32 right, s32 top, s32 bottom) {
             label_y = marker_y + level_map_markers[level_index].label_offset_y;
             label_direction[1] = level_map_markers[level_index].label_offset_y;
             label_direction[0] = level_map_markers[level_index].label_offset_x;
-            direction_length = func_001F9CE8(label_direction) * 1000.0f;
+            direction_length = vec_length_xy(label_direction) * 1000.0f;
             line_fraction = direction_length - 8000;
             line_start_x = label_x + (marker_x - label_x) * line_fraction / direction_length;
             line_start_y = label_y + (marker_y - label_y) * line_fraction / direction_length;
@@ -229,11 +230,11 @@ void draw_level_selection_map(s32 left, s32 right, s32 top, s32 bottom) {
                           0);
             draw_hud_rect(label_x + 1, label_y + 1, line_end_x + 1, label_y + 1, 0x80000000, 0);
             text_x = (line_end_x < label_x) ? line_end_x : label_x;
-            FontPrintLarge(text_x + 1, label_y - (*(s32 *)&D_0015F770) + 1, 0x80000000, label_text,
+            FontPrintLarge(text_x + 1, label_y - (*(s32 *)&map_label_text_y_offset) + 1, 0x80000000, label_text,
                              -1);
             draw_hud_rect(line_start_x, line_start_y, label_x, label_y, 0x80F0F0F0, 0);
             draw_hud_rect(label_x, label_y, line_end_x, label_y, 0x80F0F0F0, 0);
-            FontPrintLarge(text_x, label_y - (*(s32 *)&D_0015F770), 0x80F0F0F0, label_text, -1);
+            FontPrintLarge(text_x, label_y - (*(s32 *)&map_label_text_y_offset), 0x80F0F0F0, label_text, -1);
             HudSprite(GetIconFrame(0xE99A, 0xD), marker_x - 10,
                             marker_y - 10, 20, 20, 0x80);
         }
@@ -249,32 +250,32 @@ typedef struct {
     int x28;      /* 0x28 */
     int count;    /* 0x2C: entries in the D_0015F780 table */
 } HelpState;
-extern char D_001997D0[];
+extern char g_help_state[];
 
 /* Advances the help screen's state (D_001997D0). Every access goes
    through the global, and cases 6 and 7 are spelled out: the jump table
    has eight entries. */
 void dismiss_help(void) {
-    switch (((HelpState *)D_001997D0)->state) {
+    switch (((HelpState *)g_help_state)->state) {
     case 0:
-        ((HelpState *)D_001997D0)->x24 = -1;
+        ((HelpState *)g_help_state)->x24 = -1;
         break;
     case 1:
     case 2:
-        ((HelpState *)D_001997D0)->state = 7;
-        ((HelpState *)D_001997D0)->x04 = 0;
+        ((HelpState *)g_help_state)->state = 7;
+        ((HelpState *)g_help_state)->x04 = 0;
         break;
     case 3:
-        ((HelpState *)D_001997D0)->state = 7;
-        ((HelpState *)D_001997D0)->x04 = 0;
+        ((HelpState *)g_help_state)->state = 7;
+        ((HelpState *)g_help_state)->x04 = 0;
         break;
     case 4:
-        ((HelpState *)D_001997D0)->state = 6;
-        ((HelpState *)D_001997D0)->x04 = 4 - ((HelpState *)D_001997D0)->x04;
+        ((HelpState *)g_help_state)->state = 6;
+        ((HelpState *)g_help_state)->x04 = 4 - ((HelpState *)g_help_state)->x04;
         break;
     case 5:
-        ((HelpState *)D_001997D0)->state = 6;
-        ((HelpState *)D_001997D0)->x04 = 0;
+        ((HelpState *)g_help_state)->state = 6;
+        ((HelpState *)g_help_state)->x04 = 0;
         break;
     case 6:
     case 7:
@@ -290,7 +291,7 @@ typedef struct {
     int unk_08;
     int unk_0C;
 } HelpEntry;
-extern HelpEntry *D_0015F780 MACRO_ADDR;
+extern HelpEntry *help_msgs MACRO_ADDR;
 
 /* Help_FindIndex: the index of the first D_0015F780 entry with this id,
    or -1. `r = -1` and a `break` give retail's peeled first compare and
@@ -300,7 +301,7 @@ int Help_FindIndex(int id) {
     int r = -1;
     int i;
 
-    for (i = 0; i < ((HelpState *)D_001997D0)->count; i++) {
+    for (i = 0; i < ((HelpState *)g_help_state)->count; i++) {
         if (help_msgs[i].id == id) {
             r = i;
             break;
@@ -309,7 +310,7 @@ int Help_FindIndex(int id) {
     return r;
 }
 
-extern char D_00199A68[];
+extern char s_paradox_this_message_does_not[];
 
 /* msg_string(int). The table load sits in the bgezl slot, where the
    MACRO_ADDR access becomes $gp-relative. */
@@ -323,15 +324,15 @@ void *msg_string(int id) {
 
 LINKER_REMNANT("asm/remnants/text", func_001FE580);
 
-extern int D_0015EF1D_i __asm__("D_0015EF1D") MACRO_ADDR;
-extern int D_0015EF1C_i __asm__("D_0015EF1C") MACRO_ADDR;
-#define D_0015EF1D_b (*(unsigned char *)&D_0015EF1D_i)
-#define D_0015EF1C_b (*(unsigned char *)&D_0015EF1C_i)
-extern int func_0022EE28(int, int, int);
-extern void func_001F7648(void *arg0, int a1, int a2, int a3, int a4, int a5,
+extern int gHelpDeskText_i __asm__("D_0015EF1D") MACRO_ADDR;
+extern int gHelpDeskVoice_i __asm__("D_0015EF1C") MACRO_ADDR;
+#define D_0015EF1D_b (*(unsigned char *)&gHelpDeskText_i)
+#define D_0015EF1C_b (*(unsigned char *)&gHelpDeskVoice_i)
+extern int PlayBankSound(int, int, int);
+extern void FontSetWindow(void *arg0, int a1, int a2, int a3, int a4, int a5,
                           int a6, int a7, int a8);
-extern void func_001F75D0(void *a, long b, void *c, int d);
-extern int D_0013E604;
+extern void font_print_window_small(void *a, long b, void *c, int d);
+extern int frame_size;
 
 /* Opens the help window: state 1 (opening), the open sound unless both
    fade flags are clear, then the current entry's text is measured in a
@@ -349,16 +350,16 @@ void link_localized_display_text(void) {
     short w, h;
     int hHalf5;
 
-    ((HelpState *)D_001997D0)->state = 1;
-    ((HelpState *)D_001997D0)->x04 = 0;
+    ((HelpState *)g_help_state)->state = 1;
+    ((HelpState *)g_help_state)->x04 = 0;
     if (D_0015EF1D_b || D_0015EF1C_b) {
         PlayBankSound(0, 1, 0);
     }
 
-    idx = ((HelpState *)D_001997D0)->pad[6];
+    idx = ((HelpState *)g_help_state)->pad[6];
     text = help_msgs[idx].text;
     FontSetWindow((void *)win, 0xF0, 0x1E0, 0x2C, 0x1D4, 0x100, 0x168, 0x10, 7);
-    func_001F75D0((void *)win, 0x80FFA888L, text, -1);
+    font_print_window_small((void *)win, 0x80FFA888L, text, -1);
 
     screenY = frame_size;
     w = win[6];
@@ -366,29 +367,29 @@ void link_localized_display_text(void) {
     hHalf5 = (h >> 1) + 5;
     y0 = screenY - 0x3C;
 
-    ((HelpState *)D_001997D0)->pad[0] = (w >> 1) + 10;
-    ((HelpState *)D_001997D0)->pad[1] = hHalf5;
-    ((HelpState *)D_001997D0)->pad[2] = 0x100;
-    ((HelpState *)D_001997D0)->pad[4] = 8;
-    ((HelpState *)D_001997D0)->pad[5] = 8;
-    ((HelpState *)D_001997D0)->pad[3] = y0;
+    ((HelpState *)g_help_state)->pad[0] = (w >> 1) + 10;
+    ((HelpState *)g_help_state)->pad[1] = hHalf5;
+    ((HelpState *)g_help_state)->pad[2] = 0x100;
+    ((HelpState *)g_help_state)->pad[4] = 8;
+    ((HelpState *)g_help_state)->pad[5] = 8;
+    ((HelpState *)g_help_state)->pad[3] = y0;
     if (screenY - 0xC < y0 + hHalf5) {
-        ((HelpState *)D_001997D0)->pad[3] = screenY - 0xC - hHalf5;
+        ((HelpState *)g_help_state)->pad[3] = screenY - 0xC - hHalf5;
     }
 }
 
 /* Retail carries 4 bytes of inter-function padding after this endlabel. */
 __asm__(".section .text\n\tnop\n");
 
-extern int func_001F98C0(int);
-extern int func_001F9908_r(int *arg0) __asm__("func_001F9908");
-extern int func_00216028(int arg0, int arg1);
-extern int func_00216960(void);
-extern int D_0013CBE0;
-extern int D_0013CBE4;
-extern int D_0015F6E8 MACRO_ADDR;
-extern int D_0015EFA4 MACRO_ADDR;
-extern int D_0015EE84 MACRO_ADDR;
+extern int scale_game_frame_count(int);
+extern int fast_dec_timer_r(int *arg0) __asm__("func_001F9908");
+extern int force_help_message(int arg0, int arg1);
+extern int Music_ContinueStreamIfReady(void);
+extern int pad_held;
+extern int pad0_pressed;
+extern int g_game_mode MACRO_ADDR;
+extern int gameplay_event_frame_count MACRO_ADDR;
+extern int g_current_level_index MACRO_ADDR;
 
 typedef struct {
     int state;     /* 0x00 */
@@ -421,39 +422,39 @@ typedef struct {
     short unk5A;
 } PlayerHud;
 
-extern HelpRecord D_00141A68[];
-extern PlayerHud D_001517D0;
+extern HelpRecord help_records[];
+extern PlayerHud cd_read_state;
 
 #define HS (*(HelpSt *)D_001997D0)
 #define PLAY_TIME (func_001F98C0(D_0015EFA4) / 600)
 
 #define RECORD_COUNT()                                   \
     if (D_00141A68[HS.entry].count < 0xFFFF) {           \
-        D_00141A68[HS.entry].count++;                    \
+        help_records[HS.entry].count++;                    \
     }
 
 #define RECORD_BEST()                                    \
     if (PLAY_TIME > D_00141A68[HS.entry].best) {         \
-        D_00141A68[HS.entry].best = PLAY_TIME;           \
+        help_records[HS.entry].best = PLAY_TIME;           \
     }
 
 #define RECORD_FLAGS() \
     D_00141A68[HS.entry].flags = D_00141A68[HS.entry].flags | (1 << D_0015EE84) | 0x80000000
 
-/* Advances the help popup's state machine: delay, open, hold, close, record stats. Adapted from Lombyte (GPL-3.0) for PAL: ui/help/update_help_state.c, update_help_state. */
+/* Advances the help popup's state machine: delay, open, hold, close, record stats. Adapted from Lombyte's project (GPL-3.0) for PAL: ui/help/update_help_state.c, update_help_state. */
 void Help_Update(void) {
     if (HS.started == 0) {
-        if (HS.delay == 0 && (D_0013CBE0 & 0xF000)) {
+        if (HS.delay == 0 && (pad_held & 0xF000)) {
             HS.delay = 1;
         }
         if (HS.delay != 0) {
-            if (++HS.delay >= func_001F98C0(0x78)) {
+            if (++HS.delay >= scale_game_frame_count(0x78)) {
                 HS.started = 1;
             }
         }
     }
 
-    if (D_0015F6E8 != 0 || HS.started == 0) {
+    if (g_game_mode != 0 || HS.started == 0) {
         HS.pending = -1;
         HS.state = 0;
         HS.timer = 0;
@@ -468,7 +469,7 @@ void Help_Update(void) {
         }
         if (HS.msg >= 0) {
             if (HS.shown == 0) {
-                if (func_001F9908_r(HS.wait) != 0) {
+                if (fast_dec_timer_r(HS.wait) != 0) {
                     link_localized_display_text();
                     HS.shown++;
                 }
@@ -498,10 +499,10 @@ void Help_Update(void) {
 
         force_help_message(5, 0);
         id = help_msgs[HS.msg].unk_08;
-        if (id >= 0 && D_001517D0.unk50 == 0 && D_001517D0.unk1C == -1) {
-            D_001517D0.unk1C = id + 0x7530;
+        if (id >= 0 && cd_read_state.unk50 == 0 && cd_read_state.unk1C == -1) {
+            cd_read_state.unk1C = id + 0x7530;
         }
-        if (D_0013CBE4 & 0x10) {
+        if (pad0_pressed & 0x10) {
             RECORD_COUNT();
             RECORD_BEST();
             RECORD_FLAGS();
@@ -518,16 +519,16 @@ void Help_Update(void) {
         int id;
 
         force_help_message(5, 0);
-        if (D_0013CBE4 & 0x10) {
+        if (pad0_pressed & 0x10) {
             RECORD_COUNT();
             RECORD_BEST();
             HS.state = 7;
             HS.timer = 0;
             RECORD_FLAGS();
-        } else if (HS.timer >= func_001F98C0(0x18)) {
-            if (D_001517D0.unk5A == 3
+        } else if (HS.timer >= scale_game_frame_count(0x18)) {
+            if (cd_read_state.unk5A == 3
                 || (id = help_msgs[HS.msg].unk_08) == -1
-                || id != D_001517D0.unk54 - 0x7530) {
+                || id != cd_read_state.unk54 - 0x7530) {
                 HS.state = 3;
                 HS.timer = 0;
             }
@@ -537,7 +538,7 @@ void Help_Update(void) {
 
     case 3:
         force_help_message(5, 0);
-        if (D_0013CBE4 & 0x10) {
+        if (pad0_pressed & 0x10) {
             RECORD_COUNT();
             RECORD_BEST();
             HS.state = 7;
@@ -553,7 +554,7 @@ void Help_Update(void) {
         int id;
 
         force_help_message(5, 0);
-        if (D_0013CBE4 & 0x10) {
+        if (pad0_pressed & 0x10) {
             RECORD_COUNT();
             RECORD_BEST();
             HS.state = 6;
@@ -561,7 +562,7 @@ void Help_Update(void) {
             HS.timer = 4 - HS.timer;
         } else if (HS.timer >= 4) {
             id = help_msgs[HS.msg].unk_08;
-            if (id != -1 && id == D_001517D0.unk54 - 0x7530 && D_001517D0.unk5A == 3) {
+            if (id != -1 && id == cd_read_state.unk54 - 0x7530 && cd_read_state.unk5A == 3) {
                 Music_ContinueStreamIfReady();
             }
             HS.state = 5;
@@ -574,11 +575,11 @@ void Help_Update(void) {
         int id;
 
         force_help_message(5, 0);
-        if ((HS.timer >= func_001F98C0(0x1A4)
+        if ((HS.timer >= scale_game_frame_count(0x1A4)
              && ((id = help_msgs[HS.msg].unk_08) == -1
-                 || id != D_001517D0.unk54 - 0x7530
-                 || (D_001517D0.unk50 == 0 && D_001517D0.unk1C == -1)))
-            || (D_0013CBE4 & 0x10)) {
+                 || id != cd_read_state.unk54 - 0x7530
+                 || (cd_read_state.unk50 == 0 && cd_read_state.unk1C == -1)))
+            || (pad0_pressed & 0x10)) {
             RECORD_COUNT();
             RECORD_BEST();
             HS.state = 6;
@@ -589,7 +590,7 @@ void Help_Update(void) {
     }
 
     case 6:
-        if (D_0015EF1D_b == 0 || HS.timer >= 4 || (D_0013CBE4 & 0x10)) {
+        if (D_0015EF1D_b == 0 || HS.timer >= 4 || (pad0_pressed & 0x10)) {
             HS.state = 7;
             HS.timer = 0;
         }
@@ -600,9 +601,9 @@ void Help_Update(void) {
 
         force_help_message(5, 0);
         id = help_msgs[HS.msg].unk_08;
-        if (id != -1 && id == D_001517D0.unk54 - 0x7530
-            && (unsigned short)D_001517D0.unk5A - 6U >= 2) {
-            D_001517D0.unk5A = 5;
+        if (id != -1 && id == cd_read_state.unk54 - 0x7530
+            && (unsigned short)cd_read_state.unk5A - 6U >= 2) {
+            cd_read_state.unk5A = 5;
         }
         if (HS.timer >= 8) {
             if (HS.queued != 0) {
@@ -618,9 +619,9 @@ void Help_Update(void) {
     }
 }
 
-extern void func_001F62C8(int, int, int, int, int);
-extern void func_001F5800(int, int, int, int, int, int, int, int, long, long);
-extern long func_001F4868_l(int) __asm__("func_001F4868");
+extern void DrawUIFrame(int, int, int, int, int);
+extern void DrawTexturedQuad(int, int, int, int, int, int, int, int, long, long);
+extern long GetEffectTex_l(int) __asm__("func_001F4868");
 
 /* Help_DrawPrompt: sets the prompt box's +0x18/+0x1C sizes to 0x20,
    draws its frame (func_001F62C8, a 0x40 box around +0x14/+0x10, 0x60
@@ -633,23 +634,23 @@ extern long func_001F4868_l(int) __asm__("func_001F4868");
 void Help_DrawPrompt(void) {
     int alpha;
 
-    ((HelpState *)D_001997D0)->pad[4] = 0x20;
-    ((HelpState *)D_001997D0)->pad[5] = 0x20;
-    DrawUIFrame(((HelpState *)D_001997D0)->pad[3] - 0x20,
-                  ((HelpState *)D_001997D0)->pad[3] + 0x20,
-                  ((HelpState *)D_001997D0)->pad[2] - 0x20,
-                  ((HelpState *)D_001997D0)->pad[2] + 0x20, 0x60);
-    if (((HelpState *)D_001997D0)->state == 1 || ((HelpState *)D_001997D0)->state == 7) {
-        alpha = ((HelpState *)D_001997D0)->x04 * 0x15;
+    ((HelpState *)g_help_state)->pad[4] = 0x20;
+    ((HelpState *)g_help_state)->pad[5] = 0x20;
+    DrawUIFrame(((HelpState *)g_help_state)->pad[3] - 0x20,
+                  ((HelpState *)g_help_state)->pad[3] + 0x20,
+                  ((HelpState *)g_help_state)->pad[2] - 0x20,
+                  ((HelpState *)g_help_state)->pad[2] + 0x20, 0x60);
+    if (((HelpState *)g_help_state)->state == 1 || ((HelpState *)g_help_state)->state == 7) {
+        alpha = ((HelpState *)g_help_state)->x04 * 0x15;
     } else {
         alpha = 0x7E;
     }
     if (alpha > 0x80) {
         alpha = 0x80;
     }
-    DrawTexturedQuad(((HelpState *)D_001997D0)->pad[2] - 0x20,
-                  ((HelpState *)D_001997D0)->pad[3] - 0x20, 0x40, 0x40, 0, 0, 0x40, 0x40,
-                  (alpha << 24) | 0x808080, func_001F4868_l(4));
+    DrawTexturedQuad(((HelpState *)g_help_state)->pad[2] - 0x20,
+                  ((HelpState *)g_help_state)->pad[3] - 0x20, 0x40, 0x40, 0, 0, 0x40, 0x40,
+                  (alpha << 24) | 0x808080, GetEffectTex_l(4));
 }
 
 __asm__(".section .text\n\tnop\n");
@@ -662,26 +663,26 @@ __asm__(".section .text\n\tnop\n");
    colour's alpha (4, 5, 6), or the closing frame (7). The fade flag is
    re-read in each case, as retail's per-case andi shows. */
 void draw_help(void) {
-    if (((HelpState *)D_001997D0)->state == 0) {
+    if (((HelpState *)g_help_state)->state == 0) {
         return;
     }
-    if (*(int *)(D_001997D0 + 0x30) == 0) {
+    if (*(int *)(g_help_state + 0x30) == 0) {
         return;
     }
     if (D_0015EF1D_b == 0 && D_0015EF1C_b == 0) {
         return;
     }
-    switch (((HelpState *)D_001997D0)->state) {
+    switch (((HelpState *)g_help_state)->state) {
     case 1:
         if (D_0015EF1D_b) {
-            int s = ((HelpState *)D_001997D0)->x04 * 4 + 8;
+            int s = ((HelpState *)g_help_state)->x04 * 4 + 8;
 
-            ((HelpState *)D_001997D0)->pad[4] = s;
-            ((HelpState *)D_001997D0)->pad[5] = s;
-            DrawUIFrame(((HelpState *)D_001997D0)->pad[3] - s,
-                          ((HelpState *)D_001997D0)->pad[3] + s,
-                          ((HelpState *)D_001997D0)->pad[2] - s,
-                          ((HelpState *)D_001997D0)->pad[2] + s, 0x60);
+            ((HelpState *)g_help_state)->pad[4] = s;
+            ((HelpState *)g_help_state)->pad[5] = s;
+            DrawUIFrame(((HelpState *)g_help_state)->pad[3] - s,
+                          ((HelpState *)g_help_state)->pad[3] + s,
+                          ((HelpState *)g_help_state)->pad[2] - s,
+                          ((HelpState *)g_help_state)->pad[2] + s, 0x60);
         }
         break;
     case 2:
@@ -691,23 +692,23 @@ void draw_help(void) {
         break;
     case 3:
         if (D_0015EF1D_b) {
-            int a = (((HelpState *)D_001997D0)->pad[0] - 0x20) * ((HelpState *)D_001997D0)->x04 / 8 + 0x20;
-            int b = (((HelpState *)D_001997D0)->pad[1] - 0x20) * ((HelpState *)D_001997D0)->x04 / 8 + 0x20;
+            int a = (((HelpState *)g_help_state)->pad[0] - 0x20) * ((HelpState *)g_help_state)->x04 / 8 + 0x20;
+            int b = (((HelpState *)g_help_state)->pad[1] - 0x20) * ((HelpState *)g_help_state)->x04 / 8 + 0x20;
             int alpha;
 
-            ((HelpState *)D_001997D0)->pad[4] = a;
-            ((HelpState *)D_001997D0)->pad[5] = b;
-            DrawUIFrame(((HelpState *)D_001997D0)->pad[3] - b,
-                          ((HelpState *)D_001997D0)->pad[3] + b,
-                          ((HelpState *)D_001997D0)->pad[2] - a,
-                          ((HelpState *)D_001997D0)->pad[2] + a, 0x60);
-            alpha = (8 - ((HelpState *)D_001997D0)->x04) * 16;
+            ((HelpState *)g_help_state)->pad[4] = a;
+            ((HelpState *)g_help_state)->pad[5] = b;
+            DrawUIFrame(((HelpState *)g_help_state)->pad[3] - b,
+                          ((HelpState *)g_help_state)->pad[3] + b,
+                          ((HelpState *)g_help_state)->pad[2] - a,
+                          ((HelpState *)g_help_state)->pad[2] + a, 0x60);
+            alpha = (8 - ((HelpState *)g_help_state)->x04) * 16;
             if (alpha < 0) {
                 alpha = 0;
             }
-            DrawTexturedQuad(((HelpState *)D_001997D0)->pad[2] - 0x20,
-                          ((HelpState *)D_001997D0)->pad[3] - 0x20, 0x40, 0x40, 0, 0, 0x40, 0x40,
-                          (alpha << 24) | 0x808080, func_001F4868_l(4));
+            DrawTexturedQuad(((HelpState *)g_help_state)->pad[2] - 0x20,
+                          ((HelpState *)g_help_state)->pad[3] - 0x20, 0x40, 0x40, 0, 0, 0x40, 0x40,
+                          (alpha << 24) | 0x808080, GetEffectTex_l(4));
         }
         break;
     case 4:
@@ -718,41 +719,41 @@ void draw_help(void) {
             int col = 0x80FFA888;
             char *text;
 
-            ((HelpState *)D_001997D0)->pad[4] = ((HelpState *)D_001997D0)->pad[0];
-            ((HelpState *)D_001997D0)->pad[5] = ((HelpState *)D_001997D0)->pad[1];
-            DrawUIFrame(((HelpState *)D_001997D0)->pad[3] - ((HelpState *)D_001997D0)->pad[1],
-                          ((HelpState *)D_001997D0)->pad[3] + ((HelpState *)D_001997D0)->pad[1],
-                          ((HelpState *)D_001997D0)->pad[2] - ((HelpState *)D_001997D0)->pad[0],
-                          ((HelpState *)D_001997D0)->pad[2] + ((HelpState *)D_001997D0)->pad[0], 0x60);
-            if (((HelpState *)D_001997D0)->state == 4) {
-                col = 0xFFA888 | (((HelpState *)D_001997D0)->x04 << 29);
-            } else if (((HelpState *)D_001997D0)->state == 6) {
-                col = ((4 - ((HelpState *)D_001997D0)->x04) << 29) | 0xFFA888;
+            ((HelpState *)g_help_state)->pad[4] = ((HelpState *)g_help_state)->pad[0];
+            ((HelpState *)g_help_state)->pad[5] = ((HelpState *)g_help_state)->pad[1];
+            DrawUIFrame(((HelpState *)g_help_state)->pad[3] - ((HelpState *)g_help_state)->pad[1],
+                          ((HelpState *)g_help_state)->pad[3] + ((HelpState *)g_help_state)->pad[1],
+                          ((HelpState *)g_help_state)->pad[2] - ((HelpState *)g_help_state)->pad[0],
+                          ((HelpState *)g_help_state)->pad[2] + ((HelpState *)g_help_state)->pad[0], 0x60);
+            if (((HelpState *)g_help_state)->state == 4) {
+                col = 0xFFA888 | (((HelpState *)g_help_state)->x04 << 29);
+            } else if (((HelpState *)g_help_state)->state == 6) {
+                col = ((4 - ((HelpState *)g_help_state)->x04) << 29) | 0xFFA888;
             }
-            text = help_msgs[((HelpState *)D_001997D0)->pad[6]].text;
+            text = help_msgs[((HelpState *)g_help_state)->pad[6]].text;
             FontSetWindow((void *)win, 0xF0, 0x1E0, 0x2C, 0x1D4, 0x100,
-                          ((HelpState *)D_001997D0)->pad[3], 0x10, 3);
-            func_001F75D0((void *)win, col, text, -1);
+                          ((HelpState *)g_help_state)->pad[3], 0x10, 3);
+            font_print_window_small((void *)win, col, text, -1);
         }
         break;
     case 7:
         if (D_0015EF1D_b) {
-            int b = ((HelpState *)D_001997D0)->pad[4]
-                  - (((HelpState *)D_001997D0)->pad[4] - 8) * ((HelpState *)D_001997D0)->x04 / 8;
-            int a = ((HelpState *)D_001997D0)->pad[5]
-                  - (((HelpState *)D_001997D0)->pad[5] - 8) * ((HelpState *)D_001997D0)->x04 / 8;
+            int b = ((HelpState *)g_help_state)->pad[4]
+                  - (((HelpState *)g_help_state)->pad[4] - 8) * ((HelpState *)g_help_state)->x04 / 8;
+            int a = ((HelpState *)g_help_state)->pad[5]
+                  - (((HelpState *)g_help_state)->pad[5] - 8) * ((HelpState *)g_help_state)->x04 / 8;
 
-            DrawUIFrame(((HelpState *)D_001997D0)->pad[3] - a,
-                          ((HelpState *)D_001997D0)->pad[3] + a,
-                          ((HelpState *)D_001997D0)->pad[2] - b,
-                          ((HelpState *)D_001997D0)->pad[2] + b,
-                          (8 - ((HelpState *)D_001997D0)->x04) * 12);
+            DrawUIFrame(((HelpState *)g_help_state)->pad[3] - a,
+                          ((HelpState *)g_help_state)->pad[3] + a,
+                          ((HelpState *)g_help_state)->pad[2] - b,
+                          ((HelpState *)g_help_state)->pad[2] + b,
+                          (8 - ((HelpState *)g_help_state)->x04) * 12);
         }
         break;
     }
 }
 
-extern short D_00199810[];
+extern short message_id_code_table[];
 
 /* Looks `key` up in field `which` (0 or 1) of D_00199810's 150
    {short a, short b} pairs. On a match it stores the OTHER field into
@@ -787,9 +788,9 @@ int find_help_entry(short key, int which, short *out) {
 
 __asm__(".section .text\n\tnop\n");
 
-extern int func_001FF4F8(short, int, short *);
-extern unsigned char D_00141F08[];
-extern int D_0015EF30 MACRO_ADDR;
+extern int find_help_entry(short, int, short *);
+extern unsigned char active_message_records[];
+extern int active_message_record_count MACRO_ADDR;
 
 /* Moves the entry func_001FF4F8 finds for `id` (field a of its table)
    to the end of the byte list D_00141F08, whose length is D_0015EF30:

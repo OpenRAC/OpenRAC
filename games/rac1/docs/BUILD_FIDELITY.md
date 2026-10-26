@@ -146,11 +146,11 @@ What that meant for the nine functions that had per-function flags
 | Function | Flag | Its file with the flag | Now |
 |---|---|---|---|
 | func_0023C960, func_0023C9B0 (`src/game/movie/disp.c`) | `-mno-split-addresses` | 2 of 2 exact | the file has the flag |
-| func_L16_002D0328 (`src/overlays/l16_kalebo3/vendor_002A50F0.c`) | `-fno-sched-interblock` | 64 of 64 exact | the file has the flag |
-| func_L15_002F9FF8 | `-fno-force-mem` | 2 of 3 | its own file, `vendor_002F9FF8.c` |
-| func_L18_002FAEF8 | `-mno-split-addresses` | 7 of 12 | its own file, `vendor_002FAEF8.c` |
-| func_L00_002E9D78 | `-fno-schedule-insns` | 12 of 53 | its own file, `shared/vendor_002E9D78.c` |
-| func_L00_001ED6D8 | `-fno-force-mem` | 8 of 10 | its own file, `shared/camera_001ED6D8.c` |
+| func_L16_002D0328 (`src/overlays/l16_kalebo3/test_dummies_and_conveyors.c`) | `-fno-sched-interblock` | 64 of 64 exact | the file has the flag |
+| func_L15_002F9FF8 | `-fno-force-mem` | 2 of 3 | its own file, `moby_follow_camera.c` |
+| func_L18_002FAEF8 | `-mno-split-addresses` | 7 of 12 | its own file, `bone_glow_quads.c` |
+| func_L00_002E9D78 | `-fno-schedule-insns` | 12 of 53 | its own file, `shared/follow_camera_angle_blend.c` |
+| func_L00_001ED6D8 | `-fno-force-mem` | 8 of 10 | its own file, `shared/level_camera_setup.c` |
 | func_002282D0 (`src/game/pause.c`) | `-mno-split-addresses` | 43 of 124 | retail assembly: pause.c's boundaries are retail's object (from the NTSC split), so the flag cannot be the file's |
 | func_0011CB40 (`src/core/00119D88.c`, `sceSifInitIopHeap`) | `-fno-schedule-insns` | 18 of 45 | retail assembly: the functions around it in Sony's IOP heap code break with the flag, so nothing shows it was an object of its own |
 
@@ -161,11 +161,11 @@ Later functions matched the same way (2026-10-19):
 
 | Function | Flag | Its old file with the flag | Now |
 |---|---|---|---|
-| func_L12_00309730 | none (its file has `-fno-sched-interblock`) | 10 of 27 change | its own file, `l12_hoven/vendor_00309730.c` |
-| func_L14_00303430 | `-fno-sched-spec` | func_L14_00300130 changes | its own file, `shared/vendor_00303430.c` |
-| func_L14_002E0538 | `-fno-gcse` | 18 of 36 change | its own file, `l14_oltanis/ribbons_002E0538.c` |
-| func_L07_00313D28 | `-mno-split-addresses` | 11 change | its own file, `l07_umbris/effect_00313D28.c` |
-| func_L12_0030A880 (`l12_hoven/vendor_002EDAA0.c`) | `-fno-thread-jumps` | 27 of 27 exact | the file has the flag |
+| func_L12_00309730 | none (its file has `-fno-sched-interblock`) | 10 of 27 change | its own file, `l12_hoven/jittered_quad_layers.c` |
+| func_L14_00303430 | `-fno-sched-spec` | func_L14_00300130 changes | its own file, `shared/vendor_beam.c` |
+| func_L14_002E0538 | `-fno-gcse` | 18 of 36 change | its own file, `l14_oltanis/ribbon_effects.c` |
+| func_L07_00313D28 | `-mno-split-addresses` | 11 change | its own file, `l07_umbris/snagglebeast_sphere_draw.c` |
+| func_L12_0030A880 (`l12_hoven/reservoir_turret_planetbuster.c`) | `-fno-thread-jumps` | 27 of 27 exact | the file has the flag |
 
 ## Removed, 2026-10-07
 
@@ -364,6 +364,6 @@ are linker inputs; no opcode or difference mask is changed. This validates
 the function's copies, not a full rebuild of the 19 level programs.
 
 Validation: scalar placement positive/negative unit tests; canonical
-`try_func` exact comparison; all C functions in `help_00232560.c`; 19-placement
+`try_func` exact comparison; all C functions in `hero_mapped_animations.c`; 19-placement
 diagnostic. The complete executable and repository progress checks remain
 required at integration.

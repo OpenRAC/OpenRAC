@@ -10,14 +10,14 @@
  * libc.a.
  */
 
-extern long func_00116F68(int arg0, int arg1, int arg2);
+extern long strtol(int arg0, int arg1, int arg2);
 
-int func_00112380(int arg0) {
-    return (int)func_00116F68(arg0, 0, 10);
+int libc_atoi(int arg0) {
+    return (int)strtol(arg0, 0, 10);
 }
 
-extern void *func_00114920(void *, unsigned int);          /* _malloc_r */
-extern void *func_001153FC_c(void *, int, unsigned int) __asm__("func_001153FC"); /* memset */
+extern void *_malloc_r(void *, unsigned int);          /* _malloc_r */
+extern void *libc_memset_c(void *, int, unsigned int) __asm__("func_001153FC"); /* memset */
 
 /* newlib's MALLOC_ZERO (mallocr.c, dlmalloc 2.6.5, public domain),
    verbatim: its do/while(0) is the library's own macro wrapper. */
@@ -42,17 +42,17 @@ do {                                                                          \
         *mz++ = 0;                                                            \
         *mz = 0;                                                              \
     } else {                                                                  \
-        func_001153FC_c((charp), 0, mzsz);                                    \
+        libc_memset_c((charp), 0, mzsz);                                    \
     }                                                                         \
 } while (0)
 
 /* _calloc_r (newlib): allocate, then zero the chunk's usable size.
-   Adapted from Lombyte (GPL-3.0) for PAL. */
-void *func_001123A8(void *ptr, unsigned int n, unsigned int elem_size) {
+   Adapted from Lombyte's project (GPL-3.0) for PAL. */
+void *_calloc_r(void *ptr, unsigned int n, unsigned int elem_size) {
     unsigned int sz = n * elem_size;
     void *mem;
 
-    mem = func_00114920(ptr, sz);
+    mem = _malloc_r(ptr, sz);
     if (mem == 0) {
         return 0;
     } else {

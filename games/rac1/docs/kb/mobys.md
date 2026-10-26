@@ -33,7 +33,7 @@ in-game and must be kept.
   zeroed by `CreateMoby`: the class's private state. Catalogue:
   `docs/PVARS.md` (offset caveat above). Level code casts pvars to private
   structs, e.g. `KillFlags`/`VoiceSlot` in
-  `src/overlays/shared/vendor_00298BB8.c`.
+  `src/overlays/shared/sentrybot.c`.
 
 ## Lifecycle
 
@@ -135,7 +135,7 @@ for (m = func_0020E6B8(); m != NULL; m = m->next) {   /* head also saved in a $g
 - `func_0020E3D0` (pre) / `func_0020ED48` (post): handwritten
   animation/matrix passes. Both read 0x50-0x53; post also reads `unk71`
   and 0xA8. Exact jobs inferred.
-- Also called from pause code (`src/overlays/shared/pause_00277208.c:436`,
+- Also called from pause code (`src/overlays/shared/pause_menu.c:436`,
   `src/game/pause.c`): some menus keep mobys ticking.
 - Changes a moby makes to another are seen by later mobys in the same
   frame.
@@ -156,11 +156,11 @@ for (m = func_0020E6B8(); m != NULL; m = m->next) {   /* head also saved in a $g
   tables (per-level BSS) and save bits `D_0014C190[level][id >> 5]`.
   Collect-once classes test it at init, e.g.
   `D_L01_001BB9C0.collected[(short)moby->save_id] != 0`
-  (`src/overlays/shared/vendor_002B90A8.c:516`). `killed[]` stores "spawn
-  slot + 2" (`src/overlays/shared/vendor_00298BB8.c`).
+  (`src/overlays/shared/water_pool_and_sand_mouse.c:516`). `killed[]` stores "spawn
+  slot + 2" (`src/overlays/shared/sentrybot.c`).
 - `mission` (0xB0) indexes the level's `D_0014C050` row (0xFF = not
   spawned). Level code writes `collected[save_id] = mission + 2`
-  (`src/overlays/l01_novalis/vendor_002FABE8.c:849`). Shared helpers
+  (`src/overlays/l01_novalis/rocks_and_sandmouse.c:849`). Shared helpers
   (candidate names): `SetMissionDone` (`func_L00_002512D8`),
   `SetDeathBits` (`func_L00_002584A8`).
 - `parent` (0xB8): spawner; its byte 0xB1 is a per-level id.
@@ -211,28 +211,28 @@ mixed tiers): `set_moby_animation` (`func_00213D28`),
 
 | oClass | Update function | Shared | File (`src/overlays/shared/`) | Description (from the source comment) |
 |---|---|---|---|---|
-| 11 | `func_L00_002A6A38` | 1 | `vendor_002A5138.c` | pulsing light-beam moby: spawns a child, fades it with distance to the player, draws it and may trigger the player's grab |
-| 13, 14, 15, 16 | `func_L00_002A7078` (BoltUpdate) | 4 | `vendor_002A5138.c` | bolt: lands where dropped, hovers and spins, bounces, flies to the hero when near (or sucked in), leaves a trail, collected on arrival |
-| 71 | `func_L00_002A9768` | 1 | `vendor_002A5138.c` | normal wrench swings and its thrown/returning collision sweep |
-| 74 | `func_L00_002AB910` | 1 | `vendor_002AB910.c` | mine: falls and bounces, sticks to what it hits, homes on a nearby target and explodes |
-| 112 | `func_L00_002ADD78` | 2 (112, 1192) | `vendor_002AB910.c` | decaying moby: spins down its position fields and fades out |
-| 121 | `func_L00_002AEDD0` | 1 | `vendor_002AB910.c` | thrown bomb: flies and spins, bounces once, explodes on a hit or timeout, blast ring grows for 15 frames |
-| 122 | `func_L00_002B08A0` | 1 | `vendor_002AB910.c` | falling spark: emits a burst particle, moves, fades, dies out of bounds |
-| 149 | `func_L00_002B0D30` | 11 (149, 348, 349, 354-359, 363, 364) | `vendor_002AB910.c` | |
-| 153 | `func_L00_002B1688` | 1 | `vendor_002AB910.c` | |
-| 157 | `func_L00_002B33E8` | 1 | `vendor_002B33E8.c` | Devastator: tracks the aimed target, draws the reticle, fires, keeps usage statistics, moves the muzzle light |
-| 163 | `func_L00_002B4340` | 1 | `vendor_002B33E8.c` | arms a pickup-style reaction when the player state allows it |
-| 166 | `func_L00_002B4748` | 1 | `vendor_002B33E8.c` | |
-| 167 | `func_L00_002B5488` | 1 | `vendor_002B33E8.c` | multi-state timed object: random delays pace the stages, which adjust step/scale in its pvars and call the shared callback |
-| 168 | `func_L00_002B5C98` | 1 | `vendor_002B33E8.c` | Blaster: aims (reticle in first person, auto-aim otherwise), fires a shot with sparks, statistics, muzzle light |
-| 172 | `func_L00_002B7430` | 1 | `vendor_002B33E8.c` | visibomb missile: drift, homing toward the target, arming countdown |
-| 175 | `func_L00_002B8208` | 1 | `vendor_002B33E8.c` | |
-| 176 | `func_L00_002B8AE8` | 1 | `vendor_002B33E8.c` (asm) | |
-| 177 | `func_L00_002B9AD8` | 1 | `vendor_002B33E8.c` | Tesla claw: tracks up to two targets while fire is held, extends the claw tip, firing states, statistics, light |
-| 179 | `func_L00_002BC708` | 1 | `vendor_002BA7C8.c` | follows its parent's flag and spins |
-| 180 | `func_L00_002BC860` | 1 | `vendor_002BA7C8.c` | scatters ten fading sparkle quads around the hero |
-| 185 | `func_L00_002BDAF0` | 1 | `vendor_002BA7C8.c` | Morph-o-Ray: aims it, transforms what it hits over time, keeps its glow light and sound going while held |
-| 186 | `func_L00_002C12B0` | 1 | `vendor_002C12B0.c` (asm) | (no comment; see "M186" below) |
+| 11 | `func_L00_002A6A38` | 1 | `bolts_and_wrench.c` | pulsing light-beam moby: spawns a child, fades it with distance to the player, draws it and may trigger the player's grab |
+| 13, 14, 15, 16 | `func_L00_002A7078` (BoltUpdate) | 4 | `bolts_and_wrench.c` | bolt: lands where dropped, hovers and spins, bounces, flies to the hero when near (or sucked in), leaves a trail, collected on arrival |
+| 71 | `func_L00_002A9768` | 1 | `bolts_and_wrench.c` | normal wrench swings and its thrown/returning collision sweep |
+| 74 | `func_L00_002AB910` | 1 | `mine_bomb_and_debris.c` | mine: falls and bounces, sticks to what it hits, homes on a nearby target and explodes |
+| 112 | `func_L00_002ADD78` | 2 (112, 1192) | `mine_bomb_and_debris.c` | decaying moby: spins down its position fields and fades out |
+| 121 | `func_L00_002AEDD0` | 1 | `mine_bomb_and_debris.c` | thrown bomb: flies and spins, bounces once, explodes on a hit or timeout, blast ring grows for 15 frames |
+| 122 | `func_L00_002B08A0` | 1 | `mine_bomb_and_debris.c` | falling spark: emits a burst particle, moves, fades, dies out of bounds |
+| 149 | `func_L00_002B0D30` | 11 (149, 348, 349, 354-359, 363, 364) | `mine_bomb_and_debris.c` | |
+| 153 | `func_L00_002B1688` | 1 | `mine_bomb_and_debris.c` | |
+| 157 | `func_L00_002B33E8` | 1 | `visibomb_and_pyrocitor.c` | Devastator: tracks the aimed target, draws the reticle, fires, keeps usage statistics, moves the muzzle light |
+| 163 | `func_L00_002B4340` | 1 | `visibomb_and_pyrocitor.c` | arms a pickup-style reaction when the player state allows it |
+| 166 | `func_L00_002B4748` | 1 | `visibomb_and_pyrocitor.c` | |
+| 167 | `func_L00_002B5488` | 1 | `visibomb_and_pyrocitor.c` | multi-state timed object: random delays pace the stages, which adjust step/scale in its pvars and call the shared callback |
+| 168 | `func_L00_002B5C98` | 1 | `visibomb_and_pyrocitor.c` | Blaster: aims (reticle in first person, auto-aim otherwise), fires a shot with sparks, statistics, muzzle light |
+| 172 | `func_L00_002B7430` | 1 | `visibomb_and_pyrocitor.c` | visibomb missile: drift, homing toward the target, arming countdown |
+| 175 | `func_L00_002B8208` | 1 | `visibomb_and_pyrocitor.c` | |
+| 176 | `func_L00_002B8AE8` | 1 | `visibomb_and_pyrocitor.c` (asm) | |
+| 177 | `func_L00_002B9AD8` | 1 | `visibomb_and_pyrocitor.c` | Tesla claw: tracks up to two targets while fire is held, extends the claw tip, firing states, statistics, light |
+| 179 | `func_L00_002BC708` | 1 | `walloper_and_beam_effects.c` | follows its parent's flag and spins |
+| 180 | `func_L00_002BC860` | 1 | `walloper_and_beam_effects.c` | scatters ten fading sparkle quads around the hero |
+| 185 | `func_L00_002BDAF0` | 1 | `walloper_and_beam_effects.c` | Morph-o-Ray: aims it, transforms what it hits over time, keeps its glow light and sound going while held |
+| 186 | `func_L00_002C12B0` | 1 | `trespasser_and_throwing_gloves.c` (asm) | (no comment; see "M186" below) |
 
 The remaining 54 all-level classes: 188 190 192 203 204 208 209 213 214
 222 223 225 226 229 230 270 305 348 349 354 355 356 357 358 359 428 433

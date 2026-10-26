@@ -10,20 +10,20 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
 
-int func_00114000(int *errOut, void *arg1, void *arg2) {
+int _fstat_r(int *errOut, void *arg1, void *arg2) {
     int r;
     SbrkErrno = 0;
-    r = func_001191C8(arg1, arg2);
+    r = libc_glue_fstat(arg1, arg2);
     if (r == -1 && SbrkErrno != 0) {
         *errOut = SbrkErrno;
     }

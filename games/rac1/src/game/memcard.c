@@ -10,117 +10,117 @@
  */
 
 /* Declarations in scope here before the split. */
-extern char D_0013E650[];
-extern int D_0015F694;
-extern void func_001F9A98(void *, void *, int);
-extern char D_00189310[];
-extern char D_001899D0[];
-extern void *D_001871C0 NOT_SDA;
-extern DispatchRec D_001E8F80[];
-extern int D_0018A3B0[];
-extern void func_001F99B0();
-extern void func_001F2BC8(void);
-extern int D_0018C434 NOT_SDA;
-extern char D_001940C0[];
-extern long D_00151888[3];
-extern int D_0015F6FC;
-extern short D_0015F534;
-extern void func_001FB530(void);
-extern void func_001F3D78(void);
-extern int D_0015F564;
-extern int D_0018DD40[];
-extern int D_0018DC40[];
-extern short D_0015F59C;
-extern int func_001F65B0(unsigned char *arg0, int arg1, void *arg2);
-extern unsigned char D_001DF3D0[];
-extern unsigned char D_001DF770[];
-extern unsigned char D_001DFB10[];
-extern void func_001F6668(void *, void *, void *, void *, void *, int,
+extern char voice_pool[];
+extern int bank_sound_count;
+extern void FastMemCopy(void *, void *, int);
+extern char backup_cam[];
+extern char gCamBackupState[];
+extern void *cur_cam NOT_SDA;
+extern DispatchRec camera_types[];
+extern int draw_config[];
+extern void FastMemSet();
+extern void BuildOcclVisibility(void);
+extern int occl_update NOT_SDA;
+extern char occl_visibility[];
+extern long gs_display_settings[3];
+extern int space_load_in_progress;
+extern short draw_enable_mask;
+extern void append_gif_transfer_packet(void);
+extern void DrawDebugProfiler(void);
+extern int draw_callback_count;
+extern int draw_callback_args[];
+extern int draw_callback_funcs[];
+extern short GlobalStateFlag;
+extern int measure_text_width(unsigned char *arg0, int arg1, void *arg2);
+extern unsigned char normal_font_metrics[];
+extern unsigned char small_font_metrics[];
+extern unsigned char large_font_metrics[];
+extern void FontPrint(void *, void *, void *, void *, void *, int,
                           unsigned char *);
-extern int func_001F6600(unsigned char *, int);
-extern int func_001F6620(unsigned char *, int);
-extern int func_001F4868(int);
-extern void func_001FB498(void);
-extern void func_001F3008(void);
-extern void func_001F3140(void);
-extern int D_0018E840[];
-extern long D_00152178 NOT_SDA;
-extern int func_001FE4D0(void);
-extern char D_00199A68[];
-extern short D_0015F780;
-extern int D_001941CC NOT_SDA;
-extern int D_0019A4E8 NOT_SDA;
-extern int func_001FF668(int);
+extern int measure_text_width_regular(unsigned char *, int);
+extern int measure_text_width_small(unsigned char *, int);
+extern int GetEffectTex(int);
+extern void PutDrawBufferLarge(void);
+extern void InitViewContext(void);
+extern void UpdateViewContext(void);
+extern int bit_swap_lut[];
+extern long background_rgbaq NOT_SDA;
+extern int Help_FindIndex(void);
+extern char s_paradox_this_message_does_not[];
+extern short help_msgs;
+extern int hud_heap_base NOT_SDA;
+extern int hud_state NOT_SDA;
+extern int Hud_GetIconIndex(int);
 typedef struct {
     char b[0x13];
 } Cfg13;
-extern Cfg13 D_0019A540 NOT_SDA;
-extern Cfg13 D_001E7DD8 NOT_SDA;
-extern int func_00116810(void);
-extern void func_001166FC(Cfg13 *, void *);
-extern short D_0015F9D0;
-extern void func_00201960(int, int, int, int, int);
-extern void func_002023E0(int);
-extern void func_002027C0(int);
-extern void func_00204FC0(void *);
-extern int D_0018CC20 NOT_SDA;
-extern int D_001941C8 NOT_SDA;
-extern int D_0016100C;
-extern int D_001A0468[];
-extern void func_00205830(int a, int b);
-extern PadSlots D_001A01F0_slots __asm__("D_001A01F0");
-extern int D_001A01F0[];
-extern int *D_001602E0;
-extern unsigned char D_0013D49C NOT_SDA;
-extern unsigned char D_0013D49D NOT_SDA;
-extern unsigned char D_0013D4A5 NOT_SDA;
-extern short D_0015FE24;
-extern unsigned char D_0013D4AC NOT_SDA;
-extern unsigned char D_0013D4AD NOT_SDA;
-extern unsigned char D_0013D4AE NOT_SDA;
-extern unsigned char D_0013D4AF NOT_SDA;
-extern unsigned char D_0013D4B5 NOT_SDA;
-extern int D_001A04B4 NOT_SDA;
-extern unsigned char D_0013D4C5 NOT_SDA;
-extern int D_001414DC NOT_SDA;
-extern unsigned char D_0013D4C0 NOT_SDA;
-extern unsigned char D_0013D4C1 NOT_SDA;
-extern unsigned char D_0013D4C2 NOT_SDA;
-extern unsigned char D_0013D4D3 NOT_SDA;
-extern unsigned char D_0013D4D4 NOT_SDA;
-extern unsigned char D_0013D4D5 NOT_SDA;
-extern unsigned char D_0013D4E0;
-extern unsigned char D_0013D4DC NOT_SDA;
-extern unsigned char D_0013D4DD NOT_SDA;
-extern unsigned char D_0013D4DE NOT_SDA;
-extern unsigned char D_0013D4DF NOT_SDA;
-extern unsigned char D_0013D4E1 NOT_SDA;
-extern unsigned char D_0013D4E9 NOT_SDA;
-extern unsigned char D_0013D502 NOT_SDA;
-extern unsigned char D_0013D503 NOT_SDA;
-extern unsigned char D_0013D504 NOT_SDA;
-extern unsigned char D_0013D505 NOT_SDA;
-extern unsigned char D_0013D50F NOT_SDA;
-extern int D_0013D668[];
-extern void func_00209040(void);
-extern int func_001FAA28(void *dst, int size, int a, int b);
-extern void func_00208860(void *dst);
-extern short D_0015EE84;
-extern int D_0015EE84_far __asm__("D_0015EE84") NOT_SDA;
-extern int D_001A0218[] NOT_SDA;
-extern void func_00208458(void *, unsigned char *, int);
-extern void func_00208688(void *, unsigned char *);
-extern char D_0013D390[];
-extern short D_0015EFB0;
-extern int D_0015EFB4;
+extern Cfg13 message_text_buffer NOT_SDA;
+extern Cfg13 message_too_long_label NOT_SDA;
+extern int libc_strlen(void);
+extern void libc_strcpy(Cfg13 *, void *);
+extern short ResourceCounter;
+extern void draw_stretchable_ui_frame(int, int, int, int, int);
+extern void CreatePointLight(int);
+extern void DetachPointLight(int);
+extern void update_world_object_animation(void *);
+extern int render_sequence NOT_SDA;
+extern int vu1_chain_buffer_2 NOT_SDA;
+extern int current_vu_chain;
+extern int map_slot_use[];
+extern void move_map_entry_slot(int a, int b);
+extern PadSlots level_map_selection_slots __asm__("D_001A01F0");
+extern int level_map_selection[];
+extern int *menu_level_indices;
+extern unsigned char menu_item_enabled_0 NOT_SDA;
+extern unsigned char g_menu_item_enabled_1 NOT_SDA;
+extern unsigned char menu_item_enabled_9 NOT_SDA;
+extern short menu_selection_count;
+extern unsigned char menu_item_enabled_16 NOT_SDA;
+extern unsigned char menu_item_enabled_17 NOT_SDA;
+extern unsigned char menu_item_enabled_18 NOT_SDA;
+extern unsigned char menu_item_enabled_19 NOT_SDA;
+extern unsigned char menu_item_enabled_25 NOT_SDA;
+extern int map_region_enabled_3 NOT_SDA;
+extern unsigned char menu_item_enabled_41 NOT_SDA;
+extern int hero_control_mode NOT_SDA;
+extern unsigned char menu_item_enabled_36 NOT_SDA;
+extern unsigned char menu_item_enabled_37 NOT_SDA;
+extern unsigned char menu_item_enabled_38 NOT_SDA;
+extern unsigned char menu_item_enabled_55 NOT_SDA;
+extern unsigned char menu_item_enabled_56 NOT_SDA;
+extern unsigned char menu_item_enabled_57 NOT_SDA;
+extern unsigned char menu_item_enabled_68;
+extern unsigned char menu_item_enabled_64 NOT_SDA;
+extern unsigned char menu_item_enabled_65 NOT_SDA;
+extern unsigned char menu_item_enabled_66 NOT_SDA;
+extern unsigned char menu_item_enabled_67 NOT_SDA;
+extern unsigned char menu_item_enabled_69 NOT_SDA;
+extern unsigned char menu_item_enabled_77 NOT_SDA;
+extern unsigned char menu_item_enabled_102 NOT_SDA;
+extern unsigned char menu_item_enabled_103 NOT_SDA;
+extern unsigned char menu_item_enabled_104 NOT_SDA;
+extern unsigned char menu_item_enabled_105 NOT_SDA;
+extern unsigned char menu_item_enabled_115 NOT_SDA;
+extern int max_map_coverage_size[];
+extern void DebugEnter_Nop(void);
+extern int compress_map_coverage(void *dst, int size, int a, int b);
+extern void downsample_map_coverage(void *dst);
+extern short g_current_level_index;
+extern int g_current_level_index_far __asm__("D_0015EE84") NOT_SDA;
+extern int map_coverage_active[] NOT_SDA;
+extern void decode_compressed_occlusion_map(void *, unsigned char *, int);
+extern void expand_map_coverage(void *, unsigned char *);
+extern char memory_card_state[];
+extern short mode_freeze_state;
+extern int mode_freeze_flags;
 
-extern char D_0013D2D0[];
-extern char D_0013D2E8[];
-extern char D_0013D300[];
-extern char D_0013D320[];
-extern char D_0013D340[];
-extern char D_0013D370[];
-extern void func_00116B00(void *, void *, int);
+extern char memcard_save_dir_name[];
+extern char memcard_dir_search_path[];
+extern char memcard_icon_path_a[];
+extern char memcard_icon_path_b[];
+extern char memcard_icon_path_c[];
+extern char memcard_slot_path_format[];
+extern void libc_strncpy(void *, void *, int);
 
 /* Builds a 13-byte name/version stamp in D_0013D2D0 from the record's
    region byte (arg0[0x12]) and the record's date/version fields, then
@@ -131,33 +131,33 @@ void memcard_get_name(void *arg0) {
     int i;
 
     if (region == 'E') {
-        D_0013D2D0[2] = region;
+        memcard_save_dir_name[2] = region;
     } else if (region == 'P') {
-        D_0013D2D0[2] = 'I';
+        memcard_save_dir_name[2] = 'I';
     }
     for (i = 3; i < 7; i++) {
-        D_0013D2D0[i] = a[i + 0xD];
+        memcard_save_dir_name[i] = a[i + 0xD];
     }
     for (i = 8; i < 0xB; i++) {
-        D_0013D2D0[i] = a[i + 0xD];
+        memcard_save_dir_name[i] = a[i + 0xD];
     }
     for (i = 0xB; i < 0xD; i++) {
-        D_0013D2D0[i] = a[i + 0xE];
+        memcard_save_dir_name[i] = a[i + 0xE];
     }
-    func_00116B00(D_0013D2E8, D_0013D2D0, 0xD);
-    func_00116B00(D_0013D300, D_0013D2D0, 0xD);
-    func_00116B00(D_0013D320, D_0013D2D0, 0xD);
-    func_00116B00(D_0013D340, D_0013D2D0, 0xD);
-    func_00116B00(D_0013D340 + 0x14, D_0013D2D0, 0xD);
-    func_00116B00(D_0013D370, D_0013D2D0, 0xD);
+    libc_strncpy(memcard_dir_search_path, memcard_save_dir_name, 0xD);
+    libc_strncpy(memcard_icon_path_a, memcard_save_dir_name, 0xD);
+    libc_strncpy(memcard_icon_path_b, memcard_save_dir_name, 0xD);
+    libc_strncpy(memcard_icon_path_c, memcard_save_dir_name, 0xD);
+    libc_strncpy(memcard_icon_path_c + 0x14, memcard_save_dir_name, 0xD);
+    libc_strncpy(memcard_slot_path_format, memcard_save_dir_name, 0xD);
 }
 
-extern int func_00124068(int, int, int *, int *, int *);
-extern int func_00123F30(int, int *, int *);
-extern void func_00122598(int);
-extern int func_001241F0(int, int, char *, int, int, void *);
-extern char D_0013D2D0[];
-extern int D_0013D390_i[] __asm__("D_0013D390");
+extern int sce_mc_get_info(int, int, int *, int *, int *);
+extern int sce_mc_sync(int, int *, int *);
+extern void sce_gs_sync_v(int);
+extern int sce_mc_get_dir(int, int, char *, int, int, void *);
+extern char memcard_save_dir_name[];
+extern int memory_card_state_i[] __asm__("D_0013D390");
 
 /* The comparison is bound to a local before the shift:
    `(a < b) << 1` folds into `a < b ? 2 : 0` (li/slt/movn), not retail's
@@ -165,17 +165,17 @@ extern int D_0013D390_i[] __asm__("D_0013D390");
 int check_memory_card(void) {
     int type, free, format, cmd, result;
 
-    result = func_00124068(D_0013D390_i[0], D_0013D390_i[1], &type, &free, &format);
-    while (func_00123F30(1, &D_0013D390_i[0x30], &D_0013D390_i[0x31]) == 0) {
-        func_00122598(0);
+    result = sce_mc_get_info(memory_card_state_i[0], memory_card_state_i[1], &type, &free, &format);
+    while (sce_mc_sync(1, &memory_card_state_i[0x30], &memory_card_state_i[0x31]) == 0) {
+        sce_gs_sync_v(0);
     }
-    if (D_0013D390_i[0x31] == -5 || D_0013D390_i[0x31] < -9 || type != 2) {
+    if (memory_card_state_i[0x31] == -5 || memory_card_state_i[0x31] < -9 || type != 2) {
         return 1;
     }
-    if (D_0013D390_i[0x31] != -2 && format != 0) {
-        result = func_001241F0(D_0013D390_i[0], D_0013D390_i[1], D_0013D2D0, 0, -1, 0);
-        while (func_00123F30(1, &cmd, &result) == 0) {
-            func_00122598(0);
+    if (memory_card_state_i[0x31] != -2 && format != 0) {
+        result = sce_mc_get_dir(memory_card_state_i[0], memory_card_state_i[1], memcard_save_dir_name, 0, -1, 0);
+        while (sce_mc_sync(1, &cmd, &result) == 0) {
+            sce_gs_sync_v(0);
         }
         if (result <= 0) {
             int t = free < 350;
@@ -185,12 +185,12 @@ int check_memory_card(void) {
     return 0;
 }
 
-extern int D_001A05C0[];
-extern int D_001A08C0[];
-extern int func_0020BAD8(int *p);
-extern int func_0020BD70(void *src, int i, int *table);
-extern int func_001E9730();
-extern char D_001E8500[];
+extern int mc_gamedata[];
+extern int mc_leveldata[];
+extern int memcard_GetDataSize(int *p);
+extern int memcard_RestoreData(void *src, int i, int *table);
+extern int STUB_printf();
+extern char memcard_restore_size_mismatch_msg[];
 
 /* The counterpart of func_0020BA00 below: both descriptor sizes are
    recomputed and checked against the ones stored in the blob, then the
@@ -206,7 +206,7 @@ void memcard_RestoreGame(int arg0) {
     a = memcard_GetDataSize(mc_gamedata);
     b = memcard_GetDataSize(mc_leveldata);
     if (*(int *)p != a || *(int *)(p + 4) != b) {
-        STUB_printf(D_001E8500);
+        STUB_printf(memcard_restore_size_mismatch_msg);
         return;
     }
     p += 8;
@@ -224,17 +224,17 @@ void memcard_RestoreGame(int arg0) {
  * three globals across func_00209CE8 and the $at store of D_0015EE84,
  * is instruction-for-instruction retail.
  */
-extern int D_00137C80[];
-extern void func_001FDF10(int, void *, void *);
-extern void func_00217748(int);
-extern void func_002176C8(int, int, int);
-extern void func_00209CE8(int);
-extern int D_0015EEE8 MACRO_ADDR;
-extern int D_0015EEEC MACRO_ADDR;
-extern int D_0015EEF0 MACRO_ADDR;
-extern int D_0015EE84_m __asm__("D_0015EE84") MACRO_ADDR;
+extern int disc_table[];
+extern void calculate_ring_buffer_bounds(int, void *, void *);
+extern void update_audio_stream_until_idle(int);
+extern void Load(int, int, int);
+extern void memcard_RestoreGame(int);
+extern int playback_mode MACRO_ADDR;
+extern int music_volume MACRO_ADDR;
+extern int sound_volume MACRO_ADDR;
+extern int g_current_level_index_m __asm__("D_0015EE84") MACRO_ADDR;
 
-extern int func_002176C8_i(int, int, int) __asm__("func_002176C8");
+extern int Load_i(int, int, int) __asm__("func_002176C8");
 
 /* func_002176C8 returns int and takes three arguments (stream.c). */
 void load_and_initialize_level_chunk(void) {
@@ -244,23 +244,23 @@ void load_and_initialize_level_chunk(void) {
     int s1;
     int s2;
 
-    calculate_ring_buffer_bounds(D_00137C80[5] << 11, &a, &b);
+    calculate_ring_buffer_bounds(disc_table[5] << 11, &a, &b);
     update_audio_stream_until_idle(1);
-    func_002176C8_i(a, D_00137C80[4], D_00137C80[5]);
-    s2 = D_0015EEF0;
+    Load_i(a, disc_table[4], disc_table[5]);
+    s2 = sound_volume;
     s1 = music_volume;
     s0 = playback_mode;
     memcard_RestoreGame(a + *(int *)(a + 0x10));
-    D_0015EEF0 = s2;
+    sound_volume = s2;
     music_volume = s1;
     playback_mode = s0;
-    D_0015EE84_m = 0;
+    g_current_level_index_m = 0;
 }
 
-/* Adapted from Lombyte (GPL-3.0): src/storage/memory_card/memcard_update_state.c; PAL directory validation reconstructed from assembly. */
+/* Adapted from Lombyte's project (GPL-3.0): src/storage/memory_card/memcard_update_state.c; PAL directory validation reconstructed from assembly. */
 typedef struct { u8 pad0[16]; u32 size; u8 pad14[12]; char name[32]; } McDirEntry_209E68;
 extern McDirEntry_209E68 mc_directory[] __asm__("D_001A0980");
-extern char D_0013D315[], D_0013D335[], D_0013D355[], D_0015FF58[], D_0015FF60[];
+extern char memcard_icon_path_a_filename[], memcard_icon_path_b_filename[], special_items_base[], memcard_slot_file_prefix[], memcard_slot_file_suffix[];
 extern void mc_memset(void *, s32, s32) __asm__("func_001153FC");
 extern s32 mc_strcmp(char *, char *) __asm__("func_001165B8");
 extern s32 mc_strncmp(char *, char *, s32) __asm__("func_00116948");
@@ -358,6 +358,7 @@ extern s32 mc_call_00123D48(s32 fd, void *buf, s32 size) __asm__("func_00123D48"
 extern s32 mc_call_00116248(char *str, const char *format, ...) __asm__("func_00116248");
 extern char *mc_call_001166FC(char *, const char *) __asm__("func_001166FC");
 
+/* Memory card state machine: polls the async call, then steps through card checks. */
 void memcard_update_state(void) {
     union {
         char name[0x40];
@@ -499,11 +500,11 @@ void memcard_update_state(void) {
                     char *filename = (char *)((s32)mc_directory + i * 64 + 32);
                     s32 slot;
                     blocks += (entry->size + 1023U) >> 10;
-                    if (mc_strcmp(filename, D_0013D315) == 0) icon0 = 1;
-                    if (mc_strcmp(filename, D_0013D335) == 0) icon1 = 1;
-                    if (mc_strcmp(filename, D_0013D355) == 0) icon2 = 1;
-                    if (mc_strncmp(filename, D_0015FF58, 4) == 0 &&
-                        mc_strncmp(filename + 5, D_0015FF60, 4) == 0) {
+                    if (mc_strcmp(filename, memcard_icon_path_a_filename) == 0) icon0 = 1;
+                    if (mc_strcmp(filename, memcard_icon_path_b_filename) == 0) icon1 = 1;
+                    if (mc_strcmp(filename, special_items_base) == 0) icon2 = 1;
+                    if (mc_strncmp(filename, memcard_slot_file_prefix, 4) == 0 &&
+                        mc_strncmp(filename + 5, memcard_slot_file_suffix, 4) == 0) {
                         slot = (u8)entry->name[4] - '0';
                         if (slot < 0) continue;
                         if (slot < 5) workspace.directory.seen[slot] = 1;
@@ -1378,10 +1379,10 @@ void memcard_update_state(void) {
     }
 }
 
-extern int D_001A05C0[];
-extern int D_001A08C0[];
-extern int func_0020BAD8(int *p);
-extern int func_0020BBC8(void *dst, int i, int *table);
+extern int mc_gamedata[];
+extern int mc_leveldata[];
+extern int memcard_GetDataSize(int *p);
+extern int memcard_PrepData(void *dst, int i, int *table);
 
 /* Serialise both descriptor tables into the caller's buffer: the two
    sizes first, then one blob for D_001A05C0 and twenty for D_001A08C0,
@@ -1400,19 +1401,19 @@ void memcard_MakeWholeSave(char *out) {
     }
 }
 
-extern int func_001236F0(void);
+extern int sce_mc_init(void);
 /* Unprototyped deliberately: this is the varargs function, so callers
    legitimately pass different argument counts/types, and two agents
    declared it incompatibly. Both callers are byte-exact and must not
    be edited; an unprototyped declaration satisfies all call sites
    with identical codegen. (Only varargs *definitions* need stdarg.h;
    calling one is fine.) */
-extern int func_001E9730();
-extern char D_001E8690[];
+extern int STUB_printf();
+extern char memcard_error_message[];
 
 /* memcard_Init */
 void memcard_Init(void) {
-    if (func_001236F0()) {
+    if (sce_mc_init()) {
         STUB_printf(memcard_error_message);
     }
 }
@@ -1468,8 +1469,8 @@ int memcard_TestChecksum(char *buf) {
     return result;
 }
 
-extern void func_001F9A00(void *dst, void *src, int len);
-extern int func_0020BB10(void *data, int len);
+extern void copy_memory_aligned(void *dst, void *src, int len);
+extern int memcard_Checksum(void *data, int len);
 
 /* Walks a descriptor table (four words per entry: base, element size,
    tag, unused) and writes one { tag, size, data } record per entry into
@@ -1505,7 +1506,7 @@ struct SaveHeader {
 
 /* memcard_PrepData: pack the save blocks (id, size, data, 4-aligned) after
    an 8-byte header, end with an id -1 record, checksum it. Adapted from
-   Lombyte (GPL-3.0) for PAL. */
+   Lombyte's project (GPL-3.0) for PAL. */
 int memcard_PrepData(void *dst, int slot, int *table) {
     struct SaveHeader *out = dst;
     struct SaveBlock *blk = table;
@@ -1554,24 +1555,24 @@ typedef struct {
     McEntry e[5];
     char pad[0x14];
 } McSlot;         /* 0xC0 */
-extern McSlot D_0013D390_s[] __asm__("D_0013D390");
-extern int func_0020BB88(char *); /* memcard_TestChecksum */
+extern McSlot memory_card_state_s[] __asm__("D_0013D390");
+extern int memcard_TestChecksum(char *); /* memcard_TestChecksum */
 
 /* memcard_RestoreInfo(char *, int, int). Advancing the buf parameter
    itself and copying the name with memcpy both matter for retail's
    registers; re-indexing the entry per store keeps its daddu copies. */
 void memcard_RestoreInfo(char *buf, int slot, int idx) {
-    D_0013D390_s[slot].e[idx].valid = memcard_TestChecksum(buf) == 0;
+    memory_card_state_s[slot].e[idx].valid = memcard_TestChecksum(buf) == 0;
     buf += 0x10;
-    D_0013D390_s[slot].e[idx].a = *(int *)buf;
+    memory_card_state_s[slot].e[idx].a = *(int *)buf;
     buf += 0xC;
-    D_0013D390_s[slot].e[idx].b = *(int *)buf;
+    memory_card_state_s[slot].e[idx].b = *(int *)buf;
     buf += 0xC;
-    D_0013D390_s[slot].e[idx].c = *(int *)buf;
+    memory_card_state_s[slot].e[idx].c = *(int *)buf;
     buf += 0xC;
-    D_0013D390_s[slot].e[idx].d = *(int *)buf;
+    memory_card_state_s[slot].e[idx].d = *(int *)buf;
     buf += 0xC;
-    memcpy(D_0013D390_s[slot].e[idx].name, buf, 8);
+    memcpy(memory_card_state_s[slot].e[idx].name, buf, 8);
 }
 
 struct RestoreEntry {
@@ -1595,16 +1596,16 @@ typedef struct {
     char padC0[0xC];
     int cur;              /* 0xCC */
 } RestoreCardState;
-extern RestoreCardState D_0013D390_c __asm__("D_0013D390");
-extern short D_0015FF50;               /* SDA, gp -0x6DB0: mismatch count */
-extern int func_001151B4(const void *, const void *, int); /* memcmp */
+extern RestoreCardState memory_card_state_c __asm__("D_0013D390");
+extern short memcard_restore_mismatch_count;               /* SDA, gp -0x6DB0: mismatch count */
+extern int libc_memcmp(const void *, const void *, int); /* memcmp */
 
 /* memcard_RestoreData: unpack the save blocks after buf's 8-byte header
    into the table entries with the same id (slot selects the element),
    marking each entry 1 (same size), -1 (block shorter) or -2 (longer),
    and count blocks with no entry, a wrong total and entries left
    unrestored as errors, stored in the current card slot. Adapted from
-   Lombyte (GPL-3.0) for PAL. */
+   Lombyte's project (GPL-3.0) for PAL. */
 int memcard_RestoreData(void *src, int slot, int *table) {
     unsigned char *buf = src;
     struct RestoreEntry *tbl = (struct RestoreEntry *)table;
@@ -1650,8 +1651,8 @@ int memcard_RestoreData(void *src, int slot, int *table) {
                 n = e->size;
                 e->status = -2;
             }
-            if (func_001151B4(dst, ((struct RestoreBlock *)buf)->data, n) != 0) {
-                (*(int *)&D_0015FF50)++;
+            if (libc_memcmp(dst, ((struct RestoreBlock *)buf)->data, n) != 0) {
+                (*(int *)&memcard_restore_mismatch_count)++;
             }
             copy_memory_aligned(dst, ((struct RestoreBlock *)buf)->data, n);
             total += ((n + 3) & ~3) + 8;
@@ -1671,23 +1672,23 @@ int memcard_RestoreData(void *src, int slot, int *table) {
             errors++;
         }
     }
-    D_0013D390_c.slot[D_0013D390_c.cur].errors = errors;
+    memory_card_state_c.slot[memory_card_state_c.cur].errors = errors;
     return errors;
 }
 
-extern void func_00121A80(void *);
-extern void func_0012D818(void *);
-extern void func_00208FA0(void);
-extern void func_00208338(void *);
-extern char D_0015EF98[] MACRO_ADDR;
-extern char D_00141FC0[];
-extern unsigned char D_0013DE60[];
-extern int D_0015EE98 MACRO_ADDR;
-extern int D_0015EF24 MACRO_ADDR;
+extern void sce_cd_read_clock(void *);
+extern void sce_scf_get_local_time_from_rtc(void *);
+extern void copy_level_object_positions(void);
+extern void save_map_coverage(void *);
+extern char save_clock_time[] MACRO_ADDR;
+extern char level_map_coverage[];
+extern unsigned char level_visit_state[];
+extern int gBolts MACRO_ADDR;
+extern int game_clock_ticks MACRO_ADDR;
 extern int D_0015EF20 MACRO_ADDR;
-extern int D_0015EFB4_m __asm__("D_0015EFB4") MACRO_ADDR;
-extern char D_0014EFD0[];
-extern char D_001507D0[];
+extern int mode_freeze_flags_m __asm__("D_0015EFB4") MACRO_ADDR;
+extern char memcard_game_data_buffer[];
+extern char memcard_level_data_buffer[];
 
 /* memcard_Save(slot, flags): starts the save (func_00121A80/func_0012D818
    on D_0015EF98, func_00208FA0, func_00208338 on the D_00141FC0 page for
@@ -1705,10 +1706,10 @@ extern char D_001507D0[];
 int memcard_Save(int slot, int flags) {
     unsigned char saved;
 
-    func_00121A80(D_0015EF98);
-    func_0012D818(D_0015EF98);
+    sce_cd_read_clock(save_clock_time);
+    sce_scf_get_local_time_from_rtc(save_clock_time);
     copy_level_object_positions();
-    save_map_coverage(D_00141FC0 + (D_0015EE84_m << 11));
+    save_map_coverage(level_map_coverage + (g_current_level_index_m << 11));
     {
         char *p = memory_card_state;
         int active = *(int *)(p + 0xC8);
@@ -1723,7 +1724,7 @@ int memcard_Save(int slot, int flags) {
             goto done;
         }
         if (slot == 0) {
-            D_0015EFB4_m |= 0x200;
+            mode_freeze_flags_m |= 0x200;
         }
         if (*(int *)(p + 0xDC) >= 3) {
             goto done;
@@ -1731,10 +1732,10 @@ int memcard_Save(int slot, int flags) {
         if (*(int *)(p + 0xE4) >= 0) {
             goto done;
         }
-        *(int *)(p + 0xD0) = D_0015EE84_m;
+        *(int *)(p + 0xD0) = g_current_level_index_m;
         saved = 0;
         if (flags >= 0) {
-            D_0015EE84_m = flags;
+            g_current_level_index_m = flags;
             saved = level_visit_state[flags];
             if (saved == 0) {
                 level_visit_state[flags] = 1;
@@ -1746,15 +1747,15 @@ int memcard_Save(int slot, int flags) {
         char *names = q + 0x30;
 
         *(int *)(q + *(int *)(q + 0x14) * 0x1C + 0x24) = gBolts;
-        *(int *)(q + *(int *)(q + 0x14) * 0x1C + 0x20) = D_0015EE84_m;
-        *(int *)(q + *(int *)(q + 0x14) * 0x1C + 0x2C) = D_0015EF24;
-        memcpy(names + *(int *)(q + 0x14) * 0x1C, D_0015EF98, 8);
+        *(int *)(q + *(int *)(q + 0x14) * 0x1C + 0x20) = g_current_level_index_m;
+        *(int *)(q + *(int *)(q + 0x14) * 0x1C + 0x2C) = game_clock_ticks;
+        memcpy(names + *(int *)(q + 0x14) * 0x1C, save_clock_time, 8);
         *(int *)(q + *(int *)(q + 0x14) * 0x1C + 0x28) = D_0015EF20;
-        memcard_PrepData(D_0014EFD0, 0, mc_gamedata);
-        memcard_PrepData(D_001507D0, *(int *)(q + 0xD0), mc_leveldata);
+        memcard_PrepData(memcard_game_data_buffer, 0, mc_gamedata);
+        memcard_PrepData(memcard_level_data_buffer, *(int *)(q + 0xD0), mc_leveldata);
         if (flags >= 0) {
-            level_visit_state[D_0015EE84_m] = saved;
-            D_0015EE84_m = *(int *)(q + 0xD0);
+            level_visit_state[g_current_level_index_m] = saved;
+            g_current_level_index_m = *(int *)(q + 0xD0);
         }
         if (*(int *)(q + 0xE4) < 0) {
             *(int *)(q + 0xE4) = 0xF;

@@ -9,28 +9,28 @@
  */
 
 /* Declarations in scope here before the split. */
-extern char D_0013E650[];
-extern int D_0015F694;
-extern void func_001F9A98(void *, void *, int);
-extern char D_00189310[];
-extern char D_001899D0[];
-extern void *D_001871C0 NOT_SDA;
-extern DispatchRec D_001E8F80[];
+extern char voice_pool[];
+extern int bank_sound_count;
+extern void FastMemCopy(void *, void *, int);
+extern char backup_cam[];
+extern char gCamBackupState[];
+extern void *cur_cam NOT_SDA;
+extern DispatchRec camera_types[];
 
 typedef struct { u8 pad_0[0x10]; f32 pos[4]; u8 flags; } FlareMoby;
 typedef struct { FlareMoby *moby; s32 state; f32 intensity; s32 pad_c; s16 alpha[16]; s16 tex[16]; s32 color[16]; f32 dist[16]; f32 scale[16]; } LensFlare;
 typedef struct { u8 pad_0[0x8]; s32 cx; s32 cy; s32 ox; s32 oy; } ScreenInfo;
 extern u8 D_00187080_1edff8[] __asm__("D_00187180");
-extern ScreenInfo D_0013E600_1edff8 __asm__("D_0013E600");
+extern ScreenInfo g_screen_extent_r __asm__("D_0013E600");
 extern LensFlare D_00187300_1edff8 __asm__("D_00187400");
-extern f32 func_001F9D10_1edff8(void *, void *) __asm__("func_001F9D10");
+extern f32 FastVecDist_r(void *, void *) __asm__("func_001F9D10");
 extern f32 ConvertIntegerToFloat(s32) __asm__("func_001FA888");
 extern s32 truncate_float_to_s32(f32) __asm__("func_001FA898");
 extern float AbsoluteFloat(float input) __asm__("func_001F9B88");
-extern void project_to_screen(f32 *, void *) __asm__("func_001F2418");
+extern void project_to_screen_r(f32 *, void *) __asm__("func_001F2418");
 extern s64 get_effect_texture(s32) __asm__("func_001F4868");
 extern void draw_textured_quad(s32, s32, s32, s32, s32, s32, s32, s32, s64, s64) __asm__("func_001F5800");
-/* Lens flare: projects the flare moby to the screen and fills the per-element alpha, texture, colour, distance and scale tables. Adapted from Lombyte (GPL-3.0) for PAL: rendering/effects/fun_001edc50.c, FUN_001edc50. */
+/* Lens flare: projects the flare moby to the screen and fills the per-element alpha, texture, colour, distance and scale tables. Adapted from Lombyte's project (GPL-3.0) for PAL: rendering/effects/fun_001edc50.c, FUN_001edc50. */
 void draw_lens_flare(void) {
     f32 scr[4];
     f32 ctr[4];
@@ -57,12 +57,12 @@ void draw_lens_flare(void) {
     if (D_00187300_1edff8.intensity <= 0.0f) {
         return;
     }
-    dist = func_001F9D10_1edff8(D_00187080_1edff8, D_00187300_1edff8.moby->pos);
-    ctr[0] = ConvertIntegerToFloat(D_0013E600_1edff8.cx);
-    ctr[1] = ConvertIntegerToFloat(D_0013E600_1edff8.cy);
-    project_to_screen(scr, D_00187300_1edff8.moby->pos);
-    scr[0] = (scr[0] - ConvertIntegerToFloat(D_0013E600_1edff8.ox)) * 0.0625f;
-    scr[1] = (scr[1] - ConvertIntegerToFloat(D_0013E600_1edff8.oy)) * 0.0625f;
+    dist = FastVecDist_r(D_00187080_1edff8, D_00187300_1edff8.moby->pos);
+    ctr[0] = ConvertIntegerToFloat(g_screen_extent_r.cx);
+    ctr[1] = ConvertIntegerToFloat(g_screen_extent_r.cy);
+    project_to_screen_r(scr, D_00187300_1edff8.moby->pos);
+    scr[0] = (scr[0] - ConvertIntegerToFloat(g_screen_extent_r.ox)) * 0.0625f;
+    scr[1] = (scr[1] - ConvertIntegerToFloat(g_screen_extent_r.oy)) * 0.0625f;
     d[0] = ctr[0] - scr[0];
     d[1] = ctr[1] - scr[1];
     for (i = 0; i < 16; i++) {
@@ -101,11 +101,11 @@ void draw_lens_flare(void) {
     D_00187300_1edff8.intensity = 0.0f;
 }
 
-extern int func_001F4868(int);
-extern float func_001F9F90(float);
-extern float func_001F9FA8(float);
-extern float func_001FA748(float, float);
-extern void func_001F5E60(float, float, float, float, float, int, int, int, int, int, int, int,
+extern int GetEffectTex(int);
+extern float FastCos(float);
+extern float FastSin(float);
+extern float FastAddRots(float, float);
+extern void append_rotated_sprite_quad(float, float, float, float, float, int, int, int, int, int, int, int,
                            float, float);
 
 /*
@@ -203,12 +203,12 @@ typedef struct {
     int count;              /* 0xC0 */
 } GlowQueue;
 
-extern GlowQueue D_00189400;
-extern int D_001414D4;
-extern int D_0013E600[];
-extern float func_001FA888(int);
-extern void func_001F2418(float *, void *);
-extern void func_001EE3B0(void *, float, float);
+extern GlowQueue rotated_sprite_queue;
+extern int hero_current_state;
+extern int g_screen_extent[];
+extern float IntToFloat(int);
+extern void project_to_screen(float *, void *);
+extern void spawn_particle_burst(void *, float, float);
 
 /* Draws every queued glow whose moby is live (not in state 0xFE/0xFD):
    at its projected screen position (func_001F2418, then relative to the
@@ -219,12 +219,12 @@ void render_queued_rotated_sprites(void) {
     float pos[4];
     int i;
 
-    if (D_001414D4 == 0x72) {
+    if (hero_current_state == 0x72) {
         rotated_sprite_queue.count = 0;
     }
     if (rotated_sprite_queue.count != 0) {
-        centre[0] = IntToFloat(D_0013E600[2]);
-        centre[1] = IntToFloat(D_0013E600[3]);
+        centre[0] = IntToFloat(g_screen_extent[2]);
+        centre[1] = IntToFloat(g_screen_extent[3]);
         for (i = 0; i < rotated_sprite_queue.count; i++) {
             GlowSlot *s = &rotated_sprite_queue.slot[i];
 
@@ -232,9 +232,9 @@ void render_queued_rotated_sprites(void) {
                 continue;
             }
             if (s->onScreen != 0) {
-                func_001F2418(pos, s);
-                pos[0] = (pos[0] - IntToFloat(D_0013E600[4])) * 0.0625f;
-                pos[1] = (pos[1] - IntToFloat(D_0013E600[5])) * 0.0625f;
+                project_to_screen(pos, s);
+                pos[0] = (pos[0] - IntToFloat(g_screen_extent[4])) * 0.0625f;
+                pos[1] = (pos[1] - IntToFloat(g_screen_extent[5])) * 0.0625f;
             } else {
                 qcopy(pos, centre);
             }
@@ -261,17 +261,17 @@ struct CameraEnvironmentRegion {
     f32 positive_value_end;
     u8 pad7C[4];
 };
-extern struct CameraEnvironmentRegion D_0019AEC0[];
+extern struct CameraEnvironmentRegion camera_environment_regions[];
 /* A fog preset: an RGB byte triple and four floats (as src/game/draw.c reads it). */
 typedef struct {
     unsigned char r, g, b, pad;
     float f[4];
 } FogPreset;
-extern FogPreset D_0015F584 MACRO_ADDR;
-extern s32 func_00213A78(void *, f32 *, s32 *);
-extern s32 func_001FA898(f32);
+extern FogPreset fog_color_red MACRO_ADDR;
+extern s32 find_camera_environment_region(void *, f32 *, s32 *);
+extern s32 truncate_float_to_s32(f32);
 
-/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/textbin/update_camera_environment_from_regions.c,
+/* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/textbin/update_camera_environment_from_regions.c,
  * update_camera_environment_from_regions; the fog preset written as the struct src/game/draw.c reads. */
 void update_camera_environment_from_regions(void *position) {
     f32 blend;

@@ -22,9 +22,9 @@ worker rules in `build-sn/refactor/WORKER_BRIEF.md`.
 | File | What | C functions |
 |---|---|---|
 | `src/game/camera.c` | the executable's camera unit (`camera.cpp`, text 0x1EC038-0x1EDFF8) | 22 |
-| `src/overlays/shared/camera_001EB508.c` | the level copy, shared by all 19 levels (canonical addresses in level 00) | 15 (+7 stubs) |
-| `src/overlays/shared/camera_001ED6D8.c` | `Camera_InitSlots`, in a file of its own for `-fno-force-mem` (BUILD_FIDELITY.md, "Flags") | 1 |
-| `src/overlays/shared/camera_001FC308.c` | `RegisterUniqueCallback` (canonical in level 02) | 1 |
+| `src/overlays/shared/camera_switch_and_update.c` | the level copy, shared by all 19 levels (canonical addresses in level 00) | 15 (+7 stubs) |
+| `src/overlays/shared/level_camera_setup.c` | `Camera_InitSlots`, in a file of its own for `-fno-force-mem` (BUILD_FIDELITY.md, "Flags") | 1 |
+| `src/overlays/shared/camera_update_callbacks.c` | `RegisterUniqueCallback` (canonical in level 02) | 1 |
 | `include/camera.h` | the layouts below, offsets checked at compile time | |
 
 The executable's `main` only runs before the first level loads; each level
@@ -83,7 +83,7 @@ Executable addresses; the level-00 symbol in the third column. Names are
 | | `D_L00_0015F054` | `gCameraDefCountLvl` | `s32` | | its rows |
 | `D_0015F09C` | `D_L00_0015F05C` | `gCamSphereMask` / `...Lvl` | `s32` | | collision mask of the camera's sphere probes (`MoveCameraToward` passes it to `coll_sphere`) |
 | `D_0015F0A0` | `D_L00_0015F060` | `gCamSphereMaskBase` / `...Lvl` | `s32` | | the same before bit 0x80 |
-| `D_0015F098` | `D_L00_0015F058` | `gCamLineMask` / `...Lvl` | `s32` | | collision mask of the camera's line probes (vendor_002E1660.c) |
+| `D_0015F098` | `D_L00_0015F058` | `gCamLineMask` / `...Lvl` | `s32` | | collision mask of the camera's line probes (follow_camera.c) |
 | `D_0015F53C` | `D_L00_0015F4FC` | `gFade` / `gFadeLvl` | `f32` | | fade level: 1.0 on a level load, cut by `Camera_UpdateFade` and by cutscenes |
 
 `D_001894D0` (the executable's current-state buffer) and `D_L00_00169050`
@@ -120,7 +120,7 @@ wrong one stops the compile.
 | 0x30 | `Vec4f` | `pos` | position; `UpdateAllCameras` copies x/y/z to `prev_pos` |
 | 0x40 | `u8[0x24]` | `type_data` | per-type state the hooks keep |
 | 0x64 | `CameraVec3` | `prev_pos` | |
-| 0x70 | `void *` | `state_buf` | the type's 0x280-byte state (`gCamCurState` while current, `gCamPrevState` after; vendor_002F7700.c reads it as its orbit record) |
+| 0x70 | `void *` | `state_buf` | the type's 0x280-byte state (`gCamCurState` while current, `gCamPrevState` after; gold_bolts_and_teleporters.c reads it as its orbit record) |
 | 0x74 | `s32` | `activation` | the rule in `Camera_ActivationCheckPriority`: 0 by priority, 1/2 by priority once `handoff_state` is set, 4 while the hero is in `CameraInfo.clip_volume`, 7 by the hero's mode (+0x2284) and `rule7_index`; from `CameraInfo` +0x1F |
 | 0x78 | `f32` | `blend_time` | the switch's blend rate (eased) or frames (orbit); <= 0 takes the default; -1 after init |
 | 0x7C | `u8` | `priority` | 0 never activates; a higher one takes over; from `CameraInfo` +0x1C |
@@ -150,7 +150,7 @@ names the roles `Init/Activate/Update/ExitCamera_<id>`; `check` is its
 to the camera's parameters: `slot` (+0x04, set by `Camera_InitSlots`),
 `clip_volume` (+0x0C), `priority` (+0x1C), `blend_kind` (+0x1D: 1 eased
 blend, 5 orbit blend, 3 and 6 hand-off), `activation` (+0x1F),
-`rule7_index` (+0x24). vendor_002F7700.c calls the same rows
+`rule7_index` (+0x24). gold_bolts_and_teleporters.c calls the same rows
 `CameraPresetRow`/`CameraPreset` (+0x20..+0x34 there: paths and a target).
 
 ### CameraSystem (0x3A0, gCamera)
@@ -306,7 +306,7 @@ showed.
    use changes in the same edit. That is done for `D_00187040`,
    `D_0018C418`, `D_001E8F80`, `D_0015F090`, `D_L00_00166D80` and the
    level tables. The flips left in the tasks (`D_00189310`, `D_00187510`,
-   `Elem` in camera_001ED6D8.c) each have one user.
+   `Elem` in level_camera_setup.c) each have one user.
 6. **Existing aliases may stay** (`D_001872B0_h`, `D_0015EEB4_m`, the
    `_EB890` set): when replacing one changes bytes, keep it and say why
    in a comment; never add a new one (conventions.md, section 2).
@@ -319,7 +319,7 @@ showed.
 - The fold of `func_001EC270`/`func_001EC780` in level code (section 1).
 - `Camera_PickDrawModes` was the old name of `Camera_PickCollisionMasks`:
   its words are collision masks (`MoveCameraToward` passes the sphere mask
-  to `coll_sphere`, vendor_002E1660.c the line mask to its line probe).
+  to `coll_sphere`, follow_camera.c the line mask to its line probe).
 - `RegisterUniqueCallback` is shared code but its symbols are canonical in
   level 02 (`D_L02_0015F04C`, `D_L02_00169670`), so the `Lvl` names above
   do not cover it.
@@ -338,8 +338,8 @@ its sub-blocks are declared in 18 executable files and 22 level files
 (mostly the eye position, `D_00187180` / `D_L00_00166EC0`, 65 uses), the
 current camera in 43 files (the shared declaration preamble), and private
 views of the same memory in draw.c (`CameraBlock`, `SceneG`), pause.c
-(`S`, `PreviewCamera`), draw_001F3A78.c (`View_1F3E20`, `Cam_1F3E20`) and
-vendor_002E1660.c (`Moby_2E8210`). The camera-type functions (`Camera3_Update`,
+(`S`, `PreviewCamera`), debug_menu_and_text.c (`View_1F3E20`, `Cam_1F3E20`) and
+follow_camera.c (`Moby_2E8210`). The camera-type functions (`Camera3_Update`,
 `CameraType5Update`, ...) read `Camera.type_data` and the state buffer;
 their layouts are the next header section.
 

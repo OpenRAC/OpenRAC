@@ -10,19 +10,19 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern int func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
-extern char D_00152470[];
-extern int func_00119088();
-extern int func_00114518(int *errOut, void *a, void *b, void *c);
-extern int func_00116108(int *errOut, void *a, void *b, void *c);
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern int __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
+extern char locale_lconv[];
+extern int libc_glue_read();
+extern int _lseek_r(int *errOut, void *a, void *b, void *c);
+extern int reentrant_read(int *errOut, void *a, void *b, void *c);
 
 
 /* Reclaimed from a banked revert. The old note blamed retail's
@@ -44,7 +44,7 @@ extern int func_00116108(int *errOut, void *a, void *b, void *c);
 extern long func_00116108_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00116108");
 
-int func_001162B8(void *arg0, void *arg1, void *arg2) {
+int __sread(void *arg0, void *arg1, void *arg2) {
     Node1E4 *s = (Node1E4 *)arg0;
     int r = func_00116108_wide((int *)s->owner,
                                (void *)(int)s->handle, arg1, arg2);
@@ -63,10 +63,10 @@ int func_001162B8(void *arg0, void *arg1, void *arg2) {
 extern long func_001188C8_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_001188C8");
 
-int func_00116320(void *arg0, void *arg1, void *arg2) {
+int __swrite(void *arg0, void *arg1, void *arg2) {
     char *s = (char *)arg0;
     if (*(unsigned short *)(s + 0xC) & 0x100) {
-        func_00114518(*(int **)(s + 0x54), (void *)(int)*(short *)(s + 0xE),
+        _lseek_r(*(int **)(s + 0x54), (void *)(int)*(short *)(s + 0xE),
                       (void *)0, (void *)2);
     }
     *(unsigned short *)(s + 0xC) &= 0xEFFF;
@@ -81,7 +81,7 @@ int func_00116320(void *arg0, void *arg1, void *arg2) {
 extern long func_00114518_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00114518");
 
-long func_001163A0(void *arg0, void *arg1, void *arg2) {
+long __sseek(void *arg0, void *arg1, void *arg2) {
     Node1E4 *s = (Node1E4 *)arg0;
     long r = func_00114518_wide((int *)s->owner,
                                 (void *)(int)s->handle, arg1, arg2);
@@ -94,13 +94,13 @@ long func_001163A0(void *arg0, void *arg1, void *arg2) {
     return r;
 }
 
-extern int func_00112468(int *errOut, int arg1);
+extern int _close_r(int *errOut, int arg1);
 
 /* newlib's __sclose. It returns the close result: 2.9-ee tail-calls a
    void function that ends in a call, which retail does not have here. */
-int func_00116408(void *arg0) {
+int __sclose(void *arg0) {
     char *self = (char *)arg0;
-    return func_00112468(*(int **)(self + 0x54), *(short *)(self + 0xE));
+    return _close_r(*(int **)(self + 0x54), *(short *)(self + 0xE));
 }
 
 ASM_FUNC("asm/handwritten/core_text", func_00116428);

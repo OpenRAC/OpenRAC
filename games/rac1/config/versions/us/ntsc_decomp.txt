@@ -1,5 +1,5 @@
-# The NTSC decomp (Lombyte's project, by Mateusz Kłysz) at the commit this repository reads:
+# The NTSC decomp (Lombyte's project) at the commit this repository reads:
 # its names (tools/names.py ntsc), its report (CI, SCUS_971.99_report) and the carry list
 # (tools/version_sync.py ntsc). tools/ntsc_source.py fetches it into a cache outside the
 # repository; `python3 tools/ntsc_source.py follow` bumps it. Format: url commit
-https://github.com/mateuszklysz/Lombyte 6abcf077203d88bd21bef5fd15da900ea9e54bdf
+https://github.com/lombyte-project/Lombyte c6ba2e9c2a95e69615540aa8ff04c197b8948a8c

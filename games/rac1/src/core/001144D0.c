@@ -12,30 +12,30 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
 
 LINKER_REMNANT("asm/remnants/core_text", func_001144D0);
 
-extern char D_00152470[];
+extern char locale_lconv[];
 
 /* arg0 unused: retail loads it into $a0 for this call too but the
    function body never reads it. */
-void *func_001144D8(void *arg0) {
-    return D_00152470;
+void *_localeconv_r(void *arg0) {
+    return locale_lconv;
 }
 
 LINKER_REMNANT("asm/remnants/core_text", func_001144E8);
 
-void *func_001144F0(void) {
-    return func_001144D8(D_0012F86C);
+void *libc_localeconv(void) {
+    return _localeconv_r(_impure_ptr);
 }
 
 INCLUDE_ASM("asm/nonmatchings/core_text", func_00114514);

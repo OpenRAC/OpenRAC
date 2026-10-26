@@ -1,33 +1,33 @@
 void save_card_state_good_save(void) {
-    int flags = D_0015EFB4;
+    int flags = mode_freeze_flags;
     char *b;
     int nf;
-    D_0015EFB4 = flags & ~4;
+    mode_freeze_flags = flags & ~4;
     b = memory_card_state;
-    nf = D_0015EFB4 & ~2;
-    D_0015EFB4 = nf;
+    nf = mode_freeze_flags & ~2;
+    mode_freeze_flags = nf;
     if (*(int *)(b + 0xF4) == 0) {
-        D_0015EFB0 = 3;
+        mode_freeze_state = 3;
         return;
     }
     if (flags & 0x80) {
-        D_0015EFB0 = 0x15;
-        D_0015EFB4 = (nf ^ 0x80) | 0x40;
+        mode_freeze_state = 0x15;
+        mode_freeze_flags = (nf ^ 0x80) | 0x40;
         return;
     }
     if (flags & 0x100) {
-        D_0015EFB0 = 0x14;
-        D_0015EFB4 = (nf ^ 0x100) | 0x40;
+        mode_freeze_state = 0x14;
+        mode_freeze_flags = (nf ^ 0x100) | 0x40;
         return;
     }
     if (*(int *)(b + 0x1C) != 0) {
         *(int *)(b + 0xF4) = 0;
-        D_0015EFB4 = nf | 1;
-        D_0015EFB0 = 2;
+        mode_freeze_flags = nf | 1;
+        mode_freeze_state = 2;
         return;
     }
     if (flags & 0x200) {
-        D_0015EFB4 = nf ^ 0x200;
-        D_0015EFB0 = 0x16;
+        mode_freeze_flags = nf ^ 0x200;
+        mode_freeze_state = 0x16;
     }
 }

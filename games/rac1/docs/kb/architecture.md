@@ -94,8 +94,8 @@ with kind, size, fingerprint, level count and places (`level:address`).
 its address there.
 
 Overlay files are named after the **executable unit they follow in link
-order** plus their first function (`hud_00235960.c`), not their subject
-([OVERLAYS.md](../OVERLAYS.md) "Plan" step 2): `help_002180F8.c` holds hero
+order** plus their first function (`weapon_hud_and_counters.c`), not their subject
+([OVERLAYS.md](../OVERLAYS.md) "Plan" step 2): `hero_water_and_ground_motion.c` holds hero
 code (1.17 MB of level code lies between `help` and `hud`), `vendor_*.c` many
 moby updates. The grouping is provisional.
 
@@ -120,7 +120,7 @@ into a worker's `CONTEXT.md`. Recipe (class 726):
 grep -P '^726\t' tools/extract/moby_classes.tsv          # 726  novalis_elevator
 grep -oP '^\S+(?=\t.*UpdateMoby_726:)' config/overlays/names.tsv   # func_L01_002BB068
 grep -oP 'UpdateMoby_726:[0-9/]+' config/overlays/names.tsv      # levels 01/03/13
-grep -rln func_L01_002BB068 src/overlays                         # shared/vendor_002B90A8.c
+grep -rln func_L01_002BB068 src/overlays                         # shared/water_pool_and_sand_mouse.c
 ```
 
 ## 3. Frame and engine flow
@@ -147,7 +147,7 @@ unless flag 4. The list head is also stored at `$gp-0x6CDC`. Reconstruction
 and details: [mobys.md](mobys.md#the-per-frame-update-loop).
 
 A typical caller is the vendor-menu world update `func_L00_0029D988`
-(`src/overlays/shared/update_0029B6A0.c`): `func_L00_00299108`, the moby
+(`src/overlays/shared/vendor_menu.c`): `func_L00_00299108`, the moby
 loop, `func_0022EF68` (`enqueue_voice_request`, candidate),
 `func_L00_002076E8`, then `UpdateParts` (`func_00218A80`), each gated by
 flags and separated by calls to the empty `func_001E9768`. *(inferred)* Those
@@ -180,13 +180,13 @@ Field tables: [data-structures.md](data-structures.md).
 
 | Function | Size | File | Comment in source |
 |---|---|---|---|
-| `func_L00_002180F8` | 39,324 | `src/overlays/shared/help_002180F8.c` (6 levels) | per-frame movement and physics for the current hero state |
-| `func_L17_00214F68` | 36,168 | `src/overlays/l17_fleet/help_00214F68.c` | same, level 17 build |
-| `func_L16_00214C88` | 36,052 | `src/overlays/l16_kalebo3/help_00214C88.c` | same, level 16 build |
-| `func_L18_0021F1D8` | 33,392 | `src/overlays/l18_veldin2/help_0021F1D8.c` | same, level 18 build |
-| `func_L00_0022A340` | 33,312 | `src/overlays/shared/help_0022A340.c` (6 levels) | per-frame transition logic for the current hero state |
+| `func_L00_002180F8` | 39,324 | `src/overlays/shared/hero_water_and_ground_motion.c` (6 levels) | per-frame movement and physics for the current hero state |
+| `func_L17_00214F68` | 36,168 | `src/overlays/l17_fleet/hero_ground_movement.c` | same, level 17 build |
+| `func_L16_00214C88` | 36,052 | `src/overlays/l16_kalebo3/hero_movement.c` | same, level 16 build |
+| `func_L18_0021F1D8` | 33,392 | `src/overlays/l18_veldin2/hero_ground_movement.c` | same, level 18 build |
+| `func_L00_0022A340` | 33,312 | `src/overlays/shared/hero_item_input_and_hud.c` (6 levels) | per-frame transition logic for the current hero state |
 
-`HeroUpdate` (`func_L01_00228E08`) is in `src/overlays/shared/help_002274A8.c`.
+`HeroUpdate` (`func_L01_00228E08`) is in `src/overlays/shared/hero_update_ground_material.c`.
 Copies that differ in one constant or offset are separate functions
 ([OVERLAYS.md](../OVERLAYS.md) "Names"), so a port must run the build that
 belongs to the current level.
@@ -225,7 +225,7 @@ Readable names come from `config/names.tsv` / `include/names.h`.
 | Update function of moby class N | `config/overlays/names.tsv` role `UpdateMoby_N`, class names in `tools/extract/moby_classes.tsv` (recipe in [section 2](#the-dispatch-tables-which-function-updates-moby-class-n)) |
 | A moby's private state | `Moby.pvars` (0x78) cast to the class's struct in the update function's file; [mobys.md](mobys.md), [PVARS.md](../PVARS.md) |
 | Mobys | `CreateMoby` (`func_0020D348`), `DeleteMoby` (`func_0020D678`), `InitMobyInstance`, `MobyAnimProc` in `src/game/mobyfunc.c`, `mobyproc.c`, `mobyutil.c` (loop `func_00213C78`); `MobyProc` (`func_L00_002569F8`) in level code |
-| Hero movement and states | `src/overlays/shared/help_002180F8.c`, `help_0022A340.c` and their per-level copies (`src/overlays/l1[678]_*/help_*.c`); `include/hero.h` |
+| Hero movement and states | `src/overlays/shared/hero_water_and_ground_motion.c`, `hero_item_input_and_hud.c` and their per-level copies (`src/overlays/l1[678]_*/help_*.c`); `include/hero.h` |
 | Controller input | `UpdatePad` (`func_00218908`), `ClearPadInput` in `src/game/pad.c`; `include/pad.h` (`D_0013CA40`) |
 | HUD | `HudDraw` (`func_001FFFB8`), `HudSprite`, `Hud_*` in `src/game/hud.c`; banks in `src/game/loaders.c` (`LoadHudBanks`); level `HudFrame` (`func_L00_0023BAB8`) |
 | Camera | `UpdateAllCameras` (`func_001EC7C8`), `UpdateCamera` (`func_001EDE50`), `camera_update` (`func_001ED080`, candidate), `Camera_*` in `src/game/camera.c`; per-level cameras via `camvtbl` roles `InitCamera_<id>` / `UpdateCamera_<id>`; `src/overlays/shared/camera_*.c` |

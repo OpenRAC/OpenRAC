@@ -8,12 +8,12 @@ int draw_menu_selection_text(char *arg0) {
         && *(int *)(g + 0x154) >= 0xB && *(int *)(b + 8) == 2) {
         if (row == -1) {
             FontPrintCenter(*(int *)(arg0 + 0x20) / 2, *(int *)(arg0 + 0x24) / 2 - 8,
-                          0x80FFA888L, func_001FE540_id(0x526D), -1);
+                          0x80FFA888L, msg_string_id(0x526D), -1);
         } else {
             FontPrintCenter(*(int *)(arg0 + 0x20) / 2, 4, 0x80FFA888L,
-                          func_001FE540_id(D_001DE0C0_i[row].a), -1);
+                          msg_string_id(planet_icon_rows_i[row].a), -1);
             FontPrintCenter(*(int *)(arg0 + 0x20) / 2, 0x14, 0x80FFA888L,
-                          func_001FE540_id(D_001DE0C0_i[row].b), -1);
+                          msg_string_id(planet_icon_rows_i[row].b), -1);
         }
     }
     DoGifPaging();

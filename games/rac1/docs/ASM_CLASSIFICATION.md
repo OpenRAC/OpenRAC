@@ -154,7 +154,7 @@ leaves the `jr $31` slot empty with `sub.s` right before it, a slot both compile
 put the store there). Lombyte keeps its NTSC-U copy (FUN_L00_00200228) as assembly too.
 
 On 2026-10-19, twelve more level functions were listed by hand: the VU0 leaf helpers of the
-level copies of fastfunc (`shared/fastfunc_001FEF78.c` and level 6's `fastfunc_002172B0.c`) and
+level copies of fastfunc (`shared/fast_vector_math.c` and level 6's `vector_zero.c`) and
 func_L00_00251468. Each has a VU0 instruction in a branch or `jr` delay slot, or `$at` as a
 working register: func_L00_001FF240, 001FF270, 001FF2C8, 001FF2F8, 001FF328, 001FF4B0,
 001FF500, 001FF610, 001FFCF8, 00200210, 00251468 and func_L06_002172B0.
@@ -164,10 +164,10 @@ empty `jr` slot after four `sqc2`, which the assembler fills in any compiled cop
 On 2026-10-21, two more level functions were listed by hand. Each is the level copy of an executable
 function that `config/handwritten_asm.txt` already lists:
 
-- func_L02_002100E8 (48 bytes, `shared/draw_0020BF88.c`, in seven levels) is func_001F9AF0 aimed at
+- func_L02_002100E8 (48 bytes, `shared/geometry_quad_packet.c`, in seven levels) is func_001F9AF0 aimed at
   DMA channel 0x1000D400 instead of 0x1000D000 (`config/overlays/variants.tsv` pairs them): `$at`
   holds the channel base for four `sw`, with a hand-placed `nop` after the first;
-- func_L00_0024EBF8 (40 bytes, `shared/miscproc_0024E798.c`, in all 19 levels) is the first 40 bytes
+- func_L00_0024EBF8 (40 bytes, `shared/dma_quadword_copy.c`, in all 19 levels) is the first 40 bytes
   of func_0020C758: a busy-wait on bit 8 of the word at `$3` with a `nop` after the load and after
   the `andi`, empty delay slots and a `j` back to its own entry. The level catalogue cut that
   function in two. The `teq` trap block after it is listed already: func_L00_0024EC20 in eight

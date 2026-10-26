@@ -34,13 +34,13 @@ typedef struct {
     int psm;        /* 0x14 */
 } PifHeader;
 
-extern void func_001F99B0(void *, int, int);
-extern int func_001F9968(int);
+extern void FastMemSet(void *, int, int);
+extern int log2dim(int);
 /* sceGsSetDefLoadImage, FlushCache, sceGsExecLoadImage, sceGsSyncPath */
-extern int func_00122630(GsLoadImage *, short, short, short, short, short, short, short);
-extern void func_00118D80(int);
-extern int func_00122958(GsLoadImage *, void *);
-extern int func_00120858(int, unsigned short);
+extern int sceGsSetDefLoadImage(GsLoadImage *, short, short, short, short, short, short, short);
+extern void flush_cache(int);
+extern int sceGsExecLoadImage(GsLoadImage *, void *);
+extern int wait_for_graphics_pipeline_idle(int, unsigned short);
 
 /* LoadPifAsPSMT8H: uploads a PIF image (header arg0, CLUT at +0x20 of
    0x200 bytes when +0x14 is set, else 0x400, then w * h pixels) to GS
@@ -68,19 +68,19 @@ void LoadPifAsPSMT8H(void *arg0, void *arg1, int tbp, int cbp) {
     d.th = log2dim(pif->h);
     d.image = (char *)pif + (d.clutSize + 0x20);
     d.imageSize = pif->w * pif->h;
-    func_00122630(&li, c, 1, pif->psm, 0, 0, 16, 16);
-    func_00118D80(0);
-    func_00122958(&li, d.clut);
-    func_00120858(0, 0);
+    sceGsSetDefLoadImage(&li, c, 1, pif->psm, 0, 0, 16, 16);
+    flush_cache(0);
+    sceGsExecLoadImage(&li, d.clut);
+    wait_for_graphics_pipeline_idle(0, 0);
     d.tbw = pif->w >> 6;
     if (d.tbw <= 0) {
         d.tbw = 1;
     }
     d.tbp = tbp >> 8;
-    func_00122630(&li, d.tbp, d.tbw, 0x1B, 0, 0, pif->w, pif->h);
-    func_00118D80(0);
-    func_00122958(&li, d.image);
-    func_00120858(0, 0);
+    sceGsSetDefLoadImage(&li, d.tbp, d.tbw, 0x1B, 0, 0, pif->w, pif->h);
+    flush_cache(0);
+    sceGsExecLoadImage(&li, d.image);
+    wait_for_graphics_pipeline_idle(0, 0);
     out[0] = (unsigned long)d.tbp | ((unsigned long)d.tbw << 14)
            | ((unsigned long)0x1B << 20) | ((unsigned long)d.tw << 26)
            | ((unsigned long)d.th << 30) | ((unsigned long)1 << 34)
@@ -91,15 +91,15 @@ void LoadPifAsPSMT8H(void *arg0, void *arg1, int tbp, int cbp) {
     out[2] = 0;
 }
 
-extern int D_00137C80[];
-extern int func_002176C8(void *, int, int);
-extern int D_0015EF88;
-extern void func_001E94E8(void *arg0, void *arg1, int arg2, int arg3);
-extern long D_0015EFC8;
-extern unsigned char D_001AAF40[];
+extern int disc_table[];
+extern int Load(void *, int, int);
+extern int depth_buffer_address;
+extern void LoadPifAsPSMT8H(void *arg0, void *arg1, int arg2, int arg3);
+extern long debug_font_pif_header;
+extern unsigned char debug_font_buffer[];
 
-extern int D_0015EF88_m __asm__("D_0015EF88") MACRO_ADDR;
-extern long D_0015EFC8_m __asm__("D_0015EFC8") MACRO_ADDR;
+extern int depth_buffer_address_m __asm__("D_0015EF88") MACRO_ADDR;
+extern long debug_font_pif_header_m __asm__("D_0015EFC8") MACRO_ADDR;
 
 /*
  * LoadDebugFont: forwards the D_00137C80[2]/[3] stream position to
@@ -113,9 +113,9 @@ extern long D_0015EFC8_m __asm__("D_0015EFC8") MACRO_ADDR;
 void LoadDebugFont(void) {
     long localbuf[3];
 
-    Load(debug_font_buffer, D_00137C80[2], D_00137C80[3]);
-    LoadPifAsPSMT8H(debug_font_buffer, localbuf, D_0015EF88_m + 0xC0000, 0x3FFC00);
-    D_0015EFC8_m = localbuf[0];
+    Load(debug_font_buffer, disc_table[2], disc_table[3]);
+    LoadPifAsPSMT8H(debug_font_buffer, localbuf, depth_buffer_address_m + 0xC0000, 0x3FFC00);
+    debug_font_pif_header_m = localbuf[0];
 }
 
 LINKER_REMNANT("asm/remnants/text", func_001E9728);

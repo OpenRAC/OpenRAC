@@ -11,14 +11,14 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
+extern long strtol(int arg0, int arg1, int arg2);
 
-extern int D_0015ED10;
+extern int SbrkErrno;
 
-int func_00112468(int *errOut, int arg1) {
+int _close_r(int *errOut, int arg1) {
     int r;
     SbrkErrno = 0;
-    r = func_00119100(arg1);
+    r = libc_glue_close(arg1);
     if (r == -1 && SbrkErrno != 0) {
         *errOut = SbrkErrno;
     }
@@ -29,7 +29,7 @@ int func_00112468(int *errOut, int arg1) {
  * loop -- estimate the digit q from the top limbs, subtract q*S from b
  * (trimming b's leading zero limbs), then bump q by one more if b is
  * still >= S (the estimate can undershoot by 1), subtracting S again. */
-extern int func_00115CE8(void *, void *); /* cmp */
+extern int __mcmp(void *, void *); /* cmp */
 
 typedef struct Bigint_1154D0 {
     struct Bigint_1154D0 *next;
@@ -42,7 +42,7 @@ typedef struct Bigint_1154D0 {
      ((unsigned short *)(xc))[0] = (unsigned short)(lo), \
      (xc)++)
 
-int func_001124C0(Bigint_1154D0 *b, Bigint_1154D0 *S) {
+int dtoa_quorem(Bigint_1154D0 *b, Bigint_1154D0 *S) {
     int n;
     int borrow, y, z;
     unsigned int carry, q, ys, si, zs;
@@ -77,7 +77,7 @@ int func_001124C0(Bigint_1154D0 *b, Bigint_1154D0 *S) {
             b->wds = n;
         }
     }
-    if (func_00115CE8(b, S) >= 0) {
+    if (__mcmp(b, S) >= 0) {
         q++;
         borrow = 0;
         carry = 0;
@@ -136,28 +136,28 @@ struct _reent {
 typedef s32 __Long;
 typedef u32 __ULong;
 union double_union { f64 d; u32 i[2]; };
-extern const f64 D_001524C8[23];
-extern const f64 D_00152590[5];
-extern const f64 D_001525B0[];
-extern char D_00152410[];
-extern char D_00152420[];
-extern char D_00152428[];
-extern _Bigint *func_001154D0(struct _reent *, s32);
-extern void func_00115578(struct _reent *, _Bigint *);
-extern _Bigint *func_00115EE8(struct _reent *, f64, s32 *, s32 *);
-extern s32 func_001156C0(u32);
-extern _Bigint *func_00115808(struct _reent *, s32);
-extern _Bigint *func_00115840(struct _reent *, _Bigint *, _Bigint *);
-extern _Bigint *func_00115A70(struct _reent *, _Bigint *, s32);
-extern _Bigint *func_00115B70(struct _reent *, _Bigint *, s32);
-extern s32 func_00115CE8_126D8(_Bigint *, _Bigint *) __asm__("func_00115CE8");
-extern _Bigint *func_00115D50(struct _reent *, _Bigint *, _Bigint *);
-extern _Bigint *func_001155A8(struct _reent *, _Bigint *, s32, s32);
-extern s32 func_001124C0_126D8(_Bigint *, _Bigint *) __asm__("func_001124C0");
-extern void *func_00115248(void *, const void *, u32);
+extern const f64 __mprec_tens[23];
+extern const f64 __mprec_bigtens[5];
+extern const f64 __mprec_bigtens_4[];
+extern char dtoa_infinity_string[];
+extern char dtoa_nan_string[];
+extern char dtoa_zero_string[];
+extern _Bigint *_Balloc(struct _reent *, s32);
+extern void _Bfree(struct _reent *, _Bigint *);
+extern _Bigint *__d2b(struct _reent *, f64, s32 *, s32 *);
+extern s32 __hi0bits(u32);
+extern _Bigint *__i2b(struct _reent *, s32);
+extern _Bigint *__multiply(struct _reent *, _Bigint *, _Bigint *);
+extern _Bigint *__pow5mult(struct _reent *, _Bigint *, s32);
+extern _Bigint *__lshift(struct _reent *, _Bigint *, s32);
+extern s32 __mcmp_r(_Bigint *, _Bigint *) __asm__("func_00115CE8");
+extern _Bigint *__mdiff(struct _reent *, _Bigint *, _Bigint *);
+extern _Bigint *__multadd(struct _reent *, _Bigint *, s32, s32);
+extern s32 dtoa_quorem_r(_Bigint *, _Bigint *) __asm__("func_001124C0");
+extern void *libc_memcpy(void *, const void *, u32);
 
 /* dtoa for IEEE arithmetic (dmg): convert double to ASCII string. Inspired by "How to Print Floating-Point Numbers Accurately" by Guy L. Steele, Jr. and Jon L. White [Proc. ACM SIGPLAN '90, pp. 92-101]. Modifications: 1. Rather than iterating, we use a simple numeric overestimate to determine k = floor(log10(d)). We scale relevant quantities using O(log2(k)) rather than O(k) multiplications. 2. For some modes > 2 (corresponding to ecvt and fcvt), we don't try to generate digits strictly left to right. Instead, we compute with fewer bits and propagate the carry if necessary when rounding the final digit up. This is often faster. 3. Under the assumption that input will be rounded nearest, mode 0 renders 1e23 as 1e23 rather than 9.999999999999999e22. That is, we allow equality in stopping tests when the round-nearest rule will give the same floating-point value as would satisfaction of the stopping test with strict inequality. 4. We remove common factors of powers of 2 from relevant quantities. 5. When converting floating-point integers less than 1e16, we use floating-point arithmetic rather than resorting to multiple-precision integers. 6. When asked to produce fewer than 15 digits, we first try to get by with floating-point arithmetic; we resort to multiple-precision integer arithmetic only if we cannot guarantee that the floating-point calculation has given the correctly rounded result. For k requested digits and "uniformly" distributed input, the probability is something like 10^(k-15) that we must resort to the long calculation.
-   Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/sdk/library/_dtoa_r.c, _dtoa_r. */
+   Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/sdk/library/_dtoa_r.c, _dtoa_r. */
 char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decpt, s32 *sign, char **rve)
 {
   /*	Arguments ndigits, decpt, sign are similar to those
@@ -212,7 +212,7 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
     {
       ptr->_result->_k = ptr->_result_k;
       ptr->_result->_maxwds = 1 << ptr->_result_k;
-      func_00115578 (ptr, ptr->_result);
+      _Bfree (ptr, ptr->_result);
       ptr->_result = 0;
     }
 
@@ -232,9 +232,9 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
       *decpt = 9999;
       s =
 
- !((d).i[0]) && !(((d).i[1]) & 0xfffff) ? D_00152410 :
+ !((d).i[0]) && !(((d).i[1]) & 0xfffff) ? dtoa_infinity_string :
 
- D_00152420;
+ dtoa_nan_string;
       if (rve)
  *rve =
 
@@ -247,13 +247,13 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
   if (!d.d)
     {
       *decpt = 1;
-      s = D_00152428;
+      s = dtoa_zero_string;
       if (rve)
  *rve = s + 1;
       return s;
     }
 
-  b = func_00115EE8 (ptr, d.d, &be, &bbits);
+  b = __d2b (ptr, d.d, &be, &bbits);
 
   if ((i = (s32) (((d).i[1]) >> 20 & (0x7ff00000U >> 20))))
     {
@@ -308,7 +308,7 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
   k_check = 1;
   if (k >= 0 && k <= 22)
     {
-      if (d.d < D_001524C8[k])
+      if (d.d < __mprec_tens[k])
  k--;
       k_check = 0;
     }
@@ -374,7 +374,7 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
   for (ptr->_result_k = 0; sizeof (_Bigint) - sizeof (__ULong) + j <= i;
        j <<= 1)
     ptr->_result_k++;
-  ptr->_result = func_001154D0 (ptr, ptr->_result_k);
+  ptr->_result = _Balloc (ptr, ptr->_result_k);
   s = s0 = (char *) ptr->_result;
 
   if (ilim >= 0 && ilim <= 14 && try_quick)
@@ -388,31 +388,31 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
       ieps = 2; /* conservative */
       if (k > 0)
  {
-   ds = D_001524C8[k & 0xf];
+   ds = __mprec_tens[k & 0xf];
    j = k >> 4;
    if (j & 0x10)
      {
        /* prevent overflows */
        j &= 0x10 - 1;
-       d.d /= D_001525B0[0];
+       d.d /= __mprec_bigtens_4[0];
        ieps++;
      }
    for (; j; j >>= 1, i++)
      if (j & 1)
        {
   ieps++;
-  ds *= D_00152590[i];
+  ds *= __mprec_bigtens[i];
        }
    d.d /= ds;
  }
       else if (j1 = -k)
  {
-   d.d *= D_001524C8[j1 & 0xf];
+   d.d *= __mprec_tens[j1 & 0xf];
    for (j = j1 >> 4; j; j >>= 1, i++)
      if (j & 1)
        {
   ieps++;
-  d.d *= D_00152590[i];
+  d.d *= __mprec_bigtens[i];
        }
  }
       if (k_check && d.d < 1. && ilim > 0)
@@ -442,7 +442,7 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
    /* Use Steele & White method of only
 	   * generating digits needed.
 	   */
-   eps.d = 0.5 / D_001524C8[ilim - 1] - eps.d;
+   eps.d = 0.5 / __mprec_tens[ilim - 1] - eps.d;
    for (i = 0;;)
      {
        L = d.d;
@@ -462,7 +462,7 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
  {
 
    /* Generate ilim digits, then fix them up. */
-   eps.d *= D_001524C8[ilim - 1];
+   eps.d *= __mprec_tens[ilim - 1];
    for (i = 1;; i++, d.d *= 10.)
      {
        L = d.d;
@@ -496,7 +496,7 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
   if (be >= 0 && k <= 14)
     {
       /* Yes. */
-      ds = D_001524C8[k];
+      ds = __mprec_tens[k];
       if (ndigits < 0 && ilim <= 0)
  {
    S = mhi = 0;
@@ -566,7 +566,7 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
  }
       b2 += i;
       s2 += i;
-      mhi = func_00115808 (ptr, 1);
+      mhi = __i2b (ptr, 1);
     }
   if (m2 > 0 && s2 > 0)
     {
@@ -581,20 +581,20 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
  {
    if (m5 > 0)
      {
-       mhi = func_00115A70 (ptr, mhi, m5);
-       b1 = func_00115840 (ptr, mhi, b);
-       func_00115578 (ptr, b);
+       mhi = __pow5mult (ptr, mhi, m5);
+       b1 = __multiply (ptr, mhi, b);
+       _Bfree (ptr, b);
        b = b1;
      }
    if (j = b5 - m5)
-     b = func_00115A70 (ptr, b, j);
+     b = __pow5mult (ptr, b, j);
  }
       else
- b = func_00115A70 (ptr, b, b5);
+ b = __pow5mult (ptr, b, b5);
     }
-  S = func_00115808 (ptr, 1);
+  S = __i2b (ptr, 1);
   if (s5 > 0)
-    S = func_00115A70 (ptr, S, s5);
+    S = __pow5mult (ptr, S, s5);
 
   /* Check for special case that d is a normalized power of 2. */
 
@@ -623,7 +623,7 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
    * can do shifts and ors to compute the numerator for q.
    */
 
-  if (i = ((s5 ? 32 - func_001156C0 (S->_x[S->_wds - 1]) : 1) + s2) & 0x1f)
+  if (i = ((s5 ? 32 - __hi0bits (S->_x[S->_wds - 1]) : 1) + s2) & 0x1f)
     i = 32 - i;
 
   if (i > 4)
@@ -641,23 +641,23 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
       s2 += i;
     }
   if (b2 > 0)
-    b = func_00115B70 (ptr, b, b2);
+    b = __lshift (ptr, b, b2);
   if (s2 > 0)
-    S = func_00115B70 (ptr, S, s2);
+    S = __lshift (ptr, S, s2);
   if (k_check)
     {
-      if (func_00115CE8_126D8 (b, S) < 0)
+      if (__mcmp_r (b, S) < 0)
  {
    k--;
-   b = func_001155A8 (ptr, b, 10, 0); /* we botched the k estimate */
+   b = __multadd (ptr, b, 10, 0); /* we botched the k estimate */
    if (leftright)
-     mhi = func_001155A8 (ptr, mhi, 10, 0);
+     mhi = __multadd (ptr, mhi, 10, 0);
    ilim = ilim1;
  }
     }
   if (ilim <= 0 && mode > 2)
     {
-      if (ilim < 0 || func_00115CE8_126D8 (b, S = func_001155A8 (ptr, S, 5, 0)) <= 0)
+      if (ilim < 0 || __mcmp_r (b, S = __multadd (ptr, S, 5, 0)) <= 0)
  {
    /* no digits, fcvt style */
  no_digits:
@@ -672,7 +672,7 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
   if (leftright)
     {
       if (m2 > 0)
- mhi = func_00115B70 (ptr, mhi, m2);
+ mhi = __lshift (ptr, mhi, m2);
 
       /* Compute mlo -- check for special case
        * that d is a normalized power of 2.
@@ -681,21 +681,21 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
       mlo = mhi;
       if (spec_case)
  {
-   mhi = func_001154D0 (ptr, mhi->_k);
-   func_00115248(&(mhi)->_sign, &(mlo)->_sign, (mlo)->_wds * sizeof(u32) + 2*sizeof(s32));
-   mhi = func_00115B70 (ptr, mhi, 1);
+   mhi = _Balloc (ptr, mhi->_k);
+   libc_memcpy(&(mhi)->_sign, &(mlo)->_sign, (mlo)->_wds * sizeof(u32) + 2*sizeof(s32));
+   mhi = __lshift (ptr, mhi, 1);
  }
 
       for (i = 1;; i++)
  {
-   dig = func_001124C0_126D8 (b, S) + '0';
+   dig = dtoa_quorem_r (b, S) + '0';
    /* Do we yet have the shortest decimal string
 	   * that will round to d?
 	   */
-   j = func_00115CE8_126D8 (b, mlo);
-   delta = func_00115D50 (ptr, S, mhi);
-   j1 = delta->_sign ? 1 : func_00115CE8_126D8 (b, delta);
-   func_00115578 (ptr, delta);
+   j = __mcmp_r (b, mlo);
+   delta = __mdiff (ptr, S, mhi);
+   j1 = delta->_sign ? 1 : __mcmp_r (b, delta);
+   _Bfree (ptr, delta);
 
    if (j1 == 0 && !mode && !(((d).i[0]) & 1))
      {
@@ -715,8 +715,8 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
      {
        if (j1 > 0)
   {
-    b = func_00115B70 (ptr, b, 1);
-    j1 = func_00115CE8_126D8 (b, S);
+    b = __lshift (ptr, b, 1);
+    j1 = __mcmp_r (b, S);
     if ((j1 > 0 || j1 == 0 && dig & 1)
         && ++dig == '9' + 1)
       goto round_9_up;
@@ -738,29 +738,29 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
    *s++ = dig;
    if (i == ilim)
      break;
-   b = func_001155A8 (ptr, b, 10, 0);
+   b = __multadd (ptr, b, 10, 0);
    if (mlo == mhi)
-     mlo = mhi = func_001155A8 (ptr, mhi, 10, 0);
+     mlo = mhi = __multadd (ptr, mhi, 10, 0);
    else
      {
-       mlo = func_001155A8 (ptr, mlo, 10, 0);
-       mhi = func_001155A8 (ptr, mhi, 10, 0);
+       mlo = __multadd (ptr, mlo, 10, 0);
+       mhi = __multadd (ptr, mhi, 10, 0);
      }
  }
     }
   else
     for (i = 1;; i++)
       {
- *s++ = dig = func_001124C0_126D8 (b, S) + '0';
+ *s++ = dig = dtoa_quorem_r (b, S) + '0';
  if (i >= ilim)
    break;
- b = func_001155A8 (ptr, b, 10, 0);
+ b = __multadd (ptr, b, 10, 0);
       }
 
   /* Round off last digit */
 
-  b = func_00115B70 (ptr, b, 1);
-  j = func_00115CE8_126D8 (b, S);
+  b = __lshift (ptr, b, 1);
+  j = __mcmp_r (b, S);
   if (j > 0 || j == 0 && dig & 1)
     {
     roundoff:
@@ -779,15 +779,15 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
       s++;
     }
 ret:
-  func_00115578 (ptr, S);
+  _Bfree (ptr, S);
   if (mhi)
     {
       if (mlo && mlo != mhi)
- func_00115578 (ptr, mlo);
-      func_00115578 (ptr, mhi);
+ _Bfree (ptr, mlo);
+      _Bfree (ptr, mhi);
     }
 ret1:
-  func_00115578 (ptr, b);
+  _Bfree (ptr, b);
   *s = 0;
   *decpt = k + 1;
   if (rve)

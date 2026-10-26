@@ -13,31 +13,31 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
-extern char D_00152470[];
-extern int func_00119088();
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
+extern char locale_lconv[];
+extern int libc_glue_read();
 extern long func_00116108_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00116108");
 extern long func_001188C8_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_001188C8");
 extern long func_00114518_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00114518");
-extern int func_00112468(int *errOut, int arg1);
-extern int func_00114060(int, void *);
-extern void func_00113AE0(void *);
-extern void func_00117118(void *, void *, int, int);
-extern int func_00119008();
-extern int D_0012FCF0 NOT_SDA;
-extern void func_00118E90(int arg0, void *arg1);
-extern void func_00115578(void *arg0, void *arg1);
+extern int _close_r(int *errOut, int arg1);
+extern int __sfvwrite(int, void *);
+extern void __sinit(void *);
+extern void _vfprintf_r(void *, void *, int, int);
+extern int libc_glue_write();
+extern int CoreGlobalWord NOT_SDA;
+extern void Deci2Call(int arg0, void *arg1);
+extern void _Bfree(void *arg0, void *arg1);
 extern int func_001160D8(void);
 
 /*
@@ -65,9 +65,9 @@ extern int func_001160D8(void);
  *     return self;
  * }
  */
-extern void *D_00154A40 NOT_SDA;
+extern void *InitBlockData NOT_SDA;
 
-void *func_00119868(void *arg0) {
+void *tty_queue_init(void *arg0) {
     char *self = (char *)&InitBlockData;
     InitBlockData = arg0;
     *(int *)(self + 0x4) = 0;
@@ -76,7 +76,7 @@ void *func_00119868(void *arg0) {
     return self;
 }
 
-void func_00119890(char *self) {
+void tty_queue_write_advance(char *self) {
     char *p;
     *(int *)(self + 0x4) += 1;
     p = *(char **)(self + 0xC) + 1;
@@ -86,7 +86,7 @@ void func_00119890(char *self) {
     }
 }
 
-void func_001198D0(char *self) {
+void tty_queue_read_advance(char *self) {
     char *p;
     *(int *)(self + 0x4) -= 1;
     p = *(char **)(self + 0x8) + 1;
@@ -117,16 +117,16 @@ typedef struct {
     struct TtyRing *queue;  /* func_00119868's input ring */
 } TtyHandlerState;
 
-extern void func_0011A690(const char *, ...);
-extern int func_001197C0_r(int, char *, unsigned short) __asm__("func_001197C0");
-extern int func_001197F8_r(int, char *, unsigned short) __asm__("func_001197F8");
-extern char D_00152810[];
-extern char D_00152838[];
-extern char D_00152850[];
-extern char D_00152868[];
+extern void kprintf(const char *, ...);
+extern int isceDeci2ExRecv_r(int, char *, unsigned short) __asm__("func_001197C0");
+extern int isceDeci2ExSend_r(int, char *, unsigned short) __asm__("func_001197F8");
+extern char tty_packet_too_large_msg[];
+extern char tty_receive_error_msg[];
+extern char tty_send_error_msg[];
+extern char tty_wlen_error_msg[];
 
 /* sceTtyHandler: the DECI2 event callback (1/2 read, 3 write, 4 write done). */
-void func_00119910(int event, int param, TtyHandlerState *ti) {
+void sceTtyHandler(int event, int param, TtyHandlerState *ti) {
     int n;
 
     switch (event) {
@@ -134,15 +134,15 @@ void func_00119910(int event, int param, TtyHandlerState *ti) {
     case 2:
         if (param != 0) {
             if ((unsigned int)(ti->rlen + param) > 0x140) {
-                func_0011A690(D_00152810);
+                kprintf(tty_packet_too_large_msg);
             }
             {
                 int off = ti->rlen;
 
-                n = func_001197C0_r(ti->sock, ti->rbuf + off, param);
+                n = isceDeci2ExRecv_r(ti->sock, ti->rbuf + off, param);
             }
             if (n < 0) {
-                func_0011A690(D_00152838);
+                kprintf(tty_receive_error_msg);
             }
             ti->rlen += n;
         } else {
@@ -150,16 +150,16 @@ void func_00119910(int event, int param, TtyHandlerState *ti) {
 
             for (n = 0xC; n < h->len; n++) {
                 *ti->queue->wp = ti->rbuf[n];
-                func_00119890((char *)ti->queue);
+                tty_queue_write_advance((char *)ti->queue);
             }
             ti->rlen = 0;
         }
         break;
     case 3: {
-        int w = func_001197F8_r(ti->sock, ti->wbuf, ti->wlen);
+        int w = isceDeci2ExSend_r(ti->sock, ti->wbuf, ti->wlen);
 
         if (w < 0) {
-            func_0011A690(D_00152850, w);
+            kprintf(tty_send_error_msg, w);
             ti->busy = 0;
         } else {
             ti->wbuf += w;
@@ -169,7 +169,7 @@ void func_00119910(int event, int param, TtyHandlerState *ti) {
     }
     case 4:
         if (ti->wlen != 0) {
-            func_0011A690(D_00152868, ti->wlen);
+            kprintf(tty_wlen_error_msg, ti->wlen);
         }
         ti->busy = 0;
         break;
@@ -194,15 +194,15 @@ struct Mmio {
     u32 unk8;
     u8 data[0xF4]; /* payload window, addressed at block + 0xC */
 };
-extern struct TtyState D_00154B50_19AA8 __asm__("D_00154B50");
-extern u8 D_00154B80[];
-extern s32 func_00119768(s32, s32);
-extern s32 func_0011D960();
-extern s32 func_0011D9A8();
-extern void func_00119798(s32);
+extern struct TtyState tty_info_r __asm__("D_00154B50");
+extern u8 tty_send_packet[];
+extern s32 sceDeci2ReqSend(s32, s32);
+extern s32 disable_interrupts();
+extern s32 enable_interrupts();
+extern void sceDeci2Poll(s32);
 
-/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/sdk/debug/sce_tty_write.c, sceTtyWrite. */
-s32 func_00119AA8(s8 *text, s32 text_len) {
+/* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/sdk/debug/sce_tty_write.c, sceTtyWrite. */
+s32 sceTtyWrite(s8 *text, s32 text_len) {
     s32 written_count; /* characters consumed -> return value */
     s32 remaining; /* countdown, hits -1 after len+1 tests */
     s32 window_bytes; /* bytes resident in the payload window */
@@ -214,11 +214,11 @@ s32 func_00119AA8(s8 *text, s32 text_len) {
     remaining = text_len;
     window_bytes = 0;
     src = text;
-    if (D_00154B50_19AA8.unkC == 0) {
-        func_0011D960();
-        D_00154B50_19AA8.unkC = 1;
-        mmio = (struct Mmio *)((u32)D_00154B80 | 0x20000000);
-        D_00154B50_19AA8.unk10 = (s32)mmio;
+    if (tty_info_r.unkC == 0) {
+        disable_interrupts();
+        tty_info_r.unkC = 1;
+        mmio = (struct Mmio *)((u32)tty_send_packet | 0x20000000);
+        tty_info_r.unk10 = (s32)mmio;
         dst = mmio->data;
         do {
             remaining = remaining - 1;
@@ -239,19 +239,19 @@ s32 func_00119AA8(s8 *text, s32 text_len) {
             dst = dst + 1;
             written_count = written_count + 1;
         } while (window_bytes < 0x100);
-        D_00154B50_19AA8.unk4 = window_bytes + 0xC;
-        mmio->unk0 = D_00154B50_19AA8.unk4;
-        if (func_00119768(D_00154B50_19AA8.unk0, mmio->unk7) < 0) {
-            *(s32 *)&D_00154B50_19AA8.unkC = 0;
-            func_0011D9A8();
+        tty_info_r.unk4 = window_bytes + 0xC;
+        mmio->unk0 = tty_info_r.unk4;
+        if (sceDeci2ReqSend(tty_info_r.unk0, mmio->unk7) < 0) {
+            *(s32 *)&tty_info_r.unkC = 0;
+            enable_interrupts();
             return -1;
         }
-        if (D_00154B50_19AA8.unkC != 0) {
+        if (tty_info_r.unkC != 0) {
             do {
-                func_00119798(D_00154B50_19AA8.unk0);
-            } while (D_00154B50_19AA8.unkC != 0);
+                sceDeci2Poll(tty_info_r.unk0);
+            } while (tty_info_r.unkC != 0);
         }
-        func_0011D9A8();
+        enable_interrupts();
         return written_count;
     }
     return -1;
@@ -275,22 +275,22 @@ typedef struct {
     TtyQueue *queue;    /* 0x18 */
 } TtyState2;
 
-extern TtyState2 D_00154B50_t __asm__("D_00154B50");
-extern TtyQueue *D_00154B68;
+extern TtyState2 tty_info_t __asm__("D_00154B50");
+extern TtyQueue *tty_info_queue;
 
 /* sceTtyRead: block for each byte until the handler queues one; stop
    after a newline. */
-int func_00119BF8(char *buf, int len) {
+int sceTtyRead(char *buf, int len) {
     int i;
 
     for (i = 0; i < len; i++) {
-        while (((volatile TtyQueue *)D_00154B68)->count == 0) {
+        while (((volatile TtyQueue *)tty_info_queue)->count == 0) {
         }
         {
-            TtyState2 *t = &D_00154B50_t;
+            TtyState2 *t = &tty_info_t;
 
             buf[i] = *t->queue->rp;
-            func_001198D0((char *)t->queue);
+            tty_queue_read_advance((char *)t->queue);
         }
         if (buf[i] == '\n' || buf[i] == '\r') {
             return i + 1;
@@ -316,31 +316,31 @@ struct TtyMmio {
     u8 unk7;
     u32 unk8;
 };
-extern struct TtyInitState D_00154B50;
-extern u8 D_00154CC0[];
-extern s32 func_00118D80();
-extern s32 func_00119868_tty(int) __asm__("func_00119868");
-extern s32 func_00119718();
-extern void func_00119910();
+extern struct TtyInitState tty_info;
+extern u8 tty_receive_packet[];
+extern s32 flush_cache();
+extern s32 tty_queue_init_tty(int) __asm__("func_00119868");
+extern s32 sceDeci2Open();
+extern void sceTtyHandler();
 /* Opens the TTY DECI2 endpoint and initializes its uncached packet headers. */
-s32 func_00119CC8(void) {
-    struct TtyInitState *state = &D_00154B50;
+s32 sceTtyInit(void) {
+    struct TtyInitState *state = &tty_info;
     struct TtyMmio *p;
     struct TtyMmio *q;
     u32 mask;
     s32 baud;
     s32 cmd;
 
-    func_00118D80(0);
-    *(volatile s32 *)&state->unk0 = func_00119718(0x210, state, &func_00119910);
+    flush_cache(0);
+    *(volatile s32 *)&state->unk0 = sceDeci2Open(0x210, state, &sceTtyHandler);
     if (state->unk0 < 0) {
         return 0;
     }
     state->unkC = 0;
     mask = 0x20000000;
-    q = (struct TtyMmio *)((u32)D_00154CC0 | mask);
+    q = (struct TtyMmio *)((u32)tty_receive_packet | mask);
     state->unk4 = 0;
-    p = (struct TtyMmio *)((u32)D_00154B80 | mask);
+    p = (struct TtyMmio *)((u32)tty_send_packet | mask);
     state->unk8 = 0;
     state->unk14 = (s32)q;
     state->unk10 = (s32)p;
@@ -351,7 +351,7 @@ s32 func_00119CC8(void) {
     p->unk6 = cmd;
     p->unk7 = 0x48;
     p->unk8 = 0;
-    state->unk18 = func_00119868_tty(0x100);
+    state->unk18 = tty_queue_init_tty(0x100);
     return 1;
 }
 

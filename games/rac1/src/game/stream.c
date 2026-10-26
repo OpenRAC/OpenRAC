@@ -11,175 +11,175 @@
  */
 
 /* Declarations in scope here before the split. */
-extern char D_0013E650[];
-extern int D_0015F694;
-extern void func_001F9A98(void *, void *, int);
-extern char D_00189310[];
-extern char D_001899D0[];
-extern void *D_001871C0 NOT_SDA;
-extern DispatchRec D_001E8F80[];
-extern int D_0018A3B0[];
-extern void func_001F99B0();
-extern void func_001F2BC8(void);
-extern int D_0018C434 NOT_SDA;
-extern char D_001940C0[];
-extern long D_00151888[3];
-extern int D_0015F6FC;
-extern short D_0015F534;
-extern void func_001FB530(void);
-extern void func_001F3D78(void);
-extern int D_0015F564;
-extern int D_0018DD40[];
-extern int D_0018DC40[];
-extern short D_0015F59C;
-extern int func_001F65B0(unsigned char *arg0, int arg1, void *arg2);
-extern unsigned char D_001DF3D0[];
-extern unsigned char D_001DF770[];
-extern unsigned char D_001DFB10[];
-extern void func_001F6668(void *, void *, void *, void *, void *, int,
+extern char voice_pool[];
+extern int bank_sound_count;
+extern void FastMemCopy(void *, void *, int);
+extern char backup_cam[];
+extern char gCamBackupState[];
+extern void *cur_cam NOT_SDA;
+extern DispatchRec camera_types[];
+extern int draw_config[];
+extern void FastMemSet();
+extern void BuildOcclVisibility(void);
+extern int occl_update NOT_SDA;
+extern char occl_visibility[];
+extern long gs_display_settings[3];
+extern int space_load_in_progress;
+extern short draw_enable_mask;
+extern void append_gif_transfer_packet(void);
+extern void DrawDebugProfiler(void);
+extern int draw_callback_count;
+extern int draw_callback_args[];
+extern int draw_callback_funcs[];
+extern short GlobalStateFlag;
+extern int measure_text_width(unsigned char *arg0, int arg1, void *arg2);
+extern unsigned char normal_font_metrics[];
+extern unsigned char small_font_metrics[];
+extern unsigned char large_font_metrics[];
+extern void FontPrint(void *, void *, void *, void *, void *, int,
                           unsigned char *);
-extern int func_001F6600(unsigned char *, int);
-extern int func_001F6620(unsigned char *, int);
-extern int func_001F4868(int);
-extern void func_001FB498(void);
-extern void func_001F3008(void);
-extern void func_001F3140(void);
-extern int D_0018E840[];
-extern long D_00152178 NOT_SDA;
-extern int func_001FE4D0(void);
-extern char D_00199A68[];
-extern short D_0015F780;
-extern int D_001941CC NOT_SDA;
-extern int D_0019A4E8 NOT_SDA;
-extern int func_001FF668(int);
+extern int measure_text_width_regular(unsigned char *, int);
+extern int measure_text_width_small(unsigned char *, int);
+extern int GetEffectTex(int);
+extern void PutDrawBufferLarge(void);
+extern void InitViewContext(void);
+extern void UpdateViewContext(void);
+extern int bit_swap_lut[];
+extern long background_rgbaq NOT_SDA;
+extern int Help_FindIndex(void);
+extern char s_paradox_this_message_does_not[];
+extern short help_msgs;
+extern int hud_heap_base NOT_SDA;
+extern int hud_state NOT_SDA;
+extern int Hud_GetIconIndex(int);
 typedef struct {
     char b[0x13];
 } Cfg13;
-extern Cfg13 D_0019A540 NOT_SDA;
-extern Cfg13 D_001E7DD8 NOT_SDA;
-extern int func_00116810(void);
-extern void func_001166FC(Cfg13 *, void *);
-extern short D_0015F9D0;
-extern void func_00201960(int, int, int, int, int);
-extern void func_002023E0(int);
-extern void func_002027C0(int);
-extern void func_00204FC0(void *);
-extern int D_0018CC20 NOT_SDA;
-extern int D_001941C8 NOT_SDA;
-extern int D_0016100C;
-extern int D_001A0468[];
-extern void func_00205830(int a, int b);
-extern PadSlots D_001A01F0_slots __asm__("D_001A01F0");
-extern int D_001A01F0[];
-extern int *D_001602E0;
-extern unsigned char D_0013D49C NOT_SDA;
-extern unsigned char D_0013D49D NOT_SDA;
-extern unsigned char D_0013D4A5 NOT_SDA;
-extern short D_0015FE24;
-extern unsigned char D_0013D4AC NOT_SDA;
-extern unsigned char D_0013D4AD NOT_SDA;
-extern unsigned char D_0013D4AE NOT_SDA;
-extern unsigned char D_0013D4AF NOT_SDA;
-extern unsigned char D_0013D4B5 NOT_SDA;
-extern int D_001A04B4 NOT_SDA;
-extern unsigned char D_0013D4C5 NOT_SDA;
-extern int D_001414DC NOT_SDA;
-extern unsigned char D_0013D4C0 NOT_SDA;
-extern unsigned char D_0013D4C1 NOT_SDA;
-extern unsigned char D_0013D4C2 NOT_SDA;
-extern unsigned char D_0013D4D3 NOT_SDA;
-extern unsigned char D_0013D4D4 NOT_SDA;
-extern unsigned char D_0013D4D5 NOT_SDA;
-extern unsigned char D_0013D4E0;
-extern unsigned char D_0013D4DC NOT_SDA;
-extern unsigned char D_0013D4DD NOT_SDA;
-extern unsigned char D_0013D4DE NOT_SDA;
-extern unsigned char D_0013D4DF NOT_SDA;
-extern unsigned char D_0013D4E1 NOT_SDA;
-extern unsigned char D_0013D4E9 NOT_SDA;
-extern unsigned char D_0013D502 NOT_SDA;
-extern unsigned char D_0013D503 NOT_SDA;
-extern unsigned char D_0013D504 NOT_SDA;
-extern unsigned char D_0013D505 NOT_SDA;
-extern unsigned char D_0013D50F NOT_SDA;
-extern int D_0013D668[];
-extern void func_00209040(void);
-extern int func_001FAA28(void *dst, int size, int a, int b);
-extern void func_00208860(void *dst);
-extern short D_0015EE84;
-extern int D_0015EE84_far __asm__("D_0015EE84") NOT_SDA;
-extern int D_001A0218[] NOT_SDA;
-extern void func_00208458(void *, unsigned char *, int);
-extern void func_00208688(void *, unsigned char *);
-extern char D_0013D390[];
-extern short D_0015EFB0;
-extern int D_0015EFB4;
-extern int D_001A05C0[];
-extern int D_001A08C0[];
-extern int func_0020BAD8(int *p);
-extern int func_0020BBC8(void *dst, int i, int *table);
-extern int func_001236F0(void);
-extern int func_001E9730();
-extern char D_001E8690[];
-extern int D_0013D844 NOT_SDA;
-extern unsigned char D_0013D4A8 NOT_SDA;
-extern int D_0013D9B4 NOT_SDA;
-extern unsigned char D_0013D490[];
-extern unsigned char D_0013D5CA NOT_SDA;
-extern int D_0013D6B8 NOT_SDA;
-extern int D_0013DAE4 NOT_SDA;
-extern unsigned char D_0013D4E5 NOT_SDA;
-extern int D_0013DB24 NOT_SDA;
-extern unsigned char D_0013D4F1 NOT_SDA;
-extern int D_0013DC34 NOT_SDA;
-extern unsigned char D_0013D605 NOT_SDA;
-extern int D_0013D5C8 NOT_SDA;
-extern unsigned char D_0013D4B0 NOT_SDA;
-extern unsigned char D_0013DE55 NOT_SDA;
-extern unsigned char D_0013D5DD NOT_SDA;
-extern unsigned char D_0013D5E7 NOT_SDA;
-extern int D_001B2F40[];
-extern void func_001FA460_2(void *, void *) __asm__("func_001FA460");
-extern void func_001F9C30(void *, void *, float);
-extern void func_001F9BD8(void *, void *, void *);
-extern void func_001F9EC0(void *, void *, void *);
-extern int D_001414D0 NOT_SDA;
-extern float D_001CAE00[] NOT_SDA;
-extern float func_001F9F90(float);
-extern float func_001F9FA8(float);
-extern void func_00118D80(int);
-extern char D_00165600[];
-extern int D_0015F718;
-extern short D_0015F71C;
-extern char D_001B3200[];
+extern Cfg13 message_text_buffer NOT_SDA;
+extern Cfg13 message_too_long_label NOT_SDA;
+extern int libc_strlen(void);
+extern void libc_strcpy(Cfg13 *, void *);
+extern short ResourceCounter;
+extern void draw_stretchable_ui_frame(int, int, int, int, int);
+extern void CreatePointLight(int);
+extern void DetachPointLight(int);
+extern void update_world_object_animation(void *);
+extern int render_sequence NOT_SDA;
+extern int vu1_chain_buffer_2 NOT_SDA;
+extern int current_vu_chain;
+extern int map_slot_use[];
+extern void move_map_entry_slot(int a, int b);
+extern PadSlots level_map_selection_slots __asm__("D_001A01F0");
+extern int level_map_selection[];
+extern int *menu_level_indices;
+extern unsigned char menu_item_enabled_0 NOT_SDA;
+extern unsigned char g_menu_item_enabled_1 NOT_SDA;
+extern unsigned char menu_item_enabled_9 NOT_SDA;
+extern short menu_selection_count;
+extern unsigned char menu_item_enabled_16 NOT_SDA;
+extern unsigned char menu_item_enabled_17 NOT_SDA;
+extern unsigned char menu_item_enabled_18 NOT_SDA;
+extern unsigned char menu_item_enabled_19 NOT_SDA;
+extern unsigned char menu_item_enabled_25 NOT_SDA;
+extern int map_region_enabled_3 NOT_SDA;
+extern unsigned char menu_item_enabled_41 NOT_SDA;
+extern int hero_control_mode NOT_SDA;
+extern unsigned char menu_item_enabled_36 NOT_SDA;
+extern unsigned char menu_item_enabled_37 NOT_SDA;
+extern unsigned char menu_item_enabled_38 NOT_SDA;
+extern unsigned char menu_item_enabled_55 NOT_SDA;
+extern unsigned char menu_item_enabled_56 NOT_SDA;
+extern unsigned char menu_item_enabled_57 NOT_SDA;
+extern unsigned char menu_item_enabled_68;
+extern unsigned char menu_item_enabled_64 NOT_SDA;
+extern unsigned char menu_item_enabled_65 NOT_SDA;
+extern unsigned char menu_item_enabled_66 NOT_SDA;
+extern unsigned char menu_item_enabled_67 NOT_SDA;
+extern unsigned char menu_item_enabled_69 NOT_SDA;
+extern unsigned char menu_item_enabled_77 NOT_SDA;
+extern unsigned char menu_item_enabled_102 NOT_SDA;
+extern unsigned char menu_item_enabled_103 NOT_SDA;
+extern unsigned char menu_item_enabled_104 NOT_SDA;
+extern unsigned char menu_item_enabled_105 NOT_SDA;
+extern unsigned char menu_item_enabled_115 NOT_SDA;
+extern int max_map_coverage_size[];
+extern void DebugEnter_Nop(void);
+extern int compress_map_coverage(void *dst, int size, int a, int b);
+extern void downsample_map_coverage(void *dst);
+extern short g_current_level_index;
+extern int g_current_level_index_far __asm__("D_0015EE84") NOT_SDA;
+extern int map_coverage_active[] NOT_SDA;
+extern void decode_compressed_occlusion_map(void *, unsigned char *, int);
+extern void expand_map_coverage(void *, unsigned char *);
+extern char memory_card_state[];
+extern short mode_freeze_state;
+extern int mode_freeze_flags;
+extern int mc_gamedata[];
+extern int mc_leveldata[];
+extern int memcard_GetDataSize(int *p);
+extern int memcard_PrepData(void *dst, int i, int *table);
+extern int sce_mc_init(void);
+extern int STUB_printf();
+extern char memcard_error_message[];
+extern int race_gates_24_status NOT_SDA;
+extern unsigned char menu_item_enabled_12 NOT_SDA;
+extern int race_gates_47_flag NOT_SDA;
+extern unsigned char gSpecialItems[];
+extern unsigned char gHaveHeliPack NOT_SDA;
+extern int race_gates NOT_SDA;
+extern int race_gates_66_status NOT_SDA;
+extern unsigned char menu_item_enabled_73 NOT_SDA;
+extern int race_gates_70_status NOT_SDA;
+extern unsigned char menu_item_enabled_85 NOT_SDA;
+extern int race_gates_87_status NOT_SDA;
+extern unsigned char race_gates_base NOT_SDA;
+extern int item_available NOT_SDA;
+extern unsigned char menu_item_enabled_20 NOT_SDA;
+extern unsigned char gemlik_available NOT_SDA;
+extern unsigned char gHaveMorphORay NOT_SDA;
+extern unsigned char gHaveHologuise NOT_SDA;
+extern int moby_render_slots[];
+extern void copy_matrix_rotation_2(void *, void *) __asm__("func_001FA460");
+extern void FastVecScale(void *, void *, float);
+extern void FastVecAdd(void *, void *, void *);
+extern void matrix_mul_vec3(void *, void *, void *);
+extern int g_hero_moby NOT_SDA;
+extern float shadow_light_dir[] NOT_SDA;
+extern float FastCos(float);
+extern float FastSin(float);
+extern void flush_cache(int);
+extern char normal_lut[];
+extern int render_packet_end;
+extern short vu1_chain_safe_end;
+extern char moby_backup_buffer[];
 extern int func_001160D8(void);
-extern float func_00214158(void);
-extern float func_002140F8(float, float);
-extern void func_00215C00(void *, float, float, float);
-extern void func_001F9DC0(void *, void *, float);
-extern void func_001FA460(void *);
-extern void func_002150B0(void *, void *);
-extern void func_001FA480(void *, void *);
-extern float func_0020D830(void);
-extern float func_00215A98(int, float);
-extern unsigned char D_0014BFC0[];
-extern unsigned char D_0013E620[];
-extern unsigned char D_0013D510[];
-extern void func_0012F068(void *);
-extern void func_002177F0(int);
-extern short D_001517D0[];
-extern void func_0012EDE0(void *);
+extern float random_angle_radians(void);
+extern float random_float_between(float, float);
+extern void BuildSphericalOffset(void *, float, float, float);
+extern void fast_vec_normalize(void *, void *, float);
+extern void copy_matrix_rotation(void *);
+extern void MatrixToQuaternion(void *, void *);
+extern void matrix_copy_rows(void *, void *);
+extern float MobyGetFrameValue(void);
+extern float round_float_to_decimal_places(int, float);
+extern unsigned char gold_bolts_collected[];
+extern unsigned char gold_weapon_purchased[];
+extern unsigned char gSkillPoints[];
+extern void snd_StreamSafeCdCallback(void *);
+extern void finish_audio_stream_read(int);
+extern short cd_read_state[];
+extern void snd_ContinueVAGStream(void *);
 
-extern void func_0012EFE8(void);
+extern void snd_StreamSafeCdBreak(void);
 
-extern int func_0012EFE8_i(void) __asm__("func_0012EFE8");
+extern int snd_StreamSafeCdBreak_i(void) __asm__("func_0012EFE8");
 
 /* func_0012EFE8 returns int (989snd.c): with the result in $v0, the
    constant goes to the register retail uses. */
 void request_audio_stream_break(void) {
-    short *p = D_001517D0;
+    short *p = cd_read_state;
     if (p[4] != 0) {
-        func_0012EFE8_i();
+        snd_StreamSafeCdBreak_i();
         ((char *)p)[0xA] = 1;
     }
 }
@@ -187,26 +187,27 @@ void request_audio_stream_break(void) {
 typedef struct {
     char b[4];
 } StreamHdr;
-extern StreamHdr D_00151800;
+extern StreamHdr stream_read_mode_template;
 /* MACRO_ADDR for retail's one-register lbu; the explicit size 4 (over
    -G2) is what keeps the assembler from expanding it through $gp. */
-extern unsigned char D_0015EE58[4] MACRO_ADDR;
-extern int D_0015EFBC MACRO_ADDR;
-extern int D_0015EFC0 MACRO_ADDR;
-extern void func_00121750(int, int, int, void *);
+extern unsigned char cd_read_spindle_speed[4] MACRO_ADDR;
+extern int cd_read_wait_frames MACRO_ADDR;
+extern int cd_read_slowdown_applied MACRO_ADDR;
+extern void sce_cd_read(int, int, int, void *);
 
+/* Start a CD stream read of arg2 sectors from arg1 into arg0 at the current spindle speed. */
 int Stream_SubmitRead(int arg0, int arg1, int arg2) {
-    StreamHdr hdr = D_00151800;
+    StreamHdr hdr = stream_read_mode_template;
 
-    hdr.b[1] = D_0015EE58[0];
-    D_0015EFBC = 0;
-    D_0015EFC0 = 0;
-    func_00121750(arg1, arg2, arg0, &hdr);
+    hdr.b[1] = cd_read_spindle_speed[0];
+    cd_read_wait_frames = 0;
+    cd_read_slowdown_applied = 0;
+    sce_cd_read(arg1, arg2, arg0, &hdr);
     return 1;
 }
 
-extern char D_001E8980[];
-extern int func_0012EE98(int, int, int, void *);
+extern char load_file_start_failed_string[];
+extern int snd_StreamSafeCdRead(int, int, int, void *);
 
 /* Start a stream: refuse if one is already running (+0x8) or the length
    is zero, otherwise hand the request to func_0012EE98 with the header
@@ -214,7 +215,7 @@ extern int func_0012EE98(int, int, int, void *);
    units the caller wants, arg2 << 11; on a rejected request it reports
    the failure and returns 0. */
 int start_audio_stream_read(int arg0, int arg1, int arg2) {
-    char *d = (char *)D_001517D0;
+    char *d = (char *)cd_read_state;
 
     if (*(short *)(d + 8) != 0) {
         return 0;
@@ -222,8 +223,8 @@ int start_audio_stream_read(int arg0, int arg1, int arg2) {
     if (arg2 == 0) {
         return 0;
     }
-    if (func_0012EE98(arg1, arg2, arg0, d + 0x30) == 0) {
-        STUB_printf(D_001E8980);
+    if (snd_StreamSafeCdRead(arg1, arg2, arg0, d + 0x30) == 0) {
+        STUB_printf(load_file_start_failed_string);
         raise_kernel_trap();
         return 0;
     }
@@ -237,12 +238,12 @@ int start_audio_stream_read(int arg0, int arg1, int arg2) {
 /* This caller sets up no arguments at all; func_00217628 is defined
    just above with three. Reach it through an alias rather than
    redeclaring it. */
-extern int func_00217628_v(void) __asm__("func_00217628");
-extern void func_00122598(int);
-extern void func_00217130(void);
-extern void func_0012EC40(void);
-extern void func_0012DDC0(void);
-extern void func_0012EC30(void);
+extern int start_audio_stream_read_v(void) __asm__("func_00217628");
+extern void sce_gs_sync_v(int);
+extern void music_Update(void);
+extern void snd_reset_state_and_flush_commands(void);
+extern void snd_FlushSoundCommands(void);
+extern void snd_reenable_command_flush(void);
 
 /*
  * Close, not exact (15/124), same size so inert. Semantics confirmed:
@@ -272,12 +273,12 @@ int Load(int arg0, int arg1, int arg2) {
     char *d;
     int r = start_audio_stream_read(arg0, arg1, arg2);
     if (r != 0) {
-        while (d = (char *)D_001517D0, *(short *)(d + 0x8) != 0) {
-            func_00122598(0);
+        while (d = (char *)cd_read_state, *(short *)(d + 0x8) != 0) {
+            sce_gs_sync_v(0);
             music_Update();
-            func_0012EC40();
-            func_0012DDC0();
-            func_0012EC30();
+            snd_reset_state_and_flush_commands();
+            snd_FlushSoundCommands();
+            snd_reenable_command_flush();
         }
     }
     return r;
@@ -300,41 +301,44 @@ struct MusicStreamState {
     s16 read_state;            /* 0x08: 0 idle, 1 reading, 2 done */
 };
 
+/* Pump music and stream updates, until the CD read is idle if arg0; return the read state. */
 short update_audio_stream_until_idle(int arg0) {
     if (arg0 != 0) {
         struct MusicStreamState *d;
-        while (d = (struct MusicStreamState *)D_001517D0, d->read_state != 0) {
-            func_00122598(0);
+        while (d = (struct MusicStreamState *)cd_read_state, d->read_state != 0) {
+            sce_gs_sync_v(0);
             music_Update();
-            func_0012EC40();
-            func_0012DDC0();
-            func_0012EC30();
+            snd_reset_state_and_flush_commands();
+            snd_FlushSoundCommands();
+            snd_reenable_command_flush();
         }
     } else {
         music_Update();
-        func_0012EC40();
-        func_0012DDC0();
-        func_0012EC30();
+        snd_reset_state_and_flush_commands();
+        snd_FlushSoundCommands();
+        snd_reenable_command_flush();
     }
     {
-        struct MusicStreamState *d = (struct MusicStreamState *)D_001517D0;
+        struct MusicStreamState *d = (struct MusicStreamState *)cd_read_state;
         return d->read_state;
     }
 }
 
-extern int func_0012F030(void);
+extern int snd_StreamSafeCdGetError(void);
 
+/* CD read callback: mark the music stream read finished, or done if more data is ready. */
 void finish_audio_stream_read(int callback_value) {
     struct MusicStreamState *state;
     if (callback_value == 1) {
-        state = (struct MusicStreamState *)D_001517D0;
+        state = (struct MusicStreamState *)cd_read_state;
         state->read_state = 0;
-        if (func_0012F030() != 0) {
+        if (snd_StreamSafeCdGetError() != 0) {
             state->read_state = 2;
         }
     }
 }
 
+/* Stream callback: move a music channel from state 2 to ready (3) once the voice is valid. */
 void music_channel_ready_callback(int arg0, long arg1) {
     short *p = (short *)(int)arg1;
     if (p != 0 && arg0 != 0 && p[5] == 2) {
@@ -342,8 +346,9 @@ void music_channel_ready_callback(int arg0, long arg1) {
     }
 }
 
-extern void func_002167C0(short, short, short);
+extern void music_start_track_by_id(short, short, short);
 
+/* Stream callback: store the voice handle and advance the channel, or restart the secondary track. */
 void music_secondary_start_callback(int arg0, long arg1) {
     short *p = (short *)(int)arg1;
     if (p == 0) {
@@ -355,13 +360,14 @@ void music_secondary_start_callback(int arg0, long arg1) {
             p[5] = 2;
         }
     } else {
-        short *b = D_001517D0;
+        short *b = cd_read_state;
         music_start_track_by_id(b[0x2A], b[0x2C], b[0x2B]);
     }
 }
 
-extern void func_002169B8(short, short, short);
+extern void music_PreseekTrack(short, short, short);
 
+/* Stream callback: store the voice handle and advance the channel, or redo the primary preseek. */
 void music_primary_preseek_callback(int arg0, long arg1) {
     short *p = (short *)(int)arg1;
     if (p == 0) {
@@ -373,13 +379,14 @@ void music_primary_preseek_callback(int arg0, long arg1) {
             p[5] = 2;
         }
     } else {
-        short *b = D_001517D0;
+        short *b = cd_read_state;
         music_PreseekTrack(b[0x1C], b[0x1E], b[0x1D]);
     }
 }
 
-extern short D_001517F0 NOT_SDA;
+extern short music_flagged_track_started NOT_SDA;
 
+/* Stream callback: store the voice handle and mark the transition track playing, or reset it. */
 void music_transition_start_callback(int arg0, long arg1) {
     short *p = (short *)(int)arg1;
     if (p != 0) {
@@ -389,7 +396,7 @@ void music_transition_start_callback(int arg0, long arg1) {
             if (state == 1) {
                 p[5] = 4;
                 if (p[8] != 0) {
-                    D_001517F0 = state;
+                    music_flagged_track_started = state;
                 }
             }
         } else {
@@ -398,6 +405,7 @@ void music_transition_start_callback(int arg0, long arg1) {
     }
 }
 
+/* Stream callback: switch a replaced primary track to playing, or reset the channel on failure. */
 void music_primary_replace_callback(int arg0, long arg1) {
     short *p = (short *)(int)arg1;
     if (p != 0) {
@@ -408,7 +416,7 @@ void music_primary_replace_callback(int arg0, long arg1) {
             if (p[5] == 9) {
                 p[5] = 4;
                 if (p[8] != 0) {
-                    D_001517F0 = 1;
+                    music_flagged_track_started = 1;
                 }
             }
         } else {
@@ -417,6 +425,7 @@ void music_primary_replace_callback(int arg0, long arg1) {
     }
 }
 
+/* Stream callback: store the voice handle and mark the primary track started, or reset it. */
 void music_primary_start_callback(int arg0, long arg1) {
     short *p = (short *)(int)arg1;
     if (p != 0) {
@@ -431,7 +440,7 @@ void music_primary_start_callback(int arg0, long arg1) {
     }
 }
 
-extern char D_00160168[];
+extern char sound_handle_in_use_message[];
 
 /* `*p = arg0` happens on the 0xFFFFFFFF path too (the older decode made
    it conditional), and D_001E8C60's message is printed. */
@@ -439,7 +448,7 @@ void set_sound_handle_id(int arg0, long arg1) {
     short *p = (short *)(int)arg1;
     if (p != 0) {
         if (*(unsigned int *)p != 0xFFFFFFFF) {
-            STUB_printf(D_00160168);
+            STUB_printf(sound_handle_in_use_message);
         } else {
             *(int *)p = arg0;
             if (arg0 == 0) {
@@ -449,6 +458,7 @@ void set_sound_handle_id(int arg0, long arg1) {
     }
 }
 
+/* Stream callback: save the remaining time and its quarter, then advance the channel. */
 void music_remaining_time_callback(int arg0, long arg1) {
     char *p = (char *)(int)arg1;
     short *b;
@@ -459,7 +469,7 @@ void music_remaining_time_callback(int arg0, long arg1) {
     if (*(short *)(p + 0x10) == 0) {
         return;
     }
-    b = D_001517D0;
+    b = cd_read_state;
     if (b[0x10] != 1) {
         return;
     }
@@ -473,7 +483,7 @@ void music_remaining_time_callback(int arg0, long arg1) {
 
 LINKER_REMNANT("asm/remnants/text", func_00217AD0);
 
-/* Adapted from Lombyte (GPL-3.0): src/ui/menus/fun_00216c48.c. */
+/* Adapted from Lombyte's project (GPL-3.0): src/ui/menus/fun_00216c48.c. */
 
 typedef struct {
     s32 unk0;
@@ -508,33 +518,34 @@ typedef struct {
     char *s[6];
 } Suffixes;
 
-extern s32 D_00160170 SDATA(D_00160170);
-extern s32 D_0015F6F0 SDATA(D_0015F6F0);
-extern s32 D_0015F6F0_far __asm__("D_0015F6F0") MACRO_ADDR;
-extern s32 D_001994C0[];
-extern Suffixes D_001E89B0;
-extern char D_00160188[];
-extern char D_00160190[];
-extern s32 D_0015EE88 MACRO_ADDR;
-extern Weapon D_001E02B0[];
-extern s32 D_0015EE98 MACRO_ADDR;
+extern s32 menu_help_hud_item SDATA(D_00160170);
+extern s32 world_update_time SDATA(D_0015F6F0);
+extern s32 world_update_time_far __asm__("D_0015F6F0") MACRO_ADDR;
+extern s32 menu_entry_trigger_state[];
+extern Suffixes menu_time_suffixes;
+extern char menu_entry_find_token[];
+extern char menu_time_value_format[];
+extern s32 g_game_language MACRO_ADDR;
+extern Weapon vendor_item_prices[];
+extern s32 gBolts MACRO_ADDR;
 
 extern u8 stream_item_flags[] __asm__("D_0013D5C8");
-extern u8 D_0013D5F0[];
-extern u8 D_0013D490[];
+extern u8 items_acquired[];
+extern u8 gSpecialItems[];
 
-extern void func_001E97D8(s32);
-extern s32 func_001FFCB0(s32);
-extern void func_001E97E0(s32);
-extern void *func_001FE540(s32);
+extern void noop_callback_n(s32);
+extern s32 remove_hud_item(s32);
+extern void noop_callback_o(s32);
+extern void *msg_string(s32);
 
-extern char *func_00116CC0(char *, char *);
-extern s32 func_00116248(char *, const char *, ...);
-extern void func_001FFE88(void *);
-extern s32 func_00216098(void);
+extern char *find_substring(char *, char *);
+extern s32 sprintf(char *, const char *, ...);
+extern void copy_text_to_shared_buffer(void *);
+extern s32 compute_clamped_count_difference(void);
 
-void func_00217AE8(void *arg0, Menu *menu, s32 arg2);
+void process_menu_entry(void *arg0, Menu *menu, s32 arg2);
 
+/* Handle menu cursor moves and build the help text for the selected entry (arg2: cursor moved). */
 void process_menu_entry(void *arg0, Menu *menu, s32 arg2) {
     char buf[0x100];
     Suffixes sfx;
@@ -554,7 +565,7 @@ void process_menu_entry(void *arg0, Menu *menu, s32 arg2) {
     }
     if (arg2 != 0) {
         menu->unk4 = menu->unk36;
-        menu->unk38 = D_0015F6F0;
+        menu->unk38 = world_update_time;
         n = e->unk6;
         if (menu->unk36 != n) {
             flags = e->unk10;
@@ -562,13 +573,13 @@ void process_menu_entry(void *arg0, Menu *menu, s32 arg2) {
             e = (MenuItem *)(menu->unk3C + n * 0x1C);
             menu->unk8 = *(u8 *)&e->unk10 & 1;
             if (flags & 4) {
-                D_001994C0[2] = (s32)arg0;
-                D_001994C0[3] = (s32)menu;
+                menu_entry_trigger_state[2] = (s32)arg0;
+                menu_entry_trigger_state[3] = (s32)menu;
                 if (e->unk4 & 0x4000) {
                     noop_callback_n((s16)(e->unk4 ^ 0x4000));
                 } else {
-                    remove_hud_item(D_00160170);
-                    D_00160170 = -1;
+                    remove_hud_item(menu_help_hud_item);
+                    menu_help_hud_item = -1;
                     noop_callback_o((s16)e->unk4);
                 }
             }
@@ -577,26 +588,26 @@ void process_menu_entry(void *arg0, Menu *menu, s32 arg2) {
     if (menu->unk36 == -1) {
         return;
     }
-    D_001994C0[5] = e->unk0;
+    menu_entry_trigger_state[5] = e->unk0;
     kind = e->unk8;
     if (kind == 6) {
-        sfx = D_001E89B0;
-        func_001166FC((Cfg13*)((char *)0x70000000), msg_string(e->unk0));
-        p = func_00116CC0(((char *)0x70000000), D_00160188);
+        sfx = menu_time_suffixes;
+        libc_strcpy((Cfg13*)((char *)0x70000000), msg_string(e->unk0));
+        p = find_substring(((char *)0x70000000), menu_entry_find_token);
         if (p != 0) {
             p[1] = 's';
         }
         t = vendor_item_prices[e->unkA].unk14;
-        func_00116248(num, D_00160190, t / 1000, sfx.s[D_0015EE88 % 6], t % 1000);
-        func_00116248(buf, ((char *)0x70000000), num);
+        sprintf(num, menu_time_value_format, t / 1000, sfx.s[g_game_language % 6], t % 1000);
+        sprintf(buf, ((char *)0x70000000), num);
     } else {
-        func_00116248(buf, msg_string(e->unk0));
+        sprintf(buf, msg_string(e->unk0));
     }
-    if (D_001994C0[5] != 0) {
+    if (menu_entry_trigger_state[5] != 0) {
         copy_text_to_shared_buffer(buf);
-    } else if (D_00160170 != -1) {
-        remove_hud_item(D_00160170);
-        D_00160170 = -1;
+    } else if (menu_help_hud_item != -1) {
+        remove_hud_item(menu_help_hud_item);
+        menu_help_hud_item = -1;
     }
     if (e->unk8 == 0) {
         return;
@@ -635,27 +646,28 @@ void process_menu_entry(void *arg0, Menu *menu, s32 arg2) {
     }
     if (next != menu->unk36) {
         menu->unk36 = next;
-        menu->unk38 = D_0015F6F0_far;
+        menu->unk38 = world_update_time_far;
         e = (MenuItem *)(menu->unk3C + next * 0x1C);
         menu->unk8 = *(u8 *)&e->unk10 & 1;
         process_menu_entry(arg0, menu, 0);
     }
 }
 
-extern char D_0013CA40[];
+extern char g_controller_state[];
 
+/* Clear the controller state's pending input fields. */
 void pad_resetState(void) {
-    char *p = D_0013CA40;
+    char *p = g_controller_state;
     *(short *)(p + 0x18E) = 0;
     *(int *)(p + 0x190) = 0;
 }
 
 LINKER_REMNANT("asm/remnants/text", func_00217ED8);
 
-extern int D_001CDAE0 NOT_SDA;
-extern void func_00124650(void);
-extern void func_00124B88(int);
-extern int func_00124BC8(void *, void *);
+extern int pad_socket_param NOT_SDA;
+extern void sce_dbc_init(void);
+extern void sce_pad2_init(int);
+extern int sce_pad2_create_socket(void *, void *);
 
 /* Minimal layouts for init_pads: the port/slot socket parameter (NTSC name unknown)
    and the leading part of PadState from pad.h, up to the fields init_pads writes. */
@@ -664,16 +676,17 @@ typedef struct {
     s32 slot;
 } PadSocketParam;
 
+/* Init the pad library and open controller ports 0 and 1. */
 void init_pads(void) {
-    PadSocketParam *p = (PadSocketParam *)&D_001CDAE0;
+    PadSocketParam *p = (PadSocketParam *)&pad_socket_param;
 
-    func_00124650();
-    func_00124B88(0);
-    D_001CDAE0 = 2;
+    sce_dbc_init();
+    sce_pad2_init(0);
+    pad_socket_param = 2;
     p->slot = 0;
-    ((struct PadState *)D_0013CA40)->socket = func_00124BC8(p, D_0013CA40);
-    D_001CDAE0 = 2;
+    ((struct PadState *)g_controller_state)->socket = sce_pad2_create_socket(p, g_controller_state);
+    pad_socket_param = 2;
     p->slot = 1;
-    ((struct PadState *)D_0013CA40)->profile_state = 0;
-    ((struct PadState *)D_0013CA40)->device_state = 0;
+    ((struct PadState *)g_controller_state)->profile_state = 0;
+    ((struct PadState *)g_controller_state)->device_state = 0;
 }

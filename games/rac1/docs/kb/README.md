@@ -57,4 +57,4 @@ Not fixed yet:
 
 Everything comes from this repository (matched C, headers, `config/`, generated asm,
 `baserom/`); verified vs inferred is marked where it matters. The third-party US decompilation is "the NTSC
-decomp". Provenance notes ("Adapted from ... (MIT)") are licence credit and stay.
+decomp". Provenance notes ("Adapted from ... (GPL-3.0)") are licence credit and stay.

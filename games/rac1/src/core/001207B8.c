@@ -12,10 +12,10 @@
  */
 
 typedef unsigned int u128_t __attribute__((mode(TI)));
-extern u128_t D_001313A0;
-extern u128_t D_001313B0;
+extern u128_t vif1_reset_fifo_qword_0;
+extern u128_t vif1_reset_fifo_qword_1;
 
-void func_001207B8(void) {
+void reset_vif1_gif(void) {
     *(volatile int *)0x10003C10 = 1;
     *(volatile int *)0x10003C20 = 2;
     __asm__ __volatile__(
@@ -24,12 +24,12 @@ void func_001207B8(void) {
         "1:\n\tcfc2.ni $4, $vi29\n\tnop\n\tnop\n\tnop\n\tandi $4, $4, 0x100\n\tbnez $4, 1b\n\t"
         "addiu $4, $0, 0x404\n\tctc2.ni $4, $vi28\n\tnop"
         : : : "$4");
-    *(volatile u128_t *)0x10005000 = D_001313A0;
-    *(volatile u128_t *)0x10005000 = D_001313B0;
+    *(volatile u128_t *)0x10005000 = vif1_reset_fifo_qword_0;
+    *(volatile u128_t *)0x10005000 = vif1_reset_fifo_qword_1;
     *(volatile int *)0x10003000 = 1;
 }
 
-int func_00120858(void) {
+int wait_for_graphics_pipeline_idle(void) {
     int busy;
     int stat;
 

@@ -1,9 +1,18 @@
 # Third-party notices
 
-## Lombyte
+## NTSC decomp
 
 The following functions adapt source from
-[Lombyte](https://github.com/mateuszklysz/Lombyte) for the PAL executable:
+[the NTSC decomp](https://github.com/lombyte-project/Lombyte) for the PAL executable:
+
+The 2026-10-26 sync also carries these GPL-3.0 functions through
+OpenRAC/rac1-decomp commit `9bf26d6227af`, from NTSC commit `c6ba2e9c2a95`:
+
+- `src/overlays/shared/hero_animation_slots.c`: `func_L00_0020FC18`, from `src/overlays/shared/gameplay/hero/set_hero_animation.c` (`update_hero_item_mobys`).
+- `src/overlays/shared/visibomb_and_pyrocitor.c`: `func_L00_002B8AE8`, from `src/overlays/shared/gameplay/entities/devastator.c` (`pyrocitor_update`).
+- `src/overlays/shared/nanotech_ball_and_suck_cannon.c`: `func_L00_002DF410`, from `src/overlays/shared/gameplay/entities/nanotech_ball.c` (`suck_beam_update`).
+
+Earlier adaptations:
 
 - `src/overlays/l04_eudora/vuchain_00293490.c`: `func_L04_00293578` (`src/overlays/l04/runtime/dma/002922d0.c`, `FUN_L04_002923b8`)
 - `src/overlays/l06_blarg/vendor_002B5990.c`: `func_L06_002FD3E0` (`src/overlays/l06/gameplay/entities/002b4770.c`, `FUN_L06_002fbfb0`)

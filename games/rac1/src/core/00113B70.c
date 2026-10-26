@@ -11,15 +11,15 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
 
 /*
  * A version of malloc/free/realloc written by Doug Lea and released to the
@@ -33,13 +33,13 @@ extern void func_00114438(void *, void *);
 
 struct _reent;
 
-extern void func_001154C0(void *);
-extern void func_001154C8(void *);
-extern int func_00113E90(void *, unsigned int);
+extern void __malloc_lock(void *);
+extern void __malloc_unlock(void *);
+extern int _malloc_trim_r(void *, unsigned int);
 
-extern unsigned int D_0012F888_u[] __asm__("D_0012F888"); /* __malloc_av_ bins */
-extern unsigned long D_0012FC90[]; /* trim_threshold */
-extern unsigned long D_0012FC98[]; /* top_pad */
+extern unsigned int __malloc_av__u[] __asm__("D_0012F888"); /* __malloc_av_ bins */
+extern unsigned long __malloc_trim_threshold[]; /* trim_threshold */
+extern unsigned long __malloc_top_pad[]; /* top_pad */
 
 struct malloc_chunk {
     unsigned int prev_size;
@@ -77,7 +77,7 @@ struct malloc_chunk {
          ? 124 + (((unsigned long)(sz)) >> 18) :                             \
          126)
 
-#define av_ D_0012F888_u
+#define av_ __malloc_av__u
 #define bin_at(i) ((struct malloc_chunk *)((unsigned char *)&(av_[2 * (i) + 2]) - 2 * SIZE_SZ))
 #define top (bin_at(0)->fd)
 #define last_remainder (bin_at(1))
@@ -128,9 +128,9 @@ struct malloc_chunk {
         }                                                                      \
     }
 
-/* _free_r (newlib mallocr.c, dlmalloc 2.6.5). Adapted from Lombyte (GPL-3.0)
+/* _free_r (newlib mallocr.c, dlmalloc 2.6.5). Adapted from Lombyte's project (GPL-3.0)
    for PAL. */
-void func_00113B70(struct _reent *ptr, void *mem)
+void _free_r(struct _reent *ptr, void *mem)
 {
     struct malloc_chunk *p;
     unsigned int hd;
@@ -146,7 +146,7 @@ void func_00113B70(struct _reent *ptr, void *mem)
     if (mem == 0)
         return;
 
-    func_001154C0(ptr);
+    __malloc_lock(ptr);
 
     p = mem2chunk(mem);
     hd = p->size;
@@ -168,8 +168,8 @@ void func_00113B70(struct _reent *ptr, void *mem)
         set_head(p, sz | PREV_INUSE);
         top = p;
         if ((unsigned long)(sz) >= (unsigned long)trim_threshold)
-            func_00113E90(ptr, top_pad);
-        func_001154C8(ptr);
+            _malloc_trim_r(ptr, top_pad);
+        __malloc_unlock(ptr);
         return;
     }
 
@@ -203,7 +203,7 @@ void func_00113B70(struct _reent *ptr, void *mem)
     if (!islr)
         frontlink(p, sz, idx, bck, fwd);
 
-    func_001154C8(ptr);
+    __malloc_unlock(ptr);
 }
 #undef SIZE_SZ
 #undef MINSIZE
@@ -242,13 +242,13 @@ typedef struct MallocChunk {
 
 typedef struct { char pad[8]; MallocChunk *av2[1]; } MallocState; /* av_[2] = top */
 
-extern MallocState D_0012F888;
-extern char *D_0012FCA0; /* malloc_sbrk_base */
-extern int D_0012FCB8;   /* current_mallinfo.arena (sbrked_mem) */
+extern MallocState __malloc_av_;
+extern char *__malloc_sbrk_base; /* malloc_sbrk_base */
+extern int __malloc_current_mallinfo;   /* current_mallinfo.arena (sbrked_mem) */
 
-extern void func_001154C0(void *); /* MALLOC_LOCK (__malloc_lock, empty) */
-extern void func_001154C8(void *); /* MALLOC_UNLOCK (__malloc_unlock, empty) */
-extern void *func_001161E8(void *reent_ptr, int size); /* _sbrk_r */
+extern void __malloc_lock(void *); /* MALLOC_LOCK (__malloc_lock, empty) */
+extern void __malloc_unlock(void *); /* MALLOC_UNLOCK (__malloc_unlock, empty) */
+extern void *_sbrk_r(void *reent_ptr, int size); /* _sbrk_r */
 
 #define TOP (D_0012F888.av2[0])
 
@@ -258,45 +258,45 @@ extern void *func_001161E8(void *reent_ptr, int size); /* _sbrk_r */
  * on failure it resyncs top and sbrked_mem with the real break. The
  * `arena` pointer in the last block is load-bearing: it steers the delay
  * slot of the branch before it. */
-int func_00113E90(void *reent_ptr, unsigned int pad) {
+int _malloc_trim_r(void *reent_ptr, unsigned int pad) {
     long top_size;
     long extra;
     char *current_brk;
     char *new_brk;
     unsigned long pagesz = 0x1000;
 
-    func_001154C0(reent_ptr);
+    __malloc_lock(reent_ptr);
 
     top_size = TOP->size & ~3u;
     extra = ((top_size - pad - 0x10 + (pagesz - 1)) / pagesz - 1) * pagesz;
 
     if (extra < (long)pagesz) {
-        func_001154C8(reent_ptr);
+        __malloc_unlock(reent_ptr);
         return 0;
     }
 
-    current_brk = (char *)func_001161E8(reent_ptr, 0);
+    current_brk = (char *)_sbrk_r(reent_ptr, 0);
     if (current_brk != (char *)TOP + top_size) {
-        func_001154C8(reent_ptr);
+        __malloc_unlock(reent_ptr);
         return 0;
     }
 
-    new_brk = (char *)func_001161E8(reent_ptr, -extra);
+    new_brk = (char *)_sbrk_r(reent_ptr, -extra);
 
     if (new_brk == (char *)-1) {
-        current_brk = (char *)func_001161E8(reent_ptr, 0);
+        current_brk = (char *)_sbrk_r(reent_ptr, 0);
         top_size = current_brk - (char *)TOP;
         if (top_size >= 0x10) {
-            D_0012FCB8 = current_brk - D_0012FCA0;
+            __malloc_current_mallinfo = current_brk - __malloc_sbrk_base;
             TOP->size = top_size | 1;
         }
-        func_001154C8(reent_ptr);
+        __malloc_unlock(reent_ptr);
         return 0;
     } else {
-        int *arena = &D_0012FCB8;
+        int *arena = &__malloc_current_mallinfo;
         TOP->size = (top_size - extra) | 1;
         *arena -= extra;
-        func_001154C8(reent_ptr);
+        __malloc_unlock(reent_ptr);
         return 1;
     }
 }

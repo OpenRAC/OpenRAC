@@ -58,6 +58,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from levels import dirname as level_dirname, level_of_dir, LEVELS
+import overlay_rename
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOGUE = ROOT / "config/overlays/functions.tsv"
@@ -359,8 +360,14 @@ def unit_token(unit):
     return "start" if unit == "start" else unit.replace("/", "_")
 
 
-def file_path(group):
+def generated_path(group):
     return group.directory / f"{unit_token(group.unit_token)}_{group.first_addr:08X}.c"
+
+
+def file_path(group):
+    """The generated path, or its descriptive name from config/overlays/file_names.tsv."""
+    gen = generated_path(group)
+    return ROOT / overlay_rename.renamed(str(gen.relative_to(ROOT)))
 
 
 def render(group):
@@ -389,6 +396,8 @@ def write_groups(groups):
             continue
         path = file_path(g)
         content = render(g)
+        if path != generated_path(g):
+            content = overlay_rename.note(content, generated_path(g).name)
         if path.exists():
             existing = path.read_text()
             if existing == content:

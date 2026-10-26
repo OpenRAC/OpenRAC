@@ -15,105 +15,105 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
-extern char D_00152470[];
-extern int func_00119088();
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
+extern char locale_lconv[];
+extern int libc_glue_read();
 extern long func_00116108_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00116108");
 extern long func_001188C8_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_001188C8");
 extern long func_00114518_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00114518");
-extern int func_00112468(int *errOut, int arg1);
-extern int func_00114060(int, void *);
-extern void func_00113AE0(void *);
-extern void func_00117118(void *, void *, int, int);
-extern int func_00119008();
-extern int D_0012FCF0 NOT_SDA;
-extern void func_00118E90(int arg0, void *arg1);
-extern void *D_00154A40 NOT_SDA;
-extern int D_00155080[];
-extern void func_001193F8(int);
-extern void func_00118AD0(int, int);
-extern int D_00154F54;
-extern int D_0012FD04;
-extern int D_00154F64 NOT_SDA;
-extern int D_00154F6C NOT_SDA;
-extern void func_0011AA90(int, int, int, int, int, int, int);
-extern void func_0011AA00(void);
-extern int D_0012FD08 NOT_SDA;
-extern int func_0011D960(void);
-extern void func_0011D9A8(void);
-extern int func_00118C70(void *);
-extern int D_0012FDA0;
-extern int D_0012FDA4;
-extern char D_00157E80[];
-extern int D_0012FD9C;
-extern void func_0011BBF0(void);
-extern int D_0012FD9C NOT_SDA;
-extern char D_0012FCEC[];
-extern char D_001580A8[];
-extern int D_0012FDA8;
-extern void func_001153FC(void *, int, int);
-extern int D_0012FD94;
-extern int D_0012FDAC;
-extern char D_00158140[];
-extern int D_00158180;
-extern int D_001581C0;
-extern char D_00158528[];
-extern int D_0012FDB4;
-extern int func_0011CE70(int arg0, int arg1, int arg2, void *arg3);
-extern void func_00118EC0(void);
-extern void func_0011D4E0(void);
-extern void func_00118EB0(void);
-extern int D_00130420;
-extern int D_00130424;
-extern int D_00130BD0[];
-extern char D_00130428[];
-extern int func_0011DC50(void);
-extern void func_00118D80(int);
-extern int func_00120F30(int);
-extern void *D_00159840;
-extern int D_001313E0;
-extern int D_001313E8;
-extern int D_001313EC;
-extern int D_001313F0;
-extern int D_001313E4;
-extern int D_001313FC;
-extern int func_0011B4C8();
-extern int func_00120D28(int);
-extern void func_00118C90(int);
-extern char D_00132590[];
-extern int D_00131440;
-extern void func_0011A6C8();
-extern int func_0011B6B8(void *);
-extern char D_00153000[];
-extern char D_00132E08[];
-extern int D_001313D0;
-extern int func_00121040(int);
-extern int D_001325C0;
-extern char D_00132E40[];
-extern void func_00123650(void *);
-extern char D_001534E0[];
-extern int D_00132E70[];
-extern int func_001238B0(int, int, int, int);
-extern int D_00132EA8;
-extern int *D_00159B28;
-extern int *D_00159B2C;
-extern int *D_00159B30;
-extern char D_0015B108[];
-extern int D_0015B180;
-extern void func_00124B60(void *);
-extern char D_00153658[];
-extern int func_00124920(int);
+extern int _close_r(int *errOut, int arg1);
+extern int __sfvwrite(int, void *);
+extern void __sinit(void *);
+extern void _vfprintf_r(void *, void *, int, int);
+extern int libc_glue_write();
+extern int CoreGlobalWord NOT_SDA;
+extern void Deci2Call(int arg0, void *arg1);
+extern void *InitBlockData NOT_SDA;
+extern int sif_sregs[];
+extern void disable_dmac_atomic(int);
+extern void remove_dmac_handler(int, int);
+extern int sif_cmd_dmac_handler_id;
+extern int sif_cmd_init_done;
+extern int sif_cmd_data_sys_handlers NOT_SDA;
+extern int sif_cmd_data_usr_handlers NOT_SDA;
+extern void sif_send_cmd_common(int, int, int, int, int, int, int);
+extern void sceSifExitCmd(void);
+extern int RpcCommandState NOT_SDA;
+extern int disable_interrupts(void);
+extern void enable_interrupts(void);
+extern int create_semaphore(void *);
+extern int fs_iob_sema;
+extern int fs_iob_sema_2;
+extern char fs_iob_table[];
+extern int fs_call_sema;
+extern void fs_call_sema_init(void);
+extern int fs_call_sema NOT_SDA;
+extern char sif_lib_version_string[];
+extern char FsResetBuffer[];
+extern int fs_expected_version;
+extern void libc_memset(void *, int, int);
+extern int FsResetState;
+extern int iop_heap_bind_state;
+extern char iop_heap_rpc_client[];
+extern int iop_heap_rpc_reply;
+extern int iop_heap_rpc_arg;
+extern char lf_iop_version[];
+extern int lf_expected_version;
+extern int _sceSifLoadModuleBuffer(int arg0, int arg1, int arg2, void *arg3);
+extern void tty_reset_init_flag(void);
+extern void init_tlb_32mb(void);
+extern void kernel_init_tlb(void);
+extern int FirstSemaphore;
+extern int SecondSemaphore;
+extern int osd_syscall_patch_table[];
+extern char osd_kernel_patch_code[];
+extern int PatchIsNeeded(void);
+extern void flush_cache(int);
+extern int sce_cd_sync_s(int);
+extern void *cd_user_callback;
+extern int cd_callback_sema;
+extern int cd_ncmd_sema;
+extern int cd_scmd_sema;
+extern int cd_ncmd_busy;
+extern int cd_poweroff_installing;
+extern int cd_poweroff_installed;
+extern int sif_call_rpc();
+extern int cd_ncmd_prechk(int);
+extern void signal_semaphore(int);
+extern char cd_ncmd_rpc_client[];
+extern int cd_ncmd_recv_buffer;
+extern void scePrintf();
+extern int sce_sif_check_stat_rpc(void *);
+extern char cd_scmd_wait_msg[];
+extern char cd_scmd_rpc_client[];
+extern int cd_debug_level;
+extern int cd_scmd_prechk(int);
+extern int cd_scmd_recv_buffer;
+extern char CoreDataTable[];
+extern void sceDmaPause(void *);
+extern char dma_sync_timeout_msg[];
+extern int DmaChannels[];
+extern int sce_mc_open(int, int, int, int);
+extern int mc_current_command;
+extern int *mc_get_info_type_out;
+extern int *mc_get_info_free_out;
+extern int *mc_get_info_format_out;
+extern char RpcQueueData[];
+extern int RpcReceiveData;
+extern void debug_print_stub(void *);
+extern char str_dbc_set_work_addr_error[];
+extern int sceDbcGetDepNumber(int);
 typedef struct {
     char unk_00[4];
     int  unk_04;
@@ -121,15 +121,15 @@ typedef struct {
     char *unk_0C;
     char unk_10[0x320];
 } Ent330;
-extern Ent330 D_0015B640[];
-extern void func_00119288(void *a, void *b);
+extern Ent330 pad2_sockets[];
+extern void sync_dcache_range(void *a, void *b);
 
 struct MpegDecoder;
-extern void func_0012C430(void *, char *, int);
-extern void func_00125880(struct MpegDecoder *d, int bx, int by, int mb_type, int motion_type,
+extern void _errMessage(void *, char *, int);
+extern void _getAllRefs(struct MpegDecoder *d, int bx, int by, int mb_type, int motion_type,
                           int pmv[2][2][2], int mvfs[2][2], int *dmvector);
-extern void func_0012A0F8(void *);
-extern char D_001537E8[];
+extern void dma_ref_image(void *);
+extern char str_mpeg_invalid_motion_type[];
 
 typedef struct {
     char pad0[0x128];
@@ -166,7 +166,7 @@ typedef struct {
 } Dec00125630;
 
 /* Motion-compensate one macroblock (or wait for the intra IDCT) and record its output slot. */
-int func_00125630(void *arg0, int mbAddr, int arg2, int mbType, int motionType,
+int _motionComp0(void *arg0, int mbAddr, int arg2, int mbType, int motionType,
                   void *pmv, void *mvfs, void *dmv) {
     Dec00125630 *d = (Dec00125630 *)arg0;
     int intra;
@@ -187,15 +187,15 @@ int func_00125630(void *arg0, int mbAddr, int arg2, int mbType, int motionType,
         d->e[d->unk810].unk138 = 0;
     } else {
         if ((unsigned int)(motionType - 1) >= 3) {
-            func_0012C430(d, D_001537E8, motionType);
+            _errMessage(d, str_mpeg_invalid_motion_type, motionType);
             d->unk11C = 1;
             return 0;
         }
-        func_00125880((struct MpegDecoder *)d, bx, by, mbType, motionType,
+        _getAllRefs((struct MpegDecoder *)d, bx, by, mbType, motionType,
                       pmv, mvfs, dmv);
         while ((*(volatile unsigned int *)0x1000D400 >> 8) & 1)
             ;
-        func_0012A0F8(d);
+        dma_ref_image(d);
         d->e[d->unk810].unk138 = 1;
     }
     if (arg2 == 1 && (mbType & 2)) {
@@ -375,15 +375,15 @@ struct MpegDecoder {
     s32 unk854;
     struct sceMpeg *mpeg; /* owning sceMpeg (_dispRefImage writes its pts/dts/flags) */
 };
-extern char D_00153810[];
-extern char D_00153830[];
-extern char D_00153850[];
-extern void func_0012C430_25880(struct MpegDecoder *d, char *fmt, int code) __asm__("func_0012C430");
-extern void func_001275C0_25880(struct MpegDecoder *d, int dmv[2][2], int *dmvector, int mvx, int mvy) __asm__("func_001275C0");
-extern void func_00125F88(struct MpegDecoder *d, struct MpegRefImage *ref, int sfield, int dfield, int yofs, int h, int bx, int by, int dx, int dy, int fieldpred, int avg);
+extern char str_mpeg_invalid_motion_type_a[];
+extern char str_mpeg_invalid_motion_type_b[];
+extern char str_mpeg_invalid_motion_type_c[];
+extern void _errMessage_r(struct MpegDecoder *d, char *fmt, int code) __asm__("func_0012C430");
+extern void dualPrimeVector_r(struct MpegDecoder *d, int dmv[2][2], int *dmvector, int mvx, int mvy) __asm__("func_001275C0");
+extern void _getRef0(struct MpegDecoder *d, struct MpegRefImage *ref, int sfield, int dfield, int yofs, int h, int bx, int by, int dx, int dy, int fieldpred, int avg);
 
-/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/sdk/library/_getAllRefs.c, _getAllRefs. */
-void func_00125880(struct MpegDecoder *d, int bx, int by, int mb_type, int motion_type,
+/* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/sdk/library/_getAllRefs.c, _getAllRefs. */
+void _getAllRefs(struct MpegDecoder *d, int bx, int by, int mb_type, int motion_type,
                  int pmv[2][2][2], int mvfs[2][2], int *dmvector) {
     int dmv[2][2];
     struct MpegRefImage *refs[2][2];
@@ -399,23 +399,23 @@ void func_00125880(struct MpegDecoder *d, int bx, int by, int mb_type, int motio
     if ((mb_type & 8) || d->picture_coding_type == 2) {
         if (d->picture_structure == 3) {
             if (motion_type == 2 || !(mb_type & 8)) {
-                func_00125F88(d, d->ref_images[0], 0, 0, 0, 16, bx, by, pmv[0][0][0], pmv[0][0][1], 0,
+                _getRef0(d, d->ref_images[0], 0, 0, 0, 16, bx, by, pmv[0][0][0], pmv[0][0][1], 0,
                          0);
             } else if (motion_type == same) {
-                func_00125F88(d, d->ref_images[0], mvfs[0][0], 0, 0, 8, bx, by, pmv[0][0][0],
+                _getRef0(d, d->ref_images[0], mvfs[0][0], 0, 0, 8, bx, by, pmv[0][0][0],
                          pmv[0][0][1] >> 1, same, 0);
-                func_00125F88(d, d->ref_images[0], mvfs[1][0], 1, 0, 8, bx, by, pmv[1][0][0],
+                _getRef0(d, d->ref_images[0], mvfs[1][0], 1, 0, 8, bx, by, pmv[1][0][0],
                          pmv[1][0][1] >> 1, same, 0);
             } else if (motion_type == 3) {
-                func_001275C0_25880(d, dmv, dmvector, pmv[0][0][0], pmv[0][0][1] >> 1);
-                func_00125F88(d, d->ref_images[0], 0, 0, 0, 8, bx, by, pmv[0][0][0], pmv[0][0][1] >> 1,
+                dualPrimeVector_r(d, dmv, dmvector, pmv[0][0][0], pmv[0][0][1] >> 1);
+                _getRef0(d, d->ref_images[0], 0, 0, 0, 8, bx, by, pmv[0][0][0], pmv[0][0][1] >> 1,
                          same, 0);
-                func_00125F88(d, d->ref_images[0], 1, 0, 0, 8, bx, by, dmv[0][0], dmv[0][1], same, one);
-                func_00125F88(d, d->ref_images[0], 1, 1, 0, 8, bx, by, pmv[0][0][0], pmv[0][0][1] >> 1,
+                _getRef0(d, d->ref_images[0], 1, 0, 0, 8, bx, by, dmv[0][0], dmv[0][1], same, one);
+                _getRef0(d, d->ref_images[0], 1, 1, 0, 8, bx, by, pmv[0][0][0], pmv[0][0][1] >> 1,
                          same, 0);
-                func_00125F88(d, d->ref_images[0], 0, 1, 0, 8, bx, by, dmv[1][0], dmv[1][1], same, one);
+                _getRef0(d, d->ref_images[0], 0, 1, 0, 8, bx, by, dmv[1][0], dmv[1][1], same, one);
             } else {
-                func_0012C430_25880(d, D_00153810, motion_type);
+                _errMessage_r(d, str_mpeg_invalid_motion_type_a, motion_type);
             }
         } else {
             currentfield = d->picture_structure == 2;
@@ -430,24 +430,24 @@ void func_00125880(struct MpegDecoder *d, int bx, int by, int mb_type, int motio
                 same = currentfield != mvfs[0][0];
             }
             if (motion_type == 1 || !(mb_type & 8)) {
-                func_00125F88(d, refs[same][mvfs[0][0]], 0, 0, 0, 16, bx, by, pmv[0][0][0], pmv[0][0][1],
+                _getRef0(d, refs[same][mvfs[0][0]], 0, 0, 0, 16, bx, by, pmv[0][0][0], pmv[0][0][1],
                          0, 0);
             } else if (motion_type == 2) {
-                func_00125F88(d, refs[same][mvfs[0][0]], 0, 0, 0, 8, bx, by, pmv[0][0][0], pmv[0][0][1],
+                _getRef0(d, refs[same][mvfs[0][0]], 0, 0, 0, 8, bx, by, pmv[0][0][0], pmv[0][0][1],
                          0, 0);
                 same = d->picture_coding_type == motion_type && d->second_field &&
                        currentfield != mvfs[1][0];
-                func_00125F88(d, refs[same][mvfs[1][0]], 0, 0, 8, 8, bx, by, pmv[1][0][0], pmv[1][0][1],
+                _getRef0(d, refs[same][mvfs[1][0]], 0, 0, 8, 8, bx, by, pmv[1][0][0], pmv[1][0][1],
                          0, 0);
             } else if (motion_type == 3) {
                 same = d->second_field ? motion_type - 2 : 0;
-                func_001275C0_25880(d, dmv, dmvector, pmv[0][0][0], pmv[0][0][1]);
-                func_00125F88(d, refs[0][currentfield], 0, 0, 0, 16, bx, by, pmv[0][0][0], pmv[0][0][1],
+                dualPrimeVector_r(d, dmv, dmvector, pmv[0][0][0], pmv[0][0][1]);
+                _getRef0(d, refs[0][currentfield], 0, 0, 0, 16, bx, by, pmv[0][0][0], pmv[0][0][1],
                          0, 0);
-                func_00125F88(d, refs[same][!currentfield], 0, 0, 0, 16, bx, by, dmv[0][0], dmv[0][1], 0,
+                _getRef0(d, refs[same][!currentfield], 0, 0, 0, 16, bx, by, dmv[0][0], dmv[0][1], 0,
                          1);
             } else {
-                func_0012C430_25880(d, D_00153830, motion_type);
+                _errMessage_r(d, str_mpeg_invalid_motion_type_b, motion_type);
             }
         }
         avg = 1;
@@ -457,34 +457,34 @@ void func_00125880(struct MpegDecoder *d, int bx, int by, int mb_type, int motio
         if (d->picture_structure == 3) {
             same = 1;
             if (motion_type == 2) {
-                func_00125F88(d, d->ref_images[1], 0, 0, 0, 16, bx, by, pmv[0][1][0], pmv[0][1][1], 0,
+                _getRef0(d, d->ref_images[1], 0, 0, 0, 16, bx, by, pmv[0][1][0], pmv[0][1][1], 0,
                          avg);
             } else {
-                func_00125F88(d, d->ref_images[1], mvfs[0][1], 0, 0, 8, bx, by, pmv[0][1][0],
+                _getRef0(d, d->ref_images[1], mvfs[0][1], 0, 0, 8, bx, by, pmv[0][1][0],
                          pmv[0][1][1] >> 1, same, avg);
-                func_00125F88(d, d->ref_images[1], mvfs[1][1], 1, 0, 8, bx, by, pmv[1][1][0],
+                _getRef0(d, d->ref_images[1], mvfs[1][1], 1, 0, 8, bx, by, pmv[1][1][0],
                          pmv[1][1][1] >> 1, same, avg);
             }
         } else if (motion_type == 1) {
-            func_00125F88(d, mvfs[0][1] ? d->ref_images[9] : d->ref_images[5], 0, 0, 0, 16, bx, by,
+            _getRef0(d, mvfs[0][1] ? d->ref_images[9] : d->ref_images[5], 0, 0, 0, 16, bx, by,
                      pmv[0][1][0], pmv[0][1][1], 0, avg);
         } else if (motion_type == 2) {
-            func_00125F88(d, mvfs[0][1] ? d->ref_images[9] : d->ref_images[5], 0, 0, 0, 8, bx, by,
+            _getRef0(d, mvfs[0][1] ? d->ref_images[9] : d->ref_images[5], 0, 0, 0, 8, bx, by,
                      pmv[0][1][0], pmv[0][1][1], 0, avg);
-            func_00125F88(d, mvfs[1][1] ? d->ref_images[9] : d->ref_images[5], 0, 0, 8, 8, bx, by,
+            _getRef0(d, mvfs[1][1] ? d->ref_images[9] : d->ref_images[5], 0, 0, 8, 8, bx, by,
                      pmv[1][1][0], pmv[1][1][1], 0, avg);
         } else {
-            func_0012C430_25880(d, D_00153850, motion_type);
+            _errMessage_r(d, str_mpeg_invalid_motion_type_c, motion_type);
         }
     }
 }
 
 INCLUDE_ASM("asm/nonmatchings/core_text", func_00125F88);
 
-extern void func_0012C468(void *, void *);
-extern void func_00127318(int, int);
-extern void func_001272B8(int, int, int);
-extern char D_00153870[];
+extern void _Error(void *, void *);
+extern void mpeg_clamp_pack_block(int, int);
+extern void mpeg_add_block_clamp(int, int, int);
+extern char str_mpeg_intra_skip_mb[];
 
 typedef struct {
     int unk0;
@@ -523,14 +523,14 @@ void func_001263A8_r(void *arg0, int idx) {
         }
     }
     if (p->e[idx].unk130 != 0 && p->e[idx].unk13C != 0) {
-        func_0012C468(p, D_00153870);
+        _Error(p, str_mpeg_intra_skip_mb);
     }
     if (p->e[idx].unk130 != 0) {
-        func_00127318(p->e[idx].unk128, p->e[idx].unk4);
+        mpeg_clamp_pack_block(p->e[idx].unk128, p->e[idx].unk4);
     } else if (p->e[idx].unk13C != 0) {
-        func_00127318(p->e[idx].unk128, p->unk81C);
+        mpeg_clamp_pack_block(p->e[idx].unk128, p->unk81C);
     } else {
-        func_001272B8(p->e[idx].unk128, p->unk81C, p->e[idx].unk4);
+        mpeg_add_block_clamp(p->e[idx].unk128, p->unk81C, p->e[idx].unk4);
     }
 }
 
@@ -570,7 +570,7 @@ ASM_FUNC("asm/handwritten/core_text", func_001272B8);
 
 INCLUDE_ASM("asm/nonmatchings/core_text", func_00127318);
 
-void func_00127378(int arg0) {
+void ipu_set_mpeg1(int arg0) {
     unsigned int *p = (unsigned int *)0x10002010;
     *p = (*p & 0xFF7FFFFF) | (arg0 << 23);
 }
@@ -583,10 +583,10 @@ typedef struct {
     void *cbData;
 } MpegDec;
 
-extern char D_00153888[];
-extern void func_00128590(void *);
-extern void func_0012BC78(int, void *);
-extern void func_0012C468(void *, void *);
+extern char str_mpeg_bdec_error[];
+extern void wait_ipu_idle(void *);
+extern void dispatch_mpeg_callback(int, void *);
+extern void _Error(void *, void *);
 
 #define IPU_CTRL   ((volatile unsigned int *)0x10002010)
 #define IPU_BP     ((volatile unsigned int *)0x10002020)
@@ -598,8 +598,8 @@ extern void func_0012C468(void *, void *);
 #define D_ENABLER  ((volatile unsigned int *)0x1000F520)
 #define D_ENABLEW  ((volatile unsigned int *)0x1000F590)
 
-/* _waitBdecOut (libmpeg). Adapted from Lombyte (GPL-3.0) for PAL. */
-int func_001273A0(void *arg0) {
+/* _waitBdecOut (libmpeg). Adapted from Lombyte's project (GPL-3.0) for PAL. */
+int _waitBdecOut(void *arg0) {
     MpegDec *d = arg0;
     int cb1[8];
     int cb2[8];
@@ -610,12 +610,12 @@ int func_001273A0(void *arg0) {
     unsigned int rest;
 
     ret = 1;
-    func_00128590(d);
+    wait_ipu_idle(d);
     if (*D4_QWC != 0 && !(*IPU_CTRL & 0x4000)) {
         do {
             if (*D3_QWC == 0 && !(*D3_CHCR & 0x100)) {
                 cb1[0] = 1;
-                func_0012BC78((int)d->cbData, cb1);
+                dispatch_mpeg_callback((int)d->cbData, cb1);
             }
         } while (*D4_QWC != 0 && !(*IPU_CTRL & 0x4000));
     }
@@ -629,18 +629,18 @@ int func_001273A0(void *arg0) {
         d->unk83C = 32;
     }
     if (*IPU_CTRL & 0x4000) {
-        func_0012C468(d, D_00153888);
+        _Error(d, str_mpeg_bdec_error);
         cb2[0] = 2;
-        func_0012BC78((int)d->cbData, cb2);
+        dispatch_mpeg_callback((int)d->cbData, cb2);
         *(unsigned int *)0x10002010 = 0x40000000;
         cb2[0] = 3;
-        func_0012BC78((int)d->cbData, cb2);
-        intr = func_0011D960();
+        dispatch_mpeg_callback((int)d->cbData, cb2);
+        intr = disable_interrupts();
         *D_ENABLEW = *D_ENABLER | 0x10000;
         *D4_CHCR = 0;
         *D_ENABLEW = *D_ENABLER & ~0x10000;
         if (intr) {
-            func_0011D9A8();
+            enable_interrupts();
         }
         ret = 0;
         *D4_QWC = 0;
@@ -649,13 +649,13 @@ int func_001273A0(void *arg0) {
 }
 
 /* func_001286E8 returns a short: its epilogue sign-extends $v0. */
-extern short func_001286E8(int, int);
+extern short ipu_vdec(int, int);
 
 /* Returns its callee's value: retail keeps the frame and calls, and
    2.9-ee turns a void one-call function into a bare tail jump (8 bytes
    against 28). */
-short func_001275A0(int arg0) {
-    return func_001286E8(arg0, 3);
+short mpeg_get_dmvector(int arg0) {
+    return ipu_vdec(arg0, 3);
 }
 
 /* dualPrimeVector (libmpeg.a:mpc.o): ISO/IEC 13818-2 7.6.3.6
@@ -664,7 +664,7 @@ short func_001275A0(int arg0) {
  * top_field_first (+0x178) come from the bitstream-state struct instead
  * of globals; FRAME_PICTURE == 3, TOP_FIELD == 1 (ISO encoding).
  */
-void func_001275C0(void *arg0, int DMV[][2], int *dmvector, int mvx, int mvy) {
+void dualPrimeVector(void *arg0, int DMV[][2], int *dmvector, int mvx, int mvy) {
     char *s = (char *)arg0;
 
     if (*(int *)(s + 0x174) == 3) {
@@ -692,12 +692,12 @@ void func_001275C0(void *arg0, int DMV[][2], int *dmvector, int mvx, int mvy) {
 }
 
 
-extern char D_001538A8[];
-extern int func_00128860(void *, int);
-extern void func_00128968(void *, int);
-extern void func_0012C430(void *, char *, int);
+extern char str_mpeg_invalid_mb_addr_inc[];
+extern int _peepBit(void *, int);
+extern void _flushBuf(void *, int);
+extern void _errMessage(void *, char *, int);
 
-int func_00127748(void *arg0) {
+int mb_address_increment(void *arg0) {
     char *s = (char *)arg0;
     unsigned int code;
     int val = 0;
@@ -705,19 +705,19 @@ int func_00127748(void *arg0) {
     int ret;
 
     do {
-        code = func_001286E8((int)s, 0);
+        code = ipu_vdec((int)s, 0);
         switch (code) {
         case 35:
             cont = 1;
             val += 33;
             break;
         case 0:
-            ret = func_00128860(s, 11);
+            ret = _peepBit(s, 11);
             if (*(int *)(s + 0x848) != 0 && ret == 15) {
-                func_00128968(s, 11);
+                _flushBuf(s, 11);
                 cont = 1;
             } else {
-                func_0012C430(s, D_001538A8, code);
+                _errMessage(s, str_mpeg_invalid_mb_addr_inc, code);
                 *(int *)(s + 0x11C) = 1;
                 return 1;
             }
@@ -735,13 +735,13 @@ int func_00127748(void *arg0) {
     return val;
 }
 
-extern char D_001538E0[];
-extern int func_00127A90(void *, int);
-extern int func_001273A0(void *);
-extern int func_001263A8(void *, int);
-extern void func_0012C468(void *, void *);
+extern char str_mpeg_skip_to_next_picture[];
+extern int _slice0(void *, int);
+extern int _waitBdecOut(void *);
+extern int _doMC(void *, int);
+extern void _Error(void *, void *);
 
-int func_00127858(void *arg0) {
+int _pictureData0(void *arg0) {
     char *s = (char *)arg0;
     int count;
     int ret;
@@ -755,11 +755,11 @@ int func_00127858(void *arg0) {
     }
 
     do {
-        ret = func_00127A90(s, count);
+        ret = _slice0(s, count);
     } while (ret == 1 || ret == 3);
 
-    func_00128590(s);
-    if (func_001273A0(s) == 0) {
+    wait_ipu_idle(s);
+    if (_waitBdecOut(s) == 0) {
         ret = 2;
     }
 
@@ -767,21 +767,21 @@ int func_00127858(void *arg0) {
         ;
 
     if (ret == 0) {
-        func_001263A8(s, (unsigned int)*(int *)(s + 0x810) < 1);
+        _doMC(s, (unsigned int)*(int *)(s + 0x810) < 1);
     }
 
     if ((unsigned int)(ret - 1) < 2) {
-        func_0012C468(s, D_001538E0);
+        _Error(s, str_mpeg_skip_to_next_picture);
     }
 
     return (unsigned int)ret < 1;
 }
 
-extern void func_00128BA8(void *);
-extern int func_00128C28(void *);
-extern void func_0012C468(void *, void *);
-extern char D_00153900[];
-extern char D_00153928[];
+extern void next_start_code(void *);
+extern int _sliceB(void *);
+extern void _Error(void *, void *);
+extern char str_mpeg_slice_start_code_range[];
+extern char str_mpeg_slice_a0_error[];
 
 /* sliceA0 (libmpeg.a:mpc.o): ISO/IEC 13818-2 6.2.4 slice_header(), the
  * hardware-VLC variant. nextStartCode, then peek 32 bits: if it isn't a
@@ -794,7 +794,7 @@ extern char D_00153928[];
  * and the picture's mb width (+0x12C), overwrite *arg3 with 1, latch
  * +0x1B0, and zero eight fields of the *arg4 output struct.
  */
-int func_00127960(void *arg0, int arg1, int *arg2, int *arg3, void *arg4) {
+int _sliceA0(void *arg0, int arg1, int *arg2, int *arg3, void *arg4) {
     char *s = (char *)arg0;
     char *p5 = (char *)arg4;
     unsigned int code;
@@ -803,21 +803,21 @@ int func_00127960(void *arg0, int arg1, int *arg2, int *arg3, void *arg4) {
     int row;
 
     *(int *)(s + 0x11C) = 0;
-    func_00128BA8(s);
-    code = func_00128860(s, 0x20);
+    next_start_code(s);
+    code = _peepBit(s, 0x20);
 
     if ((unsigned int)(code - 0x101) >= 0xAF) {
-        func_0012C430(s, D_00153900, code);
+        _errMessage(s, str_mpeg_slice_start_code_range, code);
         return 2;
     }
 
-    func_00128968(s, 0x20);
-    sliceB_result = func_00128C28(s);
-    mbInc = func_00127748(s);
+    _flushBuf(s, 0x20);
+    sliceB_result = _sliceB(s);
+    mbInc = mb_address_increment(s);
     *arg3 = mbInc;
 
     if (*(int *)(s + 0x11C) != 0) {
-        func_0012C468(s, D_00153928);
+        _Error(s, str_mpeg_slice_a0_error);
         return 1;
     }
 
@@ -836,12 +836,12 @@ int func_00127960(void *arg0, int arg1, int *arg2, int *arg3, void *arg4) {
     return 0;
 }
 
-extern int func_00127960(void *, int, int *, int *, void *);
-extern int func_00127748(void *);
-extern void func_0012C468(void *, void *);
-extern char D_00153948[];
-extern int func_00127D40(void *, int *, int *, int *, void *, void *, void *);
-extern int func_00125630(void *, int, int, int, int, void *, void *, void *);
+extern int _sliceA0(void *, int, int *, int *, void *);
+extern int mb_address_increment(void *);
+extern void _Error(void *, void *);
+extern char str_mpeg_too_many_macroblocks[];
+extern int _decMB0(void *, int *, int *, int *, void *, void *, void *);
+extern int _motionComp0(void *, int, int, int, int, void *, void *, void *);
 
 /* slice0 (libmpeg.a:mpc.o): the per-picture macroblock loop -- sliceA0
  * (func_00127960) parses the first slice header and starting mb address
@@ -860,7 +860,7 @@ extern int func_00125630(void *, int, int, int, int, void *, void *, void *);
  * picture's macroblocks are exhausted (return 0) or a fault (1/2/3)
  * happens along the way.
  */
-int func_00127A90(void *arg0, int mbCount) {
+int _slice0(void *arg0, int mbCount) {
     char *s = (char *)arg0;
     int mbAddr = 0;
     int mbInc = 0;
@@ -870,7 +870,7 @@ int func_00127A90(void *arg0, int mbCount) {
     int scratch30[4];
     int r;
 
-    r = func_00127960(s, mbCount, &mbAddr, &mbInc, local0);
+    r = _sliceA0(s, mbCount, &mbAddr, &mbInc, local0);
     if (r != 0) {
         return r;
     }
@@ -887,13 +887,13 @@ int func_00127A90(void *arg0, int mbCount) {
         mbIdx = *(int *)(s + 0x810);
         entry = s + mbIdx * 0x140;
         *(int *)(entry + 0x6CC) = 0;
-        r = func_001273A0(s);
+        r = _waitBdecOut(s);
         if (r == 0) {
             return 2;
         }
 
         if (mbInc == 0) {
-            int peeked = func_00128860(s, 0x17);
+            int peeked = _peepBit(s, 0x17);
             if (peeked == 0) {
                 *(int *)(s + 0x11C) = 0;
                 return 3;
@@ -903,7 +903,7 @@ int func_00127A90(void *arg0, int mbCount) {
                 return 3;
             }
 
-            mbInc = func_00127748(s);
+            mbInc = mb_address_increment(s);
             if (*(int *)(s + 0x11C) != 0) {
                 *(int *)(s + 0x11C) = 0;
                 return 1;
@@ -911,26 +911,26 @@ int func_00127A90(void *arg0, int mbCount) {
         }
 
         if (!(mbAddr < mbCount)) {
-            func_0012C468(s, D_00153948);
+            _Error(s, str_mpeg_too_many_macroblocks);
             return 2;
         }
 
         if (mbInc == 1) {
-            r = func_00127D40(s, &local48, &local4C, &local50, local0,
+            r = _decMB0(s, &local48, &local4C, &local50, local0,
                                scratch20, scratch30);
             if (r == 0) {
                 *(int *)(s + 0x11C) = 0;
                 return 1;
             }
         } else {
-            r = func_00127C80(s, local0, &local4C, scratch20, &local48);
+            r = _skipMB0(s, local0, &local4C, scratch20, &local48);
             if (r == 0) {
                 *(int *)(s + 0x11C) = 0;
                 return 2;
             }
         }
 
-        r = func_00125630(s, mbAddr, mbInc, local48, local4C, local0,
+        r = _motionComp0(s, mbAddr, mbInc, local48, local4C, local0,
                            scratch20, scratch30);
         if (r == 0) {
             *(int *)(s + 0x11C) = 0;
@@ -939,7 +939,7 @@ int func_00127A90(void *arg0, int mbCount) {
 
         if (mbAddr != 0) {
             int fault = *(int *)(s + 0x810);
-            func_001263A8(s, fault ^ 1);
+            _doMC(s, fault ^ 1);
         }
 
         mbAddr = mbAddr + 1;
@@ -948,8 +948,8 @@ int func_00127A90(void *arg0, int mbCount) {
     }
 }
 
-extern void func_0012C468(void *, void *);
-extern char D_00153968[];
+extern void _Error(void *, void *);
+extern char str_mpeg_skipped_mb_in_i_picture[];
 
 /* arg0 is a moby/entity-ish struct: a table index at +0x810 selects a
  * +0x140-strided sub-entry whose +0x6CC field gets set, and several
@@ -958,7 +958,7 @@ extern char D_00153968[];
  * already-matched "log to D_00153968" family member) first when
  * +0x150 == 1. The func_0012C468 call takes arg0 -- the moby struct,
  * still live in $4 -- not a4/s0, which is a common trap here. */
-int func_00127C80(void *a0, int *a1, int *a2, int *a3, int *a4) {
+int _skipMB0(void *a0, int *a1, int *a2, int *a3, int *a4) {
     int idx;
     char *entry;
     int ret = 1;
@@ -987,7 +987,7 @@ int func_00127C80(void *a0, int *a1, int *a2, int *a3, int *a4) {
     }
 
     if (*(int *)((char *)a0 + 0x150) == 1) {
-        func_0012C468(a0, D_00153968);
+        _Error(a0, str_mpeg_skipped_mb_in_i_picture);
         ret = 0;
     }
     mask = *a4;
@@ -996,12 +996,12 @@ int func_00127C80(void *a0, int *a1, int *a2, int *a3, int *a4) {
     return ret;
 }
 
-extern char D_00153998[];
-extern int func_00128A58(void *, int);
-extern void func_00128410(void *, int *, int *, int, int, int, int, int);
-extern void func_00128270_x(void *, int *, int *, int *, int, int, int, int, int, int, int) __asm__("func_00128270");
-extern void func_0012A268(void *, int);
-extern void func_00128560(char *, unsigned int);
+extern char str_mpeg_invalid_mb_type[];
+extern int _nextBit(void *, int);
+extern void motion_vector(void *, int *, int *, int, int, int, int, int);
+extern void motion_vectors_x(void *, int *, int *, int *, int, int, int, int, int, int, int) __asm__("func_00128270");
+extern void receive_data_from_ipu(void *, int);
+extern void send_ipu_command(char *, unsigned int);
 
 typedef struct {
     char pad000[0x11C];
@@ -1029,8 +1029,8 @@ typedef struct {
     int unk848;
 } MbDec;
 
-/* Decodes one macroblock's modes and motion vectors through the IPU VLC engine (libmpeg _decMB0). Adapted from Lombyte (GPL-3.0) for PAL: sdk/library/_decMB0.c, _decMB0. */
-int func_00127D40(void *arg0, int *arg1, int *arg2, int *arg3, void *arg4, void *arg5, void *arg6) {
+/* Decodes one macroblock's modes and motion vectors through the IPU VLC engine (libmpeg _decMB0). Adapted from Lombyte's project (GPL-3.0) for PAL: sdk/library/_decMB0.c, _decMB0. */
+int _decMB0(void *arg0, int *arg1, int *arg2, int *arg3, void *arg4, void *arg5, void *arg6) {
     MbDec *d = arg0;
     int *mb = arg4;
     int *sp20;
@@ -1051,10 +1051,10 @@ int func_00127D40(void *arg0, int *arg1, int *arg2, int *arg3, void *arg4, void 
     *IPU_CTRL = (*IPU_CTRL & 0xF8FFFFFF) | (d->unk150 << 24);
     sp20 = arg3;
     sp24 = arg5;
-    v = func_001286E8((int)d, 1);
+    v = ipu_vdec((int)d, 1);
     *arg1 = v;
     if (v == 0) {
-        func_0012C468(d, D_00153998);
+        _Error(d, str_mpeg_invalid_mb_type);
         d->unk11C = 1;
         return 0;
     }
@@ -1062,7 +1062,7 @@ int func_00127D40(void *arg0, int *arg1, int *arg2, int *arg3, void *arg4, void 
         if (d->unk174 == 3 && d->unk17C != 0) {
             *arg2 = 2;
         } else {
-            *arg2 = func_00128A58(d, 2);
+            *arg2 = _nextBit(d, 2);
         }
     } else if ((v & 1) && d->unk180 != 0) {
         *arg2 = ((d->unk174 ^ 3) == 0) ? 2 : 1;
@@ -1082,20 +1082,20 @@ int func_00127D40(void *arg0, int *arg1, int *arg2, int *arg3, void *arg4, void 
     }
     var103 = 0;
     if (d->unk174 == 3 && d->unk17C == 0 && (*arg1 & 3) != 0) {
-        var103 = func_00128A58(d, 1);
+        var103 = _nextBit(d, 1);
     } else {
         var103 = 0;
     }
     *sp20 = var103;
     if (*arg1 & 0x10) {
-        d->unk1B4 = func_00128A58(d, 5);
+        d->unk1B4 = _nextBit(d, 5);
     }
     if ((*arg1 & 8) || ((*arg1 & 1) && d->unk180 != 0)) {
         if (d->unk848 != 0) {
-            func_00128270_x(d, mb, arg6, sp24, 0, var19, var20, d->unk164 - 1, d->unk168 - 1, motion_flag, var23);
+            motion_vectors_x(d, mb, arg6, sp24, 0, var19, var20, d->unk164 - 1, d->unk168 - 1, motion_flag, var23);
         } else {
             t7 = d->unk158 - 1;
-            func_00128410(d, mb, arg6, t7, t7, 0, 0, d->unk154);
+            motion_vector(d, mb, arg6, t7, t7, 0, 0, d->unk154);
         }
     }
     if (d->unk11C != 0) {
@@ -1103,24 +1103,24 @@ int func_00127D40(void *arg0, int *arg1, int *arg2, int *arg3, void *arg4, void 
     }
     if (*arg1 & 4) {
         if (d->unk848 != 0) {
-            func_00128270_x(d, mb, arg6, sp24, 1, var19, var20, d->unk16C - 1, d->unk170 - 1, 0, var23);
+            motion_vectors_x(d, mb, arg6, sp24, 1, var19, var20, d->unk16C - 1, d->unk170 - 1, 0, var23);
         } else {
             t7b = d->unk160 - 1;
-            func_00128410(d, mb + 2, arg6, t7b, t7b, 0, 0, d->unk15C);
+            motion_vector(d, mb + 2, arg6, t7b, t7b, 0, 0, d->unk15C);
         }
     }
     if (d->unk11C != 0) {
         return 0;
     }
     if ((*arg1 & 1) && d->unk180 != 0) {
-        func_00128968(d, 1);
+        _flushBuf(d, 1);
     }
     if ((*arg1 & 3) != 0) {
-        func_0012A268(*(void **)((char *)d + d->unk810 * 0x140 + 0x594), 0x300);
-        func_00128590(d);
+        receive_data_from_ipu(*(void **)((char *)d + d->unk810 * 0x140 + 0x594), 0x300);
+        wait_ipu_idle(d);
         g1 = ((*arg1 & 1) << 27) | (d->unk1B4 << 16);
         g2 = (d->unk1B0 << 26) | 0x20000000;
-        func_00128560((char *)d, (g1 | g2) | (*sp20 << 25));
+        send_ipu_command((char *)d, (g1 | g2) | (*sp20 << 25));
     } else {
         *(int *)((char *)d + d->unk810 * 0x140 + 0x6CC) = 1;
     }
@@ -1159,7 +1159,7 @@ int func_00127D40(void *arg0, int *arg1, int *arg2, int *arg3, void *arg4, void 
  * MPEG-1 (ISO/IEC 11172-1) support; called from func_00128410
  * (motionVector, already matched in this file).
  */
-void func_001281E8(int *pred, int r_size, int motion_code, int motion_residual, int full_pel_vector) {
+void decode_motion_vector(int *pred, int r_size, int motion_code, int motion_residual, int full_pel_vector) {
     int lim, vec;
 
     lim = 16 << r_size;
@@ -1185,77 +1185,77 @@ void func_001281E8(int *pred, int r_size, int motion_code, int motion_residual, 
  * of read from a global. func_00128410 is motionVector (already matched
  * in this file); func_00128A58 is Get_Bits.
  */
-void func_00128270(void *arg0, int PMV[][2][2], int *dmvector, int mvfs[][2],
+void motion_vectors(void *arg0, int PMV[][2][2], int *dmvector, int mvfs[][2],
                     int s_idx, int motion_vector_count, int mv_format,
                     int h_r_size, int v_r_size, int dmv, int mvscale) {
     if (motion_vector_count == 1) {
         if (mv_format == 0 && dmv == 0) {
-            mvfs[1][s_idx] = mvfs[0][s_idx] = func_00128A58(arg0, 1);
+            mvfs[1][s_idx] = mvfs[0][s_idx] = _nextBit(arg0, 1);
         }
-        func_00128410(arg0, PMV[0][s_idx], dmvector, h_r_size, v_r_size, dmv, mvscale, 0);
+        motion_vector(arg0, PMV[0][s_idx], dmvector, h_r_size, v_r_size, dmv, mvscale, 0);
         PMV[1][s_idx][0] = PMV[0][s_idx][0];
         PMV[1][s_idx][1] = PMV[0][s_idx][1];
     } else {
-        mvfs[0][s_idx] = func_00128A58(arg0, 1);
-        func_00128410(arg0, PMV[0][s_idx], dmvector, h_r_size, v_r_size, dmv, mvscale, 0);
-        mvfs[1][s_idx] = func_00128A58(arg0, 1);
-        func_00128410(arg0, PMV[1][s_idx], dmvector, h_r_size, v_r_size, dmv, mvscale, 0);
+        mvfs[0][s_idx] = _nextBit(arg0, 1);
+        motion_vector(arg0, PMV[0][s_idx], dmvector, h_r_size, v_r_size, dmv, mvscale, 0);
+        mvfs[1][s_idx] = _nextBit(arg0, 1);
+        motion_vector(arg0, PMV[1][s_idx], dmvector, h_r_size, v_r_size, dmv, mvscale, 0);
     }
 }
 
-extern void func_001281E8(int *, int, int, int, int);
+extern void decode_motion_vector(int *, int, int, int, int);
 
 /* motionVector (libmpeg.a:mpc.o): ISO/IEC 13818-2 7.6.3.1 motion_vector(),
  * hardware-VLC variant of mpeg2decode's motion.c. func_001286E8(s, 2) is
  * Get_motion_code (IPU VLC table 2); func_001275A0 is Get_dmvector (table
  * 3, already matched in this file). func_001281E8 is decode_motion_vector.
  */
-void func_00128410(void *arg0, int *PMV, int *dmvector, int h_r_size,
+void motion_vector(void *arg0, int *PMV, int *dmvector, int h_r_size,
                     int v_r_size, int dmv, int mvscale, int full_pel_vector) {
     char *s = (char *)arg0;
     int motion_code;
     int motion_residual;
 
-    motion_code = func_001286E8((int)s, 2);
-    motion_residual = (h_r_size != 0 && motion_code != 0) ? func_00128A58(s, h_r_size) : 0;
-    func_001281E8(PMV, h_r_size, motion_code, motion_residual, full_pel_vector);
+    motion_code = ipu_vdec((int)s, 2);
+    motion_residual = (h_r_size != 0 && motion_code != 0) ? _nextBit(s, h_r_size) : 0;
+    decode_motion_vector(PMV, h_r_size, motion_code, motion_residual, full_pel_vector);
     if (dmv) {
-        dmvector[0] = func_001275A0((int)s);
+        dmvector[0] = mpeg_get_dmvector((int)s);
     }
 
-    motion_code = func_001286E8((int)s, 2);
-    motion_residual = (v_r_size != 0 && motion_code != 0) ? func_00128A58(s, v_r_size) : 0;
+    motion_code = ipu_vdec((int)s, 2);
+    motion_residual = (v_r_size != 0 && motion_code != 0) ? _nextBit(s, v_r_size) : 0;
     if (mvscale) {
         PMV[1] >>= 1;
     }
-    func_001281E8(PMV + 1, v_r_size, motion_code, motion_residual, full_pel_vector);
+    decode_motion_vector(PMV + 1, v_r_size, motion_code, motion_residual, full_pel_vector);
     if (mvscale) {
         PMV[1] <<= 1;
     }
     if (dmv) {
-        dmvector[1] = func_001275A0((int)s);
+        dmvector[1] = mpeg_get_dmvector((int)s);
     }
 }
 
-extern int D_00132F70[];
+extern int IpuCommandTable[];
 
-void func_00128560(char *arg0, unsigned int arg1) {
+void send_ipu_command(char *arg0, unsigned int arg1) {
     volatile int *reg = (volatile int *)0x10002000;
     *reg = arg1;
     *(int *)(arg0 + 0x818) = IpuCommandTable[arg1 >> 28];
 }
 
-extern void func_0012BCC8(int);
+extern void dispatch_mpeg_cb_nodata(int);
 
 /* Spins until the VIF1 DMA channel (D_CHCR 0x10002010) reports idle,
    nudging the IOP via func_0012BCC8 every 5001 spins so a stalled
    stream cannot deadlock. Same wait loop documented on func_00128860. */
-void func_00128590(void *arg0) {
+void wait_ipu_idle(void *arg0) {
     int counter = 0;
 
     while ((*(volatile int *)0x10002010 & 0x80004000) == 0x80000000) {
         if (counter++ >= 0x1389) {
-            func_0012BCC8(*(int *)((char *)arg0 + 0x858));
+            dispatch_mpeg_cb_nodata(*(int *)((char *)arg0 + 0x858));
             counter = 0;
         }
     }
@@ -1274,12 +1274,12 @@ void func_00128590(void *arg0) {
  * `volatile long *chcr` local made the compiler use the constant as an
  * absolute `ld` address instead (160 against 176 bytes).
  */
-long func_00128638(void *arg0) {
+long wait_ipu_cmd_result(void *arg0) {
     long v;
     int counter = 0;
     while ((v = *(volatile long *)0x10002000) < 0 && (*(volatile int *)0x10002010 & 0x4000) == 0) {
         if (counter++ >= 0x1389) {
-            func_0012BCC8(*(int *)((char *)arg0 + 0x858));
+            dispatch_mpeg_cb_nodata(*(int *)((char *)arg0 + 0x858));
             counter = 0;
         }
     }
@@ -1304,8 +1304,8 @@ typedef struct {
 #define IPU_BP   ((volatile unsigned int *)0x10002020)
 #define IPU_TOP  ((unsigned long *)0x10002030)
 
-/* _ipuVdec (libmpeg). Adapted from Lombyte (GPL-3.0) for PAL. */
-short func_001286E8(int arg0, int tbl) {
+/* _ipuVdec (libmpeg). Adapted from Lombyte's project (GPL-3.0) for PAL. */
+short ipu_vdec(int arg0, int tbl) {
     MpegVdec *d = (MpegVdec *)arg0;
     int i;
     int j;
@@ -1318,7 +1318,7 @@ short func_001286E8(int arg0, int tbl) {
     j = 0;
     while ((*IPU_CTRL & 0x80004000) == 0x80000000) {
         if (j++ > 5000) {
-            func_0012BCC8((int)d->cbData);
+            dispatch_mpeg_cb_nodata((int)d->cbData);
             j = 0;
         }
     }
@@ -1328,7 +1328,7 @@ short func_001286E8(int arg0, int tbl) {
     r = *IPU_CMD;
     while (r < 0) {
         if (i++ > 5000) {
-            func_0012BCC8((int)d->cbData);
+            dispatch_mpeg_cb_nodata((int)d->cbData);
             i = 0;
         }
         r = *IPU_CMD;
@@ -1397,8 +1397,8 @@ short func_001286E8(int arg0, int tbl) {
 /* _peepBit: return the next count bits of the IPU bit stream without
    consuming them, refilling the 32-bit window from the IPU (FDEC) when
    it runs short and nudging the callback while the IPU stays busy.
-   Adapted from Lombyte (GPL-3.0) for PAL. */
-int func_00128860(void *arg, int count) {
+   Adapted from Lombyte's project (GPL-3.0) for PAL. */
+int _peepBit(void *arg, int count) {
     char *ctx = arg;
     int counter;
 
@@ -1409,14 +1409,14 @@ int func_00128860(void *arg, int count) {
     if ((*(volatile unsigned int *)0x10002010 & 0x80004000) == 0x80000000) {
         do {
             if (counter++ >= 0x1389) {
-                func_0012BCC8(*(void **)(ctx + 0x858));
+                dispatch_mpeg_cb_nodata(*(void **)(ctx + 0x858));
                 counter = 0;
             }
         } while ((*(volatile unsigned int *)0x10002010 & 0x80004000) == 0x80000000);
     }
     *(volatile unsigned int *)0x10002000 = 0x40000000;
     *(int *)(ctx + 0x818) = IpuCommandTable[4];
-    *(int *)(ctx + 0x838) = func_00128638(ctx);
+    *(int *)(ctx + 0x838) = wait_ipu_cmd_result(ctx);
     *(int *)(ctx + 0x83C) = 0x20;
 done:
     return (unsigned int)*(int *)(ctx + 0x838) >> (0x20 - count);
@@ -1434,20 +1434,20 @@ done:
  * like retail; 2.95.3 hoists them into saved registers (SIZE 252/240).
  * The stores go in source order 0x838 then 0x83C.
  */
-void func_00128968(void *arg0, int arg1) {
+void _flushBuf(void *arg0, int arg1) {
     int counter = 0;
     unsigned int cmd;
 
     while ((*(volatile int *)0x10002010 & 0x80004000) == 0x80000000) {
         if (counter++ >= 0x1389) {
-            func_0012BCC8(*(int *)((char *)arg0 + 0x858));
+            dispatch_mpeg_cb_nodata(*(int *)((char *)arg0 + 0x858));
             counter = 0;
         }
     }
     cmd = arg1 | 0x40000000;
     *(volatile int *)0x10002000 = cmd;
     *(int *)((char *)arg0 + 0x818) = IpuCommandTable[cmd >> 28];
-    *(int *)((char *)arg0 + 0x838) = func_00128638(arg0);
+    *(int *)((char *)arg0 + 0x838) = wait_ipu_cmd_result(arg0);
     *(int *)((char *)arg0 + 0x83C) = 0x20;
 }
 
@@ -1456,7 +1456,7 @@ void func_00128968(void *arg0, int arg1) {
  * the IPU to consume them. The D_00132F70 index needs its own local,
  * computed before the command store, or the allocator swaps $v1 and $a0.
  */
-int func_00128A58(void *arg0, int n) {
+int _nextBit(void *arg0, int n) {
     char *s = (char *)arg0;
     int counter = 0;
     unsigned int cmd;
@@ -1466,7 +1466,7 @@ int func_00128A58(void *arg0, int n) {
 
     while ((*(volatile int *)0x10002010 & 0x80004000) == 0x80000000) {
         if (counter++ >= 0x1389) {
-            func_0012BCC8(*(int *)(s + 0x858));
+            dispatch_mpeg_cb_nodata(*(int *)(s + 0x858));
             counter = 0;
         }
     }
@@ -1474,7 +1474,7 @@ int func_00128A58(void *arg0, int n) {
     if (*(int *)(s + 0x818) != 0 || *(int *)(s + 0x83C) < n) {
         *(volatile int *)0x10002000 = 0x40000000;
         *(int *)(s + 0x818) = IpuCommandTable[4];
-        *(int *)(s + 0x838) = func_00128638(s);
+        *(int *)(s + 0x838) = wait_ipu_cmd_result(s);
     }
 
     *(int *)(s + 0x83C) = 0x20;
@@ -1484,39 +1484,39 @@ int func_00128A58(void *arg0, int n) {
     *(volatile unsigned int *)0x10002000 = cmd;
     result = oldBits >> (0x20 - n);
     *(int *)(s + 0x818) = IpuCommandTable[idx];
-    *(int *)(s + 0x838) = func_00128638(s);
+    *(int *)(s + 0x838) = wait_ipu_cmd_result(s);
     return result;
 }
 
 
-void func_00128BA8(void *arg0) {
+void next_start_code(void *arg0) {
     int pad;
 
-    func_00128590(arg0);
+    wait_ipu_idle(arg0);
     pad = -(*(volatile int *)0x10002020 & 7) & 7;
     if (pad != 0) {
-        func_00128968(arg0, pad);
+        _flushBuf(arg0, pad);
     }
-    while (func_00128860(arg0, 0x18) != 1) {
-        func_00128968(arg0, 8);
+    while (_peepBit(arg0, 0x18) != 1) {
+        _flushBuf(arg0, 8);
     }
 }
 
-extern void func_00129180(void *);
+extern void extra_bit_information(void *);
 
-int func_00128C28(void *arg0) {
-    *(int *)((char *)arg0 + 0x1B4) = func_00128A58(arg0, 5);
-    if (func_00128A58(arg0, 1) != 0) {
-        func_00128A58(arg0, 1);
-        func_00128968(arg0, 7);
-        func_00129180(arg0);
+int _sliceB(void *arg0) {
+    *(int *)((char *)arg0 + 0x1B4) = _nextBit(arg0, 5);
+    if (_nextBit(arg0, 1) != 0) {
+        _nextBit(arg0, 1);
+        _flushBuf(arg0, 7);
+        extra_bit_information(arg0);
     }
     return 0;
 }
 
-extern void func_0012C4E0(void *);
-extern void func_00129240(void *);
-extern void func_00128DA0(void *);
+extern void _sequenceHeader(void *);
+extern void _groupOfPicturesHeader(void *);
+extern void picture_header(void *);
 
 typedef struct {
     int n;
@@ -1531,27 +1531,27 @@ typedef struct {
  * +0x830), sequence_end (0x1B7, returns 0), anything else loops again.
  * On picture_start it returns picture_coding_type (+0x150).
  */
-int func_00128C90(void *arg0) {
+int mpeg_next_header(void *arg0) {
     char *s = (char *)arg0;
     unsigned int code;
     Buf18 buf;
 
     for (;;) {
-        func_00128BA8(s);
-        code = func_00128A58(s, 0x20);
+        next_start_code(s);
+        code = _nextBit(s, 0x20);
         switch (code) {
         case 0x1B3:
-            func_0012C4E0(s);
+            _sequenceHeader(s);
             break;
         case 0x1B8:
-            func_00129240(s);
+            _groupOfPicturesHeader(s);
             break;
         case 0x100:
-            func_00128DA0(s);
+            picture_header(s);
             buf.n = 5;
             buf.v[0] = -1;
             buf.v[1] = -1;
-            func_0012BC78(*(int *)(s + 0x858), &buf);
+            dispatch_mpeg_callback(*(int *)(s + 0x858), &buf);
             *(long long *)(s + 0x830) = buf.v[1];
             *(long long *)(s + 0x828) = buf.v[0];
             return *(int *)(s + 0x150);
@@ -1561,8 +1561,8 @@ int func_00128C90(void *arg0) {
     }
 }
 
-extern void func_00128E68(void *);
-extern void func_001291C8(void *, int);
+extern void _extensionAndUserData(void *);
+extern void update_temp_track_data(void *, int);
 
 /* pictureHeader (libmpeg.a:mpc.o): ISO/IEC 13818-2 6.2.3 picture_header().
  * temporal_reference (+bits 10) is kept live across the whole function to
@@ -1572,69 +1572,69 @@ extern void func_001291C8(void *, int);
  * knows) touch the struct. P_TYPE/B_TYPE (2/3) is the classic
  * (x-2)<2u range check; B_TYPE alone is a plain ==3.
  */
-void func_00128DA0(void *arg0) {
+void picture_header(void *arg0) {
     char *s = (char *)arg0;
-    int temporal_reference = func_00128A58(s, 10);
+    int temporal_reference = _nextBit(s, 10);
 
-    *(int *)(s + 0x150) = func_00128A58(s, 3);   /* picture_coding_type */
-    func_00128A58(s, 16);                         /* vbv_delay, discarded */
+    *(int *)(s + 0x150) = _nextBit(s, 3);   /* picture_coding_type */
+    _nextBit(s, 16);                         /* vbv_delay, discarded */
 
     if ((unsigned int)(*(int *)(s + 0x150) - 2) < 2) {
-        *(int *)(s + 0x154) = func_00128A58(s, 1);  /* full_pel_forward_vector */
-        *(int *)(s + 0x158) = func_00128A58(s, 3);  /* forward_f_code */
+        *(int *)(s + 0x154) = _nextBit(s, 1);  /* full_pel_forward_vector */
+        *(int *)(s + 0x158) = _nextBit(s, 3);  /* forward_f_code */
     }
     if (*(int *)(s + 0x150) == 3) {
-        *(int *)(s + 0x15C) = func_00128A58(s, 1);  /* full_pel_backward_vector */
-        *(int *)(s + 0x160) = func_00128A58(s, 3);  /* backward_f_code */
+        *(int *)(s + 0x15C) = _nextBit(s, 1);  /* full_pel_backward_vector */
+        *(int *)(s + 0x160) = _nextBit(s, 3);  /* backward_f_code */
     }
 
-    func_00129180(s);   /* extra_bit_information */
-    func_00128E68(s);   /* extension_and_user_data */
-    func_001291C8(s, temporal_reference);  /* Update_Temporal_Reference_Tacking_Data */
+    extra_bit_information(s);   /* extra_bit_information */
+    _extensionAndUserData(s);   /* extension_and_user_data */
+    update_temp_track_data(s, temporal_reference);  /* Update_Temporal_Reference_Tacking_Data */
 }
 
-extern void func_0012CC40(void *);
-extern void func_0012CA70(void *);
-extern void func_0012CBA0(void *);
-extern void func_001292E0(void *);
-extern void func_001294A0(void *);
-extern void func_0012CC30(void *);
-extern void func_001293A8(void *);
-extern void func_00128F90(void *);
-extern void func_0012CC50(void *);
-extern void func_0012CC60(void *);
+extern void report_unknown_mpeg_extension(void *);
+extern void _sequenceExtension(void *);
+extern void _sequenceDisplayExtension(void *);
+extern void _quantMatrixExtension(void *);
+extern void _copyrightExtension(void *);
+extern void _sequenceScalableExtension(void *);
+extern void picture_display_extension(void *);
+extern void _pictureCodingExtension(void *);
+extern void _pictureSpatialScalableExtension(void *);
+extern void _pictureTemporalScalableExtension(void *);
 
 
 /* _extensionAndUserData (libmpeg.a:mpc.o): extension_and_user_data */
-void func_00128E68(void *arg0) {
+void _extensionAndUserData(void *arg0) {
     char *s = (char *)arg0;
     void (*funcs[])(void *) = {
-        func_0012CC40,
-        func_0012CA70,
-        func_0012CBA0,
-        func_001292E0,
-        func_001294A0,
-        func_0012CC30,
-        func_0012CC40,
-        func_001293A8,
-        func_00128F90,
-        func_0012CC50,
-        func_0012CC60,
+        report_unknown_mpeg_extension,
+        _sequenceExtension,
+        _sequenceDisplayExtension,
+        _quantMatrixExtension,
+        _copyrightExtension,
+        _sequenceScalableExtension,
+        report_unknown_mpeg_extension,
+        picture_display_extension,
+        _pictureCodingExtension,
+        _pictureSpatialScalableExtension,
+        _pictureTemporalScalableExtension,
     };
     int code;
     unsigned int ext_id;
 
-    func_00128BA8(s);
-    while ((code = func_00128860(s, 32)) == 0x1B5 || code == 0x1B2) {
+    next_start_code(s);
+    while ((code = _peepBit(s, 32)) == 0x1B5 || code == 0x1B2) {
         if (code == 0x1B5) {
-            func_00128968(s, 32);
-            ext_id = func_00128A58(s, 4);
+            _flushBuf(s, 32);
+            ext_id = _nextBit(s, 4);
             ext_id = ext_id <= 10 ? ext_id : 0;
             funcs[ext_id](s);
-            func_00128BA8(s);
+            next_start_code(s);
         } else {
-            func_00128968(s, 32);
-            func_00128BA8(s);
+            _flushBuf(s, 32);
+            next_start_code(s);
         }
     }
 }
@@ -1659,49 +1659,49 @@ typedef struct {
    the four f_codes, intra DC precision, q_scale_type, intra VLC format
    and alternate scan straight into IPU_CTRL (0x10002010), the rest into
    the decoder state; the composite display fields are skipped. Adapted
-   from Lombyte (GPL-3.0) for PAL. */
-void func_00128F90(void *arg) {
+   from Lombyte's project (GPL-3.0) for PAL. */
+void _pictureCodingExtension(void *arg) {
     PicExt *arg0 = arg;
     int temp_2_35;
     int temp_6_65;
     int temp_6_77;
     int temp_6_89;
 
-    arg0->f_code00 = func_00128A58(arg0, 4);
-    arg0->f_code01 = func_00128A58(arg0, 4);
-    arg0->f_code10 = func_00128A58(arg0, 4);
-    arg0->f_code11 = func_00128A58(arg0, 4);
-    *(int *)0x10002010 = (*(int *)0x10002010 & 0xFFFCFFFF) | (func_00128A58(arg0, 2) << 0x10);
-    temp_2_35 = func_00128A58(arg0, 2);
+    arg0->f_code00 = _nextBit(arg0, 4);
+    arg0->f_code01 = _nextBit(arg0, 4);
+    arg0->f_code10 = _nextBit(arg0, 4);
+    arg0->f_code11 = _nextBit(arg0, 4);
+    *(int *)0x10002010 = (*(int *)0x10002010 & 0xFFFCFFFF) | (_nextBit(arg0, 2) << 0x10);
+    temp_2_35 = _nextBit(arg0, 2);
     arg0->picture_structure = temp_2_35;
     if (arg0->pict_struct0 == 0) {
         arg0->pict_struct0 = temp_2_35;
     }
-    arg0->top_field_first = func_00128A58(arg0, 1);
-    arg0->frame_pred_frame_dct = func_00128A58(arg0, 1);
-    arg0->concealment_mvs = func_00128A58(arg0, 1);
-    temp_6_65 = (*(volatile unsigned int *)0x10002010 & 0xFFBFFFFF) | (func_00128A58(arg0, 1) << 0x16);
+    arg0->top_field_first = _nextBit(arg0, 1);
+    arg0->frame_pred_frame_dct = _nextBit(arg0, 1);
+    arg0->concealment_mvs = _nextBit(arg0, 1);
+    temp_6_65 = (*(volatile unsigned int *)0x10002010 & 0xFFBFFFFF) | (_nextBit(arg0, 1) << 0x16);
     *(volatile unsigned int *)0x10002010 = temp_6_65;
-    temp_6_77 = (*(volatile unsigned int *)0x10002010 & 0xFFDFFFFF) | (func_00128A58(arg0, 1) << 0x15);
+    temp_6_77 = (*(volatile unsigned int *)0x10002010 & 0xFFDFFFFF) | (_nextBit(arg0, 1) << 0x15);
     *(volatile unsigned int *)0x10002010 = temp_6_77;
-    temp_6_89 = (*(volatile unsigned int *)0x10002010 & 0xFFEFFFFF) | (func_00128A58(arg0, 1) << 0x14);
+    temp_6_89 = (*(volatile unsigned int *)0x10002010 & 0xFFEFFFFF) | (_nextBit(arg0, 1) << 0x14);
     *(volatile unsigned int *)0x10002010 = temp_6_89;
-    arg0->repeat_first_field = func_00128A58(arg0, 1);
-    func_00128A58(arg0, 1);
-    arg0->progressive_frame = func_00128A58(arg0, 1);
-    if (func_00128A58(arg0, 1) != 0) {
-        func_00128A58(arg0, 1);
-        func_00128A58(arg0, 3);
-        func_00128A58(arg0, 1);
-        func_00128A58(arg0, 7);
-        func_00128A58(arg0, 8);
+    arg0->repeat_first_field = _nextBit(arg0, 1);
+    _nextBit(arg0, 1);
+    arg0->progressive_frame = _nextBit(arg0, 1);
+    if (_nextBit(arg0, 1) != 0) {
+        _nextBit(arg0, 1);
+        _nextBit(arg0, 3);
+        _nextBit(arg0, 1);
+        _nextBit(arg0, 7);
+        _nextBit(arg0, 8);
     }
 }
 
 
-void func_00129180(void *arg0) {
-    while (func_00128A58(arg0, 1) != 0) {
-        func_00128968(arg0, 8);
+void extra_bit_information(void *arg0) {
+    while (_nextBit(arg0, 1) != 0) {
+        _flushBuf(arg0, 8);
     }
 }
 
@@ -1709,7 +1709,7 @@ void func_00129180(void *arg0) {
  * Updates bitstream frame numbers based on picture_coding_type (+0x150),
  * Temporal_Reference_Base (+0x84C), and GOP reset state (+0x854).
  */
-void func_001291C8(void *arg0, int arg1) {
+void update_temp_track_data(void *arg0, int arg1) {
     char *s = (char *)arg0;
     int flag = 0;
     int x = 0;
@@ -1752,28 +1752,28 @@ void func_001291C8(void *arg0, int arg1) {
  * broken_link(1) are kept at +0x1A4/+0x1A8; ends with a tail call into
  * extensionAndUserData.
  */
-void func_00129240(void *arg0) {
+void _groupOfPicturesHeader(void *arg0) {
     char *s = (char *)arg0;
 
     *(int *)(s + 0xE8) = 0;
     *(int *)(s + 0x84C) = *(int *)(s + 0x850) + 1;
     *(int *)(s + 0x854) = 1;
 
-    func_00128A58(s, 1);  /* drop_flag */
-    func_00128A58(s, 5);  /* hour */
-    func_00128A58(s, 6);  /* minute */
-    func_00128A58(s, 1);  /* marker_bit */
-    func_00128A58(s, 6);  /* sec */
-    func_00128A58(s, 6);  /* frame */
-    *(int *)(s + 0x1A4) = func_00128A58(s, 1);  /* closed_gop */
-    *(int *)(s + 0x1A8) = func_00128A58(s, 1);  /* broken_link */
+    _nextBit(s, 1);  /* drop_flag */
+    _nextBit(s, 5);  /* hour */
+    _nextBit(s, 6);  /* minute */
+    _nextBit(s, 1);  /* marker_bit */
+    _nextBit(s, 6);  /* sec */
+    _nextBit(s, 6);  /* frame */
+    *(int *)(s + 0x1A4) = _nextBit(s, 1);  /* closed_gop */
+    *(int *)(s + 0x1A8) = _nextBit(s, 1);  /* broken_link */
 
-    func_00128E68(s);
+    _extensionAndUserData(s);
 }
 
-extern void func_0012C468(void *, void *);
-extern char D_001539E8[];
-extern char D_00153A10[];
+extern void _Error(void *, void *);
+extern char str_mpeg_load_chroma_intra_qm[];
+extern char str_mpeg_load_chroma_non_intra_qm[];
 
 /* quantMatrixExtension (libmpeg.a:mpc.o): ISO/IEC 13818-2 6.2.3.2
  * quant_matrix_extension(). Unlike the reference decoder's 64-coefficient
@@ -1784,32 +1784,32 @@ extern char D_00153A10[];
  * +0x840/+0x844 either way. The chroma variants aren't hardware-supported:
  * setting either just logs a warning through func_0012C468.
  */
-void func_001292E0(void *arg0) {
+void _quantMatrixExtension(void *arg0) {
     char *s = (char *)arg0;
     int flag;
 
-    flag = func_00128A58(s, 1);        /* load_intra_quantizer_matrix */
+    flag = _nextBit(s, 1);        /* load_intra_quantizer_matrix */
     *(int *)(s + 0x840) = flag;
     if (flag != 0) {
-        func_00128590(s);
-        func_00128560(s, 0x50000000);
-        func_00128590(s);
+        wait_ipu_idle(s);
+        send_ipu_command(s, 0x50000000);
+        wait_ipu_idle(s);
     }
 
-    flag = func_00128A58(s, 1);        /* load_non_intra_quantizer_matrix */
+    flag = _nextBit(s, 1);        /* load_non_intra_quantizer_matrix */
     *(int *)(s + 0x844) = flag;
     if (flag != 0) {
-        func_00128590(s);
-        func_00128560(s, 0x58000000);
-        func_00128590(s);
+        wait_ipu_idle(s);
+        send_ipu_command(s, 0x58000000);
+        wait_ipu_idle(s);
     }
 
-    if (func_00128A58(s, 1) != 0) {    /* load_chroma_intra_quantizer_matrix */
-        func_0012C468(s, D_001539E8);
+    if (_nextBit(s, 1) != 0) {    /* load_chroma_intra_quantizer_matrix */
+        _Error(s, str_mpeg_load_chroma_intra_qm);
     }
 
-    if (func_00128A58(s, 1) != 0) {    /* load_chroma_non_intra_quantizer_matrix */
-        func_0012C468(s, D_00153A10);
+    if (_nextBit(s, 1) != 0) {    /* load_chroma_non_intra_quantizer_matrix */
+        _Error(s, str_mpeg_load_chroma_non_intra_qm);
     }
 }
 typedef struct {
@@ -1827,7 +1827,7 @@ typedef struct {
     int  f2[3];
 } State;
 
-void func_001293A8(void *arg0) {
+void picture_display_extension(void *arg0) {
     State *s = (State *)arg0;
     int count;
     int i;
@@ -1847,10 +1847,10 @@ void func_001293A8(void *arg0) {
     }
 
     for (i = 0; i < count; i++) {
-        s->f1[i] = func_00128A58(s, 0x10);
-        func_00128A58(s, 1);
-        s->f2[i] = func_00128A58(s, 0x10);
-        func_00128A58(s, 1);
+        s->f1[i] = _nextBit(s, 0x10);
+        _nextBit(s, 1);
+        s->f2[i] = _nextBit(s, 0x10);
+        _nextBit(s, 1);
     }
 }
 
@@ -1863,22 +1863,22 @@ void func_001293A8(void *arg0) {
  * elides -- the sequence is bare `nextBit(s, width)` calls, and the final
  * one, its value discarded, becomes 2.9-ee's bare tail jump.
  */
-void func_001294A0(void *arg0) {
-    func_00128A58(arg0, 1);   /* copyright_flag */
-    func_00128A58(arg0, 8);   /* copyright_identifier */
-    func_00128A58(arg0, 1);   /* original_or_copy */
-    func_00128A58(arg0, 7);   /* reserved */
-    func_00128A58(arg0, 1);   /* marker_bit */
-    func_00128A58(arg0, 20);  /* copyright_number_1 */
-    func_00128A58(arg0, 1);   /* marker_bit */
-    func_00128A58(arg0, 22);  /* copyright_number_2 */
-    func_00128A58(arg0, 1);   /* marker_bit */
-    func_00128A58(arg0, 22);  /* copyright_number_3 */
+void _copyrightExtension(void *arg0) {
+    _nextBit(arg0, 1);   /* copyright_flag */
+    _nextBit(arg0, 8);   /* copyright_identifier */
+    _nextBit(arg0, 1);   /* original_or_copy */
+    _nextBit(arg0, 7);   /* reserved */
+    _nextBit(arg0, 1);   /* marker_bit */
+    _nextBit(arg0, 20);  /* copyright_number_1 */
+    _nextBit(arg0, 1);   /* marker_bit */
+    _nextBit(arg0, 22);  /* copyright_number_2 */
+    _nextBit(arg0, 1);   /* marker_bit */
+    _nextBit(arg0, 22);  /* copyright_number_3 */
 }
 
-extern int func_00127858(void *);
-extern char D_00153A40[];
-extern char D_00153A60[];
+extern int _pictureData0(void *);
+extern char str_mpeg_odd_field_pictures[];
+extern char str_mpeg_unknown_picture_structure[];
 
 /*
  * Decoder state step: if the picture state (s+0x174) is 3 and s+0x120 is
@@ -1897,14 +1897,14 @@ extern char D_00153A60[];
  * re-read into the local after the report, as 2.95.3 needs; switching on
  * the memory re-read is exact under 2.9-ee too.
  */
-int func_00129530(void *arg0) {
+int mpeg_dec_picture(void *arg0) {
     char *s = arg0;
     int state = *(int *)(s + 0x174);
     char *target;
     int r;
 
     if (state == 3 && *(int *)(s + 0x120) != 0) {
-        func_0012C468(s, D_00153A40);
+        _Error(s, str_mpeg_odd_field_pictures);
         *(int *)(s + 0x120) = 0;
         state = *(int *)(s + 0x174);
     }
@@ -1920,19 +1920,19 @@ int func_00129530(void *arg0) {
         break;
     default:
         target = *(char **)(s + 0x1C0);
-        func_0012C468(s, D_00153A60);
+        _Error(s, str_mpeg_unknown_picture_structure);
         break;
     }
-    r = func_00127858(s);
+    r = _pictureData0(s);
     if (r != 0) {
         *(int *)(target + 0x28) = 1;
     }
     return r;
 }
 
-extern void func_00129E30();
+extern void _dispRefImage();
 
-void func_00129600(void *arg0, int arg1, int arg2) {
+void mpeg_output_frame(void *arg0, int arg1, int arg2) {
     char *s = (char *)arg0;
     int v, w;
 
@@ -1943,7 +1943,7 @@ void func_00129600(void *arg0, int arg1, int arg2) {
             } else {
                 v = *(int *)(s + 0x1B8);
             }
-            func_00129E30(s, v, arg1 - 1);
+            _dispRefImage(s, v, arg1 - 1);
         } else {
             if (*(int *)(s + 0x150) == 3) {
                 v = *(int *)(s + 0x1D4);
@@ -1952,7 +1952,7 @@ void func_00129600(void *arg0, int arg1, int arg2) {
                 v = *(int *)(s + 0x1C8);
                 w = *(int *)(s + 0x1D8);
             }
-            func_00129F40(s, v, w, arg1 - 1);
+            _dispRefImageField(s, v, w, arg1 - 1);
         }
     }
     if (*(int *)(s + 0xF8) == 1) {
@@ -1968,7 +1968,7 @@ void func_00129600(void *arg0, int arg1, int arg2) {
 #define PI_(o) (*(int *)((char *)p + (o)))
 #define PP_(o) (*(char **)((char *)p + (o)))
 #define RDY_(o) (*(int *)(PP_(o) + 0x28))
-int func_00129690(void *p, int arg1) {
+int mpeg_update_ref_image(void *p, int arg1) {
     char *rec;
     int ret;
     int n;
@@ -2070,16 +2070,16 @@ int func_00129690(void *p, int arg1) {
 #undef PP_
 #undef RDY_
 
-extern char D_00153A80[];
-extern void func_00116248_4(void *, char *, int, int) __asm__("func_00116248");
-extern void func_0012C468_a(void *, void *) __asm__("func_0012C468");
+extern char str_mpeg_buffer_too_small_fmt[];
+extern void sprintf_4(void *, char *, int, int) __asm__("func_00116248");
+extern void _Error_a(void *, void *) __asm__("func_0012C468");
 
 /* Does the request at arg1 fit the heap described by arg0? A sized
    request (+0xE0 non-zero) has to fit both the byte budget at +0xDC and
    the entry budget at +0xE0; an unsized one has to fit width * height
    against +0xE4. On a refusal, format the two figures into the message
    at D_00153A80 and report it. Returns whether it fits. */
-int func_00129948(void *arg0, void *arg1) {
+int _isOutSizeOK(void *arg0, void *arg1) {
     char buf[0x100];
     char *h = (char *)arg0;
     char *q = (char *)arg1;
@@ -2093,9 +2093,9 @@ int func_00129948(void *arg0, void *arg1) {
         ok = *(int *)(h + 0xE4) >= *(int *)(q + 0xC) * *(int *)(q + 0x10);
     }
     if (ok == 0) {
-        func_00116248_4(buf, D_00153A80, *(int *)(q + 0x4),
+        sprintf_4(buf, str_mpeg_buffer_too_small_fmt, *(int *)(q + 0x4),
                         *(int *)(q + 0x8));
-        func_0012C468_a(arg0, buf);
+        _Error_a(arg0, buf);
     }
     return ok;
 }
@@ -2119,9 +2119,9 @@ struct Cpr8Pic {
 
 /* _cpr8 (libmpeg): copy a decoded picture to its destination with two
    chained DMA transfers per row, per field (two fields when +0xE0 gives
-   an interlaced width). Adapted from Lombyte (GPL-3.0) for PAL; its
+   an interlaced width). Adapted from Lombyte's project (GPL-3.0) for PAL; its
    goto-shaped control flow is what matches. */
-void func_001299E8(struct Cpr8Mpeg *arg0, struct Cpr8Pic *arg1) {
+void _cpr8(struct Cpr8Mpeg *arg0, struct Cpr8Pic *arg1) {
     struct Cpr8Mpeg *m;
     int fields;
     int base;
@@ -2174,7 +2174,7 @@ block_9:
     while (f < fields) {
         dst = base;
         for (i = 0; i < arg1->unkC; i++) {
-            intr1 = func_0011D960();
+            intr1 = disable_interrupts();
             *(volatile int *)0x1000D480 = 0;
             *(volatile int *)0x1000D410 = src;
             *(volatile int *)0x1000D420 = qwc;
@@ -2182,11 +2182,11 @@ block_9:
             if (intr1 == 0) {
                 goto block_15;
             }
-            func_0011D9A8();
+            enable_interrupts();
         block_15:
             while (*(volatile unsigned int *)0x1000D400 & 0x100) {
             }
-            intr2 = func_0011D960();
+            intr2 = disable_interrupts();
             *(volatile int *)0x1000D080 = 0;
             *(volatile int *)0x1000D010 = dst;
             *(volatile int *)0x1000D020 = qwc;
@@ -2194,7 +2194,7 @@ block_9:
             if (intr2 == 0) {
                 goto block_19;
             }
-            func_0011D9A8();
+            enable_interrupts();
         block_19:
             while (*(volatile unsigned int *)0x1000D000 & 0x100) {
             }
@@ -2209,7 +2209,7 @@ block_9:
     return;
 }
 
-int func_00129C78(void *arg0) {
+int mpeg_mark_picture_output(void *arg0) {
     Obj40 *s = (Obj40 *)arg0;
     int r = 1;
     if (s->unk008 != 2) {
@@ -2221,7 +2221,7 @@ int func_00129C78(void *arg0) {
     return r;
 }
 
-long func_00129CA0(void *arg0, void *arg1, void *arg2, void *arg3, void *arg4) {
+long _getPtsDtsFlags(void *arg0, void *arg1, void *arg2, void *arg3, void *arg4) {
     char *s = arg0;
     char *t = arg1;
     long *o1 = arg2;
@@ -2260,19 +2260,19 @@ long func_00129CA0(void *arg0, void *arg1, void *arg2, void *arg3, void *arg4) {
     return packed;
 }
 
-extern long func_00129CA0(void *s, void *t, void *o1, void *o3, void *o4);
-extern unsigned int D_00132F98[];
-extern void func_0012A7E8(void *arg0, void *arg1);
-void func_00129E30(char *s, char *t) {
+extern long _getPtsDtsFlags(void *s, void *t, void *o1, void *o3, void *o4);
+extern unsigned int mpeg_display_field_count_table[];
+extern void _csc_storeRefImage(void *arg0, void *arg1);
+void _dispRefImage(char *s, char *t) {
     char *base;
     long x;
 
     base = *(char **)(s + 0x858);
-    func_00129CA0(s, t, base + 0x10, base + 0x18, base + 0x20);
+    _getPtsDtsFlags(s, t, base + 0x10, base + 0x18, base + 0x20);
     base = *(char **)(s + 0x858);
     x = *(long *)(base + 0x20);
     *(int *)(s + 0x80) = *(int *)(base + 0x10);
-    *(unsigned long *)(s + 0x88) = D_00132F98[(int)(x >> 5) & 0xF];
+    *(unsigned long *)(s + 0x88) = mpeg_display_field_count_table[(int)(x >> 5) & 0xF];
     *(int *)(s + 0xCC) = *(int *)(t + 0x5C);
     *(int *)(s + 0xD0) = *(int *)(t + 0x60);
     *(int *)(s + 0xB4) = *(int *)(t + 0x44);
@@ -2281,18 +2281,18 @@ void func_00129E30(char *s, char *t) {
     *(int *)(s + 0xC0) = *(int *)(t + 0x50);
     *(int *)(s + 0xC4) = *(int *)(t + 0x54);
     *(int *)(s + 0xC8) = *(int *)(t + 0x58);
-    if (func_00129948(s, t) == 0) return;
+    if (_isOutSizeOK(s, t) == 0) return;
     if (*(int *)(t + 0x28) != 1) return;
     if (*(int *)(s + 0xB0) != 0) {
-        func_0012A7E8(s, t);
+        _csc_storeRefImage(s, t);
     } else {
-        func_001299E8((void *)s, (void *)t);
+        _cpr8((void *)s, (void *)t);
     }
-    func_00129C78(s);
+    mpeg_mark_picture_output(s);
 }
 
-extern long func_00129CA0(void *s, void *t, void *o1, void *o3, void *o4);
-extern void func_0012A7E8(void *arg0, void *arg1);
+extern long _getPtsDtsFlags(void *s, void *t, void *o1, void *o3, void *o4);
+extern void _csc_storeRefImage(void *arg0, void *arg1);
 
 /* Transcribed from the assembly. Two calls to func_00129CA0 (one for each record,
    with the flag at +0x88 set to 1 for the second), a third that copies fields of
@@ -2300,7 +2300,7 @@ extern void func_0012A7E8(void *arg0, void *arg1);
    p1+0x10 with a tail call to func_00129C78, or an early return. Retail's $2 return
    value is not read by the caller (func_00129600 declares this function void), so
    the early returns just return. */
-void func_00129F40(char *s, char *a1, char *a2) {
+void _dispRefImageField(char *s, char *a1, char *a2) {
     char *p1;
     char *p2;
     char *t1;
@@ -2327,12 +2327,12 @@ void func_00129F40(char *s, char *a1, char *a2) {
         t2 = p1;
     }
     base = *(char **)(s + 0x858);
-    func_00129CA0(s, t1, base + 0x10, base + 0x18, base + 0x20);
+    _getPtsDtsFlags(s, t1, base + 0x10, base + 0x18, base + 0x20);
     base2 = *(char **)(s + 0x858);
     w = *(int *)(base2 + 0x10);
     ((union { long l; int i; } *)(s + 0x88))->l = 1;
     *(int *)(s + 0x80) = w;
-    func_00129CA0(s, t2, base2 + 0x28, base2 + 0x30, base2 + 0x38);
+    _getPtsDtsFlags(s, t2, base2 + 0x28, base2 + 0x30, base2 + 0x38);
     base3 = *(char **)(s + 0x858);
     w2 = *(int *)(base3 + 0x28);
     ((union { long l; int i; } *)(s + 0x88))->l = 1;
@@ -2347,21 +2347,21 @@ void func_00129F40(char *s, char *a1, char *a2) {
     *(int *)(s + 0xB8) = *(int *)(t2 + 0x48);
     *(int *)(s + 0xC0) = *(int *)(t1 + 0x50);
     *(int *)(s + 0xC4) = *(int *)(t2 + 0x54);
-    r = func_00129948(s, p1);
+    r = _isOutSizeOK(s, p1);
     if (r == 0) return;
     if (*(int *)(p1 + 0x28) != 1) return;
     if (*(int *)(p2 + 0x28) != 1) return;
     *(int *)(p1 + 0x10) = (int)((unsigned int)*(int *)(p1 + 0x10) << 1);
     if (*(int *)(s + 0xB0) != 0) {
-        func_0012A7E8(s, p1);
+        _csc_storeRefImage(s, p1);
     } else {
-        func_001299E8((void *)s, (void *)p1);
+        _cpr8((void *)s, (void *)p1);
     }
     *(int *)(p1 + 0x10) = *(int *)(p1 + 0x10) >> 1;
-    func_00129C78(s);
+    mpeg_mark_picture_output(s);
 }
 
-extern char D_0015E940[];
+extern char mpeg_ref_image_chain[];
 
 struct DmaEnt {
     int unk0;
@@ -2379,7 +2379,7 @@ struct DmaObj {
 };
 
 /* Builds a DMA tag chain (two 64-bit tags per entry) at the uncached alias of D_0015E940, then starts DMA channel 0x1000D400 on it. */
-void func_0012A0F8(void *arg0) {
+void dma_ref_image(void *arg0) {
     struct DmaObj *s = arg0;
     int m;
     int n;
@@ -2404,14 +2404,14 @@ void func_0012A0F8(void *arg0) {
         p[2] = ((long)hi << 32) | (tag << 28) | 0x30;
         p += 4;
     } while (++i < n);
-    r = func_0011D960();
+    r = disable_interrupts();
     __asm__ __volatile__("sync");
     *(volatile int *)0x1000D480 = s->e[s->unk810].unk0;
     *(volatile int *)0x1000D430 = (int)mpeg_ref_image_chain;
     *(volatile int *)0x1000D420 = 0;
     *(volatile int *)0x1000D400 = 0x105;
     if (r != 0) {
-        func_0011D9A8();
+        enable_interrupts();
     }
 }
 
@@ -2424,13 +2424,13 @@ void func_0012A0F8(void *arg0) {
  * | 0x80000000 (spr flag), QWC = arg1 >> 4 (bytes -> qwords), CHCR = 0x100
  * (start, from-memory... actually to-memory chain/normal mode).
  */
-void func_0012A268(void *arg0, int arg1) {
-    int r = func_0011D960();
+void receive_data_from_ipu(void *arg0, int arg1) {
+    int r = disable_interrupts();
     *(volatile unsigned int *)0x1000B010 = ((unsigned int)arg0 & 0x0FFFFFFF) | 0x80000000;
     *(volatile unsigned int *)0x1000B020 = arg1 >> 4;
     *(volatile unsigned int *)0x1000B000 = 0x100;
     if (r != 0) {
-        func_0011D9A8();
+        enable_interrupts();
     }
 }
 
