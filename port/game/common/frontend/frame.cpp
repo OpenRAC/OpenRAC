@@ -1384,7 +1384,8 @@ void choose_repeat_frame(int level, bool debug) {
          level >= 0 && level < 19,
          k.packets.size(),
          k.before_world,
-         g->frame.id() != 0}
+         g->frame.id() != 0,
+         level}
     );
     g->repeat_frame = picture == TickPicture::Repeat;
     g->overdraw = picture == TickPicture::Overdraw;

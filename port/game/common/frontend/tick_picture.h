@@ -38,6 +38,7 @@ struct TickFacts {
     std::size_t packets = 0;       // the 2D list's bytes
     std::size_t before_world = 0;  // of those, the bytes before the world
     bool has_picture = false;      // a frame has been drawn to stand or go over
+    int level = -1;                // the level program loaded (-1: the boot program)
 };
 
 // Decides each tick's start from it and the ticks before. A value, used by the game's thread.
@@ -55,9 +56,18 @@ public:
         const bool nothing_after_world = tick.packets <= tick.before_world;
         const bool unfinished = tick.has_camera && world
                                 && (tick.packets == 0 || (nothing_after_world && !m_last_world));
+        // Another level program loaded forgets this level's pictures: what was shown last is
+        // another program's (the loading picture, when a save is loaded in play, whose camera is
+        // still in the game's memory), not this level's frame.
+        if (tick.level != m_level) {
+            m_world_in_level = m_level == kNoLevel;
+            m_level = tick.level;
+        }
+        m_world_in_level = m_world_in_level || world;
         // A level's tick with a camera and no world, whose list is not a page menu's: the picture
-        // shown stays under its 2D.
-        const bool over = !world && !menu_list && tick.has_camera && tick.in_level;
+        // shown stays under its 2D, once this level has drawn its world.
+        const bool over =
+            !world && !menu_list && tick.has_camera && tick.in_level && m_world_in_level;
         m_last_world = world;
         if (!tick.has_picture) {
             return TickPicture::Draw;
@@ -69,8 +79,12 @@ public:
     }
 
 private:
-    int m_menu_gap_ticks = 0;  // ticks in a row with no world under a page menu's list
-    bool m_last_world = true;  // the tick before drew a world layer
+    static constexpr int kNoLevel = -2;  // no tick chosen yet
+
+    int m_menu_gap_ticks = 0;      // ticks in a row with no world under a page menu's list
+    bool m_last_world = true;      // the tick before drew a world layer
+    int m_level = kNoLevel;        // the level program of the tick before
+    bool m_world_in_level = true;  // a world was drawn since that program was loaded
 };
 
 }  // namespace openrac::frontend
