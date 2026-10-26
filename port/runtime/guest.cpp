@@ -8,6 +8,7 @@
 #include "openrac/guest.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -698,6 +699,36 @@ gaddr g_exe_base = 0;
 std::map<int, LevelMap> g_level_maps;
 std::mutex g_relocate_lock;
 
+// The answers already looked up, per thread, so the frequent ones skip the lock: the tables they
+// come from are built once per overlay (or pair of levels) and never change, so an answer stays
+// right for its key.
+class RelocationCache {
+public:
+    const gaddr* find(std::int64_t key, gaddr address) const {
+        const Entry& e = m_entries[slot(address)];
+        return e.key == key && e.address == address ? &e.result : nullptr;
+    }
+
+    void put(std::int64_t key, gaddr address, gaddr result) {
+        m_entries[slot(address)] = {address, key, result};
+    }
+
+private:
+    struct Entry {
+        gaddr address = 0;
+        std::int64_t key = INT64_MIN;  // none
+        gaddr result = 0;
+    };
+
+    static constexpr std::size_t kEntries = 2048;
+
+    static std::size_t slot(gaddr address) {
+        return ((address >> 2) ^ (address >> 13)) & (kEntries - 1);
+    }
+
+    std::array<Entry, kEntries> m_entries{};
+};
+
 int current_overlay() {
     if (g_overlay_source != nullptr) {
         g_overlay = g_overlay_source();
@@ -1177,6 +1208,36 @@ gaddr search_pair(gaddr address, int overlay) {
     return 0;
 }
 
+// What openrac_relocate_data() answers for an address in a level's program, looked up in its tables
+// under the lock.
+gaddr relocate_data_slow(gaddr address, int overlay) {
+    std::scoped_lock hold(g_relocate_lock);
+    const LevelMap& map = level_map(overlay);
+    // A global's own address is what the code names (offsets are added after): exact pairs first;
+    // otherwise the nearest pair below it, if close (inside the same object).
+    auto it =
+        std::upper_bound(map.data.begin(), map.data.end(), std::make_pair(address, INT32_MAX));
+    if (it == map.data.begin() || address - std::prev(it)->first > 0x100) {
+        LevelMap& found = level_map(overlay);
+        auto s = found.searched.find(address);
+        if (s == found.searched.end()) {
+            s = found.searched.emplace(address, search_pair(address, overlay)).first;
+            if (openrac::env::flag(openrac::env::Var::TraceRelocation)) {
+                warn(
+                    "executable address {:#x} has no paired address within 0x100 below it in level "
+                    "{}; {}",
+                    address,
+                    overlay,
+                    s->second != 0 ? std::format("found by its code at {:#x}", s->second) : "kept"
+                );
+            }
+        }
+        return s->second != 0 ? s->second : address;
+    }
+    --it;
+    return address + static_cast<gaddr>(it->second);
+}
+
 }  // namespace
 
 extern "C" {
@@ -1204,25 +1265,13 @@ gaddr openrac_relocate_data(gaddr address) {
     if (address == g_relocate_gp && address != 0) {
         return address;
     }
-    std::scoped_lock hold(g_relocate_lock);
-    const LevelMap& map = level_map(overlay);
-    // A global's own address is what the code names (offsets are added after): exact pairs first;
-    // otherwise the nearest pair below it, if close (inside the same object).
-    auto it = std::upper_bound(map.data.begin(), map.data.end(), std::make_pair(address, INT32_MAX));
-    if (it == map.data.begin() || address - std::prev(it)->first > 0x100) {
-        LevelMap& found = level_map(overlay);
-        auto s = found.searched.find(address);
-        if (s == found.searched.end()) {
-            s = found.searched.emplace(address, search_pair(address, overlay)).first;
-            if (openrac::env::flag(openrac::env::Var::TraceRelocation)) {
-                warn("executable address {:#x} has no paired address within 0x100 below it in level {}; {}",
-                     address, overlay, s->second != 0 ? std::format("found by its code at {:#x}", s->second) : "kept");
-            }
-        }
-        return s->second != 0 ? s->second : address;
+    thread_local RelocationCache cache;
+    if (const gaddr* known = cache.find(overlay, address)) {
+        return *known;
     }
-    --it;
-    return address + static_cast<gaddr>(it->second);
+    const gaddr relocated = relocate_data_slow(address, overlay);
+    cache.put(overlay, address, relocated);
+    return relocated;
 }
 
 gaddr openrac_relocate_code(gaddr address) {
@@ -1264,8 +1313,19 @@ gaddr openrac_relocate_level_data(int from, gaddr address) {
     if (overlay == from || overlay == OPENRAC_OVERLAY_EXE || address - kLevelLow >= kLevelHigh - kLevelLow) {
         return address;
     }
-    std::scoped_lock hold(g_relocate_lock);
-    return relocate_by(level_pair_map(from, overlay), address);
+    thread_local RelocationCache cache;
+    const std::int64_t key =
+        static_cast<std::int64_t>(from) << 32 | static_cast<std::uint32_t>(overlay);
+    if (const gaddr* known = cache.find(key, address)) {
+        return *known;
+    }
+    gaddr relocated;
+    {
+        std::scoped_lock hold(g_relocate_lock);
+        relocated = relocate_by(level_pair_map(from, overlay), address);
+    }
+    cache.put(key, address, relocated);
+    return relocated;
 }
 
 gaddr openrac_guest_last_entry = 0;
