@@ -60,22 +60,27 @@ public:
         // another program's (the loading picture, when a save is loaded in play, whose camera is
         // still in the game's memory), not this level's frame.
         if (tick.level != m_level) {
-            m_world_in_level = m_level == kNoLevel;
+            m_world_shown = m_world_shown && m_level == kNoLevel;
             m_level = tick.level;
         }
-        m_world_in_level = m_world_in_level || world;
         // A level's tick with a camera and no world, whose list is not a page menu's: the picture
-        // shown stays under its 2D, once this level has drawn its world.
-        const bool over =
-            !world && !menu_list && tick.has_camera && tick.in_level && m_world_in_level;
+        // shown stays under its 2D, while that picture is a world's. Over a page menu's (the
+        // in-game Load Game page, whose loaded save's story card comes while the old level and
+        // its camera are still in memory) it starts from a cleared frame, as from the title.
+        const bool over = !world && !menu_list && tick.has_camera && tick.in_level && m_world_shown;
         m_last_world = world;
-        if (!tick.has_picture) {
-            return TickPicture::Draw;
+        TickPicture picture = TickPicture::Draw;
+        if (tick.has_picture
+            && ((menu_gap && m_menu_gap_ticks <= kMostMenuGapTicks) || unfinished)) {
+            picture = TickPicture::Repeat;
+        } else if (tick.has_picture && over) {
+            picture = TickPicture::Overdraw;
         }
-        if ((menu_gap && m_menu_gap_ticks <= kMostMenuGapTicks) || unfinished) {
-            return TickPicture::Repeat;
+        // A drawn tick's picture is a world's when it drew one; the others keep the picture shown.
+        if (picture == TickPicture::Draw) {
+            m_world_shown = world;
         }
-        return over ? TickPicture::Overdraw : TickPicture::Draw;
+        return picture;
     }
 
 private:
@@ -84,7 +89,7 @@ private:
     int m_menu_gap_ticks = 0;      // ticks in a row with no world under a page menu's list
     bool m_last_world = true;      // the tick before drew a world layer
     int m_level = kNoLevel;        // the level program of the tick before
-    bool m_world_in_level = true;  // a world was drawn since that program was loaded
+    bool m_world_shown = true;     // the picture shown is a world drawn in that program
 };
 
 }  // namespace openrac::frontend
