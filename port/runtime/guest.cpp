@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -43,6 +44,65 @@ using openrac::log::error;
 using openrac::log::fatalf;
 using openrac::log::info;
 using openrac::log::warn;
+
+// ---- Answers kept per thread ----
+//
+// The relocation and folded-call lookups remember each answer in a table under a lock, and the
+// translated code asks them on every access to a global: each thread keeps the answers it was
+// given, so asking again takes no lock. Only answers that never change are kept: those the tables
+// remember for good, worked out from the functions registered, the programs' code and the level
+// programs. Registering more of those forgets every thread's answers.
+std::atomic<unsigned> g_answer_generation{0};
+
+void forget_answers() {
+    g_answer_generation.fetch_add(1, std::memory_order_relaxed);
+}
+
+template <typename... Parts>
+class AnswerCache {
+public:
+    using Key = std::tuple<Parts...>;
+
+    // The answer kept for `key`, else find()'s, kept.
+    template <typename Find>
+    gaddr remember(const Key& key, Find&& find) {
+        const unsigned generation = g_answer_generation.load(std::memory_order_relaxed);
+        if (generation != m_generation) {
+            m_entries.fill(Entry{});
+            m_generation = generation;
+        }
+        Entry& e = m_entries[slot(key)];
+        if (e.used && e.key == key) {
+            return e.result;
+        }
+        const gaddr result = find();
+        e = Entry{key, result, true};
+        return result;
+    }
+
+private:
+    struct Entry {
+        Key key{};
+        gaddr result = 0;
+        bool used = false;
+    };
+
+    static constexpr int kSlotBits = 10;
+
+    static std::size_t slot(const Key& key) {
+        std::uint64_t h = 0;
+        std::apply(
+            [&h](const auto&... part) {
+                ((h = (h ^ static_cast<std::uint64_t>(part)) * 0x9E3779B97F4A7C15ull), ...);
+            },
+            key
+        );
+        return static_cast<std::size_t>(h >> (64 - kSlotBits));
+    }
+
+    std::array<Entry, std::size_t{1} << kSlotBits> m_entries{};
+    unsigned m_generation = 0;
+};
 
 // ---- String literals ----
 
@@ -202,6 +262,7 @@ gaddr openrac_guest_string(const char* s, size_t size) {
 }
 
 void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t count) {
+    forget_answers();
     Table& table = overlay == OPENRAC_OVERLAY_EXE ? g_exe : g_overlays[overlay];
     std::unordered_map<openrac_host_fn, int> places;
     for (size_t i = 0; i < count; i++) {
@@ -326,7 +387,7 @@ gaddr openrac_guest_nearest(const uint32_t* places, int count, gaddr caller) {
     return best != 0 ? best : fallback;
 }
 
-gaddr openrac_folded_call(const uint32_t* places, int count, gaddr caller, uint32_t size, int k) {
+static gaddr folded_call(const uint32_t* places, int count, gaddr caller, uint32_t size, int k) {
     const int overlay = g_overlay_source != nullptr ? g_overlay_source() : g_overlay;
     if (size == 0 || caller == 0 || caller + size > 0x02000000u) {
         return openrac_guest_nearest(places, count, caller);
@@ -375,8 +436,9 @@ gaddr openrac_folded_call(const uint32_t* places, int count, gaddr caller, uint3
     return result;
 }
 
-gaddr openrac_folded_address(const uint32_t* places, int count, gaddr caller, uint32_t size, int k,
-                             gaddr fallback) {
+static gaddr folded_address(
+    const uint32_t* places, int count, gaddr caller, uint32_t size, int k, gaddr fallback
+) {
     const int overlay = g_overlay_source != nullptr ? g_overlay_source() : g_overlay;
     if (size == 0 || caller == 0 || caller + size > 0x02000000u) {
         return fallback;
@@ -452,6 +514,32 @@ gaddr openrac_folded_address(const uint32_t* places, int count, gaddr caller, ui
     }
     found.emplace(key, result);
     return result;
+}
+
+// Each translated folded call asks again every time it runs: the answers kept (folded_call and
+// folded_address remember them for good, by the caller's place).
+gaddr openrac_folded_call(const uint32_t* places, int count, gaddr caller, uint32_t size, int k) {
+    if (size == 0 || caller == 0 || caller + size > 0x02000000u) {
+        return folded_call(places, count, caller, size, k);
+    }
+    const int overlay = g_overlay_source != nullptr ? g_overlay_source() : g_overlay;
+    thread_local AnswerCache<int, gaddr, std::uint32_t, int, int> answers;
+    return answers.remember({overlay, caller, places[0], count, k}, [&] {
+        return folded_call(places, count, caller, size, k);
+    });
+}
+
+gaddr openrac_folded_address(
+    const uint32_t* places, int count, gaddr caller, uint32_t size, int k, gaddr fallback
+) {
+    if (size == 0 || caller == 0 || caller + size > 0x02000000u) {
+        return fallback;
+    }
+    const int overlay = g_overlay_source != nullptr ? g_overlay_source() : g_overlay;
+    thread_local AnswerCache<int, gaddr, std::uint32_t, int, int, gaddr> answers;
+    return answers.remember({overlay, caller, places[0], count, k, fallback}, [&] {
+        return folded_address(places, count, caller, size, k, fallback);
+    });
 }
 
 const char* openrac_guest_function_name(gaddr address) {
@@ -698,36 +786,6 @@ std::vector<std::uint8_t> g_exe_code;
 gaddr g_exe_base = 0;
 std::map<int, LevelMap> g_level_maps;
 std::mutex g_relocate_lock;
-
-// The answers already looked up, per thread, so the frequent ones skip the lock: the tables they
-// come from are built once per overlay (or pair of levels) and never change, so an answer stays
-// right for its key.
-class RelocationCache {
-public:
-    const gaddr* find(std::int64_t key, gaddr address) const {
-        const Entry& e = m_entries[slot(address)];
-        return e.key == key && e.address == address ? &e.result : nullptr;
-    }
-
-    void put(std::int64_t key, gaddr address, gaddr result) {
-        m_entries[slot(address)] = {address, key, result};
-    }
-
-private:
-    struct Entry {
-        gaddr address = 0;
-        std::int64_t key = INT64_MIN;  // none
-        gaddr result = 0;
-    };
-
-    static constexpr std::size_t kEntries = 2048;
-
-    static std::size_t slot(gaddr address) {
-        return ((address >> 2) ^ (address >> 13)) & (kEntries - 1);
-    }
-
-    std::array<Entry, kEntries> m_entries{};
-};
 
 int current_overlay() {
     if (g_overlay_source != nullptr) {
@@ -1246,6 +1304,7 @@ gaddr openrac_relocate_low = 0, openrac_relocate_high = 0;
 
 void openrac_guest_set_relocation(gaddr low, gaddr high, gaddr gp, const uint8_t* exe_code,
                                   gaddr exe_base, uint32_t exe_size) {
+    forget_answers();
     openrac_relocate_low = low;
     openrac_relocate_high = high;
     g_relocate_gp = gp;
@@ -1265,16 +1324,13 @@ gaddr openrac_relocate_data(gaddr address) {
     if (address == g_relocate_gp && address != 0) {
         return address;
     }
-    thread_local RelocationCache cache;
-    if (const gaddr* known = cache.find(overlay, address)) {
-        return *known;
-    }
-    const gaddr relocated = relocate_data_slow(address, overlay);
-    cache.put(overlay, address, relocated);
-    return relocated;
+    thread_local AnswerCache<int, gaddr> answers;
+    return answers.remember({overlay, address}, [&] {
+        return relocate_data_slow(address, overlay);
+    });
 }
 
-gaddr openrac_relocate_code(gaddr address) {
+static gaddr relocate_code(gaddr address) {
     const int overlay = current_overlay();
     if (overlay == OPENRAC_OVERLAY_EXE) {
         return address;
@@ -1301,10 +1357,12 @@ gaddr openrac_relocate_code(gaddr address) {
 }
 
 void openrac_guest_set_level_programs(void (*load)(int level)) {
+    forget_answers();
     g_level_program_source = load;
 }
 
 void openrac_guest_add_level_program(int level, gaddr base, const uint8_t* bytes, uint32_t size) {
+    forget_answers();
     g_level_programs[level].push_back(Chunk{base, std::vector<std::uint8_t>(bytes, bytes + size)});
 }
 
@@ -1313,19 +1371,11 @@ gaddr openrac_relocate_level_data(int from, gaddr address) {
     if (overlay == from || overlay == OPENRAC_OVERLAY_EXE || address - kLevelLow >= kLevelHigh - kLevelLow) {
         return address;
     }
-    thread_local RelocationCache cache;
-    const std::int64_t key =
-        static_cast<std::int64_t>(from) << 32 | static_cast<std::uint32_t>(overlay);
-    if (const gaddr* known = cache.find(key, address)) {
-        return *known;
-    }
-    gaddr relocated;
-    {
+    thread_local AnswerCache<int, int, gaddr> answers;
+    return answers.remember({from, overlay, address}, [&] {
         std::scoped_lock hold(g_relocate_lock);
-        relocated = relocate_by(level_pair_map(from, overlay), address);
-    }
-    cache.put(key, address, relocated);
-    return relocated;
+        return relocate_by(level_pair_map(from, overlay), address);
+    });
 }
 
 gaddr openrac_guest_last_entry = 0;
@@ -1390,7 +1440,7 @@ gaddr own_place(int from, gaddr canon, int overlay) {
     return place;
 }
 
-gaddr openrac_data_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target) {
+static gaddr data_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target) {
     const int overlay = current_overlay();
     // from -1: an executable function's global, the executable's own address relocated.
     const gaddr fallback = from < 0 ? OPENRAC_DATA(target) : openrac_relocate_level_data(from, target);
@@ -1561,7 +1611,7 @@ static gaddr code_in_copy_at(int from, int overlay, gaddr canon, uint32_t size, 
     return result;
 }
 
-gaddr openrac_code_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target) {
+static gaddr code_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target) {
     const int overlay = current_overlay();
     const gaddr fallback = openrac_relocate_level_code(from, target);
     if (self == 0 && from >= 0 && overlay != from) {
@@ -1574,7 +1624,9 @@ gaddr openrac_code_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gad
     return code_in_copy_at(from, overlay, canon, size, self, target, fallback);
 }
 
-gaddr openrac_code_formed(int from, gaddr canon, uint32_t size, gaddr self, gaddr target, gaddr fallback) {
+static gaddr code_formed(
+    int from, gaddr canon, uint32_t size, gaddr self, gaddr target, gaddr fallback
+) {
     const int overlay = current_overlay();
     if (self == 0 && overlay == from) {
         self = canon;  // the code its name is written for: which of the places it forms itself
@@ -1588,7 +1640,7 @@ gaddr openrac_code_formed(int from, gaddr canon, uint32_t size, gaddr self, gadd
     return code_in_copy_at(from, overlay, canon, size, self, target, fallback);
 }
 
-gaddr openrac_call_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target) {
+static gaddr call_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target) {
     const int overlay = current_overlay();
     const gaddr fallback = from < 0 ? OPENRAC_CODE(target) : openrac_relocate_level_code(from, target);
     if (self == 0 && from >= 0 && overlay != from) {
@@ -1634,7 +1686,9 @@ gaddr openrac_call_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gad
     return result;
 }
 
-gaddr openrac_hook_in_copy(gaddr exe_fn, uint32_t size, int home, gaddr home_fn, gaddr stub, uint32_t k) {
+static gaddr hook_in_copy(
+    gaddr exe_fn, uint32_t size, int home, gaddr home_fn, gaddr stub, uint32_t k
+) {
     const int overlay = current_overlay();
     const gaddr fallback = OPENRAC_CODE(stub);
     if (overlay == OPENRAC_OVERLAY_EXE || overlay < 0) {
@@ -1683,7 +1737,7 @@ gaddr openrac_hook_in_copy(gaddr exe_fn, uint32_t size, int home, gaddr home_fn,
     return result;
 }
 
-gaddr openrac_relocate_level_code(int from, gaddr address) {
+static gaddr relocate_level_code(int from, gaddr address) {
     const int overlay = current_overlay();
     if (overlay == from || overlay == OPENRAC_OVERLAY_EXE) {
         return address;
@@ -1730,6 +1784,60 @@ gaddr openrac_relocate_level_code(int from, gaddr address) {
     }
     map.searched.emplace(address, twin);
     return twin != 0 ? twin : address;
+}
+
+// The level-to-level lookups as the translated code calls them: the answers kept, by the program
+// loaded and every argument (each function remembers its own for good).
+
+gaddr openrac_relocate_code(gaddr address) {
+    thread_local AnswerCache<int, gaddr> answers;
+    return answers.remember({current_overlay(), address}, [&] { return relocate_code(address); });
+}
+
+gaddr openrac_relocate_level_code(int from, gaddr address) {
+    thread_local AnswerCache<int, int, gaddr> answers;
+    return answers.remember({current_overlay(), from, address}, [&] {
+        return relocate_level_code(from, address);
+    });
+}
+
+gaddr openrac_data_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target) {
+    thread_local AnswerCache<int, int, gaddr, std::uint32_t, gaddr, gaddr> answers;
+    return answers.remember({current_overlay(), from, canon, size, self, target}, [&] {
+        return data_in_copy(from, canon, size, self, target);
+    });
+}
+
+gaddr openrac_code_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target) {
+    thread_local AnswerCache<int, int, gaddr, std::uint32_t, gaddr, gaddr> answers;
+    return answers.remember({current_overlay(), from, canon, size, self, target}, [&] {
+        return code_in_copy(from, canon, size, self, target);
+    });
+}
+
+gaddr openrac_code_formed(
+    int from, gaddr canon, uint32_t size, gaddr self, gaddr target, gaddr fallback
+) {
+    thread_local AnswerCache<int, int, gaddr, std::uint32_t, gaddr, gaddr, gaddr> answers;
+    return answers.remember({current_overlay(), from, canon, size, self, target, fallback}, [&] {
+        return code_formed(from, canon, size, self, target, fallback);
+    });
+}
+
+gaddr openrac_call_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target) {
+    thread_local AnswerCache<int, int, gaddr, std::uint32_t, gaddr, gaddr> answers;
+    return answers.remember({current_overlay(), from, canon, size, self, target}, [&] {
+        return call_in_copy(from, canon, size, self, target);
+    });
+}
+
+gaddr openrac_hook_in_copy(
+    gaddr exe_fn, uint32_t size, int home, gaddr home_fn, gaddr stub, uint32_t k
+) {
+    thread_local AnswerCache<int, gaddr, std::uint32_t, int, gaddr, gaddr, std::uint32_t> answers;
+    return answers.remember({current_overlay(), exe_fn, size, home, home_fn, stub, k}, [&] {
+        return hook_in_copy(exe_fn, size, home, home_fn, stub, k);
+    });
 }
 
 }  // extern "C"
