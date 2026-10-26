@@ -270,7 +270,11 @@ bool EffectRenderer::apply(std::uint64_t tex0_bits, std::uint64_t tex1_bits, std
         const gs::Tex1 tex1 = gs::Tex1::decode(tex1_bits);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(tex1.mmag ? GL_LINEAR : GL_NEAREST));
         const bool linear_min = tex1.mmin == 1 || tex1.mmin == 4 || tex1.mmin == 5;
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(linear_min ? GL_LINEAR : GL_NEAREST));
+        glTexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MIN_FILTER,
+            static_cast<GLint>(linear_min ? GL_LINEAR : GL_NEAREST)
+        );
         m_applied.tex1_bits = tex1_bits;
         m_applied.clamp_bits = clamp_bits;
     }
