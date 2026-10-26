@@ -44,10 +44,12 @@ after a change, and on each device.
 ### A weaker device, simulated
 
 "Simulate slow CPU" (the drawer's Developer tools, or the Developer menu on
-Windows and Linux) makes the processor 2, 4 or 6 times slower: once a frame
-the window thread and the render thread each spin for that many times the
-processor time they used, less one (`common/slow_cpu.h`, the section
-`simulated slow cpu`). The frame pacing, the ticks catching up and a capture
+Windows and Linux) makes the processor 2, 4 or 6 times slower: the window
+thread and the render thread each spin for that many times the processor
+time they used, less one, where that work ends (`common/slow_cpu.h`, the
+section `simulated slow cpu`): the render thread after each frame, the
+window thread after the game's tick (while the render thread still draws,
+as on a slower device) and again before it hands a frame over. The frame pacing, the ticks catching up and a capture
 then behave as on a device that much slower; a capture says the factor in
 its `simulated slow cpu` line. Every part slows alike, the GPU not at all,
 and a weak phone's caches and memory are slower still: a guide, not a
