@@ -35,8 +35,9 @@ using renderer::Mat4;
 using renderer::Vec3;
 
 // The extracted levels' format (editor/port.py FORMAT); --check-levels writes verified-<format>.json,
-// which the launcher waits for, so older exports are read from the disc again before Play.
-inline constexpr int kManifestFormat = 3;
+// which the launcher waits for, so older exports are read from the disc again before Play. 4: the
+// textures the game clamps carry clamping samplers.
+inline constexpr int kManifestFormat = 4;
 
 struct Vertex {
     float position[3];
@@ -57,6 +58,10 @@ struct Material {
     bool metal = false;   // a metal packet's chrome or glass map (metal_*): drawn in the shine pass
     bool cutout = false;  // glTF alphaMode MASK: alpha test at 0.5
     bool blend = false;   // glTF alphaMode BLEND
+    // The texture's sampler clamps across (S) or down (T): the GS CLAMP_1 of the game's setup. A
+    // clamped texture repeated pulls its far edge into the near one under bilinear filtering.
+    bool clamp_s = false;
+    bool clamp_t = false;
     std::array<float, 4> colour{1.0f, 1.0f, 1.0f, 1.0f};
     Vec3 emission{};  // shared linear emitted radiance, independent of diffuse lighting
     int emission_image = -1;

@@ -138,7 +138,7 @@ class WriterTests(unittest.TestCase):
                                      "textures/shrub_0002.png", "textures/sky_0000.png",
                                      "textures/terrain_0000.png", "textures/tie_0001.png", "ties/tie_5.glb"])
             manifest = json.loads((level / "manifest.json").read_text())
-            self.assertEqual((manifest["format"], manifest["level"], manifest["game"]), (3, 3, "rac1"))
+            self.assertEqual((manifest["format"], manifest["level"], manifest["game"]), (4, 3, "rac1"))
             self.assertEqual(manifest["terrain"], "terrain.glb")
             self.assertIsNone(manifest["collision"])
             self.assertEqual(manifest["sky"], {"mesh": "sky.glb", "panorama": "sky.png", "background": [10, 20, 30]})
@@ -157,7 +157,7 @@ class WriterTests(unittest.TestCase):
             self.assertEqual(stats["sky"]["shells"], 2)
 
             placements = json.loads((level / "placements.json").read_text())
-            self.assertEqual(placements["format"], 3)
+            self.assertEqual(placements["format"], 4)
             ties = placements["ties"]
             self.assertEqual([t["class"] for t in ties], [5, 5])
             self.assertEqual(ties[0]["matrix"], translated(10, 20, 30))

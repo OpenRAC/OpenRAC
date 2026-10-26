@@ -540,6 +540,21 @@ void TexturePool::create_gl(Entry& e) {
     }
 }
 
+// The bound texture `e`'s wrap, set only when it changes: a material clamps or repeats its
+// texture as the game's GS setup does, and materials share textures.
+void TexturePool::set_wrap(Entry& e, bool repeat_s, bool repeat_t) {
+    const std::uint8_t wrap = (repeat_s ? 0 : 1) | (repeat_t ? 0 : 2);
+    if (e.wrap == wrap) {
+        return;
+    }
+    const auto mode = [](bool repeat) {
+        return static_cast<GLint>(repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+    };
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, mode(repeat_s));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, mode(repeat_t));
+    e.wrap = wrap;
+}
+
 // ---- Optional colour reconstruction ----
 
 void TexturePool::set_upscaled_texture_colours(std::unique_ptr<UpscaledTextureColours> source) {
@@ -554,8 +569,11 @@ void TexturePool::bind_upscaled_texture_colours(
 ) {
     glActiveTexture(GL_TEXTURE0);
     const unsigned source = gl_texture(texture);
+    glBindTexture(GL_TEXTURE_2D, source);
+    if (texture != 0 && texture <= m_entries.size()) {
+        set_wrap(m_entries[texture - 1], repeat_s, repeat_t);
+    }
     if (!m_upscaled_texture_colours) {
-        glBindTexture(GL_TEXTURE_2D, source);
         glUniform1i(shader.uniform("upscaled_texture_colours_ready"), 0);
         return;
     }

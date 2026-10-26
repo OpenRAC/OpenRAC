@@ -49,8 +49,9 @@ from ties import tie_classes, tie_instances, tie_slot_normals
 # The export's format: the port reads only its own (viewer/level.h kManifestFormat), and its level
 # check names the format in the stamp the launcher waits for, so levels exported before a change
 # are read from the disc again. 2: the mobys' metal packets and the chrome and glass maps. 3: the
-# gadget classes whose bind pose collapses a joint (the Blaster, the Pyrocitor).
-FORMAT = 3
+# gadget classes whose bind pose collapses a joint (the Blaster, the Pyrocitor). 4: the textures the
+# game clamps (terrain, ties, shrubs, the sky) have clamping samplers.
+FORMAT = 4
 
 
 def sky_glb(data: Sky, texture_uri) -> bytes:
@@ -74,7 +75,8 @@ def sky_glb(data: Sky, texture_uri) -> bytes:
                     untextured = len(gltf.doc["materials"]) - 1
                 material = untextured
             else:
-                material = gltf.material(f"sky_{key[1]:04}", texture_uri(key[1]))
+                # The GS draws the sky's textures clamped (SHRUB_SKY.md, section 7).
+                material = gltf.material(f"sky_{key[1]:04}", texture_uri(key[1]), clamp=3)
                 gltf.doc["materials"][material]["alphaMode"] = "BLEND"
             attributes = {"POSITION": gltf.floats([shell.positions[v] for v in corners], bounds=True),
                           "TEXCOORD_0": gltf.floats([shell.uvs[v] for v in corners]),

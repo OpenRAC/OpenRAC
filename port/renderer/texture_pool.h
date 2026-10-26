@@ -219,6 +219,7 @@ private:
         std::uint64_t field_hash = 0;  // its key in m_distance_fields
         bool mipmaps = false;
         bool linear = false;
+        std::uint8_t wrap = 0;  // the GL texture's clamp: bit 0 across, bit 1 down (0: repeats)
         Rgba8Image image;
         AlphaScale scale = AlphaScale::Gs;
         std::string name;
@@ -231,6 +232,7 @@ private:
     // Creates entry `e`'s GL texture and uploads its texels: the one place a texture is made,
     // for gl_texture() at a first use and for prepare() at a level's load.
     void create_gl(Entry& e);
+    void set_wrap(Entry& e, bool repeat_s, bool repeat_t);
     TextureHandle convert_upload(const gs::Tex0& tex0, const gs::Texa& texa);
     std::vector<std::uint8_t> texture_raster(const Stored& stored, const gs::Tex0& tex0) const;
     // The CLUT an indexed texture reads: the one loaded from its block, else memory's (into `now`).

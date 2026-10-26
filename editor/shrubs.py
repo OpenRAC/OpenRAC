@@ -6,9 +6,9 @@ Layouts follow Wrench's shrub reader and recovery (games/rac1/docs/ASSETS.md).
 import math
 import struct
 
-from formats import FormatError, span, unpack
+from formats import FormatError, gs_clamp, span, unpack
 import games
-from mesh import Mesh, unit_normal
+from mesh import Mesh, texture_key, unit_normal
 from terrain import STCYCL, STMOD, program
 from ties import placement
 
@@ -90,7 +90,8 @@ def shrub_mesh(data: bytes, remap: bytes, name: str) -> Mesh:
                 slot, = unpack("<I", records[mi], 48)  # TEX0 data, patched at load time.
                 if slot >= len(remap) or remap[slot] == 255:
                     raise FormatError("shrub material has no texture")
-                texture = ("shrub", remap[slot])
+                # CLAMP, the second of the setup's A+D quadwords (SHRUB_SKY.md).
+                texture = texture_key("shrub", remap[slot], gs_clamp(records[mi], 16))
                 mi += 1
                 address += 5
             elif vi < vertex_count and positions[vi][3] == address:

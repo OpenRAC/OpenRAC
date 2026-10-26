@@ -2054,7 +2054,9 @@ void LevelScene::draw_sky(const renderer::FrameInput& input, renderer::RenderSta
             const Material& m = m_materials[static_cast<std::size_t>(p.material)];
             const renderer::TextureHandle texture =
                 m.image >= 0 ? m_textures[static_cast<std::size_t>(m.image)] : m_white;
-            state.textures.bind_upscaled_texture_colours(texture, m_sky, input.texture_filter);
+            state.textures.bind_upscaled_texture_colours(
+                texture, m_sky, input.texture_filter, !m.clamp_s, !m.clamp_t
+            );
             // The shell's matrix as the game drew it this tick; its translation is in the game's
             // sky units, the vertices were exported in 1/1024ths of them (editor/sky.py).
             renderer::Mat4 shell = renderer::identity();
@@ -2485,6 +2487,7 @@ void LevelScene::draw_layer(
     // The material state the program holds now (flush): none yet.
     int set_material = -1;
     renderer::TextureHandle set_texture = 0;  // bound on unit 0 (and its colours) for `program`
+    int set_wrap = -1;                        // and its clamp: bit 0 across, bit 1 down
     unsigned set_emission_texture = 0;
     int set_cutout = -1;
     decltype(Material::colour) set_colour{};
@@ -2568,6 +2571,7 @@ void LevelScene::draw_layer(
             program_depth_matched = depth_matched;
             set_material = -1;
             set_texture = 0;
+            set_wrap = -1;
             set_cutout = -1;
             colour_set = false;
         }
@@ -2668,11 +2672,14 @@ void LevelScene::draw_layer(
                     const renderer::TextureHandle texture =
                         m.image >= 0 ? m_textures[static_cast<std::size_t>(m.image)] : m_white;
                     // Materials share textures: rebinding one the program already samples costs
-                    // driver calls for nothing.
-                    if (texture != set_texture) {
-                        state.textures
-                            .bind_upscaled_texture_colours(texture, *program, input.texture_filter);
+                    // driver calls for nothing. A texture's clamp is its material's.
+                    const int wrap = (m.clamp_s ? 1 : 0) | (m.clamp_t ? 2 : 0);
+                    if (texture != set_texture || wrap != set_wrap) {
+                        state.textures.bind_upscaled_texture_colours(
+                            texture, *program, input.texture_filter, !m.clamp_s, !m.clamp_t
+                        );
                         set_texture = texture;
+                        set_wrap = wrap;
                     }
                     if (static_cast<int>(m.cutout) != set_cutout) {
                         glUniform1i(cutout, m.cutout ? 1 : 0);

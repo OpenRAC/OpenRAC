@@ -185,7 +185,7 @@ void write_level(const fs::path& dir) {
     write_square(dir / "terrain.glb.gltf", 20.0f, 0.0f, "textures/terrain_0000.png");
     write_square(dir / "ties" / "tie_5.gltf", 2.0f, 0.0f, "../textures/tie_0001.png");
     write_text(dir / "manifest.json", R"({
-  "format": 3, "game": "rac1", "version": "pal", "level": 3,
+  "format": 4, "game": "rac1", "version": "pal", "level": 3,
   "terrain": "terrain.glb.gltf",
   "sky": {"background": [10, 20, 30], "mesh": null, "panorama": "sky.png"},
   "classes": {
@@ -196,7 +196,7 @@ void write_level(const fs::path& dir) {
   "placements": "placements.json"
 })");
     write_text(dir / "placements.json", R"({
-  "format": 3,
+  "format": 4,
   "ties": [{"index": 0, "class": 5, "matrix": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,1,1], "draw_distance": 100}],
   "shrubs": [],
   "mobys": [{"index": 0, "class": 7, "matrix": [2,0,0,0, 0,2,0,0, 0,0,2,0, 6,6,0,1], "colour": [128, 128, 128]},
@@ -210,7 +210,7 @@ void draw_distances(const fs::path& dir) {
     const fs::path ties = dir / "tie-distances";
     write_level(ties);
     const std::string manifest = R"({
-  "format": 3, "game": "rac1", "version": "pal", "level": 3,
+  "format": 4, "game": "rac1", "version": "pal", "level": 3,
   "terrain": "terrain.glb.gltf",
   "sky": {"background": [10, 20, 30], "mesh": null, "panorama": "sky.png"},
   "classes": {
@@ -246,7 +246,7 @@ void draw_distances(const fs::path& dir) {
     );
     write_text(shrubs / "manifest.json", with_shrubs);
     write_text(shrubs / "placements.json", R"({
-  "format": 3,
+  "format": 4,
   "ties": [{"index": 0, "class": 5, "matrix": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,1,1], "draw_distance": 0}],
   "shrubs": [
     {"index": 0, "class": 6, "matrix": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1], "draw_distance": 8},
@@ -322,7 +322,7 @@ void loader(const fs::path& dir, scene::LevelData& level) {
         write_png(ooze_dir / "textures/terrain_0012.png", 80, 220, 30);
         write_square(ooze_dir / "terrain.glb.gltf", 20, 0, "textures/terrain_0012.png");
         write_text(ooze_dir / "manifest.json", R"({
-          "format":3,"game":"rac1","version":"ntsc","level":10,
+          "format":4,"game":"rac1","version":"ntsc","level":10,
           "terrain":"terrain.glb.gltf","placements":"placements.json",
           "classes":{"tie":{"5":{"mesh":"ties/tie_5.gltf"}}}
         })");
@@ -353,7 +353,7 @@ void loader(const fs::path& dir, scene::LevelData& level) {
         write_square(ooze_dir / "lava.gltf", 20, 0, "textures/probe_gaspar_lava.png");
         write_png(ooze_dir / "textures/probe_gaspar_lava.png", 255, 255, 255);
         write_text(ooze_dir / "manifest.json", R"({
-          "format":3,"game":"rac1","version":"ntsc","level":9,
+          "format":4,"game":"rac1","version":"ntsc","level":9,
           "terrain":"terrain.glb.gltf","placements":"placements.json"
         })");
         write_text(ooze_dir / "probe-emission.json", R"({"surfaces":[{"mesh":"lava.gltf"}]})");
@@ -374,7 +374,7 @@ void loader(const fs::path& dir, scene::LevelData& level) {
         const auto selection_dir = dir / "bake-selection";
         write_level(selection_dir);
         write_text(selection_dir / "manifest.json", R"({
-          "format":3,"game":"rac1","version":"ntsc","level":3,
+          "format":4,"game":"rac1","version":"ntsc","level":3,
           "terrain":"terrain.glb.gltf","placements":"placements.json",
           "classes":{"moby":{
             "817":{"mesh":"ties/tie_5.gltf"},

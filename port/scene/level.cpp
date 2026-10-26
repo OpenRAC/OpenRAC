@@ -126,6 +126,10 @@ int material_index(const cgltf_material* source, const fs::path& base, LevelData
             if (texture != nullptr && texture->image != nullptr && texture->image->uri != nullptr) {
                 m.image = image_index(base / texture->image->uri, level);
             }
+            if (texture != nullptr && texture->sampler != nullptr) {
+                m.clamp_s = texture->sampler->wrap_s == cgltf_wrap_mode_clamp_to_edge;
+                m.clamp_t = texture->sampler->wrap_t == cgltf_wrap_mode_clamp_to_edge;
+            }
         }
     }
     // A texture with texels below full alpha is drawn by the GS as the cutout materials are (the
@@ -145,8 +149,8 @@ int material_index(const cgltf_material* source, const fs::path& base, LevelData
     for (std::size_t i = 0; i < level.materials.size(); ++i) {
         const Material& o = level.materials[i];
         if (o.image == m.image && o.cutout == m.cutout && o.blend == m.blend && o.metal == m.metal
-            && o.colour == m.colour && o.emission == m.emission
-            && o.emission_image == m.emission_image) {
+            && o.clamp_s == m.clamp_s && o.clamp_t == m.clamp_t && o.colour == m.colour
+            && o.emission == m.emission && o.emission_image == m.emission_image) {
             return static_cast<int>(i);
         }
     }
