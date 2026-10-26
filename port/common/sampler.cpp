@@ -45,16 +45,18 @@ namespace {
 constexpr std::size_t kThreads = 4;           // threads sampled at once, at most
 constexpr std::uint32_t kSamples = 1u << 18;  // a thread's samples kept: over four minutes
 constexpr long kIntervalNs = 1'000'000;       // one sample a millisecond of processor time
-constexpr std::size_t kShown = 20;            // functions listed per thread
+constexpr std::size_t kShown = 30;            // functions listed per thread
 
 // One sampled thread. The signal handler finds its slot by the thread's id and appends the
-// interrupted instruction's address; everything else happens outside the handler.
+// interrupted instruction's address and the return address register's (aarch64; 0 elsewhere);
+// everything else happens outside the handler.
 struct Slot {
     std::atomic<pid_t> tid{0};
     const char* name = nullptr;
     timer_t timer{};
     std::atomic<std::uint32_t> count{0};
     std::unique_ptr<std::uintptr_t[]> pcs;
+    std::unique_ptr<std::uintptr_t[]> returns;
 };
 
 std::array<Slot, kThreads> g_slots;
@@ -75,6 +77,19 @@ std::uintptr_t interrupted_pc(void* context) {
 #endif
 }
 
+// Where the interrupted function returns to, when the processor keeps it in a register: a leaf
+// function's caller (memcpy's, say). 0 where it is on the stack instead.
+std::uintptr_t interrupted_return(void* context) {
+#if defined(__aarch64__)
+    return static_cast<std::uintptr_t>(
+        static_cast<const ucontext_t*>(context)->uc_mcontext.regs[30]
+    );
+#else
+    (void)context;
+    return 0;
+#endif
+}
+
 // Async-signal-safe: atomics, a system call and a store into memory made beforehand.
 void on_signal(int, siginfo_t*, void* context) {
     if (!g_running.load(std::memory_order_relaxed)) {
@@ -86,6 +101,7 @@ void on_signal(int, siginfo_t*, void* context) {
             const std::uint32_t at = slot.count.fetch_add(1, std::memory_order_relaxed);
             if (at < kSamples) {
                 slot.pcs[at] = interrupted_pc(context);
+                slot.returns[at] = interrupted_return(context);
             }
             return;
         }
@@ -143,6 +159,7 @@ void start() {
     for (Slot& slot : g_slots) {
         if (!slot.pcs) {
             slot.pcs = std::make_unique<std::uintptr_t[]>(kSamples);
+            slot.returns = std::make_unique<std::uintptr_t[]>(kSamples);
         }
         slot.count = 0;
         slot.tid = 0;
@@ -208,15 +225,23 @@ std::string stop() {
         if (taken == 0) {
             continue;
         }
-        // Each sample to its function's name.
-        std::map<std::string, std::uint32_t> by_name;
-        for (std::uint32_t i = 0; i < taken; ++i) {
-            const std::uintptr_t pc = slot.pcs[i];
+        auto name_of = [&names](std::uintptr_t pc) -> const std::string& {
             auto found = names.find(pc);
             if (found == names.end()) {
                 found = names.emplace(pc, function_name(pc)).first;
             }
-            ++by_name[found->second];
+            return found->second;
+        };
+        // Each sample to its function's name; a function without a symbol (a library's memcpy, one
+        // of our static functions) also by the function it returns to, which names the work.
+        std::map<std::string, std::uint32_t> by_name;
+        for (std::uint32_t i = 0; i < taken; ++i) {
+            const std::string& name = name_of(slot.pcs[i]);
+            if (slot.returns[i] != 0 && name.ends_with("without a symbol)")) {
+                ++by_name[std::format("{} from {}", name, name_of(slot.returns[i]))];
+            } else {
+                ++by_name[name];
+            }
         }
         std::vector<std::pair<std::string, std::uint32_t>> ranked(by_name.begin(), by_name.end());
         std::sort(ranked.begin(), ranked.end(), [](const auto& a, const auto& b) {
