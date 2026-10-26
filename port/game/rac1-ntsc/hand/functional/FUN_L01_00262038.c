@@ -1,8 +1,6 @@
 /* Carried from the PAL decompilation's nonmatching/functional/func_L01_00262FE8.c (games/rac1) through the version
  * map (../../README.md): functional C, not matched C. Names and addresses are this version's. */
-#include "types.h"
-#include "qcopy.h"
-#include "qzero.h"
+extern void *memcpy(void *, const void *, __SIZE_TYPE__);
 #ifndef MACRO_ADDR
 #define MACRO_ADDR
 #endif
@@ -20,7 +18,7 @@
 extern float D_L01_001CAD00[] __asm__("D_L01_001CAD00");
 
 void FUN_L01_00262038(char *scratch, int idx, int buf_sel, char *base) {
-    float k_damp = 0.015625f; // 0x3D800000 = 1.0f / 64.0f
+    float k_damp = 0.0625f; // Original NTSC constant 0x3D800000: 1/16.
     float k_wave = 0.25f;     // 0x3E800000
     float k_one  = 1.0f;      // 0x3F800000
     float threshold = *(float *)((char *)&D_L01_001CAD00 + 0x1C);
@@ -44,12 +42,13 @@ void FUN_L01_00262038(char *scratch, int idx, int buf_sel, char *base) {
             float diff = sum - (cur_val * k_one);
             float next_val = diff - (diff * k_damp);
             
-            int bits = *(int *)&next_val & 0x7FFFFFFF;
-            int thresh_bits = *(int *)&threshold;
-            
-            if (bits - thresh_bits < 0) {
-                *(float *)next_buf = next_val;
-            }
+            union { float f; unsigned int bits; } value, limit;
+            value.f = diff;
+            limit.f = threshold;
+            /* Both original NTSC branches write, in their branch delay slots.
+             * Test the undamped difference: small waves pass through, while
+             * larger waves store the damped result rather than stale history. */
+            *(float *)next_buf = (value.bits & 0x7FFFFFFFu) < limit.bits ? diff : next_val;
             
             curr += 4;
             next_buf += 4;
