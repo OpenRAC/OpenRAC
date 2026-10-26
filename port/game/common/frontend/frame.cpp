@@ -1421,6 +1421,7 @@ void keep_effects(
     const std::vector<renderer::UiQuad>* named_quads
 ) {
     Kept& k = *g->kept;
+    effect_textures();  // before the sky's sprites go in front of the effect quads
     sky_sprite_quads(state);
     particle_quads(ram, state);
     k.effects = std::move(g->effects);

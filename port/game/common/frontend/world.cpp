@@ -20,6 +20,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -57,6 +58,13 @@ constexpr int kTitleWorld = 99;
 constexpr int kFlightWorld = 98;
 // Where the sky's textures are placed in the texture pool, past the GS's 14-bit blocks.
 constexpr std::uint32_t kSkyTextureKey = 0x20000;
+// Where the effect quads' textures are placed (effect_textures), past the particles' (0x30000).
+constexpr std::uint32_t kEffectTextureKey = 0x40000;
+
+// The GS state of the ground glow DrawMobyGlow draws under a moby (the zapper bots' on Oltanis).
+bool ground_glow(std::uint64_t alpha, std::uint64_t tex1, std::uint64_t clamp) {
+    return alpha == 0x8000000048ull && tex1 == 0xFF9000000260ull && clamp == 0;
+}
 
 }  // namespace
 
@@ -227,6 +235,12 @@ void use_level(int number) {
 }
 
 void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& quad) {
+    if (quad.source < g->effect_sources.size()) {
+        ++g->effect_sources[quad.source];
+    }
+    if (ground_glow(quad.alpha, quad.tex1, quad.clamp) && g->effect_glow_source < 0) {
+        g->effect_glow_source = static_cast<int>(quad.source);
+    }
     renderer::EffectQuad q;
     std::memcpy(q.corner, quad.corner, sizeof(q.corner));
     std::memcpy(q.rgba, quad.rgba, sizeof(q.rgba));
@@ -260,6 +274,28 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
         image.height = height;
         image.data.assign(ram.data() + pixels, ram.data() + pixels + width * height);
         q.uploads = static_cast<int>(g->effect_uploads.size());
+        // An 8-bit texture with a 32-bit CLUT (the paging's own) is drawn from a texture of its own,
+        // by content (effect_textures): its GS blocks are shared with other effect textures in the
+        // frame, and the pool holds only the last upload at a block when the quads are drawn.
+        const renderer::gs::Tex0 t = renderer::gs::Tex0::decode(quad.tex0);
+        if (t.psm == 0x13 && t.cpsm == 0x00 && !t.csm) {
+            const std::array<std::uint32_t, 3> source{pixels, clut, width << 16 | height};
+            auto hashed =
+                std::find_if(g->effect_hashed.begin(), g->effect_hashed.end(), [&](const auto& h) {
+                    return h.first == source;
+                });
+            if (hashed == g->effect_hashed.end()) {
+                g->effect_hashed.push_back(
+                    {source,
+                     {renderer::hash_bytes(image.data.data(), image.data.size()),
+                      renderer::hash_bytes(palette.data.data(), palette.data.size())}}
+                );
+                hashed = std::prev(g->effect_hashed.end());
+            }
+            g->effect_texture_ids.push_back(
+                {g->effects.size(), hashed->second.first, hashed->second.second}
+            );
+        }
         g->effect_uploads.push_back(std::move(palette));
         g->effect_uploads.push_back(std::move(image));
         g->effects.push_back(q);
@@ -269,6 +305,94 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
         // renderer leaves the quad out when nothing is there.
         g->effects.push_back(q);
     }
+}
+
+void effect_textures() {
+    // A new renderer (a level loaded): a new pool.
+    if (g->effect_textures_for != g->renderer.get()) {
+        g->effect_textures.clear();
+        g->effect_textures_for = g->renderer.get();
+    }
+    const bool gauges = stats::enabled();
+    // For the capture: GS blocks (pixels, CLUT) that held two different sources this frame, and
+    // TEX0s drawn with another texture than the last time.
+    std::unordered_map<std::uint32_t, std::uint64_t> blocks, cluts;
+    int shared_blocks = 0, shared_cluts = 0, retextured = 0;
+    std::uint64_t glow = 0;
+    const renderer::gs::Texa texa{0, false, 0x80};
+    for (const State::EffectTextureId& e : g->effect_texture_ids) {
+        renderer::EffectQuad& q = g->effects[e.effect];
+        const auto at = static_cast<std::size_t>(q.uploads);
+        if (!g->renderer || at + 1 >= g->effect_uploads.size()) {
+            continue;
+        }
+        const renderer::ImageUpload& palette = g->effect_uploads[at];
+        const renderer::ImageUpload& image = g->effect_uploads[at + 1];
+        const std::uint64_t id = e.pixels ^ (e.clut * 0x9E3779B97F4A7C15ull)
+                                 ^ (static_cast<std::uint64_t>(image.width) << 48
+                                    | static_cast<std::uint64_t>(image.height) << 32);
+        std::uint32_t& key = g->effect_textures[id];
+        if (key == 0) {
+            // As the pool converts the two uploads (convert_upload): the pixels as they lie, the
+            // CLUT in CSM1, in the chip's alpha units.
+            const std::vector<std::uint32_t> colours =
+                renderer::clut_csm1(palette.data, 0x00, 16, 256, texa);
+            renderer::Rgba8Image texture = renderer::convert_t8(
+                image.data,
+                static_cast<int>(image.width),
+                static_cast<int>(image.height),
+                colours,
+                renderer::AlphaScale::Gs
+            );
+            const renderer::TextureHandle h = g->renderer->textures().add(
+                std::move(texture),
+                renderer::AlphaScale::Gs,
+                std::format("effect {:#x}/{:#x}", image.dbp, palette.dbp)
+            );
+            key = kEffectTextureKey + static_cast<std::uint32_t>(g->effect_textures.size() - 1);
+            g->renderer->textures().place(key, h);
+        }
+        q.tbp = key;
+        q.cbp = 0;
+        if (!gauges) {
+            continue;
+        }
+        if (const auto [b, fresh] = blocks.emplace(image.dbp, e.pixels);
+            !fresh && b->second != e.pixels) {
+            b->second = e.pixels;
+            ++shared_blocks;
+        }
+        if (const auto [c, fresh] = cluts.emplace(palette.dbp, e.clut);
+            !fresh && c->second != e.clut) {
+            c->second = e.clut;
+            ++shared_cluts;
+        }
+        if (const auto [t, fresh] = g->effect_tex0_ids.emplace(q.tex0, id);
+            !fresh && t->second != id) {
+            t->second = id;
+            ++retextured;
+        }
+        if (glow == 0 && ground_glow(q.alpha, q.tex1, q.clamp)) {
+            glow = id;
+        }
+    }
+    if (gauges) {
+        stats::gauge("effect quads without texture source", g->effect_sources[0]);
+        stats::gauge("effect quads paged this frame", g->effect_sources[1]);
+        stats::gauge("effect quads paged before", g->effect_sources[2]);
+        stats::gauge("effect blocks shared", shared_blocks);
+        stats::gauge("effect CLUT blocks shared", shared_cluts);
+        stats::gauge("effect TEX0 retextured", retextured);
+        // -1 when no ground glow was drawn; its texture's hash, 24 bits of it, to see it change.
+        stats::gauge("effect glow source", g->effect_glow_source);
+        stats::gauge(
+            "effect glow texture", g->effect_glow_source < 0 ? -1.0 : double(glow & 0xFFFFFF)
+        );
+    }
+    g->effect_texture_ids.clear();
+    g->effect_hashed.clear();
+    g->effect_sources = {};
+    g->effect_glow_source = -1;
 }
 
 void sky_shell(int shell, const float* matrix) {
@@ -423,7 +547,8 @@ namespace {
 // uploads at keys handed out per frame in pool order: a key named one texture this frame and
 // another the next, and the conversions the pool kept mixed them up (the nanotech crates' orbs as
 // white squares). 0 when the addresses are not in memory.
-// Refactor note: other effect textures (effect_quad) still go through uploads at their GS blocks.
+// Refactor note: effect textures without a source in game memory (effect_quad) still go through
+// the pool at their GS blocks.
 std::uint32_t particle_texture(
     std::span<const std::uint8_t> ram, std::uint32_t pixels, std::uint32_t clut
 ) {
