@@ -84,6 +84,14 @@ macOS) and is off when the game starts.
   rate with steady work is heat.
 - **Worst frames**: the eight longest, each with its three costliest
   sections and its uploads.
+- **Hot functions** (Android and Linux): the window thread's and the render
+  thread's twenty costliest functions by the time spent in each itself,
+  from a sample once a millisecond of the thread's own processor time
+  (`common/sampler.h`). This is where the game's own code (its translated
+  functions, `func_...`) shows what it costs, which no section says. Named
+  from the libraries' symbol tables: on Android every function the game
+  exports; a desktop executable exports none, so there it names only the
+  libraries.
 
 The code is [common/perf_capture.h](../../port/common/perf_capture.h) (the
 summary, no window or GPU, tested by `perf_capture`) and

@@ -25,6 +25,7 @@
 #include "common/env.h"
 #include "common/log.h"
 #include "common/perf_capture.h"
+#include "common/sampler.h"
 #include "common/slow_cpu.h"
 #include "common/stats.h"
 #include "common/system_info.h"
@@ -125,6 +126,7 @@ void begin_capture(const Shown& shown, double seconds, std::string path) {
         return;
     }
     c.path = std::move(path);
+    sampler::start();  // where the window and render threads' time goes (common/sampler.h)
     c.clocks_at_start = system_info::cpu_clocks();
     c.thermal_at_start = system_info::thermal();
     c.level_at_start = s.level;
@@ -282,7 +284,8 @@ std::vector<std::uint8_t> file_bytes(const std::filesystem::path& path) {
 }
 
 void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) {
-    const std::string report = recorder.report(context(shown));
+    // The hot functions of the threads sampled while it ran, at the report's end.
+    const std::string report = recorder.report(context(shown)) + sampler::stop();
     if (c.opened_dump) {
         stats::close_dump();
     }

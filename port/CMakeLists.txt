@@ -79,6 +79,7 @@ add_library(openrac_common STATIC
   common/perf_capture.cpp
   common/process.cpp
   common/ps2_float.cpp
+  common/sampler.cpp
   common/slow_cpu.cpp
   common/stats.cpp
   common/system_info.cpp
@@ -108,6 +109,7 @@ openrac_add_test(perf_capture LIBS openrac_common)
 openrac_add_test(zip_writer LIBS openrac_common)
 openrac_add_test(parallel LIBS openrac_common Threads::Threads)
 openrac_add_test(slow_cpu LIBS openrac_common)
+openrac_add_test(sampler LIBS openrac_common)
 openrac_add_test(result INCLUDES .)
 openrac_add_test(c_boundary LIBS openrac_common)
 openrac_add_test(frame_pacing INCLUDES .)
