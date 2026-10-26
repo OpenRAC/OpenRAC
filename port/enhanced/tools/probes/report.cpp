@@ -13,6 +13,7 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "common/profiler.h"
 #include "enhanced/tools/probes/activation.h"
 
 namespace fs = std::filesystem;
@@ -87,6 +88,7 @@ void report_terrain_coverage(
     const ProbeVolume* coarse,
     std::ostream& output
 ) {
+    const profiling::Zone trace("Report terrain probe coverage");
     auto unclassified = volume;
 
     for (auto& probe : unclassified.probes) {
@@ -356,7 +358,36 @@ void write_material_report(std::ostream& report, const scene::LevelData& level) 
 }
 }  // namespace
 
-// Describes the same transport inputs for standalone and persistent bakes.
+// Scene counts and resolved materials remain fixed throughout a prepared level batch.
+ProbeBakeReport::ProbeBakeReport(
+    const scene::LevelData& level,
+    const BakeSceneExport& exported,
+    const BakeSettings& settings,
+    unsigned light_set
+)
+    : m_settings(settings) {
+    const profiling::Zone trace("Prepare probe reports");
+    std::ostringstream scene_text, material_text;
+    write_scene_report(scene_text, exported, settings, light_set);
+    write_material_report(material_text, level);
+    m_scene = scene_text.str();
+    m_materials = material_text.str();
+}
+
+// Grid identity, allocation and settings remain explicit in every report.
+std::string ProbeBakeReport::describe(const ProbeGrid& grid) const {
+    const profiling::Zone trace("Describe probe bake");
+    std::ostringstream report;
+    report << "probe_format_version " << kProbeFormatVersion << "\nbake_version "
+           << grid.bake_version << "\ngame_version " << grid.game_version << "\nlevel "
+           << grid.level;
+    report << m_scene;
+    write_grid_report(report, grid, m_settings);
+    report << m_materials;
+    return report.str();
+}
+
+// Standalone commands use the same snapshot and formatting as persistent batches.
 std::string describe_probe_bake(
     const scene::LevelData& level,
     const BakeSceneExport& exported,
@@ -364,14 +395,7 @@ std::string describe_probe_bake(
     const BakeSettings& settings,
     unsigned light_set
 ) {
-    std::ostringstream report;
-    report << "probe_format_version " << kProbeFormatVersion << "\nbake_version "
-           << grid.bake_version << "\ngame_version " << grid.game_version << "\nlevel "
-           << grid.level;
-    write_scene_report(report, exported, settings, light_set);
-    write_grid_report(report, grid, settings);
-    write_material_report(report, level);
-    return report.str();
+    return ProbeBakeReport(level, exported, settings, light_set).describe(grid);
 }
 
 }  // namespace openrac::lighting

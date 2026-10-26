@@ -61,6 +61,13 @@ Sparse and dense maps retain filtered first and second distance moments. Sparse 
 visibility variance only beyond the mean blocker distance. This reduces uncertain support without
 erasing unobstructed outdoor fill. Very coarse grids and finite angular sampling can still leak.
 
+Repeated texture colour conversions reuse bounded worker-local caches for the current rounding mode.
+Each worker retains up to 65,536 exact byte/tint results, using about 1 MiB rather than storing
+full linear copies of every texture.
+Tinted emission and authored terrain keep their original colour conversion order. Visibility
+queries sample alpha without calculating RGB. Batch reports reuse fixed scene and material text;
+each grid still receives its own coverage report and runtime validation.
+
 ## Depends on
 
 The scene, asset, common and enhanced lighting modules. Embree is the offline traversal dependency.

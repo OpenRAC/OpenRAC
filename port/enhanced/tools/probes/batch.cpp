@@ -236,6 +236,7 @@ void run_probe_batch(
     }
 
     ProbeBaker baker(exported.scene, options.settings, options.threads);
+    const ProbeBakeReport descriptions(level, exported, options.settings, options.light_set);
     std::optional<ProbeVolume> coarse;
 
     // Progress over the whole level, in probes: every grid's, the ones kept counted as done.
@@ -315,8 +316,7 @@ void run_probe_batch(
                 coarse = std::move(checked);
             }
         }
-        auto report =
-            describe_probe_bake(level, exported, job.grid, options.settings, options.light_set);
+        auto report = descriptions.describe(job.grid);
         const auto valid =
             std::count_if(volume.probes.begin(), volume.probes.end(), [](const Probe& probe) {
                 return probe.valid;

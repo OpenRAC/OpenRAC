@@ -4,6 +4,7 @@
 // Sun/emitter visibility, surface bounces and winding-independent occupancy.
 #include "enhanced/lighting/bake_transport.h"
 
+#include "enhanced/lighting/bake_material.h"
 #include "enhanced/lighting/bake_math.h"
 
 namespace openrac::lighting::bake_detail {
@@ -103,7 +104,7 @@ EmissionSample sample_area_emitter(
 
     // Reject near-coincident or transparent emitter samples.
     if (distance <= 4 * bias
-        || bake_material(scene.input, triangle, u, v)[3] < triangle.alpha_cutoff) {
+        || material_opacity(scene.input, triangle, u, v) < triangle.alpha_cutoff) {
         return {};
     }
 

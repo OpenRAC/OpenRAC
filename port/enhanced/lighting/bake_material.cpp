@@ -4,6 +4,10 @@
 // Wrapped texture, sky and authored emission sampling for offline transport.
 #include "enhanced/lighting/bake_material.h"
 
+#include <bit>
+#include <cfenv>
+#include <optional>
+
 #include "enhanced/lighting/bake_math.h"
 
 namespace openrac::lighting {
@@ -51,6 +55,53 @@ float linear_colour(float value) {
     return value <= .04045f ? value / 12.92f : std::pow((value + .055f) / 1.055f, 2.4f);
 }
 
+// Bounded exact lookups: hash collisions only cause recomputation, never colour approximation.
+struct ColourDecodeCache {
+    static constexpr unsigned kTintedBits = 16;  // Approximately 1 MiB per worker.
+
+    struct Entry {
+        std::uint64_t key = 0;
+        float value = 0;
+        bool occupied = false;
+    };
+
+    std::optional<int> rounding;
+    std::array<float, 256> untinted{};
+    std::array<Entry, std::size_t{1} << kTintedBits> tinted{};
+
+    float sample(std::uint8_t byte, float tint) {
+        if (tint == 1) {
+            return untinted[byte];
+        }
+        const auto key = (std::uint64_t{std::bit_cast<std::uint32_t>(tint)} << 8) | byte;
+        const auto index = ((key ^ (key >> 23)) * 0x9e3779b97f4a7c15ull) >> (64 - kTintedBits);
+        auto& entry = tinted[index];
+        if (!entry.occupied || entry.key != key) {
+            entry =
+                {key,
+                 linear_colour(std::clamp(static_cast<float>(byte) / 255 * tint, 0.f, 1.f)),
+                 true};
+        }
+        return entry.value;
+    }
+};
+
+// Refresh on directed-rounding changes; workers never share mutable lookup state.
+ColourDecodeCache& colour_cache() {
+    thread_local ColourDecodeCache cache;
+    const int rounding = std::fegetround();
+
+    if (cache.rounding != rounding) {
+        for (std::size_t i = 0; i < cache.untinted.size(); ++i) {
+            cache.untinted[i] = linear_colour(std::clamp(static_cast<float>(i) / 255, 0.f, 1.f));
+        }
+        cache.tinted.fill({});
+        cache.rounding = rounding;
+    }
+
+    return cache;
+}
+
 // Filters colour and linear coverage without changing the traversal footprint.
 std::array<float, 4> filtered_material(
     const BakeTexture& texture,
@@ -61,17 +112,19 @@ std::array<float, 4> filtered_material(
 ) {
     const auto [u, v] = uv;
     std::array<float, 4> filtered{};
+    auto* decoded = authored ? nullptr : &colour_cache();
 
     // Colour uses the same footprint as traversal coverage.
     for (const auto& tap : texture_taps(texture, triangle, u, v)) {
         // Alpha remains linear while RGB follows the material colour path.
         for (unsigned c = 0; c < 3; ++c) {
-            float f = static_cast<float>(texture.rgba[tap.offset + c]) / 255;
-            f = std::clamp(f * options.texture_tint[c], 0.0f, 1.0f);
-
-            // Ordinary materials decode each tap before interpolation.
-            if (!authored) {
-                f = linear_colour(f);
+            float f;
+            if (decoded) {
+                f = decoded->sample(texture.rgba[tap.offset + c], options.texture_tint[c]);
+            } else {
+                f = static_cast<float>(texture.rgba[tap.offset + c]) / 255;
+                f = std::clamp(f * options.texture_tint[c], 0.0f, 1.0f);
+                // Authored terrain decodes after filtering and vertex tint instead.
             }
 
             filtered[c] += f * tap.weight;
@@ -113,7 +166,13 @@ void scale_material(std::array<float, 4>& value, float diffuse_scale) {
 
 namespace bake_detail {
 // Intersection acceptance needs linear alpha only, never decoded RGB or emission.
-float textured_opacity(const BakeScene& scene, const BakeTriangle& triangle, float u, float v) {
+float material_opacity(const BakeScene& scene, const BakeTriangle& triangle, float u, float v) {
+    const float modulation = triangle.multipliers[0][3] * (1 - u - v)
+                             + triangle.multipliers[1][3] * u + triangle.multipliers[2][3] * v;
+    if (triangle.texture < 0) {
+        return std::clamp(modulation, 0.f, 1.f);
+    }
+
     const auto& texture = scene.textures.at(static_cast<std::size_t>(triangle.texture));
     float filtered = 0;
 
@@ -123,8 +182,6 @@ float textured_opacity(const BakeScene& scene, const BakeTriangle& triangle, flo
         filtered += alpha * tap.weight;
     }
 
-    const float modulation = triangle.multipliers[0][3] * (1 - u - v)
-                             + triangle.multipliers[1][3] * u + triangle.multipliers[2][3] * v;
     return std::clamp(modulation * filtered, 0.f, 1.f);
 }
 

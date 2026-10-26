@@ -46,6 +46,14 @@ void test_bake_report_counts_gpu_payload() {
     CHECK(
         report.find("\nmap_and_metadata_bytes " + std::to_string(bytes) + "\n") != std::string::npos
     );
+    const ProbeBakeReport cached(scene::LevelData{}, BakeSceneExport{}, BakeSettings{}, 0);
+    CHECK(cached.describe(grid) == report);
+    grid.origin = {2, 3, 4};
+    CHECK(cached.describe(grid).find("\nprobe_origin 2 3 4\n") != std::string::npos);
+    CHECK(
+        cached.describe(grid)
+        == describe_probe_bake(scene::LevelData{}, BakeSceneExport{}, grid, BakeSettings{}, 0)
+    );
 }
 
 // Fractional spacing and large scenes must not add cells to an exact repartitioned grid.

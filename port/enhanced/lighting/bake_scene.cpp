@@ -182,7 +182,7 @@ void Scene::filter_alpha(const RTCFilterFunctionNArguments* args) {
         const auto& triangle = scene.input.triangles[primitive];
 
         // Reject transparent candidates without restarting traversal.
-        if (textured_opacity(
+        if (material_opacity(
                 scene.input,
                 triangle,
                 RTCHitN_u(args->hit, args->N, lane),

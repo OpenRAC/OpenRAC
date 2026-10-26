@@ -3,16 +3,90 @@
 //
 // Authored albedo, sky and emission transport regression fixtures.
 #include <algorithm>
+#include <cfenv>
 #include <cmath>
 #include <numbers>
 #include <stdexcept>
 
+#include "enhanced/lighting/bake_material.h"
 #include "enhanced/tests/probe_bake_fixtures.h"
 
 using namespace openrac::lighting;
 using namespace openrac::lighting::bake_test;
 
 namespace {
+// Byte/tint caching must preserve the original conversion, including clipping and rounding changes.
+void byte_colour_decoding() {
+    BakeScene scene;
+    BakeTexture texture{256, 1, {}};
+    for (unsigned value = 0; value < 256; ++value) {
+        texture.rgba.insert(
+            texture.rgba.end(),
+            {static_cast<std::uint8_t>(value),
+             static_cast<std::uint8_t>(255 - value),
+             static_cast<std::uint8_t>(value / 2),
+             255}
+        );
+    }
+    scene.textures.push_back(std::move(texture));
+    BakeTriangle triangle;
+    triangle.diffuse = {.25f, .5f, 1};
+    triangle.texture = 0;
+    const int original = std::fegetround();
+    for (int rounding : {FE_TONEAREST, FE_TOWARDZERO, FE_UPWARD, FE_DOWNWARD, FE_TONEAREST}) {
+        CHECK(std::fesetround(rounding) == 0);
+        for (unsigned value = 0; value < 256; ++value) {
+            const Float2 centre{(static_cast<float>(value) + .5f) / 256, .5f};
+            triangle.uv = {centre, centre, centre};
+            for (float tint : {0.f, .5f, .9f, 1.f, 1.9f, 3.f, .5f}) {
+                const auto sampled = bake_material(scene, triangle, 0, 0, {{tint, tint, tint}});
+                for (unsigned channel = 0; channel < 3; ++channel) {
+                    const float encoded = std::clamp(
+                        static_cast<float>(scene.textures[0].rgba[value * 4 + channel]) / 255
+                            * tint,
+                        0.f,
+                        1.f
+                    );
+                    const float expected = encoded <= .04045f
+                                               ? encoded / 12.92f
+                                               : std::pow((encoded + .055f) / 1.055f, 2.4f);
+                    CHECK(
+                        sampled[channel]
+                        == std::clamp(expected * triangle.diffuse[channel], 0.f, 1.f)
+                    );
+                }
+            }
+        }
+    }
+    CHECK(std::fesetround(original) == 0);
+}
+
+// Emitter rejection and Embree cutouts must retain the full material sampler's coverage.
+void alpha_only_material() {
+    BakeScene scene;
+    scene.textures.push_back(
+        {2, 2, {32, 64, 96, 0, 128, 160, 192, 64, 224, 16, 48, 128, 80, 112, 144, 255}}
+    );
+    BakeTriangle triangle;
+    triangle.uv = {Float2{-1.25f, .25f}, Float2{1.5f, -.75f}, Float2{.25f, 1.5f}};
+    triangle.multipliers =
+        {std::array<float, 4>{1, 1, 1, .25f},
+         std::array<float, 4>{1, 1, 1, 1.5f},
+         std::array<float, 4>{1, 1, 1, 2}};
+    triangle.diffuse_scale = 0;
+    for (int texture : {-1, 0}) {
+        triangle.texture = texture;
+        for (float u : {0.f, .25f, .5f, 1.f}) {
+            for (float v : {0.f, .25f, .5f}) {
+                CHECK(
+                    bake_detail::material_opacity(scene, triangle, u, v)
+                    == bake_material(scene, triangle, u, v)[3]
+                );
+            }
+        }
+    }
+}
+
 // Verify authored terrain albedo.
 void authored_terrain_albedo() {
     BakeScene scene;
@@ -371,6 +445,8 @@ void emissive_transport() {
 
 // Run the independent lighting fixtures.
 int main() {
+    byte_colour_decoding();
+    alpha_only_material();
     authored_terrain_albedo();
     sunlight_bounce_correction();
     test_sunlight_direction_override();
