@@ -574,7 +574,8 @@ void ProbeLighting::bind(
         m_sunlight_scale[2]
     );
     glUniform1f(shader.uniform("probe_normal_bias"), normal_bias);
-    const auto direction_override = runtime_sunlight_direction ? runtime_sunlight_direction : m_sunlight_direction;
+    const auto direction_override =
+        runtime_sunlight_direction ? runtime_sunlight_direction : m_sunlight_direction;
     const auto direction = direction_override.value_or(lighting::Float3{});
     glUniform4f(
         shader.uniform("probe_sunlight_direction"),

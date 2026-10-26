@@ -204,7 +204,9 @@ void Fsr3::State::restore_world_depth() {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, world.depth_texture());
     late_world_depth.use();
-    glUniform2f(late_world_depth.uniform("display_size"), float(display.width), float(display.height));
+    glUniform2f(
+        late_world_depth.uniform("display_size"), float(display.width), float(display.height)
+    );
     glUniform2f(late_world_depth.uniform("jitter"), dispatch.jitter[0], dispatch.jitter[1]);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);

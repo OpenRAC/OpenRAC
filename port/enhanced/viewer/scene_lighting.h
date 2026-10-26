@@ -31,7 +31,9 @@ public:
     std::string mesh_fragment(std::string source) const override;
     std::string mesh_vertex(std::string source) const override;
     void prepare_wetness(
-        const renderer::FrameInput& input, unsigned palette, const std::optional<scene::Instance>& hero
+        const renderer::FrameInput& input,
+        unsigned palette,
+        const std::optional<scene::Instance>& hero
     ) override;
     void bind_wetness(const renderer::Shader& shader) const override;
     std::string early_fragment(std::string source) const override;
@@ -83,8 +85,9 @@ public:
         const renderer::FrameInput& input,
         const renderer::RenderState& state
     ) const override;
-    bool early_matches(const renderer::FrameInput& input, const renderer::RenderState& state)
-        const override;
+    bool early_matches(
+        const renderer::FrameInput& input, const renderer::RenderState& state
+    ) const override;
 
     // Uploads a probe volume an in-memory provider made (and its dense volume); the provider has
     // checked the scene's and the bake's identity. False with `error` when it cannot be uploaded.

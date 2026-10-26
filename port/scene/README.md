@@ -34,6 +34,14 @@ package P2-39b).
 | [`moby_shadow.h`](moby_shadow.h) | `moby_shadow_state` and `moby_shadows`: a moby's stencil shadow (direction, ground slab, fade) and its capsules, from game memory |
 | [`screenshot.h`](screenshot.h) | `write_png`: an RGBA frame written to a PNG file |
 
+## Renderer implementation
+
+`level_renderer.cpp` owns uploads and layer drawing. `level_instances.cpp` handles instance groups,
+poses and palettes; `level_lighting_pass.cpp` binds lighting and runs the early pass. Shadow setup
+lives in `level_shadows.cpp`, atlas submission in `shadow_atlas_renderer.cpp`, caster selection in
+`shadow_casters.cpp`, and persistent depth caches in `shadow_scroll_renderer.cpp`. They share only
+private utilities through `level_renderer_internal.h`; the public `LevelScene` interface is unchanged.
+
 ## Depends on
 
 - `renderer` (math, textures, buckets, framebuffers, shaders, the GPU draw interface, shadow

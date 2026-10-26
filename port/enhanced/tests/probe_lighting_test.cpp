@@ -397,7 +397,7 @@ void emissive_transport() {
         source.emission_contrast = 1;
         const auto original_bright = bake_emission(scene, source, 0, 0);
         CHECK(bright[0] > original_bright[0]);
-        CHECK(std::abs(bright[0]/bright[1] - original_bright[0]/original_bright[1]) < 1e-5f);
+        CHECK(std::abs(bright[0] / bright[1] - original_bright[0] / original_bright[1]) < 1e-5f);
         CHECK(bright[2] == 0);
         source.emission_contrast = 4;
         scene.textures[0].rgba = {0, 0, 0, 255};

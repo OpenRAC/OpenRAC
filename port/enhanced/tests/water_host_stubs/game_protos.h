@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright (c) 2026 the OpenRAC contributors */
 #pragma once
 #include "openrac/guest.h"
 void game_FUN_L01_002fd0c0__game(void);

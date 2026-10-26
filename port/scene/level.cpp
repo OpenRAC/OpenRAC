@@ -858,8 +858,8 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
                 return false;
             }
         }
-        material.emission_contrast = edit["contrast"].is_null()
-            ? 1.f : static_cast<float>(edit["contrast"].number(-1));
+        material.emission_contrast =
+            edit["contrast"].is_null() ? 1.f : static_cast<float>(edit["contrast"].number(-1));
         if (!std::isfinite(material.emission_contrast) || material.emission_contrast < 1
             || material.emission_contrast > 4) {
             error = "emission contrast must be between one and four";

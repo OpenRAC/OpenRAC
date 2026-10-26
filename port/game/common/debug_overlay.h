@@ -25,8 +25,8 @@
 
 #include "game/common/profile.h"
 #include "renderer/math.h"
-#include "scene/object_picker.h"
 #include "renderer/renderer.h"
+#include "scene/object_picker.h"
 
 namespace openrac::frontend::debug_overlay {
 

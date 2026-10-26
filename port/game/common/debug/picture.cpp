@@ -45,8 +45,7 @@ struct Projector {
 }  // namespace
 
 void picture_marks(const Shown& shown) {
-    if (shown.camera == nullptr || shown.box_width <= 0
-        || (!s.labels && s.selected == 0)) {
+    if (shown.camera == nullptr || shown.box_width <= 0 || (!s.labels && s.selected == 0)) {
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
@@ -82,7 +81,6 @@ void picture_marks(const Shown& shown) {
             );
         }
     }
-
 }
 
 // What the keys of pause and speed have set, said in the picture whether the panel is shown or

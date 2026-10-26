@@ -149,7 +149,7 @@ The sections, by where they are taken:
 | `Renderer::render` (`renderer/renderer.cpp`) | `frame clear`, `world depth prepass`, `probe coverage selection`, `world opaque colour`, one per bucket renderer (its name), `texture retire` | the prepass, selection and opaque colour, and each renderer that does not time itself; `frame clear` and `texture retire` are CPU work |
 | GTAO (`enhanced/renderer/gtao.cpp`) | `gtao`, `GTAO depth copy`, `GTAO horizons`, `GTAO filter` | yes, but `gtao` |
 | Early lighting (`enhanced/viewer/early_lighting.cpp`) | `early GI and cascades` | yes |
-| `LevelScene` (`scene/level_renderer.cpp`) | `shadow atlas`, `sun0 map` to `sun3 map`, `Ratchet shadow`, `shadow clear`, `sky colour`, one per layer | yes, as `OPENRAC_SUN_TIMING_DETAIL` chooses for the cascades |
+| `LevelScene` (`scene/level_*`, `scene/shadow_*`) | `shadow atlas`, `sun0 map` to `sun3 map`, `Ratchet shadow`, `shadow clear`, `sky colour`, one per layer | yes, as `OPENRAC_SUN_TIMING_DETAIL` chooses for the cascades |
 | The GPU-driven culling (`renderer/vulkan/gpu_draw.inc`) | `GPU instance visibility` | yes |
 | The Vulkan present (`renderer/vulkan/vkgl_present.cpp`) | `vulkan present` (acquire, the copy to the screen, submit, present), `vulkan frame wait` (the fence of the frame two back) | no |
 
@@ -1008,10 +1008,9 @@ the Mac and `D24_UNORM_S8_UINT` on box1, one image for depth and stencil:
 | | depth, stencil (4 samples) | cleared | nobody: now not stored |
 
 GTAO's passes and early lighting are compute dispatches and copies, not render passes, so they
-have no attachments here. The present copy reads the frame's colour (R-07). The one call the
-renderer makes is the end of the frame's: the other dead attachments above are in the scene's
-files (the shadow atlas, `scene/level_renderer.cpp`), which another lane owns, and
-[PROGRESS.md](../restructure/PROGRESS.md) lists them as follow-ups with their bytes.
+have no attachments here. The present copy reads the frame's colour (R-07).
+The scene renderer owns world and shadow attachments; see its
+[module guide](../../port/scene/README.md#renderer-implementation).
 
 **The counters.** `openrac_render_bench --warmup 3 --frames 10`, the registry entry off and on,
 per measured frame, the same in all five runs (the counts are the same on both machines; the bytes
@@ -1071,7 +1070,7 @@ store operations and the GPU's external write bandwidth.
 ## R-15: static instances resident on the GPU
 
 **What changed** (`renderer/vulkan/gpu_draw.inc`, `vkgl.h`, `vkgl.cpp`, `vkgl_internal.h`,
-`scene/level_renderer.cpp`):
+`scene/level_instances.cpp`):
 
 - `gpu-resident-instances`. For every group of terrain, ties and shrubs and every view (the camera,
   its PVS pass, each shadow view), `gpu_make_batch` copied each instance's 120 bytes of data and 32
@@ -1266,16 +1265,15 @@ The Novalis opening-view comparison on a Radeon 780M uses enhanced rendering, FS
 GI/GTAO 1, a 1960×1470 output, VSync off and 500 settled simulation ticks per run. Mean GPU time
 for the complete shadow pass, including composition:
 
-| Quality | Ordinary atlas | Nearest-only cache | Four stabilized caches |
-|---|---:|---:|---:|
-| High | 2.36 ms | 2.31 ms | 1.80 ms |
-| Medium | 1.95 ms | 1.86 ms | 1.24 ms |
+| Quality | Ordinary atlas | Four cached cascades |
+|---|---:|---:|
+| High | 2.36 ms | 1.80 ms |
+| Medium | 1.95 ms | 1.24 ms |
 
 Displayed FPS changed from 69.8 to 71.5 on High and 70.2 to 74.2 on Medium. These are single
 matching runs, not a guarantee of the same gain across gameplay. Static shadow updates fell
 to zero throughout the fixed-view sample after the deadband change; moving cameras still update
 new strips. CPU shadow-pass time fell from 1.37 to 1.14 ms on High and 1.39 to 1.12 ms on Medium.
-The original nearest-only compute merge measured 0.31 ms GPU on High and 0.093 ms on Medium.
 The four-map merge totals measured 0.613 ms GPU on High and 0.184 ms on Medium in separate Tracy captures.
 
 ## R-07: one copy to the screen

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <algorithm>
-#include <cmath>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 
@@ -23,8 +23,10 @@ namespace {
 using lighting::Float3;
 
 void rejected_bake_message() {
-    const auto folder = std::filesystem::temp_directory_path()
-        / ("openrac-probe-error-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto folder =
+        std::filesystem::temp_directory_path()
+        / ("openrac-probe-error-"
+           + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     std::filesystem::create_directories(folder / "level_01");
     std::ofstream(folder / "level_01/sparse.orpg", std::ios::binary) << "invalid-probe";
     const auto previous_root = lighting::probe_root();
@@ -39,7 +41,7 @@ void rejected_bake_message() {
     probes.release();
     CHECK(probes.load_error().empty());
     lighting::set_probe_root(previous_root);
-    std::filesystem::remove_all(folder); // Only this fixture's newly created data.
+    std::filesystem::remove_all(folder);  // Only this fixture's newly created data.
 }
 
 renderer::Shader* zero_weight_reference = nullptr;
@@ -445,9 +447,13 @@ void material_path(
                     texture_green = linear(160.f / 255);
                 }
                 float luminance = textured_emission ? .7152f : 1.f;
-                if (grey_texel) luminance = texture_green;
-                else if (mixed_texel) luminance = .7152f*texture_green + .2848f*linear(128.f/255);
-                const float gain = emission_contrast > 1 ? std::pow(luminance/.18f, emission_contrast-1) : 1.f;
+                if (grey_texel) {
+                    luminance = texture_green;
+                } else if (mixed_texel) {
+                    luminance = .7152f * texture_green + .2848f * linear(128.f / 255);
+                }
+                const float gain =
+                    emission_contrast > 1 ? std::pow(luminance / .18f, emission_contrast - 1) : 1.f;
                 const float e = .125f * texture_green * gain;
                 float display =
                     e <= .0031308f ? e * 12.92f : 1.055f * std::pow(e, 1.f / 2.4f) - .055f;
@@ -1654,9 +1660,15 @@ void main() {
     camera_facing_normals();
     rejected_bake_message();
     // Per-material power curve agrees with CPU luminance shaping for colour and grey.
-    material_path(scene::Layer::Mobys, 0, false, false, false, true, true, false, false, false, 1.5f);
-    material_path(scene::Layer::Mobys, 0, false, false, false, true, true, true, false, false, 1.5f);
-    material_path(scene::Layer::Mobys, 0, false, false, false, true, true, false, true, false, 1.5f);
+    material_path(
+        scene::Layer::Mobys, 0, false, false, false, true, true, false, false, false, 1.5f
+    );
+    material_path(
+        scene::Layer::Mobys, 0, false, false, false, true, true, true, false, false, 1.5f
+    );
+    material_path(
+        scene::Layer::Mobys, 0, false, false, false, true, true, false, true, false, 1.5f
+    );
     sunlight_rgb_correction();
     return test::result();
 }

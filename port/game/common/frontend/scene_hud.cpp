@@ -99,9 +99,14 @@ void set_packets(SceneFrame& frame) {
     input.water_hands = scene.water_hands;
     for (const auto& instance : scene.live) {
         if (instance.hero_shadow_anchor) {
-            const renderer::Vec3 point{instance.matrix[12],instance.matrix[13],instance.matrix[14]};
-            if(std::all_of(point.begin(),point.end(),[](float value){return std::isfinite(value);}))
-                input.water_interactor=point;
+            const renderer::Vec3 point{
+                instance.matrix[12], instance.matrix[13], instance.matrix[14]
+            };
+            if (std::all_of(point.begin(), point.end(), [](float value) {
+                    return std::isfinite(value);
+                })) {
+                input.water_interactor = point;
+            }
             break;
         }
     }

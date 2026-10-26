@@ -108,7 +108,7 @@ void LevelScene::draw_scrolling_regions(unsigned cascade, renderer::RenderState&
 
 unsigned LevelScene::update_scrolling_shadows(renderer::RenderState& state) {
     const stats::Scope scope("shadow scroll static", stats::kGpu);
-    static constexpr const char* names[] =
+    static constexpr const char* kNames[] =
         {"shadow scroll 0 updated texels",
          "shadow scroll 1 updated texels",
          "shadow scroll 2 updated texels",
@@ -132,7 +132,7 @@ unsigned LevelScene::update_scrolling_shadows(renderer::RenderState& state) {
         full = full || update.full;
         capacity +=
             static_cast<std::uint64_t>(m_shadow_layout.rects[i][2]) * m_shadow_layout.rects[i][3];
-        stats::gauge(names[i], static_cast<double>(changed));
+        stats::gauge(kNames[i], static_cast<double>(changed));
     }
     stats::gauge("shadow scroll updated texels", static_cast<double>(pixels));
     stats::gauge("shadow scroll capacity texels", static_cast<double>(capacity));

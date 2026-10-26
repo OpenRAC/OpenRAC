@@ -908,12 +908,20 @@ bool copy_buffer_to_texture(unsigned buffer, unsigned texture, int width, int he
     }
     unsigned texel_bytes = 0;
     switch (t->image->format) {
-        case VK_FORMAT_R8G8B8A8_UNORM: texel_bytes = 4; break;
-        case VK_FORMAT_R32G32_SFLOAT: texel_bytes = 8; break;
-        case VK_FORMAT_R32G32B32A32_SFLOAT: texel_bytes = 16; break;
-        default: return false;
+        case VK_FORMAT_R8G8B8A8_UNORM:
+            texel_bytes = 4;
+            break;
+        case VK_FORMAT_R32G32_SFLOAT:
+            texel_bytes = 8;
+            break;
+        case VK_FORMAT_R32G32B32A32_SFLOAT:
+            texel_bytes = 16;
+            break;
+        default:
+            return false;
     }
-    const auto bytes = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * texel_bytes;
+    const auto bytes =
+        static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * texel_bytes;
     if (t->image->width != width || t->image->height != height || b->size < bytes) {
         return false;
     }

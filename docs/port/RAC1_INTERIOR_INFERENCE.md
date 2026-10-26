@@ -3,8 +3,7 @@
 Normal probe bakes run interior inference and prepare baked interior sources by default.
 The inference tool writes a separate JSON report; unambiguous indoor samples drive bounded
 emitter boosts and ceiling lights. `regions.interior_lighting: false` skips automatic
-preparation. Explicit source sidecars are preserved. Novalis NTSC-U (level 1) is the
-initial reference level.
+preparation. Explicit source sidecars are preserved. Novalis NTSC-U (level 1) has the verified profile.
 
 The bake pipeline reads exported collision and retained gameplay without disc access.
 Generated `probe-interiors.json` stays beside the export for runtime fingerprint validation;
@@ -51,8 +50,8 @@ Build with `OPENRAC_PROBE_BAKER=ON` and the existing Embree dependency:
 ```sh
 cmake --build port/build/release --target openrac-interior-infer interior_inference_test
 ctest --test-dir port/build/release -R '^interior_inference$' --output-on-failure
-python port/enhanced/tools/probes/prepare_interiors.py --disc build/native-ntsc-data/iso_data/rac1/disc.iso --level 1 --output build/probe-gi/novalis-interior-input-v1.json
-port/build/release/openrac-interior-infer build/probe-gi/novalis-interior-input-v1.json build/probe-gi/novalis-interior-regions-v3.json 1
+python port/enhanced/tools/probes/prepare_interiors.py --disc /path/to/owned-disc.iso --level 1 --output build/probe-gi/novalis-interior-input.json
+port/build/release/openrac-interior-infer build/probe-gi/novalis-interior-input.json build/probe-gi/novalis-interior-regions.json 1
 ```
 
 The official Embree package's `bin` directory must be on PATH on Windows.
@@ -64,6 +63,10 @@ They also cover disconnected floor patches, air routes around obstructions, shor
 selection, wall occlusion and label separation across another authored transition.
 
 ## Lighting-set propagation
+
+`interiors.cpp` samples collision floors and connects support patches. `interior_labels.cpp`
+propagates authored moods through enclosed air. Their collision queries and math stay private
+in `interior_inference_internal.h`.
 
 Transition endpoints first label visible floor components. Matching authored light-set and ambient
 pairs share one label. Direct assignments retain priority, including conflicting authored evidence.
@@ -85,15 +88,8 @@ Exceeding it stops inference with an error. Grid resolution and conservative enc
 leave narrow or exposed connections unresolved; this is mood inference rather than an exact
 reconstruction of runtime lighting state.
 
-## Novalis coverage
-
-The 1-unit pass samples 39,323 clearance-qualified surface points and finds 1,939 connected
-components. The floor graph stays unchanged by air propagation. Source preparation keeps
-unambiguous low-sky floor samples, then the baker checks render geometry for enclosure, a ceiling
-and rectangle clearance before accepting each light.
-
-Labels describe authored mood evidence. They do not prove adequate illumination or source coverage;
-the generated-source report and runtime debug view expose the actual placed ceiling rectangles.
+The source report and runtime overlay show actual placed rectangles. A lighting label is mood
+evidence, not proof of adequate illumination or complete source coverage.
 
 ## Interior sources
 
@@ -101,7 +97,7 @@ the generated-source report and runtime debug view expose the actual placed ceil
 writes a new `probe-interiors.json` beside the exported level. It rejects a
 different game/version/level and retains only unambiguous samples with sky
 visibility at most 0.2. Keep the report and sidecar in ignored storage.
-Use an isolated copy of the export when comparing experiments.
+Use a fresh output directory when comparing source settings.
 
 The native baker reads this sidecar before preparing transport. It uses
 each sample's original ambient colour and both directional colours as a loose

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
 #include "enhanced/renderer/water_mesh.h"
 
 #include <algorithm>

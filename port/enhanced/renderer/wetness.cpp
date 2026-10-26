@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
 #include "enhanced/renderer/wetness.h"
 
 #include <algorithm>
@@ -42,7 +43,8 @@ void set_wetness_material_settings(WetnessMaterialSettings settings) {
     };
     const WetnessMaterialSettings defaults;
     settings.diffuse_scale = bounded(settings.diffuse_scale, 0, 1, defaults.diffuse_scale);
-    settings.specular_strength = bounded(settings.specular_strength, 0, 4, defaults.specular_strength);
+    settings.specular_strength =
+        bounded(settings.specular_strength, 0, 4, defaults.specular_strength);
     settings.dry_roughness = bounded(settings.dry_roughness, .08f, 1, defaults.dry_roughness);
     settings.wet_roughness = bounded(settings.wet_roughness, .08f, 1, defaults.wet_roughness);
     settings.reflectivity = bounded(settings.reflectivity, 0, .16f, defaults.reflectivity);

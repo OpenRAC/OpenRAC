@@ -50,8 +50,8 @@ public:
 
     // Registers the level's probe and early lighting (scene/level_lighting.h), replacing what it
     // had; without one the scene lights as the game does. Before upload.
-    void set_level_lighting(std::unique_ptr<LevelLighting> lighting) {
-        m_lighting = std::move(lighting);
+    void set_level_lighting(std::unique_ptr<LevelLighting> provider) {
+        m_lighting = std::move(provider);
     }
 
     // The registered lighting, or null.
@@ -228,7 +228,9 @@ public:
     // The light bank the mobys are lit from this frame (16 sets of 16 floats, as the game holds
     // it); until set, the level's exported sets.
     // Shared lighting for optional world materials outside the mesh renderer.
-    void bind_surface_lighting(const renderer::Shader& shader, const renderer::Camera& camera) const;
+    void bind_surface_lighting(
+        const renderer::Shader& shader, const renderer::Camera& camera
+    ) const;
 
     void set_light_sets(const std::vector<float>& sets) {
         if (sets.size() == 16 * 16) {

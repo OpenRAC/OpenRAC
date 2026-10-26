@@ -129,7 +129,9 @@ void check_temporal_frame(
     input.camera.projection = renderer::perspective_reversed(1, 1.5f, .05f, 2000);
     renderer::RenderTarget target{display.id(), 96, 72};
     bool before_hud_called = false;
-    input.before_hud = [&] { before_hud_called = true; };
+    input.before_hud = [&] {
+        before_hud_called = true;
+    };
     const enhanced::TemporalFrame frame{input, target, display, scene, renderer.textures(), 0};
     const bool prepared = upscaler.begin(frame, quality, 0, error);
     CHECK(prepared);

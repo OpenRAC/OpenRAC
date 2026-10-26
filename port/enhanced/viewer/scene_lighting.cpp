@@ -31,6 +31,7 @@ std::string SceneLighting::mesh_vertex(std::string source) const {
 std::string SceneLighting::mesh_fragment(std::string source) const {
     return wetness_shader(probe_mesh_fragment(std::move(source)));
 }
+
 void SceneLighting::prepare_wetness(
     const renderer::FrameInput& input, unsigned palette, const std::optional<scene::Instance>& hero
 ) {

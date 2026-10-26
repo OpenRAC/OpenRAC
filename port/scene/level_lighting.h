@@ -40,9 +40,11 @@ public:
 
     // Enhanced surface history uses the already submitted hero pose and joint palette.
     virtual std::string mesh_vertex(std::string source) const { return source; }
+
     virtual void prepare_wetness(
         const renderer::FrameInput&, unsigned, const std::optional<Instance>&
     ) {}
+
     virtual void bind_wetness(const renderer::Shader&) const {}
 
     // Returns the scene's mesh fragment shader `source` as the early-lit variant draws it.

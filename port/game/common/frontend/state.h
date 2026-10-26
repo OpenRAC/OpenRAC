@@ -37,9 +37,9 @@
 #include "renderer/renderer.h"
 #include "renderer/shadows.h"
 #include "scene/level.h"
-#include "scene/object_picker.h"
 #include "scene/level_renderer.h"
 #include "scene/moby_shadow.h"
+#include "scene/object_picker.h"
 #include "settings.h"
 
 union SDL_Event;

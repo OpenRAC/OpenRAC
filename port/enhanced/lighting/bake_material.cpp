@@ -310,7 +310,8 @@ Float3 bake_emission(const BakeScene& scene, const BakeTriangle& triangle, float
     auto radiance = bake_material(scene, emission_material, u, v, {tint});
     if (triangle.emission_contrast > 1) {
         const float luminance = radiance[0] * .2126f + radiance[1] * .7152f + radiance[2] * .0722f;
-        const float gain = std::pow(std::max(luminance, 0.f) / .18f, triangle.emission_contrast - 1);
+        const float gain =
+            std::pow(std::max(luminance, 0.f) / .18f, triangle.emission_contrast - 1);
         for (unsigned c = 0; c < 3; ++c) {
             radiance[c] *= gain;
         }

@@ -18,12 +18,17 @@
 namespace openrac::settings {
 
 std::optional<std::array<float, 3>> Settings::sunlight_direction() const {
-    if (!sun_direction_override) return std::nullopt;
+    if (!sun_direction_override) {
+        return std::nullopt;
+    }
     constexpr float radians = 3.14159265358979323846f / 180.f;
     const float azimuth = sun_azimuth * radians, elevation = sun_elevation * radians;
     // The shader and shadow renderer use ray travel, opposite the source direction.
-    return std::array<float, 3>{-std::cos(elevation) * std::cos(azimuth),
-                                -std::cos(elevation) * std::sin(azimuth), -std::sin(elevation)};
+    return std::array<float, 3>{
+        -std::cos(elevation) * std::cos(azimuth),
+        -std::cos(elevation) * std::sin(azimuth),
+        -std::sin(elevation)
+    };
 }
 
 namespace {

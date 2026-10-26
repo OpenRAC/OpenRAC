@@ -173,7 +173,7 @@ struct State {
     // Mobys.
     std::uint32_t selected = 0;  // address; 0 none
     bool follow_hero = false;    // "inspect": the hero is selected, whichever moby he is now
-    bool enhanced_settings = false; // Independent Enhanced Settings window.
+    bool enhanced_settings = false;  // Independent Enhanced Settings window.
     bool inspector = false;      // the moby inspector window is open
     bool labels = false;         // the mobys' classes written in the picture
     bool near_hero = true;       // the list holds only the mobys within `radius` of the hero

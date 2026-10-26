@@ -9,7 +9,7 @@ Start with the [lighting guide](lighting/README.md) for builds, bakes and contro
 | Directory | Contents |
 | --- | --- |
 | `lighting/` | Probe data, sampling, emission and transport |
-| `renderer/` | GTAO, cached texture upscaling and shaders |
+| `renderer/` | GTAO, water, wetness, texture upscaling and shaders |
 | `fsr3/` | Temporal world reconstruction, motion and reactive masks |
 | `viewer/` | Probe lighting, probe selection and early lighting of a level, library `openrac_enhanced_viewer`, namespace `openrac::lighting`; `scene_lighting.h` registers them with the scene's lighting hook ([scene/README.md](../scene/README.md)) |
 | `game/` | Authored brightness tracking |

@@ -342,8 +342,7 @@ void write_material_report(std::ostream& report, const scene::LevelData& level) 
         report << "emission_material " << i << " linear_rgb " << material.emission[0] << ' '
                << material.emission[1] << ' ' << material.emission[2] << " vertex_colour "
                << material.emission_vertex_colour << " contrast " << material.emission_contrast
-               << " diffuse_scale " << material.diffuse_scale
-               << " texture ";
+               << " diffuse_scale " << material.diffuse_scale << " texture ";
 
         if (material.emission_image >= 0) {
             report << std::quoted(

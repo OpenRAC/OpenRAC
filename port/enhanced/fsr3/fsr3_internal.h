@@ -29,7 +29,7 @@ struct Fsr3::State {
 
     renderer::Shader camera_motion;  // Static world and sky motion, or float depth copy.
     renderer::Shader object_motion;  // Rigid and skinned dynamic velocities.
-    renderer::Shader late_world_depth; // Display-resolution depth for late world effects.
+    renderer::Shader late_world_depth;  // Display-resolution depth for late world effects.
     renderer::Shader reactive_mask;  // Particle colour-difference mask.
     unsigned vao = 0;                // Empty VAO for fullscreen triangles.
     unsigned previous_palette = 0;   // Previous displayed joint matrices.

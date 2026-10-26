@@ -553,7 +553,8 @@ bool event(const SDL_Event& e) {
             settings::save();
         }
     }
-    if (!(s.visible || s.enhanced_settings || picker_enabled() || menu_bar_shown() || s.drawer_open) || !s.initialised) {
+    if (!(s.visible || s.enhanced_settings || picker_enabled() || menu_bar_shown() || s.drawer_open)
+        || !s.initialised) {
         return false;
     }
     ImGui_ImplSDL3_ProcessEvent(&e);
@@ -564,8 +565,10 @@ bool event(const SDL_Event& e) {
         case SDL_EVENT_MOUSE_WHEEL:
         case SDL_EVENT_MOUSE_MOTION:
             return io.WantCaptureMouse
-                || (picker_enabled() && (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN
-                    || e.type == SDL_EVENT_MOUSE_BUTTON_UP) && e.button.button == SDL_BUTTON_LEFT);
+                   || (picker_enabled()
+                       && (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN
+                           || e.type == SDL_EVENT_MOUSE_BUTTON_UP)
+                       && e.button.button == SDL_BUTTON_LEFT);
         case SDL_EVENT_KEY_DOWN:
         case SDL_EVENT_KEY_UP:
         case SDL_EVENT_TEXT_INPUT:
@@ -664,8 +667,9 @@ void draw(const Shown& shown) {
         s.paused || s.stretch != 1.0 || !s.toast.empty() || !s.notice.empty() || capture_busy();
     const bool drawer_out =
         s.drawer_open || s.drawer_at > 0.0f || s.shot_when_shut || s.touch_editing;
-    if (!(s.visible || s.enhanced_settings || picker_enabled() || menu_bar_shown() || badge || drawer_out || !s.shot_path.empty()) || shown.window == nullptr
-        || !initialise(shown.window)) {
+    if (!(s.visible || s.enhanced_settings || picker_enabled() || menu_bar_shown() || badge
+          || drawer_out || !s.shot_path.empty())
+        || shown.window == nullptr || !initialise(shown.window)) {
         return;
     }
     const stats::Scope scope("overlay");

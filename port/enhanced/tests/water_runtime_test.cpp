@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
 #include <array>
 #include <cstdio>
 #include <fstream>
@@ -135,7 +136,7 @@ int main() {
             }
             previous = dispatches();
             runtime->prepare(input);
-            CHECK(dispatches() > previous); // still settling after three seconds
+            CHECK(dispatches() > previous);  // still settling after three seconds
             for (input.frame = 192; input.frame <= 330; ++input.frame) {
                 runtime->prepare(input);
             }

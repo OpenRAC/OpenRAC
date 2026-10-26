@@ -6,10 +6,10 @@
 #include <array>
 #include <vector>
 
+#include "debug_overlay.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "scene/moby_pose.h"
-#include "debug_overlay.h"
 
 namespace openrac::frontend {
 namespace {

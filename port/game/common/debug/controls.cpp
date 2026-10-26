@@ -155,9 +155,15 @@ void enhanced_settings_window() {
         if (!error.empty()) {
             ImGui::TextColored(ImVec4(1.f, .4f, .3f, 1.f), "Probe data could not be loaded");
             ImGui::TextWrapped("%s", error.c_str());
-            ImGui::TextWrapped("If the probe data is out of date, rebake this level with the current version of the game, then reload the level.");
+            ImGui::TextWrapped(
+                "If the probe data is out of date, rebake this level with the current version of "
+                "the game, then reload the level."
+            );
         } else {
-            ImGui::TextWrapped("Compatible probe data is required for this level. Prepare its lighting in the launcher's Enhanced graphics page.");
+            ImGui::TextWrapped(
+                "Compatible probe data is required for this level. Prepare its lighting in the "
+                "launcher's Enhanced graphics page."
+            );
         }
     }
     ImGui::BeginDisabled(!available);

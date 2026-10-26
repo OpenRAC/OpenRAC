@@ -266,6 +266,11 @@ openrac_warnings(openrac_probe_scene)
 # link without a graphics context) and this.
 add_library(openrac_scene_renderer STATIC
   scene/level_renderer.cpp
+  scene/level_instances.cpp
+  scene/level_shadows.cpp
+  scene/shadow_atlas_renderer.cpp
+  scene/shadow_casters.cpp
+  scene/level_lighting_pass.cpp
   scene/shadow_scroll_renderer.cpp
   scene/motion.cpp
 )
@@ -295,6 +300,9 @@ add_library(openrac_enhanced_viewer STATIC
   enhanced/viewer/debug_lines.cpp
   enhanced/viewer/probe_volume_overlay.cpp
   enhanced/renderer/water.cpp
+  enhanced/renderer/water_asset.cpp
+  enhanced/renderer/water_resources.cpp
+  enhanced/renderer/water_simulation.cpp
   enhanced/renderer/wetness.cpp
   enhanced/renderer/water_mesh.cpp
   enhanced/renderer/water_mesh_gpu.cpp
@@ -661,6 +669,9 @@ foreach(water_test IN ITEMS water_gpu water_runtime water_mesh_gpu wetness_gpu)
     target_link_libraries(${water_test}_test PRIVATE openrac_renderer_vulkan)
   endif()
 endforeach()
+target_sources(water_gpu_test PRIVATE
+  enhanced/tests/water_optics_gpu.cpp
+  enhanced/tests/water_window_gpu.cpp)
 add_test(NAME water_bake COMMAND "${Python3_EXECUTABLE}"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/tools/water/test_bake_water.py")
 

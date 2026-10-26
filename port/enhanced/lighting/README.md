@@ -423,34 +423,22 @@ Details: [GI](../docs/RAC1_PROBE_GI.md),
 [NVIDIA RTXGI-DDGI](https://github.com/NVIDIAGameWorks/RTXGI-DDGI) informed
 irradiance encoding and blending.
 
-With probe spheres enabled, yellow wireframes show every dense volume whose nominal bounds contain
-the player. A cyan wireframe shows the sparse grid when no dense volume contains the player. Bounds
-follow the render snapshot's player position, independently of camera selection and per-probe
-relocation. Hidden edges are faint; missing player snapshots show no boxes.
+## Local region planning
 
-The final region planner compacts overlapping grids against their complete existing cell coverage.
-Merged boxes contain their source boxes, preserve edge-fade support, stay within the original dense
-coverage and respect the per-volume probe budget. The merge also preserves existing native grid
-extents when float rounding gives them an extra edge cell. Grid alignment and individual relocation run
-after this step. The seed report records region and probe counts before and after compaction.
+The planner merges boxes only when their union adds no coverage. It then partitions
+full-strength coverage into disjoint cores with a one-cell border. Adjacent volumes
+share two-cell blend bands; thin grids retain their partial-strength support.
+The baker reads integer `lattice_bounds` directly, avoiding floating-point expansion.
+Shared grid alignment and individual probe relocation run after merging and partitioning.
 
-After merging, dense coverage is repartitioned using disjoint full-strength cores. Each new box
-adds one cell around its core, giving two-cell overlap bands at shared boundaries. The union of
-native coverage and the maximum edge-fade influence are preserved; thin grids retain their existing
-partial-strength support. Source IDs follow intersecting boxes. The final plan stores exact integer
-`lattice_bounds`, which the baker converts directly to grid origins and dimensions without another
-floating-point bounds expansion. Alignment and individual relocation follow repartitioning.
+Six world-axis orders are compared by duplicated coverage and probe count. A local
+refinement favours larger boxes and penalises regions where three or more blend bands
+meet. It preserves coverage, fade support and the per-volume budget, but does not
+impose a strict two-volume limit. Seed reports include overlap, probe counts and cost.
 
-The planner tries all six world-axis seed orders and selects the initial layout with the least duplicated
-cell coverage, then the lowest probe count. Repartitioning can produce more, smaller volumes while
-reducing duplicated probes. The seed report records before/after counts and the one-cell border.
+With probe spheres enabled, yellow wireframes show each local volume containing the
+player; cyan shows the sparse grid if none does. Bounds follow the player's render
+snapshot independently of camera selection and relocation. Hidden edges are faint.
 
-A local refinement pass then reshapes face-adjacent cores. Its cost includes a penalty for each
-additional box, a fixed penalty where a third volume overlaps, and a quadratic penalty for further
-contributors. Only edits that reduce the complete layout cost are accepted, within the probe budget.
-Coverage, disjoint cores and the one-cell fade border are preserved. This reduces crowded junctions;
-it does not impose a strict two-volume limit on every point where several box boundaries meet.
-The seed report records crowded-cell counts, peak overlap, probe counts and the layout cost.
-
-Optional [Tracy profiling](../../../docs/port/PROFILING.md) covers the native probe baker,
-including Embree construction, placement, transport and integration on each worker.
+Optional [Tracy profiling](../../../docs/port/PROFILING.md) covers the native baker's
+Embree construction, placement, transport and integration on each worker.

@@ -274,7 +274,7 @@ void json_reader() {
     Value v;
     std::string error;
     CHECK(
-        json::parse(R"({"a": [1, 2.5e1, -3], "b": {"c": "xÃ©\n"}, "t": true, "n": null})", v, error)
+        json::parse(R"({"a": [1, 2.5e1, -3], "b": {"c": "xé\n"}, "t": true, "n": null})", v, error)
     );
     CHECK(v["a"].items().size() == 3);
     CHECK(v["a"][1].number() == 25.0);
@@ -342,8 +342,10 @@ void loader(const fs::path& dir, scene::LevelData& level) {
         CHECK(scene::load_level(ooze_dir, ooze, error));
         CHECK(ooze.materials[0].emission_contrast == 1.5f);
         for (const char* value : {"0", "4.1", "\"bad\"", "true"}) {
-            write_text(ooze_dir / "probe-emission.json", std::string(
-                "{\"textures/terrain_0012.png\":{\"contrast\":") + value + "}}");
+            write_text(
+                ooze_dir / "probe-emission.json",
+                std::string("{\"textures/terrain_0012.png\":{\"contrast\":") + value + "}}"
+            );
             CHECK(!scene::load_level(ooze_dir, ooze, error));
         }
         write_text(ooze_dir / "probe-emission.json", R"({

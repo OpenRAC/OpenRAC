@@ -84,7 +84,9 @@ public:
     // Resolves the runtime override, verified level override, then authored travel direction.
     lighting::Float3 sunlight_direction(lighting::Float3 authored) const {
         // The submitted frame clears the runtime override outside enhanced graphics.
-        return runtime_sunlight_direction.value_or(active() ? m_sunlight_direction.value_or(authored) : authored);
+        return runtime_sunlight_direction.value_or(
+            active() ? m_sunlight_direction.value_or(authored) : authored
+        );
     }
 
     std::optional<lighting::Float3> runtime_sunlight_direction;
@@ -112,7 +114,7 @@ private:
     DebugLines m_volume_bounds;  // Player-containing boxes, owned by the rendering thread.
     std::vector<int> m_containing_regions;  // Cached dense indices, or -1 for sparse fallback.
     std::string m_load_error;
-    bool m_volume_bounds_failed = false;    // Suppresses repeated shader errors until release.
+    bool m_volume_bounds_failed = false;  // Suppresses repeated shader errors until release.
     AreaLightOverlay m_area_lights;  // Companion report geometry, owned by the rendering thread.
     std::array<unsigned, 3> m_textures{};
     unsigned m_atlas_tiles_x = kMinimumAtlasTilesX;  // Runtime width in probe tiles.
