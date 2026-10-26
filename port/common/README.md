@@ -17,6 +17,7 @@ Library `openrac_common`. Each header has a namespace of its own under `openrac`
 | [`crash.h`](crash.h) | `openrac::crash`: the crash report, written from a signal handler, and the game's state it names |
 | [`env.h`](env.h) | `openrac::env`: the table of every `OPENRAC_*` variable the port reads (its kind, what holds when it is unset, what it does) and their typed reads |
 | [`stats.h`](stats.h) | `openrac::stats`: counters, timed sections and frames for the debug overlay, and the environment probes |
+| [`profiler.h`](profiler.h) | `openrac::profiling`: optional Tracy zones, thread names and frame markers, independent of the debug overlay ([guide](../../docs/port/PROFILING.md)) |
 | [`system_info.h`](system_info.h) | `openrac::system_info`: the system, processor and memory a report names |
 | [`build_info.h`](build_info.h) | `openrac::build_info`: OpenRAC's version and the checkout's commit, written at each build |
 | [`json.h`](json.h) | `openrac::json`: a JSON reader (a tree of values, parsed whole) for the editor's exports, mod manifests and the tools' files |
@@ -34,6 +35,7 @@ Nothing of the port's: `common` is the lowest layer (section 18 of
 [CODING_CONVENTIONS.md](../docs/CODING_CONVENTIONS.md)). It uses the C++ standard library and the
 system's own interfaces (`dladdr` and the backtrace on Unix, `dbghelp` on Windows, the Android
 compatibility library for the backtrace below API 33).
+Development builds with `OPENRAC_TRACY=ON` also link the pinned Tracy client; ordinary builds do not.
 
 ## State and threads
 

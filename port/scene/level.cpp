@@ -18,6 +18,7 @@
 
 #include "common/json.h"
 #include "common/log.h"
+#include "common/profiler.h"
 
 namespace openrac::scene {
 
@@ -469,6 +470,8 @@ Vec3 bounds_centre(const Model& model, const Mat4& matrix) {
 }
 
 bool load_level(const fs::path& dir, LevelData& out, std::string& error, const fs::path& edited) {
+    const profiling::Zone trace("Load level assets");
+
     out = LevelData{};
     out.dir = dir;
     if (!edited.empty()) {

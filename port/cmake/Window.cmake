@@ -86,6 +86,9 @@ if(OPENRAC_VULKAN)
     renderer/vulkan/vkgl_resources.cpp
     renderer/vulkan/vma.cpp
   )
+  if(OPENRAC_TRACY)
+    target_sources(openrac_renderer_vulkan PRIVATE renderer/vulkan/tracy.cpp)
+  endif()
   target_link_libraries(openrac_renderer_vulkan
     PUBLIC openrac_common openrac_sdl3 openrac_vulkan PRIVATE openrac_glslang)
   # The pipeline cache file is named after the code that makes the pipelines, so a build whose
@@ -603,6 +606,16 @@ endif()
 openrac_add_test(bake_liquids SOURCES enhanced/tests/bake_liquids_test.cpp LIBS openrac_probe_scene)
 
 include(Fsr3)
+
+if(OPENRAC_TRACY AND OPENRAC_VULKAN)
+  openrac_add_test(tracy_vulkan SOURCES tests/tracy_vulkan_test.cpp
+    LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
+  set_tests_properties(tracy_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  if(WIN32)
+    set_property(TEST tracy_vulkan APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+  endif()
+endif()
 
 openrac_add_test(gameplay_rim SOURCES enhanced/tests/gameplay_rim_test.cpp
   LIBS openrac_enhanced_viewer openrac_platform)

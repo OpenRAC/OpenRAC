@@ -306,6 +306,24 @@ class Stamp(unittest.TestCase):
 
 
 class CommandLine(unittest.TestCase):
+    def test_tracy_modes_override_cached_profiling_options(self):
+        for flags, expected in (([], ("OFF", "OFF", "OFF")),
+                                (["--tracy"], ("ON", "OFF", "OFF")),
+                                (["--tracy-system"], ("ON", "ON", "OFF")),
+                                (["--tracy-sampling"], ("ON", "ON", "ON"))):
+            with self.subTest(flags=flags), \
+                    mock.patch.object(build_port, "read_cache", return_value={"OPENRAC_TRACY": "ON"}), \
+                    mock.patch.object(build_port, "prepare", return_value=({}, Path("cmake"), None)), \
+                    mock.patch.object(build_port, "write_stamp"), \
+                    mock.patch.object(build_port.subprocess, "run", return_value=mock.Mock(returncode=0)) as run, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(build_port.main(["rac1-pal", *flags]), 0)
+                configure = run.call_args_list[0].args[0]
+                resolved = {"OPENRAC_TRACY": "ON"}
+                resolved.update(part[2:].split("=", 1) for part in configure if part.startswith("-D"))
+                for key, value in zip(("OPENRAC_TRACY", "OPENRAC_TRACY_SYSTEM", "OPENRAC_TRACY_SAMPLING"), expected):
+                    self.assertEqual(resolved[key], value)
+
     def refused(self, argv):
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
             build_port.main(argv)

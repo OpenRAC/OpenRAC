@@ -85,6 +85,7 @@ bool open(const Config& config, std::string& error) {
         if (config.window != nullptr) {
             SDL_GetWindowSizeInPixels(config.window, &w, &h);
         }
+        tracy_gpu_open();
         begin_buffers();
         ok = make_dummies() && make_default_framebuffer(std::max(w, 1), std::max(h, 1));
         if (!ok) {

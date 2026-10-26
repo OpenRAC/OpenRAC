@@ -35,6 +35,7 @@
 #include "common/env.h"
 #include "common/log.h"
 #include "common/parallel.h"
+#include "common/profiler.h"
 #include "common/stats.h"
 #include "debug_menu.h"
 #include "debug_overlay.h"
@@ -878,6 +879,8 @@ TickMobys pose_mobys(
     bool only_own_camera,
     bool debug
 ) {
+    const profiling::Zone trace("Pose mobys");
+
     // The live mobys, by class, each in the pose its animation fields give (viewer/moby_pose.h):
     // its joint palette goes to the scene, which skins the class's mesh with it. OPENRAC_ANIM=0
     // draws every moby in its bind pose.
@@ -1272,6 +1275,8 @@ void keep_tick(
     std::uint32_t draws,
     TickMobys&& mobys
 ) {
+    const profiling::Zone trace("Capture world");
+
     // What this tick drew, kept for the frames drawn until the next one (between): the scene
     // then moves from the last tick's camera and mobys to this one's.
     Kept& k = *g->kept;
@@ -1478,6 +1483,8 @@ void keep_effects(
     const host::GameState& state,
     const std::vector<renderer::UiQuad>* named_quads
 ) {
+    const profiling::Zone trace("Capture effects");
+
     Kept& k = *g->kept;
     effect_textures();  // before the sky's sprites go in front of the effect quads
     sky_sprite_quads(state);
@@ -1685,6 +1692,8 @@ bool finish_tick(
 }  // namespace
 
 bool prepare_frame(std::span<const std::uint8_t> ram) try {
+    const profiling::Zone trace("Prepare next scene");
+
     // A tick prepared on an earlier vsync whose frame() never ran (an undrawn tick keeps the last
     // picture, program/undrawn_ticks.h) is that tick's, not this one's: drawn, the galactic map's
     // first tick showed the level's mobys from the tick before.
@@ -1731,6 +1740,8 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
 }
 
 bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws) {
+    const profiling::Zone trace("Capture tick");
+
     // Resource changes require exclusive graphics ownership.
     if (!finish_render()) {
         return false;

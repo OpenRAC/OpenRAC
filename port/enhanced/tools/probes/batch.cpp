@@ -17,6 +17,7 @@
 #include <string_view>
 
 #include "common/json.h"
+#include "common/profiler.h"
 #include "enhanced/tools/probes/probe_fingerprint.h"
 #include "enhanced/tools/probes/probe_grid.h"
 #include "enhanced/tools/probes/report.h"
@@ -226,6 +227,8 @@ void run_probe_batch(
     const ProbeBatchOptions& options,
     std::ostream& output
 ) {
+    const profiling::Zone trace("Bake level batch");
+
     const auto jobs = batch_jobs(exported, sparse_grid, options);
 
     if (probe_input_hash(level.dir) != options.source_snapshot) {
@@ -250,6 +253,11 @@ void run_probe_batch(
     };
 
     for (const auto& job : jobs) {
+#ifdef OPENRAC_TRACY
+        // Formatting the dynamic label should cost nothing in an ordinary bake.
+        const profiling::Zone grid_trace(job.path.filename().string());
+#endif
+        profiling::frame("Probe volumes");
         const auto start = std::chrono::steady_clock::now();
         if (options.resume) {
             if (const auto bytes = finished_bytes(job)) {

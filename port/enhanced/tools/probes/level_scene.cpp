@@ -14,6 +14,7 @@
 
 #include "assets/disc/wad.h"
 #include "common/json.h"
+#include "common/profiler.h"
 #include "enhanced/tools/probes/liquids.h"
 #include "enhanced/tools/probes/probe_fingerprint.h"
 #include "enhanced/tools/probes/scene_geometry.h"
@@ -205,6 +206,8 @@ void export_proxy_emitters(const scene::LevelData& level, BakeSceneExport& out) 
 BakeSceneExport export_probe_scene(
     const scene::LevelData& level, unsigned light_set, Float3 environment, bool analyze_liquids
 ) {
+    const profiling::Zone trace("Export bake scene");
+
     if (light_set >= 16 || level.light_sets.size() != 256) {
         throw std::runtime_error("level has no requested directional light set");
     }

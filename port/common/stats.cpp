@@ -25,6 +25,9 @@ std::array<std::uint64_t, kCounterCount> g_counters{};
 bool g_enabled = false;
 
 namespace {
+#ifdef OPENRAC_TRACY
+thread_local std::optional<profiling::Zone> simulation_zone;
+#endif
 
 using Clock = std::chrono::steady_clock;
 
@@ -396,6 +399,10 @@ void set_frame(std::uint64_t tick, float alpha) {
 }
 
 void game_yielded() {
+#ifdef OPENRAC_TRACY
+    simulation_zone.reset();
+    profiling::frame("Simulation ticks");
+#endif
     State& s = state();
     if (s.game_running) {
         s.game_ms += ms_between(s.game_since, Clock::now());
@@ -404,6 +411,9 @@ void game_yielded() {
 }
 
 void game_resumed() {
+#ifdef OPENRAC_TRACY
+    simulation_zone.emplace("Game simulation", false, std::source_location::current());
+#endif
     State& s = state();
     s.game_since = Clock::now();
     s.game_running = true;

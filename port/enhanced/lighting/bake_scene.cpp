@@ -4,10 +4,11 @@
 // Scene validation, Embree ownership and cutout filtering for offline bakes.
 #include "enhanced/lighting/bake_scene.h"
 
+#include <string>
+
+#include "common/profiler.h"
 #include "enhanced/lighting/bake_material.h"
 #include "enhanced/lighting/bake_math.h"
-
-#include <string>
 
 namespace openrac::lighting::bake_detail {
 namespace {
@@ -254,6 +255,8 @@ void Scene::collect_triangles() {
 
 // Upload one opaque or cutout group with independent Embree ownership.
 void Scene::build_geometry(unsigned group) {
+    const profiling::Zone trace("Build bake geometry");
+
     const auto& source_ids = triangle_ids[group];
 
     // Empty groups must not create an invalid zero-sized geometry.
@@ -315,6 +318,8 @@ void Scene::build_geometry(unsigned group) {
 
 Scene::Scene(const BakeScene& source, const std::optional<Float3>& sunlight_direction, std::uint32_t threads)
     : input(source) {
+    const profiling::Zone trace("Build Embree BVH");
+
     collect_triangles();
 
     // Normalise authored sun directions once for all probe grids.

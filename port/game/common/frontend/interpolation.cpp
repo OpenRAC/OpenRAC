@@ -138,6 +138,7 @@ void swapped(std::chrono::steady_clock::time_point started) {
     platform::frame_work_done();
     const auto swap_started = steady_clock::now();
     g->window->swap();
+    profiling::frame();
     const auto after = steady_clock::now();
     const double cost = duration<double>(before - started).count();
     pacing.cost = 0.8 * pacing.cost + 0.2 * cost;

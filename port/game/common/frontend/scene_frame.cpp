@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "common/log.h"
+#include "common/profiler.h"
 #include "common/stats.h"
 #include "debug_overlay.h"
 #include "frontend.h"
@@ -107,6 +108,8 @@ void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
 
 // Sizes the render target and returns the original picture width within it.
 float prepare_target(SceneFrame& frame) {
+    const profiling::Zone trace("Prepare render targets");
+
     auto& output = frame.output;
     const auto& graphics = frame.graphics;
     frame_size(
@@ -300,7 +303,10 @@ void render_scene(
 ) {
     SceneFrame frame{owner, snapshot, graphics, output, {}, {}, false, 1};
     frame.temporal = prepare_temporal(frame);
-    upload_instances(frame);
+    {
+        const profiling::Zone trace("Upload scene");
+        upload_instances(frame);
+    }
     const auto scene_done = std::chrono::steady_clock::now();
     frame.picture_scale = prepare_target(frame);
     set_lighting(frame);
@@ -320,6 +326,8 @@ void render_scene(
 
     // Frame-cost diagnostics deliberately stall the GPU, matching their synchronous reference behaviour.
     if (output.measure_cost) {
+        const profiling::Zone trace("Diagnostic GPU wait");
+
         gl::glFinish();
     }
 

@@ -21,6 +21,7 @@
 #include <SDL3/SDL.h>
 
 #include "common/log.h"
+#include "common/profiler.h"
 #include "common/stats.h"
 #include "renderer/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
@@ -522,9 +523,13 @@ bool present_to_screen() {
     // The wait for a free image of the swapchain, measured: the game thread blocks here.
     const Clock::time_point acquiring = Clock::now();
     std::optional<stats::Scope> step(std::in_place, "vulkan acquire");
-    VkResult r = vkAcquireNextImageKHR(
-        g->device, g->swapchain, UINT64_MAX, f.acquired, VK_NULL_HANDLE, &index
-    );
+    VkResult r;
+    {
+        const profiling::Zone acquire_trace("Acquire swapchain image");
+        r = vkAcquireNextImageKHR(
+            g->device, g->swapchain, UINT64_MAX, f.acquired, VK_NULL_HANDLE, &index
+        );
+    }
     g->acquire_wait_s = seconds_since(acquiring);
     step.reset();
     if (r == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -589,7 +594,10 @@ bool present_to_screen() {
         g->present_serial = serial;
     }
 
-    r = vkQueuePresentKHR(g->queue, &info);
+    {
+        const profiling::Zone present_trace("Queue present");
+        r = vkQueuePresentKHR(g->queue, &info);
+    }
 #if defined(__ANDROID__)
     // Android says "suboptimal" for every frame of a turned screen that the system turns for us.
     const bool stale = r == VK_ERROR_OUT_OF_DATE_KHR;

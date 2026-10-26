@@ -1785,7 +1785,11 @@ void LevelScene::draw_shadow_map(
              {"sun3 terrain", "sun3 ties", "sun3 shrubs", "sun3 mobys"}};
         std::optional<stats::Scope> layer_pass;
         if (!hero && cascade < kSunCascades) {
-            layer_pass.emplace(names[cascade][layer - 1], detailed_timing ? stats::kGpu : 0);
+            layer_pass.emplace(
+                names[cascade][layer - 1],
+                detailed_timing ? stats::kGpu : 0,
+                std::source_location::current()
+            );
         }
         const bool skinning = layer == static_cast<std::size_t>(Layer::Mobys) && m_palette;
         for (const auto& group : m_groups[layer]) {
@@ -2541,10 +2545,10 @@ void LevelScene::draw_layer(
         if (layer == Layer::Ties && !state.depth_prepass && state.opaque_colour_phase < 0) {
             static constexpr const char* names[] =
                 {"ties solid", "ties cutout", "ties translucent"};
-            layer_pass.emplace(names[pass], stats::kGpu);
+            layer_pass.emplace(names[pass], stats::kGpu, std::source_location::current());
         }
         if (mobys && !state.depth_prepass && state.opaque_colour_phase < 0) {
-            layer_pass.emplace(moby_pass_names[pass], stats::kGpu);
+            layer_pass.emplace(moby_pass_names[pass], stats::kGpu, std::source_location::current());
         }
         // Chrome overlays reuse the same cached GI so they preserve gameplay edge reflections.
         const bool early = !state.depth_prepass

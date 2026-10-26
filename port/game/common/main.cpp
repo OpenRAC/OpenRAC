@@ -49,6 +49,7 @@
 #include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
+#include "common/profiler.h"
 #include "common/stats.h"
 #include "common/system_info.h"
 #include "mods.h"
@@ -294,6 +295,7 @@ int run_game_as_the_ee() {
 }  // namespace
 
 int main(int argc, char** argv) {
+    profiling::thread_name("Game");
 #if defined(_WIN32)
     // Windows sleeps in steps of 15.6 ms unless a program asks for 1 ms: the wait for the next
     // 20 ms tick would overshoot by up to a step, and the frames stagger.

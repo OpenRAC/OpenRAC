@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/profiler.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_transport.h"
 
@@ -142,6 +143,8 @@ Float3 preview_phase(const Scene& scene, const BakeSettings& settings, const Pro
 GridAlignment align_probe_grid(
     const Scene& scene, const BakeSettings& settings, ProbeVolume& volume
 ) {
+    const profiling::Zone trace("Align probe grid");
+
     GridAlignment result;
 
     // No geometry or displacement budget means alignment cannot improve the original placement.

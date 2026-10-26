@@ -441,3 +441,6 @@ contributors. Only edits that reduce the complete layout cost are accepted, with
 Coverage, disjoint cores and the one-cell fade border are preserved. This reduces crowded junctions;
 it does not impose a strict two-volume limit on every point where several box boundaries meet.
 The seed report records crowded-cell counts, peak overlap, probe counts and the layout cost.
+
+Optional [Tracy profiling](../../../docs/port/PROFILING.md) covers the native probe baker,
+including Embree construction, placement, transport and integration on each worker.

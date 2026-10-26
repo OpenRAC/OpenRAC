@@ -13,6 +13,7 @@
 #include <string_view>
 
 #include "common/json.h"
+#include "common/profiler.h"
 #include "enhanced/tools/probes/activation.h"
 #include "enhanced/tools/probes/batch.h"
 #include "enhanced/tools/probes/interior_sources.h"
@@ -55,6 +56,7 @@ void usage() {
               << "  --batch-output DIR (prepare once, then read one JSON region plan on stdin)\n"
               << "  --resume (with --batch-output: keep the grids a stopped bake verified)\n"
               << "  --spacing 128 (or X,Y,Z) --resolution 6 --rays 1024 --bounces 3 --seed 1\n"
+              << "  --tracy-wait SECONDS (wait up to 120 seconds for a Tracy capture)\n"
               << "  --threads 0 (all CPU threads; 1 for serial baking, same quality)\n"
               << "  --light-set 0 --environment 0.1 (uniform fallback radiance)\n"
               << "  --sky level|uniform --sky-intensity 1 (linear radiance multiplier)\n"
@@ -70,17 +72,31 @@ void usage() {
 
 int main(int argc, char** argv) {
     try {
+        profiling::thread_name("Probe bake");
         fs::path directory, output, verify, compare_coarse, batch_output;
         bool inspect = false, game_rounding = false, print_profile = false, resume = false;
         // Resolve the directory first: explicit CLI overrides win in any order.
         for (int i = 1; i + 1 < argc; ++i) {
             if (std::string_view(argv[i]) == "--level-dir") {
                 directory = argv[++i];
+            } else if (std::string_view(argv[i]) == "--tracy-wait") {
+                const float seconds = real(argv[++i]);
+                if (seconds < 0 || seconds > 120) {
+                    throw std::runtime_error("Tracy wait must be between 0 and 120 seconds");
+                }
+                if (!profiling::wait_for_connection(
+                        std::chrono::milliseconds(static_cast<int>(seconds * 1000))
+                    )) {
+                    throw std::runtime_error(
+                        "Tracy capture not connected (requires OPENRAC_TRACY)"
+                    );
+                }
             } else if (std::string_view(argv[i]) == "--batch-output") {
                 batch_output = argv[++i];
             }
         }
 
+        const profiling::Zone trace("Probe baker");
         const auto source_snapshot =
             batch_output.empty() || directory.empty() ? 0 : probe_input_hash(directory);
         const auto profile =
@@ -129,6 +145,8 @@ int main(int argc, char** argv) {
 
             if (argument == "--level-dir") {
                 directory = value;
+            } else if (argument == "--tracy-wait") {
+                // The first pass waits before any asset loading.
             } else if (argument == "--output") {
                 output = value;
             } else if (argument == "--batch-output") {

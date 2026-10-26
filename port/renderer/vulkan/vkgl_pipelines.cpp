@@ -24,6 +24,7 @@
 #include <vector>
 #include <volk.h>
 
+#include "common/profiler.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "renderer/vulkan/pipeline_cache_file.h"
@@ -848,6 +849,7 @@ void record_manifest_key(const Program& p, const PipelineKey& k) {
 // The pre-warm worker: makes each queued job's pipeline, in order, until stop is set. Runs on its
 // own thread (PipelinePrewarm::worker) and touches nothing but `w` and the device.
 void run_prewarm_worker(PipelinePrewarm& w) {
+    profiling::thread_name("Pipeline warmup");
     std::unique_lock lock(w.mutex);
 
     // Ends when stop_pipeline_prewarm sets stop.
@@ -1118,6 +1120,8 @@ FixedState fixed_state(const Target& t) {
 VkPipeline pipeline_for(
     Program& p, GLenum mode, const Target& t, const Input* inputs, std::uint32_t count
 ) {
+    const profiling::Zone trace("Vulkan pipeline");
+
     const State& s = g->state;
     PipelineKey k;
     std::memset(&k, 0, sizeof k);
@@ -1794,6 +1798,8 @@ VkDescriptorSet descriptors_cached(Program& p, std::span<const Sampled> samplers
 }  // namespace
 
 VkDescriptorSet descriptors(Program& p, std::span<const Sampled> samplers) {
+    const profiling::Zone trace("Vulkan descriptors");
+
     // A program with no resources has no set.
     if (p.set_layout == VK_NULL_HANDLE) {
         return VK_NULL_HANDLE;

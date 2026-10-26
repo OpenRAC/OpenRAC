@@ -981,6 +981,9 @@ struct Context {
     VkDevice device = VK_NULL_HANDLE;
     std::uint32_t family = 0;
     VkQueue queue = VK_NULL_HANDLE;
+#ifdef OPENRAC_TRACY
+    void* tracy_state = nullptr;
+#endif
     std::atomic_uint64_t validation_errors = 0;
     VmaAllocator allocator = nullptr;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -1593,5 +1596,21 @@ void describe_device();
 
 // Waits for the device, then destroys all the backend made, the device and the instance last.
 void destroy_all();
+
+// Optional profiling resources, owned by the Vulkan context and accessed on the graphics owner.
+#ifdef OPENRAC_TRACY
+void tracy_gpu_open();
+void tracy_gpu_collect();
+void tracy_gpu_end_commands();
+void tracy_gpu_close();
+#else
+inline void tracy_gpu_open() {}
+
+inline void tracy_gpu_collect() {}
+
+inline void tracy_gpu_end_commands() {}
+
+inline void tracy_gpu_close() {}
+#endif
 
 }  // namespace openrac::vkgl::detail

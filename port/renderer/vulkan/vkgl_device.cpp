@@ -791,6 +791,7 @@ void destroy_all() {
         // The pre-warm worker stops first: it uses the programs' modules and the cache.
         stop_pipeline_prewarm();
         vkDeviceWaitIdle(g->device);
+        tracy_gpu_close();
         gpu_release();
         material_release();
         save_pipeline_manifest();
