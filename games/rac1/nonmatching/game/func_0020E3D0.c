@@ -1,6 +1,6 @@
 /* fcheck: unchecked (the harness could not link it: ee_rate_0020E3D0 has no retail address; OpenRAC tools/fcheck_gate.py, 2026-10-18). */
 /* func_0020E3D0: MobyAnimAdvance, the per-moby animation step of MobyUpdateLoop. Moves the key
-   pair (frame A = m->frame, frame B = m->prevFrame, t at +0x54) on by speed * rate (+0x58, +0x5C),
+   pair (frame A = m->frame, frame B = m->prev_frame, t at +0x54) on by speed * rate (+0x58, +0x5C),
    stepping keys forward or back; each key takes its rate from the sequence's override or from its
    own frame header. Then the sequence's triggers for the key times passed play (PlayClassSound),
    and the loop sound is refreshed (func_0020D790) on the frame-spread schedule of D_0015F6F0. */
@@ -25,12 +25,12 @@ void func_0020E3D0(Moby *m) {
     float tOld = *(float *)(mp + 0x54);
     float t;
     unsigned char seqA = m->seq;
-    unsigned char seqB = m->prevSeq;
+    unsigned char seqB = m->prev_seq;
     unsigned int oldA = m->frame;
     unsigned int flags = 0;
     unsigned int loop = m->unk7C;
-    unsigned int voice = m->unk7D;
-    unsigned int trig = m->unk7E;
+    unsigned int voice = m->sound_slot;
+    unsigned int trig = m->anim_trigger_count;
     MobySeq *seq;
     int ti;
     int snap;
@@ -53,7 +53,7 @@ void func_0020E3D0(Moby *m) {
         rate = *(float *)&rateBits;
     }
 
-    seq = m->pClass->seqs[seqB];
+    seq = m->pclass->seqs[seqB];
     if (seqA == seqB) {
         t = (0.0f + tOld) + speed * rate;
     } else {
@@ -69,11 +69,11 @@ void func_0020E3D0(Moby *m) {
         }
         do {
             t = t - 1.0f;
-            newA = m->prevFrame;
+            newA = m->prev_frame;
             newB = newA + 1;
-            oldBptr = m->prevFrameData;
+            oldBptr = m->prev_frame_data;
             if (seqA != seqB) {
-                m->unk7E = seq->unk12;
+                m->anim_trigger_count = seq->unk12;
                 seqA = seqB;
                 loop = 0xFF;
                 voice = 0xFF;
@@ -101,9 +101,9 @@ void func_0020E3D0(Moby *m) {
             t = t * rate;
             mp[0x52] = seqA;
             m->frame = newA;
-            m->prevFrame = newB;
-            m->frameData = oldBptr;
-            m->prevFrameData = newBptr;
+            m->prev_frame = newB;
+            m->cur_frame_data = oldBptr;
+            m->prev_frame_data = newBptr;
             *(float *)(mp + 0x5C) = rate;
             *(float *)(mp + 0x54) = t;
         } while (*(int *)&t > 0x3F800000);
@@ -128,18 +128,18 @@ void func_0020E3D0(Moby *m) {
                 newA = fc - 1;
                 flags |= 2;
             }
-            oldBptr = m->frameData;
+            oldBptr = m->cur_frame_data;
             newAptr = seq->frames[newA];
             rate = ee_rate_0020E3D0((unsigned int)ovr);
             if (ovr == 0) {
                 rate = ee_rate_0020E3D0(*(unsigned int *)(newAptr));
             }
             t = t * rate;
-            m->frameData = newAptr;
+            m->cur_frame_data = newAptr;
             m->frame = newA;
-            m->prevFrame = newB;
+            m->prev_frame = newB;
             t = t + 1.0f;
-            m->prevFrameData = oldBptr;
+            m->prev_frame_data = oldBptr;
             *(float *)(mp + 0x5C) = rate;
             *(float *)(mp + 0x54) = t;
         } while (*(int *)&t < 0);

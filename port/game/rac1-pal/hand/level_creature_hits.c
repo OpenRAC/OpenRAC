@@ -48,7 +48,7 @@ void func_L00_002D6610(void *a0) {
     d = *(char **)(a + 0x78);
 
     h = *(unsigned short *)(a + 0x34);
-    if (D_L00_0015F6A8_2d3330 == 2) {
+    if (cinematic_mode_r == 2) {
         a[0x31] = 0;
         h |= 1;
     } else {
@@ -98,10 +98,10 @@ void func_L00_002D6610(void *a0) {
 
     q = d + 0x180;
     if (*(unsigned char *)(a + 0x20) == 3) {
-        p = D_L00_001B0830_2D19E8[*(int *)(d + 0x1E4)];
+        p = level_paths_r2[*(int *)(d + 0x1E4)];
         func_L00_00260FB0_6610(64.0f, a, q, 0, 0, p + 0x10, *(int *)p);
     } else {
-        p = D_L00_001B0830_2D19E8[*(int *)(d + 0x1E0)];
+        p = level_paths_r2[*(int *)(d + 0x1E0)];
         func_L00_00260FB0_6610(24.0f, a, q, 0, 0, p + 0x10, *(int *)p);
     }
     v = *(int *)(d + 0x1C0);
