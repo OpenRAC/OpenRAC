@@ -86,10 +86,10 @@ public:
 private:
     static constexpr int kNoLevel = -2;  // no tick chosen yet
 
-    int m_menu_gap_ticks = 0;      // ticks in a row with no world under a page menu's list
-    bool m_last_world = true;      // the tick before drew a world layer
-    int m_level = kNoLevel;        // the level program of the tick before
-    bool m_world_shown = true;     // the picture shown is a world drawn in that program
+    int m_menu_gap_ticks = 0;   // ticks in a row with no world under a page menu's list
+    bool m_last_world = true;   // the tick before drew a world layer
+    int m_level = kNoLevel;     // the level program of the tick before
+    bool m_world_shown = true;  // the picture shown is a world drawn in that program
 };
 
 }  // namespace openrac::frontend
