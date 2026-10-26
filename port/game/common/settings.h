@@ -19,6 +19,7 @@
 #include <string_view>
 
 #include "renderer/gtao_settings.h"
+#include "renderer/shadow_settings.h"
 #include "renderer/temporal_settings.h"
 #include "renderer/texture_filter.h"
 #include "renderer/ui/fps_counter.h"
@@ -94,6 +95,7 @@ struct Settings {
     bool enhanced_rendering = false;
     bool enhanced_graphics = true;  // F4 within it; retains individual feature preferences
     bool enhanced_shadows = true;   // cascades and Ratchet map; off restores original shadows
+    renderer::ShadowQuality shadow_quality = renderer::ShadowQuality::High;
     bool rim_light = true;
     bool rim_shadow_lift = true;
     float rim_lift_exponent = 0.09f;

@@ -50,6 +50,8 @@ enum class Opt : std::uint8_t {
     // vk-persistent-descriptors: descriptor sets of long-lived resources kept across frames
     VkPersistentDescriptors,
     VkLastPipeline,  // vk-last-pipeline: a program's last pipeline taken again by its key
+    ShadowDrawCache,  // shadow-draw-cache: static shadow ranges prepared with level geometry
+    ShadowScrollReuse,  // shadow-scroll-reuse: retain static texels in the opt-in scrolling experiment
     FsrMotionBatch,  // fsr-motion-batch: FSR object motion drawn in pose-buffer batches
     MobyGlowSkip,    // moby-glow-skip: the glow pass leaves out primitives with no glow vertex
 };

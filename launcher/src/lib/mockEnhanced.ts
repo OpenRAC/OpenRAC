@@ -24,6 +24,18 @@ export const mockEnhanced: EnhancedView = {
         description: "Sharp sun shadows, and Ratchet's own.",
       },
       {
+        key: "shadow_quality",
+        name: "Shadow quality",
+        type: "choice",
+        default: "high",
+        value: "high",
+        choices: [
+          { value: "medium", name: "Medium" },
+          { value: "high", name: "High" },
+        ],
+        description: "Medium uses smaller shadow textures. High keeps the sharpest shadows.",
+      },
+      {
         key: "gtao",
         name: "Ambient occlusion",
         type: "bool",

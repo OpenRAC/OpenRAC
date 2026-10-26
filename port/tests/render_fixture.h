@@ -670,7 +670,12 @@ public:
 
     // Draws one frame seen by `camera` with `mobys`, as draw_kept draws one: the mobys' palette
     // and instances handed to the scene, then the renderer's passes into the framebuffer.
-    void draw(const renderer::Camera& camera, const MobyFrame& mobys, std::uint64_t frame) {
+    void draw(
+        const renderer::Camera& camera,
+        const MobyFrame& mobys,
+        std::uint64_t frame,
+        renderer::ShadowQuality shadow_quality = renderer::ShadowQuality::High
+    ) {
         m_scene.set_palette(mobys.palette);
         m_scene.set_instances(scene::Layer::Mobys, mobys.instances);
         renderer::FrameInput input;
@@ -678,6 +683,7 @@ public:
         input.clear_colour = {0.3f, 0.4f, 0.6f, 1.0f};
         input.gtao = m_options.enhanced;
         // The sun's cascades are drawn when the frame asks for them, as the frontend asks.
+        input.shadow_quality = shadow_quality;
         input.sun_pixel_shadow = m_options.enhanced && m_scene.sun_shadow_enabled();
         input.frame = frame;
         renderer::RenderTarget target{m_frame.id(), m_options.width, m_options.height};

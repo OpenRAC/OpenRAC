@@ -430,6 +430,24 @@ bool LevelScene::upload(
         }
     }
 
+    m_static_shadow_ranges.clear();
+    m_static_shadow_ranges.resize(m_models.size());
+    m_static_shadow_coverage.assign(m_models.size(), 0);
+    // Include every model a later static-layer instance update can select.
+    for (const auto model : m_opaque) {
+        for (unsigned solid = 0; solid < 2; ++solid) {
+            m_static_shadow_ranges[model][solid] = prepare_shadow_draws(
+                m_models[model].primitives,
+                m_materials,
+                m_shadow_solid_primitives[model],
+                solid != 0
+            );
+        }
+        for (const auto& range : m_static_shadow_ranges[model][1]) {
+            m_static_shadow_coverage[model] |= range.solid ? 2 : 1;
+        }
+    }
+
     glGenBuffers(1, &m_vertices);
     glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
     glBufferData(
@@ -1150,7 +1168,10 @@ bool LevelScene::enable_hero_shadow(bool enabled, std::string& error) {
     if (!m_hero_map) {
         m_hero_map = std::make_unique<renderer::FrameBuffer>();
     }
-    if (!m_hero_map->id() && !m_hero_map->create(512, 512, error, 1, true)) {
+    if (!m_hero_map->id()
+        && !m_hero_map->create(
+            m_shadow_layout.rects[4][2], m_shadow_layout.rects[4][3], error, 1, true
+        )) {
         return false;
     }
     m_hero_enabled = true;
@@ -1180,7 +1201,7 @@ bool LevelScene::make_shadow_atlas(std::string& error) {
         m_shadow_atlas = std::make_unique<renderer::FrameBuffer>();
     }
     if (!m_shadow_atlas->id()
-        && !m_shadow_atlas->create(kShadowAtlasSize, kShadowAtlasSize, error, 1, true)) {
+        && !m_shadow_atlas->create(m_shadow_layout.size, m_shadow_layout.size, error, 1, true)) {
         return false;
     }
     // The reference targets are recreated on demand if the user switches
@@ -1192,7 +1213,25 @@ bool LevelScene::make_shadow_atlas(std::string& error) {
     return true;
 }
 
+// Recreate all dependent targets together; no cached depth survives a resolution change.
+void LevelScene::set_shadow_quality(renderer::ShadowQuality quality) {
+    const auto layout = shadow_atlas_layout(quality);
+    if (layout.size == m_shadow_layout.size) {
+        return;
+    }
+    release_target(m_shadow_atlas);
+    release_target(m_static_shadow);
+    release_target(m_hero_map);
+    for (auto& map : m_sun_maps) {
+        release_target(map);
+    }
+    release_scrolling_shadows();
+    m_static_keys = {};
+    m_shadow_layout = layout;
+}
+
 void LevelScene::prepare_shadows(const renderer::FrameInput& input, renderer::RenderState& state) {
+    set_shadow_quality(input.shadow_quality);
     m_shadow_atlas_active = false;
 #if defined(OPENRAC_VULKAN)
     static const bool& atlas_off = stats::probe(
@@ -1225,6 +1264,9 @@ void LevelScene::prepare_shadows(const renderer::FrameInput& input, renderer::Re
         report_sun_culling();
     }
     stats::gauge("shadow atlas", m_shadow_atlas_active ? 1 : 0);
+    stats::gauge("shadow atlas size", m_shadow_layout.size);
+    stats::gauge("sun shadow near size", m_shadow_layout.rects[0][2]);
+    stats::gauge("hero shadow size", m_shadow_layout.rects[4][2]);
 }
 
 void LevelScene::draw_shadow_atlas(renderer::RenderState& state) {
@@ -1244,8 +1286,11 @@ void LevelScene::draw_shadow_atlas(renderer::RenderState& state) {
     for (auto& bucket : m_shadow_draws) {
         bucket.clear();
     }
+    const unsigned scrolling =
+        m_sun_ready && m_scroll_requested ? update_scrolling_shadows(state) : 0;
     const bool cache =
-        m_sun_ready && renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowStaticCache);
+        !scrolling && m_sun_ready
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowStaticCache);
     unsigned rerendered = m_sun_ready ? kSunCascades : 0;
 
     // Nothing samples the atlas's colour or reads its stencil: neither is loaded or written back
@@ -1273,12 +1318,12 @@ void LevelScene::draw_shadow_atlas(renderer::RenderState& state) {
         }
     }
 
-    vkgl::indexed_viewports(kShadowAtlasRects);
+    vkgl::indexed_viewports(m_shadow_layout.rects);
     if (m_sun_ready) {
         for (unsigned i = 0; i < 4; ++i) {
             draw_shadow_map(
                 m_shadow_atlas->id(),
-                kSunResolutions[i],
+                m_shadow_layout.rects[i][2],
                 m_sun_cascades.matrices[i],
                 false,
                 m_hero_ready,
@@ -1286,12 +1331,27 @@ void LevelScene::draw_shadow_atlas(renderer::RenderState& state) {
                 i,
                 static_cast<int>(i),
                 i == 3 && !m_hero_ready,
-                cache ? ShadowCasters::Dynamic : ShadowCasters::All
+                (scrolling & (1u << i)) ? ShadowCasters::DynamicAlpha
+                : cache                 ? ShadowCasters::Dynamic
+                                        : ShadowCasters::All
             );
         }
     }
     if (m_hero_ready) {
-        draw_shadow_map(m_shadow_atlas->id(), 512, m_hero_matrix, true, false, state, 4, 4, true);
+        draw_shadow_map(
+            m_shadow_atlas->id(),
+            m_shadow_layout.rects[4][2],
+            m_hero_matrix,
+            true,
+            false,
+            state,
+            4,
+            4,
+            true
+        );
+    }
+    if (scrolling) {
+        combine_scrolling_shadows(scrolling, state);
     }
     vkgl::indexed_viewports({});
     glBindVertexArray(0);
@@ -1355,7 +1415,8 @@ unsigned LevelScene::draw_cached_cascades(renderer::RenderState& state) {
             std::string error;
 
             // No memory for it: the atlas draws every caster, as with the entry off.
-            if (!m_static_shadow->create(kShadowAtlasSize, kShadowAtlasSize, error, 1, true)) {
+            if (!m_static_shadow
+                     ->create(m_shadow_layout.size, m_shadow_layout.size, error, 1, true)) {
                 log::warn("static shadow cache unavailable: {}", error);
                 release_target(m_static_shadow);
                 begin_shadow_target(m_shadow_atlas->id());
@@ -1384,7 +1445,7 @@ unsigned LevelScene::draw_cached_cascades(renderer::RenderState& state) {
                     continue;
                 }
 
-                const auto& rect = kShadowAtlasRects[i];
+                const auto& rect = m_shadow_layout.rects[i];
                 glScissor(rect[0], rect[1], rect[2], rect[3]);
                 glClear(GL_DEPTH_BUFFER_BIT);
             }
@@ -1392,7 +1453,7 @@ unsigned LevelScene::draw_cached_cascades(renderer::RenderState& state) {
             glDisable(GL_SCISSOR_TEST);
         }
 
-        vkgl::indexed_viewports(kShadowAtlasRects);
+        vkgl::indexed_viewports(m_shadow_layout.rects);
 
         // The static casters of each changed cascade, with the atlas's own shaders and views.
         for (unsigned i = 0; i < kSunCascades; ++i) {
@@ -1403,7 +1464,7 @@ unsigned LevelScene::draw_cached_cascades(renderer::RenderState& state) {
 
             draw_shadow_map(
                 m_static_shadow->id(),
-                kSunResolutions[i],
+                m_shadow_layout.rects[i][2],
                 m_sun_cascades.matrices[i],
                 false,
                 m_hero_ready,
@@ -1426,12 +1487,12 @@ unsigned LevelScene::draw_cached_cascades(renderer::RenderState& state) {
     glBlitFramebuffer(
         0,
         0,
-        kShadowAtlasSize,
-        kShadowAtlasSize,
+        m_shadow_layout.size,
+        m_shadow_layout.size,
         0,
         0,
-        kShadowAtlasSize,
-        kShadowAtlasSize,
+        m_shadow_layout.size,
+        m_shadow_layout.size,
         GL_DEPTH_BUFFER_BIT,
         GL_NEAREST
     );
@@ -1445,7 +1506,7 @@ unsigned LevelScene::draw_cached_cascades(renderer::RenderState& state) {
 
 void LevelScene::begin_shadow_target(unsigned framebuffer) {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glViewport(0, 0, kShadowAtlasSize, kShadowAtlasSize);
+    glViewport(0, 0, m_shadow_layout.size, m_shadow_layout.size);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_CULL_FACE);
@@ -1491,11 +1552,16 @@ void LevelScene::prepare_hero_shadow(
             m_hero_map = std::make_unique<renderer::FrameBuffer>();
         }
         std::string error;
-        if (!m_hero_map->id() && !m_hero_map->create(512, 512, error, 1, true)) {
+        if (!m_hero_map->id()
+            && !m_hero_map->create(
+                m_shadow_layout.rects[4][2], m_shadow_layout.rects[4][3], error, 1, true
+            )) {
             log::warn("hero shadow target unavailable: {}", error);
             return;
         }
-        draw_shadow_map(m_hero_map->id(), 512, m_hero_matrix, true, false, state);
+        draw_shadow_map(
+            m_hero_map->id(), m_shadow_layout.rects[4][2], m_hero_matrix, true, false, state
+        );
     }
     m_hero_ready = true;
 }
@@ -1528,7 +1594,10 @@ bool LevelScene::enable_sun_shadow(bool enabled, std::string& error) {
         if (!map) {
             map = std::make_unique<renderer::FrameBuffer>();
         }
-        if (!map->id() && !map->create(kSunResolutions[i], kSunResolutions[i], error, 1, true)) {
+        if (!map->id()
+            && !map->create(
+                m_shadow_layout.rects[i][2], m_shadow_layout.rects[i][2], error, 1, true
+            )) {
             return false;
         }
     }
@@ -1540,6 +1609,10 @@ void LevelScene::prepare_sun_shadow(
     const renderer::FrameInput& input, renderer::RenderState& state
 ) {
     m_sun_ready = false;
+    m_scroll_requested = false;
+    for (auto& scroll : m_scroll_shadows) {
+        scroll.active = false;
+    }
     m_sun_culling = {};
     if (!probe_data_available() || !m_sun_enabled || !input.sun_pixel_shadow
         || m_lighting->mode() == 2 || m_lighting->mode() == 4) {
@@ -1562,8 +1635,21 @@ void LevelScene::prepare_sun_shadow(
     }
     try {
         direction = m_lighting->sunlight_direction(direction);
-        m_sun_cascades = sun_cascades(input.camera, direction, low, high);
+        m_sun_cascades =
+            sun_cascades(input.camera, direction, low, high, 256, input.shadow_quality);
+#if defined(OPENRAC_VULKAN)
+        static const bool& scrolling = stats::probe(
+            "OPENRAC_SCROLLING_SHADOWS", "Experimental toroidal static caches for the sun cascades"
+        );
+        if (scrolling && gl::is_vulkan() && m_shadow_atlas_active) {
+            prepare_scrolling_shadows(direction, low, high);
+        }
+#endif
     } catch (const std::exception&) {
+        // A partial grid update must not survive a frame that never rendered its dirty strips.
+        for (auto& scroll : m_scroll_shadows) {
+            scroll.grid.invalidate();
+        }
         return;
     }  // invalid/transitional camera: leave surfaces lit
     for (unsigned i = 0; i < kSunCascades; ++i) {
@@ -1577,13 +1663,15 @@ void LevelScene::prepare_sun_shadow(
             }
             std::string error;
             if (!m_sun_maps[i]->id()
-                && !m_sun_maps[i]->create(kSunResolutions[i], kSunResolutions[i], error, 1, true)) {
+                && !m_sun_maps[i]->create(
+                    m_shadow_layout.rects[i][2], m_shadow_layout.rects[i][2], error, 1, true
+                )) {
                 log::warn("sun shadow target unavailable: {}", error);
                 return;
             }
             draw_shadow_map(
                 m_sun_maps[i]->id(),
-                kSunResolutions[i],
+                m_shadow_layout.rects[i][2],
                 m_sun_cascades.matrices[i],
                 false,
                 m_hero_ready,
@@ -1636,7 +1724,8 @@ void LevelScene::draw_shadow_map(
     unsigned cascade,
     int atlas_view,
     bool flush_atlas,
-    ShadowCasters casters
+    ShadowCasters casters,
+    const std::array<int, 4>* region
 ) {
     static const bool& detailed_timing = stats::probe(
         "OPENRAC_SUN_TIMING_DETAIL", "Detailed cascade/layer GPU timers (higher profiling overhead)"
@@ -1649,7 +1738,12 @@ void LevelScene::draw_shadow_map(
     if (atlas_view < 0) {
         glBindFramebuffer(GL_FRAMEBUFFER, target);
         glViewport(0, 0, resolution, resolution);
-        glDisable(GL_SCISSOR_TEST);
+        if (region) {
+            glEnable(GL_SCISSOR_TEST);
+            glScissor((*region)[0], (*region)[1], (*region)[2], (*region)[3]);
+        } else {
+            glDisable(GL_SCISSOR_TEST);
+        }
         glDisable(GL_STENCIL_TEST);
         glDisable(GL_CULL_FACE);
         glDisable(GL_BLEND);
@@ -1689,7 +1783,8 @@ void LevelScene::draw_shadow_map(
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_2D, m_palette);
     glActiveTexture(GL_TEXTURE0);
-    const auto sides = frustum_sides(matrix);
+    const auto sides =
+        frustum_sides(region ? shadow_region_clip(matrix, *region, resolution) : matrix);
     static const bool& receiver_culling_off =
         stats::probe("OPENRAC_SUN_RECEIVER_CULL_OFF", "Reference: square shadow-map caster bounds");
     const auto* volume = gl::is_vulkan() && !hero && !receiver_culling_off && cascade < kSunCascades
@@ -1719,6 +1814,8 @@ void LevelScene::draw_shadow_map(
     auto* counts = !hero && cascade < kSunCascades ? &m_sun_culling[cascade] : nullptr;
     static const bool& batch_off =
         stats::probe("OPENRAC_SHADOW_BATCH_OFF", "Reference: submit shadow casters in model order");
+    const bool cached_draws =
+        renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowDrawCache);
     auto& shadow_draws = m_shadow_draws;
     const auto submit = [&](const ShadowDraw& draw) {
         if (atlas_view >= 0) {
@@ -1783,7 +1880,8 @@ void LevelScene::draw_shadow_map(
 
         // The static shadow cache draws the static layers alone, the atlas over it the mobys.
         if ((casters == ShadowCasters::Static && moby_layer)
-            || (casters == ShadowCasters::Dynamic && !moby_layer)) {
+            || (casters == ShadowCasters::Dynamic && !moby_layer)
+            || (casters == ShadowCasters::StaticOpaque && moby_layer)) {
             continue;
         }
 
@@ -1804,6 +1902,15 @@ void LevelScene::draw_shadow_map(
         for (const auto& group : m_groups[layer]) {
             if ((hero && !group.hero_shadow_caster)
                 || (!hero && separate_hero && group.hero_shadow_caster) || group.blend != 0) {
+                continue;
+            }
+            const auto coverage = !moby_layer ? m_static_shadow_coverage[m_opaque[group.model]] : 0;
+            if (casters == ShadowCasters::StaticOpaque
+                && (!group.shadow_solid_instances || !(coverage & 2))) {
+                continue;
+            }
+            if (casters == ShadowCasters::DynamicAlpha && !moby_layer
+                && group.shadow_solid_instances && !(coverage & 1)) {
                 continue;
             }
             if (counts) {
@@ -1880,6 +1987,21 @@ void LevelScene::draw_shadow_map(
                     submit(command);
                 }
             };
+            if (cached_draws && !moby_layer) {
+                const auto model = m_opaque[group.model];
+                const bool partition = casters == ShadowCasters::StaticOpaque
+                                       || casters == ShadowCasters::DynamicAlpha;
+                const bool solid =
+                    (!solid_off || partition) && !hero && group.shadow_solid_instances;
+                for (const auto& range : m_static_shadow_ranges[model][solid ? 1 : 0]) {
+                    if ((casters == ShadowCasters::StaticOpaque && !range.solid)
+                        || (casters == ShadowCasters::DynamicAlpha && range.solid)) {
+                        continue;
+                    }
+                    draw(range.first, range.count, range.solid && !solid_off, range.material);
+                }
+                continue;
+            }
             const auto flush = [&] {
                 if (!count) {
                     return;
@@ -1896,6 +2018,14 @@ void LevelScene::draw_shadow_map(
                 const auto& primitive = m_models[model].primitives[pi];
                 const auto& material = m_materials[static_cast<std::size_t>(primitive.material)];
                 if (material.metal || material.blend || material.colour[3] < .5f) {
+                    flush();
+                    continue;
+                }
+                const bool permanent = !moby_layer && group.shadow_solid_instances
+                                       && !material.cutout && material.colour[3] >= 1
+                                       && m_shadow_solid_primitives[model][pi];
+                if ((casters == ShadowCasters::StaticOpaque && !permanent)
+                    || (casters == ShadowCasters::DynamicAlpha && permanent)) {
                     flush();
                     continue;
                 }
@@ -1962,11 +2092,14 @@ void LevelScene::release() {
     m_shadow_atlas_active = false;
     release_target(m_static_shadow);
     m_static_keys = {};
+    release_scrolling_shadows();
     m_moby_layout.valid = false;
     for (auto& bucket : m_shadow_draws) {
         bucket.clear();
     }
     m_shadow_solid_primitives.clear();
+    m_static_shadow_ranges.clear();
+    m_static_shadow_coverage.clear();
     m_hero_enabled = m_hero_ready = false;
     m_hero_logged_airborne.reset();
     m_hero_transition = {};
@@ -2112,11 +2245,11 @@ bool LevelScene::needs_early_lighting(const renderer::FrameInput& input) const {
 void LevelScene::bind_shadow_atlas(const renderer::Shader& shader) const {
     glUniform1i(shader.uniform("shadow_atlas_enabled"), m_shadow_atlas_active ? 1 : 0);
     if (m_shadow_atlas_active) {
-        static const auto packed = [] {
+        const auto packed = [this] {
             std::array<float, 20> result{};
             for (unsigned i = 0; i < 5; ++i) {
                 for (unsigned j = 0; j < 4; ++j) {
-                    result[4 * i + j] = static_cast<float>(kShadowAtlasRects[i][j]);
+                    result[4 * i + j] = static_cast<float>(m_shadow_layout.rects[i][j]);
                 }
             }
             return result;
@@ -2168,6 +2301,13 @@ void LevelScene::bind_sun_shadow(const renderer::Shader& shader, const renderer:
         return;
     }
     glUniform1i(shader.uniform("sun_shadow_enabled"), m_sun_ready ? 1 : 0);
+    int separate = 0;
+    for (unsigned i = 0; i < kSunCascades; ++i) {
+        if (m_scroll_shadows[i].active) {
+            separate |= 1 << i;
+        }
+    }
+    glUniform1i(shader.uniform("sun_shadow_separate_maps"), separate);
     bind_shadow_atlas(shader);
     glUniform4fv(shader.uniform("sun_shadow_ends"), 1, m_sun_cascades.ends.data());
     glUniform1f(shader.uniform("sun_shadow_near"), m_sun_cascades.near_distance);
@@ -2188,8 +2328,9 @@ void LevelScene::bind_sun_shadow(const renderer::Shader& shader, const renderer:
             glActiveTexture(GL_TEXTURE0 + 7 + i);
             glBindTexture(
                 GL_TEXTURE_2D,
-                m_shadow_atlas_active ? m_shadow_atlas->depth_texture()
-                                      : m_sun_maps[i]->depth_texture()
+                m_scroll_shadows[i].active ? m_scroll_shadows[i].combined
+                : m_shadow_atlas_active    ? m_shadow_atlas->depth_texture()
+                                           : m_sun_maps[i]->depth_texture()
             );
         }
     }

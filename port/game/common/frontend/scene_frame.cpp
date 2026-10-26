@@ -164,6 +164,7 @@ void set_lighting(SceneFrame& frame) {
     }
     owner.scene.set_probe_spheres(graphics.probe_spheres);
     owner.scene.set_area_lights(graphics.ceiling_area_lights);
+    input.shadow_quality = graphics.shadow_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera
                              && scene.level >= 0 && scene.level < 19;

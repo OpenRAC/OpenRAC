@@ -166,7 +166,8 @@ VkDescriptorPool new_pool() {
          {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 4096},
          {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4096},
          {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 2048},
-         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4096}};
+         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4096},
+         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 32}};
     VkDescriptorPoolCreateInfo info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
     info.maxSets = 2048;
     info.poolSizeCount = static_cast<std::uint32_t>(std::size(sizes));

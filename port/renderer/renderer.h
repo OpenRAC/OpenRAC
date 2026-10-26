@@ -30,6 +30,7 @@
 #include "renderer/framebuffer.h"
 #include "renderer/gtao_settings.h"
 #include "renderer/math.h"
+#include "renderer/shadow_settings.h"
 #include "renderer/shadow_volume.h"
 #include "renderer/texture_filter.h"
 #include "renderer/texture_pool.h"
@@ -127,6 +128,7 @@ struct RenderTarget;
 
 struct FrameInput {
     TextureFilter texture_filter = TextureFilter::Normal;
+    ShadowQuality shadow_quality = ShadowQuality::High;
     bool sun_pixel_shadow = false;
     bool hero_pixel_shadow = false;
     bool hero_airborne = false;

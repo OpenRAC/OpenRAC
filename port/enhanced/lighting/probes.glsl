@@ -51,6 +51,7 @@ uniform mat4 sun_shadow_view;
 uniform vec4 sun_shadow_ends;
 uniform float sun_shadow_near;
 uniform int sun_shadow_enabled;
+uniform int sun_shadow_separate_maps;
 uniform int shadow_atlas_enabled;
 uniform vec4 shadow_atlas_rects[5];
 uniform vec4 light_sets[64];
@@ -423,8 +424,9 @@ float shadow_pcf_kernel_rect(sampler2D map, ivec4 rect, vec3 position, float bia
 }
 
 ivec4 shadow_map_rect(sampler2D map, int view) {
-    return shadow_atlas_enabled != 0 ? ivec4(shadow_atlas_rects[view])
-                                    : ivec4(0, 0, textureSize(map, 0));
+    bool separate = view < 4 && (sun_shadow_separate_maps & (1 << view)) != 0;
+    return shadow_atlas_enabled != 0 && !separate ? ivec4(shadow_atlas_rects[view])
+                                                 : ivec4(0, 0, textureSize(map, 0));
 }
 float shadow_bilinear(sampler2D map, vec3 p, float bias, vec2 slope) {
     return shadow_bilinear_rect(map, ivec4(0, 0, textureSize(map, 0)), p, bias, slope);

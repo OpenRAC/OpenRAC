@@ -31,6 +31,9 @@
 #include "scene/level.h"
 #include "scene/level_lighting.h"
 #include "scene/motion.h"
+#include "scene/shadow_atlas.h"
+#include "scene/shadow_draws.h"
+#include "scene/shadow_scroll.h"
 #include "scene/shadow_transition.h"
 #include "scene/sun_shadow.h"
 
@@ -312,6 +315,7 @@ private:
     void prepare_hero_shadow(const renderer::FrameInput& input, renderer::RenderState& state);
     void prepare_sun_shadow(const renderer::FrameInput& input, renderer::RenderState& state);
     void prepare_shadows(const renderer::FrameInput& input, renderer::RenderState& state);
+    void set_shadow_quality(renderer::ShadowQuality quality);
     bool make_shadow_atlas(std::string& error);
     void draw_shadow_atlas(renderer::RenderState& state);
     // Which casters a shadow map draws: all of them, or, for the static shadow cache (R-18), the
@@ -320,6 +324,8 @@ private:
         All,
         Static,
         Dynamic,
+        StaticOpaque,  // Persistent coverage: opaque, unskinned static layers only.
+        DynamicAlpha,  // Mobys and all static coverage that can require alpha testing.
     };
     // Draws the sun cascades whose static casters changed into the static shadow cache, copies
     // the cache into the atlas and draws the dynamic casters over it; returns the cascades it drew
@@ -338,8 +344,18 @@ private:
         unsigned cascade = kSunCascades,
         int atlas_view = -1,
         bool flush_atlas = false,
-        ShadowCasters casters = ShadowCasters::All
+        ShadowCasters casters = ShadowCasters::All,
+        const std::array<int, 4>* region = nullptr
     );
+    // Independent toroidal caches; any failed cascade falls back to ordinary atlas drawing.
+    void prepare_scrolling_shadows(
+        renderer::Vec3 direction, renderer::Vec3 low, renderer::Vec3 high
+    );
+    bool make_scrolling_target(unsigned cascade);
+    void draw_scrolling_regions(unsigned cascade, renderer::RenderState& state);
+    unsigned update_scrolling_shadows(renderer::RenderState& state);
+    void combine_scrolling_shadows(unsigned mask, renderer::RenderState& state);
+    void release_scrolling_shadows();
     Group make_group(std::uint32_t model);
     void fill_group(Group& g, const std::vector<InstanceData>& list, unsigned usage);
     void build_groups(Layer layer, const std::vector<Instance>& instances, bool live);
@@ -388,6 +404,10 @@ private:
     static constexpr std::array<Layer, 2> kSceneryLayers{Layer::Ties, Layer::Shrubs};
     std::array<Scenery, kSceneryLayers.size()> m_scenery;
     std::vector<std::vector<bool>> m_shadow_solid_primitives;
+    // Both solid-shader eligibility modes, rebuilt with geometry/materials on level upload.
+    std::vector<std::array<std::vector<ShadowDrawRange>, 2>> m_static_shadow_ranges;
+    std::vector<std::uint8_t>
+        m_static_shadow_coverage;  // Alpha-tested (1) and permanent opaque (2).
 
     Group m_shadow_compact;
     std::vector<InstanceData> m_shadow_survivors;
@@ -479,6 +499,7 @@ private:
     renderer::Shader m_atlas_depth, m_atlas_solid;
     std::unique_ptr<renderer::FrameBuffer> m_shadow_atlas;
     bool m_shadow_atlas_active = false;
+    ShadowAtlasLayout m_shadow_layout;
     std::array<renderer::Mat4, 5> m_shadow_view_projection;
     // The sun cascades' static casters, in the atlas's layout, kept between frames, and what each
     // cascade's rectangle was drawn for (shadow-static-cache, R-18).
@@ -486,6 +507,17 @@ private:
     std::array<StaticShadowKey, kSunCascades> m_static_keys{};
     // Bumped whenever the static layers' instances change (an upload, set_instances of one).
     std::uint64_t m_static_generation = 1;
+
+    struct ScrollingShadow {
+        ShadowScrollGrid grid;
+        ShadowScrollUpdate update;
+        std::unique_ptr<renderer::FrameBuffer> statics;
+        unsigned combined = 0;
+        bool active = false;
+    };
+
+    std::array<ScrollingShadow, kSunCascades> m_scroll_shadows;
+    bool m_scroll_requested = false;
 
     struct ShadowDraw {
         unsigned vao;

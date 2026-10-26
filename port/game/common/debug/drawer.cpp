@@ -365,6 +365,14 @@ void drawer_enhanced() {
             set.enhanced_shadows = !set.enhanced_shadows;
             changed = true;
         }
+        if (set.enhanced_shadows) {
+            const bool high = set.shadow_quality == renderer::ShadowQuality::High;
+            if (drawer_choice("Shadow quality", high ? "High" : "Medium", high, !high)) {
+                set.shadow_quality =
+                    high ? renderer::ShadowQuality::Medium : renderer::ShadowQuality::High;
+                changed = true;
+            }
+        }
         if (drawer_switch("Gameplay rim light", set.rim_light)) {
             set.rim_light = !set.rim_light;
             changed = true;

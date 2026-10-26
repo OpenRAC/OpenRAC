@@ -73,6 +73,7 @@ endif()
 if(OPENRAC_VULKAN)
   add_library(openrac_renderer_vulkan STATIC
     renderer/vulkan/native_compute.cpp
+    renderer/vulkan/depth_combine.cpp
     renderer/vulkan/native_shader_compiler.cpp
     renderer/vulkan/pipeline_cache_file.cpp
     renderer/vulkan/shader_compiler.cpp
@@ -239,6 +240,8 @@ add_library(openrac_scene STATIC
   scene/moby_shadow.cpp
   scene/screenshot.cpp
   scene/sun_shadow.cpp
+  scene/shadow_draws.cpp
+  scene/shadow_scroll.cpp
 )
 target_link_libraries(openrac_scene PUBLIC openrac_renderer openrac_viewer_third_party
   openrac_assets_geometry)
@@ -263,6 +266,7 @@ openrac_warnings(openrac_probe_scene)
 # link without a graphics context) and this.
 add_library(openrac_scene_renderer STATIC
   scene/level_renderer.cpp
+  scene/shadow_scroll_renderer.cpp
   scene/motion.cpp
 )
 openrac_embed_shaders(openrac_scene_renderer scene openrac::scene
@@ -401,6 +405,13 @@ openrac_add_test(probe_scene SOURCES enhanced/tests/probe_scene_test.cpp
                 enhanced/tools/probes/report.cpp LIBS openrac_probe_scene)
 
 openrac_add_test(object_picker SOURCES tests/object_picker_test.cpp LIBS openrac_scene)
+openrac_add_test(shadow_draws LIBS openrac_scene)
+openrac_add_test(shadow_scroll LIBS openrac_scene)
+if(TARGET openrac_renderer_vulkan)
+  openrac_add_test(depth_combine LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
+  set_tests_properties(depth_combine PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+endif()
 
 add_executable(hero_shadow_test tests/hero_shadow_test.cpp)
 target_link_libraries(hero_shadow_test PRIVATE openrac_viewer_lib openrac_platform)

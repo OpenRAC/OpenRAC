@@ -963,6 +963,12 @@ struct Context {
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE;
     std::uint64_t material_draws = 0, material_records = 0, material_textures = 0;
     bool open = false;
+
+    struct DepthCombine {
+        VkDescriptorSetLayout descriptors = VK_NULL_HANDLE;
+        VkPipelineLayout layout = VK_NULL_HANDLE;
+        VkPipeline pipeline = VK_NULL_HANDLE;
+    } depth_combine;
     Measures measures;
     SubmissionCounters submission, reported_submission;
     SubmissionCounters published;  // The render counters as the last frame's gauges left them.
@@ -1071,6 +1077,9 @@ struct Context {
 // The backend's state: made by open() and destroyed by close() (vkgl.cpp), null while closed.
 // The thread that draws uses it; on_event, from SDL's event thread, only sets `surface_lost`.
 extern Context* g;
+
+// Releases the optional depth-composition pipeline after device idle at context teardown.
+void release_depth_combine();
 
 // Records `error` for glGetError, unless an earlier one is still waiting to be read.
 inline void fail(GLenum error) {

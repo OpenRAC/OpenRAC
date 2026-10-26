@@ -31,6 +31,23 @@ void test_temporal_settings(const std::filesystem::path& file) {
     CHECK(settings::get().temporal_sharpness == .2f);
 }
 
+// Invalid or missing keys keep High; both published choices survive save/load.
+void test_shadow_quality(const std::filesystem::path& file) {
+    using namespace openrac;
+    CHECK(settings::Settings{}.shadow_quality == renderer::ShadowQuality::High);
+    for (std::size_t n = 0; n < std::size(renderer::kShadowQualityKeys); ++n) {
+        std::ofstream(file) << "shadow_quality = " << renderer::kShadowQualityKeys[n] << "\n";
+        settings::load(file);
+        CHECK(settings::get().shadow_quality == static_cast<renderer::ShadowQuality>(n));
+        settings::save();
+        settings::load(file);
+        CHECK(settings::get().shadow_quality == static_cast<renderer::ShadowQuality>(n));
+    }
+    std::ofstream(file) << "shadow_quality = invalid\n";
+    settings::load(file);
+    CHECK(settings::get().shadow_quality == renderer::ShadowQuality::High);
+}
+
 void test_sunlight_settings(const std::filesystem::path& file) {
     namespace settings = openrac::settings;
     CHECK(!settings::Settings{}.sunlight_direction());
@@ -142,6 +159,7 @@ int main() {
     CHECK(settings::get().ceiling_area_lights);
     CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
     test_temporal_settings(file);
+    test_shadow_quality(file);
     test_sunlight_settings(file);
     test_frame_counter_modes(file);
     test_game_options_load_from_the_file(file);

@@ -168,6 +168,18 @@ void enhanced_settings_window() {
     // Same main choices and order as the launcher's Enhanced graphics page.
     changed |= ImGui::Checkbox("Gameplay rim light", &graphics.rim_light);
     changed |= ImGui::Checkbox("Modern shadows", &graphics.enhanced_shadows);
+    ImGui::BeginDisabled(!graphics.enhanced_shadows);
+    int shadow_quality = static_cast<int>(graphics.shadow_quality);
+    if (ImGui::Combo(
+            "Shadow quality",
+            &shadow_quality,
+            renderer::kShadowQualityNames,
+            static_cast<int>(renderer::ShadowQuality::Count)
+        )) {
+        graphics.shadow_quality = static_cast<renderer::ShadowQuality>(shadow_quality);
+        changed = true;
+    }
+    ImGui::EndDisabled();
     changed |= ImGui::Checkbox("Ambient occlusion", &graphics.gtao);
     ImGui::BeginDisabled(!graphics.gtao);
     int quality = static_cast<int>(graphics.gtao_settings.quality);

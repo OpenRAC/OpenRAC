@@ -51,6 +51,8 @@ before and after, and how its frames are shown to be the same.
 | `attachment-discard` | on | none (exact) | A Vulkan pass neither stores an attachment `glInvalidateFramebuffer` let go nor has the next pass load it ([R-06](#r-06-attachments-a-pass-does-not-keep)). |
 | `gpu-resident-instances` | on | none (exact) | Static instances are registered in device memory at the level's upload; a view's GPU-driven batch of them sends only its planes, PVS and a group record ([R-15](#r-15-static-instances-resident-on-the-gpu)). |
 | `shadow-static-cache` | off | none (exact) | A sun cascade's static casters are kept in a cache target and copied into the shadow atlas while the cascade's key is unchanged; only the mobys are drawn over them. Off: the copy costs more GPU time than it saves on both measured machines ([R-18](#r-18-a-static-shadow-cache-shipped-off)). |
+| `shadow-draw-cache` | on | none (exact) | Static shadow index ranges and material classification are prepared at level upload. Visibility, instance selection and cascade matrices remain live; mobys retain the original path. |
+| `shadow-scroll-reuse` | on, experiment only | none (exact) | Reuse static cascade texels; disabling it redraws under the same fixed projection. |
 | `present-single-copy` | on | none (exact) | The frontend's blit of the picture into the window waits and becomes one blit into the screen, where nothing else touches the window first ([R-07](#r-07-one-copy-to-the-screen)). |
 | `vk-tight-sync` | on | none (exact) | Vulkan barriers name the stages and accesses they order, and only the copy to the screen waits for the swapchain image ([R-08](#r-08-barriers-that-name-their-stages)). |
 | `pipeline-prewarm` | on | none (exact) | The pipelines earlier runs made are made again on a worker thread once their program links, from a manifest beside the pipeline cache ([R-10](#r-10-pipelines-made-ahead-on-a-worker)). |
@@ -1216,6 +1218,66 @@ OPENRAC_GL_API=vulkan port/build/release/openrac_render_bench --enhanced on --sc
 OPENRAC_GL_API=vulkan port/build/release/openrac_render_bench --enhanced on --scenario walk --frames 60 --warmup 10
 # the "off" rows: the same with --opt-off shadow-static-cache
 ```
+## Prepared static shadow draws
+
+`shadow-draw-cache` prepares the static models' shadow index ranges when a level is uploaded.
+It joins adjacent opaque ranges and retains material references for cutouts and partial opacity.
+Two variants preserve the solid-depth shader's vertex-alpha and instance-tint requirements.
+Reloading a level rebuilds both variants with its geometry and materials.
+
+Each frame still selects visible instances, applies current cascade matrices and prepares dynamic
+moby draws. The cache owns no GPU resources and keeps no shadow image between frames. The separate
+`shadow-static-cache` depth-image optimisation remains off.
+
+Set `OPENRAC_RENDER_OPT_OFF=shadow-draw-cache` to use the original classification loop. Compare the
+two paths with `render_equivalence_test --opt shadow-draw-cache`; the comparison requires identical
+pixels, including moving cameras, level reloads and pictures between simulation ticks.
+
+## Scrolling static shadows (experimental)
+
+`OPENRAC_SCROLLING_SHADOWS=1` enables independent Vulkan caches for all four sun cascades.
+Opaque static terrain, ties and shrubs retain depth in world-aligned toroidal images. Camera
+movement redraws newly exposed strips, split at wrap seams. Alpha-tested coverage and moving
+or skinned objects are drawn every frame into the normal atlas. Compute unwraps each static
+image and combines its reversed depth with the corresponding dynamic atlas rectangle into an
+R32F map. Ratchet's special shadow retains its existing path. A failed allocation or composition
+falls back to ordinary drawing for that cascade.
+
+Projection scale and depth remain fixed while texels are reused. Sun direction, level geometry
+and required extent changes refresh each cache independently; a move beyond a map's width
+redraws it completely. Cached projections can sample differently from the ordinary atlas.
+An up-to-one-texel hold interval, capped by the existing coverage margin, prevents subpixel
+camera jitter from repeatedly updating strips. Quality changes recreate all dependent targets. Extra colour/depth and combined-depth textures
+cost about 84–112 MiB on High, or 21–28 MiB on Medium, depending on the depth format. Each merge
+still processes every texel of its cascade. The experiment remains off by default.
+
+`OPENRAC_RENDER_OPT_OFF=shadow-scroll-reuse` redraws all static maps every frame under the same
+projections. `render_equivalence_test --opt shadow-scroll-reuse` requires identical pixels and
+checks that all four compositions are active, including across High/Medium/High transitions.
+The GPU composition test also checks nonzero source rectangles and negative wrap offsets.
+
+Debug dumps report `shadow scroll active` (all four), `shadow scroll active cascades`,
+`shadow scroll updated texels`, `shadow scroll capacity texels`, `shadow scroll regions` and
+`shadow scroll full refresh`. `shadow scroll 0 updated texels` through
+`shadow scroll 3 updated texels` separate the cascades. CPU/GPU scopes distinguish static updates
+from composition.
+
+The Novalis opening-view comparison on a Radeon 780M uses enhanced rendering, FSR Performance,
+GI/GTAO 1, a 1960×1470 output, VSync off and 500 settled simulation ticks per run. Mean GPU time
+for the complete shadow pass, including composition:
+
+| Quality | Ordinary atlas | Nearest-only cache | Four stabilized caches |
+|---|---:|---:|---:|
+| High | 2.36 ms | 2.31 ms | 1.80 ms |
+| Medium | 1.95 ms | 1.86 ms | 1.24 ms |
+
+Displayed FPS changed from 69.8 to 71.5 on High and 70.2 to 74.2 on Medium. These are single
+matching runs, not a guarantee of the same gain across gameplay. Static shadow updates fell
+to zero throughout the fixed-view sample after the deadband change; moving cameras still update
+new strips. CPU shadow-pass time fell from 1.37 to 1.14 ms on High and 1.39 to 1.12 ms on Medium.
+The original nearest-only compute merge measured 0.31 ms GPU on High and 0.093 ms on Medium.
+The four-map merge totals measured 0.613 ms GPU on High and 0.184 ms on Medium in separate Tracy captures.
+
 ## R-07: one copy to the screen
 
 **What changed.** The frontend's `present()` (`game/common/frontend.cpp`, not edited) clears the

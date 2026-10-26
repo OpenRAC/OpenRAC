@@ -88,6 +88,12 @@ pub fn settings() -> Vec<SettingSpec> {
         Choice { value: "performance".into(), name: "Performance".into() },
         Choice { value: "quality".into(), name: "Quality".into() },
     ];
+    let mut shadows = spec("shadow_quality", "Shadow quality", "choice", "high".into(),
+        "Medium uses smaller shadow textures. High keeps the sharpest shadows.");
+    shadows.choices = vec![
+        Choice { value: "medium".into(), name: "Medium".into() },
+        Choice { value: "high".into(), name: "High".into() },
+    ];
     let mut texture_filter = spec(
         "texture_filter",
         "Texture upscaling",
@@ -115,6 +121,7 @@ pub fn settings() -> Vec<SettingSpec> {
     ];
     vec![
         spec("enhanced_shadows", "Modern shadows", "bool", true.into(), "Sharp sun shadows, and Ratchet's own."),
+        shadows,
         spec("gtao", "Ambient occlusion", "bool", true.into(), "Soft shade in corners and under objects."),
         quality,
         texture_filter,
@@ -470,10 +477,12 @@ mod tests {
         assert_eq!(value(&v, "probe_gi_multiplier"), Value::from(1.0));
         assert_eq!(value(&v, "texture_filter"), Value::from("edge-aware"));
         assert_eq!(value(&v, "temporal_quality"), Value::from("quality"));
+        assert_eq!(value(&v, "shadow_quality"), Value::from("high"));
         assert_eq!(value(&v, "temporal_sharpness"), Value::from(0.2));
 
         set_enabled(&home, "rac1", "pal", true).unwrap();
         set_setting(&home, "rac1", "pal", "probe_gi_multiplier", &Value::from(2.5)).unwrap();
+        set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("medium")).unwrap();
         set_setting(&home, "rac1", "pal", "gtao_quality", &Value::from("quality")).unwrap();
         set_setting(&home, "rac1", "pal", "enhanced_shadows", &Value::Bool(false)).unwrap();
         set_setting(&home, "rac1", "pal", "texture_filter", &Value::from("normal")).unwrap();
@@ -484,6 +493,7 @@ mod tests {
             "probe_gi_multiplier = 2.5",
             "gtao_quality = quality",
             "enhanced_shadows = 0",
+            "shadow_quality = medium",
             "texture_filter = normal",
         ] {
             assert!(text.lines().any(|l| l == line), "{line} in {text}");
@@ -492,11 +502,13 @@ mod tests {
         assert!(v.entry.enabled);
         assert_eq!(value(&v, "probe_gi_multiplier"), Value::from(2.5));
         assert_eq!(value(&v, "texture_filter"), Value::from("normal"));
+        assert_eq!(value(&v, "shadow_quality"), Value::from("medium"));
         // Out of the port's range, another type, or not one of the entry's: refused, file kept.
         assert!(set_setting(&home, "rac1", "pal", "probe_gi_multiplier", &Value::from(9.0)).is_err());
         assert!(set_setting(&home, "rac1", "pal", "gtao", &Value::from("yes")).is_err());
         assert!(set_setting(&home, "rac1", "pal", "probe_spheres", &Value::Bool(true)).is_err());
         assert!(set_setting(&home, "rac1", "pal", "texture_filter", &Value::from("unknown")).is_err());
+        assert!(set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("unknown")).is_err());
         assert_eq!(std::fs::read_to_string(&file).unwrap(), text);
         let _ = std::fs::remove_dir_all(&home);
     }
