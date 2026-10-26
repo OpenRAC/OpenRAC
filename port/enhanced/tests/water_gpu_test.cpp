@@ -878,7 +878,8 @@ void main(){
     const auto helper_end = material.find("vec3 water_direct_specular");
     CHECK(helper_start != std::string::npos && helper_end > helper_start);
     std::string physical =
-        "#version 410 core\n" + material.substr(helper_start, helper_end - helper_start);
+        "#version 410 core\n" + std::string(lighting::shaders::shading_brdf_glsl)
+        + material.substr(helper_start, helper_end - helper_start);
     physical += R"(
 layout(location=0) out vec4 result;
 void main() {
@@ -1404,6 +1405,7 @@ uint bits=floatBitsToUint(value);result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)
         water_fragment.find("void main()"),
         std::string(lighting::shaders::water_window_glsl)
             + std::string(lighting::shaders::water_swell_glsl)
+            + std::string(lighting::shaders::shading_brdf_glsl)
             + std::string(lighting::shaders::probes_glsl) + material
     );
     renderer::Shader water_material;

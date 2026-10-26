@@ -56,24 +56,12 @@ vec3 water_smooth_normal(vec3 rest_normal,vec2 gradient) {
     vec2 rest_gradient=-rest_normal.xy/max(rest_normal.z,1e-5);
     return normalize(vec3(-(rest_gradient+gradient),1.));
 }
-// Air/water interface (IOR 1.333), Schlick Fresnel and GGX/Smith specular.
+// Air/water interface (IOR 1.333); shared Schlick Fresnel and GGX/Smith BRDF.
 float water_fresnel(float cosine) {
-    float f=1.-clamp(cosine,0.,1.);
-    return .02037+.97963*f*f*f*f*f;
+    return dielectric_fresnel(cosine, .02037);
 }
-float water_specular(vec3 n,vec3 eye,vec3 light,float roughness) {
-    float nv=max(dot(n,eye),0.),nl=max(dot(n,light),0.);
-    vec3 sum=eye+light;
-    if(nv<=0. || nl<=0. || dot(sum,sum)<1e-8) return 0.;
-    vec3 half_direction=normalize(sum);
-    float nh=max(dot(n,half_direction),0.);
-    float a=roughness*roughness,a2=a*a;
-    float denominator=nh*nh*(a2-1.)+1.;
-    float distribution=a2/(3.14159265*denominator*denominator);
-    // Height-correlated Smith visibility, including 1/(4 NoV NoL).
-    float visibility=.5/max(nl*sqrt(nv*nv*(1.-a2)+a2)
-                           +nv*sqrt(nl*nl*(1.-a2)+a2),1e-6);
-    return distribution*visibility*water_fresnel(dot(eye,half_direction))*nl;
+float water_specular(vec3 n, vec3 eye, vec3 light, float roughness) {
+    return ggx_specular(n, eye, light, roughness, .02037);
 }
 vec3 water_transmittance(float depth,float nv) {
     float transmitted_cosine=sqrt(1.-(1.-nv*nv)/(1.333*1.333));

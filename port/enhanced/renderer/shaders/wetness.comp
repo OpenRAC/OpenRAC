@@ -1,0 +1,131 @@
+#version 430 core
+// SPDX-License-Identifier: GPL-3.0-or-later
+layout(local_size_x = 64) in;
+
+struct Vertex {
+    vec4 position;
+    uvec4 joints;
+    vec4 weights;
+};
+
+layout(std430, binding = 0) readonly buffer Vertices {
+    Vertex vertices[];
+};
+
+layout(std430, binding = 1) buffer Wetness {
+    float wetness[];
+};
+
+layout(std430, binding = 6) readonly buffer Coast {
+    vec4 coast[];
+};
+
+layout(std430, binding = 7) readonly buffer Bodies {
+    vec4 bodies[];
+};
+
+uniform sampler2D palette_texture;
+uniform sampler2D water_wave_map, water_coast_map;
+uniform int vertex_count, palette_base, reset_history, contact_enabled, water_body_count;
+uniform mat4 hero_model;
+uniform float dry_amount, water_time, water_current_scale;
+uniform vec4 water_atlas[64];
+uniform vec2 water_atlas_extent;
+
+mat4 joint(int index) {
+    int t = 4 * index;
+    ivec2 p = ivec2(t % 1024, t / 1024);
+    return mat4(
+        texelFetch(palette_texture, p, 0),
+        texelFetch(palette_texture, p + ivec2(1, 0), 0),
+        texelFetch(palette_texture, p + ivec2(2, 0), 0),
+        texelFetch(palette_texture, p + ivec2(3, 0), 0)
+    );
+}
+
+// Bakes use world XY cells, with rest height encoded as 512 + Z in wet cells.
+// Test the finite water column, so banks and rooms below the pool stay dry.
+bool submerged(vec3 p) {
+    if (contact_enabled == 0) {
+        return false;
+    }
+    for (int i = 0; i < water_body_count; ++i) {
+        vec4 origin = bodies[i * 5], u = bodies[i * 5 + 1], v = bodies[i * 5 + 2],
+             normal = bodies[i * 5 + 3], flow = bodies[i * 5 + 4];
+        vec2 cell = (p.xy - origin.xy) / flow.z;
+        ivec2 size = ivec2(u.w, v.w), at = ivec2(floor(cell));
+        if (any(lessThan(at, ivec2(0))) || any(greaterThanEqual(at, size))) {
+            continue;
+        }
+        vec4 c = coast[int(normal.w) + at.y * size.x + at.x];
+        if (c.x < .5) {
+            continue;
+        }
+        float rest = c.x - 512.;
+        vec2 centre = clamp(cell, vec2(.5), vec2(size) - .5);
+        vec4 edge =
+            textureLod(water_coast_map, (water_atlas[i].xy + centre) / water_atlas_extent, 0.);
+        float weight =
+            clamp(edge.x, 0., 1.) * smoothstep(0., 1.2, edge.y) * smoothstep(.03, .4, edge.z);
+        vec3 sx, sy;
+        vec3 swell = water_swell(p.xy, water_time, weight, vec2(0), sx, sy);
+        vec2 lo = clamp(cell - 1., vec2(.5), vec2(size) - .5),
+             hi = clamp(cell + 1., vec2(.5), vec2(size) - .5);
+        float left =
+            textureLod(
+                water_coast_map, (water_atlas[i].xy + vec2(lo.x, centre.y)) / water_atlas_extent, 0.
+            )
+                .y;
+        float right =
+            textureLod(
+                water_coast_map, (water_atlas[i].xy + vec2(hi.x, centre.y)) / water_atlas_extent, 0.
+            )
+                .y;
+        float bottom =
+            textureLod(
+                water_coast_map, (water_atlas[i].xy + vec2(centre.x, lo.y)) / water_atlas_extent, 0.
+            )
+                .y;
+        float top =
+            textureLod(
+                water_coast_map, (water_atlas[i].xy + vec2(centre.x, hi.y)) / water_atlas_extent, 0.
+            )
+                .y;
+        vec2 gradient = vec2(right - left, top - bottom) / (max(hi - lo, vec2(.001)) * flow.z);
+        float height = rest
+                       + water_sim_sample(
+                             water_wave_map,
+                             p.xy,
+                             water_sim_shared_body(i, rest),
+                             vec2(0),
+                             flow.xy * .8 * water_current_scale
+                       )
+                             .x
+                       + swell.z
+                       + water_boundary_swell(vec3(edge.y, gradient), water_time, weight).z;
+        if (p.z <= height && p.z >= rest - max(edge.z, .05)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void main() {
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= uint(vertex_count)) {
+        return;
+    }
+    Vertex v = vertices[at];
+    // Mirror mesh.vert skinning before applying the live body transform.
+    vec4 p = vec4(v.position.xyz, 1);
+    if (palette_base >= 0 && dot(v.weights, vec4(1)) > 0.) {
+        mat4 skin = v.weights.x * joint(palette_base + int(v.joints.x))
+                    + v.weights.y * joint(palette_base + int(v.joints.y))
+                    + v.weights.z * joint(palette_base + int(v.joints.z))
+                    + v.weights.w * joint(palette_base + int(v.joints.w));
+        p = vec4((skin * p).xyz, 1);
+    }
+    float old = reset_history != 0 ? 0. : wetness[at];
+    wetness[at] =
+        v.position.w > 0. && submerged((hero_model * p).xyz) ? 1. : max(0., old - dry_amount);
+}

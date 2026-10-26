@@ -751,3 +751,43 @@ The solver stops once the weight reaches zero; re-entry restores full interactio
 The fade uses simulation time and pauses with the water debug pause control.
 Decorative swells and the enhanced water material remain active. Explicitly
 disabling enhanced water still returns immediately to the original water behavior.
+
+
+## Ratchet wetness prototype
+
+Enhanced Vulkan rendering keeps a persistent float of wetness per referenced vertex
+of Ratchet's class-0 model. A compute pass skins these samples using the submitted
+joint palette and body transform. It tests the baked wet-cell footprint and floor
+depth, then the latest available GPU shallow-water height plus the shared decorative
+swells. Contact sets wetness to one; otherwise it decays linearly over 20 seconds
+of game ticks. Repeated displays of the same tick do not accelerate drying.
+There are no CPU contact calculations or gameplay GPU readbacks.
+
+The material interpolates this history across the mesh, darkening diffuse colour
+and adding a GGX/Smith direct specular coat with Schlick Fresnel (air/water F0
+0.02037). Perceptual roughness blends from 0.52 to 0.30 as wetness increases.
+Water and the wet coat share shading_brdf.glsl; water retains its existing BRDF
+parameters. Emission, alpha and geometry
+are unchanged. Other mobys, attached equipment, UI and classic graphics do not use
+the coating. Loading a level, changing hero identity or disabling enhanced graphics
+resets the history. Missing water resources allow existing patches to keep drying.
+
+Graphics > Enhanced Settings > Diagnostics > Ratchet wetness view (GPU) shows blue
+for wet samples and grey for dry samples. This is a session-only diagnostic. The
+GPU profiler labels the update as Ratchet wetness.
+
+This is per-vertex surface history, not a texture-resolution mask: coarse triangles
+soften the waterline. The contact update uses the most recently prepared water
+images, which can be from the preceding frame when mesh preparation runs first.
+Synthetic Vulkan fixtures cover animated contact, above-water and out-of-bounds
+rejection, below-floor rejection, retention after movement, drying, duplicate ticks,
+identity/mode resets, missing water resources, real mesh debug output, RGB-only
+coating and isolation from another model sharing the same palette. Gameplay visual
+quality and cost still require an in-game check.
+
+
+Enhanced Settings > Ratchet wetness material exposes wet diffuse brightness,
+specular strength, dry/wet coat roughness and normal-incidence reflectivity (F0).
+These session-only controls update shader uniforms immediately; Reset restores
+0.32, 4.0, 0.52, 0.30 and 0.02037 respectively. They do not change contact or
+20-second drying. Fully dry surfaces keep the original material.

@@ -149,21 +149,23 @@ bool LevelScene::upload(
 ) {
     // mesh.frag again with OPENRAC_SOLID, after its version line (which has to stay the first).
     // The registered lighting puts its GLSL into the mesh shader; without it the scene's own.
+    const std::string mesh_vertex = m_lighting ? m_lighting->mesh_vertex(shaders::mesh_vert)
+                                             : shaders::mesh_vert;
     const std::string fragment = m_lighting ? m_lighting->mesh_fragment(shaders::mesh_frag)
                                             : std::string(shaders::mesh_frag);
     m_early_capable = m_lighting && m_lighting->early_supported();
     std::string solid(fragment);
     solid.insert(solid.find('\n') + 1, "#define OPENRAC_SOLID 1\n");
-    if (!m_mesh.build("mesh", shaders::mesh_vert, fragment, error)
-        || !m_solid.build("mesh (solid)", shaders::mesh_vert, solid, error)
+    if (!m_mesh.build("mesh", mesh_vertex, fragment, error)
+        || !m_solid.build("mesh (solid)", mesh_vertex, solid, error)
         || !m_sky.build("sky", shaders::sky_vert, shaders::sky_frag, error)) {
         return false;
     }
     if (m_early_capable) {
         std::string early = m_lighting->early_fragment(shaders::mesh_frag), early_solid(early);
         early_solid.insert(early_solid.find('\n') + 1, "#define OPENRAC_SOLID 1\n");
-        if (!m_early_mesh.build("early lit mesh", shaders::mesh_vert, early, error)
-            || !m_early_solid.build("early lit solid", shaders::mesh_vert, early_solid, error)) {
+        if (!m_early_mesh.build("early lit mesh", mesh_vertex, early, error)
+            || !m_early_solid.build("early lit solid", mesh_vertex, early_solid, error)) {
             return false;
         }
     }
@@ -184,11 +186,11 @@ bool LevelScene::upload(
             return source;
         };
         if (!m_colour_opaque
-                 .build("opaque colour batch", shaders::mesh_vert, opaque_source(fragment), error)
+                 .build("opaque colour batch", mesh_vertex, opaque_source(fragment), error)
             || (m_early_capable
                 && !m_early_colour_opaque.build(
                     "early opaque colour batch",
-                    shaders::mesh_vert,
+                    mesh_vertex,
                     opaque_source(m_lighting->early_fragment(shaders::mesh_frag)),
                     error
                 ))) {
@@ -207,7 +209,7 @@ bool LevelScene::upload(
             return source;
         };
         for (unsigned variant = 0; variant < m_colour_specialised.size(); ++variant) {
-            std::string vertex(shaders::mesh_vert);
+            std::string vertex(mesh_vertex);
             vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
             vertex = fixed_int(vertex, "metal_pass", 0);
             if (variant < 2) {
@@ -237,7 +239,7 @@ bool LevelScene::upload(
                 return false;
             }
         }
-        std::string static_vertex(shaders::mesh_vert), static_translucent(fragment);
+        std::string static_vertex(mesh_vertex), static_translucent(fragment);
         static_vertex.insert(static_vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
         static_translucent.insert(static_translucent.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
         static_vertex = fixed_int(std::move(static_vertex), "skinning", 0);
@@ -863,6 +865,13 @@ void LevelScene::set_instances(Layer layer, const std::vector<Instance>& instanc
     // The CPU time of handing the scene a layer's instances (the moby layer's, every frame).
     const stats::Scope pass(layer == Layer::Mobys ? "moby instances" : "layer instances");
     if (layer == Layer::Mobys) {
+        m_wetness_hero.reset();
+        for (const auto& instance : instances) {
+            if (instance.hero_shadow_anchor) {
+                m_wetness_hero = instance;
+                break;
+            }
+        }
         m_hero_centre.reset();
         for (const auto& instance : instances) {
             if (instance.hero_shadow_caster && instance.moby_light[3] < 1.5f
@@ -1962,6 +1971,7 @@ void LevelScene::release() {
     m_hero_logged_airborne.reset();
     m_hero_transition = {};
     m_hero_centre.reset();
+    m_wetness_hero.reset();
     // Only registered lighting has GL objects to free.
     if (m_lighting) {
         m_lighting->release();
@@ -2255,6 +2265,10 @@ bool LevelScene::colour_blend_barrier(Layer layer) const {
 void LevelScene::draw_layer(
     Layer layer, const renderer::FrameInput& input, renderer::RenderState& state
 ) {
+    if (layer == Layer::Mobys && m_lighting) {
+        m_lighting->prepare_wetness(input, m_palette, m_wetness_hero);
+    }
+
     if (layer == Layer::Sky) {
         const stats::Scope pass("sky colour", stats::kGpu);
         draw_sky(input, state);
@@ -2469,6 +2483,9 @@ void LevelScene::draw_layer(
             m_lighting->bind(
                 shader, layer, m_hero_enabled || m_sun_enabled, &input.camera, depth_matched
             );
+        }
+        if (m_lighting) {
+            m_lighting->bind_wetness(shader);
         }
         bind_sun_shadow(shader, input.camera);
         // The early lighting's result, where registered lighting drew one.

@@ -49,6 +49,12 @@ uniform int probe_receiver;
 uniform int sun_shadow_enabled;
 uniform int hero_shadow_enabled;
 
+#ifdef OPENRAC_HERO_WETNESS
+layout(std430,binding=9) readonly buffer HeroWetness { float hero_wetness[]; };
+uniform int hero_wetness_enabled, hero_wetness_first, hero_wetness_count, hero_wetness_palette;
+out float v_hero_wetness;
+#endif
+
 out vec2 v_uv;
 out vec4 v_colour;
 out vec3 v_normal;
@@ -91,6 +97,12 @@ void main() {
     }
     vec4 world = model * p;
     v_world_position = world.xyz;
+#ifdef OPENRAC_HERO_WETNESS
+    int wet_index=gl_VertexID-hero_wetness_first;
+    bool wet_receiver=hero_wetness_enabled!=0 && palette>=0. && int(palette+.5)==hero_wetness_palette
+        && moby_light.w<1.5 && wet_index>=0 && wet_index<hero_wetness_count;
+    v_hero_wetness=wet_receiver?hero_wetness[wet_index]:-1.;
+#endif
     // Terrain COLOR_0 is already lit. Mobys' COLOR_0 is their authored
     // multiplier. Keep alpha and the original colour path for fallback.
     v_probe_multiplier = (probe_receiver == 1 ? vec4(1.0, 1.0, 1.0, colour.a) : colour) * tint;

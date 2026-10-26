@@ -68,6 +68,7 @@ std::string probe_shader_source(std::string source) {
         return source;
     }
     source.insert(source.find('\n') + 1, shaders::probes_glsl);
+    source.insert(source.find('\n') + 1, shaders::shading_brdf_glsl);
     source.insert(source.find('\n') + 1, renderer::shaders::shading_normal_glsl);
     static const bool& gather_off = stats::probe(
         "OPENRAC_SHADOW_GATHER_OFF", "Reference: 16 individual shadow texel fetches (reload level)"

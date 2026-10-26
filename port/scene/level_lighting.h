@@ -38,6 +38,13 @@ public:
     // Returns the scene's mesh fragment shader `source` with the lighting's GLSL put in.
     virtual std::string mesh_fragment(std::string source) const = 0;
 
+    // Enhanced surface history uses the already submitted hero pose and joint palette.
+    virtual std::string mesh_vertex(std::string source) const { return source; }
+    virtual void prepare_wetness(
+        const renderer::FrameInput&, unsigned, const std::optional<Instance>&
+    ) {}
+    virtual void bind_wetness(const renderer::Shader&) const {}
+
     // Returns the scene's mesh fragment shader `source` as the early-lit variant draws it.
     virtual std::string early_fragment(std::string source) const = 0;
 

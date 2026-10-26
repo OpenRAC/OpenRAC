@@ -499,6 +499,7 @@ private:
     std::array<std::vector<ShadowDraw>, 3> m_shadow_draws;
     renderer::Mat4 m_hero_matrix = renderer::identity();
     std::optional<renderer::Vec3> m_hero_centre;
+    std::optional<Instance> m_wetness_hero;
     bool m_hero_enabled = false, m_hero_ready = false, m_hero_airborne = false;
     ShadowTransition m_hero_transition;  // Shared ease-out for projection and overlap darkening.
     std::optional<bool> m_hero_logged_airborne;

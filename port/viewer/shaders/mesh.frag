@@ -50,6 +50,13 @@ uniform float material_diffuse_scale;
 uniform sampler2D gtao_visibility;
 #endif
 
+#ifdef OPENRAC_HERO_WETNESS
+in float v_hero_wetness;
+uniform int hero_wetness_debug;
+uniform vec4 hero_wetness_material; // wet diffuse, specular strength, dry/wet roughness
+uniform float hero_wetness_f0;
+#endif
+
 layout(location = 0) out vec4 out_colour;
 
 // From above and to one side, in game axes (Z up).
@@ -106,11 +113,38 @@ bool early_surface(
 #endif
 // This replaces RGB only. Alpha tests, fading and blend equations stay in
 // the existing path, as do explicitly unlit, additive, metal and glow passes.
+#ifdef OPENRAC_HERO_WETNESS
+// A thin wet coat: less diffuse reflection and a narrow water-like highlight.
+vec3 wet_coat(vec3 linear_colour, vec3 n, vec3 toward_camera, float visibility) {
+    float wet = clamp(v_hero_wetness, 0., 1.);
+    if (wet <= 0.) return linear_colour;
+    int a = (int(v_probe_selector.x + .5) & 15) * 4;
+    int b = (int(v_probe_selector.y + .5) & 15) * 4;
+    float blend = clamp(v_probe_selector.z, 0., 1.);
+    vec3 travel = probe_sunlight_direction.w != 0. ? probe_sunlight_direction.xyz
+        : mix(light_sets[a + 1].xyz, light_sets[b + 1].xyz, blend);
+    vec3 light = probe_unit(-travel), eye = probe_unit(toward_camera);
+    float roughness = mix(hero_wetness_material.z, hero_wetness_material.w, wet);
+    vec3 radiance = max(mix(light_sets[a].rgb, light_sets[b].rgb, blend), vec3(0.))
+        * probe_sunlight_scale;
+    vec3 shine = radiance * ggx_specular(n, eye, light, roughness, hero_wetness_f0)
+        * visibility * hero_wetness_material.y;
+    return linear_colour * mix(1., hero_wetness_material.x, wet) + wet * shine;
+}
+#else
+vec3 wet_coat(vec3 linear_colour,vec3 n,vec3 toward_camera,float visibility) {return linear_colour;}
+#endif
+
 vec3 probe_surface(vec4 texel, vec3 original) {
     if (probe_receiver == 0 || v_glow != 0 || probe_effect != 0 || metal_pass != 0
         || (probe_receiver == 2 && v_probe_selector.w > 1.5)) {
         return original;
     }
+#ifdef OPENRAC_HERO_WETNESS
+    if (hero_wetness_debug != 0 && v_hero_wetness >= 0.) {
+        return mix(vec3(.12), vec3(0., .65, 1.), clamp(v_hero_wetness, 0., 1.));
+    }
+#endif
     if (probe_mode == 0 && sun_shadow_enabled == 0 && hero_shadow_enabled == 0) {
         return original;
     }
@@ -151,8 +185,8 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     // Legacy prelighting may already contain authored brightness. Preserve that
     // component while shadowing the remaining diffuse, without adding it twice.
     vec3 fallback = probe_display(
-        max(probe_linear(original) - emitted, vec3(0.0)) * mix(0.1, 1.0, visibility) * hero_cue
-        + emitted
+        wet_coat(max(probe_linear(original) - emitted, vec3(0.0)) * mix(0.1, 1.0, visibility) * hero_cue,
+                 n, transpose(mat3(view)) * (-eye_position), visibility) + emitted
     );
     if (probe_mode == 0) {
         return fallback;
@@ -212,7 +246,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
 #endif
     // Emission is independent of GI exposure, AO and shadow visibility.
     return probe_display(
-        albedo * illumination * material_diffuse_scale + rim
+        wet_coat(albedo * illumination * material_diffuse_scale + rim, n, toward_camera, visibility)
         + (probe_mode == 1 ? emitted : vec3(0.0))
     );
 }

@@ -63,6 +63,9 @@ bool water_disabled() {
     return off;
 }
 
+class Water;
+const Water* contact_source = nullptr;
+
 class Water final : public renderer::EffectMaterial {
 public:
     Water(scene::LevelScene& scene, const std::filesystem::path& path) : m_scene(scene) {
@@ -152,6 +155,7 @@ public:
     std::string fragment_source() const override {
         return std::string(lighting::shaders::water_window_glsl) + "\n"
                + std::string(lighting::shaders::water_swell_glsl) + "\n"
+               + std::string(lighting::shaders::shading_brdf_glsl) + "\n"
                + std::string(lighting::shaders::probes_glsl) + "\n"
                + std::string(lighting::shaders::water_glsl);
     }
@@ -313,6 +317,7 @@ public:
             );
         }
         glActiveTexture(GL_TEXTURE0);
+        contact_source = this;
         water_ready.store(!water_disabled());
         return true;
     }
@@ -691,7 +696,37 @@ public:
         glActiveTexture(GL_TEXTURE0);
     }
 
+    void bind_contact(const renderer::Shader& shader) const {
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, m_buffers[kCoast]);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, m_buffers[kBodies]);
+        glActiveTexture(GL_TEXTURE0 + 12);
+        glBindTexture(GL_TEXTURE_2D, m_maps[1]);
+        glActiveTexture(GL_TEXTURE0 + 14);
+        glBindTexture(GL_TEXTURE_2D, m_maps[0]);
+        glUniform1i(shader.uniform("water_body_count"), int(m_bodies.size() / 5));
+        glUniform4fv(shader.uniform("water_atlas[0]"), 64, m_atlas[0].data());
+        glUniform2f(
+            shader.uniform("water_atlas_extent"), float(m_atlas_width), float(m_atlas_height)
+        );
+        glUniform1i(shader.uniform("water_sim_local"), 1);
+        glUniform1i(shader.uniform("water_sim_body"), m_sim_body);
+        glUniform1f(shader.uniform("water_sim_height"), m_sim_height);
+        glUniform1f(shader.uniform("water_sim_weight"), m_sim_weight);
+        glUniform4f(
+            shader.uniform("water_sim_window"),
+            float(m_window_origin[0]) * .25f,
+            float(m_window_origin[1]) * .25f,
+            .25f,
+            float(kWindowSize)
+        );
+        glUniform1f(shader.uniform("water_time"), float(m_time));
+        glUniform1f(shader.uniform("water_current_scale"), m_debug.current_scale);
+    }
+
     void release() override {
+        if (contact_source == this) {
+            contact_source = nullptr;
+        }
         water_ready.store(false);
         m_step.release();
         m_window_prepare.release();
@@ -791,6 +826,14 @@ void reset_water_simulation() {
 
 bool water_available() {
     return water_ready.load();
+}
+
+bool bind_water_contact(const renderer::Shader& shader) {
+    if (!contact_source || !water_ready.load()) {
+        return false;
+    }
+    contact_source->bind_contact(shader);
+    return true;
 }
 
 std::unique_ptr<renderer::EffectMaterial> make_water(

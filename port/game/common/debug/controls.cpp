@@ -9,6 +9,7 @@
 #include "debug/overlay.h"
 #include "enhanced/fsr3/fsr3.h"
 #include "enhanced/renderer/water.h"
+#include "enhanced/renderer/wetness.h"
 #include "frontend.h"
 #include "options_menu.h"
 #include "settings.h"
@@ -285,7 +286,59 @@ void enhanced_settings_window() {
             "Updates direct lighting and shadows. Baked bounce lighting keeps its baked direction."
         );
     }
+    if (ImGui::CollapsingHeader("Ratchet wetness material")) {
+        auto material = enhanced::wetness_material_settings();
+        bool material_changed = false;
+        material_changed |= ImGui::SliderFloat(
+            "Wet diffuse brightness",
+            &material.diffuse_scale,
+            0,
+            1,
+            "%.2f",
+            ImGuiSliderFlags_AlwaysClamp
+        );
+        material_changed |= ImGui::SliderFloat(
+            "Wet specular strength",
+            &material.specular_strength,
+            0,
+            4,
+            "%.2f",
+            ImGuiSliderFlags_AlwaysClamp
+        );
+        material_changed |= ImGui::SliderFloat(
+            "Dry roughness", &material.dry_roughness, .08f, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        material_changed |= ImGui::SliderFloat(
+            "Wet roughness", &material.wet_roughness, .08f, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        material_changed |= ImGui::SliderFloat(
+            "Wet reflectivity (F0)",
+            &material.reflectivity,
+            0,
+            .16f,
+            "%.4f",
+            ImGuiSliderFlags_AlwaysClamp
+        );
+        if (ImGui::Button("Reset wetness material")) {
+            material = enhanced::WetnessMaterialSettings{};
+            material_changed = true;
+        }
+        if (material_changed) {
+            enhanced::set_wetness_material_settings(material);
+        }
+        ImGui::TextWrapped(
+            "Session only. Lower roughness gives sharper reflections. Dry roughness "
+            "sets the coat as it fades; fully dry Ratchet keeps his original material."
+        );
+    }
     if (ImGui::CollapsingHeader("Diagnostics")) {
+        bool wetness_view = enhanced::wetness_debug_view();
+        if (ImGui::Checkbox("Ratchet wetness view (GPU)", &wetness_view)) {
+            enhanced::set_wetness_debug_view(wetness_view);
+        }
+        if (wetness_view) {
+            ImGui::TextDisabled("Blue: wet. Grey: dry. Session only; dries in 20 seconds.");
+        }
         changed |= ImGui::Checkbox("Probe spheres", &graphics.probe_spheres);
         changed |= ImGui::Checkbox("Ceiling area lights", &graphics.ceiling_area_lights);
         if (graphics.ceiling_area_lights) {

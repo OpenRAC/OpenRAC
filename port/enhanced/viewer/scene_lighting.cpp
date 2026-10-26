@@ -10,16 +10,39 @@
 #include <memory>
 #include <utility>
 
+#include "renderer/gl.h"
 #include "scene/level_renderer.h"
 
 namespace openrac::lighting {
 
+namespace {
+std::string wetness_shader(std::string source) {
+    if (gl::is_vulkan() && gl::enhanced_rendering_available()) {
+        source.replace(0, source.find('\n'), "#version 430 core");
+        source.insert(source.find('\n') + 1, "#define OPENRAC_HERO_WETNESS 1\n");
+    }
+    return source;
+}
+}  // namespace
+
+std::string SceneLighting::mesh_vertex(std::string source) const {
+    return wetness_shader(std::move(source));
+}
 std::string SceneLighting::mesh_fragment(std::string source) const {
-    return probe_mesh_fragment(std::move(source));
+    return wetness_shader(probe_mesh_fragment(std::move(source)));
+}
+void SceneLighting::prepare_wetness(
+    const renderer::FrameInput& input, unsigned palette, const std::optional<scene::Instance>& hero
+) {
+    m_wetness.prepare(input, palette, hero);
+}
+
+void SceneLighting::bind_wetness(const renderer::Shader& shader) const {
+    m_wetness.bind(shader);
 }
 
 std::string SceneLighting::early_fragment(std::string source) const {
-    return probe_early_fragment(std::move(source));
+    return wetness_shader(probe_early_fragment(std::move(source)));
 }
 
 // Keeps the level renderer's direct-light and shadow direction aligned.
@@ -33,9 +56,11 @@ bool SceneLighting::early_supported() const {
 
 void SceneLighting::load(const scene::LevelData& level) {
     m_probes.load(level);
+    m_wetness.load(level);
 }
 
 void SceneLighting::release() {
+    m_wetness.release();
     m_probes.release();
     m_early_lighting.release();
 }
