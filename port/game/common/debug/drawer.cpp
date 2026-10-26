@@ -380,7 +380,23 @@ void drawer_enhanced() {
                 changed = true;
             }
         }
-        // AMD FSR's temporal upscaling (enhanced/fsr3): its preset, and its sharpening while on.
+        if (drawer_switch("Ambient occlusion", set.gtao)) {
+            set.gtao = !set.gtao;
+            changed = true;
+        }
+        if (set.gtao) {
+            auto& gtao = set.gtao_settings;
+            const bool quality = gtao.quality == renderer::GtaoQuality::Quality;
+            if (drawer_choice(
+                    "Occlusion quality", quality ? "Quality" : "Performance", quality, !quality
+                )) {
+                gtao.quality =
+                    quality ? renderer::GtaoQuality::Performance : renderer::GtaoQuality::Quality;
+                changed = true;
+            }
+        }
+        // AMD FSR's temporal upscaling (enhanced/fsr3): its preset, and its sharpening while on
+        // (the launcher's steps of 0.05).
         if (enhanced::Fsr3::available()) {
             constexpr int kModes = static_cast<int>(renderer::TemporalQuality::Count);
             const int mode = static_cast<int>(set.temporal_quality);
@@ -396,31 +412,16 @@ void drawer_enhanced() {
                 if (const int by = drawer_choice(
                         "FSR sharpening",
                         std::format("{:.0f}%", sharp * 100.0f),
-                        sharp > 0.05f,
-                        sharp < 0.95f
+                        sharp > 0.025f,
+                        sharp < 0.975f
                     )) {
                     set.temporal_sharpness = std::clamp(
-                        std::round((sharp + 0.1f * static_cast<float>(by)) * 10.0f) / 10.0f,
+                        std::round((sharp + 0.05f * static_cast<float>(by)) * 20.0f) / 20.0f,
                         0.0f,
                         1.0f
                     );
                     changed = true;
                 }
-            }
-        }
-        if (drawer_switch("Ambient occlusion", set.gtao)) {
-            set.gtao = !set.gtao;
-            changed = true;
-        }
-        if (set.gtao) {
-            auto& gtao = set.gtao_settings;
-            const bool quality = gtao.quality == renderer::GtaoQuality::Quality;
-            if (drawer_choice(
-                    "Occlusion quality", quality ? "Quality" : "Performance", quality, !quality
-                )) {
-                gtao.quality =
-                    quality ? renderer::GtaoQuality::Performance : renderer::GtaoQuality::Quality;
-                changed = true;
             }
         }
     }
