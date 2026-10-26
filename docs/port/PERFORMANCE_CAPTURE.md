@@ -95,7 +95,8 @@ macOS) and is off when the game starts.
   exports; a desktop executable exports none, so there it names only the
   libraries. A function without a symbol (libc's memcpy, a static
   function) is also listed by the function it returns to, on aarch64,
-  which says whose work it is.
+  which says whose work it is. The simulated slow processor's spin is
+  left out, so a slowed capture lists the same work.
 
 The code is [common/perf_capture.h](../../port/common/perf_capture.h) (the
 summary, no window or GPU, tested by `perf_capture`) and

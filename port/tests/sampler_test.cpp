@@ -2,7 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The capture's function sampler (common/sampler.h): a thread that noted itself is sampled while
-// sampling runs, and the report names it with its samples; nothing is reported when it did not run.
+// sampling runs, and the report names it with its samples; nothing is reported when it did not run
+// or the thread was left out.
 
 #include <chrono>
 #include <string>
@@ -52,5 +53,13 @@ int main() {
     sampler::note_thread("again");
     work(100.0);
     CHECK(sampler::stop().find("again thread, ") != std::string::npos);
+
+    // Left out (the simulated slow processor's spin): no sample is taken, so nothing is reported.
+    sampler::start();
+    sampler::note_thread("spin");
+    sampler::leave_out(true);
+    work(100.0);
+    sampler::leave_out(false);
+    CHECK(sampler::stop().empty());
     return openrac::test::result();
 }

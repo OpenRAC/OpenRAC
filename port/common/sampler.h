@@ -25,6 +25,10 @@ void start();
 // "render") must outlive the sampling (a literal).
 void note_thread(const char* name);
 
+// Leaves the calling thread's samples out while `out` is set: the simulated slow processor's spin
+// (common/slow_cpu.h), which is no work of the game's.
+void leave_out(bool out);
+
 // Stops sampling and returns the report's section of hot functions, Markdown; empty when it did not
 // run or took no sample.
 std::string stop();

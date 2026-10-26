@@ -11,6 +11,8 @@
 #include <ctime>
 #endif
 
+#include "common/sampler.h"
+
 namespace openrac::slow_cpu {
 namespace {
 
@@ -57,8 +59,10 @@ void pad() {
         // Spun, not slept: a slower processor would be busy, and the scheduler sees it so.
         const auto until = std::chrono::steady_clock::now()
                            + std::chrono::duration<double>((now - last) * (k - 1));
+        sampler::leave_out(true);  // a capture's hot functions are the work, not the spin
         while (std::chrono::steady_clock::now() < until) {
         }
+        sampler::leave_out(false);
     }
     // The spin itself is not work to pad again.
     last = thread_seconds();

@@ -54,6 +54,7 @@ struct Slot {
     std::atomic<pid_t> tid{0};
     const char* name = nullptr;
     timer_t timer{};
+    std::atomic<bool> left_out{false};  // leave_out()
     std::atomic<std::uint32_t> count{0};
     std::unique_ptr<std::uintptr_t[]> pcs;
     std::unique_ptr<std::uintptr_t[]> returns;
@@ -98,6 +99,9 @@ void on_signal(int, siginfo_t*, void* context) {
     const pid_t tid = thread_id();
     for (Slot& slot : g_slots) {
         if (slot.tid.load(std::memory_order_relaxed) == tid) {
+            if (slot.left_out.load(std::memory_order_relaxed)) {
+                return;
+            }
             const std::uint32_t at = slot.count.fetch_add(1, std::memory_order_relaxed);
             if (at < kSamples) {
                 slot.pcs[at] = interrupted_pc(context);
@@ -162,6 +166,7 @@ void start() {
             slot.returns = std::make_unique<std::uintptr_t[]>(kSamples);
         }
         slot.count = 0;
+        slot.left_out = false;
         slot.tid = 0;
         slot.name = nullptr;
     }
@@ -204,6 +209,19 @@ void note_thread(const char* name) {
     every.it_interval.tv_nsec = kIntervalNs;
     every.it_value.tv_nsec = kIntervalNs;
     timer_settime(timer, 0, &every, nullptr);
+}
+
+void leave_out(bool out) {
+    if (!g_running.load(std::memory_order_relaxed)) {
+        return;
+    }
+    const pid_t tid = thread_id();
+    for (Slot& slot : g_slots) {
+        if (slot.tid.load(std::memory_order_relaxed) == tid) {
+            slot.left_out.store(out, std::memory_order_relaxed);
+            return;
+        }
+    }
 }
 
 std::string stop() {
@@ -278,6 +296,8 @@ bool available() {
 void start() {}
 
 void note_thread(const char*) {}
+
+void leave_out(bool) {}
 
 std::string stop() {
     return {};
