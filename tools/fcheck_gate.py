@@ -10,6 +10,14 @@ fcheck says SAME on real calls of the retail game; one fcheck cannot reach is
   /opt/homebrew/bin/python3 tools/fcheck_gate.py run --only func_001F7E98 ...
   /opt/homebrew/bin/python3 tools/fcheck_gate.py report [--strict]     summary of the verdicts already in the tables
   /opt/homebrew/bin/python3 tools/fcheck_gate.py us                    US: record "unchecked (no US oracle)" in port/game/rac1-ntsc/hand/fcheck.tsv
+  /opt/homebrew/bin/python3 tools/fcheck_gate.py run --game rac2       rac2 USA v1.01: rac2-decomp's nonmatching/functional.tsv -> port/game/rac2-ntsc/fcheck.tsv
+  /opt/homebrew/bin/python3 tools/fcheck_gate.py report --game rac2
+  /opt/homebrew/bin/python3 tools/fcheck_gate.py calibrate [--mutants N]   rac2: the harness's acceptance test on matched C
+
+rac2 ("Game profiles" below) drives rac2-decomp's own tools/fcheck.py, boot functions only (the boot,
+title, menu pages and New Game up to the first level's load); its states and work files are in the
+ignored build/fcheck/rac2-ntsc/; the compiler runs through $RAC2_LINUX; the checkout is
+$OPENRAC_SOURCE_RAC2_NTSC, else games/rac2/game.json's.
 
 `run` reads the backfill table and drives rac1-decomp's tools/fcheck.py (test-only: it runs the retail
 code in the interpreter build of OpenRAC, openrac-fcheck, and compares what
@@ -179,7 +187,10 @@ def fcheck_env() -> dict:
     return env
 
 
-def classify(rc: int, output: str) -> tuple[str, str]:
+NOT_CALLED = "never called in the capture run (title, menu, level 0)"
+
+
+def classify(rc: int, output: str, not_called: str = NOT_CALLED) -> tuple[str, str]:
     """fcheck's exit code and text -> (status, note). 0 means SAME; 3 the
     function was never called in the capture run; 4 every state was skipped;
     2 the candidate did not build or place; anything else is a difference."""
@@ -188,12 +199,14 @@ def classify(rc: int, output: str) -> tuple[str, str]:
         m = re.search(r"SAME on (\d+) real calls", output)
         return "same", f"{m.group(1)} calls" if m else ""
     if rc == 3:
-        return "no-states", "never called in the capture run (title, menu, level 0)"
+        return "no-states", not_called
     if rc == 4:
-        return "unchecked", "every captured state was skipped (nothing compared)"
+        return "unchecked", ("every captured state was skipped: retail did not return from any (it waits "
+                             "for an interrupt, a frame or the disc, which fcheck does not deliver)")
     if rc == 2:
         return "unchecked", "did not build or place: " + (lines[-1] if lines else "?")[:160]
-    diff = [l for l in lines if "SAME" not in l and not l.startswith("compared")]
+    diff = [l for l in lines if "SAME" not in l and not l.startswith("compared") and ": compiled " not in l
+            and "SKIPPED" not in l]
     return "differs", "; ".join(diff[:2])[:200] or f"exit {rc}"
 
 
@@ -249,13 +262,17 @@ def clashes(log: str) -> set[str]:
     return set(CLASH.findall(log))
 
 
-def prepare(text: str, name: str, renames: set[str] = frozenset()) -> str:
+def prepare(text: str, name: str, renames: set[str] = frozenset(), libm: dict | None = None,
+            prelude: dict | None = None) -> str:
     """The test copy of a candidate: the float library as the console computes it; a static
     helper made inline (fcheck places one function, and a helper has no retail address); each
     name in RENAMES given a name of its own for the copy (NAME__gate: an address-named symbol
     still resolves to the same retail address, fcheck reads the address from the name), and the
     function itself, if it is one of them, defined under that name and exported under its own
-    with its size. Every macro is undone at the end, so the rest of the source file is as it was."""
+    with its size. Every macro is undone at the end, so the rest of the source file is as it was.
+    LIBM and PRELUDE are the game's (default rac1's: its memcpy and memset addresses)."""
+    LIBM = libm or globals()["LIBM"]
+    PRELUDE = prelude or globals()["PRELUDE"]
     used = [k for k in LIBM if re.search(rf"\b{k}\b", text)]
     # The copy's own definitions stand for these: the candidate's declarations of them go
     # (their types differ between files: size_t, unsigned long). EE GCC's long is 64 bits and
@@ -288,16 +305,19 @@ def prepare(text: str, name: str, renames: set[str] = frozenset()) -> str:
     return "\n".join(head + [body.rstrip("\n")] + tail) + "\n"
 
 
-def run_fcheck(decomp: Path, name: str, src: Path, log_dir: Path, attempt, tag: str = "") -> tuple[str, str]:
+def run_fcheck(decomp: Path, name: str, src: Path, log_dir: Path, attempt, tag: str = "",
+               gate_dir: Path | None = None, game: "Profile | None" = None) -> tuple[str, str]:
     """Write the test candidate, run ATTEMPT(candidate) -> (exit code, text, compile log path);
     when the compile fails on names declared twice, rename those and try again. TAG tells apart
-    the copies of one function checked from several levels at once."""
-    cand = decomp / "build-sn/fcheck/gate" / f"{name}{tag}.c"
+    the copies of one function checked from several levels at once. GATE_DIR is where the copy
+    goes (rac1: rac1-decomp's build-sn/fcheck/gate/); GAME the profile (rac1 when None)."""
+    cand = (gate_dir or decomp / "build-sn/fcheck/gate") / f"{name}{tag}.c"
     cand.parent.mkdir(parents=True, exist_ok=True)
     renames: set[str] = set()
     text, rc, retried = "", 2, False
     for _ in range(5):
-        cand.write_text(prepare(src.read_text(errors="replace"), name, renames))
+        cand.write_text(prepare(src.read_text(errors="replace"), name, renames,
+                                game.libm if game else None, game.prelude if game else None))
         rc, text, clog = attempt(cand)
         log = clog.read_text(errors="replace") if rc == 2 and clog.is_file() else ""
         new = clashes(log) - renames
@@ -311,7 +331,7 @@ def run_fcheck(decomp: Path, name: str, src: Path, log_dir: Path, attempt, tag: 
         renames |= new
     log_dir.mkdir(parents=True, exist_ok=True)
     (log_dir / f"{name}{tag}.log").write_text(text + (f"\n(test copy renamed: {' '.join(sorted(renames))})\n" if renames else ""))
-    return classify(rc, text)
+    return classify(rc, text, game.not_called if game else NOT_CALLED)
 
 
 NO_STUB = "neither an INCLUDE_ASM stub nor a C definition"
@@ -408,13 +428,8 @@ class Places:
 
     def exe(self, address: int, n: int) -> bytes:
         if self._exe is None:
-            import struct
-            raw = (self.decomp / "baserom/SCES_509.16").read_bytes()
-            phoff = struct.unpack_from("<I", raw, 0x1C)[0]
-            _t, poff, pvaddr = struct.unpack_from("<III", raw, phoff)
-            self._exe = (pvaddr - poff, raw)
-        delta, raw = self._exe
-        return raw[address - delta:address - delta + n]
+            self._exe = (self.decomp / "baserom/SCES_509.16").read_bytes()
+        return exe_bytes(self._exe, address, n)
 
     def exe_size(self, name: str) -> int:
         asm = next(self.decomp.glob(f"asm/nonmatchings/*/{name}.s"), None)
@@ -474,6 +489,28 @@ class Places:
             if start <= address < start + n:
                 return bytes(4) if blob is None else blob[address - start:address - start + 4]
         return None
+
+
+def load_segments(raw: bytes) -> list[tuple[int, int, int]]:
+    """An executable's loadable segments: (address, file offset, file size). rac1's SCES_509.16
+    has one; rac2's SCUS_972.68 two (the program, and its data at 0x1800000)."""
+    import struct
+    phoff = struct.unpack_from("<I", raw, 0x1C)[0]
+    phentsize, phnum = struct.unpack_from("<HH", raw, 0x2A)
+    out = []
+    for i in range(phnum):
+        kind, off, vaddr, _paddr, filesz = struct.unpack_from("<5I", raw, phoff + i * phentsize)
+        if kind == 1:
+            out.append((vaddr, off, filesz))
+    return out
+
+
+def exe_bytes(raw: bytes, address: int, n: int) -> bytes:
+    """N bytes of an executable's image at ADDRESS (b"" outside every loadable segment)."""
+    for vaddr, off, size in load_segments(raw):
+        if vaddr <= address < vaddr + size:
+            return raw[off + address - vaddr:off + min(address - vaddr + n, size)]
+    return b""
 
 
 def same_code(a: bytes, b: bytes, word_a=None, word_b=None) -> bool:
@@ -680,7 +717,290 @@ def check_row(decomp: Path, name: str, src: Path, log_dir: Path, levels: bool) -
     return combine(name, None if title and title[0] == "no-states" else title, run_levels(decomp, name, src, log_dir))
 
 
+# --- Game profiles -----------------------------------------------------------------------
+#
+# rac1 (PAL) is the profile everything above was written for: its driver is rac1-decomp's
+# tools/fcheck.py, its states are in rac1-decomp's build-sn/, its levels are checked too.
+# rac2 (USA v1.01, SCUS_972.68) has its own driver, rac2-decomp's tools/fcheck.py (same role:
+# compile in the unit with the unit's flags, place at 0xA0000, run openrac-fcheck), and only
+# the boot executable for now: boot, title, the front end's menu pages and New Game up to the
+# first level's load. A level function is not checked yet (its status says so).
+
+class Profile:
+    """What the gate needs to know about one game's oracle."""
+
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+RAC2 = Profile(
+    key="rac2-ntsc", game="rac2", version="ntsc",
+    table="nonmatching/functional.tsv",                         # in the rac2-decomp checkout
+    verdicts=ROOT / "port/game/rac2-ntsc/fcheck.tsv",
+    artefacts=ROOT / "port/game/rac2-ntsc/fcheck_artefacts.tsv",
+    disc="baserom/SCUS_972.68.iso", boot_elf="baserom/SCUS_972.68",   # two PT_LOADs (load_segments)
+    boot_catalogue="config/boot/functions.tsv",                 # name, address, size
+    level_catalogue="config/levels/functions.tsv",              # name, kind, size, fp, levels, NN:ADDR places
+    gp=0x1AEFF0, resident_max=0x1A7C80,                         # a level's program replaces memory from here
+    scripts=("menu", "newgame"),                                # the driver's press scripts (fcheck.py scripts)
+    work=ROOT / "build/fcheck/rac2-ntsc",                       # ignored: test copies, logs, work dirs
+    states=ROOT / "build/fcheck/rac2-ntsc/states",              # ignored: the capture runs' call states
+    level_fn=re.compile(r"func_L(\d{2})_([0-9A-F]{8})"),
+    not_called="never called in the capture runs (boot, title, menu pages, New Game up to the level load)",
+    levels_pending="level function: rac2's level captures are not built yet (boot, title, menus and New Game only)",
+    libm={"sqrtf": "__gate_sqrtf", "__builtin_sqrtf": "__gate_sqrtf", "openrac_sqrt": "__gate_sqrtf",
+          "fabsf": "__gate_fabsf", "__builtin_fabsf": "__gate_fabsf",
+          "memcpy": "func_001153D4", "__builtin_memcpy": "func_001153D4",
+          "memset": "func_00115484", "__builtin_memset": "func_00115484"},
+    prelude={"__gate_sqrtf": PRELUDE["__gate_sqrtf"], "__gate_fabsf": PRELUDE["__gate_fabsf"],
+             "func_001153D4": "extern void *func_001153D4(void *, const void *, unsigned int);",
+             "func_00115484": "extern void *func_00115484(void *, int, unsigned int);"},
+)
+
+
+def rac2_root() -> Path:
+    """rac2-decomp's checkout: $OPENRAC_SOURCE_RAC2_NTSC, else games/rac2/game.json's checkout."""
+    checkout = games.source_checkout("rac2", "ntsc", ROOT)
+    if checkout is None or not (checkout / "tools/fcheck.py").is_file():
+        raise SystemExit(f"no rac2-decomp checkout with tools/fcheck.py at {checkout}: set "
+                         f"{games.source_variable('rac2', 'ntsc')} to it")
+    return checkout
+
+
+def rac2_env() -> dict:
+    env = fcheck_env()
+    env["RAC2_FCHECK_STATES"] = str(RAC2.states)
+    return env
+
+
+def rac2_driver(decomp: Path, *args: str, timeout: int = BUILD_TIMEOUT) -> subprocess.CompletedProcess:
+    return subprocess.run([PYTHON, "tools/fcheck.py", *args], cwd=decomp, capture_output=True,
+                          text=True, env=rac2_env(), timeout=timeout)
+
+
+def rac2_capture(decomp: Path, names: list[str], jobs: int, force: bool = False) -> None:
+    """One headless run per press script (at once), each taking states of NAMES it has not
+    run for yet (the driver's capture: states into RAC2.states/<script>/)."""
+    RAC2.states.mkdir(parents=True, exist_ok=True)
+    lst = RAC2.work / "capture.txt"
+    lst.write_text("\n".join(dict.fromkeys(names)) + "\n")
+    print(f"capturing call states of {len(names)} functions in {len(RAC2.scripts)} runs ...", flush=True)
+
+    def one(script: str) -> str:
+        r = rac2_driver(decomp, "capture", str(lst), "--script", script, *(["--force"] if force else []),
+                        timeout=6 * 3600)
+        return (r.stdout + r.stderr).strip()
+    with concurrent.futures.ThreadPoolExecutor(max(1, min(jobs, len(RAC2.scripts)))) as pool:
+        for out in pool.map(one, RAC2.scripts):
+            print("  " + out.replace("\n", "\n  "), flush=True)
+
+
+def rac2_states(name: str) -> list[Path]:
+    return sorted(RAC2.states.glob(f"*/{name}.*.snap"))
+
+
+def rac2_check(decomp: Path, name: str, src: Path | None, tag: str = "") -> tuple[str, str]:
+    """NAME checked by rac2-decomp's driver: SRC through the test copy (src/'s own C when None)."""
+    log_dir = RAC2.work / "logs"
+    work = RAC2.work / "work" / f"{name}{tag}"
+
+    def attempt(cand: Path | None):
+        args = ["check", name] + ([str(cand), "--include", str(src.parent)] if cand else []) + ["--work", str(work)]
+        try:
+            r = rac2_driver(decomp, *args)
+        except subprocess.TimeoutExpired:
+            return 2, f"the build did not finish within {BUILD_TIMEOUT} s", work / "log.txt"
+        return r.returncode, r.stdout + r.stderr, work / "log.txt"
+    if src is None:
+        rc, text, _ = attempt(None)
+        log_dir.mkdir(parents=True, exist_ok=True)
+        (log_dir / f"{name}{tag}.log").write_text(text)
+        return classify(rc, text, RAC2.not_called)
+    return run_fcheck(decomp, name, src, log_dir, attempt, tag, gate_dir=RAC2.work / "gate", game=RAC2)
+
+
+def rac2_commit(decomp: Path) -> str:
+    return fcheck_commit(decomp)
+
+
+def cmd_run_rac2(args: argparse.Namespace) -> int:
+    decomp = rac2_root()
+    back = Backfill(decomp / RAC2.table)
+    table = Verdicts(RAC2.verdicts, back)
+    commit, today = rac2_commit(decomp), datetime.date.today().isoformat()
+    trial = {k: Path(v).resolve() for k, v in (x.split("=", 1) for x in args.trial)}
+    if trial:
+        args.dry_run = True
+        args.only = sorted(set(args.only or []) | set(trial))
+    work: list[Row] = []
+    for n in [n for n in back.files if not args.only or n in args.only]:
+        r = table.row(n)
+        src = trial.get(n) or back.source(n)
+        r.csum, r.date, r.fcheck = csum(src), today, commit
+        if RAC2.level_fn.fullmatch(n):
+            r.status, r.note = "not-executable", RAC2.levels_pending
+        elif not EXECUTABLE.fullmatch(n):
+            r.status, r.note = "not-executable", "neither a boot nor a level function (func_XXXXXXXX, func_LNN_XXXXXXXX)"
+        elif not src.is_file():
+            r.status, r.note = "unchecked", f"file {back.files[n]} is missing"
+        else:
+            work.append(r)
+    if work:
+        rac2_capture(decomp, [r.name for r in work], args.capture_jobs)
+    known = artefacts(RAC2.artefacts)
+    print(f"checking {len(work)} functions with {args.jobs} workers ...", flush=True)
+    with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
+        futs = {pool.submit(rac2_check, decomp, r.name, trial.get(r.name) or back.source(r.name)): r for r in work}
+        for i, f in enumerate(concurrent.futures.as_completed(futs), 1):
+            r = futs[f]
+            try:
+                r.status, r.note = waive(r.name, *f.result(), known)
+            except Exception as e:  # a crash of the harness is not a verdict on the C
+                r.status, r.note = "unchecked", f"gate error: {e}"[:160]
+            print(f"[{i}/{len(work)}] {r.name}: {r.status} {r.note}", flush=True)
+    if not args.dry_run:
+        table.write()
+    print(summary(table.ordered()))
+    listing(table.ordered())
+    return 0
+
+
+# --- Calibration (rac2) ---------------------------------------------------------------------
+#
+# The acceptance test of the harness itself: the boot functions the capture runs call whose C
+# in src/ is matched (placed byte for byte by rac2-decomp's boot build) must all come out SAME,
+# and a deliberately wrong variant of such a function must come out DIFFERS. A DIFFERS on
+# matched C is a harness bug. Results go to RAC2.work/calibration.tsv (not kept in git).
+
+MUTATIONS = [
+    # (what, pattern, replacement): the first that changes the body and compiles is taken.
+    ("an integer constant + 1", re.compile(r"(?<![\w.\[])(0x[0-9A-Fa-f]+|[1-9]\d*)(?![\w.\]])"),
+     lambda m: str(int(m.group(1), 0) + 1)),
+    ("== made !=", re.compile(r"=="), lambda m: "!="),
+    ("!= made ==", re.compile(r"!="), lambda m: "=="),
+    ("< made <=", re.compile(r"(?<![<-])<(?![<=])"), lambda m: "<="),
+    ("> made >=", re.compile(r"(?<![>-])>(?![>=])"), lambda m: ">="),
+    ("+ made -", re.compile(r"(?<![+])\+(?![+=])"), lambda m: "-"),
+    ("a return value + 1", re.compile(r"\breturn\s+([^;]+);"), lambda m: f"return ({m.group(1)}) + 1;"),
+    ("the constant 0 made 1", re.compile(r"(?<![\w.\[])0(?![\w.x\]])"), lambda m: "1"),
+]
+
+
+def mutants(definition: str):
+    """Wrong variants of a C definition, one change each, in its body: (what, text). Changes in
+    the body's own block (run on every call) come first, those inside a branch or loop after."""
+    body = definition.index("{")
+    depth, at_depth = 0, []
+    for k, c in enumerate(definition):
+        depth += (c == "{") - (c == "}")
+        at_depth.append(depth)
+    first, later = [], []
+    for what, pattern, repl in MUTATIONS:
+        for m in pattern.finditer(definition, body + 1):
+            line = definition[definition.rfind("\n", 0, m.start()) + 1:definition.find("\n", m.start())]
+            if line.lstrip().startswith(("/*", "*", "//", "#")):
+                continue
+            v = (f"{what} (line: {line.strip()[:60]})", definition[:m.start()] + repl(m) + definition[m.end():])
+            (first if at_depth[m.start()] == 1 else later).append(v)
+    yield from first
+    yield from later
+
+
+def cmd_calibrate(args: argparse.Namespace) -> int:
+    decomp = rac2_root()
+    import json
+    placed = json.loads((decomp / "build/boot/placed.json").read_text())["functions"]
+    boot = {c[0] for c in tables.read_tsv(decomp / RAC2.boot_catalogue) if len(c) >= 3}
+    names = sorted(n for n in placed if n in boot and (not args.only or n in args.only))
+    if not args.no_capture:
+        rac2_capture(decomp, names, args.capture_jobs)
+    reached = [n for n in names if rac2_states(n)]
+    print(f"{len(names)} matched boot functions, {len(reached)} called in the capture runs", flush=True)
+    results: dict[str, tuple[str, str]] = {}
+    out = RAC2.work / "calibration.tsv"
+    if not args.mutants_only:
+        with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
+            futs = {pool.submit(rac2_check, decomp, n, None): n for n in reached}
+            for i, f in enumerate(concurrent.futures.as_completed(futs), 1):
+                n = futs[f]
+                try:
+                    results[n] = f.result()
+                except Exception as e:
+                    results[n] = ("unchecked", f"gate error: {e}"[:160])
+                if results[n][0] != "same" or i % 50 == 0:
+                    print(f"[{i}/{len(reached)}] {n}: {results[n][0]} {results[n][1]}", flush=True)
+        out.write_text("# name\tstatus\tnote (calibration: matched C in src/)\n"
+                       + "".join(f"{n}\t{s}\t{note}\n" for n, (s, note) in sorted(results.items())))
+        counts = {}
+        for s, _ in results.values():
+            counts[s] = counts.get(s, 0) + 1
+        print(f"calibration: {len(results)} checked: " + ", ".join(f"{v} {k}" for k, v in sorted(counts.items())))
+    else:
+        for c in tables.read_tsv(out):
+            if len(c) >= 2:
+                results[c[0]] = (c[1], c[2] if len(c) > 2 else "")
+    if args.mutants:
+        import random
+        pool_names = sorted(n for n, (s, _) in results.items() if s == "same")
+        random.Random(args.seed).shuffle(pool_names)
+        mres = mutate_check(decomp, pool_names, args.mutants, args.jobs)
+        mout = RAC2.work / "mutants.tsv"
+        mout.write_text("# name\tstatus\tmutation\tnote\n" + "".join(f"{n}\t{s}\t{w}\t{note}\n" for n, s, w, note in mres))
+        slipped = [m for m in mres if m[1] == "same"]
+        print(f"mutants: {len(mres)} checked: {sum(1 for m in mres if m[1] == 'differs')} differs, "
+              f"{len(slipped)} same (slipped through), {sum(1 for m in mres if m[1] not in ('same', 'differs'))} other")
+        for n, s, w, note in mres:
+            print(f"  {n}: {s}: {w}: {note[:120]}")
+    return 0
+
+
+def mutate_check(decomp: Path, names: list[str], want: int, jobs: int) -> list[tuple[str, str, str, str]]:
+    """Check one wrong variant of each of the first WANT functions of NAMES that has one that
+    compiles: (name, status, mutation, note)."""
+    import json
+    mdir = RAC2.work / "mutants"
+    mdir.mkdir(parents=True, exist_ok=True)
+
+    def one(n: str):
+        r = rac2_driver(decomp, "source", n)
+        info = json.loads(r.stdout or "{}")
+        if not info.get("span"):
+            return None
+        text = Path(info["unit"]).read_text(errors="replace")
+        a, b = info["span"]
+        for what, variant in mutants(text[a:b]):
+            f = mdir / f"{n}.c"
+            f.write_text(variant)
+            r = rac2_driver(decomp, "check", n, str(f), "--work", str(RAC2.work / "work" / f"{n}.mutant"))
+            status, note = classify(r.returncode, r.stdout + r.stderr, RAC2.not_called)
+            if status == "unchecked" and "COMPILE" in note:
+                continue
+            return n, status, what, note
+        return None
+    got: list = []
+    with concurrent.futures.ThreadPoolExecutor(jobs) as pool:
+        it = iter(names)
+        futs = set()
+        for n in it:
+            futs.add(pool.submit(one, n))
+            if len(futs) >= want:
+                break
+        while futs:
+            done, futs = concurrent.futures.wait(futs, return_when=concurrent.futures.FIRST_COMPLETED)
+            for f in done:
+                res = f.result()
+                if res:
+                    got.append(res)
+                elif len(got) + len(futs) < want:
+                    n = next(it, None)
+                    if n:
+                        futs.add(pool.submit(one, n))
+    return got[:want]
+
+
 def cmd_run(args: argparse.Namespace) -> int:
+    if args.game == "rac2":
+        return cmd_run_rac2(args)
     decomp = decomp_root()
     if not decomp.is_dir():
         raise SystemExit(f"no rac1-decomp checkout at {decomp}: set OPENRAC_DECOMP or "
@@ -764,10 +1084,13 @@ def cmd_us(args: argparse.Namespace) -> int:
 def cmd_report(args: argparse.Namespace) -> int:
     """Join each backfill table with its verdict file."""
     bad = 0
-    for tab, ver in ((PAL_TABLE, PAL_VERDICTS), (US_TABLE, US_VERDICTS)):
+    pairs = [(PAL_TABLE, PAL_VERDICTS), (US_TABLE, US_VERDICTS)]
+    if args.game == "rac2":
+        pairs = [(rac2_root() / RAC2.table, RAC2.verdicts)]
+    for tab, ver in pairs:
         back = Backfill(tab)
         rows = Verdicts(ver, back).ordered()
-        print(f"{tab.relative_to(ROOT)} + {ver.relative_to(ROOT)}: {summary(rows)}")
+        print(f"{tab.relative_to(ROOT) if tab.is_relative_to(ROOT) else tab} + {ver.relative_to(ROOT)}: {summary(rows)}")
         stale = [r for r in rows if r.csum and r.csum != csum(back.source(r.name))]
         for r in stale:
             print(f"  stale (file changed since the verdict): {r.name}")
@@ -781,7 +1104,9 @@ def cmd_report(args: argparse.Namespace) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("run", help="PAL: run fcheck on every row and write the verdicts")
+    p = sub.add_parser("run", help="run fcheck on every row of a game's backfill table and write the verdicts")
+    p.add_argument("--game", choices=["rac1", "rac2"], default="rac1",
+                   help="rac1: PAL's functional.tsv (default); rac2: USA v1.01's (boot functions only)")
     p.add_argument("--only", nargs="*", help="check these functions only")
     p.add_argument("--try", dest="trial", action="append", default=[], metavar="NAME=FILE",
                    help="check FILE as NAME's C instead of the table's (implies --dry-run)")
@@ -798,8 +1123,19 @@ def main() -> int:
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(fn=cmd_us)
     p = sub.add_parser("report", help="summarise the verdicts in both tables")
+    p.add_argument("--game", choices=["rac1", "rac2"], default="rac1")
     p.add_argument("--strict", action="store_true", help="exit 1 while any row has no verdict, differs, or is stale")
     p.set_defaults(fn=cmd_report)
+    p = sub.add_parser("calibrate", help="rac2: check the matched boot functions the capture runs call "
+                                         "(all must be SAME), then wrong variants of some (must differ)")
+    p.add_argument("--only", nargs="*")
+    p.add_argument("-j", "--jobs", type=int, default=16)
+    p.add_argument("--capture-jobs", type=int, default=2)
+    p.add_argument("--no-capture", action="store_true", help="use the states already captured")
+    p.add_argument("--mutants", type=int, default=0, help="also check this many wrong variants")
+    p.add_argument("--mutants-only", action="store_true", help="reuse calibration.tsv, run only the mutants")
+    p.add_argument("--seed", type=int, default=2026)
+    p.set_defaults(fn=cmd_calibrate)
     args = ap.parse_args()
     return args.fn(args)
 
