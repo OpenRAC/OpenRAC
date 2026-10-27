@@ -234,6 +234,83 @@ and `~/Projects/RAC/rac1-decomp`). Each log is kept in rac1-decomp's
 `build-sn/fcheck/gate/logs/`. The gate copies each C file into
 `build-sn/fcheck/gate/`, which is ignored; it edits nothing else there.
 
+**Going Commando (USA v1.01, SCUS_972.68).** The same gate, with rac2-decomp's
+own driver, `tools/fcheck.py` (same role as rac1-decomp's): it compiles the
+function's unit in `src/` with the unit's flags (`config/cflags.txt`), the
+candidate in place of the function's `INCLUDE_ASM` line or C (or, when that
+does not compile, the candidate on its own with the unit's flags), places the
+function's section at 0x000A0000 and resolves every relocation against
+retail: names as the boot build derived them (`build/boot/placed.json`), the
+unit's writable data where retail has it (one unit's `.data`/`.bss` is shared
+by its functions), read-only data (strings, switch jump tables) copied after
+the code with its entries pointing at the placed code, and `$gp`-relative
+references (-G8 units) only within `$gp`'s window (0x1AEFF0 +- 32 KB; a
+literal is taken where retail's `core.lit`/`.lit` hold the same bytes).
+`openrac-fcheck` gets the capture run's hooks table and disc (`--hooks`,
+`--disc`), so a hooked library function (the SIF, disc and card calls) answers
+as it did in the capture rather than running its body without its first
+word, and it runs every state on a fresh machine: a state holds the
+processors and memory, not what the kernel and the services remember
+(semaphore ids, handlers, DMA registers, the sound server's handles), so
+retail and candidate must start from the same of those. A word that holds an
+address inside the candidate's code compares equal to retail's when it is at
+the same distance from the entry (a label's address kept in memory), and a
+candidate gets eight times retail's instructions (at least 20 million) before
+it counts as not returning. A load or store of a halfword, word or doubleword
+at an address that is not a multiple of its size, which the console refuses
+with an address error and the interpreter performs, is counted, and a
+candidate that makes more of them than retail differs. Retail gets 40 million
+instructions per state; a call that needs more waits for an interrupt, a
+frame or the disc, which no fcheck run delivers, and its state is skipped.
+
+What it covers today: **the boot executable only**, from two headless capture
+runs of the US disc: the boot, title and main menu with its Load, Options and
+New Game pages backed out of (`menu`), and New Game up to the first level's
+load, stopped before the level runs (`newgame`). Each run is cut into phases
+and takes two calls in each (`openrac-boot --capture-phases`,
+`--capture-spread`), so a function called every frame has states from each
+part. **Levels are not covered yet**: a `func_LNN_` row is written
+`not-executable` ("level captures are not built yet"), and a boot function
+that only levels call is `no-states`. What level support still needs: a rac2
+level start in the capture runs (the level-select word or a press script per
+level), the level catalogue (`config/levels/functions.tsv`, places `NN:ADDR`)
+turned into capture lines with each place's CRC, and a placement that
+resolves a level's symbols at its own addresses (rac1's
+`fcheck_level_build.py` is the model).
+
+```sh
+# rac2-decomp built (python3 tools/build.py boot), its compiler reachable through
+# RAC2_LINUX (on a Mac: a container of rac2-build:latest mounting your home at the same path)
+docker run -d --name rac2-gate --platform linux/386 -v $HOME:$HOME rac2-build:latest sleep infinity
+export RAC2_LINUX="docker exec rac2-gate" OPENRAC_SOURCE_RAC2_NTSC=~/Projects/RAC/rac2-decomp
+python3 tools/fcheck_gate.py run --game rac2                 # every row of nonmatching/functional.tsv: capture, check, write fcheck.tsv
+python3 tools/fcheck_gate.py run --game rac2 --only func_00285030
+python3 tools/fcheck_gate.py report --game rac2
+python3 tools/fcheck_gate.py calibrate -j 16 --mutants 20    # the harness's own test (below)
+```
+
+The verdicts go to `port/game/rac2-ntsc/fcheck.tsv` (same columns; `fcheck` is
+the rac2-decomp commit), known harness artefacts to
+`port/game/rac2-ntsc/fcheck_artefacts.tsv`. States, test copies and logs are in
+the ignored `build/fcheck/rac2-ntsc/` (states are about 5 MB each). A single
+function can be checked from rac2-decomp directly:
+`RAC2_FCHECK_STATES=<OpenRAC>/build/fcheck/rac2-ntsc/states python3
+tools/fcheck.py check func_XXXXXXXX nonmatching/functional/func_XXXXXXXX.c`.
+
+**Calibration** is the acceptance test of the rac2 harness: every matched boot
+function (placed byte for byte by the boot build) that the capture runs call
+is checked from its own C in `src/`, which must give SAME (a DIFFERS there is a
+harness bug, not a verdict), then wrong variants of some of them (one constant,
+comparison, operator or return value changed) must give DIFFERS. A variant
+that still says SAME is one whose change the captured calls never exercise:
+the reason more states per function are taken. Results go to
+`build/fcheck/rac2-ntsc/calibration.tsv` and `mutants.tsv`.
+On 2026-10-27, 513 of the 2,074 matched boot functions were called in the two
+runs: 502 SAME, 0 differs, 11 unchecked (retail waits for a frame or the disc
+in every state); of 20 wrong variants 14 differed, and the 6 that did not
+change a branch, a comparison boundary or a constant the captured calls never
+reach.
+
 **How a worker reports.** A backfill worker hands a function on as one of:
 
 - `SAME`, with the call count from `tools/fcheck.py FUNC FILE` (or the row the
@@ -327,7 +404,7 @@ no tier left, or the port needs it now              -> functional C, with its co
 | | Ratchet & Clank (PAL) | Going Commando |
 |---|---|---|
 | Near misses | `nonmatching/<area>/` | `nonmatching/<area>/` |
-| Functional C | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac1-pal/fcheck.tsv` | not set up yet: add the same two |
+| Functional C | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac1-pal/fcheck.tsv` | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac2-ntsc/fcheck.tsv` (boot functions; levels pending) |
 | Pieces of one function | `config/overlays/joined.tsv` | the catalogue, `tools/levels.py` |
 | Handwritten | `ASM_FUNC`, counted as finished | `ASM_FUNC`, counted as finished |
 | Worker bound and protocol | `docs/QUEUE.md`, `docs/AGENT_WORKFLOW.md` | `docs/AGENT_WORKFLOW.md` |
