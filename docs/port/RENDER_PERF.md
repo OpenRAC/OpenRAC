@@ -62,6 +62,7 @@ before and after, and how its frames are shown to be the same.
 | `vk-persistent-descriptors` | on | none (exact) | On the path without bindless materials, a descriptor set binding only textures, samplers and the frame's ring is kept across frames instead of made each frame ([R-14](#r-14-descriptor-sets-kept-across-frames)). |
 | `vk-last-pipeline` | on | none (exact) | Each program keeps its last graphics pipeline and the whole key it was found by; a draw with the same key takes it back before hashing the key or looking it up ([vk-last-pipeline](#vk-last-pipeline-a-programs-last-pipeline)). |
 | `fsr-motion-batch` | on | none (exact) | Enhanced Vulkan with FSR only: the object-motion pass instances consecutive objects of one geometry and material from one pose buffer instead of one draw per object ([fsr-motion-batch](#fsr-motion-batch-object-motion-in-batches)). |
+| `gtao-direct-depth` | on | none (exact) | GTAO's colour composite (levels without an active probe bake) samples the prepass's own depth instead of a copy of it ([gtao-direct-depth](#gtao-direct-depth-the-composite-without-a-depth-copy)). |
 | `moby-glow-skip` | on | none (exact) | The mobys' two glow draws leave out the triangles with no glow packet vertex, whose every fragment they would discard ([moby-glow-skip](#moby-glow-skip-glow-draws-without-the-faces-they-discard)). |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
@@ -1610,3 +1611,11 @@ fragment shader would keep in a glow pass (`v_glow` is flat, so a triangle takes
 vertex's, whichever vertex that is), so no fragment, depth or blend write changes; the triangles
 kept are drawn in their order. The draw calls and
 triangles of the glow passes fall (`draw_calls`, `triangles` of the `mobys` layer).
+
+## gtao-direct-depth: the composite without a depth copy
+
+`RenderTarget::depth_texture` is the surface prepass's own depth, never the colour target's
+attachment, so GTAO's colour composite (the path of a level without an active probe bake) samples
+it directly; before, it blitted depth and stencil into a copy of its own. Radeon 610M, level 03 at
+1920x1080, Enhanced on, `openrac_render_bench --level`: `GTAO depth copy` 0.96 ms gone, the
+picture 32.58 against 31.22 ms. Frames identical in `render_equivalence_vulkan`.
