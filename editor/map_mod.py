@@ -16,7 +16,8 @@ import overrides
 
 
 def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
-               spawn: list[float], heading: float = 0.0, skip_movies: bool = True) -> dict:
+               spawn: list[float], heading: float = 0.0, skip_movies: bool = True,
+               skip_cutscenes: bool = True) -> dict:
     """Only copies inputs; never changes the editor project, packed files or an existing export."""
     packed, project, out = Path(packed), Path(project), Path(out)
     if out.exists():
@@ -25,7 +26,8 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
     if note.get("game", "rac1") != "rac1" or note.get("version") not in ("pal", "ntsc"):
         raise overrides.PackError("Pack this project's Ratchet & Clank level first (extract.py pack)")
     manifest = {"format": overrides.MAP_PACK_FORMAT, "game": "rac1", "version": note["version"], "name": name,
-                "map": {"level": level, "spawn": spawn, "heading": heading, "skip_movies": skip_movies}}
+                "map": {"level": level, "spawn": spawn, "heading": heading, "skip_movies": skip_movies,
+                        "skip_cutscenes": skip_cutscenes}}
     overrides.read_manifest(json.dumps(manifest).encode(), str(out))
     prefix = f"level_{level:02}"
     level_dir = next((p for p in (project / "levels" / prefix, project / prefix, project)
@@ -89,10 +91,11 @@ def main(argv=None) -> int:
     parser.add_argument("--spawn", type=float, nargs=3, required=True, metavar=("X", "Y", "Z"))
     parser.add_argument("--heading", type=float, default=0.0, help="heading in radians")
     parser.add_argument("--keep-movies", action="store_true", help="keep the original disc's movie sequences")
+    parser.add_argument("--keep-cutscenes", action="store_true", help="keep the template's in-game scenes")
     args = parser.parse_args(argv)
     try:
         export_map(args.packed, args.project, args.out, args.name, args.level, args.spawn,
-                   args.heading, not args.keep_movies)
+                   args.heading, not args.keep_movies, not args.keep_cutscenes)
     except (OSError, ValueError) as error:
         parser.exit(1, f"map: {error}\n")
     print(f"Exported map {args.name}: {args.out}")

@@ -69,6 +69,7 @@ struct openrac_map_config {
     float spawn[3];
     float heading;
     int skip_movies;
+    int skip_cutscenes;
 };
 extern const struct openrac_map_config* openrac_game_map;
 

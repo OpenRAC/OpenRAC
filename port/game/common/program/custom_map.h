@@ -18,6 +18,7 @@ struct CustomMap {
     std::array<float, 3> spawn{};
     float heading = 0.0f;
     bool skip_movies = true;
+    bool skip_cutscenes = true;
 };
 
 // The stacker's map.json, checked again by the game before any mod data is read.

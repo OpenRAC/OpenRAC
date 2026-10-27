@@ -56,6 +56,14 @@ class MapMods(unittest.TestCase):
             result = json.loads((root / "mods/map.json").read_text())
             self.assertEqual(result["id"], ident)
             self.assertEqual((result["name"], result["heading"]), ("My arena", 1.0))
+            self.assertTrue(result["skip_cutscenes"])
+            kept = root / "kept-scenes"
+            map_mod.main(["--packed", str(packed), "--project", str(project), "--out", str(kept),
+                          "--name", "Keep scenes", "--level", "0", "--spawn", "1", "2", "3",
+                          "--keep-movies", "--keep-cutscenes"])
+            settings = overrides.map_settings(overrides.read_json(kept / overrides.MANIFEST))
+            self.assertFalse(settings["skip_movies"])
+            self.assertFalse(settings["skip_cutscenes"])
 
     def test_normal_pack_has_no_map(self):
         self.assertIsNone(overrides.map_settings({"name": "Textures"}))
@@ -71,10 +79,12 @@ class MapMods(unittest.TestCase):
     def test_map_start_defaults_and_validation(self):
         valid = overrides.read_manifest(json.dumps(manifest()).encode(), "arena")
         self.assertEqual(overrides.map_settings(valid),
-                         {"level": 0, "spawn": [20.0, 30.0, 4.0], "heading": 0.0, "skip_movies": True})
+                         {"level": 0, "spawn": [20.0, 30.0, 4.0], "heading": 0.0,
+                          "skip_movies": True, "skip_cutscenes": True})
         for field, values in {"level": [-1, 19, 0.5, True],
                               "spawn": [[], [1, 2], [1, 2, float("nan")], [1, 2, 1e40], [1, 2, 10**400], [True, 2, 3]],
-                              "heading": ["0", float("inf")], "skip_movies": [1, "false"]}.items():
+                              "heading": ["0", float("inf")], "skip_movies": [1, "false"],
+                              "skip_cutscenes": [0, "true"]}.items():
             for value in values:
                 with self.subTest(field=field, value=value), self.assertRaises(overrides.PackError):
                     overrides.read_manifest(json.dumps(manifest(**{field: value})).encode(), "arena")

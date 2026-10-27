@@ -87,13 +87,17 @@ bool parse_custom_map(
         map.heading = static_cast<float>(root["heading"].number());
     }
 
-    if (!root["skip_movies"].is_null()) {
-        if (root["skip_movies"].type() != json::Value::Type::Bool) {
-            error = "map skip_movies must be true or false";
-            return false;
-        }
+    for (auto [key, value] :
+         {std::pair{"skip_movies", &map.skip_movies},
+          std::pair{"skip_cutscenes", &map.skip_cutscenes}}) {
+        if (!root[key].is_null()) {
+            if (root[key].type() != json::Value::Type::Bool) {
+                error = std::string("map ") + key + " must be true or false";
+                return false;
+            }
 
-        map.skip_movies = root["skip_movies"].boolean();
+            *value = root[key].boolean();
+        }
     }
 
     out = std::move(map);

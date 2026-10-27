@@ -148,7 +148,11 @@ def map_settings(manifest: dict) -> dict | None:
     skip_movies = value.get("skip_movies", True)
     if type(skip_movies) is not bool:
         raise PackError('map "skip_movies" must be true or false')
-    return {"level": level, "spawn": spawn, "heading": heading, "skip_movies": skip_movies}
+    skip_cutscenes = value.get("skip_cutscenes", True)
+    if type(skip_cutscenes) is not bool:
+        raise PackError('map "skip_cutscenes" must be true or false')
+    return {"level": level, "spawn": spawn, "heading": heading, "skip_movies": skip_movies,
+            "skip_cutscenes": skip_cutscenes}
 
 
 def describe(files) -> dict:

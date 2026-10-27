@@ -310,6 +310,7 @@ int main(int argc, char** argv) {
         std::copy(map.spawn.begin(), map.spawn.end(), map_config.spawn);
         map_config.heading = map.heading;
         map_config.skip_movies = map.skip_movies;
+        map_config.skip_cutscenes = map.skip_cutscenes;
         openrac_game_map = &map_config;
         openrac_game_start_level = map.level;
         openrac_game_no_card = 1;

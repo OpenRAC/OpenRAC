@@ -10,6 +10,20 @@ level's program and available object classes as its template. Its identity is
 the mod's name and installed id, not a new entry in the disc's level table.
 Each disc needs its own export of the gameplay and collision files.
 
+## Campaign edits or a separate map
+
+To play the usual campaign with more enemies or crates, use ordinary format-1
+data packs and the [level editor workflow](LEVEL_MODDING.md). They replace level
+data while keeping the campaign's startup, progression and saving. Preserve the
+story triggers and required objects if the campaign should still be completable.
+An expanded world also needs matching collision, paths and cameras; the template's
+available classes and the game's resource limits still apply.
+
+Use the map export below for a standalone world with its own name and start,
+separate from campaign saves. A future multiplayer arena could use such a map
+pack for its world, but multiplayer and game rules need their own implementation.
+This workflow does not add PvP.
+
 ## Create and export
 
 1. Open a level in Godot through **Mods → Level editor**. Work in a copy of
@@ -40,8 +54,10 @@ Each disc needs its own export of the gameplay and collision files.
 Map sessions use a fresh game with memory cards disabled, so they cannot
 overwrite a campaign save. The hero's start is applied before the game's hero
 and camera initialization. The window title shows the map's name. Disc movie
-sequences, including the original introduction, are omitted by default;
-`--keep-movies` retains them.
+sequences are omitted by default; `--keep-movies` retains them. Skippable in-game
+scenes and ship landings use the game's normal skip input by default;
+`--keep-cutscenes` retains them. Unwanted gameplay triggers must still be removed
+by the map's author.
 
 ## Pack metadata
 
@@ -58,14 +74,15 @@ silently installing the world as a replacement campaign level:
     "level": 0,
     "spawn": [132, 115, 32],
     "heading": 0,
-    "skip_movies": true
+    "skip_movies": true,
+    "skip_cutscenes": true
   }
 }
 ```
 
 `level` is an integer from 0 to 18. `spawn` has three finite coordinates;
-`heading` defaults to zero, and `skip_movies` defaults to true. Ordinary packs
-without `map` keep their existing behavior. The stacker generates `map.json`
+`heading` defaults to zero; `skip_movies` and `skip_cutscenes` default to true.
+Ordinary packs without `map` keep their existing behavior. The stacker generates `map.json`
 for the port; do not hand-edit the stacked folder, which is replaced on each
 play. The launcher passes `--map` when one is selected, so a port executable
 without map support stops instead of running the map as the campaign.
