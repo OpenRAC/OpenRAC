@@ -63,5 +63,4 @@ The code is in [port/](../../port/README.md).
 | [OPENGOAL_NOTES.md](OPENGOAL_NOTES.md) | How OpenGOAL's renderer and platform layer work, and what carries over |
 | [tools/extractor.py](../../tools/extractor.py) | The disc extractor (OpenGOAL's `extractor`, for OpenRAC) |
 
-[Tracy profiling](PROFILING.md) describes optional CPU and Vulkan GPU captures for the game
-and native probe baker.
+[Tracy profiling](PROFILING.md): optional game/native-baker CPU and Vulkan GPU captures.

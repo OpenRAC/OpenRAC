@@ -35,7 +35,7 @@ Nothing of the port's: `common` is the lowest layer (section 18 of
 [CODING_CONVENTIONS.md](../docs/CODING_CONVENTIONS.md)). It uses the C++ standard library and the
 system's own interfaces (`dladdr` and the backtrace on Unix, `dbghelp` on Windows, the Android
 compatibility library for the backtrace below API 33).
-Development builds with `OPENRAC_TRACY=ON` also link the pinned Tracy client; ordinary builds do not.
+`OPENRAC_TRACY=ON` links the pinned Tracy client; ordinary builds omit it.
 
 ## State and threads
 

@@ -1,44 +1,35 @@
 # Baked probe lighting
 
-The [probe baking tools](../tools/probes/README.md) describe the planning and native bake pipeline.
-
-Probe GI needs Vulkan, enhanced rendering switched on at start and a valid
-level bake. Without probes, original lighting applies and Enhanced controls are
-disabled; settings are kept. OpenGL, and enhanced rendering off (the default),
-use original lighting. Core Vulkan optimisations work either way. Interiors can still be too dark.
+Probe GI requires Vulkan, enhanced rendering enabled at startup and a verified level bake.
+Otherwise original lighting applies and Enhanced controls are disabled, retaining saved settings.
+Core Vulkan optimisations work in either mode. Interiors can still be too dark.
+See the [probe baking tools](../tools/probes/README.md) for pipeline details.
 
 ## Build
 
-Every build compiles it in (`OPENRAC_ENHANCED_RENDERING` is ON by default; the
-`enhanced` preset is the release preset under another folder). Switch it on with
-`enhanced_rendering = 1` in the settings file, which the launcher's Mods tab
-(**Enhanced graphics**) writes, or `OPENRAC_ENHANCED=1`; setting
-`OPENRAC_PROBE_GI` also switches it on.
+`OPENRAC_ENHANCED_RENDERING` builds in by default; the `enhanced` preset uses release settings
+in a separate folder. Enable it through Mods > **Enhanced graphics**, `enhanced_rendering = 1`,
+`OPENRAC_ENHANCED=1` or `OPENRAC_PROBE_GI`. It is off at runtime by default; OpenGL uses original lighting.
 
-For the offline baker, `python3 tools/build_port.py --probe-baker` builds a
-pinned Embree 4 from source as a static library into `openrac-probe-bake`, with
-no Embree or TBB library beside it; this is what the launcher's installers
-carry. Alternatively set `-DOPENRAC_PROBE_BAKER=ON` and install Embree 4 where
-CMake can find it (Windows then needs its runtime DLLs on PATH). Python tools
-need no extra packages; the game does not need Embree.
+`python3 tools/build_port.py --probe-baker` statically links pinned Embree 4 into
+`openrac-probe-bake`, as shipped by the launcher, without separate Embree/TBB libraries.
+Alternatively use `-DOPENRAC_PROBE_BAKER=ON` with an installed Embree 4; Windows needs its DLLs
+on PATH. Python needs no extra packages; the game does not use Embree.
 
 ## In the launcher
 
-Mods, **Enhanced graphics** turns it on for the disc being played and plays
-with Vulkan. Switched on the first time, and again whenever the levels are read
-from the disc again, it runs the `probe-bake` action:
+Mods > **Enhanced graphics** selects Vulkan for the current disc and runs `probe-bake`
+on first use and after re-exporting levels:
 
 ```sh
 python port/enhanced/tools/probes/bake_all.py --levels-dir <levels> \
   --output-dir <data>/probes/<version> --baker <openrac-probe-bake> --disc <disc> --jobs 0 --update
 ```
 
-`--jobs 0` bakes one level per CPU thread, as many at once as half the memory
-holds; `--update` keeps each level whose export, levels format, baker and
-options are those of its bake (`openrac-bake.json`) and bakes the others again
-beside it, replacing a bake only once the new one is verified. The game is
-started with `--probes <data>/probes/<version>` and takes `level_NN/sparse.orpg`
-from there; a level without a current bake keeps the original lighting.
+`--jobs 0` runs one level per four available bake threads, capped by half the machine's memory.
+`--update` compares exports, level format, baker and options against `openrac-bake.json`, replacing
+stale data only after verification. The game uses `--probes <data>/probes/<version>` to load
+`level_NN/sparse.orpg`; missing/currently invalid bakes retain original lighting.
 
 ## Bake a level
 
@@ -50,25 +41,21 @@ python port/enhanced/tools/probes/bake_level.py \
   --output-dir build/probe-gi/novalis-new-batch
 ```
 
-Use a fresh output directory outside the source level. The tool loads settings,
-finds emission, plans dense regions, bakes sparse/dense probes and checks the
-batch before registering it. Failures keep logs without registering partial
-results. Existing batches are not overwritten; running games need a restart.
+Use a fresh output directory outside the source level. Settings, emission and planning feed one
+native process, which shares its converted scene/Embree data across all grids. Registration waits
+for every file's readback, runtime-rounding and sparse-grid comparison checks. Source changes
+before loading, after planning or after baking abort the batch.
 
-One native process loads and converts the level once, then shares its Embree
-scene across every grid. Each file is read back, checked under runtime rounding
-and compared with the sparse grid before the batch is registered. Source files
-are checked before loading, after planning and after baking; changes abort the
-batch. `batch.log` records diagnostics and each probe file has a `.txt` report.
+Failures retain logs without registering partial results; existing batches stay intact. Restart
+running games to load new data. `batch.log` contains diagnostics; each probe file has a `.txt` report.
 
 Outputs include `sparse.orpg`, `region-NNN.orpg`, `sparse.orpg.regions.json`,
 planning reports, logs and `bake-result.json` with format/bake versions.
 `--rays` and `--bounces` set quality for the whole batch.
 
-Dense-region clustering caches eligible pair scores in a priority queue. After
-a merge, only pairs involving the changed region are recalculated. Stable IDs
-preserve the original best-first tie order; generation counters discard stale
-pairs. Region bounds, source assignments and coverage checks remain unchanged.
+Clustering caches eligible pair scores in a priority queue, recomputing only changed pairs.
+Stable IDs preserve best-first ties; generations reject stale entries without changing bounds,
+source assignments or coverage checks.
 
 To bake every exported level in one version, use a fresh output root:
 
@@ -78,25 +65,19 @@ python port/enhanced/tools/probes/bake_all.py \
   --output-dir build/probe-gi/all-levels
 ```
 
-Each `level_XX` directory gets a complete sparse/dense bake using its own
-settings. Levels run sequentially; failures retain logs and the remaining levels
-continue. `bake-all-result.json` records results, and any failure returns a
-nonzero exit code. `--dry-run` lists levels without writing files. The same
-`--baker`, `--disc`, `--rays`, `--bounces` and `--threads` options are supported.
+Each `level_XX` uses its own settings. Runs are sequential by default; failures retain logs and
+allow remaining levels to continue. `bake-all-result.json` records results; any failure returns
+nonzero. `--dry-run` lists levels without writing. Options include `--baker`, `--disc`, `--rays`,
+`--bounces` and `--threads`.
 
-Baking uses available CPU threads. `--threads N` limits `bake_level.py`,
-`seed_regions.py` and `openrac-probe-bake`; 1 is serial and 0 is automatic.
-Threads share scene acceleration and preserve output bytes and bake identity.
-`probe_bake_parallel_test --benchmark` compares one, two, four and automatic
-threads using synthetic data; it checks equality and prints time without
-launching the game.
+`--threads N` limits `bake_level.py`, `seed_regions.py` and `openrac-probe-bake`: 1 is serial,
+0 automatic. Workers share acceleration data and preserve bytes/identity.
+`probe_bake_parallel_test --benchmark` checks equality and timing with one, two, four and automatic
+threads on synthetic data, without launching the game.
 
-Embree uses separate opaque and cutout geometry. Opaque textures with unit
-vertex alpha skip the alpha callback at cutoffs up to 0.5. Other cutouts use
-bilinear alpha filtering inside traversal. Guaranteed zero-alpha textured
-triangles are omitted only when the cutoff is positive. Untextured faces keep
-their existing acceptance rules. Source materials and emitter sampling order
-are preserved.
+Embree separates opaque/cutout geometry. Unit-alpha opaque textures skip callbacks at cutoffs
+up to 0.5; other cutouts filter bilinear alpha during traversal. Zero-alpha textured triangles
+are omitted only for positive cutoffs. Untextured acceptance, materials and emitter order stay intact.
 
 Sunlight and emitter visibility use occlusion queries that stop at the first
 accepted blocker. Sun rays are unbounded; emitter rays end just before the
@@ -112,30 +93,21 @@ and untracked; PAL and NTSC need their own exports.
 
 ## Level settings
 
-Optional `probe-bake.json` overrides built-in defaults. Include `"version": 1`
-and only changed values; the [example](../tools/probes/probe-bake.example.json)
-lists every default. Delete the file and any mod profile to reset a level.
-CLI/runtime overrides still win; `--print-profile` shows resolved bake settings.
-Baking never edits the profile. Keep completed-bake profiles as input records,
-and rebake sparse and dense together after scene or setting changes.
+`probe-bake.json` overrides defaults; only `"version": 1` and changed values are needed.
+The [example](../tools/probes/probe-bake.example.json) lists defaults. Delete it and any mod profile
+to reset. CLI/runtime overrides win; `--print-profile` shows resolved settings. Baking never edits
+the profile: retain it as an input record and rebake sparse/dense together after input changes.
 
-`sunlight_direction` optionally overrides primary sunlight with a world-space light travel
-vector, for example `[0, 1, -1]` for downward light travelling toward +Y. Z is height.
-The vector is normalised; zero and nonfinite vectors are rejected. Omit it or use `null` to
-retain authored directions. Runtime direct lighting, cascade shadows, Ratchet's grounded
-shadow and baked sun bounces share the override. Secondary fill and airborne downward shadows
-retain their directions. Changing it requires rebaking the level.
+`sunlight_direction` normalises a world-space travel vector, e.g. `[0, 1, -1]` points downward
+toward +Y (Z is height). Zero/nonfinite vectors fail; omission or `null` keeps authored directions.
+Runtime direct sun, cascades, grounded Ratchet shadows and baked sun bounces share it. Fill and
+airborne shadows retain their directions. Rebake after changes.
 
-The saved [Novalis NTSC profile](profiles/rac1-ntsc/level_01/probe-bake.json)
-sets sky intensity to 0.5, sky weight to 0.3 and the primary sunlight direction.
-Its dense spacing is 8/3 units on each axis, two-thirds of the standard 4-unit spacing.
-Native level export automatically copies the matching profile from
-`profiles/<game>-<version>/level_NN/probe-bake.json` into the exported level.
-Launcher bundles carry these profiles too. The baker and runtime read
-the exported copy; neither needs the source checkout when using that level.
-Levels without a matching profile use built-in defaults. Re-export to adopt
-tracked profile changes, then rebake.
-Profiles contain lighting settings only; extracted meshes and baked assets stay local.
+The [Novalis NTSC profile](profiles/rac1-ntsc/level_01/probe-bake.json) sets sky intensity 0.5,
+sky weight 0.3, sunlight direction and 8/3-unit dense spacing, two-thirds of the standard 4 units.
+Export copies `profiles/<game>-<version>/level_NN/probe-bake.json`; launcher bundles include these
+profiles. Baker/runtime read the exported copy without a checkout. Missing profiles use defaults.
+Re-export and rebake after tracked settings change. Profiles contain no extracted meshes/bakes.
 
 | Setting | Default |
 | --- | --- |
@@ -175,33 +147,25 @@ The optional `regions` section in `probe-bake.json` controls local probe placeme
 }
 ```
 
-Only the profile's `version` is required. Coarse bounds default to the union of local
-regions plus 128 units of padding, snapped outward to coarse cells. `"scene"` uses
-exported scene bounds instead. Levels with no local regions use scene bounds automatically.
-These bounds limit allocation, not ray tracing. `regions.enabled: false` makes a sparse-only
-level; space levels can use wider sparse spacing. Local seeds include authored lighting
-volumes, gameplay markers, crates, bolts, pistons and enemies. Planning covers
-piston travel and jump clearance. High airborne markers use separate ground and
-actor bands instead of filling the empty air between them; known piston travel
-remains continuous. Height-preserving merges run before and after classification:
-a taller top cannot spread over a lower neighbouring footprint.
+Only `version` is required. Coarse allocation uses local-region bounds plus 128-unit padding,
+snapped outward; `"scene"`, or no local regions, uses scene bounds. Tracing remains unbounded.
+`regions.enabled: false` selects sparse-only; space levels can widen sparse spacing.
 
-Collision queries classify indoor cells using
-walkable floor support, overhead coverage across most of the cell and walls in
-at least five of eight horizontal directions within 32 units. Enclosed cells
-extend to their first ceiling, with at least one probe cell of surface support;
-connected cells can fill gaps beyond the initial markers. Growth checks the
-connection for walls and stays within the seed's floor-height band. Outdoor or
-unresolved seeds keep their original height. Roof-only overhangs do not qualify.
+Seeds include lighting volumes, markers, crates, bolts, pistons and enemies, covering piston
+travel/jump clearance. Airborne markers use separate ground/actor bands; known piston travel
+stays continuous. Height-preserving merges before/after classification keep taller regions
+from expanding lower neighbouring footprints.
 
-Regions crossing indoor/outdoor boundaries are partitioned before bounded
-merging and overlapping budget splits. Existing spacing and height/probe limits, plus the
-1,024-region and 256 MiB runtime limits, remain in force; the planner does not
-silently increase them. A 4,096-sample cap per seed bounds enclosure work.
-`geometry_max_rise` still limits added height; ceilings beyond that cap are
-reported as incomplete coverage. Missing collision ceilings remain unresolved.
-The resulting bake uses the same lighting inputs and transport as before;
-classification does not create lights from authored light-bank IDs.
+Indoor cells need walkable support, mostly overhead coverage and walls in five of eight
+directions within 32 units. They extend to the first ceiling with at least one probe cell of
+surface support. Connected growth can fill marker gaps within the seed's floor-height band,
+checking walls. Outdoor/unresolved seeds keep their heights; roof-only overhangs do not qualify.
+
+Indoor/outdoor boundaries partition regions before bounded merging and overlapping budget splits.
+Spacing, height/probe limits, 1,024 regions and 256 MiB remain fixed. Enclosure work is capped at
+4,096 samples per seed. `geometry_max_rise` limits added height; higher ceilings report incomplete
+coverage and missing ceilings stay unresolved. Classification changes neither transport/lighting
+inputs nor creates lights from light-bank IDs.
 
 `seed-plan.json` includes indoor and unresolved/outdoor sample counts,
 connected cells added, height caps and sampling-cap diagnostics. Dense regions
@@ -218,11 +182,9 @@ Each texel integrates a regular 2x2 angular footprint, including emission.
 Irradiance and distance moments combine the four directions before normalising.
 The footprint softens visibility boundaries; thin walls can still leak.
 
-Sampling patterns are cached by resolution and rounding mode across all grids.
-Probe rotations and bounce/emitter directions remain specific to each probe.
-Integration processes four texels together using portable C++, preserving each
-texel's accumulation order. Distance exponent 32 uses repeated squaring; other
-exponents use `pow`. No SIMD library or fast-math flags are required.
+Patterns cache by resolution/rounding mode; rotations and bounce/emitter directions stay
+per-probe. Portable C++ integrates four texels together in unchanged accumulation order.
+Exponent 32 uses repeated squaring, others `pow`; no SIMD library or fast-math flags are needed.
 
 Headers contain game/level identity, scene/settings hashes and grid/atlas
 layout. Values are little-endian; texture planes upload without repacking:
@@ -250,43 +212,29 @@ spheres, Orxon ooze/windows and Gaspar lava. `probe-emission.json` overrides
 emission; ordinary prelighting is not emission. Animated liquids are averaged,
 and prepared legacy lava takes priority to avoid double counting.
 
-Matching `probe-emission.json` profiles are copied with the bake settings during
-level export and included in standalone bundles. `static_mobys` lists reviewed
-class IDs whose initial scenery meshes can participate in the bake; explicit
-manifest or placement `bake_static` flags still take precedence. Animated meshes
-remain excluded. Emission profiles multiply the complete texture colour by a scalar
-`runtime_intensity`, without a colour mask or an extra RGB tint. The old `intensity`
-key is rejected; older exports need their emission profiles refreshed and probes rebaked.
-In Novalis, the rigid mushroom
-underside supplies baked light while the animated cap retains its runtime emission.
-An optional `bake_intensity` replaces `runtime_intensity` for baked transport only;
-it defaults to the runtime emission when omitted. Explicit bake intensities bypass
-automatic interior emitter boosts. Novalis mushrooms use runtime intensity 2 and bake
-intensity 4.
+Export and standalone bundles include `probe-emission.json`. `static_mobys` permits reviewed
+initial scenery meshes; manifest/placement `bake_static` flags take precedence. Animated meshes
+stay excluded. Scalar `runtime_intensity` multiplies the whole texture, without masks or RGB tint.
+The old `intensity` key is rejected: refresh old exports and rebake.
 
-Per-material `contrast` in `probe-emission.json` controls a hue-preserving emission
-power curve (1 to 4; default 1 leaves emission unchanged). After linear texture
-filtering and optional vertex tint, RGB is multiplied by
-`(luminance / 0.18)^(contrast - 1)`, before the intensity multiplier. Higher values
-reduce dark emission below middle grey and amplify bright areas above it. Black
-stays black; alpha and diffuse colour are unchanged. Runtime and baked transport
-use the same curve. Novalis mushroom emitters use 1.5; other materials retain 1.
-Changing contrast requires rebaking probes, then reloading the level. For example:
-`{"runtime_intensity": 1, "bake_intensity": 4, "contrast": 1.5}`.
+Optional `bake_intensity` overrides transport only, defaults to runtime intensity and bypasses
+automatic interior boosts. Novalis mushrooms use runtime intensity 1 and bake intensity 4:
+the rigid underside emits into the bake; the animated cap retains runtime emission.
 
-Reviewed static emission is defined in the version's `emission-materials.json` catalog.
-Each entry identifies exported PNG content with SHA-256, so the same authored light
-receives its definition across levels and texture renumbering. The exporter and bake
-preparation resolve these entries into `probe-emission.json`; runtime has no catalog
-or repository dependency. Per-level definitions override catalog defaults, including
-an explicit zero intensity. `_catalog_defaults` records catalog and tracked per-level
-defaults so existing exports can refresh them without replacing independent local
-authoring. Changing texture content
-requires a reviewed catalog identity; brightness never creates emission automatically.
-Static emission with `vertex_colour` uses the original instance light-slot colours for
-ties and shrubs in both runtime shading and transport, rather than their base mesh colour.
-An empty emission object records a reviewed ordinary material without overriding any
-emission explicitly authored in glTF.
+Per-material `contrast` in `probe-emission.json` ranges from 1 to 4 (default 1). After linear
+filtering/optional vertex tint, emission RGB gains `(luminance / 0.18)^(contrast - 1)` before
+intensity. Higher values darken below-middle-grey emission and brighten highlights, preserving
+hue, black, alpha and diffuse colour. Runtime/bake use the same curve; Novalis mushrooms use 1.5,
+others 1. Rebake/reload after changes, e.g. `{"runtime_intensity": 1, "bake_intensity": 4, "contrast": 1.5}`.
+
+The version's `emission-materials.json` catalog identifies reviewed PNG content by SHA-256,
+independent of level/texture numbering. Export/preparation resolves it into `probe-emission.json`;
+runtime needs no catalog/checkout. Per-level values, including explicit zero, override defaults.
+`_catalog_defaults` lets existing exports refresh tracked defaults while retaining local authoring.
+Changed texture content needs a reviewed identity; brightness never implies emission.
+
+`vertex_colour` uses ties'/shrubs' original instance light-slot colours in runtime and transport,
+not base mesh colour. An empty object marks reviewed ordinary material without overriding glTF emission.
 
 Each bake writes `emission-audit.json` listing fully bright static surfaces and whether
 they have a definition. Undefined entries are review candidates, not proof of emission.
@@ -324,48 +272,35 @@ The offline baker separates scene validation/Embree ownership (`bake_scene.*`),
 materials and sky (`bake_material.*`), transport (`bake_transport.*`), and probe
 workers (`bake.cpp`). `bake_integration.*` contains the portable texel kernel.
 
-Before individual relocation, `bake_alignment.*` tries 27 shared interior-grid
-offsets using a deterministic preview of up to 64 probes. A full-grid check must
-confirm the winning offset improves mean capped squared clearance with penalties
-for near-surface and inside placements. Short two-sided rays estimate clearance;
-paired crossing parity estimates occupancy without authored normals. Outer-face
-coordinates stay anchored, retaining coverage, probe counts and atlas sizes.
-Alignment and subsequent relocation share the existing cell-local offset limit.
-If an aligned probe cannot be relocated successfully, the baker retries its original
-position so the shared phase cannot discard a recoverable placement.
+`bake_alignment.*` previews 27 shared offsets with up to 64 deterministic probes before
+relocation. A full-grid check must improve mean capped squared clearance, penalising near/inside
+placements. Short two-sided rays estimate clearance; paired crossing parity estimates occupancy,
+ignoring authored normals. Anchored outer faces preserve coverage/counts/atlases. Alignment and
+relocation share the cell-local offset limit; failed aligned probes retry their original positions.
 
 The baker derives normals from triangles. Runtime uses camera-facing normals,
 receiver biases and distance moments to limit leaks; thin walls can still leak.
 
 ## Interior lighting
 
-The default bake pipeline uses [interior inference](../../../docs/port/RAC1_INTERIOR_INFERENCE.md)
-to boost existing emitters within bounds and place finite ceiling area lights using
-transition-labelled collision samples. It generates `probe-interiors.json` beside
-the exported level before baking; explicit sidecars are preserved. Set
-`regions.interior_lighting` to `false` in `probe-bake.json` to skip automatic preparation.
-This switch removes automatically generated sidecars; explicit sidecars remain authoritative.
-Levels without suitable authored labels get no generated sources.
-Sources are baked into the existing probe format; runtime emission appearance is unchanged.
-The authored ceiling target is reflected radiance. Generation converts it to irradiance
-with a factor of pi, matching the probe shader's diffuse E/pi conversion. Existing emitter
-estimates use the same irradiance units before generated fill is reduced.
-Ceiling rectangles follow nearby geometric ceiling normals averaged over a 3 by 3
-sample footprint, facing into the room independently of mesh winding or sunlight.
+[Interior inference](../../../docs/port/RAC1_INTERIOR_INFERENCE.md) uses transition-labelled
+collision samples to boost emitters within bounds and generate finite ceiling lights.
+`probe-interiors.json` is prepared beside the export. Setting `regions.interior_lighting` to
+`false` in `probe-bake.json` removes generated sidecars and skips preparation; explicit sidecars
+remain authoritative. Missing labels produce no lights. Runtime emission appearance is unchanged.
+
+Ceiling targets convert reflected radiance to irradiance by pi, matching diffuse E/pi. Existing
+emitter estimates use those units before reducing fill. Rectangles face inward along geometric
+ceiling normals averaged over a 3 by 3 footprint, independently of winding/sunlight.
 
 ## Dense regions
 
-A sparse grid covers the level. Vulkan retains up to 1,024 dense regions within
-256 MiB of atlases, subject to the device's maximum texture dimensions. Runtime
-atlases start at 128 tiles wide and widen further when needed to fit the height
-limit. Uploads place complete 64-tile baked rows side by side without decoding
-or repacking their bytes; the baked format is unchanged. A GPU pass frustum-culls
-and ranks regions by squared camera distance to their bounds, breaking ties by
-region ID. The nearest 128 visible
-regions share a lookup; each 16x16 screen tile stores a 128-bit candidate mask.
-Fragments sample at most three dense volumes, checking visibility before blending
-at boundaries. Dense weights are normalised; incomplete support fades to sparse lighting.
-Regions outside the lookup use sparse lighting.
+Vulkan retains up to 1,024 local regions in 256 MiB, bounded by device texture limits.
+Atlases start 128 tiles wide and widen to fit height, placing complete 64-tile baked rows side by
+side without decoding/repacking. GPU frustum culling ranks squared camera-to-bounds distance,
+breaking ties by region ID. The nearest 128 visible regions share a lookup; 16x16 tiles hold
+128-bit candidate masks. Fragments visibility-test and normalise at most three local volumes.
+Incomplete support and regions outside the lookup use the level's sparse grid.
 
 Secondary cameras build their own lookup. Transparent receivers use that lookup
 without opaque-depth tile rejection. When GPU selection or atlas capacity is
@@ -389,16 +324,14 @@ asset still validates its version, level, bake settings and scene fingerprint.
 Set `OPENRAC_PROBE_GI` to the sparse bake before launching. With valid probes,
 F4 toggles enhanced lighting. The Enhanced menu also provides:
 
-- Separate probe-lighting and modern-shadow toggles.
+- Enhanced graphics controls probe lighting; Modern shadows has its own toggle.
 - GI/GTAO strength (default 1) and normal/view biases (default 0.5 units).
 - Probe spheres: cyan sparse, green dense, gold relocated, magenta invalid.
   Gold marks individual relocation only; shared grid alignment retains cyan or green.
-  The existing metadata status channel records this distinction without extra GPU storage.
-  Vulkan uploads their source records once. Compute filters range, frustum and
-  selected regions, compacts the visible records and writes an indirect draw count.
-  The overlay retains region fades and optional faint hidden spheres, with no
-  per-frame CPU probe scan or instance upload. A CPU reference remains available
-  for verification and fallback; debug triangles are not counted on the GPU path.
+  Existing metadata stores this without extra GPU storage. Vulkan uploads records once;
+  compute filters range/frustum/selection and compacts indirect draws. Fades and faint hidden
+  spheres need no per-frame CPU scan/upload. A CPU reference supports checks/fallback;
+  GPU debug triangles are not counted.
 - Ceiling area lights: source-coloured rectangles and cyan emitting-direction
   arrows from the completed bake report, with faint hidden edges.
 

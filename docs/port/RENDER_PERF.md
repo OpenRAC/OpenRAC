@@ -1219,62 +1219,51 @@ OPENRAC_GL_API=vulkan port/build/release/openrac_render_bench --enhanced on --sc
 ```
 ## Prepared static shadow draws
 
-`shadow-draw-cache` prepares the static models' shadow index ranges when a level is uploaded.
-It joins adjacent opaque ranges and retains material references for cutouts and partial opacity.
-Two variants preserve the solid-depth shader's vertex-alpha and instance-tint requirements.
-Reloading a level rebuilds both variants with its geometry and materials.
+`shadow-draw-cache` prepares static shadow ranges at level upload, merging adjacent opaque ranges
+and keeping material references for cutouts/partial opacity. Two variants preserve solid-depth
+vertex-alpha/tint requirements; reloads rebuild them. Visibility, instances, cascade matrices
+and dynamic mobys remain live. This cache owns no GPU resources/images; `shadow-static-cache`
+remains off.
 
-Each frame still selects visible instances, applies current cascade matrices and prepares dynamic
-moby draws. The cache owns no GPU resources and keeps no shadow image between frames. The separate
-`shadow-static-cache` depth-image optimisation remains off.
-
-Set `OPENRAC_RENDER_OPT_OFF=shadow-draw-cache` to use the original classification loop. Compare the
-two paths with `render_equivalence_test --opt shadow-draw-cache`; the comparison requires identical
-pixels, including moving cameras, level reloads and pictures between simulation ticks.
+`OPENRAC_RENDER_OPT_OFF=shadow-draw-cache` restores original classification.
+`render_equivalence_test --opt shadow-draw-cache` requires identical pixels through camera motion,
+reloads and interpolated pictures.
 
 ## Scrolling static shadows (experimental)
 
-`OPENRAC_SCROLLING_SHADOWS=1` enables independent Vulkan caches for all four sun cascades.
-Opaque static terrain, ties and shrubs retain depth in world-aligned toroidal images. Camera
-movement redraws newly exposed strips, split at wrap seams. Alpha-tested coverage and moving
-or skinned objects are drawn every frame into the normal atlas. Compute unwraps each static
-image and combines its reversed depth with the corresponding dynamic atlas rectangle into an
-R32F map. Ratchet's special shadow retains its existing path. A failed allocation or composition
-falls back to ordinary drawing for that cascade.
+`OPENRAC_SCROLLING_SHADOWS=1` enables independent Vulkan toroidal caches for all four sun cascades.
+Opaque terrain/ties/shrubs retain static depth; camera movement updates exposed strips, split at
+wrap seams. Cutouts and moving/skinned objects redraw in the atlas. Compute unwraps static depth
+and combines reversed depth with each dynamic rectangle into R32F. Ratchet retains its special
+shadow; allocation/composition failures fall back per cascade. This is off by default.
 
-Projection scale and depth remain fixed while texels are reused. Sun direction, level geometry
-and required extent changes refresh each cache independently; a move beyond a map's width
-redraws it completely. Cached projections can sample differently from the ordinary atlas.
-An up-to-one-texel hold interval, capped by the existing coverage margin, prevents subpixel
-camera jitter from repeatedly updating strips. Quality changes recreate all dependent targets. Extra colour/depth and combined-depth textures
-cost about 84–112 MiB on High, or 21–28 MiB on Medium, depending on the depth format. Each merge
-still processes every texel of its cascade. The experiment remains off by default.
+Projection scale/depth stay fixed during reuse. Sun, geometry or required extent changes refresh
+each cache; moves beyond map width redraw it fully. Cached projections can sample differently
+from the ordinary atlas. A hold interval up to one texel, limited by coverage margin, prevents jitter
+updates. Quality changes recreate targets. Extra colour/depth and combined-depth textures cost
+84–112 MiB on High or 21–28 MiB on Medium, depending on depth format. Merges process every texel.
 
-`OPENRAC_RENDER_OPT_OFF=shadow-scroll-reuse` redraws all static maps every frame under the same
-projections. `render_equivalence_test --opt shadow-scroll-reuse` requires identical pixels and
-checks that all four compositions are active, including across High/Medium/High transitions.
-The GPU composition test also checks nonzero source rectangles and negative wrap offsets.
+`OPENRAC_RENDER_OPT_OFF=shadow-scroll-reuse` redraws all maps with the same projections.
+`render_equivalence_test --opt shadow-scroll-reuse` checks exact pixels and four active compositions
+across High/Medium/High transitions. GPU tests cover nonzero rectangles and negative wrap offsets.
 
-Debug dumps report `shadow scroll active` (all four), `shadow scroll active cascades`,
-`shadow scroll updated texels`, `shadow scroll capacity texels`, `shadow scroll regions` and
-`shadow scroll full refresh`. `shadow scroll 0 updated texels` through
-`shadow scroll 3 updated texels` separate the cascades. CPU/GPU scopes distinguish static updates
-from composition.
+Debug counters: `shadow scroll active` (all four), `shadow scroll active cascades`,
+`shadow scroll updated texels`, `shadow scroll capacity texels`, `shadow scroll regions`,
+`shadow scroll full refresh`, and per-cascade `shadow scroll 0 updated texels` through
+`shadow scroll 3 updated texels`. CPU/GPU scopes separate updates from composition.
 
-The Novalis opening-view comparison on a Radeon 780M uses enhanced rendering, FSR Performance,
-GI/GTAO 1, a 1960×1470 output, VSync off and 500 settled simulation ticks per run. Mean GPU time
-for the complete shadow pass, including composition:
+Novalis opening view on Radeon 780M: enhanced rendering, FSR Performance, GI/GTAO 1,
+1960×1470, VSync off, 500 settled ticks. Mean complete shadow-pass GPU time, including composition:
 
 | Quality | Ordinary atlas | Four cached cascades |
 |---|---:|---:|
 | High | 2.36 ms | 1.80 ms |
 | Medium | 1.95 ms | 1.24 ms |
 
-Displayed FPS changed from 69.8 to 71.5 on High and 70.2 to 74.2 on Medium. These are single
-matching runs, not a guarantee of the same gain across gameplay. Static shadow updates fell
-to zero throughout the fixed-view sample after the deadband change; moving cameras still update
-new strips. CPU shadow-pass time fell from 1.37 to 1.14 ms on High and 1.39 to 1.12 ms on Medium.
-The four-map merge totals measured 0.613 ms GPU on High and 0.184 ms on Medium in separate Tracy captures.
+FPS changed 69.8 to 71.5 (High) and 70.2 to 74.2 (Medium); these single matching runs do not guarantee
+gameplay gains. Fixed-view static updates reached zero; movement still updates strips.
+CPU shadow time changed 1.37 to 1.14 ms (High), 1.39 to 1.12 ms (Medium). Separate Tracy captures measured
+four-map merges at 0.613 ms GPU (High) and 0.184 ms (Medium).
 
 ## R-07: one copy to the screen
 

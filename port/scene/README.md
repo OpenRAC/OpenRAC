@@ -36,11 +36,11 @@ package P2-39b).
 
 ## Renderer implementation
 
-`level_renderer.cpp` owns uploads and layer drawing. `level_instances.cpp` handles instance groups,
-poses and palettes; `level_lighting_pass.cpp` binds lighting and runs the early pass. Shadow setup
-lives in `level_shadows.cpp`, atlas submission in `shadow_atlas_renderer.cpp`, caster selection in
-`shadow_casters.cpp`, and persistent depth caches in `shadow_scroll_renderer.cpp`. They share only
-private utilities through `level_renderer_internal.h`; the public `LevelScene` interface is unchanged.
+`level_renderer.cpp` owns uploads/layer drawing; `level_instances.cpp` handles groups, poses and
+palettes; `level_lighting_pass.cpp` owns early lighting. Shadows split into setup
+(`level_shadows.cpp`), atlas submission (`shadow_atlas_renderer.cpp`), casters (`shadow_casters.cpp`)
+and persistent caches (`shadow_scroll_renderer.cpp`). `level_renderer_internal.h` shares private
+utilities; the public `LevelScene` interface is unchanged.
 
 ## Depends on
 

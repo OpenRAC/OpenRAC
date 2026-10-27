@@ -138,34 +138,25 @@ into the program.
   function, pvars, glow colour, class) and all of its 0x100 bytes as words
   and floats, with buttons to open it or its pvars in the memory viewer.
 - "labels in the picture" names every listed moby where it stands.
-- "click picks (mobys, ties, terrain)" enables selection of live mobys,
-  placed ties/shrubs and terrain meshes by clicking their visible geometry.
-  Developer > Moby picker enables the same tool with the F3 panel hidden.
-  Clicks outside the picture or over ImGui controls do not select objects.
-  There is no camera-forward or automatic centre-screen selection.
+- "click picks (mobys, ties, terrain)" selects live mobys, ties/shrubs and terrain by geometry.
+  Developer > Moby picker also works with F3 hidden. Clicks over ImGui or outside the picture
+  are ignored; there is no automatic camera-forward/centre-screen selection.
 
-The selected object gets a yellow box, a highlighted triangle and a hit marker.
-Terrain boxes bound the selected primitive rather than the whole level.
-A panel at the bottom shows its layer, model/name, instance, material,
-primitive, triangle, texture, position and distance. Mobys also show class
-and address, and open the existing inspector. Selection follows their current
-interpolated pose and clears if they disappear or the level changes.
-Clicking empty space or Clear selection clears it. Copy details copies JSON.
+Selection shows a yellow box, triangle and hit marker; terrain boxes bound the primitive.
+The bottom panel lists layer, model/name, instance, material, primitive, triangle, texture,
+position and distance. Mobys add class/address and open the inspector. Selection follows the
+interpolated pose and clears on disappearance, level change, empty clicks or Clear selection.
+Copy details copies JSON.
 
-While enabled, the tool writes `moby-picker.json` in the game's working folder
-at most twice a second (and immediately after selection changes). An agent
-can read that file to identify the selected object without screenshots or
-memory dumps. It contains schema version, enabled state, game, level, tick,
-and a nullable hit with model/instance/material IDs, class/address identity,
-texture path, hit and object positions, and world-space bounds. Check its
-modification time and the game process before treating an old report as live.
-`OPENRAC_OVERLAY=picker` enables the same click tool at startup.
+`moby-picker.json` identifies selection without screenshots/dumps. While enabled it updates in
+the working folder at most twice a second and immediately after selection changes. It records
+schema version, enabled state, game, level, tick and a nullable hit: model/instance/material IDs,
+class/address, texture, hit/object positions and world bounds. Check file time and process before
+using it as live state. `OPENRAC_OVERLAY=picker` enables picking at startup.
 
-Picking uses mesh triangles and the submitted animated joint palette. Texture
-alpha holes, PVS-hidden primitives and shader-only displacement are not resolved;
-particles and callback effect strips (including enhanced water) are not pickable.
-The mesh acceleration structure is built lazily on the first click, and the
-extra pose capture is off while the picker is disabled.
+Picking uses triangles and submitted joint palettes. It does not resolve texture alpha holes,
+PVS-hidden primitives or shader displacement; particles/callback strips, including enhanced
+water, are excluded. Acceleration builds on first click; disabled picking adds no pose capture.
 
 `OPENRAC_OVERLAY=...,inspect` selects the hero and opens the inspector;
 `labels` turns the labels on; `memview` opens the memory viewer.

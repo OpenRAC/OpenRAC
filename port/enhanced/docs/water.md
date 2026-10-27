@@ -1,17 +1,15 @@
 # Enhanced Novalis water
 
-Novalis NTSC-U has optional Vulkan water rendering. It preserves painted textures, authored UV
-animation, GS alpha and draw order, while adding probe lighting, soft reflection and a local GPU
-shallow-water simulation. Ratchet's movement and hands disturb the surface. OpenGL, original
-graphics and missing or invalid water resources retain the original water path.
+Novalis NTSC-U optionally adds Vulkan probe lighting, soft reflections and local GPU shallow-water
+simulation, disturbed by Ratchet's movement/hands. Painted textures, UV animation, GS alpha and draw
+order stay intact. OpenGL, original graphics or invalid/missing resources use original water.
 
 ## Bake local water data
 
-The baker reads the initialized Novalis water tables from a local memory snapshot. This captures
-all authored boundaries without depending on the current camera. Start a normal, unmodified
-Novalis level with `OPENRAC_DUMP_RAM=600` to write `ram_600.bin` in the game's working directory.
-Use collision exported from the same level. Snapshots and generated assets remain local in
-ignored directories. This tool supports NTSC-U Novalis only.
+The baker reads initialized water tables from a local RAM snapshot, capturing all boundaries
+independently of the camera. Start unmodified NTSC-U Novalis with `OPENRAC_DUMP_RAM=600` to write
+`ram_600.bin` in the working directory. Use matching exported collision; keep snapshots/assets ignored.
+Other levels/versions are unsupported.
 
 ```sh
 python port/enhanced/tools/water/bake_water.py --ram build/water/ram_600.bin \
@@ -19,17 +17,15 @@ python port/enhanced/tools/water/bake_water.py --ram build/water/ram_600.bin \
   --output /path/to/levels/level_01/water.bin
 ```
 
-The bake writes `water.bin` and `water.mesh` beside the exported level's manifest. It joins pool
-patches at matching heights, retains overlapping cave layers separately, clips banks against
-solid collision and records rest heights, shoreline distance, outlets, depth and maintained
-currents. Bridges and submerged floors do not become banks. The coastline uses 0.5-unit cells;
-longest-edge subdivision limits mesh edges to 0.5 units without expanding long thin triangles
-uniformly. Dense mesh templates and barycentric mappings are uploaded once.
+`water.bin` and `water.mesh` sit beside the manifest. Baking joins equal-height pools, separates
+cave layers, clips banks against solid collision and records rest heights, shoreline distance,
+outlets, depth and currents. Bridges/submerged floors are not banks. Coast cells and maximum mesh
+edges are 0.5 units; longest-edge subdivision avoids uniform expansion of thin triangles. Dense
+templates/barycentric mappings upload once.
 
-Versioned metadata includes a SHA-256 fingerprint of interpreted surfaces, settings and collision.
-Runtime checks counts, bounds and finite data, and requires mesh/coastline fingerprints to match.
-It does not compare that fingerprint with live game geometry. Rebake after changing the inputs.
-The water bake is independent of probe baking.
+Versioned metadata hashes interpreted surfaces, settings and collision with SHA-256. Runtime checks
+counts, bounds, finite data and matching mesh/coastline fingerprints, not live geometry. Rebake after
+input changes; water and probes bake independently.
 
 Export copies the matching tracked profile from
 `port/enhanced/water/profiles/<game>-<version>/level_NN/water-boundaries.json`.
@@ -45,11 +41,10 @@ Profiles add open outlet segments in game world units:
 
 ## Simulation and geometry
 
-One 128x128 window follows Ratchet in whole 0.25-unit cells, spanning 32x32 world units. Two
-RGBA32F history buffers use 512 KiB together. Additional local buffers cache static shoreline,
-depth and current metadata; they are not simulation histories. Full-level coastline and lighting
-remain separate. World-cell modulo addressing preserves overlapping history without shifting
-buffers, including at negative coordinates. Newly exposed or incompatible cells start undisturbed.
+A 128x128 window follows Ratchet in 0.25-unit cells across 32x32 units. Two RGBA32F histories use
+512 KiB; separate buffers cache local shoreline/depth/current metadata and full-level coastline/lighting.
+World-cell modulo addressing preserves overlap without moving buffers, including negative coordinates.
+New/incompatible cells start undisturbed.
 
 The solver evolves height displacement and horizontal discharge around the authored rest surface
 and maintained current. It uses slope-limited MUSCL reconstruction, HLL gravity-wave fluxes,
@@ -67,10 +62,9 @@ gravity alone. The first-order Rusanov path is retained for comparison tests.
 | Baked hydraulic depth | 0.25 to 1.5 units; missing floors use 0.9 for ponds, 0.45 for flowing water |
 | Maintained current | Zero in the pond; 0.8 units/s along baked flowing-water directions |
 
-Solid banks reflect normal discharge. Open boundaries absorb disturbances; friction damps motion
-toward the maintained current. Movement and palm strokes inject local momentum without removing
-water mass. Standing still supplies no continuing impulse. Teleports, large tick gaps and level
-changes reset history; repeated interpolated displays do not step the same tick twice.
+Banks reflect normal discharge; open boundaries absorb disturbances; friction restores maintained
+current. Movement/palm strokes add momentum without removing mass; standing still adds no impulse.
+Teleports, large tick gaps and level changes reset history. Interpolated displays never step a tick twice.
 
 Nearby visible wet cells and hero contact select the active window. Compatible surfaces within
 0.5 units of its rest height share history, while banks, dry gaps and other storeys remain isolated.
@@ -80,16 +74,14 @@ After contact ends, the last window stays fixed and fades out over five simulati
 Re-entry restores interaction. With no relevant visible water or contact, solver dispatches and
 dynamic-map copies stop; decorative wave time can continue.
 
-The GPU expands dense mesh templates from the captured coarse triangles. A compute pass evaluates
-UV distortion once per coarse vertex, preserving the two opposed texture layers, signed distortion,
-scroll offsets and game-update timing. Vertex interpolation then applies surface displacement.
-Runtime does not subdivide geometry or build expanded CPU vertex streams.
+The GPU expands dense templates from captured coarse triangles. Compute evaluates UV distortion
+once per coarse vertex, retaining two opposed layers, signed distortion, scrolling and game timing;
+vertex interpolation applies displacement. Runtime builds no subdivided CPU streams.
 
-When replacement resources are ready, Novalis hooks bypass legacy pond displacement, clear its
-old buffers and flatten the river/cave/pipe builders to their authored midpoint rest heights.
-They capture UV animation metadata and immediately restore the game's values after packet creation.
-Disabling enhanced graphics restores original calls and ripple routing. Collision, swimming and
-other gameplay remain unchanged. The render worker reads owned snapshots, not live game memory.
+With resources ready, Novalis hooks bypass/clear legacy pond displacement and flatten river/cave/pipe
+builders to authored midpoint rest heights. UV metadata is captured and game values restored after
+packet creation. Disabling enhanced graphics restores original calls/ripples. Collision, swimming
+and gameplay stay unchanged; the render worker consumes owned snapshots, not live memory.
 
 ## Surface lighting and wetness
 
@@ -109,13 +101,12 @@ A 2.75-unit Gerstner swell has 0.045-unit vertical amplitude and 1.4 rad/s phase
 spatial variation. Two overlapping 1.5-second flow phases limit stretching; pixel footprints fade
 under-resolved detail. These fine waves change shading normals, not geometry or collision.
 
-Ratchet's class-0 mesh has GPU per-vertex wetness. Animated samples test baked wet cells and the
-latest available simulated/decorative surface. Contact sets wetness to one; drying takes
-20 game seconds. Diffuse darkening and a specular coat leave emission, alpha and geometry intact.
-Other mobys, attached equipment and original graphics do not receive this coating. Level or hero
-identity changes, or disabling enhanced graphics, reset it. Missing water can leave existing
-patches drying. Coarse triangles soften the waterline, and contact may use the previous frame's
-water images when mesh preparation runs first.
+Ratchet's class-0 mesh tracks GPU per-vertex wetness against baked wet cells and the latest
+simulated/decorative surface. Contact sets wetness to one; drying takes 20 game seconds. Diffuse
+darkening/specular coating preserve emission, alpha and geometry. Other mobys, attachments and
+original graphics are excluded. Level/hero identity changes or disabling enhanced graphics reset it;
+missing water lets patches dry. Coarse triangles soften waterlines; early mesh preparation may use
+the previous frame's images.
 
 ## Controls
 
@@ -144,12 +135,11 @@ python -m unittest discover -s port/enhanced/tools/water -v
 ctest --test-dir build/port -R 'water_|wetness_' --output-on-failure
 ```
 
-Synthetic fixtures cover bake boundaries, collision layers, outlets, invalid inputs, CPU mesh
-lookups, lifecycle/reset behavior, original ripple routing and CPU/GPU finite-volume agreement.
-Optical checks compare production shader helpers with analytic values. Window checks cover modulo
-seams, body isolation, compatible heights, filtered sampling and lighting receivers. Wetness tests
-cover animation, contact rejection, drying and model isolation. The GPU tests use hidden synthetic
-contexts, not game assets. They do not establish visual quality or performance for every camera.
+Synthetic tests cover boundaries, collision layers, outlets, invalid inputs, CPU mesh lookups,
+lifecycle/reset, original ripples and CPU/GPU finite-volume agreement. Shader optics use analytic
+references. Window tests cover modulo seams, isolated bodies, compatible heights, filtering and
+lighting receivers; wetness tests cover animation, rejected contact, drying and model isolation.
+Hidden GPU fixtures use no game assets and cannot establish every camera's quality/performance.
 
 ## Public references
 

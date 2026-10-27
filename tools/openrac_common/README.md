@@ -70,10 +70,9 @@ still wins when set.
 Every function takes a `pathlib.Path` or a string for a path. The functions that read the repository
 (`games.*`) take an optional `root`, so a test can point them at a synthetic tree.
 
-`files.rename` and `files.replace` retain `os.rename` and `os.replace` destination rules. They
-retry Windows access, sharing and lock violations with a 2.06-second total wait budget when
-publishing exports, mod packs and probe outputs. Other errors are raised immediately; persistent locks still fail.
-They never fall back to copying or change permissions.
+`files.rename`/`files.replace` preserve `os.rename`/`os.replace` destination rules. Export, mod-pack
+and probe publication retries Windows access/sharing/lock errors for up to 2.06 seconds.
+Other errors fail immediately; persistent locks fail without copying or changing permissions.
 
 ### Using it
 

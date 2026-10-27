@@ -258,14 +258,11 @@ python3 editor/extract.py port baserom/SCES_509.16.iso build/port-levels --level
 ([port/viewer](../port/viewer/README.md)): the same meshes and textures as
 the Godot export, the sky as a mesh, and the placements as JSON. Its
 manifests say which disc they came from (`"version": "pal"` or `"ntsc"`);
-the format is the same for both. When a matching tracked lighting profile exists,
-export copies it to `level_NN/probe-bake.json` for both the baker and runtime.
-Matching `probe-emission.json` profiles are copied alongside it, keeping reviewed
-emission colours and static scenery selection shared with the bake.
-The bake profile's `regions` section configures region planning, coarse bounds and padding.
-Profiles live under `port/enhanced/lighting/profiles/<game>-<version>/level_NN/`;
-levels without one use built-in defaults. Re-export and rebake after changing a
-tracked profile. Each version's export has a folder of its
+both use the same format. Export copies matching `level_NN/probe-bake.json` and
+`probe-emission.json` profiles for shared runtime/bake settings, emission colours and static
+scenery selection. The `regions` section controls placement, coarse bounds and padding.
+Profiles live in `port/enhanced/lighting/profiles/<game>-<version>/level_NN/`; missing profiles use
+defaults. Re-export/rebake after tracked settings change. Each version's export has a folder of its
 own under one root: `assets/port/rac1/pal` and `assets/port/rac1/ntsc` in a
 checkout, `<data>/port/pal` and `<data>/port/ntsc` in an installed launcher
 (the game reads `<data>/port/<version>` without `--levels`). An export made

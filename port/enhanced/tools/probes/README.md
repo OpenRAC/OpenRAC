@@ -1,144 +1,127 @@
 # Probe baking tools
 
-These tools prepare exported levels, plan probe coverage and bake GPU-ready probe assets.
-The Python commands coordinate files and region planning. The native baker owns scene conversion,
-Embree traversal and probe-map integration.
+Python prepares exports and coverage; the native baker converts scenes, traces with Embree and
+integrates GPU-ready probe maps.
 
 ## Interface
 
-- `bake_level.py`: bake and verify one sparse grid and its planned dense regions.
-- `bake_all.py`: coordinate independent level bakes.
-- `seed_regions.py`: inspect or regenerate dense coverage for an existing sparse bake.
-- `activation.h`: resolve per-level profiles and validate assets against runtime settings.
-- `level_scene.h`: convert a loaded level into transport geometry, lights and receiver bounds.
-- `scene_geometry.h`: convert static render triangles and their colour, alpha and emission attributes.
-- `probe_grid.h`: construct sparse, bounded or exact lattice allocations.
-- `probe_fingerprint.h`: calculate source, scene and solver identities shared with activation.
-- `batch.h`: bake multiple planned grids against one prepared scene.
-- `interior_sources.h`: apply configured interior emission and generated ceiling sources.
-- `report.h`: inspect assets and compare sparse and dense coverage.
+| File | Responsibility |
+|---|---|
+| `bake_level.py` | Bake and verify sparse/local grids |
+| `bake_all.py` | Coordinate level bakes |
+| `seed_regions.py` | Inspect/regenerate local coverage for a sparse bake |
+| `activation.h` | Resolve profiles and validate runtime assets |
+| `level_scene.h` | Export transport geometry, lights and receiver bounds |
+| `scene_geometry.h` | Convert static triangles with colour, alpha and emission |
+| `probe_grid.h` | Allocate sparse, bounded or exact lattice grids |
+| `probe_fingerprint.h` | Share source, scene and solver identities with activation |
+| `batch.h` | Bake all planned grids from one prepared scene |
+| `interior_sources.h` | Apply interior emission and ceiling sources |
+| `report.h` | Inspect assets and compare sparse/local coverage |
 
 ### Planning order
 
-1. Seed regions from authored transitions and whitelisted initial moby placements.
-2. Extend coverage to nearby walls and ceilings within the configured limits.
-   Moby-seeded expansion starts only where a source floor has a clear connection
-   at a walkable height. Padding cannot seed rooms behind walls or upper storeys.
-   Authored lighting-transition bounds remain explicit coverage evidence.
-3. Compact the complete coverage, add an outer one-cell apron, then repartition into boxes.
-4. Refine shared faces to penalise crowded blend junctions and small boxes.
-5. Restore blend borders and emit exact lattice endpoints with source evidence.
-6. In the native bake, align each final grid before relocating individual probes.
+1. Seed authored transitions and whitelisted initial moby placements.
+2. Extend to nearby walls/ceilings within limits. Moby expansion requires a clear walkable-height
+   floor connection; padding cannot seed through walls or into upper storeys. Authored transition
+   bounds remain explicit evidence.
+3. Compact coverage, add a one-cell apron and repartition into boxes.
+4. Refine faces to penalise crowded blend junctions and small boxes.
+5. Restore blend borders and emit exact lattice endpoints/source evidence.
+6. Align each final grid, then relocate individual probes in the native bake.
 
-`region_boxes.py` defines integer cell operations. `region_compaction.py` preserves the native
-coverage union, including existing world-bound rounding. `region_repartition.py` owns core
-partitioning, final metadata and reporting. `region_refinement.py` owns the incremental contributor
-counts and accepts only strict cost improvements in deterministic neighbour order.
+`region_boxes.py` owns integer cell operations; `region_compaction.py` preserves native coverage,
+including rounded world bounds. `region_repartition.py` partitions cores and reports metadata.
+`region_refinement.py` maintains contributor counts and accepts only strict cost reductions in
+deterministic neighbour order.
 
-Intended coverage remains full strength; fading occurs in the apron outside it. Repartitioning
-preserves this core union and fade support. It discourages, but does not prohibit,
-more than two overlapping blend bands. The probe budget
-can force additional boxes; increasing density can therefore increase the region count.
+Intended coverage stays full strength; fading occurs outside it in the apron. Partitioning
+preserves core coverage and fade support but may leave more than two overlapping bands. Probe
+budgets can split boxes, so greater density can increase region count.
 
 ### Native bake order
 
-The `regions` section in `probe-bake.json` controls local region planning and coarse allocation.
-Defaults are `"coarse_bounds": "local_regions"` and `"coarse_padding": 128`: the completed
-local-region union plus padding, snapped outward to coarse cells. `"scene"` uses exported
-scene bounds. Levels without local regions use scene bounds automatically. Bounds limit probe
-allocation, not ray tracing. They save memory without increasing density; surfaces outside
-the coarse box have no probe support.
+The `regions` section in `probe-bake.json` controls planning and coarse allocation. Defaults
+`"coarse_bounds": "local_regions"` and `"coarse_padding": 128` bound the local-region union plus
+padding, snapped outward to coarse cells. `"scene"`, or no local regions, uses scene bounds.
+This limits allocation, not tracing; receivers outside the coarse box have no support.
 
-Scene preparation converts the sky to linear radiance, exports authored suns, static geometry,
-liquid sources and receiver bounds, then fingerprints the result. Geometry conversion preserves
-source order and lazy texture remapping. Mesh normals do not determine transport normals.
+Preparation converts sky to linear radiance and exports authored suns, static geometry, liquid
+sources and receiver bounds, preserving source order and lazy texture remapping. It fingerprints
+the scene; transport normals ignore authored mesh normals.
 
-The transport implementation remains in `../../lighting/`: `bake.cpp` coordinates preparation and
-workers, `bake_alignment.cpp` aligns grids, `bake_scene.cpp` wraps Embree, `bake_transport.cpp`
-traces radiance, and `bake_integration.cpp` integrates probe maps. Visibility distance is capped at
-1.5 cell diagonals; radiance and occupancy still trace the full scene.
-Sparse and dense maps retain filtered first and second distance moments. Sparse sampling halves
-visibility variance only beyond the mean blocker distance. This reduces uncertain support without
-erasing unobstructed outdoor fill. Very coarse grids and finite angular sampling can still leak.
+Transport lives in `../../lighting/`: `bake.cpp` coordinates workers, `bake_alignment.cpp` aligns
+grids, `bake_scene.cpp` owns Embree, `bake_transport.cpp` traces radiance, and
+`bake_integration.cpp` integrates maps. Visibility distance is capped at 1.5 cell diagonals;
+radiance/occupancy trace the full scene. Both grids store filtered first/second distance moments.
+Sparse sampling halves variance only beyond the mean blocker, preserving unobstructed fill.
+Coarse grids and finite angular sampling can still leak.
 
-Repeated texture colour conversions reuse bounded worker-local caches for the current rounding mode.
-Each worker retains up to 65,536 exact byte/tint results, using about 1 MiB rather than storing
-full linear copies of every texture.
-Tinted emission and authored terrain keep their original colour conversion order. Visibility
-queries sample alpha without calculating RGB. Batch reports reuse fixed scene and material text;
-each grid still receives its own coverage report and runtime validation.
+Each worker caches up to 65,536 exact byte/tint conversions per rounding mode, about 1 MiB,
+rather than full linear textures. Tint/emission/terrain retain their colour-conversion order;
+visibility reads alpha only. Reports reuse scene/material text but retain per-grid coverage
+and runtime validation.
 
 ## Depends on
 
-The scene, asset, common and enhanced lighting modules. Embree is the offline traversal dependency.
-The Python planner uses the standard library and repository readers.
+Scene, asset, common and enhanced lighting modules, plus offline Embree. Python uses the standard
+library and repository readers.
 
 ## State and threads
 
-One `NativeBatch` owns the native process, its pipes and its log for a level. The native batch keeps
-one prepared scene for all grids. Bake workers own their trace scratch and write disjoint probe
-outputs. The layout refiner owns its cores, stable IDs and contributor counts for one planning call.
-Runtime activation validates the same scene and solver identities without performing liquid analysis.
+One `NativeBatch` owns a level's process, pipes and log, sharing one prepared scene across grids.
+Workers own trace scratch and disjoint outputs. Each planning call owns refinement cores, stable
+IDs and contributor counts. Runtime checks identities without repeating liquid analysis.
 
 ## Errors
 
-Malformed inputs and failed verification stop the bake. Native tool errors reach its command-line
-error boundary; Python propagates file, validation and subprocess errors. Registration is replaced
-only after every requested asset and sparse/dense pair has been verified. Source snapshots detect
-inputs changed during preparation or baking.
+Invalid inputs or verification failures stop baking. Native errors reach the command-line
+boundary; Python propagates file/validation/subprocess errors. Registration changes only after
+all assets and sparse/local pairs verify. Source snapshots detect changes during preparation/baking.
 
 ## Configuration
 
 Authored JSON lives under `port/enhanced/lighting/profiles/`:
 
-- `<game>/moby-seeds.json`: game-wide moby class whitelist and seed extents.
+- `<game>/moby-seeds.json`: class whitelist and seed extents.
 - `<game>-<version>/emission-materials.json`: shared emission definitions.
-- `<game>-<version>/level_NN/`: level bake and emission overrides.
+- `<game>-<version>/level_NN/`: per-level bake/emission overrides.
 
-The planner resolves the moby profile from the exported game's identity;
-`seed_regions.py --moby-whitelist` can override it. Standalone bundles carry
-all authored JSON profiles, including the emission catalog. The example bake
-profile stays beside the command-line tools.
+Game identity selects the moby profile; `seed_regions.py --moby-whitelist` overrides it.
+Standalone bundles include all profiles/catalogs. The example profile stays beside the tools.
+`probe-bake.json` configures transport/grids; `regions` controls seeds, coverage, bounds and budgets.
+`probe-emission.json` supplies material overrides; CLI values override defaults. See the
+[lighting guide](../../lighting/README.md).
 
-`probe-bake.json` configures transport and grids; its `regions` section configures seeding,
-coverage, coarse bounds and region budgets. `probe-emission.json` defines shared material emission overrides.
-Command-line options can override resolved defaults. See the
-[lighting guide](../../lighting/README.md) for commands and profile fields.
-
-Source fingerprints use canonical file bytes for exported levels so runtime floating-point rounding
-does not invalidate a bake. In-memory fixtures use structural transport hashes. Solver fingerprints
-include sampling, grid, relocation and surface-emission gains. Changing hash field order or interpretation domains
-invalidates assets and requires deliberate version handling.
+Export fingerprints hash canonical file bytes, independent of runtime rounding. In-memory fixtures
+use structural hashes. Solver hashes include sampling, grids, relocation and emission gains;
+changing field order or interpretation domains invalidates data and needs version handling.
 
 ## Automatic interior lighting
 
-Normal level bakes prepare interior lighting before native scene fingerprinting. Exported collision
-and retained gameplay feed `openrac-interior-infer`, then unambiguous low-sky samples drive bounded
-emitter boosts and enclosed ceiling lights. The inference executable is built with the probe baker.
-Levels without suitable authored lighting evidence produce no generated lights.
+Before fingerprinting, exported collision and retained gameplay feed `openrac-interior-infer`
+(built with the baker). Unambiguous low-sky samples guide bounded boosts and enclosed ceiling
+lights; missing authored evidence creates no sources.
 
-`regions.interior_lighting` in `probe-bake.json` defaults to `true`; set it to `false` to skip
-automatic preparation. It is independent of `regions.enabled`, so sparse-only bakes can use it too.
-Explicit `probe-interiors.json` sidecars are preserved. Opting out removes only automatically
-generated sidecars. Automatically generated sidecars carry a
-generator identity and refresh when collision, gameplay or inference tools change. They stay beside
-the level export so runtime validation uses the same source identity; inference reports stay in the
-bake output. Changing a generated sidecar invalidates older probe bakes for that export.
-The multi-level cache also tracks explicit interior sidecars and records generated
-sidecars after preparation, so an unchanged second run reuses the verified bake.
+`regions.interior_lighting` in `probe-bake.json` defaults to `true`, independently of
+`regions.enabled`, including sparse-only bakes. Set it to `false` to remove generated sidecars
+and skip preparation. Explicit `probe-interiors.json` files remain authoritative.
+
+Generated sidecars record their generator identity and refresh when collision, gameplay or tools
+change. They stay beside exports for runtime identity checks; reports stay with bakes. Changes
+invalidate old bakes. The multi-level cache tracks explicit sidecars and records generated ones
+after preparation, allowing unchanged runs to reuse verified data.
 
 ## Tests
-
-Run the planner and orchestration tests with:
 
 ```sh
 python -m unittest discover -s port/enhanced/tools/probes
 ```
 
-Native tests include `probe_scene`, `probe_bake`, `probe_alignment`, `probe_bake_parallel`,
-`probe_visibility`, `probe_integration`, `interior_lights`, `interior_inference` and `bake_liquids`.
-`probe_gpu_vulkan` and `viewer_vulkan` cover uploaded probe data and rendered fixtures.
-Region tests compare coverage unions, fade superlevels, deterministic output and allocation budgets.
+Native tests: `probe_scene`, `probe_bake`, `probe_alignment`, `probe_bake_parallel`,
+`probe_visibility`, `probe_integration`, `interior_lights`, `interior_inference`, `bake_liquids`.
+`probe_gpu_vulkan` and `viewer_vulkan` cover uploads/rendering. Planner tests check coverage unions,
+fade superlevels, determinism and budgets.
 
 ## Further reading
 
