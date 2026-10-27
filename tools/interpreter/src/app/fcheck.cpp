@@ -15,7 +15,8 @@
  * stack below the caller's stack pointer and the candidate's own code), the result, the registers
  * a function must keep, and the order of what they did outside memory (devices, system calls).
  *
- * Exit status 0 when every state gives the same, 1 when one differs, 2 on a usage error.
+ * Exit status 0 when every state compared gives the same, 1 when one differs, 2 on a usage error,
+ * 4 when no state could be compared (the retail function did not return from any).
  * It is a tool for writing functions, not part of the game.
  */
 
@@ -34,7 +35,7 @@ using namespace ps2;
 namespace {
 
 /** The most instructions a call may take before it counts as not returning. */
-constexpr u64 kLimit = 200'000'000;
+u64 kLimit = 200'000'000;
 
 /** A piece of candidate code and where it goes. */
 struct Code {
@@ -56,7 +57,7 @@ struct Outside {
 /** What a call left. */
 struct Result {
     bool returned = false;
-    u64 instructions = 0;
+    u64 instructions = 0, misaligned = 0;
     std::array<Ee::Reg, 32> gpr{};
     std::array<u32, 32> fpr{};
     std::vector<u8> ram, scratchpad;
@@ -89,6 +90,7 @@ int main(int argc, char** argv) {
     std::string returns = "void";
     bool have_entry = false;
     int ulps = 0;
+    std::string hooks, disc;
 
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
@@ -119,6 +121,18 @@ int main(int argc, char** argv) {
             // Floats that differ by this many units in the last place count as the same (VU0 and
             // the FPU round differently; a hand-written VU0 routine in C cannot always agree).
             ulps = std::stoi(argv[++i]);
+        } else if (arg == "--limit" && i + 1 < argc) {
+            // Instructions retail may take before a state counts as skipped (it waits for an
+            // interrupt, a frame or the disc, which no run here delivers).
+            kLimit = std::stoull(argv[++i]);
+        } else if (arg == "--hooks" && i + 1 < argc) {
+            // The hooks table of the capture run: a hooked function's first word in the states is
+            // the SYSCALL that calls its service, which must answer here too (else the rest of the
+            // function runs without its first instruction).
+            hooks = argv[++i];
+        } else if (arg == "--disc" && i + 1 < argc) {
+            // The disc image, for the services that read it.
+            disc = argv[++i];
         } else if (arg == "--returns" && i + 1 < argc) {
             returns = argv[++i];
         } else if (!arg.empty() && arg[0] != '-') {
@@ -126,7 +140,7 @@ int main(int argc, char** argv) {
         } else {
             std::fprintf(stderr,
                          "usage: openrac-fcheck --code FILE@ADDRESS [...] --entry ADDRESS "
-                         "[--returns void|int|long|float] [--ulps N] STATE...\n");
+                         "[--returns void|int|long|float] [--ulps N] [--hooks FILE] [--disc ISO] [--limit N] STATE...\n");
             return 2;
         }
     }
@@ -136,54 +150,83 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    auto machine = std::make_unique<sys::Machine>();
-    Ee& ee = machine->ee;
     std::vector<Outside>* log = nullptr;
+    std::unique_ptr<sys::Machine> machine;
 
-    // Everything that leaves memory is written down, then done as the machine does it.
-    auto syscall = ee.on_syscall;
-    auto read = ee.on_read;
-    auto write = ee.on_write;
-    auto write128 = ee.on_write128;
+    /*
+     * A machine of its own for each run. A call state holds the processors and the memories, not
+     * what the kernel and the services remember (semaphores and the next id, handlers, the DMA
+     * registers, the sound server's handles): each run starts from a fresh machine, so retail and
+     * candidate meet the same. With the capture run's hooks a hooked function's service answers
+     * (its first word in the state is the SYSCALL that calls it).
+     */
+    auto fresh = [&](std::string* error) -> bool {
+        machine = std::make_unique<sys::Machine>();
+        if (!disc.empty() && !machine->disc.open(disc)) {
+            *error = "cannot open the disc image " + disc;
+            return false;
+        }
+        if (!hooks.empty() && !machine->load_hooks(hooks, error)) {
+            return false;
+        }
+        Ee& ee = machine->ee;
 
-    ee.on_syscall = [&](u32 c) {
-        if (log) {
-            log->push_back({'s', c, ee.gpr[3].lo, ee.gpr[4].lo});
-        }
-        if (syscall) {
-            syscall(c);
-        }
-    };
-    ee.on_read = [&](u32 a, unsigned n) -> u64 {
-        if (log) {
-            log->push_back({'r', a, n, 0});
-        }
-        return read ? read(a, n) : 0;
-    };
-    ee.on_write = [&](u32 a, u64 v, unsigned n) {
-        if (log) {
-            log->push_back({'w', a, v, n});
-        }
-        if (write) {
-            write(a, v, n);
-        }
-    };
-    ee.on_write128 = [&](u32 a, u64 lo, u64 hi) {
-        if (log) {
-            log->push_back({'q', a, lo, hi});
-        }
-        if (write128) {
-            write128(a, lo, hi);
-        }
-    };
+        /*
+         * No timed events: the machine is not booted, so it has no frame timing, and a call
+         * is compared on its own, without interrupts, frames or disc callbacks arriving in it.
+         */
+        ee.on_event = nullptr;
 
-    u8* micro = machine->vif0.micro.data();
-    u8* data = machine->vif0.data.data();
+        // Everything that leaves memory is written down, then done as the machine does it.
+        auto syscall = ee.on_syscall;
+        auto read = ee.on_read;
+        auto write = ee.on_write;
+        auto write128 = ee.on_write128;
+
+        ee.on_syscall = [&ee, &log, syscall](u32 c) {
+            if (log) {
+                log->push_back({'s', c, ee.gpr[3].lo, ee.gpr[4].lo});
+            }
+            if (syscall) {
+                syscall(c);
+            }
+        };
+        ee.on_read = [&log, read](u32 a, unsigned n) -> u64 {
+            if (log) {
+                log->push_back({'r', a, n, 0});
+            }
+            return read ? read(a, n) : 0;
+        };
+        ee.on_write = [&log, write](u32 a, u64 v, unsigned n) {
+            if (log) {
+                log->push_back({'w', a, v, n});
+            }
+            if (write) {
+                write(a, v, n);
+            }
+        };
+        ee.on_write128 = [&log, write128](u32 a, u64 lo, u64 hi) {
+            if (log) {
+                log->push_back({'q', a, lo, hi});
+            }
+            if (write128) {
+                write128(a, lo, hi);
+            }
+        };
+        return true;
+    };
 
     // Runs one call from a state, the retail function or the candidate.
-    auto run = [&](const sys::CallState& state, u32 start, bool candidate) {
+    auto run = [&](const sys::CallState& state, u32 start, bool candidate, u64 limit) {
         Result r;
-        state.put(ee, machine->vu0, machine->memory, micro, data);
+        std::string error;
+
+        if (!fresh(&error)) {
+            std::fprintf(stderr, "%s\n", error.c_str());
+            std::exit(2);
+        }
+        Ee& ee = machine->ee;
+        state.put(ee, machine->vu0, machine->memory, machine->vif0.micro.data(), machine->vif0.data.data());
 
         if (candidate) {
             for (const Code& c : code) {
@@ -197,7 +240,7 @@ int main(int argc, char** argv) {
         log = &r.outside;
 
         Ee::Call call = ee.begin_call(start);
-        while (!r.returned && r.instructions < kLimit) {
+        while (!r.returned && r.instructions < limit) {
             r.returned = ee.run_call(1'000'000);
             r.instructions += 1'000'000;
         }
@@ -206,13 +249,14 @@ int main(int argc, char** argv) {
         log = nullptr;
         r.gpr = ee.gpr;
         r.fpr = ee.fpr;
+        r.misaligned = ee.misaligned;
         r.ram.assign(machine->memory.ram(0), machine->memory.ram(0) + GuestMemory::kRamBytes);
         r.scratchpad.assign(machine->memory.scratchpad(0),
                             machine->memory.scratchpad(0) + GuestMemory::kScratchpadBytes);
         return r;
     };
 
-    int differing = 0;
+    int differing = 0, compared = 0, skipped_in_a_row = 0;
 
     for (const std::string& path : states) {
         sys::CallState state;
@@ -223,16 +267,28 @@ int main(int argc, char** argv) {
             return 2;
         }
 
-        Result retail = run(state, state.address, false);
-        Result ours = run(state, entry, true);
+        /*
+         * The candidate gets eight times what retail took and at least 20 million instructions:
+         * one that loops for ever is told apart in seconds, not after the whole limit.
+         */
+        // Two states in a row where retail did not return: it waits for what no run delivers.
+        if (skipped_in_a_row >= 2) {
+            std::printf("%s: SKIPPED (not run: the retail function did not return from the two before)\n", path.c_str());
+            continue;
+        }
+        Result retail = run(state, state.address, false, kLimit);
+        Result ours = run(state, entry, true, std::min(kLimit, std::max<u64>(20'000'000, retail.instructions * 8)));
         std::vector<std::string> notes;
         char text[256];
 
         if (!retail.returned) {
             std::printf("%s: SKIPPED (the retail function did not return within %llu instructions)\n",
                         path.c_str(), static_cast<unsigned long long>(kLimit));
+            skipped_in_a_row++;
             continue;
         }
+        skipped_in_a_row = 0;
+        compared++;
 
         if (!ours.returned) {
             notes.push_back("the candidate did not return (an endless loop, or it jumped away)");
@@ -249,6 +305,14 @@ int main(int argc, char** argv) {
         if (returns == "float" && ours.fpr[0] != retail.fpr[0] && !near_float(ours.fpr[0], retail.fpr[0], ulps)) {
             std::snprintf(text, sizeof(text), "returns float bits %08x, retail %08x", ours.fpr[0],
                           retail.fpr[0]);
+            notes.push_back(text);
+        }
+
+        // Accesses the console refuses (an address error): more than retail made is a difference.
+        if (ours.misaligned > retail.misaligned) {
+            std::snprintf(text, sizeof(text), "%llu misaligned loads or stores (the console raises an address error), retail %llu",
+                          static_cast<unsigned long long>(ours.misaligned),
+                          static_cast<unsigned long long>(retail.misaligned));
             notes.push_back(text);
         }
 
@@ -290,7 +354,18 @@ int main(int argc, char** argv) {
             u32 wa, wb;
             std::memcpy(&wa, ours.ram.data() + at, 4);
             std::memcpy(&wb, retail.ram.data() + at, 4);
-            if (near_float(wa, wb, ulps)) {
+            /*
+             * An address in the candidate's own code (a label's address, a return address kept
+             * outside the stack) is the same place as retail's when it is as far from the entry
+             * as retail's is from the function's start.
+             */
+            bool own_code = false;
+            for (const Code& c : code) {
+                if (wa >= c.address && wa < c.address + c.bytes.size()) {
+                    own_code = wa - entry == wb - state.address;
+                }
+            }
+            if (own_code || near_float(wa, wb, ulps)) {
                 continue;
             }
             words++;
@@ -375,5 +450,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    return differing ? 1 : 0;
+    // How many states were compared: none (every one skipped) is not a verdict (exit 4).
+    std::printf("compared %d of %zu states\n", compared, states.size());
+    return differing ? 1 : compared ? 0 : 4;
 }

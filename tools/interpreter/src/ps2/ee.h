@@ -327,6 +327,13 @@ public:
     /** How many instructions the core does not know. */
     u64 unknown = 0;
 
+    /**
+     * Loads and stores of a halfword, word or doubleword at an address not a multiple of its size
+     * (LH, LHU, SH, LW, LWU, SW, LWC1, SWC1, LD, SD). The console raises an address error there;
+     * the model does the access and counts it (openrac-fcheck compares the count).
+     */
+    u64 misaligned = 0;
+
     /** The address and the word of the last instruction the core did not know. */
     u32 last_unknown_pc = 0, last_unknown = 0;
 
