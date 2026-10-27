@@ -1,5 +1,8 @@
 # Level editor
 
+[Map mods](MAP_MODDING.md) describes exporting a world as an installable mod,
+with its own name and start, using the existing editor and packer.
+
 The editor turns the levels on your own disc of Ratchet & Clank (PAL,
 `SCES_509.16` v2.00, or NTSC-U, `SCUS_971.99` v1.00) into a Godot 4 project.
 Godot is the map editor: open a level, move, add or delete objects, and save. Tools to pack edited scenes back into game

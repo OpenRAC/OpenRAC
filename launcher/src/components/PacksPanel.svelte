@@ -53,6 +53,7 @@
   }
 
   function summary(pack: PackView): string {
+    if (pack.isMap) return "Map mod · starts separately from the campaign";
     const parts = [];
     if (pack.textures) parts.push(`${pack.textures} texture${pack.textures === 1 ? "" : "s"}`);
     if (pack.models) parts.push(`${pack.models} model${pack.models === 1 ? "" : "s"}`);

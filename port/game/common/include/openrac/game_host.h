@@ -58,6 +58,20 @@ extern const char* openrac_game_disc_image;
  * both). The disc image itself is never changed. */
 extern const char* openrac_game_mods_dir;
 
+/* An enabled map mod, or NULL for the campaign. The runtime checked map.json against this disc.
+
+ * The map uses `level`'s program with its own data. Spawn is in game units, heading in radians.
+
+ * Map sessions start a fresh game with memory cards disabled. */
+struct openrac_map_config {
+    const char* name;
+    int level;
+    float spawn[3];
+    float heading;
+    int skip_movies;
+};
+extern const struct openrac_map_config* openrac_game_map;
+
 /* The first memory card's folder (the second is beside it, <folder>.slot2). */
 extern const char* openrac_game_card_dir;
 

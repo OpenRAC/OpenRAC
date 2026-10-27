@@ -66,6 +66,7 @@ patches.tsv lists from the files beside it (port/game/common/lib/cdvd.c).
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -88,6 +89,7 @@ MANIFEST = "openrac-mod.json"
 STATE = "overrides.json"
 MARKER = ".openrac-stack"
 PACK_FORMAT = 1
+MAP_PACK_FORMAT = 3  # map packs must be refused by builds that only replace campaign levels
 GAME = "rac1"  # the game of a pack whose manifest does not say
 VERSIONS = tuple(v.key for v in disc.VERSIONS)  # Ratchet & Clank's discs: pal, ntsc (games.VERSIONS for every game)
 LEVELS_FORMAT = FORMAT
@@ -110,6 +112,43 @@ MAX_FILES = 200_000
 
 class PackError(ValueError):
     """A pack that cannot be used, said so its user can act on it."""
+
+
+def map_settings(manifest: dict) -> dict | None:
+    """A map is one named world in a data pack, started separately from the campaign."""
+    if "map" not in manifest:
+        if manifest.get("format") == MAP_PACK_FORMAT:
+            raise PackError('a map pack needs "map" settings')
+        return None
+    if manifest.get("format") != MAP_PACK_FORMAT:
+        raise PackError('map packs use "format": 3; older builds must not install them as level replacements')
+    value = manifest["map"]
+    if manifest.get("game") != "rac1" or not isinstance(value, dict):
+        raise PackError('"map" must be an object in a Ratchet & Clank pack')
+    if manifest.get("version") not in ("pal", "ntsc"):
+        raise PackError('map packs must name their disc version ("pal" or "ntsc")')
+    name = manifest.get("name")
+    if not isinstance(name, str) or not name.strip() or len(name.encode("utf-8")) > 120:
+        raise PackError('map "name" must contain up to 120 UTF-8 bytes of text')
+    if any(ord(c) < 32 for c in name):
+        raise PackError('map "name" must not contain control characters')
+    level = value.get("level")
+    if type(level) is not int or not 0 <= level < 19:
+        raise PackError('map "level" must be an integer from 0 to 18')
+    spawn = value.get("spawn")
+
+    def number(n):
+        return type(n) in (int, float) and abs(n) <= 3.4028234663852886e38 and math.isfinite(n)
+
+    if not isinstance(spawn, list) or len(spawn) != 3 or not all(number(n) for n in spawn):
+        raise PackError('map "spawn" must contain three finite coordinates')
+    heading = value.get("heading", 0.0)
+    if not number(heading):
+        raise PackError('map "heading" must be a finite angle in radians')
+    skip_movies = value.get("skip_movies", True)
+    if type(skip_movies) is not bool:
+        raise PackError('map "skip_movies" must be true or false')
+    return {"level": level, "spawn": spawn, "heading": heading, "skip_movies": skip_movies}
 
 
 def describe(files) -> dict:
@@ -138,8 +177,9 @@ def read_manifest(data: bytes, where: str) -> dict:
         raise PackError(f"{where}: {MANIFEST} is not readable JSON ({exc})") from None
     if not isinstance(manifest, dict):
         raise PackError(f"{where}: {MANIFEST} is not a JSON object")
-    if manifest.get("format") != PACK_FORMAT:
-        raise PackError(f"{where}: pack format {manifest.get('format')!r}; this OpenRAC reads {PACK_FORMAT}")
+    if manifest.get("format") not in (PACK_FORMAT, MAP_PACK_FORMAT):
+        raise PackError(f"{where}: pack format {manifest.get('format')!r}; this OpenRAC reads data packs "
+                        f"{PACK_FORMAT} and map packs {MAP_PACK_FORMAT}")
     if not games.known(manifest.get("game"), manifest.get("version", "pal" if manifest.get("game") == GAME else None)):
         raise PackError(f"{where} is not a pack for a game OpenRAC reads ({manifest.get('game')}/"
                         f"{manifest.get('version')})")
@@ -149,6 +189,7 @@ def read_manifest(data: bytes, where: str) -> dict:
     for key in ("author", "description"):
         if key in manifest and not isinstance(manifest[key], str):
             raise PackError(f"{where}: \"{key}\" in {MANIFEST} must be text")
+    map_settings(manifest)
     return manifest
 
 
@@ -718,9 +759,6 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
     if out.exists() and not (out / MARKER).is_file():
         raise PackError(f"{out} exists and was not made by this tool; name another folder")
     target = Target(levels) if levels is not None else None
-    if (out.parent / MARKER).is_file():
-        # A stack from before each disc had a folder of its own (<data>/mods): made again here.
-        shutil.rmtree(out.parent)
     layers = []
     if packed is not None and Path(packed).is_dir():
         made = read_json(Path(packed) / PACKED).get("version", "pal") if (Path(packed) / PACKED).is_file() else "pal"
@@ -731,6 +769,23 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
                 root = Path(folder) / "packs" / entry["id"]
                 manifest = read_json(root / MANIFEST)
                 layers.append((manifest.get("name", entry["id"]), entry["id"], root, manifest))
+    maps = []
+    for name, ident, root, manifest in layers:
+        if not isinstance(manifest, dict):
+            continue
+        settings = map_settings(manifest)
+        if settings is None:
+            continue
+        if target is not None and (target.game != manifest.get("game")
+                                   or target.version != manifest.get("version", "pal")):
+            raise PackError(f'{name}: this map was made for another disc; turn it off or pack it for this disc')
+        maps.append({"format": 1, "id": ident, "name": name, "game": manifest["game"],
+                     "version": manifest.get("version", "pal"), **settings})
+    if len(maps) > 1:
+        raise PackError("Choose one map at a time: " + ", ".join(m["name"] for m in maps))
+    if (out.parent / MARKER).is_file():
+        # Validate the selection before replacing the legacy flat stack too.
+        shutil.rmtree(out.parent)
     out.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=f".{out.name}-", dir=out.parent))
     owners, patches, notes, skipped = {}, {}, [], {}
@@ -786,6 +841,8 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
                    "files": dict(sorted(owners.items())), "notes": notes,
                    "skipped": {k: v for k, v in skipped.items() if v}}
         (temporary / "stack.json").write_text(json.dumps(summary, indent=1) + "\n")
+        if maps:
+            (temporary / "map.json").write_text(json.dumps(maps[0], indent=1, allow_nan=False) + "\n")
         (temporary / MARKER).write_text("made by editor/overrides.py stack; it is replaced each time\n")
         if out.exists():
             old = Path(tempfile.mkdtemp(prefix=f".{out.name}-old-", dir=out.parent))

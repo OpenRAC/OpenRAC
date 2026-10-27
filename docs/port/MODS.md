@@ -1,5 +1,9 @@
 # Mods: plugins, the SDK and the launcher
 
+Named map mods have their own data-pack format (3), export workflow and startup
+settings: [Map mods](../../editor/MAP_MODDING.md). The launcher installs them as
+packs; a map session uses a fresh game with campaign saves disabled.
+
 How a mod changes what the native port does without being built into it: a
 **native mod** is a shared library the port loads at start, through a small
 versioned C interface; a **data mod** is a pack of textures, models or level

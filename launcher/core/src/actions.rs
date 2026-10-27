@@ -490,6 +490,13 @@ impl Action {
                 args.push("--plugins".to_string());
                 args.push(PathBuf::from(data).join("plugins").join(crate::plugins::LIST).display().to_string());
             }
+            // An older port must refuse a map session rather than play its files as a campaign
+            // replacement (which would also allow it to save over the campaign's card).
+            if ctx.config.play_with_mods
+                && args.windows(2).any(|pair| pair[0] == "--mods" && Path::new(&pair[1]).join("map.json").is_file())
+            {
+                args.push("--map".to_string());
+            }
         }
         let cwd = match (&self.cwd, ctx.version) {
             (Some(cwd), _) => abs(ctx.root, &fill(cwd)?),
@@ -804,6 +811,15 @@ mod tests {
         assert!(!plan.args.iter().any(|a| a == "--no-mods"), "{:?}", plan.args);
         let list = data.join("plugins").join("plugins.json").display().to_string();
         assert_eq!(plan.args[plan.args.len() - 2..], ["--plugins".to_string(), list], "{:?}", plan.args);
+        // A selected map requires an executable that understands map sessions. With no map,
+        // ordinary packs keep their existing command line; Purist mode never requests a map.
+        let map_folder = tempfile::tempdir().unwrap();
+        let mut map_play = play.clone();
+        map_play.args.extend(["--mods".to_string(), map_folder.path().display().to_string()]);
+        assert!(!map_play.plan(&ctx(&with_mods)).unwrap().args.iter().any(|a| a == "--map"));
+        std::fs::write(map_folder.path().join("map.json"), "{}").unwrap();
+        assert!(map_play.plan(&ctx(&with_mods)).unwrap().args.iter().any(|a| a == "--map"));
+        assert!(!map_play.plan(&ctx(&installed)).unwrap().args.iter().any(|a| a == "--map"));
         // Settings, "Detailed game logs": the game's verbose log.
         let detailed = Config { detailed_game_log: true, ..installed.clone() };
         let plan = play.plan(&ctx(&detailed)).unwrap();

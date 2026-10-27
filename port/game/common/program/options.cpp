@@ -7,6 +7,8 @@
 #include "program/options.h"
 
 #include <cstdlib>
+#include <fstream>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -25,8 +27,8 @@ namespace {
     log::error("{}", why);
     log::error(
         "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--stop-on-missing] "
-        "[--level N] [--skip-movies] [--mods DIR] [--settings FILE] [--plugins FILE] [--probes "
-        "DIR] [--no-mods] [--debug-overlay] [--debug-dump FILE]",
+        "[--level N] [--skip-movies] [--mods DIR] [--map] [--settings FILE] "
+        "[--plugins FILE] [--probes DIR] [--no-mods] [--debug-overlay] [--debug-dump FILE]",
         program_name(),
         openrac_game.game
     );
@@ -185,6 +187,8 @@ Options parse(int argc, char** argv) {
             o.window = true;
         } else if (a == "--mods") {
             o.mods = value();
+        } else if (a == "--map") {
+            o.expect_map = true;
         } else if (a == "--settings") {
             o.settings = value();
         } else if (a == "--plugins") {
@@ -246,6 +250,26 @@ Options parse(int argc, char** argv) {
 
     if (o.plugins.empty()) {
         o.plugins = o.data / "plugins" / "plugins.json";
+    }
+
+    if (o.no_mods) {
+        o.mods.clear();
+    } else if (!o.mods.empty() && fs::exists(o.mods / "map.json")) {
+        const fs::path path = o.mods / "map.json";
+        std::ifstream file(path, std::ios::binary);
+        const std::string text((std::istreambuf_iterator<char>(file)), {});
+        CustomMap map;
+        std::string error;
+
+        if (!file || !parse_custom_map(text, openrac_game.game, game_version(), map, error)) {
+            usage(path.string() + ": " + (error.empty() ? "cannot be read" : error));
+        }
+
+        o.custom_map = std::move(map);
+    }
+
+    if (o.expect_map && !o.custom_map) {
+        usage("--map requires an active map pack in --mods (with mods enabled)");
     }
 
     return o;
