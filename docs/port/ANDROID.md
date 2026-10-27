@@ -275,6 +275,8 @@ path has three parts:
 2. **Loading** (`port/android/gpu_driver.cpp`). On Adreno the game opens it
    with `adrenotools_open_libvulkan`, and logs the driver's name and version
    or why it was refused. Elsewhere, or on failure, the system driver is used.
+   On Android 9 it writes the patched system libraries to the package's
+   `patched/` folder, as memfds are not certain there.
 3. **The Vulkan renderer** (`port/renderer/vulkan/`) carries out the small
    set of OpenGL calls the renderers use (`renderer/gl.h`,
    `renderer/world/gl_world.h`) on Vulkan 1.3: shaders through glslang,
