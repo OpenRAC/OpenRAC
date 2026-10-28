@@ -79,11 +79,33 @@
 #include <SDL3/SDL_main.h>
 #endif
 
+namespace {
+// Mount strings live for the session; C callbacks never retain a temporary filesystem string.
+std::vector<std::string> destination_mounts;
+std::string campaign_mount;
+}  // namespace
+
 extern "C" {
 const char* openrac_game_disc_image = nullptr;
 const char* openrac_game_card_dir = nullptr;
 const char* openrac_game_mods_dir = nullptr;
 const struct openrac_map_config* openrac_game_map = nullptr;
+const struct openrac_map_config* openrac_game_destinations = nullptr;
+unsigned openrac_game_destination_count = 0;
+int openrac_game_active_destination = -1;
+unsigned openrac_game_mods_generation = 0;
+
+void openrac_game_select_destination(int index) {
+    if (index < -1 || index >= static_cast<int>(openrac_game_destination_count)) {
+        openrac_game_crash("An invalid destination index reached the resource selector");
+    }
+    openrac_game_active_destination = index;
+    openrac_game_map = index >= 0 ? &openrac_game_destinations[index] : nullptr;
+    openrac_game_mods_dir = index >= 0               ? destination_mounts[index].c_str()
+                            : campaign_mount.empty() ? nullptr
+                                                     : campaign_mount.c_str();
+    ++openrac_game_mods_generation;
+}
 int openrac_game_language = 1;
 int openrac_game_no_card = 0;
 int openrac_game_start_level = -1;
@@ -349,6 +371,33 @@ int main(int argc, char** argv) {
         openrac_game_map = &map_config;
         openrac_game_start_level = map.level;
         openrac_game_no_card = 1;
+        if (g_options.ship_map) {
+            g_options.destinations.push_back(map);
+            openrac_game_map = nullptr;
+        }
+    }
+
+    static std::vector<openrac_map_config> destination_configs;
+    for (const auto& map : g_options.destinations) {
+        openrac_map_config config{};
+        config.name = map.name.c_str();
+        config.level = map.level;
+        std::copy(map.spawn.begin(), map.spawn.end(), config.spawn);
+        config.heading = map.heading;
+        config.skip_movies = map.skip_movies;
+        config.skip_cutscenes = map.skip_cutscenes;
+        destination_configs.push_back(config);
+        destination_mounts.push_back((g_options.ship_map ? g_options.mods
+                                                         : g_options.mods / "destinations" / map.id)
+                                         .string());
+    }
+    if (!destination_configs.empty()) {
+        openrac_game_destinations = destination_configs.data();
+        openrac_game_destination_count = static_cast<unsigned>(destination_configs.size());
+        if (openrac_game_start_level < 0) {
+            openrac_game_start_level = destination_configs.front().level;
+        }
+        openrac_game_no_card = 1;
     }
 
     if (g_options.check_levels) {
@@ -411,7 +460,8 @@ int main(int argc, char** argv) {
     openrac_game_disc_image = disc_path.c_str();
     openrac_game_card_dir = cards_path.c_str();
     static std::string mods_path = g_options.mods.string();
-    if (!mods_path.empty()) {
+    campaign_mount = g_options.ship_map ? std::string{} : mods_path;
+    if (!mods_path.empty() && !g_options.ship_map) {
         openrac_game_mods_dir = mods_path.c_str();
         log::info("edited levels from {}", mods_path);
     }

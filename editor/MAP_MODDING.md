@@ -1,97 +1,171 @@
-# Map mods
+# Create and add a ship destination
 
-A map mod is a named world installed in **Mods**, alongside texture packs and
-gameplay mods. The original disc and the extracted campaign are kept. Turning
-the map off brings the campaign back. You can install several maps; enable one
-at a time, then play with **Mods** on.
+A destination pack **adds a world** to RAC1's ship computer. It does not replace
+its template planet. Enable one pack to add the twentieth destination; enable
+another to add the twenty-first. Each has its own name, arrival position and
+resource folder, even when several use the same template program.
 
-This workflow is for Ratchet & Clank PAL and NTSC-U. A map uses an existing
-level's program and available object classes as its template. Its identity is
-the mod's name and installed id, not a new entry in the disc's level table.
-Each disc needs its own export of the gameplay and collision files.
+The creator edits a Godot project and exports a pack. They do not edit the game's
+C, choose unused memory addresses, or manually assign destination numbers.
+This workflow currently targets the **native RAC1 PAL port**.
 
-## Campaign edits or a separate map
+## 1. Prepare a project of your own
 
-To play the usual campaign with more enemies or crates, use ordinary format-1
-data packs and the [level editor workflow](LEVEL_MODDING.md). They replace level
-data while keeping the campaign's startup, progression and saving. Preserve the
-story triggers and required objects if the campaign should still be completable.
-An expanded world also needs matching collision, paths and cameras; the template's
-available classes and the game's resource limits still apply.
+Use your own matching disc and the complete tools described in
+[the level editor guide](LEVEL_MODDING.md). In **Mods → Level editor**, extract
+a level and make a separate copy of its Godot project before editing it.
+Choose a template with the objects and working ship your world needs. **Aridia
+(level 2)** is verified for the ship roundtrip; Novalis's first-arrival story
+sequence hides its ship until its quest progression is satisfied.
 
-Use the map export below for a standalone world with its own name and start,
-separate from campaign saves. A future multiplayer arena could use such a map
-pack for its world, but multiplayer and game rules need their own implementation.
-This workflow does not add PvP.
+The template number means **which program and resources the map uses**. For
+example, a new destination can use template 2 while original Aridia remains
+accessible. Do not change `--template-level` to 19 or 20 to request a new slot.
 
-## Create and export
+## 2. Build the world in Godot
 
-1. Open a level in Godot through **Mods → Level editor**. Work in a copy of
-   its project. The existing [level guide](LEVEL_MODDING.md) covers objects,
-   their properties, and collision. Supply your terrain as `terrain.glb` in
-   the project's `levels/level_NN/` folder. Its coordinates and the collision
-   must agree: both use the game's units, with Z up.
-2. Pack the edited project with **Pack** or `editor/extract.py pack`. This
-   produces the edited gameplay/collision files and `patches.tsv`. The terrain
-   is drawn directly by the native port; it does not need an ISO repacker.
-3. Export a named map from that project and the packer's output:
+- Move, add or remove objects using the template's available classes.
+- Author your terrain with the [model/terrain workflow](MODDING.md), placing the
+  result at `levels/level_NN/terrain.glb`. Imported GLB children are not ordinary
+  editable Godot nodes: edit the mesh in your modeling tool, then import it again.
+- Edit or generate collision with the Collision dock. Visible geometry alone
+  does not make a floor. Keep terrain, collision, paths and cameras aligned.
+- Place **Ratchet** where the player should arrive and set his heading. The
+  exporter reads this placement automatically; keep exactly one Ratchet start.
+- Keep **Game/LevelSettings/Ship**, its landing space, required class resources,
+  flight path and camera volumes. The ship is the return route. Export checks
+  that a ship placement exists; a playtest must verify its behavior and access.
+- Remove unwanted story triggers. A template supplies game logic as well as
+  assets; importing another planet's enemy model does not import its behavior.
 
-   ```sh
-   python editor/map_mod.py --packed PATH_TO_PACKED --project PATH_TO_PROJECT \
-       --level 0 --name "My map" --spawn 132 115 32 --heading 0 \
-       --out assets/my-map
-   ```
+The game uses Z up. Surface type **31 / 0x1f** is ordinary ground; type **0** is
+water. The editor's surface selector documents these meanings.
 
-   `--level` selects the template program. `--spawn` is the hero's start in
-   game coordinates, and `--heading` is in radians. Choose a new output
-   folder: the exporter refuses to overwrite one. It copies only this level's
-   edited files, its terrain and available terrain textures. The source
-   project, packed files and disc are not changed.
-4. Use **Mods → Add mod → Folder** to install the exported folder. A zip with
-   the same contents also works. Enable the map and turn on **Mods** under
-   Play. The existing stack step includes its data and starts the map directly.
+### Import static scenery from another level
 
-Map sessions use a fresh game with memory cards disabled, so they cannot
-overwrite a campaign save. The hero's start is applied before the game's hero
-and camera initialization. The window title shows the map's name. Disc movie
-sequences are omitted by default; `--keep-movies` retains them. Skippable in-game
-scenes and ship landings use the game's normal skip input by default;
-`--keep-cutscenes` retains them. Unwanted gameplay triggers must still be removed
-by the map's author.
+Start with **ties and shrubs** from an extracted donor level's Godot project.
+These are static models, not moby classes or enemy behaviors. Choose the native
+Z-up `.glb` under the donor's `ties/` or `shrubs/` folder, then import it into
+your own project:
 
-## Pack metadata
-
-The export is a format-3 map pack. Older builds refuse this format instead of
-silently installing the world as a replacement campaign level:
-
-```json
-{
-  "format": 3,
-  "game": "rac1",
-  "version": "pal",
-  "name": "My map",
-  "map": {
-    "level": 0,
-    "spawn": [132, 115, 32],
-    "heading": 0,
-    "skip_movies": true,
-    "skip_cutscenes": true
-  }
-}
+```sh
+python editor/static_assets.py --source DONOR_LEVEL/ties/tie_123.glb --project YOUR_PROJECT --level 2 --name MyDecor --at X Y Z --collision mesh
 ```
 
-`level` is an integer from 0 to 18. `spawn` has three finite coordinates;
-`heading` defaults to zero; `skip_movies` and `skip_cutscenes` default to true.
-Ordinary packs without `map` keep their existing behavior. The stacker generates `map.json`
-for the port; do not hand-edit the stacked folder, which is replaced on each
-play. The launcher passes `--map` when one is selected, so a port executable
-without map support stops instead of running the map as the campaign.
-Two enabled maps, or a map made for another disc, stop stacking with an
-explanation. The previous successful stack is kept on a validation failure.
+The tool copies the mesh and its referenced PNG textures, adds an instance under
+**Game/StaticAssets**, and backs up the level scene in `.openrac-backups/`.
+Texture names are based on content, so two levels' `tie_0001.png` files cannot
+silently overwrite each other. The donor level is never changed.
 
-The map's template still supplies its game logic, object behaviors, original
-in-game planet labels and any unedited resources. This does not create a new
-planet on the campaign's ship map. Remove unwanted original triggers in the
-editor; custom behavior can use the existing [mod SDK](../sdk/README.md).
-The [sourcing policy](../docs/policy/SOURCING.md) applies to exports as to other
-editor output: never commit or upload disc-derived game data with this code.
+Reopen the scene in Godot. Move, rotate, scale or duplicate the imported instance;
+groups beneath Game/StaticAssets can be transformed too. Keep the instances under
+that group. Imported geometry and optional collision use the same transforms,
+including mirrored/non-uniform scale. Changing, duplicating or removing an instance
+requires **Pack** again before export; stale exports are refused.
+
+`--collision mesh` makes the visible triangles solid with the ordinary ground
+surface. Omit it for decorative objects such as foliage. You can also change the
+instance's `rc1_static_collision` metadata in Godot. This generates collision from
+the model, not a reconstruction of the donor level's separate collision mesh:
+transparent foliage and detailed models may need simpler authored collision.
+
+Packing combines the static instances into the map's terrain and copies their
+texture dependencies. No new runtime object class or donor-level code is required.
+Vertex colours are preserved; models without them get neutral vertex colours,
+so the donor's per-instance lighting is not transplanted. Skeletons, animations
+and behaviors are deliberately refused in this first importer. Generated meshes,
+textures and packed collision remain private like the rest of the map.
+
+## 3. Pack and export an added destination
+
+Save the project, then use **Pack** or the command below. Substitute your own
+paths; keep outputs in a private ignored folder such as `build/`.
+
+```sh
+python editor/extract.py pack YOUR_ISO YOUR_PROJECT build/my-world-packed
+python editor/map_mod.py --destination --project YOUR_PROJECT --packed build/my-world-packed --template-level 2 --name "My World" --map-id "yourname.my-world" --out build/my-world-pack
+```
+
+`--name` is the label in the ship computer. `--map-id` is the creator-qualified
+identity used for updates: keep it unchanged when revising the same world.
+`--spawn X Y Z` and `--heading RADIANS` optionally override Ratchet's placement.
+Use `--keep-movies` or `--keep-cutscenes` only when those template sequences belong
+in your world. Existing export folders are refused; choose a new output folder
+for each export. The source project, packed inputs and disc are not overwritten.
+
+The export writes the manifest and required level files automatically. No sample
+map, fixed map name or hardcoded author geometry is part of the framework.
+
+## 4. Install, play and return
+
+1. Use **Mods → Add mod → Folder** or add a zip containing the exported folder.
+2. Enable the pack. It is labelled **Added ship destination**. Several destination
+   packs can be enabled together; ordinary texture/model packs can coexist.
+3. Turn on **Mods** under Play and launch. Preparation builds a registry and an
+   isolated folder for each destination. The launcher requests destination support
+   automatically; an older executable refuses the unknown option.
+4. Start a new game for this test session. It starts on the first destination's
+   template unless a starting level was explicitly selected. Board the ship with
+   Triangle, select your world and confirm with X.
+5. Test the arrival, walking/jumping, collision and objects. Board its ship and
+   return to the original planet. Also test travel between added worlds.
+
+Disabling or removing a destination removes its ship entry on the next preparation;
+its original template planet stays. Authoring output supplied through `--packed`
+is not applied to the campaign when destination packs are enabled: only the
+exported destination receives those files. To keep separate campaign edits,
+install them as an ordinary data pack.
+
+For a repeatable shell test (the same preparation the launcher performs):
+
+```sh
+python editor/overrides.py add build/my-world-pack --into build/my-world-installed
+python editor/overrides.py stack --into build/my-world-installed --out build/my-world-session --levels YOUR_PAL_RENDERER_LEVELS
+port/build/release/openrac-rac1-pal --data YOUR_PRIVATE_DATA --levels YOUR_PAL_RENDERER_LEVELS --mods build/my-world-session --destinations --window
+```
+
+The renderer export must include every template used. Names and positions in this
+guide are placeholders; the export/install/prepare steps work with the creator's
+own project. Test PAL resources against PAL, never another disc edition's binaries.
+
+## 5. Iterate without duplicating the destination
+
+Edit the same project, pack again, then export to a fresh folder with the **same
+`--map-id`**. Add that export again. Installation replaces the previous version
+of that identity while preserving its installed ID, enable state and list order.
+A different identity creates an additional destination. Prepare and relaunch after
+an update; do not replace files in a running session.
+
+## Formats and compatibility
+
+| Pack | Meaning | Prepared output |
+| --- | --- | --- |
+| Format 1 | Ordinary replacements for the campaign | Root `patches.tsv` and level files |
+| Format 3 | One standalone map, launched directly | `map.json` |
+| Format 4 | Added ship destination | `destinations.json` plus `destinations/<installed-id>/` |
+
+Format 4 deliberately makes older installers refuse the pack. Its `map.level`
+field is the **template**, and `map.spawn`/`map.heading` are the arrival. The stable
+creator identity is in `export`; the installed folder ID identifies it in the
+registry. Destination numbers start after the original program count and are
+assigned per prepared registry, so do not use these numbers as persistent save IDs.
+The current menu text range accommodates up to 256 added destinations.
+
+Standalone format-3 maps remain supported: omit `--destination` when exporting.
+Only one standalone map can be enabled, and it cannot be mixed with destination
+packs. The old experimental `--ship-map` switch remains compatible with a single
+standalone map; creators should use format 4 and normal launcher preparation.
+
+## Current limits
+
+- Destination sessions are **card-free**, including while visiting original
+  planets. Separate saved progression for added worlds is not implemented.
+- Templates supply their own code, object classes and unedited resources. The
+  framework does not automatically import behavior from another level or game.
+- Galaxy previews still use template artwork/location; the added world has its
+  own selectable name and resource mount. This does not add a retail ISO overlay.
+- NTSC-U supports existing standalone maps, but ship destinations are PAL only.
+- The [sourcing policy](../docs/policy/SOURCING.md) applies: do not commit or upload
+  disc-derived terrain, models, textures, packed game files or ISOs with this code.
+  Keep generated outputs private; the repository contains only tools, tests and
+  documentation.

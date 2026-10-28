@@ -12,15 +12,15 @@
 
 #include "common/stats.h"
 #include "debug/overlay.h"
+#include "openrac/game_host.h"
 #include "openrac/guest.h"
 
 namespace openrac::frontend::debug_overlay {
 
 void game_section() {
-    const std::string level =
-        s.level >= 0 && s.level < 19
-            ? std::format("{} {}", s.level, kLevelNames[static_cast<std::size_t>(s.level)])
-            : std::string("none (the boot program: title, menus)");
+    const std::string level = openrac_game_has_level(s.level)
+                                  ? std::format("{} {}", s.level, openrac_game_level_name(s.level))
+                                  : std::string("none (the boot program: title, menus)");
     text("{}   level {}", s.game, level);
     text("tick {}   game mode {}", s.tick, read<std::int32_t>(0x0015F6E8));
 

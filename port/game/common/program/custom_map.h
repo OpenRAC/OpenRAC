@@ -9,6 +9,7 @@
 #include <array>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace openrac::program {
 
@@ -27,6 +28,15 @@ bool parse_custom_map(
     std::string_view game,
     std::string_view version,
     CustomMap& out,
+    std::string& error
+);
+
+// Isolated destination records with safe, unique folder IDs. Output is unchanged on failure.
+bool parse_destinations(
+    std::string_view text,
+    std::string_view game,
+    std::string_view version,
+    std::vector<CustomMap>& out,
     std::string& error
 );
 

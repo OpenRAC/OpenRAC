@@ -15,12 +15,14 @@
 #define RAC1_MOBY_VTBL(level) rac1_moby_vtbl_address(level)
 
 static inline unsigned rac1_moby_vtbl_address(int level) {
-    static const unsigned addresses[19] = {
+    static const unsigned addresses[] = {
         0x001EA300u, 0x0020BB00u, 0x001FAF80u, 0x001E3880u, 0x001DC900u, 0x00218C80u, 0x00201B80u,
         0x00211D00u, 0x001FC900u, 0x00209380u, 0x001DD600u, 0x0021B900u, 0x0020CB80u, 0x001F5880u,
         0x001FD280u, 0x001E3680u, 0x001E8900u, 0x001E7080u, 0x001F2D00u,
     };
-    return level >= 0 && level < 19 ? addresses[level] : 0;
+    return level >= 0 && (unsigned)level < sizeof(addresses) / sizeof(addresses[0])
+               ? addresses[level]
+               : 0;
 }
 
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */

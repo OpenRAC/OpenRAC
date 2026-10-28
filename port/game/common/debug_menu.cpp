@@ -20,7 +20,7 @@ namespace openrac::frontend::debug_menu {
 
 namespace {
 
-constexpr int kMaxLevels = 19;  // the most the menu's picture holds
+constexpr int kVisibleLevels = 19;  // rows on screen; the catalog may contain more
 
 // The game's front end as its program describes it (game_host.h, openrac_front_end): its levels
 // and how to start one, and its page menu. Null for a game without one.
@@ -31,7 +31,7 @@ const openrac_front_end* front_end() {
 
 int level_count() {
     const openrac_front_end* fe = front_end();
-    return fe != nullptr ? std::min(fe->levels, kMaxLevels) : 1;
+    return fe != nullptr ? fe->levels : 1;
 }
 
 // The launcher's developer mode (OPENRAC_DEVELOPER=1): without it the menus are the game's own.
@@ -105,7 +105,7 @@ void build() {
     n.page = openrac_guest_static(0xA0);
     n.title = openrac_guest_static(0x60);
     n.list = openrac_guest_static(0x60);
-    n.items = openrac_guest_static(12 * static_cast<gaddr>(kMaxLevels + 1));
+    n.items = openrac_guest_static(12 * static_cast<gaddr>(level_count() + 1));
     for (int i = 0; i < level_count(); ++i) {
         put_item(n.items + 12 * static_cast<gaddr>(i), fe.planet_texts[i], kIgnoredAction, i);
     }
@@ -190,15 +190,17 @@ constexpr std::uint32_t kHint = rgba(120, 120, 140);
 
 constexpr int kRow = 10;
 constexpr int kPanelWidth = 232;
-constexpr int kPanelHeight = 30 + kMaxLevels * kRow + 18;
+constexpr int kPanelHeight = 30 + kVisibleLevels * kRow + 18;
 
 renderer::ui::Canvas make_picture(const openrac_front_end& fe) {
     renderer::ui::Canvas p(kPanelWidth, kPanelHeight, kFrame);
     p.fill(2, 2, p.width() - 4, p.height() - 4, kNavy);
     p.draw_text(10, 9, "OPENRAC DEBUG: START A LEVEL", kTitle);
     p.fill(8, 20, p.width() - 16, 1, kFrame);
-    for (int i = 0; i < level_count(); ++i) {
-        const int y = 27 + i * kRow;
+    const int first = (s.cursor / kVisibleLevels) * kVisibleLevels;
+    const int end = std::min(first + kVisibleLevels, level_count());
+    for (int i = first; i < end; ++i) {
+        const int y = 27 + (i - first) * kRow;
         const bool sel = i == s.cursor;
         if (sel) {
             p.fill(6, y - 2, p.width() - 12, 11, rgba(36, 36, 70));
