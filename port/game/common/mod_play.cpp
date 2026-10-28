@@ -511,15 +511,27 @@ int api_moby_slot_of(openrac_gaddr moby) {
                : -1;
 }
 
-// A skip a mod asked for: the ticks it is pressed for still (play_skipping).
+// A skip a mod asked for: the ticks it is pressed for still (play_skipping), and what it was asked
+// in (the phase, the level's scene: -1 none), so it never presses into the next scene or movie.
 constexpr int kSkipTicks = 40;
 int g_skip_ticks = 0;
+int g_skip_phase = OPENRAC_PLAY_NONE;
+std::int32_t g_skip_scene = -1;
+
+std::int32_t scene_now() {
+    std::int32_t played = 0;
+    return g_play != nullptr && g_play->scene_playing != nullptr ? g_play->scene_playing(&played)
+                                                                 : -1;
+}
 
 int api_play_skip(openrac_mod* mod) {
     if (mod == nullptr || g_play == nullptr) {
         return OPENRAC_HOOK_UNKNOWN;
     }
+    std::int32_t level = -1;
     g_skip_ticks = kSkipTicks;
+    g_skip_phase = phase_now(&level);
+    g_skip_scene = scene_now();
     return OPENRAC_HOOK_OK;
 }
 
@@ -738,6 +750,12 @@ void play_update() {
 
 bool play_skipping() {
     if (g_skip_ticks <= 0) {
+        return false;
+    }
+    // The scene it was asked in is over (out of it, or another in its place): nothing more pressed.
+    std::int32_t level = -1;
+    if (phase_now(&level) != g_skip_phase || scene_now() != g_skip_scene) {
+        g_skip_ticks = 0;
         return false;
     }
     --g_skip_ticks;

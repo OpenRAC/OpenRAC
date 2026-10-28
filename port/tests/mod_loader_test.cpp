@@ -19,6 +19,7 @@
 #include "check.h"
 #include "common/json.h"
 #include "mod_manifest.h"
+#include "mod_play.h"
 #include "mods.h"
 #include "openrac/guest.h"
 #include "openrac/script_binding.h"
@@ -690,6 +691,27 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     // The skip the mod asked for is pressed over the next pad reads, then no more; reset forgets it,
     // and the mod's line over the picture.
     CHECK(mods::play_skipping() && mods::play_skipping());
+    // Only while what it was asked in plays: out of a scene, or the next one, is pressed nothing.
+    {
+        openrac_api api{};
+        int owner = 0;
+        mods::fill_play_api(api, &kPlay, dir / "cards");
+        g_phase = OPENRAC_GAME_PHASE_SCENE;
+        g_scene = 3;
+        CHECK(api.play_skip(reinterpret_cast<openrac_mod*>(&owner)) == OPENRAC_HOOK_OK);
+        CHECK(mods::play_skipping());
+        g_phase = OPENRAC_GAME_PHASE_PLAYING;
+        g_scene = -1;
+        CHECK(!mods::play_skipping());
+        g_phase = OPENRAC_GAME_PHASE_SCENE;
+        g_scene = 4;
+        CHECK(!mods::play_skipping());
+        CHECK(api.play_skip(reinterpret_cast<openrac_mod*>(&owner)) == OPENRAC_HOOK_OK);
+        g_scene = 5;
+        CHECK(!mods::play_skipping());
+        g_phase = OPENRAC_GAME_PHASE_PLAYING;
+        g_scene = -1;
+    }
     CHECK(mods::play_notice() == "Waiting for the other players to arrive");
     g_played.clear();
     mods::reset();
