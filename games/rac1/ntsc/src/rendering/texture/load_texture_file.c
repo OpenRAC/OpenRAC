@@ -26,12 +26,12 @@ extern s32 gs_texture_allocation_cursor __asm__("D_0015EE74") MACRO_ADDR;
 extern s32 pending_texture_upload_count_macro __asm__("D_0015F458") MACRO_ADDR;
 long load_texture_file(char *texture_file_data) {
     TexDesc texture_desc;
-    int w;
+    int texture_buffer_width;
     int cbp;
     int tbp;
     int addr;
     long reg;
-    long tex0;
+    long texture_register_bits;
     long *pt;
 
     texture_desc.clut = texture_file_data + 0x20;
@@ -44,14 +44,14 @@ long load_texture_file(char *texture_file_data) {
     addr += 0x400;
     tbp = addr >> 8;
     gs_texture_allocation_cursor = addr + (1 << (texture_desc.tw + texture_desc.th));
-    w = texture_desc.tw - 6;
-    if (w < 0) {
-        w = 0;
+    texture_buffer_width = texture_desc.tw - 6;
+    if (texture_buffer_width < 0) {
+        texture_buffer_width = 0;
     }
-    w = 1 << w;
-    tex0 = (long)tbp | ((long)w << 14) | ((long)0x13 << 20) | ((long)texture_desc.tw << 26);
-    pt = &tex0;
-    tex0 = *pt | ((long)texture_desc.th << 30) | ((long)1 << 34) | ((long)cbp << 37);
+    texture_buffer_width = 1 << texture_buffer_width;
+    texture_register_bits = (long)tbp | ((long)texture_buffer_width << 14) | ((long)0x13 << 20) | ((long)texture_desc.tw << 26);
+    pt = &texture_register_bits;
+    texture_register_bits = *pt | ((long)texture_desc.th << 30) | ((long)1 << 34) | ((long)cbp << 37);
     reg = *pt | ((long)4 << 61);
     if (pending_texture_upload_count_macro < TEXTURE_UPLOAD_MAX) {
         pending_texture_uploads[pending_texture_upload_count_macro].clut_data = (int)texture_desc.clut;

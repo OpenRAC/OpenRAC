@@ -11,7 +11,9 @@
 
 extern float vector_distance_xy(void *, void *) __asm__("FUN_001f9b80");
 
-int FUN_L04_001f3038(char *moby, char *points, int count) {
+int find_nearest_point_index_xy(char *moby, char *points, int count) __asm__("FUN_L04_001f3038");
+
+int find_nearest_point_index_xy(char *moby, char *points, int count) {
     int best = -1;
     int i;
     float best_distance = 32767.0f;
@@ -85,7 +87,7 @@ extern void normalize_vector_xyz_c(void *, void *, f32) __asm__("FUN_001f9bf8");
 extern void scale_vector_xyz(void *, void *, float) __asm__("FUN_001f9a68");
 extern void subtract_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a28");
 int FUN_L04_001f3038_c(char *a, char *b, int n) __asm__("FUN_L04_001f3038");
-int FUN_L04_0024c7d8(float *out, float *p, float *poly, int n);
+int find_closest_polygon_edge_point(float *out, float *p, float *poly, int n) __asm__("FUN_L04_0024c7d8");
 extern PathEl_1F3010 *D_L04_001B0930_1F3010[] __asm__("D_L04_001B0630");
 extern Coll_1F3010 D_L04_00174040_1F3010 __asm__("D_L04_00173FC0");
 extern s32 D_L04_00173FF0[];
@@ -108,7 +110,9 @@ extern int func_001FA898_1F3010(float) __asm__("FUN_001fa6d0");
 extern int func_L04_001F2F68_1F3010(Moby *, void *, int) __asm__("FUN_L04_001f3038");
 extern int func_L04_0024D790_1F3010(void *, void *, void *, int) __asm__("FUN_L04_0024c7d8");
 
-void FUN_L04_001f30e0(Moby **others, int other_count, Moby *moby, Steer_1F3010 *steer, float *params) {
+void steer_child_moby(Moby **others, int other_count, Moby *moby, Steer_1F3010 *steer, float *params) __asm__("FUN_L04_001f30e0");
+
+void steer_child_moby(Moby **others, int other_count, Moby *moby, Steer_1F3010 *steer, float *params) {
     Vec_1F3010 path_hit;
     Vec_1F3010 force;
     Vec_1F3010 uninitialized_point;
@@ -337,19 +341,21 @@ extern int coll_sphere(float, void *, int, void *) __asm__("FUN_L00_001f0d60");
 extern void add_vector_xyz(void *, void *, void *);
 extern void normalize_vector_xyz(void *, void *, float);
 
-void FUN_L04_001f3a80(char *a, char *b, char *c, float f);
-void FUN_L04_001f3a80(char *moby, char *b, char *c, float collision_z_offset) {
+void update_moby_movement_with_sphere_collision(char *moby, char *movement_state, char *movement_params, float collision_z_offset) __asm__("FUN_L04_001f3a80");
+
+void update_moby_movement_with_sphere_collision(char *a, char *b, char *c, float f) __asm__("FUN_L04_001f3a80");
+void update_moby_movement_with_sphere_collision(char *moby, char *movement_state, char *movement_params, float collision_z_offset) {
     int i;
-    float v[4];
-    char *movement_delta = b + 0x10;
-    add_vector_xyz(movement_delta, movement_delta, b);
-    normalize_vector_xyz(movement_delta, movement_delta, *(float *)(c + 0x1C));
-    *(float *)(b + 0x18) = *(float *)(b + 0x18) / *(float *)(b + 0x48);
+    float collision_probe_position[4];
+    char *movement_delta = movement_state + 0x10;
+    add_vector_xyz(movement_delta, movement_delta, movement_state);
+    normalize_vector_xyz(movement_delta, movement_delta, *(float *)(movement_params + 0x1C));
+    *(float *)(movement_state + 0x18) = *(float *)(movement_state + 0x18) / *(float *)(movement_state + 0x48);
     add_vector_xyz(moby + 0x10, moby + 0x10, movement_delta);
     for (i = 0; i < 6; i++) {
-        qcopy(v, moby + 0x10);
-        v[2] = v[2] + collision_z_offset;
-        if (coll_sphere(*(float *)(c + 0x10) * 0.25f, v, 4, moby)) {
+        qcopy(collision_probe_position, moby + 0x10);
+        collision_probe_position[2] = collision_probe_position[2] + collision_z_offset;
+        if (coll_sphere(*(float *)(movement_params + 0x10) * 0.25f, collision_probe_position, 4, moby)) {
             qcopy(moby + 0x10, D_L04_00173FF0);
             *(float *)(moby + 0x18) = *(float *)(moby + 0x18) - collision_z_offset;
         } else {
@@ -357,5 +363,5 @@ void FUN_L04_001f3a80(char *moby, char *b, char *c, float collision_z_offset) {
         }
     }
     *(float *)(moby + 0x48) =
-        fast_add_rotations(fast_arc_tan(*(float *)(b + 0x10), *(float *)(b + 0x14)), 3.14159265f);
+        fast_add_rotations(fast_arc_tan(*(float *)(movement_state + 0x10), *(float *)(movement_state + 0x14)), 3.14159265f);
 }

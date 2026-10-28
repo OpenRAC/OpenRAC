@@ -23,13 +23,15 @@ extern void FUN_L01_0021fa98(int, int, int, int, int, int);
 extern void FUN_L12_002667fc(int, int, int, int);
 void vu1_add_g_sregister(s32 a0, s64 a1) __asm__("FUN_00233980");
 
-void FUN_L12_002bc210(void *list_, int count, int tex0, int tex1) {
+void draw_textured_effect_list(void *list_, int count, int context_one_texture_state, int context_two_texture_state) __asm__("FUN_L12_002bc210");
+
+void draw_textured_effect_list(void *list_, int count, int context_one_texture_state, int context_two_texture_state) {
     char *list = list_;
     int i;
     int *sp;
-    int idx;
-    vu1_add_g_sregister(6, tex0);
-    vu1_add_g_sregister(7, tex1);
+    int sphere_check_result;
+    vu1_add_g_sregister(6, context_one_texture_state);
+    vu1_add_g_sregister(7, context_two_texture_state);
     D_L12_001611C0.p[0] = 0x30000009;
     D_L12_001611C0.p[1] = (int)D_L12_001CB7A0;
     D_L12_001611C0.p[2] = 0;
@@ -42,12 +44,12 @@ void FUN_L12_002bc210(void *list_, int count, int tex0, int tex1) {
     }
     if (count > 0) {
         for (i = count; i != 0; i--) {
-            idx = fast_bsphere_check(list, 256.0f);
-            if (idx != -1) {
+            sphere_check_result = fast_bsphere_check(list, 256.0f);
+            if (sphere_check_result != -1) {
                 FUN_L12_002667fc(*(int *)(list + 0x1C), *(int *)(list + 0x10),
                                  *(int *)(list + 0x18), 0x70001000);
                 FUN_L01_0021fa98(*(int *)(list + 0x1C), *(int *)(list + 0x10), 0x70000000,
-                                 *(int *)(list + 0x14), 0x70001000, idx == 0);
+                                 *(int *)(list + 0x14), 0x70001000, sphere_check_result == 0);
             }
             list += 0x20;
         }
@@ -64,7 +66,9 @@ extern L12MobyList D_L12_0016CCE0;
 extern unsigned char D_L12_0017C8C0[];
 extern void attach_manipulator(void *arg0, s32 arg1, void *arg2) __asm__("FUN_0020cb10");
 
-void FUN_L12_002e6b60(char *moby) {
+void apply_npc_big_head_cheat(char *moby) __asm__("FUN_L12_002e6b60");
+
+void apply_npc_big_head_cheat(char *moby) {
     int i;
 
     if (D_L12_0015F5C4 == 2 && big_head_cheat_enabled != 0) {
@@ -93,10 +97,12 @@ void FUN_L12_002e6b60(char *moby) {
 
 extern char D_L12_001F5480[];
 extern s32 get_effect_texture() __asm__("FUN_001f44b8");
-extern void FUN_L12_002bc210_u(void *, int, int, int) __asm__("FUN_L12_002bc210");
+extern void draw_textured_effect_list(void *, int, int, int) __asm__("FUN_L12_002bc210");
 
-void FUN_L12_002e71b0(void) {
-    FUN_L12_002bc210_u(D_L12_001F5480, 0x2F, get_effect_texture(0x2C), get_effect_texture(0x2D));
+void draw_level_12_effects(void) __asm__("FUN_L12_002e71b0");
+
+void draw_level_12_effects(void) {
+    draw_textured_effect_list(D_L12_001F5480, 0x2F, get_effect_texture(0x2C), get_effect_texture(0x2D));
 }
 
 f32 D_L15_0017CA60[1] __attribute__((section(".data"))) = {0};

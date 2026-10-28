@@ -10,7 +10,6 @@ own parser so it stays standalone.
 from __future__ import annotations
 
 import json
-import os
 import re
 from pathlib import Path
 
@@ -152,16 +151,7 @@ def unsafe_unit_name(name: str) -> bool:
 
 
 def default_workspace(repo: Path) -> Path:
-    """Baseline workspace used when none is configured.
-
-    ``BASELINE_ROOT`` wins when set; otherwise the project-local
-    ``build/baseline`` created by ``./verify-baseline.sh`` is used, so the
-    contribution scripts never touch a location outside the checkout unless
-    the user points them there explicitly.
-    """
-    override = os.environ.get("BASELINE_ROOT", "").strip()
-    if override:
-        return Path(override).expanduser()
+    """The ``build/baseline`` workspace that ``./verify-baseline.sh`` creates."""
     return repo / "build" / "baseline"
 
 
@@ -172,21 +162,6 @@ def path_inside(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
-
-
-def oracle_fallback_units(workspace: Path) -> set[str]:
-    """Units this workspace rebuilds from the retail oracle instead of their C."""
-    path = Path(workspace) / "config" / "us" / "oracle-fallback-units.json"
-    if not path.is_file():
-        return set()
-    try:
-        payload = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError):
-        return set()
-    units = payload.get("units")
-    if not isinstance(units, list):
-        return set()
-    return {str(unit) for unit in units}
 
 
 def workspace_problem(workspace: Path, repo: Path | None = None) -> str | None:

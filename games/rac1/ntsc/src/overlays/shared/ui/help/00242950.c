@@ -21,66 +21,68 @@ extern void FUN_001f9a28_32b90(void *, void *, void *) __asm__("FUN_001f9a28");
 extern void FUN_001f9a68_32b90(void *, void *, f32) __asm__("FUN_001f9a68");
 extern void FUN_001f9a10_32b90(void *, void *, void *) __asm__("FUN_001f9a10");
 extern void FUN_001f9bf8_32b90(void *, void *, f32) __asm__("FUN_001f9bf8");
-extern void FUN_L00_0025d238_32b90(V4_32b90 *, void *) __asm__("FUN_L00_0025d238");
+extern void clip_negative_segment_endpoint_xyz(V4_32b90 *, void *) __asm__("FUN_L00_0025d238");
 extern s32 FUN_001efa68_32b90(void *, void *, s32, s32, s32) __asm__("FUN_001efa68");
-extern f32 FUN_L00_00233d30_32b90(void *) __asm__("FUN_L00_00233d30");
+extern f32 compute_gravity_relative_vector_inclination(void *) __asm__("FUN_L00_00233d30");
 extern f32 FUN_L00_00233a78_32b90(void *) __asm__("FUN_L00_00233a78");
-extern s32 FUN_L00_002595a0_32b90(f32 *, f32 *, f32, f32, f32) __asm__("FUN_L00_002595a0");
+extern s32 solve_quadratic_equation(f32 *, f32 *, f32, f32, f32) __asm__("FUN_L00_002595a0");
 
-f32 FUN_L06_00242950(f32 a, f32 b, f32 target_z) {
+f32 calculate_hero_motion_prediction_time(f32 prediction_time, f32 acceleration_scale, f32 target_z) __asm__("FUN_L06_00242950");
+
+f32 calculate_hero_motion_prediction_time(f32 prediction_time, f32 acceleration_scale, f32 target_z) {
     enum {
         HERO_MOTION_Z_AXIS_ACCELERATION = 0,
         HERO_MOTION_STORED_VECTOR_ACCELERATION = 1,
         HERO_MOTION_FIXED_POINT_ACCELERATION = 2
     };
     f32 predicted_position[4];
-    V4_32b90 v;
+    V4_32b90 position_or_acceleration_vector;
     V4_32b90 vector_scratch;
     V4_32b90 hero_position_copy;
-    f32 o[6];
+    f32 quadratic_roots[6];
     f32 x, y, z;
 
-    switch (hero.unk20B3) {
+    switch (hero.gravity_mode) {
     case HERO_MOTION_Z_AXIS_ACCELERATION:
         if (target_z < 0.0f) {
-            FUN_001f9a68_32b90(predicted_position, &hero.motion.velocity, a);
-            predicted_position[2] -= ((a * a + a) * 0.5f) * b;
+            FUN_001f9a68_32b90(predicted_position, &hero.motion.velocity, prediction_time);
+            predicted_position[2] -= ((prediction_time * prediction_time + prediction_time) * 0.5f) * acceleration_scale;
             FUN_001f9a10_32b90(predicted_position, predicted_position, &hero.motion.pos);
-            v.q = hero.motion.pos.q;
-            FUN_L00_0025d238_32b90(&v, predicted_position);
-            qcopy(&v, &hero.motion.pos);
-            if (FUN_001efa68_32b90(&v, predicted_position, 0xd24, 0, 0) != 0) {
-                if (FUN_L00_00233d30_32b90((f32 *)D_L00_00173E80_32b90) <= 0.87266463f) {
+            position_or_acceleration_vector.q = hero.motion.pos.q;
+            clip_negative_segment_endpoint_xyz(&position_or_acceleration_vector, predicted_position);
+            qcopy(&position_or_acceleration_vector, &hero.motion.pos);
+            if (FUN_001efa68_32b90(&position_or_acceleration_vector, predicted_position, 0xd24, 0, 0) != 0) {
+                if (compute_gravity_relative_vector_inclination((f32 *)D_L00_00173E80_32b90) <= 0.87266463f) {
                     target_z = *(f32 *)(D_L00_00173E80_32b90 - 0x18);
                 }
             }
         }
         if (target_z > 0.0f) {
-            if (FUN_L00_002595a0_32b90(&o[0], &o[1], b * -0.5f, hero.motion.velocity.f[2] - b * -0.5f,
+            if (solve_quadratic_equation(&quadratic_roots[0], &quadratic_roots[1], acceleration_scale * -0.5f, hero.motion.velocity.f[2] - acceleration_scale * -0.5f,
                                        hero.motion.pos.f[2] - target_z) > 0 &&
-                o[0] > 0.0f) {
-                return o[0];
+                quadratic_roots[0] > 0.0f) {
+                return quadratic_roots[0];
             }
         }
         break;
     case HERO_MOTION_STORED_VECTOR_ACCELERATION:
-        qcopy(&v, &hero.unk270);
-        FUN_001f9bf8_32b90(&v, &v, b);
-        FUN_001f9a68_32b90(&v, &v, -1.0f);
-        FUN_001f9a68_32b90(predicted_position, &hero.motion.velocity, a);
-        FUN_001f9a68_32b90(&vector_scratch, &v, ((a * a + a) * 0.5f) * b);
+        qcopy(&position_or_acceleration_vector, &hero.ground_normal);
+        FUN_001f9bf8_32b90(&position_or_acceleration_vector, &position_or_acceleration_vector, acceleration_scale);
+        FUN_001f9a68_32b90(&position_or_acceleration_vector, &position_or_acceleration_vector, -1.0f);
+        FUN_001f9a68_32b90(predicted_position, &hero.motion.velocity, prediction_time);
+        FUN_001f9a68_32b90(&vector_scratch, &position_or_acceleration_vector, ((prediction_time * prediction_time + prediction_time) * 0.5f) * acceleration_scale);
         FUN_001f9a10_32b90(predicted_position, &vector_scratch, predicted_position);
         FUN_001f9a10_32b90(predicted_position, &hero.motion.pos, predicted_position);
         hero_position_copy.q = hero.motion.pos.q;
-        FUN_L00_0025d238_32b90(&hero_position_copy, predicted_position);
+        clip_negative_segment_endpoint_xyz(&hero_position_copy, predicted_position);
         if (FUN_001efa68_32b90(&hero.motion.pos, predicted_position, 0xd24, 0, 0) != 0) {
             f32 nb;
-            nb = b * -0.5f;
+            nb = acceleration_scale * -0.5f;
             z = FUN_L00_00233a78_32b90(&hero.motion.velocity) - nb;
             x = FUN_L00_00233a78_32b90(&hero.motion.pos);
             y = FUN_L00_00233a78_32b90(&D_L06_001745E0);
-            if (FUN_L00_002595a0_32b90(&o[2], &o[3], nb, z, x - y) > 0 && o[2] > 0.0f) {
-                return o[2];
+            if (solve_quadratic_equation(&quadratic_roots[2], &quadratic_roots[3], nb, z, x - y) > 0 && quadratic_roots[2] > 0.0f) {
+                return quadratic_roots[2];
             }
         }
         break;
@@ -88,26 +90,26 @@ f32 FUN_L06_00242950(f32 a, f32 b, f32 target_z) {
         vector_scratch.f[2] = 100.0f;
         vector_scratch.f[1] = 100.0f;
         vector_scratch.f[0] = 100.0f;
-        FUN_001f9a28_32b90(&v, &hero.motion.pos, &vector_scratch);
-        FUN_001f9bf8_32b90(&v, &v, b);
-        FUN_001f9a68_32b90(&v, &v, -1.0f);
-        FUN_001f9a68_32b90(predicted_position, &hero.motion.velocity, a);
-        FUN_001f9a68_32b90(&vector_scratch, &v, ((a * a + a) * 0.5f) * b);
+        FUN_001f9a28_32b90(&position_or_acceleration_vector, &hero.motion.pos, &vector_scratch);
+        FUN_001f9bf8_32b90(&position_or_acceleration_vector, &position_or_acceleration_vector, acceleration_scale);
+        FUN_001f9a68_32b90(&position_or_acceleration_vector, &position_or_acceleration_vector, -1.0f);
+        FUN_001f9a68_32b90(predicted_position, &hero.motion.velocity, prediction_time);
+        FUN_001f9a68_32b90(&vector_scratch, &position_or_acceleration_vector, ((prediction_time * prediction_time + prediction_time) * 0.5f) * acceleration_scale);
         FUN_001f9a10_32b90(predicted_position, &vector_scratch, predicted_position);
         FUN_001f9a10_32b90(predicted_position, &hero.motion.pos, predicted_position);
         hero_position_copy.q = hero.motion.pos.q;
-        FUN_L00_0025d238_32b90(&hero_position_copy, predicted_position);
+        clip_negative_segment_endpoint_xyz(&hero_position_copy, predicted_position);
         if (FUN_001efa68_32b90(&hero.motion.pos, predicted_position, 0xd24, 0, 0) != 0) {
             f32 nb;
-            nb = b * -0.5f;
+            nb = acceleration_scale * -0.5f;
             z = FUN_L00_00233a78_32b90(&hero.motion.velocity) - nb;
             x = FUN_L00_00233a78_32b90(&hero.motion.pos);
             y = FUN_L00_00233a78_32b90(&D_L06_001745E0);
-            if (FUN_L00_002595a0_32b90(&o[4], &o[5], nb, z, x - y) > 0 && o[4] > 0.0f) {
-                return o[4];
+            if (solve_quadratic_equation(&quadratic_roots[4], &quadratic_roots[5], nb, z, x - y) > 0 && quadratic_roots[4] > 0.0f) {
+                return quadratic_roots[4];
             }
         }
         break;
     }
-    return a;
+    return prediction_time;
 }

@@ -35,8 +35,8 @@ typedef struct {
 extern unsigned short *D_L01_001ABCC0_26e008[] __asm__("D_L01_001ABCC0") NOT_SDA;
 extern O_26e008 *D_L01_0015FFD8_26e008 __asm__("D_L01_0015FFD8");
 
-int FUN_L01_0026e008(int i, int st);
-int FUN_L01_0026e008(int i, int st) {
+int count_active_moby_group_members(int i, int st) __asm__("FUN_L01_0026e008");
+int count_active_moby_group_members(int i, int excluded_moby_state) {
     unsigned short *moby_index_entry;
     int qualifying_moby_count = 0;
     O_26e008 *moby;
@@ -47,7 +47,7 @@ int FUN_L01_0026e008(int i, int st) {
     moby_index_entry = D_L01_001ABCC0_26e008[i];
     do {
         moby = (O_26e008 *)(((*moby_index_entry & 0x7FFF) << 8) + (int)D_L01_0015FFD8_26e008);
-        if (moby->state >= 0 && (st == -1 || (unsigned char)moby->state != st)) {
+        if (moby->state >= 0 && (excluded_moby_state == -1 || (unsigned char)moby->state != excluded_moby_state)) {
             qualifying_moby_count++;
         }
     } while ((short)*moby_index_entry++ >= 0);
@@ -60,13 +60,13 @@ extern char *D_L01_0015FFD8;
 extern unsigned short *D_L01_001ABCC0[];
 
 void FUN_L01_0026e090(int i, int v);
-void FUN_L01_0026e090(int i, int v) {
+void FUN_L01_0026e090(int i, int moby_byte_value) {
     unsigned short *moby_index_list = D_L01_001ABCC0[i];
     unsigned short *moby_index_entry;
     if (moby_index_list != 0) {
         moby_index_entry = moby_index_list;
         do {
-            D_L01_0015FFD8[(*moby_index_entry & 0x7FFF) * 256 + 0xBC] = v;
+            D_L01_0015FFD8[(*moby_index_entry & 0x7FFF) * 256 + 0xBC] = moby_byte_value;
         } while (*(short *)moby_index_entry++ >= 0);
     }
 }
@@ -76,8 +76,8 @@ extern char *D_L01_0015FFD8_e0e0 __asm__("D_L01_0015FFD8");
  * func_L01_0026F090), where it is exact; names translated to the US level
  * program. The datum needs the unsplit macro form here, so it is declared
  * through an alias (same symbol, .sdata) beside its neighbour's declaration. */
-void FUN_L01_0026e0e0(int list, int state);
-void FUN_L01_0026e0e0(int list, int state) {
+void set_moby_list_state(int list, int state) __asm__("FUN_L01_0026e0e0");
+void set_moby_list_state(int list, int state) {
     unsigned short *moby_index_entry;
     unsigned short *moby_index_list = (unsigned short *)D_L01_001ABCC0[list];
 

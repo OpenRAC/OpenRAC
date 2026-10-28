@@ -5,48 +5,55 @@
 
 extern float fast_add_rotations(float, float) __asm__("FUN_001fa580");
 extern s32 get_effect_texture() __asm__("FUN_001f44b8");
-extern void FUN_L11_00310cf8(float, float, float, float, float, int, int, int, int, int, int, int,
-                             int);
+extern void append_rotated_textured_screen_quad(float, float, float, float, float, int, int, int, int, int, int, int,
+                             int) __asm__("FUN_L11_00310cf8");
 
 /* Draws four quads a quarter turn apart; same routine as FUN_L11_00311048 with this level's texture. */
-void FUN_L17_002ea418(unsigned char a, unsigned char b, unsigned char c, unsigned char d, float x,
-                      float y, float scale, float ang) {
+void draw_four_quarter_turn_effect_quads(unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha, float x,
+                      float y, float scale, float quad_rotation_radians) __asm__("FUN_L17_002ea418");
+
+void draw_four_quarter_turn_effect_quads(unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha, float x,
+                      float y, float scale, float quad_rotation_radians) {
     int texture_handle;
-    float w;
+    float quad_size;
     texture_handle = get_effect_texture(0x2E);
-    w = scale * 20.0f;
-    FUN_L11_00310cf8(x, y, w, w, ang, 0x3F, 0x3F, texture_handle, 0xFFFFF3, a, b, c, d);
-    ang = fast_add_rotations(ang, 1.5707964f);
-    FUN_L11_00310cf8(x, y, w, w, ang, 0x3F, 0x3F, texture_handle, 0xFFFFF3, a, b, c, d);
-    ang = fast_add_rotations(ang, 1.5707964f);
-    FUN_L11_00310cf8(x, y, w, w, ang, 0x3F, 0x3F, texture_handle, 0xFFFFF3, a, b, c, d);
-    ang = fast_add_rotations(ang, 1.5707964f);
-    FUN_L11_00310cf8(x, y, w, w, ang, 0x3F, 0x3F, texture_handle, 0xFFFFF3, a, b, c, d);
+    quad_size = scale * 20.0f;
+    append_rotated_textured_screen_quad(x, y, quad_size, quad_size, quad_rotation_radians, 0x3F, 0x3F, texture_handle, 0xFFFFF3, red, green, blue, alpha);
+    quad_rotation_radians = fast_add_rotations(quad_rotation_radians, 1.5707964f);
+    append_rotated_textured_screen_quad(x, y, quad_size, quad_size, quad_rotation_radians, 0x3F, 0x3F, texture_handle, 0xFFFFF3, red, green, blue, alpha);
+    quad_rotation_radians = fast_add_rotations(quad_rotation_radians, 1.5707964f);
+    append_rotated_textured_screen_quad(x, y, quad_size, quad_size, quad_rotation_radians, 0x3F, 0x3F, texture_handle, 0xFFFFF3, red, green, blue, alpha);
+    quad_rotation_radians = fast_add_rotations(quad_rotation_radians, 1.5707964f);
+    append_rotated_textured_screen_quad(x, y, quad_size, quad_size, quad_rotation_radians, 0x3F, 0x3F, texture_handle, 0xFFFFF3, red, green, blue, alpha);
 }
 
 #include "eetypes.h"
 #include "qcopy.h"
 #include "sda.h"
 
-extern int FUN_L00_002dbe20(void *);
+extern int cancel_suck_cannon_suction(void *) __asm__("FUN_L00_002dbe20");
 
-int FUN_L17_002f0040(struct Moby *moby) {
-    int r = FUN_L00_002dbe20(moby);
+int cancel_suck_cannon_suction_and_set_state_12(struct Moby *moby) __asm__("FUN_L17_002f0040");
+
+int cancel_suck_cannon_suction_and_set_state_12(struct Moby *moby) {
+    int helper_result = cancel_suck_cannon_suction(moby);
     moby->state = 0xc;
-    return r;
+    return helper_result;
 }
-extern void FUN_L17_002f0448(struct Moby *m);
+void draw_three_moby_effect_quads(struct Moby *effect_owner) __asm__("FUN_L17_002f0448");
+
+extern void draw_three_moby_effect_quads(struct Moby *m) __asm__("FUN_L17_002f0448");
 
 /* Applies the same effect to three consecutive 16-byte slots of a moby's data, tagged with its colour word. */
 
-extern void FUN_L00_00263618(void *, int, float, float);
+extern void draw_offset_textured_effect_quad(void *, int, float, float) __asm__("FUN_L00_00263618");
 
-void FUN_L17_002f0448(struct Moby *m) {
-    int v = (m->glow_color & 0xFFFFFF) | 0x30000000;
-    char *effect_position = (char *)m->pvars + 0x200;
+void draw_three_moby_effect_quads(struct Moby *effect_owner) {
+    int effect_color = (effect_owner->glow_color & 0xFFFFFF) | 0x30000000;
+    char *effect_position = (char *)effect_owner->pvars + 0x200;
     int i;
     for (i = 2; i >= 0; i--) {
-        FUN_L00_00263618(effect_position, v, 0.2f, 0.08f);
+        draw_offset_textured_effect_quad(effect_position, effect_color, 0.2f, 0.08f);
         effect_position += 0x10;
     }
 }

@@ -10,22 +10,24 @@
 /* Build a symmetric adjacency bitmask over a table's entries from pairwise tests. */
 /* Ported from rac1-decomp (src/overlays/shared/mobyutil_0028AA68.c: func_L05_0028CEE8), where it is exact; names translated to the US level program. */
 
-extern int FUN_L00_00261968(int, void *, void *);
+extern int test_path_segment_strict_crossing(int, void *, void *) __asm__("FUN_L00_00261968");
 
-void FUN_L05_0028be78(int *list, int list_count, int idx) {
-    char *adjacency_table = D_L05_001B0930[idx];
+void build_symmetric_adjacency_masks(int *list, int list_count, int adjacency_table_index) __asm__("FUN_L05_0028be78");
+
+void build_symmetric_adjacency_masks(int *list, int list_count, int adjacency_table_index) {
+    char *adjacency_table = D_L05_001B0930[adjacency_table_index];
     int i, j, k, found;
     {
-        int c;
-        for (c = 0; c < *(int *)adjacency_table; c++) {
-            *(int *)(adjacency_table + 0x1C + c * 16) = 0;
+        int mask_clear_index;
+        for (mask_clear_index = 0; mask_clear_index < *(int *)adjacency_table; mask_clear_index++) {
+            *(int *)(adjacency_table + 0x1C + mask_clear_index * 16) = 0;
         }
     }
     for (i = 0; i < *(int *)adjacency_table; i++) {
         for (j = i + 1; j < *(int *)adjacency_table; j++) {
             found = 0;
             for (k = 0; k < list_count; k++) {
-                if (FUN_L00_00261968(list[k], adjacency_table + 0x10 + i * 16, adjacency_table + 0x10 + j * 16) != 0) {
+                if (test_path_segment_strict_crossing(list[k], adjacency_table + 0x10 + i * 16, adjacency_table + 0x10 + j * 16) != 0) {
                     found = 1;
                     break;
                 }

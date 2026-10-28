@@ -16,7 +16,7 @@ extern void draw_textured_quad(s32 x, s32 y, s32 w, s32 h, s32 u, s32 v, s32 uw,
 s32 font_print_wrapped(s32 x, s32 y, s32 width, s32 height, u64 color, u8 *text, s32 len, u64 extra,
                        struct Glyph *font) __asm__("FUN_001f6cb8");
 
-s32 font_print_wrapped(s32 x, s32 y, s32 width, s32 height, u64 color, u8 *text, s32 len, u64 extra,
+s32 font_print_wrapped(s32 x, s32 y, s32 width, s32 height, u64 color, u8 *text, s32 text_byte_limit, u64 extra,
                        struct Glyph *font) {
     s32 i;
     s32 j;
@@ -25,23 +25,23 @@ s32 font_print_wrapped(s32 x, s32 y, s32 width, s32 height, u64 color, u8 *text,
     u8 *current_text_byte;
     u32 character_code;
     f32 start;
-    f32 w;
-    struct Glyph *g;
+    f32 lookahead_width;
+    struct Glyph *supplemental_glyph;
 
     cx = x;
     cy = y;
     i = 0;
     font_palette_colors[0] = color;
-    while (i != len && text[i] != 0 && y + height >= cy + 16) {
+    while (i != text_byte_limit && text[i] != 0 && y + height >= cy + 16) {
         j = i;
-        w = 0.0f;
+        lookahead_width = 0.0f;
         current_text_byte = &text[i];
         start = cx;
-        while (j != len && text[j] != ' ' && text[j] >= 0x10) {
-            w += font[text[j]].adv;
+        while (j != text_byte_limit && text[j] != ' ' && text[j] >= 0x10) {
+            lookahead_width += font[text[j]].adv;
             j++;
         }
-        if ((f32)(x + width) < start + w) {
+        if ((f32)(x + width) < start + lookahead_width) {
             if (*current_text_byte != ' ' && *current_text_byte >= 0x10) {
                 i--;
             }
@@ -56,8 +56,8 @@ s32 font_print_wrapped(s32 x, s32 y, s32 width, s32 height, u64 color, u8 *text,
             character_code = *current_text_byte;
             if (font[character_code].adv != 0) {
                 if ((u8)(character_code + 0x80) < 0x28) {
-                    g = (struct Glyph *)(((character_code + 0x40) << 2) + (s32)font);
-                    draw_textured_quad(cx + g->adv, cy + g->yoff, 16, 16, g->u, g->v, 16, 16, color,
+                    supplemental_glyph = (struct Glyph *)(((character_code + 0x40) << 2) + (s32)font);
+                    draw_textured_quad(cx + supplemental_glyph->adv, cy + supplemental_glyph->yoff, 16, 16, supplemental_glyph->u, supplemental_glyph->v, 16, 16, color,
                                        extra);
                 }
                 if (*current_text_byte < 0x20) {

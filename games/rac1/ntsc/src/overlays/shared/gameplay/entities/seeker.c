@@ -50,7 +50,7 @@ typedef struct {
 } VoiceSlot;
 
 extern u8 D_0013E550[];
-extern s32 D_L09_0015F5C4;
+#include "rnc/overlay/shared/gameplay/entities/seeker_globals.h"
 extern Vec4f D_L09_00166F40;
 extern u8 D_L09_00208320[];
 
@@ -102,11 +102,11 @@ void seeker_update(struct Moby *moby) {
     Vec4 vel;
     s32 mode;
     s32 voice;
-    f32 dist;
+    f32 target_distance_xy;
     f32 z;
     f32 height;
     f32 limit;
-    f32 diff;
+    f32 vertical_follow_adjustment;
     VoiceSlot *slot;
 
     FUN_L09_002c6230_u(moby);
@@ -116,7 +116,7 @@ void seeker_update(struct Moby *moby) {
         FUN_L00_0025a120(moby);
         moby->shadow_range = 0x17;
     }
-    mode = D_L09_0015F5C4;
+    mode = seeker_state_dispatch_mode;
     if (mode == 2) {
         return;
     }
@@ -195,24 +195,24 @@ void seeker_update(struct Moby *moby) {
                          fast_arc_tan(target->pos.x - moby->pos.x, target->pos.y - moby->pos.y),
                          &vars->heading_speed, frame_time_sq * 8.726646f, frame_time_sq * 8.726646f,
                          frame_time * 12.566371f);
-        dist = vector_distance_xy(&moby->pos, &target->pos);
-        if (dist > 1.9f) {
+        target_distance_xy = vector_distance_xy(&moby->pos, &target->pos);
+        if (target_distance_xy > 1.9f) {
             vars->moving = 1;
         }
-        if (dist < 1.4f) {
+        if (target_distance_xy < 1.4f) {
             vars->moving = 0;
         }
         if (vars->moving != 0) {
             vel.f[0] = fast_cos(moby->rot.z) * vars->speed;
             vel.f[1] = fast_sin(moby->rot.z) * vars->speed;
             vel.f[2] = 0.0f;
-            diff = hero.motion.pos.f[2] + 0.8f - z;
+            vertical_follow_adjustment = hero.motion.pos.f[2] + 0.8f - z;
             if (moby->pos.z < hero.motion.pos.f[2] + 0.8f) {
-                diff *= 0.1f;
+                vertical_follow_adjustment *= 0.1f;
             } else {
-                diff *= 0.05f;
+                vertical_follow_adjustment *= 0.05f;
             }
-            vel.f[2] += diff;
+            vel.f[2] += vertical_follow_adjustment;
             limit = frame_scale * 0.3f;
             if (vel.f[2] > limit) {
                 vel.f[2] = limit;
@@ -225,13 +225,13 @@ void seeker_update(struct Moby *moby) {
             FUN_L00_00258830(moby, &vel, 0, 0.0f, 0.5f, 0.0f);
         } else {
             qzero(&vel);
-            diff = hero.motion.pos.f[2] + 0.2f - z;
+            vertical_follow_adjustment = hero.motion.pos.f[2] + 0.2f - z;
             if (moby->pos.z < hero.motion.pos.f[2] + 0.2f) {
-                diff *= 0.1f;
+                vertical_follow_adjustment *= 0.1f;
             } else {
-                diff *= 0.05f;
+                vertical_follow_adjustment *= 0.05f;
             }
-            vel.f[2] += diff;
+            vel.f[2] += vertical_follow_adjustment;
             limit = frame_scale * 0.3f;
             if (vel.f[2] > limit) {
                 vel.f[2] = limit;
@@ -243,7 +243,7 @@ void seeker_update(struct Moby *moby) {
             }
             FUN_L00_00258830(moby, &vel, 0, 0.0f, 0.5f, 0.0f);
         }
-        if (dist < 6.0f && moby->state == 2) {
+        if (target_distance_xy < 6.0f && moby->state == 2) {
             moby->state = 3;
             if (moby->prev_seq != 3) {
                 blend_moby_animation(moby, 3, 0, scale_game_frames(10));
@@ -330,10 +330,7 @@ extern char *FUN_L00_0025a420(void *, int, int);
 extern f32 random_float_between_c(f32, f32) __asm__("func_002132A8");
 extern float D_0015ED6C;
 extern float D_0015ED70;
-extern float D_L09_001613F8 __attribute__((sda));
-extern float D_L09_00161400 __attribute__((sda));
-extern float D_L09_00161404 __attribute__((sda));
-extern float D_L09_00161408 __attribute__((sda));
+#include "rnc/overlay/shared/gameplay/entities/seeker_data/update_seeker_damage_and_target.h"
 extern float D_L09_0016140C __attribute__((sda));
 extern int multiply_global_factor_ed64() __asm__("FUN_001f96b0");
 extern int FUN_001f9b80_c() __asm__("FUN_001f9b80");
@@ -348,7 +345,7 @@ extern void trooper_anim_finish(void *, void *) __asm__("FUN_L00_0025d538");
 extern void tick_countdown_32(s32 *) __asm__("func_001F9740");
 float absolute_float(float input) __asm__("func_001F99C0");
 int FUN_L00_0025ff38(float best, char *a, char *o, int *excluded, int excluded_count, void *region, int region_count);
-int FUN_L04_00252e18(char *a, char *o, float best);
+int select_moby_record_by_xy_distance(char *a, char *o, float best) __asm__("FUN_L04_00252e18");
 void trooper_knockback_arc(void *v, float *ang, float *s1, float *s2) __asm__("FUN_L00_0025ab48");
 void trooper_start_knockback(u8 *a, void *b, int c, int d, int e, float f) __asm__("FUN_L00_0025c558");
 void FUN_L01_0026e090_c(int i, int v) __asm__("FUN_L01_0026e090");
@@ -375,7 +372,9 @@ extern float func_001F9B88_2C73D0(float) __asm__("FUN_001f99c0");
 extern Path_2C73D0 *D_L09_001B0930_2C73D0[] __asm__("D_L09_001B0630");
 extern char D_0013E633_2C73D0[] __asm__("D_001413D0");
 
-void FUN_L09_002c6230(Moby *moby) {
+void update_seeker_damage_and_target(Moby *moby) __asm__("FUN_L09_002c6230");
+
+void update_seeker_damage_and_target(Moby *moby) {
     enum {
         RESPONSE_NONE = 0,
         RESPONSE_FATAL_KNOCKBACK = 1,
@@ -418,7 +417,7 @@ void FUN_L09_002c6230(Moby *moby) {
             response = 1;
         }
         data->f90 = func_001FA898_2C73D0(512.0f);
-        data->f80 = D_L09_001613F8 * D_0015ED70;
+        data->f80 = seeker_knockback_gravity_scale * D_0015ED70;
         data->f84 = D_0015ED70 * 30.0f;
         data->f98 = 0.0f;
         data->f94 = 1;
@@ -438,7 +437,7 @@ void FUN_L09_002c6230(Moby *moby) {
         case 8:
             data->fC0 = 3.0f;
             data->fC4 = 6.0f;
-            data->f88 = D_L09_00161400 * D_0015ED6C;
+            data->f88 = seeker_hurt_knockback_xy_scale * D_0015ED6C;
             data->f8C = 0.0f;
             knock_angle = func_L00_001FF860_2C73D0(moby->pos.x - source->owner->pos.x, moby->pos.y - source->owner->pos.y);
             *(Q_2C73D0 *)hit_pos = source->pos;
@@ -453,9 +452,9 @@ void FUN_L09_002c6230(Moby *moby) {
         case RESPONSE_FATAL_KNOCKBACK:
         case 2:
             moby->flags &= 0xEFFF;
-            data->f80 = D_L09_001613F8 * D_0015ED70;
-            data->f88 = D_L09_00161408 * D_0015ED6C;
-            data->f8C = D_L09_00161404 * D_0015ED6C;
+            data->f80 = seeker_knockback_gravity_scale * D_0015ED70;
+            data->f88 = seeker_fatal_knockback_xy_scale * D_0015ED6C;
+            data->f8C = seeker_fatal_knockback_z_scale * D_0015ED6C;
             data->fC0 = 14.0f;
             data->fC4 = 28.0f;
             knock_angle_fatal = func_L00_001FF860_2C73D0(moby->pos.x - source->owner->pos.x, moby->pos.y - source->owner->pos.y);
@@ -620,8 +619,8 @@ f32 compute_interpolated_record_value(void *anim) __asm__("FUN_0020c9e0");
 float absolute_float(float input) __asm__("func_001F99C0");
 int FUN_L00_00257b90_c(int lo, int hi) __asm__("FUN_L00_00257b90");
 int FUN_L00_0025c698_c(void *moby, void *motion) __asm__("FUN_L00_0025c698");
-int FUN_L00_0025fcb8(char *a, char *o, float best);
-int FUN_L01_0028b5e0(char *a0, void *list, char *pt, char *out);
+int select_moby_combat_target(char *a, char *o, float best) __asm__("FUN_L00_0025fcb8");
+int select_list_point_toward_target(char *a0, void *list, char *pt, char *out) __asm__("FUN_L01_0028b5e0");
 s32 FUN_L00_00258b50(void *m, void *c, void *v, Vec4 *out, f32 f);
 void FUN_L00_00258278(unsigned char *m, float *ptr, float t, float b, float c, float limit);
 void spawn_nearby_effect(unsigned char *m, int x, int y, void *p, void *q, float f) __asm__("FUN_L00_00259bc8");
@@ -687,7 +686,9 @@ extern void splash_2E39E0(Moby *, void *, int, float, float) __asm__("FUN_L00_00
 extern void delete_2E39E0(Moby *) __asm__("FUN_0020c828");
 extern void effects_update_2E39E0(Moby *, void *) __asm__("FUN_L00_0025d538");
 
-void FUN_L09_002e27d8(Moby *moby) {
+void update_ground_melee_enemy(Moby *moby) __asm__("FUN_L09_002e27d8");
+
+void update_ground_melee_enemy(Moby *moby) {
     enum {
         GROUND_ENEMY_STATE_INITIALIZE = 0,
         GROUND_ENEMY_STATE_IDLE = 1,

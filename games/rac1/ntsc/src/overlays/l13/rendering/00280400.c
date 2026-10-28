@@ -15,19 +15,22 @@ extern void moby_point_position(void *, int, void *) __asm__("FUN_L00_0024f7c8")
 extern int func_001FA898_r(float) __asm__("FUN_001fa6d0");
 
 extern unsigned char *D_L13_001B2490 NOT_SDA;
-unsigned char *FUN_L13_00280400(char *moby, unsigned char joint_index, int b, int c, unsigned char d, float x,
+unsigned char *create_moby_joint_particle(char *moby, unsigned char joint_index, int b, int c, unsigned char d, float x,
+                                float y, float z) __asm__("FUN_L13_00280400");
+
+unsigned char *create_moby_joint_particle(char *moby, unsigned char joint_index, int b, int c, unsigned char d, float x,
                                 float y, float z) {
     unsigned char *particle = create_part(0x44);
     if (particle != 0) {
         char *world_position;
-        int v;
-        unsigned short t;
-        unsigned char *s;
+        int particle_bias;
+        unsigned short moby_a6_value;
+        unsigned char *attachment_data;
         *(int *)(particle + 4) = b;
         *(int *)(particle + 0xC) = c;
         world_position = (char *)particle + 0x10;
-        v = func_001FA898_r(0.4f);
-        particle[9] = (((short)*(unsigned short *)(moby + 0x32) >> 5) << 4) + v;
+        particle_bias = func_001FA898_r(0.4f);
+        particle[9] = (((short)*(unsigned short *)(moby + 0x32) >> 5) << 4) + particle_bias;
         particle[3] = 0x48;
         particle[1] = 3;
         particle[2] = *D_L13_001B2490;
@@ -36,13 +39,13 @@ unsigned char *FUN_L13_00280400(char *moby, unsigned char joint_index, int b, in
         *(float *)(particle + 0x2C) = y;
         *(float *)(particle + 0x1C) = x;
         *(char **)(particle + 0x30) = moby;
-        s = particle + 0x30;
-        t = *(unsigned short *)(moby + 0xA6);
-        *(short *)(s + 6) = t;
-        s[4] = joint_index;
-        *(float *)(s + 8) = x;
-        *(float *)(s + 0xC) = z;
-        s[5] = d;
+        attachment_data = particle + 0x30;
+        moby_a6_value = *(unsigned short *)(moby + 0xA6);
+        *(short *)(attachment_data + 6) = moby_a6_value;
+        attachment_data[4] = joint_index;
+        *(float *)(attachment_data + 8) = x;
+        *(float *)(attachment_data + 0xC) = z;
+        attachment_data[5] = d;
     }
     return particle;
 }

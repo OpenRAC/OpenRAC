@@ -10,35 +10,36 @@ u32 *FUN_00122fe0_002a08c8(int) __asm__("FUN_00122fe0");
 void FUN_00118a80_002a08c8(int) __asm__("FUN_00118a80");
 void FUN_001232c8_002a08c8(u32 *, u32) __asm__("FUN_001232c8");
 extern u32 D_L00_001611B8[] __attribute__((section(".data")));
-extern int D_L00_001611D0;
-extern int D_L00_001611D4;
+#include "rnc/overlay/shared/rendering/buffers/002a08c8_globals.h"
 extern char D_L00_001E9530[];
-void FUN_L00_002a08c8(void) {
-    int r;
+void vu1_send_chain_render_buffer(void) __asm__("FUN_L00_002a08c8");
+
+void vu1_send_chain_render_buffer(void) {
+    int buffer_limit_exceeded;
     int buffer_used_bytes;
-    u32 *s;
-    buffer_used_bytes = D_L00_001611C0_002a08c8 - D_L00_001611B8[D_L00_001611D0];
+    u32 *flag_word;
+    buffer_used_bytes = D_L00_001611C0_002a08c8 - D_L00_001611B8[selected_render_buffer_index];
     D_L00_001611A0_002a08c8 |= 0x1F;
-    r = 0;
-    if (D_L00_001611D4 < buffer_used_bytes) {
-        D_L00_001611D4 = buffer_used_bytes;
+    buffer_limit_exceeded = 0;
+    if (render_buffer_high_water_bytes < buffer_used_bytes) {
+        render_buffer_high_water_bytes = buffer_used_bytes;
         if (D_L00_001611CC < buffer_used_bytes) {
             FUN_001e93b0_002a08c8(D_L00_001E9530);
-            r = 1;
+            buffer_limit_exceeded = 1;
         }
     }
-    if (r == 0) {
+    if (buffer_limit_exceeded == 0) {
         {
-            int *p = (int *)D_L00_001611C0_002a08c8;
-            *p = 0x70000000;
+            int *buffer_write_word = (int *)D_L00_001611C0_002a08c8;
+            *buffer_write_word = 0x70000000;
         }
         *(int *)(D_L00_001611C0_002a08c8 + 4) = 0;
         *(int *)(D_L00_001611C0_002a08c8 + 8) = 0;
         *(int *)(D_L00_001611C0_002a08c8 + 12) = 0;
-        s = FUN_00122fe0_002a08c8(1);
-        *s |= 0xC0;
+        flag_word = FUN_00122fe0_002a08c8(1);
+        *flag_word |= 0xC0;
         FUN_00118a80_002a08c8(0);
-        FUN_001232c8_002a08c8(s, D_L00_001611B8[D_L00_001611D0]);
+        FUN_001232c8_002a08c8(flag_word, D_L00_001611B8[selected_render_buffer_index]);
     } else {
         D_L00_001611A0_002a08c8 = 0;
     }
@@ -49,7 +50,9 @@ void FUN_L00_001ff018(int);
 void debug_print(char *) __asm__("FUN_001e93b0");
 void reset_graphics(void) __asm__("FUN_001f21c0");
 /* Waits while D_L00_001611A0 has any mask bit; after 100000 tries reports and resets graphics. */
-void FUN_L00_002a09d8(int mask) {
+void vu1_sync_chain(int mask) __asm__("FUN_L00_002a09d8");
+
+void vu1_sync_chain(int mask) {
     int i;
     for (i = 0; D_L00_001611A0 & mask; i++) {
         FUN_L00_001ff018(0x400);

@@ -15,7 +15,9 @@ extern int D_L00_0015FC98;
 extern int D_L00_0015FC9C;
 
 /* Reads two ints and two floats from p into D_L00_0015FC98.. and keeps the rest pointer. */
-void FUN_L00_0023f0d8(char *data_cursor) {
+void load_two_int_two_float_header(char *data_cursor) __asm__("FUN_L00_0023f0d8");
+
+void load_two_int_two_float_header(char *data_cursor) {
     D_L00_0015FC98 = *(int *)data_cursor;
     data_cursor += 4;
     D_L00_0015FC9C = *(int *)data_cursor;
@@ -29,7 +31,9 @@ void FUN_L00_0023f0d8(char *data_cursor) {
 extern u32 D_L00_0015F43C;
 extern s32 D_L00_0015F438;
 extern u32 D_L00_0015F440;
-void FUN_L00_0023f120(s32 *data_cursor) {
+void relocate_counted_pointer_table(s32 *data_cursor) __asm__("FUN_L00_0023f120");
+
+void relocate_counted_pointer_table(s32 *data_cursor) {
     s32 i, j;
     s32 entry_count;
     entry_count = *data_cursor;

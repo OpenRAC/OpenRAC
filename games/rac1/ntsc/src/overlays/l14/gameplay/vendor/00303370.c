@@ -5,19 +5,21 @@
 
 #include "qcopy.h"
 #include "sda.h"
-extern void FUN_L02_002a4058(void *, int, float);
+extern void prepare_scaled_float_table_with_target_byte(void *, int, float) __asm__("FUN_L02_002a4058");
 extern void add_draw_callback(void *, void *) __asm__("FUN_001f4600");
 extern unsigned char D_L14_001E9C60[];
 extern void register_audio_stream_callback(void) __asm__("FUN_00215420");
 
-void FUN_L14_00303370(struct Moby *moby) {
+void update_moby_draw_registration(struct Moby *moby) __asm__("FUN_L14_00303370");
+
+void update_moby_draw_registration(struct Moby *moby) {
     enum {
         MOBY_STATE_INITIALIZE = 0,
         MOBY_STATE_REGISTER_DRAW_CALLBACK = 1
     };
     switch (moby->state) {
     case MOBY_STATE_INITIALIZE:
-        FUN_L02_002a4058(D_L14_001E9C60, 0x40, 0.6666667f);
+        prepare_scaled_float_table_with_target_byte(D_L14_001E9C60, 0x40, 0.6666667f);
         moby->state = 1;
         moby->update_dist = 0xFF;
         break;
@@ -40,7 +42,9 @@ typedef struct {
 } O_FUN_L14_00305a38;
 s32 random_integer_below(s32) __asm__("FUN_00213260");
 s32 scale_game_frames(s32) __asm__("FUN_001f96f8");
-void FUN_L14_00305a38(O_FUN_L14_00305a38 *moby) {
+void initialize_morphoray_private_state(O_FUN_L14_00305a38 *moby) __asm__("FUN_L14_00305a38");
+
+void initialize_morphoray_private_state(O_FUN_L14_00305a38 *moby) {
     M_FUN_L14_00305a38 *m = moby->m;
     s32 i;
     for (i = 0; i < 4; i++)
@@ -60,8 +64,10 @@ void FUN_L14_00305a38(O_FUN_L14_00305a38 *moby) {
 
 extern char D_L14_001F5F80[];
 extern s32 get_effect_texture() __asm__("FUN_001f44b8");
-extern void FUN_L12_002bc210_u(void *, int, int, int) __asm__("FUN_L12_002bc210");
+extern void draw_textured_effect_list(void *, int, int, int) __asm__("FUN_L12_002bc210");
 
-void FUN_L14_00307a28(void) {
-    FUN_L12_002bc210_u(D_L14_001F5F80, 0x13, get_effect_texture(0x2e), get_effect_texture(0x2f));
+void draw_level14_textured_effect_list(void) __asm__("FUN_L14_00307a28");
+
+void draw_level14_textured_effect_list(void) {
+    draw_textured_effect_list(D_L14_001F5F80, 0x13, get_effect_texture(0x2e), get_effect_texture(0x2f));
 }

@@ -16,16 +16,18 @@
 extern int coll_line_fix(void *, void *, int, int, int) __asm__("FUN_001efa68");
 
 extern float D_L04_00173FE8 __attribute__((section(".data")));
-float FUN_L04_002922d0(float *pos) {
+float probe_leg_rig_ground_height(float *probe_origin) __asm__("FUN_L04_002922d0");
+
+float probe_leg_rig_ground_height(float *probe_origin) {
     float clamped_probe_point[4];
-    float b[4];
-    qcopy(clamped_probe_point, pos);
+    float raised_probe_point[4];
+    qcopy(clamped_probe_point, probe_origin);
     clamped_probe_point[2] = clamped_probe_point[2] - 2.5f;
     if (clamped_probe_point[2] < 0.1f)
         clamped_probe_point[2] = 0.1f;
-    qcopy(b, pos);
-    b[2] = b[2] + 0.75f;
-    if (coll_line_fix(b, clamped_probe_point, 2, 0, 0) != 0)
+    qcopy(raised_probe_point, probe_origin);
+    raised_probe_point[2] = raised_probe_point[2] + 0.75f;
+    if (coll_line_fix(raised_probe_point, clamped_probe_point, 2, 0, 0) != 0)
         return D_L04_00173FE8;
     return 0.0f;
 }
@@ -35,11 +37,13 @@ float FUN_L04_002922d0(float *pos) {
 
 /* Ported from rac1-decomp (src/overlays/l04_eudora/vuchain_00293490.c: func_L04_00293530), where it is exact; names translated to the US level program. */
 
-void FUN_L04_00292370(void *unused, char *arg) {
-    *(float *)(arg + 0x10C) = -0.19634955f;
-    *(float *)(arg + 0x110) = 1.5707964f;
-    *(float *)(arg + 0x1BC) = -1.5707964f;
-    *(float *)(arg + 0x1C0) = 0.19634955f;
+void initialize_leg_rig_angle_defaults(void *unused, char *movement_data) __asm__("FUN_L04_00292370");
+
+void initialize_leg_rig_angle_defaults(void *unused, char *movement_data) {
+    *(float *)(movement_data + 0x10C) = -0.19634955f;
+    *(float *)(movement_data + 0x110) = 1.5707964f;
+    *(float *)(movement_data + 0x1BC) = -1.5707964f;
+    *(float *)(movement_data + 0x1C0) = 0.19634955f;
 }
 extern char invalid_animation_message[] __asm__("D_L04_001DB360");
 extern char rig_size_message[] __asm__("D_L04_001DB3F0");
@@ -53,7 +57,9 @@ extern void get_joint_matrix(struct Moby *m, int joint, float *mtx) __asm__("FUN
 extern float fast_arc_tan(float, float) __asm__("FUN_001f9e90");
 extern void attach_manipulator(struct Moby *m, int slot, LegRigManip *manip) __asm__("FUN_0020cb10");
 
-void FUN_L04_002923b8(struct Moby *moby, LegRig *rig) {
+void initialize_leg_rig(struct Moby *moby, LegRig *rig) __asm__("FUN_L04_002923b8");
+
+void initialize_leg_rig(struct Moby *moby, LegRig *rig) {
     int joints[6];
     float matrix[4][4];
     int i;
@@ -170,7 +176,7 @@ extern void add_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a10");
 extern void clear_u64_value(void *) __asm__("func_001F99F8");
 extern void cross_vectors_xyz(void *, void *, void *) __asm__("func_001F9AD8");
 float absolute_float(float input) __asm__("func_001F99C0");
-float FUN_L04_002922d0_c(float *pos) __asm__("FUN_L04_002922d0");
+float probe_leg_rig_ground_height(float *pos) __asm__("FUN_L04_002922d0");
 extern void func_001F9BC0_2939E8(float *) __asm__("FUN_001f99f8");
 extern float func_001F9F90_2939E8(float) __asm__("FUN_001f9dc8");
 extern float func_001F9FA8_2939E8(float) __asm__("FUN_001f9de0");
@@ -178,11 +184,13 @@ extern float vector_length_xy(void *) __asm__("FUN_001f9b20");
 extern float angle_atan2(float, float) __asm__("FUN_001f9e90");
 extern char D_L04_00174040_2939E8[] __asm__("D_L04_00173FC0");
 
-int FUN_L04_00292828(StMoby_2939E8 *moby, Steer_2939E8 *steer_state)
+int update_leg_rig_height_and_tilt(StMoby_2939E8 *moby, Steer_2939E8 *steer_state) __asm__("FUN_L04_00292828");
+
+int update_leg_rig_height_and_tilt(StMoby_2939E8 *moby, Steer_2939E8 *steer_state)
 {
     float push[4];
-    float dir[4];
-    int ret = 0;
+    float tilt_direction[4];
+    int excessive_tilt_flags = 0;
     int pinned = 0;
     int bit = 1;
     int j;
@@ -190,7 +198,7 @@ int FUN_L04_00292828(StMoby_2939E8 *moby, Steer_2939E8 *steer_state)
     float height_correction_divisor;
     float ground_height;
     float sum;
-    float t;
+    float xy_abs_sum_or_tilt;
 
     dz = 0.0f;
     height_correction_divisor = dz;
@@ -212,12 +220,12 @@ int FUN_L04_00292828(StMoby_2939E8 *moby, Steer_2939E8 *steer_state)
         for (j = 0; j < 4; j++) {
             Vec_2939E8 *probe_point = &steer_state->pts[j];
             if (steer_state->mask & bit) {
-                ground_height = FUN_L04_002922d0_c((float *)probe_point);
+                ground_height = probe_leg_rig_ground_height((float *)probe_point);
                 sum += ground_height;
                 if (0.0f < ground_height) {
-                    t = absolute_float(((StTab_2939E8 *)D_L04_00174040_2939E8)->v40.x);
-                    t = t + absolute_float(((StTab_2939E8 *)D_L04_00174040_2939E8)->v40.y);
-                    if (t < absolute_float(((StTab_2939E8 *)D_L04_00174040_2939E8)->v40.z)) {
+                    xy_abs_sum_or_tilt = absolute_float(((StTab_2939E8 *)D_L04_00174040_2939E8)->v40.x);
+                    xy_abs_sum_or_tilt = xy_abs_sum_or_tilt + absolute_float(((StTab_2939E8 *)D_L04_00174040_2939E8)->v40.y);
+                    if (xy_abs_sum_or_tilt < absolute_float(((StTab_2939E8 *)D_L04_00174040_2939E8)->v40.z)) {
                         add_vector_xyz(push, push, &((StTab_2939E8 *)D_L04_00174040_2939E8)->v40);
                         height_correction_divisor += 4.0f;
                         dz += ground_height - probe_point->z;
@@ -235,24 +243,24 @@ int FUN_L04_00292828(StMoby_2939E8 *moby, Steer_2939E8 *steer_state)
             }
         }
         if (push[0] != 0.0f || push[1] != 0.0f || push[2] != 0.0f) {
-            dir[0] = func_001F9F90_2939E8(moby->rotz);
-            dir[1] = func_001F9FA8_2939E8(moby->rotz);
-            dir[2] = 0.0f;
-            cross_vectors_xyz(dir, dir, push);
-            cross_vectors_xyz(dir, dir, push);
-            steer_state->tilt = angle_atan2(vector_length_xy(dir), dir[2]);
+            tilt_direction[0] = func_001F9F90_2939E8(moby->rotz);
+            tilt_direction[1] = func_001F9FA8_2939E8(moby->rotz);
+            tilt_direction[2] = 0.0f;
+            cross_vectors_xyz(tilt_direction, tilt_direction, push);
+            cross_vectors_xyz(tilt_direction, tilt_direction, push);
+            steer_state->tilt = angle_atan2(vector_length_xy(tilt_direction), tilt_direction[2]);
         } else {
             steer_state->tilt = 0.0f;
         }
         if (0.785398f < absolute_float(steer_state->tilt)) {
-            ret = 2;
+            excessive_tilt_flags = 2;
         }
         if (steer_state->kind == 0xD && 0.0f < steer_state->ground && (steer_state->mask & 0xF) == 0) {
-            t = -angle_atan2(steer_state->f8C[1], steer_state->ground - moby->pos.z);
-            if (absolute_float(t) < 0.5235988f) {
+            xy_abs_sum_or_tilt = -angle_atan2(steer_state->f8C[1], steer_state->ground - moby->pos.z);
+            if (absolute_float(xy_abs_sum_or_tilt) < 0.5235988f) {
                 pinned = 1;
                 dz += steer_state->ground - moby->pos.z;
-                steer_state->tilt = t;
+                steer_state->tilt = xy_abs_sum_or_tilt;
                 height_correction_divisor += 4.0f;
             }
         }
@@ -279,7 +287,7 @@ int FUN_L04_00292828(StMoby_2939E8 *moby, Steer_2939E8 *steer_state)
         point_to_shift->z += dz;
     }
     moby->pos.z = moby->pos.z + dz;
-    return ret;
+    return excessive_tilt_flags;
 }
 extern void get_joint_matrix_2d48(struct Moby *, int, float *) __asm__("FUN_0020cca8");
 extern float atan2_2d48(float, float) __asm__("FUN_001f9e90");
@@ -367,7 +375,8 @@ extern f32 D_0015ED60;
 extern f32 D_0015ED68;
 extern s32 D_L04_00173FF0[] __attribute__((section(".data")));
 
-s32 FUN_L04_00295778(struct Moby *moby, LegRig *rig, f32 speed, f32 heading, f32 step) {
+s32 leg_walker_update(struct Moby *moby, LegRig *rig, f32 speed, f32 heading, f32 step) __asm__("FUN_L04_00295778");
+s32 leg_walker_update(struct Moby *moby, LegRig *rig, f32 speed, f32 heading, f32 step) {
     union {
         s32 joints[6];
         struct {
@@ -547,7 +556,9 @@ extern float animation_start(int, int) __asm__("FUN_L04_002418b0");
 extern float FUN_001f99c0(float);
 extern int rig_pick_mode(struct Moby *m, LegRig *rig, float t) __asm__("FUN_L04_002927d0");
 
-void FUN_L04_00295de8(struct Moby *moby, LegRig *rig) {
+void reset_leg_rig_from_animation(struct Moby *moby, LegRig *rig) __asm__("FUN_L04_00295de8");
+
+void reset_leg_rig_from_animation(struct Moby *moby, LegRig *rig) {
     int joints[6];
     float mtx[4][4];
     float animation_time;

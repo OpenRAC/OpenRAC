@@ -7,8 +7,10 @@ extern int D_L01_001B0930[];
  * Ported from rac1-decomp, where it is exact; names translated to
  * the US level program (data still reached through the MACRO_ADDR form). */
 // Expands a bit mask through a table of per-bit masks until it meets another mask.
-int FUN_L01_00276c40(int idx, int from_mask, int mask) {
-    char *path_data = D_L01_001B0930[idx];
+int expand_path_mask_to_intersection(int path_index, int from_mask, int mask) __asm__("FUN_L01_00276c40");
+
+int expand_path_mask_to_intersection(int path_index, int from_mask, int mask) {
+    char *path_data = D_L01_001B0930[path_index];
     int i;
     int j;
     int expanded_mask;
@@ -42,11 +44,13 @@ extern void vec_sub_276a48(OvlVec4 *, OvlVec4 *, OvlVec4 *) __asm__("FUN_001f9a2
 extern void vec_add_276a48(OvlVec4 *, OvlVec4 *, OvlVec4 *) __asm__("FUN_001f9a10");
 extern void vec_cross_276a48(OvlVec4 *, OvlVec4 *, OvlVec4 *) __asm__("FUN_001f9ad8");
 extern void vec_normalize_276a48(OvlVec4 *, OvlVec4 *, f32) __asm__("FUN_001f9bf8");
-extern s32 FUN_L00_00261968_276a48(s32, OvlVec4 *, OvlVec4 *) __asm__("FUN_L00_00261968");
+extern s32 test_path_segment_strict_crossing(s32, OvlVec4 *, OvlVec4 *) __asm__("FUN_L00_00261968");
 
 /* Bit i set for each point i of the path that none of the n segments in ids
    reaches from pos (with a sideways margin of radius when it is nonzero). */
-s32 FUN_L01_00276a48(s32 *ids, s32 id_count, f32 radius, s32 path_index, OvlVec4 *pos) {
+s32 compute_clear_path_point_mask(s32 *ids, s32 id_count, f32 radius, s32 path_index, OvlVec4 *segment_origin) __asm__("FUN_L01_00276a48");
+
+s32 compute_clear_path_point_mask(s32 *ids, s32 id_count, f32 radius, s32 path_index, OvlVec4 *segment_origin) {
     Path_276a48 *path = D_L01_001B0930_276a48[path_index];
     OvlVec4 side;
     OvlVec4 left;
@@ -63,17 +67,17 @@ s32 FUN_L01_00276a48(s32 *ids, s32 id_count, f32 radius, s32 path_index, OvlVec4
             if (radius != 0.0f) {
                 up.q = 0;
                 up.f[2] = 1.0f;
-                vec_sub_276a48(&side, pos, &path->pts[i]);
+                vec_sub_276a48(&side, segment_origin, &path->pts[i]);
                 vec_cross_276a48(&side, &side, &up);
                 vec_normalize_276a48(&side, &side, radius);
-                vec_sub_276a48(&left, pos, &side);
-                vec_add_276a48(&right, pos, &side);
-                if (FUN_L00_00261968_276a48(ids[j], &left, &path->pts[i])) {
+                vec_sub_276a48(&left, segment_origin, &side);
+                vec_add_276a48(&right, segment_origin, &side);
+                if (test_path_segment_strict_crossing(ids[j], &left, &path->pts[i])) {
                     hit = 1;
-                } else if (FUN_L00_00261968_276a48(ids[j], &right, &path->pts[i])) {
+                } else if (test_path_segment_strict_crossing(ids[j], &right, &path->pts[i])) {
                     hit = 1;
                 }
-            } else if (FUN_L00_00261968_276a48(ids[j], pos, &path->pts[i])) {
+            } else if (test_path_segment_strict_crossing(ids[j], segment_origin, &path->pts[i])) {
                 hit = 1;
             }
             if (hit) {
@@ -91,7 +95,7 @@ extern f32 vec_distance_276fe8(OvlVec4 *, OvlVec4 *) __asm__("FUN_001f9b80");
 s32 follow_path(s32 *ids, s32 n, s32 path_index, f32 radius,
                        OvlVec4 *pos, OvlVec4 *target, OvlVec4 *out) __asm__("FUN_L01_00276fe8");
 s32 follow_path(s32 *ids, s32 id_count, s32 path_index, f32 radius,
-                       OvlVec4 *pos, OvlVec4 *target, OvlVec4 *out) {
+                       OvlVec4 *start_position, OvlVec4 *target, OvlVec4 *out) {
     OvlVec4 side;
     OvlVec4 left;
     OvlVec4 right;
@@ -107,29 +111,29 @@ s32 follow_path(s32 *ids, s32 id_count, s32 path_index, f32 radius,
 
     for (j = 0; j < id_count; j++) {
         if (radius != 0.0f) {
-            vec_sub_276a48(&side, pos, target);
+            vec_sub_276a48(&side, start_position, target);
             vec_normalize_276a48(&side, &side, radius);
             x = side.f[0];
             side.f[3] = x;
             side.f[0] = side.f[1];
             side.f[1] = -x;
-            vec_sub_276a48(&left, pos, &side);
-            vec_add_276a48(&right, pos, &side);
-            if (FUN_L00_00261968_276a48(ids[j], &left, target)) {
+            vec_sub_276a48(&left, start_position, &side);
+            vec_add_276a48(&right, start_position, &side);
+            if (test_path_segment_strict_crossing(ids[j], &left, target)) {
                 hit = 1;
-            } else if (FUN_L00_00261968_276a48(ids[j], &right, target)) {
+            } else if (test_path_segment_strict_crossing(ids[j], &right, target)) {
                 hit = 1;
             }
-        } else if (FUN_L00_00261968_276a48(ids[j], pos, target)) {
+        } else if (test_path_segment_strict_crossing(ids[j], start_position, target)) {
             hit = 1;
         }
         if (hit) break;
     }
     if (hit) {
         path = D_L01_001B0930_276a48[path_index];
-        from_mask = FUN_L01_00276a48(ids, id_count, radius, path_index, pos);
-        to_mask = FUN_L01_00276a48(ids, id_count, radius, path_index, target);
-        mask = FUN_L01_00276c40(path_index, from_mask, to_mask);
+        from_mask = compute_clear_path_point_mask(ids, id_count, radius, path_index, start_position);
+        to_mask = compute_clear_path_point_mask(ids, id_count, radius, path_index, target);
+        mask = expand_path_mask_to_intersection(path_index, from_mask, to_mask);
         if (mask != 0) {
             nearest = 10000.0f;
             best = -1;

@@ -9,7 +9,9 @@ extern char *FUN_0020c4f8_8670(int) __asm__("FUN_0020c4f8");
 extern void FUN_001f9810_8670(void *, int) __asm__("FUN_001f9810");
 extern void FUN_L00_00250df8_8670(void *) __asm__("FUN_L00_00250df8");
 
-char *FUN_L12_00308670(char *source_object) {
+char *create_class_55b_moby_from_source(char *source_object) __asm__("FUN_L12_00308670");
+
+char *create_class_55b_moby_from_source(char *source_object) {
     unsigned char *allocated_object = (unsigned char *)FUN_0020c4f8_8670(0x55B);
     if (allocated_object != 0) {
         char *object_data = *(char **)(allocated_object + 0x78);
@@ -58,13 +60,15 @@ typedef struct {
     f32 unk74;          /* 0x74: -1 on launch */
 } LobbedVars;
 
-void FUN_L12_00308708(void *unused, struct Moby *moby) {
+void start_blarg_commander_knockback(void *unused, struct Moby *moby) __asm__("FUN_L12_00308708");
+
+void start_blarg_commander_knockback(void *unused, struct Moby *moby) {
     LobbedVars *lobbed_vars = (LobbedVars *)moby->pvars;
-    float dir[4];
-    float ang;
+    float knockback_input_vector[4];
+    float knockback_heading;
     float rise_sqrt_term, frame_rise_sqrt_term;
     float frame_scaled_rise;
-    float g;
+    float frame_time_squared;
 
     if (random_integer_below(3) == 0) {
         allocate_voice_for_target_entry(1, 0x20, moby);
@@ -74,14 +78,14 @@ void FUN_L12_00308708(void *unused, struct Moby *moby) {
     lobbed_vars->unk6C = 0.0f;
     moby->update_dist = 0xFF;
     moby->flags &= ~6;
-    ang = fast_add_rotations(moby->rot.z, 3.1415927f);
-    dir[0] = fast_cos(ang);
-    dir[1] = fast_sin(ang);
-    dir[2] = 1.0f;
-    dir[3] = 5627.925f;
-    g = frame_time_sq;
-    lobbed_vars->rise = g * 40.0f;
-    lobbed_vars->fall = g * 100.0f;
+    knockback_heading = fast_add_rotations(moby->rot.z, 3.1415927f);
+    knockback_input_vector[0] = fast_cos(knockback_heading);
+    knockback_input_vector[1] = fast_sin(knockback_heading);
+    knockback_input_vector[2] = 1.0f;
+    knockback_input_vector[3] = 5627.925f;
+    frame_time_squared = frame_time_sq;
+    lobbed_vars->rise = frame_time_squared * 40.0f;
+    lobbed_vars->fall = frame_time_squared * 100.0f;
     rise_sqrt_term = fast_sqrt(lobbed_vars->rise * 4.0f);
     frame_rise_sqrt_term = fast_sqrt(frame_time_sq * 40.0f * 4.0f);
     frame_scaled_rise = frame_time_sq * 40.0f;
@@ -89,8 +93,8 @@ void FUN_L12_00308708(void *unused, struct Moby *moby) {
     lobbed_vars->unk3C = fast_sqrt(frame_scaled_rise * 4.0f);
     lobbed_vars->unk5D = 0;
     lobbed_vars->unk44 = 1;
-    trooper_knockback_arc(dir, &ang, &lobbed_vars->launch_speed, &lobbed_vars->unk3C);
-    trooper_start_knockback(ang, moby, &lobbed_vars->arc, 1, 5, 2);
+    trooper_knockback_arc(knockback_input_vector, &knockback_heading, &lobbed_vars->launch_speed, &lobbed_vars->unk3C);
+    trooper_start_knockback(knockback_heading, moby, &lobbed_vars->arc, 1, 5, 2);
     lobbed_vars->unk6C = frame_time + frame_time;
     lobbed_vars->unk70 = -1.0f;
     lobbed_vars->unk74 = -1.0f;
@@ -117,25 +121,25 @@ void mark_moby_for_removal(struct Obj *obj) __asm__("FUN_0020c828");
 
 void blarg_commander_update(char *m) __asm__("FUN_L12_00308918");
 void blarg_commander_update(char *moby) {
-    int st;
+    int moby_state;
     char *moby_pvars;
     char *motion_state;
-    int r;
+    int motion_result_flags;
     MO *mo = (MO *)moby;
-    char v[16];
-    st = *(unsigned char *)(moby + 0x53);
+    char raised_position[16];
+    moby_state = *(unsigned char *)(moby + 0x53);
     moby_pvars = *(char **)(moby + 0x78);
-    if (st == 1) {
+    if (moby_state == 1) {
         motion_state = moby_pvars + 0x20;
-        r = mine_fall(moby, motion_state);
+        motion_result_flags = mine_fall(moby, motion_state);
         mo->vx = fast_add_rotations(mo->vx, frame_time * 4.3633232f);
         mo->vy = fast_add_rotations(mo->vy, frame_time * 4.3633232f);
         *(unsigned short *)(moby + 0x34) &= 0xEFFF;
-        if (r & 0x61) {
-            qcopy(v, moby + 0x10);
-            ((float *)v)[2] += 1.0f;
-            func_L00_0025F4A8_alt(moby, motion_state, v, 0.0f, 0.0f, 5, 2, 4, 2.0f, 1.0f, 9.0f, 1.0f, 0, 15.0f, 1,
-                                  st, -1, 0);
+        if (motion_result_flags & 0x61) {
+            qcopy(raised_position, moby + 0x10);
+            ((float *)raised_position)[2] += 1.0f;
+            func_L00_0025F4A8_alt(moby, motion_state, raised_position, 0.0f, 0.0f, 5, 2, 4, 2.0f, 1.0f, 9.0f, 1.0f, 0, 15.0f, 1,
+                                  moby_state, -1, 0);
             mark_moby_for_removal(moby);
         } else if (*(float *)(moby + 0x18) < 5.0f) {
             mark_moby_for_removal(moby);

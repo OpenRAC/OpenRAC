@@ -19,53 +19,55 @@ extern void debug_print_alt() __asm__("FUN_001e93b0");
 extern void subtract_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a28");
 extern void pack_render_command_fields(struct RenderEntry *, s32, s32, s32, s32) __asm__("PackRenderCommandFields");
 
-void FUN_L00_002500b8(char *object) {
-    float vec[4];
+void apply_nearest_environment_sample(char *object) __asm__("FUN_L00_002500b8");
+
+void apply_nearest_environment_sample(char *object) {
+    float position_delta[4];
     float best = 999999.0f;
     float entry_distance;
-    int idx = -1;
+    int nearest_entry_index = -1;
     int i;
-    int off;
-    char *e1;
-    char *e2;
-    char *e3;
-    char *g;
-    unsigned char *h;
+    int selected_entry_byte_offset;
+    char *packing_source_entry;
+    char *global_update_source_entry;
+    char *conditional_update_source_entry;
+    char *global_update_destination;
+    unsigned char *entry_update_destination;
 
     for (i = 0; i < D_L00_00160014; i++) {
-        subtract_vector_xyz(vec, object + 0x10, D_L00_00160040 + i * 0x30);
-        entry_distance = fast_vec_length(vec);
+        subtract_vector_xyz(position_delta, object + 0x10, D_L00_00160040 + i * 0x30);
+        entry_distance = fast_vec_length(position_delta);
         if (entry_distance <= 8.0f && entry_distance < best) {
             best = entry_distance;
-            idx = i;
+            nearest_entry_index = i;
         }
     }
-    if (idx == -1) {
+    if (nearest_entry_index == -1) {
         debug_print_alt(D_L00_001E8ED8);
         return;
     }
-    off = idx * 0x30;
-    e1 = (char *)(off + (int)D_L00_00160040);
+    selected_entry_byte_offset = nearest_entry_index * 0x30;
+    packing_source_entry = (char *)(selected_entry_byte_offset + (int)D_L00_00160040);
     pack_render_command_fields(object,
-                            *(int *)(object + 0x80) = (*(int *)(e1 + 0x18) << 16) +
-                                                 (*(int *)(e1 + 0x14) << 8) + *(int *)(e1 + 0x10),
+                            *(int *)(object + 0x80) = (*(int *)(packing_source_entry + 0x18) << 16) +
+                                                 (*(int *)(packing_source_entry + 0x14) << 8) + *(int *)(packing_source_entry + 0x10),
                             0, 0, 0);
-    *(int *)(object + 0x38) = *(int *)((char *)(off + (int)D_L00_00160040) + 0x1C);
-    e2 = (char *)(off + (int)D_L00_00160040);
-    if (*(unsigned char *)(e2 + 0x27) != 0) {
-        g = D_0013E533 + 0x1D;
-        *(int *)(g + 0x64) = *(int *)(e2 + 0x20);
-        g[0x68] = e2[0x24];
-        g[0x69] = e2[0x25];
-        g[0x6A] = e2[0x26];
-        g[0x6B] |= 7;
+    *(int *)(object + 0x38) = *(int *)((char *)(selected_entry_byte_offset + (int)D_L00_00160040) + 0x1C);
+    global_update_source_entry = (char *)(selected_entry_byte_offset + (int)D_L00_00160040);
+    if (*(unsigned char *)(global_update_source_entry + 0x27) != 0) {
+        global_update_destination = D_0013E533 + 0x1D;
+        *(int *)(global_update_destination + 0x64) = *(int *)(global_update_source_entry + 0x20);
+        global_update_destination[0x68] = global_update_source_entry[0x24];
+        global_update_destination[0x69] = global_update_source_entry[0x25];
+        global_update_destination[0x6A] = global_update_source_entry[0x26];
+        global_update_destination[0x6B] |= 7;
     }
-    e3 = (char *)(off + (int)D_L00_00160040);
-    if (*(int *)(e3 + 0x28) >= 0) {
-        h = D_0014161B + 0x100B5;
-        if (*(short *)(h + 0x3E) == 0) {
-            if ((*(int *)(h + 0x20) & 0xFFFFFF) == 0xFF0000) {
-                *(unsigned short *)(h + 0x38) = *(int *)(e3 + 0x28);
+    conditional_update_source_entry = (char *)(selected_entry_byte_offset + (int)D_L00_00160040);
+    if (*(int *)(conditional_update_source_entry + 0x28) >= 0) {
+        entry_update_destination = D_0014161B + 0x100B5;
+        if (*(short *)(entry_update_destination + 0x3E) == 0) {
+            if ((*(int *)(entry_update_destination + 0x20) & 0xFFFFFF) == 0xFF0000) {
+                *(unsigned short *)(entry_update_destination + 0x38) = *(int *)(conditional_update_source_entry + 0x28);
             }
         }
     }
@@ -78,8 +80,8 @@ void FUN_L00_002500b8(char *object) {
 
 /* Clears slot idx of this level's 16-entry table to 0xFF. */
 void jet_clear_persistent(int idx) __asm__("FUN_L00_002502a0");
-void jet_clear_persistent(int idx) {
-    if (idx != 0xFF) {
-        visited52[idx + current_level_index * 16] = 0xFF;
+void jet_clear_persistent(int persistent_slot_index) {
+    if (persistent_slot_index != 0xFF) {
+        visited52[persistent_slot_index + current_level_index * 16] = 0xFF;
     }
 }

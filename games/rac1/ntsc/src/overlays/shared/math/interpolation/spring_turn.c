@@ -13,7 +13,9 @@ extern float fast_add_rotations(float, float) __asm__("FUN_001fa580");
 extern float fast_subtract_rotations(float, float) __asm__("FUN_001fa5c8");
 
 /* Cosine-eased rotation from x toward y at z. */
-float FUN_L00_00257ef0(float x, float y, float z) {
+float interpolate_wrapped_angle_cosine_eased(float x, float y, float z) __asm__("FUN_L00_00257ef0");
+
+float interpolate_wrapped_angle_cosine_eased(float x, float y, float z) {
     float wrapped_angle_delta = fast_subtract_rotations(y, x);
     float phase_cosine = fast_cos(z * 3.1415927f);
     return fast_add_rotations(x, wrapped_angle_delta * ((1.0f - phase_cosine) * 0.5f));
@@ -28,22 +30,24 @@ extern void subtract_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a28");
    Scalar analogue matched at src/game/mobyutil.c:func_00214220. */
 /* Ported from rac1-decomp (src/overlays/shared/mobyutil_00258BC8.c: func_L00_00258FA8), where it is exact; names translated to the US level program. */
 
-void FUN_L00_00257f70(void *dst, void *start_vector, void *b, float interpolation_fraction) {
+void interpolate_vector_xyz_cosine_eased(void *interpolated_vector_output, void *start_vector, void *target_vector, float interpolation_fraction) __asm__("FUN_L00_00257f70");
+
+void interpolate_vector_xyz_cosine_eased(void *interpolated_vector_output, void *start_vector, void *target_vector, float interpolation_fraction) {
     float interpolation_delta[4];
     float ease;
 
     if (interpolation_fraction == 0.0f) {
-        qcopy(dst, start_vector);
+        qcopy(interpolated_vector_output, start_vector);
         return;
     }
     if (interpolation_fraction == 1.0f) {
-        qcopy(dst, b);
+        qcopy(interpolated_vector_output, target_vector);
         return;
     }
     ease = (1.0f - fast_cos(interpolation_fraction * 3.14159274f)) * 0.5f;
-    subtract_vector_xyz(interpolation_delta, b, start_vector);
+    subtract_vector_xyz(interpolation_delta, target_vector, start_vector);
     scale_vector_xyz(interpolation_delta, interpolation_delta, ease);
-    add_vector_xyz(dst, start_vector, interpolation_delta);
+    add_vector_xyz(interpolated_vector_output, start_vector, interpolation_delta);
 }
 #define NOT_SDA
 
@@ -56,29 +60,31 @@ extern float fast_add_rotations(float, float) __asm__("FUN_001fa580");
 extern float fast_subtract_rotations(float, float) __asm__("FUN_001fa5c8");
 
 /* Blends three angles from a toward b with a cosine ease; ang 0 gives a, 1 gives b. */
-void FUN_L00_00258050(float *out, float *start_rotations, float *b, float ang) {
-    float cosine_ease_weight = (1.0f - fast_cos(ang * 3.1415927f)) * 0.5f;
-    out[0] = fast_add_rotations(start_rotations[0], fast_subtract_rotations(b[0], start_rotations[0]) * cosine_ease_weight);
-    out[1] = fast_add_rotations(start_rotations[1], fast_subtract_rotations(b[1], start_rotations[1]) * cosine_ease_weight);
-    out[2] = fast_add_rotations(start_rotations[2], fast_subtract_rotations(b[2], start_rotations[2]) * cosine_ease_weight);
+void interpolate_wrapped_rotations_cosine_eased(float *out, float *start_rotations, float *target_rotations, float interpolation_fraction) __asm__("FUN_L00_00258050");
+
+void interpolate_wrapped_rotations_cosine_eased(float *out, float *start_rotations, float *target_rotations, float interpolation_fraction) {
+    float cosine_ease_weight = (1.0f - fast_cos(interpolation_fraction * 3.1415927f)) * 0.5f;
+    out[0] = fast_add_rotations(start_rotations[0], fast_subtract_rotations(target_rotations[0], start_rotations[0]) * cosine_ease_weight);
+    out[1] = fast_add_rotations(start_rotations[1], fast_subtract_rotations(target_rotations[1], start_rotations[1]) * cosine_ease_weight);
+    out[2] = fast_add_rotations(start_rotations[2], fast_subtract_rotations(target_rotations[2], start_rotations[2]) * cosine_ease_weight);
 }
 float FUN_001fa5c8_00258110(float, float) __asm__("FUN_001fa5c8");
 float FUN_001f99c0_00258110(float) __asm__("FUN_001f99c0");
 float FUN_001fa580_00258110(float, float) __asm__("FUN_001fa580");
 float spring_turn(float *p, float a, float b, float c, float d, float lim) __asm__("FUN_L00_00258110");
-float spring_turn(float *turn_step, float current_angle, float b, float spring_strength, float damping_factor, float lim) {
-    float angle_delta = FUN_001fa5c8_00258110(b, current_angle);
+float spring_turn(float *turn_step, float current_angle, float target_angle, float spring_strength, float damping_factor, float max_turn_step) {
+    float angle_delta = FUN_001fa5c8_00258110(target_angle, current_angle);
     float k = angle_delta / 0.15707964f;
     if (k > 1.0f)
         k = 1.0f;
     else if (k < -1.0f)
         k = -1.0f;
     *turn_step = *turn_step + (spring_strength * k - damping_factor * *turn_step);
-    if (lim != 0.0f) {
-        if (*turn_step > lim)
-            *turn_step = lim;
-        else if (*turn_step < -lim)
-            *turn_step = -lim;
+    if (max_turn_step != 0.0f) {
+        if (*turn_step > max_turn_step)
+            *turn_step = max_turn_step;
+        else if (*turn_step < -max_turn_step)
+            *turn_step = -max_turn_step;
     }
     if (*turn_step > FUN_001f99c0_00258110(angle_delta))
         *turn_step = FUN_001f99c0_00258110(angle_delta);
@@ -89,29 +95,29 @@ float spring_turn(float *turn_step, float current_angle, float b, float spring_s
 extern float FUN_001f99c0(float);
 
 void FUN_L00_00258278(unsigned char *m, float *ptr, float t, float b, float c, float limit);
-void FUN_L00_00258278(unsigned char *moby, float *ptr, float target_heading, float b, float damping_factor, float limit) {
-    float r = fast_subtract_rotations(target_heading, *(float *)(moby + 0x48));
-    float k = r / 0.15707964f;
-    float v;
+void FUN_L00_00258278(unsigned char *moby, float *turn_step, float target_heading, float spring_strength, float damping_factor, float limit) {
+    float wrapped_heading_delta = fast_subtract_rotations(target_heading, *(float *)(moby + 0x48));
+    float k = wrapped_heading_delta / 0.15707964f;
+    float unclamped_turn_step;
     if (1.0f < k)
         k = 1.0f;
     else if (k < -1.0f)
         k = -1.0f;
-    v = *ptr + (b * k - damping_factor * (*ptr));
-    *ptr = v;
+    unclamped_turn_step = *turn_step + (spring_strength * k - damping_factor * (*turn_step));
+    *turn_step = unclamped_turn_step;
     if (limit != 0.0f) {
-        if (limit < v) {
-            *ptr = limit;
-        } else if (v < -limit) {
-            *ptr = -limit;
+        if (limit < unclamped_turn_step) {
+            *turn_step = limit;
+        } else if (unclamped_turn_step < -limit) {
+            *turn_step = -limit;
         }
     }
-    if (FUN_001f99c0(r) < *ptr) {
-        *ptr = FUN_001f99c0(r);
-    } else if (*ptr < -FUN_001f99c0(r)) {
-        *ptr = -FUN_001f99c0(r);
+    if (FUN_001f99c0(wrapped_heading_delta) < *turn_step) {
+        *turn_step = FUN_001f99c0(wrapped_heading_delta);
+    } else if (*turn_step < -FUN_001f99c0(wrapped_heading_delta)) {
+        *turn_step = -FUN_001f99c0(wrapped_heading_delta);
     }
-    *(float *)(moby + 0x48) = fast_add_rotations(*(float *)(moby + 0x48), *ptr);
+    *(float *)(moby + 0x48) = fast_add_rotations(*(float *)(moby + 0x48), *turn_step);
 }
 #include "eetypes.h"
 #include "qcopy.h"
@@ -127,21 +133,23 @@ typedef struct {
 } G002583f0;
 extern G002583f0 D_L00_00173E40_u __asm__("D_L00_00173E40");
 s32 collision_line(void *, void *, s32, s32, s32) __asm__("FUN_001efa68");
-s32 FUN_L00_002583f0(void *pos, s32 moby, s32 flag, f32 up, f32 down) {
+s32 probe_vertical_ground_collision(void *probe_base_position, s32 moby, s32 flag, f32 up, f32 down) __asm__("FUN_L00_002583f0");
+
+s32 probe_vertical_ground_collision(void *probe_base_position, s32 moby, s32 flag, f32 up, f32 down) {
     V002583f0 raised_pos, lowered_pos;
-    s32 r;
-    qcopy(&raised_pos, pos);
+    s32 collision_result;
+    qcopy(&raised_pos, probe_base_position);
     raised_pos.f[2] += up;
-    qcopy(&lowered_pos, pos);
+    qcopy(&lowered_pos, probe_base_position);
     lowered_pos.f[2] -= down;
     if (lowered_pos.f[2] < 0.0f)
         lowered_pos.f[2] = 0.0f;
-    r = collision_line(&raised_pos, &lowered_pos, 0x22, moby, 0);
+    collision_result = collision_line(&raised_pos, &lowered_pos, 0x22, moby, 0);
     if (D_L00_00173E40_u.x1c < 0)
-        r = 0;
+        collision_result = 0;
     if (flag && D_L00_00173E40_u.x18 != 0)
-        r = 0;
-    return r;
+        collision_result = 0;
+    return collision_result;
 }
 typedef union {
     OvlQuad q;
@@ -287,48 +295,48 @@ extern int func_L00_001F10E0_l(void *, float, int, void *) __asm__("FUN_L00_001f
 
 int FUN_L00_00258830_c(char *m, char *v, int flags, float a, float b,
                        float c) __asm__("FUN_L00_00258830");
-int FUN_L00_00258830_c(char *m, char *v, int flags, float a, float b, float ground_probe_offset) {
+int FUN_L00_00258830_c(char *moving_object, char *movement_displacement, int flags, float a, float b, float ground_probe_offset) {
     Vs original_position;
     Vs raised_position;
     Vs probe_end;
     Vs scaled_displacement;
     int r = 0;
     int fl = (flags * 2) & 0x20;
-    char *movement_position = m + 0x10;
+    char *movement_position = moving_object + 0x10;
     int i;
     char *collision_position;
 
     qcopy(&original_position, movement_position);
-    add_vector_xyz(movement_position, movement_position, v);
-    if (b < vector_length_xyz(v)) {
+    add_vector_xyz(movement_position, movement_position, movement_displacement);
+    if (b < vector_length_xyz(movement_displacement)) {
         qcopy(&raised_position, &original_position);
         raised_position.a[2] += a;
-        normalize_vector_xyz(&scaled_displacement, v, b);
+        normalize_vector_xyz(&scaled_displacement, movement_displacement, b);
         add_vector_xyz(&probe_end, &scaled_displacement, movement_position);
         probe_end.a[2] += a;
-        if (collision_line(&raised_position, &probe_end, fl, (int)m, 0)) {
+        if (collision_line(&raised_position, &probe_end, fl, (int)moving_object, 0)) {
             subtract_vector_xyz(movement_position, (char *)&D_94C8_60, &scaled_displacement);
             r = 1;
-            *(float *)(m + 0x18) -= a;
+            *(float *)(moving_object + 0x18) -= a;
         }
     }
-    for (i = 0, collision_position = m + 0x10; i < 6; i++) {
+    for (i = 0, collision_position = moving_object + 0x10; i < 6; i++) {
         qcopy(&raised_position, collision_position);
         raised_position.a[2] += a;
-        if (func_L00_001F10E0_l(&raised_position, b, fl | 4, m)) {
+        if (func_L00_001F10E0_l(&raised_position, b, fl | 4, moving_object)) {
             qcopy(collision_position, &D_L00_00173E70);
             r |= 1;
-            *(float *)(m + 0x18) -= a;
+            *(float *)(moving_object + 0x18) -= a;
         } else {
             break;
         }
     }
-    b = *(float *)(m + 0x18) - ground_probe_offset;
+    b = *(float *)(moving_object + 0x18) - ground_probe_offset;
     qcopy(&raised_position, collision_position);
     qcopy(&probe_end, collision_position);
     raised_position.a[2] += a;
     probe_end.a[2] = b - 0.05f;
-    if (collision_line(&raised_position, &probe_end, fl | 2, (int)m, 0)) {
+    if (collision_line(&raised_position, &probe_end, fl | 2, (int)moving_object, 0)) {
         if (D_L00_00173E40[7] > 0) {
             float g;
             r |= 2;
@@ -339,18 +347,20 @@ int FUN_L00_00258830_c(char *m, char *v, int flags, float a, float b, float grou
             }
             g = *(float *)((char *)D_L00_00173E40 + 0x28);
             if (b < g) {
-                *(float *)(m + 0x18) += (g - b) * 0.3f;
+                *(float *)(moving_object + 0x18) += (g - b) * 0.3f;
             }
         }
     }
-    subtract_vector_xyz(v, collision_position, &original_position);
+    subtract_vector_xyz(movement_displacement, collision_position, &original_position);
     return r;
 }
 float convert_integer_to_float(int) __asm__("FUN_001fa6c0");
 void FUN_L00_00258830(int, int, float, float, float, int);
 /* Calls FUN_L00_00258830 with c converted to float and divided by 1024. */
-void FUN_L00_00258ad0(int moby, int b, float x, float y, int collision_radius_fixed, int collision_flags) {
-    FUN_L00_00258830(moby, b, x, convert_integer_to_float(collision_radius_fixed) * (1.0f / 1024.0f), y, collision_flags);
+void move_moby_with_collision_integer_radius(int moby, int movement_displacement, float x, float y, int collision_radius_fixed, int collision_flags) __asm__("FUN_L00_00258ad0");
+
+void move_moby_with_collision_integer_radius(int moby, int movement_displacement, float x, float y, int collision_radius_fixed, int collision_flags) {
+    FUN_L00_00258830(moby, movement_displacement, x, convert_integer_to_float(collision_radius_fixed) * (1.0f / 1024.0f), y, collision_flags);
 }
 #include "rnc/math/vector.h"
 
@@ -406,108 +416,108 @@ extern f32 probe_ground_height(void *, s32, f32) __asm__("FUN_00213508");
 extern f32 frame_time_sq_gp __asm__("D_0015ED70") __attribute__((sda));
 extern f32 frame_scale __asm__("D_0015ED60") __attribute__((sda));
 s32 FUN_L00_00258b50(Obj *m, Ctl *c, void *v, Vec4 *out, f32 f);
-s32 FUN_L00_00258b50(Obj *m, Ctl *c, void *v, Vec4 *out, f32 f) {
+s32 FUN_L00_00258b50(Obj *moby, Ctl *movement_control, void *target_position, Vec4 *out, f32 f) {
     Vec4 save;
     Vec4 displacement;
-    Vec4 p;
+    Vec4 probe_or_direction;
     Vec4 q;
-    Glob *g;
+    Glob *collision_probe_result;
     s32 mask = 0;
-    s32 r;
-    f32 len;
+    s32 movement_collision_flags;
+    f32 target_distance_xy;
     f32 sp;
-    f32 lim;
+    f32 horizontal_step_cap_or_probe_height_threshold;
     f32 speed_increment;
-    f32 h1;
-    f32 h2;
+    f32 displacement_probe_hit_height;
+    f32 lookahead_probe_hit_height;
     f32 ground_height;
     f32 normal_elevation_angle;
-    f32 l2;
+    f32 intended_displacement_length_xy;
 
-    sp = c->f1C * f;
-    lim = c->f24 * f;
-    fast_vec_sub(&displacement, v, &m->pos);
-    len = vector_length_xy(&displacement);
-    save.q = m->pos.q;
-    speed_increment = sp * len;
+    sp = movement_control->f1C * f;
+    horizontal_step_cap_or_probe_height_threshold = movement_control->f24 * f;
+    fast_vec_sub(&displacement, target_position, &moby->pos);
+    target_distance_xy = vector_length_xy(&displacement);
+    save.q = moby->pos.q;
+    speed_increment = sp * target_distance_xy;
     if (sp < speed_increment)
         speed_increment = sp;
-    c->f10 = c->f10 + speed_increment;
-    if (len < c->f10 * 10.0f)
-        c->f10 = c->f10 - c->f20 * c->f10;
-    if (lim < c->f10)
-        c->f10 = lim;
-    else if (c->f10 < -lim)
-        c->f10 = -lim;
-    if (c->i38 & 4) {
-        displacement.f[0] = FUN_001f9dc8_c(c->f4C) * c->f10;
-        displacement.f[1] = fast_sin(c->f4C) * c->f10;
+    movement_control->f10 = movement_control->f10 + speed_increment;
+    if (target_distance_xy < movement_control->f10 * 10.0f)
+        movement_control->f10 = movement_control->f10 - movement_control->f20 * movement_control->f10;
+    if (horizontal_step_cap_or_probe_height_threshold < movement_control->f10)
+        movement_control->f10 = horizontal_step_cap_or_probe_height_threshold;
+    else if (movement_control->f10 < -horizontal_step_cap_or_probe_height_threshold)
+        movement_control->f10 = -horizontal_step_cap_or_probe_height_threshold;
+    if (movement_control->i38 & 4) {
+        displacement.f[0] = FUN_001f9dc8_c(movement_control->f4C) * movement_control->f10;
+        displacement.f[1] = fast_sin(movement_control->f4C) * movement_control->f10;
     } else {
-        displacement.f[0] = FUN_001f9dc8_c(m->f48) * c->f10;
-        displacement.f[1] = fast_sin(m->f48) * c->f10;
+        displacement.f[0] = FUN_001f9dc8_c(moby->f48) * movement_control->f10;
+        displacement.f[1] = fast_sin(moby->f48) * movement_control->f10;
     }
-    if (c->i38 & 1) {
+    if (movement_control->i38 & 1) {
         displacement.f[2] = 0.0f;
     } else {
-        displacement.f[2] = c->f18;
-        c->f18 = c->f18 - frame_time_sq_gp * 9.0f;
+        displacement.f[2] = movement_control->f18;
+        movement_control->f18 = movement_control->f18 - frame_time_sq_gp * 9.0f;
     }
-    lim = m->pos.f[2] + 0.04f;
-    fast_vec_add(&p, &m->pos, &displacement);
-    p.f[2] = m->pos.f[2] - c->f30;
-    if (FUN_L00_002583f0_c(&p, m, c->i38 & 0x20, c->f08, c->f0C)) {
-        g = &D_L00_00173E40_c;
-        normal_elevation_angle = fast_arc_tan(g->v40.f[2], vector_length_xy(&g->v40));
-        h1 = g->f28;
+    horizontal_step_cap_or_probe_height_threshold = moby->pos.f[2] + 0.04f;
+    fast_vec_add(&probe_or_direction, &moby->pos, &displacement);
+    probe_or_direction.f[2] = moby->pos.f[2] - movement_control->f30;
+    if (FUN_L00_002583f0_c(&probe_or_direction, moby, movement_control->i38 & 0x20, movement_control->f08, movement_control->f0C)) {
+        collision_probe_result = &D_L00_00173E40_c;
+        normal_elevation_angle = fast_arc_tan(collision_probe_result->v40.f[2], vector_length_xy(&collision_probe_result->v40));
+        displacement_probe_hit_height = collision_probe_result->f28;
         if (0.5f < normal_elevation_angle && 0.1f < vector_length_xy(&displacement)) {
             {
                 fast_vec_normalize(&q, &displacement, 0.57f);
-                fast_vec_add(&q, &q, &m->pos);
-                q.f[2] = m->pos.f[2] - c->f30;
-                if (FUN_L00_002583f0_c(&q, m, c->i38 & 0x20, c->f08, c->f0C)) {
-                    h2 = g->f28;
-                    if (!(0.5f <= fast_arc_tan(g->v40.f[2], vector_length_xy(&g->v40))))
+                fast_vec_add(&q, &q, &moby->pos);
+                q.f[2] = moby->pos.f[2] - movement_control->f30;
+                if (FUN_L00_002583f0_c(&q, moby, movement_control->i38 & 0x20, movement_control->f08, movement_control->f0C)) {
+                    lookahead_probe_hit_height = collision_probe_result->f28;
+                    if (!(0.5f <= fast_arc_tan(collision_probe_result->v40.f[2], vector_length_xy(&collision_probe_result->v40))))
                         goto done;
                     mask = 0x22;
-                    if (!(c->i38 & 8))
+                    if (!(movement_control->i38 & 8))
                         goto done;
-                    if (!(h2 < lim))
+                    if (!(lookahead_probe_hit_height < horizontal_step_cap_or_probe_height_threshold))
                         goto done;
                 } else {
                     mask = 0x22;
-                    if (!(c->i38 & 8))
+                    if (!(movement_control->i38 & 8))
                         goto done;
                 }
-                if (h1 < lim)
+                if (displacement_probe_hit_height < horizontal_step_cap_or_probe_height_threshold)
                     mask = 8;
             }
         }
     } else {
-        mask = (c->i38 & 8) ? 8 : 0x22;
+        mask = (movement_control->i38 & 8) ? 8 : 0x22;
     }
 done:
     if (!(mask & 2)) {
-        l2 = vector_length_xy(&displacement);
-        FUN_001f9a68_c(&p, &displacement, 1.0f / l2);
-        r = FUN_L00_00258ad0_c(m, &displacement, c->f04, c->i00, c->f30, c->i38);
-        if (r & 2)
-            c->f18 = frame_scale * -0.01f;
-        if (r & 1) {
+        intended_displacement_length_xy = vector_length_xy(&displacement);
+        FUN_001f9a68_c(&probe_or_direction, &displacement, 1.0f / intended_displacement_length_xy);
+        movement_collision_flags = FUN_L00_00258ad0_c(moby, &displacement, movement_control->f04, movement_control->i00, movement_control->f30, movement_control->i38);
+        if (movement_collision_flags & 2)
+            movement_control->f18 = frame_scale * -0.01f;
+        if (movement_collision_flags & 1) {
             mask |= 1;
-            if (displacement.f[0] * p.f[0] + displacement.f[1] * p.f[1] < l2 * 0.2f)
+            if (displacement.f[0] * probe_or_direction.f[0] + displacement.f[1] * probe_or_direction.f[1] < intended_displacement_length_xy * 0.2f)
                 mask |= 2;
-            ground_height = probe_ground_height(&m->pos, 0, 0.5f);
-            if (c->f08 < save.f[2] - ground_height || c->f0C < ground_height - save.f[2]) {
+            ground_height = probe_ground_height(&moby->pos, 0, 0.5f);
+            if (movement_control->f08 < save.f[2] - ground_height || movement_control->f0C < ground_height - save.f[2]) {
                 mask |= 0x22;
-                m->pos.q = save.q;
+                moby->pos.q = save.q;
             }
         }
         qcopy(out, &displacement);
     } else {
-        if ((c->i38 ^ 1) & 1)
-            c->f18 = frame_scale * -0.01f;
+        if ((movement_control->i38 ^ 1) & 1)
+            movement_control->f18 = frame_scale * -0.01f;
     }
-    if (len < c->f2C)
+    if (target_distance_xy < movement_control->f2C)
         mask |= 4;
     return mask;
 }
@@ -522,29 +532,29 @@ int FUN_001f96f8_259028(int) __asm__("FUN_001f96f8");
 int FUN_L00_00258b50_259028(unsigned char *, char *, float *, void *,
                             float) __asm__("FUN_L00_00258b50");
 int FUN_L00_00259028(unsigned char *m, char *c, float *tgt, void *out);
-int FUN_L00_00259028(unsigned char *m, char *movement_control, float *tgt, void *out) {
-    int r = 0;
-    float target_heading, d;
+int FUN_L00_00259028(unsigned char *moby, char *movement_control, float *target_position, void *out) {
+    int navigation_result_flags = 0;
+    float target_heading, heading_error;
     FUN_001f99f8_259028(out);
-    if (FUN_001f9b48_259028(m + 0x10, tgt) < *(float *)(movement_control + 0x2C))
-        r = 4;
-    target_heading = FUN_001f9e90_259028(tgt[0] - *(float *)(m + 0x10), tgt[1] - *(float *)(m + 0x14));
-    FUN_L00_00258278_259028(m, (float *)(movement_control + 0x14), target_heading, *(float *)(movement_control + 0x3C), *(float *)(movement_control + 0x40),
+    if (FUN_001f9b48_259028(moby + 0x10, target_position) < *(float *)(movement_control + 0x2C))
+        navigation_result_flags = 4;
+    target_heading = FUN_001f9e90_259028(target_position[0] - *(float *)(moby + 0x10), target_position[1] - *(float *)(moby + 0x14));
+    FUN_L00_00258278_259028(moby, (float *)(movement_control + 0x14), target_heading, *(float *)(movement_control + 0x3C), *(float *)(movement_control + 0x40),
                             *(float *)(movement_control + 0x44));
-    d = FUN_001fa688_259028(target_heading, *(float *)(m + 0x48));
-    if (*(float *)(movement_control + 0x28) <= d)
-        r |= 0x10;
+    heading_error = FUN_001fa688_259028(target_heading, *(float *)(moby + 0x48));
+    if (*(float *)(movement_control + 0x28) <= heading_error)
+        navigation_result_flags |= 0x10;
     FUN_001f9740_259028(movement_control + 0x48);
-    if (d < *(float *)(movement_control + 0x28) && *(int *)(movement_control + 0x48) < FUN_001f96f8_259028(4)) {
+    if (heading_error < *(float *)(movement_control + 0x28) && *(int *)(movement_control + 0x48) < FUN_001f96f8_259028(4)) {
         *(int *)(movement_control + 0x48) = FUN_001f96f8_259028(4);
     }
     if (*(int *)(movement_control + 0x48) != 0) {
-        r |= FUN_L00_00258b50_259028(m, movement_control, tgt, out,
-                                     (*(float *)(movement_control + 0x28) - d) / *(float *)(movement_control + 0x28));
-        if (0.1f < d)
-            r &= ~2;
+        navigation_result_flags |= FUN_L00_00258b50_259028(moby, movement_control, target_position, out,
+                                     (*(float *)(movement_control + 0x28) - heading_error) / *(float *)(movement_control + 0x28));
+        if (0.1f < heading_error)
+            navigation_result_flags &= ~2;
     }
-    return r;
+    return navigation_result_flags;
 }
 extern int D_L00_0015FFF4;
 extern unsigned short *D_L00_001AB840_2591d0[] __asm__("D_L00_001AB840");
@@ -555,29 +565,31 @@ extern char *D_L00_0015FFD8_2591d0 __asm__("D_L00_0015FFD8");
 int FUN_L00_002592b8_c(char **, char *) __asm__("FUN_L00_002592b8");
 /* Looks up table entry idx and makes it current; the flag test reads the
  * current entry back, as the original did. */
-int FUN_L00_002591d0(char **out, int idx, int a, int b) {
-    unsigned short *v;
+int get_first_moby_in_group(char **out, int moby_group_index, int include_sign_bit_set_entries, int require_sign_bit_set_entries) __asm__("FUN_L00_002591d0");
+
+int get_first_moby_in_group(char **out, int moby_group_index, int include_sign_bit_set_entries, int require_sign_bit_set_entries) {
+    unsigned short *entry_index_list;
     char *entry_address;
     int entry_sign_bit_set;
     int entry_index;
-    if (idx < 0 || D_L00_0015FFF4 < idx) {
+    if (moby_group_index < 0 || D_L00_0015FFF4 < moby_group_index) {
         *out = 0;
         return -1;
     }
     *out = 0;
     D_L00_00160114 = 0;
-    v = D_L00_001AB840_2591d0[idx];
-    D_L00_0016010C_2591d0 = v;
-    if (v == 0) return -1;
-    entry_index = *v & 0x7FFF;
+    entry_index_list = D_L00_001AB840_2591d0[moby_group_index];
+    D_L00_0016010C_2591d0 = entry_index_list;
+    if (entry_index_list == 0) return -1;
+    entry_index = *entry_index_list & 0x7FFF;
     D_L00_00160110 = entry_index;
     entry_address = D_L00_0015FFD8_2591d0 + (entry_index << 8);
     D_L00_00160114 = entry_address;
     *out = entry_address;
     entry_sign_bit_set = (unsigned)(*(char *volatile *)&D_L00_00160114)[0x20] >> 31;
-    if (!a) {
-        if (b || entry_sign_bit_set) return FUN_L00_002592b8_c(out, D_L00_00160114);
-    } else if (b && !entry_sign_bit_set) return FUN_L00_002592b8_c(out, D_L00_00160114);
+    if (!include_sign_bit_set_entries) {
+        if (require_sign_bit_set_entries || entry_sign_bit_set) return FUN_L00_002592b8_c(out, D_L00_00160114);
+    } else if (require_sign_bit_set_entries && !entry_sign_bit_set) return FUN_L00_002592b8_c(out, D_L00_00160114);
     return 0;
 }
 
@@ -590,7 +602,9 @@ extern unsigned short *D_L00_001AB840[];
 
 /* Iterator over the mobies of target's group: finds the next one whose
  * visibility matches the two flags; 0 when found, -1 at the end. */
-int FUN_L00_002592b8(char **out, char *target, int include_sign_bit_set_entries, int b) {
+int get_next_moby_in_group(char **out, char *target, int include_sign_bit_set_entries, int require_sign_bit_set_entries) __asm__("FUN_L00_002592b8");
+
+int get_next_moby_in_group(char **out, char *target, int include_sign_bit_set_entries, int require_sign_bit_set_entries) {
     int entry_sign_bit_set;
 
     *out = 0;
@@ -622,7 +636,7 @@ int FUN_L00_002592b8(char **out, char *target, int include_sign_bit_set_entries,
         D_L00_00160114 = D_L00_0015FFD8 + (D_L00_00160110 << 8);
         *out = D_L00_00160114;
         entry_sign_bit_set = *(signed char *)(D_L00_00160114 + 0x20) < 0;
-        if ((include_sign_bit_set_entries == 0 && b == 0 && entry_sign_bit_set == 0) || (include_sign_bit_set_entries != 0 && (b == 0 || entry_sign_bit_set != 0))) {
+        if ((include_sign_bit_set_entries == 0 && require_sign_bit_set_entries == 0 && entry_sign_bit_set == 0) || (include_sign_bit_set_entries != 0 && (require_sign_bit_set_entries == 0 || entry_sign_bit_set != 0))) {
             return 0;
         }
     } while ((short)*D_L00_0016010C >= 0);
@@ -637,13 +651,15 @@ int FUN_L00_002592b8(char **out, char *target, int include_sign_bit_set_entries,
 /* Ported from rac1-decomp (src/overlays/shared/mobyutil_00258BC8.c: func_L00_0025A468), where it is exact; names translated to the US level program. */
 
 /* Lowers the top byte of *p by b (not below 0); true once it reaches 0. */
-int FUN_L00_00259430(int *packed_countdown, int b) {
-    int w = *packed_countdown;
-    int v = (w >> 24) - b;
-    if (v < 0)
-        v = 0;
-    *packed_countdown = (w & 0xFFFFFF) | (v << 24);
-    return v == 0;
+int decrement_packed_countdown(int *packed_countdown, int decrement_amount) __asm__("FUN_L00_00259430");
+
+int decrement_packed_countdown(int *packed_countdown, int decrement_amount) {
+    int original_packed_word = *packed_countdown;
+    int remaining_countdown = (original_packed_word >> 24) - decrement_amount;
+    if (remaining_countdown < 0)
+        remaining_countdown = 0;
+    *packed_countdown = (original_packed_word & 0xFFFFFF) | (remaining_countdown << 24);
+    return remaining_countdown == 0;
 }
 #define NOT_SDA
 
@@ -654,14 +670,16 @@ int FUN_L00_00259430(int *packed_countdown, int b) {
 extern f32 convert_integer_to_float(s32) __asm__("func_001FA6C0");
 extern s32 truncate_float_to_s32(f32) __asm__("FUN_001fa6d0");
 
-float FUN_L00_00259468(float *a, float *b, int *out, float f) {
-    int truncated_ratio = truncate_float_to_s32(b[2] / f);
+float calculate_triangular_corrected_scalar(float *base_values, float *b, int *out, float triangular_correction_coefficient) __asm__("FUN_L00_00259468");
+
+float calculate_triangular_corrected_scalar(float *base_values, float *linear_term_values, int *out, float triangular_correction_coefficient) {
+    int truncated_ratio = truncate_float_to_s32(linear_term_values[2] / triangular_correction_coefficient);
     float truncated_ratio_float = convert_integer_to_float(truncated_ratio);
-    float r = a[2] + b[2] * truncated_ratio_float - convert_integer_to_float((truncated_ratio * truncated_ratio + truncated_ratio) >> 1) * f;
+    float corrected_scalar_value = base_values[2] + linear_term_values[2] * truncated_ratio_float - convert_integer_to_float((truncated_ratio * truncated_ratio + truncated_ratio) >> 1) * triangular_correction_coefficient;
     if (out) {
         *out = truncated_ratio;
     }
-    return r;
+    return corrected_scalar_value;
 }
 #define NOT_SDA
 
@@ -673,33 +691,37 @@ extern f32 convert_integer_to_float(s32) __asm__("func_001FA6C0");
 extern void fast_vec_add(void *, void *, void *) __asm__("FUN_001f9a10");
 extern void fast_vec_scale(void *, void *, float) __asm__("FUN_001f9a68");
 
-void FUN_L00_00259508(void *destination, void *b, void *velocity, int frame_count, float f) {
+void predict_position_with_vertical_drop(void *destination, void *base_position, void *velocity, int frame_count, float vertical_drop_coefficient) __asm__("FUN_L00_00259508");
+
+void predict_position_with_vertical_drop(void *destination, void *base_position, void *velocity, int frame_count, float vertical_drop_coefficient) {
     float displacement[4];
     fast_vec_scale(displacement, velocity, convert_integer_to_float(frame_count));
-    displacement[2] -= convert_integer_to_float((frame_count * frame_count + frame_count) >> 1) * f;
-    fast_vec_add(destination, b, displacement);
+    displacement[2] -= convert_integer_to_float((frame_count * frame_count + frame_count) >> 1) * vertical_drop_coefficient;
+    fast_vec_add(destination, base_position, displacement);
 }
 float FUN_001f99c0(float);
 float square_root(float) __asm__("FUN_001f9988");
-int FUN_L00_002595a0(float *r0, float *r1, float a, float b, float c) {
-    float discriminant = b * b - a * 4.0f * c;
+int solve_quadratic_equation(float *larger_root_output, float *smaller_root_output, float quadratic_coefficient, float linear_coefficient, float constant_coefficient) __asm__("FUN_L00_002595a0");
+
+int solve_quadratic_equation(float *larger_root_output, float *smaller_root_output, float quadratic_coefficient, float linear_coefficient, float constant_coefficient) {
+    float discriminant = linear_coefficient * linear_coefficient - quadratic_coefficient * 4.0f * constant_coefficient;
     float sqrt_abs_discriminant, root_swap_temp;
     if (discriminant == 0.0f) {
-        *r0 = -b / (a + a);
+        *larger_root_output = -linear_coefficient / (quadratic_coefficient + quadratic_coefficient);
         return 1;
     }
     sqrt_abs_discriminant = square_root(FUN_001f99c0(discriminant));
-    *r0 = (-b + sqrt_abs_discriminant) / (a + a);
-    *r1 = (-b - sqrt_abs_discriminant) / (a + a);
-    if (*r0 < *r1) {
-        root_swap_temp = *r0;
-        *r1 = root_swap_temp;
-        *r0 = (-b - sqrt_abs_discriminant) / (a + a);
+    *larger_root_output = (-linear_coefficient + sqrt_abs_discriminant) / (quadratic_coefficient + quadratic_coefficient);
+    *smaller_root_output = (-linear_coefficient - sqrt_abs_discriminant) / (quadratic_coefficient + quadratic_coefficient);
+    if (*larger_root_output < *smaller_root_output) {
+        root_swap_temp = *larger_root_output;
+        *smaller_root_output = root_swap_temp;
+        *larger_root_output = (-linear_coefficient - sqrt_abs_discriminant) / (quadratic_coefficient + quadratic_coefficient);
     }
     {
-        int r = 0;
+        int real_root_count = 0;
         if (0.0f < discriminant)
-            r = 2;
-        return r;
+            real_root_count = 2;
+        return real_root_count;
     }
 }

@@ -44,15 +44,15 @@ extern s16 log2dim(s32) __asm__("FUN_001f97a0");
 void relocate_sky_definition(struct SpriteFile *f) __asm__("FUN_002028e0");
 
 void relocate_sky_definition(struct SpriteFile *sky_definition) {
-    s32 *src;
+    s32 *serialized_texture_words;
     s32 i;
     s32 k;
     s32 j;
-    s32 a;
-    s32 b;
+    s32 serialized_palette_offset;
+    s32 serialized_texel_offset;
     s32 texture_width;
     s32 texture_height;
-    struct Group *g;
+    struct Group *relocated_group;
 
     D_0016045C = sky_definition;
     sky_definition->loaded = 1;
@@ -62,23 +62,23 @@ void relocate_sky_definition(struct SpriteFile *sky_definition) {
     if (sky_definition->unk1C != 0) {
         sky_definition->unk1C += (s32)sky_definition;
     }
-    src = (s32 *)D_0016045C->sprites;
+    serialized_texture_words = (s32 *)D_0016045C->sprites;
     for (i = 0; i < D_0016045C->nsprites; i++) {
-        a = *src++;
-        b = *src++;
-        texture_width = *src++;
-        texture_height = *src++;
-        ((struct Sprite *)D_0016045C->sprites)[i].y = a >> 4;
-        ((struct Sprite *)D_0016045C->sprites)[i].x = b >> 4;
+        serialized_palette_offset = *serialized_texture_words++;
+        serialized_texel_offset = *serialized_texture_words++;
+        texture_width = *serialized_texture_words++;
+        texture_height = *serialized_texture_words++;
+        ((struct Sprite *)D_0016045C->sprites)[i].y = serialized_palette_offset >> 4;
+        ((struct Sprite *)D_0016045C->sprites)[i].x = serialized_texel_offset >> 4;
         ((struct Sprite *)D_0016045C->sprites)[i].w = log2dim(texture_width);
         ((struct Sprite *)D_0016045C->sprites)[i].h = log2dim(texture_height);
         ((struct Sprite *)D_0016045C->sprites)[i].unk0 = 0;
     }
     for (k = 0; k < D_0016045C->ngroups; k++) {
         D_0016045C->groups[k] += (s32)sky_definition;
-        g = (struct Group *)D_0016045C->groups[k];
-        for (j = 0; j < g->count; j++) {
-            ((struct Group *)((u8 *)g + j * 0x20))->items[0] += (s32)sky_definition;
+        relocated_group = (struct Group *)D_0016045C->groups[k];
+        for (j = 0; j < relocated_group->count; j++) {
+            ((struct Group *)((u8 *)relocated_group + j * 0x20))->items[0] += (s32)sky_definition;
         }
     }
 }

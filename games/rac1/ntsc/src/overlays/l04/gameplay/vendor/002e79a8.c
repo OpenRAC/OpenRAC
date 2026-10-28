@@ -7,9 +7,9 @@
 
 extern char *find_moby_hit(void *, int, int) __asm__("FUN_L00_0025a420");
 extern void allocate_voice_for_target_entry(int, int, int) __asm__("FUN_0022da68");
-extern void FUN_L00_00263e30(void *, int, int, int, int, int, int);
-extern void FUN_L01_002787a0(void *);
-extern void FUN_L01_00278e20(void *, int);
+extern void spawn_moby_break_fragments(void *, int, int, int, int, int, int) __asm__("FUN_L00_00263e30");
+extern void spawn_proximity_gated_bolts(void *) __asm__("FUN_L01_002787a0");
+extern void spawn_moby_from_placement(void *, int) __asm__("FUN_L01_00278e20");
 void mark_moby_for_removal(struct Obj *obj) __asm__("FUN_0020c828");
 
 void pipe_update(char *m) __asm__("FUN_L04_002e79a8");
@@ -20,22 +20,22 @@ void pipe_update(char *pipe_moby) {
         PIPE_REMOVE = 2
     };
     int hit = 0;
-    char *r = find_moby_hit(pipe_moby, 0x10000, 0);
+    char *hit_moby = find_moby_hit(pipe_moby, 0x10000, 0);
     switch (*(unsigned char *)(pipe_moby + 0x20)) {
     case PIPE_INITIALIZE:
         pipe_moby[0x20] = 1;
         break;
     case PIPE_WAIT_FOR_HIT:
-        if (r != 0 && *(float *)(r + 0x2C) > 0.0f)
+        if (hit_moby != 0 && *(float *)(hit_moby + 0x2C) > 0.0f)
             hit = 1;
         if (hit)
             pipe_moby[0x20] = 2;
         break;
     case PIPE_REMOVE:
         allocate_voice_for_target_entry(0, 0, (int)pipe_moby);
-        FUN_L01_002787a0(pipe_moby);
-        FUN_L00_00263e30(pipe_moby, 0x72c, 1, 0x72c, 1, 0x1, 2);
-        FUN_L01_00278e20(pipe_moby, 0x72b);
+        spawn_proximity_gated_bolts(pipe_moby);
+        spawn_moby_break_fragments(pipe_moby, 0x72c, 1, 0x72c, 1, 0x1, 2);
+        spawn_moby_from_placement(pipe_moby, 0x72b);
         mark_moby_for_removal(pipe_moby);
         break;
     }

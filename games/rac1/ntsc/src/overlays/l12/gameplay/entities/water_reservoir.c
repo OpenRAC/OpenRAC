@@ -22,29 +22,29 @@ extern void add_vector_72(float *, float *, float *) __asm__("FUN_001f9a10");
 extern void *FUN_00218888_72(void *, float *, float *, int, int, int, int, int, int) __asm__("FUN_00218888");
 extern float approach_value_72(float, float, float *) __asm__("FUN_00213ed8");
 extern void enqueue_callback_list_1_72(void *, void *) __asm__("FUN_001f4600");
-extern void FUN_L12_002ecac0(struct Moby *);
+void draw_water_reservoir(struct Moby *moby) __asm__("FUN_L12_002ecac0");
+
+extern void draw_water_reservoir(struct Moby *) __asm__("FUN_L12_002ecac0");
 extern float D_L12_0015F3FC;
-extern float D_L12_001619CC __attribute__((sda));
+#include "rnc/overlay/l12/gameplay/entities/water_reservoir_globals.h"
+extern float water_reservoir_angle_rate_degrees_gp __asm__("D_L12_001619CC") __attribute__((sda));
 int D_L12_001619D0 = 105;
-extern float D_L12_001619D4 __attribute__((sda));
+extern float water_reservoir_random_offset_radius_gp __asm__("D_L12_001619D4") __attribute__((sda));
 extern float D_L12_001619D8 __attribute__((sda));
 extern int D_L12_001619DC __attribute__((sda));
-extern float D_L12_001619E0 __attribute__((sda));
-extern float D_L12_001619E4 __attribute__((sda));
+#include "rnc/overlay/l12/gameplay/entities/water_reservoir_data/water_reservoir_update_3.h"
 int D_L12_001619E8 = 1;
-extern int D_L12_001619EC __attribute__((sda));
+#include "rnc/overlay/l12/gameplay/entities/water_reservoir_data/water_reservoir_update_2.h"
 int D_L12_001619F0 = 1;
 int D_L12_001619F4 = 0x40404040;
 int D_L12_001619F8 = 0x10022;
-extern float D_L12_001619FC __attribute__((sda));
-extern float D_L12_00161A00 __attribute__((sda));
-extern float D_L12_00161A04 __attribute__((sda));
-extern float D_L12_00161A08 __attribute__((sda));
+#include "rnc/overlay/l12/gameplay/entities/water_reservoir_data/water_reservoir_update.h"
+extern float water_reservoir_height_approach_rate_gp __asm__("D_L12_00161A08") __attribute__((sda));
 
 void water_reservoir_update(struct Moby *moby) __asm__("FUN_L12_002ec720");
 void water_reservoir_update(struct Moby *moby) {
     float *data = (float *)moby->pvars;
-    float pos[4], offset0[4], offset1[4], diff0[4], diff1[4];
+    float pos[4], offset0[4], offset1[4], pos_offset_delta[4], offset_pair_delta[4];
     float fraction, frame_scale;
     int scaled;
     if (moby->state != 0) {
@@ -66,7 +66,7 @@ active:
         moby->command = 2;
         *(int *)&data[1] = scale_game_frames_72(D_L12_001619D0);
     }
-    data[0] = fast_add_rotations_72(data[0], D_L12_001619CC * 0.017453292f * frame_time);
+    data[0] = fast_add_rotations_72(data[0], water_reservoir_angle_rate_degrees_gp * 0.017453292f * frame_time);
 frame_active:
     frame_scale = D_L12_0015F3FC;
 update:
@@ -80,38 +80,38 @@ update:
                            convert_integer_to_float_72(D_L12_001619D0);
             }
             if (random_float_between_72(0.0f, 1.0f) < fraction) {
-                random_vector_72(pos, 0.0f, D_L12_001619D4);
-                random_vector_72(offset0, 0.0f, D_L12_001619D4);
-                random_vector_72(offset1, 0.0f, D_L12_001619D4);
-                subtract_vector_72(diff0, pos, offset0);
-                diff0[2] += D_L12_00161A00 - D_L12_001619FC;
-                subtract_vector_72(diff1, offset0, offset1);
-                diff1[2] += D_L12_00161A04 - D_L12_00161A00;
-                scaled = D_L12_001619EC;
-                scale_vector_72(diff0, diff0, 2.0f / (float)scaled);
-                scale_vector_72(diff1, diff1, 2.0f / (float)scaled);
+                random_vector_72(pos, 0.0f, water_reservoir_random_offset_radius_gp);
+                random_vector_72(offset0, 0.0f, water_reservoir_random_offset_radius_gp);
+                random_vector_72(offset1, 0.0f, water_reservoir_random_offset_radius_gp);
+                subtract_vector_72(pos_offset_delta, pos, offset0);
+                pos_offset_delta[2] += water_reservoir_effect_delta_z_reference_gp - water_reservoir_unmirrored_effect_spawn_z_offset_gp;
+                subtract_vector_72(offset_pair_delta, offset0, offset1);
+                offset_pair_delta[2] += water_reservoir_mirrored_effect_spawn_z_offset_gp - water_reservoir_effect_delta_z_reference_gp;
+                scaled = water_reservoir_effect_delta_scale_divisor_gp;
+                scale_vector_72(pos_offset_delta, pos_offset_delta, 2.0f / (float)scaled);
+                scale_vector_72(offset_pair_delta, offset_pair_delta, 2.0f / (float)scaled);
                 add_vector_72(pos, pos, (float *)&moby->pos);
                 if (moby->command & 1) {
-                    pos[2] += D_L12_00161A04;
-                    diff0[2] = -diff0[2];
-                    diff1[2] = -diff1[2];
+                    pos[2] += water_reservoir_mirrored_effect_spawn_z_offset_gp;
+                    pos_offset_delta[2] = -pos_offset_delta[2];
+                    offset_pair_delta[2] = -offset_pair_delta[2];
                 } else {
-                    pos[2] += D_L12_001619FC;
+                    pos[2] += water_reservoir_unmirrored_effect_spawn_z_offset_gp;
                 }
-                diff0[3] = random_float_between_72(D_L12_001619E0, D_L12_001619E4);
-                diff1[3] = random_float_between_72(D_L12_001619E0, D_L12_001619E4);
-                FUN_00218888_72(pos, diff0, diff1, D_L12_001619F4, D_L12_001619F4,
-                                  D_L12_001619E8, scale_game_frames_72(D_L12_001619EC),
+                pos_offset_delta[3] = random_float_between_72(water_reservoir_effect_delta_fourth_component_range_start_gp, water_reservoir_effect_delta_fourth_component_range_end_gp);
+                offset_pair_delta[3] = random_float_between_72(water_reservoir_effect_delta_fourth_component_range_start_gp, water_reservoir_effect_delta_fourth_component_range_end_gp);
+                FUN_00218888_72(pos, pos_offset_delta, offset_pair_delta, D_L12_001619F4, D_L12_001619F4,
+                                  D_L12_001619E8, scale_game_frames_72(water_reservoir_effect_delta_scale_divisor_gp),
                                   D_L12_001619F0, D_L12_001619F8);
             }
         }
         if ((moby->command & 1) && *(int *)&data[1] == 0) {
-            approach_value_72(-1.0f, D_L12_00161A08 * frame_time, &data[2]);
+            approach_value_72(-1.0f, water_reservoir_height_approach_rate_gp * frame_time, &data[2]);
         } else if (moby->command & 2) {
-            approach_value_72(3.0f, D_L12_00161A08 * frame_time, &data[2]);
+            approach_value_72(3.0f, water_reservoir_height_approach_rate_gp * frame_time, &data[2]);
         }
     }
-    enqueue_callback_list_1_72(FUN_L12_002ecac0, moby);
+    enqueue_callback_list_1_72(draw_water_reservoir, moby);
 }
 
 #define NOT_SDA
@@ -144,12 +144,12 @@ extern short D_L12_00161A24 __attribute__((sda));
 extern void copy_matrix_rotation(void *, void *) __asm__("FUN_001fa298");
 extern void draw_geometry_quad(void *, void *, int);
 
-void FUN_L12_002ecac0(struct Moby *moby) {
+void draw_water_reservoir(struct Moby *moby) {
     char *data = (char *)moby->pvars;
     Quad quad;
     float rotation_matrix[12];
     float pos[4];
-    float a, b;
+    float segment_start_y, segment_end_y;
     int i, col;
     copy_matrix_rotation(rotation_matrix, &moby->rot_row0);
     qcopy(pos, &moby->pos);
@@ -169,18 +169,18 @@ void FUN_L12_002ecac0(struct Moby *moby) {
         quad.c[i] = col;
         qcopy(&quad.v[i * 4], D_L12_001F5B20 + i * 16);
     }
-    for (a = -0.4f; a < 0.36f; a += 0.1f) {
-        b = a + 0.1f;
-        quad.v[9] = a;
-        quad.v[1] = a;
-        quad.v[13] = b;
-        quad.v[5] = b;
+    for (segment_start_y = -0.4f; segment_start_y < 0.36f; segment_start_y += 0.1f) {
+        segment_end_y = segment_start_y + 0.1f;
+        quad.v[9] = segment_start_y;
+        quad.v[1] = segment_start_y;
+        quad.v[13] = segment_end_y;
+        quad.v[5] = segment_end_y;
         if (moby->command & 1) {
-            quad.v[2] = -fast_cos(a * *(float *)&D_L12_00161A24) + 2.0f;
-            quad.v[6] = -fast_cos(b * *(float *)&D_L12_00161A24) + 2.0f;
+            quad.v[2] = -fast_cos(segment_start_y * *(float *)&D_L12_00161A24) + 2.0f;
+            quad.v[6] = -fast_cos(segment_end_y * *(float *)&D_L12_00161A24) + 2.0f;
         } else {
-            quad.v[2] = fast_cos(a * *(float *)&D_L12_00161A24);
-            quad.v[6] = fast_cos(b * *(float *)&D_L12_00161A24);
+            quad.v[2] = fast_cos(segment_start_y * *(float *)&D_L12_00161A24);
+            quad.v[6] = fast_cos(segment_end_y * *(float *)&D_L12_00161A24);
         }
         draw_geometry_quad(&quad, rotation_matrix, 0);
     }
@@ -199,27 +199,29 @@ extern float fast_arc_tan(float, float) __asm__("FUN_001f9e90");
 extern int scale_game_frames(int) __asm__("FUN_001f96f8");
 extern void FUN_L00_00250df8(void *);
 
-char *FUN_L12_002ecce8(char *src, char *pos, int owner, int seed, float f0, float f1, float f2) {
+char *spawn_rocket(char *initial_velocity, char *pos, int owner, int seed, float yaw, float f1, float f2) __asm__("FUN_L12_002ecce8");
+
+char *spawn_rocket(char *initial_velocity, char *pos, int owner, int seed, float yaw, float nominal_speed, float f2) {
     struct Moby *moby = (struct Moby *)func_0020D348_m(0x199);
     if (moby != 0) {
         char *data;
-        int r;
+        int scaled_frames;
         data = (char *)moby->pvars;
         moby->update_dist = 0xFF;
         moby->draw_dist = 0x7E;
         moby->visible = 1;
         moby->state = 1;
         qcopy(&moby->pos, pos);
-        qcopy(data, src);
+        qcopy(data, initial_velocity);
         moby->rot.z = fast_arc_tan(*(float *)data, *(float *)(data + 4));
         moby->rot.y = -fast_arc_tan(vector_length_xy(data), *(float *)(data + 8));
-        r = scale_game_frames(seed);
+        scaled_frames = scale_game_frames(seed);
         *(int *)(data + 0x10) = owner;
         *(float *)(data + 0x18) = f2;
-        *(float *)(data + 0x1C) = f0;
-        *(float *)(data + 0x24) = f1;
+        *(float *)(data + 0x1C) = yaw;
+        *(float *)(data + 0x24) = nominal_speed;
         *(int *)(data + 0x28) = 0;
-        *(int *)(data + 0x14) = r;
+        *(int *)(data + 0x14) = scaled_frames;
         FUN_L00_00250df8(moby);
     }
     return (char *)moby;
@@ -258,7 +260,7 @@ extern int coll_sphere_ece00(void *, float, int, struct Moby *) __asm__("FUN_L00
 extern void make_hit_ece00(void *, struct Moby *, int, float, void *) __asm__("FUN_L00_00259888");
 extern float fast_cos_ece00(float) __asm__("FUN_001f9dc8");
 extern float fast_sin_ece00(float) __asm__("FUN_001f9de0");
-extern void FUN_L00_00259a88(int, void *);
+extern void record_moby_hit(int, void *) __asm__("FUN_L00_00259a88");
 extern void spawn_explosion(struct Moby *, void *, void *, float, float, int, int, int, float, float, float, float,
                              int, float, int, int, int, int) __asm__("FUN_L00_0025e450");
 extern void cart_burst(void *, void *, int, float, float) __asm__("FUN_L00_0025f090");
@@ -319,7 +321,7 @@ void rocket_update(struct Moby *moby) {
                 hit.unk18 = 1;
                 hit.unk19 = 1;
                 hit.oclass = moby->oclass;
-                FUN_L00_00259a88(D_L12_001742C0_ece00.moby, &hit);
+                record_moby_hit(D_L12_001742C0_ece00.moby, &hit);
             }
             moby->state = 2;
         }
@@ -351,7 +353,7 @@ void rocket_update(struct Moby *moby) {
 
 extern unsigned char D_0013D408_b[] __asm__("D_0013D408");
 extern char D_00141968_h[] __asm__("D_00141968");
-extern int FUN_L01_0026e008(int, int);
+extern int count_active_moby_group_members(int, int) __asm__("FUN_L01_0026e008");
 extern int is_point_inside_clip_volume(void *arg0, int arg1) __asm__("func_00214720");
 extern s32 scale_game_frames_c(s32) __asm__("func_001F96F8");
 extern void help_request(int, int) __asm__("FUN_L00_00203908");
@@ -359,12 +361,14 @@ extern void queue_dialogue_message(int, int) __asm__("FUN_L00_00263d40");
 extern void allocate_voice_for_bank_entry_alt(int, int, int) __asm__("FUN_0022db10");
 extern unsigned char D_0013D50F_e[] __asm__("D_0013D408");
 
-void FUN_L12_002ed280(struct Moby *moby) {
+void update_hoven_help_and_dialogue(struct Moby *moby) __asm__("FUN_L12_002ed280");
+
+void update_hoven_help_and_dialogue(struct Moby *moby) {
     int *moby_vars = (int *)moby->pvars;
-    if (FUN_L01_0026e008(moby_vars[3], -1) == 0) {
-        unsigned char *s = D_0013D50F_e;
-        if (s[0x14] == 0) {
-            s[0x14] = 1;
+    if (count_active_moby_group_members(moby_vars[3], -1) == 0) {
+        unsigned char *dialogue_trigger_state = D_0013D50F_e;
+        if (dialogue_trigger_state[0x14] == 0) {
+            dialogue_trigger_state[0x14] = 1;
             allocate_voice_for_bank_entry_alt(1, 0, 0);
             queue_dialogue_message(0x53D6, -1);
         }
@@ -393,27 +397,27 @@ void FUN_L12_002ed280(struct Moby *moby) {
             struct Hero *q = &hero;
             if (q->state.current == 0x81) {
                 moby_vars[1]++;
-                if ((pad_held[0] & 3) && 0.3f < q->unk229C) {
+                if ((pad_held[0] & 3) && 0.3f < q->stick_magnitude) {
                     moby_vars[2]++;
                 } else {
                     moby_vars[2] = 0;
                 }
                 if (scale_game_frames_c(0x28) < moby_vars[2]) {
-                    char *g = D_00141968_h;
+                    char *help_records = D_00141968_h;
                     moby_vars[1] = 0;
-                    if (*(unsigned short *)(g + 0x370) <= 0xFFFE) {
-                        *(unsigned short *)(g + 0x370) = *(unsigned short *)(g + 0x370) + 1;
+                    if (*(unsigned short *)(help_records + 0x370) <= 0xFFFE) {
+                        *(unsigned short *)(help_records + 0x370) = *(unsigned short *)(help_records + 0x370) + 1;
                     }
-                    if (scale_game_frames_c(D_0015EEA4) / 600 > *(unsigned short *)(g + 0x372)) {
-                        *(unsigned short *)(g + 0x372) = scale_game_frames_c(D_0015EEA4) / 600;
+                    if (scale_game_frames_c(D_0015EEA4) / 600 > *(unsigned short *)(help_records + 0x372)) {
+                        *(unsigned short *)(help_records + 0x372) = scale_game_frames_c(D_0015EEA4) / 600;
                     }
-                    *(unsigned int *)(g + 0x374) = *(unsigned int *)(g + 0x374) | (1 << current_level_index) | 0x80000000;
+                    *(unsigned int *)(help_records + 0x374) = *(unsigned int *)(help_records + 0x374) | (1 << current_level_index) | 0x80000000;
                 }
                 {
-                    int a = scale_game_frames_c(0x1C20);
-                    int b = scale_game_frames_c(0x708);
+                    int help_threshold_step_frames = scale_game_frames_c(0x1C20);
+                    int help_threshold_base_frames = scale_game_frames_c(0x708);
                     char *k = D_00141968_h;
-                    if (*(unsigned short *)(k + 0x370) * a + b < moby_vars[1]) {
+                    if (*(unsigned short *)(k + 0x370) * help_threshold_step_frames + help_threshold_base_frames < moby_vars[1]) {
                         help_request(0x2EE4, 0x6E);
                     }
                 }

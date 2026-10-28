@@ -12,21 +12,21 @@ extern float FUN_001f9b80_25fcb8(void *, void *) __asm__("FUN_001f9b80");
 extern short D_L04_001B09B0[] __attribute__((section(".data")));
 extern char *D_L04_001D1700[] __attribute__((section(".data")));
 extern struct Hero hero_lui __asm__("D_0013F350") __attribute__((section(".data")));
-int FUN_L04_00252e18(char *a, char *o, float best);
-int FUN_L04_00252e18(char *a, char *output_record, float best) {
-    struct Hero *g = &hero_lui;
+int select_moby_record_by_xy_distance(char *a, char *o, float best) __asm__("FUN_L04_00252e18");
+int select_moby_record_by_xy_distance(char *reference_object, char *output_record, float best) {
+    struct Hero *hero = &hero_lui;
     char *selected_moby;
     char *candidate_moby;
-    int res;
+    int selection_status;
     int i;
     int j;
-    float d;
+    float candidate_comparison_value;
 
-    selected_moby = ((char *)g->moby);
-    res = 0;
-    if (g->state.control_mode == 0x18 || g->state.current == 0x72) {
+    selected_moby = ((char *)hero->moby);
+    selection_status = 0;
+    if (hero->state.control_mode == 0x18 || hero->state.current == 0x72) {
         selected_moby = 0;
-        res = 2;
+        selection_status = 2;
     }
     for (i = 1; i <= D_L04_001B09B0[0]; i++) {
         candidate_moby = moby_array + (D_L04_001B09B0[i] << 8);
@@ -40,11 +40,11 @@ int FUN_L04_00252e18(char *a, char *output_record, float best) {
             continue;
         if (*(unsigned char *)(candidate_moby + 0x20) != 3)
             continue;
-        d = FUN_001f9b80_25fcb8(a + 0x10, candidate_moby + 0x10);
-        if (d < best) {
+        candidate_comparison_value = FUN_001f9b80_25fcb8(reference_object + 0x10, candidate_moby + 0x10);
+        if (candidate_comparison_value < best) {
             selected_moby = candidate_moby;
-            best = d;
-            res = 1;
+            best = candidate_comparison_value;
+            selection_status = 1;
         }
     }
     for (j = 0; j < 20; j++) {
@@ -59,21 +59,21 @@ int FUN_L04_00252e18(char *a, char *output_record, float best) {
             continue;
         if (*(unsigned char *)(candidate_moby + 0xBC) == 0)
             continue;
-        d = FUN_001f9b80_25fcb8(a + 0x10, candidate_moby + 0x10);
-        if (d < best) {
+        candidate_comparison_value = FUN_001f9b80_25fcb8(reference_object + 0x10, candidate_moby + 0x10);
+        if (candidate_comparison_value < best) {
             selected_moby = candidate_moby;
-            best = d;
-            res = 1;
+            best = candidate_comparison_value;
+            selection_status = 1;
         }
     }
     if (selected_moby != 0) {
         *(char **)(output_record + 0x40) = selected_moby;
         qcopy(output_record, selected_moby + 0x10);
         qcopy(output_record + 0x10, selected_moby + 0x40);
-        g = &hero_lui;
-        if (selected_moby == ((char *)g->moby)) {
-            qcopy(output_record + 0x20, &g->motion.unkC0);
-            qcopy(output_record + 0x30, &g->motion.unkD0);
+        hero = &hero_lui;
+        if (selected_moby == ((char *)hero->moby)) {
+            qcopy(output_record + 0x20, &hero->motion.near_ground_point);
+            qcopy(output_record + 0x30, &hero->motion.body_center);
         } else {
             qcopy(output_record + 0x30, output_record);
             *(float *)(output_record + 0x38) += 0.6f;
@@ -86,6 +86,6 @@ int FUN_L04_00252e18(char *a, char *output_record, float best) {
         qzero(output_record + 0x30);
         qzero(output_record + 0x20);
     }
-    *(int *)(output_record + 0x44) = res;
-    return res;
+    *(int *)(output_record + 0x44) = selection_status;
+    return selection_status;
 }

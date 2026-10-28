@@ -8,24 +8,26 @@ extern void FUN_L00_0024f440(void *, int, int, int);
 extern void FUN_L00_00252990(void *);
 
 /* advances an animation blend timer and steps through its frame table */
-void FUN_L00_0024f190(void *unused, unsigned char *animation_state) {
-    float s = *(float *)(animation_state + 0x28);
+void advance_moby_animation_blend(void *unused, unsigned char *animation_state) __asm__("FUN_L00_0024f190");
+
+void advance_moby_animation_blend(void *unused, unsigned char *animation_state) {
+    float unscaled_frame_step = *(float *)(animation_state + 0x28);
     animation_state[5] = 0;
-    if (s != 0.0f && *(float *)(animation_state + 0x2C) != 0.0f) {
-        float advanced_frame_progress = *(float *)(animation_state + 0x24) + s * *(float *)(animation_state + 0x2C);
+    if (unscaled_frame_step != 0.0f && *(float *)(animation_state + 0x2C) != 0.0f) {
+        float advanced_frame_progress = *(float *)(animation_state + 0x24) + unscaled_frame_step * *(float *)(animation_state + 0x2C);
         *(float *)(animation_state + 0x24) = advanced_frame_progress;
-        if (s > 0.0f) {
+        if (unscaled_frame_step > 0.0f) {
             if (advanced_frame_progress > 0.99f && advanced_frame_progress < 1.01f) {
                 *(float *)(animation_state + 0x24) = 1.0f;
             }
             if (*(float *)(animation_state + 0x24) >= 1.0f) {
-                int u = animation_state[7];
+                int next_frame_remap_flag = animation_state[7];
                 do {
-                    int o, p, o2;
-                    animation_state[6] = u;
+                    int o, p, animation_table_byte_offset;
+                    animation_state[6] = next_frame_remap_flag;
                     animation_state[5] |= 1;
                     animation_state[0x20] = animation_state[0x21];
-                    if ((unsigned char)u) {
+                    if ((unsigned char)next_frame_remap_flag) {
                         *(int *)(animation_state + 0x38) = *(int *)(animation_state + 0x3C);
                     }
                     animation_state[0x22] = animation_state[0x23];
@@ -37,13 +39,13 @@ void FUN_L00_0024f190(void *unused, unsigned char *animation_state) {
                     }
                     {
                         float unscaled_frame_remainder = (*(float *)(animation_state + 0x24) - 1.0f) / *(float *)(animation_state + 0x2C);
-                        float g;
-                        o2 = animation_state[0x22] * 4;
+                        float frame_progress_scale;
+                        animation_table_byte_offset = animation_state[0x22] * 4;
                         p = animation_state[0x20] * 4;
                         *(float *)(animation_state + 0x24) = unscaled_frame_remainder;
-                        g = **(float **)(*(int *)(*(unsigned char **)(animation_state + 0x14) + o2 + 0x48) + p + 0x1C);
-                        *(float *)(animation_state + 0x2C) = g;
-                        *(float *)(animation_state + 0x24) = unscaled_frame_remainder * g;
+                        frame_progress_scale = **(float **)(*(int *)(*(unsigned char **)(animation_state + 0x14) + animation_table_byte_offset + 0x48) + p + 0x1C);
+                        *(float *)(animation_state + 0x2C) = frame_progress_scale;
+                        *(float *)(animation_state + 0x24) = unscaled_frame_remainder * frame_progress_scale;
                     }
                 } while (*(float *)(animation_state + 0x24) >= 1.0f);
             }

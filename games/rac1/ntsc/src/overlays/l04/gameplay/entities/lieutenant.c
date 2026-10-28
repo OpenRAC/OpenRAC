@@ -44,7 +44,7 @@ extern struct ShopCamera D_L04_0016C9F0;
 extern s32 D_L04_0015F5C4;
 extern float FUN_001f9b48(void *, void *);
 extern void FUN_L00_0025a120(struct Moby *);
-extern void FUN_L02_002e0cd8(struct Moby *);
+extern void attach_big_head_cheat_manipulator_to_matching_moby(struct Moby *) __asm__("FUN_L02_002e0cd8");
 extern void initialize_npc_dialogue(struct Moby *, struct VendorVars *) __asm__("FUN_L00_002668a0");
 extern int FUN_00214720(char *, s32);
 extern int update_npc_dialogue(struct Moby *, struct VendorVars *) __asm__("FUN_L00_00266448");
@@ -65,14 +65,14 @@ void lieutenant_update(struct Moby *moby) {
     };
     Vec4 pos;
     Vec4 rot;
-    Vec4 *r;
+    Vec4 *rotation_ptr;
     struct VendorVars *vars = (struct VendorVars *)moby->pvars;
 
     if (moby->visible != 0 && FUN_001f9b48(&moby->pos, D_L04_00166F40) < 30.0f) {
         FUN_L00_0025a120(moby);
         ((struct VendorMobyView *)moby)->unk7F = 0x18;
     }
-    FUN_L02_002e0cd8(moby);
+    attach_big_head_cheat_manipulator_to_matching_moby(moby);
     switch (moby->state) {
     case LIEUTENANT_STATE_INITIALIZE:
         if (D_0014C050[((struct VendorMobyView *)moby)->slot + current_level_index * 16] == 0xFF) {
@@ -98,11 +98,11 @@ void lieutenant_update(struct Moby *moby) {
             jet_clear_persistent(((struct VendorMobyView *)moby)->slot);
             fast_vec_normalize(&pos, &((struct VendorMobyView *)moby)->facing, 2.0f);
             add_vector_xyz(&pos, &pos, &moby->pos);
-            r = &rot;
-            qcopy(r, &moby->rot);
+            rotation_ptr = &rot;
+            qcopy(rotation_ptr, &moby->rot);
             rot.f[2] = fast_add_rotations(rot.f[2], 3.14159f);
             qcopy(&D_L04_0016C9F0.pos, &pos);
-            qcopy(&D_L04_0016C9F0.rot, r);
+            qcopy(&D_L04_0016C9F0.rot, rotation_ptr);
             D_L04_0016C9F0.active = 1;
             memcard_save_data(0, -1);
             moby->state = 3;
@@ -180,7 +180,9 @@ extern Moby *D_L04_00160058_2E57F8 __asm__("D_L04_0015FFD8");
 extern s32 current_level_index_macro __asm__("D_0015ED84") MACRO_ADDR;
 extern int D_0015EEA4_macro __asm__("D_0015EEA4") MACRO_ADDR;
 extern s32 D_0015EEAC_macro __asm__("D_0015EEAC") MACRO_ADDR;
-void FUN_L04_002e4418(Moby *moby) {
+void update_eudora_tutorial_hints_and_stats(Moby *moby) __asm__("FUN_L04_002e4418");
+
+void update_eudora_tutorial_hints_and_stats(Moby *moby) {
     enum {
         TUTORIAL_TRIGGER_STATE_INITIALIZE = 0,
         TUTORIAL_TRIGGER_STATE_UPDATE_HINTS_AND_STATS = 1
@@ -450,7 +452,9 @@ extern void refl_2e5178(void *, void *, void *) __asm__("FUN_L00_001ff660");
 extern void fast_vec_scale(void *, void *, f32) __asm__("FUN_001f9a68");
 extern f32 rnd_2e5178(f32, f32) __asm__("FUN_L00_00257c48");
 extern void kill_2e5178(void *) __asm__("FUN_0020c828");
-void FUN_L04_002e5178(M2e5178 *entity) {
+void update_entity_bounce_and_decay(M2e5178 *entity) __asm__("FUN_L04_002e5178");
+
+void update_entity_bounce_and_decay(M2e5178 *entity) {
     enum {
         ENTITY_MOTION_STATE_BOUNCE = 0,
         ENTITY_MOTION_STATE_DECAY_AND_REMOVE = 1
@@ -503,7 +507,9 @@ extern int D_L04_0015F5C4;
 extern struct L04MissionState D_L04_0016C9E0;
 extern void cutscene_set_camera_target(int) __asm__("FUN_L00_002637f8");
 
-void FUN_L04_002e53a0(struct Moby *moby) {
+void dispatch_mode_selected_slot(struct Moby *moby) __asm__("FUN_L04_002e53a0");
+
+void dispatch_mode_selected_slot(struct Moby *moby) {
     enum {
         MODE_SLOT_STATE_INITIALIZE = 0,
         MODE_SLOT_STATE_DISPATCH_SELECTED_SLOT = 1
@@ -516,12 +522,12 @@ void FUN_L04_002e53a0(struct Moby *moby) {
     case MODE_SLOT_STATE_DISPATCH_SELECTED_SLOT:
         if (D_L04_0015F5C4 == 2) {
             if (D_L04_0016C9E0.mode == 0 || D_L04_0016C9E0.mode == 1) {
-                int v = D_L04_0016C9E0.mode;
+                int mission_mode = D_L04_0016C9E0.mode;
                 int i;
                 i = 0;
-                if (v == 0)
+                if (mission_mode == 0)
                     i = 3;
-                else if (v == 1)
+                else if (mission_mode == 1)
                     i = 2;
                 cutscene_set_camera_target(D_L04_0016C9E0.slot[i]);
             }

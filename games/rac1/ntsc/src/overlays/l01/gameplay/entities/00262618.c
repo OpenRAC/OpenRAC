@@ -12,11 +12,13 @@ INCLUDE_ASM("config/us/overlays/asm/FUN_L01_00262618.s", FUN_L01_00262618);
 
 extern u8 D_L01_001E3380[];
 void mine_blend_color(void) __asm__("FUN_L00_002371e0");
-void FUN_L01_002b96e0(s32, void *);
+void update_and_draw_scrolling_overlay_layers(s32, void *) __asm__("FUN_L01_002b96e0");
 
-void FUN_L01_002f6150(void) {
+void draw_two_scroll_layers(void) __asm__("FUN_L01_002f6150");
+
+void draw_two_scroll_layers(void) {
     mine_blend_color();
-    FUN_L01_002b96e0(0x2, D_L01_001E3380);
+    update_and_draw_scrolling_overlay_layers(0x2, D_L01_001E3380);
 }
 #include "eetypes.h"
 #include "qcopy.h"
@@ -25,7 +27,9 @@ void FUN_L01_002f6150(void) {
 #include "sda.h"
 extern u8 D_L01_001FBC80[];
 
-void FUN_L01_002feb28(void) {
+void draw_four_scroll_layers(void) __asm__("FUN_L01_002feb28");
+
+void draw_four_scroll_layers(void) {
     mine_blend_color();
-    FUN_L01_002b96e0(0x4, D_L01_001FBC80);
+    update_and_draw_scrolling_overlay_layers(0x4, D_L01_001FBC80);
 }

@@ -10,11 +10,13 @@
 
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002D7C00.c: func_L15_002DA990), where it is exact; names translated to the US level program. */
 
-extern int FUN_L03_002c6c60(void *);
+extern int is_moby_class_23e_in_state_14(void *) __asm__("FUN_L03_002c6c60");
 
 /* A class 0x23E moby in state 14 goes to state 1 and rises 1.5. */
-void FUN_L15_002d95a0(char *moby) {
-    if (FUN_L03_002c6c60(moby)) {
+void reset_electric_water_switch(char *moby) __asm__("FUN_L15_002d95a0");
+
+void reset_electric_water_switch(char *moby) {
+    if (is_moby_class_23e_in_state_14(moby)) {
         moby[0x20] = 1;
         *(float *)(moby + 0x18) += 1.5f;
     }
@@ -23,7 +25,7 @@ void FUN_L15_002d95a0(char *moby) {
 
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002D7C00.c: func_L15_002E5970), where it is exact; names translated to the US level program. */
 
-extern char *FUN_L00_0026daa0(char *src, int col, int w, int v, float x);
+extern char *spawn_source_attached_fading_effect_particle(char *src, int col, int w, int v, float x) __asm__("FUN_L00_0026daa0");
 extern char *func_0020D348_m(int);
 extern float vector_length_xy(void *) __asm__("FUN_001f9b20");
 extern float fast_arc_tan(float, float) __asm__("FUN_001f9e90");
@@ -31,7 +33,9 @@ extern int scale_game_frames(int) __asm__("FUN_001f96f8");
 extern void FUN_001f9a68(void *, void *, float);
 extern void FUN_L00_00250df8(void *);
 
-char *FUN_L15_002e4580(char *src, float *v, char *pos) {
+char *spawn_class_3a6_moby(char *source_moby, float *direction_vector, char *pos) __asm__("FUN_L15_002e4580");
+
+char *spawn_class_3a6_moby(char *source_moby, float *direction_vector, char *spawn_position) {
     char *spawned_moby = func_0020D348_m(0x3A6);
     if (spawned_moby != 0) {
         char *moby_vars;
@@ -39,19 +43,19 @@ char *FUN_L15_002e4580(char *src, float *v, char *pos) {
         *(short *)(spawned_moby + 0x32) = 0xFF;
         spawned_moby[0x31] = 1;
         spawned_moby[0x20] = 0;
-        *(long *)(spawned_moby + 0x38) = *(long *)(src + 0x38);
+        *(long *)(spawned_moby + 0x38) = *(long *)(source_moby + 0x38);
         *(float *)(spawned_moby + 0x2C) = *(float *)(spawned_moby + 0x2C) * 20.0f;
-        qcopy(spawned_moby + 0x10, pos);
+        qcopy(spawned_moby + 0x10, spawn_position);
         moby_vars = *(char **)(spawned_moby + 0x78);
-        FUN_001f9a68(moby_vars, v, 5.0f);
+        FUN_001f9a68(moby_vars, direction_vector, 5.0f);
         *(int *)(moby_vars + 0x38) = scale_game_frames(0xF0);
-        *(char **)(moby_vars + 0x3C) = src;
+        *(char **)(moby_vars + 0x3C) = source_moby;
         spawned_moby[0x23] = 0x30;
         *(unsigned short *)(spawned_moby + 0x34) |= 0x200;
-        *(float *)(spawned_moby + 0x48) = fast_arc_tan(v[0], v[1]);
-        *(float *)(spawned_moby + 0x44) = -fast_arc_tan(vector_length_xy(v), v[2]);
+        *(float *)(spawned_moby + 0x48) = fast_arc_tan(direction_vector[0], direction_vector[1]);
+        *(float *)(spawned_moby + 0x44) = -fast_arc_tan(vector_length_xy(direction_vector), direction_vector[2]);
         FUN_L00_00250df8(spawned_moby);
-        FUN_L00_0026daa0(spawned_moby, 0x600040FF, 0x80, -1, 170000.0f);
+        spawn_source_attached_fading_effect_particle(spawned_moby, 0x600040FF, 0x80, -1, 170000.0f);
     }
     return spawned_moby;
 }
@@ -109,9 +113,9 @@ extern char D_0013F3D0_lui[] __asm__("D_0013F3D0") __attribute__((section(".data
 extern struct Moby *moby_array __asm__("D_L15_0015FFD8");
 extern char *D_L15_001600EC;
 extern int current_level_index_gp __asm__("D_0015ED84") __attribute__((sda));
-extern float D_L15_00161BC8 __attribute__((sda));
-extern float D_L15_00161BCC __attribute__((sda));
-extern float D_L15_00161BD0 __attribute__((sda));
+#include "rnc/overlay/shared/gameplay/entities/002d6810_globals.h"
+extern float electric_water_on_duration_seconds_gp __asm__("D_L15_00161BC8") __attribute__((sda));
+extern float electric_water_off_duration_seconds_gp __asm__("D_L15_00161BCC") __attribute__((sda));
 extern unsigned char D_L15_001BB024[];
 extern unsigned char D_L15_001BBC84[];
 extern int D_L15_001BAAD0[];
@@ -124,20 +128,26 @@ extern float D_L15_0015F450;
 extern float D_L15_0015F454;
 extern int is_point_inside_clip_volume(void *, int) __asm__("FUN_00214720");
 extern void release_voice_slot(int) __asm__("FUN_0022d798");
-extern void FUN_L00_0023e838(int);
+extern void release_point_light_slot(int) __asm__("FUN_L00_0023e838");
 extern float scale_time(float) __asm__("FUN_001f96b0");
 extern int truncate_float_to_s32(float) __asm__("FUN_001fa6d0");
-extern int FUN_L15_002d6770(void);
+extern int hero_is_near_ground(void) __asm__("FUN_L15_002d6770");
 extern int fast_dec_timer_s16(void *) __asm__("FUN_001f9770");
 extern void set_moby_color(void *, int, int, int) __asm__("FUN_L00_002502f0");
 extern int random_int_between(int, int) __asm__("FUN_L00_00257b90");
 extern int random_integer_below(int) __asm__("FUN_00213260");
 extern float fast_vec_dist(void *, void *) __asm__("FUN_001f9b48");
-extern int FUN_L00_0023e738(void *, float, float, float, float, float);
-void FUN_L15_002d79e8(char *m);
-void FUN_L15_002d7bb0(struct Moby *moby);
-void FUN_L15_002d8710(char *moby);
-void FUN_L15_002d77c0(char *moby);
+extern int allocate_colored_effect_slot(void *, float, float, float, float, float) __asm__("FUN_L00_0023e738");
+void initialize_electric_water_bolt_effect(char *moby) __asm__("FUN_L15_002d79e8");
+
+void initialize_electric_water_bolt_effect(char *m) __asm__("FUN_L15_002d79e8");
+void update_electric_water_bolt_effect(struct Moby *moby) __asm__("FUN_L15_002d7bb0");
+void draw_electric_water_bolt_effect(char *moby) __asm__("FUN_L15_002d8710");
+
+void draw_electric_water_bolt_effect(char *moby) __asm__("FUN_L15_002d8710");
+void draw_electric_water_countdown(char *moby) __asm__("FUN_L15_002d77c0");
+
+void draw_electric_water_countdown(char *moby) __asm__("FUN_L15_002d77c0");
 extern void enqueue_callback_list_1(void *, void *) __asm__("FUN_001f4600");
 extern int FUN_L00_0028dc90(int, int, void *, int);
 extern f32 random_float_between(f32, f32) __asm__("func_002132A8");
@@ -147,19 +157,21 @@ extern void FUN_L00_001ff290(void *, void *, void *);
 extern f32 fast_cos(f32) __asm__("func_001F9DC8");
 extern float fast_sin(float) __asm__("FUN_001f9de0");
 extern void set_vector_length_xy(void *, void *, float) __asm__("FUN_001f9c48");
-extern void FUN_L00_00259a88(struct Moby *moby, void *hit);
+extern void record_moby_hit(struct Moby *moby, void *hit) __asm__("FUN_L00_00259a88");
 extern float vector_distance_xy(void *, void *) __asm__("FUN_001f9b80");
 extern int voice_is_playing(void *, int) __asm__("FUN_L00_0028d8c0");
-extern int FUN_L11_0030f270(void *);
-extern int FUN_L00_0020d568(void);
+extern int test_linked_moby_turn_trigger(void *) __asm__("FUN_L11_0030f270");
+extern int hero_is_in_special_state(void) __asm__("FUN_L00_0020d568");
 
 void electric_water_update(struct Moby *moby) __asm__("FUN_L15_002d6810");
 void electric_water_update(struct Moby *moby) {
     enum {
         ELECTRIC_WATER_INITIALIZE = 0,
+        ELECTRIC_WATER_ON = 1,
+        ELECTRIC_WATER_OFF = 2,
         ELECTRIC_WATER_SWITCH_DISABLED = 3
     };
-    float tmp[4];
+    float unused_vector_argument[4];
     HitRecord hit;
     ElectricWaterVars *vars = (ElectricWaterVars *)moby->pvars;
     int armed = 1;
@@ -188,7 +200,7 @@ void electric_water_update(struct Moby *moby) {
             vars->voice1 = -1;
         }
         if (vars->light != -1) {
-            FUN_L00_0023e838(vars->light);
+            release_point_light_slot(vars->light);
             vars->light = -1;
         }
         return;
@@ -209,10 +221,10 @@ void electric_water_update(struct Moby *moby) {
                 save_id = moby_array[vars->switches[reset_sw]].save_id;
                 D_L15_001BAAD0[(short)save_id >> 5] &= ~(1 << (save_id & 0x1F));
             } else {
-                FUN_L15_002d95a0((char *)&moby_array[vars->switches[reset_sw]]);
+                reset_electric_water_switch((char *)&moby_array[vars->switches[reset_sw]]);
             }
         }
-        vars->on_timer = truncate_float_to_s32(scale_time(D_L15_00161BC8 * 60.0f));
+        vars->on_timer = truncate_float_to_s32(scale_time(electric_water_on_duration_seconds_gp * 60.0f));
         vars->off_timer = scale_game_frames(200);
         vars->shock_count = 0;
         vars->light = -1;
@@ -221,11 +233,11 @@ void electric_water_update(struct Moby *moby) {
         vars->voice1 = -1;
         break;
 
-    case 1:
+    case ELECTRIC_WATER_ON:
         inside = 0;
-        wet = FUN_L15_002d6770();
+        wet = hero_is_near_ground();
         if (fast_dec_timer_s16(&vars->on_timer) != 0) {
-            vars->off_timer = truncate_float_to_s32(scale_time(D_L15_00161BCC * 60.0f));
+            vars->off_timer = truncate_float_to_s32(scale_time(electric_water_off_duration_seconds_gp * 60.0f));
             moby->state = 2;
             if (vars->owner != 0) {
                 if (vars->voice1 != -1) {
@@ -258,7 +270,7 @@ void electric_water_update(struct Moby *moby) {
             }
         }
 
-        if ((!inside || !wet) && random_integer_below(1) == 0 && D_L15_00161BD0 == 0.0f) {
+        if ((!inside || !wet) && random_integer_below(1) == 0 && electric_water_path_arc_inhibit_gp == 0.0f) {
             best = 0;
             for (line_offset = 0; line_offset < 24; line_offset += 8) {
                 line = vars->spark_lines[0] + line_offset;
@@ -286,7 +298,7 @@ void electric_water_update(struct Moby *moby) {
                     vars->bolt_start = *(u128 *)((D_L15_001600EC + best[pick] * 128) + 0x30);
                     vars->bolt_aim = vars->bolt_end = *(u128 *)((D_L15_001600EC + best[pick + 1] * 128) + 0x30);
                     if (vars->light == -1) {
-                        vars->light = FUN_L00_0023e738(&vars->bolt_start, 8.0f, 0.0f, 1.0f, 1.0f, 0.5f);
+                        vars->light = allocate_colored_effect_slot(&vars->bolt_start, 8.0f, 0.0f, 1.0f, 1.0f, 0.5f);
                     } else {
                         Light29FF90 *light = &D_L15_001808C0[vars->light];
                         qcopy(&light->pos, &vars->bolt_start);
@@ -296,9 +308,9 @@ void electric_water_update(struct Moby *moby) {
                         light->unk8 = 0.5f;
                         light->unkC = 0;
                     }
-                    FUN_L15_002d79e8((char *)moby);
-                    FUN_L15_002d7bb0(moby);
-                    enqueue_callback_list_1(FUN_L15_002d8710, moby);
+                    initialize_electric_water_bolt_effect((char *)moby);
+                    update_electric_water_bolt_effect(moby);
+                    enqueue_callback_list_1(draw_electric_water_bolt_effect, moby);
                 }
             }
         }
@@ -344,12 +356,12 @@ void electric_water_update(struct Moby *moby) {
             theta = random_angle_radians();
             phi = random_angle_radians();
             build_spherical_offset(&vars->bolt_aim, radius, theta, phi);
-            FUN_L00_001ff290(tmp, &vars->bolt_aim, &hero.motion.unkD0);
+            FUN_L00_001ff290(unused_vector_argument, &vars->bolt_aim, &hero.motion.body_center);
             vars->bolt_end = vars->bolt_aim;
-            vars->bolt_start = hero.motion.unkD0.q;
-            FUN_L15_002d79e8((char *)moby);
-            FUN_L15_002d7bb0(moby);
-            enqueue_callback_list_1(FUN_L15_002d8710, moby);
+            vars->bolt_start = hero.motion.body_center.q;
+            initialize_electric_water_bolt_effect((char *)moby);
+            update_electric_water_bolt_effect(moby);
+            enqueue_callback_list_1(draw_electric_water_bolt_effect, moby);
             hit.attacker = moby;
             hit.flags = 0x10001;
             hit.damage = 1.0f;
@@ -362,7 +374,7 @@ void electric_water_update(struct Moby *moby) {
             hit.v[2] = 1.0f;
             hit.v[3] = 5627.9248f;
             hit.unk18 = 0;
-            FUN_L00_00259a88(hero.moby, &hit);
+            record_moby_hit(hero.moby, &hit);
             if (moby->state == 2) {
                 D_L15_0015F448 = vars->saved_fog[0];
                 D_L15_0015F44C = vars->saved_fog[1];
@@ -374,7 +386,7 @@ void electric_water_update(struct Moby *moby) {
             }
         }
         /* fall through: the hum and the switches, as in state 2 */
-    case 2:
+    case ELECTRIC_WATER_OFF:
         nearest = 0;
         for (near_lamp = 0; near_lamp < 3; near_lamp++) {
             if (vars->lamps[near_lamp] == -1) {
@@ -415,7 +427,7 @@ void electric_water_update(struct Moby *moby) {
             vars->voice1 = FUN_L00_0028dc90(1, 5, vars->owner, 0x28F);
         }
         if (fast_dec_timer_s16(&vars->off_timer) != 0 && moby->state == 2) {
-            vars->on_timer = truncate_float_to_s32(scale_time(D_L15_00161BC8 * 60.0f));
+            vars->on_timer = truncate_float_to_s32(scale_time(electric_water_on_duration_seconds_gp * 60.0f));
             vars->off_timer = scale_game_frames(200);
             vars->shock_count = 0;
             moby->state = 1;
@@ -427,7 +439,7 @@ void electric_water_update(struct Moby *moby) {
                 moby->state = 3;
                 FUN_L00_0028dc90(2, 0, &moby_array[vars->switches[sw]], 0x28F);
                 vars->armed = 0;
-            } else if (vars->switches[sw] != -1 && FUN_L11_0030f270(&moby_array[vars->switches[sw]]) != 0) {
+            } else if (vars->switches[sw] != -1 && test_linked_moby_turn_trigger(&moby_array[vars->switches[sw]]) != 0) {
                 vars->off_timer = truncate_float_to_s32(scale_time(vars->off_seconds * 60.0f));
                 moby->state = 3;
                 FUN_L00_0028dc90(2, 0, &moby_array[vars->switches[sw]], 0x28F);
@@ -443,11 +455,11 @@ void electric_water_update(struct Moby *moby) {
             }
         }
         if (vars->light != -1) {
-            FUN_L00_0023e838(vars->light);
+            release_point_light_slot(vars->light);
             vars->light = -1;
         }
         if (vars->off_timer != 0) {
-            enqueue_callback_list_1(FUN_L15_002d77c0, moby);
+            enqueue_callback_list_1(draw_electric_water_countdown, moby);
         }
         if (vars->owner != 0) {
             if (vars->voice0 != -1) {
@@ -497,10 +509,10 @@ void electric_water_update(struct Moby *moby) {
             if (moby_array[vars->switches[i]].oclass == 0x33E) {
                 moby_array[vars->switches[i]].state = 1;
             } else {
-                FUN_L15_002d95a0((char *)&moby_array[vars->switches[i]]);
+                reset_electric_water_switch((char *)&moby_array[vars->switches[i]]);
             }
         }
-        vars->on_timer = truncate_float_to_s32(scale_time(D_L15_00161BC8 * 60.0f));
+        vars->on_timer = truncate_float_to_s32(scale_time(electric_water_on_duration_seconds_gp * 60.0f));
         vars->off_timer = scale_game_frames(200);
         vars->shock_count = 0;
         moby->state = 1;
@@ -511,7 +523,7 @@ void electric_water_update(struct Moby *moby) {
         char *hero_pos = D_0013F3D0;
         struct Hero *player = (struct Hero *)(hero_pos - 0x80);
         for (level_area = 0; level_area < 4; level_area++) {
-            if (is_point_inside_clip_volume(hero_pos, vars->water_level_areas[level_area]) != 0 && FUN_L00_0020d568() != 0) {
+            if (is_point_inside_clip_volume(hero_pos, vars->water_level_areas[level_area]) != 0 && hero_is_in_special_state() != 0) {
                 player->water_surface_z = *(float *)((D_L15_001600EC + vars->water_level_areas[level_area] * 128) + 0x38);
             }
         }
@@ -539,31 +551,31 @@ extern void font_print_center_large_001f6c20(int a, int b, int c, int d, int e) 
 
 #define W(x) (*(int *)&(x))
 
-void FUN_L15_002d77c0(char *moby) {
-    char buf[8];
+void draw_electric_water_countdown(char *moby) {
+    char countdown_text[8];
     char *data = *(char **)(moby + 0x78);
-    float v;
+    float color_blend_factor;
     int col;
 
     draw_ui_frame(W(D_L15_00161BE4) + W(D_L15_00161BD8), W(D_L15_00161BE8) + W(D_L15_00161BD8),
                 W(D_L15_00161BEC) + W(D_L15_00161BD4), W(D_L15_00161BF0) + W(D_L15_00161BD4),
                 W(D_L15_00161BF4));
-    v = fast_sin(func_001FA888(D_L15_0015F5CC % 60) / 60.0f * 6.28318f) * 3.0f + 0.5f;
-    if (v > 1.0f) {
-        v = 1.0f;
-    } else if (v < 0.0f) {
-        v = 0.0f;
+    color_blend_factor = fast_sin(func_001FA888(D_L15_0015F5CC % 60) / 60.0f * 6.28318f) * 3.0f + 0.5f;
+    if (color_blend_factor > 1.0f) {
+        color_blend_factor = 1.0f;
+    } else if (color_blend_factor < 0.0f) {
+        color_blend_factor = 0.0f;
     }
-    col = fast_tween_color(W(D_L15_00161BDC), W(D_L15_00161BE0), v);
-    buf[0] = 0x30;
-    buf[1] = *(short *)(data + 0x12) / scale_ticks(0xE10) + 0x30;
-    buf[2] = 0x3A;
-    buf[3] = *(short *)(data + 0x12) % scale_ticks(0xE10) / scale_ticks(0x258) + 0x30;
-    buf[4] = *(short *)(data + 0x12) % scale_ticks(0x258) / scale_ticks(0x3C) + 0x30;
-    buf[5] = 0x3A;
-    buf[6] = *(short *)(data + 0x12) % scale_ticks(0x3C) / scale_ticks(6) + 0x30;
-    buf[7] = func_001FA898_r((float)random_integer_below(10)) + 0x30;
-    font_print_center_large_001f6c20(W(D_L15_00161BD4), W(D_L15_00161BD8), col, (int)buf, 8);
+    col = fast_tween_color(W(D_L15_00161BDC), W(D_L15_00161BE0), color_blend_factor);
+    countdown_text[0] = 0x30;
+    countdown_text[1] = *(short *)(data + 0x12) / scale_ticks(0xE10) + 0x30;
+    countdown_text[2] = 0x3A;
+    countdown_text[3] = *(short *)(data + 0x12) % scale_ticks(0xE10) / scale_ticks(0x258) + 0x30;
+    countdown_text[4] = *(short *)(data + 0x12) % scale_ticks(0x258) / scale_ticks(0x3C) + 0x30;
+    countdown_text[5] = 0x3A;
+    countdown_text[6] = *(short *)(data + 0x12) % scale_ticks(0x3C) / scale_ticks(6) + 0x30;
+    countdown_text[7] = func_001FA898_r((float)random_integer_below(10)) + 0x30;
+    font_print_center_large_001f6c20(W(D_L15_00161BD4), W(D_L15_00161BD8), col, (int)countdown_text, 8);
 }
 /* Starts the moby's trail when requested: resets the trail points and the counters. */
 extern int D_L15_00161C14_r __asm__("D_L15_00161C14") __attribute__((sda));
@@ -584,30 +596,29 @@ extern void fast_vec_normalize(void *, void *, float) __asm__("FUN_001f9bf8");
 extern void fast_vec_add(void *, void *, void *) __asm__("FUN_001f9a10");
 extern void zero_r(void *) __asm__("FUN_001f99f8");
 
-extern int D_L15_00161BF8 __attribute__((sda));
-extern float D_L15_00161BFC __attribute__((sda));
-extern int D_L15_00161C8C __attribute__((sda));
+extern int electric_water_bolt_init_requested_gp __asm__("D_L15_00161BF8") __attribute__((sda));
+extern float electric_water_bolt_initial_length_scale_gp __asm__("D_L15_00161BFC") __attribute__((sda));
+extern int electric_water_bolt_initial_frame_count_gp __asm__("D_L15_00161C8C") __attribute__((sda));
 extern short D_L15_00161CD2;
 extern short D_L15_00161CD4;
 extern short D_L15_00161CD6;
 extern short D_L15_00161CDA;
 extern short D_L15_00161CDC;
 extern short D_L15_00161CDE;
-extern int D_L15_00161CE0;
 extern int D_L15_00161CE4;
-void FUN_L15_002d79e8(char *moby) {
+void initialize_electric_water_bolt_effect(char *moby) {
     char *moby_vars = *(char **)(moby + 0x78);
-    float v[4];
+    float bolt_displacement[4];
     float step[4];
     int i;
     int j;
-    if (D_L15_00161BF8 != 0) {
-        D_L15_00161BF8 = 0;
+    if (electric_water_bolt_init_requested_gp != 0) {
+        electric_water_bolt_init_requested_gp = 0;
         D_L15_00161CE4 = 0;
-        D_L15_00161CE0 = scale_frames_r(D_L15_00161C8C);
+        electric_water_bolt_initial_scaled_frame_count = scale_frames_r(electric_water_bolt_initial_frame_count_gp);
         D_L15_00161C60_r = 0x7F2020;
-        fast_vec_sub(v, moby_vars + 0x100, moby_vars + 0xF0);
-        fast_vec_normalize(step, v, D_L15_00161BFC / 20.0f);
+        fast_vec_sub(bolt_displacement, moby_vars + 0x100, moby_vars + 0xF0);
+        fast_vec_normalize(step, bolt_displacement, electric_water_bolt_initial_length_scale_gp / 20.0f);
         qcopy(D_L15_001D3750_r, moby_vars + 0xF0);
         for (i = 1; i < 20; i++) {
             fast_vec_add(D_L15_001D3750_r[i], D_L15_001D3740_r[i], step);
@@ -705,7 +716,7 @@ extern s32 D_L15_00161CE0_2d8fa0 __asm__("D_L15_00161C60") __attribute__((sda));
 extern P_2d8fa0 D_L15_001D3E80_2d8fa0[] __asm__("D_L15_001D3BB0");
 extern float D_L15_00167440_2d8fa0[] __asm__("D_L15_001673C0");
 
-void FUN_L15_002d7bb0(Moby *moby) {
+void update_electric_water_bolt_effect(Moby *moby) {
     V_2d8fa0 vectors[10];
     V_2d8fa0 jitter[5];
     Data_2d8fa0 *data = (Data_2d8fa0 *)moby->pvars;
@@ -892,35 +903,32 @@ extern short D_L15_00161C70_8710 __asm__("D_L15_00161C70") __attribute__((sda));
 extern short D_L15_00161C74_8710 __asm__("D_L15_00161C74") __attribute__((sda));
 extern short D_L15_00161C78_8710 __asm__("D_L15_00161C78") __attribute__((sda));
 extern short D_L15_00161CA0_8710 __asm__("D_L15_00161CA0") __attribute__((sda));
-extern void FUN_L00_002baae0_8710(char *, int, int, int, float, float,
+extern void draw_beam_and_arc_two_pass_quads(char *, int, int, int, float, float,
                                   float) __asm__("FUN_L00_002baae0");
 extern void FUN_L15_002d8e48_8710(char *) __asm__("FUN_L15_002d8e48");
 #define F(x) (*(float *)&(x))
-extern int D_L15_00161CCA;
-extern int D_L15_00161CCC;
-extern int D_L15_00161CCE;
-void FUN_L15_002d8710(char *moby) {
-    float v = F(D_L15_00161C54_8710) - F(D_L15_00161C58_8710) * frame_scale;
-    F(D_L15_00161C54_8710) = v;
-    if (v <= -8.0f) {
-        F(D_L15_00161C54_8710) = v + 8.0f;
+void draw_electric_water_bolt_effect(char *moby) {
+    float decremented_accumulator = F(D_L15_00161C54_8710) - F(D_L15_00161C58_8710) * frame_scale;
+    F(D_L15_00161C54_8710) = decremented_accumulator;
+    if (decremented_accumulator <= -8.0f) {
+        F(D_L15_00161C54_8710) = decremented_accumulator + 8.0f;
     }
-    FUN_L00_002baae0_8710(D_L15_001D3750_8710, W(D_L15_00161C3C_8710), W(D_L15_00161C44_8710), 0x14,
+    draw_beam_and_arc_two_pass_quads(D_L15_001D3750_8710, W(D_L15_00161C3C_8710), W(D_L15_00161C44_8710), 0x14,
                           F(D_L15_00161C64_8710), F(D_L15_00161C68_8710), F(D_L15_00161C9C_8710));
-    FUN_L00_002baae0_8710(D_L15_001D3750_8710 + 0x140, W(D_L15_00161C6C_8710),
+    draw_beam_and_arc_two_pass_quads(D_L15_001D3750_8710 + 0x140, W(D_L15_00161C6C_8710),
                           W(D_L15_00161C70_8710), 0x14, F(D_L15_00161C74_8710),
                           F(D_L15_00161C78_8710), F(D_L15_00161CA0_8710));
-    FUN_L00_002baae0_8710(D_L15_001D3BB0_8710, *(short *)&D_L15_00161CC8_8710,
+    draw_beam_and_arc_two_pass_quads(D_L15_001D3BB0_8710, *(short *)&D_L15_00161CC8_8710,
                           *(short *)&D_L15_00161CC8_8710, 5, F(D_L15_00161C74_8710),
                           F(D_L15_00161C78_8710), 0.2f);
-    FUN_L00_002baae0_8710(D_L15_001D3BB0_8710 + 0x50, *(short *)&D_L15_00161CCA,
-                          *(short *)&D_L15_00161CCA, 5, F(D_L15_00161C74_8710),
+    draw_beam_and_arc_two_pass_quads(D_L15_001D3BB0_8710 + 0x50, *(short *)&second_side_arc_fade_level,
+                          *(short *)&second_side_arc_fade_level, 5, F(D_L15_00161C74_8710),
                           F(D_L15_00161C78_8710), 0.2f);
-    FUN_L00_002baae0_8710(D_L15_001D3BB0_8710 + 0xA0, *(short *)&D_L15_00161CCC,
-                          *(short *)&D_L15_00161CCC, 5, F(D_L15_00161C74_8710),
+    draw_beam_and_arc_two_pass_quads(D_L15_001D3BB0_8710 + 0xA0, *(short *)&third_side_arc_fade_level,
+                          *(short *)&third_side_arc_fade_level, 5, F(D_L15_00161C74_8710),
                           F(D_L15_00161C78_8710), 0.2f);
-    FUN_L00_002baae0_8710(D_L15_001D3BB0_8710 + 0xF0, *(short *)&D_L15_00161CCE,
-                          *(short *)&D_L15_00161CCE, 5, F(D_L15_00161C74_8710),
+    draw_beam_and_arc_two_pass_quads(D_L15_001D3BB0_8710 + 0xF0, *(short *)&fourth_side_arc_fade_level,
+                          *(short *)&fourth_side_arc_fade_level, 5, F(D_L15_00161C74_8710),
                           F(D_L15_00161C78_8710), 0.2f);
     FUN_L15_002d8e48_8710(moby);
 }
@@ -950,50 +958,52 @@ extern long tex_2d8e48(int) __asm__("FUN_001f44b8");
 extern float rnd_2d8e48(float, float) __asm__("FUN_L00_00257c48");
 extern void draw_2d8e48(void *, void *, int) __asm__("FUN_001f7d30");
 
-void FUN_L15_002d8e48(void *mv) {
+void draw_electric_water_bolt_start_quads(void *mv) __asm__("FUN_L15_002d8e48");
+
+void draw_electric_water_bolt_start_quads(void *mv) {
     Q2d8e48 quad;
-    V2d8e48 mat[4];
-    V2d8e48 *pos;
-    unsigned int c;
+    V2d8e48 quad_transform[4];
+    V2d8e48 *bolt_start_position;
+    unsigned int uniform_quad_color;
     float quad_scale;
     int i;
-    pos = *(V2d8e48 **)((char *)mv + 0x78);
+    bolt_start_position = *(V2d8e48 **)((char *)mv + 0x78);
     quad.tex = tex_2d8e48(0xB);
-    pos = (V2d8e48 *)((char *)pos + 0xF0);
+    bolt_start_position = (V2d8e48 *)((char *)bolt_start_position + 0xF0);
     quad.unk88 = 0x8000000048L;
     quad.unk80 = 0xFF9000000260L;
     quad.unk70 = 0;
-    vsub_2d8e48(&mat[3], &D_L15_001673C0, pos);
-    vscl_2d8e48(&mat[3], &mat[3], 0.3f);
-    vadd_2d8e48(&mat[3], &mat[3], pos);
-    mat[3].f[3] = 1.0f;
-    vsub_2d8e48(&mat[0], &D_L15_001673C0, &mat[3]);
-    vscl_2d8e48(&mat[0], &mat[0], 1.0f);
-    fast_vec_cross(&mat[1], &mat[0], (V2d8e48 *)&hero.gravity_dir);
-    vscl_2d8e48(&mat[1], &mat[1], -1.0f);
-    fast_vec_cross(&mat[2], &mat[1], &mat[0]);
-    c = D_L15_00161CAC;
-    quad.color[3] = c;
-    quad.color[2] = c;
-    quad.color[1] = c;
-    quad.color[0] = c;
+    vsub_2d8e48(&quad_transform[3], &D_L15_001673C0, bolt_start_position);
+    vscl_2d8e48(&quad_transform[3], &quad_transform[3], 0.3f);
+    vadd_2d8e48(&quad_transform[3], &quad_transform[3], bolt_start_position);
+    quad_transform[3].f[3] = 1.0f;
+    vsub_2d8e48(&quad_transform[0], &D_L15_001673C0, &quad_transform[3]);
+    vscl_2d8e48(&quad_transform[0], &quad_transform[0], 1.0f);
+    fast_vec_cross(&quad_transform[1], &quad_transform[0], (V2d8e48 *)&hero.gravity_dir);
+    vscl_2d8e48(&quad_transform[1], &quad_transform[1], -1.0f);
+    fast_vec_cross(&quad_transform[2], &quad_transform[1], &quad_transform[0]);
+    uniform_quad_color = D_L15_00161CAC;
+    quad.color[3] = uniform_quad_color;
+    quad.color[2] = uniform_quad_color;
+    quad.color[1] = uniform_quad_color;
+    quad.color[0] = uniform_quad_color;
     quad_scale = D_L15_00161CB4 + rnd_2d8e48(0.0f, 0.025f);
     for (i = 0; i < 4; i++) {
         fast_vec_scale(quad_scale, &quad.corner[i], &D_L15_001D36F0[i]);
-        xform_2d8e48(&quad.corner[i], &quad.corner[i], &mat[0]);
+        xform_2d8e48(&quad.corner[i], &quad.corner[i], &quad_transform[0]);
         quad.uv[i].u = D_L15_001D3730[i].u;
         quad.uv[i].v = D_L15_001D3730[i].v;
     }
     draw_2d8e48(&quad, 0, 0);
-    c = D_L15_00161C60;
-    quad.color[3] = c;
-    quad.color[2] = c;
-    quad.color[1] = c;
-    quad.color[0] = c;
+    uniform_quad_color = D_L15_00161C60;
+    quad.color[3] = uniform_quad_color;
+    quad.color[2] = uniform_quad_color;
+    quad.color[1] = uniform_quad_color;
+    quad.color[0] = uniform_quad_color;
     quad_scale = D_L15_00161CB8 + rnd_2d8e48(0.0f, 0.05f);
     for (i = 0; i < 4; i++) {
         fast_vec_scale(quad_scale, &quad.corner[i], &D_L15_001D36F0[i]);
-        xform_2d8e48(&quad.corner[i], &quad.corner[i], &mat[0]);
+        xform_2d8e48(&quad.corner[i], &quad.corner[i], &quad_transform[0]);
         quad.uv[i].u = D_L15_001D3730[i].u;
         quad.uv[i].v = D_L15_001D3730[i].v;
     }
@@ -1013,9 +1023,11 @@ extern void spark_s(void *, float, void *, int, float, float, int, int, int) __a
 extern void blast_s(void *, void *, float, float, int) __asm__("FUN_L00_0025f090");
 extern void FUN_0022da68_s(int, int, void *) __asm__("FUN_0022da68");
 extern void remove_s(void *) __asm__("FUN_0020c828");
-extern void FUN_L07_0029b8d8(void *, float, int, float);
+extern void spawn_moby_point_offset_particle(void *, float, int, float) __asm__("FUN_L07_0029b8d8");
 
-void FUN_L15_002e4380(unsigned char *moby) {
+void update_spinning_projectile(unsigned char *moby) __asm__("FUN_L15_002e4380");
+
+void update_spinning_projectile(unsigned char *moby) {
     char *moby_vars = *(char **)(moby + 0x78);
     float next[4];
     char col[0x30];
@@ -1043,5 +1055,5 @@ void FUN_L15_002e4380(unsigned char *moby) {
     }
     qcopy(moby + 0x10, next);
     if (D_L15_0015F5CC_s % 3 == 0)
-        FUN_L07_0029b8d8(moby, 30000.0f, 0, 0.1f);
+        spawn_moby_point_offset_particle(moby, 30000.0f, 0, 0.1f);
 }

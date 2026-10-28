@@ -16,8 +16,8 @@
 extern float random_angle_radians(void) __asm__("FUN_00213308");
 extern int fast_bsphere_check(char *, float) __asm__("FUN_001fa728");
 extern s32 scale_game_frames(s32) __asm__("func_001F96F8");
-extern unsigned char *FUN_L00_002743a8(float f0, float f1, int a0, void *pos, int timer, int flag,
-                                       int col, float *vel);
+extern unsigned char *spawn_mode_controlled_orbiting_trail_particle(float f0, float f1, int a0, void *pos, int timer, int flag,
+                                       int col, float *vel) __asm__("FUN_L00_002743a8");
 
 void hoverboard_ring_update(char *moby) __asm__("FUN_L05_0031abe0");
 void hoverboard_ring_update(char *moby) {
@@ -32,16 +32,16 @@ void hoverboard_ring_update(char *moby) {
         moby[0x20] = 1;
         break;
     case HOVERBOARD_RING_STATE_ACTIVE: {
-        float v[4];
+        float bounding_sphere[4];
         int i;
-        qcopy(v, moby + 0x10);
-        v[3] = 8.0f;
-        if (fast_bsphere_check((char *)v, 128.0f) != -1) {
+        qcopy(bounding_sphere, moby + 0x10);
+        bounding_sphere[3] = 8.0f;
+        if (fast_bsphere_check((char *)bounding_sphere, 128.0f) != -1) {
             if (hero.state.control_mode == 0x16) {
                 for (i = 0; i < 3; i++) {
                     float first_random_angle = random_angle_radians();
-                    float b = random_angle_radians();
-                    FUN_L00_002743a8(first_random_angle, b, (int)moby, D_L05_0015F580, scale_game_frames(0x28), 1,
+                    float second_random_angle = random_angle_radians();
+                    spawn_mode_controlled_orbiting_trail_particle(first_random_angle, second_random_angle, (int)moby, D_L05_0015F580, scale_game_frames(0x28), 1,
                                      0x7F, 0);
                 }
             }
@@ -81,8 +81,9 @@ struct Spark_c8e0 {
 };
 
 extern f32 D_L05_00161FC8_gp __asm__("D_L05_00161FC8") __attribute__((sda));
-extern f32 D_L05_00161FD0 __attribute__((sda));
-extern f32 D_L05_00161FD4 __attribute__((sda));
+#include "rnc/overlay/shared/gameplay/entities/hoverboard_ring_globals.h"
+extern f32 debris_axis_launch_speed_gp __asm__("D_L05_00161FD0") __attribute__((sda));
+extern f32 debris_upward_launch_speed_gp __asm__("D_L05_00161FD4") __attribute__((sda));
 extern f32 vector_distance_c8e0(void *, void *) __asm__("FUN_001f9b80");
 extern f32 distance_xyz_c8e0(void *, void *) __asm__("FUN_001f9b48");
 extern f32 int_to_float_c8e0(s32) __asm__("FUN_001fa6c0");
@@ -94,7 +95,7 @@ extern void add_vector_xyz_c8e0(void *, void *, void *) __asm__("FUN_001f9a10");
 extern void play_sound_c8e0(s32, s32, struct Moby *) __asm__("FUN_0022da68");
 extern s32 scale_game_frames_c8e0(s32) __asm__("FUN_001f96f8");
 extern struct Moby *spawn_debris_c8e0(f32, struct Moby *, s32, void *, void *, s32, s32, void *, void *, void *) __asm__("FUN_L00_00263fd8");
-extern void FUN_L01_002787a0_c8e0(struct Moby *) __asm__("FUN_L01_002787a0");
+extern void spawn_proximity_gated_bolts(struct Moby *) __asm__("FUN_L01_002787a0");
 extern f32 fast_add_rotations_c8e0(f32, f32) __asm__("FUN_001fa580");
 extern f32 random_float_between_c8e0(f32, f32) __asm__("FUN_002132a8");
 extern s32 random_integer_below_c8e0(s32) __asm__("FUN_00213260");
@@ -105,16 +106,20 @@ extern void spawn_trail_c8e0(void *, s32, f32, f32, s32, s32, s32, void *, f32) 
 extern struct Spark_c8e0 *spawn_spark_c8e0(void *, f32, f32, f32, s32, void *, f32, s32) __asm__("FUN_L00_0026d000");
 extern s32 random_int_between_c8e0(s32, s32) __asm__("FUN_L00_00257b90");
 extern void mark_moby_for_removal_c8e0(struct Moby *) __asm__("FUN_0020c828");
-extern char *FUN_L05_0031d160(unsigned char *);
-void FUN_L05_0031cf58(char *m);
+char *spawn_moby_class_5ea_from_source(unsigned char *source_moby) __asm__("FUN_L05_0031d160");
+
+extern char *spawn_moby_class_5ea_from_source(unsigned char *) __asm__("FUN_L05_0031d160");
+void draw_moby_glow_sprite(char *m) __asm__("FUN_L05_0031cf58");
+
+void draw_moby_glow_sprite(char *m) __asm__("FUN_L05_0031cf58");
 
 /* Mine update: sets its glow, fades it out with camera distance and blows up into debris, smoke and sparks when something touches it. */
-void FUN_L05_0031c8e0(struct Moby *moby);
-void FUN_L05_0031c8e0(struct Moby *moby) {
+void update_moby_glow_and_contact_explosion(struct Moby *moby) __asm__("FUN_L05_0031c8e0");
+void update_moby_glow_and_contact_explosion(struct Moby *moby) {
     struct MineVars_c8e0 *vars = (struct MineVars_c8e0 *)moby->pvars;
     Vec4 tip;
-    Vec4 vel;
-    Vec4 dir;
+    Vec4 debris_velocity;
+    Vec4 effect_motion;
     Vec4 start;
     f32 distance;
     f32 fade;
@@ -146,7 +151,7 @@ void FUN_L05_0031c8e0(struct Moby *moby) {
     } else {
         vars->alpha = vars->max_alpha;
     }
-    enqueue_callback_c8e0(FUN_L05_0031cf58, moby);
+    enqueue_callback_c8e0(draw_moby_glow_sprite, moby);
     hit = find_moby_hit_c8e0(moby, 0x810000, 0);
     moby->hit_slot = 0xFF;
     if (hit == 0) {
@@ -163,25 +168,25 @@ void FUN_L05_0031c8e0(struct Moby *moby) {
         }
     }
     play_sound_c8e0(0, 0, moby);
-    FUN_L05_0031d160((unsigned char *)moby);
+    spawn_moby_class_5ea_from_source((unsigned char *)moby);
     debris = spawn_debris_c8e0(frame_time_sq * 12.0f, moby, 0x5ED, &moby->pos, &moby->rot, scale_game_frames_c8e0(0x5A), 0,
                                D_L05_0015F580, D_L05_0015F580, D_L05_0015F580);
     if (debris != 0) {
         debris->spawn_frame = moby->spawn_frame;
     }
-    FUN_L01_002787a0_c8e0(moby);
-    scale_vector_xyz_c8e0(&vel, &moby->rot_row0, D_L05_00161FD0 * frame_scale);
-    vel.f[2] += D_L05_00161FD4 * frame_scale;
+    spawn_proximity_gated_bolts(moby);
+    scale_vector_xyz_c8e0(&debris_velocity, &moby->rot_row0, debris_axis_launch_speed_gp * frame_scale);
+    debris_velocity.f[2] += debris_upward_launch_speed_gp * frame_scale;
     debris = spawn_debris_c8e0(frame_time_sq * 12.0f, moby, 0x5EE, &moby->pos, &moby->rot, scale_game_frames_c8e0(0x5A), 0,
-                               &vel, D_L05_0015F580, D_L05_0015F580);
+                               &debris_velocity, D_L05_0015F580, D_L05_0015F580);
     if (debris != 0) {
         debris->spawn_frame = moby->spawn_frame;
     }
-    vel.f[0] = -vel.f[0];
-    vel.f[1] = -vel.f[1];
+    debris_velocity.f[0] = -debris_velocity.f[0];
+    debris_velocity.f[1] = -debris_velocity.f[1];
     moby->rot.z = fast_add_rotations_c8e0(moby->rot.z, 3.1415927f);
     debris = spawn_debris_c8e0(frame_time_sq * 12.0f, moby, 0x5EE, &moby->pos, &moby->rot, scale_game_frames_c8e0(0x5A), 0,
-                               &vel, D_L05_0015F580, D_L05_0015F580);
+                               &debris_velocity, D_L05_0015F580, D_L05_0015F580);
     if (debris != 0) {
         debris->spawn_frame = moby->spawn_frame;
     }
@@ -193,22 +198,22 @@ void FUN_L05_0031c8e0(struct Moby *moby) {
         }
         yaw = random_angle_c8e0();
         pitch = random_float_between_c8e0(0.34906584f, 1.5358897f);
-        build_spherical_offset_c8e0(&dir, random_float_between_c8e0(0.05f, 0.1f) * frame_scale, yaw, pitch);
+        build_spherical_offset_c8e0(&effect_motion, random_float_between_c8e0(0.05f, 0.1f) * frame_scale, yaw, pitch);
         qcopy(&start, &tip);
         start.f[0] += random_float_c8e0(0.0f, 0.15f);
         start.f[1] += random_float_c8e0(0.0f, 0.15f);
         start.f[2] += random_float_c8e0(0.0f, 0.15f);
         frames = scale_game_frames_c8e0(0x3C);
-        spawn_trail_c8e0(&start, frames, size * 0.1f, size, vars->color | 0x7F000000, 0, sign, &dir, 0.003f);
+        spawn_trail_c8e0(&start, frames, size * 0.1f, size, vars->color | 0x7F000000, 0, sign, &effect_motion, 0.003f);
         sign = -sign;
         frames = scale_game_frames_c8e0(0x3C);
-        spawn_trail_c8e0(&start, frames, size * 0.07f, size * 0.7f, 0x7F7F7F7F, 1, sign, &dir, 0.003f);
-        dir.f[1] = 0.0f;
-        dir.f[0] = 0.0f;
-        dir.f[2] = random_float_between_c8e0(0.01f, 0.05f) * frame_scale;
+        spawn_trail_c8e0(&start, frames, size * 0.07f, size * 0.7f, 0x7F7F7F7F, 1, sign, &effect_motion, 0.003f);
+        effect_motion.f[1] = 0.0f;
+        effect_motion.f[0] = 0.0f;
+        effect_motion.f[2] = random_float_between_c8e0(0.01f, 0.05f) * frame_scale;
         speed = random_float_between_c8e0(60000.0f, 200000.0f);
         turn = random_integer_below_c8e0(2);
-        spark = spawn_spark_c8e0(&tip, 0.3f, 1.0f, 1.02f, random_integer_below_c8e0(2) ? -turn : turn, &dir, speed, 0x407F7F7F);
+        spark = spawn_spark_c8e0(&tip, 0.3f, 1.0f, 1.02f, random_integer_below_c8e0(2) ? -turn : turn, &effect_motion, speed, 0x407F7F7F);
         if (spark != 0) {
             spark->life = scale_game_frames_c8e0(random_int_between_c8e0(0x5A, 0x78));
             draw = &spark->draw;
@@ -247,13 +252,13 @@ u64 get_effect_texture_alt(s32) __asm__("FUN_001f44b8");
 
 extern short D_L05_00161FCC __attribute__((sda));
 extern char D_L05_001671C0_lui[] __asm__("D_L05_001671C0") __attribute__((section(".data")));
-void FUN_L05_0031cf58(char *m) {
+void draw_moby_glow_sprite(char *m) {
     char *d = *(char **)(m + 0x78);
     Pk_31e468 pk;
     float up[4];
     float M[4][4];
     float sprite_offset[4];
-    float w[4];
+    float camera_facing_offset[4];
     u32 col;
     int j;
     *(OvlQuad *)up = 0;
@@ -278,8 +283,8 @@ void FUN_L05_0031cf58(char *m) {
     cross_vectors_xyz(M[1], M[0], up);
     normalize_vector_xyz(M[1], M[1], 1.0f);
     cross_vectors_xyz(M[2], M[1], M[0]);
-    scale_vector_xyz(w, M[0], *(float *)&D_L05_00161FCC);
-    add_vector_xyz(M[3], M[3], w);
+    scale_vector_xyz(camera_facing_offset, M[0], *(float *)&D_L05_00161FCC);
+    add_vector_xyz(M[3], M[3], camera_facing_offset);
     if (((unsigned char *)d)[0x67] != 0 && random_integer_below(8) == 0) {
         *(int *)(d + 0x60) >>= 1;
     }
@@ -297,7 +302,7 @@ void FUN_L05_0031cf58(char *m) {
 extern char *FUN_0020c4f8_d160(int) __asm__("FUN_0020c4f8");
 extern void FUN_L00_00250df8_d160(void *) __asm__("FUN_L00_00250df8");
 
-char *FUN_L05_0031d160(unsigned char *source_moby) {
+char *spawn_moby_class_5ea_from_source(unsigned char *source_moby) {
     unsigned char *destination_moby = (unsigned char *)FUN_0020c4f8_d160(0x5EA);
     if (destination_moby != 0) {
         destination_moby[0x30] = source_moby[0x30];
@@ -321,23 +326,25 @@ extern void transform_vector(void *, void *, void *) __asm__("FUN_001f9d20");
 extern void add_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a10");
 extern void normalize_vector_xyz(void *out, void *a, f32 len) __asm__("FUN_001f9bf8");
 
-void FUN_L05_00329358(char *moby) {
-    float v[4];
+void update_hero_follow_camera_focus(char *moby) __asm__("FUN_L05_00329358");
+
+void update_hero_follow_camera_focus(char *moby) {
+    float hero_focus_offset[4];
     char *orbit = *(char **)(moby + 0x70);
     float *focus_position = (float *)(orbit + 0x80);
-    *(OvlQuad *)v = 0;
-    v[2] = 0.7f;
-    transform_vector(v, v, &hero);
-    add_vector_xyz(focus_position, &hero.motion.pos, v);
+    *(OvlQuad *)hero_focus_offset = 0;
+    hero_focus_offset[2] = 0.7f;
+    transform_vector(hero_focus_offset, hero_focus_offset, &hero);
+    add_vector_xyz(focus_position, &hero.motion.pos, hero_focus_offset);
     qcopy(orbit + 0x1D0, focus_position);
     if (current_level_index == 5) {
-        float w[4];
-        *(OvlQuad *)w = 0;
-        w[0] = 286.16f;
-        w[1] = 447.82f;
-        w[2] = 63.37f;
-        w[3] = 1.0f;
-        if (vector_distance(w, focus_position) < 48.0f) {
+        float height_reference_position[4];
+        *(OvlQuad *)height_reference_position = 0;
+        height_reference_position[0] = 286.16f;
+        height_reference_position[1] = 447.82f;
+        height_reference_position[2] = 63.37f;
+        height_reference_position[3] = 1.0f;
+        if (vector_distance(height_reference_position, focus_position) < 48.0f) {
             if (focus_position[2] < 62.4f) {
                 focus_position[2] = 62.4f;
             }
@@ -354,26 +361,28 @@ void FUN_L05_00329358(char *moby) {
     normalize_vector_xyz(focus_position + 8, &hero.gravity_dir, -1.0f);
 }
 extern char *D_L05_00167200 __attribute__((section(".data")));
-void FUN_L05_003294c0(float spring_distance, float b, float focus_distance, float d, float e, float f, float g, float h) {
+void set_camera_follow_parameters(float spring_distance, float spring_height, float focus_distance, float airborne_spring_distance, float airborne_spring_height, float airborne_focus_distance, float position_spring_response_coefficient, float position_spring_coefficient) __asm__("FUN_L05_003294c0");
+
+void set_camera_follow_parameters(float spring_distance, float spring_height, float focus_distance, float airborne_spring_distance, float airborne_spring_height, float airborne_focus_distance, float position_spring_response_coefficient, float position_spring_coefficient) {
     char *camera = D_L05_00167200;
     char *orbit = *(char **)(camera + 0x70);
 
     *(float *)(orbit + 0x184) = spring_distance;
-    *(float *)(orbit + 0x188) = b;
+    *(float *)(orbit + 0x188) = spring_height;
     *(float *)(orbit + 0x180) = focus_distance;
-    *(float *)(orbit + 0x190) = d;
-    *(float *)(orbit + 0x194) = e;
-    *(float *)(orbit + 0x18C) = f;
+    *(float *)(orbit + 0x190) = airborne_spring_distance;
+    *(float *)(orbit + 0x194) = airborne_spring_height;
+    *(float *)(orbit + 0x18C) = airborne_focus_distance;
     orbit = *(char **)(camera + 0x70);
-    if (g < 0.0f) {
+    if (position_spring_response_coefficient < 0.0f) {
         *(float *)(orbit + 0x10) = 0.01f;
     } else {
-        *(float *)(orbit + 0x10) = g;
+        *(float *)(orbit + 0x10) = position_spring_response_coefficient;
     }
-    if (h < 0.0f) {
+    if (position_spring_coefficient < 0.0f) {
         *(float *)(orbit + 0x14) = 0.2f;
     } else {
-        *(float *)(orbit + 0x14) = h;
+        *(float *)(orbit + 0x14) = position_spring_coefficient;
     }
 }
 /* Places the camera moby relative to the hero's target and builds its look-at basis. */
@@ -381,28 +390,30 @@ void FUN_L05_003294c0(float spring_distance, float b, float focus_distance, floa
 
 extern void FUN_L05_00329358_c(void *) __asm__("FUN_L05_00329358");
 
-void FUN_L05_00329540(char *camera) {
+void build_hero_follow_camera_transform(char *camera) __asm__("FUN_L05_00329540");
+
+void build_hero_follow_camera_transform(char *camera) {
     char *orbit = *(char **)(camera + 0x70);
     char *at = camera + 0x30;
     char *up = camera + 0x10;
     char *side = camera + 0x20;
-    struct Hero *g;
+    struct Hero *hero_state;
     char *focus;
-    char *b;
+    char *spring;
     float target_height_offset[4];
     float look_direction[4];
     float look_target[4];
     float camera_offset[4];
     float gravity_up[4];
     FUN_L05_00329358_c(camera);
-    g = &hero;
+    hero_state = &hero;
     focus = orbit + 0x80;
-    b = orbit + 0xE0;
-    normalize_vector_xyz(camera_offset, ((char *)g->moby) + 0xC0, 1.0f);
+    spring = orbit + 0xE0;
+    normalize_vector_xyz(camera_offset, ((char *)hero_state->moby) + 0xC0, 1.0f);
     normalize_vector_xyz(camera_offset, camera_offset, *(float *)(orbit + 0xE0));
     subtract_vector_xyz(at, focus, camera_offset);
-    normalize_vector_xyz(gravity_up, &g->gravity_dir, -1.0f);
-    normalize_vector_xyz(camera_offset, gravity_up, *(float *)(b + 0x10));
+    normalize_vector_xyz(gravity_up, &hero_state->gravity_dir, -1.0f);
+    normalize_vector_xyz(camera_offset, gravity_up, *(float *)(spring + 0x10));
     add_vector_xyz(at, at, camera_offset);
     normalize_vector_xyz(target_height_offset, gravity_up, *(float *)(focus + 0x4C));
     add_vector_xyz(look_target, target_height_offset, focus);
@@ -527,8 +538,10 @@ extern void clear_u64_value(void *) __asm__("FUN_001f99f8");
 
 /* Resets the camera from its preset (row cam->preset of D_L05_0015EF50): distances,
    angle limits and damping, cleared velocities, then places it. */
-void FUN_L05_003296e0(Camera *cam) {
-    CameraPreset *preset = D_L05_0015EF50[cam->preset].preset;
+void reset_hero_follow_camera_from_preset(Camera *camera_to_reset) __asm__("FUN_L05_003296e0");
+
+void reset_hero_follow_camera_from_preset(Camera *camera_to_reset) {
+    CameraPreset *preset = D_L05_0015EF50[camera_to_reset->preset].preset;
     CameraOrbit *orbit_state;
     CameraFocus *focus;
     CameraSpring *spring;
@@ -537,7 +550,7 @@ void FUN_L05_003296e0(Camera *cam) {
     CameraView *view;
 
     preset->unk48 = 0;
-    orbit_state = cam->orbit;
+    orbit_state = camera_to_reset->orbit;
     orbit_state->spring_dist = preset->spring_dist;
     orbit_state->spring_height = preset->spring_height;
     orbit_state->dist = preset->dist;
@@ -546,24 +559,24 @@ void FUN_L05_003296e0(Camera *cam) {
     orbit_state->unk18C = preset->unk3C;
     clear_u64_value(&orbit_state->unk1B0);
     clear_u64_value(&orbit_state->unk1C0);
-    focus = &cam->orbit->focus;
+    focus = &camera_to_reset->orbit->focus;
     focus->state = 5;
     focus->unk44 = D_001413D0[0];
     focus->dist = orbit_state->dist;
     focus->max_angle = 0.209439516f;
     focus->unk58 = 0.00174532924f;
     focus->unk5C = -0.0043633231f;
-    spring = &cam->orbit->spring;
+    spring = &camera_to_reset->orbit->spring;
     spring->dist = orbit_state->spring_dist;
     spring->unk4 = 0.5f;
     spring->height = orbit_state->spring_height;
-    orbit = cam->orbit;
+    orbit = camera_to_reset->orbit;
     orbit->unk10 = 0.01f;
     orbit->unk14 = 0.2f;
     orbit->unk18 = 0;
     orbit->mode = 0;
     clear_u64_value(orbit);
-    track = &cam->orbit->track;
+    track = &camera_to_reset->orbit->track;
     clear_u64_value(track);
     clear_u64_value(&track->accel);
     track->unk40 = 0;
@@ -571,17 +584,17 @@ void FUN_L05_003296e0(Camera *cam) {
     track->unk34 = preset->unk20;
     track->unk38 = preset->unk24;
     track->unk3C = 0;
-    view = &cam->orbit->view;
+    view = &camera_to_reset->orbit->view;
     view->unk20 = 0.8f;
     view->unk24 = 0.3f;
     view->aspect = 1.3333334f;
     view->unk28 = 0;
     view->unk2C = 0;
     clear_u64_value(view);
-    FUN_L05_003294c0(preset->spring_dist, preset->spring_height, preset->dist, preset->unk34,
+    set_camera_follow_parameters(preset->spring_dist, preset->spring_height, preset->dist, preset->unk34,
                      preset->unk38, preset->unk3C, preset->unk40, preset->unk44);
-    FUN_L05_00329540((char *)cam);
-    cam->unk7E = 0;
+    build_hero_follow_camera_transform((char *)camera_to_reset);
+    camera_to_reset->unk7E = 0;
 }
 
 extern void normalize_vector_xyz(void *, void *, f32) __asm__("FUN_001f9bf8");
@@ -596,8 +609,10 @@ extern void rotate_about_axis(void *out, void *v, void *axis, f32 ang) __asm__("
 extern float rope_spring_turn(void *, float, float, float, float, float) __asm__("FUN_L00_001eb328");
 extern float FUN_001ebd78(void *, float, float, float, float, float);
 
-/* Camera that orbits the hero while hero.unk88E is set, easing yaw, pitch and distance toward their goals. */
-void FUN_L05_003298d8(Camera *cam) {
+/* Camera that orbits the hero while hero.vert_ramp_launch is set, easing yaw, pitch and distance toward their goals. */
+void update_hero_follow_camera_orbit(Camera *cam) __asm__("FUN_L05_003298d8");
+
+void update_hero_follow_camera_orbit(Camera *hero_follow_camera) {
     Vec4 up;
     Vec4 side;
     Vec4 fwd;
@@ -605,52 +620,52 @@ void FUN_L05_003298d8(Camera *cam) {
     Vec4 along;
     Vec4 flat;
     Vec4 unit;
-    Vec4 rot;
-    CameraOrbit *orbit = cam->orbit;
+    Vec4 yaw_rotated_forward;
+    CameraOrbit *orbit = hero_follow_camera->orbit;
     CameraFocus *focus = &orbit->focus;
     f32 *spring = orbit->goal;
     f32 dot;
-    f32 len;
-    f32 ang;
+    f32 angle_normalization_length;
+    f32 initial_yaw;
     f32 pitch;
     f32 tilt;
 
     normalize_vector_xyz(&up, &hero.gravity_dir, -1.0f);
-    if (orbit->mode == 0 && hero.unk88E != 0) {
+    if (orbit->mode == 0 && hero.vert_ramp_launch != 0) {
         orbit->mode = 1;
         cross_vectors_xyz(&side, &hero.moby->rot_row2, &up);
         normalize_vector_xyz(&side, &side, 1.0f);
         cross_vectors_xyz(&fwd, &up, &side);
         normalize_vector_xyz(&fwd, &fwd, 1.0f);
-        subtract_vector_xyz(&rel, &cam->pos, focus);
+        subtract_vector_xyz(&rel, &hero_follow_camera->pos, focus);
         dot = fast_vec_dot(&rel, &up);
         normalize_vector_xyz(&along, &up, dot);
         subtract_vector_xyz(&flat, &rel, &along);
         dot = fast_vec_dot(&fwd, &flat);
-        len = vector_length_xyz(&flat);
-        if (len == 0.0f) {
-            len = 0.0001f;
+        angle_normalization_length = vector_length_xyz(&flat);
+        if (angle_normalization_length == 0.0f) {
+            angle_normalization_length = 0.0001f;
         }
-        ang = 1.5707964f - fast_arc_sin(dot / len);
+        initial_yaw = 1.5707964f - fast_arc_sin(dot / angle_normalization_length);
         normalize_vector_xyz(&unit, &flat, 1.0f);
         if (fast_vec_dot(&side, &unit) < 0.0f) {
-            ang = -ang;
+            initial_yaw = -initial_yaw;
         }
-        cam->yaw = ang;
-        rotate_about_axis(&rot, &fwd, &up, ang);
-        dot = fast_vec_dot(&rot, &rel);
-        len = vector_length_xyz(&rel);
-        if (len == 0.0f) {
-            len = 0.0001f;
+        hero_follow_camera->yaw = initial_yaw;
+        rotate_about_axis(&yaw_rotated_forward, &fwd, &up, initial_yaw);
+        dot = fast_vec_dot(&yaw_rotated_forward, &rel);
+        angle_normalization_length = vector_length_xyz(&rel);
+        if (angle_normalization_length == 0.0f) {
+            angle_normalization_length = 0.0001f;
         }
-        tilt = 1.5707964f - fast_arc_sin(dot / len);
+        tilt = 1.5707964f - fast_arc_sin(dot / angle_normalization_length);
         normalize_vector_xyz(&unit, &rel, 1.0f);
         pitch = -tilt;
         if (fast_vec_dot(&up, &unit) < 0.0f) {
             pitch = tilt;
         }
-        cam->pitch = pitch;
-        cam->dist = vector_length_xyz(&rel);
+        hero_follow_camera->pitch = pitch;
+        hero_follow_camera->dist = vector_length_xyz(&rel);
         qcopy(&orbit->focus.side, &fwd);
         spring[0] = 3.1415927f;
         spring[1] = -1.5358897f;
@@ -666,16 +681,16 @@ void FUN_L05_003298d8(Camera *cam) {
         spring[11] = 0.2f;
     }
     if (orbit->mode == 1) {
-        normalize_vector_xyz(&side, &focus->side, cam->dist);
-        rotate_about_axis(&side, &side, &up, cam->yaw);
+        normalize_vector_xyz(&side, &focus->side, hero_follow_camera->dist);
+        rotate_about_axis(&side, &side, &up, hero_follow_camera->yaw);
         cross_vectors_xyz(&fwd, &side, &up);
         normalize_vector_xyz(&fwd, &fwd, 1.0f);
-        rotate_about_axis(&side, &side, &fwd, cam->pitch);
-        add_vector_xyz(&cam->pos, focus, &side);
-        cam->yaw = rope_spring_turn(&spring[3], cam->yaw, spring[0], spring[6], spring[9], 0.0f);
-        cam->pitch = rope_spring_turn(&spring[4], cam->pitch, spring[1], spring[7], spring[10], 0.0f);
-        cam->dist = FUN_001ebd78(&spring[5], cam->dist, spring[2], spring[8], spring[11], 0.0f);
-        if (hero.unk88E == 0) {
+        rotate_about_axis(&side, &side, &fwd, hero_follow_camera->pitch);
+        add_vector_xyz(&hero_follow_camera->pos, focus, &side);
+        hero_follow_camera->yaw = rope_spring_turn(&spring[3], hero_follow_camera->yaw, spring[0], spring[6], spring[9], 0.0f);
+        hero_follow_camera->pitch = rope_spring_turn(&spring[4], hero_follow_camera->pitch, spring[1], spring[7], spring[10], 0.0f);
+        hero_follow_camera->dist = FUN_001ebd78(&spring[5], hero_follow_camera->dist, spring[2], spring[8], spring[11], 0.0f);
+        if (hero.vert_ramp_launch == 0) {
             orbit->mode = 0;
             scale_vector_xyz(orbit, orbit, -1.0f);
         }
@@ -771,7 +786,9 @@ extern void fast_vec_cross(void *, void *, void *) __asm__("FUN_001f9ad8");
 extern void FUN_L05_003298d8_c(Camera_32B1F8 *) __asm__("FUN_L05_003298d8");
 
 extern float D_L05_00174278 __attribute__((section(".data")));
-void FUN_L05_00329ce8(Camera_32B1F8 *camera) {
+void update_orbit_camera_position(Camera_32B1F8 *camera) __asm__("FUN_L05_00329ce8");
+
+void update_orbit_camera_position(Camera_32B1F8 *camera) {
     V_32B1F8 down;
     V_32B1F8 focus;
     V_32B1F8 rel;
@@ -884,7 +901,7 @@ void FUN_L05_00329ce8(Camera_32B1F8 *camera) {
     fast_vec_cross(&camera->up, &rel, &down);
     fast_vec_normalize(&camera->up, &camera->up, 1.0f);
     fast_vec_cross(&camera->side, &camera->up, &rel);
-    if (orbiting == 0 || fabs_32B1F8(along) < 0.5f || (vel = (float *)(D_0013E633_32B1F8 - 0x290), ((Hero *)vel)->unk88D != 0)) {
+    if (orbiting == 0 || fabs_32B1F8(along) < 0.5f || (vel = (float *)(D_0013E633_32B1F8 - 0x290), ((Hero *)vel)->trick_input != 0)) {
         track->blend = spring_32B1F8(track->blend, 0.0f, track->state, track->k34, track->k38, track->k3C);
     } else {
         float tilt;
@@ -914,15 +931,17 @@ void FUN_L05_00329ce8(Camera_32B1F8 *camera) {
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002CF2C0.c: func_L05_0032BBF0), where it is exact; names translated to the US level program. */
 
 extern void extract_matrix_rotation_quaternion(void *, void *) __asm__("FUN_002144d8");
-extern void FUN_L05_003296e0(Camera *);
+extern void reset_hero_follow_camera_from_preset(Camera *) __asm__("FUN_L05_003296e0");
 
 extern char *D_L05_00167204 __attribute__((section(".data")));
-void FUN_L05_0032a6e0(char *out) {
-    char *src = D_L05_00167204;
-    qcopy(out + 0x30, src + 0x30);
-    qcopy(out, src);
-    qcopy(out + 0x10, src + 0x10);
-    qcopy(out + 0x20, src + 0x20);
+void reset_camera_from_source_transform(char *out) __asm__("FUN_L05_0032a6e0");
+
+void reset_camera_from_source_transform(char *out) {
+    char *source_camera_transform = D_L05_00167204;
+    qcopy(out + 0x30, source_camera_transform + 0x30);
+    qcopy(out, source_camera_transform);
+    qcopy(out + 0x10, source_camera_transform + 0x10);
+    qcopy(out + 0x20, source_camera_transform + 0x20);
     extract_matrix_rotation_quaternion(out + 0x40, out);
-    FUN_L05_003296e0((Camera *)out);
+    reset_hero_follow_camera_from_preset((Camera *)out);
 }

@@ -44,10 +44,14 @@ extern int D_L14_001620D8_t; /* no foreign declaration */
 extern int fast_dec_timer_s16(void *) __asm__("FUN_001f9770");
 extern int fast_bsphere_check(void *, float) __asm__("FUN_001fa728");
 extern int scale_game_frames(int) __asm__("FUN_001f96f8");
-extern void FUN_L14_003017f8(char *);
-extern void FUN_L14_00301de8(char *);
-extern void FUN_L14_00301fa8(char *);
-extern void FUN_L14_00302538(char *);
+extern void start_vendor_beam_pulse(char *) __asm__("FUN_L14_003017f8");
+void update_vendor_beam_animation(char *moby) __asm__("FUN_L14_00301de8");
+
+extern void update_vendor_beam_animation(char *) __asm__("FUN_L14_00301de8");
+extern void draw_vendor_beam(char *) __asm__("FUN_L14_00301fa8");
+void apply_vendor_beam_damage(char *self) __asm__("FUN_L14_00302538");
+
+extern void apply_vendor_beam_damage(char *) __asm__("FUN_L14_00302538");
 extern void enqueue_callback_list_1(void (*)(void), void *) __asm__("FUN_001f4600");
 extern int D_L14_0016219C_s __asm__("D_L14_001620CC") __attribute__((sda));
 extern int D_L14_00162188_s __asm__("D_L14_001620B8") __attribute__((sda));
@@ -55,8 +59,11 @@ extern int D_L14_001621A0_s __asm__("D_L14_001620D0") __attribute__((sda));
 extern s32 D_L14_001620C8_gp __asm__("D_L14_001620C8") __attribute__((sda));
 extern int D_L14_001621A4_s __asm__("D_L14_001620D4") __attribute__((sda));
 
-extern int D_L14_001620D8 __attribute__((sda));
-void FUN_L14_003015d0(unsigned char *moby) {
+#include "rnc/overlay/shared/gameplay/vendor/003015d0_globals.h"
+extern int vendor_beam_damage_disabled_gp __asm__("D_L14_001620D8") __attribute__((sda));
+void update_vendor_beam(unsigned char *moby) __asm__("FUN_L14_003015d0");
+
+void update_vendor_beam(unsigned char *moby) {
     enum {
         BEAM_STATE_INITIALIZE = 0,
         BEAM_STATE_COUNTER_TRIGGERED_PULSES = 1,
@@ -64,13 +71,13 @@ void FUN_L14_003015d0(unsigned char *moby) {
         BEAM_STATE_REPEAT_PULSES = 3
     };
     D1224 *beam_vars = *(D1224 **)(moby + 0x78);
-    float v[4] __attribute__((aligned(16)));
+    float beam_culling_sphere[4] __attribute__((aligned(16)));
     int beam_state;
-    int arg;
+    int phase_duration_frames;
     if (moby[0x20] != 0) {
-        qcopy(v, moby + 0x10);
-        v[3] = beam_vars->f624;
-        if (fast_bsphere_check(v, 52.0f) < 0) {
+        qcopy(beam_culling_sphere, moby + 0x10);
+        beam_culling_sphere[3] = beam_vars->f624;
+        if (fast_bsphere_check(beam_culling_sphere, 52.0f) < 0) {
             return;
         }
     }
@@ -80,7 +87,7 @@ void FUN_L14_003015d0(unsigned char *moby) {
     beam_state = moby[0x20];
     switch (beam_state) {
     case BEAM_STATE_INITIALIZE:
-        FUN_L14_003017f8((char *)moby);
+        start_vendor_beam_pulse((char *)moby);
         beam_vars->s10 = scale_game_frames(beam_vars->wC);
         moby[0x20] = 2;
         beam_vars->f624 = vector_length_xyz(&D_L14_001600EC[beam_vars->w0].axis[1]);
@@ -91,7 +98,7 @@ void FUN_L14_003015d0(unsigned char *moby) {
         if (D_L14_00162188_s != 0) {
             if (beam_vars->s12 == 0) {
                 D_L14_00162188_s = D_L14_00162188_s - 1;
-                FUN_L14_003017f8((char *)moby);
+                start_vendor_beam_pulse((char *)moby);
             }
         }
         break;
@@ -99,37 +106,37 @@ void FUN_L14_003015d0(unsigned char *moby) {
         if (fast_dec_timer_s16(&beam_vars->s10) != 0) {
             moby[0x20] = 3;
             beam_vars->s10 = scale_game_frames(beam_vars->s4);
-            FUN_L14_003017f8((char *)moby);
+            start_vendor_beam_pulse((char *)moby);
         }
         break;
     case BEAM_STATE_REPEAT_PULSES:
         if (fast_dec_timer_s16(&beam_vars->s10) != 0) {
             if (beam_vars->s6 != 0) {
                 moby[0x20] = 2;
-                arg = beam_vars->s6;
+                phase_duration_frames = beam_vars->s6;
             } else {
-                arg = beam_vars->s4;
+                phase_duration_frames = beam_vars->s4;
             }
-            beam_vars->s10 = scale_game_frames(arg);
+            beam_vars->s10 = scale_game_frames(phase_duration_frames);
         } else if (beam_vars->s12 == 0) {
-            FUN_L14_003017f8((char *)moby);
+            start_vendor_beam_pulse((char *)moby);
         }
         break;
     }
-    if (D_L14_001620D8 == 0) {
+    if (vendor_beam_damage_disabled_gp == 0) {
         if (vector_distance(moby + 0x10, &hero.motion.pos) < 10.0f) {
-            FUN_L14_00302538((char *)moby);
+            apply_vendor_beam_damage((char *)moby);
         }
     }
     if (beam_vars->s12 != 0) {
         if (D_L14_001621A0_s == 0) {
-            FUN_L14_00301de8((char *)moby);
+            update_vendor_beam_animation((char *)moby);
         }
         if (*(int *)&D_L14_001620C8_gp < beam_vars->s12) {
             if (D_L14_001621A4_s != 0) {
                 return;
             }
-            enqueue_callback_list_1(FUN_L14_00301fa8, moby);
+            enqueue_callback_list_1(draw_vendor_beam, moby);
         }
     }
 }
@@ -145,15 +152,15 @@ extern void set_vector_xyz(void *, float, float) __asm__("FUN_L00_00257d78");
 extern void transform_vector(void *, void *, void *) __asm__("FUN_001f9d20");
 extern void euler_rotation_matrix(void *, void *) __asm__("FUN_001fa050");
 extern int spawn_spark(void *, void *, void *, int, int, int, int, int, int) __asm__("FUN_00218888");
-extern int D_L14_001620BC __attribute__((sda));
-extern int D_L14_001620C0 __attribute__((sda));
-extern float D_L14_001620FC __attribute__((sda));
-extern float D_L14_00162100 __attribute__((sda));
+extern int vendor_beam_min_pulse_duration_frames_gp __asm__("D_L14_001620BC") __attribute__((sda));
+extern int vendor_beam_max_pulse_duration_frames_gp __asm__("D_L14_001620C0") __attribute__((sda));
+extern float vendor_beam_displacement_radius_gp __asm__("D_L14_001620FC") __attribute__((sda));
+extern float vendor_beam_max_point_speed_gp __asm__("D_L14_00162100") __attribute__((sda));
 extern int D_L14_00162108 __attribute__((sda));
 extern int D_L14_0016210C __attribute__((sda));
-extern float D_L14_00162114 __attribute__((sda));
+#include "rnc/overlay/shared/gameplay/vendor/003015d0_data/start_vendor_beam_pulse_2.h"
 extern int D_L14_0016211C __attribute__((sda));
-extern int D_L14_00162120 __attribute__((sda));
+#include "rnc/overlay/shared/gameplay/vendor/003015d0_data/start_vendor_beam_pulse.h"
 
 extern char D_L14_001674C0[];
 
@@ -172,7 +179,7 @@ typedef struct {
 } VendorBeamVars;
 
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002B2A28.c: func_L14_00302C80). */
-void FUN_L14_003017f8(char *moby) {
+void start_vendor_beam_pulse(char *moby) {
     VendorBeamVars *beam = *(VendorBeamVars **)(moby + 0x78);
     Vec4 path[32];
     Vec4 path_steps[32];
@@ -185,11 +192,11 @@ void FUN_L14_003017f8(char *moby) {
 
     frame = (VendorBeamFrame *)((beam->frame << 7) + (int)D_L14_001600EC);
     {
-        int ticks = D_L14_001620BC;
+        int ticks = vendor_beam_min_pulse_duration_frames_gp;
         frame->origin.f[3] = 1.0f;
         low = scale_game_frames(ticks);
     }
-    high = scale_game_frames(D_L14_001620C0);
+    high = scale_game_frames(vendor_beam_max_pulse_duration_frames_gp);
     duration = random_integer_between(low, high);
     beam->countdown = (short)duration;
     beam->duration = (short)duration;
@@ -206,8 +213,8 @@ void FUN_L14_003017f8(char *moby) {
             clear_u64_value(&path[i]);
             clear_u64_value(&path_steps[i]);
         } else {
-            set_vector_xyz(&path[i], 0.0f, D_L14_001620FC);
-            set_vector_xyz(&path_steps[i], 0.0f, D_L14_00162100 * frame_time);
+            set_vector_xyz(&path[i], 0.0f, vendor_beam_displacement_radius_gp);
+            set_vector_xyz(&path_steps[i], 0.0f, vendor_beam_max_point_speed_gp * frame_time);
         }
         y = path[i].f[1];
         path[i].f[3] = 1.0f;
@@ -230,7 +237,7 @@ void FUN_L14_003017f8(char *moby) {
 
     for (branch = 0; branch < 4; branch++) {
         int start;
-        float spread = D_L14_001620FC;
+        float spread = vendor_beam_displacement_radius_gp;
         set_vector_xyz(&work, spread, spread);
         start = truncate_float_to_s32(random_float_between((float)branch * 6.0f, (float)(branch + 1) * 6.0f)) + 4;
         beam->branch_start[branch] = (unsigned char)start;
@@ -238,7 +245,7 @@ void FUN_L14_003017f8(char *moby) {
         qcopy(&beam->branch_steps[0][branch], &beam->point_steps[start]);
         for (k = 1; k < 4; k++) {
             set_vector_xyz(&delta, 0.1f, 0.1f);
-            set_vector_xyz(&beam->branch_steps[k][branch], 0.0f, D_L14_00162100 * frame_time);
+            set_vector_xyz(&beam->branch_steps[k][branch], 0.0f, vendor_beam_max_point_speed_gp * frame_time);
             add_vector_xyz(&beam->branches[k][branch], &beam->branches[k - 1][branch], &work);
             add_vector_xyz(&beam->branches[k][branch], &beam->branches[k][branch], &delta);
         }
@@ -254,8 +261,8 @@ void FUN_L14_003017f8(char *moby) {
             int frames;
             transform_vector(&work, &beam->points[point], matrix);
             qcopy(&delta, &beam->point_steps[point]);
-            delta.f[3] = D_L14_00162114;
-            color = random_integer_below(2) ? D_L14_0016211C : D_L14_00162120;
+            delta.f[3] = vendor_beam_spark_step_w_gp;
+            color = random_integer_below(2) ? D_L14_0016211C : vendor_beam_branch_end_spark_color_gp;
             frames = scale_game_frames(random_integer_below(10) + 20);
             spawn_spark(&work, &delta, &delta, D_L14_00162108, D_L14_0016210C, point >> 1, 15, frames, color);
         }
@@ -263,27 +270,27 @@ void FUN_L14_003017f8(char *moby) {
             int frames, unused_color;
             transform_vector(&work, &beam->branches[3][k], matrix);
             qcopy(&delta, &beam->branch_steps[3][k]);
-            delta.f[3] = D_L14_00162114;
-            unused_color = random_integer_below(2) ? D_L14_0016211C : D_L14_00162120;
+            delta.f[3] = vendor_beam_spark_step_w_gp;
+            unused_color = random_integer_below(2) ? D_L14_0016211C : vendor_beam_branch_end_spark_color_gp;
             frames = scale_game_frames(random_integer_below(10) + 20);
             /* Fakematch: a never-taken exit keeps the spark arguments in their own block until
              * gcse (retail's dead color pick did), so &delta is reused from the spilled copy. */
             if (never) continue;
             spawn_spark(&work, &delta, &delta, D_L14_00162108, D_L14_0016210C,
-                        beam->branch_start[k] >> 1, 15, frames, D_L14_00162120);
+                        beam->branch_start[k] >> 1, 15, frames, vendor_beam_branch_end_spark_color_gp);
         }
     }
 }
-extern int D_L14_001620C4 __attribute__((sda));
-extern int D_L14_001620F0 __attribute__((sda));
-extern int D_L14_001620F4 __attribute__((sda));
-extern int D_L14_001620F8 __attribute__((sda));
+extern int vendor_beam_color_transition_countdown_gp __asm__("D_L14_001620C4") __attribute__((sda));
+extern int vendor_beam_initial_color_gp __asm__("D_L14_001620F0") __attribute__((sda));
+extern int vendor_beam_transition_color_gp __asm__("D_L14_001620F4") __attribute__((sda));
+extern int vendor_beam_final_color_gp __asm__("D_L14_001620F8") __attribute__((sda));
 extern float convert_integer_to_float(int) __asm__("FUN_001fa6c0");
 extern int fast_tween_color(int, int, float) __asm__("FUN_001fa6e0");
 extern void add_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a10");
-void FUN_L14_00301de8(char *moby) {
+void update_vendor_beam_animation(char *moby) {
     char *vars = *(char **)(moby + 0x78);
-    char *dst, *src;
+    char *beam_point, *src;
     u8 *indices;
     int i, j, k, copy_i, next_i;
     float fraction;
@@ -292,10 +299,10 @@ void FUN_L14_00301de8(char *moby) {
         *(s16 *)(vars + 0x12) = *(u16 *)(vars + 0x12) - 1;
         indices = (u8 *)(vars + 0x18);
         src = vars + 0x260;
-        dst = vars + 0x60;
+        beam_point = vars + 0x60;
         for (j = 22; j >= 0; j--) {
-            add_vector_xyz(dst, dst, src);
-            dst += 0x10;
+            add_vector_xyz(beam_point, beam_point, src);
+            beam_point += 0x10;
             src += 0x10;
         }
         i = 0;
@@ -317,14 +324,14 @@ void FUN_L14_00301de8(char *moby) {
             } while (copy_i < 4);
         }
     }
-    if (*(s16 *)(vars + 0x12) > D_L14_001620C4) {
-        fraction = convert_integer_to_float(*(s16 *)(vars + 0x12) - D_L14_001620C4) /
-            convert_integer_to_float(*(int *)(vars + 0x620) - D_L14_001620C4);
-        *(int *)(vars + 0x14) = fast_tween_color(D_L14_001620F4, D_L14_001620F0, fraction);
+    if (*(s16 *)(vars + 0x12) > vendor_beam_color_transition_countdown_gp) {
+        fraction = convert_integer_to_float(*(s16 *)(vars + 0x12) - vendor_beam_color_transition_countdown_gp) /
+            convert_integer_to_float(*(int *)(vars + 0x620) - vendor_beam_color_transition_countdown_gp);
+        *(int *)(vars + 0x14) = fast_tween_color(vendor_beam_transition_color_gp, vendor_beam_initial_color_gp, fraction);
     } else if (*(s16 *)(vars + 0x12) > D_L14_001620C8) {
         fraction = convert_integer_to_float(*(s16 *)(vars + 0x12) - D_L14_001620C8) /
-            convert_integer_to_float(D_L14_001620C4 - D_L14_001620C8);
-        *(int *)(vars + 0x14) = fast_tween_color(D_L14_001620F8, D_L14_001620F4, fraction);
+            convert_integer_to_float(vendor_beam_color_transition_countdown_gp - D_L14_001620C8);
+        *(int *)(vars + 0x14) = fast_tween_color(vendor_beam_final_color_gp, vendor_beam_transition_color_gp, fraction);
     } else {
         *(int *)(vars + 0x14) = 0;
     }
@@ -349,11 +356,8 @@ extern void clear_u64_value(void *) __asm__("FUN_001f99f8");
 extern u64 get_effect_texture(int) __asm__("FUN_001f44b8");
 extern void draw_geometry_quad(void *, void *, int) __asm__("FUN_001f7d30");
 
-extern int D_L14_001620DC __attribute__((sda));
-extern int D_L14_001620E0 __attribute__((sda));
-extern int D_L14_001620E4 __attribute__((sda));
-extern int D_L14_001620E8 __attribute__((sda));
-extern int D_L14_001620EC __attribute__((sda));
+extern int vendor_beam_effect_texture_index_gp __asm__("D_L14_001620DC") __attribute__((sda));
+#include "rnc/overlay/shared/gameplay/vendor/003015d0_data/draw_vendor_beam.h"
 
 extern char D_L14_001674C0[];
 
@@ -363,7 +367,7 @@ extern float D_L14_001E5FD0[4][2];
 #define EMPTY_SCOPES_4 { typedef int pad; } { typedef int pad; } { typedef int pad; } { typedef int pad; }
 
 /* Ported from rac1-decomp (src/overlays/shared/vendor_00303430.c: func_L14_00303430). */
-void FUN_L14_00301fa8(char *moby) {
+void draw_vendor_beam(char *moby) {
     VendorBeamVars *beam = *(VendorBeamVars **)(moby + 0x78);
     VendorBeamStripPacket packet[3];
     float world[16] __attribute__((aligned(16)));
@@ -384,9 +388,9 @@ void FUN_L14_00301fa8(char *moby) {
     qcopy_nc(&world[12], &D_L14_001600EC[beam->frame].origin);
     subtract_vector_xyz(camera, D_L14_001674C0, &D_L14_001600EC[beam->frame].origin);
     transform_vector_xyz(camera, camera, inverse);
-    texture = get_effect_texture(D_L14_001620DC);
-    gs_state = (u64)D_L14_001620E0 | ((u64)D_L14_001620E4 << 2) | ((u64)D_L14_001620E8 << 4)
-               | ((u64)D_L14_001620EC << 6) | (0x8000ULL << 24);
+    texture = get_effect_texture(vendor_beam_effect_texture_index_gp);
+    gs_state = (u64)vendor_beam_blend_minuend_selector_gp | ((u64)vendor_beam_blend_subtrahend_selector_gp << 2) | ((u64)vendor_beam_blend_alpha_factor_selector_gp << 4)
+               | ((u64)vendor_beam_blend_addend_selector_gp << 6) | (0x8000ULL << 24);
     packet[2].texture_state = 0xFF9000000260ULL;
     packet[1].texture_state = 0xFF9000000260ULL;
     packet[0].texture_state = 0xFF9000000260ULL;
@@ -499,12 +503,12 @@ extern f32 dot_vectors_xyz(void *, void *) __asm__("FUN_001f9ab0");
 extern int collision_line(void *, void *, int, void *, void *) __asm__("FUN_001efa68");
 
 /* Sweeps the beam's two end lines; anything they cross takes damage pushed away from the beam. */
-void FUN_L14_00302538(char *self) {
+void apply_vendor_beam_damage(char *self) {
     struct Moby *beam_moby = (struct Moby *)self;
     D1224 *beam_vars = (D1224 *)beam_moby->pvars;
     VendorBeamReq req;
-    Vec4 dir, to_hero, base, end_a, end_b, from, to, off;
-    f32 dot, len;
+    Vec4 damage_push_direction, to_hero, base, end_a, end_b, from, to, beam_radius_offset;
+    f32 dot, collision_offset_length;
 
     if (beam_vars->radius == 0.0f)
         return;
@@ -518,25 +522,25 @@ void FUN_L14_00302538(char *self) {
     req.v[3] = 5627.925f;
     req.a = 3;
     req.oclass = beam_moby->oclass;
-    dir.f[0] = fast_cos(beam_moby->rot.z);
-    dir.f[1] = fast_sin(beam_moby->rot.z);
-    dir.f[2] = 0.0f;
+    damage_push_direction.f[0] = fast_cos(beam_moby->rot.z);
+    damage_push_direction.f[1] = fast_sin(beam_moby->rot.z);
+    damage_push_direction.f[2] = 0.0f;
     subtract_vector_xyz(&to_hero, &hero.motion.pos, &beam_moby->pos);
     to_hero.f[2] = 0.0f;
-    dot = dot_vectors_xyz(&dir, &to_hero);
+    dot = dot_vectors_xyz(&damage_push_direction, &to_hero);
     if (vector_length_xyz(&to_hero) != 0.0f) {
         if (dot < 0.0f)
-            scale_vector_xyz(&dir, &dir, -1.0f);
-        req.v[0] = dir.f[0];
-        req.v[1] = dir.f[1];
+            scale_vector_xyz(&damage_push_direction, &damage_push_direction, -1.0f);
+        req.v[0] = damage_push_direction.f[0];
+        req.v[1] = damage_push_direction.f[1];
     }
     qcopy_nc(&base, &D_L14_001600EC[beam_vars->w0].origin);
     if (beam_vars->s8) {
         add_vector_xyz(&end_a, &base, &D_L14_001600EC[beam_vars->w0].axis[1]);
         if (collision_line(&base, &end_a, 0, beam_moby, 0)) {
             subtract_vector_xyz(&from, D_L14_00174560, &base);
-            len = vector_length_xyz(&from);
-            scale_vector_xyz(&from, &from, len * 0.98f / len);
+            collision_offset_length = vector_length_xyz(&from);
+            scale_vector_xyz(&from, &from, collision_offset_length * 0.98f / collision_offset_length);
             add_vector_xyz(&beam_vars->end_a, &base, &from);
             beam_vars->s8 = 0;
         } else {
@@ -547,8 +551,8 @@ void FUN_L14_00302538(char *self) {
         subtract_vector_xyz(&end_b, &base, &D_L14_001600EC[beam_vars->w0].axis[1]);
         if (collision_line(&base, &end_b, 0, beam_moby, 0)) {
             subtract_vector_xyz(&from, D_L14_00174560, &base);
-            len = vector_length_xyz(&from);
-            scale_vector_xyz(&from, &from, len * 0.98f / len);
+            collision_offset_length = vector_length_xyz(&from);
+            scale_vector_xyz(&from, &from, collision_offset_length * 0.98f / collision_offset_length);
             add_vector_xyz(&beam_vars->end_b, &base, &from);
             beam_vars->sA = 0;
         } else {
@@ -557,19 +561,19 @@ void FUN_L14_00302538(char *self) {
     }
     qcopy(&end_a, &beam_vars->end_a);
     qcopy(&end_b, &beam_vars->end_b);
-    normalize_vector_xyz(&off, &D_L14_001600EC[beam_vars->w0].axis[0], beam_vars->radius);
-    add_vector_xyz(&from, &end_a, &off);
-    add_vector_xyz(&to, &end_b, &off);
+    normalize_vector_xyz(&beam_radius_offset, &D_L14_001600EC[beam_vars->w0].axis[0], beam_vars->radius);
+    add_vector_xyz(&from, &end_a, &beam_radius_offset);
+    add_vector_xyz(&to, &end_b, &beam_radius_offset);
     collision_line(&from, &to, 1, beam_moby, &req);
-    subtract_vector_xyz(&from, &end_a, &off);
-    subtract_vector_xyz(&to, &end_b, &off);
+    subtract_vector_xyz(&from, &end_a, &beam_radius_offset);
+    subtract_vector_xyz(&to, &end_b, &beam_radius_offset);
     collision_line(&from, &to, 1, beam_moby, &req);
-    normalize_vector_xyz(&off, &D_L14_001600EC[beam_vars->w0].axis[2], beam_vars->radius);
-    add_vector_xyz(&from, &end_a, &off);
-    add_vector_xyz(&to, &end_b, &off);
+    normalize_vector_xyz(&beam_radius_offset, &D_L14_001600EC[beam_vars->w0].axis[2], beam_vars->radius);
+    add_vector_xyz(&from, &end_a, &beam_radius_offset);
+    add_vector_xyz(&to, &end_b, &beam_radius_offset);
     collision_line(&from, &to, 1, beam_moby, &req);
-    subtract_vector_xyz(&from, &end_a, &off);
-    subtract_vector_xyz(&to, &end_b, &off);
+    subtract_vector_xyz(&from, &end_a, &beam_radius_offset);
+    subtract_vector_xyz(&to, &end_b, &beam_radius_offset);
     collision_line(&from, &to, 1, beam_moby, &req);
 }
 #include "sda.h"
@@ -579,11 +583,13 @@ void FUN_L14_00302538(char *self) {
 
 extern int D_L14_00162148[] __attribute__((section(".sdata")));
 extern int D_L14_001621D8[] __attribute__((section(".sdata")));
-extern void FUN_L00_002e20f8(int);
-extern void FUN_L00_002e2250(int, int);
-extern void FUN_L00_002e2af0(void);
+extern void release_beam_slot(int) __asm__("FUN_L00_002e20f8");
+extern void update_slot_panes_and_effects(int, int) __asm__("FUN_L00_002e2250");
+extern void draw_active_beam_slots(void) __asm__("FUN_L00_002e2af0");
 
-void FUN_L14_003039e0(unsigned char *moby) {
+void update_beam_slots(unsigned char *moby) __asm__("FUN_L14_003039e0");
+
+void update_beam_slots(unsigned char *moby) {
     enum {
         SLOT_UPDATE_STATE_INITIALIZE = 0,
         SLOT_UPDATE_STATE_PROCESS_SLOTS = 1
@@ -591,7 +597,7 @@ void FUN_L14_003039e0(unsigned char *moby) {
     int i;
     int j;
     int started_slot_count;
-    int st;
+    int slot_state;
 
     switch (moby[0x20]) {
     case SLOT_UPDATE_STATE_INITIALIZE:
@@ -605,22 +611,22 @@ void FUN_L14_003039e0(unsigned char *moby) {
     case SLOT_UPDATE_STATE_PROCESS_SLOTS:
         started_slot_count = 0;
         for (i = 0; i < 3; i++) {
-            st = D_L14_00162148[i];
-            if (st == 1) {
+            slot_state = D_L14_00162148[i];
+            if (slot_state == 1) {
                 if (((signed char *)D_L14_001621D8[i])[0x20] < 0) {
                     D_L14_00162148[i] = 0;
                     D_L14_001621D8[i] = 0;
                 }
-            } else if (st == 4) {
-                FUN_L00_002e20f8(i);
-            } else if (st != 0) {
+            } else if (slot_state == 4) {
+                release_beam_slot(i);
+            } else if (slot_state != 0) {
                 started_slot_count++;
-                FUN_L00_002e2250(D_L14_001621D8[i], i);
+                update_slot_panes_and_effects(D_L14_001621D8[i], i);
                 D_L14_00162148[i] = 4;
             }
         }
         if (started_slot_count != 0) {
-            enqueue_callback_list_1(FUN_L00_002e2af0, moby);
+            enqueue_callback_list_1(draw_active_beam_slots, moby);
         }
         break;
     }

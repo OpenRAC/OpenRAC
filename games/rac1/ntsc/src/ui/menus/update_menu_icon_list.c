@@ -26,23 +26,23 @@ int update_menu_icon_list(char *menu) {
     }
     {
         if (controller_state.pressed_unmasked & PAD_TRIANGLE) {
-            struct MenuSystem *g = &menu_system;
-            struct MenuPage *t = g->current->back;
+            struct MenuSystem *menu_system_state = &menu_system;
+            struct MenuPage *t = menu_system_state->current->back;
             if (t != 0) {
-                g->next = t;
-            } else if (g->close_locked == 0) {
+                menu_system_state->next = t;
+            } else if (menu_system_state->close_locked == 0) {
                 return -1;
             }
         }
     }
     {
-        int v = controller_state.pressed_unmasked;
+        int pressed_buttons = controller_state.pressed_unmasked;
         int old = *(int *)(menu + 0x3C);
 
-        if ((v & 0x1000) && old != 0) {
+        if ((pressed_buttons & 0x1000) && old != 0) {
             *(int *)(menu + 0x3C) = old - 1;
         }
-        if (v & 0x4000) {
+        if (pressed_buttons & 0x4000) {
             int c = *(int *)(menu + 0x3C) + 1;
             if (c < *(int *)(menu + 0x40)) {
                 *(int *)(menu + 0x3C) = c;
@@ -58,7 +58,7 @@ int update_menu_icon_list(char *menu) {
         if (t / 0x260 >= *(int *)(menu + 0x40)) {
             *(int *)(menu + 0x5C) = 0x60;
         } else {
-            int q = (t - 0x28) / 0x260;
+            int cursor_scroll_offset_base = (t - 0x28) / 0x260;
             int max_cursor_scroll_offset;
 
             int c = *(volatile int *)(menu + 0x3C);
@@ -68,7 +68,7 @@ int update_menu_icon_list(char *menu) {
                     *(int *)(menu + 0x60) = 0;
                 }
             }
-            max_cursor_scroll_offset = q - 2;
+            max_cursor_scroll_offset = cursor_scroll_offset_base - 2;
             if (*(int *)(menu + 0x60) < *(int *)(menu + 0x3C) - max_cursor_scroll_offset) {
                 *(int *)(menu + 0x60) = *(int *)(menu + 0x3C) - max_cursor_scroll_offset;
             }

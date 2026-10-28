@@ -23,6 +23,7 @@ dot_vectors_xyz = 0x001F9AB0; // 31 of 31 labelled declarations
 draw_geometry_quad = 0x001F7D30; // 28 of 28 labelled declarations
 emit_gs_register_write = 0x00233980; // 1 of 1 labelled declarations
 fast_add_rotations = 0x001FA580; // 224 of 224 labelled declarations
+fast_arc_tan = 0x001F9E90; // 238 of 238 labelled declarations
 fast_cos = 0x001F9DC8; // 162 of 163 labelled declarations
 fast_draw_quad_real = 0x001F7D30; // 9 of 9 labelled declarations
 fast_sin = 0x001F9DE0; // 184 of 184 labelled declarations

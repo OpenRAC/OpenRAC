@@ -9,10 +9,12 @@
 #define MACRO_ADDR
 
 /* Stores v in D_L00_001791B8 at i plus this level's base from D_L00_001C44B8. */
-void FUN_L00_0024a798(s32 v, s32 i) {
+void store_current_level_table_value(s32 stored_value, s32 i) __asm__("FUN_L00_0024a798");
+
+void store_current_level_table_value(s32 stored_value, s32 i) {
     if (current_level_index < 0x13) {
         i += D_L00_001C44B8[current_level_index];
-        D_L00_001791B8[i] = v;
+        D_L00_001791B8[i] = stored_value;
     }
 }
 
@@ -38,7 +40,9 @@ extern MenuCache D_L00_001841F0_49d80 __asm__("D_L00_001841F0") NOT_SDA;
 extern s32 D_L00_0015F3F8;
 extern void FUN_L00_002483c8(u8 *, s32, u8 *, s16 *);
 
-s32 FUN_L00_00249d80(s32 key) {
+s32 ensure_menu_cache_entry(s32 key) __asm__("FUN_L00_00249d80");
+
+s32 ensure_menu_cache_entry(s32 key) {
     s32 i;
     s32 victim;
     s32 miss;

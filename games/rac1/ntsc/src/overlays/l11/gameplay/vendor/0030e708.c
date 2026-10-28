@@ -10,18 +10,20 @@
 
 /* Register this level's vendor data set. */
 
-extern void FUN_L01_002b91c8(char *, int);
+extern void render_water_grids(char *, int) __asm__("FUN_L01_002b91c8");
 
-void FUN_L11_0030e708(void) {
-    FUN_L01_002b91c8(D_L11_001DA880, 0x14);
+void render_level_11_water_grids(void) __asm__("FUN_L11_0030e708");
+
+void render_level_11_water_grids(void) {
+    render_water_grids(D_L11_001DA880, 0x14);
 }
 /* Update for a moby that waits for a float flag on a nearby object then runs a delete sequence. */
 
 extern char *find_moby_hit(void *, int, int) __asm__("FUN_L00_0025a420");
 extern void allocate_voice_for_target_entry(int, int, int) __asm__("FUN_0022da68");
-extern void FUN_L00_00263e30(void *, int, int, int, int, int, int);
-extern void FUN_L01_002787a0(void *);
-extern void FUN_L01_00278e20(void *, int);
+extern void spawn_moby_break_fragments(void *, int, int, int, int, int, int) __asm__("FUN_L00_00263e30");
+extern void spawn_proximity_gated_bolts(void *) __asm__("FUN_L01_002787a0");
+extern void spawn_moby_from_placement(void *, int) __asm__("FUN_L01_00278e20");
 void mark_moby_for_removal(struct Moby *moby) __asm__("FUN_0020c828");
 
 void lamp_update(struct Moby *m) __asm__("FUN_L11_0031d7d8");
@@ -32,22 +34,22 @@ void lamp_update(struct Moby *lamp_moby) {
         LAMP_STATE_REMOVE = 2
     };
     int hit = 0;
-    char *r = find_moby_hit(lamp_moby, 0x10000, 0);
+    char *hit_result = find_moby_hit(lamp_moby, 0x10000, 0);
     switch (lamp_moby->state) {
     case LAMP_STATE_INITIALIZE:
         lamp_moby->state = 1;
         break;
     case LAMP_STATE_WAIT_FOR_HIT:
-        if (r != 0 && *(float *)(r + 0x2C) > 0.0f)
+        if (hit_result != 0 && *(float *)(hit_result + 0x2C) > 0.0f)
             hit = 1;
         if (hit)
             lamp_moby->state = 2;
         break;
     case LAMP_STATE_REMOVE:
         allocate_voice_for_target_entry(0, 0, (int)lamp_moby);
-        FUN_L01_002787a0(lamp_moby);
-        FUN_L00_00263e30(lamp_moby, 0x745, 1, 0x745, 1, 0xb, 2);
-        FUN_L01_00278e20(lamp_moby, 0x744);
+        spawn_proximity_gated_bolts(lamp_moby);
+        spawn_moby_break_fragments(lamp_moby, 0x745, 1, 0x745, 1, 0xb, 2);
+        spawn_moby_from_placement(lamp_moby, 0x744);
         mark_moby_for_removal(lamp_moby);
         break;
     }
@@ -60,7 +62,9 @@ extern int D_L11_00215190[];
 extern void FUN_L00_001fde98(int, int, int, void *, int);
 extern void FUN_L08_00258090(void *, int, int, void *);
 
-void FUN_L11_0031e6a8(int pair_index) {
+void emit_render_batches_with_pair_offset(int pair_index) __asm__("FUN_L11_0031e6a8");
+
+void emit_render_batches_with_pair_offset(int pair_index) {
     int i;
     for (i = 0; i < 0x11; i++) {
         FUN_L08_00258090(D_L11_00217770, D_L11_00215190[i], D_L11_00207900[i], &D_L11_00217758[pair_index]);
@@ -71,7 +75,9 @@ void FUN_L11_0031e6a8(int pair_index) {
 extern Pair D_L11_00162618[] __attribute__((section(".sdata")));
 extern int D_L11_00207888[];
 extern int D_L11_00207860[];
-void FUN_L11_0031e780(int pair_index) {
+void emit_oil_tanker_render_batches_with_pair_offset(int pair_index) __asm__("FUN_L11_0031e780");
+
+void emit_oil_tanker_render_batches_with_pair_offset(int pair_index) {
     int i;
     for (i = 0; i < 0x9; i++) {
         FUN_L08_00258090(D_L11_00217770, D_L11_00207888[i], D_L11_00200728[i], &D_L11_00162618[pair_index]);

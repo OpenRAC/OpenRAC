@@ -18,7 +18,9 @@ extern void debug_print(char *) __asm__("FUN_001e93b0");
 extern char D_L00_001E78B0[];
 extern s32 FUN_L00_001ee318_c(V *, s32 *, f32) __asm__("FUN_L00_001ee318");
 
-s32 *FUN_L00_001ee1b0(OvlQuad *v, f32 rad) {
+s32 *find_camera_collision_volume_for_point(OvlQuad *input_point, f32 rad) __asm__("FUN_L00_001ee1b0");
+
+s32 *find_camera_collision_volume_for_point(OvlQuad *input_point, f32 rad) {
     V query_point;
     V volume_delta;
     V *tp;
@@ -28,7 +30,7 @@ s32 *FUN_L00_001ee1b0(OvlQuad *v, f32 rad) {
     f32 f;
 
     tp = &query_point;
-    query_point.q = *v;
+    query_point.q = *input_point;
     i = truncate_float_to_s32(query_point.f[0] * 0.0625f);
     j = truncate_float_to_s32(query_point.f[1] * 0.0625f);
     if (i < 0 || j < 0 || i > 0x40 || j > 0x40) {
@@ -68,7 +70,9 @@ extern float FUN_001f9b20_1ee318(void *) __asm__("FUN_001f9b20");
 extern float FUN_001f9af0_1ee318(void *) __asm__("FUN_001f9af0");
 extern float FUN_001f9b48_1ee318(void *, void *) __asm__("FUN_001f9b48");
 
-int FUN_L00_001ee318(V_1ee318 *pt, int *vol, float rad) {
+int test_point_in_camera_collision_volume(V_1ee318 *pt, int *vol, float rad) __asm__("FUN_L00_001ee318");
+
+int test_point_in_camera_collision_volume(V_1ee318 *pt, int *vol, float rad) {
     enum {
         VOLUME_TYPE_BOX = 3,
         VOLUME_TYPE_SPHERE = 5,
@@ -76,10 +80,10 @@ int FUN_L00_001ee318(V_1ee318 *pt, int *vol, float rad) {
         VOLUME_TYPE_CYLINDER_WITH_ENDPOINT_SPHERES = 7
     };
     V_1ee318 query_point;
-    V_1ee318 c;
+    V_1ee318 endpoint_test_vector;
     V_1ee318 volume_delta;
-    V_1ee318 l;
-    int r;
+    V_1ee318 transformed_test_vector;
+    int is_inside_cylinder;
 
     query_point.q = pt->q;
     pt = &query_point;
@@ -90,22 +94,22 @@ int FUN_L00_001ee318(V_1ee318 *pt, int *vol, float rad) {
         e += vol[5] << 7;
         FUN_001f9a28_1ee318(&volume_delta, pt, e + 0x30);
         volume_delta.i[3] = 0;
-        FUN_001f9cf8_1ee318(&l, &volume_delta, e + 0x40);
-        return -1.0f <= l.f[0] && l.f[0] <= 1.0f && -1.0f <= l.f[1] && l.f[1] <= 1.0f &&
-               -1.0f <= l.f[2] && l.f[2] <= 1.0f;
+        FUN_001f9cf8_1ee318(&transformed_test_vector, &volume_delta, e + 0x40);
+        return -1.0f <= transformed_test_vector.f[0] && transformed_test_vector.f[0] <= 1.0f && -1.0f <= transformed_test_vector.f[1] && transformed_test_vector.f[1] <= 1.0f &&
+               -1.0f <= transformed_test_vector.f[2] && transformed_test_vector.f[2] <= 1.0f;
     }
     case VOLUME_TYPE_CYLINDER: {
         unsigned char *e;
         e = D_L00_001600FC_1ee318;
         e += vol[5] << 7;
-        r = 0;
+        is_inside_cylinder = 0;
         FUN_001f9a28_1ee318(&volume_delta, pt, e + 0x30);
         volume_delta.i[3] = 0;
-        FUN_001f9cf8_1ee318(&l, &volume_delta, e + 0x40);
-        if (FUN_001f9b20_1ee318(&l) < 1.0f && -1.0f <= l.f[2] && l.f[2] <= 1.0f) {
-            r = 1;
+        FUN_001f9cf8_1ee318(&transformed_test_vector, &volume_delta, e + 0x40);
+        if (FUN_001f9b20_1ee318(&transformed_test_vector) < 1.0f && -1.0f <= transformed_test_vector.f[2] && transformed_test_vector.f[2] <= 1.0f) {
+            is_inside_cylinder = 1;
         }
-        return r;
+        return is_inside_cylinder;
     }
     case VOLUME_TYPE_SPHERE: {
         unsigned char *e;
@@ -121,28 +125,28 @@ int FUN_L00_001ee318(V_1ee318 *pt, int *vol, float rad) {
         e = D_L00_001600E4 + vol[5] * 0x90;
         FUN_001f9a28_1ee318(&volume_delta, pt, e + 0x30);
         volume_delta.i[3] = 0;
-        FUN_001f9cf8_1ee318(&l, &volume_delta, e + 0x40);
-        if (FUN_001f9b20_1ee318(&l) < 1.0f && -1.0f <= l.f[2] && l.f[2] <= 1.0f) {
+        FUN_001f9cf8_1ee318(&transformed_test_vector, &volume_delta, e + 0x40);
+        if (FUN_001f9b20_1ee318(&transformed_test_vector) < 1.0f && -1.0f <= transformed_test_vector.f[2] && transformed_test_vector.f[2] <= 1.0f) {
             return 1;
         }
-        c.i[0] = 0;
-        c.i[1] = 0;
-        c.f[2] = 1.0f;
-        c.f[3] = 1.0f;
-        FUN_001f9cf8_1ee318(&l, &c, e);
-        FUN_001f9a10_1ee318(&l, &l, e + 0x30);
-        FUN_001f9a28_1ee318(&c, pt, &l);
-        if (FUN_001f9af0_1ee318(&c) < *(float *)(e + 0x80)) {
+        endpoint_test_vector.i[0] = 0;
+        endpoint_test_vector.i[1] = 0;
+        endpoint_test_vector.f[2] = 1.0f;
+        endpoint_test_vector.f[3] = 1.0f;
+        FUN_001f9cf8_1ee318(&transformed_test_vector, &endpoint_test_vector, e);
+        FUN_001f9a10_1ee318(&transformed_test_vector, &transformed_test_vector, e + 0x30);
+        FUN_001f9a28_1ee318(&endpoint_test_vector, pt, &transformed_test_vector);
+        if (FUN_001f9af0_1ee318(&endpoint_test_vector) < *(float *)(e + 0x80)) {
             return 1;
         }
-        c.f[3] = 1.0f;
-        c.f[2] = -1.0f;
-        c.i[0] = 0;
-        c.i[1] = 0;
-        FUN_001f9cf8_1ee318(&l, &c, e);
-        FUN_001f9a10_1ee318(&l, &l, e + 0x30);
-        FUN_001f9a28_1ee318(&c, pt, &l);
-        if (FUN_001f9af0_1ee318(&c) < *(float *)(e + 0x80)) {
+        endpoint_test_vector.f[3] = 1.0f;
+        endpoint_test_vector.f[2] = -1.0f;
+        endpoint_test_vector.i[0] = 0;
+        endpoint_test_vector.i[1] = 0;
+        FUN_001f9cf8_1ee318(&transformed_test_vector, &endpoint_test_vector, e);
+        FUN_001f9a10_1ee318(&transformed_test_vector, &transformed_test_vector, e + 0x30);
+        FUN_001f9a28_1ee318(&endpoint_test_vector, pt, &transformed_test_vector);
+        if (FUN_001f9af0_1ee318(&endpoint_test_vector) < *(float *)(e + 0x80)) {
             return 1;
         }
         return 0;

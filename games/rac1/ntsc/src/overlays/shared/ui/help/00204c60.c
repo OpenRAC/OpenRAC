@@ -17,8 +17,8 @@ extern s32 D_L00_00160540;
 extern struct HeroEase D_L00_0017A680[] NOT_SDA;
 extern void memset_words(void *, s32, s32) __asm__("FUN_001f97e8");
 extern f32 probe_ground_height(Vec4f *, s32, f32) __asm__("FUN_00213508");
-extern void FUN_L00_002127b8(void);
-extern void FUN_L00_00208820(void);
+extern void update_hero_ground_contact_and_surface_slopes(void) __asm__("FUN_L00_002127b8");
+extern void update_hero_moby(void) __asm__("FUN_L00_00208820");
 extern void clear_u64_value(void *) __asm__("FUN_001f99f8");
 extern s32 scale_game_frames(s32) __asm__("FUN_001f96f8");
 extern s32 random_int_between(s32, s32) __asm__("FUN_L00_00257b90");
@@ -28,7 +28,9 @@ extern s32 random_int_between(s32, s32) __asm__("FUN_L00_00257b90");
    D_L00_00160540), resets the 31 manipulator records and the eight sound
    voices, and sets the starting hit points and timers. The item ids are read
    into save[] before and after the clear and never written back. */
-void FUN_L00_00204c60(void) {
+void initialize_hero(void) __asm__("FUN_L00_00204c60");
+
+void initialize_hero(void) {
     s32 save[7];
     s32 i;
     struct Moby *candidate_moby;
@@ -51,8 +53,8 @@ void FUN_L00_00204c60(void) {
             hero.unkA88 = (u8 *)hero.moby;
             hero.motion.rot.f[2] = hero.moby->rot.z;
             qcopy(&hero.motion.pos, &hero.moby->pos);
-            FUN_L00_002127b8();
-            FUN_L00_00208820();
+            update_hero_ground_contact_and_surface_slopes();
+            update_hero_moby();
             if (D_L00_00160540 == 0) {
                 qcopy(&D_0013E090[0], &hero.motion.pos);
                 qcopy(&D_0013E090[1], &hero.motion.rot);
@@ -78,10 +80,10 @@ void FUN_L00_00204c60(void) {
     hero.health.hp = hero_max_health;
     hero.reach_distance = 2.125f;
     hero.reach_height = 1.25f;
-    hero.health.unk22AC = 4;
+    hero.health.vehicle_mode_hp = 4;
     hero.health.unk22B0 = hero.health.hp;
     hero.unk1010 = random_int_between(scale_game_frames(0xB4), scale_game_frames(0x12C));
-    hero.unk1014 = 0.007f;
+    hero.idle_look_ease_rate = 0.007f;
     hero.unk1018 = 0.3f;
     hero.unkD20 = 0.97f;
 }

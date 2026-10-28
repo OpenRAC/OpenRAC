@@ -12,20 +12,22 @@ extern float FUN_001f9b80_25fcb8(void *, void *) __asm__("FUN_001f9b80");
 extern short D_L14_001B0F30[] __attribute__((section(".data")));
 extern char *D_L14_001DE5C0[] __attribute__((section(".data")));
 extern struct Hero hero_lui __asm__("D_0013F350") __attribute__((section(".data")));
-int FUN_L14_00268038(char *a, char *selection_output, float best) {
-    struct Hero *g = &hero_lui;
+int select_moby_by_xy_distance(char *selection_reference, char *selection_output, float best) __asm__("FUN_L14_00268038");
+
+int select_moby_by_xy_distance(char *selection_reference, char *selection_output, float best) {
+    struct Hero *hero = &hero_lui;
     char *selected_moby;
     char *candidate_moby;
-    int res;
+    int selection_status;
     int i;
     int j;
-    float d;
+    float candidate_metric;
 
-    selected_moby = ((char *)g->moby);
-    res = 0;
-    if (g->state.control_mode == 0x18 || g->state.current == 0x72) {
+    selected_moby = ((char *)hero->moby);
+    selection_status = 0;
+    if (hero->state.control_mode == 0x18 || hero->state.current == 0x72) {
         selected_moby = 0;
-        res = 2;
+        selection_status = 2;
     }
     for (i = 1; i <= D_L14_001B0F30[0]; i++) {
         candidate_moby = D_L14_0015FFD8 + (D_L14_001B0F30[i] << 8);
@@ -39,11 +41,11 @@ int FUN_L14_00268038(char *a, char *selection_output, float best) {
             continue;
         if (*(unsigned char *)(candidate_moby + 0x20) != 3)
             continue;
-        d = FUN_001f9b80_25fcb8(a + 0x10, candidate_moby + 0x10);
-        if (d < best) {
+        candidate_metric = FUN_001f9b80_25fcb8(selection_reference + 0x10, candidate_moby + 0x10);
+        if (candidate_metric < best) {
             selected_moby = candidate_moby;
-            best = d;
-            res = 1;
+            best = candidate_metric;
+            selection_status = 1;
         }
     }
     for (j = 0; j < 20; j++) {
@@ -58,21 +60,21 @@ int FUN_L14_00268038(char *a, char *selection_output, float best) {
             continue;
         if (*(unsigned char *)(candidate_moby + 0xBC) == 0)
             continue;
-        d = FUN_001f9b80_25fcb8(a + 0x10, candidate_moby + 0x10);
-        if (d < best) {
+        candidate_metric = FUN_001f9b80_25fcb8(selection_reference + 0x10, candidate_moby + 0x10);
+        if (candidate_metric < best) {
             selected_moby = candidate_moby;
-            best = d;
-            res = 1;
+            best = candidate_metric;
+            selection_status = 1;
         }
     }
     if (selected_moby != 0) {
         *(char **)(selection_output + 0x40) = selected_moby;
         qcopy(selection_output, selected_moby + 0x10);
         qcopy(selection_output + 0x10, selected_moby + 0x40);
-        g = &hero_lui;
-        if (selected_moby == ((char *)g->moby)) {
-            qcopy(selection_output + 0x20, &g->motion.unkC0);
-            qcopy(selection_output + 0x30, &g->motion.unkD0);
+        hero = &hero_lui;
+        if (selected_moby == ((char *)hero->moby)) {
+            qcopy(selection_output + 0x20, &hero->motion.near_ground_point);
+            qcopy(selection_output + 0x30, &hero->motion.body_center);
         } else {
             qcopy(selection_output + 0x30, selection_output);
             *(float *)(selection_output + 0x38) += 0.6f;
@@ -85,6 +87,6 @@ int FUN_L14_00268038(char *a, char *selection_output, float best) {
         qzero(selection_output + 0x30);
         qzero(selection_output + 0x20);
     }
-    *(int *)(selection_output + 0x44) = res;
-    return res;
+    *(int *)(selection_output + 0x44) = selection_status;
+    return selection_status;
 }

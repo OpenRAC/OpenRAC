@@ -17,18 +17,20 @@ extern float fast_add_rotations(float, float) __asm__("FUN_001fa580");
 extern short D_L15_0015FFD8_d __asm__("D_L15_0015FFD8");
 
 extern short D_L15_00161EC0 __attribute__((sda));
-void FUN_L15_002e46b0(struct Moby *moby) {
-    int idx = *(int *)moby->pvars;
-    if (idx != -1) {
-        char *other = (char *)(idx * 256 + *(int *)&D_L15_0015FFD8_d);
+void update_moby_yaw_from_linked_state(struct Moby *moby) __asm__("FUN_L15_002e46b0");
+
+void update_moby_yaw_from_linked_state(struct Moby *moby) {
+    int linked_moby_index = *(int *)moby->pvars;
+    if (linked_moby_index != -1) {
+        char *other = (char *)(linked_moby_index * 256 + *(int *)&D_L15_0015FFD8_d);
         char *linked_moby_vars = *(char **)(other + 0x78);
-        int st = (unsigned char)other[0x20];
+        int linked_moby_state = (unsigned char)other[0x20];
         float step;
-        if (st == 2) {
+        if (linked_moby_state == 2) {
             step = *(float *)&D_L15_00161EC0 * DEG_TO_RAD * frame_time;
             if (*(int *)(linked_moby_vars + 0x10) != 0)
                 step = -step;
-        } else if (st == 4) {
+        } else if (linked_moby_state == 4) {
             step = *(float *)&D_L15_00161EC0 * DEG_TO_RAD * frame_time;
             if (*(int *)(linked_moby_vars + 0x10) == 0)
                 step = -step;
@@ -77,7 +79,9 @@ extern int D_L15_001BAAD0[];
 extern s32 current_level_index __asm__("D_0015ED84");
 extern f32 frame_time __asm__("D_0015ED6C");
 
-void FUN_L15_0029aff0(struct Moby *gate_moby)
+void update_sliding_gate(struct Moby *gate_moby) __asm__("FUN_L15_0029aff0");
+
+void update_sliding_gate(struct Moby *gate_moby)
 {
     enum {
         GATE_INITIALIZE = 0,
@@ -223,7 +227,8 @@ typedef struct {
 } SoundSlot_2A48B0;
 
 extern float D_0015ED6C;
-extern float D_L15_001614F8 __attribute__((sda));
+#include "rnc/overlay/l15/gameplay/entities/gate_globals.h"
+extern float vertical_gate_travel_distance_gp __asm__("D_L15_001614F8") __attribute__((sda));
 extern int D_L15_00161AC0;
 extern unsigned char D_001413F4[];
 extern int is_point_inside_clip_volume(void *arg0, int arg1) __asm__("FUN_00214720");
@@ -235,7 +240,9 @@ extern char D_0013E550[];
 extern char D_L15_00167440_2A48B0[] __asm__("D_L15_001673C0");
 extern int D_L15_00184B28_2A48B0 __asm__("D_L15_00184AA8") __attribute__((section(".data")));
 
-void FUN_L15_002a36d0(GateMoby_2A48B0 *gate_moby)
+void update_vertical_gate(GateMoby_2A48B0 *gate_moby) __asm__("FUN_L15_002a36d0");
+
+void update_vertical_gate(GateMoby_2A48B0 *gate_moby)
 {
     enum {
         GATE_INITIALIZE = 0,
@@ -257,7 +264,7 @@ void FUN_L15_002a36d0(GateMoby_2A48B0 *gate_moby)
             gate_moby->f30 = 0xFF;
         }
         if (D_0013DD50 != 0 && gate_vars->key != -1) {
-            gate_moby->pos.z = gate_moby->pos.z - D_L15_001614F8;
+            gate_moby->pos.z = gate_moby->pos.z - vertical_gate_travel_distance_gp;
             gate_moby->state = 5;
         }
         break;
@@ -282,12 +289,12 @@ void FUN_L15_002a36d0(GateMoby_2A48B0 *gate_moby)
             }
         }
         if (D_0013DD50 != 0 && gate_vars->key != -1) {
-            gate_moby->pos.z = gate_vars->home.z - D_L15_001614F8;
+            gate_moby->pos.z = gate_vars->home.z - vertical_gate_travel_distance_gp;
             gate_moby->state = 5;
         }
         break;
     case GATE_OPENING:
-        step = (D_L15_001614F8 / 0.6f) * D_0015ED6C;
+        step = (vertical_gate_travel_distance_gp / 0.6f) * D_0015ED6C;
         if (gate_vars->key != -1) {
             step = step * 5.0f;
         }
@@ -295,14 +302,14 @@ void FUN_L15_002a36d0(GateMoby_2A48B0 *gate_moby)
             ((SoundSlot_2A48B0 *)(D_0013E550 + gate_vars->sound * 0x70))->active == 0) {
             gate_vars->sound = func_0022ED80_2A48B0(0, 4, gate_moby);
         }
-        if (D_L15_001614F8 < (gate_vars->travel = gate_vars->travel + step)) {
+        if (vertical_gate_travel_distance_gp < (gate_vars->travel = gate_vars->travel + step)) {
             if (gate_vars->sound != -1 &&
                 ((SoundSlot_2A48B0 *)(D_0013E550 + gate_vars->sound * 0x70))->owner == gate_moby &&
                 ((SoundSlot_2A48B0 *)(D_0013E550 + gate_vars->sound * 0x70))->active != 0) {
                 release_voice_slot(gate_vars->sound);
             }
             gate_vars->sound = -1;
-            gate_vars->travel = D_L15_001614F8;
+            gate_vars->travel = vertical_gate_travel_distance_gp;
             gate_moby->state = 3;
         }
         {
@@ -333,7 +340,7 @@ void FUN_L15_002a36d0(GateMoby_2A48B0 *gate_moby)
         }
         break;
     case GATE_CLOSING:
-        step = (D_L15_001614F8 / 0.6f) * D_0015ED6C;
+        step = (vertical_gate_travel_distance_gp / 0.6f) * D_0015ED6C;
         if (gate_vars->key != -1) {
             step = step * 5.0f;
         }
@@ -374,7 +381,7 @@ void FUN_L15_002a36d0(GateMoby_2A48B0 *gate_moby)
         break;
     case GATE_POSITION_OVERRIDE:
         if (D_0013DD50 != 0) {
-            gate_moby->pos.z = gate_vars->home.z - D_L15_001614F8;
+            gate_moby->pos.z = gate_vars->home.z - vertical_gate_travel_distance_gp;
             D_L15_00184B28_2A48B0 = 1;
         } else {
             if (D_001413F4[0] == 2) {
@@ -404,10 +411,12 @@ extern void *suck_get_aim_height(struct Moby *) __asm__("FUN_002141f8");
 extern char D_L15_001673C0[];
 extern char *D_L15_0015FFE4;
 extern struct Moby *D_L15_0015FFD8;
-extern f32 D_L15_001614FC __attribute__((sda));
-extern f32 D_L15_00161500 __attribute__((sda));
+extern f32 swinging_door_swing_angle_degrees_gp __asm__("D_L15_001614FC") __attribute__((sda));
+extern f32 swinging_door_swing_duration_gp __asm__("D_L15_00161500") __attribute__((sda));
 
-void FUN_L15_002a3ba8(struct Moby *moby) {
+void update_swinging_door(struct Moby *moby) __asm__("FUN_L15_002a3ba8");
+
+void update_swinging_door(struct Moby *moby) {
     enum {
         SWINGING_DOOR_INITIALIZE = 0,
         SWINGING_DOOR_CLOSED = 1,
@@ -456,7 +465,7 @@ void FUN_L15_002a3ba8(struct Moby *moby) {
         if (vars->reverse) {
             moby->flags |= 0x8000;
         }
-        step = D_L15_001614FC * DEG_TO_RAD;
+        step = swinging_door_swing_angle_degrees_gp * DEG_TO_RAD;
         if (!vars->reverse) {
             step = -step;
         }
@@ -475,8 +484,8 @@ void FUN_L15_002a3ba8(struct Moby *moby) {
         }
         break;
     case SWINGING_DOOR_OPENING:
-        vars->swing = fast_add_rotations(vars->swing, D_L15_001614FC / D_L15_00161500 * DEG_TO_RAD * frame_time);
-        limit = D_L15_001614FC * DEG_TO_RAD;
+        vars->swing = fast_add_rotations(vars->swing, swinging_door_swing_angle_degrees_gp / swinging_door_swing_duration_gp * DEG_TO_RAD * frame_time);
+        limit = swinging_door_swing_angle_degrees_gp * DEG_TO_RAD;
         if (vars->swing < limit) {
             vars->swing = limit;
             moby->state = 3;
@@ -494,7 +503,7 @@ void FUN_L15_002a3ba8(struct Moby *moby) {
         }
         break;
     case SWINGING_DOOR_CLOSING:
-        vars->swing = fast_add_rotations(vars->swing, -(D_L15_001614FC / D_L15_00161500 * DEG_TO_RAD * frame_time));
+        vars->swing = fast_add_rotations(vars->swing, -(swinging_door_swing_angle_degrees_gp / swinging_door_swing_duration_gp * DEG_TO_RAD * frame_time));
         if (0.0f < vars->swing) {
             vars->swing = 0.0f;
             moby->state = 1;
@@ -543,7 +552,9 @@ extern void FUN_L00_0025e450_7880(void *, void *, void *, float, float, int, int
 extern void *FUN_L01_002f8530_7880(void *, void *, int, float, int, float, float, float, int) __asm__("FUN_L01_002f8530");
 extern void *FUN_L00_0026bed0_7880(void *, void *, int, int, float, int, int) __asm__("FUN_L00_0026bed0");
 
-void FUN_L15_002a7880(struct Moby *moby)
+void update_destructible_moby_with_radial_debris(struct Moby *moby) __asm__("FUN_L15_002a7880");
+
+void update_destructible_moby_with_radial_debris(struct Moby *moby)
 {
     char *slot = 0;
     Vec_2a7880 velocity, first, second, offset, base;
@@ -725,7 +736,9 @@ extern void *mine_debris(void *pos, void *vel, int color, int color2, float size
 /* Hit by a shot (a 0x40-byte entry of the hit table that names this moby): sparks fly from the hit
    point, a burst and delta follow, then the moby goes away. Not hit: on its first update it sets its
    distances and is removed when its save bit says it is gone. */
-void FUN_L15_002aa280(struct Moby *moby)
+void update_destructible_moby_on_hit(struct Moby *moby) __asm__("FUN_L15_002aa280");
+
+void update_destructible_moby_on_hit(struct Moby *moby)
 {
     char *hit = 0;
     Vec4 velocity, hit_direction, push, offset, center;
@@ -853,11 +866,11 @@ typedef struct {
     float direction;
 } UpdateVars_2938;
 extern int D_L15_001619EC __attribute__((sda));
-extern int D_L15_001619F4 __attribute__((sda));
-extern int D_L15_001619F8 __attribute__((sda));
-extern float D_L15_001619FC __attribute__((sda));
-extern float D_L15_00161A00 __attribute__((sda));
-extern float D_L15_00161A04 __attribute__((sda));
+extern int construction_arm_effect_duration_min_frames_gp __asm__("D_L15_001619F4") __attribute__((sda));
+extern int construction_arm_effect_duration_max_frames_gp __asm__("D_L15_001619F8") __attribute__((sda));
+extern float construction_arm_effect_speed_max_gp __asm__("D_L15_001619FC") __attribute__((sda));
+extern float construction_arm_wait_time_min_gp __asm__("D_L15_00161A00") __attribute__((sda));
+extern float construction_arm_wait_time_max_gp __asm__("D_L15_00161A04") __attribute__((sda));
 extern unsigned short *D_L15_001ABE40[];
 extern float D_L15_0015F580[] __attribute__((section(".sdata")));
 extern char *find_moby_hit(void *, int, int) __asm__("FUN_L00_0025a420");
@@ -878,7 +891,7 @@ extern void blend_moby_animation(void *, int, int, int) __asm__("FUN_00212f90");
 extern void moby_point_position(void *, int, void *) __asm__("FUN_L00_0024f7c8");
 extern void FUN_L00_001ff290(void *, void *, void *);
 extern void cart_burst(float, float, void *, void *, long long) __asm__("FUN_L00_0025f090");
-extern void FUN_L01_002787a0(void *);
+extern void spawn_proximity_gated_bolts(void *) __asm__("FUN_L01_002787a0");
 extern void *FUN_L00_00263fd8(void *, int, void *, void *, int, int, float, void *, void *, void *);
 extern void FUN_0025c2f0(float, void *, void *, int, int, int, int) __asm__("FUN_L00_0026cbb0");
 
@@ -918,7 +931,7 @@ void construction_arm_update(struct Moby *moby)
     switch (moby->state) {
     case CONSTRUCTION_ARM_INITIALIZE:
         arm_vars->timer = truncate_float_to_s32(random_float_between(
-            FUN_L15_001f8648(D_L15_00161A00 * 60.0f), FUN_L15_001f8648(D_L15_00161A04 * 60.0f)));
+            FUN_L15_001f8648(construction_arm_wait_time_min_gp * 60.0f), FUN_L15_001f8648(construction_arm_wait_time_max_gp * 60.0f)));
         *(int *)&arm_vars->yaw_velocity = arm_vars->side = *(int *)&arm_vars->yaw = 0;
         moby->update_dist = 0xff;
         moby->state = 1;
@@ -972,8 +985,8 @@ void construction_arm_update(struct Moby *moby)
     case CONSTRUCTION_ARM_WAIT_TO_START_EXIT_ANIMATION:
         if (FUN_001f9b48(&moby->pos, D_L15_001673C0) < 20.0f &&
             random_integer_below(2) == 0 && moby->visible != 0) {
-            speed = random_float_between(D_L15_001619FC / 5.0f, D_L15_001619FC) * frame_time;
-            spread = random_float_between(0.0f, D_L15_001619FC / 5.0f) * frame_time;
+            speed = random_float_between(construction_arm_effect_speed_max_gp / 5.0f, construction_arm_effect_speed_max_gp) * frame_time;
+            spread = random_float_between(0.0f, construction_arm_effect_speed_max_gp / 5.0f) * frame_time;
             direction = random_angle_radians_7880();
             velocity.f[0] = fast_cos(arm_vars->direction) * speed;
             velocity.f[1] = fast_sin(arm_vars->direction) * speed;
@@ -984,8 +997,8 @@ void construction_arm_update(struct Moby *moby)
             /* Retail computes the sum but passes velocity to the effect helper. */
             FUN_L00_001ff290(&sum, &velocity, &offset);
             moby_point_position(moby, 1, &origin);
-            first = scale_game_frames(D_L15_001619F4);
-            duration = scale_game_frames(D_L15_001619F8);
+            first = scale_game_frames(construction_arm_effect_duration_min_frames_gp);
+            duration = scale_game_frames(construction_arm_effect_duration_max_frames_gp);
             duration = FUN_L00_00257b90(first, duration);
             FUN_0025c2f0(40000.0f, &origin, &velocity, D_L15_001619EC, D_L15_001619EC, duration, 1);
         }
@@ -998,8 +1011,8 @@ void construction_arm_update(struct Moby *moby)
         break;
     case CONSTRUCTION_ARM_WAIT_FOR_EXIT_ANIMATION:
         if (moby->prev_seq == arm_vars->side * 2 + 3 && (moby->anim_flags & 2)) {
-            minimum = FUN_L15_001f8648(D_L15_00161A00 * 60.0f);
-            maximum = FUN_L15_001f8648(D_L15_00161A04 * 60.0f);
+            minimum = FUN_L15_001f8648(construction_arm_wait_time_min_gp * 60.0f);
+            maximum = FUN_L15_001f8648(construction_arm_wait_time_max_gp * 60.0f);
             arm_vars->timer = truncate_float_to_s32(random_float_between(minimum, maximum));
             duration = scale_game_frames(6);
             blend_moby_animation(moby, 0, 0, duration);
@@ -1009,7 +1022,7 @@ void construction_arm_update(struct Moby *moby)
     case CONSTRUCTION_ARM_DESTROY:
         allocate_voice_for_target_entry(0, 0, (int)moby);
         cart_burst(1.5f, 13.0f, moby, &moby->pos, -1);
-        FUN_L01_002787a0(moby);
+        spawn_proximity_gated_bolts(moby);
         FUN_L00_00263fd8(moby, 0x74b, &moby->pos, &moby->rot, 0, 0, 0.0f,
                          D_L15_0015F580, D_L15_0015F580, D_L15_0015F580);
         FUN_L00_00263fd8(moby, 0x74c, &moby->pos, &moby->rot, 0, 0, 0.0f,
@@ -1038,14 +1051,16 @@ extern void subtract_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a28");
 extern void FUN_001f9bf8_4f88(float, void *, void *) __asm__("FUN_001f9bf8");
 extern void FUN_001f9a68_4f88(float, void *, void *) __asm__("FUN_001f9a68");
 extern void FUN_L00_001ff290(void *, void *, void *);
-extern void FUN_L15_00247e90(float, float, struct Moby *, void *, int);
+extern void move_moby_with_sphere_collision(float, float, struct Moby *, void *, int) __asm__("FUN_L15_00247e90");
 extern float fast_arc_tan(float, float) __asm__("FUN_001f9e90");
 extern float fast_subtract_rotations(float, float) __asm__("FUN_001fa5c8");
 extern float fast_cos(float) __asm__("FUN_001f9dc8");
 extern float fast_sin(float) __asm__("FUN_001f9de0");
 extern float spring_turn(float *, float, float, float, float, float) __asm__("FUN_L00_00258110");
 
-void FUN_L15_002c4f88(struct Moby *moby, SteeringVec_4f88 *goal, SteeringVec_4f88 *look) {
+void steer_helicopter(struct Moby *moby, SteeringVec_4f88 *goal, SteeringVec_4f88 *look) __asm__("FUN_L15_002c4f88");
+
+void steer_helicopter(struct Moby *moby, SteeringVec_4f88 *goal, SteeringVec_4f88 *look) {
     SteeringVec_4f88 target;
     SteeringVec_4f88 look_copy;
     SteeringVec_4f88 scaled;
@@ -1102,7 +1117,7 @@ void FUN_L15_002c4f88(struct Moby *moby, SteeringVec_4f88 *goal, SteeringVec_4f8
     FUN_001f9a68_4f88(0.9f, &delta, &vars->delta);
     vars->delta.q = delta.q;
     FUN_L00_001ff290(&delta, &vars->delta, &scaled);
-    FUN_L15_00247e90(1.0f, 2.0f, moby, &vars->delta, 0);
+    move_moby_with_sphere_collision(1.0f, 2.0f, moby, &vars->delta, 0);
     /* Preserve the retail height store and facing input access order. */
     height = *(volatile float *)&vars->height;
     pos_x = *(volatile float *)&moby->pos.x;
@@ -1157,14 +1172,16 @@ extern float angle_atan2(float, float) __asm__("FUN_001f9e90");
  * same-class mobys within 10 units and keeps ~15 units off the goal while
  * another moby is closer to it (~10 otherwise); writes the steering point to
  * out and returns the heading to follow. */
-float FUN_L15_002c52b8(struct Moby *moby, float *out, Goal_52b8 goal) {
+float compute_helicopter_flocking_steering_point(struct Moby *moby, float *out, Goal_52b8 goal) __asm__("FUN_L15_002c52b8");
+
+float compute_helicopter_flocking_steering_point(struct Moby *moby, float *out, Goal_52b8 goal) {
     float steering_offset[4];
-    float dist;
+    float goal_distance;
     float wsum;
     int clear;
     float k;
     char *other_moby;
-    dist = vector_distance(&moby->pos, &goal);
+    goal_distance = vector_distance(&moby->pos, &goal);
     clear = 1;
     clear_u64_value(out);
     wsum = 0.0f;
@@ -1181,14 +1198,14 @@ float FUN_L15_002c52b8(struct Moby *moby, float *out, Goal_52b8 goal) {
             scale_vector_xyz_52b8(steering_offset, steering_offset, 6.0f);
             add_vector_xyz_52b8(out, out, steering_offset);
         }
-        if (vector_distance(other_moby + 0x10, &goal) < dist)
+        if (vector_distance(other_moby + 0x10, &goal) < goal_distance)
             clear = 0;
     }
     if (clear == 0) {
         subtract_vector_xyz(steering_offset, &moby->pos, &goal);
-        if (dist < 14.5f) {
+        if (goal_distance < 14.5f) {
             k = 15.0f;
-        } else if (15.5f < dist) {
+        } else if (15.5f < goal_distance) {
             k = -15.0f;
         } else {
             k = 0.0f;
@@ -1200,9 +1217,9 @@ float FUN_L15_002c52b8(struct Moby *moby, float *out, Goal_52b8 goal) {
         add_vector_xyz_52b8(out, out, &moby->pos);
     } else {
         subtract_vector_xyz(steering_offset, &moby->pos, &goal);
-        if (dist < 9.5f) {
+        if (goal_distance < 9.5f) {
             k = 10.0f;
-        } else if (10.5f < dist) {
+        } else if (10.5f < goal_distance) {
             k = -10.0f;
         } else {
             k = 0.0f;
@@ -1290,17 +1307,19 @@ typedef struct {
 extern UPath *D_L15_001B0AB0[];
 extern ULevelState D_L15_001BABD0;
 extern ULevelState D_L15_001BB830;
-extern float D_L15_00161A08 __attribute__((sda));
-extern float D_L15_00161A0C __attribute__((sda));
+extern float helicopter_bob_period_gp __asm__("D_L15_00161A08") __attribute__((sda));
+extern float helicopter_bob_amplitude_gp __asm__("D_L15_00161A0C") __attribute__((sda));
 
-extern struct Moby *FUN_L12_00308670(struct Moby *);
-extern void FUN_L12_00308708(void *, struct Moby *);
-void FUN_L15_002c6900(struct Moby *m);
-extern void FUN_L02_00261c80(void *, float *, float);
+extern struct Moby *create_class_55b_moby_from_source(struct Moby *) __asm__("FUN_L12_00308670");
+extern void start_blarg_commander_knockback(void *, struct Moby *) __asm__("FUN_L12_00308708");
+void process_helicopter_hits(struct Moby *moby) __asm__("FUN_L15_002c6900");
+
+void process_helicopter_hits(struct Moby *m) __asm__("FUN_L15_002c6900");
+extern void select_moby_target_goal(void *, float *, float) __asm__("FUN_L02_00261c80");
 extern int FUN_L00_0025ff38(float, void *, void *, int, int, void *, int);
-extern int FUN_L01_0026e008(int, int);
+extern int count_active_moby_group_members(int, int) __asm__("FUN_L01_0026e008");
 extern void FUN_L00_0025df68(void *, void *, void *, int *, float *, int, float, float, float);
-extern struct Moby *FUN_L03_002d5208(void *, void *, struct Moby *, int, float);
+extern struct Moby *spawn_homing_spark_projectile(void *, void *, struct Moby *, int, float) __asm__("FUN_L03_002d5208");
 extern void FUN_L00_0025a120(void *);
 extern void FUN_L00_00250df8(void *);
 extern void FUN_L00_001fff28(void *, int, float);
@@ -1326,6 +1345,8 @@ void helicopter_update(struct Moby *moby) {
         HELICOPTER_INITIALIZE = 0,
         HELICOPTER_WAIT_FOR_ACTIVATION = 1,
         HELICOPTER_FOLLOW_ENTRY_PATH = 2,
+        HELICOPTER_APPROACH_AREA_PATH = 3,
+        HELICOPTER_HOLD_POSITION_WAIT_FOR_TARGET = 4,
         HELICOPTER_ENGAGE_AND_FIRE = 5,
         HELICOPTER_RECOIL = 6,
         HELICOPTER_DEATH_EFFECTS = 7,
@@ -1352,7 +1373,7 @@ void helicopter_update(struct Moby *moby) {
     previous_pos.q = *(u128 *)&moby->pos;
     vars = (HelicopterVars *)moby->pvars;
     if (vars->pilot == 0) {
-        vars->pilot = FUN_L12_00308670(moby);
+        vars->pilot = create_class_55b_moby_from_source(moby);
     }
     if (moby->state != 0 && moby->state != 0x40 && vars->unk1A4 != 0 && hero.vehicle_mode != 2) {
         moby->collision = 0;
@@ -1362,7 +1383,7 @@ void helicopter_update(struct Moby *moby) {
         moby->state = 1;
         return;
     }
-    FUN_L15_002c6900(moby);
+    process_helicopter_hits(moby);
     goal.status = 0;
     if (moby->state == 1) {
         vars->range = vars->wake_range;
@@ -1371,7 +1392,7 @@ void helicopter_update(struct Moby *moby) {
     if (vars->area_path == -1) {
         vars->range = vars->chase_range;
     near:
-        FUN_L02_00261c80(moby, goal.pos.f, vars->range);
+        select_moby_target_goal(moby, goal.pos.f, vars->range);
     } else {
         UPath *path;
         vars->range = vars->chase_range;
@@ -1439,7 +1460,7 @@ void helicopter_update(struct Moby *moby) {
         }
         if (vars->wait_group != -1 ||
             (is_point_inside_clip_volume(&hero.motion.pos, vars->trigger_volume) && goal.status != 2)) {
-            if (vars->wait_group != -1 && FUN_L01_0026e008(vars->wait_group, 0x40)) break;
+            if (vars->wait_group != -1 && count_active_moby_group_members(vars->wait_group, 0x40)) break;
             moby->collision = moby->pclass->collision;
             moby->flags = (moby->flags & 0xFFBE) | 0x1000;
             vars->unk58 = 0x19;
@@ -1511,7 +1532,7 @@ void helicopter_update(struct Moby *moby) {
         }
         break;
     }
-    case 3: {
+    case HELICOPTER_APPROACH_AREA_PATH: {
         UPath *path;
         int i;
         float best = 9999.999f;
@@ -1530,7 +1551,7 @@ void helicopter_update(struct Moby *moby) {
         }
         move.f[2] = target->pos.z + 7.5f;
         point.q = *(u128 *)&target->pos;
-        FUN_L15_002c4f88(moby, (SteeringVec_4f88 *)&move, (SteeringVec_4f88 *)&point);
+        steer_helicopter(moby, (SteeringVec_4f88 *)&move, (SteeringVec_4f88 *)&point);
         if (vector_distance(&move, &moby->pos) < 1.0f || point_in_path_xy(&moby->pos, path->pt, path->n)) {
             if (goal.status != 2) {
                 moby->state = 5;
@@ -1541,12 +1562,12 @@ void helicopter_update(struct Moby *moby) {
         }
         break;
     }
-    case 4: {
+    case HELICOPTER_HOLD_POSITION_WAIT_FOR_TARGET: {
         UPath *path;
         path = D_L15_001B0AB0[vars->area_path];
         move.q = *(u128 *)&moby->pos;
         point.q = *(u128 *)&target->pos;
-        FUN_L15_002c4f88(moby, (SteeringVec_4f88 *)&move, (SteeringVec_4f88 *)&point);
+        steer_helicopter(moby, (SteeringVec_4f88 *)&move, (SteeringVec_4f88 *)&point);
         if (goal.status == 2) break;
         if (point_in_path_xy(&moby->pos, path->pt, path->n)) {
             moby->state = 5;
@@ -1559,21 +1580,21 @@ void helicopter_update(struct Moby *moby) {
     case HELICOPTER_ENGAGE_AND_FIRE:
         moby_point_position(moby, 0, &point);
         if (goal.status != 2) {
-            FUN_L15_002c52b8(moby, move.f, *(Goal_52b8 *)&goal);
+            compute_helicopter_flocking_steering_point(moby, move.f, *(Goal_52b8 *)&goal);
             aim.q = *(u128 *)&target->pos;
-            FUN_L15_002c4f88(moby, (SteeringVec_4f88 *)&move, (SteeringVec_4f88 *)&aim);
+            steer_helicopter(moby, (SteeringVec_4f88 *)&move, (SteeringVec_4f88 *)&aim);
             if (fast_dec_timer_s16(&vars->fire_timer) && vars->shot == 0) {
                 vars->fire_timer = scale_game_frames(0x3C);
                 qcopy(&target_pos, &goal);
                 subtract_vector_xyz(&aim, &target_pos, &point);
                 set_vector_length_xy(&aim, &aim, frame_time * 6.0f);
                 aim.i[2] = 0;
-                vars->shot = FUN_L03_002d5208(&aim, &point, moby, scale_game_frames(0xF0), goal.pos.f[2]);
+                vars->shot = spawn_homing_spark_projectile(&aim, &point, moby, scale_game_frames(0xF0), goal.pos.f[2]);
             }
         } else {
             aim.q = *(u128 *)&moby->pos;
             target_pos.q = *(u128 *)&target->pos;
-            FUN_L15_002c4f88(moby, (SteeringVec_4f88 *)&aim, (SteeringVec_4f88 *)&target_pos);
+            steer_helicopter(moby, (SteeringVec_4f88 *)&aim, (SteeringVec_4f88 *)&target_pos);
             moby->state = 4;
         }
         break;
@@ -1615,7 +1636,7 @@ void helicopter_update(struct Moby *moby) {
         }
         moby_point_position(moby, 5, &aim);
         if (vars->pilot != 0) {
-            FUN_L12_00308708(moby, vars->pilot);
+            start_blarg_commander_knockback(moby, vars->pilot);
             vars->pilot = 0;
         }
         spawn_explosion(moby, &move, &moby->pos, 0.0f, 0.0f, 0x14, 3, 4, 4.0f, 2.0f, 100000.0f, 3.0f, 2,
@@ -1655,12 +1676,12 @@ void helicopter_update(struct Moby *moby) {
         }
     }
     {
-        float z = moby->pos.z - D_L15_00161A0C * fast_cos(vars->bob_angle);
-        float period = D_L15_00161A08 * 60.0f;
+        float z = moby->pos.z - helicopter_bob_amplitude_gp * fast_cos(vars->bob_angle);
+        float period = helicopter_bob_period_gp * 60.0f;
         moby->pos.z = z;
         vars->bob_angle = fast_add_rotations(vars->bob_angle, 6.2831855f / scale_time(period));
     }
-    moby->pos.z += D_L15_00161A0C * fast_cos(vars->bob_angle);
+    moby->pos.z += helicopter_bob_amplitude_gp * fast_cos(vars->bob_angle);
     if (vars->pilot != 0) {
         *(u128 *)&vars->pilot->pos = *(u128 *)&moby->pos;
         *(u128 *)&vars->pilot->rot = *(u128 *)&moby->rot;
@@ -1715,31 +1736,31 @@ extern void trooper_anim_update(void *m, short *p) __asm__("FUN_L00_0025d458");
 extern void trooper_anim_finish(void *, void *) __asm__("FUN_L00_0025d538");
 float absolute_float(float input) __asm__("func_001F99C0");
 
-void FUN_L15_002c6900(struct Moby *moby) {
-    int st;
+void process_helicopter_hits(struct Moby *moby) {
+    int hit_reaction_status;
     float fv;
-    int res;
+    int hit_reaction_code;
     char *helicopter_vars;
-    char *r;
-    float hit_away_heading, b, recoil_rotation_y, recoil_rotation_x;
+    char *hit_record;
+    float hit_away_heading, relative_hit_heading, recoil_rotation_y, recoil_rotation_x;
     helicopter_vars = (char *)moby->pvars;
     fv = 0.0f;
-    r = find_moby_hit(moby, 0x330000, 0);
-    res = hit_reaction(moby, r, helicopter_vars + 0x20, 0, &st, &fv, 0, 4);
-    if (st != 1 && moby->state != 7 && moby->state != 0x40) {
+    hit_record = find_moby_hit(moby, 0x330000, 0);
+    hit_reaction_code = hit_reaction(moby, hit_record, helicopter_vars + 0x20, 0, &hit_reaction_status, &fv, 0, 4);
+    if (hit_reaction_status != 1 && moby->state != 7 && moby->state != 0x40) {
         float remaining_health = *(float *)(helicopter_vars + 0x20) - fv;
         *(float *)(helicopter_vars + 0x20) = remaining_health;
-        if (res == 1 || remaining_health <= 0.0f) {
+        if (hit_reaction_code == 1 || remaining_health <= 0.0f) {
             moby->state = 7;
-        } else if (res != 0xB) {
+        } else if (hit_reaction_code != 0xB) {
             *(unsigned char *)(helicopter_vars + 0x67) = 0xB4;
             trooper_anim_update(moby, (short *)(helicopter_vars + 0x60));
-            if (*(float *)(r + 0x1C) == 5627.925f && moby->state != 6) {
-                hit_away_heading = fast_arc_tan(moby->pos.x - *(float *)(r + 0),
-                                 moby->pos.y - *(float *)(r + 4));
-                b = fast_subtract_rotations(hit_away_heading, moby->rot.z);
-                recoil_rotation_y = fast_cos(b) * 0.08726646f;
-                recoil_rotation_x = fast_sin(b) * -0.34906584f;
+            if (*(float *)(hit_record + 0x1C) == 5627.925f && moby->state != 6) {
+                hit_away_heading = fast_arc_tan(moby->pos.x - *(float *)(hit_record + 0),
+                                 moby->pos.y - *(float *)(hit_record + 4));
+                relative_hit_heading = fast_subtract_rotations(hit_away_heading, moby->rot.z);
+                recoil_rotation_y = fast_cos(relative_hit_heading) * 0.08726646f;
+                recoil_rotation_x = fast_sin(relative_hit_heading) * -0.34906584f;
                 if (absolute_float(moby->rot.x) < absolute_float(recoil_rotation_x)) {
                     moby->rot.x = recoil_rotation_x;
                     *(float *)(helicopter_vars + 0x174) = 0.0f;
@@ -1771,21 +1792,23 @@ extern void clear_vector(void *);
 extern void normalize_vector_xyz(void *, void *, float);
 extern void scale_vector_xyz(void *, void *, float);
 extern void subtract_vector_xyz(void *dst, void *a, void *b);
-int FUN_L00_0025fcb8(char *a, char *o, float best);
+int select_moby_combat_target(char *a, char *o, float best) __asm__("FUN_L00_0025fcb8");
 extern void func_L00_00260D30_t(void *, float *, float) __asm__("FUN_L00_0025fcb8");
 
-float FUN_L15_002cf110(void *m_, void *out, float r) {
+float compute_ultramech_flocking_steering_point(void *m_, void *out, float target_search_range) __asm__("FUN_L15_002cf110");
+
+float compute_ultramech_flocking_steering_point(void *m_, void *out, float target_search_range) {
     char *moby = m_;
     float steering_offset[4];
-    float tgt[4];
+    float target_position[4];
     float pad[4][4]; /* unused, but retail reserves the stack space */
-    float dist;
+    float target_distance;
     float wsum = 0.0f;
     int clear = 1;
     float k;
     char *other_moby;
-    func_L00_00260D30_t(moby, tgt, r);
-    dist = vector_distance(moby + 0x10, tgt);
+    func_L00_00260D30_t(moby, target_position, target_search_range);
+    target_distance = vector_distance(moby + 0x10, target_position);
     clear_u64_value(out);
     for (other_moby = D_L15_0015FFE4; other_moby != 0; other_moby = *(char **)(other_moby + 0x28)) {
         if (other_moby == moby)
@@ -1798,14 +1821,14 @@ float FUN_L15_002cf110(void *m_, void *out, float r) {
             scale_vector_xyz(steering_offset, steering_offset, 6.0f);
             add_vector_xyz(out, out, steering_offset);
         }
-        if (vector_distance(other_moby + 0x10, tgt) < dist)
+        if (vector_distance(other_moby + 0x10, target_position) < target_distance)
             clear = 0;
     }
     if (clear == 0) {
-        subtract_vector_xyz(steering_offset, moby + 0x10, tgt);
-        if (dist < 9.5f) {
+        subtract_vector_xyz(steering_offset, moby + 0x10, target_position);
+        if (target_distance < 9.5f) {
             k = 10.0f;
-        } else if (10.5f < dist) {
+        } else if (10.5f < target_distance) {
             k = -10.0f;
         } else {
             k = 0.0f;
@@ -1816,11 +1839,11 @@ float FUN_L15_002cf110(void *m_, void *out, float r) {
         scale_vector_xyz(out, out, 1.0f / wsum);
         add_vector_xyz(out, out, moby + 0x10);
     } else {
-        qcopy(out, tgt);
+        qcopy(out, target_position);
     }
     if (vector_distance(moby + 0x10, out) < 1.0f) {
         qcopy(out, moby + 0x10);
-        return fast_arc_tan(tgt[0] - *(float *)(moby + 0x10), tgt[1] - *(float *)(moby + 0x14));
+        return fast_arc_tan(target_position[0] - *(float *)(moby + 0x10), target_position[1] - *(float *)(moby + 0x14));
     }
     return fast_arc_tan(((float *)out)[0] - *(float *)(moby + 0x10),
                         ((float *)out)[1] - *(float *)(moby + 0x14));
@@ -1922,7 +1945,7 @@ typedef struct {
     int idx[2];
 } UPaths;
 
-char *FUN_L10_002cc1b8(float scale, void *vel, void *pos, int a, int b, int c);
+char *create_rocket(float scale, void *vel, void *pos, int a, int b, int c) __asm__("FUN_L10_002cc1b8");
 extern ULevelState D_L15_001BABD0;
 extern ULevelState D_L15_001BB830;
 extern UPath *D_L15_001B0AB0[];
@@ -1934,7 +1957,7 @@ extern float fast_arc_tan(float, float) __asm__("FUN_001f9e90");
 extern float spring_turn(float *vel, float cur, float target, float k, float d, float max) __asm__("FUN_L00_00258110");
 extern float FUN_L00_0025abf0(void *a, void *b, void *out, float speed, float g);
 extern float approach_angle(void *, float, void *, float, float, float) __asm__("FUN_L00_0025be00");
-extern float FUN_L15_002cf110_u(void *, void *, float) __asm__("FUN_L15_002cf110");
+extern float compute_ultramech_flocking_steering_point(void *, void *, float) __asm__("FUN_L15_002cf110");
 extern float compute_interpolated_record_value(void *) __asm__("FUN_0020c9e0");
 extern float fast_cos(float);
 extern float fast_sin(float);
@@ -1949,7 +1972,7 @@ extern int point_in_path_xy(void *, void *, int) __asm__("FUN_L00_00259740");
 extern int sweep_hit_segment(void *a, void *b, void *c, void *d, void *e, void *f, int n) __asm__("FUN_L00_00259d08");
 extern int mine_fall(void *, void *) __asm__("FUN_L00_0025c698");
 extern int voice_is_playing(void *, int) __asm__("FUN_L00_0028d8c0");
-extern int FUN_L01_0026e008(int, int);
+extern int count_active_moby_group_members(int, int) __asm__("FUN_L01_0026e008");
 extern int allocate_voice_for_target_entry(int, int, int) __asm__("FUN_0022da68");
 extern int is_value_within_interpolated_window(char *, float) __asm__("FUN_00214cc8");
 extern int rand(void);
@@ -1977,10 +2000,10 @@ extern void make_hit_descriptor(void *, void *, int, void *, float) __asm__("FUN
 extern void play_entity_sound(int, float, void *, int, float, float, int, int, int) __asm__("FUN_L00_002598b0");
 extern void FUN_L00_0025df68(void *, void *, void *, int *, float *, int, float, float, float);
 extern void FUN_L00_00263ac8(float, int, int, unsigned char *);
-extern void FUN_L00_00263e30(void *, int, int, int, int, int, int);
-extern void FUN_L00_0026ced0(void *, void *, int, int, float, int);
-extern void FUN_L03_00250ae8(void *, void *, int);
-extern void FUN_L15_002d0fa8(void *);
+extern void spawn_moby_break_fragments(void *, int, int, int, int, int, int) __asm__("FUN_L00_00263e30");
+extern void spawn_effect_particle_with_target_scalar(void *, void *, int, int, float, int) __asm__("FUN_L00_0026ced0");
+extern void emit_radial_particle_burst(void *, void *, int) __asm__("FUN_L03_00250ae8");
+extern void process_ultramech_hits_and_update_target(void *) __asm__("FUN_L15_002d0fa8");
 extern void no_op_main_callback(void *, void *) __asm__("func_001E93E8");
 extern void add_vector_xyz(void *, void *, void *);
 extern void blend_moby_animation(void *, int, int, int) __asm__("FUN_00212f90");
@@ -1995,7 +2018,7 @@ extern char *func_L10_002CD578_v(void *vel, float scale, void *pos, int a, int b
                                  int c) __asm__("FUN_L10_002cc1b8");
 
 void ultramech_unlimited_update(UMoby *m) __asm__("FUN_L15_002cf3a8");
-void ultramech_unlimited_update(UMoby *m) {
+void ultramech_unlimited_update(UMoby *ultramech_moby) {
     enum {
         ULTRAMECH_INITIALIZE = 0,
         ULTRAMECH_WAIT_FOR_ACTIVATION = 1,
@@ -2019,90 +2042,90 @@ void ultramech_unlimited_update(UMoby *m) {
     int seg;
     float frac;
     int moving;
-    UData *d;
-    UMoby *tgt;
+    UData *ultramech_vars;
+    UMoby *combat_target;
     int idx;
 
     moving = 0;
-    d = m->data;
-    FUN_L15_002d0fa8(m);
-    tgt = d->target;
-    if (m->state != 0 && m->state != 0x40 && hero.vehicle_mode != 2) {
-        m->w94 = 0;
-        m->flags |= 0x41;
-        idx = d->snd;
+    ultramech_vars = ultramech_moby->data;
+    process_ultramech_hits_and_update_target(ultramech_moby);
+    combat_target = ultramech_vars->target;
+    if (ultramech_moby->state != 0 && ultramech_moby->state != 0x40 && hero.vehicle_mode != 2) {
+        ultramech_moby->w94 = 0;
+        ultramech_moby->flags |= 0x41;
+        idx = ultramech_vars->snd;
         if (idx != -1) {
             char *e = (char *)((char *)&D_0013E550) + idx * 0x70;
-            if (*(UMoby **)(e + 0x88) == m) {
+            if (*(UMoby **)(e + 0x88) == ultramech_moby) {
                 if (*(unsigned char *)(e + 0x74) != 0)
                     release_voice_slot(idx);
             }
         }
-        d->snd = -1;
-        m->flags &= 0xEFFF;
-        d->b58 = 0;
-        m->state = 1;
+        ultramech_vars->snd = -1;
+        ultramech_moby->flags &= 0xEFFF;
+        ultramech_vars->b58 = 0;
+        ultramech_moby->state = 1;
         return;
     }
-    FUN_L00_00263ac8(2.5f, (int)m, 6, d->v200);
-    switch (m->state) {
+    FUN_L00_00263ac8(2.5f, (int)ultramech_moby, 6, ultramech_vars->v200);
+    switch (ultramech_moby->state) {
     case ULTRAMECH_INITIALIZE:
-        d->f20 = 12.0f;
-        d->h24 = 0xC;
-        d->b28 = 3;
-        d->h3E |= 2;
-        d->f30 = 6.0f;
-        d->b29 = 0;
+        ultramech_vars->f20 = 12.0f;
+        ultramech_vars->h24 = 0xC;
+        ultramech_vars->b28 = 3;
+        ultramech_vars->h3E |= 2;
+        ultramech_vars->f30 = 6.0f;
+        ultramech_vars->b29 = 0;
         {
             int ff = 0xFF;
-            m->h32 = ff;
-            m->b30 = ff;
+            ultramech_moby->h32 = ff;
+            ultramech_moby->b30 = ff;
         }
-        d->snd = -1;
-        d->turnVel = 0.0f;
-        d->f174 = 90.0f;
+        ultramech_vars->snd = -1;
+        ultramech_vars->turnVel = 0.0f;
+        ultramech_vars->f174 = 90.0f;
         if (rand() & 1)
-            m->flags |= 0x8000;
-        m->w94 = 0;
-        m->flags = (m->flags | 0x41) & 0xEFFF;
-        if (d->paths[0] == -1 || d->paths[1] == -1)
-            d->w1D4 = 1;
-        if (d->path != -1)
-            m->pos.q = D_L15_001B0AB0[d->path]->pt[0].q;
-        m->state = 1;
-        if (m->anim != 0)
-            blend_moby_animation(m, 0, 0, 5);
+            ultramech_moby->flags |= 0x8000;
+        ultramech_moby->w94 = 0;
+        ultramech_moby->flags = (ultramech_moby->flags | 0x41) & 0xEFFF;
+        if (ultramech_vars->paths[0] == -1 || ultramech_vars->paths[1] == -1)
+            ultramech_vars->w1D4 = 1;
+        if (ultramech_vars->path != -1)
+            ultramech_moby->pos.q = D_L15_001B0AB0[ultramech_vars->path]->pt[0].q;
+        ultramech_moby->state = 1;
+        if (ultramech_moby->anim != 0)
+            blend_moby_animation(ultramech_moby, 0, 0, 5);
         break;
     case ULTRAMECH_WAIT_FOR_ACTIVATION:
-        if (d->w1CC != -1 || is_point_inside_clip_volume(&hero.motion.pos, d->w1DC)) {
-            if (d->w1CC != -1 && FUN_L01_0026e008(d->w1CC, 0x40))
+        if (ultramech_vars->w1CC != -1 || is_point_inside_clip_volume(&hero.motion.pos, ultramech_vars->w1DC)) {
+            if (ultramech_vars->w1CC != -1 && count_active_moby_group_members(ultramech_vars->w1CC, 0x40))
                 break;
             if (hero.vehicle_mode == 2) {
-                m->w94 = *(int *)(m->cls + 0x10);
-                m->flags = (m->flags & 0xFFBE) | 0x1000;
+                ultramech_moby->w94 = *(int *)(ultramech_moby->cls + 0x10);
+                ultramech_moby->flags = (ultramech_moby->flags & 0xFFBE) | 0x1000;
             }
         }
-        if (d->w164 != 2 && d->path != -1) {
+        if (ultramech_vars->w164 != 2 && ultramech_vars->path != -1) {
             struct Hero *pl = &hero;
-            if (pl->vehicle_mode == 2 && (m->flags & 0x1000)) {
-                if (d->w1D0 != -1 && !point_in_path_xy(&pl->motion.pos, D_L15_001B0AB0[d->w1D0]->pt,
-                                                       D_L15_001B0AB0[d->w1D0]->n)) {
-                    m->w94 = 0;
-                    m->flags = (m->flags | 0x41) & 0xEFFF;
+            if (pl->vehicle_mode == 2 && (ultramech_moby->flags & 0x1000)) {
+                if (ultramech_vars->w1D0 != -1 && !point_in_path_xy(&pl->motion.pos, D_L15_001B0AB0[ultramech_vars->w1D0]->pt,
+                                                       D_L15_001B0AB0[ultramech_vars->w1D0]->n)) {
+                    ultramech_moby->w94 = 0;
+                    ultramech_moby->flags = (ultramech_moby->flags | 0x41) & 0xEFFF;
                 } else {
                     UPath *path;
                     int i;
-                    m->state = 2;
-                    if (m->anim != 4)
-                        blend_moby_animation(m, 4, 0, scale_game_frames(0x14));
-                    path = D_L15_001B0AB0[d->path];
+                    ultramech_moby->state = 2;
+                    if (ultramech_moby->anim != 4)
+                        blend_moby_animation(ultramech_moby, 4, 0, scale_game_frames(0x14));
+                    path = D_L15_001B0AB0[ultramech_vars->path];
                     for (i = 0; i < path->n - 2; i++) {
                         path->pt[i].f[3] = FUN_001f9b48(&path->pt[i], &path->pt[i + 1]);
                     }
-                    m->pos.q = path->pt[0].q;
-                    subtract_vector_xyz(&d->vel, (UVec *)path + path->n, &m->pos);
-                    set_vector_length_xy(&d->vel, &d->vel, *(float *)&D_L15_00161B14 * frame_time);
-                    d->vel.f[2] = FUN_L00_0025abf0(&m->pos, (UVec *)path + path->n, 0,
+                    ultramech_moby->pos.q = path->pt[0].q;
+                    subtract_vector_xyz(&ultramech_vars->vel, (UVec *)path + path->n, &ultramech_moby->pos);
+                    set_vector_length_xy(&ultramech_vars->vel, &ultramech_vars->vel, *(float *)&D_L15_00161B14 * frame_time);
+                    ultramech_vars->vel.f[2] = FUN_L00_0025abf0(&ultramech_moby->pos, (UVec *)path + path->n, 0,
                                                    *(float *)&D_L15_00161B14 * frame_time,
                                                    -(*(float *)&D_L15_00161B18 * frame_time_sq));
                 }
@@ -2110,358 +2133,358 @@ void ultramech_unlimited_update(UMoby *m) {
         }
         break;
     case ULTRAMECH_FOLLOW_ENTRY_PATH: {
-        UPath *path = D_L15_001B0AB0[d->path];
+        UPath *path = D_L15_001B0AB0[ultramech_vars->path];
         float speed = frame_time * 12.0f;
-        float dist;
-        float len;
-        FUN_L00_0025df68(path, &m->pos, &position_or_motion_vector, &seg, &frac, 0, 999.0f, 5.0f, 0.0f);
-        dist = convert_integer_to_float(seg) * path->pt[0].f[3];
-        dist += frac;
-        dist += 2.0f;
-        seg = func_001FA898_r(dist / path->pt[0].f[3]);
-        dist -= convert_integer_to_float(seg) * path->pt[0].f[3];
-        dist /= path->pt[0].f[3];
-        frac = dist;
+        float entry_path_distance_or_fraction;
+        float entry_path_step_length;
+        FUN_L00_0025df68(path, &ultramech_moby->pos, &position_or_motion_vector, &seg, &frac, 0, 999.0f, 5.0f, 0.0f);
+        entry_path_distance_or_fraction = convert_integer_to_float(seg) * path->pt[0].f[3];
+        entry_path_distance_or_fraction += frac;
+        entry_path_distance_or_fraction += 2.0f;
+        seg = func_001FA898_r(entry_path_distance_or_fraction / path->pt[0].f[3]);
+        entry_path_distance_or_fraction -= convert_integer_to_float(seg) * path->pt[0].f[3];
+        entry_path_distance_or_fraction /= path->pt[0].f[3];
+        frac = entry_path_distance_or_fraction;
         if (seg >= path->n - 1) {
-            float z = probe_ground_height(&m->pos, 0, 0.5f);
-            if (m->pos.f[2] < z)
-                m->pos.f[2] = z;
-            m->state = 4;
-            d->timer = scale_game_frames(0xF);
+            float z = probe_ground_height(&ultramech_moby->pos, 0, 0.5f);
+            if (ultramech_moby->pos.f[2] < z)
+                ultramech_moby->pos.f[2] = z;
+            ultramech_moby->state = 4;
+            ultramech_vars->timer = scale_game_frames(0xF);
             break;
         }
-        dist = FUN_001f9b48(&m->pos, (UVec *)path + path->n);
-        if (dist < speed / FUN_L04_001f1978(26.0f) && m->anim != 5) {
-            blend_moby_animation(m, 5, 0, scale_game_frames(6));
+        entry_path_distance_or_fraction = FUN_001f9b48(&ultramech_moby->pos, (UVec *)path + path->n);
+        if (entry_path_distance_or_fraction < speed / FUN_L04_001f1978(26.0f) && ultramech_moby->anim != 5) {
+            blend_moby_animation(ultramech_moby, 5, 0, scale_game_frames(6));
         }
         subtract_vector_xyz(&position_or_motion_vector, (UVec *)path + (seg + 2), (UVec *)path + (seg + 1));
         scale_vector_xyz(&position_or_motion_vector, &position_or_motion_vector, frac);
         add_vector_xyz(&position_or_motion_vector, &position_or_motion_vector, (UVec *)path + (seg + 1));
         if (seg + 1 < path->n - 8) {
-            float ang = fast_arc_tan(path->pt[seg + 1].f[0] - m->pos.f[0],
-                                     path->pt[seg + 1].f[1] - m->pos.f[1]);
-            m->rot.f[2] = spring_turn(&d->turnVel, m->rot.f[2], ang, 0.01f, 0.3f, 0.1f);
+            float desired_heading = fast_arc_tan(path->pt[seg + 1].f[0] - ultramech_moby->pos.f[0],
+                                     path->pt[seg + 1].f[1] - ultramech_moby->pos.f[1]);
+            ultramech_moby->rot.f[2] = spring_turn(&ultramech_vars->turnVel, ultramech_moby->rot.f[2], desired_heading, 0.01f, 0.3f, 0.1f);
         }
-        subtract_vector_xyz(&vector_or_hit_descriptor, &position_or_motion_vector, &m->pos);
-        len = vector_length_xyz(&vector_or_hit_descriptor);
-        if (speed < len)
-            len = speed;
+        subtract_vector_xyz(&vector_or_hit_descriptor, &position_or_motion_vector, &ultramech_moby->pos);
+        entry_path_step_length = vector_length_xyz(&vector_or_hit_descriptor);
+        if (speed < entry_path_step_length)
+            entry_path_step_length = speed;
         moving = 1;
-        normalize_vector_xyz(&vector_or_hit_descriptor, &vector_or_hit_descriptor, len);
-        add_vector_xyz(&m->pos, &m->pos, &vector_or_hit_descriptor);
+        normalize_vector_xyz(&vector_or_hit_descriptor, &vector_or_hit_descriptor, entry_path_step_length);
+        add_vector_xyz(&ultramech_moby->pos, &ultramech_moby->pos, &vector_or_hit_descriptor);
         break;
     }
     case ULTRAMECH_BALLISTIC_PATH_MOVE:
-        if (m->anim == 3 && (m->animFlags & 2))
-            blend_moby_animation(m, 4, 0, scale_game_frames(6));
-        add_vector_xyz(&m->pos, &m->pos, &d->vel);
-        d->vel.f[2] -= *(float *)&D_L15_00161B18 * frame_time_sq;
-        if (d->vel.f[2] < 0.0f) {
+        if (ultramech_moby->anim == 3 && (ultramech_moby->animFlags & 2))
+            blend_moby_animation(ultramech_moby, 4, 0, scale_game_frames(6));
+        add_vector_xyz(&ultramech_moby->pos, &ultramech_moby->pos, &ultramech_vars->vel);
+        ultramech_vars->vel.f[2] -= *(float *)&D_L15_00161B18 * frame_time_sq;
+        if (ultramech_vars->vel.f[2] < 0.0f) {
             float z;
-            qcopy(&vector_or_hit_descriptor, &m->pos);
+            qcopy(&vector_or_hit_descriptor, &ultramech_moby->pos);
             vector_or_hit_descriptor.f[2] += 1.0f;
             z = probe_ground_height(&vector_or_hit_descriptor, 0, 0.5f);
-            if (m->pos.f[2] - z < d->vel.f[2] * FUN_L04_001f1978(26.0f) +
+            if (ultramech_moby->pos.f[2] - z < ultramech_vars->vel.f[2] * FUN_L04_001f1978(26.0f) +
                                       *(float *)&D_L15_00161B18 * frame_time_sq * 0.5f *
                                           FUN_L04_001f1978(26.0f) * FUN_L04_001f1978(26.0f) &&
-                m->anim != 5) {
-                blend_moby_animation(m, 5, 0, scale_game_frames(6));
+                ultramech_moby->anim != 5) {
+                blend_moby_animation(ultramech_moby, 5, 0, scale_game_frames(6));
             }
-            if (m->pos.f[2] < z) {
-                m->pos.f[2] = z;
-                m->state = 4;
-                d->timer = scale_game_frames(0xF);
+            if (ultramech_moby->pos.f[2] < z) {
+                ultramech_moby->pos.f[2] = z;
+                ultramech_moby->state = 4;
+                ultramech_vars->timer = scale_game_frames(0xF);
             }
         }
         moving = 1;
         break;
     case ULTRAMECH_AIM_AND_SELECT_ATTACK:
-        if (m->anim != 0 && (m->animFlags & 2))
-            blend_moby_animation(m, 0, 0, scale_game_frames(0x14));
-        if (d->w164 != 2) {
-            approach_angle(&m->rot.f[2],
-                             fast_arc_tan(tgt->pos.f[0] - m->pos.f[0], tgt->pos.f[1] - m->pos.f[1]),
-                             &d->turnVel, frame_time_sq * 8.726646f, frame_time_sq * 8.726646f,
+        if (ultramech_moby->anim != 0 && (ultramech_moby->animFlags & 2))
+            blend_moby_animation(ultramech_moby, 0, 0, scale_game_frames(0x14));
+        if (ultramech_vars->w164 != 2) {
+            approach_angle(&ultramech_moby->rot.f[2],
+                             fast_arc_tan(combat_target->pos.f[0] - ultramech_moby->pos.f[0], combat_target->pos.f[1] - ultramech_moby->pos.f[1]),
+                             &ultramech_vars->turnVel, frame_time_sq * 8.726646f, frame_time_sq * 8.726646f,
                              frame_time * 12.566371f);
-            if (tick_countdown_32(&d->timer)) {
-                if (d->w1D8 == 0 && vector_distance(&m->pos, &tgt->pos) < *(float *)&D_L15_00161B24) {
-                    m->state = 7;
-                    if (m->anim != 1)
-                        blend_moby_animation(m, 1, 0, scale_game_frames(0xA));
-                } else if (d->w1D8 == 0 &&
-                           vector_distance(&m->pos, &tgt->pos) < *(float *)&D_L15_00161B28) {
-                    m->state = 8;
-                    if (m->anim != 2)
-                        blend_moby_animation(m, 2, 0, scale_game_frames(0xA));
+            if (tick_countdown_32(&ultramech_vars->timer)) {
+                if (ultramech_vars->w1D8 == 0 && vector_distance(&ultramech_moby->pos, &combat_target->pos) < *(float *)&D_L15_00161B24) {
+                    ultramech_moby->state = 7;
+                    if (ultramech_moby->anim != 1)
+                        blend_moby_animation(ultramech_moby, 1, 0, scale_game_frames(0xA));
+                } else if (ultramech_vars->w1D8 == 0 &&
+                           vector_distance(&ultramech_moby->pos, &combat_target->pos) < *(float *)&D_L15_00161B28) {
+                    ultramech_moby->state = 8;
+                    if (ultramech_moby->anim != 2)
+                        blend_moby_animation(ultramech_moby, 2, 0, scale_game_frames(0xA));
                 } else {
-                    m->state = 5;
-                    if (m->anim != 6)
-                        blend_moby_animation(m, 6, 0, scale_game_frames(0x14));
-                    d->shots = 0;
+                    ultramech_moby->state = 5;
+                    if (ultramech_moby->anim != 6)
+                        blend_moby_animation(ultramech_moby, 6, 0, scale_game_frames(0x14));
+                    ultramech_vars->shots = 0;
                 }
             }
         }
         break;
     case ULTRAMECH_FIRE_BURST:
-        if (m->anim == 6 && (m->animFlags & 2)) {
-            blend_moby_animation(m, 7, 0, scale_game_frames(5));
-            m->animSpeed = *(float *)&D_L15_00161B34;
+        if (ultramech_moby->anim == 6 && (ultramech_moby->animFlags & 2)) {
+            blend_moby_animation(ultramech_moby, 7, 0, scale_game_frames(5));
+            ultramech_moby->animSpeed = *(float *)&D_L15_00161B34;
         }
-        if (d->w164 != 2) {
+        if (ultramech_vars->w164 != 2) {
             int fire = -1;
-            approach_angle(&m->rot.f[2],
-                             fast_arc_tan(tgt->pos.f[0] - m->pos.f[0], tgt->pos.f[1] - m->pos.f[1]),
-                             &d->turnVel, frame_time_sq * 8.726646f, frame_time_sq * 8.726646f,
+            approach_angle(&ultramech_moby->rot.f[2],
+                             fast_arc_tan(combat_target->pos.f[0] - ultramech_moby->pos.f[0], combat_target->pos.f[1] - ultramech_moby->pos.f[1]),
+                             &ultramech_vars->turnVel, frame_time_sq * 8.726646f, frame_time_sq * 8.726646f,
                              frame_time * 12.566371f);
-            if (m->anim == 7) {
-                if (is_value_within_interpolated_window((char *)m, 0.0f))
+            if (ultramech_moby->anim == 7) {
+                if (is_value_within_interpolated_window((char *)ultramech_moby, 0.0f))
                     fire = 1;
             }
             if (fire >= 0) {
-                moby_point_position(m, 0, &vector_or_hit_descriptor);
-                subtract_vector_xyz(&position_or_motion_vector, &tgt->pos, &vector_or_hit_descriptor);
+                moby_point_position(ultramech_moby, 0, &vector_or_hit_descriptor);
+                subtract_vector_xyz(&position_or_motion_vector, &combat_target->pos, &vector_or_hit_descriptor);
                 position_or_motion_vector.f[2] += 0.5f;
                 normalize_vector_xyz(&position_or_motion_vector, &position_or_motion_vector, *(float *)&D_L15_00161B20 * frame_time);
                 if (0.0f < position_or_motion_vector.f[2])
                     position_or_motion_vector.f[2] = 0.0f;
                 if (position_or_motion_vector.f[2] < 0.0f)
                     position_or_motion_vector.f[2] = 0.0f;
-                func_L10_002CD578_v(&position_or_motion_vector, 3.0f, &vector_or_hit_descriptor, (int)m, (int)tgt,
+                func_L10_002CD578_v(&position_or_motion_vector, 3.0f, &vector_or_hit_descriptor, (int)ultramech_moby, (int)combat_target,
                                     scale_game_frames(D_L15_00161B1C));
                 normalize_vector_xyz(&position_or_motion_vector, &position_or_motion_vector, 3.0f);
                 FUN_L00_001ff290(&vector_arithmetic_result, &vector_or_hit_descriptor, &position_or_motion_vector);
-                FUN_L03_00250ae8(m, &vector_or_hit_descriptor, 0);
-                d->shots++;
-            } else if ((float)d->shots >= 6.0f && (m->animFlags & 2)) {
-                m->state = 6;
-                if (m->anim != 0)
-                    blend_moby_animation(m, 0, 0, scale_game_frames(0xA));
-                d->timer = func_001FA898_r(FUN_L04_001f1978(d->f188 * 60.0f));
-            } else if (d->w1D8 == 0 &&
-                       vector_distance(&m->pos, &tgt->pos) < *(float *)&D_L15_00161B24) {
-                m->state = 7;
-                if (m->anim != 1)
-                    blend_moby_animation(m, 1, 0, scale_game_frames(0xA));
-            } else if (d->w1D8 == 0 &&
-                       vector_distance(&m->pos, &tgt->pos) < *(float *)&D_L15_00161B28) {
-                m->state = 8;
-                if (m->anim != 2)
-                    blend_moby_animation(m, 2, 0, scale_game_frames(0xA));
-            } else if (d->w1D8 == 0 && vector_distance(&m->pos, &tgt->pos) > 10.0f && d->w1C8 != 0 &&
-                       d->w1D4 == 0) {
-                m->state = 3;
-                d->timer = 0;
-                d->side = (d->side + 1) & 1;
-                if (m->anim != 3)
-                    blend_moby_animation(m, 3, 0, scale_game_frames(0x14));
+                emit_radial_particle_burst(ultramech_moby, &vector_or_hit_descriptor, 0);
+                ultramech_vars->shots++;
+            } else if ((float)ultramech_vars->shots >= 6.0f && (ultramech_moby->animFlags & 2)) {
+                ultramech_moby->state = 6;
+                if (ultramech_moby->anim != 0)
+                    blend_moby_animation(ultramech_moby, 0, 0, scale_game_frames(0xA));
+                ultramech_vars->timer = func_001FA898_r(FUN_L04_001f1978(ultramech_vars->f188 * 60.0f));
+            } else if (ultramech_vars->w1D8 == 0 &&
+                       vector_distance(&ultramech_moby->pos, &combat_target->pos) < *(float *)&D_L15_00161B24) {
+                ultramech_moby->state = 7;
+                if (ultramech_moby->anim != 1)
+                    blend_moby_animation(ultramech_moby, 1, 0, scale_game_frames(0xA));
+            } else if (ultramech_vars->w1D8 == 0 &&
+                       vector_distance(&ultramech_moby->pos, &combat_target->pos) < *(float *)&D_L15_00161B28) {
+                ultramech_moby->state = 8;
+                if (ultramech_moby->anim != 2)
+                    blend_moby_animation(ultramech_moby, 2, 0, scale_game_frames(0xA));
+            } else if (ultramech_vars->w1D8 == 0 && vector_distance(&ultramech_moby->pos, &combat_target->pos) > 10.0f && ultramech_vars->w1C8 != 0 &&
+                       ultramech_vars->w1D4 == 0) {
+                ultramech_moby->state = 3;
+                ultramech_vars->timer = 0;
+                ultramech_vars->side = (ultramech_vars->side + 1) & 1;
+                if (ultramech_moby->anim != 3)
+                    blend_moby_animation(ultramech_moby, 3, 0, scale_game_frames(0x14));
                 subtract_vector_xyz(
-                    &d->vel,
-                    (UVec *)D_L15_001B0AB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] +
-                        (d->point + 1),
-                    &m->pos);
-                set_vector_length_xy(&d->vel, &d->vel, *(float *)&D_L15_00161B14 * frame_time);
-                d->vel.f[2] = FUN_L00_0025abf0(
-                    &m->pos,
-                    (UVec *)D_L15_001B0AB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] +
-                        (d->point + 1),
+                    &ultramech_vars->vel,
+                    (UVec *)D_L15_001B0AB0[((UPaths *)((char *)ultramech_vars + 0x180))->idx[ultramech_vars->side]] +
+                        (ultramech_vars->point + 1),
+                    &ultramech_moby->pos);
+                set_vector_length_xy(&ultramech_vars->vel, &ultramech_vars->vel, *(float *)&D_L15_00161B14 * frame_time);
+                ultramech_vars->vel.f[2] = FUN_L00_0025abf0(
+                    &ultramech_moby->pos,
+                    (UVec *)D_L15_001B0AB0[((UPaths *)((char *)ultramech_vars + 0x180))->idx[ultramech_vars->side]] +
+                        (ultramech_vars->point + 1),
                     0, *(float *)&D_L15_00161B14 * frame_time,
                     -(*(float *)&D_L15_00161B18 * frame_time_sq));
             }
         } else {
-            m->state = 4;
-            if (m->anim != 0)
-                blend_moby_animation(m, 0, 0, scale_game_frames(0x14));
+            ultramech_moby->state = 4;
+            if (ultramech_moby->anim != 0)
+                blend_moby_animation(ultramech_moby, 0, 0, scale_game_frames(0x14));
         }
         break;
     case ULTRAMECH_WAIT_BETWEEN_BURSTS:
-        if (d->w164 != 2) {
-            approach_angle(&m->rot.f[2],
-                             fast_arc_tan(tgt->pos.f[0] - m->pos.f[0], tgt->pos.f[1] - m->pos.f[1]),
-                             &d->turnVel, frame_time_sq * 8.726646f, frame_time_sq * 8.726646f,
+        if (ultramech_vars->w164 != 2) {
+            approach_angle(&ultramech_moby->rot.f[2],
+                             fast_arc_tan(combat_target->pos.f[0] - ultramech_moby->pos.f[0], combat_target->pos.f[1] - ultramech_moby->pos.f[1]),
+                             &ultramech_vars->turnVel, frame_time_sq * 8.726646f, frame_time_sq * 8.726646f,
                              frame_time * 12.566371f);
-            if (d->w1D8 == 0 && vector_distance(&m->pos, &tgt->pos) < 8.0f && d->w1D4 == 0 &&
-                d->point < D_L15_001B0AB0[((UPaths *)((char *)d + 0x180))->idx[d->side]]->n - 1) {
-                m->state = 3;
-                d->timer = 0;
-                d->point++;
-                if (m->anim != 3)
-                    blend_moby_animation(m, 3, 0, scale_game_frames(0x14));
+            if (ultramech_vars->w1D8 == 0 && vector_distance(&ultramech_moby->pos, &combat_target->pos) < 8.0f && ultramech_vars->w1D4 == 0 &&
+                ultramech_vars->point < D_L15_001B0AB0[((UPaths *)((char *)ultramech_vars + 0x180))->idx[ultramech_vars->side]]->n - 1) {
+                ultramech_moby->state = 3;
+                ultramech_vars->timer = 0;
+                ultramech_vars->point++;
+                if (ultramech_moby->anim != 3)
+                    blend_moby_animation(ultramech_moby, 3, 0, scale_game_frames(0x14));
                 subtract_vector_xyz(
-                    &d->vel,
-                    (UVec *)D_L15_001B0AB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] +
-                        (d->point + 1),
-                    &m->pos);
-                set_vector_length_xy(&d->vel, &d->vel, *(float *)&D_L15_00161B14 * frame_time);
-                d->vel.f[2] = FUN_L00_0025abf0(
-                    &m->pos,
-                    (UVec *)D_L15_001B0AB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] +
-                        (d->point + 1),
+                    &ultramech_vars->vel,
+                    (UVec *)D_L15_001B0AB0[((UPaths *)((char *)ultramech_vars + 0x180))->idx[ultramech_vars->side]] +
+                        (ultramech_vars->point + 1),
+                    &ultramech_moby->pos);
+                set_vector_length_xy(&ultramech_vars->vel, &ultramech_vars->vel, *(float *)&D_L15_00161B14 * frame_time);
+                ultramech_vars->vel.f[2] = FUN_L00_0025abf0(
+                    &ultramech_moby->pos,
+                    (UVec *)D_L15_001B0AB0[((UPaths *)((char *)ultramech_vars + 0x180))->idx[ultramech_vars->side]] +
+                        (ultramech_vars->point + 1),
                     0, *(float *)&D_L15_00161B14 * frame_time,
                     -(*(float *)&D_L15_00161B18 * frame_time_sq));
-            } else if (tick_countdown_32(&d->timer)) {
-                m->state = 5;
-                if (m->anim != 6)
-                    blend_moby_animation(m, 6, 0, scale_game_frames(0x14));
-                d->shots = 0;
+            } else if (tick_countdown_32(&ultramech_vars->timer)) {
+                ultramech_moby->state = 5;
+                if (ultramech_moby->anim != 6)
+                    blend_moby_animation(ultramech_moby, 6, 0, scale_game_frames(0x14));
+                ultramech_vars->shots = 0;
             }
         } else {
-            m->state = 4;
-            if (m->anim != 0)
-                blend_moby_animation(m, 0, 0, scale_game_frames(0x14));
+            ultramech_moby->state = 4;
+            if (ultramech_moby->anim != 0)
+                blend_moby_animation(ultramech_moby, 0, 0, scale_game_frames(0x14));
         }
         break;
     case ULTRAMECH_APPROACH_TARGET: {
-        float ang = fast_arc_tan(tgt->pos.f[0] - m->pos.f[0], tgt->pos.f[1] - m->pos.f[1]);
-        if (d->w164 != 2) {
-            ang = FUN_L15_002cf110_u(m, &position_or_motion_vector, d->f1B8);
-            if (vector_distance(&m->pos, &tgt->pos) < *(float *)&D_L15_00161B28) {
-                m->state = 8;
-                if (m->anim != 2)
-                    blend_moby_animation(m, 2, 0, scale_game_frames(0xA));
+        float desired_heading = fast_arc_tan(combat_target->pos.f[0] - ultramech_moby->pos.f[0], combat_target->pos.f[1] - ultramech_moby->pos.f[1]);
+        if (ultramech_vars->w164 != 2) {
+            desired_heading = compute_ultramech_flocking_steering_point(ultramech_moby, &position_or_motion_vector, ultramech_vars->f1B8);
+            if (vector_distance(&ultramech_moby->pos, &combat_target->pos) < *(float *)&D_L15_00161B28) {
+                ultramech_moby->state = 8;
+                if (ultramech_moby->anim != 2)
+                    blend_moby_animation(ultramech_moby, 2, 0, scale_game_frames(0xA));
             }
         } else {
-            m->state = 4;
-            if (m->anim != 0)
-                blend_moby_animation(m, 0, 0, scale_game_frames(0x14));
+            ultramech_moby->state = 4;
+            if (ultramech_moby->anim != 0)
+                blend_moby_animation(ultramech_moby, 0, 0, scale_game_frames(0x14));
         }
-        FUN_L00_00258278((char *)m, &d->turnVel, ang, frame_time_sq * 1.0471976f,
+        FUN_L00_00258278((char *)ultramech_moby, &ultramech_vars->turnVel, desired_heading, frame_time_sq * 1.0471976f,
                          frame_time_sq * 3.1415927f, frame_time * 3.1415927f);
-        qcopy(&vector_or_hit_descriptor, &m->pos);
-        subtract_vector_xyz(&vector_arithmetic_result, &position_or_motion_vector, &m->pos);
+        qcopy(&vector_or_hit_descriptor, &ultramech_moby->pos);
+        subtract_vector_xyz(&vector_arithmetic_result, &position_or_motion_vector, &ultramech_moby->pos);
         position_or_motion_vector.q = vector_arithmetic_result.q;
         normalize_vector_xyz(&position_or_motion_vector, &position_or_motion_vector, frame_time * 6.5f);
-        FUN_L00_001ff290(&vector_arithmetic_result, &position_or_motion_vector, &m->pos);
-        if (!FUN_L00_00258490(m, &vector_or_hit_descriptor, &position_or_motion_vector, 1, 2.25f, 1.75f, 0.5f, 0.5235988f) ||
-            point_in_path_xy(&vector_or_hit_descriptor, D_L15_001B0AB0[d->side]->pt, D_L15_001B0AB0[d->side]->n)) {
-            qcopy(&m->pos, &vector_or_hit_descriptor);
-            m->state = 4;
-            if (m->anim != 0)
-                blend_moby_animation(m, 0, 0, scale_game_frames(0xC));
+        FUN_L00_001ff290(&vector_arithmetic_result, &position_or_motion_vector, &ultramech_moby->pos);
+        if (!FUN_L00_00258490(ultramech_moby, &vector_or_hit_descriptor, &position_or_motion_vector, 1, 2.25f, 1.75f, 0.5f, 0.5235988f) ||
+            point_in_path_xy(&vector_or_hit_descriptor, D_L15_001B0AB0[ultramech_vars->side]->pt, D_L15_001B0AB0[ultramech_vars->side]->n)) {
+            qcopy(&ultramech_moby->pos, &vector_or_hit_descriptor);
+            ultramech_moby->state = 4;
+            if (ultramech_moby->anim != 0)
+                blend_moby_animation(ultramech_moby, 0, 0, scale_game_frames(0xC));
         } else {
-            m->pos.q = vector_or_hit_descriptor.q;
+            ultramech_moby->pos.q = vector_or_hit_descriptor.q;
         }
         break;
     }
     case ULTRAMECH_MELEE_ATTACK:
         approach_angle(
-            &m->rot.f[2], fast_arc_tan(tgt->pos.f[0] - m->pos.f[0], tgt->pos.f[1] - m->pos.f[1]),
-            &d->turnVel, frame_time_sq * 8.726646f, frame_time_sq * 8.726646f, frame_time * 12.566371f);
-        if (m->animFlags & 2) {
-            if (vector_distance(&m->pos, &tgt->pos) < *(float *)&D_L15_00161B28 && d->w1D4 == 0 &&
-                d->point < D_L15_001B0AB0[((UPaths *)((char *)d + 0x180))->idx[d->side]]->n - 1) {
-                m->state = 3;
-                d->timer = 0;
-                d->point++;
-                if (m->anim != 3)
-                    blend_moby_animation(m, 3, 0, scale_game_frames(0x14));
+            &ultramech_moby->rot.f[2], fast_arc_tan(combat_target->pos.f[0] - ultramech_moby->pos.f[0], combat_target->pos.f[1] - ultramech_moby->pos.f[1]),
+            &ultramech_vars->turnVel, frame_time_sq * 8.726646f, frame_time_sq * 8.726646f, frame_time * 12.566371f);
+        if (ultramech_moby->animFlags & 2) {
+            if (vector_distance(&ultramech_moby->pos, &combat_target->pos) < *(float *)&D_L15_00161B28 && ultramech_vars->w1D4 == 0 &&
+                ultramech_vars->point < D_L15_001B0AB0[((UPaths *)((char *)ultramech_vars + 0x180))->idx[ultramech_vars->side]]->n - 1) {
+                ultramech_moby->state = 3;
+                ultramech_vars->timer = 0;
+                ultramech_vars->point++;
+                if (ultramech_moby->anim != 3)
+                    blend_moby_animation(ultramech_moby, 3, 0, scale_game_frames(0x14));
                 subtract_vector_xyz(
-                    &d->vel,
-                    (UVec *)D_L15_001B0AB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] +
-                        (d->point + 1),
-                    &m->pos);
-                set_vector_length_xy(&d->vel, &d->vel, *(float *)&D_L15_00161B14 * frame_time);
-                d->vel.f[2] = FUN_L00_0025abf0(
-                    &m->pos,
-                    (UVec *)D_L15_001B0AB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] +
-                        (d->point + 1),
+                    &ultramech_vars->vel,
+                    (UVec *)D_L15_001B0AB0[((UPaths *)((char *)ultramech_vars + 0x180))->idx[ultramech_vars->side]] +
+                        (ultramech_vars->point + 1),
+                    &ultramech_moby->pos);
+                set_vector_length_xy(&ultramech_vars->vel, &ultramech_vars->vel, *(float *)&D_L15_00161B14 * frame_time);
+                ultramech_vars->vel.f[2] = FUN_L00_0025abf0(
+                    &ultramech_moby->pos,
+                    (UVec *)D_L15_001B0AB0[((UPaths *)((char *)ultramech_vars + 0x180))->idx[ultramech_vars->side]] +
+                        (ultramech_vars->point + 1),
                     0, *(float *)&D_L15_00161B14 * frame_time,
                     -(*(float *)&D_L15_00161B18 * frame_time_sq));
-            } else if (*(float *)&D_L15_00161B28 < vector_distance(&m->pos, &tgt->pos)) {
-                m->state = 4;
-                if (m->anim != 0)
-                    blend_moby_animation(m, 0, 0, scale_game_frames(0x14));
+            } else if (*(float *)&D_L15_00161B28 < vector_distance(&ultramech_moby->pos, &combat_target->pos)) {
+                ultramech_moby->state = 4;
+                if (ultramech_moby->anim != 0)
+                    blend_moby_animation(ultramech_moby, 0, 0, scale_game_frames(0x14));
             }
         } else {
-            float h = compute_interpolated_record_value(m);
-            moby_point_position(m, 1, &attack_end);
-            if (h >= 17.0f && h <= 24.0f) {
-                qcopy(&attack_start, &m->pos);
+            float melee_window_value = compute_interpolated_record_value(ultramech_moby);
+            moby_point_position(ultramech_moby, 1, &attack_end);
+            if (melee_window_value >= 17.0f && melee_window_value <= 24.0f) {
+                qcopy(&attack_start, &ultramech_moby->pos);
                 attack_start.f[2] += 0.5f;
-                hit_direction.f[0] = fast_cos(m->rot.f[2]);
-                hit_direction.f[1] = fast_sin(m->rot.f[2]);
+                hit_direction.f[0] = fast_cos(ultramech_moby->rot.f[2]);
+                hit_direction.f[1] = fast_sin(ultramech_moby->rot.f[2]);
                 hit_direction.f[2] = 1.0f;
-                make_hit_descriptor(&vector_or_hit_descriptor, m, 0x10007, &hit_direction, 4.0f);
-                collect_mobies_in_sphere(&attack_end, 9, m, &vector_or_hit_descriptor, 2.5f);
-                coll_line_fix(&attack_start, &attack_end, 0, m, &vector_or_hit_descriptor);
-                sweep_hit_segment(&attack_start, &attack_end, &attack_start, &d->v1A0, m, &vector_or_hit_descriptor, 5);
+                make_hit_descriptor(&vector_or_hit_descriptor, ultramech_moby, 0x10007, &hit_direction, 4.0f);
+                collect_mobies_in_sphere(&attack_end, 9, ultramech_moby, &vector_or_hit_descriptor, 2.5f);
+                coll_line_fix(&attack_start, &attack_end, 0, ultramech_moby, &vector_or_hit_descriptor);
+                sweep_hit_segment(&attack_start, &attack_end, &attack_start, &ultramech_vars->v1A0, ultramech_moby, &vector_or_hit_descriptor, 5);
                 no_op_main_callback(&attack_start, &attack_end);
-                qcopy(&d->v1A0, &attack_end);
+                qcopy(&ultramech_vars->v1A0, &attack_end);
             }
         }
         break;
     case ULTRAMECH_KNOCKBACK_RECOVERY: {
         int r = 0;
-        if (d->w1D8 == 0) {
-            r = mine_fall(m, d->hit);
+        if (ultramech_vars->w1D8 == 0) {
+            r = mine_fall(ultramech_moby, ultramech_vars->hit);
         } else {
-            m->animSpeed = 1.0f;
+            ultramech_moby->animSpeed = 1.0f;
         }
-        if ((r & 0x40) || (d->w1D8 != 0 && (m->animFlags & 2))) {
-            if (d->w1D4 == 0) {
-                m->state = 3;
-                d->timer = 0;
-                d->side = (d->side + 1) & 1;
-                qcopy(&vector_or_hit_descriptor, (UVec *)D_L15_001B0AB0[((UPaths *)((char *)d + 0x180))->idx[d->side]] +
-                                d->point + 1);
+        if ((r & 0x40) || (ultramech_vars->w1D8 != 0 && (ultramech_moby->animFlags & 2))) {
+            if (ultramech_vars->w1D4 == 0) {
+                ultramech_moby->state = 3;
+                ultramech_vars->timer = 0;
+                ultramech_vars->side = (ultramech_vars->side + 1) & 1;
+                qcopy(&vector_or_hit_descriptor, (UVec *)D_L15_001B0AB0[((UPaths *)((char *)ultramech_vars + 0x180))->idx[ultramech_vars->side]] +
+                                ultramech_vars->point + 1);
                 vector_or_hit_descriptor.f[2] = probe_ground_height(&vector_or_hit_descriptor, 0, 0.5f);
-                if (m->anim != 3)
-                    blend_moby_animation(m, 3, 0, scale_game_frames(0x14));
-                subtract_vector_xyz(&d->vel, &vector_or_hit_descriptor, &m->pos);
-                set_vector_length_xy(&d->vel, &d->vel, *(float *)&D_L15_00161B14 * frame_time);
-                d->vel.f[2] =
-                    FUN_L00_0025abf0(&m->pos, &vector_or_hit_descriptor, 0, *(float *)&D_L15_00161B14 * frame_time,
+                if (ultramech_moby->anim != 3)
+                    blend_moby_animation(ultramech_moby, 3, 0, scale_game_frames(0x14));
+                subtract_vector_xyz(&ultramech_vars->vel, &vector_or_hit_descriptor, &ultramech_moby->pos);
+                set_vector_length_xy(&ultramech_vars->vel, &ultramech_vars->vel, *(float *)&D_L15_00161B14 * frame_time);
+                ultramech_vars->vel.f[2] =
+                    FUN_L00_0025abf0(&ultramech_moby->pos, &vector_or_hit_descriptor, 0, *(float *)&D_L15_00161B14 * frame_time,
                                      -(*(float *)&D_L15_00161B18 * frame_time_sq));
             } else {
-                m->state = 4;
-                if (m->anim != 0)
-                    blend_moby_animation(m, 0, 0, scale_game_frames(0x14));
+                ultramech_moby->state = 4;
+                if (ultramech_moby->anim != 0)
+                    blend_moby_animation(ultramech_moby, 0, 0, scale_game_frames(0x14));
             }
         }
         break;
     }
     case ULTRAMECH_DEATH_EFFECTS: {
-        void *pp = &m->pos;
-        void *rr = &m->rot;
+        void *pp = &ultramech_moby->pos;
+        void *rr = &ultramech_moby->rot;
         float *dd;
-        scale_vector_xyz(&vector_or_hit_descriptor, m->mtx,
+        scale_vector_xyz(&vector_or_hit_descriptor, ultramech_moby->mtx,
                          *(float *)&D_L15_00161B38 * (dd = D_L15_0015F580, frame_scale));
         vector_or_hit_descriptor.f[2] += *(float *)&D_L15_00161B3C * frame_scale;
-        FUN_L00_00263fd8(m, 0x64A, pp, rr, scale_game_frames(0x5A), 0, frame_time_sq * 12.0f, &vector_or_hit_descriptor, dd,
+        FUN_L00_00263fd8(ultramech_moby, 0x64A, pp, rr, scale_game_frames(0x5A), 0, frame_time_sq * 12.0f, &vector_or_hit_descriptor, dd,
                          dd);
-        FUN_L00_00263fd8(m, 0x64B, pp, rr, scale_game_frames(0x5A), 0, frame_time_sq * 12.0f, &vector_or_hit_descriptor, dd,
+        FUN_L00_00263fd8(ultramech_moby, 0x64B, pp, rr, scale_game_frames(0x5A), 0, frame_time_sq * 12.0f, &vector_or_hit_descriptor, dd,
                          dd);
-        FUN_L00_00263fd8(m, 0x64C, pp, rr, 0, 0, 0.0f, dd, dd, D_L15_0015F580);
+        FUN_L00_00263fd8(ultramech_moby, 0x64C, pp, rr, 0, 0, 0.0f, dd, dd, D_L15_0015F580);
     }
-        FUN_L00_00263e30(m, 0x7A9, 1, 0x7A9, 2, 4, 2);
-        m->state = 0x40;
+        spawn_moby_break_fragments(ultramech_moby, 0x7A9, 1, 0x7A9, 2, 4, 2);
+        ultramech_moby->state = 0x40;
         return;
     case ULTRAMECH_DEAD_WAIT_FOR_RESET:
-        m->w94 = 0;
-        m->flags = (m->flags | 0x41) & 0xEFFF;
-        d->b58 = 0;
-        D_L15_001BABD0.collected[(short)m->id] = 0;
-        D_L15_001BB830.collected[(short)m->id] = 0;
-        *(int *)(((char *)&D_0014C190) + (((short)m->id >> 5) * 4 + (current_level_index << 8))) &=
-            ~(1 << (m->id & 0x1F));
-        D_L15_001BAAD0[(short)m->id >> 5] &= ~(1 << (m->id & 0x1F));
+        ultramech_moby->w94 = 0;
+        ultramech_moby->flags = (ultramech_moby->flags | 0x41) & 0xEFFF;
+        ultramech_vars->b58 = 0;
+        D_L15_001BABD0.collected[(short)ultramech_moby->id] = 0;
+        D_L15_001BB830.collected[(short)ultramech_moby->id] = 0;
+        *(int *)(((char *)&D_0014C190) + (((short)ultramech_moby->id >> 5) * 4 + (current_level_index << 8))) &=
+            ~(1 << (ultramech_moby->id & 0x1F));
+        D_L15_001BAAD0[(short)ultramech_moby->id >> 5] &= ~(1 << (ultramech_moby->id & 0x1F));
         if (hero.vehicle_mode != 2)
-            m->state = 0;
+            ultramech_moby->state = 0;
         break;
     }
     if (moving) {
-        if (voice_is_playing(m, d->snd))
+        if (voice_is_playing(ultramech_moby, ultramech_vars->snd))
             goto spawn;
-        d->snd = allocate_voice_for_target_entry(7, 4, (int)m);
+        ultramech_vars->snd = allocate_voice_for_target_entry(7, 4, (int)ultramech_moby);
     } else {
-        idx = d->snd;
+        idx = ultramech_vars->snd;
         if (idx != -1) {
             char *e = (char *)((char *)&D_0013E550) + idx * 0x70;
-            if (*(UMoby **)(e + 0x88) == m) {
+            if (*(UMoby **)(e + 0x88) == ultramech_moby) {
                 if (*(unsigned char *)(e + 0x74) != 0)
                     release_voice_slot(idx);
             }
         }
-        d->snd = -1;
+        ultramech_vars->snd = -1;
     }
     if (moving) {
         int i;
@@ -2478,32 +2501,30 @@ void ultramech_unlimited_update(UMoby *m) {
                 position_or_motion_vector.f[2] = random_float_between(0.8f, 1.2f) * (frame_time * -20.0f);
                 vector_or_hit_descriptor.q = position_or_motion_vector.q;
                 k = random_integer_below(100) & 1;
-                moby_point_position(m, j, &position_or_motion_vector);
-                transform_vector_by_basis(&vector_or_hit_descriptor, &vector_or_hit_descriptor, m->mtx);
-                FUN_L00_0026ced0(&position_or_motion_vector, &vector_or_hit_descriptor, k ? 0x400F0F7F : 0x407F7F7F, 0x272727,
+                moby_point_position(ultramech_moby, j, &position_or_motion_vector);
+                transform_vector_by_basis(&vector_or_hit_descriptor, &vector_or_hit_descriptor, ultramech_moby->mtx);
+                spawn_effect_particle_with_target_scalar(&position_or_motion_vector, &vector_or_hit_descriptor, k ? 0x400F0F7F : 0x407F7F7F, 0x272727,
                                  random_float_between(1.5f, 3.0f) * 210000.0f,
                                  scale_game_frames(k ? FUN_L00_00257b90(0xA, 0xF)
                                                      : FUN_L00_00257b90(0x14, 0x1E)));
             }
         }
-    } else if (m->state > 1 && m->state != 0x40) {
+    } else if (ultramech_moby->state > 1 && ultramech_moby->state != 0x40) {
         float z;
-        d->fE8 += frame_time_sq * 30.0f;
-        m->pos.f[2] -= d->fE8 - 2.0f;
-        z = probe_ground_height(&m->pos, 0, 0.5f);
-        m->pos.f[2] -= 2.0f;
-        if (m->pos.f[2] < z) {
-            m->pos.f[2] = z;
-            d->fE8 = 0.0f;
+        ultramech_vars->fE8 += frame_time_sq * 30.0f;
+        ultramech_moby->pos.f[2] -= ultramech_vars->fE8 - 2.0f;
+        z = probe_ground_height(&ultramech_moby->pos, 0, 0.5f);
+        ultramech_moby->pos.f[2] -= 2.0f;
+        if (ultramech_moby->pos.f[2] < z) {
+            ultramech_moby->pos.f[2] = z;
+            ultramech_vars->fE8 = 0.0f;
         }
-        play_entity_sound((int)m, 2.5f, &m->pos, 0x10000, 40.0f, 1.0f, 0, 1, 0);
+        play_entity_sound((int)ultramech_moby, 2.5f, &ultramech_moby->pos, 0x10000, 40.0f, 1.0f, 0, 1, 0);
     }
 }
-extern float D_L15_00161B00 __attribute__((sda));
-extern float D_L15_00161B04 __attribute__((sda));
-extern float D_L15_00161B08 __attribute__((sda));
-extern float D_L15_00161B2C __attribute__((sda));
-extern float D_L15_00161B30 __attribute__((sda));
+#include "rnc/overlay/l15/gameplay/entities/gate_data/process_ultramech_hits_and_update_target.h"
+extern float ultramech_pre_hit_scale_multiplier_gp __asm__("D_L15_00161B2C") __attribute__((sda));
+extern float ultramech_post_hit_scale_multiplier_gp __asm__("D_L15_00161B30") __attribute__((sda));
 extern float D_0015ED70;
 extern int D_001413D0 __attribute__((section(".data")));
 extern char D_00178700[] __asm__("D_L15_00178700");
@@ -2523,7 +2544,7 @@ extern void FUN_0024f560(float, void *, void *) __asm__("FUN_L02_00261c80");
 extern void FUN_0024f7e0(float, void *, void *, int, int, void *, int) __asm__("FUN_L00_0025ff38");
 extern float FUN_001f8bc8(void *, void *) __asm__("FUN_001f9b48");
 
-void FUN_L15_002d0fa8(void *arg) {
+void process_ultramech_hits_and_update_target(void *ultramech_instance) {
     enum {
         HIT_REACTION_NO_ACTION = 0,
         HIT_REACTION_DEATH = 1,
@@ -2538,7 +2559,7 @@ void FUN_L15_002d0fa8(void *arg) {
         HIT_REACTION_DAMAGE_WITHOUT_KNOCKBACK_ALTERNATE = 10,
         HIT_REACTION_NONE = 11
     };
-    UMoby *ultramech_moby = arg;
+    UMoby *ultramech_moby = ultramech_instance;
     UData *ultramech_vars = ultramech_moby->data;
     char *slot = 0;
     int kind;
@@ -2553,7 +2574,7 @@ void FUN_L15_002d0fa8(void *arg) {
     float reaction_product;
     unsigned char state;
 
-    *(float *)((char *)ultramech_moby + 0x2C) = D_L15_00161B2C * *(float *)(ultramech_moby->cls + 0x24);
+    *(float *)((char *)ultramech_moby + 0x2C) = ultramech_pre_hit_scale_multiplier_gp * *(float *)(ultramech_moby->cls + 0x24);
     impact = 0.0f;
     ultramech_vars->w1C8 = 0;
     for (i = 0; i < 64; i++) {
@@ -2586,7 +2607,7 @@ void FUN_L15_002d0fa8(void *arg) {
             hit = FUN_001f99c8_f(2560.0f);
             {
                 float angle;
-                angle = D_L15_00161B00 * D_0015ED70;
+                angle = ultramech_knockback_gravity_gp * D_0015ED70;
                 *(int *)((char *)ultramech_vars + 0x90) = hit;
                 *(float *)((char *)ultramech_vars + 0x98) = 2.5f;
                 *(float *)((char *)ultramech_vars + 0x80) = angle;
@@ -2609,8 +2630,8 @@ void FUN_L15_002d0fa8(void *arg) {
             case HIT_REACTION_DIRECTIONAL_KNOCKBACK_ALTERNATE:
             case HIT_REACTION_KNOCKBACK_VARIANT:
             case HIT_REACTION_KNOCKBACK_VARIANT_ALTERNATE:
-                angle = D_L15_00161B08 * D_0015ED6C;
-                reaction_product = D_L15_00161B04 * D_0015ED6C;
+                angle = ultramech_knockback_horizontal_speed_gp * D_0015ED6C;
+                reaction_product = ultramech_knockback_vertical_speed_gp * D_0015ED6C;
                 ultramech_vars->w1C8 = 1;
                 *(float *)((char *)ultramech_vars + 0x88) = angle;
                 *(float *)((char *)ultramech_vars + 0x8C) = reaction_product;
@@ -2648,7 +2669,7 @@ void FUN_L15_002d0fa8(void *arg) {
     }
     *(unsigned char *)((char *)ultramech_moby + 0xA4) = 0xFF;
     FUN_0024cde0(ultramech_moby, (char *)ultramech_vars + 0x60);
-    *(float *)((char *)ultramech_moby + 0x2C) = *(float *)(ultramech_moby->cls + 0x24) * D_L15_00161B30;
+    *(float *)((char *)ultramech_moby + 0x2C) = *(float *)(ultramech_moby->cls + 0x24) * ultramech_post_hit_scale_multiplier_gp;
     ultramech_vars->w164 = 0;
     if (ultramech_moby->state != 1) {
         if (ultramech_vars->w1D0 != -1)
