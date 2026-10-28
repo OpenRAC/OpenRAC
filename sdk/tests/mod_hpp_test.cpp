@@ -560,6 +560,19 @@ int host_moby_deletion(int slot, openrac_moby_deletion* out) {
     return OPENRAC_HOOK_OK;
 }
 
+// The last run: slot 4 left out by distance, 30 from the camera; the pause menu's level camera.
+int host_moby_run(int slot, openrac_moby_run* out) {
+    if (out->size < sizeof *out) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->runs = 9;
+    out->menu = OPENRAC_RUN_MENU_LEVEL_CAMERA;
+    out->ran = slot == 4 ? OPENRAC_MOBY_RUN_FAR : OPENRAC_MOBY_RUN_NONE;
+    out->update_dist = slot == 4 ? 20 : 0;
+    out->distance = slot == 4 ? 30.0f : 0.0f;
+    return OPENRAC_HOOK_OK;
+}
+
 int host_camera_position(float out[3]) {
     out[0] = 1.0f;
     out[1] = 2.0f;
@@ -647,6 +660,7 @@ openrac_api make_api() {
     api.moby_hide = host_moby_hide;
     api.moby_deletion = host_moby_deletion;
     api.camera_position = host_camera_position;
+    api.moby_run = host_moby_run;
     return api;
 }
 
@@ -1359,6 +1373,16 @@ int main() {
     check_held(mod, api);
     check_scenes(mod, api);
     check_moby_detail(mod, api);
+    {
+        // The last run read (1.9); nothing on a port whose table ends at camera_position.
+        openrac_moby_run run{};
+        CHECK(mod.has_moby_run() && mod.moby_run(4, run) && run.runs == 9 && run.ran == 0);
+        CHECK(run.update_dist == 20 && run.distance == 30.0f && run.menu == OPENRAC_RUN_MENU_LEVEL_CAMERA);
+        const std::uint32_t size = api.size;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, camera_position) + sizeof(void*));
+        CHECK(!mod.has_moby_run() && !mod.moby_run(4, run) && run.runs == 0);
+        api.size = size;
+    }
     check_refused_loads(api, handle);
     check_reload(api, handle);
 

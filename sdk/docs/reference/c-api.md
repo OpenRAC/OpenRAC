@@ -129,6 +129,19 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_MOBY_SCENE` | `0x20u` | An actor of the in-level scene playing (scene_playing): the game made it for the scene and deletes it when the scene ends. Each game playing the scene has its own. |
 | `OPENRAC_MOBY_HIDDEN` | `0x40u` | Hidden: drawn by nothing however near, as the game hides one (its update did, or moby_hide), or faded out (alpha 0). |
 | `OPENRAC_MOBY_DRAWN` | `0x80u` | Drawn in the last frame (in view, within its draw distance, not hidden). |
+| `OPENRAC_MOBY_RUN_NONE` | `(-1)` | Not looked at: no moby there, a dead one, or one the game never runs (mode bit 2). |
+| `OPENRAC_MOBY_RUN_FAR` | `0` | Left out: farther than its update distance from the camera and from every eye (play_eyes). |
+| `OPENRAC_MOBY_RUN_DRAWN` | `1` | Run: drawn in the last frame, its update distance always (255), within it of the camera, within it of an eye, or as a member of a group another member of which was run. |
+| `OPENRAC_MOBY_RUN_ALWAYS` | `2` |  |
+| `OPENRAC_MOBY_RUN_NEAR` | `3` |  |
+| `OPENRAC_MOBY_RUN_EYE` | `4` |  |
+| `OPENRAC_MOBY_RUN_GROUP` | `5` |  |
+| `OPENRAC_RUN_MENU_NONE` | `0` | No menu update in this level load yet. |
+| `OPENRAC_RUN_MENU_HELD` | `1` | A menu updated with the world held (play_overlay_pause off). |
+| `OPENRAC_RUN_MENU_FIRST` | `2` | The pause menu's first tick: the level's camera saved, the world run with it. |
+| `OPENRAC_RUN_MENU_LEVEL_CAMERA` | `3` | The pause menu: the level's camera saved on its first tick put up for the world's run. |
+| `OPENRAC_RUN_MENU_OWN_CAMERA` | `4` | The pause menu, with no level camera saved in this level load: the menu's camera stays up. |
+| `OPENRAC_RUN_MENU_FREEZE` | `5` | A freeze dialog: the world run with the camera up (no swap). |
 | `OPENRAC_MOBY_BEFORE` | `0` | The gate's moments (openrac_moby_update_fn). Since 1.9. |
 | `OPENRAC_MOBY_AFTER` | `1` |  |
 | `OPENRAC_EYES_MAX` | `8` | The most eyes (openrac_api.play_eyes). Since 1.9. |
@@ -479,6 +492,27 @@ How the game deleted a moby of the level (moby_deletion). Since 1.9.
 | `int32_t oclass` | Its class then. |
 | `uint32_t loads` | The level load it happened in (as openrac_play_status' loads). |
 
+## `openrac_moby_run`
+
+How the game ran the level's mobys in the last tick, and the moby in a slot (moby_run): for a mod
+that reports why a moby stopped or left. Since 1.9.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_moby_run), set by the mod. |
+| `uint32_t runs` | Run lists built of the level's mobys in this level load, and the camera the last one measured the update distances from. |
+| `float camera[3]` |  |
+| `uint32_t menu_ticks` | The menu updates seen in this level load (the pause menu's, a freeze dialog's), what the last did (OPENRAC_RUN_MENU_*), and the level's camera the pause menu puts up for the world. |
+| `int32_t menu` |  |
+| `float level_camera[3]` |  |
+| `int32_t level_mode` | The level's own game mode (Ratchet & Clank: 0 play, 3 paused, 4 a dialog, 5 a vendor...), and which moby context is current (0 the level's, 1 the pause menu's own). |
+| `int32_t context` |  |
+| `int32_t update_dist` | The moby in `slot` (-1 or none: OPENRAC_MOBY_RUN_NONE and zeros): its update distance (255: always), its draw distance, whether it was drawn in the last frame, how the last run list treated it (OPENRAC_MOBY_RUN_*), and its distance from that run list's camera. |
+| `int32_t draw_dist` |  |
+| `int32_t drawn` |  |
+| `int32_t ran` |  |
+| `float distance` |  |
+
 ## `openrac_hit`
 
 A hit (openrac_api.on_moby_hit, moby_hit): to the moby in `victim`, from `attacker` (-1 none), of
@@ -644,3 +678,4 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*moby_hide)(openrac_mod* mod, int slot, int hidden)` | Hides the moby in `slot` from drawing (`hidden` 1), as the game hides one, or shows it again (0); the game's own update may change it again (one a mod drives keeps it). Listed with OPENRAC_MOBY_HIDDEN while hidden. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no moby there. Since 1.9. |
 | `int (*moby_deletion)(int slot, openrac_moby_deletion* out)` | Fills `out` (its size set by the mod) with the last deletion the game made of the moby in `slot` in this level load: whose update did it, or a mod. For a mod that wants to know why a moby left the level (a spawned one's slot is used again: ask on the tick it went). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for none seen (none, or it left the level some other way). Since 1.9. |
 | `int (*camera_position)(float out[3])` | Writes where the game's camera is (x, y, z, the level's units) into `out`. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level. Since 1.9. |
+| `int (*moby_run)(int slot, openrac_moby_run* out)` | Fills `out` (its size set by the mod) with how the game ran the level's mobys in the last tick (the run list's camera, what the last menu update did) and the moby in `slot` (-1: none) in it (openrac_moby_run). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or for a game without it. Since 1.9. |

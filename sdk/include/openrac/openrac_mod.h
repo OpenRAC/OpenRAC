@@ -714,6 +714,62 @@ typedef struct openrac_moby_deletion {
     uint32_t loads;
 } openrac_moby_deletion;
 
+/* How the last run list (the mobys whose update the game ran in a tick) treated a moby
+ * (openrac_moby_run.ran). Since 1.9. */
+/* Not looked at: no moby there, a dead one, or one the game never runs (mode bit 2). */
+#define OPENRAC_MOBY_RUN_NONE (-1)
+/* Left out: farther than its update distance from the camera and from every eye (play_eyes). */
+#define OPENRAC_MOBY_RUN_FAR 0
+/* Run: drawn in the last frame, its update distance always (255), within it of the camera, within
+ * it of an eye, or as a member of a group another member of which was run. */
+#define OPENRAC_MOBY_RUN_DRAWN 1
+#define OPENRAC_MOBY_RUN_ALWAYS 2
+#define OPENRAC_MOBY_RUN_NEAR 3
+#define OPENRAC_MOBY_RUN_EYE 4
+#define OPENRAC_MOBY_RUN_GROUP 5
+
+/* What the last menu update did with the level's world (openrac_moby_run.menu). Since 1.9. */
+/* No menu update in this level load yet. */
+#define OPENRAC_RUN_MENU_NONE 0
+/* A menu updated with the world held (play_overlay_pause off). */
+#define OPENRAC_RUN_MENU_HELD 1
+/* The pause menu's first tick: the level's camera saved, the world run with it. */
+#define OPENRAC_RUN_MENU_FIRST 2
+/* The pause menu: the level's camera saved on its first tick put up for the world's run. */
+#define OPENRAC_RUN_MENU_LEVEL_CAMERA 3
+/* The pause menu, with no level camera saved in this level load: the menu's camera stays up. */
+#define OPENRAC_RUN_MENU_OWN_CAMERA 4
+/* A freeze dialog: the world run with the camera up (no swap). */
+#define OPENRAC_RUN_MENU_FREEZE 5
+
+/* How the game ran the level's mobys in the last tick, and the moby in a slot (moby_run): for a mod
+ * that reports why a moby stopped or left. Since 1.9. */
+typedef struct openrac_moby_run {
+    /* sizeof(openrac_moby_run), set by the mod. */
+    uint32_t size;
+    /* Run lists built of the level's mobys in this level load, and the camera the last one
+     * measured the update distances from. */
+    uint32_t runs;
+    float camera[3];
+    /* The menu updates seen in this level load (the pause menu's, a freeze dialog's), what the last
+     * did (OPENRAC_RUN_MENU_*), and the level's camera the pause menu puts up for the world. */
+    uint32_t menu_ticks;
+    int32_t menu;
+    float level_camera[3];
+    /* The level's own game mode (Ratchet & Clank: 0 play, 3 paused, 4 a dialog, 5 a vendor...), and
+     * which moby context is current (0 the level's, 1 the pause menu's own). */
+    int32_t level_mode;
+    int32_t context;
+    /* The moby in `slot` (-1 or none: OPENRAC_MOBY_RUN_NONE and zeros): its update distance (255:
+     * always), its draw distance, whether it was drawn in the last frame, how the last run list
+     * treated it (OPENRAC_MOBY_RUN_*), and its distance from that run list's camera. */
+    int32_t update_dist;
+    int32_t draw_dist;
+    int32_t drawn;
+    int32_t ran;
+    float distance;
+} openrac_moby_run;
+
 /* The gate's moments (openrac_moby_update_fn). Since 1.9. */
 #define OPENRAC_MOBY_BEFORE 0
 #define OPENRAC_MOBY_AFTER 1
@@ -1257,6 +1313,12 @@ typedef struct openrac_api {
     /* Writes where the game's camera is (x, y, z, the level's units) into `out`. Returns
      * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level. Since 1.9. */
     int (*camera_position)(float out[3]);
+
+    /* Fills `out` (its size set by the mod) with how the game ran the level's mobys in the last
+     * tick (the run list's camera, what the last menu update did) and the moby in `slot` (-1: none)
+     * in it (openrac_moby_run). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or
+     * for a game without it. Since 1.9. */
+    int (*moby_run)(int slot, openrac_moby_run* out);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

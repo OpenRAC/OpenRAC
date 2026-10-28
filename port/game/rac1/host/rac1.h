@@ -82,6 +82,12 @@ void rac1_world_moby_kill(gaddr moby);
 void rac1_world_moby_hide(gaddr moby, int hidden);
 int rac1_world_moby_deletion(int32_t slot, openrac_game_moby_deletion* out);
 int rac1_world_camera_position(float out[3]);
+int rac1_world_moby_run(int32_t slot, openrac_game_moby_run* out);
+/* moby_pool.c's last run list of the level's mobys: how it treated `slot` (OPENRAC_MOBY_RUN_*, -1
+ * not looked at, or none built this level load), how many were built and its camera; world.c's
+ * whether the level's mobys are the current context (not the pause menu's). */
+int rac1_moby_run(int32_t slot, uint32_t* runs, float camera[3]);
+int rac1_level_mobys_current(void);
 int32_t rac1_world_moby_spawn(int32_t oclass);
 int32_t rac1_world_hero_slot(void);
 void rac1_world_stand_in(const float position[3], gaddr moby);

@@ -32,6 +32,7 @@
  * +0x30); the eyes set here count as the camera too, so the mobys near another player run in the
  * game that runs the world.
  */
+#include <math.h>
 #include <string.h>
 
 #include "rac1.h"
@@ -61,7 +62,9 @@ enum {
     MOBY_ALPHA = 0x23,
     MOBY_CLASS = 0x24,
     MOBY_SCALE = 0x2C,
+    MOBY_DIST = 0x30,
     MOBY_DRAWN = 0x31,
+    MOBY_DRAW_DIST = 0x32,
     MOBY_MODE = 0x34,
     MOBY_ROT = 0x40,
     MOBY_FRAME = 0x50,
@@ -563,8 +566,27 @@ static void swap_view(void) {
 
 /* `pause_menu`: under the pause menu (the level's camera put up, the level drawn), else under a
  * freeze dialog, which keeps the level's camera and draws the level itself. */
+/* What the menu updates of this level load did with the world, for moby_run (interface 1.9):
+ * how many, and the last one's OPENRAC_RUN_MENU_* value. */
+static struct {
+    uint32_t load;
+    uint32_t ticks;
+    int32_t last;
+} menu_runs = {0xFFFFFFFFu, 0, 0};
+
+static void note_menu_run(int32_t how) {
+    const uint32_t load = rac1_program_loads();
+    if (menu_runs.load != load) {
+        menu_runs.load = load;
+        menu_runs.ticks = 0;
+    }
+    ++menu_runs.ticks;
+    menu_runs.last = how;
+}
+
 static void run_world_under_menu(int pause_menu) {
     if (!keep_running || !in_level()) {
+        note_menu_run(1); /* OPENRAC_RUN_MENU_HELD */
         return;
     }
     /* The menu's first tick (it sets itself up in this update): the camera is still the level's. */
@@ -579,6 +601,8 @@ static void run_world_under_menu(int pause_menu) {
         swap_view();
         swapped = 1;
     }
+    /* OPENRAC_RUN_MENU_FIRST, _LEVEL_CAMERA, _OWN_CAMERA, _FREEZE */
+    note_menu_run(!pause_menu ? 5 : first ? 2 : swapped ? 3 : 4);
     const int entered = enter_level_context();
     func_00213C78();
     if (pause_menu && (first || swapped)) {
@@ -602,4 +626,45 @@ void func_L00_00277A88(void) {
 void func_001FD3E8(void) {
     run_world_under_menu(0);
     func_001FD3E8__game();
+}
+
+int rac1_level_mobys_current(void) {
+    return main_context();
+}
+
+/* The level's game mode (play.c's), for moby_run. */
+#define LEVEL_MODE OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F6A8u))
+
+int rac1_world_moby_run(int32_t slot, openrac_game_moby_run* out) {
+    if (!in_level()) {
+        return 0;
+    }
+    out->ran = rac1_moby_run(slot, &out->runs, out->camera);
+    const uint32_t load = rac1_program_loads();
+    out->menu_ticks = menu_runs.load == load ? menu_runs.ticks : 0;
+    out->menu = menu_runs.load == load ? menu_runs.last : 0;
+    if (level_view.load == load) {
+        memcpy(out->level_camera, level_view.camera + 0x140, sizeof out->level_camera);
+    }
+    out->level_mode = GREF(int, LEVEL_MODE);
+    out->context = main_context() ? 0 : 1;
+    const gaddr base = array_base();
+    if (slot < 0 || slot >= KEYS_MAX || base == 0) {
+        return 1;
+    }
+    const gaddr m = base + (gaddr)slot * MOBY_SIZE;
+    /* A free or dead slot, or the array's end (a slot moby_list gave is read, never one past). */
+    if (GREF(uint8_t, m + MOBY_STATE) >= 0x80) {
+        return 1;
+    }
+    out->update_dist = GREF(uint8_t, m + MOBY_DIST);
+    out->draw_dist = GREF(int16_t, m + MOBY_DRAW_DIST);
+    out->drawn = GREF(uint8_t, m + MOBY_DRAWN);
+    float sum = 0.0f;
+    for (unsigned i = 0; i < 3; ++i) {
+        const float d = GREF(float, m + MOBY_POS + 4u * i) - out->camera[i];
+        sum += d * d;
+    }
+    out->distance = sqrtf(sum);
+    return 1;
 }

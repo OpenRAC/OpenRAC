@@ -462,6 +462,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `play_notice(mod, text)` (1.9) | a line of text at the top of the game's picture (the port's status badge) until the mod shows another or clears it (null or ""): what the game's own words cannot say, such as a party waiting for its players. The last mod's line shows |
 | `scene_playing(&frame)`, `play_scene(mod, scene)` (1.9) | the level's own scene playing (a cutscene the level's mobys started, or play_scene: a person spoken to, a place reached, a level's opening; not a movie, the ship's landing or the pause menu's replays): its number in the level, the same in every game, and the frames played, -1 for none; and that scene started as the level's trigger starts it, from its start (its actors, camera, sound, the hero held), once the player is in control (the request waits through a menu or another scene, goes with the level, -1 drops it). A scene's actors are listed with `OPENRAC_MOBY_SCENE`. For a party whose games play the same scenes |
 | `moby_hide(mod, slot, hidden)`, `moby_deletion(slot, &out)`, `camera_position(out)` (1.9) | a moby hidden from drawing as the game hides one (its update did, or a mod: `OPENRAC_MOBY_HIDDEN` in `moby_list`, also for one faded out; `OPENRAC_MOBY_DRAWN` for one drawn in the last frame) or shown again; the last deletion the game made of a slot in this level load: whose update did it (itself or another moby, by slot and class; -1 outside any update) or a mod's moby_kill, from rac1's DeleteMoby, for a mod that wants to know why a moby left the level; where the camera is. For a party's member, whose driven copies do not run the update that hides and shows them |
+| `moby_run(slot, &out)` (1.9) | how the game ran the level's mobys in the last tick, for a report of why one stopped or left: the run list's camera, what the last menu update did with the world (`OPENRAC_RUN_MENU_*`: held, the pause menu's first tick, the level's camera put up, the menu's own left up, a freeze dialog) and the level's camera it puts up, the level's game mode and moby context, and the moby in `slot`: its update and draw distances, drawn or not, and how the run list treated it (`OPENRAC_MOBY_RUN_*`: left out by distance, run as drawn, always, near, near an eye, or by its group) |
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -746,6 +747,8 @@ into the port: nothing of it crosses the boundary.
   scenes, answering none on a port whose table ends before them.
 - `mod.has_moby_detail()` (1.9), `mod.moby_hide(slot, hidden)`, `mod.moby_deletion(slot, out)`
   and `mod.camera_position(out)`: false on a port whose table ends before them.
+- `mod.has_moby_run()` (1.9) and `mod.moby_run(slot, out)`: false on a port whose table ends
+  before it.
 - `mod.on_frame(fn)`, `mod.on_pad(fn)`, `openrac::Memory` (typed reads and
   writes at game addresses), `openrac::StackFrame` (RAII over `stack_push` and
   `stack_pop`).

@@ -492,6 +492,7 @@ const openrac_game_play rac1_play = {
     .moby_hide = rac1_world_moby_hide,
     .moby_deletion = rac1_world_moby_deletion,
     .camera_position = rac1_world_camera_position,
+    .moby_run = rac1_world_moby_run,
     .moby_spawn = rac1_world_moby_spawn,
     .hero_slot = rac1_world_hero_slot,
     .stand_in = rac1_world_stand_in,

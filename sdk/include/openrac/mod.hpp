@@ -1345,6 +1345,19 @@ public:
         return has_moby_detail() && m_api->camera_position(out) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.9: whether the port offers moby_run().
+    bool has_moby_run() const {
+        return has_world() && m_api->size >= offsetof(openrac_api, moby_run) + sizeof(void*);
+    }
+
+    // Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1:
+    // none) in it, into `out`; false outside a level or for a port without it.
+    bool moby_run(int slot, openrac_moby_run& out) const {
+        out = {};
+        out.size = sizeof out;
+        return has_moby_run() && m_api->moby_run(slot, &out) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none.
     int moby_slot_of(gaddr moby) const { return has_world() ? m_api->moby_slot_of(moby) : -1; }
 

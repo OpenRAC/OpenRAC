@@ -53,6 +53,8 @@ static_assert(sizeof(openrac_shot) == sizeof(std::uint32_t) + sizeof(openrac_gam
 // So is a moby (interface 1.9).
 static_assert(offsetof(openrac_moby, slot) == sizeof(std::uint32_t));
 static_assert(sizeof(openrac_moby) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_state));
+static_assert(offsetof(openrac_moby_run, runs) == sizeof(std::uint32_t));
+static_assert(sizeof(openrac_moby_run) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_run));
 static_assert(offsetof(openrac_moby_deletion, by) == sizeof(std::uint32_t));
 static_assert(
     sizeof(openrac_moby_deletion) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_deletion)
@@ -650,6 +652,20 @@ int api_moby_deletion(int slot, openrac_moby_deletion* out) {
     return OPENRAC_HOOK_OK;
 }
 
+int api_moby_run(int slot, openrac_moby_run* out) {
+    if (out == nullptr || out->size < sizeof(openrac_moby_run) || g_play == nullptr
+        || g_play->moby_run == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_moby_run r{};
+    if (g_play->moby_run(slot, &r) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->size = sizeof(openrac_moby_run);
+    std::memcpy(&out->runs, &r, sizeof r);
+    return OPENRAC_HOOK_OK;
+}
+
 int api_camera_position(float out[3]) {
     if (out == nullptr || g_play == nullptr || g_play->camera_position == nullptr) {
         return OPENRAC_HOOK_UNKNOWN;
@@ -742,6 +758,7 @@ void fill_play_api(
     api.moby_hide = api_moby_hide;
     api.moby_deletion = api_moby_deletion;
     api.camera_position = api_camera_position;
+    api.moby_run = api_moby_run;
 }
 
 void play_loading(const openrac_mod* mod) {

@@ -247,6 +247,8 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool moby_hide(int slot, bool hidden) const` | Since 1.9: hides the moby in `slot` from drawing (`hidden`) or shows it again; false for no moby there or a port without it. |
 | `bool moby_deletion(int slot, openrac_moby_deletion& out) const` | Since 1.9: the last deletion the game made of the moby in `slot` in this level load into `out`; false for none seen or a port without it. |
 | `bool camera_position(float (&out)[3]) const` | Since 1.9: where the game's camera is into `out` (x, y, z); false outside a level or for a port without it. |
+| `bool has_moby_run() const` | Since 1.9: whether the port offers moby_run(). |
+| `bool moby_run(int slot, openrac_moby_run& out) const` | Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1: none) in it, into `out`; false outside a level or for a port without it. |
 | `int moby_slot_of(gaddr moby) const` | Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none. |
 | `bool play_overlay_pause(bool on) const` | Since 1.9: the world keeps running under the game's menus while `on`; false for a game without it. |
 | `Memory memory() const` | Returns a view of game memory. |
