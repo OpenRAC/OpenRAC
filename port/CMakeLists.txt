@@ -137,6 +137,9 @@ openrac_add_test(moby_passes INCLUDES .)
 # How each tick's frames start: cleared, the last picture, or under the tick's 2D
 # (game/common/frontend/tick_picture.h).
 openrac_add_test(tick_picture INCLUDES .)
+# Where a menu's mobys drawn with a camera of their own go, alone and over a level's world drawn
+# under it (game/common/frontend/menu_layers.h).
+openrac_add_test(menu_layers INCLUDES .)
 
 # The game fixes (game/common/fixes.h): rac1's list of differences, checked as the configure reads it
 # (cmake/Differences.cmake), and its fixes through the settings file. Needs no game.

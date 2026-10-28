@@ -41,6 +41,7 @@
 #include "debug_menu.h"
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "game/common/frontend/menu_layers.h"
 #include "game/common/frontend/state.h"
 #include "mod_menu.h"
 #include "mod_ui.h"
@@ -909,12 +910,14 @@ void log_mobys_near_hero(std::span<const std::uint8_t> ram, const host::GameStat
 // Reads the live mobys this tick: which are drawn, how (blend, light, colour, the camera they
 // were drawn with) and in what pose, and the hero's shadow. Mobys the game drew but did not list
 // are added to `state`. `world_ran`, `only_own_camera`: the world renderers ran this tick, and
-// only mobys with a camera of their own were drawn without them; `debug`: OPENRAC_DEBUG.
+// only mobys with a camera of their own were drawn without them; `under_menu`: that world is a
+// level's under a menu (world_under_menu); `debug`: OPENRAC_DEBUG.
 TickMobys pose_mobys(
     std::span<const std::uint8_t> ram,
     host::GameState& state,
     bool world_ran,
     bool only_own_camera,
+    bool under_menu,
     bool debug
 ) {
     const profiling::Zone trace("Pose mobys");
@@ -954,6 +957,9 @@ TickMobys pose_mobys(
     // vendor) it is drawn in the world.
     const std::size_t listed = state.mobys.size();
     std::unordered_map<std::uint32_t, const host::GameState*> into_texture;
+    // Over a world drawn under a menu (`under_menu`): the menu's mobys, drawn on the screen at their
+    // markers in the 2D path with their own cameras, after the world.
+    std::unordered_map<std::uint32_t, const host::GameState*> on_screen;
     std::array<float, 2> frame_focal{};
     {
         const auto drawn = [&](std::uint32_t address) {
@@ -963,18 +969,33 @@ TickMobys pose_mobys(
                 }
             );
         };
-        float zoom = world_ran ? state.tan_half_fov_x : 0.0f;
-        frame_focal =
-            world_ran ? std::array<float, 2>{state.focal_x, state.focal_y} : std::array<float, 2>{};
+        // A level's world under a menu is not the frame's camera: the menu's own cameras are
+        // (frontend/menu_layers.h).
+        std::vector<float> own_tans;
+        own_tans.reserve(g->moby_cameras.size());
         for (const auto& [address, camera] : g->moby_cameras) {
-            if (zoom == 0.0f || camera.tan_half_fov_x < zoom) {
-                zoom = camera.tan_half_fov_x;
-                frame_focal = {camera.focal_x, camera.focal_y};
-            }
+            own_tans.push_back(camera.tan_half_fov_x);
+        }
+        const FrameZoom zoom = frame_zoom(world_ran && !under_menu, state.tan_half_fov_x, own_tans);
+        if (zoom.camera == FrameZoom::kWorld) {
+            frame_focal = {state.focal_x, state.focal_y};
+        } else if (zoom.camera >= 0) {
+            const host::GameState& narrowest =
+                g->moby_cameras[static_cast<std::size_t>(zoom.camera)].second;
+            frame_focal = {narrowest.focal_x, narrowest.focal_y};
         }
         for (const auto& [address, camera] : g->moby_cameras) {
-            if (camera.tan_half_fov_x > zoom + 1.0e-3f && frame_focal[0] > 0.0f) {
-                into_texture.emplace(address, &camera);
+            switch (
+                own_camera_layer(camera.tan_half_fov_x, zoom, frame_focal[0] > 0.0f, under_menu)
+            ) {
+                case OwnCameraLayer::Texture:
+                    into_texture.emplace(address, &camera);
+                    break;
+                case OwnCameraLayer::Screen:
+                    on_screen.emplace(address, &camera);
+                    break;
+                case OwnCameraLayer::World:
+                    break;
             }
             if (!drawn(address)) {
                 if (const auto extra = g->profile->read_moby(ram, address)) {
@@ -1114,6 +1135,10 @@ TickMobys pose_mobys(
                 instance.world_sphere = {};  // this object belongs to another camera's space
                 instance.occlusion = scene::Pvs::always;
             }
+            // Drawn on the screen with its own camera: not placed in the world's.
+            if (address == m.address && on_screen.contains(m.address)) {
+                break;
+            }
             if (address == m.address
                 && (camera.camera_position != state.camera_position
                     || camera.forward != state.forward)) {
@@ -1159,7 +1184,7 @@ TickMobys pose_mobys(
         }
         // Its pose, evaluated after the loop with the others' on several threads.
         if (animate && joints > 0) {
-            const bool target = into_texture.contains(m.address);
+            const bool target = into_texture.contains(m.address) || on_screen.contains(m.address);
             pose_jobs.push_back(
                 {m.address, joints, target, target ? target_mobys.size() : live.size()}
             );
@@ -1168,6 +1193,10 @@ TickMobys pose_mobys(
             target_mobys.push_back({m.address, instance, *t->second});
             target_mobys.back().camera.focal_x = frame_focal[0];
             target_mobys.back().camera.focal_y = frame_focal[1];
+            continue;
+        }
+        if (const auto t = on_screen.find(m.address); t != on_screen.end()) {
+            target_mobys.push_back({m.address, instance, *t->second, true});
             continue;
         }
         const bool owned_by_hero =
@@ -1760,9 +1789,10 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
     prepared.state = g->profile->read_state(ram, level);
     const bool world_ran = g->world_camera.has_value();
     const bool only_own_camera = !world_ran && !g->moby_cameras.empty();
+    const bool under_menu = world_ran && g->world_under_menu;
     copy_world_camera(prepared.state);
     const bool debug = stats::probe("OPENRAC_DEBUG", "the game's state each 100 ticks, in the log");
-    prepared.mobys = pose_mobys(ram, prepared.state, world_ran, only_own_camera, debug);
+    prepared.mobys = pose_mobys(ram, prepared.state, world_ran, only_own_camera, under_menu, debug);
     prepared.seconds =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     g->prepared_tick = std::move(prepared);
@@ -1851,8 +1881,9 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         return true;
     }
     part.emplace("moby poses");
-    TickMobys mobys = prepared ? std::move(prepared->mobys)
-                               : pose_mobys(ram, state, world_ran, only_own_camera, debug);
+    TickMobys mobys = prepared
+                          ? std::move(prepared->mobys)
+                          : pose_mobys(ram, state, world_ran, only_own_camera, under_menu, debug);
     g->moby_cameras.clear();
     stats::gauge("render preparation ms", prepared ? prepared->seconds * 1000.0 : 0.0);
     part.emplace("lights");
@@ -1863,7 +1894,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     g->kept->packets = std::move(packets.packets);
     g->kept->strip_vertices = std::move(packets.strip_vertices);
     g->kept->strips = std::move(packets.strips);
-    g->kept->before_world = packets.before_world;
+    g->kept->before_world = bytes_before_world(packets.before_world, under_menu);
     part.reset();
     return finish_tick(ram, state, packets.named_quads, level, debug, scene);
 }

@@ -182,6 +182,9 @@ public:
     // name the tick that recorded it, which the frontend reads) draws quads[index] there, in the
     // context the packets before it set up.
     void set_ui_quads(std::span<const UiQuad> quads) { m_ui_quads = quads; }
+
+    // Whether the moby markers drawn into the main frame become draws (FrameInput::screen_mobys).
+    void set_screen_mobys(bool on) { m_screen_mobys = on; }
     static constexpr std::uint64_t kUiQuadMarker = 0x4E55;
     // The target the frame is drawn into (RenderTarget): the picture's width as a part of it, and
     // whether a scissor of the screen's whole width is cut at the target's sides instead
@@ -246,6 +249,7 @@ private:
     void kick(bool draw);
     void native_quad(const UiQuad& quad);
     std::span<const UiQuad> m_ui_quads{};
+    bool m_screen_mobys = false;  // set_screen_mobys
     bool m_glyph = false;  // native_quad: drawing a glyph
     bool m_in_native = false;  // native_quad: its own vertices
     void emit_triangle(
@@ -423,6 +427,7 @@ public:
     void render(const FrameInput& input, RenderState& state) override {
         if (!input.direct_before_world.empty()) {
             m_direct.interpreter().set_ui_quads(input.ui_quads);
+            m_direct.interpreter().set_screen_mobys(static_cast<bool>(input.screen_mobys));
             m_direct.set_frame_input(&input);
             m_direct.submit(input.direct_before_world);
             m_direct.flush(state, true);

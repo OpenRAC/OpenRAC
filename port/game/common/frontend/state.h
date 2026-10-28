@@ -86,11 +86,14 @@ struct Kept {
     std::vector<renderer::UiQuad> ui_quads;
 
     // Mobys the game drew into a texture with a camera of its own (the vendor's screens): each
-    // drawn at its marker in the 2D path (renderer::FrameInput::target_mobys).
+    // drawn at its marker in the 2D path (renderer::FrameInput::target_mobys). `on_screen`: a
+    // menu's, drawn on the screen over a world drawn under it (world_under_menu) at its marker
+    // (renderer::FrameInput::screen_mobys).
     struct TargetMoby {
         std::uint32_t address = 0;
         scene::Instance instance;
         host::GameState camera;
+        bool on_screen = false;
     };
 
     std::vector<TargetMoby> target_mobys;

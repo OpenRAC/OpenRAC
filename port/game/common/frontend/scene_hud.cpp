@@ -52,7 +52,7 @@ void draw_target_mobys(State& owner, const Kept& scene, const MobyTarget& target
     // The captured page objects occupy consecutive 256-byte moby records.
     for (const Kept::TargetMoby& moby : scene.target_mobys) {
         // Other markers draw different ranges of the captured menu objects.
-        if (moby.address >= first && moby.address < first + count * 0x100u) {
+        if (!moby.on_screen && moby.address >= first && moby.address < first + count * 0x100u) {
             instances.push_back(moby.instance);
             camera = &moby.camera;
         }
@@ -93,6 +93,51 @@ void draw_target_mobys(State& owner, const Kept& scene, const MobyTarget& target
         {}
     };
     owner.scene.draw_mobys(instances, panel, state);
+}
+
+// Draws a menu's mobys on the screen over the world drawn under it (frontend/menu_layers.h), with
+// the camera and the frustum the menu drew them with, into `target` (bound). `clear_depth`: the
+// first of the frame, which no longer test against the world's depth.
+void draw_screen_mobys(
+    State& owner,
+    const Kept& scene,
+    std::uint64_t marker,
+    const renderer::RenderTarget& target,
+    bool clear_depth
+) {
+    const std::uint32_t first = static_cast<std::uint32_t>(marker);
+    // The HUD marker packs the first game address below an eight-bit instance count.
+    const std::uint32_t count = static_cast<std::uint32_t>(marker >> 32) & 0xFFu;
+    std::vector<scene::Instance> instances;
+    const host::GameState* camera = nullptr;
+    for (const Kept::TargetMoby& moby : scene.target_mobys) {
+        if (moby.on_screen && moby.address >= first && moby.address < first + count * 0x100u) {
+            instances.push_back(moby.instance);
+            camera = &moby.camera;
+        }
+    }
+
+    // The tick's capture has none of these (the list shown is the tick before's).
+    if (camera == nullptr || !owner.renderer) {
+        return;
+    }
+
+    if (clear_depth) {
+        gl::glDepthMask(gl::GL_TRUE);
+        gl::glClearDepth(0.0);
+        gl::glClear(gl::GL_DEPTH_BUFFER_BIT);
+    }
+
+    // The frame's projection (scene_frame.cpp's set_camera), from the menu's camera.
+    const float aspect = camera->tan_half_fov_y > 0.0f
+                             ? camera->tan_half_fov_x / camera->tan_half_fov_y
+                             : 4.0f / 3.0f;
+    renderer::FrameInput menu;
+    menu.camera.view = camera->view();
+    menu.camera.projection = camera->projection(aspect / target.picture_scale_x, 0.05f, 2000.0f);
+    menu.camera.position = camera->camera_position;
+    renderer::RenderState state{owner.renderer->textures(), target, {}};
+    owner.scene.draw_mobys(instances, menu, state);
 }
 
 }  // namespace
@@ -154,6 +199,14 @@ void set_target_mobys(SceneFrame& frame) {
             owner, scene, {marker, framebuffer, size, centre_x, centre_y, clear_depth}
         );
     };
+    // Over a world drawn under a menu, the menu's mobys go on the screen at their markers.
+    if (scene.world_under_menu) {
+        frame.input.screen_mobys =
+            [&owner,
+             &scene](std::uint64_t marker, const renderer::RenderTarget& target, bool clear_depth) {
+                draw_screen_mobys(owner, scene, marker, target, clear_depth);
+            };
+    }
 }
 
 void retain_background(SceneFrame& frame) {

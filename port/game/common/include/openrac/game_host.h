@@ -442,7 +442,9 @@ void openrac_game_draw(unsigned layers);
 /* The world drawn next this frame (its terrain, openrac_game_draw) is a level's whose mobys a menu's
  * own moby context hides (Ratchet & Clank's pause menu while a party plays): the window takes the
  * mobys listed when the terrain is drawn for the frame's world, and draws the menu's picture of the
- * frame (sceGsExecStoreImage, read back once as it opens) from that live world. */
+ * frame (sceGsExecStoreImage, read back once as it opens) from that live world. All of the menu's
+ * 2D goes over that world, and the mobys it draws with its own camera (its frame objects) are drawn
+ * on the screen at their place in its 2D, with that camera, after the world's depth is cleared. */
 void openrac_game_world_under_menu(void);
 /* Rendering notification only: an explicit gameplay write to a moby's RGB. */
 void openrac_game_moby_colour(gaddr object, unsigned colour);
