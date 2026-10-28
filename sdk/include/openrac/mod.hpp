@@ -1128,7 +1128,8 @@ public:
 
     // Since 1.9: whether the port offers the world calls (moby_list() ... bolts()).
     bool has_world() const {
-        return m_api->api_minor >= 9 && m_api->size >= offsetof(openrac_api, bolts) + sizeof(void*)
+        return m_api->api_minor >= 9
+               && m_api->size >= offsetof(openrac_api, moby_slot_of) + sizeof(void*)
                && has_play();
     }
 
@@ -1214,6 +1215,16 @@ public:
     }
 
     int bolts(int add = 0) const { return m_api->api_minor >= 9 ? m_api->bolts(add) : 0; }
+
+    // Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none.
+    int moby_slot_of(gaddr moby) const { return has_world() ? m_api->moby_slot_of(moby) : -1; }
+
+    // Since 1.9: the world keeps running under the game's menus while `on`; false for a game
+    // without it.
+    bool play_overlay_pause(bool on) const {
+        return has_world()
+               && m_api->play_overlay_pause(m_handle, on ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
 
     // Returns a view of game memory.
     Memory memory() const { return Memory(m_api->memory); }

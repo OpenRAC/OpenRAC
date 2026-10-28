@@ -332,6 +332,8 @@ typedef struct openrac_game_play {
     void (*eyes)(const float* xyz, int count);
     /* The player's bolts after adding `add`. */
     int32_t (*bolts)(int32_t add);
+    /* The level's mobys kept running under the game's menus (1) or not (0). */
+    void (*keep_running)(int on);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

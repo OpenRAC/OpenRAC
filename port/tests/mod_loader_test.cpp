@@ -246,6 +246,7 @@ const openrac_game_play kPlay = {
     },
     [](const float*, int count) { g_played.push_back("eyes " + std::to_string(count)); },
     [](std::int32_t add) { return g_bolts += add; },
+    [](int on) { g_played.push_back("keep " + std::to_string(on)); },
 };
 
 // The state status.json gives a mod, and its reason.
@@ -572,6 +573,8 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              8210,
              8220,
              8305,
+             // The world kept running under the game's menus.
+             8320,
              // A stand-in outside the gate; a hit posted, a hit to a dead slot; the gate and the
              // watcher after load.
              8401,
@@ -591,6 +594,7 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              "eyes 2",
              "eyes 8",
              "eyes 0",
+             "keep 1",
              "post_hit 1 0 4 3",
          })
     );
@@ -620,8 +624,11 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     mods::frame();
     CHECK((g_records == std::vector<int>{8603, 8610}));
     CHECK(openrac_game_moby_update(1, OPENRAC_MOBY_BEFORE) == 0);
+    g_played.clear();
     mods::reset();
     CHECK(openrac_game_moby_update == nullptr && openrac_game_moby_hit == nullptr);
+    // Reset lets the world stop under menus again.
+    CHECK((g_played == std::vector<std::string>{"keep 0"}));
 }
 
 // The pages of the game's own menus (interface 1.7): the pages and the main-menu item listed, a

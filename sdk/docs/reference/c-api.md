@@ -124,6 +124,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_MOBY_DRIVEN` | `0x2u` | A mod drives it (moby_drive): its update does not run. |
 | `OPENRAC_MOBY_PLACED` | `0x4u` | The level placed it: it has a key. |
 | `OPENRAC_MOBY_CREATURE` | `0x8u` | Its class is a creature (an enemy, a person). |
+| `OPENRAC_MOBY_DEAD` | `0x10u` | A placed moby the game deleted (killed, broken, picked up): it stays dead for the level load, listed so a mod learns of the death from the game itself, never from a moby left out. |
 | `OPENRAC_MOBY_BEFORE` | `0` | The gate's moments (openrac_moby_update_fn). Since 1.9. |
 | `OPENRAC_MOBY_AFTER` | `1` |  |
 | `OPENRAC_EYES_MAX` | `8` | The most eyes (openrac_api.play_eyes). Since 1.9. |
@@ -547,7 +548,7 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `size_t (*save_capture)(void* out, size_t size)` | The game's progress now, as a save (the memory card's save file's bytes): written to `out` when `size` is large enough. Returns its size in bytes (call with a null `out` to ask), or 0 when there is none (no game started). Since 1.8. |
 | `int (*save_slot)(int slot, openrac_save_info* out)` | Fills `out` (its size set) with what the memory card's save `slot` holds. Returns 1 for a save, 0 for an empty slot (or one the game would not load), -1 past the game's last slot. Since 1.8. |
 | `size_t (*save_read)(int slot, void* out, size_t size)` | The bytes of the memory card's save `slot`, for play_start: written to `out` when `size` is large enough. Returns their size, or 0 for no save there. Since 1.8. |
-| `int (*moby_list)(openrac_moby* out, int max)` | Fills `out` with the level's live mobys, at most `max` of them (each one's size set by the port), in slot order. Returns how many there are (more than `max`: the rest left out); 0 outside a level. Since 1.9. |
+| `int (*moby_list)(openrac_moby* out, int max)` | Fills `out` with the level's live mobys and its placed ones deleted (OPENRAC_MOBY_DEAD), at most `max` of them (each one's size set by the port), in slot order, whatever menu is up. Returns how many there are (more than `max`: the rest left out); 0 outside a level. Since 1.9. |
 | `int (*moby_slot)(int key)` | Returns the slot of the placed moby `key`, or -1 for none (killed, or no such record). Since 1.9. |
 | `int (*moby_drive)(openrac_mod* mod, int slot, int on)` | Drives the moby in `slot` (`on` 1: its update no longer runs, the mod poses it) or lets it go (0). A drive ends with its level. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no moby there, or OPENRAC_HOOK_TAKEN when another mod drives it. Since 1.9. |
 | `int (*moby_pose)(openrac_mod* mod, int slot, const openrac_moby* pose)` | Puts the moby in `slot` in the pose `pose` gives (its position, rotation, scale when above 0, and animation, as figure_pose does). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no moby there. Since 1.9. |
@@ -560,3 +561,5 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*moby_hit)(openrac_mod* mod, const openrac_hit* hit)` | Posts `hit` to its victim as the game posts one (the victim's update reads it: an enemy takes the damage, the hero is hurt), not told to on_moby_hit. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no victim there. Since 1.9. |
 | `int (*play_eyes)(openrac_mod* mod, const float* xyz, int count)` | Sets up to OPENRAC_EYES_MAX points (x, y, z each) besides the camera: the mobys within their update distance of one run too (the world near other players). `count` 0 clears them. Returns OPENRAC_HOOK_OK. Since 1.9. |
 | `int (*bolts)(int add)` | Adds `add` to the player's bolts (0: none) and returns them. Since 1.9. |
+| `int (*play_overlay_pause)(openrac_mod* mod, int on)` | While `on` (1), the level's mobys keep being updated under the game's pause menu and its freeze dialogs, in the level's own mobys (the hero and the picture stay as the menu left them): a game that plays with others never stops their world for a menu. 0: as the game does. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a game without it. Since 1.9. |
+| `int (*moby_slot_of)(openrac_gaddr moby)` | Returns the slot of the moby at game address `moby` (a hook point's argument), -1 for none. Since 1.9. |

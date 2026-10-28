@@ -481,6 +481,21 @@ int api_play_eyes(openrac_mod* mod, const float* xyz, int count) {
     return OPENRAC_HOOK_OK;
 }
 
+int api_play_overlay_pause(openrac_mod* mod, int on) {
+    if (mod == nullptr || g_play == nullptr || g_play->keep_running == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_play->keep_running(on != 0 ? 1 : 0);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_moby_slot_of(openrac_gaddr moby) {
+    return g_play != nullptr && g_play->slot_of != nullptr
+                   && moby_address(g_play->slot_of(moby)) == moby
+               ? g_play->slot_of(moby)
+               : -1;
+}
+
 int api_bolts(int add) {
     return g_play != nullptr && g_play->bolts != nullptr ? g_play->bolts(add) : 0;
 }
@@ -557,6 +572,8 @@ void fill_play_api(
     api.moby_hit = api_moby_hit;
     api.play_eyes = api_play_eyes;
     api.bolts = api_bolts;
+    api.play_overlay_pause = api_play_overlay_pause;
+    api.moby_slot_of = api_moby_slot_of;
 }
 
 void play_loading(const openrac_mod* mod) {
@@ -608,6 +625,9 @@ void reset_play() {
     g_hits = HitWatch{};
     g_before_slot = -1;
     g_loading_mod = nullptr;
+    if (g_play != nullptr && g_play->keep_running != nullptr) {
+        g_play->keep_running(0);
+    }
     openrac_game_moby_update = nullptr;
     openrac_game_moby_hit = nullptr;
 }

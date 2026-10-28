@@ -658,6 +658,9 @@ typedef struct openrac_pose {
 #define OPENRAC_MOBY_PLACED 0x4u
 /* Its class is a creature (an enemy, a person). */
 #define OPENRAC_MOBY_CREATURE 0x8u
+/* A placed moby the game deleted (killed, broken, picked up): it stays dead for the level load,
+ * listed so a mod learns of the death from the game itself, never from a moby left out. */
+#define OPENRAC_MOBY_DEAD 0x10u
 
 /* A moby of the level (moby_list), or the pose a mod gives one (moby_pose, moby_spawn: position,
  * rotation, scale and the animation are read). Since 1.9. */
@@ -1013,8 +1016,8 @@ typedef struct openrac_api {
      * large enough. Returns their size, or 0 for no save there. Since 1.8. */
     size_t (*save_read)(int slot, void* out, size_t size);
 
-    /* Fills `out` with the level's live mobys, at most `max` of them (each one's size set by the
-     * port), in slot order. Returns how many there are (more than `max`: the rest left out); 0
+    /* Fills `out` with the level's live mobys and its placed ones deleted (OPENRAC_MOBY_DEAD), at
+     * most `max` of them (each one's size set by the port), in slot order, whatever menu is up. Returns how many there are (more than `max`: the rest left out); 0
      * outside a level. Since 1.9. */
     int (*moby_list)(openrac_moby* out, int max);
 
@@ -1070,6 +1073,16 @@ typedef struct openrac_api {
 
     /* Adds `add` to the player's bolts (0: none) and returns them. Since 1.9. */
     int (*bolts)(int add);
+
+    /* While `on` (1), the level's mobys keep being updated under the game's pause menu and its
+     * freeze dialogs, in the level's own mobys (the hero and the picture stay as the menu left
+     * them): a game that plays with others never stops their world for a menu. 0: as the game
+     * does. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a game without it. Since 1.9. */
+    int (*play_overlay_pause)(openrac_mod* mod, int on);
+
+    /* Returns the slot of the moby at game address `moby` (a hook point's argument), -1 for none.
+     * Since 1.9. */
+    int (*moby_slot_of)(openrac_gaddr moby);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

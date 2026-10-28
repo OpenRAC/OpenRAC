@@ -230,6 +230,8 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool moby_hit(const openrac_hit& hit) const` | Since 1.9: posts `hit` (its size set here); false for no victim. |
 | `void play_eyes(const std::vector<float>& xyz) const` | Since 1.9: the eyes besides the camera (x, y, z each), and the bolts after adding `add`. |
 | `int bolts(int add = 0) const` |  |
+| `int moby_slot_of(gaddr moby) const` | Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none. |
+| `bool play_overlay_pause(bool on) const` | Since 1.9: the world keeps running under the game's menus while `on`; false for a game without it. |
 | `Memory memory() const` | Returns a view of game memory. |
 | `gaddr relocate(gaddr address) const` | Return a global's address for the code loaded now: the executable's (`relocate`) or level `level`'s program's (`relocate_level`). Ask each time, because a level moves its globals. |
 | `gaddr relocate_level(int level, gaddr address) const` |  |
