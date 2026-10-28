@@ -146,6 +146,7 @@ std::vector<MenuCallback> g_menus;
 // screen (-1 none), whether a question is open on it, and what the mods asked of the screen.
 std::vector<UiPageCallback> g_ui_pages;
 std::vector<UiMainItem> g_ui_main;
+std::vector<UiPauseItem> g_ui_pause;
 int g_ui_shown = -1;
 bool g_ui_question = false;
 UiRequests g_ui_requests;
@@ -635,6 +636,19 @@ int api_ui_main_item(openrac_mod* mod, const char* after, const char* label, int
     return OPENRAC_HOOK_OK;
 }
 
+int api_ui_pause_item(openrac_mod* mod, const char* label, int page) {
+    if (mod == nullptr || mod != g_loading) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    // A name, a page of the mod's own, and room on the page.
+    if (label == nullptr || label[0] == '\0' || mod_page(mod, page) == nullptr
+        || g_ui_pause.size() >= OPENRAC_UI_PAUSE_ITEMS_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_ui_pause.push_back({ui_text(label), page});
+    return OPENRAC_HOOK_OK;
+}
+
 int api_ui_set(openrac_mod* mod, int page, const openrac_ui_content* content) {
     UiPageCallback* p = mod_page(mod, page);
     // The mod's own page, and content at least as large as its first version.
@@ -778,6 +792,7 @@ void fill_api(const Host& host) {
     g_api.ui_confirm = api_ui_confirm;
     g_api.ui_cursor = api_ui_cursor;
     g_api.ui_sound = api_ui_sound;
+    g_api.ui_pause_item = api_ui_pause_item;
     fill_play_api(g_api, host.play, host.cards);
 }
 
@@ -915,8 +930,9 @@ void undo(openrac_mod* mod) {
     std::erase_if(g_frames, [&](const FrameCallback& c) { return c.mod == mod; });
     std::erase_if(g_pads, [&](const PadCallback& c) { return c.mod == mod; });
     std::erase_if(g_menus, [&](const MenuCallback& c) { return c.mod == mod; });
-    // Its main-menu items, then its pages (the last made: no other mod's id moves).
+    // Its main-menu and pause items, then its pages (the last made: no other mod's id moves).
     std::erase_if(g_ui_main, [&](const UiMainItem& m) { return mod_page(mod, m.page) != nullptr; });
+    std::erase_if(g_ui_pause, [&](const UiPauseItem& m) { return mod_page(mod, m.page) != nullptr; });
     std::erase_if(g_ui_pages, [&](const UiPageCallback& c) { return c.mod == mod; });
     std::erase_if(g_tick_boundaries, [&](const TickBoundaryCallback& c) { return c.mod == mod; });
     drop_figures(mod);
@@ -1233,6 +1249,18 @@ const UiMainItem* ui_main_item(int index) {
     return &g_ui_main[static_cast<std::size_t>(index)];
 }
 
+int ui_pause_item_count() {
+    return static_cast<int>(g_ui_pause.size());
+}
+
+const UiPauseItem* ui_pause_item(int index) {
+    // An index past the items names none.
+    if (index < 0 || index >= ui_pause_item_count()) {
+        return nullptr;
+    }
+    return &g_ui_pause[static_cast<std::size_t>(index)];
+}
+
 void ui_set_shown(int page, bool question_open) {
     g_ui_shown = page >= 0 && page < ui_page_count() ? page : -1;
     g_ui_question = g_ui_shown >= 0 && question_open;
@@ -1316,6 +1344,7 @@ void reset() {
     g_menus.clear();
     g_ui_pages.clear();
     g_ui_main.clear();
+    g_ui_pause.clear();
     g_ui_shown = -1;
     g_ui_question = false;
     g_ui_requests = UiRequests{};

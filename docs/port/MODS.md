@@ -441,6 +441,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `savestate_save(out, size)` / `savestate_load(data, size)` (1.6) | copy guest memory and essential in-process runtime state; only accepted from `on_tick_boundary`, for the same running process and build |
 | `ui_page(mod, flags, fn, user)` (1.7) | during load: a page of the game's own menus (at most `OPENRAC_UI_PAGES_MAX`, 16, for all mods), empty until `ui_set`; returns its id. `fn(user, page, &event)` hears it: `OPENRAC_UI_SHOW` and `_HIDE` as it comes and goes, `_FRAME` each tick it is shown, `_CHOOSE` (Cross on a button), `_CHANGE` (a choice stepped), `_ANSWER` (a question answered, `value` 1 yes), and `_BACK` (Triangle) for a page made with `OPENRAC_UI_OWN_BACK`, which then goes back itself. The game draws it: in Ratchet & Clank a page the main menu opens has the Options page's frames, title and footer of hints, its list is the game's text list in the game's font, and a page opened from it has the Language page's, a level down (a third takes the second's place); a page's frames are widened, each about its centre, to its widest title, item and footer line as the game measures them, up to the screen's safe area (90% of its width), and grow while it is shown when its texts do. Up and Down move the cursor over buttons and choices (not lines of text), with the game's sounds |
 | `ui_main_item(mod, after, label, page)` (1.7) | during load: an item of the title's main menu (at most `OPENRAC_UI_MAIN_ITEMS_MAX`, 2: the rows below the game's three) after `OPENRAC_UI_NEW_GAME`, `_LOAD_GAME` or `_OPTIONS`, opening the mod's `page`. Ratchet & Clank: the game's own frames and its row animations, the cursor going round the four (or five) |
+| `ui_pause_item(mod, label, page)` (1.9) | during load: an item of the pause menu's Options page in a level (at most `OPENRAC_UI_PAUSE_ITEMS_MAX`, 2), after the game's items and the port's Video, opening the mod's `page`. Ratchet & Clank: the page is a copy of the game's Camera options page (the Sound page's taller frames), made with the Options items of each level program as the port's Video page is (port/game/common/options_menu.cpp); its title box shows the page's title and its list a row per item, five at a time moving with the game's cursor: the label on the left and a choice's value on the right (none for a button or a line of text). The game moves the cursor and plays its sounds; Cross chooses a button and steps a choice on, Left and Right step a choice; Triangle goes back to Options, but on a page made with `OPENRAC_UI_OWN_BACK` and while a question is open, where the port keeps it from the game. A question (`ui_confirm`) is the title box with two rows, Yes and No. There `ui_open` swaps another of the mod's pages into its place (`OPENRAC_UI_GO_BACK` back to Options), `ui_cursor` only reads the cursor, and `ui_sound` plays nothing (port/game/common/mod_ui.cpp, namespace pause) |
 | `ui_set(mod, page, &content)` (1.7) | any time: the page's title, items (`OPENRAC_UI_BUTTON`, `_CHOICE` with its values, `_TEXT`; `OPENRAC_UI_DISABLED` dims one, refuses it and keeps the cursor off it) and footer lines (none: the game's own hints, in its language), at most `OPENRAC_UI_ITEMS_MAX` (12) items and `OPENRAC_UI_FOOTER_MAX` (3) lines of `OPENRAC_UI_TEXT_MAX` (47) bytes; UTF-8 with the game's accented letters, and `OPENRAC_UI_CROSS`, `_CIRCLE`, `_TRIANGLE`, `_SQUARE` for the pad's glyphs |
 | `ui_open(mod, page)`, `ui_confirm(mod, page, question, tag)`, `ui_cursor(mod, page, item)`, `ui_sound(mod, sound)` (1.7) | while one of the mod's pages is shown: show another (`OPENRAC_UI_GO_BACK` goes back a level); ask a yes/no question in the game's prompt box in place of the list (Cross yes, Triangle no); read or move the cursor; play one of the game's menu sounds (`OPENRAC_UI_SOUND_SELECT`, `_CURSOR`, `_DENIED`, `_OPEN`, `_PAGE`). What is asked happens after the event |
 | `play_status(&status)`, `level_name(level)` (1.8) | what the game is doing: its phase (`OPENRAC_PLAY_FRONT_END`, `_LOADING`, `_PLAYING`, `_SCENE` a cutscene, movie or the ship's landing, `_MENU` paused or a vendor; `_NONE` for a game the port knows no play of), the level played or loading, the levels, and `loads` (the level programs loaded so far: a new count, a new level, whose figures are gone); a level's name ("Veldin") |
@@ -510,8 +511,9 @@ standing in for another player (`on_moby_update`, `hero_stand_in`), the hit
 watcher and posted hits (`on_moby_hit`, `moby_hit`), `play_eyes` and `bolts`; the
 C++ layer's methods of the same names, and `has_world()`; and what the hero and a
 figure wear and hold and the shots they fire (`hero_held`, `figure_held`,
-`hero_shots`, `figure_shot`; `has_held()`), and a line over the picture (`play_notice`;
-`has_notice()`).
+`hero_shots`, `figure_shot`; `has_held()`), a line over the picture (`play_notice`;
+`has_notice()`), and items of the pause menu's Options page opening the mod's pages
+there (`ui_pause_item`; `has_pause_items()`).
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
@@ -720,7 +722,8 @@ into the port: nothing of it crosses the boundary.
   holds the callable, so the C slot still gets a plain function.
 - `mod.ui_page(fn)` (1.7) returns an `openrac::UiPage` (`set(UiContent)`,
   `open()`, `back()`, `confirm(question, tag)`, `cursor()`, `sound(n)`) whose
-  events reach `fn(page, event)`; `mod.ui_main_item(after, label, page)`.
+  events reach `fn(page, event)`; `mod.ui_main_item(after, label, page)`;
+  `mod.has_pause_items()` (1.9) and `mod.ui_pause_item(label, page)`.
 - `mod.has_play()` (1.8), `mod.play_status()`, `mod.hero_pose(pose)`,
   `mod.figure_create()` (-1 for none), `mod.figure_pose(id, pose)`,
   `mod.play_start(level, save)`, `mod.save_read(slot)` and `mod.save_capture()`

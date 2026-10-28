@@ -272,6 +272,7 @@ static void on_frame(void* user) {
             if (s_ui) {
                 s_record(1400 + -s_api->ui_page(s_mod, 0, ui_page, NULL));
                 s_record(1500 + -s_api->ui_main_item(s_mod, OPENRAC_UI_OPTIONS, "Late", 0));
+                s_record(1600 + -s_api->ui_pause_item(s_mod, "Late", 0));
             }
             /* Interface 1.6: the tick boundary after load is refused. */
             if (s_savestate) {
@@ -462,6 +463,17 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->ui_set(mod, home, &content) != OPENRAC_HOOK_OK
             || api->ui_set(mod, 5, &content) != OPENRAC_HOOK_UNKNOWN) {
             return 12;
+        }
+        /* Interface 1.9: the pause menu's Options items, without a label or of no page of the
+         * mod's refused, two at most. */
+        if (api->api_minor >= 9
+            && (api->ui_pause_item(mod, "", home) != OPENRAC_HOOK_UNKNOWN
+                || api->ui_pause_item(mod, NULL, home) != OPENRAC_HOOK_UNKNOWN
+                || api->ui_pause_item(mod, "X", 9) != OPENRAC_HOOK_UNKNOWN
+                || api->ui_pause_item(mod, "Multiplayer", home) != OPENRAC_HOOK_OK
+                || api->ui_pause_item(mod, "Party", s_ui_second) != OPENRAC_HOOK_OK
+                || api->ui_pause_item(mod, "Third", home) != OPENRAC_HOOK_UNKNOWN)) {
+            return 13;
         }
     }
     if (api->hook(mod, "Test_Add", "i32(i32)", (void*)add, (void**)&s_add) != OPENRAC_HOOK_OK) {

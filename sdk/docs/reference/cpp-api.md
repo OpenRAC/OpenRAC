@@ -238,6 +238,8 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool figure_shot(int id, const openrac_shot& shot) const` | Since 1.9: has figure `id` fire `shot` (its size set here), hitting nothing in this game; false for a figure gone or a weapon the port cannot fire for one. |
 | `bool has_notice() const` | Since 1.9: whether the port offers play_notice(). |
 | `bool play_notice(const std::string& text) const` | Since 1.9: a line at the top of the game's picture until replaced or cleared (""); false for a port without it. |
+| `bool has_pause_items() const` | Since 1.9: whether the port offers items of the pause menu's Options page (ui_pause_item()). |
+| `void ui_pause_item(const char* label, const UiPage& page)` | Since 1.9: adds an item named `label` to the Options page of the pause menu in a level, opening `page`. Throws openrac::Error when refused. Only during load. |
 | `int moby_slot_of(gaddr moby) const` | Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none. |
 | `bool play_overlay_pause(bool on) const` | Since 1.9: the world keeps running under the game's menus while `on`; false for a game without it. |
 | `Memory memory() const` | Returns a view of game memory. |

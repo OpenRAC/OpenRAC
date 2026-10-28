@@ -14,6 +14,7 @@
 
 namespace {
 
+using openrac::frontend::pause_options::entries_with_extra;
 using openrac::frontend::pause_options::entries_with_video;
 using openrac::frontend::pause_options::options_list;
 using openrac::frontend::pause_options::options_stream;
@@ -92,5 +93,19 @@ int main() {
     std::uint32_t last[16] = {};
     entries_with_video(game, 7, 7, last);
     CHECK(last[12] == 0x1383 && last[13] == 6 && last[14] == 0 && last[15] == 0);
+    // Video and two mods' items after Sound: three empty entries there, the rest after them, ten in all.
+    std::uint32_t three[20] = {};
+    entries_with_extra(game, 7, 4, 3, three);
+    const std::uint32_t want3[] = {0x1359, 7, 0x1360, 7, 0x1367, 7, 0x136E, 6, 0, 0,
+                                   0, 0, 0, 0, 0x1374, 7, 0x137B, 8, 0x1383, 6};
+    for (int i = 0; i < 20; ++i) {
+        CHECK(three[i] == want3[i]);
+    }
+    // At the end, with no extra: the game's as they are.
+    std::uint32_t none[14] = {};
+    entries_with_extra(game, 7, 7, 0, none);
+    for (int i = 0; i < 14; ++i) {
+        CHECK(none[i] == game[i]);
+    }
     return openrac::test::result();
 }

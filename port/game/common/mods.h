@@ -177,6 +177,13 @@ struct UiMainItem {
     int page = 0;
 };
 
+// An item of the pause menu's Options page (openrac_api.ui_pause_item, since 1.9): its label,
+// its page.
+struct UiPauseItem {
+    std::string label;
+    int page = 0;
+};
+
 // What the mods asked of the screen during their events since the last take, for the front end.
 struct UiRequests {
     bool open = false;  // ui_open: `page`, or OPENRAC_UI_GO_BACK
@@ -193,6 +200,9 @@ int ui_page_count();
 const UiPage* ui_page(int page);
 int ui_main_item_count();
 const UiMainItem* ui_main_item(int index);
+// The pause menu's Options items, in order.
+int ui_pause_item_count();
+const UiPauseItem* ui_pause_item(int index);
 
 // The front end's side: the page on the screen (-1 none; whose mod may then open, ask and play),
 // whether a question is open on it, where a page's cursor is now.

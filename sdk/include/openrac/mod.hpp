@@ -1272,6 +1272,30 @@ public:
         return has_notice() && m_api->play_notice(m_handle, text.c_str()) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.9: whether the port offers items of the pause menu's Options page (ui_pause_item()).
+    bool has_pause_items() const {
+        return has_ui() && m_api->api_minor >= 9
+               && m_api->size >= offsetof(openrac_api, ui_pause_item) + sizeof(void*);
+    }
+
+    // Since 1.9: adds an item named `label` to the Options page of the pause menu in a level,
+    // opening `page`. Throws openrac::Error when refused. Only during load.
+    void ui_pause_item(const char* label, const UiPage& page) {
+        if (!has_pause_items()) {
+            throw Error("ui_pause_item: requires interface 1.9");
+        }
+
+        // Refused once load is over, with no label or another mod's page, and past the most.
+        if (const int result = m_api->ui_pause_item(m_handle, label, page.id());
+            result != OPENRAC_HOOK_OK) {
+            throw Error(
+                result == OPENRAC_HOOK_TOO_LATE
+                    ? "ui_pause_item: refused (only during load)"
+                    : "ui_pause_item: refused (no label, not the mod's page, or too many)"
+            );
+        }
+    }
+
     // Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none.
     int moby_slot_of(gaddr moby) const { return has_world() ? m_api->moby_slot_of(moby) : -1; }
 

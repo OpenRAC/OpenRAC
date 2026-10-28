@@ -688,6 +688,13 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
         && item->page == 0
     );
     CHECK(mods::ui_main_item(1) == nullptr && mods::ui_page(2) == nullptr);
+    // The pause menu's Options items (interface 1.9), in the order added.
+    CHECK(mods::ui_pause_item_count() == 2);
+    CHECK(mods::ui_pause_item(0) != nullptr && mods::ui_pause_item(0)->label == "Multiplayer"
+          && mods::ui_pause_item(0)->page == 0);
+    CHECK(mods::ui_pause_item(1) != nullptr && mods::ui_pause_item(1)->label == "Party"
+          && mods::ui_pause_item(1)->page == 1);
+    CHECK(mods::ui_pause_item(2) == nullptr && mods::ui_pause_item(-1) == nullptr);
     const mods::UiPage* home = mods::ui_page(0);
     CHECK(home != nullptr && home->title == "Multiplayer" && home->items.size() == 4);
     CHECK(
@@ -743,9 +750,11 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
     mods::frame();
     CHECK(std::find(g_records.begin(), g_records.end(), 1400 + 3) != g_records.end());
     CHECK(std::find(g_records.begin(), g_records.end(), 1500 + 3) != g_records.end());
+    CHECK(std::find(g_records.begin(), g_records.end(), 1600 + 3) != g_records.end());
     mods::ui_send(7, e);  // no such page: nothing
     mods::reset();
     CHECK(mods::ui_page_count() == 0 && mods::ui_main_item_count() == 0);
+    CHECK(mods::ui_pause_item_count() == 0);
 }
 
 // The tick boundary and the snapshot calls (interface 1.6): the boundary taken during load only,

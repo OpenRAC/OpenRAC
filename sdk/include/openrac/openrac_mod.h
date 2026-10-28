@@ -452,6 +452,10 @@ typedef int (*openrac_menu_fn)(void* user, const openrac_menu_frame* frame);
  * Clank's has room for two rows below its own three. Since 1.7. */
 #define OPENRAC_UI_MAIN_ITEMS_MAX 2
 
+/* The most items the mods together add to the pause menu's Options page (openrac_api.ui_pause_item).
+ * Since 1.9. */
+#define OPENRAC_UI_PAUSE_ITEMS_MAX 2
+
 /* The main menu's own items, for openrac_api.ui_main_item's `after`. Since 1.7. */
 #define OPENRAC_UI_NEW_GAME "new_game"
 #define OPENRAC_UI_LOAD_GAME "load_game"
@@ -1177,6 +1181,19 @@ typedef struct openrac_api {
      * or clears it (null or ""): what the game's own words cannot say, such as a party waiting for
      * its players. Returns OPENRAC_HOOK_OK. Since 1.9. */
     int (*play_notice)(openrac_mod* mod, const char* text);
+
+    /* Adds an item named `label` to the Options page of the pause menu in a level, after the
+     * game's own items (and the port's Video), which opens the mod's `page` (ui_page). Ratchet &
+     * Clank: the page is a copy of the game's Camera options page, its title the page's and its
+     * list a row per item, the label on the left and a choice's value on the right, a few rows at
+     * a time; the game's cursor, sounds and Triangle (back to Options, but for OPENRAC_UI_OWN_BACK
+     * and while a question is open, which Triangle answers no); a question (ui_confirm) is the
+     * title with two rows, Yes and No; the footer is the game's. ui_open swaps another of the
+     * mod's pages into its place, ui_cursor only reads the cursor and ui_sound plays nothing
+     * there. Two go in the order they were added. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN
+     * for no label, a page that is not the mod's, or past OPENRAC_UI_PAUSE_ITEMS_MAX, or
+     * OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.9. */
+    int (*ui_pause_item)(openrac_mod* mod, const char* label, int page);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

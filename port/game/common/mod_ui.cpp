@@ -1155,6 +1155,267 @@ void change_page(const openrac_front_end& fe, int game) {
     }
 }
 
+/*
+ * The pause menu's pages of the mods' items (openrac_api.ui_pause_item). In a level the pause
+ * menu's Options page gets an item per mod's after Video (options_menu.cpp makes them with the
+ * Options items of each level program), each opening a copy of the game's Camera page: its title
+ * box and its list of rows, each a label and a value (pause_rows.h). The game draws them and moves
+ * their cursor, with its own sounds; Triangle is the game's (back to Options) but on a page made
+ * with OPENRAC_UI_OWN_BACK and while a question is open, where the port takes it. What the rows say
+ * is put each tick from the mod's page, a window of kPauseRowsShown of its items moving with the
+ * cursor; a question is the title and two rows, Yes and No.
+ */
+namespace pause {
+
+constexpr int kRows = options_menu::kPauseRowsShown;
+// The texts' ids, past the main menu pages' (kTextFirst + kTexts) and below the options page's:
+// the items' labels, the page's title, its rows' labels, then their values.
+constexpr int kItemText = 0x7D00;
+constexpr int kTitleText = kItemText + OPENRAC_UI_PAUSE_ITEMS_MAX;
+constexpr int kRowText = kTitleText + 1;
+constexpr int kAllTexts = kRowText + 2 * kRows - kItemText;
+static_assert(kTextFirst + kTexts <= kItemText);
+// The row widget's list: its cursor (its rows at +0x34); a row's bytes and its int's value at rest.
+constexpr gaddr kCursorAt = 0x38;
+constexpr gaddr kRowBytes = 0x18;
+constexpr std::int32_t kAtRest = 1;
+// The pad's pressed buttons as the game's menus test them (its +0x1C4, the two bytes swapped).
+constexpr gaddr kPadPressed = 0x1C4;
+constexpr std::uint32_t kPadLeft = 0x8000;
+constexpr std::uint32_t kPadRight = 0x2000;
+
+struct State {
+    gaddr texts = 0;
+    int item = -1;   // the pause item whose page is current, -1 none
+    int shown = -1;  // the mod's page on it (its own, or one ui_open put there)
+    int top = 0;     // the item in the first row
+    bool asking = false;
+    std::uint32_t tag = 0;
+    std::string question;
+    std::uint16_t taken = 0;    // Triangle pressed while the port has it
+    std::uint16_t swallow = 0;  // held as the port let go of it
+    bool takes_back = false;    // the port has Triangle now
+};
+State p;
+
+gaddr text_at(int id) {
+    return p.texts + kTextBytes * static_cast<gaddr>(id - kItemText);
+}
+
+void put(int id, const std::string& utf8) {
+    std::snprintf(static_cast<char*>(G(text_at(id))), kTextBytes, "%s", game_line(utf8).c_str());
+}
+
+void tell(std::uint32_t kind, int item = -1, int value = 0, std::uint32_t tag = 0) {
+    openrac_ui_event e{};
+    e.kind = kind;
+    e.item = item;
+    e.value = value;
+    e.tag = tag;
+    mods::ui_send(p.shown, e);
+}
+
+void answer(bool yes) {
+    if (!p.asking) {
+        return;
+    }
+    p.asking = false;
+    tell(OPENRAC_UI_ANSWER, -1, yes ? 1 : 0, p.tag);
+}
+
+// The page current changed to pause item `item`'s (-1 none): the last told it left, the new one
+// that it came.
+void change(int item) {
+    if (p.shown >= 0) {
+        answer(false);
+        tell(OPENRAC_UI_HIDE);
+    }
+    p.item = item;
+    p.shown = -1;
+    p.top = 0;
+    p.taken = 0;
+    if (const mods::UiPauseItem* it = mods::ui_pause_item(item); it != nullptr) {
+        p.shown = it->page;
+        put_word(options_menu::pause_rows(item).list + kCursorAt, 0);
+        mods::ui_set_shown(p.shown, false);
+        tell(OPENRAC_UI_SHOW);
+    }
+}
+
+// What the rows show of `page` now, from its item `top`: the lines, as many as there are.
+std::vector<PauseRow> lines(const mods::UiPage& page) {
+    if (p.asking) {
+        return {{"Yes", ""}, {"No", ""}};
+    }
+    std::vector<PauseRow> out;
+    for (const mods::UiItem& item : page.items) {
+        out.push_back(pause_row(item.kind == OPENRAC_UI_CHOICE, item.label, item.choices, item.choice));
+    }
+    return out;
+}
+
+// The rows of `rows` showing `page` from p.top.
+void fill(const options_menu::PauseRows& rows, const mods::UiPage& page) {
+    const std::vector<PauseRow> all = lines(page);
+    put(kTitleText, p.asking ? p.question : page.title);
+    const int count = std::clamp(static_cast<int>(all.size()) - p.top, 1, kRows);  // one at least
+    for (int i = 0; i < kRows; ++i) {
+        const gaddr row = rows.rows + kRowBytes * static_cast<gaddr>(i);
+        const std::size_t at = static_cast<std::size_t>(p.top + i);
+        GREF(std::int32_t, row) = i < count ? kRowText + i : 0;  // a 0 label ends the rows
+        put(kRowText + i, at < all.size() ? all[at].label : "");
+        put(kRowText + kRows + i, at < all.size() ? all[at].value : "");
+    }
+    GREF(std::int32_t, rows.title + 0x34) = kTitleText;
+}
+
+void step(const mods::UiPage& page, int index, int by) {
+    const mods::UiItem& item = page.items[static_cast<std::size_t>(index)];
+    if (item.kind != OPENRAC_UI_CHOICE || item.choices.empty() || (item.flags & OPENRAC_UI_DISABLED) != 0) {
+        return;
+    }
+    const int n = static_cast<int>(item.choices.size());
+    const int value = ((static_cast<int>(item.choice) + by) % n + n) % n;
+    mods::ui_set_choice(p.shown, index, static_cast<std::uint32_t>(value));
+    tell(OPENRAC_UI_CHANGE, index, value);
+}
+
+// The tick's input on the page: a row the widget stepped (Cross), Left and Right, Triangle when the
+// port has it; the cursor's window.
+void input(const openrac_front_end& fe, const options_menu::PauseRows& rows) {
+    const mods::UiPage* page = mods::ui_page(p.shown);
+    if (page == nullptr) {
+        return;
+    }
+    int crossed = -1;
+    for (int i = 0; i < kRows; ++i) {
+        std::int32_t& v = GREF(std::int32_t, rows.values + 4 * static_cast<gaddr>(i));
+        if (v != kAtRest) {
+            crossed = p.top + i;
+            v = kAtRest;
+        }
+    }
+    const std::uint16_t taken = std::exchange(p.taken, 0);
+    const int count = p.asking ? 2 : static_cast<int>(page->items.size());
+    std::int32_t& cursor = GREF(std::int32_t, rows.list + kCursorAt);
+    cursor = std::clamp(cursor, 0, std::max(std::min(count - p.top, kRows) - 1, 0));
+    if (p.asking) {
+        if (crossed >= 0 || (taken & kTriangle) != 0) {
+            answer(crossed == 0 && (taken & kTriangle) == 0);
+            p.top = 0;
+            cursor = 0;
+        }
+        return;
+    }
+    const int at = p.top + cursor;
+    const std::uint32_t pressed = GREF(std::uint32_t, fe.pad + kPadPressed);
+    if (crossed >= 0 && crossed < count) {
+        const mods::UiItem& item = page->items[static_cast<std::size_t>(crossed)];
+        if (item.kind == OPENRAC_UI_BUTTON && (item.flags & OPENRAC_UI_DISABLED) == 0) {
+            tell(OPENRAC_UI_CHOOSE, crossed);
+        } else {
+            step(*page, crossed, 1);
+        }
+    } else if ((pressed & (kPadLeft | kPadRight)) != 0 && at < count) {
+        step(*page, at, (pressed & kPadRight) != 0 ? 1 : -1);
+    }
+    if ((taken & kTriangle) != 0) {
+        tell(OPENRAC_UI_BACK);
+    }
+    pause_scroll(p.top, cursor, count, kRows);
+    mods::ui_set_cursor(p.shown, p.top + cursor);
+}
+
+// What the mod asked for during the tick's events: a question, a page in this one's place, back.
+void apply(gaddr menu, const options_menu::PauseRows& rows) {
+    const mods::UiRequests r = mods::take_ui_requests();
+    if (r.confirm && r.confirm_page == p.shown && !p.asking) {
+        p.asking = true;
+        p.tag = r.tag;
+        p.question = r.question;
+        p.top = 0;
+        put_word(rows.list + kCursorAt, 1);  // on No
+    }
+    if (!r.open) {
+        return;
+    }
+    if (r.page == OPENRAC_UI_GO_BACK) {
+        put_word(menu + kNext, word(rows.page + kBack));
+    } else if (r.page != p.shown) {
+        answer(false);
+        tell(OPENRAC_UI_HIDE);
+        p.shown = r.page;
+        p.top = 0;
+        put_word(rows.list + kCursorAt, 0);
+        mods::ui_set_shown(p.shown, false);
+        tell(OPENRAC_UI_SHOW);
+    }
+}
+
+void reset() {
+    if (p.shown >= 0) {
+        change(-1);
+    }
+    p.item = -1;
+    p.takes_back = false;
+}
+
+// Once a tick in a level: the page current, the mod's page on it, its input and events.
+void update(const openrac_front_end& fe) {
+    const int count = std::min(mods::ui_pause_item_count(), OPENRAC_UI_PAUSE_ITEMS_MAX);
+    // A menu over the level (the pause menu, the game's dialogs); its pages stay in memory after it.
+    std::int32_t level = -1;
+    const openrac_game_play* play = openrac_game_play_host;
+    if (count == 0 || play == nullptr || play->phase(&level) != OPENRAC_GAME_PHASE_MENU) {
+        reset();
+        return;
+    }
+    if (p.texts == 0) {
+        p.texts = openrac_guest_static(kTextBytes * kAllTexts);
+        std::memset(G(p.texts), 0, kTextBytes * kAllTexts);
+    }
+    for (int i = 0; i < count; ++i) {
+        put(kItemText + i, mods::ui_pause_item(i)->label);
+    }
+    const gaddr menu = OPENRAC_DATA(fe.page_menu);
+    const gaddr current = word(menu + kCurrent);
+    const gaddr next = word(menu + kNext);
+    int item = -1, coming = -1;
+    for (int i = 0; i < count; ++i) {
+        const gaddr page = options_menu::pause_rows(i).page;
+        item = page != 0 && page == current ? i : item;
+        coming = page != 0 && page == next ? i : coming;
+    }
+    if (item != p.item) {
+        change(item);
+    }
+    if (p.shown < 0) {
+        p.takes_back = false;
+        mods::ui_set_shown(-1, false);
+        mods::take_ui_requests();
+        // A switch to a mod's page: its first rows ready before it shows.
+        if (const mods::UiPauseItem* it = mods::ui_pause_item(coming); it != nullptr) {
+            if (const mods::UiPage* page = mods::ui_page(it->page); page != nullptr) {
+                p.top = 0;
+                fill(options_menu::pause_rows(coming), *page);
+            }
+        }
+        return;
+    }
+    const options_menu::PauseRows rows = options_menu::pause_rows(p.item);
+    mods::ui_set_shown(p.shown, p.asking);
+    input(fe, rows);
+    tell(OPENRAC_UI_FRAME);
+    apply(menu, rows);
+    mods::ui_set_shown(p.shown, p.asking);
+    if (const mods::UiPage* page = mods::ui_page(p.shown); page != nullptr) {
+        fill(rows, *page);
+        p.takes_back = p.asking || (page->flags & OPENRAC_UI_OWN_BACK) != 0;
+    }
+}
+
+}  // namespace pause
+
 }  // namespace
 
 void update(int loaded_overlay) {
@@ -1179,8 +1440,15 @@ void update(int loaded_overlay) {
         s.shown = -1;
         mods::ui_set_shown(-1, false);
         mods::take_ui_requests();
+        // In a level: the pause menu's pages of the mods' items.
+        if (fe != nullptr && loaded_overlay != OPENRAC_OVERLAY_EXE && loaded_overlay >= 0) {
+            pause::update(*fe);
+        } else {
+            pause::reset();
+        }
         return;
     }
+    pause::reset();
 
     build(*fe);
     patch_main(*fe);
@@ -1223,6 +1491,16 @@ void filter_pad(std::uint16_t& buttons) {
     const auto pressed = static_cast<std::uint16_t>(down & s.previous);  // newly down
     s.previous = buttons;
 
+    // A pause page of a mod's whose Triangle the port has (its own back, a question): kept from
+    // the game, and after, until let go.
+    if (pause::p.takes_back) {
+        pause::p.taken |= static_cast<std::uint16_t>(pressed & kTriangle);
+        pause::p.swallow |= static_cast<std::uint16_t>(down & kTriangle);
+    } else {
+        pause::p.swallow &= down;
+    }
+    buttons = static_cast<std::uint16_t>(buttons | pause::p.swallow);
+
     // With no page of a mod shown, the pad is the game's, but for what was held as one left (the
     // game would take it for a press: Triangle on the main menu closes it).
     if (s.shown < 0) {
@@ -1237,7 +1515,24 @@ void filter_pad(std::uint16_t& buttons) {
     buttons = 0xFFFF;
 }
 
+int pause_item_text(int index) {
+    return pause::kItemText + index;
+}
+
+int pause_title_text() {
+    return pause::kTitleText;
+}
+
+int pause_row_text() {
+    return pause::kRowText;
+}
+
 std::uint32_t text(int id) {
+    // The pause menu's pages' texts.
+    if (pause::p.texts != 0 && id >= pause::kItemText && id < pause::kItemText + pause::kAllTexts) {
+        return pause::text_at(id);
+    }
+
     // While a question is open the memory card prompt's text is the question.
     if (id == kPromptText && s.asking) {
         return s.question;
