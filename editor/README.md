@@ -45,7 +45,7 @@ the executable's name, size and SHA-1 come from `games/rac1/game.json`):
 |---|---|---|
 | Executable | `SCES_509.16` | `SCUS_971.99` |
 | Table of contents | sector 1500, 0x2960 bytes, levels at 0x28c8 | the same |
-| Gameplay copy the game loads (each level header has both) | `gameplay_pal` | `gameplay_ntsc` |
+| Gameplay copy the native port loads at 60 Hz (each level header has both) | `gameplay_ntsc` on the PAL disc | `gameplay_ntsc` on the NTSC-U disc |
 | (cos, sin) table the lighting reads | 0x165600 | 0x165500 (the same values) |
 
 The NTSC-U side follows ReRAC's disc layout (`docs/formats/disc_layout.md`)
@@ -161,12 +161,20 @@ assets/packed/rac1/pal/
   packed.json                 the disc it was packed from
 ```
 
-Each level header has a gameplay copy per version, and each disc's game
-loads its own (`gameplay_pal` or `gameplay_ntsc`, the table above): the
-packer reads and replaces that one, so the sectors in `patches.tsv` are the
-disc's own. A packed folder serves the disc it was packed from only; the
+Each level header has separate 50 Hz and 60 Hz gameplay copies. Both native
+ports run at 60 Hz, including PAL, so extraction and packing use `gameplay_ntsc`
+on the selected disc. The sectors in `patches.tsv` are still that disc's own;
+this does not make PAL and NTSC-U packs interchangeable. A packed folder serves
+the disc it was packed from only; the
 Mods page stacks it for that disc and leaves it out for the other
 ([overrides.py](overrides.py)).
+
+After updating from a packer that targeted PAL's 50 Hz copy, run **Extract the
+levels** again. Old PAL projects are backed up with their edits and replaced by
+60 Hz projects; reapply the intended edits there, then pack. Do not copy whole
+old scenes back: they contain different unedited gameplay values too. Packing
+an old PAL project is refused with this explanation. Renaming an old WAD does
+not update its sector mapping. NTSC-U projects do not need this migration.
 
 The disc image is never written. The native port reads the folder with
 `--mods assets/packed/rac1/pal` and serves those sectors from the files

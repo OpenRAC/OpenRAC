@@ -125,7 +125,7 @@ class AdoptFlatExportTests(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in (packed / "pal").iterdir()), ["level_03", "patches.tsv"])
 
 
-def fake_godot(schema: int, split: bool = True):
+def fake_godot(schema: int, split: bool = True, gameplay_source=None):
     """An exporter shaped as godot(): a project per level (or one for all) with its level.json."""
     def export(out: Path, levels: list[int]) -> None:
         for i in levels:
@@ -133,7 +133,10 @@ def fake_godot(schema: int, split: bool = True):
             level = project / "levels" / f"level_{i:02}"
             level.mkdir(parents=True)
             (project / "project.godot").write_text("config_version=5\n")
-            (level / "level.json").write_text(json.dumps({"schema": schema, "level": i}))
+            metadata = {"schema": schema, "level": i}
+            if gameplay_source is not None:
+                metadata["gameplay_source"] = gameplay_source
+            (level / "level.json").write_text(json.dumps(metadata))
             (level / f"level_{i:02}.tscn").write_text("[gd_scene format=3]\n")
     return export
 
@@ -147,6 +150,22 @@ class SecondExportTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp.cleanup()
+
+    def test_pal_gameplay_change_backs_up_old_edits_and_then_keeps_new_edits(self):
+        dest = self.data / "levels" / "pal"
+        schema = extract.GODOT_SCHEMA
+        extract.export_godot(dest, [0], True, True, fake_godot(schema))
+        self.scene(dest, 0).write_text("old scene with a moved crate")
+        fresh = fake_godot(schema, gameplay_source="gameplay_ntsc")
+        said = extract.export_godot(dest, [0], True, True, fresh, gameplay_source="gameplay_ntsc")
+        self.assertIn("older extractor", said)
+        backups = list((dest.parent / "pal-backups").glob("*/level_00/levels/level_00/level_00.tscn"))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_text(), "old scene with a moved crate")
+        self.scene(dest, 0).write_text("new 60 Hz scene with intended edits")
+        said = extract.export_godot(dest, [0], True, True, fresh, gameplay_source="gameplay_ntsc")
+        self.assertIn("1 level(s) kept", said)
+        self.assertEqual(self.scene(dest, 0).read_text(), "new 60 Hz scene with intended edits")
 
     def scene(self, dest: Path, i: int, split: bool = True) -> Path:
         project = dest / f"level_{i:02}" if split else dest
