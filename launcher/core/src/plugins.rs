@@ -972,6 +972,7 @@ pub fn mod_folders(source: &Path) -> Result<Vec<PathBuf>, String> {
     };
     let built = mods_in(&source.join("build").join("package"));
     if !built.is_empty() {
+        stale_build(&mods_in(source), &built)?;
         return Ok(built);
     }
     let found = mods_in(source);
@@ -979,6 +980,34 @@ pub fn mod_folders(source: &Path) -> Result<Vec<PathBuf>, String> {
         return Err(format!("there is no {MANIFEST} at its top or in a folder at its top: it holds no OpenRAC mod"));
     }
     Ok(found)
+}
+
+/// Refuses a checkout whose build is older than its sources: a mod with no package, or one whose
+/// package is another version than its source's manifest. Taking such a build would quietly
+/// install the old set (a mod added to the checkout since it was last built would be missing).
+fn stale_build(sources: &[PathBuf], built: &[PathBuf]) -> Result<(), String> {
+    let id_version = |dir: &PathBuf| -> Option<(String, String)> {
+        let raw: Value = serde_json::from_str(&std::fs::read_to_string(dir.join(MANIFEST)).ok()?).ok()?;
+        Some((raw.get("id")?.as_str()?.to_string(), raw.get("version")?.as_str()?.to_string()))
+    };
+    let packaged: BTreeMap<String, String> = built.iter().filter_map(id_version).collect();
+    let mut out_of_date = Vec::new();
+    for (id, version) in sources.iter().filter_map(id_version) {
+        match packaged.get(&id) {
+            None => out_of_date.push(format!("{id} has no build")),
+            Some(built) if *built != version => {
+                out_of_date.push(format!("{id} is built at {built}, its source is {version}"))
+            }
+            Some(_) => {}
+        }
+    }
+    if out_of_date.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "this checkout's build is out of date ({}): build the mods again (cmake --build build), then add the checkout again",
+        out_of_date.join("; ")
+    ))
 }
 
 /// Copies a folder, refusing links (a mod is files and folders only).
@@ -1756,6 +1785,21 @@ mod tests {
         assert_eq!(mod_folders(&r.join("repo")).unwrap(), [r.join("repo/a"), r.join("repo/b")]);
         one(&r.join("repo/build/package/a"));
         assert_eq!(mod_folders(&r.join("repo")).unwrap(), [r.join("repo/build/package/a")]);
+        // A build older than its sources is refused, not quietly taken.
+        let with = |dir: &Path, id: &str, version: &str| {
+            std::fs::create_dir_all(dir).unwrap();
+            std::fs::write(dir.join(MANIFEST), json!({"id": id, "version": version}).to_string()).unwrap();
+        };
+        with(&r.join("mods/one"), "one", "1.0.0");
+        with(&r.join("mods/two"), "two", "0.1.0");
+        with(&r.join("mods/build/package/one"), "one", "1.0.0");
+        let err = mod_folders(&r.join("mods")).unwrap_err();
+        assert!(err.contains("two has no build"), "{err}");
+        with(&r.join("mods/build/package/two"), "two", "0.0.9");
+        let err = mod_folders(&r.join("mods")).unwrap_err();
+        assert!(err.contains("two is built at 0.0.9, its source is 0.1.0"), "{err}");
+        with(&r.join("mods/build/package/two"), "two", "0.1.0");
+        assert_eq!(mod_folders(&r.join("mods")).unwrap().len(), 2);
         // No mod anywhere: said.
         std::fs::create_dir_all(r.join("empty/x")).unwrap();
         assert!(mod_folders(&r.join("empty")).unwrap_err().contains("holds no OpenRAC mod"));
