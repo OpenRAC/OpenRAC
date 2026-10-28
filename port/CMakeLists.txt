@@ -192,6 +192,8 @@ target_link_libraries(openrac_mods PUBLIC openrac_runtime ${CMAKE_DL_LIBS}
 openrac_warnings(openrac_mods)
 
 openrac_add_test(mod_manifest LIBS openrac_mods)
+# When the mods' pages of the game's menus take the pad (mod_ui.h): only while the title stays.
+openrac_add_test(mod_ui_menus INCLUDES game/common)
 
 # A mod built as a mod is (a shared library against the SDK's header alone), loaded by the real
 # loader with hook points of the test's own; test-old is built for interface 1.5, as a mod made

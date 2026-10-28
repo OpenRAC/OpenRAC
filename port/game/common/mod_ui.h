@@ -19,6 +19,14 @@
 
 namespace openrac::frontend::mod_ui {
 
+// Whether the title's menus are up for the mods' pages: the boot program is loaded (not a level's,
+// `boot_program`) and the title is not leaving for a level (its exit word, the front end's
+// title_exit, still 0). Once a mod's page has started a game (a party's Start), the movies and the
+// load that follow have the pad: no page of a mod's is on the screen any more, and none takes it.
+inline bool menus_up(bool boot_program, int title_exit) {
+    return boot_program && title_exit == 0;
+}
+
 // Once a tick, after the game's: the main menu's items, the page on the screen, its input and its
 // events, what the mods asked for. `loaded_overlay` is the program loaded (the boot program's menus
 // only).

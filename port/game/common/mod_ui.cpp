@@ -1160,8 +1160,13 @@ void change_page(const openrac_front_end& fe, int game) {
 void update(int loaded_overlay) {
     const openrac_front_end* fe = front_end();
 
-    // Only the boot program's menus, with a mod's item in them.
-    if (fe == nullptr || loaded_overlay != OPENRAC_OVERLAY_EXE || mods::ui_main_item_count() == 0) {
+    // Only the boot program's menus, with a mod's item in them, while the title stays (a game a
+    // mod's page started leaves it: the movies and the load after it have the pad).
+    const int title_exit =
+        fe != nullptr && fe->title_exit != 0 ? GREF(std::int16_t, fe->title_exit) : 0;
+
+    if (fe == nullptr || !menus_up(loaded_overlay == OPENRAC_OVERLAY_EXE, title_exit)
+        || mods::ui_main_item_count() == 0) {
         if (fe != nullptr && s.shown >= 0) {
             change_page(*fe, -1);
         }
