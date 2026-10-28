@@ -42,6 +42,7 @@ fn export_all(cfg: &Config) {
         jobs::Started,
         library::Library,
         overrides::PackView,
+        openrac_launcher_core::mod_summary::ModLoadSummary,
         pcsx2_card::ImportedSaves,
         plugins::Installed,
         plugins::PluginView,

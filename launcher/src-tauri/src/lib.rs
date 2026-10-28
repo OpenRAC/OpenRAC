@@ -936,6 +936,26 @@ fn overrides_list(state: State<'_, AppState>, game: String) -> Result<Vec<PackVi
     overrides::list(&overrides_dir(&state, &game)?)
 }
 
+/// Existing level/asset pack records; this does not prepare or launch the game.
+#[tauri::command]
+fn overrides_summary(
+    state: State<'_, AppState>,
+    version: String,
+) -> Result<openrac_launcher_core::mod_summary::ModLoadSummary, String> {
+    let edition = match version.as_str() {
+        "rac1/pal" => "pal",
+        "rac1/ntsc" => "ntsc",
+        _ => return Err("Choose a supported RAC1 disc version".into()),
+    };
+    let config = state.config.lock().unwrap().clone();
+    let root = config.root.as_deref().ok_or("the OpenRAC folder is not set")?;
+    let data = game_data(&state, "rac1")?;
+    let standalone = state.bundled.as_deref().is_some_and(|copy| detect::on_the_copy(Some(root), copy));
+    let packed =
+        if standalone { data.join("packed").join(edition) } else { root.join("assets/packed/rac1").join(edition) };
+    openrac_launcher_core::mod_summary::read(&data, &packed, edition)
+}
+
 #[tauri::command]
 fn overrides_set_enabled(
     state: State<'_, AppState>,
@@ -1390,6 +1410,7 @@ pub fn run() {
             read_save,
             write_save,
             overrides_list,
+            overrides_summary,
             overrides_set_enabled,
             overrides_move,
             overrides_remove,

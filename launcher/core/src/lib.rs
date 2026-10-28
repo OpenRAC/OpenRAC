@@ -48,6 +48,7 @@ pub mod install;
 pub mod jobs;
 pub mod launcher_log;
 pub mod library;
+pub mod mod_summary;
 pub mod multiplayer;
 pub mod overrides;
 pub mod pcsx2_card;

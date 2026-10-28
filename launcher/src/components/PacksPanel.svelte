@@ -14,12 +14,14 @@
     version: v,
     reload = 0,
     commands = [],
+    onchange,
   }: {
     version: VersionView;
     /** Bumped when something else made a pack (AddMod, an import): the list is read again. */
     reload?: number;
     /** With developer tools on: the same steps from a shell. */
     commands?: string[];
+    onchange?: () => void;
   } = $props();
 
   const developer = $derived(app.config?.developer ?? false);
@@ -43,7 +45,10 @@
 
   async function change(work: Promise<PackView[]>) {
     const result = await guardShown(work);
-    if (result) packs = result;
+    if (result) {
+      packs = result;
+      onchange?.();
+    }
   }
 
   async function remove(pack: PackView) {

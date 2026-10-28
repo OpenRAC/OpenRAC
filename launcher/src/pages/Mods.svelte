@@ -20,6 +20,7 @@
   import GamesFrame from "$components/GamesFrame.svelte";
   import Icon from "$components/Icon.svelte";
   import PacksPanel from "$components/PacksPanel.svelte";
+  import ModLoadSummary from "$components/ModLoadSummary.svelte";
   import PluginsPanel from "$components/PluginsPanel.svelte";
   import { api, onAndroid, pickFile, type ActionView, type GameView, type VersionView } from "$lib/api";
   import { app, guardShown, jobs, run, runChain, saveConfig, toast } from "$lib/app.svelte";
@@ -331,6 +332,7 @@
                 <PacksPanel
                   version={v}
                   {reload}
+                  onchange={() => reload++}
                   commands={[`python3 editor/overrides.py add <pack.zip> --into <data>/overrides`]}
                 />
                 <p class="make-own">
@@ -422,6 +424,17 @@
                     </li>
                   </ol>
                 </section>
+                {#if v.game === "rac1"}
+                  <ModLoadSummary
+                    version={v}
+                    refreshKey={`${reload}:${result?.text ?? ""}:${jobsOf(v, ["overrides-stack"]).at(-1)?.state ?? ""}`}
+                    canPrepare={!!action(v, "overrides-stack")?.runnable && !running(v, ["overrides-stack"])}
+                    prepare={() => {
+                      const stack = action(v, "overrides-stack");
+                      if (stack) void run(scope, stack);
+                    }}
+                  />
+                {/if}
               {:else}
                 <section class="panel">
                   <AssetsPanel version={v} onimported={() => reload++} />
