@@ -12,8 +12,11 @@
 #include "game/common/profile.h"
 
 #include <cstdint>
+#include <cstring>
+#include <format>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 
 #include "game/rac1/game_state.h"
@@ -37,6 +40,8 @@ struct ExecutableAddresses {
 // SCUS-97199 (rac1-ntsc's rac1_version.h pairs the hero's record).
 constexpr ExecutableAddresses kPalExecutable{0x001CAE00u, 0x0013F450u};
 constexpr ExecutableAddresses kNtscExecutable{0x001CAA80u, 0x0013F350u};
+
+std::string drone_notes(std::span<const std::uint8_t> ram, const GameAddresses& a, std::uint32_t hero);
 
 // One disc's profile: its boot program's table, its level programs' tables and its executable's
 // addresses. Ratchet & Clank's levels are extracted for the port, and its frame is one of two list
@@ -82,6 +87,10 @@ public:
 
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
 
+    std::string diagnostics(std::span<const std::uint8_t> ram, int level, std::uint32_t hero) const override {
+        return drone_notes(ram, addresses(level), hero);
+    }
+
 private:
     // Returns the table of the program loaded: a level's, or the boot program's when `level` is
     // not one (-1 before the first level).
@@ -98,6 +107,70 @@ private:
     const GameAddresses (&m_levels)[kLevels];  // The level programs' tables, constants.
     const ExecutableAddresses& m_executable;   // The executable's addresses, a constant.
 };
+
+// Developer tools: the Drone Device's state for a diagnostics recording. The hero's record keeps
+// the drones' count at +0x1FF4 to +0x1FF7 (the update's counter, the pending use, the drones made,
+// the drones orbiting) and their six mobys at +0x2020; the ammo is the word of item 0x18 in the
+// counts 0x1F28 below it. Each drone moby: its state (+0x20), class record (+0x24), scale (+0x2C),
+// mode (+0x34), class id (+0xA6) and position; and every moby of the drone class (479) in the
+// table, with the table's free slots (state 0xFE or more).
+std::string drone_notes(std::span<const std::uint8_t> ram, const GameAddresses& a, std::uint32_t hero) {
+    const auto word = [&](std::uint32_t at) -> std::uint32_t {
+        at &= 0x01FFFFFFu;
+        if (at + 4 > ram.size()) {
+            return 0;
+        }
+        std::uint32_t v;
+        std::memcpy(&v, ram.data() + at, 4);
+        return v;
+    };
+    const auto byte = [&](std::uint32_t at) -> unsigned {
+        at &= 0x01FFFFFFu;
+        return at < ram.size() ? ram[at] : 0u;
+    };
+    const auto real = [&](std::uint32_t at) -> float {
+        const std::uint32_t v = word(at);
+        float f;
+        std::memcpy(&f, &v, 4);
+        return f;
+    };
+    const auto moby = [&](std::uint32_t m) {
+        return std::format(
+            "{{\"at\":\"{:06X}\",\"state\":{},\"class\":{},\"record\":\"{:08X}\",\"scale\":{:.4g},"
+            "\"mode\":\"{:04X}\",\"pos\":[{:.4g},{:.4g},{:.4g}]}}",
+            m, byte(m + 0x20), static_cast<std::int16_t>(word(m + 0xA4) >> 16), word(m + 0x24), real(m + 0x2C),
+            word(m + 0x34) & 0xFFFFu, real(m + 0x10), real(m + 0x14), real(m + 0x18));
+    };
+    std::string out = std::format(
+        "{{\"counter\":{},\"pending\":{},\"made\":{},\"orbiting\":{},\"ammo\":{},\"slots\":[",
+        byte(hero + 0x1FF4), byte(hero + 0x1FF5), byte(hero + 0x1FF6), byte(hero + 0x1FF7),
+        static_cast<std::int32_t>(word(hero - 0x1F28 + 0x18 * 4)));
+    for (int i = 0; i < 6; ++i) {
+        const std::uint32_t m = word(hero + 0x2020 + 4u * static_cast<std::uint32_t>(i)) & 0x01FFFFFFu;
+        out += i ? "," : "";
+        out += m != 0 ? moby(m) : std::string("null");
+    }
+    out += "],\"class_479\":[";
+    auto first = word(a.moby_first) & 0x01FFFFFFu;
+    const auto end = word(a.moby_end) & 0x01FFFFFFu;
+    unsigned free = 0;
+    bool any = false;
+    if (first != 0 && end > first && end <= ram.size() && (end - first) % 0x100 == 0) {
+        for (std::uint32_t m = first; m < end; m += 0x100) {
+            if (byte(m + 0x20) >= 0xFE) {
+                ++free;
+                continue;
+            }
+            if (static_cast<std::int16_t>(word(m + 0xA4) >> 16) == 479) {
+                out += any ? "," : "";
+                out += moby(m);
+                any = true;
+            }
+        }
+    }
+    out += std::format("],\"free_slots\":{}}}", free);
+    return out;
+}
 
 // The two discs' profiles, constants for the program's life.
 const Profile kPalProfile{kRac1Pal, kRac1PalLevels, kPalExecutable};

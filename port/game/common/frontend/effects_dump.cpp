@@ -19,6 +19,7 @@ std::atomic<bool> g_armed{false};
 std::atomic<unsigned> g_frames{0};
 std::mutex g_mutex;
 std::vector<std::string> g_snapshots;
+std::string g_note;  // the game's latest notes (under g_mutex)
 
 constexpr unsigned kEvery = 20;         // frames between snapshots
 constexpr std::size_t kKept = 400;      // the last so many snapshots
@@ -97,7 +98,14 @@ std::string snapshot(unsigned frame, const renderer::FrameInput& input, const re
         out += "]}";
         first = false;
     }
-    out += "]}";
+    out += "]";
+    {
+        const std::lock_guard lock(g_mutex);
+        if (!g_note.empty()) {
+            out += ",\"game\":" + g_note;
+        }
+    }
+    out += "}";
     return out;
 }
 
@@ -109,7 +117,17 @@ void arm(bool on) {
     if (on) {
         const std::lock_guard lock(g_mutex);
         g_snapshots.clear();
+        g_note.clear();
     }
+}
+
+bool armed() {
+    return g_armed.load(std::memory_order_relaxed);
+}
+
+void note(std::string json) {
+    const std::lock_guard lock(g_mutex);
+    g_note = std::move(json);
 }
 
 void offer(const renderer::FrameInput& input, const std::optional<renderer::Vec3>& hero) {

@@ -18,6 +18,12 @@ namespace openrac::frontend::effects_dump {
 // and quads near Ratchet.
 void arm(bool on);
 
+// Whether a recording runs (a game's notes are worth reading).
+bool armed();
+
+// The game's own notes for the next snapshot (GameProfile::diagnostics), from the tick's thread.
+void note(std::string json);
+
 // Render thread: called with the frame's input once its effects are set; `hero` is Ratchet's
 // position when the frame has one.
 void offer(const renderer::FrameInput& input, const std::optional<renderer::Vec3>& hero);

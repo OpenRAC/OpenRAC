@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -135,6 +136,14 @@ public:
 
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
+
+    // Developer tools: what of the game's state a diagnostics recording carries beside its
+    // snapshots, as a JSON value ("" for nothing), read from `ram` with the hero's record at `hero`.
+    virtual std::string diagnostics(
+        std::span<const std::uint8_t> /*ram*/, int /*level*/, std::uint32_t /*hero*/
+    ) const {
+        return {};
+    }
 };
 
 // Returns the profile of the game version `game` (its port id, "rac1-pal"), which lives as long as
