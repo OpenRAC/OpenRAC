@@ -303,6 +303,11 @@ openrac_add_c_test(pose_anim MATH)
 openrac_add_c_test(moby_pool NO_STRICT_ALIASING WRAPV
   INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
 
+# The shared rac1 host C's level world under the pause menu (the mods' mobys made and deleted
+# among the level's, the level's camera), with PAL's table and the same stand-in.
+openrac_add_c_test(world_menu NO_STRICT_ALIASING WRAPV MATH
+  INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
+
 openrac_add_c_test(resource_bank NO_STRICT_ALIASING)
 openrac_add_c_test(exe_moby_grid NO_STRICT_ALIASING)
 openrac_add_c_test(hero_lean NO_STRICT_ALIASING NO_FP_CONTRACT MATH)

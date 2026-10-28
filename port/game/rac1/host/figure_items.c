@@ -262,16 +262,25 @@ static void leave_level_context(int entered) {
     }
 }
 
-/* Removes record `r`'s moby (when still its own) and frees it. */
-static void drop(Record* r) {
+/* Removes record `r`'s moby (when still its own) and frees it; `by_mod`: for the mod's
+ * figure_remove (noted as a mod's deletion, moby_kill's way). */
+static void drop_as(Record* r, int by_mod) {
     if (r->moby != 0 && r->load == rac1_program_loads() && in_level()
         && alive(r->moby, r->piece.oclass)) {
-        const int entered = enter_level_context();
-        func_0020D678(r->moby);
-        leave_level_context(entered);
+        if (by_mod) {
+            rac1_world_moby_kill(r->moby);
+        } else {
+            const int entered = enter_level_context();
+            func_0020D678(r->moby);
+            leave_level_context(entered);
+        }
     }
     r->figure = 0;
     r->moby = 0;
+}
+
+static void drop(Record* r) {
+    drop_as(r, 0);
 }
 
 /* select_world_object_resource_tables: the figures' pieces drawn from the buffer it decodes over
@@ -517,7 +526,7 @@ void rac1_figure_held(gaddr figure, const openrac_game_held* held) {
 void rac1_figure_items_remove(gaddr figure) {
     for (int i = 0; i < RECORDS; ++i) {
         if (records[i].figure == figure) {
-            drop(&records[i]);
+            drop_as(&records[i], 1);
         }
     }
 }

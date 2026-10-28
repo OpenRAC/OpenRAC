@@ -79,6 +79,9 @@ int rac1_world_mobys(openrac_game_moby_state* out, int max);
 int32_t rac1_world_moby_slot(int32_t key);
 gaddr rac1_world_moby_at(int32_t slot);
 void rac1_world_moby_kill(gaddr moby);
+/* CreateMoby (func_0020D348) of a moby of the level's, also while the pause menu's mobys are the
+ * current ones; 0 for none. */
+gaddr rac1_world_create_moby(int32_t oclass);
 void rac1_world_moby_hide(gaddr moby, int hidden);
 int rac1_world_moby_deletion(int32_t slot, openrac_game_moby_deletion* out);
 int rac1_world_camera_position(float out[3]);

@@ -249,8 +249,9 @@ static gaddr figure_spawn(void) {
     if (hero == 0) {
         return 0;
     }
-    /* No room in the level's pool: no figure. */
-    const gaddr moby = func_0020D348(HERO_CLASS);
+    /* No room in the level's pool: no figure. Made among the level's mobys also under the pause
+     * menu, whose own are the current ones then (a figure made there went when the menu closed). */
+    const gaddr moby = rac1_world_create_moby(HERO_CLASS);
     if (moby == 0) {
         return 0;
     }
@@ -367,7 +368,9 @@ static void figure_remove(gaddr moby) {
     }
     rac1_figure_items_remove(moby);
     GREF(uint32_t, GREF(gaddr, moby + MOBY_PVARS)) = 0;
-    func_0020D678(moby);
+    /* Deleted among the level's mobys, as a mod's (moby_kill): under the pause menu DeleteMoby
+     * would otherwise work on the menu's mobys and the deletion go unnoted. */
+    rac1_world_moby_kill(moby);
 }
 
 /* A save's {id, size, value} block `index` of the game part, its value; 0 and *ok cleared for a

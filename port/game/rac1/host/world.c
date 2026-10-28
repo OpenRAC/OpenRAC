@@ -305,14 +305,6 @@ void func_0020D678(gaddr moby) {
     func_0020D678__game(moby);
 }
 
-int rac1_world_camera_position(float out[3]) {
-    if (!in_level()) {
-        return 0;
-    }
-    memcpy(out, G(OPENRAC_DATA(CAMERA_POSITION)), 3 * sizeof(float));
-    return 1;
-}
-
 int rac1_world_moby_deletion(int32_t slot, openrac_game_moby_deletion* out) {
     if (slot < 0 || slot >= KEYS_MAX || !deletions[slot].seen
         || deletions[slot].loads != rac1_program_loads()) {
@@ -324,6 +316,16 @@ int rac1_world_moby_deletion(int32_t slot, openrac_game_moby_deletion* out) {
     out->oclass = deletions[slot].oclass;
     out->loads = deletions[slot].loads;
     return 1;
+}
+
+gaddr rac1_world_create_moby(int32_t oclass) {
+    if (!in_level() || oclass < 0) {
+        return 0;
+    }
+    const int entered = enter_level_context();
+    const gaddr m = func_0020D348(oclass);
+    leave_level_context(entered);
+    return m;
 }
 
 int32_t rac1_world_moby_spawn(int32_t oclass) {
@@ -626,6 +628,20 @@ void func_L00_00277A88(void) {
 void func_001FD3E8(void) {
     run_world_under_menu(0);
     func_001FD3E8__game();
+}
+
+/* The camera: the level's, also while the pause menu's is up (its camera at 256,256,64 is no
+ * place in the level), as the run list and the drawing take it under the menu. */
+int rac1_world_camera_position(float out[3]) {
+    if (!in_level()) {
+        return 0;
+    }
+    if (!main_context() && level_view.load == rac1_program_loads()) {
+        memcpy(out, level_view.camera + 0x140, 3 * sizeof(float));
+    } else {
+        memcpy(out, G(OPENRAC_DATA(CAMERA_POSITION)), 3 * sizeof(float));
+    }
+    return 1;
 }
 
 int rac1_level_mobys_current(void) {
