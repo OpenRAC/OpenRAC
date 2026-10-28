@@ -1070,7 +1070,7 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
         &std::fs::read_to_string(root.join(MANIFEST)).map_err(|e| format!("{MANIFEST} cannot be read ({e})"))?,
     )
     .map_err(|e| format!("{MANIFEST} cannot be read ({e})"))?;
-    if raw.get("format").and_then(Value::as_u64) == Some(1) {
+    if matches!(raw.get("format").and_then(Value::as_u64), Some(1 | 3)) {
         return Ok(Installed::Pack);
     }
     let m = read_manifest(&root)?;
@@ -1785,6 +1785,11 @@ mod tests {
         let pack = tmp.path().join("pack.zip");
         zip_of(&pack, &[("openrac-mod.json", br#"{"format": 1, "game": "rac1", "replaces": {}}"#)]);
         assert_eq!(install(&dir, "rac1", "pal", &pack).unwrap(), Installed::Pack);
+
+        // Map packs go through the data pack validator too, never the native library loader.
+        let map = tmp.path().join("map.zip");
+        zip_of(&map, &[("openrac-mod.json", br#"{"format": 3, "game": "rac1", "map": {}}"#)]);
+        assert_eq!(install(&dir, "rac1", "pal", &map).unwrap(), Installed::Pack);
 
         // Another game's mod.
         let other = tmp.path().join("other.zip");

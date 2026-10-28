@@ -39,6 +39,11 @@ namespace openrac::program {
  * When the video ends (or is skipped) the last picture stays up for the console's FadeToBlack(4).
  */
 int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
+    if (openrac_game_map != nullptr && openrac_game_map->skip_movies) {
+        log::info("map {}: disc movie at sector {} omitted", openrac_game_map->name, lsn);
+        return 1;
+    }
+
     if (g_options.skip_movies) {
         log::info("movie at sector {}: skipped by --skip-movies (development probe)", lsn);
         return 1;  // the same result as the movie player's Start-skip path

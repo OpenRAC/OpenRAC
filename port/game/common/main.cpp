@@ -83,6 +83,7 @@ extern "C" {
 const char* openrac_game_disc_image = nullptr;
 const char* openrac_game_card_dir = nullptr;
 const char* openrac_game_mods_dir = nullptr;
+const struct openrac_map_config* openrac_game_map = nullptr;
 int openrac_game_language = 1;
 int openrac_game_no_card = 0;
 int openrac_game_start_level = -1;
@@ -305,6 +306,21 @@ int main(int argc, char** argv) {
     timeBeginPeriod(1);
 #endif
     g_options = parse(argc, argv);
+    static struct openrac_map_config map_config{};
+
+    if (g_options.custom_map) {
+        const CustomMap& map = *g_options.custom_map;
+        map_config.name = map.name.c_str();
+        map_config.level = map.level;
+        std::copy(map.spawn.begin(), map.spawn.end(), map_config.spawn);
+        map_config.heading = map.heading;
+        map_config.skip_movies = map.skip_movies;
+        map_config.skip_cutscenes = map.skip_cutscenes;
+        openrac_game_map = &map_config;
+        openrac_game_start_level = map.level;
+        openrac_game_no_card = 1;
+    }
+
     if (g_options.check_levels) {
 #ifdef OPENRAC_FRONTEND
         return check_levels(g_options.levels.empty() ? default_levels(g_options.data) : levels_or_flat(g_options.levels));
@@ -329,6 +345,13 @@ int main(int argc, char** argv) {
         );
     }
     log::info("{}: {}", program_name(), openrac_game.title);
+
+    if (g_options.custom_map) {
+        const CustomMap& map = *g_options.custom_map;
+        log::info(
+            "map {} ({}), template level {}; campaign saving disabled", map.name, map.id, map.level
+        );
+    }
 
     runtime::Memory::create();
     runtime::install_crash_handler();

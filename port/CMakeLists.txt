@@ -173,6 +173,9 @@ openrac_add_test(runtime SOURCES tests/runtime_test.cpp tests/guest_c.c LIBS ope
 openrac_add_c_test(host_env LIBS openrac_runtime)
 
 # ---- native mods (docs/port/MODS.md): manifests, the list, the loader ----
+openrac_add_test(custom_map
+  SOURCES tests/custom_map_test.cpp game/common/program/custom_map.cpp
+  INCLUDES game/common LIBS openrac_common)
 include(Luau)
 add_library(openrac_mods STATIC
   game/common/mod_library.cpp
