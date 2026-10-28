@@ -86,5 +86,6 @@ void rac1_world_post_hit(
 );
 void rac1_world_eyes(const float* xyz, int count);
 int32_t rac1_world_bolts(int32_t add);
+void rac1_world_keep_running(int on);
 
 #endif /* OPENRAC_RAC1_H */

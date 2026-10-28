@@ -446,4 +446,5 @@ const openrac_game_play rac1_play = {
     .post_hit = rac1_world_post_hit,
     .eyes = rac1_world_eyes,
     .bolts = rac1_world_bolts,
+    .keep_running = rac1_world_keep_running,
 };

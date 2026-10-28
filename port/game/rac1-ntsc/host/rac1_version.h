@@ -184,6 +184,20 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x00178200u 0x00178100u
 #define RAC1_ADDR_L00_0x001ACB00u 0x001AC780u
 #define RAC1_ADDR_0x0016001Cu 0x0015FF1Cu
+/* The world under a menu (world.c): PAL select_moby_context func_L00_00235FF8 is FUN_L00_00235668
+ * here, its context word, PAL D_L00_0015F808, D_L00_0015F728, and the level's array kept aside
+ * while the pause menu's is up, PAL D_L00_0015FB28 and D_L00_0015FB2C, D_L00_0015FA70 and
+ * D_L00_0015FA74 (the NTSC decomp's ui/hud/00234fd0.c); the pause menu's tick, PAL
+ * func_L00_00277A88, is FUN_L00_00276bd0, and update_mode_freeze, PAL func_001FD3E8, FUN_001fce28
+ * (its rendering/00245c28.c, the level loop). */
+#define func_L00_00235FF8 game_FUN_L00_00235668
+#define func_L00_00277A88 game_FUN_L00_00276bd0
+#define func_L00_00277A88__game game_FUN_L00_00276bd0__game
+#define func_001FD3E8 game_FUN_001fce28
+#define func_001FD3E8__game game_FUN_001fce28__game
+#define RAC1_ADDR_L00_0x0015F808u 0x0015F728u
+#define RAC1_ADDR_L00_0x0015FB28u 0x0015FA70u
+#define RAC1_ADDR_L00_0x0015FB2Cu 0x0015FA74u
 
 /* ---- generated below ---- */
 

@@ -40,6 +40,12 @@
 #define MOBY_ARRAY RAC1_ADDR(0x00160018u)
 #define MOBY_PLACED_END RAC1_ADDR(0x0016001Cu)
 #define FILE_ORDER OPENRAC_LDATA(0, RAC1_LADDR(00, 0x001ACB00u))
+/* The moby context (select_moby_context, func_L00_00235FF8): 0 the level's mobys, 1 the pause
+ * menu's own, whose array then sits in the level's pointers while the level's wait in the alt_
+ * ones. */
+#define CONTEXT OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F808u))
+#define ALT_ARRAY OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015FB28u))
+#define ALT_PLACED_END OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015FB2Cu))
 /* The hit ring. */
 #define HIT_RING OPENRAC_LDATA(0, RAC1_LADDR(00, 0x00178200u))
 /* The hero (play.c): his motion's position, ground point and body centre, his moby; the bolts. */
@@ -77,6 +83,9 @@ enum {
 #define FLAG_UPDATES 0x1u
 #define FLAG_PLACED 0x4u
 #define FLAG_CREATURE 0x8u
+#define FLAG_DEAD 0x10u
+/* A placed moby deleted (DeleteMoby): its slot is never used again in the level load. */
+#define STATE_DELETED 0xFDu
 /* The most records a level's file has that the keys follow, and eyes. */
 #define KEYS_MAX 4096
 #define EYES_MAX 8
@@ -100,19 +109,42 @@ static int in_level(void) {
     return level >= 0 && level < 19;
 }
 
+/* Whether the level's mobys are the game's current ones (not the pause menu's). */
+static int main_context(void) {
+    return GREF(int, CONTEXT) == 0;
+}
+
+/* The level's moby array and the end of its placed part, whichever context is up. */
 static gaddr array_base(void) {
-    return GREF(gaddr, OPENRAC_DATA(MOBY_ARRAY));
+    return main_context() ? GREF(gaddr, OPENRAC_DATA(MOBY_ARRAY)) : GREF(gaddr, ALT_ARRAY);
 }
 
 static int32_t placed_count(void) {
     const gaddr base = array_base();
-    const gaddr end = GREF(gaddr, OPENRAC_DATA(MOBY_PLACED_END));
+    const gaddr end =
+        main_context() ? GREF(gaddr, OPENRAC_DATA(MOBY_PLACED_END)) : GREF(gaddr, ALT_PLACED_END);
     return base != 0 && end > base ? (int32_t)((end - base) / MOBY_SIZE) : 0;
+}
+
+/* The game's moby calls (CreateMoby, DeleteMoby) work on the current context: the level's is put
+ * up for them while the pause menu's is (and put back after). */
+static int enter_level_context(void) {
+    if (main_context()) {
+        return 0;
+    }
+    func_L00_00235FF8(0);
+    return 1;
+}
+
+static void leave_level_context(int entered) {
+    if (entered) {
+        func_L00_00235FF8(1);
+    }
 }
 
 /* The slots' keys for the level loaded now, read once a load. */
 static void read_keys(void) {
-    if (keys_load == rac1_program_loads()) {
+    if (keys_load == rac1_program_loads() || array_base() == 0) {
         return;
     }
     keys_load = rac1_program_loads();
@@ -159,11 +191,12 @@ int rac1_world_mobys(openrac_game_moby_state* out, int max) {
     for (int32_t slot = 0; slot < KEYS_MAX; ++slot) {
         const gaddr m = base + (gaddr)slot * MOBY_SIZE;
         const uint8_t state = GREF(uint8_t, m + MOBY_STATE);
-        /* 0xFF ends the array; other states past 0x80 are free or dead slots. */
+        /* 0xFF ends the array; other states past 0x80 are free or dead slots, of which a placed
+         * one deleted is listed (dead: the mods learn of a kill from it, never from an absence). */
         if (state == 0xFF) {
             break;
         }
-        if (state >= 0x80) {
+        if (state >= 0x80 && !(state == STATE_DELETED && slot < placed)) {
             continue;
         }
         if (n < max) {
@@ -174,7 +207,7 @@ int rac1_world_mobys(openrac_game_moby_state* out, int max) {
             s->oclass = GREF(int16_t, m + MOBY_OCLASS);
             s->flags =
                 (GREF(gaddr, m + MOBY_UPDATE) != 0 ? FLAG_UPDATES : 0u)
-                | (slot < placed ? FLAG_PLACED : 0u)
+                | (slot < placed ? FLAG_PLACED : 0u) | (state >= 0x80 ? FLAG_DEAD : 0u)
                 | (cls != 0 && GREF(uint16_t, cls + CLASS_TYPE) == TYPE_CREATURE ? FLAG_CREATURE
                                                                                  : 0u);
             s->state = state;
@@ -208,7 +241,9 @@ int32_t rac1_world_moby_slot(int32_t key) {
 
 void rac1_world_moby_kill(gaddr moby) {
     if (moby != 0 && GREF(uint8_t, moby + MOBY_STATE) < 0x80) {
+        const int entered = enter_level_context();
         func_0020D678(moby);
+        leave_level_context(entered);
     }
 }
 
@@ -216,16 +251,16 @@ int32_t rac1_world_moby_spawn(int32_t oclass) {
     if (!in_level() || oclass < 0) {
         return -1;
     }
+    const int entered = enter_level_context();
     const gaddr m = func_0020D348(oclass);
     /* No room, or a class the level has not loaded (InitMobyInstance leaves it undrawn). */
-    if (m == 0) {
-        return -1;
-    }
-    if (GREF(gaddr, m + MOBY_CLASS) == 0) {
+    if (m != 0 && GREF(gaddr, m + MOBY_CLASS) == 0) {
         func_0020D678(m);
+        leave_level_context(entered);
         return -1;
     }
-    return rac1_moby_slot(m);
+    leave_level_context(entered);
+    return m != 0 ? rac1_moby_slot(m) : -1;
 }
 
 int32_t rac1_world_hero_slot(void) {
@@ -233,7 +268,7 @@ int32_t rac1_world_hero_slot(void) {
 }
 
 void rac1_world_stand_in(const float position[3], gaddr moby) {
-    if (stand.on || !in_level()) {
+    if (stand.on || !in_level() || !main_context()) {
         return;
     }
     stand.on = 1;
@@ -275,7 +310,8 @@ int32_t rac1_world_bolts(int32_t add) {
 }
 
 int rac1_moby_gate(gaddr moby, int phase) {
-    if (openrac_game_moby_update == NULL) {
+    /* The pause menu's own mobys are none of the mods'. */
+    if (openrac_game_moby_update == NULL || !main_context()) {
         return 0;
     }
     return openrac_game_moby_update(rac1_moby_slot(moby), phase);
@@ -297,7 +333,7 @@ int rac1_moby_eyes(const float** xyz) {
  * changed), told to the mods; taken back when they say so. */
 static void hit_written(gaddr victim, uint8_t before, const uint8_t* old) {
     const uint8_t index = GREF(uint8_t, victim + MOBY_HIT);
-    if (openrac_game_moby_hit == NULL || index == 0xFF || index >= 64) {
+    if (openrac_game_moby_hit == NULL || index == 0xFF || index >= 64 || !main_context()) {
         return;
     }
     const gaddr record = HIT_RING + (gaddr)index * HIT_SIZE;
@@ -378,4 +414,34 @@ void rac1_world_post_hit(
 #else
     func_L00_0025AC00__game(victim, damage, (int)attacker, (int)mask, vectors, vectors + 0x10u);
 #endif
+}
+
+/* The world going on under a menu (interface 1.9, play_overlay_pause): while a mod asks for it,
+ * the level's mobys are updated each tick under the pause menu (its update, func_L00_00277A88)
+ * and under a freeze dialog (update_mode_freeze, func_001FD3E8), both wrapped (libraries.tsv), in
+ * the level's own moby context; the hero, the camera and the picture stay as the menu left them.
+ * A game in a party then never stops the others' world while its player looks at a menu. */
+static int keep_running;
+
+void rac1_world_keep_running(int on) {
+    keep_running = on != 0;
+}
+
+static void run_world_under_menu(void) {
+    if (!keep_running || !in_level()) {
+        return;
+    }
+    const int entered = enter_level_context();
+    func_00213C78();
+    leave_level_context(entered);
+}
+
+void func_L00_00277A88(void) {
+    run_world_under_menu();
+    func_L00_00277A88__game();
+}
+
+void func_001FD3E8(void) {
+    run_world_under_menu();
+    func_001FD3E8__game();
 }
