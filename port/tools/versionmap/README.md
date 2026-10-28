@@ -54,13 +54,19 @@ Nothing carried is proven by being carried.
 `carry_functions.py` does the above for every function the target still has
 only as assembly: it pairs each with the source's through the map (back,
 `--back-map`, TO to FROM), takes the C the source's port runs for a `same`
-pair (matched C, the port's hand C, or the candidate its functional table
-names), preprocesses it in its own file, cuts it down to the function and the
+pair (the port's override of matched C, matched C without inline assembly,
+the port's hand C, or the candidate its functional table names; the source's
+files may spell a function by the readable name its names header gives it),
+preprocesses it in its own file, cuts it down to the function and the
 declarations, types and static helpers it uses (its own types and helpers
 renamed apart, with a suffix from the target's address), carries it with
 `carry_c`, and checks it with Clang where hostgen will put it. `--write` puts
 it in the target's `hand/functional/<name>.c` with a row in `hand/hand.tsv`,
-and drops the rows that no longer replace a stub (and their files).
+and drops the rows that no longer replace a stub (and their files). `--replace
+NAME ...` carries those names too where the target's port already has C of
+its own for the stub (its hand C, a draft, the assembly), and points their
+rows at the carried file: how rac1-ntsc takes PAL's matched C for functions
+the NTSC decomp still has as assembly.
 
 ```sh
 python3 port/tools/versionmap/carry_functions.py --target port/game/rac1-ntsc/hostgen.json \

@@ -14,9 +14,9 @@ For each function of the target with no C (an assembly stub of its source
 that nothing replaces, or a name hostgen reports without C), it finds the
 source version's counterpart through the map (`same`, `near`, or none):
 
-- `same`: the source's C for it (the matched C, the port's hand C, or the
-  candidate its functional table names, in the order the source's port reads
-  them) is preprocessed in the source's own file, cut down to the function and
+- `same`: the source's C for it (the port's override of matched C, the
+  matched C, the port's hand C, or the candidate its functional table names,
+  in the order the source's port reads them) is preprocessed in the source's own file, cut down to the function and
   the declarations, types and file-scope helpers it needs, its types and
   helpers renamed apart (it lands at the end of a target file with types of
   its own), and carried to the target's names and addresses with carry.py.
@@ -29,7 +29,9 @@ Anything that cannot be carried is listed with the reason (skipped.json):
 pieces and linker remnants, handwritten routines with no C, names with no
 function behind them, files hostgen leaves out, C that does not translate.
 --write also drops the hand.tsv rows that no longer replace anything (the
-target's decompilation has its own C since), and their files.
+target's decompilation has its own C since), and their files. --replace NAME
+carries NAME even where the target's port already has C of its own for its
+stub (hand C, a draft, the assembly), and points its row at the carried file.
 
 Nothing carried is proven by being carried.
 """
@@ -51,6 +53,11 @@ ROOT = paths.repo_root(__file__)
 # hostgen's modules (clangast, program, ...): a folder beside this one, not a package.
 sys.path.insert(0, str(ROOT / "port" / "tools" / "hostgen"))
 from carry import Carrier, carry_c  # noqa: E402
+from program import BUILTINS  # noqa: E402
+
+# An asm statement (not an asm label on a declaration): hostgen skips it, so matched C that has one
+# is not what the source's port runs (an override, hand C or host C is).
+ASM_STATEMENT = re.compile(r'(?:^|[;{}:])\s*(?:__asm__|__asm|asm)\s*(?:__volatile__|volatile)?\s*\(\s*"', re.M)
 
 # ---------------------------------------------------------------------------------------------
 # Programs and names
@@ -60,6 +67,8 @@ TABLE = re.compile(r"static const openrac_fn_entry k_(exe|overlay_(\d\d))\[\]")
 MISSING = re.compile(r'openrac_guest_missing\("(\w+)')
 ADDRESS_NAME = re.compile(r"^(?:func|FUN|D)_(?:L(\d\d)_)?([0-9A-Fa-f]{8})(?:_\w*)?$")
 STUB = re.compile(r'^[ \t]*(INCLUDE_ASM|ASM_FUNC|LINKER_REMNANT)\(\s*((?:"[^"]*"\s*)+),\s*(\w+)\s*\)', re.M)
+# A readable name for an address name, as a decompilation's names header (hostgen.json "aliases") gives it.
+ALIAS = re.compile(r'^[ \t]*#[ \t]*define[ \t]+([A-Za-z_]\w*)[ \t]+((?:func|FUN)_\w+)[ \t]*$', re.M)
 DEFINITION = re.compile(r'^[A-Za-z_][\w \t\*]*?[ \t\*](\w+)\s*\([^;{}]*\)\s*\{', re.M)
 
 
@@ -614,6 +623,24 @@ def records_by_value(body: str, own: list[str], aliases: list[str]) -> list[str]
     return sorted(set(out))
 
 
+def drop_definition(text: str, name: str) -> str:
+    """TEXT without the definition of the function NAME (with the static/inline words before it)."""
+    code = code_only(text)
+    m = re.search(r"^[ \t]*[A-Za-z_][\w \t\*]*?[ \t\*]" + re.escape(name) + r"\s*\([^;{}]*\)\s*\{", code, re.M)
+    if not m:
+        return text
+    depth, i = 0, m.end() - 1
+    while i < len(code):
+        if code[i] == "{":
+            depth += 1
+        elif code[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return text[:m.start()] + text[i + 1:]
+
+
 def rename(text: str, names: list[str], suffix: str) -> str:
     """Every whole-word NAME outside strings and comments as NAME+SUFFIX."""
     if not names:
@@ -692,6 +719,15 @@ class Carry:
         self.s_places = read_places(s.source / s.cfg["places"]) if s.cfg.get("places") else {}
         self.t_symbols = read_symbols([t.source / p for p in t.cfg.get("symbols", [])])
         self.s_hand = {r[0]: s.dir / Path(s.cfg["hand"]).parent / r[1] for r in s.hand_rows() if len(r) > 1}
+        self.s_over = {r[0]: s.dir / Path(s.cfg["overrides"]).parent / r[1]
+                       for r in tables.read_tsv(s.dir / s.cfg["overrides"]) if len(r) > 1} if s.cfg.get("overrides") else {}
+        # The source's files define functions by the readable names of its names header; its
+        # generated tables name them by address.
+        self.s_alias: dict[str, list[str]] = defaultdict(list)
+        for header in s.cfg.get("aliases", []):
+            if (s.source / header).is_file():
+                for m in ALIAS.finditer((s.source / header).read_text(errors="replace")):
+                    self.s_alias[m.group(2)].append(m.group(1))
         self.s_cand = {r[0]: s.source / r[1] for r in tables.read_tsv(s.source / s.cfg.get("candidates", "-"))
                        if len(r) > 1} if s.cfg.get("candidates") else {}
         self.s_joined = {}
@@ -705,6 +741,18 @@ class Carry:
             for cols in tables.read_tsv(v.dir / v.cfg.get("libraries", "-")):
                 into.add(cols[0])
         self.t_skip = t.cfg.get("skip", [])
+        # Headers of the target that define one of the inline-assembly helpers (not switched off by a
+        # define the target builds with).
+        self.t_builtin_headers: dict[str, str] = {}
+        for inc in t.cfg.get("includes", []):
+            for h in sorted((t.source / inc).glob("*.h")):
+                text = h.read_text(errors="replace")
+                if any(re.search(r"#\s*ifndef\s+" + re.escape(d.split("=")[0]) + r"\b", text) for d in t.cfg.get("defines", [])):
+                    continue
+                for n in BUILTINS:
+                    if n not in self.t_builtin_headers and re.search(r"\b" + n + r"\s*\([^;{}]*\)\s*\{", code_only(text)):
+                        self.t_builtin_headers[n] = h.name
+        self.replace = set(getattr(args, "replace", None) or [])
         self.intentional = set()
         cats = t.source / "config/us/unit_categories.json"
         if cats.is_file():
@@ -787,8 +835,12 @@ class Carry:
         names = self.src.gen.at.get((ov, address)) or (self.src.gen.at.get((-1, address)) if ov >= 0 else None) or []
         with_c = [n for n in names if n not in self.src.gen.no_c]
         for n in with_c:
-            if n in self.s_defs and n not in self.s_stubs:
-                return {"name": n, "how": "matched", "file": self.src.source / self.s_defs[n]}
+            unit = self.s_definition(n)
+            over = next((self.s_over[k] for k in [n, *self.s_alias.get(n, [])] if k in self.s_over), None)
+            if over and unit and n not in self.s_stubs:
+                return {"name": n, "how": "override", "file": over, "unit": unit}
+            if unit and n not in self.s_stubs and not self.s_has_asm(unit, n):
+                return {"name": n, "how": "matched", "file": unit}
         for n in with_c:
             if n in self.s_hand:
                 return {"name": n, "how": "hand", "file": self.s_hand[n]}
@@ -805,6 +857,31 @@ class Carry:
             return {"name": names[0], "how": "none", "file": None}
         return None
 
+    def s_has_asm(self, unit: Path, name: str) -> bool:
+        """Whether the definition of NAME in UNIT has an asm statement."""
+        text = code_only(unit.read_text(errors="replace"))
+        for k in (name, *self.s_alias.get(name, [])):
+            m = re.search(r'^[A-Za-z_][\w \t\*]*?[ \t\*]' + re.escape(k) + r'\s*\([^;{}]*\)\s*\{', text, re.M)
+            if m:
+                depth, i = 0, m.end() - 1
+                while i < len(text):
+                    if text[i] == "{":
+                        depth += 1
+                    elif text[i] == "}":
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    i += 1
+                return bool(ASM_STATEMENT.search(text, m.end() - 1, i))
+        return False
+
+    def s_definition(self, name: str) -> Path | None:
+        """The source file that defines NAME in C, by its own spelling or a readable one."""
+        for k in (name, *self.s_alias.get(name, [])):
+            if k in self.s_defs:
+                return self.src.source / self.s_defs[k]
+        return None
+
     def source_text(self, info: dict) -> tuple[str, Path, str | None]:
         """(the file to preprocess, where it is, the candidate marker or None)."""
         name, path = info["name"], info["file"]
@@ -812,6 +889,10 @@ class Carry:
             return path.read_text(errors="replace"), path, None
         cand = path.read_text(errors="replace")
         marker = "openrac_carry_candidate_starts_here"
+        if info["how"] == "override":
+            # An override goes at the end of the matched function's file and reads its declarations.
+            where = info["unit"]
+            return f"{where.read_text(errors='replace')}\nint {marker};\n{cand}\n", where, marker
         host = self.s_stubs.get(name)
         if host:
             where = self.src.source / host[0][0]
@@ -833,7 +914,15 @@ class Carry:
                               "apart from the other side's: " + "; ".join(by_value))
         ov = overlay_of(program)
         suffix = "_c" + (f"{ov:02d}_" if ov >= 0 else "") + f"{us_address:x}"
-        body = rename(body, own, suffix)
+        # The decompilation's inline-assembly helpers (qcopy, qzero): hostgen runs its own for them by
+        # name. Where the target has a header that defines one, the carried C includes it instead of a
+        # copy of its own; elsewhere the copy stays, renamed apart like the other helpers.
+        heads = []
+        for n in [n for n in own if n in BUILTINS and n in self.t_builtin_headers]:
+            body = drop_definition(body, n)
+            own = [o for o in own if o != n]
+            heads.append(f'#include "{self.t_builtin_headers[n]}"\n')
+        body = "".join(dict.fromkeys(heads)) + rename(body, own, suffix)
         sentinel = "openrac_carry_target"
         for name in aliases:
             body = re.sub(r"\b" + re.escape(name) + r"\b", sentinel, body)
@@ -849,7 +938,8 @@ class Carry:
         except ValueError:
             origin = rel_root(info["file"])
         how = {"matched": "matched C there", "hand": "the port's hand C there",
-               "functional": "functional C there, not matched"}[info["how"]]
+               "functional": "functional C there, not matched",
+               "override": "the port's override of the matched C there"}[info["how"]]
         head = (f"/* {MARK} from {origin}: {info['name']}, "
                 f"{how}.\n * Kind `{kind}` in the version map (../../README.md): the two versions have the same "
                 f"instructions for it.\n * Names and addresses are this version's. Functional C, not matched C. */\n")
@@ -922,8 +1012,9 @@ class Carry:
         covered = []
         for name in names:
             locs = self.locations(name)
-            if name in self.ours and name in stubs:
-                # C this tool carried before: carried again, from what the source has now.
+            if name in stubs and (name in self.ours or name in self.replace):
+                # C this tool carried before: carried again, from what the source has now. Or C the
+                # target has of its own that is to give way to the source's (--replace).
                 out[name] = {"places": locs, "stub": True}
                 continue
             has = sorted({n for loc in locs for n in self.tgt.gen.with_c(*loc)} - {name})
@@ -1050,7 +1141,7 @@ class Carry:
         if info and info["how"] == "host":
             return {**base, "result": "skip", "why": f"PAL's port runs {pal_name} as host C or a library; "
                     "this version needs its own entry there (rac1_version.h, libraries.tsv, host_functions)"}
-        has_c = info is not None and info["how"] in ("matched", "hand", "functional")
+        has_c = info is not None and info["how"] in ("override", "matched", "hand", "functional")
         if kind == "near":
             if has_c:
                 return {**base, "result": "near", "pal_c": rel_root(info["file"]), "us_asm": asm, "bytes": size}
@@ -1123,15 +1214,28 @@ def write_results(c: Carry, res: dict) -> dict:
         removed.append({"us_name": r[0], "file": f, "file_removed": gone})
     have = {line.split("\t")[0] for line in keep_lines if "\t" in line and not line.startswith("#")}
     added = []
+    replaced = []
     for e in sorted(res["carried"], key=lambda e: e["us_name"]):
         name = e["us_name"]
         (folder / f"{name}.c").write_text(e["text"])
+        if name in have and name in c.replace:
+            # Its row now names the carried file; the file it named goes when no row uses it.
+            for i, line in enumerate(keep_lines):
+                cols = line.split("\t")
+                if len(cols) > 1 and not line.startswith("#") and cols[0] == name and cols[1].strip() != f"functional/{name}.c":
+                    old = cols[1].strip()
+                    keep_lines[i] = f"{name}\tfunctional/{name}.c"
+                    replaced.append({"us_name": name, "was": old})
+                    users = {l.split("\t")[1].strip() for l in keep_lines if "\t" in l and not l.startswith("#")}
+                    if old not in users and (table.parent / old).is_file():
+                        (table.parent / old).unlink()
+            continue
         if name not in have:
             keep_lines.append(f"{name}\tfunctional/{name}.c")
             have.add(name)
             added.append(name)
     table.write_text("\n".join(keep_lines) + "\n")
-    return {"stale_removed": removed, "rows_added": added, "withdrawn": withdrawn}
+    return {"stale_removed": removed, "rows_added": added, "withdrawn": withdrawn, "replaced": replaced}
 
 
 def main(argv=None) -> int:
@@ -1147,6 +1251,8 @@ def main(argv=None) -> int:
     ap.add_argument("--no-check", action="store_true", help="do not check the carried C with Clang")
     ap.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
     ap.add_argument("--only", nargs="*", help="only these target names")
+    ap.add_argument("--replace", nargs="*", default=[],
+                    help="carry these target names even where the target's port has C of its own for them")
     args = ap.parse_args(argv)
     args.out.mkdir(parents=True, exist_ok=True)
     c = Carry(args)
@@ -1173,6 +1279,8 @@ def main(argv=None) -> int:
         summary["stale_removed"] = len(w["stale_removed"])
         summary["rows_added"] = len(w["rows_added"])
         summary["withdrawn"] = len(w["withdrawn"])
+        summary["replaced"] = len(w["replaced"])
+        (args.out / "replaced.json").write_text(json.dumps(w["replaced"], indent=1) + "\n")
     print(json.dumps(summary))
     return 0
 
