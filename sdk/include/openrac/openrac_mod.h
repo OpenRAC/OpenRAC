@@ -665,6 +665,9 @@ typedef struct openrac_pose {
 /* A placed moby the game deleted (killed, broken, picked up): it stays dead for the level load,
  * listed so a mod learns of the death from the game itself, never from a moby left out. */
 #define OPENRAC_MOBY_DEAD 0x10u
+/* An actor of the in-level scene playing (scene_playing): the game made it for the scene and
+ * deletes it when the scene ends. Each game playing the scene has its own. */
+#define OPENRAC_MOBY_SCENE 0x20u
 
 /* A moby of the level (moby_list), or the pose a mod gives one (moby_pose, moby_spawn: position,
  * rotation, scale and the animation are read). Since 1.9. */
@@ -1197,6 +1200,24 @@ typedef struct openrac_api {
      * for no label, a page that is not the mod's, or past OPENRAC_UI_PAUSE_ITEMS_MAX, or
      * OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.9. */
     int (*ui_pause_item)(openrac_mod* mod, const char* label, int page);
+
+    /* The in-level scene playing now: a cutscene of the level's own, which the game starts from
+     * the level's mobys (a person spoken to, a place reached, a level's opening) or play_scene
+     * started; not a movie, a slideshow, the ship's landing and take-off, or a scene the pause
+     * menu plays again for its player. Returns its number in the level (the game's
+     * own, the same in every game of that level), or -1 with none playing; `frame` (when not null)
+     * gets how many of the scene's frames have played. Since 1.9. */
+    int (*scene_playing)(int* frame);
+
+    /* Starts the level's scene `scene` (scene_playing's number) as the game's own trigger does,
+     * from its start: its actors made, its camera, sound and music, the hero held until it ends
+     * (or is skipped: play_skip). It starts at the end of a tick with the player in control in the
+     * level (OPENRAC_PLAY_PLAYING, the hero alive); asked before that (a menu up, another scene
+     * playing), the request waits, until it starts, the level is left or loaded again, or another
+     * call replaces it (-1 drops it). For a party whose games play the same scenes. Returns
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level, or for a game the port starts no
+     * scenes of. Since 1.9. */
+    int (*play_scene)(openrac_mod* mod, int scene);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

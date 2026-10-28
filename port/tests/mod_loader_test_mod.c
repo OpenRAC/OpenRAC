@@ -185,14 +185,15 @@ static int world_hit(void* user, const openrac_hit* hit) {
  * a frame (8000s). Frame 1: the list (count, keys, flags, a short buffer), slots by key, drives
  * (a dead slot refused, the flag shown), poses, kills, a spawn (driven), the hero's slot, eyes,
  * bolts, a stand-in outside the gate, a hit posted, and the gate and the watcher asked for after
- * load (refused). Frame 2 (the level loaded again): no drive left. */
+ * load (refused); the level's scenes (none playing, one started and then playing with its frames,
+ * a request dropped). Frame 2 (the level loaded again): no drive left. */
 static void world_frame(void) {
     openrac_moby list[8];
     openrac_moby pose = {0};
     openrac_hit hit = {sizeof hit, 1, 0, 4, 3.0f, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}};
     const float eyes[24] = {0};
     const float where[3] = {0};
-    int i, n;
+    int i, n, frame = -1;
     for (i = 0; i < 8; i++) {
         list[i].size = sizeof list[i];
     }
@@ -235,6 +236,11 @@ static void world_frame(void) {
         s_record(8320 + -s_api->play_overlay_pause(s_mod, 1));
         s_record(8330 + -s_api->play_skip(s_mod));
         s_record(8340 + -s_api->play_notice(s_mod, "Waiting for the other players to arrive"));
+        s_record(8350 + s_api->scene_playing(&frame) + 1 + frame);
+        s_record(8360 + -s_api->play_scene(s_mod, 3));
+        s_record(8370 + s_api->scene_playing(&frame));
+        s_record(8380 + (frame == 42));
+        s_record(8390 + -s_api->play_scene(s_mod, -1));
         s_record(8400 + -s_api->hero_stand_in(s_mod, where, -1));
         s_record(8500 + -s_api->moby_hit(s_mod, &hit));
         hit.victim = 5;

@@ -109,4 +109,14 @@ int rac1_figure_owned(gaddr moby);
 void rac1_figure_hit_dropped(const char* what);
 gaddr rac1_updating_moby(void);
 
+/* scenes.c: the level's in-game scenes for the mods (interface 1.9; play.c's table): the one
+ * playing and a mod's to start, around the moby loop (crash_state.c: the game mode as it begins; a
+ * scene its mobys started, and a mod's started once the player is in control, after it); and
+ * whether a moby is an actor of the scene playing (world.c's listing). */
+int32_t rac1_scene_playing(int32_t* frame);
+int rac1_scene_start(int32_t scene);
+void rac1_scenes_loop_begin(void);
+void rac1_scenes_tick(void);
+int rac1_scene_actor(gaddr moby);
+
 #endif /* OPENRAC_RAC1_H */

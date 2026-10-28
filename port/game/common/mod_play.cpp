@@ -591,6 +591,26 @@ int api_play_notice(openrac_mod* mod, const char* text) {
     return OPENRAC_HOOK_OK;
 }
 
+// The level's scenes: the one playing, and one to start as the level's own trigger does (the game
+// starts it once the player is in control; -1 drops a request still waiting).
+int api_scene_playing(int* frame) {
+    std::int32_t played = 0;
+    const std::int32_t scene =
+        g_play != nullptr && g_play->scene_playing != nullptr ? g_play->scene_playing(&played) : -1;
+    if (frame != nullptr) {
+        *frame = scene >= 0 ? played : 0;
+    }
+    return scene >= 0 ? scene : -1;
+}
+
+int api_play_scene(openrac_mod* mod, int scene) {
+    if (mod == nullptr || g_play == nullptr || g_play->scene_start == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->scene_start(scene < 0 ? -1 : scene) != 0 ? OPENRAC_HOOK_OK
+                                                            : OPENRAC_HOOK_UNKNOWN;
+}
+
 // The game's calls (game_host.h): the gate around an update, and a hit posted.
 int game_moby_update(std::int32_t slot, int phase) {
     // A driven moby's update does not run, and the gate is not asked.
@@ -671,6 +691,8 @@ void fill_play_api(
     api.hero_shots = api_hero_shots;
     api.figure_shot = api_figure_shot;
     api.play_notice = api_play_notice;
+    api.scene_playing = api_scene_playing;
+    api.play_scene = api_play_scene;
 }
 
 void play_loading(const openrac_mod* mod) {
@@ -733,6 +755,10 @@ void reset_play() {
         g_notice.clear();
     }
     g_skip_ticks = 0;
+    // A scene a mod asked for and the game has not started yet.
+    if (g_play != nullptr && g_play->scene_start != nullptr) {
+        g_play->scene_start(-1);
+    }
     g_figures.fill(Figure{});
     g_request = Request{};
     std::fill(g_drives.begin(), g_drives.end(), Drive{});

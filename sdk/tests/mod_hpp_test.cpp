@@ -528,6 +528,20 @@ int host_figure_shot(openrac_mod*, int id, const openrac_shot* shot) {
     return id == 0 && shot->size == sizeof *shot ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+// The level's scene (1.9): -1 none; a scene asked for plays at once, at frame 30.
+int g_scene = -1;
+
+int host_scene_playing(int* frame) {
+    *frame = g_scene >= 0 ? 30 : 0;
+    return g_scene;
+}
+
+int host_play_scene(openrac_mod*, int scene) {
+    g_world.push_back("scene " + std::to_string(scene));
+    g_scene = scene;
+    return OPENRAC_HOOK_OK;
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -603,6 +617,8 @@ openrac_api make_api() {
     api.figure_held = host_figure_held;
     api.hero_shots = host_hero_shots;
     api.figure_shot = host_figure_shot;
+    api.scene_playing = host_scene_playing;
+    api.play_scene = host_play_scene;
     return api;
 }
 
@@ -829,6 +845,26 @@ void check_held(openrac::Mod& mod, openrac_api& api) {
     g_world.clear();
     CHECK(!mod.has_held() && !mod.hero_held(held) && held.count == 0);
     CHECK(!mod.figure_held(0, held) && mod.hero_shots().empty() && !mod.figure_shot(0, shot));
+    CHECK(g_world.empty());
+    api.size = size;
+}
+
+// Checks the level's scenes (1.9): none playing, one started and then playing with its frames, a
+// request dropped; nothing on a port whose table ends before them.
+void check_scenes(openrac::Mod& mod, openrac_api& api) {
+    CHECK(mod.has_scenes());
+    g_world.clear();
+    int frame = -1;
+    CHECK(mod.scene_playing(&frame) == -1 && frame == 0 && mod.scene_playing() == -1);
+    CHECK(mod.play_scene(4) && mod.scene_playing(&frame) == 4 && frame == 30);
+    CHECK(mod.play_scene(-1) && mod.scene_playing() == -1);
+    CHECK((g_world == std::vector<std::string>{"scene 4", "scene -1"}));
+    // A port whose table ends at ui_pause_item: no scenes.
+    const std::uint32_t size = api.size;
+    api.size = static_cast<std::uint32_t>(offsetof(openrac_api, ui_pause_item) + sizeof(void*));
+    g_world.clear();
+    frame = -1;
+    CHECK(!mod.has_scenes() && mod.scene_playing(&frame) == -1 && frame == 0 && !mod.play_scene(4));
     CHECK(g_world.empty());
     api.size = size;
 }
@@ -1272,6 +1308,7 @@ int main() {
     check_play(mod, api);
     check_world(mod, api);
     check_held(mod, api);
+    check_scenes(mod, api);
     check_refused_loads(api, handle);
     check_reload(api, handle);
 

@@ -84,6 +84,7 @@ enum {
 #define FLAG_PLACED 0x4u
 #define FLAG_CREATURE 0x8u
 #define FLAG_DEAD 0x10u
+#define FLAG_SCENE 0x20u
 /* A placed moby deleted (DeleteMoby): its slot is never used again in the level load. */
 #define STATE_DELETED 0xFDu
 /* The most records a level's file has that the keys follow, and eyes. */
@@ -208,7 +209,8 @@ int rac1_world_mobys(openrac_game_moby_state* out, int max) {
                 (GREF(gaddr, m + MOBY_UPDATE) != 0 ? FLAG_UPDATES : 0u)
                 | (slot < placed ? FLAG_PLACED : 0u) | (state >= 0x80 ? FLAG_DEAD : 0u)
                 | (cls != 0 && GREF(uint16_t, cls + CLASS_TYPE) == TYPE_CREATURE ? FLAG_CREATURE
-                                                                                 : 0u);
+                                                                                 : 0u)
+                | (rac1_scene_actor(m) ? FLAG_SCENE : 0u);
             s->state = state;
             for (unsigned i = 0; i < 3; ++i) {
                 s->position[i] = GREF(float, m + MOBY_POS + 4u * i);

@@ -374,6 +374,12 @@ typedef struct openrac_game_play {
     void (*figure_held)(gaddr figure, const openrac_game_held* held);
     int (*hero_shots)(openrac_game_shot* out, int max);
     int (*figure_shot)(gaddr figure, const openrac_game_shot* shot);
+    /* The level's scenes (interface 1.9: openrac_api.scene_playing, play_scene): the one playing
+     * (its number in the level, -1 for none) and its frames played into `frame`; a scene to start
+     * as the level's own trigger does, once the player is in control (-1 drops one waiting): 1
+     * asked, 0 refused (no level). NULL for a game without them. */
+    int32_t (*scene_playing)(int32_t* frame);
+    int (*scene_start)(int32_t scene);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

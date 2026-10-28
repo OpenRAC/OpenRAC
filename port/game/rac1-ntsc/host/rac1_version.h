@@ -144,6 +144,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_0029A940__game game_FUN_L00_002995d0__game
 #define func_L00_0029AB38 game_FUN_L00_002997c8
 #define func_L00_0029AB38__game game_FUN_L00_002997c8__game
+/* The level's scenes (scenes.c): PAL StartCutscene func_L00_00299B68 is FUN_L00_00298840 here,
+ * the port's host C (rac1-ntsc/host/scene_start.c); its block, PAL cutscene_state
+ * D_L00_0016C960, is D_L00_0016C860 (the address scene_start.c clears and numbers). */
+#define func_L00_00299B68 game_FUN_L00_00298840
+#define RAC1_ADDR_L00_0x0016C960u 0x0016C860u
 
 /* The page menu's (front_end.c, mod_ui.cpp), checked by hand in the US data and code: the title's
  * main page (initialize_menu_preview_scene's), the Options page (its back is the main page, its

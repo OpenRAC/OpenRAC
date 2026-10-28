@@ -1296,6 +1296,29 @@ public:
         }
     }
 
+    // Since 1.9: whether the port offers the level's scenes (scene_playing(), play_scene()).
+    bool has_scenes() const {
+        return has_world() && m_api->size >= offsetof(openrac_api, play_scene) + sizeof(void*);
+    }
+
+    // Since 1.9: the in-level scene playing (its number in the level), -1 for none; `frame` (when
+    // not null) gets how many of its frames have played.
+    int scene_playing(int* frame = nullptr) const {
+        int played = 0;
+        const int scene = has_scenes() ? m_api->scene_playing(&played) : -1;
+        if (frame != nullptr) {
+            *frame = scene >= 0 ? played : 0;
+        }
+        return scene;
+    }
+
+    // Since 1.9: starts the level's scene `scene` from its start as the game's own trigger does,
+    // once the player is in control (-1 drops a request still waiting); false outside a level or
+    // for a port without scenes.
+    bool play_scene(int scene) const {
+        return has_scenes() && m_api->play_scene(m_handle, scene) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none.
     int moby_slot_of(gaddr moby) const { return has_world() ? m_api->moby_slot_of(moby) : -1; }
 

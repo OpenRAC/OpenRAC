@@ -240,6 +240,9 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool play_notice(const std::string& text) const` | Since 1.9: a line at the top of the game's picture until replaced or cleared (""); false for a port without it. |
 | `bool has_pause_items() const` | Since 1.9: whether the port offers items of the pause menu's Options page (ui_pause_item()). |
 | `void ui_pause_item(const char* label, const UiPage& page)` | Since 1.9: adds an item named `label` to the Options page of the pause menu in a level, opening `page`. Throws openrac::Error when refused. Only during load. |
+| `bool has_scenes() const` | Since 1.9: whether the port offers the level's scenes (scene_playing(), play_scene()). |
+| `int scene_playing(int* frame = nullptr) const` | Since 1.9: the in-level scene playing (its number in the level), -1 for none; `frame` (when not null) gets how many of its frames have played. |
+| `bool play_scene(int scene) const` | Since 1.9: starts the level's scene `scene` from its start as the game's own trigger does, once the player is in control (-1 drops a request still waiting); false outside a level or for a port without scenes. |
 | `int moby_slot_of(gaddr moby) const` | Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none. |
 | `bool play_overlay_pause(bool on) const` | Since 1.9: the world keeps running under the game's menus while `on`; false for a game without it. |
 | `Memory memory() const` | Returns a view of game memory. |

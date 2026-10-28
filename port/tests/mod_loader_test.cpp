@@ -132,12 +132,15 @@ const char* const kLevelNames[] = {"Veldin", "Novalis", "Aridia", "Kerwan", "Eud
 // a moby at 0x3000 + 0x100 * slot, a spawn making slot 3, the hero's moby in slot 9, and the bolts.
 bool g_live[8] = {true, true, true, false, false, false, false, false};
 int g_bolts = 100;
+// The level's scene playing (-1 none): a scene asked for plays at once, at frame 42.
+std::int32_t g_scene = -1;
 constexpr std::int32_t kKeys[] = {0, 1, -1};
 
 void reset_world() {
     std::fill(std::begin(g_live), std::end(g_live), false);
     std::fill(g_live, g_live + 3, true);
     g_bolts = 100;
+    g_scene = -1;
 }
 
 std::int32_t slot_at(gaddr moby) {
@@ -267,6 +270,17 @@ const openrac_game_play kPlay = {
     [](gaddr, const openrac_game_shot* shot) {
         g_played.push_back("shot " + std::to_string(shot->item));
         return shot->item == 15 ? 1 : 0;
+    },
+    [](std::int32_t* frame) {
+        *frame = 42;
+        return g_scene;
+    },
+    [](std::int32_t scene) {
+        g_played.push_back("scene_start " + std::to_string(scene));
+        if (scene >= 0) {
+            g_scene = scene;
+        }
+        return 1;
     },
 };
 
@@ -612,10 +626,16 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              8210,
              8220,
              8305,
-             // The world kept running under the game's menus; a skip asked for.
+             // The world kept running under the game's menus; a skip asked for; no scene playing
+             // (its frame left 0), scene 3 started and playing at frame 42, a request dropped.
              8320,
              8330,
              8340,
+             8350,
+             8360,
+             8373,
+             8381,
+             8390,
              // A stand-in outside the gate; a hit posted, a hit to a dead slot; the gate and the
              // watcher after load.
              8401,
@@ -636,6 +656,8 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              "eyes 8",
              "eyes 0",
              "keep 1",
+             "scene_start 3",
+             "scene_start -1",
              "post_hit 1 0 4 3",
          })
     );
@@ -674,8 +696,8 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(!mods::play_skipping());
     CHECK(mods::play_notice().empty());
     CHECK(openrac_game_moby_update == nullptr && openrac_game_moby_hit == nullptr);
-    // Reset lets the world stop under menus again.
-    CHECK((g_played == std::vector<std::string>{"keep 0"}));
+    // Reset lets the world stop under menus again, and drops a scene still to start.
+    CHECK((g_played == std::vector<std::string>{"scene_start -1", "keep 0"}));
 }
 
 // The pages of the game's own menus (interface 1.7): the pages and the main-menu item listed, a

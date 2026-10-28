@@ -460,6 +460,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `hero_held(&held)`, `figure_held(mod, id, &held)` (1.9) | what the hero wears and holds (at most `OPENRAC_HELD_MAX`, 8, pieces: in Ratchet & Clank the hand's item, the wrench or the weapon or gadget equipped, then Clank and the packs, the boots, the helmet), each with the game's slot, item, class, the body's joint it follows, whether it is hidden or off the body (a thrown wrench, with its place) and its own animation; a figure made to wear and hold the same, each tick it is posed: each piece a moby of its class on the figure's joint, made when this game has its class loaded or can load it beside the hero's own (two weapon classes fit at once), the hand's item falling back to the wrench, taken off when left out, with the figure or with its level |
 | `hero_shots(out, max)`, `figure_shot(mod, id, &shot)` (1.9) | the shots the hero fired since the last call (at most `OPENRAC_SHOTS_MAX`, 16, kept): the weapon's item, where it starts, its velocity and the game's aim angles (Ratchet & Clank: the Blaster's and the Bomb Glove's); a figure firing one as the hero would, the game's own projectile and its effects owned by the figure, which hit and break nothing in this game (`OPENRAC_HOOK_UNKNOWN` for a weapon the port cannot fire for a figure) |
 | `play_notice(mod, text)` (1.9) | a line of text at the top of the game's picture (the port's status badge) until the mod shows another or clears it (null or ""): what the game's own words cannot say, such as a party waiting for its players. The last mod's line shows |
+| `scene_playing(&frame)`, `play_scene(mod, scene)` (1.9) | the level's own scene playing (a cutscene the level's mobys started, or play_scene: a person spoken to, a place reached, a level's opening; not a movie, the ship's landing or the pause menu's replays): its number in the level, the same in every game, and the frames played, -1 for none; and that scene started as the level's trigger starts it, from its start (its actors, camera, sound, the hero held), once the player is in control (the request waits through a menu or another scene, goes with the level, -1 drops it). A scene's actors are listed with `OPENRAC_MOBY_SCENE`. For a party whose games play the same scenes |
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -740,6 +741,8 @@ into the port: nothing of it crosses the boundary.
   `mod.hero_shots()` (a vector) and `mod.figure_shot(id, shot)`: the held pieces
   and the shots, answering nothing on a port whose table ends before them.
 - `mod.has_notice()` (1.9) and `mod.play_notice(text)`: a line over the game's picture, "" clears it.
+- `mod.has_scenes()` (1.9), `mod.scene_playing(&frame)` and `mod.play_scene(scene)`: the level's
+  scenes, answering none on a port whose table ends before them.
 - `mod.on_frame(fn)`, `mod.on_pad(fn)`, `openrac::Memory` (typed reads and
   writes at game addresses), `openrac::StackFrame` (RAII over `stack_push` and
   `stack_pop`).
