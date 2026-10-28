@@ -1052,9 +1052,11 @@ typedef struct openrac_api {
      * game has not, or a save it does not take. Since 1.8. */
     int (*play_start)(openrac_mod* mod, int level, const void* save, size_t size);
 
-    /* In a level with the player in control (phase OPENRAC_PLAY_PLAYING): leaves it for `level`,
-     * after this frame, as the ship's travel does (the flight between planets, then the level);
-     * -1 goes back to the title, as the pause menu's Quit Game does (since 1.9).
+    /* In a level with the player in control (phase OPENRAC_PLAY_PLAYING), and since 1.9 also in
+     * its scenes and menus (OPENRAC_PLAY_SCENE, OPENRAC_PLAY_MENU: a cutscene, the pause menu, a
+     * vendor): leaves it for `level`, after this frame, as the ship's travel does (the flight
+     * between planets, then the level); -1 goes back to the title, as the pause menu's Quit Game
+     * does (since 1.9).
      * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN while a start or travel is still to happen, or
      * OPENRAC_HOOK_UNKNOWN otherwise. Since 1.8. */
     int (*play_travel)(openrac_mod* mod, int level);
@@ -1170,6 +1172,11 @@ typedef struct openrac_api {
      * tells what it hit). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a figure that is not
      * the mod's, or a weapon the port cannot fire for a figure. Since 1.9. */
     int (*figure_shot)(openrac_mod* mod, int id, const openrac_shot* shot);
+
+    /* Shows `text` (one line, UTF-8) at the top of the game's picture until the mod shows another
+     * or clears it (null or ""): what the game's own words cannot say, such as a party waiting for
+     * its players. Returns OPENRAC_HOOK_OK. Since 1.9. */
+    int (*play_notice)(openrac_mod* mod, const char* text);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

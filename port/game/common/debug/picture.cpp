@@ -11,6 +11,7 @@
 #include <string>
 
 #include "debug/overlay.h"
+#include "mods.h"
 #include "renderer/math.h"
 
 namespace openrac::frontend::debug_overlay {
@@ -103,7 +104,9 @@ void status_badge() {
                  : std::format("SPEED 1/{}", static_cast<int>(s.stretch));
     }
     const std::string capture = capture_badge();
-    if (line.empty() && s.toast.empty() && s.notice.empty() && capture.empty()) {
+    // A mod's line (openrac_api.play_notice): a party waiting for its players.
+    const std::string mod_line = mods::play_notice();
+    if (line.empty() && s.toast.empty() && s.notice.empty() && capture.empty() && mod_line.empty()) {
         return;
     }
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -129,6 +132,9 @@ void status_badge() {
         }
         if (!s.notice.empty()) {
             text_coloured(kRed, "{}", s.notice);
+        }
+        if (!mod_line.empty()) {
+            text_coloured(kYellow, "{}", mod_line);
         }
     }
     ImGui::End();

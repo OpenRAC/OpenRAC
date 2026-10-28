@@ -128,6 +128,10 @@ void play_update();
 // read: the skip is pressed for a while (frontend/input.cpp, skip_after_mods).
 bool play_skipping();
 
+// The line a mod shows over the game's picture (openrac_api.play_notice), empty for none; the
+// debug overlay draws it. From any thread.
+std::string play_notice();
+
 // The front-end menu entries the mods added (interface 1.5), in load order: how many, and an
 // entry's label ("" past the list).
 int menu_entry_count();

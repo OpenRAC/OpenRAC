@@ -236,6 +236,8 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool figure_held(int id, const openrac_held& held) const` | Since 1.9: has figure `id` wear and hold `held` (its size set here), each tick it is posed; false for a figure gone with its level. |
 | `std::vector<openrac_shot> hero_shots() const` | Since 1.9: the shots the hero fired since the last call, oldest first. |
 | `bool figure_shot(int id, const openrac_shot& shot) const` | Since 1.9: has figure `id` fire `shot` (its size set here), hitting nothing in this game; false for a figure gone or a weapon the port cannot fire for one. |
+| `bool has_notice() const` | Since 1.9: whether the port offers play_notice(). |
+| `bool play_notice(const std::string& text) const` | Since 1.9: a line at the top of the game's picture until replaced or cleared (""); false for a port without it. |
 | `int moby_slot_of(gaddr moby) const` | Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none. |
 | `bool play_overlay_pause(bool on) const` | Since 1.9: the world keeps running under the game's menus while `on`; false for a game without it. |
 | `Memory memory() const` | Returns a view of game memory. |

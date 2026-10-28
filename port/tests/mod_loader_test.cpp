@@ -537,6 +537,13 @@ void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     mods::frame();
     CHECK((g_records == std::vector<int>{7003, 7601, 7731, 7601}));
     CHECK(g_played.size() == 6);
+    // In the level's pause menu (1.9): a travel leaves from there too.
+    g_phase = OPENRAC_GAME_PHASE_MENU;
+    g_records.clear();
+    mods::frame();
+    CHECK((g_records == std::vector<int>{7005, 7810}));
+    mods::play_update();
+    CHECK(g_played.back() == "travel 3");
     mods::reset();
 }
 
@@ -602,6 +609,7 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              // The world kept running under the game's menus; a skip asked for.
              8320,
              8330,
+             8340,
              // A stand-in outside the gate; a hit posted, a hit to a dead slot; the gate and the
              // watcher after load.
              8401,
@@ -651,11 +659,14 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     mods::frame();
     CHECK((g_records == std::vector<int>{8603, 8610}));
     CHECK(openrac_game_moby_update(1, OPENRAC_MOBY_BEFORE) == 0);
-    // The skip the mod asked for is pressed over the next pad reads, then no more; reset forgets it.
+    // The skip the mod asked for is pressed over the next pad reads, then no more; reset forgets it,
+    // and the mod's line over the picture.
     CHECK(mods::play_skipping() && mods::play_skipping());
+    CHECK(mods::play_notice() == "Waiting for the other players to arrive");
     g_played.clear();
     mods::reset();
     CHECK(!mods::play_skipping());
+    CHECK(mods::play_notice().empty());
     CHECK(openrac_game_moby_update == nullptr && openrac_game_moby_hit == nullptr);
     // Reset lets the world stop under menus again.
     CHECK((g_played == std::vector<std::string>{"keep 0"}));

@@ -1261,6 +1261,17 @@ public:
         return has_held() && m_api->figure_shot(m_handle, id, &s) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.9: whether the port offers play_notice().
+    bool has_notice() const {
+        return has_world() && m_api->size >= offsetof(openrac_api, play_notice) + sizeof(void*);
+    }
+
+    // Since 1.9: a line at the top of the game's picture until replaced or cleared (""); false for
+    // a port without it.
+    bool play_notice(const std::string& text) const {
+        return has_notice() && m_api->play_notice(m_handle, text.c_str()) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none.
     int moby_slot_of(gaddr moby) const { return has_world() ? m_api->moby_slot_of(moby) : -1; }
 

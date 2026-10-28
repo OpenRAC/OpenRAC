@@ -149,6 +149,9 @@ static void play_frame(void) {
         s_record(7600 + -s_api->figure_pose(s_mod, s_figure, &pose));
         s_record(7730 + -s_api->figure_held(s_mod, s_figure, &held));
         s_record(7600 + -s_api->figure_remove(s_mod, s_figure));
+    } else if (s_frames == 4) {
+        /* Interface 1.9: a travel from the level's menu (a party's member taken along). */
+        s_record(7810 + -s_api->play_travel(s_mod, 3));
     }
 }
 
@@ -228,6 +231,7 @@ static void world_frame(void) {
         s_record(8300 + s_api->bolts(5) - 100);
         s_record(8320 + -s_api->play_overlay_pause(s_mod, 1));
         s_record(8330 + -s_api->play_skip(s_mod));
+        s_record(8340 + -s_api->play_notice(s_mod, "Waiting for the other players to arrive"));
         s_record(8400 + -s_api->hero_stand_in(s_mod, where, -1));
         s_record(8500 + -s_api->moby_hit(s_mod, &hit));
         hit.victim = 5;

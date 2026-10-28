@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -282,6 +283,12 @@ int api_play_start(openrac_mod* mod, int level, const void* save, size_t size) {
     return OPENRAC_HOOK_OK;
 }
 
+// A level's phases, where a travel may leave it from (1.9: its scenes and menus too, as the pause
+// menu's Quit Game leaves from the menu: a party's member goes with its host from anywhere).
+bool in_a_level(int phase) {
+    return phase == OPENRAC_PLAY_PLAYING || phase == OPENRAC_PLAY_SCENE || phase == OPENRAC_PLAY_MENU;
+}
+
 int api_play_travel(openrac_mod* mod, int level) {
     std::int32_t now = -1;
     if (mod == nullptr || g_play == nullptr) {
@@ -290,7 +297,7 @@ int api_play_travel(openrac_mod* mod, int level) {
     if (g_request.kind != Request::Kind::kNone) {
         return OPENRAC_HOOK_TAKEN;
     }
-    if (phase_now(&now) != OPENRAC_PLAY_PLAYING || level < -1 || level >= g_play->levels) {
+    if (!in_a_level(phase_now(&now)) || level < -1 || level >= g_play->levels) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     g_request = {Request::Kind::kTravel, mod, level, {}};
@@ -569,6 +576,20 @@ int api_figure_shot(openrac_mod* mod, int id, const openrac_shot* shot) {
     return g_play->figure_shot(f->moby, &s) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+// One line over the game's picture, the last mod's to set it: set on the game's thread, drawn on
+// the window's.
+std::mutex g_notice_lock;
+std::string g_notice;
+
+int api_play_notice(openrac_mod* mod, const char* text) {
+    if (mod == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_notice_lock);
+    g_notice = text != nullptr ? text : "";
+    return OPENRAC_HOOK_OK;
+}
+
 // The game's calls (game_host.h): the gate around an update, and a hit posted.
 int game_moby_update(std::int32_t slot, int phase) {
     // A driven moby's update does not run, and the gate is not asked.
@@ -648,6 +669,7 @@ void fill_play_api(
     api.figure_held = api_figure_held;
     api.hero_shots = api_hero_shots;
     api.figure_shot = api_figure_shot;
+    api.play_notice = api_play_notice;
 }
 
 void play_loading(const openrac_mod* mod) {
@@ -680,7 +702,7 @@ void play_update() {
             r.save.empty() ? "a new game in level " + std::to_string(r.level)
                            : "a save" + (r.level >= 0 ? " in level " + std::to_string(r.level) : "")
         );
-    } else if (r.kind == Request::Kind::kTravel && phase == OPENRAC_PLAY_PLAYING) {
+    } else if (r.kind == Request::Kind::kTravel && in_a_level(phase)) {
         const bool going = g_play->travel(r.level) != 0;
         log::info(
             "mods: {} {} {}",
@@ -699,7 +721,16 @@ bool play_skipping() {
     return true;
 }
 
+std::string play_notice() {
+    const std::lock_guard<std::mutex> lock(g_notice_lock);
+    return g_notice;
+}
+
 void reset_play() {
+    {
+        const std::lock_guard<std::mutex> lock(g_notice_lock);
+        g_notice.clear();
+    }
     g_skip_ticks = 0;
     g_figures.fill(Figure{});
     g_request = Request{};

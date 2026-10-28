@@ -446,7 +446,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `play_status(&status)`, `level_name(level)` (1.8) | what the game is doing: its phase (`OPENRAC_PLAY_FRONT_END`, `_LOADING`, `_PLAYING`, `_SCENE` a cutscene, movie or the ship's landing, `_MENU` paused or a vendor; `_NONE` for a game the port knows no play of), the level played or loading, the levels, and `loads` (the level programs loaded so far: a new count, a new level, whose figures are gone); a level's name ("Veldin") |
 | `hero_pose(&pose)` (1.8) | the hero as he is drawn: position, rotation (z the yaw), scale, velocity (units a second), state, health, held item, and his animation (`seq`, `frame`, `next_frame`, `anim_time`, `anim_speed`, `OPENRAC_POSE_BLENDING`) |
 | `figure_create(mod)`, `figure_pose(mod, id, &pose)`, `figure_remove(mod, id)` (1.8) | a figure: a moby of the hero's class in the level (at most `OPENRAC_FIGURES_MAX`, 8, for all mods) that never runs his logic, collides with nothing and is no target; `figure_pose` puts it where the pose says and gives it the pose's animation (a new `seq` blends in; the figure animates by itself and is put back on the pose's key when it drifts). A figure goes with its level: `figure_pose` then says so (`OPENRAC_HOOK_UNKNOWN`) and the mod makes another |
-| `play_start(mod, level, save, size)`, `play_travel(mod, level)` (1.8) | after the frame: from the title, a new game in `level`, or a save (the memory card file's bytes) continued, nothing written to the card; in a level with the player in control, the travel to `level` (the flight between planets, then the level; -1, since 1.9, back to the title as Quit Game). One at a time (`OPENRAC_HOOK_TAKEN` while one waits) |
+| `play_start(mod, level, save, size)`, `play_travel(mod, level)` (1.8) | after the frame: from the title, a new game in `level`, or a save (the memory card file's bytes) continued, nothing written to the card; in a level with the player in control (since 1.9 also in a scene or a menu: the pause menu, a vendor), the travel to `level` (the flight between planets, then the level; -1, since 1.9, back to the title as Quit Game). One at a time (`OPENRAC_HOOK_TAKEN` while one waits) |
 | `save_capture(out, size)`, `save_slot(slot, &info)`, `save_read(slot, out, size)` (1.8) | the progress now as a save (the card file's bytes); what the card's save `slot` holds (level, bolts, gold bolts, time played; 1 a save, 0 empty, -1 past the last); its bytes, for `play_start` |
 | `moby_list(out, max)`, `moby_slot(key)` (1.9) | the level's live mobys in slot order (the index in its moby array, this game's own), each with its slot, `key` (the record the level placed it from, -1 for none: the same moby has the same key in every game that loads the level), class, state, pose and `OPENRAC_MOBY_*` flags (`_UPDATES`, `_DRIVEN`, `_PLACED`, `_CREATURE`); how many there are (more than `max`: the rest left out), 0 outside a level; the slot of a placed moby by its key, -1 for none (killed) |
 | `moby_drive(mod, slot, on)`, `moby_pose(mod, slot, &moby)`, `moby_kill(mod, slot)`, `moby_spawn(mod, oclass, &moby)` (1.9) | drive a moby (its own update no longer runs, its animation still plays and its collision follows it) or let it go; a drive ends with its level, and another mod's is `OPENRAC_HOOK_TAKEN`; put it in a pose; delete it as the game does (a placed one stays dead until its level loads again); make one of a class the level has, driven, and get its slot. A slot with no moby answers `OPENRAC_HOOK_UNKNOWN` |
@@ -458,6 +458,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `play_skip(mod)` (1.9) | skips the scene playing (a cutscene, the ship's landing or take-off, the flight between planets) the way the game's own skip does, as Start with the port's Skip cutscenes: pressed over the next ticks until the scene is over; for a party whose scenes end together |
 | `hero_held(&held)`, `figure_held(mod, id, &held)` (1.9) | what the hero wears and holds (at most `OPENRAC_HELD_MAX`, 8, pieces: in Ratchet & Clank the hand's item, the wrench or the weapon or gadget equipped, then Clank and the packs, the boots, the helmet), each with the game's slot, item, class, the body's joint it follows, whether it is hidden or off the body (a thrown wrench, with its place) and its own animation; a figure made to wear and hold the same, each tick it is posed: each piece a moby of its class on the figure's joint, made when this game has its class loaded or can load it beside the hero's own (two weapon classes fit at once), the hand's item falling back to the wrench, taken off when left out, with the figure or with its level |
 | `hero_shots(out, max)`, `figure_shot(mod, id, &shot)` (1.9) | the shots the hero fired since the last call (at most `OPENRAC_SHOTS_MAX`, 16, kept): the weapon's item, where it starts, its velocity and the game's aim angles (Ratchet & Clank: the Blaster's and the Bomb Glove's); a figure firing one as the hero would, the game's own projectile and its effects owned by the figure, which hit and break nothing in this game (`OPENRAC_HOOK_UNKNOWN` for a weapon the port cannot fire for a figure) |
+| `play_notice(mod, text)` (1.9) | a line of text at the top of the game's picture (the port's status badge) until the mod shows another or clears it (null or ""): what the game's own words cannot say, such as a party waiting for its players. The last mod's line shows |
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -509,7 +510,8 @@ standing in for another player (`on_moby_update`, `hero_stand_in`), the hit
 watcher and posted hits (`on_moby_hit`, `moby_hit`), `play_eyes` and `bolts`; the
 C++ layer's methods of the same names, and `has_world()`; and what the hero and a
 figure wear and hold and the shots they fire (`hero_held`, `figure_held`,
-`hero_shots`, `figure_shot`; `has_held()`).
+`hero_shots`, `figure_shot`; `has_held()`), and a line over the picture (`play_notice`;
+`has_notice()`).
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
@@ -734,6 +736,7 @@ into the port: nothing of it crosses the boundary.
 - `mod.has_held()` (1.9), `mod.hero_held(held)`, `mod.figure_held(id, held)`,
   `mod.hero_shots()` (a vector) and `mod.figure_shot(id, shot)`: the held pieces
   and the shots, answering nothing on a port whose table ends before them.
+- `mod.has_notice()` (1.9) and `mod.play_notice(text)`: a line over the game's picture, "" clears it.
 - `mod.on_frame(fn)`, `mod.on_pad(fn)`, `openrac::Memory` (typed reads and
   writes at game addresses), `openrac::StackFrame` (RAII over `stack_push` and
   `stack_pop`).
