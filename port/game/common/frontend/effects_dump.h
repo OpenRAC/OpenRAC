@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// Developer tools: a snapshot of the frame's effect strips and quads (what the effects pass draws:
+// the game's draw callbacks), as JSON, for a diagnostics recording. Each item carries its GS state,
+// its bounds and how far it is from Ratchet, so one drawn where it should not be can be told apart
+// and traced back to the code that sent it.
+#pragma once
+
+#include <optional>
+#include <string>
+
+#include "renderer/renderer.h"
+
+namespace openrac::frontend::effects_dump {
+
+// Snapshots are taken while armed (a recording runs), every so many frames.
+void arm(bool on);
+
+// Render thread: called with the frame's input once its effects are set; `hero` is Ratchet's
+// position when the frame has one.
+void offer(const renderer::FrameInput& input, const std::optional<renderer::Vec3>& hero);
+
+// The latest snapshot (empty when none was taken).
+std::string latest();
+
+}  // namespace openrac::frontend::effects_dump
