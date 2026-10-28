@@ -342,7 +342,12 @@ struct MobyFrame {
 // state, so a frame's mobys depend on its tick alone.
 inline MobyFrame moby_tick(const scene::LevelData& level, const SceneSize& size, double tick) {
     MobyFrame frame;
-    const auto classes = static_cast<int>(level.moby_classes.size());
+    // The class models in key order: an extracted level's class ids are not 0..N-1.
+    std::vector<std::uint32_t> models;
+    for (const auto& [id, cls] : level.moby_classes) {
+        models.push_back(cls.first);
+    }
+    const auto classes = static_cast<int>(models.size());
 
     // Nothing to place without a moby class.
     if (classes == 0) {
@@ -361,7 +366,7 @@ inline MobyFrame moby_tick(const scene::LevelData& level, const SceneSize& size,
         const float phase = random.uniform(0.0f, 6.2832f);
         const auto angle = static_cast<float>(seconds * 0.8) + phase;
         scene::Instance instance;
-        instance.model = level.moby_classes.at(cls).first;
+        instance.model = models[static_cast<std::size_t>(cls)];
         instance.matrix = renderer::multiply(
             renderer::translation(
                 {centre_x + radius * std::cos(angle), centre_y + radius * std::sin(angle), 0.0f}

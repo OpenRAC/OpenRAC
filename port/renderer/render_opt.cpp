@@ -91,6 +91,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::MobyGlowSkip, "moby-glow-skip",
      "the mobys' two glow draws leave out primitives with no glow packet vertex, all discarded",
      true, Tolerance{}},
+    {Opt::GtaoDirectDepth, "gtao-direct-depth",
+     "GTAO's colour composite samples the prepass's own depth instead of a copy of it",
+     true, Tolerance{}},
 }};
 // clang-format on
 

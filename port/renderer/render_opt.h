@@ -49,13 +49,14 @@ enum class Opt : std::uint8_t {
     SpirvDiskCache,      // spirv-disk-cache: SPIR-V kept between runs, glslang not run again
     // vk-persistent-descriptors: descriptor sets of long-lived resources kept across frames
     VkPersistentDescriptors,
-    VkLastPipeline,  // vk-last-pipeline: a program's last pipeline taken again by its key
-    FsrMotionBatch,  // fsr-motion-batch: FSR object motion drawn in pose-buffer batches
-    MobyGlowSkip,    // moby-glow-skip: the glow pass leaves out primitives with no glow vertex
+    VkLastPipeline,   // vk-last-pipeline: a program's last pipeline taken again by its key
+    FsrMotionBatch,   // fsr-motion-batch: FSR object motion drawn in pose-buffer batches
+    MobyGlowSkip,     // moby-glow-skip: the glow pass leaves out primitives with no glow vertex
+    GtaoDirectDepth,  // gtao-direct-depth: the colour composite samples the prepass depth, no copy
 };
 
-// The number of entries: MobyGlowSkip is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::MobyGlowSkip) + 1;
+// The number of entries: GtaoDirectDepth is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::GtaoDirectDepth) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in
