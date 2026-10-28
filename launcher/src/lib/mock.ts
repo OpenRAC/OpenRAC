@@ -22,6 +22,7 @@ import type { InstallState } from "./generated/InstallState";
 import type { JobEvent } from "./generated/JobEvent";
 import type { Library } from "./generated/Library";
 import type { ModSources } from "./generated/ModSources";
+import type { ModLoadSummary } from "./generated/ModLoadSummary";
 import type { PackView } from "./generated/PackView";
 import type { Platform } from "./generated/Platform";
 import type { PluginStatus } from "./generated/PluginStatus";
@@ -1594,6 +1595,22 @@ const mockPacks: PackView[] = [
   { ...samplePack("green-ratchet"), name: "Green Ratchet", enabled: false },
 ];
 
+if (query.has("summary")) {
+  mockPacks.push({
+    ...samplePack("veldin-remix"),
+    name: "Veldin terrain remix",
+    textures: 0,
+    models: 1,
+    levelFiles: 0,
+    levels: 1,
+  });
+}
+
+const summaryPreparedAt = Math.floor(Date.now() / 1000) - 120;
+const summaryPreparedPacks = mockPacks
+  .filter((p) => p.enabled)
+  .map((p) => ({ id: p.id, files: p.textures + p.models + p.levelFiles }));
+
 function start(scope: Scope, id: string, args: Record<string, unknown> = {}): Started {
   const action = findAction(scope, id);
   if (!action) throw new Error(`no action ${id}`);
@@ -2022,6 +2039,45 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay(null);
     case "overrides_list":
       return delay<PackView[]>([...mockPacks]);
+    case "overrides_summary": {
+      if (query.get("summary") === "error") throw new Error("The preparation record could not be read.");
+      const version = String(args.version).split("/")[1];
+      if (version !== "pal" && version !== "ntsc") throw new Error("Choose a supported RAC1 disc version");
+      const missing = query.get("summary") === "empty";
+      const stale =
+        query.get("summary") === "stale" ||
+        mockPacks
+          .filter((p) => p.enabled)
+          .map((p) => p.id)
+          .join(",") !== summaryPreparedPacks.map((p) => p.id).join(",");
+      return delay<ModLoadSummary>({
+        version,
+        packedVersion: version,
+        packedChanges: [
+          "level 00",
+          "  BoltCrate_0031: moved",
+          "  NanotechCrate_0048: added",
+          "  Collision: 12 faces removed",
+        ],
+        changesTruncated: false,
+        preparedAt: missing ? null : summaryPreparedAt,
+        preparedVersion: missing ? null : version,
+        stale: missing || stale,
+        packs: mockPacks
+          .filter((p) => p.enabled)
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            appliedFiles: missing ? 0 : (summaryPreparedPacks.find((s) => s.id === p.id)?.files ?? 0),
+          })),
+        packedFilesApplied: missing ? 0 : 2,
+        gameplayLevels: missing ? [] : ["level_00"],
+        sceneryLevels: [],
+        terrainLevels: !missing && summaryPreparedPacks.some((p) => p.id === "veldin-remix") ? ["level_00"] : [],
+        collisionLevels: missing ? [] : ["level_00"],
+        notes: stale ? ["Your pack selection has changed since the last preparation."] : [],
+      });
+    }
     case "overrides_set_enabled":
     case "overrides_move":
     case "overrides_remove": {

@@ -33,6 +33,7 @@ import type { ImportedSaves } from "./generated/ImportedSaves";
 import type { JobEvent } from "./generated/JobEvent";
 import type { Library } from "./generated/Library";
 import type { ModSources } from "./generated/ModSources";
+import type { ModLoadSummary } from "./generated/ModLoadSummary";
 import type { ModUpdate } from "./generated/ModUpdate";
 import type { Nanotech } from "./generated/Nanotech";
 import type { PackView } from "./generated/PackView";
@@ -277,6 +278,7 @@ export const api = {
     call<WriteResult>("write_save", { serial, slot, fingerprint, change }),
   /** A game's overrides packs (core/src/overrides.rs), in the order they apply. */
   overridesList: (game: string) => call<PackView[]>("overrides_list", { game }),
+  overridesSummary: (version: string) => call<ModLoadSummary>("overrides_summary", { version }),
   overridesSetEnabled: (game: string, id: string, enabled: boolean) =>
     call<PackView[]>("overrides_set_enabled", { game, id, enabled }),
   overridesMove: (game: string, id: string, up: boolean) => call<PackView[]>("overrides_move", { game, id, up }),
