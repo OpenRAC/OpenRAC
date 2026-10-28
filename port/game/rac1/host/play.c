@@ -219,7 +219,7 @@ static int hero_pose(openrac_game_pose* out) {
     return 1;
 }
 
-static int figure_alive(gaddr moby) {
+int rac1_figure_alive(gaddr moby) {
     if (moby == 0 || !in_level() || GREF(uint8_t, moby + MOBY_STATE) >= 0x80
         || GREF(int16_t, moby + MOBY_OCLASS) != HERO_CLASS) {
         return 0;
@@ -339,7 +339,7 @@ void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose) {
 }
 
 static void figure_pose(gaddr moby, const openrac_game_pose* pose) {
-    if (figure_alive(moby)) {
+    if (rac1_figure_alive(moby)) {
         trace_moby(moby, "pre");
         rac1_pose_moby(moby, pose);
         trace_moby(moby, pose_action);
@@ -347,9 +347,10 @@ static void figure_pose(gaddr moby, const openrac_game_pose* pose) {
 }
 
 static void figure_remove(gaddr moby) {
-    if (!figure_alive(moby)) {
+    if (!rac1_figure_alive(moby)) {
         return;
     }
+    rac1_figure_items_remove(moby);
     GREF(uint32_t, GREF(gaddr, moby + MOBY_PVARS)) = 0;
     func_0020D678(moby);
 }
@@ -457,7 +458,7 @@ const openrac_game_play rac1_play = {
     .loads = loads,
     .hero_pose = hero_pose,
     .figure_spawn = figure_spawn,
-    .figure_alive = figure_alive,
+    .figure_alive = rac1_figure_alive,
     .figure_pose = figure_pose,
     .figure_remove = figure_remove,
     .start = start,
@@ -480,4 +481,8 @@ const openrac_game_play rac1_play = {
     .eyes = rac1_world_eyes,
     .bolts = rac1_world_bolts,
     .keep_running = rac1_world_keep_running,
+    .hero_held = rac1_hero_held,
+    .figure_held = rac1_figure_held,
+    .hero_shots = rac1_hero_shots,
+    .figure_shot = rac1_figure_shot,
 };

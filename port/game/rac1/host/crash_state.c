@@ -75,6 +75,14 @@ void func_00213C78(void) {
         }
         m = GREF(gaddr, m + MOBY_NEXT);
     }
+    /* The figures' pieces on their joints, now that the figures are posed (figure_items.c). */
+    if (outer == 0) {
+        rac1_figure_items_tick();
+    }
+}
+
+gaddr rac1_updating_moby(void) {
+    return g_updating;
 }
 
 static int updating_moby(openrac_game_moby *out) {

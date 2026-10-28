@@ -238,6 +238,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_001F9B88 func_001F99C0
 #define func_001F9F90 game_FUN_001f9dc8
 #define func_001F9FA8 game_FUN_001f9de0
+#define func_001FA480 game_FUN_001fa2b8
 #define func_001FA748 game_FUN_001fa580
 #define func_001FA790 game_FUN_001fa5c8
 #define func_001FA898 game_FUN_001fa6d0
@@ -263,17 +264,21 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_00201AF0 game_FUN_002012b8
 #define func_00201AF0__game game_FUN_002012b8__game
 #define func_00204340 game_FUN_00203b08
+#define func_00205270 game_FUN_00204a40
+#define func_00205270__game game_FUN_00204a40__game
 #define func_00209DC0 game_FUN_00209370
 #define func_00209DC0__game game_FUN_00209370__game
 #define func_0020C268 func_0020B418
 #define func_0020C468 game_FUN_0020b618
 #define func_0020DD48 game_FUN_0020cef8
+#define func_0020EEE8 game_FUN_0020e098
 #define func_0020FC38 game_FUN_0020ede8
 #define func_00211808 game_FUN_002109b8
 #define func_00212258 game_FUN_00211408
 #define func_00212508 game_FUN_002116b8
 #define func_00212578 game_FUN_00211728
 #define func_00212658 game_FUN_00211808
+#define func_00214F78 game_FUN_00214128
 #define func_002167C0 game_FUN_00215970
 #define func_00218B10 game_FUN_00217c18
 #define func_00228A58 game_FUN_00227740
@@ -332,9 +337,15 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_00200290 game_FUN_001fa728
 #define func_L00_00200290__game game_FUN_001fa728__game
 #define func_L00_00201300 func_L00_00201350
+#define func_L00_00209940 game_FUN_L00_002092c8
 #define func_L00_0024F054 func_L00_0024E01C
+#define func_L00_00250928 game_FUN_L00_0024f8f0
+#define func_L00_002514B8 game_FUN_0020d580
+#define func_L00_00251E30 game_FUN_L00_00250df8
 #define func_L00_00252D20 func_L00_00251CE8
 #define func_L00_00254218 game_FUN_0020fa90
+#define func_L00_0025BA50 game_FUN_L00_0025a9f8
+#define func_L00_0025BA50__game game_FUN_L00_0025a9f8__game
 #define func_L00_0025D3C0 func_L00_0025C368
 #define func_L00_00267080 func_L00_00266238
 #define func_L00_002864E0 game_FUN_L00_00285208
@@ -346,6 +357,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_002A20E0 func_L00_002A0E50
 #define func_L00_002A2148 func_L00_002A0EB8
 #define func_L00_002A8A20 game_FUN_L00_002a7780
+#define func_L00_002AE110 game_FUN_L00_002ace70
+#define func_L00_002AE278 game_FUN_L00_002acfd8
+#define func_L00_002AE278__game game_FUN_L00_002acfd8__game
+#define func_L00_002CC3C0 game_FUN_L00_002caf70
+#define func_L00_002CC3C0__game game_FUN_L00_002caf70__game
 #define func_L00_002D9EA0 game_FUN_L00_002d89f0
 #define func_L00_002D9EA0__hooked game_FUN_L00_002d89f0__hooked
 #define func_L02_0020A690 func_L02_0020A390
@@ -401,6 +417,9 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0015F6FCu 0x0015F618u
 #define RAC1_ADDR_0x00160018u 0x0015FF18u
 #define RAC1_ADDR_0x00160030u 0x0015FF30u /* hand/functional/FUN_001e9b10.c reads it there */
+#define RAC1_ADDR_0x00160048u 0x0015FF48u
+#define RAC1_ADDR_0x0016004Cu 0x0015FF4Cu
+#define RAC1_ADDR_0x00160050u 0x0015FF50u
 #define RAC1_ADDR_0x0016044Cu 0x0016034Cu
 #define RAC1_ADDR_0x001604CCu 0x001603CCu
 #define RAC1_ADDR_0x0016055Cu 0x0016045Cu
@@ -420,13 +439,16 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0018E340u 0x0018E240u
 #define RAC1_ADDR_0x00193400u 0x00193300u
 #define RAC1_ADDR_0x001940C0u 0x00193FC0u /* the NTSC decomp's occl_visibility */
+#define RAC1_ADDR_0x001941C0u 0x001940C0u
 #define RAC1_ADDR_0x00194200u 0x00194100u
 #define RAC1_ADDR_0x001984C0u 0x001983C0u
 #define RAC1_ADDR_0x00199C60u 0x00199B60u
 #define RAC1_ADDR_0x0019A4E8u 0x0019A3E8u
 #define RAC1_ADDR_0x0019BEC0u 0x0019BDC0u
 #define RAC1_ADDR_0x001AAF40u 0x001AABC0u
+#define RAC1_ADDR_0x001B3E40u 0x001B3AC0u
 #define RAC1_ADDR_0x001B7A60u 0x001B76E0u
+#define RAC1_ADDR_0x001CBE40u 0x001CBAC0u
 #define RAC1_ADDR_0x001CE720u 0x001CE3A0u
 #define RAC1_ADDR_0x001D4B9Cu 0x001D481Cu
 #define RAC1_ADDR_0x001D4BE8u 0x001D4868u
@@ -455,6 +477,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x00161488u 0x001613C0u
 #define RAC1_ADDR_L00_0x00173F40u 0x00173E40u
 #define RAC1_ADDR_L00_0x00178000u 0x00177F00u
+#define RAC1_ADDR_L00_0x00179BC0u 0x00179AC0u
+#define RAC1_ADDR_L00_0x0017A6C0u 0x0017A5C0u
 #define RAC1_ADDR_L00_0x00178200u 0x00178100u
 #define RAC1_ADDR_L00_0x0019BB60u 0x0019B7E0u
 #define RAC1_ADDR_L00_0x001B1C00u 0x001B1880u
@@ -463,6 +487,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x001C2870u 0x001C24F0u
 #define RAC1_ADDR_L00_0x001C3280u 0x001C2F00u
 #define RAC1_ADDR_L00_0x001D95E8u 0x001D92E8u
+#define RAC1_ADDR_L00_0x001E7F90u 0x001E7C10u
 #define RAC1_ADDR_L03_0x001DC460u 0x001DC1A0u
 #define RAC1_ADDR_L07_0x001D36C0u 0x001D3400u
 #define RAC1_ADDR_L07_0x00208820u 0x00208560u

@@ -88,4 +88,19 @@ void rac1_world_eyes(const float* xyz, int count);
 int32_t rac1_world_bolts(int32_t add);
 void rac1_world_keep_running(int on);
 
+/* play.c: whether `moby` is a figure made in this level load. figure_items.c: what a figure wears
+ * and holds and the shots it fires (interface 1.9; play.c's table), its pieces put on its joints
+ * after the moby loop, taken off with it, and whether a moby is a figure's (its shots: they hit
+ * nothing here). crash_state.c: the moby whose update runs now, 0 for none. */
+int rac1_figure_alive(gaddr moby);
+int rac1_hero_held(openrac_game_held* out);
+void rac1_figure_held(gaddr figure, const openrac_game_held* held);
+int rac1_hero_shots(openrac_game_shot* out, int max);
+int rac1_figure_shot(gaddr figure, const openrac_game_shot* shot);
+void rac1_figure_items_tick(void);
+void rac1_figure_items_remove(gaddr figure);
+int rac1_figure_owned(gaddr moby);
+void rac1_figure_hit_dropped(const char* what);
+gaddr rac1_updating_moby(void);
+
 #endif /* OPENRAC_RAC1_H */

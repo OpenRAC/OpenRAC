@@ -333,12 +333,22 @@ int rac1_moby_eyes(const float** xyz) {
  * changed), told to the mods; taken back when they say so. */
 static void hit_written(gaddr victim, uint8_t before, const uint8_t* old) {
     const uint8_t index = GREF(uint8_t, victim + MOBY_HIT);
-    if (openrac_game_moby_hit == NULL || index == 0xFF || index >= 64 || !main_context()) {
+    if (index == 0xFF || index >= 64 || !main_context()) {
         return;
     }
     const gaddr record = HIT_RING + (gaddr)index * HIT_SIZE;
     if (index == before && memcmp(old, G(record), HIT_SIZE) == 0) {
         return; /* refused: a fresher hit stands */
+    }
+    /* A figure's shot hits nothing here: the shooter's game tells its hits (figure_items.c). */
+    if (rac1_figure_owned(rac1_updating_moby())
+        || rac1_figure_owned(GREF(gaddr, record + HIT_ATTACKER))) {
+        GREF(uint8_t, victim + MOBY_HIT) = 0xFF;
+        rac1_figure_hit_dropped("hit");
+        return;
+    }
+    if (openrac_game_moby_hit == NULL) {
+        return;
     }
     float position[3], velocity[3];
     for (unsigned c = 0; c < 3; ++c) {
