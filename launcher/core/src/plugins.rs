@@ -972,8 +972,7 @@ pub fn mod_folders(source: &Path) -> Result<Vec<PathBuf>, String> {
     };
     let built = mods_in(&source.join("build").join("package"));
     if !built.is_empty() {
-        stale_build(&mods_in(source), &built)?;
-        return Ok(built);
+        return Ok(checkout_mods(&mods_in(source), built));
     }
     let found = mods_in(source);
     if found.is_empty() {
@@ -982,32 +981,40 @@ pub fn mod_folders(source: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(found)
 }
 
-/// Refuses a checkout whose build is older than its sources: a mod with no package, or one whose
-/// package is another version than its source's manifest. Taking such a build would quietly
-/// install the old set (a mod added to the checkout since it was last built would be missing).
-fn stale_build(sources: &[PathBuf], built: &[PathBuf]) -> Result<(), String> {
-    let id_version = |dir: &PathBuf| -> Option<(String, String)> {
-        let raw: Value = serde_json::from_str(&std::fs::read_to_string(dir.join(MANIFEST)).ok()?).ok()?;
-        Some((raw.get("id")?.as_str()?.to_string(), raw.get("version")?.as_str()?.to_string()))
+/// A checkout's mods, given its build: every built package, and each script mod from its source
+/// folder (a script mod is not built). A native mod whose source has no package of its version is
+/// left out, and the launcher's log says so: the player sees the mods that can be installed.
+fn checkout_mods(sources: &[PathBuf], mut built: Vec<PathBuf>) -> Vec<PathBuf> {
+    let manifest = |dir: &PathBuf| -> Option<Value> {
+        serde_json::from_str(&std::fs::read_to_string(dir.join(MANIFEST)).ok()?).ok()
     };
-    let packaged: BTreeMap<String, String> = built.iter().filter_map(id_version).collect();
-    let mut out_of_date = Vec::new();
-    for (id, version) in sources.iter().filter_map(id_version) {
-        match packaged.get(&id) {
-            None => out_of_date.push(format!("{id} has no build")),
-            Some(built) if *built != version => {
-                out_of_date.push(format!("{id} is built at {built}, its source is {version}"))
+    let text = |m: &Value, key: &str| m.get(key).and_then(Value::as_str).map(str::to_string);
+    let packaged: BTreeMap<String, Option<String>> =
+        built.iter().filter_map(&manifest).filter_map(|m| Some((text(&m, "id")?, text(&m, "version")))).collect();
+    for dir in sources {
+        let Some(m) = manifest(dir) else { continue };
+        let (Some(id), version) = (text(&m, "id"), text(&m, "version")) else { continue };
+        // A script mod has no library to build, so its source is what is installed.
+        if m.get("plugin").is_none() && m.get("scripts").is_some() {
+            if !packaged.contains_key(&id) {
+                built.push(dir.clone());
             }
+            continue;
+        }
+        match packaged.get(&id) {
+            None => crate::launcher_log::line(&format!(
+                "{}: {id} has no build, so it is left out (build the mods: cmake --build build)",
+                dir.display()
+            )),
+            Some(built_version) if *built_version != version => crate::launcher_log::line(&format!(
+                "{}: {id} is built at another version than its source (build the mods again: cmake --build build)",
+                dir.display()
+            )),
             Some(_) => {}
         }
     }
-    if out_of_date.is_empty() {
-        return Ok(());
-    }
-    Err(format!(
-        "this checkout's build is out of date ({}): build the mods again (cmake --build build), then add the checkout again",
-        out_of_date.join("; ")
-    ))
+    built.sort();
+    built
 }
 
 /// Copies a folder, refusing links (a mod is files and folders only).
@@ -1785,21 +1792,17 @@ mod tests {
         assert_eq!(mod_folders(&r.join("repo")).unwrap(), [r.join("repo/a"), r.join("repo/b")]);
         one(&r.join("repo/build/package/a"));
         assert_eq!(mod_folders(&r.join("repo")).unwrap(), [r.join("repo/build/package/a")]);
-        // A build older than its sources is refused, not quietly taken.
-        let with = |dir: &Path, id: &str, version: &str| {
+        // A checkout's build: its packages, and its script mods from their sources.
+        let with = |dir: &Path, manifest: Value| {
             std::fs::create_dir_all(dir).unwrap();
-            std::fs::write(dir.join(MANIFEST), json!({"id": id, "version": version}).to_string()).unwrap();
+            std::fs::write(dir.join(MANIFEST), manifest.to_string()).unwrap();
         };
-        with(&r.join("mods/one"), "one", "1.0.0");
-        with(&r.join("mods/two"), "two", "0.1.0");
-        with(&r.join("mods/build/package/one"), "one", "1.0.0");
-        let err = mod_folders(&r.join("mods")).unwrap_err();
-        assert!(err.contains("two has no build"), "{err}");
-        with(&r.join("mods/build/package/two"), "two", "0.0.9");
-        let err = mod_folders(&r.join("mods")).unwrap_err();
-        assert!(err.contains("two is built at 0.0.9, its source is 0.1.0"), "{err}");
-        with(&r.join("mods/build/package/two"), "two", "0.1.0");
-        assert_eq!(mod_folders(&r.join("mods")).unwrap().len(), 2);
+        with(&r.join("mods/one"), json!({"id": "one", "version": "1.0.0", "plugin": {"macos-arm64": "one.dylib"}}));
+        with(&r.join("mods/two"), json!({"id": "two", "version": "0.1.0", "plugin": {"macos-arm64": "two.dylib"}}));
+        with(&r.join("mods/swap"), json!({"id": "swap", "version": "1.0.0", "scripts": ["main.luau"]}));
+        with(&r.join("mods/build/package/one"), json!({"id": "one", "version": "1.0.0"}));
+        // "two" has no build: left out, not an error; "swap" comes from its source.
+        assert_eq!(mod_folders(&r.join("mods")).unwrap(), [r.join("mods/build/package/one"), r.join("mods/swap")]);
         // No mod anywhere: said.
         std::fs::create_dir_all(r.join("empty/x")).unwrap();
         assert!(mod_folders(&r.join("empty")).unwrap_err().contains("holds no OpenRAC mod"));
