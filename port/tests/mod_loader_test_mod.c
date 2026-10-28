@@ -189,6 +189,8 @@ static int world_hit(void* user, const openrac_hit* hit) {
  * a request dropped). Frame 2 (the level loaded again): no drive left. */
 static void world_frame(void) {
     openrac_moby list[8];
+    openrac_moby_deletion deletion = {sizeof deletion, 0, 0, 0, 0, 0};
+    float camera[3] = {0};
     openrac_moby pose = {0};
     openrac_hit hit = {sizeof hit, 1, 0, 4, 3.0f, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}};
     const float eyes[24] = {0};
@@ -241,6 +243,14 @@ static void world_frame(void) {
         s_record(8370 + s_api->scene_playing(&frame));
         s_record(8380 + (frame == 42));
         s_record(8390 + -s_api->play_scene(s_mod, -1));
+        s_record(8600 + -s_api->moby_hide(s_mod, 1, 1));
+        s_record(8610 + -s_api->moby_hide(s_mod, 5, 1));
+        s_record(8620 + -s_api->moby_deletion(2, &deletion));
+        s_record(8630 + deletion.by);
+        s_record(8640 + deletion.by_mod);
+        s_record(8650 + -s_api->moby_deletion(1, &deletion));
+        s_record(8660 + -s_api->camera_position(camera));
+        s_record(8670 + (int)camera[0]);
         s_record(8400 + -s_api->hero_stand_in(s_mod, where, -1));
         s_record(8500 + -s_api->moby_hit(s_mod, &hit));
         hit.victim = 5;

@@ -52,12 +52,17 @@
 #define HERO RAC1_ADDR(0x0013F450u)
 #define HERO_MOBY (HERO + 0x2080u)
 #define BOLTS RAC1_ADDR(0x0015EE98u)
+/* The camera's position (the renderer's, render_native.c). */
+#define CAMERA_POSITION RAC1_ADDR(0x00187180u)
 
 enum {
     MOBY_POS = 0x10,
     MOBY_STATE = 0x20,
+    MOBY_ALPHA = 0x23,
     MOBY_CLASS = 0x24,
     MOBY_SCALE = 0x2C,
+    MOBY_DRAWN = 0x31,
+    MOBY_MODE = 0x34,
     MOBY_ROT = 0x40,
     MOBY_FRAME = 0x50,
     MOBY_NEXT_FRAME = 0x51,
@@ -85,6 +90,10 @@ enum {
 #define FLAG_CREATURE 0x8u
 #define FLAG_DEAD 0x10u
 #define FLAG_SCENE 0x20u
+#define FLAG_HIDDEN 0x40u
+#define FLAG_DRAWN 0x80u
+/* The mode bits that keep a moby from being drawn (MobyProc: render_native.c). */
+#define MODE_HIDDEN 0x81u
 /* A placed moby deleted (DeleteMoby): its slot is never used again in the level load. */
 #define STATE_DELETED 0xFDu
 /* The most records a level's file has that the keys follow, and eyes. */
@@ -94,6 +103,18 @@ enum {
 static int16_t key_of[KEYS_MAX];  /* by slot: its key, -1 none */
 static int16_t slot_of[KEYS_MAX]; /* by key: its slot, -1 none */
 static uint32_t keys_load = 0xFFFFFFFFu;
+
+/* The last deletion seen of each slot (DeleteMoby, below): whose update did it, or a mod. */
+static struct {
+    int32_t by;
+    int32_t by_class;
+    int16_t oclass;
+    uint8_t by_mod;
+    uint8_t seen;
+    uint32_t loads;
+} deletions[KEYS_MAX];
+
+static int killing; /* rac1_world_moby_kill's DeleteMoby under way */
 
 static float eyes_xyz[EYES_MAX * 3];
 static int eyes_count;
@@ -210,7 +231,12 @@ int rac1_world_mobys(openrac_game_moby_state* out, int max) {
                 | (slot < placed ? FLAG_PLACED : 0u) | (state >= 0x80 ? FLAG_DEAD : 0u)
                 | (cls != 0 && GREF(uint16_t, cls + CLASS_TYPE) == TYPE_CREATURE ? FLAG_CREATURE
                                                                                  : 0u)
-                | (rac1_scene_actor(m) ? FLAG_SCENE : 0u);
+                | (rac1_scene_actor(m) ? FLAG_SCENE : 0u)
+                | ((GREF(uint16_t, m + MOBY_MODE) & MODE_HIDDEN) != 0
+                           || GREF(uint8_t, m + MOBY_ALPHA) == 0
+                       ? FLAG_HIDDEN
+                       : 0u)
+                | (state < 0x80 && GREF(uint8_t, m + MOBY_DRAWN) != 0 ? FLAG_DRAWN : 0u);
             s->state = state;
             for (unsigned i = 0; i < 3; ++i) {
                 s->position[i] = GREF(float, m + MOBY_POS + 4u * i);
@@ -243,9 +269,58 @@ int32_t rac1_world_moby_slot(int32_t key) {
 void rac1_world_moby_kill(gaddr moby) {
     if (moby != 0 && GREF(uint8_t, moby + MOBY_STATE) < 0x80) {
         const int entered = enter_level_context();
+        killing = 1;
         func_0020D678(moby);
+        killing = 0;
         leave_level_context(entered);
     }
+}
+
+void rac1_world_moby_hide(gaddr moby, int hidden) {
+    if (moby == 0 || GREF(uint8_t, moby + MOBY_STATE) >= 0x80) {
+        return;
+    }
+    const uint16_t mode = GREF(uint16_t, moby + MOBY_MODE);
+    GREF(uint16_t, moby + MOBY_MODE) =
+        (uint16_t)(hidden ? mode | 0x1u : mode & (uint16_t)~MODE_HIDDEN);
+}
+
+/* DeleteMoby: the game's, its slot's deletion noted first (whose update deletes it, or a mod), for
+ * a mod that wants to know why a moby left the level (interface 1.9, moby_deletion). */
+void func_0020D678(gaddr moby) {
+    const int32_t slot = in_level() && main_context() ? rac1_moby_slot(moby) : -1;
+    if (slot >= 0 && slot < KEYS_MAX && GREF(uint8_t, moby + MOBY_STATE) < 0x80) {
+        const gaddr by = rac1_updating_moby();
+        const int32_t by_slot = by != 0 ? rac1_moby_slot(by) : -1;
+        deletions[slot].by = by_slot;
+        deletions[slot].by_class = by_slot >= 0 ? GREF(int16_t, by + MOBY_OCLASS) : -1;
+        deletions[slot].oclass = GREF(int16_t, moby + MOBY_OCLASS);
+        deletions[slot].by_mod = (uint8_t)killing;
+        deletions[slot].seen = 1;
+        deletions[slot].loads = rac1_program_loads();
+    }
+    func_0020D678__game(moby);
+}
+
+int rac1_world_camera_position(float out[3]) {
+    if (!in_level()) {
+        return 0;
+    }
+    memcpy(out, G(OPENRAC_DATA(CAMERA_POSITION)), 3 * sizeof(float));
+    return 1;
+}
+
+int rac1_world_moby_deletion(int32_t slot, openrac_game_moby_deletion* out) {
+    if (slot < 0 || slot >= KEYS_MAX || !deletions[slot].seen
+        || deletions[slot].loads != rac1_program_loads()) {
+        return 0;
+    }
+    out->by = deletions[slot].by;
+    out->by_class = deletions[slot].by_class;
+    out->by_mod = deletions[slot].by_mod;
+    out->oclass = deletions[slot].oclass;
+    out->loads = deletions[slot].loads;
+    return 1;
 }
 
 int32_t rac1_world_moby_spawn(int32_t oclass) {

@@ -259,6 +259,16 @@ typedef struct openrac_game_moby_state {
     float anim_speed;
 } openrac_game_moby_state;
 
+/* How a moby of the level was deleted (interface 1.9): openrac_moby_deletion's fields after its
+ * size. */
+typedef struct openrac_game_moby_deletion {
+    int32_t by;
+    int32_t by_class;
+    int32_t by_mod;
+    int32_t oclass;
+    uint32_t loads;
+} openrac_game_moby_deletion;
+
 /* What a body wears and holds, and a shot (interface 1.9): openrac_held's and openrac_shot's
  * fields after their size. */
 #define OPENRAC_GAME_HELD_MAX 8
@@ -380,6 +390,15 @@ typedef struct openrac_game_play {
      * asked, 0 refused (no level). NULL for a game without them. */
     int32_t (*scene_playing)(int32_t* frame);
     int (*scene_start)(int32_t scene);
+    /* A moby hidden from drawing (1, as the game hides one) or shown (0) (interface 1.9:
+     * openrac_api.moby_hide); the last deletion the game made of the moby in `slot` this level
+     * load into `out` (1, or 0 for none seen: openrac_api.moby_deletion). NULL for a game without
+     * them. */
+    void (*moby_hide)(gaddr moby, int hidden);
+    int (*moby_deletion)(int32_t slot, openrac_game_moby_deletion* out);
+    /* Where the game's camera is into `out` (1, or 0 outside a level: openrac_api.camera_position).
+     * NULL for a game without it. */
+    int (*camera_position)(float out[3]);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

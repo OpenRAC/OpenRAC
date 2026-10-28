@@ -1319,6 +1319,32 @@ public:
         return has_scenes() && m_api->play_scene(m_handle, scene) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.9: whether the port offers moby_hide(), moby_deletion() and camera_position().
+    bool has_moby_detail() const {
+        return has_world() && m_api->size >= offsetof(openrac_api, camera_position) + sizeof(void*);
+    }
+
+    // Since 1.9: hides the moby in `slot` from drawing (`hidden`) or shows it again; false for no
+    // moby there or a port without it.
+    bool moby_hide(int slot, bool hidden) const {
+        return has_moby_detail()
+               && m_api->moby_hide(m_handle, slot, hidden ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: the last deletion the game made of the moby in `slot` in this level load into
+    // `out`; false for none seen or a port without it.
+    bool moby_deletion(int slot, openrac_moby_deletion& out) const {
+        out = {};
+        out.size = sizeof out;
+        return has_moby_detail() && m_api->moby_deletion(slot, &out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: where the game's camera is into `out` (x, y, z); false outside a level or for a
+    // port without it.
+    bool camera_position(float (&out)[3]) const {
+        return has_moby_detail() && m_api->camera_position(out) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none.
     int moby_slot_of(gaddr moby) const { return has_world() ? m_api->moby_slot_of(moby) : -1; }
 

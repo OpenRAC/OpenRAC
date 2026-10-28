@@ -283,6 +283,25 @@ const openrac_game_play kPlay = {
         }
         return 1;
     },
+    // A moby hidden or shown; a deletion seen of slot 2 only (a mod's, in slot 4's update); the
+    // camera at x 7.
+    [](gaddr moby, int hidden) {
+        g_played.push_back(
+            "moby_hide " + std::to_string(slot_at(moby)) + " " + std::to_string(hidden)
+        );
+    },
+    [](std::int32_t slot, openrac_game_moby_deletion* out) {
+        if (slot != 2) {
+            return 0;
+        }
+        *out = {4, 120, 1, 300, 1};
+        return 1;
+    },
+    [](float out[3]) {
+        out[0] = 7.0f;
+        out[1] = out[2] = 0.0f;
+        return 1;
+    },
 };
 
 // The state status.json gives a mod, and its reason.
@@ -637,6 +656,16 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              8373,
              8381,
              8390,
+             // A moby hidden, a dead one refused; slot 2's deletion (by slot 4, a mod's), none of
+             // slot 1; the camera.
+             8600,
+             8611,
+             8620,
+             8634,
+             8641,
+             8651,
+             8660,
+             8677,
              // A stand-in outside the gate; a hit posted, a hit to a dead slot; the gate and the
              // watcher after load.
              8401,
@@ -659,6 +688,7 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              "keep 1",
              "scene_start 3",
              "scene_start -1",
+             "moby_hide 1 1",
              "post_hit 1 0 4 3",
          })
     );

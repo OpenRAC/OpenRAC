@@ -668,6 +668,11 @@ typedef struct openrac_pose {
 /* An actor of the in-level scene playing (scene_playing): the game made it for the scene and
  * deletes it when the scene ends. Each game playing the scene has its own. */
 #define OPENRAC_MOBY_SCENE 0x20u
+/* Hidden: drawn by nothing however near, as the game hides one (its update did, or moby_hide),
+ * or faded out (alpha 0). */
+#define OPENRAC_MOBY_HIDDEN 0x40u
+/* Drawn in the last frame (in view, within its draw distance, not hidden). */
+#define OPENRAC_MOBY_DRAWN 0x80u
 
 /* A moby of the level (moby_list), or the pose a mod gives one (moby_pose, moby_spawn: position,
  * rotation, scale and the animation are read). Since 1.9. */
@@ -691,6 +696,23 @@ typedef struct openrac_moby {
     float anim_time;
     float anim_speed;
 } openrac_moby;
+
+/* How the game deleted a moby of the level (moby_deletion). Since 1.9. */
+typedef struct openrac_moby_deletion {
+    /* sizeof(openrac_moby_deletion), set by the mod. */
+    uint32_t size;
+    /* The slot and class of the moby whose update deleted it (itself, or another: a spawner, a
+     * manager), -1 for none (the game's own code outside any moby's update: a level's script, a
+     * scene ending, the hero's items). */
+    int32_t by;
+    int32_t by_class;
+    /* 1 when a mod deleted it (moby_kill). */
+    int32_t by_mod;
+    /* Its class then. */
+    int32_t oclass;
+    /* The level load it happened in (as openrac_play_status' loads). */
+    uint32_t loads;
+} openrac_moby_deletion;
 
 /* The gate's moments (openrac_moby_update_fn). Since 1.9. */
 #define OPENRAC_MOBY_BEFORE 0
@@ -1218,6 +1240,23 @@ typedef struct openrac_api {
      * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level, or for a game the port starts no
      * scenes of. Since 1.9. */
     int (*play_scene)(openrac_mod* mod, int scene);
+
+    /* Hides the moby in `slot` from drawing (`hidden` 1), as the game hides one, or shows it again
+     * (0); the game's own update may change it again (one a mod drives keeps it). Listed with
+     * OPENRAC_MOBY_HIDDEN while hidden. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no
+     * moby there. Since 1.9. */
+    int (*moby_hide)(openrac_mod* mod, int slot, int hidden);
+
+    /* Fills `out` (its size set by the mod) with the last deletion the game made of the moby in
+     * `slot` in this level load: whose update did it, or a mod. For a mod that wants to know why a
+     * moby left the level (a spawned one's slot is used again: ask on the tick it went). Returns
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for none seen (none, or it left the level some
+     * other way). Since 1.9. */
+    int (*moby_deletion)(int slot, openrac_moby_deletion* out);
+
+    /* Writes where the game's camera is (x, y, z, the level's units) into `out`. Returns
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level. Since 1.9. */
+    int (*camera_position)(float out[3]);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

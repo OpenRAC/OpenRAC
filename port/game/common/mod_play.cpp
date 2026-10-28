@@ -53,6 +53,10 @@ static_assert(sizeof(openrac_shot) == sizeof(std::uint32_t) + sizeof(openrac_gam
 // So is a moby (interface 1.9).
 static_assert(offsetof(openrac_moby, slot) == sizeof(std::uint32_t));
 static_assert(sizeof(openrac_moby) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_state));
+static_assert(offsetof(openrac_moby_deletion, by) == sizeof(std::uint32_t));
+static_assert(
+    sizeof(openrac_moby_deletion) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_deletion)
+);
 
 namespace {
 
@@ -623,6 +627,36 @@ int api_play_scene(openrac_mod* mod, int scene) {
                                                             : OPENRAC_HOOK_UNKNOWN;
 }
 
+int api_moby_hide(openrac_mod* mod, int slot, int hidden) {
+    const gaddr m = moby_address(slot);
+    if (mod == nullptr || m == 0 || g_play->moby_hide == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_play->moby_hide(m, hidden != 0 ? 1 : 0);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_moby_deletion(int slot, openrac_moby_deletion* out) {
+    if (out == nullptr || out->size < sizeof(openrac_moby_deletion) || g_play == nullptr
+        || g_play->moby_deletion == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_moby_deletion d{};
+    if (g_play->moby_deletion(slot, &d) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->size = sizeof(openrac_moby_deletion);
+    std::memcpy(&out->by, &d, sizeof d);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_camera_position(float out[3]) {
+    if (out == nullptr || g_play == nullptr || g_play->camera_position == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->camera_position(out) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
 // The game's calls (game_host.h): the gate around an update, and a hit posted.
 int game_moby_update(std::int32_t slot, int phase) {
     // A driven moby's update does not run, and the gate is not asked.
@@ -705,6 +739,9 @@ void fill_play_api(
     api.play_notice = api_play_notice;
     api.scene_playing = api_scene_playing;
     api.play_scene = api_play_scene;
+    api.moby_hide = api_moby_hide;
+    api.moby_deletion = api_moby_deletion;
+    api.camera_position = api_camera_position;
 }
 
 void play_loading(const openrac_mod* mod) {

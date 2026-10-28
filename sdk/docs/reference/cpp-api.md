@@ -243,6 +243,10 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool has_scenes() const` | Since 1.9: whether the port offers the level's scenes (scene_playing(), play_scene()). |
 | `int scene_playing(int* frame = nullptr) const` | Since 1.9: the in-level scene playing (its number in the level), -1 for none; `frame` (when not null) gets how many of its frames have played. |
 | `bool play_scene(int scene) const` | Since 1.9: starts the level's scene `scene` from its start as the game's own trigger does, once the player is in control (-1 drops a request still waiting); false outside a level or for a port without scenes. |
+| `bool has_moby_detail() const` | Since 1.9: whether the port offers moby_hide(), moby_deletion() and camera_position(). |
+| `bool moby_hide(int slot, bool hidden) const` | Since 1.9: hides the moby in `slot` from drawing (`hidden`) or shows it again; false for no moby there or a port without it. |
+| `bool moby_deletion(int slot, openrac_moby_deletion& out) const` | Since 1.9: the last deletion the game made of the moby in `slot` in this level load into `out`; false for none seen or a port without it. |
+| `bool camera_position(float (&out)[3]) const` | Since 1.9: where the game's camera is into `out` (x, y, z); false outside a level or for a port without it. |
 | `int moby_slot_of(gaddr moby) const` | Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none. |
 | `bool play_overlay_pause(bool on) const` | Since 1.9: the world keeps running under the game's menus while `on`; false for a game without it. |
 | `Memory memory() const` | Returns a view of game memory. |

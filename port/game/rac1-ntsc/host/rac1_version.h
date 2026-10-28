@@ -186,6 +186,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_0025AC00__game game_FUN_L00_00259bc8__game
 #define func_L00_0025AAC0 game_FUN_L00_00259a88
 #define func_L00_0025AAC0__game game_FUN_L00_00259a88__game
+/* DeleteMoby (world.c's wrap of it): PAL func_0020D678 is FUN_0020c828 here (generated below). */
+#define func_0020D678__game game_FUN_0020c828__game
 #define RAC1_ADDR_L00_0x00178200u 0x00178100u
 #define RAC1_ADDR_L00_0x001ACB00u 0x001AC780u
 #define RAC1_ADDR_0x0016001Cu 0x0015FF1Cu

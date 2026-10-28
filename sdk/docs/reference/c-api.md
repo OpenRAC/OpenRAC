@@ -127,6 +127,8 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_MOBY_CREATURE` | `0x8u` | Its class is a creature (an enemy, a person). |
 | `OPENRAC_MOBY_DEAD` | `0x10u` | A placed moby the game deleted (killed, broken, picked up): it stays dead for the level load, listed so a mod learns of the death from the game itself, never from a moby left out. |
 | `OPENRAC_MOBY_SCENE` | `0x20u` | An actor of the in-level scene playing (scene_playing): the game made it for the scene and deletes it when the scene ends. Each game playing the scene has its own. |
+| `OPENRAC_MOBY_HIDDEN` | `0x40u` | Hidden: drawn by nothing however near, as the game hides one (its update did, or moby_hide), or faded out (alpha 0). |
+| `OPENRAC_MOBY_DRAWN` | `0x80u` | Drawn in the last frame (in view, within its draw distance, not hidden). |
 | `OPENRAC_MOBY_BEFORE` | `0` | The gate's moments (openrac_moby_update_fn). Since 1.9. |
 | `OPENRAC_MOBY_AFTER` | `1` |  |
 | `OPENRAC_EYES_MAX` | `8` | The most eyes (openrac_api.play_eyes). Since 1.9. |
@@ -464,6 +466,19 @@ rotation, scale and the animation are read). Since 1.9.
 | `float anim_time` |  |
 | `float anim_speed` |  |
 
+## `openrac_moby_deletion`
+
+How the game deleted a moby of the level (moby_deletion). Since 1.9.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_moby_deletion), set by the mod. |
+| `int32_t by` | The slot and class of the moby whose update deleted it (itself, or another: a spawner, a manager), -1 for none (the game's own code outside any moby's update: a level's script, a scene ending, the hero's items). |
+| `int32_t by_class` |  |
+| `int32_t by_mod` | 1 when a mod deleted it (moby_kill). |
+| `int32_t oclass` | Its class then. |
+| `uint32_t loads` | The level load it happened in (as openrac_play_status' loads). |
+
 ## `openrac_hit`
 
 A hit (openrac_api.on_moby_hit, moby_hit): to the moby in `victim`, from `attacker` (-1 none), of
@@ -626,3 +641,6 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*ui_pause_item)(openrac_mod* mod, const char* label, int page)` | Adds an item named `label` to the Options page of the pause menu in a level, after the game's own items (and the port's Video), which opens the mod's `page` (ui_page). Ratchet & Clank: the page is a copy of the game's Camera options page, its title the page's and its list a row per item, the label on the left and a choice's value on the right, a few rows at a time; the game's cursor, sounds and Triangle (back to Options, but for OPENRAC_UI_OWN_BACK and while a question is open, which Triangle answers no); a question (ui_confirm) is the title with two rows, Yes and No; the footer is the game's. ui_open swaps another of the mod's pages into its place, ui_cursor only reads the cursor and ui_sound plays nothing there. Two go in the order they were added. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN for no label, a page that is not the mod's, or past OPENRAC_UI_PAUSE_ITEMS_MAX, or OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.9. |
 | `int (*scene_playing)(int* frame)` | The in-level scene playing now: a cutscene of the level's own, which the game starts from the level's mobys (a person spoken to, a place reached, a level's opening) or play_scene started; not a movie, a slideshow, the ship's landing and take-off, or a scene the pause menu plays again for its player. Returns its number in the level (the game's own, the same in every game of that level), or -1 with none playing; `frame` (when not null) gets how many of the scene's frames have played. Since 1.9. |
 | `int (*play_scene)(openrac_mod* mod, int scene)` | Starts the level's scene `scene` (scene_playing's number) as the game's own trigger does, from its start: its actors made, its camera, sound and music, the hero held until it ends (or is skipped: play_skip). It starts at the end of a tick with the player in control in the level (OPENRAC_PLAY_PLAYING, the hero alive); asked before that (a menu up, another scene playing), the request waits, until it starts, the level is left or loaded again, or another call replaces it (-1 drops it). For a party whose games play the same scenes. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level, or for a game the port starts no scenes of. Since 1.9. |
+| `int (*moby_hide)(openrac_mod* mod, int slot, int hidden)` | Hides the moby in `slot` from drawing (`hidden` 1), as the game hides one, or shows it again (0); the game's own update may change it again (one a mod drives keeps it). Listed with OPENRAC_MOBY_HIDDEN while hidden. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no moby there. Since 1.9. |
+| `int (*moby_deletion)(int slot, openrac_moby_deletion* out)` | Fills `out` (its size set by the mod) with the last deletion the game made of the moby in `slot` in this level load: whose update did it, or a mod. For a mod that wants to know why a moby left the level (a spawned one's slot is used again: ask on the tick it went). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for none seen (none, or it left the level some other way). Since 1.9. |
+| `int (*camera_position)(float out[3])` | Writes where the game's camera is (x, y, z, the level's units) into `out`. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level. Since 1.9. |

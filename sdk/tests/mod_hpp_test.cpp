@@ -542,6 +542,31 @@ int host_play_scene(openrac_mod*, int scene) {
     return OPENRAC_HOOK_OK;
 }
 
+// A moby hidden or shown, and a deletion seen of slot 7 only (by slot 3's update, class 120).
+int host_moby_hide(openrac_mod*, int slot, int hidden) {
+    g_world.push_back("hide " + std::to_string(slot) + " " + std::to_string(hidden));
+    return slot >= 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int host_moby_deletion(int slot, openrac_moby_deletion* out) {
+    if (slot != 7 || out->size < sizeof *out) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->by = 3;
+    out->by_class = 120;
+    out->by_mod = 0;
+    out->oclass = 500;
+    out->loads = 2;
+    return OPENRAC_HOOK_OK;
+}
+
+int host_camera_position(float out[3]) {
+    out[0] = 1.0f;
+    out[1] = 2.0f;
+    out[2] = 3.0f;
+    return OPENRAC_HOOK_OK;
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -619,6 +644,9 @@ openrac_api make_api() {
     api.figure_shot = host_figure_shot;
     api.scene_playing = host_scene_playing;
     api.play_scene = host_play_scene;
+    api.moby_hide = host_moby_hide;
+    api.moby_deletion = host_moby_deletion;
+    api.camera_position = host_camera_position;
     return api;
 }
 
@@ -865,6 +893,27 @@ void check_scenes(openrac::Mod& mod, openrac_api& api) {
     g_world.clear();
     frame = -1;
     CHECK(!mod.has_scenes() && mod.scene_playing(&frame) == -1 && frame == 0 && !mod.play_scene(4));
+    CHECK(g_world.empty());
+    api.size = size;
+}
+
+// Checks a moby hidden and shown, its deletion and the camera read (1.9); nothing on a port whose table ends
+// at play_scene.
+void check_moby_detail(openrac::Mod& mod, openrac_api& api) {
+    CHECK(mod.has_moby_detail());
+    g_world.clear();
+    CHECK(mod.moby_hide(5, true) && mod.moby_hide(5, false) && !mod.moby_hide(-1, true));
+    CHECK((g_world == std::vector<std::string>{"hide 5 1", "hide 5 0", "hide -1 1"}));
+    openrac_moby_deletion d{};
+    CHECK(mod.moby_deletion(7, d) && d.by == 3 && d.by_class == 120 && d.oclass == 500 && d.loads == 2);
+    CHECK(!mod.moby_deletion(8, d) && d.by == 0);
+    float camera[3] = {0, 0, 0};
+    CHECK(mod.camera_position(camera) && camera[0] == 1.0f && camera[2] == 3.0f);
+    const std::uint32_t size = api.size;
+    api.size = static_cast<std::uint32_t>(offsetof(openrac_api, play_scene) + sizeof(void*));
+    g_world.clear();
+    CHECK(!mod.has_moby_detail() && !mod.moby_hide(5, true) && !mod.moby_deletion(7, d));
+    CHECK(!mod.camera_position(camera));
     CHECK(g_world.empty());
     api.size = size;
 }
@@ -1309,6 +1358,7 @@ int main() {
     check_world(mod, api);
     check_held(mod, api);
     check_scenes(mod, api);
+    check_moby_detail(mod, api);
     check_refused_loads(api, handle);
     check_reload(api, handle);
 
