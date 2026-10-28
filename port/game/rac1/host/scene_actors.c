@@ -9,7 +9,7 @@
  * record a scene chunk brought in (D_0018CC20 + 0x58) and hooks each of its parts to a moby: for a
  * part whose slot (D_0018CC20 + 0x178 + 4 * i) is still empty it creates one (CreateMoby,
  * func_0020D348) and at once reads the new moby's part list (moby +0x24, then its +0xC). The
- * in-game cutscene's start runs it (func_L00_00299B68, rac1-pal/hand/level_scene_start.c), and
+ * in-game cutscene's start runs it (func_L00_00299B68; the US disc's FUN_L00_00298840), and
  * the space scenes' chunks (ParseSpaceSceneChunk).
  *
  * CreateMoby answers 0 when the level's 255 spawned mobys are all in use. On Gaspar (level 9) the
