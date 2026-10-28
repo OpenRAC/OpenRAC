@@ -1195,6 +1195,7 @@ struct State {
     std::uint16_t taken = 0;    // Triangle pressed while the port has it
     std::uint16_t swallow = 0;  // held as the port let go of it
     bool takes_back = false;    // the port has Triangle now
+    std::string logged;         // what the rows showed when last logged
 };
 State p;
 
@@ -1267,6 +1268,18 @@ void fill(const options_menu::PauseRows& rows, const mods::UiPage& page) {
         put(kRowText + kRows + i, at < all.size() ? all[at].value : "");
     }
     GREF(std::int32_t, rows.title + 0x34) = kTitleText;
+    // What the page shows, logged (verbose) each time it changes.
+    std::string shown = p.asking ? p.question : page.title;
+    for (int i = 0; i < count; ++i) {
+        const std::size_t at = static_cast<std::size_t>(p.top + i);
+        if (at < all.size()) {
+            shown += " | " + all[at].label + (all[at].value.empty() ? "" : ": " + all[at].value);
+        }
+    }
+    if (shown != p.logged) {
+        p.logged = shown;
+        log::verbose("mod ui: pause page {}", shown);
+    }
 }
 
 void step(const mods::UiPage& page, int index, int by) {
