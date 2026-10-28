@@ -82,8 +82,14 @@ static float ahead(const Moby* m, float place) {
 }
 
 static void the_actions(void) {
-    pose_anim_in in = {.frames = 13, .moby_seq = 3, .moby_target = 3, .moby_frame = 4,
-                       .pose_seq = 5, .pose_frame = 4, .pose_speed = 0.55f};
+    pose_anim_in in =
+        {.frames = 13,
+         .moby_seq = 3,
+         .moby_target = 3,
+         .moby_frame = 4,
+         .pose_seq = 5,
+         .pose_frame = 4,
+         .pose_speed = 0.55f};
     float s = 0.0f;
     CHECK(pose_anim_step(&in, &s) == POSE_ANIM_BLEND);
     in.pose_seq = 3;

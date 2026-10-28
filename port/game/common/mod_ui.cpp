@@ -1197,6 +1197,7 @@ struct State {
     bool takes_back = false;    // the port has Triangle now
     std::string logged;         // what the rows showed when last logged
 };
+
 State p;
 
 gaddr text_at(int id) {
@@ -1250,7 +1251,9 @@ std::vector<PauseRow> lines(const mods::UiPage& page) {
     }
     std::vector<PauseRow> out;
     for (const mods::UiItem& item : page.items) {
-        out.push_back(pause_row(item.kind == OPENRAC_UI_CHOICE, item.label, item.choices, item.choice));
+        out.push_back(
+            pause_row(item.kind == OPENRAC_UI_CHOICE, item.label, item.choices, item.choice)
+        );
     }
     return out;
 }
@@ -1284,7 +1287,8 @@ void fill(const options_menu::PauseRows& rows, const mods::UiPage& page) {
 
 void step(const mods::UiPage& page, int index, int by) {
     const mods::UiItem& item = page.items[static_cast<std::size_t>(index)];
-    if (item.kind != OPENRAC_UI_CHOICE || item.choices.empty() || (item.flags & OPENRAC_UI_DISABLED) != 0) {
+    if (item.kind != OPENRAC_UI_CHOICE || item.choices.empty()
+        || (item.flags & OPENRAC_UI_DISABLED) != 0) {
         return;
     }
     const int n = static_cast<int>(item.choices.size());

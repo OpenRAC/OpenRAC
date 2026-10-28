@@ -92,6 +92,7 @@ enum class Var : std::uint16_t {
     HidePasses,
     Hitch,
     HitLog,
+    ItemsDebug,
     Keys,
     Log,
     MenuBar,

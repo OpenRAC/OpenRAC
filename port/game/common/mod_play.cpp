@@ -286,7 +286,8 @@ int api_play_start(openrac_mod* mod, int level, const void* save, size_t size) {
 // A level's phases, where a travel may leave it from (1.9: its scenes and menus too, as the pause
 // menu's Quit Game leaves from the menu: a party's member goes with its host from anywhere).
 bool in_a_level(int phase) {
-    return phase == OPENRAC_PLAY_PLAYING || phase == OPENRAC_PLAY_SCENE || phase == OPENRAC_PLAY_MENU;
+    return phase == OPENRAC_PLAY_PLAYING || phase == OPENRAC_PLAY_SCENE
+           || phase == OPENRAC_PLAY_MENU;
 }
 
 int api_play_travel(openrac_mod* mod, int level) {

@@ -932,7 +932,9 @@ void undo(openrac_mod* mod) {
     std::erase_if(g_menus, [&](const MenuCallback& c) { return c.mod == mod; });
     // Its main-menu and pause items, then its pages (the last made: no other mod's id moves).
     std::erase_if(g_ui_main, [&](const UiMainItem& m) { return mod_page(mod, m.page) != nullptr; });
-    std::erase_if(g_ui_pause, [&](const UiPauseItem& m) { return mod_page(mod, m.page) != nullptr; });
+    std::erase_if(g_ui_pause, [&](const UiPauseItem& m) {
+        return mod_page(mod, m.page) != nullptr;
+    });
     std::erase_if(g_ui_pages, [&](const UiPageCallback& c) { return c.mod == mod; });
     std::erase_if(g_tick_boundaries, [&](const TickBoundaryCallback& c) { return c.mod == mod; });
     drop_figures(mod);

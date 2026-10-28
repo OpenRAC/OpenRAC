@@ -39,8 +39,13 @@ inline bool menus_up(bool boot_program, int title_exit) {
 struct PauseRow {
     std::string label, value;
 };
-inline PauseRow pause_row(bool is_choice, const std::string& label, const std::vector<std::string>& choices,
-                          std::uint32_t choice) {
+
+inline PauseRow pause_row(
+    bool is_choice,
+    const std::string& label,
+    const std::vector<std::string>& choices,
+    std::uint32_t choice
+) {
     PauseRow row{label, ""};
     if (is_choice && !choices.empty()) {
         row.value = choices[std::min<std::size_t>(choice, choices.size() - 1)];

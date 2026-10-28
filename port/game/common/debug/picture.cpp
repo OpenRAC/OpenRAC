@@ -106,7 +106,8 @@ void status_badge() {
     const std::string capture = capture_badge();
     // A mod's line (openrac_api.play_notice): a party waiting for its players.
     const std::string mod_line = mods::play_notice();
-    if (line.empty() && s.toast.empty() && s.notice.empty() && capture.empty() && mod_line.empty()) {
+    if (line.empty() && s.toast.empty() && s.notice.empty() && capture.empty()
+        && mod_line.empty()) {
         return;
     }
     const ImGuiViewport* viewport = ImGui::GetMainViewport();

@@ -29,12 +29,12 @@ enum {
 };
 
 typedef struct {
-    int frames;        /* the pose's seq's keys */
-    int moby_seq;      /* the moby's seq, its blend's target seq, key and time to the next key */
+    int frames;   /* the pose's seq's keys */
+    int moby_seq; /* the moby's seq, its blend's target seq, key and time to the next key */
     int moby_target;
     int moby_frame;
     float moby_time;
-    int pose_seq;      /* the pose's seq, key, time, speed, and whether its sender blends into it */
+    int pose_seq; /* the pose's seq, key, time, speed, and whether its sender blends into it */
     int pose_frame;
     float pose_time;
     float pose_speed;

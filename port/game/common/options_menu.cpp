@@ -795,7 +795,9 @@ void make(gaddr items) {
     // The mods' items' pages: their texts are mod_ui's.
     const int mods_count = std::min(mods::ui_pause_item_count(), OPENRAC_UI_PAUSE_ITEMS_MAX);
     for (int i = 0; i < mods_count; ++i) {
-        m.mods.push_back(make_rows(camera, sound, mod_ui::pause_title_text(), mod_ui::pause_row_text()));
+        m.mods.push_back(
+            make_rows(camera, sound, mod_ui::pause_title_text(), mod_ui::pause_row_text())
+        );
     }
     m.extra = 1 + mods_count;
     // The items: the game's, and Video after Sound (before Camera when there is no Sound), then the
@@ -809,11 +811,14 @@ void make(gaddr items) {
         std::memcpy(G(item), G(camera), page::kItemBytes);
         GREF(std::int16_t, item) =
             static_cast<std::int16_t>(e == 0 ? page::kTextVideo : mod_ui::pause_item_text(e - 1));
-        GREF(std::uint32_t, item + 4) = e == 0 ? m.page : m.mods[static_cast<std::size_t>(e - 1)].page;
+        GREF(std::uint32_t, item + 4) =
+            e == 0 ? m.page : m.mods[static_cast<std::size_t>(e - 1)].page;
     }
-    std::memcpy(G(m.items + page::kItemBytes * static_cast<gaddr>(before + m.extra)),
-                G(items + page::kItemBytes * static_cast<gaddr>(before)),
-                page::kItemBytes * static_cast<gaddr>(count - before + 1));  // with the end item
+    std::memcpy(
+        G(m.items + page::kItemBytes * static_cast<gaddr>(before + m.extra)),
+        G(items + page::kItemBytes * static_cast<gaddr>(before)),
+        page::kItemBytes * static_cast<gaddr>(count - before + 1)
+    );  // with the end item
     m.top = 0;
 }
 
@@ -836,10 +841,14 @@ void hints(gaddr options_page, gaddr game_items) {
         std::memcpy(G(m.hints), G(list), 4 * static_cast<gaddr>(before));
         GREF(std::int32_t, m.hints + 4 * static_cast<gaddr>(before)) = page::kTextVideo + 2;
         for (int e = 1; e < m.extra; ++e) {  // a mod's item: its label
-            GREF(std::int32_t, m.hints + 4 * static_cast<gaddr>(before + e)) = mod_ui::pause_item_text(e - 1);
+            GREF(std::int32_t, m.hints + 4 * static_cast<gaddr>(before + e)) =
+                mod_ui::pause_item_text(e - 1);
         }
-        std::memcpy(G(m.hints + 4 * static_cast<gaddr>(before + m.extra)), G(list + 4 * static_cast<gaddr>(before)),
-                    4 * static_cast<gaddr>(count - before + 1));
+        std::memcpy(
+            G(m.hints + 4 * static_cast<gaddr>(before + m.extra)),
+            G(list + 4 * static_cast<gaddr>(before)),
+            4 * static_cast<gaddr>(count - before + 1)
+        );
     }
     GREF(std::uint32_t, screen + 0x34) = m.hints;
 }
@@ -859,9 +868,16 @@ void pictures(gaddr options_page, gaddr list, gaddr game_items) {
         const gaddr after = sound != 0 ? sound : camera - page::kItemBytes;
         const int before = static_cast<int>((after - game_items) / page::kItemBytes) + 1;
         m.pictures_for = entries;
-        m.pictures = openrac_guest_static(pause_options::kStreamEntryBytes * static_cast<gaddr>(count + m.extra));
-        pause_options::entries_with_extra(static_cast<const std::uint32_t*>(G(entries)), count, before, m.extra,
-                                          static_cast<std::uint32_t*>(G(m.pictures)));
+        m.pictures = openrac_guest_static(
+            pause_options::kStreamEntryBytes * static_cast<gaddr>(count + m.extra)
+        );
+        pause_options::entries_with_extra(
+            static_cast<const std::uint32_t*>(G(entries)),
+            count,
+            before,
+            m.extra,
+            static_cast<std::uint32_t*>(G(m.pictures))
+        );
     }
     GREF(std::uint32_t, screen + pause_options::kStreamEntries) = m.pictures;
 }

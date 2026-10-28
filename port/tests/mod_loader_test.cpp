@@ -524,13 +524,19 @@ void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     g_phase = OPENRAC_GAME_PHASE_PLAYING;
     g_records.clear();
     mods::frame();
-    CHECK((g_records
-           == std::vector<int>{7003, 7500, 7601, 7600, 7707, 7722, 7730, 7731, 7771, 7760, 7761,
-                               7800, 7903}));
+    CHECK(
+        (g_records
+         == std::vector<int>{
+             7003, 7500, 7601, 7600, 7707, 7722, 7730, 7731, 7771, 7760, 7761, 7800, 7903
+         })
+    );
     mods::play_update();
-    CHECK((g_played
-           == std::vector<std::string>{"start -1 5", "pose 42", "held 2", "shot 15", "shot 3",
-                                       "travel 4"}));
+    CHECK(
+        (g_played
+         == std::vector<std::string>{
+             "start -1 5", "pose 42", "held 2", "shot 15", "shot 3", "travel 4"
+         })
+    );
     // The level loaded again: the figure is gone.
     g_loads = 2;
     g_records.clear();
@@ -690,10 +696,14 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
     CHECK(mods::ui_main_item(1) == nullptr && mods::ui_page(2) == nullptr);
     // The pause menu's Options items (interface 1.9), in the order added.
     CHECK(mods::ui_pause_item_count() == 2);
-    CHECK(mods::ui_pause_item(0) != nullptr && mods::ui_pause_item(0)->label == "Multiplayer"
-          && mods::ui_pause_item(0)->page == 0);
-    CHECK(mods::ui_pause_item(1) != nullptr && mods::ui_pause_item(1)->label == "Party"
-          && mods::ui_pause_item(1)->page == 1);
+    CHECK(
+        mods::ui_pause_item(0) != nullptr && mods::ui_pause_item(0)->label == "Multiplayer"
+        && mods::ui_pause_item(0)->page == 0
+    );
+    CHECK(
+        mods::ui_pause_item(1) != nullptr && mods::ui_pause_item(1)->label == "Party"
+        && mods::ui_pause_item(1)->page == 1
+    );
     CHECK(mods::ui_pause_item(2) == nullptr && mods::ui_pause_item(-1) == nullptr);
     const mods::UiPage* home = mods::ui_page(0);
     CHECK(home != nullptr && home->title == "Multiplayer" && home->items.size() == 4);

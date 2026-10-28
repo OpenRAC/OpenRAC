@@ -262,6 +262,7 @@ typedef struct openrac_game_moby_state {
 /* What a body wears and holds, and a shot (interface 1.9): openrac_held's and openrac_shot's
  * fields after their size. */
 #define OPENRAC_GAME_HELD_MAX 8
+
 typedef struct openrac_game_held_piece {
     int32_t slot;
     int32_t part;

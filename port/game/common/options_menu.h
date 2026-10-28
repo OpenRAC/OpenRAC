@@ -61,6 +61,7 @@ bool update(int loaded_overlay);
 struct PauseRows {
     std::uint32_t page = 0, list = 0, rows = 0, values = 0, title = 0;
 };
+
 constexpr int kPauseRowsShown = 5;
 PauseRows pause_rows(int index);
 

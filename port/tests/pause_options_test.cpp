@@ -96,8 +96,8 @@ int main() {
     // Video and two mods' items after Sound: three empty entries there, the rest after them, ten in all.
     std::uint32_t three[20] = {};
     entries_with_extra(game, 7, 4, 3, three);
-    const std::uint32_t want3[] = {0x1359, 7, 0x1360, 7, 0x1367, 7, 0x136E, 6, 0, 0,
-                                   0, 0, 0, 0, 0x1374, 7, 0x137B, 8, 0x1383, 6};
+    const std::uint32_t want3[] = {0x1359, 7, 0x1360, 7, 0x1367, 7, 0x136E, 6, 0,      0,
+                                   0,      0, 0,      0, 0x1374, 7, 0x137B, 8, 0x1383, 6};
     for (int i = 0; i < 20; ++i) {
         CHECK(three[i] == want3[i]);
     }

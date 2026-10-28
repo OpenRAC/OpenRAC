@@ -50,6 +50,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "openrac/host_env.h"
 #include "rac1.h"
 
 /* The hero (play.c), his item slots, his attach matrices. */
@@ -137,6 +138,7 @@ enum {
 
 /* The figures' pieces: which figure, the level load, the piece as asked and its moby. */
 #define RECORDS 32
+
 typedef struct {
     gaddr figure;
     uint32_t load;
@@ -144,6 +146,7 @@ typedef struct {
     gaddr moby;
     gaddr pose_buffer; /* a glove's, made once and kept */
 } Record;
+
 static Record records[RECORDS];
 static gaddr pose_buffers[RECORDS];
 
@@ -160,7 +163,7 @@ static int firing_for_figure;
 static int debug_items(void) {
     static int on = -1;
     if (on < 0) {
-        const char* v = getenv("OPENRAC_ITEMS_DEBUG");
+        const char* v = openrac_env_string("OPENRAC_ITEMS_DEBUG");
         on = v != NULL && v[0] != '\0' && v[0] != '0';
     }
     return on;
@@ -346,10 +349,9 @@ static gaddr make_piece(gaddr figure, const openrac_game_held_piece* p) {
     GREF(gaddr, m + MOBY_UPDATE) = 0;
     GREF(uint32_t, m + MOBY_COLLISION) = 0;
     GREF(int32_t, m + MOBY_COLLISION_OFF) = -1;
-    GREF(uint16_t, m + MOBY_FLAGS) =
-        (uint16_t)((GREF(uint16_t, m + MOBY_FLAGS) | FLAG_NOT_RUN | FLAG_KEEP_MATRIX
-                    | FLAG_NO_ANIMATION)
-                   & ~FLAG_TARGET);
+    GREF(uint16_t, m + MOBY_FLAGS) = (uint16_t)((GREF(uint16_t, m + MOBY_FLAGS) | FLAG_NOT_RUN
+                                                 | FLAG_KEEP_MATRIX | FLAG_NO_ANIMATION)
+                                                & ~FLAG_TARGET);
     GREF(uint8_t, m + MOBY_UPDATE_DIST) = 0xFF;
     GREF(uint8_t, m + MOBY_VISIBLE) = 1;
     GREF(int16_t, m + MOBY_DRAW_DIST) = PIECE_DRAW_DIST;
@@ -420,7 +422,7 @@ static void animate(gaddr m, const openrac_game_held_piece* p) {
     rac1_pose_moby(m, &pose);
     uint16_t flags = GREF(uint16_t, m + MOBY_FLAGS);
     flags = (p->flags & HELD_HIDDEN) != 0 ? (uint16_t)(flags | FLAG_HIDDEN)
-                                           : (uint16_t)(flags & ~FLAG_HIDDEN);
+                                          : (uint16_t)(flags & ~FLAG_HIDDEN);
     GREF(uint16_t, m + MOBY_FLAGS) = flags;
 }
 
@@ -485,8 +487,14 @@ void rac1_figure_held(gaddr figure, const openrac_game_held* held) {
                 r->pose_buffer = pose_buffers[free_at];
                 at = free_at;
                 if (debug_items()) {
-                    fprintf(stderr, "[debug] figure items: slot %d part %d item %d class %d on\n",
-                            p.slot, p.part, p.item, p.oclass);
+                    fprintf(
+                        stderr,
+                        "[debug] figure items: slot %d part %d item %d class %d on\n",
+                        p.slot,
+                        p.part,
+                        p.item,
+                        p.oclass
+                    );
                 }
             } else {
                 /* The wrench kept for the hand's item: its own pose (still). */
@@ -556,8 +564,9 @@ void rac1_figure_items_tick(void) {
         }
         func_0020EEE8(m);
         if (is_glove) {
-            func_L00_00209940(GLOVE_JOINTS, r->pose_buffer, GREF(gaddr, m + MOBY_CLASS), 0,
-                              (int)r->figure);
+            func_L00_00209940(
+                GLOVE_JOINTS, r->pose_buffer, GREF(gaddr, m + MOBY_CLASS), 0, (int)r->figure
+            );
             GREF(float, m + MOBY_ANIM_TIME) = 0.0f;
             GREF(uint8_t, m + MOBY_FRAME) = 0;
             GREF(gaddr, m + MOBY_CUR_FRAME) = r->pose_buffer;
@@ -593,10 +602,10 @@ int rac1_hero_held(openrac_game_held* out) {
             p->part = part;
             p->item = item;
             p->oclass = GREF(int16_t, m + MOBY_OCLASS);
-            p->joint = s == 1 && part == 1
-                           ? 3
-                           : GREF(int32_t, ITEM_DEFS + ITEM_DEF_SIZE * (uint32_t)item
-                                               + ITEM_DEF_JOINT);
+            p->joint =
+                s == 1 && part == 1
+                    ? 3
+                    : GREF(int32_t, ITEM_DEFS + ITEM_DEF_SIZE * (uint32_t)item + ITEM_DEF_JOINT);
             if ((GREF(uint16_t, m + MOBY_FLAGS) & FLAG_HIDDEN) != 0) {
                 p->flags |= HELD_HIDDEN;
             }
@@ -630,14 +639,23 @@ int rac1_hero_held(openrac_game_held* out) {
         if (hand != told_hand || told_load != rac1_program_loads()) {
             told_hand = hand;
             told_load = rac1_program_loads();
-            fprintf(stderr,
-                    "[debug] figure items: hero holds %d pieces, hand class %d (item %d, "
-                    "joint %d):",
-                    out->count, hand, out->count > 0 ? out->pieces[0].item : -1,
-                    out->count > 0 ? out->pieces[0].joint : -1);
+            fprintf(
+                stderr,
+                "[debug] figure items: hero holds %d pieces, hand class %d (item %d, "
+                "joint %d):",
+                out->count,
+                hand,
+                out->count > 0 ? out->pieces[0].item : -1,
+                out->count > 0 ? out->pieces[0].joint : -1
+            );
             for (int k = 0; k < out->count; ++k) {
-                fprintf(stderr, " %d.%d:%d", out->pieces[k].slot, out->pieces[k].part,
-                        out->pieces[k].oclass);
+                fprintf(
+                    stderr,
+                    " %d.%d:%d",
+                    out->pieces[k].slot,
+                    out->pieces[k].part,
+                    out->pieces[k].oclass
+                );
             }
             fprintf(stderr, "\n");
         }
@@ -718,8 +736,9 @@ int rac1_figure_shot(gaddr figure, const openrac_game_shot* shot) {
     firing_for_figure = 1;
     switch (shot->item) {
         case ITEM_BLASTER:
-            made = func_L00_002CC3C0(figure, v, 0, shot->aim[0], shot->aim[1], shot->aim[2],
-                                     shot->aim[3])
+            made = func_L00_002CC3C0(
+                       figure, v, 0, shot->aim[0], shot->aim[1], shot->aim[2], shot->aim[3]
+                   )
                    != 0;
             break;
         case ITEM_BOMB_GLOVE: {
@@ -742,8 +761,12 @@ int rac1_figure_shot(gaddr figure, const openrac_game_shot* shot) {
     }
     firing_for_figure = 0;
     if (debug_items()) {
-        fprintf(stderr, "[debug] figure items: shot of item %d %s\n", shot->item,
-                made ? "made" : "refused");
+        fprintf(
+            stderr,
+            "[debug] figure items: shot of item %d %s\n",
+            shot->item,
+            made ? "made" : "refused"
+        );
     }
     return made;
 }

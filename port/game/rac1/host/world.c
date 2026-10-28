@@ -459,7 +459,11 @@ void rac1_world_keep_running(int on) {
 
 #define CAMERA_BLOCK RAC1_ADDR(0x00187040u)
 #define VIEW_CONTEXT RAC1_ADDR(0x0018CE00u)
-enum { CAMERA_BYTES = 0x400, VIEW_BYTES = 0x240 };
+
+enum {
+    CAMERA_BYTES = 0x400,
+    VIEW_BYTES = 0x240
+};
 
 void func_002352C8(void);
 void func_00218B10(void);

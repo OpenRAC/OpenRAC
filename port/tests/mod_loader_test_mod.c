@@ -26,8 +26,8 @@
  * gate's and the watcher's 8700s and 8800s) (interface 1.9). It reports the interface it is
  * built for
  * (OPENRAC_MOD_TARGET_MINOR): test-old is built for 1.5. */
-#include <string.h>
 #include <stddef.h>
+#include <string.h>
 
 #ifndef TEST_MOD_ID
 #define TEST_MOD_ID "test-a"
