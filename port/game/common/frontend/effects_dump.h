@@ -14,14 +14,15 @@
 
 namespace openrac::frontend::effects_dump {
 
-// Snapshots are taken while armed (a recording runs), every so many frames.
+// Snapshots are taken while armed (a recording runs), every so many frames; each lists the strips
+// and quads near Ratchet.
 void arm(bool on);
 
 // Render thread: called with the frame's input once its effects are set; `hero` is Ratchet's
 // position when the frame has one.
 void offer(const renderer::FrameInput& input, const std::optional<renderer::Vec3>& hero);
 
-// The latest snapshot (empty when none was taken).
+// The snapshots taken, as one JSON document (empty when none was taken).
 std::string latest();
 
 }  // namespace openrac::frontend::effects_dump
