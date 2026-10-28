@@ -21,6 +21,7 @@
  */
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -46,13 +47,45 @@ struct Code {
 /** One thing a call did outside memory, in order. */
 struct Outside {
     char what;  // 'r' read, 'w' write, 'q' quadword write, 's' system call
-    u32 address;
-    u64 value, value2;
+    u32 address;  // for 's' the SYSCALL's code
+    u64 value, value2;  // for 's' the inputs taken, and the kernel call's number (v1) or 0
+    std::array<u32, 8> in{};  // for 's' the argument registers taken, a0-a3 then t0-t3
 
     bool operator==(const Outside& o) const {
-        return what == o.what && address == o.address && value == o.value && value2 == o.value2;
+        return what == o.what && address == o.address && value == o.value && value2 == o.value2 && in == o.in;
     }
 };
+
+/**
+ * What a system call takes from the caller's registers, which is what is compared of it: values
+ * the caller merely left in other registers are not its inputs.
+ *
+ * A kernel call (a SYSCALL of the program's own stubs) takes its number in v1, which the stub
+ * sets, and its arguments in a0 onward: the count is the call's, from the kernel's public call
+ * table, for the calls the machine answers; a0 alone for any other. A hooked library function is
+ * an ordinary call of a C function: its arguments are a0-a3 and t0-t3 (EE GCC's ABI; v0 and v1
+ * are results, never arguments), as many as its hooks table line says (`inputs=N`), else a0.
+ * No hooked service takes a floating-point argument.
+ */
+constexpr u32 kHookMark = 0x80000;  // the SYSCALL code's mark of a hooked function (machine.cpp)
+
+int kernel_inputs(int number) {
+    switch (number < 0 ? -number : number) {
+        case 0x23: case 0x24: case 0x2F: case 0x32: case 0x3E: case 0x70: case 0x7F:
+            return 0;  // ExitThread, ExitDeleteThread, GetThreadId, SleepThread, EndOfHeap, GsGetIMR, GetMemorySize
+        case 0x11: case 0x13: case 0x22: case 0x29: case 0x2A: case 0x3D: case 0x73: case 0x77: case 0x79:
+            return 2;  // Remove{Intc,Dmac}Handler, StartThread, (i)ChangeThreadPriority, SetupHeap,
+                       // SetVSyncFlag, SifSetDma, SifSetReg
+        case 0x02:
+            return 3;  // SetGsCrt
+        case 0x10: case 0x12:
+            return 4;  // Add{Intc,Dmac}Handler
+        case 0x3C:
+            return 5;  // SetupThread
+        default:
+            return 1;
+    }
+}
 
 /** What a call left. */
 struct Result {
@@ -183,9 +216,22 @@ int main(int argc, char** argv) {
         auto write = ee.on_write;
         auto write128 = ee.on_write128;
 
-        ee.on_syscall = [&ee, &log, syscall](u32 c) {
+        sys::Machine* m = machine.get();
+        ee.on_syscall = [&ee, &log, syscall, m](u32 c) {
             if (log) {
-                log->push_back({'s', c, ee.gpr[3].lo, ee.gpr[4].lo});
+                Outside o{'s', c, 0, 0};
+                int inputs = 1;
+                if (!m->hooked_call(c, &inputs)) {
+                    o.value2 = ee.gpr[3].lo;
+                    inputs = kernel_inputs(static_cast<s32>(ee.gpr[3].lo));
+                } else if (inputs < 0) {
+                    inputs = 1;
+                }
+                o.value = static_cast<u64>(inputs);
+                for (int n = 0; n < inputs; n++) {
+                    o.in[n] = static_cast<u32>(ee.gpr[4 + n].lo);
+                }
+                log->push_back(o);
             }
             if (syscall) {
                 syscall(c);
@@ -413,6 +459,11 @@ int main(int argc, char** argv) {
                 if (o.what == 'q') {
                     o.value2 = stack_value(o.value2);
                 }
+                if (o.what == 's') {
+                    for (u32& a : o.in) {
+                        a = stack_value(a) != a ? 0x57AC57ACu : a;  // "a stack address"
+                    }
+                }
             }
         }
         if (ours.outside != retail.outside) {
@@ -426,6 +477,20 @@ int main(int argc, char** argv) {
                     return std::string("nothing more");
                 }
                 const Outside& o = v[k];
+                if (o.what == 's') {
+                    std::string s;
+                    std::snprintf(t, sizeof(t), "s %08x", o.address);
+                    s = t;
+                    if (!(o.address & kHookMark)) {
+                        std::snprintf(t, sizeof(t), " v1=%llx", static_cast<unsigned long long>(o.value2));
+                        s += t;
+                    }
+                    for (u64 n = 0; n < o.value && n < 8; n++) {
+                        std::snprintf(t, sizeof(t), " %s=%x", kGpr[4 + n], o.in[n]);
+                        s += t;
+                    }
+                    return s;
+                }
                 std::snprintf(t, sizeof(t), "%c %08x %llx %llx", o.what, o.address,
                               static_cast<unsigned long long>(o.value),
                               static_cast<unsigned long long>(o.value2));
