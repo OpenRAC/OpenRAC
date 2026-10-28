@@ -564,6 +564,10 @@ void copy_world_camera(host::GameState& state) {
         state.fog_far = g->world_camera->fog_far;
         state.fog_near_f = g->world_camera->fog_near_f;
         state.fog_far_f = g->world_camera->fog_far_f;
+        // A level's world under a menu's moby context: its mobys, not the menu's in the globals.
+        if (g->world_under_menu) {
+            state.mobys = g->world_camera->mobys;
+        }
     }
 }
 
@@ -571,6 +575,7 @@ void copy_world_camera(host::GameState& state) {
 void take_world_camera(host::GameState& state) {
     copy_world_camera(state);
     g->world_camera.reset();
+    g->world_under_menu = false;
 }
 
 // Logs the camera this tick is drawn from (OPENRAC_CAM_LOG). `world_ran`: the game's world
@@ -1806,6 +1811,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     // pause page skips the Goodies frame while it has none).
     const bool world_ran = g->world_camera.has_value();
     const bool only_own_camera = !world_ran && !g->moby_cameras.empty();
+    const bool under_menu = world_ran && g->world_under_menu;
     take_world_camera(state);
     log_camera(state, world_ran);
     follow_route(ram, level);
@@ -1853,6 +1859,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     light_scene(ram, state);
     part.emplace("tick kept");
     keep_tick(ram, state, draws, std::move(mobys));
+    g->kept->world_under_menu = under_menu;
     g->kept->packets = std::move(packets.packets);
     g->kept->strip_vertices = std::move(packets.strip_vertices);
     g->kept->strips = std::move(packets.strips);

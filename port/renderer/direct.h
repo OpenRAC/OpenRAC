@@ -145,6 +145,7 @@ inline constexpr int kOffscreenScale = 2;
 // draw buffer whose pixels are ones it answered with is drawn from this texture instead.
 struct FrameSnapshot {
     unsigned texture = 0;                   // GL, the frame as drawn (first row at the bottom)
+    int width = 0, height = 0;              // its size
     std::vector<std::uint64_t> answered;  // hash_bytes() of each block of pixels handed back
 };
 inline FrameSnapshot g_frame_snapshot;

@@ -184,6 +184,16 @@ void openrac_game_draw(unsigned layers) {
     });
 }
 
+void openrac_game_world_under_menu(void) {
+    c_boundary::call("openrac_game_world_under_menu", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            frontend::world_under_menu();
+        }
+#endif
+    });
+}
+
 int openrac_game_vsync(void) {
     return c_boundary::call("openrac_game_vsync", 0, [&]() -> int { return vsync(); });
 }

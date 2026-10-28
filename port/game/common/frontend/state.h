@@ -96,6 +96,9 @@ struct Kept {
     std::vector<TargetMoby> target_mobys;
     std::uint32_t draws = 0;
     bool has_camera = false;
+    // The world was drawn under a menu (State::world_under_menu): the menu's picture of the frame
+    // is this tick's world.
+    bool world_under_menu = false;
     std::uint64_t frame = 0;
 };
 
@@ -196,6 +199,9 @@ struct State {
     std::vector<renderer::ImageUpload> images;
     // The camera the game's world renderers drew with this frame (world_drawn), if they ran.
     std::optional<host::GameState> world_camera;
+    // That world was drawn under a menu with its own mobys (world_under_menu): world_camera's
+    // mobys are the frame's.
+    bool world_under_menu = false;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, host::GameState>> moby_cameras;
     // The world effect quads the game drew since the last frame (effect_quad).

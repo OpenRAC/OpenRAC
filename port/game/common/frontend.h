@@ -29,6 +29,10 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
 // The game's world renderers are drawing now: the camera they draw with is kept for this frame's
 // world (a menu may set its own camera afterwards to draw its frame objects).
 void world_drawn(std::span<const std::uint8_t> ram);
+// The world drawn next this frame lists its own mobys (a level's under a menu's moby context): its
+// mobys are the frame's, and the menu's picture of the frame is drawn from it
+// (openrac_game_world_under_menu).
+void world_under_menu();
 void moby_colour(std::uint32_t object, unsigned colour, int level);
 
 // The game drew `count` mobys from `first` with the camera it holds now (the page menu's frame
