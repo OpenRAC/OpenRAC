@@ -32,7 +32,7 @@ Three rules follow from how the projects work:
 - An address, offset or name belongs to the build it was measured on. A PAL
   address does not identify a US, RAC2 or RAC3 function. In the range a level
   replaces, every RAC1 US constant is 0x100 lower than PAL's
-  ([RAC1 US overlays.md](../../games/rac1/ntsc/docs/overlays.md)).
+  ([RAC1 US overlays.md](../../games/rac1/ntsc/docs/build/overlays.md)).
 - A name moves to another game only when the code at the new address does
   the same thing. RAC2 tested eleven prototype symbol addresses this way and
   one held ([ENGINE-SYMBOL-NAMES.md](../../games/rac2/ntsc/docs/ENGINE-SYMBOL-NAMES.md)).
@@ -72,7 +72,7 @@ RAC1 and RAC2 boot executables have the same sections in the same order
 - **RAC1**: the executable's program runs before the first level loads. It
   is a subset of every level's program, linked in the same order
   ([OVERLAYS.md, "Layout"](../../games/rac1/docs/OVERLAYS.md#layout);
-  on US, [overlays.md](../../games/rac1/ntsc/docs/overlays.md)).
+  on US, [overlays.md](../../games/rac1/ntsc/docs/build/overlays.md)).
 - **RAC2**: a prototype's section table calls the two halves CORE and
   FRONTEND (**prerelease**). The retail boot keeps that shape; its frontend
   main loop is at 0x0026EDE8 (**retail**,
@@ -96,7 +96,7 @@ RAC1 and RAC2 boot executables have the same sections in the same order
   [DECOMP_PROGRESS.md](../../games/rac1/docs/DECOMP_PROGRESS.md)).
 - **RAC1 US, retail.** The same records. Each level's entry point is a
   shared function, the level initialiser (0x245C28 in level 00 to 0x247F10
-  in level 18) ([overlays.md](../../games/rac1/ntsc/docs/overlays.md)).
+  in level 18) ([overlays.md](../../games/rac1/ntsc/docs/build/overlays.md)).
 - **RAC2, prerelease.** The same record layout and stop rule; types 1, 8
   and 9 (REL) seen; seven sections in the same order; `.lit` at one address
   in all 27 levels ([LEVEL-ARCHIVE-FORMAT.md](../../games/rac2/ntsc/docs/LEVEL-ARCHIVE-FORMAT.md)).
@@ -109,7 +109,7 @@ RAC1 and RAC2 boot executables have the same sections in the same order
 | Key | Measure | Source |
 |---|---|---|
 | RAC1 PAL | Executable game code 348K; about 3.2 MB of distinct level code not in the executable; about 3.5 MB of distinct game code in all, ten times the executable's (3.7 MB with `core_text`) | [ASSETS.md](../../games/rac1/docs/ASSETS.md#code-overlays) |
-| RAC1 US | Level text records 1,065,136–1,200,936 bytes; distinct level code about 3.2 MB, nine times the executable's | [overlays.md](../../games/rac1/ntsc/docs/overlays.md) |
+| RAC1 US | Level text records 1,065,136–1,200,936 bytes; distinct level code about 3.2 MB, nine times the executable's | [overlays.md](../../games/rac1/ntsc/docs/build/overlays.md) |
 | RAC2 | 48,788,176 executable and initialised-data bytes over 28 programs; code repeats about 1.23 times across them | [README](../../games/rac2/ntsc/README.md), [SECOND-C-LOT.md](../../games/rac2/ntsc/docs/SECOND-C-LOT.md) |
 | RAC3 | 51 overlays: about 100 MB of function bytes, 9.3–9.4 MB distinct; other executables about 3.0 MB of code in 15,146 functions | [Toolchain-and-Build.md](../../games/rac3/ntsc/docs/wiki/Toolchain-and-Build.md), [shared_code_findings.md](../../games/rac3/ntsc/docs/shared_code_findings.md) |
 
@@ -131,7 +131,7 @@ The field layout is still to be measured from retail code, game by game. A
 field list committed in RAC1 PAL's headers has an unresolved provenance and
 is not a layout to build on ([OPEN_QUESTIONS.md](../policy/OPEN_QUESTIONS.md),
 section 3). Lombyte's
-[moby-selector-scratch-path.md](../../games/rac1/ntsc/docs/moby-selector-scratch-path.md)
+[moby-selector-scratch-path.md](../../games/rac1/ntsc/docs/game/moby-selector-scratch-path.md)
 shows the method on one retail data path (RAC1 US).
 
 ### Placement records
@@ -181,7 +181,7 @@ records; RAC3's `frontbin.elf` and levels have the same three sections
 | `sndvtbl` | 8 bytes: `{id, function}`; 0–6 per level; ends at -1 | 2 words; 32 records; ends at 0xffffffff |
 
 Sources: [OVERLAYS.md, "Roles"](../../games/rac1/docs/OVERLAYS.md#roles),
-[overlays.md](../../games/rac1/ntsc/docs/overlays.md),
+[overlays.md](../../games/rac1/ntsc/docs/build/overlays.md),
 [MOBY-DISPATCH-TABLES.md](../../games/rac2/ntsc/docs/MOBY-DISPATCH-TABLES.md).
 
 - An update function receives the moby in `$a0` (RAC1 PAL). PAL names 690
@@ -197,7 +197,7 @@ Sources: [OVERLAYS.md, "Roles"](../../games/rac1/docs/OVERLAYS.md#roles),
   dispatch table with Wrench's class names
   ([editor/moby_classes.tsv](../../editor/moby_classes.tsv)). Lombyte also
   lists `update/mobyNNN.cpp` module names seen in 2002 development builds
-  (**prerelease**, [engine-source-layout.md](../../games/rac1/ntsc/docs/engine-source-layout.md)).
+  (**prerelease**, [engine-source-layout.md](../../games/rac1/ntsc/docs/game/engine-source-layout.md)).
 
 ## 4. Level data
 
@@ -233,7 +233,7 @@ says for each.
 ### RAC1 US
 
 Lombyte keeps each level's disc location and program records as JSON under
-`config/overlays/us/` ([overlays.md](../../games/rac1/ntsc/docs/overlays.md)).
+`config/overlays/us/` ([overlays.md](../../games/rac1/ntsc/docs/build/overlays.md)).
 Its level loader agrees with the PAL reading above: the header ranges at
 0x10 and 0x18 are the two gameplay archives, not sound (corrected there on
 2026-10-06, Lombyte pull request 112). It documents the sky,
@@ -329,7 +329,7 @@ sections 1 to 4, with a comparison across the sequels in its section 10.
   ReRAC's attributions for RAC1, a **reference** RAC2 has not traced. The
   code that uploads the chunks is not located in RAC2.
 - RAC1 PAL keeps `vutext` as a binary blob; RAC1 US rebuilds the DVP blobs as
-  raw data ([progress-metrics.md](../../games/rac1/ntsc/docs/progress-metrics.md)).
+  raw data ([progress-metrics.md](../../games/rac1/ntsc/docs/build/progress.md)).
 
 ### Hand-written and vector code
 
@@ -338,7 +338,7 @@ sections 1 to 4, with a comparison across the sequels in its section 10.
   The 51 large VU functions (67K) count as hand-written: no compiler stack
   frame, trapping `add`/`sub` ([SIBLING_DECOMPS.md](../../games/rac1/docs/SIBLING_DECOMPS.md)).
 - **RAC1 US** leaves SIMD, VU0/MMI and COP2 helpers out of its C goal
-  ([progress-metrics.md](../../games/rac1/ntsc/docs/progress-metrics.md)).
+  ([progress-metrics.md](../../games/rac1/ntsc/docs/build/progress.md)).
 - **RAC3**: VU0 macro-mode code in 101 `frontbin` functions matches as inline
   assembly in C; a hand-written VU0 clipper spans 0x3CC880–0x3CD548.
   `frontbin` writes DMA and GS registers and the scratchpad directly
@@ -359,7 +359,7 @@ sections 1 to 4, with a comparison across the sequels in its section 10.
 - **Memory card and save data.** RAC1 PAL: `libmc.o` (0x1236F0) matches the
   SDK archive; the 25 state names `CS_INIT` … `CS_PROMPT_BEGIN_NOSAVE` are
   retail strings, and RAC1 US finds the 25-pointer handler table the
-  dispatcher indexes ([overlays.md](../../games/rac1/ntsc/docs/overlays.md)).
+  dispatcher indexes ([overlays.md](../../games/rac1/ntsc/docs/build/overlays.md)).
   Save block ids are listed in
   [DATAMINED_REVERSE_ENGINEERING.md](../../games/rac1/docs/DATAMINED_REVERSE_ENGINEERING.md),
   attributed to `func_0020BBC8`. RAC2's `card.h` and `save.h` repeat them
@@ -454,7 +454,7 @@ What each project measured (details in [docs/decomp/TOOLCHAINS.md](../decomp/TOO
 | Key | Compiler matching retail | Callee-saved registers |
 |---|---|---|
 | RAC1 PAL | SN GCC 2.95.3 (build v1.14) for game code and 989snd; Sony 2.9-ee-991111 for SDK code and libgcc ([TOOLCHAIN.md](../../games/rac1/docs/TOOLCHAIN.md)) | `text`: `sq`, 16-byte slots; `core_text`: `sd` |
-| RAC1 US | GNU EE-GCC 2.9, assembled with Ps2EeAs; some units need a patched 2.9-ee-991111-01 ([patched-toolchain.md](../../games/rac1/ntsc/docs/patched-toolchain.md), [overlays.md](../../games/rac1/ntsc/docs/overlays.md)) | the patch adds `sq`/`lq` saves |
+| RAC1 US | GNU EE-GCC 2.9, assembled with Ps2EeAs; some units need a patched 2.9-ee-991111-01 ([patches/README.md](../../games/rac1/ntsc/patches/README.md), [overlays.md](../../games/rac1/ntsc/docs/build/overlays.md)) | the patch adds `sq`/`lq` saves |
 | RAC2 | GNU-EE 2.9-ee-991111b plus a patch stack, for the bodies integrated so far ([COMPILER-NOTES.md](../../games/rac2/ntsc/docs/COMPILER-NOTES.md)) | `sd`, 8-byte slots |
 | RAC3 | SN ee-gcc 2.95.3 v1.36, `-O2 -G8 -fopt-stack -mno-check-zero-division`, per-file `-mno-split-addresses`, per-function Ps2EeAs ([Toolchain-and-Build.md](../../games/rac3/ntsc/docs/wiki/Toolchain-and-Build.md)) | `sd`, 8-byte slots |
 
@@ -510,10 +510,10 @@ Stated as found; none is resolved here.
    `vtbl` word as a pointer to a 6-word table; RAC2 ends the moby table on
    padding and finds one shared value per level. RAC1 PAL names sound
    handlers `SoundFunc_<id>`, RAC2 `UpdateSound_<id>`.
-6. **Lombyte's scope.** [engine-source-layout.md](../../games/rac1/ntsc/docs/engine-source-layout.md)
+6. **Lombyte's scope.** [engine-source-layout.md](../../games/rac1/ntsc/docs/game/engine-source-layout.md)
    puts level overlays out of scope until the executable is done;
-   [overlays.md](../../games/rac1/ntsc/docs/overlays.md) and
-   [progress-metrics.md](../../games/rac1/ntsc/docs/progress-metrics.md)
+   [overlays.md](../../games/rac1/ntsc/docs/build/overlays.md) and
+   [progress-metrics.md](../../games/rac1/ntsc/docs/build/progress.md)
    count them in the goal.
 7. **Which RAC1 boot.** [VU-MICROPROGRAMS.md](../../games/rac2/ntsc/docs/VU-MICROPROGRAMS.md)
    compares RAC2 with "the RAC1 boot we hold" without naming the region.

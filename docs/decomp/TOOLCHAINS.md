@@ -25,7 +25,7 @@ Names used on this page:
 | Game | Game code | Flags | SDK and runtime code | How far it is proven |
 |---|---|---|---|---|
 | RAC1 PAL `SCES_509.16` ([games/rac1](../../games/rac1/README.md)) | SN 2.95.3 v1.14 for game code in both segments; nothing edits its output ([BUILD_FIDELITY.md](../../games/rac1/docs/BUILD_FIDELITY.md)) | `-O2 -G2 -Iinclude -Wa,-I,.` ([Makefile.sn](../../games/rac1/Makefile.sn)), plus options for whole files only ([file_cflags.txt](../../games/rac1/config/file_cflags.txt): `-mno-split-addresses`, `-fno-force-mem`, `-fno-schedule-insns`, `-fno-sched-interblock`) | Sony 2.9-ee-991111 (`ee-gcc.exe`) for objects marked `ee29` ([core_text.objects](../../games/rac1/config/core_text.objects)) and for libgcc; a Linux 2.9-ee-991111-01 built from source for its last three modules | Whole image links at retail addresses. Container build reproduced the Windows report byte for byte ([TOOLCHAIN.md](../../games/rac1/docs/TOOLCHAIN.md)) |
-| RAC1 NTSC-U `SCUS_971.99` ([games/rac1/ntsc](../../games/rac1/ntsc/docs/building.md), Lombyte) | "Game compiler": GNU EE 2.9-ee-991111b rebuilt from source with the production patch stack `0000`..`0056` ([patches/sce-991111b](../../games/rac1/ntsc/patches/sce-991111b/README.md)) | `-O2`, no `-g`, no `-G` option; per-unit flags in `GAME_COMPILER_FLAG_UNITS` ([configure.py](../../games/rac1/ntsc/configure.py)) | EE-GCC 2.9-ee-991111-01 ("SDK compiler") for every unit below `GAME_TEXT_START = 0x12D8F8`, with `-DMATCHING_DECOMP -O2 -g2 -gstabs` ([configure.py](../../games/rac1/ntsc/configure.py)) | 1258 of 1331 C units byte-identical on their placement compiler (2026-09-27); 18 units in `ROUTE_EXCEPTIONS` still use another route |
+| RAC1 NTSC-U `SCUS_971.99` ([games/rac1/ntsc](../../games/rac1/ntsc/docs/build/building.md), Lombyte) | "Game compiler": GNU EE 2.9-ee-991111b rebuilt from source with the production patch stack `0000`..`0056` ([patches/sce-991111b](../../games/rac1/ntsc/patches/sce-991111b/README.md)) | `-O2`, no `-g`, no `-G` option; per-unit flags in `GAME_COMPILER_FLAG_UNITS` ([configure.py](../../games/rac1/ntsc/configure.py)) | EE-GCC 2.9-ee-991111-01 ("SDK compiler") for every unit below `GAME_TEXT_START = 0x12D8F8`, with `-DMATCHING_DECOMP -O2 -g2 -gstabs` ([configure.py](../../games/rac1/ntsc/configure.py)) | 1258 of 1331 C units byte-identical on their placement compiler (2026-09-27); 18 units in `ROUTE_EXCEPTIONS` still use another route |
 | RAC2 NTSC-U v1.01 `SCUS_972.68` ([games/rac2/ntsc](../../games/rac2/ntsc/README.md)) | Game code: 2.9-ee-991111b, the Lombyte stack minus its save widening, plus the measured transformers ([tools/compiler/](../../games/rac2/ntsc/tools/compiler/README.md)); SDK units: Sony's 2.9-ee-991111-01, unmodified ([tools/compiler/sdk/](../../games/rac2/ntsc/tools/compiler/sdk/build.py)) | Per file ([config/cflags.txt](../../games/rac2/ntsc/config/cflags.txt)): `-O2 -G0 -ffunction-sections` by default | Checked by output | Every C function links into a program that equals retail (`tools/build.py all`) |
 | RAC3 NTSC-U `SCUS_973.53`, `frontbin.elf` ([games/rac3/ntsc](../../games/rac3/ntsc/docs/wiki/Toolchain-and-Build.md)) | SN 2.95.3 v1.36 | `-O2 -G8 -fopt-stack -mno-check-zero-division` on every range. `-mno-split-addresses` on 110 and `@ps2as` on 112 of the 358 lines of [text_parts.txt](../../games/rac3/ntsc/tools/text_parts.txt) | Not measured | 2043/2043 text functions byte-identical in a full build (2026-09-25) ([compiler_matrix_findings.md](../../games/rac3/ntsc/docs/compiler_matrix_findings.md)) |
 | RAC4 Deadlocked `SCUS_974.65` ([games/rac4/ntsc](../../games/rac4/ntsc/docs/RESEARCH.md)) | SN 2.95.3 v1.36 | `-O2 -G8 -fopt-stack -mno-check-zero-division`; `-mno-split-addresses` per file, named in a `/* cflags: */` comment ([build.sh](../../games/rac4/ntsc/tools/build.sh)) | Sony 2.9-ee-991111 with `-O2 -G2` for libgcc and libm | Per function only, with most immediates masked and no linked image. Chosen from five functions: v1.36 gave 4 of 5 exact, 2.9-ee 3, SN v1.14 and SN 2.74 one each ([RESEARCH.md](../../games/rac4/ntsc/docs/RESEARCH.md#the-compiler)) |
@@ -127,7 +127,7 @@ Names used on this page:
   ahead of the game code. Units below `GAME_TEXT_START` use the SDK compiler,
   units from there on use the game compiler
   ([configure.py](../../games/rac1/ntsc/configure.py),
-  [decompilation-tips.md](../../games/rac1/ntsc/docs/decompilation-tips.md)).
+  [decompilation-tips.md](../../games/rac1/ntsc/docs/contributing/decompilation-tips.md)).
   `configure.py` states: "SN is not a compiler of the retail build".
 - **The game compiler is a reconstruction.** Selected patches from the
   production stack ([patches/sce-991111b/README.md](../../games/rac1/ntsc/patches/sce-991111b/README.md)):
@@ -146,15 +146,14 @@ Names used on this page:
   in the ProDG 2.0 archive "pads loops differently and fails the gate". Its
   divbug workaround is patched out because none of RAC1's 346 executable
   `div` words and 26,539 overlay `div` words is preceded by `nop; nop`
-  ([building.md](../../games/rac1/ntsc/docs/building.md),
+  ([building.md](../../games/rac1/ntsc/docs/build/building.md),
   [patch-ps2eeas.py](../../games/rac1/ntsc/scripts/patch-ps2eeas.py)).
 - **Remaining routes.** `ROUTE_EXCEPTIONS` holds 4 units on `cc_sn` (SN cc1
   2.95.2), 9 on `cc_sn_padless` (SN cc1 plus Ps2EeAs) and 5 on the patched
   991111-01 profile ([configure.py](../../games/rac1/ntsc/configure.py)). That
   profile adds opt-in `-mastra-*` flags, `sq`/`lq` saves, classic
   `mult`/`mflo` and in-place `cvt.w.s` to the public `ps2-ee-toolchain`
-  snapshot at `b595ded` ([patched-toolchain.md](../../games/rac1/ntsc/docs/patched-toolchain.md),
-  [its README](../../games/rac1/ntsc/patches/ee-gcc-2.9-991111-01/README.md)).
+  snapshot at `b595ded` ([patches/README.md](../../games/rac1/ntsc/patches/README.md)).
   Without it the build rebuilds those units from the retail oracle and does
   not score them.
 - **The NTSC decomp.** The NTSC decomp, a third-party decompilation of the

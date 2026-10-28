@@ -45,7 +45,7 @@ short:
   there).
 - Keep commits granular: each one builds, and the game's own gate still passes.
 - Inside OpenRAC this replaces the per-project styles: Lombyte's
-  [docs/commit-messages.md](../../games/rac1/ntsc/docs/commit-messages.md),
+  [docs/commit-messages.md](../../games/rac1/ntsc/docs/contributing/commit-messages.md),
   rac2's [AGENTS.md](../../games/rac2/ntsc/AGENTS.md) and
   [.gitmessage](../../games/rac2/ntsc/.gitmessage), and the format in rac1/pal's
   [LLM_DECOMP_INSTRUCTIONS.md](../../games/rac1/docs/LLM_DECOMP_INSTRUCTIONS.md).
@@ -214,10 +214,10 @@ On hosts without the tools, prefix any step with `bash tools/docker/run.sh`.
 
 ### rac1/ntsc: Ratchet & Clank NTSC-U (from Lombyte)
 
-- **Setup** ([docs/building.md](../../games/rac1/ntsc/docs/building.md)).
+- **Setup** ([docs/building.md](../../games/rac1/ntsc/docs/build/building.md)).
   `./setup.sh` downloads and hash-checks the public toolchains, builds the
   game compiler from source, and runs the first `make elf`. Units that need
-  the optional [patched EE-GCC profile](../../games/rac1/ntsc/docs/patched-toolchain.md)
+  the optional [patched EE-GCC profile](../../games/rac1/ntsc/patches/README.md)
   build from the retail oracle without it.
 - **Oracles** ([CONTRIBUTING.md](../../games/rac1/ntsc/CONTRIBUTING.md)). A
   pending unit keeps the retail assembly under `#ifndef NON_MATCHING` and the
@@ -225,9 +225,9 @@ On hosts without the tools, prefix any step with `bash tools/docker/run.sh`.
   `check-unit` compiles the body. Units classified as intentional assembly
   (SIMD, VU0/MMI and COP2 helpers) are outside the C goal and have no body.
 - **Proof.** objdiff ignores relocations, so 100 % is not exact
-  ([progress-metrics.md](../../games/rac1/ntsc/docs/progress-metrics.md)):
+  ([progress-metrics.md](../../games/rac1/ntsc/docs/build/progress.md)):
   `make elf` and `./verify-baseline.sh` are the gate.
-  [decompilation-tips.md](../../games/rac1/ntsc/docs/decompilation-tips.md)
+  [decompilation-tips.md](../../games/rac1/ntsc/docs/contributing/decompilation-tips.md)
   holds the acceptance discipline and the recovery ladder.
 - **Level code.** `make overlays` compiles `src/overlays/` without linking.
   The overlay byte proof (`scripts/decomp try`) and `promote-unit.py` live in
@@ -239,7 +239,7 @@ On hosts without the tools, prefix any step with `bash tools/docker/run.sh`.
   the `make elf` result with its `PASS` line, the `check-unit` score, and for a
   promotion the symbol, bytes, measures and compiler flags. Run
   `python3 scripts/test_public_tools.py` before changing `scripts/`. Names
-  follow [recovered-names.md](../../games/rac1/ntsc/docs/recovered-names.md).
+  follow [recovered-names.md](../../games/rac1/ntsc/docs/README.md).
 
 ### rac2: Going Commando NTSC-U v1.01 (from rac2-decomp)
 
@@ -377,7 +377,7 @@ set no rules for agents beyond the pull-request rules.
 | Project | Rule in its own docs |
 |---|---|
 | rac1/pal | Commit messages end with one `Co-Authored-By` trailer naming the model ([WORKFLOW.md](../../games/rac1/docs/WORKFLOW.md), "Publish") |
-| rac1/ntsc | No agent trailers or session links. Its optional hook strips them and rejects AI identities as author or committer ([commit-messages.md](../../games/rac1/ntsc/docs/commit-messages.md)) |
+| rac1/ntsc | No agent trailers or session links. Its optional hook strips them and rejects AI identities as author or committer ([commit-messages.md](../../games/rac1/ntsc/docs/contributing/commit-messages.md)) |
 | rac2 | Not addressed |
 | rac3 | Contributors remove AI `Co-authored-by:` lines before pushing, and maintainers delete any left when squash-merging ([Pull-Requests.md](../../games/rac3/ntsc/docs/wiki/Pull-Requests.md)) |
 
@@ -421,7 +421,7 @@ best starting point for the other.
   `lombyte.py`. Map globals by position: the n-th `%hi`/`%lo` or `$gp` access
   in one build is the n-th in the other. The level boundary and `$gp` differ
   by 0x100: they are 0x15EF00 and 0x166C00 in the US build, and 0x15F000 and
-  0x166D00 in PAL ([rac1/ntsc overlays.md](../../games/rac1/ntsc/docs/overlays.md)).
+  0x166D00 in PAL ([rac1/ntsc overlays.md](../../games/rac1/ntsc/docs/build/overlays.md)).
   `python3 tools/wave.py salvage --ports` lands logged port attempts apart
   from other matches, so they go in a commit of their own.
 - **The compilers differ.** PAL matches game code with SN GCC 2.95.3, and

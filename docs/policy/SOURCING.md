@@ -53,7 +53,7 @@ SDK-style names or macros.
 
 Several projects cite publicly distributed demo, preview and prototype discs
 as references (for example [rac1/pal's notes/beta_builds_research.md](../../games/rac1/notes/beta_builds_research.md),
-[rac1/ntsc's docs/engine-source-layout.md](../../games/rac1/ntsc/docs/engine-source-layout.md)
+[rac1/ntsc's docs/engine-source-layout.md](../../games/rac1/ntsc/docs/game/engine-source-layout.md)
 and [rac2's docs/PROTOTYPE-BUILDS.md](../../games/rac2/ntsc/docs/PROTOTYPE-BUILDS.md)).
 Until the group decides otherwise ([open questions](OPEN_QUESTIONS.md)):
 

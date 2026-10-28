@@ -699,7 +699,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac1/ntsc/docs/building.md",
+        "docs": "games/rac1/ntsc/docs/build/building.md",
         "todo": "Run once on Linux. On Windows it runs in WSL: decide how the launcher starts WSL (wsl.exe --cd ...)."
       },
       {
@@ -722,7 +722,7 @@
           "inputs",
           "docker"
         ],
-        "docs": "games/rac1/ntsc/docs/building.md",
+        "docs": "games/rac1/ntsc/docs/build/building.md",
         "todo": "Run once on macOS."
       },
       {
@@ -741,7 +741,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac1/ntsc/docs/building.md",
+        "docs": "games/rac1/ntsc/docs/build/building.md",
         "todo": "Find the executable make elf writes (config/us/build/SCUS_971.99 per docs/building.md) and add it as the artifact; macOS runs make through host/run.sh."
       },
       {
@@ -781,7 +781,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac1/ntsc/docs/building.md"
+        "docs": "games/rac1/ntsc/docs/build/building.md"
       },
       {
         "id": "editor-extract",

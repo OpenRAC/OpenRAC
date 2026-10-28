@@ -42,7 +42,7 @@ all of OpenRAC, so the link resolves inside it. Details:
 Nothing to put here: `./setup.sh` downloads its pinned toolchains (every
 download checked by SHA-256) into `games/rac1/ntsc/tools/`, and builds the
 game compiler from the public GNU EE source archive with the project's
-patches. See [docs/building.md](../games/rac1/ntsc/docs/building.md).
+patches. See [docs/building.md](../games/rac1/ntsc/docs/build/building.md).
 
 ## Ratchet & Clank: Going Commando (`games/rac2/ntsc`)
 

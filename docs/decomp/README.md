@@ -53,12 +53,12 @@ These come on top of [CONTRIBUTING.md](../../CONTRIBUTING.md).
 | Document | For |
 |---|---|
 | [README.md](../../games/rac1/ntsc/README.md), [CONTRIBUTING.md](../../games/rac1/ntsc/CONTRIBUTING.md) | The project, its seven-step contribution loop |
-| [docs/building.md](../../games/rac1/ntsc/docs/building.md) | Automatic and manual builds, environment variables, targets |
-| [docs/decompilation-tips.md](../../games/rac1/ntsc/docs/decompilation-tips.md), [docs/progress-metrics.md](../../games/rac1/ntsc/docs/progress-metrics.md) | Acceptance discipline and matching tips; what C_EXACT and C_FUZZY measure |
-| [docs/patched-toolchain.md](../../games/rac1/ntsc/docs/patched-toolchain.md), [patches/README.md](../../games/rac1/ntsc/patches/README.md) | The patched EE-GCC: lineage, rules, hashes |
-| [docs/overlays.md](../../games/rac1/ntsc/docs/overlays.md) | Level programs in the US build |
-| [docs/engine-source-layout.md](../../games/rac1/ntsc/docs/engine-source-layout.md), [docs/moby-selector-scratch-path.md](../../games/rac1/ntsc/docs/moby-selector-scratch-path.md), [docs/recovered-names.md](../../games/rac1/ntsc/docs/recovered-names.md) | Engine source layout (from prerelease builds), a moby data path, the names catalog |
-| [docs/commit-messages.md](../../games/rac1/ntsc/docs/commit-messages.md) | What a good commit summary and body say (OpenRAC's convention applies) |
+| [docs/build/building.md](../../games/rac1/ntsc/docs/build/building.md) | Automatic and manual builds, environment variables, targets |
+| [docs/contributing/decompilation-tips.md](../../games/rac1/ntsc/docs/contributing/decompilation-tips.md), [docs/build/progress.md](../../games/rac1/ntsc/docs/build/progress.md) | Acceptance discipline and matching tips; what C_EXACT and C_FUZZY measure |
+| [patches/README.md](../../games/rac1/ntsc/patches/README.md) | The patched EE-GCC: lineage, rules, hashes |
+| [docs/build/overlays.md](../../games/rac1/ntsc/docs/build/overlays.md) | Level programs in the US build |
+| [docs/game/engine-source-layout.md](../../games/rac1/ntsc/docs/game/engine-source-layout.md), [docs/game/moby-selector-scratch-path.md](../../games/rac1/ntsc/docs/game/moby-selector-scratch-path.md), [docs/README.md](../../games/rac1/ntsc/docs/README.md) | Engine source layout (from prerelease builds), a moby data path, the names catalog |
+| [docs/contributing/commit-messages.md](../../games/rac1/ntsc/docs/contributing/commit-messages.md) | What a good commit summary and body say (OpenRAC's convention applies) |
 | [config/README.md](../../games/rac1/ntsc/config/README.md), [src/README.md](../../games/rac1/ntsc/src/README.md) | Directory notes |
 
 ### Ratchet & Clank: Going Commando ([games/rac2/ntsc](../../games/rac2/ntsc))
