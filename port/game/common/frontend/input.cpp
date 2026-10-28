@@ -150,6 +150,14 @@ void capture_mouse(bool capture) {
     }
 }
 
+void menus_after_mods(int port, std::uint16_t& buttons) {
+    if (port == 0) {
+        mod_menu::filter_pad(buttons);  // a mod's menu page has the pad while it is open
+        mod_ui::filter_pad(buttons);    // and a mod's page of the game's widgets while shown
+        debug_menu::filter_pad(buttons, openrac_game_loaded_overlay());
+    }
+}
+
 void skip_after_mods(int port, std::uint16_t& buttons) {
     if (port == 0 && g && openrac_game_map != nullptr && openrac_game_map->skip_cutscenes
         && openrac_game_skip_buttons != nullptr && (g->index & 1) != 0) {
@@ -245,13 +253,13 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     // Bits are active low: 0x8 Start, 0x4000 Cross, 0x0F00 L2 R2 L1 R1.
     // With a mod on the pad's reports, after the mods (skip_after_mods), so a Start a mod presses
     // (a key bound to it) skips as the pad's does.
+    // The menus over the game take the pad the same way, after the mods: a key a mod presses (the
+    // keyboard and mouse, a controller a mod reads itself) moves their cursor as the pad's does.
     if (openrac_game_pad_report_hook == nullptr) {
         skip_after_mods(port, *buttons);
+        menus_after_mods(port, *buttons);
     }
     if (port == 0) {
-        mod_menu::filter_pad(*buttons);  // a mod's menu page has the pad while it is open
-        mod_ui::filter_pad(*buttons);    // and a mod's page of the game's widgets while shown
-        debug_menu::filter_pad(*buttons, openrac_game_loaded_overlay());
         debug_overlay::pad(*buttons, analog);  // [debug tools]
     }
     if (env::flag(env::Var::TraceInput)) {

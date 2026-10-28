@@ -506,13 +506,19 @@ void openrac_game_pad_after_mods(int port, uint8_t* report, int size) {
             uint16_t buttons = static_cast<uint16_t>(report[0] | (report[1] << 8));
             const uint16_t before = buttons;
             frontend::skip_after_mods(port, buttons);
+            const uint16_t skipped = buttons;
+            frontend::menus_after_mods(port, buttons);
             report[0] = static_cast<uint8_t>(buttons);
             report[1] = static_cast<uint8_t>(buttons >> 8);
 
-            // What the skip pressed is pressed hard, as the pad library gives a pressed button.
+            // What the skip pressed is pressed hard, as the pad library gives a pressed button;
+            // what a menu took is let go.
             for (int n = 0; n < 12 && 6 + n < size; ++n) {
-                if (((before & ~buttons) >> kPressureBit[n]) & 1) {
+                if (((before & ~skipped) >> kPressureBit[n]) & 1) {
                     report[6 + n] = 0xFF;
+                }
+                if (((buttons & ~skipped) >> kPressureBit[n]) & 1) {
+                    report[6 + n] = 0;
                 }
             }
         }

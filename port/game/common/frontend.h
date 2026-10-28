@@ -134,6 +134,10 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]);
 // some, the pad library calls it on the report the mods leave (openrac_game_pad_after_mods).
 void skip_after_mods(int port, std::uint16_t& buttons);
 
+// The menus over the game (a mod's menu page, a mod's page of the game's widgets, the debug menu)
+// take pad 0 while they are open, leaving the game none of it. Called where skip_after_mods is.
+void menus_after_mods(int port, std::uint16_t& buttons);
+
 // The keyboard and mouse for the mods (mod interface 1.2, platform/input.h's KeyboardMouse): as
 // the last frame read them; null without a window. `overlay` is set while the port's own overlay
 // or menu has the input.
