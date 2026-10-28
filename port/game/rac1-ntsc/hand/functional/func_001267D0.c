@@ -1,7 +1,7 @@
 /* Carried by port/tools/versionmap/carry_functions.py from the decompilation of Ratchet & Clank (PAL), nonmatching/functional/func_00126910.c (games/rac1): func_00126910, functional C there, not matched.
  * Kind `same` in the version map (../../README.md): the two versions have the same instructions for it.
  * Names and addresses are this version's. Functional C, not matched C. */
-/* functional: medium. Handwritten MMI (MPEG motion compensation) translated to plain halfword arithmetic: 8-wide half-pel horizontal average of two sources into dst, two column passes of two row blocks. Register-level details (qfsrv byte rotation, zero fill) are modelled byte by byte; the addi overflow trap cannot occur. */
+/* functional: medium. fcheck: unchecked (never called in fcheck's capture run of the title, menu and level 0; OpenRAC tools/fcheck_gate.py, 2026-10-18). Handwritten MMI (MPEG motion compensation) translated to plain halfword arithmetic: 8-wide half-pel horizontal average of two sources into dst, two column passes of two row blocks. Register-level details (qfsrv byte rotation, zero fill) are modelled byte by byte; the addi overflow trap cannot occur. */
 
 typedef int s32_c1267d0;
 typedef unsigned char u8_c1267d0;

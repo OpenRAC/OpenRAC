@@ -1,146 +1,247 @@
-/* Carried from the PAL decompilation's nonmatching/functional/func_L06_003089B8.c (games/rac1) through the version
- * map (../../README.md): functional C, not matched C. Names and addresses are this version's. */
-#include "types.h"
-#include "qcopy.h"
-#include "qzero.h"
-#ifndef MACRO_ADDR
-#define MACRO_ADDR
-#endif
-#ifndef NOT_SDA
-#define NOT_SDA
-#endif
-#ifndef SDATA
-#define SDATA(symbol) __asm__(#symbol)
-#endif
-/* What the PAL file this was written in declares before it (its unit, and its own file). */
-/* functional: medium. Draws a spinning 4-quad textured cage plus a fading inner quad around the moby (data at moby+0x78: scale at 0x24, uv scroll at 0x1C, fade at 0x20; both advance 0.01 per call and wrap at 1.0): corners come from the level tables D_L06_001FE8D0/ECB0/ECF8/ED20 rotated by a matrix built from D_L06_00167400+0x158, each quad submitted with func_L00_001FD228. Written from the asm alone (no NTSC draft); the packet layout (pos 0x00, colour 0x40, uv 0x50, tags 0x70) follows its stores. Nothing unchecked. */
+/* Carried by port/tools/versionmap/carry_functions.py from the decompilation of Ratchet & Clank (PAL), src/overlays/shared/space_commando_and_door_lock.c (games/rac1): func_L06_003089B8, matched C there.
+ * Kind `same` in the version map (../../README.md): the two versions have the same instructions for it.
+ * Names and addresses are this version's. Functional C, not matched C. */
+/* carry, not from a `same` function or an `exact` data address (read them):
+ *   0x00808080: no place found, left as it is
+ */
+
+typedef short s16_c06_307578;
+typedef int s32_c06_307578;
+typedef unsigned char u8_c06_307578;
+typedef unsigned short u16_c06_307578;
+typedef unsigned int u32_c06_307578;
+typedef unsigned long u64_c06_307578;
+typedef float f32_c06_307578;
+typedef struct {
+    f32_c06_307578 x;
+    f32_c06_307578 y;
+    f32_c06_307578 z;
+    f32_c06_307578 w;
+} Vec4f_c06_307578;
+struct Moby_c06_307578;
+struct Manip_c06_307578;
+struct GifEntry_c06_307578;
+struct AnimSeq_c06_307578;
+struct MobyClass_c06_307578 {
+    u8_c06_307578 pad_0[0xC];
+    u8_c06_307578 seq_count;
+    u8_c06_307578 pad_D[3];
+    u32_c06_307578 collision;
+    u8_c06_307578 pad_14[0x8];
+    void *retarget_table;
+    struct GifEntry_c06_307578 *gifs;
+    f32_c06_307578 scale;
+    s32_c06_307578 sound_defs;
+    void **callbacks;
+    u8_c06_307578 pad_30[0x14];
+    u16_c06_307578 flags;
+    s16_c06_307578 type;
+    struct AnimSeq_c06_307578 *seqs[1];
+};
+struct Moby_c06_307578 {
+    Vec4f_c06_307578 bsphere;
+    Vec4f_c06_307578 pos;
+    u8_c06_307578 state;
+    u8_c06_307578 group;
+    u8_c06_307578 class_slot;
+    u8_c06_307578 alpha;
+    struct MobyClass_c06_307578 *pclass;
+    struct Moby_c06_307578 *next;
+    f32_c06_307578 scale;
+    u8_c06_307578 update_dist;
+    u8_c06_307578 visible;
+    s16_c06_307578 draw_dist;
+    u16_c06_307578 flags;
+    u16_c06_307578 occlusion;
+    u64_c06_307578 spawn_frame;
+    Vec4f_c06_307578 rot;
+    u8_c06_307578 frame;
+    u8_c06_307578 prev_frame;
+    u8_c06_307578 seq;
+    u8_c06_307578 prev_seq;
+    f32_c06_307578 anim_time;
+    f32_c06_307578 anim_speed;
+    u8_c06_307578 pad5C[8];
+    struct Manip_c06_307578 *manips;
+    void *cur_frame_data;
+    void *prev_frame_data;
+    u8_c06_307578 anim_flags;
+    u8_c06_307578 unk71;
+    u8_c06_307578 unk72;
+    u8_c06_307578 unk73;
+    void (*update)(struct Moby_c06_307578 *moby);
+    u8_c06_307578 *pvars;
+    u8_c06_307578 unk7C;
+    u8_c06_307578 sound_slot;
+    u8_c06_307578 anim_trigger_count;
+    u8_c06_307578 shadow_range;
+    s32_c06_307578 unk80;
+    union {
+        struct {
+            u8_c06_307578 pad84[2];
+            s16_c06_307578 unk86;
+            u8_c06_307578 pad88[8];
+        };
+        struct {
+            f32_c06_307578 height_min;
+            f32_c06_307578 height_max;
+            u8_c06_307578 pad90_88[4];
+        };
+    };
+    s32_c06_307578 glow_color;
+    u32_c06_307578 collision;
+    s32_c06_307578 collision_disable;
+    u8_c06_307578 pad9C[8];
+    u8_c06_307578 hit_slot;
+    u8_c06_307578 padA5;
+    s16_c06_307578 oclass;
+    u8_c06_307578 padA8[8];
+    u8_c06_307578 mission;
+    u8_c06_307578 unkB1;
+    u16_c06_307578 save_id;
+    s16_c06_307578 unkB4;
+    s16_c06_307578 unkB6;
+    void *parent;
+    u8_c06_307578 command;
+    u8_c06_307578 unkBD;
+    u8_c06_307578 padBE[2];
+    Vec4f_c06_307578 rot_row0;
+    Vec4f_c06_307578 rot_row1;
+    Vec4f_c06_307578 rot_row2;
+    u8_c06_307578 padF0[0x10];
+};
+typedef struct Moby_c06_307578 Moby_c06_307578;
+typedef struct MobyClass_c06_307578 MobyClass_c06_307578;
+extern u64_c06_307578 func_001F44B8(s32_c06_307578);
+extern void func_L00_001FD228(void *, void *, s32_c06_307578);
+typedef int u128_c06_307578 __attribute__((mode(TI)));
 typedef struct {
     float pos[4][4];
     int col[4];
     float uv[8];
     long tag[4];
-} Pkt_089B8_c307578 __attribute__((aligned(16)));
-extern void func_001FA1F8_089B8(void *, void *) __asm__("func_001FA030");
-extern long func_001F4868_089B8(int) __asm__("func_001F44B8");
-extern void func_001F9EC0_089B8(void *, void *, void *) __asm__("func_001F9CF8");
-extern void func_L00_001FD1D8_089B8(void *, void *, int) __asm__("func_L00_001FD228");
-extern char D_L06_00167500_089B8[] __asm__("D_L06_00167400");
-extern int D_L06_001FED20_089B8[] __asm__("D_L06_001FE9D0");
-extern float D_L06_001FECB0_089B8[] __asm__("D_L06_001FE960");
-extern char D_L06_001FEC20_089B8[] __asm__("D_L06_001FE8D0");
-extern int D_L06_001FECF8_089B8[] __asm__("D_L06_001FE9A8");
-
-
-
+} Pkt89B8_c06_307578 __attribute__((aligned(16)));
+extern void func_001FA030(void *, void *);
+extern void func_001F9CF8(void *, void *, void *);
+extern void func_L00_001FD228(void *, void *, int);
+extern char D_L06_00167400[];
+extern int D_L06_001FE9D0[][4];
+extern float D_L06_001FE960[][2];
+extern char D_L06_001FE8D0[];
+extern int D_L06_001FE9A8[];
 void FUN_L06_00307578(char *o) {
-    Pkt_089B8_c307578 pk;
-    float mat[16] __attribute__((aligned(16)));
-    float axis[4] __attribute__((aligned(16)));
+    Pkt89B8_c06_307578 pk;
     float v[4][4] __attribute__((aligned(16)));
+    float axis[4] __attribute__((aligned(16)));
+    float mat[12] __attribute__((aligned(16)));
     float w[4][4] __attribute__((aligned(16)));
-    char *data = *(char **)(o + 0x78);
+    char *data = *(char **)&((Moby_c06_307578 *)o)->pvars;
     float f;
-    int i, k;
-    int idx[4];
-    int *row;
-
-    axis[2] = *(float *)(D_L06_00167500_089B8 + 0x158);
+    int i, col;
+    float *g = (float *)D_L06_00167400;
+    float *g2;
+    axis[2] = g[0x56];
     axis[0] = 0.0f;
     axis[1] = 0.0f;
-    func_001FA1F8_089B8(mat, axis);
+    func_001FA030(mat, axis);
     f = *(float *)(data + 0x1C) + 0.01f;
     *(float *)(data + 0x1C) = f;
     if (1.0f < f) {
         *(float *)(data + 0x1C) = f - 1.0f;
     }
-    pk.tag[3] = 0x4000000044L;
     pk.tag[2] = 1;
+    pk.tag[3] = 0x4000000044L;
     pk.tag[0] = 0;
-    pk.tag[1] = func_001F4868_089B8(0x18);
+    pk.tag[1] = func_001F44B8(0x18);
     for (i = 0; i < 4; i++) {
-        row = D_L06_001FED20_089B8 + i * 4;
-        idx[0] = row[0];
-        idx[1] = row[1];
-        idx[2] = row[2];
-        idx[3] = row[3];
-        func_001F9EC0_089B8(v[0], D_L06_001FEC20_089B8 + idx[0] * 16, mat);
-        func_001F9EC0_089B8(v[1], D_L06_001FEC20_089B8 + idx[1] * 16, mat);
-        func_001F9EC0_089B8(v[2], D_L06_001FEC20_089B8 + idx[2] * 16, mat);
-        func_001F9EC0_089B8(v[3], D_L06_001FEC20_089B8 + idx[3] * 16, mat);
-        pk.pos[0][0] = *(float *)(o + 0x10) + v[0][0] * *(float *)(data + 0x24);
-        pk.pos[0][1] = *(float *)(o + 0x14) + v[0][1] * *(float *)(data + 0x24);
-        pk.pos[0][2] = *(float *)(o + 0x18) + v[0][2];
-        pk.pos[1][0] = *(float *)(o + 0x10) + v[1][0] * *(float *)(data + 0x24);
-        pk.pos[1][1] = *(float *)(o + 0x14) + v[1][1] * *(float *)(data + 0x24);
-        pk.pos[1][2] = *(float *)(o + 0x18) + v[1][2];
-        pk.pos[2][0] = *(float *)(o + 0x10) + v[2][0] * *(float *)(data + 0x24);
-        pk.pos[2][1] = *(float *)(o + 0x14) + v[2][1] * *(float *)(data + 0x24);
-        pk.pos[2][2] = *(float *)(o + 0x18) + v[2][2];
-        pk.pos[3][0] = *(float *)(o + 0x10) + v[3][0] * *(float *)(data + 0x24);
-        pk.pos[3][1] = *(float *)(o + 0x14) + v[3][1] * *(float *)(data + 0x24);
-        pk.pos[3][2] = *(float *)(o + 0x18) + v[3][2];
-        pk.col[0] = D_L06_001FECF8_089B8[idx[0]];
-        pk.uv[0] = D_L06_001FECB0_089B8[idx[0] * 2];
-        pk.uv[1] = D_L06_001FECB0_089B8[idx[0] * 2 + 1] + *(float *)(data + 0x1C);
-        pk.col[1] = D_L06_001FECF8_089B8[idx[1]];
-        pk.uv[2] = D_L06_001FECB0_089B8[idx[1] * 2];
-        pk.uv[3] = D_L06_001FECB0_089B8[idx[1] * 2 + 1] + *(float *)(data + 0x1C);
-        pk.col[2] = D_L06_001FECF8_089B8[idx[2]];
-        pk.uv[4] = D_L06_001FECB0_089B8[idx[2] * 2];
-        pk.uv[5] = D_L06_001FECB0_089B8[idx[2] * 2 + 1] + *(float *)(data + 0x1C);
-        pk.col[3] = D_L06_001FECF8_089B8[idx[3]];
-        pk.uv[6] = D_L06_001FECB0_089B8[idx[3] * 2];
-        pk.uv[7] = D_L06_001FECB0_089B8[idx[3] * 2 + 1] + *(float *)(data + 0x1C);
-        func_L00_001FD1D8_089B8(&pk, 0, 1);
+        func_001F9CF8(v[0], D_L06_001FE8D0 + D_L06_001FE9D0[i][0] * 16, mat);
+        func_001F9CF8(v[1], D_L06_001FE8D0 + D_L06_001FE9D0[i][1] * 16, mat);
+        func_001F9CF8(v[2], D_L06_001FE8D0 + D_L06_001FE9D0[i][2] * 16, mat);
+        func_001F9CF8(v[3], D_L06_001FE8D0 + D_L06_001FE9D0[i][3] * 16, mat);
+        pk.pos[0][0] = ((Moby_c06_307578 *)o)->pos.x + v[0][0] * *(float *)(data + 0x24);
+        pk.pos[0][1] = ((Moby_c06_307578 *)o)->pos.y + v[0][1] * *(float *)(data + 0x24);
+        pk.pos[0][2] = ((Moby_c06_307578 *)o)->pos.z + v[0][2];
+        pk.pos[1][0] = ((Moby_c06_307578 *)o)->pos.x + v[1][0] * *(float *)(data + 0x24);
+        pk.pos[1][1] = ((Moby_c06_307578 *)o)->pos.y + v[1][1] * *(float *)(data + 0x24);
+        pk.pos[1][2] = ((Moby_c06_307578 *)o)->pos.z + v[1][2];
+        pk.pos[2][0] = ((Moby_c06_307578 *)o)->pos.x + v[2][0] * *(float *)(data + 0x24);
+        pk.pos[2][1] = ((Moby_c06_307578 *)o)->pos.y + v[2][1] * *(float *)(data + 0x24);
+        pk.pos[2][2] = ((Moby_c06_307578 *)o)->pos.z + v[2][2];
+        pk.pos[3][0] = ((Moby_c06_307578 *)o)->pos.x + v[3][0] * *(float *)(data + 0x24);
+        pk.pos[3][1] = ((Moby_c06_307578 *)o)->pos.y + v[3][1] * *(float *)(data + 0x24);
+        pk.pos[3][2] = ((Moby_c06_307578 *)o)->pos.z + v[3][2];
+        pk.col[0] = D_L06_001FE9A8[D_L06_001FE9D0[i][0]];
+        pk.col[1] = D_L06_001FE9A8[D_L06_001FE9D0[i][1]];
+        pk.col[2] = D_L06_001FE9A8[D_L06_001FE9D0[i][2]];
+        pk.col[3] = D_L06_001FE9A8[D_L06_001FE9D0[i][3]];
+        pk.uv[0] = D_L06_001FE960[D_L06_001FE9D0[i][0]][0];
+        pk.uv[1] = D_L06_001FE960[D_L06_001FE9D0[i][0]][1] + *(float *)(data + 0x1C);
+        pk.uv[2] = D_L06_001FE960[D_L06_001FE9D0[i][1]][0];
+        pk.uv[3] = D_L06_001FE960[D_L06_001FE9D0[i][1]][1] + *(float *)(data + 0x1C);
+        pk.uv[4] = D_L06_001FE960[D_L06_001FE9D0[i][2]][0];
+        pk.uv[5] = D_L06_001FE960[D_L06_001FE9D0[i][2]][1] + *(float *)(data + 0x1C);
+        pk.uv[6] = D_L06_001FE960[D_L06_001FE9D0[i][3]][0];
+        pk.uv[7] = D_L06_001FE960[D_L06_001FE9D0[i][3]][1] + *(float *)(data + 0x1C);
+        func_L00_001FD228(&pk, 0, 1);
     }
-    pk.tag[1] = func_001F4868_089B8(0x1B);
+    pk.tag[1] = func_001F44B8(0x1B);
     f = *(float *)(data + 0x20) + 0.01f;
     *(float *)(data + 0x20) = f;
     if (1.0f < f) {
         *(int *)(data + 0x20) = 0;
     }
-    w[0][0] = 0.0f; w[0][1] = 0.0f; w[0][2] = 0.0f; w[0][3] = 0.0f;
-    w[1][0] = 0.0f; w[1][1] = 0.0f; w[1][2] = 0.0f; w[1][3] = 0.0f;
-    w[2][0] = 0.0f; w[2][1] = 0.0f; w[2][2] = 0.0f; w[2][3] = 0.0f;
-    w[3][0] = 0.0f; w[3][1] = 0.0f; w[3][2] = 0.0f; w[3][3] = 0.0f;
-    w[0][0] = (-*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
-    w[0][1] = (-*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
-    w[0][2] = *(float *)(data + 0x20) * 1.4f + 1.1f;
-    w[1][0] = (*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
-    w[1][1] = (-*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
-    w[1][2] = *(float *)(data + 0x20) * 1.4f + 1.1f - 0.2f;
-    w[2][0] = (-*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
-    w[2][1] = (*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
-    w[2][2] = *(float *)(data + 0x20) * 1.4f + 1.1f;
-    w[3][0] = (*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
-    w[3][1] = (*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
-    w[3][2] = *(float *)(data + 0x20) * 1.4f + 1.1f - 0.2f;
-    axis[2] = *(float *)(D_L06_00167500_089B8 + 0x158);
+    {
+        float c[4][4] __attribute__((aligned(16)));
+        register float k14 __asm__("$f5") = 1.4f;
+        register float k11 __asm__("$f4") = 1.1f;
+        *(u128_c06_307578 *)c[0] = 0;
+        c[0][0] = (-*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
+        c[0][1] = (-*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
+        c[0][2] = *(float *)(data + 0x20) * k14 + k11;
+        *(u128_c06_307578 *)c[1] = 0;
+        c[1][0] = (*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
+        c[1][1] = (-*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
+        c[1][2] = *(float *)(data + 0x20) * k14 + k11 - 0.2f;
+        *(u128_c06_307578 *)c[2] = 0;
+        c[2][0] = (-*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
+        c[2][1] = (*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
+        c[2][2] = *(float *)(data + 0x20) * k14 + k11;
+        *(u128_c06_307578 *)c[3] = 0;
+        c[3][0] = (*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
+        c[3][1] = (*(float *)(data + 0x20) * 1.2f) * *(float *)(data + 0x24);
+        c[3][2] = *(float *)(data + 0x20) * k14 + k11 - 0.2f;
+        *(u128_c06_307578 *)w[0] = *(u128_c06_307578 *)c[0];
+        *(u128_c06_307578 *)w[1] = *(u128_c06_307578 *)c[1];
+        *(u128_c06_307578 *)w[2] = *(u128_c06_307578 *)c[2];
+        *(u128_c06_307578 *)w[3] = *(u128_c06_307578 *)c[3];
+    }
+    g2 = (float *)D_L06_00167400;
+    axis[2] = g2[0x56];
     axis[0] = 0.0f;
     axis[1] = 0.0f;
-    func_001FA1F8_089B8(mat, axis);
-    func_001F9EC0_089B8(v[0], w[0], mat);
-    func_001F9EC0_089B8(v[1], w[1], mat);
-    func_001F9EC0_089B8(v[2], w[2], mat);
-    func_001F9EC0_089B8(v[3], w[3], mat);
-    pk.pos[0][0] = *(float *)(o + 0x10) + v[0][0];
-    pk.pos[0][1] = *(float *)(o + 0x14) + v[0][1];
-    pk.pos[0][2] = *(float *)(o + 0x18) + v[0][2];
-    pk.pos[1][0] = *(float *)(o + 0x10) + v[1][0];
-    pk.pos[1][1] = *(float *)(o + 0x14) + v[1][1];
-    pk.pos[1][2] = *(float *)(o + 0x18) + v[1][2];
-    pk.pos[2][0] = *(float *)(o + 0x10) + v[2][0];
-    pk.pos[2][1] = *(float *)(o + 0x14) + v[2][1];
-    pk.pos[2][2] = *(float *)(o + 0x18) + v[2][2];
-    pk.pos[3][0] = *(float *)(o + 0x10) + v[3][0];
-    pk.pos[3][1] = *(float *)(o + 0x14) + v[3][1];
-    pk.pos[3][2] = *(float *)(o + 0x18) + v[3][2];
-    i = (int)((1.0f - *(float *)(data + 0x20)) * 128.0f);
-    i = (i << 24) | 0x808080;
-    pk.col[0] = i;
-    pk.col[1] = i;
-    pk.col[2] = i;
-    pk.col[3] = i;
+    func_001FA030(mat, axis);
+    func_001F9CF8(v[0], w[0], mat);
+    func_001F9CF8(v[1], w[1], mat);
+    func_001F9CF8(v[2], w[2], mat);
+    func_001F9CF8(v[3], w[3], mat);
+    pk.pos[0][0] = ((Moby_c06_307578 *)o)->pos.x + v[0][0];
+    pk.pos[0][1] = ((Moby_c06_307578 *)o)->pos.y + v[0][1];
+    pk.pos[0][2] = ((Moby_c06_307578 *)o)->pos.z + v[0][2];
+    pk.pos[1][0] = ((Moby_c06_307578 *)o)->pos.x + v[1][0];
+    pk.pos[1][1] = ((Moby_c06_307578 *)o)->pos.y + v[1][1];
+    pk.pos[1][2] = ((Moby_c06_307578 *)o)->pos.z + v[1][2];
+    pk.pos[2][0] = ((Moby_c06_307578 *)o)->pos.x + v[2][0];
+    pk.pos[2][1] = ((Moby_c06_307578 *)o)->pos.y + v[2][1];
+    pk.pos[2][2] = ((Moby_c06_307578 *)o)->pos.z + v[2][2];
+    pk.pos[3][0] = ((Moby_c06_307578 *)o)->pos.x + v[3][0];
+    pk.pos[3][1] = ((Moby_c06_307578 *)o)->pos.y + v[3][1];
+    pk.pos[3][2] = ((Moby_c06_307578 *)o)->pos.z + v[3][2];
+    col = (int)((1.0f - *(float *)(data + 0x20)) * 128.0f);
+    col = (col << 24) | 0x808080;
+    pk.col[0] = col;
+    pk.col[1] = col;
+    pk.col[2] = col;
+    pk.col[3] = col;
     pk.uv[0] = 0.0f;
     pk.uv[1] = 0.0f;
     pk.uv[2] = 1.0f;
@@ -149,5 +250,6 @@ void FUN_L06_00307578(char *o) {
     pk.uv[5] = 1.0f;
     pk.uv[6] = 1.0f;
     pk.uv[7] = 1.0f;
-    func_L00_001FD1D8_089B8(&pk, 0, 1);
+    func_L00_001FD228(&pk, 0, 1);
 }
+extern void FUN_L06_00307578(char *);

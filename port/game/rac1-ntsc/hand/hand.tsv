@@ -49,7 +49,7 @@ FUN_L00_001fde98	overlays_shared_drawquad_001FD1D8.c
 FUN_00210850	game_joint_matrices.c
 FUN_00217a30	game_particle_allocate.c
 FUN_0020e098	game_moby_bounds.c
-FUN_L00_0020dd20	level_hero_manipulators.c
+FUN_L00_0020dd20	functional/FUN_L00_0020dd20.c
 FUN_L00_00257024	level_moby_lighting.c
 FUN_00217b88	game_particle_update.c
 FUN_001f9ff8	game_scale_matrix.c
@@ -58,7 +58,7 @@ update_moby_grids	game_moby_grid.c
 FUN_L00_001ff600	level_planar_limit.c
 FUN_001fa400	game_fastfunc.c
 FUN_001fa4f8	game_fastfunc.c
-FUN_L00_002d5160	level_creature_hits.c
+FUN_L00_002d5160	functional/FUN_L00_002d5160.c
 FUN_001f99e8	game_sound_math.c
 FUN_001f9c90	game_sound_math.c
 # Written for this version (the NTSC decomp keeps it as assembly; PAL's decompilation has it in C).

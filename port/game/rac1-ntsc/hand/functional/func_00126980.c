@@ -1,7 +1,7 @@
 /* Carried by port/tools/versionmap/carry_functions.py from the decompilation of Ratchet & Clank (PAL), nonmatching/functional/func_00126AC0.c (games/rac1): func_00126AC0, functional C there, not matched.
  * Kind `same` in the version map (../../README.md): the two versions have the same instructions for it.
  * Names and addresses are this version's. Functional C, not matched C. */
-/* functional: medium. Handwritten MMI translated to plain arithmetic: 8-wide 2D half-pel average (+2 >>2) of two sources into dst, two column passes of two row blocks; the pass/block flag register is kept as in retail (the second block test is (flag bit 15) and (p[3] & 0xFFFF)). */
+/* functional: medium. fcheck: unchecked (never called in fcheck's capture run of the title, menu and level 0; OpenRAC tools/fcheck_gate.py, 2026-10-18). Handwritten MMI translated to plain arithmetic: 8-wide 2D half-pel average (+2 >>2) of two sources into dst, two column passes of two row blocks; the pass/block flag register is kept as in retail (the second block test is (flag bit 15) and (p[3] & 0xFFFF)). */
 
 typedef int s32_c126980;
 typedef unsigned char u8_c126980;

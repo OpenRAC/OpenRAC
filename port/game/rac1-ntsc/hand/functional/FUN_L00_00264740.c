@@ -1,39 +1,20 @@
-/* Carried from the PAL decompilation's nonmatching/game/func_L00_002657B8.c (games/rac1) through the version
- * map (../../README.md): functional C, not matched C. Names and addresses are this version's.
- * Checked against the US assembly (2026-10-18): same behaviour. */
-#include "types.h"
-#include "qcopy.h"
-#include "qzero.h"
-#ifndef MACRO_ADDR
-#define MACRO_ADDR
-#endif
-#ifndef NOT_SDA
-#define NOT_SDA
-#endif
-#ifndef SDATA
-#define SDATA(symbol) __asm__(#symbol)
-#endif
-extern char *D_L00_001ABA00[];
-extern char *D_L00_0015FFE4;
-extern char *D_L00_001600A4_sd __asm__("D_L00_0015FFE4") MACRO_ADDR;
-extern char *D_L00_0015FFD8;
-extern void func_L00_00250480(void *);
-extern void func_L00_00250DF8(void *);
+/* Carried by port/tools/versionmap/carry_functions.py from port/game/rac1-pal/hand/matched_moby_link_loop.c: func_L00_002657B8, the port's override of the matched C there.
+ * Kind `same` in the version map (../../README.md): the two versions have the same instructions for it.
+ * Names and addresses are this version's. Functional C, not matched C. */
 
-/* Walks the moby table (0x100-byte entries from D_L00_0015FFD8) and rebuilds the
-   list headed at D_L00_0015FFE4 (linked at +0x28) from the entries that are live
-   (flag +0x20 has no 0x80 bit, no 0x2 in +0x34) until the 0xFF end marker; then
-   for each listed moby: a negative +0x20 skips it, else func_L00_00250480 unless
-   +0x34 & 0x40, the callback at +0x74 if set, and MobyBuildMatrix unless +0x34 & 4. */
+extern char *D_L00_001ABD80_ov_c00_264740[] __asm__("D_L00_001ABA00");
+extern char *D_L00_001600A4_ov_c00_264740 __asm__("D_L00_0015FFE4");
+extern char *D_L00_00160098_ov_c00_264740 __asm__("D_L00_0015FFD8");
+extern void func_L00_002514B8_ov_c00_264740(void *) __asm__("func_L00_00250480");
+extern void func_L00_00251E30_ov_c00_264740(void *) __asm__("func_L00_00250DF8");
 void FUN_L00_00264740(void) {
     char *q;
     char *prev;
     char *cur;
     void (*fn)(void *);
-
-    D_L00_001ABA00[0] = 0;
-    D_L00_0015FFE4 = 0;
-    q = D_L00_0015FFD8;
+    D_L00_001ABD80_ov_c00_264740[0] = 0;
+    D_L00_001600A4_ov_c00_264740 = 0;
+    q = D_L00_00160098_ov_c00_264740;
     prev = 0;
     if ((unsigned char)q[0x20] != 0xFF) {
         do {
@@ -43,7 +24,7 @@ void FUN_L00_00264740(void) {
                 q += 0x100;
             } else {
                 if (prev == 0) {
-                    D_L00_001600A4_sd = q;
+                    D_L00_001600A4_ov_c00_264740 = q;
                 } else {
                     *(char **)(prev + 0x28) = q;
                 }
@@ -55,22 +36,21 @@ void FUN_L00_00264740(void) {
     if (prev != 0) {
         *(char **)(prev + 0x28) = 0;
     }
-
-    cur = D_L00_0015FFE4;
+    cur = D_L00_001600A4_ov_c00_264740;
     while (cur != 0) {
         if ((signed char)cur[0x20] < 0) {
             cur = *(char **)(cur + 0x28);
             continue;
         }
         if (!(*(unsigned short *)(cur + 0x34) & 0x40)) {
-            func_L00_00250480(cur);
+            func_L00_002514B8_ov_c00_264740(cur);
         }
         fn = *(void (**)(void *))(cur + 0x74);
         if (fn != 0) {
             fn(cur);
         }
         if (!(*(unsigned short *)(cur + 0x34) & 0x4)) {
-            func_L00_00250DF8(cur);
+            func_L00_00251E30_ov_c00_264740(cur);
         }
         cur = *(char **)(cur + 0x28);
     }
