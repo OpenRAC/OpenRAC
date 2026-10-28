@@ -1834,6 +1834,11 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         g->moby_cameras.clear();
         g->effects.clear();
         g->effect_uploads.clear();
+        // effect_quad's notes of the cleared quads go with them: effect_textures() would read
+        // them against the next tick's quads.
+        g->effect_texture_ids.clear();
+        g->effect_hashed.clear();
+        g->effect_sources = {};
         g->particles.clear();
         g->sky_sprites.clear();
         g->sky_shell_mask = 0;

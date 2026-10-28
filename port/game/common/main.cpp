@@ -159,7 +159,8 @@ void open_session(int argc, char** argv) {
                         : log::level() <= log::Level::Verbose ? "verbose"
                                                               : "info (OPENRAC_LOG=verbose, or verbose_log = 1 in the settings, for more)";
     log::header("==== OpenRAC session ====");
-    log::header(std::format("session   {}", started));
+    // As a C string: libc++ formats a whole char array, past its NUL.
+    log::header(std::format("session   {}", static_cast<const char*>(started)));
     log::header(std::format("openrac   {}, commit {}", build_info::version(), build_info::commit()));
     log::header(std::format("game      {}: {}, disc {}", openrac_game.id, openrac_game.title, openrac_game.serial));
     log::header(std::format("system    {}, {} of memory", system_info::os(), system_info::memory()));
