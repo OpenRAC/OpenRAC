@@ -76,6 +76,14 @@ struct GameState {
 
 // What one game version tells the host program about its memory.
 //
+// What a profile's diagnostics get from the running program beside the game's memory.
+struct DiagnosticsInput {
+    // An executable address to the loaded program's copy of it.
+    std::uint32_t (*relocate)(std::uint32_t address) = nullptr;
+    // What the game's host C keeps for them (openrac_game_diagnostics, game_host.h), or null.
+    void* game = nullptr;
+};
+
 // The base answers as a game nothing is known of: no game state (the camera as GameState starts
 // it, no live moby), no display list known to be shown, no shadows, no hero, no extracted levels.
 // A game's profile derives from it and overrides what its folder knows; a game with none uses the
@@ -143,15 +151,19 @@ public:
 
     // Developer tools: what of the game's state a diagnostics recording carries beside its
     // snapshots, as a JSON value ("" for nothing), read each tick from `ram` and the tick's `state`
-    // while a recording runs. It may watch the next tick; diagnostics_off() stops that.
+    // while a recording runs. It may watch the next tick through `input.game`; diagnostics_off()
+    // stops that.
     virtual std::string diagnostics(
-        std::span<const std::uint8_t> /*ram*/, int /*level*/, const GameState& /*state*/
+        std::span<const std::uint8_t> /*ram*/,
+        int /*level*/,
+        const GameState& /*state*/,
+        const DiagnosticsInput& /*input*/
     ) const {
         return {};
     }
 
     // Developer tools: the recording has ended; what diagnostics() watched is let go.
-    virtual void diagnostics_off() const {}
+    virtual void diagnostics_off(const DiagnosticsInput& /*input*/) const {}
 };
 
 // Returns the profile of the game version `game` (its port id, "rac1-pal"), which lives as long as

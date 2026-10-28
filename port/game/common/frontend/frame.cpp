@@ -1755,11 +1755,14 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
     prepared.level = g->loaded;
     prepared.state = g->profile->read_state(ram, level);
     static bool noting = false;  // the profile's diagnostics run (the game's thread, at its vsync)
+    const host::DiagnosticsInput diagnostics{
+        [](std::uint32_t address) { return OPENRAC_DATA(address); }, openrac_game_diagnostics
+    };
     if (effects_dump::armed()) {
-        effects_dump::note(g->profile->diagnostics(ram, level, prepared.state));
+        effects_dump::note(g->profile->diagnostics(ram, level, prepared.state, diagnostics));
         noting = true;
     } else if (noting) {
-        g->profile->diagnostics_off();
+        g->profile->diagnostics_off(diagnostics);
         noting = false;
     }
     const bool world_ran = g->world_camera.has_value();

@@ -3,9 +3,11 @@
 
 /*
  * Developer tools: the collision queries (collision.c) near a watched point, for a diagnostics
- * recording. The profile watches Ratchet each tick and reads back the queries that started near him:
- * which entry, its flags, what it ignored, its segment or volume, its result and the CollOutput it
- * left, so a query that hits what it should not can be told from the code that reads its answer.
+ * recording. collision.c keeps the watch (OpenracCollWatch) and hands it out as
+ * openrac_game_diagnostics (game_host.h); the profile (game/rac1/profile.cpp) points it at Ratchet
+ * each tick and reads back the queries that started near him: which entry, its flags, what it
+ * ignored, its segment or volume, its result and the CollOutput it left, so a query that hits what
+ * it should not can be told from the code that reads its answer.
  */
 #ifndef OPENRAC_RAC1_COLLISION_NOTES_H
 #define OPENRAC_RAC1_COLLISION_NOTES_H
@@ -26,18 +28,13 @@ typedef struct {
     uint32_t output[26];
 } OpenracCollNote;
 
-/* Each tick: what the last one saw. */
+/* The watch: the point and squared radius (0: off), and what queries saw since it was set. */
 typedef struct {
-    uint32_t calls, hits; /* every query of the tick */
+    float point[3], rr;
+    uint32_t calls, hits; /* every query */
     uint32_t count;       /* the notes kept, the first so many near the point */
     OpenracCollNote notes[16];
-} OpenracCollNotes;
-
-/* Watches the queries starting within `radius` of `point` (0 stops), and starts a new tick's notes. */
-void openrac_rac1_coll_watch(const float point[3], float radius);
-
-/* The notes since the last watch. */
-const OpenracCollNotes* openrac_rac1_coll_notes(void);
+} OpenracCollWatch;
 
 #ifdef __cplusplus
 }

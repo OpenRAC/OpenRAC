@@ -537,6 +537,12 @@ gaddr openrac_game_text(int id);
 /* Nonzero only while the enhanced Novalis water replacement is ready and enabled. */
 int openrac_game_enhanced_water(void);
 
+/* ---- Developer tools ---- */
+
+/* What the game's host C keeps for its profile's diagnostics (GameProfile::diagnostics, which the
+ * window hands it), or NULL while it keeps nothing. rac1: host/collision_notes.h's watch. */
+extern void* openrac_game_diagnostics;
+
 /* ---- Inside the replacements ---- */
 
 /* Interrupt handlers the game installed (AddIntcHandler, sceGsSyncVCallback,

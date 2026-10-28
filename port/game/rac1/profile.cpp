@@ -25,7 +25,6 @@
 #include "game/rac1/game_state.h"
 #include "game/rac1/gameplay_lighting.h"
 #include "game/rac1/host/collision_notes.h"
-#include "openrac/guest.h"
 #include "renderer/math.h"
 
 namespace openrac::game::rac1 {
@@ -53,7 +52,8 @@ std::string notes(
     std::span<const std::uint8_t> ram,
     const GameAddresses& a,
     const host::GameState& state,
-    std::uint32_t clock
+    std::uint32_t clock,
+    OpenracCollWatch* watch
 );
 
 // One disc's profile: its boot program's table, its level programs' tables and its executable's
@@ -103,14 +103,24 @@ public:
     std::uint32_t particle_updates() const override { return m_executable.particle_updates; }
 
     std::string diagnostics(
-        std::span<const std::uint8_t> ram, int level, const host::GameState& state
+        std::span<const std::uint8_t> ram,
+        int level,
+        const host::GameState& state,
+        const host::DiagnosticsInput& input
     ) const override {
-        return notes(ram, addresses(level), state, OPENRAC_DATA(m_executable.world_update_time));
+        return notes(
+            ram,
+            addresses(level),
+            state,
+            input.relocate(m_executable.world_update_time),
+            static_cast<OpenracCollWatch*>(input.game)
+        );
     }
 
-    void diagnostics_off() const override {
-        constexpr float kNowhere[3] = {};
-        openrac_rac1_coll_watch(kNowhere, 0.0f);
+    void diagnostics_off(const host::DiagnosticsInput& input) const override {
+        if (auto* watch = static_cast<OpenracCollWatch*>(input.game)) {
+            watch->rr = 0.0f;
+        }
     }
 
 private:
@@ -132,13 +142,15 @@ private:
 
 // Developer tools, for a diagnostics recording: the moby table's spawn range (create_moby takes a
 // slot there whose state is 0xFE or more and whose +0x38 the frame clock has reached), with its free
-// slots and the classes of the mobys spawned in it; and the collision queries (host/collision.c) that
-// started near Ratchet in the last tick, after which it watches him again for the next.
+// slots and the classes of the mobys spawned in it; and, with host/collision.c's watch, the
+// collision queries that started near Ratchet since the last tick, after which it watches him
+// again.
 std::string notes(
     std::span<const std::uint8_t> ram,
     const GameAddresses& a,
     const host::GameState& state,
-    std::uint32_t clock
+    std::uint32_t clock,
+    OpenracCollWatch* watch
 ) {
     const auto word = [&](std::uint32_t at) -> std::uint32_t {
         at &= 0x01FFFFFFu;
@@ -156,6 +168,9 @@ std::string notes(
     const auto number = [](float v) {
         return std::isfinite(v) ? std::format("{:.6g}", v) : std::string("null");
     };
+    const auto class_of = [&](std::uint32_t moby) {
+        return static_cast<std::int16_t>(word(moby + 0xA4) >> 16);
+    };
 
     const std::uint32_t first = word(a.moby_first) & 0x01FFFFFFu;
     const std::uint32_t end = word(a.moby_end) & 0x01FFFFFFu;
@@ -165,10 +180,11 @@ std::string notes(
     if (first != 0 && end > first && end <= ram.size() && (end - first) % 0x100 == 0) {
         for (std::uint32_t m = first; m < end; m += 0x100) {
             if (byte(m + 0x20) < 0xFE) {
-                ++classes[static_cast<std::int16_t>(word(m + 0xA4) >> 16)];
+                ++classes[class_of(m)];
                 continue;
             }
             if (free < 24) {
+                // The slot, its state and its spawn frame (+0x38, both words).
                 free_slots += std::format(
                     "{}[\"{:06X}\",{},{},{}]",
                     free ? "," : "",
@@ -181,64 +197,66 @@ std::string notes(
             ++free;
         }
     }
-    std::string out = std::format(
-        "{{\"mobys\":{{\"range\":[\"{:06X}\",\"{:06X}\"],\"clock\":{},\"free\":{},\"free_slots\":[{"
-        "}],"
-        "\"classes\":{{",
-        first,
-        end,
-        static_cast<std::int32_t>(word(clock)),
-        free,
-        free_slots
-    );
+    std::string out = std::format("{{\"mobys\":{{\"range\":[\"{:06X}\",\"{:06X}\"]", first, end);
+    out += std::format(",\"clock\":{},\"free\":{}", static_cast<std::int32_t>(word(clock)), free);
+    out += ",\"free_slots\":[" + free_slots + "],\"classes\":{";
     bool any = false;
     for (const auto& [id, count] : classes) {
         out += std::format("{}\"{}\":{}", any ? "," : "", id, count);
         any = true;
     }
-    out += "}},\"collision\":";
+    out += "}}";
 
-    const OpenracCollNotes* seen = openrac_rac1_coll_notes();
-    out += std::format("{{\"calls\":{},\"hits\":{},\"near\":[", seen->calls, seen->hits);
-    for (std::uint32_t i = 0; i < seen->count && i < std::size(seen->notes); ++i) {
-        const OpenracCollNote& n = seen->notes[i];
+    if (watch != nullptr) {
         out += std::format(
-            "{}{{\"entry\":{},\"flags\":\"{:X}\",\"ignore\":[\"{:06X}\",\"{:08X}\"],\"template\":"
-            "\"{:06X}\","
-            "\"result\":{},\"out\":\"{:06X}\",\"a\":[{},{},{}],\"b\":[{},{},{}],\"output\":\"",
-            i ? "," : "",
-            n.entry,
-            n.flags,
-            n.ignore,
-            n.ignore_word,
-            n.tmpl,
-            n.result,
-            n.out,
-            number(n.a[0]),
-            number(n.a[1]),
-            number(n.a[2]),
-            number(n.b[0]),
-            number(n.b[1]),
-            number(n.b[2])
+            ",\"collision\":{{\"calls\":{},\"hits\":{},\"near\":[", watch->calls, watch->hits
         );
-        for (std::size_t k = 0; k < std::size(n.output); ++k) {
-            out += std::format("{}{:08X}", k ? " " : "", n.output[k]);
+        for (std::uint32_t i = 0; i < watch->count && i < std::size(watch->notes); ++i) {
+            const OpenracCollNote& n = watch->notes[i];
+            out += std::format(
+                "{}{{\"entry\":{},\"flags\":\"{:X}\",\"result\":{},\"out\":\"{:06X}\"",
+                i ? "," : "",
+                n.entry,
+                n.flags,
+                n.result,
+                n.out
+            );
+            out += std::format(
+                ",\"ignore\":[\"{:06X}\",\"{:08X}\"],\"template\":\"{:06X}\"",
+                n.ignore,
+                n.ignore_word,
+                n.tmpl
+            );
+            out += std::format(
+                ",\"a\":[{},{},{}],\"b\":[{},{},{}],\"output\":\"",
+                number(n.a[0]),
+                number(n.a[1]),
+                number(n.a[2]),
+                number(n.b[0]),
+                number(n.b[1]),
+                number(n.b[2])
+            );
+            for (std::size_t k = 0; k < std::size(n.output); ++k) {
+                out += std::format("{}{:08X}", k ? " " : "", n.output[k]);
+            }
+            const std::uint32_t hit = n.output[0] & 0x01FFFFFFu;  // CollOutput +0x18, the moby hit
+            out += std::format("\",\"hit_class\":{}}}", hit != 0 ? class_of(hit) : -1);
         }
-        const std::uint32_t hit = n.output[0] & 0x01FFFFFFu;  // CollOutput +0x18, the moby hit
-        out += std::format(
-            "\",\"hit_class\":{}}}",
-            hit != 0 ? static_cast<std::int16_t>(word(hit + 0xA4) >> 16) : -1
-        );
-    }
-    out += "]}}";
-
-    for (const host::LiveMoby& m : state.mobys) {
-        if (m.class_id == 0) {
-            const float at[3] = {m.matrix[12], m.matrix[13], m.matrix[14]};
-            openrac_rac1_coll_watch(at, 3.0f);
-            break;
+        out += "]}";
+        // The next tick's queries, near where Ratchet is now.
+        watch->calls = watch->hits = watch->count = 0;
+        watch->rr = 0.0f;
+        for (const host::LiveMoby& m : state.mobys) {
+            if (m.class_id == 0) {
+                watch->point[0] = m.matrix[12];
+                watch->point[1] = m.matrix[13];
+                watch->point[2] = m.matrix[14];
+                watch->rr = 3.0f * 3.0f;
+                break;
+            }
         }
     }
+    out += "}";
     return out;
 }
 

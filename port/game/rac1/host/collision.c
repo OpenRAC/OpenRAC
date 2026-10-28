@@ -45,6 +45,7 @@
 #include <string.h>
 
 #include "collision_notes.h"
+#include "openrac/game_host.h"
 #include "openrac/host_env.h"
 #include "openrac/ps2float.h"
 #include "rac1.h"
@@ -1763,19 +1764,8 @@ static void trace(int kind, int hit) {
 
 /* ---- The entry points ---- */
 
-/* Developer tools: the queries near the watched point (collision_notes.h). Off until watched. */
-static OpenracCollNotes g_notes;
-static float g_watch[3], g_watch_rr;
-
-void openrac_rac1_coll_watch(const float point[3], float radius) {
-    memcpy(g_watch, point, sizeof g_watch);
-    g_watch_rr = radius * radius;
-    g_notes.calls = g_notes.hits = g_notes.count = 0;
-}
-
-const OpenracCollNotes* openrac_rac1_coll_notes(void) {
-    return &g_notes;
-}
+/* Developer tools: a query that starts near the watched point (collision_notes.h) is noted. */
+static OpenracCollWatch g_watch;
 
 static void note(
     uint32_t entry,
@@ -1787,16 +1777,18 @@ static void note(
     gaddr tmpl,
     int r
 ) {
-    if (g_watch_rr <= 0.0f) {
+    OpenracCollWatch* w = &g_watch;
+    openrac_game_diagnostics = w;
+    if (w->rr <= 0.0f) {
         return;
     }
-    g_notes.calls++;
-    g_notes.hits += r != 0;
-    const float dx = a[0] - g_watch[0], dy = a[1] - g_watch[1], dz = a[2] - g_watch[2];
-    if (!(dx * dx + dy * dy + dz * dz < g_watch_rr) || g_notes.count >= 16) {
+    w->calls++;
+    w->hits += r != 0;
+    const float dx = a[0] - w->point[0], dy = a[1] - w->point[1], dz = a[2] - w->point[2];
+    if (!(dx * dx + dy * dy + dz * dz < w->rr) || w->count >= 16) {
         return;
     }
-    OpenracCollNote* n = &g_notes.notes[g_notes.count++];
+    OpenracCollNote* n = &w->notes[w->count++];
     n->entry = entry;
     n->flags = fl;
     n->ignore = ignore;
