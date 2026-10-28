@@ -204,6 +204,18 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool has_ui() const` | Since 1.7: returns whether the port offers pages of the game's own menus (ui_page(), ui_main_item()): a mod that wants to run on 1.6 checks this first. |
 | `template <class F> UiPage ui_page(F&& callable, std::uint32_t flags = 0)` | Since 1.7: makes a page of the game's own menus whose events go to `callable(page, event)` (UiCallable), with `flags` (OPENRAC_UI_OWN_BACK). Throws openrac::Error when refused. Only during load. |
 | `void ui_main_item(const char* after, const char* label, const UiPage& page)` | Since 1.7: adds an item named `label` to the title's main menu after its own `after` (OPENRAC_UI_NEW_GAME, _LOAD_GAME, _OPTIONS), opening `page`. Throws openrac::Error when refused. Only during load. |
+| `bool has_play() const` | Since 1.8: returns whether the port offers play (play_status() ... save_read()), multiplayer's calls, for this game: a mod that wants to run on 1.7, or on a game without them, checks this first. Without it the play calls below answer nothing (a status of OPENRAC_PLAY_NONE, no pose, no figure, no save). |
+| `openrac_play_status play_status() const` | Since 1.8: what the game is doing now (openrac_play_status: its phase, level, loads). |
+| `std::string level_name(int level) const` | Since 1.8: the name of the game's level `level`, empty for none. |
+| `bool hero_pose(openrac_pose& out) const` | Since 1.8: the hero's pose into `out`; false when there is no hero now. |
+| `int figure_create() const` | Since 1.8: a figure that looks like the hero, in the level (figure_create): its id, or -1 when there is none to have (no level, no room). |
+| `bool figure_pose(int id, const openrac_pose& pose) const` | Since 1.8: puts figure `id` in `pose` (its size set here); false for a figure gone with its level (make another). |
+| `bool figure_remove(int id) const` | Since 1.8: takes figure `id` out of the level; false for one gone already. |
+| `int play_start(int level, const std::vector<std::uint8_t>& save =` | Since 1.8: from the front end, a new game in `level` (no save), or `save` continued (in its own level, or `level` when 0 or more), after this frame. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN (one is pending) or OPENRAC_HOOK_UNKNOWN (refused). |
+| `int play_travel(int level) const` | Since 1.8: in a level, leaves it for `level` after this frame; as play_start's results. |
+| `std::vector<std::uint8_t> save_capture() const` | Since 1.8: the game's progress now as a save, empty for none. |
+| `int save_slot(int slot, openrac_save_info& out) const` | Since 1.8: what the memory card's save `slot` holds, into `out`: 1 a save, 0 an empty slot, -1 past the last. |
+| `std::vector<std::uint8_t> save_read(int slot) const` | Since 1.8: the bytes of the memory card's save `slot`, for play_start; empty for none. |
 | `Memory memory() const` | Returns a view of game memory. |
 | `gaddr relocate(gaddr address) const` | Return a global's address for the code loaded now: the executable's (`relocate`) or level `level`'s program's (`relocate_level`). Ask each time, because a level moves its globals. |
 | `gaddr relocate_level(int level, gaddr address) const` |  |

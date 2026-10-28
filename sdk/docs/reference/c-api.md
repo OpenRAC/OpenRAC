@@ -28,7 +28,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | Name | Value | |
 |---|---|---|
 | `OPENRAC_MOD_API_MAJOR` | `1` | The interface's major version. Changes when anything in the table changes or goes. |
-| `OPENRAC_MOD_API_MINOR` | `7` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu. |
+| `OPENRAC_MOD_API_MINOR` | `8` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves. |
 | `OPENRAC_MOD_TARGET_MINOR` | `OPENRAC_MOD_API_MINOR` |  |
 | `OPENRAC_MOD_EXPORT` | `__declspec(dllexport)` or `__attribute__((visibility("default")))` |  |
 | `OPENRAC_LOG_DEBUG` | `0` | The levels of openrac_api.log, from the most to the least talkative. Since 1.0. |
@@ -113,6 +113,14 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_UI_SOUND_DENIED` | `2` |  |
 | `OPENRAC_UI_SOUND_OPEN` | `3` |  |
 | `OPENRAC_UI_SOUND_PAGE` | `4` |  |
+| `OPENRAC_PLAY_NONE` | `0` | The port knows nothing of this game's play: the play calls do nothing. |
+| `OPENRAC_PLAY_FRONT_END` | `1` | The title and its menus: a game can be started (openrac_api.play_start). |
+| `OPENRAC_PLAY_LOADING` | `2` | Between two programs: a level loading, the flight between planets. |
+| `OPENRAC_PLAY_PLAYING` | `3` | A level, the player in control: a level can be travelled to (openrac_api.play_travel). |
+| `OPENRAC_PLAY_SCENE` | `4` | A level, a scene playing: a cutscene, a movie, a slideshow, the ship's landing or take-off. |
+| `OPENRAC_PLAY_MENU` | `5` | A level, a menu over it: paused, a vendor, a dialog. |
+| `OPENRAC_POSE_BLENDING` | `0x1u` | The animation is blending into `seq` from another: `frame` is where it arrives. |
+| `OPENRAC_FIGURES_MAX` | `8` | The most figures the mods together have at once (openrac_api.figure_create). Since 1.8. |
 | `OPENRAC_MOD_QUERY` | `"openrac_mod_query"` | The names the entry points are exported under, for the port's lookup. Since 1.0. |
 | `OPENRAC_MOD_LOAD` | `"openrac_mod_load"` |  |
 | `OPENRAC_MOD_UNLOAD` | `"openrac_mod_unload"` |  |
@@ -369,6 +377,54 @@ An event of a page (openrac_ui_fn). The port's; valid during the call. Since 1.7
 | `uint32_t tag` | ANSWER: the question's tag; else 0. |
 | `int32_t cursor` | The item under the cursor. |
 
+## `openrac_play_status`
+
+What the game is doing (openrac_api.play_status). The port's; filled by the call. Since 1.8.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_play_status), set by the mod before the call. |
+| `int32_t phase` | OPENRAC_PLAY_NONE ... OPENRAC_PLAY_MENU. |
+| `int32_t level` | The level played (the game's own number), or the one loading; -1 for none (the front end). |
+| `int32_t levels` | How many levels the game has (0 .. levels - 1). |
+| `uint32_t loads` | Counts the level programs loaded since the start: a new value, a new level (or the same one loaded again), whose figures are gone. |
+
+## `openrac_pose`
+
+A pose of the hero, or of a figure (openrac_api.hero_pose, figure_pose). Units are the game's.
+Since 1.8.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_pose), set by the mod. |
+| `int32_t level` | The level the pose is in. |
+| `float position[3]` | Where the body is drawn, its rotation (radians, the game's axes: z the yaw) and its scale. |
+| `float rotation[3]` |  |
+| `float scale` |  |
+| `float velocity[3]` | How fast it moves, in game units a second. |
+| `int32_t state` | The hero's state (the game's own ids), its health, and the item it holds (-1 none). |
+| `int32_t health` |  |
+| `int32_t item` |  |
+| `uint32_t seq` | The animation: the sequence of the hero's class, the key it is at, the key after, how far from one to the other (0 to 1), and its speed (1 normal, 0 held). OPENRAC_POSE_* flags. |
+| `uint32_t frame` |  |
+| `uint32_t next_frame` |  |
+| `float anim_time` |  |
+| `float anim_speed` |  |
+| `uint32_t flags` |  |
+
+## `openrac_save_info`
+
+A save of the player's (openrac_api.save_slot), read from the game's own save file on the
+memory card. Since 1.8.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_save_info), set by the mod before the call. |
+| `int32_t level` | The level it continues in, its bolts, its gold bolts and its time played in seconds. |
+| `int32_t bolts` |  |
+| `int32_t gold_bolts` |  |
+| `int32_t seconds` |  |
+
 ## `openrac_api`
 
 What the port offers a mod. Filled by the port; valid for the life of the program. Every function
@@ -421,3 +477,14 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*ui_confirm)(openrac_mod* mod, int page, const char* question, uint32_t tag)` | While the mod's `page` is on the screen: asks `question` with the game's prompt box in place of the list, the footer saying Cross is yes and Triangle no; the answer is an OPENRAC_UI_ANSWER with `tag`. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN when the page is not on the screen or another question is open. Since 1.7. |
 | `int (*ui_cursor)(openrac_mod* mod, int page, int item)` | Returns the item under the cursor of the mod's `page` (-1 for a page that is not the mod's), after moving it to `item` when that is 0 or more and an item the cursor takes. Since 1.7. |
 | `int (*ui_sound)(openrac_mod* mod, int sound)` | Plays one of the game's menu sounds (OPENRAC_UI_SOUND_*) while one of the mod's pages is on the screen. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN otherwise. Since 1.7. |
+| `int (*play_status)(openrac_play_status* out)` | Fills `out` (its size set) with what the game is doing: its phase (OPENRAC_PLAY_*), its level. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a game the port knows no play of (phase OPENRAC_PLAY_NONE). Since 1.8. |
+| `const char* (*level_name)(int level)` | The name of the game's level `level` ("Veldin"), or null for none. Since 1.8. |
+| `int (*hero_pose)(openrac_pose* out)` | Fills `out` (its size set) with the hero's pose as it is drawn now. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN when there is no hero (no level, the hero not placed yet). Since 1.8. |
+| `int (*figure_create)(openrac_mod* mod)` | Makes a figure in the level: a moby that looks like the hero, in his pose, drawn but never running his logic, colliding with nothing and targeted by nothing, until figure_remove or the level goes (a new play_status.loads). Returns its id (0 or more), or OPENRAC_HOOK_UNKNOWN outside a level, past OPENRAC_FIGURES_MAX, or when the level has no room for a moby. Since 1.8. |
+| `int (*figure_pose)(openrac_mod* mod, int id, const openrac_pose* pose)` | Puts the mod's figure `id` in `pose`: where it is, its rotation and scale, and its animation (a new seq blends into it; the key followed only when it drifts more than a few keys, the figure animating by itself in between at anim_speed). Each tick the mod wants it to move. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a figure that is not the mod's or is gone with its level (then the mod makes another). Since 1.8. |
+| `int (*figure_remove)(openrac_mod* mod, int id)` | Takes the mod's figure `id` out of the level. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for one that is not the mod's (gone already). Since 1.8. |
+| `int (*play_start)(openrac_mod* mod, int level, const void* save, size_t size)` | From the front end (phase OPENRAC_PLAY_FRONT_END): starts a game, after this frame, as the title's New Game and Load Game do: with `save` null a new game in `level` (0 the first); otherwise the `size` bytes of `save` (a save as save_read or save_capture give it), which continue in its own level, or in `level` when that is 0 or more. Nothing is written to the memory card. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN while a start or travel asked before is still to happen, or OPENRAC_HOOK_UNKNOWN outside the front end, for a level the game has not, or a save it does not take. Since 1.8. |
+| `int (*play_travel)(openrac_mod* mod, int level)` | In a level with the player in control (phase OPENRAC_PLAY_PLAYING): leaves it for `level`, after this frame, as the ship's travel does (the flight between planets, then the level). Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN while a start or travel is still to happen, or OPENRAC_HOOK_UNKNOWN otherwise. Since 1.8. |
+| `size_t (*save_capture)(void* out, size_t size)` | The game's progress now, as a save (the memory card's save file's bytes): written to `out` when `size` is large enough. Returns its size in bytes (call with a null `out` to ask), or 0 when there is none (no game started). Since 1.8. |
+| `int (*save_slot)(int slot, openrac_save_info* out)` | Fills `out` (its size set) with what the memory card's save `slot` holds. Returns 1 for a save, 0 for an empty slot (or one the game would not load), -1 past the game's last slot. Since 1.8. |
+| `size_t (*save_read)(int slot, void* out, size_t size)` | The bytes of the memory card's save `slot`, for play_start: written to `out` when `size` is large enough. Returns their size, or 0 for no save there. Since 1.8. |

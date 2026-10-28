@@ -47,7 +47,14 @@ void rac1_options_frame(void);
  * header's spare moby count raised while the level loader runs. */
 void rac1_wad_decompressed(gaddr to);
 
-/* front_end.c: what the window's menus need of the game (game_host.h). */
+/* boot.c: the level programs ParseBin loaded since the start. */
+uint32_t rac1_program_loads(void);
+
+/* front_end.c: what the window's menus need of the game (game_host.h), and the levels' names. */
 extern const openrac_front_end rac1_front_end;
+extern const char* const rac1_level_names[19];
+
+/* play.c: what the mods' play calls need of the game (game_host.h, interface 1.8). */
+extern const openrac_game_play rac1_play;
 
 #endif /* OPENRAC_RAC1_H */

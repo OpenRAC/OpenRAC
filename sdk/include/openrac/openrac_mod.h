@@ -46,9 +46,11 @@ extern "C" {
  * the game and a Vulkan device made with the mod (a VR headset, docs/views.md),
  * 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the
  * tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus
- * (its frames, list, text, prompt and sounds) and items of the title's main menu.
+ * (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play
+ * (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the
+ * hero, a game started or a level travelled to from code, and the player's saves.
  */
-#define OPENRAC_MOD_API_MINOR 7
+#define OPENRAC_MOD_API_MINOR 8
 
 /* The interface a mod is built for, what its openrac_mod_query reports: its manifest's "api" minor,
  * which the SDK's openrac_add_mod passes in, else this header's. A mod for 1.1 built with a newer
@@ -560,6 +562,92 @@ typedef void (*openrac_ui_fn)(void* user, int page, const openrac_ui_event* even
 #define OPENRAC_UI_SOUND_PAGE 4
 
 /* ------------------------------------------------------------------------------------------ *
+ * Play: multiplayer's calls (since 1.8)
+ *
+ * What a mod that plays the game with others needs of it: what the game is doing (its phase and
+ * level), the hero's pose to send, figures to show the others with (mobys that look like the hero,
+ * driven by the mod: they never run the hero's logic, collide with nothing and are no target), a
+ * new game or a save started from code and a level travelled to, and the player's saves. Ratchet &
+ * Clank has them (PAL and NTSC-U); another game answers that it has none (OPENRAC_PLAY_NONE,
+ * OPENRAC_HOOK_UNKNOWN).
+ * ------------------------------------------------------------------------------------------ */
+
+/* What the game is doing (openrac_play_status.phase). Since 1.8. */
+/* The port knows nothing of this game's play: the play calls do nothing. */
+#define OPENRAC_PLAY_NONE 0
+/* The title and its menus: a game can be started (openrac_api.play_start). */
+#define OPENRAC_PLAY_FRONT_END 1
+/* Between two programs: a level loading, the flight between planets. */
+#define OPENRAC_PLAY_LOADING 2
+/* A level, the player in control: a level can be travelled to (openrac_api.play_travel). */
+#define OPENRAC_PLAY_PLAYING 3
+/* A level, a scene playing: a cutscene, a movie, a slideshow, the ship's landing or take-off. */
+#define OPENRAC_PLAY_SCENE 4
+/* A level, a menu over it: paused, a vendor, a dialog. */
+#define OPENRAC_PLAY_MENU 5
+
+/* What the game is doing (openrac_api.play_status). The port's; filled by the call. Since 1.8. */
+typedef struct openrac_play_status {
+    /* sizeof(openrac_play_status), set by the mod before the call. */
+    uint32_t size;
+    /* OPENRAC_PLAY_NONE ... OPENRAC_PLAY_MENU. */
+    int32_t phase;
+    /* The level played (the game's own number), or the one loading; -1 for none (the front end). */
+    int32_t level;
+    /* How many levels the game has (0 .. levels - 1). */
+    int32_t levels;
+    /* Counts the level programs loaded since the start: a new value, a new level (or the same one
+     * loaded again), whose figures are gone. */
+    uint32_t loads;
+} openrac_play_status;
+
+/* openrac_pose.flags. Since 1.8. */
+/* The animation is blending into `seq` from another: `frame` is where it arrives. */
+#define OPENRAC_POSE_BLENDING 0x1u
+
+/* A pose of the hero, or of a figure (openrac_api.hero_pose, figure_pose). Units are the game's.
+ * Since 1.8. */
+typedef struct openrac_pose {
+    /* sizeof(openrac_pose), set by the mod. */
+    uint32_t size;
+    /* The level the pose is in. */
+    int32_t level;
+    /* Where the body is drawn, its rotation (radians, the game's axes: z the yaw) and its scale. */
+    float position[3];
+    float rotation[3];
+    float scale;
+    /* How fast it moves, in game units a second. */
+    float velocity[3];
+    /* The hero's state (the game's own ids), its health, and the item it holds (-1 none). */
+    int32_t state;
+    int32_t health;
+    int32_t item;
+    /* The animation: the sequence of the hero's class, the key it is at, the key after, how far
+     * from one to the other (0 to 1), and its speed (1 normal, 0 held). OPENRAC_POSE_* flags. */
+    uint32_t seq;
+    uint32_t frame;
+    uint32_t next_frame;
+    float anim_time;
+    float anim_speed;
+    uint32_t flags;
+} openrac_pose;
+
+/* The most figures the mods together have at once (openrac_api.figure_create). Since 1.8. */
+#define OPENRAC_FIGURES_MAX 8
+
+/* A save of the player's (openrac_api.save_slot), read from the game's own save file on the
+ * memory card. Since 1.8. */
+typedef struct openrac_save_info {
+    /* sizeof(openrac_save_info), set by the mod before the call. */
+    uint32_t size;
+    /* The level it continues in, its bolts, its gold bolts and its time played in seconds. */
+    int32_t level;
+    int32_t bolts;
+    int32_t gold_bolts;
+    int32_t seconds;
+} openrac_save_info;
+
+/* ------------------------------------------------------------------------------------------ *
  * Callbacks
  * ------------------------------------------------------------------------------------------ */
 
@@ -784,6 +872,66 @@ typedef struct openrac_api {
     /* Plays one of the game's menu sounds (OPENRAC_UI_SOUND_*) while one of the mod's pages is on
      * the screen. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN otherwise. Since 1.7. */
     int (*ui_sound)(openrac_mod* mod, int sound);
+
+    /* Fills `out` (its size set) with what the game is doing: its phase (OPENRAC_PLAY_*), its
+     * level. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a game the port knows no play of
+     * (phase OPENRAC_PLAY_NONE). Since 1.8. */
+    int (*play_status)(openrac_play_status* out);
+
+    /* The name of the game's level `level` ("Veldin"), or null for none. Since 1.8. */
+    const char* (*level_name)(int level);
+
+    /* Fills `out` (its size set) with the hero's pose as it is drawn now. Returns OPENRAC_HOOK_OK,
+     * or OPENRAC_HOOK_UNKNOWN when there is no hero (no level, the hero not placed yet). Since
+     * 1.8. */
+    int (*hero_pose)(openrac_pose* out);
+
+    /* Makes a figure in the level: a moby that looks like the hero, in his pose, drawn but never
+     * running his logic, colliding with nothing and targeted by nothing, until figure_remove or the
+     * level goes (a new play_status.loads). Returns its id (0 or more), or OPENRAC_HOOK_UNKNOWN
+     * outside a level, past OPENRAC_FIGURES_MAX, or when the level has no room for a moby. Since
+     * 1.8. */
+    int (*figure_create)(openrac_mod* mod);
+
+    /* Puts the mod's figure `id` in `pose`: where it is, its rotation and scale, and its animation
+     * (a new seq blends into it; the key followed only when it drifts more than a few keys, the
+     * figure animating by itself in between at anim_speed). Each tick the mod wants it to move.
+     * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a figure that is not the mod's or is
+     * gone with its level (then the mod makes another). Since 1.8. */
+    int (*figure_pose)(openrac_mod* mod, int id, const openrac_pose* pose);
+
+    /* Takes the mod's figure `id` out of the level. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for one that is not the mod's (gone already). Since 1.8. */
+    int (*figure_remove)(openrac_mod* mod, int id);
+
+    /* From the front end (phase OPENRAC_PLAY_FRONT_END): starts a game, after this frame, as the
+     * title's New Game and Load Game do: with `save` null a new game in `level` (0 the first);
+     * otherwise the `size` bytes of `save` (a save as save_read or save_capture give it), which
+     * continue in its own level, or in `level` when that is 0 or more. Nothing is written to the
+     * memory card. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN while a start or travel asked
+     * before is still to happen, or OPENRAC_HOOK_UNKNOWN outside the front end, for a level the
+     * game has not, or a save it does not take. Since 1.8. */
+    int (*play_start)(openrac_mod* mod, int level, const void* save, size_t size);
+
+    /* In a level with the player in control (phase OPENRAC_PLAY_PLAYING): leaves it for `level`,
+     * after this frame, as the ship's travel does (the flight between planets, then the level).
+     * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN while a start or travel is still to happen, or
+     * OPENRAC_HOOK_UNKNOWN otherwise. Since 1.8. */
+    int (*play_travel)(openrac_mod* mod, int level);
+
+    /* The game's progress now, as a save (the memory card's save file's bytes): written to `out`
+     * when `size` is large enough. Returns its size in bytes (call with a null `out` to ask), or 0
+     * when there is none (no game started). Since 1.8. */
+    size_t (*save_capture)(void* out, size_t size);
+
+    /* Fills `out` (its size set) with what the memory card's save `slot` holds. Returns 1 for a
+     * save, 0 for an empty slot (or one the game would not load), -1 past the game's last slot.
+     * Since 1.8. */
+    int (*save_slot)(int slot, openrac_save_info* out);
+
+    /* The bytes of the memory card's save `slot`, for play_start: written to `out` when `size` is
+     * large enough. Returns their size, or 0 for no save there. Since 1.8. */
+    size_t (*save_read)(int slot, void* out, size_t size);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

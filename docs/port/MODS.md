@@ -443,6 +443,11 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `ui_main_item(mod, after, label, page)` (1.7) | during load: an item of the title's main menu (at most `OPENRAC_UI_MAIN_ITEMS_MAX`, 2: the rows below the game's three) after `OPENRAC_UI_NEW_GAME`, `_LOAD_GAME` or `_OPTIONS`, opening the mod's `page`. Ratchet & Clank: the game's own frames and its row animations, the cursor going round the four (or five) |
 | `ui_set(mod, page, &content)` (1.7) | any time: the page's title, items (`OPENRAC_UI_BUTTON`, `_CHOICE` with its values, `_TEXT`; `OPENRAC_UI_DISABLED` dims one, refuses it and keeps the cursor off it) and footer lines (none: the game's own hints, in its language), at most `OPENRAC_UI_ITEMS_MAX` (12) items and `OPENRAC_UI_FOOTER_MAX` (3) lines of `OPENRAC_UI_TEXT_MAX` (47) bytes; UTF-8 with the game's accented letters, and `OPENRAC_UI_CROSS`, `_CIRCLE`, `_TRIANGLE`, `_SQUARE` for the pad's glyphs |
 | `ui_open(mod, page)`, `ui_confirm(mod, page, question, tag)`, `ui_cursor(mod, page, item)`, `ui_sound(mod, sound)` (1.7) | while one of the mod's pages is shown: show another (`OPENRAC_UI_GO_BACK` goes back a level); ask a yes/no question in the game's prompt box in place of the list (Cross yes, Triangle no); read or move the cursor; play one of the game's menu sounds (`OPENRAC_UI_SOUND_SELECT`, `_CURSOR`, `_DENIED`, `_OPEN`, `_PAGE`). What is asked happens after the event |
+| `play_status(&status)`, `level_name(level)` (1.8) | what the game is doing: its phase (`OPENRAC_PLAY_FRONT_END`, `_LOADING`, `_PLAYING`, `_SCENE` a cutscene, movie or the ship's landing, `_MENU` paused or a vendor; `_NONE` for a game the port knows no play of), the level played or loading, the levels, and `loads` (the level programs loaded so far: a new count, a new level, whose figures are gone); a level's name ("Veldin") |
+| `hero_pose(&pose)` (1.8) | the hero as he is drawn: position, rotation (z the yaw), scale, velocity (units a second), state, health, held item, and his animation (`seq`, `frame`, `next_frame`, `anim_time`, `anim_speed`, `OPENRAC_POSE_BLENDING`) |
+| `figure_create(mod)`, `figure_pose(mod, id, &pose)`, `figure_remove(mod, id)` (1.8) | a figure: a moby of the hero's class in the level (at most `OPENRAC_FIGURES_MAX`, 8, for all mods) that never runs his logic, collides with nothing and is no target; `figure_pose` puts it where the pose says and gives it the pose's animation (a new `seq` blends in; the figure animates by itself and is put back on the pose's key when it drifts). A figure goes with its level: `figure_pose` then says so (`OPENRAC_HOOK_UNKNOWN`) and the mod makes another |
+| `play_start(mod, level, save, size)`, `play_travel(mod, level)` (1.8) | after the frame: from the title, a new game in `level`, or a save (the memory card file's bytes) continued, nothing written to the card; in a level with the player in control, the travel to `level` (the flight between planets, then the level). One at a time (`OPENRAC_HOOK_TAKEN` while one waits) |
+| `save_capture(out, size)`, `save_slot(slot, &info)`, `save_read(slot, out, size)` (1.8) | the progress now as a save (the card file's bytes); what the card's save `slot` holds (level, bolts, gold bolts, time played; 1 a save, 0 empty, -1 past the last); its bytes, for `play_start` |
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -481,7 +486,12 @@ the title's main menu (`ui_page`, `ui_main_item`, `ui_set`, `ui_open`,
 `ui_confirm`, `ui_cursor`, `ui_sound`, after 1.6's; the C++ layer's
 `mod.ui_page([](const UiPage&, const UiEvent&) { ... })`, `mod.ui_main_item`,
 `UiContent`, `UiItem::button`, `text`, `choice_of`, and `has_ui()`). 1.5's
-page of the mod's own drawing stays as it was, in the Options list.
+page of the mod's own drawing stays as it was, in the Options list. 1.8 (SDK
+1.8.0) play, the calls a multiplayer mod needs (`play_status`, `level_name`,
+`hero_pose`, `figure_create`, `figure_pose`, `figure_remove`, `play_start`,
+`play_travel`, `save_capture`, `save_slot`, `save_read`; the C++ layer's methods
+of the same names, and `has_play()`), for Ratchet & Clank PAL and NTSC-U
+(port/game/rac1/host/play.c).
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
@@ -691,6 +701,10 @@ into the port: nothing of it crosses the boundary.
 - `mod.ui_page(fn)` (1.7) returns an `openrac::UiPage` (`set(UiContent)`,
   `open()`, `back()`, `confirm(question, tag)`, `cursor()`, `sound(n)`) whose
   events reach `fn(page, event)`; `mod.ui_main_item(after, label, page)`.
+- `mod.has_play()` (1.8), `mod.play_status()`, `mod.hero_pose(pose)`,
+  `mod.figure_create()` (-1 for none), `mod.figure_pose(id, pose)`,
+  `mod.play_start(level, save)`, `mod.save_read(slot)` and `mod.save_capture()`
+  (byte vectors, empty for none): the play calls with the sizes set for the mod.
 - `mod.on_frame(fn)`, `mod.on_pad(fn)`, `openrac::Memory` (typed reads and
   writes at game addresses), `openrac::StackFrame` (RAII over `stack_push` and
   `stack_pop`).

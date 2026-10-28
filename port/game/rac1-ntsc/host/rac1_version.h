@@ -76,6 +76,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* The hero's position (PAL gHeroPos D_0013F4D0: the hero record D_0013F450, here 0x0013F350,
  * plus 0x80), for crash reports (boot.c). */
 #define RAC1_HERO_POS 0x0013F3D0u
+/* The game's folder on the memory card, where its save files are (play.c, the mods' saves). */
+#define RAC1_SAVE_FOLDER "BASCUS-97199RATCHET"
 /* The moby update loop (crash_state.c): PAL func_00213C78 is FUN_00212e28 here (its hand C,
  * hand/functional/FUN_00212e28.c, checked against the US assembly), with the list's head
  * (FUN_0020d868, kept in D_0015FF24) and the steps before and after each update (FUN_0020d580,
@@ -154,6 +156,17 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* The large font's glyph table (mod_ui.cpp's page widths), after the normal and small ones as in
  * PAL: the US decomp's large_font_metrics. */
 #define RAC1_ADDR_0x001DFB10u 0x001DF790u
+
+/* The mods' play (play.c): PAL MobyBlendAnimation func_00213DE0 is FUN_00212f90 here (the NTSC
+ * decomp's gameplay/animation/blend_moby_animation, the map pairing them as `same`) and
+ * memcard_MakeWholeSave func_0020BA00 is FUN_0020abb0 (its start_memory_card_save calls it); the
+ * level a load goes to, PAL D_0015F6E4, is 0x15F600 (`exact`), and the level loop's end, PAL
+ * D_L00_0015F650, is D_L00_0015F570 (the loop's `while` in the NTSC decomp's
+ * src/overlays/shared/rendering/00245c28.c). */
+#define func_00213DE0 game_FUN_00212f90
+#define func_0020BA00 game_FUN_0020abb0
+#define RAC1_ADDR_0x0015F6E4u 0x0015F600u
+#define RAC1_ADDR_L00_0x0015F650u 0x0015F570u
 
 /* ---- generated below ---- */
 

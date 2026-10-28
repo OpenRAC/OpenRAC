@@ -26,6 +26,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* gHeroPos (D_0013F4D0), for crash reports (boot.c); a version without it reports no position. */
 #define RAC1_HERO_POS 0x0013F4D0u
 
+/* The game's folder on the memory card (memcard_get_name's, "BA****-*****RATCHET" with the disc's
+ * region and serial), where its save files are (play.c, the mods' saves). */
+#define RAC1_SAVE_FOLDER "BESCES-50916RATCHET"
+
 /* Where libmc (func_001236F0..func_00124528, the port's lib/mc.c) keeps the state of a command, for
  * the port's library to keep it there too (boot.c, openrac_game_mc_state): D_00132EA8 the command that
  * runs (0: none; sceMcSync func_00123F30 returns -1 then, else hands it out and clears it once the

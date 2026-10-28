@@ -44,6 +44,7 @@
 #include "game/common/frontend/state.h"
 #include "mod_menu.h"
 #include "mod_ui.h"
+#include "mods.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "options_menu.h"
@@ -514,6 +515,8 @@ bool read_window_events() {
         apply_settings();
     }
     debug_menu::update(openrac_game_loaded_overlay(), g->index);
+    // A start or travel a mod asked for (interface 1.8), where the developer menu starts a level.
+    mods::play_update();
     // The mods' entries go after the Planets entry debug_menu put in the same list (mod_menu.h).
     mod_menu::update(openrac_game_loaded_overlay());
     // The mods' items in the main menu and their pages of the game's widgets (mod_ui.h).

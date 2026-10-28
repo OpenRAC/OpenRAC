@@ -182,6 +182,7 @@ include(Luau)
 add_library(openrac_mods STATIC
   game/common/mod_library.cpp
   game/common/mod_manifest.cpp
+  game/common/mod_play.cpp
   game/common/mod_scripts.cpp
   game/common/mods.cpp
 )
