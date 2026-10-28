@@ -58,10 +58,13 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x001D4B90u 0x001D4840u
 
 /* The class registration tables differ from PAL: class count, resources, and the empty executable
- * vtable live at these addresses in the US build. */
+ * vtable live at these addresses in the US build. The slot tables are three in a row in both
+ * versions (resources, updates, class ids), each 0x380 lower here: PAL's updates (0x1B3900,
+ * resident_moby_class_data) are the US decomp's D_001B3580, which init_moby_instance copies into a
+ * moby's update at +0x74; the US 0x1B3900 is the s16 class ids register_moby_class writes. */
 #define RAC1_ADDR_0x00160000u 0x0015FF00u
 #define RAC1_ADDR_0x001B3580u 0x001B3200u
-#define RAC1_ADDR_0x001B3900u 0x001B3900u
+#define RAC1_ADDR_0x001B3900u 0x001B3580u
 #define RAC1_ADDR_0x001E8F00u 0x001E8B80u
 
 /* Where this version's decompilation declares a function otherwise: the type in its prototypes. */
