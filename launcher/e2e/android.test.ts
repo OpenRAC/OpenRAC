@@ -114,8 +114,19 @@ describe("Android launcher", () => {
     await expect(page.locator(".go .big").textContent()).resolves.toContain("Play");
     const more = page.locator(".go-row").getByRole("button", { name: "More actions" });
     await more.scrollIntoViewIfNeeded();
-    const scrollTop = await page.locator("main").evaluate((e) => e.scrollTop);
+    // The click may scroll its target into view. Measure when the menu is opened,
+    // after that legitimate movement and before its focus effect runs.
+    await more.evaluate((button) => {
+      button.addEventListener(
+        "click",
+        () => {
+          button.setAttribute("data-scroll-at-click", String(document.querySelector("main")?.scrollTop));
+        },
+        { capture: true, once: true },
+      );
+    });
     await more.click();
+    const scrollTop = Number(await more.getAttribute("data-scroll-at-click"));
     const rebuild = page.getByRole("menuitem", { name: "Rebuild the game" });
     await rebuild.waitFor({ state: "visible" });
     // Allow focus-triggered scrolling to arrive before checking that the menu stays open.
