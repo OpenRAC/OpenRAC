@@ -53,6 +53,10 @@ void step(int row, int by);
 // already; the window applies it at once: none needs the game started again).
 bool update(int loaded_overlay);
 
+// Drops guest-memory addresses cached by the port's Video pages. A restored snapshot can replace
+// the guest allocations and level program those addresses referred to.
+void savestate_restored();
+
 // The items the Options list is given in place of the game's own (with the Video page's added), or 0
 // while it has the game's.
 std::uint32_t options_items();

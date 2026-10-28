@@ -79,6 +79,14 @@ public:
 
     // A bank file (assets/sound/sound_bank.h); throws assets::AssetError.
     BankHandle load_bank(std::span<const std::uint8_t> file);
+    BankHandle load_bank_at(BankHandle handle, std::span<const std::uint8_t> file);
+    void reset_for_snapshot();
+    void set_next_handles(BankHandle bank, SoundHandle sound);
+    void swap_snapshot_state(SoundPlayer& other) noexcept;
+
+    BankHandle next_bank_handle() const { return m_next_bank; }
+
+    SoundHandle next_sound_handle() const { return m_next_sound; }
     // Stops the bank's sounds first.
     void unload_bank(BankHandle bank);
     const assets::SoundBank* bank(BankHandle bank) const;

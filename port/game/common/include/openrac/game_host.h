@@ -48,6 +48,10 @@ int openrac_game_loaded_overlay(void);
  * with "overlay_hook" provides it beside openrac_game_loaded_overlay; otherwise it is generated as
  * doing nothing. */
 void openrac_game_restore_overlay(int overlay);
+size_t openrac_game_snapshot_extra_size(void);
+int openrac_game_snapshot_extra_save(void* out, size_t capacity);
+int openrac_game_snapshot_extra_load(const void* in, size_t size);
+void openrac_game_clear_level_programs(void);
 
 /* Every function by code address (generated functions.c). */
 void openrac_game_register_functions(void);

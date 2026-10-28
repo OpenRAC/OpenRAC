@@ -28,7 +28,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | Name | Value | |
 |---|---|---|
 | `OPENRAC_MOD_API_MAJOR` | `1` | The interface's major version. Changes when anything in the table changes or goes. |
-| `OPENRAC_MOD_API_MINOR` | `9` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts. |
+| `OPENRAC_MOD_API_MINOR` | `10` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods. |
 | `OPENRAC_MOD_TARGET_MINOR` | `OPENRAC_MOD_API_MINOR` |  |
 | `OPENRAC_MOD_EXPORT` | `__declspec(dllexport)` or `__attribute__((visibility("default")))` |  |
 | `OPENRAC_LOG_DEBUG` | `0` | The levels of openrac_api.log, from the most to the least talkative. Since 1.0. |
@@ -484,6 +484,18 @@ memory card. Since 1.8.
 | `int32_t gold_bolts` |  |
 | `int32_t seconds` |  |
 
+## `openrac_developer_menu_item`
+
+One entry in a mod's top-level desktop menu. `group` is an optional submenu label; `action` is
+a nonzero mod-defined id. Since 1.10.
+
+| Member | |
+|---|---|
+| `const char* label` |  |
+| `const char* shortcut` |  |
+| `uint32_t action` |  |
+| `const char* group` |  |
+
 ## `openrac_api`
 
 What the port offers a mod. Filled by the port; valid for the life of the program. Every function
@@ -526,9 +538,9 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `void (*menu_rect)(openrac_mod* mod, int x, int y, int width, int height, uint32_t rgba)` | Fills the rectangle of `width` by `height` pixels whose top left is (x, y) on the menu page (OPENRAC_MENU_WIDTH by OPENRAC_MENU_HEIGHT) with `rgba` (OPENRAC_RGBA), blended by its alpha; what is outside the page is left out. Only during the mod's own menu callback; ignored otherwise. Since 1.5. |
 | `void (*menu_text)(openrac_mod* mod, int x, int y, int size, uint32_t rgba, const char* text)` | Writes `text` (ASCII; a newline starts a line below) on the menu page with its first character's top left at (x, y), each character OPENRAC_MENU_CHAR_WIDTH by OPENRAC_MENU_CHAR_HEIGHT times `size` (1 to 8), in `rgba`. Only during the mod's own menu callback; ignored otherwise. Since 1.5. |
 | `int (*on_tick_boundary)(openrac_mod* mod, openrac_tick_boundary_fn fn, void* user)` | Calls `fn(user, tick)` after the game's vertical-blank handlers have run, the port's tick boundary, the only place the savestate calls below are accepted (openrac_tick_boundary_fn). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_TOO_LATE for no fn or after openrac_mod_load. Since 1.6. |
-| `size_t (*savestate_size)(void)` | The byte size of this port build's warm, same-process snapshot; 0 where the running game has none (Ratchet & Clank PAL and NTSC have one). Since 1.6. |
-| `int (*savestate_save)(void* out, size_t size)` | Captures a snapshot into `out`, `size` being savestate_size(). Only inside on_tick_boundary; returns 0 on success. The bytes are private to this process and build, not for a cold restore or another version. Since 1.6. |
-| `int (*savestate_load)(const void* data, size_t size)` | Restores a snapshot savestate_save made, under the same constraints; returns 0 on success. It may refuse when the runtime allocated new guest statics or strings since the snapshot, because translated call sites cache those addresses in process memory. Since 1.6. |
+| `size_t (*savestate_size)(void)` | The byte size of this build's opaque snapshot; 0 where the running game has none (RAC1 PAL and NTSC have one). Since 1.6. |
+| `int (*savestate_save)(void* out, size_t size)` | Captures a snapshot into `out`, `size` being savestate_size(). Only inside on_tick_boundary; returns 0 on success. Project Save Clank persists these bytes; the port format is private to the exact OpenRAC build and matching game/disc. Since 1.6. |
+| `int (*savestate_load)(const void* data, size_t size)` | Restores a snapshot made by savestate_save, including across process launches, under the same build/game/disc constraints; returns 0 on success. The port rebinds generated static/string allocations and rebuilds renderer/audio state. Since 1.6. |
 | `int (*ui_page)(openrac_mod* mod, uint32_t flags, openrac_ui_fn fn, void* user)` | Makes a page of the game's own menus (OPENRAC_UI_OWN_BACK or 0 in `flags`), with nothing on it yet (ui_set), whose events go to `fn(user, page, event)` (openrac_ui_fn). Returns the page's id (0 or more), OPENRAC_HOOK_UNKNOWN for no fn or past OPENRAC_UI_PAGES_MAX, or OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.7. |
 | `int (*ui_main_item)(openrac_mod* mod, const char* after, const char* label, int page)` | Adds an item named `label` to the title's main menu, after its own item `after` (OPENRAC_UI_NEW_GAME, OPENRAC_UI_LOAD_GAME, OPENRAC_UI_OPTIONS), which opens the mod's `page`. Two after the same item go in the order they were added. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN for an unknown `after`, no label, a page that is not the mod's, or past OPENRAC_UI_MAIN_ITEMS_MAX, or OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.7. |
 | `int (*ui_set)(openrac_mod* mod, int page, const openrac_ui_content* content)` | Puts `content` on the mod's `page` (openrac_ui_content), in place of what it had: shown at once if the page is on the screen. Any time. The cursor stays on its item (on the last when there are fewer, and off a TEXT). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a page that is not the mod's or no content. Since 1.7. |
@@ -560,3 +572,6 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*moby_hit)(openrac_mod* mod, const openrac_hit* hit)` | Posts `hit` to its victim as the game posts one (the victim's update reads it: an enemy takes the damage, the hero is hurt), not told to on_moby_hit. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no victim there. Since 1.9. |
 | `int (*play_eyes)(openrac_mod* mod, const float* xyz, int count)` | Sets up to OPENRAC_EYES_MAX points (x, y, z each) besides the camera: the mobys within their update distance of one run too (the world near other players). `count` 0 clears them. Returns OPENRAC_HOOK_OK. Since 1.9. |
 | `int (*bolts)(int add)` | Adds `add` to the player's bolts (0: none) and returns them. Since 1.9. |
+| `int (*developer_menu)(openrac_mod* mod, const char* title, const openrac_developer_menu_item* items, uint32_t item_count)` | Adds a top-level menu beside View, Graphics, Sound and Developer to the in-window desktop menu bar. `title`, item labels, shortcuts and groups are copied. Selections are queued for the mod and retrieved from its tick-boundary callback; this never calls mod code from UI drawing. Items may be placed in groups (submenus), and use nonzero mod-defined action ids. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN for a duplicate title or action, OPENRAC_HOOK_UNKNOWN for invalid items, or OPENRAC_HOOK_TOO_LATE unless called during openrac_mod_load. Since 1.10. |
+| `uint32_t (*take_developer_menu_action)(openrac_mod* mod)` | Returns and removes the next queued action for this mod, or 0 if none. Only from its on_tick_boundary callback. Since 1.10. |
+| `int (*developer_menu_set_label)(openrac_mod* mod, uint32_t action, const char* label)` | Changes a registered item's label, copying `label`. Only from this mod's tick-boundary callback. Since 1.10. |

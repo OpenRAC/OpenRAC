@@ -78,7 +78,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.9",
+    const std::string& api = "1.10",
     const std::string& extra = ""
 ) {
     const fs::path dir = plugins / ("test-" + which);
@@ -100,6 +100,7 @@ void install(
                                   {"value": "views", "name": "Views"},
                                   {"value": "menu", "name": "Menu"},
                                   {"value": "savestate", "name": "Savestate"},
+                                  {"value": "developer_menu", "name": "Developer menu"},
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"}]},
@@ -363,7 +364,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.9", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.10", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -472,6 +473,38 @@ void a_menu_page_draws_through_the_host(const fs::path& plugins) {
     CHECK(mods::run_menu_page(1, frame));  // no such page: closed
     mods::reset();
     CHECK(mods::menu_entry_count() == 0);
+}
+
+// A mod-provided desktop menu (interface 1.10): copied strings, queued actions handled at the
+// owning mod's tick boundary, labels changed there, and cleanup when mods reset.
+void a_mod_provides_a_desktop_menu(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "developer_menu"}}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const auto& menus = mods::developer_menus();
+    CHECK(menus.size() == 1 && menus[0].title == "Savestates");
+    CHECK(menus[0].items.size() == 2);
+    CHECK(menus[0].items[0].label == "Empty" && menus[0].items[0].group == "Save");
+    CHECK(menus[0].items[0].shortcut == "Shift+Num0" && menus[0].items[0].action == 1);
+    CHECK(menus[0].items[1].label == "Empty" && menus[0].items[1].group == "Load");
+    CHECK(menus[0].items[1].shortcut == "Ctrl+Num0" && menus[0].items[1].action == 2);
+
+    // Action retrieval and label changes are restricted to the tick-boundary callback.
+    mods::frame();
+    CHECK(std::find(g_records.begin(), g_records.end(), 1601) != g_records.end());
+    CHECK(std::find(g_records.begin(), g_records.end(), 1701) != g_records.end());
+
+    mods::queue_developer_menu_action(menus[0].mod, 1);
+    mods::queue_developer_menu_action(menus[0].mod, 99);
+    mods::tick_boundary(1);
+    CHECK(std::find(g_records.begin(), g_records.end(), 9001) != g_records.end());
+    CHECK(std::find(g_records.begin(), g_records.end(), 9100) != g_records.end());
+    CHECK(menus[0].items[0].label == "Saved: Veldin");
+    CHECK(menus[0].items[1].label == "Empty");
+
+    mods::reset();
+    CHECK(mods::developer_menus().empty());
 }
 
 // Play (interface 1.8): the phase and level, figures only in a level and gone with it, a pose
@@ -767,7 +800,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.9", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.10", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -828,6 +861,7 @@ int main() {
     input_reaches_the_mod(plugins);
     views_reach_the_host(plugins);
     a_menu_page_draws_through_the_host(plugins);
+    a_mod_provides_a_desktop_menu(plugins);
     the_tick_boundary_reaches_the_mod(plugins);
     game_ui_pages_reach_the_front_end(plugins);
     play_reaches_the_game(plugins, dir);

@@ -16,6 +16,16 @@
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
+#include "openrac/sound_engine.h"
+
+/* Optional opaque payload callbacks for cold snapshots, implemented by this game's kernel shim. */
+size_t openrac_game_snapshot_extra_size(void);
+int openrac_game_snapshot_extra_save(void* out, size_t capacity);
+int openrac_game_snapshot_extra_load(const void* in, size_t size);
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
 
 #define MAX_HANDLERS 8
 
@@ -270,6 +280,81 @@ static gaddr rpc_client[RPC_CLIENTS];
 static unsigned int rpc_server[RPC_CLIENTS];
 static unsigned int sif_bind_calls;
 static unsigned int sif_rpc_calls;
+
+/* Opaque snapshot payload for the state this replacement library keeps outside guest RAM. */
+typedef struct {
+    uint8_t magic[8];
+    uint32_t version;
+    handler intc[MAX_HANDLERS];
+    handler dmac[MAX_HANDLERS];
+    gaddr vsync_callback;
+    uint8_t iop_memory[IOP_BYTES];
+    gaddr rpc_client[RPC_CLIENTS];
+    unsigned int rpc_server[RPC_CLIENTS];
+    unsigned int sif_bind_calls;
+    unsigned int sif_rpc_calls;
+    uint8_t sound[OPENRAC_SOUND_SNAPSHOT_SIZE];
+} openrac_game_snapshot_extra;
+
+size_t openrac_game_snapshot_extra_size(void) {
+    return sizeof(openrac_game_snapshot_extra);
+}
+
+int openrac_game_snapshot_extra_save(void* out, size_t capacity) {
+    if (out == NULL || capacity != sizeof(openrac_game_snapshot_extra)) {
+        return -1;
+    }
+    openrac_game_snapshot_extra* state = calloc(1, sizeof(*state));
+    if (state == NULL) {
+        return -1;
+    }
+    memcpy(state->magic, "ORACXTRA", 8);
+    state->version = 1;
+    memcpy(state->intc, intc, sizeof(intc));
+    memcpy(state->dmac, dmac, sizeof(dmac));
+    state->vsync_callback = vsync_callback;
+    memcpy(state->iop_memory, iop_memory, sizeof(iop_memory));
+    memcpy(state->rpc_client, rpc_client, sizeof(rpc_client));
+    memcpy(state->rpc_server, rpc_server, sizeof(rpc_server));
+    state->sif_bind_calls = sif_bind_calls;
+    state->sif_rpc_calls = sif_rpc_calls;
+    if (openrac_sound_snapshot_save(state->sound, sizeof(state->sound)) != 0) {
+        free(state);
+        return -1;
+    }
+    memcpy(out, state, sizeof(*state));
+    free(state);
+    return 0;
+}
+
+int openrac_game_snapshot_extra_load(const void* in, size_t size) {
+    if (in == NULL || size != sizeof(openrac_game_snapshot_extra)) {
+        return -1;
+    }
+    openrac_game_snapshot_extra* state = malloc(sizeof(*state));
+    if (state == NULL) {
+        return -1;
+    }
+    memcpy(state, in, sizeof(*state));
+    if (memcmp(state->magic, "ORACXTRA", 8) != 0 || state->version != 1) {
+        free(state);
+        return -1;
+    }
+    if (openrac_sound_snapshot_load(state->sound, sizeof(state->sound)) != 0) {
+        free(state);
+        return -1;
+    }
+    memcpy(intc, state->intc, sizeof(intc));
+    memcpy(dmac, state->dmac, sizeof(dmac));
+    vsync_callback = state->vsync_callback;
+    memcpy(iop_memory, state->iop_memory, sizeof(iop_memory));
+    memcpy(rpc_client, state->rpc_client, sizeof(rpc_client));
+    memcpy(rpc_server, state->rpc_server, sizeof(rpc_server));
+    sif_bind_calls = state->sif_bind_calls;
+    sif_rpc_calls = state->sif_rpc_calls;
+    free(state);
+    return 0;
+}
 
 static int trace_sif(void) {
     const char* value = openrac_env_string("OPENRAC_TRACE_SIF");
@@ -865,3 +950,7 @@ void openrac_lib__ExecOSD(int argc, gaddr argv) {
     fprintf(stderr, "[game] ExecOSD\n");
     exit(0);
 } /* _ExecOSD */
+
+#if defined(__cplusplus)
+}
+#endif

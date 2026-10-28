@@ -14,6 +14,7 @@
 #include <thread>
 #include <vector>
 
+#include "assets/bytes.h"
 #include "openrac/sound_engine.h"
 #include "tests/check.h"
 
@@ -48,6 +49,37 @@ void put_vag(std::vector<std::uint8_t>& disc, std::uint32_t sector, std::uint32_
 void render_ms(int ms) {
     std::vector<std::int16_t> out(static_cast<std::size_t>(kRate / 1000 * ms) * 2);
     openrac_sound_render(out.data(), out.size() / 2);
+}
+
+std::vector<std::uint8_t> make_test_bank() {
+    openrac::assets::ByteWriter block;
+    block.put_bytes(std::vector<std::uint8_t>{'S', 'B', 'l', 'k'});
+    block.put<std::uint32_t>(1);
+    block.put_at<std::int16_t>(0x16, 1);
+    block.put_at<std::int16_t>(0x18, 1);
+    block.put_at<std::int16_t>(0x1a, 1);
+    block.put_at<std::uint32_t>(0x1c, 0x3c);
+    block.put_at<std::uint32_t>(0x20, 0x48);
+    block.resize(0x3c);
+    block.put<std::uint8_t>(127);
+    block.put<std::uint8_t>(0);
+    block.put<std::int16_t>(0);
+    block.put<std::uint8_t>(1);
+    block.put<std::int8_t>(0);
+    block.put<std::uint16_t>(0);
+    block.put<std::uint32_t>(0);
+    block.put<std::uint32_t>(24);  // stop grain
+    block.put<std::int32_t>(0);
+    block.put_bytes(std::vector<std::uint8_t>(32));
+
+    openrac::assets::ByteWriter file;
+    const auto block_size = static_cast<std::uint32_t>(block.size());
+    for (const std::uint32_t word : {3u, 2u, 0x18u, block_size, 0x18u + block_size, 16u}) {
+        file.put(word);
+    }
+    file.put_bytes(block.bytes());
+    file.put_bytes(std::vector<std::uint8_t>(16));
+    return file.bytes();
 }
 
 }  // namespace
@@ -104,6 +136,18 @@ int main() {
     const std::uint32_t broken = openrac_stream_play(200, 0x400, 1, 0, 0x20);
     CHECK(openrac_stream_remaining_ms(broken) == kWholeMs);
     openrac_stream_stop(0);
+
+    std::vector<std::uint8_t> audio_snapshot(openrac_sound_snapshot_size());
+    const auto bank_file = make_test_bank();
+    const std::uint32_t bank = openrac_sound_load_bank(bank_file.data(), bank_file.size());
+    CHECK(bank != 0);
+    const std::uint32_t sound = openrac_sound_play(bank, 0, 0x400, -1, 0, 0);
+    CHECK(sound != 0);
+    CHECK(openrac_sound_snapshot_save(audio_snapshot.data(), audio_snapshot.size()) == 0);
+    openrac_sound_unload_bank(bank);
+    CHECK(openrac_sound_snapshot_load(audio_snapshot.data(), audio_snapshot.size()) == 0);
+    CHECK(openrac_sound_play(bank, 0, 0x400, -1, 0, 0) != 0);
+    CHECK(!openrac_stream_live(broken));
 
     // The program is leaving: the readers are stopped and waited for, and no track is read
     // after that (a reader that is still working when the program exits is a crash at quit).

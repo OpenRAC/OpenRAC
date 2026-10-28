@@ -900,6 +900,15 @@ const openrac_front_end* front_end() {
 
 }  // namespace
 
+void savestate_restored() {
+    // These are port-side caches of guest addresses. The restored RAM and overlay can come from
+    // another process, so none of them may be reused by the next menu update.
+    page::n = {};
+    page::pause_texts = 0;
+    page::pause_rows_text = 0;
+    pause_page::m = {};
+}
+
 int row_count() {
     return fixes::count() > 0 ? kRows + 1 + fixes::count() : kRows;
 }

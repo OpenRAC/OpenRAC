@@ -437,8 +437,8 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `menu_entry(mod, label, fn, user)` (1.5) | during load: an entry in the game's front-end menu (at most `OPENRAC_MENU_ENTRIES_MAX`, 4, for all mods together) that opens a page of the mod's own. `fn(user, &frame)` runs once a frame while it is open, with pad 0's buttons held and pressed (`OPENRAC_PAD_*`) and whether the page just opened; it returns `OPENRAC_MENU_STAY` or `OPENRAC_MENU_CLOSE`, and closing goes back to the menu it came from, as the game's back button does. While the page is open the game sees no button of pad 0. In Ratchet & Clank the entry is in the title's Options list (main menu, Options), after the port's own Video and Planets |
 | `menu_rect(mod, x, y, w, h, rgba)`, `menu_text(mod, x, y, size, rgba, text)` (1.5) | only inside the mod's own page callback: a filled rectangle, blended by its alpha, and ASCII text in the port's 5 by 7 font (each character 6 by 8 pixels times `size`, 1 to 8; letters as capitals; `\n` starts a line) on the page, `OPENRAC_MENU_WIDTH` by `OPENRAC_MENU_HEIGHT` (512 by 448) pixels from its top left, stretched over the whole window. Colours are `OPENRAC_RGBA(r, g, b, a)`; the page starts each frame black. The page is drawn as the developer level menu is (a picture made on the CPU, `port/renderer/ui/canvas.h`), so it needs no renderer work of the mod's |
 | `on_tick_boundary(mod, fn, user)` (1.6) | `fn(user, tick)` after vertical-blank handlers have run, for a safe snapshot boundary |
-| `savestate_size()` (1.6) | the byte size of this running RAC1 PAL/NTSC build's private warm snapshot |
-| `savestate_save(out, size)` / `savestate_load(data, size)` (1.6) | copy guest memory and essential in-process runtime state; only accepted from `on_tick_boundary`, for the same running process and build |
+| `savestate_size()` (1.6) | the byte size of this build's private RAC1 PAL/NTSC snapshot |
+| `savestate_save(out, size)` / `savestate_load(data, size)` (1.6) | copy guest memory and port runtime state; only accepted from `on_tick_boundary`, and portable across launches of the same exact OpenRAC build and disc |
 | `ui_page(mod, flags, fn, user)` (1.7) | during load: a page of the game's own menus (at most `OPENRAC_UI_PAGES_MAX`, 16, for all mods), empty until `ui_set`; returns its id. `fn(user, page, &event)` hears it: `OPENRAC_UI_SHOW` and `_HIDE` as it comes and goes, `_FRAME` each tick it is shown, `_CHOOSE` (Cross on a button), `_CHANGE` (a choice stepped), `_ANSWER` (a question answered, `value` 1 yes), and `_BACK` (Triangle) for a page made with `OPENRAC_UI_OWN_BACK`, which then goes back itself. The game draws it: in Ratchet & Clank a page the main menu opens has the Options page's frames, title and footer of hints, its list is the game's text list in the game's font, and a page opened from it has the Language page's, a level down (a third takes the second's place); a page's frames are widened, each about its centre, to its widest title, item and footer line as the game measures them, up to the screen's safe area (90% of its width), and grow while it is shown when its texts do. Up and Down move the cursor over buttons and choices (not lines of text), with the game's sounds |
 | `ui_main_item(mod, after, label, page)` (1.7) | during load: an item of the title's main menu (at most `OPENRAC_UI_MAIN_ITEMS_MAX`, 2: the rows below the game's three) after `OPENRAC_UI_NEW_GAME`, `_LOAD_GAME` or `_OPTIONS`, opening the mod's `page`. Ratchet & Clank: the game's own frames and its row animations, the cursor going round the four (or five) |
 | `ui_set(mod, page, &content)` (1.7) | any time: the page's title, items (`OPENRAC_UI_BUTTON`, `_CHOICE` with its values, `_TEXT`; `OPENRAC_UI_DISABLED` dims one, refuses it and keeps the cursor off it) and footer lines (none: the game's own hints, in its language), at most `OPENRAC_UI_ITEMS_MAX` (12) items and `OPENRAC_UI_FOOTER_MAX` (3) lines of `OPENRAC_UI_TEXT_MAX` (47) bytes; UTF-8 with the game's accented letters, and `OPENRAC_UI_CROSS`, `_CIRCLE`, `_TRIANGLE`, `_SQUARE` for the pad's glyphs |
@@ -454,6 +454,8 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `on_moby_update(mod, fn, user)`, `hero_stand_in(mod, position, figure)` (1.9) | the gate: `fn(user, slot, phase)` around each update the game runs (`OPENRAC_MOBY_BEFORE`, `_AFTER`; not for a driven moby); returning 1 before skips the update. Before one, `hero_stand_in` puts the hero at `position` (his moby the mod's `figure`, -1 his own) for that update, so the enemy sees, chases and hits another player; elsewhere it answers `OPENRAC_HOOK_UNKNOWN`. One mod's, taken only during `openrac_mod_load` (`OPENRAC_HOOK_TAKEN`, `OPENRAC_HOOK_TOO_LATE`) |
 | `on_moby_hit(mod, fn, user)`, `moby_hit(mod, &hit)` (1.9) | the hit watcher: `fn(user, &hit)` for each hit the game posts (victim and attacker slots, weapon `mask`, damage, position, velocity); returning 1 takes it back, the victim never reads it. One mod's, during load only. `moby_hit` posts a hit of the mod's own to its victim, as the game would and not told to the watcher |
 | `play_eyes(mod, xyz, count)`, `bolts(add)` (1.9) | up to `OPENRAC_EYES_MAX` (8) points besides the camera, which keep the mobys near them running (the world near other players), `count` 0 clears; adds to the player's bolts and returns them |
+| `developer_menu(mod, title, items, count)`, `take_developer_menu_action(mod)` (1.10) | register a top-level desktop menu beside Developer; grouped items become submenus, and selections are queued for the mod's tick-boundary callback |
+| `developer_menu_set_label(mod, action, label)` (1.10) | update an item's label from the owning mod's tick-boundary callback |
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -481,13 +483,13 @@ with the mod (`graphics`, `on_views`, `setup_vulkan`, the manifest's
 `vulkan_device`), for a VR mod; 1.5 (SDK 1.5.0) entries in the front-end
 menu with a page of the mod's own (`menu_entry`, `menu_rect`, `menu_text`;
 the C++ layer's `mod.menu_entry(label, [](const MenuPage&, const MenuFrame&)
-{ ... return close; })`); 1.6 (SDK 1.6.0) the tick-boundary and warm-snapshot
+{ ... return close; })`); 1.6 (SDK 1.6.0) the tick-boundary and snapshot
 calls for an optional practice mod (`on_tick_boundary`, `savestate_size`,
 `savestate_save`, `savestate_load`, after 1.5's at the end of the C table; the
 C++ `Mod` wrapper's methods of the same names, and `has_savestates()`). They do
 not run unless a mod registers and calls them. The separate `project-save-clank`
-mod owns the file and Numpad 1/2 controls; its state is not valid across
-process restarts. 1.7 (SDK 1.7.0) pages of the game's own menus and items of
+mod owns persistent slot files and Shift/Ctrl+Numpad 0–9 controls. Slots accept
+only the same game, disc, and exact OpenRAC build that created them. 1.7 (SDK 1.7.0) pages of the game's own menus and items of
 the title's main menu (`ui_page`, `ui_main_item`, `ui_set`, `ui_open`,
 `ui_confirm`, `ui_cursor`, `ui_sound`, after 1.6's; the C++ layer's
 `mod.ui_page([](const UiPage&, const UiEvent&) { ... })`, `mod.ui_main_item`,
@@ -503,7 +505,9 @@ driving, posing, killing and making them (`moby_drive`, `moby_pose`, `moby_kill`
 `moby_spawn`, `figure_slot`), the gate around each moby's update with the hero
 standing in for another player (`on_moby_update`, `hero_stand_in`), the hit
 watcher and posted hits (`on_moby_hit`, `moby_hit`), `play_eyes` and `bolts`; the
-C++ layer's methods of the same names, and `has_world()`.
+C++ layer's methods of the same names, and `has_world()`. 1.10 adds optional top-level desktop
+menus (`developer_menu`, `take_developer_menu_action`, and `developer_menu_set_label`), whose
+selections are handled at tick boundaries.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
