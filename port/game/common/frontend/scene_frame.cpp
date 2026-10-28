@@ -22,6 +22,7 @@
 #include "frontend.h"
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
+#include "openrac/game_host.h"
 #include "renderer/direct.h"
 #include "renderer/gl.h"
 #include "scene/moby_pose.h"
@@ -166,11 +167,11 @@ void set_lighting(SceneFrame& frame) {
     input.shadow_quality = graphics.shadow_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera
-                             && scene.level >= 0 && scene.level < 19;
+                             && openrac_game_has_level(scene.level);
     input.hero_pixel_shadow = enhanced && graphics.enhanced_shadows
                               && owner.scene.hero_shadow_enabled()
                               && scene.hero_airborne.has_value() && scene.has_camera
-                              && scene.level >= 0 && scene.level < 19;
+                              && openrac_game_has_level(scene.level);
     input.hero_airborne = scene.hero_airborne.value_or(false);
     input.shadow_extrusion = scene.shadow_state.extrusion;
 

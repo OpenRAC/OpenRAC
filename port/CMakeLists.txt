@@ -175,6 +175,20 @@ openrac_add_test(runtime SOURCES tests/runtime_test.cpp tests/guest_c.c LIBS ope
 openrac_add_c_test(host_env LIBS openrac_runtime)
 
 # ---- native mods (docs/port/MODS.md): manifests, the list, the loader ----
+openrac_add_c_test(level_descriptor
+  SOURCES tests/level_descriptor_test.c
+  INCLUDES game/common/include runtime/include)
+
+openrac_add_test(ship_destination
+  SOURCES tests/ship_destination_test.cpp game/rac1-pal/host/destinations.c
+  INCLUDES tests/ship_destination_stubs game/common/include
+  LIBS openrac_runtime)
+
+openrac_add_test(cdvd_mount
+  SOURCES tests/cdvd_mount_test.cpp game/common/lib/cdvd.c
+  INCLUDES game/common/include
+  LIBS openrac_runtime)
+
 openrac_add_test(custom_map
   SOURCES tests/custom_map_test.cpp game/common/program/custom_map.cpp
   INCLUDES game/common LIBS openrac_common)

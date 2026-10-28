@@ -33,6 +33,7 @@
 #include "common/stats.h"
 #include "debug/overlay.h"
 #include "frontend.h"
+#include "openrac/game_host.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
 #include "renderer/ui/imgui_gl.h"
@@ -339,7 +340,7 @@ void panel(const Shown& shown) {
             drag_scroll(s.panel_scroll);
         }
         const Averages a = averages();
-        const std::string where = s.level >= 0 && s.level < 19 ? kLevelNames[static_cast<std::size_t>(s.level)] : "boot";
+        const std::string where = openrac_game_level_name(s.level);
         text_coloured(kYellow, "OpenRAC {}  {}  tick {}  {:.0f} tps  {:.0f} fps", s.game, where, s.tick, a.tps, a.fps);
         if (ImGui::Button(keys ? (s.paused ? "resume (F5)" : "pause (F5)") : (s.paused ? "resume" : "pause"))) {
             s.paused = !s.paused;

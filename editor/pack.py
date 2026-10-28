@@ -406,6 +406,11 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         stored = disc.sectors(place["lba"], place["sectors"])
         gameplay = decoded(stored)
         text = scene.read_text()
+        import static_assets
+        try:
+            static_instances = static_assets.placements(scene.parents[2], text)
+        except (ValueError, KeyError, IndexError) as error:
+            raise FormatError(f'Static import placement: {error}') from None
         edited, changes, problems = pack_level(info["id"], gameplay, text)
         # Ties and shrubs: the port draws them from the extractor's files, so they are packed as
         # those are (scenery.py), beside the gameplay file.
@@ -415,8 +420,19 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         # Collision, the level's and its moby classes': the level data's core (collision_scene.py,
         # moby_collision_scene.py), only when the scenes' differ.
         collision_changes, collision_problems, wrote = pack_collision(disc, info, scene, text, out, patches)
+        if any(solid for _, _, _, solid in static_instances) and collision_problems:
+            raise FormatError('Static import collision could not be packed: ' + '; '.join(collision_problems))
+        try:
+            static_bake = static_assets.write_packed(scene.parents[2], scene.parent, text, out / name)
+        except (ValueError, KeyError, IndexError) as error:
+            raise FormatError(f'Static import geometry: {error}') from None
         scenery_changes += collision_changes
         scenery_problems += collision_problems
+        if static_bake is not None:
+            scenery_changes.append(f"static imports: {static_bake['instances']} instance(s) baked into terrain")
+            if not changes and placements is None and not wrote:
+                packed += 1
+                total += static_bake['instances']
         if wrote:
             packed += 0 if changes or placements is not None else 1
             total += len(collision_changes)

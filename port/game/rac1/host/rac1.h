@@ -52,7 +52,7 @@ uint32_t rac1_program_loads(void);
 
 /* front_end.c: what the window's menus need of the game (game_host.h), and the levels' names. */
 extern const openrac_front_end rac1_front_end;
-extern const char* const rac1_level_names[19];
+extern const char* const rac1_level_names[];
 
 /* play.c: what the mods' play calls need of the game (game_host.h, interfaces 1.8 and 1.9), and a
  * moby put in a pose (a figure, or a moby of the world a mod drives). */

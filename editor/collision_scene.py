@@ -361,19 +361,27 @@ def scene_collision(project: Path, level_dir: Path, text: str) -> dict | None:
     """What the scene holds of the collision: None for a project made before this layout, or one
     whose collision is as exported; else {"triangles": {(key, kind)}, "heroes": {name: [tri]},
     "added_heroes": [[tri]], "problems": [...]}, in model units."""
+    import static_assets
+    imported = static_assets.collision_triangles(project, text)
     manifest_file = level_dir / "collision" / "collision.json"
     if not manifest_file.is_file():
+        if imported:
+            raise FormatError('Static collisions need an extracted project with collision metadata')
         return None
     manifest = json.loads(manifest_file.read_text())
     if manifest.get("format") != FORMAT:
+        if imported:
+            raise FormatError('Re-extract the collision metadata before packing static imports')
         return None
     _ext, sub, nodes = read_scene(text)
     layer = next((n for n in nodes if n["name"] == "Collision" and n["parent"] == "Game"), None)
     if layer is None or "metadata/rc1_collision" not in layer["properties"]:
+        if imported:
+            raise FormatError('Keep Game/Collision when packing solid static imports')
         return None
     ours = [n for n in nodes if n["parent"] in PARENTS]
     edits = layer_edits(layer)
-    if not any(edits.values()) and unchanged(project, level_dir, ours, manifest):
+    if not imported and not any(edits.values()) and unchanged(project, level_dir, ours, manifest):
         return None
     result = {"triangles": set(), "heroes": {}, "added_heroes": [], "problems": [], "dropped": 0}
     for node in ours:
@@ -406,6 +414,7 @@ def scene_collision(project: Path, level_dir: Path, text: str) -> dict | None:
         else:
             result["triangles"].update((col.canonical(q), kind) for q, kind in triangles)
     apply_edits(result, edits)
+    result["triangles"].update(imported)
     result["manifest"] = manifest
     return result
 

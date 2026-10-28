@@ -533,7 +533,9 @@ int world_to_draw(std::span<const std::uint8_t> ram, int level) {
     // the ship leaves along its path (3, 7); space only in state 4 (DrawSpaceFlightFrame), whose
     // world is the flight world's. The mode there is the level's own copy of the word
     // (openrac_game_mode), not the boot program's.
-    int world = level >= 0 && level < 19 ? level : word_at(ram, game_mode_address()) == 6 ? -2 : -1;
+    int world = openrac_game_has_level(level)            ? level
+                : word_at(ram, game_mode_address()) == 6 ? -2
+                                                         : -1;
     std::uint32_t level_mode = 0xFFFFFFFFu;
     if (world >= 0 && openrac_game_front_end != nullptr && openrac_game_front_end->ship_state != 0
         && openrac_game_mode != nullptr && openrac_game_mode(&level_mode) != 0 && level_mode == 6) {
@@ -602,7 +604,7 @@ void log_camera(const host::GameState& state, bool world_ran) {
 void follow_route(std::span<const std::uint8_t> ram, int level) {
     // The game mode (the loaded level's copy, or the boot program's word) and control (Route).
     std::uint32_t mode = 0;
-    const bool in_level = level >= 0 && level < 19;
+    const bool in_level = openrac_game_has_level(level);
     if (!(in_level && openrac_game_mode != nullptr && openrac_game_mode(&mode) != 0)) {
         mode = game_mode_address() != 0 ? word_at(ram, game_mode_address()) : 0;
     }
@@ -1172,11 +1174,11 @@ TickMobys pose_mobys(
         instance.hero_shadow_anchor =
             hero_caster_count ? m.address == hero_casters[0] : m.class_id == 0 && !extra;
         instance.hero_shadow_caster = (owned_by_hero || instance.hero_shadow_anchor)
-                                      && g->loaded >= 0 && g->loaded < 19
+                                      && openrac_game_has_level(g->loaded)
                                       && instance.moby_light[3] < 1.5f && instance.tint[3] > 0;
         instance.gameplay_essential |= owned_by_hero || instance.hero_shadow_anchor;
         live_joints.push_back(instance.palette >= 0 ? joints : 0);
-        if (g->profile->shadow_directions() != 0 && g->loaded >= 0 && g->loaded < 19 && animate
+        if (g->profile->shadow_directions() != 0 && openrac_game_has_level(g->loaded) && animate
             && m.class_id == 0 && !extra && instance.moby_light[3] < 1.5f
             && instance.tint[3] > 0.0f) {
             const auto directions = OPENRAC_DATA(g->profile->shadow_directions());
@@ -1465,7 +1467,7 @@ TickPackets capture_2d_path(
     if (before_world == SIZE_MAX && (draws & 0x10u) != 0) {
         before_world = first_offscreen;
     }
-    k.before_world = level >= 0 && level < 19 ? std::min(before_world, k.packets.size()) : 0;
+    k.before_world = openrac_game_has_level(level) ? std::min(before_world, k.packets.size()) : 0;
     k.named_quads = named_quads;
     return k;
 }
@@ -1477,7 +1479,7 @@ void choose_repeat_frame(int level, bool debug) {
     const TickPicture picture = g->tick_pictures.choose(
         {k.draws,
          k.has_camera,
-         level >= 0 && level < 19,
+         openrac_game_has_level(level) != 0,
          k.packets.size(),
          k.before_world,
          g->frame.id() != 0,
