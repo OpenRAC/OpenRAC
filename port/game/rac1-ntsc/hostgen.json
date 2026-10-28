@@ -136,7 +136,6 @@
     "func_L00_001FE6D8",
     "func_L00_0028C680",
     "func_L00_00295100",
-    "FUN_L00_00298840",
     "FUN_002109b8",
     "sprintf",
     "FUN_001efa68",
@@ -148,7 +147,10 @@
     "FUN_00125180",
     "FUN_0020ede8",
     "FUN_0020fa90",
-    "func_L00_00251CE8"
+    "func_L00_00251CE8",
+    "FUN_00224b70",
+    "FUN_00224d28",
+    "FUN_00224e18"
   ],
   "hand": "hand/hand.tsv",
   "overrides": "hand/overrides.tsv",

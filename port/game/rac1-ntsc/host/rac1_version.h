@@ -184,6 +184,32 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x00178200u 0x00178100u
 #define RAC1_ADDR_L00_0x001ACB00u 0x001AC780u
 #define RAC1_ADDR_0x0016001Cu 0x0015FF1Cu
+/* The items posed from Ratchet's (item_pose.c), from the NTSC decomp's C, which names each by its
+ * address: HandItemUpdate func_00225E00 is update_menu_preview_class_pose (FUN_00224b70) here,
+ * func_00225FB8 update_menu_preview_animation_transform (FUN_00224d28), func_002260A8
+ * update_menu_preview_pose_and_attachments (FUN_00224e18); what they call: build_moby_bone_transform
+ * (PAL func_0020DAF8), copy_matrix3x4 (func_001FA480), normalize_vector_triplet (func_00214F78),
+ * refresh_moby_spatial_bounds_from_basis (func_0020EEE8), detach_manipulator (func_0020D9D8),
+ * attach_manipulator (func_0020D960); the class table and binding output menu_item_info (PAL
+ * D_001864D0), class_pose_manipulator (0x1D6160) and the previews' two manipulators, the one put
+ * back on joint 0x16 (0x1D61A0) and the one on 0x17 (0x1D61E0), as the NTSC decomp's
+ * hand_gadget.h and the three files place them. */
+#define func_00225E00 game_FUN_00224b70
+#define func_00225FB8 game_FUN_00224d28
+#define func_002260A8 game_FUN_00224e18
+#define func_0020DAF8 game_FUN_0020cca8
+#define func_001FA480 game_FUN_001fa2b8
+#define func_00214F78 game_FUN_00214128
+#define func_0020EEE8 game_FUN_0020e098
+#define func_0020D9D8 game_FUN_0020cb88
+#define func_0020D960 game_FUN_0020cb10
+#define RAC1_ADDR_0x00225E00u 0x00224B70u
+#define RAC1_ADDR_0x00225FB8u 0x00224D28u
+#define RAC1_ADDR_0x002260A8u 0x00224E18u
+#define RAC1_ADDR_0x001864D0u 0x001863D0u
+#define RAC1_ADDR_0x001D6160u 0x001D5DD0u
+#define RAC1_ADDR_0x001D61A0u 0x001D5E10u
+#define RAC1_ADDR_0x001D61E0u 0x001D5E50u
 
 /* ---- generated below ---- */
 
@@ -221,11 +247,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_001F856C game_FUN_001f83a4
 #define func_001F8B6C game_FUN_001f89a4
 #define func_001F91B8 game_FUN_001f8ff0
-#define func_001F9B88 func_001F99C0
 #define func_001F9F90 game_FUN_001f9dc8
 #define func_001F9FA8 game_FUN_001f9de0
-#define func_001FA748 game_FUN_001fa580
-#define func_001FA790 game_FUN_001fa5c8
 #define func_001FA898 game_FUN_001fa6d0
 #define func_001FE540 game_FUN_001fdd10
 #define func_001FE540__game game_FUN_001fdd10__game
@@ -297,7 +320,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_002383D8 game_FUN_002370c0
 #define func_00238688 game_FUN_00237370
 #define func_0023B670 game_FUN_0023a3b8
-#define func_L00_001EB6A8 game_FUN_L00_001eb328
 #define func_001EC210 game_FUN_001ebe68
 #define func_L00_002A6070 game_FUN_L00_002a4de0
 #define func_0020D678 game_FUN_0020c828
@@ -331,7 +353,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_002A2080 func_L00_002A0DF0
 #define func_L00_002A20E0 func_L00_002A0E50
 #define func_L00_002A2148 func_L00_002A0EB8
-#define func_L00_002A8A20 game_FUN_L00_002a7780
 #define func_L00_002D9EA0 game_FUN_L00_002d89f0
 #define func_L00_002D9EA0__hooked game_FUN_L00_002d89f0__hooked
 #define func_L02_0020A690 func_L02_0020A390
@@ -362,7 +383,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0013E610u 0x0013E510u
 #define RAC1_ADDR_0x0013E614u 0x0013E514u
 #define RAC1_ADDR_0x0013F450u 0x0013F350u
-#define RAC1_ADDR_0x001414D0u 0x001413D0u
 #define RAC1_ADDR_0x001517D0u 0x001516D0u
 #define RAC1_ADDR_0x00151C60u 0x00151B60u
 #define RAC1_ADDR_0x0015EDA0u 0x0015ECA0u
@@ -433,12 +453,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x001DF770u 0x001DF3F0u
 #define RAC1_ADDR_0x001E8F80u 0x001E8C00u
 #define RAC1_ADDR_L00_0x0015F6A8u 0x0015F5C4u
-#define RAC1_ADDR_L00_0x0015F6B0u 0x0015F5CCu
 #define RAC1_ADDR_L00_0x0015F6F8u 0x0015F618u
 #define RAC1_ADDR_L00_0x00160098u 0x0015FFD8u
 #define RAC1_ADDR_L00_0x0016022Cu 0x0016016Cu
 #define RAC1_ADDR_L00_0x00160234u 0x00160174u
-#define RAC1_ADDR_L00_0x00161488u 0x001613C0u
 #define RAC1_ADDR_L00_0x00173F40u 0x00173E40u
 #define RAC1_ADDR_L00_0x00178000u 0x00177F00u
 #define RAC1_ADDR_L00_0x00178200u 0x00178100u
@@ -448,7 +466,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x001C2840u 0x001C24C0u
 #define RAC1_ADDR_L00_0x001C2870u 0x001C24F0u
 #define RAC1_ADDR_L00_0x001C3280u 0x001C2F00u
-#define RAC1_ADDR_L00_0x001D95E8u 0x001D92E8u
 #define RAC1_ADDR_L03_0x001DC460u 0x001DC1A0u
 #define RAC1_ADDR_L07_0x001D36C0u 0x001D3400u
 #define RAC1_ADDR_L07_0x00208820u 0x00208560u
