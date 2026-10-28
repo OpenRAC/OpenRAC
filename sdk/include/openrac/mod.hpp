@@ -1221,6 +1221,46 @@ public:
         return has_world() && m_api->play_skip(m_handle) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.9: whether the port offers the held pieces and the shots (hero_held() ...
+    // figure_shot()).
+    bool has_held() const {
+        return has_world() && m_api->size >= offsetof(openrac_api, figure_shot) + sizeof(void*);
+    }
+
+    // Since 1.9: what the hero wears and holds into `out`; false when there is no hero now.
+    bool hero_held(openrac_held& out) const {
+        out = openrac_held{};
+        out.size = sizeof out;
+        return has_held() && m_api->hero_held(&out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: has figure `id` wear and hold `held` (its size set here), each tick it is posed;
+    // false for a figure gone with its level.
+    bool figure_held(int id, const openrac_held& held) const {
+        openrac_held h = held;
+        h.size = sizeof h;
+        return has_held() && m_api->figure_held(m_handle, id, &h) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: the shots the hero fired since the last call, oldest first.
+    std::vector<openrac_shot> hero_shots() const {
+        if (!has_held()) {
+            return {};
+        }
+        std::vector<openrac_shot> shots(OPENRAC_SHOTS_MAX);
+        const int n = m_api->hero_shots(shots.data(), static_cast<int>(shots.size()));
+        shots.resize(static_cast<std::size_t>(n > 0 ? n : 0));
+        return shots;
+    }
+
+    // Since 1.9: has figure `id` fire `shot` (its size set here), hitting nothing in this game;
+    // false for a figure gone or a weapon the port cannot fire for one.
+    bool figure_shot(int id, const openrac_shot& shot) const {
+        openrac_shot s = shot;
+        s.size = sizeof s;
+        return has_held() && m_api->figure_shot(m_handle, id, &s) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none.
     int moby_slot_of(gaddr moby) const { return has_world() ? m_api->moby_slot_of(moby) : -1; }
 

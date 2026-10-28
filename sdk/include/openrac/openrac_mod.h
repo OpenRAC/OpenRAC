@@ -717,6 +717,62 @@ typedef int (*openrac_hit_fn)(void* user, const openrac_hit* hit);
 /* The most figures the mods together have at once (openrac_api.figure_create). Since 1.8. */
 #define OPENRAC_FIGURES_MAX 8
 
+/* The pieces the hero wears and holds (openrac_api.hero_held, figure_held): the item in his hand
+ * (Ratchet & Clank: the wrench, or the weapon or gadget equipped), and the others the game draws on
+ * him (boots, helmet, the pack or Clank on his back). Since 1.9. */
+#define OPENRAC_HELD_MAX 8
+
+/* openrac_held_piece.flags. Since 1.9. */
+/* Not drawn now (the game hides it). */
+#define OPENRAC_HELD_HIDDEN 0x1u
+/* Its animation is blending into `seq`, as OPENRAC_POSE_BLENDING. */
+#define OPENRAC_HELD_BLENDING 0x2u
+/* Off the body (a thrown wrench): at `position` and `rotation`, not on its joint. */
+#define OPENRAC_HELD_LOOSE 0x4u
+
+/* One piece: the game's slot it is worn in and which of the slot's mobys it is (0 or 1), the item
+ * and the class of its moby, the body's joint it follows, OPENRAC_HELD_* flags, where it is (only
+ * read for a loose piece), and its own animation (as openrac_pose's: a swing, a shot). Since 1.9. */
+typedef struct openrac_held_piece {
+    int32_t slot;
+    int32_t part;
+    int32_t item;
+    int32_t oclass;
+    int32_t joint;
+    uint32_t flags;
+    float position[3];
+    float rotation[3];
+    uint32_t seq;
+    uint32_t frame;
+    uint32_t next_frame;
+    float anim_time;
+    float anim_speed;
+} openrac_held_piece;
+
+/* What a body wears and holds: `count` pieces. Since 1.9. */
+typedef struct openrac_held {
+    /* sizeof(openrac_held), set by the mod. */
+    uint32_t size;
+    int32_t count;
+    openrac_held_piece pieces[OPENRAC_HELD_MAX];
+} openrac_held;
+
+/* A shot the hero fired (openrac_api.hero_shots), or one a figure fires (figure_shot): the weapon
+ * (the game's item id), where it starts, its velocity (game units a tick, as the game keeps it; for
+ * a shot the game aims by angles, its direction) and the game's own aim angles (Ratchet & Clank's
+ * Blaster: the heading's yaw and pitch, then the shot's first yaw and pitch). Since 1.9. */
+typedef struct openrac_shot {
+    /* sizeof(openrac_shot), set by whoever fills it. */
+    uint32_t size;
+    int32_t item;
+    float position[3];
+    float velocity[3];
+    float aim[4];
+} openrac_shot;
+
+/* The most shots kept for hero_shots between two calls. Since 1.9. */
+#define OPENRAC_SHOTS_MAX 16
+
 /* A save of the player's (openrac_api.save_slot), read from the game's own save file on the
  * memory card. Since 1.8. */
 typedef struct openrac_save_info {
@@ -1090,6 +1146,30 @@ typedef struct openrac_api {
      * for the next ticks, until the scene is over. For a party whose scenes end together. Returns
      * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a game the port has no skip of. Since 1.9. */
     int (*play_skip)(openrac_mod* mod);
+
+    /* Fills `out` (its size set) with what the hero wears and holds now (openrac_held), the pieces
+     * in the game's slot order. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN when there is no
+     * hero (as hero_pose) or the port knows no pieces of the game. Since 1.9. */
+    int (*hero_held)(openrac_held* out);
+
+    /* Has the mod's figure `id` wear and hold `held`: each piece a moby of its class on the
+     * figure's joint (a loose one where it says), animated as it says, made when the level has its
+     * class loaded or can load it beside the hero's own (a piece it cannot have is left out, the
+     * hand's falling back to the wrench), taken off when left out of a later call, with the figure
+     * or with its level. Call it each tick the figure is posed. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for a figure that is not the mod's or is gone. Since 1.9. */
+    int (*figure_held)(openrac_mod* mod, int id, const openrac_held* held);
+
+    /* The shots the hero fired since the last call (any mod's), oldest first: at most `max` into
+     * `out` (each one's size set by the port), at most OPENRAC_SHOTS_MAX kept between calls.
+     * Returns how many were written. Since 1.9. */
+    int (*hero_shots)(openrac_shot* out, int max);
+
+    /* Has the mod's figure `id` fire `shot` as the hero would: the game's own projectile and its
+     * effects, owned by the figure, hitting and breaking nothing in this game (the shooter's game
+     * tells what it hit). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a figure that is not
+     * the mod's, or a weapon the port cannot fire for a figure. Since 1.9. */
+    int (*figure_shot)(openrac_mod* mod, int id, const openrac_shot* shot);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

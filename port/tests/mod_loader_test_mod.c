@@ -26,6 +26,7 @@
  * gate's and the watcher's 8700s and 8800s) (interface 1.9). It reports the interface it is
  * built for
  * (OPENRAC_MOD_TARGET_MINOR): test-old is built for 1.5. */
+#include <string.h>
 #include <stddef.h>
 
 #ifndef TEST_MOD_ID
@@ -99,15 +100,20 @@ static void on_tick_boundary(void* user, uint32_t tick) {
 
 /* Play (interface 1.8), a step a frame: in the front end (frame 1) the status, a figure refused,
  * save 0 read and started with (twice: the second waits for the first); in a level (frame 2) a
- * figure made and posed, the hero's pose, a travel and a level's name; after a new load (frame 3)
- * the figure is gone. */
+ * figure made and posed, the hero's pose, what he holds and his shots (1.9), a travel and a level's
+ * name; after a new load (frame 3) the figure is gone. */
 static void play_frame(void) {
     openrac_play_status status = {sizeof status, 0, 0, 0, 0};
     openrac_pose pose = {0};
     openrac_save_info info = {sizeof info, 0, 0, 0, 0};
+    openrac_held held;
+    openrac_shot shots[4];
     unsigned char save[16];
     size_t size;
     pose.size = sizeof pose;
+    memset(&held, 0, sizeof held);
+    held.size = sizeof held;
+    memset(shots, 0, sizeof shots);
     s_record(7000 + 10 * -s_api->play_status(&status) + status.phase);
     if (s_frames == 1) {
         s_record(7100 + -s_api->figure_create(s_mod));
@@ -125,6 +131,15 @@ static void play_frame(void) {
         pose.state = 42;
         s_record(7600 + -s_api->figure_pose(s_mod, s_figure, &pose));
         s_record(7700 + -s_api->hero_pose(&pose) + pose.state);
+        /* Interface 1.9: what the hero holds, a figure made to hold it (not another's id), the
+         * hero's shots, a figure firing one (a weapon the game cannot fire for it refused). */
+        s_record(7720 + -s_api->hero_held(&held) + held.count);
+        s_record(7730 + -s_api->figure_held(s_mod, s_figure, &held));
+        s_record(7730 + -s_api->figure_held(s_mod, s_figure + 1, &held));
+        s_record(7740 + s_api->hero_shots(shots, 4) + 2 * shots[0].item);
+        s_record(7760 + -s_api->figure_shot(s_mod, s_figure, &shots[0]));
+        shots[0].item = 3;
+        s_record(7760 + -s_api->figure_shot(s_mod, s_figure, &shots[0]));
         s_record(7800 + -s_api->play_travel(s_mod, 4));
         s_record(
             7900 + (s_api->level_name(1) != NULL && s_api->level_name(1)[0] == 'N')
@@ -132,6 +147,7 @@ static void play_frame(void) {
         );
     } else if (s_frames == 3) {
         s_record(7600 + -s_api->figure_pose(s_mod, s_figure, &pose));
+        s_record(7730 + -s_api->figure_held(s_mod, s_figure, &held));
         s_record(7600 + -s_api->figure_remove(s_mod, s_figure));
     }
 }

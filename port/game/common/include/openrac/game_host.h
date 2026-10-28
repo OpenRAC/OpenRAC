@@ -259,6 +259,37 @@ typedef struct openrac_game_moby_state {
     float anim_speed;
 } openrac_game_moby_state;
 
+/* What a body wears and holds, and a shot (interface 1.9): openrac_held's and openrac_shot's
+ * fields after their size. */
+#define OPENRAC_GAME_HELD_MAX 8
+typedef struct openrac_game_held_piece {
+    int32_t slot;
+    int32_t part;
+    int32_t item;
+    int32_t oclass;
+    int32_t joint;
+    uint32_t flags;
+    float position[3];
+    float rotation[3];
+    uint32_t seq;
+    uint32_t frame;
+    uint32_t next_frame;
+    float anim_time;
+    float anim_speed;
+} openrac_game_held_piece;
+
+typedef struct openrac_game_held {
+    int32_t count;
+    openrac_game_held_piece pieces[OPENRAC_GAME_HELD_MAX];
+} openrac_game_held;
+
+typedef struct openrac_game_shot {
+    int32_t item;
+    float position[3];
+    float velocity[3];
+    float aim[4];
+} openrac_game_shot;
+
 typedef struct openrac_game_play {
     /* The levels, by the game's own numbers, and their names. */
     int levels;
@@ -334,6 +365,14 @@ typedef struct openrac_game_play {
     int32_t (*bolts)(int32_t add);
     /* The level's mobys kept running under the game's menus (1) or not (0). */
     void (*keep_running)(int on);
+    /* What the hero wears and holds (1 and `out` filled, 0 with no hero); a figure made to wear and
+     * hold `held` (each tick it is posed: what is left out comes off); the shots the hero fired
+     * since the last call (at most `max` into `out`, how many); a figure firing `shot`, hitting
+     * nothing (1, or 0 for a weapon it cannot fire). NULL for a game without them. */
+    int (*hero_held)(openrac_game_held* out);
+    void (*figure_held)(gaddr figure, const openrac_game_held* held);
+    int (*hero_shots)(openrac_game_shot* out, int max);
+    int (*figure_shot)(gaddr figure, const openrac_game_shot* shot);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

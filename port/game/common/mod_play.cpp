@@ -42,6 +42,13 @@ static_assert(OPENRAC_PLAY_MENU == OPENRAC_GAME_PHASE_MENU);
 // A pose is the game's after its size: copied as one block.
 static_assert(offsetof(openrac_pose, level) == sizeof(std::uint32_t));
 static_assert(sizeof(openrac_pose) == sizeof(std::uint32_t) + sizeof(openrac_game_pose));
+// So are the held pieces and a shot.
+static_assert(OPENRAC_HELD_MAX == OPENRAC_GAME_HELD_MAX);
+static_assert(sizeof(openrac_held_piece) == sizeof(openrac_game_held_piece));
+static_assert(offsetof(openrac_held, count) == sizeof(std::uint32_t));
+static_assert(sizeof(openrac_held) == sizeof(std::uint32_t) + sizeof(openrac_game_held));
+static_assert(offsetof(openrac_shot, item) == sizeof(std::uint32_t));
+static_assert(sizeof(openrac_shot) == sizeof(std::uint32_t) + sizeof(openrac_game_shot));
 // So is a moby (interface 1.9).
 static_assert(offsetof(openrac_moby, slot) == sizeof(std::uint32_t));
 static_assert(sizeof(openrac_moby) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_state));
@@ -512,6 +519,56 @@ int api_bolts(int add) {
     return g_play != nullptr && g_play->bolts != nullptr ? g_play->bolts(add) : 0;
 }
 
+int api_hero_held(openrac_held* out) {
+    if (out == nullptr || out->size < sizeof(openrac_held) || g_play == nullptr
+        || g_play->hero_held == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_held held{};
+    if (g_play->hero_held(&held) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::memcpy(&out->count, &held, sizeof held);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_figure_held(openrac_mod* mod, int id, const openrac_held* held) {
+    Figure* f = own_figure(mod, id);
+    if (f == nullptr || held == nullptr || held->size < sizeof(openrac_held)
+        || g_play->figure_held == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_held h{};
+    std::memcpy(&h, &held->count, sizeof h);
+    h.count = std::clamp<std::int32_t>(h.count, 0, OPENRAC_GAME_HELD_MAX);
+    g_play->figure_held(f->moby, &h);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_hero_shots(openrac_shot* out, int max) {
+    if (out == nullptr || max <= 0 || g_play == nullptr || g_play->hero_shots == nullptr) {
+        return 0;
+    }
+    std::array<openrac_game_shot, OPENRAC_SHOTS_MAX> shots{};
+    const int n = g_play->hero_shots(shots.data(), std::min(max, OPENRAC_SHOTS_MAX));
+    for (int i = 0; i < n; ++i) {
+        out[i].size = sizeof(openrac_shot);
+        std::memcpy(&out[i].item, &shots[static_cast<std::size_t>(i)], sizeof(openrac_game_shot));
+    }
+    return n;
+}
+
+int api_figure_shot(openrac_mod* mod, int id, const openrac_shot* shot) {
+    Figure* f = own_figure(mod, id);
+    if (f == nullptr || shot == nullptr || shot->size < sizeof(openrac_shot)
+        || g_play->figure_shot == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_shot s{};
+    std::memcpy(&s, &shot->item, sizeof s);
+    return g_play->figure_shot(f->moby, &s) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
 // The game's calls (game_host.h): the gate around an update, and a hit posted.
 int game_moby_update(std::int32_t slot, int phase) {
     // A driven moby's update does not run, and the gate is not asked.
@@ -587,6 +644,10 @@ void fill_play_api(
     api.play_overlay_pause = api_play_overlay_pause;
     api.moby_slot_of = api_moby_slot_of;
     api.play_skip = api_play_skip;
+    api.hero_held = api_hero_held;
+    api.figure_held = api_figure_held;
+    api.hero_shots = api_hero_shots;
+    api.figure_shot = api_figure_shot;
 }
 
 void play_loading(const openrac_mod* mod) {

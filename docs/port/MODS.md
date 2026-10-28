@@ -456,6 +456,8 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `play_eyes(mod, xyz, count)`, `bolts(add)` (1.9) | up to `OPENRAC_EYES_MAX` (8) points besides the camera, which keep the mobys near them running (the world near other players), `count` 0 clears; adds to the player's bolts and returns them |
 | `play_overlay_pause(mod, on)`, `moby_slot_of(moby)` (1.9) | while on, the level's mobys keep being updated under the game's pause menu and its freeze dialogs (the hero and the picture stay as the menu left them), so a game in a party never stops the others' world; the slot of the moby at a game address (a hook point's argument). The world calls always address the level's own mobys, also while the pause menu has its own up; `moby_list` lists a placed moby the game deleted with `OPENRAC_MOBY_DEAD`, so a death is learnt from the game, never from a moby missing |
 | `play_skip(mod)` (1.9) | skips the scene playing (a cutscene, the ship's landing or take-off, the flight between planets) the way the game's own skip does, as Start with the port's Skip cutscenes: pressed over the next ticks until the scene is over; for a party whose scenes end together |
+| `hero_held(&held)`, `figure_held(mod, id, &held)` (1.9) | what the hero wears and holds (at most `OPENRAC_HELD_MAX`, 8, pieces: in Ratchet & Clank the hand's item, the wrench or the weapon or gadget equipped, then Clank and the packs, the boots, the helmet), each with the game's slot, item, class, the body's joint it follows, whether it is hidden or off the body (a thrown wrench, with its place) and its own animation; a figure made to wear and hold the same, each tick it is posed: each piece a moby of its class on the figure's joint, made when this game has its class loaded or can load it beside the hero's own (two weapon classes fit at once), the hand's item falling back to the wrench, taken off when left out, with the figure or with its level |
+| `hero_shots(out, max)`, `figure_shot(mod, id, &shot)` (1.9) | the shots the hero fired since the last call (at most `OPENRAC_SHOTS_MAX`, 16, kept): the weapon's item, where it starts, its velocity and the game's aim angles (Ratchet & Clank: the Blaster's and the Bomb Glove's); a figure firing one as the hero would, the game's own projectile and its effects owned by the figure, which hit and break nothing in this game (`OPENRAC_HOOK_UNKNOWN` for a weapon the port cannot fire for a figure) |
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -505,7 +507,9 @@ driving, posing, killing and making them (`moby_drive`, `moby_pose`, `moby_kill`
 `moby_spawn`, `figure_slot`), the gate around each moby's update with the hero
 standing in for another player (`on_moby_update`, `hero_stand_in`), the hit
 watcher and posted hits (`on_moby_hit`, `moby_hit`), `play_eyes` and `bolts`; the
-C++ layer's methods of the same names, and `has_world()`.
+C++ layer's methods of the same names, and `has_world()`; and what the hero and a
+figure wear and hold and the shots they fire (`hero_held`, `figure_held`,
+`hero_shots`, `figure_shot`; `has_held()`).
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
@@ -727,6 +731,9 @@ into the port: nothing of it crosses the boundary.
   `openrac::Error` when refused), `mod.hero_stand_in(position, figure)`,
   `mod.moby_hit(hit)`, `mod.play_eyes(xyz)`, `mod.bolts(add)`, `mod.play_overlay_pause(on)`, `mod.moby_slot_of(moby)` and `mod.play_skip()`: the world
   calls with the sizes set for the mod, answering nothing on an older port.
+- `mod.has_held()` (1.9), `mod.hero_held(held)`, `mod.figure_held(id, held)`,
+  `mod.hero_shots()` (a vector) and `mod.figure_shot(id, shot)`: the held pieces
+  and the shots, answering nothing on a port whose table ends before them.
 - `mod.on_frame(fn)`, `mod.on_pad(fn)`, `openrac::Memory` (typed reads and
   writes at game addresses), `openrac::StackFrame` (RAII over `stack_push` and
   `stack_pop`).

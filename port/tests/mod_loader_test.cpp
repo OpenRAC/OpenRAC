@@ -247,6 +247,27 @@ const openrac_game_play kPlay = {
     [](const float*, int count) { g_played.push_back("eyes " + std::to_string(count)); },
     [](std::int32_t add) { return g_bolts += add; },
     [](int on) { g_played.push_back("keep " + std::to_string(on)); },
+    // What the hero holds (two pieces) and his shots (one of item 15), the figure's.
+    [](openrac_game_held* out) {
+        *out = {};
+        out->count = 2;
+        return g_phase == OPENRAC_GAME_PHASE_PLAYING ? 1 : 0;
+    },
+    [](gaddr, const openrac_game_held* held) {
+        g_played.push_back("held " + std::to_string(held->count));
+    },
+    [](openrac_game_shot* out, int max) {
+        if (max < 1) {
+            return 0;
+        }
+        out[0] = {};
+        out[0].item = 15;
+        return 1;
+    },
+    [](gaddr, const openrac_game_shot* shot) {
+        g_played.push_back("shot " + std::to_string(shot->item));
+        return shot->item == 15 ? 1 : 0;
+    },
 };
 
 // The state status.json gives a mod, and its reason.
@@ -476,8 +497,9 @@ void a_menu_page_draws_through_the_host(const fs::path& plugins) {
 }
 
 // Play (interface 1.8): the phase and level, figures only in a level and gone with it, a pose
-// reaching the game, the saves on the card read through the game's save_info, a start and a travel
-// kept until play_update (one at a time), and the levels' names.
+// reaching the game, what the hero holds and his shots and a figure's (1.9), the saves on the card
+// read through the game's save_info, a start and a travel kept until play_update (one at a time),
+// and the levels' names.
 void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "play"}}]})");
@@ -502,15 +524,19 @@ void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     g_phase = OPENRAC_GAME_PHASE_PLAYING;
     g_records.clear();
     mods::frame();
-    CHECK((g_records == std::vector<int>{7003, 7500, 7601, 7600, 7707, 7800, 7903}));
+    CHECK((g_records
+           == std::vector<int>{7003, 7500, 7601, 7600, 7707, 7722, 7730, 7731, 7771, 7760, 7761,
+                               7800, 7903}));
     mods::play_update();
-    CHECK((g_played == std::vector<std::string>{"start -1 5", "pose 42", "travel 4"}));
+    CHECK((g_played
+           == std::vector<std::string>{"start -1 5", "pose 42", "held 2", "shot 15", "shot 3",
+                                       "travel 4"}));
     // The level loaded again: the figure is gone.
     g_loads = 2;
     g_records.clear();
     mods::frame();
-    CHECK((g_records == std::vector<int>{7003, 7601, 7601}));
-    CHECK(g_played.size() == 3);
+    CHECK((g_records == std::vector<int>{7003, 7601, 7731, 7601}));
+    CHECK(g_played.size() == 6);
     mods::reset();
 }
 

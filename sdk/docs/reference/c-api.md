@@ -129,6 +129,11 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_MOBY_AFTER` | `1` |  |
 | `OPENRAC_EYES_MAX` | `8` | The most eyes (openrac_api.play_eyes). Since 1.9. |
 | `OPENRAC_FIGURES_MAX` | `8` | The most figures the mods together have at once (openrac_api.figure_create). Since 1.8. |
+| `OPENRAC_HELD_MAX` | `8` | The pieces the hero wears and holds (openrac_api.hero_held, figure_held): the item in his hand (Ratchet & Clank: the wrench, or the weapon or gadget equipped), and the others the game draws on him (boots, helmet, the pack or Clank on his back). Since 1.9. |
+| `OPENRAC_HELD_HIDDEN` | `0x1u` | Not drawn now (the game hides it). |
+| `OPENRAC_HELD_BLENDING` | `0x2u` | Its animation is blending into `seq`, as OPENRAC_POSE_BLENDING. |
+| `OPENRAC_HELD_LOOSE` | `0x4u` | Off the body (a thrown wrench): at `position` and `rotation`, not on its joint. |
+| `OPENRAC_SHOTS_MAX` | `16` | The most shots kept for hero_shots between two calls. Since 1.9. |
 | `OPENRAC_MOD_QUERY` | `"openrac_mod_query"` | The names the entry points are exported under, for the port's lookup. Since 1.0. |
 | `OPENRAC_MOD_LOAD` | `"openrac_mod_load"` |  |
 | `OPENRAC_MOD_UNLOAD` | `"openrac_mod_unload"` |  |
@@ -472,6 +477,53 @@ the game's weapon or attack `mask`, `damage`, at `position` moving at `velocity`
 | `float position[3]` |  |
 | `float velocity[3]` |  |
 
+## `openrac_held_piece`
+
+One piece: the game's slot it is worn in and which of the slot's mobys it is (0 or 1), the item
+and the class of its moby, the body's joint it follows, OPENRAC_HELD_* flags, where it is (only
+read for a loose piece), and its own animation (as openrac_pose's: a swing, a shot). Since 1.9.
+
+| Member | |
+|---|---|
+| `int32_t slot` |  |
+| `int32_t part` |  |
+| `int32_t item` |  |
+| `int32_t oclass` |  |
+| `int32_t joint` |  |
+| `uint32_t flags` |  |
+| `float position[3]` |  |
+| `float rotation[3]` |  |
+| `uint32_t seq` |  |
+| `uint32_t frame` |  |
+| `uint32_t next_frame` |  |
+| `float anim_time` |  |
+| `float anim_speed` |  |
+
+## `openrac_held`
+
+What a body wears and holds: `count` pieces. Since 1.9.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_held), set by the mod. |
+| `int32_t count` |  |
+| `openrac_held_piece pieces[OPENRAC_HELD_MAX]` |  |
+
+## `openrac_shot`
+
+A shot the hero fired (openrac_api.hero_shots), or one a figure fires (figure_shot): the weapon
+(the game's item id), where it starts, its velocity (game units a tick, as the game keeps it; for
+a shot the game aims by angles, its direction) and the game's own aim angles (Ratchet & Clank's
+Blaster: the heading's yaw and pitch, then the shot's first yaw and pitch). Since 1.9.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_shot), set by whoever fills it. |
+| `int32_t item` |  |
+| `float position[3]` |  |
+| `float velocity[3]` |  |
+| `float aim[4]` |  |
+
 ## `openrac_save_info`
 
 A save of the player's (openrac_api.save_slot), read from the game's own save file on the
@@ -564,3 +616,7 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*play_overlay_pause)(openrac_mod* mod, int on)` | While `on` (1), the level's mobys keep being updated under the game's pause menu and its freeze dialogs, in the level's own mobys (the hero and the picture stay as the menu left them): a game that plays with others never stops their world for a menu. 0: as the game does. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a game without it. Since 1.9. |
 | `int (*moby_slot_of)(openrac_gaddr moby)` | Returns the slot of the moby at game address `moby` (a hook point's argument), -1 for none. Since 1.9. |
 | `int (*play_skip)(openrac_mod* mod)` | Skips the scene playing (a cutscene, the ship's landing or take-off, the flight between planets) the way the game's own skip does, as Start does with the port's "Skip cutscenes": for the next ticks, until the scene is over. For a party whose scenes end together. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a game the port has no skip of. Since 1.9. |
+| `int (*hero_held)(openrac_held* out)` | Fills `out` (its size set) with what the hero wears and holds now (openrac_held), the pieces in the game's slot order. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN when there is no hero (as hero_pose) or the port knows no pieces of the game. Since 1.9. |
+| `int (*figure_held)(openrac_mod* mod, int id, const openrac_held* held)` | Has the mod's figure `id` wear and hold `held`: each piece a moby of its class on the figure's joint (a loose one where it says), animated as it says, made when the level has its class loaded or can load it beside the hero's own (a piece it cannot have is left out, the hand's falling back to the wrench), taken off when left out of a later call, with the figure or with its level. Call it each tick the figure is posed. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a figure that is not the mod's or is gone. Since 1.9. |
+| `int (*hero_shots)(openrac_shot* out, int max)` | The shots the hero fired since the last call (any mod's), oldest first: at most `max` into `out` (each one's size set by the port), at most OPENRAC_SHOTS_MAX kept between calls. Returns how many were written. Since 1.9. |
+| `int (*figure_shot)(openrac_mod* mod, int id, const openrac_shot* shot)` | Has the mod's figure `id` fire `shot` as the hero would: the game's own projectile and its effects, owned by the figure, hitting and breaking nothing in this game (the shooter's game tells what it hit). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a figure that is not the mod's, or a weapon the port cannot fire for a figure. Since 1.9. |

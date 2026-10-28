@@ -496,6 +496,38 @@ int host_bolts(int add) {
     return g_bolts += add;
 }
 
+// What the hero holds (one piece, the wrench's class) and his shots (two, items 15 and 10); the
+// figure calls recorded in g_world.
+int host_hero_held(openrac_held* out) {
+    if (out->size < sizeof *out) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->count = 1;
+    out->pieces[0].oclass = 0x47;
+    return OPENRAC_HOOK_OK;
+}
+
+int host_figure_held(openrac_mod*, int id, const openrac_held* held) {
+    g_world.push_back("held " + std::to_string(id) + " " + std::to_string(held->count) + " "
+                      + std::to_string(held->size == sizeof *held));
+    return id == 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int host_hero_shots(openrac_shot* out, int max) {
+    const int items[2] = {15, 10};
+    int n = 0;
+    for (; n < 2 && n < max; ++n) {
+        out[n].size = sizeof out[n];
+        out[n].item = items[n];
+    }
+    return n;
+}
+
+int host_figure_shot(openrac_mod*, int id, const openrac_shot* shot) {
+    g_world.push_back("shot " + std::to_string(id) + " " + std::to_string(shot->item));
+    return id == 0 && shot->size == sizeof *shot ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -567,6 +599,10 @@ openrac_api make_api() {
     api.moby_hit = host_moby_hit;
     api.play_eyes = host_play_eyes;
     api.bolts = host_bolts;
+    api.hero_held = host_hero_held;
+    api.figure_held = host_figure_held;
+    api.hero_shots = host_hero_shots;
+    api.figure_shot = host_figure_shot;
     return api;
 }
 
@@ -769,6 +805,32 @@ void check_world(openrac::Mod& mod, openrac_api& api) {
     }
     CHECK(refused && g_world.empty() && g_bolts == 105);
     api.api_minor = OPENRAC_MOD_API_MINOR;
+}
+
+// Checks the held pieces and the shots (1.9): what the hero holds, a figure made to hold it (its
+// size set), the hero's shots, a figure firing one; none of it on a port whose table ends before
+// them.
+void check_held(openrac::Mod& mod, openrac_api& api) {
+    CHECK(mod.has_held());
+    g_world.clear();
+    openrac_held held{};
+    CHECK(mod.hero_held(held) && held.count == 1 && held.pieces[0].oclass == 0x47);
+    openrac_held unsized{};
+    CHECK(mod.figure_held(0, unsized) && !mod.figure_held(2, held));
+    const std::vector<openrac_shot> shots = mod.hero_shots();
+    CHECK(shots.size() == 2 && shots[0].item == 15 && shots[1].item == 10);
+    openrac_shot shot{};
+    shot.item = 15;
+    CHECK(mod.figure_shot(0, shot) && !mod.figure_shot(1, shot));
+    CHECK((g_world == std::vector<std::string>{"held 0 0 1", "held 2 1 1", "shot 0 15", "shot 1 15"}));
+    // A port whose table ends at play_skip: no pieces, no shots.
+    const std::uint32_t size = api.size;
+    api.size = static_cast<std::uint32_t>(offsetof(openrac_api, play_skip) + sizeof(void*));
+    g_world.clear();
+    CHECK(!mod.has_held() && !mod.hero_held(held) && held.count == 0);
+    CHECK(!mod.figure_held(0, held) && mod.hero_shots().empty() && !mod.figure_shot(0, shot));
+    CHECK(g_world.empty());
+    api.size = size;
 }
 
 // Checks that openrac_mod_query reports the interface the mod was built for and its id and version.
@@ -1209,6 +1271,7 @@ int main() {
     check_ui(mod, api);
     check_play(mod, api);
     check_world(mod, api);
+    check_held(mod, api);
     check_refused_loads(api, handle);
     check_reload(api, handle);
 
