@@ -1083,6 +1083,12 @@ typedef struct openrac_api {
     /* Returns the slot of the moby at game address `moby` (a hook point's argument), -1 for none.
      * Since 1.9. */
     int (*moby_slot_of)(openrac_gaddr moby);
+
+    /* Skips the scene playing (a cutscene, the ship's landing or take-off, the flight between
+     * planets) the way the game's own skip does, as Start does with the port's "Skip cutscenes":
+     * for the next ticks, until the scene is over. For a party whose scenes end together. Returns
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a game the port has no skip of. Since 1.9. */
+    int (*play_skip)(openrac_mod* mod);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

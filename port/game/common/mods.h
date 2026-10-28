@@ -124,6 +124,10 @@ const char* mod_id(const openrac_mod* mod);
 // when none is pending.
 void play_update();
 
+// Whether a mod asked for the scene playing to be skipped (openrac_api.play_skip), for this pad
+// read: the skip is pressed for a while (frontend/input.cpp, skip_after_mods).
+bool play_skipping();
+
 // The front-end menu entries the mods added (interface 1.5), in load order: how many, and an
 // entry's label ("" past the list).
 int menu_entry_count();

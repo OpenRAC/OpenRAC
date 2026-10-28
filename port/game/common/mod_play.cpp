@@ -496,6 +496,18 @@ int api_moby_slot_of(openrac_gaddr moby) {
                : -1;
 }
 
+// A skip a mod asked for: the ticks it is pressed for still (play_skipping).
+constexpr int kSkipTicks = 40;
+int g_skip_ticks = 0;
+
+int api_play_skip(openrac_mod* mod) {
+    if (mod == nullptr || g_play == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_skip_ticks = kSkipTicks;
+    return OPENRAC_HOOK_OK;
+}
+
 int api_bolts(int add) {
     return g_play != nullptr && g_play->bolts != nullptr ? g_play->bolts(add) : 0;
 }
@@ -574,6 +586,7 @@ void fill_play_api(
     api.bolts = api_bolts;
     api.play_overlay_pause = api_play_overlay_pause;
     api.moby_slot_of = api_moby_slot_of;
+    api.play_skip = api_play_skip;
 }
 
 void play_loading(const openrac_mod* mod) {
@@ -617,7 +630,16 @@ void play_update() {
     }
 }
 
+bool play_skipping() {
+    if (g_skip_ticks <= 0) {
+        return false;
+    }
+    --g_skip_ticks;
+    return true;
+}
+
 void reset_play() {
+    g_skip_ticks = 0;
     g_figures.fill(Figure{});
     g_request = Request{};
     std::fill(g_drives.begin(), g_drives.end(), Drive{});

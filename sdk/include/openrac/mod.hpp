@@ -1129,7 +1129,7 @@ public:
     // Since 1.9: whether the port offers the world calls (moby_list() ... bolts()).
     bool has_world() const {
         return m_api->api_minor >= 9
-               && m_api->size >= offsetof(openrac_api, moby_slot_of) + sizeof(void*)
+               && m_api->size >= offsetof(openrac_api, play_skip) + sizeof(void*)
                && has_play();
     }
 
@@ -1215,6 +1215,11 @@ public:
     }
 
     int bolts(int add = 0) const { return m_api->api_minor >= 9 ? m_api->bolts(add) : 0; }
+
+    // Since 1.9: skips the scene playing as the game's own skip does; false for a game without.
+    bool play_skip() const {
+        return has_world() && m_api->play_skip(m_handle) == OPENRAC_HOOK_OK;
+    }
 
     // Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none.
     int moby_slot_of(gaddr moby) const { return has_world() ? m_api->moby_slot_of(moby) : -1; }

@@ -455,6 +455,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `on_moby_hit(mod, fn, user)`, `moby_hit(mod, &hit)` (1.9) | the hit watcher: `fn(user, &hit)` for each hit the game posts (victim and attacker slots, weapon `mask`, damage, position, velocity); returning 1 takes it back, the victim never reads it. One mod's, during load only. `moby_hit` posts a hit of the mod's own to its victim, as the game would and not told to the watcher |
 | `play_eyes(mod, xyz, count)`, `bolts(add)` (1.9) | up to `OPENRAC_EYES_MAX` (8) points besides the camera, which keep the mobys near them running (the world near other players), `count` 0 clears; adds to the player's bolts and returns them |
 | `play_overlay_pause(mod, on)`, `moby_slot_of(moby)` (1.9) | while on, the level's mobys keep being updated under the game's pause menu and its freeze dialogs (the hero and the picture stay as the menu left them), so a game in a party never stops the others' world; the slot of the moby at a game address (a hook point's argument). The world calls always address the level's own mobys, also while the pause menu has its own up; `moby_list` lists a placed moby the game deleted with `OPENRAC_MOBY_DEAD`, so a death is learnt from the game, never from a moby missing |
+| `play_skip(mod)` (1.9) | skips the scene playing (a cutscene, the ship's landing or take-off, the flight between planets) the way the game's own skip does, as Start with the port's Skip cutscenes: pressed over the next ticks until the scene is over; for a party whose scenes end together |
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -724,7 +725,7 @@ into the port: nothing of it crosses the boundary.
   `mod.figure_slot(id)`, `mod.on_moby_update(fn, user)` and
   `mod.on_moby_hit(fn, user)` (plain functions, during load; they throw
   `openrac::Error` when refused), `mod.hero_stand_in(position, figure)`,
-  `mod.moby_hit(hit)`, `mod.play_eyes(xyz)`, `mod.bolts(add)`, `mod.play_overlay_pause(on)` and `mod.moby_slot_of(moby)`: the world
+  `mod.moby_hit(hit)`, `mod.play_eyes(xyz)`, `mod.bolts(add)`, `mod.play_overlay_pause(on)`, `mod.moby_slot_of(moby)` and `mod.play_skip()`: the world
   calls with the sizes set for the mod, answering nothing on an older port.
 - `mod.on_frame(fn)`, `mod.on_pad(fn)`, `openrac::Memory` (typed reads and
   writes at game addresses), `openrac::StackFrame` (RAII over `stack_push` and

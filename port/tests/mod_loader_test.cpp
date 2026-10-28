@@ -573,8 +573,9 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              8210,
              8220,
              8305,
-             // The world kept running under the game's menus.
+             // The world kept running under the game's menus; a skip asked for.
              8320,
+             8330,
              // A stand-in outside the gate; a hit posted, a hit to a dead slot; the gate and the
              // watcher after load.
              8401,
@@ -624,8 +625,11 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     mods::frame();
     CHECK((g_records == std::vector<int>{8603, 8610}));
     CHECK(openrac_game_moby_update(1, OPENRAC_MOBY_BEFORE) == 0);
+    // The skip the mod asked for is pressed over the next pad reads, then no more; reset forgets it.
+    CHECK(mods::play_skipping() && mods::play_skipping());
     g_played.clear();
     mods::reset();
+    CHECK(!mods::play_skipping());
     CHECK(openrac_game_moby_update == nullptr && openrac_game_moby_hit == nullptr);
     // Reset lets the world stop under menus again.
     CHECK((g_played == std::vector<std::string>{"keep 0"}));

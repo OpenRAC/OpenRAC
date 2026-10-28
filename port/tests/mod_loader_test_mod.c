@@ -211,6 +211,7 @@ static void world_frame(void) {
         s_record(8220 + -s_api->play_eyes(s_mod, NULL, 0));
         s_record(8300 + s_api->bolts(5) - 100);
         s_record(8320 + -s_api->play_overlay_pause(s_mod, 1));
+        s_record(8330 + -s_api->play_skip(s_mod));
         s_record(8400 + -s_api->hero_stand_in(s_mod, where, -1));
         s_record(8500 + -s_api->moby_hit(s_mod, &hit));
         hit.victim = 5;
