@@ -463,7 +463,7 @@ mod tests {
         let (pal, ntsc) = (Scope::Version("rac1/pal".into()), Scope::Version("rac1/ntsc".into()));
         let made = |scope: &Scope| file.find(scope, "port-levels").and_then(|a| a.artifact.clone()).unwrap();
         let (pal_made, ntsc_made) = (made(&pal), made(&ntsc));
-        let folder = |path: &str| path.rsplitn(2, '/').nth(1).unwrap().to_string();
+        let folder = |path: &str| path.rsplit_once('/').unwrap().0.to_string();
         assert_ne!(folder(&pal_made), folder(&ntsc_made));
         assert!(!ntsc_made.starts_with(&format!("{}/", folder(&pal_made))), "{ntsc_made} is inside PAL's levels");
         let check = file.find(&ntsc, "port-levels-check").expect("rac1/ntsc port-levels-check");

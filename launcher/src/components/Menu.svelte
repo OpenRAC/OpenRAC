@@ -23,11 +23,15 @@
   let root = $state<HTMLElement | null>(null);
   let list = $state<HTMLElement | null>(null);
   let trigger = $state<HTMLElement | null>(null);
+  let anchorLeft = 0;
+  let anchorTop = 0;
 
   /** Puts the list by the button, inside the window. */
   function place() {
     if (!root || !list) return;
     const at = root.getBoundingClientRect();
+    anchorLeft = at.left;
+    anchorTop = at.top;
     const gap = 8;
     const below = at.bottom + gap + list.offsetHeight <= window.innerHeight - gap;
     const top = below ? at.bottom + gap : Math.max(gap, at.top - gap - list.offsetHeight);
@@ -58,16 +62,22 @@
         trigger?.focus();
       }
     };
-    const moved = () => (open = false);
+    const resized = () => (open = false);
+    const moved = () => {
+      // A scroll queued before opening can arrive after this listener is attached.
+      // Dismiss only if the trigger actually moved since the menu was placed.
+      const at = root?.getBoundingClientRect();
+      if (at?.left !== anchorLeft || at.top !== anchorTop) open = false;
+    };
     window.addEventListener("mousedown", outside);
     window.addEventListener("keydown", key);
-    window.addEventListener("resize", moved);
+    window.addEventListener("resize", resized);
     // Capturing: the page scrolls inside <main>, and scroll does not bubble.
     window.addEventListener("scroll", moved, true);
     return () => {
       window.removeEventListener("mousedown", outside);
       window.removeEventListener("keydown", key);
-      window.removeEventListener("resize", moved);
+      window.removeEventListener("resize", resized);
       window.removeEventListener("scroll", moved, true);
     };
   });
