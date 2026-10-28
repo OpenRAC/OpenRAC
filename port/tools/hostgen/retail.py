@@ -170,10 +170,15 @@ def read_image(image: Path) -> tuple[bytes, dict[int, list[Part]]]:
     editor = paths.repo_root(__file__) / "editor"
     if str(editor) not in sys.path:
         sys.path.insert(0, str(editor))
-    from disc import Disc  # noqa: E402  (the editor's ISO and table-of-contents reader)
+    from disc import Disc, FormatError  # noqa: E402  (the editor's ISO and table-of-contents reader)
     from formats import overlay_sections, unpack  # noqa: E402
     from level import decoded  # noqa: E402
     levels: dict[int, list[Part]] = {}
+    try:
+        with Disc(image) as disc:
+            disc.identify()
+    except FormatError:
+        return read_boot_executable(image), levels
     with Disc(image) as disc:
         exe = disc.executable()
         for info in disc.survey()["levels"]:
@@ -195,6 +200,20 @@ def read_image(image: Path) -> tuple[bytes, dict[int, list[Part]]]:
                 parts.append(Part("text" if code else name, rec["address"], body, code))
             levels[int(info["id"])] = parts
     return exe, levels
+
+
+def read_boot_executable(image: Path) -> bytes:
+    """The executable SYSTEM.CNF boots, read from a disc image of a game the editor's reader does not
+    know (Going Commando's), through the generic ISO 9660 reader: only that file, never a copy of
+    the image. Such a game's levels are not read (no levels)."""
+    from openrac_common import iso9660
+    serial = iso9660.boot_serial(image)
+    if serial is None:
+        raise ValueError(f"{image}: not a PS2 disc image (no BOOT2 line in its SYSTEM.CNF)")
+    try:
+        return iso9660.read(image, serial)
+    except FileNotFoundError:
+        raise ValueError(f"{image}: its boot executable {serial} is not on the disc") from None
 
 
 # ---- The instructions, as asm.Index has them ---------------------------------------------------

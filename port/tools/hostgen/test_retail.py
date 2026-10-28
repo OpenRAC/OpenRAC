@@ -302,5 +302,62 @@ class CallsThroughRegisters(unittest.TestCase):
                 self.assertEqual(out, want)
 
 
+def tiny_iso(files: dict[str, bytes]) -> bytes:
+    """A flat ISO 9660 image of FILES (root directory only), one sector per 2 KiB of each file."""
+    sector = 2048
+
+    def record(name: bytes, lba: int, size: int, flags: int = 0) -> bytes:
+        n = 33 + len(name) + (1 - len(name) % 2)
+        r = bytearray(n)
+        r[0] = n
+        struct.pack_into("<I", r, 2, lba)
+        struct.pack_into(">I", r, 6, lba)
+        struct.pack_into("<I", r, 10, size)
+        struct.pack_into(">I", r, 14, size)
+        r[25] = flags
+        r[32] = len(name)
+        r[33:33 + len(name)] = name
+        return bytes(r)
+
+    root_lba, lba = 18, 19
+    records = [record(b"\0", root_lba, sector, 2), record(b"\1", root_lba, sector, 2)]
+    body = {}
+    for name, data in files.items():
+        body[lba] = data
+        records.append(record(name.encode() + b";1", lba, len(data)))
+        lba += max(1, -(-len(data) // sector))
+    image = bytearray(lba * sector)
+    pvd = bytearray(sector)
+    pvd[0:7] = b"\x01CD001\x01"
+    struct.pack_into("<H", pvd, 128, sector)
+    struct.pack_into(">H", pvd, 130, sector)
+    pvd[156:190] = record(b"\0", root_lba, sector, 2)
+    image[16 * sector:17 * sector] = pvd
+    image[17 * sector] = 0xFF
+    image[root_lba * sector:root_lba * sector + sum(map(len, records))] = b"".join(records)
+    for at, data in body.items():
+        image[at * sector:at * sector + len(data)] = data
+    return bytes(image)
+
+
+class ReadImageTests(unittest.TestCase):
+    def test_a_disc_the_editor_does_not_know_gives_its_boot_executable_and_no_levels(self):
+        exe = b"\x7fELF" + bytes(60)
+        cnf = b"BOOT2 = cdrom0:\\SCUS_972.68;1\r\nVER = 1.00\r\n"
+        with tempfile.TemporaryDirectory() as d:
+            image = Path(d) / "gc.iso"
+            image.write_bytes(tiny_iso({"SYSTEM.CNF": cnf, "SCUS_972.68": exe, "OTHER.BIN": b"x" * 5000}))
+            got, levels = retail.read_image(image)
+        self.assertEqual(got, exe)
+        self.assertEqual(levels, {})
+
+    def test_an_image_with_no_boot_line_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            image = Path(d) / "x.iso"
+            image.write_bytes(tiny_iso({"A.BIN": b"a"}))
+            with self.assertRaises(ValueError):
+                retail.read_image(image)
+
+
 if __name__ == "__main__":
     unittest.main()
