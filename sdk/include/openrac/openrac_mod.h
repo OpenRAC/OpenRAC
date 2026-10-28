@@ -43,9 +43,10 @@ extern "C" {
  * something is added at the end of the table. 1.1 added script mods (the table
  * is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's
  * picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of
- * the game and a Vulkan device made with the mod (a VR headset, docs/views.md).
+ * the game and a Vulkan device made with the mod (a VR headset, docs/views.md),
+ * 1.5 the post-vblank callback and warm in-session snapshot calls.
  */
-#define OPENRAC_MOD_API_MINOR 4
+#define OPENRAC_MOD_API_MINOR 5
 
 /* The interface a mod is built for, what its openrac_mod_query reports: its manifest's "api" minor,
  * which the SDK's openrac_add_mod passes in, else this header's. A mod for 1.1 built with a newer
@@ -361,6 +362,10 @@ typedef struct openrac_vulkan_setup {
  * the mod gave. Since 1.0. */
 typedef void (*openrac_frame_fn)(void* user);
 
+/* Called after the game's vertical-blank handlers have run. Snapshot operations are only accepted
+ * from this callback, at the port's tick boundary. Since 1.5. */
+typedef void (*openrac_tick_boundary_fn)(void* user, uint32_t tick);
+
 /* A function the port calls for each pad report (openrac_api.on_pad), with the `user` pointer the
  * mod gave. `report` is the report as the console's pad library hands it to the game (its bytes,
  * `size` of them), which the callback may change before the game reads it; `port` is the
@@ -495,6 +500,18 @@ typedef struct openrac_api {
      * OPENRAC_HOOK_UNKNOWN for a setup too small, or OPENRAC_HOOK_TOO_LATE
      * after openrac_mod_load. Since 1.4. */
     int (*setup_vulkan)(openrac_mod *mod, const openrac_vulkan_setup *setup);
+
+    /* Interface 1.5: register a post-handler tick-boundary callback (load only). */
+    int (*on_tick_boundary)(openrac_mod *mod, openrac_tick_boundary_fn fn, void *user);
+    /* Interface 1.5: byte size of this port build's warm, same-process snapshot. */
+    size_t (*savestate_size)(void);
+    /* Capture a snapshot. Valid only in on_tick_boundary; return 0 on success. The bytes are
+     * private to this process/build and are not for cold restore or cross-version use. */
+    int (*savestate_save)(void *out, size_t size);
+    /* Restore a snapshot under the same constraints as savestate_save. May refuse if the runtime
+     * allocated new guest statics or strings since the snapshot, because translated call sites
+     * cache those addresses in process memory. */
+    int (*savestate_load)(const void *data, size_t size);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

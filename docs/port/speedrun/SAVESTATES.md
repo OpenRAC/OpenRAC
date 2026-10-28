@@ -1,8 +1,10 @@
 # Save states
 
-**The port has no save states today.** This document says what exists, what a
-real one would have to capture, and why it is more feasible here than it
-sounds — and where the hard parts are.
+The port exposes the minimal primitives for an **optional warm, in-session
+RAC1 savestate mod**. The mod owns save/load logic, controls and file I/O.
+Without that mod, no snapshot callback is registered. Cold restore is out of
+scope; these notes describe the relevant design constraints and current
+limits.
 
 ## 1. What exists, and what it is not
 
@@ -14,12 +16,12 @@ easy to confuse.
 | **The memory card** | The game's own save data: bolts, inventory, per-level flags, in the retail `save%d.bin` chunk format with a CRC-16. On the port a card is **a folder of ordinary files** on disk. | `port/game/common/lib/mc.c`; the format in `port/assets/disc/save_game.h` |
 | **The game's checkpoint** | The level's own checkpoint block, copied in and out within game memory. Entirely inside the guest RAM. | `port/game/rac1-pal/hand/level_checkpoint_restore.c` |
 | **A RAM dump** | The game's 32 MB of main memory written to a file. `OPENRAC_DUMP_RAM=FRAME` writes `ram_<frame>.bin`. The viewer can **read one back**. | `port/game/common/frontend.cpp:2320-2329`; `port/viewer/game_state.cpp` |
-| **A save state** | A snapshot of the whole running machine that can be restored into a live game. | **Does not exist.** |
+| **Warm savestate** | A private snapshot restored in the same process at a post-vblank tick boundary. | Separate `project-save-clank` mod project; primitives in `sdk/include/openrac/openrac_mod.h`, `port/runtime/` |
 
-The RAM dump is the interesting one: **half of a save-state system already
-works.** The port can write the game's memory to a file, and it can read such
-a file back. What is missing is the other half — writing memory *into* a
-running game.
+The RAM dump remains a debugging aid, not the mod's state format. The warm
+snapshot API copies all backed guest regions plus essential runtime fields;
+the separate mod persists the returned opaque bytes only for the current
+process.
 
 ## 2. Why a save state is unusually feasible here
 
@@ -117,16 +119,18 @@ The translated game code caches them too: hostgen emits a per-call-site
 `static gaddr` (`port/tools/hostgen/lower.py:704-708`), and `GSTR` caches in
 `guest.h:140-147`.
 
-- **A warm restore** (same process, load the state you saved here) works: the
-  cached addresses stay valid and the restored region contents are correct.
+- **A warm restore** is safe only while the runtime's guest static/string
+  allocation set has not changed since capture. Translated call sites cache
+  those addresses in process memory, outside guest RAM.
 - **A cold restore** (a fresh process loads the state) does **not**: the
   first-use order differs, so the new process hands out *different* addresses,
   while the restored memory contains *pointers* to the snapshot's addresses.
 
-**Fix:** carry the allocator state in the snapshot and re-seed it on load —
-the strings map, `g_strings_next`, and the statics high-water mark. These are
-file-local statics inside `guest.cpp` with no accessor today, so this needs a
-small new API.
+The warm snapshot records the guest allocation generation and refuses a load
+if new guest statics or strings were allocated after capture. Save again after
+visiting a new area before relying on that state. This conservative check
+prevents rewound guest memory from being paired with newer process-side caches.
+Cold restore still needs the allocator state and call-site caches serialized.
 
 ### 3.3 The renderer
 
@@ -144,9 +148,10 @@ correct world. But four pieces of renderer state are not re-derivable:
 - the frontend's **interpolation cache** and which level's geometry is
   uploaded (`frontend.cpp:74-109`, `:127-131`).
 
-**Pragmatic fix:** on restore, rebuild the renderer from the level
-(`frontend.cpp:641-750`) and replay the current frame's display list once to
-re-seed the pool and the registers. Accept a one-frame visual discontinuity.
+**Warm restore:** the frontend drops the current renderer, scene, interpolation
+and frame caches, then rebuilds from restored guest memory and the next frame's
+display list. This accepts a one-frame visual discontinuity. The port also
+drops remembered out-of-list uploads so future texture contents are not reused.
 
 **Rigorous fix:** a serialiser for the pool and the interpreter. More work,
 and not needed for practice.
@@ -165,7 +170,7 @@ accessors today:
   **sample offset** into the decoded track, which is the only faithful way to
   resume music mid-track.
 
-**Pragmatic fix:** stop all sounds and restart the streams. The game's own
+**Warm restore:** the port stops all voices and streams. The game's own
 idea of "what is playing" is asked of the engine
 (`openrac_sound_playing`, `port/game/common/include/openrac/sound_engine.h:35`), so the
 game stays consistent; the music restarts from the top, which is audible but
@@ -191,8 +196,9 @@ The natural boundary is **the tick**.
 
 `openrac_game_vsync()` is where the game's `sceGsSyncV` lands
 (`port/game/common/lib/graph.c:66-71` → `port/game/common/main.cpp:651-809`).
-At that instant the game's logic for the tick is finished and the frame has
-been drawn from the guest RAM. It is the natural save point.
+The new `openrac_game_tick_boundary()` callback runs after the vertical-blank
+handlers. It is the natural save point; the fallback DMA path calls the same
+boundary after its manufactured blank.
 
 There is a second path: a game that never waits for vsync still ends its frame
 by sending the display list, and the port manufactures the vertical blank
@@ -200,24 +206,15 @@ there (`main.cpp:811-824`). A save point must cover both.
 
 **One subtlety worth getting right.** `sceGsSyncV` calls
 `openrac_game_vsync()` and **then** `openrac_game_run_vsync_handlers()`
-(`graph.c:68-70` → `kernel.c:54-63`). A snapshot taken *inside*
-`openrac_game_vsync` is therefore "after the tick's game logic, **before** the
-vertical-blank interrupt handlers". Restoring it and letting the game continue
-re-runs those handlers against the restored state — consistent, but the frame
-that was drawn at that moment was drawn from the pre-vblank state. For a
-strictly post-vblank snapshot, the hook belongs at the end of
-`openrac_game_run_vsync_handlers`, or as a new call right after
-`graph.c:69-70`.
+(`graph.c:68-70` → `kernel.c:54-63`). The callback follows the handler call,
+so restoring does not re-run the restored tick's handlers.
 
-The alternative is the debug overlay's pause: `debug_overlay::holding()` and
-`frontend::hold()` (`port/game/common/debug_overlay.h:85`,
-`port/game/common/frontend.cpp:2959-2988`) stop the game inside the tick loop
-and keep the window live. That is the natural **UI** place for the save-state
-keys, next to F5 (pause) and F6 (step).
+Hotkeys live in the separate mod (Numpad 1 saves, Numpad 2 loads),
+and do not change F5 pause or F6 step.
 
 ## 5. A design
 
-### The file
+### The cold-restore file (out of scope)
 
 ```
 openrac-savestate-<game>-<version>.state
@@ -245,35 +242,25 @@ high-water mark — is what makes a **cold** restore possible. It is small (a
 few hundred entries at most) and it is the difference between a save state
 that only works in the process that made it and one that works anywhere.
 
-### The keybindings
+The warm mod uses the port's opaque in-memory blob and removes its file at
+startup. The header shown above is a possible future portable format, not the
+format of the current warm blob.
 
-The convention in the emulator world is F1/F2/F3 (PCSX2: save, cycle slot,
-load). For the port, F5/F6 are already pause and step, so the natural choice
-is:
+### The mod's keybindings
 
-| Key | |
-|---|---|
-| **F10** | Save state (to the current slot) |
-| **F11** | Cycle the slot — but F11 is full screen today |
-| **F12** | Screenshot — taken |
-
-So either a new pair (F9/F10 are volume) or a modifier. **Shift+F5** to save,
-**Shift+F6** to load, **Shift+F7** to cycle the slot, keeps every existing
-binding intact and is easy to remember next to pause and step.
-
-Whatever is chosen, the port should show the state in the overlay's Game
-section, the way a PCSX2 run shows the slot.
+The separate `project-save-clank` mod uses **Numpad 1** to save and **Numpad 2** to load.
+It has one slot per disc, does not add a port-owned UI, and leaves the existing
+F5 pause and F6 step keys alone.
 
 ### Where it should live in the code
 
 | Piece | Where |
 |---|---|
-| The dump/restore of the regions | `port/runtime/`, next to `Memory::clear()` — it knows the region list |
-| The allocator state | `port/runtime/guest.cpp` — it owns the strings map and the statics counter |
-| The hook into the tick | `port/game/common/main.cpp`, in `openrac_game_vsync()` |
-| The keys and the slot list | `port/game/common/debug_overlay.cpp`, next to the pause and step handling |
-| The overlay display | the overlay's Game section |
-| The tests | `port/tests/runtime_test.cpp` — dump, clear, restore, compare |
+| The guest-region copy | `port/runtime/`, next to `Memory::clear()` |
+| The post-vblank boundary | `port/game/common/lib/graph.c` and the fallback DMA path in `game_host.cpp` |
+| The API and runtime state | `port/game/common/mods.cpp`, exposed through SDK API 1.5 |
+| The renderer invalidation | `port/game/common/frontend/world.cpp` |
+| The controls and file | the separate `project-save-clank` mod project |
 
 ### A note on the "no save states during a run" rule
 
@@ -296,21 +283,19 @@ the regression harness runs with `OPENRAC_UNCAPPED=1` and
 
 ## 6. Verdict
 
-**A save state is very feasible, and the port is unusually well placed for
-one** — the game state is one 32 MB array the port already dumps and already
-knows how to read back.
+Warm save/load is implemented as optional mod-facing infrastructure for RAC1
+PAL and NTSC. This does not implement cold restore or make the snapshot a
+portable save format.
 
 | | |
 |---|---|
-| **Trivial** | Dumping and restoring the regions; the stack pointer; the tick counters; the overlay mirror (one line). |
-| **Easy** | A warm restore (same process). Rebasing the wall clock. Taking the memory-card handles. |
-| **Medium** | The renderer's fidelity (the pool and the interpreter); the audio's fidelity (the voices and the streams). Both degrade rather than break. |
-| **Hard** | A cold restore, which needs the string and static allocator state carried in the snapshot. |
+| **Implemented** | Backed guest regions, game stack pointer, frame/display-list state, overlay mirror and pacing rebase at a post-vblank boundary; renderer caches are invalidated and audio is stopped. |
+| **Mod-owned** | Numpad 1/2 hotkeys, a reusable buffer and state-file I/O in `project-save-clank`. |
+| **Known limits** | Audio resumes from the game's subsequent requests; exact stream position/voices, card handles and the IOP stash are not restored. |
+| **Out of scope** | Cold restore, cross-build or cross-disc blobs, and portable state files. |
 
-The pieces that make it cheap are already in place: the 4 GB reservation with
-game addresses, the region map in `guest.h`, `Memory::clear()` as the model
-of what to restore, the RAM dump as the format, and the viewer's reader for
-it.
+The implementation uses the 4 GB reservation and the region map in `guest.h`;
+the runtime copies those regions while the mod stores its opaque warm blob.
 
 ## 7. Related reading
 

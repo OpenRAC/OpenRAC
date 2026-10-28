@@ -70,6 +70,17 @@ void frames_and_strings() {
     CHECK(openrac_guest_string("ratchet", 8) == s);  // one copy per text
 }
 
+void guest_allocation_generation() {
+    const std::uint64_t before = openrac_guest_allocation_generation();
+    static constexpr char text[] = "snapshot-generation-test";
+    const gaddr string = openrac_guest_string(text, sizeof(text));
+    CHECK(openrac_guest_allocation_generation() == before + 1);
+    CHECK(openrac_guest_string(text, sizeof(text)) == string);
+    CHECK(openrac_guest_allocation_generation() == before + 1);
+    CHECK(openrac_guest_static(16) >= GUEST_STATICS);
+    CHECK(openrac_guest_allocation_generation() == before + 2);
+}
+
 int level_add(int a, int b) {
     return a + b + 100;
 }
@@ -341,6 +352,7 @@ int main() {
     ee_float_mode();
     memory_map();
     frames_and_strings();
+    guest_allocation_generation();
     functions();
     code_in_copy_jal();
     folded_address();

@@ -109,6 +109,7 @@ private:
 std::mutex g_strings_lock;
 std::unordered_map<std::string, gaddr> g_strings;
 gaddr g_strings_next = GUEST_STRINGS;
+std::atomic<std::uint64_t> g_allocation_generation{0};
 
 // ---- Functions by address ----
 
@@ -241,7 +242,12 @@ gaddr openrac_guest_static(uint32_t size) {
         fatalf("the statics region is full");
     }
     next = (at + size + 15) & ~15u;
+    g_allocation_generation.fetch_add(1, std::memory_order_relaxed);
     return at;
+}
+
+uint64_t openrac_guest_allocation_generation(void) {
+    return g_allocation_generation.load(std::memory_order_relaxed);
 }
 
 gaddr openrac_guest_string(const char* s, size_t size) {
@@ -258,6 +264,7 @@ gaddr openrac_guest_string(const char* s, size_t size) {
     std::memcpy(G(at), s, size);
     g_strings_next = (at + static_cast<gaddr>(size) + 3) & ~3u;
     g_strings.emplace(std::move(key), at);
+    g_allocation_generation.fetch_add(1, std::memory_order_relaxed);
     return at;
 }
 

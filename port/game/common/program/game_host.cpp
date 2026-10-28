@@ -36,6 +36,7 @@
 #include "common/log.h"
 #include "openrac/guest.h"
 #include "openrac/memory.h"
+#include "mods.h"
 #include "program/program.h"
 
 #ifdef OPENRAC_FRONTEND
@@ -180,6 +181,10 @@ int openrac_game_vsync(void) {
     return c_boundary::call("openrac_game_vsync", 0, [&]() -> int { return vsync(); });
 }
 
+void openrac_game_tick_boundary(void) {
+    c_boundary::call("openrac_game_tick_boundary", [&] { mods::tick_boundary(static_cast<std::uint32_t>(g_frame)); });
+}
+
 void openrac_game_dma_send(gaddr channel, gaddr tag) {
     c_boundary::call("openrac_game_dma_send", [&] {
         g_chain = tag;
@@ -191,6 +196,7 @@ void openrac_game_dma_send(gaddr channel, gaddr tag) {
             if (!g_vsync_since_kick) {
                 openrac_game_vsync();
                 openrac_game_run_vsync_handlers();
+                openrac_game_tick_boundary();
             }
 
             g_vsync_since_kick = false;

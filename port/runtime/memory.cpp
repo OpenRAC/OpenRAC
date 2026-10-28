@@ -306,6 +306,42 @@ void Memory::clear() {
     openrac_guest_sp = GUEST_STACK_TOP;
 }
 
+std::size_t Memory::snapshot_size() {
+    std::size_t size = GUEST_RAM_SIZE;
+    for (const Region& r : kPlainRegions) {
+        size += r.size;
+    }
+    return size;
+}
+
+bool Memory::save_snapshot(std::span<std::uint8_t> out) const {
+    if (out.size() != snapshot_size()) {
+        return false;
+    }
+    std::size_t at = 0;
+    std::memcpy(out.data() + at, base_ + GUEST_RAM, GUEST_RAM_SIZE);
+    at += GUEST_RAM_SIZE;
+    for (const Region& r : kPlainRegions) {
+        std::memcpy(out.data() + at, base_ + r.address, r.size);
+        at += r.size;
+    }
+    return true;
+}
+
+bool Memory::restore_snapshot(std::span<const std::uint8_t> in) {
+    if (in.size() != snapshot_size()) {
+        return false;
+    }
+    std::size_t at = 0;
+    std::memcpy(base_ + GUEST_RAM, in.data() + at, GUEST_RAM_SIZE);
+    at += GUEST_RAM_SIZE;
+    for (const Region& r : kPlainRegions) {
+        std::memcpy(base_ + r.address, in.data() + at, r.size);
+        at += r.size;
+    }
+    return true;
+}
+
 bool Memory::contains(const void* host, gaddr* address) const {
     auto* p = static_cast<const std::uint8_t*>(host);
     if (p < base_ || p >= base_ + kReservation) {

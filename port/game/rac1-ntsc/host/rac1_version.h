@@ -11,9 +11,23 @@
 #ifndef OPENRAC_RAC1_VERSION_H
 #define OPENRAC_RAC1_VERSION_H
 
+/* Level vtbl records carry moby update functions; the executable's vtbl is an empty sentinel. */
+#define RAC1_MOBY_VTBL(level) rac1_moby_vtbl_address(level)
+static inline unsigned rac1_moby_vtbl_address(int level) {
+    static const unsigned addresses[19] = {
+        0x001EA300u, 0x0020BB00u, 0x001FAF80u, 0x001E3880u, 0x001DC900u,
+        0x00218C80u, 0x00201B80u, 0x00211D00u, 0x001FC900u, 0x00209380u,
+        0x001DD600u, 0x0021B900u, 0x0020CB80u, 0x001F5880u, 0x001FD280u,
+        0x001E3680u, 0x001E8900u, 0x001E7080u, 0x001F2D00u,
+    };
+    return level >= 0 && level < 19 ? addresses[level] : 0;
+}
+
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
 /* Level 0's 0x2EC6B8: the NTSC decomp's catalogue places its func_001E9448 there, which returns 0. */
 #define RAC1_OMIT_func_L00_002EDB68 1
+/* PAL's assign_moby_class_data, whose level vtbl is at another address in each program. */
+#define func_00213BB8 game_FUN_00212d68
 /* FUN_L00_0025b6b8: the NTSC decomp's C takes the two vectors by address already. */
 #define RAC1_OMIT_func_L00_0025C710 1
 /* The boot loop draws its picture with draw_bootImage (FUN_002012b8), which boot_picture.c wraps. */
@@ -43,6 +57,13 @@
 /* The items the US game's Options list is given (Language, Sound: its enter puts them there each
  * time); PAL's list, 0x1D4810 here (Language, Video, Sound), is still in the data, unused. */
 #define RAC1_ADDR_0x001D4B90u 0x001D4840u
+
+/* The class registration tables differ from PAL: class count, resources, and the empty executable
+ * vtable live at these addresses in the US build. */
+#define RAC1_ADDR_0x00160000u 0x0015FF00u
+#define RAC1_ADDR_0x001B3580u 0x001B3200u
+#define RAC1_ADDR_0x001B3900u 0x001B3900u
+#define RAC1_ADDR_0x001E8F00u 0x001E8B80u
 
 /* Where this version's decompilation declares a function otherwise: the type in its prototypes. */
 /* ParseBin's result, the loaded level's entry. */

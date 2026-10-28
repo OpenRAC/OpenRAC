@@ -6,9 +6,13 @@
 #include "mods.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <vector>
@@ -20,8 +24,8 @@
 #include "mod_manifest.h"
 #include "mod_scripts.h"
 #include "openrac/guest.h"
+#include "openrac/memory.h"
 #include "openrac/openrac_mod.h"
-
 namespace fs = std::filesystem;
 using namespace openrac;
 
@@ -95,6 +99,11 @@ struct PadCallback {
     void* user;
     openrac_mod* mod;
 };
+struct TickBoundaryCallback {
+    openrac_tick_boundary_fn fn;
+    void* user;
+    openrac_mod* mod;
+};
 
 const Host* g_host = nullptr;
 
@@ -106,6 +115,10 @@ openrac_mod* g_loading = nullptr;  // the mod whose openrac_mod_load runs: hooks
 std::vector<std::unique_ptr<openrac_mod>> g_loaded;
 std::vector<FrameCallback> g_frames;
 std::vector<PadCallback> g_pads;
+std::vector<TickBoundaryCallback> g_tick_boundaries;
+openrac_mod* g_tick_mod = nullptr;
+bool g_in_tick_boundary = false;
+bool g_state_restored = false;
 // The views and the Vulkan device setup (interface 1.4): one mod's each, none while its mod is null.
 openrac_view_source g_views{};
 openrac_mod* g_views_mod = nullptr;
@@ -113,6 +126,121 @@ openrac_vulkan_setup g_vulkan{};
 openrac_mod* g_vulkan_mod = nullptr;
 std::vector<crash::ModImage> g_images;
 openrac_api g_api;
+const std::uint64_t g_snapshot_session = [] {
+    const auto clock = static_cast<std::uint64_t>(
+        std::chrono::steady_clock::now().time_since_epoch().count()
+    );
+    const auto address = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(&g_api));
+    return clock ^ address;
+}();
+
+struct SnapshotHeader {
+    char magic[8];
+    std::uint32_t version;
+    std::uint32_t header_size;
+    std::uint64_t frame;
+    std::uint64_t session;
+    std::uint64_t allocation_generation;
+    gaddr stack_pointer;
+    gaddr display_chain;
+    unsigned draws;
+    bool reports_draws;
+    bool vsync_since_kick;
+    std::int32_t overlay;
+    char game[16];
+    char disc[16];
+};
+
+constexpr char kSnapshotMagic[8] = {'O', 'R', 'A', 'C', 'S', 'T', '1', '\0'};
+constexpr std::uint32_t kSnapshotVersion = 2;
+
+std::size_t snapshot_size() {
+    if (g_host == nullptr || g_host->game != "rac1"
+        || (g_host->version != "pal" && g_host->version != "ntsc")
+        || g_host->capture_savestate_runtime == nullptr
+        || g_host->restore_savestate_runtime == nullptr) {
+        return 0;
+    }
+    return sizeof(SnapshotHeader) + runtime::Memory::snapshot_size();
+}
+
+int snapshot_save(void* output, std::size_t size) {
+    if (!g_in_tick_boundary || g_tick_mod == nullptr || output == nullptr || snapshot_size() == 0
+        || size != snapshot_size()
+        || g_host == nullptr || g_host->loaded_level == nullptr) {
+        return -1;
+    }
+    SavestateRuntime state{};
+    if (!g_host->capture_savestate_runtime(&state)) {
+        return -1;
+    }
+    SnapshotHeader header{};
+    std::memcpy(header.magic, kSnapshotMagic, sizeof(kSnapshotMagic));
+    header.version = kSnapshotVersion;
+    header.header_size = sizeof(header);
+    header.frame = state.frame;
+    header.session = g_snapshot_session;
+    header.allocation_generation = openrac_guest_allocation_generation();
+    header.stack_pointer = openrac_guest_sp;
+    header.display_chain = state.display_chain;
+    header.draws = state.draws;
+    header.reports_draws = state.reports_draws;
+    header.vsync_since_kick = state.vsync_since_kick;
+    header.overlay = state.overlay;
+    std::snprintf(header.game, sizeof(header.game), "%s", g_host->game.c_str());
+    std::snprintf(header.disc, sizeof(header.disc), "%s", g_host->version.c_str());
+    auto* bytes = static_cast<std::uint8_t*>(output);
+    std::memcpy(bytes, &header, sizeof(header));
+    const bool saved = runtime::Memory::get().save_snapshot(
+        std::span(bytes + sizeof(header), size - sizeof(header))
+    );
+    return saved ? 0 : -1;
+}
+
+int snapshot_load(const void* input, std::size_t size) {
+    if (!g_in_tick_boundary || g_tick_mod == nullptr || input == nullptr || snapshot_size() == 0
+        || size != snapshot_size()
+        || g_host == nullptr || g_host->loaded_level == nullptr
+        || g_host->restore_savestate_runtime == nullptr) {
+        return -1;
+    }
+    SnapshotHeader header{};
+    std::memcpy(&header, input, sizeof(header));
+    if (std::memcmp(header.magic, kSnapshotMagic, sizeof(kSnapshotMagic)) != 0
+        || header.version != kSnapshotVersion || header.header_size != sizeof(header)
+        || header.session != g_snapshot_session
+        || std::strncmp(header.game, g_host->game.c_str(), sizeof(header.game)) != 0
+        || std::strncmp(header.disc, g_host->version.c_str(), sizeof(header.disc)) != 0
+        || header.frame > static_cast<std::uint64_t>(std::numeric_limits<long>::max())
+        || header.stack_pointer < GUEST_STACK_BOTTOM || header.stack_pointer > GUEST_STACK_TOP) {
+        return -1;
+    }
+    if (header.allocation_generation != openrac_guest_allocation_generation()) {
+        log::warn(
+            "mod {}: savestate load refused because new guest statics or strings were allocated "
+            "after the snapshot; save again after visiting the new area",
+            g_tick_mod->id
+        );
+        return -1;
+    }
+    const auto* bytes = static_cast<const std::uint8_t*>(input);
+    if (!runtime::Memory::get().restore_snapshot(
+            std::span(bytes + sizeof(header), size - sizeof(header)))) {
+        return -1;
+    }
+    openrac_guest_sp = header.stack_pointer;
+    const SavestateRuntime state{
+        header.frame,
+        header.display_chain,
+        header.draws,
+        header.reports_draws,
+        header.vsync_since_kick,
+        header.overlay,
+    };
+    g_host->restore_savestate_runtime(&state);
+    g_state_restored = true;
+    return 0;
+}
 
 // ---- The interface's functions ----
 
@@ -226,6 +354,14 @@ int api_on_frame(openrac_mod* mod, openrac_frame_fn fn, void* user) {
         return OPENRAC_HOOK_TOO_LATE;
     }
     g_frames.push_back({fn, user, mod});
+    return OPENRAC_HOOK_OK;
+}
+
+int api_on_tick_boundary(openrac_mod* mod, openrac_tick_boundary_fn fn, void* user) {
+    if (mod == nullptr || mod != g_loading || fn == nullptr) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    g_tick_boundaries.push_back({fn, user, mod});
     return OPENRAC_HOOK_OK;
 }
 
@@ -402,6 +538,10 @@ void fill_api(const Host& host) {
     g_api.graphics = api_graphics;
     g_api.on_views = api_on_views;
     g_api.setup_vulkan = api_setup_vulkan;
+    g_api.on_tick_boundary = api_on_tick_boundary;
+    g_api.savestate_size = snapshot_size;
+    g_api.savestate_save = snapshot_save;
+    g_api.savestate_load = snapshot_load;
 }
 
 // ---- status.json ----
@@ -537,6 +677,7 @@ void undo(openrac_mod* mod) {
     mod->hooks.clear();
     std::erase_if(g_frames, [&](const FrameCallback& c) { return c.mod == mod; });
     std::erase_if(g_pads, [&](const PadCallback& c) { return c.mod == mod; });
+    std::erase_if(g_tick_boundaries, [&](const TickBoundaryCallback& c) { return c.mod == mod; });
     if (g_views_mod == mod) {
         g_views = {};
         g_views_mod = nullptr;
@@ -796,6 +937,23 @@ void run_frame_callbacks() {
     }
 }
 
+void tick_boundary(std::uint32_t tick) {
+    if (g_tick_boundaries.empty()) {
+        return;
+    }
+    g_in_tick_boundary = true;
+    g_state_restored = false;
+    for (const TickBoundaryCallback& callback : g_tick_boundaries) {
+        g_tick_mod = callback.mod;
+        callback.fn(callback.user, tick);
+        if (g_state_restored) {
+            break;
+        }
+    }
+    g_tick_mod = nullptr;
+    g_in_tick_boundary = false;
+}
+
 int loaded_count() {
     return static_cast<int>(g_loaded.size());
 }
@@ -813,6 +971,10 @@ void reset() {
     g_loaded.clear();
     g_frames.clear();
     g_pads.clear();
+    g_tick_boundaries.clear();
+    g_tick_mod = nullptr;
+    g_in_tick_boundary = false;
+    g_state_restored = false;
     g_frame_callbacks = false;
     if (g_host != nullptr && g_host->pad_hook != nullptr) {
         *g_host->pad_hook = nullptr;

@@ -67,6 +67,7 @@ void openrac_game_run_dmac_handlers(int channel) {
 /* Other graphics entry points share the source file but are not exercised. */
 int openrac_game_vsync(void) { CHECK(0); return 0; }
 void openrac_game_run_vsync_handlers(void) { CHECK(0); }
+void openrac_game_tick_boundary(void) { CHECK(0); }
 void openrac_game_set_video_mode(int a, int b, int c) {
     (void)a; (void)b; (void)c; CHECK(0);
 }

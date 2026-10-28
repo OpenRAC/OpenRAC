@@ -79,6 +79,11 @@ int openrac_game_loaded_overlay(void) {
     return loaded_level >= 0 && loaded_level < LEVELS ? loaded_level : OPENRAC_OVERLAY_EXE;
 }
 
+/* A warm save-state restores CURRENT_LEVEL and the runtime's overlay together. */
+void openrac_game_restore_overlay(int overlay) {
+    loaded_level = overlay >= 0 && overlay < LEVELS ? overlay : OPENRAC_OVERLAY_EXE;
+}
+
 /* SetupGifPaging, every frame before the texture paging. The four words at 0x18A3D0 are flags the
  * draw code tests (shrubs at +0, mobys at +8, the effect-texture uploads at +0xC: without that one
  * the font and the title's logo are never uploaded). Retail has all four set to 1 by its first

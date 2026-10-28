@@ -43,6 +43,12 @@ public:
     // region, and resets the game stack and the string region.
     void clear();
 
+    // Copies the backed guest regions in a stable order (RAM, then the plain regions in guest.h).
+    // Used only for warm, in-session snapshots; host runtime state is saved by the caller.
+    static std::size_t snapshot_size();
+    bool save_snapshot(std::span<std::uint8_t> out) const;
+    bool restore_snapshot(std::span<const std::uint8_t> in);
+
     // The game address that a host address inside the reservation stands
     // for, or false. Used by the crash handler.
     bool contains(const void* host, gaddr* address) const;

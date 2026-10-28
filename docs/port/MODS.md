@@ -421,6 +421,9 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `graphics()` (1.4) | any time: what the port draws with (`openrac_graphics`): OpenGL with its `gl_proc`, or Vulkan with its instance, device and queue. Backend none before the window opens |
 | `on_views(mod, &source)` (1.4) | during load, one mod: draw views of the game besides the window's each frame (a headset's eyes, a 2D panel) and copy them into the mod's GL texture or VkImage; `begin` before, `end` once the frame is submitted, `closing` before the context goes ([sdk/docs/views.md](../../sdk/docs/views.md)). While a mod has views, Vulkan renders on the game's thread |
 | `setup_vulkan(mod, &setup)` (1.4) | during load, one mod: make the Vulkan instance and device through the mod (OpenXR's `xrCreateVulkanInstanceKHR`, `xrCreateVulkanDeviceKHR`). The mod's manifest says `"vulkan_device": true`, so the mods load before the window; otherwise they load after it, as before |
+| `on_tick_boundary(mod, fn, user)` (1.5) | `fn(user, tick)` after vertical-blank handlers have run, for a safe snapshot boundary |
+| `savestate_size()` (1.5) | the byte size of this running RAC1 PAL/NTSC build's private warm snapshot |
+| `savestate_save(out, size)` / `savestate_load(data, size)` (1.5) | copy guest memory and essential in-process runtime state; only accepted from `on_tick_boundary`, for the same running process and build |
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -445,8 +448,14 @@ added the keyboard and mouse (`input`, `take_input`, `capture_mouse`, the
 the game's picture (`openrac_input.pointer_*`, appended to the state); 1.4
 (SDK 1.4.0) the graphics context, views of the game and a Vulkan device made
 with the mod (`graphics`, `on_views`, `setup_vulkan`, the manifest's
-`vulkan_device`), for a VR mod. The
-port's own readers of the pad (the movie player) and its Start skip take the
+`vulkan_device`), for a VR mod. 1.5 (SDK 1.5.0) adds the tick-boundary and
+warm-snapshot calls for an optional practice
+mod. They do not run unless a mod registers and calls them. The separate
+`project-save-clank` mod owns the file and Numpad 1/2 controls; its state is not
+valid across process restarts. Those four entries are at the
+end of the C table; the C++ `Mod` wrapper has matching methods.
+
+The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
 does. The port keeps every hook point it has had, with its
 signature, for as long as the major version lasts.

@@ -112,6 +112,11 @@ The keyboard and mouse for the tick about to run (interface 1.2, openrac_input):
 | `template <class HookPoint, class F> void hook(F&& callable)` | Takes the hook point (a type of openrac/games/<game>.hpp) for `callable`, called as callable(original, args...). Throws openrac::Error when the port has no such hook point, a different signature, or the mod already took it. Only during load. |
 | `template <class HookPoint> typename HookPoint::fn original() const` | Returns what a hook point this mod took goes on to (as the callable's `original`), for calling it from elsewhere in the mod (another hook, a callback); nullptr before the hook is taken. |
 | `template <class F> void on_frame(F&& callable)` | Calls `callable()` after each game tick, in load order. Throws openrac::Error when refused. Only during load. |
+| `template <class F> void on_tick_boundary(F&& callable)` | Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here. Since 1.5; only during load. |
+| `bool has_savestates() const` | True when interface 1.5's tick-boundary and warm-snapshot calls are available. |
+| `std::size_t savestate_size() const` | The exact size of this build's warm, same-process snapshot. Throws when interface 1.5 is unavailable. |
+| `void savestate_save(void* out, std::size_t size) const` | Save/load only inside on_tick_boundary. Throws when called outside that boundary or when the port refuses the supplied blob. Since 1.5. |
+| `void savestate_load(const void* data, std::size_t size) const` | Restores a warm snapshot from the same process and build; the port can refuse it after new guest statics or strings have been allocated since capture. Throws on refusal. Since 1.5. |
 | `template <class F> void on_pad(F&& callable)` | Calls `callable(port, report, size)` for each pad report, before the game reads it: the callable may change the report's bytes. Throws openrac::Error when refused. Only during load. |
 | `template <class Fn> Fn function(const char* name) const` | Returns a game function by its name in this disc's build, as Fn (a function pointer type); nullptr when there is none. required_function throws openrac::Error instead. |
 | `template <class Fn> Fn required_function(const char* name) const` |  |

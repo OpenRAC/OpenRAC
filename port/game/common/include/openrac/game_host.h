@@ -368,6 +368,8 @@ gaddr openrac_game_text(int id);
  * AddDmacHandler): called by the replacements where the console would raise
  * the interrupt. */
 void openrac_game_run_vsync_handlers(void);
+void openrac_game_tick_boundary(void);
+void openrac_game_restore_overlay(int overlay);
 void openrac_game_run_dmac_handlers(int channel);
 
 #ifdef __cplusplus

@@ -315,6 +315,9 @@ struct Hook<HookPoint, R (*)(A...)> {
 // What a mod's on_frame callback is.
 using FrameCallable = std::function<void()>;
 
+// What a mod's on_tick_boundary callback is.
+using TickBoundaryCallable = std::function<void(std::uint32_t)>;
+
 // What a mod's on_pad callback is.
 using PadCallable = std::function<void(int port, std::uint8_t* report, int size)>;
 
@@ -328,6 +331,17 @@ inline void frame_thunk(void* user) {
         report("on_frame", e.what());
     } catch (...) {
         report("on_frame", "an exception that is not a std::exception");
+    }
+}
+
+// The openrac_tick_boundary_fn the port calls: runs the callback and logs what it throws.
+inline void tick_boundary_thunk(void* user, std::uint32_t tick) {
+    try {
+        (*static_cast<TickBoundaryCallable*>(user))(tick);
+    } catch (const std::exception& e) {
+        report("on_tick_boundary", e.what());
+    } catch (...) {
+        report("on_tick_boundary", "an exception that is not a std::exception");
     }
 }
 
@@ -480,6 +494,53 @@ public:
         // The port refuses a callback once load is over.
         if (m_api->on_frame(m_handle, &detail::frame_thunk, &stored) != 0) {
             throw Error("on_frame: refused (only during load)");
+        }
+    }
+
+    // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
+    // Since 1.5; only during load.
+    template <class F>
+    void on_tick_boundary(F&& callable) {
+        if (!has_savestates()) {
+            throw Error("on_tick_boundary: requires interface 1.5");
+        }
+        auto& stored = m_tick_boundaries.emplace_back(std::forward<F>(callable));
+        if (m_api->on_tick_boundary(m_handle, &detail::tick_boundary_thunk, &stored) != 0) {
+            throw Error("on_tick_boundary: refused (only during load)");
+        }
+    }
+
+    // Since 1.5: returns whether the port offers tick-boundary and warm-snapshot calls.
+    bool has_savestates() const {
+        return m_api->api_minor >= 5
+               && m_api->size >= offsetof(openrac_api, savestate_load) + sizeof(void*);
+    }
+
+    // The exact size of this build's warm, same-process snapshot. Since 1.5.
+    std::size_t savestate_size() const {
+        if (!has_savestates()) {
+            throw Error("savestate_size: requires interface 1.5");
+        }
+        return m_api->savestate_size();
+    }
+
+    // Save/load only inside on_tick_boundary. Loading may be refused if the runtime allocated new
+    // guest statics or strings after capture, since translated call sites cache their addresses.
+    // Throws when called outside that boundary or when the port refuses the supplied blob. Since 1.5.
+    void savestate_save(void* out, std::size_t size) const {
+        if (!has_savestates()) {
+            throw Error("savestate_save: requires interface 1.5");
+        }
+        if (m_api->savestate_save(out, size) != 0) {
+            throw Error("savestate_save: refused");
+        }
+    }
+    void savestate_load(const void* data, std::size_t size) const {
+        if (!has_savestates()) {
+            throw Error("savestate_load: requires interface 1.5");
+        }
+        if (m_api->savestate_load(data, size) != 0) {
+            throw Error("savestate_load: refused");
         }
     }
 
@@ -646,6 +707,7 @@ private:
     // The callbacks the mod gave on_frame and on_pad, at stable addresses (a deque): the port holds
     // pointers to these.
     std::deque<detail::FrameCallable> m_frames;
+    std::deque<detail::TickBoundaryCallable> m_tick_boundaries;
     std::deque<detail::PadCallable> m_pads;
 };
 

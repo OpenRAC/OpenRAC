@@ -28,7 +28,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | Name | Value | |
 |---|---|---|
 | `OPENRAC_MOD_API_MAJOR` | `1` | The interface's major version. Changes when anything in the table changes or goes. |
-| `OPENRAC_MOD_API_MINOR` | `4` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md). |
+| `OPENRAC_MOD_API_MINOR` | `5` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 the post-vblank callback and warm in-session snapshot calls. |
 | `OPENRAC_MOD_TARGET_MINOR` | `OPENRAC_MOD_API_MINOR` |  |
 | `OPENRAC_MOD_EXPORT` | `__declspec(dllexport)` or `__attribute__((visibility("default")))` |  |
 | `OPENRAC_LOG_DEBUG` | `0` | The levels of openrac_api.log, from the most to the least talkative. Since 1.0. |
@@ -87,6 +87,13 @@ typedef void (*openrac_frame_fn)(void* user);
 
 A function the port calls after each game tick (openrac_api.on_frame), with the `user` pointer
 the mod gave. Since 1.0.
+
+```c
+typedef void (*openrac_tick_boundary_fn)(void* user, uint32_t tick);
+```
+
+Called after the game's vertical-blank handlers have run. Snapshot operations are only accepted
+from this callback, at the port's tick boundary. Since 1.5.
 
 ```c
 typedef void (*openrac_pad_fn)(void* user, int port, uint8_t* report, int size);
@@ -276,3 +283,7 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `const openrac_graphics *(*graphics)(void)` | Returns what the port draws with (openrac_graphics). Never null: before the window opens, and without one, its backend is OPENRAC_GRAPHICS_NONE. Any time. Since 1.4. |
 | `int (*on_views)(openrac_mod *mod, const openrac_view_source *source)` | Asks the port to draw views of the game besides the window's picture each frame, through `source` (openrac_view_source), with OpenGL and Vulkan. While a mod has views, the Vulkan renderer draws on the game's thread. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN when another mod has them, OPENRAC_HOOK_UNKNOWN for a source without begin or end, or OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.4. |
 | `int (*setup_vulkan)(openrac_mod *mod, const openrac_vulkan_setup *setup)` | Has the port make its Vulkan device through `setup` (openrac_vulkan_setup) when the window opens, so that the mod can share it. Without Vulkan (OpenGL, a build without it) nothing is called. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN when another mod has it, OPENRAC_HOOK_UNKNOWN for a setup too small, or OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.4. |
+| `int (*on_tick_boundary)(openrac_mod *mod, openrac_tick_boundary_fn fn, void *user)` | Interface 1.5: register a post-handler tick-boundary callback (load only). |
+| `size_t (*savestate_size)(void)` | Interface 1.5: byte size of this port build's warm, same-process snapshot. |
+| `int (*savestate_save)(void *out, size_t size)` | Capture a snapshot. Valid only in on_tick_boundary; return 0 on success. The bytes are private to this process/build and are not for cold restore or cross-version use. |
+| `int (*savestate_load)(const void *data, size_t size)` | Restore a snapshot under the same constraints as savestate_save. |

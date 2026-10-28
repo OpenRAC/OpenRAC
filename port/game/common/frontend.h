@@ -72,6 +72,10 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
 // True while a submitted snapshot has not yet been presented; queried only by the game thread.
 bool render_pending();
 
+// Drops host-derived frame, level and GPU state after guest memory is restored. The next game frame
+// rebuilds the level renderers and replays the game's drawing commands.
+void savestate_restored(std::uint64_t tick);
+
 // Frames between the game's ticks: the window draws at the display's rate, the camera and mobys
 // moved from the last tick's to the latest's by when each frame is shown (OPENRAC_UNCAPPED or
 // OPENRAC_NO_BLEND: one frame a tick). set_tick: when the tick about to be drawn was due, and the

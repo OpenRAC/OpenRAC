@@ -36,6 +36,7 @@
 #include "game/common/particle_texture_cache.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "program/program.h"
 #include "renderer/direct.h"
 #include "renderer/effects.h"
 #include "renderer/gl.h"
@@ -226,6 +227,65 @@ void use_level(int number) {
         }
     }
     log::info("drawing level {} natively ({} models)", wanted, g->level.models.size());
+}
+
+void savestate_restored(std::uint64_t tick) {
+    if (!g) {
+        return;
+    }
+    // Join any in-flight render before discarding its view of future guest state. use_level() will
+    // rebuild the scene and GPU renderers from the restored level on the next tick.
+    g->render_worker.reset();
+    g->pending_frame.reset();
+    g->prepared_tick.reset();
+    g->pending_images.clear();
+    g->images.clear();
+    g->kept = std::make_shared<Kept>();
+    g->scene.release();
+    g->renderer.reset();
+    if (g->temporal) {
+        g->temporal->reset();
+    }
+    g->scene = scene::LevelScene();
+    g->level = scene::LevelData();
+    g->loaded = -2;
+    g->index = tick;
+    g->world_camera.reset();
+    g->moby_cameras.clear();
+    g->effects.clear();
+    g->effect_uploads.clear();
+    g->sky_shell_mask = 0;
+    g->sky_sprites.clear();
+    g->particles.clear();
+    g->particle_textures.clear();
+    g->particle_textures_for = nullptr;
+    g->effect_textures.clear();
+    g->effect_textures_for = nullptr;
+    g->effect_texture_ids.clear();
+    g->effect_hashed.clear();
+    g->ui_quads.clear();
+    g->ui_kept = {};
+    g->ui_generation = 0;
+    g->last_world_tick = 0;
+    g->last_tick_menu = false;
+    g->hold_last_world = false;
+    g->tick_pictures = TickPictures{};
+    g->repeat_frame = false;
+    g->overdraw = false;
+    g->skipped = 0;
+    g->frame.release();
+    g->picture.release();
+    g->last_world.release();
+    for (renderer::FrameBuffer& view : g->views) {
+        view.release();
+    }
+    g->view_targets.clear();
+    g->render_failed = false;
+    g_route = {};
+    pacing.tick = std::chrono::steady_clock::now();
+    pacing.due = {};
+    pacing.last_alpha = -1.0f;
+    pacing.first_pending = false;
 }
 
 void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& quad) {

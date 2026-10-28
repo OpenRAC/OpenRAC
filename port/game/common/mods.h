@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <string>
 
+#include "openrac/guest.h"
 #include "openrac/openrac_mod.h"
 #include "openrac/script_binding.h"
 
@@ -26,6 +27,18 @@ struct HookPoint {
     const char* signature;
     void** slot;
     void* original;
+};
+
+// The game's tick and display-list state needed by a warm snapshot. The executable supplies these
+// callbacks through Host so the mod loader stays usable without linking the game program (tests,
+// manifest tools). `overlay` is the game's host-side mirror of the guest level.
+struct SavestateRuntime {
+    std::uint64_t frame = 0;
+    gaddr display_chain = 0;
+    unsigned draws = 0;
+    bool reports_draws = false;
+    bool vsync_since_kick = false;
+    int overlay = -1;
 };
 
 // What the loader needs of the program.
@@ -58,6 +71,9 @@ struct Host {
     const openrac_graphics* (*graphics)(void) = nullptr;
     void (*set_views)(const openrac_view_source* source) = nullptr;
     void (*set_vulkan_setup)(const openrac_vulkan_setup* setup) = nullptr;
+    // The running game's essential host-side tick state and post-restore audio/renderer rebuild.
+    bool (*capture_savestate_runtime)(SavestateRuntime* state) = nullptr;
+    void (*restore_savestate_runtime)(const SavestateRuntime* state) = nullptr;
 };
 
 // Loads the mods the list has on. Returns the session header's line: "lock-strafe 1.0.0", "none",
@@ -82,6 +98,10 @@ inline void frame() {
         run_frame_callbacks();
     }
 }
+
+// Called after the game's vertical-blank handlers. Snapshot APIs are valid only while these
+// callbacks run.
+void tick_boundary(std::uint32_t tick);
 
 // How many mods are loaded.
 int loaded_count();

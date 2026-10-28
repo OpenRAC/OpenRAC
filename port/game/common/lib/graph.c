@@ -83,6 +83,7 @@ int openrac_lib_sceGsSyncV(int mode) {
     (void)mode;
     const int field = openrac_game_vsync();
     openrac_game_run_vsync_handlers();
+    openrac_game_tick_boundary();
     return field;
 }
 

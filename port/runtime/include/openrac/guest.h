@@ -131,6 +131,10 @@ static inline void openrac_guest_frame_end(gaddr* saved) {
  * the life of the program, zeroed (the port's statics region). */
 gaddr openrac_guest_static(uint32_t size);
 
+/* Changes whenever the runtime allocates a new guest static or string. Warm snapshots use this
+ * generation to refuse restores that would leave process-side call-site caches ahead of guest RAM. */
+uint64_t openrac_guest_allocation_generation(void);
+
 /* ---- String literals ----
  *
  * A literal in the game's C is data in game memory on the console. GSTR

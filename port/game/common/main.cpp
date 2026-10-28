@@ -229,6 +229,36 @@ void load_mods() {
     host.pad_hook = &openrac_game_pad_report_hook;
     host.scripts = openrac_game_script_binding();  // generated (sdk/tools/gen_binding.py), or none
     host.input = mod_input;
+    host.capture_savestate_runtime = [](mods::SavestateRuntime* state) {
+        if (state == nullptr) {
+            return false;
+        }
+        state->frame = static_cast<std::uint64_t>(program::g_frame);
+        state->display_chain = program::g_chain;
+        state->draws = program::g_draws;
+        state->reports_draws = program::g_reports_draws;
+        state->vsync_since_kick = program::g_vsync_since_kick;
+        state->overlay = openrac_game_loaded_overlay();
+        return true;
+    };
+    host.restore_savestate_runtime = [](const mods::SavestateRuntime* state) {
+        if (state == nullptr) {
+            return;
+        }
+        program::g_frame = static_cast<long>(state->frame);
+        program::g_chain = state->display_chain;
+        program::g_draws = state->draws;
+        program::g_reports_draws = state->reports_draws;
+        program::g_vsync_since_kick = state->vsync_since_kick;
+        program::g_next_frame = {};
+        openrac_guest_set_overlay(state->overlay);
+        openrac_game_restore_overlay(state->overlay);
+        openrac_sound_stop_all();
+        openrac_stream_stop(0);
+#ifdef OPENRAC_FRONTEND
+        frontend::savestate_restored(state->frame);
+#endif
+    };
 #ifdef OPENRAC_FRONTEND
     // Mods loaded before the window opens (a mod that makes the Vulkan device): what they ask of
     // the keyboard and the cursor is kept for the window (apply_early_mod_input).

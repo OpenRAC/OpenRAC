@@ -74,6 +74,7 @@
     "func_001E9478"
   ],
   "host_functions": [
+    "FUN_00212d68",
     "openrac_game_moby_colour",
     "FUN_001f7580",
     "FUN_001f75f0",

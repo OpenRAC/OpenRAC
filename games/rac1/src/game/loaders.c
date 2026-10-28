@@ -1915,9 +1915,11 @@ extern int D_0016004C MACRO_ADDR;
 extern int D_00160050 MACRO_ADDR;
 extern void func_0020C468();
 extern int D_001CBE40[];
-extern int D_001CBEA0[];
-extern short D_001CC0E0[][16];
-extern char D_001CBF60[][16];
+/* These parallel class-resource arrays form one block. The first base is paired through its
+   level loader; the later arrays do not each have a direct address-forming instruction there. */
+#define D_001CBEA0 ((int *)((char *)D_001CBE40 + 0x60))
+#define D_001CBF60 ((char (*)[16])((char *)D_001CBE40 + 0x120))
+#define D_001CC0E0 ((short (*)[16])((char *)D_001CBE40 + 0x2A0))
 extern unsigned char D_001CAE40[];
 extern GadgetRec_05270 D_001864D0[];
 extern unsigned char D_0013E620[];
