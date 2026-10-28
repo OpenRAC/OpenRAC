@@ -4,6 +4,7 @@
 // Fsr3 setup keeps optional SDK resources in enhanced Vulkan rendering and preserves HUD resolution.
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 #include "common/log.h"
 #include "enhanced/fsr3/fsr3_internal.h"
@@ -57,7 +58,7 @@ void Fsr3::set_scene(
 
 bool Fsr3::State::build_shaders(std::string& error) {
     // Retain compiled helper programs across resolution and quality changes.
-    if (camera_motion.id() && object_motion.id() && reactive_mask.id()) {
+    if (camera_motion.id() && object_motion.id() && reactive_mask.id() && late_world_depth.id()) {
         return true;
     }
 
@@ -72,6 +73,9 @@ bool Fsr3::State::build_shaders(std::string& error) {
            )
            && reactive_mask.build(
                "temporal reactive mask", shaders::fullscreen_vert, shaders::reactive_frag, error
+           )
+           && late_world_depth.build(
+               "late world depth", shaders::fullscreen_vert, shaders::late_world_depth_frag, error
            );
 }
 
@@ -181,6 +185,15 @@ void Fsr3::State::attach_frame(TemporalFrame frame, std::array<int, 2> size) {
     frame.input.on_resolve_world = [this](auto& target) {
         resolve(target);
     };
+    auto before_hud = std::move(frame.input.before_hud);
+    frame.input.before_hud = [this, before_hud = std::move(before_hud)] {
+        // The renderer clears the display depth immediately after temporal resolve.
+        // Reinstall world depth before the late packets and preserve the caller's hook.
+        restore_world_depth();
+        if (before_hud) {
+            before_hud();
+        }
+    };
 }
 
 bool Fsr3::begin(
@@ -234,6 +247,7 @@ void Fsr3::release() {
     state.camera_motion.release();
     state.object_motion.release();
     state.reactive_mask.release();
+    state.late_world_depth.release();
     glDeleteVertexArrays(1, &state.vao);
     glDeleteTextures(1, &state.previous_palette);
     state.vao = 0;

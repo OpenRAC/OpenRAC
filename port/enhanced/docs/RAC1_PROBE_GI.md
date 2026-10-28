@@ -21,10 +21,9 @@ but can change lighting when the camera crosses a surface's tangent plane.
 
 ## Offline bake
 
-Embree traces terrain, ties, shrubs and selected static mobys using textures,
-opacity, tint and shared runtime emission rules. Terrain vertex tint is kept
-by default. Animated liquid emission is averaged; directly sampled emission
-is not counted again on path hits.
+Embree traces terrain, ties, shrubs and selected static mobys with shared texture, opacity,
+tint and emission rules. Terrain vertex tint defaults on. Animated liquid emission is averaged;
+direct emission sampling is not counted again on path hits.
 
 Escaping rays default to 70% scaled skybox and 30% primary directional colour.
 Static lights and emissive surfaces add diffuse bounces; runtime direct light
@@ -43,14 +42,14 @@ ambiguous. Correcting triangle winding alone cannot resolve them.
 
 ## Probe data and sampling
 
-Probes store octahedral irradiance and distance-moment maps with filtering
-borders, plus relocation and validity. Format 3 uploads packed texture planes
-directly. Older formats and stale scene/settings hashes are rejected.
+Format 4, bake revision 3 stores bordered octahedral irradiance/distance-moment maps,
+relocation and validity as directly uploadable planes. Older formats or stale scene/settings
+hashes are rejected.
 
-Sampling biases the receiver along its normal and view direction, then blends
-eight neighbours using relocation, validity, position, surface direction and
-visibility. Distance variance is clamped nonnegative; a receiver-plane guard
-also limits leaks. Thin walls and sparse grids can still leak.
+Sampling applies normal/view bias and blends eight neighbours by relocation, validity,
+position, surface direction and visibility. Variance is nonnegative; sparse probes halve it
+beyond the mean blocker without reducing unobstructed fill. A receiver-plane guard limits
+leaks, but finite ray sampling can miss thin walls.
 
 Irradiance is stored and texture-filtered as E^(1/5), raised to 2.5, blended as
 sqrt(E), then squared back to E. Diffuse shading divides by pi once. CPU checks
@@ -58,23 +57,22 @@ use the same arithmetic.
 
 ## Sparse and dense volumes
 
-A sparse grid covers the level. Dense regions follow authored lighting volumes
+A sparse grid provides base coverage. Dense regions follow authored lighting volumes
 and whitelisted gameplay mobys, extending to nearby walls and ceilings. Large
 regions split with overlap; planning reports record coverage limits. Halving
 spacing on all axes costs about eight times as many probes.
 
-Vulkan selects up to two resident regions per fragment using screen tiles and
-depth. The CPU fallback uploads two camera-prioritised regions and fades changes.
-Regions calculate visibility separately before blending light. Missing support
-can use sparse GI; valid but blocked support stays dark. Boundary weights smooth
-transitions, and weak visibility fades to black instead of a bright patch.
+Vulkan chooses up to three regions per fragment using tiles/depth; the CPU fallback uploads
+three camera-prioritised regions with fades. Each region tests visibility before blending.
+Missing support can fall back to sparse GI; blocked or weak support stays/fades dark.
+Boundary weights and an outer apron keep intended interior coverage full strength, fading to
+sparse lighting outside it.
 
 ## Limits and troubleshooting
 
-Green coverage means the sampler has usable support; it does not prove accurate
-lighting or wall occlusion. Missing dense support may use sparse GI, but blocked
-support must stay dark. Increasing density alone cannot fix invalid placement,
-room/solid ambiguity or an incorrect visibility range.
+Green coverage shows usable support, not accurate lighting or occlusion. Sparse fallback
+cannot replace blocked light. More probes alone cannot fix invalid placement, room/solid
+ambiguity or the wrong visibility range.
 
 Dense regions need to cover receiver surfaces, walls, ceilings and motion paths.
 Enemy patrols and dynamic geometry can leave planned coverage. Check coverage

@@ -506,6 +506,91 @@ class FilesTests(TempDir):
         self.assertEqual(copied, [(name, name.encode()) for name in ("a.py", "deep/er/d.py", "sub/b.py", "sub/c.tsv")])
 
 
+class MoveTests(unittest.TestCase):
+    """Atomic moves tolerate only Windows locks, without hiding lasting failures."""
+
+    def locked(self, code):
+        error = PermissionError("locked")
+        error.winerror = code
+        return error
+
+    def test_transient_windows_locks_retry_the_same_operation(self):
+        for move, operation in ((files.rename, "rename"), (files.replace, "replace")):
+            for code in (5, 32, 33):
+                with self.subTest(move=operation, code=code):
+                    with mock.patch.object(files.os, operation, side_effect=[self.locked(code), None]) as call:
+                        with mock.patch.object(files.time, "sleep") as sleep:
+                            move("staged", "published")
+                    self.assertEqual(call.call_args_list, [mock.call("staged", "published")] * 2)
+                    sleep.assert_called_once_with(0.01)
+
+    def test_persistent_lock_has_a_bounded_retry_budget(self):
+        error = self.locked(32)
+        with mock.patch.object(files.os, "rename", side_effect=error) as call:
+            with mock.patch.object(files.time, "sleep") as sleep:
+                with self.assertRaises(PermissionError) as caught:
+                    files.rename("staged", "published")
+        self.assertIs(caught.exception, error)
+        self.assertEqual(call.call_count, 13)
+        self.assertAlmostEqual(sum(args[0][0] for args in sleep.call_args_list), 2.06)
+
+    def test_other_errors_are_reported_without_waiting(self):
+        errors = [PermissionError("POSIX permissions"), FileNotFoundError("missing"),
+                  FileExistsError("exists"), self.locked(17)]
+        for error in errors:
+            for operation in ("rename", "replace"):
+                with self.subTest(error=error, operation=operation):
+                    with mock.patch.object(files.os, operation, side_effect=error) as call:
+                        with mock.patch.object(files.time, "sleep") as sleep:
+                            with self.assertRaises(type(error)) as caught:
+                                getattr(files, operation)("staged", "published")
+                    self.assertIs(caught.exception, error)
+                    call.assert_called_once()
+                    sleep.assert_not_called()
+
+    @unittest.skipUnless(os.name == "nt", "Windows sharing modes")
+    def test_windows_reader_releases_a_directory_rename(self):
+        self.check_windows_reader(files.rename, directory=True)
+
+    @unittest.skipUnless(os.name == "nt", "Windows sharing modes")
+    def test_windows_reader_releases_a_file_replacement(self):
+        self.check_windows_reader(files.replace, directory=False)
+
+    @unittest.skipUnless(os.name == "nt", "Windows sharing modes")
+    def test_windows_persistent_reader_preserves_both_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source, dest = Path(temporary) / "staged", Path(temporary) / "published"
+            source.write_text("new")
+            dest.write_text("original")
+            with dest.open("rb") as reader:
+                with mock.patch.object(files.time, "sleep"):
+                    with self.assertRaises(PermissionError):
+                        files.replace(source, dest)
+                self.assertEqual(reader.read(), b"original")
+            self.assertEqual(source.read_text(), "new")
+            self.assertEqual(dest.read_text(), "original")
+
+    def check_windows_reader(self, move, directory):
+        """Python's Windows file reader holds a real handle without delete sharing."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, dest = root / "staged", root / "published"
+            if directory:
+                source.mkdir()
+                held = source / "contents.txt"
+            else:
+                source.write_text("new")
+                held = dest
+            held.write_text("original")
+            with held.open("rb") as reader:
+                with mock.patch.object(files.time, "sleep", side_effect=lambda _delay: reader.close()) as sleep:
+                    move(source, dest)
+            sleep.assert_called_once_with(0.01)
+            self.assertFalse(source.exists())
+            result = dest / "contents.txt" if directory else dest
+            self.assertEqual(result.read_text(), "original" if directory else "new")
+
+
 # ---- proc ----
 
 class ProcTests(TempDir):

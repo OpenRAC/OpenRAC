@@ -69,12 +69,122 @@ void doorway_visibility_range() {
     }
 }
 
+// Packed status distinguishes all validity/individual-relocation combinations without altering offsets.
+void test_individual_relocation_status_roundtrip() {
+    ProbeGrid grid;
+    grid.map_resolution = 2;
+    auto volume = ProbeVolume::allocate(grid);
+
+    // Four records cover valid/invalid and individually moved/shared-alignment-only combinations.
+    for (unsigned index = 0; index < 4; ++index) {
+        volume.probes[index].offset = {.25f, 0, 0};
+        volume.probes[index].valid = (index & 1) != 0;
+        volume.probes[index].relocated = (index & 2) != 0;
+    }
+
+    const auto bytes = encode_probes(volume);
+    const auto decoded = decode_probes(bytes);
+    const auto direct = decode_gpu_probes(bytes);
+
+    for (unsigned index = 0; index < 4; ++index) {
+        CHECK(decoded.probes[index].valid == volume.probes[index].valid);
+        CHECK(decoded.probes[index].relocated == volume.probes[index].relocated);
+        CHECK(decoded.probes[index].offset == volume.probes[index].offset);
+        CHECK(direct.probes[index].valid == volume.probes[index].valid);
+        CHECK(direct.probes[index].relocated == volume.probes[index].relocated);
+    }
+}
+
+// Surface gain scales direct and bounced irradiance without changing geometric visibility.
+void test_surface_emission_gain() {
+    BakeScene scene;
+    scene.environment = {};
+    scene.triangles = box({-5, -5, -5}, {5, 5, 5});
+
+    // Reflective walls make the second case exercise bounced surface emission as well.
+    for (auto& triangle : scene.triangles) {
+        triangle.diffuse = {.5f, .5f, .5f};
+    }
+
+    scene.triangles[2].emission = {2, 1, .5f};
+    scene.triangles[2].fixed_emission = true;
+    ProbeGrid grid;
+    grid.map_resolution = 2;
+    BakeSettings settings;
+    settings.rays_per_probe = 64;
+
+    // Zero bounces isolates direct emission; two adds diffuse reflected contributions.
+    for (const auto bounces : {0u, 2u}) {
+        settings.bounces = bounces;
+        settings.surface_emission_scale = 1;
+        const auto original = bake_probes(grid, scene, settings);
+        settings.surface_emission_scale = 4;
+        const auto boosted = bake_probes(grid, scene, settings);
+        CHECK(original.distance_moments == boosted.distance_moments);
+        float energy = 0;
+
+        for (std::size_t i = 0; i < original.irradiance.size(); ++i) {
+            for (unsigned c = 0; c < 3; ++c) {
+                energy += original.irradiance[i][c];
+                CHECK(std::abs(boosted.irradiance[i][c] - 4 * original.irradiance[i][c]) < .0001f);
+            }
+        }
+
+        CHECK(energy > 0);
+    }
+}
+
+// Local gains affect contained emissive sources while reused materials outside retain unit transport.
+void test_local_surface_emission_gain() {
+    BakeScene scene;
+    scene.environment = {};
+    scene.triangles = box({-5, -5, -5}, {5, 5, 5});
+    scene.triangles[2].emission = {2, 1, .5f};
+    ProbeGrid grid;
+    grid.map_resolution = 2;
+    BakeSettings settings;
+    settings.rays_per_probe = 64;
+    const auto original = bake_probes(grid, scene, settings);
+    settings.surface_emission_scale = 8;
+    const auto boosted = bake_probes(grid, scene, settings);
+    settings.surface_emission_scale = 1;
+    settings.surface_emission_regions.push_back({{-5, -5, 5}, {5, 5, 5}, 8});
+    equivalent(boosted, bake_probes(grid, scene, settings));
+    settings.surface_emission_regions[0].minimum[2] = 6;
+    settings.surface_emission_regions[0].maximum[2] = 7;
+    equivalent(original, bake_probes(grid, scene, settings));
+    // Partial source containment must not brighten the part outside the room.
+    settings.surface_emission_regions[0] = {{-4, -5, 5}, {5, 5, 5}, 8};
+    equivalent(original, bake_probes(grid, scene, settings));
+}
+
+// Surface gain leaves non-geometric lights and environment transport unchanged.
+void test_surface_gain_preserves_other_lights() {
+    BakeScene scene;
+    scene.environment = {.1f, .2f, .3f};
+    scene.triangles = box({-5, -5, -5}, {5, 5, 5});
+    ProbeGrid grid;
+    grid.map_resolution = 2;
+    BakeSettings settings;
+    settings.rays_per_probe = 64;
+    scene.point_emitters.push_back({{0, 0, 3}, {2, 1, .5f}});
+    scene.area_emitters.push_back({{0, 0, 4}, {1, 0, 0}, {0, -1, 0}, {1, 2, 3}});
+    settings.surface_emission_scale = 1;
+    const auto other_lights = bake_probes(grid, scene, settings);
+    settings.surface_emission_scale = 4;
+    equivalent(other_lights, bake_probes(grid, scene, settings));
+}
+
 }  // namespace
 
 // Run grid placement and format checks.
 int main() {
+    test_local_surface_emission_gain();
+    test_surface_emission_gain();
+    test_surface_gain_preserves_other_lights();
     relocation_limits();
     doorway_visibility_range();
+    test_individual_relocation_status_roundtrip();
     {
         BakeScene scene;
         BakeTriangle t{};
@@ -160,7 +270,7 @@ int main() {
     }
 
     const auto bounce = bake_probes(grid, scene, settings);
-    const auto indirect = sample_probes(bounce, {8, 8, 8}, {0, 0, -1});
+    const auto indirect = sample_local_probes(bounce, {8, 8, 8}, {0, 0, -1});
     CHECK(indirect.has_value());
 
     if (indirect) {
@@ -273,6 +383,7 @@ int main() {
     settings.relocation_iterations = 4;
     const auto relocated = bake_probes(grid, scene, settings);
     CHECK(relocated.probes[0].valid);
+    CHECK(relocated.probes[0].relocated);
     CHECK(relocated.position(0)[2] > 1);
     CHECK(relocated.position(0)[2] < grid.spacing[2] * settings.relocation_max_fraction);
     CHECK(encode_probes(relocated) == encode_probes(bake_probes(grid, scene, settings)));

@@ -1,0 +1,10 @@
+# clang-format requires LF, including on Windows checkouts.
+*.c text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.inc text eol=lf
+*.mm text eol=lf
+*.glsl text eol=lf
+*.comp text eol=lf
+*.vert text eol=lf
+*.frag text eol=lf

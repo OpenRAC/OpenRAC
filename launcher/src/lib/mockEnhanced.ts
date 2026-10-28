@@ -16,20 +16,24 @@ export const mockEnhanced: EnhancedView = {
     blocked: "",
     settings: [
       {
-        key: "probe_lighting",
-        name: "Probe lighting",
-        type: "bool",
-        default: true,
-        value: true,
-        description: "Light that bounces off the world.",
-      },
-      {
         key: "enhanced_shadows",
         name: "Modern shadows",
         type: "bool",
         default: true,
         value: true,
         description: "Sharp sun shadows, and Ratchet's own.",
+      },
+      {
+        key: "shadow_quality",
+        name: "Shadow quality",
+        type: "choice",
+        default: "high",
+        value: "high",
+        choices: [
+          { value: "medium", name: "Medium" },
+          { value: "high", name: "High" },
+        ],
+        description: "Medium uses smaller shadow textures. High keeps the sharpest shadows.",
       },
       {
         key: "gtao",

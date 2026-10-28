@@ -21,7 +21,7 @@ tools since P2-10; `editor/` and `sdk/tools/` move onto it in their own packages
 | `games` | `openrac`, `extractor`, `sources`, `xmap`, `permuter` (`source_checkout`); `fcheck_gate` (`source_checkout`); `versionmap` |
 | `tables` | `fcheck_gate`, `port`, `xmap`, `versions`, `permuter`; hostgen's `hostgen` and `no_c`, versionmap's `carry_functions` |
 | `digest` | `openrac`, `extractor`, `shared`, `build_port`, `build_android`, `fcheck_gate`; the probe tools' `bake_all` and `seed_regions` |
-| `files` | `openrac` (`place_link`), `extractor`, `bundle_standalone` |
+| `files` | `openrac` (`place_link`), `extractor`, `bundle_standalone`; the editor's asset exports, mod packs and level publication; probe planning and bake publication |
 | `proc` | every `git` call in `tools/` (`permuter` fetching decomp-permuter included); `build_android`'s and `bundle_standalone`'s commands |
 | `iso9660` | `openrac`, `extractor` |
 | `background` | `build_port` (below-normal priority, Ninja's job count); the probe tools' `bake_all` (priority, the threads its levels share) |
@@ -39,7 +39,7 @@ inside rac1-decomp's container, from rac1-decomp's root, where neither OpenRAC n
 | `games` | `load(game)`, `load_all()`, `versions()`, `games_dir()`, `manifest_path(game)`, `version_dir(game, name)`: `games/<game>/game.json`; `source_checkout(game_id, version_name)`, `source_variable(game_id, version_name)`: where a version's sister project is checked out |
 | `tables` | `read_tsv(path, columns=None, strip=False, required=False)`, `header(path)`, `is_data(line)`, `split_row(line)`: the `.tsv` tables and their comment and header conventions |
 | `digest` | `sha1(path)`, `sha256(path)`, `file_digest(path, algorithm)`: hex digests read in 1 MiB blocks |
-| `files` | `link_or_copy(source, dest, keep_metadata=True)`, `copy_tree(source, dest, keep)` |
+| `files` | `link_or_copy(source, dest, keep_metadata=True)`, `copy_tree(source, dest, keep)`, `rename(source, dest)`, `replace(source, dest)` |
 | `proc` | `run(cmd, cwd, env, echo, check, capture)`, `git(repo, *args, check, binary)`: no shell, ever |
 | `iso9660` | `boot_serial(image)`, `parse_boot2(text)`, `files(image)`, `read(image, path)`, `find(f, path)`, `walk`, `records`, `root_directory`, `IsoError` |
 
@@ -69,6 +69,10 @@ still wins when set.
 
 Every function takes a `pathlib.Path` or a string for a path. The functions that read the repository
 (`games.*`) take an optional `root`, so a test can point them at a synthetic tree.
+
+`files.rename`/`files.replace` preserve `os.rename`/`os.replace` destination rules. Export, mod-pack
+and probe publication retries Windows access/sharing/lock errors for up to 2.06 seconds.
+Other errors fail immediately; persistent locks fail without copying or changing permissions.
 
 ### Using it
 

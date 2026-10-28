@@ -18,6 +18,7 @@
 //
 // Counters are always on (an add each). Sections, gauges and the frame history only work while
 // enabled() (the overlay is shown or a dump is open); otherwise each costs one test of a bool.
+// Optional Tracy scopes record independently of these clients and their frame ownership.
 // Frame history, counters and section stacks have one owner at a time. The game thread begins a
 // frame, transfers measurement ownership with its render job, and drains that job before reading
 // or closing the frame. Game timing fields remain game-thread-only; probe registration is locked.
@@ -31,6 +32,8 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+
+#include "common/profiler.h"
 
 namespace openrac::stats {
 
@@ -93,7 +96,15 @@ struct Section {
 // Times from its construction to its destruction, in the frame that is open. Sections nest.
 class Scope {
 public:
-    explicit Scope(std::string_view name, unsigned flags = 0) {
+    explicit Scope(
+        std::string_view name,
+        unsigned flags = 0,
+        [[maybe_unused]] std::source_location location = std::source_location::current()
+    )
+#ifdef OPENRAC_TRACY
+        : m_trace(name, (flags & kGpu) != 0, location)
+#endif
+    {
         if (g_enabled) {
             begin(name, flags);
         }
@@ -112,6 +123,9 @@ private:
     void begin(std::string_view name, unsigned flags);
     void end();
 
+#ifdef OPENRAC_TRACY
+    profiling::Zone m_trace;
+#endif
     int m_index = -1;
     bool m_gpu = false;
     std::uint64_t m_serial = 0;

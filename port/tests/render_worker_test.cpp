@@ -14,34 +14,47 @@
 #include <vector>
 
 #include "game/common/frontend/render_worker.h"
+#include "renderer/direct.h"
 #include "tests/check.h"
 
 namespace {
 using openrac::frontend::RenderWorker;
 
-// Producer mutations cannot change the owned snapshot a running job observes.
+// Producer mutations cannot change an in-flight snapshot or its thread-local draw diagnostics.
 void test_owned_snapshot_and_completion() {
     RenderWorker worker;
     std::vector<int> source{7, 11};
     std::vector<int> observed;
+    bool observed_dump = false;
+    openrac::renderer::g_dump_draws = true;
     std::latch entered(1);
     std::latch release(1);
     std::string error;
     CHECK(worker.submit(
-        [owned = source, &observed, &entered, &release] {
+        [owned = source,
+         dump = openrac::renderer::g_dump_draws,
+         &observed,
+         &observed_dump,
+         &entered,
+         &release] {
+            openrac::renderer::g_dump_draws = dump;
             entered.count_down();
             release.wait();
             observed = owned;
+            observed_dump = openrac::renderer::g_dump_draws;
         },
         error
     ));
     entered.wait();
     source.assign(2, 99);
+    openrac::renderer::g_dump_draws = false;
     // The expired deadline is a nonblocking readiness check while the job is held by a latch.
     CHECK(!worker.ready_until(std::chrono::steady_clock::time_point::min()));
     release.count_down();
     CHECK(worker.finish(error));
     CHECK((observed == std::vector<int>{7, 11}));
+    CHECK(observed_dump);
+    CHECK(!openrac::renderer::g_dump_draws);
     CHECK(worker.ready_until(std::chrono::steady_clock::time_point::min()));
 }
 

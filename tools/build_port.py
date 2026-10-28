@@ -614,6 +614,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--probe-baker", action="store_true",
                         help="also build openrac-probe-bake, the enhanced lighting's baker, with a pinned Embree "
                              "built from source (kept for later builds; left out with a warning if it fails)")
+    parser.add_argument("--tracy", action="store_true", help="build optional Tracy CPU and Vulkan GPU profiling")
+    parser.add_argument("--tracy-system", action="store_true", help="enable Tracy system tracing (implies --tracy)")
+    parser.add_argument("--tracy-sampling", action="store_true", help="enable Tracy sampling (implies system tracing)")
     parser.add_argument("--clean", action="store_true",
                         help="delete the build folder first and build everything again (its --source and --disc kept)")
     args = parser.parse_args(argv)
@@ -664,6 +667,11 @@ def main(argv: list[str] | None = None) -> int:
         defines, baker = probe_baker(str(cmake), env, compilers, cache)
         more += baker
         kept.pop("OPENRAC_PROBE_BAKER", None)
+    defines.update({
+        "OPENRAC_TRACY": "ON" if args.tracy or args.tracy_system or args.tracy_sampling else "OFF",
+        "OPENRAC_TRACY_SYSTEM": "ON" if args.tracy_system or args.tracy_sampling else "OFF",
+        "OPENRAC_TRACY_SAMPLING": "ON" if args.tracy_sampling else "OFF",
+    })
     for command in commands(str(cmake), args.preset, build, names, source, cache, compilers, python, more,
                             disc, kept, defines):
         say("> " + " ".join(f'"{part}"' if " " in part else part for part in command))

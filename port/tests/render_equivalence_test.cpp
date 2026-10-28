@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
+// --opt registry-name limits the registry comparisons to one optimisation.
+//
 // Tests that the render optimisations change no pixel (ctest render_equivalence_vulkan): for
 // each scenario of render_fixture.h (the camera walking, the camera still with the mobys moving,
 // pictures between ticks, the level uploaded again halfway, mobys entering and leaving at ticks,
@@ -24,10 +26,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "common/env.h"
+#include "common/stats.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
@@ -80,6 +84,10 @@ Frames draw_run(
     const auto aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
     const double ticks = static_cast<double>(kFrames) / static_cast<double>(scenario.between + 1);
     Frames frames;
+    const bool check_scroll = enhanced && openrac::env::flag(openrac::env::Var::ScrollingShadows);
+    if (check_scroll) {
+        openrac::stats::set_enabled(openrac::stats::Client::Dump, true);
+    }
 
     // Each picture of the run, drawn, shown and read back.
     for (std::uint64_t index = 0; index < kFrames; ++index) {
@@ -97,9 +105,64 @@ Frames draw_run(
             mobys = render::churned(std::move(mobys), shown.tick);
         }
 
-        scene.draw(render::camera_at(walk, scenario.camera, tick, ticks, aspect), mobys, index);
+        if (check_scroll) {
+            openrac::stats::begin_frame(openrac::stats::FrameKind::Tick, index);
+        }
+        const auto shadow_quality = index >= 2 && index < 6
+                                        ? openrac::renderer::ShadowQuality::Medium
+                                        : openrac::renderer::ShadowQuality::High;
+        scene.draw(
+            render::camera_at(walk, scenario.camera, tick, ticks, aspect),
+            mobys,
+            index,
+            shadow_quality
+        );
         frames.push_back(scene.read_rgba());
         openrac::vkgl::present();
+        if (check_scroll) {
+            openrac::stats::begin_frame(openrac::stats::FrameKind::Tick, index);
+            const auto* measured = openrac::stats::history(0);
+            CHECK(measured != nullptr);
+            if (measured) {
+                const auto active = std::find_if(
+                    measured->gauges.begin(), measured->gauges.end(), [](const auto& gauge) {
+                        return gauge.first == "shadow scroll active";
+                    }
+                );
+                const auto atlas = std::find_if(
+                    measured->gauges.begin(), measured->gauges.end(), [](const auto& gauge) {
+                        return gauge.first == "shadow atlas";
+                    }
+                );
+                CHECK(atlas != measured->gauges.end());
+                for (const auto& gauge : measured->gauges) {
+                    const int divisor =
+                        openrac::renderer::shadow_resolution_divisor(shadow_quality);
+                    if (gauge.first == "shadow atlas size") {
+                        CHECK(gauge.second == 3072 / divisor);
+                    } else if (gauge.first == "sun shadow near size") {
+                        CHECK(gauge.second == 2048 / divisor);
+                    } else if (gauge.first == "hero shadow size") {
+                        CHECK(gauge.second == 512 / divisor);
+                    }
+                }
+                // The separate-target/CPU fallback deliberately bypasses the experiment.
+                if (atlas != measured->gauges.end() && atlas->second == 1) {
+                    CHECK(active != measured->gauges.end() && active->second == 1);
+                    const auto cascades = std::find_if(
+                        measured->gauges.begin(), measured->gauges.end(), [](const auto& gauge) {
+                            return gauge.first == "shadow scroll active cascades";
+                        }
+                    );
+                    CHECK(cascades != measured->gauges.end() && cascades->second == 4);
+                } else {
+                    CHECK(active == measured->gauges.end() || active->second == 0);
+                }
+            }
+        }
+    }
+    if (check_scroll) {
+        openrac::stats::set_enabled(openrac::stats::Client::Dump, false);
     }
 
     return frames;
@@ -290,7 +353,15 @@ void use_enhanced(bool on) {
 
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    const render_opt::Entry* selected = nullptr;
+    if (argc != 1) {
+        if (argc != 3 || std::string_view(argv[1]) != "--opt"
+            || !(selected = render_opt::find(argv[2]))) {
+            std::fprintf(stderr, "usage: render_equivalence_test [--opt registry-name]\n");
+            return 1;
+        }
+    }
     openrac::test::GlContext context;
     std::string error;
 
@@ -339,6 +410,9 @@ int main() {
         for (const render::Scenario& scenario : render::kScenarios) {
             // Each entry of the registry.
             for (const render_opt::Entry& entry : render_opt::entries()) {
+                if (selected && entry.opt != selected->opt) {
+                    continue;
+                }
                 test_an_entry_changes_no_frame(level, size, scenario, enhanced, entry);
             }
 

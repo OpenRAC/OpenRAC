@@ -77,6 +77,7 @@ add_library(openrac_common STATIC
   common/log.cpp
   common/parallel.cpp
   common/perf_capture.cpp
+  common/profiler.cpp
   common/process.cpp
   common/ps2_float.cpp
   common/sampler.cpp
@@ -88,6 +89,7 @@ add_library(openrac_common STATIC
 )
 add_dependencies(openrac_common openrac_build_info)
 target_include_directories(openrac_common PUBLIC .)
+include(Tracy)
 if(OPENRAC_GPU_MARKERS)
   target_compile_definitions(openrac_common PRIVATE OPENRAC_GPU_MARKERS=1)
 endif()
@@ -256,6 +258,8 @@ include(ProbeBake)
 
 openrac_add_c_test(joint_matrices NO_STRICT_ALIASING)
 openrac_add_c_test(particle_allocate)
+openrac_add_c_test(classic_ripple NO_STRICT_ALIASING NO_FP_CONTRACT MATH
+  SOURCES tests/classic_ripple_test.c game/rac1-ntsc/hand/functional/FUN_L01_00262038.c)
 openrac_add_c_test(hero_animation NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(hero_effects NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(hero_items NO_STRICT_ALIASING NO_FP_CONTRACT)

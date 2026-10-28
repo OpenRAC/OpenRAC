@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// Exported probe transport and conversion statistics; allocation and identity have separate headers.
+
 #pragma once
+#include <array>
 #include <stdexcept>
 
 #include "enhanced/lighting/bake.h"
@@ -12,6 +17,7 @@ namespace openrac::lighting {
 struct NothingToBake : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
+
 inline constexpr int kNothingToBake = 3;
 
 struct BakeSceneExport {
@@ -39,25 +45,4 @@ BakeSceneExport export_probe_scene(
     Float3 environment,
     bool analyze_liquids = true
 );
-// Visibility moments cover 1.5 cell diagonals; transport and occupancy trace
-// the full scene. Scene bounds determine allocation, not the visibility range.
-ProbeGrid sparse_probe_grid(const BakeSceneExport& scene, float spacing, unsigned resolution);
-ProbeGrid sparse_probe_grid(const BakeSceneExport& scene, Float3 spacing, unsigned resolution);
-// Cell-aligned local bounds; transport still uses the entire exported scene.
-ProbeGrid bounded_probe_grid(
-    const BakeSceneExport& scene, Float3 minimum, Float3 maximum, float spacing, unsigned resolution
-);
-ProbeGrid bounded_probe_grid(
-    const BakeSceneExport& scene,
-    Float3 minimum,
-    Float3 maximum,
-    Float3 spacing,
-    unsigned resolution
-);
-std::uint64_t probe_bake_settings_hash(const ProbeGrid& grid, const BakeSettings& settings);
-
-// Fingerprint canonical source files before loading and after a persistent batch.
-// This guards preparation against concurrent edits without rebuilding transport geometry.
-std::uint64_t probe_input_hash(const std::filesystem::path& directory);
-
 }  // namespace openrac::lighting

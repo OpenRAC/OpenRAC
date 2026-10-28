@@ -5,12 +5,30 @@ if(OPENRAC_PROBE_BAKER)
   find_package(embree 4 CONFIG REQUIRED)
   find_package(Threads REQUIRED)
   add_library(openrac_probe_bake STATIC
-    enhanced/lighting/bake.cpp enhanced/lighting/bake_integration.cpp
+    enhanced/lighting/bake.cpp enhanced/lighting/bake_alignment.cpp enhanced/lighting/bake_integration.cpp
     enhanced/lighting/bake_material.cpp enhanced/lighting/bake_scene.cpp
-    enhanced/lighting/bake_transport.cpp)
-  target_link_libraries(openrac_probe_bake PUBLIC openrac_lighting PRIVATE embree Threads::Threads)
+    enhanced/lighting/bake_transport.cpp enhanced/lighting/interior_lights.cpp)
+  target_link_libraries(openrac_probe_bake PUBLIC openrac_lighting PRIVATE openrac_common embree Threads::Threads)
   openrac_warnings(openrac_probe_bake)
+  add_library(openrac_interior_inference STATIC enhanced/lighting/interiors.cpp
+    enhanced/lighting/interior_labels.cpp)
+  target_include_directories(openrac_interior_inference PUBLIC .)
+  target_link_libraries(openrac_interior_inference PRIVATE embree)
+  openrac_warnings(openrac_interior_inference)
+  add_executable(openrac-interior-infer enhanced/tools/probes/interior_main.cpp)
+  target_link_libraries(openrac-interior-infer PRIVATE openrac_interior_inference openrac_common)
+  openrac_warnings(openrac-interior-infer)
+  if(ANDROID)
+    set_target_properties(openrac-interior-infer PROPERTIES OUTPUT_NAME "libopenrac-interior-infer.so"
+                                                          BUILD_RPATH "\$ORIGIN")
+  endif()
+  openrac_add_test(interior_inference SOURCES enhanced/tests/interior_inference_test.cpp
+                  LIBS openrac_interior_inference)
+  openrac_add_test(interior_lights SOURCES enhanced/tests/interior_lights_test.cpp
+                  LIBS openrac_probe_bake embree)
   openrac_add_test(probe_bake SOURCES enhanced/tests/probe_bake_test.cpp LIBS openrac_probe_bake)
+  openrac_add_test(probe_alignment SOURCES enhanced/tests/probe_alignment_test.cpp
+                  LIBS openrac_probe_bake embree)
   openrac_add_test(probe_visibility SOURCES enhanced/tests/probe_visibility_test.cpp LIBS openrac_probe_bake)
   openrac_add_test(probe_lighting SOURCES enhanced/tests/probe_lighting_test.cpp LIBS openrac_probe_bake)
   openrac_add_test(probe_bake_parallel SOURCES enhanced/tests/probe_bake_parallel_test.cpp
@@ -19,8 +37,8 @@ if(OPENRAC_PROBE_BAKER)
                    LIBS openrac_probe_bake)
   if(WIN32)
     # The official binary package keeps Embree and its TBB DLLs together.
-    set_tests_properties(probe_bake probe_bake_parallel probe_integration
-      probe_visibility probe_lighting PROPERTIES
+    set_tests_properties(probe_bake probe_alignment probe_bake_parallel probe_integration
+      probe_visibility probe_lighting interior_inference interior_lights PROPERTIES
       ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:embree>")
   endif()
 endif()

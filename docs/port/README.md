@@ -62,3 +62,5 @@ The code is in [port/](../../port/README.md).
 | [VU_PROGRAMS.md](VU_PROGRAMS.md) | The games' vector unit programs by name, and which the games share |
 | [OPENGOAL_NOTES.md](OPENGOAL_NOTES.md) | How OpenGOAL's renderer and platform layer work, and what carries over |
 | [tools/extractor.py](../../tools/extractor.py) | The disc extractor (OpenGOAL's `extractor`, for OpenRAC) |
+
+[Tracy profiling](PROFILING.md): optional game/native-baker CPU and Vulkan GPU captures.

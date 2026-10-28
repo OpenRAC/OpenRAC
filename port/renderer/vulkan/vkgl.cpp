@@ -17,6 +17,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <limits>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -84,6 +85,7 @@ bool open(const Config& config, std::string& error) {
         if (config.window != nullptr) {
             SDL_GetWindowSizeInPixels(config.window, &w, &h);
         }
+        tracy_gpu_open();
         begin_buffers();
         ok = make_dummies() && make_default_framebuffer(std::max(w, 1), std::max(h, 1));
         if (!ok) {
@@ -181,6 +183,35 @@ renderer::GpuInstanceBatch gpu_instances(
 
 bool draw_gpu_instances(renderer::GpuInstanceBatch batch, unsigned first, unsigned count) {
     return active() && gpu_submit_draw(batch, first, count);
+}
+
+bool draw_indexed_indirect(unsigned arguments, unsigned index_count) {
+    // Commands must reside in GPU storage, and the pipeline setup needs a representable index count.
+    if (!active() || index_count == 0
+        || index_count > static_cast<unsigned>(std::numeric_limits<gl::GLsizei>::max())) {
+        return false;
+    }
+
+    const auto* buffer = g->buffers.find(arguments);
+
+    // The command contains five uint32 words, written by compute before this call.
+    if (!buffer || !buffer->storage || buffer->size < sizeof(VkDrawIndexedIndirectCommand)) {
+        return false;
+    }
+
+    draw(
+        gl::GL_TRIANGLES,
+        static_cast<gl::GLsizei>(index_count),
+        1,
+        true,
+        gl::GL_UNSIGNED_INT,
+        0,
+        0,
+        nullptr,
+        0,
+        arguments
+    );
+    return true;
 }
 
 bool gpu_register_instances(unsigned source, std::span<const renderer::GpuCullBounds> bounds) {

@@ -17,6 +17,7 @@
 #include <string_view>
 
 #include "game/rac1/game_state.h"
+#include "game/rac1/gameplay_lighting.h"
 #include "renderer/math.h"
 
 namespace openrac::game::rac1 {
@@ -78,6 +79,8 @@ public:
     std::uint32_t hero_state() const override { return m_executable.hero_state; }
 
     bool has_levels() const override { return true; }
+
+    bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
 
 private:
     // Returns the table of the program loaded: a level's, or the boot program's when `level` is

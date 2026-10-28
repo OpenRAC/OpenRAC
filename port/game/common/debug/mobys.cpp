@@ -27,7 +27,10 @@ void mobys_section() {
     ImGui::SliderFloat("radius", &s.radius, 2.0f, 200.0f, "%.0f");
     ImGui::Checkbox("labels in the picture", &s.labels);
     ImGui::SameLine();
-    ImGui::Checkbox("click picks", &s.pick);
+    bool click_picks = picker_enabled();
+    if (ImGui::Checkbox("click picks (mobys, ties, terrain)", &click_picks)) {
+        set_picker_enabled(click_picks);
+    }
 
     struct Row {
         const host::LiveMoby* moby;

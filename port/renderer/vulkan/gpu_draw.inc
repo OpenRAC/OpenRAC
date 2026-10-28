@@ -464,6 +464,7 @@ renderer::GpuInstanceBatch gpu_make_batch(
     if (!gpu_driven_active() || bounds.empty()) {
         return {};
     }
+    prepare_frame();
     auto* source = g->buffers.find(buffer);
     const auto count = static_cast<unsigned>(bounds.size());
     if (!source || count > kGpuPageInstances || source->data.size() != bounds.size() * 120) {
@@ -583,6 +584,7 @@ void gpu_release_resident() {
 }
 
 bool gpu_submit_draw(renderer::GpuInstanceBatch batch, unsigned first, unsigned count) {
+    prepare_frame();
     if (!batch || batch.recording != g->recording || batch.page >= frame().gpu.used) {
         return false;
     }

@@ -10,19 +10,43 @@
 #include <memory>
 #include <utility>
 
+#include "renderer/gl.h"
 #include "scene/level_renderer.h"
 
 namespace openrac::lighting {
 
+namespace {
+std::string wetness_shader(std::string source) {
+    if (gl::is_vulkan() && gl::enhanced_rendering_available()) {
+        source.replace(0, source.find('\n'), "#version 430 core");
+        source.insert(source.find('\n') + 1, "#define OPENRAC_HERO_WETNESS 1\n");
+    }
+    return source;
+}
+}  // namespace
+
+std::string SceneLighting::mesh_vertex(std::string source) const {
+    return wetness_shader(std::move(source));
+}
 std::string SceneLighting::mesh_fragment(std::string source) const {
-    return probe_mesh_fragment(std::move(source));
+    return wetness_shader(probe_mesh_fragment(std::move(source)));
+}
+
+void SceneLighting::prepare_wetness(
+    const renderer::FrameInput& input, unsigned palette, const std::optional<scene::Instance>& hero
+) {
+    m_wetness.prepare(input, palette, hero);
+}
+
+void SceneLighting::bind_wetness(const renderer::Shader& shader) const {
+    m_wetness.bind(shader);
 }
 
 std::string SceneLighting::early_fragment(std::string source) const {
-    return probe_early_fragment(std::move(source));
+    return wetness_shader(probe_early_fragment(std::move(source)));
 }
 
-// Keeps the level renderer's direct-light and shadow direction aligned with the bake profile.
+// Keeps the level renderer's direct-light and shadow direction aligned.
 renderer::Vec3 SceneLighting::sunlight_direction(renderer::Vec3 authored) const {
     return m_probes.sunlight_direction(authored);
 }
@@ -33,11 +57,17 @@ bool SceneLighting::early_supported() const {
 
 void SceneLighting::load(const scene::LevelData& level) {
     m_probes.load(level);
+    m_wetness.load(level);
 }
 
 void SceneLighting::release() {
+    m_wetness.release();
     m_probes.release();
     m_early_lighting.release();
+}
+
+std::string_view SceneLighting::load_error() const {
+    return m_probes.load_error();
 }
 
 bool SceneLighting::has_data() const {
@@ -61,6 +91,10 @@ void SceneLighting::set_lighting(bool enabled, float multiplier) {
     m_probes.gi_multiplier = multiplier;
 }
 
+void SceneLighting::set_sunlight_direction(std::optional<renderer::Vec3> direction) {
+    m_probes.runtime_sunlight_direction = direction;
+}
+
 void SceneLighting::set_bias(float normal, float view) {
     m_probes.normal_bias = normal;
     m_probes.view_bias = view;
@@ -68,6 +102,10 @@ void SceneLighting::set_bias(float normal, float view) {
 
 void SceneLighting::set_spheres(bool shown) {
     m_probes.show_spheres = shown || m_probes.environment_spheres;
+}
+
+void SceneLighting::set_area_lights(bool shown) {
+    m_probes.show_area_lights = shown;
 }
 
 bool SceneLighting::compute_selection() const {
@@ -85,8 +123,12 @@ void SceneLighting::update_regions(const renderer::Camera& camera, float seconds
     m_probes.update_regions(camera.position, seconds, &clip);
 }
 
-void SceneLighting::draw_spheres(const renderer::FrameInput& input, renderer::RenderState& state) {
-    m_probes.draw_spheres(input, state);
+void SceneLighting::draw_spheres(
+    const renderer::FrameInput& input,
+    renderer::RenderState& state,
+    std::optional<renderer::Vec3> player
+) {
+    m_probes.draw_spheres(input, state, player);
 }
 
 void SceneLighting::bind(

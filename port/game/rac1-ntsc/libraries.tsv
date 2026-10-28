@@ -997,3 +997,11 @@ FUN_L18_002fbb98	moby	Moby_Gadgebot1906_Update	hook	The update of class gadgebot
 # ---- end of the generated hook points ----
 FUN_L00_002995d0	mpeg	prepare_movie_playback	wrap	a movie in a level: the RAM the console's decoder needs is parked in the GS's memory, which the port's player has no use for; run with the image transfers off (rac1/host/movie.c); PAL func_L00_0029A940	void (int, int, int)
 FUN_L00_002997c8	mpeg	unpark_movie_memory	wrap	after a movie in a level: the parked RAM read back; run with the image transfers off (rac1/host/movie.c); PAL func_L00_0029AB38	void (void)
+FUN_L01_002fd0c0	render	NovalisWater_002fd0c0	wrap	Tag authored Novalis water for optional enhanced materials	void(void)
+FUN_L01_002f60f8	render	NovalisWater_002f60f8	wrap	Tag authored Novalis water for optional enhanced materials	void(void)
+FUN_L01_002f6150	render	NovalisWater_002f6150	wrap	Tag authored Novalis water for optional enhanced materials	void(void)
+FUN_L01_002feb28	render	NovalisWater_002feb28	wrap	Tag authored Novalis water for optional enhanced materials	void(void)
+FUN_L01_002b7fe0	render	NovalisPoolStep	wrap	Bypass original pool displacement when enhanced water is active	void(gaddr,int)
+FUN_L00_002a3ec8	render	NovalisPoolImpulse	wrap	Bypass original Novalis pool impulses when enhanced water is active	void(gaddr,int,int,float,float,float,float)
+FUN_L01_00262618	render	NovalisWaterVertices	wrap	Use static rest heights instead of original scrolling-water displacement	void(gaddr)
+FUN_L01_00309bf8	render	NovalisCaveWater_00309bf8	wrap	Tag the three cave water surfaces for enhanced materials	void(void)

@@ -46,6 +46,13 @@
 #include "settings.h"
 #endif
 
+#ifndef OPENRAC_FRONTEND
+// A headless game has no enhanced simulation to replace the original water.
+int openrac_game_enhanced_water(void) {
+    return 0;
+}
+#endif
+
 namespace openrac::program {
 namespace {
 

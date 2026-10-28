@@ -51,6 +51,8 @@ before and after, and how its frames are shown to be the same.
 | `attachment-discard` | on | none (exact) | A Vulkan pass neither stores an attachment `glInvalidateFramebuffer` let go nor has the next pass load it ([R-06](#r-06-attachments-a-pass-does-not-keep)). |
 | `gpu-resident-instances` | on | none (exact) | Static instances are registered in device memory at the level's upload; a view's GPU-driven batch of them sends only its planes, PVS and a group record ([R-15](#r-15-static-instances-resident-on-the-gpu)). |
 | `shadow-static-cache` | off | none (exact) | A sun cascade's static casters are kept in a cache target and copied into the shadow atlas while the cascade's key is unchanged; only the mobys are drawn over them. Off: the copy costs more GPU time than it saves on both measured machines ([R-18](#r-18-a-static-shadow-cache-shipped-off)). |
+| `shadow-draw-cache` | on | none (exact) | Static shadow index ranges and material classification are prepared at level upload. Visibility, instance selection and cascade matrices remain live; mobys retain the original path. |
+| `shadow-scroll-reuse` | on, experiment only | none (exact) | Reuse static cascade texels; disabling it redraws under the same fixed projection. |
 | `present-single-copy` | on | none (exact) | The frontend's blit of the picture into the window waits and becomes one blit into the screen, where nothing else touches the window first ([R-07](#r-07-one-copy-to-the-screen)). |
 | `vk-tight-sync` | on | none (exact) | Vulkan barriers name the stages and accesses they order, and only the copy to the screen waits for the swapchain image ([R-08](#r-08-barriers-that-name-their-stages)). |
 | `pipeline-prewarm` | on | none (exact) | The pipelines earlier runs made are made again on a worker thread once their program links, from a manifest beside the pipeline cache ([R-10](#r-10-pipelines-made-ahead-on-a-worker)). |
@@ -148,7 +150,7 @@ The sections, by where they are taken:
 | `Renderer::render` (`renderer/renderer.cpp`) | `frame clear`, `world depth prepass`, `probe coverage selection`, `world opaque colour`, one per bucket renderer (its name), `texture retire` | the prepass, selection and opaque colour, and each renderer that does not time itself; `frame clear` and `texture retire` are CPU work |
 | GTAO (`enhanced/renderer/gtao.cpp`) | `gtao`, `GTAO depth copy`, `GTAO horizons`, `GTAO filter` | yes, but `gtao` |
 | Early lighting (`enhanced/viewer/early_lighting.cpp`) | `early GI and cascades` | yes |
-| `LevelScene` (`scene/level_renderer.cpp`) | `shadow atlas`, `sun0 map` to `sun3 map`, `Ratchet shadow`, `shadow clear`, `sky colour`, one per layer | yes, as `OPENRAC_SUN_TIMING_DETAIL` chooses for the cascades |
+| `LevelScene` (`scene/level_*`, `scene/shadow_*`) | `shadow atlas`, `sun0 map` to `sun3 map`, `Ratchet shadow`, `shadow clear`, `sky colour`, one per layer | yes, as `OPENRAC_SUN_TIMING_DETAIL` chooses for the cascades |
 | The GPU-driven culling (`renderer/vulkan/gpu_draw.inc`) | `GPU instance visibility` | yes |
 | The Vulkan present (`renderer/vulkan/vkgl_present.cpp`) | `vulkan present` (acquire, the copy to the screen, submit, present), `vulkan frame wait` (the fence of the frame two back) | no |
 
@@ -1007,10 +1009,9 @@ the Mac and `D24_UNORM_S8_UINT` on box1, one image for depth and stencil:
 | | depth, stencil (4 samples) | cleared | nobody: now not stored |
 
 GTAO's passes and early lighting are compute dispatches and copies, not render passes, so they
-have no attachments here. The present copy reads the frame's colour (R-07). The one call the
-renderer makes is the end of the frame's: the other dead attachments above are in the scene's
-files (the shadow atlas, `scene/level_renderer.cpp`), which another lane owns, and
-[PROGRESS.md](../restructure/PROGRESS.md) lists them as follow-ups with their bytes.
+have no attachments here. The present copy reads the frame's colour (R-07).
+The scene renderer owns world and shadow attachments; see its
+[module guide](../../port/scene/README.md#renderer-implementation).
 
 **The counters.** `openrac_render_bench --warmup 3 --frames 10`, the registry entry off and on,
 per measured frame, the same in all five runs (the counts are the same on both machines; the bytes
@@ -1070,7 +1071,7 @@ store operations and the GPU's external write bandwidth.
 ## R-15: static instances resident on the GPU
 
 **What changed** (`renderer/vulkan/gpu_draw.inc`, `vkgl.h`, `vkgl.cpp`, `vkgl_internal.h`,
-`scene/level_renderer.cpp`):
+`scene/level_instances.cpp`):
 
 - `gpu-resident-instances`. For every group of terrain, ties and shrubs and every view (the camera,
   its PVS pass, each shadow view), `gpu_make_batch` copied each instance's 120 bytes of data and 32
@@ -1217,6 +1218,54 @@ OPENRAC_GL_API=vulkan port/build/release/openrac_render_bench --enhanced on --sc
 OPENRAC_GL_API=vulkan port/build/release/openrac_render_bench --enhanced on --scenario walk --frames 60 --warmup 10
 # the "off" rows: the same with --opt-off shadow-static-cache
 ```
+## Prepared static shadow draws
+
+`shadow-draw-cache` prepares static shadow ranges at level upload, merging adjacent opaque ranges
+and keeping material references for cutouts/partial opacity. Two variants preserve solid-depth
+vertex-alpha/tint requirements; reloads rebuild them. Visibility, instances, cascade matrices
+and dynamic mobys remain live. This cache owns no GPU resources/images; `shadow-static-cache`
+remains off.
+
+`OPENRAC_RENDER_OPT_OFF=shadow-draw-cache` restores original classification.
+`render_equivalence_test --opt shadow-draw-cache` requires identical pixels through camera motion,
+reloads and interpolated pictures.
+
+## Scrolling static shadows (experimental)
+
+`OPENRAC_SCROLLING_SHADOWS=1` enables independent Vulkan toroidal caches for all four sun cascades.
+Opaque terrain/ties/shrubs retain static depth; camera movement updates exposed strips, split at
+wrap seams. Cutouts and moving/skinned objects redraw in the atlas. Compute unwraps static depth
+and combines reversed depth with each dynamic rectangle into R32F. Ratchet retains its special
+shadow; allocation/composition failures fall back per cascade. This is off by default.
+
+Projection scale/depth stay fixed during reuse. Sun, geometry or required extent changes refresh
+each cache; moves beyond map width redraw it fully. Cached projections can sample differently
+from the ordinary atlas. A hold interval up to one texel, limited by coverage margin, prevents jitter
+updates. Quality changes recreate targets. Extra colour/depth and combined-depth textures cost
+84–112 MiB on High or 21–28 MiB on Medium, depending on depth format. Merges process every texel.
+
+`OPENRAC_RENDER_OPT_OFF=shadow-scroll-reuse` redraws all maps with the same projections.
+`render_equivalence_test --opt shadow-scroll-reuse` checks exact pixels and four active compositions
+across High/Medium/High transitions. GPU tests cover nonzero rectangles and negative wrap offsets.
+
+Debug counters: `shadow scroll active` (all four), `shadow scroll active cascades`,
+`shadow scroll updated texels`, `shadow scroll capacity texels`, `shadow scroll regions`,
+`shadow scroll full refresh`, and per-cascade `shadow scroll 0 updated texels` through
+`shadow scroll 3 updated texels`. CPU/GPU scopes separate updates from composition.
+
+Novalis opening view on Radeon 780M: enhanced rendering, FSR Performance, GI/GTAO 1,
+1960×1470, VSync off, 500 settled ticks. Mean complete shadow-pass GPU time, including composition:
+
+| Quality | Ordinary atlas | Four cached cascades |
+|---|---:|---:|
+| High | 2.36 ms | 1.80 ms |
+| Medium | 1.95 ms | 1.24 ms |
+
+FPS changed 69.8 to 71.5 (High) and 70.2 to 74.2 (Medium); these single matching runs do not guarantee
+gameplay gains. Fixed-view static updates reached zero; movement still updates strips.
+CPU shadow time changed 1.37 to 1.14 ms (High), 1.39 to 1.12 ms (Medium). Separate Tracy captures measured
+four-map merges at 0.613 ms GPU (High) and 0.184 ms (Medium).
+
 ## R-07: one copy to the screen
 
 **What changed.** The frontend's `present()` (`game/common/frontend.cpp`, not edited) clears the

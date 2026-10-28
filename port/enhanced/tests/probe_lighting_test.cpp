@@ -3,16 +3,90 @@
 //
 // Authored albedo, sky and emission transport regression fixtures.
 #include <algorithm>
+#include <cfenv>
 #include <cmath>
 #include <numbers>
 #include <stdexcept>
 
+#include "enhanced/lighting/bake_material.h"
 #include "enhanced/tests/probe_bake_fixtures.h"
 
 using namespace openrac::lighting;
 using namespace openrac::lighting::bake_test;
 
 namespace {
+// Byte/tint caching must preserve the original conversion, including clipping and rounding changes.
+void byte_colour_decoding() {
+    BakeScene scene;
+    BakeTexture texture{256, 1, {}};
+    for (unsigned value = 0; value < 256; ++value) {
+        texture.rgba.insert(
+            texture.rgba.end(),
+            {static_cast<std::uint8_t>(value),
+             static_cast<std::uint8_t>(255 - value),
+             static_cast<std::uint8_t>(value / 2),
+             255}
+        );
+    }
+    scene.textures.push_back(std::move(texture));
+    BakeTriangle triangle;
+    triangle.diffuse = {.25f, .5f, 1};
+    triangle.texture = 0;
+    const int original = std::fegetround();
+    for (int rounding : {FE_TONEAREST, FE_TOWARDZERO, FE_UPWARD, FE_DOWNWARD, FE_TONEAREST}) {
+        CHECK(std::fesetround(rounding) == 0);
+        for (unsigned value = 0; value < 256; ++value) {
+            const Float2 centre{(static_cast<float>(value) + .5f) / 256, .5f};
+            triangle.uv = {centre, centre, centre};
+            for (float tint : {0.f, .5f, .9f, 1.f, 1.9f, 3.f, .5f}) {
+                const auto sampled = bake_material(scene, triangle, 0, 0, {{tint, tint, tint}});
+                for (unsigned channel = 0; channel < 3; ++channel) {
+                    const float encoded = std::clamp(
+                        static_cast<float>(scene.textures[0].rgba[value * 4 + channel]) / 255
+                            * tint,
+                        0.f,
+                        1.f
+                    );
+                    const float expected = encoded <= .04045f
+                                               ? encoded / 12.92f
+                                               : std::pow((encoded + .055f) / 1.055f, 2.4f);
+                    CHECK(
+                        sampled[channel]
+                        == std::clamp(expected * triangle.diffuse[channel], 0.f, 1.f)
+                    );
+                }
+            }
+        }
+    }
+    CHECK(std::fesetround(original) == 0);
+}
+
+// Emitter rejection and Embree cutouts must retain the full material sampler's coverage.
+void alpha_only_material() {
+    BakeScene scene;
+    scene.textures.push_back(
+        {2, 2, {32, 64, 96, 0, 128, 160, 192, 64, 224, 16, 48, 128, 80, 112, 144, 255}}
+    );
+    BakeTriangle triangle;
+    triangle.uv = {Float2{-1.25f, .25f}, Float2{1.5f, -.75f}, Float2{.25f, 1.5f}};
+    triangle.multipliers =
+        {std::array<float, 4>{1, 1, 1, .25f},
+         std::array<float, 4>{1, 1, 1, 1.5f},
+         std::array<float, 4>{1, 1, 1, 2}};
+    triangle.diffuse_scale = 0;
+    for (int texture : {-1, 0}) {
+        triangle.texture = texture;
+        for (float u : {0.f, .25f, .5f, 1.f}) {
+            for (float v : {0.f, .25f, .5f}) {
+                CHECK(
+                    bake_detail::material_opacity(scene, triangle, u, v)
+                    == bake_material(scene, triangle, u, v)[3]
+                );
+            }
+        }
+    }
+}
+
 // Verify authored terrain albedo.
 void authored_terrain_albedo() {
     BakeScene scene;
@@ -285,24 +359,19 @@ void emissive_transport() {
     CHECK(std::abs(textured.irradiance[at][1] / direct.irradiance[at][1] - .21586f) < .0001f);
     scene.triangles[0].emission_texture = -1;
     {
-        // The runtime's masked window fixture uses exactly this colour and mask.
+        // Runtime and bake multiply every texture colour, including neutral grey texels.
         auto window = scene.triangles[0];
         window.emission = {.25f, .125f, .0625f};
         window.emission_texture = 0;
-        window.emission_mask = openrac::scene::EmissionMask::Green;
         scene.textures[0].rgba = {0, 255, 0, 255};
         CHECK((bake_emission(scene, window, 0, 0) == Float3{0, .125f, 0}));
         scene.textures[0].rgba = {128, 128, 128, 255};
-        CHECK((bake_emission(scene, window, 0, 0) == Float3{}));
-        CHECK(
-            openrac::scene::emission_mask(openrac::scene::EmissionMask::Green, {.2f, .4f, .2f}) == 1
-        );
-        CHECK(
-            openrac::scene::emission_mask(openrac::scene::EmissionMask::Green, {.3f, .4f, .3f})
-            < .00001f
-        );
+        const auto grey = bake_emission(scene, window, 0, 0);
+        const float linear_grey = .21586f;  // sRGB 128/255 decoded to linear.
+        CHECK(std::abs(grey[0] - .25f * linear_grey) < .00001f);
+        CHECK(std::abs(grey[1] - .125f * linear_grey) < .00001f);
+        CHECK(std::abs(grey[2] - .0625f * linear_grey) < .00001f);
         window.emission = {1, 1, 1};
-        window.emission_mask = openrac::scene::EmissionMask::None;
         window.emission_vertex_colour = true;
         window.emission_colours.fill({.25f, 1, .5f});
         scene.textures[0].rgba = {255, 128, 0, 255};
@@ -310,6 +379,29 @@ void emissive_transport() {
         CHECK(std::abs(ooze[0] - .050876f) < .00001f);
         CHECK(std::abs(ooze[1] - .21586f) < .00001f);
         CHECK(ooze[2] == 0 && ooze[1] > ooze[0]);
+        scene.textures[0].rgba = {128, 128, 128, 255};
+    }
+    {
+        BakeTriangle source{};
+        source.emission = {1, 1, 1};
+        source.emission_texture = 0;
+        source.emission_contrast = 2;
+        scene.textures[0].rgba = {32, 32, 32, 255};
+        const auto dark = bake_emission(scene, source, 0, 0);
+        source.emission_contrast = 1;
+        const auto original_dark = bake_emission(scene, source, 0, 0);
+        CHECK(dark[0] < original_dark[0] && dark[0] > 0);
+        source.emission_contrast = 2;
+        scene.textures[0].rgba = {255, 128, 0, 0};
+        const auto bright = bake_emission(scene, source, 0, 0);
+        source.emission_contrast = 1;
+        const auto original_bright = bake_emission(scene, source, 0, 0);
+        CHECK(bright[0] > original_bright[0]);
+        CHECK(std::abs(bright[0] / bright[1] - original_bright[0] / original_bright[1]) < 1e-5f);
+        CHECK(bright[2] == 0);
+        source.emission_contrast = 4;
+        scene.textures[0].rgba = {0, 0, 0, 255};
+        CHECK((bake_emission(scene, source, 0, 0) == Float3{}));
         scene.textures[0].rgba = {128, 128, 128, 255};
     }
     BakeTriangle blocker{};
@@ -353,6 +445,8 @@ void emissive_transport() {
 
 // Run the independent lighting fixtures.
 int main() {
+    byte_colour_decoding();
+    alpha_only_material();
     authored_terrain_albedo();
     sunlight_bounce_correction();
     test_sunlight_direction_override();

@@ -16,6 +16,7 @@
 #include <volk.h>
 
 #include "common/env.h"
+#include "common/profiler.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
@@ -533,8 +534,9 @@ Slice ring_copy(const void* data, VkDeviceSize size) {
 // ---- Command buffers and the order of things ----
 
 VkCommandBuffer upload_cmd() {
+    Frame& f = frame();
     g->upload_used = true;
-    return frame().upload;
+    return f.upload;
 }
 
 void count_where(std::string_view event) {
@@ -576,6 +578,7 @@ void end_rendering(PassEnd why) {
 }
 
 VkCommandBuffer cmd_for(Image* image, bool force_main) {
+    Frame& f = frame();
     if (!force_main && image != nullptr && image->touched != g->recording) {
         return upload_cmd();
     }
@@ -583,7 +586,7 @@ VkCommandBuffer cmd_for(Image* image, bool force_main) {
     if (image != nullptr) {
         image->touched = g->recording;
     }
-    return frame().main;
+    return f.main;
 }
 
 void barrier(VkCommandBuffer cmd, Image& image, VkImageLayout to) {
@@ -629,6 +632,7 @@ void begin_buffers() {
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(f.upload, &begin);
     vkBeginCommandBuffer(f.main, &begin);
+    tracy_gpu_collect();
     const bool reset = f.timestamps != VK_NULL_HANDLE && f.timestamp_used == 0;
     if (reset) {
         vkCmdResetQueryPool(f.upload, f.timestamps, 0, kTimestamps);
@@ -769,9 +773,12 @@ void timing_results(Frame& f) {
 }
 
 void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommandBuffer present) {
+    const profiling::Zone trace("Vulkan submit");
+
     end_rendering(PassEnd::Submit);
     Frame& f = frame();
     gpu_record();
+    tracy_gpu_end_commands();
     const bool tight = render_opt::enabled(render_opt::Opt::VkTightSync);
     // What `upload` did is seen by all that `main` does: its copies and uploads (transfer writes)
     // and the culling's dispatches (shader writes), read as indirect arguments, vertices and
@@ -842,7 +849,10 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
 
     const std::uint32_t count = present != VK_NULL_HANDLE ? 2 : 1;
     vkResetFences(g->device, 1, &f.fence);
-    check(vkQueueSubmit(g->queue, count, batches.data(), f.fence), "a submit");
+    {
+        const profiling::Zone queue_trace("Queue submit");
+        check(vkQueueSubmit(g->queue, count, batches.data(), f.fence), "a submit");
+    }
     ++g->submission.submits;
     f.submitted = true;
     if (wait) {

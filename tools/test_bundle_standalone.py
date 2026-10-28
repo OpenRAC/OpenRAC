@@ -1,4 +1,5 @@
 """The copy of OpenRAC an installed launcher carries: its actions and its files."""
+import hashlib
 import json
 import re
 import shutil
@@ -155,7 +156,8 @@ class Bundle(unittest.TestCase):
             for rel in ("STANDALONE", "tools/openrac.py", "tools/extractor.py", "editor/extract.py",
                         "editor/moby_classes.tsv", "games/rac1/game.json", "progress/summary.json",
                         "launcher/actions.json", "port/enhanced/tools/probes/bake_all.py",
-                        "port/enhanced/tools/probes/moby_seed_whitelist.json",
+                        "port/enhanced/lighting/profiles/rac1/moby-seeds.json",
+                        "port/enhanced/lighting/profiles/rac1-ntsc/emission-materials.json",
                         "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"):
                 self.assertTrue((out / rel).is_file(), rel)
             self.assertFalse(list(out.rglob("test_*.py")))
@@ -172,6 +174,18 @@ class Bundle(unittest.TestCase):
             # The carried exporter resolves the carried profile without the checkout or its cwd.
             exported = Path(tmp) / "exported-level"
             exported.mkdir()
+            catalog_path = out / "port/enhanced/lighting/profiles/rac1-ntsc/emission-materials.json"
+            self.assertEqual(catalog_path.read_bytes(),
+                             (bundle.ROOT / catalog_path.relative_to(out)).read_bytes())
+            # A synthetic material proves the isolated exporter consumes the carried catalog.
+            texture = b"bundled emission fixture"
+            (exported / "textures").mkdir()
+            (exported / "textures/lamp.png").write_bytes(texture)
+            catalog = json.loads(catalog_path.read_text())
+            definition = {"runtime_intensity": 3, "bake_intensity": 5}
+            catalog['materials'].append({"name": "fixture lamp",
+                "texture_sha256": hashlib.sha256(texture).hexdigest(), "emission": definition})
+            catalog_path.write_text(json.dumps(catalog))
             script = ("import sys\n"
                       "from pathlib import Path\n"
                       "from types import SimpleNamespace\n"
@@ -182,6 +196,26 @@ class Bundle(unittest.TestCase):
                             str(out / "editor"), str(exported)], cwd=tmp, check=True)
             profile = "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"
             self.assertEqual((exported / "probe-bake.json").read_bytes(), (bundle.ROOT / profile).read_bytes())
+            emission = "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-emission.json"
+            authored = json.loads((bundle.ROOT / emission).read_text())
+            authored['textures/lamp.png'] = definition
+            copied = json.loads((exported / "probe-emission.json").read_text())
+            self.assertEqual(copied.pop('_catalog_defaults'), authored)
+            self.assertEqual(copied, authored)
+            self.assertFalse((out / "port/enhanced/tools/probes/moby_seed_whitelist.json").exists())
+            script = ("import sys\n"
+                      "from pathlib import Path\n"
+                      "sys.path.insert(0, sys.argv[1])\n"
+                      "import moby_seeds\n"
+                      "path = moby_seeds.default_whitelist_path('rac1')\n"
+                      "assert path == Path(sys.argv[2])\n"
+                      "assert moby_seeds.whitelist(path)[0]['name'] == 'ratchet'\n")
+            subprocess.run([sys.executable, "-I", "-c", script, str(out / bundle.PROBE_TOOLS),
+                            str(out / "port/enhanced/lighting/profiles/rac1/moby-seeds.json")],
+                           cwd=tmp, check=True)
+            water_profile = "port/enhanced/water/profiles/rac1-ntsc/level_01/water-boundaries.json"
+            self.assertEqual((out / water_profile).read_bytes(), (bundle.ROOT / water_profile).read_bytes())
+            self.assertEqual((exported / "water-boundaries.json").read_bytes(), (bundle.ROOT / water_profile).read_bytes())
 
     def test_games_as_built(self):
         # On macOS a game is its bundle, carried whole; the build folder's link to it is not.

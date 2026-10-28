@@ -13,9 +13,13 @@
 #include <string_view>
 
 #include "common/json.h"
+#include "common/profiler.h"
 #include "enhanced/tools/probes/activation.h"
 #include "enhanced/tools/probes/batch.h"
+#include "enhanced/tools/probes/interior_sources.h"
 #include "enhanced/tools/probes/level_scene.h"
+#include "enhanced/tools/probes/probe_fingerprint.h"
+#include "enhanced/tools/probes/probe_grid.h"
 #include "enhanced/tools/probes/report.h"
 
 namespace fs = std::filesystem;
@@ -26,18 +30,22 @@ namespace {
 unsigned integer(std::string_view text) {
     unsigned out = 0;
     auto result = std::from_chars(text.data(), text.data() + text.size(), out);
+
     if (result.ec != std::errc{} || result.ptr != text.data() + text.size()) {
         throw std::runtime_error("invalid integer option");
     }
+
     return out;
 }
 
 float real(const std::string& text) {
     std::size_t end = 0;
     const float value = std::stof(text, &end);
+
     if (end != text.size() || !std::isfinite(value)) {
         throw std::runtime_error("invalid float option");
     }
+
     return value;
 }
 
@@ -48,10 +56,12 @@ void usage() {
               << "  --batch-output DIR (prepare once, then read one JSON region plan on stdin)\n"
               << "  --resume (with --batch-output: keep the grids a stopped bake verified)\n"
               << "  --spacing 128 (or X,Y,Z) --resolution 6 --rays 1024 --bounces 3 --seed 1\n"
+              << "  --tracy-wait SECONDS (wait up to 120 seconds for a Tracy capture)\n"
               << "  --threads 0 (all CPU threads; 1 for serial baking, same quality)\n"
               << "  --light-set 0 --environment 0.1 (uniform fallback radiance)\n"
               << "  --sky level|uniform --sky-intensity 1 (linear radiance multiplier)\n"
               << "  --bounds minX,minY,minZ,maxX,maxY,maxZ (optional local volume)\n"
+              << "  --lattice-bounds minX,minY,minZ,maxX,maxY,maxZ (exact integer cell indices)\n"
               << "  --max-distance N (visibility range; default 1.5 times cell diagonal)\n"
               << "  --compare-coarse FILE (with --verify LOCAL_FILE)\n"
               << "Defaults: per-level probe-bake.json; explicit options override its settings.\n"
@@ -62,16 +72,31 @@ void usage() {
 
 int main(int argc, char** argv) {
     try {
+        profiling::thread_name("Probe bake");
         fs::path directory, output, verify, compare_coarse, batch_output;
         bool inspect = false, game_rounding = false, print_profile = false, resume = false;
         // Resolve the directory first: explicit CLI overrides win in any order.
         for (int i = 1; i + 1 < argc; ++i) {
             if (std::string_view(argv[i]) == "--level-dir") {
                 directory = argv[++i];
+            } else if (std::string_view(argv[i]) == "--tracy-wait") {
+                const float seconds = real(argv[++i]);
+                if (seconds < 0 || seconds > 120) {
+                    throw std::runtime_error("Tracy wait must be between 0 and 120 seconds");
+                }
+                if (!profiling::wait_for_connection(
+                        std::chrono::milliseconds(static_cast<int>(seconds * 1000))
+                    )) {
+                    throw std::runtime_error(
+                        "Tracy capture not connected (requires OPENRAC_TRACY)"
+                    );
+                }
             } else if (std::string_view(argv[i]) == "--batch-output") {
                 batch_output = argv[++i];
             }
         }
+
+        const profiling::Zone trace("Probe baker");
         const auto source_snapshot =
             batch_output.empty() || directory.empty() ? 0 : probe_input_hash(directory);
         const auto profile =
@@ -82,21 +107,28 @@ int main(int argc, char** argv) {
         BakeSettings settings = profile.activation.bake;
         unsigned threads = 0;
         std::optional<std::array<float, 6>> bounds;
+        bool lattice_bounds =
+            false;  // Local coordinates name integer cells rather than world units.
         std::optional<float> max_distance;
+
         for (int i = 1; i < argc; ++i) {
             const std::string_view argument = argv[i];
+
             if (argument == "--help") {
                 usage();
                 return 0;
             }
+
             if (argument == "--print-profile") {
                 print_profile = true;
                 continue;
             }
+
             if (argument == "--inspect") {
                 inspect = true;
                 continue;
             }
+
             if (argument == "--game-rounding") {
                 game_rounding = true;
                 continue;
@@ -108,9 +140,13 @@ int main(int argc, char** argv) {
             if (i + 1 >= argc) {
                 throw std::runtime_error("option needs a value");
             }
+
             const std::string value = argv[++i];
+
             if (argument == "--level-dir") {
                 directory = value;
+            } else if (argument == "--tracy-wait") {
+                // The first pass waits before any asset loading.
             } else if (argument == "--output") {
                 output = value;
             } else if (argument == "--batch-output") {
@@ -127,29 +163,37 @@ int main(int argc, char** argv) {
                 } else {
                     std::istringstream stream(value);
                     std::string component;
+
                     for (float& n : spacing) {
                         if (!std::getline(stream, component, ',')) {
                             throw std::runtime_error("spacing needs X,Y,Z");
                         }
+
                         n = real(component);
                     }
+
                     if (std::getline(stream, component, ',') || value.back() == ',') {
                         throw std::runtime_error("spacing needs exactly three coordinates");
                     }
                 }
-            } else if (argument == "--bounds") {
+            } else if (argument == "--bounds" || argument == "--lattice-bounds") {
+                lattice_bounds = argument == "--lattice-bounds";
                 std::array<float, 6> parsed{};
                 std::istringstream stream(value);
                 std::string component;
+
                 for (float& n : parsed) {
                     if (!std::getline(stream, component, ',')) {
                         throw std::runtime_error("bounds needs six comma-separated coordinates");
                     }
+
                     n = real(component);
                 }
+
                 if (std::getline(stream, component, ',')) {
                     throw std::runtime_error("bounds needs exactly six coordinates");
                 }
+
                 bounds = parsed;
             } else if (argument == "--environment") {
                 environment.fill(real(value));
@@ -157,9 +201,11 @@ int main(int argc, char** argv) {
                 if (value != "level" && value != "uniform") {
                     throw std::runtime_error("sky must be level or uniform");
                 }
+
                 settings.use_level_sky = value == "level";
             } else if (argument == "--sky-intensity") {
                 settings.sky_intensity = real(value);
+
                 if (settings.sky_intensity < 0) {
                     throw std::runtime_error("negative sky intensity");
                 }
@@ -179,79 +225,70 @@ int main(int argc, char** argv) {
                 throw std::runtime_error("unknown bake option");
             }
         }
+
         if (directory.empty()
             || (!inspect && !print_profile && output.empty() && verify.empty()
                 && batch_output.empty())) {
             usage();
             return 1;
         }
+
         if (print_profile) {
             // Machine-readable defaults for region planners: one C++ resolver
             // owns schema validation and default values for all consumers.
-            std::cout << std::setprecision(9)
-                      << "{\"version\":1,\"sky_intensity\":" << settings.sky_intensity
-                      << ",\"sky_weight\":" << settings.sky_weight << ",\"sunlight_scale\":["
-                      << settings.sunlight_scale[0] << ',' << settings.sunlight_scale[1] << ','
-                      << settings.sunlight_scale[2] << ']' << ",\"terrain_vertex_albedo\":"
-                      << (settings.terrain_vertex_albedo ? "true" : "false")
-                      << ",\"probe_format_version\":" << kProbeFormatVersion
-                      << ",\"bake_version\":" << kProbeBakeVersion << ",\"sparse_spacing\":["
-                      << spacing[0] << ',' << spacing[1] << ',' << spacing[2]
-                      << "],\"dense_spacing\":[" << profile.dense_spacing[0] << ','
-                      << profile.dense_spacing[1] << ',' << profile.dense_spacing[2]
-                      << "],\"resolution\":" << resolution
-                      << ",\"rays\":" << settings.rays_per_probe
-                      << ",\"bounces\":" << settings.bounces << ",\"sky\":\""
-                      << (settings.use_level_sky ? "level" : "uniform") << "\""
-                      << ",\"light_set\":" << light_set << ",\"environment\":[" << environment[0]
-                      << ',' << environment[1] << ',' << environment[2] << ']'
-                      << ",\"seed\":" << settings.seed << ",\"ray_bias\":" << settings.ray_bias
-                      << ",\"distance_exponent\":" << settings.distance_exponent
-                      << ",\"min_inside_fraction\":" << settings.min_inside_fraction
-                      << ",\"relocation_iterations\":" << settings.relocation_iterations
-                      << ",\"relocation_max_fraction\":" << settings.relocation_max_fraction;
-            // Planners retain the optional direction in each completed bake's input record.
-            if (settings.sunlight_direction) {
-                const auto& direction = *settings.sunlight_direction;
-                std::cout << ",\"sunlight_direction\":[" << direction[0] << ',' << direction[1]
-                          << ',' << direction[2] << ']';
-            }
-            std::cout << "}\n";
+            auto resolved = profile;
+            resolved.activation = {settings, light_set, environment};
+            resolved.sparse_spacing = spacing;
+            resolved.map_resolution = resolution;
+            std::cout << describe_level_bake_profile(resolved);
             return 0;
         }
+
         if (!batch_output.empty()
             && (inspect || !verify.empty() || !output.empty() || bounds || max_distance
                 || !compare_coarse.empty() || game_rounding)) {
             throw std::runtime_error("batch mode cannot be combined with a single-grid operation");
         }
+
         if (!compare_coarse.empty() && verify.empty()) {
             throw std::runtime_error("--compare-coarse requires --verify LOCAL_FILE");
         }
+
         if (!output.empty()
             && (fs::exists(output) || fs::exists(output.string() + ".txt")
                 || fs::exists(output.string() + ".tmp"))) {
             throw std::runtime_error("output exists; choose a new bake path");
         }
+
         json::Value manifest;
         std::string error;
+
         if (!json::parse_file((directory / "manifest.json").string(), manifest, error)) {
             throw std::runtime_error(error);
         }
+
         const std::string game = manifest["game"].string(), version = manifest["version"].string();
+
         if (game != "rac1" || (version != "pal" && version != "ntsc")) {
             throw std::runtime_error("expected a RAC1 PAL or NTSC export");
         }
+
         scene::LevelData level;
+
         if (game_rounding) {
             std::fesetround(FE_TOWARDZERO);
         }
+
         std::cout << "Loading extracted level " << directory.string() << std::endl;
+
         if (!scene::load_level(directory, level, error)) {
             throw std::runtime_error(error);
         }
+
         if (level.level < 0) {
             throw std::runtime_error("level identity missing");
         }
+
         if (!verify.empty()) {
             ProbeActivation expected;
             expected.bake = settings;
@@ -261,6 +298,7 @@ int main(int argc, char** argv) {
             std::cout << "Probe asset verified: " << volume.grid.game_version << " level "
                       << volume.grid.level << ", " << volume.probes.size()
                       << " probes; scene and settings match\n";
+
             if (compare_coarse.empty()) {
                 report_terrain_coverage(level, volume, nullptr, std::cout);
             } else {
@@ -268,12 +306,37 @@ int main(int argc, char** argv) {
                 validate_probe_pair(coarse, volume);
                 report_terrain_coverage(level, volume, &coarse, std::cout);
             }
+
             return 0;
         }
+
         const auto start = std::chrono::steady_clock::now();
         auto exported = export_probe_scene(level, light_set, environment);
+        // The source sidecar is already part of the canonical scene fingerprint used at runtime.
+        auto interior_report = apply_interior_sources(level, exported.scene);
+
+        if (!interior_report) {
+            throw std::runtime_error(interior_report.error().message);
+        }
+
+        if (!interior_report->empty()) {
+            std::cout << "interior_area_emitters " << exported.scene.area_emitters.size() << '\n';
+        }
+
+        if (!interior_report->empty() && !batch_output.empty()) {
+            const auto& text = *interior_report;
+            write_bake_file(
+                batch_output / "interior-lights-report.json",
+                std::span(reinterpret_cast<const std::uint8_t*>(text.data()), text.size())
+            );
+        }
+
         ProbeGrid grid;
-        if (bounds) {
+
+        // Exact lattice endpoints retain the planner's narrow blend bands at fractional spacing.
+        if (bounds && lattice_bounds) {
+            grid = lattice_probe_grid(exported, *bounds, spacing, resolution);
+        } else if (bounds) {
             grid = bounded_probe_grid(
                 exported,
                 {(*bounds)[0], (*bounds)[1], (*bounds)[2]},
@@ -284,16 +347,19 @@ int main(int argc, char** argv) {
         } else {
             grid = sparse_probe_grid(exported, spacing, resolution);
         }
+
         if (max_distance) {
             grid.max_distance = *max_distance;
             grid.validate();
         }
+
         grid.game_version = game + "-" + version;
         grid.level = static_cast<std::uint32_t>(level.level);
         grid.settings_hash = probe_bake_settings_hash(grid, settings);
         std::ostringstream report;
         report << describe_probe_bake(level, exported, grid, settings, light_set);
         std::cout << report.str() << std::flush;
+
         if (!batch_output.empty()) {
             std::cout << "Probe batch ready\n" << std::flush;
             ProbeBatchOptions options;
@@ -306,43 +372,50 @@ int main(int argc, char** argv) {
             if (!std::getline(std::cin, options.plan)) {
                 throw std::runtime_error("probe batch plan missing");
             }
+
             run_probe_batch(level, exported, grid, options, std::cout);
             return 0;
         }
+
         if (inspect) {
             return 0;
         }
+
         // Free the loader's copies of meshes/textures before building the BVH.
         level = scene::LevelData{};
         auto last = start;
-        const auto volume = bake_probes(
-            grid,
-            exported.scene,
-            settings,
-            [&](std::size_t done, std::size_t total) {
-                const auto now = std::chrono::steady_clock::now();
-                if (done == 0 || done == total || now - last >= std::chrono::seconds(5)) {
-                    std::cout << "Baked " << done << '/' << total << " probes\n" << std::flush;
-                    last = now;
-                }
-            },
-            threads
-        );
+        const auto volume =
+            ProbeBaker(exported.scene, settings)
+                .bake(
+                    grid,
+                    [&](std::size_t done, std::size_t total) {
+                        const auto now = std::chrono::steady_clock::now();
+
+                        if (done == 0 || done == total || now - last >= std::chrono::seconds(5)) {
+                            std::cout << "Baked " << done << '/' << total << " probes\n"
+                                      << std::flush;
+                            last = now;
+                        }
+                    },
+                    threads
+                );
         const auto encoded = encode_probes(volume);
         // Check the asset that will be used by the renderer before publishing.
         const auto decoded = decode_gpu_probes(encoded);
+
         if (!probe_identity_matches(
                 decoded, grid.game_version, grid.level, grid.scene_hash, grid.settings_hash
             )) {
             throw std::runtime_error("probe asset round-trip identity mismatch");
         }
+
         const auto valid =
             std::count_if(volume.probes.begin(), volume.probes.end(), [](const Probe& p) {
                 return p.valid;
             });
         const auto relocated =
             std::count_if(volume.probes.begin(), volume.probes.end(), [](const Probe& p) {
-                return p.offset != Float3{};
+                return p.relocated;
             });
         const auto seconds =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();

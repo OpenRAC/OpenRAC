@@ -19,6 +19,10 @@
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
+
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 #include "renderer_shaders.h"
 
 namespace openrac::lighting {
@@ -34,7 +38,8 @@ constexpr ProbeTextureFormat kProbeFormats[] = {
     {GL_RG32F, GL_RG, GL_FLOAT},
     {GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT},
 };
-constexpr std::size_t kDenseResidencyBudget = 128ull * 1024 * 1024;
+// Caps dense probe textures independently of the device's maximum atlas dimensions.
+constexpr std::size_t kDenseResidencyBudget = 256ull * 1024 * 1024;
 constexpr unsigned kFirstUnit = 3;
 
 // Returns the value `var` was set to, or the empty string when it is unset: the probe GI's reads
@@ -63,6 +68,7 @@ std::string probe_shader_source(std::string source) {
         return source;
     }
     source.insert(source.find('\n') + 1, shaders::probes_glsl);
+    source.insert(source.find('\n') + 1, shaders::shading_brdf_glsl);
     source.insert(source.find('\n') + 1, renderer::shaders::shading_normal_glsl);
     static const bool& gather_off = stats::probe(
         "OPENRAC_SHADOW_GATHER_OFF", "Reference: 16 individual shadow texel fetches (reload level)"
@@ -155,7 +161,7 @@ bool ProbeLighting::upload_regions(
             m_full_residency = m_selection.prepare(m_region_grids, m_region_offsets, compute_error);
         } else {
             m_selection.prepare({}, {}, compute_error);
-            log::warn("probe GPU selection fallback: dense residency exceeds 128 MiB budget");
+            log::warn("probe GPU selection fallback: dense residency exceeds 256 MiB budget");
         }
         if (!compute_error.empty()) {
             log::warn("probe GPU selection fallback: {}", compute_error);
@@ -168,12 +174,18 @@ bool ProbeLighting::upload_regions(
                 throw std::runtime_error("dense probe upload requires GPU-ready baked data");
             }
         }
-        const unsigned width = lighting::kProbeAtlasTilesX * side;
         const auto rows_for = [&](bool resident) {
             return (volume.atlas_capacity()
-                    + (resident ? total_regions : m_region_capacity * lighting::kDenseProbeSlots))
-                   / lighting::kProbeAtlasTilesX;
+                    + (resident ? total_regions : m_region_capacity * lighting::kDenseProbeSlots)
+                    + m_atlas_tiles_x - 1)
+                   / m_atlas_tiles_x;
         };
+        // Widen by complete baked rows until the resident atlas fits the device's height limit.
+        while (rows_for(m_full_residency) * side > static_cast<unsigned>(limit)
+               && m_atlas_tiles_x * side <= static_cast<unsigned>(limit) / 2) {
+            m_atlas_tiles_x *= 2;
+        }
+        const unsigned width = m_atlas_tiles_x * side;
         if (width > static_cast<unsigned>(limit)) {
             throw std::runtime_error("probe atlas width exceeds GPU capacity");
         }
@@ -199,7 +211,7 @@ bool ProbeLighting::upload_regions(
                 GL_TEXTURE_2D,
                 0,
                 kProbeFormats[i].internal,
-                static_cast<GLsizei>(i == 2 ? lighting::kProbeAtlasTilesX : width),
+                static_cast<GLsizei>(i == 2 ? m_atlas_tiles_x : width),
                 static_cast<GLsizei>(i == 2 ? rows : rows * side),
                 0,
                 kProbeFormats[i].source,
@@ -215,15 +227,19 @@ bool ProbeLighting::upload_regions(
         m_sparse_capacity = volume.atlas_capacity();
         upload_volume(volume, 0);
         log::info(
-            "probe textures: R11G11B10F irradiance, RG32F moments, RGBA16F metadata; {} bytes",
-            std::size_t{width} * rows * side * 12 + lighting::kProbeAtlasTilesX * rows * 8
+            "probe textures: R11G11B10F irradiance, RG32F moments, RGBA16F metadata; {}x{}, {} "
+            "bytes",
+            width,
+            rows * side,
+            std::size_t{width} * rows * side * 12 + m_atlas_tiles_x * rows * 8
         );
         if (m_full_residency) {
             for (unsigned i = 0; i < m_regions.size(); ++i) {
                 upload_region(0, static_cast<int>(i));
             }
             log::info(
-                "tiled probe selection: {} resident regions, 16x16 tiles, two volumes per fragment",
+                "tiled probe selection: {} resident regions, 16x16 tiles, three volumes per "
+                "fragment",
                 m_regions.size()
             );
         }
@@ -233,7 +249,7 @@ bool ProbeLighting::upload_regions(
             for (std::size_t i = 0; i < source.probes.size(); ++i) {
                 const auto position = source.position(i);
                 const auto& probe = source.probes[i];
-                const bool relocated = probe.offset != lighting::Float3{};
+                const bool relocated = probe.relocated;
                 m_spheres.push_back(
                     {{position[0], position[1], position[2], radius},
                      !probe.valid  ? lighting::Float3{1, 0.05f, 0.7f}
@@ -258,22 +274,28 @@ bool ProbeLighting::upload_regions(
 
 void ProbeLighting::upload_volume(const lighting::ProbeVolume& volume, std::size_t offset) {
     const auto side = volume.grid.map_resolution + 2;
-    // Each file already contains complete atlas rows in the exact GPU formats.
-    // No tile rearrangement, irradiance encoding or float conversion here.
+    // Place complete baked rows side by side without decoding or rearranging their bytes.
     for (unsigned map = 0; map < 3; ++map) {
         glActiveTexture(GL_TEXTURE0 + kFirstUnit + map);
         glBindTexture(GL_TEXTURE_2D, m_textures[map]);
-        glTexSubImage2D(
-            GL_TEXTURE_2D,
-            0,
-            0,
-            static_cast<GLint>(offset / lighting::kProbeAtlasTilesX * (map == 2 ? 1 : side)),
-            static_cast<GLsizei>(lighting::kProbeAtlasTilesX * (map == 2 ? 1 : side)),
-            static_cast<GLsizei>(volume.atlas_rows() * (map == 2 ? 1 : side)),
-            kProbeFormats[map].source,
-            kProbeFormats[map].type,
-            volume.gpu_plane(map).data()
-        );
+        const unsigned scale = map == 2 ? 1 : side;
+        const auto plane = volume.gpu_plane(map);
+        const std::size_t row_bytes = plane.size() / volume.atlas_rows();
+        // Each source row contains complete probe tiles, including their gutters and padding.
+        for (std::size_t row = 0; row < volume.atlas_rows(); ++row) {
+            const std::size_t tile = offset + row * lighting::kProbeAtlasTilesX;
+            glTexSubImage2D(
+                GL_TEXTURE_2D,
+                0,
+                static_cast<GLint>(tile % m_atlas_tiles_x * scale),
+                static_cast<GLint>(tile / m_atlas_tiles_x * scale),
+                static_cast<GLsizei>(lighting::kProbeAtlasTilesX * scale),
+                static_cast<GLsizei>(scale),
+                kProbeFormats[map].source,
+                kProbeFormats[map].type,
+                plane.data() + row * row_bytes
+            );
+        }
     }
     glActiveTexture(GL_TEXTURE0);
     if (glGetError() != GL_NO_ERROR) {
@@ -360,6 +382,7 @@ const std::filesystem::path& probe_root() {
 }
 
 void ProbeLighting::load(const scene::LevelData& level) {
+    m_load_error.clear();
     if (!enhanced_rendering_available()) {
         return;
     }
@@ -444,10 +467,19 @@ void ProbeLighting::load(const scene::LevelData& level) {
             }
         }
         log::info(
-            "probe GI: {} dense regions registered; at most two dense samples per fragment",
+            "probe GI: {} dense regions registered; at most three dense samples per fragment",
             m_regions.size()
         );
         m_sunlight_scale = expected.bake.sunlight_scale;
+        // Optional markers are loaded only after the corresponding probe bake passed validation.
+        const auto markers = m_area_lights.load(
+            std::filesystem::path(path).parent_path() / "interior-lights-report.json"
+        );
+        if (!markers) {
+            log::warn("ceiling area light overlay unavailable: {}", markers.error().message);
+        } else if (*markers != 0) {
+            log::info("ceiling area light overlay: {} baked sources loaded", *markers);
+        }
         m_sunlight_direction = expected.bake.sunlight_direction;
         // Report overrides after verification so a stale bake cannot claim the new direction.
         if (m_sunlight_direction) {
@@ -507,7 +539,8 @@ void ProbeLighting::load(const scene::LevelData& level) {
                   "user setting");
     } catch (const std::exception& why) {
         release();
-        log::warn("probe GI inactive for level {}: {}", level.level, why.what());
+        m_load_error = why.what();
+        log::warn("probe GI inactive for level {}: {}", level.level, m_load_error);
     }
 }
 
@@ -541,13 +574,15 @@ void ProbeLighting::bind(
         m_sunlight_scale[2]
     );
     glUniform1f(shader.uniform("probe_normal_bias"), normal_bias);
-    const auto direction = m_sunlight_direction.value_or(lighting::Float3{});
+    const auto direction_override =
+        runtime_sunlight_direction ? runtime_sunlight_direction : m_sunlight_direction;
+    const auto direction = direction_override.value_or(lighting::Float3{});
     glUniform4f(
         shader.uniform("probe_sunlight_direction"),
         direction[0],
         direction[1],
         direction[2],
-        m_sunlight_direction.has_value() ? 1.0f : 0.0f
+        direction_override.has_value() ? 1.0f : 0.0f
     );
     glUniform1f(shader.uniform("probe_view_bias"), view_bias);
     glUniform1i(shader.uniform("probe_effect"), 0);
@@ -571,7 +606,7 @@ void ProbeLighting::bind(
         static_cast<float>(m_grid.dimensions[2])
     );
     glUniform1f(shader.uniform("probe_resolution"), static_cast<float>(m_grid.map_resolution));
-    glUniform1i(shader.uniform("probe_tiles_x"), static_cast<GLint>(lighting::kProbeAtlasTilesX));
+    glUniform1i(shader.uniform("probe_tiles_x"), static_cast<GLint>(m_atlas_tiles_x));
     for (unsigned slot = 0; slot < lighting::kDenseProbeSlots; ++slot) {
         const auto& selected = m_selector.slots[slot];
         const auto suffix = "[" + std::to_string(slot) + "]";
@@ -613,10 +648,24 @@ void ProbeLighting::bind(
     glActiveTexture(GL_TEXTURE0);
 }
 
-void ProbeLighting::draw_spheres(const renderer::FrameInput& input, renderer::RenderState& state) {
+void ProbeLighting::draw_spheres(
+    const renderer::FrameInput& input,
+    renderer::RenderState& state,
+    std::optional<lighting::Float3> player
+) {
+    // Source markers share the existing placement-overlay pass and its displayed world camera.
+    if (active() && show_area_lights) {
+        std::string error;
+        if (!m_area_lights.draw(input, state, error)) {
+            log::warn("ceiling area light overlay disabled: {}", error);
+            show_area_lights = false;
+        }
+    }
     if (!active() || !show_spheres) {
         return;
     }
+    draw_volume_bounds(input, state, player);
+
     if (!m_sphere_shader.id()) {
         std::string error;
         if (!m_sphere_shader.build(
@@ -637,77 +686,25 @@ void ProbeLighting::draw_spheres(const renderer::FrameInput& input, renderer::Re
         std::iota(indices.begin(), indices.end(), 0u);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_sphere_indices);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices.data(), GL_STATIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, m_sphere_buffer);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Sphere), nullptr);
-        glVertexAttribDivisor(0, 1);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(
-            1,
-            3,
-            GL_FLOAT,
-            GL_FALSE,
-            sizeof(Sphere),
-            reinterpret_cast<const void*>(offsetof(Sphere, colour))
-        );
-        glVertexAttribDivisor(1, 1);
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(
-            2,
-            1,
-            GL_FLOAT,
-            GL_FALSE,
-            sizeof(Sphere),
-            reinterpret_cast<const void*>(offsetof(Sphere, opacity))
-        );
-        glVertexAttribDivisor(2, 1);
-        glEnableVertexAttribArray(3);
-        glVertexAttribIPointer(
-            3, 1, GL_INT, sizeof(Sphere), reinterpret_cast<const void*>(offsetof(Sphere, region))
-        );
-        glVertexAttribDivisor(3, 1);
     }
-    m_visible_spheres.clear();
-    // A local placement view keeps the level-wide lattice from obscuring the
-    // scene and bounds diagnostic geometry cost. This never changes GI sampling.
     const float range = (sphere_xray ? 10.0f : 5.0f)
                         * *std::max_element(m_grid.spacing.begin(), m_grid.spacing.end());
-    for (auto sphere : m_spheres) {
-        if (sphere.region >= 0 && !m_selection.active()) {
-            const auto selected = std::find_if(
-                m_selector.slots.begin(),
-                m_selector.slots.end(),
-                [&](const auto& slot) { return slot.region == sphere.region && slot.weight > 0; }
-            );
-            if (selected == m_selector.slots.end()) {
-                continue;
-            }
-            sphere.opacity = selected->weight;
+    m_sphere_indirect = prepare_gpu_spheres(input, range);
+
+    // The reference also handles devices where compute preparation failed.
+    if (!m_sphere_indirect) {
+        prepare_cpu_spheres(input, range);
+
+        if (m_visible_spheres.empty()) {
+            glBindVertexArray(0);
+            return;
         }
-        float squared = 0;
-        for (unsigned axis = 0; axis < 3; ++axis) {
-            const float delta = sphere.position_radius[axis] - input.camera.position[axis];
-            squared += delta * delta;
-        }
-        if (squared <= range * range) {
-            m_visible_spheres.push_back(sphere);
-        }
-    }
-    if (m_visible_spheres.empty()) {
-        glBindVertexArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        return;
     }
     glBindVertexArray(m_sphere_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, m_sphere_buffer);
-    glBufferData(
-        GL_ARRAY_BUFFER,
-        static_cast<GLsizeiptr>(m_visible_spheres.size() * sizeof(Sphere)),
-        m_visible_spheres.data(),
-        GL_STREAM_DRAW
-    );
+    bind_sphere_attributes(m_sphere_indirect ? m_sphere_culling.output() : m_sphere_buffer);
     m_sphere_shader.use();
     m_selection.bind(m_sphere_shader, &input.camera);
+    glUniform1i(m_sphere_shader.uniform("probe_compacted"), m_sphere_indirect ? 1 : 0);
     const auto matrix = renderer::multiply(input.camera.projection, input.camera.view);
     glUniformMatrix4fv(m_sphere_shader.uniform("view_projection"), 1, GL_FALSE, matrix.data());
     glEnable(GL_DEPTH_TEST);
@@ -723,6 +720,15 @@ void ProbeLighting::draw_spheres(const renderer::FrameInput& input, renderer::Re
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
     constexpr int vertices = 12 * 8 * 6;
     const auto draw = [&]() {
+#if defined(OPENRAC_VULKAN)
+        // The device-generated count remains on the GPU, including empty draws.
+        if (m_sphere_indirect) {
+            if (vkgl::draw_indexed_indirect(m_sphere_culling.arguments(), kProbeSphereVertices)) {
+                ++state.stats.draw_calls;
+            }
+            return;
+        }
+#endif
         glDrawElementsInstanced(
             GL_TRIANGLES,
             vertices,
@@ -755,12 +761,22 @@ void ProbeLighting::draw_spheres(const renderer::FrameInput& input, renderer::Re
 }
 
 void ProbeLighting::release() {
+    m_load_error.clear();
+    m_volume_bounds.release();
+    m_containing_regions.clear();
+    m_volume_bounds_failed = false;
+    m_area_lights.release();
+    show_area_lights = false;
     m_sunlight_scale = {1, 1, 1};
     m_sunlight_direction.reset();
+    runtime_sunlight_direction.reset();
     m_terrain_vertex_albedo = false;
     m_selection.release();
     m_full_residency = false;
     m_region_offsets.clear();
+    m_sphere_culling.release();
+    m_sphere_gpu_attempted = false;
+    m_sphere_indirect = false;
     m_sphere_shader.release();
     if (m_sphere_vao) {
         glDeleteVertexArrays(1, &m_sphere_vao);
@@ -782,10 +798,11 @@ void ProbeLighting::release() {
     }
     m_textures = {};
     m_sparse_capacity = 0;
+    m_atlas_tiles_x = kMinimumAtlasTilesX;
     m_regions.clear();
     m_region_grids.clear();
     m_selector = {};
-    m_gpu_regions = {-1, -1};
+    m_gpu_regions = {-1, -1, -1};
     m_region_capacity = 0;
     m_camera_started = false;
     m_region_time = {};

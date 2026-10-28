@@ -17,6 +17,20 @@
 
 namespace openrac::settings {
 
+std::optional<std::array<float, 3>> Settings::sunlight_direction() const {
+    if (!sun_direction_override) {
+        return std::nullopt;
+    }
+    constexpr float radians = 3.14159265358979323846f / 180.f;
+    const float azimuth = sun_azimuth * radians, elevation = sun_elevation * radians;
+    // The shader and shadow renderer use ray travel, opposite the source direction.
+    return std::array<float, 3>{
+        -std::cos(elevation) * std::cos(azimuth),
+        -std::cos(elevation) * std::sin(azimuth),
+        -std::sin(elevation)
+    };
+}
+
 namespace {
 
 Settings g_settings;
@@ -235,18 +249,42 @@ void load(const std::filesystem::path& file) {
             known = parse_bool(value, s.enhanced_rendering);
         } else if (key == "enhanced_graphics") {
             known = parse_bool(value, s.enhanced_graphics);
+        } else if (key == "shadow_quality") {
+            known = parse(value, renderer::kShadowQualityKeys, s.shadow_quality);
         } else if (key == "enhanced_shadows") {
             known = parse_bool(value, s.enhanced_shadows);
+        } else if (key == "rim_light") {
+            known = parse_bool(value, s.rim_light);
+        } else if (key == "rim_shadow_lift") {
+            known = parse_bool(value, s.rim_shadow_lift);
+        } else if (key == "rim_lift_exponent") {
+            known = parse_float(value, 0.01f, 1.0f, s.rim_lift_exponent);
+        } else if (key == "rim_lift_max_gain") {
+            known = parse_float(value, 1.0f, 16.0f, s.rim_lift_max_gain);
+        } else if (key == "rim_light_strength") {
+            known = parse_float(value, 0.0f, 1.0f, s.rim_light_strength);
+        } else if (key == "rim_light_falloff") {
+            known = parse_float(value, 1.0f, 8.0f, s.rim_light_falloff);
         } else if (key == "probe_lighting") {
-            known = parse_bool(value, s.probe_lighting);
+            // Legacy preference: probe lighting now follows enhanced graphics.
+            bool ignored = true;
+            known = parse_bool(value, ignored);
         } else if (key == "probe_spheres") {
             known = parse_bool(value, s.probe_spheres);
+        } else if (key == "ceiling_area_lights") {
+            known = parse_bool(value, s.ceiling_area_lights);
         } else if (key == "probe_normal_bias") {
             known = parse_float(value, 0.0f, 2.0f, s.probe_normal_bias);
         } else if (key == "probe_view_bias") {
             known = parse_float(value, 0.0f, 2.0f, s.probe_view_bias);
         } else if (key == "probe_gi_multiplier") {
             known = parse_float(value, 0.0f, 5.0f, s.probe_gi_multiplier);
+        } else if (key == "sun_direction_override") {
+            known = parse_bool(value, s.sun_direction_override);
+        } else if (key == "sun_azimuth") {
+            known = parse_float(value, -180.f, 180.f, s.sun_azimuth);
+        } else if (key == "sun_elevation") {
+            known = parse_float(value, -90.f, 90.f, s.sun_elevation);
         } else if (key == "gtao") {
             known = parse_bool(value, s.gtao);
         } else if (key == "gtao_quality") {
@@ -399,12 +437,23 @@ void save() {
         << "msaa = " << s.msaa << "\n"
         << "enhanced_rendering = " << (s.enhanced_rendering ? 1 : 0) << "\n"
         << "enhanced_graphics = " << (s.enhanced_graphics ? 1 : 0) << "\n"
+        << "shadow_quality = " << renderer::kShadowQualityKeys[static_cast<int>(s.shadow_quality)]
+        << "\n"
         << "enhanced_shadows = " << (s.enhanced_shadows ? 1 : 0) << "\n"
-        << "probe_lighting = " << (s.probe_lighting ? 1 : 0) << "\n"
+        << "rim_light = " << (s.rim_light ? 1 : 0) << "\n"
+        << "rim_shadow_lift = " << (s.rim_shadow_lift ? 1 : 0) << "\n"
+        << "rim_lift_exponent = " << s.rim_lift_exponent << "\n"
+        << "rim_lift_max_gain = " << s.rim_lift_max_gain << "\n"
+        << "rim_light_strength = " << s.rim_light_strength << "\n"
+        << "rim_light_falloff = " << s.rim_light_falloff << "\n"
         << "probe_spheres = " << (s.probe_spheres ? 1 : 0) << "\n"
+        << "ceiling_area_lights = " << (s.ceiling_area_lights ? 1 : 0) << "\n"
         << "probe_gi_multiplier = " << s.probe_gi_multiplier << "\n"
         << "probe_normal_bias = " << s.probe_normal_bias << "\n"
         << "probe_view_bias = " << s.probe_view_bias << "\n"
+        << "sun_direction_override = " << (s.sun_direction_override ? 1 : 0) << "\n"
+        << "sun_azimuth = " << s.sun_azimuth << "\n"
+        << "sun_elevation = " << s.sun_elevation << "\n"
         << "gtao = " << (s.gtao ? 1 : 0) << "\n"
         << "gtao_quality = " << kGtaoQuality[static_cast<int>(s.gtao_settings.quality)] << "\n"
         << "gtao_slices = " << s.gtao_settings.slices << "\n"

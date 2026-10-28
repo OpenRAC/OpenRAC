@@ -44,10 +44,17 @@ uniform mat4 view;
 uniform int gtao_enabled;
 uniform vec3 material_emission;
 uniform sampler2D emission_texture;
-uniform int emission_mask;
 uniform int emission_vertex_colour;
+uniform float material_emission_contrast;
 uniform float material_diffuse_scale;
 uniform sampler2D gtao_visibility;
+#endif
+
+#ifdef OPENRAC_HERO_WETNESS
+in float v_hero_wetness;
+uniform int hero_wetness_debug;
+uniform vec4 hero_wetness_material; // wet diffuse, specular strength, dry/wet roughness
+uniform float hero_wetness_f0;
 #endif
 
 layout(location = 0) out vec4 out_colour;
@@ -79,22 +86,23 @@ vec3 emission_texel(bool authored_tint) {
 }
 
 vec3 surface_emission(vec4 texel) {
-    vec3 emitted = probe_linear(texel.rgb) * v_script_emission;
+    // Scripted brightness follows the original encoded GS modulation, then decodes once.
+    vec3 emitted = probe_linear(clamp(texel.rgb * v_script_emission, vec3(0.0), vec3(1.0)));
     if (any(greaterThan(material_emission, vec3(0.0)))) {
         vec3 radiance = emission_texel(emission_vertex_colour != 0);
-        float coverage = 1.0;
-        if (emission_mask == 1) {
-            vec3 mask = emission_vertex_colour != 0 ? emission_texel(false) : radiance;
-            float chroma = (mask.g - max(mask.r, mask.b)) / max(mask.g, 1e-5);
-            coverage = smoothstep(0.25, 0.5, chroma);
+        if (material_emission_contrast > 1.) {
+            float luminance = dot(radiance, vec3(.2126, .7152, .0722));
+            radiance *= pow(max(luminance, 0.) / .18, material_emission_contrast - 1.);
         }
-        emitted += material_emission * radiance * coverage;
+        emitted += material_emission * radiance;
     }
     return emitted;
 }
 
 // probes.glsl is inserted after the version line by probe_mesh_fragment().
 #ifdef OPENRAC_EARLY_LIGHTING
+uniform int gameplay_rim_enabled;
+vec3 gameplay_rim(vec3 indirect, vec3 normal_view, vec3 toward_camera);
 bool early_surface(
     vec3 eye_position,
     vec3 normal_view,
@@ -105,11 +113,38 @@ bool early_surface(
 #endif
 // This replaces RGB only. Alpha tests, fading and blend equations stay in
 // the existing path, as do explicitly unlit, additive, metal and glow passes.
+#ifdef OPENRAC_HERO_WETNESS
+// A thin wet coat: less diffuse reflection and a narrow water-like highlight.
+vec3 wet_coat(vec3 linear_colour, vec3 n, vec3 toward_camera, float visibility) {
+    float wet = clamp(v_hero_wetness, 0., 1.);
+    if (wet <= 0.) return linear_colour;
+    int a = (int(v_probe_selector.x + .5) & 15) * 4;
+    int b = (int(v_probe_selector.y + .5) & 15) * 4;
+    float blend = clamp(v_probe_selector.z, 0., 1.);
+    vec3 travel = probe_sunlight_direction.w != 0. ? probe_sunlight_direction.xyz
+        : mix(light_sets[a + 1].xyz, light_sets[b + 1].xyz, blend);
+    vec3 light = probe_unit(-travel), eye = probe_unit(toward_camera);
+    float roughness = mix(hero_wetness_material.z, hero_wetness_material.w, wet);
+    vec3 radiance = max(mix(light_sets[a].rgb, light_sets[b].rgb, blend), vec3(0.))
+        * probe_sunlight_scale;
+    vec3 shine = radiance * ggx_specular(n, eye, light, roughness, hero_wetness_f0)
+        * visibility * hero_wetness_material.y;
+    return linear_colour * mix(1., hero_wetness_material.x, wet) + wet * shine;
+}
+#else
+vec3 wet_coat(vec3 linear_colour,vec3 n,vec3 toward_camera,float visibility) {return linear_colour;}
+#endif
+
 vec3 probe_surface(vec4 texel, vec3 original) {
     if (probe_receiver == 0 || v_glow != 0 || probe_effect != 0 || metal_pass != 0
         || (probe_receiver == 2 && v_probe_selector.w > 1.5)) {
         return original;
     }
+#ifdef OPENRAC_HERO_WETNESS
+    if (hero_wetness_debug != 0 && v_hero_wetness >= 0.) {
+        return mix(vec3(.12), vec3(0., .65, 1.), clamp(v_hero_wetness, 0., 1.));
+    }
+#endif
     if (probe_mode == 0 && sun_shadow_enabled == 0 && hero_shadow_enabled == 0) {
         return original;
     }
@@ -126,7 +161,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     bool cached_coverage;
     vec4 cached_lighting;
     float hero_visibility;
-    early_surface(
+    bool cached_surface = early_surface(
         eye_position, mat3(view) * n, cached_lighting, cached_coverage, hero_visibility
     );
     if (!hero_shadow_applies(n)) {
@@ -150,8 +185,8 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     // Legacy prelighting may already contain authored brightness. Preserve that
     // component while shadowing the remaining diffuse, without adding it twice.
     vec3 fallback = probe_display(
-        max(probe_linear(original) - emitted, vec3(0.0)) * mix(0.1, 1.0, visibility) * hero_cue
-        + emitted
+        wet_coat(max(probe_linear(original) - emitted, vec3(0.0)) * mix(0.1, 1.0, visibility) * hero_cue,
+                 n, transpose(mat3(view)) * (-eye_position), visibility) + emitted
     );
     if (probe_mode == 0) {
         return fallback;
@@ -200,9 +235,19 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     if (probe_mode != 2) {
         illumination *= hero_cue;
     }
+    vec3 rim = vec3(0.0);
+#ifdef OPENRAC_EARLY_LIGHTING
+    // Essential opaque world objects pick up their surroundings at grazing angles.
+    // Diagnostic views, UI, effects and receivers without early-lit GI keep their existing result.
+    if (gameplay_rim_enabled != 0 && probe_receiver == 2 && probe_mode == 1 && cached_surface
+        && covered && translucent_pass == 0 && effect_pass == 0) {
+        rim = gameplay_rim(indirect, eye_normal, -eye_position);
+    }
+#endif
     // Emission is independent of GI exposure, AO and shadow visibility.
     return probe_display(
-        albedo * illumination * material_diffuse_scale + (probe_mode == 1 ? emitted : vec3(0.0))
+        wet_coat(albedo * illumination * material_diffuse_scale + rim, n, toward_camera, visibility)
+        + (probe_mode == 1 ? emitted : vec3(0.0))
     );
 }
 
@@ -244,6 +289,23 @@ void main() {
     if (metal_pass != 0) {
         vec4 m = sample_upscaled_texture_colours(v_uv) * v_colour;
         vec3 mrgb = min(m.rgb, vec3(1.0));
+#ifdef OPENRAC_EARLY_LIGHTING
+        // Chrome blends over the diffuse pass: give both layers the edge reflection so the
+        // overlay's opacity cannot erase it. Use cached GI without another probe lookup.
+        if (gameplay_rim_enabled != 0 && probe_receiver == 2 && probe_mode == 1
+            && v_probe_selector.w < 1.5) {
+            vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
+            vec3 geometric = cross(dFdx(eye_position), dFdy(eye_position));
+            vec3 normal_view = orient_shading_normal(mat3(view) * v_normal, geometric, -eye_position);
+            vec4 cached;
+            bool covered;
+            float hero_visibility;
+            if (early_surface(eye_position, normal_view, cached, covered, hero_visibility) && covered) {
+                vec3 rim = gameplay_rim(cached.rgb * probe_gi_multiplier, normal_view, -eye_position);
+                mrgb = probe_display(probe_linear(mrgb) + rim);
+            }
+        }
+#endif
         if (fog_colour.w > 0.5) {
             mrgb = mix(fog_colour.rgb, mrgb, v_fog);
         }

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // What the debug overlay draws over the game's picture (debug/overlay.h): the selected moby's
-// marker, the mobys' labels and the click that picks one; and the status badge, which says the
+// marker and the mobys' labels; and the status badge, which says the
 // game is paused or slowed and shows the toasts and the notice.
 
 #include <cstdint>
@@ -45,8 +45,7 @@ struct Projector {
 }  // namespace
 
 void picture_marks(const Shown& shown) {
-    if (shown.camera == nullptr || shown.box_width <= 0
-        || (!s.labels && !s.pick && s.selected == 0)) {
+    if (shown.camera == nullptr || shown.box_width <= 0 || (!s.labels && s.selected == 0)) {
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
@@ -60,21 +59,10 @@ void picture_marks(const Shown& shown) {
     p.y = static_cast<float>(shown.window_height - shown.box_y - shown.box_height) / scale;
     ImDrawList* draw = ImGui::GetBackgroundDrawList();
     const host::LiveMoby* h = hero();
-    const bool clicked =
-        s.pick && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.WantCaptureMouse;
-    float best = 40.0f * 40.0f;
-    std::uint32_t picked = 0;
     for (const host::LiveMoby& m : s.state.mobys) {
         ImVec2 at;
         if (!p.project(m.matrix[12], m.matrix[13], m.matrix[14], at)) {
             continue;
-        }
-        if (clicked) {
-            const float dx = at.x - io.MousePos.x, dy = at.y - io.MousePos.y;
-            if (dx * dx + dy * dy < best) {
-                best = dx * dx + dy * dy;
-                picked = m.address;
-            }
         }
         const bool selected = m.address == s.selected;
         if (selected) {
@@ -92,11 +80,6 @@ void picture_marks(const Shown& shown) {
                 label.c_str()
             );
         }
-    }
-    if (picked != 0) {
-        s.follow_hero = false;
-        s.selected = picked;
-        s.inspector = true;
     }
 }
 

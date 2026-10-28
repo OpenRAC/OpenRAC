@@ -11,6 +11,28 @@
 #include "enhanced/tools/probes/level_scene.h"
 
 namespace openrac::lighting {
+struct LevelBakeProfile;
+
+// Snapshot invariant scene/material text once for all grids in a level batch.
+class ProbeBakeReport {
+public:
+    ProbeBakeReport(
+        const scene::LevelData& level,
+        const BakeSceneExport& exported,
+        const BakeSettings& settings,
+        unsigned light_set
+    );
+    // Keep grid identity and allocation explicit without rescanning the scene.
+    std::string describe(const ProbeGrid& grid) const;
+
+private:
+    BakeSettings m_settings;
+    std::string m_scene, m_materials;
+};
+
+// Machine-readable resolved transport and grid settings, including room-local emission gains.
+std::string describe_level_bake_profile(const LevelBakeProfile& profile);
+
 // Shared human-readable transport/grid description for both CLI paths.
 std::string describe_probe_bake(
     const scene::LevelData& level,
