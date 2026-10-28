@@ -997,7 +997,23 @@ async fn on_plugins<T: Send + 'static>(
 #[tauri::command]
 async fn plugins_list(state: State<'_, AppState>, game: String, version: String) -> Result<Vec<PluginView>, String> {
     let g = game.clone();
-    on_plugins(state, &game, move |dir| plugins::list(dir, &g, &version)).await
+    let name = player_name(&state);
+    on_plugins(state, &game, move |dir| {
+        let mut views = plugins::list(dir, &g, &version)?;
+        plugins::show_player_name(&mut views, &name);
+        Ok(views)
+    })
+    .await
+}
+
+/// The launcher's Multiplayer name, for the mod settings that default to it (empty when invalid).
+fn player_name(state: &State<'_, AppState>) -> String {
+    let name = state.config.lock().unwrap().multiplayer_name.clone();
+    if openrac_launcher_core::multiplayer::is_valid(&name) {
+        name
+    } else {
+        String::new()
+    }
 }
 
 #[tauri::command]
@@ -1009,7 +1025,13 @@ async fn plugins_set_enabled(
     enabled: bool,
 ) -> Result<Vec<PluginView>, String> {
     let g = game.clone();
-    on_plugins(state, &game, move |dir| plugins::set_enabled(dir, &g, &version, &id, enabled)).await
+    let name = player_name(&state);
+    on_plugins(state, &game, move |dir| {
+        let mut views = plugins::set_enabled(dir, &g, &version, &id, enabled)?;
+        plugins::show_player_name(&mut views, &name);
+        Ok(views)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1021,7 +1043,13 @@ async fn plugins_move(
     up: bool,
 ) -> Result<Vec<PluginView>, String> {
     let g = game.clone();
-    on_plugins(state, &game, move |dir| plugins::move_mod(dir, &g, &version, &id, up)).await
+    let name = player_name(&state);
+    on_plugins(state, &game, move |dir| {
+        let mut views = plugins::move_mod(dir, &g, &version, &id, up)?;
+        plugins::show_player_name(&mut views, &name);
+        Ok(views)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1034,7 +1062,8 @@ async fn plugins_set_setting(
     value: serde_json::Value,
 ) -> Result<Vec<PluginView>, String> {
     let g = game.clone();
-    on_plugins(state, &game, move |dir| plugins::set_setting(dir, &g, &version, &id, &key, value)).await
+    let name = player_name(&state);
+    on_plugins(state, &game, move |dir| plugins::set_setting(dir, &g, &version, &id, &key, value, &name)).await
 }
 
 #[tauri::command]
@@ -1045,9 +1074,11 @@ async fn plugins_remove(
     id: String,
 ) -> Result<Vec<PluginView>, String> {
     let g = game.clone();
+    let name = player_name(&state);
     on_plugins(state, &game, move |dir| {
-        let left = plugins::remove(dir, &g, &version, &id)?;
+        let mut left = plugins::remove(dir, &g, &version, &id)?;
         remote::forget(dir, &id)?;
+        plugins::show_player_name(&mut left, &name);
         Ok(left)
     })
     .await

@@ -197,6 +197,15 @@ A setting is `{key, name, type, default, description?}` with `key` in
 | `string` | `max_length` | a string |
 | `keybind` (1.2) | `binds` (1 or 2, default 2), `group` | up to `binds` names of `openrac/keys.h`, comma-separated: `"KeyW,ArrowUp"`; `""` binds nothing |
 
+A `string` setting's default may be the placeholder `"${player_name}"`, the
+launcher's Multiplayer name (Settings, General; the game also gets it as
+`OPENRAC_PLAYER_NAME`, section 9). The launcher shows the current name as the
+default and as the value until the player sets one, so a changed Multiplayer name
+shows at once; "Reset to default" stores the placeholder again, not the name. A
+value the player saved is never replaced. The port and the mod read the raw value,
+so a mod treats a value that is still `${player_name}` as unset and falls back to
+`OPENRAC_PLAYER_NAME`. It is the only placeholder.
+
 A `keybind` names keys by where they are, as the web's `KeyboardEvent.code`
 does (`KeyW`, `Space`, `ShiftLeft`, `Digit1`, `ArrowUp`), mouse buttons
 (`MouseLeft`, `MouseRight`, `MouseMiddle`, `MouseBack`, `MouseForward`) and

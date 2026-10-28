@@ -866,7 +866,30 @@ pub fn move_mod(dir: &Path, game: &str, version: &str, id: &str, up: bool) -> Re
     list(dir, game, version)
 }
 
-/// Sets one of a mod's settings, after checking it against the mod's manifest.
+/// The placeholder a string setting's default may be: the launcher's Multiplayer name
+/// (docs/port/MODS.md). The launcher shows the name for it; the game gets the placeholder when the
+/// player never set the value, and a mod treats it as unset.
+pub const PLAYER_NAME: &str = "${player_name}";
+
+/// Shows the placeholder default of string settings as `player_name` (the launcher's Multiplayer
+/// name), in the default and in a value that still is the placeholder. A value the player set is
+/// left as it is.
+pub fn show_player_name(views: &mut [PluginView], player_name: &str) {
+    for setting in views.iter_mut().flat_map(|v| v.settings.iter_mut()) {
+        if setting.spec.kind != "string" || setting.spec.default != PLAYER_NAME {
+            continue;
+        }
+        setting.spec.default = Value::String(player_name.into());
+        if setting.value == PLAYER_NAME {
+            setting.value = Value::String(player_name.into());
+        }
+    }
+}
+
+/// Sets one of a mod's settings, after checking it against the mod's manifest. `player_name` is
+/// the launcher's Multiplayer name: a string setting whose default is [`PLAYER_NAME`] and that is
+/// set to exactly that name is kept as the placeholder, so that it follows the name when it
+/// changes. The views come back with the name shown ([`show_player_name`]).
 pub fn set_setting(
     dir: &Path,
     game: &str,
@@ -874,15 +897,21 @@ pub fn set_setting(
     id: &str,
     key: &str,
     value: Value,
+    player_name: &str,
 ) -> Result<Vec<PluginView>, String> {
     let mut mods = read_list(dir)?;
     let at = position(&mods, id)?;
     let m = read_manifest(&dir.join(id))?;
     let spec = m.settings.iter().find(|s| s.key == key).ok_or_else(|| format!("{id} has no setting {key}"))?;
-    let value = check_value(spec, &value).ok_or_else(|| format!("{value} is not a value of {}", spec.name))?;
+    let mut value = check_value(spec, &value).ok_or_else(|| format!("{value} is not a value of {}", spec.name))?;
+    if spec.kind == "string" && spec.default == PLAYER_NAME && value == player_name {
+        value = Value::String(PLAYER_NAME.into());
+    }
     mods[at].settings.insert(key.to_string(), value);
     write_list(dir, &mods)?;
-    list(dir, game, version)
+    let mut views = list(dir, game, version)?;
+    show_player_name(&mut views, player_name);
+    Ok(views)
 }
 
 /// Removes a mod: its folder in the store and its line in the list.
@@ -1701,17 +1730,55 @@ mod tests {
         let views = list(dir, "rac1", "pal").unwrap();
         assert_eq!(views[0].settings[0].value, json!("lock"), "a value it does not take is the default");
         assert_eq!(views[0].settings[1].value, json!(false));
-        let views = set_setting(dir, "rac1", "pal", "lock-strafe", "mode", json!("hold")).unwrap();
+        let views = set_setting(dir, "rac1", "pal", "lock-strafe", "mode", json!("hold"), "").unwrap();
         assert_eq!(views[0].settings[0].value, json!("hold"));
-        assert!(set_setting(dir, "rac1", "pal", "lock-strafe", "mode", json!("spin")).is_err());
-        assert!(set_setting(dir, "rac1", "pal", "lock-strafe", "trace", json!("yes")).is_err());
-        assert!(set_setting(dir, "rac1", "pal", "lock-strafe", "nope", json!(1)).is_err());
+        assert!(set_setting(dir, "rac1", "pal", "lock-strafe", "mode", json!("spin"), "").is_err());
+        assert!(set_setting(dir, "rac1", "pal", "lock-strafe", "trace", json!("yes"), "").is_err());
+        assert!(set_setting(dir, "rac1", "pal", "lock-strafe", "nope", json!(1), "").is_err());
         let written: Value = serde_json::from_str(&std::fs::read_to_string(dir.join(LIST)).unwrap()).unwrap();
         assert_eq!(written["mods"][0]["settings"], json!({"mode": "hold"}));
         // The UI's view of a setting: the schema's fields and the value.
         let shown = serde_json::to_value(&views[0].settings[0]).unwrap();
         assert_eq!(shown["type"], "choice");
         assert_eq!(shown["value"], "hold");
+    }
+
+    #[test]
+    fn the_player_name_placeholder_follows_the_multiplayer_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        installed_mod(
+            dir,
+            "mp",
+            json!({"settings": [
+                {"key": "name", "name": "Name", "type": "string", "default": "${player_name}", "max_length": 16},
+                {"key": "motto", "name": "Motto", "type": "string", "default": "${player_name}"},
+                {"key": "other", "name": "Other", "type": "string", "default": ""}]}),
+        );
+        std::fs::write(dir.join(LIST), r#"{"format": 1, "mods": [{"id": "mp", "enabled": true, "settings": {}}]}"#)
+            .unwrap();
+        let mut views = list(dir, "rac1", "pal").unwrap();
+        show_player_name(&mut views, "BoldCrate09");
+        assert_eq!(views[0].settings[0].value, json!("BoldCrate09"));
+        assert_eq!(views[0].settings[0].spec.default, json!("BoldCrate09"));
+        assert_eq!(views[0].settings[2].spec.default, json!(""), "only the placeholder is replaced");
+        // The name changes: a value never set follows it.
+        let mut views = list(dir, "rac1", "pal").unwrap();
+        show_player_name(&mut views, "SwiftRobot42");
+        assert_eq!(views[0].settings[0].value, json!("SwiftRobot42"));
+        // A value the player set stays, whatever the name is.
+        let views = set_setting(dir, "rac1", "pal", "mp", "name", json!("Ratchet"), "BoldCrate09").unwrap();
+        assert_eq!(views[0].settings[0].value, json!("Ratchet"));
+        let mut views = list(dir, "rac1", "pal").unwrap();
+        show_player_name(&mut views, "SwiftRobot42");
+        assert_eq!(views[0].settings[0].value, json!("Ratchet"));
+        // Reset to default sends the shown name: kept as the placeholder, not frozen.
+        set_setting(dir, "rac1", "pal", "mp", "name", json!("BoldCrate09"), "BoldCrate09").unwrap();
+        let written: Value = serde_json::from_str(&std::fs::read_to_string(dir.join(LIST)).unwrap()).unwrap();
+        assert_eq!(written["mods"][0]["settings"]["name"], json!("${player_name}"));
+        let mut views = list(dir, "rac1", "pal").unwrap();
+        show_player_name(&mut views, "SwiftRobot42");
+        assert_eq!(views[0].settings[0].value, json!("SwiftRobot42"));
     }
 
     fn zip_of(path: &Path, files: &[(&str, &[u8])]) {
@@ -1747,7 +1814,7 @@ mod tests {
         );
         assert!(dir.join("lock-strafe").join(MANIFEST).is_file());
         assert!(source.join(MANIFEST).is_file(), "what it was added from is kept");
-        set_setting(&dir, "rac1", "pal", "lock-strafe", "mode", json!("hold")).unwrap();
+        set_setting(&dir, "rac1", "pal", "lock-strafe", "mode", json!("hold"), "").unwrap();
 
         // A new version: replaced, the settings it still takes kept, the place and state kept.
         write_mod(&source, &manifest("lock-strafe", json!({"version": "1.1.0", "settings": settings})));
