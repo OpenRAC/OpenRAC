@@ -2,28 +2,35 @@
 /* Copyright (c) 2026 the OpenRAC contributors */
 
 /*
- * Ratchet & Clank (PAL): the three updates that pose an item from Ratchet's pose, as the levels'
- * copies of them run (hostgen.json, "host_functions"; the decompilation's C is src/game/pause.c).
+ * Ratchet & Clank: the three updates that pose an item from Ratchet's pose, as the levels' copies of
+ * them run (hostgen.json, "host_functions"; the decompilation's C is games/rac1's src/game/pause.c,
+ * the NTSC decomp's src/ui/menus/update_menu_preview_*.c). Shared by both discs: the names and
+ * addresses below are games/rac1's, each version's through its rac1_version.h.
  *
  * HandItemUpdate (func_00225E00), func_00225FB8 and func_002260A8 (the pause menu's previews) call
- * the executable's empty stub func_001E9800 where every level's copy of them calls the level's
- * HeroItemPoseFromRatchet (level 0: func_L00_00209940) with an index list and an output buffer,
- * and point the item moby's bindings (+0x68, +0x6C) at that output. The executable forms all of
- * these, and the class table HandItemUpdate searches, as the one address D_001864D0; a level's copy
- * forms each as an address of its own (level 0: the table 0x179BC0, the lists 0x17A6C0, 0x17A708,
- * 0x15F788, 0x17A750 and 0x17A768, the outputs 0x17C580, 0x17C780, 0x17C980 and 0x17CA80), which
- * one relocation of D_001864D0 cannot give. Here each is read from the loaded level's copy of the
- * function, at the lui and addiu that form it there (the copies are the executable's code with
- * other addresses), and so is the function its call goes to. Without a level (or where the copy's
- * code is not as expected) they are the executable's: the stub, and D_001864D0 relocated.
+ * the executable's empty stub func_001E9800 (NTSC-U: func_001E9480) where every level's copy of them
+ * calls the level's HeroItemPoseFromRatchet (PAL level 0: func_L00_00209940) with an index list and
+ * an output buffer, and point the item moby's bindings (+0x68, +0x6C) at that output. The
+ * executable forms all of these, and the class table HandItemUpdate searches, as the one address
+ * D_001864D0; a level's copy forms each as an address of its own (PAL level 0: the table 0x179BC0,
+ * the lists 0x17A6C0, 0x17A708, 0x15F788, 0x17A750 and 0x17A768, the outputs 0x17C580, 0x17C780,
+ * 0x17C980 and 0x17CA80), which one relocation of D_001864D0 cannot give. Here each is read from the
+ * loaded level's copy of the function, at the lui and addiu that form it there (the copies are the
+ * executable's code with other addresses), and so is the function its call goes to. Without a level
+ * (or where the copy's code is not as expected) they are the executable's: the stub, and D_001864D0
+ * relocated.
+ *
+ * NTSC-U ran the decompilation's C, whose call is the stub: the item in Ratchet's hand kept bindings
+ * to an output nothing wrote. The two discs' copies are the same code with other addresses (the NTSC
+ * decomp's C is rac1-decomp's, ported), so the same offsets find the same instructions; where they
+ * do not, the checks below fall back to the stub and say so once.
  */
 #include <stdint.h>
 #include <stdio.h>
 
-#include "game_protos.h"
-#include "openrac/game_host.h"
+#include "rac1.h"
 
-#define D_001864D0 0x001864D0u
+#define D_001864D0 RAC1_ADDR(0x001864D0u)
 
 /* The address the loaded level's copy of executable function `fn` forms with the lui at fn + hi
  * and the addiu (or daddiu) at fn + lo that adds to its register, or `fallback`. */
@@ -83,7 +90,7 @@ static int source_moby(gaddr m) {
  * call at +0x150; the class table +0x60/+0x70). */
 void func_00225E00(gaddr m) {
     GFRAME(frame_, 0x40);
-    const gaddr fn = 0x00225E00u;
+    const gaddr fn = RAC1_ADDR(0x00225E00u);
     const int id = source_moby(m);
     if ((GREF(uint8_t, m + 0x70) & 2) != 0 && GREF(uint8_t, m + 0x53) != 1) {
         func_00213DE0(m, 1, 0, 0);
@@ -107,7 +114,7 @@ void func_00225E00(gaddr m) {
     }
     func_0020EEE8(m);
     int sync = 0;
-    const gaddr s = OPENRAC_DATA(0x001D6160u);
+    const gaddr s = OPENRAC_DATA(RAC1_ADDR(0x001D6160u));
     if (GREF(uint8_t, s + 1) != 0) {
         sync = 1;
         func_0020D9D8((gaddr)id, s);
@@ -135,7 +142,7 @@ void func_00225E00(gaddr m) {
  * the default list (+0xA4/+0xAC, output +0x7C/+0xB4, the call at +0xB8). */
 void func_00225FB8(gaddr m) {
     GFRAME(frame_, 0x40);
-    const gaddr fn = 0x00225FB8u;
+    const gaddr fn = RAC1_ADDR(0x00225FB8u);
     const int id = source_moby(m);
     func_0020E3D0(m);
     func_0020ED48(m);
@@ -166,7 +173,7 @@ void func_00225FB8(gaddr m) {
  * 0x17 and 0x16 taken off the source moby meanwhile. */
 void func_002260A8(gaddr moby) {
     GFRAME(frame_, 0x40);
-    const gaddr fn = 0x002260A8u;
+    const gaddr fn = RAC1_ADDR(0x002260A8u);
     const gaddr vars = GREF(gaddr, moby + 0x78);
     const int id = GREF(int, GREF(gaddr, vars) + 0x44);
     func_0020E3D0(moby);
@@ -177,7 +184,8 @@ void func_002260A8(gaddr moby) {
     func_001FA480(moby + 0xC0, frame_);
     func_00214F78(moby + 0xC0);
     func_0020EEE8(moby);
-    const gaddr first_m = OPENRAC_DATA(0x001D61E0u), second_m = OPENRAC_DATA(0x001D61A0u);
+    const gaddr first_m = OPENRAC_DATA(RAC1_ADDR(0x001D61E0u));
+    const gaddr second_m = OPENRAC_DATA(RAC1_ADDR(0x001D61A0u));
     int first_on = 0, second_on = 0;
     if (GREF(uint8_t, first_m + 1) != 0) {
         first_on = 1;
