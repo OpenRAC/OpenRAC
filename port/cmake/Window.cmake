@@ -177,6 +177,7 @@ openrac_warnings(openrac_renderer)
 # menu's picture and the logo they show. Its own library, so that the renderer itself needs neither
 # ImGui nor the platform's touch pad.
 add_library(openrac_renderer_ui STATIC
+  renderer/ui/canvas.cpp
   renderer/ui/fps_counter.cpp
   renderer/ui/imgui_gl.cpp
   renderer/ui/logo.cpp

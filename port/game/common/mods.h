@@ -58,6 +58,10 @@ struct Host {
     const openrac_graphics* (*graphics)(void) = nullptr;
     void (*set_views)(const openrac_view_source* source) = nullptr;
     void (*set_vulkan_setup)(const openrac_vulkan_setup* setup) = nullptr;
+    // A mod's menu page (interface 1.5): where its rectangles and text go, while its callback runs
+    // (null: a test's, or no window, and then nothing is drawn).
+    void (*menu_rect)(int x, int y, int width, int height, std::uint32_t rgba) = nullptr;
+    void (*menu_text)(int x, int y, int size, std::uint32_t rgba, const char* text) = nullptr;
 };
 
 // Loads the mods the list has on. Returns the session header's line: "lock-strafe 1.0.0", "none",
@@ -85,6 +89,15 @@ inline void frame() {
 
 // How many mods are loaded.
 int loaded_count();
+
+// The front-end menu entries the mods added (interface 1.5), in load order: how many, and an
+// entry's label ("" past the list).
+int menu_entry_count();
+std::string menu_entry_label(int index);
+
+// Runs entry `index`'s page for a frame: its callback with `frame`, its drawing sent to the host's
+// menu_rect and menu_text. True when the page closes (the mod said so, or there is no such entry).
+bool run_menu_page(int index, const openrac_menu_frame& frame);
 
 // For tests: unloads every mod, puts each hook point's slot back to null and forgets the
 // callbacks, so that load() can run again.

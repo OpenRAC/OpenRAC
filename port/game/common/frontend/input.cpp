@@ -23,6 +23,7 @@
 #include "frontend.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/state.h"
+#include "mod_menu.h"
 #include "openrac/game_host.h"
 #include "renderer/ui/touch_overlay.h"
 #include "settings.h"
@@ -238,6 +239,7 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
         skip_after_mods(port, *buttons);
     }
     if (port == 0) {
+        mod_menu::filter_pad(*buttons);  // a mod's menu page has the pad while it is open
         debug_menu::filter_pad(*buttons, openrac_game_loaded_overlay());
         debug_overlay::pad(*buttons, analog);  // [debug tools]
     }

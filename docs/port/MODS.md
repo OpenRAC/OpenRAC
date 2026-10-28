@@ -421,6 +421,8 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `graphics()` (1.4) | any time: what the port draws with (`openrac_graphics`): OpenGL with its `gl_proc`, or Vulkan with its instance, device and queue. Backend none before the window opens |
 | `on_views(mod, &source)` (1.4) | during load, one mod: draw views of the game besides the window's each frame (a headset's eyes, a 2D panel) and copy them into the mod's GL texture or VkImage; `begin` before, `end` once the frame is submitted, `closing` before the context goes ([sdk/docs/views.md](../../sdk/docs/views.md)). While a mod has views, Vulkan renders on the game's thread |
 | `setup_vulkan(mod, &setup)` (1.4) | during load, one mod: make the Vulkan instance and device through the mod (OpenXR's `xrCreateVulkanInstanceKHR`, `xrCreateVulkanDeviceKHR`). The mod's manifest says `"vulkan_device": true`, so the mods load before the window; otherwise they load after it, as before |
+| `menu_entry(mod, label, fn, user)` (1.5) | during load: an entry in the game's front-end menu (at most `OPENRAC_MENU_ENTRIES_MAX`, 4, for all mods together) that opens a page of the mod's own. `fn(user, &frame)` runs once a frame while it is open, with pad 0's buttons held and pressed (`OPENRAC_PAD_*`) and whether the page just opened; it returns `OPENRAC_MENU_STAY` or `OPENRAC_MENU_CLOSE`, and closing goes back to the menu it came from, as the game's back button does. While the page is open the game sees no button of pad 0. In Ratchet & Clank the entry is in the title's Options list (main menu, Options), after the port's own Video and Planets |
+| `menu_rect(mod, x, y, w, h, rgba)`, `menu_text(mod, x, y, size, rgba, text)` (1.5) | only inside the mod's own page callback: a filled rectangle, blended by its alpha, and ASCII text in the port's 5 by 7 font (each character 6 by 8 pixels times `size`, 1 to 8; letters as capitals; `\n` starts a line) on the page, `OPENRAC_MENU_WIDTH` by `OPENRAC_MENU_HEIGHT` (512 by 448) pixels from its top left, stretched over the whole window. Colours are `OPENRAC_RGBA(r, g, b, a)`; the page starts each frame black. The page is drawn as the developer level menu is (a picture made on the CPU, `port/renderer/ui/canvas.h`), so it needs no renderer work of the mod's |
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -445,7 +447,10 @@ added the keyboard and mouse (`input`, `take_input`, `capture_mouse`, the
 the game's picture (`openrac_input.pointer_*`, appended to the state); 1.4
 (SDK 1.4.0) the graphics context, views of the game and a Vulkan device made
 with the mod (`graphics`, `on_views`, `setup_vulkan`, the manifest's
-`vulkan_device`), for a VR mod. The
+`vulkan_device`), for a VR mod; 1.5 (SDK 1.5.0) entries in the front-end
+menu with a page of the mod's own (`menu_entry`, `menu_rect`, `menu_text`;
+the C++ layer's `mod.menu_entry(label, [](const MenuPage&, const MenuFrame&)
+{ ... return close; })`). The
 port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
 does. The port keeps every hook point it has had, with its
@@ -831,9 +836,11 @@ callback that swaps two buttons, chosen in its settings.
   is a data pack, added to the packs when the mod is installed and on when the
   mod is, so a mod can carry code and textures together.
 - **Proposed: settings in the game.** The in-game drawer showing the loaded
-  mods and their settings, written back to `plugins.json`.
+  mods and their settings, written back to `plugins.json`. A mod's own page
+  in the front-end menu is there since 1.5 (`menu_entry`, section 6).
 - **Proposed: more hook points** as mods ask for them, and a hook on the
-  renderer's frame for mods that draw.
+  renderer's frame for mods that draw over the game in play. Simple drawing
+  on a mod's own menu page (rectangles and text) is there since 1.5.
 - **Decided (2026-10-21): the SDK is MIT.** Everything under `sdk/` (the
   headers, the CMake package, the templates, the tools, the guides) is under
   the MIT license ([sdk/LICENSE](../../sdk/LICENSE)), so mods can be under any

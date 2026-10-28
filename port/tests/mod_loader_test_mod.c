@@ -8,7 +8,10 @@
  * "Test_Record". With "input" it also takes the keyboard, asks for the cursor captured, and writes
  * into its pad reports whether W is held and how far the mouse moved (interface 1.2). With "views"
  * it asks for one view a frame and makes the Vulkan device, and reports each frame's end through
- * Test_Record (2000 + the views ended so far) and its closing (4000) (interface 1.4). */
+ * Test_Record (2000 + the views ended so far) and its closing (4000) (interface 1.4). With "menu"
+ * it adds a front-end menu entry whose page draws a rectangle and a line of text each frame and
+ * closes on Cross, and draws outside its page too (ignored), and asks for an entry after load
+ * (refused): Test_Record gets 1100 + that refusal (interface 1.5). */
 #include <stddef.h>
 
 #ifndef TEST_MOD_ID
@@ -26,6 +29,15 @@ static int s_frames;
 static int s_input;
 static int s_views;
 static int s_ended;
+static int s_menu;
+
+/* The menu page: a white rectangle and "HELLO" each frame; Cross closes it. */
+static int menu_page(void* user, const openrac_menu_frame* frame) {
+    (void)user;
+    s_api->menu_rect(s_mod, 10, 20, 30, 40, OPENRAC_RGBA(255, 255, 255, 255));
+    s_api->menu_text(s_mod, 1, 2, 3, OPENRAC_RGBA(255, 0, 0, 255), frame->opened ? "HELLO" : "AGAIN");
+    return (frame->pressed & OPENRAC_PAD_CROSS) != 0 ? OPENRAC_MENU_CLOSE : OPENRAC_MENU_STAY;
+}
 
 OPENRAC_MOD_EXPORT void openrac_mod_query(openrac_mod_info* info) {
     info->api_major = OPENRAC_MOD_API_MAJOR;
@@ -47,6 +59,12 @@ static void on_frame(void* user) {
         if (s_frames == 1) {
             void* original = NULL;
             s_record(1000 + -s_api->hook(s_mod, "Test_Add", "i32(i32)", (void*)add, &original));
+            /* Interface 1.5: an entry after load is refused, and drawing outside the page is not
+             * drawn. */
+            if (s_menu) {
+                s_record(1100 + -s_api->menu_entry(s_mod, "Late", menu_page, NULL));
+                s_api->menu_text(s_mod, 0, 0, 1, 0, "OUTSIDE");
+            }
         }
     }
 }
@@ -111,6 +129,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     s_input = 0;
     s_views = 0;
     s_ended = 0;
+    s_menu = 0;
     s_tag = (int)api->setting_int(mod, "tag");
     s_record = (void (*)(int))api->function("Test_Record");
     const char* behaviour = api->setting_string(mod, "behaviour");
@@ -149,6 +168,17 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         }
         if (api->setup_vulkan(mod, &setup) != OPENRAC_HOOK_OK) {
             return 7;
+        }
+    }
+    if (behaviour[0] == 'm') { /* menu */
+        s_menu = 1;
+        if (api->api_minor < 5 || api->menu_entry(mod, "Join the fun", menu_page, NULL) != OPENRAC_HOOK_OK) {
+            return 8;
+        }
+        /* An entry without a label or a page is refused. */
+        if (api->menu_entry(mod, "", menu_page, NULL) != OPENRAC_HOOK_UNKNOWN
+            || api->menu_entry(mod, "No page", NULL, NULL) != OPENRAC_HOOK_UNKNOWN) {
+            return 9;
         }
     }
     if (api->hook(mod, "Test_Add", "i32(i32)", (void*)add, (void**)&s_add) != OPENRAC_HOOK_OK) {

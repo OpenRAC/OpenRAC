@@ -121,6 +121,8 @@ openrac_add_test(settings SOURCES tests/settings_test.cpp game/common/settings.c
 # The launcher's colours for the options drawer (game/common/ui_colors.h).
 openrac_add_test(ui_colors SOURCES tests/ui_colors_test.cpp game/common/ui_colors.cpp
                            INCLUDES . LIBS openrac_common)
+# The CPU picture of the developer menu and the mods' menu pages (renderer/ui/canvas.h).
+openrac_add_test(ui_canvas SOURCES tests/ui_canvas_test.cpp renderer/ui/canvas.cpp INCLUDES .)
 openrac_add_test(scripted_moby_colour SOURCES enhanced/tests/scripted_moby_colour_test.cpp
                                       INCLUDES .)
 openrac_add_test(pause_options INCLUDES .)

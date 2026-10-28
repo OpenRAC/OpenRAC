@@ -76,6 +76,30 @@ The keyboard and mouse for the tick about to run (interface 1.2, openrac_input):
 | `float pointer_y() const` |  |
 | `bool pointer_inside() const` |  |
 
+## `openrac::MenuFrame`
+
+What a menu page's callback is given each frame (openrac_menu_frame): pad 0's buttons, by the OPENRAC_PAD_* bits. A view of the port's state, valid during the call. Since 1.5.
+
+| Member | |
+|---|---|
+| `explicit MenuFrame(const openrac_menu_frame& frame)` | Wraps the port's state `frame`. |
+| `bool held(std::uint32_t buttons) const` | Return whether any of `buttons` is down now, or went down since the last frame. |
+| `bool pressed(std::uint32_t buttons) const` |  |
+| `bool opened() const` | Returns whether this is the first frame since the page opened. |
+| `const openrac_menu_frame& raw() const` | Returns the port's state as it is. |
+
+## `openrac::MenuPage`
+
+Draws a mod's menu page during its callback: rectangles and text on a page of OPENRAC_MENU_WIDTH by OPENRAC_MENU_HEIGHT pixels, which starts each frame black. Since 1.5.
+
+| Member | |
+|---|---|
+| `MenuPage(const openrac_api* api, openrac_mod* handle)` | Draws through `api` for the mod `handle`. |
+| `void rect(int x, int y, int w, int h, std::uint32_t rgba) const` | Fills `w` by `h` pixels from (x, y), the top left, with `rgba` (OPENRAC_RGBA), blended. |
+| `void text(int x, int y, int size, std::uint32_t rgba, const std::string& text) const` | Writes `text` (ASCII) from (x, y), its top left, at `size` (1 to 8) in `rgba`. |
+| `void text_centred(int y, int size, std::uint32_t rgba, const std::string& text) const` | Writes `text` centred across the page, its top at y. |
+| `static int text_width(std::string_view text, int size)` | Returns how wide `text` is at `size`, in pixels: its longest line's characters, without the last one's spacing column. |
+
 ## `openrac::Original`
 
 `template <class R, class... A>`
@@ -124,6 +148,8 @@ The keyboard and mouse for the tick about to run (interface 1.2, openrac_input):
 | `const openrac_graphics &graphics() const` | Since 1.4: returns what the port draws with (openrac_graphics); its backend is OPENRAC_GRAPHICS_NONE before the window opens. |
 | `void on_views(const openrac_view_source &source)` | Since 1.4: has the port draw the views `source` asks for each frame (openrac_view_source, sdk/docs/views.md). Throws openrac::Error when refused. Only during load. |
 | `void setup_vulkan(const openrac_vulkan_setup &setup)` | Since 1.4: has the port make its Vulkan device through `setup` (openrac_vulkan_setup); the manifest says "vulkan_device": true. Throws openrac::Error when refused. Only during load. |
+| `bool has_menu() const` | Since 1.5: returns whether the port offers menu entries and pages (menu_entry()): a mod that wants to run on 1.4 checks this first. |
+| `template <class F> void menu_entry(const char* label, F&& callable)` | Since 1.5: adds an entry named `label` to the game's front-end menu that opens a page drawn by `callable(page, frame)` each frame, which returns true to close it (MenuCallable). Throws openrac::Error when refused. Only during load. |
 | `Memory memory() const` | Returns a view of game memory. |
 | `gaddr relocate(gaddr address) const` | Return a global's address for the code loaded now: the executable's (`relocate`) or level `level`'s program's (`relocate_level`). Ask each time, because a level moves its globals. |
 | `gaddr relocate_level(int level, gaddr address) const` |  |

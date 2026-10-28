@@ -28,7 +28,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | Name | Value | |
 |---|---|---|
 | `OPENRAC_MOD_API_MAJOR` | `1` | The interface's major version. Changes when anything in the table changes or goes. |
-| `OPENRAC_MOD_API_MINOR` | `4` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md). |
+| `OPENRAC_MOD_API_MINOR` | `5` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own. |
 | `OPENRAC_MOD_TARGET_MINOR` | `OPENRAC_MOD_API_MINOR` |  |
 | `OPENRAC_MOD_EXPORT` | `__declspec(dllexport)` or `__attribute__((visibility("default")))` |  |
 | `OPENRAC_LOG_DEBUG` | `0` | The levels of openrac_api.log, from the most to the least talkative. Since 1.0. |
@@ -58,6 +58,30 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_VIEW_FULL` | `0` | The game's whole picture: the world, with the 2D (HUD, text, menus, fades) over it at the game's 4:3 shape in its middle. |
 | `OPENRAC_VIEW_WORLD` | `1` | The world alone, without the 2D. |
 | `OPENRAC_VIEW_2D` | `2` | The 2D alone, over transparent black (alpha 0 where nothing is drawn): for a panel. Give it the game's 4:3 shape; the eye pose and field of view are not used. |
+| `OPENRAC_MENU_ENTRIES_MAX` | `4` | The most entries the mods together add to the front-end menu (openrac_api.menu_entry). Since 1.5. |
+| `OPENRAC_MENU_WIDTH` | `512` | A menu page's own pixels: the game's 2D picture, 512 across and 448 down, (0, 0) its top left, shown stretched over the whole window. Since 1.5. |
+| `OPENRAC_MENU_HEIGHT` | `448` |  |
+| `OPENRAC_MENU_CHAR_WIDTH` | `6` | A character of openrac_api.menu_text at size 1: 6 pixels across (a 5 by 7 glyph and a column between), 8 down; at size n each is n times that. Letters are drawn as capitals; a character the font lacks is a blank. Since 1.5. |
+| `OPENRAC_MENU_CHAR_HEIGHT` | `8` |  |
+| `OPENRAC_RGBA(r, g, b, a)` |  | A colour of a menu page's drawing, 0xRRGGBBAA: alpha 255 covers what is under, 0 leaves it. Since 1.5. |
+| `OPENRAC_PAD_SELECT` | `0x0001u` | The pad's buttons in openrac_menu_frame.held and .pressed: pad 0's (the keyboard's keys the port maps to it included), one bit each, set while down. Since 1.5. |
+| `OPENRAC_PAD_L3` | `0x0002u` |  |
+| `OPENRAC_PAD_R3` | `0x0004u` |  |
+| `OPENRAC_PAD_START` | `0x0008u` |  |
+| `OPENRAC_PAD_UP` | `0x0010u` |  |
+| `OPENRAC_PAD_RIGHT` | `0x0020u` |  |
+| `OPENRAC_PAD_DOWN` | `0x0040u` |  |
+| `OPENRAC_PAD_LEFT` | `0x0080u` |  |
+| `OPENRAC_PAD_L2` | `0x0100u` |  |
+| `OPENRAC_PAD_R2` | `0x0200u` |  |
+| `OPENRAC_PAD_L1` | `0x0400u` |  |
+| `OPENRAC_PAD_R1` | `0x0800u` |  |
+| `OPENRAC_PAD_TRIANGLE` | `0x1000u` |  |
+| `OPENRAC_PAD_CIRCLE` | `0x2000u` |  |
+| `OPENRAC_PAD_CROSS` | `0x4000u` |  |
+| `OPENRAC_PAD_SQUARE` | `0x8000u` |  |
+| `OPENRAC_MENU_STAY` | `0` | What a menu page's callback returns: the page stays open, or closes and the game's menu it was opened from comes back (as the game's own back button does). Since 1.5. |
+| `OPENRAC_MENU_CLOSE` | `1` |  |
 | `OPENRAC_MOD_QUERY` | `"openrac_mod_query"` | The names the entry points are exported under, for the port's lookup. Since 1.0. |
 | `OPENRAC_MOD_LOAD` | `"openrac_mod_load"` |  |
 | `OPENRAC_MOD_UNLOAD` | `"openrac_mod_unload"` |  |
@@ -80,6 +104,15 @@ typedef struct openrac_mod openrac_mod;
 The port's handle for one loaded mod, passed back to the functions that are the mod's own (its
 log lines, its settings, its hooks). Opaque; valid from openrac_mod_load until the program ends.
 Since 1.0.
+
+```c
+typedef int (*openrac_menu_fn)(void* user, const openrac_menu_frame* frame);
+```
+
+A mod's menu page (openrac_api.menu_entry): called once a frame while the page is open, on the
+game's thread, with the `user` pointer the mod gave. It draws the page with menu_rect and
+menu_text (the page starts each frame black) and returns OPENRAC_MENU_STAY or
+OPENRAC_MENU_CLOSE. While the page is open the game sees no button of pad 0. Since 1.5.
 
 ```c
 typedef void (*openrac_frame_fn)(void* user);
@@ -238,6 +271,18 @@ Since 1.4.
 | `void *(*physical_device)(void *user, void *instance)` | Returns the VkPhysicalDevice to draw on, of `instance`; null lets the port choose. The port refuses a device it cannot draw with (and draws with OpenGL instead). Optional. |
 | `int32_t (*create_device)(void *user, void *get_instance_proc_addr, void *physical_device, const void *create_info, void **device)` | Makes the device from `create_info` (a const VkDeviceCreateInfo*, the port's) on `physical_device` in place of vkCreateDevice, and sets `*device`. Returns a VkResult, as create_instance. Optional. |
 
+## `openrac_menu_frame`
+
+What a menu page's callback is given each frame it is open. The port's; valid during the call.
+Since 1.5.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_menu_frame) as the port was built: a newer port's is larger. |
+| `uint32_t held` | The OPENRAC_PAD_* buttons down now. |
+| `uint32_t pressed` | The OPENRAC_PAD_* buttons that went down since the last call. |
+| `uint32_t opened` | 1 on the first call after the page opened, 0 after. |
+
 ## `openrac_api`
 
 What the port offers a mod. Filled by the port; valid for the life of the program. Every function
@@ -276,3 +321,6 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `const openrac_graphics *(*graphics)(void)` | Returns what the port draws with (openrac_graphics). Never null: before the window opens, and without one, its backend is OPENRAC_GRAPHICS_NONE. Any time. Since 1.4. |
 | `int (*on_views)(openrac_mod *mod, const openrac_view_source *source)` | Asks the port to draw views of the game besides the window's picture each frame, through `source` (openrac_view_source), with OpenGL and Vulkan. While a mod has views, the Vulkan renderer draws on the game's thread. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN when another mod has them, OPENRAC_HOOK_UNKNOWN for a source without begin or end, or OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.4. |
 | `int (*setup_vulkan)(openrac_mod *mod, const openrac_vulkan_setup *setup)` | Has the port make its Vulkan device through `setup` (openrac_vulkan_setup) when the window opens, so that the mod can share it. Without Vulkan (OpenGL, a build without it) nothing is called. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN when another mod has it, OPENRAC_HOOK_UNKNOWN for a setup too small, or OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.4. |
+| `int (*menu_entry)(openrac_mod* mod, const char* label, openrac_menu_fn fn, void* user)` | Adds an entry named `label` (ASCII, up to 31 characters) to the game's front-end menu, which opens a page of the mod's own: `fn(user, frame)` each frame it is open (openrac_menu_fn). Ratchet & Clank has it in the title's Options list, after the port's own entries (Video, and Planets with developer tools). A game whose front end the port does not know shows none. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN for no label or fn or past OPENRAC_MENU_ENTRIES_MAX, or OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.5. |
+| `void (*menu_rect)(openrac_mod* mod, int x, int y, int width, int height, uint32_t rgba)` | Fills the rectangle of `width` by `height` pixels whose top left is (x, y) on the menu page (OPENRAC_MENU_WIDTH by OPENRAC_MENU_HEIGHT) with `rgba` (OPENRAC_RGBA), blended by its alpha; what is outside the page is left out. Only during the mod's own menu callback; ignored otherwise. Since 1.5. |
+| `void (*menu_text)(openrac_mod* mod, int x, int y, int size, uint32_t rgba, const char* text)` | Writes `text` (ASCII; a newline starts a line below) on the menu page with its first character's top left at (x, y), each character OPENRAC_MENU_CHAR_WIDTH by OPENRAC_MENU_CHAR_HEIGHT times `size` (1 to 8), in `rgba`. Only during the mod's own menu callback; ignored otherwise. Since 1.5. |

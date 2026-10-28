@@ -299,6 +299,7 @@ function(openrac_add_game config)
       target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/frontend.cpp"
                                        "${OPENRAC_GAME_DIR}/common/debug_menu.cpp"
                                        "${OPENRAC_GAME_DIR}/common/debug_overlay.cpp"
+                                       "${OPENRAC_GAME_DIR}/common/mod_menu.cpp"
                                        "${OPENRAC_GAME_DIR}/common/options_menu.cpp"
                                        "${OPENRAC_GAME_DIR}/common/settings.cpp"
                                        "${OPENRAC_GAME_DIR}/common/ui_colors.cpp"

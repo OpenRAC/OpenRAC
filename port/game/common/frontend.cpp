@@ -39,6 +39,7 @@
 #include "game/common/frontend/state.h"
 #include "game/common/particle_texture_cache.h"
 #include "game/common/profile.h"
+#include "mod_menu.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "options_menu.h"
@@ -480,7 +481,11 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black) 
 }
 
 std::uint32_t text(int id) {
-    return options_menu::text(id);
+    // The port's own rows' texts, else the mods' menu entries' labels (mod_menu.h).
+    if (const std::uint32_t own = options_menu::text(id); own != 0) {
+        return own;
+    }
+    return mod_menu::text(id);
 }
 
 std::int64_t since_control() {
@@ -498,6 +503,7 @@ void close() {
         renderer::ui::fps_counter::release();
         renderer::ui::touch_overlay::release();
         debug_menu::release();
+        mod_menu::release();
         // A mod's views: it lets go of what it made with the context, while the context is there.
         release_views(*g);
         // Temporal histories reference the target and scene, so retire them before either owner.

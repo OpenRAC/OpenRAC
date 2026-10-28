@@ -191,6 +191,74 @@ private:
     const openrac_input* m_state;
 };
 
+// What a menu page's callback is given each frame (openrac_menu_frame): pad 0's buttons, by the
+// OPENRAC_PAD_* bits. A view of the port's state, valid during the call. Since 1.5.
+class MenuFrame {
+public:
+    // Wraps the port's state `frame`.
+    explicit MenuFrame(const openrac_menu_frame& frame) : m_frame(&frame) {}
+
+    // Return whether any of `buttons` is down now, or went down since the last frame.
+    bool held(std::uint32_t buttons) const { return (m_frame->held & buttons) != 0; }
+
+    bool pressed(std::uint32_t buttons) const { return (m_frame->pressed & buttons) != 0; }
+
+    // Returns whether this is the first frame since the page opened.
+    bool opened() const { return m_frame->opened != 0; }
+
+    // Returns the port's state as it is.
+    const openrac_menu_frame& raw() const { return *m_frame; }
+
+private:
+    // The port's state; not owned.
+    const openrac_menu_frame* m_frame;
+};
+
+// Draws a mod's menu page during its callback: rectangles and text on a page of
+// OPENRAC_MENU_WIDTH by OPENRAC_MENU_HEIGHT pixels, which starts each frame black. Since 1.5.
+class MenuPage {
+public:
+    // The page's size in its own pixels.
+    static constexpr int width = OPENRAC_MENU_WIDTH;
+    static constexpr int height = OPENRAC_MENU_HEIGHT;
+
+    // Draws through `api` for the mod `handle`.
+    MenuPage(const openrac_api* api, openrac_mod* handle) : m_api(api), m_handle(handle) {}
+
+    // Fills `w` by `h` pixels from (x, y), the top left, with `rgba` (OPENRAC_RGBA), blended.
+    void rect(int x, int y, int w, int h, std::uint32_t rgba) const {
+        m_api->menu_rect(m_handle, x, y, w, h, rgba);
+    }
+
+    // Writes `text` (ASCII) from (x, y), its top left, at `size` (1 to 8) in `rgba`.
+    void text(int x, int y, int size, std::uint32_t rgba, const std::string& text) const {
+        m_api->menu_text(m_handle, x, y, size, rgba, text.c_str());
+    }
+
+    // Writes `text` centred across the page, its top at y.
+    void text_centred(int y, int size, std::uint32_t rgba, const std::string& text) const {
+        this->text((width - text_width(text, size)) / 2, y, size, rgba, text);
+    }
+
+    // Returns how wide `text` is at `size`, in pixels: its longest line's characters, without the
+    // last one's spacing column.
+    static int text_width(std::string_view text, int size) {
+        int longest = 0;
+        int line = 0;
+        for (const char c : text) {
+            // A newline starts the next line's count.
+            line = c == '\n' ? 0 : line + 1;
+            longest = line > longest ? line : longest;
+        }
+        return longest > 0 ? (longest * OPENRAC_MENU_CHAR_WIDTH - 1) * size : 0;
+    }
+
+private:
+    // The port's table and the mod's handle; not owned.
+    const openrac_api* m_api;
+    openrac_mod* m_handle;
+};
+
 // ----------------------------------------------------------------------------------------------
 // Hooks: what the layer keeps for each hook point, and its thunks
 // ----------------------------------------------------------------------------------------------
@@ -342,6 +410,36 @@ inline void pad_thunk(void* user, int port, std::uint8_t* report_bytes, int size
     } catch (...) {
         report("on_pad", "an exception that is not a std::exception");
     }
+}
+
+// What a mod's menu page is: called each frame the page is open, it draws through the MenuPage
+// and returns true to close the page. Since 1.5.
+using MenuCallable = std::function<bool(const MenuPage& page, const MenuFrame& frame)>;
+
+// A menu page as the layer keeps it: the callable, and the table and handle its MenuPage draws
+// through.
+struct MenuEntry {
+    MenuCallable callable;
+    const openrac_api* api;
+    openrac_mod* handle;
+};
+
+// The openrac_menu_fn the port calls: runs the MenuEntry that `user` points at. An exception is
+// logged and closes the page, so that a broken page never keeps the player in it.
+inline int menu_thunk(void* user, const openrac_menu_frame* frame) {
+    auto* entry = static_cast<MenuEntry*>(user);
+
+    // An exception must not cross into the game's frame loop.
+    try {
+        const MenuPage page(entry->api, entry->handle);
+        return entry->callable(page, MenuFrame(*frame)) ? OPENRAC_MENU_CLOSE : OPENRAC_MENU_STAY;
+    } catch (const std::exception& e) {
+        report("menu_entry", e.what());
+    } catch (...) {
+        report("menu_entry", "an exception that is not a std::exception");
+    }
+
+    return OPENRAC_MENU_CLOSE;
 }
 
 }  // namespace detail
@@ -593,6 +691,33 @@ public:
       }
     }
 
+    // Since 1.5: returns whether the port offers menu entries and pages (menu_entry()): a mod
+    // that wants to run on 1.4 checks this first.
+    bool has_menu() const {
+        return m_api->api_minor >= 5
+               && m_api->size >= offsetof(openrac_api, menu_text) + sizeof(void*);
+    }
+
+    // Since 1.5: adds an entry named `label` to the game's front-end menu that opens a page drawn
+    // by `callable(page, frame)` each frame, which returns true to close it (MenuCallable).
+    // Throws openrac::Error when refused. Only during load.
+    template <class F>
+    void menu_entry(const char* label, F&& callable) {
+        // As in on_frame, the port holds the address of the stored entry.
+        auto& stored = m_menus.emplace_back(
+            detail::MenuEntry{detail::MenuCallable(std::forward<F>(callable)), m_api, m_handle}
+        );
+
+        // The port refuses an entry once load is over, and past its most.
+        if (const int result = m_api->menu_entry(m_handle, label, &detail::menu_thunk, &stored);
+            result != OPENRAC_HOOK_OK) {
+            throw Error(
+                result == OPENRAC_HOOK_TOO_LATE ? "menu_entry: refused (only during load)"
+                                                : "menu_entry: refused (no label, or too many)"
+            );
+        }
+    }
+
     // Returns a view of game memory.
     Memory memory() const { return Memory(m_api->memory); }
 
@@ -647,6 +772,9 @@ private:
     // pointers to these.
     std::deque<detail::FrameCallable> m_frames;
     std::deque<detail::PadCallable> m_pads;
+
+    // The menu pages the mod gave menu_entry, likewise at stable addresses (since 1.5).
+    std::deque<detail::MenuEntry> m_menus;
 };
 
 // Room on the game's stack for a call that takes the address of a local, given back when it goes.
