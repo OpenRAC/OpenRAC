@@ -37,8 +37,11 @@
  * {id, size, value}: id 0 the level, 1 the bolts, 2 the gold bolts, 3 the play time in ticks (60 a
  * second: the Load page's hh:mm), as memcard_RestoreInfo reads them. An empty slot's level is -1.
  */
+#include <stdio.h>
 #include <string.h>
 
+#include "openrac/host_env.h"
+#include "pose_anim.h"
 #include "rac1.h"
 
 #define LEVELS 19
@@ -105,11 +108,9 @@ enum {
 #define CLASS_SEQS 0x48u
 #define SEQ_FRAMES 0x10u
 
-/* The hero's class, the figure's mark in its pvars, and how far its key may drift from the pose's
- * before it is put there, in keys; the ticks a new seq blends over. */
+/* The hero's class, the figure's mark in its pvars, and the ticks a new seq blends over. */
 #define HERO_CLASS 0
 #define FIGURE_MARK 0x4F504647u /* "OPFG" */
-#define FIGURE_DRIFT 3
 #define FIGURE_BLEND 4
 /* How far away a figure is drawn, in game units (the renderer's depth test, +0x32). */
 #define FIGURE_DRAW_DIST 400
@@ -263,17 +264,32 @@ static gaddr figure_spawn(void) {
     return moby;
 }
 
-/* The shorter way round from key `from` to key `to` of `frames`, in keys. */
-static int key_distance(int from, int to, int frames) {
-    int d = to - from;
-    if (d < 0) {
-        d = -d;
+/* What the last rac1_pose_moby did to the animation (for the trace). */
+static const char* pose_action = "";
+
+/* OPENRAC_ANIM_TRACE set: what a figure's animation did at each pose, a line on stderr. */
+static void trace_moby(gaddr moby, const char* what) {
+    static int on = -1;
+    if (on < 0) {
+        on = openrac_env_string("OPENRAC_ANIM_TRACE") != NULL;
     }
-    return frames - d < d ? frames - d : d;
+    if (on) {
+        fprintf(
+            stderr,
+            "ATRACE F %s %u %u %u %u %.4f %.4f\n",
+            what,
+            (unsigned)GREF(uint8_t, moby + MOBY_SEQ),
+            (unsigned)GREF(uint8_t, moby + MOBY_TARGET_SEQ),
+            (unsigned)GREF(uint8_t, moby + MOBY_FRAME),
+            (unsigned)GREF(uint8_t, moby + MOBY_NEXT_FRAME),
+            GREF(float, moby + MOBY_ANIM_TIME),
+            GREF(float, moby + MOBY_ANIM_SPEED)
+        );
+    }
 }
 
 /* A moby put in a pose (rac1.h): its place, rotation and scale, and its animation, blended into a
- * new seq and put back on the pose's key when it drifts. */
+ * new seq and kept to the pose's place in it by its speed (pose_anim.h). */
 void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose) {
     for (unsigned i = 0; i < 3; ++i) {
         GREF(float, moby + MOBY_POS + 4u * i) = pose->position[i];
@@ -282,34 +298,51 @@ void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose) {
     if (pose->scale > 0.0f) {
         GREF(float, moby + MOBY_SCALE) = pose->scale;
     }
+    pose_action = "run";
     const int frames = seq_frames(moby, pose->seq);
     if (frames == 0) {
+        pose_action = "noseq";
         return;
     }
-    const int frame = (int)pose->frame < frames ? (int)pose->frame : frames - 1;
-    const uint8_t seq = GREF(uint8_t, moby + MOBY_SEQ);
-    const uint8_t target = GREF(uint8_t, moby + MOBY_TARGET_SEQ);
-    /* A new seq: blended into, as the game's mobys change theirs (MobyBlendAnimation). */
-    if (target != pose->seq) {
-        func_00213DE0(moby, (int)pose->seq, frame, FIGURE_BLEND);
-        return;
+    const pose_anim_in in = {
+        .frames = frames,
+        .moby_seq = GREF(uint8_t, moby + MOBY_SEQ),
+        .moby_target = GREF(uint8_t, moby + MOBY_TARGET_SEQ),
+        .moby_frame = GREF(uint8_t, moby + MOBY_FRAME),
+        .moby_time = GREF(float, moby + MOBY_ANIM_TIME),
+        .pose_seq = (int)pose->seq,
+        .pose_frame = (int)pose->frame < frames ? (int)pose->frame : frames - 1,
+        .pose_time = pose->anim_time,
+        .pose_speed = pose->anim_speed,
+        .pose_blending = (pose->flags & 1u) != 0, /* OPENRAC_POSE_BLENDING */
+    };
+    float speed = 0.0f;
+    switch (pose_anim_step(&in, &speed)) {
+        case POSE_ANIM_BLEND:
+            /* A new seq: blended into, as the game's mobys change theirs (MobyBlendAnimation),
+             * at the blend's own speed. */
+            func_00213DE0(moby, in.pose_seq, in.pose_frame, FIGURE_BLEND);
+            pose_action = "blend";
+            return;
+        case POSE_ANIM_BLENDING:
+            pose_action = "blending";
+            return;
+        case POSE_ANIM_SET:
+            func_00213D28(moby, in.pose_seq, in.pose_frame);
+            GREF(float, moby + MOBY_ANIM_TIME) = in.pose_blending ? 0.0f : in.pose_time;
+            pose_action = "snap";
+            break;
+        default:
+            break;
     }
-    /* While a blend plays, it plays on. */
-    if (seq != target || (pose->flags & 1u) != 0) {
-        return;
-    }
-    /* The figure animates by itself; put at the pose's key only once it has drifted away
-     * (MobySetAnimation). */
-    if (key_distance(GREF(uint8_t, moby + MOBY_FRAME), frame, frames) > FIGURE_DRIFT) {
-        func_00213D28(moby, (int)pose->seq, frame);
-        GREF(float, moby + MOBY_ANIM_TIME) = pose->anim_time;
-    }
-    GREF(float, moby + MOBY_ANIM_SPEED) = pose->anim_speed;
+    GREF(float, moby + MOBY_ANIM_SPEED) = speed;
 }
 
 static void figure_pose(gaddr moby, const openrac_game_pose* pose) {
     if (figure_alive(moby)) {
+        trace_moby(moby, "pre");
         rac1_pose_moby(moby, pose);
+        trace_moby(moby, pose_action);
     }
 }
 

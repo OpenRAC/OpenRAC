@@ -976,8 +976,9 @@ typedef struct openrac_api {
     int (*figure_create)(openrac_mod* mod);
 
     /* Puts the mod's figure `id` in `pose`: where it is, its rotation and scale, and its animation
-     * (a new seq blends into it; the key followed only when it drifts more than a few keys, the
-     * figure animating by itself in between at anim_speed). Each tick the mod wants it to move.
+     * (a new seq blends into it; the figure animates by itself, at anim_speed nudged faster or
+     * slower to keep to the pose's key and anim_time, and is put on the key only when more than a
+     * few keys away). Each tick the mod wants it to move.
      * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a figure that is not the mod's or is
      * gone with its level (then the mod makes another). Since 1.8. */
     int (*figure_pose)(openrac_mod* mod, int id, const openrac_pose* pose);

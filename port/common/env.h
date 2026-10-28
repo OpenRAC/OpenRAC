@@ -51,6 +51,7 @@ enum class Truth : std::uint8_t {
 // (OPENRAC_GL_API is GlApi), in the table's order, which is alphabetical by name.
 enum class Var : std::uint16_t {
     Anim,
+    AnimTrace,
     AudioTicked,
     CameraInstanceCullOff,
     CamLog,
