@@ -139,6 +139,17 @@ int main(int argc, char** argv) {
 
     std::vector<Press> presses;
 
+    /** Scripted left stick: hold it at X, Y (0x80 centred, 0 left/up, 0xFF right/down) for some fields. */
+    struct Stick {
+        /** The first field and how many fields it lasts. */
+        int frame, length;
+
+        /** The axes. */
+        unsigned x, y;
+    };
+
+    std::vector<Stick> sticks;
+
     /**
      * A scripted change of the program's memory: a word kept at a value for some fields. For
      * reaching a state that no script of presses reaches, such as starting in a later level.
@@ -250,6 +261,11 @@ int main(int argc, char** argv) {
             Press p{0, 4, 0};
             std::sscanf(argv[++i], "%d:%x:%d", &p.frame, &p.buttons, &p.length);
             presses.push_back(p);
+        } else if (arg == "--stick" && i + 1 < argc) {
+            // FRAME:X:Y[:FRAMES], the left stick's axes in hexadecimal (80 centred); 4 fields by default.
+            Stick s{0, 4, 0x80, 0x80};
+            std::sscanf(argv[++i], "%d:%x:%x:%d", &s.frame, &s.x, &s.y, &s.length);
+            sticks.push_back(s);
         } else if (arg == "--write" && i + 1 < argc) {
             // FRAME:ADDRESS:VALUE[:FRAMES], address and value in hexadecimal; one field by default.
             Write w{0, 1, 0, 0};
@@ -332,7 +348,7 @@ int main(int argc, char** argv) {
                 stderr,
                 "usage: openrac-boot DISC.iso [--hooks FILE] [--frames N] [--report N] [--verbose "
                 "N] "
-                "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--gs-states "
+                "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--stick FRAME:X:Y[:FRAMES]] [--gs-states "
                 "FRAME] "
                 "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | "
                 "--no-card] [--wav FILE] [--native LIBRARY] [--native-check CALLS] [--native-range "
@@ -596,6 +612,15 @@ int main(int argc, char** argv) {
             // The press covers fields from its start for its length.
             if (frame >= p.frame && frame < p.frame + p.length) {
                 machine.pad.buttons |= static_cast<u16>(p.buttons);
+            }
+        }
+
+        // The left stick for this field: centred, or the last scripted position that covers it.
+        machine.pad.left_x = machine.pad.left_y = 0x80;
+        for (const Stick& s : sticks) {
+            if (frame >= s.frame && frame < s.frame + s.length) {
+                machine.pad.left_x = static_cast<u8>(s.x);
+                machine.pad.left_y = static_cast<u8>(s.y);
             }
         }
 
