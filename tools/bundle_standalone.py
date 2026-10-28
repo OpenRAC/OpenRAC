@@ -187,6 +187,12 @@ def player_actions() -> dict:
     return out
 
 
+def editor_file(rel: Path) -> bool:
+    """Whether the copy takes editor/REL: the tools and what a level's Godot project gets
+    (editor/godot.py copies rc1/ and the Collision dock's addon, plugin.cfg included)."""
+    return not rel.name.startswith("test_") and rel.suffix in (".py", ".tsv", ".gd", ".cfg", "")
+
+
 def strip_debug(path: Path) -> bool:
     """Drops the debug info of an ELF program (Linux), keeping its symbols; whether it did. A
     program of another system, or no strip tool on the PATH, leaves the file as it is."""
@@ -246,8 +252,7 @@ def main() -> int:
     # The helpers they import, found from the copy's own tools/ (they find the copy's root by
     # the STANDALONE note written below).
     files.copy_tree(ROOT / "tools/openrac_common", out / "tools/openrac_common", lambda rel: rel.suffix == ".py")
-    files.copy_tree(ROOT / "editor", out / "editor",
-              lambda rel: not rel.name.startswith("test_") and rel.suffix in (".py", ".tsv", ".gd", ""))
+    files.copy_tree(ROOT / "editor", out / "editor", editor_file)
     # Enhanced graphics' baker's Python half; on Android its program is the APK's library
     # (libopenrac-probe-bake.so, tools/build_android.py).
     files.copy_tree(ROOT / PROBE_TOOLS, out / PROBE_TOOLS,
