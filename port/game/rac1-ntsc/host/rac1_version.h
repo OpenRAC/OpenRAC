@@ -151,6 +151,9 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* MobySetAnimation, which the US decomp's update_menu_system calls as FUN_00212ed8; the map pairs
  * PAL's with 0x212F58. */
 #define func_00213D28 game_FUN_00212ed8
+/* The large font's glyph table (mod_ui.cpp's page widths), after the normal and small ones as in
+ * PAL: the US decomp's large_font_metrics. */
+#define RAC1_ADDR_0x001DFB10u 0x001DF790u
 
 /* ---- generated below ---- */
 

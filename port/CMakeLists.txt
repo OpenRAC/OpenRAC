@@ -128,6 +128,8 @@ openrac_add_test(ui_canvas SOURCES tests/ui_canvas_test.cpp renderer/ui/canvas.c
 openrac_add_test(scripted_moby_colour SOURCES enhanced/tests/scripted_moby_colour_test.cpp
                                       INCLUDES .)
 openrac_add_test(pause_options INCLUDES .)
+# How wide a mod's page of the game's widgets is drawn (game/common/menu_fit.h).
+openrac_add_test(menu_fit INCLUDES .)
 # Which undrawn ticks keep the window's last picture (game/common/program/undrawn_ticks.h).
 openrac_add_test(undrawn_ticks INCLUDES .)
 # The mobys' colour passes and their depth writes (scene/moby_passes.h).

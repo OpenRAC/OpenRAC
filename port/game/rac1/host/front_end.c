@@ -100,4 +100,5 @@ const openrac_front_end rac1_front_end = {
     .panel_slots = PANEL_SLOTS,
     .menu_cue = menu_cue,
     .panel_animation = panel_animation,
+    .fonts = {RAC1_ADDR(0x001DF3D0u), RAC1_ADDR(0x001DF770u), RAC1_ADDR(0x001DFB10u)},
 };

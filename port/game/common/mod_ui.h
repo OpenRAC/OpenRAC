@@ -7,7 +7,8 @@
 // Clank the main menu's page gets a row per item under the game's three (the frame moby of a free
 // slot playing the next row's seq), each item opens a copy of the Options page whose title, list
 // and footer are the mod's page, and a page opened from there is a copy of the Language page, a
-// level down. The list is the game's text list, drawn by the game in its font; its cursor, Cross,
+// level down. A page's frames are stretched sideways to its widest title, item and footer line,
+// within the screen's safe area (menu_fit.h); the game's own pages keep theirs. The list is the game's text list, drawn by the game in its font; its cursor, Cross,
 // Left, Right and Triangle are the port's (the widget has no update), with the game's sounds. A
 // question is the memory card's prompt box in the list's place. A game without a front end
 // (game_host.h, openrac_front_end) shows none.

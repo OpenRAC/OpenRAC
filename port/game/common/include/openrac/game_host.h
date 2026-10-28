@@ -204,6 +204,10 @@ typedef struct openrac_front_end {
     /* Frame moby `slot` cut to frame 0 of its seq `seq` (`last`: its last frame), then played at
      * `speed` frames a tick (1 on, -1 back), as the page menu's switch does. */
     void (*panel_animation)(int slot, int seq, int last, float speed);
+    /* The fonts' glyph tables, normal, small and large (rac1: 4 bytes a character, its width the
+     * signed byte 3, which the game's string width sums), for the width of a mod's page; 0 for
+     * none. */
+    gaddr fonts[3];
 } openrac_front_end;
 
 extern const openrac_front_end* openrac_game_front_end;

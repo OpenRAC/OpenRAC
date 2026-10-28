@@ -5,13 +5,16 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <string>
 #include <vector>
 
 #include "common/log.h"
+#include "menu_fit.h"
 #include "mods.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
@@ -133,6 +136,75 @@ struct GamePage {
     std::vector<std::string> footer_shown;  // the footer's lines last put
 };
 
+/*
+ * The frames' width. A widget's box is its frame moby's projected frame: the corners its update
+ * (settle_attachment_weight_and_update) puts in its pvars from its pose, its scale and its rows
+ * (+0xC0, the images of the model's axes), which render_level_effects_and_screen_sprites projects
+ * (pause.c); the moby is drawn with the same rows. The menu's camera looks along z from (256, 256,
+ * 64) with the world's axes (reset_active_camera_position_and_basis), so the screen's x is the
+ * world's. A mod's page stretches its title's, list's and footer's frames by one factor to fit
+ * its texts (menu_fit.h): each row's x times it and the moby moved so that the frame keeps its
+ * centre, with mode 0x100, the moby keeping rows of its own (the moby loop's func_0020ED48 makes
+ * them from its angles otherwise). The frames' own widths are learnt as any page shows them
+ * settled at stretch 1 (the game's pages too; by seq). A switch to or from a mod's page goes from
+ * one stretch to the other over its 12 ticks, as the frames fly; a page shown takes its own, and
+ * while it stays only grows with its texts. The game's own pages are left as the game made them.
+ */
+constexpr gaddr kMobyPosition = 0x10;
+constexpr gaddr kMobyMode = 0x34;
+constexpr gaddr kMobySeq = 0x52;
+constexpr gaddr kMobyFrame = 0x78;  // pvars: the frame's corners, then its box on the screen
+constexpr gaddr kMobyRows = 0xC0;
+constexpr std::uint16_t kOwnRows = 0x100;
+constexpr std::uint16_t kRowFlipped = 0x8000;  // row 1 negated at each update: left alone
+constexpr gaddr kCornerFirst = 0x00;
+constexpr gaddr kCornerOpposite = 0x30;
+constexpr gaddr kFrameX = 0x50;
+constexpr gaddr kFrameWidth = 0x58;
+constexpr std::array<int, 3> kFitSlots = {kTitleSlot, kListSlot, kFooterSlot};
+// The fonts in the front end's table; the screen's width and its safe area, 5% in on each side.
+constexpr int kNormalFont = 0;
+constexpr int kLargeFont = 2;
+constexpr gaddr kGlyphBytes = 256 * 4;
+constexpr float kScreenWidth = 512.0f;
+constexpr float kSafeLeft = kScreenWidth * 0.05f;
+constexpr float kSafeRight = kScreenWidth * 0.95f;
+// A page shown takes a new stretch this part of the way a tick.
+constexpr float kEase = 0.3f;
+
+// A frame moby stretched: its own x and its rows' own x, the stretch it has; and its frame's width
+// as last measured at stretch 1, by seq.
+struct Stretched {
+    gaddr moby = 0;  // 0: not stretched
+    float position_x = 0.0f;
+    std::array<float, 3> row_x{};
+    float by = 1.0f;
+    int seen_seq = -1;
+    float seen_width = 0.0f, seen_x = 0.0f;
+};
+
+// A frame's own width and its centre on the screen, as its seq leaves it (0: not seen yet).
+struct Base {
+    float width = 0.0f, centre = 0.0f;
+};
+
+// What a mod page's texts need of the title, the list and the footer, at a revision of it.
+struct Needs {
+    std::uint64_t revision = 0;
+    bool known = false;
+    std::array<float, kFitSlots.size()> width{};
+};
+
+struct Fit {
+    std::array<Stretched, kFitSlots.size()> slots{};
+    std::array<Base, 256> bases{};
+    std::vector<Needs> needs;  // by mod page
+    float by = 1.0f;           // the stretch the frames have
+    float from = 1.0f, to = 1.0f, goal = 1.0f;
+    bool switching = false;
+    int game = -1, page = -1;  // the page shown whose stretch it is
+};
+
 struct State {
     bool built = false;
     std::array<GamePage, kGamePages> pages{};
@@ -155,6 +227,7 @@ struct State {
     std::uint16_t held = 0, pressed = 0;
     std::uint16_t swallow = 0;  // held as a page left: kept from the game until let go
     std::array<int, kDirections.size()> held_for{};
+    Fit fit;
 };
 
 State s;
@@ -182,9 +255,9 @@ gaddr text_at(int id) {
     return s.texts + kTextBytes * static_cast<gaddr>(id - kTextFirst);
 }
 
-// A text as the game's: UTF-8 made the game's letters (options_menu::game_text), the pad glyphs
-// kept, any other control character a space.
-void put_text(int id, const std::string& utf8) {
+// A text as the game shows it: UTF-8 made the game's letters (options_menu::game_text), the pad
+// glyphs kept, any other control character a space, as long as a text's room.
+std::string game_line(const std::string& utf8) {
     std::string text = options_menu::game_text(utf8);
     std::replace_if(
         text.begin(),
@@ -195,7 +268,12 @@ void put_text(int id, const std::string& utf8) {
         },
         ' '
     );
-    std::snprintf(static_cast<char*>(G(text_at(id))), kTextBytes, "%s", text.c_str());
+    text.resize(std::min<std::size_t>(text.size(), kTextBytes - 1));
+    return text;
+}
+
+void put_text(int id, const std::string& utf8) {
+    std::snprintf(static_cast<char*>(G(text_at(id))), kTextBytes, "%s", game_line(utf8).c_str());
 }
 
 void put_item(gaddr at, int text, std::int16_t action, std::uint32_t arg) {
@@ -501,6 +579,296 @@ void show(int game, int page) {
     put_word(g.footer + kListItems, ids.empty() ? g.game_footer_items : g.footer_items);
 }
 
+gaddr panel(const openrac_front_end& fe, int slot) {
+    return word(fe.panel_slots + 4 * static_cast<gaddr>(slot));
+}
+
+std::span<const std::uint8_t> glyphs(const openrac_front_end& fe, int font) {
+    return {static_cast<const std::uint8_t*>(G(fe.fonts[font])), kGlyphBytes};
+}
+
+// The widths mod page `page`'s texts need: its title in the large font (the label's), its items in
+// the list's (a choice with each of its values under the cursor, the widest of them) and its
+// footer's lines in the footer's normal font.
+const std::array<float, kFitSlots.size()>& needs(const openrac_front_end& fe, int page) {
+    static const std::array<float, kFitSlots.size()> kNone{};
+    const mods::UiPage* p = mods::ui_page(page);
+
+    if (p == nullptr || page < 0 || fe.fonts[kNormalFont] == 0 || fe.fonts[kLargeFont] == 0) {
+        return kNone;
+    }
+
+    auto& all = s.fit.needs;
+
+    if (all.size() <= static_cast<std::size_t>(page)) {
+        all.resize(static_cast<std::size_t>(page) + 1);
+    }
+
+    Needs& n = all[static_cast<std::size_t>(page)];
+
+    if (n.known && n.revision == p->revision) {
+        return n.width;
+    }
+
+    const auto normal = glyphs(fe, kNormalFont);
+    const auto width = [&](const std::string& utf8, std::span<const std::uint8_t> font) {
+        return menu_fit::text_width(game_line(utf8), font);
+    };
+    const std::array<int, 1> title = {width(p->title, glyphs(fe, kLargeFont))};
+    std::vector<int> items;
+    const auto count = std::min<std::size_t>(p->items.size(), OPENRAC_UI_ITEMS_MAX);
+
+    for (std::size_t i = 0; i < count; ++i) {
+        mods::UiItem item = p->items[i];
+
+        if (item.kind != OPENRAC_UI_CHOICE || item.choices.empty()) {
+            items.push_back(width(item_line(item, false), normal));
+            continue;
+        }
+
+        for (std::size_t c = 0; c < item.choices.size(); ++c) {
+            item.choice = static_cast<std::uint32_t>(c);
+            items.push_back(width(item_line(item, true), normal));
+        }
+    }
+
+    std::vector<int> footer;
+
+    for (std::size_t i = 0; i < p->footer.size() && i < OPENRAC_UI_FOOTER_MAX; ++i) {
+        footer.push_back(width(p->footer[i], normal));
+    }
+
+    n.known = true;
+    n.revision = p->revision;
+    n.width = {
+        menu_fit::needed_width(title, menu_fit::kTitlePadding),
+        menu_fit::needed_width(items, menu_fit::kListPadding),
+        menu_fit::needed_width(footer, menu_fit::kFooterPadding),
+    };
+    return n.width;
+}
+
+// The stretch game page `game` takes for the mod page it shows (1 for one of the game's): its
+// texts' needs over its frames' own widths, as far as the safe area lets them.
+float target(const openrac_front_end& fe, int game) {
+    const int page = mod_page_of(game);
+
+    if (page < 0) {
+        return 1.0f;
+    }
+
+    const auto& need = needs(fe, page);
+    const gaddr seqs = s.pages[static_cast<std::size_t>(game)].page + kSeqs;
+    std::array<menu_fit::Frame, kFitSlots.size()> frames{};
+
+    for (std::size_t i = 0; i < kFitSlots.size(); ++i) {
+        const auto seq = GREF(std::int32_t, seqs + 4 * static_cast<gaddr>(kFitSlots[i]));
+
+        if (seq >= 0 && seq < static_cast<std::int32_t>(s.fit.bases.size())) {
+            const Base& b = s.fit.bases[static_cast<std::size_t>(seq)];
+            frames[i] = {b.width, b.centre, need[i]};
+        }
+    }
+
+    return menu_fit::stretch(frames, kSafeLeft, kSafeRight);
+}
+
+// The frames of page `page`, settled, at stretch 1: each one's width learnt for its seq once the
+// same two ticks running (the switch's flight over).
+void learn(const openrac_front_end& fe, gaddr page) {
+    for (std::size_t i = 0; page != 0 && i < kFitSlots.size(); ++i) {
+        Stretched& st = s.fit.slots[i];
+        const gaddr moby = panel(fe, kFitSlots[i]);
+        const gaddr frame = moby != 0 ? word(moby + kMobyFrame) : 0;
+        const auto seq = GREF(std::int32_t, page + kSeqs + 4 * static_cast<gaddr>(kFitSlots[i]));
+
+        if (frame == 0 || st.moby != 0 || seq < 0
+            || seq >= static_cast<std::int32_t>(s.fit.bases.size())
+            || GREF(std::uint8_t, moby + kMobySeq) != seq) {
+            st.seen_seq = -1;
+            continue;
+        }
+
+        const auto width = static_cast<float>(GREF(std::int32_t, frame + kFrameWidth));
+        const auto x = static_cast<float>(GREF(std::int32_t, frame + kFrameX));
+        Base& b = s.fit.bases[static_cast<std::size_t>(seq)];
+
+        if (b.width == 0.0f && st.seen_seq == seq && st.seen_width == width && st.seen_x == x
+            && width > 0.0f) {
+            b = {width, x + width / 2.0f};
+        }
+
+        st.seen_seq = seq;
+        st.seen_width = width;
+        st.seen_x = x;
+    }
+}
+
+// A frame moby given rows and a place of its own, `by` times as wide about its frame's centre (as
+// the corners its update put last tick, with what it had then, place it).
+void stretch_moby(Stretched& st, float by) {
+    const gaddr moby = st.moby;
+    const gaddr frame = word(moby + kMobyFrame);
+    float centre = 0.0f;
+
+    if (frame != 0) {
+        const float middle =
+            (GREF(float, frame + kCornerFirst) + GREF(float, frame + kCornerOpposite)) / 2.0f;
+        centre = (middle - GREF(float, moby + kMobyPosition)) / st.by;
+    }
+
+    GREF(float, moby + kMobyPosition) = st.position_x - (by - 1.0f) * centre;
+
+    for (std::size_t r = 0; r < st.row_x.size(); ++r) {
+        GREF(float, moby + kMobyRows + 0x10 * static_cast<gaddr>(r)) = st.row_x[r] * by;
+    }
+
+    GREF(std::uint16_t, moby + kMobyMode) |= kOwnRows;
+    st.by = by;
+}
+
+// A frame moby as the game made it again.
+void release(Stretched& st) {
+    const gaddr moby = st.moby;
+    GREF(float, moby + kMobyPosition) = st.position_x;
+
+    for (std::size_t r = 0; r < st.row_x.size(); ++r) {
+        GREF(float, moby + kMobyRows + 0x10 * static_cast<gaddr>(r)) = st.row_x[r];
+    }
+
+    GREF(std::uint16_t, moby + kMobyMode) &= static_cast<std::uint16_t>(~kOwnRows);
+    st.moby = 0;
+    st.by = 1.0f;
+}
+
+// The title's, list's and footer's frame mobys at stretch `by` (1: the game's). One the menu made
+// anew is not the one stretched: that one is gone.
+void apply_stretch(const openrac_front_end& fe, float by) {
+    for (std::size_t i = 0; i < kFitSlots.size(); ++i) {
+        Stretched& st = s.fit.slots[i];
+        const gaddr moby = panel(fe, kFitSlots[i]);
+
+        if (st.moby != 0 && st.moby != moby) {
+            st.moby = 0;
+            st.by = 1.0f;
+        }
+
+        if (moby == 0) {
+            continue;
+        }
+
+        if (!(by > 1.0005f)) {
+            if (st.moby != 0) {
+                release(st);
+            }
+
+            continue;
+        }
+
+        if (st.moby == 0) {
+            if ((GREF(std::uint16_t, moby + kMobyMode) & kRowFlipped) != 0) {
+                continue;
+            }
+
+            st.moby = moby;
+            st.position_x = GREF(float, moby + kMobyPosition);
+
+            for (std::size_t r = 0; r < st.row_x.size(); ++r) {
+                st.row_x[r] = GREF(float, moby + kMobyRows + 0x10 * static_cast<gaddr>(r));
+            }
+
+            st.by = 1.0f;
+        }
+
+        stretch_moby(st, by);
+    }
+}
+
+// Once a tick: the frames' own widths learnt, the stretch the page on the screen (or the switch
+// running) gives them, and a footer that dropped to the small font while too narrow given its
+// own again once it fits.
+void fit_frames(const openrac_front_end& fe) {
+    if (fe.panel_slots == 0) {
+        return;
+    }
+
+    Fit& f = s.fit;
+    const gaddr menu = fe.page_menu;
+    const bool switching = GREF(std::int32_t, menu + kState) == kSwitching;
+
+    if (!switching) {
+        learn(fe, word(menu + kCurrent));
+    }
+
+    if (switching) {
+        if (!f.switching) {
+            f.from = f.by;
+            f.to = target(fe, game_page_of(word(menu + kNext)));
+            f.game = -1;
+            f.page = -1;
+        }
+
+        const auto left = static_cast<float>(GREF(std::int32_t, menu + kTimer));
+        const float done = std::clamp((kSwitchTicks - left + 1.0f) / kSwitchTicks, 0.0f, 1.0f);
+        f.by = f.from + (f.to - f.from) * done;
+    } else {
+        const int game = game_page_of(word(menu + kCurrent));
+        const int page = mod_page_of(game);
+
+        if (page < 0) {
+            f.by = 1.0f;
+            f.game = -1;
+            f.page = -1;
+        } else {
+            // A page shown takes its own stretch; while it stays, it only grows.
+            const float t = target(fe, game);
+            f.goal = game == f.game && page == f.page ? std::max(f.goal, t) : t;
+            f.game = game;
+            f.page = page;
+            f.by += (f.goal - f.by) * kEase;
+
+            if (std::fabs(f.goal - f.by) < 0.002f) {
+                f.by = f.goal;
+            }
+
+            // The footer's large font back once its frame is wide enough (the game keeps the small
+            // one once it took it).
+            const GamePage& g = s.pages[static_cast<std::size_t>(game)];
+            const gaddr moby = panel(fe, kFooterSlot);
+            const gaddr frame = moby != 0 ? word(moby + kMobyFrame) : 0;
+            const float need = needs(fe, page)[2];
+            const std::uint32_t flags = word(g.footer + kListFlags);
+
+            if (frame != 0 && need > 0.0f && (flags & kSmallFont) != 0 && !s.asking
+                && static_cast<float>(GREF(std::int32_t, frame + kFrameWidth)) >= need) {
+                put_word(g.footer + kListFlags, flags & ~kSmallFont);
+            }
+        }
+    }
+
+    f.switching = switching;
+    apply_stretch(fe, f.by);
+}
+
+// No page of a mod's any more (the menu gone, another program): the frames as the game made them
+// where they are still the menu's, and nothing kept of the rest.
+void unfit(const openrac_front_end& fe) {
+    for (std::size_t i = 0; fe.panel_slots != 0 && i < kFitSlots.size(); ++i) {
+        Stretched& st = s.fit.slots[i];
+
+        if (st.moby != 0 && st.moby == panel(fe, kFitSlots[i])) {
+            release(st);
+        }
+
+        st = Stretched{};
+    }
+
+    s.fit.by = 1.0f;
+    s.fit.switching = false;
+    s.fit.game = -1;
+    s.fit.page = -1;
+}
+
 void cue(const openrac_front_end& fe, int sound) {
     if (s.game >= 0) {
         fe.menu_cue(sound, word(s.pages[static_cast<std::size_t>(s.game)].list + kMoby));
@@ -744,6 +1112,10 @@ void update(int loaded_overlay) {
             change_page(*fe, -1);
         }
 
+        if (fe != nullptr && s.built) {
+            unfit(*fe);
+        }
+
         s.game = -1;
         s.shown = -1;
         mods::ui_set_shown(-1, false);
@@ -783,6 +1155,8 @@ void update(int loaded_overlay) {
     if (to >= 0 && to != s.game && mod_page_of(to) >= 0) {
         show(to, mod_page_of(to));
     }
+
+    fit_frames(*fe);
 }
 
 void filter_pad(std::uint16_t& buttons) {
