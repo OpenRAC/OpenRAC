@@ -23,10 +23,14 @@ OPENRAC_HIDDEN=1 OPENRAC_PRESS=300:4000:10,500:8:10,700:4000:10,900:8:10,1300:40
 ## Building and running
 
 The default build reads OpenRAC's own `games/rac2/ntsc` (synced at
-8bc9d785, 2026-10-20). It needs the boot executable at
-`games/rac2/ntsc/baserom/SCUS_972.68` (the project's `python3 tools/levels.py dump`
-writes it from `baserom/SCUS_972.68.iso`; or copy it from your rac2-decomp's
-`baserom/`); `OPENRAC_RAC2_NTSC_SOURCE`
+8bc9d785, 2026-10-20). It needs the boot executable, which
+`python3 tools/build_port.py rac2-ntsc --disc <your disc image>` has hostgen read
+straight from the image (`OPENRAC_RAC2_NTSC_RETAIL_IMAGE`; no copy is made).
+Without `--disc` the build falls back to `games/rac2/ntsc/baserom/SCUS_972.68`
+(for developers: `python3 tools/levels.py dump` writes it from
+`baserom/SCUS_972.68.iso`, or copy it from your rac2-decomp's `baserom/`); with
+neither, the functions with no C (the boot code, `main` included) are stubs and the
+game exits at once. `OPENRAC_RAC2_NTSC_SOURCE`
 points it at another checkout instead (your rac2-decomp, further along):
 
 ```sh
@@ -42,12 +46,14 @@ OPENRAC_HIDDEN=1 OPENRAC_PRESS=300:4000:10,500:8:10,700:4000:10,900:8:10 \
 From the launcher, with Developer tools on (Settings): set the game up from
 your disc, then Play (`launcher/actions.json`, rac2/ntsc's `play`:
 `--data {data} --window`, after a warning to accept). Its Build the game runs
-`tools/build_port.py rac2-ntsc`. Both are `"developer": true`, so a player's
+`tools/build_port.py rac2-ntsc --disc {disc}`. Both are `"developer": true`, so a player's
 launcher does not show them.
 
-`OPENRAC_RAC2_NTSC_RETAIL_IMAGE` (a disc image) does not work for Going
-Commando yet: the disc reader hostgen uses (`editor/disc.py`) knows only
-Ratchet & Clank's discs, whose root has no subdirectories.
+For Going Commando `OPENRAC_RAC2_NTSC_RETAIL_IMAGE` gives only the boot
+executable: hostgen's `retail.read_image` uses the editor's reader
+(`editor/disc.py`, Ratchet & Clank's discs) when the image is one and otherwise
+reads SYSTEM.CNF's BOOT2 file through `tools/openrac_common/iso9660.py`, with no
+level programs.
 
 What the translation reads (`hostgen.json`):
 

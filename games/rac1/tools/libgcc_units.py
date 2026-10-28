@@ -81,6 +81,16 @@ def ee29_sources() -> set[str]:
     return out
 
 
+def gcc323_sources() -> set[str]:
+    """Whole text objects using the pinned public PS2DEV C frontend."""
+    out = set()
+    for line in (ROOT / "config/text.objects").read_text().splitlines():
+        parts = line.split("#", 1)[0].split()
+        if len(parts) == 3 and parts[2] == "gcc323":
+            out.add(source_of(parts[0]))
+    return out
+
+
 def ee29_01_sources() -> set[str]:
     """Sources of the `ee29` objects with a fourth column `991111-01`:
     built with Sony's Linux 2.9-ee-991111-01 (config/core_text.objects)."""

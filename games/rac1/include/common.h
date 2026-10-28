@@ -115,7 +115,7 @@ static __inline__ void qcopy_nc(void *dst, void *src) {
  * zeroing a 128-bit value always comes out `por $2,$0,$0` + `sq $2`, while
  * retail has `sq $0` in code that is otherwise the compiler's. No clobbers:
  * with a "memory" clobber the compiler reloads the base address around it.
- * Identified by Lombyte, the US decompilation (its include/qzero.h).
+ * Identified by Lombyte's project, the US decompilation (its include/qzero.h).
  */
 static __inline__ void qzero(void *p) {
     __asm__ __volatile__("sq $0,0x0(%0)" : : "r"(p));

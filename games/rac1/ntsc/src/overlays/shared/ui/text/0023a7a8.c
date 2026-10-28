@@ -29,59 +29,61 @@ extern short D_L00_0015F934 __attribute__((sda));
 extern short D_L00_0015F938 __attribute__((sda));
 extern short D_L00_0015F93C __attribute__((sda));
 extern short D_L00_0015F940 __attribute__((sda));
-int FUN_L00_0023a7a8(char *hud_element) {
-    char buf[16];
-    char *q = hud_element + 0x70;
+int draw_weapon_ammo_hud_panel(char *hud_element) __asm__("FUN_L00_0023a7a8");
+
+int draw_weapon_ammo_hud_panel(char *hud_element) {
+    char formatted_count_text[16];
+    char *fade_control_bytes = hud_element + 0x70;
     int x4;
     int y = 0x12;
-    int x, frame_alpha, alpha, w, text_color, tex, c1, wd, displayed_numerator;
-    float f21, f20;
+    int x, frame_alpha, alpha, base_frame_width, text_color, icon_frame_index, text_shadow_color, wd, displayed_numerator;
+    float hud_fade_factor, text_color_blend_factor;
     if (pal_mode)
         y = 0xA;
     x = *(int *)(hud_element + 0x50);
     if (*(unsigned char *)(hud_element + 0x70) == 0)
         return *(int *)(hud_element + 0x58);
     {
-        f20 = convert_integer_to_float(*(unsigned char *)(hud_element + 0x70));
-        f21 = f20 / convert_integer_to_float(*(int *)&D_L00_0015F91C_gp);
-        if (f21 > 1.0f)
-            f21 = 1.0f;
-        else if (f21 < 0.0f)
-            f21 = 0.0f;
-        f20 = convert_integer_to_float(*(unsigned char *)(q + 1));
-        f20 = f20 / convert_integer_to_float(*(int *)&D_L00_0015F920_gp);
-        if (f20 > 1.0f)
-            f20 = 1.0f;
-        else if (f20 < 0.0f)
-            f20 = 0.0f;
-        alpha = truncate_float_to_s32(f21 * 128.0f);
+        text_color_blend_factor = convert_integer_to_float(*(unsigned char *)(hud_element + 0x70));
+        hud_fade_factor = text_color_blend_factor / convert_integer_to_float(*(int *)&D_L00_0015F91C_gp);
+        if (hud_fade_factor > 1.0f)
+            hud_fade_factor = 1.0f;
+        else if (hud_fade_factor < 0.0f)
+            hud_fade_factor = 0.0f;
+        text_color_blend_factor = convert_integer_to_float(*(unsigned char *)(fade_control_bytes + 1));
+        text_color_blend_factor = text_color_blend_factor / convert_integer_to_float(*(int *)&D_L00_0015F920_gp);
+        if (text_color_blend_factor > 1.0f)
+            text_color_blend_factor = 1.0f;
+        else if (text_color_blend_factor < 0.0f)
+            text_color_blend_factor = 0.0f;
+        alpha = truncate_float_to_s32(hud_fade_factor * 128.0f);
         frame_alpha = truncate_float_to_s32((float)alpha * 0.7f);
         if (*(int *)(hud_element + 8) < 100)
-            w = *(int *)&D_L00_0015F924;
+            base_frame_width = *(int *)&D_L00_0015F924;
         else
-            w = *(int *)&D_L00_0015F928;
+            base_frame_width = *(int *)&D_L00_0015F928;
         x4 = x + 4;
-        wd = x + truncate_float_to_s32((float)w * f21);
+        wd = x + truncate_float_to_s32((float)base_frame_width * hud_fade_factor);
         draw_hud_sprite(find_valid_animation_frame_index_alt(0x7580, 1), x - 0x1C, y, 0x20, 0x20,
                         frame_alpha);
         draw_hud_sprite(find_valid_animation_frame_index_alt(0x7580, 0), x4, y, wd, 0x20, frame_alpha);
         draw_hud_sprite_flipped(find_valid_animation_frame_index_alt(0x7580, 1), x4 + wd, y, 0x20,
                                 0x20, frame_alpha);
-        tex = find_valid_animation_frame_index_alt(*(int *)hud_element, 3);
-        *(int *)(hud_element + 0x44) = tex;
-        hud_frame(hud_element, tex, x, y, 0, alpha);
+        icon_frame_index = find_valid_animation_frame_index_alt(*(int *)hud_element, 3);
+        *(int *)(hud_element + 0x44) = icon_frame_index;
+        hud_frame(hud_element, icon_frame_index, x, y, 0, alpha);
         displayed_numerator = *(int *)(hud_element + 0x74);
-        sprintf_alt(buf, D_L00_0015F7C8, displayed_numerator, *(int *)(hud_element + 8));
+        sprintf_alt(formatted_count_text, D_L00_0015F7C8, displayed_numerator, *(int *)(hud_element + 8));
         if (displayed_numerator != 0)
-            text_color = fast_tween_color(*(int *)&D_L00_0015F92C, *(int *)&D_L00_0015F930, f20);
+            text_color = fast_tween_color(*(int *)&D_L00_0015F92C, *(int *)&D_L00_0015F930, text_color_blend_factor);
         else
-            text_color = fast_tween_color(*(int *)&D_L00_0015F934, *(int *)&D_L00_0015F938, f20);
-        c1 = fast_tween_color(0, 0x80000000, f20);
+            text_color = fast_tween_color(*(int *)&D_L00_0015F934, *(int *)&D_L00_0015F938, text_color_blend_factor);
+        text_shadow_color = fast_tween_color(0, 0x80000000, text_color_blend_factor);
         {
-            int tx = x + *(int *)&D_L00_0015F93C + w;
-            font_print_right(tx + 1, y + *(int *)&D_L00_0015F940 + 1, c1, buf, -1);
+            int tx = x + *(int *)&D_L00_0015F93C + base_frame_width;
+            font_print_right(tx + 1, y + *(int *)&D_L00_0015F940 + 1, text_shadow_color, formatted_count_text, -1);
         }
-        font_print_right(x + *(int *)&D_L00_0015F93C + w, y + *(int *)&D_L00_0015F940, text_color, buf,
+        font_print_right(x + *(int *)&D_L00_0015F93C + base_frame_width, y + *(int *)&D_L00_0015F940, text_color, formatted_count_text,
                          -1);
     }
     return *(int *)(hud_element + 0x58);
@@ -105,7 +107,9 @@ extern int D_L00_0015F5CC_23aaa8 __asm__("D_L00_0015F5CC");
 int FUN_001f96f8_23aaa8(int) __asm__("FUN_001f96f8");
 int FUN_00213260_23aaa8(int) __asm__("FUN_00213260");
 extern T_23aaa8 *D_L00_0017E4F4 __attribute__((section(".data")));
-int FUN_L00_0023aaa8(O_23aaa8 *hud_frame_state) {
+int update_hud_animation_frame(O_23aaa8 *hud_frame_state) __asm__("FUN_L00_0023aaa8");
+
+int update_hud_animation_frame(O_23aaa8 *hud_frame_state) {
     enum {
         HUD_FRAME_MODE_STATIC = 0,
         HUD_FRAME_MODE_LOOP = 1,
@@ -113,51 +117,51 @@ int FUN_L00_0023aaa8(O_23aaa8 *hud_frame_state) {
         HUD_FRAME_MODE_PING_PONG_RESTART = 3
     };
     T_23aaa8 *frame_sequence = &D_L00_0017E4F4[hud_frame_state->id];
-    int r;
-    int k, a;
-    r = 0;
+    int frame_index;
+    int k, restart_start_offset;
+    frame_index = 0;
     if (frame_sequence->id != 0xFFFF) {
         switch (hud_frame_state->mode) {
         case HUD_FRAME_MODE_STATIC:
-            r = frame_sequence->base;
+            frame_index = frame_sequence->base;
             break;
         case HUD_FRAME_MODE_LOOP:
-            r = frame_sequence->base + ((D_L00_0015F5CC_23aaa8 - hud_frame_state->start) / frame_sequence->rate) % frame_sequence->n;
+            frame_index = frame_sequence->base + ((D_L00_0015F5CC_23aaa8 - hud_frame_state->start) / frame_sequence->rate) % frame_sequence->n;
             break;
         case HUD_FRAME_MODE_PING_PONG:
-            r = (D_L00_0015F5CC_23aaa8 - hud_frame_state->start) / frame_sequence->rate;
+            frame_index = (D_L00_0015F5CC_23aaa8 - hud_frame_state->start) / frame_sequence->rate;
             k = frame_sequence->n * 2;
-            r = r % (k - 2);
-            if (r >= frame_sequence->n) {
-                int b = r + 2;
-                r = k - b;
+            frame_index = frame_index % (k - 2);
+            if (frame_index >= frame_sequence->n) {
+                int b = frame_index + 2;
+                frame_index = k - b;
             }
-            r += frame_sequence->base;
+            frame_index += frame_sequence->base;
             break;
         case HUD_FRAME_MODE_PING_PONG_RESTART:
             if (hud_frame_state->start < D_L00_0015F5CC_23aaa8) {
                 int doubled_frame_count;
-                r = (D_L00_0015F5CC_23aaa8 - hud_frame_state->start) / frame_sequence->rate;
+                frame_index = (D_L00_0015F5CC_23aaa8 - hud_frame_state->start) / frame_sequence->rate;
                 doubled_frame_count = frame_sequence->n * 2;
-                if (r < doubled_frame_count - 2) {
-                    if (r >= frame_sequence->n) {
-                        int b = r + 2;
-                        r = doubled_frame_count - b;
+                if (frame_index < doubled_frame_count - 2) {
+                    if (frame_index >= frame_sequence->n) {
+                        int b = frame_index + 2;
+                        frame_index = doubled_frame_count - b;
                     }
-                    r += frame_sequence->base;
+                    frame_index += frame_sequence->base;
                 } else {
-                    r = frame_sequence->base;
-                    a = FUN_001f96f8_23aaa8(0xA);
-                    hud_frame_state->start = frame_sequence->n * 2 + a + FUN_00213260_23aaa8(FUN_001f96f8_23aaa8(0x1E));
+                    frame_index = frame_sequence->base;
+                    restart_start_offset = FUN_001f96f8_23aaa8(0xA);
+                    hud_frame_state->start = frame_sequence->n * 2 + restart_start_offset + FUN_00213260_23aaa8(FUN_001f96f8_23aaa8(0x1E));
                 }
             } else {
-                r = hud_frame_state->frame;
+                frame_index = hud_frame_state->frame;
             }
             break;
         }
     }
-    hud_frame_state->frame = r;
-    return r;
+    hud_frame_state->frame = frame_index;
+    return frame_index;
 }
 typedef struct E_23ac78 {
     int a;
@@ -177,19 +181,23 @@ typedef struct {
     int b;
 } H_23ac78;
 extern H_23ac78 D_L00_0017E4D8 __attribute__((section(".data")));
-extern void FUN_L00_0023adb8(void);
+void update_weapon_hud_state(void) __asm__("FUN_L00_0023adb8");
+
+extern void update_weapon_hud_state(void) __asm__("FUN_L00_0023adb8");
 extern void apply_pending_animation(void *) __asm__("FUN_001ff418");
 
 int scale_game_frames(int) __asm__("FUN_001f96f8");
-int FUN_L00_0023ac78(int call) {
+int update_hud_elements(int call) __asm__("FUN_L00_0023ac78");
+
+int update_hud_elements(int call) {
     int positive_timer_count = 0;
     E_23ac78 *hud_element;
-    H_23ac78 *h;
-    FUN_L00_0023adb8();
+    H_23ac78 *hud_timer_refresh_control;
+    update_weapon_hud_state();
     hud_element = hud_elements;
-    h = &D_L00_0017E4D8;
+    hud_timer_refresh_control = &D_L00_0017E4D8;
     do {
-        if ((hud_element->flags & 0x10) || h->b != 0) {
+        if ((hud_element->flags & 0x10) || hud_timer_refresh_control->b != 0) {
             if (hud_element->t < scale_game_frames(10)) {
                 hud_element->t = scale_game_frames(10);
             }
@@ -219,37 +227,37 @@ extern int weapon_ammo_counts[] __asm__("D_0013D428");
 extern int FUN_001ff308_23adb8(int, int, void *, void *, void *, void *,
                                int) __asm__("FUN_001ff308");
 extern void FUN_001ff570_23adb8(int, int) __asm__("FUN_001ff570");
-extern void FUN_L00_0023a760_23adb8(void) __asm__("FUN_L00_0023a760");
-extern void FUN_L00_0023cdb8_23adb8(void) __asm__("FUN_L00_0023cdb8");
+extern void initialize_numeric_hud_timer_and_base_dimensions(void) __asm__("FUN_L00_0023a760");
+extern void hud_weapon_update(void) __asm__("FUN_L00_0023cdb8");
 extern void FUN_L00_0023a7a8_23adb8(void) __asm__("FUN_L00_0023a7a8");
-extern void FUN_L00_00235d80_23adb8(void) __asm__("FUN_L00_00235d80");
-extern void FUN_L00_00235ea0_23adb8(void) __asm__("FUN_L00_00235ea0");
-extern void FUN_L00_0023a640_23adb8(void) __asm__("FUN_L00_0023a640");
+extern void reset_numeric_hud_element(void) __asm__("FUN_L00_00235d80");
+extern void hud_update_counter(void) __asm__("FUN_L00_00235ea0");
+extern void draw_hud_cropped_gauge_panel(void) __asm__("FUN_L00_0023a640");
 
-void FUN_L00_0023adb8(void) {
-    struct Hero *g;
+void update_weapon_hud_state(void) {
+    struct Hero *hero_state;
     int weapon_item_id, mode, k;
     if (D_L00_0015F968_gp != 0) {
         return;
     }
-    g = &hero;
-    weapon_item_id = g->items[0].item_id;
-    mode = g->vehicle_mode;
+    hero_state = &hero;
+    weapon_item_id = hero_state->items[0].item_id;
+    mode = hero_state->vehicle_mode;
     weapon_item_id = (&D_L00_001C40B0[0] + weapon_item_id)->h8 ? weapon_item_id : 0;
     weapon_item_id = mode ? 0 : weapon_item_id;
     if (weapon_item_id != 0) {
         D_L00_0015F96C = weapon_item_id;
         *(volatile int *)&D_L00_0015F970 = FUN_001ff308_23adb8(
-            0x10, weapon_item_id + 60000, FUN_L00_0023a760_23adb8, FUN_L00_0023cdb8_23adb8,
+            0x10, weapon_item_id + 60000, initialize_numeric_hud_timer_and_base_dimensions, hud_weapon_update,
             FUN_L00_0023a7a8_23adb8, &weapon_ammo_counts[weapon_item_id], D_L00_001C40B0[weapon_item_id].hE);
     } else if (k = -1, mode == 2) {
         if (D_L00_0015F970 != k) {
             FUN_001ff570_23adb8(D_L00_0015F970, 0);
             D_L00_0015F970 = k;
         }
-        g->unk1634 =
-            FUN_001ff308_23adb8(0x10, 0xFFFF, FUN_L00_00235d80_23adb8, FUN_L00_00235ea0_23adb8,
-                                FUN_L00_0023a640_23adb8, &g->unk1630, 200);
+        hero_state->unk1634 =
+            FUN_001ff308_23adb8(0x10, 0xFFFF, reset_numeric_hud_element, hud_update_counter,
+                                draw_hud_cropped_gauge_panel, &hero_state->vehicle_hp, 200);
     } else {
         if (D_L00_0015F970 != k) {
             FUN_001ff570_23adb8(D_L00_0015F970, 0);
@@ -257,13 +265,15 @@ void FUN_L00_0023adb8(void) {
         }
     }
 }
-void FUN_L00_00235878();
+void reset_hud_animation_channels() __asm__("FUN_L00_00235878");
 extern int D_L00_0015F968_gp __asm__("D_L00_0015F968") __attribute__((sda));
 extern int D_L00_0015F970;
 extern int D_L00_0015F96C;
 /* Resets via FUN_L00_00235878, then sets the three state words to 1, -1 and 0. */
-void FUN_L00_0023aef8(void) {
-    FUN_L00_00235878();
+void reset_hud_and_suspend_weapon_updates(void) __asm__("FUN_L00_0023aef8");
+
+void reset_hud_and_suspend_weapon_updates(void) {
+    reset_hud_animation_channels();
     D_L00_0015F968_gp = 1;
     D_L00_0015F970 = -1;
     D_L00_0015F96C = 0;

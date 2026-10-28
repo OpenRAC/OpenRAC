@@ -1,4 +1,8 @@
-/* Carried by port/tools/versionmap/carry_functions.py from the decompilation of Ratchet & Clank (PAL), nonmatching/functional/func_001F7E98.c (games/rac1): func_001F7E98, functional C there, not matched.
+/* This version's own since 2026-10-27: carried by port/tools/versionmap from the decompilation of
+ * Ratchet & Clank (PAL), its former candidate nonmatching/functional/func_001F7E98.c (games/rac1),
+ * functional C there, not matched. PAL's matched C for it computes on the VU0 in inline assembly,
+ * which hostgen does not run, and PAL's port runs host C there (render_native.c); kept here as it
+ * was carried.
  * Kind `same` in the version map (../../README.md): the two versions have the same instructions for it.
  * Names and addresses are this version's. Functional C, not matched C. */
 /* functional: high (fcheck SAME on 3 real calls). corrected from nonmatching/functional/func_001F7E98.c (in place): retail's sqc2 stores all four lanes so dst[3] = a[3], which the C never wrote; added that store. Also guarded den == 0 to +/-FLT_MAX (VU0 vdiv saturates, not NaN) so the host never produces NaN. Retail divides on the VU0, so the last bits can differ. */

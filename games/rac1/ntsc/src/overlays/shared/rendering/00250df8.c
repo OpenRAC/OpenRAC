@@ -86,7 +86,7 @@ extern unsigned char D_L00_0015FC88_257470[] __asm__("D_L00_0015FC88")
 extern void FUN_001e93b0_257470(void *, ...) __asm__("FUN_001e93b0");
 extern int FUN_001fa6d0_257470(float) __asm__("FUN_001fa6d0");
 extern float FUN_001f9b48_257470(void *, void *) __asm__("FUN_001f9b48");
-extern void FUN_L00_00260a88_257470(void *, int, int, int, int) __asm__("FUN_L00_00260a88");
+extern void spawn_randomized_bolt_drop(void *, int, int, int, int) __asm__("FUN_L00_00260a88");
 
 extern unsigned char D_L00_001E8F00[] __attribute__((section(".data")));
 extern unsigned char D_L00_001E8F28[] __attribute__((section(".data")));
@@ -94,43 +94,43 @@ extern s32 D_0014C190_257218[][64] __asm__("D_0014C190") __attribute__((section(
 extern int D_L00_001BA4D0_lui[] __asm__("D_L00_001BA4D0") __attribute__((section(".data")));
 extern struct Hero hero_lui __asm__("D_0013F350") __attribute__((section(".data")));
 void FUN_L00_00257470(unsigned char *m, int flags, int arg);
-void FUN_L00_00257470(unsigned char *m, int flags, int arg) {
+void FUN_L00_00257470(unsigned char *moby, int flags, int trajectory_target_index) {
     float amt;
     int lvl;
     int k;
-    int d;
+    int amount_delta;
     int n;
     int call_flags;
-    int r;
+    int bound_offset;
     int cnt;
     unsigned char *g;
 
-    amt = *(short *)(m + 0xB4);
-    FUN_001e93b0_257470(D_L00_001E8F00, *(short *)(m + 0xA6), *(short *)(m + 0xB2),
-                        *(short *)(m + 0xB4), *(short *)(m + 0xB6));
-    if (m[0xB1] == 0xFE) {
+    amt = *(short *)(moby + 0xB4);
+    FUN_001e93b0_257470(D_L00_001E8F00, *(short *)(moby + 0xA6), *(short *)(moby + 0xB2),
+                        *(short *)(moby + 0xB4), *(short *)(moby + 0xB6));
+    if (moby[0xB1] == 0xFE) {
         return;
     }
-    if (*(short *)(m + 0xB2) < 0) {
+    if (*(short *)(moby + 0xB2) < 0) {
         return;
     }
     lvl = D_0015ED84_257470;
-    D_0014C190_257218[lvl][*(short *)(m + 0xB2) >> 5] |= 1
-                                                         << (*(unsigned short *)(m + 0xB2) & 0x1F);
-    D_L00_001BA4D0_lui[*(short *)(m + 0xB2) >> 5] |= 1 << (*(unsigned short *)(m + 0xB2) & 0x1F);
-    D_L00_001BA5D0_257470.a[*(short *)(m + 0xB2)] = m[0xB0] + 2;
-    k = m[0xB0];
+    D_0014C190_257218[lvl][*(short *)(moby + 0xB2) >> 5] |= 1
+                                                         << (*(unsigned short *)(moby + 0xB2) & 0x1F);
+    D_L00_001BA4D0_lui[*(short *)(moby + 0xB2) >> 5] |= 1 << (*(unsigned short *)(moby + 0xB2) & 0x1F);
+    D_L00_001BA5D0_257470.a[*(short *)(moby + 0xB2)] = moby[0xB0] + 2;
+    k = moby[0xB0];
     {
-        unsigned int u = k & 0xFF;
-        if (k == 0xFF || (D_L00_0015FC88_257470[u] != 0xFF && D_0014C050_257470[lvl][u] == 0xFF)) {
-            D_L00_001BB230_257470.a[*(short *)(m + 0xB2)] = k + 2;
+        unsigned int moby_lookup_index = k & 0xFF;
+        if (k == 0xFF || (D_L00_0015FC88_257470[moby_lookup_index] != 0xFF && D_0014C050_257470[lvl][moby_lookup_index] == 0xFF)) {
+            D_L00_001BB230_257470.a[*(short *)(moby + 0xB2)] = k + 2;
         }
     }
-    if ((signed char)m[0xB1] >= 0) {
-        int n1 = *(short *)(m + 0xB6);
-        d = n1 - D_0014D590_257470[D_0015ED84_257470b][m[0xB1]][1];
+    if ((signed char)moby[0xB1] >= 0) {
+        int delta_base_amount = *(short *)(moby + 0xB6);
+        amount_delta = delta_base_amount - D_0014D590_257470[D_0015ED84_257470b][moby[0xB1]][1];
         {
-            int x = (n1 + 1) / 2 < d ? d : 0;
+            int x = (delta_base_amount + 1) / 2 < amount_delta ? amount_delta : 0;
             if (x) {
                 amt = x;
             }
@@ -148,7 +148,7 @@ void FUN_L00_00257470(unsigned char *m, int flags, int arg) {
         call_flags |= 2;
     }
     if (hero_lui.state.current == 0x10 &&
-        FUN_001f9b48_257470(&hero_lui.motion.pos, m + 0x10) < 4.0f) {
+        FUN_001f9b48_257470(&hero_lui.motion.pos, moby + 0x10) < 4.0f) {
         call_flags |= 2;
     }
     cnt = D_L00_0015FFBC;
@@ -165,17 +165,17 @@ void FUN_L00_00257470(unsigned char *m, int flags, int arg) {
         amt = 0.0f;
     }
     if (amt > 0.0f) {
-        r = 0;
+        bound_offset = 0;
         if (amt >= 8.0f) {
-            r = FUN_001fa6d0_257470(amt * 0.25f);
+            bound_offset = FUN_001fa6d0_257470(amt * 0.25f);
         } else if (amt >= 2.0f) {
-            r = 1;
+            bound_offset = 1;
         }
         {
-            int n2 = FUN_001fa6d0_257470(amt);
-            int hi = n2 + r;
-            n2 -= r;
-            FUN_L00_00260a88_257470(m, n2, hi, call_flags, arg);
+            int lower_bound = FUN_001fa6d0_257470(amt);
+            int hi = lower_bound + bound_offset;
+            lower_bound -= bound_offset;
+            spawn_randomized_bolt_drop(moby, lower_bound, hi, call_flags, trajectory_target_index);
         }
     }
 }

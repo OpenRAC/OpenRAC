@@ -415,6 +415,64 @@ class ProgressReportTests(unittest.TestCase):
             self.assertEqual(self.report.zero_level_data(repo), 4 * 2 + 4 + 16)
 
 
+class OverlayHelperTimestampTests(unittest.TestCase):
+    """Reconfiguring preserves the helper dependency unless its bytes change."""
+
+    @classmethod
+    def setUpClass(cls):
+        if importlib.util.find_spec("splat") is None:
+            raise unittest.SkipTest("splat is not installed")
+        cls.configure = load_module("rnc_configure_overlay_helper", ROOT / "configure.py")
+
+    def _check_helper(self, initial):
+        cfg = self.configure
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            sources = root / "src/overlays"
+            sources.mkdir(parents=True)
+            (sources / "sample.c").write_text("void sample(void) {}\n")
+            (root / "config/us/overlays/asm").mkdir(parents=True)
+            catalogue = root / "config/overlays/us/functions.tsv"
+            catalogue.parent.mkdir(parents=True)
+            catalogue.write_text("")
+            build = root / "build/overlays"
+            build.mkdir(parents=True)
+            helper = build / "padless-asm.py"
+            sentinel = 946684800000000000
+            if initial is not None:
+                helper.write_text(initial)
+                os.utime(helper, ns=(sentinel, sentinel))
+            previous = Path.cwd()
+            try:
+                os.chdir(root)
+                with mock.patch.multiple(cfg, ROOT=root, OVERLAYS_SRC=sources,
+                                         OVERLAYS_BUILD=build), \
+                        mock.patch.object(cfg, "game_compiler_configured", return_value=True), \
+                        mock.patch.object(cfg, "overlay_sn_units", return_value=set()), \
+                        contextlib.redirect_stdout(io.StringIO()):
+                    cfg.build_overlays()
+                    graph = (build / "build.ninja").read_bytes()
+                    self.assertEqual(helper.read_text(), cfg.PADLESS_ASM_HELPER)
+                    if initial == cfg.PADLESS_ASM_HELPER:
+                        self.assertEqual(helper.stat().st_mtime_ns, sentinel)
+                    elif initial is not None:
+                        self.assertNotEqual(helper.stat().st_mtime_ns, sentinel)
+                    cfg.build_overlays()
+                    self.assertEqual((build / "build.ninja").read_bytes(), graph)
+                    self.assertIn(b"| padless-asm.py", graph)
+            finally:
+                os.chdir(previous)
+
+    def test_creates_missing_helper(self):
+        self._check_helper(None)
+
+    def test_unchanged_helper_preserves_timestamp(self):
+        self._check_helper(self.configure.PADLESS_ASM_HELPER)
+
+    def test_changed_helper_is_replaced(self):
+        self._check_helper("# obsolete helper\n")
+
+
 class ConfigureDataLayoutTests(unittest.TestCase):
     """configure.py cuts C-owned bytes out of the preserved data blobs."""
 
@@ -525,116 +583,38 @@ class OverlaySourceStateTests(unittest.TestCase):
 
 
 class BaselineGuardTests(unittest.TestCase):
-    """verify-baseline.sh must never delete a non-baseline directory."""
+    """verify-baseline.sh must never delete a build/baseline it did not create."""
+
+    def _run(self, checkout: Path) -> subprocess.CompletedProcess:
+        script = checkout / "verify-baseline.sh"
+        script.write_text((ROOT / "verify-baseline.sh").read_text())
+        return subprocess.run(
+            ["bash", str(script)], capture_output=True, text=True, cwd=checkout
+        )
 
     def test_refuses_foreign_directory(self):
         with tempfile.TemporaryDirectory() as name:
-            foreign = Path(name) / "user-data"
-            foreign.mkdir()
+            checkout = Path(name)
+            foreign = checkout / "build" / "baseline"
+            foreign.mkdir(parents=True)
             keep = foreign / "important.txt"
             keep.write_text("do not delete\n")
-            env = dict(os.environ)
-            env["BASELINE_ROOT"] = str(foreign)
-            proc = subprocess.run(
-                ["bash", str(ROOT / "verify-baseline.sh")],
-                capture_output=True,
-                text=True,
-                env=env,
-                cwd=ROOT,
-            )
+            proc = self._run(checkout)
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("refusing to remove", proc.stderr)
-            self.assertTrue(keep.is_file())
             self.assertEqual(keep.read_text(), "do not delete\n")
 
     def test_accepts_marked_baseline_directory(self):
         with tempfile.TemporaryDirectory() as name:
-            marked = Path(name) / "baseline"
-            marked.mkdir()
+            checkout = Path(name)
+            marked = checkout / "build" / "baseline"
+            marked.mkdir(parents=True)
             (marked / ".rnc-baseline-root").write_text("")
-            env = dict(os.environ)
-            env["BASELINE_ROOT"] = str(marked)
-            # Stop after the guard: an intentionally invalid venv makes the
-            # script die at the next check instead of building.
-            env["VENV"] = str(Path(name) / "missing-venv")
-            proc = subprocess.run(
-                ["bash", str(ROOT / "verify-baseline.sh")],
-                capture_output=True,
-                text=True,
-                env=env,
-                cwd=ROOT,
-            )
+            # Stop after the guard: the temporary checkout has no .venv, so
+            # the script dies at the next check instead of building.
+            proc = self._run(checkout)
             self.assertNotIn("refusing to remove", proc.stderr)
             self.assertIn("missing virtual environment", proc.stderr)
-
-    def test_refuses_the_checkout_and_its_parents(self):
-        with tempfile.TemporaryDirectory() as name:
-            tmp = Path(name)
-            checkout = tmp / "checkout"
-            checkout.mkdir()
-            script = checkout / "verify-baseline.sh"
-            script.write_text((ROOT / "verify-baseline.sh").read_text())
-            for baseline in (checkout, tmp):
-                env = dict(os.environ)
-                env["BASELINE_ROOT"] = str(baseline)
-                proc = subprocess.run(
-                    ["bash", str(script)],
-                    capture_output=True,
-                    text=True,
-                    env=env,
-                    cwd=checkout,
-                )
-                self.assertNotEqual(proc.returncode, 0)
-                self.assertIn("must not be the checkout or a parent", proc.stderr)
-            self.assertTrue(checkout.is_dir())
-
-
-class PatchedProfileTests(unittest.TestCase):
-    """check-patched-profile.py must flag profiles built from other patches."""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.checker = load_module(
-            "check_patched_profile", ROOT / "scripts" / "check-patched-profile.py"
-        )
-
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name)
-        self.patch = self.root / "patched-ee-gcc.patch"
-        self.patch.write_text("diff --git a/x b/x\n")
-        self.profile = self.root / "profile"
-        self.profile.mkdir()
-        (self.profile / "xgcc").write_text("")
-
-    def write_provenance(self, digest):
-        (self.profile / "provenance.json").write_text(
-            json.dumps({"schema": "rnc-patched-ee-gcc-v1", "patch_sha256": digest})
-        )
-
-    def run_check(self):
-        with contextlib.redirect_stdout(io.StringIO()) as captured:
-            code = self.checker.check(self.profile, self.patch)
-        return code, captured.getvalue()
-
-    def test_matching_patch_is_ok(self):
-        self.write_provenance(self.checker.sha256(self.patch))
-        code, output = self.run_check()
-        self.assertEqual(code, 0)
-        self.assertIn("ok", output)
-
-    def test_other_patch_is_stale(self):
-        self.write_provenance("d" * 64)
-        code, output = self.run_check()
-        self.assertEqual(code, 1)
-        self.assertIn("warning", output)
-        self.assertIn("build-patched-toolchain.py", output)
-
-    def test_missing_provenance_is_unverifiable(self):
-        code, output = self.run_check()
-        self.assertEqual(code, 2)
-        self.assertIn("no provenance.json", output)
 
 
 class RebuildIsoExtentTests(unittest.TestCase):
@@ -921,15 +901,7 @@ class UnitListHelpersTests(unittest.TestCase):
 
     def test_default_workspace_is_project_local(self):
         repo = Path("/tmp/example-checkout")
-        with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("BASELINE_ROOT", None)
-            self.assertEqual(
-                self.units.default_workspace(repo), repo / "build" / "baseline"
-            )
-        with mock.patch.dict(os.environ, {"BASELINE_ROOT": "/tmp/custom-ws"}):
-            self.assertEqual(
-                self.units.default_workspace(repo), Path("/tmp/custom-ws")
-            )
+        self.assertEqual(self.units.default_workspace(repo), repo / "build" / "baseline")
 
     def test_workspace_problem_refuses_checkout_and_parents(self):
         with tempfile.TemporaryDirectory() as name:
@@ -975,23 +947,6 @@ class UnitListHelpersTests(unittest.TestCase):
         self.assertTrue(self.units.unsafe_unit_name("textbin/foo bar"))
         self.assertTrue(self.units.unsafe_unit_name(""))
 
-    def test_oracle_fallback_units(self):
-        with tempfile.TemporaryDirectory() as name:
-            workspace = Path(name) / "ws"
-            (workspace / "config" / "us").mkdir(parents=True)
-            self.assertEqual(self.units.oracle_fallback_units(workspace), set())
-            (workspace / "config" / "us" / "oracle-fallback-units.json").write_text(
-                json.dumps(
-                    {
-                        "schema": "rnc-oracle-fallback-v1",
-                        "units": ["sdk/time/bcd_to_time", "textbin/fun_002133d0"],
-                    }
-                )
-            )
-            self.assertEqual(
-                self.units.oracle_fallback_units(workspace),
-                {"sdk/time/bcd_to_time", "textbin/fun_002133d0"},
-            )
 
 
 class OracleMaterializerGuardTests(unittest.TestCase):
@@ -1338,18 +1293,12 @@ class ListFunctionsTests(unittest.TestCase):
         self.assertEqual(leftovers, [])
 
     def test_score_defaults_to_the_project_local_workspace(self):
-        environment = {
-            key: value
-            for key, value in os.environ.items()
-            if key != "BASELINE_ROOT"
-        }
         with tempfile.TemporaryDirectory() as name:
             tmp = Path(name)
             self._repo(tmp)
             stderr = io.StringIO()
             with (
                 mock.patch.object(self.lister, "ROOT", tmp),
-                mock.patch.dict(os.environ, environment, clear=True),
                 contextlib.redirect_stderr(stderr),
             ):
                 code = self.lister.main(["--score"])
@@ -1506,15 +1455,8 @@ class CheckUnitTests(unittest.TestCase):
             self.assertEqual(len(calls), 3)  # Configure once, then build each measurement.
             self.assertIn("INCLUDE_ASM", (tmp / f"src/{self.unit}.c").read_text())
 
-    def test_reconfigure_uses_baseline_assembler_default_and_preserves_override(self):
-        with mock.patch.dict(os.environ, {"SN_TOOLCHAIN_ROOT": ""}):
-            self.assertEqual(self.check.build_environment()["SN_TOOLCHAIN_ROOT"],
-                             str(self.check.ROOT / "tools/compilers/ee-gcc-2.95.2"))
-        with mock.patch.dict(os.environ, {"SN_TOOLCHAIN_ROOT": "/custom/sn"}):
-            self.assertEqual(self.check.build_environment()["SN_TOOLCHAIN_ROOT"], "/custom/sn")
-
     def test_keeps_other_compiler_routes(self):
-        for rule in ("game-compiler", "sdk-compiler", "sdk-compiler-patched"):
+        for rule in ("game-compiler", "sdk-compiler"):
             with self.subTest(rule=rule), tempfile.TemporaryDirectory() as name:
                 tmp = Path(name)
                 self._repo(tmp)
@@ -1734,49 +1676,6 @@ class CheckUnitTests(unittest.TestCase):
                     code = self.check.main(["../outside/x"])
         self.assertEqual(code, 2)
         self.assertIn("invalid unit path", stderr.getvalue())
-
-    def test_refuses_oracle_fallback_units(self):
-        with tempfile.TemporaryDirectory() as name:
-            tmp = Path(name)
-            self._repo(tmp)
-            ws = self._workspace(tmp)
-            (ws / "config" / "us" / "oracle-fallback-units.json").write_text(
-                json.dumps({"units": [self.unit]})
-            )
-            with mock.patch.object(self.check, "ROOT", tmp):
-                with contextlib.redirect_stderr(io.StringIO()) as stderr:
-                    code = self.check.main([self.unit, "--workspace", str(ws)])
-        self.assertEqual(code, 2)
-        self.assertIn("rebuilt from the retail oracle", stderr.getvalue())
-
-
-class PatchedToolchainArtifactTests(unittest.TestCase):
-    """The published toolchain patch and its build script must agree."""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.builder = load_module(
-            "rnc_build_patched_toolchain",
-            ROOT / "scripts" / "build-patched-toolchain.py",
-        )
-
-    def test_patch_file_matches_pinned_hash(self):
-        patch = Path(self.builder.PATCH_PATH)
-        self.assertTrue(patch.is_file(), patch)
-        self.assertEqual(
-            hashlib.sha256(patch.read_bytes()).hexdigest(),
-            self.builder.PATCH_SHA256,
-        )
-
-    def test_source_and_bison_are_pinned(self):
-        self.assertEqual(self.builder.SOURCE_REVISION, "b595ded")
-        self.assertIn("ps2-ee-toolchain", self.builder.SOURCE_URL)
-        self.assertEqual(len(self.builder.BISON_SHA256), 64)
-        self.assertIn("bison-1.28", self.builder.BISON_URL)
-
-    def test_reference_hashes_are_full_sha256(self):
-        for name, digest in self.builder.REFERENCE_HASHES.items():
-            self.assertEqual(len(digest), 64, name)
 
 
 class NoGameDataTests(unittest.TestCase):

@@ -48,53 +48,53 @@ extern FpNumber D_001596F0;
 #define IMPLICIT_1 0x1000000000000000ULL
 #define IMPLICIT_2 0x2000000000000000ULL
 
-FpNumber *_fpadd_parts(FpNumber *a, FpNumber *b, FpNumber *result) {
+FpNumber *_fpadd_parts(FpNumber *left_operand, FpNumber *right_operand, FpNumber *result) {
     s64 tfraction;
     s32 a_normal_exp;
     s32 b_normal_exp;
     u64 a_fraction;
     u64 b_fraction;
 
-    if ((u32)a->class < 2) {
-        return a;
+    if ((u32)left_operand->class < 2) {
+        return left_operand;
     }
-    if ((u32)b->class < 2) {
-        return b;
+    if ((u32)right_operand->class < 2) {
+        return right_operand;
     }
-    if ((a->class ^ 4) == 0) {
-        if ((b->class ^ 4) == 0 && a->sign != b->sign) {
+    if ((left_operand->class ^ 4) == 0) {
+        if ((right_operand->class ^ 4) == 0 && left_operand->sign != right_operand->sign) {
             return &D_001596F0;
         }
-        return a;
+        return left_operand;
     }
-    if ((b->class ^ 4) == 0) {
-        return b;
+    if ((right_operand->class ^ 4) == 0) {
+        return right_operand;
     }
-    if ((b->class ^ 2) == 0) {
-        if ((a->class ^ 2) == 0) {
-            *result = *a;
-            result->sign = a->sign & b->sign;
+    if ((right_operand->class ^ 2) == 0) {
+        if ((left_operand->class ^ 2) == 0) {
+            *result = *left_operand;
+            result->sign = left_operand->sign & right_operand->sign;
             return result;
         }
-        return a;
+        return left_operand;
     }
-    if ((a->class ^ 2) == 0) {
-        return b;
+    if ((left_operand->class ^ 2) == 0) {
+        return right_operand;
     }
 
-    a_normal_exp = a->normal_exp;
-    b_normal_exp = b->normal_exp;
-    a_fraction = a->fraction;
-    b_fraction = b->fraction;
+    a_normal_exp = left_operand->normal_exp;
+    b_normal_exp = right_operand->normal_exp;
+    a_fraction = left_operand->fraction;
+    b_fraction = right_operand->fraction;
 
     {
-        s32 diff;
+        s32 exponent_difference;
 
-        diff = a_normal_exp - b_normal_exp;
-        if (diff < 0) {
-            diff = -diff;
+        exponent_difference = a_normal_exp - b_normal_exp;
+        if (exponent_difference < 0) {
+            exponent_difference = -exponent_difference;
         }
-        if (diff < 64) {
+        if (exponent_difference < 64) {
             while (a_normal_exp > b_normal_exp) {
                 b_normal_exp++;
                 LSHIFT(b_fraction);
@@ -114,8 +114,8 @@ FpNumber *_fpadd_parts(FpNumber *a, FpNumber *b, FpNumber *result) {
         }
     }
 
-    if (a->sign != b->sign) {
-        if (a->sign) {
+    if (left_operand->sign != right_operand->sign) {
+        if (left_operand->sign) {
             tfraction = -a_fraction + b_fraction;
         } else {
             tfraction = a_fraction - b_fraction;
@@ -134,7 +134,7 @@ FpNumber *_fpadd_parts(FpNumber *a, FpNumber *b, FpNumber *result) {
             result->normal_exp--;
         }
     } else {
-        result->sign = a->sign;
+        result->sign = left_operand->sign;
         result->normal_exp = a_normal_exp;
         result->fraction = a_fraction + b_fraction;
     }

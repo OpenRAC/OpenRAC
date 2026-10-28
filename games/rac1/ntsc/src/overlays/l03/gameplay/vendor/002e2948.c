@@ -8,9 +8,9 @@
 
 extern char *find_moby_hit(void *, int, int) __asm__("FUN_L00_0025a420");
 extern void allocate_voice_for_target_entry(int, int, int) __asm__("FUN_0022da68");
-extern void FUN_L00_00263e30(void *, int, int, int, int, int, int);
-extern void FUN_L01_002787a0(void *);
-extern void FUN_L01_00278e20(void *, int);
+extern void spawn_moby_break_fragments(void *, int, int, int, int, int, int) __asm__("FUN_L00_00263e30");
+extern void spawn_proximity_gated_bolts(void *) __asm__("FUN_L01_002787a0");
+extern void spawn_moby_from_placement(void *, int) __asm__("FUN_L01_00278e20");
 void mark_moby_for_removal(struct Obj *obj) __asm__("FUN_0020c828");
 
 void lightpost_update(struct Moby *m) __asm__("FUN_L03_002e2948");
@@ -21,22 +21,22 @@ void lightpost_update(struct Moby *lightpost_moby) {
         LIGHTPOST_REMOVE = 2
     };
     int hit = 0;
-    char *r = find_moby_hit(lightpost_moby, 0x10000, 0);
+    char *hit_result = find_moby_hit(lightpost_moby, 0x10000, 0);
     switch (lightpost_moby->state) {
     case LIGHTPOST_INITIALIZE:
         lightpost_moby->state = 1;
         break;
     case LIGHTPOST_WAIT_FOR_HIT:
-        if (r != 0 && *(float *)(r + 0x2C) > 0.0f)
+        if (hit_result != 0 && *(float *)(hit_result + 0x2C) > 0.0f)
             hit = 1;
         if (hit)
             lightpost_moby->state = 2;
         break;
     case LIGHTPOST_REMOVE:
         allocate_voice_for_target_entry(0, 0, (int)lightpost_moby);
-        FUN_L01_002787a0(lightpost_moby);
-        FUN_L00_00263e30(lightpost_moby, 0x725, 1, 0x725, 1, 0x1, 2);
-        FUN_L01_00278e20(lightpost_moby, 0x724);
+        spawn_proximity_gated_bolts(lightpost_moby);
+        spawn_moby_break_fragments(lightpost_moby, 0x725, 1, 0x725, 1, 0x1, 2);
+        spawn_moby_from_placement(lightpost_moby, 0x724);
         mark_moby_for_removal(lightpost_moby);
         break;
     }

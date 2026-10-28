@@ -1,5 +1,5 @@
 int collect_mission_ids(int *out, int *mask, int *nums, int arg3) {
-    MissionNode *p = D_001A2FA0;
+    MissionNode *p = current_mission_nodes;
     int count = 0;
     int all = 1;
 

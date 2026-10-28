@@ -1,7 +1,7 @@
 /* Carried by port/tools/versionmap/carry_functions.py from the decompilation of Ratchet & Clank (PAL), nonmatching/functional/func_00127080.c (games/rac1): func_00127080, functional C there, not matched.
  * Kind `same` in the version map (../../README.md): the two versions have the same instructions for it.
  * Names and addresses are this version's. Functional C, not matched C. */
-/* functional: medium. Plain-C version of the EE multimedia-instruction code: 16-wide half-pel bilinear row filter of two reference quadwords (halfword intermediates), averaged into the 16-halfword destination row. Decoded from the assembly alone. The rounding constant is 2 for the first row only and 1 afterwards, because the assembly rebuilds it as 1 after the first row (kept as in retail). Argument record: +0 dst, +4 alignment byte offset, +8 rows, +0xC rows of the second pass, +0x10 stride, +0x14 and +0x18 the two source quadword pointers. */
+/* functional: medium. fcheck: unchecked (never called in fcheck's capture run of the title, menu and level 0; OpenRAC tools/fcheck_gate.py, 2026-10-18). Plain-C version of the EE multimedia-instruction code: 16-wide half-pel bilinear row filter of two reference quadwords (halfword intermediates), averaged into the 16-halfword destination row. Decoded from the assembly alone. The rounding constant is 2 for the first row only and 1 afterwards, because the assembly rebuilds it as 1 after the first row (kept as in retail). Argument record: +0 dst, +4 alignment byte offset, +8 rows, +0xC rows of the second pass, +0x10 stride, +0x14 and +0x18 the two source quadword pointers. */
 
 typedef unsigned char u8_7080_c126f40;
 typedef unsigned short u16_7080_c126f40;

@@ -225,14 +225,14 @@ void func_L13_0030AD88(gaddr moby) {
 }
 #endif
 
-/* func_L00_0025D390's two neighbours. All three give the block a moby with mode bit 0x20 keeps a
- * pointer to in its variables, or 0 for no moby or one without the bit; func_L00_0025D390 reads the
- * pointer at +0 (the block a hit is resolved in), these two the ones at +0x10 and +8. The one at +8
- * is the platform block: the turn and the move a moby made this tick, which it carries whatever
- * stands on it with (func_L00_002617B0 writes it, the hero's func_L00_00234800 reads it). Called
- * as func_L00_0025D390, the carry read a crate's hit block instead, whose first words are its
- * health 1.0 and a 0.5: a turn of one radian and a move of half a unit a tick, which threw the hero
- * off any crate he landed on. */
+/* func_L00_0025D390's neighbour. Both give the block a moby with mode bit 0x20 keeps a pointer to
+ * in its variables, or 0 for no moby or one without the bit; func_L00_0025D390 reads the pointer at
+ * +0 (the block a hit is resolved in), this one the one at +0x10. The one at +8 (func_L00_00261448,
+ * matched C in the decompilation now, moby_get_ride_transform) is the platform block: the turn and
+ * the move a moby made this tick, which it carries whatever stands on it with (func_L00_002617B0
+ * writes it, the hero's func_L00_00234800 reads it). Called as func_L00_0025D390, the carry read a
+ * crate's hit block instead, whose first words are its health 1.0 and a 0.5: a turn of one radian
+ * and a move of half a unit a tick, which threw the hero off any crate he landed on. */
 static int moby_block(gaddr moby, gaddr at) {
     if (moby == 0 || (GREF(uint16_t, moby + 0x34) & 0x20) == 0) {
         return 0;
@@ -241,9 +241,6 @@ static int moby_block(gaddr moby, gaddr at) {
 }
 
 int func_L00_0025D3C0(gaddr moby) { return moby_block(moby, 0x10); }
-#if !RAC1_OMIT(func_L00_00261448)
-int func_L00_00261448(gaddr moby) { return moby_block(moby, 8); }
-#endif
 
 /* func_00216270's level places (32 bytes: a0 = an address, then one call) whose call is not
  * func_0012F068(func_002177F0). The checkpoint restore (func_L00_002862E0) ends with the first:

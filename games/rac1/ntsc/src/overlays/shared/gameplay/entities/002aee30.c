@@ -19,10 +19,12 @@
 extern char D_L04_001D2C90[];
 extern void add_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a10");
 extern void transform_vector_by_basis(void *, void *, void *) __asm__("FUN_001f9cf8");
-extern void FUN_L04_002c41e0(void *, void *, void *, int, float, float);
+extern void spawn_smoke_puff_trail_with_endpoint_bursts(void *, void *, void *, int, float, float) __asm__("FUN_L04_002c41e0");
 
 extern short D_L04_001618B0 __attribute__((sda));
-void FUN_L04_002c45b8(char *moby, int i, int j, int k) {
+void spawn_moby_table_segment_puffs(char *moby, int i, int j, int k) __asm__("FUN_L04_002c45b8");
+
+void spawn_moby_table_segment_puffs(char *moby, int i, int j, int k) {
     float first_world_position[4], second_world_position[4];
     char *pi, *pj;
     pi = D_L04_001D2C90 + i * 16;
@@ -35,12 +37,12 @@ void FUN_L04_002c45b8(char *moby, int i, int j, int k) {
     second_world_position[3] = 1.0f;
     transform_vector_by_basis(second_world_position, second_world_position, moby + 0xC0);
     add_vector_xyz(second_world_position, second_world_position, moby + 0x10);
-    FUN_L04_002c41e0(moby, first_world_position, second_world_position, k, *(float *)(pi + 0xC) * *(float *)&D_L04_001618B0,
+    spawn_smoke_puff_trail_with_endpoint_bursts(moby, first_world_position, second_world_position, k, *(float *)(pi + 0xC) * *(float *)&D_L04_001618B0,
                      *(float *)(pj + 0xC) * *(float *)&D_L04_001618B0);
 }
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002B0068.c: func_L04_002C5A50), where it is exact; names translated to the US level program. */
 
-extern void FUN_L04_002c45b8(char *a, int i, int j, int k);
+extern void spawn_moby_table_segment_puffs(char *a, int i, int j, int k) __asm__("FUN_L04_002c45b8");
 
 extern short D_L04_001618C0 __attribute__((sda));
 extern short D_L04_001618C4 __attribute__((sda));
@@ -50,21 +52,23 @@ extern short D_L04_001618D0 __attribute__((sda));
 extern short D_L04_001618D4 __attribute__((sda));
 extern short D_L04_001618D8 __attribute__((sda));
 extern short D_L04_001618DC __attribute__((sda));
-void FUN_L04_002c46d0(char *moby) {
-    FUN_L04_002c45b8(moby, 0, 1, *(int *)&D_L04_001618C0);
-    FUN_L04_002c45b8(moby, 2, 3, *(int *)&D_L04_001618C4);
-    FUN_L04_002c45b8(moby, 4, 5, *(int *)&D_L04_001618C8);
-    FUN_L04_002c45b8(moby, 5, 6, *(int *)&D_L04_001618CC);
-    FUN_L04_002c45b8(moby, 6, 7, *(int *)&D_L04_001618D0);
-    FUN_L04_002c45b8(moby, 8, 9, *(int *)&D_L04_001618C8);
-    FUN_L04_002c45b8(moby, 9, 10, *(int *)&D_L04_001618CC);
-    FUN_L04_002c45b8(moby, 10, 11, *(int *)&D_L04_001618D0);
-    FUN_L04_002c45b8(moby, 12, 13, *(int *)&D_L04_001618D4);
-    FUN_L04_002c45b8(moby, 14, 15, *(int *)&D_L04_001618D4);
-    FUN_L04_002c45b8(moby, 16, 17, *(int *)&D_L04_001618D8);
-    FUN_L04_002c45b8(moby, 20, 21, *(int *)&D_L04_001618D8);
-    FUN_L04_002c45b8(moby, 18, 19, *(int *)&D_L04_001618DC);
-    FUN_L04_002c45b8(moby, 22, 23, *(int *)&D_L04_001618DC);
+void spawn_moby_table_puff_pattern(char *moby) __asm__("FUN_L04_002c46d0");
+
+void spawn_moby_table_puff_pattern(char *moby) {
+    spawn_moby_table_segment_puffs(moby, 0, 1, *(int *)&D_L04_001618C0);
+    spawn_moby_table_segment_puffs(moby, 2, 3, *(int *)&D_L04_001618C4);
+    spawn_moby_table_segment_puffs(moby, 4, 5, *(int *)&D_L04_001618C8);
+    spawn_moby_table_segment_puffs(moby, 5, 6, *(int *)&D_L04_001618CC);
+    spawn_moby_table_segment_puffs(moby, 6, 7, *(int *)&D_L04_001618D0);
+    spawn_moby_table_segment_puffs(moby, 8, 9, *(int *)&D_L04_001618C8);
+    spawn_moby_table_segment_puffs(moby, 9, 10, *(int *)&D_L04_001618CC);
+    spawn_moby_table_segment_puffs(moby, 10, 11, *(int *)&D_L04_001618D0);
+    spawn_moby_table_segment_puffs(moby, 12, 13, *(int *)&D_L04_001618D4);
+    spawn_moby_table_segment_puffs(moby, 14, 15, *(int *)&D_L04_001618D4);
+    spawn_moby_table_segment_puffs(moby, 16, 17, *(int *)&D_L04_001618D8);
+    spawn_moby_table_segment_puffs(moby, 20, 21, *(int *)&D_L04_001618D8);
+    spawn_moby_table_segment_puffs(moby, 18, 19, *(int *)&D_L04_001618DC);
+    spawn_moby_table_segment_puffs(moby, 22, 23, *(int *)&D_L04_001618DC);
 }
 
 /* sda.h here, after the unit's empty MACRO_ADDR: D_0015ED6C needs the real one */
@@ -87,7 +91,7 @@ extern struct Moby *create_moby(int oclass) __asm__("FUN_0020c4f8");
 extern float atan2_f(float, float) __asm__("FUN_001f9e90");
 extern float random_float_between(float, float) __asm__("FUN_002132a8");
 extern float fast_vec_dist(void *, void *) __asm__("FUN_001f9b48");  /* distance between two points */
-extern void FUN_L00_0026daa0(struct Moby *, int color, int life, int, float size);
+extern void spawn_source_attached_fading_effect_particle(struct Moby *, int color, int life, int, float size) __asm__("FUN_L00_0026daa0");
 extern void FUN_L00_00250df8(void *);
 
 extern f32 frame_time_macro __asm__("D_0015ED6C") __attribute__((section(".sdata")));
@@ -96,7 +100,9 @@ extern f32 frame_time_macro __asm__("D_0015ED6C") __attribute__((section(".sdata
  * `life` frames, with two glows (bluish, or reddish for an owner of class
  * 0xFF, which also keeps full scale). Returns the new moby or 0.
  */
-struct Moby *FUN_L04_002aee30(struct Moby *owner, void *pos, void *dir, int life)
+struct Moby *spawn_class_b8_projectile(struct Moby *owner, void *pos, void *dir, int life) __asm__("FUN_L04_002aee30");
+
+struct Moby *spawn_class_b8_projectile(struct Moby *owner, void *pos, void *dir, int life)
 {
     struct Moby *spawned_moby;
     ShotVars *vars;
@@ -129,11 +135,11 @@ struct Moby *FUN_L04_002aee30(struct Moby *owner, void *pos, void *dir, int life
         vars->unk24 = 0;
         vars->unk28 = 0;
         if (owner->oclass == 0xFF) {
-            FUN_L00_0026daa0(spawned_moby, 0x2F7F4F4F, life * 5 / 4, -1, 100000.0f);
-            FUN_L00_0026daa0(spawned_moby, 0x4F7F7F7F, life * 5 / 4, -1, 40000.0f);
+            spawn_source_attached_fading_effect_particle(spawned_moby, 0x2F7F4F4F, life * 5 / 4, -1, 100000.0f);
+            spawn_source_attached_fading_effect_particle(spawned_moby, 0x4F7F7F7F, life * 5 / 4, -1, 40000.0f);
         } else {
-            FUN_L00_0026daa0(spawned_moby, 0x2F4F7F7F, life * 5 / 4, -1, 100000.0f);
-            FUN_L00_0026daa0(spawned_moby, 0x4F6F7F7F, life * 5 / 4, -1, 40000.0f);
+            spawn_source_attached_fading_effect_particle(spawned_moby, 0x2F4F7F7F, life * 5 / 4, -1, 100000.0f);
+            spawn_source_attached_fading_effect_particle(spawned_moby, 0x4F6F7F7F, life * 5 / 4, -1, 40000.0f);
         }
         FUN_L00_00250df8(spawned_moby);
     }
@@ -177,12 +183,14 @@ extern void FUN_L00_0026dd20(void *, void *, u32, s32, f32);
  * within 3 units, dies off the arena, and on a hit (probing for its owner's
  * targets until the timer runs out) bursts into five sparks and is removed.
  */
-void FUN_L04_002af058(struct Moby *moby)
+void update_class_b8_projectile(struct Moby *moby) __asm__("FUN_L04_002af058");
+
+void update_class_b8_projectile(struct Moby *moby)
 {
     Vec4 old;
     CollisionProbe pr;
     Vec4 push;
-    Vec4 r;
+    Vec4 random_vector;
     ShotVars *v = (ShotVars *)moby->pvars;
     CollisionProbe *probe;
     f32 range;
@@ -242,14 +250,14 @@ void FUN_L04_002af058(struct Moby *moby)
     qcopy(&moby->pos, &D_L04_00173FE0);
     if (moby->command == 0) {
         for (i = 0; i < 5; i++) {
-            r.q = 0;
-            r.f[0] = random_float_between(-1.0f, 1.0f);
-            r.f[1] = random_float_between(-1.0f, 1.0f);
-            r.f[2] = random_float_between(-1.0f, 1.0f);
-            push.q = r.q;
-            FUN_L00_001ff660(&r, v, D_L04_00174000);
-            normalize_vector_xyz(&push, &push, vector_length_xyz(&r) * 0.5f);
-            add_vector_xyz(&push, &r, &push);
+            random_vector.q = 0;
+            random_vector.f[0] = random_float_between(-1.0f, 1.0f);
+            random_vector.f[1] = random_float_between(-1.0f, 1.0f);
+            random_vector.f[2] = random_float_between(-1.0f, 1.0f);
+            push.q = random_vector.q;
+            FUN_L00_001ff660(&random_vector, v, D_L04_00174000);
+            normalize_vector_xyz(&push, &push, vector_length_xyz(&random_vector) * 0.5f);
+            add_vector_xyz(&push, &random_vector, &push);
             normalize_vector_xyz(&push, &push, random_float_between(frame_time_macro * 3.0f, frame_time_macro * 6.0f));
             FUN_L00_0026dd20(&moby->pos, &push, 0x7F2F4F6F,
                              random_int_between(scale_game_frames(10), scale_game_frames(15)), 30000.0f);
@@ -271,20 +279,22 @@ void FUN_L04_002af058(struct Moby *moby)
 extern void FUN_L00_00250df8(void *);
 extern struct Moby *func_0020D348_m(int) __asm__("FUN_0020c4f8");
 
-void *FUN_L04_002ce080(char *src, char *pos) {
+void *spawn_moby_attachment(char *source_moby, char *spawn_position) __asm__("FUN_L04_002ce080");
+
+void *spawn_moby_attachment(char *source_moby, char *spawn_position) {
     char position_copy[16];
     char *position_copy_ptr = position_copy;
     char *spawned_moby;
-    *(OvlQuad *)position_copy = *(OvlQuad *)pos;
+    *(OvlQuad *)position_copy = *(OvlQuad *)spawn_position;
     spawned_moby = (char *)func_0020D348_m(0x1F3);
     if (spawned_moby != 0) {
         *(unsigned char *)(spawned_moby + 0x30) = 0xFF;
-        *(unsigned short *)(spawned_moby + 0x32) = *(unsigned short *)(src + 0x32);
+        *(unsigned short *)(spawned_moby + 0x32) = *(unsigned short *)(source_moby + 0x32);
         spawned_moby[0x31] = 1;
         *(int *)(spawned_moby + 0x40) = 0;
         *(int *)(spawned_moby + 0x44) = 0;
-        *(float *)(spawned_moby + 0x48) = *(float *)(src + 0x48);
-        *(unsigned long *)(spawned_moby + 0x38) = *(unsigned long *)(src + 0x38);
+        *(float *)(spawned_moby + 0x48) = *(float *)(source_moby + 0x48);
+        *(unsigned long *)(spawned_moby + 0x38) = *(unsigned long *)(source_moby + 0x38);
         qcopy(spawned_moby + 0x10, position_copy_ptr);
         FUN_L00_00250df8(spawned_moby);
     }

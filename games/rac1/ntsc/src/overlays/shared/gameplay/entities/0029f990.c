@@ -32,24 +32,26 @@ extern void transform_scaled_vertex_batch(char *arg0, int arg1, void *arg2,
                                           char *arg3) __asm__("FUN_0020cd48");
 extern void vu1_add_g_sregister(int, long);
 
-void FUN_L00_0029f990(char *vertex_batch) {
+void draw_vendor_inset_quads(char *vertex_batch) __asm__("FUN_L00_0029f990");
+
+void draw_vendor_inset_quads(char *vertex_batch) {
     float A[4];
     float B[4];
     float C[4];
     float P[3][4];
-    int idx[3];
+    int vertex_indices[3];
     float E[4];
     QuadPkt quad_packet;
-    float g[4];
+    float projected_bounds[4];
     float edge_length;
     int i;
     float one = 1.0f;
     float uvv = 0.984375f;
     for (i = 1; i < 6; i++) {
-        idx[0] = i * 4;
-        idx[1] = i * 4 + 1;
-        idx[2] = i * 4 + 2;
-        transform_scaled_vertex_batch(vertex_batch, 3, idx, (char *)P);
+        vertex_indices[0] = i * 4;
+        vertex_indices[1] = i * 4 + 1;
+        vertex_indices[2] = i * 4 + 2;
+        transform_scaled_vertex_batch(vertex_batch, 3, vertex_indices, (char *)P);
         qcopy(C, P[0]);
         subtract_vector_xyz(A, P[1], P[0]);
         subtract_vector_xyz(B, P[2], P[0]);
@@ -63,7 +65,7 @@ void FUN_L00_0029f990(char *vertex_batch) {
         normalize_vector_xyz(B, B, edge_length - D_L00_001CA318[i][3] * 2.0f);
         add_vector_xyz(E, C, A);
         add_vector_xyz(E, E, B);
-        project_graphics_bounds_float(C, E, &g[0], &g[1], &g[2], &g[3]);
+        project_graphics_bounds_float(C, E, &projected_bounds[0], &projected_bounds[1], &projected_bounds[2], &projected_bounds[3]);
         qcopy(quad_packet.v[0], C);
         add_vector_xyz(quad_packet.v[1], C, A);
         add_vector_xyz(quad_packet.v[2], C, B);
@@ -107,7 +109,7 @@ void FUN_00237a78_29fcd0(void *, void *, int *, int *, int *, int *) __asm__("FU
 void FUN_00239690_29fcd0(int, int, float) __asm__("FUN_00239690");
 void FUN_001fb740_29fcd0(int, int) __asm__("FUN_001fb740");
 void FUN_00233980_29fcd0(int, long) __asm__("FUN_00233980");
-void FUN_L00_0029ead8_29fcd0(void *, int, int) __asm__("FUN_L00_0029ead8");
+void draw_vendor_purchase_text(void *, int, int) __asm__("FUN_L00_0029ead8");
 void FUN_00239328_29fcd0(int, float, float) __asm__("FUN_00239328");
 void FUN_001f7978_29fcd0(void) __asm__("FUN_001f7978");
 void FUN_0020d330_29fcd0(void *, int) __asm__("FUN_0020d330");
@@ -115,7 +117,9 @@ void FUN_001f5450_29fcd0(int, int, int, int, int, int, int, int, long,
                          long) __asm__("FUN_001f5450");
 
 extern I3_29fcd0 D_L00_00161178 __attribute__((section(".data")));
-void FUN_L00_0029fcd0(void *m) {
+void draw_vendor_purchase_panel(void *moby) __asm__("FUN_L00_0029fcd0");
+
+void draw_vendor_purchase_panel(void *moby) {
     OvlQuad first_edge[1];
     OvlQuad second_edge[1];
     OvlQuad base[1];
@@ -124,39 +128,39 @@ void FUN_L00_0029fcd0(void *m) {
     OvlQuad inset_offset[1];
     OvlQuad quad_corners[4];
     OvlQuad pad[5];
-    OvlQuad a, b;
-    int x, y, w, h;
-    float len;
+    OvlQuad bounds_first_corner, bounds_opposite_corner;
+    int x, y, panel_screen_x, panel_screen_y;
+    float untrimmed_edge_length;
     ids = D_L00_00161178;
-    FUN_0020cd48_29fcd0(m, 3, &ids, out);
+    FUN_0020cd48_29fcd0(moby, 3, &ids, out);
     qcopy(base, out);
     FUN_001f9a28_29fcd0(first_edge, &out[1], out);
     FUN_001f9a28_29fcd0(second_edge, &out[2], out);
-    len = FUN_001f9af0_29fcd0(first_edge);
+    untrimmed_edge_length = FUN_001f9af0_29fcd0(first_edge);
     FUN_001f9bf8_29fcd0(inset_offset, first_edge, 0.03f);
     FUN_001f9a10_29fcd0(base, base, inset_offset);
-    FUN_001f9bf8_29fcd0(first_edge, first_edge, len - 0.06f);
-    len = FUN_001f9af0_29fcd0(second_edge);
+    FUN_001f9bf8_29fcd0(first_edge, first_edge, untrimmed_edge_length - 0.06f);
+    untrimmed_edge_length = FUN_001f9af0_29fcd0(second_edge);
     FUN_001f9bf8_29fcd0(inset_offset, second_edge, 0.04f);
     FUN_001f9a10_29fcd0(base, base, inset_offset);
-    FUN_001f9bf8_29fcd0(second_edge, second_edge, len - 0.04f);
+    FUN_001f9bf8_29fcd0(second_edge, second_edge, untrimmed_edge_length - 0.04f);
     qcopy(&quad_corners[0], base);
     FUN_001f9a10_29fcd0(&quad_corners[1], base, first_edge);
     FUN_001f9a10_29fcd0(&quad_corners[2], base, second_edge);
     FUN_001f9a10_29fcd0(&quad_corners[3], &quad_corners[2], first_edge);
-    a = quad_corners[0];
-    b = quad_corners[3];
-    FUN_00237a78_29fcd0(&a, &b, &x, &y, &w, &h);
+    bounds_first_corner = quad_corners[0];
+    bounds_opposite_corner = quad_corners[3];
+    FUN_00237a78_29fcd0(&bounds_first_corner, &bounds_opposite_corner, &x, &y, &panel_screen_x, &panel_screen_y);
     FUN_00239690_29fcd0(9, 7, 1.0f);
     FUN_001fb740_29fcd0(0x200, 0x200);
     FUN_00233980_29fcd0(0x42, 0x8000000064L);
-    FUN_L00_0029ead8_29fcd0(m, x, y);
+    draw_vendor_purchase_text(moby, x, y);
     FUN_00239328_29fcd0(6, (float)x, (float)y);
     FUN_001f7978_29fcd0();
     FUN_001fb740_29fcd0(0x200, 0x200);
     FUN_00233980_29fcd0(0x42, 0x8000000064L);
-    FUN_0020d330_29fcd0(m, 1);
-    FUN_001f5450_29fcd0(w, h, x, y, 0, 0, x, y, 0x80808080L, D_0015EED0_29fcd0);
+    FUN_0020d330_29fcd0(moby, 1);
+    FUN_001f5450_29fcd0(panel_screen_x, panel_screen_y, x, y, 0, 0, x, y, 0x80808080L, D_0015EED0_29fcd0);
 }
 /* Draws the four quads of the hologram cone, scrolling the texture coordinates. */
 /* Ported from rac1-decomp (src/overlays/shared/vendor_0029FD68.c: func_L00_002A11E8), where it is exact; names translated to the US level program. */
@@ -175,50 +179,53 @@ extern float D_L00_001CA410[][2];
 extern int D_L00_001CA458[] __attribute__((section(".data")));
 extern int D_L00_001CA4C0_lui[] __asm__("D_L00_001CA4C0") __attribute__((section(".data")));
 extern s64 get_effect_texture_c(s32) __asm__("func_001F44B8");
-extern float D_L00_00161184 __attribute__((sda));
+#include "rnc/overlay/shared/gameplay/entities/0029f990_globals.h"
+extern float vendor_hologram_v_scroll_offset_gp __asm__("D_L00_00161184") __attribute__((sda));
 extern struct Quad D_L00_001CA480[] __attribute__((section(".data")));
 extern void fast_draw_quad_real(void *, void *, int);
 extern void transform_vector_by_basis(void *, void *, void *) __asm__("func_001F9CF8");
 
-void FUN_L00_0029ff58(void) {
+void draw_vendor_hologram_cone(void) __asm__("FUN_L00_0029ff58");
+
+void draw_vendor_hologram_cone(void) {
     struct HoloPacket quad_packet;
-    float v[4][4];
+    float transformed_vertex_offsets[4][4];
     int i;
-    D_L00_00161184 = D_L00_00161184 + 0.01f;
-    if (D_L00_00161184 > 1.0f) D_L00_00161184 = D_L00_00161184 - 1.0f;
+    vendor_hologram_v_scroll_offset_gp = vendor_hologram_v_scroll_offset_gp + 0.01f;
+    if (vendor_hologram_v_scroll_offset_gp > 1.0f) vendor_hologram_v_scroll_offset_gp = vendor_hologram_v_scroll_offset_gp - 1.0f;
     quad_packet.hdr[2] = 1;
     quad_packet.hdr[3] = 0x4000000044L;
     quad_packet.hdr[0] = 0;
     quad_packet.hdr[1] = get_effect_texture_c(0x18);
     for (i = 0; i < 4; i++) {
-        transform_vector_by_basis(v[0], D_L00_001CA380[D_L00_001CA480[i].a], (char *)D_L00_001CA4C0_lui[7] + 0xC0);
-        transform_vector_by_basis(v[1], D_L00_001CA380[*(int *)((char *)D_L00_001CA480 + i * 16 + 4)], (char *)D_L00_001CA4C0_lui[7] + 0xC0);
-        transform_vector_by_basis(v[2], D_L00_001CA380[*(int *)((char *)D_L00_001CA480 + i * 16 + 8)], (char *)D_L00_001CA4C0_lui[7] + 0xC0);
-        transform_vector_by_basis(v[3], D_L00_001CA380[D_L00_001CA480[i].d], (char *)D_L00_001CA4C0_lui[7] + 0xC0);
-        quad_packet.pos[0][0] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x10) + v[0][0];
-        quad_packet.pos[0][1] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x14) + v[0][1];
-        quad_packet.pos[0][2] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x18) + v[0][2];
-        quad_packet.pos[1][0] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x10) + v[1][0];
-        quad_packet.pos[1][1] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x14) + v[1][1];
-        quad_packet.pos[1][2] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x18) + v[1][2];
-        quad_packet.pos[2][0] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x10) + v[2][0];
-        quad_packet.pos[2][1] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x14) + v[2][1];
-        quad_packet.pos[2][2] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x18) + v[2][2];
-        quad_packet.pos[3][0] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x10) + v[3][0];
-        quad_packet.pos[3][1] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x14) + v[3][1];
-        quad_packet.pos[3][2] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x18) + v[3][2];
+        transform_vector_by_basis(transformed_vertex_offsets[0], D_L00_001CA380[D_L00_001CA480[i].a], (char *)D_L00_001CA4C0_lui[7] + 0xC0);
+        transform_vector_by_basis(transformed_vertex_offsets[1], D_L00_001CA380[*(int *)((char *)D_L00_001CA480 + i * 16 + 4)], (char *)D_L00_001CA4C0_lui[7] + 0xC0);
+        transform_vector_by_basis(transformed_vertex_offsets[2], D_L00_001CA380[*(int *)((char *)D_L00_001CA480 + i * 16 + 8)], (char *)D_L00_001CA4C0_lui[7] + 0xC0);
+        transform_vector_by_basis(transformed_vertex_offsets[3], D_L00_001CA380[D_L00_001CA480[i].d], (char *)D_L00_001CA4C0_lui[7] + 0xC0);
+        quad_packet.pos[0][0] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x10) + transformed_vertex_offsets[0][0];
+        quad_packet.pos[0][1] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x14) + transformed_vertex_offsets[0][1];
+        quad_packet.pos[0][2] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x18) + transformed_vertex_offsets[0][2];
+        quad_packet.pos[1][0] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x10) + transformed_vertex_offsets[1][0];
+        quad_packet.pos[1][1] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x14) + transformed_vertex_offsets[1][1];
+        quad_packet.pos[1][2] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x18) + transformed_vertex_offsets[1][2];
+        quad_packet.pos[2][0] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x10) + transformed_vertex_offsets[2][0];
+        quad_packet.pos[2][1] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x14) + transformed_vertex_offsets[2][1];
+        quad_packet.pos[2][2] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x18) + transformed_vertex_offsets[2][2];
+        quad_packet.pos[3][0] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x10) + transformed_vertex_offsets[3][0];
+        quad_packet.pos[3][1] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x14) + transformed_vertex_offsets[3][1];
+        quad_packet.pos[3][2] = *(float *)((char *)D_L00_001CA4C0_lui[7] + 0x18) + transformed_vertex_offsets[3][2];
         quad_packet.col[0] = D_L00_001CA458[D_L00_001CA480[i].a];
         quad_packet.col[1] = D_L00_001CA458[*(int *)((char *)D_L00_001CA480 + i * 16 + 4)];
         quad_packet.col[2] = D_L00_001CA458[*(int *)((char *)D_L00_001CA480 + i * 16 + 8)];
         quad_packet.col[3] = D_L00_001CA458[D_L00_001CA480[i].d];
         quad_packet.uv[0][0] = D_L00_001CA410[D_L00_001CA480[i].a][0];
-        quad_packet.uv[0][1] = D_L00_001CA410[D_L00_001CA480[i].a][1] + D_L00_00161184;
+        quad_packet.uv[0][1] = D_L00_001CA410[D_L00_001CA480[i].a][1] + vendor_hologram_v_scroll_offset_gp;
         quad_packet.uv[1][0] = D_L00_001CA410[*(int *)((char *)D_L00_001CA480 + i * 16 + 4)][0];
-        quad_packet.uv[1][1] = D_L00_001CA410[*(int *)((char *)D_L00_001CA480 + i * 16 + 4)][1] + D_L00_00161184;
+        quad_packet.uv[1][1] = D_L00_001CA410[*(int *)((char *)D_L00_001CA480 + i * 16 + 4)][1] + vendor_hologram_v_scroll_offset_gp;
         quad_packet.uv[2][0] = D_L00_001CA410[*(int *)((char *)D_L00_001CA480 + i * 16 + 8)][0];
-        quad_packet.uv[2][1] = D_L00_001CA410[*(int *)((char *)D_L00_001CA480 + i * 16 + 8)][1] + D_L00_00161184;
+        quad_packet.uv[2][1] = D_L00_001CA410[*(int *)((char *)D_L00_001CA480 + i * 16 + 8)][1] + vendor_hologram_v_scroll_offset_gp;
         quad_packet.uv[3][0] = D_L00_001CA410[D_L00_001CA480[i].d][0];
-        quad_packet.uv[3][1] = D_L00_001CA410[D_L00_001CA480[i].d][1] + D_L00_00161184;
+        quad_packet.uv[3][1] = D_L00_001CA410[D_L00_001CA480[i].d][1] + vendor_hologram_v_scroll_offset_gp;
         fast_draw_quad_real(&quad_packet, 0, 1);
     }
 }
@@ -281,29 +288,29 @@ extern A02b0_tab D_L00_001C8FF0[];
 
 extern void append_gif_transfer_packet(void) __asm__("FUN_001fb368");
 extern void draw_debug_profiler(void) __asm__("FUN_001f39d0");
-extern void FUN_L00_002a09d8(s32);
+extern void vu1_sync_chain(s32) __asm__("FUN_L00_002a09d8");
 extern s32 sce_gs_sync_v(s32) __asm__("FUN_00122298");
-extern void FUN_L00_002a08c8(void);
+extern void vu1_send_chain_render_buffer(void) __asm__("FUN_L00_002a08c8");
 extern void swap_render_buffer_chain(void) __asm__("FUN_00233630");
-extern void FUN_L00_001f99c0(s32);
+extern void capture_draw_buffer(s32) __asm__("FUN_L00_001f99c0");
 extern void update_camera_view_matrices(void) __asm__("FUN_001f2260");
 extern void fast_vec_cross(void *, void *, void *) __asm__("FUN_001f9ad8");
 extern void init_moby_instance(void *, s32) __asm__("FUN_0020c5f0");
 extern void FUN_L00_00250df8(void *);
 extern void pack_render_command_fields(void *, s32, s32, s32, s32) __asm__("FUN_0020d4f0");
-extern void FUN_L00_0029b680(void);
+extern void initialize_vendor_selected_item_mobys(void) __asm__("FUN_L00_0029b680");
 extern void fast_mem_zero16(void *, s32) __asm__("FUN_001f9810");
 extern s32 start_audio_stream_read(void *, s32, s32) __asm__("FUN_00216788");
-extern void FUN_L00_002a0fc8(s32, u32, u32);
+extern void append_draw_buffer_upload_packets(s32, u32, u32) __asm__("FUN_L00_002a0fc8");
 extern void setup_gif_paging(s32) __asm__("FUN_001f4280");
 extern void reset_gs_registers(void) __asm__("FUN_001f3868");
 extern void draw_mobys_setup(void) __asm__("FUN_0020d278");
 extern void init_moby_class_dists(void) __asm__("FUN_0020d1f0");
 extern void stash_moby_class_dists(void) __asm__("FUN_0020d218");
 extern void draw_moby_list(void *, s32) __asm__("FUN_0020d330");
-extern void FUN_L00_0029ff58_u(void) __asm__("FUN_L00_0029ff58");
+extern void draw_vendor_hologram_cone(void) __asm__("FUN_L00_0029ff58");
 extern void render_vendor_capture_pass_sequence(s32) __asm__("FUN_00239780");
-extern void FUN_L00_0029fcd0_c(void *) __asm__("FUN_L00_0029fcd0");
+extern void draw_vendor_purchase_panel(void *) __asm__("FUN_L00_0029fcd0");
 extern void FUN_00233980(s32, s64);
 extern void update_hud(void) __asm__("FUN_001ff780");
 extern void do_gif_paging(void) __asm__("FUN_001f4398");
@@ -311,7 +318,9 @@ extern void restore_moby_class_dists(void) __asm__("FUN_0020d248");
 extern void draw_mobys_clean_up(void) __asm__("FUN_0020d3b0");
 extern void patch_moby_gifs(void) __asm__("FUN_0020cef8");
 
-void FUN_L00_002a02b0(void) {
+void draw_vendor_screen(void) __asm__("FUN_L00_002a02b0");
+
+void draw_vendor_screen(void) {
     A02b0_obj *e;
     A02b0_tab *g;
 #define p (&D_L00_001CA4C0)
@@ -335,13 +344,13 @@ void FUN_L00_002a02b0(void) {
         }
         p->f8 = 1;
         p->fC = 0;
-        FUN_L00_002a09d8(1);
+        vu1_sync_chain(1);
         sce_gs_sync_v(0);
         D_L00_0015F3F8_s = D_L00_0015F3F8_v[0] + 1;
-        FUN_L00_002a08c8();
+        vu1_send_chain_render_buffer();
         swap_render_buffer_chain();
         D_L00_001611CC = 0x60000;
-        FUN_L00_001f99c0(p->f10);
+        capture_draw_buffer(p->f10);
         *(u16 *)(p->f1C + 0x34) &= 0xFFFE;
         *(f32 *)(p->f1C + 0x2C) = 0.14190800487995148f;
         if (p->f40 != 0) {
@@ -375,7 +384,7 @@ void FUN_L00_002a02b0(void) {
         *(u16 *)(p->f20 + 0x532) = 0x40;
         FUN_L00_00250df8(p->f20 + 0x500);
         pack_render_command_fields(p->f20 + 0x500, 0x202020, 0xE, 0xE, 0);
-        FUN_L00_0029b680();
+        initialize_vendor_selected_item_mobys();
         p->f2C = p->f14 + 0x1400;
         fast_mem_zero16(p->f2C, 0x400);
         p->f18 = p->f2C + 0x400;
@@ -395,7 +404,7 @@ void FUN_L00_002a02b0(void) {
     default:
         return;
     }
-    FUN_L00_002a0fc8(p->f10, draw_buffer_address, frame_size[0] << 11);
+    append_draw_buffer_upload_packets(p->f10, draw_buffer_address, frame_size[0] << 11);
     setup_gif_paging(0);
     update_camera_view_matrices();
     reset_gs_registers();
@@ -414,19 +423,19 @@ void FUN_L00_002a02b0(void) {
     }
     draw_moby_list(p->f1C, 1);
     if (p->f40 == 0) {
-        FUN_L00_0029ff58_u();
+        draw_vendor_hologram_cone();
     }
     render_vendor_capture_pass_sequence(p->f1C);
     if (p->f5C != 0) {
-        FUN_L00_0029fcd0_c(p->f20 + 0x400);
+        draw_vendor_purchase_panel(p->f20 + 0x400);
     }
-    FUN_L00_0029f990(p->f1C);
+    draw_vendor_inset_quads(p->f1C);
     FUN_00233980(0x42, 0x8000000044LL);
     update_hud();
     do_gif_paging();
     restore_moby_class_dists();
     draw_mobys_clean_up();
-    FUN_L00_002a09d8(0x10);
+    vu1_sync_chain(0x10);
     patch_moby_gifs();
 }
 

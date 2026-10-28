@@ -61,11 +61,13 @@ Every function links at its original retail address. Functions not yet decompile
    bash tools/setup_asm.sh
    git clone https://github.com/AngheloAlf/SN-Systems-ProDG_for_PS2_3.01 toolchain/sn-prodg-3.01
    git clone https://github.com/AngheloAlf/sce_ps2_sdk_24 toolchain/sn-prodg-24
+   python tools/gcc323.py --setup  # public C frontend; uses Docker/Podman on Windows
 
    # Linux & macOS (via container wrapper):
    bash tools/docker/run.sh bash tools/setup_asm.sh
    git clone https://github.com/AngheloAlf/SN-Systems-ProDG_for_PS2_3.01 toolchain/sn-prodg-3.01
    git clone https://github.com/AngheloAlf/sce_ps2_sdk_24 toolchain/sn-prodg-24
+   bash tools/docker/run.sh python tools/gcc323.py --setup
    ```
 
 4. **Build and verify:**

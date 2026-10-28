@@ -22,45 +22,47 @@ extern int D_L00_0017E510 __attribute__((section(".data")));
 extern int D_L00_0017E518 __attribute__((section(".data")));
 extern int D_L00_0017E51C __attribute__((section(".data")));
 extern int D_L00_0017E520 __attribute__((section(".data")));
-void FUN_L00_00234fd0(int mode) {
-    G_234fd0 *g = &D_L00_0017E4D8_234fd0;
-    int off = D_L00_001B9CF0.unk104;
-    void *h = (void *)D_L00_001B9CF0.unk10;
+void decompress_and_relocate_selected_groups(int mode) __asm__("FUN_L00_00234fd0");
+
+void decompress_and_relocate_selected_groups(int mode) {
+    G_234fd0 *decompression_slot_state = &D_L00_0017E4D8_234fd0;
+    int decompression_destination = D_L00_001B9CF0.unk104;
+    void *compressed_data_buffer = (void *)D_L00_001B9CF0.unk10;
     {
         int slot_1_size;
-        if ((slot_1_size = g->t->sz[1])) {
-            FUN_00232f20_234fd0(h, g->t->p[1], 0, D_L00_0017E510 / 16, 0);
-            FUN_L00_0024d8d0_234fd0(h, off);
-            FUN_001fefc0_234fd0(0, off);
-            off += slot_1_size;
+        if ((slot_1_size = decompression_slot_state->t->sz[1])) {
+            FUN_00232f20_234fd0(compressed_data_buffer, decompression_slot_state->t->p[1], 0, D_L00_0017E510 / 16, 0);
+            FUN_L00_0024d8d0_234fd0(compressed_data_buffer, decompression_destination);
+            FUN_001fefc0_234fd0(0, decompression_destination);
+            decompression_destination += slot_1_size;
         }
     }
     {
         int slot_3_size;
-        if ((slot_3_size = g->t->sz[3])) {
-            FUN_00232f20_234fd0(h, g->t->p[3], 0, D_L00_0017E518 / 16, 0);
-            FUN_L00_0024d8d0_234fd0(h, off);
-            FUN_001fefc0_234fd0(2, off);
-            off += slot_3_size;
+        if ((slot_3_size = decompression_slot_state->t->sz[3])) {
+            FUN_00232f20_234fd0(compressed_data_buffer, decompression_slot_state->t->p[3], 0, D_L00_0017E518 / 16, 0);
+            FUN_L00_0024d8d0_234fd0(compressed_data_buffer, decompression_destination);
+            FUN_001fefc0_234fd0(2, decompression_destination);
+            decompression_destination += slot_3_size;
         }
     }
     if (mode == 0 || mode == 2) {
         {
             int slot_4_size;
-            if ((slot_4_size = g->t->sz[4])) {
-                FUN_00232f20_234fd0(h, g->t->p[4], 0, D_L00_0017E51C / 16, 0);
-                FUN_L00_0024d8d0_234fd0(h, off);
-                FUN_001fefc0_234fd0(3, off);
-                off += slot_4_size;
+            if ((slot_4_size = decompression_slot_state->t->sz[4])) {
+                FUN_00232f20_234fd0(compressed_data_buffer, decompression_slot_state->t->p[4], 0, D_L00_0017E51C / 16, 0);
+                FUN_L00_0024d8d0_234fd0(compressed_data_buffer, decompression_destination);
+                FUN_001fefc0_234fd0(3, decompression_destination);
+                decompression_destination += slot_4_size;
             }
         }
     }
     if ((unsigned)(mode - 1) < 2) {
-        G_234fd0 *g2 = &D_L00_0017E4D8_234fd0;
-        if (g2->t->sz[5]) {
-            FUN_00232f20_234fd0(h, g2->t->p[5], 0, D_L00_0017E520 / 16, 0);
-            FUN_L00_0024d8d0_234fd0(h, off);
-            FUN_001fefc0_234fd0(4, off);
+        G_234fd0 *group_4_decompression_state = &D_L00_0017E4D8_234fd0;
+        if (group_4_decompression_state->t->sz[5]) {
+            FUN_00232f20_234fd0(compressed_data_buffer, group_4_decompression_state->t->p[5], 0, D_L00_0017E520 / 16, 0);
+            FUN_L00_0024d8d0_234fd0(compressed_data_buffer, decompression_destination);
+            FUN_001fefc0_234fd0(4, decompression_destination);
         }
     }
 }
@@ -84,7 +86,9 @@ typedef struct {
 } G_235310;
 extern G_235310 D_L00_0017E4D8 __attribute__((section(".data")));
 
-void FUN_L00_00235310(int group_index) {
+void apply_group_entry_adjustment(int group_index) __asm__("FUN_L00_00235310");
+
+void apply_group_entry_adjustment(int group_index) {
     int subtraction_amount = D_L00_0017E4D8.t->c[group_index];
     int i, j, s, end;
     if (group_index == 0) {
@@ -121,7 +125,9 @@ extern volatile int D_L00_0015FFE0;
 extern volatile int D_L00_0015FFE8;
 extern volatile int D_L00_0015F728 __attribute__((sda));
 
-void FUN_L00_00235668(int state) {
+void select_moby_context(int state) __asm__("FUN_L00_00235668");
+
+void select_moby_context(int state) {
     int oldState = D_L00_0015F728;
     if (state != oldState) {
         int old70, old74, old78, old7C, oldDC, oldE0, oldE8;

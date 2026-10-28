@@ -66,6 +66,8 @@ endif
 CORE_TEXT_OBJS := $(shell grep -v -e "^\#" -e "^$$" config/core_text.objects | cut -d" " -f1)
 
 TEXT_OBJS := $(shell grep -v -e "^\#" -e "^$$" config/text.objects | cut -d" " -f1)
+GCC323_TEXT_OBJS := $(shell awk '!/^\#/ && $$3 == "gcc323" {print $$1}' config/text.objects)
+CC_GAME = $(CC_TEXT)
 
 OBJS := $(CORE_TEXT_OBJS) $(TEXT_OBJS)
 
@@ -204,9 +206,10 @@ build-sn/libgcc/asm_%.o: src/libgcc/nonmatching_%.c
 # first assembly. It also builds 64-bit constants its own way, which
 # tools/ps2eeas_dli.py reproduces. A switch's jump table gets a section of
 # its own, placed at retail's table by rac1.ld.sh (tools/fix_jump_tables.py).
-build-sn/game/%.o: src/game/%.c config/file_cflags.txt tools/file_cflags.py tools/fix_orphan_hi.py tools/fix_jump_tables.py tools/jump_tables.py tools/ps2eeas_dli.py tools/check_macro_slots.py tools/ps2eeas_nops.py
+$(GCC323_TEXT_OBJS): CC_GAME = python tools/gcc323.py
+build-sn/game/%.o: src/game/%.c config/text.objects config/file_cflags.txt tools/file_cflags.py tools/gcc323.py tools/fix_orphan_hi.py tools/fix_jump_tables.py tools/jump_tables.py tools/ps2eeas_dli.py tools/check_macro_slots.py tools/ps2eeas_nops.py
 	@mkdir -p $(dir $@)
-	$(CC_TEXT) $(CFLAGS) $$(python tools/file_cflags.py $<) -S -o build-sn/game/$*.s $<
+	$(CC_GAME) $(CFLAGS) $$(python tools/file_cflags.py $<) -S -o build-sn/game/$*.s $<
 	python tools/fix_jump_tables.py build-sn/game/$*.s build-sn/game/$*_jt.s
 	python tools/ps2eeas_dli.py build-sn/game/$*_jt.s build-sn/game/$*_jt.s
 	python tools/check_macro_slots.py build-sn/game/$*_jt.s

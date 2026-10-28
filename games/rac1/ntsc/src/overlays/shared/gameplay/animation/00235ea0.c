@@ -13,26 +13,27 @@
 extern f32 convert_integer_to_float(s32) __asm__("FUN_001fa6c0");
 extern float square_root(float) __asm__("FUN_001f9988");
 extern int scale_game_frames(int) __asm__("FUN_001f96f8");
-extern int FUN_L00_0023aaa8(char *);
+extern int update_hud_animation_frame(char *) __asm__("FUN_L00_0023aaa8");
 extern s32 truncate_float_to_s32(f32) __asm__("FUN_001fa6d0");
 
-void FUN_L00_00235ea0(HudElem *hud_element) {
-    unsigned char *c = hud_element->cnt;
-    int v;
+void hud_update_counter(HudElem *hud_element) __asm__("FUN_L00_00235ea0");
+void hud_update_counter(HudElem *hud_element) {
+    unsigned char *counter_state_bytes = hud_element->cnt;
+    int counter_value;
     int cap;
     int value_distance;
-    int n;
+    int easing_step;
     int x;
-    unsigned char t;
+    unsigned char easing_accumulator_value;
 
     if (hud_element->unk0C != 0) {
-        v = *hud_element->unk0C;
+        counter_value = *hud_element->unk0C;
         cap = hud_element->unk08;
-        if (v < 0) {
-            v = 0;
+        if (counter_value < 0) {
+            counter_value = 0;
         }
-        hud_element->unk78 = v;
-        if (cap < v) {
+        hud_element->unk78 = counter_value;
+        if (cap < counter_value) {
             hud_element->unk78 = cap;
         }
     }
@@ -43,44 +44,44 @@ void FUN_L00_00235ea0(HudElem *hud_element) {
             value_distance = x;
             value_distance = value_distance < 0 ? -value_distance : value_distance;
             if (value_distance != 0) {
-                n = truncate_float_to_s32(square_root(convert_integer_to_float(value_distance) / 25.0f) * 5.0f);
-                n = n < value_distance * scale_game_frames(2) / scale_game_frames(10)
+                easing_step = truncate_float_to_s32(square_root(convert_integer_to_float(value_distance) / 25.0f) * 5.0f);
+                easing_step = easing_step < value_distance * scale_game_frames(2) / scale_game_frames(10)
                         ? value_distance * scale_game_frames(2) / scale_game_frames(10)
-                        : n;
-                if (n >= 0x7A) {
-                    n = 0x79;
-                } else if (n <= 0) {
-                    n = 1;
+                        : easing_step;
+                if (easing_step >= 0x7A) {
+                    easing_step = 0x79;
+                } else if (easing_step <= 0) {
+                    easing_step = 1;
                 }
-                c[3] += n;
-                t = c[3];
-                if (scale_game_frames(2) < t) {
-                    n = c[3] / scale_game_frames(2);
+                counter_state_bytes[3] += easing_step;
+                easing_accumulator_value = counter_state_bytes[3];
+                if (scale_game_frames(2) < easing_accumulator_value) {
+                    easing_step = counter_state_bytes[3] / scale_game_frames(2);
                     if (hud_element->unk78 < hud_element->unk74) {
-                        hud_element->unk74 = hud_element->unk74 - n;
+                        hud_element->unk74 = hud_element->unk74 - easing_step;
                     } else {
-                        hud_element->unk74 = hud_element->unk74 + n;
+                        hud_element->unk74 = hud_element->unk74 + easing_step;
                     }
-                    c[3] -= n * scale_game_frames(2);
+                    counter_state_bytes[3] -= easing_step * scale_game_frames(2);
                 }
             }
         }
     }
     if (hud_element->unk7C >= scale_game_frames(5)) {
-        if (c[0] < scale_game_frames(8)) {
-            c[0]++;
-        } else if (c[1] < scale_game_frames(8)) {
-            c[1]++;
+        if (counter_state_bytes[0] < scale_game_frames(8)) {
+            counter_state_bytes[0]++;
+        } else if (counter_state_bytes[1] < scale_game_frames(8)) {
+            counter_state_bytes[1]++;
         }
     } else {
-        if (c[1] != 0 || c[0] != 0) {
+        if (counter_state_bytes[1] != 0 || counter_state_bytes[0] != 0) {
             hud_element->unk6C = 1;
         }
-        if (c[1] != 0) {
-            c[1]--;
-        } else if (c[0] != 0) {
-            c[0]--;
+        if (counter_state_bytes[1] != 0) {
+            counter_state_bytes[1]--;
+        } else if (counter_state_bytes[0] != 0) {
+            counter_state_bytes[0]--;
         }
     }
-    FUN_L00_0023aaa8((char *)hud_element + 0x40);
+    update_hud_animation_frame((char *)hud_element + 0x40);
 }

@@ -8,7 +8,9 @@
 #include "rnc/overlay/level_labels.h"
 /* Recognize the active vendor object state. */
 
-int FUN_L11_0030f270(char *moby) {
+int test_linked_moby_turn_trigger(char *moby) __asm__("FUN_L11_0030f270");
+
+int test_linked_moby_turn_trigger(char *moby) {
     if (*(short *)(moby + 0xA6) == 0x49b && ((unsigned char *)moby)[0x20] == 0x2) {
         return 1;
     }
@@ -19,7 +21,9 @@ extern void FUN_L08_00258090(void *, int, int, void *);
 extern Pair D_L11_00162628[] __attribute__((section(".sdata")));
 extern int D_L11_00217710[];
 extern int D_L11_002176F8[];
-void FUN_L11_0031e858(int pair_index) {
+void queue_oil_tanker_front_texture_2b_batches(int pair_index) __asm__("FUN_L11_0031e858");
+
+void queue_oil_tanker_front_texture_2b_batches(int pair_index) {
     int i;
     for (i = 0; i < 0x5; i++) {
         FUN_L08_00258090(D_L11_00217770, D_L11_00217710[i], D_L11_00215268[i], &D_L11_00162628[pair_index]);

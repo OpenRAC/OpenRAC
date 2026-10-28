@@ -5,15 +5,17 @@
 
 
 extern void update_sky_shells_static(void) __asm__("FUN_L00_002892d0");
-extern void FUN_L00_0028aa98(void);
+extern void draw_two_sky_shells_with_particles(void) __asm__("FUN_L00_0028aa98");
 void do_sky_gif_paging(void) __asm__("FUN_0022b558");
 void setup_sky_gif_paging(void) __asm__("FUN_0022b4c8");
 void vu1_add_g_sregister(s32 a0, s64 a1) __asm__("FUN_00233980");
 
-void FUN_L15_0022dad0(void) {
+void draw_sky_shells_with_gif_paging(void) __asm__("FUN_L15_0022dad0");
+
+void draw_sky_shells_with_gif_paging(void) {
     setup_sky_gif_paging();
     if (current_level_index == 0xf) {
-        FUN_L00_0028aa98();
+        draw_two_sky_shells_with_particles();
     } else {
         update_sky_shells_static();
     }

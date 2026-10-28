@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 /// The mod interface this launcher's port has: `OPENRAC_MOD_API_MAJOR` and `_MINOR` of
 /// `sdk/include/openrac/openrac_mod.h`. Change them with it.
 pub const API_MAJOR: u32 = 1;
-pub const API_MINOR: u32 = 6;
+pub const API_MINOR: u32 = 7;
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
 
@@ -972,13 +972,49 @@ pub fn mod_folders(source: &Path) -> Result<Vec<PathBuf>, String> {
     };
     let built = mods_in(&source.join("build").join("package"));
     if !built.is_empty() {
-        return Ok(built);
+        return Ok(checkout_mods(&mods_in(source), built));
     }
     let found = mods_in(source);
     if found.is_empty() {
         return Err(format!("there is no {MANIFEST} at its top or in a folder at its top: it holds no OpenRAC mod"));
     }
     Ok(found)
+}
+
+/// A checkout's mods, given its build: every built package, and each script mod from its source
+/// folder (a script mod is not built). A native mod whose source has no package of its version is
+/// left out, and the launcher's log says so: the player sees the mods that can be installed.
+fn checkout_mods(sources: &[PathBuf], mut built: Vec<PathBuf>) -> Vec<PathBuf> {
+    let manifest = |dir: &PathBuf| -> Option<Value> {
+        serde_json::from_str(&std::fs::read_to_string(dir.join(MANIFEST)).ok()?).ok()
+    };
+    let text = |m: &Value, key: &str| m.get(key).and_then(Value::as_str).map(str::to_string);
+    let packaged: BTreeMap<String, Option<String>> =
+        built.iter().filter_map(&manifest).filter_map(|m| Some((text(&m, "id")?, text(&m, "version")))).collect();
+    for dir in sources {
+        let Some(m) = manifest(dir) else { continue };
+        let (Some(id), version) = (text(&m, "id"), text(&m, "version")) else { continue };
+        // A script mod has no library to build, so its source is what is installed.
+        if m.get("plugin").is_none() && m.get("scripts").is_some() {
+            if !packaged.contains_key(&id) {
+                built.push(dir.clone());
+            }
+            continue;
+        }
+        match packaged.get(&id) {
+            None => crate::launcher_log::line(&format!(
+                "{}: {id} has no build, so it is left out (build the mods: cmake --build build)",
+                dir.display()
+            )),
+            Some(built_version) if *built_version != version => crate::launcher_log::line(&format!(
+                "{}: {id} is built at another version than its source (build the mods again: cmake --build build)",
+                dir.display()
+            )),
+            Some(_) => {}
+        }
+    }
+    built.sort();
+    built
 }
 
 /// Copies a folder, refusing links (a mod is files and folders only).
@@ -1314,8 +1350,8 @@ mod tests {
         assert!(m.runs_on("rac1", "pal", None).is_ok());
         assert!(m.runs_on("rac1", "pal", Some("windows-arm64")).is_ok());
         assert!(m.runs_on("rac1", "ntsc", None).unwrap_err().contains("Not for this disc"));
-        let newer: Manifest = serde_json::from_value(script("swap", json!({"api": "1.7"}))).unwrap();
-        assert!(newer.runs_on("rac1", "pal", None).unwrap_err().contains("interface 1.7"));
+        let newer: Manifest = serde_json::from_value(script("swap", json!({"api": "1.8"}))).unwrap();
+        assert!(newer.runs_on("rac1", "pal", None).unwrap_err().contains("interface 1.8"));
     }
 
     #[test]
@@ -1539,7 +1575,7 @@ mod tests {
         let dir = tmp.path();
         installed_mod(dir, "pal-only", json!({"games": {"rac1": ["pal"]}}));
         installed_mod(dir, "fine", json!({"version": "1.1.0"}));
-        installed_mod(dir, "newer-api", json!({"api": "1.7"}));
+        installed_mod(dir, "newer-api", json!({"api": "1.8"}));
         std::fs::create_dir_all(dir.join("broken")).unwrap();
         std::fs::write(dir.join("broken").join(MANIFEST), "{ nope").unwrap();
         std::fs::write(
@@ -1552,7 +1588,7 @@ mod tests {
         assert_eq!(view(&views, "pal-only").state, "refused");
         assert!(view(&views, "pal-only").reason.contains("Not for this disc"));
         assert_eq!(view(&views, "fine").state, "ready");
-        assert!(view(&views, "newer-api").reason.contains("interface 1.7"));
+        assert!(view(&views, "newer-api").reason.contains("interface 1.8"));
         assert!(view(&views, "broken").reason.contains("Cannot be read"));
         assert_eq!(view(&views, "broken").name, "broken");
 
@@ -1756,6 +1792,17 @@ mod tests {
         assert_eq!(mod_folders(&r.join("repo")).unwrap(), [r.join("repo/a"), r.join("repo/b")]);
         one(&r.join("repo/build/package/a"));
         assert_eq!(mod_folders(&r.join("repo")).unwrap(), [r.join("repo/build/package/a")]);
+        // A checkout's build: its packages, and its script mods from their sources.
+        let with = |dir: &Path, manifest: Value| {
+            std::fs::create_dir_all(dir).unwrap();
+            std::fs::write(dir.join(MANIFEST), manifest.to_string()).unwrap();
+        };
+        with(&r.join("mods/one"), json!({"id": "one", "version": "1.0.0", "plugin": {"macos-arm64": "one.dylib"}}));
+        with(&r.join("mods/two"), json!({"id": "two", "version": "0.1.0", "plugin": {"macos-arm64": "two.dylib"}}));
+        with(&r.join("mods/swap"), json!({"id": "swap", "version": "1.0.0", "scripts": ["main.luau"]}));
+        with(&r.join("mods/build/package/one"), json!({"id": "one", "version": "1.0.0"}));
+        // "two" has no build: left out, not an error; "swap" comes from its source.
+        assert_eq!(mod_folders(&r.join("mods")).unwrap(), [r.join("mods/build/package/one"), r.join("mods/swap")]);
         // No mod anywhere: said.
         std::fs::create_dir_all(r.join("empty/x")).unwrap();
         assert!(mod_folders(&r.join("empty")).unwrap_err().contains("holds no OpenRAC mod"));

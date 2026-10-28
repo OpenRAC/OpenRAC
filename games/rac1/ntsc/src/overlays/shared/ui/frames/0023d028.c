@@ -18,7 +18,7 @@ void FUN_001f2d98_23d028(void) __asm__("FUN_001f2d98");
 void FUN_002335d0_23d028(void) __asm__("FUN_002335d0");
 void FUN_L00_00268900_23d028(void) __asm__("FUN_L00_00268900");
 void FUN_00233d00_23d028(void) __asm__("FUN_00233d00");
-void FUN_L00_0023d198_23d028(void) __asm__("FUN_L00_0023d198");
+void init_level_item_inventory(void) __asm__("FUN_L00_0023d198");
 void FUN_L00_002607d0_23d028(int) __asm__("FUN_L00_002607d0");
 extern char D_L00_0019A980[] __attribute__((section(".data")));
 extern char D_L00_0019A280[] __attribute__((section(".data")));
@@ -27,7 +27,9 @@ extern char D_L00_001C6F00[] __attribute__((section(".data")));
 extern char D_L00_001BD3B0[] __attribute__((section(".data")));
 extern char D_L00_001BCDB0[] __attribute__((section(".data")));
 extern char D_L00_00173EC0[] __attribute__((section(".data")));
-void FUN_L00_0023d028(void) {
+void init_level_runtime_state(void) __asm__("FUN_L00_0023d028");
+
+void init_level_runtime_state(void) {
     int texture_allocation_base;
     FUN_00215420_23d028();
     FUN_002335a0_23d028();
@@ -50,7 +52,7 @@ void FUN_L00_0023d028(void) {
     FUN_002335d0_23d028();
     FUN_L00_00268900_23d028();
     FUN_00233d00_23d028();
-    FUN_L00_0023d198_23d028();
+    init_level_item_inventory();
     if (current_level_index != 0) {
         FUN_L00_002607d0_23d028(current_level_index);
     }
@@ -59,9 +61,9 @@ void FUN_L00_0023d028(void) {
 extern int D_L00_001C3E98[];
 extern unsigned char D_0015EDD0[] __attribute__((sda));
 extern int D_00141660_23d028[] __asm__("D_00141660");
-void FUN_L00_00260860_23d028(int, int) __asm__("FUN_L00_00260860");
-void FUN_L00_0023d3d8(int i) __asm__("FUN_L00_0023d3d8");
-void FUN_L00_0023d198(void) {
+void grant_inventory_item(int, int) __asm__("FUN_L00_00260860");
+void append_level_item_if_absent(int i) __asm__("FUN_L00_0023d3d8");
+void init_level_item_inventory(void) {
     int j;
     int item;
     unsigned char entry;
@@ -108,7 +110,7 @@ void FUN_L00_0023d198(void) {
     } else {
         int i;
         if (item_available[10] == 0) {
-            FUN_L00_00260860_23d028(10, 1);
+            grant_inventory_item(10, 1);
             D_0015EDD0[0] = 0x4A;
             D_00141660_23d028[0] = 10;
         }
@@ -124,17 +126,17 @@ void FUN_L00_0023d198(void) {
                 }
             }
         }
-        FUN_L00_0023d3d8(current_level_index);
+        append_level_item_if_absent(current_level_index);
     }
 }
 /* Appends D_L00_001C3E98[i] to the 0xFF-terminated D_0015EDD0 list unless already present. */
-void FUN_L00_0023d3d8(int i) {
-    int v = D_L00_001C3E98[i];
+void append_level_item_if_absent(int i) {
+    int item_id = D_L00_001C3E98[i];
     int j;
-    if (v == 0)
+    if (item_id == 0)
         return;
-    for (j = 0; (D_0015EDD0[j] & 0x3F) != v && D_0015EDD0[j] != 0xFF; j++)
+    for (j = 0; (D_0015EDD0[j] & 0x3F) != item_id && D_0015EDD0[j] != 0xFF; j++)
         ;
     if (D_0015EDD0[j] == 0xFF)
-        D_0015EDD0[j] = v;
+        D_0015EDD0[j] = item_id;
 }

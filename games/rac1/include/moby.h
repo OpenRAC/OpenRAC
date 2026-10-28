@@ -6,7 +6,7 @@
  * One definition for every source file, in place of the private copies
  * candidates carried to land without clashing with their files.
  *
- * Adapted from Lombyte (GPL-3.0), the US decompilation:
+ * Adapted from Lombyte's project (GPL-3.0), the US decompilation:
  * include/rnc/gameplay/entities/moby.h at 88c78925, refreshed from the
  * NTSC decomp (the same project, GPL-3.0) at 4e1f255e. Its layout and
  * field names come from the matched code it cites; the PAL code is the
@@ -79,9 +79,18 @@ struct Moby {
     u8 anim_trigger_count;
     u8 shadow_range;                  /* shadow range in units of 1024; set to 0x17 by seeker_update near D_L09_00166F40 */
     s32 unk80;                        /* colour from the level's moby records, c2 << 16 | c1 << 8 | c0 (func_L00_002422D8) */
-    u8 pad84[2];
-    s16 unk86;                        /* compared with 5 (func_L02_002D9F08) */
-    u8 pad88[8];
+    union {
+        struct {
+            u8 pad84[2];
+            s16 unk86;                        /* compared with 5 (func_L02_002D9F08) */
+            u8 pad88[8];
+        };
+        struct {
+            f32 height_min;                   /* 0x84: lower height bound for collision/probes */
+            f32 height_max;                   /* 0x88: upper height bound for collision/probes */
+            u8 pad90_88[4];
+        };
+    };
     s32 glow_color;                   /* glow colour (class header + 0x40) */
     u32 collision;                    /* collision data, from the class header (MobyClass.collision) */
     s32 collision_disable;            /* per-primitive collision disable bits; 1 while a carrier holds the moby (glove_of_doom_update) */
@@ -97,7 +106,8 @@ struct Moby {
     s16 unkB6;                        /* set from the level's moby records (func_L00_002422D8) */
     void *parent;                     /* 0xB8: spawner (bolt source record); its byte 0xB1 is a per-level id (FUN_L00_002a6b70) */
     u8 command;                       /* external command byte */
-    u8 padBD[3];
+    u8 unkBD;                         /* 0xBD */
+    u8 padBE[2];
     Vec4f rot_row0;                   /* 0xC0: rows of the matrix built from rot (FUN_001fa030) */
     Vec4f rot_row1;
     Vec4f rot_row2;

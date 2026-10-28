@@ -126,6 +126,18 @@ class ExtractTest(unittest.TestCase):
         self.assertEqual(carry_functions.rename('Thing t; char *s = "Thing";', ["Thing"], "_c1"),
                          'Thing_c1 t; char *s = "Thing";')
 
+    def test_drop_definition(self):
+        text = "static __inline__ void qcopy(void *d, void *s) {\n    if (d) { }\n}\nint f(void) { return 0; }\n"
+        self.assertEqual(carry_functions.drop_definition(text, "qcopy"), "\nint f(void) { return 0; }\n")
+        self.assertEqual(carry_functions.drop_definition(text, "g"), text)
+
+    def test_asm_statements_not_labels(self):
+        code = carry_functions.code_only
+        self.assertTrue(carry_functions.ASM_STATEMENT.search(code('void f(void) { __asm__ volatile("nop"); }')))
+        self.assertTrue(carry_functions.ASM_STATEMENT.search(code('void f(void) { int r; asm("nop"); }')))
+        self.assertFalse(carry_functions.ASM_STATEMENT.search(code('extern int g(void) __asm__("func_00100100");')))
+        self.assertFalse(carry_functions.ASM_STATEMENT.search(code('void f(void) { register float k __asm__("$f5") = 1; }')))
+
 
 @unittest.skipUnless(shutil.which("clang"), "needs Clang")
 class CarryTest(unittest.TestCase):

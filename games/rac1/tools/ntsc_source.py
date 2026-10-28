@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-The NTSC decomp (Lombyte's project, by Mateusz Kłysz): where this repository reads it from.
+The NTSC decomp (Lombyte's project): where this repository reads it from.
 
   python3 tools/ntsc_source.py path              # its checkout at the pinned commit (fetched if missing)
   python3 tools/ntsc_source.py fetch [COMMIT]    # fetch the pin, or COMMIT, into the cache

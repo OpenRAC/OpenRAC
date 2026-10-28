@@ -57,6 +57,10 @@ bool update(int loaded_overlay);
 // while it has the game's.
 std::uint32_t options_items();
 
+// UTF-8 as the game's text: ASCII as it is, the accented letters the game's font has at its own
+// codes, any other letter left out.
+std::string game_text(const std::string& utf8);
+
 // The game's text lookup, asked for an id of the port's own: the string in game memory, or 0 for
 // an id that is the game's.
 std::uint32_t text(int id);

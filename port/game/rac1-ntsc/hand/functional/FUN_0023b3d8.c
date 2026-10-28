@@ -1,7 +1,7 @@
 /* Carried by port/tools/versionmap/carry_functions.py from the decompilation of Ratchet & Clank (PAL), nonmatching/functional/func_0023C7A8.c (games/rac1): func_0023C7A8, functional C there, not matched.
  * Kind `same` in the version map (../../README.md): the two versions have the same instructions for it.
  * Names and addresses are this version's. Functional C, not matched C. */
-/* functional: medium. vblankHandler: same reads, writes and calls in the same order. Retail ends with sync + ei (re-enable interrupts) before returning 0; those two have no effect on the host and are left out. */
+/* functional: medium. fcheck: unchecked (never called in fcheck's capture run of the title, menu and level 0; OpenRAC tools/fcheck_gate.py, 2026-10-18). vblankHandler: same reads, writes and calls in the same order. Retail ends with sync + ei (re-enable interrupts) before returning 0; those two have no effect on the host and are left out. */
 
 extern int func_00122FE0(int);
 extern int func_00120558(int, int);

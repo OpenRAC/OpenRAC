@@ -139,11 +139,11 @@ void memcard_update_state(void) {
                     char *filename = (char *)((s32)mc_directory + i * 64 + 32);
                     s32 slot;
                     blocks += (entry->size + 1023U) >> 10;
-                    if (mc_strcmp(filename, D_0013D315) == 0) icon0 = 1;
-                    if (mc_strcmp(filename, D_0013D335) == 0) icon1 = 1;
-                    if (mc_strcmp(filename, D_0013D355) == 0) icon2 = 1;
-                    if (mc_strncmp(filename, D_0015FF58, 4) == 0 &&
-                        mc_strncmp(filename + 5, D_0015FF60, 4) == 0) {
+                    if (mc_strcmp(filename, memcard_icon_path_a_filename) == 0) icon0 = 1;
+                    if (mc_strcmp(filename, memcard_icon_path_b_filename) == 0) icon1 = 1;
+                    if (mc_strcmp(filename, special_items_base) == 0) icon2 = 1;
+                    if (mc_strncmp(filename, memcard_slot_file_prefix, 4) == 0 &&
+                        mc_strncmp(filename + 5, memcard_slot_file_suffix, 4) == 0) {
                         slot = (u8)entry->name[4] - '0';
                         if (slot < 0) continue;
                         if (slot < 5) workspace.directory.seen[slot] = 1;

@@ -40,44 +40,46 @@ extern void rmat_2acbf0(void *, void *) __asm__("FUN_001fa050");
 extern void mmul_2acbf0(void *, void *, void *) __asm__("FUN_001fa378");
 extern s64 tex_2acbf0(s32) __asm__("FUN_001f44b8");
 extern void draw_2acbf0(void *, void *, s32) __asm__("FUN_001f7d30");
-void FUN_L00_002c31c0(M_2acbf0_002acbf0 *moby) {
+void draw_moby_oscillating_textured_quads(M_2acbf0_002acbf0 *moby) __asm__("FUN_L00_002c31c0");
+
+void draw_moby_oscillating_textured_quads(M_2acbf0_002acbf0 *moby) {
     Q_2acbf0_002acbf0 quad;
-    V_2acbf0_002acbf0 mat[4];
+    V_2acbf0_002acbf0 quad_transform[4];
     V_2acbf0_002acbf0 mz[4];
-    V_2acbf0_002acbf0 rot;
+    V_2acbf0_002acbf0 quad_orientation_angles;
     V_2acbf0_002acbf0 rz;
     PV_2acbf0_002acbf0 *pv = moby->pv;
     s32 i;
     s32 odd;
-    f32 polar_angle, t;
+    f32 polar_angle, phase_numerator;
     if (D_L00_0015F5C4 == 2) {
         return;
     }
     for (i = 0; i < 2; i++) {
         odd = i & 1;
         polar_angle = atan2_2acbf0(sqrt_2acbf0(pv->f20 * pv->f20 + pv->f28 * pv->f28), pv->f24);
-        rot.f[0] = appr_2acbf0(-polar_angle, 1.57079637f);
-        rot.f[1] = atan2_2acbf0(pv->f28, pv->f20);
-        rot.f[2] = 0.0f;
-        rot.f[3] = 0.0f;
+        quad_orientation_angles.f[0] = appr_2acbf0(-polar_angle, 1.57079637f);
+        quad_orientation_angles.f[1] = atan2_2acbf0(pv->f28, pv->f20);
+        quad_orientation_angles.f[2] = 0.0f;
+        quad_orientation_angles.f[3] = 0.0f;
         rz.f[0] = 0.0f;
-        t = FUN_001fa6c0_002acbf0(D_L00_0015F5CC % FUN_001f96f8_002acbf0(180));
+        phase_numerator = FUN_001fa6c0_002acbf0(D_L00_0015F5CC % FUN_001f96f8_002acbf0(180));
         {
             f32 phase_divisor = i2f_2acbf0(180.0f);
-            f32 r;
-            t *= 6.28318548f;
-            r = sin_2acbf0(t / phase_divisor);
+            f32 signed_phase_sine;
+            phase_numerator *= 6.28318548f;
+            signed_phase_sine = sin_2acbf0(phase_numerator / phase_divisor);
             if (odd) {
-                r = -r;
+                signed_phase_sine = -signed_phase_sine;
             }
-            rz.f[1] = r;
+            rz.f[1] = signed_phase_sine;
         }
         rz.f[2] = 0.0f;
         rz.f[3] = 0.0f;
         rmat_2acbf0(mz, &rz);
-        rmat_2acbf0(mat, &rot);
-        mmul_2acbf0(mat, mat, mz);
-        qcopy(&mat[3], &pv->pos);
+        rmat_2acbf0(quad_transform, &quad_orientation_angles);
+        mmul_2acbf0(quad_transform, quad_transform, mz);
+        qcopy(&quad_transform[3], &pv->pos);
         quad.color[0] = 0x80808080;
         quad.color[1] = 0x80808080;
         quad.color[2] = 0x80808080;
@@ -110,7 +112,7 @@ void FUN_L00_002c31c0(M_2acbf0_002acbf0 *moby) {
         quad.uv[5] = 0.0f;
         quad.uv[6] = 1.0f;
         quad.uv[7] = 0.0f;
-        draw_2acbf0(&quad, mat, 1);
+        draw_2acbf0(&quad, quad_transform, 1);
     }
 }
 #include "eetypes.h"
@@ -118,7 +120,7 @@ void FUN_L00_002c31c0(M_2acbf0_002acbf0 *moby) {
 #include "sda.h"
 
 
-extern int FUN_L00_002db8f8(void *);
+extern int process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
 
 extern int FUN_L00_002db8f8_pt(void *, void *, void *) __asm__("FUN_L00_002db8f8");
 /* Moby state 9 while FUN_L00_002db8f8 reports a hit, back to 5 when it stops. */
@@ -137,20 +139,24 @@ int FUN_L00_002d56e0(char *a, void *pos, void *target, float h) {
     return r;
 }
 
-extern int FUN_L00_002dbe20(void *);
+extern int cancel_suck_cannon_suction(void *) __asm__("FUN_L00_002dbe20");
 
 /* Runs FUN_L00_002dbe20 on the moby and sets its state to 9. */
-int FUN_L00_002d57d0(char *moby) {
-    int r = FUN_L00_002dbe20(moby);
+int cancel_suck_cannon_suction_and_set_moby_state_9(char *moby) __asm__("FUN_L00_002d57d0");
+
+int cancel_suck_cannon_suction_and_set_moby_state_9(char *moby) {
+    int helper_result = cancel_suck_cannon_suction(moby);
     moby[0x20] = 0x9;
-    return r;
+    return helper_result;
 }
 #include "rnc/math/vector.h"
 
 
 /* Calls the optional function reached through the moby pointer at +0x24; 1 when it is null.
    The function places the moby at b (the retail code leaves the caller's a1 in place for it). */
-int FUN_L00_002da218(char *moby, void *b) {
+int invoke_optional_moby_callback_or_return_one(char *moby, void *b) __asm__("FUN_L00_002da218");
+
+int invoke_optional_moby_callback_or_return_one(char *moby, void *b) {
     int (*fn)(char *, void *) = *(int (**)(char *, void *))(*(char **)(*(char **)(moby + 0x24) + 0x2C) + 0x4);
     if (fn != 0) {
         return fn(moby, b);

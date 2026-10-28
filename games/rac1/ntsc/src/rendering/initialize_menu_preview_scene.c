@@ -36,14 +36,15 @@ struct O2 {
 extern struct MenuPage D_001D45C8; /* page made current and next at init */
 extern u8 D_0019C150[];
 extern u8 D_0019C160[];
-extern void FUN_0023a2c0();
+extern void quad_moby_update() __asm__("FUN_0023a2c0");
 extern struct S D_00186F40;
-extern u8 D_001601C0 __attribute__((sda));
-extern u8 D_001601D0 __attribute__((sda));
+#include "rnc/rendering/initialize_menu_preview_scene_globals.h"
+extern u8 menu_preview_lighting_scale_source_gp __asm__("D_001601C0") __attribute__((sda));
+extern u8 menu_preview_lighting_copy_source_gp __asm__("D_001601D0") __attribute__((sda));
 extern s32 fast_vec_scale(s32, s32, f32) __asm__("FUN_001f9a68");
 extern void vu1_sync_chain(s32) __asm__("func_002337B0");
 extern s32 sceGsSyncV(s32);
-extern s32 initialize_graphics_buffer_descriptors() __asm__("FUN_00225ac0");
+extern s32 initialize_menu_stream_buffers() __asm__("FUN_00225ac0");
 extern void vu1_init_chain(void) __asm__("func_002335D0");
 extern struct O2 *create_menu_preview_moby() __asm__("func_00225490");
 extern s32 set_moby_animation() __asm__("func_00212ED8");
@@ -53,29 +54,29 @@ void initialize_menu_preview_scene(void) __asm__("FUN_00218f98");
 
 void initialize_menu_preview_scene(void) {
     s32 i;
-    s32 a, b, help_text_buffer_start, d;
+    s32 preview_workspace_start, graphics_workspace_base, help_text_buffer_start, graphics_buffer_start;
     menu_system.state = 2;
     menu_system.current = &D_001D45C8;
     menu_system.next = &D_001D45C8;
     menu_system.close_locked = 0;
-    fast_vec_scale((s32)D_0019C150, (s32)&D_001601C0, 1.0f);
-    qcopy(D_0019C150 - 0x10, &D_001601D0);
+    fast_vec_scale((s32)D_0019C150, (s32)&menu_preview_lighting_scale_source_gp, 1.0f);
+    qcopy(D_0019C150 - 0x10, &menu_preview_lighting_copy_source_gp);
     qzero(D_0019C150 + 0x20);
     qzero(D_0019C160);
     vu1_sync_chain(1);
     sceGsSyncV(0);
     game_frame_counter++;
-    a = D_001940C0[1] + 0xA0000;
-    b = D_001940C0[2] + 0xA0000;
-    help_text_buffer_start = a + 0x3C000;
-    d = b + 0xE0000;
+    preview_workspace_start = D_001940C0[1] + 0xA0000;
+    graphics_workspace_base = D_001940C0[2] + 0xA0000;
+    help_text_buffer_start = preview_workspace_start + 0x3C000;
+    graphics_buffer_start = graphics_workspace_base + 0xE0000;
     menu_system.unkFC = help_text_buffer_start + 0xC1000;
-    menu_system.unk100 = d + 0x11800;
+    menu_system.unk100 = graphics_buffer_start + 0x11800;
     current_vu_chain = 0xA0000;
-    menu_system.unk104 = a;
-    menu_system.unk10 = b;
+    menu_system.unk104 = preview_workspace_start;
+    menu_system.unk10 = graphics_workspace_base;
     menu_system.help_text_buffer = help_text_buffer_start;
-    menu_system.unk10C = d;
+    menu_system.unk10C = graphics_buffer_start;
     func_00225AC0__void(1);
     vu1_init_chain();
     menu_system.saved_texture_start = gs_texture_allocation_start;
@@ -86,7 +87,7 @@ void initialize_menu_preview_scene(void) {
             if (preview_moby != 0) {
                 s32 k;
                 preview_moby->f34 &= 0xFFFD;
-                ((struct O2 *)panel_slots[i])->f74 = FUN_0023a2c0;
+                ((struct O2 *)panel_slots[i])->f74 = quad_moby_update;
                 ((struct O2 *)panel_slots[i])->f10 = D_00186F40.f140;
                 ((struct O2 *)panel_slots[i])->f14 = D_00186F40.f144;
                 ((struct O2 *)panel_slots[i])->f18 = D_00186F40.f148;

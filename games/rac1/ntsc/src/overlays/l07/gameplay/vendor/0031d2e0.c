@@ -34,7 +34,9 @@ extern L07ScaleRow D_L07_001C4130[];
 /* Ported from rac1-decomp nonmatching/l07_umbris/func_L07_0031E6B0.c (func_L07_0031E6B0) */
 /* Umbris item spawner: measures its path once, then for each listed item whose stock ratio is in
  * range spawns batches of pickups along the path, away from the target moby. */
-void FUN_L07_0031d2e0(char *moby) {
+void update_equalizer_ammo_spawner(char *moby) __asm__("FUN_L07_0031d2e0");
+
+void update_equalizer_ammo_spawner(char *moby) {
     int *data = *(int **)(moby + 0x78);
     int state = *(unsigned char *)(moby + 0x20);
     if (state == 1) goto state_one;
@@ -160,7 +162,9 @@ extern char *func_L00_0026DEA0_c(void *, int, void *, int, float, float, float,
                                  float) __asm__("FUN_L00_0026d000");
 extern char D_L07_0016C960_c[] __asm__("D_L07_0016C8E0");
 
-void FUN_L07_0031eba8(char *moby) {
+void update_scene_moby_effect_bursts(char *moby) __asm__("FUN_L07_0031eba8");
+
+void update_scene_moby_effect_bursts(char *moby) {
     enum {
         MOBY_STATE_INITIALIZE = 0,
         MOBY_STATE_UPDATE = 1
@@ -168,12 +172,12 @@ void FUN_L07_0031eba8(char *moby) {
     int state = *(unsigned char *)(moby + 0x20);
     int current_scene_state;
     int k;
-    int t;
+    int scene_state_offset;
     int i;
     int j;
     char *mob;
     char *S;
-    float buf[4];
+    float effect_spawn_position[4];
     switch (state) {
     case MOBY_STATE_INITIALIZE:
         *(unsigned char *)(moby + 0x30) = 0xFF;
@@ -184,10 +188,10 @@ void FUN_L07_0031eba8(char *moby) {
         if (current_scene_state != 2)
             return;
         S = D_L07_0016C960_c;
-        t = *(int *)(S + 0x30) - 3;
-        if ((unsigned)t < 2) {
-            int idx = (unsigned)t > 1 ? 0 : 2;
-            cutscene_set_camera_target(((L07SparkState *)S)->arr[idx]);
+        scene_state_offset = *(int *)(S + 0x30) - 3;
+        if ((unsigned)scene_state_offset < 2) {
+            int camera_target_index = (unsigned)scene_state_offset > 1 ? 0 : 2;
+            cutscene_set_camera_target(((L07SparkState *)S)->arr[camera_target_index]);
         }
         if (*(int *)(S + 0x30) != current_scene_state)
             return;
@@ -199,16 +203,16 @@ void FUN_L07_0031eba8(char *moby) {
         if (k != 0) {
             mob = (char *)((L07SparkState *)S)->arr[k];
             for (i = 0; i < 4; i++) {
-                moby_point_position(mob, i, buf);
+                moby_point_position(mob, i, effect_spawn_position);
                 for (j = 9; j >= 0; j--) {
-                    float d = random_float_between(20000.0f, 200000.0f);
+                    float effect_size = random_float_between(20000.0f, 200000.0f);
                     int col = (random_int_between(0x20, 0x80) << 24) | 0x7F7F7F;
-                    int v = random_int_between(0, 4);
+                    int signed_random_value = random_int_between(0, 4);
                     char *effect;
                     char *effect_tail;
                     if (random_integer_below(2) != 0)
-                        v = -v;
-                    effect = func_L00_0026DEA0_c(buf, v, D_L07_0015F580, col, 0.6f, 1.0f, 1.01f, d);
+                        signed_random_value = -signed_random_value;
+                    effect = func_L00_0026DEA0_c(effect_spawn_position, signed_random_value, D_L07_0015F580, col, 0.6f, 1.0f, 1.01f, effect_size);
                     if (effect != 0) {
                         effect_tail = effect + 0x20;
                         *(short *)(effect + 0xA) = scale_game_frames(random_int_between(0x3C, 0x5A));
@@ -235,7 +239,9 @@ extern void subtract_vector_xyz(void *out, void *a, void *b) __asm__("FUN_001f9a
 extern short D_L07_00161CD8 __attribute__((sda));
 extern short D_L07_00161CDC __attribute__((sda));
 extern short D_L07_00161CE0 __attribute__((sda));
-void FUN_L07_0031f900(unsigned char *moby) {
+void update_scene_moby_trails(unsigned char *moby) __asm__("FUN_L07_0031f900");
+
+void update_scene_moby_trails(unsigned char *moby) {
     enum {
         TRAIL_STATE_INITIALIZE = 0,
         TRAIL_STATE_UPDATE = 1
@@ -247,34 +253,34 @@ void FUN_L07_0031f900(unsigned char *moby) {
         break;
     case TRAIL_STATE_UPDATE:
         if (scene_state == 2) {
-            char *g = D_L07_0016C8E0;
-            int trail_source_selector = *(int *)(g + 0x30);
+            char *trail_source_state = D_L07_0016C8E0;
+            int trail_source_selector = *(int *)(trail_source_state + 0x30);
             if (trail_source_selector == 1 || trail_source_selector == 2) {
-                float point_0_position[4], point_1_position[4], point_2_position[4], b0[4], b1[4], b2[4], c0[4], c1[4], c2[4];
-                int idx = 0;
+                float point_0_position[4], point_1_position[4], point_2_position[4], point_3_position[4], point_4_position[4], point_5_position[4], point_0_trail_velocity[4], point_1_trail_velocity[4], point_2_trail_velocity[4];
+                int trail_source_moby_index = 0;
                 char *trail_source_moby;
                 if (trail_source_selector == 1)
-                    idx = 3;
+                    trail_source_moby_index = 3;
                 if (trail_source_selector == 2)
-                    idx = 4;
-                trail_source_moby = *(char **)(g - (-(idx * 4)) + 0x178);
+                    trail_source_moby_index = 4;
+                trail_source_moby = *(char **)(trail_source_state - (-(trail_source_moby_index * 4)) + 0x178);
                 moby_point_position(trail_source_moby, 0, point_0_position);
-                moby_point_position(trail_source_moby, 3, b0);
-                subtract_vector_xyz(c0, point_0_position, b0);
-                normalize_vector_xyz(c0, c0, *(float *)&D_L07_00161CD8);
-                draw_trail(point_0_position, point_0_position, c0, *(float *)&D_L07_00161CDC,
+                moby_point_position(trail_source_moby, 3, point_3_position);
+                subtract_vector_xyz(point_0_trail_velocity, point_0_position, point_3_position);
+                normalize_vector_xyz(point_0_trail_velocity, point_0_trail_velocity, *(float *)&D_L07_00161CD8);
+                draw_trail(point_0_position, point_0_position, point_0_trail_velocity, *(float *)&D_L07_00161CDC,
                                  *(float *)&D_L07_00161CE0);
                 moby_point_position(trail_source_moby, 1, point_1_position);
-                moby_point_position(trail_source_moby, 4, b1);
-                subtract_vector_xyz(c1, point_1_position, b1);
-                normalize_vector_xyz(c1, c1, *(float *)&D_L07_00161CD8);
-                draw_trail(point_1_position, point_1_position, c1, *(float *)&D_L07_00161CDC,
+                moby_point_position(trail_source_moby, 4, point_4_position);
+                subtract_vector_xyz(point_1_trail_velocity, point_1_position, point_4_position);
+                normalize_vector_xyz(point_1_trail_velocity, point_1_trail_velocity, *(float *)&D_L07_00161CD8);
+                draw_trail(point_1_position, point_1_position, point_1_trail_velocity, *(float *)&D_L07_00161CDC,
                                  *(float *)&D_L07_00161CE0);
                 moby_point_position(trail_source_moby, 2, point_2_position);
-                moby_point_position(trail_source_moby, 5, b2);
-                subtract_vector_xyz(c2, point_2_position, b2);
-                normalize_vector_xyz(c2, c2, *(float *)&D_L07_00161CD8);
-                draw_trail(point_2_position, point_2_position, c2, *(float *)&D_L07_00161CDC,
+                moby_point_position(trail_source_moby, 5, point_5_position);
+                subtract_vector_xyz(point_2_trail_velocity, point_2_position, point_5_position);
+                normalize_vector_xyz(point_2_trail_velocity, point_2_trail_velocity, *(float *)&D_L07_00161CD8);
+                draw_trail(point_2_position, point_2_position, point_2_trail_velocity, *(float *)&D_L07_00161CDC,
                                  *(float *)&D_L07_00161CE0);
             }
         }

@@ -18,7 +18,9 @@ extern void FUN_001ff500_261968(OvlVec4 *, OvlVec4 *, f32) __asm__("FUN_001f9bf8
 extern void FUN_001ff260_261968(OvlVec4 *) __asm__("FUN_001f99f8");
 extern void FUN_001ff6d0_261968(OvlVec4 *, OvlVec4 *, OvlVec4 *) __asm__("FUN_001f9cf8");
 
-s32 FUN_L00_00261968(s32 path_index, OvlVec4 *start, OvlVec4 *end) {
+s32 test_path_segment_strict_crossing(s32 path_index, OvlVec4 *start, OvlVec4 *end) __asm__("FUN_L00_00261968");
+
+s32 test_path_segment_strict_crossing(s32 path_index, OvlVec4 *start, OvlVec4 *end) {
     OvlVec4 direction;
     OvlVec4 axis;
     OvlVec4 origin;
@@ -169,7 +171,9 @@ extern void FUN_001ff3c0_261d78(OvlVec4 *, OvlVec4 *, OvlVec4 *) __asm__("FUN_00
 extern f32 FUN_001ff3d8_261d78(OvlVec4 *) __asm__("FUN_001f9af0");
 extern void FUN_001ff500_261d78(OvlVec4 *, OvlVec4 *, f32) __asm__("FUN_001f9bf8");
 
-s32 FUN_L00_00261d78(f32 distance, s32 path_index, OvlVec4 *point, OvlVec4 *out) {
+s32 resolve_point_path_segment_xy_clearance(f32 distance, s32 path_index, OvlVec4 *point, OvlVec4 *out) __asm__("FUN_L00_00261d78");
+
+s32 resolve_point_path_segment_xy_clearance(f32 distance, s32 path_index, OvlVec4 *point, OvlVec4 *out) {
     OvlVec4 difference;
     OvlVec4 scaled_difference;
     OvlVec4 working;
@@ -238,7 +242,9 @@ extern void FUN_001ff3c0_262030(OvlVec4 *, OvlVec4 *, OvlVec4 *) __asm__("FUN_00
 extern f32 FUN_001ff3d8_262030(OvlVec4 *) __asm__("FUN_001f9af0");
 extern void FUN_001ff500_262030(f32, OvlVec4 *, OvlVec4 *) __asm__("FUN_001f9bf8");
 
-s32 FUN_L00_00262030(f32 distance, s32 path_index, OvlVec4 *point, OvlVec4 *out) {
+s32 resolve_point_path_segment_clearance(f32 distance, s32 path_index, OvlVec4 *point, OvlVec4 *out) __asm__("FUN_L00_00262030");
+
+s32 resolve_point_path_segment_clearance(f32 distance, s32 path_index, OvlVec4 *point, OvlVec4 *out) {
     OvlVec4 difference;
     OvlVec4 scaled_difference;
     OvlVec4 working;
@@ -330,7 +336,8 @@ extern void scale_vector_xyz(void *, void *, f32) __asm__("FUN_001f9bf8");
 extern void add_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a10");
 
 /* Samples path at distance dist (points spacing apart): stores the segment, the distance into it and the point. */
-void FUN_L00_00262360(PointPath *path, s32 *seg_out, f32 *along, Vec4 *out, f32 dist, f32 spacing) {
+void path_sample_at_distance(PointPath *path, s32 *seg_out, f32 *along, Vec4 *out, f32 dist, f32 spacing) __asm__("FUN_L00_00262360");
+void path_sample_at_distance(PointPath *path, s32 *seg_out, f32 *along, Vec4 *out, f32 dist, f32 spacing) {
     Vec4 tmp;
     s32 seg;
 
@@ -366,16 +373,18 @@ extern void multiply_matrix(void *, void *, void *) __asm__("FUN_001fa378");
 extern void matrix_to_euler(void *, void *) __asm__("FUN_00214598");
 
 /* Multiplies the 001fa050 matrices of (x, y, z) and of a+0x40, stored back by matrix_to_euler. */
-void FUN_L00_00262480(char *a, float x, float y, float z) {
+void compose_target_euler_rotation(char *rotation_target, float x, float y, float z) __asm__("FUN_L00_00262480");
+
+void compose_target_euler_rotation(char *rotation_target, float x, float y, float z) {
     float in[3];
-    float input_rotation_matrix[16], u[16];
+    float input_rotation_matrix[16], target_rotation_matrix[16];
     in[0] = x;
     in[1] = y;
     in[2] = z;
     euler_rotation_matrix(input_rotation_matrix, in);
-    euler_rotation_matrix(u, a + 0x40);
-    multiply_matrix(u, u, input_rotation_matrix);
-    matrix_to_euler(u, a + 0x40);
+    euler_rotation_matrix(target_rotation_matrix, rotation_target + 0x40);
+    multiply_matrix(target_rotation_matrix, target_rotation_matrix, input_rotation_matrix);
+    matrix_to_euler(target_rotation_matrix, rotation_target + 0x40);
 }
 #define NOT_SDA
 
@@ -384,13 +393,15 @@ void FUN_L00_00262480(char *a, float x, float y, float z) {
 /* Ported from rac1-decomp (src/overlays/shared/mobyutil_00261B00.c: func_L00_00263578), where it is exact; names translated to the US level program. */
 
 /* Unless the flag at b+0x13C is set: sets it, stores a at 0x134, clears 0x130..0x138. */
-void FUN_L00_00262500(int source_moby, char *b) {
-    if (*(int *)(b + 0x13C) == 0) {
-        *(int *)(b + 0x134) = source_moby;
-        *(int *)(b + 0x13C) = 1;
-        *(short *)(b + 0x132) = 0;
-        *(int *)(b + 0x138) = 0;
-        *(short *)(b + 0x130) = 0;
+void initialize_moby_transform_history(int source_moby, char *history_state) __asm__("FUN_L00_00262500");
+
+void initialize_moby_transform_history(int source_moby, char *history_state) {
+    if (*(int *)(history_state + 0x13C) == 0) {
+        *(int *)(history_state + 0x134) = source_moby;
+        *(int *)(history_state + 0x13C) = 1;
+        *(short *)(history_state + 0x132) = 0;
+        *(int *)(history_state + 0x138) = 0;
+        *(short *)(history_state + 0x130) = 0;
     }
 }
 typedef struct {
@@ -420,11 +431,13 @@ typedef struct {
     s32 x138;
 } O00262528;
 E00262528 *create_moby(s32) __asm__("FUN_0020c4f8");
-void FUN_L00_00262528(O00262528 *history_state, s32 a, s32 b) {
+void create_moby_transform_history_entry(O00262528 *history_state, s32 initial_decay_value, s32 sample_delay) __asm__("FUN_L00_00262528");
+
+void create_moby_transform_history_entry(O00262528 *history_state, s32 initial_decay_value, s32 sample_delay) {
     E00262528 *spawned_moby;
     if (history_state->x138 == 4)
         return;
-    if (b >= 9)
+    if (sample_delay >= 9)
         return;
     spawned_moby = create_moby(history_state->x134->xa6);
     if (spawned_moby == 0)
@@ -437,9 +450,9 @@ void FUN_L00_00262528(O00262528 *history_state, s32 a, s32 b) {
     spawned_moby->x94 = 0;
     if (spawned_moby->xa6 == 0)
         spawned_moby->x72 = 0;
-    spawned_moby->x23 = a;
-    history_state->x110[history_state->x138] = b;
-    history_state->x100[history_state->x138] = a;
+    spawned_moby->x23 = initial_decay_value;
+    history_state->x110[history_state->x138] = sample_delay;
+    history_state->x100[history_state->x138] = initial_decay_value;
     history_state->x120[history_state->x138] = spawned_moby;
     history_state->x138++;
 }
@@ -460,7 +473,9 @@ void FUN_L00_00262840_262608(S_262608 *) __asm__("FUN_L00_00262840");
 void FUN_0020c880_262608(void *) __asm__("FUN_0020c880");
 void FUN_L00_00250df8_262608(void *) __asm__("FUN_L00_00250df8");
 
-void FUN_L00_00262608(S_262608 *history_state, int dec) {
+void update_moby_transform_history(S_262608 *history_state, int dec) __asm__("FUN_L00_00262608");
+
+void update_moby_transform_history(S_262608 *history_state, int dec) {
     unsigned char *src;
     unsigned char *destination;
     int history_write_index, i, k, done;
@@ -497,14 +512,14 @@ void FUN_L00_00262608(S_262608 *history_state, int dec) {
     if (dec) {
         done = 1;
         for (i = 0; i < history_state->n; i++) {
-            unsigned char *q = (unsigned char *)*(int *)((char *)&history_state->w[i] + 0x10);
-            if (q) {
-                int v = q[0x23];
-                int a = v;
-                if (dec < v)
-                    v = dec;
-                a -= v;
-                q[0x23] = a;
+            unsigned char *history_moby = (unsigned char *)*(int *)((char *)&history_state->w[i] + 0x10);
+            if (history_moby) {
+                int decrement_amount = history_moby[0x23];
+                int a = decrement_amount;
+                if (dec < decrement_amount)
+                    decrement_amount = dec;
+                a -= decrement_amount;
+                history_moby[0x23] = a;
                 if ((unsigned char)a)
                     done = 0;
             }
@@ -522,7 +537,9 @@ void FUN_L00_00262608(S_262608 *history_state, int dec) {
 void mark_moby_for_removal(struct Obj *obj) __asm__("FUN_0020c828");
 
 /* When o+0x13C is set, marks each nonzero moby of the 0x120 list for removal; clears the flag. */
-void FUN_L00_00262840(char *history_state) {
+void clear_moby_transform_history(char *history_state) __asm__("FUN_L00_00262840");
+
+void clear_moby_transform_history(char *history_state) {
     int i;
     if (*(int *)(history_state + 0x13C) != 0) {
         for (i = 0; i < *(int *)(history_state + 0x138); i++) {
@@ -540,11 +557,11 @@ void FUN_0020cb10_2628d8(void *, int, void *) __asm__("FUN_0020cb10");
 float FUN_001f99c0_2628d8(float) __asm__("FUN_001f99c0");
 float FUN_L00_0025bc98_2628d8(void *, void *, float, float, float, float,
                               int) __asm__("FUN_L00_0025bc98");
-void FUN_L00_00259f50_2628d8(void *, void *) __asm__("FUN_L00_00259f50");
+void build_quaternion_from_axis_rotations(void *, void *) __asm__("FUN_L00_00259f50");
 void FUN_001f99f8_2628d8(void *) __asm__("FUN_001f99f8");
 
 void update_joint_animation(void *m, unsigned char *p, int c, float fa, float fb) __asm__("FUN_L00_002628d8");
-void update_joint_animation(void *moby, unsigned char *joint_animation_state, int c, float fa, float fb) {
+void update_joint_animation(void *moby, unsigned char *joint_animation_state, int joint_index, float fa, float fb) {
     unsigned char *previous_moby = *(unsigned char **)(joint_animation_state + 0x78);
     float uniform_scale;
     if (!previous_moby) {
@@ -568,8 +585,8 @@ void update_joint_animation(void *moby, unsigned char *joint_animation_state, in
     FUN_L00_0025bc98_2628d8(joint_animation_state + 0x44, joint_animation_state + 0x54, *(float *)(joint_animation_state + 0x64), fa, fb, 0.0f, 0);
     FUN_L00_0025bc98_2628d8(joint_animation_state + 0x48, joint_animation_state + 0x58, *(float *)(joint_animation_state + 0x68), fa, fb, 0.0f, 0);
     if (!joint_animation_state[1])
-        FUN_0020cb10_2628d8(moby, c, joint_animation_state);
-    FUN_L00_00259f50_2628d8(joint_animation_state + 0x10, joint_animation_state + 0x40);
+        FUN_0020cb10_2628d8(moby, joint_index, joint_animation_state);
+    build_quaternion_from_axis_rotations(joint_animation_state + 0x10, joint_animation_state + 0x40);
     uniform_scale = *(float *)(joint_animation_state + 0x70);
     *(float *)(joint_animation_state + 0x20) = uniform_scale;
     *(float *)(joint_animation_state + 0x24) = uniform_scale;
@@ -587,7 +604,9 @@ extern float fast_sin(float) __asm__("FUN_001f9de0");
 extern float fast_add_rotations(float, float) __asm__("FUN_001fa580");
 
 /* Advances angle *p by y and swaps the old x*sin offset in a+0x18 for the new one. */
-void FUN_L00_00262b00(float x, float y, char *moby, float *phase_angle, float *previous_sine_offset) {
+void update_moby_vertical_oscillation(float x, float y, char *moby, float *phase_angle, float *previous_sine_offset) __asm__("FUN_L00_00262b00");
+
+void update_moby_vertical_oscillation(float x, float y, char *moby, float *phase_angle, float *previous_sine_offset) {
     float sine_offset;
     *phase_angle = fast_add_rotations(*phase_angle, y);
     *(float *)(moby + 0x18) -= *previous_sine_offset;
@@ -600,9 +619,11 @@ void FUN_L00_00262b00(float x, float y, char *moby, float *phase_angle, float *p
 extern float fast_cos(float) __asm__("FUN_001f9dc8");
 
 /* Sets o[16] and o[17] from r and the sines/cosines of the two angles, then advances the angles by l1 and l2. */
-void FUN_L00_00262b80(float *moby, float *first_phase_angle, float *b, float r, float l1, float l2) {
-    moby[0x10] = r * fast_sin(*first_phase_angle) * fast_sin(*b);
-    moby[0x11] = r * fast_sin(*first_phase_angle) * fast_cos(*b);
-    *first_phase_angle = fast_add_rotations(*first_phase_angle, l1);
-    *b = fast_add_rotations(*b, l2);
+void update_moby_rotation_oscillation(float *moby, float *first_phase_angle, float *second_phase_angle, float oscillation_amplitude, float first_phase_increment, float second_phase_increment) __asm__("FUN_L00_00262b80");
+
+void update_moby_rotation_oscillation(float *moby, float *first_phase_angle, float *second_phase_angle, float oscillation_amplitude, float first_phase_increment, float second_phase_increment) {
+    moby[0x10] = oscillation_amplitude * fast_sin(*first_phase_angle) * fast_sin(*second_phase_angle);
+    moby[0x11] = oscillation_amplitude * fast_sin(*first_phase_angle) * fast_cos(*second_phase_angle);
+    *first_phase_angle = fast_add_rotations(*first_phase_angle, first_phase_increment);
+    *second_phase_angle = fast_add_rotations(*second_phase_angle, second_phase_increment);
 }

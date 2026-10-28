@@ -11,20 +11,20 @@ void _printf(const char *fmt, char *ap) {
     enum {
         FORMAT_ZERO_PAD_WIDTH = 0
     };
-    char buf[32];
+    char integer_text_buffer[32];
     char *pad;
-    char *p;
+    char *text_cursor;
     s32 mod;
     s32 zero_pad_width;
     unsigned long hex_digit;
     u8 ch;
     char second;
-    s64 v;
+    s64 integer_value;
     s32 ie;
 
     ie = DIntr();
     for (; *fmt != 0; fmt++) {
-        p = (char *)fmt;
+        text_cursor = (char *)fmt;
         pad = 0;
         mod = 0;
         if (*fmt == '%') {
@@ -44,9 +44,9 @@ void _printf(const char *fmt, char *ap) {
                     } else {
                         fmt += 1;
                     }
-                    pad = &buf[31 - zero_pad_width];
+                    pad = &integer_text_buffer[31 - zero_pad_width];
                     while (zero_pad_width > 0) {
-                        buf[31 - zero_pad_width] = '0';
+                        integer_text_buffer[31 - zero_pad_width] = '0';
                         zero_pad_width--;
                     }
                     goto again;
@@ -60,111 +60,111 @@ void _printf(const char *fmt, char *ap) {
                 goto again;
             case 'o' - '0':
                 if (mod == 'l') {
-                    v = ARG(s64);
+                    integer_value = ARG(s64);
                 } else if (mod == 'h') {
-                    v = ARG(u16);
+                    integer_value = ARG(u16);
                 } else {
-                    v = ARG(u32);
+                    integer_value = ARG(u32);
                 }
-                p = &buf[31];
-                *p = 0;
-                if (v == 0) {
-                    *--p = '0';
+                text_cursor = &integer_text_buffer[31];
+                *text_cursor = 0;
+                if (integer_value == 0) {
+                    *--text_cursor = '0';
                 } else {
                     do {
-                        *--p = (v & 7) + '0';
-                        v = (u64)v >> 3;
-                    } while (v != 0);
+                        *--text_cursor = (integer_value & 7) + '0';
+                        integer_value = (u64)integer_value >> 3;
+                    } while (integer_value != 0);
                 }
-                if (pad != 0 && pad < p) {
-                    p = pad;
+                if (pad != 0 && pad < text_cursor) {
+                    text_cursor = pad;
                 }
-                while (*p != 0) {
-                    D_0012FC00[0](*p++);
+                while (*text_cursor != 0) {
+                    D_0012FC00[0](*text_cursor++);
                 }
                 break;
             case 'x' - '0':
                 if (mod == 'l') {
-                    v = ARG(s64);
+                    integer_value = ARG(s64);
                 } else if (mod == 'h') {
-                    v = ARG(u16);
+                    integer_value = ARG(u16);
                 } else {
-                    v = ARG(u32);
+                    integer_value = ARG(u32);
                 }
-                p = &buf[31];
-                *p = 0;
-                if (v == 0) {
-                    *--p = '0';
+                text_cursor = &integer_text_buffer[31];
+                *text_cursor = 0;
+                if (integer_value == 0) {
+                    *--text_cursor = '0';
                 } else {
                     do {
-                        hex_digit = v & 0xF;
+                        hex_digit = integer_value & 0xF;
                         if (hex_digit < 10) {
-                            *--p = hex_digit + '0';
+                            *--text_cursor = hex_digit + '0';
                         } else {
-                            *--p = hex_digit + 'a' - 10;
+                            *--text_cursor = hex_digit + 'a' - 10;
                         }
-                        v = (u64)v >> 4;
-                    } while (v != 0);
+                        integer_value = (u64)integer_value >> 4;
+                    } while (integer_value != 0);
                 }
-                if (pad != 0 && pad < p) {
-                    p = pad;
+                if (pad != 0 && pad < text_cursor) {
+                    text_cursor = pad;
                 }
-                while (*p != 0) {
-                    D_0012FC00[0](*p++);
+                while (*text_cursor != 0) {
+                    D_0012FC00[0](*text_cursor++);
                 }
                 break;
             case 'd' - '0':
                 if (mod == 'l') {
-                    v = ARG(s64);
+                    integer_value = ARG(s64);
                 } else if (mod == 'h') {
-                    v = ARG(s16);
+                    integer_value = ARG(s16);
                 } else {
-                    v = ARG(s32);
+                    integer_value = ARG(s32);
                 }
-                p = &buf[31];
-                *p = 0;
-                if (v == 0) {
-                    *--p = '0';
+                text_cursor = &integer_text_buffer[31];
+                *text_cursor = 0;
+                if (integer_value == 0) {
+                    *--text_cursor = '0';
                 } else {
-                    if (v < 0) {
-                        v = -v;
+                    if (integer_value < 0) {
+                        integer_value = -integer_value;
                         D_0012FC00[0]('-');
                     }
-                    while (v != 0) {
-                        *--p = v % 10 + '0';
-                        v = v / 10;
+                    while (integer_value != 0) {
+                        *--text_cursor = integer_value % 10 + '0';
+                        integer_value = integer_value / 10;
                     }
                 }
-                if (pad != 0 && pad < p) {
-                    p = pad;
+                if (pad != 0 && pad < text_cursor) {
+                    text_cursor = pad;
                 }
-                while (*p != 0) {
-                    D_0012FC00[0](*p++);
+                while (*text_cursor != 0) {
+                    D_0012FC00[0](*text_cursor++);
                 }
                 break;
             case 'u' - '0':
                 if (mod == 'l') {
-                    v = ARG(s64);
+                    integer_value = ARG(s64);
                 } else if (mod == 'h') {
-                    v = ARG(u16);
+                    integer_value = ARG(u16);
                 } else {
-                    v = ARG(u32);
+                    integer_value = ARG(u32);
                 }
-                p = &buf[31];
-                *p = 0;
-                if (v == 0) {
-                    *--p = '0';
+                text_cursor = &integer_text_buffer[31];
+                *text_cursor = 0;
+                if (integer_value == 0) {
+                    *--text_cursor = '0';
                 } else {
                     do {
-                        *--p = (u64)v % 10 + '0';
-                        v = (u64)v / 10;
-                    } while (v != 0);
+                        *--text_cursor = (u64)integer_value % 10 + '0';
+                        integer_value = (u64)integer_value / 10;
+                    } while (integer_value != 0);
                 }
-                if (pad != 0 && pad < p) {
-                    p = pad;
+                if (pad != 0 && pad < text_cursor) {
+                    text_cursor = pad;
                 }
-                while (*p != 0) {
-                    D_0012FC00[0](*p++);
+                while (*text_cursor != 0) {
+                    D_0012FC00[0](*text_cursor++);
                 }
                 break;
             case 'e' - '0':
@@ -186,18 +186,18 @@ void _printf(const char *fmt, char *ap) {
                     D_0012FC00[0]('l');
                     D_0012FC00[0](')');
                 } else {
-                    p = string;
-                    if (*p != 0) {
+                    text_cursor = string;
+                    if (*text_cursor != 0) {
                         do {
-                            D_0012FC00[0](*p++);
-                        } while (*p != 0);
+                            D_0012FC00[0](*text_cursor++);
+                        } while (*text_cursor != 0);
                     }
                 }
                 break;
             }
             case 'c' - '0':
-                v = ARG(char);
-                D_0012FC00[0](v);
+                integer_value = ARG(char);
+                D_0012FC00[0](integer_value);
                 break;
             default:
                 break;

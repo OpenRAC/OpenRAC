@@ -1,0 +1,270 @@
+# Descriptive names for overlay source files (tools/overlay_rename.py). Columns:
+# generated path (tools/overlay_src.py)	new file name, same directory	reason
+src/overlays/l00_veldin1/initonce_0023E300.c	sky_shells.c	sky shell draw/update variants
+src/overlays/l00_veldin1/shrubproc_0028A608.c	sky_particles.c	sky particle init/update
+src/overlays/l00_veldin1/vendor_002DB278.c	vendor_orb_and_robots.c	vendor_orb, robot enemy, follow camera
+src/overlays/l01_novalis/help_002343F8.c	hero_movement.c	hero gravity, ground, damage, air accel
+src/overlays/l01_novalis/help_0023D688.c	hero_idle_and_items.c	hero idle and item animations
+src/overlays/l01_novalis/help_00243078.c	hero_items_and_hud.c	item input, water states, HUD selector
+src/overlays/l01_novalis/miscproc_002635C8.c	vu0_wave_vertices.c	VU0 asm vertex loop with sine constants
+src/overlays/l01_novalis/mobyutil_0026FFC0.c	range_centered_on_value.c	set_range_centered_on_value
+src/overlays/l01_novalis/partupd_0027F6C8.c	spark_particles.c	create_spark_particle, pool_bubble
+src/overlays/l01_novalis/vendor_002BA898.c	elevator_and_birdbot.c	novalis_elevator, birdbot
+src/overlays/l01_novalis/vendor_002FABE8.c	rocks_and_sandmouse.c	rock_formation, rock, sandmouse, tall_shroom
+src/overlays/l02_aridia/help_0021BC90.c	hero_movement.c	hero collision, move state, damage
+src/overlays/l02_aridia/help_0022BE40.c	hero_idle_and_item_input.c	hero idle, item animations and input
+src/overlays/l02_aridia/hud_0023D600.c	hud_frame_and_sky_shells.c	HudFrame plus sky shell draw
+src/overlays/l02_aridia/initonce_00240A00.c	class_1b1_moby_flag.c	sets flag on class 0x1B1 mobys
+src/overlays/l02_aridia/vendor_002A59D8.c	sand_shark.c	sand_shark, trackdrive
+src/overlays/l02_aridia/vendor_002E21F8.c	background_ship_and_skid.c	background ship, Skid agent, ocean parts
+src/overlays/l03_kerwan/help_00205E28.c	hero_movement.c	hero move, damage, surface effects
+src/overlays/l03_kerwan/help_00216D38.c	hero_idle_and_items.c	hero idle and item animations
+src/overlays/l03_kerwan/help_0021CDA8.c	hero_items_and_hud.c	item input, water states, HUD selector
+src/overlays/l03_kerwan/initonce_0022D028.c	joint_particle_helpers.c	joint pos, rand_range, effect particle
+src/overlays/l03_kerwan/mobyutil_00250B88.c	rotate_point_about_axis.c	RotatePointAboutAxis
+src/overlays/l03_kerwan/vendor_00293720.c	train_locomotive.c	metropolis_train_locomotive, helicopter
+src/overlays/l03_kerwan/vendor_002CB280.c	taxi_and_mine_layer.c	taxi, mine layer, helicopter
+src/overlays/l04_eudora/fastfunc_001F2F68.c	polygon_edge_collision.c	coll sphere, polygon edge points
+src/overlays/l04_eudora/mobyutil_0024D4A8.c	polygon_segment_xy.c	polygon edge cross, closest point xy
+src/overlays/l04_eudora/shrubproc_0027D6D0.c	linker_remnant.c	stack-pop linker remnant only
+src/overlays/l04_eudora/vendor_0029FCF0.c	big_axebot.c	big_axebot, leg walker
+src/overlays/l04_eudora/vendor_002CB800.c	snow_plow_and_woodcut_bot.c	snow_plow, lieutenant, woodcut bot
+src/overlays/l04_eudora/vuchain_00293490.c	walker_rig_gait.c	walker gait, rig animate
+src/overlays/l05_rilgar/help_0023A638.c	hero_collision.c	hero collision rays and move state
+src/overlays/l05_rilgar/help_00245208.c	hero_movement.c	Hero_UpdateMovement, damage
+src/overlays/l05_rilgar/help_0024D680.c	hero_idle_and_items.c	hero idle and item animations
+src/overlays/l05_rilgar/help_00256148.c	hero_items_and_hud.c	item input, water states, HUD selector
+src/overlays/l05_rilgar/partupd_0029CA28.c	velocity_particles.c	particles with velocity and lifetime
+src/overlays/l05_rilgar/vendor_002D28D0.c	sharkigator_and_faucet.c	sharkigator, hydrodisplacer faucet
+src/overlays/l05_rilgar/vendor_0030EB68.c	electric_gate.c	electric_gate, drain cover
+src/overlays/l05_rilgar/vendor_00317B68.c	triggered_rotor.c	update_triggered_moby_yaw rotor
+src/overlays/l06_blarg/drawquad_00216B38.c	vu0_quad_transform.c	VU0 asm quad transform loop
+src/overlays/l06_blarg/fastfunc_002172B0.c	vector_zero.c	asm zeroes one quadword
+src/overlays/l06_blarg/help_00223630.c	hero_movement.c	hero collision, move state, damage
+src/overlays/l06_blarg/help_00235E08.c	hero_idle_and_items.c	hero idle and item animations
+src/overlays/l06_blarg/help_0023BBE8.c	hero_items_and_hud.c	HUD selectors, item input
+src/overlays/l06_blarg/vendor_002B5990.c	hangar_door_and_gas_vents.c	hangar_door, gadgebot container, gas vents
+src/overlays/l06_blarg/vendor_002FE5D0.c	fred_and_commando.c	fred, space commando, door lock
+src/overlays/l07_umbris/effect_00313D28.c	snagglebeast_sphere_draw.c	snagglebeast sphere quad strips
+src/overlays/l07_umbris/initonce_002664F0.c	moby_draw_callback.c	register_level07_moby_draw_callback
+src/overlays/l07_umbris/map_00270BE0.c	menu_cache_entry.c	ensure_menu_cache_entry
+src/overlays/l07_umbris/mobyutil_00282EB0.c	moby_group_first.c	get_first_moby_in_group
+src/overlays/l07_umbris/partupd_0029D2B8.c	white_particles.c	spawn_white_particle_with_payload
+src/overlays/l07_umbris/vendor_002CE470.c	taxi_platform.c	taxi_platform, activation pads
+src/overlays/l07_umbris/vendor_00313D28.c	snagglebeast.c	snagglebeast boss
+src/overlays/l07_umbris/vendor_0031BDB8.c	scene_mobys_and_trails.c	path spawns, swing gate, scene effect mobys
+src/overlays/l08_batalia/help_0021DFB8.c	hero_movement.c	hero collision, move, damage
+src/overlays/l08_batalia/help_00231228.c	hero_idle_and_items.c	hero idle and item animations
+src/overlays/l08_batalia/help_00237818.c	hero_items_and_hud.c	item input, water states, HUD selector
+src/overlays/l08_batalia/mobyutil_0026B0E8.c	axis_roll_matrix.c	build_axis_roll_matrix
+src/overlays/l08_batalia/partupd_0027ACC8.c	offset_effects.c	spawn_moby_offset_effect, colored effect
+src/overlays/l08_batalia/vendor_002B9438.c	bomb_and_scoutbot.c	bomb, scoutbot
+src/overlays/l08_batalia/vendor_002E0258.c	cannon_gunship_bolt_thief.c	cannon, gunship, bolt thief, shrubs
+src/overlays/l08_batalia/vendor_002EAF48.c	commando_deserter_and_effects.c	commando, deserter, plumber, mesh effects
+src/overlays/l09_gaspar/drawquad_0021E3E8.c	sky_shells.c	sky shell draw and update
+src/overlays/l09_gaspar/vendor_002C2B08.c	asteroids_airship_debris.c	asteroid belt, airship parts, debris
+src/overlays/l09_gaspar/vendor_0030B5E8.c	shuttle_and_breakables.c	shuttle path, breakable update
+src/overlays/l10_orxon/vendor_00296BD8.c	platforms_doors_and_bombthrower.c	platforms, lab door, bombthrower, screamer
+src/overlays/l10_orxon/vendor_002E30F8.c	toxic_crabs_and_gates.c	toxic crab, blarg ship, gates, emitters
+src/overlays/l11_pokitaru/help_0023CD98.c	hero_movement.c	hero move state, velocity, water bob
+src/overlays/l11_pokitaru/help_0024E240.c	hero_idle_animation.c	hero idle, item anims, history
+src/overlays/l11_pokitaru/help_00254158.c	hero_hud_and_actions.c	HUD selector, bolt counter, item input
+src/overlays/l11_pokitaru/vendor_002CC828.c	resort_owner_and_water.c	resort owner, bob, boat, water grids
+src/overlays/l11_pokitaru/vendor_00312BD8.c	ship_flight_and_oil_tanker.c	ship HUD/flight, oil tanker
+src/overlays/l11_pokitaru/vendor_0031EFC0.c	layered_render_batches.c	scrolled layered effect batches
+src/overlays/l12_hoven/help_0022E428.c	hero_movement.c	hero move state, collision rays
+src/overlays/l12_hoven/help_002407C0.c	hero_idle_animation.c	hero idle, item anims, history
+src/overlays/l12_hoven/help_00246938.c	hero_hud_and_actions.c	HUD selector, bolt counter, item input
+src/overlays/l12_hoven/mobyutil_00272D90.c	moby_heading_moves.c	move along heading, limit test
+src/overlays/l12_hoven/vendor_002C0310.c	water_grid_and_troopers.c	water ripples, anklebiter, troopers
+src/overlays/l12_hoven/vendor_002EDAA0.c	reservoir_turret_planetbuster.c	reservoir, turret, planetbuster guns
+src/overlays/l12_hoven/vendor_00309730.c	jittered_quad_layers.c	one jittered quad draw
+src/overlays/l13_gemlik/mobyutil_00266128.c	moby_group_switches.c	jet_group_flag/switch
+src/overlays/l13_gemlik/partupd_002811B0.c	joint_particle.c	moby joint particle create
+src/overlays/l13_gemlik/sound_002994D0.c	voice_position.c	set_voice_position only
+src/overlays/l13_gemlik/vendor_002B2020.c	turrets_and_fighter_jet.c	blarg turret, robosquawker, fighter jet
+src/overlays/l13_gemlik/vendor_002C2638.c	space_fighters_and_rockets.c	blarg space fighter, homing rockets
+src/overlays/l13_gemlik/vendor_002EBD00.c	qwark_starfighter_and_forcefield.c	qwark starfighter, forcefield, lift
+src/overlays/l13_gemlik/vendor_0030CAE0.c	scene_controller.c	scene controller, path follower
+src/overlays/l14_oltanis/help_0021E3A8.c	hero_movement.c	hero move state, knockback, velocity
+src/overlays/l14_oltanis/help_002306C8.c	hero_idle_animation.c	hero idle, item anims, history
+src/overlays/l14_oltanis/help_00235DC8.c	hero_hud_and_actions.c	HUD selector, bolt counter, item input
+src/overlays/l14_oltanis/initonce_00246A90.c	glow_quad_particles.c	glow quads, particle pairs
+src/overlays/l14_oltanis/ribbons_002E0538.c	ribbon_effects.c	ribbon effect animate/draw
+src/overlays/l14_oltanis/vendor_002ACCC0.c	heavy_interceptor_and_turrets.c	interceptor, turrets, minibomber, racer
+src/overlays/l14_oltanis/vendor_002E0538.c	wind_lightning_and_taxi.c	wind sparks, lightning, elevator, taxi
+src/overlays/l14_oltanis/vendor_002FF358.c	bolt_thief_and_path_cameras.c	bolt thief, morphoray, flying car, cameras
+src/overlays/l15_quartu/help_00204AC0.c	hero_movement.c	hero move state, knockback, velocity
+src/overlays/l15_quartu/help_00217348.c	hero_idle_animation.c	hero idle, item anims, history
+src/overlays/l15_quartu/help_0021D7A8.c	hero_hud_and_actions.c	HUD selector, bolt counter, item input
+src/overlays/l15_quartu/initonce_0022E478.c	mission_moby_update.c	update_level15_mission_mobys
+src/overlays/l15_quartu/mobyutil_00248E58.c	moby_sphere_collision.c	move_moby_with_sphere_collision
+src/overlays/l15_quartu/partupd_00266900.c	particle_update_remnant.c	one linker remnant after partupd
+src/overlays/l15_quartu/vendor_0029C1D0.c	gates_helicopters_ultramechs.c	gates, helicopter, ultramech, poison vessel
+src/overlays/l15_quartu/vendor_002EDB50.c	scientist_and_hint_triggers.c	scientist NPC, hints, camera regions
+src/overlays/l15_quartu/vendor_002F9FF8.c	moby_follow_camera.c	moby follow camera update
+src/overlays/l16_kalebo3/help_00209D98.c	hero_collision.c	hero collision and ground probes
+src/overlays/l16_kalebo3/help_00214C88.c	hero_movement.c	hero velocity and surface effects
+src/overlays/l16_kalebo3/help_0021EA88.c	hero_idle_animation.c	hero idle, item anims, history
+src/overlays/l16_kalebo3/help_00227818.c	hero_hud_and_actions.c	HUD selector, bolt counter, item input
+src/overlays/l16_kalebo3/vendor_002A50F0.c	test_dummies_and_conveyors.c	test dummies, conveyors, rockets
+src/overlays/l16_kalebo3/vendor_002E7C70.c	gadgetron_ceo_and_env_maps.c	CEO challenge, path walkers, reflection meshes
+src/overlays/l17_fleet/help_00202740.c	hero_voice_and_knockback.c	voice slots, move state, knockback
+src/overlays/l17_fleet/help_00214F68.c	hero_ground_movement.c	hero move impulse, turning, surface effects
+src/overlays/l17_fleet/help_0021ED38.c	hero_idle_and_items.c	idle states, item animations, yaw history
+src/overlays/l17_fleet/help_002260F0.c	hero_items_and_hud.c	HUD selectors, item input, water states
+src/overlays/l17_fleet/mobyutil_00254B40.c	moby_class_flag_update.c	sets flags/link on mobys of one class
+src/overlays/l17_fleet/partupd_00270A28.c	trail_particles.c	trail and drone flight particles
+src/overlays/l17_fleet/vendor_002AA068.c	fighter_jet_and_turrets.c	fleet turret, fighter jet, magnet elevator
+src/overlays/l17_fleet/vendor_002F1558.c	robot_dog_and_shuttle.c	robot dog, shuttle, reflection strips
+src/overlays/l18_veldin2/help_00214138.c	hero_voice_and_knockback.c	voice slots, move state, knockback
+src/overlays/l18_veldin2/help_0021F1D8.c	hero_ground_movement.c	hero move impulse, turning, surface effects
+src/overlays/l18_veldin2/help_002284E0.c	hero_idle_and_items.c	idle states, item animations, yaw history
+src/overlays/l18_veldin2/help_0022F058.c	hero_items_and_hud.c	HUD selectors, item input, water states
+src/overlays/l18_veldin2/mobyutil_00267000.c	flagged_pvar_word.c	single GetFlaggedPvarWord
+src/overlays/l18_veldin2/pause_00282F48.c	save_serialize.c	serializes whole save once
+src/overlays/l18_veldin2/vendor_002A8400.c	rockets_and_platforms.c	rockets, thruster locks, floating platforms, rings
+src/overlays/l18_veldin2/vendor_002F2AE0.c	drek_boss_fight.c	Drek boss phases, lifts, glows
+src/overlays/l18_veldin2/vendor_002F8F38.c	rocket_tank.c	rocket tank damage and aim
+src/overlays/l18_veldin2/vendor_002F9D48.c	deplanetizer_and_gadgebots.c	deplanetizer gun trails, gadgebot
+src/overlays/l18_veldin2/vendor_002FAEF8.c	bone_glow_quads.c	bone glow and effect quad draw
+src/overlays/shared/bloaders_001EB380.c	cached_texture_load.c	loads texture, caches TEX0
+src/overlays/shared/camera_001EB508.c	camera_switch_and_update.c	SwitchCamera, camera update and capture
+src/overlays/shared/camera_001ED6D8.c	level_camera_setup.c	setup_level_cameras, init_camera_system
+src/overlays/shared/camera_001FC308.c	camera_update_callbacks.c	register camera post-update callback
+src/overlays/shared/draw_001F3A78.c	debug_menu_and_text.c	debug text, debug camera, debug menu
+src/overlays/shared/draw_0020BF88.c	geometry_quad_packet.c	appends quad display-list entry
+src/overlays/shared/drawquad_001FD1D8.c	glint_effects.c	glint slot alloc and update
+src/overlays/shared/drawquad_00216EE4.c	alignment_fill.c	only 0xCDCDCDCD fill, no functions
+src/overlays/shared/drawquad_0021F9C8.c	strip_emitter_st.c	EmitStripST asm
+src/overlays/shared/effects_001EE2E0.c	collision_queries.c	coll_sphere, capsule, volume tests
+src/overlays/shared/fastfunc_001FEF78.c	fast_vector_math.c	vector and rotation math helpers
+src/overlays/shared/fastfunc_00211A38.c	float_countdown.c	update_float_countdown
+src/overlays/shared/framebuf_002016D0.c	global_state_pointer.c	single getter
+src/overlays/shared/freeze_00203970.c	scratch_buffer_offset.c	buffer offset lookup helpers
+src/overlays/shared/help_001FFED0.c	hero_update_bone_attachment.c	hero update, vehicle moby, bone attachment
+src/overlays/shared/help_00200890.c	hero_frame_update.c	HeroFrameUpdate and per-frame hero updates
+src/overlays/shared/help_00203E98.c	hero_idle_and_animation.c	idle sequence, easing, animation advance
+src/overlays/shared/help_0020CDF0.c	hero_animation_slots.c	animation slots, targeting, item switch
+src/overlays/shared/help_00214D60.c	hero_steering_and_tilt.c	steering, tilt springs, hop movement
+src/overlays/shared/help_002180F8.c	hero_water_and_ground_motion.c	move impulse, water bobbing, surface effects
+src/overlays/shared/help_0021A2E0.c	hero_wrench_and_grapple.c	ground contact, wrench throw, grapple target
+src/overlays/shared/help_0021D6B8.c	hero_update_ledge_grab.c	hero update with ledge grab, path constraint
+src/overlays/shared/help_00221A98.c	hero_vehicle_and_collision.c	vehicle mode, collision probes, tilt
+src/overlays/shared/help_00222E18.c	hero_knockback_voice.c	voice slots, move state, knockback
+src/overlays/shared/help_002274A8.c	hero_update_ground_material.c	hero update, ground material effects
+src/overlays/shared/help_002284A8.c	hero_move_impulse.c	move impulse and steering subset
+src/overlays/shared/help_002297E0.c	hero_high_jump_input.c	high jump input window, pad checks
+src/overlays/shared/help_0022A340.c	hero_item_input_and_hud.c	HUD selectors, item input, damage
+src/overlays/shared/help_00232560.c	hero_mapped_animations.c	slot3 animation pairs, gravity helpers
+src/overlays/shared/help_00237B00.c	hero_gadget_use.c	gadget checks, wrench, grapple, motion
+src/overlays/shared/hud_00235960.c	weapon_hud_and_counters.c	numeric HUD, weapon HUD, inventory
+src/overlays/shared/hud_0023A0E8.c	hud_stack_remnant.c	linker remnant only
+src/overlays/shared/hud_0024A080.c	segmented_hud_meter.c	draw_segmented_hud_meter
+src/overlays/shared/hud_00263490.c	numeric_hud_sprites.c	numeric HUD values and sprites
+src/overlays/shared/initonce_0023E4C8.c	point_lights_and_glows.c	point light slots, glow quads
+src/overlays/shared/initonce_00252E80.c	sky_shells.c	update_sky_shells animated/static
+src/overlays/shared/lights_0023FA70.c	light_header_loading.c	light header load, pointer relocate
+src/overlays/shared/loaders_00240398.c	level_gameplay_loading.c	load_level_gameplay and resets
+src/overlays/shared/map_002465F8.c	level_runtime_and_menus.c	level runtime init, pause/vendor menu dispatch
+src/overlays/shared/memcard_0024DFB0.c	memcard_crc.c	MemCard_Crc16
+src/overlays/shared/menu_00249720.c	map_menu_filters.c	map menu hit-test filters
+src/overlays/shared/miscproc_0024E798.c	dma_quadword_copy.c	NTSC runtime/dma, quadword stores
+src/overlays/shared/miscproc_00250720.c	vu0_entity_transforms.c	VU0 asm, NTSC entities module
+src/overlays/shared/miscproc_00259040.c	span_particle_vu.c	VU0 asm, span particle module
+src/overlays/shared/miscproc_00262BB0.c	water_ripple_vu.c	ripple heights and patch step
+src/overlays/shared/miscproc_002677B4.c	effect_vector_vu.c	VU0 vector asm, effects module
+src/overlays/shared/missionfunc_0024EEF0.c	mission_conditions.c	mission nodes and status checks
+src/overlays/shared/mobyfunc_00242868.c	animation_frame_range.c	animation_start/animation_end
+src/overlays/shared/mobyfunc_0024FD50.c	moby_frame_packet.c	Moby_BuildFramePacket, anim blend
+src/overlays/shared/mobyfunc_002649C8.c	rig_probe_setup.c	joint positions probe setup
+src/overlays/shared/mobyproc_00251A78.c	moby_drops_and_death.c	drop item choice, death bits
+src/overlays/shared/mobyutil_00249488.c	radial_particle_burst.c	particle bursts, vector rotate
+src/overlays/shared/mobyutil_0024D8A8.c	moby_stack_remnants.c	linker remnants only
+src/overlays/shared/mobyutil_00258BC8.c	moby_ground_collision.c	moby ground probes, movement, hits
+src/overlays/shared/mobyutil_0025D750.c	shot_tracking.c	shot tracking, effect slots fire, nearby mobys
+src/overlays/shared/mobyutil_00261B00.c	moby_path_and_manipulators.c	path crossing, transform history, manipulator scale
+src/overlays/shared/mobyutil_00265558.c	help_message_removal.c	remove_help_message_for_selector
+src/overlays/shared/mobyutil_00266060.c	moby_group_flags.c	jet_group_state sets flags on moby list
+src/overlays/shared/mobyutil_0026E8E0.c	move_control_and_clear_path.c	MoveCtl_Init, moby groups, clear path masks
+src/overlays/shared/mobyutil_002785C0.c	random_scaled_vectors.c	random scale and vector helpers
+src/overlays/shared/mobyutil_0027C260.c	linked_moby_transforms.c	capture/apply linked moby relative transforms
+src/overlays/shared/mobyutil_00289960.c	pivot_reorientation.c	reorient_position_about_pivot
+src/overlays/shared/mobyutil_0028AA68.c	candidate_adjacency_masks.c	candidate select, symmetric adjacency masks
+src/overlays/shared/movie_audiodec_002EFC90.c	audio_buffer_spans.c	SplitAudioBufferSpans
+src/overlays/shared/movie_strfile_002F0A30.c	strfile_sector_offset.c	Strfile_GetSectorOffset
+src/overlays/shared/music_002664B0.c	music_track_requests.c	MusicRequestTrack, Music_SetActiveTrackValue
+src/overlays/shared/pad_00268760.c	particle_create_kill.c	create_part2, KillPart
+src/overlays/shared/partproc_002697A0.c	particle_type_registry.c	register_part_types and first particle updates
+src/overlays/shared/partproc_00273A80.c	span_particle.c	spawn_span_particle
+src/overlays/shared/partupd_0025F0A0.c	owner_target_particles.c	owner target and type 47 particle spawns
+src/overlays/shared/partupd_00260EE8.c	type_31_particle.c	create_type_31_part
+src/overlays/shared/partupd_0026A130.c	effect_particle_updates.c	many effect particle spawn/update pairs
+src/overlays/shared/partupd_00272158.c	alpha_fade_particle_updates.c	PartType44-78 alpha fade particle updates
+src/overlays/shared/partupd_002803B8.c	type_49_particle.c	create_type_49_particle
+src/overlays/shared/partupd_00280428.c	particle_spawns_and_path_splines.c	typed particle spawns, path nodes, hermite splines
+src/overlays/shared/partupd_00295880.c	moby_path_advance.c	compute_advanced_moby_path_position
+src/overlays/shared/partupd_0029B070.c	projectile_expiry_particles.c	projectile expiry and moby point particles
+src/overlays/shared/partupd_002A1098.c	rilgar_partupd_remnants.c	two linker remnants, level 05
+src/overlays/shared/pause_00277208.c	pause_menu.c	pause menu, unlock codes, stream slots
+src/overlays/shared/pause_0029C2A0.c	moby_context_table.c	record_moby_context_bytes
+src/overlays/shared/shrubproc_0027A1F0.c	quartu_shrubproc_remnant.c	linker remnant, level 15
+src/overlays/shared/shrubproc_0027D038.c	orxon_shrubproc_remnant.c	linker remnant, level 10
+src/overlays/shared/shrubproc_0028A198.c	sky_particles.c	sky_particle_effects module
+src/overlays/shared/shrubproc_002949A0.c	batalia_shrubproc_remnant.c	linker remnant, level 08
+src/overlays/shared/shrubproc_00298F68.c	blarg_shrubproc_remnant.c	linker remnant, level 06
+src/overlays/shared/shrubproc_002A0190.c	novalis_shrubproc_remnant.c	linker remnant, level 01
+src/overlays/shared/shrubproc_002A9018.c	gaspar_shrubproc_remnant.c	linker remnant, level 09
+src/overlays/shared/shrubproc_002B3050.c	umbris_shrubproc_remnant.c	linker remnant, level 07
+src/overlays/shared/shrubproc_002B4AC0.c	rilgar_shrubproc_remnant.c	linker remnant, level 05
+src/overlays/shared/skyfunc_002A0D78.c	novalis_skyfunc_remnant.c	linker remnant, level 01
+src/overlays/shared/skyproc_0028D958.c	vu0_point_screen_cull.c	handwritten VU0 project and bounds test
+src/overlays/shared/sound_0027FF38.c	eudora_sound_remnant.c	linker remnant, level 04
+src/overlays/shared/sound_0028EB98.c	sound_playback.c	Sound_* play/stop, voices, pitch bend
+src/overlays/shared/sound_002A2C90.c	requested_state_changes.c	set_requested_state_and_mark_changes
+src/overlays/shared/space_0028FB78.c	ship_mode_and_level_entry.c	EnterShipMode, ShipTakeOff, level transitions
+src/overlays/shared/space_002A3680.c	tracked_moby_show.c	ShowTrackedMoby
+src/overlays/shared/start_001EAD88.c	pulse_waveforms.c	tick_pulse_waveforms
+src/overlays/shared/stash_00295010.c	stash_slots.c	stash slot DMA and size
+src/overlays/shared/stream_002670E0.c	npc_dialog_and_pad_history.c	stream slots, NPC dialog, pad press helpers
+src/overlays/shared/stub_001EB430.c	small_word_helpers.c	zero/clear/copy word helpers
+src/overlays/shared/tfragproc_002963D8.c	tfrag_texture_dma.c	BuildTfragTextureDma
+src/overlays/shared/tieproc_00299108.c	cutscene_and_movie_playback.c	cutscenes, movies, slideshow, frame counters
+src/overlays/shared/update_0029B6A0.c	vendor_menu.c	vendor menu open/close, item list, purchase
+src/overlays/shared/update_002AFD00.c	vendor_screen_init.c	initialize_vendor_screen
+src/overlays/shared/vendor_00292AC0.c	helicopter_gunship_and_spawners.c	child spawner, gunship, statue, homing sparks
+src/overlays/shared/vendor_00298BB8.c	sentrybot.c	sentrybot module, spiderbot, alarm
+src/overlays/shared/vendor_00299AF0.c	rocket_and_path_camera.c	rockets, descriptor triggers, path camera
+src/overlays/shared/vendor_0029FD68.c	vendor_screen_drawing.c	vendor purchase panel and hologram
+src/overlays/shared/vendor_002A1B58.c	elite_commando_and_armed_transport.c	blarg elite commando, armed transport, grindrail barrier
+src/overlays/shared/vendor_002A5138.c	bolts_and_wrench.c	bolt pickup, wrench update, camera object
+src/overlays/shared/vendor_002A5218.c	trespasser_pad_and_background_ships.c	tresspasser pad puzzle, background ships, trackdrive
+src/overlays/shared/vendor_002AB910.c	mine_bomb_and_debris.c	mine, bomb, debris, gold devastator missile
+src/overlays/shared/vendor_002B0068.c	smoke_puff_projectiles.c	class b8 projectile, moby table puffs
+src/overlays/shared/vendor_002B2A28.c	plasmabot.c	plasmabot module, floating mine
+src/overlays/shared/vendor_002B33E8.c	visibomb_and_pyrocitor.c	visibomb, taunter, pyrocitor, devastator
+src/overlays/shared/vendor_002B8FC0.c	ship_pickup_and_rocket.c	ship pickup and ship rocket
+src/overlays/shared/vendor_002B90A8.c	water_pool_and_sand_mouse.c	pool ripples, water grids, sand mouse, amoeboid
+src/overlays/shared/vendor_002BA7C8.c	walloper_and_beam_effects.c	walloper module, beam/arc draws, morphoray
+src/overlays/shared/vendor_002BD3D0.c	blarg_commander.c	blarg commander, big head cheat, effects
+src/overlays/shared/vendor_002C12B0.c	trespasser_and_throwing_gloves.c	trespasser, mine/bomb/decoy/doom gloves, swingshot
+src/overlays/shared/vendor_002C6B30.c	spawner_and_chase_enemies.c	spawner eggs, seeker, chase enemy
+src/overlays/shared/vendor_002C96D0.c	morphoray_chicken_and_drones.c	doom bot spawner, chicken, ryno, drones, crate
+src/overlays/shared/vendor_002C99E0.c	homing_missile_and_water_sheet.c	homing missile, water sheet, thruster pack lock
+src/overlays/shared/vendor_002CF2C0.c	trigger_switches_and_hoverboard.c	trigger switches, faucet, hoverboard rings
+src/overlays/shared/vendor_002D1168.c	crates_and_veldin_ship.c	crates, veldin ship, helipack, horny toad
+src/overlays/shared/vendor_002D3DF8.c	scoutbot_and_paratrooper.c	scoutbot module, blarg paratrooper
+src/overlays/shared/vendor_002D7C00.c	electric_water.c	electric water switch and bolts, codebot
+src/overlays/shared/vendor_002D9438.c	nanotech_ball_and_suck_cannon.c	nanotech ball, suck cannon suction
+src/overlays/shared/vendor_002D9548.c	gadgebot_containers_and_frog.c	gadgebot spawn container, frog, gadgebot
+src/overlays/shared/vendor_002E1660.c	follow_camera.c	most functions are follow camera
+src/overlays/shared/vendor_002E4BA0.c	fleet_vendor_remnant.c	linker remnant, level 17
+src/overlays/shared/vendor_002E9D78.c	follow_camera_angle_blend.c	follow camera angle blend
+src/overlays/shared/vendor_002EB0D8.c	camera_modes_and_scripts.c	hero-aligned, orbit, tracking cameras, CameraScript
+src/overlays/shared/vendor_002F7700.c	gold_bolts_and_teleporters.c	rock, gold bolt, teleporter, sandmouse projectile
+src/overlays/shared/vendor_002F9438.c	doors_and_bridges.c	timed pads, door, bridge updates
+src/overlays/shared/vendor_002FF000.c	space_commando_and_door_lock.c	blarg space commando, bot door lock
+src/overlays/shared/vendor_00303430.c	vendor_beam.c	draw_vendor_beam
+src/overlays/shared/vendor_0031AD00.c	music_box_voices.c	positional box voices, music box trigger
+src/overlays/shared/vuchain_002A21A8.c	draw_buffers_and_walker_gait.c	draw buffer upload, walker gait
+src/overlays/shared/vuchain_002B8C00.c	ripple_patches.c	RipplePatchesInit, RipplePatch_ToFixedPoint

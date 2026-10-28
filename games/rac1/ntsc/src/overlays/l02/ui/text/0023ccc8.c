@@ -11,9 +11,11 @@
 
 extern int scale_game_frames(int) __asm__("FUN_001f96f8");
 
-void FUN_L02_0023ccc8(char *m) {
-    unsigned char *transition_counters = (unsigned char *)(m + 0x70);
-    if (*(int *)(m + 0x7C) >= scale_game_frames(5)) {
+void update_hud_counter_transition(char *transition_state) __asm__("FUN_L02_0023ccc8");
+
+void update_hud_counter_transition(char *transition_state) {
+    unsigned char *transition_counters = (unsigned char *)(transition_state + 0x70);
+    if (*(int *)(transition_state + 0x7C) >= scale_game_frames(5)) {
         if (transition_counters[0] < scale_game_frames(8)) {
             transition_counters[0] = transition_counters[0] + 1;
         } else if (transition_counters[1] < scale_game_frames(8)) {
@@ -21,7 +23,7 @@ void FUN_L02_0023ccc8(char *m) {
         }
     } else {
         if (transition_counters[1] != 0 || transition_counters[0] != 0) {
-            *(int *)(m + 0x6C) = 1;
+            *(int *)(transition_state + 0x6C) = 1;
         }
         if (transition_counters[1] != 0) {
             transition_counters[1] = transition_counters[1] - 1;
@@ -29,7 +31,7 @@ void FUN_L02_0023ccc8(char *m) {
             transition_counters[0] = transition_counters[0] - 1;
         }
     }
-    *(int *)(m + 0x74) = **(int **)(m + 0xC);
+    *(int *)(transition_state + 0x74) = **(int **)(transition_state + 0xC);
 }
 #include "rnc/overlay/hud.h"
 
@@ -45,8 +47,9 @@ extern int fast_tween_color(int, int, float) __asm__("FUN_001fa6e0");
 extern void font_print_right(s32, s32, s32, char *, s32) __asm__("FUN_001f6940");
 extern s32 frame_size[] __asm__("D_0013E504");
 extern char D_L02_0015F850[];
-extern s32 D_L02_0015F91C __attribute__((sda));
-extern s32 D_L02_0015F920 __attribute__((sda));
+#include "rnc/overlay/l02/ui/text/0023ccc8_globals.h"
+extern s32 hud_counter_bar_growth_divisor_gp __asm__("D_L02_0015F91C") __attribute__((sda));
+extern s32 hud_counter_text_shade_divisor_gp __asm__("D_L02_0015F920") __attribute__((sda));
 s32 D_L02_0015F944 = 0x18;
 s32 D_L02_0015F948 = 0x1e0;
 s32 D_L02_0015F950 = 0xe08080;
@@ -55,7 +58,9 @@ s32 D_L02_0015F958 = 0x30;
 s32 D_L02_0015F95C = 0x46;
 
 /* Draws the counter: a stretched bar behind the icon and the count, on whichever side of the screen it sits. */
-s32 FUN_L02_0023cda8(HudElem *hud_element) {
+s32 draw_hud_counter(HudElem *hud_element) __asm__("FUN_L02_0023cda8");
+
+s32 draw_hud_counter(HudElem *hud_element) {
     char text[16];
     int x;
     int y;
@@ -68,7 +73,7 @@ s32 FUN_L02_0023cda8(HudElem *hud_element) {
     int frame;
     int bright;
     int dark;
-    int len;
+    int full_bar_width;
     int px;
     int bar;
     int bottom;
@@ -87,13 +92,13 @@ s32 FUN_L02_0023cda8(HudElem *hud_element) {
     }
     bottom = frame_size[0];
     y = pal_mode != 0 ? bottom - 0x2A : bottom - 0x32;
-    grow = convert_integer_to_float(fade[0]) / convert_integer_to_float(D_L02_0015F91C);
+    grow = convert_integer_to_float(fade[0]) / convert_integer_to_float(hud_counter_bar_growth_divisor_gp);
     if (1.0f < grow) {
         grow = 1.0f;
     } else if (grow < 0.0f) {
         grow = 0.0f;
     }
-    shade = convert_integer_to_float(fade[1]) / convert_integer_to_float(D_L02_0015F920);
+    shade = convert_integer_to_float(fade[1]) / convert_integer_to_float(hud_counter_text_shade_divisor_gp);
     if (1.0f < shade) {
         shade = 1.0f;
     } else if (shade < 0.0f) {
@@ -102,13 +107,13 @@ s32 FUN_L02_0023cda8(HudElem *hud_element) {
     sprintf_alt(text, D_L02_0015F850, hud_element->unk74);
     alpha = truncate_float_to_s32((f32)truncate_float_to_s32(grow * 128.0f) * 0.7f);
     if (hud_element->unk08 < 10) {
-        len = D_L02_0015F958;
+        full_bar_width = D_L02_0015F958;
     } else {
-        len = D_L02_0015F95C;
+        full_bar_width = D_L02_0015F95C;
     }
     px = x;
     bar = px + 4;
-    width = truncate_float_to_s32((f32)len * grow);
+    width = truncate_float_to_s32((f32)full_bar_width * grow);
     if (left) {
         frame = get_icon_frame(0x7580, 1);
         draw_hud_sprite(frame, px - 0x1C, y, 0x20, 0x20, alpha);

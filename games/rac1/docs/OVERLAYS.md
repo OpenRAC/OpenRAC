@@ -121,8 +121,12 @@ resident and is shared by every level.
    and `src/overlays/lNN_<planet>/` for each level's own (see Levels), as
    `INCLUDE_ASM` stubs,
    in link order (see Layout). A file runs until the executable unit its
-   functions follow changes, or about 32 KB; it is named after that unit
-   and its first function (`hud_00235960.c`). A function that branches
+   functions follow changes, or about 32 KB; `tools/overlay_src.py` names it
+   after that unit and its first function (`hud_00235960.c`), and
+   `config/overlays/file_names.tsv` gives it a name for what it holds
+   (`weapon_hud_and_counters.c`; `tools/overlay_rename.py` applies the
+   table, and the first comment keeps the old name and start address).
+   A function that branches
    into the next one stays in its file. The grouping is provisional
    until the original file boundaries are known. The executable build
    stays untouched.
@@ -238,6 +242,15 @@ so removed tails cannot remain variant names or parents.
   and 8. The 12-byte remnant entry excludes its final alignment nop;
   the independent eight-byte return-zero function is three additional
   placements of the existing exact `func_001E97C8` in `src/game/stub.c`.
+
+- `func_L00_00261448` (48 bytes, all 19 levels) is one function: the 16-byte
+  `func_L00_0025D390` prefix, `func_L00_00261458` and the return-zero tail
+  (`func_001E97C8`) were cut apart because the prefix equals another function.
+  `func_L10_002C0348` (408 bytes) is the level 10 function that the catalogue
+  cut into the 48 bytes shared with `func_L03_002DDDF8` and
+  `func_L10_002C0378/0388/03EC/04C4`. Both are applied by
+  `tools/overlay_boundary_fixes.py --write`, then `tools/overlays.py names` and
+  `families`, `tools/version_map.py --version <v>` and `tools/overlay_asm.py`.
 
 The unique non-executable-code denominator decreases by 32 bytes: four
 bytes of misplaced alignment, four bytes of fill, and twelve bytes from
@@ -416,8 +429,8 @@ near-misses left (func_L00_00233B08, 002352D0, 00235CA0, 00236DE8,
 
 - `-mno-split-addresses` made four worse (00233B08 8 → 43 bytes off,
   002352D0 and 0023BAB8 change size) and left the rest as they were.
-- `-G8` doesn't compile help_00232560.c, whose declarations rely on
-  `-G2` placement, and changed nothing in hud_00235960.c.
+- `-G8` doesn't compile hero_mapped_animations.c, whose declarations rely on
+  `-G2` placement, and changed nothing in weapon_hud_and_counters.c.
 
 So these residuals are not a file-wide flag. func_L00_00235FF8's flags
 stay a per-function exception until a second function needs them.

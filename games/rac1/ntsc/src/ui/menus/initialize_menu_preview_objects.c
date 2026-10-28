@@ -5,14 +5,14 @@
 extern u8 D_00186310[];
 extern char D_00186F40[];
 extern int active_class_resource_index __asm__("D_0015FF4C");
-extern void FUN_00224b60();
+extern void gadget_moby_update_noop() __asm__("FUN_00224b60");
 extern int noop_callback_e() __asm__("func_001E9410");
 extern int update_menu_preview_animation_pose() __asm__("FUN_00224fc0");
 extern int fill_transfer_words() __asm__("func_001F97E8");
 extern int create_menu_preview_moby() __asm__("func_00225490");
-extern int initialize_graphics_buffer_descriptors() __asm__("FUN_00225ac0");
+extern int initialize_menu_stream_buffers() __asm__("FUN_00225ac0");
 extern s32 clear_preview_animation_queue(void) __asm__("FUN_00226718");
-extern s32 select_next_stream_buffer() __asm__("FUN_00225c18");
+extern s32 acquire_menu_stream_buffer() __asm__("FUN_00225c18");
 
 int initialize_menu_preview_objects(char *preview) __asm__("FUN_002240c8");
 
@@ -23,7 +23,7 @@ int initialize_menu_preview_objects(char *preview) {
     char *held_flag;
     int i, j;
 
-    initialize_graphics_buffer_descriptors(1);
+    initialize_menu_stream_buffers(1);
     clear_preview_animation_queue();
     {
         struct MenuSystem *g = &menu_system;
@@ -31,14 +31,14 @@ int initialize_menu_preview_objects(char *preview) {
         active_class_resource_index = -1;
         g->unk11C = -1;
         g->unk120 = -1;
-        g->stream_buffer[0] = select_next_stream_buffer(1);
-        g->stream_buffer[1] = select_next_stream_buffer(1);
+        g->stream_buffer[0] = acquire_menu_stream_buffer(1);
+        g->stream_buffer[1] = acquire_menu_stream_buffer(1);
         g->loaded_animation[0] = 0xFF;
         g->loaded_animation[1] = 0xFF;
         g->read_buffer_index = 0;
         resource_buffer_slot = g->unkB0;
         for (i = 2; i >= 0; i--) {
-            *resource_buffer_slot = select_next_stream_buffer(0);
+            *resource_buffer_slot = acquire_menu_stream_buffer(0);
             resource_buffer_slot++;
         }
     }
@@ -66,7 +66,7 @@ int initialize_menu_preview_objects(char *preview) {
         *(float *)(object + 0x14) = *(float *)(camera + 0x144);
         *(float *)(object + 0x18) = *(float *)(camera + 0x148) - 0.6f;
         *(float *)(object + 0x48) = 3.1415927f;
-        *(void **)(object + 0x74) = FUN_00224b60;
+        *(void **)(object + 0x74) = gadget_moby_update_noop;
         object_variables = *(int **)(object + 0x78);
         object_variables[0] = (int)preview;
         object_variables[1] = 0;

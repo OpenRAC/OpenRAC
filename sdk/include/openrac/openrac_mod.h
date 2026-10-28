@@ -45,9 +45,10 @@ extern "C" {
  * picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of
  * the game and a Vulkan device made with the mod (a VR headset, docs/views.md),
  * 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the
- * tick-boundary callback and warm in-session snapshot calls.
+ * tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus
+ * (its frames, list, text, prompt and sounds) and items of the title's main menu.
  */
-#define OPENRAC_MOD_API_MINOR 6
+#define OPENRAC_MOD_API_MINOR 7
 
 /* The interface a mod is built for, what its openrac_mod_query reports: its manifest's "api" minor,
  * which the SDK's openrac_add_mod passes in, else this header's. A mod for 1.1 built with a newer
@@ -423,6 +424,141 @@ typedef struct openrac_menu_frame {
 typedef int (*openrac_menu_fn)(void* user, const openrac_menu_frame* frame);
 
 /* ------------------------------------------------------------------------------------------ *
+ * Pages of the game's own menus (since 1.7)
+ *
+ * A page here is drawn by the game's own front end: its frames, its title, its list in its font,
+ * its footer of hints, its sounds. The mod says what is on it (openrac_api.ui_set) and hears what
+ * the player does (openrac_ui_fn). Ratchet & Clank: a page opened from an item of the title's main
+ * menu (openrac_api.ui_main_item) has the Options page's frames; a page opened from that one has
+ * the Language page's, a level down, and opening another from there takes its place. Up and Down
+ * move the cursor (over the items the cursor can take), Cross chooses, Left and Right step a
+ * choice, Triangle goes back a level. A game whose front end the port does not know shows none.
+ * ------------------------------------------------------------------------------------------ */
+
+/* The most pages the mods together make, items a page lists, footer lines, choices an item steps
+ * through, and characters a text keeps (longer ones are cut). Since 1.7. */
+#define OPENRAC_UI_PAGES_MAX 16
+#define OPENRAC_UI_ITEMS_MAX 12
+#define OPENRAC_UI_FOOTER_MAX 3
+#define OPENRAC_UI_CHOICES_MAX 64
+#define OPENRAC_UI_TEXT_MAX 47
+
+/* The most items the mods together add to the main menu (openrac_api.ui_main_item): Ratchet &
+ * Clank's has room for two rows below its own three. Since 1.7. */
+#define OPENRAC_UI_MAIN_ITEMS_MAX 2
+
+/* The main menu's own items, for openrac_api.ui_main_item's `after`. Since 1.7. */
+#define OPENRAC_UI_NEW_GAME "new_game"
+#define OPENRAC_UI_LOAD_GAME "load_game"
+#define OPENRAC_UI_OPTIONS "options"
+
+/* The pad's buttons as the game's font draws them, for a text: OPENRAC_UI_CROSS " Join". Since
+ * 1.7. */
+#define OPENRAC_UI_CROSS "\x10"
+#define OPENRAC_UI_CIRCLE "\x11"
+#define OPENRAC_UI_TRIANGLE "\x12"
+#define OPENRAC_UI_SQUARE "\x13"
+
+/* What an item is (openrac_ui_item.kind). Since 1.7. */
+/* A line Cross chooses: OPENRAC_UI_CHOOSE. */
+#define OPENRAC_UI_BUTTON 0u
+/* A line with a value among `choices`: Left and Right step it back and on, Cross on (around the
+ * ends), each an OPENRAC_UI_CHANGE. Shown as the label and the value. */
+#define OPENRAC_UI_CHOICE 1u
+/* A line of text (a status, a name): the cursor passes over it. */
+#define OPENRAC_UI_TEXT 2u
+
+/* An item's flags (openrac_ui_item.flags). Since 1.7. */
+/* Drawn dim, as the game's locked entries; choosing it plays the game's refusal, and no event. */
+#define OPENRAC_UI_DISABLED 0x1u
+
+/* A page's flags (openrac_api.ui_page). Since 1.7. */
+/* Triangle comes to the mod as OPENRAC_UI_BACK instead of going back: the mod goes back itself
+ * (openrac_api.ui_open with OPENRAC_UI_GO_BACK), for one that asks first. */
+#define OPENRAC_UI_OWN_BACK 0x1u
+
+/* One item of a page (openrac_ui_content.items). The mod's; read during openrac_api.ui_set.
+ * Since 1.7. */
+typedef struct openrac_ui_item {
+    /* OPENRAC_UI_BUTTON, OPENRAC_UI_CHOICE or OPENRAC_UI_TEXT. */
+    uint32_t kind;
+    /* OPENRAC_UI_DISABLED, or 0. */
+    uint32_t flags;
+    /* What the line says (UTF-8: ASCII and the game's accented letters; the OPENRAC_UI_CROSS ...
+     * glyphs). */
+    const char* label;
+    /* OPENRAC_UI_CHOICE: the values (`choice_count` of them, up to OPENRAC_UI_CHOICES_MAX) and
+     * the one shown. Unused otherwise. */
+    const char* const* choices;
+    uint32_t choice_count;
+    uint32_t choice;
+} openrac_ui_item;
+
+/* What a page shows (openrac_api.ui_set). The mod's; read during the call. Since 1.7. */
+typedef struct openrac_ui_content {
+    /* sizeof(openrac_ui_content) as the mod was built. */
+    uint32_t size;
+    /* The title, in the page's title frame. */
+    const char* title;
+    /* The list, `item_count` items (up to OPENRAC_UI_ITEMS_MAX). */
+    const openrac_ui_item* items;
+    uint32_t item_count;
+    /* The footer's lines (up to OPENRAC_UI_FOOTER_MAX); none: the game's own hints (Select,
+     * Exit, in the game's language). */
+    const char* const* footer;
+    uint32_t footer_count;
+} openrac_ui_content;
+
+/* What happened on a page (openrac_ui_event.kind). Since 1.7. */
+/* The page came on the screen (from the main menu, ui_open, or back from a page under it). */
+#define OPENRAC_UI_SHOW 0u
+/* Each tick the page is on the screen, after the tick's other events. */
+#define OPENRAC_UI_FRAME 1u
+/* Cross on a button that is not disabled: `item`. */
+#define OPENRAC_UI_CHOOSE 2u
+/* A choice stepped: `item`, `value` its new choice. */
+#define OPENRAC_UI_CHANGE 3u
+/* Triangle on a page made with OPENRAC_UI_OWN_BACK. */
+#define OPENRAC_UI_BACK 4u
+/* The question of ui_confirm answered: `value` 1 for yes (Cross), 0 for no (Triangle, or the
+ * page left), `tag` the one the mod gave. */
+#define OPENRAC_UI_ANSWER 5u
+/* The page left the screen. */
+#define OPENRAC_UI_HIDE 6u
+
+/* An event of a page (openrac_ui_fn). The port's; valid during the call. Since 1.7. */
+typedef struct openrac_ui_event {
+    /* sizeof(openrac_ui_event) as the port was built: a newer port's is larger. */
+    uint32_t size;
+    /* OPENRAC_UI_SHOW ... OPENRAC_UI_HIDE. */
+    uint32_t kind;
+    /* The item it is about (CHOOSE, CHANGE), else -1. */
+    int32_t item;
+    /* CHANGE: the new choice; ANSWER: 1 yes, 0 no; else 0. */
+    int32_t value;
+    /* ANSWER: the question's tag; else 0. */
+    uint32_t tag;
+    /* The item under the cursor. */
+    int32_t cursor;
+} openrac_ui_event;
+
+/* A mod's page (openrac_api.ui_page): called on the game's thread with the `user` pointer the mod
+ * gave, the page's id and each event. The calls of the table work from here (ui_set, ui_open, ...);
+ * what they ask for happens after the call. Since 1.7. */
+typedef void (*openrac_ui_fn)(void* user, int page, const openrac_ui_event* event);
+
+/* openrac_api.ui_open's page that goes back a level, as Triangle does. Since 1.7. */
+#define OPENRAC_UI_GO_BACK (-1)
+
+/* The game's menu sounds (openrac_api.ui_sound). The port plays the cursor's, a choice's and a
+ * refusal's itself. Since 1.7. */
+#define OPENRAC_UI_SOUND_SELECT 0
+#define OPENRAC_UI_SOUND_CURSOR 1
+#define OPENRAC_UI_SOUND_DENIED 2
+#define OPENRAC_UI_SOUND_OPEN 3
+#define OPENRAC_UI_SOUND_PAGE 4
+
+/* ------------------------------------------------------------------------------------------ *
  * Callbacks
  * ------------------------------------------------------------------------------------------ */
 
@@ -607,6 +743,46 @@ typedef struct openrac_api {
      * It may refuse when the runtime allocated new guest statics or strings since the snapshot,
      * because translated call sites cache those addresses in process memory. Since 1.6. */
     int (*savestate_load)(const void* data, size_t size);
+
+    /* Makes a page of the game's own menus (OPENRAC_UI_OWN_BACK or 0 in `flags`), with nothing on
+     * it yet (ui_set), whose events go to `fn(user, page, event)` (openrac_ui_fn). Returns the
+     * page's id (0 or more), OPENRAC_HOOK_UNKNOWN for no fn or past OPENRAC_UI_PAGES_MAX, or
+     * OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.7. */
+    int (*ui_page)(openrac_mod* mod, uint32_t flags, openrac_ui_fn fn, void* user);
+
+    /* Adds an item named `label` to the title's main menu, after its own item `after`
+     * (OPENRAC_UI_NEW_GAME, OPENRAC_UI_LOAD_GAME, OPENRAC_UI_OPTIONS), which opens the mod's
+     * `page`. Two after the same item go in the order they were added. Returns OPENRAC_HOOK_OK,
+     * OPENRAC_HOOK_UNKNOWN for an unknown `after`, no label, a page that is not the mod's, or past
+     * OPENRAC_UI_MAIN_ITEMS_MAX, or OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.7. */
+    int (*ui_main_item)(openrac_mod* mod, const char* after, const char* label, int page);
+
+    /* Puts `content` on the mod's `page` (openrac_ui_content), in place of what it had: shown at
+     * once if the page is on the screen. Any time. The cursor stays on its item (on the last when
+     * there are fewer, and off a TEXT). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a page
+     * that is not the mod's or no content. Since 1.7. */
+    int (*ui_set)(openrac_mod* mod, int page, const openrac_ui_content* content);
+
+    /* While one of the mod's pages is on the screen: shows its `page`, a level under a page the
+     * main menu opened or in place of one under it; a page that is on a level above goes back to
+     * it. OPENRAC_UI_GO_BACK goes back a level, as Triangle does. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN when none of the mod's pages is on the screen or the page is not the
+     * mod's. Since 1.7. */
+    int (*ui_open)(openrac_mod* mod, int page);
+
+    /* While the mod's `page` is on the screen: asks `question` with the game's prompt box in place
+     * of the list, the footer saying Cross is yes and Triangle no; the answer is an
+     * OPENRAC_UI_ANSWER with `tag`. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN when the page
+     * is not on the screen or another question is open. Since 1.7. */
+    int (*ui_confirm)(openrac_mod* mod, int page, const char* question, uint32_t tag);
+
+    /* Returns the item under the cursor of the mod's `page` (-1 for a page that is not the mod's),
+     * after moving it to `item` when that is 0 or more and an item the cursor takes. Since 1.7. */
+    int (*ui_cursor)(openrac_mod* mod, int page, int item);
+
+    /* Plays one of the game's menu sounds (OPENRAC_UI_SOUND_*) while one of the mod's pages is on
+     * the screen. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN otherwise. Since 1.7. */
+    int (*ui_sound)(openrac_mod* mod, int sound);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

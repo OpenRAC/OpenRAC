@@ -1,5 +1,6 @@
 /* Level 11 moby classes: bob, resort_owner, fred_pokitaru, teleporter, pokitaru_boat. */
 #include "types.h"
+
 #include "rnc/gameplay/hero.h"
 #include "rnc/globals.h"
 #include "rnc/math_consts.h"
@@ -10,6 +11,35 @@
 #include "rnc/overlay/moby_anim.h"
 #include "rnc/data_labels.h"
 #include "rnc/gameplay/state/options.h"
+
+/* Moby.state for the resort-owner callbacks; path progression is separate. */
+enum ResortOwnerState {
+    RESORT_OWNER_INITIALIZE = 0x0,
+    RESORT_OWNER_CHECK_INITIAL_DIALOGUE = 0x1,
+    RESORT_OWNER_INITIAL_DIALOGUE = 0x2,
+    RESORT_OWNER_WAIT_TO_FOLLOW_HERO = 0x3,
+    RESORT_OWNER_FOLLOW_HERO = 0x4,
+    RESORT_OWNER_FOLLOW_DISTANT_HERO = 0x5,
+    RESORT_OWNER_MOVE_TO_PATH_POINT = 0x6,
+    RESORT_OWNER_JUMP_TO_TARGET = 0x7,
+    RESORT_OWNER_MOVE_TO_GATE_TARGET = 0x8,
+    RESORT_OWNER_WAIT_AT_GATE = 0x9,
+    RESORT_OWNER_MOVE_TO_GATE_DEPARTURE_TARGET = 0xA,
+    RESORT_OWNER_WAIT_TO_ADVANCE_FINAL_PATH_LEG = 0xB,
+    RESORT_OWNER_CHECK_PATH_COMPLETION_DIALOGUE = 0xC,
+    RESORT_OWNER_WAIT_FOR_PATH_COMPLETION_DIALOGUE_END = 0xD,
+    RESORT_OWNER_CHECK_POST_PATH_DIALOGUE = 0xE,
+    RESORT_OWNER_WAIT_FOR_POST_PATH_DIALOGUE_END = 0xF
+};
+
+/* Resort-owner path traversal, independent of Moby.state. */
+enum ResortOwnerPathLeg {
+    RESORT_OWNER_FIRST_PATH_LEG = 0x0,
+    RESORT_OWNER_SECOND_PATH_LEG = 0x1,
+    RESORT_OWNER_PENULTIMATE_PATH_LEG = 0x2,
+    RESORT_OWNER_FINAL_PATH_LEG = 0x3
+};
+
 #define MOBY(p) ((struct Moby *)(p))
 
 #define NOT_SDA
@@ -26,7 +56,9 @@ extern unsigned char D_0013D4E3[];
 int memcard_save_data(int slot, int flags) __asm__("FUN_0020b178");
 void mark_moby_for_removal(struct Moby *obj) __asm__("FUN_0020c828");
 
-void FUN_L11_002cb668(struct Moby *moby) {
+void update_pokitaru_pickup(struct Moby *moby) __asm__("FUN_L11_002cb668");
+
+void update_pokitaru_pickup(struct Moby *moby) {
     enum {
         PICKUP_INITIALIZE = 0,
         PICKUP_IDLE = 1,
@@ -65,7 +97,9 @@ extern f32 fast_subtract_rotations(f32, f32) __asm__("func_001FA5C8");
 extern float approach_angle(float *p, float a, float *v, float b, float c, float d) __asm__("FUN_L00_0025be00");
 extern float fast_add_rotations_c(float, float) __asm__("func_001FA580");
 
-void FUN_L11_002cb810(struct Moby *moby) {
+void update_pokitaru_paired_rotation(struct Moby *moby) __asm__("FUN_L11_002cb810");
+
+void update_pokitaru_paired_rotation(struct Moby *moby) {
     enum {
         ROTATION_INITIALIZE = 0,
         ROTATION_WAIT_FOR_TRIGGER = 1,
@@ -108,8 +142,9 @@ void FUN_L11_002cb810(struct Moby *moby) {
 
 /* Ported from rac1-decomp (src/overlays/l11_pokitaru/vendor_002CC828.c: func_L11_002CCB50), where it is exact; names translated to the US level program. */
 
+void trigger_pokitaru_paired_rotation(struct Moby *moby) __asm__("FUN_L11_002cb990");
 
-void FUN_L11_002cb990(struct Moby *moby) {
+void trigger_pokitaru_paired_rotation(struct Moby *moby) {
     char *state = (char *)moby->pvars;
     if (moby->oclass == 0x41 && moby->state == 1) {
         char *child;
@@ -169,15 +204,15 @@ typedef struct {
     int target_timer;
 } WD11;
 
-extern void FUN_L05_00317398(void *);
+extern void attach_big_head_cheat_manipulator(void *) __asm__("FUN_L05_00317398");
 extern int FUN_00214720(void *, int);
 extern int update_npc_dialogue(void *, void *) __asm__("FUN_L00_00266448");
 extern int initialize_npc_dialogue(void *, void *) __asm__("FUN_L00_002668a0");
 extern void begin_dialogue_camera_transition(void *, float) __asm__("FUN_L01_002783a8");
-extern void FUN_L00_00260860(int, int);
+extern void grant_inventory_item(int, int) __asm__("FUN_L00_00260860");
 extern void jet_reset_camera(void *, void *) __asm__("FUN_L00_00284e50");
 extern void memcard_save_data_d0710(int, int) __asm__("FUN_0020b178");
-extern void FUN_L00_002039a0(void);
+extern void clear_active_help_record(void) __asm__("FUN_L00_002039a0");
 extern int help_request(int, int) __asm__("FUN_L00_00203908");
 extern unsigned char D_0013D4C3 __attribute__((section(".data")));
 extern int D_L11_0015F5C4;
@@ -211,7 +246,7 @@ void bob_update(WM11 *moby) {
     float rate;
     float head_rate;
     int tracking;
-    FUN_L05_00317398(moby);
+    attach_big_head_cheat_manipulator(moby);
     switch (moby->state) {
     case BOB_INITIALIZE:
         if (D_0013D4C3) {
@@ -234,10 +269,10 @@ void bob_update(WM11 *moby) {
         if (D_L11_0015F5C4 != 2) {
             moby->state = 1;
             if (moby_vars->h04 == 2) {
-                FUN_L00_00260860(3, 1);
+                grant_inventory_item(3, 1);
                 jet_reset_camera(hero.motion.pos.f, hero.motion.pos.f + 4);
                 memcard_save_data_d0710(0, -1);
-                FUN_L00_002039a0();
+                clear_active_help_record();
                 help_request(0x2AFB, 0x3D);
             }
         }
@@ -260,7 +295,7 @@ void bob_update(WM11 *moby) {
                 fast_dec_timer(&moby_vars->moving_timer);
         } else if (moby_vars->moving_timer) {
             moby_vars->moving_timer = 0;
-            qcopy(moby_vars->target, hero.motion.unkD0.f);
+            qcopy(moby_vars->target, hero.motion.body_center.f);
         }
         if (fast_dec_timer(&moby_vars->target_timer)) {
             float heading;
@@ -271,7 +306,7 @@ void bob_update(WM11 *moby) {
             fast_vec_add(moby_vars->target, moby_vars->target, moby->position);
         }
         if (moby_vars->moving_timer) {
-            qcopy(scratch.target, hero.motion.unkD0.f);
+            qcopy(scratch.target, hero.motion.body_center.f);
             rate = 0.04f;
             head_rate = 0.3f;
         } else {
@@ -309,23 +344,29 @@ extern float distance_xyz(void *, void *) __asm__("FUN_001f9b48");
 
 extern float D_L11_001677C0[];
 extern void FUN_L00_0025a120(void *);
-extern void FUN_L02_002e0cd8(void *);
-extern void FUN_L11_002d1030(void *);
-extern void FUN_L11_002d1340(void *);
-extern void FUN_L11_002d14b0(void *);
-void FUN_L11_002d27b0(WM11 *m);
+extern void attach_big_head_cheat_manipulator_to_matching_moby(void *) __asm__("FUN_L02_002e0cd8");
+void update_resort_owner_state_actions(void *mp) __asm__("FUN_L11_002d1030");
+
+extern void update_resort_owner_state_actions(void *) __asm__("FUN_L11_002d1030");
+void apply_resort_owner_movement(void *mp) __asm__("FUN_L11_002d1340");
+
+extern void apply_resort_owner_movement(void *) __asm__("FUN_L11_002d1340");
+extern void update_resort_owner_state_transitions(void *) __asm__("FUN_L11_002d14b0");
+void update_resort_owner_look_tracking(WM11 *moby) __asm__("FUN_L11_002d27b0");
+
+void update_resort_owner_look_tracking(WM11 *m) __asm__("FUN_L11_002d27b0");
 
 void resort_owner_update(struct Moby *moby) __asm__("FUN_L11_002d0fa8");
 void resort_owner_update(struct Moby *moby) {
-    FUN_L02_002e0cd8(moby);
+    attach_big_head_cheat_manipulator_to_matching_moby(moby);
     if (moby->visible && distance_xyz(&moby->pos, D_L11_001677C0) < 38.0f) {
         FUN_L00_0025a120(moby);
         moby->shadow_range = 30;
     }
-    FUN_L11_002d1030(moby);
-    FUN_L11_002d1340(moby);
-    FUN_L11_002d14b0(moby);
-    FUN_L11_002d27b0(moby);
+    update_resort_owner_state_actions(moby);
+    apply_resort_owner_movement(moby);
+    update_resort_owner_state_transitions(moby);
+    update_resort_owner_look_tracking(moby);
 }
 extern float fast_arc_tan(float, float) __asm__("FUN_001f9e90");
 extern float fast_cos(float) __asm__("FUN_001f9dc8");
@@ -336,7 +377,7 @@ extern void fast_vec_scale(void *, void *, float) __asm__("FUN_001f9a68");
 extern float vector_length_xy(void *) __asm__("FUN_001f9b20");
 extern float fast_vec_length(void *) __asm__("FUN_001f9af0");
 extern float FUN_L00_0025abf0(void *, void *, float, int, float);
-extern void FUN_L00_002604f0(void *, void *, void *, void *, void *, void *);
+extern void transform_attachment_pose(void *, void *, void *, void *, void *, void *) __asm__("FUN_L00_002604f0");
 extern int scale_game_frames(int) __asm__("FUN_001f96f8");
 extern void FUN_00212f90(void *, int, int, int);
 extern void clear_u64_value(void *) __asm__("FUN_001f99f8");
@@ -347,30 +388,16 @@ int D_L11_001613F0 = 0;
 extern int D_L11_0016D260[];
 extern int D_L11_0015FFD8;
 
-void FUN_L11_002d1030(void *mp) {
-    enum {
-        RESORT_OWNER_INITIALIZE = 0,
-        RESORT_OWNER_CHECK_INITIAL_DIALOGUE = 1,
-        RESORT_OWNER_INITIAL_DIALOGUE = 2,
-        RESORT_OWNER_WAIT_TO_FOLLOW_HERO = 3,
-        RESORT_OWNER_FOLLOW_HERO = 4,
-        RESORT_OWNER_FOLLOW_DISTANT_HERO = 5,
-        RESORT_OWNER_MOVE_TO_PATH_POINT = 6,
-        RESORT_OWNER_JUMP_TO_TARGET = 7,
-        RESORT_OWNER_MOVE_TO_GATE_TARGET = 8,
-        RESORT_OWNER_WAIT_AT_GATE = 9,
-        RESORT_OWNER_MOVE_TO_GATE_DEPARTURE_TARGET = 10,
-        RESORT_OWNER_WAIT_TO_ADVANCE_FINAL_PATH_LEG = 11,
-        RESORT_OWNER_CHECK_PATH_COMPLETION_DIALOGUE = 12,
-        RESORT_OWNER_WAIT_FOR_PATH_COMPLETION_DIALOGUE_END = 13
-    };
+int try_activate_pokitaru_gate(struct Moby *moby) __asm__("FUN_L11_0030a480");
+
+void update_resort_owner_state_actions(void *mp) {
     struct Moby *moby = mp;
     char *pvars = (char *)moby->pvars;
-    float ang;
-    float f0;
-    float f1;
-    float f2;
-    float f3;
+    float target_yaw;
+    float motion_scalar;
+    float vertical_motion;
+    float vertical_motion_decrement;
+    float horizontal_speed;
 
     switch (moby->state) {
     case RESORT_OWNER_INITIALIZE:
@@ -387,39 +414,39 @@ void FUN_L11_002d1030(void *mp) {
     case RESORT_OWNER_MOVE_TO_GATE_DEPARTURE_TARGET:
     {
         char *yaw_ptr = (char *)moby + 0x48;
-        ang = fast_arc_tan(*(float *)(pvars + 0x120) - *(float *)((char *)moby + 0x10),
+        target_yaw = fast_arc_tan(*(float *)(pvars + 0x120) - *(float *)((char *)moby + 0x10),
                            *(float *)(pvars + 0x124) - *(float *)((char *)moby + 0x14));
-        approach_angle((float *)(yaw_ptr), ang, (float *)(pvars + 0x150), D_0015ED70 * 12.566371f,
+        approach_angle((float *)(yaw_ptr), target_yaw, (float *)(pvars + 0x150), D_0015ED70 * 12.566371f,
                          D_0015ED70 * 25.132742f, D_0015ED6C * 12.566371f);
         *(float *)(pvars + 0x130) = fast_cos(*(float *)(yaw_ptr)) * *(float *)(pvars + 0x154);
-        f0 = fast_sin(*(float *)(yaw_ptr));
-        f1 = *(float *)(pvars + 0x148);
-        f2 = D_0015ED70 * 20.0f;
-        f3 = *(float *)(pvars + 0x154);
-        *(float *)(pvars + 0x134) = f0 * f3;
-        f1 = f1 - f2;
-        *(float *)(pvars + 0x138) = f1;
-        if (0.0f < f1) {
+        motion_scalar = fast_sin(*(float *)(yaw_ptr));
+        vertical_motion = *(float *)(pvars + 0x148);
+        vertical_motion_decrement = D_0015ED70 * 20.0f;
+        horizontal_speed = *(float *)(pvars + 0x154);
+        *(float *)(pvars + 0x134) = motion_scalar * horizontal_speed;
+        vertical_motion = vertical_motion - vertical_motion_decrement;
+        *(float *)(pvars + 0x138) = vertical_motion;
+        if (0.0f < vertical_motion) {
             *(float *)(pvars + 0x138) = 0.0f;
             /* Fakematch: storing the speed back is a no-op that reload
              * deletes, but it keeps f3 live into this branch, so the
              * first scheduling pass hoists the 0x154 load and the
              * allocator gives it $f4 as in retail. */
-            *(float *)(pvars + 0x154) = f3;
+            *(float *)(pvars + 0x154) = horizontal_speed;
         }
         break;
     }
     case RESORT_OWNER_JUMP_TO_TARGET:
         if (FUN_00214cc8(moby, 9.0f)) {
             fast_vec_sub(pvars + 0x130, pvars + 0x120, (char *)moby + 0x10);
-            f0 = (float)scale_game_frames(0x3C);
-            fast_vec_scale(pvars + 0x130, pvars + 0x130, 1.0f / f0);
-            f0 = vector_length_xy(pvars + 0x130);
-            *(float *)(pvars + 0x138) = FUN_L00_0025abf0((char *)moby + 0x10, pvars + 0x120, f0, 0, -(D_0015ED70 * 10.8f));
+            motion_scalar = (float)scale_game_frames(0x3C);
+            fast_vec_scale(pvars + 0x130, pvars + 0x130, 1.0f / motion_scalar);
+            motion_scalar = vector_length_xy(pvars + 0x130);
+            *(float *)(pvars + 0x138) = FUN_L00_0025abf0((char *)moby + 0x10, pvars + 0x120, motion_scalar, 0, -(D_0015ED70 * 10.8f));
             *(float *)((char *)moby + 0x58) = 0.6666667f;
         }
-        f0 = fast_vec_length(pvars + 0x130);
-        if (0.0f < f0)
+        motion_scalar = fast_vec_length(pvars + 0x130);
+        if (0.0f < motion_scalar)
             *(float *)(pvars + 0x138) = *(float *)(pvars + 0x138) - D_0015ED70 * 10.8f;
         if (FUN_00214cc8(moby, 29.0f)) {
             clear_u64_value(pvars + 0x130);
@@ -428,14 +455,14 @@ void FUN_L11_002d1030(void *mp) {
         break;
     case RESORT_OWNER_WAIT_AT_GATE:
     {
-        int *tbl = (int *)(pvars + 0xF0);
-        unsigned int idx = 0U < *(unsigned int *)(pvars + 0x158);
+        int *gate_moby_index_ptr = (int *)(pvars + 0xF0);
+        unsigned int gate_slot_index = 0U < *(unsigned int *)(pvars + 0x158);
         char *gate_moby;
-        tbl += idx;
+        gate_moby_index_ptr += gate_slot_index;
         gate_moby = (char *)D_L11_0015FFD8;
-        gate_moby += *tbl << 8;
-        FUN_L00_002604f0(moby, gate_moby, &D_L11_001613E0, &D_L11_001613F0, (char *)moby + 0x10, (char *)moby + 0x40);
-        if (FUN_L11_0030a480((struct Moby *)gate_moby) == 0)
+        gate_moby += *gate_moby_index_ptr << 8;
+        transform_attachment_pose(moby, gate_moby, &D_L11_001613E0, &D_L11_001613F0, (char *)moby + 0x10, (char *)moby + 0x40);
+        if (try_activate_pokitaru_gate((struct Moby *)gate_moby) == 0)
             break;
     }
         if (moby->prev_seq != 5)
@@ -446,7 +473,7 @@ void FUN_L11_002d1030(void *mp) {
             break;
         if (D_L11_0016D260[13] != scale_game_frames(0x7D0))
             break;
-        FUN_L11_002cb990((struct Moby *)(D_L11_0015FFD8 + (*(int *)(pvars + 0x104) << 8)));
+        trigger_pokitaru_paired_rotation((struct Moby *)(D_L11_0015FFD8 + (*(int *)(pvars + 0x104) << 8)));
         break;
     default:
         break;
@@ -459,13 +486,9 @@ void FUN_L11_002d1030(void *mp) {
 
 extern void fast_vec_sub(void *, void *, void *) __asm__("FUN_001f9a28");
 extern void FUN_L00_00258830(int, int, float, float, float, int);
-extern void FUN_L00_00261d78(float, void *, void *, void *);
+extern void resolve_point_path_segment_xy_clearance(float, void *, void *, void *) __asm__("FUN_L00_00261d78");
 
-void FUN_L11_002d1340(void *mp) {
-    enum {
-        RESORT_OWNER_PENULTIMATE_PATH_LEG = 2,
-        RESORT_OWNER_FINAL_PATH_LEG = 3
-    };
+void apply_resort_owner_movement(void *mp) {
     unsigned char *moby = mp;
     char *moby_vars = *(char **)(moby + 0x78);
     float A[4];
@@ -474,35 +497,41 @@ void FUN_L11_002d1340(void *mp) {
     qcopy(B, moby_vars + 0x130);
     FUN_L00_00258830((int)moby, (int)B, 0.5f, 0.3f, 0.0f, 0x10);
     if ((moby[0x20] >= 4 && moby[0x20] <= 6) || (moby[0x20] == 7 && *(int *)(moby_vars + 0x15C) == 3)) {
-        FUN_L00_00261d78(0.3f, *(void **)(moby_vars + 0x60 - -(*(int *)(moby_vars + 0x158) * 4)), moby + 0x10,
+        resolve_point_path_segment_xy_clearance(0.3f, *(void **)(moby_vars + 0x60 - -(*(int *)(moby_vars + 0x158) * 4)), moby + 0x10,
                          moby + 0x10);
         switch (*(int *)(moby_vars + 0x158)) {
         case RESORT_OWNER_PENULTIMATE_PATH_LEG:
-            FUN_L00_00261d78(0.3f, *(void **)(moby_vars + 0x80), moby + 0x10, moby + 0x10);
-            FUN_L00_00261d78(0.3f, *(void **)(moby_vars + 0x84), moby + 0x10, moby + 0x10);
-            FUN_L00_00261d78(0.3f, *(void **)(moby_vars + 0x88), moby + 0x10, moby + 0x10);
+            resolve_point_path_segment_xy_clearance(0.3f, *(void **)(moby_vars + 0x80), moby + 0x10, moby + 0x10);
+            resolve_point_path_segment_xy_clearance(0.3f, *(void **)(moby_vars + 0x84), moby + 0x10, moby + 0x10);
+            resolve_point_path_segment_xy_clearance(0.3f, *(void **)(moby_vars + 0x88), moby + 0x10, moby + 0x10);
             break;
         case RESORT_OWNER_FINAL_PATH_LEG:
-            FUN_L00_00261d78(0.3f, *(void **)(moby_vars + 0x80), moby + 0x10, moby + 0x10);
-            FUN_L00_00261d78(0.3f, *(void **)(moby_vars + 0x84), moby + 0x10, moby + 0x10);
+            resolve_point_path_segment_xy_clearance(0.3f, *(void **)(moby_vars + 0x80), moby + 0x10, moby + 0x10);
+            resolve_point_path_segment_xy_clearance(0.3f, *(void **)(moby_vars + 0x84), moby + 0x10, moby + 0x10);
             break;
         }
     }
     fast_vec_sub(moby_vars + 0x140, moby + 0x10, A);
 }
-extern int FUN_L11_002d2460(struct Moby *moby);
-extern int FUN_L11_002d2340(struct Moby *moby, char *other);
-extern int FUN_L11_002d25e8(struct Moby *m, float *out);
+int classify_resort_owner_target_proximity(struct Moby *moby) __asm__("FUN_L11_002d2460");
+
+extern int classify_resort_owner_target_proximity(struct Moby *moby) __asm__("FUN_L11_002d2460");
+int try_update_resort_owner_path_target(struct Moby *moby, char *other) __asm__("FUN_L11_002d2340");
+
+extern int try_update_resort_owner_path_target(struct Moby *moby, char *other) __asm__("FUN_L11_002d2340");
+int try_find_resort_owner_jump_target(struct Moby *moby, float *out) __asm__("FUN_L11_002d25e8");
+
+extern int try_find_resort_owner_jump_target(struct Moby *m, float *out) __asm__("FUN_L11_002d25e8");
 extern void FUN_L11_002d2088_c(struct Moby *moby, int state) __asm__("FUN_L11_002d2088");
 extern float ground_height_14b0(void *) __asm__("FUN_L00_00259710");
 extern void scale_vector_14b0(void *out, void *a, f32 s) __asm__("FUN_001f9bf8");
 extern void fast_vec_add(void *, void *, void *) __asm__("FUN_001f9a10");
 extern void clear_u64_value(void *) __asm__("FUN_001f99f8");
 extern void euler_rotation_basis(void *, void *) __asm__("FUN_001fa030");
-extern void FUN_L05_0028be78(void *, int, int);
+extern void build_symmetric_adjacency_masks(void *, int, int) __asm__("FUN_L05_0028be78");
 extern void jet_clear_persistent(int) __asm__("FUN_L00_002502a0");
-extern void FUN_L00_00266858(void *, int);
-extern int FUN_L11_0030a830(struct Moby *arg);
+extern void set_moby_dialogue_record_value(void *, int) __asm__("FUN_L00_00266858");
+extern int is_moby_in_state_five(struct Moby *arg) __asm__("FUN_L11_0030a830");
 extern void FUN_L11_0030a840(unsigned char *arg);
 extern unsigned char D_0013D4EE __attribute__((section(".data")));
 extern unsigned char D_0013D3DC __attribute__((section(".data")));
@@ -519,9 +548,10 @@ extern struct PokPathPoint *path_points_14b0 __asm__("D_L11_001600EC");
 extern int D_L11_0015FFD8;
 extern int D_001413D4_14b0 __asm__("D_001413D4") __attribute__((section(".data")));
 extern char D_L11_0016D270[];
-extern float D_L11_00161410 __attribute__((sda));
-extern float D_L11_00161414 __attribute__((sda));
-extern float D_L11_00161418 __attribute__((sda));
+#include "rnc/overlay/l11/gameplay/entities/bob_globals.h"
+extern float resort_owner_gate_jump_target_local_z_offset_gp __asm__("D_L11_00161410") __attribute__((sda));
+extern float resort_owner_gate_jump_target_local_y_offset_gp __asm__("D_L11_00161414") __attribute__((sda));
+extern float resort_owner_gate_jump_target_local_x_offset_gp __asm__("D_L11_00161418") __attribute__((sda));
 
 /* Pvars of the path-walking NPC run by resort_owner_update. */
 struct PokKeeperVars {
@@ -557,100 +587,76 @@ struct PokKeeperVars {
 
 /* NPC that talks to the hero, then walks a chain of level path points ahead of him, opening the
    gate mobys (FUN_L11_0030a840) and moving path points as it goes. */
-void FUN_L11_002d14b0(void *arg) {
-    enum {
-        RESORT_OWNER_INITIALIZE = 0,
-        RESORT_OWNER_CHECK_INITIAL_DIALOGUE = 1,
-        RESORT_OWNER_INITIAL_DIALOGUE = 2,
-        RESORT_OWNER_WAIT_TO_FOLLOW_HERO = 3,
-        RESORT_OWNER_FOLLOW_HERO = 4,
-        RESORT_OWNER_FOLLOW_DISTANT_HERO = 5,
-        RESORT_OWNER_MOVE_TO_PATH_POINT = 6,
-        RESORT_OWNER_JUMP_TO_TARGET = 7,
-        RESORT_OWNER_MOVE_TO_GATE_TARGET = 8,
-        RESORT_OWNER_WAIT_AT_GATE = 9,
-        RESORT_OWNER_MOVE_TO_GATE_DEPARTURE_TARGET = 10,
-        RESORT_OWNER_WAIT_TO_ADVANCE_FINAL_PATH_LEG = 11,
-        RESORT_OWNER_CHECK_PATH_COMPLETION_DIALOGUE = 12,
-        RESORT_OWNER_WAIT_FOR_PATH_COMPLETION_DIALOGUE_END = 13,
-        RESORT_OWNER_CHECK_POST_PATH_DIALOGUE = 14,
-        RESORT_OWNER_WAIT_FOR_POST_PATH_DIALOGUE_END = 15
-    };
-    enum {
-        RESORT_OWNER_FIRST_PATH_LEG = 0,
-        RESORT_OWNER_SECOND_PATH_LEG = 1,
-        RESORT_OWNER_PENULTIMATE_PATH_LEG = 2,
-        RESORT_OWNER_FINAL_PATH_LEG = 3
-    };
-    struct Moby *moby = arg;
-    struct PokKeeperVars *d = (struct PokKeeperVars *)moby->pvars;
-    int proximity = FUN_L11_002d2460(moby);
-    float v[4];
-    float r[4];
+void update_resort_owner_state_transitions(void *resort_owner_moby) {
+    struct Moby *moby = resort_owner_moby;
+    struct PokKeeperVars *moby_vars = (struct PokKeeperVars *)moby->pvars;
+    int proximity = classify_resort_owner_target_proximity(moby);
+    float position_scratch[4];
+    float dialogue_rotation[4];
 
     if (moby->state >= 3 && moby->state <= 5 && proximity == 0) {
         FUN_L11_002d2088_c(moby, 6);
         return;
     }
     if (moby->state >= 4 && moby->state <= 6) {
-        scale_vector_14b0(v, &moby->rot_row0, 3.0f);
-        fast_vec_add(v, v, &moby->pos);
-        if (FUN_L11_002d25e8(moby, v)) {
-            qcopy(&d->target, v);
-            d->target.z = ground_height_14b0(&d->target);
-            d->next_state = 3;
+        scale_vector_14b0(position_scratch, &moby->rot_row0, 3.0f);
+        fast_vec_add(position_scratch, position_scratch, &moby->pos);
+        if (try_find_resort_owner_jump_target(moby, position_scratch)) {
+            qcopy(&moby_vars->target, position_scratch);
+            moby_vars->target.z = ground_height_14b0(&moby_vars->target);
+            moby_vars->next_state = 3;
             FUN_L11_002d2088_c(moby, 7);
         }
     }
     switch (moby->state) {
     case RESORT_OWNER_INITIALIZE:
-        initialize_npc_dialogue(moby, d->talk);
+        initialize_npc_dialogue(moby, moby_vars->talk);
         moby->update_dist = 0xFF;
-        FUN_L05_0028be78(&d->unk60[0], 1, d->unk70[0]);
-        FUN_L05_0028be78(&d->unk60[1], 1, d->unk70[1]);
-        FUN_L05_0028be78(&d->unk60[2], 1, d->unk70[2]);
-        clear_u64_value(&d->unk130);
-        clear_u64_value(&d->unk140);
+        build_symmetric_adjacency_masks(&moby_vars->unk60[0], 1, moby_vars->unk70[0]);
+        build_symmetric_adjacency_masks(&moby_vars->unk60[1], 1, moby_vars->unk70[1]);
+        build_symmetric_adjacency_masks(&moby_vars->unk60[2], 1, moby_vars->unk70[2]);
+        clear_u64_value(&moby_vars->unk130);
+        clear_u64_value(&moby_vars->unk140);
         if (D_0013D4EE) {
-            if (D_0014C050[d->unk10C + D_0015ED84 * 16] == 0xFF) {
-                FUN_L11_0030a840((unsigned char *)(D_L11_0015FFD8 + (d->gates[0] << 8)));
-                FUN_L11_0030a840((unsigned char *)(D_L11_0015FFD8 + (d->gates[1] << 8)));
-                FUN_L11_002cb990((struct Moby *)(D_L11_0015FFD8 + (d->unk104 << 8)));
+            if (D_0014C050[moby_vars->unk10C + D_0015ED84 * 16] == 0xFF) {
+                FUN_L11_0030a840((unsigned char *)(D_L11_0015FFD8 + (moby_vars->gates[0] << 8)));
+                FUN_L11_0030a840((unsigned char *)(D_L11_0015FFD8 + (moby_vars->gates[1] << 8)));
+                trigger_pokitaru_paired_rotation((struct Moby *)(D_L11_0015FFD8 + (moby_vars->unk104 << 8)));
                 mark_moby_for_removal(moby);
                 break;
             }
         } else {
-            if (D_0014C050[d->unk10C + D_0015ED84 * 16] == 0xFF) {
-                d->leg = 3;
-                qcopy_nc(&moby->pos, &path_points_14b0[d->points[3]].pos);
-                qcopy_nc(&moby->rot, &path_points_14b0[d->points[3]].rot);
-                FUN_L11_002cb990((struct Moby *)(D_L11_0015FFD8 + (d->unk104 << 8)));
+            if (D_0014C050[moby_vars->unk10C + D_0015ED84 * 16] == 0xFF) {
+                moby_vars->leg = 3;
+                qcopy_nc(&moby->pos, &path_points_14b0[moby_vars->points[3]].pos);
+                qcopy_nc(&moby->rot, &path_points_14b0[moby_vars->points[3]].rot);
+                trigger_pokitaru_paired_rotation((struct Moby *)(D_L11_0015FFD8 + (moby_vars->unk104 << 8)));
                 FUN_L11_002d2088_c(moby, 0xE);
-                d->talk_range = 10.0f;
-                FUN_L11_0030a840((unsigned char *)(D_L11_0015FFD8 + (d->gates[0] << 8)));
-                FUN_L11_0030a840((unsigned char *)(D_L11_0015FFD8 + (d->gates[1] << 8)));
+                moby_vars->talk_range = 10.0f;
+                FUN_L11_0030a840((unsigned char *)(D_L11_0015FFD8 + (moby_vars->gates[0] << 8)));
+                FUN_L11_0030a840((unsigned char *)(D_L11_0015FFD8 + (moby_vars->gates[1] << 8)));
                 break;
             }
         }
-        if (D_0014C050[d->unk108 + D_0015ED84 * 16] == 0xFF &&
-            distance_xyz(&hero.motion.pos, &path_points_14b0[d->points[1]].pos) < 12.0f) {
-            d->leg = 1;
-            qcopy_nc(&moby->pos, &path_points_14b0[d->points[1]].pos);
-            qcopy_nc(&moby->rot, &path_points_14b0[d->points[1]].rot);
+        if (D_0014C050[moby_vars->unk108 + D_0015ED84 * 16] == 0xFF &&
+            distance_xyz(&hero.motion.pos, &path_points_14b0[moby_vars->points[1]].pos) < 12.0f) {
+            moby_vars->leg = 1;
+            qcopy_nc(&moby->pos, &path_points_14b0[moby_vars->points[1]].pos);
+            qcopy_nc(&moby->rot, &path_points_14b0[moby_vars->points[1]].rot);
             FUN_L11_002d2088_c(moby, 6);
-            path_points_14b0[d->unk114].pos.z -= 500.0f;
-            FUN_L11_0030a840((unsigned char *)(D_L11_0015FFD8 + (d->gates[0] << 8)));
+            path_points_14b0[moby_vars->unk114].pos.z -= 500.0f;
+            FUN_L11_0030a840((unsigned char *)(D_L11_0015FFD8 + (moby_vars->gates[0] << 8)));
             break;
         }
-        path_points_14b0[d->unk110].pos.z -= 500.0f;
-        path_points_14b0[d->unk114].pos.z -= 500.0f;
-        d->leg = 0;
-        d->talk_range = 5.0f;
+        path_points_14b0[moby_vars->unk110].pos.z -= 500.0f;
+        path_points_14b0[moby_vars->unk114].pos.z -= 500.0f;
+        moby_vars->leg = 0;
+        moby_vars->talk_range = 5.0f;
         FUN_L11_002d2088_c(moby, 1);
         break;
     case RESORT_OWNER_CHECK_INITIAL_DIALOGUE:
-        if (d->unk56 == 0) {
-            if (hero.air_frames.s == 0 && update_npc_dialogue(moby, d->talk)) {
+        if (moby_vars->unk56 == 0) {
+            if (hero.air_frames.s == 0 && update_npc_dialogue(moby, moby_vars->talk)) {
                 begin_dialogue_camera_transition(moby, 2.5f);
                 FUN_L11_002d2088_c(moby, 2);
             }
@@ -664,51 +670,51 @@ void FUN_L11_002d14b0(void *arg) {
         break;
     case RESORT_OWNER_WAIT_TO_FOLLOW_HERO:
         if (vector_distance(&moby->pos, &hero.motion.pos) > 6.0f &&
-            FUN_L11_002d2340(moby, (char *)&hero.motion.pos) && proximity == 1)
+            try_update_resort_owner_path_target(moby, (char *)&hero.motion.pos) && proximity == 1)
             FUN_L11_002d2088_c(moby, 4);
         break;
     case RESORT_OWNER_FOLLOW_HERO:
         if (vector_distance(&moby->pos, &hero.motion.pos) < 3.0f ||
-            !FUN_L11_002d2340(moby, (char *)&hero.motion.pos) || proximity == 2)
+            !try_update_resort_owner_path_target(moby, (char *)&hero.motion.pos) || proximity == 2)
             FUN_L11_002d2088_c(moby, 3);
         else if (vector_distance(&moby->pos, &hero.motion.pos) > 8.0f)
             FUN_L11_002d2088_c(moby, 5);
         break;
     case RESORT_OWNER_FOLLOW_DISTANT_HERO:
         if (vector_distance(&moby->pos, &hero.motion.pos) < 3.0f ||
-            !FUN_L11_002d2340(moby, (char *)&hero.motion.pos) || proximity == 2)
+            !try_update_resort_owner_path_target(moby, (char *)&hero.motion.pos) || proximity == 2)
             FUN_L11_002d2088_c(moby, 3);
         else if (vector_distance(&moby->pos, &hero.motion.pos) < 4.0f)
             FUN_L11_002d2088_c(moby, 4);
         break;
     case RESORT_OWNER_MOVE_TO_PATH_POINT:
-        FUN_L11_002d2340(moby, (char *)&path_points_14b0[d->points[d->leg]].pos);
-        if (vector_distance(&moby->pos, &d->target) < 1.0f) {
-            switch (d->leg) {
+        try_update_resort_owner_path_target(moby, (char *)&path_points_14b0[moby_vars->points[moby_vars->leg]].pos);
+        if (vector_distance(&moby->pos, &moby_vars->target) < 1.0f) {
+            switch (moby_vars->leg) {
             case RESORT_OWNER_FIRST_PATH_LEG: {
-                struct Moby *o = (struct Moby *)(D_L11_0015FFD8 + (d->gates[0] << 8));
-                qcopy(&d->target, &o->pos);
-                scale_vector_14b0(v, &o->rot_row0, D_L11_00161418);
-                fast_vec_add(&d->target, &d->target, v);
-                scale_vector_14b0(v, &o->rot_row1, D_L11_00161414);
-                fast_vec_add(&d->target, &d->target, v);
-                scale_vector_14b0(v, &o->rot_row2, D_L11_00161410);
-                fast_vec_add(&d->target, &d->target, v);
-                d->next_state = 8;
+                struct Moby *o = (struct Moby *)(D_L11_0015FFD8 + (moby_vars->gates[0] << 8));
+                qcopy(&moby_vars->target, &o->pos);
+                scale_vector_14b0(position_scratch, &o->rot_row0, resort_owner_gate_jump_target_local_x_offset_gp);
+                fast_vec_add(&moby_vars->target, &moby_vars->target, position_scratch);
+                scale_vector_14b0(position_scratch, &o->rot_row1, resort_owner_gate_jump_target_local_y_offset_gp);
+                fast_vec_add(&moby_vars->target, &moby_vars->target, position_scratch);
+                scale_vector_14b0(position_scratch, &o->rot_row2, resort_owner_gate_jump_target_local_z_offset_gp);
+                fast_vec_add(&moby_vars->target, &moby_vars->target, position_scratch);
+                moby_vars->next_state = 8;
                 FUN_L11_002d2088_c(moby, 7);
                 break;
             }
             case RESORT_OWNER_SECOND_PATH_LEG: {
-                struct Moby *o = (struct Moby *)(D_L11_0015FFD8 + (d->gates[1] << 8));
-                qcopy(&d->target, &o->pos);
-                scale_vector_14b0(v, &o->rot_row0, D_L11_00161418);
-                fast_vec_add(&d->target, &d->target, v);
-                scale_vector_14b0(v, &o->rot_row1, -D_L11_00161414);
-                fast_vec_add(&d->target, &d->target, v);
-                scale_vector_14b0(v, &o->rot_row2, D_L11_00161410);
-                fast_vec_add(&d->target, &d->target, v);
-                path_points_14b0[d->unk110].pos.z += 500.0f;
-                d->next_state = 8;
+                struct Moby *o = (struct Moby *)(D_L11_0015FFD8 + (moby_vars->gates[1] << 8));
+                qcopy(&moby_vars->target, &o->pos);
+                scale_vector_14b0(position_scratch, &o->rot_row0, resort_owner_gate_jump_target_local_x_offset_gp);
+                fast_vec_add(&moby_vars->target, &moby_vars->target, position_scratch);
+                scale_vector_14b0(position_scratch, &o->rot_row1, -resort_owner_gate_jump_target_local_y_offset_gp);
+                fast_vec_add(&moby_vars->target, &moby_vars->target, position_scratch);
+                scale_vector_14b0(position_scratch, &o->rot_row2, resort_owner_gate_jump_target_local_z_offset_gp);
+                fast_vec_add(&moby_vars->target, &moby_vars->target, position_scratch);
+                path_points_14b0[moby_vars->unk110].pos.z += 500.0f;
+                moby_vars->next_state = 8;
                 FUN_L11_002d2088_c(moby, 7);
                 break;
             }
@@ -716,27 +722,27 @@ void FUN_L11_002d14b0(void *arg) {
                 FUN_L11_002d2088_c(moby, 0xB);
                 break;
             case RESORT_OWNER_FINAL_PATH_LEG:
-                path_points_14b0[d->unk114].pos.z += 500.0f;
+                path_points_14b0[moby_vars->unk114].pos.z += 500.0f;
                 FUN_L11_002d2088_c(moby, 0xC);
                 break;
             }
         }
         break;
     case RESORT_OWNER_CHECK_PATH_COMPLETION_DIALOGUE:
-        d->talk_range = 255.0f;
-        if (update_npc_dialogue(moby, d->talk)) {
-            jet_clear_persistent(d->unk10C);
+        moby_vars->talk_range = 255.0f;
+        if (update_npc_dialogue(moby, moby_vars->talk)) {
+            jet_clear_persistent(moby_vars->unk10C);
             D_0013D3DC = 1;
-            FUN_L00_00266858(moby, 2);
-            qcopy_nc(&moby->pos, &path_points_14b0[d->points[d->leg]].pos);
-            qcopy_nc(&moby->rot, &path_points_14b0[d->points[d->leg]].rot);
+            set_moby_dialogue_record_value(moby, 2);
+            qcopy_nc(&moby->pos, &path_points_14b0[moby_vars->points[moby_vars->leg]].pos);
+            qcopy_nc(&moby->rot, &path_points_14b0[moby_vars->points[moby_vars->leg]].rot);
             euler_rotation_basis(&moby->rot_row0, &moby->rot);
-            scale_vector_14b0(v, &moby->rot_row0, 2.0f);
-            fast_vec_add(v, v, &moby->pos);
-            qcopy(r, &moby->rot);
-            r[2] = fast_add_rotations(r[2], 3.14159f);
-            qcopy(D_L11_0016D270, v);
-            qcopy(D_L11_0016D270 + 0x10, r);
+            scale_vector_14b0(position_scratch, &moby->rot_row0, 2.0f);
+            fast_vec_add(position_scratch, position_scratch, &moby->pos);
+            qcopy(dialogue_rotation, &moby->rot);
+            dialogue_rotation[2] = fast_add_rotations(dialogue_rotation[2], 3.14159f);
+            qcopy(D_L11_0016D270, position_scratch);
+            qcopy(D_L11_0016D270 + 0x10, dialogue_rotation);
             *(short *)(D_L11_0016D270 + 0x36) = 1;
             begin_dialogue_camera_transition(moby, 2.5f);
             FUN_L11_002d2088_c(moby, 0xD);
@@ -744,49 +750,49 @@ void FUN_L11_002d14b0(void *arg) {
         break;
     case RESORT_OWNER_WAIT_FOR_PATH_COMPLETION_DIALOGUE_END:
         if (D_L11_0015F5C4 != 2) {
-            FUN_L11_002cb990((struct Moby *)(D_L11_0015FFD8 + (d->unk104 << 8)));
+            trigger_pokitaru_paired_rotation((struct Moby *)(D_L11_0015FFD8 + (moby_vars->unk104 << 8)));
             FUN_L11_002d2088_c(moby, 0xE);
         }
         break;
     case RESORT_OWNER_JUMP_TO_TARGET:
         if (moby->anim_flags & 2)
-            FUN_L11_002d2088_c(moby, d->next_state);
+            FUN_L11_002d2088_c(moby, moby_vars->next_state);
         break;
     case RESORT_OWNER_MOVE_TO_GATE_TARGET:
-        if (vector_distance(&moby->pos, &d->target) < 0.5f)
+        if (vector_distance(&moby->pos, &moby_vars->target) < 0.5f)
             FUN_L11_002d2088_c(moby, 9);
         break;
     case RESORT_OWNER_WAIT_AT_GATE:
         {
-            int i = d->leg != 0;
-            if (FUN_L11_0030a830((struct Moby *)(D_L11_0015FFD8 + (d->gates[i] << 8))))
+            int i = moby_vars->leg != 0;
+            if (is_moby_in_state_five((struct Moby *)(D_L11_0015FFD8 + (moby_vars->gates[i] << 8))))
                 FUN_L11_002d2088_c(moby, 0xA);
         }
         break;
     case RESORT_OWNER_MOVE_TO_GATE_DEPARTURE_TARGET:
-        if (vector_distance(&moby->pos, &d->target) < 0.5f) {
-            int n = ++d->leg;
-            qcopy(&d->target, &path_points_14b0[d->unkD0[n]].pos);
-            d->next_state = 4;
+        if (vector_distance(&moby->pos, &moby_vars->target) < 0.5f) {
+            int next_leg_index = ++moby_vars->leg;
+            qcopy(&moby_vars->target, &path_points_14b0[moby_vars->unkD0[next_leg_index]].pos);
+            moby_vars->next_state = 4;
             FUN_L11_002d2088_c(moby, 7);
         }
         break;
     case RESORT_OWNER_WAIT_TO_ADVANCE_FINAL_PATH_LEG:
-        if (FUN_L11_0030a830((struct Moby *)(D_L11_0015FFD8 + (d->unk100 << 8)))) {
-            d->leg += 1;
+        if (is_moby_in_state_five((struct Moby *)(D_L11_0015FFD8 + (moby_vars->unk100 << 8)))) {
+            moby_vars->leg += 1;
             FUN_L11_002d2088_c(moby, 3);
         }
         break;
     case RESORT_OWNER_CHECK_POST_PATH_DIALOGUE:
-        if (D_0014C050[d->unk118 + D_0015ED84 * 16] == 0xFF && D_001413D4_14b0 != 0x32 &&
-            update_npc_dialogue(moby, d->talk)) {
+        if (D_0014C050[moby_vars->unk118 + D_0015ED84 * 16] == 0xFF && D_001413D4_14b0 != 0x32 &&
+            update_npc_dialogue(moby, moby_vars->talk)) {
             begin_dialogue_camera_transition(moby, 2.5f);
             FUN_L11_002d2088_c(moby, 0xF);
         }
         break;
     case RESORT_OWNER_WAIT_FOR_POST_PATH_DIALOGUE_END:
         if (D_L11_0015F5C4 != 2) {
-            FUN_L00_00260860(6, 1);
+            grant_inventory_item(6, 1);
             memcard_save_data(0, -1);
             help_request(0x2AF8, 0x3A);
             mark_moby_for_removal(moby);
@@ -799,28 +805,16 @@ extern void FUN_00212f90(void *, int, int, int);
 extern void clear_u64_value(void *) __asm__("FUN_001f99f8");
 extern void transform_vector_by_basis(void *, void *, void *) __asm__("FUN_001f9cf8");
 extern void fast_vec_add(void *, void *, void *) __asm__("FUN_001f9a10");
-extern float D_L11_001613D0 __attribute__((sda));
-extern float D_L11_001613D4 __attribute__((sda));
+extern float resort_owner_follow_hero_speed_gp __asm__("D_L11_001613D0") __attribute__((sda));
+extern float resort_owner_distant_follow_and_path_speed_gp __asm__("D_L11_001613D4") __attribute__((sda));
 float D_L11_00161400 = -3.0f;
 extern int D_L11_0015FFD8;
 
-void FUN_L11_002d2088(struct Moby *moby, unsigned char state) {
-    enum {
-        RESORT_OWNER_CHECK_INITIAL_DIALOGUE = 1,
-        RESORT_OWNER_WAIT_TO_FOLLOW_HERO = 3,
-        RESORT_OWNER_FOLLOW_HERO = 4,
-        RESORT_OWNER_FOLLOW_DISTANT_HERO = 5,
-        RESORT_OWNER_MOVE_TO_PATH_POINT = 6,
-        RESORT_OWNER_JUMP_TO_TARGET = 7,
-        RESORT_OWNER_MOVE_TO_GATE_TARGET = 8,
-        RESORT_OWNER_WAIT_AT_GATE = 9,
-        RESORT_OWNER_MOVE_TO_GATE_DEPARTURE_TARGET = 10,
-        RESORT_OWNER_WAIT_TO_ADVANCE_FINAL_PATH_LEG = 11,
-        RESORT_OWNER_CHECK_PATH_COMPLETION_DIALOGUE = 12,
-        RESORT_OWNER_CHECK_POST_PATH_DIALOGUE = 14
-    };
-    char *d = (char *)moby->pvars;
-    float tmp[4];
+void set_resort_owner_state(struct Moby *moby, unsigned char state) __asm__("FUN_L11_002d2088");
+
+void set_resort_owner_state(struct Moby *moby, unsigned char state) {
+    char *moby_vars = (char *)moby->pvars;
+    float gate_target_offset[4];
 
     moby->state = state;
     switch (moby->state) {
@@ -832,65 +826,65 @@ void FUN_L11_002d2088(struct Moby *moby, unsigned char state) {
         if (moby->prev_seq != 0)
             FUN_00212f90(moby, 0, 0, scale_game_frames(0x14));
         if (moby->state == 14)
-            *(float *)(d + 0x2C) = 10.0f;
-        clear_u64_value(d + 0x130);
+            *(float *)(moby_vars + 0x2C) = 10.0f;
+        clear_u64_value(moby_vars + 0x130);
         if (moby->state == 14)
-            *(short *)(d + 0x56) = 2;
+            *(short *)(moby_vars + 0x56) = 2;
         break;
     case RESORT_OWNER_FOLLOW_HERO:
         if (moby->prev_seq != 2)
             FUN_00212f90(moby, 2, 0, scale_game_frames(0x14));
-        *(float *)(d + 0x154) = D_L11_001613D0 * frame_time;
+        *(float *)(moby_vars + 0x154) = resort_owner_follow_hero_speed_gp * frame_time;
         break;
     case RESORT_OWNER_FOLLOW_DISTANT_HERO:
     case RESORT_OWNER_MOVE_TO_PATH_POINT:
         if (moby->prev_seq != 3)
             FUN_00212f90(moby, 3, 0, scale_game_frames(0x14));
-        *(float *)(d + 0x154) = D_L11_001613D4 * frame_time;
+        *(float *)(moby_vars + 0x154) = resort_owner_distant_follow_and_path_speed_gp * frame_time;
         break;
     case RESORT_OWNER_JUMP_TO_TARGET:
         if (moby->prev_seq != 4)
             FUN_00212f90(moby, 4, 0, scale_game_frames(0x14));
-        clear_u64_value(d + 0x130);
+        clear_u64_value(moby_vars + 0x130);
         break;
     case RESORT_OWNER_MOVE_TO_GATE_TARGET:
         if (moby->prev_seq != 3)
             FUN_00212f90(moby, 3, 0, scale_game_frames(0x14));
         {
-            int *tbl = (int *)(d + 0xF0);
-            unsigned int idx = 0U < *(unsigned int *)(d + 0x158);
+            int *tbl = (int *)(moby_vars + 0xF0);
+            unsigned int idx = 0U < *(unsigned int *)(moby_vars + 0x158);
             int p;
             char *o;
             tbl += idx;
             p = *tbl;
             o = (char *)D_L11_0015FFD8;
             o += p << 8;
-            qcopy(d + 0x120, o + 0x10);
-            transform_vector_by_basis(tmp, &D_L11_001613E0, o + 0xC0);
-            fast_vec_add(d + 0x120, d + 0x120, tmp);
+            qcopy(moby_vars + 0x120, o + 0x10);
+            transform_vector_by_basis(gate_target_offset, &D_L11_001613E0, o + 0xC0);
+            fast_vec_add(moby_vars + 0x120, moby_vars + 0x120, gate_target_offset);
         }
         break;
     case RESORT_OWNER_WAIT_AT_GATE:
     case 16:
         if (moby->prev_seq != 0)
             FUN_00212f90(moby, 0, 0, scale_game_frames(0x14));
-        clear_u64_value(d + 0x130);
+        clear_u64_value(moby_vars + 0x130);
         break;
     case RESORT_OWNER_MOVE_TO_GATE_DEPARTURE_TARGET:
         if (moby->prev_seq != 3)
             FUN_00212f90(moby, 3, 0, scale_game_frames(0x14));
         {
-            int *tbl = (int *)(d + 0xF0);
-            unsigned int idx = 0U < *(unsigned int *)(d + 0x158);
+            int *tbl = (int *)(moby_vars + 0xF0);
+            unsigned int idx = 0U < *(unsigned int *)(moby_vars + 0x158);
             int p;
             char *o;
             tbl += idx;
             p = *tbl;
             o = (char *)D_L11_0015FFD8;
             o += p << 8;
-            qcopy(d + 0x120, o + 0x10);
-            transform_vector_by_basis(tmp, &D_L11_00161400, o + 0xC0);
-            fast_vec_add(d + 0x120, d + 0x120, tmp);
+            qcopy(moby_vars + 0x120, o + 0x10);
+            transform_vector_by_basis(gate_target_offset, &D_L11_00161400, o + 0xC0);
+            fast_vec_add(moby_vars + 0x120, moby_vars + 0x120, gate_target_offset);
         }
         break;
     default:
@@ -913,39 +907,35 @@ extern int *D_L11_001B0EB0[];
 extern int point_in_path_xy(void *, void *, int) __asm__("FUN_L00_00259740");
 extern int follow_path(int *, int, int, void *, void *, void *, float) __asm__("FUN_L01_00276fe8");
 
-int FUN_L11_002d2340(struct Moby *moby, char *other) {
-    enum {
-        RESORT_OWNER_PENULTIMATE_PATH_LEG = 2,
-        RESORT_OWNER_FINAL_PATH_LEG = 3
-    };
+int try_update_resort_owner_path_target(struct Moby *moby, char *other) {
     struct TgtData *moby_vars = (struct TgtData *)moby->pvars;
     int *leg_path_ids = moby_vars->a;
     int *ent = D_L11_001B0EB0[*(int *)((char *)leg_path_ids - (-(moby_vars->idx * 4)))];
-    int buf[8];
+    int path_ids[8];
     int path_id_count;
     if (point_in_path_xy(other, ent + 4, *ent) == 0)
         return 0;
-    buf[0] = *(int *)((char *)leg_path_ids - (-(moby_vars->idx * 4)));
+    path_ids[0] = *(int *)((char *)leg_path_ids - (-(moby_vars->idx * 4)));
     path_id_count = 1;
     switch (moby_vars->idx) {
     case RESORT_OWNER_PENULTIMATE_PATH_LEG:
         path_id_count = 4;
-        buf[1] = moby_vars->c[0];
-        buf[2] = moby_vars->c[1];
-        buf[3] = moby_vars->c[2];
+        path_ids[1] = moby_vars->c[0];
+        path_ids[2] = moby_vars->c[1];
+        path_ids[3] = moby_vars->c[2];
         break;
     case RESORT_OWNER_FINAL_PATH_LEG:
         path_id_count = 3;
-        buf[1] = moby_vars->c[0];
-        buf[2] = moby_vars->c[1];
+        path_ids[1] = moby_vars->c[0];
+        path_ids[2] = moby_vars->c[1];
         break;
     default:
         break;
     }
-    return follow_path(buf, path_id_count, moby_vars->b[moby_vars->idx], &moby->pos, other, moby_vars->e, 0.2f) != 0;
+    return follow_path(path_ids, path_id_count, moby_vars->b[moby_vars->idx], &moby->pos, other, moby_vars->e, 0.2f) != 0;
 }
 extern int D_L11_0015FFD8;
-extern int FUN_L11_00316128(char *);
+extern int is_moby_in_bob_target_exclusion_state(char *) __asm__("FUN_L11_00316128");
 extern short *D_L11_001AC240[];
 extern int D_L11_0015FFF4 ;
 extern float fast_vec_dist(void *, void *) __asm__("FUN_001f9b48");
@@ -961,7 +951,7 @@ struct TargetSets {
 };
 
 /* 2 when a live moby of the current target groups is within 10 units, 1 when one is alive, else 0. */
-int FUN_L11_002d2460(struct Moby *moby) {
+int classify_resort_owner_target_proximity(struct Moby *moby) {
     struct TargetSets *target_sets = (struct TargetSets *)moby->pvars;
     int found = 0;
     int i;
@@ -979,7 +969,7 @@ int FUN_L11_002d2460(struct Moby *moby) {
             int offset = (*group_moby_entry & 0x7fff) << 8;
             struct Moby *other = (struct Moby *)(offset + D_L11_0015FFD8);
             if ((signed char)other->state >= 0) {
-                if (other->oclass != 0x4de || FUN_L11_00316128((char *)other) == 0) {
+                if (other->oclass != 0x4de || is_moby_in_bob_target_exclusion_state((char *)other) == 0) {
                     found = 1;
                     if (fast_vec_dist(&moby->pos, &((struct Moby *)(D_L11_0015FFD8 + offset))->pos) < 10.0f)
                         return 2;
@@ -1002,14 +992,14 @@ s32 is_point_inside_clip_volume(s32 arg0, s32 arg1) __asm__("FUN_00214720");
 void FUN_L00_00259710(void *a);
 extern float func_L00_0025A748_f(void *) __asm__("FUN_L00_00259710");
 
-int FUN_L11_002d25e8(struct Moby *moby, float *out) {
+int try_find_resort_owner_jump_target(struct Moby *moby, float *out) {
     char *pvars = (char *)moby->pvars;
     int *clip_volume_index_ptr = (int *)(pvars + 0xF8);
     int i;
     int found = 0;
     float candidate_position[4];
-    float b[4];
-    float g;
+    float collision_start_position[4];
+    float landing_ground_height;
     for (i = 0; i < 2; i++) {
         if (is_point_inside_clip_volume(&moby->pos, *clip_volume_index_ptr)) {
             found = 1;
@@ -1027,13 +1017,13 @@ int FUN_L11_002d25e8(struct Moby *moby, float *out) {
             int *path_entry = D_L11_001B0EB0[*(int *)(pvars - (-(*(int *)(pvars + 0x158) * 4)) + 0x60)];
             if (point_in_path_xy(candidate_position, path_entry + 4, *path_entry)) {
                 candidate_position[2] += 5.0f;
-                g = func_L00_0025A748_f(candidate_position);
-                if (absolute_float(g - moby->pos.z) > 0.5f) {
-                    qcopy(b, pos);
-                    b[2] += 0.15f;
-                    candidate_position[2] = g + 0.15f;
-                    if (collision_line(b, candidate_position, 2, moby, 0)) {
-                        candidate_position[2] = g;
+                landing_ground_height = func_L00_0025A748_f(candidate_position);
+                if (absolute_float(landing_ground_height - moby->pos.z) > 0.5f) {
+                    qcopy(collision_start_position, pos);
+                    collision_start_position[2] += 0.15f;
+                    candidate_position[2] = landing_ground_height + 0.15f;
+                    if (collision_line(collision_start_position, candidate_position, 2, moby, 0)) {
+                        candidate_position[2] = landing_ground_height;
                         qcopy(out, candidate_position);
                         return 1;
                     }
@@ -1055,28 +1045,16 @@ typedef struct {
     float head_yaw;
 } WD11b;
 
-
 /* Guard head update: in its watching states it turns its body and head toward the hero. */
-void FUN_L11_002d27b0(WM11 *m) {
-    enum {
-        RESORT_OWNER_INITIALIZE = 0,
-        RESORT_OWNER_CHECK_INITIAL_DIALOGUE = 1,
-        RESORT_OWNER_INITIAL_DIALOGUE = 2,
-        RESORT_OWNER_WAIT_TO_FOLLOW_HERO = 3,
-        RESORT_OWNER_FOLLOW_HERO = 4,
-        RESORT_OWNER_FOLLOW_DISTANT_HERO = 5,
-        RESORT_OWNER_WAIT_TO_ADVANCE_FINAL_PATH_LEG = 11,
-        RESORT_OWNER_CHECK_PATH_COMPLETION_DIALOGUE = 12,
-        RESORT_OWNER_CHECK_POST_PATH_DIALOGUE = 14
-    };
+void update_resort_owner_look_tracking(WM11 *moby) {
     WS11 scratch;
-    WD11b *d = (WD11b *)m->data;
+    WD11b *moby_vars = (WD11b *)moby->data;
     float rate;
     float head_rate;
     int tracking;
     rate = 0.02f;
     head_rate = 0.3f;
-    switch (m->state) {
+    switch (moby->state) {
     case RESORT_OWNER_INITIALIZE:
     case RESORT_OWNER_CHECK_INITIAL_DIALOGUE:
     case RESORT_OWNER_INITIAL_DIALOGUE:
@@ -1097,10 +1075,10 @@ void FUN_L11_002d27b0(WM11 *m) {
     if (tracking) {
         float yaw;
         float pitch;
-        qcopy(scratch.eye, m->position);
+        qcopy(scratch.eye, moby->position);
         scratch.eye[2] += 1.0f;
         fast_vec_sub(scratch.delta, scratch.target, scratch.eye);
-        yaw = fast_subtract_rotations(fast_arc_tan(scratch.delta[0], scratch.delta[1]), m->yaw);
+        yaw = fast_subtract_rotations(fast_arc_tan(scratch.delta[0], scratch.delta[1]), moby->yaw);
         pitch = -fast_arc_tan(vector_length_xy(scratch.delta), scratch.delta[2]);
         if (yaw > 1.2217305f)
             yaw = 1.2217305f;
@@ -1110,14 +1088,14 @@ void FUN_L11_002d27b0(WM11 *m) {
             pitch = 0.2617994f;
         else if (pitch < -0.5235988f)
             pitch = -0.5235988f;
-        d->pitch = pitch;
-        d->yaw = yaw * 0.7f;
-        d->head_yaw = yaw * 0.3f;
+        moby_vars->pitch = pitch;
+        moby_vars->yaw = yaw * 0.7f;
+        moby_vars->head_yaw = yaw * 0.3f;
     }
     if (big_head_cheat_enabled)
-        d->height = 2.75f;
-    update_joint_animation(rate * frame_scale_sq, head_rate * frame_scale_sq, m, d->body, 0);
-    update_joint_animation(rate * frame_scale_sq, head_rate * frame_scale_sq, m, d->head, 1);
+        moby_vars->height = 2.75f;
+    update_joint_animation(rate * frame_scale_sq, head_rate * frame_scale_sq, moby, moby_vars->body, 0);
+    update_joint_animation(rate * frame_scale_sq, head_rate * frame_scale_sq, moby, moby_vars->head, 1);
 }
 /* Pokitaru sentry pvars (class of fred_pokitaru_update). */
 struct PokSentryVars {
@@ -1165,7 +1143,7 @@ void fred_pokitaru_update(struct Moby *moby) {
     float head_rate;
     int tracking;
 
-    FUN_L02_002e0cd8(moby);
+    attach_big_head_cheat_manipulator_to_matching_moby(moby);
     if (moby->visible && distance_xyz(&moby->pos, D_L11_001677C0) < 30.0f) {
         FUN_L00_0025a120(moby);
         moby->shadow_range = 24;
@@ -1189,8 +1167,8 @@ void fred_pokitaru_update(struct Moby *moby) {
         }
         if (alternate_item_available[1] == 0 && discount_purchase_pricing[0] == 0) {
             if (distance_xyz(&moby->pos, hero.motion.pos.f) < 4.0f) {
-                int t = scale_game_frames(D_0015EEA4) - usage_stats_f0e40[0x86].unk2 * 600;
-                if ((int)(scale_game_frames(18) * 60.0f) < t || usage_stats_f0e40[0x86].unk2 * 600 == 0) {
+                int help_frame_delta = scale_game_frames(D_0015EEA4) - usage_stats_f0e40[0x86].unk2 * 600;
+                if ((int)(scale_game_frames(18) * 60.0f) < help_frame_delta || usage_stats_f0e40[0x86].unk2 * 600 == 0) {
                     help_request(0x2B03, 0x86);
                 } else if (scale_game_frames(D_0015EEA4) / 600 > usage_stats_f0e40[0x86].unk2) {
                     usage_stats_f0e40[0x86].unk2 = scale_game_frames(D_0015EEA4) / 600;
@@ -1237,7 +1215,7 @@ void fred_pokitaru_update(struct Moby *moby) {
                 fast_dec_timer(&moby_vars->moving_timer);
         } else if (moby_vars->moving_timer) {
             moby_vars->moving_timer = 0;
-            qcopy(moby_vars->target, hero.motion.unkD0.f);
+            qcopy(moby_vars->target, hero.motion.body_center.f);
         }
         if (fast_dec_timer(&moby_vars->target_timer)) {
             float heading;
@@ -1248,7 +1226,7 @@ void fred_pokitaru_update(struct Moby *moby) {
             fast_vec_add(moby_vars->target, moby_vars->target, &moby->pos);
         }
         if (moby_vars->moving_timer) {
-            qcopy(scratch.target, hero.motion.unkD0.f);
+            qcopy(scratch.target, hero.motion.body_center.f);
             rate = 0.04f;
             head_rate = 0.3f;
         } else {
@@ -1295,20 +1273,20 @@ extern float fast_add_rotations_2518(float, float) __asm__("FUN_001fa580");
 extern void FUN_L11_002f3040_2518(char *) __asm__("FUN_L11_002f3040");
 extern void FUN_L11_002f2cd0_2518(char *) __asm__("FUN_L11_002f2cd0");
 extern void FUN_L11_002f2d58_2518(char *) __asm__("FUN_L11_002f2d58");
-extern void FUN_L01_003092d0_2518(char *) __asm__("FUN_L01_003092d0");
+extern void update_teleporter_child_transforms(char *) __asm__("FUN_L01_003092d0");
 extern int allocate_voice_2518(int, int, void *) __asm__("FUN_0022da68");
-extern void FUN_L00_00233ee8_2518(float *, int, float) __asm__("FUN_L00_00233ee8");
+extern void request_hero_target_pose(float *, int, float) __asm__("FUN_L00_00233ee8");
 extern void FUN_L00_002598b0_2518(int, float, void *, int, float, float, int, int, int) __asm__("FUN_L00_002598b0");
-extern int FUN_L00_00233f38_2518(void) __asm__("FUN_L00_00233f38");
+extern int get_hero_target_pose_status(void) __asm__("FUN_L00_00233f38");
 extern void advance_accelerated_scalar_2518(float *, float *, float, float, float, float) __asm__("FUN_00213f38");
 extern void approach_value_2518(float *, float, float) __asm__("FUN_00213ed8");
 extern void FUN_L00_00216f90_2518(void *, void *, int, int) __asm__("FUN_L00_00216f90");
 extern void FUN_L01_0027a248_2518(int, int) __asm__("FUN_L01_0027a248");
 extern int enqueue_callback_2518(void (*)(char *), char *) __asm__("FUN_001f4600");
 
-extern float D_L11_00161910 __attribute__((sda));
-extern float D_L11_00161914 __attribute__((sda));
-extern float D_L11_00161918 __attribute__((sda));
+extern float teleporter_parts_acceleration_gp __asm__("D_L11_00161910") __attribute__((sda));
+extern float teleporter_parts_deceleration_gp __asm__("D_L11_00161914") __attribute__((sda));
+extern float teleporter_parts_max_speed_gp __asm__("D_L11_00161918") __attribute__((sda));
 /* L11 twin of teleporter_update: a three-part switch moby that, once the hero
  * stands on it in mission state 0xB and presses the button, swings its parts
  * open and moves the linked moby (or its fallback) along. */
@@ -1353,7 +1331,7 @@ void teleporter_update(struct Moby *moby) {
                 *(int *)(slots[j] + 0x94) = 0;
             }
         }
-        FUN_L01_003092d0_2518(moby);
+        update_teleporter_child_transforms(moby);
         break;
     }
     case TELEPORTER_WAIT_FOR_ACTIVATION: {
@@ -1377,31 +1355,31 @@ void teleporter_update(struct Moby *moby) {
         moby->state = 2;
         *(int *)(data + 0x28) = 0;
         *(int *)(data + 0x2C) = 0;
-        FUN_L00_00233ee8_2518(&moby->pos.x, 0, moby->rot.z);
+        request_hero_target_pose(&moby->pos.x, 0, moby->rot.z);
         FUN_L00_002598b0_2518((int)moby, 1.5f, &moby->pos, 0x10000, 20.0f, 1.0f, 0, 1, 0);
         break;
     }
     case TELEPORTER_OPEN_PARTS: {
-        int r = FUN_L00_00233f38_2518();
+        int teleport_transition_status = get_hero_target_pose_status();
         if (*(float *)(data + 0x20) < 1.0f) {
             advance_accelerated_scalar_2518((float *)(data + 0x20), (float *)(data + 0x28), 1.0f,
-                                            D_L11_00161910 * D_0015ED70_2518,
-                                            D_L11_00161914 * D_0015ED70_2518,
-                                            D_L11_00161918 * D_0015ED6C_2518);
+                                            teleporter_parts_acceleration_gp * D_0015ED70_2518,
+                                            teleporter_parts_deceleration_gp * D_0015ED70_2518,
+                                            teleporter_parts_max_speed_gp * D_0015ED6C_2518);
         } else if (*(float *)(data + 0x24) < 1.0f) {
             advance_accelerated_scalar_2518((float *)(data + 0x24), (float *)(data + 0x2C), 1.0f,
-                                            D_L11_00161910 * D_0015ED70_2518,
-                                            D_L11_00161914 * D_0015ED70_2518,
-                                            D_L11_00161918 * D_0015ED6C_2518);
+                                            teleporter_parts_acceleration_gp * D_0015ED70_2518,
+                                            teleporter_parts_deceleration_gp * D_0015ED70_2518,
+                                            teleporter_parts_max_speed_gp * D_0015ED6C_2518);
         } else if (D_L11_0015F594 != 0xB || !(*(float *)(data + 0x20) > 0.25f)) {
-            if (r == 2) {
+            if (teleport_transition_status == 2) {
                 *(float *)(data + 0x3C) = 1.95f;
                 moby->state = 3;
-            } else if (r == 0) {
+            } else if (teleport_transition_status == 0) {
                 moby->state = 4;
             }
         }
-        FUN_L01_003092d0_2518(moby);
+        update_teleporter_child_transforms(moby);
         break;
     }
     case TELEPORTER_CONTRACT_RING:
@@ -1411,14 +1389,14 @@ void teleporter_update(struct Moby *moby) {
         } else {
             char *destination_moby = D_L11_0015FFD8_2518 + (*(int *)data << 8);
             char *td;
-            float v[4];
+            float destination_position[4];
             if (*(int *)(data + 4) != -1 &&
                 D_0014C050_2518[*(int *)(data + 0xC) + D_0015ED84_2518 * 16] == 0xFF)
                 destination_moby = D_L11_0015FFD8_2518 + (*(int *)(data + 4) << 8);
             td = *(char **)(destination_moby + 0x78);
-            qcopy(v, destination_moby + 0x10);
-            v[2] += 0.2f;
-            FUN_L00_00216f90_2518(v, destination_moby + 0x40, 0, 1);
+            qcopy(destination_position, destination_moby + 0x10);
+            destination_position[2] += 0.2f;
+            FUN_L00_00216f90_2518(destination_position, destination_moby + 0x40, 0, 1);
             D_001413F5_2518 = 1;
             if (*(int *)(data + 0x30) != -1 && *(int *)(data + 0x34) != -1) {
                 FUN_L01_0027a248_2518(*(int *)(data + 0x30), *(int *)(data + 0x34));
@@ -1437,7 +1415,7 @@ void teleporter_update(struct Moby *moby) {
             *(float *)(data + 0x28) = 0.0f;
             *(float *)(data + 0x2C) = 0.0f;
             *(float *)(data + 0x3C) = 1.95f;
-            FUN_L01_003092d0_2518(moby);
+            update_teleporter_child_transforms(moby);
         }
         break;
     case TELEPORTER_RESET:
@@ -1448,18 +1426,18 @@ void teleporter_update(struct Moby *moby) {
             approach_value_2518((float *)(data + 0x3C), 1.95f, D_0015ED6C_2518 * 4.0f);
         } else if (0.0f < *(float *)(data + 0x24)) {
             advance_accelerated_scalar_2518((float *)(data + 0x24), (float *)(data + 0x28), 0.0f,
-                                            D_L11_00161910 * D_0015ED70_2518,
-                                            D_L11_00161914 * D_0015ED70_2518,
-                                            D_L11_00161918 * D_0015ED6C_2518);
+                                            teleporter_parts_acceleration_gp * D_0015ED70_2518,
+                                            teleporter_parts_deceleration_gp * D_0015ED70_2518,
+                                            teleporter_parts_max_speed_gp * D_0015ED6C_2518);
         } else if (0.0f < *(float *)(data + 0x20)) {
             advance_accelerated_scalar_2518((float *)(data + 0x20), (float *)(data + 0x2C), 0.0f,
-                                            D_L11_00161910 * D_0015ED70_2518,
-                                            D_L11_00161914 * D_0015ED70_2518,
-                                            D_L11_00161918 * D_0015ED6C_2518);
+                                            teleporter_parts_acceleration_gp * D_0015ED70_2518,
+                                            teleporter_parts_deceleration_gp * D_0015ED70_2518,
+                                            teleporter_parts_max_speed_gp * D_0015ED6C_2518);
         } else {
             moby->state = 1;
         }
-        FUN_L01_003092d0_2518(moby);
+        update_teleporter_child_transforms(moby);
         break;
     }
 }
@@ -1469,7 +1447,9 @@ void teleporter_update(struct Moby *moby) {
 
 /* Ported from rac1-decomp (src/overlays/l11_pokitaru/vendor_002CC828.c: func_L11_002F4040), where it is exact; names translated to the US level program. */
 
-void FUN_L11_002f2cd0(struct Moby *moby) {
+void request_teleporter_help_message(struct Moby *moby) __asm__("FUN_L11_002f2cd0");
+
+void request_teleporter_help_message(struct Moby *moby) {
     char *data = (char *)moby->pvars;
     switch (*(int *)(data + 0x10)) {
     case 0:
@@ -1509,9 +1489,11 @@ int D_L11_00161928 = 0;
 int D_L11_0016192C = 1;
 int D_L11_00161930 = 0x13;
 extern unsigned int D_L11_00161934 __attribute__((sda));
-extern float D_L11_00161938 __attribute__((sda));
+extern float teleporter_ring_local_z_center_gp __asm__("D_L11_00161938") __attribute__((sda));
 /* Draws a ring of 32 textured quads around the moby; the band widens as the radius at pvars+0x3C shrinks below 1.15. */
-void FUN_L11_002f2d58(struct Moby *moby) {
+void draw_teleporter_ring(struct Moby *moby) __asm__("FUN_L11_002f2d58");
+
+void draw_teleporter_ring(struct Moby *moby) {
     QuadPacket_2f2d58 quad;
     float matrix[16];
     char *data = (char *)moby->pvars;
@@ -1568,8 +1550,8 @@ void FUN_L11_002f2d58(struct Moby *moby) {
             corner[0] = fast_cos_2f2d58(angle) * *(float *)(data + 0x3c);
             corner[1] = fast_sin_2f2d58(angle) * *(float *)(data + 0x3c);
             corner[2] = 0.0f;
-            if (j & 1) corner[2] = D_L11_00161938 + width + 0.0f;
-            else corner[2] = D_L11_00161938 - width + 0.0f;
+            if (j & 1) corner[2] = teleporter_ring_local_z_center_gp + width + 0.0f;
+            else corner[2] = teleporter_ring_local_z_center_gp - width + 0.0f;
             corner[3] = 1.0f;
             j++;
         } while (j < 4);
@@ -1579,7 +1561,9 @@ void FUN_L11_002f2d58(struct Moby *moby) {
 }
 /* Ported from rac1-decomp (src/overlays/l11_pokitaru/vendor_002CC828.c: func_L11_002F43B0), where it is exact; names translated to the US level program. */
 
-void FUN_L11_002f3040(struct Moby *moby) {
+void restore_teleporter_visibility_and_collision(struct Moby *moby) __asm__("FUN_L11_002f3040");
+
+void restore_teleporter_visibility_and_collision(struct Moby *moby) {
     char *data = (char *)moby->pvars;
     char **child = (char **)(data + 0x14);
     int count;
@@ -1616,8 +1600,9 @@ typedef struct {
     unsigned short index;
 } Globals;
 
+void copy_pokitaru_pvar_to_hero(struct Moby *moby) __asm__("FUN_L11_002f3350");
 
-void FUN_L11_002f3350(struct Moby *moby) {
+void copy_pokitaru_pvar_to_hero(struct Moby *moby) {
     enum {
         MOBY_INITIALIZE = 0,
         MOBY_COPY_PVAR_TO_HERO = 1
@@ -1632,7 +1617,7 @@ void FUN_L11_002f3350(struct Moby *moby) {
         break;
     case MOBY_COPY_PVAR_TO_HERO:
         if (hero.motion.pos.f[2] > 194.0f && hero.state.current != 0x32) {
-            *(short unsigned int *)&hero.unk22DA = *(unsigned short *)state;
+            *(short unsigned int *)&hero.path_constrain_pending = *(unsigned short *)state;
         }
         break;
     }
@@ -1664,14 +1649,17 @@ typedef struct {
     unsigned char unk70;
 } MobyAnim_309378;
 
-extern char *FUN_L00_0026daa0(char *, int, int, int, float);
+extern char *spawn_source_attached_fading_effect_particle(char *, int, int, int, float) __asm__("FUN_L00_0026daa0");
 extern void *suck_get_aim_height(char *) __asm__("FUN_002141f8");
 extern void add_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a10");
 void blend_moby_animation_309378(MobyAnim_309378 *arg0, int arg1, int arg2,
                                  int arg3) __asm__("FUN_00212f90");
 void build_spherical_offset(f32 *out, f32 scale, f32 a, f32 b) __asm__("FUN_00214db0");
 
-unsigned char *FUN_L11_00309378(char *src, char *pos, char *target, char *vec, int arg,
+unsigned char *spawn_ship_projectile(char *spawning_moby, char *spawn_position, char *target, char *spawn_rotation, int arg,
+                                float scale) __asm__("FUN_L11_00309378");
+
+unsigned char *spawn_ship_projectile(char *spawning_moby, char *spawn_position, char *target, char *spawn_rotation, int duration_frames,
                                 float scale) {
     unsigned char *moby = func_0020D348_m(0x40A);
     if (moby != 0) {
@@ -1680,10 +1668,10 @@ unsigned char *FUN_L11_00309378(char *src, char *pos, char *target, char *vec, i
         *(short *)(moby + 0x32) = 0xFF;
         moby[0x31] = 1;
         moby[0x20] = 0;
-        *(char **)(data + 0x20) = src;
+        *(char **)(data + 0x20) = spawning_moby;
         *(char **)(data + 0x24) = target;
-        qcopy(moby + 0x10, pos);
-        qcopy(moby + 0x40, vec);
+        qcopy(moby + 0x10, spawn_position);
+        qcopy(moby + 0x40, spawn_rotation);
         if (target != 0) {
             char *target_aux_data;
             target_aux_data = suck_get_aim_height(target);
@@ -1691,11 +1679,11 @@ unsigned char *FUN_L11_00309378(char *src, char *pos, char *target, char *vec, i
                 *(unsigned short *)(target_aux_data + 0x1E) |= 0x80;
             }
         }
-        *(int *)(data + 0x28) = arg;
+        *(int *)(data + 0x28) = duration_frames;
         *(float *)(data + 0x2C) = scale;
         *(int *)(data + 0x30) = 0;
         *(int *)(data + 0x34) = 0;
-        build_spherical_offset(data, scale, *(float *)(vec + 8), -*(float *)(vec + 4));
+        build_spherical_offset(data, scale, *(float *)(spawn_rotation + 8), -*(float *)(spawn_rotation + 4));
         if (moby[0x53] != 1) {
             blend_moby_animation_309378(moby, 1, 0, 10);
         }
@@ -1705,7 +1693,7 @@ unsigned char *FUN_L11_00309378(char *src, char *pos, char *target, char *vec, i
         }
         *(float *)(moby + 0x2C) =
             *(float *)(*(char **)(moby + 0x24) + 0x24) *
-            (*(float *)(src + 0x2C) / *(float *)(*(char **)(src + 0x24) + 0x24));
+            (*(float *)(spawning_moby + 0x2C) / *(float *)(*(char **)(spawning_moby + 0x24) + 0x24));
         FUN_L00_00250df8(moby);
     }
     return moby;
@@ -1747,18 +1735,21 @@ extern float FUN_00213308_309ac0(void) __asm__("FUN_00213308");
 extern float advance_309ac0(float *, float *, float, float, float, float) __asm__("FUN_00213f38");
 extern void scale_vec_309ac0(float *, float) __asm__("FUN_L00_0025f730");
 extern void FUN_L00_00260738_309ac0(void *, void *, void *, void *) __asm__("FUN_L00_00260738");
-extern void FUN_L00_00262b80_309ac0(void *, void *, void *, float, float, float) __asm__("FUN_L00_00262b80");
+extern void update_moby_rotation_oscillation(void *, void *, void *, float, float, float) __asm__("FUN_L00_00262b80");
 extern void FUN_L00_002e8450_309ac0(int, float, float) __asm__("FUN_L00_002e8450");
 extern void FUN_L00_002e84b8_309ac0(float, float) __asm__("FUN_L00_002e84b8");
-extern void FUN_L11_0030a500(struct Moby *);
-extern float sin_309ac0(float) __asm__("FUN_001f9de0");
-extern int FUN_L11_0030a850(struct Moby *);
+void update_pokitaru_boat_joint_effects(struct Moby *moby) __asm__("FUN_L11_0030a500");
 
-extern float D_L11_00161DD4 __attribute__((sda));
-extern float D_L11_00161DD8 __attribute__((sda));
-extern float D_L11_00161DDC __attribute__((sda));
-extern float D_L11_00161DEC __attribute__((sda));
-extern float D_L11_00161DF0 __attribute__((sda));
+extern void update_pokitaru_boat_joint_effects(struct Moby *) __asm__("FUN_L11_0030a500");
+extern float sin_309ac0(float) __asm__("FUN_001f9de0");
+int is_pokitaru_boat_target_group_clear(struct Moby *moby) __asm__("FUN_L11_0030a850");
+
+extern int is_pokitaru_boat_target_group_clear(struct Moby *) __asm__("FUN_L11_0030a850");
+
+extern float pokitaru_boat_path_speed_gp __asm__("D_L11_00161DD4") __attribute__((sda));
+extern float pokitaru_boat_turn_acceleration_degrees_gp __asm__("D_L11_00161DD8") __attribute__((sda));
+extern float pokitaru_boat_max_turn_speed_degrees_gp __asm__("D_L11_00161DDC") __attribute__((sda));
+#include "rnc/overlay/l11/gameplay/entities/bob_data/pokitaru_boat_update.h"
 void pokitaru_boat_update(struct Moby *moby) __asm__("FUN_L11_00309ac0");
 void pokitaru_boat_update(struct Moby *moby) {
     enum {
@@ -1769,22 +1760,22 @@ void pokitaru_boat_update(struct Moby *moby) {
         POKITARU_BOAT_RISE_ABOVE_PATH = 4,
         POKITARU_BOAT_ADJUST_HEIGHT_FOR_HERO = 5
     };
-    struct PokPv_309ac0 *pv = (struct PokPv_309ac0 *)moby->pvars;
+    struct PokPv_309ac0 *boat_vars = (struct PokPv_309ac0 *)moby->pvars;
     float start_pos[4];
     float start_rot[4];
     float delta[4];
     float target[4];
-    float diff[4];
+    float path_movement[4];
     float spare_a[4];
     float spare_b[4];
-    float tmp[4];
+    float point_offset_from_boat[4];
 
     qcopy(start_pos, &moby->pos);
     qcopy(start_rot, &moby->rot);
     if (moby->state != 0) {
-        moby->pos.z = pv->height_e4;
+        moby->pos.z = boat_vars->height_e4;
     }
-    FUN_L11_0030a500(moby);
+    update_pokitaru_boat_joint_effects(moby);
 
     switch (moby->state) {
     case POKITARU_BOAT_INITIALIZE: {
@@ -1792,39 +1783,39 @@ void pokitaru_boat_update(struct Moby *moby) {
         int *tab_ac;
         int *path;
         int n;
-        int w;
+        int part_angle_index;
 
         moby->draw_dist = 0xFF;
         if (moby->prev_seq != 1) {
             blend_moby_animation_309378((MobyAnim_309378 *)moby, 1, 0, 1);
         }
-        tab_a8 = D_L11_001B0EB0[pv->idx_a8];
-        tab_ac = D_L11_001B0EB0[pv->idx_ac];
+        tab_a8 = D_L11_001B0EB0[boat_vars->idx_a8];
+        tab_ac = D_L11_001B0EB0[boat_vars->idx_ac];
         FUN_001fa2d8_309ac0(target, &moby->rot_row0);
         for (n = 0; n < tab_a8[0]; n++) {
-            subtract_vector_xyz(tmp, (char *)tab_a8 + 0x10 + n * 16, &moby->pos);
-            FUN_001f9d20_309ac0((char *)tab_ac + 0x10 + n * 16, tmp, target);
+            subtract_vector_xyz(point_offset_from_boat, (char *)tab_a8 + 0x10 + n * 16, &moby->pos);
+            FUN_001f9d20_309ac0((char *)tab_ac + 0x10 + n * 16, point_offset_from_boat, target);
         }
-        path = D_L11_001B0EB0[pv->path_a0];
-        pv->path_c4 = path;
+        path = D_L11_001B0EB0[boat_vars->path_a0];
+        boat_vars->path_c4 = path;
         qcopy(&moby->pos, (char *)path + 0x10);
-        pv->seg_d4 = 1;
+        boat_vars->seg_d4 = 1;
         moby->state = 1;
-        for (w = 0; w < 4; w++) {
-            pv->wobble_f0[w] = FUN_00213308_309ac0();
+        for (part_angle_index = 0; part_angle_index < 4; part_angle_index++) {
+            boat_vars->wobble_f0[part_angle_index] = FUN_00213308_309ac0();
         }
-        pv->slot_c8 = -1;
-        pv->slot_cc = -1;
-        pv->flags |= 1;
+        boat_vars->slot_c8 = -1;
+        boat_vars->slot_cc = -1;
+        boat_vars->flags |= 1;
         break;
     }
     case POKITARU_BOAT_WAIT_FOR_ACTIVATION:
-        if (pv->flag_b8 != 0) {
-            int *path = D_L11_001B0EB0[pv->path_a0];
+        if (boat_vars->flag_b8 != 0) {
+            int *path = D_L11_001B0EB0[boat_vars->path_a0];
             int n;
             float *last;
 
-            pv->path_c4 = path;
+            boat_vars->path_c4 = path;
             n = path[0];
             qcopy(&moby->pos, (char *)path + n * 16 - 16);
             last = (float *)((char *)path + (n - 1) * 16);
@@ -1837,79 +1828,79 @@ void pokitaru_boat_update(struct Moby *moby) {
         int *tab_ac;
         int i;
 
-        qcopy(target, (char *)pv->path_c4 + 0x10 + pv->seg_d4 * 16);
+        qcopy(target, (char *)boat_vars->path_c4 + 0x10 + boat_vars->seg_d4 * 16);
         if (D_0013F64C_309ac0 == moby) {
-            if (!check_slot_309ac0(moby, pv->slot_cc)) {
-                pv->slot_cc = allocate_voice_2518(1, 4, moby);
+            if (!check_slot_309ac0(moby, boat_vars->slot_cc)) {
+                boat_vars->slot_cc = allocate_voice_2518(1, 4, moby);
             }
-            if (check_slot_309ac0(moby, pv->slot_c8)) {
-                if (pv->slot_c8 != -1) {
-                    unsigned char *ent = D_0013E550_309ac0 + pv->slot_c8 * 0x70;
+            if (check_slot_309ac0(moby, boat_vars->slot_c8)) {
+                if (boat_vars->slot_c8 != -1) {
+                    unsigned char *ent = D_0013E550_309ac0 + boat_vars->slot_c8 * 0x70;
                     if (*(void **)(ent + 0x88) == moby && ent[0x74] != 0) {
-                        release_slot_309ac0(pv->slot_c8);
+                        release_slot_309ac0(boat_vars->slot_c8);
                     }
                 }
-                pv->slot_c8 = -1;
+                boat_vars->slot_c8 = -1;
             }
-            approach_value_2518(&pv->approach_d0, D_L11_00161DD4 * frame_time, frame_time_sq * 6.0f);
+            approach_value_2518(&boat_vars->approach_d0, pokitaru_boat_path_speed_gp * frame_time, frame_time_sq * 6.0f);
         } else {
-            if (!check_slot_309ac0(moby, pv->slot_c8)) {
-                pv->slot_c8 = allocate_voice_2518(0, 4, moby);
+            if (!check_slot_309ac0(moby, boat_vars->slot_c8)) {
+                boat_vars->slot_c8 = allocate_voice_2518(0, 4, moby);
             }
-            if (check_slot_309ac0(moby, pv->slot_cc)) {
-                if (pv->slot_cc != -1) {
-                    unsigned char *ent = D_0013E550_309ac0 + pv->slot_cc * 0x70;
+            if (check_slot_309ac0(moby, boat_vars->slot_cc)) {
+                if (boat_vars->slot_cc != -1) {
+                    unsigned char *ent = D_0013E550_309ac0 + boat_vars->slot_cc * 0x70;
                     if (*(void **)(ent + 0x88) == moby && ent[0x74] != 0) {
-                        release_slot_309ac0(pv->slot_cc);
+                        release_slot_309ac0(boat_vars->slot_cc);
                     }
                 }
-                pv->slot_cc = -1;
+                boat_vars->slot_cc = -1;
             }
-            approach_value_2518(&pv->approach_d0, 0.0f, frame_time_sq * 6.0f);
+            approach_value_2518(&boat_vars->approach_d0, 0.0f, frame_time_sq * 6.0f);
         }
-        subtract_vector_xyz(diff, target, &moby->pos);
-        scale_vec_309ac0(diff, pv->approach_d0);
-        add_vector_xyz(&moby->pos, &moby->pos, diff);
-        if (pv->seg_d4 < pv->path_c4[0] - 1) {
-            if (distance_xyz(&moby->pos, target) < D_L11_00161DD4 * frame_time) {
+        subtract_vector_xyz(path_movement, target, &moby->pos);
+        scale_vec_309ac0(path_movement, boat_vars->approach_d0);
+        add_vector_xyz(&moby->pos, &moby->pos, path_movement);
+        if (boat_vars->seg_d4 < boat_vars->path_c4[0] - 1) {
+            if (distance_xyz(&moby->pos, target) < pokitaru_boat_path_speed_gp * frame_time) {
                 float *pt;
-                pv->seg_d4 += 1;
-                pt = (float *)((char *)pv->path_c4 + pv->seg_d4 * 16);
+                boat_vars->seg_d4 += 1;
+                pt = (float *)((char *)boat_vars->path_c4 + boat_vars->seg_d4 * 16);
                 if (pt[7] == 37.0f) {
-                    pv->flag_c0 = 1;
+                    boat_vars->flag_c0 = 1;
                 }
             }
-        } else if (vector_length_xy(diff) < 0.001f) {
-            if (check_slot_309ac0(moby, pv->slot_cc)) {
-                if (pv->slot_cc != -1) {
-                    unsigned char *ent = D_0013E550_309ac0 + pv->slot_cc * 0x70;
+        } else if (vector_length_xy(path_movement) < 0.001f) {
+            if (check_slot_309ac0(moby, boat_vars->slot_cc)) {
+                if (boat_vars->slot_cc != -1) {
+                    unsigned char *ent = D_0013E550_309ac0 + boat_vars->slot_cc * 0x70;
                     if (*(void **)(ent + 0x88) == moby && ent[0x74] != 0) {
-                        release_slot_309ac0(pv->slot_cc);
+                        release_slot_309ac0(boat_vars->slot_cc);
                     }
                 }
-                pv->slot_cc = -1;
+                boat_vars->slot_cc = -1;
             }
-            if (check_slot_309ac0(moby, pv->slot_c8)) {
-                if (pv->slot_c8 != -1) {
-                    unsigned char *ent = D_0013E550_309ac0 + pv->slot_c8 * 0x70;
+            if (check_slot_309ac0(moby, boat_vars->slot_c8)) {
+                if (boat_vars->slot_c8 != -1) {
+                    unsigned char *ent = D_0013E550_309ac0 + boat_vars->slot_c8 * 0x70;
                     if (*(void **)(ent + 0x88) == moby && ent[0x74] != 0) {
-                        release_slot_309ac0(pv->slot_c8);
+                        release_slot_309ac0(boat_vars->slot_c8);
                     }
                 }
-                pv->slot_c8 = -1;
+                boat_vars->slot_c8 = -1;
             }
             moby->state = 3;
         }
-        approach_angle(&moby->rot.z, fast_arc_tan(target[0] - moby->pos.x, target[1] - moby->pos.y), pv->vel_d8,
-                         D_L11_00161DD8 * 0.017453292f * frame_time_sq,
-                         D_L11_00161DD8 * 0.017453292f * frame_time_sq,
-                         D_L11_00161DDC * 0.017453292f * frame_time);
-        if (pv->flag_c0 != 0) {
-            FUN_L00_002e8450_309ac0(0, D_L11_00161DEC, 0.003f);
-            FUN_L00_002e84b8_309ac0(D_L11_00161DF0, 0.003f);
+        approach_angle(&moby->rot.z, fast_arc_tan(target[0] - moby->pos.x, target[1] - moby->pos.y), boat_vars->vel_d8,
+                         pokitaru_boat_turn_acceleration_degrees_gp * 0.017453292f * frame_time_sq,
+                         pokitaru_boat_turn_acceleration_degrees_gp * 0.017453292f * frame_time_sq,
+                         pokitaru_boat_max_turn_speed_degrees_gp * 0.017453292f * frame_time);
+        if (boat_vars->flag_c0 != 0) {
+            FUN_L00_002e8450_309ac0(0, pokitaru_boat_camera_distance_gp, 0.003f);
+            FUN_L00_002e84b8_309ac0(pokitaru_boat_camera_height_gp, 0.003f);
         }
-        tab_a8 = D_L11_001B0EB0[pv->idx_a8];
-        tab_ac = D_L11_001B0EB0[pv->idx_ac];
+        tab_a8 = D_L11_001B0EB0[boat_vars->idx_a8];
+        tab_ac = D_L11_001B0EB0[boat_vars->idx_ac];
         for (i = 0; i < tab_a8[0]; i++) {
             FUN_001f9cf8_309ac0((char *)tab_a8 + 0x10 + i * 16, (char *)tab_ac + 0x10 + i * 16, &moby->rot_row0);
             add_vector_xyz((char *)tab_a8 + 0x10 + i * 16, (char *)tab_a8 + 0x10 + i * 16, &moby->pos);
@@ -1917,9 +1908,9 @@ void pokitaru_boat_update(struct Moby *moby) {
         break;
     }
     case POKITARU_BOAT_WAIT_FOR_GROUP_CLEAR:
-        if (FUN_L11_0030a850(moby) != 0) {
-            if (pv->flag_b0 != 0) {
-                pv->approach_d0 = 0.0f;
+        if (is_pokitaru_boat_target_group_clear(moby) != 0) {
+            if (boat_vars->flag_b0 != 0) {
+                boat_vars->approach_d0 = 0.0f;
                 moby->state = 4;
             } else {
                 moby->state = 5;
@@ -1927,19 +1918,19 @@ void pokitaru_boat_update(struct Moby *moby) {
         }
         break;
     case POKITARU_BOAT_RISE_ABOVE_PATH:
-        qcopy(target, (char *)pv->path_c4 + 0x10 + pv->seg_d4 * 16);
-        advance_309ac0(&moby->pos.z, &pv->approach_d0, target[2] + 6.0f, frame_time_sq, frame_time_sq, frame_time);
+        qcopy(target, (char *)boat_vars->path_c4 + 0x10 + boat_vars->seg_d4 * 16);
+        advance_309ac0(&moby->pos.z, &boat_vars->approach_d0, target[2] + 6.0f, frame_time_sq, frame_time_sq, frame_time);
         if (target[2] + 5.9f <= moby->pos.z) {
             moby->state = 5;
         }
         break;
     case POKITARU_BOAT_ADJUST_HEIGHT_FOR_HERO:
-        qcopy(target, (char *)pv->path_c4 + 0x10 + pv->seg_d4 * 16);
-        if (pv->flag_b0 != 0) {
+        qcopy(target, (char *)boat_vars->path_c4 + 0x10 + boat_vars->seg_d4 * 16);
+        if (boat_vars->flag_b0 != 0) {
             if (D_0013F3D8_lui < moby->pos.z) {
-                advance_309ac0(&moby->pos.z, &pv->approach_d0, target[2] + 1.0f, frame_time_sq, frame_time_sq, frame_time);
+                advance_309ac0(&moby->pos.z, &boat_vars->approach_d0, target[2] + 1.0f, frame_time_sq, frame_time_sq, frame_time);
             } else {
-                advance_309ac0(&moby->pos.z, &pv->approach_d0, target[2] + 8.0f, frame_time_sq, frame_time_sq, frame_time);
+                advance_309ac0(&moby->pos.z, &boat_vars->approach_d0, target[2] + 8.0f, frame_time_sq, frame_time_sq, frame_time);
             }
         }
         break;
@@ -1952,14 +1943,14 @@ void pokitaru_boat_update(struct Moby *moby) {
         float tilt_b = ft * 0.61086524f;
         float amp;
 
-        pv->height_e4 = moby->pos.z;
-        pv->angle_e0 = fast_add_rotations(pv->angle_e0, spin);
+        boat_vars->height_e4 = moby->pos.z;
+        boat_vars->angle_e0 = fast_add_rotations(boat_vars->angle_e0, spin);
         amp = 0.13f;
-        moby->pos.z = moby->pos.z + sin_309ac0(pv->angle_e0) * amp;
-        FUN_L00_00262b80_309ac0(moby, &pv->spr_e8, &pv->spr_ec, 0.0418879017f, tilt_a, tilt_b);
+        moby->pos.z = moby->pos.z + sin_309ac0(boat_vars->angle_e0) * amp;
+        update_moby_rotation_oscillation(moby, &boat_vars->spr_e8, &boat_vars->spr_ec, 0.0418879017f, tilt_a, tilt_b);
     }
     subtract_vector_xyz(delta, &moby->pos, start_pos);
-    FUN_L00_00260738_309ac0(pv->ctl60, delta, start_rot, &moby->rot);
+    FUN_L00_00260738_309ac0(boat_vars->ctl60, delta, start_rot, &moby->rot);
 }
 extern int scale_ticks(int) __asm__("FUN_001f96f8");
 
@@ -1967,7 +1958,7 @@ extern int scale_ticks(int) __asm__("FUN_001f96f8");
 
 void blend_moby_animation(MobyAnim *arg0, int arg1, int arg2, int arg3) __asm__("FUN_00212f90");
 
-int FUN_L11_0030a480(struct Moby *moby) {
+int try_activate_pokitaru_gate(struct Moby *moby) {
     char *current;
     if (moby->state != 1)
         return 0;
@@ -2003,11 +1994,11 @@ struct DataA500 {
     struct PartA500 parts[4];
 };
 
-void FUN_L11_0030a500(struct Moby *moby) {
+void update_pokitaru_boat_joint_effects(struct Moby *moby) {
     struct DataA500 *moby_vars = (struct DataA500 *)moby->pvars;
     float base[4];
     float pos[4];
-    float vel[4];
+    float initial_velocity[4];
     float speed;
     float step;
     float heading;
@@ -2045,44 +2036,44 @@ void FUN_L11_0030a500(struct Moby *moby) {
             speed = random_float_between(2.0f, 5.0f) * frame_time;
             if (moby->state == 1)
                 speed *= 0.4f;
-            vel[0] = fast_cos_a500(heading) * speed;
-            vel[1] = fast_sin_a500(heading) * speed;
-            vel[2] = 0.0f;
-            vel[2] = random_float_between(-2.0f, 2.0f) * frame_time;
+            initial_velocity[0] = fast_cos_a500(heading) * speed;
+            initial_velocity[1] = fast_sin_a500(heading) * speed;
+            initial_velocity[2] = 0.0f;
+            initial_velocity[2] = random_float_between(-2.0f, 2.0f) * frame_time;
             life = random_float_between(6300.0f, 14700.0f);
-            FUN_L00_0026f080(pos, vel, life, 222.5f);
+            FUN_L00_0026f080(pos, initial_velocity, life, 222.5f);
         }
     }
 }
 /* Ported from rac1-decomp (src/overlays/l11_pokitaru/vendor_002CC828.c: func_L11_0030BC00), where it is exact; names translated to the US level program. */
 
-int FUN_L11_0030a830(struct Moby *arg) {
-    return arg->state == 5;
+int is_moby_in_state_five(struct Moby *moby) {
+    return moby->state == 5;
 }
 /* Ported from rac1-decomp (src/overlays/l11_pokitaru/vendor_002CC828.c: func_L11_0030BC10), where it is exact; names translated to the US level program. */
 
-void FUN_L11_0030a840(unsigned char *arg) {
-    *(int *)(*(int *)(arg + 0x78) + 0xB8) = 1;
+void FUN_L11_0030a840(unsigned char *gate_moby) {
+    *(int *)(*(int *)(gate_moby + 0x78) + 0xB8) = 1;
 }
 /* Ported from rac1-decomp (src/overlays/l11_pokitaru/vendor_002CC828.c: func_L11_0030BC20), where it is exact; names translated to the US level program. */
 
 extern int D_L11_0015FFD8; /* no foreign declaration */
-extern int FUN_L11_00316128(char *);
+extern int is_moby_in_bob_target_exclusion_state(char *) __asm__("FUN_L11_00316128");
 extern short *D_L11_001AC240[];
 extern s32 D_L11_0015FFF4;
 
-int FUN_L11_0030a850(struct Moby *moby) {
-    int idx = *(short *)((char *)moby->pvars + 0xB4);
+int is_pokitaru_boat_target_group_clear(struct Moby *moby) {
+    int moby_group_index = *(short *)((char *)moby->pvars + 0xB4);
     short *group_entry;
-    if (idx < 0 || *(int *)&D_L11_0015FFF4 < idx)
+    if (moby_group_index < 0 || *(int *)&D_L11_0015FFF4 < moby_group_index)
         return 1;
-    group_entry = D_L11_001AC240[idx];
+    group_entry = D_L11_001AC240[moby_group_index];
     if (group_entry == 0)
         return 1;
     do {
         char *group_moby = (char *)(((*group_entry & 0x7FFF) << 8) + D_L11_0015FFD8);
         if (group_moby[0x20] >= 0 && *(short *)(group_moby + 0xA6) == 0x4DE) {
-            if (FUN_L11_00316128(group_moby) == 0)
+            if (is_moby_in_bob_target_exclusion_state(group_moby) == 0)
                 return 0;
         }
     } while (*group_entry++ >= 0);

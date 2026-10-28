@@ -11,14 +11,14 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
 
 /* No user fns here.  Pesch 15apr92. */
 
@@ -39,7 +39,7 @@ extern void func_00113968(void);
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* newlib's __sfvwrite, from its own source. Adapted from Lombyte (GPL-3.0)
+/* newlib's __sfvwrite, from its own source. Adapted from Lombyte's project (GPL-3.0)
    for PAL. */
 /* newlib's FILE and uio, as __sfvwrite uses them. */
 struct __sbuf_fvw {
@@ -68,9 +68,9 @@ struct __suio {
     int uio_resid;
 };
 
-extern void *func_001150D4(const void *, int, unsigned int);   /* memchr */
-extern void *func_001152F8(void *, const void *, unsigned int); /* memmove */
-extern int func_00118928(FILE_fvw *);                           /* __swsetup */
+extern void *libc_memchr(const void *, int, unsigned int);   /* memchr */
+extern void *libc_memmove(void *, const void *, unsigned int); /* memmove */
+extern int libc_swsetup(FILE_fvw *);                           /* __swsetup */
 
 #define _CONST const
 #define FILE FILE_fvw
@@ -83,11 +83,11 @@ extern int func_00118928(FILE_fvw *);                           /* __swsetup */
 #define __SERR 0x40
 #define memmove func_001152F8
 #define memchr func_001150D4
-#define fflush(fp) func_00113968_f(fp)
+#define fflush(fp) libc_fflush_f(fp)
 #define __swsetup func_00118928
 #define cantwrite(fp) ((((fp)->_flags & 8) == 0 || (fp)->_bf._base == 0) && __swsetup(fp))
 
-extern int func_00113968_f(FILE_fvw *) __asm__("func_00113968");
+extern int libc_fflush_f(FILE_fvw *) __asm__("func_00113968");
 
 #define	MIN(a, b) ((a) < (b) ? (a) : (b))
 #define	COPY(n)	  (void) memmove((void *) fp->_p, (void *) p, (size_t) (n))
@@ -108,7 +108,7 @@ extern int func_00113968_f(FILE_fvw *) __asm__("func_00113968");
  * to the three different kinds of output buffering is handled here.
  */
 
-int func_00114060(FILE *fp, struct __suio *uio)
+int __sfvwrite(FILE *fp, struct __suio *uio)
 {
   register size_t len;
   register _CONST char *p;
@@ -288,7 +288,7 @@ typedef struct { char pad[0x1D8]; Fwalk_glue __sglue; } Fwalk_reent;
    use (_flags != 0) in every glue block of ptr->__sglue (+0x1D8), or-ing
    the results. It returns int; the shared preamble's void declaration is
    gone from this file. */
-int func_00114438(Fwalk_reent *ptr, int (*function)()) {
+int _fwalk(Fwalk_reent *ptr, int (*function)()) {
     register Fwalk_FILE *fp;
     register int n, ret = 0;
     register Fwalk_glue *g;

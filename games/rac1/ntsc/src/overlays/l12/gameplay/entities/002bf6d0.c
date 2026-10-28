@@ -10,7 +10,9 @@ extern char D_L12_001CBF40[];
 extern int D_L12_0015FFD8; /* no foreign declaration */
 extern short *D_L12_001ABCC0[];
 
-void FUN_L12_002bf6d0(struct Moby *moby) {
+void copy_moby_z_to_group_records(struct Moby *moby) __asm__("FUN_L12_002bf6d0");
+
+void copy_moby_z_to_group_records(struct Moby *moby) {
     short *group_index_cursor = D_L12_001ABCC0[moby->group];
     int base = D_L12_0015FFD8;
     do {
@@ -26,15 +28,17 @@ void FUN_L12_002bf6d0(struct Moby *moby) {
 
 /* Register this level's vendor data set. */
 
-extern void FUN_L01_002b91c8(char *, int);
+extern void render_water_grids(char *, int) __asm__("FUN_L01_002b91c8");
 
-void FUN_L12_002bf748(void) {
-    FUN_L01_002b91c8(D_L12_001CBF40, 0x11);
+void render_level_12_water_grids(void) __asm__("FUN_L12_002bf748");
+
+void render_level_12_water_grids(void) {
+    render_water_grids(D_L12_001CBF40, 0x11);
 }
 #include "eetypes.h"
 
 
-extern int FUN_L00_002dbb20(void *);
+extern int store_moby_in_suck_cannon(void *) __asm__("FUN_L00_002dbb20");
 
 extern int FUN_L00_002dbb20_pt(void *, void *) __asm__("FUN_L00_002dbb20");
 /* Moby state 8 while FUN_L00_002dbb20 reports a hit, back to 1 when it stops. */
@@ -42,7 +46,8 @@ extern int FUN_L00_002dbb20_h(void *, void *, void *, float) __asm__("FUN_L00_00
 /* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
    calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
    they came (retail touches none of a1, a2 and $f12 before its call). */
-int FUN_L12_002e1758(struct Moby *a, void *quad, void *target, float h) {
+int carried_moby_place_and_set_state(struct Moby *a, void *quad, void *target, float h) __asm__("FUN_L12_002e1758");
+int carried_moby_place_and_set_state(struct Moby *a, void *quad, void *target, float h) {
     int r = FUN_L00_002dbb20_h(a, quad, target, h);
     if (r == 0) {
         if (a->state == 0x8)

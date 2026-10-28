@@ -16,7 +16,9 @@ extern void normalize_vector_xyz(void *out, void *a, f32 len) __asm__("FUN_001f9
 extern int func_001FA898_r(float) __asm__("FUN_001fa6d0");
 
 extern unsigned char *D_L08_001B2880 __attribute__((section(".data")));
-void FUN_L08_00272cb8(float *pos, int kind, float *vec, float scale) {
+void spawn_span_particle(float *span_start_position, int kind, float *span_direction, float scale) __asm__("FUN_L08_00272cb8");
+
+void spawn_span_particle(float *span_start_position, int kind, float *span_direction, float scale) {
     enum {
         PARTICLE_SHORT_SPAN = 0,
         PARTICLE_MEDIUM_SPAN = 1,
@@ -24,52 +26,52 @@ void FUN_L08_00272cb8(float *pos, int kind, float *vec, float scale) {
     };
     float v[4];
     float *vp = v;
-    float w[4];
+    float span_offset[4];
     float u[4];
     unsigned char *particle;
     int k2 = kind;
-    int c;
+    int color_high_byte;
     float span_length;
-    float f20;
+    float span_start_w;
     int k;
-    *(OvlQuad *)v = *(OvlQuad *)vec;
+    *(OvlQuad *)v = *(OvlQuad *)span_direction;
     particle = create_part(0);
     if (particle != 0) {
-        c = 0;
+        color_high_byte = 0;
         k = k2;
-        f20 = 0.0f;
-        span_length = f20;
+        span_start_w = 0.0f;
+        span_length = span_start_w;
         switch (k) {
         case PARTICLE_SHORT_SPAN:
-            c = 0x14;
-            f20 = 0.015f;
+            color_high_byte = 0x14;
+            span_start_w = 0.015f;
             span_length = random_float_between_alt(0.01f, 1.0f);
             break;
         case PARTICLE_MEDIUM_SPAN:
-            c = 0xD;
-            f20 = 0.5f;
+            color_high_byte = 0xD;
+            span_start_w = 0.5f;
             span_length = random_float_between_alt(1.0f, 5.0f);
             break;
         case PARTICLE_LONG_SPAN:
-            c = 0xD;
-            f20 = 1.0f;
+            color_high_byte = 0xD;
+            span_start_w = 1.0f;
             k = 1;
             span_length = random_float_between_alt(20.0f, 30.0f);
             break;
         }
-        *(OvlQuad *)w = *(OvlQuad *)vp;
-        normalize_vector_xyz(w, w, span_length);
+        *(OvlQuad *)span_offset = *(OvlQuad *)vp;
+        normalize_vector_xyz(span_offset, span_offset, span_length);
         *(short *)(particle + 0xA) = k2;
-        *(int *)(particle + 4) = ((c >> 2) << 24) | 0x606060;
-        *(int *)(particle + 0xC) = (c << 24) | 0x907070;
+        *(int *)(particle + 4) = ((color_high_byte >> 2) << 24) | 0x606060;
+        *(int *)(particle + 0xC) = (color_high_byte << 24) | 0x907070;
         particle[9] = func_001FA898_r(4.0f) + 0x60;
         particle[3] = 0x44;
         particle[1] = 3;
         particle[2] = D_L08_001B2880[k];
-        *(OvlQuad *)(particle + 0x10) = *(OvlQuad *)pos;
-        add_vector_xyz(u, pos, w);
+        *(OvlQuad *)(particle + 0x10) = *(OvlQuad *)span_start_position;
+        add_vector_xyz(u, span_start_position, span_offset);
         *(OvlQuad *)(particle + 0x20) = *(OvlQuad *)u;
-        *(float *)(particle + 0x1C) = f20;
+        *(float *)(particle + 0x1C) = span_start_w;
         *(float *)(particle + 0x2C) = 1.0f;
         *(OvlQuad *)(particle + 0x30) = *(OvlQuad *)vp;
         *(float *)(particle + 0x3C) = scale;

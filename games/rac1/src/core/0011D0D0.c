@@ -14,62 +14,62 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
-extern char D_00152470[];
-extern int func_00119088();
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
+extern char locale_lconv[];
+extern int libc_glue_read();
 extern long func_00116108_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00116108");
 extern long func_001188C8_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_001188C8");
 extern long func_00114518_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00114518");
-extern int func_00112468(int *errOut, int arg1);
-extern int func_00114060(int, void *);
-extern void func_00113AE0(void *);
-extern void func_00117118(void *, void *, int, int);
-extern int func_00119008();
-extern int D_0012FCF0 NOT_SDA;
-extern void func_00118E90(int arg0, void *arg1);
-extern void *D_00154A40 NOT_SDA;
-extern int D_00155080[];
-extern void func_001193F8(int);
-extern void func_00118AD0(int, int);
-extern int D_00154F54;
-extern int D_0012FD04;
-extern int D_00154F64 NOT_SDA;
-extern int D_00154F6C NOT_SDA;
-extern void func_0011AA90(int, int, int, int, int, int, int);
-extern void func_0011AA00(void);
-extern int D_0012FD08 NOT_SDA;
-extern int func_0011D960(void);
-extern void func_0011D9A8(void);
-extern int func_00118C70(void *);
-extern int D_0012FDA0;
-extern int D_0012FDA4;
-extern char D_00157E80[];
-extern int D_0012FD9C;
-extern void func_0011BBF0(void);
-extern int D_0012FD9C NOT_SDA;
-extern char D_0012FCEC[];
-extern char D_001580A8[];
-extern int D_0012FDA8;
-extern void func_001153FC(void *, int, int);
-extern int D_0012FD94;
-extern int D_0012FDAC;
-extern char D_00158140[];
-extern int D_00158180;
-extern int D_001581C0;
-extern char D_00158528[];
-extern int D_0012FDB4;
-extern int func_0011CE70(int arg0, int arg1, int arg2, void *arg3);
+extern int _close_r(int *errOut, int arg1);
+extern int __sfvwrite(int, void *);
+extern void __sinit(void *);
+extern void _vfprintf_r(void *, void *, int, int);
+extern int libc_glue_write();
+extern int CoreGlobalWord NOT_SDA;
+extern void Deci2Call(int arg0, void *arg1);
+extern void *InitBlockData NOT_SDA;
+extern int sif_sregs[];
+extern void disable_dmac_atomic(int);
+extern void remove_dmac_handler(int, int);
+extern int sif_cmd_dmac_handler_id;
+extern int sif_cmd_init_done;
+extern int sif_cmd_data_sys_handlers NOT_SDA;
+extern int sif_cmd_data_usr_handlers NOT_SDA;
+extern void sif_send_cmd_common(int, int, int, int, int, int, int);
+extern void sceSifExitCmd(void);
+extern int RpcCommandState NOT_SDA;
+extern int disable_interrupts(void);
+extern void enable_interrupts(void);
+extern int create_semaphore(void *);
+extern int fs_iob_sema;
+extern int fs_iob_sema_2;
+extern char fs_iob_table[];
+extern int fs_call_sema;
+extern void fs_call_sema_init(void);
+extern int fs_call_sema NOT_SDA;
+extern char sif_lib_version_string[];
+extern char FsResetBuffer[];
+extern int fs_expected_version;
+extern void libc_memset(void *, int, int);
+extern int FsResetState;
+extern int iop_heap_bind_state;
+extern char iop_heap_rpc_client[];
+extern int iop_heap_rpc_reply;
+extern int iop_heap_rpc_arg;
+extern char lf_iop_version[];
+extern int lf_expected_version;
+extern int _sceSifLoadModuleBuffer(int arg0, int arg1, int arg2, void *arg3);
 
 typedef struct {
     u64 psize : 8;
@@ -93,68 +93,68 @@ typedef struct {
     s32 mode;
 } SifDmaData;
 
-extern SifResetPacket D_00158540;
-extern void func_00118DA0(void);
-extern u32 func_00118E70_u(u32 reg) __asm__("func_00118E70");
-extern u32 func_00118E60(u32 reg, u32 val);
-extern void func_0011AD70(void *p, s32 size);
-extern u32 func_00118E20(SifDmaData *dma, s32 count);
+extern SifResetPacket sif_reset_iop_packet;
+extern void sce_sif_stop_dma(void);
+extern u32 sce_sif_get_reg_u(u32 reg) __asm__("func_00118E70");
+extern u32 sce_sif_set_reg(u32 reg, u32 val);
+extern void sceSifWriteBackDCache(void *p, s32 size);
+extern u32 sce_sif_set_dma(SifDmaData *dma, s32 count);
 
 /* sceSifResetIop: like sceSifRebootIop (func_0011D248) but with a caller
-   -supplied argument string and reboot mode. Adapted from Lombyte (GPL-3.0)
+   -supplied argument string and reboot mode. Adapted from Lombyte's project (GPL-3.0)
    for PAL. */
-s32 func_0011D0D0(const char *arg, s32 mode) {
+s32 sceSifResetIop(const char *arg, s32 mode) {
     SifDmaData dma;
     u32 addr;
     s32 arglen;
 
-    func_00118DA0();
-    addr = func_00118E70_u(0x80000000);
-    D_00158540.mode = mode;
+    sce_sif_stop_dma();
+    addr = sce_sif_get_reg_u(0x80000000);
+    sif_reset_iop_packet.mode = mode;
     for (arglen = 0; arg[arglen] != 0; arglen++) {
-        D_00158540.arg[arglen] = arg[arglen];
+        sif_reset_iop_packet.arg[arglen] = arg[arglen];
     }
-    D_00158540.header.dest = 0;
-    D_00158540.arglen = arglen;
-    D_00158540.header.cid = 0x80000003;
-    D_00158540.header.dsize = 0;
-    D_00158540.header.psize = sizeof(SifResetPacket);
-    dma.data = (u32)&D_00158540;
+    sif_reset_iop_packet.header.dest = 0;
+    sif_reset_iop_packet.arglen = arglen;
+    sif_reset_iop_packet.header.cid = 0x80000003;
+    sif_reset_iop_packet.header.dsize = 0;
+    sif_reset_iop_packet.header.psize = sizeof(SifResetPacket);
+    dma.data = (u32)&sif_reset_iop_packet;
     dma.addr = addr;
     dma.size = sizeof(SifResetPacket);
     dma.mode = 0x44;
-    func_0011AD70(&D_00158540, sizeof(SifResetPacket));
-    func_00118E60(4, 0x40000);
-    if (func_00118E20(&dma, 1)) {
-        func_00118E60(4, 0x10000);
-        func_00118E60(4, 0x20000);
-        func_00118E60(0x80000002, 0);
-        func_00118E60(0x80000000, 0);
+    sceSifWriteBackDCache(&sif_reset_iop_packet, sizeof(SifResetPacket));
+    sce_sif_set_reg(4, 0x40000);
+    if (sce_sif_set_dma(&dma, 1)) {
+        sce_sif_set_reg(4, 0x10000);
+        sce_sif_set_reg(4, 0x20000);
+        sce_sif_set_reg(0x80000002, 0);
+        sce_sif_set_reg(0x80000000, 0);
         return 1;
     }
     return 0;
 }
 
-extern void func_00118EC0(void);
+extern void tty_reset_init_flag(void);
 
-int func_0011D210(void) {
-    if (func_00118E70(0x4) & 0x40000) {
-        func_00118EC0();
+int sce_sif_sync_iop(void) {
+    if (sce_sif_get_reg(0x4) & 0x40000) {
+        tty_reset_init_flag();
         return 1;
     }
     return 0;
 }
 
-extern char D_00152A60[];   /* "rom0:UDNL " */
-extern char D_00152A70[];
-extern void func_0011A6C8();
-extern void func_0011AE20(int);
-extern void func_0011AFC0(void);
+extern char iop_reboot_udnl_prefix[];   /* "rom0:UDNL " */
+extern char iop_reboot_param_too_long_msg[];
+extern void scePrintf();
+extern void sceSifInitRpc(int);
+extern void sceSifExitRpc(void);
 
 /* sceSifRebootIop: reset the IOP with "rom0:UDNL " + img (at most 80
-   characters). Adapted from Lombyte (GPL-3.0) for PAL. */
-int func_0011D248(char *img) {
-    char *prefix = D_00152A60;
+   characters). Adapted from Lombyte's project (GPL-3.0) for PAL. */
+int sce_sif_reboot_iop(char *img) {
+    char *prefix = iop_reboot_udnl_prefix;
     char param[80];
     char *p;
     char *d;
@@ -164,11 +164,11 @@ int func_0011D248(char *img) {
         p++;
     }
     if ((unsigned int)(p + 11 - img) > 80) {
-        func_0011A6C8(D_00152A70, img);
+        scePrintf(iop_reboot_param_too_long_msg, img);
         return 0;
     }
-    func_0011AE20(0);
-    func_0011AFC0();
+    sceSifInitRpc(0);
+    sceSifExitRpc();
     d = param;
     while (*prefix) {
         *d++ = *prefix++;
@@ -177,7 +177,7 @@ int func_0011D248(char *img) {
         *d++ = *img++;
     }
     *d = 0;
-    return func_0011D0D0(param, 0);
+    return sceSifResetIop(param, 0);
 }
 
 LINKER_REMNANT("asm/remnants/core_text", func_0011D358);
@@ -193,7 +193,7 @@ ASM_FUNC("asm/handwritten/core_text", func_0011D360);
  * Under 2.95.3 reorg fills the slot with the `addiu $4,$4,4` bump, 52
  * bytes against 56, which is what kept this a stub.
  */
-int func_0011D370(int *dst, int *src, unsigned int nbytes) {
+int tlbfunc_kcopy(int *dst, int *src, unsigned int nbytes) {
     unsigned int i;
     for (i = 0; i < nbytes >> 2; i++) {
         *dst++ = *src++;
@@ -205,13 +205,13 @@ ASM_FUNC("asm/handwritten/core_text", func_0011D3A8);
 
 ASM_FUNC("asm/handwritten/core_text", func_0011D3B8);
 
-extern int func_0011D3B8(int, int);
-extern void func_0011D360(void *, void *, int);
-extern int func_0011D3A8(int);
-extern void func_00118D80(int);
-extern int D_00130138[];
-extern char D_0012FDB8[];
-extern int D_00130130;
+extern int set_syscall(int, int);
+extern void kcopy(void *, void *, int);
+extern int get_entry_address(int);
+extern void flush_cache(int);
+extern int tlb_functions_syscall_table[];
+extern char tlb_functions_kernel_code[];
+extern int tlb_saved_syscall_3_entry;
 
 /*
  * Exact (it was a 2/0xC4 near-miss until the int/void fix below). Boot-time
@@ -234,51 +234,51 @@ extern int D_00130130;
  */
 typedef struct { int a; int b; } D_00130138_pair;
 
-extern void func_0011D3B8_v(int, int) __asm__("func_0011D3B8");
+extern void set_syscall_v(int, int) __asm__("func_0011D3B8");
 
 /* func_0011D3B8 returns nothing: declared int, its result register
    pushed the loop test to $v1. */
-int func_0011D3C8(void) {
-    int *t = D_00130138;
+int InitTLBFunctions(void) {
+    int *t = tlb_functions_syscall_table;
     D_00130138_pair *p;
     unsigned int i;
     int old;
     int r;
 
-    func_0011D3B8_v(t[0], t[1]);
-    func_0011D360((void *)0x80075000, D_0012FDB8, 0x330);
-    func_00118D80(0);
-    func_00118D80(2);
-    func_0011D3B8_v(t[2], t[3]);
-    func_0011D3B8_v(t[4], t[5]);
+    set_syscall_v(t[0], t[1]);
+    kcopy((void *)0x80075000, tlb_functions_kernel_code, 0x330);
+    flush_cache(0);
+    flush_cache(2);
+    set_syscall_v(t[2], t[3]);
+    set_syscall_v(t[4], t[5]);
 
     p = (D_00130138_pair *)(t + 6);
     for (i = 3; i < 8; i++) {
-        old = func_0011D3A8(p->a);
-        func_0011D3B8_v(p->a, old);
+        old = get_entry_address(p->a);
+        set_syscall_v(p->a, old);
         p++;
     }
 
-    r = func_0011D3A8(3);
-    D_00130130 = r;
+    r = get_entry_address(3);
+    tlb_saved_syscall_3_entry = r;
     return r;
 }
 
 ASM_FUNC("asm/handwritten/core_text", func_0011D490);
 
-extern int func_0011D4E0(void);
-extern int func_00118EB0(void);
+extern int init_tlb_32mb(void);
+extern int kernel_init_tlb(void);
 
 /* Set up the TLB for the machine's memory size: the 32 MB layout
    (func_0011D4E0) when func_00118EA0 reports 0x2000000, the kernel's own
    routine (func_00118EB0) otherwise. Returns its callees' values: retail
    keeps the frame and calls both, and 2.9-ee turns both arms into tail
    jumps (44 bytes against 64) when it is void. */
-int func_0011D4A0(void) {
-    if (func_00118EA0() == 0x2000000) {
-        return func_0011D4E0();
+int InitTLB(void) {
+    if (get_memory_size() == 0x2000000) {
+        return init_tlb_32mb();
     } else {
-        return func_00118EB0();
+        return kernel_init_tlb();
     }
 }
 

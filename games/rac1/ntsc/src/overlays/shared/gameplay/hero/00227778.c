@@ -10,16 +10,18 @@ extern unsigned int D_0013CAE0 __attribute__((section(".data")));
 extern f32 frame_time __asm__("D_0015ED6C") __attribute__((sda));
 extern int scale_game_frames(int) __asm__("FUN_001f96f8");
 extern void queue_animation_update(int, int, void *, void *, void *, void *, int) __asm__("FUN_001ff308");
-extern void FUN_L00_00236268(void);
-extern void FUN_L00_00236458(void);
-extern void FUN_L00_002365a8(void);
+extern void hud_init_particles(void) __asm__("FUN_L00_00236268");
+extern void hud_update_particles(void) __asm__("FUN_L00_00236458");
+extern void draw_hud_stars(void) __asm__("FUN_L00_002365a8");
 extern int ray_hits(void *, void *, int, void *, int) __asm__("FUN_001efa68");
 extern int hero_set_state(int, int) __asm__("FUN_L00_002223f8");
 /* The same function under a void-returning prototype, as an older
    declaration of it would have read; see the 0x33 call below. */
 extern void hero_set_state_v(int, int) __asm__("FUN_L00_002223f8");
 
-int FUN_L00_00227778(void) {
+int try_transition_hero_water_state(void) __asm__("FUN_L00_00227778");
+
+int try_transition_hero_water_state(void) {
     Vec4 start;
     Vec4 end;
     int decrement;
@@ -30,13 +32,13 @@ int FUN_L00_00227778(void) {
             decrement = 0;
         } else {
             decrement = 10000 / (scale_game_frames(0x3C) * 15);
-            queue_animation_update(4, 0x753F, FUN_L00_00236268,
-                FUN_L00_00236458, FUN_L00_002365a8, &hero.unk22A0, 10000);
+            queue_animation_update(4, 0x753F, hud_init_particles,
+                hud_update_particles, draw_hud_stars, &hero.underwater_air, 10000);
         }
-        hero.unk22A0 -= decrement;
-        if (hero.unk22A0 < 0)
-            hero.unk22A0 = 0;
-        if (hero.unk22A0 == 0 &&
+        hero.underwater_air -= decrement;
+        if (hero.underwater_air < 0)
+            hero.underwater_air = 0;
+        if (hero.underwater_air == 0 &&
             (!(hero.water_surface_z - 2.0f < hero.motion.pos.f[2]) ||
              !(hero.motion.rot.f[1] < -0.87266463f) ||
              !(frame_time < hero.motion.displacement.f[2]))) {
@@ -51,7 +53,7 @@ change_state:
         hero_set_state(state, 1);
         return 1;
     } else if (hero.state.current != 0x6A && hero.state.current != 0x76) {
-        hero.unk22A0 = 10000;
+        hero.underwater_air = 10000;
     }
 collision_mode:
     if (hero.state.control_mode != 0x12)

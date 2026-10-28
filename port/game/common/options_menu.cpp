@@ -194,6 +194,8 @@ std::string translated(const std::string& text, int lang) {
     return text;
 }
 
+}  // namespace
+
 // UTF-8 in the game's text: ASCII as it is, and the accented letters at the game's own codes
 // (each vowel's acute, grave, circumflex and diaeresis in turn from 0x84 for a, 0x8C e, 0x94 i,
 // 0x9C o and 0xA4 u, the capitals 4 below; then ñ 0xA9, ç 0xAB, ß 0xAC, ¡ 0xAE, ¿ 0xAF).
@@ -229,6 +231,8 @@ std::string game_text(const std::string& utf8) {
     }
     return out;
 }
+
+namespace {
 
 // The value after `current` in a list (before it, for by = -1), around the ends; the first when
 // `current` is not one of them.

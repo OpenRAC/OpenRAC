@@ -15,7 +15,9 @@ extern int D_L08_001F84E8[];
 extern void FUN_L00_001fde98(int, int, int, void *, int);
 extern void FUN_L08_00258090(void *, int, int, void *);
 
-void FUN_L08_00308db8(int pair_index) {
+void queue_batalia_eight_textured_batches(int pair_index) __asm__("FUN_L08_00308db8");
+
+void queue_batalia_eight_textured_batches(int pair_index) {
     int i;
     for (i = 0; i < 0x8; i++) {
         FUN_L08_00258090(D_L08_001F8560, D_L08_001F84E8[i], D_L08_001F4C60[i], &D_L08_001F8548[pair_index]);
@@ -26,7 +28,9 @@ void FUN_L08_00308db8(int pair_index) {
 extern Pair D_L08_001623F8[] __attribute__((section(".sdata")));
 extern int D_L08_001F4C18[];
 extern int D_L08_001F4C00[];
-void FUN_L08_00308e90(int pair_index) {
+void queue_batalia_six_textured_batches(int pair_index) __asm__("FUN_L08_00308e90");
+
+void queue_batalia_six_textured_batches(int pair_index) {
     int i;
     for (i = 0; i < 0x6; i++) {
         FUN_L08_00258090(D_L08_001F8560, D_L08_001F4C18[i], D_L08_001F01C8[i], &D_L08_001623F8[pair_index]);
@@ -36,76 +40,78 @@ void FUN_L08_00308e90(int pair_index) {
 }
 /* Draws three rows of HUD elements with their colours. */
 
-extern int D_L08_00162390 __attribute__((sda));
-extern int D_L08_00162394;
-extern int D_L08_00162398;
-extern int D_L08_001623B0 __attribute__((sda));
-extern int D_L08_001623B4;
-extern int D_L08_001623C0 __attribute__((sda));
+#include "rnc/overlay/l08/gameplay/vendor/00308db8_globals.h"
+extern int batalia_texture_3a_blend_factor_gp __asm__("D_L08_00162390") __attribute__((sda));
+extern int batalia_texture_3c_pair_zero_blend_factor_gp __asm__("D_L08_001623B0") __attribute__((sda));
+extern int batalia_texture_3d_blend_factor_gp __asm__("D_L08_001623C0") __attribute__((sda));
 extern unsigned char D_L08_00161E08_u __asm__("D_L08_001623F0");
 extern int get_effect_texture_alt(int) __asm__("FUN_001f44b8");
 extern void font_queue_vu_state(void) __asm__("FUN_001f76a0");
-extern void FUN_L08_00308db8_u(int) __asm__("FUN_L08_00308db8");
-extern void FUN_L08_00308e90_u(int) __asm__("FUN_L08_00308e90");
-extern void FUN_L08_00308f68(int);
+extern void queue_batalia_eight_textured_batches(int) __asm__("FUN_L08_00308db8");
+extern void queue_batalia_six_textured_batches(int) __asm__("FUN_L08_00308e90");
+extern void queue_batalia_offset_textured_batches(int) __asm__("FUN_L08_00308f68");
 void vu1_add_g_sregister(s32 a0, s64 a1) __asm__("FUN_00233980");
 
-void FUN_L08_00309030(void) {
+void queue_batalia_textured_batch_passes(void) __asm__("FUN_L08_00309030");
+
+void queue_batalia_textured_batch_passes(void) {
     vu1_add_g_sregister(0x42, 0x8000000044L);
     vu1_add_g_sregister(8, 0);
     vu1_add_g_sregister(0x14, 0xFF9000000260L);
     vu1_add_g_sregister(0x47, 0x513F1);
     font_queue_vu_state();
     vu1_add_g_sregister(6, get_effect_texture_alt(0x3A));
-    vu1_add_g_sregister(0x42, (long)D_L08_00162390 << 32 | 0x64);
-    FUN_L08_00308db8_u(0);
+    vu1_add_g_sregister(0x42, (long)batalia_texture_3a_blend_factor_gp << 32 | 0x64);
+    queue_batalia_eight_textured_batches(0);
     vu1_add_g_sregister(6, get_effect_texture_alt(0x3B));
-    vu1_add_g_sregister(0x42, (long)((D_L08_00162394 * D_L08_00161E08_u) >> 8) << 32 | 0x62);
-    FUN_L08_00308db8_u(1);
-    vu1_add_g_sregister(0x42, (long)((D_L08_00162398 * D_L08_00161E08_u) >> 8) << 32 | 0x68);
-    FUN_L08_00308db8_u(2);
+    vu1_add_g_sregister(0x42, (long)((batalia_texture_3b_pair_one_blend_factor_base * D_L08_00161E08_u) >> 8) << 32 | 0x62);
+    queue_batalia_eight_textured_batches(1);
+    vu1_add_g_sregister(0x42, (long)((batalia_texture_3b_pair_two_blend_factor_base * D_L08_00161E08_u) >> 8) << 32 | 0x68);
+    queue_batalia_eight_textured_batches(2);
     vu1_add_g_sregister(6, get_effect_texture_alt(0x3C));
-    vu1_add_g_sregister(0x42, (long)D_L08_001623B0 << 32 | 0x48);
-    FUN_L08_00308e90_u(0);
-    vu1_add_g_sregister(0x42, (long)D_L08_001623B4 << 32 | 0x48);
-    FUN_L08_00308e90_u(1);
+    vu1_add_g_sregister(0x42, (long)batalia_texture_3c_pair_zero_blend_factor_gp << 32 | 0x48);
+    queue_batalia_six_textured_batches(0);
+    vu1_add_g_sregister(0x42, (long)batalia_texture_3c_pair_one_blend_factor << 32 | 0x48);
+    queue_batalia_six_textured_batches(1);
     vu1_add_g_sregister(6, get_effect_texture_alt(0x3D));
-    vu1_add_g_sregister(0x42, (long)D_L08_001623C0 << 32 | 0x48);
-    FUN_L08_00308f68(0);
+    vu1_add_g_sregister(0x42, (long)batalia_texture_3d_blend_factor_gp << 32 | 0x48);
+    queue_batalia_offset_textured_batches(0);
 }
 #include "sda.h"
 /* Update for a moby that waits for a float flag on a nearby object then runs a delete sequence. */
 
 extern char *find_moby_hit(void *, int, int) __asm__("FUN_L00_0025a420");
 extern void allocate_voice_for_target_entry(int, int, int) __asm__("FUN_0022da68");
-extern void FUN_L00_00263e30(void *, int, int, int, int, int, int);
-extern void FUN_L01_002787a0(void *);
-extern void FUN_L01_00278e20(void *, int);
+extern void spawn_moby_break_fragments(void *, int, int, int, int, int, int) __asm__("FUN_L00_00263e30");
+extern void spawn_proximity_gated_bolts(void *) __asm__("FUN_L01_002787a0");
+extern void spawn_moby_from_placement(void *, int) __asm__("FUN_L01_00278e20");
 void mark_moby_for_removal(struct Obj *obj) __asm__("FUN_0020c828");
 
-void FUN_L08_0030bc00(struct Moby *moby) {
+void update_moby_hit_removal_state(struct Moby *moby) __asm__("FUN_L08_0030bc00");
+
+void update_moby_hit_removal_state(struct Moby *moby) {
     enum {
         MOBY_STATE_INITIALIZE = 0,
         MOBY_STATE_WAIT_FOR_HIT = 1,
         MOBY_STATE_REMOVE = 2
     };
     int hit = 0;
-    char *r = find_moby_hit(moby, 0x10000, 0);
+    char *hit_result = find_moby_hit(moby, 0x10000, 0);
     switch (moby->state) {
     case MOBY_STATE_INITIALIZE:
         moby->state = 1;
         break;
     case MOBY_STATE_WAIT_FOR_HIT:
-        if (r != 0 && *(float *)(r + 0x2C) > 0.0f)
+        if (hit_result != 0 && *(float *)(hit_result + 0x2C) > 0.0f)
             hit = 1;
         if (hit)
             moby->state = 2;
         break;
     case MOBY_STATE_REMOVE:
         allocate_voice_for_target_entry(0, 0, (int)moby);
-        FUN_L01_002787a0(moby);
-        FUN_L00_00263e30(moby, 0x736, 1, 0x737, 1, 0x1, 2);
-        FUN_L01_00278e20(moby, 0x735);
+        spawn_proximity_gated_bolts(moby);
+        spawn_moby_break_fragments(moby, 0x736, 1, 0x737, 1, 0x1, 2);
+        spawn_moby_from_placement(moby, 0x735);
         mark_moby_for_removal(moby);
         break;
     }

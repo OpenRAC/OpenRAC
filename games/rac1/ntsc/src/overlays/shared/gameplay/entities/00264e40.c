@@ -8,7 +8,9 @@
 
 /* Ported from rac1-decomp (src/overlays/shared/mobyutil_0025D750.c: func_L02_00265E58), where it is exact; names translated to the US level program. */
 
-void FUN_L02_00264e40(char *moby) {
+void reset_shot_tracking(char *moby) __asm__("FUN_L02_00264e40");
+
+void reset_shot_tracking(char *moby) {
     int *word_to_clear = (int *)(moby + 0x18);
     int i;
     for (i = 6; i >= 0; i--, word_to_clear--) {
@@ -22,7 +24,7 @@ void FUN_L02_00264e40(char *moby) {
 
 typedef struct { char *p[7]; short timer; } Slots_265E88;
 
-extern char *FUN_L00_0026b230(void *, void *, unsigned long, float);
+extern char *spawn_spinning_and_fading_effect_particle(void *, void *, unsigned long, float) __asm__("FUN_L00_0026b230");
 extern f32 random_float_between(f32, f32) __asm__("func_002132A8");
 extern f32 frame_time_macro __asm__("D_0015ED6C") __attribute__((section(".sdata")));
 extern f32 frame_time_sq_macro __asm__("D_0015ED70") __attribute__((section(".sdata")));
@@ -39,13 +41,14 @@ extern int D_L02_001600D8 __attribute__((sda));
 extern float D_L02_001600DC __attribute__((sda));
 extern float D_L02_001600E0 __attribute__((sda));
 extern void FUN_L00_00257d78(float *, float, float);
-extern void FUN_L00_0026d598(void *, void *, int);
+extern void spawn_color_decaying_effect_particle(void *, void *, int) __asm__("FUN_L00_0026d598");
 extern void add_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a10");
 extern void advance_accelerated_scalar(float *, float *, float, float, float, float) __asm__("FUN_00213f38");
 extern void fast_vec_normalize(void *, void *, f32) __asm__("FUN_001f9bf8");
 extern void fast_vec_scale(void *, void *, f32) __asm__("func_001F9A68");
 
-void FUN_L02_00264e70(char *slots, float *position, float *direction, float distance) {
+void effect_slots_fire(char *slots, float *position, float *direction, float distance) __asm__("FUN_L02_00264e70");
+void effect_slots_fire(char *slots, float *position, float *direction, float distance) {
     float origin[4] __attribute__((aligned(16)));
     float end[4] __attribute__((aligned(16)));
     float adjusted[4] __attribute__((aligned(16)));
@@ -89,7 +92,7 @@ void FUN_L02_00264e70(char *slots, float *position, float *direction, float dist
         fast_vec_scale(velocity, adjusted, random_float_between(0.0f, 1.0f));
         add_vector_xyz(velocity, velocity, origin);
         if (i < first_count) fl = 1; else fl = 0;
-        shot = FUN_L00_0026b230(velocity, offset, fl, travel);
+        shot = spawn_spinning_and_fading_effect_particle(velocity, offset, fl, travel);
         if (i == 2 && save_shot) {
             int j;
             for (j = 0; j < 7; j++) {
@@ -108,14 +111,16 @@ void FUN_L02_00264e70(char *slots, float *position, float *direction, float dist
         fast_vec_scale(velocity, adjusted, random_float_between(0.5f, 0.1f));
         add_vector_xyz(velocity, velocity, offset);
         velocity[3] = 0.0f;
-        FUN_L00_0026d598(position, velocity, 0);
+        spawn_color_decaying_effect_particle(position, velocity, 0);
     }
 }
 /* Ported from rac1-decomp (src/overlays/shared/mobyutil_0025D750.c: func_L02_002661E8), where it is exact; names translated to the US level program. */
 
 extern int collect_mobies_in_sphere(float, void *, int, int, int) __asm__("FUN_L00_001f2868");
 
-void FUN_L02_002651d0(char **slots, int a, int b) {
+void collect_mobies_around_tracked_objects(char **slots, int excluded_moby, int moby_record_payload) __asm__("FUN_L02_002651d0");
+
+void collect_mobies_around_tracked_objects(char **slots, int excluded_moby, int moby_record_payload) {
     int i;
     for (i = 6; i >= 0; i--, slots++) {
         char *slot_object = *slots;
@@ -128,7 +133,7 @@ void FUN_L02_002651d0(char **slots, int a, int b) {
         if (slot_object[1] < 0) {
             *slots = 0;
         } else {
-            collect_mobies_in_sphere(*(float *)(slot_object + 0xC) / 210000.0f * 0.25f, slot_object + 0x10, 0, a, b);
+            collect_mobies_in_sphere(*(float *)(slot_object + 0xC) / 210000.0f * 0.25f, slot_object + 0x10, 0, excluded_moby, moby_record_payload);
             if (*(short *)(slot_object + 0xA) < 5)
                 *slots = 0;
         }

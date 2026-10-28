@@ -3,16 +3,20 @@
 #include "asm.h"
 
 /* Zeroes five words at p. */
-void FUN_L00_001eb0b0(s32 *p) {
-    p[0] = 0;
-    p[1] = 0;
-    p[2] = 0;
-    p[3] = 0;
-    p[4] = 0;
+void zero_five_words(s32 *destination) __asm__("FUN_L00_001eb0b0");
+
+void zero_five_words(s32 *destination) {
+    destination[0] = 0;
+    destination[1] = 0;
+    destination[2] = 0;
+    destination[3] = 0;
+    destination[4] = 0;
 }
 f32 fast_add_rotations(f32, f32) __asm__("FUN_001fa580");
 /* Copies the five floats of s to d, adding x to the first as a rotation. */
-void FUN_L00_001eb0c8(f32 *destination, f32 *source, f32 x) {
+void copy_five_floats_with_rotation_offset(f32 *destination, f32 *source, f32 x) __asm__("FUN_L00_001eb0c8");
+
+void copy_five_floats_with_rotation_offset(f32 *destination, f32 *source, f32 x) {
     destination[0] = fast_add_rotations(source[0], x);
     destination[1] = source[1];
     destination[2] = source[2];

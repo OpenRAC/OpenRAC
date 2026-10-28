@@ -233,6 +233,26 @@ void audio() {
     CHECK(pulled != nullptr);
 }
 
+void audio_outlives_sdl() {
+    // An output destroyed after SDL quit (a static or an exit handler outliving the Platform)
+    // must not destroy its stream into SDL's freed state.
+    std::unique_ptr<AudioOutput> out;
+    {
+        Platform sdl(kAudio);
+        if (!sdl.ok()) {
+            std::printf("audio teardown skipped: %s\n", sdl.error().c_str());
+            return;
+        }
+        std::string error;
+        out = AudioOutput::open(error);
+        if (!out) {
+            std::printf("audio teardown skipped: %s\n", error.c_str());
+            return;
+        }
+    }
+    out.reset();
+}
+
 }  // namespace
 
 int main() {
@@ -243,5 +263,6 @@ int main() {
     keyboard();
     pacer();
     audio();
+    audio_outlives_sdl();
     return openrac::test::result();
 }

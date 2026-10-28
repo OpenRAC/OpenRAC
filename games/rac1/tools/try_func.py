@@ -43,7 +43,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from libgcc_units import SEGMENT_SOURCES, ee29_sources, ee29_01_sources, gas210_sources, gas210_real_sources, dtls29_sources, ps2eeas_real_sources  # noqa: E402
+from libgcc_units import SEGMENT_SOURCES, ee29_sources, ee29_01_sources, gas210_sources, gas210_real_sources, dtls29_sources, ps2eeas_real_sources, gcc323_sources  # noqa: E402
 from toolchain import sn  # noqa: E402
 import file_cflags  # noqa: E402
 import overlay_check  # noqa: E402
@@ -77,7 +77,7 @@ DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_[0-9A-Fa-f]{8})(?:_r)?\s*\("
 # overlay_check instead of the masked compare() below. Their sources live
 # under src/overlays/ (any subdirectory), not in SEGMENT_SOURCES.
 OVERLAY_NAME = re.compile(r"^func_L\d{2}_[0-9A-Fa-f]{8}$")
-OVERLAY_STUB = re.compile(r"^\s*INCLUDE_ASM\([^)]*\b(func_L\d{2}_[0-9A-Fa-f]{8})\)")
+OVERLAY_STUB = re.compile(r"^\s*(?:INCLUDE_ASM|ASM_FUNC)\([^)]*\b(func_L\d{2}_[0-9A-Fa-f]{8})\)")
 OVERLAY_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_L\d{2}_[0-9A-Fa-f]{8})(?:_r)?\s*\(")
 
 
@@ -143,7 +143,7 @@ def build(name, seg, src, first, last, candidate, work):
     # The source file's own extra flags (config/file_cflags.txt), as Makefile.sn passes them.
     # No step between the compiler and the assembler changes what the compiler wrote, apart
     # from the assembler behaviours listed in docs/BUILD_FIDELITY.md.
-    extra = file_cflags.flags_for(src)
+    extra = file_cflags.flags_for(src.as_posix())
     with open(work / "log.txt", "w") as log:
         s = [work / f"{n}.s" for n in "abcd"]
         if Path(src).as_posix() in EE29_SOURCES:
@@ -173,7 +173,9 @@ def build(name, seg, src, first, last, candidate, work):
             if not run(sn(CC, *CFLAGS, "-c", str(s[3]), "-o", str(obj)), log):
                 return None
             return obj
-        if not run(sn(CC, *CFLAGS, *extra, "-S", "-o", str(s[0]), str(c)), log):
+        compiler = ([sys.executable, "tools/gcc323.py"] if src.as_posix() in gcc323_sources()
+                    else sn(CC))
+        if not run([*compiler, *CFLAGS, *extra, "-S", "-o", str(s[0]), str(c)], log):
             return None
         if src.as_posix() in ps2eeas_real_sources():
             shutil.copy(s[0], s[2])

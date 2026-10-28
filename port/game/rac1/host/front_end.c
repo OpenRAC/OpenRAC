@@ -24,6 +24,39 @@ static void menu_sound(int sound, gaddr moby) {
     func_0022ED80(0, sound, moby);
 }
 
+/* One of the frame moby class's menu sounds (game_host.h, menu_cue). */
+static void menu_cue(int cue, gaddr moby) {
+    func_0022ED80(cue, 0x11, moby);
+}
+
+/* The page menu's frame mobys (panel_slots): one cut to a frame of a seq and played on at a speed,
+ * as update_menu_system's page switch does (pause.c): MobySetAnimation, then the speed at +0x58.
+ * A seq's frame count is the class's seq table's (class +0x24, seqs +0x48, count +0x10). */
+#define PANEL_SLOTS RAC1_ADDR(0x001D6120u)
+#define PANEL_SLOT_COUNT 14
+#define MOBY_CLASS 0x24u
+#define CLASS_SEQS 0x48u
+#define SEQ_FRAMES 0x10u
+#define MOBY_ANIM_SPEED 0x58u
+
+static void panel_animation(int slot, int seq, int last, float speed) {
+    if (slot < 0 || slot >= PANEL_SLOT_COUNT || seq < 0) {
+        return;
+    }
+    const gaddr moby = GREF(gaddr, PANEL_SLOTS + 4u * (unsigned)slot);
+    /* The menu's mobys exist only while it is open. */
+    if (moby == 0) {
+        return;
+    }
+    int frame = 0;
+    if (last) {
+        const gaddr seqs = GREF(gaddr, moby + MOBY_CLASS) + CLASS_SEQS;
+        frame = (int)GREF(uint8_t, GREF(gaddr, seqs + 4u * (unsigned)seq) + SEQ_FRAMES) - 1;
+    }
+    func_00213D28(moby, seq, frame);
+    GREF(float, moby + MOBY_ANIM_SPEED) = speed;
+}
+
 /* HeroAttachState is resident and uses the same slot layout in PAL and NTSC (level_hero_attach.c). */
 static unsigned hero_shadow_casters(gaddr* addresses, unsigned capacity) {
     return openrac_rac1_hero_attachments(
@@ -61,4 +94,10 @@ const openrac_front_end rac1_front_end = {
     .ship_state = RAC1_ADDR(0x0013E150u),
     .hero_shadow_casters = hero_shadow_casters,
     .language = RAC1_ADDR(0x0015EE88u),
+    .main_page = RAC1_ADDR(0x001D4948u),
+    .options_page = RAC1_ADDR(0x001D4B08u),
+    .prompt = RAC1_ADDR(0x001D29D0u),
+    .panel_slots = PANEL_SLOTS,
+    .menu_cue = menu_cue,
+    .panel_animation = panel_animation,
 };

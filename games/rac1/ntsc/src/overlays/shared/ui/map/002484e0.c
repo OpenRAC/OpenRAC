@@ -2,11 +2,6 @@
 #include "types.h"
 #include "asm.h"
 
-#ifndef NON_MATCHING
-INCLUDE_ASM("config/us/overlays/asm/FUN_L00_002484e0.s", FUN_L00_002484e0);
-#else
-/* Near miss (game BYTES 4/452, size-exact): left is the stack-slot order of x_min (0x60 in retail)
- * and the row + 1 spill (0x5C): retail spills x_min after the GCSE copy of row + 1. */
 #include "rnc/globals.h"
 #include "rnc/gameplay/hero.h"
 #include "sda.h"
@@ -36,9 +31,10 @@ extern MapFilter D_L00_00182BA0[19][16] NOT_SDA;
 extern MapFilterCallback D_L00_00183F90[19][8] NOT_SDA;
 extern s32 D_L00_001844A8[] NOT_SDA;
 extern void world_to_map_coords(f32, f32, f32 *, f32 *, s32) __asm__("FUN_00208408");
-extern s32 FUN_L00_00249d80(s32);
+extern s32 ensure_menu_cache_entry(s32) __asm__("FUN_L00_00249d80");
 
-void FUN_L00_002484e0(f32 *position) {
+void reveal_map_around_position(f32 *position) __asm__("FUN_L00_002484e0");
+void reveal_map_around_position(f32 *position) {
     s32 filters[16];
     f32 px;
     f32 py;
@@ -50,16 +46,16 @@ void FUN_L00_002484e0(f32 *position) {
     s32 mode16;
     s32 i;
     s32 *filter;
+    s32 index;
+    u32 flags;
+    MapFilterCallback callback;
     s32 y_min;
-    s32 x_max;
-    s32 y_max;
-    s32 row;
-    s32 x_min;
     s32 column;
     s32 row_start;
     s32 row_end;
     s32 column_start;
     s32 column_end;
+    s32 row;
 
     if (D_L00_00184218 == 0) {
         return;
@@ -75,6 +71,22 @@ void FUN_L00_002484e0(f32 *position) {
         return;
     }
 
+    {
+        /* Fakematch: a never-taken branch (cprop proves dead == 0, then jump deletes it).
+           Retail had about 20 more insns before gcse that vanish later; they size the PRE
+           hash table, which orders the frame slots of x - 16 and row + 1. */
+        s32 dead = 0;
+        if (x) dead = 0;
+        if (dead) {
+            ensure_menu_cache_entry(0);
+            ensure_menu_cache_entry(0);
+            ensure_menu_cache_entry(0);
+            ensure_menu_cache_entry(0);
+            ensure_menu_cache_entry(0);
+            ensure_menu_cache_entry(0);
+            ensure_menu_cache_entry(0);
+        }
+    }
     level = current_level_index;
     if (level < 0) {
         level = 0;
@@ -89,15 +101,8 @@ void FUN_L00_002484e0(f32 *position) {
     mode16 = hero.state.control_mode == 16;
     mode15 = hero.state.control_mode == 15;
     y_min = y - 16;
-    y_max = y + 16;
-    x_min = x - 16;
-    x_max = x + 16;
 
     for (i = 0, filter = filters; i < 16; i++, filter++) {
-        s32 index;
-        u32 flags;
-        MapFilterCallback callback;
-
         *filter = 1;
         if (i <= 0) {
             continue;
@@ -115,99 +120,99 @@ void FUN_L00_002484e0(f32 *position) {
             continue;
         }
         if ((flags & 1) && !state) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         if ((flags & 2) && state) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         if ((flags & 4) && !mode16) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         if ((flags & 8) && mode16) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         if ((flags & 0x10) && !mode15) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         if ((flags & 0x20) && mode15) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         if ((flags & 0x40) && !hero.unk308) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         if ((flags & 0x80) && !D_L00_001844A8[index]) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         if (flags & 0x100) {
             callback = D_L00_00183F90[current_level_index][0];
             if (callback != 0 && !callback(position[0], position[1], position[2], x, y)) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         }
         if (flags & 0x200) {
             callback = D_L00_00183F90[current_level_index][1];
             if (callback != 0 && !callback(position[0], position[1], position[2], x, y)) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         }
         if (flags & 0x400) {
             callback = D_L00_00183F90[current_level_index][2];
             if (callback != 0 && !callback(position[0], position[1], position[2], x, y)) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         }
         if (flags & 0x800) {
             callback = D_L00_00183F90[current_level_index][3];
             if (callback != 0 && !callback(position[0], position[1], position[2], x, y)) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         }
         if (flags & 0x1000) {
             callback = D_L00_00183F90[current_level_index][4];
             if (callback != 0 && !callback(position[0], position[1], position[2], x, y)) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         }
         if (flags & 0x2000) {
             callback = D_L00_00183F90[current_level_index][5];
             if (callback != 0 && !callback(position[0], position[1], position[2], x, y)) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         }
         if (flags & 0x4000) {
             callback = D_L00_00183F90[current_level_index][6];
             if (callback != 0 && !callback(position[0], position[1], position[2], x, y)) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         }
         if (flags & 0x8000) {
             callback = D_L00_00183F90[current_level_index][7];
             if (callback != 0 && !callback(position[0], position[1], position[2], x, y)) {
-                *filter = 0;
-                continue;
-            }
+            *filter = 0;
+            continue;
+        }
         }
     }
 
     row_start = y_min < 0 ? 0 : y_min;
-    row_end = y_max > 511 ? 511 : y_max;
-    column_start = x_min < 0 ? 0 : x_min;
-    column_end = x_max > 511 ? 511 : x_max;
+    row_end = y + 16 > 511 ? 511 : y + 16;
+    column_start = x - 16 < 0 ? 0 : x - 16;
+    column_end = x + 16 > 511 ? 511 : x + 16;
     for (row = row_start; row < row_end; row++) {
         s32 exclusion_row = row - y + 16;
         s32 block_row = (row >> 5) * 16;
@@ -236,7 +241,7 @@ void FUN_L00_002484e0(f32 *position) {
             {
                 u8 packed;
                 u8 selected;
-                FUN_L00_00249d80((column >> 5) + block_row);
+                ensure_menu_cache_entry((column >> 5) + block_row);
                 packed = *(D_L00_001841F0_lui.packed + ((column & 31) >> 1) + packed_row);
                 selected = (column & 1) ? packed >> 4 : packed & 15;
                 if (filters[selected] != 0) {
@@ -246,4 +251,3 @@ void FUN_L00_002484e0(f32 *position) {
         }
     }
 }
-#endif

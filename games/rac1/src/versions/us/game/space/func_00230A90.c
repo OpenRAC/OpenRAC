@@ -171,7 +171,7 @@ void update_resident_gameplay_state(void) {
             resident_call_0020ED48(object);
             if (object->class_id == 0) {
                 if (resident_data_0013E130.state == 0) {
-                    if (D_0015EE84_305A0 == 10 && resident_data_0013D5C8[6] == 0) {
+                    if (g_current_level_index_r == 10 && resident_data_0013D5C8[6] == 0) {
                         object->unk7F = 0;
                     } else if (resident_data_0018CC20.time <= resident_call_001F98C0(0x3E)) {
                         object->unk7F = 0x18;
@@ -179,7 +179,7 @@ void update_resident_gameplay_state(void) {
                         object->unk7F = 0;
                     }
                 } else if (resident_call_001F98C0(360) < resident_data_0018CC20.time) {
-                    if (D_0015EE84_305A0 == 10 && resident_data_0013D5C8[6] == 0) {
+                    if (g_current_level_index_r == 10 && resident_data_0013D5C8[6] == 0) {
                         object->unk7F = 0;
                     } else {
                         object->unk7F = 0x18;
@@ -208,8 +208,8 @@ void update_resident_gameplay_state(void) {
             }
             if (object->class_id == 0) {
                 resident_call_001E9790(object);
-                if ((D_0015EE84_305A0 == 10 && resident_data_0013D5C8[6] != 0) ||
-                    D_0015EE84_305A0 == 13) {
+                if ((g_current_level_index_r == 10 && resident_data_0013D5C8[6] != 0) ||
+                    g_current_level_index_r == 13) {
                     if (resident_data_0013E130.attachment == 0) {
                         resident_data_0013E130.attachment = resident_call_0020D348(0x509);
                         resident_data_0013E130.attachment->selected_index = 0x40;

@@ -90,7 +90,7 @@ void update_world_object_animation(void) {
     int k;
     int idx;
     int id;
-    int off;
+    int part_record_offset;
     int endp;
     int pc;
 
@@ -113,8 +113,8 @@ void update_world_object_animation(void) {
     }
 
     for (i = 0; i < D_0018CB20_t.num_parts; i++) {
-        off = *cp++;
-        sp = (int *)((unsigned char *)rec + off);
+        part_record_offset = *cp++;
+        sp = (int *)((unsigned char *)rec + part_record_offset);
         id = sp[0];
         sp = (int *)((unsigned char *)sp + 0xC);
         endp = (int)rec + sp[0];
@@ -146,9 +146,9 @@ void update_world_object_animation(void) {
         mob->model = endp;
         mob->parts->entries[mob->idx] = sp;
         for (k = 0; k < ((unsigned char *)sp)[0x10]; k++) {
-            int *w = (int *)((unsigned char *)sp + 0x1C);
+            int *pointer_fixup_entries = (int *)((unsigned char *)sp + 0x1C);
 
-            w[k] = (int)sp + w[k];
+            pointer_fixup_entries[k] = (int)sp + pointer_fixup_entries[k];
         }
     }
 }

@@ -61,11 +61,11 @@ void init_once(void) {
         SYSTEM_LANGUAGE_GAME_COLUMN_THREE = 4,
         SYSTEM_LANGUAGE_GAME_COLUMN_FIVE = 5
     };
-    u8 buf[0x800];
+    u8 disc_sector_and_image_descriptor_buffer[0x800];
     s32 lang;
-    u32 b;
+    u32 aligned_memory_base;
     u32 base;
-    s32 *dst;
+    s32 *compressed_archive_buffer;
     s32 flag;
 
     reset_vif1_gif();
@@ -88,23 +88,23 @@ void init_once(void) {
     sceCdDiskReady(0);
     sceCdMmode(2);
     sceFsReset();
-    wad_get_sectors(0x121, 1, buf);
+    wad_get_sectors(0x121, 1, disc_sector_and_image_descriptor_buffer);
     FlushCache(0);
-    flag = buf[0x33] != 0x4E;
+    flag = disc_sector_and_image_descriptor_buffer[0x33] != 0x4E;
     pal_mode = flag;
     pause_action_list_mode = flag;
-    memcard_get_name(buf);
+    memcard_get_name(disc_sector_and_image_descriptor_buffer);
     sceGsResetGraph(0, 1, pal_mode ? 3 : 2, 0);
     init_dma();
     set_pal_mode();
     vu0_load_micro_program(vu0_micro_program);
     load_disc_sectors_into_global_buffer();
-    b = (u32)D_24135F & 0xFFFFC000;
-    base = b + 0x2C0000;
-    dst = (s32 *)(D_1FF8000 - (disc_table.unk12C0.size << 0xB));
-    wad_get_sectors(disc_table.unk12C0.sector, disc_table.unk12C0.size, dst);
+    aligned_memory_base = (u32)D_24135F & 0xFFFFC000;
+    base = aligned_memory_base + 0x2C0000;
+    compressed_archive_buffer = (s32 *)(D_1FF8000 - (disc_table.unk12C0.size << 0xB));
+    wad_get_sectors(disc_table.unk12C0.sector, disc_table.unk12C0.size, compressed_archive_buffer);
     FlushCache(0);
-    fast_decompress(dst, base);
+    fast_decompress(compressed_archive_buffer, base);
     FlushCache(0);
     load_irx_module(*(u32 *)(base + 0x70) + base, *(u32 *)(base + 0x74));
     load_irx_module(*(u32 *)(base + 0x78) + base, *(u32 *)(base + 0x7C));
@@ -130,9 +130,9 @@ void init_once(void) {
     sceCdDiskReady(0);
     initialize_gameplay_sound_system();
     fill_transfer_words(image_clear_buffer, 0x80808080, 0x100);
-    sceGsSetDefLoadImage(buf, 0x3FFB, 1, 0, 0, 0, 8, 8);
+    sceGsSetDefLoadImage(disc_sector_and_image_descriptor_buffer, 0x3FFB, 1, 0, 0, 0, 8, 8);
     FlushCache(0);
-    sceGsExecLoadImage(buf, image_clear_buffer);
+    sceGsExecLoadImage(disc_sector_and_image_descriptor_buffer, image_clear_buffer);
     wait_for_graphics_pipeline_idle(0, 0);
     load_debug_font();
     *(volatile s32 *)0x10000810 = 0x82;

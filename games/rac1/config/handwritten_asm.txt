@@ -269,8 +269,6 @@ text/func_001FA850
 text/func_001F9BB0
 text/func_0020C210
 text/func_001F98C0
-text/func_001F9B90
-text/func_001F9B98
 text/func_001F9BC0
 text/func_001F9AF0
 text/func_001F9850

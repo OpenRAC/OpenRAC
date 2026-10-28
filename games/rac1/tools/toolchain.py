@@ -31,6 +31,7 @@ def start_wineserver() -> None:
     at once otherwise race to start one, and some fail. See toolchain.sh."""
     if WINE and shutil.which("wineserver"):
         subprocess.run(["wineserver", "-p60"], stderr=subprocess.DEVNULL)
+        subprocess.run([*WINE, "wineboot", "-b"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def make_sn(*args: str) -> list[str]:

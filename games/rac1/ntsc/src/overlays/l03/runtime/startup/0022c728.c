@@ -16,36 +16,38 @@ extern float random_float_between(float a, float b) __asm__("FUN_002132a8");
 extern int random_int_between(int, int) __asm__("FUN_L00_00257b90");
 extern s32 scale_game_frames(s32) __asm__("func_001F96F8");
 extern void moby_point_position(void *, int, void *) __asm__("FUN_L00_0024f7c8");
-extern void FUN_L00_0026ced0(void *, void *, int, int, float, int);
+extern void spawn_effect_particle_with_target_scalar(void *, void *, int, int, float, int) __asm__("FUN_L00_0026ced0");
 extern void clear_vector(void *);
 void build_spherical_offset(f32 *out, f32 scale, f32 a, f32 b) __asm__("FUN_00214db0");
 
-void FUN_L03_0022c728(void) {
-    char *g;
+void emit_level3_state5_moby_effects(void) __asm__("FUN_L03_0022c728");
+
+void emit_level3_state5_moby_effects(void) {
+    char *level_state;
     char *moby;
-    float w[4];
-    float v[4];
+    float world_position[4];
+    float spherical_offset[4];
     int i;
     if (current_level_index != 3)
         return;
-    g = D_L03_0016C960;
-    if (*(int *)(g + 0x30) != 5)
+    level_state = D_L03_0016C960;
+    if (*(int *)(level_state + 0x30) != 5)
         return;
-    if (scale_game_frames(900) >= *(int *)(g + 0x34))
+    if (scale_game_frames(900) >= *(int *)(level_state + 0x34))
         return;
-    if (*(int *)(g + 0x34) >= scale_game_frames(1100))
+    if (*(int *)(level_state + 0x34) >= scale_game_frames(1100))
         return;
-    moby = *(char **)(g + 0x184);
+    moby = *(char **)(level_state + 0x184);
     if (moby == 0)
         return;
     for (i = 0; i < 4; i++) {
-        float azimuth_angle, b;
-        clear_vector(v);
-        moby_point_position(moby, i % 2, w);
+        float azimuth_angle, elevation_angle;
+        clear_vector(spherical_offset);
+        moby_point_position(moby, i % 2, world_position);
         azimuth_angle = random_angle_radians();
-        b = random_angle_radians();
-        build_spherical_offset(v, random_float_between(frame_time * 0.7f, frame_time * 2.2f), azimuth_angle, b);
-        FUN_L00_0026ced0(w, v, 0x80808080, 0x808080, 147000.0f,
+        elevation_angle = random_angle_radians();
+        build_spherical_offset(spherical_offset, random_float_between(frame_time * 0.7f, frame_time * 2.2f), azimuth_angle, elevation_angle);
+        spawn_effect_particle_with_target_scalar(world_position, spherical_offset, 0x80808080, 0x808080, 147000.0f,
                          random_int_between(scale_game_frames(12), scale_game_frames(35)));
     }
 }

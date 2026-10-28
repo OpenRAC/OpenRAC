@@ -11,165 +11,165 @@
  */
 
 /* Declarations in scope here before the split. */
-extern char D_0013E650[];
-extern int D_0015F694;
-extern void func_001F9A98(void *, void *, int);
-extern char D_00189310[];
-extern char D_001899D0[];
-extern void *D_001871C0 NOT_SDA;
-extern DispatchRec D_001E8F80[];
-extern int D_0018A3B0[];
-extern void func_001F99B0();
-extern void func_001F2BC8(void);
-extern int D_0018C434 NOT_SDA;
-extern char D_001940C0[];
-extern long D_00151888[3];
-extern int D_0015F6FC;
-extern short D_0015F534;
-extern void func_001FB530(void);
-extern void func_001F3D78(void);
-extern int D_0015F564;
-extern int D_0018DD40[];
-extern int D_0018DC40[];
-extern short D_0015F59C;
-extern int func_001F65B0(unsigned char *arg0, int arg1, void *arg2);
-extern unsigned char D_001DF3D0[];
-extern unsigned char D_001DF770[];
-extern unsigned char D_001DFB10[];
-extern void func_001F6668(void *, void *, void *, void *, void *, int,
+extern char voice_pool[];
+extern int bank_sound_count;
+extern void FastMemCopy(void *, void *, int);
+extern char backup_cam[];
+extern char gCamBackupState[];
+extern void *cur_cam NOT_SDA;
+extern DispatchRec camera_types[];
+extern int draw_config[];
+extern void FastMemSet();
+extern void BuildOcclVisibility(void);
+extern int occl_update NOT_SDA;
+extern char occl_visibility[];
+extern long gs_display_settings[3];
+extern int space_load_in_progress;
+extern short draw_enable_mask;
+extern void append_gif_transfer_packet(void);
+extern void DrawDebugProfiler(void);
+extern int draw_callback_count;
+extern int draw_callback_args[];
+extern int draw_callback_funcs[];
+extern short GlobalStateFlag;
+extern int measure_text_width(unsigned char *arg0, int arg1, void *arg2);
+extern unsigned char normal_font_metrics[];
+extern unsigned char small_font_metrics[];
+extern unsigned char large_font_metrics[];
+extern void FontPrint(void *, void *, void *, void *, void *, int,
                           unsigned char *);
-extern int func_001F6600(unsigned char *, int);
-extern int func_001F6620(unsigned char *, int);
-extern int func_001F4868(int);
-extern void func_001FB498(void);
-extern void func_001F3008(void);
-extern void func_001F3140(void);
-extern int D_0018E840[];
-extern long D_00152178 NOT_SDA;
-extern int func_001FE4D0(void);
-extern char D_00199A68[];
-extern short D_0015F780;
-extern int D_001941CC NOT_SDA;
-extern int D_0019A4E8 NOT_SDA;
-extern int func_001FF668(int);
+extern int measure_text_width_regular(unsigned char *, int);
+extern int measure_text_width_small(unsigned char *, int);
+extern int GetEffectTex(int);
+extern void PutDrawBufferLarge(void);
+extern void InitViewContext(void);
+extern void UpdateViewContext(void);
+extern int bit_swap_lut[];
+extern long background_rgbaq NOT_SDA;
+extern int Help_FindIndex(void);
+extern char s_paradox_this_message_does_not[];
+extern short help_msgs;
+extern int hud_heap_base NOT_SDA;
+extern int hud_state NOT_SDA;
+extern int Hud_GetIconIndex(int);
 typedef struct {
     char b[0x13];
 } Cfg13;
-extern Cfg13 D_0019A540 NOT_SDA;
-extern Cfg13 D_001E7DD8 NOT_SDA;
-extern int func_00116810(void);
-extern void func_001166FC(Cfg13 *, void *);
-extern short D_0015F9D0;
-extern void func_00201960(int, int, int, int, int);
-extern void func_002023E0(int);
-extern void func_002027C0(int);
-extern void func_00204FC0(void *);
-extern int D_0018CC20 NOT_SDA;
-extern int D_001941C8 NOT_SDA;
-extern int D_0016100C;
-extern int D_001A0468[];
-extern void func_00205830(int a, int b);
-extern PadSlots D_001A01F0_slots __asm__("D_001A01F0");
-extern int D_001A01F0[];
-extern int *D_001602E0;
-extern unsigned char D_0013D49C NOT_SDA;
-extern unsigned char D_0013D49D NOT_SDA;
-extern unsigned char D_0013D4A5 NOT_SDA;
-extern short D_0015FE24;
-extern unsigned char D_0013D4AC NOT_SDA;
-extern unsigned char D_0013D4AD NOT_SDA;
-extern unsigned char D_0013D4AE NOT_SDA;
-extern unsigned char D_0013D4AF NOT_SDA;
-extern unsigned char D_0013D4B5 NOT_SDA;
-extern int D_001A04B4 NOT_SDA;
-extern unsigned char D_0013D4C5 NOT_SDA;
-extern int D_001414DC NOT_SDA;
-extern unsigned char D_0013D4C0 NOT_SDA;
-extern unsigned char D_0013D4C1 NOT_SDA;
-extern unsigned char D_0013D4C2 NOT_SDA;
-extern unsigned char D_0013D4D3 NOT_SDA;
-extern unsigned char D_0013D4D4 NOT_SDA;
-extern unsigned char D_0013D4D5 NOT_SDA;
-extern unsigned char D_0013D4E0;
-extern unsigned char D_0013D4DC NOT_SDA;
-extern unsigned char D_0013D4DD NOT_SDA;
-extern unsigned char D_0013D4DE NOT_SDA;
-extern unsigned char D_0013D4DF NOT_SDA;
-extern unsigned char D_0013D4E1 NOT_SDA;
-extern unsigned char D_0013D4E9 NOT_SDA;
-extern unsigned char D_0013D502 NOT_SDA;
-extern unsigned char D_0013D503 NOT_SDA;
-extern unsigned char D_0013D504 NOT_SDA;
-extern unsigned char D_0013D505 NOT_SDA;
-extern unsigned char D_0013D50F NOT_SDA;
-extern int D_0013D668[];
-extern void func_00209040(void);
-extern int func_001FAA28(void *dst, int size, int a, int b);
-extern void func_00208860(void *dst);
-extern short D_0015EE84;
-extern int D_0015EE84_far __asm__("D_0015EE84") NOT_SDA;
-extern int D_001A0218[] NOT_SDA;
-extern void func_00208458(void *, unsigned char *, int);
-extern void func_00208688(void *, unsigned char *);
-extern char D_0013D390[];
-extern short D_0015EFB0;
-extern int D_0015EFB4;
-extern int D_001A05C0[];
-extern int D_001A08C0[];
-extern int func_0020BAD8(int *p);
-extern int func_0020BBC8(void *dst, int i, int *table);
-extern int func_001236F0(void);
-extern int func_001E9730();
-extern char D_001E8690[];
-extern int D_0013D844 NOT_SDA;
-extern unsigned char D_0013D4A8 NOT_SDA;
-extern int D_0013D9B4 NOT_SDA;
-extern unsigned char D_0013D490[];
-extern unsigned char D_0013D5CA NOT_SDA;
-extern int D_0013D6B8 NOT_SDA;
-extern int D_0013DAE4 NOT_SDA;
-extern unsigned char D_0013D4E5 NOT_SDA;
-extern int D_0013DB24 NOT_SDA;
-extern unsigned char D_0013D4F1 NOT_SDA;
-extern int D_0013DC34 NOT_SDA;
-extern unsigned char D_0013D605 NOT_SDA;
-extern int D_0013D5C8 NOT_SDA;
-extern unsigned char D_0013D4B0 NOT_SDA;
-extern unsigned char D_0013DE55 NOT_SDA;
-extern unsigned char D_0013D5DD NOT_SDA;
-extern unsigned char D_0013D5E7 NOT_SDA;
-extern int D_001B2F40[];
-extern void func_001FA460_2(void *, void *) __asm__("func_001FA460");
-extern void func_001F9C30(void *, void *, float);
-extern void func_001F9BD8(void *, void *, void *);
-extern void func_001F9EC0(void *, void *, void *);
-extern int D_001414D0 NOT_SDA;
-extern float D_001CAE00[] NOT_SDA;
-extern float func_001F9F90(float);
-extern float func_001F9FA8(float);
-extern void func_00118D80(int);
-extern char D_00165600[];
-extern int D_0015F718;
-extern short D_0015F71C;
-extern char D_001B3200[];
+extern Cfg13 message_text_buffer NOT_SDA;
+extern Cfg13 message_too_long_label NOT_SDA;
+extern int libc_strlen(void);
+extern void libc_strcpy(Cfg13 *, void *);
+extern short ResourceCounter;
+extern void draw_stretchable_ui_frame(int, int, int, int, int);
+extern void CreatePointLight(int);
+extern void DetachPointLight(int);
+extern void update_world_object_animation(void *);
+extern int render_sequence NOT_SDA;
+extern int vu1_chain_buffer_2 NOT_SDA;
+extern int current_vu_chain;
+extern int map_slot_use[];
+extern void move_map_entry_slot(int a, int b);
+extern PadSlots level_map_selection_slots __asm__("D_001A01F0");
+extern int level_map_selection[];
+extern int *menu_level_indices;
+extern unsigned char menu_item_enabled_0 NOT_SDA;
+extern unsigned char g_menu_item_enabled_1 NOT_SDA;
+extern unsigned char menu_item_enabled_9 NOT_SDA;
+extern short menu_selection_count;
+extern unsigned char menu_item_enabled_16 NOT_SDA;
+extern unsigned char menu_item_enabled_17 NOT_SDA;
+extern unsigned char menu_item_enabled_18 NOT_SDA;
+extern unsigned char menu_item_enabled_19 NOT_SDA;
+extern unsigned char menu_item_enabled_25 NOT_SDA;
+extern int map_region_enabled_3 NOT_SDA;
+extern unsigned char menu_item_enabled_41 NOT_SDA;
+extern int hero_control_mode NOT_SDA;
+extern unsigned char menu_item_enabled_36 NOT_SDA;
+extern unsigned char menu_item_enabled_37 NOT_SDA;
+extern unsigned char menu_item_enabled_38 NOT_SDA;
+extern unsigned char menu_item_enabled_55 NOT_SDA;
+extern unsigned char menu_item_enabled_56 NOT_SDA;
+extern unsigned char menu_item_enabled_57 NOT_SDA;
+extern unsigned char menu_item_enabled_68;
+extern unsigned char menu_item_enabled_64 NOT_SDA;
+extern unsigned char menu_item_enabled_65 NOT_SDA;
+extern unsigned char menu_item_enabled_66 NOT_SDA;
+extern unsigned char menu_item_enabled_67 NOT_SDA;
+extern unsigned char menu_item_enabled_69 NOT_SDA;
+extern unsigned char menu_item_enabled_77 NOT_SDA;
+extern unsigned char menu_item_enabled_102 NOT_SDA;
+extern unsigned char menu_item_enabled_103 NOT_SDA;
+extern unsigned char menu_item_enabled_104 NOT_SDA;
+extern unsigned char menu_item_enabled_105 NOT_SDA;
+extern unsigned char menu_item_enabled_115 NOT_SDA;
+extern int max_map_coverage_size[];
+extern void DebugEnter_Nop(void);
+extern int compress_map_coverage(void *dst, int size, int a, int b);
+extern void downsample_map_coverage(void *dst);
+extern short g_current_level_index;
+extern int g_current_level_index_far __asm__("D_0015EE84") NOT_SDA;
+extern int map_coverage_active[] NOT_SDA;
+extern void decode_compressed_occlusion_map(void *, unsigned char *, int);
+extern void expand_map_coverage(void *, unsigned char *);
+extern char memory_card_state[];
+extern short mode_freeze_state;
+extern int mode_freeze_flags;
+extern int mc_gamedata[];
+extern int mc_leveldata[];
+extern int memcard_GetDataSize(int *p);
+extern int memcard_PrepData(void *dst, int i, int *table);
+extern int sce_mc_init(void);
+extern int STUB_printf();
+extern char memcard_error_message[];
+extern int race_gates_24_status NOT_SDA;
+extern unsigned char menu_item_enabled_12 NOT_SDA;
+extern int race_gates_47_flag NOT_SDA;
+extern unsigned char gSpecialItems[];
+extern unsigned char gHaveHeliPack NOT_SDA;
+extern int race_gates NOT_SDA;
+extern int race_gates_66_status NOT_SDA;
+extern unsigned char menu_item_enabled_73 NOT_SDA;
+extern int race_gates_70_status NOT_SDA;
+extern unsigned char menu_item_enabled_85 NOT_SDA;
+extern int race_gates_87_status NOT_SDA;
+extern unsigned char race_gates_base NOT_SDA;
+extern int item_available NOT_SDA;
+extern unsigned char menu_item_enabled_20 NOT_SDA;
+extern unsigned char gemlik_available NOT_SDA;
+extern unsigned char gHaveMorphORay NOT_SDA;
+extern unsigned char gHaveHologuise NOT_SDA;
+extern int moby_render_slots[];
+extern void copy_matrix_rotation_2(void *, void *) __asm__("func_001FA460");
+extern void FastVecScale(void *, void *, float);
+extern void FastVecAdd(void *, void *, void *);
+extern void matrix_mul_vec3(void *, void *, void *);
+extern int g_hero_moby NOT_SDA;
+extern float shadow_light_dir[] NOT_SDA;
+extern float FastCos(float);
+extern float FastSin(float);
+extern void flush_cache(int);
+extern char normal_lut[];
+extern int render_packet_end;
+extern short vu1_chain_safe_end;
+extern char moby_backup_buffer[];
 extern int func_001160D8(void);
-extern float func_00214158(void);
-extern float func_002140F8(float, float);
-extern void func_00215C00(void *, float, float, float);
-extern void func_001F9DC0(void *, void *, float);
-extern void func_001FA460(void *);
-extern void func_002150B0(void *, void *);
-extern void func_001FA480(void *, void *);
-extern float func_0020D830(void);
-extern float func_00215A98(int, float);
-extern unsigned char D_0014BFC0[];
-extern unsigned char D_0013E620[];
-extern unsigned char D_0013D510[];
+extern float random_angle_radians(void);
+extern float random_float_between(float, float);
+extern void BuildSphericalOffset(void *, float, float, float);
+extern void fast_vec_normalize(void *, void *, float);
+extern void copy_matrix_rotation(void *);
+extern void MatrixToQuaternion(void *, void *);
+extern void matrix_copy_rows(void *, void *);
+extern float MobyGetFrameValue(void);
+extern float round_float_to_decimal_places(int, float);
+extern unsigned char gold_bolts_collected[];
+extern unsigned char gold_weapon_purchased[];
+extern unsigned char gSkillPoints[];
 
-extern short D_001517D0[];
-extern int func_0012EC60(int, int, int, int);
-extern int func_0012DDC0(void);
-extern void func_00216270(void);
+extern short cd_read_state[];
+extern int snd_InitVAGStreamingEx(int, int, int, int);
+extern int snd_FlushSoundCommands(void);
+extern void register_audio_stream_callback(void);
 
 /* Music init: resets the music state at D_001517D0 (+0x30 = 0x20, the
    other bytes and the three playing records' state and +0x0A flag
@@ -180,7 +180,7 @@ extern void func_00216270(void);
    shares one register between the word and the byte store, and leaves
    the other stores in source order, as retail has them. */
 void reset_music(void) {
-    char *s = (char *)D_001517D0;
+    char *s = (char *)cd_read_state;
 
     *(char *)(s + 0x30) = 0x20;
     *(int *)(s + 0x00) = 0;
@@ -194,17 +194,18 @@ void reset_music(void) {
     *(int *)(s + 0x6C) = 0;
     *(short *)(s + 0x76) = 0;
     *(char *)(s + 0x22) = *(int *)(s + 0x1C) = -1;
-    func_0012EC60(4, 0xF000, 0, 1);
-    while (func_0012DDC0() != 0) {
+    snd_InitVAGStreamingEx(4, 0xF000, 0, 1);
+    while (snd_FlushSoundCommands() != 0) {
     }
     register_audio_stream_callback();
 }
 
-extern void func_0012F068(void *);
-extern void func_002177F0(int);
+extern void snd_StreamSafeCdCallback(void *);
+extern void finish_audio_stream_read(int);
 
+/* Register the CD read callback used by the music stream. */
 void register_audio_stream_callback(void) {
-    func_0012F068(finish_audio_stream_read);
+    snd_StreamSafeCdCallback(finish_audio_stream_read);
 }
 
 /* The sound tables in the WAD table of contents at D_00137C80, as far as
@@ -239,11 +240,11 @@ typedef struct {
     char _pad1620[0x2988 - 0x1620];
     SndRec ids20000[1]; /* 0x2988 */
 } SndToc;
-extern int D_00137C80[];
-extern short D_001517D0[];
-extern int D_0015EE88 MACRO_ADDR;
-extern void func_00217860(int, long);
-extern void func_0012ED48(int, int, int, int, short, int, int, int,
+extern int disc_table[];
+extern short cd_read_state[];
+extern int g_game_language MACRO_ADDR;
+extern void music_secondary_start_callback(int, long);
+extern void snd_PlayVAGStreamByLocEx_CB(int, int, int, int, short, int, int, int,
                           int, void (*)(int, long), long);
 
 /* Plays sound arg0 in 60000..: the other play functions below differ
@@ -269,8 +270,9 @@ typedef struct {
     SndSecondaryChannel secondary;  /* 0x50: the secondary record in D_001517D0 */
 } SndStreamBlock;
 
+/* Start music track 60000+ on the secondary stream channel if that channel is free. */
 void music_start_track_60000(int arg0, int arg1, int arg2) {
-    SndToc *toc = (SndToc *)D_00137C80;
+    SndToc *toc = (SndToc *)disc_table;
     int i = arg0 - 60000;
     int h;
     SndStreamBlock *s;
@@ -279,7 +281,7 @@ void music_start_track_60000(int arg0, int arg1, int arg2) {
     if (h == 0) {
         return;
     }
-    s = (SndStreamBlock *)D_001517D0;
+    s = (SndStreamBlock *)cd_read_state;
     if (s->secondary.handle != 0) {
         return;
     }
@@ -291,7 +293,7 @@ void music_start_track_60000(int arg0, int arg1, int arg2) {
     s->secondary.remaining_time = 0xBB80;
     s->secondary.volume = arg2;
     s->secondary.crossfade_enabled = 0;
-    func_0012ED48(h, 0, 0, 0, arg2, 0, 2, 0, 0x21,
+    snd_PlayVAGStreamByLocEx_CB(h, 0, 0, 0, arg2, 0, 2, 0, 0x21,
                   music_secondary_start_callback, (long)(unsigned int)&s->secondary);
 }
 
@@ -305,17 +307,18 @@ typedef struct {
     s32 music_50000[40][6];     /* 0xF00: tracks 50000.., one handle per language */
 } TrackDiscTable;
 
+/* Start music track 50000+ (per-language) on the secondary stream channel if it is free. */
 void music_start_track_50000(int track, int flags, int volume) {
-    TrackDiscTable *disc_table = (TrackDiscTable *)D_00137C80;
+    TrackDiscTable *track_disc_table = (TrackDiscTable *)disc_table;
     int i = track - 50000;
     int handle;
     TrackStreamState *music_stream_state;
 
-    handle = disc_table->music_50000[i][D_0015EE88];
+    handle = track_disc_table->music_50000[i][g_game_language];
     if (handle == 0) {
         return;
     }
-    music_stream_state = (TrackStreamState *)D_001517D0;
+    music_stream_state = (TrackStreamState *)cd_read_state;
     if (music_stream_state->secondary.handle != 0) {
         return;
     }
@@ -327,7 +330,7 @@ void music_start_track_50000(int track, int flags, int volume) {
     music_stream_state->secondary.remaining_time = 48000;
     music_stream_state->secondary.volume = volume;
     music_stream_state->secondary.crossfade_enabled = 0;
-    func_0012ED48(handle, 0, 0, 0, (s16)volume, 0, 2, 0, 0x21,
+    snd_PlayVAGStreamByLocEx_CB(handle, 0, 0, 0, (s16)volume, 0, 2, 0, 0x21,
                   music_secondary_start_callback,
                   (long)(unsigned int)&music_stream_state->secondary);
 }
@@ -337,8 +340,9 @@ typedef struct {
     struct MusicStreamChannel secondary;
 } MusicStreamTail;
 
+/* Start music track 40000+ on the secondary stream channel if that channel is free. */
 void music_start_track_40000(int track, int track_flags, int volume) {
-    SndToc *toc = (SndToc *)D_00137C80;
+    SndToc *toc = (SndToc *)disc_table;
     int i = track - 40000;
     int location;
     MusicStreamTail *s;
@@ -347,7 +351,7 @@ void music_start_track_40000(int track, int track_flags, int volume) {
     if (location == 0) {
         return;
     }
-    s = (MusicStreamTail *)D_001517D0;
+    s = (MusicStreamTail *)cd_read_state;
     if (s->secondary.handle != 0) {
         return;
     }
@@ -359,25 +363,25 @@ void music_start_track_40000(int track, int track_flags, int volume) {
     s->secondary.remaining_time = 0xBB80;
     s->secondary.volume = volume;
     s->secondary.crossfade_enabled = 0;
-    func_0012ED48(location, 0, 0, 0, volume, 0, 2, 0, 0x21,
+    snd_PlayVAGStreamByLocEx_CB(location, 0, 0, 0, volume, 0, 2, 0, 0x21,
                   music_secondary_start_callback, (long)(unsigned int)&s->secondary);
 }
 
 /* A byte flag; declared int-sized so MACRO_ADDR keeps it off $gp (-G2). */
-extern int D_0015EF1C_w __asm__("D_0015EF1C") MACRO_ADDR;
-extern char D_0011C278[];
-extern char D_00151820[];
+extern int gHelpDeskVoice_w __asm__("D_0015EF1C") MACRO_ADDR;
+extern char dialogue_track_table_by_lang[];
+extern char music_player_dialogue[];
 
 /* The same through a per-language table at D_0011C278; volume only
    when the D_0015EF1C flag is set. */
 void music_start_track_30000(int arg0, int arg1, int arg2) {
-    int *p = (int *)(D_0011C278 + (arg0 * 4 + D_0015EE88 * 0x258));
+    int *p = (int *)(dialogue_track_table_by_lang + (arg0 * 4 + g_game_language * 0x258));
     char *s;
 
     if (*p == 0) {
         return;
     }
-    s = (char *)D_001517D0;
+    s = (char *)cd_read_state;
     if (*(int *)(s + 0x50) != 0) {
         return;
     }
@@ -389,7 +393,7 @@ void music_start_track_30000(int arg0, int arg1, int arg2) {
     *(int *)(s + 0x68) = 0xBB80;
     *(short *)(s + 0x56) = arg2;
     *(short *)(s + 0x60) = 0;
-    func_0012ED48(*p, 0, 0, 0, *(unsigned char *)&D_0015EF1C_w ? arg2 : 0,
+    snd_PlayVAGStreamByLocEx_CB(*p, 0, 0, 0, *(unsigned char *)&gHelpDeskVoice_w ? arg2 : 0,
                   0, 2, 0, 0x21, music_secondary_start_callback, (long)(unsigned int)music_player_dialogue);
 }
 
@@ -412,8 +416,9 @@ typedef struct {
     MusicTrackChannel secondary; /* 0x50 */
 } MusicStreamLayout;
 
+/* Start music track 20000+ on the secondary stream channel if that channel is free. */
 void music_start_track_20000(int track, int track_flags, int volume) {
-    SndToc *toc = (SndToc *)D_00137C80;
+    SndToc *toc = (SndToc *)disc_table;
     int index = track - 20000;
     int handle;
     MusicStreamLayout *state;
@@ -422,7 +427,7 @@ void music_start_track_20000(int track, int track_flags, int volume) {
     if (handle == 0) {
         return;
     }
-    state = (MusicStreamLayout *)D_001517D0;
+    state = (MusicStreamLayout *)cd_read_state;
     if (state->secondary.handle != 0) {
         return;
     }
@@ -434,7 +439,7 @@ void music_start_track_20000(int track, int track_flags, int volume) {
     state->secondary.remaining_time = 0xBB80;
     state->secondary.volume = volume;
     state->secondary.crossfade_enabled = 0;
-    func_0012ED48(handle, 0, 0, 0, volume, 0, 2, 0, 0x21,
+    snd_PlayVAGStreamByLocEx_CB(handle, 0, 0, 0, volume, 0, 2, 0, 0x21,
                   music_secondary_start_callback, (long)(unsigned int)&state->secondary);
 }
 
@@ -459,8 +464,9 @@ typedef struct {
     PalStreamChannel secondary; /* 0x50 */
 } PalStreamState;
 
+/* Start music track 10000+ on the secondary stream channel if that channel is free. */
 void music_start_track_10000(int track, int flags, int volume) {
-    SndToc *toc = (SndToc *)D_00137C80;
+    SndToc *toc = (SndToc *)disc_table;
     int i = track - 10000;
     int stream;
     PalStreamState *rec;
@@ -469,7 +475,7 @@ void music_start_track_10000(int track, int flags, int volume) {
     if (stream == 0) {
         return;
     }
-    rec = (PalStreamState *)D_001517D0;
+    rec = (PalStreamState *)cd_read_state;
     if (rec->secondary.handle != 0) {
         return;
     }
@@ -481,11 +487,11 @@ void music_start_track_10000(int track, int flags, int volume) {
     rec->secondary.remaining_time = 0xBB80;
     rec->secondary.volume = volume;
     rec->secondary.crossfade_enabled = 0;
-    func_0012ED48(stream, 0, 0, 0, volume, 0, 2, 0, 0x21,
+    snd_PlayVAGStreamByLocEx_CB(stream, 0, 0, 0, volume, 0, 2, 0, 0x21,
                   music_secondary_start_callback, (long)(unsigned int)&rec->secondary);
 }
 
-extern char D_0013A764[];
+extern char scene_sounds[];
 
 /* music_Play dispatcher: routes to the range-specific play function
    (siblings above, one per id range) for arg0 >= 10000; below that it's
@@ -497,6 +503,7 @@ typedef struct {
     struct MusicStreamChannel secondary;
 } MusicStateSecondaryView;
 
+/* Start a track on the secondary channel, picking the table by id range (else a scene sound). */
 void music_start_track_by_id(int track, int track_flags, int volume) {
     MusicStateSecondaryView *s;
     int handle;
@@ -525,11 +532,11 @@ void music_start_track_by_id(int track, int track_flags, int volume) {
         music_start_track_10000(track, track_flags, volume);
         return;
     }
-    handle = *(int *)((char *)scene_sounds + track * 0x250 + D_0015EE88 * 4);
+    handle = *(int *)((char *)scene_sounds + track * 0x250 + g_game_language * 4);
     if (handle == 0) {
         return;
     }
-    s = (MusicStateSecondaryView *)D_001517D0;
+    s = (MusicStateSecondaryView *)cd_read_state;
     if (s->secondary.handle != 0) {
         return;
     }
@@ -541,19 +548,20 @@ void music_start_track_by_id(int track, int track_flags, int volume) {
     s->secondary.remaining_time = 0xBB80;
     s->secondary.volume = volume;
     s->secondary.crossfade_enabled = 0;
-    func_0012ED48(handle, 0, 0, 0, volume, 0, 2, 0, 0x21,
+    snd_PlayVAGStreamByLocEx_CB(handle, 0, 0, 0, volume, 0, 2, 0, 0x21,
                   music_secondary_start_callback, (long)(unsigned int)&s->secondary);
 }
 
-extern short D_001517D0[];
-extern void func_0012EDE0(void *);
+extern short cd_read_state[];
+extern void snd_ContinueVAGStream(void *);
 
+/* Resume the secondary stream once its channel is ready; return 1 if it was resumed. */
 int Music_ContinueStreamIfReady(void) {
-    char *d = (char *)D_001517D0;
+    char *d = (char *)cd_read_state;
     void *p = *(void **)(d + 0x50);
     if (p != 0) {
         if (*(short *)(d + 0x5A) == 3) {
-            func_0012EDE0(p);
+            snd_ContinueVAGStream(p);
             *(short *)(d + 0x5A) = 4;
             return 1;
         }
@@ -561,7 +569,7 @@ int Music_ContinueStreamIfReady(void) {
     return 0;
 }
 
-extern void func_002178C0(int, long);
+extern void music_primary_preseek_callback(int, long);
 
 /* music_PreseekTrack(int, int, int) */
 typedef struct {
@@ -583,15 +591,16 @@ typedef struct {
     PreseekChannel primary; /* 0x34 */
 } PreseekStreamState;
 
+/* Preseek a music track on the primary stream channel if that channel is free. */
 void music_PreseekTrack(int arg0, int arg1, int arg2) {
-    PreseekStreamState *music_stream_state = (PreseekStreamState *)D_001517D0;
+    PreseekStreamState *music_stream_state = (PreseekStreamState *)cd_read_state;
     u8 *disc_table_base;
     s32 track_location_table_byte_offset;
     s32 *entry;
     long stream_location;
 
     if (music_stream_state->primary.handle == 0) {
-        disc_table_base = (u8 *)D_00137C80;
+        disc_table_base = (u8 *)disc_table;
         track_location_table_byte_offset = 0x2AA8;
         entry = (s32 *)(disc_table_base + track_location_table_byte_offset) + arg0;
         if (*entry != 0) {
@@ -604,14 +613,14 @@ void music_PreseekTrack(int arg0, int arg1, int arg2) {
             music_stream_state->primary.volume = arg2;
             music_stream_state->primary.crossfade_enabled = 0;
             stream_location = *entry;
-            func_0012ED48(stream_location, 0, 0, 0, arg2, 0, 1, 0, 0x21,
+            snd_PlayVAGStreamByLocEx_CB(stream_location, 0, 0, 0, arg2, 0, 1, 0, 0x21,
                           music_primary_preseek_callback,
                           (long)(unsigned int)&music_stream_state->primary.handle);
         }
     }
 }
 
-extern void func_002179C8(int, long);
+extern void music_primary_start_callback(int, long);
 
 /* music_StartTrack(int, int, int) */
 typedef struct {
@@ -628,8 +637,9 @@ typedef struct {
     s32 remaining_time;        /* 0x4C */
 } MusicPrimaryStream;
 
+/* Start a music track on the primary stream channel if that channel is free. */
 void music_StartTrack(int arg0, int arg1, int arg2) {
-    MusicPrimaryStream *s = (MusicPrimaryStream *)D_001517D0;
+    MusicPrimaryStream *s = (MusicPrimaryStream *)cd_read_state;
     char *base;
     int *tbl;
     long h;
@@ -637,7 +647,7 @@ void music_StartTrack(int arg0, int arg1, int arg2) {
     if (s->handle != 0) {
         return;
     }
-    base = (char *)D_00137C80;
+    base = (char *)disc_table;
     tbl = (int *)(base + 0x2AA8);
     if (tbl[arg0] == 0) {
         return;
@@ -651,11 +661,11 @@ void music_StartTrack(int arg0, int arg1, int arg2) {
     s->flags = arg1;
     s->volume = arg2;
     s->crossfade_enabled = 0;
-    func_0012ED48(h, 0, 0, 0, arg2, 0, 1, 0, 0x20,
+    snd_PlayVAGStreamByLocEx_CB(h, 0, 0, 0, arg2, 0, 1, 0, 0x20,
                   music_primary_start_callback, (long)(unsigned int)&s->handle);
 }
 
-extern void func_00217970(int, long);
+extern void music_primary_replace_callback(int, long);
 
 /* music_StartTrackBody(int, int, int): when the music record at +0x34 is
    already playing (its word neither 0 nor -1) and not in state 9, starts
@@ -667,7 +677,7 @@ extern void func_00217970(int, long);
    register as in retail), and the 0x24/0x20 choice comes before the
    stores, which keeps arg1 in $a1. */
 void music_StartTrackBody(int arg0, int arg1, int arg2) {
-    char *s = (char *)D_001517D0;
+    char *s = (char *)cd_read_state;
     char *base;
     int *tbl;
     unsigned int cur;
@@ -682,7 +692,7 @@ void music_StartTrackBody(int arg0, int arg1, int arg2) {
     if (cur == 0 || cur == 0xFFFFFFFF) {
         return;
     }
-    base = (char *)D_00137C80;
+    base = (char *)disc_table;
     tbl = (int *)(base + 0x2AA8);
     i = arg0 + 1;
     if (tbl[i] == 0) {
@@ -697,14 +707,14 @@ void music_StartTrackBody(int arg0, int arg1, int arg2) {
     *(int *)(s + 0x4C) = 0xBB80;
     *(short *)(s + 0x3A) = arg2;
     *(short *)(s + 0x44) = 0;
-    func_0012ED48(h, 0, 0, 0, arg2, 0, 1, cur, flags,
+    snd_PlayVAGStreamByLocEx_CB(h, 0, 0, 0, arg2, 0, 1, cur, flags,
                   music_primary_replace_callback, (long)(unsigned int)(s + 0x34));
 }
 
 /* Retail carries 4 bytes of inter-function padding after this endlabel. */
 __asm__(".section .text\n\tnop\n");
 
-extern void func_00217920(int, long);
+extern void music_transition_start_callback(int, long);
 
 /* The success path ends in the call, so `return 1` does not break the
    block's trailing call run (the scheduler then keeps retail's order). */
@@ -734,14 +744,15 @@ typedef struct {
     MusicTransitionSlot transition;    /* 0x6C */
 } MusicTransitionBlock;
 
+/* Start a crossfade transition track on its channel; return 1 if it was started. */
 int music_Transition(int arg0, int arg1, int arg2, int arg3) {
-    MusicTransitionBlock *s = (MusicTransitionBlock *)D_001517D0;
+    MusicTransitionBlock *s = (MusicTransitionBlock *)cd_read_state;
     MusicTrackTable *base;
     s32 *tbl;
     long h;
 
     if (s->transition.handle == 0) {
-        base = (MusicTrackTable *)D_00137C80;
+        base = (MusicTrackTable *)disc_table;
         tbl = base->music_tracks;
         if (tbl[arg1] != 0) {
             s->transition.flags = arg2;
@@ -753,7 +764,7 @@ int music_Transition(int arg0, int arg1, int arg2, int arg3) {
             s->transition.state = 1;
             s->transition.crossfade_enabled = 1;
             s->transition.volume = arg3;
-            func_0012ED48(h, 0, 0, 0, arg3, 0, 1, 0, 0x20,
+            snd_PlayVAGStreamByLocEx_CB(h, 0, 0, 0, arg3, 0, 1, 0, 0x20,
                           music_transition_start_callback, (long)(unsigned int)&s->transition.handle);
         } else {
             return 0;
@@ -767,7 +778,7 @@ int music_Transition(int arg0, int arg1, int arg2, int arg3) {
 /* A block-local `char *e` for the final stores (%hi kept, %lo rebuilt),
    written in the order the rotation rule gives. */
 void Music_QueueTrack(int arg0, int arg1) {
-    char *d = (char *)D_001517D0;
+    char *d = (char *)cd_read_state;
 
     if (*(short *)(d + 0x38) == arg0) {
         if (*(signed char *)(d + 0x22) == -1) {
@@ -781,14 +792,14 @@ void Music_QueueTrack(int arg0, int arg1) {
         }
     }
     {
-        char *e = (char *)D_001517D0;
+        char *e = (char *)cd_read_state;
         e[0x22] = arg0;
         e[0x23] = arg1;
     }
 }
 
-extern void func_0012ED10(void);
-extern void func_0012EE70(int);
+extern void snd_StopAllStreams(void);
+extern void snd_StreamSafeCheckCDIdle(int);
 
 /* music_Stop: waits (func_0012DDC0, snd_FlushSoundCommands) while each
    of the three playing records at +0x34, +0x6C and +0x50 is still
@@ -812,31 +823,32 @@ typedef struct {
     struct MusicStreamChannel transition; /* 0x6C */
 } MusicStreamBlock;
 
+/* Wait for pending stream opens, stop all music streams and reset the channel state. */
 void music_Stop(void) {
     {
         MusicStreamBlock *d;
-        while (d = (MusicStreamBlock *)D_001517D0, d->primary.handle == 0xFFFFFFFF) {
-            func_0012DDC0();
+        while (d = (MusicStreamBlock *)cd_read_state, d->primary.handle == 0xFFFFFFFF) {
+            snd_FlushSoundCommands();
         }
     }
     {
         MusicStreamBlock *d;
-        while (d = (MusicStreamBlock *)D_001517D0, d->transition.handle == 0xFFFFFFFF) {
-            func_0012DDC0();
+        while (d = (MusicStreamBlock *)cd_read_state, d->transition.handle == 0xFFFFFFFF) {
+            snd_FlushSoundCommands();
         }
     }
     {
         MusicStreamBlock *d;
-        while (d = (MusicStreamBlock *)D_001517D0, d->secondary.handle == 0xFFFFFFFF) {
-            func_0012DDC0();
+        while (d = (MusicStreamBlock *)cd_read_state, d->secondary.handle == 0xFFFFFFFF) {
+            snd_FlushSoundCommands();
         }
     }
-    func_0012ED10();
-    while (func_0012DDC0() != 0) {
+    snd_StopAllStreams();
+    while (snd_FlushSoundCommands() != 0) {
     }
-    func_0012EE70(1);
+    snd_StreamSafeCheckCDIdle(1);
     {
-        MusicStreamBlock *s = (MusicStreamBlock *)D_001517D0;
+        MusicStreamBlock *s = (MusicStreamBlock *)cd_read_state;
         s->primary.state = 0;
         s->primary.flags = 0;
         s->primary.handle = 0;
@@ -855,23 +867,23 @@ void music_Stop(void) {
     }
 }
 
-extern short D_001517D0[];
+extern short cd_read_state[];
 
 /* music_Pause(int) */
 void music_Pause(int arg0) {
     if (arg0 != 0) {
-        D_001517D0[0x2F] = 0;
-        D_001517D0[0x2E] = -0x8000;
+        cd_read_state[0x2F] = 0;
+        cd_read_state[0x2E] = -0x8000;
     }
-    D_001517D0[0x3D] = 0;
-    D_001517D0[0x20] = -0x8000;
-    D_001517D0[0x21] = 0;
-    D_001517D0[0x3C] = -0x8000;
+    cd_read_state[0x3D] = 0;
+    cd_read_state[0x20] = -0x8000;
+    cd_read_state[0x21] = 0;
+    cd_read_state[0x3C] = -0x8000;
 }
 
 /* music_Unpause(void) */
 void music_Unpause(void) {
-    short *p = D_001517D0;
+    short *p = cd_read_state;
     p[0x20] = 4;
     p[0x3C] = 4;
     p[0x2E] = 4;
@@ -887,15 +899,15 @@ typedef struct {
     short fadeT;         /* 0x0E */
 } MusicPlaying;
 
-extern void func_0012E4A8(int);
-extern void func_0012EDB0(int);
-extern int func_001F9938(void *);
-extern void func_0012EE10(int, void (*)(int, long), long);
-extern void func_0012E588(int, void (*)(int, long), long);
-extern void func_0012EE40(int, void (*)(int, long), long);
-extern void func_00217A60(int, long);
-extern void func_00217A08(int, long);
-extern void func_00217830(int, long);
+extern void snd_stop_sound(int);
+extern void snd_PauseVAGStream(int);
+extern int FastDecTimer(void *);
+extern void snd_GetVAGStreamTimeRemaining_CB(int, void (*)(int, long), long);
+extern void snd_SoundIsStillPlaying_CB(int, void (*)(int, long), long);
+extern void snd_IsVAGStreamBuffered_CB(int, void (*)(int, long), long);
+extern void music_remaining_time_callback(int, long);
+extern void set_sound_handle_id(int, long);
+extern void music_channel_ready_callback(int, long);
 
 /* music_UpdateStream(music_Playing &): with a live handle and state other
    than 9, state 5 stops the stream (state 6) and state 6 without a
@@ -915,7 +927,7 @@ void music_UpdateStream(MusicPlaying *p) {
     if (p->state != 9 && p->handle != 0 && p->handle != 0xFFFFFFFF) {
         if (p->state == 5) {
             if (p->handle != 0) {
-                func_0012E4A8(p->handle);
+                snd_stop_sound(p->handle);
                 p->state = 6;
             } else {
                 p->state = 0;
@@ -930,14 +942,14 @@ void music_UpdateStream(MusicPlaying *p) {
         }
         if (p->fade & 0x8000) {
             if (!(p->state & 0x8000)) {
-                func_0012EDB0(p->handle);
+                snd_PauseVAGStream(p->handle);
                 p->state |= 0x8000;
             }
             if (FastDecTimer(&p->fadeT) == 2) {
                 p->fade = 4;
             }
         } else if (p->state & 0x8000) {
-            func_0012EDE0((void *)p->handle);
+            snd_ContinueVAGStream((void *)p->handle);
             p->state ^= 0x8000;
         }
         if (p->state & 0x8000) {
@@ -949,12 +961,12 @@ void music_UpdateStream(MusicPlaying *p) {
         if (p->state != 2 && p->state != 3) {
             h = p->handle;
             p->handle = 0xFFFFFFFF;
-            func_0012EE10(h, music_remaining_time_callback, (long)(unsigned int)p);
-            func_0012E588(h, set_sound_handle_id, (long)(unsigned int)p);
+            snd_GetVAGStreamTimeRemaining_CB(h, music_remaining_time_callback, (long)(unsigned int)p);
+            snd_SoundIsStillPlaying_CB(h, set_sound_handle_id, (long)(unsigned int)p);
             return;
         }
         if (p->handle != 0xFFFFFFFF && p->state == 2) {
-            func_0012EE40(p->handle, music_channel_ready_callback, (long)(unsigned int)p);
+            snd_IsVAGStreamBuffered_CB(p->handle, music_channel_ready_callback, (long)(unsigned int)p);
         }
     } else if (p->state == 7 || p->handle == 0) {
         p->state = 0;
@@ -989,137 +1001,137 @@ struct MusicStreamState {
     struct MusicStreamChannel secondary; /* 0x50 */
     struct MusicStreamChannel transition; /* 0x6C */
 };
-extern struct MusicStreamState D_001517D0_17130 __asm__("D_001517D0");
-extern void func_0012E600(s32, s32, s32, s32, s32, s32, void (*)(u32, s64), s64);
-extern void func_00217A08_17130(u32, s64) __asm__("func_00217A08");
-extern void func_0012EDE0_17130(s32) __asm__("func_0012EDE0");
-extern s32 func_0012EF48(s32);
-extern s32 func_001F98C0(s32);
-extern s32 func_001F9908(void *);
-extern void func_002167C0(s32, s32, s32);
-extern void func_002169B8(s32, s32, s32);
-extern void func_00216A90(s32, s32, s32);
-extern void func_00216B68(s32, s32, s32);
-extern s32 func_00216C50(s32, s32, s32, s32);
-extern void func_00216F48_17130(void *) __asm__("func_00216F48");
-extern s32 func_00217628(s32, s32, s32);
+extern struct MusicStreamState cd_read_state_r __asm__("D_001517D0");
+extern void snd_set_sound_params_cb(s32, s32, s32, s32, s32, s32, void (*)(u32, s64), s64);
+extern void set_sound_handle_id_r(u32, s64) __asm__("func_00217A08");
+extern void snd_ContinueVAGStream_r(s32) __asm__("func_0012EDE0");
+extern s32 snd_StreamSafeCdSync(s32);
+extern s32 scale_game_frame_count(s32);
+extern s32 fast_dec_timer(void *);
+extern void music_start_track_by_id(s32, s32, s32);
+extern void music_PreseekTrack(s32, s32, s32);
+extern void music_StartTrack(s32, s32, s32);
+extern void music_StartTrackBody(s32, s32, s32);
+extern s32 music_Transition(s32, s32, s32, s32);
+extern void music_UpdateStream_r(void *) __asm__("func_00216F48");
+extern s32 start_audio_stream_read(s32, s32, s32);
 
-/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/textbin/audio/music/music_update.c, music_update. */
+/* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/textbin/audio/music/music_update.c, music_update. */
 void music_Update(void) {
     s8 requested_track;
     s32 fade_volume;
     s32 handle;
     s16 pending_state;
 
-    if (D_001517D0_17130.updates_suspended != 0) {
+    if (cd_read_state_r.updates_suspended != 0) {
         return;
     }
-    if (!(D_001517D0_17130.primary.fade_flags & 0x8000) && !(D_001517D0_17130.primary.state & 0x8000)) {
-        if (D_001517D0_17130.primary.handle == 0 && (D_001517D0_17130.primary.flags & 1) &&
-            D_001517D0_17130.requested_track == -1) {
-            music_StartTrack(D_001517D0_17130.primary.track, (s16)D_001517D0_17130.primary.flags,
-                              D_001517D0_17130.primary.volume);
-        } else if (D_001517D0_17130.primary.state != 9 && D_001517D0_17130.primary.handle != 0) {
-            if (D_001517D0_17130.primary.handle != 0xFFFFFFFF && D_001517D0_17130.primary.state == 8) {
-                music_StartTrackBody(D_001517D0_17130.primary.track, D_001517D0_17130.primary.flags,
-                                       D_001517D0_17130.primary.volume);
+    if (!(cd_read_state_r.primary.fade_flags & 0x8000) && !(cd_read_state_r.primary.state & 0x8000)) {
+        if (cd_read_state_r.primary.handle == 0 && (cd_read_state_r.primary.flags & 1) &&
+            cd_read_state_r.requested_track == -1) {
+            music_StartTrack(cd_read_state_r.primary.track, (s16)cd_read_state_r.primary.flags,
+                              cd_read_state_r.primary.volume);
+        } else if (cd_read_state_r.primary.state != 9 && cd_read_state_r.primary.handle != 0) {
+            if (cd_read_state_r.primary.handle != 0xFFFFFFFF && cd_read_state_r.primary.state == 8) {
+                music_StartTrackBody(cd_read_state_r.primary.track, cd_read_state_r.primary.flags,
+                                       cd_read_state_r.primary.volume);
             }
         }
     }
-    if (func_001F9908(&D_001517D0_17130.retry_timer) != 0) {
-        requested_track = D_001517D0_17130.requested_track;
-        if (requested_track != -1 && D_001517D0_17130.crossfade_state == 0) {
-            if (D_001517D0_17130.primary.track != requested_track) {
-                if (D_001517D0_17130.requested_transition_track == -1 ||
-                    music_Transition(requested_track, D_001517D0_17130.requested_transition_track,
-                                     D_001517D0_17130.primary.flags, D_001517D0_17130.primary.volume) != 0) {
-                    D_001517D0_17130.retry_timer = func_001F98C0(7) * 60.0f;
+    if (fast_dec_timer(&cd_read_state_r.retry_timer) != 0) {
+        requested_track = cd_read_state_r.requested_track;
+        if (requested_track != -1 && cd_read_state_r.crossfade_state == 0) {
+            if (cd_read_state_r.primary.track != requested_track) {
+                if (cd_read_state_r.requested_transition_track == -1 ||
+                    music_Transition(requested_track, cd_read_state_r.requested_transition_track,
+                                     cd_read_state_r.primary.flags, cd_read_state_r.primary.volume) != 0) {
+                    cd_read_state_r.retry_timer = scale_game_frame_count(7) * 60.0f;
                 }
             } else {
-                D_001517D0_17130.requested_track = -1;
+                cd_read_state_r.requested_track = -1;
             }
         }
     }
-    if (D_001517D0_17130.queued_secondary_track >= 0) {
-        if (D_001517D0_17130.secondary.handle != 0) {
-            if ((u16)D_001517D0_17130.secondary.state - 6 >= 2U) {
-                D_001517D0_17130.secondary.state = 5;
+    if (cd_read_state_r.queued_secondary_track >= 0) {
+        if (cd_read_state_r.secondary.handle != 0) {
+            if ((u16)cd_read_state_r.secondary.state - 6 >= 2U) {
+                cd_read_state_r.secondary.state = 5;
             }
         } else {
-            music_start_track_by_id(D_001517D0_17130.queued_secondary_track, 0, 0x400);
-            D_001517D0_17130.queued_secondary_track = -1;
+            music_start_track_by_id(cd_read_state_r.queued_secondary_track, 0, 0x400);
+            cd_read_state_r.queued_secondary_track = -1;
         }
     }
-    if (D_001517D0_17130.primary.state != 9 && D_001517D0_17130.primary.handle != 0xFFFFFFFF &&
-        !(D_001517D0_17130.primary.fade_flags & 0x8000) && !(D_001517D0_17130.primary.state & 0x8000) &&
-        !(D_001517D0_17130.transition.fade_flags & 0x8000) && !(D_001517D0_17130.transition.state & 0x8000)) {
-        switch (D_001517D0_17130.crossfade_state) {
+    if (cd_read_state_r.primary.state != 9 && cd_read_state_r.primary.handle != 0xFFFFFFFF &&
+        !(cd_read_state_r.primary.fade_flags & 0x8000) && !(cd_read_state_r.primary.state & 0x8000) &&
+        !(cd_read_state_r.transition.fade_flags & 0x8000) && !(cd_read_state_r.transition.state & 0x8000)) {
+        switch (cd_read_state_r.crossfade_state) {
         case 2:
             /* Fade the primary stream against the transition's remaining time. */
             fade_volume =
-                D_001517D0_17130.primary.volume *
-                (D_001517D0_17130.crossfade_interval -
-                 (D_001517D0_17130.crossfade_remaining_time - D_001517D0_17130.transition.remaining_time)) /
-                D_001517D0_17130.crossfade_interval;
+                cd_read_state_r.primary.volume *
+                (cd_read_state_r.crossfade_interval -
+                 (cd_read_state_r.crossfade_remaining_time - cd_read_state_r.transition.remaining_time)) /
+                cd_read_state_r.crossfade_interval;
             if (fade_volume <= 0 ||
-                ((D_001517D0_17130.transition.state != 4 ||
-                  D_001517D0_17130.transition.crossfade_enabled == 0) &&
-                 D_001517D0_17130.transition.handle == 0) ||
-                (handle = D_001517D0_17130.primary.handle) == 0) {
-                D_001517D0_17130.crossfade_state = 3;
-                D_001517D0_17130.primary.state = 5;
-            } else if (D_001517D0_17130.primary.state != 9) {
+                ((cd_read_state_r.transition.state != 4 ||
+                  cd_read_state_r.transition.crossfade_enabled == 0) &&
+                 cd_read_state_r.transition.handle == 0) ||
+                (handle = cd_read_state_r.primary.handle) == 0) {
+                cd_read_state_r.crossfade_state = 3;
+                cd_read_state_r.primary.state = 5;
+            } else if (cd_read_state_r.primary.state != 9) {
                 /* The callback receives the old handle; mark its slot pending before submission. */
-                *(u32 *)&D_001517D0_17130.primary.handle = 0xFFFFFFFF;
-                func_0012E600(handle, 5, fade_volume, 0, 0, 0, func_00217A08_17130,
-                                        (s64)&D_001517D0_17130.primary.handle);
+                *(u32 *)&cd_read_state_r.primary.handle = 0xFFFFFFFF;
+                snd_set_sound_params_cb(handle, 5, fade_volume, 0, 0, 0, set_sound_handle_id_r,
+                                        (s64)&cd_read_state_r.primary.handle);
             }
             break;
         case 3:
-            if (D_001517D0_17130.primary.state == 0 && (D_001517D0_17130.transition.crossfade_enabled != 0 ||
-                                                   D_001517D0_17130.transition.handle == 0)) {
-                music_PreseekTrack(D_001517D0_17130.requested_track, D_001517D0_17130.primary.flags,
-                                    D_001517D0_17130.primary.volume);
-                D_001517D0_17130.requested_track = -1;
-                D_001517D0_17130.crossfade_state = 4;
+            if (cd_read_state_r.primary.state == 0 && (cd_read_state_r.transition.crossfade_enabled != 0 ||
+                                                   cd_read_state_r.transition.handle == 0)) {
+                music_PreseekTrack(cd_read_state_r.requested_track, cd_read_state_r.primary.flags,
+                                    cd_read_state_r.primary.volume);
+                cd_read_state_r.requested_track = -1;
+                cd_read_state_r.crossfade_state = 4;
             }
             break;
         case 4:
-            if (D_001517D0_17130.primary.state == 3) {
-                if (D_001517D0_17130.transition.remaining_time < D_001517D0_17130.crossfade_interval ||
-                    D_001517D0_17130.transition.state != 4 ||
-                    (D_001517D0_17130.transition.crossfade_enabled == 0 &&
-                     D_001517D0_17130.transition.handle == 0)) {
-                    func_0012EDE0_17130(D_001517D0_17130.primary.handle);
-                    D_001517D0_17130.primary.state = 8;
-                    D_001517D0_17130.crossfade_state = 5;
+            if (cd_read_state_r.primary.state == 3) {
+                if (cd_read_state_r.transition.remaining_time < cd_read_state_r.crossfade_interval ||
+                    cd_read_state_r.transition.state != 4 ||
+                    (cd_read_state_r.transition.crossfade_enabled == 0 &&
+                     cd_read_state_r.transition.handle == 0)) {
+                    snd_ContinueVAGStream_r(cd_read_state_r.primary.handle);
+                    cd_read_state_r.primary.state = 8;
+                    cd_read_state_r.crossfade_state = 5;
                 }
             }
             break;
         case 5:
-            if (D_001517D0_17130.transition.state != 4 ||
-                D_001517D0_17130.transition.crossfade_enabled == 0) {
-                D_001517D0_17130.crossfade_state = 0;
+            if (cd_read_state_r.transition.state != 4 ||
+                cd_read_state_r.transition.crossfade_enabled == 0) {
+                cd_read_state_r.crossfade_state = 0;
             }
             break;
         }
     }
-    func_00216F48_17130(&D_001517D0_17130.primary.handle);
-    func_00216F48_17130(&D_001517D0_17130.transition.handle);
-    func_00216F48_17130(&D_001517D0_17130.secondary.handle);
-    if (D_001517D0_17130.break_requested != 0) {
-        if (func_0012EF48(1) == 0) {
-            D_001517D0_17130.read_state = 0;
-            D_001517D0_17130.break_requested = 0;
+    music_UpdateStream_r(&cd_read_state_r.primary.handle);
+    music_UpdateStream_r(&cd_read_state_r.transition.handle);
+    music_UpdateStream_r(&cd_read_state_r.secondary.handle);
+    if (cd_read_state_r.break_requested != 0) {
+        if (snd_StreamSafeCdSync(1) == 0) {
+            cd_read_state_r.read_state = 0;
+            cd_read_state_r.break_requested = 0;
         }
     } else {
-        pending_state = D_001517D0_17130.read_state;
+        pending_state = cd_read_state_r.read_state;
         if (pending_state == 2) {
-            D_001517D0_17130.read_state = 0;
-            start_audio_stream_read(D_001517D0_17130.read_dst, D_001517D0_17130.read_sector,
-                                    D_001517D0_17130.read_sector_count);
-            if (D_001517D0_17130.read_state == 0) {
-                D_001517D0_17130.read_state = pending_state;
+            cd_read_state_r.read_state = 0;
+            start_audio_stream_read(cd_read_state_r.read_dst, cd_read_state_r.read_sector,
+                                    cd_read_state_r.read_sector_count);
+            if (cd_read_state_r.read_state == 0) {
+                cd_read_state_r.read_state = pending_state;
             }
         }
     }

@@ -10,10 +10,10 @@ s32 DrawCheatsMenu(struct CheatsMenu *menu) {
     s32 color;
     s32 enabled;
 
-    func_00234C98_22070(0x47, 0x2004B);
+    VU1_addGSregister_r3(0x47, 0x2004B);
     SetupGifPaging(0);
     if ((menu->flags & 1) && menu->entries->text_id == 0) {
-        func_001153FC_22070(window_fields, 0, sizeof(window_fields));
+        libc_memset_r2(window_fields, 0, sizeof(window_fields));
         window_fields[1] = menu->height + 1;
         window_fields[3] = menu->width + 1;
         window_fields[4] = menu->width >> 1;
@@ -24,7 +24,7 @@ s32 DrawCheatsMenu(struct CheatsMenu *menu) {
         window_fields[9] = 1;
 
         text_window = *(FontWindow *)window_fields;
-        func_001F7560_22070(&text_window, 0x80FFA888, func_001FE540_22070(0x4FC1), -1);
+        font_print_window_regular_r2(&text_window, 0x80FFA888, msg_string_r4(0x4FC1), -1);
     }
     /* Entries end at a zero text ID; each retail entry occupies 0x14 bytes. */
     entry_count = 0;
@@ -43,10 +43,10 @@ s32 DrawCheatsMenu(struct CheatsMenu *menu) {
             if (entry->enabled_flag != 0) {
                 enabled = *entry->enabled_flag;
             }
-            func_001F68E8_22070(0xC, draw_y, color, func_001FE540_22070(entry->text_id), -1);
+            FontPrintLarge_r2(0xC, draw_y, color, msg_string_r4(entry->text_id), -1);
             font_print_right(
                 menu->width - 0xC, draw_y, 0x80FFA888,
-                func_001FE540_22070(enabled ? entry->enabled_text_id : entry->disabled_text_id),
+                msg_string_r4(enabled ? entry->enabled_text_id : entry->disabled_text_id),
                 -1);
             draw_y += line_spacing;
             draw_index++;

@@ -1,4 +1,4 @@
-s32 update_menu_grid_selection(MenuScreen_C840 *grid) {
+s32 update_menu_grid_selection(MenuScreen *grid) {
     s32 column_count;
     s32 row_count;
     s32 cursor;
@@ -7,12 +7,12 @@ s32 update_menu_grid_selection(MenuScreen_C840 *grid) {
     s32 column;
     s32 hidden;
     s32 next_rows;
-    MenuPage_C840 *back_page;
+    MenuPage *back_page;
     s32 total;
     s32 next_column_count;
     s32 next_columns;
-    MenuScreen_C840 *next;
-    MenuGridCell_C840 *entry;
+    MenuScreen *next;
+    MenuGridCell *entry;
     s32 slot;
 
     if (menu_system_C840.current->focus != grid) {
@@ -31,9 +31,9 @@ s32 update_menu_grid_selection(MenuScreen_C840 *grid) {
         }
     }
 
-    column_count = grid->cols;
-    cursor = grid->selected_cell;
-    row_count = grid->rows;
+    column_count = grid->data.grid.cols;
+    cursor = grid->data.grid.selected_cell;
+    row_count = grid->data.grid.rows;
     row = cursor / column_count;
     column_index = cursor % column_count;
     column = column_index;
@@ -42,26 +42,26 @@ s32 update_menu_grid_selection(MenuScreen_C840 *grid) {
        column before the following direction checks. */
     if (controller_state_C840.pressed_unmasked & 0x1000) {
         if (row != 0) {
-            grid->selected_cell -= column_count;
-        } else if (grid->up != 0) {
+            grid->data.grid.selected_cell -= column_count;
+        } else if (grid->data.grid.up != 0) {
             next = grid;
             do {
-                next = next->up;
-                next_rows = next->rows;
-                next_columns = next->cols;
+                next = next->data.grid.up;
+                next_rows = next->data.grid.rows;
+                next_columns = next->data.grid.cols;
                 hidden = 0;
-                if (menu_system_C840.unk134 != 0 && (next->flags & 8)) {
+                if (menu_system_C840.unk134 != 0 && (next->data.grid.flags & 8)) {
                     hidden = 1;
                 }
-                if (menu_system_C840.unk138 != 0 && (next->flags & 4)) {
+                if (menu_system_C840.unk138 != 0 && (next->data.grid.flags & 4)) {
                     hidden = 1;
                 }
             } while (hidden);
             menu_system_C840.current->pending_focus = next;
-            if (next_columns == 5 && grid->cols == 3) {
+            if (next_columns == 5 && grid->data.grid.cols == 3) {
                 column++;
             }
-            if (next_columns == 3 && grid->cols == 5) {
+            if (next_columns == 3 && grid->data.grid.cols == 5) {
                 column--;
                 if (column > 2) {
                     column = 2;
@@ -69,34 +69,34 @@ s32 update_menu_grid_selection(MenuScreen_C840 *grid) {
                     column = 0;
                 }
             }
-            next->selected_cell = (next_rows - 1) * next_columns +
+            next->data.grid.selected_cell = (next_rows - 1) * next_columns +
                                             (column < next_columns - 1 ? column : next_columns - 1);
-        } else if (!(grid->flags & 0x8000)) {
-            grid->selected_cell = column_count * (row_count - 1) + cursor;
+        } else if (!(grid->data.grid.flags & 0x8000)) {
+            grid->data.grid.selected_cell = column_count * (row_count - 1) + cursor;
         }
     }
 
     if (controller_state_C840.pressed_unmasked & 0x4000) {
         if (row + 1 < row_count) {
-            grid->selected_cell = grid->selected_cell + column_count;
-        } else if (grid->down != 0) {
+            grid->data.grid.selected_cell = grid->data.grid.selected_cell + column_count;
+        } else if (grid->data.grid.down != 0) {
             next = grid;
             do {
-                next = next->down;
-                next_column_count = next->cols;
+                next = next->data.grid.down;
+                next_column_count = next->data.grid.cols;
                 hidden = 0;
-                if (menu_system_C840.unk134 != 0 && (next->flags & 8)) {
+                if (menu_system_C840.unk134 != 0 && (next->data.grid.flags & 8)) {
                     hidden = 1;
                 }
-                if (menu_system_C840.unk138 != 0 && (next->flags & 4)) {
+                if (menu_system_C840.unk138 != 0 && (next->data.grid.flags & 4)) {
                     hidden = 1;
                 }
             } while (hidden);
             menu_system_C840.current->pending_focus = next;
-            if (next_column_count == 5 && grid->cols == 3) {
+            if (next_column_count == 5 && grid->data.grid.cols == 3) {
                 column++;
             }
-            if (next_column_count == 3 && grid->cols == 5) {
+            if (next_column_count == 3 && grid->data.grid.cols == 5) {
                 column--;
                 if (column > 2) {
                     column = 2;
@@ -104,43 +104,43 @@ s32 update_menu_grid_selection(MenuScreen_C840 *grid) {
                     column = 0;
                 }
             }
-            next->selected_cell =
+            next->data.grid.selected_cell =
                 column < next_column_count - 1 ? column : next_column_count - 1;
-        } else if (!(grid->flags & 0x8000)) {
-            grid->selected_cell =
-                grid->selected_cell - grid->cols * (grid->rows - 1);
+        } else if (!(grid->data.grid.flags & 0x8000)) {
+            grid->data.grid.selected_cell =
+                grid->data.grid.selected_cell - grid->data.grid.cols * (grid->data.grid.rows - 1);
         }
     }
 
     if (controller_state_C840.pressed_unmasked & 0x8000) {
         if (column != 0) {
-            grid->selected_cell = grid->selected_cell - 1;
-        } else if (grid->left != 0) {
-            menu_system_C840.current->pending_focus = grid->left;
-        } else if (!(grid->flags & 0x8000)) {
-            grid->selected_cell += grid->cols - 1;
+            grid->data.grid.selected_cell = grid->data.grid.selected_cell - 1;
+        } else if (grid->data.grid.left != 0) {
+            menu_system_C840.current->pending_focus = grid->data.grid.left;
+        } else if (!(grid->data.grid.flags & 0x8000)) {
+            grid->data.grid.selected_cell += grid->data.grid.cols - 1;
         }
     }
 
     if (controller_state_C840.pressed_unmasked & 0x2000) {
         if (column + 1 < column_count) {
-            grid->selected_cell = grid->selected_cell + 1;
-        } else if (grid->right != 0) {
-            menu_system_C840.current->pending_focus = grid->right;
-        } else if (!(grid->flags & 0x8000)) {
-            grid->selected_cell -= grid->cols - 1;
+            grid->data.grid.selected_cell = grid->data.grid.selected_cell + 1;
+        } else if (grid->data.grid.right != 0) {
+            menu_system_C840.current->pending_focus = grid->data.grid.right;
+        } else if (!(grid->data.grid.flags & 0x8000)) {
+            grid->data.grid.selected_cell -= grid->data.grid.cols - 1;
         }
     }
 
-    if (grid->selected_cell != cursor || menu_system_C840.current->pending_focus != 0) {
+    if (grid->data.grid.selected_cell != cursor || menu_system_C840.current->pending_focus != 0) {
         play_menu_sound_C840(1, 0x11, grid->moby);
     }
 
-    if ((controller_state_C840.pressed_unmasked & 0x60) && ((grid->flags ^ 1) & 1)) {
+    if ((controller_state_C840.pressed_unmasked & 0x60) && ((grid->data.grid.flags ^ 1) & 1)) {
         if (menu_system_C840.select_cooldown != 0) {
             return 0;
         }
-        entry = &grid->cells[grid->selected_cell];
+        entry = &grid->data.grid.cells[grid->data.grid.selected_cell];
         if (entry->id != 0 && item_available_C840[entry->id] != 0) {
             slot = menu_item_info_C840[entry->id].slot;
             play_menu_sound_C840(0, 0x11, grid->moby);

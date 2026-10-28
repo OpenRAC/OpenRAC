@@ -1,7 +1,7 @@
 /* Carried by port/tools/versionmap/carry_functions.py from the decompilation of Ratchet & Clank (PAL), nonmatching/functional/func_00126640.c (games/rac1): func_00126640, functional C there, not matched.
  * Kind `same` in the version map (../../README.md): the two versions have the same instructions for it.
  * Names and addresses are this version's. Functional C, not matched C. */
-/* functional: medium. Handwritten MMI (MPEG motion compensation, 8-wide copy without averaging): per row, joins 8 bytes of src1 and 8 of src2, rotates the 16 bytes right by (shift & 15), and widens the low 8 bytes to 8 halfwords written as one 16-byte store. Two passes (columns 0 and +0x40 source / +0x80 dest); each pass runs rows (a[2]) rows, then a second block of a[3] rows if a[3] is nonzero. MMI becomes plain byte/halfword code; the field meanings are inferred from the registers. */
+/* functional: medium. fcheck: unchecked (never called in fcheck's capture run of the title, menu and level 0; OpenRAC tools/fcheck_gate.py, 2026-10-18). Handwritten MMI (MPEG motion compensation, 8-wide copy without averaging): per row, joins 8 bytes of src1 and 8 of src2, rotates the 16 bytes right by (shift & 15), and widens the low 8 bytes to 8 halfwords written as one 16-byte store. Two passes (columns 0 and +0x40 source / +0x80 dest); each pass runs rows (a[2]) rows, then a second block of a[3] rows if a[3] is nonzero. MMI becomes plain byte/halfword code; the field meanings are inferred from the registers. */
 
 typedef int s32_c126500;
 typedef unsigned char u8_c126500;

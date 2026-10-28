@@ -16,12 +16,13 @@ struct SkyShellSet {
     struct SkyShell *shells[1];
 };
 
-extern f32 D_00160400 __attribute__((sda));
+#include "rnc/rendering/sky/draw_scrolling_sky_shells_globals.h"
+extern f32 sky_shell_angle_step_gp __asm__("D_00160400") __attribute__((sda));
 extern struct SkyShellSet *D_0016045C;
 extern u8 sky_matrix[] __asm__("D_001D96E0");
 extern void set_identity_matrix(void *) __asm__("FUN_001f9fc8");
 extern void clear_u64_value(void *) __asm__("FUN_001f99f8");
-extern void fun_001fa070(void *, f32 *) __asm__("FUN_001fa070");
+extern void euler_to_matrix_ee(void *, f32 *) __asm__("FUN_001fa070");
 extern void scale_vector(void *, void *, f32) __asm__("FUN_001f9a80");
 
 void draw_scrolling_sky_shells(void) __asm__("FUN_0022abd8");
@@ -54,26 +55,26 @@ void draw_scrolling_sky_shells(void) {
             switch (shell_index) {
             case SKY_SHELL_TRIPLE_SCALE_LAYER:
                 rotation_angles[1] = 0.02f;
-                *shell_angle += D_00160400 * 0.55f;
+                *shell_angle += sky_shell_angle_step_gp * 0.55f;
                 shell_scale = 3.0f;
                 break;
             case SKY_SHELL_TWO_AND_HALF_SCALE_LAYER:
                 rotation_angles[1] = -0.02f;
-                *shell_angle += D_00160400 * 0.6f;
+                *shell_angle += sky_shell_angle_step_gp * 0.6f;
                 shell_scale = 2.5f;
                 break;
             case SKY_SHELL_DOUBLE_SCALE_LAYER:
                 rotation_angles[1] = 0.01f;
-                *shell_angle += D_00160400 * 0.7f;
+                *shell_angle += sky_shell_angle_step_gp * 0.7f;
                 shell_scale = 2.0f;
                 break;
             case SKY_SHELL_ONE_AND_HALF_SCALE_LAYER:
                 rotation_angles[1] = -0.01f;
-                *shell_angle += D_00160400 * 0.75f;
+                *shell_angle += sky_shell_angle_step_gp * 0.75f;
                 shell_scale = 1.5f;
                 break;
             case SKY_SHELL_ONE_AND_QUARTER_SCALE_LAYER:
-                *shell_angle += D_00160400 * 0.8f;
+                *shell_angle += sky_shell_angle_step_gp * 0.8f;
                 shell_scale = 1.25f;
                 break;
             default:
@@ -85,7 +86,7 @@ void draw_scrolling_sky_shells(void) {
                 rotation_angles[2] =
                     (f32)((s32)(*shell_angle + (f32)shell_index * 2000.0f) % 10000) *
                         0.0006283185f - 3.1415927f;
-                fun_001fa070(sky_matrix, rotation_angles);
+                euler_to_matrix_ee(sky_matrix, rotation_angles);
                 transform_row = sky_matrix;
                 scale_vector(transform_row, transform_row, shell_scale);
                 scale_vector(transform_row + 0x10, transform_row + 0x10, shell_scale);

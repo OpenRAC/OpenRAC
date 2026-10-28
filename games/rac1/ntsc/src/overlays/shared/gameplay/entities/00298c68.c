@@ -14,10 +14,12 @@ typedef struct {
     P2_00298c68 y[3];
 } Tab_00298c68;
 extern Tab_00298c68 D_00137B80_00298c68 __asm__("D_00137B80");
-void FUN_L00_002995d0(s32, s32, s32);
+void prepare_movie_playback(s32, s32, s32) __asm__("FUN_L00_002995d0");
 void hero_respawn() __asm__("FUN_L00_00211250");
 /* Picks a disc table entry pair by D_0015ED80 and passes it with the language to FUN_L00_002995d0. */
-void FUN_L02_00298c68(s32 i) {
+void start_indexed_disc_stream(s32 i) __asm__("FUN_L02_00298c68");
+
+void start_indexed_disc_stream(s32 i) {
     s32 a, b;
     struct Hero *hero_ptr;
     if (i < 0)
@@ -32,8 +34,8 @@ void FUN_L02_00298c68(s32 i) {
     hero_ptr = &hero;
     if (hero_ptr->health.hp == 0) {
         hero_respawn();
-    } else if (hero_ptr->unk20B1 == 0) {
-        FUN_L00_002995d0(a, b, game_language);
+    } else if (hero_ptr->fall_fade_pending == 0) {
+        prepare_movie_playback(a, b, game_language);
     }
 }
 #include "eetypes.h"
@@ -41,7 +43,7 @@ void FUN_L02_00298c68(s32 i) {
 #include "sda.h"
 
 
-extern int FUN_L00_002db8f8(void *);
+extern int process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
 
 extern int FUN_L00_002db8f8_pt(void *, void *, void *) __asm__("FUN_L00_002db8f8");
 /* Moby state 9 while FUN_L00_002db8f8 reports a hit, back to 1 when it stops. */

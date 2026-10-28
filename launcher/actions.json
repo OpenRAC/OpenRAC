@@ -1633,7 +1633,9 @@
         "program": "{python}",
         "args": [
           "tools/build_port.py",
-          "rac2-ntsc"
+          "rac2-ntsc",
+          "--disc",
+          "{disc}"
         ],
         "cwd": ".",
         "platforms": [
@@ -1644,14 +1646,8 @@
         "requires": [
           "python"
         ],
-        "needs": [
-          {
-            "path": "games/rac2/ntsc/baserom/SCUS_972.68",
-            "from": "the boot executable in games/rac2/ntsc/baserom (Set up)"
-          }
-        ],
         "docs": "port/game/rac2-ntsc/README.md",
-        "todo": "Run it from the desktop app; tools/build_port.py rac2-ntsc is not tried yet. No --disc: hostgen's disc reader knows only Ratchet & Clank's discs, so the functions still in assembly are translated from games/rac2/ntsc/baserom/SCUS_972.68 (port/game/rac2-ntsc/README.md). From a shell on macOS, cmake --build --preset release --target openrac-rac2-ntsc in port/ built the program (2026-10-27)."
+        "todo": "Run it from the desktop app. --disc {disc}: hostgen reads the boot executable straight from the disc image (the functions still in assembly are translated from it), as for Ratchet & Clank; without it the program has no retail code and exits at once. From a shell on macOS, cmake --build --preset release --target openrac-rac2-ntsc in port/ built the program (2026-10-27)."
       },
       {
         "id": "play",

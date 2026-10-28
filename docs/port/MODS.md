@@ -430,6 +430,10 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `on_tick_boundary(mod, fn, user)` (1.6) | `fn(user, tick)` after vertical-blank handlers have run, for a safe snapshot boundary |
 | `savestate_size()` (1.6) | the byte size of this running RAC1 PAL/NTSC build's private warm snapshot |
 | `savestate_save(out, size)` / `savestate_load(data, size)` (1.6) | copy guest memory and essential in-process runtime state; only accepted from `on_tick_boundary`, for the same running process and build |
+| `ui_page(mod, flags, fn, user)` (1.7) | during load: a page of the game's own menus (at most `OPENRAC_UI_PAGES_MAX`, 16, for all mods), empty until `ui_set`; returns its id. `fn(user, page, &event)` hears it: `OPENRAC_UI_SHOW` and `_HIDE` as it comes and goes, `_FRAME` each tick it is shown, `_CHOOSE` (Cross on a button), `_CHANGE` (a choice stepped), `_ANSWER` (a question answered, `value` 1 yes), and `_BACK` (Triangle) for a page made with `OPENRAC_UI_OWN_BACK`, which then goes back itself. The game draws it: in Ratchet & Clank a page the main menu opens has the Options page's frames, title and footer of hints, its list is the game's text list in the game's font, and a page opened from it has the Language page's, a level down (a third takes the second's place). Up and Down move the cursor over buttons and choices (not lines of text), with the game's sounds |
+| `ui_main_item(mod, after, label, page)` (1.7) | during load: an item of the title's main menu (at most `OPENRAC_UI_MAIN_ITEMS_MAX`, 2: the rows below the game's three) after `OPENRAC_UI_NEW_GAME`, `_LOAD_GAME` or `_OPTIONS`, opening the mod's `page`. Ratchet & Clank: the game's own frames and its row animations, the cursor going round the four (or five) |
+| `ui_set(mod, page, &content)` (1.7) | any time: the page's title, items (`OPENRAC_UI_BUTTON`, `_CHOICE` with its values, `_TEXT`; `OPENRAC_UI_DISABLED` dims one and refuses it) and footer lines (none: the game's own hints, in its language), at most `OPENRAC_UI_ITEMS_MAX` (12) items and `OPENRAC_UI_FOOTER_MAX` (3) lines of `OPENRAC_UI_TEXT_MAX` (47) bytes; UTF-8 with the game's accented letters, and `OPENRAC_UI_CROSS`, `_CIRCLE`, `_TRIANGLE`, `_SQUARE` for the pad's glyphs |
+| `ui_open(mod, page)`, `ui_confirm(mod, page, question, tag)`, `ui_cursor(mod, page, item)`, `ui_sound(mod, sound)` (1.7) | while one of the mod's pages is shown: show another (`OPENRAC_UI_GO_BACK` goes back a level); ask a yes/no question in the game's prompt box in place of the list (Cross yes, Triangle no); read or move the cursor; play one of the game's menu sounds (`OPENRAC_UI_SOUND_SELECT`, `_CURSOR`, `_DENIED`, `_OPEN`, `_PAGE`). What is asked happens after the event |
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -463,7 +467,12 @@ calls for an optional practice mod (`on_tick_boundary`, `savestate_size`,
 C++ `Mod` wrapper's methods of the same names, and `has_savestates()`). They do
 not run unless a mod registers and calls them. The separate `project-save-clank`
 mod owns the file and Numpad 1/2 controls; its state is not valid across
-process restarts.
+process restarts. 1.7 (SDK 1.7.0) pages of the game's own menus and items of
+the title's main menu (`ui_page`, `ui_main_item`, `ui_set`, `ui_open`,
+`ui_confirm`, `ui_cursor`, `ui_sound`, after 1.6's; the C++ layer's
+`mod.ui_page([](const UiPage&, const UiEvent&) { ... })`, `mod.ui_main_item`,
+`UiContent`, `UiItem::button`, `text`, `choice_of`, and `has_ui()`). 1.5's
+page of the mod's own drawing stays as it was, in the Options list.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
@@ -670,6 +679,9 @@ into the port: nothing of it crosses the boundary.
   Each hook point is a type in the generated `openrac/games/rac1.hpp`
   (its name, signature and function type), and a static thunk per hook point
   holds the callable, so the C slot still gets a plain function.
+- `mod.ui_page(fn)` (1.7) returns an `openrac::UiPage` (`set(UiContent)`,
+  `open()`, `back()`, `confirm(question, tag)`, `cursor()`, `sound(n)`) whose
+  events reach `fn(page, event)`; `mod.ui_main_item(after, label, page)`.
 - `mod.on_frame(fn)`, `mod.on_pad(fn)`, `openrac::Memory` (typed reads and
   writes at game addresses), `openrac::StackFrame` (RAII over `stack_push` and
   `stack_pop`).
@@ -861,7 +873,9 @@ callback that swaps two buttons, chosen in its settings.
   mod is, so a mod can carry code and textures together.
 - **Proposed: settings in the game.** The in-game drawer showing the loaded
   mods and their settings, written back to `plugins.json`. A mod's own page
-  in the front-end menu is there since 1.5 (`menu_entry`, section 6).
+  in the front-end menu is there since 1.5 (`menu_entry`, section 6), and
+  pages of the game's own menus, opened from the main menu, since 1.7
+  (`ui_page`, `ui_main_item`).
 - **Proposed: more hook points** as mods ask for them, and a hook on the
   renderer's frame for mods that draw over the game in play. Simple drawing
   on a mod's own menu page (rectangles and text) is there since 1.5.

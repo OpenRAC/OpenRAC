@@ -16,8 +16,6 @@ build/*
 config/output/
 config/us/.splache
 config/us/build.ninja
-config/us/oracle-aliases.txt
-config/us/oracle-fallback-units.json
 config/us/SCUS_971.99.ld
 config/us/asm/
 config/us/expected/
@@ -31,7 +29,7 @@ tools/*
 !tools/compilers/*/bin/README.md
 
 # Python
-.venv/
+.venv
 __pycache__/
 *.pyc
 

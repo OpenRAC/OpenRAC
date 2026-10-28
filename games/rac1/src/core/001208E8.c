@@ -14,72 +14,72 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
-extern char D_00152470[];
-extern int func_00119088();
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
+extern char locale_lconv[];
+extern int libc_glue_read();
 extern long func_00116108_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00116108");
 extern long func_001188C8_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_001188C8");
 extern long func_00114518_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00114518");
-extern int func_00112468(int *errOut, int arg1);
-extern int func_00114060(int, void *);
-extern void func_00113AE0(void *);
-extern void func_00117118(void *, void *, int, int);
-extern int func_00119008();
-extern int D_0012FCF0 NOT_SDA;
-extern void func_00118E90(int arg0, void *arg1);
-extern void *D_00154A40 NOT_SDA;
-extern int D_00155080[];
-extern void func_001193F8(int);
-extern void func_00118AD0(int, int);
-extern int D_00154F54;
-extern int D_0012FD04;
-extern int D_00154F64 NOT_SDA;
-extern int D_00154F6C NOT_SDA;
-extern void func_0011AA90(int, int, int, int, int, int, int);
-extern void func_0011AA00(void);
-extern int D_0012FD08 NOT_SDA;
-extern int func_00118C70(void *);
-extern int D_0012FDA0;
-extern int D_0012FDA4;
-extern char D_00157E80[];
-extern int D_0012FD9C;
-extern void func_0011BBF0(void);
-extern int D_0012FD9C NOT_SDA;
-extern char D_0012FCEC[];
-extern char D_001580A8[];
-extern int D_0012FDA8;
-extern void func_001153FC(void *, int, int);
-extern int D_0012FD94;
-extern int D_0012FDAC;
-extern char D_00158140[];
-extern int D_00158180;
-extern int D_001581C0;
-extern char D_00158528[];
-extern int D_0012FDB4;
-extern int func_0011CE70(int arg0, int arg1, int arg2, void *arg3);
-extern void func_00118EC0(void);
-extern void func_0011D4E0(void);
-extern void func_00118EB0(void);
-extern int D_00130420;
-extern int D_00130424;
-extern int D_00130BD0[];
-extern char D_00130428[];
-extern int func_0011DC50(void);
-extern void func_00118D80(int);
-extern void func_0011AA38(int arg0, int arg1, int arg2);
-extern void func_0011B710(void);
-extern int func_0011CBC8(int arg0);
+extern int _close_r(int *errOut, int arg1);
+extern int __sfvwrite(int, void *);
+extern void __sinit(void *);
+extern void _vfprintf_r(void *, void *, int, int);
+extern int libc_glue_write();
+extern int CoreGlobalWord NOT_SDA;
+extern void Deci2Call(int arg0, void *arg1);
+extern void *InitBlockData NOT_SDA;
+extern int sif_sregs[];
+extern void disable_dmac_atomic(int);
+extern void remove_dmac_handler(int, int);
+extern int sif_cmd_dmac_handler_id;
+extern int sif_cmd_init_done;
+extern int sif_cmd_data_sys_handlers NOT_SDA;
+extern int sif_cmd_data_usr_handlers NOT_SDA;
+extern void sif_send_cmd_common(int, int, int, int, int, int, int);
+extern void sceSifExitCmd(void);
+extern int RpcCommandState NOT_SDA;
+extern int create_semaphore(void *);
+extern int fs_iob_sema;
+extern int fs_iob_sema_2;
+extern char fs_iob_table[];
+extern int fs_call_sema;
+extern void fs_call_sema_init(void);
+extern int fs_call_sema NOT_SDA;
+extern char sif_lib_version_string[];
+extern char FsResetBuffer[];
+extern int fs_expected_version;
+extern void libc_memset(void *, int, int);
+extern int FsResetState;
+extern int iop_heap_bind_state;
+extern char iop_heap_rpc_client[];
+extern int iop_heap_rpc_reply;
+extern int iop_heap_rpc_arg;
+extern char lf_iop_version[];
+extern int lf_expected_version;
+extern int _sceSifLoadModuleBuffer(int arg0, int arg1, int arg2, void *arg3);
+extern void tty_reset_init_flag(void);
+extern void init_tlb_32mb(void);
+extern void kernel_init_tlb(void);
+extern int FirstSemaphore;
+extern int SecondSemaphore;
+extern int osd_syscall_patch_table[];
+extern char osd_kernel_patch_code[];
+extern int PatchIsNeeded(void);
+extern void flush_cache(int);
+extern void sceSifAddCmdHandler(int arg0, int arg1, int arg2);
+extern void fs_iob_sema_make(void);
+extern int sce_sif_alloc_iop_heap(int arg0);
 
 ASM_FUNC("asm/handwritten/core_text", func_001208E8);
 
@@ -96,34 +96,34 @@ ASM_FUNC("asm/handwritten/core_text", func_001208E8);
    (as func_0011B710). Under 2.95.3 it was 24/104: that build front-loads
    `sd $31` where retail interleaves the descriptor stores between the
    `$16` and `$31` saves. */
-void func_00120910(unsigned short arg0) {
+void sceCdDelayThread(unsigned short arg0) {
     int buf[8];
     int h;
     buf[2] = 0;
     buf[1] = 1;
     buf[5] = 0;
-    h = func_00118C70(buf);
-    func_00118B20(arg0, (char *)func_001208E4 + 4, h);
-    func_00118CB0(h);
-    func_00118C80(h);
+    h = create_semaphore(buf);
+    set_alarm(arg0, (char *)cd_delay_alarm_handler_base + 4, h);
+    wait_semaphore(h);
+    delete_semaphore(h);
 }
 
-extern int func_00120F30(int);
-extern int func_0011D960(void);
-extern void func_0011D9A8(void);
-extern void *D_00159840;
+extern int sce_cd_sync_s(int);
+extern int disable_interrupts(void);
+extern void enable_interrupts(void);
+extern void *cd_user_callback;
 
-void *func_00120978(void *arg0) {
+void *sce_cd_callback(void *arg0) {
     void *old;
     int r;
-    if (func_00120F30(1) != 0) {
+    if (sce_cd_sync_s(1) != 0) {
         return 0;
     }
-    r = func_0011D960();
-    old = D_00159840;
-    D_00159840 = arg0;
+    r = disable_interrupts();
+    old = cd_user_callback;
+    cd_user_callback = arg0;
     if (r != 0) {
-        func_0011D9A8();
+        enable_interrupts();
     }
     return old;
 }
@@ -145,30 +145,30 @@ void *func_00120978(void *arg0) {
  * D_00131414 into $16 (`lui $2` + `move $16,$2`) where retail loads
  * `lui $16` directly (SIZE 164/160).
  */
-extern volatile int D_00131414_v __asm__("D_00131414");
+extern volatile int cd_callback_num_v __asm__("D_00131414");
 extern volatile int D_00131418_v __asm__("D_00131418");
-extern volatile int D_001313D4_v __asm__("D_001313D4");
-extern volatile int D_001313E0_v __asm__("D_001313E0");
-extern volatile int D_001313E8_v __asm__("D_001313E8");
-extern volatile int D_001313F0_v __asm__("D_001313F0");
-extern void *volatile D_00159840_v __asm__("D_00159840");
-extern int func_00118CA0(int);
+extern volatile int cd_callback_thread_id_v __asm__("D_001313D4");
+extern volatile int cd_callback_sema_v __asm__("D_001313E0");
+extern volatile int cd_ncmd_sema_v __asm__("D_001313E8");
+extern volatile int cd_ncmd_busy_v __asm__("D_001313F0");
+extern void *volatile cd_user_callback_v __asm__("D_00159840");
+extern int i_signal_semaphore(int);
 
-void func_001209D8(int *arg0) {
-    D_00131414_v = *arg0;
-    D_00131418_v = D_00131414_v;
-    if (D_00131414_v == 0xB) {
-        D_00131414_v = 0;
-        D_001313F0_v = 0;
+void cd_ncmd_callback(int *arg0) {
+    cd_callback_num_v = *arg0;
+    D_00131418_v = cd_callback_num_v;
+    if (cd_callback_num_v == 0xB) {
+        cd_callback_num_v = 0;
+        cd_ncmd_busy_v = 0;
         return;
     }
-    func_00118CA0(D_001313E8_v);
-    if (D_001313D4_v != 0 && D_00159840_v != 0) {
-        func_00118CA0(D_001313E0_v);
+    i_signal_semaphore(cd_ncmd_sema_v);
+    if (cd_callback_thread_id_v != 0 && cd_user_callback_v != 0) {
+        i_signal_semaphore(cd_callback_sema_v);
     } else {
-        D_001313F0_v = 0;
+        cd_ncmd_busy_v = 0;
     }
-    D_00131414_v = 0;
+    cd_callback_num_v = 0;
 }
 
 LINKER_REMNANT("asm/remnants/core_text", func_00120A78);
@@ -178,7 +178,7 @@ LINKER_REMNANT("asm/remnants/core_text", func_00120A78);
    dst1, then finishes like the N-command callback (func_001209D8 on
    D_00131414). Each destination is loaded once inside its own `if`, which
    gives retail's doubled count test. */
-extern int D_00131414;
+extern int cd_callback_num;
 
 typedef struct {
     int n0;
@@ -189,7 +189,7 @@ typedef struct {
     char buf1[0x40];
 } CdRecv;
 
-void func_00120A88(int arg0) {
+void cd_read_end_callback(int arg0) {
     CdRecv *p = (CdRecv *)(arg0 | 0x20000000);
     int i;
 
@@ -201,13 +201,13 @@ void func_00120A88(int arg0) {
         char *d1 = p->dst1;
         for (i = 0; i < p->n1; i++) d1[i] = p->buf1[i];
     }
-    func_001209D8((int *)&D_00131414);
+    cd_ncmd_callback((int *)&cd_callback_num);
 }
 
-extern int D_001313E0;
-extern int D_001313E8;
-extern int D_001313EC;
-extern int D_001313F0;
+extern int cd_callback_sema;
+extern int cd_ncmd_sema;
+extern int cd_scmd_sema;
+extern int cd_ncmd_busy;
 
 struct SemaParam_120B28 {
     s32 currentCount;
@@ -217,20 +217,20 @@ struct SemaParam_120B28 {
     u32 attr;
     u32 option;
 };
-extern volatile s32 D_001313E0_120B28[] __asm__("D_001313E0");
-extern s32 D_001313E8_120B28[] __asm__("D_001313E8");
-extern s32 D_001313EC_120B28[] __asm__("D_001313EC");
-extern volatile s32 D_001313F0_120B28[] __asm__("D_001313F0");
-extern s32 func_00118C70_120B28(struct SemaParam_120B28 *) __asm__("func_00118C70");
+extern volatile s32 cd_callback_sema_r[] __asm__("D_001313E0");
+extern s32 cd_ncmd_sema_r[] __asm__("D_001313E8");
+extern s32 cd_scmd_sema_r[] __asm__("D_001313EC");
+extern volatile s32 cd_ncmd_busy_r[] __asm__("D_001313F0");
+extern s32 create_semaphore_r(struct SemaParam_120B28 *) __asm__("func_00118C70");
 
 /* cmd_sem_init: unless both command semaphores already exist, create them
    (count 1, max 1) and the completion semaphore (count 0) through
    func_00118C70 (CreateSema), then clear D_001313F0.
-   Adapted from Lombyte (GPL-3.0): src/sdk/library/cmd_sem_init.c, cmd_sem_init. */
-void func_00120B28(void) {
+   Adapted from Lombyte's project (GPL-3.0): src/sdk/library/cmd_sem_init.c, cmd_sem_init. */
+void cd_sema_init(void) {
     struct SemaParam_120B28 sema;
 
-    if ((D_001313E8_120B28[0] != -1) && (D_001313EC_120B28[0] != -1)) {
+    if ((cd_ncmd_sema_r[0] != -1) && (cd_scmd_sema_r[0] != -1)) {
         return;
     }
     sema.option = 0;
@@ -239,19 +239,19 @@ void func_00120B28(void) {
     /* Both results use the same record; storing the first handle inside
        the second call's argument puts the store in that jal's delay slot,
        as retail has it (the open residual of the old near-miss). */
-    D_001313EC_120B28[0] = func_00118C70_120B28(
-        (D_001313E8_120B28[0] = func_00118C70_120B28(&sema)) ? &sema : &sema);
+    cd_scmd_sema_r[0] = create_semaphore_r(
+        (cd_ncmd_sema_r[0] = create_semaphore_r(&sema)) ? &sema : &sema);
     sema.initCount = 0;
-    D_001313E0_120B28[0] = func_00118C70_120B28(&sema);
-    D_001313F0_120B28[0] = 0;
+    cd_callback_sema_r[0] = create_semaphore_r(&sema);
+    cd_ncmd_busy_r[0] = 0;
 }
 
-extern int D_001313D4;
+extern int cd_callback_thread_id;
 /* DeleteSema returns int; declared void, the lui after each call would take
    $v0 instead of retail's $v1. */
-extern int func_00118C80_i(int) __asm__("func_00118C80");
-extern void func_00118C90(int);
-extern void func_0011AA68(int);
+extern int delete_semaphore_i(int) __asm__("func_00118C80");
+extern void signal_semaphore(int);
+extern void sceSifRemoveCmdHandler(int);
 
 /*
  * cdvd_exit (libcdvd.a cdvd000.o): if the callback thread exists
@@ -266,21 +266,21 @@ extern void func_0011AA68(int);
  * semaphore-id load, as in retail, and the load still fills the jal's
  * delay slot. Without it the load is hoisted above the store.
  */
-void func_00120BC0(void) {
+void cdvd_exit(void) {
     int di;
-    if (D_001313D4 != 0) {
+    if (cd_callback_thread_id != 0) {
         do {
-            D_00131414_v = -1;
+            cd_callback_num_v = -1;
         } while (0);
-        func_00118C90(D_001313E0);
+        signal_semaphore(cd_callback_sema);
     }
-    func_00118C80_i(D_001313E8);
-    func_00118C80_i(D_001313EC);
-    func_00118C80_i(D_001313E0);
-    di = func_0011D960();
-    func_0011AA68(0x80000012);
+    delete_semaphore_i(cd_ncmd_sema);
+    delete_semaphore_i(cd_scmd_sema);
+    delete_semaphore_i(cd_callback_sema);
+    di = disable_interrupts();
+    sceSifRemoveCmdHandler(0x80000012);
     if (di != 0) {
-        func_0011D9A8();
+        enable_interrupts();
     }
 }
 
@@ -289,30 +289,30 @@ LINKER_REMNANT("asm/remnants/core_text", func_00120C58);
 /* Interrupt handler registered by func_00120CA0. If a handler is set
    (D_00159844) and the flag D_001313E4 is clear, calls it with D_00159848
    as its argument. The linker remnant in front of it was split off. */
-extern int D_00159844;
-extern int D_00159848;
-extern int D_001313E4;
+extern int cd_poweroff_callback;
+extern int cd_poweroff_callback_arg;
+extern int cd_poweroff_installing;
 
-void func_00120C60(void) {
-    if (D_00159844 != 0 && D_001313E4 == 0) {
-        ((void (*)(int))D_00159844)(D_00159848);
+void cd_poweroff_handler(void) {
+    if (cd_poweroff_callback != 0 && cd_poweroff_installing == 0) {
+        ((void (*)(int))cd_poweroff_callback)(cd_poweroff_callback_arg);
     }
 }
 
-extern int D_001313E4;
-extern int D_001313FC;
+extern int cd_poweroff_installing;
+extern int cd_poweroff_installed;
 
-int func_00120CA0(void) {
+int cd_install_poweroff_handler(void) {
     int r;
 
-    D_001313E4 = 1;
-    r = func_0011D960();
-    func_0011AA38(0x80000012, (int)((char *)func_00120C58 + 8), 0);
+    cd_poweroff_installing = 1;
+    r = disable_interrupts();
+    sceSifAddCmdHandler(0x80000012, (int)((char *)cd_poweroff_handler_base + 8), 0);
     if (r != 0) {
-        func_0011D9A8();
+        enable_interrupts();
     }
-    D_001313E4 = 0;
-    D_001313FC = 1;
+    cd_poweroff_installing = 0;
+    cd_poweroff_installed = 1;
     return 1;
 }
 
@@ -323,69 +323,69 @@ typedef struct {
     void *serve;
 } SifRpcClientData;
 
-extern void func_00120B28(void);
-extern int func_00118CC0(int);
-extern int func_00118BF0(int, void *);
-extern void func_0011AE20(int);
-extern int func_0011B2F8(void *, unsigned int, int);
-extern void func_0011A6C8();
-extern void func_00118C90(int);
+extern void cd_sema_init(void);
+extern int poll_semaphore(int);
+extern int refer_thread_status(int, void *);
+extern void sceSifInitRpc(int);
+extern int sceSifBindRpc(void *, unsigned int, int);
+extern void scePrintf();
+extern void signal_semaphore(int);
 
-extern int D_001313E8;
-extern int D_001313DC;
-extern int D_001313D0;
-extern int D_001313F8;
-extern int D_00159850;
-extern char D_00159858[];
-extern char D_00152FB0[];
-extern char D_00152FD8[];
-extern char D_00132590[];
+extern int cd_ncmd_sema;
+extern int cd_ncmd_current;
+extern int cd_debug_level;
+extern int cd_ncmd_rpc_bound;
+extern int cd_thread_id;
+extern char cd_thread_status[];
+extern char cd_ncmd_sema_fail_msg[];
+extern char cd_ncmd_bind_error_msg[];
+extern char cd_ncmd_rpc_client[];
 
 /* _sceCd_scmd_prechk (libcdvd.a cdvd000.o) */
-int func_00120D28(int arg0) {
+int cd_ncmd_prechk(int arg0) {
     int i;
-    volatile int *sem = &D_001313E8;
+    volatile int *sem = &cd_ncmd_sema;
 
-    func_00120B28();
-    if (*sem != func_00118CC0(*sem)) {
-        if (D_001313D0 > 0) {
-            func_0011A6C8(D_00152FB0, arg0, D_001313DC);
+    cd_sema_init();
+    if (*sem != poll_semaphore(*sem)) {
+        if (cd_debug_level > 0) {
+            scePrintf(cd_ncmd_sema_fail_msg, arg0, cd_ncmd_current);
         }
         return 0;
     }
-    D_001313DC = arg0;
-    func_00118BF0(D_00159850, D_00159858);
-    if (func_00120F30(1) != 0) {
-        func_00118C90(*sem);
+    cd_ncmd_current = arg0;
+    refer_thread_status(cd_thread_id, cd_thread_status);
+    if (sce_cd_sync_s(1) != 0) {
+        signal_semaphore(*sem);
         return 0;
     }
-    func_0011AE20(0);
-    if (D_001313F8 >= 0) {
+    sceSifInitRpc(0);
+    if (cd_ncmd_rpc_bound >= 0) {
         return 1;
     }
     while (1) {
-        if (func_0011B2F8(D_00132590, 0x80000595, 0) < 0) {
-            if (D_001313D0 > 0) {
-                func_0011A6C8(D_00152FD8);
+        if (sceSifBindRpc(cd_ncmd_rpc_client, 0x80000595, 0) < 0) {
+            if (cd_debug_level > 0) {
+                scePrintf(cd_ncmd_bind_error_msg);
             }
             for (i = 0x100000; i != -1; i--)
                 ;
         } else {
-            if (((SifRpcClientData *)D_00132590)->serve != 0) {
+            if (((SifRpcClientData *)cd_ncmd_rpc_client)->serve != 0) {
                 break;
             }
             for (i = 0x100000; i != -1; i--)
                 ;
         }
     }
-    D_001313F8 = 0;
+    cd_ncmd_rpc_bound = 0;
     return 1;
 }
 
-extern int func_0011B4C8();
-extern int func_00120D28(int);
-extern void func_00118C90(int);
-extern int D_00131440;
+extern int sif_call_rpc();
+extern int cd_ncmd_prechk(int);
+extern void signal_semaphore(int);
+extern int cd_ncmd_recv_buffer;
 
 /*
  * sceCdNcmdDiskReady, sibling of func_00121930 (and of the func_0011CBC8
@@ -403,107 +403,203 @@ extern int D_00131440;
  * layout alone does not tell them apart; the prebuilt libcdvd.a, which
  * this matches, is 2.9-ee's.
  */
-int func_00120E98(void) {
+int cd_ncmd_disk_ready(void) {
     int r;
 
-    if (func_00120D28(2) == 0) {
+    if (cd_ncmd_prechk(2) == 0) {
         return 0;
     }
-    if (func_0011B4C8(D_00132590, 0xE, 0, 0, 0, &D_00131440, 4, 0, 0) < 0) {
-        func_00118C90(D_001313E8);
+    if (sif_call_rpc(cd_ncmd_rpc_client, 0xE, 0, 0, 0, &cd_ncmd_recv_buffer, 4, 0, 0) < 0) {
+        signal_semaphore(cd_ncmd_sema);
         return 0;
     }
-    r = *(int *)((unsigned int)&D_00131440 | 0x20000000);
-    func_00118C90(D_001313E8);
+    r = *(int *)((unsigned int)&cd_ncmd_recv_buffer | 0x20000000);
+    signal_semaphore(cd_ncmd_sema);
     return r;
 }
 
-extern char D_00152FF0[];
-extern int D_001313D0;
+extern char cd_ncmd_wait_msg[];
+extern int cd_debug_level;
 
 /* sceCdSyncS */
-int func_00120F30(int arg0) {
+int sce_cd_sync_s(int arg0) {
     if (arg0 == 0) {
-        if (D_001313D0 > 0) {
-            func_0011A6C8(D_00152FF0);
+        if (cd_debug_level > 0) {
+            scePrintf(cd_ncmd_wait_msg);
         }
-        while (D_001313F0 != 0 || func_0011B6B8(D_00132590) != 0) {
-            func_00120910(0x3C);
+        while (cd_ncmd_busy != 0 || sce_sif_check_stat_rpc(cd_ncmd_rpc_client) != 0) {
+            sceCdDelayThread(0x3C);
         }
         return 0;
     }
-    if (D_001313F0 != 0 || func_0011B6B8(D_00132590) != 0) {
+    if (cd_ncmd_busy != 0 || sce_sif_check_stat_rpc(cd_ncmd_rpc_client) != 0) {
         return 1;
     }
     return 0;
 }
 
-extern int func_0011B6B8(void *);
-extern char D_00153000[];
-extern char D_00132E08[];
+extern int sce_sif_check_stat_rpc(void *);
+extern char cd_scmd_wait_msg[];
+extern char cd_scmd_rpc_client[];
 
 /* sceCdSync */
-int func_00120FD0(int arg0) {
+int cd_scmd_sync(int arg0) {
     if (arg0 == 0) {
-        if (D_001313D0 > 0) {
-            func_0011A6C8(D_00153000);
+        if (cd_debug_level > 0) {
+            scePrintf(cd_scmd_wait_msg);
         }
-        while (func_0011B6B8(D_00132E08) != 0) {
-            func_00120910(0x3C);
+        while (sce_sif_check_stat_rpc(cd_scmd_rpc_client) != 0) {
+            sceCdDelayThread(0x3C);
         }
         return 0;
     }
-    return func_0011B6B8(D_00132E08);
+    return sce_sif_check_stat_rpc(cd_scmd_rpc_client);
 }
 
-extern int D_001313EC;
-extern int D_001313D8;
-extern char D_00153010[];
-extern char D_00153038[];
-extern int D_00131408;
+extern int cd_scmd_sema;
+extern int cd_scmd_current;
+extern char cd_scmd_sema_fail_msg[];
+extern char cd_scmd_bind_error_msg[];
+extern int cd_scmd_rpc_bound;
 
 /* _sceCd_ncmd_prechk (libcdvd.a cdvd000.o) */
-int func_00121040(int arg0) {
+int cd_scmd_prechk(int arg0) {
     int i;
-    volatile int *sem = &D_001313EC;
+    volatile int *sem = &cd_scmd_sema;
 
-    func_00120B28();
-    if (*sem != func_00118CC0(*sem)) {
-        if (D_001313D0 > 0) {
-            func_0011A6C8(D_00153010, arg0, D_001313D8);
+    cd_sema_init();
+    if (*sem != poll_semaphore(*sem)) {
+        if (cd_debug_level > 0) {
+            scePrintf(cd_scmd_sema_fail_msg, arg0, cd_scmd_current);
         }
         return 0;
     }
-    D_001313D8 = arg0;
-    func_00118BF0(D_00159850, D_00159858);
-    if (func_00120FD0(1) != 0) {
-        func_00118C90(*sem);
+    cd_scmd_current = arg0;
+    refer_thread_status(cd_thread_id, cd_thread_status);
+    if (cd_scmd_sync(1) != 0) {
+        signal_semaphore(*sem);
         return 0;
     }
-    func_0011AE20(0);
-    if (D_00131408 >= 0) {
+    sceSifInitRpc(0);
+    if (cd_scmd_rpc_bound >= 0) {
         return 1;
     }
     while (1) {
-        if (func_0011B2F8(D_00132E08, 0x80000593, 0) < 0) {
-            if (D_001313D0 > 0) {
-                func_0011A6C8(D_00153038);
+        if (sceSifBindRpc(cd_scmd_rpc_client, 0x80000593, 0) < 0) {
+            if (cd_debug_level > 0) {
+                scePrintf(cd_scmd_bind_error_msg);
             }
             for (i = 0x100000; i != -1; i--)
                 ;
         } else {
-            if (((SifRpcClientData *)D_00132E08)->serve != 0) {
+            if (((SifRpcClientData *)cd_scmd_rpc_client)->serve != 0) {
                 break;
             }
             for (i = 0x100000; i != -1; i--)
                 ;
         }
     }
-    D_00131408 = 0;
+    cd_scmd_rpc_bound = 0;
     return 1;
 }
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_001211B0);
+extern int cd_init_call_count;
+extern int cd_init_rpc_bound;
+extern int D_00131400;
+extern s32 cd_disk_ready_rpc_bound[];
+extern int cd_read_mode_flags;
+extern int cd_poweroff_installing;
+extern int cd_poweroff_installed;
+extern int cd_callback_sema;
+extern int cd_scmd_sema;
+extern char cd_init_rpc_client[];
+extern int cd_init_rpc_send_buffer[];
+extern int cd_scmd_recv_buffer;
+extern char cd_bind_error_fmt[];
+extern char cd_exit_message[];
+extern void sceSifWriteBackDCache(void *, int);
+extern int cd_install_poweroff_handler(void);
+
+/* sceCdInit (libcdvd.a cdvd000.o) */
+int sce_cd_init(int mode) {
+    int r;
+    int i;
+    int ret;
+    int a, b, c;
+    int *rd;
+    int tid;
+    int no_wait = 1;
+
+    if (cd_scmd_sync(no_wait) != 0) {
+        return 0;
+    }
+    sceSifInitRpc(0);
+    tid = get_thread_id();
+    *(volatile int *)&cd_poweroff_installing = 1;
+    *(volatile int *)&cd_thread_id = tid;
+    {
+        int *p0 = &D_00131400, *p1 = &cd_ncmd_rpc_bound, *p2 = &cd_scmd_rpc_bound, *p3 = cd_disk_ready_rpc_bound, *p6 = &cd_init_rpc_bound, *p4 = &cd_poweroff_installed, *p5 = &cd_read_mode_flags;
+        int m = -1;
+        *p4 = m; *p0 = m; *p1 = m; *p2 = m; *p3 = m;
+        *p5 = 0;
+        cd_init_call_count++;
+        *p6 = m;
+    }
+    while (1) {
+        r = sceSifBindRpc(cd_init_rpc_client, 0x80000592, 0);
+        if (r < 0) {
+            if (cd_debug_level > 0) {
+                scePrintf(cd_bind_error_fmt, r, cd_init_call_count);
+            }
+            for (i = 0x100000; i != -1; i--)
+                ;
+            continue;
+        }
+        if (((SifRpcClientData *)cd_init_rpc_client)->serve != 0) {
+            rd = &cd_scmd_recv_buffer;
+            cd_init_rpc_send_buffer[0] = mode;
+            cd_init_rpc_bound = 0;
+            sceSifWriteBackDCache(cd_init_rpc_send_buffer, 4);
+            if (sif_call_rpc(cd_init_rpc_client, 0, 0, cd_init_rpc_send_buffer, 4, rd, 0x10, 0, 0) < 0) {
+                *(volatile int *)&cd_poweroff_installing = 0;
+                return 0;
+            }
+            break;
+        }
+        for (i = 0x100000; i != -1; i--)
+            ;
+    }
+    b = *(int *)((unsigned int)&rd[1] | 0x20000000);
+    c = *(int *)((unsigned int)&rd[2] | 0x20000000);
+    a = *(int *)((unsigned int)&rd[3] | 0x20000000);
+    ret = 1;
+    if (a != 0xFF) {
+        if (a == 0xFE) {
+            cd_debug_level = 1;
+        } else if (b / 256 < 2 || c / 256 < 2) {
+            ret = 2;
+        }
+    }
+    *(volatile int *)&cd_poweroff_installing = 0;
+    switch (mode) {
+    case 5:
+        if (cd_debug_level > 0) {
+            scePrintf(cd_exit_message);
+        }
+        cdvd_exit();
+        *(volatile int *)&cd_ncmd_sema = -1;
+        *(volatile int *)&cd_scmd_sema = -1;
+        *(volatile int *)&cd_callback_sema = -1;
+        break;
+    case 0:
+    case 1:
+    default:
+        cd_sema_init();
+        cd_install_poweroff_handler();
+        break;
+    }
+    return ret;
+}
 
 struct sceSifRpcData {
     void *paddr; /* 0x0: packet in flight; released by _request_end */
@@ -520,101 +616,101 @@ struct sceSifClientData {
     void *para; /* 0x20 */
     void *serve; /* 0x24: server bound by sceSifBindRpc; 0 until bound */
 };
-extern s32 D_001313D0_21490[] __asm__("D_001313D0");
-extern volatile s32 D_001313EC_21490[] __asm__("D_001313EC");
-extern s32 D_00131404[];
-extern struct sceSifClientData D_00159A90;
-extern s32 D_00159AD0[];
-extern u8 D_001325C0_21490[] __asm__("D_001325C0");
-extern u8 D_00153080[];
-extern u8 D_00153090[];
-extern u8 D_001530B0[];
-extern s32 func_00118CC0();
-extern void func_00118C90();
-extern void func_00120B28_21490() __asm__("func_00120B28");
-extern s32 func_00120FD0();
-extern s32 func_0011B2F8();
-extern void func_0011AE20();
-extern void func_0011AD70();
-extern s32 func_0011B4C8();
+extern s32 cd_debug_level_r[] __asm__("D_001313D0");
+extern volatile s32 cd_scmd_sema_r2[] __asm__("D_001313EC");
+extern s32 cd_disk_ready_rpc_bound[];
+extern struct sceSifClientData cd_disk_ready_rpc_client;
+extern s32 cd_disk_ready_send_buffer[];
+extern u8 cd_scmd_recv_buffer_r[] __asm__("D_001325C0");
+extern u8 cd_disk_ready_start_msg[];
+extern u8 cd_disk_ready_bind_error_msg[];
+extern u8 cd_disk_ready_end_msg[];
+extern s32 poll_semaphore();
+extern void signal_semaphore();
+extern void cd_sema_init_r() __asm__("func_00120B28");
+extern s32 cd_scmd_sync();
+extern s32 sceSifBindRpc();
+extern void sceSifInitRpc();
+extern void sceSifWriteBackDCache();
+extern s32 sif_call_rpc();
 
 /* libcdvd disk-ready query (the sceCdDiskReady pattern): take the S-command semaphore, bind the 0x8000059A server once, send mode and return the server's status word. Mode 8 reports -1 on failure, every other mode 6.
-   Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/textbin/fun_00121190.c, FUN_00121190. */
-s32 func_00121490(s32 mode) {
+   Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/textbin/fun_00121190.c, FUN_00121190. */
+s32 sce_cd_disk_ready(s32 mode) {
     s32 response;
     s32 spin;
 
-    if (D_001313D0_21490[0] > 0) {
-        func_0011A6C8(D_00153080);
+    if (cd_debug_level_r[0] > 0) {
+        scePrintf(cd_disk_ready_start_msg);
     }
-    func_00120B28_21490();
-    if (D_001313EC_21490[0] != func_00118CC0(D_001313EC_21490[0])) {
+    cd_sema_init_r();
+    if (cd_scmd_sema_r2[0] != poll_semaphore(cd_scmd_sema_r2[0])) {
         return 6;
     }
-    if (func_00120FD0(1) != 0) {
-        func_00118C90(D_001313EC_21490[0]);
+    if (cd_scmd_sync(1) != 0) {
+        signal_semaphore(cd_scmd_sema_r2[0]);
         if (mode == 8) {
             return -1;
         }
         return 6;
     }
-    func_0011AE20(0);
-    if (D_00131404[0] < 0) {
+    sceSifInitRpc(0);
+    if (cd_disk_ready_rpc_bound[0] < 0) {
         for (;;) {
-            if (func_0011B2F8(&D_00159A90, 0x8000059A, 0) < 0) {
-                if (D_001313D0_21490[0] > 0) {
-                    func_0011A6C8(D_00153090);
+            if (sceSifBindRpc(&cd_disk_ready_rpc_client, 0x8000059A, 0) < 0) {
+                if (cd_debug_level_r[0] > 0) {
+                    scePrintf(cd_disk_ready_bind_error_msg);
                 }
                 for (spin = 0x100000; spin != -1; spin--) {
                 }
                 continue;
             }
-            if (D_00159A90.serve != 0) {
-                D_00131404[0] = 0;
+            if (cd_disk_ready_rpc_client.serve != 0) {
+                cd_disk_ready_rpc_bound[0] = 0;
                 break;
             }
             for (spin = 0x100000; spin != -1; spin--) {
             }
         }
     }
-    D_00159AD0[0] = mode;
-    func_0011AD70(D_00159AD0, 4);
-    if (func_0011B4C8(&D_00159A90, 0, 0, D_00159AD0, 4, D_001325C0_21490, 4, 0, 0) < 0) {
-        func_00118C90(D_001313EC_21490[0]);
+    cd_disk_ready_send_buffer[0] = mode;
+    sceSifWriteBackDCache(cd_disk_ready_send_buffer, 4);
+    if (sif_call_rpc(&cd_disk_ready_rpc_client, 0, 0, cd_disk_ready_send_buffer, 4, cd_scmd_recv_buffer_r, 4, 0, 0) < 0) {
+        signal_semaphore(cd_scmd_sema_r2[0]);
         if (mode == 8) {
             return -1;
         }
         return 6;
     }
-    if (D_001313D0_21490[0] > 0) {
-        func_0011A6C8(D_001530B0);
+    if (cd_debug_level_r[0] > 0) {
+        scePrintf(cd_disk_ready_end_msg);
     }
-    response = *(s32 *)((u32)D_001325C0_21490 | 0x20000000);
-    func_00118C90(D_001313EC_21490[0]);
+    response = *(s32 *)((u32)cd_scmd_recv_buffer_r | 0x20000000);
+    signal_semaphore(cd_scmd_sema_r2[0]);
     return response;
 }
 
-extern int D_00132A00;
-extern int D_001325C0;
-extern int func_00121040(int);
-extern void func_0011AD70(void *, int);
+extern int cd_scmd_send_buffer;
+extern int cd_scmd_recv_buffer;
+extern int cd_scmd_prechk(int);
+extern void sceSifWriteBackDCache(void *, int);
 
 /* sceCdMmode */
-int func_00121688(int arg0) {
-    int *p = &D_00132A00;
+int sce_cd_mmode(int arg0) {
+    int *p = &cd_scmd_send_buffer;
     int r;
 
-    if (func_00121040(0x22) == 0) {
+    if (cd_scmd_prechk(0x22) == 0) {
         return 0;
     }
-    D_00132A00 = arg0;
-    func_0011AD70(p, 4);
-    if (func_0011B4C8(D_00132E08, 0x22, 0, p, 4, &D_001325C0, 4, 0, 0) < 0) {
-        func_00118C90(D_001313EC);
+    cd_scmd_send_buffer = arg0;
+    sceSifWriteBackDCache(p, 4);
+    if (sif_call_rpc(cd_scmd_rpc_client, 0x22, 0, p, 4, &cd_scmd_recv_buffer, 4, 0, 0) < 0) {
+        signal_semaphore(cd_scmd_sema);
         return 0;
     }
-    r = *(int *)((unsigned int)&D_001325C0 | 0x20000000);
-    func_00118C90(D_001313EC);
+    r = *(int *)((unsigned int)&cd_scmd_recv_buffer | 0x20000000);
+    signal_semaphore(cd_scmd_sema);
     return r;
 }
 

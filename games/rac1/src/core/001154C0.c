@@ -13,21 +13,21 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
-extern char D_00152470[];
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
+extern char locale_lconv[];
 
-void func_001154C0(void) {
+void __malloc_lock(void) {
 }
 
-void func_001154C8(void) {
+void __malloc_unlock(void) {
 }
 
 /*
@@ -42,7 +42,7 @@ void func_001154C8(void) {
  * (7/168); an `fl` local assigned in the test and re-read from
  * ptr->_freelist after the calloc NULL test gives retail's order.
  */
-extern void *func_001123A8(void *, int, int);
+extern void *_calloc_r(void *, int, int);
 
 typedef struct Bigint_1154D0 {
     struct Bigint_1154D0 *next;
@@ -55,14 +55,14 @@ typedef struct {
     Bigint_1154D0 **freelist;
 } Reent_1154D0;
 
-void *func_001154D0(void *arg0, int k) {
+void *_Balloc(void *arg0, int k) {
     Reent_1154D0 *ptr = arg0;
     Bigint_1154D0 **fl;
     int x;
     Bigint_1154D0 *rv;
 
     if ((fl = ptr->freelist) == 0) {
-        ptr->freelist = func_001123A8(ptr, sizeof(Bigint_1154D0 *), 16);
+        ptr->freelist = _calloc_r(ptr, sizeof(Bigint_1154D0 *), 16);
         if (ptr->freelist == 0) {
             return 0;
         }
@@ -72,7 +72,7 @@ void *func_001154D0(void *arg0, int k) {
         fl[k] = rv->next;
     } else {
         x = 1 << k;
-        rv = func_001123A8(ptr, 1, sizeof(Bigint_1154D0) + (x - 1) * sizeof(rv->x));
+        rv = _calloc_r(ptr, 1, sizeof(Bigint_1154D0) + (x - 1) * sizeof(rv->x));
         if (rv == 0) {
             return 0;
         }
@@ -94,7 +94,7 @@ void *func_001154D0(void *arg0, int k) {
  * bucket at table[idx], where idx is read from arg1 itself and table is
  * a pointer stored at offset 0x4C of arg0.
  */
-void func_00115578(void *arg0, void *arg1) {
+void _Bfree(void *arg0, void *arg1) {
     if (arg1 != 0) {
         int idx = *(int *)((char *)arg1 + 4);
         void **table = *(void ***)((char *)arg0 + 0x4C);
@@ -103,16 +103,16 @@ void func_00115578(void *arg0, void *arg1) {
     }
 }
 
-extern void *func_001154D0(void *ptr, int k);        /* Balloc */
-extern void func_00115578(void *ptr, void *b);        /* Bfree */
-extern void *func_00115248(void *dest, void *src, unsigned int n); /* memcpy */
+extern void *_Balloc(void *ptr, int k);        /* Balloc */
+extern void _Bfree(void *ptr, void *b);        /* Bfree */
+extern void *libc_memcpy(void *dest, void *src, unsigned int n); /* memcpy */
 
 /* newlib mprec.c multadd(ptr,b,m,a): b = b*m+a in place (16-bit limbs
  * packed two to a 32-bit word, Pack_32); if the carry out of the top
  * limb doesn't fit, Balloc a wider Bigint, Bcopy the sign/wds/digits
  * over (memcpy from &b->sign, which is what func_00115248 is here),
  * Bfree the old one, and append the carry as one more digit. */
-void *func_001155A8(void *ptr, void *arg1, int m, int a) {
+void *__multadd(void *ptr, void *arg1, int m, int a) {
     unsigned int *x;
     unsigned int xi, y, z;
     int i, wds;
@@ -130,10 +130,10 @@ void *func_001155A8(void *ptr, void *arg1, int m, int a) {
     } while (++i < wds);
     if (a) {
         if (wds >= ((Bigint_1154D0 *)arg1)->maxwds) {
-            b1 = func_001154D0(ptr, ((Bigint_1154D0 *)arg1)->k + 1);
-            func_00115248(&b1->sign, &((Bigint_1154D0 *)arg1)->sign,
+            b1 = _Balloc(ptr, ((Bigint_1154D0 *)arg1)->k + 1);
+            libc_memcpy(&b1->sign, &((Bigint_1154D0 *)arg1)->sign,
                           ((Bigint_1154D0 *)arg1)->wds * sizeof(unsigned int) + 2 * sizeof(int));
-            func_00115578(ptr, arg1);
+            _Bfree(ptr, arg1);
             arg1 = b1;
         }
         ((Bigint_1154D0 *)arg1)->x[wds++] = a;
@@ -142,7 +142,7 @@ void *func_001155A8(void *ptr, void *arg1, int m, int a) {
     return arg1;
 }
 
-int func_001156C0(unsigned int arg0) {
+int __hi0bits(unsigned int arg0) {
     int count;
     if ((arg0 & 0xFFFF0000u) != 0) {
         count = 0;
@@ -171,7 +171,7 @@ int func_001156C0(unsigned int arg0) {
     return count;
 }
 
-int func_00115748(unsigned int *arg0) {
+int __lo0bits(unsigned int *arg0) {
     unsigned int v = *arg0;
     unsigned int count;
 
@@ -218,7 +218,7 @@ int func_00115748(unsigned int *arg0) {
     return count;
 }
 
-extern void *func_001154D0(void *ptr, int k);
+extern void *_Balloc(void *ptr, int k);
 
 /* newlib mprec.c i2b(): b = Balloc(ptr, 1); b->_x[0] = i; b->_wds = 1;
    return b. Returning the Bigint is what keeps the call result in $v0 and
@@ -226,8 +226,8 @@ extern void *func_001154D0(void *ptr, int k);
    comes out 4 bytes short). Bigint: _wds at +0x10, _x[0] at +0x14. */
 /* newlib's i2b (mprec.c): a one-word Bigint holding i. It returns b;
    that return is where retail's $v1 copy comes from. */
-void *func_00115808(void *ptr, int i) {
-    char *b = func_001154D0(ptr, 1);
+void *__i2b(void *ptr, int i) {
+    char *b = _Balloc(ptr, 1);
     *(int *)(b + 0x14) = i;
     *(int *)(b + 0x10) = 1;
     return b;
@@ -236,14 +236,14 @@ void *func_00115808(void *ptr, int i) {
 /* newlib mprec.c mult(ptr,a,b): _multiply, Bigint*Bigint for dtoa/strtod
  * (schoolbook long multiplication in 16-bit limbs, ensuring a is the
  * not-shorter operand first). */
-extern void *func_001154D0(void *ptr, int k); /* Balloc */
+extern void *_Balloc(void *ptr, int k); /* Balloc */
 
 #define STOREINC(xc, hi, lo) \
     (((unsigned short *)(xc))[1] = (unsigned short)(hi), \
      ((unsigned short *)(xc))[0] = (unsigned short)(lo), \
      (xc)++)
 
-Bigint_1154D0 *func_00115840(void *ptr, Bigint_1154D0 *a, Bigint_1154D0 *b) {
+Bigint_1154D0 *__multiply(void *ptr, Bigint_1154D0 *a, Bigint_1154D0 *b) {
     Bigint_1154D0 *c;
     int k, wa, wb, wc;
     unsigned int carry, y, z, z2;
@@ -260,7 +260,7 @@ Bigint_1154D0 *func_00115840(void *ptr, Bigint_1154D0 *a, Bigint_1154D0 *b) {
     wc = wa + wb;
     if (wc > a->maxwds)
         k++;
-    c = func_001154D0(ptr, k);
+    c = _Balloc(ptr, k);
     for (x = c->x, xa = x + wc; x < xa; x++)
         *x = 0;
     xa = a->x;
@@ -306,35 +306,35 @@ Bigint_1154D0 *func_00115840(void *ptr, Bigint_1154D0 *a, Bigint_1154D0 *b) {
 /* newlib mprec.c pow5mult(ptr,b,k): multiplies Bigint b by 5^k using a
  * squaring ladder cached in ptr->_p5s (the first four bits of k via the
  * {5,25,125} table D_001524B8, the rest by repeated squaring of 625). */
-extern void *func_001155A8(void *ptr, void *b, int m, int a); /* multadd */
-extern int D_001524B8[3];
+extern void *__multadd(void *ptr, void *b, int m, int a); /* multadd */
+extern int pow5mult_p05[3];
 
 typedef struct { char pad[0x48]; Bigint_1154D0 *p5s; } Reent_115A70;
 
-void *func_00115A70(void *ptr, void *b, int k) {
+void *__pow5mult(void *ptr, void *b, int k) {
     Reent_115A70 *r = ptr;
     Bigint_1154D0 *p5, *p51, *b1;
     int i;
 
     if ((i = k & 3))
-        b = func_001155A8(ptr, b, D_001524B8[i - 1], 0);
+        b = __multadd(ptr, b, pow5mult_p05[i - 1], 0);
 
     if (!(k >>= 2))
         return b;
     if (!(p5 = r->p5s)) {
-        p5 = r->p5s = func_00115808(ptr, 625);
+        p5 = r->p5s = __i2b(ptr, 625);
         p5->next = 0;
     }
     for (;;) {
         if (k & 1) {
-            b1 = func_00115840(ptr, b, p5);
-            func_00115578(ptr, b);
+            b1 = __multiply(ptr, b, p5);
+            _Bfree(ptr, b);
             b = b1;
         }
         if (!(k >>= 1))
             break;
         if (!(p51 = p5->next)) {
-            p51 = p5->next = func_00115840(ptr, p5, p5);
+            p51 = p5->next = __multiply(ptr, p5, p5);
             p51->next = 0;
         }
         p5 = p51;
@@ -344,10 +344,10 @@ void *func_00115A70(void *ptr, void *b, int k) {
 
 /* newlib mprec.c lshift(ptr,b,k): shift Bigint b left by k bits, growing
  * into a freshly-Balloc'd result and freeing the input. */
-extern void *func_001154D0(void *ptr, int k);       /* Balloc */
-extern void func_00115578(void *ptr, void *b);      /* Bfree */
+extern void *_Balloc(void *ptr, int k);       /* Balloc */
+extern void _Bfree(void *ptr, void *b);      /* Bfree */
 
-Bigint_1154D0 *func_00115B70(void *ptr, Bigint_1154D0 *b, int k) {
+Bigint_1154D0 *__lshift(void *ptr, Bigint_1154D0 *b, int k) {
     int i, k1, n, n1;
     Bigint_1154D0 *b1;
     unsigned int *x, *x1, *xe, z;
@@ -357,7 +357,7 @@ Bigint_1154D0 *func_00115B70(void *ptr, Bigint_1154D0 *b, int k) {
     n1 = n + b->wds + 1;
     for (i = b->maxwds; n1 > i; i <<= 1)
         k1++;
-    b1 = func_001154D0(ptr, k1);
+    b1 = _Balloc(ptr, k1);
     x1 = b1->x;
     for (i = 0; i < n; i++)
         *x1++ = 0;
@@ -378,13 +378,13 @@ Bigint_1154D0 *func_00115B70(void *ptr, Bigint_1154D0 *b, int k) {
         } while (x < xe);
     }
     b1->wds = n1 - 1;
-    func_00115578(ptr, b);
+    _Bfree(ptr, b);
     return b1;
 }
 
 /* newlib mprec.c cmp(a,b) (real name __mcmp): three-way compare of two
  * Bigints by word count, then from the most-significant word down. */
-int func_00115CE8(Bigint_1154D0 *a, Bigint_1154D0 *b) {
+int __mcmp(Bigint_1154D0 *a, Bigint_1154D0 *b) {
     unsigned int *xa, *xa0, *xb, *xb0;
     int i, j;
 
@@ -415,23 +415,23 @@ int func_00115CE8(Bigint_1154D0 *a, Bigint_1154D0 *b) {
  * live ranges never overlap. Reusing `c` itself as the swap temp here
  * (instead of a separate `t`) to see whether that steers the allocator
  * onto the same register for both roles the way retail's does. */
-extern int func_00115CE8(Bigint_1154D0 *a, Bigint_1154D0 *b);  /* cmp */
-extern void *func_001154D0(void *ptr, int k);        /* Balloc */
+extern int __mcmp(Bigint_1154D0 *a, Bigint_1154D0 *b);  /* cmp */
+extern void *_Balloc(void *ptr, int k);        /* Balloc */
 
 #define STOREINC(xc, hi, lo) \
     (((unsigned short *)(xc))[1] = (unsigned short)(hi), \
      ((unsigned short *)(xc))[0] = (unsigned short)(lo), \
      (xc)++)
 
-void *func_00115D50(void *ptr, Bigint_1154D0 *a, Bigint_1154D0 *b) {
+void *__mdiff(void *ptr, Bigint_1154D0 *a, Bigint_1154D0 *b) {
     Bigint_1154D0 *c;
     unsigned int *xa, *xae, *xb, *xbe, *xc;
     int i, wa, wb;
     int borrow, y, z;
 
-    i = func_00115CE8(a, b);
+    i = __mcmp(a, b);
     if (!i) {
-        c = func_001154D0(ptr, 0);
+        c = _Balloc(ptr, 0);
         c->wds = 1;
         c->x[0] = 0;
         return c;
@@ -444,7 +444,7 @@ void *func_00115D50(void *ptr, Bigint_1154D0 *a, Bigint_1154D0 *b) {
     } else {
         i = 0;
     }
-    c = func_001154D0(ptr, a->k);
+    c = _Balloc(ptr, a->k);
     c->sign = i;
     wa = a->wds;
     xa = a->x;
@@ -486,18 +486,18 @@ typedef union {
     unsigned int w[2];
 } DUnion_115EE8;
 
-extern void *func_001154D0(void *ptr, int k);  /* Balloc */
-extern int func_00115748(unsigned int *y);     /* lo0bits */
-extern int func_001156C0(unsigned int x);      /* hi0bits */
+extern void *_Balloc(void *ptr, int k);  /* Balloc */
+extern int __lo0bits(unsigned int *y);     /* lo0bits */
+extern int __hi0bits(unsigned int x);      /* hi0bits */
 
-Bigint_1154D0 *func_00115EE8(void *ptr, double _d, int *e, int *bits) {
+Bigint_1154D0 *__d2b(void *ptr, double _d, int *e, int *bits) {
     DUnion_115EE8 d;
     Bigint_1154D0 *b;
     int de, i, k;
     unsigned int *x, y, z;
 
     d.d = _d;
-    b = func_001154D0(ptr, 1);
+    b = _Balloc(ptr, 1);
     x = b->x;
 
     z = d.w[1] & 0xFFFFF;
@@ -506,7 +506,7 @@ Bigint_1154D0 *func_00115EE8(void *ptr, double _d, int *e, int *bits) {
         z |= 0x100000;
 
     if ((y = d.w[0])) {
-        if ((k = func_00115748(&y))) {
+        if ((k = __lo0bits(&y))) {
             x[0] = y | z << (32 - k);
             z >>= k;
         } else {
@@ -514,7 +514,7 @@ Bigint_1154D0 *func_00115EE8(void *ptr, double _d, int *e, int *bits) {
         }
         i = b->wds = (x[1] = z) ? 2 : 1;
     } else {
-        k = func_00115748(&z);
+        k = __lo0bits(&z);
         x[0] = z;
         i = b->wds = 1;
         k += 32;
@@ -524,7 +524,7 @@ Bigint_1154D0 *func_00115EE8(void *ptr, double _d, int *e, int *bits) {
         *bits = 53 - k;
     } else {
         *e = de - 1023 - (53 - 1) + 1 + k;
-        *bits = 32 * i - func_001156C0(x[i - 1]);
+        *bits = 32 * i - __hi0bits(x[i - 1]);
     }
     return b;
 }

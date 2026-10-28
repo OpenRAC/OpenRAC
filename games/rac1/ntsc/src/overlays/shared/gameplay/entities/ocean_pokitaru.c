@@ -13,12 +13,14 @@ extern void FUN_0020c828_b7(void *) __asm__("FUN_0020c828");
 extern unsigned char D_0013D389[];
 extern char D_L11_00179B18[];
 extern char D_L11_0021A900[];
-extern int D_L11_0015F640;
-void FUN_L11_002cb790(char *moby) {
+#include "rnc/overlay/shared/gameplay/entities/ocean_pokitaru_globals.h"
+void remove_moby_when_near_hero(char *moby) __asm__("FUN_L11_002cb790");
+
+void remove_moby_when_near_hero(char *moby) {
     if (FUN_001f9b48_b7(moby + 0x10, &hero.motion.pos) < 2.0f) {
         D_0013D389[0] = 1;
         FUN_00116248_b7(D_L11_00179B18, D_L11_0021A900);
-        D_L11_0015F640 = FUN_001f96f8_b7(0xB4);
+        proximity_removal_frame_count = FUN_001f96f8_b7(0xB4);
         FUN_0020c828_b7(moby);
     }
 }
@@ -37,7 +39,9 @@ extern float vector_distance_xy(void *, void *) __asm__("FUN_001f9b80");
 extern float fast_arc_tan(float, float) __asm__("FUN_001f9e90");
 extern float fast_difference_between_rotations(float, float) __asm__("FUN_001fa688");
 
-char *FUN_L11_00308670(float *pos, float *aim, float max_yaw_error, float max_pitch_error, float maxd) {
+char *select_homing_missile_target(float *targeting_origin, float *aim, float max_yaw_error, float max_pitch_error, float maxd) __asm__("FUN_L11_00308670");
+
+char *select_homing_missile_target(float *targeting_origin, float *aim, float max_yaw_error, float max_pitch_error, float maxd) {
     char *best = 0;
     char *candidate_position;
     char *candidate_moby = D_L11_0015FFE4;
@@ -47,21 +51,21 @@ char *FUN_L11_00308670(float *pos, float *aim, float max_yaw_error, float max_pi
             *(short *)(*(char **)(candidate_moby + 0x24) + 0x46) == 5) {
             float distance_xy;
             candidate_position = candidate_moby + 0x10;
-            distance_xy = vector_distance_xy(pos, candidate_position);
+            distance_xy = vector_distance_xy(targeting_origin, candidate_position);
             if (distance_xy < maxd) {
                 float adjusted_target_position[4];
                 float ra, rb, y, score;
                 qcopy(adjusted_target_position, candidate_position);
                 adjusted_target_position[2] = adjusted_target_position[2] + 0.4f;
                 ra = fast_difference_between_rotations(
-                    aim[2], fast_arc_tan(adjusted_target_position[0] - pos[0], adjusted_target_position[1] - pos[1]));
+                    aim[2], fast_arc_tan(adjusted_target_position[0] - targeting_origin[0], adjusted_target_position[1] - targeting_origin[1]));
                 ra = ra * ra;
                 if (ra < max_yaw_error * max_yaw_error) {
-                    y = fast_difference_between_rotations(aim[1], fast_arc_tan(distance_xy, adjusted_target_position[2] - pos[2]));
+                    y = fast_difference_between_rotations(aim[1], fast_arc_tan(distance_xy, adjusted_target_position[2] - targeting_origin[2]));
                     rb = y * y;
                     if (rb < max_pitch_error * max_pitch_error) {
                         score = ra * rb * 30.0f;
-                        score = score + square_root(fast_vec_dist(pos, adjusted_target_position));
+                        score = score + square_root(fast_vec_dist(targeting_origin, adjusted_target_position));
                         if (score < bestd) {
                             bestd = score;
                             best = candidate_moby;
@@ -93,7 +97,9 @@ extern void set_moby_color(void *, int, int, int) __asm__("FUN_L00_002502f0");
 extern void FUN_L00_00250df8(void *);
 extern int func_001FA898_r(float) __asm__("FUN_001fa6d0");
 
-unsigned char *FUN_L11_00308848(char *owner, float *dir, float *pos, float travel_distance, float b) {
+unsigned char *spawn_class_3f1_moby(char *owner, float *launch_direction, float *spawn_position, float travel_distance, float step_length) __asm__("FUN_L11_00308848");
+
+unsigned char *spawn_class_3f1_moby(char *owner, float *launch_direction, float *spawn_position, float travel_distance, float step_length) {
     unsigned char *spawned_moby = func_0020D348_m(0x3F1);
     if (spawned_moby) {
         char *moby_vars = *(char **)(spawned_moby + 0x78);
@@ -103,18 +109,18 @@ unsigned char *FUN_L11_00308848(char *owner, float *dir, float *pos, float trave
         *(short *)(spawned_moby + 0x32) = func_001FA898_r(travel_distance);
         *(int *)(spawned_moby + 0x40) = 0;
         spawned_moby[0x31] = 1;
-        direction_length_xy = vector_length_xy(dir);
-        *(float *)(spawned_moby + 0x44) = -fast_arc_tan(direction_length_xy, dir[2]);
-        *(float *)(spawned_moby + 0x48) = fast_arc_tan(dir[0], dir[1]);
+        direction_length_xy = vector_length_xy(launch_direction);
+        *(float *)(spawned_moby + 0x44) = -fast_arc_tan(direction_length_xy, launch_direction[2]);
+        *(float *)(spawned_moby + 0x48) = fast_arc_tan(launch_direction[0], launch_direction[1]);
         *(float *)(moby_vars + 0x10) = 1.0f;
-        if (b > 0.0f) {
-            fast_vec_normalize(moby_vars, dir, b);
+        if (step_length > 0.0f) {
+            fast_vec_normalize(moby_vars, launch_direction, step_length);
         } else {
-            qcopy(moby_vars, dir);
-            b = fast_vec_length(dir);
+            qcopy(moby_vars, launch_direction);
+            step_length = fast_vec_length(launch_direction);
         }
-        qcopy(spawned_moby + 0x10, pos);
-        *(int *)(moby_vars + 0x18) = *(int *)(moby_vars + 0x14) = func_001FA898_r(travel_distance / b);
+        qcopy(spawned_moby + 0x10, spawn_position);
+        *(int *)(moby_vars + 0x18) = *(int *)(moby_vars + 0x14) = func_001FA898_r(travel_distance / step_length);
         *(short *)(spawned_moby + 0x34) = 0x200;
         *(float *)(spawned_moby + 0x2C) =
             *(float *)(*(char **)(spawned_moby + 0x24) + 0x24) *
@@ -164,7 +170,7 @@ extern void build_spherical_offset_089d0(void *, float, float, float) __asm__("F
 extern void no_op_089d0(void *, void *) __asm__("FUN_001e93e8");
 extern void add_vector_089d0(void *, void *, void *) __asm__("FUN_001f9a10");
 extern void normalize_vector_089d0(void *, void *, float) __asm__("FUN_001f9bf8");
-extern void FUN_L00_00259858(float, void *, struct Moby *, int);
+extern void initialize_hit_descriptor(float, void *, struct Moby *, int) __asm__("FUN_L00_00259858");
 extern int collision_line_089d0(void *, void *, int, void *, void *) __asm__("FUN_001efa68");
 extern float random_float_between_089d0(float, float) __asm__("FUN_002132a8");
 extern void reflect_089d0(void *, void *, void *) __asm__("FUN_L00_001ff660");
@@ -173,7 +179,7 @@ extern int random_int_between_089d0(int, int) __asm__("FUN_L00_00257b90");
 extern char *FUN_L00_0026dd20_c(void *, void *, int, int, float) __asm__("FUN_L00_0026dd20");
 extern void remove_moby_089d0(void *) __asm__("FUN_0020c828");
 extern int tick_countdown_089d0(int *) __asm__("FUN_001f9740");
-char *FUN_L11_00308670(float *pos, float *aim, float r1, float r2, float maxd);
+char *select_homing_missile_target(float *pos, float *aim, float r1, float r2, float maxd) __asm__("FUN_L11_00308670");
 
 static inline void copy_xyz_089d0(float *dst, float *src) {
     dst[0] = src[0];
@@ -183,13 +189,15 @@ static inline void copy_xyz_089d0(float *dst, float *src) {
 
 /* Homing missile: eases its scale, re-picks a target every sixth frame, turns toward it within a cone and flies on;
    on impact it bursts into five sparks, otherwise it shrinks away once its timer runs out. */
-void FUN_L11_003089d0(struct Moby *moby) {
+void update_homing_missile(struct Moby *moby) __asm__("FUN_L11_003089d0");
+
+void update_homing_missile(struct Moby *moby) {
     MissileVars_089d0 *vars = (MissileVars_089d0 *)moby->pvars;
     float old[4];
     float look[4];
     MissileHit_089d0 hit;
     float spark_velocity[4];
-    float r[4];
+    float spark_scatter_vector[4];
     struct Moby *target;
     float speed, yaw, yaw_off, pitch, pitch_off, max_yaw, max_pitch;
     int i;
@@ -204,7 +212,7 @@ void FUN_L11_003089d0(struct Moby *moby) {
     target = vars->target;
     if (target == 0 || target->state == 0xFE || target->state == 0xFD ||
         distance_089d0(&target->pos, look) > 3.0f)
-        vars->target = (struct Moby *)FUN_L11_00308670((float *)&moby->pos, (float *)&moby->rot, 0.2617994f, 0.2617994f, 60.0f);
+        vars->target = (struct Moby *)select_homing_missile_target((float *)&moby->pos, (float *)&moby->rot, 0.2617994f, 0.2617994f, 60.0f);
     if (vars->target != 0) {
         copy_xyz_089d0(vars->target_pos, (float *)&vars->target->pos);
         speed = vector_length_089d0(vars);
@@ -237,18 +245,18 @@ void FUN_L11_003089d0(struct Moby *moby) {
         remove_moby_089d0(moby);
         return;
     }
-    FUN_L00_00259858(1.0f, &hit, moby, 0x10000);
+    initialize_hit_descriptor(1.0f, &hit, moby, 0x10000);
     hit.oclass = moby->oclass;
     if (collision_line_089d0(old, &moby->pos, 0, vars->owner, &hit)) {
         for (i = 0; i < 5; i++) {
-            *(OvlQuad *)r = 0;
-            r[0] = random_float_between_089d0(-1.0f, 1.0f);
-            r[1] = random_float_between_089d0(-1.0f, 1.0f);
-            r[2] = random_float_between_089d0(-1.0f, 1.0f);
-            *(OvlQuad *)spark_velocity = *(OvlQuad *)r;
-            reflect_089d0(r, vars, D_L11_00174880);
-            normalize_vector_089d0(spark_velocity, spark_velocity, vector_length_089d0(r) * 0.5f);
-            add_vector_089d0(spark_velocity, r, spark_velocity);
+            *(OvlQuad *)spark_scatter_vector = 0;
+            spark_scatter_vector[0] = random_float_between_089d0(-1.0f, 1.0f);
+            spark_scatter_vector[1] = random_float_between_089d0(-1.0f, 1.0f);
+            spark_scatter_vector[2] = random_float_between_089d0(-1.0f, 1.0f);
+            *(OvlQuad *)spark_velocity = *(OvlQuad *)spark_scatter_vector;
+            reflect_089d0(spark_scatter_vector, vars, D_L11_00174880);
+            normalize_vector_089d0(spark_velocity, spark_velocity, vector_length_089d0(spark_scatter_vector) * 0.5f);
+            add_vector_089d0(spark_velocity, spark_scatter_vector, spark_velocity);
             normalize_vector_089d0(spark_velocity, spark_velocity, random_float_between_089d0(frame_time * 5.0f, frame_time * 9.0f));
             FUN_L00_0026dd20_c(&moby->pos, spark_velocity, 0x7F2F4F6F, random_int_between_089d0(scale_game_frames_089d0(10), scale_game_frames_089d0(15)), 90000.0f);
         }
@@ -264,31 +272,33 @@ void FUN_L11_003089d0(struct Moby *moby) {
 /* spawns a streak moby aimed along a direction with the given size and colour */
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002C99E0.c: func_L11_0030A318), where it is exact; names translated to the US level program. */
 
-char *FUN_L11_00308f48(int owner, float *dir, float *pos, float size, float len, float z) {
+char *spawn_class_3f9_moby(int owner, float *launch_direction, float *spawn_position, float size, float step_length, float z) __asm__("FUN_L11_00308f48");
+
+char *spawn_class_3f9_moby(int owner, float *launch_direction, float *spawn_position, float size, float step_length, float z) {
     char *spawned_moby = func_0020D348_m(0x3F9);
     if (spawned_moby != 0) {
         char *moby_vars = *(char **)(spawned_moby + 0x78);
-        int r;
+        int size_length_ratio;
         *(int *)(spawned_moby + 0x94) = 0;
         *(int *)(moby_vars + 0x1C) = owner;
         *(unsigned char *)(spawned_moby + 0x30) = 0xFF;
         *(short *)(spawned_moby + 0x32) = truncate_float_to_s32(size);
         *(int *)(spawned_moby + 0x40) = 0;
         spawned_moby[0x31] = 1;
-        *(float *)(spawned_moby + 0x44) = -fast_arc_tan(vector_length_xy(dir), dir[2]);
-        *(float *)(spawned_moby + 0x48) = fast_arc_tan(dir[0], dir[1]);
+        *(float *)(spawned_moby + 0x44) = -fast_arc_tan(vector_length_xy(launch_direction), launch_direction[2]);
+        *(float *)(spawned_moby + 0x48) = fast_arc_tan(launch_direction[0], launch_direction[1]);
         *(float *)(moby_vars + 0x10) = 1.0f;
-        if (len > 0.0f) {
-            fast_vec_normalize(moby_vars, dir, len);
+        if (step_length > 0.0f) {
+            fast_vec_normalize(moby_vars, launch_direction, step_length);
         } else {
-            qcopy(moby_vars, dir);
-            len = fast_vec_length(dir);
+            qcopy(moby_vars, launch_direction);
+            step_length = fast_vec_length(launch_direction);
         }
-        qcopy(spawned_moby + 0x10, pos);
-        r = truncate_float_to_s32(size / len);
-        *(int *)(moby_vars + 0x14) = r;
+        qcopy(spawned_moby + 0x10, spawn_position);
+        size_length_ratio = truncate_float_to_s32(size / step_length);
+        *(int *)(moby_vars + 0x14) = size_length_ratio;
         *(float *)(moby_vars + 0x20) = z;
-        *(int *)(moby_vars + 0x18) = r - 13;
+        *(int *)(moby_vars + 0x18) = size_length_ratio - 13;
         *(short *)(spawned_moby + 0x34) = 0x200;
         FUN_L00_00250df8(spawned_moby);
     }
@@ -301,11 +311,11 @@ extern char *FUN_L00_0026dd20(char *pos, char *vel, int c, int d, float f);
 extern char D_L11_00174880[];
 extern f32 random_float_between(f32, f32) __asm__("func_002132A8");
 extern f32 vector_length_xyz(void *) __asm__("FUN_001f9af0");
-extern int D_L11_00161DC0 __attribute__((sda));
-extern int D_L11_00161DC4 __attribute__((sda));
-extern int D_L11_00161DC8 __attribute__((sda));
+extern int projectile_trail_color_start_gp __asm__("D_L11_00161DC0") __attribute__((sda));
+extern int projectile_trail_color_end_gp __asm__("D_L11_00161DC4") __attribute__((sda));
+extern int projectile_trail_frame_count_gp __asm__("D_L11_00161DC8") __attribute__((sda));
 extern int D_L11_00161DCC __attribute__((sda));
-extern float D_L11_00161DD0 __attribute__((sda));
+extern float projectile_trail_velocity_scale_gp __asm__("D_L11_00161DD0") __attribute__((sda));
 extern int collision_line(void *, void *, int, void *, void *) __asm__("FUN_001efa68");
 extern int fast_tween_color(int, int, float) __asm__("FUN_001fa6e0");
 extern int random_int_between(int, int) __asm__("FUN_L00_00257b90");
@@ -320,40 +330,42 @@ extern void normalize_vector_xyz(void *, void *, f32) __asm__("FUN_001f9bf8");
 extern void scale_vector_xyz(void *, void *, float) __asm__("FUN_001f9a68");
 /* Per-frame update of a projectile moby: moves it by its velocity and leaves a trail particle; on impact it bursts into
    five sparks and removes itself, otherwise it shrinks when its timer runs out and is removed once tiny. */
-void FUN_L11_00309098(char *moby) {
+void update_projectile_with_trail(char *moby) __asm__("FUN_L11_00309098");
+
+void update_projectile_with_trail(char *moby) {
     float old[4];
     float trail_position[4];
-    float v[4];
+    float trail_velocity[4];
     float hit[4];
     float pad[4][2];
     float spark_velocity[4];
-    float r[4];
+    float spark_scatter_vector[4];
     char *data;
-    char *pos;
+    char *moby_position;
     int trail_color;
     if (moby == 0) return;
     data = *(char **)(moby + 0x78);
     if (data == 0) return;
-    pos = moby + 0x10;
-    qcopy(old, pos);
-    trail_color = fast_tween_color(D_L11_00161DC0, D_L11_00161DC4, random_float_between(0.0f, 1.0f));
+    moby_position = moby + 0x10;
+    qcopy(old, moby_position);
+    trail_color = fast_tween_color(projectile_trail_color_start_gp, projectile_trail_color_end_gp, random_float_between(0.0f, 1.0f));
     random_vector(trail_position, 0.0f, 0.1f);
-    add_vector_xyz(trail_position, trail_position, pos);
-    scale_vector_xyz(v, data, D_L11_00161DD0);
-    FUN_L00_0026dd20((char *)trail_position, (char *)v, trail_color, scale_game_frames(D_L11_00161DC8), (float)D_L11_00161DCC);
-    add_vector_xyz(pos, pos, data);
+    add_vector_xyz(trail_position, trail_position, moby_position);
+    scale_vector_xyz(trail_velocity, data, projectile_trail_velocity_scale_gp);
+    FUN_L00_0026dd20((char *)trail_position, (char *)trail_velocity, trail_color, scale_game_frames(projectile_trail_frame_count_gp), (float)D_L11_00161DCC);
+    add_vector_xyz(moby_position, moby_position, data);
     make_hit_descriptor(hit, moby, 0x10000, *(float *)(data + 0x20), data);
-    if (collision_line(old, pos, 0, *(void **)(data + 0x1C), hit)) {
+    if (collision_line(old, moby_position, 0, *(void **)(data + 0x1C), hit)) {
         int i;
         for (i = 0; i < 5; i++) {
-            *(OvlQuad *)r = 0;
-            r[0] = random_float_between(-1.0f, 1.0f);
-            r[1] = random_float_between(-1.0f, 1.0f);
-            r[2] = random_float_between(-1.0f, 1.0f);
-            *(OvlQuad *)spark_velocity = *(OvlQuad *)r;
-            FUN_L00_001ff660(r, data, D_L11_00174880);
-            normalize_vector_xyz(spark_velocity, spark_velocity, vector_length_xyz(r) * 0.5f);
-            add_vector_xyz(spark_velocity, r, spark_velocity);
+            *(OvlQuad *)spark_scatter_vector = 0;
+            spark_scatter_vector[0] = random_float_between(-1.0f, 1.0f);
+            spark_scatter_vector[1] = random_float_between(-1.0f, 1.0f);
+            spark_scatter_vector[2] = random_float_between(-1.0f, 1.0f);
+            *(OvlQuad *)spark_velocity = *(OvlQuad *)spark_scatter_vector;
+            FUN_L00_001ff660(spark_scatter_vector, data, D_L11_00174880);
+            normalize_vector_xyz(spark_velocity, spark_velocity, vector_length_xyz(spark_scatter_vector) * 0.5f);
+            add_vector_xyz(spark_velocity, spark_scatter_vector, spark_velocity);
             normalize_vector_xyz(spark_velocity, spark_velocity, random_float_between(frame_time * 5.0f, frame_time * 9.0f));
             FUN_L00_0026dd20(moby + 0x10, (char *)spark_velocity, 0x7F2F4F6F, random_int_between(scale_game_frames(10), scale_game_frames(15)), 90000.0f);
         }
@@ -525,11 +537,13 @@ extern UV_30a908 D_L11_001DA510[];
 extern float wave_speed[2] __asm__("D_L11_00161DF8") __attribute__((sda));
 extern float tide_level_macro __asm__("D_L11_00161E18") __attribute__((section(".sdata")));
 /* Draws the level's water sheet: a fading edge strip, a far quad, and two scrolling layers of grid cells around the camera. */
-void FUN_L11_0030a908(struct Moby *moby) {
+void draw_pokitaru_ocean(struct Moby *moby) __asm__("FUN_L11_0030a908");
+
+void draw_pokitaru_ocean(struct Moby *moby) {
     Vec4f scratch_vector;
     Vec4f side_offset;
-    Vec4f a;
-    Vec4f b;
+    Vec4f strip_length_direction;
+    Vec4f strip_width_direction;
     Vec4f strip_corners[4];
     Vec4f first_strip_edge_delta;
     Vec4f second_strip_edge_delta;
@@ -542,7 +556,7 @@ void FUN_L11_0030a908(struct Moby *moby) {
     int colA;
     int colB;
     int vertex_count;
-    float t;
+    float color_interpolation_scalar;
     float x;
     float y;
 
@@ -556,29 +570,29 @@ void FUN_L11_0030a908(struct Moby *moby) {
     FUN_00233980_30a908(0x47, 0x513F1);
     FUN_00233980_30a908(6, FUN_001f44b8_30a908(0x16));
     FUN_001f76a0_30a908();
-    a.x = 1.0f;
-    a.y = 0.0f;
-    a.z = 0.0f;
-    a.w = 1.0f;
-    FUN_001f9cf8_30a908(&a, &a, D_L11_001679D0);
-    b.x = 0.0f;
-    b.y = 1.0f;
-    b.z = 0.0f;
-    b.w = 1.0f;
-    FUN_001f9cf8_30a908(&b, &b, D_L11_001679D0);
-    a.z = 0.0f;
-    FUN_001f9bf8_30a908(&a, &a, 1.0f);
-    b.z = 0.0f;
-    FUN_001f9bf8_30a908(&b, &b, 1.0f);
-    FUN_001f9bf8_30a908(&scratch_vector, &a, -75.0f);
-    FUN_001f9bf8_30a908(&side_offset, &b, -87.0f);
+    strip_length_direction.x = 1.0f;
+    strip_length_direction.y = 0.0f;
+    strip_length_direction.z = 0.0f;
+    strip_length_direction.w = 1.0f;
+    FUN_001f9cf8_30a908(&strip_length_direction, &strip_length_direction, D_L11_001679D0);
+    strip_width_direction.x = 0.0f;
+    strip_width_direction.y = 1.0f;
+    strip_width_direction.z = 0.0f;
+    strip_width_direction.w = 1.0f;
+    FUN_001f9cf8_30a908(&strip_width_direction, &strip_width_direction, D_L11_001679D0);
+    strip_length_direction.z = 0.0f;
+    FUN_001f9bf8_30a908(&strip_length_direction, &strip_length_direction, 1.0f);
+    strip_width_direction.z = 0.0f;
+    FUN_001f9bf8_30a908(&strip_width_direction, &strip_width_direction, 1.0f);
+    FUN_001f9bf8_30a908(&scratch_vector, &strip_length_direction, -75.0f);
+    FUN_001f9bf8_30a908(&side_offset, &strip_width_direction, -87.0f);
     FUN_001f9a10_30a908(&strip_corners[0], &scratch_vector, &side_offset);
-    FUN_001f9bf8_30a908(&side_offset, &b, 87.0f);
+    FUN_001f9bf8_30a908(&side_offset, &strip_width_direction, 87.0f);
     FUN_001f9a10_30a908(&strip_corners[2], &scratch_vector, &side_offset);
-    FUN_001f9bf8_30a908(&scratch_vector, &a, ocean_vars->f28);
-    FUN_001f9bf8_30a908(&side_offset, &b, -750.0f);
+    FUN_001f9bf8_30a908(&scratch_vector, &strip_length_direction, ocean_vars->f28);
+    FUN_001f9bf8_30a908(&side_offset, &strip_width_direction, -750.0f);
     FUN_001f9a10_30a908(&strip_corners[1], &scratch_vector, &side_offset);
-    FUN_001f9bf8_30a908(&side_offset, &b, 750.0f);
+    FUN_001f9bf8_30a908(&side_offset, &strip_width_direction, 750.0f);
     FUN_001f9a10_30a908(&strip_corners[3], &scratch_vector, &side_offset);
     for (i = 0; i < 4; i++) {
         Vec4f *strip_corner = &strip_corners[i];
@@ -587,10 +601,10 @@ void FUN_L11_0030a908(struct Moby *moby) {
     }
     FUN_001f9a28_30a908(&first_strip_edge_delta, &strip_corners[1], &strip_corners[0]);
     FUN_001f9a28_30a908(&second_strip_edge_delta, &strip_corners[3], &strip_corners[2]);
-    t = 10.0f;
+    color_interpolation_scalar = 10.0f;
     for (i = 0; i < 12; i += 2) {
         float strip_fraction = FUN_001fa6c0_30a908(i) / 10.0f;
-        int col = FUN_001fa6e0_30a908(ocean_vars->f0, ocean_vars->f4, FUN_001fa6c0_30a908(i) / t);
+        int col = FUN_001fa6e0_30a908(ocean_vars->f0, ocean_vars->f4, FUN_001fa6c0_30a908(i) / color_interpolation_scalar);
         FUN_001f9a68_30a908(&scratch_vector, &first_strip_edge_delta, strip_fraction);
         D_L11_001D9E08[i] = col;
         D_L11_001DA310[i].u = 0.0f;
@@ -641,13 +655,13 @@ void FUN_L11_0030a908(struct Moby *moby) {
     FUN_00233980_30a908(0x47, 0x513F1);
     colA = ocean_vars->fC;
     colB = ocean_vars->f10;
-    t = 1.0f - (((Cam_30a908 *)D_L11_00167680)->z - tide_level_macro) / ocean_vars->f2C;
-    if (t > 1.0f) {
-        t = 1.0f;
+    color_interpolation_scalar = 1.0f - (((Cam_30a908 *)D_L11_00167680)->z - tide_level_macro) / ocean_vars->f2C;
+    if (color_interpolation_scalar > 1.0f) {
+        color_interpolation_scalar = 1.0f;
     }
-    if (t >= 0.0f) {
-        colA = FUN_001fa6e0_30a908(0, colA, t);
-        colB = FUN_001fa6e0_30a908(0, colB, t);
+    if (color_interpolation_scalar >= 0.0f) {
+        colA = FUN_001fa6e0_30a908(0, colA, color_interpolation_scalar);
+        colB = FUN_001fa6e0_30a908(0, colB, color_interpolation_scalar);
         for (layer = 0; layer < 2; layer++) {
             int id = layer + 0x28;
             FUN_00233980_30a908(6, FUN_001f44b8_30a908(ocean_vars->f1C + id));
@@ -682,11 +696,11 @@ void FUN_L11_0030a908(struct Moby *moby) {
                         scratch_vector.y = D_L11_001D9F08[i].y - ((Cam_30a908 *)D_L11_00167680)->y;
                         scratch_vector.z = D_L11_001D9F08[i].z - ((Cam_30a908 *)D_L11_00167680)->z;
                         scratch_vector.w = 1.0f;
-                        t = FUN_001f9b20_30a908(&scratch_vector) / (ocean_vars->f18 * 2.0f);
-                        if (t > 1.0f) {
-                            t = 1.0f;
+                        color_interpolation_scalar = FUN_001f9b20_30a908(&scratch_vector) / (ocean_vars->f18 * 2.0f);
+                        if (color_interpolation_scalar > 1.0f) {
+                            color_interpolation_scalar = 1.0f;
                         }
-                        D_L11_001DA208[i] = FUN_001fa6e0_30a908(colA, colB, t);
+                        D_L11_001DA208[i] = FUN_001fa6e0_30a908(colA, colB, color_interpolation_scalar);
                     }
                     vertex_count += 4;
                     if (vertex_count >= 0x40) {
@@ -741,7 +755,7 @@ void ocean_pokitaru_update(OceanMoby_30b358 *moby) __asm__("FUN_L11_0030b358");
 void ocean_pokitaru_update(OceanMoby_30b358 *moby)
 {
     OceanVars_30b358 *ocean_vars = moby->vars;
-    float src[4];
+    float camera_displacement[4];
     float out[4];
     int k;
 
@@ -756,13 +770,13 @@ void ocean_pokitaru_update(OceanMoby_30b358 *moby)
         ocean_level = ocean_vars->level;
         return;
     }
-    subtract_vector_b358(src, camera_pos_b358, last_camera_pos);
+    subtract_vector_b358(camera_displacement, camera_pos_b358, last_camera_pos);
     qcopy(last_camera_pos, camera_pos_b358);
     if (!(ocean_vars->limit < camera_pos_b358[2])) {
         return;
     }
     for (k = 0; k < 2; k++) {
-        scale_vector_b358(out, src, (wave_speed[k] + wave_speed[k]) / (ocean_vars->scale * 5.0f));
+        scale_vector_b358(out, camera_displacement, (wave_speed[k] + wave_speed[k]) / (ocean_vars->scale * 5.0f));
         if (1.0f < out[0] || out[0] < 1.0f) {
             out[0] = out[0] - int_to_float_b358(float_to_int_b358(out[0]));
         }

@@ -24,21 +24,23 @@ extern void FUN_L01_00262038(char *a, int i, int c, char *base);
 
 extern short D_L01_00161218 __attribute__((sda));
 extern short D_L01_0016121C __attribute__((sda));
-void FUN_L01_002b7f30(char *base, int record_count) {
+void step_pool_wave_simulation(char *base, int record_count) __asm__("FUN_L01_002b7f30");
+
+void step_pool_wave_simulation(char *base, int record_count) {
     int i;
     for (i = 0; i < record_count; i++) {
         char *current_record = base + i * 0x1190;
         if (*(unsigned short *)(current_record + 0x1E) != 0) {
-            int off = *(int *)&D_L01_00161218 * 0x5C0 + 0x50;
-            FUN_L01_00261c10((char *)0x70000000, current_record + off);
+            int source_slot_offset = *(int *)&D_L01_00161218 * 0x5C0 + 0x50;
+            FUN_L01_00261c10((char *)0x70000000, current_record + source_slot_offset);
             FUN_L01_00262038((char *)0x70000000, i, *(int *)&D_L01_0016121C, base);
         }
     }
     {
-        int a = *(int *)&D_L01_00161218;
-        int b = *(int *)&D_L01_0016121C;
-        *(int *)&D_L01_0016121C = a;
-        *(int *)&D_L01_00161218 = b;
+        int saved_source_slot_index = *(int *)&D_L01_00161218;
+        int saved_next_source_slot_index = *(int *)&D_L01_0016121C;
+        *(int *)&D_L01_0016121C = saved_source_slot_index;
+        *(int *)&D_L01_00161218 = saved_next_source_slot_index;
     }
 }
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002B90A8.c: func_L01_002B9198), where it is exact; names translated to the US level program. */
@@ -82,39 +84,41 @@ extern float fast_cos(float) __asm__("func_001F9DC8");
 extern float fast_sin(float) __asm__("func_001F9DE0");
 extern int D_L01_001CB1B0[];
 
-void FUN_L01_002b80d0(float *m) {
+void update_animated_offset_pairs(float *offset_animation_state) __asm__("FUN_L01_002b80d0");
+
+void update_animated_offset_pairs(float *offset_animation_state) {
     int i;
-    float u0, first_v_offset, u1, second_v_offset;
+    float first_u_offset, first_v_offset, second_u_offset, second_v_offset;
     float unwrapped_offset;
-    float *src, *dst;
-    unwrapped_offset = m[8] + m[10];
-    m[8] = unwrapped_offset;
+    float *base_offset_pairs, *animated_offset_pairs;
+    unwrapped_offset = offset_animation_state[8] + offset_animation_state[10];
+    offset_animation_state[8] = unwrapped_offset;
     if (1.0f < unwrapped_offset) {
-        m[8] = unwrapped_offset - 1.0f;
+        offset_animation_state[8] = unwrapped_offset - 1.0f;
     }
-    if (m[8] < 0.0f) {
-        m[8] = m[8] + 1.0f;
+    if (offset_animation_state[8] < 0.0f) {
+        offset_animation_state[8] = offset_animation_state[8] + 1.0f;
     }
-    unwrapped_offset = m[9] + m[11];
-    m[9] = unwrapped_offset;
+    unwrapped_offset = offset_animation_state[9] + offset_animation_state[11];
+    offset_animation_state[9] = unwrapped_offset;
     if (1.0f < unwrapped_offset) {
-        m[9] = unwrapped_offset - 1.0f;
+        offset_animation_state[9] = unwrapped_offset - 1.0f;
     }
-    if (m[9] < 0.0f) {
-        m[9] = m[9] + 1.0f;
+    if (offset_animation_state[9] < 0.0f) {
+        offset_animation_state[9] = offset_animation_state[9] + 1.0f;
     }
-    m[12] = fast_add_rotations(m[12], m[14]);
-    m[13] = fast_add_rotations(m[13], m[15]);
-    u0 = m[8] + fast_cos(m[12]) * m[16];
-    first_v_offset = m[9] + fast_sin(m[12]) * m[16];
-    u1 = m[8] + fast_cos(m[13]) * m[16];
-    second_v_offset = m[9] + fast_sin(m[13]) * m[16];
+    offset_animation_state[12] = fast_add_rotations(offset_animation_state[12], offset_animation_state[14]);
+    offset_animation_state[13] = fast_add_rotations(offset_animation_state[13], offset_animation_state[15]);
+    first_u_offset = offset_animation_state[8] + fast_cos(offset_animation_state[12]) * offset_animation_state[16];
+    first_v_offset = offset_animation_state[9] + fast_sin(offset_animation_state[12]) * offset_animation_state[16];
+    second_u_offset = offset_animation_state[8] + fast_cos(offset_animation_state[13]) * offset_animation_state[16];
+    second_v_offset = offset_animation_state[9] + fast_sin(offset_animation_state[13]) * offset_animation_state[16];
     for (i = 0; i < 0x5C; i += 2) {
         if (D_L01_001CB1B0[i >> 1] == 0) {
-            D_L01_001CAE60[i] = D_L01_001CAFE0[i] + u0;
+            D_L01_001CAE60[i] = D_L01_001CAFE0[i] + first_u_offset;
             D_L01_001CAE60[i + 1] = D_L01_001CAFE0[i + 1] + first_v_offset;
         } else {
-            D_L01_001CAE60[i] = D_L01_001CAFE0[i] + u1;
+            D_L01_001CAE60[i] = D_L01_001CAFE0[i] + second_u_offset;
             D_L01_001CAE60[i + 1] = D_L01_001CAFE0[i + 1] + second_v_offset;
         }
     }
@@ -122,8 +126,8 @@ void FUN_L01_002b80d0(float *m) {
 extern void pool_splash(void *, int, int, float, float, float, float) __asm__("FUN_L00_002a3ec8");
 
 void pool_ripple(void *a, int b, float x, float y, float radius, float amount) __asm__("FUN_L01_002b8288");
-void pool_ripple(void *a, int b, float x, float y, float radius, float amount) {
-    pool_splash(a, b, 0, x, y, radius, amount);
+void pool_ripple(void *records_base, int record_count, float x, float y, float radius, float amount) {
+    pool_splash(records_base, record_count, 0, x, y, radius, amount);
 }
 
 f32 D_L05_001CAFE0[1] __attribute__((section(".data"))) = {0};

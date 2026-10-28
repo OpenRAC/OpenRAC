@@ -1,7 +1,7 @@
 /* Carried by port/tools/versionmap/carry_functions.py from the decompilation of Ratchet & Clank (PAL), nonmatching/functional/func_001271A0.c (games/rac1): func_001271A0, functional C there, not matched.
  * Kind `same` in the version map (../../README.md): the two versions have the same instructions for it.
  * Names and addresses are this version's. Functional C, not matched C. */
-/* functional: medium. Plain-C version of the EE multimedia-instruction code: 8-wide half-pel bilinear row filter (two doubleword sources joined and rotated by the alignment offset), averaged into an 8-halfword destination row. Two outer passes (second at src +0x40, dst +0x80), each with the main rows (record +8) and an optional continuation of the record +0xC rows. Decoded from the assembly alone; the rotation wraps within the 16 bytes exactly as qfsrv does. */
+/* functional: medium. fcheck: unchecked (never called in fcheck's capture run of the title, menu and level 0; OpenRAC tools/fcheck_gate.py, 2026-10-18). Plain-C version of the EE multimedia-instruction code: 8-wide half-pel bilinear row filter (two doubleword sources joined and rotated by the alignment offset), averaged into an 8-halfword destination row. Two outer passes (second at src +0x40, dst +0x80), each with the main rows (record +8) and an optional continuation of the record +0xC rows. Decoded from the assembly alone; the rotation wraps within the 16 bytes exactly as qfsrv does. */
 
 typedef unsigned char u8_71A0_c127060;
 typedef unsigned short u16_71A0_c127060;

@@ -2,8 +2,8 @@
 #include "callees.h"
 #include "structs.h"
 
-extern int func_0012F1A8(int, int, int, int, int, int);
-extern char *D_001613B8 MACRO_ADDR;
+extern int snd_init_movie_sound(int, int, int, int, int, int);
+extern char *movie_adpcm_staging_buf MACRO_ADDR;
 /* Clears the header, sets buffer parameters, and acquires the sound transport handle. */
 int audioDecCreate(char *dec, void *buffer, int size, char *staging) {
     FastMemZero16(dec + 8, 0x20);
@@ -19,9 +19,9 @@ int audioDecCreate(char *dec, void *buffer, int size, char *staging) {
     *(int *)(dec + 0x58) = 0;
     *(int *)(dec + 0x5C) = 0;
     *(int *)(dec + 0x60) = 0;
-    D_001613B8 = staging;
+    movie_adpcm_staging_buf = staging;
     *(int *)(dec + 0x4C) = 0x400;
-    *(int *)(dec + 0x48) = func_0012F1A8(0x400, 0x1000, 0x400, 0, 5, 3);
+    *(int *)(dec + 0x48) = snd_init_movie_sound(0x400, 0x1000, 0x400, 0, 5, 3);
     if (*(int *)(dec + 0x48) < 0) return 0;
     return 1;
 }
@@ -46,27 +46,27 @@ typedef struct AudioDec {
     int f5C;            /* 0x5C */
 } AudioDec;
 
-extern int func_0012F220(void);
+extern int snd_close_movie_sound(void);
 
 /* audioDecDelete(_AudioDec *) -- calls func_0012F220 and returns 1. */
 int audioDecDelete(AudioDec *dec) {
-    func_0012F220();
+    snd_close_movie_sound();
     return 1;
 }
 LINKER_REMNANT("asm/remnants/text", func_0023C080);
-extern void func_0012F248(int, int, int, int, int);   /* snd_StartMovieSound */
+extern void snd_StartMovieSound(int, int, int, int, int);   /* snd_StartMovieSound */
 
 /* audioDecStart -- starts the movie sound with the decoder's parameters (size rounded down to
  * 0x400) and marks the decoder as started. */
 void audioDecStart(AudioDec *dec) {
-    func_0012F248(dec->f48, dec->f4C / 0x400 * 0x400, dec->f5C, dec->f14, dec->f18);
+    snd_StartMovieSound(dec->f48, dec->f4C / 0x400 * 0x400, dec->f5C, dec->f14, dec->f18);
     dec->pending = 2;
 }
-extern void func_0012F1E8(void);
+extern void snd_ResetMovieSound(void);
 
 /* audioDecReset(_AudioDec *) */
 void audioDecReset(volatile int *dec) {
-    func_0012F1E8();
+    snd_ResetMovieSound();
     dec[0x5C / 4] = 0;
     dec[0x0 / 4] = 0;
     dec[0x30 / 4] = 0;
@@ -133,7 +133,7 @@ void audioDecEndPut(AudioDec *dec, int count) {
 int is_state_field_large(AudioDec *dec) {
     return dec->bytes >= 0x1000;
 }
-extern void func_0023C390(AudioDec *);
+extern void sendADPCM(AudioDec *);
 
 /* audioDecSend -- sendADPCM while data is pending. */
 void audioDecSend(AudioDec *dec) {
@@ -143,26 +143,26 @@ void audioDecSend(AudioDec *dec) {
 }
 typedef struct { int src; int dst; int size; int mode; } SpuDma;
 
-extern void func_00118D80(int);
-extern unsigned int func_00118E20(SpuDma *, int);
-extern int func_00118E10(int);
-extern int func_0012F288(int, int);
+extern void flush_cache(int);
+extern unsigned int sce_sif_set_dma(SpuDma *, int);
+extern int sce_sif_dma_stat(int);
+extern int snd_UpdateMovieADPCM(int, int);
 
 /* sendToSPU(_AudioDec *, unsigned char *, int, int) -- queues one transfer of len bytes to the
  * address in the decoder at 0x48, waits for it to finish, then calls func_0012F288(len, flag). */
 void sendToSPU(AudioDec *dec, unsigned char *src, int len, int flag) {
     SpuDma dma;
     unsigned int id;
-    func_00118D80(0);
+    flush_cache(0);
     dma.src = (int)src;
     dma.dst = dec->f48;
     dma.size = len;
     dma.mode = 0;
-    while ((id = func_00118E20(&dma, 1)) == 0) {
+    while ((id = sce_sif_set_dma(&dma, 1)) == 0) {
     }
-    while (func_00118E10(id) >= 0) {
+    while (sce_sif_dma_stat(id) >= 0) {
     }
-    func_0012F288(len, flag);
+    snd_UpdateMovieADPCM(len, flag);
 }
 typedef struct AdpcmDec_0023C390 {
     int mode;           /* 0x0 */
@@ -179,7 +179,7 @@ typedef struct AdpcmDec_0023C390 {
     char pad54[0xC];
     int pos;            /* 0x60 */
 } AdpcmDec_0023C390;
-extern int func_0012F2B8(void);
+extern int snd_GetMovieNAX(void);
 
 /* sendADPCM(_AudioDec *) */
 void sendADPCM(AudioDec *dec) {
@@ -203,7 +203,7 @@ void sendADPCM(AudioDec *dec) {
         avail = 0x1000 - d->bytes;
         break;
     case 2:
-        avail = (func_0012F2B8() - d->pos) & 0xFFF;
+        avail = (snd_GetMovieNAX() - d->pos) & 0xFFF;
         break;
     case 3:
         return;
@@ -214,7 +214,7 @@ void sendADPCM(AudioDec *dec) {
             done = 0;
             src = d->buf + (d->rd - d->cnt + d->size) % d->size;
             src += ch * d->chunk;
-            dst = (unsigned char *)D_001613B8;
+            dst = (unsigned char *)movie_adpcm_staging_buf;
             do {
                 for (j = 0; j < d->chunk; j++) {
                     *dst++ = *src++;
@@ -223,14 +223,14 @@ void sendADPCM(AudioDec *dec) {
                 src += d->chunk * (d->nch - 1);
             } while (done < 0x400);
             if (d->pos + 0x400 == 0x1000) {
-                D_001613B8[0x3F1] = 3;
+                movie_adpcm_staging_buf[0x3F1] = 3;
             }
             if (d->pos == 0) {
-                char *p = D_001613B8;
+                char *p = movie_adpcm_staging_buf;
                 p[1] = 6;
                 p[0x11] = 2;
             }
-            sendToSPU(dec, (unsigned char *)D_001613B8, 0x400, (ch << 12) + d->pos);
+            sendToSPU(dec, (unsigned char *)movie_adpcm_staging_buf, 0x400, (ch << 12) + d->pos);
         }
         v = d->pos + 0x400;
         w = (v > -1) ? v : v + 0xFFF;

@@ -24,8 +24,8 @@ int set_state_fields(StrFile *f, int first, int second) {
 int get_state_callback_result(StrFile *f) {
     return 1;
 }
-extern void func_00121750(int, int, int, void *);
-extern void func_00120F30(int);
+extern void sce_cd_read(int, int, int, void *);
+extern void sce_cd_sync_s(int);
 
 /* Reads movie sectors and advances the cursor after a synchronous read. */
 int read_cd_stream_sectors(void *arg0, int arg1, int arg2, int arg3) {
@@ -36,10 +36,10 @@ int read_cd_stream_sectors(void *arg0, int arg1, int arg2, int arg3) {
     mode.retries = 0x64;
     mode.speed = 0;
     mode.pattern = 0;
-    func_00121750(*(int *)((char *)arg0 + 4), n, arg1, &mode);
+    sce_cd_read(*(int *)((char *)arg0 + 4), n, arg1, &mode);
     if (arg3 == 0) {
         *(int *)((char *)arg0 + 4) = *(int *)((char *)arg0 + 4) + n;
-        func_00120F30(0);
+        sce_cd_sync_s(0);
         r = arg2;
     }
     return r;

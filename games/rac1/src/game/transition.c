@@ -26,11 +26,11 @@
  * unit, or some other property not yet isolated). See "Open toolchain
  * questions" in docs/DECOMP_PROGRESS.md.
  */
-extern void func_0022C7E0(void);
-extern void func_0022C188(void);
-extern void func_0022C870(void);
-extern void func_00234C98(int, long);
-extern int D_0015EF88 MACRO_ADDR;
+extern void SetupSkyGifPaging(void);
+extern void SkyLevelGeneric___maybe(void);
+extern void DoSkyGifPaging(void);
+extern void VU1_addGSregister(int, long);
+extern int depth_buffer_address MACRO_ADDR;
 
 /* func_00234C98 is (int, long) and D_0015EF88 MACRO_ADDR; the older
    sq/sd note is obsolete. */
@@ -39,7 +39,7 @@ void Transition_DrawSky(void) {
     SkyLevelGeneric___maybe();
     DoSkyGifPaging();
     VU1_addGSregister(0x47, 0x5360B);
-    VU1_addGSregister(0x4E, 0x1000000 | (D_0015EF88 >> 13));
+    VU1_addGSregister(0x4E, 0x1000000 | (depth_buffer_address >> 13));
 }
 
 /* Level init from the level header hdr: loads the frame and fog constants, uploads the VU0
@@ -73,86 +73,86 @@ typedef struct { unsigned char pad00[0x23C]; int x23C; int x240; int x244; } Dis
 typedef struct { int x0; unsigned char *x4; unsigned char *x8; int xC; int x10; int x14; } BufE9EC8;
 typedef struct { int x0; unsigned char *x4; } S160E9EC8;
 
-extern int func_001F99B0();
-extern void func_001F99D8(void *, int);
-extern void func_001F9A00(void *, void *, int);
-extern void func_001E9730(char *);
-extern void func_002157C0(int);
-extern int func_001F2930();
-extern void func_001FB448(int, int, int);
-extern int func_002347F0();
-extern int func_002362B0();
-extern int func_0022B8F8();
-extern int func_00238688();
-extern float func_001F9CB8(void *);
-extern float func_001F9B90(float, float);
-extern void func_001F9EC0(void *, void *, void *);
-extern void func_001F9C48(void *, void *, float);
-extern void func_001F9BD8(void *, void *, void *);
-extern int func_001FA898(float);
-extern float func_001FA888(int);
-extern void func_001F3B90(void);
-extern void func_00217EC0(void);
-extern void func_001F6598(void);
+extern int FastMemSet();
+extern void FastMemZero16(void *, int);
+extern void copy_memory_aligned(void *, void *, int);
+extern void STUB_printf(char *);
+extern void set_video_timing(int);
+extern int UpdateFog();
+extern void SetBackgroundColor(int, int, int);
+extern int VU0_loadMicroProgram();
+extern int LightTfrags();
+extern int LightShrubs();
+extern int LightTies();
+extern float FastVecLength(void *);
+extern float max_float(float, float);
+extern void matrix_mul_vec3(void *, void *, void *);
+extern void scale_vector(void *, void *, float);
+extern void FastVecAdd(void *, void *, void *);
+extern int truncate_float_to_s32(float);
+extern float IntToFloat(int);
+extern void ResetDrawGlobals(void);
+extern void pad_resetState(void);
+extern void Font_EnableColorCodes(void);
 
-extern int D_0015EE80 MACRO_ADDR;
-extern float D_0015EE60 MACRO_ADDR;
-extern int D_0016044C MACRO_ADDR;
-extern unsigned char *D_001941D8;
-extern unsigned char D_0013F450[];
-extern unsigned char D_00187040[];
-extern unsigned char D_001AADC0[];
-extern BufE9EC8 D_00194200;
-extern unsigned char D_001942C0[];
-extern unsigned char D_00194280[];
-extern unsigned char D_001B7A60[];
-extern unsigned char D_001C7A60[];
-extern DisplayE9EC8 D_0018CE00;
-extern int D_0015F584 MACRO_ADDR;
-extern int D_0015F585 MACRO_ADDR;
-extern int D_0015F586 MACRO_ADDR;
-extern float D_0015F588 MACRO_ADDR;
-extern float D_0015F58C MACRO_ADDR;
-extern float D_0015F590 MACRO_ADDR;
-extern float D_0015F594 MACRO_ADDR;
-extern float D_00160FC0 MACRO_ADDR;
-extern float D_00161070 MACRO_ADDR;
-extern float D_001604E4 MACRO_ADDR;
-extern int D_00160030 MACRO_ADDR;
-extern int D_001601BC MACRO_ADDR;
-extern unsigned char D_00100AE0[];
-extern unsigned char D_0019C2C0[];
-extern unsigned char D_0019C4C0[];
-extern unsigned char D_0019BEC0[];
-extern char D_001E79D8[];
-extern int D_00160F90 MACRO_ADDR;
-extern Ent40E9EC8 *D_00160F8C MACRO_ADDR;
-extern int D_0016105C MACRO_ADDR;
-extern ShrubE9EC8 *D_00161050 MACRO_ADDR;
-extern ShrubE9EC8 *D_00161054 MACRO_ADDR;
-extern ShrubDataE9EC8 *D_00161058 MACRO_ADDR;
-extern unsigned char D_001E1D00[];
-extern ShrubClassE9EC8 *D_001E1A00[];
-extern unsigned char D_001D8440[];
-extern TieClassE9EC8 *D_001D82C0[];
-extern int D_001604D0 MACRO_ADDR;
-extern TieE9EC8 *D_001604D4 MACRO_ADDR;
-extern TieE9EC8 *D_001604D8 MACRO_ADDR;
-extern TieDataE9EC8 *D_001604DC MACRO_ADDR;
-extern unsigned char *D_001604E0 MACRO_ADDR;
-extern S160E9EC8 D_00160BB0;
-extern Ent100E9EC8 *D_00160018 MACRO_ADDR;
-extern Ent100E9EC8 *D_0016001C MACRO_ADDR;
-extern Ent100E9EC8 *D_00160020 MACRO_ADDR;
-extern unsigned char *D_00160028 MACRO_ADDR;
-extern unsigned char *D_001601AC MACRO_ADDR;
-extern int D_001601B0 MACRO_ADDR;
-extern int D_001601B4 MACRO_ADDR;
-extern int D_001601B8 MACRO_ADDR;
-extern unsigned char D_001CDB00[];
-extern unsigned char D_0018C418[];
-extern int D_0015F6F0 MACRO_ADDR;
-extern float D_0015F53C MACRO_ADDR;
+extern int pal_mode MACRO_ADDR;
+extern float frame_scale MACRO_ADDR;
+extern int requested_video_mode MACRO_ADDR;
+extern unsigned char *level_resource_buffers_data_end;
+extern unsigned char g_hero[];
+extern unsigned char gCamera[];
+extern unsigned char level_start_cleared_state[];
+extern BufE9EC8 coll_output;
+extern unsigned char image_clear_buffer[];
+extern unsigned char coll_output_aux_buffer[];
+extern unsigned char moby_grids[];
+extern unsigned char moby_slot_bitmap[];
+extern DisplayE9EC8 view_context;
+extern int fog_color_red MACRO_ADDR;
+extern int fog_color_green MACRO_ADDR;
+extern int fog_color_blue MACRO_ADDR;
+extern float fog_near_distance MACRO_ADDR;
+extern float fog_far_distance MACRO_ADDR;
+extern float fog_near_intensity MACRO_ADDR;
+extern float fog_far_intensity MACRO_ADDR;
+extern float tfrag_draw_distance MACRO_ADDR;
+extern float tie_draw_distance MACRO_ADDR;
+extern float occl_fog_density_set MACRO_ADDR;
+extern int occl_fog_count MACRO_ADDR;
+extern int part_clip_dist MACRO_ADDR;
+extern unsigned char frame_vu0_micro_program[];
+extern unsigned char point_lights[];
+extern unsigned char point_light_data[];
+extern unsigned char dir_lights[];
+extern char str_too_many_dir_lights[];
+extern int tfrag_render_record_count MACRO_ADDR;
+extern Ent40E9EC8 *tfrag_render_records MACRO_ADDR;
+extern int tie_count MACRO_ADDR;
+extern ShrubE9EC8 *ties MACRO_ADDR;
+extern ShrubE9EC8 *ties_end MACRO_ADDR;
+extern ShrubDataE9EC8 *tie_data_table MACRO_ADDR;
+extern unsigned char object_render_class_slot_by_id[];
+extern ShrubClassE9EC8 *object_render_classes[];
+extern unsigned char shrub_render_class_slot_by_id[];
+extern TieClassE9EC8 *shrub_render_classes[];
+extern int shrub_count MACRO_ADDR;
+extern TieE9EC8 *shrubs MACRO_ADDR;
+extern TieE9EC8 *shrubs_end MACRO_ADDR;
+extern TieDataE9EC8 *shrub_data_table MACRO_ADDR;
+extern unsigned char *shrub_colors MACRO_ADDR;
+extern S160E9EC8 shrub_color_dma_ref_tag;
+extern Ent100E9EC8 *resident_object_pool MACRO_ADDR;
+extern Ent100E9EC8 *moby_instance_end MACRO_ADDR;
+extern Ent100E9EC8 *moby_instance_perm_end MACRO_ADDR;
+extern unsigned char *g_moby_vars MACRO_ADDR;
+extern unsigned char *part_instance_pool MACRO_ADDR;
+extern int part_slot_search_start MACRO_ADDR;
+extern int part_slot_high_water MACRO_ADDR;
+extern int part_active_count MACRO_ADDR;
+extern unsigned char part_slot_bitmap[];
+extern unsigned char occl_cam_state[];
+extern int world_update_time MACRO_ADDR;
+extern float gFade MACRO_ADDR;
 
 /* Level-load parser: builds the runtime object tables from the level header and returns the end pointer. */
 unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr)
@@ -209,25 +209,25 @@ unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr)
     IRowE9EC8 *t2;
     FRowE9EC8 *t3;
 
-    p = D_001941D8;
-    ((void (*)(void *, int, int))FastMemSet)(D_0013F450, 0, 0x2310);
+    p = level_resource_buffers_data_end;
+    ((void (*)(void *, int, int))FastMemSet)(g_hero, 0, 0x2310);
     ((void (*)(void *, int, int))FastMemSet)(gCamera, 0, 0x3A0);
-    ((void (*)(void *, int, int))FastMemSet)(D_001AADC0, 0, 0x180);
-    if (D_0015EE80 != 0) {
-        if (D_0015EE60 == 1.0f) {
+    ((void (*)(void *, int, int))FastMemSet)(level_start_cleared_state, 0, 0x180);
+    if (pal_mode != 0) {
+        if (frame_scale == 1.0f) {
             set_video_timing(1);
         }
-    } else if (D_0015EE60 != 1.0f) {
+    } else if (frame_scale != 1.0f) {
         set_video_timing(0);
     }
-    *(unsigned char *)&requested_video_mode = *(unsigned char *)&D_0015EE80;
+    *(unsigned char *)&requested_video_mode = *(unsigned char *)&pal_mode;
     coll_output.x4 = image_clear_buffer;
-    coll_output.x8 = D_00194280;
+    coll_output.x8 = coll_output_aux_buffer;
     coll_output.xC = 0;
     coll_output.x10 = 0;
     coll_output.x14 = 0;
     FastMemZero16(moby_grids, 0x10000);
-    FastMemZero16(D_001C7A60, 0x60);
+    FastMemZero16(moby_slot_bitmap, 0x60);
 
     c = (unsigned char *)hdr + hdr->x0;
     view_context.x23C = *(int *)c;
@@ -247,26 +247,26 @@ unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr)
     fog_near_intensity = *(float *)(c + 8);
     fog_far_intensity = *(float *)(c + 12);
     ((void (*)(void))UpdateFog)();
-    D_00160FC0 = 512000.0f;
-    D_00161070 = 720.0f;
+    tfrag_draw_distance = 512000.0f;
+    tie_draw_distance = 720.0f;
     occl_fog_density_set = 500.0f;
-    D_00160030 = 500;
-    D_001601BC = 0x1F4000;
+    occl_fog_count = 500;
+    part_clip_dist = 0x1F4000;
     SetBackgroundColor(view_context.x23C, view_context.x240, view_context.x244);
-    ((void (*)(void *))VU0_loadMicroProgram)(D_00100AE0);
-    FastMemZero16(D_0019C2C0, 0x100);
-    FastMemZero16(D_0019C4C0, 0x180);
-    FastMemZero16(D_0019BEC0, 0x400);
+    ((void (*)(void *))VU0_loadMicroProgram)(frame_vu0_micro_program);
+    FastMemZero16(point_lights, 0x100);
+    FastMemZero16(point_light_data, 0x180);
+    FastMemZero16(dir_lights, 0x400);
 
     lc = (unsigned char *)hdr + hdr->x4;
     n = *(int *)lc;
     lc += 0x10;
     if (n >= 12) {
-        STUB_printf(D_001E79D8);
+        STUB_printf(str_too_many_dir_lights);
         n = 12;
     }
     if (n != 0) {
-        copy_memory_aligned(D_0019BEC0, lc, n << 6);
+        copy_memory_aligned(dir_lights, lc, n << 6);
     }
 
     for (i0 = 0; i0 < tfrag_render_record_count; i0++) {
@@ -326,7 +326,7 @@ unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr)
         sh->x18 = (short)id;
         sc += 0x50;
         sd->m[3].w = object_render_classes[sh->cls]->x40;
-        func_001F9EC0(sh, object_render_classes[sh->cls]->x30, sd);
+        matrix_mul_vec3(sh, object_render_classes[sh->cls]->x30, sd);
         s = FastVecLength(sd);
         len1 = FastVecLength(r1);
         s = max_float(s, len1);
@@ -374,7 +374,7 @@ unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr)
         ((void (*)(void *, int, int))FastMemSet)(shrub_colors, 0, size4);
     }
     lastTie = -1;
-    D_00160BB0.x4 = shrub_colors;
+    shrub_color_dma_ref_tag.x4 = shrub_colors;
     shrubs_end = shrubs + shrub_count;
 
     for (i = 0; i < shrub_count; i++) {
@@ -434,7 +434,7 @@ unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr)
         td->m[0].w = (int)(((unsigned int)bl << 16) | (unsigned int)g | (unsigned int)r);
         tie->x1C = *(unsigned short *)tc;
         tc += 0x10;
-        func_001F9EC0(tie, shrub_render_classes[cls], td);
+        matrix_mul_vec3(tie, shrub_render_classes[cls], td);
         s = FastVecLength(td);
         len1 = FastVecLength(t1);
         s = max_float(s, len1);
@@ -476,18 +476,18 @@ unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr)
     resident_object_pool = (Ent100E9EC8 *)p;
     ((void (*)(void *, int, int))FastMemSet)(p, 0, 0x4000);
     p += 0x4000;
-    D_0016001C = resident_object_pool;
+    moby_instance_end = resident_object_pool;
     *((unsigned char *)resident_object_pool + 0x20) = 0xFF;
-    D_00160028 = p;
+    g_moby_vars = p;
     p += 0x2000;
-    D_001601AC = p;
-    D_00160020 = (Ent100E9EC8 *)((unsigned char *)resident_object_pool + 0x3F00);
+    part_instance_pool = p;
+    moby_instance_perm_end = (Ent100E9EC8 *)((unsigned char *)resident_object_pool + 0x3F00);
     p += 0x20000;
-    D_001601B4 = -1;
-    D_001601B0 = 0;
-    D_001601B8 = 0;
-    FastMemZero16(D_001CDB00, 0x200);
-    for (e = resident_object_pool; e != D_00160020; e++) {
+    part_slot_high_water = -1;
+    part_slot_search_start = 0;
+    part_active_count = 0;
+    FastMemZero16(part_slot_bitmap, 0x200);
+    for (e = resident_object_pool; e != moby_instance_perm_end; e++) {
         e->x36 = 0x7F80;
     }
     for (o = ties; o != ties_end; o++) {
@@ -504,7 +504,7 @@ unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr)
     ResetDrawGlobals();
     pad_resetState();
     Font_EnableColorCodes();
-    D_0015F6F0 = 0;
+    world_update_time = 0;
     gFade = 1.0f;
     return p;
 }
@@ -521,7 +521,7 @@ struct DiscTable_EABE8 {
     struct DiscFile_EABE8 help_text;       /* 0x1528 */
 };
 
-extern struct DiscTable_EABE8 D_00137C80_EABE8 __asm__("D_00137C80");
+extern struct DiscTable_EABE8 disc_table_r __asm__("D_00137C80");
 
 typedef struct 
 {
@@ -611,69 +611,69 @@ typedef struct
   u8 pad0[0x2C];
   s32 count;
 } HelpState_EABE8;
-extern s32 D_0015EF74_EABE8 __asm__("D_0015EF74") MACRO_ADDR;
-extern s32 D_0015EF78_EABE8 __asm__("D_0015EF78") MACRO_ADDR;
-extern s32 D_0015EF8C_EABE8 __asm__("D_0015EF8C") MACRO_ADDR;
-extern s64 D_0015F048_EABE8 __asm__("D_0015F048") MACRO_ADDR;
-extern s32 D_0015F058_EABE8 __asm__("D_0015F058") MACRO_ADDR;
-extern s32 D_0015F060_EABE8 __asm__("D_0015F060") MACRO_ADDR;
-extern s32 D_0015F064_EABE8 __asm__("D_0015F064") MACRO_ADDR;
-extern s32 D_0015F560_EABE8 __asm__("D_0015F560") MACRO_ADDR;
-extern TextEntry_EABE8 *D_0015F780_EABE8 __asm__("D_0015F780") MACRO_ADDR;
-extern s32 D_00160000_EABE8 __asm__("D_00160000") MACRO_ADDR;
-extern s32 D_00160008_EABE8 __asm__("D_00160008") MACRO_ADDR;
-extern s32 D_001604CC_EABE8 __asm__("D_001604CC") MACRO_ADDR;
-extern s32 D_001604EC_EABE8 __asm__("D_001604EC") MACRO_ADDR;
-extern s32 D_00160F94_EABE8 __asm__("D_00160F94") MACRO_ADDR;
-extern s32 D_0016100C_EABE8 __asm__("D_0016100C") MACRO_ADDR;
-extern s32 D_0016104C_EABE8 __asm__("D_0016104C") MACRO_ADDR;
-extern s32 D_00161064_EABE8 __asm__("D_00161064") MACRO_ADDR;
-extern u8 D_001862E0_EABE8[] __asm__("D_001862E0");
-extern u8 D_00186410_EABE8[] __asm__("D_00186410");
-extern SoundBanks_EABE8 D_0018CC20_EABE8 __asm__("D_0018CC20");
-extern LoadState_EABE8 D_001941C0_EABE8 __asm__("D_001941C0");
-extern u8 D_00194280_EABE8[] __asm__("D_00194280");
-extern HelpState_EABE8 D_001997D0_EABE8 __asm__("D_001997D0");
-extern u64 D_0019E7C0_EABE8[] __asm__("D_0019E7C0");
-extern MobyClass *D_001B3580_EABE8[] __asm__("D_001B3580");
-extern u8 D_001B3E40_EABE8[] __asm__("D_001B3E40");
-extern s32 D_001B5D00_EABE8[] __asm__("D_001B5D00");
-extern s32 D_001B6500_EABE8[] __asm__("D_001B6500");
-extern u8 D_001B6C00_EABE8[] __asm__("D_001B6C00");
-extern s32 D_001D8840_EABE8[] __asm__("D_001D8840");
-extern s32 D_001E0C00_EABE8[] __asm__("D_001E0C00");
-extern s32 D_001E2900_EABE8[] __asm__("D_001E2900");
-extern void func_002348B8_EABE8(void) __asm__("func_002348B8");
-extern void func_001F99B0_EABE8(void *, s32, s32) __asm__("func_001F99B0");
-extern void func_00118D80_EABE8(s32) __asm__("func_00118D80");
-extern void func_001EB300_EABE8(s32) __asm__("func_001EB300");
-extern void func_00120858_EABE8(s32, s32) __asm__("func_00120858");
-extern s32 func_001E9EC8_EABE8(u8 *) __asm__("func_001E9EC8");
-extern void func_001F3008_EABE8(void) __asm__("func_001F3008");
-extern void func_001F3140_EABE8(void) __asm__("func_001F3140");
-extern char func_001F9968_EABE8(s32) __asm__("func_001F9968");
-extern void func_00201E10_EABE8(void) __asm__("func_00201E10");
-extern void func_00202F00_EABE8(u8 *, u8 *, u8 *, s32) __asm__("func_00202F00");
-extern void func_00203038_EABE8(u8 *, s32) __asm__("func_00203038");
-extern void func_00203118_EABE8(u8 *) __asm__("func_00203118");
-extern void func_00203958_EABE8(u8 *, s32, u8 *) __asm__("func_00203958");
-extern void func_00203E78_EABE8(u8 *, u8 *, u8 *, s32) __asm__("func_00203E78");
-extern void func_00203F68_EABE8(u8 *, u8 *, u8 *, s32) __asm__("func_00203F68");
-extern void func_00204340_EABE8(u8 *, u8 *, u8 *, u8 *, s32) __asm__("func_00204340");
-extern void func_00204918_EABE8(u8 *, u8 *) __asm__("func_00204918");
-extern void func_00205220_EABE8(s32) __asm__("func_00205220");
-extern s32 func_0020C468_EABE8(u8 *, u8 *) __asm__("func_0020C468");
-extern void func_00217628_EABE8(u8 *, s32, s32) __asm__("func_00217628");
-extern unsigned int func_002176C8_EABE8(s32, s32, s32) __asm__("func_002176C8");
-extern void func_00217748_EABE8(s32) __asm__("func_00217748");
-extern void func_002348E8_EABE8(void) __asm__("func_002348E8");
-extern s32 func_00122630_EABE8(void *, s16, s16, s16, s16, s16, s16, s16) __asm__("func_00122630");
-extern s32 func_00122958_EABE8(void *, u8 *) __asm__("func_00122958");
+extern s32 g_gs_texture_allocation_cursor_r __asm__("D_0015EF74") MACRO_ADDR;
+extern s32 g_gs_texture_allocation_start_r __asm__("D_0015EF78") MACRO_ADDR;
+extern s32 g_gs_texture_allocation_base_r __asm__("D_0015EF8C") MACRO_ADDR;
+extern s64 intro_overlay_tex0_r __asm__("D_0015F048") MACRO_ADDR;
+extern s32 intro_overlay_timer_r __asm__("D_0015F058") MACRO_ADDR;
+extern s32 help_msg_data_r __asm__("D_0015F060") MACRO_ADDR;
+extern s32 help_offset_table_r __asm__("D_0015F064") MACRO_ADDR;
+extern s32 level_texture_payload_address_r __asm__("D_0015F560") MACRO_ADDR;
+extern TextEntry_EABE8 *help_msgs_r __asm__("D_0015F780") MACRO_ADDR;
+extern s32 resident_moby_class_count_r __asm__("D_00160000") MACRO_ADDR;
+extern s32 resident_indexed_texture_count_r __asm__("D_00160008") MACRO_ADDR;
+extern s32 registered_shrub_render_class_count_r __asm__("D_001604CC") MACRO_ADDR;
+extern s32 shrub_render_texture_definition_count_r __asm__("D_001604EC") MACRO_ADDR;
+extern s32 tfrag_texture_definition_count_r __asm__("D_00160F94") MACRO_ADDR;
+extern s32 current_vu_chain_r __asm__("D_0016100C") MACRO_ADDR;
+extern s32 registered_object_render_class_count_r __asm__("D_0016104C") MACRO_ADDR;
+extern s32 object_render_texture_definition_count_r __asm__("D_00161064") MACRO_ADDR;
+extern u8 moby_class_472_sound_defs_r[] __asm__("D_001862E0");
+extern u8 level_init_cleared_block_r[] __asm__("D_00186410");
+extern SoundBanks_EABE8 render_sequence_r __asm__("D_0018CC20");
+extern LoadState_EABE8 level_resource_buffers_r __asm__("D_001941C0");
+extern u8 coll_output_aux_buffer_r[] __asm__("D_00194280");
+extern HelpState_EABE8 g_help_state_r __asm__("D_001997D0");
+extern u64 special_material_template_r[] __asm__("D_0019E7C0");
+extern MobyClass *moby_class_resources_r[] __asm__("D_001B3580");
+extern u8 resident_class_slot_by_id_r[] __asm__("D_001B3E40");
+extern s32 resident_indexed_texture_addrs_r[] __asm__("D_001B5D00");
+extern s32 resident_class_original_field_2c_r[] __asm__("D_001B6500");
+extern u8 resident_class_material_maps_r[] __asm__("D_001B6C00");
+extern s32 shrub_render_texture_addrs_r[] __asm__("D_001D8840");
+extern s32 tfrag_texture_size_table_r[] __asm__("D_001E0C00");
+extern s32 object_render_texture_addrs_r[] __asm__("D_001E2900");
+extern void calculate_dma_transfer_address_r(void) __asm__("func_002348B8");
+extern void FastMemSet_r(void *, s32, s32) __asm__("func_001F99B0");
+extern void flush_cache_r(s32) __asm__("func_00118D80");
+extern void queue_dma_transfer_r(s32) __asm__("func_001EB300");
+extern void wait_for_graphics_pipeline_idle_r(s32, s32) __asm__("func_00120858");
+extern s32 initialize_level_render_state_r(u8 *) __asm__("func_001E9EC8");
+extern void InitViewContext_r(void) __asm__("func_001F3008");
+extern void UpdateViewContext_r(void) __asm__("func_001F3140");
+extern char log2dim_r(s32) __asm__("func_001F9968");
+extern void InitMemSlots_r(void) __asm__("func_00201E10");
+extern void ParseParticleTexs_r(u8 *, u8 *, u8 *, s32) __asm__("func_00202F00");
+extern void unpack_point_records_r(u8 *, s32) __asm__("func_00203038");
+extern void relocate_sky_definition_r(u8 *) __asm__("func_00203118");
+extern void upload_texture_images_r(u8 *, s32, u8 *) __asm__("func_00203958");
+extern void register_moby_class_r(u8 *, u8 *, u8 *, s32) __asm__("func_00203E78");
+extern void register_object_render_class_r(u8 *, u8 *, u8 *, s32) __asm__("func_00203F68");
+extern void register_shrub_render_class_r(u8 *, u8 *, u8 *, u8 *, s32) __asm__("func_00204340");
+extern void initialize_tfrag_render_data_r(u8 *, u8 *) __asm__("func_00204918");
+extern void parse_space_scene_chunk_r(s32) __asm__("func_00205220");
+extern s32 fast_decompress_r(u8 *, u8 *) __asm__("func_0020C468");
+extern void start_audio_stream_read_r(u8 *, s32, s32) __asm__("func_00217628");
+extern unsigned int Load_r(s32, s32, s32) __asm__("func_002176C8");
+extern void update_audio_stream_until_idle_r(s32) __asm__("func_00217748");
+extern void VU1_initChain_r(void) __asm__("func_002348E8");
+extern s32 sceGsSetDefLoadImage_r(void *, s16, s16, s16, s16, s16, s16, s16) __asm__("func_00122630");
+extern s32 sceGsExecLoadImage_r(void *, u8 *) __asm__("func_00122958");
 
 /* Loads the space-transition wad to 0x1400000 and unpacks it at the level arena: textures and
    their tables, the three kinds of moby classes, sound and help text tables, the loading image;
    then resets the sequence state and relocates the eight help text tables.
-   Adapted from Lombyte (GPL-3.0) for PAL: src/gameplay/state/transition_load_wad.c, transition_load_wad. */
+   Adapted from Lombyte's project (GPL-3.0) for PAL: src/gameplay/state/transition_load_wad.c, transition_load_wad. */
 void transition_load_wad(void)
 {
   u8 li[0x60];
@@ -700,129 +700,129 @@ void transition_load_wad(void)
   s32 adj;
   s64 t;
   s64 u;
-  D_0015F058_EABE8 = 0;
+  intro_overlay_timer_r = 0;
   i = 0;
-  func_002348B8_EABE8();
-  func_00201E10_EABE8();
-  D_0016100C_EABE8 = 0x100000;
-  D_0015EF8C_EABE8 = 0x2C0000;
-  D_0015EF78_EABE8 = 0x2C0000;
-  D_0015EF74_EABE8 = 0x2C0000;
-  func_001F99B0_EABE8(D_00194280_EABE8, 0x87654321, 0x10);
-  func_001F99B0_EABE8(D_001B3E40_EABE8, -1, k_800);
-  func_001F99B0_EABE8(D_001B6C00_EABE8, -1, 0xE00);
-  func_001F99B0_EABE8(D_001B6500_EABE8, 0, 0xE0);
-  func_001F3008_EABE8();
-  func_001F3140_EABE8();
-  func_002348E8_EABE8();
-  func_00217628_EABE8((u8 *)0x1400000, D_00137C80_EABE8.unk14E8.sector, D_00137C80_EABE8.unk14E8.size);
-  func_00217748_EABE8(1);
-  func_00118D80_EABE8(0);
-  size = func_0020C468_EABE8((u8 *)0x1400000, D_001941C0_EABE8.hdr);
-  func_00118D80_EABE8(0);
-  hdr = (WadHeader_EABE8 *) D_001941C0_EABE8.hdr;
-  func_00203958_EABE8(((u8 *) hdr) + hdr->x0, hdr->x8, ((u8 *) hdr) + hdr->xC);
-  t = ((s64) ((D_0015EF8C_EABE8 + hdr->x70) >> 8)) | 0x1D308000;
-  u = (((s64) ((D_0015EF8C_EABE8 + hdr->x74) >> 8)) << 37) | (((s64) 0xB800) << 19);
+  calculate_dma_transfer_address_r();
+  InitMemSlots_r();
+  current_vu_chain_r = 0x100000;
+  g_gs_texture_allocation_base_r = 0x2C0000;
+  g_gs_texture_allocation_start_r = 0x2C0000;
+  g_gs_texture_allocation_cursor_r = 0x2C0000;
+  FastMemSet_r(coll_output_aux_buffer_r, 0x87654321, 0x10);
+  FastMemSet_r(resident_class_slot_by_id_r, -1, k_800);
+  FastMemSet_r(resident_class_material_maps_r, -1, 0xE00);
+  FastMemSet_r(resident_class_original_field_2c_r, 0, 0xE0);
+  InitViewContext_r();
+  UpdateViewContext_r();
+  VU1_initChain_r();
+  start_audio_stream_read_r((u8 *)0x1400000, disc_table_r.unk14E8.sector, disc_table_r.unk14E8.size);
+  update_audio_stream_until_idle_r(1);
+  flush_cache_r(0);
+  size = fast_decompress_r((u8 *)0x1400000, level_resource_buffers_r.hdr);
+  flush_cache_r(0);
+  hdr = (WadHeader_EABE8 *) level_resource_buffers_r.hdr;
+  upload_texture_images_r(((u8 *) hdr) + hdr->x0, hdr->x8, ((u8 *) hdr) + hdr->xC);
+  t = ((s64) ((g_gs_texture_allocation_base_r + hdr->x70) >> 8)) | 0x1D308000;
+  u = (((s64) ((g_gs_texture_allocation_base_r + hdr->x74) >> 8)) << 37) | (((s64) 0xB800) << 19);
   data = ((u8 *) hdr) + hdr->data;
   base = data + hdr->x60;
-  D_0019E7C0_EABE8[0] = (t | u) | (((s64) (-1)) << 63);
-  D_0019E7C0_EABE8[1] = 0xFFA0000000E0;
-  D_0019E7C0_EABE8[2] = 0x0040000400004000;
+  special_material_template_r[0] = (t | u) | (((s64) (-1)) << 63);
+  special_material_template_r[1] = 0xFFA0000000E0;
+  special_material_template_r[2] = 0x0040000400004000;
   tex = (WadTex_EABE8 *) (((u8 *) hdr) + hdr->x34);
-  if ((D_00160F94_EABE8 = hdr->n30) > 0)
+  if ((tfrag_texture_definition_count_r = hdr->n30) > 0)
   {
     do
     {
-      D_001E0C00_EABE8[i] = (((s32) base) + tex[i].offset) + (func_001F9968_EABE8(tex[i].x4) << 28);
+      tfrag_texture_size_table_r[i] = (((s32) base) + tex[i].offset) + (log2dim_r(tex[i].x4) << 28);
       i++;
     }
-    while (i < D_00160F94_EABE8);
+    while (i < tfrag_texture_definition_count_r);
   }
   k = 0;
   tex = (new_var2 = (WadTex_EABE8 *) (((u8 *) hdr) + hdr->x3C));
-  if ((D_00160008_EABE8 = hdr->n38) > 0)
+  if ((resident_indexed_texture_count_r = hdr->n38) > 0)
   {
     do
     {
-      D_001B5D00_EABE8[k] = (((s32) base) + tex[k].offset) + (func_001F9968_EABE8(tex[k].x4) << 28);
+      resident_indexed_texture_addrs_r[k] = (((s32) base) + tex[k].offset) + (log2dim_r(tex[k].x4) << 28);
       k++;
     }
-    while (k < D_00160008_EABE8);
+    while (k < resident_indexed_texture_count_r);
   }
   k = 0;
   tex = (new_var2 = (WadTex_EABE8 *) (((u8 *) hdr) + hdr->x44));
-  if ((D_00161064_EABE8 = hdr->n40) > 0)
+  if ((object_render_texture_definition_count_r = hdr->n40) > 0)
   {
     do
     {
-      D_001E2900_EABE8[k] = (((s32) base) + tex[k].offset) + (func_001F9968_EABE8(tex[k].x4) << 28);
+      object_render_texture_addrs_r[k] = (((s32) base) + tex[k].offset) + (log2dim_r(tex[k].x4) << 28);
       k++;
     }
-    while (k < D_00161064_EABE8);
+    while (k < object_render_texture_definition_count_r);
   }
   k = 0;
   tex = (new_var2 = (WadTex_EABE8 *) (((u8 *) hdr) + hdr->x4C));
-  if ((D_001604EC_EABE8 = hdr->n48) > 0)
+  if ((shrub_render_texture_definition_count_r = hdr->n48) > 0)
   {
     do
     {
-      D_001D8840_EABE8[k] = (((s32) base) + tex[k].offset) + (func_001F9968_EABE8(tex[k].x4) << 28);
+      shrub_render_texture_addrs_r[k] = (((s32) base) + tex[k].offset) + (log2dim_r(tex[k].x4) << 28);
       k++;
     }
-    while (k < D_001604EC_EABE8);
+    while (k < shrub_render_texture_definition_count_r);
   }
-  func_00204918_EABE8(data + hdr->x10, ((u8 *) hdr) + hdr->x34);
-  func_00203118_EABE8(data + hdr->x14);
+  initialize_tfrag_render_data_r(data + hdr->x10, ((u8 *) hdr) + hdr->x34);
+  relocate_sky_definition_r(data + hdr->x14);
   c20 = (WadClass20_EABE8 *) (((u8 *) hdr) + hdr->x1C);
-  D_00160000_EABE8 = 0;
-  D_0016104C_EABE8 = 0;
-  D_001604CC_EABE8 = 0;
+  resident_moby_class_count_r = 0;
+  registered_object_render_class_count_r = 0;
+  registered_shrub_render_class_count_r = 0;
   for (k = 0; k < hdr->n18; k++)
   {
-    func_00203E78_EABE8((c20->offset != 0) ? (data + c20->offset) : (0), ((u8 *) hdr) + hdr->x3C, c20->x10, c20->x4);
+    register_moby_class_r((c20->offset != 0) ? (data + c20->offset) : (0), ((u8 *) hdr) + hdr->x3C, c20->x10, c20->x4);
     c20++;
   }
 
   c20 = (WadClass20_EABE8 *) (((u8 *) hdr) + hdr->x24);
   for (k = 0; k < hdr->n20; k++)
   {
-    func_00203F68_EABE8(data + c20->offset, ((u8 *) hdr) + hdr->x44, c20->x10, c20->x4);
+    register_object_render_class_r(data + c20->offset, ((u8 *) hdr) + hdr->x44, c20->x10, c20->x4);
     c20++;
   }
 
   c30 = (WadClass30_EABE8 *) (((u8 *) hdr) + hdr->x2C);
   for (k = 0; k < hdr->n28; k++)
   {
-    func_00204340_EABE8(data + c30->offset, ((u8 *) hdr) + hdr->x4C, c30->x10, c30->x20, c30->x4);
+    register_shrub_render_class_r(data + c30->offset, ((u8 *) hdr) + hdr->x4C, c30->x10, c30->x20, c30->x4);
     c30++;
   }
 
-  D_0015F560_EABE8 = (s32) (data + hdr->x68);
-  func_00203038_EABE8(((u8 *) hdr) + hdr->x5C, hdr->x58);
+  level_texture_payload_address_r = (s32) (data + hdr->x68);
+  unpack_point_records_r(((u8 *) hdr) + hdr->x5C, hdr->x58);
   new_var3 = data + hdr->x64;
   new_var4 = hdr->x54;
-  func_00202F00_EABE8(((u8 *) hdr) + (new_var = hdr->x6C), new_var3, ((u8 *) hdr) + new_var4, hdr->x50);
-  func_00122630_EABE8(li, (D_0015EF74_EABE8 << 8) >> 16, 4, 0, 0, 0, 0x100, 0x80);
-  func_00118D80_EABE8(0);
-  func_00122958_EABE8(li, data + hdr->x84);
-  func_00120858_EABE8(0, 0);
-  D_001941C0_EABE8.x18 = ((s32) D_001941C0_EABE8.hdr) + size;
-  v = D_0015EF74_EABE8;
-  D_0015F048_EABE8 = ((v >> 8) | 0x20010000) | (((s64) 0xB800) << 19);
-  D_0015EF74_EABE8 = v + 0x20000;
-  D_0015EF78_EABE8 = v + 0x20000;
-  D_001941C0_EABE8.x1C = func_001E9EC8_EABE8(data + hdr->x7C);
-  func_001F99B0_EABE8(&D_0018CC20_EABE8, 0, 0x1C0);
-  func_001F99B0_EABE8(D_00186410_EABE8, 0, 0x40);
-  D_0018CC20_EABE8.x58 = D_001941C0_EABE8.x1C;
-  D_0018CC20_EABE8.x5C = (D_001941C0_EABE8.x1C += 0x40000);
-  D_001941C0_EABE8.x1C += 0x40000;
+  ParseParticleTexs_r(((u8 *) hdr) + (new_var = hdr->x6C), new_var3, ((u8 *) hdr) + new_var4, hdr->x50);
+  sceGsSetDefLoadImage_r(li, (g_gs_texture_allocation_cursor_r << 8) >> 16, 4, 0, 0, 0, 0x100, 0x80);
+  flush_cache_r(0);
+  sceGsExecLoadImage_r(li, data + hdr->x84);
+  wait_for_graphics_pipeline_idle_r(0, 0);
+  level_resource_buffers_r.x18 = ((s32) level_resource_buffers_r.hdr) + size;
+  v = g_gs_texture_allocation_cursor_r;
+  intro_overlay_tex0_r = ((v >> 8) | 0x20010000) | (((s64) 0xB800) << 19);
+  g_gs_texture_allocation_cursor_r = v + 0x20000;
+  g_gs_texture_allocation_start_r = v + 0x20000;
+  level_resource_buffers_r.x1C = initialize_level_render_state_r(data + hdr->x7C);
+  FastMemSet_r(&render_sequence_r, 0, 0x1C0);
+  FastMemSet_r(level_init_cleared_block_r, 0, 0x40);
+  render_sequence_r.x58 = level_resource_buffers_r.x1C;
+  render_sequence_r.x5C = (level_resource_buffers_r.x1C += 0x40000);
+  level_resource_buffers_r.x1C += 0x40000;
   snd = (WadSound_EABE8 *) (data + hdr->x80);
   cnt = 0;
   if (snd->size != 0)
   {
-    out = D_0018CC20_EABE8.x60;
+    out = render_sequence_r.x60;
     do
     {
       cnt++;
@@ -832,18 +832,18 @@ void transition_load_wad(void)
     }
     while ((cnt < 0x46) && (snd->size != 0));
   }
-  func_00205220_EABE8(0);
-  D_0015F060_EABE8 = D_001941C0_EABE8.x1C;
-  func_002176C8_EABE8(D_001941C0_EABE8.x1C, D_00137C80_EABE8.help_text.sector, D_00137C80_EABE8.help_text.size);
-  D_0015F064_EABE8 = D_0015F060_EABE8;
-  D_001941C0_EABE8.x1C = D_0015F060_EABE8 + (D_00137C80_EABE8.help_text.size << 11);
+  parse_space_scene_chunk_r(0);
+  help_msg_data_r = level_resource_buffers_r.x1C;
+  Load_r(level_resource_buffers_r.x1C, disc_table_r.help_text.sector, disc_table_r.help_text.size);
+  help_offset_table_r = help_msg_data_r;
+  level_resource_buffers_r.x1C = help_msg_data_r + (disc_table_r.help_text.size << 11);
   for (k = 0; k < 8; k++)
   {
-    func_001EB300_EABE8(k);
+    queue_dma_transfer_r(k);
     j = 0;
-    if (D_001997D0_EABE8.count > 0)
+    if (g_help_state_r.count > 0)
     {
-      te = D_0015F780_EABE8;
+      te = help_msgs_r;
       adj = ((s32) te) - 8;
       {
         do
@@ -851,26 +851,26 @@ void transition_load_wad(void)
           te[j].offset += adj;
           j++;
         }
-        while (j < D_001997D0_EABE8.count);
+        while (j < g_help_state_r.count);
       }
     }
   }
 
-  func_001EB300_EABE8(0);
-  cnt = (new_var = D_001B3E40_EABE8[0x472]);
+  queue_dma_transfer_r(0);
+  cnt = (new_var = resident_class_slot_by_id_r[0x472]);
   if (cnt >= 0)
   {
-    D_001B3580_EABE8[cnt]->sound_defs = (s32)D_001862E0_EABE8;
-    (*(u8 *)&D_001B3580_EABE8[cnt]->pad_D) = 5;
+    moby_class_resources_r[cnt]->sound_defs = (s32)moby_class_472_sound_defs_r;
+    (*(u8 *)&moby_class_resources_r[cnt]->pad_D) = 5;
   }
 }
 
-extern int D_0015F064 MACRO_ADDR;
-extern int D_0015F060 MACRO_ADDR;
-extern int D_001997FC;
+extern int help_offset_table MACRO_ADDR;
+extern int help_msg_data MACRO_ADDR;
+extern int help_msg_count;
 /* gp-relative, no retail symbol: gp 0x166D00 - 0x7580 = 0x15F780
    (cursor into the table walked below). */
-extern short D_0015F780;
+extern short help_msgs;
 
 /* Points the D_0015F780 cursor at entry arg0 of the table D_0015F064
    indexes into D_0015F060, past its 8-byte header, and keeps the
@@ -886,16 +886,16 @@ void queue_dma_transfer(int arg0) {
     *(char **)&help_msgs = p;
 }
 
-extern char D_0018CC20[];
-extern float D_0018CEB0;
-extern char D_00187180[];
-extern void func_001F3140(void);
+extern char render_sequence[];
+extern float view_tan_half_fov;
+extern char camera_position[];
+extern void UpdateViewContext(void);
 
 /* Transition_UpdateMovieCamera: the current keyframe (0x20 bytes: position,
    a flag byte at +0xC, then X/Y/Z angles) sets the camera position and
    its orientation matrix (negated first two rows); returns the flag. */
 unsigned char Transition_UpdateMovieCamera(void) {
-    char *t = D_0018CC20;
+    char *t = render_sequence;
     char *key = *(char **)(t + 0x54) + *(int *)(t + 0x38) * 32;
     unsigned char flag = key[0xC];
     float *ang = (float *)(key + 0x10);
@@ -907,10 +907,10 @@ unsigned char Transition_UpdateMovieCamera(void) {
     UpdateViewContext();
     pos = camera_position;
     qcopy(pos, key);
-    func_00125358(m);
-    func_001254A0(m, m, *(float *)(key + 0x10));
-    func_00125548(m, m, ang[1]);
-    func_001253F8(m, m, ang[2]);
+    sceVu0UnitMatrix(m);
+    sceVu0RotMatrixX(m, m, *(float *)(key + 0x10));
+    sceVu0RotMatrixY(m, m, ang[1]);
+    sceVu0RotMatrixZ(m, m, ang[2]);
     cam = pos - 0x140;
     *(float *)(cam + 0x350) = -m[8];
     *(float *)(cam + 0x360) = -m[0];
@@ -958,33 +958,33 @@ typedef struct {
     RenderSequenceActor_EB458 *actors[1];
 } RenderSequenceState_EB458;
 
-extern RenderSequenceState_EB458 D_0018CC20_EB458 __asm__("D_0018CC20");
-extern f32 D_0015F53C_EB458 __asm__("D_0015F53C") MACRO_ADDR;
-extern s32 D_0015F050_EB458 __asm__("D_0015F050") MACRO_ADDR;
-extern s32 D_0015F054_EB458 __asm__("D_0015F054") MACRO_ADDR;
-extern s32 D_0015F6E8_EB458 __asm__("D_0015F6E8") MACRO_ADDR;
-extern s32 D_0013CBE4_EB458[] __asm__("D_0013CBE4");
-extern void func_00219E60_EB458(void) __asm__("func_00219E60");
-extern void func_001E9790_EB458(RenderSequenceActor_EB458 *) __asm__("func_001E9790");
-extern void func_001E97A8_EB458(void) __asm__("func_001E97A8");
-extern void func_001E97B0_EB458(void) __asm__("func_001E97B0");
-extern void func_001EB338_EB458(void) __asm__("func_001EB338");
-extern s32 func_001F98C0_EB458(s32) __asm__("func_001F98C0");
-extern void func_001F9BD8_EB458(Vec4A *, Vec4A *, Vec4A *) __asm__("func_001F9BD8");
-extern void func_001F9C30_EB458(Vec4A *, Vec4A *, f32) __asm__("func_001F9C30");
-extern f32 func_001F9F90_EB458(f32) __asm__("func_001F9F90");
-extern f32 func_001FA888_EB458(s32) __asm__("func_001FA888");
-extern void func_001FD3E8_EB458(void) __asm__("func_001FD3E8");
-extern void func_00205220_EB458(s32) __asm__("func_00205220");
-extern void func_0020D6D0_EB458(RenderSequenceActor_EB458 *) __asm__("func_0020D6D0");
-extern void func_0020ED48_EB458(RenderSequenceActor_EB458 *) __asm__("func_0020ED48");
-extern void func_0021A1A0_EB458(void) __asm__("func_0021A1A0");
-extern void func_0022DD68_EB458(void) __asm__("func_0022DD68");
+extern RenderSequenceState_EB458 render_sequence_r2 __asm__("D_0018CC20");
+extern f32 gFade_r __asm__("D_0015F53C") MACRO_ADDR;
+extern s32 intro_overlay_alpha_r __asm__("D_0015F050") MACRO_ADDR;
+extern s32 language_intro_overlay_alpha_r __asm__("D_0015F054") MACRO_ADDR;
+extern s32 g_game_mode_r __asm__("D_0015F6E8") MACRO_ADDR;
+extern s32 pad0_pressed_r[] __asm__("D_0013CBE4");
+extern void initialize_transfer_command_r(void) __asm__("func_00219E60");
+extern void noop_callback_e_r(RenderSequenceActor_EB458 *) __asm__("func_001E9790");
+extern void noop_callback_h_r(void) __asm__("func_001E97A8");
+extern void noop_callback_i_r(void) __asm__("func_001E97B0");
+extern void Transition_UpdateMovieCamera_r(void) __asm__("func_001EB338");
+extern s32 scale_game_frame_count_r(s32) __asm__("func_001F98C0");
+extern void FastVecAdd_r(Vec4A *, Vec4A *, Vec4A *) __asm__("func_001F9BD8");
+extern void FastVecScale_r(Vec4A *, Vec4A *, f32) __asm__("func_001F9C30");
+extern f32 FastCos_r(f32) __asm__("func_001F9F90");
+extern f32 IntToFloat_r(s32) __asm__("func_001FA888");
+extern void update_mode_freeze_r(void) __asm__("func_001FD3E8");
+extern void parse_space_scene_chunk_r2(s32) __asm__("func_00205220");
+extern void update_moby_animation_state_r(RenderSequenceActor_EB458 *) __asm__("func_0020D6D0");
+extern void refresh_moby_spatial_bounds_r(RenderSequenceActor_EB458 *) __asm__("func_0020ED48");
+extern void update_menu_system_r(void) __asm__("func_0021A1A0");
+extern void sound_update_r(void) __asm__("func_0022DD68");
 
 /* One frame of the space-flight sequence between levels: steps the sequence clock and its
    scene chunks, the movie camera, each actor's animation frame and interpolated position,
    then the intro overlay fades and the mode's own update (pause menu, freeze) and sound.
-   Adapted from Lombyte (GPL-3.0) for PAL: src/textbin/fun_001eb0a8.c, update_gameplay_frame. */
+   Adapted from Lombyte's project (GPL-3.0) for PAL: src/textbin/fun_001eb0a8.c, update_gameplay_frame. */
 void update_gameplay_frame(void) {
     Vec4A first_position;
     Vec4A next_position;
@@ -993,75 +993,75 @@ void update_gameplay_frame(void) {
     s32 actor_index;
     f32 fade;
 
-    func_001E97B0_EB458();
-    fade = D_0015F53C_EB458 - 0.0625f;
-    D_0018CC20_EB458.frame++;
-    D_0018CC20_EB458.time++;
-    D_0015F53C_EB458 = fade;
+    noop_callback_i_r();
+    fade = gFade_r - 0.0625f;
+    render_sequence_r2.frame++;
+    render_sequence_r2.time++;
+    gFade_r = fade;
     if (fade < 0.0f) {
-        D_0015F53C_EB458 = 0.0f;
+        gFade_r = 0.0f;
     }
-    if (D_0018CC20_EB458.time >= D_0018CC20_EB458.end_time) {
-        D_0018CC20_EB458.time = 0;
-        D_0018CC20_EB458.sequence_frame = 0;
-        func_00205220_EB458(0);
-    } else if (D_0018CC20_EB458.frame >= 0x60) {
-        func_00205220_EB458(++D_0018CC20_EB458.sequence_frame);
+    if (render_sequence_r2.time >= render_sequence_r2.end_time) {
+        render_sequence_r2.time = 0;
+        render_sequence_r2.sequence_frame = 0;
+        parse_space_scene_chunk_r2(0);
+    } else if (render_sequence_r2.frame >= 0x60) {
+        parse_space_scene_chunk_r2(++render_sequence_r2.sequence_frame);
     }
-    func_001EB338_EB458();
-    for (actor_index = 0; actor_index < D_0018CC20_EB458.count; actor_index++) {
+    Transition_UpdateMovieCamera_r();
+    for (actor_index = 0; actor_index < render_sequence_r2.count; actor_index++) {
         u8 frame_index;
-        actor = D_0018CC20_EB458.actors[actor_index];
-        frame_index = D_0018CC20_EB458.frame >> 1;
-        actor->current_frame = D_0018CC20_EB458.frame >> 1;
+        actor = render_sequence_r2.actors[actor_index];
+        frame_index = render_sequence_r2.frame >> 1;
+        actor->current_frame = render_sequence_r2.frame >> 1;
         actor->next_frame = frame_index + 1;
-        func_0020D6D0_EB458(actor);
-        actor->frame_fraction = func_001FA888_EB458(D_0018CC20_EB458.frame & 1) * 0.5f;
+        update_moby_animation_state_r(actor);
+        actor->frame_fraction = IntToFloat_r(render_sequence_r2.frame & 1) * 0.5f;
         animation_positions = ((RenderSequenceSidecar_EB458 *)actor)->animation_positions;
-        func_001F9C30_EB458(&first_position, &animation_positions[actor->current_frame],
+        FastVecScale_r(&first_position, &animation_positions[actor->current_frame],
                             1.0f - actor->frame_fraction);
-        func_001F9C30_EB458(&next_position, &animation_positions[actor->next_frame],
+        FastVecScale_r(&next_position, &animation_positions[actor->next_frame],
                             actor->frame_fraction);
-        func_001F9BD8_EB458(&actor->position, &first_position, &next_position);
+        FastVecAdd_r(&actor->position, &first_position, &next_position);
         actor->cached_frame = 0xFF;
-        func_0020ED48_EB458(actor);
+        refresh_moby_spatial_bounds_r(actor);
         actor->update_enabled = 0;
         if (actor->class_id == 0) {
-            func_001E9790_EB458(actor);
+            noop_callback_e_r(actor);
         }
     }
-    func_001E97A8_EB458();
-    if (D_0015F6E8_EB458 == 0) {
-        D_0015F058_EABE8++;
-        if (func_001F98C0_EB458(0x1E) < D_0015F058_EABE8) {
-            if (++D_0015F050_EB458 > 0x40) {
-                D_0015F050_EB458 = 0x40;
+    noop_callback_h_r();
+    if (g_game_mode_r == 0) {
+        intro_overlay_timer_r++;
+        if (scale_game_frame_count_r(0x1E) < intro_overlay_timer_r) {
+            if (++intro_overlay_alpha_r > 0x40) {
+                intro_overlay_alpha_r = 0x40;
             }
         }
-        if (func_001F98C0_EB458(0x78) < D_0015F058_EABE8) {
-            D_0015F054_EB458 =
-                (s32)(func_001F9F90_EB458((D_0015F058_EABE8 - func_001F98C0_EB458(0x78)) % 60 * 0.10471976f +
+        if (scale_game_frame_count_r(0x78) < intro_overlay_timer_r) {
+            language_intro_overlay_alpha_r =
+                (s32)(FastCos_r((intro_overlay_timer_r - scale_game_frame_count_r(0x78)) % 60 * 0.10471976f +
                                           -3.1415927f) *
                       32.0f) +
                 0x60;
         }
-        if (D_0013CBE4_EB458[0] & 0x840) {
-            func_00219E60_EB458();
+        if (pad0_pressed_r[0] & 0x840) {
+            initialize_transfer_command_r();
         }
-        func_0022DD68_EB458();
-    } else if (D_0015F6E8_EB458 == 3) {
-        D_0015F058_EABE8 = func_001F98C0_EB458(0x3C);
-        if ((D_0015F050_EB458 -= 0x10) < 0) {
-            D_0015F050_EB458 = 0;
+        sound_update_r();
+    } else if (g_game_mode_r == 3) {
+        intro_overlay_timer_r = scale_game_frame_count_r(0x3C);
+        if ((intro_overlay_alpha_r -= 0x10) < 0) {
+            intro_overlay_alpha_r = 0;
         }
-        if ((D_0015F054_EB458 -= 0x10) < 0) {
-            D_0015F054_EB458 = 0;
+        if ((language_intro_overlay_alpha_r -= 0x10) < 0) {
+            language_intro_overlay_alpha_r = 0;
         }
-        func_0021A1A0_EB458();
-        func_0022DD68_EB458();
-    } else if (D_0015F6E8_EB458 == 4) {
-        func_001FD3E8_EB458();
-        func_0022DD68_EB458();
+        update_menu_system_r();
+        sound_update_r();
+    } else if (g_game_mode_r == 4) {
+        update_mode_freeze_r();
+        sound_update_r();
     }
 }
 
@@ -1071,61 +1071,61 @@ struct M2c_D_0016045C
   s16 unk4;
   u8 pad_6[0x2];
 };
-extern u8 D_00100AE0[];
-extern s32 D_0013E604[];
-extern short D_0015EE88;
-extern short D_0015F048;
-extern s32 D_0015F050 MACRO_ADDR;
-extern s32 D_0015F054 MACRO_ADDR;
-extern f32 D_0015F53C MACRO_ADDR;
-extern s32 D_0015F564 MACRO_ADDR;
-extern s32 D_0015F6E8 MACRO_ADDR;
-extern s32 D_0015F704 MACRO_ADDR;
-extern struct M2c_D_0016045C * D_0016055C MACRO_ADDR;
-extern s32 D_0018A3E8[];
-extern u8 D_001940C0[];
-extern u8 D_001D9240[];
-extern u8 D_001E1600[];
-extern u8 D_001E3500[];
-extern s32 func_00235290();
-extern s32 func_001F99B0();
-extern s32 func_00118D80();
-extern s32 func_001E9E70_EB7C0() __asm__("func_001E9E70");
-extern s32 func_001EB338_EB7C0() __asm__("func_001EB338");
-extern s32 func_001F2608();
-extern s32 func_001F2930();
-extern void func_001F3C10();
-extern s32 func_001F4630();
-extern s32 func_001F4748();
-extern u64 func_001F4868();
-extern s32 func_001F4A00();
-extern s32 func_001F55C0();
-extern void func_001F5800();
-extern s32 func_001FA898(f32);
-extern s32 func_001FB530();
-extern s32 func_001FB848();
-extern s32 func_001FBE80();
-extern s32 func_0020DAB0();
-extern s32 func_0020DD48();
-extern s32 func_0020E2B0();
-extern void func_00218B10();
-extern void func_0021A610();
-extern s32 func_00229D48();
-extern void func_00229E50();
-extern s32 func_0022B8F8();
-extern s32 func_00234620();
-extern void func_002346C0();
-extern s32 func_002347F0();
-extern s32 func_00234AC8();
-extern s32 func_00234C98_EB7C0() __asm__("func_00234C98");
-extern void func_00234F40();
-extern s32 func_002362B0();
-extern s32 func_00236A98();
-extern void func_00236BE0();
-extern s32 func_00238688();
-void func_001EB7C0(s32 *arg0);
+extern u8 frame_vu0_micro_program[];
+extern s32 frame_size[];
+extern short g_game_language;
+extern short intro_overlay_tex0;
+extern s32 intro_overlay_alpha MACRO_ADDR;
+extern s32 language_intro_overlay_alpha MACRO_ADDR;
+extern f32 gFade MACRO_ADDR;
+extern s32 draw_callback_count MACRO_ADDR;
+extern s32 g_game_mode MACRO_ADDR;
+extern s32 font_state MACRO_ADDR;
+extern struct M2c_D_0016045C * level_sky_effect_data MACRO_ADDR;
+extern s32 transition_draw_particles[];
+extern u8 occl_visibility[];
+extern u8 shrub_scratchpad_copy[];
+extern u8 tfrag_dma_block[];
+extern u8 tie_light_data[];
+extern s32 append_dma_tag();
+extern s32 FastMemSet();
+extern s32 flush_cache();
+extern s32 Transition_DrawSky_r() __asm__("func_001E9E70");
+extern s32 Transition_UpdateMovieCamera_r2() __asm__("func_001EB338");
+extern s32 BuildViewMatrices();
+extern s32 UpdateFog();
+extern void ResetGsRegisters();
+extern s32 SetupGifPaging();
+extern s32 DoGifPaging();
+extern u64 GetEffectTex();
+extern s32 dispatch_callback_list_1();
+extern s32 emit_rgba_draw_packet();
+extern void DrawTexturedQuad();
+extern s32 truncate_float_to_s32(f32);
+extern s32 append_gif_transfer_packet();
+extern s32 AA_BlurPass();
+extern s32 draw_freeze_message_box();
+extern s32 prune_moby_references();
+extern s32 PatchMobyGifs();
+extern s32 DrawMobys();
+extern void PartProc();
+extern void render_level_effects_and_screen_sprites();
+extern s32 patch_shrub_gifs();
+extern void DrawShrubs();
+extern s32 LightShrubs();
+extern s32 PatchTfragGifs();
+extern void DrawTfrag();
+extern s32 VU0_loadMicroProgram();
+extern s32 VU1_syncChain();
+extern s32 VU1_addGSregister_r() __asm__("func_00234C98");
+extern void vu1_gs_regs_alt();
+extern s32 LightTfrags();
+extern s32 PatchTieGifs();
+extern void DrawTies_1();
+extern s32 LightTies();
+void Transition_DefaultDraw(s32 *arg0);
 
-/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/gameplay/state/transition_default_draw.c, transition_default_draw. */
+/* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/gameplay/state/transition_default_draw.c, transition_default_draw. */
 void Transition_DefaultDraw(s32 *arg0)
 {
     s32 n;
@@ -1134,13 +1134,13 @@ void Transition_DefaultDraw(s32 *arg0)
         append_gif_transfer_packet();
     }
     FastMemSet(occl_visibility, -1, 0x80);
-    func_001EB338_EB7C0();
+    Transition_UpdateMovieCamera_r2();
     BuildViewMatrices();
     prune_moby_references();
     ResetGsRegisters();
     font_state = -1;
     if (level_sky_effect_data != 0) {
-        func_001E9E70_EB7C0();
+        Transition_DrawSky_r();
     }
     DrawTfrag();
     append_dma_tag(0x02010000);
@@ -1148,7 +1148,7 @@ void Transition_DefaultDraw(s32 *arg0)
     append_dma_tag(0x02020000);
     DrawShrubs();
     append_dma_tag(0x02040000);
-    if (D_0015F6E8 == 3) {
+    if (g_game_mode == 3) {
         render_level_effects_and_screen_sprites();
     } else {
         DrawMobys();
@@ -1160,10 +1160,10 @@ void Transition_DefaultDraw(s32 *arg0)
         dispatch_callback_list_1();
     }
     vu1_gs_regs_alt();
-    if (D_0018A3E8[0] != 0) {
-        func_00234C98_EB7C0(8, 5);
+    if (transition_draw_particles[0] != 0) {
+        VU1_addGSregister_r(8, 5);
         vu1_gs_regs_alt();
-        func_00118D80(0);
+        flush_cache(0);
         PartProc();
         font_state = 8;
     }
@@ -1171,10 +1171,10 @@ void Transition_DefaultDraw(s32 *arg0)
     ResetGsRegisters();
     if (intro_overlay_alpha != 0) {
         DrawTexturedQuad(0xEC, 0x10, 0x100, 0x80, 0, 0, 0x100, 0x80,
-                      (long)(intro_overlay_alpha << 24 | 0x808080), (*(s64 *)&D_0015F048));
+                      (long)(intro_overlay_alpha << 24 | 0x808080), (*(s64 *)&intro_overlay_tex0));
     }
     if (language_intro_overlay_alpha != 0) {
-        n = (*(s32 *)&D_0015EE88) - 1;
+        n = (*(s32 *)&g_game_language) - 1;
         if (n < 0) {
             n = 0;
         }
@@ -1188,36 +1188,36 @@ void Transition_DefaultDraw(s32 *arg0)
         }
         emit_rgba_draw_packet(0, 0, 0, truncate_float_to_s32(gFade * 128.0f));
     }
-    VU0_loadMicroProgram(D_00100AE0);
-    func_00118D80(0);
-    if (D_0015F6E8 == 4) {
-        func_001FBE80();
+    VU0_loadMicroProgram(frame_vu0_micro_program);
+    flush_cache(0);
+    if (g_game_mode == 4) {
+        draw_freeze_message_box();
     }
     VU1_syncChain(2);
-    LightTfrags(D_001E1600);
+    LightTfrags(tfrag_dma_block);
     PatchTfragGifs();
     VU1_syncChain(4);
     LightTies(tie_light_data);
     PatchTieGifs();
     VU1_syncChain(8);
-    LightShrubs(D_001D9240);
+    LightShrubs(shrub_scratchpad_copy);
     patch_shrub_gifs();
     VU1_syncChain(0x10);
     PatchMobyGifs();
     UpdateFog();
 }
 
-extern char D_0013E650[];
-extern int D_0015F694;
+extern char voice_pool[];
+extern int bank_sound_count;
 
-extern int D_0015F694_m __asm__("D_0015F694") MACRO_ADDR;
+extern int bank_sound_count_m __asm__("D_0015F694") MACRO_ADDR;
 
 /* The older register residual was the split load of D_0015F694; read
    through a MACRO_ADDR alias it is retail's one-register load. */
 int is_active_state_entry(int arg0, int arg1) {
     if (arg0 >= 0) {
-        char *p = D_0013E650 + arg0 * 0x70;
-        if (*(short *)(p + 0x7E) == arg1 + D_0015F694_m) {
+        char *p = voice_pool + arg0 * 0x70;
+        if (*(short *)(p + 0x7E) == arg1 + bank_sound_count_m) {
             unsigned char s = p[0x74];
             if (s == 1 || s == 2) {
                 return 1;
@@ -1295,7 +1295,7 @@ extern s32 sync_v_BB48(s32) __asm__("func_00122598");
 extern s32 scale_frames_BB48(s32) __asm__("func_001F98C0");
 extern s32 snd_reset_BB48(void) __asm__("func_0012EC40");
 extern s32 snd_flush_BB48(void) __asm__("func_0012DDC0");
-extern void func_0012EC30_BB48(void) __asm__("func_0012EC30");
+extern void snd_reenable_command_flush_r(void) __asm__("func_0012EC30");
 extern void vu1_send_chain_BB48(void) __asm__("func_002349B8");
 extern void swap_chain_BB48(void) __asm__("func_00234948");
 extern void put_draw_small_BB48(void) __asm__("func_001FB598");
@@ -1319,7 +1319,7 @@ extern void reset_graph_BB48(s16, s16, s16, s16) __asm__("func_00121B78");
 extern void set_pal_mode_BB48(void) __asm__("func_001F3890");
 extern void vu1_sync_chain_BB48(s32) __asm__("func_00234AC8");
 
-/* Adapted from Lombyte (GPL-3.0): src/gameplay/state/transition_do_transition.c, transition_do_transition. */
+/* Adapted from Lombyte's project (GPL-3.0): src/gameplay/state/transition_do_transition.c, transition_do_transition. */
 void transition_do_transition(void) {
     WadHeader_BB48 *hdr;
     u8 *p;
@@ -1374,7 +1374,7 @@ void transition_do_transition(void) {
     snd_reset_BB48();
     while (snd_flush_BB48() != 0) {
     }
-    func_0012EC30_BB48();
+    snd_reenable_command_flush_r();
     level = 1;
     wait = 0;
     while (space_load_pending_BB48 == 0) {

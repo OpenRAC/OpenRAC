@@ -1,4 +1,6 @@
 #include "common.h"
+#include "camera.h"
+#include "hero.h"
 #include "vector.h"
 #include "callees.h"
 #include "records.h"
@@ -11,15 +13,15 @@
  */
 
 /* Declarations in scope here before the split. */
-extern char D_0013E650[];
-extern int D_0015F694;
-extern void func_001F9A98(void *, void *, int);
-extern char D_00189310[];
-extern char D_001899D0[];
-extern void *D_001871C0 NOT_SDA;
-extern DispatchRec D_001E8F80[];
+extern char voice_pool[];
+extern int bank_sound_count;
+extern void FastMemCopy(void *, void *, int);
+extern char backup_cam[];
+extern char gCamBackupState[];
+extern void *cur_cam NOT_SDA;
+extern DispatchRec camera_types[];
 
-extern int D_0018A3B0[];
+extern int draw_config[];
 
 /* Resets the texture DMA state words to 1. */
 void clear_dma_queue_entry(void) {
@@ -40,11 +42,11 @@ typedef struct {
     int color;
     char *str;
 } DrawTextRec;
-extern DrawTextRec D_0018AC00[];
-extern short D_0015F100;
-extern short D_0015F104;
-extern char D_0015F108[];
-extern int func_00116248();
+extern DrawTextRec font_text_slots[];
+extern short font_text_cursor;
+extern short font_text_slot_index;
+extern char font_text_format[];
+extern int sprintf();
 
 /* Queues one text item: D_0018AC00[n] = {x, y, colour, pool position},
    then sprintf(pool, "%s", str) (D_0015F108 is "%s") advances the
@@ -59,12 +61,12 @@ void print_debug_text(int x, int y, int color, char *str) {
     font_text_slots[n].color = color;
     font_text_slots[n].str = *(char **)&font_text_cursor;
     *(int *)&font_text_slot_index = n + 1;
-    *(char **)&font_text_cursor += func_00116248(*(char **)&font_text_cursor, font_text_format, str) + 1;
+    *(char **)&font_text_cursor += sprintf(*(char **)&font_text_cursor, font_text_format, str) + 1;
 }
 
 LINKER_REMNANT("asm/remnants/text", func_001F0FF0);
 
-extern int D_00189EC0[];
+extern int font_char_widths[];
 
 /* Draws `str` centred on x: sums the per-character widths in D_00189EC0
    (indexed by char - 0x20, anything past the table using entry 0x20),
@@ -72,7 +74,7 @@ extern int D_00189EC0[];
    func_001F0F78. Returns the adjusted x. `idx = ch` followed by the
    out-of-range override gives retail's sltiu 0x60 + movn; the reverse
    (default first, then `if (ch < 0x60)`) becomes sltu + movz. */
-int func_001F0FF8(int x, int y, int color, char *str) {
+int print_debug_text_centered(int x, int y, int color, char *str) {
     int w = 0;
     unsigned char *p = (unsigned char *)str;
 
@@ -105,7 +107,7 @@ typedef struct {
     int held;        /* 0x1A0 */
     int pressed;     /* 0x1A4 */
 } __attribute__((aligned(16))) Pad1088;
-extern Pad1088 D_0013CA40;
+extern Pad1088 g_controller_state;
 
 typedef struct {
     int u0;          /* 0x00 */
@@ -122,95 +124,90 @@ typedef struct {
     int aF0, aF4;              /* 0xF0 */
     unsigned char bF8, bF9;    /* 0xF8 */
 } Dbg1088;
-extern Dbg1088 D_0018C418;
+extern Dbg1088 occl_cam_state;
 
 typedef struct {
     char pad0[0x140];
     float pos[4];    /* 0x140 */
     float rot[4];    /* 0x150 */
 } Cam1088;
-extern Cam1088 D_00187040;
+extern Cam1088 gCamera;
 
-typedef struct {
-    char pad0[0x80];
-    float pos[4];    /* 0x80 */
-    float rot[4];    /* 0x90 */
-} Hero1088;
-extern Hero1088 D_0013F450;
+extern Hero g_hero;
 
-extern FogPreset D_0015F584 MACRO_ADDR;
-extern unsigned char D_0015F585[] MACRO_ADDR;
-extern unsigned char D_0015F586[] MACRO_ADDR;
-extern float D_0015F588 MACRO_ADDR;
-extern float D_0015F58C MACRO_ADDR;
-extern float D_0015F590 MACRO_ADDR;
-extern float D_0015F594 MACRO_ADDR;
+extern FogPreset fog_color_red MACRO_ADDR;
+extern unsigned char fog_color_green[] MACRO_ADDR;
+extern unsigned char fog_color_blue[] MACRO_ADDR;
+extern float fog_near_distance MACRO_ADDR;
+extern float fog_far_distance MACRO_ADDR;
+extern float fog_near_intensity MACRO_ADDR;
+extern float fog_far_intensity MACRO_ADDR;
 
 typedef struct {
     char pad0[0xE];
     unsigned short max;  /* 0x0E */
     char pad10[0x8];
 } Item1088;
-extern Item1088 D_001E02B0[];
+extern Item1088 vendor_item_prices[];
 
 typedef struct {
     char pad0[0x3E];
     short cap;           /* 0x3E */
     char pad40[0xC];
 } Gadget1088;
-extern Gadget1088 D_001864D0[];
+extern Gadget1088 item_info_table[];
 
 typedef struct {
     int v[6];
 } Tbl1088;
-extern Tbl1088 D_001E7AC0;
+extern Tbl1088 render_debug_menu_row_counts;
 
-extern int D_0018CE00[];
-extern int D_0015F6E8 MACRO_ADDR;
-extern int D_001601BC MACRO_ADDR;
-extern char *D_0015F720 MACRO_ADDR;
-extern short D_00151880[];
-extern float D_00160FC0 MACRO_ADDR;
-extern float D_00161070 MACRO_ADDR;
-extern float D_001604E4 MACRO_ADDR;
-extern int D_00160030 MACRO_ADDR;
-extern int D_0015EE84 MACRO_ADDR;
-extern unsigned char D_0014C150[];
-extern unsigned char D_0015FCC8[] MACRO_ADDR;
-extern short D_0015F110;
-extern int D_0013D530[];
-extern int D_0015EE98 MACRO_ADDR;
-extern unsigned char D_0013E620[];
-extern int D_0015F734 MACRO_ADDR;
-extern float *D_001941E0;
-extern char D_0015F130[];
-extern char D_0015F138[];
-extern char D_001E7AD8[];
-extern char D_001E7AF8[];
-extern char D_001E7B10[];
-extern char D_001E7B30[];
+extern int view_context[];
+extern int g_game_mode MACRO_ADDR;
+extern int part_clip_dist MACRO_ADDR;
+extern char *occl_grid_data MACRO_ADDR;
+extern short fs_aa_buffer[];
+extern float tfrag_draw_distance MACRO_ADDR;
+extern float tie_draw_distance MACRO_ADDR;
+extern float occl_fog_density_set MACRO_ADDR;
+extern int occl_fog_count MACRO_ADDR;
+extern int g_current_level_index MACRO_ADDR;
+extern unsigned char saved_mission_state[];
+extern unsigned char debug_mission_state_mirror[] MACRO_ADDR;
+extern short debug_weapon_item_ids;
+extern int weapon_ammo_counts[];
+extern int gBolts MACRO_ADDR;
+extern unsigned char gold_weapon_purchased[];
+extern int camera_sample_point_count MACRO_ADDR;
+extern float *camera_sample_points;
+extern char camera_sample_path_suffix[];
+extern char camera_sample_bin_name[];
+extern char camera_sample_dir[];
+extern char camera_sample_text_name[];
+extern char camera_sample_line_format[];
+extern char camera_sample_alt_line_format[];
 
-extern void func_001FB448(int, int, int);
-extern void func_001F9BF0(void *, void *, void *);
-extern float func_001F9CE8(void *);
-extern float func_001FA790(float, float);
-extern float func_001FA888(int);
-extern void func_001F3140(void);
-extern void func_001F2930(void);
-extern int func_00116810(char *);
-extern int func_0011BF80(char *, int);
-extern int func_0011C388(int, int, int);
-extern int func_0011C820(int, void *, int);
-extern int func_0011C5C0(int, void *, int);
-extern int func_0011C208(int);
+extern void SetBackgroundColor(int, int, int);
+extern void FastVecSub(void *, void *, void *);
+extern float vec_length_xy(void *);
+extern float FastSubRots(float, float);
+extern float IntToFloat(int);
+extern void UpdateViewContext(void);
+extern void UpdateFog(void);
+extern int libc_strlen(char *);
+extern int sceOpen(char *, int);
+extern int sceLseek(int, int, int);
+extern int sceWrite(int, void *, int);
+extern int sceRead(int, void *, int);
+extern int sceClose(int);
 
 /* Debug menu: pages of toggles, counters, fog and occlusion sample tools. */
-void func_001F10C8(void) {
+void update_render_debug_menu(void) {
     Tbl1088 t;
 
     ((int (*)(void))sound_update)();
-    if (D_0013CA40.pressed & 0x500) {
-        D_0015F6E8 = occl_cam_state.uA4;
+    if (g_controller_state.pressed & 0x500) {
+        g_game_mode = occl_cam_state.uA4;
         SetBackgroundColor(view_context[0x8F], view_context[0x90], view_context[0x91]);
         occl_cam_state.bF8 = 0x6E;
         occl_cam_state.bF9 = 0x6E;
@@ -219,16 +216,16 @@ void func_001F10C8(void) {
         occl_cam_state.z9C = (int)gCamera.pos[2] >> 2;
         return;
     } else {
-        t = D_001E7AC0;
+        t = render_debug_menu_row_counts;
 
-        if (D_0013CA40.pressed & 0x2000) {
+        if (g_controller_state.pressed & 0x2000) {
             int p = ++occl_cam_state.page;
             if (p == 3) {
                 occl_cam_state.page = 0;
             } else if (p == 6) {
                 occl_cam_state.page = 3;
             }
-        } else if (D_0013CA40.pressed & 0x8000) {
+        } else if (g_controller_state.pressed & 0x8000) {
             int p = --occl_cam_state.page;
             if (p < 0) {
                 occl_cam_state.page = 2;
@@ -237,12 +234,12 @@ void func_001F10C8(void) {
             }
         }
 
-        if ((D_0013CA40.pressed & 0x1000) && --occl_cam_state.cursor < 0) {
+        if ((g_controller_state.pressed & 0x1000) && --occl_cam_state.cursor < 0) {
             if (occl_cam_state.page >= 3) {
                 occl_cam_state.page = (occl_cam_state.page + 3) % 6;
             }
             occl_cam_state.cursor = t.v[occl_cam_state.page] - 1;
-        } else if (D_0013CA40.pressed & 0x4000) {
+        } else if (g_controller_state.pressed & 0x4000) {
             if (++occl_cam_state.cursor >= t.v[occl_cam_state.page]) {
                 if (occl_cam_state.page < 3) {
                     occl_cam_state.page = (occl_cam_state.page + 9) % 6;
@@ -258,7 +255,7 @@ void func_001F10C8(void) {
 
     switch (occl_cam_state.page) {
     case 0:
-        if (D_0013CA40.pressed & 0x40) {
+        if (g_controller_state.pressed & 0x40) {
             int bit = 1 << occl_cam_state.cursor;
             occl_cam_state.flags8 ^= bit;
             if (bit == 0x10) {
@@ -273,13 +270,13 @@ void func_001F10C8(void) {
     case 1:
         switch (occl_cam_state.cursor) {
         case 0:
-            if (D_0013CA40.pressed & 0x50) {
-                if (D_0013CA40.pressed & 0x40) {
+            if (g_controller_state.pressed & 0x50) {
+                if (g_controller_state.pressed & 0x40) {
                     if (++occl_cam_state.a14 >= 4) {
                         occl_cam_state.a14 = 0;
                     }
                 }
-                if (D_0013CA40.pressed & 0x10) {
+                if (g_controller_state.pressed & 0x10) {
                     if (--occl_cam_state.a14 < 0) {
                         occl_cam_state.a14 = 3;
                     }
@@ -294,11 +291,11 @@ void func_001F10C8(void) {
                 case 2: {
                     float v[4];
                     occl_cam_state.flags8 = 0;
-                    FastVecSub(v, D_0013F450.pos, gCamera.pos);
-                    occl_cam_state.f8C = func_001F9CE8(v);
-                    occl_cam_state.f88 = FastSubRots(func_001FA058(v[0], v[1]), gCamera.rot[2]);
-                    occl_cam_state.f90 = D_0013F450.pos[2] - gCamera.pos[2];
-                    occl_cam_state.f84 = FastSubRots(D_0013F450.rot[2], gCamera.rot[2]);
+                    FastVecSub(v, g_hero.motion.pos.f, gCamera.pos);
+                    occl_cam_state.f8C = vec_length_xy(v);
+                    occl_cam_state.f88 = FastSubRots(fast_arc_tan(v[0], v[1]), gCamera.rot[2]);
+                    occl_cam_state.f90 = g_hero.motion.pos.f[2] - gCamera.pos[2];
+                    occl_cam_state.f84 = FastSubRots(g_hero.motion.rot.f[2], gCamera.rot[2]);
                     break;
                 }
                 case 3:
@@ -308,87 +305,87 @@ void func_001F10C8(void) {
             }
             break;
         case 1:
-            if (D_0013CA40.pressed & 0x40) {
+            if (g_controller_state.pressed & 0x40) {
                 if (++occl_cam_state.a18 >= 8) {
                     occl_cam_state.a18 = 0;
                 }
             }
-            if (D_0013CA40.pressed & 0x10) {
+            if (g_controller_state.pressed & 0x10) {
                 if (--occl_cam_state.a18 < 0) {
                     occl_cam_state.a18 = 7;
                 }
             }
             break;
         case 2:
-            if (D_0015F720 == 0) {
+            if (occl_grid_data == 0) {
                 occl_cam_state.a1C = 0;
                 break;
             }
-            if (D_0013CA40.pressed & 0x40) {
+            if (g_controller_state.pressed & 0x40) {
                 if (++occl_cam_state.a1C >= 3) {
                     occl_cam_state.a1C = 0;
                 }
             }
-            if (D_0013CA40.pressed & 0x10) {
+            if (g_controller_state.pressed & 0x10) {
                 if (--occl_cam_state.a1C < 0) {
                     occl_cam_state.a1C = 2;
                 }
             }
             break;
         case 3:
-            if (D_0013CA40.pressed & 0x50) {
+            if (g_controller_state.pressed & 0x50) {
                 occl_cam_state.a20 = !occl_cam_state.a20;
             }
             break;
         case 4:
-            if (D_0013CA40.pressed & 0x50) {
+            if (g_controller_state.pressed & 0x50) {
                 occl_cam_state.a24 = !occl_cam_state.a24;
             }
             break;
         case 5:
-            if (D_0013CA40.pressed & 0x50) {
+            if (g_controller_state.pressed & 0x50) {
                 if ((occl_cam_state.a28 = !occl_cam_state.a28) != 0) {
-                    D_00160FC0 = 65536.0f;
-                    D_00161070 = 64.0f;
+                    tfrag_draw_distance = 65536.0f;
+                    tie_draw_distance = 64.0f;
                     occl_fog_density_set = 40.0f;
-                    D_00160030 = 0x40;
-                    D_001601BC = 0x40000;
+                    occl_fog_count = 0x40;
+                    part_clip_dist = 0x40000;
                 } else {
-                    D_00160FC0 = 512000.0f;
-                    D_00161070 = 720.0f;
+                    tfrag_draw_distance = 512000.0f;
+                    tie_draw_distance = 720.0f;
                     occl_fog_density_set = 500.0f;
-                    D_00160030 = 500;
-                    D_001601BC = 0x1F4000;
+                    occl_fog_count = 500;
+                    part_clip_dist = 0x1F4000;
                 }
             }
             break;
         case 6:
-            if (D_0013CA40.pressed & 0x40) {
+            if (g_controller_state.pressed & 0x40) {
                 if (++occl_cam_state.a2C >= 3) {
                     occl_cam_state.a2C = 0;
                 }
             }
-            if (D_0013CA40.pressed & 0x10) {
+            if (g_controller_state.pressed & 0x10) {
                 if (--occl_cam_state.a2C < 0) {
                     occl_cam_state.a2C = 2;
                 }
             }
             break;
         case 7:
-            if (D_0013CA40.pressed & 0x50) {
+            if (g_controller_state.pressed & 0x50) {
                 occl_cam_state.a30 = !occl_cam_state.a30;
             }
             break;
         case 8:
-            if (D_0013CA40.pressed & 0x50) {
+            if (g_controller_state.pressed & 0x50) {
                 if ((occl_cam_state.a34 = !occl_cam_state.a34) != 0) {
                     float *ctx = (float *)view_context;
-                    ctx[0x80] = IntToFloat(D_00151880[0xA8]) * 0.125f;
-                    ctx[0x81] = IntToFloat(D_00151880[0xA9]) * 0.125f;
+                    ctx[0x80] = IntToFloat(fs_aa_buffer[0xA8]) * 0.125f;
+                    ctx[0x81] = IntToFloat(fs_aa_buffer[0xA9]) * 0.125f;
                 } else {
                     float *ctx = (float *)view_context;
-                    ctx[0x80] = IntToFloat(D_00151880[0xA8]) * 0.5f;
-                    ctx[0x81] = IntToFloat(D_00151880[0xA9]) * 0.5f;
+                    ctx[0x80] = IntToFloat(fs_aa_buffer[0xA8]) * 0.5f;
+                    ctx[0x81] = IntToFloat(fs_aa_buffer[0xA9]) * 0.5f;
                 }
                 {
                     float *v = (float *)view_context;
@@ -399,8 +396,8 @@ void func_001F10C8(void) {
             }
             break;
         case 9:
-            if (D_0013CA40.pressed & 0x50) {
-                if (D_0013CA40.pressed & 0x40) {
+            if (g_controller_state.pressed & 0x50) {
+                if (g_controller_state.pressed & 0x40) {
                     occl_cam_state.a38++;
                     while (occl_cam_state.a38 == 0x24) {
                         occl_cam_state.a38 = -1;
@@ -419,8 +416,8 @@ void func_001F10C8(void) {
             }
             break;
         case 10:
-            if (D_0013CA40.pressed & 0x50) {
-                if (D_0013CA40.pressed & 0x40) {
+            if (g_controller_state.pressed & 0x50) {
+                if (g_controller_state.pressed & 0x40) {
                     occl_cam_state.a3C++;
                     while (occl_cam_state.a3C == 0x10) {
                         occl_cam_state.a3C = 0;
@@ -431,17 +428,17 @@ void func_001F10C8(void) {
                         occl_cam_state.a3C = 0xF;
                     }
                 }
-            } else if (D_0013CA40.pressed & 0x20) {
+            } else if (g_controller_state.pressed & 0x20) {
                 int i = occl_cam_state.a3C;
-                unsigned char *e = &D_0014C150[i + D_0015EE84 * 16];
+                unsigned char *e = &saved_mission_state[i + g_current_level_index * 16];
                 *e = (*e == 0) ? 0xFF : 0;
-                D_0015FCC8[i] = *e;
+                debug_mission_state_mirror[i] = *e;
             }
             break;
         }
         break;
     case 2:
-        if (D_0013CA40.pressed & 0x40) {
+        if (g_controller_state.pressed & 0x40) {
             occl_cam_state.flags4 ^= 1 << occl_cam_state.cursor;
         }
         break;
@@ -449,28 +446,28 @@ void func_001F10C8(void) {
         int max = 999999;
         int *val;
         if (occl_cam_state.cursor < 13) {
-            unsigned char k = ((unsigned char *)&D_0015F110)[occl_cam_state.cursor];
+            unsigned char k = ((unsigned char *)&debug_weapon_item_ids)[occl_cam_state.cursor];
             max = ((Item1088 *)(k * sizeof(Item1088) + (unsigned int)vendor_item_prices))->max;
             val = &weapon_ammo_counts[k];
         } else {
             val = &gBolts;
         }
-        if (D_0013CA40.held & 8) {
-            if (D_0013CA40.pressed & 0x40) {
+        if (g_controller_state.held & 8) {
+            if (g_controller_state.pressed & 0x40) {
                 *val += 60;
             }
-            if (D_0013CA40.pressed & 0x20) {
+            if (g_controller_state.pressed & 0x20) {
                 if (*val > 60) {
                     *val -= 60;
                 } else {
                     *val = 0;
                 }
             }
-        } else if (D_0013CA40.held & 2) {
-            if (D_0013CA40.pressed & 0x40) {
+        } else if (g_controller_state.held & 2) {
+            if (g_controller_state.pressed & 0x40) {
                 *val += 600;
             }
-            if (D_0013CA40.pressed & 0x20) {
+            if (g_controller_state.pressed & 0x20) {
                 if (*val > 600) {
                     *val -= 600;
                 } else {
@@ -478,10 +475,10 @@ void func_001F10C8(void) {
                 }
             }
         } else {
-            if (D_0013CA40.pressed & 0x40) {
+            if (g_controller_state.pressed & 0x40) {
                 *val += 1;
             }
-            if (D_0013CA40.pressed & 0x20) {
+            if (g_controller_state.pressed & 0x20) {
                 if (*val > 0) {
                     *val -= 1;
                 }
@@ -490,16 +487,16 @@ void func_001F10C8(void) {
         if (*val > max) {
             *val = max;
         }
-        if (D_0013CA40.pressed & 0x10) {
-            D_0013E620[((unsigned char *)&D_0015F110)[occl_cam_state.cursor]]++;
+        if (g_controller_state.pressed & 0x10) {
+            gold_weapon_purchased[((unsigned char *)&debug_weapon_item_ids)[occl_cam_state.cursor]]++;
         }
-        if (D_0013CA40.pressed & 0x80) {
-            D_0013E620[((unsigned char *)&D_0015F110)[occl_cam_state.cursor]]--;
+        if (g_controller_state.pressed & 0x80) {
+            gold_weapon_purchased[((unsigned char *)&debug_weapon_item_ids)[occl_cam_state.cursor]]--;
         }
         {
-            unsigned char k = ((unsigned char *)&D_0015F110)[occl_cam_state.cursor];
-            unsigned char *c = &D_0013E620[k];
-            Gadget1088 *g = &D_001864D0[k];
+            unsigned char k = ((unsigned char *)&debug_weapon_item_ids)[occl_cam_state.cursor];
+            unsigned char *c = &gold_weapon_purchased[k];
+            Gadget1088 *g = &item_info_table[k];
             if (g->cap < *c) {
                 *c = g->cap;
             }
@@ -508,10 +505,10 @@ void func_001F10C8(void) {
     }
     case 4:
         if (occl_cam_state.cursor == 0) {
-            if ((D_0013CA40.held & 0x40) || (D_0013CA40.pressed & 8)) {
+            if ((g_controller_state.held & 0x40) || (g_controller_state.pressed & 8)) {
                 fog_near_distance += 1024.0f;
             }
-            if ((D_0013CA40.held & 0x10) || (D_0013CA40.pressed & 4)) {
+            if ((g_controller_state.held & 0x10) || (g_controller_state.pressed & 4)) {
                 fog_near_distance -= 1024.0f;
             }
             if (fog_near_distance > fog_far_distance) {
@@ -521,10 +518,10 @@ void func_001F10C8(void) {
             }
         }
         if (occl_cam_state.cursor == 2) {
-            if ((D_0013CA40.held & 0x40) || (D_0013CA40.pressed & 8)) {
+            if ((g_controller_state.held & 0x40) || (g_controller_state.pressed & 8)) {
                 fog_far_distance += 1024.0f;
             }
-            if ((D_0013CA40.held & 0x10) || (D_0013CA40.pressed & 4)) {
+            if ((g_controller_state.held & 0x10) || (g_controller_state.pressed & 4)) {
                 fog_far_distance -= 1024.0f;
             }
             if (524288.0f < fog_far_distance) {
@@ -534,10 +531,10 @@ void func_001F10C8(void) {
             }
         }
         if (occl_cam_state.cursor == 1) {
-            if ((D_0013CA40.held & 0x40) || (D_0013CA40.pressed & 8)) {
+            if ((g_controller_state.held & 0x40) || (g_controller_state.pressed & 8)) {
                 fog_near_intensity -= 2.55f;
             }
-            if ((D_0013CA40.held & 0x10) || (D_0013CA40.pressed & 4)) {
+            if ((g_controller_state.held & 0x10) || (g_controller_state.pressed & 4)) {
                 fog_near_intensity += 2.55f;
             }
             if (255.0f < fog_near_intensity) {
@@ -547,10 +544,10 @@ void func_001F10C8(void) {
             }
         }
         if (occl_cam_state.cursor == 3) {
-            if ((D_0013CA40.held & 0x40) || (D_0013CA40.pressed & 8)) {
+            if ((g_controller_state.held & 0x40) || (g_controller_state.pressed & 8)) {
                 fog_far_intensity -= 2.55f;
             }
-            if ((D_0013CA40.held & 0x10) || (D_0013CA40.pressed & 4)) {
+            if ((g_controller_state.held & 0x10) || (g_controller_state.pressed & 4)) {
                 fog_far_intensity += 2.55f;
             }
             if (255.0f < fog_far_intensity) {
@@ -560,47 +557,47 @@ void func_001F10C8(void) {
             }
         }
         if (occl_cam_state.cursor == 4) {
-            if (fog_color_red.r < 0xFF && ((D_0013CA40.held & 0x40) || (D_0013CA40.pressed & 8))) {
+            if (fog_color_red.r < 0xFF && ((g_controller_state.held & 0x40) || (g_controller_state.pressed & 8))) {
                 fog_color_red.r++;
             }
-            if (fog_color_red.r != 0 && ((D_0013CA40.held & 0x10) || (D_0013CA40.pressed & 4))) {
+            if (fog_color_red.r != 0 && ((g_controller_state.held & 0x10) || (g_controller_state.pressed & 4))) {
                 fog_color_red.r--;
             }
         }
         if (occl_cam_state.cursor == 5) {
-            if (fog_color_green[0] < 0xFF && ((D_0013CA40.held & 0x40) || (D_0013CA40.pressed & 8))) {
+            if (fog_color_green[0] < 0xFF && ((g_controller_state.held & 0x40) || (g_controller_state.pressed & 8))) {
                 fog_color_green[0]++;
             }
-            if (fog_color_green[0] != 0 && ((D_0013CA40.held & 0x10) || (D_0013CA40.pressed & 4))) {
+            if (fog_color_green[0] != 0 && ((g_controller_state.held & 0x10) || (g_controller_state.pressed & 4))) {
                 fog_color_green[0]--;
             }
         }
         if (occl_cam_state.cursor == 6) {
-            if (fog_color_blue[0] < 0xFF && ((D_0013CA40.held & 0x40) || (D_0013CA40.pressed & 8))) {
+            if (fog_color_blue[0] < 0xFF && ((g_controller_state.held & 0x40) || (g_controller_state.pressed & 8))) {
                 fog_color_blue[0]++;
             }
-            if (fog_color_blue[0] != 0 && ((D_0013CA40.held & 0x10) || (D_0013CA40.pressed & 4))) {
+            if (fog_color_blue[0] != 0 && ((g_controller_state.held & 0x10) || (g_controller_state.pressed & 4))) {
                 fog_color_blue[0]--;
             }
         }
         ((void (*)(void))UpdateFog)();
         return;
     case 5:
-        if (occl_cam_state.cursor == 0 && (D_0013CA40.pressed & 0x50)) {
+        if (occl_cam_state.cursor == 0 && (g_controller_state.pressed & 0x50)) {
             occl_cam_state.aF0 = !occl_cam_state.aF0;
         }
-        if (occl_cam_state.cursor == 1 && (D_0013CA40.pressed & 0x50)) {
+        if (occl_cam_state.cursor == 1 && (g_controller_state.pressed & 0x50)) {
             occl_cam_state.aF4 = !occl_cam_state.aF4;
         }
-        if (occl_cam_state.cursor == 2 && (D_0013CA40.pressed & 0xF0)) {
-            extern char D_0015F120;
-            char *fmt = D_001E7AD8;
-            char *dev = &D_0015F120;
+        if (occl_cam_state.cursor == 2 && (g_controller_state.pressed & 0xF0)) {
+            extern char camera_sample_path_format;
+            char *fmt = camera_sample_dir;
+            char *dev = &camera_sample_path_format;
             int i, found;
 
             found = 0;
-            for (i = 0; i < D_0015F734; i++) {
-                float *p = D_001941E0 + i;
+            for (i = 0; i < camera_sample_point_count; i++) {
+                float *p = camera_sample_points + i;
                 if (p[0] < gCamera.pos[0] + 0.5f && gCamera.pos[0] - 0.5f < p[0]
                     && p[1] < gCamera.pos[1] + 0.5f && gCamera.pos[1] - 0.5f < p[1]
                     && p[2] < gCamera.pos[2] + 0.5f && gCamera.pos[2] - 0.5f < p[2]) {
@@ -617,51 +614,51 @@ void func_001F10C8(void) {
                 float *samples;
                 int fd, size;
 
-                func_00116248(path, dev, fmt, D_0015EE84, D_001E7AF8, D_0015F130);
-                func_00116248(line, D_001E7B10, func_00120778(gCamera.pos[0]),
+                sprintf(path, dev, fmt, g_current_level_index, camera_sample_text_name, camera_sample_path_suffix);
+                sprintf(line, camera_sample_line_format, func_00120778(gCamera.pos[0]),
                               func_00120778(gCamera.pos[1]), func_00120778(gCamera.pos[2]));
-                fd = func_0011BF80(path, 0x303);
+                fd = sceOpen(path, 0x303);
                 if (fd >= 0) {
-                    func_0011C388(fd, 0, 2);
-                    func_0011C820(fd, line, func_00116810(line));
-                    func_0011C208(fd);
+                    sceLseek(fd, 0, 2);
+                    sceWrite(fd, line, libc_strlen(line));
+                    sceClose(fd);
                     occl_cam_state.bF9 = 0x79;
                 }
-                samples = D_001941E0;
-                func_00116248(path, dev, fmt, D_0015EE84, D_0015F138, D_0015F130);
-                fd = func_0011BF80(path, 0x303);
+                samples = camera_sample_points;
+                sprintf(path, dev, fmt, g_current_level_index, camera_sample_bin_name, camera_sample_path_suffix);
+                fd = sceOpen(path, 0x303);
                 if (fd >= 0) {
-                    func_0011C388(fd, 0, 2);
-                    func_0011C820(fd, &gCamera.pos[0], 4);
-                    func_0011C820(fd, &gCamera.pos[1], 4);
-                    func_0011C820(fd, &gCamera.pos[2], 4);
-                    func_0011C388(fd, 0, 0);
-                    size = func_0011C388(fd, 0, 2);
+                    sceLseek(fd, 0, 2);
+                    sceWrite(fd, &gCamera.pos[0], 4);
+                    sceWrite(fd, &gCamera.pos[1], 4);
+                    sceWrite(fd, &gCamera.pos[2], 4);
+                    sceLseek(fd, 0, 0);
+                    size = sceLseek(fd, 0, 2);
                     if (size <= 0x100000) {
-                        func_0011C388(fd, 0, 0);
-                        func_0011C5C0(fd, samples, size);
-                        D_0015F734 = size / 12;
+                        sceLseek(fd, 0, 0);
+                        sceRead(fd, samples, size);
+                        camera_sample_point_count = size / 12;
                     } else {
-                        D_0015F734 = 0;
+                        camera_sample_point_count = 0;
                     }
-                    func_0011C208(fd);
+                    sceClose(fd);
                 }
             }
         }
-        if (occl_cam_state.cursor == 3 && (D_0013CA40.pressed & 0xF0)) {
-            extern char D_0015F120[];
+        if (occl_cam_state.cursor == 3 && (g_controller_state.pressed & 0xF0)) {
+            extern char camera_sample_path_format[];
             char path[64];
             char line[64];
             int fd;
 
-            func_00116248(path, D_0015F120, D_001E7AD8, D_0015EE84, D_001E7AF8, D_0015F130);
-            func_00116248(line, D_001E7B30, func_00120778(gCamera.pos[0]),
+            sprintf(path, camera_sample_path_format, camera_sample_dir, g_current_level_index, camera_sample_text_name, camera_sample_path_suffix);
+            sprintf(line, camera_sample_alt_line_format, func_00120778(gCamera.pos[0]),
                           func_00120778(gCamera.pos[1]), func_00120778(gCamera.pos[2]));
-            fd = func_0011BF80(path, 0x303);
+            fd = sceOpen(path, 0x303);
             if (fd >= 0) {
-                func_0011C388(fd, 0, 2);
-                func_0011C820(fd, line, func_00116810(line));
-                func_0011C208(fd);
+                sceLseek(fd, 0, 2);
+                sceWrite(fd, line, libc_strlen(line));
+                sceClose(fd);
                 occl_cam_state.bF8 = 0x79;
             }
         }
@@ -671,46 +668,37 @@ void func_001F10C8(void) {
 
 LINKER_REMNANT("asm/remnants/text", func_001F2410);
 
-extern void func_001FA190(void *);
-extern void func_001F9C30(void *, void *, float);
-extern void func_001F9EE8(void *, void *, void *);
-extern float D_0018D010;
+extern void set_identity_matrix(void *);
+extern void FastVecScale(void *, void *, float);
+extern void transform_vector(void *, void *, void *);
+extern float screen_projection_focal;
 
-typedef struct {
-    char pad0[0x40];
-    float viewMtx[4][4];   /* +0x40 */
-    char pad1[0xC0];
-    float focus[3];        /* +0x140 */
-} CameraBlock;
 /* The camera block as a struct: all four accesses then share one base
    register with field offsets, as in retail. */
-extern CameraBlock D_00187040_cam __asm__("D_00187040");
+extern CameraSystem gCamera_cam __asm__("D_00187040");
 
-typedef struct {
-    float x, y, z;
-} Vec3f;
 
 /* Projects camera-space point a1 through the camera matrix, divides by
    depth (D_0018D010 / w) and scales to x16 screen units. func_002346C0
    in tfragfunc.c builds the same matrix. */
-void func_001F2418(Vec3f *a0, float *a1) {
+void project_to_screen(Vec3f *a0, float *a1) {
     float m[4][4];
     float m2[4][4];
     float v[4];
     float out[4];
     float invw;
 
-    func_001FA190(m);
-    m[3][0] = -D_00187040_cam.focus[0] * 1024.0f;
-    m[3][1] = -D_00187040_cam.focus[1] * 1024.0f;
-    m[3][2] = -D_00187040_cam.focus[2] * 1024.0f;
-    sce_vu0_mul_matrix(m2, D_00187040_cam.viewMtx, m);
+    set_identity_matrix(m);
+    m[3][0] = -gCamera_cam.pos.f[0] * 1024.0f;
+    m[3][1] = -gCamera_cam.pos.f[1] * 1024.0f;
+    m[3][2] = -gCamera_cam.pos.f[2] * 1024.0f;
+    sce_vu0_mul_matrix(m2, gCamera_cam.view_matrix, m);
 
     FastVecScale(v, a1, 1024.0f);
     v[3] = 1.0f;
-    func_001F9EE8(out, v, m2);
+    transform_vector(out, v, m2);
 
-    invw = D_0018D010 / out[3];
+    invw = screen_projection_focal / out[3];
     a0->z = out[2] * 0.0009765625f;
     out[0] = out[0] * invw + 2048.0f;
     a0->x = out[0] * 16.0f;
@@ -728,20 +716,20 @@ void ProfileMarker_End(void) {
 void ProfileMarker_Begin(void) {
 }
 
-extern int D_0015F6FC_m __asm__("D_0015F6FC") MACRO_ADDR;
-extern int D_0015EE80 MACRO_ADDR;
-extern int D_0015EF78 MACRO_ADDR;
-extern int *D_00161000 MACRO_ADDR;
+extern int space_load_in_progress_m __asm__("D_0015F6FC") MACRO_ADDR;
+extern int pal_mode MACRO_ADDR;
+extern int g_gs_texture_allocation_start MACRO_ADDR;
+extern int *g_render_packet_cursor MACRO_ADDR;
 
-extern void func_002350A8(void);
-extern int func_00123308(int);
-extern void func_0020C268(void);
-extern void func_00121B78(int, int, int, int);
-extern void func_001207B8(void);
-extern void func_002348E8(void);
-extern void func_001F3890(void);
-extern void func_00235018(void);
-extern volatile int D_00160FE0_v __asm__("D_00160FE0") MACRO_ADDR;
+extern void DMAC_VIF1_Disable(void);
+extern int sceDmaReset(int);
+extern void InitDma(void);
+extern void sceGsResetGraph(int, int, int, int);
+extern void reset_vif1_gif(void);
+extern void VU1_initChain(void);
+extern void SetPalMode(void);
+extern void DMAC_VIF1_Enable(void);
+extern volatile int vif_chain_flags_v __asm__("D_00160FE0") MACRO_ADDR;
 
 /* Render setup: raises D_0015F6FC, clears D_00160FE0, runs the setup calls,
    picks func_00121B78's mode from D_0015EE80 (retail's movz), then runs
@@ -754,19 +742,19 @@ void reset_graphics(void) {
     int flag;
     int pal;
 
-    D_0015F6FC_m = 1;
-    D_00160FE0_v = 0;
+    space_load_in_progress_m = 1;
+    vif_chain_flags_v = 0;
     DMAC_VIF1_Disable();
-    func_00123308(1);
+    sceDmaReset(1);
     InitDma();
-    flag = D_0015EE80;
-    func_00121B78(0, 1, flag ? 3 : 2, 0);
-    func_001207B8();
+    flag = pal_mode;
+    sceGsResetGraph(0, 1, flag ? 3 : 2, 0);
+    reset_vif1_gif();
     VU1_initChain();
-    pal = D_0015EF78;
-    D_00161000 = 0;
+    pal = g_gs_texture_allocation_start;
+    g_render_packet_cursor = 0;
     SetPalMode();
-    D_0015EF78 = pal;
+    g_gs_texture_allocation_start = pal;
     VU1_initChain();
     DMAC_VIF1_Enable();
 }
@@ -774,18 +762,18 @@ void reset_graphics(void) {
 /* Retail carries 4 bytes of inter-function padding after this endlabel. */
 __asm__(".section .text\n\tnop\n");
 
-extern void func_001F9C48(void *, void *, float);
-extern int D_0018C42C;
-extern char D_00187390[];
-extern char D_0018CEC0[];
-extern char D_0018D080[];
+extern void scale_vector(void *, void *, float);
+extern int camera_position_publication_suppressed;
+extern char camera_rows[];
+extern char view_context_field_c0[];
+extern char sky_view_mtx[];
 
 typedef struct {
     float f[0x50];
 } SceneG;
-extern SceneG D_00187040_g __asm__("D_00187040");
+extern SceneG gCamera_g __asm__("D_00187040");
 
-/* Builds the view matrices in the camera block from the rotation set up in D_00187390 or the three rotation angles, then copies the result to D_0018D080. Adapted from Lombyte (GPL-3.0) for PAL: src/rendering/view/fun_001f2260.c, FUN_001f2260. */
+/* Builds the view matrices in the camera block from the rotation set up in D_00187390 or the three rotation angles, then copies the result to D_0018D080. Adapted from Lombyte's project (GPL-3.0) for PAL: src/rendering/view/fun_001f2260.c, FUN_001f2260. */
 void BuildViewMatrices(void) {
     float m[4][4];
     SceneG *g;
@@ -800,13 +788,13 @@ void BuildViewMatrices(void) {
         qcopy(m[1], camera_rows + 0x10);
         qcopy(m[2], camera_rows + 0x20);
     } else {
-        func_00125358(m[0]);
-        func_001254A0(m[0], m[0], D_00187040_g.f[0x150 / 4]);
-        func_00125548(m[0], m[0], D_00187040_g.f[0x154 / 4]);
-        func_001253F8(m[0], m[0], D_00187040_g.f[0x158 / 4]);
+        sceVu0UnitMatrix(m[0]);
+        sceVu0RotMatrixX(m[0], m[0], gCamera_g.f[0x150 / 4]);
+        sceVu0RotMatrixY(m[0], m[0], gCamera_g.f[0x154 / 4]);
+        sceVu0RotMatrixZ(m[0], m[0], gCamera_g.f[0x158 / 4]);
     }
-    g = &D_00187040_g;
-    x = D_0018CEC0;
+    g = &gCamera_g;
+    x = view_context_field_c0;
     xf = (float *)(x - 0xC0);
     g->f[0] = -m[1][0];
     g->f[0x3C / 4] = 1.0f;
@@ -854,13 +842,13 @@ void BuildViewMatrices(void) {
     *(float *)(sky_view_mtx + 0x3C) = 1024.0f;
 }
 
-extern int D_001873D4;
-extern FogPreset D_001611C4 MACRO_ADDR;
-extern FogPreset D_0015F584 MACRO_ADDR;
-extern int D_0018CE00[];
-extern int D_001601BC MACRO_ADDR;
-extern int D_0015F598 MACRO_ADDR;
-extern void func_001F3140(void);
+extern int use_alt_fog;
+extern FogPreset water_fog_color_red MACRO_ADDR;
+extern FogPreset fog_color_red MACRO_ADDR;
+extern int view_context[];
+extern int part_clip_dist MACRO_ADDR;
+extern int level_fog_mode MACRO_ADDR;
+extern void UpdateViewContext(void);
 
 /* UpdateFog(void): copies the fog preset (the fixed D_001611C4 when
    D_001873D4 is set, else the current D_0015F584) into the draw context
@@ -871,14 +859,14 @@ extern void func_001F3140(void);
    word's store fits the branch delay slot ($gp-relative there). */
 void UpdateFog(void) {
     if (use_alt_fog != 0) {
-        view_context[0x8C] = D_001611C4.r;
-        view_context[0x8D] = D_001611C4.g;
-        view_context[0x8E] = D_001611C4.b;
-        *(float *)&view_context[0x86] = D_001611C4.f[0];
-        *(float *)&view_context[0x87] = D_001611C4.f[1];
-        *(float *)&view_context[0x8A] = D_001611C4.f[2];
-        *(float *)&view_context[0x8B] = D_001611C4.f[3];
-        D_001601BC = 0x40000;
+        view_context[0x8C] = water_fog_color_red.r;
+        view_context[0x8D] = water_fog_color_red.g;
+        view_context[0x8E] = water_fog_color_red.b;
+        *(float *)&view_context[0x86] = water_fog_color_red.f[0];
+        *(float *)&view_context[0x87] = water_fog_color_red.f[1];
+        *(float *)&view_context[0x8A] = water_fog_color_red.f[2];
+        *(float *)&view_context[0x8B] = water_fog_color_red.f[3];
+        part_clip_dist = 0x40000;
     } else {
         view_context[0x8C] = fog_color_red.r;
         view_context[0x8D] = fog_color_red.g;
@@ -887,14 +875,14 @@ void UpdateFog(void) {
         *(float *)&view_context[0x87] = fog_color_red.f[1];
         *(float *)&view_context[0x8A] = fog_color_red.f[2];
         *(float *)&view_context[0x8B] = fog_color_red.f[3];
-        D_001601BC = 0x1F4000;
+        part_clip_dist = 0x1F4000;
     }
     UpdateViewContext();
     level_fog_mode = 0;
 }
 __asm__(".section .text\n\tnop\n");
 
-extern char *D_0015F720 MACRO_ADDR;
+extern char *occl_grid_data MACRO_ADDR;
 
 /* ParseOcclGrid(x, y, z): walks the three-level occlusion grid at
    D_0015F720. Each level is {u16 start, u16 count, u16 entry[count]};
@@ -907,7 +895,7 @@ extern char *D_0015F720 MACRO_ADDR;
    one `if`, which is what leaves retail's shared failure return after
    level 2 and a separate one for the 0xFFFF test. */
 int ParseOcclGrid(int x, int y, int z) {
-    char *grid = D_0015F720;
+    char *grid = occl_grid_data;
     char *base = grid + *(int *)grid;
     unsigned short *l = (unsigned short *)(grid + 4);
     int cz, cy, cx;
@@ -930,7 +918,7 @@ int ParseOcclGrid(int x, int y, int z) {
 
 __asm__(".section .text\n\tnop\n");
 
-extern int func_001F2A38(int, int, int);
+extern int ParseOcclGrid(int, int, int);
 
 /* GetOcclGridFromPair(int, int, int, int, int, int, float) */
 int GetOcclGridFromPair(int a0, int a1, int a2, int a3, int a4, int a5, float t) {
@@ -959,20 +947,20 @@ int GetOcclGridFromPair(int a0, int a1, int a2, int a3, int a4, int a5, float t)
     return ParseOcclGrid(b0, b1, b2);
 }
 
-extern int func_001FA898_r(float) __asm__("func_001FA898");
-extern float func_001FA888(int);
-extern int func_001F2B10(int, int, int, int, int, int, float);
-extern void func_001F9AC0(void *, void *, void *, int);
-extern void func_001F99B0();
-extern char D_001940C0[];
-extern char D_00194140[];
-extern int D_0015F72C MACRO_ADDR;
-extern int D_0015F728 MACRO_ADDR;
-extern char *D_0015F730 MACRO_ADDR;
-extern float *D_0015F724 MACRO_ADDR;
+extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
+extern float IntToFloat(int);
+extern int GetOcclGridFromPair(int, int, int, int, int, int, float);
+extern void fast_mem_or16(void *, void *, void *, int);
+extern void FastMemSet();
+extern char occl_visibility[];
+extern char occl_visibility_merged[];
+extern int occl_invalid_grid MACRO_ADDR;
+extern int occl_fallback_mode MACRO_ADDR;
+extern char *occl_previous_grid MACRO_ADDR;
+extern float *occl_oct MACRO_ADDR;
 
 /* Build the occlusion visibility bitmap for the camera's grid cell.
-   Adapted from Lombyte (GPL-3.0) for PAL: src/rendering/build_occlusion_visibility.c, build_occlusion_visibility. */
+   Adapted from Lombyte's project (GPL-3.0) for PAL: src/rendering/build_occlusion_visibility.c, build_occlusion_visibility. */
 void BuildOcclVisibility(void) {
     float scale = 0.25f;
     int x, y, z;
@@ -981,9 +969,9 @@ void BuildOcclVisibility(void) {
     float *p;
     int bx, by, bz;
 
-    x = func_001FA898_r(D_00187040_cam.focus[0] * scale);
-    y = func_001FA898_r(D_00187040_cam.focus[1] * scale);
-    z = func_001FA898_r(D_00187040_cam.focus[2] * scale);
+    x = truncate_float_to_s32_r(gCamera_cam.pos.f[0] * scale);
+    y = truncate_float_to_s32_r(gCamera_cam.pos.f[1] * scale);
+    z = truncate_float_to_s32_r(gCamera_cam.pos.f[2] * scale);
     vis = (char *)ParseOcclGrid(x, y, z);
     if (vis != 0) {
         occl_invalid_grid = 0;
@@ -991,13 +979,13 @@ void BuildOcclVisibility(void) {
         occl_previous_grid = vis;
     } else {
         occl_invalid_grid = 1;
-        if (D_0015F728 == 0) {
+        if (occl_fallback_mode == 0) {
             gx = (char *)GetOcclGridFromPair(x - 1, y, z, x + 1, y, z,
-                                       D_00187040_cam.focus[0] * scale - IntToFloat(x));
+                                       gCamera_cam.pos.f[0] * scale - IntToFloat(x));
             gy = (char *)GetOcclGridFromPair(x, y - 1, z, x, y + 1, z,
-                                       D_00187040_cam.focus[1] * scale - IntToFloat(y));
+                                       gCamera_cam.pos.f[1] * scale - IntToFloat(y));
             gz = (char *)GetOcclGridFromPair(x, y, z - 1, x, y, z + 1,
-                                       D_00187040_cam.focus[2] * scale - IntToFloat(z));
+                                       gCamera_cam.pos.f[2] * scale - IntToFloat(z));
             if (gx != 0 || gy != 0 || gz != 0) {
                 FastMemZero16(occl_visibility_merged, 0x80);
                 if (gx != 0) {
@@ -1015,7 +1003,7 @@ void BuildOcclVisibility(void) {
             }
         }
         if (vis == 0) {
-            switch (D_0015F728) {
+            switch (occl_fallback_mode) {
             case 0:
                 if (camera_position_publication_suppressed == 0 && occl_previous_grid != 0) {
                     FastMemCopy(occl_visibility, occl_previous_grid, 0x80);
@@ -1029,9 +1017,9 @@ void BuildOcclVisibility(void) {
             case 2:
                 p = occl_oct;
                 if (p != 0) {
-                    bx = 0.0f < D_00187040_cam.focus[0] - p[0];
-                    by = 0.0f < D_00187040_cam.focus[1] - p[1];
-                    bz = 0.0f < D_00187040_cam.focus[2] - p[2];
+                    bx = 0.0f < gCamera_cam.pos.f[0] - p[0];
+                    by = 0.0f < gCamera_cam.pos.f[1] - p[1];
+                    bz = 0.0f < gCamera_cam.pos.f[2] - p[2];
                     FastMemCopy(occl_visibility, (char *)p + ((bz + by * 2 + bx * 4) * 0x80 + 0x10), 0x80);
                 } else if (camera_position_publication_suppressed == 0 && occl_previous_grid != 0) {
                     FastMemCopy(occl_visibility, occl_previous_grid, 0x80);
@@ -1052,8 +1040,8 @@ void BuildOcclVisibility(void) {
    types (-1 and a pointer) and both callers are byte-exact, so
    neither may be edited. Codegen is identical either way -- int and
    pointer are both 32-bit in the same arg register. */
-extern void func_001F2BC8(void);
-extern int D_0018C434 NOT_SDA;
+extern void BuildOcclVisibility(void);
+extern int occl_update NOT_SDA;
 
 /* UpdateOcclusion(void) */
 void UpdateOcclusion(void) {
@@ -1065,9 +1053,9 @@ void UpdateOcclusion(void) {
     }
 }
 
-extern short D_00151880[];
-extern int D_0013E600[];
-extern float func_001FA888(int);
+extern short fs_aa_buffer[];
+extern int g_screen_extent[];
+extern float IntToFloat(int);
 
 /* InitViewContext: the same set-up as configure_graphics_projection (func_001F3760) for
    the display's size, D_00151880[0xA8]/[0xA9], with fixed extras. The
@@ -1080,7 +1068,7 @@ extern float func_001FA888(int);
    a base pointer that stays in $s1, and the height is read again from
    memory for the second conversion. */
 void InitViewContext(void) {
-    short *res = D_00151880;
+    short *res = fs_aa_buffer;
     float *ctx = (float *)view_context;
     short w = res[0xA8];
     short h = res[0xA9];
@@ -1088,14 +1076,14 @@ void InitViewContext(void) {
     int hh = h >> 1;
     float fh;
 
-    D_0013E600[0] = w;
-    D_0013E600[1] = h;
-    D_0013E600[2] = hw;
-    D_0013E600[3] = hh;
-    D_0013E600[4] = (0x800 - hw) << 4;
-    D_0013E600[5] = (0x800 - hh) << 4;
-    D_0013E600[6] = (hw + 0x800) << 4;
-    D_0013E600[7] = (hh + 0x800) << 4;
+    g_screen_extent[0] = w;
+    g_screen_extent[1] = h;
+    g_screen_extent[2] = hw;
+    g_screen_extent[3] = hh;
+    g_screen_extent[4] = (0x800 - hw) << 4;
+    g_screen_extent[5] = (0x800 - hh) << 4;
+    g_screen_extent[6] = (hw + 0x800) << 4;
+    g_screen_extent[7] = (hh + 0x800) << 4;
     ctx[0x28] = 32.0f;
     ctx[0x29] = 745472.0f;
     ctx[0x2C] = 0.63f;
@@ -1113,18 +1101,17 @@ void InitViewContext(void) {
 __asm__(".section .text\n\tnop\n");
 
 typedef u32 VecQuadP __attribute__((mode(TI), aligned(16)));
-typedef union { VecQuadP q; f32 f[4]; s32 i[4]; } Vec4P;
 struct ViewP {
     s32 fog_color; s32 unk4; s32 unk8; s32 unkC;
-    Vec4P regs[5]; Vec4P gif[4];
+    Vec4 regs[5]; Vec4 gif[4];
     f32 near_clip; f32 far_clip; f32 aspect_x; f32 aspect_y;
-    Vec4P fov; f32 proj[16]; f32 proj2[16]; f32 proj3[16];
-    Vec4P inverse_screen_scale, screen_scale, screen_bias, inverse_projection_scale, viewport_aspect, aspect_scale, clip_scale, clip_distances;
+    Vec4 fov; f32 proj[16]; f32 proj2[16]; f32 proj3[16];
+    Vec4 inverse_screen_scale, screen_scale, screen_bias, inverse_projection_scale, viewport_aspect, aspect_scale, clip_scale, clip_distances;
     f32 half_width, half_height, scr_x, scr_y, fog_mul, fog_add, fog_near_dist, fog_far_dist, fog_slope, fog_base, fog_near_int, fog_far_int;
     s32 fog_r, fog_g, fog_b;
 };
 #define view_context_p (*(struct ViewP *)&D_0018CE00)
-extern s32 D_0015EE80 MACRO_ADDR;
+extern s32 pal_mode MACRO_ADDR;
 #define pal_mode_p D_0015EE80
 struct FogRegs2P {
     u8 pad0[0x28];
@@ -1134,37 +1121,35 @@ struct FogRegs2P {
     s32 near_int;
 };
 struct ClipP {
-    Vec4P constants[3];
+    Vec4 constants[3];
 };
 
-extern Vec4P D_0018D0C0[4];
-extern f32 D_00160820[4];
-extern f32 D_00160C30 MACRO_ADDR;
-extern f32 D_001E0250[];
-extern f32 D_001E6E70[];
-extern struct FogRegs2P D_001DED30;
-#define shrub_vu1_constants D_001DED30
-extern struct FogRegs2P D_001DED80;
-extern Vec4P D_001DEDC0[2];
-extern Vec4P D_001DEA90[3];
+extern Vec4 view_clip_constants[4];
+extern f32 view_depth_constants[4];
+extern f32 view_fog_multiplier MACRO_ADDR;
+extern f32 view_fog_multiplier_copy[];
+extern f32 view_fog_multiplier_copy2[];
+extern struct FogRegs2P shrub_vu1_constants;
+extern struct FogRegs2P shrub_vu1_constants_alt;
+extern Vec4 shrub_vu1_constants_alt_screen[2];
+extern Vec4 vu1_view_screen_consts[3];
 extern struct {
     u8 pad0[0x10];
     s32 mul;
     s32 far_int;
     s32 near_int;
     u8 pad1c[0x44];
-    Vec4P constants[3];
+    Vec4 constants[3];
     u8 pad90[0x10];
     s32 x;
     s32 y;
 } D_001DEAC0;
-#define tfrag_vu_const_block D_001DEAC0
 
-extern f32 func_001FA058(f32, f32);
-extern f32 func_001F9F90(f32);
+extern f32 fast_arc_tan(f32, f32);
+extern f32 FastCos(f32);
 #define fast_cos func_001F9F90
-extern void func_001F9A00(void *, void *, s32);
-extern void func_00234380(void);
+extern void copy_memory_aligned(void *, void *, s32);
+extern void SetTfragDists(void);
 #define set_tfrag_dists func_00234380
 
 /* Rebuilds the view state from the field of view, screen size and fog
@@ -1204,10 +1189,10 @@ void UpdateViewContext(void) {
     view = &view_context_p;
     view->aspect_x = view->scr_x / view->half_width;
     view->aspect_y = view->scr_y / view->half_height;
-    view->fov.f[2] = 1.0f / fast_cos(func_001FA058(1.0f, view->fov.f[0]));
-    view->fov.f[3] = 1.0f / fast_cos(func_001FA058(1.0f, view->fov.f[1]));
-    horizontal_clip_scale = 1.0f / fast_cos(func_001FA058(1.0f, view->fov.f[0] * view->aspect_x));
-    vertical_clip_scale = 1.0f / fast_cos(func_001FA058(1.0f, view->fov.f[1] * view->aspect_y));
+    view->fov.f[2] = 1.0f / fast_cos(fast_arc_tan(1.0f, view->fov.f[0]));
+    view->fov.f[3] = 1.0f / fast_cos(fast_arc_tan(1.0f, view->fov.f[1]));
+    horizontal_clip_scale = 1.0f / fast_cos(fast_arc_tan(1.0f, view->fov.f[0] * view->aspect_x));
+    vertical_clip_scale = 1.0f / fast_cos(fast_arc_tan(1.0f, view->fov.f[1] * view->aspect_y));
     horizontal_clip_scale /= view->fov.f[2];
     vertical_clip_scale /= view->fov.f[3];
     view->aspect_scale.f[2] = 1.0f / view->aspect_x;
@@ -1220,10 +1205,10 @@ void UpdateViewContext(void) {
     near_clip = view->near_clip;
     view->clip_distances.f[1] = near_clip;
     view->clip_scale.f[2] = (horizontal_clip_scale + vertical_clip_scale) * 0.5f;
-    qcopy(&D_0018D0C0[0], &view->fov);
-    qcopy(&D_0018D0C0[1], &view->aspect_scale);
-    qcopy(&D_0018D0C0[2], &view->clip_scale);
-    qcopy(&D_0018D0C0[3], &view->clip_distances);
+    qcopy(&view_clip_constants[0], &view->fov);
+    qcopy(&view_clip_constants[1], &view->aspect_scale);
+    qcopy(&view_clip_constants[2], &view->clip_scale);
+    qcopy(&view_clip_constants[3], &view->clip_distances);
 
     /* Retail lw instructions carry the fog endpoint float bits into packet fields. */
     far_bits = *(s32 *)&view->fog_far_int;
@@ -1238,21 +1223,21 @@ void UpdateViewContext(void) {
     view->fog_slope = fog_distance_slope;
     view->fog_base = view->fog_near_int - view->fog_near_dist / 1024.0f * fog_distance_slope;
     view->fog_mul = fog_multiplier;
-    D_00160C30 = fog_multiplier;
-    D_001E0250[0] = fog_multiplier;
-    D_001E6E70[0] = fog_multiplier;
+    view_fog_multiplier = fog_multiplier;
+    view_fog_multiplier_copy[0] = fog_multiplier;
+    view_fog_multiplier_copy2[0] = fog_multiplier;
     mul_bits = *(s32 *)&view->fog_mul;
     tfrag_vu_const_block.mul = mul_bits;
     tfrag_vu_const_block.far_int = far_bits;
     tfrag_vu_const_block.near_int = near_bits;
     shrub_vu1_constants.mul = mul_bits;
-    D_001DED80.mul = mul_bits;
+    shrub_vu1_constants_alt.mul = mul_bits;
     shrub_vu1_constants.far_int = far_bits;
     shrub_vu1_constants.near_int = near_bits;
-    D_001DED80.far_int = far_bits;
-    D_001DED80.near_int = near_bits;
+    shrub_vu1_constants_alt.far_int = far_bits;
+    shrub_vu1_constants_alt.near_int = near_bits;
     shrub_vu1_constants.max = 0x437EFFFF;
-    D_001DED80.max = 0x437EFFFF;
+    shrub_vu1_constants_alt.max = 0x437EFFFF;
     set_tfrag_dists();
 
     projection_near_clip = view->near_clip;
@@ -1262,10 +1247,10 @@ void UpdateViewContext(void) {
     viewport_width = view->half_width;
     viewport_height = view->half_height;
     projection_fog_multiplier = view->fog_mul;
-    D_00160820[0] = 0.5f / 210000.0f;
-    D_00160820[1] = -0.5f / 210000.0f;
-    D_00160820[2] = 0.5f;
-    D_00160820[3] = viewport_width / (horizontal_fov * 210000.0f);
+    view_depth_constants[0] = 0.5f / 210000.0f;
+    view_depth_constants[1] = -0.5f / 210000.0f;
+    view_depth_constants[2] = 0.5f;
+    view_depth_constants[3] = viewport_width / (horizontal_fov * 210000.0f);
     view->proj[0] = viewport_width / (horizontal_fov * projection_near_clip);
     view->proj[1] = 0;
     view->proj[2] = 0;
@@ -1339,27 +1324,25 @@ void UpdateViewContext(void) {
     qcopy(&packet_view->regs[2], &packet_view->inverse_screen_scale);
     qcopy(&packet_view->regs[3], &packet_view->screen_scale);
     qcopy(&packet_view->regs[4], &packet_view->screen_bias);
-    qcopy(&D_001DEA90[0], &packet_view->screen_bias);
-    qcopy(&D_001DEA90[1], &packet_view->screen_scale);
-    qcopy(&D_001DEA90[2], &packet_view->viewport_aspect);
+    qcopy(&vu1_view_screen_consts[0], &packet_view->screen_bias);
+    qcopy(&vu1_view_screen_consts[1], &packet_view->screen_scale);
+    qcopy(&vu1_view_screen_consts[2], &packet_view->viewport_aspect);
     qcopy(&tfrag_vu_const_block.constants[0], &packet_view->screen_bias);
     qcopy(&tfrag_vu_const_block.constants[1], &packet_view->inverse_screen_scale);
     qcopy(&tfrag_vu_const_block.constants[2], &packet_view->screen_scale);
     tfrag_vu_const_block.x = packet_view->viewport_aspect.i[0];
     tfrag_vu_const_block.y = packet_view->viewport_aspect.i[1];
-    qcopy(&D_001DEDC0[0], &packet_view->screen_scale);
-    qcopy(&D_001DEDC0[1], &packet_view->screen_bias);
+    qcopy(&shrub_vu1_constants_alt_screen[0], &packet_view->screen_scale);
+    qcopy(&shrub_vu1_constants_alt_screen[1], &packet_view->screen_bias);
 }
 
 #undef view_context_p
 #undef pal_mode_p
-#undef shrub_vu1_constants
-#undef tfrag_vu_const_block
 #undef fast_cos
 #undef set_tfrag_dists
 
-extern int D_0013E600[];
-extern float func_001FA888(int);
+extern int g_screen_extent[];
+extern float IntToFloat(int);
 
 /* Sets the screen size: the GS viewport record at D_0013E600 gets width,
    height, their halves and the four <<4 edges around the 0x800 centre;
@@ -1376,14 +1359,14 @@ void configure_graphics_projection(int w, int h, float a2, float a3, float a4, f
     int hh = h >> 1;
     float fh;
 
-    D_0013E600[0] = w;
-    D_0013E600[1] = h;
-    D_0013E600[2] = hw;
-    D_0013E600[3] = hh;
-    D_0013E600[4] = (0x800 - hw) << 4;
-    D_0013E600[5] = (0x800 - hh) << 4;
-    D_0013E600[6] = (hw + 0x800) << 4;
-    D_0013E600[7] = (hh + 0x800) << 4;
+    g_screen_extent[0] = w;
+    g_screen_extent[1] = h;
+    g_screen_extent[2] = hw;
+    g_screen_extent[3] = hh;
+    g_screen_extent[4] = (0x800 - hw) << 4;
+    g_screen_extent[5] = (0x800 - hh) << 4;
+    g_screen_extent[6] = (hw + 0x800) << 4;
+    g_screen_extent[7] = (hh + 0x800) << 4;
     ctx[0x2C] = a2;
     ctx[0x28] = 32.0f;
     ctx[0x29] = 524288.0f;
@@ -1449,21 +1432,21 @@ extern GsDrawEnvRegs draw_env_3890 __asm__("D_0013D010");
 extern u64 depth_reg_3890 __asm__("D_0013D200");
 extern u64 masked_depth_reg_3890 __asm__("D_0013D270");
 extern unsigned char clear_buf_3890[] __asm__("D_001942C0");
-extern int D_0015EF74 MACRO_ADDR;
-extern int D_0015EF80 MACRO_ADDR;
-extern int D_0015EF84 MACRO_ADDR;
-extern int D_0015EF88 MACRO_ADDR;
-extern int D_0015EF8C MACRO_ADDR;
-extern void func_00118D80(int);
-extern int func_00120858(int, int);
-extern void func_001FAB40(int, int, int, int, int, int);
-extern void func_001FB498(void);
-extern void func_001FB530(void);
-extern void func_001FB470(void);
-extern int func_00122630(GsLoadImage *, s16, s16, s16, s16, s16, s16, s16);
-extern int func_00122958(GsLoadImage *, unsigned char *);
+extern int g_gs_texture_allocation_cursor MACRO_ADDR;
+extern int display_buffer_address MACRO_ADDR;
+extern int draw_buffer_address MACRO_ADDR;
+extern int depth_buffer_address MACRO_ADDR;
+extern int g_gs_texture_allocation_base MACRO_ADDR;
+extern void flush_cache(int);
+extern int wait_for_graphics_pipeline_idle(int, int);
+extern void SetupFS_AA_buffer(int, int, int, int, int, int);
+extern void PutDrawBufferLarge(void);
+extern void append_gif_transfer_packet(void);
+extern void PutDispBuffer(void);
+extern int sceGsSetDefLoadImage(GsLoadImage *, s16, s16, s16, s16, s16, s16, s16);
+extern int sceGsExecLoadImage(GsLoadImage *, unsigned char *);
 
-/* Adapted from Lombyte (GPL-3.0): src/video/display/set_pal_mode.c, set_pal_mode. */
+/* Adapted from Lombyte's project (GPL-3.0): src/video/display/set_pal_mode.c, set_pal_mode. */
 void SetPalMode(void) {
     GsLoadImage image;
     int n;
@@ -1473,18 +1456,18 @@ void SetPalMode(void) {
     u64 scissor;
     s16 w;
 
-    func_00118D80(0);
-    if (D_0015EE80 != 0) {
-        D_0015EF84 = 0x100000;
-        D_0015EF88 = 0x1E0000;
-        D_0015EF80 = 0;
-        D_0015EF8C = 0x2C0000;
+    flush_cache(0);
+    if (pal_mode != 0) {
+        draw_buffer_address = 0x100000;
+        depth_buffer_address = 0x1E0000;
+        display_buffer_address = 0;
+        g_gs_texture_allocation_base = 0x2C0000;
         SetupFS_AA_buffer(0x200, 0x1C0, 0x200, 0x200, 4, 0);
     } else {
-        D_0015EF84 = 0xE0000;
-        D_0015EF88 = 0x1B0000;
-        D_0015EF80 = 0;
-        D_0015EF8C = 0x280000;
+        draw_buffer_address = 0xE0000;
+        depth_buffer_address = 0x1B0000;
+        display_buffer_address = 0;
+        g_gs_texture_allocation_base = 0x280000;
         SetupFS_AA_buffer(0x200, 0x1A0, 0x200, 0x1C0, 0, 0);
     }
     w = fs_aa_buffer_3890.display_width;
@@ -1495,13 +1478,13 @@ void SetPalMode(void) {
     screen_extent_3890.top = (0x800 - screen_extent_3890.half_height) << 4;
     screen_extent_3890.right = (screen_extent_3890.half_width + 0x800) << 4;
     screen_extent_3890.bottom = (screen_extent_3890.half_height + 0x800) << 4;
-    func_00118D80(0);
-    func_00120858(0, 0);
-    frame = (D_0015EF84 >> 13) | ((u64)(screen_extent_3890.width >> 6) << 16);
-    D_0015EF74 = D_0015EF8C;
+    flush_cache(0);
+    wait_for_graphics_pipeline_idle(0, 0);
+    frame = (draw_buffer_address >> 13) | ((u64)(screen_extent_3890.width >> 6) << 16);
+    g_gs_texture_allocation_cursor = g_gs_texture_allocation_base;
     draw_env_3890.frame1 = frame;
-    D_0015EF78 = D_0015EF8C;
-    zbuf = (D_0015EF88 >> 13) | 0x1000000;
+    g_gs_texture_allocation_start = g_gs_texture_allocation_base;
+    zbuf = (depth_buffer_address >> 13) | 0x1000000;
     draw_env_3890.frame2 = frame;
     draw_env_3890.xyoffset1 = screen_extent_3890.left | ((u64)screen_extent_3890.top << 32);
     draw_env_3890.zbuf1 = zbuf;
@@ -1512,19 +1495,19 @@ void SetPalMode(void) {
     draw_env_3890.scissor1 = scissor;
     draw_env_3890.scissor2 = scissor;
     masked_depth_reg_3890 = zbuf | ((u64)0x8000 << 17);
-    func_00118D80(0);
+    flush_cache(0);
     PutDrawBufferLarge();
     append_gif_transfer_packet();
-    func_00118D80(0);
-    func_00120858(0, 0);
+    flush_cache(0);
+    wait_for_graphics_pipeline_idle(0, 0);
     PutDispBuffer();
     FastMemSet(clear_buf_3890, 0, 0x1000);
     n = (fs_aa_buffer_3890.storage_width * fs_aa_buffer_3890.storage_height) >> 10;
     for (i = 0; i < n; i++) {
-        func_00122630(&image, i << 4, 1, 0, 0, 0, 32, 32);
-        func_00118D80(0);
-        func_00122958(&image, clear_buf_3890);
-        func_00120858(0, 0);
+        sceGsSetDefLoadImage(&image, i << 4, 1, 0, 0, 0, 32, 32);
+        flush_cache(0);
+        sceGsExecLoadImage(&image, clear_buf_3890);
+        wait_for_graphics_pipeline_idle(0, 0);
     }
 }
 
@@ -1535,22 +1518,22 @@ void SetPalMode(void) {
  * one because it lands in the jr delay slot where a two-instruction
  * expansion will not fit.
  */
-extern int D_0015F430 MACRO_ADDR;
-extern int D_0015F434 MACRO_ADDR;
-extern short D_0015F44C;              /* SDA, gp -0x78B4 */
-extern short D_0015F460;              /* SDA, gp -0x78A0 */
-extern short D_0015F470;              /* SDA, gp -0x7890 */
-extern int D_0015F544 MACRO_ADDR;
-extern int D_0015F548 MACRO_ADDR;
-extern int D_0015F564 MACRO_ADDR;
-extern int D_0015F568 MACRO_ADDR;
-extern int D_0015F56C MACRO_ADDR;
-extern int D_0015F570 MACRO_ADDR;
-extern int D_0015F574 MACRO_ADDR;
-extern int D_00161290 MACRO_ADDR;
-extern int D_00161294 MACRO_ADDR;
-extern int D_00161298 MACRO_ADDR;
-extern int D_0016129C MACRO_ADDR;
+extern int screen_tint_quad_enabled MACRO_ADDR;
+extern int screen_tint_quad_rgba MACRO_ADDR;
+extern short screen_overlay_enabled;              /* SDA, gp -0x78B4 */
+extern short draw_unused_reset_flag;              /* SDA, gp -0x78A0 */
+extern short occl_debug_overlay_enabled;              /* SDA, gp -0x7890 */
+extern int letterbox_enabled MACRO_ADDR;
+extern int letterbox_bar_height MACRO_ADDR;
+extern int draw_callback_count MACRO_ADDR;
+extern int draw_callback2_count MACRO_ADDR;
+extern int draw_callback3_count MACRO_ADDR;
+extern int draw_callback4_count MACRO_ADDR;
+extern int effect_quad_count MACRO_ADDR;
+extern int surface_height_tiles MACRO_ADDR;
+extern int occl_cell_table MACRO_ADDR;
+extern int occl_cell_count MACRO_ADDR;
+extern int local_surface_region_enabled MACRO_ADDR;
 
 /* ResetDrawGlobals: clears the draw-callback counts and related draw counters. */
 void ResetDrawGlobals(void) {
@@ -1559,42 +1542,42 @@ void ResetDrawGlobals(void) {
     draw_callback4_count = 0;
     draw_callback2_count = 0;
     effect_quad_count = 0;
-    D_0015F430 = 0;
-    D_0015F434 = 0;
-    D_0015F544 = 0;
-    D_0015F548 = 0;
+    screen_tint_quad_enabled = 0;
+    screen_tint_quad_rgba = 0;
+    letterbox_enabled = 0;
+    letterbox_bar_height = 0;
     *(int *)&screen_overlay_enabled = 0;
-    *(int *)&D_0015F460 = 0;
+    *(int *)&draw_unused_reset_flag = 0;
     *(int *)&occl_debug_overlay_enabled = 0;
-    D_0015F728 = 0;
+    occl_fallback_mode = 0;
     surface_height_tiles = 0;
     occl_cell_table = 0;
     occl_cell_count = 0;
-    D_0016129C = 0;
+    local_surface_region_enabled = 0;
 }
 
-extern int *D_00161000 MACRO_ADDR;
-extern void func_00234C98(int, long);
-extern char D_0013D0C0[];
-extern char D_0013D010[];
+extern int *g_render_packet_cursor MACRO_ADDR;
+extern void VU1_addGSregister(int, long);
+extern char reset_gs_regs_fixed[];
+extern char draw_environment[];
 
 /* ResetGsRegisters(void) */
 void ResetGsRegisters(void) {
-    D_00161000[0] = 0x30000013;
-    D_00161000[1] = (int)reset_gs_regs_fixed;
-    D_00161000[2] = 0;
-    D_00161000[3] = 0x50000013;
-    D_00161000 += 4;
-    D_00161000[0] = 0x3000000B;
-    D_00161000[1] = (int)draw_environment;
-    D_00161000[2] = 0;
-    D_00161000[3] = 0x5000000B;
-    D_00161000 += 4;
+    g_render_packet_cursor[0] = 0x30000013;
+    g_render_packet_cursor[1] = (int)reset_gs_regs_fixed;
+    g_render_packet_cursor[2] = 0;
+    g_render_packet_cursor[3] = 0x50000013;
+    g_render_packet_cursor += 4;
+    g_render_packet_cursor[0] = 0x3000000B;
+    g_render_packet_cursor[1] = (int)draw_environment;
+    g_render_packet_cursor[2] = 0;
+    g_render_packet_cursor[3] = 0x5000000B;
+    g_render_packet_cursor += 4;
     VU1_addGSregister(0x3D, (long)view_context[0x8C] | ((long)view_context[0x8D] << 8) |
                         ((long)view_context[0x8E] << 16));
 }
 
-extern long D_00151888[3];
+extern long gs_display_settings[3];
 
 /* GS privileged-register writes (0x1200_00XX = the GS's memory-mapped
    register block): CSR ack, PMODE, then SMODE2/DISPFB1/DISPFB2/DISPLAY1/
@@ -1611,99 +1594,99 @@ void ResetGsRegistersPr(void) {
     *(volatile long *)0x120000D0 = 0;
 }
 
-extern short D_0015F450;             /* SDA, gp -0x78B0: Stripes * */
-extern char *D_0016055C MACRO_ADDR;
-extern int D_0018C44C[];
-extern int D_0015F534_f __asm__("D_0015F534") MACRO_ADDR;
-extern int D_0015F704 MACRO_ADDR;
-extern int D_0015F6E8 MACRO_ADDR;
-extern unsigned char D_0015EF40_F3D78[] __asm__("D_0015EF40") MACRO_ADDR;
-extern float D_0015F53C MACRO_ADDR;
-extern float D_0015F540 MACRO_ADDR;
-extern float D_0015F6F8 MACRO_ADDR;
-extern unsigned char D_001611C0_F3D78[] __asm__("D_001611C0") MACRO_ADDR;
-extern unsigned char D_001611C1_F3D78[] __asm__("D_001611C1") MACRO_ADDR;
-extern unsigned char D_001611C2_F3D78[] __asm__("D_001611C2") MACRO_ADDR;
-extern unsigned char D_001611C3_F3D78[] __asm__("D_001611C3") MACRO_ADDR;
-extern unsigned short D_0010FA90 NOT_SDA;
-extern char D_0010FAA0[];
-extern char D_0015F480[];
-extern char D_0015F490[];
-extern char D_0015F4A0[];
-extern char D_0015F4B0[];
-extern char D_0015F4C0[];
-extern char D_0015F4D0[];
-extern char D_0015F4E0[];
-extern char D_0015F4F0[];
-extern char D_0015F4F8[];
-extern char D_0015F500[];
-extern char D_0015F510[];
-extern char D_0015F518[];
-extern char D_0015F528[];
-extern char D_001E7BA0[];
-extern char D_001E7BB8[];
-extern char D_00100AE0[];
-extern char D_001E1600[];
-extern char D_001E3500[];
-extern char D_001D9240[];
+extern short screen_color_effect_now;             /* SDA, gp -0x78B0: Stripes * */
+extern char *level_sky_effect_data MACRO_ADDR;
+extern int draw_force_gif_transfer[];
+extern int draw_enable_mask_f __asm__("D_0015F534") MACRO_ADDR;
+extern int font_state MACRO_ADDR;
+extern int g_game_mode MACRO_ADDR;
+extern unsigned char subtitles_enabled_r[] __asm__("D_0015EF40") MACRO_ADDR;
+extern float gFade MACRO_ADDR;
+extern float white_fade_level MACRO_ADDR;
+extern float draw_frame_time_ratio MACRO_ADDR;
+extern unsigned char underwater_screen_tint_r_r[] __asm__("D_001611C0") MACRO_ADDR;
+extern unsigned char underwater_screen_tint_g_r[] __asm__("D_001611C1") MACRO_ADDR;
+extern unsigned char underwater_screen_tint_b_r[] __asm__("D_001611C2") MACRO_ADDR;
+extern unsigned char underwater_screen_tint_a_r[] __asm__("D_001611C3") MACRO_ADDR;
+extern unsigned short moby_vu1_data_qwc NOT_SDA;
+extern char moby_vu1_data[];
+extern char profile_mark_frame_start[];
+extern char profile_mark_after_sky[];
+extern char profile_mark_after_ties[];
+extern char profile_mark_after_mobys[];
+extern char profile_mark_after_lights[];
+extern char profile_mark_after_particles[];
+extern char profile_mark_after_sprites[];
+extern char profile_mark_after_blur[];
+extern char profile_mark_after_hud[];
+extern char profile_mark_after_fades[];
+extern char profile_mark_vu1_sync[];
+extern char profile_mark_tie_lighting[];
+extern char profile_mark_moby_patch[];
+extern char profile_mark_tfrag_lighting[];
+extern char profile_mark_shrub_lighting[];
+extern char frame_vu0_micro_program[];
+extern char tfrag_dma_block[];
+extern char tie_light_data[];
+extern char shrub_scratchpad_copy[];
 
-extern void func_001F2558_a(void *, int) __asm__("func_001F2558");
-extern void func_001F2560_a(void *, int) __asm__("func_001F2560");
-extern void func_001F2930_v(void) __asm__("func_001F2930");
-extern void func_001FB530(void);
-extern void func_001F2608(void);
-extern void func_0020DAB0(void);
-extern void func_001E9E70(void);
-extern void func_002346C0(void);
-extern void func_00235290(int);
-extern void func_00236CA8(void);
-extern void func_00236BE0(void);
-extern void func_00234F40(void);
-extern void func_001F4630(int);
-extern void func_001F4A78(void);
-extern void func_001F4748(void);
-extern void func_00234EE0(void);
-extern void func_00229E50(void);
-extern void func_001F54E8(char *);
-extern void func_001F7B70(void);
-extern void func_001F4AF0(void);
-extern void func_0020E2B0(void);
-extern void func_00234B48(void *, int);
-extern void func_001F4A00(void);
-extern void func_001EDFF8(void);
-extern void func_001F4C30(void);
-extern void func_00118D80(int);
-extern void func_00218B10(void);
-extern void func_001F4BB8(void);
-extern void func_001F9478(void);
-extern void func_001EE6E0(void);
-extern void func_001FB848(void);
-extern void func_00238D88(void);
-extern void func_001FFFB8(void);
-extern void func_001FF1B0(void);
-extern void func_001F5148(void);
-extern void func_001F4F90(void);
-extern void func_001F55C0(int, int, int, int);
-extern void func_001F5368(void);
-extern void func_002347F0(void *);
-extern void func_00234AC8(int mask);
-extern void func_002362B0(void *);
-extern void func_00234620(void);
-extern void func_00236BB0(void);
-extern void func_00236B58(void);
-extern void func_00238688(void *);
-extern void func_00236A98(void);
-extern void func_0022B8F8(void *);
-extern void func_00229D48(void);
-extern void func_0020DD48(void);
+extern void ProfileMarker_End_a(void *, int) __asm__("func_001F2558");
+extern void ProfileMarker_Begin_a(void *, int) __asm__("func_001F2560");
+extern void UpdateFog_v(void) __asm__("func_001F2930");
+extern void append_gif_transfer_packet(void);
+extern void BuildViewMatrices(void);
+extern void prune_moby_references(void);
+extern void Transition_DrawSky(void);
+extern void DrawTfrag(void);
+extern void append_dma_tag(int);
+extern void DrawTies_2(void);
+extern void DrawTies_1(void);
+extern void vu1_gs_regs_alt(void);
+extern void SetupGifPaging(int);
+extern void dispatch_callback_list_2(void);
+extern void DoGifPaging(void);
+extern void VU1_gsRegsNormal(void);
+extern void DrawShrubs(void);
+extern void draw_fogged_fullscreen_sprite(char *);
+extern void draw_debug_font(void);
+extern void dispatch_callback_list_3(void);
+extern void DrawMobys(void);
+extern void VU1_addDataRef(void *, int);
+extern void dispatch_callback_list_1(void);
+extern void draw_lens_flare(void);
+extern void draw_light_quads(void);
+extern void flush_cache(int);
+extern void PartProc(void);
+extern void dispatch_callback_list_4(void);
+extern void append_billboard_batch(void);
+extern void render_queued_rotated_sprites(void);
+extern void AA_BlurPass(void);
+extern void DebugProfiler_Hook(void);
+extern void update_hud(void);
+extern void draw_help(void);
+extern void draw_letterbox_bars(void);
+extern void draw_subtitles(void);
+extern void emit_rgba_draw_packet(int, int, int, int);
+extern void draw_screen_effect(void);
+extern void VU0_loadMicroProgram(void *);
+extern void VU1_syncChain(int mask);
+extern void LightTfrags(void *);
+extern void PatchTfragGifs(void);
+extern void register_entity_render_resources(void);
+extern void copy_render_buffer_pair(void);
+extern void LightTies(void *);
+extern void PatchTieGifs(void);
+extern void LightShrubs(void *);
+extern void patch_shrub_gifs(void);
+extern void PatchMobyGifs(void);
 
-/* Draws the whole frame: each world layer's DMA chain in order, then the fades and the per-layer profiler bars. Adapted from Lombyte (GPL-3.0) for PAL: rendering/draw_debug_profiler.c, draw_debug_profiler. */
+/* Draws the whole frame: each world layer's DMA chain in order, then the fades and the per-layer profiler bars. Adapted from Lombyte's project (GPL-3.0) for PAL: rendering/draw_debug_profiler.c, draw_debug_profiler. */
 void DrawDebugProfiler(void) {
     float t;
     float div;
 
-    if (level_sky_effect_data == 0 || *(short *)(level_sky_effect_data + 4) != 0 || ((D_0015F534_f ^ 1) & 1) || draw_config[2] == 0 ||
-        D_0018C44C[0] != 0) {
+    if (level_sky_effect_data == 0 || *(short *)(level_sky_effect_data + 4) != 0 || ((draw_enable_mask_f ^ 1) & 1) || draw_config[2] == 0 ||
+        draw_force_gif_transfer[0] != 0) {
         append_gif_transfer_packet();
     }
     BuildViewMatrices();
@@ -1711,21 +1694,21 @@ void DrawDebugProfiler(void) {
     UpdateOcclusion();
     ResetGsRegisters();
     font_state = -1;
-    func_001F2558_a(D_0015F480, 0xF);
-    func_001F2560_a(D_0015F480, 0xF);
-    if (level_sky_effect_data != 0 && (D_0015F534_f & 1)) {
+    ProfileMarker_End_a(profile_mark_frame_start, 0xF);
+    ProfileMarker_Begin_a(profile_mark_frame_start, 0xF);
+    if (level_sky_effect_data != 0 && (draw_enable_mask_f & 1)) {
         if (draw_config[2] != 0) {
             Transition_DrawSky();
         }
-        func_001F2560_a(D_0015F490, 0xE);
-        func_001F2558_a(D_0015F490, 0xE);
+        ProfileMarker_Begin_a(profile_mark_after_sky, 0xE);
+        ProfileMarker_End_a(profile_mark_after_sky, 0xE);
     }
-    if (D_0015F534_f & 2) {
+    if (draw_enable_mask_f & 2) {
         DrawTfrag();
     }
     append_dma_tag(0x02010000);
-    if (D_0015F534_f & 4) {
-        if (D_0015EE80 != 0) {
+    if (draw_enable_mask_f & 4) {
+        if (pal_mode != 0) {
             DrawTies_2();
         } else {
             DrawTies_1();
@@ -1739,16 +1722,16 @@ void DrawDebugProfiler(void) {
         DoGifPaging();
         VU1_gsRegsNormal();
     }
-    func_001F2558_a(D_0015F4A0, 6);
-    func_001F2560_a(D_0015F4A0, 6);
-    if (D_0015F534_f & 8) {
+    ProfileMarker_End_a(profile_mark_after_ties, 6);
+    ProfileMarker_Begin_a(profile_mark_after_ties, 6);
+    if (draw_enable_mask_f & 8) {
         DrawShrubs();
     }
     append_dma_tag(0x02040000);
     if (draw_config[0x44 / 4] != 0 && *(int *)&occl_debug_overlay_enabled != 0) {
         draw_fogged_fullscreen_sprite((char *)&occl_debug_overlay_enabled);
     }
-    if (D_0015F534_f & 0x20) {
+    if (draw_enable_mask_f & 0x20) {
         SetupGifPaging(1);
         draw_debug_font();
         DoGifPaging();
@@ -1760,18 +1743,18 @@ void DrawDebugProfiler(void) {
         DoGifPaging();
         VU1_gsRegsNormal();
     }
-    if (D_0015F534_f & 0x10) {
+    if (draw_enable_mask_f & 0x10) {
         DrawMobys();
     }
     append_dma_tag(0x02080000);
     SetupGifPaging(0);
-    if ((D_0015F534_f & 0x20) && draw_config[0x30 / 4] != 0 && font_state != 6) {
-        VU1_addDataRef(D_0010FAA0, D_0010FA90);
+    if ((draw_enable_mask_f & 0x20) && draw_config[0x30 / 4] != 0 && font_state != 6) {
+        VU1_addDataRef(moby_vu1_data, moby_vu1_data_qwc);
         font_state = 6;
     }
-    func_001F2560_a(D_0015F4B0, 4);
-    func_001F2558_a(D_0015F4B0, 4);
-    if (D_0015F534_f & 0x20) {
+    ProfileMarker_Begin_a(profile_mark_after_mobys, 4);
+    ProfileMarker_End_a(profile_mark_after_mobys, 4);
+    if (draw_enable_mask_f & 0x20) {
         vu1_gs_regs_alt();
         if (draw_config[0x34 / 4] != 0) {
             if (draw_callback_count != 0) {
@@ -1782,92 +1765,92 @@ void DrawDebugProfiler(void) {
             vu1_gs_regs_alt();
             draw_light_quads();
         }
-        func_001F2558_a(D_0015F4C0, 6);
-        func_001F2560_a(D_0015F4C0, 6);
+        ProfileMarker_End_a(profile_mark_after_lights, 6);
+        ProfileMarker_Begin_a(profile_mark_after_lights, 6);
         if (draw_config[0x38 / 4] != 0) {
             VU1_addGSregister(8, 5);
             vu1_gs_regs_alt();
-            func_00118D80(0);
+            flush_cache(0);
             PartProc();
             font_state = 8;
         }
-        func_001F2558_a(D_0015F4D0, 8);
-        func_001F2560_a(D_0015F4D0, 8);
+        ProfileMarker_End_a(profile_mark_after_particles, 8);
+        ProfileMarker_Begin_a(profile_mark_after_particles, 8);
         if (draw_config[0x3C / 4] != 0) {
             if (draw_callback2_count != 0) {
                 vu1_gs_regs_alt();
                 dispatch_callback_list_4();
             }
-            if (D_0015F6E8 == 0) {
+            if (g_game_mode == 0) {
                 append_billboard_batch();
             }
             VU1_addGSregister(0x42, 0x8000000044L);
             render_queued_rotated_sprites();
         }
-        func_001F2558_a(D_0015F4E0, 6);
-        func_001F2560_a(D_0015F4E0, 6);
+        ProfileMarker_End_a(profile_mark_after_sprites, 6);
+        ProfileMarker_Begin_a(profile_mark_after_sprites, 6);
     }
     if (draw_config[0x48 / 4] != 0) {
         AA_BlurPass();
     }
-    func_001F2560_a(D_0015F4F0, 0xF);
+    ProfileMarker_Begin_a(profile_mark_after_blur, 0xF);
     vu1_gs_regs_alt();
-    if (D_0015F534_f & 0x10000) {
+    if (draw_enable_mask_f & 0x10000) {
         DebugProfiler_Hook();
     }
-    if ((D_0015F534_f & 0x80) && draw_config[0x40 / 4] != 0) {
+    if ((draw_enable_mask_f & 0x80) && draw_config[0x40 / 4] != 0) {
         update_hud();
         draw_help();
         draw_letterbox_bars();
     }
-    if (D_0015F6E8 == 2 && D_0015EF40_F3D78[0] != 0) {
+    if (g_game_mode == 2 && subtitles_enabled_r[0] != 0) {
         draw_subtitles();
     }
-    func_001F2560_a(D_0015F4F8, 0xE);
-    func_001F2558_a(D_0015F4F8, 0xE);
+    ProfileMarker_Begin_a(profile_mark_after_hud, 0xE);
+    ProfileMarker_End_a(profile_mark_after_hud, 0xE);
     DoGifPaging();
-    if (D_0015F534_f & 0x40) {
+    if (draw_enable_mask_f & 0x40) {
         if (draw_config[0x44 / 4] != 0) {
             VU1_addGSregister(0x42, 0x8000000044L);
             if (use_alt_fog != 0) {
-                emit_rgba_draw_packet(D_001611C0_F3D78[0], D_001611C1_F3D78[0], D_001611C2_F3D78[0], D_001611C3_F3D78[0]);
+                emit_rgba_draw_packet(underwater_screen_tint_r_r[0], underwater_screen_tint_g_r[0], underwater_screen_tint_b_r[0], underwater_screen_tint_a_r[0]);
             }
             if (gFade > 0.0f) {
                 if (gFade > 1.0f) {
                     gFade = 1.0f;
                 }
-                emit_rgba_draw_packet(0, 0, 0, func_001FA898_r(gFade * 128.0f));
+                emit_rgba_draw_packet(0, 0, 0, truncate_float_to_s32_r(gFade * 128.0f));
             }
-            if (D_0015F540 > 0.0f) {
-                if (D_0015F540 > 1.0f) {
-                    D_0015F540 = 1.0f;
+            if (white_fade_level > 0.0f) {
+                if (white_fade_level > 1.0f) {
+                    white_fade_level = 1.0f;
                 }
-                emit_rgba_draw_packet(0xFF, 0xFF, 0xFF, func_001FA898_r(D_0015F540 * 128.0f));
+                emit_rgba_draw_packet(0xFF, 0xFF, 0xFF, truncate_float_to_s32_r(white_fade_level * 128.0f));
             }
             if (*(int *)&screen_overlay_enabled != 0 && *(int *)&screen_color_effect_now != 0) {
                 draw_screen_effect();
             }
         }
-        func_001F2560_a(D_0015F500, 0xA);
+        ProfileMarker_Begin_a(profile_mark_after_fades, 0xA);
     }
-    VU0_loadMicroProgram(D_00100AE0);
-    func_00118D80(0);
+    VU0_loadMicroProgram(frame_vu0_micro_program);
+    flush_cache(0);
     t = IntToFloat(*(volatile int *)0x10000800);
-    D_0015F6F8 = t / (D_0015EE80 != 0 ? 11520.0f : 9600.0f);
+    draw_frame_time_ratio = t / (pal_mode != 0 ? 11520.0f : 9600.0f);
     VU1_syncChain(2);
-    func_001F2558_a(D_0015F510, 0x11);
-    if (D_0015F534_f & 2) {
+    ProfileMarker_End_a(profile_mark_vu1_sync, 0x11);
+    if (draw_enable_mask_f & 2) {
         if (draw_config[0x10 / 4] != 0) {
-            LightTfrags(D_001E1600);
+            LightTfrags(tfrag_dma_block);
             PatchTfragGifs();
         }
-        func_001F2558_a(D_001E7BA0, 2);
+        ProfileMarker_End_a(profile_mark_tfrag_lighting, 2);
     }
     VU1_syncChain(4);
-    func_001F2558_a(D_0015F510, 0x11);
-    if (D_0015F534_f & 4) {
+    ProfileMarker_End_a(profile_mark_vu1_sync, 0x11);
+    if (draw_enable_mask_f & 4) {
         if (draw_config[0x18 / 4] != 0) {
-            if (D_0015EE80 != 0) {
+            if (pal_mode != 0) {
                 register_entity_render_resources();
                 copy_render_buffer_pair();
             } else {
@@ -1875,61 +1858,62 @@ void DrawDebugProfiler(void) {
                 PatchTieGifs();
             }
         }
-        func_001F2558_a(D_0015F518, 5);
+        ProfileMarker_End_a(profile_mark_tie_lighting, 5);
     }
     VU1_syncChain(8);
-    func_001F2558_a(D_0015F510, 0x11);
-    if (D_0015F534_f & 8) {
+    ProfileMarker_End_a(profile_mark_vu1_sync, 0x11);
+    if (draw_enable_mask_f & 8) {
         if (draw_config[0x20 / 4] != 0) {
-            LightShrubs(D_001D9240);
+            LightShrubs(shrub_scratchpad_copy);
             patch_shrub_gifs();
         }
-        func_001F2558_a(D_001E7BB8, 7);
+        ProfileMarker_End_a(profile_mark_shrub_lighting, 7);
     }
     VU1_syncChain(0x10);
-    func_001F2558_a(D_0015F510, 0x11);
-    if (D_0015F534_f & 0x10) {
+    ProfileMarker_End_a(profile_mark_vu1_sync, 0x11);
+    if (draw_enable_mask_f & 0x10) {
         if (draw_config[0x28 / 4] != 0) {
             PatchMobyGifs();
         }
-        func_001F2558_a(D_0015F528, 3);
+        ProfileMarker_End_a(profile_mark_moby_patch, 3);
     }
-    func_001F2930_v();
-    D_0015F728 = 0;
+    UpdateFog_v();
+    occl_fallback_mode = 0;
 }
 
-extern int D_0015F6FC;
-extern short D_0015F534;              /* SDA, gp -0x77CC */
-extern void func_001F3D78(void);
+extern int space_load_in_progress;
+extern short draw_enable_mask;              /* SDA, gp -0x77CC */
+extern void DrawDebugProfiler(void);
 
 
 /* D_0015F6FC is read through a MACRO_ADDR alias: retail's one-register
    lui $2 / lw $2 (an older note filed it as an allocator question). */
 void prepare_debug_profiler_render(void) {
-    if (D_0015F6FC_m == 0) {
+    if (space_load_in_progress_m == 0) {
         append_gif_transfer_packet();
-        *(int *)&D_0015F534 = 0x7F;
+        *(int *)&draw_enable_mask = 0x7F;
         DrawDebugProfiler();
     }
 }
 
 LINKER_REMNANT("asm/remnants/text", func_001F4628);
 
-extern int *D_00161000 MACRO_ADDR;
-extern int *D_0015F550 MACRO_ADDR;
-extern int D_0015EF74 MACRO_ADDR;
-extern int D_0015F55C MACRO_ADDR;
-extern int D_0015EF8C MACRO_ADDR;
-extern int D_0015F558 MACRO_ADDR;
+extern int *g_render_packet_cursor MACRO_ADDR;
+extern int *gif_paging_head_tag MACRO_ADDR;
+extern int g_gs_texture_allocation_cursor MACRO_ADDR;
+extern int effect_tex_cnt MACRO_ADDR;
+extern int g_gs_texture_allocation_base MACRO_ADDR;
+extern int pending_texture_upload_count MACRO_ADDR;
 typedef struct {
     long unk0;
     long unk8;
 } PageSlot;
-extern PageSlot D_0018D540[];
-extern char D_0019A4E8[];
+extern PageSlot effect_texture_definitions[];
+extern char hud_state[];
 
+/* Returns the HUD state block that serves as the GIF paging arena. */
 static inline char *PagingArena(void) {
-    return D_0019A4E8;
+    return hud_state;
 }
 
 /* SetupGifPaging(int): marks the D_00161000 packet in D_0015F550 and
@@ -1945,14 +1929,14 @@ static inline char *PagingArena(void) {
    (`i * 8 + base`); the second through a block-local pointer, whose
    %hi retail keeps. */
 void SetupGifPaging(int arg0) {
-    int *p = D_00161000;
+    int *p = g_render_packet_cursor;
     int i;
 
-    D_0015F550 = p;
+    gif_paging_head_tag = p;
     p += 4;
-    D_00161000 = p;
-    D_0015EF74 = D_0015EF78;
-    D_0015F558 = 0;
+    g_render_packet_cursor = p;
+    g_gs_texture_allocation_cursor = g_gs_texture_allocation_start;
+    pending_texture_upload_count = 0;
     {
         int k;
 
@@ -1965,12 +1949,12 @@ void SetupGifPaging(int arg0) {
             unsigned short *el = (unsigned short *)(i * 8
                 + *(int *)(PagingArena() + 0x24) + 4);
 
-            if (*el >= (D_0015EF8C >> 8)) {
+            if (*el >= (g_gs_texture_allocation_base >> 8)) {
                 *el = 0;
             }
         }
         {
-            char *b = D_0019A4E8;
+            char *b = hud_state;
             int j;
 
             for (j = 0; j < *(int *)(*(char **)(b + 0x18) + 0x24); j++) {
@@ -1983,11 +1967,11 @@ void SetupGifPaging(int arg0) {
 /* Retail carries 4 bytes of inter-function padding after this endlabel. */
 __asm__(".section .text\n\tnop\n");
 
-extern int *D_00161000 MACRO_ADDR;
-extern int *D_0015F554 MACRO_ADDR;
-extern int D_0018A3DC;
-extern void func_0020C2F8(void);
-extern void func_00234E80(void);
+extern int *g_render_packet_cursor MACRO_ADDR;
+extern int *gif_paging_tail_tag MACRO_ADDR;
+extern int gif_paging_texture_flush_enabled;
+extern void flush_pending_texture_uploads(void);
+extern void VU1_texFlush(void);
 
 /* DoGifPaging: pushes two 4-word GIF tags (0x20000000 in the first word)
    onto the D_00161000 packet, D_0015F554 marking where it started and
@@ -1996,28 +1980,28 @@ extern void func_00234E80(void);
    The first advance goes through a local advanced in place, which keeps
    the old and new pointer in one register as retail does. */
 void DoGifPaging(void) {
-    int *p = D_00161000;
+    int *p = g_render_packet_cursor;
 
-    D_0015F554 = p;
+    gif_paging_tail_tag = p;
     p += 4;
-    D_00161000 = p;
-    D_0015F550[0] = 0x20000000;
-    D_0015F550[1] = (int)D_00161000;
-    D_0015F550[2] = 0;
-    D_0015F550[3] = 0;
-    if (D_0018A3DC != 0) {
-        func_0020C2F8();
+    g_render_packet_cursor = p;
+    gif_paging_head_tag[0] = 0x20000000;
+    gif_paging_head_tag[1] = (int)g_render_packet_cursor;
+    gif_paging_head_tag[2] = 0;
+    gif_paging_head_tag[3] = 0;
+    if (gif_paging_texture_flush_enabled != 0) {
+        flush_pending_texture_uploads();
         VU1_texFlush();
     }
-    D_00161000[0] = 0x20000000;
-    D_00161000[1] = (int)(D_0015F550 + 4);
-    D_00161000[2] = 0;
-    D_00161000[3] = 0;
-    D_00161000 += 4;
-    D_0015F554[0] = 0x20000000;
-    D_0015F554[1] = (int)D_00161000;
-    D_0015F554[2] = 0;
-    D_0015F554[3] = 0;
+    g_render_packet_cursor[0] = 0x20000000;
+    g_render_packet_cursor[1] = (int)(gif_paging_head_tag + 4);
+    g_render_packet_cursor[2] = 0;
+    g_render_packet_cursor[3] = 0;
+    g_render_packet_cursor += 4;
+    gif_paging_tail_tag[0] = 0x20000000;
+    gif_paging_tail_tag[1] = (int)g_render_packet_cursor;
+    gif_paging_tail_tag[2] = 0;
+    gif_paging_tail_tag[3] = 0;
 }
 
 /* Retail carries 4 bytes of inter-function padding after this endlabel. */
@@ -2066,7 +2050,7 @@ extern s32 gs_texture_allocation_cursor_et __asm__("D_0015EF74") MACRO_ADDR;
    call for a slot allocates its CLUT and texels from the GS texture cursor,
    builds and caches the word, and, while fewer than 64 uploads are
    pending, queues the slot's CLUT and pixels for upload.
-   Adapted from Lombyte (GPL-3.0): src/rendering/effects/get_effect_texture.c, get_effect_texture. */
+   Adapted from Lombyte's project (GPL-3.0): src/rendering/effects/get_effect_texture.c, get_effect_texture. */
 u64 func_001F4868_r(s32 index) __asm__("func_001F4868");
 
 /* GetEffectTex with its real 64-bit return: builds and returns the GS TEX0 word for an effect texture. */
@@ -2127,14 +2111,14 @@ u64 func_001F4868_r(s32 index) {
  * macro form, so they are MACRO_ADDR.
  */
 typedef void (*DrawCallback)(void *);
-extern DrawCallback D_0018DC40[];
-extern void *D_0018DD40[];
-extern DrawCallback D_0018DE40[];
-extern void *D_0018DF40[];
-extern DrawCallback D_0018E040[];
-extern void *D_0018E140[];
-extern DrawCallback D_0018E240[];
-extern void *D_0018E340[];
+extern DrawCallback draw_callback_funcs[];
+extern void *draw_callback_args[];
+extern DrawCallback draw_callback2_funcs[];
+extern void *draw_callback2_args[];
+extern DrawCallback draw_callback3_funcs[];
+extern void *draw_callback3_args[];
+extern DrawCallback draw_callback4_funcs[];
+extern void *draw_callback4_args[];
 
 /* AddDrawCallback: appends fn(arg) to the first draw-callback list. */
 void AddDrawCallback(DrawCallback fn, void *arg) {
@@ -2158,7 +2142,7 @@ void dispatch_callback_list_1(void) {
 void dispatch_callback_list_2(void) {
     int i;
     for (i = 0; i < draw_callback3_count; i++) {
-        D_0018E040[i](draw_callback3_args[i]);
+        draw_callback3_funcs[i](draw_callback3_args[i]);
     }
 }
 
@@ -2166,7 +2150,7 @@ void dispatch_callback_list_2(void) {
 void dispatch_callback_list_3(void) {
     int i;
     for (i = 0; i < draw_callback4_count; i++) {
-        D_0018E240[i](draw_callback4_args[i]);
+        draw_callback4_funcs[i](draw_callback4_args[i]);
     }
 }
 
@@ -2196,13 +2180,13 @@ typedef struct {
     FRow pos;
     FRow dir;
 } LightRec;
-extern FRow D_0018CBA0[4];
-extern LightRec D_0018E440[];
-extern int func_001F4868(int);
+extern FRow effect_quad_corners[4];
+extern LightRec effect_quad_entries[];
+extern int GetEffectTex(int);
 /* GetEffectTex as it really returns: the 64-bit TEX0 (for the callers that keep it whole). */
 extern long GetEffectTex64(int) __asm__("func_001F4868");
-extern void func_001F9DC0(void *dst, void *src, float len);
-extern void func_001F7EF8(void *, int, int);
+extern void fast_vec_normalize(void *dst, void *src, float len);
+extern void draw_world_quad_packet(void *, int, int);
 
 /* Builds a 4-row matrix per light in D_0018E440 (count D_0015F574):
    each row starts as the light's position and is pushed along the
@@ -2225,40 +2209,40 @@ void draw_light_quads(void) {
     pkt[0] = 5;
     pkt[3] = 0x8000000044;
     for (j = 0; j < 4; j++) {
-        uv[j][0] = D_0018CBA0[j].v[2];
-        uv[j][1] = D_0018CBA0[j].v[3];
+        uv[j][0] = effect_quad_corners[j].v[2];
+        uv[j][1] = effect_quad_corners[j].v[3];
         colors[j] = 0x40808080;
     }
     for (i = 0; i < effect_quad_count; i++) {
         float s;
         int k;
 
-        qcopy(&dir, &D_0018E440[i].dir);
-        func_001F9DC0(&dir, &dir, 1.0f);
-        s = D_0018E440[i].pos.v[3];
+        qcopy(&dir, &effect_quad_entries[i].dir);
+        fast_vec_normalize(&dir, &dir, 1.0f);
+        s = effect_quad_entries[i].pos.v[3];
         for (k = 0; k < 4; k++) {
-            float cx = D_0018CBA0[k].v[0];
+            float cx = effect_quad_corners[k].v[0];
             float vx = dir.v[0];
-            float cy = D_0018CBA0[k].v[1];
+            float cy = effect_quad_corners[k].v[1];
             float d = cx * vx + cy * dir.v[1];
 
-            qcopy(&m[k], &D_0018E440[i].pos);
+            qcopy(&m[k], &effect_quad_entries[i].pos);
             m[k].v[0] += (cx - vx * d) * s;
             m[k].v[1] += (cy - dir.v[1] * d) * s;
             m[k].v[2] -= dir.v[2] * d * s;
         }
-        func_001F7EF8(m, 0, 0);
+        draw_world_quad_packet(m, 0, 0);
     }
 }
 
-extern int func_00122598_i(int) __asm__("func_00122598");
-extern void func_00234948(void);
-extern void func_002349B8(void);
-extern void func_001FB498(void);
-extern void func_001FB598(void);
-extern int *D_00161000 MACRO_ADDR;
-extern int D_0015F538 MACRO_ADDR;
-extern char D_0013CED0[];
+extern int sce_gs_sync_v_i(int) __asm__("func_00122598");
+extern void VU1_swapChain(void);
+extern void VU1_sendChain(void);
+extern void PutDrawBufferLarge(void);
+extern void PutDrawBufferSmall(void);
+extern int *g_render_packet_cursor MACRO_ADDR;
+extern int game_frame_counter MACRO_ADDR;
+extern char second_clear_packet[];
 
 /* FadeToBlack(frames): `frames` VU1 chains, each drawing a
    full-screen quad (D_0013CED0's GS packet) with its alpha ramped down
@@ -2272,8 +2256,8 @@ void FadeToBlack(int frames) {
     int q;
 
     VU1_syncChain(1);
-    func_00122598_i(0);
-    D_0015F538 = D_0015F538 + 1;
+    sce_gs_sync_v_i(0);
+    game_frame_counter = game_frame_counter + 1;
     VU1_initChain();
     n = frames - 1;
 
@@ -2289,23 +2273,23 @@ void FadeToBlack(int frames) {
 
             VU1_addGSregister(1, (long)(0x80 - q) << 24);
 
-            D_00161000[0] = 0x30000014;
-            D_00161000[1] = (int)second_clear_packet;
-            D_00161000[2] = 0;
-            D_00161000[3] = 0x50000014;
-            D_00161000 += 4;
+            g_render_packet_cursor[0] = 0x30000014;
+            g_render_packet_cursor[1] = (int)second_clear_packet;
+            g_render_packet_cursor[2] = 0;
+            g_render_packet_cursor[3] = 0x50000014;
+            g_render_packet_cursor += 4;
 
             VU1_syncChain(1);
-            func_00122598_i(0);
-            D_0015F538 = D_0015F538 + 1;
+            sce_gs_sync_v_i(0);
+            game_frame_counter = game_frame_counter + 1;
             VU1_sendChain();
             VU1_swapChain();
         } while (n >= 0);
     }
 
     VU1_syncChain(1);
-    func_00122598_i(0);
-    D_0015F538 = D_0015F538 + 1;
+    sce_gs_sync_v_i(0);
+    game_frame_counter = game_frame_counter + 1;
     VU1_initChain();
     PutDrawBufferLarge();
     append_gif_transfer_packet();
@@ -2322,13 +2306,13 @@ typedef struct {
     char pad38[0x14];
     char *subs;    /* 0x4C */
 } SubState;
-extern SubState D_0018CC20_s __asm__("D_0018CC20");
-extern int D_0015EE88 MACRO_ADDR;
-extern int D_0013E600[];
-extern void func_001F7648(void *arg0, int a1, int a2, int a3, int a4, int a5,
+extern SubState render_sequence_s __asm__("D_0018CC20");
+extern int g_game_language MACRO_ADDR;
+extern int g_screen_extent[];
+extern void FontSetWindow(void *arg0, int a1, int a2, int a3, int a4, int a5,
                           int a6, int a7, int a8);
-extern void func_001F7560_l(void *, long, char *, int) __asm__("func_001F7560");
-extern void func_001F62C8(int, int, int, int, int);
+extern void font_print_window_regular_l(void *, long, char *, int) __asm__("func_001F7560");
+extern void DrawUIFrame(int, int, int, int, int);
 
 /* Draws the subtitle showing at the current time (D_0018CC20+0x34): the
    list at +0x4C holds 16-byte entries (start, end, and one string offset
@@ -2345,16 +2329,16 @@ void draw_subtitles(void) {
     int lang;
     int idx;
 
-    if (D_0018CC20_s.subs == 0) {
+    if (render_sequence_s.subs == 0) {
         return;
     }
-    lang = D_0015EE88;
+    lang = g_game_language;
     idx = (lang >= 2 && lang <= 5) ? lang - 1 : 0;
-    for (p = (Subtitle *)D_0018CC20_s.subs; p->start >= 0; p++) {
-        if (D_0018CC20_s.time < p->start) {
+    for (p = (Subtitle *)render_sequence_s.subs; p->start >= 0; p++) {
+        if (render_sequence_s.time < p->start) {
             continue;
         }
-        if (p->end < D_0018CC20_s.time) {
+        if (p->end < render_sequence_s.time) {
             continue;
         }
         {
@@ -2362,26 +2346,26 @@ void draw_subtitles(void) {
             short w, h;
             int hw, hh;
 
-            FontSetWindow(win, 0xC8, 0x208, 0x28, 0x1D8, 0x100, D_0013E600[1] - 0x38, 0x12, 7);
-            func_001F7560_l(win, 0x80B0B0B0, D_0018CC20_s.subs + p->text[idx], -1);
-            win[5] = D_0013E600[1] - 0x3C;
+            FontSetWindow(win, 0xC8, 0x208, 0x28, 0x1D8, 0x100, g_screen_extent[1] - 0x38, 0x12, 7);
+            font_print_window_regular_l(win, 0x80B0B0B0, render_sequence_s.subs + p->text[idx], -1);
+            win[5] = g_screen_extent[1] - 0x3C;
             w = win[6];
             h = win[7];
             hh = (h >> 1) + 5;
             hw = (w >> 1) + 10;
-            if (win[5] + hh > D_0013E600[1] - 0x14) {
-                win[5] = D_0013E600[1] - 0x14 - hh;
+            if (win[5] + hh > g_screen_extent[1] - 0x14) {
+                win[5] = g_screen_extent[1] - 0x14 - hh;
             }
             DrawUIFrame(win[5] - hh, win[5] + hh, 0x100 - hw, 0x100 + hw, 0x60);
             win[9] &= ~4;
-            func_001F7560_l(win, 0x80B0B0B0, D_0018CC20_s.subs + p->text[idx], -1);
+            font_print_window_regular_l(win, 0x80B0B0B0, render_sequence_s.subs + p->text[idx], -1);
             return;
         }
     }
 }
 
-extern char D_00160920[];
-extern char D_00160930[];
+extern char rect_overlay_gif_regs_a[];
+extern char rect_overlay_gif_regs_b[];
 
 /* Letterbox bars: while D_0015F544 is set the bar height D_0015F548
    grows to 24, otherwise it shrinks to 0. While it is non-zero, append
@@ -2392,60 +2376,60 @@ extern char D_00160930[];
 void draw_letterbox_bars(void) {
     int h;
 
-    if (D_0015F544 != 0) {
-        if (D_0015F548 < 24) {
-            D_0015F548++;
+    if (letterbox_enabled != 0) {
+        if (letterbox_bar_height < 24) {
+            letterbox_bar_height++;
         }
     } else {
-        if (D_0015F548 == 0) {
+        if (letterbox_bar_height == 0) {
             return;
         }
-        D_0015F548--;
+        letterbox_bar_height--;
     }
-    h = D_0015F548;
+    h = letterbox_bar_height;
     if (h == 0) {
         return;
     }
     h <<= 4;
-    D_00161000[0] = 0x10000007;
-    D_00161000[1] = 0;
-    D_00161000[2] = 0;
-    D_00161000[3] = 0x50000007;
+    g_render_packet_cursor[0] = 0x10000007;
+    g_render_packet_cursor[1] = 0;
+    g_render_packet_cursor[2] = 0;
+    g_render_packet_cursor[3] = 0x50000007;
     {
-        int *base = D_00161000;
-        D_00161000 = base + 4;
-        qcopy(D_00161000, D_00160920);
+        int *base = g_render_packet_cursor;
+        g_render_packet_cursor = base + 4;
+        qcopy(g_render_packet_cursor, rect_overlay_gif_regs_a);
         *(short *)(base + 4) = 0x8001;
     }
     {
-        int *base = D_00161000;
+        int *base = g_render_packet_cursor;
         long *p;
-        D_00161000 = base + 4;
-        p = (long *)D_00161000;
+        g_render_packet_cursor = base + 4;
+        p = (long *)g_render_packet_cursor;
         p[0] = 0x104;
         p[1] = 0x80000000;
     }
     {
-        int *base = D_00161000;
-        D_00161000 = base + 4;
-        qcopy(D_00161000, D_00160930);
+        int *base = g_render_packet_cursor;
+        g_render_packet_cursor = base + 4;
+        qcopy(g_render_packet_cursor, rect_overlay_gif_regs_b);
         *(short *)(base + 4) = 0x8008;
     }
     {
-        int *base = D_00161000;
+        int *base = g_render_packet_cursor;
         long *p;
-        D_00161000 = base + 4;
-        p = (long *)D_00161000;
-        p[0] = D_0013E600[4] | ((long)D_0013E600[5] << 16) | ((long)0xFFFFF3 << 32);
-        p[1] = D_0013E600[4] | ((long)(D_0013E600[5] + h) << 16) | ((long)0xFFFFF3 << 32);
-        p[2] = D_0013E600[6] | ((long)D_0013E600[5] << 16) | ((long)0xFFFFF3 << 32);
-        p[3] = D_0013E600[6] | ((long)(D_0013E600[5] + h) << 16) | ((long)0xFFFFF3 << 32);
-        p[4] = D_0013E600[6] | ((long)D_0013E600[7] << 16) | ((long)0xFFFFF3 << 32);
-        p[5] = D_0013E600[6] | ((long)(D_0013E600[7] - h) << 16) | ((long)0xFFFFF3 << 32);
-        p[6] = D_0013E600[4] | ((long)D_0013E600[7] << 16) | ((long)0xFFFFF3 << 32);
-        p[7] = D_0013E600[4] | ((long)(D_0013E600[7] - h) << 16) | ((long)0xFFFFF3 << 32);
+        g_render_packet_cursor = base + 4;
+        p = (long *)g_render_packet_cursor;
+        p[0] = g_screen_extent[4] | ((long)g_screen_extent[5] << 16) | ((long)0xFFFFF3 << 32);
+        p[1] = g_screen_extent[4] | ((long)(g_screen_extent[5] + h) << 16) | ((long)0xFFFFF3 << 32);
+        p[2] = g_screen_extent[6] | ((long)g_screen_extent[5] << 16) | ((long)0xFFFFF3 << 32);
+        p[3] = g_screen_extent[6] | ((long)(g_screen_extent[5] + h) << 16) | ((long)0xFFFFF3 << 32);
+        p[4] = g_screen_extent[6] | ((long)g_screen_extent[7] << 16) | ((long)0xFFFFF3 << 32);
+        p[5] = g_screen_extent[6] | ((long)(g_screen_extent[7] - h) << 16) | ((long)0xFFFFF3 << 32);
+        p[6] = g_screen_extent[4] | ((long)g_screen_extent[7] << 16) | ((long)0xFFFFF3 << 32);
+        p[7] = g_screen_extent[4] | ((long)(g_screen_extent[7] - h) << 16) | ((long)0xFFFFF3 << 32);
     }
-    D_00161000 = (int *)((char *)D_00161000 + 0x40);
+    g_render_packet_cursor = (int *)((char *)g_render_packet_cursor + 0x40);
 }
 
 typedef struct {
@@ -2459,15 +2443,15 @@ typedef struct {
     int color1;
     long enable1;
 } Stripes;
-extern short D_0015F450;             /* SDA, gp -0x78B0: Stripes * */
-extern void func_001F5650(int, int, int, int, unsigned long);
+extern short screen_color_effect_now;             /* SDA, gp -0x78B0: Stripes * */
+extern void DrawRectOverlay_FiiiiUl(int, int, int, int, unsigned long);
 
 #define STRIPES (*(Stripes **)&D_0015F450)
 
 /* Fills the screen in vertical stripes: an optional full-screen colour
    first, then alternating stripes of widths step0/step1 in colours
    color0/color1, each with its own GS register 0x42 blend word when set.
-   Adapted from Lombyte (GPL-3.0) for PAL. */
+   Adapted from Lombyte's project (GPL-3.0) for PAL. */
 void draw_screen_effect(void) {
     int i;
     short w;
@@ -2480,14 +2464,14 @@ void draw_screen_effect(void) {
     long e28;
 
     i = 0;
-    w = D_00151880[0xA9];
+    w = fs_aa_buffer[0xA9];
     e = STRIPES->enable;
     if (e != 0) {
         VU1_addGSregister(0x42, e & 0xFF000000FFL);
     }
     c = STRIPES->color;
     if (c & 0xFF000000) {
-        DrawRectOverlay_FiiiiUl(0, w, 0, D_00151880[0xA8], (unsigned long)((long)c << 0x20) >> 0x20);
+        DrawRectOverlay_FiiiiUl(0, w, 0, fs_aa_buffer[0xA8], (unsigned long)((long)c << 0x20) >> 0x20);
     }
     if (w > 0) {
         mask = 0xFF000000FFL;
@@ -2499,7 +2483,7 @@ void draw_screen_effect(void) {
             v14 = STRIPES->color0;
             if (v14 & 0xFF000000) {
                 DrawRectOverlay_FiiiiUl(i, (i + STRIPES->step0 < w - 1) ? i + STRIPES->step0 : w - 1, 0,
-                              D_00151880[0xA8], (unsigned long)((long)v14 << 0x20) >> 0x20);
+                              fs_aa_buffer[0xA8], (unsigned long)((long)v14 << 0x20) >> 0x20);
             }
             i = i + STRIPES->step0;
             e28 = STRIPES->enable1;
@@ -2509,7 +2493,7 @@ void draw_screen_effect(void) {
             v24 = STRIPES->color1;
             if (v24 & 0xFF000000) {
                 DrawRectOverlay_FiiiiUl(i, (i + STRIPES->step1 < w - 1) ? i + STRIPES->step1 : w - 1, 0,
-                              D_00151880[0xA8], (unsigned long)((long)v24 << 0x20) >> 0x20);
+                              fs_aa_buffer[0xA8], (unsigned long)((long)v24 << 0x20) >> 0x20);
             }
             i = i + STRIPES->step1;
         } while (i < w);
@@ -2518,7 +2502,7 @@ void draw_screen_effect(void) {
 
 #undef STRIPES
 
-extern int D_0015EF88 MACRO_ADDR;
+extern int depth_buffer_address MACRO_ADDR;
 
 /* GS register writes around an overlay: blend register 0x42 from the
    64-bit word at +8 while it is set, and when the colour at +4 has an
@@ -2532,10 +2516,10 @@ void draw_fogged_fullscreen_sprite(char *arg0) {
         VU1_addGSregister(0x42, v & 0xFF000000FFL);
     }
     if ((*(int *)(arg0 + 4) & 0xFF000000) != 0) {
-        VU1_addGSregister(0x4E, (D_0015EF88 >> 13) | 0x1000000 | 0x100000000L);
-        DrawRectOverlay_FiiiiUl(0, D_00151880[0xA9], 0, D_00151880[0xA8],
+        VU1_addGSregister(0x4E, (depth_buffer_address >> 13) | 0x1000000 | 0x100000000L);
+        DrawRectOverlay_FiiiiUl(0, fs_aa_buffer[0xA9], 0, fs_aa_buffer[0xA8],
                       *(unsigned int *)(arg0 + 4));
-        VU1_addGSregister(0x4E, 0x1000000 | (D_0015EF88 >> 13));
+        VU1_addGSregister(0x4E, 0x1000000 | (depth_buffer_address >> 13));
     }
     if (*(long *)(arg0 + 8) != 0) {
         VU1_addGSregister(0x42, 0x8000000044L);
@@ -2546,17 +2530,17 @@ void draw_fogged_fullscreen_sprite(char *arg0) {
    restores the default register set. The parameters are int, widened in
    the expression: with long parameters the scheduler hoists the last
    dsll one slot early (it was a 6/144 near-miss that way). */
-extern int *D_00161000 MACRO_ADDR;
-extern char D_0013CD90[];
+extern int *g_render_packet_cursor MACRO_ADDR;
+extern char first_clear_packet[];
 
 /* Appends a GIF packet that sets GS register 1 from the four bytes a, b, c, d. */
 void emit_rgba_draw_packet(int a, int b, int c, int d) {
     VU1_addGSregister(1, (long)a | ((long)b << 8) | ((long)c << 16) | ((long)d << 24));
-    D_00161000[0] = 0x30000014;
-    D_00161000[1] = (int)first_clear_packet;
-    D_00161000[2] = 0;
-    D_00161000[3] = 0x50000014;
-    D_00161000 += 4;
+    g_render_packet_cursor[0] = 0x30000014;
+    g_render_packet_cursor[1] = (int)first_clear_packet;
+    g_render_packet_cursor[2] = 0;
+    g_render_packet_cursor[3] = 0x50000014;
+    g_render_packet_cursor += 4;
 }
 
 
@@ -2567,79 +2551,79 @@ void emit_rgba_draw_packet(int a, int b, int c, int d) {
    then four XYZ values at Z 0xFFFFF0. Each packet step has its own
    block-scoped base pointer, which gives retail's registers. */
 void DrawRectOverlay_FiiiiUl(int y0, int y1, int x0, int x1, unsigned long rgba) {
-    D_00161000[0] = 0x10000005;
-    D_00161000[1] = 0;
-    D_00161000[2] = 0;
-    D_00161000[3] = 0x50000005;
+    g_render_packet_cursor[0] = 0x10000005;
+    g_render_packet_cursor[1] = 0;
+    g_render_packet_cursor[2] = 0;
+    g_render_packet_cursor[3] = 0x50000005;
     {
-        int *base = D_00161000;
-        D_00161000 = base + 4;
-        qcopy(D_00161000, D_00160920);
+        int *base = g_render_packet_cursor;
+        g_render_packet_cursor = base + 4;
+        qcopy(g_render_packet_cursor, rect_overlay_gif_regs_a);
         *(short *)(base + 4) = 0x8001;
     }
     {
-        int *base = D_00161000;
+        int *base = g_render_packet_cursor;
         long *p;
-        D_00161000 = base + 4;
-        p = (long *)D_00161000;
+        g_render_packet_cursor = base + 4;
+        p = (long *)g_render_packet_cursor;
         p[0] = 0x144;
         p[1] = rgba;
     }
     {
-        int *base = D_00161000;
-        D_00161000 = base + 4;
-        qcopy(D_00161000, D_00160930);
+        int *base = g_render_packet_cursor;
+        g_render_packet_cursor = base + 4;
+        qcopy(g_render_packet_cursor, rect_overlay_gif_regs_b);
         *(short *)(base + 4) = 0x8004;
     }
     {
-        int *base = D_00161000;
+        int *base = g_render_packet_cursor;
         long *p;
-        D_00161000 = base + 4;
-        p = (long *)D_00161000;
-        p[0] = (x0 * 16 + D_0013E600[4] - 8)
-             | ((long)(y0 * 16 + D_0013E600[5] - 8) << 16)
+        g_render_packet_cursor = base + 4;
+        p = (long *)g_render_packet_cursor;
+        p[0] = (x0 * 16 + g_screen_extent[4] - 8)
+             | ((long)(y0 * 16 + g_screen_extent[5] - 8) << 16)
              | ((long)0xFFFFF0 << 32);
-        p[1] = (x1 * 16 + D_0013E600[4] - 8)
-             | ((long)(y0 * 16 + D_0013E600[5] - 8) << 16)
+        p[1] = (x1 * 16 + g_screen_extent[4] - 8)
+             | ((long)(y0 * 16 + g_screen_extent[5] - 8) << 16)
              | ((long)0xFFFFF0 << 32);
-        p[2] = (x0 * 16 + D_0013E600[4] - 8)
-             | ((long)(y1 * 16 + D_0013E600[5] - 8) << 16)
+        p[2] = (x0 * 16 + g_screen_extent[4] - 8)
+             | ((long)(y1 * 16 + g_screen_extent[5] - 8) << 16)
              | ((long)0xFFFFF0 << 32);
-        p[3] = (x1 * 16 + D_0013E600[4] - 8)
-             | ((long)(y1 * 16 + D_0013E600[5] - 8) << 16)
+        p[3] = (x1 * 16 + g_screen_extent[4] - 8)
+             | ((long)(y1 * 16 + g_screen_extent[5] - 8) << 16)
              | ((long)0xFFFFF0 << 32);
     }
-    D_00161000 = (int *)((char *)D_00161000 + 0x20);
+    g_render_packet_cursor = (int *)((char *)g_render_packet_cursor + 0x20);
 }
 
 LINKER_REMNANT("asm/remnants/text", func_001F57F8);
 
-extern char D_00160940[];
+extern char textured_quad_header[];
 
 /* Append a textured sprite as a four-vertex strip (PRIM 0x154): screen
    corners in 12.4 fixed point relative to the viewport origin, UVs from
    (u, v) to (u + uw, v + vh) in 16ths. */
 void DrawTexturedQuad(int x, int y, int w, int h, int u, int v, int uw, int vh,
                    unsigned long rgba, unsigned long tex) {
-    int x0 = x * 16 + D_0013E600[4] - 8;
-    int x1 = (x + w) * 16 + D_0013E600[4] - 8;
-    int y0 = y * 16 + D_0013E600[5] - 8;
-    int y1 = (y + h) * 16 + D_0013E600[5] - 8;
+    int x0 = x * 16 + g_screen_extent[4] - 8;
+    int x1 = (x + w) * 16 + g_screen_extent[4] - 8;
+    int y0 = y * 16 + g_screen_extent[5] - 8;
+    int y1 = (y + h) * 16 + g_screen_extent[5] - 8;
     int s1 = (u + uw) * 16;
     int s0 = u * 16;
     int vb = v + vh;
     long *p;
     int *base;
 
-    D_00161000[0] = 0x10000007;
-    D_00161000[1] = 0;
-    D_00161000[2] = 0;
-    D_00161000[3] = 0x50000007;
-    base = D_00161000;
-    D_00161000 = base + 4;
+    g_render_packet_cursor[0] = 0x10000007;
+    g_render_packet_cursor[1] = 0;
+    g_render_packet_cursor[2] = 0;
+    g_render_packet_cursor[3] = 0x50000007;
+    base = g_render_packet_cursor;
+    g_render_packet_cursor = base + 4;
     qcopy(base + 4, textured_quad_header);
     p = (long *)(base + 8);
-    D_00161000 = base + 8;
+    g_render_packet_cursor = base + 8;
     p[0] = tex;
     p[1] = 0x154;
     p[2] = rgba;
@@ -2652,34 +2636,34 @@ void DrawTexturedQuad(int x, int y, int w, int h, int u, int v, int uw, int vh,
     p[9] = (vb << 20) + s1;
     p[10] = x1 | ((long)y1 << 16) | ((long)0xFFFFF0 << 32);
     p[11] = 0;
-    D_00161000 = (int *)((char *)D_00161000 + 0x60);
+    g_render_packet_cursor = (int *)((char *)g_render_packet_cursor + 0x60);
 }
 
-extern int func_001FA898_r(float) __asm__("func_001FA898");
+extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
 
 /* func_001F5800 with a float screen rectangle: each corner is rounded
    (func_001FA898) from 16ths before the viewport offset. */
 void append_subpixel_textured_screen_quad(float x, float y, float w, float h, int u, int v, int uw, int vh,
                    unsigned long rgba, unsigned long tex) {
-    int x0 = func_001FA898_r(x * 16.0f) + D_0013E600[4] - 8;
-    int x1 = func_001FA898_r((x + w) * 16.0f) + D_0013E600[4] - 8;
-    int y0 = func_001FA898_r(y * 16.0f) + D_0013E600[5] - 8;
-    int y1 = func_001FA898_r((y + h) * 16.0f) + D_0013E600[5] - 8;
+    int x0 = truncate_float_to_s32_r(x * 16.0f) + g_screen_extent[4] - 8;
+    int x1 = truncate_float_to_s32_r((x + w) * 16.0f) + g_screen_extent[4] - 8;
+    int y0 = truncate_float_to_s32_r(y * 16.0f) + g_screen_extent[5] - 8;
+    int y1 = truncate_float_to_s32_r((y + h) * 16.0f) + g_screen_extent[5] - 8;
     int s1 = (u + uw) * 16;
     int s0 = u * 16;
     int vb = v + vh;
     long *p;
     int *base;
 
-    D_00161000[0] = 0x10000007;
-    D_00161000[1] = 0;
-    D_00161000[2] = 0;
-    D_00161000[3] = 0x50000007;
-    base = D_00161000;
-    D_00161000 = base + 4;
+    g_render_packet_cursor[0] = 0x10000007;
+    g_render_packet_cursor[1] = 0;
+    g_render_packet_cursor[2] = 0;
+    g_render_packet_cursor[3] = 0x50000007;
+    base = g_render_packet_cursor;
+    g_render_packet_cursor = base + 4;
     qcopy(base + 4, textured_quad_header);
     p = (long *)(base + 8);
-    D_00161000 = base + 8;
+    g_render_packet_cursor = base + 8;
     p[0] = tex;
     p[1] = 0x154;
     p[2] = rgba;
@@ -2692,20 +2676,20 @@ void append_subpixel_textured_screen_quad(float x, float y, float w, float h, in
     p[9] = (vb << 20) + s1;
     p[10] = x1 | ((long)y1 << 16) | ((long)0xFFFFF0 << 32);
     p[11] = 0;
-    D_00161000 = (int *)((char *)D_00161000 + 0x60);
+    g_render_packet_cursor = (int *)((char *)g_render_packet_cursor + 0x60);
 }
 
-extern char D_00160960[];
+extern char textured_rect_gif_regs[];
 
 /* func_001F5988, skipped when the rectangle lies outside 0x7000..0x9000
    (12.4), with a CLAMP register (REGION_CLAMP to the texel rectangle)
    after the PRIM and a closing (5, 0) pair. */
 void emit_textured_rectangle(float x, float y, float w, float h, int u, int v, int uw, int vh,
                    unsigned long rgba, unsigned long tex) {
-    int x0 = func_001FA898_r(x * 16.0f) + D_0013E600[4] - 8;
-    int x1 = func_001FA898_r((x + w) * 16.0f) + D_0013E600[4] - 8;
-    int y0 = func_001FA898_r(y * 16.0f) + D_0013E600[5] - 8;
-    int y1 = func_001FA898_r((y + h) * 16.0f) + D_0013E600[5] - 8;
+    int x0 = truncate_float_to_s32_r(x * 16.0f) + g_screen_extent[4] - 8;
+    int x1 = truncate_float_to_s32_r((x + w) * 16.0f) + g_screen_extent[4] - 8;
+    int y0 = truncate_float_to_s32_r(y * 16.0f) + g_screen_extent[5] - 8;
+    int y1 = truncate_float_to_s32_r((y + h) * 16.0f) + g_screen_extent[5] - 8;
     int s1;
     int s0;
     int vb;
@@ -2716,19 +2700,19 @@ void emit_textured_rectangle(float x, float y, float w, float h, int u, int v, i
     if (x0 > 0x9000 || x1 < 0x7000 || y0 > 0x9000 || y1 < 0x7000) {
         return;
     }
-    D_00161000[0] = 0x10000008;
-    D_00161000[1] = 0;
-    D_00161000[2] = 0;
-    D_00161000[3] = 0x50000008;
+    g_render_packet_cursor[0] = 0x10000008;
+    g_render_packet_cursor[1] = 0;
+    g_render_packet_cursor[2] = 0;
+    g_render_packet_cursor[3] = 0x50000008;
     ub = u + uw;
     vb = v + vh;
     s0 = u * 16;
     s1 = ub * 16;
-    base = D_00161000;
-    D_00161000 = base + 4;
-    qcopy(base + 4, D_00160960);
+    base = g_render_packet_cursor;
+    g_render_packet_cursor = base + 4;
+    qcopy(base + 4, textured_rect_gif_regs);
     p = (long *)(base + 8);
-    D_00161000 = base + 8;
+    g_render_packet_cursor = base + 8;
     p[0] = tex;
     p[1] = 0x154;
     p[2] = 0xA | ((long)u << 4) | ((long)ub << 14) | ((long)v << 24) | ((long)vb << 34);
@@ -2743,7 +2727,7 @@ void emit_textured_rectangle(float x, float y, float w, float h, int u, int v, i
     p[11] = x1 | ((long)y1 << 16) | ((long)0xFFFFF0 << 32);
     p[12] = 5;
     p[13] = 0;
-    D_00161000 = (int *)((char *)D_00161000 + 0x70);
+    g_render_packet_cursor = (int *)((char *)g_render_packet_cursor + 0x70);
 }
 
 struct Screen {
@@ -2756,7 +2740,7 @@ struct Screen {
     s32 right; /* 0x18: (0x800 + half_width) << 4 */
     s32 bottom; /* 0x1C: (0x800 + half_height) << 4 */
 };
-extern struct Screen D_0013E600_F5E60 __asm__("D_0013E600");
+extern struct Screen g_screen_extent_r __asm__("D_0013E600");
 struct DmaTag {
     u32 tag;
     u32 addr;
@@ -2771,15 +2755,15 @@ union PacketCursor {
     u8 *bytes;
     s32 addr;
 };
-extern union PacketCursor D_00161000_F5E60 __asm__("D_00161000") MACRO_ADDR;
-extern void func_001F9BD8(void *, void *, void *);
-extern void func_001F9BF0(void *, void *, void *);
-extern void func_001F9C30(void *, void *, f32);
-extern f32 func_001F9F90(f32);
-extern f32 func_001F9FA8(f32);
-extern s32 func_001FA898(f32);
+extern union PacketCursor g_render_packet_cursor_r __asm__("D_00161000") MACRO_ADDR;
+extern void FastVecAdd(void *, void *, void *);
+extern void FastVecSub(void *, void *, void *);
+extern void FastVecScale(void *, void *, f32);
+extern f32 FastCos(f32);
+extern f32 FastSin(f32);
+extern s32 truncate_float_to_s32(f32);
 
-/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/rendering/append_rotated_sprite_quad.c, append_rotated_sprite_quad. */
+/* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/rendering/append_rotated_sprite_quad.c, append_rotated_sprite_quad. */
 void append_rotated_sprite_quad(f32 center_x, f32 center_y, f32 quad_width, f32 quad_height,
                                 f32 angle, s32 texture_width, s32 texture_height,
                                 s64 texture_tex0, s64 z_and_fog, s32 color, u8 flip_u, u8 flip_v,
@@ -2839,13 +2823,13 @@ void append_rotated_sprite_quad(f32 center_x, f32 center_y, f32 quad_width, f32 
     FastVecSub(&bottom_right, &center, &temporary);
     FastVecScale(&temporary, &horizontal_edge, pivot_u);
     FastVecAdd(&bottom_right, &bottom_right, &temporary);
-    D_00161000_F5E60.tag->tag = 0x10000007;
-    D_00161000_F5E60.tag->addr = 0;
-    D_00161000_F5E60.tag->vif0 = 0;
-    D_00161000_F5E60.tag->vif1 = 0x50000007;
-    tag = D_00161000_F5E60.tag;
+    g_render_packet_cursor_r.tag->tag = 0x10000007;
+    g_render_packet_cursor_r.tag->addr = 0;
+    g_render_packet_cursor_r.tag->vif0 = 0;
+    g_render_packet_cursor_r.tag->vif1 = 0x50000007;
+    tag = g_render_packet_cursor_r.tag;
     packet_words = (u64 *)(tag + 1);
-    D_00161000_F5E60.tag = tag + 1;
+    g_render_packet_cursor_r.tag = tag + 1;
     packet_words[0] = 0xB400000000008001;
     packet_words[1] = 0x53535353106;
     packet_words[2] = texture_tex0;
@@ -2853,26 +2837,26 @@ void append_rotated_sprite_quad(f32 center_x, f32 center_y, f32 quad_width, f32 
     packet_words[4] = color;
     packet_words[5] = texture_left | texture_top;
     packet_words[6] =
-        (truncate_float_to_s32(top_left.x * 16.0f) + D_0013E600_F5E60.left - 8) |
-        ((u64)(truncate_float_to_s32(top_left.y * 16.0f) + D_0013E600_F5E60.top - 8) << 16) |
+        (truncate_float_to_s32(top_left.x * 16.0f) + g_screen_extent_r.left - 8) |
+        ((u64)(truncate_float_to_s32(top_left.y * 16.0f) + g_screen_extent_r.top - 8) << 16) |
         ((u64)z_and_fog << 32);
     packet_words[7] = texture_right | texture_top;
     packet_words[8] =
-        (truncate_float_to_s32(top_right.x * 16.0f) + D_0013E600_F5E60.left - 8) |
-        ((u64)(truncate_float_to_s32(top_right.y * 16.0f) + D_0013E600_F5E60.top - 8) << 16) |
+        (truncate_float_to_s32(top_right.x * 16.0f) + g_screen_extent_r.left - 8) |
+        ((u64)(truncate_float_to_s32(top_right.y * 16.0f) + g_screen_extent_r.top - 8) << 16) |
         ((u64)z_and_fog << 32);
     packet_words[9] = texture_left | texture_bottom;
     packet_words[10] =
-        (truncate_float_to_s32(bottom_left.x * 16.0f) + D_0013E600_F5E60.left - 8) |
-        ((u64)(truncate_float_to_s32(bottom_left.y * 16.0f) + D_0013E600_F5E60.top - 8) << 16) |
+        (truncate_float_to_s32(bottom_left.x * 16.0f) + g_screen_extent_r.left - 8) |
+        ((u64)(truncate_float_to_s32(bottom_left.y * 16.0f) + g_screen_extent_r.top - 8) << 16) |
         ((u64)z_and_fog << 32);
     packet_words[11] = texture_right | texture_bottom;
     packet_words[12] =
-        (truncate_float_to_s32(bottom_right.x * 16.0f) + D_0013E600_F5E60.left - 8) |
-        ((u64)(truncate_float_to_s32(bottom_right.y * 16.0f) + D_0013E600_F5E60.top - 8) << 16) |
+        (truncate_float_to_s32(bottom_right.x * 16.0f) + g_screen_extent_r.left - 8) |
+        ((u64)(truncate_float_to_s32(bottom_right.y * 16.0f) + g_screen_extent_r.top - 8) << 16) |
         ((u64)z_and_fog << 32);
     packet_words[13] = 0;
-    D_00161000_F5E60.tag = (struct DmaTag *)((u8 *)D_00161000_F5E60.tag + 0x70);
+    g_render_packet_cursor_r.tag = (struct DmaTag *)((u8 *)g_render_packet_cursor_r.tag + 0x70);
 }
 
 LINKER_REMNANT("asm/remnants/text", func_001F62C0);
@@ -2937,7 +2921,7 @@ void draw_outlined_rect(int a0, int a1, int a2, int a3, int a4) {
 /* gp-relative: declared as a 2-byte type purely so -G2 places it in the
    small-data area (placement is decided by DECLARED size), then accessed
    as the 4-byte word it really is. gp base 0x166D00 - 0x7764 = 0x15F59C. */
-extern int D_0015F59C MACRO_ADDR;
+extern int GlobalStateFlag MACRO_ADDR;
 
 /* Sets the word flag at D_0015F59C to 1. */
 void Font_EnableColorCodes(void) {
@@ -2978,10 +2962,10 @@ int measure_text_width(unsigned char *str, int count, void *table) {
     return width;
 }
 
-extern int func_001F65B0(unsigned char *arg0, int arg1, void *arg2);
-extern unsigned char D_001DF3D0[];
-extern unsigned char D_001DF770[];
-extern unsigned char D_001DFB10[];
+extern int measure_text_width(unsigned char *arg0, int arg1, void *arg2);
+extern unsigned char normal_font_metrics[];
+extern unsigned char small_font_metrics[];
+extern unsigned char large_font_metrics[];
 
 /* measure_text_width_regular: width of the first arg1 characters of arg0 in the regular font table. */
 int measure_text_width_regular(unsigned char *arg0, int arg1) {
@@ -3021,14 +3005,14 @@ struct Glyph_F6668 {
     s8 top;
     s8 adv;
 };
-extern s32 D_0015F5A0_F6668 __asm__("D_0015F5A0") MACRO_ADDR;
+extern s32 font_window_active_r __asm__("D_0015F5A0") MACRO_ADDR;
 extern s32 D_0015F59C_F6668 SDATA(D_0015F59C);
-extern s32 D_0018CBF8_F6668[] __asm__("D_0018CBF8");
-extern void func_001F5800_F6668(s32, s32, s32, s32, s32, s32, s32, s32, s64, s64) __asm__("func_001F5800");
+extern s32 font_palette_colors_r[] __asm__("D_0018CBF8");
+extern void DrawTexturedQuad_r(s32, s32, s32, s32, s32, s32, s32, s32, s64, s64) __asm__("func_001F5800");
 
 /* FontPrint: draws a string glyph by glyph; bytes 8..15 switch the colour, 0x80..0xA7 add an accent glyph,
    bytes below 0x20 are 24-pixel grey button glyphs.
-   Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/ui/text/font_print.c, font_print. */
+   Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/ui/text/font_print.c, font_print. */
 void func_001F6668_r(s32 x, s32 y, u64 color, u8 *text, s32 character_limit, s64 texture,
                       struct Glyph_F6668 *glyphs) __asm__("func_001F6668");
 void func_001F6668_r(s32 x, s32 y, u64 color, u8 *text, s32 character_limit, s64 texture,
@@ -3040,8 +3024,8 @@ void func_001F6668_r(s32 x, s32 y, u64 color, u8 *text, s32 character_limit, s64
     s32 gray_value;
     s32 gray_color;
 
-    if (D_0015F5A0_F6668 == 0) {
-        D_0018CBF8_F6668[0] = color;
+    if (font_window_active_r == 0) {
+        font_palette_colors_r[0] = color;
     }
     character_count = 0;
     if (character_limit == 0 || *text == 0) {
@@ -3053,7 +3037,7 @@ void func_001F6668_r(s32 x, s32 y, u64 color, u8 *text, s32 character_limit, s64
         if ((u8)(*cursor - 8) < 8) {
             if (D_0015F59C_F6668 != 0) {
                 color &= 0xFF000000;
-                color |= D_0018CBF8_F6668[*cursor - 8] & 0xFFFFFF;
+                color |= font_palette_colors_r[*cursor - 8] & 0xFFFFFF;
             }
         } else {
             character = *cursor;
@@ -3061,7 +3045,7 @@ void func_001F6668_r(s32 x, s32 y, u64 color, u8 *text, s32 character_limit, s64
                 /* Characters 0x80..0xa7 also draw the glyph 0x40 entries later. */
                 if ((u8)(character + 0x80) < 0x28) {
                     overlay_glyph = (struct Glyph_F6668 *)(((character + 0x40) << 2) + (s32)glyphs);
-                    func_001F5800_F6668(x + overlay_glyph->adv, y + overlay_glyph->top, 16, 16,
+                    DrawTexturedQuad_r(x + overlay_glyph->adv, y + overlay_glyph->top, 16, 16,
                                        overlay_glyph->u, overlay_glyph->v, 16, 16, color, texture);
                 }
                 /* Control glyphs use 24-pixel grayscale sprites. */
@@ -3072,10 +3056,10 @@ void func_001F6668_r(s32 x, s32 y, u64 color, u8 *text, s32 character_limit, s64
                     gray_color += gray_value << 16;
                     gray_color += gray_value << 8;
                     gray_value += gray_color;
-                    func_001F5800_F6668(x, y + glyphs[*cursor].top, 24, 16, glyphs[*cursor].u,
+                    DrawTexturedQuad_r(x, y + glyphs[*cursor].top, 24, 16, glyphs[*cursor].u,
                                        glyphs[*cursor].v, 24, 16, gray_value, texture);
                 } else if (*cursor > 0x20) {
-                    func_001F5800_F6668(x, y + glyphs[*cursor].top, 16, 16, glyphs[*cursor].u,
+                    DrawTexturedQuad_r(x, y + glyphs[*cursor].top, 16, 16, glyphs[*cursor].u,
                                        glyphs[*cursor].v, 16, 16, color, texture);
                 }
                 x += glyphs[*cursor].adv;
@@ -3089,7 +3073,7 @@ void func_001F6668_r(s32 x, s32 y, u64 color, u8 *text, s32 character_limit, s64
     } while (*cursor != 0);
 }
 
-extern void func_001F6668(void *, void *, void *, void *, void *, long,
+extern void FontPrint(void *, void *, void *, void *, void *, long,
                           unsigned char *);
 
 /* Same shape as func_001F7560/func_001F75D0 below, one argument wider:
@@ -3117,13 +3101,13 @@ struct Glyph {
     s8 top;
     s8 adv;
 };
-extern s32 D_0015F5A0 MACRO_ADDR;
-extern s32 D_0018CBF8[];
-extern f32 func_001FA888(s32);
-extern void func_001F5BB8_F69F0(f32, f32, f32, f32, s32, s32, s32, s32, u64, s64) __asm__("func_001F5BB8");
-void func_001F69F0(u64 color, u8 *s, f32 x, s32 n, s64 tex, struct Glyph *g, f32 y, f32 scale);
+extern s32 font_window_active MACRO_ADDR;
+extern s32 font_palette_colors[];
+extern f32 IntToFloat(s32);
+extern void emit_textured_rectangle_r(f32, f32, f32, f32, s32, s32, s32, s32, u64, s64) __asm__("func_001F5BB8");
+void process_bgm_display_text_event(u64 color, u8 *s, f32 x, s32 n, s64 tex, struct Glyph *g, f32 y, f32 scale);
 
-/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/audio/music/process_bgm_display_text_event.c, process_bgm_display_text_event. */
+/* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/audio/music/process_bgm_display_text_event.c, process_bgm_display_text_event. */
 void process_bgm_display_text_event(u64 color, u8 *str, f32 x, s32 n, s64 tex, struct Glyph *g, f32 y, f32 scale) {
     u8 *s;
     s32 i;
@@ -3156,7 +3140,7 @@ void process_bgm_display_text_event(u64 color, u8 *str, f32 x, s32 n, s64 tex, s
                 e = (struct Glyph *)(((*s + 0x40) << 2) + (s32)g);
                 dx = IntToFloat(e->adv) * scale;
                 dy = IntToFloat(e->top) * scale;
-                func_001F5BB8_F69F0(x + dx, y + dy, size, size, e->u, e->v, 16, 16, color, tex);
+                emit_textured_rectangle_r(x + dx, y + dy, size, size, e->u, e->v, 16, 16, color, tex);
             }
             if (*s < 0x20) {
                 avg = (s32)((color & 0xFF) + ((color >> 8) & 0xFF) + ((color >> 16) & 0xFF)) / 3;
@@ -3164,9 +3148,9 @@ void process_bgm_display_text_event(u64 color, u8 *str, f32 x, s32 n, s64 tex, s
                 mk += avg << 16;
                 mk += avg << 8;
                 avg += mk;
-                func_001F5BB8_F69F0(x, y + top, scale * 24.0f, scale * 16.0f, g[*s].u, g[*s].v, 24, 16, avg, tex);
+                emit_textured_rectangle_r(x, y + top, scale * 24.0f, scale * 16.0f, g[*s].u, g[*s].v, 24, 16, avg, tex);
             } else if (*s > 0x20) {
-                func_001F5BB8_F69F0(x, y + top, size, size, g[*s].u, g[*s].v, 16, 16, color, tex);
+                emit_textured_rectangle_r(x, y + top, size, size, g[*s].u, g[*s].v, 16, 16, color, tex);
             }
             x += IntToFloat(g[*s].adv) * scale;
         }
@@ -3180,8 +3164,8 @@ void process_bgm_display_text_event(u64 color, u8 *str, f32 x, s32 n, s64 tex, s
 
 LINKER_REMNANT("asm/remnants/text", func_001F6CE0);
 
-extern int func_001F6600(unsigned char *, int);
-extern int func_001F6620(unsigned char *, int);
+extern int measure_text_width_regular(unsigned char *, int);
+extern int measure_text_width_small(unsigned char *, int);
 
 /* func_001F6CF8/func_001F6D88/func_001F6E18 are func_001F68E8's family
    with a leading measure call: the same mode/table triple (1, 2, 3 and
@@ -3245,7 +3229,7 @@ int FontPrintCenterLarge(int a, int b, int c, int d, int e) {
     return p;
 }
 
-extern void func_00234D58(int, int, int, int);
+extern void VU1_setScissor(int, int, int, int);
 struct FontWindow {
     short y_min, y_max, x_min, x_max, x_anchor, y_start;
     short out_w, out_h, line_h;
@@ -3375,10 +3359,10 @@ void FontPrintWindow(void *win_p, long a1, void *text_p, int len, long a4, unsig
         }
     }
     font_window_active = 0;
-    VU1_setScissor(0, D_0013E600[0] - 1, 0, D_0013E600[1] - 1);
+    VU1_setScissor(0, g_screen_extent[0] - 1, 0, g_screen_extent[1] - 1);
 }
 
-extern int func_001F4868(int);
+extern int GetEffectTex(int);
 
 /* func_001F7560 and func_001F75D0 are the same call with a different
    mode (1 vs 2) and a different table. Six arguments: EABI passes the
@@ -3391,7 +3375,7 @@ void font_print_window_regular(void *a, void *b, void *c, void *d) {
 }
 
 /* FontPrintWindow with the second font. */
-void func_001F75D0(void *a, void *b, void *c, void *d) {
+void font_print_window_small(void *a, void *b, void *c, void *d) {
     int mode = GetEffectTex(2);
 
     FontPrintWindow(a, b, c, d, mode, small_font_metrics);
@@ -3416,14 +3400,14 @@ void FontSetWindow(void *arg0, int a1, int a2, int a3, int a4, int a5, int a6, i
     s[11] = 0;
 }
 
-extern int D_0015EF84 MACRO_ADDR;
-extern int D_0013E604[];
+extern int draw_buffer_address MACRO_ADDR;
+extern int frame_size[];
 #define PK ((unsigned char *)D_00161000)
 
 /* Uploads a block to the GS in DMA packets. */
 void queue_framebuffer_upload(unsigned int source) {
     int remaining = frame_size[0];
-    int destination = D_0015EF84 >> 8;
+    int destination = draw_buffer_address >> 8;
     unsigned long count;
     unsigned long transfer;
     unsigned char *packet;
@@ -3439,7 +3423,7 @@ void queue_framebuffer_upload(unsigned int source) {
         *(unsigned int *)(PK + 8) = 0;
         *(unsigned int *)(PK + 12) = 0x50000006;
         packet = PK;
-        D_00161000 = (int *)(packet + 0x10);
+        g_render_packet_cursor = (int *)(packet + 0x10);
         transfer = (unsigned long)count << 7;
         words = (unsigned long *)(packet + 0x10);
         words[0] = 0x4000000000000001UL;
@@ -3454,24 +3438,24 @@ void queue_framebuffer_upload(unsigned int source) {
         words[9] = 0x53;
         words[10] = transfer | 0x0800000000008000UL;
         words[11] = 0;
-        D_00161000 = (int *)(packet + 0x70);
+        g_render_packet_cursor = (int *)(packet + 0x70);
         *(unsigned int *)(packet + 0x70) = (unsigned int)(long)(int)(transfer | 0x30000000);
         *(unsigned int *)(PK + 4) = source;
         source += (int)(count * 0x800);
         destination += (int)(count * 8);
         *(unsigned int *)(PK + 8) = 0;
         *(unsigned int *)(PK + 12) = (unsigned int)transfer | 0x50000000;
-        D_00161000 = (int *)(PK + 0x10);
+        g_render_packet_cursor = (int *)(PK + 0x10);
     } while (remaining > 0);
     VU1_texFlush();
 }
 
-extern short D_0015F448;              /* SDA, gp -0x78B8 */
-extern unsigned short D_0010E800 NOT_SDA;
-extern char D_0010E810[];
-extern char D_00187180[];
-extern void func_001FA1C0(float *, float);
-extern void func_00234FA8(void);
+extern short font_depth_bias;              /* SDA, gp -0x78B8 */
+extern unsigned short font_vu_program_tag NOT_SDA;
+extern char font_vu_program[];
+extern char camera_position[];
+extern void set_scale_matrix(float *, float);
+extern void vu1_gs_regs_font(void);
 
 /* Build the VU1 setup packet: load microprogram 7 if another is
    resident, then a DIRECT/UNPACK chain with the two camera matrices
@@ -3485,7 +3469,7 @@ void font_queue_vu_state(void) {
     int *base;
     int *p;
 
-    func_001FA1C0(m, 1024.0f);
+    set_scale_matrix(m, 1024.0f);
     cam = camera_position;
     FastVecScale(&m[12], cam, -1024.0f);
     m[15] = 1.0f;
@@ -3493,11 +3477,11 @@ void font_queue_vu_state(void) {
         VU1_addDataRef(font_vu_program, font_vu_program_tag);
         font_state = 7;
     }
-    D_00161000[0] = 0x10000000;
-    D_00161000[1] = 0;
-    D_00161000[2] = 0x11000000;
-    D_00161000[3] = 0x01000404;
-    base = D_00161000;
+    g_render_packet_cursor[0] = 0x10000000;
+    g_render_packet_cursor[1] = 0;
+    g_render_packet_cursor[2] = 0x11000000;
+    g_render_packet_cursor[3] = 0x01000404;
+    base = g_render_packet_cursor;
     base[4] = 0;
     base[5] = 0;
     base[6] = 0;
@@ -3526,13 +3510,13 @@ void font_queue_vu_state(void) {
     base[0x3A] = 0x15000000;
     base[0x3B] = 0;
     p = base + 0x3C;
-    D_00161000[0] |= ((char *)p - (char *)D_00161000 >> 4) - 1;
-    D_00161000 = p;
+    g_render_packet_cursor[0] |= ((char *)p - (char *)g_render_packet_cursor >> 4) - 1;
+    g_render_packet_cursor = p;
     vu1_gs_regs_font();
 }
 
-extern void func_001FB608(int, int, int);
-extern short D_001519EE NOT_SDA;
+extern void setup_render_target(int, int, int);
+extern short render_target_base_page NOT_SDA;
 
 /* Sets up a (1 << a) x (1 << b) area, as vendor.c's func_0023A948 does:
    func_001FB608 gets the sizes and a base address, which is D_001519EE
@@ -3546,14 +3530,14 @@ void configure_graphics_render_target_and_projection(int a, int b, int flag, flo
     int base;
 
     if (flag != 0) {
-        base = D_001519EE << 13;
+        base = render_target_base_page << 13;
     } else {
         int t = a + b;
 
         if (t > 16) {
             t = 16;
         }
-        base = D_0015EF8C - (4 << t);
+        base = g_gs_texture_allocation_base - (4 << t);
         base = (base >> 13) << 13;
     }
     setup_render_target(a, b, base);
@@ -3568,7 +3552,7 @@ void configure_graphics_render_target_and_projection(int a, int b, int flag, flo
 
 __asm__(".section .text\n\tnop\n");
 
-extern void func_001F3008(void);
+extern void InitViewContext(void);
 
 /* Frame start for the large draw buffer. */
 void begin_draw_frame(void) {
@@ -3580,11 +3564,11 @@ void begin_draw_frame(void) {
 /* Two prototypes for one symbol: func_001F55C0 passes a 64-bit value
    (retail shifts it with dsll), func_001F7B70 passes plain ints
    (addiu, not daddiu). */
-extern int D_0015F578 MACRO_ADDR;
-extern short D_0015F448;              /* SDA, gp -0x78B8 */
-extern void func_001F91B8(void);
-extern void func_001F7868(void);
-extern void func_001F8B6C(void);
+extern int font_quad_count MACRO_ADDR;
+extern short font_depth_bias;              /* SDA, gp -0x78B8 */
+extern void prepare_font_quads(void);
+extern void font_queue_vu_state(void);
+extern void draw_font_quad_packets(void);
 
 /* Optional extra draw pass, enabled by D_0015F578. */
 void draw_debug_font(void) {
@@ -3593,16 +3577,16 @@ void draw_debug_font(void) {
         VU1_addGSregister(0x14, 0x61);
         VU1_addGSregister(0x47, 0x513F1);
         VU1_addGSregister(0x4A, 1);
-        func_001F91B8();
+        prepare_font_quads();
         *(float *)&font_depth_bias = -0.04f;
         font_queue_vu_state();
-        func_001F8B6C();
+        draw_font_quad_packets();
         *(int *)&font_depth_bias = 0;
         VU1_addGSregister(0x4A, 0);
     }
 }
 
-extern int D_0018E840[];
+extern int bit_swap_lut[];
 
 /* initialize_alpha_lookup_table: fills the alpha lookup table D_0018E840. */
 void initialize_alpha_lookup_table(void) {

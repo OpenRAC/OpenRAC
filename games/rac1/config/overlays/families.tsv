@@ -476,9 +476,7 @@ func_L00_0029A868	shared	104	func_L00_0029A8D0	shared	108	0.87
 func_L10_002E14F8	level	104	func_L06_002FAAC8	level	96	0.76
 func_L18_002D7670	level	104	func_L18_002FE1C0	level	104	1.00
 func_L18_002FE1C0	level	104	func_L18_002D7670	level	104	1.00
-func_L03_002DDE38	level	100	func_L10_002C0388	level	100	0.96
 func_L06_002DB248	level	100	func_L06_002DB1D8	level	108	0.88
-func_L10_002C0388	level	100	func_L03_002DDE38	level	100	0.96
 func_L00_001FF548	shared	96	func_L00_001FF5B0	shared	88	0.83
 func_L06_002FAAC8	level	96	func_L10_002E14F8	level	104	0.76
 func_L00_001FF5B0	shared	88	func_L00_001FF548	shared	96	0.83

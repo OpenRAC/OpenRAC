@@ -12,10 +12,12 @@
 
 /* Register this level's vendor data set. */
 
-extern void FUN_L01_002b91c8(char *, int);
+extern void render_water_grids(char *, int) __asm__("FUN_L01_002b91c8");
 
-void FUN_L07_0030cd20(void) {
-    FUN_L01_002b91c8(D_L07_001DCE40, 0x24);
+void render_level07_water_grids(void) __asm__("FUN_L07_0030cd20");
+
+void render_level07_water_grids(void) {
+    render_water_grids(D_L07_001DCE40, 0x24);
 }
 struct L07MovingVars {
     Vec4f home;
@@ -36,7 +38,9 @@ extern void add_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a10");
 extern void scale_vector_xyz(void *, void *, float) __asm__("FUN_001f9bf8");
 extern void transform_vector_xyz(void *, void *, void *) __asm__("FUN_001f9cf8");
 
-void FUN_L07_0031a9e8(struct Moby *moby) {
+void update_moby_offset_motion(struct Moby *moby) __asm__("FUN_L07_0031a9e8");
+
+void update_moby_offset_motion(struct Moby *moby) {
     enum {
         MOVING_MOBY_INITIALIZE = 0,
         MOVING_MOBY_WAIT_AT_HOME = 1,
@@ -186,7 +190,9 @@ extern float fast_cos(float) __asm__("FUN_001f9dc8");
 extern float fast_add_rotations(float, float) __asm__("FUN_001fa580");
 extern float fast_subtract_rotations(float, float) __asm__("FUN_001fa5c8");
 
-void FUN_L07_0031b3f0(struct Moby *moby) {
+void update_swing_gate(struct Moby *moby) __asm__("FUN_L07_0031b3f0");
+
+void update_swing_gate(struct Moby *moby) {
     enum {
         SWING_GATE_INITIALIZE = 0,
         SWING_GATE_WAIT_FOR_OPEN_CONDITION = 1,
@@ -196,7 +202,7 @@ void FUN_L07_0031b3f0(struct Moby *moby) {
     };
     struct SwingGateVars *vars = (struct SwingGateVars *)moby->pvars;
     struct Moby *target;
-    float f;
+    float updated_y_rotation;
 
     if (vars == 0)
         return;
@@ -235,9 +241,9 @@ void FUN_L07_0031b3f0(struct Moby *moby) {
             moby->state = 2;
             break;
         }
-        f = fast_subtract_rotations(moby->rot.y, vars->rate);
-        moby->rot.y = f;
-        if (0.0f < f) {
+        updated_y_rotation = fast_subtract_rotations(moby->rot.y, vars->rate);
+        moby->rot.y = updated_y_rotation;
+        if (0.0f < updated_y_rotation) {
             moby->rot.y = 0;
             vars->vel = 0;
             moby->state = 1;

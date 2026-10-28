@@ -15,38 +15,40 @@ extern float fast_cos(float) __asm__("func_001F9DC8");
 extern int D_L00_0015F5C4;
 extern char D_L00_001BD880[];
 extern int D_L00_0015F630 __asm__("D_L00_0015F630");
-extern int FUN_L00_002644e0(int);
+extern int remove_help_message_for_selector(int) __asm__("FUN_L00_002644e0");
 extern unsigned char D_0013CAE4[];
 extern unsigned char D_0013D388[];
 extern unsigned char D_0013DD4B[];
 extern void render_environment_mapped_object(void) __asm__("FUN_002327a0");
 extern void start_scene(int) __asm__("FUN_L00_00298840");
-extern void FUN_L00_00299460(int);
+extern void queue_scene_movie_with_game_language(int) __asm__("FUN_L00_00299460");
 extern void add_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a10");
 extern void draw_light_flare() __asm__("func_0022DF40");
 extern void enqueue_callback_list_1_alt(void (*)(void), void *) __asm__("FUN_001f4600");
 extern void transform_vector_by_basis(void *, void *, void *) __asm__("FUN_001f9cf8");
 s32 try_set_help_message(s32 arg0, s32 arg1) __asm__("FUN_00215130");
 
-void FUN_L00_0028e180(unsigned char *moby) {
-    char *d = *(char **)(moby + 0x78);
+void update_moby_proximity_interaction(unsigned char *moby) __asm__("FUN_L00_0028e180");
+
+void update_moby_proximity_interaction(unsigned char *moby) {
+    char *proximity_state_data = *(char **)(moby + 0x78);
     float *moby_position;
     float proximity_test_position[4];
-    int v;
+    int color_pulse_intensity;
     int one;
-    unsigned char *q;
+    unsigned char *hero_position_or_scene_flags;
 
     if (moby[0x20] != 0x2A) {
         if (moby[0x31] != 0) {
             moby[0xBC] += 2;
-            v = (int)(fast_cos(convert_integer_to_float((unsigned char)moby[0xBC] - 0x80) *
+            color_pulse_intensity = (int)(fast_cos(convert_integer_to_float((unsigned char)moby[0xBC] - 0x80) *
                                0.024543693f) *
                       50.0f) +
                 0x96;
             if (*(short *)(moby + 0xA6) == 0x215) {
-                *(int *)(moby + 0x90) = (v >> 1) | (v << 8) | (v << 16);
+                *(int *)(moby + 0x90) = (color_pulse_intensity >> 1) | (color_pulse_intensity << 8) | (color_pulse_intensity << 16);
             } else {
-                *(int *)(moby + 0x90) = v | (v << 8) | (v << 16);
+                *(int *)(moby + 0x90) = color_pulse_intensity | (color_pulse_intensity << 8) | (color_pulse_intensity << 16);
             }
             enqueue_callback_list_1_alt(render_environment_mapped_object, moby);
             if (vector_distance(moby + 0x10, D_L00_00166DC0) < 32.0f) {
@@ -54,34 +56,34 @@ void FUN_L00_0028e180(unsigned char *moby) {
             }
         }
         moby_position = (float *)(moby + 0x10);
-        if (*(short *)(d + 0xC) != 0) {
+        if (*(short *)(proximity_state_data + 0xC) != 0) {
             transform_vector_by_basis(proximity_test_position, D_L00_001BD880 + ship_index[0] * 16, moby + 0xC0);
             add_vector_xyz(proximity_test_position, proximity_test_position, moby_position);
             if (FUN_001f9b48(proximity_test_position, &hero.motion.pos) > 4.1f) {
-                *(short *)(d + 0xC) = 0;
+                *(short *)(proximity_state_data + 0xC) = 0;
             }
         } else {
-            q = (unsigned char *)(&hero.motion.pos);
-            if (vector_distance(moby_position, q) < 6.0f) {
+            hero_position_or_scene_flags = (unsigned char *)(&hero.motion.pos);
+            if (vector_distance(moby_position, hero_position_or_scene_flags) < 6.0f) {
                 transform_vector_by_basis(proximity_test_position, D_L00_001BD880 + ship_index[0] * 16, moby + 0xC0);
                 add_vector_xyz(proximity_test_position, proximity_test_position, moby_position);
-                if (FUN_001f9b48(proximity_test_position, q) < 4.0f) {
-                    *(short *)(d + 0xC) = 1;
+                if (FUN_001f9b48(proximity_test_position, hero_position_or_scene_flags) < 4.0f) {
+                    *(short *)(proximity_state_data + 0xC) = 1;
                 }
             }
         }
         if (*(unsigned short *)(moby + 0x34) & 1) {
-            *(short *)(d + 0xC) = 0;
+            *(short *)(proximity_state_data + 0xC) = 0;
         }
-        if (*(short *)(d + 0xC) != 0) {
-            int r = try_set_help_message(2, 0x53E4) != 0;
-            if ((*(int *)(((char *)&D_0013CAE4)) & 0x10) && r) {
+        if (*(short *)(proximity_state_data + 0xC) != 0) {
+            int help_message_accepted = try_set_help_message(2, 0x53E4) != 0;
+            if ((*(int *)(((char *)&D_0013CAE4)) & 0x10) && help_message_accepted) {
                 if (current_level_index == 10 && hero.vehicle_mode == 1) {
                     moby[0x20] = 0x2A;
                     *(unsigned short *)(moby + 0x34) |= 0x41;
                     start_scene(9);
                 } else {
-                    FUN_L00_002644e0(2);
+                    remove_help_message_for_selector(2);
                     D_L00_0015F630 = 1;
                     ship_index[1] = 0;
                 }
@@ -89,19 +91,19 @@ void FUN_L00_0028e180(unsigned char *moby) {
         }
     } else {
         if (D_L00_0015F5C4 != 2) {
-            q = D_0013D388;
-            if (q[0x48] == 0 && D_0013D4DC[0] != 0) {
+            hero_position_or_scene_flags = D_0013D388;
+            if (hero_position_or_scene_flags[0x48] == 0 && D_0013D4DC[0] != 0) {
                 start_scene(4);
-                q[0x48] = 1;
-            } else if ((q = D_0013D388)[0x49] == 0 && D_0013DD4B[0] != 0) {
+                hero_position_or_scene_flags[0x48] = 1;
+            } else if ((hero_position_or_scene_flags = D_0013D388)[0x49] == 0 && D_0013DD4B[0] != 0) {
                 start_scene(5);
-                q[0x49] = 1;
-            } else if ((q = D_0013D388)[0x4A] == 0 && D_0013DD4B[0] != 0) {
-                FUN_L00_00299460(0xB);
-                q[0x4A] = 1;
-            } else if ((q = D_0013D388)[0x4B] == 0 && D_0013DD4B[0] != 0) {
+                hero_position_or_scene_flags[0x49] = 1;
+            } else if ((hero_position_or_scene_flags = D_0013D388)[0x4A] == 0 && D_0013DD4B[0] != 0) {
+                queue_scene_movie_with_game_language(0xB);
+                hero_position_or_scene_flags[0x4A] = 1;
+            } else if ((hero_position_or_scene_flags = D_0013D388)[0x4B] == 0 && D_0013DD4B[0] != 0) {
                 start_scene(6);
-                q[0x4B] = 1;
+                hero_position_or_scene_flags[0x4B] = 1;
             } else {
                 moby[0x20] = 0;
                 *(unsigned short *)(moby + 0x34) &= 0xFFBE;

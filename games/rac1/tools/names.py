@@ -377,8 +377,18 @@ def read_local() -> list[tuple[str, str, str, bool]]:
         sym, name, evidence, flag = (line.split("\t") + ["", "", "", ""])[:4]
         if not SYMBOL.match(sym) or not IDENT.match(name):
             sys.exit(f"{LOCAL.name}: bad row: {line!r}")
-        out.append((sym, name, evidence, flag.strip() == "override"))
+        out.append((sym, name, evidence, flag.strip() in ("override", "clash")))
     return out
+
+
+def local_clashes() -> set[str]:
+    """Symbols whose config/names_local.tsv row is flagged `clash`: the NTSC decomp's name is
+    already an identifier in src/ (a struct field, a local, a label), so names.h would leave it
+    out; the local name is kept over the adopted one."""
+    if not LOCAL.exists():
+        return set()
+    return {l.split("\t")[0] for l in LOCAL.read_text().splitlines()
+            if not l.startswith("#") and (l.split("\t") + ["", "", "", ""])[3].strip() == "clash"}
 
 
 def merge_local(rows: list[dict]) -> list[dict]:
@@ -459,7 +469,6 @@ def header_rows(rows=None):
     """Rows names.h defines, and rows left out because the name is already
     an identifier in src/ or include/ (it would be silently renamed)."""
     rows = rows if rows is not None else read_table()
-    game = game_symbols()
     # A name names.h already maps to the same symbol is in src/ because
     # `apply` put it there; only new names can clash with an identifier.
     current = dict(re.findall(r"(?m)^#define (\w+)\s+(\w+)$",
@@ -470,9 +479,6 @@ def header_rows(rows=None):
     for r in rows:
         if r["tier"] == "candidate":
             continue
-        sym = r["symbol"]
-        if sym.startswith("func_") and not sym.startswith("func_L") and sym not in game:
-            continue   # core/SDK/libc: its own well-known names stay unaliased
         (clash if r["name"] in in_use else keep).append(r)
     return keep, clash
 
@@ -541,14 +547,16 @@ def check() -> None:
 # ---------------------------------------------------------------- apply
 
 DECL_LINE = re.compile(r"^\s*(extern\b|#|INCLUDE_ASM|ASM_FUNC|LINKER_REMNANT|typedef\b)")
+EXTERN_LINE = re.compile(r"^\s*extern\b")
+PROTO_LINE = re.compile(r"^(?!\s*(#|INCLUDE_ASM|ASM_FUNC|LINKER_REMNANT|typedef\b))[A-Za-z_][^=;{}\n]*\([^;{}\n]*\)\s*;\s*(/\*.*)?$")
 
 
 def apply() -> None:
     """In every src/ C file, write a named symbol by its readable name
-    inside function bodies. Declarations, definitions, preprocessor lines,
-    comments, strings and __asm__ labels keep the address name, so every
-    tool that reads `func_X(` definitions or INCLUDE_ASM stubs is
-    unaffected."""
+    inside function bodies, `extern` lines and prototypes. Definitions,
+    preprocessor lines, comments, strings, __asm__ labels and SDATA()
+    arguments (stringified into the label) keep the address name, so every tool that reads `func_X(` definitions or
+    INCLUDE_ASM stubs is unaffected."""
     keep, _ = header_rows()
     name_of = {r["symbol"]: r["name"] for r in keep}
     token = re.compile(r"\b(" + "|".join(re.escape(s) for s in sorted(name_of, key=len, reverse=True)) + r")\b")
@@ -566,9 +574,9 @@ def apply() -> None:
 
 
 def rewrite_bodies(text: str, token, name_of) -> tuple[str, int]:
-    """Replace TOKEN matches only inside brace depth >= 1 of top-level
-    function bodies, outside comments/strings, on lines that are not
-    declarations or preprocessor lines."""
+    """Replace TOKEN matches outside comments/strings: inside brace depth
+    >= 1 of top-level function bodies on lines that are not declarations
+    or preprocessor lines, and on `extern` lines and prototypes."""
     out, n, i, depth = [], 0, 0, 0
     L = len(text)
     line_start = 0
@@ -597,7 +605,8 @@ def rewrite_bodies(text: str, token, name_of) -> tuple[str, int]:
         if m and (i == 0 or not (text[i - 1].isalnum() or text[i - 1] == "_")):
             line_end = text.find("\n", i)
             line = text[line_start:line_end if line_end >= 0 else L]
-            if depth >= 1 and not DECL_LINE.match(line) and "__asm__" not in line:
+            if "__asm__" not in line and not text.endswith("SDATA(", 0, i) and ((depth >= 1 and not DECL_LINE.match(line))
+                                          or EXTERN_LINE.match(line) or PROTO_LINE.match(line)):
                 out.append(name_of[m.group(1)]); n += 1
             else:
                 out.append(m.group(1))
@@ -846,9 +855,13 @@ def merge_ntsc(rows: list[dict], entries=None) -> list[dict]:
     (tier descriptive, the old one goes to the alternatives); a held or kept-original name is
     listed among the alternatives, or as a candidate where the symbol has no name."""
     by_sym = {r["symbol"]: r for r in rows}
+    overridden = local_clashes()
     for e in ntsc_order(read_ntsc_table() if entries is None else entries):
         old = by_sym.get(e["symbol"])
-        if e["status"] == ADOPT:
+        if e["status"] == ADOPT and e["symbol"] in overridden and old:
+            if e["name"] != old["name"]:
+                old["alts"] = ",".join(sorted(set([a for a in old["alts"].split(",") if a] + [e["name"]])))
+        elif e["status"] == ADOPT:
             new = {"symbol": e["symbol"], "name": e["name"], "tier": "descriptive", "source": NTSC_SOURCE,
                    "evidence": e["evidence"], "alts": ""}
             if old:

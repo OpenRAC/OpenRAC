@@ -52,7 +52,7 @@ Level files grew one landing at a time. When a later landing needs another C
 type for a symbol, it declares a **suffixed alias** of the same linker symbol:
 
 ```c
-/* src/overlays/shared/help_00203E98.c */
+/* src/overlays/shared/hero_idle_and_animation.c */
 extern struct Hero D_0013F450_05278 __asm__("D_0013F450");
 extern f32 func_00214358_05278(Vec4f *, s32, f32) __asm__("func_00214358");
 ```
@@ -65,7 +65,7 @@ type changes. Also seen:
   when the file's existing prototype has another type
   ([LEVERS.md](../LEVERS.md) "Rules"). Tools read `func_X_r` as `func_X`.
 - Function-pointer macros (`#define d_update_visible ((void(*)(void))(func_00213C78))`
-  in `src/overlays/shared/update_0029B6A0.c`).
+  in `src/overlays/shared/vendor_menu.c`).
 
 An alias names one existing symbol, never an expression
 (`"D_0013E633 + 0xF1D"`) or a number ([QUEUE.md](../QUEUE.md) "Rules");
@@ -141,11 +141,11 @@ pass. A cast into a `pad_` field means the field should be named in the header
 
 | View | File | Why |
 |---|---|---|
-| `Moby_26ff10` | `src/overlays/shared/partupd_0026A130.c` | not a moby: a particle record (passed to `KillPart`, `func_L00_002688A8`) with its own vector and pvar layouts |
-| `Moby_2E8210`, `Moby_2E8AC8` | `src/overlays/shared/vendor_002E1660.c` | camera-side records (`cam` at 0x70 points to a `Cam_2E8210`), not a moby past the header |
-| `HeroPos_2E9978` | `src/overlays/l10_orxon/vendor_002E30F8.c` | one field at `D_0013E633 + 0xE9D` (= `gHeroPos`, 0x13F4D0) + 0x200C: retail derives it from a register holding that base, which the `Hero` symbol would fold away |
-| `HeroManip4_5FF0` | `src/overlays/shared/help_00203E98.c` | four more manipulators after `manipulators[7]` at hero+0xEF0, plus a random-delay timer; `struct Hero` lays this out differently |
-| `Pad_2D9F08` | `src/overlays/shared/vendor_002A5218.c` | reads `held` and `pressed` as one doubleword (`b1C0`); `PadState`'s separate `s32` fields would change the load |
+| `Moby_26ff10` | `src/overlays/shared/effect_particle_updates.c` | not a moby: a particle record (passed to `KillPart`, `func_L00_002688A8`) with its own vector and pvar layouts |
+| `Moby_2E8210`, `Moby_2E8AC8` | `src/overlays/shared/follow_camera.c` | camera-side records (`cam` at 0x70 points to a `Cam_2E8210`), not a moby past the header |
+| `HeroPos_2E9978` | `src/overlays/l10_orxon/toxic_crabs_and_gates.c` | one field at `D_0013E633 + 0xE9D` (= `gHeroPos`, 0x13F4D0) + 0x200C: retail derives it from a register holding that base, which the `Hero` symbol would fold away |
+| `HeroManip4_5FF0` | `src/overlays/shared/hero_idle_and_animation.c` | four more manipulators after `manipulators[7]` at hero+0xEF0, plus a random-delay timer; `struct Hero` lays this out differently |
+| `Pad_2D9F08` | `src/overlays/shared/trespasser_pad_and_background_ships.c` | reads `held` and `pressed` as one doubleword (`b1C0`); `PadState`'s separate `s32` fields would change the load |
 
 *(inferred from the definitions and uses; the pad reason is from the
 header-tidy notes.)* Small `fNN` data views in `help_*.c` (`S141948`, `Cam`,
@@ -223,7 +223,7 @@ python3 tools/claims.py unlock <owner>                    # right after
 
 ## 7. Reading a typical level file
 
-`src/overlays/shared/vendor_002B0068.c`: a generated header ("Shared code
+`src/overlays/shared/smoke_puff_projectiles.c`: a generated header ("Shared code
 following vendor", i.e. link position); includes (`common.h`,
 `include_asm.h`, `hero.h`, `moby.h`, often `pad.h`, `callees.h`); then per
 landing its declarations (early ones aliases like `D_0013F450_B0068`, local

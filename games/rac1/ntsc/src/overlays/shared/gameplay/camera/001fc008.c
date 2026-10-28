@@ -3,19 +3,21 @@
 #include "asm.h"
 
 #include "sda.h"
-extern int D_L02_0015EF4C;
+#include "rnc/overlay/shared/gameplay/camera/001fc008_globals.h"
 extern int D_L02_001695F0[] NOT_SDA;
 
-void FUN_L02_001fc008(int x) {
+void register_camera_update_callback(int x) __asm__("FUN_L02_001fc008");
+
+void register_camera_update_callback(int x) {
     int i;
 
-    if (D_L02_0015EF4C < 16) {
-        for (i = 0; i < D_L02_0015EF4C; i++) {
+    if (camera_update_callback_count < 16) {
+        for (i = 0; i < camera_update_callback_count; i++) {
             if (x == D_L02_001695F0[i]) {
                 return;
             }
         }
-        D_L02_001695F0[D_L02_0015EF4C++] = x;
+        D_L02_001695F0[camera_update_callback_count++] = x;
     }
 }
 

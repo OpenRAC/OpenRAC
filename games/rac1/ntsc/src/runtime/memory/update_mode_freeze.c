@@ -43,6 +43,37 @@ extern void snd_flush_sound_commands() __asm__("func_0012DC80");
 void update_mode_freeze(void) __asm__("FUN_001fce28");
 
 void update_mode_freeze(void) {
+    enum {
+        VIDEO_MODE_TEST_INPUT_DELAY = 0,
+        VIDEO_MODE_TEST_AWAIT_START = 1,
+        VIDEO_MODE_TEST_PREVIEW_ACTIVE = 2,
+        VIDEO_MODE_TEST_AWAIT_TIMEOUT_ACK = 3
+    };
+    enum {
+        FREEZE_MODE_CONFIRM_CANCEL_CHOICE = 0,
+        FREEZE_MODE_TRIANGLE_SET_SHIP_FLAG_CONTINUE = 1,
+        FREEZE_MODE_AWAIT_CROSS_CONTINUE = 2,
+        FREEZE_MODE_STATE_DISPATCH = 3,
+        FREEZE_MODE_TRIANGLE_HIDE_HERO_CONTINUE = 4,
+        FREEZE_MODE_DELAYED_CONTINUE = 5,
+        FREEZE_MODE_VIDEO_MODE_TEST = 6
+    };
+    enum {
+        FREEZE_CHOICE_PREPARE_INPUT = 0,
+        FREEZE_CHOICE_AWAIT_INPUT = 1,
+        FREEZE_CHOICE_CONFIRM_EXIT = 2,
+        FREEZE_CHOICE_CANCEL_EXIT = 3
+    };
+    enum {
+        MODE_FREEZE_AWAIT_CROSS_RESUME = 2,
+        MODE_FREEZE_AWAIT_TRIANGLE_RESUME = 3,
+        MODE_FREEZE_BOOT_FLAGS_RELOAD_OR_RESUME = 4,
+        MODE_FREEZE_TRIANGLE_CLEAR_FLAGS_RESUME = 5,
+        MODE_FREEZE_BOOT_AWAIT_CLEAR_FLAGS_RESUME = 9,
+        MODE_FREEZE_FLAG_GATED_TRIANGLE_RESUME = 12,
+        MODE_FREEZE_RESUME_WITH_ACTION_LIST = 16,
+        MODE_FREEZE_BOOT_GATED_CROSS_RELOAD = 19
+    };
     s32 video_mode;
     s32 step;
     sound_update();
@@ -50,7 +81,7 @@ void update_mode_freeze(void) {
         freeze.unk4--;
     }
     switch (freeze.unk0) {
-    case 5: {
+    case FREEZE_MODE_DELAYED_CONTINUE: {
         struct FreezeModeState *state = &freeze;
         state->unk20++;
         if (scale_game_frames(0x5A) < state->unk20) {
@@ -70,23 +101,23 @@ void update_mode_freeze(void) {
         break;
     }
 
-    case 4:
+    case FREEZE_MODE_TRIANGLE_HIDE_HERO_CONTINUE:
         if (controller_state.pressed & PAD_TRIANGLE) {
             struct Moby *moby = hero.moby;
             moby->visible = 0;
             moby->collision = 0;
             moby->flags = (u16)(moby->flags | 1);
             noop_main_callback();
-            noop_callback_k(hero.unk1D00, hero.unk1D00 + 0x10, 0, 1);
+            noop_callback_k(hero.saved_pos_rot, hero.saved_pos_rot + 0x10, 0, 1);
             game_mode = 0;
         } else if (controller_state.pressed & PAD_CROSS) {
             game_mode = 0;
         }
         break;
 
-    case 6:
+    case FREEZE_MODE_VIDEO_MODE_TEST:
         switch (freeze.unk1C) {
-        case 0:
+        case VIDEO_MODE_TEST_INPUT_DELAY:
             if (freeze.unk4 != 0) {
                 if ((--freeze.unk4) == 0) {
                     freeze.unk1C = 1;
@@ -96,7 +127,7 @@ void update_mode_freeze(void) {
             }
             break;
 
-        case 1:
+        case VIDEO_MODE_TEST_AWAIT_START:
             if (controller_state.pressed & PAD_TRIANGLE) {
                 game_mode = freeze.unk14;
             } else if (controller_state.pressed & PAD_CROSS) {
@@ -107,7 +138,7 @@ void update_mode_freeze(void) {
             }
             break;
 
-        case 2:
+        case VIDEO_MODE_TEST_PREVIEW_ACTIVE:
             if ((freeze.unk20 == 0) || ((--freeze.unk20) == 0)) {
                 requested_video_mode = 1;
                 freeze.unk1C = 3;
@@ -121,7 +152,7 @@ void update_mode_freeze(void) {
             }
             break;
 
-        case 3:
+        case VIDEO_MODE_TEST_AWAIT_TIMEOUT_ACK:
             if (controller_state.pressed & PAD_CROSS) {
                 game_mode = freeze.unk14;
             }
@@ -134,7 +165,7 @@ void update_mode_freeze(void) {
 
         break;
 
-    case 1:
+    case FREEZE_MODE_TRIANGLE_SET_SHIP_FLAG_CONTINUE:
         D_0015F648 = 2;
         if (controller_state.pressed & PAD_TRIANGLE) {
             game_mode = 0;
@@ -144,16 +175,16 @@ void update_mode_freeze(void) {
         }
         break;
 
-    case 2:
+    case FREEZE_MODE_AWAIT_CROSS_CONTINUE:
         D_0015F648 = 2;
         if (controller_state.pressed & PAD_CROSS) {
             game_mode = 0;
         }
         break;
 
-    case 0:
+    case FREEZE_MODE_CONFIRM_CANCEL_CHOICE:
         switch (freeze.unk1C) {
-        case 0:
+        case FREEZE_CHOICE_PREPARE_INPUT:
             if (freeze.unk20 < 8) {
                 freeze.unk20++;
             } else if (freeze.unk24 < 8) {
@@ -163,7 +194,7 @@ void update_mode_freeze(void) {
             }
             break;
 
-        case 1:
+        case FREEZE_CHOICE_AWAIT_INPUT:
             if (controller_state.pressed & PAD_CROSS) {
                 freeze.unk1C = 2;
             } else if (controller_state.pressed & (PAD_CIRCLE | PAD_START)) {
@@ -174,8 +205,8 @@ void update_mode_freeze(void) {
             if (video_mode >= 0)
                 break;
 
-        case 2:
-        case 3:
+        case FREEZE_CHOICE_CONFIRM_EXIT:
+        case FREEZE_CHOICE_CANCEL_EXIT:
             if (freeze.unk24 != 0) {
                 freeze.unk24--;
             } else if (freeze.unk20 != 0) {
@@ -188,12 +219,12 @@ void update_mode_freeze(void) {
                 if (video_mode < 0) {
                     freeze.unk1C = step;
                 } else if (step == 2) {
-                    if (hero.unk880 != (-1)) {
-                        set_animation_parameter(hero.unk880, 0);
-                        hero.unk880 = -1;
+                    if (hero.trick_hud_handle != (-1)) {
+                        set_animation_parameter(hero.trick_hud_handle, 0);
+                        hero.trick_hud_handle = -1;
                     }
                     decrement_resource_counter();
-                    if (scale_game_frames(0x1068) < hero.unk19C) {
+                    if (scale_game_frames(0x1068) < hero.control_mode_timer) {
                         if (current_level_index == 5) {
                             D_0015EE38++;
                         } else if (current_level_index == 0x10) {
@@ -204,8 +235,8 @@ void update_mode_freeze(void) {
                     noop_callback_k(D_00141050, D_00141050 + 0x10, 0, 1);
                 } else {
                     game_mode = 0;
-                    if (hero.unk89A >= 3) {
-                        hero.unk89A = (s16)(((u16)hero.unk89A) - 1);
+                    if (hero.race_lap >= 3) {
+                        hero.race_lap = (s16)(((u16)hero.race_lap) - 1);
                         hero.unk890[0xBC] = 3;
                     }
                 }
@@ -214,7 +245,7 @@ void update_mode_freeze(void) {
         }
         break;
 
-    case 3:
+    case FREEZE_MODE_STATE_DISPATCH:
         freeze.unk20++;
         if (scale_game_frames(0x1E) < freeze.unk20) {
             if (freeze.unk24 != 0) {
@@ -222,7 +253,7 @@ void update_mode_freeze(void) {
             }
         }
         switch (mode_freeze_state) {
-        case 2:
+        case MODE_FREEZE_AWAIT_CROSS_RESUME:
             if (freeze.unk4 == 0) {
                 if (controller_state.pressed & PAD_CROSS) {
                     mode_freeze_flags &= ~1;
@@ -272,19 +303,19 @@ void update_mode_freeze(void) {
             }
             break;
 
-        case 16:
+        case MODE_FREEZE_RESUME_WITH_ACTION_LIST:
             game_mode = freeze.unk14;
             pause_current_action_list[0] = freeze.unk18;
             break;
 
-        case 12:
+        case MODE_FREEZE_FLAG_GATED_TRIANGLE_RESUME:
             if (mode_freeze_flags & 2) {
                 break;
             }
 
-        case 3:
+        case MODE_FREEZE_AWAIT_TRIANGLE_RESUME:
 
-        case 5:
+        case MODE_FREEZE_TRIANGLE_CLEAR_FLAGS_RESUME:
             if (controller_state.pressed & PAD_TRIANGLE) {
                 mode_freeze_flags = mode_freeze_flags & (~2);
                 mode_freeze_flags = mode_freeze_flags & (~4);
@@ -292,7 +323,7 @@ void update_mode_freeze(void) {
             }
             break;
 
-        case 19:
+        case MODE_FREEZE_BOOT_GATED_CROSS_RELOAD:
             if ((boot_level_active != 0) && (mode_freeze_flags & 2)) {
                 if (controller_state.pressed & PAD_CROSS) {
                     load_and_initialize_level_chunk();
@@ -329,7 +360,7 @@ void update_mode_freeze(void) {
             }
             break;
 
-        case 4:
+        case MODE_FREEZE_BOOT_FLAGS_RELOAD_OR_RESUME:
             if (boot_level_active != 0) {
                 if (mode_freeze_flags & 2) {
                     struct PadState *pad = &controller_state;
@@ -364,7 +395,7 @@ void update_mode_freeze(void) {
             }
             break;
 
-        case 9:
+        case MODE_FREEZE_BOOT_AWAIT_CLEAR_FLAGS_RESUME:
             if (boot_level_active != 0) {
                 if (!(mode_freeze_flags & 6)) {
                     game_mode = freeze.unk14;

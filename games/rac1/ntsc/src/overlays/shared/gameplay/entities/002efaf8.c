@@ -7,7 +7,7 @@
 #include "sda.h"
 
 
-extern int FUN_L00_002dbb20(void *);
+extern int store_moby_in_suck_cannon(void *) __asm__("FUN_L00_002dbb20");
 
 extern int FUN_L00_002dbb20_pt(void *, void *) __asm__("FUN_L00_002dbb20");
 /* Moby state 0xE while FUN_L00_002dbb20 reports a hit, back to 1 when it stops. */
@@ -15,7 +15,8 @@ extern int FUN_L00_002dbb20_h(void *, void *, void *, float) __asm__("FUN_L00_00
 /* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
    calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
    they came (retail touches none of a1, a2 and $f12 before its call). */
-int FUN_L01_002efaf8(char *a, void *quad, void *target, float h) {
+int moby_hold_state_if_found(char *a, void *quad, void *target, float h) __asm__("FUN_L01_002efaf8");
+int moby_hold_state_if_found(char *a, void *quad, void *target, float h) {
     int r = FUN_L00_002dbb20_h(a, quad, target, h);
     if (r == 0) {
         if (*(unsigned char *)(a + 0x20) == 0xe)
@@ -26,32 +27,36 @@ int FUN_L01_002efaf8(char *a, void *quad, void *target, float h) {
     return r;
 }
 
-extern int FUN_L00_002dbe20(void *);
+extern int cancel_suck_cannon_suction(void *) __asm__("FUN_L00_002dbe20");
 
 /* Runs FUN_L00_002dbe20 on the moby and sets its state to 0xE. */
-int FUN_L01_002efb98(char *moby) {
-    int r = FUN_L00_002dbe20(moby);
+int cancel_suck_cannon_suction_and_set_state_14(char *moby) __asm__("FUN_L01_002efb98");
+
+int cancel_suck_cannon_suction_and_set_state_14(char *moby) {
+    int helper_result = cancel_suck_cannon_suction(moby);
     moby[0x20] = 0xe;
-    return r;
+    return helper_result;
 }
 typedef struct {
     char pad[0x78];
     s32 f;
 } T6;
 /* Returns the moby data pointer plus 0xC0, or 0 when either is null. */
-s32 FUN_L01_002efbc8(T6 *moby) {
-    s32 v;
+s32 get_moby_data_plus_0xc0(T6 *moby) __asm__("FUN_L01_002efbc8");
+
+s32 get_moby_data_plus_0xc0(T6 *moby) {
+    s32 moby_data_address;
     if (moby != 0) {
-        v = moby->f;
-        if (v != 0) {
-            return v + 0xc0;
+        moby_data_address = moby->f;
+        if (moby_data_address != 0) {
+            return moby_data_address + 0xc0;
         }
         return 0;
     }
     return 0;
 }
 
-extern int FUN_L00_002db8f8(void *);
+extern int process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
 
 extern int FUN_L00_002db8f8_pt(void *, void *, void *) __asm__("FUN_L00_002db8f8");
 /* Moby state 7 while FUN_L00_002db8f8 reports a hit, back to 1 when it stops. */
@@ -59,7 +64,8 @@ extern int FUN_L00_002db8f8_h(void *, void *, void *, float) __asm__("FUN_L00_00
 /* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
    calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
    they came (retail touches none of a1, a2 and $f12 before its call). */
-int FUN_L01_002f1c78(char *a, void *pos, void *target, float h) {
+int moby_hold_state_if_grabbed(char *a, void *pos, void *target, float h) __asm__("FUN_L01_002f1c78");
+int moby_hold_state_if_grabbed(char *a, void *pos, void *target, float h) {
     int r = FUN_L00_002db8f8_h(a, pos, target, h);
     if (r == 0) {
         if (*(unsigned char *)(a + 0x20) == 0x7)
@@ -71,18 +77,22 @@ int FUN_L01_002f1c78(char *a, void *pos, void *target, float h) {
 }
 
 /* Runs FUN_L00_002dbe20 on the moby and sets its state to 7. */
-int FUN_L01_002f1dc8(char *moby) {
-    int r = FUN_L00_002dbe20(moby);
+int run_moby_helper_and_set_state_7(char *moby) __asm__("FUN_L01_002f1dc8");
+
+int run_moby_helper_and_set_state_7(char *moby) {
+    int helper_result = cancel_suck_cannon_suction(moby);
     moby[0x20] = 0x7;
-    return r;
+    return helper_result;
 }
 /* Returns the moby data pointer plus 0x60, or 0 when either is null. */
-s32 FUN_L01_002f1df8(T6 *moby) {
-    s32 v;
+s32 get_moby_data_plus_0x60(T6 *moby) __asm__("FUN_L01_002f1df8");
+
+s32 get_moby_data_plus_0x60(T6 *moby) {
+    s32 moby_data_address;
     if (moby != 0) {
-        v = moby->f;
-        if (v != 0) {
-            return v + 0x60;
+        moby_data_address = moby->f;
+        if (moby_data_address != 0) {
+            return moby_data_address + 0x60;
         }
         return 0;
     }
@@ -102,7 +112,9 @@ typedef struct {
 s32 random_integer_below(s32) __asm__("FUN_00213260");
 s32 scale_game_frames(s32) __asm__("FUN_001f96f8");
 /* Fills a moby data block: four random values, fixed constants, four frame-scaled counts. */
-void FUN_L01_00308470(O_FUN_L01_00308470 *moby) {
+void initialize_gold_bolt_data(O_FUN_L01_00308470 *moby) __asm__("FUN_L01_00308470");
+
+void initialize_gold_bolt_data(O_FUN_L01_00308470 *moby) {
     M_FUN_L01_00308470 *m = moby->m;
     s32 i;
     for (i = 0; i < 4; i++)

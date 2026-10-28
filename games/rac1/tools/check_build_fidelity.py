@@ -40,7 +40,7 @@ ALLOWED = {
     "ps2eeas": "original assembler: extern and label declarations for whole SN objects",
 }
 # Not transforms: they choose flags or generate lists, and change no instruction.
-HELPERS = {"file_cflags", "sn_regnames", "jump_tables", "gas210", "dtls29_as"}
+HELPERS = {"file_cflags", "sn_regnames", "jump_tables", "gas210", "dtls29_as", "gcc323"}
 # Removed 2026-10-07 for changing what the compiler emitted (BUILD_FIDELITY.md, "Removed").
 REMOVED = {"fix_core_spills", "fix_tail_calls", "fix_trunc_slot", "func_cflags"}
 
@@ -91,6 +91,15 @@ def main() -> None:
             line = line.split("#", 1)[0].strip()
             if line and not (ROOT / line.split()[0]).is_file():
                 problems.append(f"config/file_cflags.txt:{n}: no file {line.split()[0]}")
+    for n, line in enumerate((ROOT / "config/text.objects").read_text().splitlines(), 1):
+        parts = line.split("#", 1)[0].split()
+        if len(parts) > 2:
+            if len(parts) != 3 or parts[2] != "gcc323":
+                problems.append(f"config/text.objects:{n}: unknown whole-object compiler profile")
+            elif not parts[0].startswith("build-sn/game/"):
+                problems.append(f"config/text.objects:{n}: gcc323 must name a game object")
+    if "gcc323" in steps and "gcc323.py" not in doc:
+        problems.append("docs/BUILD_FIDELITY.md does not describe the gcc323.py compiler frontend")
     if problems:
         print("build fidelity check failed:")
         for p in problems:

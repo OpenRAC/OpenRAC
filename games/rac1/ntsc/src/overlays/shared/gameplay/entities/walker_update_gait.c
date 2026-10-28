@@ -4,51 +4,53 @@
 #include "asm.h"
 
 int walker_gait_mask(float *a, float v) __asm__("FUN_L00_002a13f0");
-int walker_gait_mask(float *gait_record, float v) {
+int walker_gait_mask(float *gait_record, float interval_value) {
     int bit = 1;
-    int r = 0;
+    int result_mask = 0;
     int i;
     float *interval_cursor = gait_record + 12;
     for (i = 0; i < 2; i++, interval_cursor++) {
         float x = interval_cursor[4], y = interval_cursor[6];
         if (x <= y) {
-            if (x <= v && v <= y)
-                r |= bit;
+            if (x <= interval_value && interval_value <= y)
+                result_mask |= bit;
         } else {
-            if (x <= v || v <= y)
-                r |= bit;
+            if (x <= interval_value || interval_value <= y)
+                result_mask |= bit;
         }
         bit <<= 1;
         x = interval_cursor[-2];
         y = interval_cursor[0];
         if (x <= y) {
-            if (x <= v && v <= y)
-                r |= bit;
+            if (x <= interval_value && interval_value <= y)
+                result_mask |= bit;
         } else {
-            if (x <= v || v <= y)
-                r |= bit;
+            if (x <= interval_value || interval_value <= y)
+                result_mask |= bit;
         }
         bit <<= 1;
     }
-    if (r == 0) {
-        if (v < gait_record[6] || gait_record[6] + 1.0f < v)
-            r |= bit;
-        if (v < gait_record[7] || gait_record[7] + 1.0f < v)
-            r |= bit << 1;
+    if (result_mask == 0) {
+        if (interval_value < gait_record[6] || gait_record[6] + 1.0f < interval_value)
+            result_mask |= bit;
+        if (interval_value < gait_record[7] || gait_record[7] + 1.0f < interval_value)
+            result_mask |= bit << 1;
     }
-    return r;
+    return result_mask;
 }
 void FUN_L00_001fff28(void *, s32, f32);
-void FUN_L00_002a1538(u8 *gait_data) {
+void reset_walker_gait_helpers(u8 *gait_data) __asm__("FUN_L00_002a1538");
+
+void reset_walker_gait_helpers(u8 *gait_data) {
     s32 i;
-    u8 *r = gait_data + 0x130;
-    u8 *q = gait_data + 0x170;
+    u8 *gait_helper_record_130_base = gait_data + 0x130;
+    u8 *gait_helper_record_base = gait_data + 0x170;
     for (i = 0; i < 2; i++) {
         u8 *gait_region_base = gait_data + i * 0xB0;
         if (gait_region_base[0x161] != 0)
-            FUN_L00_001fff28(q + i * 0xB0, 2, 0.0f);
+            FUN_L00_001fff28(gait_helper_record_base + i * 0xB0, 2, 0.0f);
         if (gait_region_base[0x121] != 0)
-            FUN_L00_001fff28(r + i * 0xB0, 2, 0.0f);
+            FUN_L00_001fff28(gait_helper_record_130_base + i * 0xB0, 2, 0.0f);
         *(s32 *)(gait_region_base + 0x104) = 0;
         *(s32 *)(gait_region_base + 0xFC) = 0;
     }
@@ -61,24 +63,26 @@ void FUN_L00_002a1538(u8 *gait_data) {
 
 extern float square_root(float) __asm__("FUN_001f9988");
 
-float FUN_L00_002a15c8(char *walker_moby, char *b) {
-    float s = *(float *)(b + 0xDC);
-    float gap = *(float *)(walker_moby + 0x18) - *(float *)(b + 0x68);
-    float c = *(float *)(b + 0xD8) + s * 0.5f;
-    float d = c * c + (s + s) * gap;
-    float res;
-    if (d > 0.0f) {
-        d = square_root(d);
-        if (d <= c) {
-            res = c - d;
+float compute_walker_time_to_landing(char *walker_moby, char *gait_data) __asm__("FUN_L00_002a15c8");
+
+float compute_walker_time_to_landing(char *walker_moby, char *gait_data) {
+    float root_denominator = *(float *)(gait_data + 0xDC);
+    float gap = *(float *)(walker_moby + 0x18) - *(float *)(gait_data + 0x68);
+    float root_numerator_base = *(float *)(gait_data + 0xD8) + root_denominator * 0.5f;
+    float discriminant_or_root = root_numerator_base * root_numerator_base + (root_denominator + root_denominator) * gap;
+    float time_to_landing;
+    if (discriminant_or_root > 0.0f) {
+        discriminant_or_root = square_root(discriminant_or_root);
+        if (discriminant_or_root <= root_numerator_base) {
+            time_to_landing = root_numerator_base - discriminant_or_root;
         } else {
-            res = c + d;
+            time_to_landing = root_numerator_base + discriminant_or_root;
         }
-        res = res / *(float *)(b + 0xDC);
+        time_to_landing = time_to_landing / *(float *)(gait_data + 0xDC);
     } else {
-        res = 100000.0f;
+        time_to_landing = 100000.0f;
     }
-    return res;
+    return time_to_landing;
 }
 /* Steps the walk cycle state machine: picks the next walk, run, turn, jump or landing sequence from speed, heading and foot height. */
 /* Ported from rac1-decomp (src/overlays/shared/vuchain_002A21A8.c: func_L00_002A2900), where it is exact; names translated to the US level program. */
@@ -160,19 +164,19 @@ extern float FUN_L00_0025abf0(float *a, float *b, float *out, float speed, float
 extern float fast_cos(float) __asm__("func_001F9DC8");
 extern float fast_sin(float) __asm__("func_001F9DE0");
 extern int D_L00_001CA760[];
-extern int FUN_L00_0024ed18(char *a, float time);
+extern int find_nearest_animation_sequence_entry(char *a, float time) __asm__("FUN_L00_0024ed18");
 extern int FUN_L00_002a13f0_c(WalkAnim *a, float t) __asm__("FUN_L00_002a13f0");
 extern s32 truncate_float_to_s32(f32) __asm__("FUN_001fa6d0");
 extern void debug_print_alt() __asm__("FUN_001e93b0");
 extern void add_vector_xyz(void *, void *, void *) __asm__("FUN_001f9a10");
 f32 compute_interpolated_record_value(void *arg0) __asm__("FUN_0020c9e0");
 f32 probe_ground_height(void *arg0, s32 arg1, f32 arg2) __asm__("FUN_00213508");
-float FUN_L00_002a15c8_c(char *a, char *b) __asm__("FUN_L00_002a15c8");
-void FUN_L00_002a1538_c(u8 *a0) __asm__("FUN_L00_002a1538");
+float compute_walker_time_to_landing(char *a, char *b) __asm__("FUN_L00_002a15c8");
+void reset_walker_gait_helpers(u8 *a0) __asm__("FUN_L00_002a1538");
 void blend_moby_animation(void *arg0, int arg1, int arg2, int arg3) __asm__("FUN_00212f90");
 
 void walker_update_gait(WalkMoby *m, WalkData *d, int flags, float speed, float ang, float accel) __asm__("FUN_L00_002a1670");
-void walker_update_gait(WalkMoby *m, WalkData *d, int flags, float speed, float ang, float accel) {
+void walker_update_gait(WalkMoby *walker_moby, WalkData *gait_data, int flags, float speed, float movement_heading, float run_start_input) {
     enum {
         WALKER_GAIT_IDLE = 0,
         WALKER_GAIT_WALK = 1,
@@ -196,34 +200,34 @@ void walker_update_gait(WalkMoby *m, WalkData *d, int flags, float speed, float 
         WALKER_GAIT_RESUME_RUN_AFTER_ALTERNATE_LANDING = 19,
         WALKER_GAIT_RESUME_RUN_AFTER_LANDING = 20
     };
-    float vec[4];
+    float ground_probe_position[4];
 
-    switch (d->bB7) {
+    switch (gait_data->bB7) {
     case WALKER_GAIT_IDLE:
-        d->fE4 = 0.0f;
-        if (accel > 0.0008f && speed > d->anim[0]->f08 * 1.35f) {
+        gait_data->fE4 = 0.0f;
+        if (run_start_input > 0.0008f && speed > gait_data->anim[0]->f08 * 1.35f) {
             {
-                WalkAnim *a = d->anim[7];
-                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)a->i14);
-                blend_moby_animation(m, a->id, f, 10);
-                FUN_L00_002a1538_c((char *)d);
+                WalkAnim *a = gait_data->anim[7];
+                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)a->i14);
+                blend_moby_animation(walker_moby, a->id, f, 10);
+                reset_walker_gait_helpers((char *)gait_data);
             }
-            d->bB7 = 0xD;
-            d->bB6 = FUN_L00_002a13f0_c(d->anim[7], (float)d->anim[7]->i14);
-            d->sEC = 0;
+            gait_data->bB7 = 0xD;
+            gait_data->bB6 = FUN_L00_002a13f0_c(gait_data->anim[7], (float)gait_data->anim[7]->i14);
+            gait_data->sEC = 0;
         } else if (speed > frame_time * 0.21f ||
-                   fast_difference_between_rotations(m->f48, ang) > 0.10471976f) {
-            d->sEC++;
-            if (d->sEC >= 4) {
+                   fast_difference_between_rotations(walker_moby->f48, movement_heading) > 0.10471976f) {
+            gait_data->sEC++;
+            if (gait_data->sEC >= 4) {
                 {
-                    WalkAnim *a = d->anim[0];
-                    int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)a->i14);
-                    blend_moby_animation(m, a->id, f, 10);
-                    FUN_L00_002a1538_c((char *)d);
+                    WalkAnim *a = gait_data->anim[0];
+                    int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)a->i14);
+                    blend_moby_animation(walker_moby, a->id, f, 10);
+                    reset_walker_gait_helpers((char *)gait_data);
                 }
-                d->bB7 = 1;
-                d->bB6 = FUN_L00_002a13f0_c(d->anim[0], (float)d->anim[0]->i14);
-                d->sEC = 0;
+                gait_data->bB7 = 1;
+                gait_data->bB6 = FUN_L00_002a13f0_c(gait_data->anim[0], (float)gait_data->anim[0]->i14);
+                gait_data->sEC = 0;
             }
         }
         break;
@@ -234,521 +238,521 @@ void walker_update_gait(WalkMoby *m, WalkData *d, int flags, float speed, float 
     case WALKER_GAIT_TRANSITION_FROM_UPHILL_TO_WALK:
     case WALKER_GAIT_ALTERNATE_TRANSITION_FROM_UPHILL_TO_WALK:
         if (flags & 5) {
-            d->uEE &= 0xFFF7;
+            gait_data->uEE &= 0xFFF7;
         }
     case WALKER_GAIT_TRANSITION_TO_DOWNHILL:
     case WALKER_GAIT_ALTERNATE_TRANSITION_TO_DOWNHILL:
     case WALKER_GAIT_WALK_DOWNHILL:
     case WALKER_GAIT_TRANSITION_FROM_DOWNHILL_TO_WALK:
     case WALKER_GAIT_ALTERNATE_TRANSITION_FROM_DOWNHILL_TO_WALK: {
-        int idx = D_L00_001CA760[d->bB7];
-        if (m->f58 < 0.25f && fast_difference_between_rotations(m->f48, ang) < 0.09239978f &&
+        int gait_animation_index = D_L00_001CA760[gait_data->bB7];
+        if (walker_moby->f58 < 0.25f && fast_difference_between_rotations(walker_moby->f48, movement_heading) < 0.09239978f &&
             speed < frame_time * 0.19f) {
-            blend_moby_animation(m, d->bB0, 0, 10);
-            FUN_L00_002a1538_c((char *)d);
-            d->bB7 = 0;
-        } else if (m->b52 == d->anim[idx]->id) {
-            float t = (d->anim[7]->f08 + d->anim[0]->f08) * 0.375f;
-            if (speed > t && d->fC0 > t && !(d->bB6 & 0x3A)) {
-                float cur = compute_interpolated_record_value(m);
-                int r1 = truncate_float_to_s32(d->anim[idx]->f48 - cur + d->anim[idx]->f10) %
-                         truncate_float_to_s32(d->anim[idx]->f10);
-                int r2 = truncate_float_to_s32(d->anim[idx]->f4C - cur + d->anim[idx]->f10) %
-                         truncate_float_to_s32(d->anim[idx]->f10);
+            blend_moby_animation(walker_moby, gait_data->bB0, 0, 10);
+            reset_walker_gait_helpers((char *)gait_data);
+            gait_data->bB7 = 0;
+        } else if (walker_moby->b52 == gait_data->anim[gait_animation_index]->id) {
+            float t = (gait_data->anim[7]->f08 + gait_data->anim[0]->f08) * 0.375f;
+            if (speed > t && gait_data->fC0 > t && !(gait_data->bB6 & 0x3A)) {
+                float current_animation_position = compute_interpolated_record_value(walker_moby);
+                int r1 = truncate_float_to_s32(gait_data->anim[gait_animation_index]->f48 - current_animation_position + gait_data->anim[gait_animation_index]->f10) %
+                         truncate_float_to_s32(gait_data->anim[gait_animation_index]->f10);
+                int r2 = truncate_float_to_s32(gait_data->anim[gait_animation_index]->f4C - current_animation_position + gait_data->anim[gait_animation_index]->f10) %
+                         truncate_float_to_s32(gait_data->anim[gait_animation_index]->f10);
                 int x;
                 int bl;
                 if (r1 < r2) {
-                    x = truncate_float_to_s32(d->anim[7]->f48 - d->anim[7]->f0C);
+                    x = truncate_float_to_s32(gait_data->anim[7]->f48 - gait_data->anim[7]->f0C);
                 } else {
-                    x = truncate_float_to_s32(d->anim[7]->f4C - d->anim[7]->f0C);
+                    x = truncate_float_to_s32(gait_data->anim[7]->f4C - gait_data->anim[7]->f0C);
                 }
-                x = (x + truncate_float_to_s32(d->anim[7]->f10)) %
-                    truncate_float_to_s32(d->anim[7]->f10);
-                bl = truncate_float_to_s32(10.0f / (speed / d->anim[7]->f08));
+                x = (x + truncate_float_to_s32(gait_data->anim[7]->f10)) %
+                    truncate_float_to_s32(gait_data->anim[7]->f10);
+                bl = truncate_float_to_s32(10.0f / (speed / gait_data->anim[7]->f08));
                 {
                     float ft = (float)x;
-                    WalkAnim *a = d->anim[7];
-                    int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], ft);
-                    blend_moby_animation(m, a->id, f, bl);
-                    FUN_L00_002a1538_c((char *)d);
+                    WalkAnim *a = gait_data->anim[7];
+                    int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], ft);
+                    blend_moby_animation(walker_moby, a->id, f, bl);
+                    reset_walker_gait_helpers((char *)gait_data);
                 }
-                d->bB7 = 0xD;
+                gait_data->bB7 = 0xD;
             } else if (flags & 5) {
-                if (d->uEE & 1) {
-                    d->uEE = (d->uEE & 0xFFFE) | 2;
-                    d->fE4 = m->pos[2];
+                if (gait_data->uEE & 1) {
+                    gait_data->uEE = (gait_data->uEE & 0xFFFE) | 2;
+                    gait_data->fE4 = walker_moby->pos[2];
                     if (flags & 1) {
-                        int bl = truncate_float_to_s32(d->anim[11]->f38 * 0.25f /
-                                                       (speed / d->anim[11]->f08));
+                        int bl = truncate_float_to_s32(gait_data->anim[11]->f38 * 0.25f /
+                                                       (speed / gait_data->anim[11]->f08));
                         int fr =
-                            truncate_float_to_s32(d->anim[11]->f40 + d->anim[11]->f38 * 0.125f -
-                                                  d->anim[11]->f0C) %
-                            truncate_float_to_s32(d->anim[11]->f10);
-                        WalkAnim *a = d->anim[11];
-                        int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                        blend_moby_animation(m, a->id, f, bl);
-                        FUN_L00_002a1538_c((char *)d);
-                        d->bB7 = 0xF;
+                            truncate_float_to_s32(gait_data->anim[11]->f40 + gait_data->anim[11]->f38 * 0.125f -
+                                                  gait_data->anim[11]->f0C) %
+                            truncate_float_to_s32(gait_data->anim[11]->f10);
+                        WalkAnim *a = gait_data->anim[11];
+                        int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                        blend_moby_animation(walker_moby, a->id, f, bl);
+                        reset_walker_gait_helpers((char *)gait_data);
+                        gait_data->bB7 = 0xF;
                     } else {
-                        int bl = truncate_float_to_s32(d->anim[9]->f3C * 0.25f /
-                                                       (speed / d->anim[9]->f08));
-                        int fr = truncate_float_to_s32(d->anim[9]->f44 + d->anim[9]->f3C * 0.125f -
-                                                       d->anim[9]->f0C) %
-                                 truncate_float_to_s32(d->anim[9]->f10);
-                        WalkAnim *a = d->anim[9];
-                        int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                        blend_moby_animation(m, a->id, f, bl);
-                        FUN_L00_002a1538_c((char *)d);
-                        d->bB7 = 0xE;
+                        int bl = truncate_float_to_s32(gait_data->anim[9]->f3C * 0.25f /
+                                                       (speed / gait_data->anim[9]->f08));
+                        int fr = truncate_float_to_s32(gait_data->anim[9]->f44 + gait_data->anim[9]->f3C * 0.125f -
+                                                       gait_data->anim[9]->f0C) %
+                                 truncate_float_to_s32(gait_data->anim[9]->f10);
+                        WalkAnim *a = gait_data->anim[9];
+                        int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                        blend_moby_animation(walker_moby, a->id, f, bl);
+                        reset_walker_gait_helpers((char *)gait_data);
+                        gait_data->bB7 = 0xE;
                     }
                 } else {
-                    float h;
-                    vec[0] = fast_cos(ang) * d->anim[idx]->f04 * 0.5f;
-                    vec[1] = fast_sin(ang) * d->anim[idx]->f04 * 0.5f;
-                    vec[2] = 0.0f;
+                    float ground_height;
+                    ground_probe_position[0] = fast_cos(movement_heading) * gait_data->anim[gait_animation_index]->f04 * 0.5f;
+                    ground_probe_position[1] = fast_sin(movement_heading) * gait_data->anim[gait_animation_index]->f04 * 0.5f;
+                    ground_probe_position[2] = 0.0f;
                     if (flags & 1) {
-                        add_vector_xyz(vec, vec, d->m10);
+                        add_vector_xyz(ground_probe_position, ground_probe_position, gait_data->m10);
                     } else {
-                        add_vector_xyz(vec, vec, d->m30);
+                        add_vector_xyz(ground_probe_position, ground_probe_position, gait_data->m30);
                     }
-                    h = probe_ground_height(vec, 0, 0.5f);
-                    d->fE4 = h;
-                    switch (d->bB7) {
+                    ground_height = probe_ground_height(ground_probe_position, 0, 0.5f);
+                    gait_data->fE4 = ground_height;
+                    switch (gait_data->bB7) {
                     case WALKER_GAIT_WALK:
-                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) >
-                            d->fE0 * 0.75f) {
+                        if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) >
+                            gait_data->fE0 * 0.75f) {
                             if (flags & 1) {
-                                int bl = truncate_float_to_s32(d->anim[2]->f38 * 0.25f /
-                                                               (speed / d->anim[2]->f08));
-                                int fr = truncate_float_to_s32(d->anim[2]->f40 +
-                                                               d->anim[2]->f38 * 0.125f -
-                                                               d->anim[2]->f0C) %
-                                         truncate_float_to_s32(d->anim[2]->f10);
-                                WalkAnim *a = d->anim[2];
-                                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                                blend_moby_animation(m, a->id, f, bl);
-                                FUN_L00_002a1538_c((char *)d);
-                                d->bB7 = 3;
+                                int bl = truncate_float_to_s32(gait_data->anim[2]->f38 * 0.25f /
+                                                               (speed / gait_data->anim[2]->f08));
+                                int fr = truncate_float_to_s32(gait_data->anim[2]->f40 +
+                                                               gait_data->anim[2]->f38 * 0.125f -
+                                                               gait_data->anim[2]->f0C) %
+                                         truncate_float_to_s32(gait_data->anim[2]->f10);
+                                WalkAnim *a = gait_data->anim[2];
+                                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                                blend_moby_animation(walker_moby, a->id, f, bl);
+                                reset_walker_gait_helpers((char *)gait_data);
+                                gait_data->bB7 = 3;
                             } else {
-                                int bl = truncate_float_to_s32(d->anim[1]->f3C * 0.25f /
-                                                               (speed / d->anim[1]->f08));
-                                int fr = truncate_float_to_s32(d->anim[1]->f44 +
-                                                               d->anim[1]->f3C * 0.125f -
-                                                               d->anim[1]->f0C) %
-                                         truncate_float_to_s32(d->anim[1]->f10);
-                                WalkAnim *a = d->anim[1];
-                                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                                blend_moby_animation(m, a->id, f, bl);
-                                FUN_L00_002a1538_c((char *)d);
-                                d->bB7 = 2;
+                                int bl = truncate_float_to_s32(gait_data->anim[1]->f3C * 0.25f /
+                                                               (speed / gait_data->anim[1]->f08));
+                                int fr = truncate_float_to_s32(gait_data->anim[1]->f44 +
+                                                               gait_data->anim[1]->f3C * 0.125f -
+                                                               gait_data->anim[1]->f0C) %
+                                         truncate_float_to_s32(gait_data->anim[1]->f10);
+                                WalkAnim *a = gait_data->anim[1];
+                                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                                blend_moby_animation(walker_moby, a->id, f, bl);
+                                reset_walker_gait_helpers((char *)gait_data);
+                                gait_data->bB7 = 2;
                             }
-                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) <
-                                   -d->fE0 * 0.75f) {
-                            d->uEE |= 8;
+                        } else if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) <
+                                   -gait_data->fE0 * 0.75f) {
+                            gait_data->uEE |= 8;
                             if (flags & 1) {
-                                int bl = truncate_float_to_s32(d->anim[5]->f38 * 0.25f /
-                                                               (speed / d->anim[5]->f08));
-                                int fr = truncate_float_to_s32(d->anim[5]->f40 +
-                                                               d->anim[5]->f38 * 0.125f -
-                                                               d->anim[5]->f0C) %
-                                         truncate_float_to_s32(d->anim[5]->f10);
-                                WalkAnim *a = d->anim[5];
-                                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                                blend_moby_animation(m, a->id, f, bl);
-                                FUN_L00_002a1538_c((char *)d);
-                                d->bB7 = 8;
+                                int bl = truncate_float_to_s32(gait_data->anim[5]->f38 * 0.25f /
+                                                               (speed / gait_data->anim[5]->f08));
+                                int fr = truncate_float_to_s32(gait_data->anim[5]->f40 +
+                                                               gait_data->anim[5]->f38 * 0.125f -
+                                                               gait_data->anim[5]->f0C) %
+                                         truncate_float_to_s32(gait_data->anim[5]->f10);
+                                WalkAnim *a = gait_data->anim[5];
+                                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                                blend_moby_animation(walker_moby, a->id, f, bl);
+                                reset_walker_gait_helpers((char *)gait_data);
+                                gait_data->bB7 = 8;
                             } else {
-                                int bl = truncate_float_to_s32(d->anim[4]->f3C * 0.25f /
-                                                               (speed / d->anim[4]->f08));
-                                int fr = truncate_float_to_s32(d->anim[4]->f44 +
-                                                               d->anim[4]->f3C * 0.125f -
-                                                               d->anim[4]->f0C) %
-                                         truncate_float_to_s32(d->anim[4]->f10);
-                                WalkAnim *a = d->anim[4];
-                                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                                blend_moby_animation(m, a->id, f, bl);
-                                FUN_L00_002a1538_c((char *)d);
-                                d->bB7 = 7;
+                                int bl = truncate_float_to_s32(gait_data->anim[4]->f3C * 0.25f /
+                                                               (speed / gait_data->anim[4]->f08));
+                                int fr = truncate_float_to_s32(gait_data->anim[4]->f44 +
+                                                               gait_data->anim[4]->f3C * 0.125f -
+                                                               gait_data->anim[4]->f0C) %
+                                         truncate_float_to_s32(gait_data->anim[4]->f10);
+                                WalkAnim *a = gait_data->anim[4];
+                                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                                blend_moby_animation(walker_moby, a->id, f, bl);
+                                reset_walker_gait_helpers((char *)gait_data);
+                                gait_data->bB7 = 7;
                             }
                         }
                         break;
                     case WALKER_GAIT_TRANSITION_TO_UPHILL:
-                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) <
-                            -d->fE0 * 0.75f) {
+                        if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) <
+                            -gait_data->fE0 * 0.75f) {
                             int bl;
                             int fr;
                             WalkAnim *a;
                             int f;
-                            d->uEE |= 8;
-                            bl = truncate_float_to_s32(d->anim[5]->f38 * 0.25f /
-                                                       (speed / d->anim[5]->f08));
-                            fr = truncate_float_to_s32(d->anim[5]->f40 + d->anim[5]->f38 * 0.125f -
-                                                       d->anim[5]->f0C) %
-                                 truncate_float_to_s32(d->anim[5]->f10);
-                            a = d->anim[5];
-                            f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 8;
-                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) <
-                                   d->fE0 * 0.75f) {
-                            d->bB7 = 5;
+                            gait_data->uEE |= 8;
+                            bl = truncate_float_to_s32(gait_data->anim[5]->f38 * 0.25f /
+                                                       (speed / gait_data->anim[5]->f08));
+                            fr = truncate_float_to_s32(gait_data->anim[5]->f40 + gait_data->anim[5]->f38 * 0.125f -
+                                                       gait_data->anim[5]->f0C) %
+                                 truncate_float_to_s32(gait_data->anim[5]->f10);
+                            a = gait_data->anim[5];
+                            f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 8;
+                        } else if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) <
+                                   gait_data->fE0 * 0.75f) {
+                            gait_data->bB7 = 5;
                         } else {
-                            int bl = truncate_float_to_s32(d->anim[3]->f38 * 0.25f /
-                                                           (speed / d->anim[3]->f08));
+                            int bl = truncate_float_to_s32(gait_data->anim[3]->f38 * 0.25f /
+                                                           (speed / gait_data->anim[3]->f08));
                             int fr =
-                                truncate_float_to_s32(d->anim[3]->f40 + d->anim[3]->f38 * 0.125f -
-                                                      d->anim[3]->f0C) %
-                                truncate_float_to_s32(d->anim[3]->f10);
-                            WalkAnim *a = d->anim[3];
-                            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 4;
+                                truncate_float_to_s32(gait_data->anim[3]->f40 + gait_data->anim[3]->f38 * 0.125f -
+                                                      gait_data->anim[3]->f0C) %
+                                truncate_float_to_s32(gait_data->anim[3]->f10);
+                            WalkAnim *a = gait_data->anim[3];
+                            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 4;
                         }
                         break;
                     case WALKER_GAIT_ALTERNATE_TRANSITION_TO_UPHILL:
-                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) <
-                            -d->fE0 * 0.75f) {
+                        if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) <
+                            -gait_data->fE0 * 0.75f) {
                             int bl;
                             int fr;
                             WalkAnim *a;
                             int f;
-                            d->uEE |= 8;
-                            bl = truncate_float_to_s32(d->anim[4]->f3C * 0.25f /
-                                                       (speed / d->anim[4]->f08));
-                            fr = truncate_float_to_s32(d->anim[4]->f44 + d->anim[4]->f3C * 0.125f -
-                                                       d->anim[4]->f0C) %
-                                 truncate_float_to_s32(d->anim[4]->f10);
-                            a = d->anim[4];
-                            f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 7;
-                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) <
-                                   d->fE0 * 0.75f) {
-                            d->bB7 = 6;
+                            gait_data->uEE |= 8;
+                            bl = truncate_float_to_s32(gait_data->anim[4]->f3C * 0.25f /
+                                                       (speed / gait_data->anim[4]->f08));
+                            fr = truncate_float_to_s32(gait_data->anim[4]->f44 + gait_data->anim[4]->f3C * 0.125f -
+                                                       gait_data->anim[4]->f0C) %
+                                 truncate_float_to_s32(gait_data->anim[4]->f10);
+                            a = gait_data->anim[4];
+                            f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 7;
+                        } else if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) <
+                                   gait_data->fE0 * 0.75f) {
+                            gait_data->bB7 = 6;
                         } else {
-                            int bl = truncate_float_to_s32(d->anim[3]->f3C * 0.25f /
-                                                           (speed / d->anim[3]->f08));
+                            int bl = truncate_float_to_s32(gait_data->anim[3]->f3C * 0.25f /
+                                                           (speed / gait_data->anim[3]->f08));
                             int fr =
-                                truncate_float_to_s32(d->anim[3]->f44 + d->anim[3]->f3C * 0.125f -
-                                                      d->anim[3]->f0C) %
-                                truncate_float_to_s32(d->anim[3]->f10);
-                            WalkAnim *a = d->anim[3];
-                            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 4;
+                                truncate_float_to_s32(gait_data->anim[3]->f44 + gait_data->anim[3]->f3C * 0.125f -
+                                                      gait_data->anim[3]->f0C) %
+                                truncate_float_to_s32(gait_data->anim[3]->f10);
+                            WalkAnim *a = gait_data->anim[3];
+                            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 4;
                         }
                         break;
                     case WALKER_GAIT_WALK_UPHILL:
-                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) <
-                            -d->fE0 * 0.75f) {
-                            d->uEE |= 8;
+                        if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) <
+                            -gait_data->fE0 * 0.75f) {
+                            gait_data->uEE |= 8;
                             if (flags & 1) {
-                                int bl = truncate_float_to_s32(d->anim[5]->f38 * 0.25f /
-                                                               (speed / d->anim[5]->f08));
-                                int fr = truncate_float_to_s32(d->anim[5]->f40 +
-                                                               d->anim[5]->f38 * 0.125f -
-                                                               d->anim[5]->f0C) %
-                                         truncate_float_to_s32(d->anim[5]->f10);
-                                WalkAnim *a = d->anim[5];
-                                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                                blend_moby_animation(m, a->id, f, bl);
-                                FUN_L00_002a1538_c((char *)d);
-                                d->bB7 = 8;
+                                int bl = truncate_float_to_s32(gait_data->anim[5]->f38 * 0.25f /
+                                                               (speed / gait_data->anim[5]->f08));
+                                int fr = truncate_float_to_s32(gait_data->anim[5]->f40 +
+                                                               gait_data->anim[5]->f38 * 0.125f -
+                                                               gait_data->anim[5]->f0C) %
+                                         truncate_float_to_s32(gait_data->anim[5]->f10);
+                                WalkAnim *a = gait_data->anim[5];
+                                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                                blend_moby_animation(walker_moby, a->id, f, bl);
+                                reset_walker_gait_helpers((char *)gait_data);
+                                gait_data->bB7 = 8;
                             } else {
-                                int bl = truncate_float_to_s32(d->anim[4]->f3C * 0.25f /
-                                                               (speed / d->anim[4]->f08));
-                                int fr = truncate_float_to_s32(d->anim[4]->f44 +
-                                                               d->anim[4]->f3C * 0.125f -
-                                                               d->anim[4]->f0C) %
-                                         truncate_float_to_s32(d->anim[4]->f10);
-                                WalkAnim *a = d->anim[4];
-                                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                                blend_moby_animation(m, a->id, f, bl);
-                                FUN_L00_002a1538_c((char *)d);
-                                d->bB7 = 7;
+                                int bl = truncate_float_to_s32(gait_data->anim[4]->f3C * 0.25f /
+                                                               (speed / gait_data->anim[4]->f08));
+                                int fr = truncate_float_to_s32(gait_data->anim[4]->f44 +
+                                                               gait_data->anim[4]->f3C * 0.125f -
+                                                               gait_data->anim[4]->f0C) %
+                                         truncate_float_to_s32(gait_data->anim[4]->f10);
+                                WalkAnim *a = gait_data->anim[4];
+                                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                                blend_moby_animation(walker_moby, a->id, f, bl);
+                                reset_walker_gait_helpers((char *)gait_data);
+                                gait_data->bB7 = 7;
                             }
-                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) <
-                                   d->fE0 * 0.75f) {
+                        } else if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) <
+                                   gait_data->fE0 * 0.75f) {
                             if (flags & 1) {
-                                int bl = truncate_float_to_s32(d->anim[1]->f38 * 0.25f /
-                                                               (speed / d->anim[1]->f08));
-                                int fr = truncate_float_to_s32(d->anim[1]->f40 +
-                                                               d->anim[1]->f38 * 0.125f -
-                                                               d->anim[1]->f0C) %
-                                         truncate_float_to_s32(d->anim[1]->f10);
-                                WalkAnim *a = d->anim[1];
-                                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                                blend_moby_animation(m, a->id, f, bl);
-                                FUN_L00_002a1538_c((char *)d);
-                                d->bB7 = 5;
+                                int bl = truncate_float_to_s32(gait_data->anim[1]->f38 * 0.25f /
+                                                               (speed / gait_data->anim[1]->f08));
+                                int fr = truncate_float_to_s32(gait_data->anim[1]->f40 +
+                                                               gait_data->anim[1]->f38 * 0.125f -
+                                                               gait_data->anim[1]->f0C) %
+                                         truncate_float_to_s32(gait_data->anim[1]->f10);
+                                WalkAnim *a = gait_data->anim[1];
+                                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                                blend_moby_animation(walker_moby, a->id, f, bl);
+                                reset_walker_gait_helpers((char *)gait_data);
+                                gait_data->bB7 = 5;
                             } else {
-                                int bl = truncate_float_to_s32(d->anim[2]->f3C * 0.25f /
-                                                               (speed / d->anim[2]->f08));
-                                int fr = truncate_float_to_s32(d->anim[2]->f44 +
-                                                               d->anim[2]->f3C * 0.125f -
-                                                               d->anim[2]->f0C) %
-                                         truncate_float_to_s32(d->anim[2]->f10);
-                                WalkAnim *a = d->anim[2];
-                                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                                blend_moby_animation(m, a->id, f, bl);
-                                FUN_L00_002a1538_c((char *)d);
-                                d->bB7 = 6;
+                                int bl = truncate_float_to_s32(gait_data->anim[2]->f3C * 0.25f /
+                                                               (speed / gait_data->anim[2]->f08));
+                                int fr = truncate_float_to_s32(gait_data->anim[2]->f44 +
+                                                               gait_data->anim[2]->f3C * 0.125f -
+                                                               gait_data->anim[2]->f0C) %
+                                         truncate_float_to_s32(gait_data->anim[2]->f10);
+                                WalkAnim *a = gait_data->anim[2];
+                                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                                blend_moby_animation(walker_moby, a->id, f, bl);
+                                reset_walker_gait_helpers((char *)gait_data);
+                                gait_data->bB7 = 6;
                             }
                         }
                         break;
                     case WALKER_GAIT_TRANSITION_FROM_UPHILL_TO_WALK:
-                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) <
-                            -d->fE0 * 0.75f) {
+                        if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) <
+                            -gait_data->fE0 * 0.75f) {
                             int bl;
                             int fr;
                             WalkAnim *a;
                             int f;
-                            d->uEE |= 8;
-                            bl = truncate_float_to_s32(d->anim[4]->f3C * 0.25f /
-                                                       (speed / d->anim[4]->f08));
-                            fr = truncate_float_to_s32(d->anim[4]->f44 + d->anim[4]->f3C * 0.125f -
-                                                       d->anim[4]->f0C) %
-                                 truncate_float_to_s32(d->anim[4]->f10);
-                            a = d->anim[4];
-                            f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 7;
-                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) >
-                                   d->fE0 * 0.75f) {
-                            d->bB7 = 2;
+                            gait_data->uEE |= 8;
+                            bl = truncate_float_to_s32(gait_data->anim[4]->f3C * 0.25f /
+                                                       (speed / gait_data->anim[4]->f08));
+                            fr = truncate_float_to_s32(gait_data->anim[4]->f44 + gait_data->anim[4]->f3C * 0.125f -
+                                                       gait_data->anim[4]->f0C) %
+                                 truncate_float_to_s32(gait_data->anim[4]->f10);
+                            a = gait_data->anim[4];
+                            f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 7;
+                        } else if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) >
+                                   gait_data->fE0 * 0.75f) {
+                            gait_data->bB7 = 2;
                         } else {
-                            int bl = truncate_float_to_s32(d->anim[0]->f3C * 0.25f /
-                                                           (speed / d->anim[0]->f08));
+                            int bl = truncate_float_to_s32(gait_data->anim[0]->f3C * 0.25f /
+                                                           (speed / gait_data->anim[0]->f08));
                             int fr =
-                                truncate_float_to_s32(d->anim[0]->f44 + d->anim[0]->f3C * 0.125f -
-                                                      d->anim[0]->f0C) %
-                                truncate_float_to_s32(d->anim[0]->f10);
-                            WalkAnim *a = d->anim[0];
-                            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 1;
+                                truncate_float_to_s32(gait_data->anim[0]->f44 + gait_data->anim[0]->f3C * 0.125f -
+                                                      gait_data->anim[0]->f0C) %
+                                truncate_float_to_s32(gait_data->anim[0]->f10);
+                            WalkAnim *a = gait_data->anim[0];
+                            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 1;
                         }
                         break;
                     case WALKER_GAIT_ALTERNATE_TRANSITION_FROM_UPHILL_TO_WALK:
-                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) <
-                            -d->fE0 * 0.75f) {
+                        if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) <
+                            -gait_data->fE0 * 0.75f) {
                             int bl;
                             int fr;
                             WalkAnim *a;
                             int f;
-                            d->uEE |= 8;
-                            bl = truncate_float_to_s32(d->anim[5]->f38 * 0.25f /
-                                                       (speed / d->anim[5]->f08));
-                            fr = truncate_float_to_s32(d->anim[5]->f40 + d->anim[5]->f38 * 0.125f -
-                                                       d->anim[5]->f0C) %
-                                 truncate_float_to_s32(d->anim[5]->f10);
-                            a = d->anim[5];
-                            f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 8;
-                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) >
-                                   d->fE0 * 0.75f) {
-                            d->bB7 = 3;
+                            gait_data->uEE |= 8;
+                            bl = truncate_float_to_s32(gait_data->anim[5]->f38 * 0.25f /
+                                                       (speed / gait_data->anim[5]->f08));
+                            fr = truncate_float_to_s32(gait_data->anim[5]->f40 + gait_data->anim[5]->f38 * 0.125f -
+                                                       gait_data->anim[5]->f0C) %
+                                 truncate_float_to_s32(gait_data->anim[5]->f10);
+                            a = gait_data->anim[5];
+                            f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 8;
+                        } else if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) >
+                                   gait_data->fE0 * 0.75f) {
+                            gait_data->bB7 = 3;
                         } else {
-                            int bl = truncate_float_to_s32(d->anim[0]->f38 * 0.25f /
-                                                           (speed / d->anim[0]->f08));
+                            int bl = truncate_float_to_s32(gait_data->anim[0]->f38 * 0.25f /
+                                                           (speed / gait_data->anim[0]->f08));
                             int fr =
-                                truncate_float_to_s32(d->anim[0]->f40 + d->anim[0]->f38 * 0.125f -
-                                                      d->anim[0]->f0C) %
-                                truncate_float_to_s32(d->anim[0]->f10);
-                            WalkAnim *a = d->anim[0];
-                            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 1;
+                                truncate_float_to_s32(gait_data->anim[0]->f40 + gait_data->anim[0]->f38 * 0.125f -
+                                                      gait_data->anim[0]->f0C) %
+                                truncate_float_to_s32(gait_data->anim[0]->f10);
+                            WalkAnim *a = gait_data->anim[0];
+                            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 1;
                         }
                         break;
                     case WALKER_GAIT_TRANSITION_TO_DOWNHILL:
-                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) >
-                            d->fE0 * 0.75f) {
-                            int bl = truncate_float_to_s32(d->anim[2]->f38 * 0.25f /
-                                                           (speed / d->anim[2]->f08));
+                        if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) >
+                            gait_data->fE0 * 0.75f) {
+                            int bl = truncate_float_to_s32(gait_data->anim[2]->f38 * 0.25f /
+                                                           (speed / gait_data->anim[2]->f08));
                             int fr =
-                                truncate_float_to_s32(d->anim[2]->f40 + d->anim[2]->f38 * 0.125f -
-                                                      d->anim[2]->f0C) %
-                                truncate_float_to_s32(d->anim[2]->f10);
-                            WalkAnim *a = d->anim[2];
-                            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 3;
-                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) >
-                                   -d->fE0 * 0.75f) {
-                            d->bB7 = 10;
+                                truncate_float_to_s32(gait_data->anim[2]->f40 + gait_data->anim[2]->f38 * 0.125f -
+                                                      gait_data->anim[2]->f0C) %
+                                truncate_float_to_s32(gait_data->anim[2]->f10);
+                            WalkAnim *a = gait_data->anim[2];
+                            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 3;
+                        } else if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) >
+                                   -gait_data->fE0 * 0.75f) {
+                            gait_data->bB7 = 10;
                         } else {
-                            int bl = truncate_float_to_s32(d->anim[6]->f38 * 0.25f /
-                                                           (speed / d->anim[6]->f08));
+                            int bl = truncate_float_to_s32(gait_data->anim[6]->f38 * 0.25f /
+                                                           (speed / gait_data->anim[6]->f08));
                             int fr =
-                                truncate_float_to_s32(d->anim[6]->f40 + d->anim[6]->f38 * 0.125f -
-                                                      d->anim[6]->f0C) %
-                                truncate_float_to_s32(d->anim[6]->f10);
-                            WalkAnim *a = d->anim[6];
-                            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 9;
+                                truncate_float_to_s32(gait_data->anim[6]->f40 + gait_data->anim[6]->f38 * 0.125f -
+                                                      gait_data->anim[6]->f0C) %
+                                truncate_float_to_s32(gait_data->anim[6]->f10);
+                            WalkAnim *a = gait_data->anim[6];
+                            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 9;
                         }
                         break;
                     case WALKER_GAIT_ALTERNATE_TRANSITION_TO_DOWNHILL:
-                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) >
-                            d->fE0 * 0.75f) {
-                            int bl = truncate_float_to_s32(d->anim[1]->f3C * 0.25f /
-                                                           (speed / d->anim[1]->f08));
+                        if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) >
+                            gait_data->fE0 * 0.75f) {
+                            int bl = truncate_float_to_s32(gait_data->anim[1]->f3C * 0.25f /
+                                                           (speed / gait_data->anim[1]->f08));
                             int fr =
-                                truncate_float_to_s32(d->anim[1]->f44 + d->anim[1]->f3C * 0.125f -
-                                                      d->anim[1]->f0C) %
-                                truncate_float_to_s32(d->anim[1]->f10);
-                            WalkAnim *a = d->anim[1];
-                            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 2;
-                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) >
-                                   -d->fE0 * 0.75f) {
-                            d->bB7 = 11;
+                                truncate_float_to_s32(gait_data->anim[1]->f44 + gait_data->anim[1]->f3C * 0.125f -
+                                                      gait_data->anim[1]->f0C) %
+                                truncate_float_to_s32(gait_data->anim[1]->f10);
+                            WalkAnim *a = gait_data->anim[1];
+                            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 2;
+                        } else if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) >
+                                   -gait_data->fE0 * 0.75f) {
+                            gait_data->bB7 = 11;
                         } else {
-                            int bl = truncate_float_to_s32(d->anim[6]->f3C * 0.25f /
-                                                           (speed / d->anim[6]->f08));
+                            int bl = truncate_float_to_s32(gait_data->anim[6]->f3C * 0.25f /
+                                                           (speed / gait_data->anim[6]->f08));
                             int fr =
-                                truncate_float_to_s32(d->anim[6]->f44 + d->anim[6]->f3C * 0.125f -
-                                                      d->anim[6]->f0C) %
-                                truncate_float_to_s32(d->anim[6]->f10);
-                            WalkAnim *a = d->anim[6];
-                            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 9;
+                                truncate_float_to_s32(gait_data->anim[6]->f44 + gait_data->anim[6]->f3C * 0.125f -
+                                                      gait_data->anim[6]->f0C) %
+                                truncate_float_to_s32(gait_data->anim[6]->f10);
+                            WalkAnim *a = gait_data->anim[6];
+                            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 9;
                         }
                         break;
                     case WALKER_GAIT_WALK_DOWNHILL:
-                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) >
-                            d->fE0 * 0.75f) {
+                        if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) >
+                            gait_data->fE0 * 0.75f) {
                             if (flags & 1) {
-                                int bl = truncate_float_to_s32(d->anim[2]->f38 * 0.25f /
-                                                               (speed / d->anim[2]->f08));
-                                int fr = truncate_float_to_s32(d->anim[2]->f40 +
-                                                               d->anim[2]->f38 * 0.125f -
-                                                               d->anim[2]->f0C) %
-                                         truncate_float_to_s32(d->anim[2]->f10);
-                                WalkAnim *a = d->anim[2];
-                                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                                blend_moby_animation(m, a->id, f, bl);
-                                FUN_L00_002a1538_c((char *)d);
-                                d->bB7 = 3;
+                                int bl = truncate_float_to_s32(gait_data->anim[2]->f38 * 0.25f /
+                                                               (speed / gait_data->anim[2]->f08));
+                                int fr = truncate_float_to_s32(gait_data->anim[2]->f40 +
+                                                               gait_data->anim[2]->f38 * 0.125f -
+                                                               gait_data->anim[2]->f0C) %
+                                         truncate_float_to_s32(gait_data->anim[2]->f10);
+                                WalkAnim *a = gait_data->anim[2];
+                                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                                blend_moby_animation(walker_moby, a->id, f, bl);
+                                reset_walker_gait_helpers((char *)gait_data);
+                                gait_data->bB7 = 3;
                             } else {
-                                int bl = truncate_float_to_s32(d->anim[1]->f3C * 0.25f /
-                                                               (speed / d->anim[1]->f08));
-                                int fr = truncate_float_to_s32(d->anim[1]->f44 +
-                                                               d->anim[1]->f3C * 0.125f -
-                                                               d->anim[1]->f0C) %
-                                         truncate_float_to_s32(d->anim[1]->f10);
-                                WalkAnim *a = d->anim[1];
-                                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                                blend_moby_animation(m, a->id, f, bl);
-                                FUN_L00_002a1538_c((char *)d);
-                                d->bB7 = 2;
+                                int bl = truncate_float_to_s32(gait_data->anim[1]->f3C * 0.25f /
+                                                               (speed / gait_data->anim[1]->f08));
+                                int fr = truncate_float_to_s32(gait_data->anim[1]->f44 +
+                                                               gait_data->anim[1]->f3C * 0.125f -
+                                                               gait_data->anim[1]->f0C) %
+                                         truncate_float_to_s32(gait_data->anim[1]->f10);
+                                WalkAnim *a = gait_data->anim[1];
+                                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                                blend_moby_animation(walker_moby, a->id, f, bl);
+                                reset_walker_gait_helpers((char *)gait_data);
+                                gait_data->bB7 = 2;
                             }
-                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) >
-                                   -d->fE0 * 0.75f) {
+                        } else if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) >
+                                   -gait_data->fE0 * 0.75f) {
                             if (flags & 1) {
-                                int bl = truncate_float_to_s32(d->anim[4]->f38 * 0.25f /
-                                                               (speed / d->anim[4]->f08));
-                                int fr = truncate_float_to_s32(d->anim[4]->f40 +
-                                                               d->anim[4]->f38 * 0.125f -
-                                                               d->anim[4]->f0C) %
-                                         truncate_float_to_s32(d->anim[4]->f10);
-                                WalkAnim *a = d->anim[4];
-                                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                                blend_moby_animation(m, a->id, f, bl);
-                                FUN_L00_002a1538_c((char *)d);
-                                d->bB7 = 10;
+                                int bl = truncate_float_to_s32(gait_data->anim[4]->f38 * 0.25f /
+                                                               (speed / gait_data->anim[4]->f08));
+                                int fr = truncate_float_to_s32(gait_data->anim[4]->f40 +
+                                                               gait_data->anim[4]->f38 * 0.125f -
+                                                               gait_data->anim[4]->f0C) %
+                                         truncate_float_to_s32(gait_data->anim[4]->f10);
+                                WalkAnim *a = gait_data->anim[4];
+                                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                                blend_moby_animation(walker_moby, a->id, f, bl);
+                                reset_walker_gait_helpers((char *)gait_data);
+                                gait_data->bB7 = 10;
                             } else {
-                                int bl = truncate_float_to_s32(d->anim[5]->f3C * 0.25f /
-                                                               (speed / d->anim[5]->f08));
-                                int fr = truncate_float_to_s32(d->anim[5]->f44 +
-                                                               d->anim[5]->f3C * 0.125f -
-                                                               d->anim[5]->f0C) %
-                                         truncate_float_to_s32(d->anim[5]->f10);
-                                WalkAnim *a = d->anim[5];
-                                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                                blend_moby_animation(m, a->id, f, bl);
-                                FUN_L00_002a1538_c((char *)d);
-                                d->bB7 = 11;
+                                int bl = truncate_float_to_s32(gait_data->anim[5]->f3C * 0.25f /
+                                                               (speed / gait_data->anim[5]->f08));
+                                int fr = truncate_float_to_s32(gait_data->anim[5]->f44 +
+                                                               gait_data->anim[5]->f3C * 0.125f -
+                                                               gait_data->anim[5]->f0C) %
+                                         truncate_float_to_s32(gait_data->anim[5]->f10);
+                                WalkAnim *a = gait_data->anim[5];
+                                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                                blend_moby_animation(walker_moby, a->id, f, bl);
+                                reset_walker_gait_helpers((char *)gait_data);
+                                gait_data->bB7 = 11;
                             }
                         }
                         break;
                     case WALKER_GAIT_TRANSITION_FROM_DOWNHILL_TO_WALK:
-                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) >
-                            d->fE0 * 0.75f) {
-                            int bl = truncate_float_to_s32(d->anim[1]->f3C * 0.25f /
-                                                           (speed / d->anim[1]->f08));
+                        if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) >
+                            gait_data->fE0 * 0.75f) {
+                            int bl = truncate_float_to_s32(gait_data->anim[1]->f3C * 0.25f /
+                                                           (speed / gait_data->anim[1]->f08));
                             int fr =
-                                truncate_float_to_s32(d->anim[1]->f44 + d->anim[1]->f3C * 0.125f -
-                                                      d->anim[1]->f0C) %
-                                truncate_float_to_s32(d->anim[1]->f10);
-                            WalkAnim *a = d->anim[1];
-                            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 2;
-                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) <
-                                   -d->fE0 * 0.75f) {
-                            d->bB7 = 7;
+                                truncate_float_to_s32(gait_data->anim[1]->f44 + gait_data->anim[1]->f3C * 0.125f -
+                                                      gait_data->anim[1]->f0C) %
+                                truncate_float_to_s32(gait_data->anim[1]->f10);
+                            WalkAnim *a = gait_data->anim[1];
+                            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 2;
+                        } else if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) <
+                                   -gait_data->fE0 * 0.75f) {
+                            gait_data->bB7 = 7;
                         } else {
                             int bl =
-                                truncate_float_to_s32(d->anim[0]->f3C / (speed / d->anim[0]->f08));
+                                truncate_float_to_s32(gait_data->anim[0]->f3C / (speed / gait_data->anim[0]->f08));
                             int fr =
-                                truncate_float_to_s32(d->anim[0]->f44 + d->anim[0]->f3C * 0.5f -
-                                                      d->anim[0]->f0C) %
-                                truncate_float_to_s32(d->anim[0]->f10);
-                            WalkAnim *a = d->anim[0];
-                            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 1;
+                                truncate_float_to_s32(gait_data->anim[0]->f44 + gait_data->anim[0]->f3C * 0.5f -
+                                                      gait_data->anim[0]->f0C) %
+                                truncate_float_to_s32(gait_data->anim[0]->f10);
+                            WalkAnim *a = gait_data->anim[0];
+                            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 1;
                         }
                         break;
                     case WALKER_GAIT_ALTERNATE_TRANSITION_FROM_DOWNHILL_TO_WALK:
-                        if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) >
-                            d->fE0 * 0.75f) {
-                            int bl = truncate_float_to_s32(d->anim[2]->f38 * 0.25f /
-                                                           (speed / d->anim[2]->f08));
+                        if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) >
+                            gait_data->fE0 * 0.75f) {
+                            int bl = truncate_float_to_s32(gait_data->anim[2]->f38 * 0.25f /
+                                                           (speed / gait_data->anim[2]->f08));
                             int fr =
-                                truncate_float_to_s32(d->anim[2]->f40 + d->anim[2]->f38 * 0.125f -
-                                                      d->anim[2]->f0C) %
-                                truncate_float_to_s32(d->anim[2]->f10);
-                            WalkAnim *a = d->anim[2];
-                            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 3;
-                        } else if ((h - vec[2]) + d->anim[idx]->f04 * 0.5f * fast_sin(d->fB8) <
-                                   -d->fE0 * 0.75f) {
-                            d->bB7 = 8;
+                                truncate_float_to_s32(gait_data->anim[2]->f40 + gait_data->anim[2]->f38 * 0.125f -
+                                                      gait_data->anim[2]->f0C) %
+                                truncate_float_to_s32(gait_data->anim[2]->f10);
+                            WalkAnim *a = gait_data->anim[2];
+                            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 3;
+                        } else if ((ground_height - ground_probe_position[2]) + gait_data->anim[gait_animation_index]->f04 * 0.5f * fast_sin(gait_data->fB8) <
+                                   -gait_data->fE0 * 0.75f) {
+                            gait_data->bB7 = 8;
                         } else {
                             int bl =
-                                truncate_float_to_s32(d->anim[0]->f38 / (speed / d->anim[0]->f08));
+                                truncate_float_to_s32(gait_data->anim[0]->f38 / (speed / gait_data->anim[0]->f08));
                             int fr =
-                                truncate_float_to_s32(d->anim[0]->f40 + d->anim[0]->f38 * 0.5f -
-                                                      d->anim[0]->f0C) %
-                                truncate_float_to_s32(d->anim[0]->f10);
-                            WalkAnim *a = d->anim[0];
-                            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                            blend_moby_animation(m, a->id, f, bl);
-                            FUN_L00_002a1538_c((char *)d);
-                            d->bB7 = 1;
+                                truncate_float_to_s32(gait_data->anim[0]->f40 + gait_data->anim[0]->f38 * 0.5f -
+                                                      gait_data->anim[0]->f0C) %
+                                truncate_float_to_s32(gait_data->anim[0]->f10);
+                            WalkAnim *a = gait_data->anim[0];
+                            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                            blend_moby_animation(walker_moby, a->id, f, bl);
+                            reset_walker_gait_helpers((char *)gait_data);
+                            gait_data->bB7 = 1;
                         }
                         break;
                     }
@@ -758,94 +762,94 @@ void walker_update_gait(WalkMoby *m, WalkData *d, int flags, float speed, float 
         break;
     }
     case WALKER_GAIT_RUN: {
-        float t = (d->anim[7]->f08 + d->anim[0]->f08) * 0.35f;
-        if (m->b52 == d->anim[7]->id && !(d->bB6 & 0x30)) {
-            if (speed < t && d->fC0 <= t) {
+        float t = (gait_data->anim[7]->f08 + gait_data->anim[0]->f08) * 0.35f;
+        if (walker_moby->b52 == gait_data->anim[7]->id && !(gait_data->bB6 & 0x30)) {
+            if (speed < t && gait_data->fC0 <= t) {
                 int fr;
-                if (d->bB6 & 3) {
-                    fr = truncate_float_to_s32(d->anim[0]->f38 * 2.0f / 3.0f + d->anim[0]->f40 -
-                                               d->anim[0]->f0C) %
-                         truncate_float_to_s32(d->anim[0]->f10);
+                if (gait_data->bB6 & 3) {
+                    fr = truncate_float_to_s32(gait_data->anim[0]->f38 * 2.0f / 3.0f + gait_data->anim[0]->f40 -
+                                               gait_data->anim[0]->f0C) %
+                         truncate_float_to_s32(gait_data->anim[0]->f10);
                 } else {
-                    fr = truncate_float_to_s32(d->anim[0]->f3C * 2.0f / 3.0f + d->anim[0]->f44 -
-                                               d->anim[0]->f0C) %
-                         truncate_float_to_s32(d->anim[0]->f10);
+                    fr = truncate_float_to_s32(gait_data->anim[0]->f3C * 2.0f / 3.0f + gait_data->anim[0]->f44 -
+                                               gait_data->anim[0]->f0C) %
+                         truncate_float_to_s32(gait_data->anim[0]->f10);
                 }
                 {
-                    WalkAnim *a = d->anim[0];
+                    WalkAnim *a = gait_data->anim[0];
                     float ft = (float)fr;
-                    int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], ft);
-                    blend_moby_animation(m, a->id, f, 10);
-                    FUN_L00_002a1538_c((char *)d);
+                    int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], ft);
+                    blend_moby_animation(walker_moby, a->id, f, 10);
+                    reset_walker_gait_helpers((char *)gait_data);
                 }
-                d->bB7 = 1;
+                gait_data->bB7 = 1;
             } else if (flags & 5) {
-                if (d->uEE & 1) {
-                    d->uEE = (d->uEE & 0xFFFE) | 2;
-                    d->fE4 = m->pos[2];
+                if (gait_data->uEE & 1) {
+                    gait_data->uEE = (gait_data->uEE & 0xFFFE) | 2;
+                    gait_data->fE4 = walker_moby->pos[2];
                     if (flags & 1) {
-                        int bl = truncate_float_to_s32(d->anim[11]->f38 * 0.25f /
-                                                       (speed / d->anim[11]->f08));
+                        int bl = truncate_float_to_s32(gait_data->anim[11]->f38 * 0.25f /
+                                                       (speed / gait_data->anim[11]->f08));
                         int fr =
-                            truncate_float_to_s32(d->anim[11]->f40 + d->anim[11]->f38 * 0.125f -
-                                                  d->anim[11]->f0C) %
-                            truncate_float_to_s32(d->anim[11]->f10);
-                        WalkAnim *a = d->anim[11];
-                        int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                        blend_moby_animation(m, a->id, f, bl);
-                        FUN_L00_002a1538_c((char *)d);
-                        d->bB7 = 0xF;
+                            truncate_float_to_s32(gait_data->anim[11]->f40 + gait_data->anim[11]->f38 * 0.125f -
+                                                  gait_data->anim[11]->f0C) %
+                            truncate_float_to_s32(gait_data->anim[11]->f10);
+                        WalkAnim *a = gait_data->anim[11];
+                        int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                        blend_moby_animation(walker_moby, a->id, f, bl);
+                        reset_walker_gait_helpers((char *)gait_data);
+                        gait_data->bB7 = 0xF;
                     } else {
-                        int bl = truncate_float_to_s32(d->anim[9]->f3C * 0.25f /
-                                                       (speed / d->anim[9]->f08));
-                        int fr = truncate_float_to_s32(d->anim[9]->f44 + d->anim[9]->f3C * 0.125f -
-                                                       d->anim[9]->f0C) %
-                                 truncate_float_to_s32(d->anim[9]->f10);
-                        WalkAnim *a = d->anim[9];
-                        int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-                        blend_moby_animation(m, a->id, f, bl);
-                        FUN_L00_002a1538_c((char *)d);
-                        d->bB7 = 0xE;
+                        int bl = truncate_float_to_s32(gait_data->anim[9]->f3C * 0.25f /
+                                                       (speed / gait_data->anim[9]->f08));
+                        int fr = truncate_float_to_s32(gait_data->anim[9]->f44 + gait_data->anim[9]->f3C * 0.125f -
+                                                       gait_data->anim[9]->f0C) %
+                                 truncate_float_to_s32(gait_data->anim[9]->f10);
+                        WalkAnim *a = gait_data->anim[9];
+                        int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+                        blend_moby_animation(walker_moby, a->id, f, bl);
+                        reset_walker_gait_helpers((char *)gait_data);
+                        gait_data->bB7 = 0xE;
                     }
                 } else {
-                    vec[0] = fast_cos(ang) * d->anim[0]->f04 * 0.5f;
-                    vec[1] = fast_sin(ang) * d->anim[0]->f04 * 0.5f;
-                    vec[2] = 0.0f;
+                    ground_probe_position[0] = fast_cos(movement_heading) * gait_data->anim[0]->f04 * 0.5f;
+                    ground_probe_position[1] = fast_sin(movement_heading) * gait_data->anim[0]->f04 * 0.5f;
+                    ground_probe_position[2] = 0.0f;
                     if (flags & 1) {
-                        add_vector_xyz(vec, vec, d->m10);
+                        add_vector_xyz(ground_probe_position, ground_probe_position, gait_data->m10);
                     } else {
-                        add_vector_xyz(vec, vec, d->m30);
+                        add_vector_xyz(ground_probe_position, ground_probe_position, gait_data->m30);
                     }
-                    vec[2] += 1.0f;
-                    d->fE4 = probe_ground_height(vec, 0, 0.5f);
+                    ground_probe_position[2] += 1.0f;
+                    gait_data->fE4 = probe_ground_height(ground_probe_position, 0, 0.5f);
                 }
             }
         }
-        if (d->fC0 < t) {
-            d->fC0 = t;
+        if (gait_data->fC0 < t) {
+            gait_data->fC0 = t;
         }
         break;
     }
     case WALKER_GAIT_RESET_TO_IDLE:
-        blend_moby_animation(m, d->bB0, 0, 10);
-        FUN_L00_002a1538_c((char *)d);
-        d->bB7 = 0;
+        blend_moby_animation(walker_moby, gait_data->bB0, 0, 10);
+        reset_walker_gait_helpers((char *)gait_data);
+        gait_data->bB7 = 0;
         break;
     case WALKER_GAIT_TAKEOFF_ANIMATION:
         if (flags & 0x30) {
-            float dist = vector_distance_xy(m->pos, d->v60);
+            float dist = vector_distance_xy(walker_moby->pos, gait_data->v60);
             debug_print_alt(D_L00_001611E0, dist);
-            d->fD8 = FUN_L00_0025abf0(m->pos, d->v60, 0, d->fC0, -d->fDC);
-            d->uEE |= 4;
-            d->f6C = fast_arc_tan(d->v60[0] - m->pos[0], d->v60[1] - m->pos[1]);
+            gait_data->fD8 = FUN_L00_0025abf0(walker_moby->pos, gait_data->v60, 0, gait_data->fC0, -gait_data->fDC);
+            gait_data->uEE |= 4;
+            gait_data->f6C = fast_arc_tan(gait_data->v60[0] - walker_moby->pos[0], gait_data->v60[1] - walker_moby->pos[1]);
         }
-        if (compute_interpolated_record_value(m) >= d->anim[11]->f0C + d->anim[11]->f10 - m->f58) {
-            blend_moby_animation(m, d->bB3, 0, 10);
-            FUN_L00_002a1538_c((char *)d);
-            d->bB7 = 0x10;
-        } else if ((d->uEE & 4) && d->fD8 < 0.0f) {
-            float t = FUN_L00_002a15c8_c((char *)m, (char *)d);
-            float len = (d->anim[12]->f44 - d->anim[12]->f0C) * 2.0f;
+        if (compute_interpolated_record_value(walker_moby) >= gait_data->anim[11]->f0C + gait_data->anim[11]->f10 - walker_moby->f58) {
+            blend_moby_animation(walker_moby, gait_data->bB3, 0, 10);
+            reset_walker_gait_helpers((char *)gait_data);
+            gait_data->bB7 = 0x10;
+        } else if ((gait_data->uEE & 4) && gait_data->fD8 < 0.0f) {
+            float t = compute_walker_time_to_landing((char *)walker_moby, (char *)gait_data);
+            float len = (gait_data->anim[12]->f44 - gait_data->anim[12]->f0C) * 2.0f;
             if (t < len + 15.0f) {
                 int bl = truncate_float_to_s32(t - len) >> 1;
                 WalkAnim *a;
@@ -853,29 +857,29 @@ void walker_update_gait(WalkMoby *m, WalkData *d, int flags, float speed, float 
                 if (bl < 0) {
                     bl = 0;
                 }
-                a = d->anim[12];
-                f = FUN_L00_0024ed18(m->pClass->seqs[a->id], 0.0f);
-                blend_moby_animation(m, a->id, f, bl);
-                FUN_L00_002a1538_c((char *)d);
-                d->bB7 = 0x12;
+                a = gait_data->anim[12];
+                f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], 0.0f);
+                blend_moby_animation(walker_moby, a->id, f, bl);
+                reset_walker_gait_helpers((char *)gait_data);
+                gait_data->bB7 = 0x12;
             }
         }
         break;
     case WALKER_GAIT_ALTERNATE_TAKEOFF_ANIMATION:
         if (flags & 0x30) {
-            float dist = fast_vec_dist(m->pos, d->v60);
+            float dist = fast_vec_dist(walker_moby->pos, gait_data->v60);
             debug_print_alt(D_L00_001611E0, dist);
-            d->fD8 = FUN_L00_0025abf0(m->pos, d->v60, 0, d->fC0, -d->fDC);
-            d->uEE |= 4;
-            d->f6C = fast_arc_tan(d->v60[0] - m->pos[0], d->v60[1] - m->pos[1]);
+            gait_data->fD8 = FUN_L00_0025abf0(walker_moby->pos, gait_data->v60, 0, gait_data->fC0, -gait_data->fDC);
+            gait_data->uEE |= 4;
+            gait_data->f6C = fast_arc_tan(gait_data->v60[0] - walker_moby->pos[0], gait_data->v60[1] - walker_moby->pos[1]);
         }
-        if (compute_interpolated_record_value(m) >= d->anim[9]->f0C + d->anim[9]->f10 - m->f58) {
-            blend_moby_animation(m, d->bB3, 0, 10);
-            FUN_L00_002a1538_c((char *)d);
-            d->bB7 = 0x10;
-        } else if ((d->uEE & 4) && d->fD8 < 0.0f) {
-            float t = FUN_L00_002a15c8_c((char *)m, (char *)d);
-            float len = (d->anim[10]->f44 - d->anim[10]->f0C) * 2.0f;
+        if (compute_interpolated_record_value(walker_moby) >= gait_data->anim[9]->f0C + gait_data->anim[9]->f10 - walker_moby->f58) {
+            blend_moby_animation(walker_moby, gait_data->bB3, 0, 10);
+            reset_walker_gait_helpers((char *)gait_data);
+            gait_data->bB7 = 0x10;
+        } else if ((gait_data->uEE & 4) && gait_data->fD8 < 0.0f) {
+            float t = compute_walker_time_to_landing((char *)walker_moby, (char *)gait_data);
+            float len = (gait_data->anim[10]->f44 - gait_data->anim[10]->f0C) * 2.0f;
             if (t < len + 15.0f) {
                 int bl = truncate_float_to_s32(t - len) >> 1;
                 WalkAnim *a;
@@ -883,126 +887,126 @@ void walker_update_gait(WalkMoby *m, WalkData *d, int flags, float speed, float 
                 if (bl < 0) {
                     bl = 0;
                 }
-                a = d->anim[10];
-                f = FUN_L00_0024ed18(m->pClass->seqs[a->id], 0.0f);
-                blend_moby_animation(m, a->id, f, bl);
-                FUN_L00_002a1538_c((char *)d);
-                d->bB7 = 0x11;
+                a = gait_data->anim[10];
+                f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], 0.0f);
+                blend_moby_animation(walker_moby, a->id, f, bl);
+                reset_walker_gait_helpers((char *)gait_data);
+                gait_data->bB7 = 0x11;
             }
         }
         break;
     case WALKER_GAIT_WAIT_FOR_LANDING:
-        if (m->b52 == d->bB3) {
-            float t = FUN_L00_002a15c8_c((char *)m, (char *)d);
-            float len = (d->anim[12]->f44 - d->anim[12]->f0C) * 2.0f;
+        if (walker_moby->b52 == gait_data->bB3) {
+            float t = compute_walker_time_to_landing((char *)walker_moby, (char *)gait_data);
+            float len = (gait_data->anim[12]->f44 - gait_data->anim[12]->f0C) * 2.0f;
             if (t < len + 15.0f) {
                 int bl = truncate_float_to_s32(t - len) >> 1;
-                WalkAnim *a = d->anim[12];
-                int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], 0.0f);
-                blend_moby_animation(m, a->id, f, bl);
-                FUN_L00_002a1538_c((char *)d);
-                d->bB7 = 0x12;
+                WalkAnim *a = gait_data->anim[12];
+                int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], 0.0f);
+                blend_moby_animation(walker_moby, a->id, f, bl);
+                reset_walker_gait_helpers((char *)gait_data);
+                gait_data->bB7 = 0x12;
             }
         }
         break;
     case WALKER_GAIT_SYNC_LANDING_ANIMATION:
-        if (m->b52 == d->anim[12]->id) {
-            float t = FUN_L00_002a15c8_c((char *)m, (char *)d);
+        if (walker_moby->b52 == gait_data->anim[12]->id) {
+            float t = compute_walker_time_to_landing((char *)walker_moby, (char *)gait_data);
             if (t > 1.0f) {
-                float base = convert_integer_to_float(m->b50) + m->f54;
-                t = d->anim[12]->f44 + 2.0f - t * 0.5f - d->anim[12]->f0C;
+                float base = convert_integer_to_float(walker_moby->b50) + walker_moby->f54;
+                t = gait_data->anim[12]->f44 + 2.0f - t * 0.5f - gait_data->anim[12]->f0C;
                 if (t < base + 0.1f) {
                     t = base + 0.1f;
                 }
-                m->f58 = frame_scale_inv * (t - base);
+                walker_moby->f58 = frame_scale_inv * (t - base);
             } else {
-                float base = convert_integer_to_float(m->b50) + m->f54;
-                t = d->anim[12]->f44 - d->anim[12]->f0C;
+                float base = convert_integer_to_float(walker_moby->b50) + walker_moby->f54;
+                t = gait_data->anim[12]->f44 - gait_data->anim[12]->f0C;
                 if (t < base + 0.1f) {
                     t = base + 0.1f;
                 }
-                m->f58 = frame_scale_inv * (t - base);
+                walker_moby->f58 = frame_scale_inv * (t - base);
                 {
                     int ns = 0x14;
                     int fl = 4;
-                    d->bB6 = fl;
-                    d->bB7 = ns;
+                    gait_data->bB6 = fl;
+                    gait_data->bB7 = ns;
                 }
-                d->uEE &= 0xFFFB;
+                gait_data->uEE &= 0xFFFB;
             }
         }
         break;
     case WALKER_GAIT_SYNC_ALTERNATE_LANDING_ANIMATION:
-        if (m->b52 == d->anim[10]->id) {
-            float t = FUN_L00_002a15c8_c((char *)m, (char *)d);
+        if (walker_moby->b52 == gait_data->anim[10]->id) {
+            float t = compute_walker_time_to_landing((char *)walker_moby, (char *)gait_data);
             if (t > 1.0f) {
-                float base = convert_integer_to_float(m->b50) + m->f54;
-                t = d->anim[10]->f44 + 2.0f - t * 0.5f - d->anim[10]->f0C;
+                float base = convert_integer_to_float(walker_moby->b50) + walker_moby->f54;
+                t = gait_data->anim[10]->f44 + 2.0f - t * 0.5f - gait_data->anim[10]->f0C;
                 if (t < base + 0.1f) {
                     t = base + 0.1f;
                 }
-                m->f58 = frame_scale_inv * (t - base);
+                walker_moby->f58 = frame_scale_inv * (t - base);
             } else {
-                float base = convert_integer_to_float(m->b50) + m->f54;
-                t = d->anim[10]->f44 - d->anim[10]->f0C;
+                float base = convert_integer_to_float(walker_moby->b50) + walker_moby->f54;
+                t = gait_data->anim[10]->f44 - gait_data->anim[10]->f0C;
                 if (t < base + 0.1f) {
                     t = base + 0.1f;
                 }
-                m->f58 = frame_scale_inv * (t - base);
+                walker_moby->f58 = frame_scale_inv * (t - base);
                 {
                     int ns = 0x13;
                     int fl = 4;
-                    d->bB6 = fl;
-                    d->bB7 = ns;
+                    gait_data->bB6 = fl;
+                    gait_data->bB7 = ns;
                 }
-                d->uEE &= 0xFFFB;
+                gait_data->uEE &= 0xFFFB;
             }
         }
         break;
     case WALKER_GAIT_RESUME_RUN_AFTER_LANDING:
         if (flags & 1) {
             int bl =
-                truncate_float_to_s32((d->anim[7]->f38 * 0.25f + 2.0f) / (speed / d->anim[7]->f08));
-            int fr = truncate_float_to_s32(d->anim[7]->f40 + 1.0f + d->anim[7]->f38 * 0.125f -
-                                           d->anim[7]->f0C) %
-                     truncate_float_to_s32(d->anim[7]->f10);
-            WalkAnim *a = d->anim[7];
-            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-            blend_moby_animation(m, a->id, f, bl);
-            FUN_L00_002a1538_c((char *)d);
-            d->fD8 = 0.0f;
-            d->bB7 = 0xD;
-            d->bB6 = 1;
-            d->uEE &= 0xFFFD;
-            vec[0] = fast_cos(ang) * d->anim[7]->f04 * 0.5f;
-            vec[1] = fast_sin(ang) * d->anim[7]->f04 * 0.5f;
-            vec[2] = 0.0f;
-            add_vector_xyz(vec, vec, d->m10);
-            vec[2] += 1.0f;
-            d->fE4 = probe_ground_height(vec, 0, 0.5f);
+                truncate_float_to_s32((gait_data->anim[7]->f38 * 0.25f + 2.0f) / (speed / gait_data->anim[7]->f08));
+            int fr = truncate_float_to_s32(gait_data->anim[7]->f40 + 1.0f + gait_data->anim[7]->f38 * 0.125f -
+                                           gait_data->anim[7]->f0C) %
+                     truncate_float_to_s32(gait_data->anim[7]->f10);
+            WalkAnim *a = gait_data->anim[7];
+            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+            blend_moby_animation(walker_moby, a->id, f, bl);
+            reset_walker_gait_helpers((char *)gait_data);
+            gait_data->fD8 = 0.0f;
+            gait_data->bB7 = 0xD;
+            gait_data->bB6 = 1;
+            gait_data->uEE &= 0xFFFD;
+            ground_probe_position[0] = fast_cos(movement_heading) * gait_data->anim[7]->f04 * 0.5f;
+            ground_probe_position[1] = fast_sin(movement_heading) * gait_data->anim[7]->f04 * 0.5f;
+            ground_probe_position[2] = 0.0f;
+            add_vector_xyz(ground_probe_position, ground_probe_position, gait_data->m10);
+            ground_probe_position[2] += 1.0f;
+            gait_data->fE4 = probe_ground_height(ground_probe_position, 0, 0.5f);
         }
         break;
     case WALKER_GAIT_RESUME_RUN_AFTER_ALTERNATE_LANDING:
         if (flags & 1) {
             int bl =
-                truncate_float_to_s32((d->anim[7]->f3C * 0.25f + 2.0f) / (speed / d->anim[7]->f08));
-            int fr = truncate_float_to_s32(d->anim[7]->f44 + 1.0f + d->anim[7]->f38 * 0.125f -
-                                           d->anim[7]->f0C) %
-                     truncate_float_to_s32(d->anim[7]->f10);
-            WalkAnim *a = d->anim[7];
-            int f = FUN_L00_0024ed18(m->pClass->seqs[a->id], (float)fr);
-            blend_moby_animation(m, a->id, f, bl);
-            FUN_L00_002a1538_c((char *)d);
-            d->fD8 = 0.0f;
-            d->bB7 = 0xD;
-            d->bB6 = 1;
-            d->uEE &= 0xFFFD;
-            vec[0] = fast_cos(ang) * d->anim[7]->f04 * 0.5f;
-            vec[1] = fast_sin(ang) * d->anim[7]->f04 * 0.5f;
-            vec[2] = 0.0f;
-            add_vector_xyz(vec, vec, d->m10);
-            vec[2] += 1.0f;
-            d->fE4 = probe_ground_height(vec, 0, 0.5f);
+                truncate_float_to_s32((gait_data->anim[7]->f3C * 0.25f + 2.0f) / (speed / gait_data->anim[7]->f08));
+            int fr = truncate_float_to_s32(gait_data->anim[7]->f44 + 1.0f + gait_data->anim[7]->f38 * 0.125f -
+                                           gait_data->anim[7]->f0C) %
+                     truncate_float_to_s32(gait_data->anim[7]->f10);
+            WalkAnim *a = gait_data->anim[7];
+            int f = find_nearest_animation_sequence_entry(walker_moby->pClass->seqs[a->id], (float)fr);
+            blend_moby_animation(walker_moby, a->id, f, bl);
+            reset_walker_gait_helpers((char *)gait_data);
+            gait_data->fD8 = 0.0f;
+            gait_data->bB7 = 0xD;
+            gait_data->bB6 = 1;
+            gait_data->uEE &= 0xFFFD;
+            ground_probe_position[0] = fast_cos(movement_heading) * gait_data->anim[7]->f04 * 0.5f;
+            ground_probe_position[1] = fast_sin(movement_heading) * gait_data->anim[7]->f04 * 0.5f;
+            ground_probe_position[2] = 0.0f;
+            add_vector_xyz(ground_probe_position, ground_probe_position, gait_data->m10);
+            ground_probe_position[2] += 1.0f;
+            gait_data->fE4 = probe_ground_height(ground_probe_position, 0, 0.5f);
         }
         break;
     }

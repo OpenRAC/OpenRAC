@@ -11,8 +11,8 @@ s32 update_menu_choice_list(struct MenuScreen *menu) {
     struct MenuChoice *item;
     s32 *first;
     s32 *opt;
-    s32 prev;
-    s32 cur;
+    s32 previous_choice_index;
+    s32 selected_choice_index;
     s32 option_count;
 
     if (menu_system.current->focus != menu) {
@@ -28,17 +28,17 @@ s32 update_menu_choice_list(struct MenuScreen *menu) {
             return -1;
         }
     }
-    prev = menu->data.choices.selection;
-    if ((controller_state.pressed_unmasked & PAD_UP) && prev != 0) {
-        menu->data.choices.selection = prev - 1;
+    previous_choice_index = menu->data.choices.selection;
+    if ((controller_state.pressed_unmasked & PAD_UP) && previous_choice_index != 0) {
+        menu->data.choices.selection = previous_choice_index - 1;
     }
     if (controller_state.pressed_unmasked & PAD_DOWN) {
-        cur = menu->data.choices.selection;
-        if (menu->data.choices.list[cur + 1].unk0 != 0) {
-            menu->data.choices.selection = cur + 1;
+        selected_choice_index = menu->data.choices.selection;
+        if (menu->data.choices.list[selected_choice_index + 1].unk0 != 0) {
+            menu->data.choices.selection = selected_choice_index + 1;
         }
     }
-    if (prev != menu->data.choices.selection) {
+    if (previous_choice_index != menu->data.choices.selection) {
         allocate_voice_for_target_entry(1, 0x11, menu->moby);
     }
     item = &menu->data.choices.list[menu->data.choices.selection];

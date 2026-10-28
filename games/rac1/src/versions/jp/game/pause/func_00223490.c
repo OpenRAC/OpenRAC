@@ -1,5 +1,5 @@
 int update_timed_menu_sequence(char *arg0) {
-    char *pad = D_0013CA40;
+    char *pad = g_controller_state;
     char *g = menu_system;
     int fast = (*(long *)(pad + 0x1A0) & 0xF) == 0xF;
     int x;
@@ -11,7 +11,7 @@ int update_timed_menu_sequence(char *arg0) {
             }
         }
         {
-            char *pad2 = D_0013CA40;
+            char *pad2 = g_controller_state;
             if (*(int *)(pad2 + 0x1C4) & 0x10) {
                 char *g2 = menu_system;
                 int t = *(int *)(*(char **)(g2 + 4) + 0x38);
@@ -36,10 +36,10 @@ int update_timed_menu_sequence(char *arg0) {
     switch (*(int *)(arg0 + 0x50)) {
     case 0:
         *(int *)(arg0 + 0x50) = *(int *)(arg0 + 0x50) + 1;
-        *(int *)(arg0 + 0x40) = func_001F98C0(0xB4);
+        *(int *)(arg0 + 0x40) = scale_game_frame_count(0xB4);
         *(int *)(arg0 + 0x3C) = 0;
-        D_001D2E74 = 0x50AA;
-        *(char **)(arg0 + 0x34) = D_001D5418;
+        timed_sequence_title_id = 0x50AA;
+        *(char **)(arg0 + 0x34) = timed_sequence_page1;
         break;
     case 1:
     case 5:
@@ -65,7 +65,7 @@ int update_timed_menu_sequence(char *arg0) {
         if (*(int *)(arg0 + 0x54) == 0) {
             return 0;
         }
-        *(int *)(arg0 + 0x40) = func_001F98C0(0xB4);
+        *(int *)(arg0 + 0x40) = scale_game_frame_count(0xB4);
         *(int *)(arg0 + 0x50) = *(int *)(arg0 + 0x50) + 1;
         break;
     case 4:
@@ -73,18 +73,18 @@ int update_timed_menu_sequence(char *arg0) {
             return 0;
         }
         *(int *)(arg0 + 0x50) = 5;
-        *(int *)(arg0 + 0x40) = func_001F98C0(0xB4);
+        *(int *)(arg0 + 0x40) = scale_game_frame_count(0xB4);
         *(int *)(arg0 + 0x3C) = 0;
-        D_001D2E74 = 0x50D7;
-        *(char **)(arg0 + 0x34) = D_001D54C8;
+        timed_sequence_title_id = 0x50D7;
+        *(char **)(arg0 + 0x34) = timed_sequence_page2;
         break;
     case 3:
         if (*(int *)(arg0 + 0x40) != 0) {
             return 0;
         }
-        D_001D2E74 = 0x50D5;
+        timed_sequence_title_id = 0x50D5;
         *(int *)(arg0 + 0x34) = 0x50D6;
-        *(int *)(arg0 + 0x40) = func_001F98C0(0xF0);
+        *(int *)(arg0 + 0x40) = scale_game_frame_count(0xF0);
         *(int *)(arg0 + 0x3C) = 0;
         *(int *)(arg0 + 0x50) = *(int *)(arg0 + 0x50) + 1;
         break;
@@ -92,9 +92,9 @@ int update_timed_menu_sequence(char *arg0) {
         if (*(int *)(arg0 + 0x40) != 0) {
             return 0;
         }
-        D_001D2E74 = 0x5107;
-        *(char **)(arg0 + 0x34) = D_001D5588;
-        *(int *)(arg0 + 0x40) = func_001F98C0(0xF0);
+        timed_sequence_title_id = 0x5107;
+        *(char **)(arg0 + 0x34) = timed_sequence_page3;
+        *(int *)(arg0 + 0x40) = scale_game_frame_count(0xF0);
         *(int *)(arg0 + 0x3C) = 0;
         *(int *)(arg0 + 0x50) = *(int *)(arg0 + 0x50) + 1;
         break;
@@ -102,9 +102,9 @@ int update_timed_menu_sequence(char *arg0) {
         if (*(int *)(arg0 + 0x40) != 0) {
             return 0;
         }
-        D_001D2E74 = 0x518C;
+        timed_sequence_title_id = 0x518C;
         *(int *)(arg0 + 0x34) = 0x518D;
-        *(int *)(arg0 + 0x40) = func_001F98C0(0xF0);
+        *(int *)(arg0 + 0x40) = scale_game_frame_count(0xF0);
         *(int *)(arg0 + 0x3C) = 0;
         *(int *)(arg0 + 0x50) = *(int *)(arg0 + 0x50) + 1;
         break;
@@ -112,19 +112,19 @@ int update_timed_menu_sequence(char *arg0) {
         if (*(int *)(arg0 + 0x40) != 0) {
             return 0;
         }
-        *(int *)(arg0 + 0x40) = func_001F98C0(0xB4);
+        *(int *)(arg0 + 0x40) = scale_game_frame_count(0xB4);
         *(int *)(arg0 + 0x3C) = 0;
-        D_001D2E74 = 0x518E;
-        *(char **)(arg0 + 0x34) = D_001D5618;
+        timed_sequence_title_id = 0x518E;
+        *(char **)(arg0 + 0x34) = timed_sequence_page4;
         *(int *)(arg0 + 0x50) = 12;
         break;
     case 14:
         if (*(int *)(arg0 + 0x40) != 0) {
             return 0;
         }
-        D_001D2E74 = 0;
+        timed_sequence_title_id = 0;
         *(int *)(arg0 + 0x34) = 0x5199;
-        *(int *)(arg0 + 0x40) = func_001F98C0(0xF0);
+        *(int *)(arg0 + 0x40) = scale_game_frame_count(0xF0);
         *(int *)(arg0 + 0x3C) = 0;
         *(int *)(arg0 + 0x50) = *(int *)(arg0 + 0x50) + 1;
         break;
@@ -132,20 +132,20 @@ int update_timed_menu_sequence(char *arg0) {
         if (*(int *)(arg0 + 0x40) != 0) {
             return 0;
         }
-        *(int *)(arg0 + 0x40) = func_001F98C0(0xB4);
+        *(int *)(arg0 + 0x40) = scale_game_frame_count(0xB4);
         *(int *)(arg0 + 0x3C) = 0;
-        D_001D2E74 = 0x519A;
-        *(char **)(arg0 + 0x34) = D_001D5630;
+        timed_sequence_title_id = 0x519A;
+        *(char **)(arg0 + 0x34) = timed_sequence_page5;
         *(int *)(arg0 + 0x50) = 16;
         break;
     case 18:
         if (*(int *)(arg0 + 0x40) != 0) {
             return 0;
         }
-        D_001D2E74 = 0;
+        timed_sequence_title_id = 0;
         *(int *)(arg0 + 0x34) = 0x51CB;
         *(int *)(arg0 + 0x50) = *(int *)(arg0 + 0x50) + 1;
-        *(int *)(arg0 + 0x40) = func_001F98C0(300);
+        *(int *)(arg0 + 0x40) = scale_game_frame_count(300);
         break;
     case 19:
         if (*(int *)(arg0 + 0x40) != 0) {

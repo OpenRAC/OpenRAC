@@ -17,38 +17,40 @@ extern unsigned char *create_part(int) __asm__("FUN_L00_002678b8");
 extern int func_001FA898_r(float) __asm__("FUN_001fa6d0");
 
 extern unsigned char *D_L08_001B29A4 __attribute__((section(".data")));
-void FUN_L08_0027f5f0(void *pos, int kind, void *vel, float f) {
-    float v[4];
-    unsigned char *p;
-    float *vp = v;
-    *(OvlQuad *)v = *(OvlQuad *)vel;
-    p = create_part(0x49);
-    if (p != 0) {
-        float s = 0.0f;
-        int c = 0;
+void create_type_49_particle(void *pos, int kind, void *vel, float velocity_w_override) __asm__("FUN_L08_0027f5f0");
+
+void create_type_49_particle(void *pos, int kind, void *vel, float velocity_w_override) {
+    float saved_velocity[4];
+    unsigned char *particle;
+    float *vp = saved_velocity;
+    *(OvlQuad *)saved_velocity = *(OvlQuad *)vel;
+    particle = create_part(0x49);
+    if (particle != 0) {
+        float particle_scalar_factor = 0.0f;
+        int packed_high_byte = 0;
         switch (kind) {
         case 0:
-            c = 0x20;
-            s = 0.12f;
+            packed_high_byte = 0x20;
+            particle_scalar_factor = 0.12f;
             random_float_between_alt(0.25f, 0.25f);
             break;
         case 1:
-            c = 0xD;
-            s = 0.5f;
+            packed_high_byte = 0xD;
+            particle_scalar_factor = 0.5f;
             random_float_between_alt(1.0f, 1.0f);
             break;
         }
-        *(short *)(p + 0xA) = scale_game_frames(0x37);
-        *(int *)(p + 4) = (c << 24) | 0xFFFFFF;
-        p[9] = func_001FA898_r(4.0f) + 0x20;
-        p[3] = 0x48;
-        p[1] = 0;
-        p[2] = D_L08_001B29A4[kind];
-        *(float *)(p + 0xC) = s * 210000.0f;
-        p[8] = (int)random_float_between_alt(0.0f, 360.0f);
-        *(OvlQuad *)(p + 0x10) = *(OvlQuad *)pos;
-        *(OvlQuad *)(p + 0x20) = *(OvlQuad *)vp;
-        *(float *)(p + 0x2C) = f;
+        *(short *)(particle + 0xA) = scale_game_frames(0x37);
+        *(int *)(particle + 4) = (packed_high_byte << 24) | 0xFFFFFF;
+        particle[9] = func_001FA898_r(4.0f) + 0x20;
+        particle[3] = 0x48;
+        particle[1] = 0;
+        particle[2] = D_L08_001B29A4[kind];
+        *(float *)(particle + 0xC) = particle_scalar_factor * 210000.0f;
+        particle[8] = (int)random_float_between_alt(0.0f, 360.0f);
+        *(OvlQuad *)(particle + 0x10) = *(OvlQuad *)pos;
+        *(OvlQuad *)(particle + 0x20) = *(OvlQuad *)vp;
+        *(float *)(particle + 0x2C) = velocity_w_override;
     }
 }
 

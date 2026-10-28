@@ -10,60 +10,60 @@
  */
 
 /* Declarations in scope here before the split. */
-extern char D_0013E650[];
-extern int D_0015F694;
-extern void func_001F9A98(void *, void *, int);
-extern char D_00189310[];
-extern char D_001899D0[];
-extern void *D_001871C0 NOT_SDA;
-extern DispatchRec D_001E8F80[];
-extern int D_0018A3B0[];
-extern void func_001F99B0();
-extern void func_001F2BC8(void);
-extern int D_0018C434 NOT_SDA;
-extern char D_001940C0[];
-extern long D_00151888[3];
-extern int D_0015F6FC;
-extern short D_0015F534;
-extern void func_001FB530(void);
-extern void func_001F3D78(void);
-extern int D_0015F564;
-extern int D_0018DD40[];
-extern int D_0018DC40[];
-extern short D_0015F59C;
-extern int func_001F65B0(unsigned char *arg0, int arg1, void *arg2);
-extern unsigned char D_001DF3D0[];
-extern unsigned char D_001DF770[];
-extern unsigned char D_001DFB10[];
-extern void func_001F6668(void *, void *, void *, void *, void *, int,
+extern char voice_pool[];
+extern int bank_sound_count;
+extern void FastMemCopy(void *, void *, int);
+extern char backup_cam[];
+extern char gCamBackupState[];
+extern void *cur_cam NOT_SDA;
+extern DispatchRec camera_types[];
+extern int draw_config[];
+extern void FastMemSet();
+extern void BuildOcclVisibility(void);
+extern int occl_update NOT_SDA;
+extern char occl_visibility[];
+extern long gs_display_settings[3];
+extern int space_load_in_progress;
+extern short draw_enable_mask;
+extern void append_gif_transfer_packet(void);
+extern void DrawDebugProfiler(void);
+extern int draw_callback_count;
+extern int draw_callback_args[];
+extern int draw_callback_funcs[];
+extern short GlobalStateFlag;
+extern int measure_text_width(unsigned char *arg0, int arg1, void *arg2);
+extern unsigned char normal_font_metrics[];
+extern unsigned char small_font_metrics[];
+extern unsigned char large_font_metrics[];
+extern void FontPrint(void *, void *, void *, void *, void *, int,
                           unsigned char *);
-extern int func_001F6600(unsigned char *, int);
-extern int func_001F6620(unsigned char *, int);
-extern int func_001F4868(int);
-extern void func_001FB498(void);
-extern void func_001F3008(void);
-extern void func_001F3140(void);
-extern int D_0018E840[];
-extern long D_00152178 NOT_SDA;
-extern int func_001FE4D0(void);
-extern char D_00199A68[];
-extern short D_0015F780;
-extern int D_001941CC NOT_SDA;
-extern int D_0019A4E8 NOT_SDA;
-extern int func_001FF668(int);
+extern int measure_text_width_regular(unsigned char *, int);
+extern int measure_text_width_small(unsigned char *, int);
+extern int GetEffectTex(int);
+extern void PutDrawBufferLarge(void);
+extern void InitViewContext(void);
+extern void UpdateViewContext(void);
+extern int bit_swap_lut[];
+extern long background_rgbaq NOT_SDA;
+extern int Help_FindIndex(void);
+extern char s_paradox_this_message_does_not[];
+extern short help_msgs;
+extern int hud_heap_base NOT_SDA;
+extern int hud_state NOT_SDA;
+extern int Hud_GetIconIndex(int);
 typedef struct {
     char b[0x13];
 } Cfg13;
-extern Cfg13 D_0019A540 NOT_SDA;
-extern Cfg13 D_001E7DD8 NOT_SDA;
-extern int func_00116810(void);
-extern void func_001166FC(Cfg13 *, void *);
-extern short D_0015F9D0;
-extern void func_00201960(int, int, int, int, int);
+extern Cfg13 message_text_buffer NOT_SDA;
+extern Cfg13 message_too_long_label NOT_SDA;
+extern int libc_strlen(void);
+extern void libc_strcpy(Cfg13 *, void *);
+extern short ResourceCounter;
+extern void draw_stretchable_ui_frame(int, int, int, int, int);
 
-extern char D_0024272F[];
-extern int D_0016100C MACRO_ADDR;
-extern int D_001941C0[];
+extern char image_end_round_16k[];
+extern int current_vu_chain MACRO_ADDR;
+extern int level_resource_buffers[];
 
 /*
  * InitMemSlots(void): the memory slot table D_001941C0, from the
@@ -77,8 +77,8 @@ extern int D_001941C0[];
  * emitted last. The allocation follows the schedule.
  */
 void InitMemSlots(void) {
-    int base = (int)D_0024272F & 0xFFFFC000;
-    int size = D_0016100C;
+    int base = (int)image_end_round_16k & 0xFFFFC000;
+    int size = current_vu_chain;
     int a = base + size;
     int b = a + size;
     int c = b + 0x64000;
@@ -96,55 +96,55 @@ void InitMemSlots(void) {
 }
 
 /* Externs this function needs that initonce.c does not already declare. */
-extern void func_001207B8(void);
-extern int func_00123308(int);
-extern void func_001211B0(int);
-extern void func_00121490(int);
-extern int func_0011D248(void *);
-extern int func_0011D210(void);
-extern int func_001E9730(); /* debug-log stub: void func_001E9730(int, ...) */
-extern void func_00118D60(int);
-extern void func_0011AE20(int);
-extern int func_0011D960(void); /* DIntr */
-extern void func_0011CB40(void);
-extern void func_0011D9A8(void); /* EIntr */
-extern int func_00121688(int);
-extern int func_0011BF48(void);
-extern int func_0012F348(int lba, int sectors, void *buf);
-extern void func_00118D80(int);
-extern void func_00209A60(void *arg0);
-extern void func_00121B78(int, int, int, int);
-extern void func_0020C268(void);
-extern void func_001F3890(void);
-extern void func_002347F0(void *);
-extern int func_0012F3F8(void);
-extern void func_0020C468(void *, void *);
-extern int func_00201D58(void *arg0, void *arg1);
-extern void func_00217EE8(void);
-extern void func_0012F308(void); /* vsync_callback(int) */
-extern int func_00123168(void *arg0);
-extern void func_0020BAA8(void);
-extern void func_002348E8(void);
-extern void func_0022DBE8(void);
-extern int func_00122630(void *, short, short, short, short, short, short, short);
-extern int func_00122958(void *src, void *dst);
-extern void func_00120858(int, unsigned short);
-extern void func_001E96B8(void);
-extern void func_00233FF8(void);
-extern void func_001F7BF8(void);
-extern int func_0012D380(void);
+extern void reset_vif1_gif(void);
+extern int sceDmaReset(int);
+extern void sce_cd_init(int);
+extern void sce_cd_disk_ready(int);
+extern int sce_sif_reboot_iop(void *);
+extern int sce_sif_sync_iop(void);
+extern int STUB_printf(); /* debug-log stub: void func_001E9730(int, ...) */
+extern void enable_cache(int);
+extern void sceSifInitRpc(int);
+extern int disable_interrupts(void); /* DIntr */
+extern void sce_sif_init_iop_heap(void);
+extern void enable_interrupts(void); /* EIntr */
+extern int sce_cd_mmode(int);
+extern int sce_fs_reset(void);
+extern int wad_GetSectors_FiiPv(int lba, int sectors, void *buf);
+extern void flush_cache(int);
+extern void memcard_get_name(void *arg0);
+extern void sceGsResetGraph(int, int, int, int);
+extern void InitDma(void);
+extern void SetPalMode(void);
+extern void VU0_loadMicroProgram(void *);
+extern int load_disc_sectors_into_global_buffer(void);
+extern void fast_decompress(void *, void *);
+extern int LoadIRXModule(void *arg0, void *arg1);
+extern void init_pads(void);
+extern void vsync_callback(void); /* vsync_callback(int) */
+extern int sceGsSyncVCallback(void *arg0);
+extern void memcard_Init(void);
+extern void VU1_initChain(void);
+extern void initialize_gameplay_sound_system(void);
+extern int sceGsSetDefLoadImage(void *, short, short, short, short, short, short, short);
+extern int sceGsExecLoadImage(void *src, void *dst);
+extern void wait_for_graphics_pipeline_idle(int, unsigned short);
+extern void LoadDebugFont(void);
+extern void initialize_sif_rpc(void);
+extern void initialize_alpha_lookup_table(void);
+extern int sce_scf_get_language(void);
 
-extern char D_001E7E10[]; /* "cdrom0:\\IOPRP243.IMG;1" */
-extern char D_0015FB40[]; /* "Rebooted IOP\n" */
-extern int D_0015EF90 MACRO_ADDR;
-extern int D_0015EE80 MACRO_ADDR;
-extern int D_0010E4C0;
-extern int D_00137C80[];
+extern char iop_reboot_image_path[]; /* "cdrom0:\\IOPRP243.IMG;1" */
+extern char rebooted_iop_message[]; /* "Rebooted IOP\n" */
+extern int pause_action_list_mode MACRO_ADDR;
+extern int pal_mode MACRO_ADDR;
+extern int vu0_micro_program;
+extern int disc_table[];
 extern char D_1FF8000[];
-extern char D_001942C0[];
-extern char D_001E7E28[]; /* "loaded irx modules\n" */
-extern int D_0015EE88 MACRO_ADDR;
-extern char D_001E7E40[]; /* "Unsupported language %d\n" */
+extern char image_clear_buffer[];
+extern char loaded_irx_modules_message[]; /* "loaded irx modules\n" */
+extern int g_game_language MACRO_ADDR;
+extern char unsupported_lang_message[]; /* "Unsupported language %d\n" */
 
 /* InitOnce(void). Boots the IOP with cdrom0:\IOPRP243.IMG, waits for it,
  * reads the boot-info sector (lba 0x121) into a stack buffer, sets the
@@ -153,7 +153,7 @@ extern char D_001E7E40[]; /* "Unsupported language %d\n" */
  * the 16 KB-aligned end of the image, sets up memory slots, loads a
  * palette/font image, and finally maps sceCdGetDiskType's result to the
  * current-language global.
- * Adapted from Lombyte (GPL-3.0) for PAL: runtime/startup/init_once.c, init_once. */
+ * Adapted from Lombyte's project (GPL-3.0) for PAL: runtime/startup/init_once.c, init_once. */
 void InitOnce(void) {
     unsigned char buf[0x800];
     char *seg;
@@ -162,44 +162,44 @@ void InitOnce(void) {
     int region;
     int lang;
 
-    func_001207B8();
-    func_00123308(1);
-    func_001211B0(0);
-    func_00121490(0);
+    reset_vif1_gif();
+    sceDmaReset(1);
+    sce_cd_init(0);
+    sce_cd_disk_ready(0);
     do {
-    } while (func_0011D248(iop_reboot_image_path) == 0);
+    } while (sce_sif_reboot_iop(iop_reboot_image_path) == 0);
     do {
-    } while (func_0011D210() == 0);
+    } while (sce_sif_sync_iop() == 0);
     STUB_printf(rebooted_iop_message);
-    func_00118D60(3);
-    func_0011AE20(0);
-    func_0011D960();
-    func_0011CB40();
-    func_0011D9A8();
-    func_001211B0(0);
-    func_00121490(0);
-    func_00121688(2);
-    func_0011BF48();
-    func_0012F348(0x121, 1, buf);
-    func_00118D80(0);
+    enable_cache(3);
+    sceSifInitRpc(0);
+    disable_interrupts();
+    sce_sif_init_iop_heap();
+    enable_interrupts();
+    sce_cd_init(0);
+    sce_cd_disk_ready(0);
+    sce_cd_mmode(2);
+    sce_fs_reset();
+    wad_GetSectors_FiiPv(0x121, 1, buf);
+    flush_cache(0);
 
     region = buf[0x33] != 0x4E;
-    pause_action_list_mode = D_0015EE80 = region;
+    pause_action_list_mode = pal_mode = region;
     memcard_get_name(buf);
 
-    func_00121B78(0, 1, (D_0015EE80 != 0) ? 3 : 2, 0);
+    sceGsResetGraph(0, 1, (pal_mode != 0) ? 3 : 2, 0);
     InitDma();
     SetPalMode();
     VU0_loadMicroProgram(&vu0_micro_program);
-    func_0012F3F8();
+    load_disc_sectors_into_global_buffer();
 
-    base = (int)D_0024272F & 0xFFFFC000;
+    base = (int)image_end_round_16k & 0xFFFFC000;
     tbl = (int *)(base + 0x2C0000);
-    seg = D_1FF8000 - (D_00137C80[0x4B1] << 0xB);
-    func_0012F348(D_00137C80[0x4B0], D_00137C80[0x4B1], seg);
-    func_00118D80(0);
-    func_0020C468(seg, tbl);
-    func_00118D80(0);
+    seg = D_1FF8000 - (disc_table[0x4B1] << 0xB);
+    wad_GetSectors_FiiPv(disc_table[0x4B0], disc_table[0x4B1], seg);
+    flush_cache(0);
+    fast_decompress(seg, tbl);
+    flush_cache(0);
     LoadIRXModule((void *)(tbl[0x1C] + (int)tbl), (void *)(int)tbl[0x1D]);
     LoadIRXModule((void *)(tbl[0x1E] + (int)tbl), (void *)(int)tbl[0x1F]);
     LoadIRXModule((void *)(tbl[0x20] + (int)tbl), (void *)(int)tbl[0x21]);
@@ -212,48 +212,48 @@ void InitOnce(void) {
     LoadIRXModule((void *)(tbl[0x28] + (int)tbl), (void *)(int)tbl[0x29]);
 
     STUB_printf(loaded_irx_modules_message);
-    func_00121490(0);
+    sce_cd_disk_ready(0);
     init_pads();
-    func_00123168(func_0012F308);
-    D_0016100C = 0x160000;
+    sceGsSyncVCallback(vsync_callback);
+    current_vu_chain = 0x160000;
     InitMemSlots();
-    func_00121490(0);
+    sce_cd_disk_ready(0);
     memcard_Init();
     InitViewContext();
     UpdateViewContext();
     VU1_initChain();
-    func_00121490(0);
+    sce_cd_disk_ready(0);
     initialize_gameplay_sound_system();
     FastMemSet(image_clear_buffer, 0x80808080, 0x100);
-    func_00122630(buf, 0x3FFB, 1, 0, 0, 0, 8, 8);
-    func_00118D80(0);
-    func_00122958(buf, image_clear_buffer);
-    func_00120858(0, 0);
+    sceGsSetDefLoadImage(buf, 0x3FFB, 1, 0, 0, 0, 8, 8);
+    flush_cache(0);
+    sceGsExecLoadImage(buf, image_clear_buffer);
+    wait_for_graphics_pipeline_idle(0, 0);
     LoadDebugFont();
     *(volatile int *)0x10000810 = 0x82;
     *(volatile int *)0x10000800 = 0;
     initialize_sif_rpc();
     initialize_alpha_lookup_table();
 
-    lang = func_0012D380();
+    lang = sce_scf_get_language();
     switch (lang) {
     case 2:
-        D_0015EE88 = 2;
+        g_game_language = 2;
         return;
     case 4:
-        D_0015EE88 = 3;
+        g_game_language = 3;
         return;
     case 3:
-        D_0015EE88 = 4;
+        g_game_language = 4;
         return;
     case 5:
-        D_0015EE88 = 5;
+        g_game_language = 5;
         return;
     default:
         STUB_printf(unsupported_lang_message, lang);
         /* fallthrough */
     case 1:
-        D_0015EE88 = 0;
+        g_game_language = 0;
         return;
     }
 }

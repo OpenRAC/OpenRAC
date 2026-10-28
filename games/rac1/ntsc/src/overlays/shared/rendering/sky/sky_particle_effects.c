@@ -40,7 +40,7 @@ void sky_particles_init(s32 randomized_count, s32 orbiting_count) {
     s32 i;
     E_288ec0 *particle;
     f32 x, y;
-    s32 color_channel_offset, u, packed_color;
+    s32 color_channel_offset, color_high_byte_offset, packed_color;
     D_L00_0016051C_288ec0->n = randomized_count + orbiting_count;
     for (i = 0; i < D_L00_0016051C_288ec0->n; i++) {
         particle = &D_L00_0016051C_288ec0->list[i];
@@ -65,15 +65,15 @@ void sky_particles_init(s32 randomized_count, s32 orbiting_count) {
             particle->f14 = fast_sin(x) * fast_sin(y) * 50.0f;
             particle->f18 = fast_cos(y) * fast_cos(y) * 36.0f + 16.0f;
             color_channel_offset = random_integer_below(0x18);
-            u = random_integer_below(0x20) << 24;
+            color_high_byte_offset = random_integer_below(0x20) << 24;
             if ((rand() >> 16) & 1) {
                 packed_color = color_channel_offset << 16;
                 packed_color += 0x30505050;
-                packed_color = u - -packed_color;
+                packed_color = color_high_byte_offset - -packed_color;
             } else {
                 packed_color = color_channel_offset << 8;
                 packed_color += 0x30505050;
-                packed_color = u - -packed_color;
+                packed_color = color_high_byte_offset - -packed_color;
                 packed_color |= color_channel_offset;
             }
             *(u32 *)&particle->hC = packed_color;
@@ -104,27 +104,27 @@ void sky_particles_update(void) {
         E_289108 *particle = &D_L00_0016051C_289108->list[i];
         if (particle->b0 == 0) {
             unsigned short *phase_halves = &particle->hC;
-            float azimuth_radians, b;
+            float azimuth_radians, polar_angle_radians;
             particle->hC++;
             phase_halves[1]++;
             azimuth_radians = convert_integer_to_float((particle->hC & 0xFFF) - 0x800) * 0.0015339808f;
-            b = convert_integer_to_float((phase_halves[1] & 0xFFF) - 0x800) * 0.0015339808f;
-            particle->f10 = fast_cos(azimuth_radians) * fast_sin(b) * 50.0f;
-            particle->f14 = fast_sin(azimuth_radians) * fast_sin(b) * 50.0f;
-            particle->f18 = absolute_float(fast_cos(b)) * 50.0f;
+            polar_angle_radians = convert_integer_to_float((phase_halves[1] & 0xFFF) - 0x800) * 0.0015339808f;
+            particle->f10 = fast_cos(azimuth_radians) * fast_sin(polar_angle_radians) * 50.0f;
+            particle->f14 = fast_sin(azimuth_radians) * fast_sin(polar_angle_radians) * 50.0f;
+            particle->f18 = absolute_float(fast_cos(polar_angle_radians)) * 50.0f;
             if ((particle->hC & 0x3F) < 8) {
                 particle->w4 = 0x702020F0;
             } else {
                 particle->w4 = 0x202020F0;
             }
         } else if (particle->b0 == 1) {
-            int r = rand() >> 16;
-            int t = ((r & 0x1F00) << 10) - 0x202020;
-            int c = *(int *)&particle->hC;
-            c += t;
-            c += (r & 0x1F0) << 6;
-            c += (r & 0x1F) << 2;
-            particle->w4 = c;
+            int random_color_bits = rand() >> 16;
+            int packed_color_offset = ((random_color_bits & 0x1F00) << 10) - 0x202020;
+            int packed_color = *(int *)&particle->hC;
+            packed_color += packed_color_offset;
+            packed_color += (random_color_bits & 0x1F0) << 6;
+            packed_color += (random_color_bits & 0x1F) << 2;
+            particle->w4 = packed_color;
         }
     }
 }
@@ -163,11 +163,13 @@ extern Sky2895a0 *D_L00_0016051C_2895a0 __asm__("D_L00_0016051C");
 extern char D_L00_001BD7E0[] __asm__("D_L00_001BD7E0");
 #define SKY D_L00_0016051C_2895a0
 /* Render four sky layers with an intervening particle pass. */
-void FUN_L00_002895a0(void) {
+void draw_four_sky_shells_with_animated_particles(void) __asm__("FUN_L00_002895a0");
+
+void draw_four_sky_shells_with_animated_particles(void) {
     int i, j;
     SkyParticle *particle;
-    f32 a, b;
-    int color_channel_offset, color_high_byte_offset, r;
+    f32 a, polar_angle_radians;
+    int color_channel_offset, color_high_byte_offset, random_color_bits;
     SKY->s4 = 0;
     set_identity_matrix(D_L00_001BD7E0);
     sky_draw_shell(0);
@@ -196,10 +198,10 @@ void FUN_L00_002895a0(void) {
                 particle->f8 = random_angle_radians();
                 particle->f1C = convert_integer_to_float(random_integer_below(0x30) + 0x20) * (1.0f / 256.0f);
                 a = random_angle_radians();
-                b = random_angle_radians();
-                particle->x = fast_cos(a) * fast_sin(b) * 50.0f;
-                particle->y = fast_sin(a) * fast_sin(b) * 50.0f;
-                particle->z = fast_cos(b) * fast_cos(b) * 36.0f + 16.0f;
+                polar_angle_radians = random_angle_radians();
+                particle->x = fast_cos(a) * fast_sin(polar_angle_radians) * 50.0f;
+                particle->y = fast_sin(a) * fast_sin(polar_angle_radians) * 50.0f;
+                particle->z = fast_cos(polar_angle_radians) * fast_cos(polar_angle_radians) * 36.0f + 16.0f;
                 color_channel_offset = random_integer_below(0x18);
                 color_high_byte_offset = random_integer_below(0x20) << 24;
                 {
@@ -224,21 +226,21 @@ void FUN_L00_002895a0(void) {
             h[0]++;
             h[1]++;
             a = convert_integer_to_float((particle->c.h.a & 0xFFF) - 0x800) * 0.0015339808f;
-            b = convert_integer_to_float((h[1] & 0xFFF) - 0x800) * 0.0015339808f;
-            particle->x = fast_cos(a) * fast_sin(b) * 50.0f;
-            particle->y = fast_sin(a) * fast_sin(b) * 50.0f;
-            particle->z = absolute_float(fast_cos(b)) * 50.0f;
+            polar_angle_radians = convert_integer_to_float((h[1] & 0xFFF) - 0x800) * 0.0015339808f;
+            particle->x = fast_cos(a) * fast_sin(polar_angle_radians) * 50.0f;
+            particle->y = fast_sin(a) * fast_sin(polar_angle_radians) * 50.0f;
+            particle->z = absolute_float(fast_cos(polar_angle_radians)) * 50.0f;
             if ((particle->c.h.a & 0x3F) < 8)
                 particle->color = 0x702020F0;
             else
                 particle->color = 0x202020F0;
         } else if (particle->type == 3) {
-            r = rand() >> 16;
+            random_color_bits = rand() >> 16;
             {
-                u32 u = ((r & 0x1F00) << 10) + 0xFFDFDFE0;
+                u32 u = ((random_color_bits & 0x1F00) << 10) + 0xFFDFDFE0;
                 u32 c = particle->c.w + u;
-                c += (r & 0x1F0) << 6;
-                c += (r & 0x1F) << 2;
+                c += (random_color_bits & 0x1F0) << 6;
+                c += (random_color_bits & 0x1F) << 2;
                 particle->color = c;
             }
         }
@@ -298,21 +300,23 @@ extern u8 D_L00_001BD7B0[] __attribute__((section(".data")));
 
 
 /* Render particles with phase, byte-state and randomized-color variants. */
-void FUN_L00_00289cb8(void) {
+void draw_three_sky_shells_with_three_particle_types(void) __asm__("FUN_L00_00289cb8");
+
+void draw_three_sky_shells_with_three_particle_types(void) {
     Part *init_particle;
     Part *update_particle;
-    PU *q2;
+    PU *update_state;
     s32 i2;
     s32 k2;
-    PU *q;
+    PU *init_phases;
     s32 i;
     s32 k;
     s32 j;
     s32 r;
     s32 color_channel_offset;
     s32 color_high_byte_offset;
-    f32 a;
-    f32 b;
+    f32 azimuth_radians;
+    f32 polar_angle_radians;
 
     D_L00_0016051C_c3->h4 = 0;
     set_identity_matrix(D_L00_001BD7E0_lui);
@@ -323,9 +327,9 @@ void FUN_L00_00289cb8(void) {
             init_particle = &D_L00_0016051C_c3->parts[i];
             if (i >= 0xF0) {
                 init_particle->type = 0;
-                q = &init_particle->u;
-                q->h.h0 = rand() >> 16;
-                q->h.h2 = rand() >> 16;
+                init_phases = &init_particle->u;
+                init_phases->h.h0 = rand() >> 16;
+                init_phases->h.h2 = rand() >> 16;
                 init_particle->b3 = 0x48;
                 init_particle->b2 = 1;
                 init_particle->f1C = 0.18f;
@@ -353,11 +357,11 @@ void FUN_L00_00289cb8(void) {
                 init_particle->b3 = 0x48;
                 init_particle->f8 = random_angle_radians();
                 init_particle->f1C = convert_integer_to_float(random_integer_below(0x30) + 0x20) * 0.00390625f;
-                a = random_angle_radians();
-                b = random_angle_radians();
-                init_particle->f10 = fast_cos(a) * fast_sin(b) * 50.0f;
-                init_particle->f14 = fast_sin(a) * fast_sin(b) * 50.0f;
-                init_particle->f18 = fast_cos(b) * 50.0f;
+                azimuth_radians = random_angle_radians();
+                polar_angle_radians = random_angle_radians();
+                init_particle->f10 = fast_cos(azimuth_radians) * fast_sin(polar_angle_radians) * 50.0f;
+                init_particle->f14 = fast_sin(azimuth_radians) * fast_sin(polar_angle_radians) * 50.0f;
+                init_particle->f18 = fast_cos(polar_angle_radians) * 50.0f;
                 color_channel_offset = random_integer_below(0x18) + 8;
                 color_high_byte_offset = random_integer_below(0x20) << 24;
                 if ((rand() >> 16) & 1) {
@@ -377,14 +381,14 @@ void FUN_L00_00289cb8(void) {
     for (i2 = 0; i2 < D_L00_0016051C_c3->count; i2++) {
         update_particle = &D_L00_0016051C_c3->parts[i2];
         if (update_particle->type == 0) {
-            q2 = &update_particle->u;
+            update_state = &update_particle->u;
             update_particle->u.h.h0++;
-            q2->h.h2++;
-            a = convert_integer_to_float((update_particle->u.h.h0 & 0xFFF) - 0x800) * 0.0015339808f;
-            b = convert_integer_to_float((q2->h.h2 & 0xFFF) - 0x800) * 0.0015339808f;
-            update_particle->f10 = fast_cos(a) * fast_sin(b) * 50.0f;
-            update_particle->f14 = fast_sin(a) * fast_sin(b) * 50.0f;
-            update_particle->f18 = fast_cos(b) * 50.0f;
+            update_state->h.h2++;
+            azimuth_radians = convert_integer_to_float((update_particle->u.h.h0 & 0xFFF) - 0x800) * 0.0015339808f;
+            polar_angle_radians = convert_integer_to_float((update_state->h.h2 & 0xFFF) - 0x800) * 0.0015339808f;
+            update_particle->f10 = fast_cos(azimuth_radians) * fast_sin(polar_angle_radians) * 50.0f;
+            update_particle->f14 = fast_sin(azimuth_radians) * fast_sin(polar_angle_radians) * 50.0f;
+            update_particle->f18 = fast_cos(polar_angle_radians) * 50.0f;
             update_particle->col &= 0xFFFFFF;
             if (((u16)update_particle->u.h.h0 & 0x3F) < 8) {
                 update_particle->col |= 0x70000000;
@@ -392,13 +396,13 @@ void FUN_L00_00289cb8(void) {
                 update_particle->col |= 0x24000000;
             }
         } else if (update_particle->type == 2) {
-            q2 = &update_particle->u;
-            q2->c.c2 = (q2->c.c2 + 1) % 0x30;
-            if (q2->c.c2 == 0) {
-                update_particle->f8 = convert_integer_to_float((q2->c.c1 << 5) + ((rand() >> 16) & 0xF) - 8) *
+            update_state = &update_particle->u;
+            update_state->c.c2 = (update_state->c.c2 + 1) % 0x30;
+            if (update_state->c.c2 == 0) {
+                update_particle->f8 = convert_integer_to_float((update_state->c.c1 << 5) + ((rand() >> 16) & 0xF) - 8) *
                          0.024543693f;
             }
-            k2 = q2->c.c2 * 4;
+            k2 = update_state->c.c2 * 4;
             if (k2 > 0x60)
                 k2 = 0xC0 - k2;
             {
@@ -435,11 +439,13 @@ extern Sky2895a0 *D_L00_0016051C_c __asm__("D_L00_0016051C");
 extern u32 D_L00_00160500[2] __attribute__((sda));
 #define SKY D_L00_0016051C_c
 /* Render three sky layers with an intervening particle pass. */
-void FUN_L00_0028ac88(void) {
+void render_three_shell_particle_sky(void) __asm__("FUN_L00_0028ac88");
+
+void render_three_shell_particle_sky(void) {
     int i, j;
     SkyParticle *particle;
-    f32 a, b;
-    int color_channel_offset, color_high_byte_offset, r;
+    f32 a, polar_angle_radians;
+    int color_channel_offset, color_high_byte_offset, random_color_bits;
     SKY->s4 = 0;
     set_identity_matrix(D_L00_001BD7E0);
     sky_draw_shell(0);
@@ -468,10 +474,10 @@ void FUN_L00_0028ac88(void) {
                 particle->f8 = random_angle_radians();
                 particle->f1C = convert_integer_to_float(random_integer_below(0x30) + 0x20) * (1.0f / 256.0f);
                 a = random_angle_radians();
-                b = random_angle_radians();
-                particle->x = fast_cos(a) * fast_sin(b) * 50.0f;
-                particle->y = fast_sin(a) * fast_sin(b) * 50.0f;
-                particle->z = fast_cos(b) * 50.0f;
+                polar_angle_radians = random_angle_radians();
+                particle->x = fast_cos(a) * fast_sin(polar_angle_radians) * 50.0f;
+                particle->y = fast_sin(a) * fast_sin(polar_angle_radians) * 50.0f;
+                particle->z = fast_cos(polar_angle_radians) * 50.0f;
                 color_channel_offset = random_integer_below(0x18) + 8;
                 color_high_byte_offset = random_integer_below(0x20) << 24;
                 {
@@ -496,22 +502,22 @@ void FUN_L00_0028ac88(void) {
             h[0]++;
             h[1]++;
             a = convert_integer_to_float((particle->c.h.a & 0xFFF) - 0x800) * 0.0015339808f;
-            b = convert_integer_to_float((h[1] & 0xFFF) - 0x800) * 0.0015339808f;
-            particle->x = fast_cos(a) * fast_sin(b) * 50.0f;
-            particle->y = fast_sin(a) * fast_sin(b) * 50.0f;
-            particle->z = fast_cos(b) * 50.0f;
+            polar_angle_radians = convert_integer_to_float((h[1] & 0xFFF) - 0x800) * 0.0015339808f;
+            particle->x = fast_cos(a) * fast_sin(polar_angle_radians) * 50.0f;
+            particle->y = fast_sin(a) * fast_sin(polar_angle_radians) * 50.0f;
+            particle->z = fast_cos(polar_angle_radians) * 50.0f;
             particle->color &= 0xFFFFFF;
             if ((particle->c.h.a & 0x3F) < 8)
                 particle->color |= 0x70000000;
             else
                 particle->color |= 0x24000000;
         } else {
-            r = rand() >> 16;
+            random_color_bits = rand() >> 16;
             {
-                u32 u = ((r & 0x1F00) << 10) + 0xFFDFDFE0;
+                u32 u = ((random_color_bits & 0x1F00) << 10) + 0xFFDFDFE0;
                 u32 c = particle->c.w + u;
-                c += (r & 0x1F0) << 6;
-                c += (r & 0x1F) << 2;
+                c += (random_color_bits & 0x1F0) << 6;
+                c += (random_color_bits & 0x1F) << 2;
                 particle->color = c;
             }
         }
