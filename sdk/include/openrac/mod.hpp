@@ -44,6 +44,7 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "openrac/keys.h"
 #include "openrac/openrac_mod.h"
@@ -289,6 +290,167 @@ private:
 
 class Mod;
 
+// ----------------------------------------------------------------------------------------------
+// Pages of the game's own menus (since 1.7)
+// ----------------------------------------------------------------------------------------------
+
+// One item of a page (openrac_ui_item), as the mod puts it in a UiContent. Since 1.7.
+struct UiItem {
+    std::uint32_t kind = OPENRAC_UI_BUTTON;  // OPENRAC_UI_BUTTON, _CHOICE or _TEXT
+    std::uint32_t flags = 0;                 // OPENRAC_UI_DISABLED
+    std::string label;
+    std::vector<std::string> choices;  // a choice's values
+    std::uint32_t choice = 0;          // the one shown
+
+    // Return a button Cross chooses (dim and refused when not `enabled`), a line of text the
+    // cursor passes over, and a choice of `choices` showing `choice`, which Left and Right step.
+    static UiItem button(std::string label, bool enabled = true) {
+        UiItem item;
+        item.label = std::move(label);
+        item.flags = enabled ? 0u : OPENRAC_UI_DISABLED;
+        return item;
+    }
+
+    static UiItem text(std::string label) {
+        UiItem item;
+        item.kind = OPENRAC_UI_TEXT;
+        item.label = std::move(label);
+        return item;
+    }
+
+    static UiItem choice_of(std::string label, std::vector<std::string> choices, std::uint32_t choice) {
+        UiItem item;
+        item.kind = OPENRAC_UI_CHOICE;
+        item.label = std::move(label);
+        item.choices = std::move(choices);
+        item.choice = choice;
+        return item;
+    }
+};
+
+// What a page shows (openrac_ui_content): its title, its list, and its footer's lines (none: the
+// game's own hints). Since 1.7.
+struct UiContent {
+    std::string title;
+    std::vector<UiItem> items;
+    std::vector<std::string> footer;
+};
+
+// An event of a page (openrac_ui_event). A view of the port's, valid during the call. Since 1.7.
+class UiEvent {
+public:
+    explicit UiEvent(const openrac_ui_event& event) : m_event(&event) {}
+
+    // Returns what happened: OPENRAC_UI_SHOW ... OPENRAC_UI_HIDE.
+    std::uint32_t kind() const { return m_event->kind; }
+
+    // Returns whether it is `kind`.
+    bool is(std::uint32_t kind) const { return m_event->kind == kind; }
+
+    // Return the item it is about (-1 for none), the new choice or the answer (1 yes), the
+    // question's tag, and the item under the cursor.
+    int item() const { return m_event->item; }
+
+    int value() const { return m_event->value; }
+
+    std::uint32_t tag() const { return m_event->tag; }
+
+    int cursor() const { return m_event->cursor; }
+
+    // Returns the port's event as it is.
+    const openrac_ui_event& raw() const { return *m_event; }
+
+private:
+    // The port's event; not owned.
+    const openrac_ui_event* m_event;
+};
+
+// One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows, open it, ask a
+// question on it. Copyable; the page lives as long as the program. Since 1.7.
+class UiPage {
+public:
+    // No page (id -1): every call is refused.
+    UiPage() = default;
+
+    // The page `id` of the mod `handle`, through `api`.
+    UiPage(const openrac_api* api, openrac_mod* handle, int id) : m_api(api), m_handle(handle), m_id(id) {}
+
+    // Returns the page's id.
+    int id() const { return m_id; }
+
+    // Puts `content` on the page. Throws openrac::Error when refused (no such page).
+    void set(const UiContent& content) const {
+        std::vector<std::vector<const char*>> choices;
+        std::vector<openrac_ui_item> items;
+        choices.reserve(content.items.size());
+        items.reserve(content.items.size());
+
+        // Each item with its choices' strings, which live as long as `content`.
+        for (const UiItem& from : content.items) {
+            auto& values = choices.emplace_back();
+            for (const std::string& c : from.choices) {
+                values.push_back(c.c_str());
+            }
+            openrac_ui_item item{};
+            item.kind = from.kind;
+            item.flags = from.flags;
+            item.label = from.label.c_str();
+            item.choices = values.empty() ? nullptr : values.data();
+            item.choice_count = static_cast<std::uint32_t>(values.size());
+            item.choice = from.choice;
+            items.push_back(item);
+        }
+
+        std::vector<const char*> footer;
+        for (const std::string& line : content.footer) {
+            footer.push_back(line.c_str());
+        }
+
+        openrac_ui_content c{};
+        c.size = sizeof c;
+        c.title = content.title.c_str();
+        c.items = items.empty() ? nullptr : items.data();
+        c.item_count = static_cast<std::uint32_t>(items.size());
+        c.footer = footer.empty() ? nullptr : footer.data();
+        c.footer_count = static_cast<std::uint32_t>(footer.size());
+
+        // A page that is not this mod's is refused.
+        if (m_api == nullptr || m_api->ui_set(m_handle, m_id, &c) != OPENRAC_HOOK_OK) {
+            throw Error("ui_set: refused (no such page)");
+        }
+    }
+
+    // Return whether the port took it: shows this page (from another of the mod's on the screen),
+    // goes back a level, asks `question` on this page (answered by an OPENRAC_UI_ANSWER with
+    // `tag`), plays a menu sound (OPENRAC_UI_SOUND_*).
+    bool open() const { return m_api != nullptr && m_api->ui_open(m_handle, m_id) == OPENRAC_HOOK_OK; }
+
+    bool back() const {
+        return m_api != nullptr && m_api->ui_open(m_handle, OPENRAC_UI_GO_BACK) == OPENRAC_HOOK_OK;
+    }
+
+    bool confirm(const std::string& question, std::uint32_t tag = 0) const {
+        return m_api != nullptr
+               && m_api->ui_confirm(m_handle, m_id, question.c_str(), tag) == OPENRAC_HOOK_OK;
+    }
+
+    bool sound(int sound) const {
+        return m_api != nullptr && m_api->ui_sound(m_handle, sound) == OPENRAC_HOOK_OK;
+    }
+
+    // Return the item under the cursor, after moving it to `item` (an item the cursor takes).
+    int cursor() const { return m_api != nullptr ? m_api->ui_cursor(m_handle, m_id, -1) : -1; }
+
+    int set_cursor(int item) const {
+        return m_api != nullptr ? m_api->ui_cursor(m_handle, m_id, item < 0 ? -1 : item) : -1;
+    }
+
+private:
+    const openrac_api* m_api = nullptr;
+    openrac_mod* m_handle = nullptr;
+    int m_id = -1;
+};
+
 namespace detail {
 
 // Tells whether a hook point type declares an id (`static constexpr const char* id`).
@@ -454,6 +616,31 @@ inline int menu_thunk(void* user, const openrac_menu_frame* frame) {
     }
 
     return OPENRAC_MENU_CLOSE;
+}
+
+// What a mod's page of the game's own menus does with its events. Since 1.7.
+using UiCallable = std::function<void(const UiPage& page, const UiEvent& event)>;
+
+// A page as the layer keeps it: the callable, and the table and handle its UiPage goes through.
+struct UiEntry {
+    UiCallable callable;
+    const openrac_api* api;
+    openrac_mod* handle;
+};
+
+// The openrac_ui_fn the port calls: runs the UiEntry that `user` points at. An exception is
+// logged; the page stays as it was.
+inline void ui_thunk(void* user, int page, const openrac_ui_event* event) {
+    auto* entry = static_cast<UiEntry*>(user);
+
+    // An exception must not cross into the game's frame loop.
+    try {
+        entry->callable(UiPage(entry->api, entry->handle, page), UiEvent(*event));
+    } catch (const std::exception& e) {
+        report("ui_page", e.what());
+    } catch (...) {
+        report("ui_page", "an exception that is not a std::exception");
+    }
 }
 
 }  // namespace detail
@@ -779,6 +966,58 @@ public:
         }
     }
 
+    // Since 1.7: returns whether the port offers pages of the game's own menus (ui_page(),
+    // ui_main_item()): a mod that wants to run on 1.6 checks this first.
+    bool has_ui() const {
+        return m_api->api_minor >= 7 && m_api->size >= offsetof(openrac_api, ui_sound) + sizeof(void*);
+    }
+
+    // Since 1.7: makes a page of the game's own menus whose events go to `callable(page, event)`
+    // (UiCallable), with `flags` (OPENRAC_UI_OWN_BACK). Throws openrac::Error when refused. Only
+    // during load.
+    template <class F>
+    UiPage ui_page(F&& callable, std::uint32_t flags = 0) {
+        if (!has_ui()) {
+            throw Error("ui_page: requires interface 1.7");
+        }
+
+        // As in on_frame, the port holds the address of the stored entry.
+        auto& stored = m_pages.emplace_back(
+            detail::UiEntry{detail::UiCallable(std::forward<F>(callable)), m_api, m_handle}
+        );
+        const int id = m_api->ui_page(m_handle, flags, &detail::ui_thunk, &stored);
+
+        // The port refuses a page once load is over, and past its most.
+        if (id < 0) {
+            m_pages.pop_back();
+            throw Error(
+                id == OPENRAC_HOOK_TOO_LATE ? "ui_page: refused (only during load)"
+                                            : "ui_page: refused (too many pages)"
+            );
+        }
+
+        return UiPage(m_api, m_handle, id);
+    }
+
+    // Since 1.7: adds an item named `label` to the title's main menu after its own `after`
+    // (OPENRAC_UI_NEW_GAME, _LOAD_GAME, _OPTIONS), opening `page`. Throws openrac::Error when
+    // refused. Only during load.
+    void ui_main_item(const char* after, const char* label, const UiPage& page) {
+        if (!has_ui()) {
+            throw Error("ui_main_item: requires interface 1.7");
+        }
+
+        // Refused once load is over, for an unknown item or another mod's page, and past the most.
+        if (const int result = m_api->ui_main_item(m_handle, after, label, page.id());
+            result != OPENRAC_HOOK_OK) {
+            throw Error(
+                result == OPENRAC_HOOK_TOO_LATE
+                    ? "ui_main_item: refused (only during load)"
+                    : "ui_main_item: refused (unknown item, no label, not the mod's page, or too many)"
+            );
+        }
+    }
+
     // Returns a view of game memory.
     Memory memory() const { return Memory(m_api->memory); }
 
@@ -837,6 +1076,9 @@ private:
 
     // The menu pages the mod gave menu_entry, likewise at stable addresses (since 1.5).
     std::deque<detail::MenuEntry> m_menus;
+
+    // The pages of the game's own menus the mod made, likewise (since 1.7).
+    std::deque<detail::UiEntry> m_pages;
 };
 
 // Room on the game's stack for a call that takes the address of a local, given back when it goes.

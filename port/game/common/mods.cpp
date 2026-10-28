@@ -15,6 +15,7 @@
 #include <limits>
 #include <memory>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 #include "common/c_boundary.h"
@@ -117,6 +118,18 @@ struct MenuCallback {
 // The longest label an entry keeps, in characters (openrac_api.menu_entry).
 constexpr std::size_t kMenuLabelMax = 31;
 
+// A page of the game's own menus (interface 1.7): what is on it, and whose it is.
+struct UiPageCallback {
+    UiPage page;
+    openrac_ui_fn fn;
+    void* user;
+    openrac_mod* mod;
+};
+
+// The main menu's own items a mod's may go after (openrac_api.ui_main_item).
+constexpr std::array<const char*, 3> kUiMainItems =
+    {OPENRAC_UI_NEW_GAME, OPENRAC_UI_LOAD_GAME, OPENRAC_UI_OPTIONS};
+
 const Host* g_host = nullptr;
 
 // A hook point's id from one of its names, through the game's binding (none: the name).
@@ -128,6 +141,13 @@ std::vector<std::unique_ptr<openrac_mod>> g_loaded;
 std::vector<FrameCallback> g_frames;
 std::vector<PadCallback> g_pads;
 std::vector<MenuCallback> g_menus;
+// The pages of the game's own menus and the main-menu items (interface 1.7); the page on the
+// screen (-1 none), whether a question is open on it, and what the mods asked of the screen.
+std::vector<UiPageCallback> g_ui_pages;
+std::vector<UiMainItem> g_ui_main;
+int g_ui_shown = -1;
+bool g_ui_question = false;
+UiRequests g_ui_requests;
 // The mod whose menu page callback runs now: its drawing reaches the page, anyone else's is ignored.
 openrac_mod* g_drawing = nullptr;
 std::vector<TickBoundaryCallback> g_tick_boundaries;
@@ -546,6 +566,167 @@ void api_menu_text(openrac_mod* mod, int x, int y, int size, uint32_t rgba, cons
     g_host->menu_text(x, y, size, rgba, text);
 }
 
+// A text of a mod's page: at most OPENRAC_UI_TEXT_MAX bytes, none for null.
+std::string ui_text(const char* text) {
+    return text == nullptr ? std::string() : std::string(text, strnlen(text, OPENRAC_UI_TEXT_MAX));
+}
+
+// `mod`'s page `page`, or null.
+UiPageCallback* mod_page(openrac_mod* mod, int page) {
+    if (mod == nullptr || page < 0 || page >= static_cast<int>(g_ui_pages.size())) {
+        return nullptr;
+    }
+    UiPageCallback& p = g_ui_pages[static_cast<std::size_t>(page)];
+    return p.mod == mod ? &p : nullptr;
+}
+
+// Whether the page on the screen is `mod`'s.
+bool shows_mod(openrac_mod* mod) {
+    return g_ui_shown >= 0 && mod_page(mod, g_ui_shown) != nullptr;
+}
+
+// A cursor kept on an item it takes: the last when past the end, else the nearest below, else
+// above; 0 when it takes none.
+int settle_cursor(const UiPage& page, int cursor) {
+    const int count = static_cast<int>(page.items.size());
+    cursor = std::clamp(cursor, 0, std::max(count - 1, 0));
+    for (int i = cursor; i < count; ++i) {
+        if (takes_cursor(page.items[static_cast<std::size_t>(i)])) {
+            return i;
+        }
+    }
+    for (int i = cursor - 1; i >= 0; --i) {
+        if (takes_cursor(page.items[static_cast<std::size_t>(i)])) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+int api_ui_page(openrac_mod* mod, uint32_t flags, openrac_ui_fn fn, void* user) {
+    if (mod == nullptr || mod != g_loading) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    // A page needs a callback for its events, and the pages have room.
+    if (fn == nullptr || g_ui_pages.size() >= OPENRAC_UI_PAGES_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    UiPageCallback page{UiPage{}, fn, user, mod};
+    page.page.flags = flags & OPENRAC_UI_OWN_BACK;
+    g_ui_pages.push_back(std::move(page));
+    return static_cast<int>(g_ui_pages.size()) - 1;
+}
+
+int api_ui_main_item(openrac_mod* mod, const char* after, const char* label, int page) {
+    if (mod == nullptr || mod != g_loading) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    const bool known = after != nullptr
+                       && std::any_of(kUiMainItems.begin(), kUiMainItems.end(), [&](const char* n) {
+                              return std::strcmp(n, after) == 0;
+                          });
+    // A known item to go after, a name, a page of the mod's own, and room in the menu.
+    if (!known || label == nullptr || label[0] == '\0' || mod_page(mod, page) == nullptr
+        || g_ui_main.size() >= OPENRAC_UI_MAIN_ITEMS_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_ui_main.push_back({after, ui_text(label), page});
+    return OPENRAC_HOOK_OK;
+}
+
+int api_ui_set(openrac_mod* mod, int page, const openrac_ui_content* content) {
+    UiPageCallback* p = mod_page(mod, page);
+    // The mod's own page, and content at least as large as its first version.
+    if (p == nullptr || content == nullptr
+        || content->size < offsetof(openrac_ui_content, footer_count) + sizeof(uint32_t)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    UiPage& to = p->page;
+    to.title = ui_text(content->title);
+    to.items.clear();
+    const std::uint32_t items =
+        content->items != nullptr
+            ? std::min<std::uint32_t>(content->item_count, OPENRAC_UI_ITEMS_MAX)
+            : 0;
+    for (std::uint32_t i = 0; i < items; ++i) {
+        const openrac_ui_item& from = content->items[i];
+        UiItem item;
+        item.kind = from.kind <= OPENRAC_UI_TEXT ? from.kind : OPENRAC_UI_TEXT;
+        item.flags = from.flags & OPENRAC_UI_DISABLED;
+        item.label = ui_text(from.label);
+        // A choice with none to choose from is a line of text.
+        const std::uint32_t choices =
+            from.choices != nullptr
+                ? std::min<std::uint32_t>(from.choice_count, OPENRAC_UI_CHOICES_MAX)
+                : 0;
+        if (item.kind == OPENRAC_UI_CHOICE && choices == 0) {
+            item.kind = OPENRAC_UI_TEXT;
+        }
+        for (std::uint32_t c = 0; item.kind == OPENRAC_UI_CHOICE && c < choices; ++c) {
+            item.choices.push_back(ui_text(from.choices[c]));
+        }
+        item.choice = item.choices.empty() ? 0 : std::min<std::uint32_t>(from.choice, choices - 1);
+        to.items.push_back(std::move(item));
+    }
+    to.footer.clear();
+    const std::uint32_t footer =
+        content->footer != nullptr
+            ? std::min<std::uint32_t>(content->footer_count, OPENRAC_UI_FOOTER_MAX)
+            : 0;
+    for (std::uint32_t i = 0; i < footer; ++i) {
+        to.footer.push_back(ui_text(content->footer[i]));
+    }
+    to.cursor = settle_cursor(to, to.cursor);
+    ++to.revision;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_ui_open(openrac_mod* mod, int page) {
+    // From one of the mod's pages on the screen, to one of its pages or back.
+    if (!shows_mod(mod) || (page != OPENRAC_UI_GO_BACK && mod_page(mod, page) == nullptr)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_ui_requests.open = true;
+    g_ui_requests.page = page;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_ui_confirm(openrac_mod* mod, int page, const char* question, uint32_t tag) {
+    // The mod's page on the screen, without a question open or asked already.
+    if (mod_page(mod, page) == nullptr || g_ui_shown != page || g_ui_question
+        || g_ui_requests.confirm) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_ui_requests.confirm = true;
+    g_ui_requests.confirm_page = page;
+    g_ui_requests.question = ui_text(question);
+    g_ui_requests.tag = tag;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_ui_cursor(openrac_mod* mod, int page, int item) {
+    UiPageCallback* p = mod_page(mod, page);
+    if (p == nullptr) {
+        return -1;
+    }
+    UiPage& to = p->page;
+    // Moved only onto an item the cursor takes.
+    if (item >= 0 && item < static_cast<int>(to.items.size())
+        && takes_cursor(to.items[static_cast<std::size_t>(item)])) {
+        to.cursor = item;
+    }
+    return to.cursor;
+}
+
+int api_ui_sound(openrac_mod* mod, int sound) {
+    // The game's five, while one of the mod's pages is on the screen.
+    if (!shows_mod(mod) || sound < OPENRAC_UI_SOUND_SELECT || sound > OPENRAC_UI_SOUND_PAGE) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_ui_requests.sounds.push_back(sound);
+    return OPENRAC_HOOK_OK;
+}
+
 void fill_api(const Host& host) {
     static std::string game, version, openrac_version;
     game = host.game;
@@ -589,6 +770,13 @@ void fill_api(const Host& host) {
     g_api.savestate_size = snapshot_size;
     g_api.savestate_save = snapshot_save;
     g_api.savestate_load = snapshot_load;
+    g_api.ui_page = api_ui_page;
+    g_api.ui_main_item = api_ui_main_item;
+    g_api.ui_set = api_ui_set;
+    g_api.ui_open = api_ui_open;
+    g_api.ui_confirm = api_ui_confirm;
+    g_api.ui_cursor = api_ui_cursor;
+    g_api.ui_sound = api_ui_sound;
 }
 
 // ---- status.json ----
@@ -725,6 +913,9 @@ void undo(openrac_mod* mod) {
     std::erase_if(g_frames, [&](const FrameCallback& c) { return c.mod == mod; });
     std::erase_if(g_pads, [&](const PadCallback& c) { return c.mod == mod; });
     std::erase_if(g_menus, [&](const MenuCallback& c) { return c.mod == mod; });
+    // Its main-menu items, then its pages (the last made: no other mod's id moves).
+    std::erase_if(g_ui_main, [&](const UiMainItem& m) { return mod_page(mod, m.page) != nullptr; });
+    std::erase_if(g_ui_pages, [&](const UiPageCallback& c) { return c.mod == mod; });
     std::erase_if(g_tick_boundaries, [&](const TickBoundaryCallback& c) { return c.mod == mod; });
     if (g_views_mod == mod) {
         g_views = {};
@@ -1009,6 +1200,76 @@ bool run_menu_page(int index, const openrac_menu_frame& frame) {
     return result != OPENRAC_MENU_STAY;
 }
 
+bool takes_cursor(const UiItem& item) {
+    return item.kind != OPENRAC_UI_TEXT;
+}
+
+int ui_page_count() {
+    return static_cast<int>(g_ui_pages.size());
+}
+
+const UiPage* ui_page(int page) {
+    // An id past the pages names none.
+    if (page < 0 || page >= ui_page_count()) {
+        return nullptr;
+    }
+    return &g_ui_pages[static_cast<std::size_t>(page)].page;
+}
+
+int ui_main_item_count() {
+    return static_cast<int>(g_ui_main.size());
+}
+
+const UiMainItem* ui_main_item(int index) {
+    // An index past the items names none.
+    if (index < 0 || index >= ui_main_item_count()) {
+        return nullptr;
+    }
+    return &g_ui_main[static_cast<std::size_t>(index)];
+}
+
+void ui_set_shown(int page, bool question_open) {
+    g_ui_shown = page >= 0 && page < ui_page_count() ? page : -1;
+    g_ui_question = g_ui_shown >= 0 && question_open;
+}
+
+void ui_set_cursor(int page, int item) {
+    // Only a page there is, onto an item it has.
+    if (page >= 0 && page < ui_page_count()) {
+        UiPage& p = g_ui_pages[static_cast<std::size_t>(page)].page;
+        p.cursor = settle_cursor(p, item);
+    }
+}
+
+void ui_set_choice(int page, int item, std::uint32_t choice) {
+    // Only a choice of a page there is, to one of its values.
+    if (page < 0 || page >= ui_page_count()) {
+        return;
+    }
+    UiPage& p = g_ui_pages[static_cast<std::size_t>(page)].page;
+    if (item >= 0 && item < static_cast<int>(p.items.size())) {
+        UiItem& it = p.items[static_cast<std::size_t>(item)];
+        if (it.kind == OPENRAC_UI_CHOICE && choice < it.choices.size()) {
+            it.choice = choice;
+        }
+    }
+}
+
+void ui_send(int page, openrac_ui_event event) {
+    // A page that is no longer there (its mod was taken back) hears nothing.
+    if (page < 0 || page >= ui_page_count()) {
+        return;
+    }
+    const UiPageCallback& c = g_ui_pages[static_cast<std::size_t>(page)];
+    event.size = sizeof(openrac_ui_event);
+    event.cursor = c.page.cursor;
+    c.fn(c.user, page, &event);
+}
+
+UiRequests take_ui_requests() {
+    return std::exchange(g_ui_requests, UiRequests{});
+}
+
 void tick_boundary(std::uint32_t tick) {
     if (g_tick_boundaries.empty()) {
         return;
@@ -1044,6 +1305,11 @@ void reset() {
     g_frames.clear();
     g_pads.clear();
     g_menus.clear();
+    g_ui_pages.clear();
+    g_ui_main.clear();
+    g_ui_shown = -1;
+    g_ui_question = false;
+    g_ui_requests = UiRequests{};
     g_tick_boundaries.clear();
     g_tick_mod = nullptr;
     g_in_tick_boundary = false;

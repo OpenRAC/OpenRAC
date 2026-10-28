@@ -111,6 +111,52 @@ Draws a mod's menu page during its callback: rectangles and text on a page of OP
 | `R operator()(A... args) const` | Calls the original with `args`, as the game would have called the hook point. |
 | `fn get() const` | Returns the original as a plain function pointer. |
 
+## `openrac::UiItem`
+
+---------------------------------------------------------------------------------------------- Pages of the game's own menus (since 1.7) ---------------------------------------------------------------------------------------------- One item of a page (openrac_ui_item), as the mod puts it in a UiContent. Since 1.7.
+
+| Member | |
+|---|---|
+| `static UiItem button(std::string label, bool enabled = true)` | Return a button Cross chooses (dim and refused when not `enabled`), a line of text the cursor passes over, and a choice of `choices` showing `choice`, which Left and Right step. |
+| `static UiItem text(std::string label)` |  |
+| `static UiItem choice_of(std::string label, std::vector<std::string> choices, std::uint32_t choice)` |  |
+
+## `openrac::UiContent`
+
+What a page shows (openrac_ui_content): its title, its list, and its footer's lines (none: the game's own hints). Since 1.7.
+
+## `openrac::UiEvent`
+
+An event of a page (openrac_ui_event). A view of the port's, valid during the call. Since 1.7.
+
+| Member | |
+|---|---|
+| `explicit UiEvent(const openrac_ui_event& event)` |  |
+| `std::uint32_t kind() const` | Returns what happened: OPENRAC_UI_SHOW ... OPENRAC_UI_HIDE. |
+| `bool is(std::uint32_t kind) const` | Returns whether it is `kind`. |
+| `int item() const` | Return the item it is about (-1 for none), the new choice or the answer (1 yes), the question's tag, and the item under the cursor. |
+| `int value() const` |  |
+| `std::uint32_t tag() const` |  |
+| `int cursor() const` |  |
+| `const openrac_ui_event& raw() const` | Returns the port's event as it is. |
+
+## `openrac::UiPage`
+
+One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows, open it, ask a question on it. Copyable; the page lives as long as the program. Since 1.7.
+
+| Member | |
+|---|---|
+| `UiPage() = default` | No page (id -1): every call is refused. |
+| `UiPage(const openrac_api* api, openrac_mod* handle, int id)` | The page `id` of the mod `handle`, through `api`. |
+| `int id() const` | Returns the page's id. |
+| `void set(const UiContent& content) const` | Puts `content` on the page. Throws openrac::Error when refused (no such page). |
+| `bool open() const` | Return whether the port took it: shows this page (from another of the mod's on the screen), goes back a level, asks `question` on this page (answered by an OPENRAC_UI_ANSWER with `tag`), plays a menu sound (OPENRAC_UI_SOUND_*). |
+| `bool back() const` |  |
+| `bool confirm(const std::string& question, std::uint32_t tag = 0) const` |  |
+| `bool sound(int sound) const` |  |
+| `int cursor() const` | Return the item under the cursor, after moving it to `item` (an item the cursor takes). |
+| `int set_cursor(int item) const` |  |
+
 ## `openrac::Mod`
 
 ---------------------------------------------------------------------------------------------- The mod ---------------------------------------------------------------------------------------------- The mod as the port loaded it: the table, the handle, and what the mod takes of the game. One per library, made by OPENRAC_MOD_CPP at load; the game's thread is the only one that uses it. Not copyable: the port holds pointers into the callbacks it keeps. Since 1.0.
@@ -155,6 +201,9 @@ Draws a mod's menu page during its callback: rectangles and text on a page of OP
 | `void setup_vulkan(const openrac_vulkan_setup &setup)` | Since 1.4: has the port make its Vulkan device through `setup` (openrac_vulkan_setup); the manifest says "vulkan_device": true. Throws openrac::Error when refused. Only during load. |
 | `bool has_menu() const` | Since 1.5: returns whether the port offers menu entries and pages (menu_entry()): a mod that wants to run on 1.4 checks this first. |
 | `template <class F> void menu_entry(const char* label, F&& callable)` | Since 1.5: adds an entry named `label` to the game's front-end menu that opens a page drawn by `callable(page, frame)` each frame, which returns true to close it (MenuCallable). Throws openrac::Error when refused. Only during load. |
+| `bool has_ui() const` | Since 1.7: returns whether the port offers pages of the game's own menus (ui_page(), ui_main_item()): a mod that wants to run on 1.6 checks this first. |
+| `template <class F> UiPage ui_page(F&& callable, std::uint32_t flags = 0)` | Since 1.7: makes a page of the game's own menus whose events go to `callable(page, event)` (UiCallable), with `flags` (OPENRAC_UI_OWN_BACK). Throws openrac::Error when refused. Only during load. |
+| `void ui_main_item(const char* after, const char* label, const UiPage& page)` | Since 1.7: adds an item named `label` to the title's main menu after its own `after` (OPENRAC_UI_NEW_GAME, _LOAD_GAME, _OPTIONS), opening `page`. Throws openrac::Error when refused. Only during load. |
 | `Memory memory() const` | Returns a view of game memory. |
 | `gaddr relocate(gaddr address) const` | Return a global's address for the code loaded now: the executable's (`relocate`) or level `level`'s program's (`relocate_level`). Ask each time, because a level moves its globals. |
 | `gaddr relocate_level(int level, gaddr address) const` |  |

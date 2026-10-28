@@ -78,7 +78,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.6",
+    const std::string& api = "1.7",
     const std::string& extra = ""
 ) {
     const fs::path dir = plugins / ("test-" + which);
@@ -99,7 +99,8 @@ void install(
                                   {"value": "input", "name": "Input"},
                                   {"value": "views", "name": "Views"},
                                   {"value": "menu", "name": "Menu"},
-                                  {"value": "savestate", "name": "Savestate"}]},
+                                  {"value": "savestate", "name": "Savestate"},
+                                  {"value": "game_ui", "name": "Game UI"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -232,7 +233,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.6", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.7", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -343,6 +344,77 @@ void a_menu_page_draws_through_the_host(const fs::path& plugins) {
     CHECK(mods::menu_entry_count() == 0);
 }
 
+// The pages of the game's own menus (interface 1.7): the pages and the main-menu item listed, a
+// page's content kept as the mod set it (a choice without choices a line of text), the cursor kept
+// off a line, the events reaching the mod, what it asks for kept for the front end only while one
+// of its pages is on the screen, refusals after load; reset takes them back.
+void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "game_ui"}}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    CHECK(mods::ui_page_count() == 2 && mods::ui_main_item_count() == 1);
+    const mods::UiMainItem* item = mods::ui_main_item(0);
+    CHECK(
+        item != nullptr && item->after == OPENRAC_UI_LOAD_GAME && item->label == "Multiplayer"
+        && item->page == 0
+    );
+    CHECK(mods::ui_main_item(1) == nullptr && mods::ui_page(2) == nullptr);
+    const mods::UiPage* home = mods::ui_page(0);
+    CHECK(home != nullptr && home->title == "Multiplayer" && home->items.size() == 4);
+    CHECK(
+        home->items[2].kind == OPENRAC_UI_CHOICE && home->items[2].choices.size() == 3
+        && home->items[2].choice == 2
+    );
+    CHECK(home->items[3].kind == OPENRAC_UI_TEXT);
+    CHECK(home->footer.size() == 1 && home->footer[0] == "Connected");
+    CHECK(mods::ui_page(1)->flags == OPENRAC_UI_OWN_BACK);
+    // The cursor skips the line of text, down then up.
+    mods::ui_set_cursor(0, 1);
+    CHECK(home->cursor == 2);
+    mods::ui_set_cursor(0, 3);
+    CHECK(home->cursor == 2);
+    mods::ui_set_choice(0, 2, 0);
+    CHECK(home->items[2].choice == 0);
+    // Cross on Find match: with no page on the screen the mod's ui_open is refused, with its page
+    // on the screen it is kept for the front end.
+    openrac_ui_event e{};
+    e.kind = OPENRAC_UI_CHOOSE;
+    e.item = 0;
+    mods::ui_send(0, e);
+    CHECK(std::find(g_records.begin(), g_records.end(), 5900 + 1) != g_records.end());
+    CHECK(!mods::take_ui_requests().open);
+    mods::ui_set_shown(0, false);
+    mods::ui_send(0, e);
+    CHECK(std::find(g_records.begin(), g_records.end(), 5000 + 20 + 1) != g_records.end());
+    mods::UiRequests r = mods::take_ui_requests();
+    CHECK(r.open && r.page == 1);
+    // The second page shows: its question and sound are kept; a second question is refused while
+    // one is open.
+    mods::ui_set_shown(1, false);
+    e.kind = OPENRAC_UI_SHOW;
+    e.item = -1;
+    mods::ui_send(1, e);
+    r = mods::take_ui_requests();
+    CHECK(r.confirm && r.confirm_page == 1 && r.question == "Leave the party?" && r.tag == 7);
+    CHECK(r.sounds.size() == 1 && r.sounds[0] == OPENRAC_UI_SOUND_SELECT);
+    mods::ui_set_shown(1, true);
+    mods::ui_send(1, e);
+    CHECK(!mods::take_ui_requests().confirm);
+    e.kind = OPENRAC_UI_ANSWER;
+    e.value = 1;
+    e.tag = 7;
+    mods::ui_send(1, e);
+    CHECK(std::find(g_records.begin(), g_records.end(), 6000 + 10 + 7) != g_records.end());
+    // After load: a page and an item refused.
+    mods::frame();
+    CHECK(std::find(g_records.begin(), g_records.end(), 1400 + 3) != g_records.end());
+    CHECK(std::find(g_records.begin(), g_records.end(), 1500 + 3) != g_records.end());
+    mods::ui_send(7, e);  // no such page: nothing
+    mods::reset();
+    CHECK(mods::ui_page_count() == 0 && mods::ui_main_item_count() == 0);
+}
+
 // The tick boundary and the snapshot calls (interface 1.6): the boundary taken during load only,
 // its callback run by mods::tick_boundary with the tick, the snapshot calls refused for a game
 // without a snapshot (the test's) and outside the boundary; reset takes the callback back.
@@ -410,7 +482,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.6", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.7", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -472,6 +544,7 @@ int main() {
     views_reach_the_host(plugins);
     a_menu_page_draws_through_the_host(plugins);
     the_tick_boundary_reaches_the_mod(plugins);
+    game_ui_pages_reach_the_front_end(plugins);
     a_mod_for_1_5_still_loads(plugins);
     std::error_code e;
     fs::remove_all(dir, e);

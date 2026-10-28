@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include "openrac/guest.h"
 #include "openrac/openrac_mod.h"
@@ -118,6 +119,72 @@ std::string menu_entry_label(int index);
 // Runs entry `index`'s page for a frame: its callback with `frame`, its drawing sent to the host's
 // menu_rect and menu_text. True when the page closes (the mod said so, or there is no such entry).
 bool run_menu_page(int index, const openrac_menu_frame& frame);
+
+// ---- Pages of the game's own menus (interface 1.7) ----
+//
+// What the mods put on their pages and what they ask of the screen, kept here; the front end
+// (mod_ui.h) shows them with the game's widgets, tells which page is on the screen and where its
+// cursor is, and sends the pages their events.
+
+// One item of a page, as its mod last set it (openrac_ui_item), its texts cut to
+// OPENRAC_UI_TEXT_MAX.
+struct UiItem {
+    std::uint32_t kind = OPENRAC_UI_BUTTON;
+    std::uint32_t flags = 0;
+    std::string label;
+    std::vector<std::string> choices;  // OPENRAC_UI_CHOICE's values
+    std::uint32_t choice = 0;          // the one shown
+};
+
+// Whether the cursor stops on an item: any but a line of text.
+bool takes_cursor(const UiItem& item);
+
+// A page (openrac_api.ui_page) and what is on it.
+struct UiPage {
+    std::uint32_t flags = 0;  // OPENRAC_UI_OWN_BACK
+    std::string title;
+    std::vector<UiItem> items;
+    std::vector<std::string> footer;  // none: the game's hints
+    std::uint64_t revision = 0;       // grows with each ui_set
+    int cursor = 0;                   // the item under the cursor
+};
+
+// A main-menu item (openrac_api.ui_main_item): after which of the game's, its label, its page.
+struct UiMainItem {
+    std::string after;
+    std::string label;
+    int page = 0;
+};
+
+// What the mods asked of the screen during their events since the last take, for the front end.
+struct UiRequests {
+    bool open = false;  // ui_open: `page`, or OPENRAC_UI_GO_BACK
+    int page = 0;
+    bool confirm = false;  // ui_confirm: a question on `confirm_page`
+    int confirm_page = 0;
+    std::string question;
+    std::uint32_t tag = 0;
+    std::vector<int> sounds;  // ui_sound, in order
+};
+
+// The pages the mods made, by id (null past them), and the main-menu items, in order.
+int ui_page_count();
+const UiPage* ui_page(int page);
+int ui_main_item_count();
+const UiMainItem* ui_main_item(int index);
+
+// The front end's side: the page on the screen (-1 none; whose mod may then open, ask and play),
+// whether a question is open on it, where a page's cursor is now.
+void ui_set_shown(int page, bool question_open);
+void ui_set_cursor(int page, int item);
+// A choice the player stepped: shown so until the mod sets the page again.
+void ui_set_choice(int page, int item, std::uint32_t choice);
+
+// Sends `event` to `page`'s callback (its cursor filled in). Nothing for a page there is not.
+void ui_send(int page, openrac_ui_event event);
+
+// What the mods asked for since the last call, emptied.
+UiRequests take_ui_requests();
 
 // For tests: unloads every mod, puts each hook point's slot back to null and forgets the
 // callbacks, so that load() can run again.

@@ -287,6 +287,73 @@ int host_savestate_load(const void* data, std::size_t size) {
     return data != nullptr && size == 64 ? 0 : -1;
 }
 
+// The pages of the game's own menus (1.7): the fake port keeps one page's content as text, the
+// pages' callbacks, the main item, and what the pages asked for.
+struct FakePage {
+    openrac_ui_fn fn = nullptr;
+    void* user = nullptr;
+    uint32_t flags = 0;
+    std::string shown;  // "title|kind:flags:label[=choice/count]...|footer..."
+};
+std::vector<FakePage> g_ui_pages;
+std::string g_ui_main;
+std::vector<std::string> g_ui_asked;
+
+int host_ui_page(openrac_mod*, uint32_t flags, openrac_ui_fn fn, void* user) {
+    // The fake port has room for two pages.
+    if (fn == nullptr || g_ui_pages.size() >= 2) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_ui_pages.push_back({fn, user, flags, {}});
+    return static_cast<int>(g_ui_pages.size()) - 1;
+}
+
+int host_ui_main_item(openrac_mod*, const char* after, const char* label, int page) {
+    if (std::string(after) != OPENRAC_UI_LOAD_GAME || page < 0 || page >= static_cast<int>(g_ui_pages.size())) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_ui_main = std::string(after) + ":" + label + ":" + std::to_string(page);
+    return OPENRAC_HOOK_OK;
+}
+
+int host_ui_set(openrac_mod*, int page, const openrac_ui_content* content) {
+    if (page < 0 || page >= static_cast<int>(g_ui_pages.size()) || content->size != sizeof *content) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::string text = content->title;
+    for (uint32_t i = 0; i < content->item_count; ++i) {
+        const openrac_ui_item& item = content->items[i];
+        text += "|" + std::to_string(item.kind) + ":" + std::to_string(item.flags) + ":" + item.label;
+        if (item.kind == OPENRAC_UI_CHOICE) {
+            text += std::string("=") + item.choices[item.choice] + "/" + std::to_string(item.choice_count);
+        }
+    }
+    for (uint32_t i = 0; i < content->footer_count; ++i) {
+        text += std::string("|") + content->footer[i];
+    }
+    g_ui_pages[static_cast<std::size_t>(page)].shown = text;
+    return OPENRAC_HOOK_OK;
+}
+
+int host_ui_open(openrac_mod*, int page) {
+    g_ui_asked.push_back("open " + std::to_string(page));
+    return OPENRAC_HOOK_OK;
+}
+
+int host_ui_confirm(openrac_mod*, int page, const char* question, uint32_t tag) {
+    g_ui_asked.push_back("confirm " + std::to_string(page) + " " + question + " " + std::to_string(tag));
+    return OPENRAC_HOOK_OK;
+}
+
+int host_ui_cursor(openrac_mod*, int, int item) {
+    return item >= 0 ? item : 2;
+}
+
+int host_ui_sound(openrac_mod*, int sound) {
+    g_ui_asked.push_back("sound " + std::to_string(sound));
+    return sound >= 0 && sound <= OPENRAC_UI_SOUND_PAGE ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -327,6 +394,13 @@ openrac_api make_api() {
     api.savestate_size = host_savestate_size;
     api.savestate_save = host_savestate_save;
     api.savestate_load = host_savestate_load;
+    api.ui_page = host_ui_page;
+    api.ui_main_item = host_ui_main_item;
+    api.ui_set = host_ui_set;
+    api.ui_open = host_ui_open;
+    api.ui_confirm = host_ui_confirm;
+    api.ui_cursor = host_ui_cursor;
+    api.ui_sound = host_ui_sound;
     return api;
 }
 
@@ -651,6 +725,100 @@ void check_menu(openrac::Mod& mod, const openrac_api& api) {
     CHECK(!before.has_menu());
 }
 
+// Checks the pages of the game's own menus (1.7): a page made and put in the main menu, its
+// content given to the port as C (a button, a disabled one, a line, a choice, a footer), its
+// events reaching the callable with a UiPage that opens, asks and plays, an exception logged, the
+// fake port's third page refused, and a 1.6 port.
+void check_ui(openrac::Mod& mod, const openrac_api& api) {
+    CHECK(mod.has_ui());
+    std::vector<std::string> seen;
+    bool throw_next = false;
+    const openrac::UiPage home = mod.ui_page(
+        [&](const openrac::UiPage& page, const openrac::UiEvent& event) {
+            if (throw_next) {
+                throw std::runtime_error("page broke");
+            }
+            seen.push_back(std::to_string(page.id()) + ":" + std::to_string(event.kind()) + ":"
+                           + std::to_string(event.item()) + ":" + std::to_string(event.value()));
+            // Cross on the first item opens the other page; a show asks; an answer plays.
+            if (event.is(OPENRAC_UI_CHOOSE) && event.item() == 0) {
+                CHECK(page.open());
+            } else if (event.is(OPENRAC_UI_SHOW)) {
+                CHECK(page.confirm("Sure?", 9));
+            } else if (event.is(OPENRAC_UI_ANSWER)) {
+                CHECK(page.sound(OPENRAC_UI_SOUND_SELECT));
+                CHECK(page.back());
+            }
+        },
+        OPENRAC_UI_OWN_BACK
+    );
+    CHECK(home.id() == 0 && g_ui_pages.size() == 1 && g_ui_pages[0].flags == OPENRAC_UI_OWN_BACK);
+    mod.ui_main_item(OPENRAC_UI_LOAD_GAME, "Multiplayer", home);
+    CHECK(g_ui_main == "load_game:Multiplayer:0");
+
+    openrac::UiContent content;
+    content.title = "Home";
+    content.items = {
+        openrac::UiItem::button("Find"),
+        openrac::UiItem::button("Later", false),
+        openrac::UiItem::text("Name"),
+        openrac::UiItem::choice_of("Code", {"A", "B", "C"}, 1),
+    };
+    content.footer = {"Connected"};
+    home.set(content);
+    CHECK(g_ui_pages[0].shown == "Home|0:0:Find|0:1:Later|2:0:Name|1:0:Code=B/3|Connected");
+    CHECK(home.cursor() == 2 && home.set_cursor(3) == 3);
+
+    openrac_ui_event e{};
+    e.size = sizeof e;
+    e.kind = OPENRAC_UI_CHOOSE;
+    e.item = 0;
+    g_ui_pages[0].fn(g_ui_pages[0].user, 0, &e);
+    e.kind = OPENRAC_UI_SHOW;
+    e.item = -1;
+    g_ui_pages[0].fn(g_ui_pages[0].user, 0, &e);
+    e.kind = OPENRAC_UI_ANSWER;
+    e.value = 1;
+    e.tag = 9;
+    g_ui_pages[0].fn(g_ui_pages[0].user, 0, &e);
+    CHECK(seen.size() == 3 && seen[0] == "0:2:0:0" && seen[2] == "0:5:-1:1");
+    CHECK(g_ui_asked.size() == 4 && g_ui_asked[0] == "open 0" && g_ui_asked[1] == "confirm 0 Sure? 9"
+          && g_ui_asked[2] == "sound 0" && g_ui_asked[3] == "open -1");
+    throw_next = true;
+    g_ui_pages[0].fn(g_ui_pages[0].user, 0, &e);
+    CHECK(!g_log.empty() && g_log.back().find("page broke") != std::string::npos);
+
+    // A second page fits, a third does not: refused, with the layer's words.
+    mod.ui_page([](const openrac::UiPage&, const openrac::UiEvent&) {});
+    bool refused = false;
+    try {
+        mod.ui_page([](const openrac::UiPage&, const openrac::UiEvent&) {});
+    } catch (const openrac::Error& error) {
+        refused = std::string(error.what()) == "ui_page: refused (too many pages)";
+    }
+    CHECK(refused);
+    refused = false;
+    try {
+        mod.ui_main_item(OPENRAC_UI_OPTIONS, "Elsewhere", home);
+    } catch (const openrac::Error&) {
+        refused = true;
+    }
+    CHECK(refused);
+
+    openrac_api old = api;  // a port of 1.6: the table ends before the pages
+    old.api_minor = 6;
+    old.size = static_cast<uint32_t>(offsetof(openrac_api, ui_page));
+    openrac::Mod before(&old, nullptr);
+    CHECK(!before.has_ui());
+    refused = false;
+    try {
+        before.ui_page([](const openrac::UiPage&, const openrac::UiEvent&) {});
+    } catch (const openrac::Error& error) {
+        refused = std::string(error.what()) == "ui_page: requires interface 1.7";
+    }
+    CHECK(refused);
+}
+
 // Checks the tick boundary and the snapshot calls (1.6): the callback given to the port and run with
 // the tick, a save inside it, a refused load thrown, an exception logged, and a 1.5 port.
 void check_savestates(openrac::Mod& mod, const openrac_api& api) {
@@ -768,6 +936,7 @@ int main() {
     check_views(mod, api);
     check_menu(mod, api);
     check_savestates(mod, api);
+    check_ui(mod, api);
     check_refused_loads(api, handle);
     check_reload(api, handle);
 

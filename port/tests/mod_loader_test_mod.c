@@ -14,7 +14,13 @@
  * (refused): Test_Record gets 1100 + that refusal (interface 1.5). With "savestate" it takes the
  * tick boundary and, in it, reports the tick (3000 + it), the snapshot's size (3100 + it) and a
  * refused save and load (3200 and 3300 + the refusal), and asks for the boundary after load
- * (refused: 1200 + that) and a save outside it (refused: 1300 + that) (interface 1.6). It reports the interface it is built for
+ * (refused: 1200 + that) and a save outside it (refused: 1300 + that) (interface 1.6). With
+ * "game_ui" it makes two pages of the game's own menus (the second asking before going back), puts
+ * the first in the main menu after Load Game with a button, a line and a choice on it, and reports
+ * each event (5000 + 100 * page + 10 * kind + item + 1); Cross on the first item opens the second
+ * page, which asks a question when it shows and plays a sound, and an answer is 6000 + 10 * yes +
+ * the tag; a page and an item after load are refused (1400 and 1500 + that) (interface 1.7). It
+ * reports the interface it is built for
  * (OPENRAC_MOD_TARGET_MINOR): test-old is built for 1.5. */
 #include <stddef.h>
 
@@ -35,6 +41,8 @@ static int s_views;
 static int s_ended;
 static int s_menu;
 static int s_savestate;
+static int s_ui;
+static int s_ui_second = -1;
 
 /* The menu page: a white rectangle and "HELLO" each frame; Cross closes it. */
 static int menu_page(void* user, const openrac_menu_frame* frame) {
@@ -44,6 +52,21 @@ static int menu_page(void* user, const openrac_menu_frame* frame) {
         s_mod, 1, 2, 3, OPENRAC_RGBA(255, 0, 0, 255), frame->opened ? "HELLO" : "AGAIN"
     );
     return (frame->pressed & OPENRAC_PAD_CROSS) != 0 ? OPENRAC_MENU_CLOSE : OPENRAC_MENU_STAY;
+}
+
+/* The pages of the game's own menus: each event reported; the first page's first item opens the
+ * second, which asks when it shows. */
+static void ui_page(void* user, int page, const openrac_ui_event* event) {
+    (void)user;
+    s_record(5000 + 100 * page + 10 * (int)event->kind + event->item + 1);
+    if (event->kind == OPENRAC_UI_CHOOSE && event->item == 0) {
+        s_record(5900 + -s_api->ui_open(s_mod, s_ui_second));
+    } else if (event->kind == OPENRAC_UI_SHOW && page == s_ui_second) {
+        s_api->ui_confirm(s_mod, page, "Leave the party?", 7);
+        s_api->ui_sound(s_mod, OPENRAC_UI_SOUND_SELECT);
+    } else if (event->kind == OPENRAC_UI_ANSWER) {
+        s_record(6000 + 10 * event->value + (int)event->tag);
+    }
 }
 
 OPENRAC_MOD_EXPORT void openrac_mod_query(openrac_mod_info* info) {
@@ -81,6 +104,11 @@ static void on_frame(void* user) {
             if (s_menu) {
                 s_record(1100 + -s_api->menu_entry(s_mod, "Late", menu_page, NULL));
                 s_api->menu_text(s_mod, 0, 0, 1, 0, "OUTSIDE");
+            }
+            /* Interface 1.7: a page and a main-menu item after load are refused. */
+            if (s_ui) {
+                s_record(1400 + -s_api->ui_page(s_mod, 0, ui_page, NULL));
+                s_record(1500 + -s_api->ui_main_item(s_mod, OPENRAC_UI_OPTIONS, "Late", 0));
             }
             /* Interface 1.6: the tick boundary after load is refused. */
             if (s_savestate) {
@@ -155,6 +183,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     s_ended = 0;
     s_menu = 0;
     s_savestate = 0;
+    s_ui = 0;
     s_tag = (int)api->setting_int(mod, "tag");
     s_record = (void (*)(int))api->function("Test_Record");
     const char* behaviour = api->setting_string(mod, "behaviour");
@@ -213,6 +242,37 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->on_tick_boundary(mod, NULL, NULL) == OPENRAC_HOOK_OK
             || api->on_tick_boundary(mod, on_tick_boundary, NULL) != OPENRAC_HOOK_OK) {
             return 10;
+        }
+    }
+    if (behaviour[0] == 'g') { /* game_ui */
+        static const char* const letters[] = {"A", "B", "C"};
+        const openrac_ui_item items[] = {
+            {OPENRAC_UI_BUTTON, 0, "Find match", NULL, 0, 0},
+            {OPENRAC_UI_TEXT, 0, "Player: Ratchet", NULL, 0, 0},
+            {OPENRAC_UI_CHOICE, 0, "Code", letters, 3, 2},
+            {OPENRAC_UI_CHOICE, 0, "Nothing to choose", NULL, 0, 0},
+        };
+        const char* const footer[] = {"Connected"};
+        const openrac_ui_content content = {sizeof content, "Multiplayer", items, 4, footer, 1};
+        int home;
+        s_ui = 1;
+        if (api->api_minor < 7 || s_record == NULL) {
+            return 11;
+        }
+        home = api->ui_page(mod, 0, ui_page, NULL);
+        s_ui_second = api->ui_page(mod, OPENRAC_UI_OWN_BACK, ui_page, NULL);
+        /* A page without a callback; an item after an unknown one, without a label, or of no page
+         * of the mod's; a page shown while none is on the screen: refused. */
+        if (home != 0 || s_ui_second != 1
+            || api->ui_page(mod, 0, NULL, NULL) != OPENRAC_HOOK_UNKNOWN
+            || api->ui_main_item(mod, "quit", "X", home) != OPENRAC_HOOK_UNKNOWN
+            || api->ui_main_item(mod, OPENRAC_UI_LOAD_GAME, "", home) != OPENRAC_HOOK_UNKNOWN
+            || api->ui_main_item(mod, OPENRAC_UI_LOAD_GAME, "X", 9) != OPENRAC_HOOK_UNKNOWN
+            || api->ui_open(mod, s_ui_second) != OPENRAC_HOOK_UNKNOWN
+            || api->ui_main_item(mod, OPENRAC_UI_LOAD_GAME, "Multiplayer", home) != OPENRAC_HOOK_OK
+            || api->ui_set(mod, home, &content) != OPENRAC_HOOK_OK
+            || api->ui_set(mod, 5, &content) != OPENRAC_HOOK_UNKNOWN) {
+            return 12;
         }
     }
     if (api->hook(mod, "Test_Add", "i32(i32)", (void*)add, (void**)&s_add) != OPENRAC_HOOK_OK) {
