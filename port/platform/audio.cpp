@@ -73,7 +73,10 @@ bool AudioOutput::watch(std::string& error) {
 }
 
 AudioOutput::~AudioOutput() {
-    if (m_stream != nullptr) {
+    // After SDL_Quit (or SDL_QuitSubSystem) the stream is already gone with the audio
+    // subsystem: destroying it again touches SDL's freed state and faults. That is what an exit
+    // handler or static owner outliving the Platform sees, so leave the stream alone then.
+    if (m_stream != nullptr && (SDL_WasInit(SDL_INIT_AUDIO) & SDL_INIT_AUDIO) != 0) {
         SDL_DestroyAudioStream(m_stream);
     }
 }
