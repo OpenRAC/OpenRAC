@@ -514,6 +514,11 @@ impl Action {
             let game = ctx.version.map(|v| v.game.as_str());
             env.push((crate::theme::ENV.to_string(), crate::theme::ui_colors(&ctx.config.theme, game, ctx.platform)));
         }
+        // Settings, "Multiplayer name": the name online mods show the other players
+        // (multiplayer.rs); one that is not valid is left out, and the mod uses its own.
+        if self.kind == Kind::Play && crate::multiplayer::is_valid(&ctx.config.multiplayer_name) {
+            env.push((crate::multiplayer::ENV.to_string(), ctx.config.multiplayer_name.clone()));
+        }
         // Settings, "Detailed game logs": the port's verbose log (port/common/log.h).
         if self.kind == Kind::Play && ctx.config.detailed_game_log {
             env.push(("OPENRAC_LOG".to_string(), "verbose".to_string()));
@@ -808,6 +813,17 @@ mod tests {
         let detailed = Config { detailed_game_log: true, ..installed.clone() };
         let plan = play.plan(&ctx(&detailed)).unwrap();
         assert!(plan.env.contains(&("OPENRAC_LOG".to_string(), "verbose".to_string())), "{:?}", plan.env);
+        // Settings, "Multiplayer name": given to the game when valid, left out when not.
+        assert!(!plan.env.iter().any(|(k, _)| k == "OPENRAC_PLAYER_NAME"));
+        let named = Config { multiplayer_name: "Brave_Lombax42".into(), ..installed.clone() };
+        let plan = play.plan(&ctx(&named)).unwrap();
+        assert!(
+            plan.env.contains(&("OPENRAC_PLAYER_NAME".to_string(), "Brave_Lombax42".to_string())),
+            "{:?}",
+            plan.env
+        );
+        let unnamed = Config { multiplayer_name: "no spaces".into(), ..installed.clone() };
+        assert!(!play.plan(&ctx(&unnamed)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_PLAYER_NAME"));
         // Settings, "Renderer": Vulkan on the desktops; OpenGL, the default, sets nothing.
         assert!(!plan.env.iter().any(|(k, _)| k == "OPENRAC_GL_API"));
         let vulkan = Config { renderer: "vulkan".into(), ..installed.clone() };

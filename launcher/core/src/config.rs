@@ -75,6 +75,10 @@ pub struct Config {
     /// game's page plays (`rac1` -> `rac1/ntsc`). Used only with developer tools on
     /// (disc_choice.rs); without one, the disc set up, as for a player.
     pub disc_choice: BTreeMap<String, String>,
+    /// The name online mods show the other players (multiplayer.rs): 3 to 16 letters, digits and
+    /// underscores, made up at the first start and changed in Settings. Given to the game as
+    /// `OPENRAC_PLAYER_NAME`.
+    pub multiplayer_name: String,
     /// Where the launcher keeps its own copy of the figures it fetched from bytematch.dev: in
     /// the per-user folder beside its settings, which the launcher can always write (a
     /// checkout it does not own, as an installed launcher carries one, is read-only).
@@ -108,6 +112,7 @@ impl Default for Config {
             play_with_mods: false,
             crashes_seen: BTreeMap::new(),
             disc_choice: BTreeMap::new(),
+            multiplayer_name: String::new(),
             progress_cache: None,
         }
     }

@@ -24,6 +24,7 @@
 //! - [`overrides`]: a game's overrides packs (replacement textures and models): list, order, on/off.
 //! - [`plugins`]: a game's native mods (docs/port/MODS.md): install, list, order, on/off, settings.
 //! - [`library`]: all of the above, put together for the UI.
+//! - [`multiplayer`]: the player's name for online mods, and the variable the game gets it in.
 //! - [`progress_sync`]: the decompilations' latest progress from bytematch.dev, kept for offline starts.
 //! - [`reports`]: a game's session logs and crash reports, the text and the .zip players send.
 //! - [`launcher_log`]: the launcher's own log, which goes in that .zip.
@@ -47,6 +48,7 @@ pub mod install;
 pub mod jobs;
 pub mod launcher_log;
 pub mod library;
+pub mod multiplayer;
 pub mod overrides;
 pub mod pcsx2_card;
 pub mod plugins;

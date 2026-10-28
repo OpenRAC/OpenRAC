@@ -540,6 +540,16 @@ Play passes nothing more: the port reads `plugins.json` from the data folder
 it is given. The Rust side is `core/src/plugins.rs`, with tests on mods made
 in a temporary folder.
 
+**The player's multiplayer name.** Settings, General, has a **Multiplayer
+name**: 3 to 16 letters, digits and underscores, made up at the launcher's
+first start (an adjective, a noun and 2 or 3 digits: `SwiftLombax427`) and
+changed there. It is the launcher's, not a mod's setting, since every online
+mod shows the same one. Play starts the game with it in the environment as
+`OPENRAC_PLAYER_NAME` (only a valid one: otherwise it is left out), and a
+native mod reads it with `getenv` (rac1-mods' `multiplayer` does, with a
+name of its own when there is none). The port itself does not read it. The
+Rust side is `core/src/multiplayer.rs`.
+
 Above the installed mods, Ratchet & Clank's panel has one **built-in** entry,
 **Enhanced graphics** (experimental): not a mod in `plugins/`, but the port's
 own enhanced renderer (port/enhanced), shown with a mod's row and page. Its

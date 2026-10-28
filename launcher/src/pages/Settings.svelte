@@ -20,6 +20,7 @@
   } from "$lib/api";
   import { app, guardShown, lookForUpdate, saveConfig } from "$lib/app.svelte";
   import { DISCORD_URL, PYTHON_URL, REPO_URL, SITE_URL } from "$lib/links";
+  import { nameProblem } from "$lib/multiplayerName";
   import { applyPalette, PALETTES } from "$lib/palettes";
   import { devBranches } from "$lib/updates";
   import { tablist } from "$lib/tabs";
@@ -52,6 +53,7 @@
     "saveEditorAdvanced",
     "developer",
     "discordClientId",
+    "multiplayerName",
   ] as const satisfies (keyof Config)[];
   type Edited = Pick<Config, (typeof EDITED)[number]>;
 
@@ -146,13 +148,15 @@
   });
 
   const changed = $derived(!!app.config && JSON.stringify(edited(draft)) !== JSON.stringify(edited(app.config)));
+  /** What is wrong with the multiplayer name typed, if anything: nothing is saved until it is right. */
+  const nameError = $derived(nameProblem(draft.multiplayerName));
 
   /** Android saves a change by itself, a moment after it is made (a field being typed in is
    *  saved once the typing stops), with no bar to press: a switch flipped is a setting changed.
    *  A change that could not be written is not tried again until it changes again. */
   let unwritten = $state<string | null>(null);
   $effect(() => {
-    if (!onAndroid || setup || !changed || saving) return;
+    if (!onAndroid || setup || !changed || saving || nameError) return;
     const now = JSON.stringify(edited(draft));
     if (now === unwritten) return;
     const timer = setTimeout(() => {
@@ -423,6 +427,24 @@
           <input type="checkbox" role="switch" class="switch" bind:checked={draft.discordRpc} />
         </label>
       {/if}
+      <!-- The name online mods show the other players; the game gets it as OPENRAC_PLAYER_NAME. -->
+      <div class="field">
+        <label for="multiplayer-name">Multiplayer name</label>
+        <input
+          id="multiplayer-name"
+          type="text"
+          class="mono"
+          autocomplete="off"
+          spellcheck="false"
+          maxlength="16"
+          aria-invalid={!!nameError}
+          aria-describedby="multiplayer-name-note"
+          bind:value={draft.multiplayerName}
+        />
+        <p id="multiplayer-name-note" class="dim note">
+          {nameError ?? "What other players see in online mods. 3 to 16 letters, digits and underscores."}
+        </p>
+      </div>
     </section>
 
     <section class="panel">
@@ -652,7 +674,7 @@
   <div class="save-bar" role="status">
     <span class="grow">You have unsaved changes.</span>
     <button disabled={saving} onclick={() => (draft = saved())}>Discard</button>
-    <button class="primary" disabled={saving} onclick={() => void save(false)}>Save</button>
+    <button class="primary" disabled={saving || !!nameError} onclick={() => void save(false)}>Save</button>
   </div>
 {/if}
 
