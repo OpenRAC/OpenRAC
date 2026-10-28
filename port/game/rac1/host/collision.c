@@ -1767,6 +1767,12 @@ static void trace(int kind, int hit) {
 /* Developer tools: a query that starts near the watched point (collision_notes.h) is noted. */
 static OpenracCollWatch g_watch;
 
+/* Whether a recording watches the queries; hands the watch to the profile first, which turns it on. */
+static inline int watching(void) {
+    openrac_game_diagnostics = &g_watch;
+    return g_watch.rr > 0.0f;
+}
+
 static void note(
     uint32_t entry,
     const Ctx* x,
@@ -1778,10 +1784,6 @@ static void note(
     int r
 ) {
     OpenracCollWatch* w = &g_watch;
-    openrac_game_diagnostics = w;
-    if (w->rr <= 0.0f) {
-        return;
-    }
     w->calls++;
     w->hits += r != 0;
     const float dx = a[0] - w->point[0], dy = a[1] - w->point[1], dz = a[2] - w->point[2];
@@ -1804,6 +1806,9 @@ static void note(
 static void note_line(
     uint32_t entry, const Ctx* x, gaddr pa, gaddr pb, int fl, int ignore, int tmpl, int r
 ) {
+    if (!watching()) {
+        return;
+    }
     float a[3], b[3];
     memcpy(a, G(pa), sizeof a);
     memcpy(b, G(pb), sizeof b);
@@ -1820,6 +1825,9 @@ static void note_volume(
     gaddr ignore,
     int r
 ) {
+    if (!watching()) {
+        return;
+    }
     float a[3];
     const float b[3] = {radius, height, 0.0f};
     memcpy(a, G(centre), sizeof a);
