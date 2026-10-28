@@ -92,5 +92,15 @@ int main() {
     std::uint32_t last[16] = {};
     entries_with_video(game, 7, 7, last);
     CHECK(last[12] == 0x1383 && last[13] == 6 && last[14] == 0 && last[15] == 0);
+    // And the port's Exit after Quit Game: one more empty entry, the game's all where they were.
+    std::uint32_t exit[18];
+    for (std::uint32_t& w : exit) {
+        w = 0xFFFFFFFFu;
+    }
+    entries_with_video(game, 7, 4, exit, 1);
+    for (int i = 0; i < 16; ++i) {
+        CHECK(exit[i] == want[i]);
+    }
+    CHECK(exit[16] == 0 && exit[17] == 0);
     return openrac::test::result();
 }

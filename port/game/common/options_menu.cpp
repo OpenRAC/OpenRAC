@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "common/log.h"
+#include "exit_menu.h"
 #include "fixes.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
@@ -157,6 +158,8 @@ constexpr Words kAnisotropic = {{"Anisotropic ", "Anisotrope ", "Anisotrop ", "A
 constexpr Words kNotConnected =
     {{" (not connected)", " (non connecté)", " (nicht verbunden)", " (no conectado)", " (non collegato)"}};
 
+}  // namespace
+
 // The game's language as an index into Words (its word: 0 or 1 English, 2 French, 3 German,
 // 4 Spanish, 5 Italian); English for a game without one.
 int language() {
@@ -172,6 +175,8 @@ int language() {
         default: return 0;
     }
 }
+
+namespace {
 
 // An English text of the page in the game's language.
 std::string translated(const std::string& text, int lang) {
@@ -648,7 +653,14 @@ std::uint32_t text(int id) {
  * copy of the Options list's items after Sound, put in the list each time the game gives it its own,
  * as on the title's Options page, and the hint box's texts and the picture box's entries get one for
  * Video too (both are read by the list's index). Made again for each level program (each has its own
- * menu data). */
+ * menu data).
+ *
+ * The port's Exit item (exit_menu.h) goes at the end, after Quit Game, an item the game ignores
+ * (action 0x7F), with a hint of its own and an empty picture entry (the stream keeps Quit Game's
+ * picture). Cross on it asks in place: the list's items become Yes and No (the cursor on No), the
+ * hint box says what is lost, the pictures stay. Cross on Yes closes the game, on No gives the list
+ * its items back with the cursor on Exit; Triangle leaves the page as the game's back does, and the
+ * items come back with the page. */
 namespace pause_page {
 
 constexpr std::int16_t kSoundText = 20258;   // the Options items' "Sound" and "Camera"
@@ -665,6 +677,14 @@ struct Made {
     gaddr hints_for = 0, hints = 0;  // the Options hint box's texts by item, with Video's
     gaddr pictures_for = 0, pictures = 0;  // the Options picture stream's entries by item, with Video's
     int top = 0;
+    // Exit: its place in the items; the question's items, hints and (empty) pictures; the Options
+    // page's list and the screens whose tables the question swapped; whether it is asking, and
+    // whether Cross was let go since the page settled (a press then is the player's).
+    int exit_at = -1;
+    gaddr ask_items = 0, ask_hints = 0, ask_pictures = 0;
+    gaddr asked_list = 0, hint_screen = 0, stream_screen = 0;
+    bool asking = false;
+    bool armed = false;
 };
 Made m;
 
@@ -710,6 +730,15 @@ gaddr hint_screen(gaddr options_page, int count) {
 }
 
 // ---- Menu construction ----
+
+// An item the game draws and does nothing on (action 0x7F): the port acts on Cross on it.
+void put_item(gaddr at, int label) {
+    GREF(std::int16_t, at) = static_cast<std::int16_t>(label);
+    GREF(std::int16_t, at + 2) = 0x7F;
+    GREF(std::uint32_t, at + 4) = 0;
+    GREF(std::int16_t, at + 8) = 0;
+    GREF(std::int16_t, at + 10) = 0;
+}
 
 void make(gaddr items) {
     gaddr camera = 0, sound = 0;
@@ -770,16 +799,32 @@ void make(gaddr items) {
     // The items: the game's, and Video after Sound (before Camera when there is no Sound).
     const gaddr after = sound != 0 ? sound : camera - page::kItemBytes;
     const int before = static_cast<int>((after - items) / page::kItemBytes) + 1;
-    m.items = openrac_guest_static(page::kItemBytes * static_cast<gaddr>(count + 2));
+    m.items = openrac_guest_static(page::kItemBytes * static_cast<gaddr>(count + 3));
     std::memcpy(G(m.items), G(items), page::kItemBytes * static_cast<gaddr>(before));
     const gaddr video = m.items + page::kItemBytes * static_cast<gaddr>(before);
     std::memcpy(G(video), G(camera), page::kItemBytes);
     GREF(std::int16_t, video) = page::kTextVideo;
     GREF(std::uint32_t, video + 4) = m.page;
     std::memcpy(G(video + page::kItemBytes), G(items + page::kItemBytes * static_cast<gaddr>(before)),
-                page::kItemBytes * static_cast<gaddr>(count - before + 1));  // with the end item
+                page::kItemBytes * static_cast<gaddr>(count - before));
+    // Exit after the game's last (Quit Game), then the end item.
+    m.exit_at = count + 1;
+    const gaddr exit = m.items + page::kItemBytes * static_cast<gaddr>(m.exit_at);
+    put_item(exit, exit_menu::text_id(exit_menu::kExit));
+    std::memset(G(exit + page::kItemBytes), 0, page::kItemBytes);
+    // The question: Yes and No, its hint for both, an empty picture entry for both.
+    m.ask_items = openrac_guest_static(page::kItemBytes * 3);
+    std::memset(G(m.ask_items), 0, page::kItemBytes * 3);
+    put_item(m.ask_items, exit_menu::text_id(exit_menu::kYes));
+    put_item(m.ask_items + page::kItemBytes, exit_menu::text_id(exit_menu::kNo));
+    m.ask_hints = openrac_guest_static(4 * 3);
+    GREF(std::int32_t, m.ask_hints) = exit_menu::text_id(exit_menu::kAskHint);
+    GREF(std::int32_t, m.ask_hints + 4) = exit_menu::text_id(exit_menu::kAskHint);
+    GREF(std::int32_t, m.ask_hints + 8) = 0;
+    m.ask_pictures = openrac_guest_static(pause_options::kStreamEntryBytes * 2);
+    std::memset(G(m.ask_pictures), 0, pause_options::kStreamEntryBytes * 2);
+    exit_menu::text(exit_menu::text_id(exit_menu::kExit));  // the texts' room made now, not in the game's lookup
     m.top = 0;
-    (void)count;
 }
 
 // ---- Menu navigation ----
@@ -792,16 +837,23 @@ void hints(gaddr options_page, gaddr game_items) {
     if (screen == 0) {
         return;
     }
+    m.hint_screen = screen;
     const gaddr list = GREF(std::uint32_t, screen + 0x34);
+    if (list == m.hints || list == m.ask_hints) {
+        GREF(std::uint32_t, screen + 0x34) = m.hints;  // ours already (a question's left from before)
+        return;
+    }
     if (m.hints_for != list) {
         const gaddr after = sound != 0 ? sound : camera - page::kItemBytes;
         const int before = static_cast<int>((after - game_items) / page::kItemBytes) + 1;
         m.hints_for = list;
-        m.hints = openrac_guest_static(4 * static_cast<gaddr>(count + 2));
+        m.hints = openrac_guest_static(4 * static_cast<gaddr>(count + 3));
         std::memcpy(G(m.hints), G(list), 4 * static_cast<gaddr>(before));
         GREF(std::int32_t, m.hints + 4 * static_cast<gaddr>(before)) = page::kTextVideo + 2;
         std::memcpy(G(m.hints + 4 * static_cast<gaddr>(before + 1)), G(list + 4 * static_cast<gaddr>(before)),
-                    4 * static_cast<gaddr>(count - before + 1));
+                    4 * static_cast<gaddr>(count - before));
+        GREF(std::int32_t, m.hints + 4 * static_cast<gaddr>(count + 1)) = exit_menu::text_id(exit_menu::kExitHint);
+        GREF(std::int32_t, m.hints + 4 * static_cast<gaddr>(count + 2)) = 0;
     }
     GREF(std::uint32_t, screen + 0x34) = m.hints;
 }
@@ -816,19 +868,88 @@ void pictures(gaddr options_page, gaddr list, gaddr game_items) {
     if (screen == 0) {
         return;
     }
+    m.stream_screen = screen;
     const gaddr entries = GREF(std::uint32_t, screen + pause_options::kStreamEntries);
     if (m.pictures_for != entries) {
         const gaddr after = sound != 0 ? sound : camera - page::kItemBytes;
         const int before = static_cast<int>((after - game_items) / page::kItemBytes) + 1;
         m.pictures_for = entries;
-        m.pictures = openrac_guest_static(pause_options::kStreamEntryBytes * static_cast<gaddr>(count + 1));
+        m.pictures = openrac_guest_static(pause_options::kStreamEntryBytes * static_cast<gaddr>(count + 2));
         pause_options::entries_with_video(static_cast<const std::uint32_t*>(G(entries)), count, before,
-                                          static_cast<std::uint32_t*>(G(m.pictures)));
+                                          static_cast<std::uint32_t*>(G(m.pictures)), 1);  // and Exit's
     }
     GREF(std::uint32_t, screen + pause_options::kStreamEntries) = m.pictures;
 }
 
-bool update(gaddr page_menu, gaddr pad) {
+// ---- Exit ----
+
+// The question in the Options list's place: Yes and No, the cursor on No, its hint, no new picture.
+void ask(gaddr list) {
+    m.asking = true;
+    m.asked_list = list;
+    GREF(std::uint32_t, list + 0x34) = m.ask_items;
+    GREF(std::int32_t, list + 0x40) = 1;
+    if (m.hint_screen != 0) {
+        GREF(std::uint32_t, m.hint_screen + 0x34) = m.ask_hints;
+    }
+    if (m.stream_screen != 0) {
+        GREF(std::uint32_t, m.stream_screen + pause_options::kStreamEntries) = m.ask_pictures;
+    }
+}
+
+// The question gone: the list's items, hints and pictures back, the cursor on Exit.
+void stop_asking() {
+    if (!m.asking) {
+        return;
+    }
+    m.asking = false;
+    if (GREF(std::uint32_t, m.asked_list + 0x34) == m.ask_items) {
+        GREF(std::uint32_t, m.asked_list + 0x34) = m.items;
+        GREF(std::int32_t, m.asked_list + 0x40) = m.exit_at;
+    }
+    if (m.hint_screen != 0 && GREF(std::uint32_t, m.hint_screen + 0x34) == m.ask_hints) {
+        GREF(std::uint32_t, m.hint_screen + 0x34) = m.hints;
+    }
+    if (m.stream_screen != 0
+        && GREF(std::uint32_t, m.stream_screen + pause_options::kStreamEntries) == m.ask_pictures) {
+        GREF(std::uint32_t, m.stream_screen + pause_options::kStreamEntries) = m.pictures;
+    }
+}
+
+// Cross on the Options page settled with its list in hand: on Exit it asks; on Yes the game closes,
+// on No the list is back. The list's cursor at +0x40 (a text list's, pause_options.h).
+void exit_input(const openrac_front_end& fe, gaddr page_menu, gaddr options_page, gaddr list) {
+    const gaddr items = GREF(std::uint32_t, list + 0x34);
+    if ((items != m.items && items != m.ask_items) || m.exit_at < 0
+        || GREF(std::int32_t, page_menu) == 1 || GREF(std::uint32_t, options_page + 0x40) != list) {
+        m.armed = false;
+        return;
+    }
+    if ((GREF(std::uint32_t, fe.pad + 0x1C4) & 0x40) == 0) {
+        m.armed = true;
+        return;
+    }
+    if (!m.armed) {
+        return;
+    }
+    m.armed = false;
+    const std::int32_t cursor = GREF(std::int32_t, list + 0x40);
+    if (items == m.items && cursor != m.exit_at) {
+        return;
+    }
+    if (fe.menu_sound != nullptr) {
+        fe.menu_sound(0x11, GREF(std::uint32_t, list + 0x14));
+    }
+    if (items == m.items) {
+        ask(list);
+    } else if (cursor == 0) {
+        exit_menu::quit("the pause menu");
+    } else {
+        stop_asking();
+    }
+}
+
+bool update(const openrac_front_end& fe, gaddr page_menu) {
     const gaddr shown = GREF(std::uint32_t, page_menu + 4);
     if (shown == 0) {
         return false;
@@ -839,6 +960,7 @@ bool update(gaddr page_menu, gaddr pad) {
         // its items.
         const gaddr list = pause_options::options_list([](gaddr at) { return GREF(std::uint32_t, at); }, shown);
         if (list == 0) {
+            stop_asking();  // another page: the Options page has its items back for next time
             return false;
         }
         const gaddr items = GREF(std::uint32_t, list + 0x34);
@@ -847,11 +969,14 @@ bool update(gaddr page_menu, gaddr pad) {
             if (m.items_for != items) {
                 make(items);
                 m.hints_for = 0;
+            } else {
+                stop_asking();  // the game gave the list its own again: the page was entered anew
             }
             hints(shown, items);
             pictures(shown, list, items);
             GREF(std::uint32_t, list + 0x34) = m.items;
         }
+        exit_input(fe, page_menu, shown, list);
         return false;
     }
     // The port's Video page.
@@ -868,7 +993,7 @@ bool update(gaddr page_menu, gaddr pad) {
     std::int32_t& cursor = GREF(std::int32_t, m.list + 0x38);
     cursor = std::clamp(cursor, 0, kShownHere - 1);
     // Left and Right step the setting too (the widget itself steps on Cross).
-    const std::uint32_t pressed = GREF(std::uint32_t, pad + 0x1C4);
+    const std::uint32_t pressed = GREF(std::uint32_t, fe.pad + 0x1C4);
     if ((pressed & (page::kPadLeft | page::kPadRight)) != 0) {
         step_value(m.top + cursor, (pressed & page::kPadRight) != 0 ? 1 : -1);
         changed = true;
@@ -941,7 +1066,7 @@ bool update(int loaded_overlay) {
     }
     if (loaded_overlay != OPENRAC_OVERLAY_EXE) {
         // In a level: the pause menu's own Options page, on the level program's menu data.
-        return loaded_overlay >= 0 && pause_page::update(OPENRAC_DATA(fe->page_menu), fe->pad);
+        return loaded_overlay >= 0 && pause_page::update(*fe, OPENRAC_DATA(fe->page_menu));
     }
     return page::update(*fe);
 }

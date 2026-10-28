@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "common/log.h"
+#include "exit_menu.h"
 #include "menu_fit.h"
 #include "mods.h"
 #include "openrac/game_host.h"
@@ -89,7 +90,8 @@ constexpr int kTitleSlot = 2;
 constexpr int kListSlot = 3;
 constexpr int kFooterSlot = 4;
 
-// The main menu's rows: the slot each is drawn in and its seq. The game's own are the first three.
+// The main menu's rows: the slot each is drawn in and its seq. The game's own are the first three,
+// then the mods' and the port's Exit (exit_menu.h), last.
 constexpr std::array<int, 5> kRowSlots = {2, 3, 4, 5, 7};
 constexpr std::array<std::int32_t, 5> kRowSeqs = {16, 17, 18, 19, 20};
 constexpr int kGameRows = 3;
@@ -237,7 +239,8 @@ struct State {
     gaddr question = 0;
     bool patched = false;                         // the main menu has the mods' rows
     std::array<gaddr, kGameRows> game_widgets{};  // the game's items' widgets, by row
-    int extra_rows = 0;
+    gaddr exit_widget = 0, exit_item = 0;         // the port's Exit row
+    int extra_rows = 0;                           // the rows under the game's: the mods' and Exit
     int second = -1;                  // the mod page the second level shows
     int game = -1;                    // the game page on the screen (pages' index), or -1
     int shown = -1;                   // the mod page on the screen, or -1
@@ -408,7 +411,9 @@ bool main_menu_is_the_games(gaddr page) {
 }
 
 // The main menu with the mods' rows: each after the game's item it names (in the order added),
-// every widget in its row's slot, the cursor going round them in order.
+// then the port's Exit (a copy of the Options item opening its question, exit_menu.h) where a slot
+// is left (with two mods' rows there is none), every widget in its row's slot, the cursor going
+// round them in order.
 void patch_main(const openrac_front_end& fe) {
     if (s.patched) {
         return;
@@ -458,7 +463,18 @@ void patch_main(const openrac_front_end& fe) {
         rows.insert(at, s.main_widgets[index]);
     }
 
-    s.extra_rows = count;
+    if (rows.size() < kRowSlots.size()) {
+        s.exit_item = openrac_guest_static(kItemBytes * 2);
+        std::memset(G(s.exit_item), 0, kItemBytes * 2);
+        put_item(s.exit_item, exit_menu::text_id(exit_menu::kExit), kActionPage, exit_menu::title_page(fe));
+        s.exit_widget = copy_widget(options, kListBytes);
+        put_word(s.exit_widget + kListItems, s.exit_item);
+        rows.push_back(s.exit_widget);
+    } else {
+        log::warn("mod ui: the main menu's rows are the mods'; Exit is left out");
+    }
+
+    s.extra_rows = static_cast<int>(rows.size()) - kGameRows;
     const auto n = rows.size();
 
     for (std::size_t r = 0; r < n; ++r) {
@@ -469,7 +485,7 @@ void patch_main(const openrac_front_end& fe) {
         put_word(rows[r] + kListDown, rows[(r + 1) % n]);
     }
 
-    log::info("mod ui: {} item(s) in the main menu", count);
+    log::info("mod ui: {} item(s) in the main menu{}", count, s.exit_widget != 0 ? ", and Exit" : "");
 }
 
 // A page switch to or from the main menu: the rows below the game's fly in and out with its own.
@@ -1160,8 +1176,8 @@ void change_page(const openrac_front_end& fe, int game) {
 void update(int loaded_overlay) {
     const openrac_front_end* fe = front_end();
 
-    // Only the boot program's menus, with a mod's item in them.
-    if (fe == nullptr || loaded_overlay != OPENRAC_OVERLAY_EXE || mods::ui_main_item_count() == 0) {
+    // Only the boot program's menus (the main menu has the port's Exit even with no mod's item).
+    if (fe == nullptr || loaded_overlay != OPENRAC_OVERLAY_EXE) {
         if (fe != nullptr && s.shown >= 0) {
             change_page(*fe, -1);
         }
@@ -1180,6 +1196,7 @@ void update(int loaded_overlay) {
     build(*fe);
     patch_main(*fe);
     follow_switch(*fe);
+    exit_menu::update_title(*fe);
     // A page is on the screen once its switch is over.
     const bool settled = GREF(std::int32_t, fe->page_menu + kState) != kSwitching;
     const int game = settled ? game_page_of(word(fe->page_menu + kCurrent)) : -1;

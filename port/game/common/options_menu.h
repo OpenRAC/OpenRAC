@@ -57,6 +57,10 @@ bool update(int loaded_overlay);
 // while it has the game's.
 std::uint32_t options_items();
 
+// The game's language as an index into the port's texts: 0 English, 1 French, 2 German, 3 Spanish,
+// 4 Italian (the PAL disc's five); English for a game without one.
+int language();
+
 // UTF-8 as the game's text: ASCII as it is, the accented letters the game's font has at its own
 // codes, any other letter left out.
 std::string game_text(const std::string& utf8);
