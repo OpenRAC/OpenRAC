@@ -169,8 +169,8 @@ std::string drone_notes(
         for (std::uint32_t m = first; m < end; m += 0x100) {
             if (byte(m + 0x20) >= 0xFE) {
                 if (free < 24) {
-                    slots += std::format("{}[\"{:06X}\",{},{}]", free ? "," : "", m, byte(m + 0x20),
-                                         word(m + 0x38));
+                    slots += std::format("{}[\"{:06X}\",{},{},{}]", free ? "," : "", m, byte(m + 0x20),
+                                         word(m + 0x38), word(m + 0x3C));
                 }
                 ++free;
                 continue;
@@ -182,19 +182,22 @@ std::string drone_notes(
             }
         }
     }
-    out += std::format("],\"free_slots\":{},\"free\":[{}],\"clock\":[\"{:06X}\",{}]", free, slots,
-                       clock, word(clock));
+    out += std::format("],\"free_slots\":{},\"free\":[{}],\"clock\":[\"{:06X}\",{}],\"range\":[\"{:06X}\",\"{:06X}\"]",
+                       free, slots, clock, word(clock), first, end);
     // The last particle line query: its counts this tick, where it wrote CollOutput and where the
     // particle's C reads the hit normal, the particle, the result, the segment and CollOutput +0x18..
-    std::uint32_t note[26];
+    std::uint32_t note[38];
     openrac_rac1_coll_note(note);
     out += std::format(",\"coll\":{{\"calls\":{},\"hits\":{},\"out\":\"{:06X}\",\"normal_at\":\"{:06X}\","
                        "\"particle\":\"{:06X}\",\"result\":{},\"words\":\"",
                        note[0], note[1], note[2], note[3], note[4], note[5]);
-    for (int i = 6; i < 26; ++i) {
+    for (int i = 6; i < 38; ++i) {
         out += std::format("{}{:08X}", i > 6 ? " " : "", note[i]);
     }
-    out += std::format("\",\"at_normal\":\"{:08X} {:08X} {:08X}\",\"at_point\":\"{:08X} {:08X} {:08X}\"}}}}",
+    // The moby hit (CollOutput +0x18) and its class.
+    const std::uint32_t hit = note[12] & 0x01FFFFFFu;
+    out += std::format("\",\"hit_class\":{}", hit != 0 ? static_cast<std::int16_t>(word(hit + 0xA4) >> 16) : -1);
+    out += std::format(",\"at_normal\":\"{:08X} {:08X} {:08X}\",\"at_point\":\"{:08X} {:08X} {:08X}\"}}}}",
                        word(note[3]), word(note[3] + 4), word(note[3] + 8), word(note[3] - 0x20),
                        word(note[3] - 0x1C), word(note[3] - 0x18));
     return out;

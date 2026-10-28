@@ -1765,12 +1765,12 @@ static void trace(int kind, int hit) {
 static struct {
     uint32_t calls, hits, out, normal, ignore, result;
     uint32_t a[3], b[3];
-    uint32_t output[14]; /* CollOutput +0x18 .. +0x4F: moby, kind, point, triangle start, normal */
+    uint32_t output[26]; /* CollOutput +0x18 .. +0x7F: moby, kind, point, +0x30, normal, triangle */
 } g_note;
 
 int openrac_rac1_coll_note(uint32_t* words);
 
-/* Developer tools: copies the particle line query note (above) into words, 26 of them, and starts its counts again; returns 26. */
+/* Developer tools: copies the particle line query note (above) into words, 38 of them, and starts its counts again; returns 38. */
 int openrac_rac1_coll_note(uint32_t* words) {
     memcpy(words, &g_note, sizeof g_note);
     g_note.calls = g_note.hits = 0;
@@ -1809,10 +1809,10 @@ int func_L00_001EFFF0(gaddr a0, gaddr a1, int a2, int a3, int a4) {
     const Ctx* x = level_ctx();
     const int r = coll_line(x, a0, a1, (uint32_t)a2, (gaddr)a3, (gaddr)a4);
     trace(0, r);
-    /* Developer tools: the last line query of a particle's kind (flags 4, no template, something to
-     * ignore) for a diagnostics recording, with where it wrote and where level 0's coll_hit_normal is
-     * found in the loaded level (openrac_rac1_coll_note). */
-    if (a2 == 4 && a4 == 0 && a3 != 0) {
+    /* Developer tools: the last line query of a type 6 particle (flags 4, no template, the particle's
+     * record to ignore, its first byte its type) for a diagnostics recording, with where it wrote and
+     * where level 0's coll_hit_normal is found in the loaded level (openrac_rac1_coll_note). */
+    if (a2 == 4 && a4 == 0 && a3 != 0 && U8((gaddr)a3) == 6) {
         g_note.calls++;
         g_note.hits += r != 0;
         g_note.out = x->out;
