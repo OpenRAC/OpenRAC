@@ -593,7 +593,9 @@ def write_game_info(program: Program, out: Path, cfg: dict) -> None:
     lines.append("}")
     if not cfg.get("overlay_hook"):
         lines += ["", "/* The game has no overlay hook (hostgen.json): code addresses are the executable's. */",
-                  "int openrac_game_loaded_overlay(void) {", "    return OPENRAC_OVERLAY_EXE;", "}"]
+                  "int openrac_game_loaded_overlay(void) {", "    return OPENRAC_OVERLAY_EXE;", "}", "",
+                  "/* Nor a level to set back when a warm save-state is restored. */",
+                  "void openrac_game_restore_overlay(int overlay) {", "    (void)overlay;", "}"]
     _write(out / "game_info.c", "\n".join(lines) + "\n")
 
 

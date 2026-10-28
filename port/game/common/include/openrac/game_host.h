@@ -44,6 +44,11 @@ int openrac_game_run(void);
  * hostgen.json says the game provides it ("overlay_hook", in host/). */
 int openrac_game_loaded_overlay(void);
 
+/* Sets the level program back to `overlay` when a warm save-state is restored (mods.cpp). The game
+ * with "overlay_hook" provides it beside openrac_game_loaded_overlay; otherwise it is generated as
+ * doing nothing. */
+void openrac_game_restore_overlay(int overlay);
+
 /* Every function by code address (generated functions.c). */
 void openrac_game_register_functions(void);
 
@@ -368,8 +373,9 @@ gaddr openrac_game_text(int id);
  * AddDmacHandler): called by the replacements where the console would raise
  * the interrupt. */
 void openrac_game_run_vsync_handlers(void);
+/* After those handlers: the mods' tick boundary (openrac_api.on_tick_boundary), where a warm
+ * save-state may be taken or restored. */
 void openrac_game_tick_boundary(void);
-void openrac_game_restore_overlay(int overlay);
 void openrac_game_run_dmac_handlers(int channel);
 
 #ifdef __cplusplus
