@@ -114,6 +114,21 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual([need["path"] for need in check["needs"]], [levels["artifact"]])
         self.assertTrue(check["artifact"].endswith("openrac-rac1-ntsc.exe"))
 
+    def test_going_commando_plays_for_developers(self):
+        # Its Play is carried as it is (a developer's, with its warning), started in the data
+        # folder, waiting for the disc set up there; it reads no levels yet. Its build needs a checkout.
+        actions = {a["id"]: a for a in self.actions["versions"]["rac2/ntsc"]}
+        play = actions["play"]
+        self.assertTrue(play["developer"])
+        self.assertIn("development only", play["warning"])
+        self.assertEqual(play["args"], ["--data", "{data}", "--window"])
+        self.assertEqual(play["cwd"], "{data}")
+        self.assertEqual([n["path"] for n in play["needs"]], ["{data}/iso_data/rac2/buildinfo.json"])
+        self.assertTrue(play["artifact"].endswith("openrac-rac2-ntsc.exe"))
+        self.assertNotIn("todo", play)
+        self.assertNotIn("port-build", actions)
+        self.assertIn("openrac-rac2-ntsc", bundle.GAMES)
+
     def test_folders_and_arguments(self):
         self.assertEqual(bundle.levels_folder("rac1/pal"), "{data}/port/pal")
         self.assertEqual(bundle.levels_folder("rac1/ntsc"), "{data}/port/ntsc")
@@ -229,11 +244,14 @@ class Bundle(unittest.TestCase):
             # Elsewhere a game is one file (and a .pdb is left behind).
             (build / "openrac-rac1-ntsc.exe").write_bytes(b"ntsc")
             (build / "openrac-rac1-ntsc.pdb").write_bytes(b"")
+            (build / "openrac-rac2-ntsc.exe").write_bytes(b"rac2")
             dest.mkdir()
-            self.assertEqual(bundle.copy_games(build, dest), ["apps/openrac-rac1-pal", "openrac-rac1-ntsc.exe"])
+            self.assertEqual(bundle.copy_games(build, dest),
+                             ["apps/openrac-rac1-pal", "openrac-rac1-ntsc.exe", "openrac-rac2-ntsc.exe"])
             self.assertEqual((dest / app / "Contents/MacOS/Ratchet & Clank").read_bytes(), b"pal")
             self.assertTrue((dest / app / "Contents/Info.plist").is_file())
-            self.assertEqual(sorted(p.name for p in dest.iterdir()), ["apps", "openrac-rac1-ntsc.exe"])
+            self.assertEqual(sorted(p.name for p in dest.iterdir()),
+                             ["apps", "openrac-rac1-ntsc.exe", "openrac-rac2-ntsc.exe"])
 
     @unittest.skipUnless(sys.platform.startswith("linux") and shutil.which("cc")
                          and (shutil.which("llvm-strip") or shutil.which("strip")), "needs a Linux compiler and strip")

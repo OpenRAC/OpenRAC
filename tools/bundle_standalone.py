@@ -81,8 +81,9 @@ MOD_FOLDERS = (("{root}/assets/port/", "port"), ("assets/port/", "port"), ("asse
 # game's, shared by its versions: each version's levels are <data>/port/<version>, which is also where
 # the program looks without --levels.
 LEVELS_ROOT = "{data}/port"
-# The programs carried when the build has them; the first is required.
-GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc")
+# The programs carried when the build has them; the first is required. Going Commando's plays
+# only with developer tools on (its actions are `"developer": true`).
+GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc", "openrac-rac2-ntsc")
 # The tools carried beside them when the build has them: the enhanced lighting's probe baker
 # (tools/build_port.py --probe-baker), Embree built into it.
 TOOLS = ("openrac-probe-bake",)
@@ -177,8 +178,10 @@ def player_actions() -> dict:
                         action["cwd"] = "{data}"
                 else:
                     action["args"] = point_at(args, levels)
-                    action["needs"] = [{"path": f"{levels}/{STAMP}", "from": need["from"]}
-                                       for need in action.get("needs", [])]
+                    # The check's stamp is the data folder's; any other need (the disc set up, in
+                    # {data} already) stays as it is.
+                    action["needs"] = [{"path": f"{levels}/{STAMP}" if need["path"].endswith(STAMP) else need["path"],
+                                        "from": need["from"]} for need in action.get("needs", [])]
                     # The game is started in the data folder: what it writes beside itself (a
                     # screenshot) has a place there, and the copy has no folder for each version.
                     action["cwd"] = "{data}"

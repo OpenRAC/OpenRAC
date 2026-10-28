@@ -1623,14 +1623,68 @@
         "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
       },
       {
+        "id": "port-build",
+        "label": "Build the game",
+        "description": "Compiles Going Commando's decompiled C for this computer (openrac-rac2-ntsc), for development. A few minutes the first time; later builds redo only what changed.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "developer": true,
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac2-ntsc"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "games/rac2/ntsc/baserom/SCUS_972.68",
+            "from": "the boot executable in games/rac2/ntsc/baserom (Set up)"
+          }
+        ],
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it from the desktop app; tools/build_port.py rac2-ntsc is not tried yet. No --disc: hostgen's disc reader knows only Ratchet & Clank's discs, so the functions still in assembly are translated from games/rac2/ntsc/baserom/SCUS_972.68 (port/game/rac2-ntsc/README.md). From a shell on macOS, cmake --build --preset release --target openrac-rac2-ntsc in port/ built the program (2026-10-27)."
+      },
+      {
         "id": "play",
         "label": "Play",
-        "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
+        "description": "Going Commando as a native PC program, for development: its decompiled C built for this computer, with the files from your disc. It boots to the main menu and works it (the splash, the memory card check, the intro movies, New Game, Load and Options); New Game stops at the first level's load.",
         "kind": "play",
         "area": "port",
-        "state": "planned",
-        "docs": "port/game/README.md",
-        "todo": "openrac-rac2-ntsc builds from this version's decompilation (port/, cmake --preset release); before it runs it needs the game's main in port/game/rac2-ntsc/hostgen.json and its library table (port/game/README.md). rac1/pal is furthest along."
+        "state": "unverified",
+        "developer": true,
+        "warning": "Going Commando is for development only. It is extremely buggy and incomplete: it reaches the main menu and stops at the first level load. Expect crashes, missing graphics and missing features.",
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it from the desktop app on each platform. What works: from a shell on macOS openrac-rac2-ntsc --data <set-up folder> --window boots to the main menu and works it (splash, memory card check, intro movies, New Game / Load / Options). What does not: New Game stops at the first level's load (the loader finds no WAD header), and there is no world renderer, level programs or full sound yet (port/game/rac2-ntsc/README.md, Not there yet). Developer tools only until a level plays.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-ntsc.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          }
+        ]
       }
     ],
     "rac3/ntsc": [
