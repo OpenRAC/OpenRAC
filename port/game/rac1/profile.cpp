@@ -21,7 +21,11 @@
 
 #include "game/rac1/game_state.h"
 #include "game/rac1/gameplay_lighting.h"
+#include "openrac/guest.h"
 #include "renderer/math.h"
+
+// Developer tools: host/collision.c's note of the last particle line query.
+extern "C" int openrac_rac1_coll_note(std::uint32_t* words);
 
 namespace openrac::game::rac1 {
 namespace {
@@ -34,14 +38,17 @@ constexpr int kLevels = 19;
 struct ExecutableAddresses {
     std::uint32_t shadow_directions;  // The four directions the hero's shadow is cast along.
     std::uint32_t hero_state;         // The hero's record (games/rac1's D_0013F450 on PAL).
+    std::uint32_t world_update_time;  // The frame clock create_moby compares a free slot's +0x38 with.
 };
 
 // Each disc's executable addresses: PAL's as games/rac1 has them, NTSC-U's the same data in
 // SCUS-97199 (rac1-ntsc's rac1_version.h pairs the hero's record).
-constexpr ExecutableAddresses kPalExecutable{0x001CAE00u, 0x0013F450u};
-constexpr ExecutableAddresses kNtscExecutable{0x001CAA80u, 0x0013F350u};
+constexpr ExecutableAddresses kPalExecutable{0x001CAE00u, 0x0013F450u, 0x0015F6F0u};
+constexpr ExecutableAddresses kNtscExecutable{0x001CAA80u, 0x0013F350u, 0x0015F60Cu};
 
-std::string drone_notes(std::span<const std::uint8_t> ram, const GameAddresses& a, std::uint32_t hero);
+std::string drone_notes(
+    std::span<const std::uint8_t> ram, const GameAddresses& a, std::uint32_t hero, std::uint32_t clock
+);
 
 // One disc's profile: its boot program's table, its level programs' tables and its executable's
 // addresses. Ratchet & Clank's levels are extracted for the port, and its frame is one of two list
@@ -88,7 +95,7 @@ public:
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
 
     std::string diagnostics(std::span<const std::uint8_t> ram, int level, std::uint32_t hero) const override {
-        return drone_notes(ram, addresses(level), hero);
+        return drone_notes(ram, addresses(level), hero, OPENRAC_DATA(m_executable.world_update_time));
     }
 
 private:
@@ -114,7 +121,9 @@ private:
 // counts 0x1F28 below it. Each drone moby: its state (+0x20), class record (+0x24), scale (+0x2C),
 // mode (+0x34), class id (+0xA6) and position; and every moby of the drone class (479) in the
 // table, with the table's free slots (state 0xFE or more).
-std::string drone_notes(std::span<const std::uint8_t> ram, const GameAddresses& a, std::uint32_t hero) {
+std::string drone_notes(
+    std::span<const std::uint8_t> ram, const GameAddresses& a, std::uint32_t hero, std::uint32_t clock
+) {
     const auto word = [&](std::uint32_t at) -> std::uint32_t {
         at &= 0x01FFFFFFu;
         if (at + 4 > ram.size()) {
@@ -155,9 +164,14 @@ std::string drone_notes(std::span<const std::uint8_t> ram, const GameAddresses& 
     const auto end = word(a.moby_end) & 0x01FFFFFFu;
     unsigned free = 0;
     bool any = false;
+    std::string slots;
     if (first != 0 && end > first && end <= ram.size() && (end - first) % 0x100 == 0) {
         for (std::uint32_t m = first; m < end; m += 0x100) {
             if (byte(m + 0x20) >= 0xFE) {
+                if (free < 24) {
+                    slots += std::format("{}[\"{:06X}\",{},{}]", free ? "," : "", m, byte(m + 0x20),
+                                         word(m + 0x38));
+                }
                 ++free;
                 continue;
             }
@@ -168,7 +182,21 @@ std::string drone_notes(std::span<const std::uint8_t> ram, const GameAddresses& 
             }
         }
     }
-    out += std::format("],\"free_slots\":{}}}", free);
+    out += std::format("],\"free_slots\":{},\"free\":[{}],\"clock\":[\"{:06X}\",{}]", free, slots,
+                       clock, word(clock));
+    // The last particle line query: its counts this tick, where it wrote CollOutput and where the
+    // particle's C reads the hit normal, the particle, the result, the segment and CollOutput +0x18..
+    std::uint32_t note[26];
+    openrac_rac1_coll_note(note);
+    out += std::format(",\"coll\":{{\"calls\":{},\"hits\":{},\"out\":\"{:06X}\",\"normal_at\":\"{:06X}\","
+                       "\"particle\":\"{:06X}\",\"result\":{},\"words\":\"",
+                       note[0], note[1], note[2], note[3], note[4], note[5]);
+    for (int i = 6; i < 26; ++i) {
+        out += std::format("{}{:08X}", i > 6 ? " " : "", note[i]);
+    }
+    out += std::format("\",\"at_normal\":\"{:08X} {:08X} {:08X}\",\"at_point\":\"{:08X} {:08X} {:08X}\"}}}}",
+                       word(note[3]), word(note[3] + 4), word(note[3] + 8), word(note[3] - 0x20),
+                       word(note[3] - 0x1C), word(note[3] - 0x18));
     return out;
 }
 

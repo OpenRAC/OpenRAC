@@ -1762,6 +1762,21 @@ static void trace(int kind, int hit) {
 
 /* ---- The entry points ---- */
 
+static struct {
+    uint32_t calls, hits, out, normal, ignore, result;
+    uint32_t a[3], b[3];
+    uint32_t output[14]; /* CollOutput +0x18 .. +0x4F: moby, kind, point, triangle start, normal */
+} g_note;
+
+int openrac_rac1_coll_note(uint32_t* words);
+
+/* Developer tools: copies the particle line query note (above) into words, 26 of them, and starts its counts again; returns 26. */
+int openrac_rac1_coll_note(uint32_t* words) {
+    memcpy(words, &g_note, sizeof g_note);
+    g_note.calls = g_note.hits = 0;
+    return (int)(sizeof g_note / 4);
+}
+
 /* The globals of the level program loaded: level 0's addresses moved to the loaded level's. */
 static const Ctx* level_ctx(void) {
     static Ctx x;
@@ -1791,8 +1806,23 @@ int func_001EFE10(gaddr a0, gaddr a1, int a2, int a3, int a4) {
 int func_L00_001EFFF0(gaddr a0, gaddr a1, int a2, int a3, int a4) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
-    const int r = coll_line(level_ctx(), a0, a1, (uint32_t)a2, (gaddr)a3, (gaddr)a4);
+    const Ctx* x = level_ctx();
+    const int r = coll_line(x, a0, a1, (uint32_t)a2, (gaddr)a3, (gaddr)a4);
     trace(0, r);
+    /* Developer tools: the last line query of a particle's kind (flags 4, no template, something to
+     * ignore) for a diagnostics recording, with where it wrote and where level 0's coll_hit_normal is
+     * found in the loaded level (openrac_rac1_coll_note). */
+    if (a2 == 4 && a4 == 0 && a3 != 0) {
+        g_note.calls++;
+        g_note.hits += r != 0;
+        g_note.out = x->out;
+        g_note.normal = OPENRAC_LDATA(0, LEVEL0.out + 0x40u);
+        g_note.ignore = (uint32_t)a3;
+        g_note.result = (uint32_t)r;
+        memcpy(g_note.a, G(a0), 12);
+        memcpy(g_note.b, G(a1), 12);
+        memcpy(g_note.output, G(x->out + 0x18), sizeof g_note.output);
+    }
     fesetround(fr);
     return r;
 }
