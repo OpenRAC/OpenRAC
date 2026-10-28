@@ -410,6 +410,19 @@ bool main_menu_is_the_games(gaddr page) {
     return true;
 }
 
+// Makes the port's Exit row: a copy of the main menu's Options widget `options` whose one item
+// opens the question page (exit_menu.h), as a mod's item opens its page.
+gaddr make_exit_row(const openrac_front_end& fe, gaddr options) {
+    s.exit_item = openrac_guest_static(kItemBytes * 2);
+    std::memset(G(s.exit_item), 0, kItemBytes * 2);
+    put_item(
+        s.exit_item, exit_menu::text_id(exit_menu::kExit), kActionPage, exit_menu::title_page(fe)
+    );
+    s.exit_widget = copy_widget(options, kListBytes);
+    put_word(s.exit_widget + kListItems, s.exit_item);
+    return s.exit_widget;
+}
+
 // The main menu with the mods' rows: each after the game's item it names (in the order added),
 // then the port's Exit (a copy of the Options item opening its question, exit_menu.h) where a slot
 // is left (with two mods' rows there is none), every widget in its row's slot, the cursor going
@@ -463,13 +476,9 @@ void patch_main(const openrac_front_end& fe) {
         rows.insert(at, s.main_widgets[index]);
     }
 
+    // Exit last, in a free row's slot: two mods' rows take both.
     if (rows.size() < kRowSlots.size()) {
-        s.exit_item = openrac_guest_static(kItemBytes * 2);
-        std::memset(G(s.exit_item), 0, kItemBytes * 2);
-        put_item(s.exit_item, exit_menu::text_id(exit_menu::kExit), kActionPage, exit_menu::title_page(fe));
-        s.exit_widget = copy_widget(options, kListBytes);
-        put_word(s.exit_widget + kListItems, s.exit_item);
-        rows.push_back(s.exit_widget);
+        rows.push_back(make_exit_row(fe, options));
     } else {
         log::warn("mod ui: the main menu's rows are the mods'; Exit is left out");
     }
@@ -485,7 +494,9 @@ void patch_main(const openrac_front_end& fe) {
         put_word(rows[r] + kListDown, rows[(r + 1) % n]);
     }
 
-    log::info("mod ui: {} item(s) in the main menu{}", count, s.exit_widget != 0 ? ", and Exit" : "");
+    log::info(
+        "mod ui: {} item(s) in the main menu{}", count, s.exit_widget != 0 ? ", and Exit" : ""
+    );
 }
 
 // A page switch to or from the main menu: the rows below the game's fly in and out with its own.

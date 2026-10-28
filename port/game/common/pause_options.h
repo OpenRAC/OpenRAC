@@ -88,7 +88,9 @@ std::uint32_t options_stream(Read32 read, std::uint32_t page, std::uint32_t list
 // one (no sectors: the stream reads nothing and keeps the picture it has) at `before`, where the list
 // has its Video item, and `after` more empty ones at the end (the port's Exit). `out` holds
 // 2 * (count + 1 + after) words.
-inline void entries_with_video(const std::uint32_t* game, int count, int before, std::uint32_t* out, int after = 0) {
+inline void entries_with_video(
+    const std::uint32_t* game, int count, int before, std::uint32_t* out, int after = 0
+) {
     for (int i = 0, o = 0; i < count; ++i, ++o) {
         if (i == before) {
             out[2 * o] = 0;

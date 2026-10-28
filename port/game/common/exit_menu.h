@@ -24,9 +24,31 @@ namespace openrac::frontend::exit_menu {
 // pages' and the options page's: 0x7C00 and 0x7E00 on).
 int text_id(Text text);
 
-// The game's text lookup, asked for any id: one of the texts above in the game's language now, in
-// game memory, or 0.
+// Makes the texts' room in game memory, outside the game's text lookup (which then only fills it).
+void prepare();
+
+// Returns the address of text `id` in the game's language now, written into game memory, or 0 for
+// an id that is not one of the texts above. The game's text lookup asks it for every id.
 std::uint32_t text(int id);
+
+// Writes at `at` a text list item labelled `label` with an action the game ignores (0x7F, drawn as
+// any item): the port answers Cross on it.
+void put_item(gaddr at, Text label);
+
+// Plays the menus' confirm sound on the moby of text list `widget`.
+void cue(const openrac_front_end& fe, gaddr widget);
+
+// A Cross press on a page the port answers. A press counts once Cross was let go while the page
+// was ready, so the press that opened the page is not taken, nor one a later frame reads again.
+class CrossPress {
+public:
+    // Returns true for a new press of Cross on the first pad. `ready`: the page is settled with
+    // its list in hand; false forgets any release seen.
+    bool take(const openrac_front_end& fe, bool ready);
+
+private:
+    bool m_armed = false;
+};
 
 // The main menu's question page, made the first time (from the boot program's Language page).
 gaddr title_page(const openrac_front_end& fe);
