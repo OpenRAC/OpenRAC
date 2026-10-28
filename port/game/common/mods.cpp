@@ -105,6 +105,17 @@ struct TickBoundaryCallback {
     openrac_mod* mod;
 };
 
+// A front-end menu entry and the page it opens (interface 1.5).
+struct MenuCallback {
+    std::string label;
+    openrac_menu_fn fn;
+    void* user;
+    openrac_mod* mod;
+};
+
+// The longest label an entry keeps, in characters (openrac_api.menu_entry).
+constexpr std::size_t kMenuLabelMax = 31;
+
 const Host* g_host = nullptr;
 
 // A hook point's id from one of its names, through the game's binding (none: the name).
@@ -115,6 +126,9 @@ openrac_mod* g_loading = nullptr;  // the mod whose openrac_mod_load runs: hooks
 std::vector<std::unique_ptr<openrac_mod>> g_loaded;
 std::vector<FrameCallback> g_frames;
 std::vector<PadCallback> g_pads;
+std::vector<MenuCallback> g_menus;
+// The mod whose menu page callback runs now: its drawing reaches the page, anyone else's is ignored.
+openrac_mod* g_drawing = nullptr;
 std::vector<TickBoundaryCallback> g_tick_boundaries;
 openrac_mod* g_tick_mod = nullptr;
 bool g_in_tick_boundary = false;
@@ -502,6 +516,37 @@ int api_setup_vulkan(openrac_mod* mod, const openrac_vulkan_setup* setup) {
     return OPENRAC_HOOK_OK;
 }
 
+int api_menu_entry(openrac_mod* mod, const char* label, openrac_menu_fn fn, void* user) {
+    if (mod == nullptr || mod != g_loading) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    // An entry needs a name to show and a page to open, and the menu has room for so many.
+    if (label == nullptr || label[0] == '\0' || fn == nullptr
+        || g_menus.size() >= OPENRAC_MENU_ENTRIES_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::string text(label, std::min(std::strlen(label), kMenuLabelMax));
+    g_menus.push_back({std::move(text), fn, user, mod});
+    return OPENRAC_HOOK_OK;
+}
+
+void api_menu_rect(openrac_mod* mod, int x, int y, int width, int height, uint32_t rgba) {
+    // Only the open page's own mod draws, and only while its callback runs.
+    if (mod == nullptr || mod != g_drawing || g_host == nullptr || g_host->menu_rect == nullptr) {
+        return;
+    }
+    g_host->menu_rect(x, y, width, height, rgba);
+}
+
+void api_menu_text(openrac_mod* mod, int x, int y, int size, uint32_t rgba, const char* text) {
+    // As menu_rect: the open page's mod, during its callback.
+    if (mod == nullptr || mod != g_drawing || text == nullptr || g_host == nullptr
+        || g_host->menu_text == nullptr) {
+        return;
+    }
+    g_host->menu_text(x, y, size, rgba, text);
+}
+
 void fill_api(const Host& host) {
     static std::string game, version, openrac_version;
     game = host.game;
@@ -538,6 +583,9 @@ void fill_api(const Host& host) {
     g_api.graphics = api_graphics;
     g_api.on_views = api_on_views;
     g_api.setup_vulkan = api_setup_vulkan;
+    g_api.menu_entry = api_menu_entry;
+    g_api.menu_rect = api_menu_rect;
+    g_api.menu_text = api_menu_text;
     g_api.on_tick_boundary = api_on_tick_boundary;
     g_api.savestate_size = snapshot_size;
     g_api.savestate_save = snapshot_save;
@@ -677,6 +725,7 @@ void undo(openrac_mod* mod) {
     mod->hooks.clear();
     std::erase_if(g_frames, [&](const FrameCallback& c) { return c.mod == mod; });
     std::erase_if(g_pads, [&](const PadCallback& c) { return c.mod == mod; });
+    std::erase_if(g_menus, [&](const MenuCallback& c) { return c.mod == mod; });
     std::erase_if(g_tick_boundaries, [&](const TickBoundaryCallback& c) { return c.mod == mod; });
     if (g_views_mod == mod) {
         g_views = {};
@@ -937,6 +986,30 @@ void run_frame_callbacks() {
     }
 }
 
+int menu_entry_count() {
+    return static_cast<int>(g_menus.size());
+}
+
+std::string menu_entry_label(int index) {
+    // An index past the list names nothing.
+    if (index < 0 || index >= menu_entry_count()) {
+        return {};
+    }
+    return g_menus[static_cast<std::size_t>(index)].label;
+}
+
+bool run_menu_page(int index, const openrac_menu_frame& frame) {
+    // A page that is no longer there (its mod was taken back) is closed.
+    if (index < 0 || index >= menu_entry_count()) {
+        return true;
+    }
+    const MenuCallback& c = g_menus[static_cast<std::size_t>(index)];
+    g_drawing = c.mod;
+    const int result = c.fn(c.user, &frame);
+    g_drawing = nullptr;
+    return result != OPENRAC_MENU_STAY;
+}
+
 void tick_boundary(std::uint32_t tick) {
     if (g_tick_boundaries.empty()) {
         return;
@@ -971,6 +1044,7 @@ void reset() {
     g_loaded.clear();
     g_frames.clear();
     g_pads.clear();
+    g_menus.clear();
     g_tick_boundaries.clear();
     g_tick_mod = nullptr;
     g_in_tick_boundary = false;

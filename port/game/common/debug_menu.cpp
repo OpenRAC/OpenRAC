@@ -4,17 +4,16 @@
 #include "debug_menu.h"
 
 #include <array>
-#include <cctype>
 #include <cstdint>
 #include <cstring>
 #include <string>
-#include <vector>
 
 #include "common/env.h"
 #include "common/log.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "options_menu.h"
+#include "renderer/ui/canvas.h"
 #include "renderer/ui/picture_blit.h"
 
 namespace openrac::frontend::debug_menu {
@@ -179,81 +178,7 @@ void move(int by) {
 
 // ---- Drawing: a picture made on the CPU in the chip's pixels, blitted over the frame ----
 
-// 5 x 7 glyphs, one string of 7 rows of 5 columns per character ('#' lit).
-struct Glyph {
-    char c;
-    const char* rows;
-};
-
-constexpr Glyph kFont[] = {
-    {'A', " ### #   ##   #######   ##   ##   #"}, {'B', "#### #   ##   ##### #   ##   ##### "},
-    {'C', " ### #   ##    #    #    #   # ### "}, {'D', "#### #   ##   ##   ##   ##   ##### "},
-    {'E', "######    #    #### #    #    #####"}, {'F', "######    #    #### #    #    #    "},
-    {'G', " ### #   ##    # ####   ##   # ####"}, {'H', "#   ##   ##   #######   ##   ##   #"},
-    {'I', " ###   #    #    #    #    #   ### "}, {'J', "  ###   #    #    #    # #  #  ##  "},
-    {'K', "#   ##  # # #  ##   # #  #  # #   #"}, {'L', "#    #    #    #    #    #    #####"},
-    {'M', "#   ### ### # ##   ##   ##   ##   #"}, {'N', "#   ###  ## # ##  ###   ##   ##   #"},
-    {'O', " ### #   ##   ##   ##   ##   # ### "}, {'P', "#### #   ##   ##### #    #    #    "},
-    {'Q', " ### #   ##   ##   ## # ##  #  ## #"}, {'R', "#### #   ##   ##### # #  #  # #   #"},
-    {'S', " #####    #     ###     #    ##### "}, {'T', "#####  #    #    #    #    #    #  "},
-    {'U', "#   ##   ##   ##   ##   ##   # ### "}, {'V', "#   ##   ##   ##   ##   # # #   #  "},
-    {'W', "#   ##   ##   ## # ## # ## # # # # "}, {'X', "#   ##   # # #   #   # # #   ##   #"},
-    {'Y', "#   ##   # # #   #    #    #    #  "}, {'Z', "#####    #   #   #   #   #    #####"},
-    {'0', " ### #   ##  ### # ###  ##   # ### "}, {'1', "  #   ##    #    #    #    #   ### "},
-    {'2', " ### #   #    #   #   #   #   #####"}, {'3', "#####   #   #     #     ##   # ### "},
-    {'4', "   #   ##  # # #  # #####   #    # "}, {'5', "######    ####     #    ##   # ### "},
-    {'6', "  ##  #   #    #### #   ##   # ### "}, {'7', "#####    #   #   #   #    #    #   "},
-    {'8', " ### #   ##   # ### #   ##   # ### "}, {'9', " ### #   ##   # ####    #   #  ##  "},
-    {'(', "   #   #   #    #    #     #     # "}, {')', " #     #     #    #    #   #   #   "},
-    {'-', "                ###                "}, {':', "      ##   ##        ##   ##       "},
-    {'.', "                          ##   ##  "}, {'\'', "  #    #   #                       "},
-    {'/', "    #    #   #   #   #   #    #    "}, {'>', " #     #     #     #   #   #   #   "},
-    {',', "                     ##    #   #   "}, {'+', "       #    #  #####  #    #       "},
-};
-
-const char* glyph(char c) {
-    c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-    for (const Glyph& g : kFont) {
-        if (g.c == c && std::strlen(g.rows) >= 35) {
-            return g.rows;
-        }
-    }
-    return nullptr;
-}
-
-struct Picture {
-    int width, height;
-    std::vector<std::uint8_t> rgba;
-
-    void fill(int x0, int y0, int x1, int y1, std::uint32_t colour) {
-        for (int y = std::max(0, y0); y < std::min(height, y1); ++y) {
-            for (int x = std::max(0, x0); x < std::min(width, x1); ++x) {
-                std::memcpy(&rgba[(static_cast<std::size_t>(y) * width + x) * 4], &colour, 4);
-            }
-        }
-    }
-
-    // Text in 6-pixel cells; returns the x after it.
-    int text(int x, int y, const std::string& t, std::uint32_t colour) {
-        for (char c : t) {
-            if (const char* rows = glyph(c)) {
-                for (int r = 0; r < 7; ++r) {
-                    for (int col = 0; col < 5; ++col) {
-                        if (rows[r * 5 + col] == '#') {
-                            fill(x + col, y + r, x + col + 1, y + r + 1, colour);
-                        }
-                    }
-                }
-            }
-            x += 6;
-        }
-        return x;
-    }
-};
-
-constexpr std::uint32_t rgba(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
-    return 0xFF000000u | (std::uint32_t{b} << 16) | (std::uint32_t{g} << 8) | r;
-}
+using renderer::ui::rgba;
 
 // The game's menu colours (its panels' navy, khaki frame, light blue and yellow text).
 constexpr std::uint32_t kNavy = rgba(14, 14, 30);
@@ -267,26 +192,25 @@ constexpr int kRow = 10;
 constexpr int kPanelWidth = 232;
 constexpr int kPanelHeight = 30 + kMaxLevels * kRow + 18;
 
-Picture make_picture(const openrac_front_end& fe) {
-    Picture p{kPanelWidth, kPanelHeight, std::vector<std::uint8_t>(static_cast<std::size_t>(kPanelWidth) * kPanelHeight * 4)};
-    p.fill(0, 0, p.width, p.height, kFrame);
-    p.fill(2, 2, p.width - 2, p.height - 2, kNavy);
-    p.text(10, 9, "OPENRAC DEBUG: START A LEVEL", kTitle);
-    p.fill(8, 20, p.width - 8, 21, kFrame);
+renderer::ui::Canvas make_picture(const openrac_front_end& fe) {
+    renderer::ui::Canvas p(kPanelWidth, kPanelHeight, kFrame);
+    p.fill(2, 2, p.width() - 4, p.height() - 4, kNavy);
+    p.draw_text(10, 9, "OPENRAC DEBUG: START A LEVEL", kTitle);
+    p.fill(8, 20, p.width() - 16, 1, kFrame);
     for (int i = 0; i < level_count(); ++i) {
         const int y = 27 + i * kRow;
         const bool sel = i == s.cursor;
         if (sel) {
-            p.fill(6, y - 2, p.width - 6, y + 9, rgba(36, 36, 70));
-            p.text(10, y, ">", kSelected);
+            p.fill(6, y - 2, p.width() - 12, 11, rgba(36, 36, 70));
+            p.draw_text(10, y, ">", kSelected);
         }
         const std::string number = (i < 10 ? " " : "") + std::to_string(i);
-        p.text(20, y, number + "  " + fe.level_names[i], sel ? kSelected : kText);
+        p.draw_text(20, y, number + "  " + fe.level_names[i], sel ? kSelected : kText);
     }
 #if defined(__ANDROID__)
-    p.text(10, p.height - 12, "X START   TRIANGLE CLOSE", kHint);  // no keyboard to name
+    p.draw_text(10, p.height() - 12, "X START   TRIANGLE CLOSE", kHint);  // no keyboard to name
 #else
-    p.text(10, p.height - 12, "X/RETURN START   TRIANGLE/F1 CLOSE", kHint);
+    p.draw_text(10, p.height() - 12, "X/RETURN START   TRIANGLE/F1 CLOSE", kHint);
 #endif
     return p;
 }
@@ -428,14 +352,14 @@ void draw(unsigned framebuffer, int width, int height) {
         return;
     }
     // The menu is only open in a game with a front end (available()).
-    const Picture p = make_picture(*front_end());
+    const renderer::ui::Canvas p = make_picture(*front_end());
     // The picture in the chip's pixels: the frame is the game's 512 x 448 scaled.
     const float sx = static_cast<float>(width) / 512.0f;
     const float sy = static_cast<float>(height) / 448.0f;
-    const int w = static_cast<int>(static_cast<float>(p.width) * sx);
-    const int h = static_cast<int>(static_cast<float>(p.height) * sy);
+    const int w = static_cast<int>(static_cast<float>(p.width()) * sx);
+    const int h = static_cast<int>(static_cast<float>(p.height()) * sy);
     const renderer::ui::PictureRect centred{(width - w) / 2, (height - h) / 2, w, h};
-    s.blit.draw(framebuffer, {p.rgba, p.width, p.height}, centred);
+    s.blit.draw(framebuffer, {p.pixels(), p.width(), p.height()}, centred);
 }
 
 void release() {

@@ -7,8 +7,10 @@
 // settings, frame and pad callbacks, a mod's own refusal, an unknown hook point and a wrong
 // signature, status.json, and the slots left null when nothing loads.
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -76,7 +78,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.4",
+    const std::string& api = "1.5",
     const std::string& extra = ""
 ) {
     const fs::path dir = plugins / ("test-" + which);
@@ -95,7 +97,8 @@ void install(
                                   {"value": "unknown_hook", "name": "Unknown"},
                                   {"value": "bad_signature", "name": "Bad"},
                                   {"value": "input", "name": "Input"},
-                                  {"value": "views", "name": "Views"}]},
+                                  {"value": "views", "name": "Views"},
+                                  {"value": "menu", "name": "Menu"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -228,7 +231,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.4", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.5", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -299,6 +302,46 @@ const openrac_view_source* g_views = nullptr;
 int g_views_given = 0;
 const openrac_vulkan_setup* g_vulkan = nullptr;
 
+// A mod's menu entry and page (interface 1.5): its label listed, its page's drawing sent to the
+// host's menu_rect and menu_text while its callback runs (and only then), closed on what the mod
+// returns; an entry after load is refused; reset takes the entries back.
+std::vector<std::string> g_drawn;
+
+void a_menu_page_draws_through_the_host(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "menu"}}]})");
+    mods::Host h = host(plugins);
+    g_drawn.clear();
+    g_records.clear();
+    h.menu_rect = [](int x, int y, int width, int height, std::uint32_t rgba) {
+        g_drawn.push_back(std::format("rect {} {} {} {} {:08x}", x, y, width, height, rgba));
+    };
+    h.menu_text = [](int x, int y, int size, std::uint32_t rgba, const char* text) {
+        g_drawn.push_back(std::format("text {} {} {} {:08x} {}", x, y, size, rgba, text));
+    };
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    CHECK(mods::menu_entry_count() == 1 && mods::menu_entry_label(0) == "Join the fun");
+    CHECK(mods::menu_entry_label(1).empty());
+    openrac_menu_frame frame{};
+    frame.size = sizeof frame;
+    frame.opened = 1;
+    CHECK(!mods::run_menu_page(0, frame));
+    CHECK(g_drawn.size() == 2);
+    CHECK(g_drawn.size() == 2 && g_drawn[0] == "rect 10 20 30 40 ffffffff");
+    CHECK(g_drawn.size() == 2 && g_drawn[1] == "text 1 2 3 ff0000ff HELLO");
+    frame.opened = 0;
+    frame.pressed = OPENRAC_PAD_CROSS;
+    CHECK(mods::run_menu_page(0, frame));
+    CHECK(g_drawn.size() == 4 && g_drawn[3] == "text 1 2 3 ff0000ff AGAIN");
+    // Outside its page a mod draws nothing, and an entry after load is refused.
+    mods::frame();
+    CHECK(g_drawn.size() == 4);
+    CHECK(std::find(g_records.begin(), g_records.end(), 1100 + 3) != g_records.end());
+    CHECK(mods::run_menu_page(1, frame));  // no such page: closed
+    mods::reset();
+    CHECK(mods::menu_entry_count() == 0);
+}
+
 void views_reach_the_host(const fs::path& plugins) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "views"}},
@@ -334,7 +377,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.4", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.5", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -394,6 +437,7 @@ int main() {
     an_old_name_still_binds(plugins);
     input_reaches_the_mod(plugins);
     views_reach_the_host(plugins);
+    a_menu_page_draws_through_the_host(plugins);
     std::error_code e;
     fs::remove_all(dir, e);
     return test::result();

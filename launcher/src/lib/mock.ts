@@ -223,6 +223,7 @@ let config: Config = {
   playWithMods: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("mods"),
   crashesSeen: {},
   discChoice: {},
+  multiplayerName: "BraveLombax42",
 };
 
 const query = new URLSearchParams(typeof location === "undefined" ? "" : location.search);

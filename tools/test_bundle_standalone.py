@@ -134,6 +134,15 @@ class PlayerActions(unittest.TestCase):
 
 
 class Bundle(unittest.TestCase):
+    def test_the_godot_project_files_are_copied(self):
+        # editor/godot.py copies rc1/ and the Collision dock's addon into every level's project; a
+        # file the copy drops (plugin.cfg was one) is missing from a player's projects.
+        editor = bundle.ROOT / "editor"
+        for folder in ("rc1", "addons"):
+            for path in (editor / folder).rglob("*"):
+                if path.is_file() and path.suffix != ".uid":
+                    self.assertTrue(bundle.editor_file(path.relative_to(editor)), path)
+
     def test_a_copy_without_game_or_python(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "openrac"

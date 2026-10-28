@@ -107,4 +107,10 @@ crashesSeen: { [key in string]: number },
  * game's page plays (`rac1` -> `rac1/ntsc`). Used only with developer tools on
  * (disc_choice.rs); without one, the disc set up, as for a player.
  */
-discChoice: { [key in string]: string }, };
+discChoice: { [key in string]: string }, 
+/**
+ * The name online mods show the other players (multiplayer.rs): 3 to 16 letters, digits and
+ * underscores, made up at the first start and changed in Settings. Given to the game as
+ * `OPENRAC_PLAYER_NAME`.
+ */
+multiplayerName: string, };

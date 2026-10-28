@@ -76,6 +76,30 @@ The keyboard and mouse for the tick about to run (interface 1.2, openrac_input):
 | `float pointer_y() const` |  |
 | `bool pointer_inside() const` |  |
 
+## `openrac::MenuFrame`
+
+What a menu page's callback is given each frame (openrac_menu_frame): pad 0's buttons, by the OPENRAC_PAD_* bits. A view of the port's state, valid during the call. Since 1.5.
+
+| Member | |
+|---|---|
+| `explicit MenuFrame(const openrac_menu_frame& frame)` | Wraps the port's state `frame`. |
+| `bool held(std::uint32_t buttons) const` | Return whether any of `buttons` is down now, or went down since the last frame. |
+| `bool pressed(std::uint32_t buttons) const` |  |
+| `bool opened() const` | Returns whether this is the first frame since the page opened. |
+| `const openrac_menu_frame& raw() const` | Returns the port's state as it is. |
+
+## `openrac::MenuPage`
+
+Draws a mod's menu page during its callback: rectangles and text on a page of OPENRAC_MENU_WIDTH by OPENRAC_MENU_HEIGHT pixels, which starts each frame black. Since 1.5.
+
+| Member | |
+|---|---|
+| `MenuPage(const openrac_api* api, openrac_mod* handle)` | Draws through `api` for the mod `handle`. |
+| `void rect(int x, int y, int w, int h, std::uint32_t rgba) const` | Fills `w` by `h` pixels from (x, y), the top left, with `rgba` (OPENRAC_RGBA), blended. |
+| `void text(int x, int y, int size, std::uint32_t rgba, const std::string& text) const` | Writes `text` (ASCII) from (x, y), its top left, at `size` (1 to 8) in `rgba`. |
+| `void text_centred(int y, int size, std::uint32_t rgba, const std::string& text) const` | Writes `text` centred across the page, its top at y. |
+| `static int text_width(std::string_view text, int size)` | Returns how wide `text` is at `size`, in pixels: its longest line's characters, without the last one's spacing column. |
+
 ## `openrac::Original`
 
 `template <class R, class... A>`
@@ -112,11 +136,11 @@ The keyboard and mouse for the tick about to run (interface 1.2, openrac_input):
 | `template <class HookPoint, class F> void hook(F&& callable)` | Takes the hook point (a type of openrac/games/<game>.hpp) for `callable`, called as callable(original, args...). Throws openrac::Error when the port has no such hook point, a different signature, or the mod already took it. Only during load. |
 | `template <class HookPoint> typename HookPoint::fn original() const` | Returns what a hook point this mod took goes on to (as the callable's `original`), for calling it from elsewhere in the mod (another hook, a callback); nullptr before the hook is taken. |
 | `template <class F> void on_frame(F&& callable)` | Calls `callable()` after each game tick, in load order. Throws openrac::Error when refused. Only during load. |
-| `template <class F> void on_tick_boundary(F&& callable)` | Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here. Since 1.5; only during load. |
-| `bool has_savestates() const` | True when interface 1.5's tick-boundary and warm-snapshot calls are available. |
-| `std::size_t savestate_size() const` | The exact size of this build's warm, same-process snapshot. Throws when interface 1.5 is unavailable. |
-| `void savestate_save(void* out, std::size_t size) const` | Save/load only inside on_tick_boundary. Throws when called outside that boundary or when the port refuses the supplied blob. Since 1.5. |
-| `void savestate_load(const void* data, std::size_t size) const` | Restores a warm snapshot from the same process and build; the port can refuse it after new guest statics or strings have been allocated since capture. Throws on refusal. Since 1.5. |
+| `template <class F> void on_tick_boundary(F&& callable)` | Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here. Since 1.6; only during load. |
+| `bool has_savestates() const` | Since 1.6: returns whether the port offers tick-boundary and warm-snapshot calls. |
+| `std::size_t savestate_size() const` | The exact size of this build's warm, same-process snapshot. Since 1.6. |
+| `void savestate_save(void* out, std::size_t size) const` | Save/load only inside on_tick_boundary. Loading may be refused if the runtime allocated new guest statics or strings after capture, since translated call sites cache their addresses. Throws when called outside that boundary or when the port refuses the supplied blob. Since 1.6. |
+| `void savestate_load(const void* data, std::size_t size) const` |  |
 | `template <class F> void on_pad(F&& callable)` | Calls `callable(port, report, size)` for each pad report, before the game reads it: the callable may change the report's bytes. Throws openrac::Error when refused. Only during load. |
 | `template <class Fn> Fn function(const char* name) const` | Returns a game function by its name in this disc's build, as Fn (a function pointer type); nullptr when there is none. required_function throws openrac::Error instead. |
 | `template <class Fn> Fn required_function(const char* name) const` |  |
@@ -129,6 +153,8 @@ The keyboard and mouse for the tick about to run (interface 1.2, openrac_input):
 | `const openrac_graphics &graphics() const` | Since 1.4: returns what the port draws with (openrac_graphics); its backend is OPENRAC_GRAPHICS_NONE before the window opens. |
 | `void on_views(const openrac_view_source &source)` | Since 1.4: has the port draw the views `source` asks for each frame (openrac_view_source, sdk/docs/views.md). Throws openrac::Error when refused. Only during load. |
 | `void setup_vulkan(const openrac_vulkan_setup &setup)` | Since 1.4: has the port make its Vulkan device through `setup` (openrac_vulkan_setup); the manifest says "vulkan_device": true. Throws openrac::Error when refused. Only during load. |
+| `bool has_menu() const` | Since 1.5: returns whether the port offers menu entries and pages (menu_entry()): a mod that wants to run on 1.4 checks this first. |
+| `template <class F> void menu_entry(const char* label, F&& callable)` | Since 1.5: adds an entry named `label` to the game's front-end menu that opens a page drawn by `callable(page, frame)` each frame, which returns true to close it (MenuCallable). Throws openrac::Error when refused. Only during load. |
 | `Memory memory() const` | Returns a view of game memory. |
 | `gaddr relocate(gaddr address) const` | Return a global's address for the code loaded now: the executable's (`relocate`) or level `level`'s program's (`relocate_level`). Ask each time, because a level moves its globals. |
 | `gaddr relocate_level(int level, gaddr address) const` |  |

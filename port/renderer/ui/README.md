@@ -16,6 +16,7 @@ P2-06), which keeps no GL call of these overlays.
 | [`touch_overlay.h`](touch_overlay.h) | `touch_overlay::draw`, `release`: the on-screen pad of `platform/touch_pad.h` drawn over the window, one glass per control |
 | [`logo.h`](logo.h) | `logo::draw`, `Mask`: the OpenRAC logo (the launcher's paths) as a coverage mask made on the CPU, the mark alone or with the name, for the pad's options button and the drawer's header |
 | [`fps_counter.h`](fps_counter.h) | `fps_counter::frame_drawn`, `draw`, `release`: the player's `show_fps` counter, counted over the frames shown, drawn in the picture's top left corner |
+| [`canvas.h`](canvas.h) | `Canvas`, `rgba`: an RGBA8 picture drawn on the CPU, filled rectangles blended by alpha and text in a 5 by 7 font, for the debug menu's level list and the mods' menu pages (`game/common/mod_menu.cpp`, interface 1.5); plain memory, no GL |
 | [`picture_blit.h`](picture_blit.h) | `PictureBlit`, `PictureView`, `PictureRect`: an RGBA8 picture made on the CPU, uploaded and blitted with nearest filtering into a rectangle of a framebuffer (the debug menu's level list, `game/common/debug_menu.cpp`) |
 
 ## Depends on
@@ -61,8 +62,9 @@ debug menu's picture while the menu is open (`OPENRAC_DEVELOPER`, `OPENRAC_DEBUG
 |---|---|
 | `imgui_gl`, `imgui_gl_es`, `imgui_gl_vulkan` | a window's filled background drawn through `imgui_gl` lands where ImGui put it, in its colour, and nothing outside it, on OpenGL, OpenGL ES and the Vulkan renderer |
 | `touch_overlay`, `touch_overlay_es`, `touch_overlay_vulkan` | the pad's shader builds, nothing is drawn before the screen is touched, and a held button is drawn brighter than one let go |
+| `ui_canvas` | `Canvas` clips rectangles to the picture and blends them by alpha, and its text lights a glyph's pixels and nothing else, at a size, over lines |
 
-All of them need a graphics context and report themselves skipped (exit 77) where none can be made.
+All of them but `ui_canvas` need a graphics context and report themselves skipped (exit 77) where none can be made.
 `fps_counter` and `PictureBlit` have no test of their own: what they draw is checked by the
 maintainers' regression comparison of the game programs
 ([docs/port/REGRESSION.md](../../../docs/port/REGRESSION.md)).

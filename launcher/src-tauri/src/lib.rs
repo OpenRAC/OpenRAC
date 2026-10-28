@@ -167,6 +167,14 @@ fn get_config(state: State<'_, AppState>) -> Config {
 #[tauri::command]
 fn save_config(state: State<'_, AppState>, mut config: Config) -> Result<Config, String> {
     let file = state.config_file.as_deref().ok_or("no per-user config folder")?;
+    // The page checks the name as it is typed; one that still is not valid is not written.
+    if !openrac_launcher_core::multiplayer::is_valid(&config.multiplayer_name) {
+        return Err(format!(
+            "the multiplayer name must be {} to {} letters, digits or underscores",
+            openrac_launcher_core::multiplayer::MIN_LEN,
+            openrac_launcher_core::multiplayer::MAX_LEN
+        ));
+    }
     // Developer tools switched off: back to the carried copy (detect::settle).
     detect::settle(&mut config, state.bundled.as_deref());
     // The page sends the settings back without the paths the launcher keeps its own files
@@ -1489,6 +1497,12 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let mut config = config_file.as_deref().map(config::load).unwrap_or_default();
     config.progress_cache = progress_cache(config_file.as_deref());
     settle_install_dir(app, &mut config, config_file.as_deref());
+    // The first start (or a settings file from before it): a made-up multiplayer name, kept.
+    if openrac_launcher_core::multiplayer::settle(&mut config) {
+        if let Some(file) = config_file.as_deref() {
+            let _ = config::save(file, &config);
+        }
+    }
     let bundled = bundled_copy(app, &mut config);
     settle_root(&mut config, bundled.as_deref());
     let discord = start_discord(&config);

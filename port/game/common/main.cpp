@@ -64,6 +64,7 @@
 #include "debug_overlay.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "frontend.h"
+#include "mod_menu.h"
 #include "platform/input.h"
 #include "platform/pump.h"
 #include "platform/window.h"
@@ -279,6 +280,8 @@ void load_mods() {
         }
     };
     host.graphics = frontend::mod_graphics;
+    host.menu_rect = frontend::mod_menu::rect;
+    host.menu_text = frontend::mod_menu::text_at;
     host.set_views = frontend::set_view_source;
     host.set_vulkan_setup = [](const openrac_vulkan_setup* setup) {
         platform::VulkanSetup s;

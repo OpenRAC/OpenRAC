@@ -229,6 +229,36 @@ int host_setup_vulkan(openrac_mod *, const openrac_vulkan_setup *setup) {
   return OPENRAC_HOOK_OK;
 }
 
+// The menu entry (1.5): what the fake port was given, and what the page drew.
+std::string g_menu_label;
+openrac_menu_fn g_menu_fn = nullptr;
+void* g_menu_user = nullptr;
+std::vector<std::string> g_menu_drawn;
+
+int host_menu_entry(openrac_mod*, const char* label, openrac_menu_fn fn, void* user) {
+    // The fake port has room for one entry.
+    if (g_menu_fn != nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_menu_label = label;
+    g_menu_fn = fn;
+    g_menu_user = user;
+    return OPENRAC_HOOK_OK;
+}
+
+void host_menu_rect(openrac_mod*, int x, int y, int width, int height, uint32_t rgba) {
+    g_menu_drawn.push_back(
+        "rect " + std::to_string(x) + " " + std::to_string(y) + " " + std::to_string(width) + " "
+        + std::to_string(height) + " " + std::to_string(rgba)
+    );
+}
+
+void host_menu_text(openrac_mod*, int x, int y, int size, uint32_t, const char* text) {
+    g_menu_drawn.push_back(
+        "text " + std::to_string(x) + " " + std::to_string(y) + " " + std::to_string(size) + " " + text
+    );
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -262,6 +292,9 @@ openrac_api make_api() {
     api.graphics = host_graphics;
     api.on_views = host_on_views;
     api.setup_vulkan = host_setup_vulkan;
+    api.menu_entry = host_menu_entry;
+    api.menu_rect = host_menu_rect;
+    api.menu_text = host_menu_text;
     return api;
 }
 
@@ -536,6 +569,56 @@ void check_views(openrac::Mod &mod, const openrac_api &api) {
   CHECK(!before.has_views());
 }
 
+// Checks the menu entry (1.5): the label and page given to the port, the page's drawing through
+// MenuPage (centred text at its width), its return closing the page, an exception closing it too,
+// a refusal thrown, and a 1.4 port.
+void check_menu(openrac::Mod& mod, const openrac_api& api) {
+    CHECK(mod.has_menu());
+    int throw_at = -1;
+    int calls = 0;
+    mod.menu_entry("Multiplayer", [&](const openrac::MenuPage& page, const openrac::MenuFrame& frame) {
+        ++calls;
+        if (calls == throw_at) {
+            throw std::runtime_error("page broke");
+        }
+        page.rect(1, 2, 3, 4, OPENRAC_RGBA(0, 0, 0, 255));
+        page.text_centred(10, 2, OPENRAC_RGBA(255, 255, 255, 255), "AB");
+        return frame.pressed(OPENRAC_PAD_TRIANGLE);
+    });
+    CHECK(g_menu_label == "Multiplayer" && g_menu_fn != nullptr);
+    openrac_menu_frame frame{};
+    frame.size = sizeof frame;
+    CHECK(g_menu_fn(g_menu_user, &frame) == OPENRAC_MENU_STAY);
+    // "AB" at size 2 is (2 * 6 - 1) * 2 = 22 pixels wide: centred on 512, it starts at 245.
+    CHECK(g_menu_drawn.size() == 2 && g_menu_drawn[1] == "text 245 10 2 AB");
+    CHECK(openrac::MenuPage::text_width("AB\nABC", 1) == 17);
+    frame.pressed = OPENRAC_PAD_TRIANGLE;
+    CHECK(g_menu_fn(g_menu_user, &frame) == OPENRAC_MENU_CLOSE);
+    throw_at = calls + 1;
+    frame.pressed = 0;
+    CHECK(g_menu_fn(g_menu_user, &frame) == OPENRAC_MENU_CLOSE);
+    CHECK(!g_log.empty() && g_log.back().find("page broke") != std::string::npos);
+
+    bool refused = false;
+
+    // The fake port has room for one: the second is refused.
+    try {
+        mod.menu_entry("Again", [](const openrac::MenuPage&, const openrac::MenuFrame&) { return true; });
+    } catch (const openrac::Error& e) {
+        refused = std::string(e.what()) == "menu_entry: refused (no label, or too many)";
+    }
+
+    CHECK(refused);
+
+    openrac_api old = api;  // a port of 1.4: the table ends before the menu
+    old.api_minor = 4;
+    old.size = static_cast<uint32_t>(offsetof(openrac_api, menu_entry));
+
+    const openrac::Mod before(&old, nullptr);
+
+    CHECK(!before.has_menu());
+}
+
 // Checks that a load that throws refuses the mod with the message, whatever the exception is.
 void check_refused_loads(const openrac_api& api, openrac_mod* handle) {
     g_failed.clear();
@@ -601,6 +684,7 @@ int main() {
     check_binds();
     check_input(mod);
     check_views(mod, api);
+    check_menu(mod, api);
     check_refused_loads(api, handle);
     check_reload(api, handle);
 
