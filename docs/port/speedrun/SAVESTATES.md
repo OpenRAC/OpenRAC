@@ -258,7 +258,7 @@ F5 pause and F6 step keys alone.
 |---|---|
 | The guest-region copy | `port/runtime/`, next to `Memory::clear()` |
 | The post-vblank boundary | `port/game/common/lib/graph.c` and the fallback DMA path in `game_host.cpp` |
-| The API and runtime state | `port/game/common/mods.cpp`, exposed through SDK API 1.5 |
+| The API and runtime state | `port/game/common/mods.cpp`, exposed through SDK API 1.6 |
 | The renderer invalidation | `port/game/common/frontend/world.cpp` |
 | The controls and file | the separate `project-save-clank` mod project |
 
