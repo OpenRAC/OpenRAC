@@ -422,6 +422,17 @@ variables, `rc1_pvar_index`):
   addresses of shared data) are not packed from `rc1_pvar`: links through
   `rc1_link_*`, the others not at all.
 
+Installed launchers carry generated `pvar_layouts.json` field definitions, so typed
+edits do not require a decompilation checkout. A pack log saying `no such value:
+rc1_pv_...` can indicate older tools without those definitions; update the launcher
+and pack again. Existing typed edits in a saved scene can then be applied. Do not
+copy an old PAL 50 Hz scene over a newly extracted 60 Hz project.
+
+For the Novalis elevator (class 726), the historical field name `rc1_pv_moveSpeed`
+actually stores the path's travel duration in seconds: 1 is faster than 4, while
+10 is slower. The packer preserves the field name for existing projects. This is
+separate from selecting the PAL disc's 60 Hz gameplay copy.
+
 A copy of a moby (Ctrl+D) gets a copy of its pvar block, and its own
 `rc1_pv*` values pack into the copy. Moby groups: removing a name from
 `rc1_group_<n>` or adding one moves that moby (its `rc1_group`), and each
