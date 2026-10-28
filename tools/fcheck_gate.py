@@ -14,8 +14,9 @@ fcheck says SAME on real calls of the retail game; one fcheck cannot reach is
   /opt/homebrew/bin/python3 tools/fcheck_gate.py report --game rac2
   /opt/homebrew/bin/python3 tools/fcheck_gate.py calibrate [--mutants N]   rac2: the harness's acceptance test on matched C
 
-rac2 ("Game profiles" below) drives rac2-decomp's own tools/fcheck.py, boot functions only (the boot,
-title, menu pages and New Game up to the first level's load); its states and work files are in the
+rac2 ("Game profiles" below) drives rac2-decomp's own tools/fcheck.py over the boot (the boot, title,
+menu pages and New Game up to the first level's load) and level 00 (New Game into Aranos, the
+tutorial, played a while): other levels' functions are not checked yet; its states and work files are in the
 ignored build/fcheck/rac2-ntsc/; the compiler runs through $RAC2_LINUX; the checkout is
 $OPENRAC_SOURCE_RAC2_NTSC, else games/rac2/game.json's.
 
@@ -722,9 +723,11 @@ def check_row(decomp: Path, name: str, src: Path, log_dir: Path, levels: bool) -
 # rac1 (PAL) is the profile everything above was written for: its driver is rac1-decomp's
 # tools/fcheck.py, its states are in rac1-decomp's build-sn/, its levels are checked too.
 # rac2 (USA v1.01, SCUS_972.68) has its own driver, rac2-decomp's tools/fcheck.py (same role:
-# compile in the unit with the unit's flags, place at 0xA0000, run openrac-fcheck), and only
-# the boot executable for now: boot, title, the front end's menu pages and New Game up to the
-# first level's load. A level function is not checked yet (its status says so).
+# compile in the unit with the unit's flags, place at 0xA0000, run openrac-fcheck), over the
+# boot executable (boot, title, the front end's menu pages and New Game up to the first level's
+# load) and level 00's program (New Game into Aranos, the tutorial, played a while: the
+# driver's level00 script, which checks a function at its place in level 00). A function of
+# another level is not checked yet (its status says so).
 
 class Profile:
     """What the gate needs to know about one game's oracle."""
@@ -742,12 +745,13 @@ RAC2 = Profile(
     boot_catalogue="config/boot/functions.tsv",                 # name, address, size
     level_catalogue="config/levels/functions.tsv",              # name, kind, size, fp, levels, NN:ADDR places
     gp=0x1AEFF0, resident_max=0x1A7C80,                         # a level's program replaces memory from here
-    scripts=("menu", "newgame"),                                # the driver's press scripts (fcheck.py scripts)
+    scripts=("menu", "newgame", "level00"),                     # the driver's press scripts (fcheck.py scripts)
+    levels_checked={0},                                         # levels with a capture script (func_LNN_ checked)
     work=ROOT / "build/fcheck/rac2-ntsc",                       # ignored: test copies, logs, work dirs
     states=ROOT / "build/fcheck/rac2-ntsc/states",              # ignored: the capture runs' call states
     level_fn=re.compile(r"func_L(\d{2})_([0-9A-F]{8})"),
-    not_called="never called in the capture runs (boot, title, menu pages, New Game up to the level load)",
-    levels_pending="level function: rac2's level captures are not built yet (boot, title, menus and New Game only)",
+    not_called="never called in the capture runs (boot, title, menu pages, New Game, level 00 played a while)",
+    levels_pending="level function: rac2's captures cover level 00 only (boot, title, menus, New Game, level 00)",
     libm={"sqrtf": "__gate_sqrtf", "__builtin_sqrtf": "__gate_sqrtf", "openrac_sqrt": "__gate_sqrtf",
           "fabsf": "__gate_fabsf", "__builtin_fabsf": "__gate_fabsf",
           "memcpy": "func_001153D4", "__builtin_memcpy": "func_001153D4",
@@ -778,12 +782,14 @@ def rac2_driver(decomp: Path, *args: str, timeout: int = BUILD_TIMEOUT) -> subpr
                           text=True, env=rac2_env(), timeout=timeout)
 
 
-def rac2_capture(decomp: Path, names: list[str], jobs: int, force: bool = False) -> None:
+def rac2_capture(decomp: Path, names: list[str], jobs: int, force: bool = False,
+                 per_phase: int | None = None) -> None:
     """One headless run per press script (at once), each taking states of NAMES it has not
-    run for yet (the driver's capture: states into RAC2.states/<script>/)."""
+    run for yet (the driver's capture: states into RAC2.states/<script>/), PER_PHASE states in
+    each phase of a run when given (else the driver's)."""
     RAC2.states.mkdir(parents=True, exist_ok=True)
     lst = RAC2.work / "capture.txt"
-    lst.write_text("\n".join(dict.fromkeys(names)) + "\n")
+    lst.write_text("".join(f"{n} {per_phase}\n" if per_phase else f"{n}\n" for n in dict.fromkeys(names)))
     print(f"capturing call states of {len(names)} functions in {len(RAC2.scripts)} runs ...", flush=True)
 
     def one(script: str) -> str:
@@ -837,9 +843,10 @@ def cmd_run_rac2(args: argparse.Namespace) -> int:
         r = table.row(n)
         src = trial.get(n) or back.source(n)
         r.csum, r.date, r.fcheck = csum(src), today, commit
-        if RAC2.level_fn.fullmatch(n):
+        m = RAC2.level_fn.fullmatch(n)
+        if m and int(m.group(1)) not in RAC2.levels_checked:
             r.status, r.note = "not-executable", RAC2.levels_pending
-        elif not EXECUTABLE.fullmatch(n):
+        elif not (m or EXECUTABLE.fullmatch(n)):
             r.status, r.note = "not-executable", "neither a boot nor a level function (func_XXXXXXXX, func_LNN_XXXXXXXX)"
         elif not src.is_file():
             r.status, r.note = "unchecked", f"file {back.files[n]} is missing"
@@ -867,8 +874,8 @@ def cmd_run_rac2(args: argparse.Namespace) -> int:
 
 # --- Calibration (rac2) ---------------------------------------------------------------------
 #
-# The acceptance test of the harness itself: the boot functions the capture runs call whose C
-# in src/ is matched (placed byte for byte by rac2-decomp's boot build) must all come out SAME,
+# The acceptance test of the harness itself: the functions the capture runs call whose C in
+# src/ is matched (placed byte for byte by rac2-decomp's boot build, or level 00's) must all come out SAME,
 # and a deliberately wrong variant of such a function must come out DIFFERS. A DIFFERS on
 # matched C is a harness bug. Results go to RAC2.work/calibration.tsv (not kept in git).
 
@@ -911,11 +918,21 @@ def cmd_calibrate(args: argparse.Namespace) -> int:
     import json
     placed = json.loads((decomp / "build/boot/placed.json").read_text())["functions"]
     boot = {c[0] for c in tables.read_tsv(decomp / RAC2.boot_catalogue) if len(c) >= 3}
-    names = sorted(n for n in placed if n in boot and (not args.only or n in args.only))
+    names = {n for n in placed if n in boot}
+    # Level 00's matched C too (its build's placed.json, `tools/build.py level 00`), checked at
+    # its places there from the level00 run's states.
+    for level in sorted(RAC2.levels_checked):
+        f = next(iter((decomp / "build").glob(f"{level:02d}_*/placed.json")), None)
+        if f is None:
+            print(f"no build of level {level:02d} (tools/build.py level {level:02d}): its matched C is left out")
+        else:
+            names |= set(json.loads(f.read_text())["functions"])
+    names = sorted(n for n in names if not args.only or n in args.only)
     if not args.no_capture:
-        rac2_capture(decomp, names, args.capture_jobs)
+        rac2_capture(decomp, names, args.capture_jobs, per_phase=1)
     reached = [n for n in names if rac2_states(n)]
-    print(f"{len(names)} matched boot functions, {len(reached)} called in the capture runs", flush=True)
+    print(f"{len(names)} matched functions (boot, levels {sorted(RAC2.levels_checked)}), "
+          f"{len(reached)} called in the capture runs", flush=True)
     results: dict[str, tuple[str, str]] = {}
     out = RAC2.work / "calibration.tsv"
     if not args.mutants_only:

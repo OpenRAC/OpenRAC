@@ -120,6 +120,9 @@ class Rac2ProfileTests(unittest.TestCase):
         self.assertTrue(str(g.RAC2.states).startswith(str(g.ROOT / "build")))     # ignored, never in git
         self.assertTrue(g.RAC2.level_fn.fullmatch("func_L00_002BA7D8"))
         self.assertFalse(g.RAC2.level_fn.fullmatch("func_002BA7D8"))
+        # level 00 has a capture script (the driver's level00); other levels are not checked yet
+        self.assertIn("level00", g.RAC2.scripts)
+        self.assertEqual(g.RAC2.levels_checked, {0})
 
     def test_two_load_segments(self):
         import struct
