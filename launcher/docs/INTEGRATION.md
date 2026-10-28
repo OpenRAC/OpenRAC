@@ -75,6 +75,8 @@ One action:
 | `docs`        |                                                                       | the document for this step, relative to the checkout (`#anchor` allowed); the Docs button opens it                                                                                                                                           |
 | `todo`        | required while `planned`                                              | for contributors: what is left to do or check                                                                                                                                                                                                |
 | `options`     | required with `{option}`                                              | the values `{option}` may take; the UI picks one, anything else is refused                                                                                                                                                                   |
+| `developer`   | default false                                                         | for developers only: listed and run only with Developer tools on (Settings); a player's launcher neither shows it nor starts it by its name (a game that reaches only its menus)                                                             |
+| `warning`     |                                                                       | said before the action starts, in a dialog the player must accept ("Play anyway"), and for a `play` action on its game's page: what to expect of a step far from finished                                                                    |
 
 Placeholders (anything else is rejected by the tests):
 

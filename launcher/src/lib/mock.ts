@@ -59,6 +59,8 @@ interface RawAction {
   detached?: boolean;
   docs?: string;
   todo?: string;
+  developer?: boolean;
+  warning?: string;
 }
 
 interface RawVersion {
@@ -409,8 +411,13 @@ function view(action: RawAction, st: VersionStatus | null): ActionView {
     // built and its levels ready). Only the steps that made those are done; the rest are not,
     // or a page would say an action that never ran is done.
     done: built && BUILT_DONE.has(action.id),
+    developer: action.developer ?? false,
+    warning: action.warning ?? null,
   };
 }
+
+/** As core/src/library.rs: a developer's action is listed only with developer tools on. */
+const shown = (action: RawAction) => !action.developer || config.developer;
 
 function progress(key: string): Progress | null {
   const row = summary[key];
@@ -463,7 +470,7 @@ function library(): Library {
             : null,
           progress: progress(key),
           status: st,
-          actions: (actions.versions[key] ?? []).map((a) => view(a, st)),
+          actions: (actions.versions[key] ?? []).filter(shown).map((a) => view(a, st)),
           portOutdated: false,
         };
       });
@@ -473,7 +480,7 @@ function library(): Library {
     root: config.root ?? "",
     platform,
     toolchains,
-    repository: actions.repository.map((a) => view(a, null)),
+    repository: actions.repository.filter(shown).map((a) => view(a, null)),
     games,
     actionsError: null,
   };

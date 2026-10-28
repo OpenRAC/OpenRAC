@@ -60,6 +60,7 @@
   {/if}
   {#if open}
     <div class="more">
+      {#if action.warning}<p class="blocked"><Icon name="warn" size={14} />{action.warning}</p>{/if}
       {#if blocked}<p class="blocked"><Icon name="warn" size={14} />Needs {blocked}</p>{/if}
       {#if action.state === "unverified"}<p>{STATE.unverified.hint}</p>{/if}
       {#if action.todo && action.state !== "connected"}<p><strong>Left to do.</strong> {action.todo}</p>{/if}

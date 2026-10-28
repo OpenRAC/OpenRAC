@@ -76,7 +76,8 @@ pub fn library(config: &Config) -> Result<Library, String> {
     let toolchains = status::toolchains_present(&root);
     let platform = Platform::current();
     let views = |list: Option<&Vec<actions::Action>>, ctx: &Context| -> Vec<ActionView> {
-        list.map(|l| l.iter().map(|a| a.view(ctx)).collect()).unwrap_or_default()
+        // A developer's action is not there at all for a player (Action::shown).
+        list.map(|l| l.iter().filter(|a| a.shown(ctx.config)).map(|a| a.view(ctx)).collect()).unwrap_or_default()
     };
 
     let repo_ctx = Context {
@@ -500,7 +501,8 @@ mod tests {
     #[test]
     fn play_runs_only_once_the_port_is_built() {
         let root = checkout();
-        let config = Config { root: Some(root.clone()), ..Config::default() };
+        // With developer tools on, so that a developer's Play (Going Commando's) is listed too.
+        let config = Config { root: Some(root.clone()), developer: true, ..Config::default() };
         let library = library(&config).unwrap();
         let file = actions::load(&root).unwrap();
         for version in library.games.iter().flat_map(|g| &g.versions) {

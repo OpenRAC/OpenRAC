@@ -4,9 +4,11 @@ import type { ActionView, GameView, VersionView } from "./api";
 import type { IconName } from "$components/Icon.svelte";
 import { onAndroid, pickFolder, pickIso } from "./api";
 import {
+  acceptWarning,
   app,
   cancel,
   copyingDisc,
+  forgetWarning,
   gameWindow,
   guard,
   installGame,
@@ -378,7 +380,14 @@ export async function prepare(v: VersionView): Promise<boolean> {
     await refresh();
   }
   const now = freshVersion(v);
-  if (levelsNeeded(action(now, "port-levels"), action(now, "port-levels-check")) && !(await prepareLevels(now))) {
+  // Levels only when Play waits for them: a game that reads none yet (Going Commando's) starts as
+  // it is, and is not held up by minutes of reading levels it does not draw.
+  const waits = !action(now, "play")?.runnable;
+  if (
+    waits &&
+    levelsNeeded(action(now, "port-levels"), action(now, "port-levels-check")) &&
+    !(await prepareLevels(now))
+  ) {
     return false;
   }
   return !!action(freshVersion(v), "play")?.runnable;
@@ -454,8 +463,16 @@ async function act(v: VersionView, state: PlayerState): Promise<void> {
     return;
   }
   if (state.kind === "build" || state.kind === "levels") {
-    // One press gets the game ready (the build, then its levels) and starts it.
-    if (await prepare(v)) await play(v);
+    // One press gets the game ready (the build, then its levels) and starts it. A game that warns
+    // before it starts (actions.json `warning`) asks first, before minutes of building.
+    const scope = { kind: "version" as const, key: v.key };
+    const start = action(v, "play");
+    if (start && !(await acceptWarning(scope, start, true))) return;
+    try {
+      if (await prepare(v)) await play(v);
+    } finally {
+      forgetWarning(scope, "play");
+    }
     return;
   }
   if (state.kind === "rebuild") {

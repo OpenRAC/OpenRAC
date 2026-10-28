@@ -4,6 +4,7 @@
 import { hidePaths } from "./paths";
 import {
   api,
+  ask,
   pickIso,
   onDiscCopy,
   onAndroid,
@@ -686,12 +687,41 @@ async function asked<T>(key: string, fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/** The actions whose warning was just accepted (acceptWarning), by scope and id: the start that
+ *  follows asks no second time. Not shown, so not reactive. */
+// eslint-disable-next-line svelte/prefer-svelte-reactivity
+const accepted = new Set<string>();
+
+const warningKey = (scope: Scope, id: string) => `${scope.kind === "version" ? scope.key : "repository"}\n${id}`;
+
+/** An action with a `warning` (actions.json: a game far from finished) starts only once the
+ *  player has read it and said go ahead, in the system's dialog. True when it may start. With
+ *  KEEP the answer is kept for the start that follows (a build first, then the game): that start
+ *  then asks nothing; forgetWarning drops it when it never came. */
+export async function acceptWarning(scope: Scope, action: ActionView, keep = false): Promise<boolean> {
+  if (!action.warning) return true;
+  const key = warningKey(scope, action.id);
+  if (accepted.has(key)) {
+    if (!keep) accepted.delete(key);
+    return true;
+  }
+  if (!(await ask(action.warning, action.kind === "play" ? "Play anyway" : "Run anyway"))) return false;
+  if (keep) accepted.add(key);
+  return true;
+}
+
+/** Drops an answer acceptWarning kept for a start that did not come. */
+export function forgetWarning(scope: Scope, id: string) {
+  accepted.delete(warningKey(scope, id));
+}
+
 /** Runs an action: a detached one (the game, Godot) at once, anything else through the queue. A
  *  second request for the same action while the first is queued, running or starting does nothing. */
 export async function run(scope: Scope, action: ActionView, given?: number | RunInputs) {
   const inputs = typeof given === "number" ? { level: given } : given;
   const key = inputs === undefined ? "" : JSON.stringify(inputs);
   if (alreadyAsked(scope, action.id, key)) return;
+  if (!(await asked(requestKey(scope, action.id, key), () => acceptWarning(scope, action)))) return;
   if (action.detached) {
     const started = await asked(requestKey(scope, action.id, key), () =>
       guard(api.runAction(scope, action.id, inputs)),
@@ -729,7 +759,10 @@ export async function runChain(scope: Scope, actions: ActionView[], given?: numb
   const last = actions.at(-1);
   if (!last) return true;
   if (actions.some((a) => alreadyAsked(scope, a.id, key))) return false;
-  return asked(requestKey(scope, last.id, key), () => chainSteps(scope, actions, inputs, key));
+  return asked(requestKey(scope, last.id, key), async () => {
+    for (const action of actions) if (!(await acceptWarning(scope, action))) return false;
+    return chainSteps(scope, actions, inputs, key);
+  });
 }
 
 async function chainSteps(
