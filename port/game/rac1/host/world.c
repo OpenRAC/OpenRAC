@@ -105,8 +105,7 @@ static struct {
 } stand;
 
 static int in_level(void) {
-    const int level = openrac_game_loaded_overlay();
-    return level >= 0 && level < 19;
+    return rac1_level_running();
 }
 
 /* Whether the level's mobys are the game's current ones (not the pause menu's). */

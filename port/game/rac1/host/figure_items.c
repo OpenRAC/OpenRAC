@@ -167,8 +167,7 @@ static int debug_items(void) {
 }
 
 static int in_level(void) {
-    const int level = openrac_game_loaded_overlay();
-    return level >= 0 && level < 19;
+    return rac1_level_running();
 }
 
 static int alive(gaddr moby, int32_t oclass) {

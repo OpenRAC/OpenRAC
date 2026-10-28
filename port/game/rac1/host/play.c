@@ -131,12 +131,27 @@ static gaddr save_room(void) {
     return room;
 }
 
-static int in_level(void) {
+static int level_loaded(void) {
     const int level = openrac_game_loaded_overlay();
     return level >= 0 && level < LEVELS;
 }
 
+int rac1_level_running(void) {
+    return level_loaded() && GREF(int, LEVEL_EXIT) == 0;
+}
+
+static int in_level(void) {
+    return rac1_level_running();
+}
+
 static int phase(int32_t* level) {
+    /* The level's loop has ended: on the way to the level asked for (the flight between planets
+     * plays in the old level's program). */
+    if (level_loaded() && !in_level()) {
+        const int next = GREF(int, LOAD_LEVEL);
+        *level = next >= 0 && next < LEVELS ? next : -1;
+        return OPENRAC_GAME_PHASE_LOADING;
+    }
     if (!in_level()) {
         const int current = GREF(int, CURRENT_LEVEL);
         const int on_way = GREF(short, TITLE_EXIT) != 0 || GREF(int, BOOT_MODE) == 6;

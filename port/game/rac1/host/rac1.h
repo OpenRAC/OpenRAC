@@ -50,6 +50,12 @@ void rac1_wad_decompressed(gaddr to);
 /* boot.c: the level programs ParseBin loaded since the start. */
 uint32_t rac1_program_loads(void);
 
+/* Whether a level runs: its program loaded and its loop not told to end (play.c). After the end
+ * (a travel, the ship's flight out, Quit Game) the level's program is still there while the
+ * flight between planets plays (DoSpaceTransition), with the space scene's mobys in place of the
+ * level's: nothing of the level may be read or written then. */
+int rac1_level_running(void);
+
 /* front_end.c: what the window's menus need of the game (game_host.h), and the levels' names. */
 extern const openrac_front_end rac1_front_end;
 extern const char* const rac1_level_names[19];
