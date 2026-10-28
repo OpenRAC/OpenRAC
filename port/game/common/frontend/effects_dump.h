@@ -24,6 +24,9 @@ bool armed();
 // The game's own notes for the next snapshot (GameProfile::diagnostics), from the tick's thread.
 void note(std::string json);
 
+// The game's particles near Ratchet for the next snapshot (particle_quads), as JSON.
+void particles(std::string json);
+
 // Render thread: called with the frame's input once its effects are set; `hero` is Ratchet's
 // position when the frame has one.
 void offer(const renderer::FrameInput& input, const std::optional<renderer::Vec3>& hero);
