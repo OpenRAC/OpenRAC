@@ -1201,7 +1201,7 @@ bool run_menu_page(int index, const openrac_menu_frame& frame) {
 }
 
 bool takes_cursor(const UiItem& item) {
-    return item.kind != OPENRAC_UI_TEXT;
+    return item.kind != OPENRAC_UI_TEXT && (item.flags & OPENRAC_UI_DISABLED) == 0;
 }
 
 int ui_page_count() {

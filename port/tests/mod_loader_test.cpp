@@ -374,6 +374,11 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
     CHECK(home->cursor == 2);
     mods::ui_set_cursor(0, 3);
     CHECK(home->cursor == 2);
+    // Nor on a disabled item.
+    mods::UiItem disabled = home->items[0];
+    CHECK(mods::takes_cursor(disabled));
+    disabled.flags |= OPENRAC_UI_DISABLED;
+    CHECK(!mods::takes_cursor(disabled));
     mods::ui_set_choice(0, 2, 0);
     CHECK(home->items[2].choice == 0);
     // Cross on Find match: with no page on the screen the mod's ui_open is refused, with its page

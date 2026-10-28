@@ -469,7 +469,8 @@ typedef int (*openrac_menu_fn)(void* user, const openrac_menu_frame* frame);
 #define OPENRAC_UI_TEXT 2u
 
 /* An item's flags (openrac_ui_item.flags). Since 1.7. */
-/* Drawn dim, as the game's locked entries; choosing it plays the game's refusal, and no event. */
+/* Drawn dim, as the game's locked entries; the cursor passes over it, and choosing it plays the
+ * game's refusal, and no event. */
 #define OPENRAC_UI_DISABLED 0x1u
 
 /* A page's flags (openrac_api.ui_page). Since 1.7. */

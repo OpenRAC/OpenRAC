@@ -136,7 +136,7 @@ struct UiItem {
     std::uint32_t choice = 0;          // the one shown
 };
 
-// Whether the cursor stops on an item: any but a line of text.
+// Whether the cursor stops on an item: any but a line of text or a disabled one.
 bool takes_cursor(const UiItem& item);
 
 // A page (openrac_api.ui_page) and what is on it.

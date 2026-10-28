@@ -140,21 +140,25 @@ struct GamePage {
  * The frames' width. A widget's box is its frame moby's projected frame: the corners its update
  * (settle_attachment_weight_and_update) puts in its pvars from its pose, its scale and its rows
  * (+0xC0, the images of the model's axes), which render_level_effects_and_screen_sprites projects
- * (pause.c); the moby is drawn with the same rows. The menu's camera looks along z from (256, 256,
- * 64) with the world's axes (reset_active_camera_position_and_basis), so the screen's x is the
- * world's. A mod's page stretches its title's, list's and footer's frames by one factor to fit
- * its texts (menu_fit.h): each row's x times it and the moby moved so that the frame keeps its
- * centre, with mode 0x100, the moby keeping rows of its own (the moby loop's func_0020ED48 makes
- * them from its angles otherwise). The frames' own widths are learnt as any page shows them
- * settled at stretch 1 (the game's pages too; by seq). A switch to or from a mod's page goes from
- * one stretch to the other over its 12 ticks, as the frames fly; a page shown takes its own, and
- * while it stays only grows with its texts. The game's own pages are left as the game made them.
+ * (pause.c); the moby is drawn with the same rows. The menu's camera sits at the frames' own
+ * place, (256, 256, 64), and looks along x, the game's forward (reset_active_camera_position_and_
+ * basis): the frames stand 6 in front of it, and the screen's x is the world's y, its y the
+ * world's z. A mod's page stretches its title's, list's and footer's frames by one factor to fit
+ * its texts (menu_fit.h): each row's y times it and the moby moved along y so that the frame keeps
+ * its centre, with mode 0x100, the moby keeping rows of its own (the moby loop's func_0020ED48
+ * makes them from its angles otherwise). The frames' own widths, as the seqs of the Options and
+ * Language pages pose them, are known (kBases, measured), so a page is as wide as it needs from
+ * its first showing; a frame of another seq is learnt as a page shows it settled at stretch 1. A
+ * switch to or from a mod's page goes from one stretch to the other over its 12 ticks, as the
+ * frames fly; a page shown takes its own, and while it stays only grows with its texts. The game's
+ * own pages are left as the game made them.
  */
 constexpr gaddr kMobyPosition = 0x10;
 constexpr gaddr kMobyMode = 0x34;
 constexpr gaddr kMobySeq = 0x52;
 constexpr gaddr kMobyFrame = 0x78;  // pvars: the frame's corners, then its box on the screen
 constexpr gaddr kMobyRows = 0xC0;
+constexpr gaddr kAcross = 4;  // a vector's y: the screen's x
 constexpr std::uint16_t kOwnRows = 0x100;
 constexpr std::uint16_t kRowFlipped = 0x8000;  // row 1 negated at each update: left alone
 constexpr gaddr kCornerFirst = 0x00;
@@ -172,12 +176,12 @@ constexpr float kSafeRight = kScreenWidth * 0.95f;
 // A page shown takes a new stretch this part of the way a tick.
 constexpr float kEase = 0.3f;
 
-// A frame moby stretched: its own x and its rows' own x, the stretch it has; and its frame's width
+// A frame moby stretched: its own y and its rows' own y, the stretch it has; and its frame's width
 // as last measured at stretch 1, by seq.
 struct Stretched {
     gaddr moby = 0;  // 0: not stretched
-    float position_x = 0.0f;
-    std::array<float, 3> row_x{};
+    float position_y = 0.0f;
+    std::array<float, 3> row_y{};
     float by = 1.0f;
     int seen_seq = -1;
     float seen_width = 0.0f, seen_x = 0.0f;
@@ -187,6 +191,24 @@ struct Stretched {
 struct Base {
     float width = 0.0f, centre = 0.0f;
 };
+
+// The frames of the pages a mod's are made from, settled, as measured in PAL and NTSC-U (the same
+// in both): the Options page's title, list and footer (seqs 190 to 192), the Language page's (193
+// to 195). Each centred on the screen.
+struct KnownBase {
+    int seq;
+    float width;
+};
+
+constexpr float kBaseCentre = 256.5f;
+constexpr std::array<KnownBase, 6> kBases = {{
+    {190, 127.0f},
+    {191, 127.0f},
+    {192, 127.0f},
+    {193, 163.0f},
+    {194, 151.0f},
+    {195, 127.0f},
+}};
 
 // What a mod page's texts need of the title, the list and the footer, at a revision of it.
 struct Needs {
@@ -201,6 +223,7 @@ struct Fit {
     std::vector<Needs> needs;  // by mod page
     float by = 1.0f;           // the stretch the frames have
     float from = 1.0f, to = 1.0f, goal = 1.0f;
+    float logged = 0.0f;  // the stretch last logged
     bool switching = false;
     int game = -1, page = -1;  // the page shown whose stretch it is
 };
@@ -336,6 +359,11 @@ void build(const openrac_front_end& fe) {
     }
 
     s.built = true;
+
+    for (const KnownBase& b : kBases) {
+        s.fit.bases[static_cast<std::size_t>(b.seq)] = {b.width, kBaseCentre};
+    }
+
     s.texts = openrac_guest_static(kTextBytes * kTexts);
     s.question = openrac_guest_static(kTextBytes * 4);
     std::memset(G(s.texts), 0, kTextBytes * kTexts);
@@ -674,7 +702,7 @@ float target(const openrac_front_end& fe, int game) {
 }
 
 // The frames of page `page`, settled, at stretch 1: each one's width learnt for its seq once the
-// same two ticks running (the switch's flight over).
+// same two ticks running (the switch's flight over), where it is not the one known.
 void learn(const openrac_front_end& fe, gaddr page) {
     for (std::size_t i = 0; page != 0 && i < kFitSlots.size(); ++i) {
         Stretched& st = s.fit.slots[i];
@@ -693,8 +721,17 @@ void learn(const openrac_front_end& fe, gaddr page) {
         const auto x = static_cast<float>(GREF(std::int32_t, frame + kFrameX));
         Base& b = s.fit.bases[static_cast<std::size_t>(seq)];
 
-        if (b.width == 0.0f && st.seen_seq == seq && st.seen_width == width && st.seen_x == x
-            && width > 0.0f) {
+        if (st.seen_seq == seq && st.seen_width == width && st.seen_x == x && width > 0.0f
+            && (std::fabs(b.width - width) > 1.0f
+                || std::fabs(b.centre - (x + width / 2.0f)) > 1.0f)) {
+            log::verbose(
+                "mod ui: seq {}'s frame is {} wide at {} (was known as {} at {})",
+                seq,
+                width,
+                x + width / 2.0f,
+                b.width,
+                b.centre
+            );
             b = {width, x + width / 2.0f};
         }
 
@@ -712,15 +749,16 @@ void stretch_moby(Stretched& st, float by) {
     float centre = 0.0f;
 
     if (frame != 0) {
-        const float middle =
-            (GREF(float, frame + kCornerFirst) + GREF(float, frame + kCornerOpposite)) / 2.0f;
-        centre = (middle - GREF(float, moby + kMobyPosition)) / st.by;
+        const float middle = (GREF(float, frame + kCornerFirst + kAcross)
+                              + GREF(float, frame + kCornerOpposite + kAcross))
+                             / 2.0f;
+        centre = (middle - GREF(float, moby + kMobyPosition + kAcross)) / st.by;
     }
 
-    GREF(float, moby + kMobyPosition) = st.position_x - (by - 1.0f) * centre;
+    GREF(float, moby + kMobyPosition + kAcross) = st.position_y - (by - 1.0f) * centre;
 
-    for (std::size_t r = 0; r < st.row_x.size(); ++r) {
-        GREF(float, moby + kMobyRows + 0x10 * static_cast<gaddr>(r)) = st.row_x[r] * by;
+    for (std::size_t r = 0; r < st.row_y.size(); ++r) {
+        GREF(float, moby + kMobyRows + kAcross + 0x10 * static_cast<gaddr>(r)) = st.row_y[r] * by;
     }
 
     GREF(std::uint16_t, moby + kMobyMode) |= kOwnRows;
@@ -730,10 +768,10 @@ void stretch_moby(Stretched& st, float by) {
 // A frame moby as the game made it again.
 void release(Stretched& st) {
     const gaddr moby = st.moby;
-    GREF(float, moby + kMobyPosition) = st.position_x;
+    GREF(float, moby + kMobyPosition + kAcross) = st.position_y;
 
-    for (std::size_t r = 0; r < st.row_x.size(); ++r) {
-        GREF(float, moby + kMobyRows + 0x10 * static_cast<gaddr>(r)) = st.row_x[r];
+    for (std::size_t r = 0; r < st.row_y.size(); ++r) {
+        GREF(float, moby + kMobyRows + kAcross + 0x10 * static_cast<gaddr>(r)) = st.row_y[r];
     }
 
     GREF(std::uint16_t, moby + kMobyMode) &= static_cast<std::uint16_t>(~kOwnRows);
@@ -771,10 +809,11 @@ void apply_stretch(const openrac_front_end& fe, float by) {
             }
 
             st.moby = moby;
-            st.position_x = GREF(float, moby + kMobyPosition);
+            st.position_y = GREF(float, moby + kMobyPosition + kAcross);
 
-            for (std::size_t r = 0; r < st.row_x.size(); ++r) {
-                st.row_x[r] = GREF(float, moby + kMobyRows + 0x10 * static_cast<gaddr>(r));
+            for (std::size_t r = 0; r < st.row_y.size(); ++r) {
+                st.row_y[r] =
+                    GREF(float, moby + kMobyRows + kAcross + 0x10 * static_cast<gaddr>(r));
             }
 
             st.by = 1.0f;
@@ -822,6 +861,21 @@ void fit_frames(const openrac_front_end& fe) {
         } else {
             // A page shown takes its own stretch; while it stays, it only grows.
             const float t = target(fe, game);
+
+            // For OPENRAC_LOG=verbose: what the page's texts need and the stretch it takes.
+            if (t != f.logged || game != f.game || page != f.page) {
+                const auto& n = needs(fe, page);
+                log::verbose(
+                    "mod ui: page {} needs title {}, list {}, footer {}: stretch {}",
+                    page,
+                    n[0],
+                    n[1],
+                    n[2],
+                    t
+                );
+                f.logged = t;
+            }
+
             f.goal = game == f.game && page == f.page ? std::max(f.goal, t) : t;
             f.game = game;
             f.page = page;

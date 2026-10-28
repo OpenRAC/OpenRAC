@@ -62,9 +62,11 @@ int main() {
     CHECK(fit::text_width("a\x7F", table) == 6);
     CHECK(fit::text_width("ab", std::span<const std::uint8_t>(table.data(), 'b' * 4)) == 8);
 
-    // A widget's need: its widest line, its padding and the rounding; none for no line.
+    // A widget's need: its widest line, its padding, the rounding and the margin; none for no line.
     const std::array<int, 3> lines = {120, 300, 0};
-    CHECK(near(fit::needed_width(lines, fit::kFooterPadding), 300.0f + 6 + fit::kRounding));
+    CHECK(near(
+        fit::needed_width(lines, fit::kFooterPadding), 300.0f + 6 + fit::kRounding + fit::kMargin
+    ));
     CHECK(near(fit::needed_width(std::span<const int>(), fit::kListPadding), 0.0f));
 
     constexpr float kLeft = 26.0f, kRight = 486.0f;

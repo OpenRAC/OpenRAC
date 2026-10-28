@@ -53,6 +53,8 @@ constexpr int kFooterPadding = 6;
 // A frame's width is a projection rounded to pixels: this much more, so a line that just fits at
 // one stretch still does at the next tick's.
 constexpr int kRounding = 2;
+// And room to spare, half on each side, so the widest line does not touch the frame's border.
+constexpr int kMargin = 12;
 
 // The width lines of these widths need with `padding` around them; 0 for none.
 inline float needed_width(std::span<const int> widths, int padding) {
@@ -62,7 +64,7 @@ inline float needed_width(std::span<const int> widths, int padding) {
         widest = std::max(widest, w);
     }
 
-    return widest > 0 ? static_cast<float>(widest + padding + kRounding) : 0.0f;
+    return widest > 0 ? static_cast<float>(widest + padding + kRounding + kMargin) : 0.0f;
 }
 
 // One of a page's frames: its width as its seq poses it (stretch 1; 0 while not known), its centre
