@@ -2,11 +2,26 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #include "renderer/shadows.h"
 
+#include <atomic>
+
 #include "renderer/gl.h"
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
 using namespace openrac::gl;
+
+namespace {
+// Set from the drawer on the window thread, read by the render thread.
+std::atomic<bool> g_hidden{false};
+}  // namespace
+
+void set_classic_shadow_hidden(bool hidden) {
+    g_hidden.store(hidden);
+}
+
+bool classic_shadow_hidden() {
+    return g_hidden.load();
+}
 
 bool ShadowRenderer::init(RenderState&, std::string& error) {
     if (!m_volume.build("shadow volumes", shaders::shadow_vert, shaders::shadow_frag, error)
@@ -29,6 +44,9 @@ void ShadowRenderer::render(const FrameInput& input, RenderState& state) {
     if (enhanced_rendering_available() && (input.hero_pixel_shadow || input.sun_pixel_shadow)) {
         return;
     }  // modern shadows resolve in mesh.frag
+    if (classic_shadow_hidden()) {
+        return;
+    }
     const auto vertices =
         shadow_volumes(input.shadow_capsules, input.shadow_extrusion, input.shadow_heights);
     if (vertices.empty()) {

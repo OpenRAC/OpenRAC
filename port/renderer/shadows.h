@@ -5,6 +5,11 @@
 #include "renderer/shader.h"
 
 namespace openrac::renderer {
+// Developer tools: Ratchet's stencil shadow left out, to tell its pass apart from what else draws
+// under him. For this session only; the game's picture is the one with it.
+void set_classic_shadow_hidden(bool hidden);
+bool classic_shadow_hidden();
+
 class ShadowRenderer : public BucketRenderer {
 public:
     ShadowRenderer() : BucketRenderer("ratchet shadows", Bucket::Mobys) {}
