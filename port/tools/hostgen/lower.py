@@ -1158,8 +1158,17 @@ class Unit:
             if init is not None and (self._sign_extends(init) or self._wide_name(init) is not None):
                 return [pad + f"{self.declare(t, name)} = {self._wide_value(init, t)};"]
         text = self.declare(t, name)
+        kind = self.cls(t)
         if init is not None:
             text += f" = {self.initializer(init, t)}"
+        elif kind != "valist":  # va_start sets a va_list
+            # A local the source leaves unset starts at zero. Reading it unset is undefined in the
+            # host's C, and Clang drops the code that does: a branch on it (both arms one store,
+            # retail's FUN_L00_00269d20) went the other way and every spark took the collision
+            # arm; a loop passing it to a call (replenish_hero_drones' first spawn) was removed,
+            # the ammo spent and no drone made. The console read whatever a register held there;
+            # zero at least runs the code the source wrote.
+            text += " = {0}" if kind in ("rec", "arr") else " = 0"
         return [pad + text + ";"]
 
     def initializer(self, init: dict, t: ctype.Type) -> str:
