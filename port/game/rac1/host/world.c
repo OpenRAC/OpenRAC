@@ -532,12 +532,25 @@ void rac1_world_post_hit(
  * matrices, the position at +0x140 the run list reads, the view's rows at +0x350 the window
  * reads) and the view context (D_0018CE00: the tangents, focal lengths and fog), as they are on
  * the menu's first tick, before initialize_pause_menu puts its own there; swapped with the
- * menu's, so what the level's update writes there is kept for the next tick. */
+ * menu's, so what the level's update writes there is kept for the next tick.
+ *
+ * The level's collision: initialize_pause_menu turns the collision queries off while the menu is
+ * open (bit 31 of the query stamp, CollOutput +0x10, D_L00_00173F40; a query whose stamp is negative
+ * hits nothing, collision.c's new_stamp) and close_pause_menu turns them back on. Nothing ran
+ * under the menu in the game, but the level's mobys do here: with every query missing, the
+ * creatures that stand on the ground (Veldin's class 749) found none and were put at height 0,
+ * under the level, where they stayed after the menu closed. The queries are put back on around
+ * the level's update and off again after it, under the pause menu and under a freeze dialog
+ * (which the pause menu can open). */
 static int keep_running;
 
 void rac1_world_keep_running(int on) {
     keep_running = on != 0;
 }
+
+/* The collision queries' stamp (CollOutput +0x10) and its bit for "off". */
+#define COLL_STAMP (OPENRAC_LDATA(0, RAC1_LADDR(00, 0x00173F40u)) + 0x10u)
+#define COLL_OFF 0x80000000u
 
 #define CAMERA_BLOCK RAC1_ADDR(0x00187040u)
 #define VIEW_CONTEXT RAC1_ADDR(0x0018CE00u)
@@ -606,7 +619,10 @@ static void run_world_under_menu(int pause_menu) {
     /* OPENRAC_RUN_MENU_FIRST, _LEVEL_CAMERA, _OWN_CAMERA, _FREEZE */
     note_menu_run(!pause_menu ? 5 : first ? 2 : swapped ? 3 : 4);
     const int entered = enter_level_context();
+    const uint32_t coll_off = GREF(uint32_t, COLL_STAMP) & COLL_OFF;
+    GREF(uint32_t, COLL_STAMP) &= ~COLL_OFF;
     func_00213C78();
+    GREF(uint32_t, COLL_STAMP) |= coll_off;
     if (pause_menu && (first || swapped)) {
         openrac_game_world_under_menu();
         openrac_game_draw(OPENRAC_DRAW_SKY);

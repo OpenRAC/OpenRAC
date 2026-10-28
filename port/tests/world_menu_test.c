@@ -3,8 +3,8 @@
 /* The level's world under the pause menu (rac1/host/world.c, PAL's table): while the menu's moby
  * context is up (select_moby_context(1), its array in the level's pointers), a moby the mods make
  * (a co-op figure) is made among the level's mobys and one they delete is deleted there, its
- * deletion noted as a mod's; and the camera they are given is the level's, not the menu's at
- * 256,256,64. */
+ * deletion noted as a mod's; the camera they are given is the level's, not the menu's at
+ * 256,256,64; and the level's mobys query collision with it on, though the menu turned it off. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -110,14 +110,30 @@ static void put_menu_camera(void) {
     memcpy(G(OPENRAC_DATA(CAMERA_POSITION)), menu, sizeof menu);
 }
 
+/* The menu's update: on its first tick (initialize_pause_menu) its camera, the collision queries
+ * turned off (the stamp's bit 31), and its mobys. */
 void func_L00_00277A88__game(void) {
+    if (GREF(int, CONTEXT) == 0) {
+        GREF(uint32_t, COLL_STAMP) |= COLL_OFF;
+    }
     put_menu_camera();
     func_L00_00235FF8(1);
 }
 
 void func_001FD3E8__game(void) {}
 
-void func_00213C78(void) {}
+/* The level's update: its mobys' collision queries, each a new stamp; how many found the queries
+ * off (a creature finding no ground). */
+static int level_updates, queries_off;
+
+void func_00213C78(void) {
+    ++level_updates;
+    if ((int32_t)GREF(uint32_t, COLL_STAMP) < 0) {
+        ++queries_off;
+    } else {
+        GREF(uint32_t, COLL_STAMP) += 3u;
+    }
+}
 
 void func_00218B10(void) {}
 
@@ -196,6 +212,15 @@ int main(void) {
     GREF(int, CONTEXT) = 0;
     const float level[3] = {132.3f, 112.4f, 34.6f};
     memcpy(G(OPENRAC_DATA(CAMERA_POSITION)), level, sizeof level);
+    GREF(uint32_t, COLL_STAMP) = 1000u;
+
+    /* Alone, the pause menu runs no level: the collision queries stay off as it turned them. */
+    func_L00_00277A88();
+    CHECK(level_updates == 0);
+    CHECK(GREF(uint32_t, COLL_STAMP) == (1000u | COLL_OFF));
+    func_L00_00235FF8(0);
+    GREF(uint32_t, COLL_STAMP) &= ~COLL_OFF; /* close_pause_menu */
+    memcpy(G(OPENRAC_DATA(CAMERA_POSITION)), level, sizeof level);
     rac1_world_keep_running(1);
 
     /* In play: the level's camera. */
@@ -210,14 +235,24 @@ int main(void) {
     CHECK(rac1_world_camera_position(at));
     CHECK(memcmp(at, level, sizeof at) == 0);
 
-    /* Its later ticks (the level's camera swapped in for the world's run and back): still. */
+    CHECK(GREF(uint32_t, COLL_STAMP) == (1003u | COLL_OFF));
+
+    /* Its later ticks (the level's camera swapped in for the world's run and back): still; the
+     * level's mobys query collision with it on, the menu's off again after, the stamp counted on. */
     for (int tick = 0; tick < 264; ++tick) { /* 4.4 s */
         func_L00_00277A88();
         CHECK(GREF(int, CONTEXT) == 1);
         CHECK(GREF(float, OPENRAC_DATA(CAMERA_POSITION)) == 256.0f);
         CHECK(rac1_world_camera_position(at));
         CHECK(memcmp(at, level, sizeof at) == 0);
+        CHECK(GREF(uint32_t, COLL_STAMP) == ((1006u + 3u * (uint32_t)tick) | COLL_OFF));
     }
+    CHECK(level_updates == 265 && queries_off == 0);
+
+    /* A freeze dialog the menu opens: the same. */
+    func_001FD3E8();
+    CHECK(level_updates == 266 && queries_off == 0);
+    CHECK((GREF(uint32_t, COLL_STAMP) & COLL_OFF) != 0);
 
     /* A figure made under the menu is the level's, the menu's context left up. */
     const gaddr figure = rac1_world_create_moby(0);
@@ -234,8 +269,11 @@ int main(void) {
     CHECK(rac1_world_moby_deletion(300, &d));
     CHECK(d.by_mod == 1 && d.by == -1 && d.oclass == 0);
 
-    /* Out of the menu: the camera block's own again. */
+    /* Out of the menu (close_pause_menu): the camera block's own again, the queries on. */
     func_L00_00235FF8(0);
+    GREF(uint32_t, COLL_STAMP) &= ~COLL_OFF;
+    func_001FD3E8();
+    CHECK(queries_off == 0 && (GREF(uint32_t, COLL_STAMP) & COLL_OFF) == 0);
     memcpy(G(OPENRAC_DATA(CAMERA_POSITION)), level, sizeof level);
     CHECK(rac1_world_camera_position(at));
     CHECK(memcmp(at, level, sizeof at) == 0);
