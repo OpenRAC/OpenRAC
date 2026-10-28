@@ -39,6 +39,12 @@ OPENRAC_HIDDEN=1 OPENRAC_PRESS=300:4000:10,500:8:10,700:4000:10,900:8:10 \
   --no-card --skip-movies --stop-on-missing
 ```
 
+From the launcher, with Developer tools on (Settings): set the game up from
+your disc, then Play (`launcher/actions.json`, rac2/ntsc's `play`:
+`--data {data} --window`, after a warning to accept). Its Build the game runs
+`tools/build_port.py rac2-ntsc`. Both are `"developer": true`, so a player's
+launcher does not show them.
+
 `OPENRAC_RAC2_NTSC_RETAIL_IMAGE` (a disc image) does not work for Going
 Commando yet: the disc reader hostgen uses (`editor/disc.py`) knows only
 Ratchet & Clank's discs, whose root has no subdirectories.

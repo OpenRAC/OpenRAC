@@ -30,10 +30,46 @@ public:
           m_hud(hud),
           m_world_size(world_size) {}
 
+    ~TestBucket() override {
+        if (m_vao) {
+            glDeleteVertexArrays(1, &m_vao);
+        }
+    }
+
     void render(const renderer::FrameInput&, renderer::RenderState& state) override {
         // A single display pixel reveals accidental low-resolution HUD rendering or later upscaling.
         if (m_hud) {
             CHECK(state.target.width == 96 && state.target.height == 72);
+            if (!m_glimmer.id()) {
+                std::string error;
+                CHECK(m_glimmer.build(
+                    "late depth-tested world effect",
+                    R"(#version 410 core
+uniform float depth;
+void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Position=vec4(p*2.-1.,depth*2.-1.,1);})",
+                    R"(#version 410 core
+layout(location=0) out vec4 result;
+void main(){result=vec4(0,1,0,1);})",
+                    error
+                ));
+                glGenVertexArrays(1, &m_vao);
+            }
+            // The native HUD packet stream also contains depth-tested world glimmers.
+            m_glimmer.use();
+            glBindVertexArray(m_vao);
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_GEQUAL);
+            glDepthMask(GL_FALSE);
+            glDisable(GL_BLEND);
+            glDisable(GL_CULL_FACE);
+            glEnable(GL_SCISSOR_TEST);
+            glScissor(40, 30, 1, 1);
+            glUniform1f(m_glimmer.uniform("depth"), .25f);
+            glDrawArrays(GL_TRIANGLES, 0, 3);  // behind the wall: must remain hidden
+            glScissor(43, 30, 1, 1);
+            glUniform1f(m_glimmer.uniform("depth"), .75f);
+            glDrawArrays(GL_TRIANGLES, 0, 3);  // in front: must remain visible
+            glDisable(GL_DEPTH_TEST);
             glEnable(GL_SCISSOR_TEST);
             glScissor(48, 36, 1, 1);
             glClearColor(1, 0, 0, 1);
@@ -49,6 +85,8 @@ public:
     }
 
 private:
+    renderer::Shader m_glimmer;
+    unsigned m_vao = 0;
     bool m_hud;                              // Only the final bucket marks a display pixel.
     const std::array<int, 2>& m_world_size;  // Expected extent owned by the enclosing test.
 };
@@ -90,6 +128,10 @@ void check_temporal_frame(
     renderer::FrameInput input;
     input.camera.projection = renderer::perspective_reversed(1, 1.5f, .05f, 2000);
     renderer::RenderTarget target{display.id(), 96, 72};
+    bool before_hud_called = false;
+    input.before_hud = [&] {
+        before_hud_called = true;
+    };
     const enhanced::TemporalFrame frame{input, target, display, scene, renderer.textures(), 0};
     const bool prepared = upscaler.begin(frame, quality, 0, error);
     CHECK(prepared);
@@ -101,6 +143,7 @@ void check_temporal_frame(
     }
 
     renderer.render(input, target);
+    CHECK(before_hud_called);
     const auto pixels = display.read_rgba();
     // read_rgba returns top row first; GL pixel (48,36) is row 35.
     const std::size_t at = (std::size_t{35} * 96 + 48) * 4;
@@ -108,6 +151,10 @@ void check_temporal_frame(
     CHECK(std::abs(static_cast<int>(pixels[at + 4]) - 64) <= 2);
     CHECK(std::abs(static_cast<int>(pixels[at + 5]) - 128) <= 2);
     CHECK(std::abs(static_cast<int>(pixels[at + 6]) - 191) <= 2);
+    const auto behind = (std::size_t{41} * 96 + 40) * 4;
+    const auto front = (std::size_t{41} * 96 + 43) * 4;
+    CHECK(std::abs(int(pixels[behind]) - 64) <= 2 && std::abs(int(pixels[behind + 1]) - 128) <= 2);
+    CHECK(pixels[front] == 0 && pixels[front + 1] == 255 && pixels[front + 2] == 0);
 }
 
 // Resolving before the final HUD bucket retains world RGB across quality and output-image changes.

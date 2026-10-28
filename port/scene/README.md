@@ -26,7 +26,6 @@ package P2-39b).
 | [`pvs.h`](pvs.h) | `Pvs`, rac1's baked camera visibility (`pvs.json`, `pvs.bin`): the grid's lookup of which instances a camera position can see |
 | [`level_renderer.h`](level_renderer.h) | `LevelScene`, a loaded level on the GPU (shared buffers, instanced draws per class and material, skinned live mobys, culling, the enhanced lighting and shadows when they are on), and `LayerRenderer`, one of its layers as a bucket of `renderer::Renderer` |
 | [`level_lighting.h`](level_lighting.h) | `LevelLighting`, the level renderer's lighting hook: what a `LevelScene` asks of the probe and early lighting registered with `set_level_lighting` (the shaders' lighting GLSL, the bake's load, the uniforms, the early pass); the enhanced renderer's `lighting::SceneLighting` implements it |
-| [`emission.h`](emission.h) | `EmissionMask` and `kAuthoredEmissions`: the reviewed materials that emit, which `load_level` applies to a level's materials and the probe baker reads |
 | [`moby_pose.h`](moby_pose.h) | `moby_palette` and `moby_pose_matrices`: a live moby's joint matrices, evaluated from its animation fields in game memory as the game's VU0 evaluator did |
 | [`sun_shadow.h`](sun_shadow.h) | `sun_cascades` and `SunCascades`: the sun's four cascades over the camera's view, their snapped matrices and caster volumes; `StaticShadowKey`, what the static shadow cache compares |
 | [`hero_shadow.h`](hero_shadow.h) | `hero_shadow_projection`, the view Ratchet's shadow map is drawn from, and `hero_airborne`, read from game memory |
@@ -34,6 +33,14 @@ package P2-39b).
 | [`shadow_atlas.h`](shadow_atlas.h) | the shadow atlas's size and its rectangles: the four cascades and the hero's map |
 | [`moby_shadow.h`](moby_shadow.h) | `moby_shadow_state` and `moby_shadows`: a moby's stencil shadow (direction, ground slab, fade) and its capsules, from game memory |
 | [`screenshot.h`](screenshot.h) | `write_png`: an RGBA frame written to a PNG file |
+
+## Renderer implementation
+
+`level_renderer.cpp` owns uploads/layer drawing; `level_instances.cpp` handles groups, poses and
+palettes; `level_lighting_pass.cpp` owns early lighting. Shadows split into setup
+(`level_shadows.cpp`), atlas submission (`shadow_atlas_renderer.cpp`), casters (`shadow_casters.cpp`)
+and persistent caches (`shadow_scroll_renderer.cpp`). `level_renderer_internal.h` shares private
+utilities; the public `LevelScene` interface is unchanged.
 
 ## Depends on
 
@@ -103,6 +110,7 @@ switched off with `OPENRAC_RENDER_OPT_OFF`): `texture-prepare`, `gpu-resident-in
 | `probe_scene`, `bake_liquids` | the probe tools turn a `LevelData` into the scene they bake |
 | `hero_shadow_cpu`, `sun_shadow_cpu` | the shadow arithmetic: the cascades' split, snapping and caster volumes, the static cache's key, the hero's projection and airborne flag (`tests/sun_shadow_test.cpp`, `tests/hero_shadow_test.cpp`) |
 | `hero_shadow_vulkan`, `sun_shadow_vulkan`, `sun_shadow_filter_reference_vulkan`, `probe_gpu_vulkan`, `early_lighting_vulkan`, `gtao_vulkan`, `enhanced_rendering_compat` | the enhanced passes the level renderer draws, and that a build with them switched off draws as one without |
+| `object_picker` | click hit testing, BVH traversal, nearest geometry, animated poses, stable selection and JSON reports |
 | `geometry_moby_animation` | the pose arithmetic `moby_pose.h` runs, against the game's own (in `assets/geometry`) |
 
 `moby_pose.h` and `moby_shadow.h` have no test of their own: what they read of game memory is

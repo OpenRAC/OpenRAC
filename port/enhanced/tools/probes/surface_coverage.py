@@ -116,6 +116,32 @@ class Surfaces:
         return floor, eye+roof
 
 
+def gameplay_anchors(region, markers):
+    """Keep source floors as evidence; padded probe bounds are not playable-space evidence."""
+    sources = set(region.get('source_mobys', []))
+    anchors = []
+    for marker in markers:
+        if marker['index'] not in sources:
+            continue
+        floor = marker.get('ground_z')
+        if floor is not None and region['bounds'][2] <= floor <= region['bounds'][5]:
+            anchors.append((*marker['position'][:2], floor))
+    return anchors
+
+
+def connected_floor(surfaces, anchors, x, y, floor, step):
+    """Require a short walkable-height connection from an actual source floor, not an inflated seed box."""
+    for ax, ay, az in anchors:
+        if abs(floor-az) > step:
+            continue
+        origin = (ax, ay, az+1.5)
+        delta = (x-ax, y-ay, floor-az)
+        distance = math.sqrt(sum(v*v for v in delta))
+        if distance <= 0.05 or surfaces.ray(origin, tuple(v/distance for v in delta), distance) is None:
+            return True
+    return False
+
+
 def rectangles(cells):
     """Deterministic rectangles of identically bounded adjacent room cells."""
     remaining = dict(cells)
@@ -134,7 +160,7 @@ def rectangles(cells):
         yield x, y, right, top, value
 
 
-def extend_regions(regions, triangles, coarse, spacing, budget=4096, max_rise=32, padding=3):
+def extend_regions(regions, triangles, coarse, spacing, budget=4096, max_rise=32, padding=3, *, markers=None):
     """Grow dense coverage through enclosed playable cells, preserving outdoor seeds."""
     from seed_regions import axis_spacing, probe_count, split_bounds
     spacing = axis_spacing(spacing)
@@ -148,9 +174,11 @@ def extend_regions(regions, triangles, coarse, spacing, budget=4096, max_rise=32
     out, diagnostics = [], []
     for index, region in enumerate(regions):
         original = region['bounds']
+        anchors = gameplay_anchors(region, markers) if markers is not None else None
+        require_anchor = markers is not None and not region.get('source_transitions')
         limit = min(upper[2], original[5]+max_rise)
         cells, queue, seen = {}, deque(), set()
-        indoor, limited, discovered = 0, 0, 0
+        indoor, limited, discovered, disconnected = 0, 0, 0, 0
         sample_limit_reached = False
         for x in range(math.floor(original[0]/cell[0]), math.ceil(original[3]/cell[0])):
             for y in range(math.floor(original[1]/cell[1]), math.ceil(original[4]/cell[1])):
@@ -162,7 +190,8 @@ def extend_regions(regions, triangles, coarse, spacing, budget=4096, max_rise=32
                     reference += max(spacing[2]*2, 4)
         while queue:
             x, y, reference, grown = queue.popleft()
-            key = (x, y, round(reference/spacing[2]))
+            # A failed direct connection may still be reachable later around a corner.
+            key = (x, y, round(reference/spacing[2]), grown)
             if key in seen:
                 continue
             if len(seen) >= MAX_ROOM_SAMPLES:
@@ -178,6 +207,12 @@ def extend_regions(regions, triangles, coarse, spacing, budget=4096, max_rise=32
                 continue
             floor, roof = room
             if floor < original[2]-spacing[2] or floor > original[5]:
+                continue
+            # Padded marker columns can overlap solid cliffs or inaccessible upper storeys.
+            # Only connected source floors may start expansion; accepted neighbours then flood normally.
+            if not grown and require_anchor and not connected_floor(
+                    surfaces, anchors, px, py, floor, max(2, spacing[2])):
+                disconnected += 1
                 continue
             # Flood only to nearby walkable heights, never directly into another storey.
             if grown and abs(floor-(reference-1)) > max(2, spacing[2]):
@@ -201,6 +236,7 @@ def extend_regions(regions, triangles, coarse, spacing, budget=4096, max_rise=32
                     queue.append((x+dx, y+dy, floor+1, True))
         diagnostic = {'seed_region': index, 'seed_bounds': original.copy(),
                       'indoor_samples': indoor, 'connected_cells_added': discovered,
+                      'disconnected_samples': disconnected,
                       'limited_surfaces': limited, 'height_limit': limit,
                       'sample_limit_reached': sample_limit_reached,
                       'unresolved_or_outdoor_samples': len(seen)-indoor, 'changed': False}

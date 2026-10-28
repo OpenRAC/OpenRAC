@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "common/crash.h"
+#include "common/profiler.h"
 
 namespace openrac::frontend {
 
@@ -41,6 +42,7 @@ RenderWorker::~RenderWorker() {
 }
 
 bool RenderWorker::submit(std::function<void()> job, std::string& error) {
+    const profiling::Zone trace("Render handoff");
     // An empty function cannot wake a consumer waiting for an owned job.
     if (!job) {
         error = "empty render job";
@@ -64,6 +66,7 @@ bool RenderWorker::submit(std::function<void()> job, std::string& error) {
 }
 
 bool RenderWorker::finish(std::string& error) {
+    const profiling::Zone trace("Render completion wait");
     std::unique_lock lock(m_mutex);
     m_changed.wait(lock, [this] { return !m_busy; });
     error = m_error;
@@ -71,18 +74,23 @@ bool RenderWorker::finish(std::string& error) {
 }
 
 bool RenderWorker::ready_until(std::chrono::steady_clock::time_point deadline) {
+    const profiling::Zone trace("Render readiness wait");
     std::unique_lock lock(m_mutex);
     return m_changed.wait_until(lock, deadline, [this] { return !m_busy; });
 }
 
 void RenderWorker::run() {
+    profiling::thread_name("Render");
     // A render fault needs its own alternate signal stack on POSIX hosts.
     crash::prepare_thread();
 
     // Destruction ends the loop after the final accepted snapshot has completed.
     for (;;) {
         std::unique_lock lock(m_mutex);
-        m_changed.wait(lock, [this] { return m_stopping || static_cast<bool>(m_job); });
+        {
+            const profiling::Zone trace("Render worker idle");
+            m_changed.wait(lock, [this] { return m_stopping || static_cast<bool>(m_job); });
+        }
 
         // Shutdown follows completion, so no snapshot is discarded.
         if (m_stopping) {
@@ -100,6 +108,7 @@ void RenderWorker::run() {
                 throw std::runtime_error("cannot restore render floating-point environment");
             }
 
+            const profiling::Zone trace("Render snapshot");
             job();
         } catch (const std::exception& failure) {
             error = failure.what();

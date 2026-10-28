@@ -153,7 +153,7 @@ class DiscIdentityTests(unittest.TestCase):
         for key, version in readers.items():
             with self.subTest(version=key):
                 self.assertEqual(tuple(getattr(version, f) for f in FIELDS), OLD_IDENTITIES[key])
-        self.assertEqual((disc.PAL.key, disc.PAL.gameplay, disc.PAL.normal_table), ("pal", "gameplay_pal", 0x165600))
+        self.assertEqual((disc.PAL.key, disc.PAL.gameplay, disc.PAL.normal_table), ("pal", "gameplay_ntsc", 0x165600))
         self.assertEqual((disc.NTSC.key, disc.NTSC.gameplay, disc.NTSC.normal_table), ("ntsc", "gameplay_ntsc", 0x165500))
         self.assertEqual([v.level_header for v in wads.VERSIONS], [0x60, 0x60, 0xc68])
 

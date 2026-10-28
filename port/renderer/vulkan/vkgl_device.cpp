@@ -791,6 +791,10 @@ void destroy_all() {
         // The pre-warm worker stops first: it uses the programs' modules and the cache.
         stop_pipeline_prewarm();
         vkDeviceWaitIdle(g->device);
+        // Teardown drains all slots directly; resource retirement must not begin another recording.
+        g->frame_pending = false;
+        release_depth_combine();
+        tracy_gpu_close();
         gpu_release();
         material_release();
         save_pipeline_manifest();

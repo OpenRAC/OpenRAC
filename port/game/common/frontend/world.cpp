@@ -23,12 +23,14 @@
 #include <utility>
 #include <vector>
 
+#include "common/c_boundary.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "debug_overlay.h"
 #include "enhanced/renderer/gtao.h"
 #include "enhanced/renderer/texture_upscale.h"
+#include "enhanced/renderer/water.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "frontend.h"
 #include "game/common/frontend/geometry.h"
@@ -87,6 +89,7 @@ void use_level(int number) {
     // pool is the GS memory, which keeps what the game uploaded (a card's text uploaded through the
     // display list, the fonts) across the change.
     const bool fresh = !g->renderer;
+    g->hud = nullptr;
     if (fresh) {
         g->renderer = std::make_unique<renderer::Renderer>();
         // The enhanced renderer's ambient occlusion, drawn when the player's settings ask for it.
@@ -102,6 +105,7 @@ void use_level(int number) {
     // The enhanced renderer's probe and early lighting, drawn when the player's settings ask.
     lighting::use_scene_lighting(g->scene);
     g->level = scene::LevelData();
+    g->picker.clear();
     std::string error;
     const auto dir = g->levels / std::format("level_{:02d}", wanted);
     // An edited level's scenery (--mods): the editor's pack writes it beside its gameplay file.
@@ -164,6 +168,7 @@ void use_level(int number) {
     auto hud = std::make_unique<renderer::DirectRenderer>(
         "hud", renderer::Bucket::Hud, renderer::DirectConfig{}, renderer::DirectRenderer::Input::Vif
     );
+    g->hud = hud.get();
     g->renderer->add(std::make_unique<renderer::DirectBackground>(*hud), error);
     static const bool& hero_pixel_shadow = stats::probe(
         "OPENRAC_HERO_SHADOW",
@@ -206,7 +211,14 @@ void use_level(int number) {
         }
     }
     if (g->renderer->add(
-            std::make_unique<renderer::EffectRenderer>("effects", renderer::EffectPart::Rest), error
+            std::make_unique<renderer::EffectRenderer>(
+                "effects",
+                renderer::EffectPart::Rest,
+                renderer::Bucket::Particles,
+                wanted == 1 && g->game == "rac1-ntsc" ? enhanced::make_water(g->scene, dir)
+                                                      : nullptr
+            ),
+            error
         )
         == nullptr) {
         log::error("effect renderer: {}", error);
@@ -724,3 +736,15 @@ int ui_quad(const openrac_game_ui_rect& quad) {
 }
 
 }  // namespace openrac::frontend
+
+// Called on the game thread: disable legacy displacement only with a working replacement.
+extern "C" int openrac_game_enhanced_water(void) {
+    using namespace openrac;
+    return c_boundary::call("openrac_game_enhanced_water", 0, [] {
+        return int(
+            frontend::g && frontend::g->game == "rac1-ntsc" && frontend::g->loaded == 1
+            && frontend::enhanced_graphics_available() && settings::get().enhanced_graphics
+            && enhanced::water_available()
+        );
+    });
+}

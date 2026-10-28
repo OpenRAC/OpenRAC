@@ -5,7 +5,7 @@ layout(local_size_x = 16, local_size_y = 16) in;
 
 // Per region: origin/atlas offset, spacing, then dimensions.
 layout(std140) uniform ProbeRegions {
-    vec4 regions[1536];
+    vec4 regions[3072];
 };
 
 // Count, 128 global region indices, then four mask words per screen tile.
@@ -18,8 +18,8 @@ uniform mat4 world_to_clip;
 uniform int region_count;
 uniform int select_regions;
 uniform vec3 camera_position;
-shared float distances[512];
-shared uint indices[512];
+shared float distances[1024];
+shared uint indices[1024];
 
 bool intersects_region(uint id, vec4 frustum[6]) {
     vec3 lo = regions[id * 3].xyz;
@@ -32,12 +32,12 @@ bool intersects_region(uint id, vec4 frustum[6]) {
     return true;
 }
 
-// One workgroup sorts all 512 keys, with stable region IDs breaking distance ties.
+// One workgroup sorts all 1024 keys, with stable region IDs breaking distance ties.
 void select_closest(uint lane) {
     mat4 t = transpose(world_to_clip);
     vec4 frustum[6] = vec4[6](t * vec4(1,0,0,1), t * vec4(-1,0,0,1),
         t * vec4(0,1,0,1), t * vec4(0,-1,0,1), t * vec4(0,0,1,1), t * vec4(0,0,-1,1));
-    for (uint id = lane; id < 512u; id += 256u) {
+    for (uint id = lane; id < 1024u; id += 256u) {
         float distance = uintBitsToFloat(0x7f800000u);
         if (id < uint(region_count) && intersects_region(id, frustum)) {
             vec3 lo = regions[id * 3].xyz;
@@ -49,18 +49,20 @@ void select_closest(uint lane) {
         indices[id] = id;
     }
     barrier();
-    for (uint size = 2u; size <= 512u; size <<= 1u) {
+    for (uint size = 2u; size <= 1024u; size <<= 1u) {
         for (uint stride = size >> 1u; stride > 0u; stride >>= 1u) {
-            // Each lane owns one disjoint compare/exchange pair.
-            uint a = (lane / stride) * (stride * 2u) + lane % stride;
-            uint b = a + stride;
-            bool greater = distances[a] > distances[b]
-                || (distances[a] == distances[b] && indices[a] > indices[b]);
-            bool less = distances[a] < distances[b]
-                || (distances[a] == distances[b] && indices[a] < indices[b]);
-            if (((a & size) == 0u && greater) || ((a & size) != 0u && less)) {
-                float d = distances[a]; distances[a] = distances[b]; distances[b] = d;
-                uint i = indices[a]; indices[a] = indices[b]; indices[b] = i;
+            // Each lane handles two disjoint pairs before the shared-memory barrier.
+            for (uint pair = lane; pair < 512u; pair += 256u) {
+                uint a = (pair / stride) * (stride * 2u) + pair % stride;
+                uint b = a + stride;
+                bool greater = distances[a] > distances[b]
+                    || (distances[a] == distances[b] && indices[a] > indices[b]);
+                bool less = distances[a] < distances[b]
+                    || (distances[a] == distances[b] && indices[a] < indices[b]);
+                if (((a & size) == 0u && greater) || ((a & size) != 0u && less)) {
+                    float d = distances[a]; distances[a] = distances[b]; distances[b] = d;
+                    uint i = indices[a]; indices[a] = indices[b]; indices[b] = i;
+                }
             }
             barrier();
         }

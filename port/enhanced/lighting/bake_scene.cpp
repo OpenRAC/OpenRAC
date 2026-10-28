@@ -4,10 +4,11 @@
 // Scene validation, Embree ownership and cutout filtering for offline bakes.
 #include "enhanced/lighting/bake_scene.h"
 
+#include <string>
+
+#include "common/profiler.h"
 #include "enhanced/lighting/bake_material.h"
 #include "enhanced/lighting/bake_math.h"
-
-#include <string>
 
 namespace openrac::lighting::bake_detail {
 namespace {
@@ -19,8 +20,26 @@ struct TextureAlpha {
     bool transparent = true;
 };
 
+// Native callers must satisfy the same local emission bounds as authored profiles.
+void validate_emission_regions(const BakeSettings& settings) {
+    for (const auto& region : settings.surface_emission_regions) {
+        // Nonfinite bounds or gain would poison transport estimates and fingerprints.
+        if (!finite(region.minimum) || !finite(region.maximum) || !std::isfinite(region.scale)
+            || region.scale < 0) {
+            throw std::runtime_error("invalid surface emission region");
+        }
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            // Empty or planar boxes are allowed, but inverted bounds are not.
+            if (region.minimum[axis] > region.maximum[axis]) {
+                throw std::runtime_error("invalid surface emission region bounds");
+            }
+        }
+    }
+}
+
 // Reject settings that could create invalid rays or unbounded allocation requests.
 void validate_settings(const BakeSettings& settings, std::size_t triangle_count) {
+    validate_emission_regions(settings);
     // Overrides must form a finite ray even when supplied directly by native callers.
     if (settings.sunlight_direction) {
         unit(*settings.sunlight_direction);
@@ -36,6 +55,7 @@ void validate_settings(const BakeSettings& settings, std::size_t triangle_count)
 
     // Bound sampling and relocation settings before allocating worker data.
     if (settings.rays_per_probe < 16 || settings.bounces > 32 || !std::isfinite(settings.ray_bias)
+        || !std::isfinite(settings.surface_emission_scale) || settings.surface_emission_scale < 0
         || !std::isfinite(settings.sky_intensity) || settings.sky_intensity < 0
         || !std::isfinite(settings.sky_weight) || settings.sky_weight < 0 || settings.sky_weight > 1
         || settings.ray_bias <= 0 || !std::isfinite(settings.distance_exponent)
@@ -94,6 +114,10 @@ void validate_triangle(
         throw std::runtime_error("invalid bake diffuse scale");
     }
 
+    if (!std::isfinite(triangle.emission_contrast) || triangle.emission_contrast < 1
+        || triangle.emission_contrast > 4) {
+        throw std::runtime_error("invalid bake emission contrast");
+    }
     validate_colour(triangle.diffuse, true);
     validate_colour(triangle.emission, false);
 
@@ -158,7 +182,7 @@ void Scene::filter_alpha(const RTCFilterFunctionNArguments* args) {
         const auto& triangle = scene.input.triangles[primitive];
 
         // Reject transparent candidates without restarting traversal.
-        if (textured_opacity(
+        if (material_opacity(
                 scene.input,
                 triangle,
                 RTCHitN_u(args->hit, args->N, lane),
@@ -235,6 +259,8 @@ void Scene::collect_triangles() {
 
 // Upload one opaque or cutout group with independent Embree ownership.
 void Scene::build_geometry(unsigned group) {
+    const profiling::Zone trace("Build bake geometry");
+
     const auto& source_ids = triangle_ids[group];
 
     // Empty groups must not create an invalid zero-sized geometry.
@@ -296,6 +322,8 @@ void Scene::build_geometry(unsigned group) {
 
 Scene::Scene(const BakeScene& source, const std::optional<Float3>& sunlight_direction, std::uint32_t threads)
     : input(source) {
+    const profiling::Zone trace("Build Embree BVH");
+
     collect_triangles();
 
     // Normalise authored sun directions once for all probe grids.
@@ -337,6 +365,25 @@ Scene::Scene(const BakeScene& source, const std::optional<Float3>& sunlight_dire
             }
         }
 
+        // Virtual rectangles follow existing sources without introducing collision surfaces.
+        for (std::size_t i = 0; i < input.area_emitters.size(); ++i) {
+            const auto& light = input.area_emitters[i];
+            const auto crossed = cross(light.axis_u, light.axis_v);
+            const float area = 4 * std::sqrt(dot(crossed, crossed));
+            const float power = *std::max_element(light.radiance.begin(), light.radiance.end());
+
+            // Zero radiance contributes no selection probability.
+            if (power > 0) {
+                emission_weight += area * power;
+                emitters.push_back(
+                    {input.triangles.size() + input.point_emitters.size() + i,
+                     emission_weight,
+                     area,
+                     unit(crossed)}
+                );
+            }
+        }
+
         rtcCommitScene(handle);
         check_error();
     } catch (...) {
@@ -371,6 +418,16 @@ void validate_bake_scene(const BakeScene& input, const BakeSettings& settings) {
         }
 
         validate_colour(light.intensity, false);
+    }
+
+    // Degenerate rectangles cannot define a finite area probability density.
+    for (const auto& light : input.area_emitters) {
+        const auto crossed = cross(light.axis_u, light.axis_v);
+        if (!finite(light.position) || !finite(light.axis_u) || !finite(light.axis_v)
+            || dot(crossed, crossed) <= 0 || !std::isfinite(dot(crossed, crossed))) {
+            throw std::runtime_error("invalid bake area emitter");
+        }
+        validate_colour(light.radiance, false);
     }
 
     // Sky dimensions and pixel count must describe the same panorama.

@@ -95,6 +95,7 @@ void configure() {
             s.open_at_start = open;
         }
         s.labels = has("labels");
+        set_picker_enabled(has("picker"));
         s.wireframe = has("wireframe");
         s.memory_viewer = has("memview");
         if (has("inspect")) {
@@ -496,7 +497,7 @@ void toggle_drawer() {
 }
 
 bool visible() {
-    return s.visible;
+    return s.visible || s.enhanced_settings;
 }
 
 bool event(const SDL_Event& e) {
@@ -552,7 +553,8 @@ bool event(const SDL_Event& e) {
             settings::save();
         }
     }
-    if (!(s.visible || menu_bar_shown() || s.drawer_open) || !s.initialised) {
+    if (!(s.visible || s.enhanced_settings || picker_enabled() || menu_bar_shown() || s.drawer_open)
+        || !s.initialised) {
         return false;
     }
     ImGui_ImplSDL3_ProcessEvent(&e);
@@ -562,7 +564,11 @@ bool event(const SDL_Event& e) {
         case SDL_EVENT_MOUSE_BUTTON_UP:
         case SDL_EVENT_MOUSE_WHEEL:
         case SDL_EVENT_MOUSE_MOTION:
-            return io.WantCaptureMouse;
+            return io.WantCaptureMouse
+                   || (picker_enabled()
+                       && (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN
+                           || e.type == SDL_EVENT_MOUSE_BUTTON_UP)
+                       && e.button.button == SDL_BUTTON_LEFT);
         case SDL_EVENT_KEY_DOWN:
         case SDL_EVENT_KEY_UP:
         case SDL_EVENT_TEXT_INPUT:
@@ -661,8 +667,9 @@ void draw(const Shown& shown) {
         s.paused || s.stretch != 1.0 || !s.toast.empty() || !s.notice.empty() || capture_busy();
     const bool drawer_out =
         s.drawer_open || s.drawer_at > 0.0f || s.shot_when_shut || s.touch_editing;
-    if (!(s.visible || menu_bar_shown() || badge || drawer_out || !s.shot_path.empty()) || shown.window == nullptr
-        || !initialise(shown.window)) {
+    if (!(s.visible || s.enhanced_settings || picker_enabled() || menu_bar_shown() || badge
+          || drawer_out || !s.shot_path.empty())
+        || shown.window == nullptr || !initialise(shown.window)) {
         return;
     }
     const stats::Scope scope("overlay");
@@ -692,6 +699,7 @@ void draw(const Shown& shown) {
     if (menu_bar_shown()) {
         menu_bar();
     }
+    enhanced_settings_window();
     if (s.visible) {
         panel(shown);
         inspector_window();
@@ -704,6 +712,7 @@ void draw(const Shown& shown) {
     if (s.touch_editing) {
         touch_edit_bar();
     }
+    picker_overlay(shown);
     status_badge();
     ImGui::Render();
     if (s.gl_subset) {

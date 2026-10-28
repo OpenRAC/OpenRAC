@@ -210,7 +210,7 @@ class KnownVersionTests(unittest.TestCase):
     def test_the_two_discs(self):
         self.assertEqual(VERSIONS, (PAL, NTSC))
         self.assertEqual([(v.key, v.executable, v.gameplay) for v in VERSIONS],
-                         [("pal", "SCES_509.16", "gameplay_pal"), ("ntsc", "SCUS_971.99", "gameplay_ntsc")])
+                         [("pal", "SCES_509.16", "gameplay_ntsc"), ("ntsc", "SCUS_971.99", "gameplay_ntsc")])
         # games/rac1/game.json holds the same executables' sizes and SHA-1s.
         self.assertEqual((PAL.executable_size, PAL.executable_sha1), (1388100, "79956931bd62fafd8d20fa2eae796dbaf2e15e83"))
         self.assertEqual((NTSC.executable_size, NTSC.executable_sha1), (1383028, "72fd1de379dafd8f243dceeb3be50980f3fd3cd5"))

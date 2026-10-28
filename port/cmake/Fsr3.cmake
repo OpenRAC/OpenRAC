@@ -63,7 +63,8 @@ openrac_embed_shaders(openrac_fsr3 fsr3 openrac::enhanced
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/camera_motion.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/motion.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/motion.frag"
-  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/reactive.frag")
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/reactive.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/late_world_depth.frag")
 target_include_directories(openrac_fsr3 SYSTEM PRIVATE ${sdk_includes})
 openrac_warnings(openrac_fsr3)
 

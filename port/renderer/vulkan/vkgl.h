@@ -124,6 +124,10 @@ bool draw_gpu_instances(
     renderer::GpuInstanceBatch batch, unsigned first_index, unsigned index_count
 );
 
+// Draws triangles with uint32 indices from the current vertex array using a compute-written command.
+// `arguments` is a storage buffer beginning with VkDrawIndexedIndirectCommand; false for invalid inputs.
+[[nodiscard]] bool draw_indexed_indirect(unsigned arguments, unsigned index_count);
+
 // Registers the instances of a static instance buffer once, with their culling bounds: while the
 // buffer is unchanged and gpu-resident-instances is on, gpu_instances of it sends the GPU only the
 // view and a group record, and the culling reads the instances from device memory
@@ -153,9 +157,19 @@ struct GpuMaterialCounters {
 
 GpuMaterialCounters gpu_material_counters();
 
-// Copy an RGBA8 compute output to an allocated 2D texture without a readback.
+// Copy RGBA8, RG32F or RGBA32F compute output to an allocated 2D texture without a readback.
 // Includes compute-write -> transfer-read and image-sampling dependencies.
 bool copy_buffer_to_texture(unsigned buffer, unsigned texture, int width, int height);
+
+// Reversed-depth union: wrapped static depth plus an ordinary rectangle of dynamic depth.
+// The destination is an equally sized R32F storage texture; no CPU readback or image copy.
+bool combine_shadow_depth(
+    unsigned cached,
+    unsigned dynamic,
+    unsigned destination,
+    std::array<int, 2> offset,
+    std::array<int, 4> dynamic_rect
+);
 
 // renderer/gl.h's loader: the GL functions by name, null for one this does not carry out.
 using Proc = void (*)();
@@ -279,7 +293,7 @@ PresentTiming present_timing();
 // False at once when present-timing is off or the device has no VK_KHR_present_wait.
 bool wait_for_present(std::chrono::nanoseconds timeout);
 
-// Shows the default framebuffer and starts the next frame.
+// Shows the default framebuffer. The next frame slot is reclaimed on its first graphics use.
 void present();
 
 // The wait for the display, as platform::SwapInterval counts it: -1 adaptive, 0 none, 1 vsync.

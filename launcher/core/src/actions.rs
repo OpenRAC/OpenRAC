@@ -104,6 +104,14 @@ pub struct Action {
     /// refused.
     #[serde(default)]
     pub options: Vec<String>,
+    /// For developers only: the launcher lists and runs it only with Developer tools on
+    /// (Settings), for a step not fit for players yet (a game that reaches only its menus).
+    #[serde(default)]
+    pub developer: bool,
+    /// Said before the action starts, for the player to confirm, and on its game's page: what to
+    /// expect of a step that is far from finished.
+    #[serde(default)]
+    pub warning: Option<String>,
 }
 
 /// What an action works on. A game has two builds, and the launcher keeps them apart.
@@ -237,6 +245,10 @@ pub struct ActionView {
     pub blockers: Vec<String>,
     /// Its `artifact` exists: for a step that makes one, it has been done.
     pub done: bool,
+    /// Listed only with Developer tools on (`Action::developer`).
+    pub developer: bool,
+    /// Confirmed before it starts (`Action::warning`).
+    pub warning: Option<String>,
 }
 
 /// An action turned into a command line.
@@ -354,6 +366,9 @@ impl ActionFile {
                 if uses_option && action.options.is_empty() {
                     problems.push(format!("{at}: uses {{option}} but lists no options"));
                 }
+                if action.warning.as_deref().is_some_and(|w| w.trim().is_empty()) {
+                    problems.push(format!("{at}: an empty warning"));
+                }
                 if action.requires.contains(&Requirement::Artifact) && action.artifact.is_none() {
                     problems.push(format!("{at}: requires an artifact but names none"));
                 }
@@ -399,7 +414,15 @@ impl Action {
                 Some(made) => fill(made, ctx, None).is_ok_and(|p| abs(ctx.root, &p).exists()),
                 None => self.artifact_path(ctx).is_ok_and(|p| p.exists()),
             },
+            developer: self.developer,
+            warning: self.warning.clone(),
         }
+    }
+
+    /// Whether the launcher lists the action with `config`: a developer's one only with Developer
+    /// tools on.
+    pub fn shown(&self, config: &Config) -> bool {
+        !self.developer || config.developer
     }
 
     /// Whether the action is for `platform`: one of its `platforms`, or any when it lists none.
@@ -416,6 +439,10 @@ impl Action {
 
     fn blockers(&self, ctx: &Context) -> Vec<String> {
         let mut out = Vec::new();
+        if !self.shown(ctx.config) {
+            out.push("for developers only: turn on Developer tools in Settings".to_string());
+            return out;
+        }
         if self.state == State::Planned {
             out.push("not connected to the launcher yet".to_string());
             return out;
@@ -706,7 +733,9 @@ mod tests {
                 "versions": {"rac9/pal": [],
                              "rac1/pal": [{"id": "b", "label": "B", "kind": "build", "state": "unverified"},
                                           {"id": "b", "label": "B", "kind": "build", "todo": "x",
-                                           "args": ["{nope}"]}]}}"#,
+                                           "args": ["{nope}"]},
+                                          {"id": "c", "label": "C", "kind": "play", "todo": "x",
+                                           "warning": " "}]}}"#,
         )
         .unwrap();
         let problems = file.problems(&catalog);
@@ -716,12 +745,63 @@ mod tests {
             "rac1/pal: b: Unverified but no program",
             "rac1/pal: b: duplicate id",
             "rac1/pal: b: unknown placeholder {nope}",
+            "rac1/pal: c: an empty warning",
         ];
         for want in expect {
             assert!(problems.iter().any(|p| p.starts_with(want)), "missing {want:?} in {problems:?}");
         }
         assert!(parse(r#"{"format": 2}"#).is_err());
         assert!(parse(r#"{"format": 1, "extra": true}"#).is_err());
+    }
+
+    #[test]
+    fn a_developers_action_runs_only_with_developer_tools_on() {
+        let root = checkout();
+        let catalog = crate::catalog::load(&root).unwrap();
+        let version = catalog.version("rac1/pal").unwrap();
+        let status = crate::status::version_status(&root, version);
+        let action: Action = serde_json::from_str(
+            r#"{"id": "p", "label": "Play", "kind": "play", "state": "unverified", "program": "make",
+                "developer": true, "warning": "Expect crashes."}"#,
+        )
+        .unwrap();
+        let player = Config::default();
+        let developer = Config { developer: true, ..Config::default() };
+        let ctx = |config| Context {
+            root: &root,
+            config,
+            version: Some(version),
+            status: Some(&status),
+            toolchains: false,
+            platform: Platform::Linux,
+            level: None,
+            path: None,
+            option: None,
+        };
+
+        // A player is not offered it, and cannot start it by its name either.
+        assert!(!action.shown(&player));
+        let view = action.view(&ctx(&player));
+        assert!(!view.runnable);
+        assert_eq!(view.blockers, ["for developers only: turn on Developer tools in Settings"]);
+        let refused = action.plan(&ctx(&player)).unwrap_err();
+        assert!(refused.contains("for developers only"), "{refused}");
+
+        // A developer is, with its warning to confirm.
+        assert!(action.shown(&developer));
+        let view = action.view(&ctx(&developer));
+        assert!(view.runnable && view.developer, "{:?}", view.blockers);
+        assert_eq!(view.warning.as_deref(), Some("Expect crashes."));
+        assert!(action.plan(&ctx(&developer)).is_ok());
+
+        // Without the field an action is everyone's, and warns of nothing.
+        let everyone: Action = serde_json::from_str(
+            r#"{"id": "b", "label": "B", "kind": "build", "state": "unverified", "program": "make"}"#,
+        )
+        .unwrap();
+        assert!(everyone.shown(&player));
+        let view = everyone.view(&ctx(&player));
+        assert!(view.runnable && !view.developer && view.warning.is_none());
     }
 
     #[test]

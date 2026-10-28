@@ -9,6 +9,17 @@
 
 namespace openrac::lighting {
 namespace {
+// Encodes validity and individual relocation without changing the GPU metadata layout.
+float probe_status(const Probe& probe) {
+    // Positive values retain the shader's existing valid-probe test.
+    if (probe.valid) {
+        return 1.f + static_cast<float>(probe.relocated);
+    }
+
+    // Invalid probes retain their relocation flag while remaining below the validity threshold.
+    return probe.relocated ? -1.f : 0.f;
+}
+
 float unpack(unsigned bits, unsigned mantissa_bits, bool signed_value) {
     const auto mantissa = bits & ((1u << mantissa_bits) - 1);
     const auto exponent = (bits >> mantissa_bits) & 31;
@@ -71,10 +82,11 @@ std::vector<std::uint8_t> pack_probe_planes(const ProbeVolume& v) {
     std::vector<std::uint8_t> out(texels * 12 + v.atlas_capacity() * 8);
     for (std::size_t p = 0; p < v.probes.size(); ++p) {
         const auto& probe = v.probes[p];
+        // Validity and individual relocation share the existing half-float metadata channel.
+        const float status = probe_status(probe);
         for (unsigned c = 0; c < 4; ++c) {
-            auto value = float_encoding::pack_small_float(
-                c < 3 ? probe.offset[c] : (probe.valid ? 1.0f : 0.0f), 10, true
-            );
+            auto value =
+                float_encoding::pack_small_float(c < 3 ? probe.offset[c] : status, 10, true);
             // Half rounding must not move a relocated probe past its cell limit.
             if (c < 3 && std::abs(unpack(value, 10, true)) > v.grid.spacing[c] * 0.45f) {
                 --value;
@@ -118,11 +130,13 @@ void read_probe_planes(ProbeVolume& v, bool expand) {
         for (unsigned c = 0; c < 3; ++c) {
             v.probes[p].offset[c] = unpack(get(metadata, p * 8 + c * 2, 2), 10, true);
         }
-        const float valid = unpack(get(metadata, p * 8 + 6, 2), 10, true);
-        if (valid != 0 && valid != 1) {
+        const float status = unpack(get(metadata, p * 8 + 6, 2), 10, true);
+        // Only the four status combinations defined by format four are accepted.
+        if (status != -1 && status != 0 && status != 1 && status != 2) {
             throw std::runtime_error("invalid packed probe validity");
         }
-        v.probes[p].valid = valid == 1;
+        v.probes[p].valid = status > 0;
+        v.probes[p].relocated = status == -1 || status == 2;
         for (unsigned y = 0; y < side; ++y) {
             for (unsigned x = 0; x < side; ++x) {
                 const auto source = atlas_texel(p, x, y, side);

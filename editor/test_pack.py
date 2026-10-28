@@ -204,7 +204,7 @@ class Names(unittest.TestCase):
 class PackDisc(unittest.TestCase):
     """pack.pack on either disc: the copy its game loads is the one replaced."""
 
-    def test_each_disc_packs_its_own_gameplay_copy(self):
+    def test_both_native_ports_pack_the_60hz_copy_on_their_own_disc(self):
         import json
         import tempfile
         from pathlib import Path
@@ -214,7 +214,8 @@ class PackDisc(unittest.TestCase):
         from wadpack import compress
         data = gameplay([{"x": 1.0}, {"x": 2.0}])
         stored = compress(data)
-        sectors = -(-len(stored) // disc.SECTOR)
+        alternate = compress(gameplay([{"x": 99.0}, {"x": 2.0}]))
+        sectors = -(-max(len(stored), len(alternate)) // disc.SECTOR)
         survey = {"levels": [{"id": 0, "ranges": {"gameplay_ntsc": {"lba": 100, "sectors": sectors},
                                                   "gameplay_pal": {"lba": 200, "sectors": sectors}}}]}
 
@@ -222,21 +223,40 @@ class PackDisc(unittest.TestCase):
             if index == 1:
                 node[2] = "transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 6, 7)"
             return node
-        for version, lba in ((disc.NTSC, 100), (disc.PAL, 200)):
+        for version, lba in ((disc.NTSC, 100), (disc.PAL, 100)):
             class Disc:
                 pass
             image = Disc()
             image.version = version
-            image.sectors = lambda first, count: stored + bytes(count * disc.SECTOR - len(stored))
+            reads = []
+            def read(first, count):
+                reads.append(first)
+                payload = {100: stored, 200: alternate}[first]
+                return payload + bytes(count * disc.SECTOR - len(payload))
+            image.sectors = read
             with tempfile.TemporaryDirectory() as tmp:
                 project, out = Path(tmp) / "levels", Path(tmp) / "packed"
                 (project / "level_00/levels/level_00").mkdir(parents=True)
+                metadata = project / "level_00/levels/level_00/level.json"
+                if version.key == "pal":
+                    from formats import FormatError
+                    (project / "level_00/levels/level_00/level_00.tscn").write_text(scene(data, move))
+                    with self.assertRaisesRegex(FormatError, "predates the 60 Hz"):
+                        pack(image, survey, project, out)
+                    self.assertFalse(out.exists())
+                metadata.write_text(json.dumps({"gameplay_source": "gameplay_ntsc"}))
                 (project / "level_00/levels/level_00/level_00.tscn").write_text(scene(data, move))
                 self.assertEqual(pack(image, survey, project, out), (1, 1))
                 name = f"level_00/gameplay_{version.key}.wad"
                 self.assertEqual((out / "patches.tsv").read_text().splitlines()[1], f"{lba}\t{sectors}\t{name}")
                 self.assertEqual(moby_instances(wad((out / name).read_bytes()))[1]["matrix"][12:15], [5.0, 6.0, 7.0])
+                self.assertEqual(moby_instances(wad((out / name).read_bytes()))[0], moby_instances(data)[0])
+                self.assertEqual(reads, [100])
                 self.assertEqual(json.loads((out / "packed.json").read_text())["version"], version.key)
+                # An unedited scene must not import the other copy's differences.
+                (project / "level_00/levels/level_00/level_00.tscn").write_text(scene(data))
+                self.assertEqual(pack(image, survey, project, Path(tmp) / "untouched"), (0, 0))
+                self.assertEqual(len((Path(tmp) / "untouched/patches.tsv").read_text().splitlines()), 1)
 
 
 if __name__ == "__main__":

@@ -40,8 +40,36 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     (void)state;
     std::string fragment(shaders::direct_frag);
     fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n");
-    if (!m_shader.build("effect", shaders::effect_vert, fragment, error)) {
-        return false;
+    const std::string original_fragment = fragment;
+    std::string vertex_source(shaders::effect_vert);
+    if (m_material) {
+        if (!m_material->init(error)) {
+            log::warn("Optional effect material unavailable: {}", error);
+            m_material->release();
+            m_material.reset();
+            error.clear();
+        } else {
+            const auto extension = m_material->vertex_source();
+            if (!extension.empty()) {
+                vertex_source.insert(vertex_source.find("void main()"), extension);
+                vertex_source
+                    .insert(vertex_source.find('\n') + 1, "#define OPENRAC_EFFECT_POSITION 1\n");
+            }
+            fragment.insert(fragment.find("void main()"), m_material->fragment_source());
+            fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
+        }
+    }
+    if (!m_shader.build("effect", vertex_source, fragment, error)) {
+        if (!m_material) {
+            return false;
+        }
+        log::warn("Optional effect shader unavailable: {}", error);
+        m_material->release();
+        m_material.reset();
+        if (!m_shader.build("effect", shaders::effect_vert, original_fragment, error)) {
+            return false;
+        }
+        error.clear();
     }
     m_view_projection = m_shader.uniform("view_projection");
     m_textured = m_shader.uniform("textured");
@@ -57,11 +85,17 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     constexpr auto stride = static_cast<GLsizei>(sizeof(Vertex));
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<const void*>(offsetof(Vertex, x)));
+    glVertexAttribPointer(
+        0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<const void*>(offsetof(Vertex, x))
+    );
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<const void*>(offsetof(Vertex, s)));
+    glVertexAttribPointer(
+        1, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<const void*>(offsetof(Vertex, s))
+    );
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, reinterpret_cast<const void*>(offsetof(Vertex, r)));
+    glVertexAttribPointer(
+        2, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, reinterpret_cast<const void*>(offsetof(Vertex, r))
+    );
     glBindVertexArray(0);
     return true;
 }
@@ -71,6 +105,9 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     bool any = quads;
     for (const EffectStrip& strip : input.strips) {
         any = any || draws(strip);
+    }
+    if (m_material) {
+        m_material->prepare(input);
     }
     if (!any) {
         return;
@@ -116,45 +153,85 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     // The triangles keep their order, so what is blended over what does not change.
     m_vertices.clear();
     const auto vertex = [](const EffectVertex& e) {
-        return Vertex{e.x, e.y, e.z, e.s, e.t, static_cast<std::uint8_t>(e.rgba & 0xFF),
-                      static_cast<std::uint8_t>((e.rgba >> 8) & 0xFF), static_cast<std::uint8_t>((e.rgba >> 16) & 0xFF),
-                      static_cast<std::uint8_t>(e.rgba >> 24)};
+        return Vertex{
+            e.x,
+            e.y,
+            e.z,
+            e.s,
+            e.t,
+            static_cast<std::uint8_t>(e.rgba & 0xFF),
+            static_cast<std::uint8_t>((e.rgba >> 8) & 0xFF),
+            static_cast<std::uint8_t>((e.rgba >> 16) & 0xFF),
+            static_cast<std::uint8_t>(e.rgba >> 24)
+        };
     };
+    std::vector<GLsizei> strip_counts;
+    std::vector<std::optional<EffectMesh>> material_meshes;
     for (const EffectStrip& strip : input.strips) {
-        if (strip.count < 3 || static_cast<std::size_t>(strip.first) + strip.count > input.strip_vertices.size()
+        if (strip.count < 3
+            || static_cast<std::size_t>(strip.first) + strip.count > input.strip_vertices.size()
             || !draws(strip)) {
             continue;
         }
-        for (std::uint32_t k = 0; k + 2 < strip.count; ++k) {
-            for (std::uint32_t c = 0; c < 3; ++c) {
-                m_vertices.push_back(vertex(input.strip_vertices[strip.first + k + c]));
+        const auto start = m_vertices.size();
+        auto mesh =
+            m_material
+                ? m_material->mesh(
+                      strip, std::span(input.strip_vertices).subspan(strip.first, strip.count)
+                  )
+                : std::nullopt;
+        // Resident material meshes never enter the core's expanded vertex upload.
+        if (!mesh) {
+            for (std::uint32_t k = 0; k + 2 < strip.count; ++k) {
+                for (std::uint32_t c = 0; c < 3; ++c) {
+                    m_vertices.push_back(vertex(input.strip_vertices[strip.first + k + c]));
+                }
             }
         }
+        material_meshes.push_back(mesh);
+        strip_counts.push_back(static_cast<GLsizei>(m_vertices.size() - start));
+    }
+    if (m_material) {
+        m_material->upload_meshes();
+        m_shader.use();
     }
     const std::size_t quads_from = m_vertices.size();
     for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
         // The strip's two triangles, 0-1-2 and 1-2-3 (the faces are not culled).
         for (const int k : {0, 1, 2, 1, 2, 3}) {
-            m_vertices.push_back({q.corner[k][0], q.corner[k][1], q.corner[k][2], q.st[k][0], q.st[k][1],
-                                  static_cast<std::uint8_t>(q.rgba[k] & 0xFF),
-                                  static_cast<std::uint8_t>((q.rgba[k] >> 8) & 0xFF),
-                                  static_cast<std::uint8_t>((q.rgba[k] >> 16) & 0xFF),
-                                  static_cast<std::uint8_t>(q.rgba[k] >> 24)});
+            m_vertices.push_back(
+                {q.corner[k][0],
+                 q.corner[k][1],
+                 q.corner[k][2],
+                 q.st[k][0],
+                 q.st[k][1],
+                 static_cast<std::uint8_t>(q.rgba[k] & 0xFF),
+                 static_cast<std::uint8_t>((q.rgba[k] >> 8) & 0xFF),
+                 static_cast<std::uint8_t>((q.rgba[k] >> 16) & 0xFF),
+                 static_cast<std::uint8_t>(q.rgba[k] >> 24)}
+            );
         }
     }
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(m_vertices.size() * sizeof(Vertex)), m_vertices.data(),
-                 GL_STREAM_DRAW);
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        static_cast<GLsizeiptr>(m_vertices.size() * sizeof(Vertex)),
+        m_vertices.data(),
+        GL_STREAM_DRAW
+    );
 
     // The draw being gathered: its first vertex and count, and the GS state it was set up with.
     struct Batch {
         GLint first = 0;
         GLsizei count = 0;
     } batch;
+
     struct State {
         std::uint64_t tex0, tex1, clamp, alpha;
-        std::uint32_t tbp, cbp;
+        std::uint32_t tbp, cbp, surface;
+        EffectUvMotion motion{};
         bool operator==(const State&) const = default;
     };
+
     std::optional<State> set;
     const auto flush = [&] {
         if (batch.count > 0) {
@@ -170,7 +247,12 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     const auto add = [&](const State& wanted, GLint first, GLsizei count, bool must_have_texture) {
         if (!set || !(*set == wanted)) {
             flush();
-            drawable = apply(wanted.tex0, wanted.tex1, wanted.clamp, wanted.alpha, state, wanted.tbp, wanted.cbp);
+            drawable = apply(
+                wanted.tex0, wanted.tex1, wanted.clamp, wanted.alpha, state, wanted.tbp, wanted.cbp
+            );
+            if (m_material) {
+                m_material->bind(m_shader, wanted.surface, input, wanted.motion);
+            }
             set = wanted;
         }
         if (must_have_texture && !drawable) {
@@ -186,8 +268,10 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     };
 
     GLint at = 0;
+    std::size_t strip_index = 0;
     for (const EffectStrip& strip : input.strips) {
-        if (strip.count < 3 || static_cast<std::size_t>(strip.first) + strip.count > input.strip_vertices.size()
+        if (strip.count < 3
+            || static_cast<std::size_t>(strip.first) + strip.count > input.strip_vertices.size()
             || !draws(strip)) {
             continue;
         }
@@ -203,8 +287,32 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
                 }
             }
         }
-        const auto count = static_cast<GLsizei>(3 * (strip.count - 2));
-        add({strip.tex0, strip.tex1, strip.clamp, strip.alpha, 0, 0}, at, count, false);
+        const auto mesh = material_meshes[strip_index];
+        const auto count = strip_counts[strip_index++];
+        // Keep the original strip order and texture uploads around each material draw.
+        if (mesh) {
+            flush();
+            set.reset();
+            apply(strip.tex0, strip.tex1, strip.clamp, strip.alpha, state);
+            m_material->bind(m_shader, strip.surface, input, strip.uv_motion);
+            m_material->draw_mesh(m_shader, *mesh);
+            state.stats.draw_calls += mesh->draws;
+            state.stats.triangles += mesh->vertices / 3;
+            glBindVertexArray(m_vao);
+            glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+            continue;
+        }
+        add({strip.tex0,
+             strip.tex1,
+             strip.clamp,
+             strip.alpha,
+             0,
+             0,
+             strip.surface,
+             strip.uv_motion},
+            at,
+            count,
+            false);
         at += count;
     }
     flush();
@@ -214,7 +322,8 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     // another texture, and the nanotech crates' orbs came out as opaque white quads.
     // Refactor note: the uploads could travel as a list of their own instead of riding on quads.
     for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
-        if (q.uploads >= 0 && static_cast<std::size_t>(q.uploads) + 1 < input.effect_uploads.size()) {
+        if (q.uploads >= 0
+            && static_cast<std::size_t>(q.uploads) + 1 < input.effect_uploads.size()) {
             upload(input.effect_uploads[static_cast<std::size_t>(q.uploads)]);
             upload(input.effect_uploads[static_cast<std::size_t>(q.uploads) + 1]);
         }
@@ -222,7 +331,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     set.reset();
     at = static_cast<GLint>(quads_from);
     for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
-        add({q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp}, at, 6, true);
+        add({q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0}, at, 6, true);
         at += 6;
     }
     flush();
@@ -233,8 +342,15 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     glDepthMask(GL_TRUE);
 }
 
-bool EffectRenderer::apply(std::uint64_t tex0_bits, std::uint64_t tex1_bits, std::uint64_t clamp_bits,
-                           std::uint64_t alpha_bits, RenderState& state, std::uint32_t tbp, std::uint32_t cbp) {
+bool EffectRenderer::apply(
+    std::uint64_t tex0_bits,
+    std::uint64_t tex1_bits,
+    std::uint64_t clamp_bits,
+    std::uint64_t alpha_bits,
+    RenderState& state,
+    std::uint32_t tbp,
+    std::uint32_t cbp
+) {
     const gs::Texa texa{0, false, 0x80};
     gs::Tex0 tex0 = gs::Tex0::decode(tex0_bits);
     if (tbp != 0) {
@@ -246,8 +362,15 @@ bool EffectRenderer::apply(std::uint64_t tex0_bits, std::uint64_t tex1_bits, std
         static std::set<std::uint64_t> seen;
         if (seen.insert(tex0_bits).second) {
             const Rgba8Image& image = state.textures.image(texture);
-            log::debug("effect texture {:#x}: block {:#x}, {}x{}, {}{}", tex0_bits, tex0.tbp0, image.width, image.height,
-                       state.textures.name(texture), texture == state.textures.placeholder() ? " (placeholder)" : "");
+            log::debug(
+                "effect texture {:#x}: block {:#x}, {}x{}, {}{}",
+                tex0_bits,
+                tex0.tbp0,
+                image.width,
+                image.height,
+                state.textures.name(texture),
+                texture == state.textures.placeholder() ? " (placeholder)" : ""
+            );
         }
     }
     // The filter and the wrap are the bound texture's own state (glTexParameteri): set again for
@@ -305,6 +428,9 @@ bool EffectRenderer::apply(std::uint64_t tex0_bits, std::uint64_t tex1_bits, std
 }
 
 void EffectRenderer::release() {
+    if (m_material) {
+        m_material->release();
+    }
     m_shader.release();
     if (m_vbo != 0) {
         glDeleteBuffers(1, &m_vbo);

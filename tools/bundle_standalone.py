@@ -13,7 +13,7 @@ OUT (launcher/src-tauri/resources/openrac for an installer) gets:
   tools/, editor/            the set-up and the level tools, as they are here
                              (tools/openrac_common with them: they import it)
   port/enhanced/tools/probes the probe baker's Python half (bake_all.py)
-  port/enhanced/lighting/profiles  per-level settings included by native level export
+  port/enhanced/lighting/profiles  authored lighting settings, emission catalogs and moby seeds
   games/*/game.json          the catalogue the launcher lists
   progress/summary.json      how far each decompilation is
   launcher/actions.json      the player's actions only, writing to the
@@ -62,6 +62,8 @@ def levels_format() -> int:
 # What the level check writes once every level is whole, and Play waits for
 # (port/game/common/program/levels.cpp check_levels).
 STAMP = f"verified-{levels_format()}.json"
+# What editor/extract.py port writes last, once every level is whole: the levels are ready by it.
+LEVELS_STAMP = f"levels-{levels_format()}.json"
 
 # What a player's launcher offers for a version, from launcher/actions.json. The rest (the
 # decompilation's builds and checks, building the port, the tools' tests) needs a checkout.
@@ -81,8 +83,9 @@ MOD_FOLDERS = (("{root}/assets/port/", "port"), ("assets/port/", "port"), ("asse
 # game's, shared by its versions: each version's levels are <data>/port/<version>, which is also where
 # the program looks without --levels.
 LEVELS_ROOT = "{data}/port"
-# The programs carried when the build has them; the first is required.
-GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc")
+# The programs carried when the build has them; the first is required. Going Commando's plays
+# only with developer tools on (its actions are `"developer": true`).
+GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc", "openrac-rac2-ntsc")
 # The tools carried beside them when the build has them: the enhanced lighting's probe baker
 # (tools/build_port.py --probe-baker), Embree built into it.
 TOOLS = ("openrac-probe-bake",)
@@ -90,6 +93,7 @@ TOOLS = ("openrac-probe-bake",)
 PROBE_TOOLS = "port/enhanced/tools/probes"
 # Authored settings travel with the exporter, rather than depending on a source checkout.
 PROBE_PROFILES = "port/enhanced/lighting/profiles"
+WATER_PROFILES = "port/enhanced/water/profiles"
 
 
 def levels_folder(key: str) -> str:
@@ -149,7 +153,7 @@ def player_actions() -> dict:
                 elif action["id"] == "port-levels":
                     # editor/extract.py port DISC OUT: OUT is the data folder's, wherever it is.
                     action["args"] = args[:3] + [levels, "--anywhere", "--replace"]
-                    action["artifact"] = f"{levels}/level_99/manifest.json"
+                    action["artifact"] = f"{levels}/{LEVELS_STAMP}"
                     action["output"] = levels
                     action["description"] = ("Reads the levels from your disc into the form the game draws: the worlds "
                                              "behind the menus and all 19 levels. About half a minute and 1 GB, once.")
@@ -162,7 +166,7 @@ def player_actions() -> dict:
                 elif action["id"] == "port-levels-check":
                     action["args"] = point_at(args, levels)
                     action["makes"] = f"{levels}/{STAMP}"
-                    action["needs"] = [{"path": f"{levels}/level_99/manifest.json", "from": need["from"]}
+                    action["needs"] = [{"path": f"{levels}/{LEVELS_STAMP}", "from": need["from"]}
                                        for need in action.get("needs", [])]
                 elif action["id"] in MODS:
                     for field in ("args", "artifact", "needs", "makes", "output"):
@@ -176,8 +180,10 @@ def player_actions() -> dict:
                         action["cwd"] = "{data}"
                 else:
                     action["args"] = point_at(args, levels)
-                    action["needs"] = [{"path": f"{levels}/{STAMP}", "from": need["from"]}
-                                       for need in action.get("needs", [])]
+                    # The check's stamp is the data folder's; any other need (the disc set up, in
+                    # {data} already) stays as it is.
+                    action["needs"] = [{"path": f"{levels}/{STAMP}" if need["path"].endswith(STAMP) else need["path"],
+                                        "from": need["from"]} for need in action.get("needs", [])]
                     # The game is started in the data folder: what it writes beside itself (a
                     # screenshot) has a place there, and the copy has no folder for each version.
                     action["cwd"] = "{data}"
@@ -258,7 +264,9 @@ def main() -> int:
     files.copy_tree(ROOT / PROBE_TOOLS, out / PROBE_TOOLS,
                     lambda rel: not rel.name.startswith("test_") and rel.suffix in (".py", ".json"))
     files.copy_tree(ROOT / PROBE_PROFILES, out / PROBE_PROFILES,
-                    lambda rel: rel.name == "probe-bake.json")
+                    lambda rel: rel.suffix == ".json")
+    files.copy_tree(ROOT / WATER_PROFILES, out / WATER_PROFILES,
+                    lambda rel: rel.name == "water-boundaries.json")
     for manifest in sorted((ROOT / "games").glob("*/game.json")):
         dest = out / manifest.relative_to(ROOT)
         dest.parent.mkdir(parents=True, exist_ok=True)

@@ -173,11 +173,14 @@ struct State {
     // Mobys.
     std::uint32_t selected = 0;  // address; 0 none
     bool follow_hero = false;    // "inspect": the hero is selected, whichever moby he is now
+    bool enhanced_settings = false;  // Independent Enhanced Settings window.
     bool inspector = false;      // the moby inspector window is open
     bool labels = false;         // the mobys' classes written in the picture
     bool near_hero = true;       // the list holds only the mobys within `radius` of the hero
     float radius = 30.0f;        // in the game's units
-    bool pick = false;           // a click in the game's picture selects the nearest moby
+    scene::PickResult picker_result;
+    double picker_export_at = -1;
+    std::string picker_error;
 
     // Memory.
     bool memory_viewer = false;               // the memory viewer window is open
@@ -413,7 +416,7 @@ bool menu_bar_shown();
 // port's key for it does. Defined in debug/menu_bar.cpp.
 void press(SDL_Keycode key);
 
-// Draws the menu bar: View, Graphics, Enhanced (where the renderer has it), Sound and Developer.
+// Draws the menu bar: View, Graphics, Sound and Developer.
 // Defined in debug/menu_bar.cpp.
 void menu_bar();
 
@@ -422,10 +425,11 @@ void menu_bar();
 // file's, so moving the aspect skips it. Defined in debug/controls.cpp.
 void change_setting(int row, int by);
 
-// Draws the enhanced graphics' switches and sliders, GTAO's under a header of their own; disabled
+// Draws the independent Enhanced Settings window with launcher-ordered main choices and advanced
+// tuning, diagnostics and water sections; disabled
 // where the level has no compatible probe data. A change is saved and marked for the window to
 // apply. Defined in debug/controls.cpp.
-void enhanced_controls();
+void enhanced_settings_window();
 
 // ---- The performance capture (common/perf_capture.h) ----
 
@@ -458,9 +462,10 @@ void capture_frame(const Shown& shown);
 // ---- What is drawn over the game's picture ----
 
 // Draws the marks over the game's picture (`shown`): a ring round the selected moby and the
-// mobys' labels (s.labels, within s.radius of the hero); with s.pick, a click near a moby selects
-// it and opens the inspector. Defined in debug/picture.cpp.
+// mobys' labels (s.labels, within s.radius of the hero). The click picker and bottom
+// details are separate in debug/picker.cpp.
 void picture_marks(const Shown& shown);
+void picker_overlay(const Shown& shown);
 
 // Draws the status badge at the top of the picture, whether the panel is shown or not: the pause
 // and the speed the keys have set, the toast while it lasts and the notice. Hidden while the

@@ -22,4 +22,12 @@ blockers: Array<string>,
 /**
  * Its `artifact` exists: for a step that makes one, it has been done.
  */
-done: boolean, };
+done: boolean, 
+/**
+ * Listed only with Developer tools on (`Action::developer`).
+ */
+developer: boolean, 
+/**
+ * Confirmed before it starts (`Action::warning`).
+ */
+warning: string | null, };

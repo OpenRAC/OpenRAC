@@ -125,6 +125,7 @@ enum class Var : std::uint16_t {
     RenderThread,
     RoundNearest,
     ScriptBudgetMs,
+    ScrollingShadows,
     ShaderDir,
     ShaderReload,
     ShadowAtlasOff,
@@ -166,6 +167,7 @@ enum class Var : std::uint16_t {
     VulkanPipelineCache,
     VulkanValidation,
     Watch,
+    WaterOff,
     Write,
 };
 

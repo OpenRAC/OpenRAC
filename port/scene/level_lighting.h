@@ -14,7 +14,9 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <string>
+#include <string_view>
 
 #include "renderer/renderer.h"
 #include "renderer/shader.h"
@@ -35,6 +37,15 @@ public:
 
     // Returns the scene's mesh fragment shader `source` with the lighting's GLSL put in.
     virtual std::string mesh_fragment(std::string source) const = 0;
+
+    // Enhanced surface history uses the already submitted hero pose and joint palette.
+    virtual std::string mesh_vertex(std::string source) const { return source; }
+
+    virtual void prepare_wetness(
+        const renderer::FrameInput&, unsigned, const std::optional<Instance>&
+    ) {}
+
+    virtual void bind_wetness(const renderer::Shader&) const {}
 
     // Returns the scene's mesh fragment shader `source` as the early-lit variant draws it.
     virtual std::string early_fragment(std::string source) const = 0;
@@ -58,6 +69,9 @@ public:
     // Returns whether probe data is uploaded.
     virtual bool has_data() const = 0;
 
+    // Why this level's bake was rejected, if loading failed.
+    virtual std::string_view load_error() const { return {}; }
+
     // Returns whether probe lighting is on and has data.
     virtual bool active() const = 0;
 
@@ -74,8 +88,14 @@ public:
     // Sets the normal and view biases of the probe lookups, in scene units.
     virtual void set_bias(float normal, float view) = 0;
 
+    // Runtime primary-light override; null restores the verified profile/authored direction.
+    virtual void set_sunlight_direction(std::optional<renderer::Vec3> /*direction*/) {}
+
     // Shows or hides the probe placement overlay.
     virtual void set_spheres(bool shown) = 0;
+
+    // Shows generated ceiling-source markers when the lighting provider supports them.
+    virtual void set_area_lights(bool /*shown*/) {}
 
     // Returns whether the probe regions are chosen on the GPU from the frame's depth.
     virtual bool compute_selection() const = 0;
@@ -90,8 +110,12 @@ public:
 
     // ---- Drawing ----
 
-    // Draws the probe placement overlay, if it is shown, after the world's moby layer.
-    virtual void draw_spheres(const renderer::FrameInput& input, renderer::RenderState& state) = 0;
+    // Draws placement overlays using the snapshot player position when available.
+    virtual void draw_spheres(
+        const renderer::FrameInput& input,
+        renderer::RenderState& state,
+        std::optional<renderer::Vec3> player = std::nullopt
+    ) = 0;
 
     // Sets the probe lighting's uniforms and textures on `shader` for `layer`.
     virtual void bind(

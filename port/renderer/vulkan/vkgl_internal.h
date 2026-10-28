@@ -963,6 +963,12 @@ struct Context {
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE;
     std::uint64_t material_draws = 0, material_records = 0, material_textures = 0;
     bool open = false;
+
+    struct DepthCombine {
+        VkDescriptorSetLayout descriptors = VK_NULL_HANDLE;
+        VkPipelineLayout layout = VK_NULL_HANDLE;
+        VkPipeline pipeline = VK_NULL_HANDLE;
+    } depth_combine;
     Measures measures;
     SubmissionCounters submission, reported_submission;
     SubmissionCounters published;  // The render counters as the last frame's gauges left them.
@@ -981,6 +987,9 @@ struct Context {
     VkDevice device = VK_NULL_HANDLE;
     std::uint32_t family = 0;
     VkQueue queue = VK_NULL_HANDLE;
+#ifdef OPENRAC_TRACY
+    void* tracy_state = nullptr;
+#endif
     std::atomic_uint64_t validation_errors = 0;
     VmaAllocator allocator = nullptr;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -1013,7 +1022,8 @@ struct Context {
 
     std::array<Frame, kFrames> frames;
     int frame = 0;
-    std::uint64_t frame_count = 1;  // frames begun
+    bool frame_pending = false;     // Selected slot has not yet been reclaimed for recording.
+    std::uint64_t frame_count = 1;  // frames selected
     std::uint64_t recording = 1;    // command buffers begun (a flush begins new ones)
     bool upload_used = false;
 
@@ -1068,6 +1078,9 @@ struct Context {
 // The thread that draws uses it; on_event, from SDL's event thread, only sets `surface_lost`.
 extern Context* g;
 
+// Releases the optional depth-composition pipeline after device idle at context teardown.
+void release_depth_combine();
+
 // Records `error` for glGetError, unless an earlier one is still waiting to be read.
 inline void fail(GLenum error) {
     if (g->error == GL_NO_ERROR) {
@@ -1084,8 +1097,14 @@ inline bool check(VkResult result, const char* what) {
     return false;
 }
 
-// The frame slot being recorded.
+// Reclaims the selected slot before its first resource or command-buffer use.
+void prepare_frame();
+
+// The frame slot being recorded; its first use may wait for the previous GPU submission.
 inline Frame& frame() {
+    if (g->frame_pending) {
+        prepare_frame();
+    }
     return g->frames[static_cast<std::size_t>(g->frame)];
 }
 
@@ -1452,6 +1471,7 @@ VertexArray& vertex_array();
 // indices of `index_type` at `index_offset` when `indexed`, `instances` times. With `gpu_page`
 // it is command `gpu_command` of that GPU-driven page: the instances come from the page's
 // culled output and the draw is indirect, merged with its neighbours where it can be.
+// `indirect_buffer`, when nonzero, supplies an independent compute-written indexed command at offset zero.
 void draw(
     GLenum mode,
     GLsizei count,
@@ -1461,7 +1481,8 @@ void draw(
     std::uintptr_t index_offset,
     GLint first,
     GpuPage* gpu_page = nullptr,
-    unsigned gpu_command = 0
+    unsigned gpu_command = 0,
+    unsigned indirect_buffer = 0
 );
 
 // True when the native material path is on: the device can index its textures and
@@ -1552,7 +1573,7 @@ bool make_swapchain();
 // frame as presented in any case. Called by present(), once per frame, before advance().
 void publish_counters();
 
-// The next frame: its slot's last use waited for, its leftovers freed, its buffers begun.
+// Selects the next slot; frame() reclaims it only when graphics work needs its resources.
 void advance();
 
 // Copies the default framebuffer into the next swapchain image and presents it, making a new
@@ -1591,5 +1612,21 @@ void describe_device();
 
 // Waits for the device, then destroys all the backend made, the device and the instance last.
 void destroy_all();
+
+// Optional profiling resources, owned by the Vulkan context and accessed on the graphics owner.
+#ifdef OPENRAC_TRACY
+void tracy_gpu_open();
+void tracy_gpu_collect();
+void tracy_gpu_end_commands();
+void tracy_gpu_close();
+#else
+inline void tracy_gpu_open() {}
+
+inline void tracy_gpu_collect() {}
+
+inline void tracy_gpu_end_commands() {}
+
+inline void tracy_gpu_close() {}
+#endif
 
 }  // namespace openrac::vkgl::detail

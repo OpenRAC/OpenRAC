@@ -13,9 +13,72 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "common/profiler.h"
+#include "enhanced/tools/probes/activation.h"
+
 namespace fs = std::filesystem;
 
 namespace openrac::lighting {
+namespace {
+// Serializes local source gains with their explicit bounds, rather than reporting only a global scalar.
+void write_emission_regions(std::ostream& output, std::span<const SurfaceEmissionRegion> regions) {
+    output << '[';
+    for (std::size_t n = 0; n < regions.size(); ++n) {
+        // Separate records without a trailing comma.
+        if (n != 0) {
+            output << ',';
+        }
+        const auto& region = regions[n];
+        output << "{\"minimum\":[" << region.minimum[0] << ',' << region.minimum[1] << ','
+               << region.minimum[2] << "],\"maximum\":[" << region.maximum[0] << ','
+               << region.maximum[1] << ',' << region.maximum[2] << "],\"scale\":" << region.scale
+               << '}';
+    }
+    output << ']';
+}
+}  // namespace
+
+std::string describe_level_bake_profile(const LevelBakeProfile& profile) {
+    std::ostringstream output;
+    const auto& settings = profile.activation.bake;
+    const auto& spacing = profile.sparse_spacing;
+    const auto& environment = profile.activation.environment;
+    const auto light_set = profile.activation.light_set;
+    const auto resolution = profile.map_resolution;
+    output << std::setprecision(9) << "{\"version\":1,\"sky_intensity\":" << settings.sky_intensity
+           << ",\"surface_emission_scale\":" << settings.surface_emission_scale
+           << ",\"sky_weight\":" << settings.sky_weight << ",\"sunlight_scale\":["
+           << settings.sunlight_scale[0] << ',' << settings.sunlight_scale[1] << ','
+           << settings.sunlight_scale[2] << ']'
+           << ",\"terrain_vertex_albedo\":" << (settings.terrain_vertex_albedo ? "true" : "false")
+           << ",\"probe_format_version\":" << kProbeFormatVersion
+           << ",\"bake_version\":" << kProbeBakeVersion << ",\"sparse_spacing\":[" << spacing[0]
+           << ',' << spacing[1] << ',' << spacing[2] << "],\"dense_spacing\":["
+           << profile.dense_spacing[0] << ',' << profile.dense_spacing[1] << ','
+           << profile.dense_spacing[2] << "],\"resolution\":" << resolution
+           << ",\"rays\":" << settings.rays_per_probe << ",\"bounces\":" << settings.bounces
+           << ",\"sky\":\"" << (settings.use_level_sky ? "level" : "uniform") << "\""
+           << ",\"light_set\":" << light_set << ",\"environment\":[" << environment[0] << ','
+           << environment[1] << ',' << environment[2] << ']' << ",\"seed\":" << settings.seed
+           << ",\"ray_bias\":" << settings.ray_bias
+           << ",\"distance_exponent\":" << settings.distance_exponent
+           << ",\"min_inside_fraction\":" << settings.min_inside_fraction
+           << ",\"relocation_iterations\":" << settings.relocation_iterations
+           << ",\"relocation_max_fraction\":" << settings.relocation_max_fraction;
+
+    // Planners retain the optional direction in each completed bake's input record.
+    if (settings.sunlight_direction) {
+        const auto& direction = *settings.sunlight_direction;
+        output << ",\"sunlight_direction\":[" << direction[0] << ',' << direction[1] << ','
+               << direction[2] << ']';
+    }
+
+    output << ",\"surface_emission_regions\":";
+    write_emission_regions(output, settings.surface_emission_regions);
+    output << "}\n";
+    return output.str();
+}
+
 // Geometry queries only: this does not start the game or render images. Use
 // authored normals/positions to expose coverage hidden by fallback. These are
 // view-independent samples, without the fragment shader's camera-facing flip.
@@ -25,6 +88,7 @@ void report_terrain_coverage(
     const ProbeVolume* coarse,
     std::ostream& output
 ) {
+    const profiling::Zone trace("Report terrain probe coverage");
     auto unclassified = volume;
 
     for (auto& probe : unclassified.probes) {
@@ -185,32 +249,24 @@ void write_bake_file(const fs::path& path, std::span<const std::uint8_t> bytes) 
     fs::rename(temporary, path);
 }
 
-// Describe the same transport inputs for standalone and persistent bakes.
-std::string describe_probe_bake(
-    const scene::LevelData& level,
+namespace {
+// Reports source counts and the colour-space assumptions used for transport.
+void write_scene_report(
+    std::ostream& report,
     const BakeSceneExport& exported,
-    const ProbeGrid& grid,
     const BakeSettings& settings,
     unsigned light_set
 ) {
     const auto& environment = exported.scene.environment;
-    const unsigned resolution = grid.map_resolution;
-    std::array<std::size_t, 2> emission_masks{};
-    std::size_t vertex_emitters = 0;
-
-    for (const auto& triangle : exported.scene.triangles) {
-        if (*std::max_element(triangle.emission.begin(), triangle.emission.end()) <= 0) {
-            continue;
+    const auto vertex_emitters = std::count_if(
+        exported.scene.triangles.begin(),
+        exported.scene.triangles.end(),
+        [](const BakeTriangle& triangle) {
+            return triangle.emission_vertex_colour
+                   && *std::max_element(triangle.emission.begin(), triangle.emission.end()) > 0;
         }
-
-        ++emission_masks.at(static_cast<unsigned>(triangle.emission_mask));
-        vertex_emitters += triangle.emission_vertex_colour ? 1 : 0;
-    }
-
-    std::ostringstream report;
-    report << "probe_format_version " << kProbeFormatVersion << "\nbake_version "
-           << grid.bake_version << "\ngame_version " << grid.game_version << "\nlevel "
-           << grid.level << "\nstatic_instances terrain " << exported.instances[0] << " ties "
+    );
+    report << "\nstatic_instances terrain " << exported.instances[0] << " ties "
            << exported.instances[1] << " shrubs " << exported.instances[2] << " mobys "
            << exported.instances[3] << "\nskipped_mobys " << exported.skipped_mobys
            << "\nskipped_glow_triangles " << exported.skipped_glow << "\ntriangles "
@@ -225,18 +281,30 @@ std::string describe_probe_bake(
            << (settings.use_level_sky && !exported.scene.sky_radiance.empty() ? "level sky panorama"
                                                                               : "uniform fallback")
            << "\nsky_resolution " << exported.scene.sky_width << ' ' << exported.scene.sky_height
-           << "\nsky_intensity " << settings.sky_intensity << "\npoint_emitters "
-           << exported.scene.point_emitters.size() << "\nemission_masks none " << emission_masks[0]
-           << " green " << emission_masks[1] << "\nemission_vertex_colour_triangles "
-           << vertex_emitters << "\nsky_model " << (1 - settings.sky_weight)
-           << " * primary directional colour + " << settings.sky_weight << " * sky_intensity * sky"
+           << "\nsurface_emission_regions " << settings.surface_emission_regions.size()
+           << "\nsurface_emission_scale " << settings.surface_emission_scale << "\nsky_intensity "
+           << settings.sky_intensity << "\npoint_emitters " << exported.scene.point_emitters.size()
+           << "\nemission_vertex_colour_triangles " << vertex_emitters << "\nsky_model "
+           << (1 - settings.sky_weight) << " * primary directional colour + " << settings.sky_weight
+           << " * sky_intensity * sky"
            << "\nprimary_directional_colour " << exported.scene.primary_directional_colour[0] << ' '
            << exported.scene.primary_directional_colour[1] << ' '
            << exported.scene.primary_directional_colour[2]
-           << "\ntexture_colour sRGB decoded to linear; original vertex lighting excluded"
+           << "\ntexture_colour sRGB decoded to linear; terrain vertex colour optionally used as "
+              "albedo"
            << "\nemission two-sided linear radiance; area/power next-event sampling at probes "
-              "and bounces"
-           << "\nprobe_origin " << grid.origin[0] << ' ' << grid.origin[1] << ' ' << grid.origin[2]
+              "and bounces";
+}
+
+// Reports grid identity and the actual padded GPU payload, excluding its file header.
+void write_grid_report(std::ostream& report, const ProbeGrid& grid, const BakeSettings& settings) {
+    constexpr std::size_t kMapTexelBytes =
+        12;  // Packed RGB irradiance and two float distance moments.
+    constexpr std::size_t kMetadataBytes = 8;  // RGBA16F offset and status per allocated tile.
+    ProbeVolume payload;
+    payload.grid = grid;
+    const auto resolution = grid.map_resolution;
+    report << "\nprobe_origin " << grid.origin[0] << ' ' << grid.origin[1] << ' ' << grid.origin[2]
            << "\nprobe_dimensions " << grid.dimensions[0] << ' ' << grid.dimensions[1] << ' '
            << grid.dimensions[2] << "\nprobe_spacing " << grid.spacing[0] << ' ' << grid.spacing[1]
            << ' ' << grid.spacing[2] << "\nprobe_count " << grid.probe_count()
@@ -245,7 +313,8 @@ std::string describe_probe_bake(
            << settings.rays_per_probe << "\nsurface_bounces " << settings.bounces << "\nseed "
            << settings.seed << "\nscene_hash " << grid.scene_hash << "\nsettings_hash "
            << grid.settings_hash << "\nmap_and_metadata_bytes "
-           << grid.probe_count() * (16 + 20 * grid.texels_per_probe()) << '\n';
+           << payload.atlas_capacity() * (kMapTexelBytes * grid.texels_per_probe() + kMetadataBytes)
+           << '\n';
     // Retain the direction beside the bake identity for local lighting inspection.
     if (settings.sunlight_direction) {
         const auto& direction = *settings.sunlight_direction;
@@ -257,9 +326,12 @@ std::string describe_probe_bake(
            << "\nrelocation_max_spacing_fraction " << settings.relocation_max_fraction
            << "\nplacement paired ray-crossing parity; closed shells treated as solids"
            << "\nminimum_inside_fraction " << settings.min_inside_fraction << '\n';
+}
 
+// Records resolved material emission without reclassifying textures.
+void write_material_report(std::ostream& report, const scene::LevelData& level) {
     // Resolved shared definitions, rather than a second material classifier.
-    // Keep the actual colours/masks in the local bake audit alongside counts.
+    // Keep the actual colours in the local bake audit alongside counts.
     for (std::size_t i = 0; i < level.materials.size(); ++i) {
         const auto& material = level.materials[i];
 
@@ -268,10 +340,9 @@ std::string describe_probe_bake(
         }
 
         report << "emission_material " << i << " linear_rgb " << material.emission[0] << ' '
-               << material.emission[1] << ' ' << material.emission[2] << " mask "
-               << (material.emission_mask == scene::EmissionMask::Green ? "green" : "none")
-               << " vertex_colour " << material.emission_vertex_colour << " diffuse_scale "
-               << material.diffuse_scale << " texture ";
+               << material.emission[1] << ' ' << material.emission[2] << " vertex_colour "
+               << material.emission_vertex_colour << " contrast " << material.emission_contrast
+               << " diffuse_scale " << material.diffuse_scale << " texture ";
 
         if (material.emission_image >= 0) {
             report << std::quoted(
@@ -283,8 +354,47 @@ std::string describe_probe_bake(
 
         report << '\n';
     }
+}
+}  // namespace
 
+// Scene counts and resolved materials remain fixed throughout a prepared level batch.
+ProbeBakeReport::ProbeBakeReport(
+    const scene::LevelData& level,
+    const BakeSceneExport& exported,
+    const BakeSettings& settings,
+    unsigned light_set
+)
+    : m_settings(settings) {
+    const profiling::Zone trace("Prepare probe reports");
+    std::ostringstream scene_text, material_text;
+    write_scene_report(scene_text, exported, settings, light_set);
+    write_material_report(material_text, level);
+    m_scene = scene_text.str();
+    m_materials = material_text.str();
+}
+
+// Grid identity, allocation and settings remain explicit in every report.
+std::string ProbeBakeReport::describe(const ProbeGrid& grid) const {
+    const profiling::Zone trace("Describe probe bake");
+    std::ostringstream report;
+    report << "probe_format_version " << kProbeFormatVersion << "\nbake_version "
+           << grid.bake_version << "\ngame_version " << grid.game_version << "\nlevel "
+           << grid.level;
+    report << m_scene;
+    write_grid_report(report, grid, m_settings);
+    report << m_materials;
     return report.str();
+}
+
+// Standalone commands use the same snapshot and formatting as persistent batches.
+std::string describe_probe_bake(
+    const scene::LevelData& level,
+    const BakeSceneExport& exported,
+    const ProbeGrid& grid,
+    const BakeSettings& settings,
+    unsigned light_set
+) {
+    return ProbeBakeReport(level, exported, settings, light_set).describe(grid);
 }
 
 }  // namespace openrac::lighting

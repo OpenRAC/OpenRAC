@@ -76,7 +76,8 @@ pub fn library(config: &Config) -> Result<Library, String> {
     let toolchains = status::toolchains_present(&root);
     let platform = Platform::current();
     let views = |list: Option<&Vec<actions::Action>>, ctx: &Context| -> Vec<ActionView> {
-        list.map(|l| l.iter().map(|a| a.view(ctx)).collect()).unwrap_or_default()
+        // A developer's action is not there at all for a player (Action::shown).
+        list.map(|l| l.iter().filter(|a| a.shown(ctx.config)).map(|a| a.view(ctx)).collect()).unwrap_or_default()
     };
 
     let repo_ctx = Context {
@@ -298,6 +299,27 @@ mod tests {
         assert_the_editor_is_offered(&library, &editable_versions());
     }
 
+    /// Going Commando's Play is a developer's: a player's library does not have it (the game says
+    /// "Not playable yet"), a developer's has it, with the warning shown before it starts.
+    #[test]
+    fn going_commandos_play_is_for_developers() {
+        let play_of = |config: &Config| {
+            let library = library(config).unwrap();
+            let version = library.games.iter().flat_map(|g| &g.versions).find(|v| v.version.key == "rac2/ntsc");
+            version.expect("rac2/ntsc").actions.iter().find(|a| a.id == "play").cloned()
+        };
+        let player = Config { root: Some(checkout()), ..Config::default() };
+        assert!(play_of(&player).is_none(), "a player is offered Going Commando's Play");
+        let refused = plan(&player, &Scope::Version("rac2/ntsc".into()), "play", &Inputs::default()).unwrap_err();
+        assert!(refused.contains("for developers only"), "{refused}");
+
+        let developer = Config { developer: true, ..player };
+        let play = play_of(&developer).expect("a developer has Going Commando's Play");
+        assert!(play.developer);
+        assert_ne!(play.state, actions::State::Planned);
+        assert!(play.warning.as_deref().is_some_and(|w| w.contains("development only")), "{:?}", play.warning);
+    }
+
     #[test]
     fn the_checkouts_play_actions_play() {
         let config = Config { root: Some(checkout()), ..Config::default() };
@@ -441,7 +463,7 @@ mod tests {
         let (pal, ntsc) = (Scope::Version("rac1/pal".into()), Scope::Version("rac1/ntsc".into()));
         let made = |scope: &Scope| file.find(scope, "port-levels").and_then(|a| a.artifact.clone()).unwrap();
         let (pal_made, ntsc_made) = (made(&pal), made(&ntsc));
-        let folder = |path: &str| path.rsplitn(3, '/').nth(2).unwrap().to_string();
+        let folder = |path: &str| path.rsplitn(2, '/').nth(1).unwrap().to_string();
         assert_ne!(folder(&pal_made), folder(&ntsc_made));
         assert!(!ntsc_made.starts_with(&format!("{}/", folder(&pal_made))), "{ntsc_made} is inside PAL's levels");
         let check = file.find(&ntsc, "port-levels-check").expect("rac1/ntsc port-levels-check");
@@ -500,7 +522,8 @@ mod tests {
     #[test]
     fn play_runs_only_once_the_port_is_built() {
         let root = checkout();
-        let config = Config { root: Some(root.clone()), ..Config::default() };
+        // With developer tools on, so that a developer's Play (Going Commando's) is listed too.
+        let config = Config { root: Some(root.clone()), developer: true, ..Config::default() };
         let library = library(&config).unwrap();
         let file = actions::load(&root).unwrap();
         for version in library.games.iter().flat_map(|g| &g.versions) {

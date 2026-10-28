@@ -101,6 +101,12 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
   add_test(NAME render_equivalence_vulkan COMMAND render_equivalence_test)
   set_tests_properties(render_equivalence_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_VULKAN_PIPELINE_CACHE=off")
+  if(OPENRAC_ENHANCED_RENDERING)
+    add_test(NAME shadow_scroll_vulkan
+             COMMAND render_equivalence_test --opt shadow-scroll-reuse)
+    set_tests_properties(shadow_scroll_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+      "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_VULKAN_PIPELINE_CACHE=off;OPENRAC_SCROLLING_SHADOWS=1")
+  endif()
 endif()
 
 # ---- The backend's own behaviour, pinned for the render packages ----

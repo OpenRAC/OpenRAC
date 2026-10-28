@@ -31,6 +31,9 @@
 #include "scene/level.h"
 #include "scene/level_lighting.h"
 #include "scene/motion.h"
+#include "scene/shadow_atlas.h"
+#include "scene/shadow_draws.h"
+#include "scene/shadow_scroll.h"
 #include "scene/shadow_transition.h"
 #include "scene/sun_shadow.h"
 
@@ -47,8 +50,8 @@ public:
 
     // Registers the level's probe and early lighting (scene/level_lighting.h), replacing what it
     // had; without one the scene lights as the game does. Before upload.
-    void set_level_lighting(std::unique_ptr<LevelLighting> lighting) {
-        m_lighting = std::move(lighting);
+    void set_level_lighting(std::unique_ptr<LevelLighting> provider) {
+        m_lighting = std::move(provider);
     }
 
     // The registered lighting, or null.
@@ -146,6 +149,16 @@ public:
         }
     }
 
+    // Controls the GI-coloured edge light on essential gameplay objects.
+    void set_gameplay_rim(bool enabled, float strength, float falloff) {
+        m_gameplay_rim = {enabled ? strength : 0.0f, falloff};
+    }
+
+    // Compresses dim GI luminance for the rim only; exponent one leaves it unchanged.
+    void set_gameplay_rim_lift(bool enabled, float exponent, float max_gain) {
+        m_gameplay_rim_lift = {enabled ? exponent : 1.0f, max_gain};
+    }
+
     void set_probe_bias(float normal, float view) {
         // Without registered lighting there are no probe lookups to bias.
         if (m_lighting) {
@@ -157,6 +170,14 @@ public:
         // Without registered lighting there are no probes to show.
         if (m_lighting) {
             m_lighting->set_spheres(shown);
+        }
+    }
+
+    // Shows generated ceiling sources through the registered lighting provider.
+    void set_area_lights(bool shown) {
+        // Ordinary rendering has no enhanced source diagnostics.
+        if (m_lighting) {
+            m_lighting->set_area_lights(shown);
         }
     }
 
@@ -186,7 +207,7 @@ public:
     void draw_probe_spheres(const renderer::FrameInput& input, renderer::RenderState& state) {
         // Without registered lighting there are no probes to draw.
         if (m_lighting) {
-            m_lighting->draw_spheres(input, state);
+            m_lighting->draw_spheres(input, state, m_hero_centre);
         }
     }
 
@@ -206,6 +227,11 @@ public:
 
     // The light bank the mobys are lit from this frame (16 sets of 16 floats, as the game holds
     // it); until set, the level's exported sets.
+    // Shared lighting for optional world materials outside the mesh renderer.
+    void bind_surface_lighting(
+        const renderer::Shader& shader, const renderer::Camera& camera
+    ) const;
+
     void set_light_sets(const std::vector<float>& sets) {
         if (sets.size() == 16 * 16) {
             m_light_sets = sets;
@@ -261,6 +287,7 @@ private:
 
     struct Group {
         bool hero_shadow_caster = false;
+        bool gameplay_essential = false;
         bool shadow_solid_instances = false;  // tint/glow cannot discard opaque static faces
         std::uint32_t model = 0;
         int blend = 0;  // Instance::blend of all its instances
@@ -290,6 +317,7 @@ private:
     void prepare_hero_shadow(const renderer::FrameInput& input, renderer::RenderState& state);
     void prepare_sun_shadow(const renderer::FrameInput& input, renderer::RenderState& state);
     void prepare_shadows(const renderer::FrameInput& input, renderer::RenderState& state);
+    void set_shadow_quality(renderer::ShadowQuality quality);
     bool make_shadow_atlas(std::string& error);
     void draw_shadow_atlas(renderer::RenderState& state);
     // Which casters a shadow map draws: all of them, or, for the static shadow cache (R-18), the
@@ -298,6 +326,8 @@ private:
         All,
         Static,
         Dynamic,
+        StaticOpaque,  // Persistent coverage: opaque, unskinned static layers only.
+        DynamicAlpha,  // Mobys and all static coverage that can require alpha testing.
     };
     // Draws the sun cascades whose static casters changed into the static shadow cache, copies
     // the cache into the atlas and draws the dynamic casters over it; returns the cascades it drew
@@ -316,8 +346,18 @@ private:
         unsigned cascade = kSunCascades,
         int atlas_view = -1,
         bool flush_atlas = false,
-        ShadowCasters casters = ShadowCasters::All
+        ShadowCasters casters = ShadowCasters::All,
+        const std::array<int, 4>* region = nullptr
     );
+    // Independent toroidal caches; any failed cascade falls back to ordinary atlas drawing.
+    void prepare_scrolling_shadows(
+        renderer::Vec3 direction, renderer::Vec3 low, renderer::Vec3 high
+    );
+    bool make_scrolling_target(unsigned cascade);
+    void draw_scrolling_regions(unsigned cascade, renderer::RenderState& state);
+    unsigned update_scrolling_shadows(renderer::RenderState& state);
+    void combine_scrolling_shadows(unsigned mask, renderer::RenderState& state);
+    void release_scrolling_shadows();
     Group make_group(std::uint32_t model);
     void fill_group(Group& g, const std::vector<InstanceData>& list, unsigned usage);
     void build_groups(Layer layer, const std::vector<Instance>& instances, bool live);
@@ -366,6 +406,10 @@ private:
     static constexpr std::array<Layer, 2> kSceneryLayers{Layer::Ties, Layer::Shrubs};
     std::array<Scenery, kSceneryLayers.size()> m_scenery;
     std::vector<std::vector<bool>> m_shadow_solid_primitives;
+    // Both solid-shader eligibility modes, rebuilt with geometry/materials on level upload.
+    std::vector<std::array<std::vector<ShadowDrawRange>, 2>> m_static_shadow_ranges;
+    std::vector<std::uint8_t>
+        m_static_shadow_coverage;  // Alpha-tested (1) and permanent opaque (2).
 
     Group m_shadow_compact;
     std::vector<InstanceData> m_shadow_survivors;
@@ -431,6 +475,8 @@ private:
     unsigned m_lights = 0;            // RGBA8 texture, the ties' lit colours
     std::vector<float> m_light_sets;  // the level's 16 directional light sets (LevelData)
     std::array<float, 64> m_point_lights{};
+    std::array<float, 2> m_gameplay_rim{0.30f, 6.46f};
+    std::array<float, 2> m_gameplay_rim_lift{0.09f, 7.1f};
     std::unique_ptr<LevelLighting> m_lighting;  // The probe and early lighting; null: none.
     bool m_early_capable = false;
     void bind_hero_shadow(const renderer::Shader& shader) const;
@@ -455,6 +501,7 @@ private:
     renderer::Shader m_atlas_depth, m_atlas_solid;
     std::unique_ptr<renderer::FrameBuffer> m_shadow_atlas;
     bool m_shadow_atlas_active = false;
+    ShadowAtlasLayout m_shadow_layout;
     std::array<renderer::Mat4, 5> m_shadow_view_projection;
     // The sun cascades' static casters, in the atlas's layout, kept between frames, and what each
     // cascade's rectangle was drawn for (shadow-static-cache, R-18).
@@ -462,6 +509,17 @@ private:
     std::array<StaticShadowKey, kSunCascades> m_static_keys{};
     // Bumped whenever the static layers' instances change (an upload, set_instances of one).
     std::uint64_t m_static_generation = 1;
+
+    struct ScrollingShadow {
+        ShadowScrollGrid grid;
+        ShadowScrollUpdate update;
+        std::unique_ptr<renderer::FrameBuffer> statics;
+        unsigned combined = 0;
+        bool active = false;
+    };
+
+    std::array<ScrollingShadow, kSunCascades> m_scroll_shadows;
+    bool m_scroll_requested = false;
 
     struct ShadowDraw {
         unsigned vao;
@@ -475,6 +533,7 @@ private:
     std::array<std::vector<ShadowDraw>, 3> m_shadow_draws;
     renderer::Mat4 m_hero_matrix = renderer::identity();
     std::optional<renderer::Vec3> m_hero_centre;
+    std::optional<Instance> m_wetness_hero;
     bool m_hero_enabled = false, m_hero_ready = false, m_hero_airborne = false;
     ShadowTransition m_hero_transition;  // Shared ease-out for projection and overlap darkening.
     std::optional<bool> m_hero_logged_airborne;

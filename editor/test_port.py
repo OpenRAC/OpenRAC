@@ -127,6 +127,8 @@ class WriterTests(unittest.TestCase):
             manifest = json.loads((directory / "manifest.json").read_text())
             self.assertEqual((manifest["game"], manifest["version"], manifest["level"]), ("rac1", "ntsc", 1))
             self.assertEqual((directory / "probe-bake.json").read_bytes(), source.read_bytes())
+            water_source = source.parents[3].parent / "water/profiles/rac1-ntsc/level_01/water-boundaries.json"
+            self.assertEqual((directory / "water-boundaries.json").read_bytes(), water_source.read_bytes())
 
     def test_files_manifest_and_placements(self):
         with tempfile.TemporaryDirectory() as temp:

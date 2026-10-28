@@ -1508,6 +1508,15 @@ bool DirectRenderer::submit(std::span<const std::uint8_t> packets) {
     return ok;
 }
 
+// Skipping a world frame must not lose one-shot font or menu-picture transfers.
+bool DirectRenderer::retain_uploads(std::span<const std::uint8_t> packets) {
+    m_interpreter->clear();
+    m_interpreter->set_ui_quads({});
+    const bool ok = submit(packets);
+    m_interpreter->clear();
+    return ok;
+}
+
 void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     const auto packets = input.packets[static_cast<std::size_t>(bucket())];
     if (packets.empty()) {

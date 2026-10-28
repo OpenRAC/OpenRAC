@@ -30,6 +30,7 @@
 #include "renderer/framebuffer.h"
 #include "renderer/gtao_settings.h"
 #include "renderer/math.h"
+#include "renderer/shadow_settings.h"
 #include "renderer/shadow_volume.h"
 #include "renderer/texture_filter.h"
 #include "renderer/texture_pool.h"
@@ -84,12 +85,23 @@ struct EffectVertex {
     std::uint32_t rgba;  // the chip's bytes, R low (0x80 = 1.0)
 };
 
+// Optional authored UV motion, captured with the draw packet so pauses and delayed frames agree.
+struct EffectUvMotion {
+    std::array<float, 2> offset{};
+    float amplitude = 0;
+    std::uint32_t phase = 0;
+    bool enabled = false;
+    bool operator==(const EffectUvMotion&) const = default;
+};
+
 struct EffectStrip {
     std::uint32_t first = 0, count = 0;
     std::uint64_t clamp = 0, tex0 = 0, tex1 = 0, alpha = 0x44;
     // FrameInput::effect_uploads[uploads..uploads + upload_count): the images the game sent to
     // TEX0's blocks just before the strip; put in the pool before it is drawn.
     int uploads = -1, upload_count = 0;
+    std::uint32_t surface = 0;  // Native semantic marker; 0 leaves the original material alone.
+    EffectUvMotion uv_motion{};
 };
 
 // A textured quad of the 2D layer the game drew through one of its 2D routines (rac1:
@@ -116,9 +128,13 @@ struct RenderTarget;
 
 struct FrameInput {
     TextureFilter texture_filter = TextureFilter::Normal;
+    ShadowQuality shadow_quality = ShadowQuality::High;
     bool sun_pixel_shadow = false;
     bool hero_pixel_shadow = false;
     bool hero_airborne = false;
+    bool enhanced_water = false;
+    std::optional<Vec3> water_interactor;  // Captured hero position, never live game memory.
+    std::array<std::optional<Vec3>, 2> water_hands{};  // Animated hand positions at this tick.
     bool gtao = false;
     GtaoSettings gtao_settings;
     std::span<const ShadowCapsule> shadow_capsules;

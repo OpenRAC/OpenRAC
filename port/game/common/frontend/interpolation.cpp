@@ -96,6 +96,12 @@ struct FrameCost {
 // window touches it.
 bool g_held = false;
 
+// Vulkan jobs own their snapshots; mod views share the window thread and graphics queue.
+bool threaded_rendering() {
+    static const bool requested = env::flag(env::Var::RenderThread);
+    return gl::is_vulkan() && requested && !views_wanted();
+}
+
 // Returns the frames a second the frames between ticks are held to (the player's cap, or the
 // display's rate), 0 for no limit and with one frame a tick.
 //
@@ -139,6 +145,7 @@ void swapped(std::chrono::steady_clock::time_point started) {
     platform::frame_work_done();
     const auto swap_started = steady_clock::now();
     g->window->swap();
+    profiling::frame();
     const auto after = steady_clock::now();
     const double cost = duration<double>(before - started).count();
     pacing.cost = 0.8 * pacing.cost + 0.2 * cost;
@@ -196,6 +203,11 @@ bool frame_due(std::chrono::steady_clock::time_point now) {
 }
 
 // ---- The kept tick ----
+
+std::string enhanced_graphics_error() {
+    const auto* lighting = g ? g->scene.level_lighting() : nullptr;
+    return lighting ? std::string(lighting->load_error()) : std::string{};
+}
 
 bool enhanced_graphics_available() {
     return g && gl::enhanced_rendering_available() && g->scene.probe_data_available();
@@ -302,6 +314,7 @@ void queue_frame(const std::shared_ptr<FramePresentation>& output) {
     State& owner = *g;
     const bool queued = g->render_worker->submit(
         [&owner, snapshot = std::move(snapshot)] {
+            renderer::g_dump_draws = snapshot->presentation->dump_draws;
             render_scene(owner, *snapshot->scene, snapshot->graphics, *snapshot->presentation);
             sampler::note_thread("render");  // [debug tools] sampled while a capture runs
             // [debug tools] The render thread's share of a simulated slow processor.
@@ -342,12 +355,27 @@ void draw_overlay(const FramePresentation& output) {
          interpolating(),
          pacing.interval,
          pacing.cost,
-         pacing.period.count()}
+         pacing.period.count(),
+         &g->picker,
+         &g->level,
+         output.picker_live,
+         output.picker_palette,
+         output.picker_level,
+         output.tick,
+         output.picker_layers}
     );
 }
 
 // Composites debug UI and presents on the window thread, after exclusive graphics ownership returns.
 void present_frame(FramePresentation& output) {
+    // A between-tick job keeps draw logging suppressed through its later presentation too.
+    struct RestoreDrawDump {
+        bool previous = renderer::g_dump_draws;
+
+        ~RestoreDrawDump() { renderer::g_dump_draws = previous; }
+    } restore_dump;
+
+    renderer::g_dump_draws = output.dump_draws;
     // What is shown: the frame with one sample a pixel (a multisampled one is resolved here, once),
     // with the port's own overlays over it.
     const unsigned shown = output.shown;
@@ -449,6 +477,7 @@ void draw_kept(bool first) try {
     auto output = std::make_shared<FramePresentation>();
     output->started = std::chrono::steady_clock::now();
     output->first = first;
+    output->dump_draws = renderer::g_dump_draws;
     output->alpha = interpolating() ? alpha_at(next_display(output->started)) : 1.0f;
     g->window->drawable_size(output->window_width, output->window_height);
     output->aspect = picture_aspect(output->window_width, output->window_height);
@@ -458,11 +487,8 @@ void draw_kept(bool first) try {
     frame_cost.mark = output->started;
     output->measure_cost = frame_cost.on;
     log_pacing(*output);
-    static const bool requested = env::flag(env::Var::RenderThread);
-    // A mod's views share the queue with the mod (OpenXR): its frames are drawn on this thread.
-    const bool threaded = gl::is_vulkan() && requested && !views_wanted();
     // OpenGL contexts retain the original window-thread path.
-    if (!threaded) {
+    if (!threaded_rendering()) {
         render_scene(*g, *g->kept, settings::get(), *output);
         present_frame(*output);
         return;
@@ -497,14 +523,17 @@ bool interpolating() {
 }
 
 bool wants_between() {
-    return interpolating() && g->kept->has_state && g->kept->has_camera;
+    // A skipped capture keeps the last complete picture for pause, but cannot interpolate a new tick.
+    return interpolating() && g->kept->frame + 1 == g->index && g->kept->has_state
+           && g->kept->has_camera;
 }
 
 int between(std::chrono::steady_clock::time_point next_tick) {
     if (!g) {
         return 0;
     }
-    // A new interpolation snapshot must not replace an in-flight one past the next tick's deadline.
+    const bool asynchronous = threaded_rendering();
+    // Present completed work while waiting for the tick; unfinished jobs may cross its boundary.
     if (render_pending()) {
         if (!g->render_worker->ready_until(next_tick)) {
             return 0;
@@ -527,14 +556,16 @@ int between(std::chrono::steady_clock::time_point next_tick) {
         platform::work_resumed();
         now = std::chrono::steady_clock::now();
     }
+    // Do not queue another interpolation job once simulation is due to resume.
+    if (asynchronous && now >= next_tick) {
+        return 0;
+    }
     const auto display = next_display(now);
     if (display >= next_tick + lag) {
         return 0;
     }
-    // Nothing waits for the display: a frame that would not be done by the next tick's time is not
-    // started, so that the tick comes on time whatever a frame costs (with the swap's wait the
-    // frame belongs to a refresh, and the tick after it is a little late and made up for).
-    if (g->swap == platform::SwapInterval::Immediate
+    // Synchronous rendering must finish before the tick. Owned Vulkan jobs may overlap its simulation.
+    if (!asynchronous && g->swap == platform::SwapInterval::Immediate
         && now
                    + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
                        std::chrono::duration<double>(pacing.cost)
@@ -564,10 +595,13 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     renderer::g_dump_draws = false;
     const bool first = pacing.first_pending;
     pacing.first_pending = false;
-    draw_kept(first);
-    const bool displayed = finish_render();
+    {
+        const profiling::Zone trace("Queue interpolated frame");
+        draw_kept(first);
+    }
     renderer::g_dump_draws = dump;
-    return displayed ? 1 : -1;
+    // The caller can wait up to the tick deadline on its next iteration, then resume simulation.
+    return g->render_failed ? -1 : 1;
 }
 
 // [debug tools] While the overlay holds the game (pause): the last tick drawn again, the window's

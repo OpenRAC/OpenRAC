@@ -7,6 +7,7 @@
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/renderer.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
@@ -93,8 +94,11 @@ bool Gtao::render(
         return false;
     }
     // Sampling an attachment while drawing back into it would be framebuffer
-    // feedback. Direct reads are restricted to compute/offscreen consumers.
-    const bool direct_depth = target.depth_texture != 0 && !apply_to_colour;
+    // feedback. target.depth_texture is the prepass's own depth, never the colour
+    // target's attachment, so the colour composite may sample it too (gtao-direct-depth).
+    const bool direct_depth =
+        target.depth_texture != 0
+        && (!apply_to_colour || render_opt::enabled(render_opt::Opt::GtaoDirectDepth));
     if (!prepare(
             target.width, target.height, scale, !apply_to_colour && !evaluate_only, !direct_depth
         )) {

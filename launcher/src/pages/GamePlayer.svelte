@@ -74,6 +74,8 @@
 
   /** The game has a PC port to play (or to build and play); without one, the page says how far it is. */
   const portReady = $derived(!!action("play") && action("play")?.state !== "planned");
+  /** What Play warns of before it starts (actions.json `warning`: a game far from finished), said on the page too. */
+  const playWarning = $derived(action("play")?.warning ?? null);
 
   const next = $derived(v && game ? playerState(game, v) : null);
   /** Built by an OpenRAC from before an update that changed it (port_build.rs), and nothing runs. */
@@ -258,6 +260,12 @@
           <div class="panel notice">
             <Icon name="warn" />
             <p class="grow">The games show, but no actions: {app.library.actionsError}</p>
+          </div>
+        {/if}
+        {#if playWarning}
+          <div class="panel notice" role="alert">
+            <Icon name="warn" />
+            <p class="grow">{playWarning}</p>
           </div>
         {/if}
         {#if updateReady && rebuild}

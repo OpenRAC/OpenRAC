@@ -9,10 +9,12 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "enhanced/lighting/probes.h"
+#include "enhanced/renderer/wetness.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "scene/level_lighting.h"
@@ -27,8 +29,15 @@ namespace openrac::lighting {
 class SceneLighting final : public scene::LevelLighting {
 public:
     std::string mesh_fragment(std::string source) const override;
+    std::string mesh_vertex(std::string source) const override;
+    void prepare_wetness(
+        const renderer::FrameInput& input,
+        unsigned palette,
+        const std::optional<scene::Instance>& hero
+    ) override;
+    void bind_wetness(const renderer::Shader& shader) const override;
     std::string early_fragment(std::string source) const override;
-    // Resolves the bake profile's primary sunlight direction for direct lighting and shadows.
+    // Resolves the primary sunlight override for direct lighting and shadows.
     renderer::Vec3 sunlight_direction(renderer::Vec3 authored) const override;
 
     bool early_supported() const override;
@@ -37,19 +46,26 @@ public:
     void release() override;
 
     bool has_data() const override;
+    std::string_view load_error() const override;
     bool active() const override;
     int mode() const override;
     void set_mode(int mode) override;
     void set_lighting(bool enabled, float multiplier) override;
     void set_bias(float normal, float view) override;
+    void set_sunlight_direction(std::optional<renderer::Vec3> direction) override;
     void set_spheres(bool shown) override;
+    void set_area_lights(bool shown) override;
     bool compute_selection() const override;
     void select_visible_regions(
         unsigned depth, const renderer::Camera& camera, int width, int height
     ) override;
     void update_regions(const renderer::Camera& camera, float seconds) override;
 
-    void draw_spheres(const renderer::FrameInput& input, renderer::RenderState& state) override;
+    void draw_spheres(
+        const renderer::FrameInput& input,
+        renderer::RenderState& state,
+        std::optional<renderer::Vec3> player = std::nullopt
+    ) override;
     void bind(
         const renderer::Shader& shader,
         scene::Layer layer,
@@ -85,6 +101,7 @@ public:
     );
 
 private:
+    enhanced::HeroWetness m_wetness;
     ProbeLighting m_probes;          // The level's probe bake on the GPU.
     EarlyLighting m_early_lighting;  // The early-lit world's per-pixel lighting.
 };

@@ -342,7 +342,12 @@ struct MobyFrame {
 // state, so a frame's mobys depend on its tick alone.
 inline MobyFrame moby_tick(const scene::LevelData& level, const SceneSize& size, double tick) {
     MobyFrame frame;
-    const auto classes = static_cast<int>(level.moby_classes.size());
+    // The class models in key order: an extracted level's class ids are not 0..N-1.
+    std::vector<std::uint32_t> models;
+    for (const auto& [id, cls] : level.moby_classes) {
+        models.push_back(cls.first);
+    }
+    const auto classes = static_cast<int>(models.size());
 
     // Nothing to place without a moby class.
     if (classes == 0) {
@@ -361,7 +366,7 @@ inline MobyFrame moby_tick(const scene::LevelData& level, const SceneSize& size,
         const float phase = random.uniform(0.0f, 6.2832f);
         const auto angle = static_cast<float>(seconds * 0.8) + phase;
         scene::Instance instance;
-        instance.model = level.moby_classes.at(cls).first;
+        instance.model = models[static_cast<std::size_t>(cls)];
         instance.matrix = renderer::multiply(
             renderer::translation(
                 {centre_x + radius * std::cos(angle), centre_y + radius * std::sin(angle), 0.0f}
@@ -670,7 +675,12 @@ public:
 
     // Draws one frame seen by `camera` with `mobys`, as draw_kept draws one: the mobys' palette
     // and instances handed to the scene, then the renderer's passes into the framebuffer.
-    void draw(const renderer::Camera& camera, const MobyFrame& mobys, std::uint64_t frame) {
+    void draw(
+        const renderer::Camera& camera,
+        const MobyFrame& mobys,
+        std::uint64_t frame,
+        renderer::ShadowQuality shadow_quality = renderer::ShadowQuality::High
+    ) {
         m_scene.set_palette(mobys.palette);
         m_scene.set_instances(scene::Layer::Mobys, mobys.instances);
         renderer::FrameInput input;
@@ -678,6 +688,7 @@ public:
         input.clear_colour = {0.3f, 0.4f, 0.6f, 1.0f};
         input.gtao = m_options.enhanced;
         // The sun's cascades are drawn when the frame asks for them, as the frontend asks.
+        input.shadow_quality = shadow_quality;
         input.sun_pixel_shadow = m_options.enhanced && m_scene.sun_shadow_enabled();
         input.frame = frame;
         renderer::RenderTarget target{m_frame.id(), m_options.width, m_options.height};

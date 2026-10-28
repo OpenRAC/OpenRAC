@@ -1,4 +1,5 @@
 """The copy of OpenRAC an installed launcher carries: its actions and its files."""
+import hashlib
 import json
 import re
 import shutil
@@ -22,6 +23,13 @@ class LevelsStamp(unittest.TestCase):
         actions = (bundle.ROOT / "launcher" / "actions.json").read_text(encoding="utf-8")
         stamps = set(re.findall(r"verified-(\d+)\.json", actions))
         self.assertEqual(stamps, {str(expected)})
+        # The levels are ready by a stamp of their own, named after the format too, so a bump
+        # reads them again before the check runs.
+        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)), {str(expected)})
+        self.assertEqual(bundle.LEVELS_STAMP, f"levels-{expected}.json")
+        extract = (bundle.ROOT / "editor" / "extract.py").read_text(encoding="utf-8")
+        self.assertIn('f"levels-{PORT_FORMAT}.json"', extract)
+        self.assertNotIn("level_99/manifest.json", actions)
 
 
 class PlayerActions(unittest.TestCase):
@@ -47,7 +55,7 @@ class PlayerActions(unittest.TestCase):
                 self.assertNotIn("editor-pack", actions)
                 levels = actions["port-levels"]
                 self.assertEqual(levels["args"][-3:], ["{data}/port/ntsc", "--anywhere", "--replace"])
-                self.assertEqual(levels["artifact"], f"{{data}}/port/ntsc/level_{first}/manifest.json")
+                self.assertEqual(levels["artifact"], f"{{data}}/port/ntsc/levels-4.json")
                 self.assertEqual(actions["editor-extract"]["args"][-3:], ["{data}/levels/ntsc", "--split", "--anywhere"])
                 self.assertEqual([n["path"] for n in actions["assets-export"]["needs"]], [levels["artifact"]])
 
@@ -63,7 +71,7 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual(stack[stack.index("--levels") + 1], "{data}/port/pal")
         exported = self.pal["assets-export"]
         self.assertEqual(exported["args"][2], "{data}/port/pal")
-        self.assertEqual([need["path"] for need in exported["needs"]], ["{data}/port/pal/level_99/manifest.json"])
+        self.assertEqual([need["path"] for need in exported["needs"]], ["{data}/port/pal/levels-4.json"])
         edited = self.pal["play-edited"]
         self.assertEqual(edited["args"][edited["args"].index("--levels") + 1], "{data}/port/pal")
         self.assertEqual([need["path"] for need in edited["needs"]], [self.pal["port-levels-check"]["makes"]])
@@ -79,7 +87,7 @@ class PlayerActions(unittest.TestCase):
     def test_levels_go_to_the_data_folder(self):
         levels = self.pal["port-levels"]
         self.assertEqual(levels["args"][-3:], ["{data}/port/pal", "--anywhere", "--replace"])
-        self.assertEqual(levels["artifact"], "{data}/port/pal/level_99/manifest.json")
+        self.assertEqual(levels["artifact"], "{data}/port/pal/levels-4.json")
 
     def test_play_reads_them_there(self):
         play = self.pal["play"]
@@ -106,12 +114,27 @@ class PlayerActions(unittest.TestCase):
         # <data> is the game's, shared by PAL and NTSC-U: each version's levels are <data>/port/<version>.
         levels, check = self.ntsc["port-levels"], self.ntsc["port-levels-check"]
         self.assertEqual(levels["args"][-3:], ["{data}/port/ntsc", "--anywhere", "--replace"])
-        self.assertEqual(levels["artifact"], "{data}/port/ntsc/level_99/manifest.json")
+        self.assertEqual(levels["artifact"], "{data}/port/ntsc/levels-4.json")
         at = check["args"].index("--levels")
         self.assertEqual(check["args"][at + 1], "{data}/port/ntsc")
         self.assertEqual(check["makes"], "{data}/port/ntsc/verified-4.json")
         self.assertEqual([need["path"] for need in check["needs"]], [levels["artifact"]])
         self.assertTrue(check["artifact"].endswith("openrac-rac1-ntsc.exe"))
+
+    def test_going_commando_plays_for_developers(self):
+        # Its Play is carried as it is (a developer's, with its warning), started in the data
+        # folder, waiting for the disc set up there; it reads no levels yet. Its build needs a checkout.
+        actions = {a["id"]: a for a in self.actions["versions"]["rac2/ntsc"]}
+        play = actions["play"]
+        self.assertTrue(play["developer"])
+        self.assertIn("development only", play["warning"])
+        self.assertEqual(play["args"], ["--data", "{data}", "--window"])
+        self.assertEqual(play["cwd"], "{data}")
+        self.assertEqual([n["path"] for n in play["needs"]], ["{data}/iso_data/rac2/buildinfo.json"])
+        self.assertTrue(play["artifact"].endswith("openrac-rac2-ntsc.exe"))
+        self.assertNotIn("todo", play)
+        self.assertNotIn("port-build", actions)
+        self.assertIn("openrac-rac2-ntsc", bundle.GAMES)
 
     def test_folders_and_arguments(self):
         self.assertEqual(bundle.levels_folder("rac1/pal"), "{data}/port/pal")
@@ -155,7 +178,8 @@ class Bundle(unittest.TestCase):
             for rel in ("STANDALONE", "tools/openrac.py", "tools/extractor.py", "editor/extract.py",
                         "editor/moby_classes.tsv", "games/rac1/game.json", "progress/summary.json",
                         "launcher/actions.json", "port/enhanced/tools/probes/bake_all.py",
-                        "port/enhanced/tools/probes/moby_seed_whitelist.json",
+                        "port/enhanced/lighting/profiles/rac1/moby-seeds.json",
+                        "port/enhanced/lighting/profiles/rac1-ntsc/emission-materials.json",
                         "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"):
                 self.assertTrue((out / rel).is_file(), rel)
             self.assertFalse(list(out.rglob("test_*.py")))
@@ -172,6 +196,18 @@ class Bundle(unittest.TestCase):
             # The carried exporter resolves the carried profile without the checkout or its cwd.
             exported = Path(tmp) / "exported-level"
             exported.mkdir()
+            catalog_path = out / "port/enhanced/lighting/profiles/rac1-ntsc/emission-materials.json"
+            self.assertEqual(catalog_path.read_bytes(),
+                             (bundle.ROOT / catalog_path.relative_to(out)).read_bytes())
+            # A synthetic material proves the isolated exporter consumes the carried catalog.
+            texture = b"bundled emission fixture"
+            (exported / "textures").mkdir()
+            (exported / "textures/lamp.png").write_bytes(texture)
+            catalog = json.loads(catalog_path.read_text())
+            definition = {"runtime_intensity": 3, "bake_intensity": 5}
+            catalog['materials'].append({"name": "fixture lamp",
+                "texture_sha256": hashlib.sha256(texture).hexdigest(), "emission": definition})
+            catalog_path.write_text(json.dumps(catalog))
             script = ("import sys\n"
                       "from pathlib import Path\n"
                       "from types import SimpleNamespace\n"
@@ -182,6 +218,26 @@ class Bundle(unittest.TestCase):
                             str(out / "editor"), str(exported)], cwd=tmp, check=True)
             profile = "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"
             self.assertEqual((exported / "probe-bake.json").read_bytes(), (bundle.ROOT / profile).read_bytes())
+            emission = "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-emission.json"
+            authored = json.loads((bundle.ROOT / emission).read_text())
+            authored['textures/lamp.png'] = definition
+            copied = json.loads((exported / "probe-emission.json").read_text())
+            self.assertEqual(copied.pop('_catalog_defaults'), authored)
+            self.assertEqual(copied, authored)
+            self.assertFalse((out / "port/enhanced/tools/probes/moby_seed_whitelist.json").exists())
+            script = ("import sys\n"
+                      "from pathlib import Path\n"
+                      "sys.path.insert(0, sys.argv[1])\n"
+                      "import moby_seeds\n"
+                      "path = moby_seeds.default_whitelist_path('rac1')\n"
+                      "assert path == Path(sys.argv[2])\n"
+                      "assert moby_seeds.whitelist(path)[0]['name'] == 'ratchet'\n")
+            subprocess.run([sys.executable, "-I", "-c", script, str(out / bundle.PROBE_TOOLS),
+                            str(out / "port/enhanced/lighting/profiles/rac1/moby-seeds.json")],
+                           cwd=tmp, check=True)
+            water_profile = "port/enhanced/water/profiles/rac1-ntsc/level_01/water-boundaries.json"
+            self.assertEqual((out / water_profile).read_bytes(), (bundle.ROOT / water_profile).read_bytes())
+            self.assertEqual((exported / "water-boundaries.json").read_bytes(), (bundle.ROOT / water_profile).read_bytes())
 
     def test_games_as_built(self):
         # On macOS a game is its bundle, carried whole; the build folder's link to it is not.
@@ -195,11 +251,14 @@ class Bundle(unittest.TestCase):
             # Elsewhere a game is one file (and a .pdb is left behind).
             (build / "openrac-rac1-ntsc.exe").write_bytes(b"ntsc")
             (build / "openrac-rac1-ntsc.pdb").write_bytes(b"")
+            (build / "openrac-rac2-ntsc.exe").write_bytes(b"rac2")
             dest.mkdir()
-            self.assertEqual(bundle.copy_games(build, dest), ["apps/openrac-rac1-pal", "openrac-rac1-ntsc.exe"])
+            self.assertEqual(bundle.copy_games(build, dest),
+                             ["apps/openrac-rac1-pal", "openrac-rac1-ntsc.exe", "openrac-rac2-ntsc.exe"])
             self.assertEqual((dest / app / "Contents/MacOS/Ratchet & Clank").read_bytes(), b"pal")
             self.assertTrue((dest / app / "Contents/Info.plist").is_file())
-            self.assertEqual(sorted(p.name for p in dest.iterdir()), ["apps", "openrac-rac1-ntsc.exe"])
+            self.assertEqual(sorted(p.name for p in dest.iterdir()),
+                             ["apps", "openrac-rac1-ntsc.exe", "openrac-rac2-ntsc.exe"])
 
     @unittest.skipUnless(sys.platform.startswith("linux") and shutil.which("cc")
                          and (shutil.which("llvm-strip") or shutil.which("strip")), "needs a Linux compiler and strip")

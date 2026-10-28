@@ -89,10 +89,10 @@ void menu_bar() {
             }
         }
         ImGui::PopItemFlag();
-        ImGui::EndMenu();
-    }
-    if (gl::enhanced_rendering_available() && ImGui::BeginMenu("Enhanced")) {
-        enhanced_controls();
+        if (gl::enhanced_rendering_available()) {
+            ImGui::Separator();
+            ImGui::MenuItem("Enhanced Settings", nullptr, &s.enhanced_settings);
+        }
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Sound")) {
@@ -107,6 +107,10 @@ void menu_bar() {
     if (ImGui::BeginMenu("Developer")) {
         if (ImGui::MenuItem("Debug overlay", "F3", s.visible)) {
             press(SDLK_F3);
+        }
+        bool picker = picker_enabled();
+        if (ImGui::MenuItem("Moby picker", nullptr, &picker)) {
+            set_picker_enabled(picker);
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Pause", "F5", s.paused)) {

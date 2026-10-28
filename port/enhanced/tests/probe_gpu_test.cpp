@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 
 #include "enhanced/lighting/probes.h"
 #include "enhanced/renderer/gtao.h"
@@ -18,6 +21,29 @@ using namespace openrac::gl;
 
 namespace {
 using lighting::Float3;
+
+void rejected_bake_message() {
+    const auto folder =
+        std::filesystem::temp_directory_path()
+        / ("openrac-probe-error-"
+           + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::filesystem::create_directories(folder / "level_01");
+    std::ofstream(folder / "level_01/sparse.orpg", std::ios::binary) << "invalid-probe";
+    const auto previous_root = lighting::probe_root();
+    lighting::set_probe_root(folder);
+    lighting::ProbeLighting probes;
+    scene::LevelData level;
+    level.dir = folder / "level_01";
+    level.level = 1;
+    probes.load(level);
+    CHECK(!probes.has_data());
+    CHECK(!probes.load_error().empty());
+    probes.release();
+    CHECK(probes.load_error().empty());
+    lighting::set_probe_root(previous_root);
+    std::filesystem::remove_all(folder);  // Only this fixture's newly created data.
+}
+
 renderer::Shader* zero_weight_reference = nullptr;
 constexpr const char* vertex = R"glsl(#version 410 core
 void main() {
@@ -85,6 +111,13 @@ void check(
     }
     const auto reference_volume = packed_reference(volume);
     const auto reference_dense = dense ? std::optional{packed_reference(*dense)} : std::nullopt;
+    // Runtime orientation takes priority; clearing it restores the level direction.
+    const Float3 authored{0, 0, -1};
+    const auto original_direction = probes.sunlight_direction(authored);
+    probes.runtime_sunlight_direction = Float3{0, -1, 0};
+    CHECK(probes.sunlight_direction(authored) == (Float3{0, -1, 0}));
+    probes.runtime_sunlight_direction.reset();
+    CHECK(probes.sunlight_direction(authored) == original_direction);
     // Reuse the uploaded probes while varying each slider independently.
     const std::array<std::array<float, 2>, 4> biases{
         {{0.5f, 0.5f}, {0.5f, 0.0f}, {0.0f, 0.5f}, {0.5f, 0.5f}}
@@ -233,10 +266,11 @@ void material_path(
     bool indirect = false,
     bool authored_light = false,
     bool authored_material = false,
-    bool masked = false,
-    bool masked_frame = false,
-    bool mask_transition = false,
-    bool authored_tint = false
+    bool textured_emission = false,
+    bool grey_texel = false,
+    bool mixed_texel = false,
+    bool authored_tint = false,
+    float emission_contrast = 1
 ) {
     scene::LevelData level;
     level.light_sets.resize(256);
@@ -255,7 +289,14 @@ void material_path(
             vtx.colour[2] = .5f;
         }
         vtx.light_slot = glow ? -2.0f : -1.0f;
-        vtx.uv[0] = masked_frame ? .75f : .25f;
+        // Static emission must use the instance light slot rather than the mesh's base colour.
+        if (authored_tint && layer != scene::Layer::Mobys) {
+            vtx.light_slot = 0;
+            vtx.colour[0] = .75f;
+            vtx.colour[1] = .25f;
+            vtx.colour[2] = 1;
+        }
+        vtx.uv[0] = grey_texel ? .75f : .25f;
         vtx.uv[1] = .5f;
         level.vertices.push_back(vtx);
     }
@@ -275,20 +316,25 @@ void material_path(
         material.emission_vertex_colour = true;
         material.diffuse_scale = 0;
     }
-    if (masked) {
+    if (textured_emission) {
         level.images.emplace_back(2, 1);
         level.images.back().pixels = {0, 255, 0, 255, 128, 128, 128, 255};
-        if (mask_transition) {
+        if (mixed_texel) {
             level.images.back().pixels = {128, 160, 128, 255, 128, 128, 128, 255};
         }
         level.image_paths.push_back("emission-test");
         level.materials.back().emission_image = 0;
-        level.materials.back().emission_mask = scene::EmissionMask::Green;
     }
+    level.materials.back().emission_contrast = emission_contrast;
     scene::Model model;
     model.primitives.push_back({0, 3, 0});
     level.models.push_back(model);
     scene::Instance instance;
+    // The packed slot supplies the same artistic tint as the moby fixture through a different path.
+    if (authored_tint && layer != scene::Layer::Mobys) {
+        instance.lights = 0;
+        level.light_colours = {32u | (128u << 8) | (64u << 16) | (128u << 24)};
+    }
     if (layer == scene::Layer::Mobys) {
         instance.moby_light = {0, 0, 0, 1};
         instance.moby_ambient = {0, 0, 0, glow ? 256.0f : 0.0f};  // glow RGB = red 255
@@ -381,25 +427,34 @@ void material_path(
             scene.set_probe_lighting(true, multiplier);
             renderer.render(input, {frame.id(), 32, 32});
             const auto pixels = frame.read_rgba();
-            if (masked_frame) {
-                CHECK(pixels[at + 1] == 0);
-            } else {
-                CHECK(pixels[at + 1] > 0);
+            CHECK(pixels[at + 1] > 0);
+            // With no other lights, encoded scripted emission must preserve the original RGB output.
+            if (authored_light) {
+                for (unsigned c = 0; c < 3; ++c) {
+                    CHECK(std::abs(int(pixels[at + c]) - int(before[at + c])) <= 1);
+                }
             }
-            if (authored_material && !masked_frame) {
-                // Compare the GLSL mask to the bake's shared CPU definition,
-                // including fractional coverage at the green/grey transition.
+            if (authored_material) {
+                // Coloured and neutral texels emit their full configured linear radiance.
                 auto linear = [](float c) {
                     return c <= .04045f ? c / 12.92f : std::pow((c + .055f) / 1.055f, 2.4f);
                 };
-                Float3 colour =
-                    mask_transition
-                        ? Float3{linear(128.f / 255), linear(160.f / 255), linear(128.f / 255)}
-                        : (masked ? Float3{0, 1, 0} : Float3{1, 1, 1});
-                float coverage = scene::emission_mask(
-                    masked ? scene::EmissionMask::Green : scene::EmissionMask::None, colour
-                );
-                float e = .125f * colour[1] * coverage;
+                float texture_green = 1;
+                // The second texel is neutral grey; the mixed texel has a weaker green channel.
+                if (grey_texel) {
+                    texture_green = linear(128.f / 255);
+                } else if (mixed_texel) {
+                    texture_green = linear(160.f / 255);
+                }
+                float luminance = textured_emission ? .7152f : 1.f;
+                if (grey_texel) {
+                    luminance = texture_green;
+                } else if (mixed_texel) {
+                    luminance = .7152f * texture_green + .2848f * linear(128.f / 255);
+                }
+                const float gain =
+                    emission_contrast > 1 ? std::pow(luminance / .18f, emission_contrast - 1) : 1.f;
+                const float e = .125f * texture_green * gain;
                 float display =
                     e <= .0031308f ? e * 12.92f : 1.055f * std::pow(e, 1.f / 2.4f) - .055f;
                 CHECK(std::abs(int(pixels[at + 1]) - int(std::round(display * 255))) <= 2);
@@ -674,8 +729,8 @@ void main() {
             // Green, blue and yellow locals must coexist in one image.
             CHECK(tiled[(8 * width + 4) * 4 + 1] > 0);
             CHECK(
-                tiled[(8 * width + 4) * 4] == 0 && tiled[(8 * width + 4) * 4 + 2] > 0
-            );  // finer blue beats coarse red
+                tiled[(8 * width + 4) * 4] > 0 && tiled[(8 * width + 4) * 4 + 2] > 0
+            );  // Three overlapping locals contribute green, blue and magenta.
             CHECK(tiled[(8 * width + 20) * 4 + 2] > 0);
             CHECK(tiled[(8 * width + 30) * 4] > 0 && tiled[(8 * width + 30) * 4 + 1] > 0);
         }
@@ -805,16 +860,17 @@ void main() {
     ));
 }
 
-// Includes a distance tie and a nearby off-frustum region in a full resident atlas.
+// Includes a distance tie and an off-frustum region above ID 512 in a full 1,024-region selection.
 std::vector<lighting::ProbeGrid> closest_region_grids() {
-    std::vector<lighting::ProbeGrid> grids(512);
+    std::vector<lighting::ProbeGrid> grids(1024);
     for (unsigned i = 0; i < grids.size(); ++i) {
-        grids[i].origin = {float(511 - i) * 0.001f, -0.1f, -0.1f};
+        // Keep the distance-sort fixture away from the frustum's numerical tolerance band.
+        grids[i].origin = {static_cast<float>(1023 - i) * 0.0005f, -0.1f, -0.1f};
         grids[i].spacing = {0.001f, 0.2f, 0.2f};
         grids[i].dimensions = {2, 2, 2};
     }
-    grids[510].origin[0] = 0;  // Equal distance must keep the smaller ID first.
-    grids[509].origin[0] = 2;  // Off-frustum, even when closest to the camera.
+    grids[1022].origin[0] = 0;  // Equal distance must keep the smaller ID first.
+    grids[1021].origin[0] = 2;  // Off-frustum, even when closest to the camera.
     return grids;
 }
 
@@ -884,7 +940,7 @@ void camera_regions(renderer::Shader& shader, renderer::FrameBuffer& frame, unsi
     std::vector<lighting::ProbeVolume> regions;
     for (unsigned i = 0; i < 3; ++i) {
         auto grid = base_grid;
-        grid.origin = {float(i) * 8, 0, 0};
+        grid.origin = {float(i) * 4, 0, 0};
         grid.spacing = {4, 4, 2};
         grid.dimensions = {5, 5, 9};
         auto region = lighting::ProbeVolume::allocate(grid);
@@ -919,7 +975,7 @@ void camera_regions(renderer::Shader& shader, renderer::FrameBuffer& frame, unsi
             }
         }
         if (variant == 3) {
-            regions.resize(513, regions.back());  // Force two-slot streaming fallback.
+            regions.resize(1025, regions.back());  // Force three-slot streaming fallback.
         }
         lighting::ProbeLighting probes;
         std::string error;
@@ -945,8 +1001,8 @@ void camera_regions(renderer::Shader& shader, renderer::FrameBuffer& frame, unsi
               Step{200, 1},
               Step{8, 1}}) {
             probes.update_regions({step.camera, 8, 8}, step.seconds);
-            std::array<lighting::WeightedProbeRegion, 2> weighted{};
-            for (unsigned slot = 0; slot < 2; ++slot) {
+            std::array<lighting::WeightedProbeRegion, lighting::kDenseProbeSlots> weighted{};
+            for (unsigned slot = 0; slot < lighting::kDenseProbeSlots; ++slot) {
                 const auto& selected = probes.region_slots()[slot];
                 if (selected.region >= 0) {
                     weighted[slot] = {&regions[selected.region], selected.weight};
@@ -1163,6 +1219,22 @@ void dense_sphere_fade() {
     frame.release();
 }
 
+// Compares resident GPU compaction against the original CPU-filtered diagnostic image.
+void check_sphere_reference(
+    lighting::ProbeLighting& probes,
+    renderer::FrameInput& input,
+    renderer::RenderState& state,
+    renderer::FrameBuffer& frame
+) {
+    const auto gpu = frame.read_rgba();
+    CHECK(!gl::is_vulkan() || probes.gpu_spheres_active());
+    probes.gpu_spheres = false;
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    probes.draw_spheres(input, state);
+    CHECK(frame.read_rgba() == gpu);
+    probes.gpu_spheres = true;
+}
+
 void sphere_overlay() {
     lighting::ProbeGrid grid;
     grid.origin = {-0.5f, 0, 0.4f};
@@ -1172,6 +1244,7 @@ void sphere_overlay() {
     // The visible sphere must be drawn at this relocated centre (x=0),
     // rather than the nominal x=-0.5 position.
     volume.probes[0].offset = {0.5f, 0, 0};
+    volume.probes[0].relocated = true;
     lighting::ProbeLighting probes;
     std::string error;
     CHECK(probes.upload(openrac::test::gpu_probes(volume), error));
@@ -1194,6 +1267,7 @@ void sphere_overlay() {
     CHECK(pixels[centre] > pixels[centre + 1] && pixels[centre + 1] > pixels[centre + 2]);
     CHECK(pixels[(16 * 32 + 8) * 4] == 0);
     CHECK(state.stats.draw_calls == 1);
+    check_sphere_reference(probes, input, state, frame);
     // A nearer opaque surface must hide the placement markers (reverse Z).
     glClearDepth(1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1359,6 +1433,27 @@ void main() {
 }
 }  // namespace
 
+// Checks distinct probe values across baked row boundaries and both halves of the wider GPU atlas.
+void test_wide_probe_atlas(renderer::Shader& shader, renderer::FrameBuffer& frame, unsigned vao) {
+    lighting::ProbeGrid grid;
+    grid.dimensions = {9, 9, 9};  // Multiple canonical and runtime rows in each sampled Z slice.
+    grid.spacing = {2, 2, 2};
+    auto volume = lighting::ProbeVolume::allocate(grid);
+
+    // A unique spatial pattern exposes misplaced rows even when all visibility moments agree.
+    for (std::size_t probe = 0; probe < volume.probes.size(); ++probe) {
+        volume.probes[probe].valid = true;
+
+        for (std::size_t texel = 0; texel < grid.texels_per_probe(); ++texel) {
+            const auto at = probe * grid.texels_per_probe() + texel;
+            volume.irradiance[at] = {0.5f, 0.25f + static_cast<float>(probe % 17) * 0.1f, 1};
+            volume.distance_moments[at] = {1024, 1024 * 1024};
+        }
+    }
+
+    check(volume, shader, frame, vao);
+}
+
 int main() {
     test::GlContext context;
     std::string why;
@@ -1403,6 +1498,7 @@ void main() {
     CHECK(frame.create(8, 1, error));
     unsigned vao = 0;
     glGenVertexArrays(1, &vao);
+    test_wide_probe_atlas(shader, frame, vao);
     lighting::ProbeGrid grid;
     auto volume = lighting::ProbeVolume::allocate(grid);
     for (std::size_t p = 0; p < volume.probes.size(); ++p) {
@@ -1552,6 +1648,8 @@ void main() {
     material_path(scene::Layer::Mobys, 0, false, false, false, true, true, true);
     material_path(scene::Layer::Mobys, 0, false, false, false, true, true, false, true);
     material_path(scene::Layer::Mobys, 0, false, false, false, true, false, false, false, true);
+    material_path(scene::Layer::Ties, 0, false, false, false, true, false, false, false, true);
+    material_path(scene::Layer::Shrubs, 0, false, false, false, true, false, false, false, true);
     material_path(scene::Layer::Mobys, 1, false);
     material_path(scene::Layer::Mobys, 2, false);
     material_path(scene::Layer::Mobys, 0, true);
@@ -1560,6 +1658,17 @@ void main() {
     sphere_overlay();
     dense_sphere_fade();
     camera_facing_normals();
+    rejected_bake_message();
+    // Per-material power curve agrees with CPU luminance shaping for colour and grey.
+    material_path(
+        scene::Layer::Mobys, 0, false, false, false, true, true, false, false, false, 1.5f
+    );
+    material_path(
+        scene::Layer::Mobys, 0, false, false, false, true, true, true, false, false, 1.5f
+    );
+    material_path(
+        scene::Layer::Mobys, 0, false, false, false, true, true, false, true, false, 1.5f
+    );
     sunlight_rgb_correction();
     return test::result();
 }

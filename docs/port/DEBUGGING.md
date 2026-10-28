@@ -138,8 +138,25 @@ into the program.
   function, pvars, glow colour, class) and all of its 0x100 bytes as words
   and floats, with buttons to open it or its pvars in the memory viewer.
 - "labels in the picture" names every listed moby where it stands.
-- "click picks": a click in the game's picture selects the moby whose
-  origin is nearest (within 40 pixels).
+- "click picks (mobys, ties, terrain)" selects live mobys, ties/shrubs and terrain by geometry.
+  Developer > Moby picker also works with F3 hidden. Clicks over ImGui or outside the picture
+  are ignored; there is no automatic camera-forward/centre-screen selection.
+
+Selection shows a yellow box, triangle and hit marker; terrain boxes bound the primitive.
+The bottom panel lists layer, model/name, instance, material, primitive, triangle, texture,
+position and distance. Mobys add class/address and open the inspector. Selection follows the
+interpolated pose and clears on disappearance, level change, empty clicks or Clear selection.
+Copy details copies JSON.
+
+`moby-picker.json` identifies selection without screenshots/dumps. While enabled it updates in
+the working folder at most twice a second and immediately after selection changes. It records
+schema version, enabled state, game, level, tick and a nullable hit: model/instance/material IDs,
+class/address, texture, hit/object positions and world bounds. Check file time and process before
+using it as live state. `OPENRAC_OVERLAY=picker` enables picking at startup.
+
+Picking uses triangles and submitted joint palettes. It does not resolve texture alpha holes,
+PVS-hidden primitives or shader displacement; particles/callback strips, including enhanced
+water, are excluded. Acceleration builds on first click; disabled picking adds no pose capture.
 
 `OPENRAC_OVERLAY=...,inspect` selects the hero and opens the inspector;
 `labels` turns the labels on; `memview` opens the memory viewer.
@@ -262,7 +279,7 @@ same variables, so a new variable gets a row in both.
 
 | Variable | Value | What it does | Read in |
 | --- | --- | --- | --- |
-| `OPENRAC_OVERLAY` | `1`, or a list of `frame`, `renderer`, `memory`, `mobys`, `game`, `shaders`, `all`, `inspect`, `labels`, `memview`, `wireframe` | Shows the overlay from the start (`0`: not). The section names open those sections; `inspect` selects the hero and opens the moby inspector, `labels` names the mobys in the picture, `memview` opens the memory viewer, `wireframe` draws the frame in lines. | `port/game/common/debug_overlay.cpp` |
+| `OPENRAC_OVERLAY` | `1`, or a list of `frame`, `renderer`, `memory`, `mobys`, `game`, `shaders`, `all`, `inspect`, `labels`, `memview`, `wireframe`, `picker` | Shows the overlay from the start (`0`: not). The section names open those sections; `inspect` selects the hero and opens the moby inspector, `labels` names the mobys in the picture, `memview` opens the memory viewer, `wireframe` draws the frame in lines, `picker` enables click selection and its JSON report. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_OVERLAY_SHOT` | `N:PREFIX` | With the overlay shown: every `N` ticks, the window with the overlay to `PREFIX<tick>.png`, from `OPENRAC_SHOT_FROM` on; while paused one more, `PREFIX<tick>_held.png`. (`OPENRAC_SHOT` writes the game's frame without the overlay.) | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_KEYS` | `FRAME[+HELD]:KEY,...` | Keys and clicks by script, put in the window's event queue at those window frames, as `OPENRAC_PRESS` presses pad buttons. `KEY` is SDL's name of a key (`F3`, `F5`, `Return`) or `click@X,Y`, a left click at that place of the window (in the window's own units, not pixels). `+HELD`: that many pictures later while the game is paused at `FRAME`, where frames do not count. An event is read on the frame after it was put. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_MENU_BAR` | any (set) | macOS: the overlay's menus in a bar along the window's top as well, as on Windows and Linux (macOS has them in its own menu bar). | `port/game/common/debug_overlay.cpp` |
@@ -277,6 +294,7 @@ same variables, so a new variable gets a row in both.
 | `OPENRAC_PAUSE_AT` | `TICK[:FRAMES]` | Pauses the game at that window frame; with `FRAMES`, goes on by itself after that many held pictures. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_PERF_CAPTURE` | `FRAME:SECONDS[:FILE]` | A performance capture by script: from that window frame, that many seconds; the report to `FILE` and the frames beside it as `.jsonl`, else both zipped in `perf/perf_<game>_<time>.zip`. See [PERFORMANCE_CAPTURE.md](PERFORMANCE_CAPTURE.md). | `port/game/common/debug/capture.cpp` |
 | `OPENRAC_TIME_SCALE` | `X` (1/64 to 1) | The game's speed from the start: `0.25` is quarter speed. | `port/game/common/debug_overlay.cpp` |
+| `OPENRAC_SCROLLING_SHADOWS` | any (set; unset for default) | Experimental Vulkan toroidal static shadow caches for all four sun cascades, with compute depth composition. | `port/scene/shadow_scroll_renderer.cpp` |
 | `OPENRAC_SHADER_DIR` | folder | Where a shader reload reads the files, laid out as `port/`; the build's source tree when unset. | `port/game/common/debug/shaders.cpp` |
 | `OPENRAC_SHADER_RELOAD` | `TICK` | Reloads every shader program at that window frame, with the result in the log. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_SCRIPT_BUDGET_MS` | `MS` (a positive number) | The time a script mod may run each time the game calls into it (a hook, a callback, its first run), not counting the game's own code it calls on to; over it, the mod stops ([MODS.md](MODS.md), section 11). Default 2. | `port/game/common/mod_scripts.cpp` |
@@ -329,6 +347,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_PACING` | any (set) | Each frame shown, logs when (ms), how far between ticks it is (alpha), whether it is a tick or in-between frame, the refresh interval and the draw cost. | `port/game/common/frontend.cpp` |
 | `OPENRAC_FPS` | any (set) | Every 300 frames, logs the frames per second over that span. | `port/game/common/main.cpp` |
 | `OPENRAC_HITCH` | any (set) | Logs each frame that took more than 1.25 times the frame time, with its duration in ms. | `port/game/common/main.cpp` |
+| `OPENRAC_WATER_OFF` | `1` | Original Novalis water reference: disables enhanced water shading and simulation. Vulkan enhanced rendering otherwise loads a local `water.bin` bake beside the level manifest. | `port/enhanced/renderer/water.cpp` |
 | `OPENRAC_WATCH` | `ADDRESS:COUNT[:i],...` | Each frame, logs `COUNT` values (at most 32) from each hexadecimal game `ADDRESS`: floats by default, words with the third field `i`. `COUNT` is decimal. | `port/game/common/main.cpp` |
 | `OPENRAC_GUARD` | `FRAME:ADDRESS:BYTES[:SKIP]` | From window frame `FRAME` on, the first write (after `SKIP` of them) into `BYTES` bytes of game memory at `ADDRESS` ends the program with the host's stack, to find what corrupts them. `FRAME` and `SKIP` are decimal, `ADDRESS` and `BYTES` hexadecimal (default 4). | `port/game/common/main.cpp` |
 | `OPENRAC_TRACE_INPUT` | any (set) | Logs a port's buttons and stick values, at most every 25 frames per port. | `port/game/common/frontend.cpp` |

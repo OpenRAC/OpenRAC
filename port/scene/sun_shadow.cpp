@@ -132,7 +132,8 @@ SunCascades sun_cascades(
     renderer::Vec3 direction,
     renderer::Vec3 low,
     renderer::Vec3 high,
-    float distance
+    float distance,
+    renderer::ShadowQuality quality
 ) {
     using namespace renderer;
     if (!std::isfinite(distance) || distance <= 1 || !std::isfinite(dot(direction, direction))
@@ -187,7 +188,7 @@ SunCascades sun_cascades(
             radius = std::max(radius, std::sqrt(dot(p, p)));
         }
         radius = std::ceil(radius * 16) / 16;
-        const int resolution = kSunResolutions[i];
+        const int resolution = kSunResolutions[i] / shadow_resolution_divisor(quality);
         radius *=
             static_cast<float>(resolution) / (resolution - 6);  // snapping + filtered PCF margin
         auto light_centre = transform_point(basis, centre);
