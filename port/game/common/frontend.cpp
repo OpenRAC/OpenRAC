@@ -40,6 +40,7 @@
 #include "game/common/particle_texture_cache.h"
 #include "game/common/profile.h"
 #include "mod_menu.h"
+#include "mod_ui.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "options_menu.h"
@@ -486,7 +487,11 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black) 
 }
 
 std::uint32_t text(int id) {
-    // The port's own rows' texts, else the mods' menu entries' labels (mod_menu.h).
+    // The mods' pages' texts and a question in the memory card prompt's place (mod_ui.h), the
+    // port's own rows' texts, else the mods' menu entries' labels (mod_menu.h).
+    if (const std::uint32_t page = mod_ui::text(id); page != 0) {
+        return page;
+    }
     if (const std::uint32_t own = options_menu::text(id); own != 0) {
         return own;
     }

@@ -140,6 +140,18 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_0029AB38 game_FUN_L00_002997c8
 #define func_L00_0029AB38__game game_FUN_L00_002997c8__game
 
+/* The page menu's (front_end.c, mod_ui.cpp), checked by hand in the US data and code: the title's
+ * main page (initialize_menu_preview_scene's), the Options page (its back is the main page, its
+ * seqs 0xBE..0xC0), the memory card's prompt widget (draw_prompt_box's) and the frame mobys'
+ * slots, 0x10 bytes lower than the map's guess: PAL's MenuSystem has four words more. */
+#define RAC1_ADDR_0x001D4948u 0x001D45C8u
+#define RAC1_ADDR_0x001D4B08u 0x001D4788u
+#define RAC1_ADDR_0x001D29D0u 0x001D2650u
+#define RAC1_ADDR_0x001D6120u 0x001D5D90u
+/* MobySetAnimation, which the US decomp's update_menu_system calls as FUN_00212ed8; the map pairs
+ * PAL's with 0x212F58. */
+#define func_00213D28 game_FUN_00212ed8
+
 /* ---- generated below ---- */
 
 /* Functions: games/rac1's name, this version's. */

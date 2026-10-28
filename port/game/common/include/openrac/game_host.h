@@ -194,6 +194,16 @@ typedef struct openrac_front_end {
     /* A word: the game's language (rac1: 0 English, 2 French, 3 German, 4 Spanish, 5 Italian), for
      * the port's own texts in its menus (options_menu.cpp); 0 for none. */
     gaddr language;
+    /* The mods' pages of the game's own menus (mod_ui.cpp, interface 1.7): the title's main menu
+     * page, the Options page (whose frames a first-level page has), the memory card's prompt
+     * widget (its drawing, for a question), and the 14 frame mobys' slots. */
+    gaddr main_page, options_page, prompt, panel_slots;
+    /* One of the menus' sounds on a widget's moby (rac1: 0 confirm, 1 cursor, 2 denied, 3 open,
+     * 4 page change, the frame moby class's table). */
+    void (*menu_cue)(int cue, gaddr moby);
+    /* Frame moby `slot` cut to frame 0 of its seq `seq` (`last`: its last frame), then played at
+     * `speed` frames a tick (1 on, -1 back), as the page menu's switch does. */
+    void (*panel_animation)(int slot, int seq, int last, float speed);
 } openrac_front_end;
 
 extern const openrac_front_end* openrac_game_front_end;
