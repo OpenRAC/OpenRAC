@@ -10,10 +10,10 @@
 #include "hero_attachments.h"
 #include "rac1.h"
 
-static const char* const level_names[19] = {
-    "Veldin", "Novalis",     "Aridia",       "Kerwan", "Eudora", "Rilgar",      "Blarg Station",
-    "Umbris", "Batalia",     "Gaspar",       "Orxon",  "Pokitaru", "Hoven",     "Gemlik Base",
-    "Oltanis", "Quartu",     "Kalebo III",   "Drek's Fleet", "Veldin (final)",
+const char* const rac1_level_names[19] = {
+    "Veldin",  "Novalis", "Aridia",     "Kerwan",       "Eudora",         "Rilgar", "Blarg Station",
+    "Umbris",  "Batalia", "Gaspar",     "Orxon",        "Pokitaru",       "Hoven",  "Gemlik Base",
+    "Oltanis", "Quartu",  "Kalebo III", "Drek's Fleet", "Veldin (final)",
 };
 
 /* The planet names in the game's text, by level (the final Veldin is Veldin again). */
@@ -66,7 +66,7 @@ static unsigned hero_shadow_casters(gaddr* addresses, unsigned capacity) {
 
 const openrac_front_end rac1_front_end = {
     .levels = 19,
-    .level_names = level_names,
+    .level_names = rac1_level_names,
     .start_level = rac1_start_level,
     .menu_sound = menu_sound,
     .page_menu = RAC1_ADDR(0x001D5F70u),

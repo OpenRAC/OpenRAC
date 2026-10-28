@@ -13,6 +13,9 @@
 
 static int loaded_level = OPENRAC_OVERLAY_EXE;
 
+/* The programs ParseBin loaded since the start (play.c: a figure lives in one). */
+static uint32_t program_loads;
+
 /* Frames left in which the flight between planets counts as playing: set by its update. */
 static int flight_frames;
 
@@ -60,6 +63,7 @@ RAC1_TYPE_func_0012DA38_result func_0012DA38(void) {
     }
     const RAC1_TYPE_func_0012DA38_result entry = func_0012DA38__game();
     loaded_level = GREF(int, CURRENT_LEVEL);
+    ++program_loads;
     /* No level: Quit Game, whose level's loader read the boot program back from the disc
      * (func_00204BE8). That copy is another build of the executable's program: the same
      * sections at the same addresses, the data the same but for its code pointers, and code
@@ -72,6 +76,10 @@ RAC1_TYPE_func_0012DA38_result func_0012DA38(void) {
         openrac_guest_restore_executable(RAC1_ADDR(0x0015F000u), 0x250000u);
     }
     return entry;
+}
+
+uint32_t rac1_program_loads(void) {
+    return program_loads;
 }
 
 /* hostgen.json: "overlay_hook": true. */
@@ -270,4 +278,5 @@ __attribute__((constructor)) static void install_direct_start(void) {
     openrac_game_hero_position = hero_position;
     openrac_game_hero = hero;
     openrac_game_front_end = &rac1_front_end;
+    openrac_game_play_host = &rac1_play;
 }
