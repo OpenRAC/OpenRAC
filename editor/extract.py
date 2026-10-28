@@ -85,7 +85,8 @@ def level_schema(level_dir: Path) -> int | None:
         return None
 
 
-def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int) -> dict[str, list[int]]:
+def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int,
+                 gameplay_source: str | None = None) -> dict[str, list[int]]:
     """Brings the Godot projects in DEST (an earlier export of this command) up to date, keeping
     every edit: a level of the current SCHEMA is left as it is (its scene, with the player's
     edits, is the one they work on); a missing level is exported; a level an older extractor wrote
@@ -102,7 +103,9 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
         if not level_dir(i).is_dir():
             report["added"].append(i)
             todo.append(i)
-        elif level_schema(level_dir(i)) != schema:
+        elif (level_schema(level_dir(i)) != schema or
+              (gameplay_source is not None and
+               json.loads((level_dir(i) / "level.json").read_text()).get("gameplay_source") != gameplay_source)):
             report["replaced"].append(i)
             todo.append(i)
         else:
@@ -135,14 +138,15 @@ def say_output(path: Path) -> None:
     print(f"openrac-output: {path}", flush=True)
 
 
-def export_godot(out: Path, levels: list[int], anywhere: bool, split: bool, export) -> str:
+def export_godot(out: Path, levels: list[int], anywhere: bool, split: bool, export,
+                 gameplay_source: str | None = None) -> str:
     """The godot command's output, made or updated (update_godot); a sentence saying what was done."""
     dest = output_path(out, anywhere, replace=True)
     ours(dest, "godot")
     if export_kind(dest) is None:
         publish(dest, lambda fresh: export(fresh, levels), anywhere, replace=True)
         return f"Godot project{'s, one per level' if split else ''}: {dest}"
-    report = update_godot(dest, levels, split, export, GODOT_SCHEMA)
+    report = update_godot(dest, levels, split, export, GODOT_SCHEMA, gameplay_source)
     said = [f"Godot project{'s' if split else ''} in {dest}:"]
     if report["kept"]:
         said.append(f"{len(report['kept'])} level(s) kept as they are, with your edits")
@@ -268,7 +272,9 @@ def worker() -> None:
 def export_level(iso: Path, info: dict, out: Path, lod: int) -> dict:
     """One level of a Godot project; runs in its own process."""
     with Disc(iso) as disc:
-        return LevelWriter(out, load_level(disc, info), normals(disc)).write(lod)
+        writer = LevelWriter(out, load_level(disc, info), normals(disc))
+        writer.stats["gameplay_source"] = disc.version.gameplay
+        return writer.write(lod)
 
 
 def open_later(iso: Path) -> tuple[Disc, wads.WadDisc]:
@@ -492,7 +498,8 @@ def main() -> None:
                     return
                 print(export_godot(args.out, levels, args.anywhere, args.split,
                                    lambda out, todo: godot(args.iso, survey, todo, args.terrain_lod, max(1, args.jobs),
-                                                           out, args.split, disc.version.region)))
+                                                           out, args.split, disc.version.region),
+                                   gameplay_source=disc.version.gameplay if disc.version.key == "pal" else None))
                 say_output(args.out.resolve())
             elif args.command == "port":
                 levels = sorted(set(args.level or range(LEVEL_COUNT)))
