@@ -996,9 +996,12 @@ typedef struct openrac_api {
 
     /* While one of the mod's pages is on the screen: shows its `page`, a level under a page the
      * main menu opened or in place of one under it; a page that is on a level above goes back to
-     * it. OPENRAC_UI_GO_BACK goes back a level, as Triangle does. Returns OPENRAC_HOOK_OK, or
-     * OPENRAC_HOOK_UNKNOWN when none of the mod's pages is on the screen or the page is not the
-     * mod's. Since 1.7. */
+     * it. OPENRAC_UI_GO_BACK goes back a level, as Triangle does. Since 1.9 also while the title's
+     * main menu itself is on the screen: shows the page one of the mod's main-menu items opens
+     * (openrac_api.ui_main_item), as choosing the item does, so a mod brings the player back to
+     * its page after a game it ended. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN when none
+     * of the mod's pages (nor the main menu, for an item's page) is on the screen or the page is
+     * not the mod's. Since 1.7. */
     int (*ui_open)(openrac_mod* mod, int page);
 
     /* While the mod's `page` is on the screen: asks `question` with the game's prompt box in place

@@ -421,8 +421,8 @@ public:
         }
     }
 
-    // Return whether the port took it: shows this page (from another of the mod's on the screen),
-    // goes back a level, asks `question` on this page (answered by an OPENRAC_UI_ANSWER with
+    // Return whether the port took it: shows this page (from another of the mod's on the screen,
+    // or since 1.9 a main-menu item's page from the title's main menu), goes back a level, asks `question` on this page (answered by an OPENRAC_UI_ANSWER with
     // `tag`), plays a menu sound (OPENRAC_UI_SOUND_*).
     bool open() const { return m_api != nullptr && m_api->ui_open(m_handle, m_id) == OPENRAC_HOOK_OK; }
 

@@ -143,12 +143,14 @@ std::vector<FrameCallback> g_frames;
 std::vector<PadCallback> g_pads;
 std::vector<MenuCallback> g_menus;
 // The pages of the game's own menus and the main-menu items (interface 1.7); the page on the
-// screen (-1 none), whether a question is open on it, and what the mods asked of the screen.
+// screen (-1 none), whether a question is open on it, whether the title's main menu is (since
+// 1.9 a mod opens its main-menu item's page from it), and what the mods asked of the screen.
 std::vector<UiPageCallback> g_ui_pages;
 std::vector<UiMainItem> g_ui_main;
 std::vector<UiPauseItem> g_ui_pause;
 int g_ui_shown = -1;
 bool g_ui_question = false;
+bool g_ui_main_menu = false;
 UiRequests g_ui_requests;
 // The mod whose menu page callback runs now: its drawing reaches the page, anyone else's is ignored.
 openrac_mod* g_drawing = nullptr;
@@ -587,6 +589,16 @@ bool shows_mod(openrac_mod* mod) {
     return g_ui_shown >= 0 && mod_page(mod, g_ui_shown) != nullptr;
 }
 
+// Whether the title's main menu is on the screen and `page` is one of `mod`'s main-menu items'.
+bool main_item_opens(openrac_mod* mod, int page) {
+    return g_ui_main_menu && g_ui_shown < 0 && mod_page(mod, page) != nullptr
+           && std::any_of(
+               g_ui_main.begin(),
+               g_ui_main.end(),
+               [&](const UiMainItem& item) { return item.page == page; }
+           );
+}
+
 // A cursor kept on an item it takes: the last when past the end, else the nearest below, else
 // above; 0 when it takes none.
 int settle_cursor(const UiPage& page, int cursor) {
@@ -697,8 +709,10 @@ int api_ui_set(openrac_mod* mod, int page, const openrac_ui_content* content) {
 }
 
 int api_ui_open(openrac_mod* mod, int page) {
-    // From one of the mod's pages on the screen, to one of its pages or back.
-    if (!shows_mod(mod) || (page != OPENRAC_UI_GO_BACK && mod_page(mod, page) == nullptr)) {
+    // From one of the mod's pages on the screen, to one of its pages or back; or from the title's
+    // main menu, to one of its main-menu items' pages.
+    if ((!shows_mod(mod) || (page != OPENRAC_UI_GO_BACK && mod_page(mod, page) == nullptr))
+        && !main_item_opens(mod, page)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     g_ui_requests.open = true;
@@ -1268,6 +1282,10 @@ void ui_set_shown(int page, bool question_open) {
     g_ui_question = g_ui_shown >= 0 && question_open;
 }
 
+void ui_set_main_menu(bool up) {
+    g_ui_main_menu = up;
+}
+
 void ui_set_cursor(int page, int item) {
     // Only a page there is, onto an item it has.
     if (page >= 0 && page < ui_page_count()) {
@@ -1349,6 +1367,7 @@ void reset() {
     g_ui_pause.clear();
     g_ui_shown = -1;
     g_ui_question = false;
+    g_ui_main_menu = false;
     g_ui_requests = UiRequests{};
     reset_play();
     g_tick_boundaries.clear();

@@ -1015,6 +1015,17 @@ void open(const openrac_front_end& fe, int page) {
     send(page, OPENRAC_UI_SHOW);
 }
 
+// From the title's main menu, mod page `page` opened as its main-menu item's own: the switch to
+// that item's page. Nothing for a page no item opens.
+void open_main_item(const openrac_front_end& fe, int page) {
+    for (int i = 0; i < s.extra_rows; ++i) {
+        if (mods::ui_main_item(i)->page == page) {
+            put_word(fe.page_menu + kNext, s.pages[static_cast<std::size_t>(i)].page);
+            return;
+        }
+    }
+}
+
 // The next item from the cursor that it takes, `by` 1 down or -1 up, round the ends; the cursor's
 // own when there is none.
 int step_cursor(const mods::UiPage& p, int by) {
@@ -1457,6 +1468,7 @@ void update(int loaded_overlay) {
         s.game = -1;
         s.shown = -1;
         mods::ui_set_shown(-1, false);
+        mods::ui_set_main_menu(false);
         mods::take_ui_requests();
         // In a level: the pause menu's pages of the mods' items.
         if (fe != nullptr && loaded_overlay != OPENRAC_OVERLAY_EXE && loaded_overlay >= 0) {
@@ -1479,15 +1491,25 @@ void update(int loaded_overlay) {
         change_page(*fe, game);
     }
 
+    // The title's main menu itself on the screen: a mod may open its main-menu item's page.
+    const bool main_menu = settled && word(fe->page_menu + kCurrent) == fe->main_page;
+
     if (s.shown >= 0) {
         mods::ui_set_shown(s.shown, s.asking);
+        mods::ui_set_main_menu(false);
         input(*fe);
         send(s.shown, OPENRAC_UI_FRAME);
         apply(*fe);
         mods::ui_set_shown(s.shown, s.asking);
     } else {
         mods::ui_set_shown(-1, false);
-        mods::take_ui_requests();
+        const mods::UiRequests r = mods::take_ui_requests();
+
+        if (main_menu && r.open) {
+            open_main_item(*fe, r.page);
+        }
+
+        mods::ui_set_main_menu(main_menu);
     }
 
     if (s.game >= 0 && s.shown >= 0) {

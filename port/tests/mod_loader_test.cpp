@@ -734,6 +734,24 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
     mods::ui_send(0, e);
     CHECK(std::find(g_records.begin(), g_records.end(), 5900 + 1) != g_records.end());
     CHECK(!mods::take_ui_requests().open);
+    // From the title's main menu (no page of the mod's on the screen), interface 1.9: its main-menu
+    // item's page opens, not another of its pages; with the main menu gone, neither.
+    mods::ui_set_main_menu(true);
+    g_records.clear();
+    mods::ui_send(0, e);
+    CHECK(std::find(g_records.begin(), g_records.end(), 5900 + 1) != g_records.end());
+    CHECK(!mods::take_ui_requests().open);
+    openrac_ui_event own = e;
+    own.item = 1;
+    mods::ui_send(0, own);
+    CHECK(std::find(g_records.begin(), g_records.end(), 5800) != g_records.end());
+    mods::UiRequests main = mods::take_ui_requests();
+    CHECK(main.open && main.page == 0);
+    mods::ui_set_main_menu(false);
+    g_records.clear();
+    mods::ui_send(0, own);
+    CHECK(std::find(g_records.begin(), g_records.end(), 5800 + 1) != g_records.end());
+    CHECK(!mods::take_ui_requests().open);
     mods::ui_set_shown(0, false);
     mods::ui_send(0, e);
     CHECK(std::find(g_records.begin(), g_records.end(), 5000 + 20 + 1) != g_records.end());

@@ -207,6 +207,9 @@ const UiPauseItem* ui_pause_item(int index);
 // The front end's side: the page on the screen (-1 none; whose mod may then open, ask and play),
 // whether a question is open on it, where a page's cursor is now.
 void ui_set_shown(int page, bool question_open);
+// Whether the title's main menu is on the screen, settled (a mod may open its main-menu item's
+// page from it, since 1.9).
+void ui_set_main_menu(bool up);
 void ui_set_cursor(int page, int item);
 // A choice the player stepped: shown so until the mod sets the page again.
 void ui_set_choice(int page, int item, std::uint32_t choice);

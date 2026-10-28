@@ -150,7 +150,7 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `UiPage(const openrac_api* api, openrac_mod* handle, int id)` | The page `id` of the mod `handle`, through `api`. |
 | `int id() const` | Returns the page's id. |
 | `void set(const UiContent& content) const` | Puts `content` on the page. Throws openrac::Error when refused (no such page). |
-| `bool open() const` | Return whether the port took it: shows this page (from another of the mod's on the screen), goes back a level, asks `question` on this page (answered by an OPENRAC_UI_ANSWER with `tag`), plays a menu sound (OPENRAC_UI_SOUND_*). |
+| `bool open() const` | Return whether the port took it: shows this page (from another of the mod's on the screen, or since 1.9 a main-menu item's page from the title's main menu), goes back a level, asks `question` on this page (answered by an OPENRAC_UI_ANSWER with `tag`), plays a menu sound (OPENRAC_UI_SOUND_*). |
 | `bool back() const` |  |
 | `bool confirm(const std::string& question, std::uint32_t tag = 0) const` |  |
 | `bool sound(int sound) const` |  |

@@ -63,12 +63,15 @@ static int menu_page(void* user, const openrac_menu_frame* frame) {
 }
 
 /* The pages of the game's own menus: each event reported; the first page's first item opens the
- * second, which asks when it shows. */
+ * second, which asks when it shows; its second opens the first itself (the main menu's item's page,
+ * interface 1.9). */
 static void ui_page(void* user, int page, const openrac_ui_event* event) {
     (void)user;
     s_record(5000 + 100 * page + 10 * (int)event->kind + event->item + 1);
     if (event->kind == OPENRAC_UI_CHOOSE && event->item == 0) {
         s_record(5900 + -s_api->ui_open(s_mod, s_ui_second));
+    } else if (event->kind == OPENRAC_UI_CHOOSE && event->item == 1) {
+        s_record(5800 + -s_api->ui_open(s_mod, 0));
     } else if (event->kind == OPENRAC_UI_SHOW && page == s_ui_second) {
         s_api->ui_confirm(s_mod, page, "Leave the party?", 7);
         s_api->ui_sound(s_mod, OPENRAC_UI_SOUND_SELECT);
