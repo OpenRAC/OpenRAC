@@ -78,7 +78,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.5",
+    const std::string& api = "1.6",
     const std::string& extra = ""
 ) {
     const fs::path dir = plugins / ("test-" + which);
@@ -98,7 +98,8 @@ void install(
                                   {"value": "bad_signature", "name": "Bad"},
                                   {"value": "input", "name": "Input"},
                                   {"value": "views", "name": "Views"},
-                                  {"value": "menu", "name": "Menu"}]},
+                                  {"value": "menu", "name": "Menu"},
+                                  {"value": "savestate", "name": "Savestate"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -231,7 +232,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.5", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.6", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -342,6 +343,38 @@ void a_menu_page_draws_through_the_host(const fs::path& plugins) {
     CHECK(mods::menu_entry_count() == 0);
 }
 
+// The tick boundary and the snapshot calls (interface 1.6): the boundary taken during load only,
+// its callback run by mods::tick_boundary with the tick, the snapshot calls refused for a game
+// without a snapshot (the test's) and outside the boundary; reset takes the callback back.
+void the_tick_boundary_reaches_the_mod(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "savestate"}}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    mods::tick_boundary(7);
+    CHECK((g_records == std::vector<int>{3007, 3100, 3201, 3301}));
+    g_records.clear();
+    mods::frame();
+    CHECK(std::find(g_records.begin(), g_records.end(), 1200 + 3) != g_records.end());
+    CHECK(std::find(g_records.begin(), g_records.end(), 1300 + 1) != g_records.end());
+    mods::reset();
+    g_records.clear();
+    mods::tick_boundary(8);
+    CHECK(g_records.empty());
+}
+
+// A mod built for 1.5, before the snapshot calls (OPENRAC_MOD_TARGET_MINOR 5, its manifest's "api"),
+// loads on this port of 1.6 and runs as before.
+void a_mod_for_1_5_still_loads(const fs::path& plugins) {
+    install(plugins, "old", OPENRAC_TEST_MOD_OLD, "1.5");
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-old", "enabled": true, "settings": {"tag": 3}}]})");
+    CHECK(mods::load(host(plugins)) == "test-old 1.0.0");
+    CHECK(status_of(plugins, "test-old").first == "loaded");
+    CHECK(add(0) == 13);  // (0 + 1) * 10 + 3
+    mods::reset();
+}
+
 void views_reach_the_host(const fs::path& plugins) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "views"}},
@@ -377,7 +410,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.5", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.6", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -438,6 +471,8 @@ int main() {
     input_reaches_the_mod(plugins);
     views_reach_the_host(plugins);
     a_menu_page_draws_through_the_host(plugins);
+    the_tick_boundary_reaches_the_mod(plugins);
+    a_mod_for_1_5_still_loads(plugins);
     std::error_code e;
     fs::remove_all(dir, e);
     return test::result();

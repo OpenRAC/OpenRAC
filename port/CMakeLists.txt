@@ -186,13 +186,17 @@ openrac_warnings(openrac_mods)
 openrac_add_test(mod_manifest LIBS openrac_mods)
 
 # A mod built as a mod is (a shared library against the SDK's header alone), loaded by the real
-# loader with hook points of the test's own.
+# loader with hook points of the test's own; test-old is built for interface 1.5, as a mod made
+# before the snapshot calls is.
 add_executable(mod_loader_test tests/mod_loader_test.cpp)
 target_link_libraries(mod_loader_test PRIVATE openrac_mods)
-foreach(which a b)
+foreach(which a b old)
   add_library(mod_loader_test_${which} MODULE tests/mod_loader_test_mod.c)
   target_include_directories(mod_loader_test_${which} PRIVATE "${PROJECT_SOURCE_DIR}/../sdk/include")
   target_compile_definitions(mod_loader_test_${which} PRIVATE "TEST_MOD_ID=\"test-${which}\"")
+  if(which STREQUAL "old")
+    target_compile_definitions(mod_loader_test_${which} PRIVATE OPENRAC_MOD_TARGET_MINOR=5)
+  endif()
   set_target_properties(mod_loader_test_${which} PROPERTIES C_VISIBILITY_PRESET hidden PREFIX "")
   string(TOUPPER "${which}" upper)
   target_compile_definitions(mod_loader_test PRIVATE

@@ -259,6 +259,34 @@ void host_menu_text(openrac_mod*, int x, int y, int size, uint32_t, const char* 
     );
 }
 
+// The fake port's tick boundary (1.6): the callback it was given, and a snapshot of 64 bytes that
+// it takes only at that size.
+openrac_tick_boundary_fn g_tick_fn = nullptr;
+void* g_tick_user = nullptr;
+std::size_t g_saved = 0;
+
+int host_on_tick_boundary(openrac_mod*, openrac_tick_boundary_fn fn, void* user) {
+    g_tick_fn = fn;
+    g_tick_user = user;
+    return OPENRAC_HOOK_OK;
+}
+
+std::size_t host_savestate_size() {
+    return 64;
+}
+
+int host_savestate_save(void* out, std::size_t size) {
+    if (out == nullptr || size != 64) {
+        return -1;
+    }
+    g_saved = size;
+    return 0;
+}
+
+int host_savestate_load(const void* data, std::size_t size) {
+    return data != nullptr && size == 64 ? 0 : -1;
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -295,6 +323,10 @@ openrac_api make_api() {
     api.menu_entry = host_menu_entry;
     api.menu_rect = host_menu_rect;
     api.menu_text = host_menu_text;
+    api.on_tick_boundary = host_on_tick_boundary;
+    api.savestate_size = host_savestate_size;
+    api.savestate_save = host_savestate_save;
+    api.savestate_load = host_savestate_load;
     return api;
 }
 
@@ -619,6 +651,56 @@ void check_menu(openrac::Mod& mod, const openrac_api& api) {
     CHECK(!before.has_menu());
 }
 
+// Checks the tick boundary and the snapshot calls (1.6): the callback given to the port and run with
+// the tick, a save inside it, a refused load thrown, an exception logged, and a 1.5 port.
+void check_savestates(openrac::Mod& mod, const openrac_api& api) {
+    CHECK(mod.has_savestates());
+    CHECK(mod.savestate_size() == 64);
+    std::vector<unsigned char> bytes(mod.savestate_size());
+    std::uint32_t seen = 0;
+    mod.on_tick_boundary([&](std::uint32_t tick) {
+        seen = tick;
+        if (tick == 0) {
+            throw std::runtime_error("boundary broke");
+        }
+        mod.savestate_save(bytes.data(), bytes.size());
+    });
+    CHECK(g_tick_fn != nullptr);
+    g_tick_fn(g_tick_user, 9);
+    CHECK(seen == 9 && g_saved == 64);
+    g_tick_fn(g_tick_user, 0);
+    CHECK(!g_log.empty() && g_log.back().find("boundary broke") != std::string::npos);
+    mod.savestate_load(bytes.data(), bytes.size());
+
+    bool refused = false;
+
+    try {
+        mod.savestate_load(bytes.data(), 1);
+    } catch (const openrac::Error& e) {
+        refused = std::string(e.what()) == "savestate_load: refused";
+    }
+
+    CHECK(refused);
+
+    openrac_api old = api;  // a port of 1.5: the table ends before the tick boundary
+    old.api_minor = 5;
+    old.size = static_cast<uint32_t>(offsetof(openrac_api, on_tick_boundary));
+
+    const openrac::Mod before(&old, nullptr);
+
+    CHECK(!before.has_savestates());
+
+    bool needs = false;
+
+    try {
+        (void)before.savestate_size();
+    } catch (const openrac::Error& e) {
+        needs = std::string(e.what()) == "savestate_size: requires interface 1.6";
+    }
+
+    CHECK(needs);
+}
+
 // Checks that a load that throws refuses the mod with the message, whatever the exception is.
 void check_refused_loads(const openrac_api& api, openrac_mod* handle) {
     g_failed.clear();
@@ -685,6 +767,7 @@ int main() {
     check_input(mod);
     check_views(mod, api);
     check_menu(mod, api);
+    check_savestates(mod, api);
     check_refused_loads(api, handle);
     check_reload(api, handle);
 

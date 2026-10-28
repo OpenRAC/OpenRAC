@@ -11,7 +11,11 @@
  * Test_Record (2000 + the views ended so far) and its closing (4000) (interface 1.4). With "menu"
  * it adds a front-end menu entry whose page draws a rectangle and a line of text each frame and
  * closes on Cross, and draws outside its page too (ignored), and asks for an entry after load
- * (refused): Test_Record gets 1100 + that refusal (interface 1.5). */
+ * (refused): Test_Record gets 1100 + that refusal (interface 1.5). With "savestate" it takes the
+ * tick boundary and, in it, reports the tick (3000 + it), the snapshot's size (3100 + it) and a
+ * refused save and load (3200 and 3300 + the refusal), and asks for the boundary after load
+ * (refused: 1200 + that) and a save outside it (refused: 1300 + that) (interface 1.6). It reports the interface it is built for
+ * (OPENRAC_MOD_TARGET_MINOR): test-old is built for 1.5. */
 #include <stddef.h>
 
 #ifndef TEST_MOD_ID
@@ -30,6 +34,7 @@ static int s_input;
 static int s_views;
 static int s_ended;
 static int s_menu;
+static int s_savestate;
 
 /* The menu page: a white rectangle and "HELLO" each frame; Cross closes it. */
 static int menu_page(void* user, const openrac_menu_frame* frame) {
@@ -43,13 +48,23 @@ static int menu_page(void* user, const openrac_menu_frame* frame) {
 
 OPENRAC_MOD_EXPORT void openrac_mod_query(openrac_mod_info* info) {
     info->api_major = OPENRAC_MOD_API_MAJOR;
-    info->api_minor = OPENRAC_MOD_API_MINOR;
+    info->api_minor = OPENRAC_MOD_TARGET_MINOR;
     info->id = TEST_MOD_ID;
     info->version = "1.0.0";
 }
 
 static int add(int x) {
     return s_add(x) * 10 + s_tag;
+}
+
+/* The tick boundary: the snapshot calls are taken here, and the test's game has no snapshot. */
+static void on_tick_boundary(void* user, uint32_t tick) {
+    (void)user;
+    char bytes[16] = {0};
+    s_record(3000 + (int)tick);
+    s_record(3100 + (int)s_api->savestate_size());
+    s_record(3200 + -s_api->savestate_save(bytes, sizeof bytes));
+    s_record(3300 + -s_api->savestate_load(bytes, sizeof bytes));
 }
 
 static void on_frame(void* user) {
@@ -66,6 +81,13 @@ static void on_frame(void* user) {
             if (s_menu) {
                 s_record(1100 + -s_api->menu_entry(s_mod, "Late", menu_page, NULL));
                 s_api->menu_text(s_mod, 0, 0, 1, 0, "OUTSIDE");
+            }
+            /* Interface 1.6: the tick boundary after load is refused. */
+            if (s_savestate) {
+                char bytes[16] = {0};
+                s_record(1200 + -s_api->on_tick_boundary(s_mod, on_tick_boundary, NULL));
+                /* And a snapshot outside the boundary. */
+                s_record(1300 + -s_api->savestate_save(bytes, sizeof bytes));
             }
         }
     }
@@ -132,6 +154,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     s_views = 0;
     s_ended = 0;
     s_menu = 0;
+    s_savestate = 0;
     s_tag = (int)api->setting_int(mod, "tag");
     s_record = (void (*)(int))api->function("Test_Record");
     const char* behaviour = api->setting_string(mod, "behaviour");
@@ -182,6 +205,14 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         if (api->menu_entry(mod, "", menu_page, NULL) != OPENRAC_HOOK_UNKNOWN
             || api->menu_entry(mod, "No page", NULL, NULL) != OPENRAC_HOOK_UNKNOWN) {
             return 9;
+        }
+    }
+    if (behaviour[0] == 's') { /* savestate */
+        s_savestate = 1;
+        if (api->api_minor < 6 || s_record == NULL
+            || api->on_tick_boundary(mod, NULL, NULL) == OPENRAC_HOOK_OK
+            || api->on_tick_boundary(mod, on_tick_boundary, NULL) != OPENRAC_HOOK_OK) {
+            return 10;
         }
     }
     if (api->hook(mod, "Test_Add", "i32(i32)", (void*)add, (void**)&s_add) != OPENRAC_HOOK_OK) {
