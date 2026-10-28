@@ -1018,6 +1018,113 @@ public:
         }
     }
 
+    // Since 1.8: returns whether the port offers play (play_status() ... save_read()), multiplayer's
+    // calls, for this game: a mod that wants to run on 1.7, or on a game without them, checks this
+    // first. Without it the play calls below answer nothing (a status of OPENRAC_PLAY_NONE, no pose,
+    // no figure, no save).
+    bool has_play() const {
+        if (m_api->api_minor < 8 || m_api->size < offsetof(openrac_api, save_read) + sizeof(void*)) {
+            return false;
+        }
+        openrac_play_status status{};
+        status.size = sizeof status;
+        return m_api->play_status(&status) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.8: what the game is doing now (openrac_play_status: its phase, level, loads).
+    openrac_play_status play_status() const {
+        openrac_play_status status{};
+        status.size = sizeof status;
+        status.level = -1;
+        if (m_api->api_minor >= 8) {
+            m_api->play_status(&status);
+        }
+        return status;
+    }
+
+    // Since 1.8: the name of the game's level `level`, empty for none.
+    std::string level_name(int level) const {
+        const char* name = m_api->api_minor >= 8 ? m_api->level_name(level) : nullptr;
+        return name != nullptr ? name : "";
+    }
+
+    // Since 1.8: the hero's pose into `out`; false when there is no hero now.
+    bool hero_pose(openrac_pose& out) const {
+        out = openrac_pose{};
+        out.size = sizeof out;
+        return m_api->api_minor >= 8 && m_api->hero_pose(&out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.8: a figure that looks like the hero, in the level (figure_create): its id, or -1
+    // when there is none to have (no level, no room).
+    int figure_create() const {
+        const int id = m_api->api_minor >= 8 ? m_api->figure_create(m_handle) : OPENRAC_HOOK_UNKNOWN;
+        return id >= 0 ? id : -1;
+    }
+
+    // Since 1.8: puts figure `id` in `pose` (its size set here); false for a figure gone with its
+    // level (make another).
+    bool figure_pose(int id, const openrac_pose& pose) const {
+        openrac_pose p = pose;
+        p.size = sizeof p;
+        return m_api->api_minor >= 8 && m_api->figure_pose(m_handle, id, &p) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.8: takes figure `id` out of the level; false for one gone already.
+    bool figure_remove(int id) const {
+        return m_api->api_minor >= 8 && m_api->figure_remove(m_handle, id) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.8: from the front end, a new game in `level` (no save), or `save` continued (in its
+    // own level, or `level` when 0 or more), after this frame. Returns OPENRAC_HOOK_OK,
+    // OPENRAC_HOOK_TAKEN (one is pending) or OPENRAC_HOOK_UNKNOWN (refused).
+    int play_start(int level, const std::vector<std::uint8_t>& save = {}) const {
+        if (m_api->api_minor < 8) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        return m_api->play_start(
+            m_handle, level, save.empty() ? nullptr : save.data(), save.size()
+        );
+    }
+
+    // Since 1.8: in a level, leaves it for `level` after this frame; as play_start's results.
+    int play_travel(int level) const {
+        return m_api->api_minor >= 8 ? m_api->play_travel(m_handle, level) : OPENRAC_HOOK_UNKNOWN;
+    }
+
+    // Since 1.8: the game's progress now as a save, empty for none.
+    std::vector<std::uint8_t> save_capture() const {
+        if (m_api->api_minor < 8) {
+            return {};
+        }
+        std::vector<std::uint8_t> bytes(m_api->save_capture(nullptr, 0));
+        // The size asked first; the progress the same a moment later, on the same thread.
+        if (!bytes.empty() && m_api->save_capture(bytes.data(), bytes.size()) != bytes.size()) {
+            bytes.clear();
+        }
+        return bytes;
+    }
+
+    // Since 1.8: what the memory card's save `slot` holds, into `out`: 1 a save, 0 an empty slot,
+    // -1 past the last.
+    int save_slot(int slot, openrac_save_info& out) const {
+        out = openrac_save_info{};
+        out.size = sizeof out;
+        return m_api->api_minor >= 8 ? m_api->save_slot(slot, &out) : -1;
+    }
+
+    // Since 1.8: the bytes of the memory card's save `slot`, for play_start; empty for none.
+    std::vector<std::uint8_t> save_read(int slot) const {
+        if (m_api->api_minor < 8) {
+            return {};
+        }
+        std::vector<std::uint8_t> bytes(m_api->save_read(slot, nullptr, 0));
+        if (!bytes.empty() && m_api->save_read(slot, bytes.data(), bytes.size()) != bytes.size()) {
+            bytes.clear();
+        }
+        return bytes;
+    }
+
     // Returns a view of game memory.
     Memory memory() const { return Memory(m_api->memory); }
 

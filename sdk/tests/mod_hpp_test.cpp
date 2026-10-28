@@ -354,6 +354,72 @@ int host_ui_sound(openrac_mod*, int sound) {
     return sound >= 0 && sound <= OPENRAC_UI_SOUND_PAGE ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+// Play (interface 1.8): a level of its own, a hero in state 7, one figure, a save of 4 bytes in
+// slot 0 (level 3) and as the progress, and what was started or travelled to.
+std::vector<std::string> g_played;
+
+int host_play_status(openrac_play_status* out) {
+    out->phase = OPENRAC_PLAY_PLAYING;
+    out->level = 3;
+    out->levels = 19;
+    out->loads = 2;
+    return OPENRAC_HOOK_OK;
+}
+
+const char* host_level_name(int level) {
+    return level == 3 ? "Kerwan" : nullptr;
+}
+
+int host_hero_pose(openrac_pose* out) {
+    out->state = 7;
+    out->position[0] = 1.5f;
+    return out->size == sizeof *out ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int host_figure_create(openrac_mod*) {
+    return 0;
+}
+
+int host_figure_pose(openrac_mod*, int id, const openrac_pose* pose) {
+    g_played.push_back("pose " + std::to_string(id) + " " + std::to_string(pose->seq));
+    return id == 0 && pose->size == sizeof *pose ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int host_figure_remove(openrac_mod*, int id) {
+    return id == 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int host_play_start(openrac_mod*, int level, const void* save, size_t size) {
+    g_played.push_back("start " + std::to_string(level) + " " + (save != nullptr ? std::to_string(size) : "new"));
+    return OPENRAC_HOOK_OK;
+}
+
+int host_play_travel(openrac_mod*, int level) {
+    g_played.push_back("travel " + std::to_string(level));
+    return OPENRAC_HOOK_TAKEN;
+}
+
+const std::uint8_t kSave[4] = {'S', 3, 0, 0};
+
+size_t host_save_capture(void* out, size_t size) {
+    if (out != nullptr && size >= sizeof kSave) {
+        std::memcpy(out, kSave, sizeof kSave);
+    }
+    return sizeof kSave;
+}
+
+int host_save_slot(int slot, openrac_save_info* out) {
+    if (slot > 1) {
+        return -1;
+    }
+    out->level = slot == 0 ? 3 : 0;
+    return slot == 0 ? 1 : 0;
+}
+
+size_t host_save_read(int slot, void* out, size_t size) {
+    return slot == 0 ? host_save_capture(out, size) : 0;
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -401,6 +467,17 @@ openrac_api make_api() {
     api.ui_confirm = host_ui_confirm;
     api.ui_cursor = host_ui_cursor;
     api.ui_sound = host_ui_sound;
+    api.play_status = host_play_status;
+    api.level_name = host_level_name;
+    api.hero_pose = host_hero_pose;
+    api.figure_create = host_figure_create;
+    api.figure_pose = host_figure_pose;
+    api.figure_remove = host_figure_remove;
+    api.play_start = host_play_start;
+    api.play_travel = host_play_travel;
+    api.save_capture = host_save_capture;
+    api.save_slot = host_save_slot;
+    api.save_read = host_save_read;
     return api;
 }
 
@@ -500,6 +577,36 @@ namespace {
 // ----------------------------------------------------------------------------------------------
 // The checks, one per behaviour
 // ----------------------------------------------------------------------------------------------
+
+// Checks the play calls (1.8): the sizes set by the layer, the status, names, poses, figures, the
+// saves read whole, a start with and without a save; and none of it on a 1.7 port.
+void check_play(openrac::Mod& mod, openrac_api& api) {
+    CHECK(mod.has_play());
+    const openrac_play_status status = mod.play_status();
+    CHECK(status.phase == OPENRAC_PLAY_PLAYING && status.level == 3 && status.loads == 2);
+    CHECK(mod.level_name(3) == "Kerwan" && mod.level_name(4).empty());
+    openrac_pose pose{};
+    CHECK(mod.hero_pose(pose) && pose.state == 7 && pose.position[0] == 1.5f);
+    const int figure = mod.figure_create();
+    pose.seq = 12;
+    CHECK(figure == 0 && mod.figure_pose(figure, pose) && !mod.figure_pose(3, pose));
+    CHECK(mod.figure_remove(0) && !mod.figure_remove(1));
+    openrac_save_info info{};
+    CHECK(mod.save_slot(0, info) == 1 && info.level == 3 && info.size == sizeof info);
+    CHECK(mod.save_slot(1, info) == 0 && mod.save_slot(2, info) == -1);
+    const std::vector<std::uint8_t> save = mod.save_read(0);
+    CHECK(save.size() == 4 && save[0] == 'S' && mod.save_read(1).empty());
+    CHECK(mod.save_capture() == save);
+    CHECK(mod.play_start(-1, save) == OPENRAC_HOOK_OK && mod.play_start(0) == OPENRAC_HOOK_OK);
+    CHECK(mod.play_travel(5) == OPENRAC_HOOK_TAKEN);
+    CHECK((g_played == std::vector<std::string>{"pose 0 12", "pose 3 12", "start -1 4", "start 0 new",
+                                                 "travel 5"}));
+    // A 1.7 port: no play, and the calls answer nothing.
+    api.api_minor = 7;
+    CHECK(!mod.has_play() && mod.play_status().phase == OPENRAC_PLAY_NONE && mod.figure_create() == -1);
+    CHECK(mod.save_capture().empty() && mod.play_start(0) == OPENRAC_HOOK_UNKNOWN);
+    api.api_minor = OPENRAC_MOD_API_MINOR;
+}
 
 // Checks that openrac_mod_query reports the interface the mod was built for and its id and version.
 void check_query() {
@@ -937,6 +1044,7 @@ int main() {
     check_menu(mod, api);
     check_savestates(mod, api);
     check_ui(mod, api);
+    check_play(mod, api);
     check_refused_loads(api, handle);
     check_reload(api, handle);
 

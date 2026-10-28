@@ -19,8 +19,10 @@
  * the first in the main menu after Load Game with a button, a line and a choice on it, and reports
  * each event (5000 + 100 * page + 10 * kind + item + 1); Cross on the first item opens the second
  * page, which asks a question when it shows and plays a sound, and an answer is 6000 + 10 * yes +
- * the tag; a page and an item after load are refused (1400 and 1500 + that) (interface 1.7). It
- * reports the interface it is built for
+ * the tag; a page and an item after load are refused (1400 and 1500 + that) (interface 1.7). With
+ * "play" it uses the play calls on the test's game, a step a frame (play_frame: 7000s), and
+ * starts a game with save 0 and later travels (interface 1.8). It reports the interface it is
+ * built for
  * (OPENRAC_MOD_TARGET_MINOR): test-old is built for 1.5. */
 #include <stddef.h>
 
@@ -43,6 +45,8 @@ static int s_menu;
 static int s_savestate;
 static int s_ui;
 static int s_ui_second = -1;
+static int s_play;
+static int s_figure = -1;
 
 /* The menu page: a white rectangle and "HELLO" each frame; Cross closes it. */
 static int menu_page(void* user, const openrac_menu_frame* frame) {
@@ -90,9 +94,52 @@ static void on_tick_boundary(void* user, uint32_t tick) {
     s_record(3300 + -s_api->savestate_load(bytes, sizeof bytes));
 }
 
+/* Play (interface 1.8), a step a frame: in the front end (frame 1) the status, a figure refused,
+ * save 0 read and started with (twice: the second waits for the first); in a level (frame 2) a
+ * figure made and posed, the hero's pose, a travel and a level's name; after a new load (frame 3)
+ * the figure is gone. */
+static void play_frame(void) {
+    openrac_play_status status = {sizeof status, 0, 0, 0, 0};
+    openrac_pose pose = {0};
+    openrac_save_info info = {sizeof info, 0, 0, 0, 0};
+    unsigned char save[16];
+    size_t size;
+    pose.size = sizeof pose;
+    s_record(7000 + 10 * -s_api->play_status(&status) + status.phase);
+    if (s_frames == 1) {
+        s_record(7100 + -s_api->figure_create(s_mod));
+        s_record(7200 + 10 * s_api->save_slot(0, &info) + info.level);
+        s_record(7200 + 10 * (s_api->save_slot(9, &info) + 2));
+        size = s_api->save_read(0, save, sizeof save);
+        s_record(7300 + (int)size);
+        s_record(7400 + -s_api->play_start(s_mod, -1, save, size));
+        s_record(7400 + -s_api->play_start(s_mod, 2, NULL, 0));
+        s_record(7400 + -s_api->play_travel(s_mod, 2));
+    } else if (s_frames == 2) {
+        s_figure = s_api->figure_create(s_mod);
+        s_record(7500 + s_figure);
+        s_record(7600 + -s_api->figure_pose(s_mod, s_figure + 1, &pose));
+        pose.state = 42;
+        s_record(7600 + -s_api->figure_pose(s_mod, s_figure, &pose));
+        s_record(7700 + -s_api->hero_pose(&pose) + pose.state);
+        s_record(7800 + -s_api->play_travel(s_mod, 4));
+        s_record(
+            7900 + (s_api->level_name(1) != NULL && s_api->level_name(1)[0] == 'N')
+            + 2 * (s_api->level_name(99) == NULL)
+        );
+    } else if (s_frames == 3) {
+        s_record(7600 + -s_api->figure_pose(s_mod, s_figure, &pose));
+        s_record(7600 + -s_api->figure_remove(s_mod, s_figure));
+    }
+}
+
 static void on_frame(void* user) {
     (void)user;
     s_frames++;
+    if (s_play && s_record != NULL) {
+        play_frame();
+        return;
+    }
     if (s_record != NULL) {
         s_record(s_tag);
         /* A hook point taken after load is refused. */
@@ -184,6 +231,8 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     s_menu = 0;
     s_savestate = 0;
     s_ui = 0;
+    s_play = 0;
+    s_figure = -1;
     s_tag = (int)api->setting_int(mod, "tag");
     s_record = (void (*)(int))api->function("Test_Record");
     const char* behaviour = api->setting_string(mod, "behaviour");
@@ -242,6 +291,12 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->on_tick_boundary(mod, NULL, NULL) == OPENRAC_HOOK_OK
             || api->on_tick_boundary(mod, on_tick_boundary, NULL) != OPENRAC_HOOK_OK) {
             return 10;
+        }
+    }
+    if (behaviour[0] == 'p') { /* play */
+        s_play = 1;
+        if (api->api_minor < 8 || s_record == NULL) {
+            return 13;
         }
     }
     if (behaviour[0] == 'g') { /* game_ui */

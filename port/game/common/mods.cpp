@@ -23,6 +23,7 @@
 #include "common/log.h"
 #include "mod_library.h"
 #include "mod_manifest.h"
+#include "mod_play.h"
 #include "mod_scripts.h"
 #include "openrac/guest.h"
 #include "openrac/memory.h"
@@ -777,6 +778,7 @@ void fill_api(const Host& host) {
     g_api.ui_confirm = api_ui_confirm;
     g_api.ui_cursor = api_ui_cursor;
     g_api.ui_sound = api_ui_sound;
+    fill_play_api(g_api, host.play, host.cards);
 }
 
 // ---- status.json ----
@@ -917,6 +919,7 @@ void undo(openrac_mod* mod) {
     std::erase_if(g_ui_main, [&](const UiMainItem& m) { return mod_page(mod, m.page) != nullptr; });
     std::erase_if(g_ui_pages, [&](const UiPageCallback& c) { return c.mod == mod; });
     std::erase_if(g_tick_boundaries, [&](const TickBoundaryCallback& c) { return c.mod == mod; });
+    drop_figures(mod);
     if (g_views_mod == mod) {
         g_views = {};
         g_views_mod = nullptr;
@@ -1291,6 +1294,10 @@ int loaded_count() {
     return static_cast<int>(g_loaded.size());
 }
 
+const char* mod_id(const openrac_mod* mod) {
+    return mod != nullptr ? mod->id.c_str() : "a mod";
+}
+
 void reset() {
     unload();
     for (auto it = g_loaded.rbegin(); it != g_loaded.rend(); ++it) {
@@ -1310,6 +1317,7 @@ void reset() {
     g_ui_shown = -1;
     g_ui_question = false;
     g_ui_requests = UiRequests{};
+    reset_play();
     g_tick_boundaries.clear();
     g_tick_mod = nullptr;
     g_in_tick_boundary = false;

@@ -78,7 +78,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.7",
+    const std::string& api = "1.8",
     const std::string& extra = ""
 ) {
     const fs::path dir = plugins / ("test-" + which);
@@ -100,7 +100,8 @@ void install(
                                   {"value": "views", "name": "Views"},
                                   {"value": "menu", "name": "Menu"},
                                   {"value": "savestate", "name": "Savestate"},
-                                  {"value": "game_ui", "name": "Game UI"}]},
+                                  {"value": "game_ui", "name": "Game UI"},
+                                  {"value": "play", "name": "Play"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -117,6 +118,59 @@ mods::Host host(const fs::path& plugins) {
     h.now = "2026-10-21T00:00:00+00:00";
     return h;
 }
+
+// The test's game play (interface 1.8, game_host.h): the phase and the level loads the test sets,
+// five levels, a hero in state 7, figures alive until the next load (the loader checks), saves in
+// <cards>/SAVES whose first byte is 'S' and second the level, and what the game was asked to do.
+int g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+std::uint32_t g_loads = 1;
+std::vector<std::string> g_played;
+const char* const kLevelNames[] = {"Veldin", "Novalis", "Aridia", "Kerwan", "Eudora"};
+
+const openrac_game_play kPlay = {
+    5,
+    kLevelNames,
+    [](std::int32_t* level) {
+        *level = g_phase == OPENRAC_GAME_PHASE_PLAYING ? 2 : -1;
+        return g_phase;
+    },
+    [] { return g_loads; },
+    [](openrac_game_pose* out) {
+        out->state = 7;
+        return g_phase == OPENRAC_GAME_PHASE_PLAYING ? 1 : 0;
+    },
+    [] { return gaddr{0x2000}; },
+    [](gaddr moby) { return moby == 0x2000 ? 1 : 0; },
+    [](gaddr, const openrac_game_pose* pose) {
+        g_played.push_back("pose " + std::to_string(pose->state));
+    },
+    [](gaddr) { g_played.push_back("remove"); },
+    [](int level, const std::uint8_t*, std::uint32_t size) {
+        g_played.push_back("start " + std::to_string(level) + " " + std::to_string(size));
+        return 1;
+    },
+    [](int level) {
+        g_played.push_back("travel " + std::to_string(level));
+        return 1;
+    },
+    [](std::uint8_t*, std::uint32_t) { return std::uint32_t{0}; },
+    "SAVES",
+    "save%d.bin",
+    2,
+    [](const std::uint8_t* save,
+       std::uint32_t size,
+       std::int32_t* level,
+       std::int32_t* bolts,
+       std::int32_t* gold,
+       std::int32_t* seconds) {
+        if (size < 2 || save[0] != 'S') {
+            return 0;
+        }
+        *level = save[1];
+        *bolts = *gold = *seconds = 0;
+        return 1;
+    },
+};
 
 // The state status.json gives a mod, and its reason.
 std::pair<std::string, std::string> status_of(const fs::path& plugins, const std::string& id) {
@@ -233,7 +287,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.7", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.8", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -342,6 +396,45 @@ void a_menu_page_draws_through_the_host(const fs::path& plugins) {
     CHECK(mods::run_menu_page(1, frame));  // no such page: closed
     mods::reset();
     CHECK(mods::menu_entry_count() == 0);
+}
+
+// Play (interface 1.8): the phase and level, figures only in a level and gone with it, a pose
+// reaching the game, the saves on the card read through the game's save_info, a start and a travel
+// kept until play_update (one at a time), and the levels' names.
+void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "play"}}]})");
+    write(dir / "cards" / "SAVES" / "save0.bin", std::string("S\x01xyz"));
+    mods::Host h = host(plugins);
+    h.play = &kPlay;
+    h.cards = dir / "cards";
+    g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+    g_loads = 1;
+    g_played.clear();
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    g_records.clear();
+    // The front end: no figure, save 0 read and started with, one request at a time.
+    mods::frame();
+    CHECK((g_records == std::vector<int>{7001, 7101, 7211, 7210, 7305, 7400, 7404, 7404}));
+    CHECK(g_played.empty());
+    mods::play_update();
+    CHECK((g_played == std::vector<std::string>{"start -1 5"}));
+    mods::play_update();  // nothing pending
+    CHECK(g_played.size() == 1);
+    // A level: a figure, posed (not another's id), the hero's pose, a travel, the names.
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    g_records.clear();
+    mods::frame();
+    CHECK((g_records == std::vector<int>{7003, 7500, 7601, 7600, 7707, 7800, 7903}));
+    mods::play_update();
+    CHECK((g_played == std::vector<std::string>{"start -1 5", "pose 42", "travel 4"}));
+    // The level loaded again: the figure is gone.
+    g_loads = 2;
+    g_records.clear();
+    mods::frame();
+    CHECK((g_records == std::vector<int>{7003, 7601, 7601}));
+    CHECK(g_played.size() == 3);
+    mods::reset();
 }
 
 // The pages of the game's own menus (interface 1.7): the pages and the main-menu item listed, a
@@ -487,7 +580,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.7", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.8", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -550,6 +643,7 @@ int main() {
     a_menu_page_draws_through_the_host(plugins);
     the_tick_boundary_reaches_the_mod(plugins);
     game_ui_pages_reach_the_front_end(plugins);
+    play_reaches_the_game(plugins, dir);
     a_mod_for_1_5_still_loads(plugins);
     std::error_code e;
     fs::remove_all(dir, e);

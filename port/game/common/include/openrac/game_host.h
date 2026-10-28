@@ -212,6 +212,80 @@ typedef struct openrac_front_end {
 
 extern const openrac_front_end* openrac_game_front_end;
 
+/* What the mods' play calls need of a game (sdk/include/openrac/openrac_mod.h, interface 1.8:
+ * multiplayer), when a game installs it (rac1: port/game/rac1/host/play.c, with each disc's
+ * addresses). NULL: the calls answer that the game has none. Everything on the game's thread. */
+
+/* What the game is doing: openrac_mod.h's OPENRAC_PLAY_* values (mods.cpp checks they agree). */
+#define OPENRAC_GAME_PHASE_NONE 0
+#define OPENRAC_GAME_PHASE_FRONT_END 1
+#define OPENRAC_GAME_PHASE_LOADING 2
+#define OPENRAC_GAME_PHASE_PLAYING 3
+#define OPENRAC_GAME_PHASE_SCENE 4
+#define OPENRAC_GAME_PHASE_MENU 5
+
+/* A pose of the hero or of a figure: openrac_pose's fields after its size, the same meanings. */
+typedef struct openrac_game_pose {
+    int32_t level;
+    float position[3];
+    float rotation[3];
+    float scale;
+    float velocity[3];
+    int32_t state;
+    int32_t health;
+    int32_t item;
+    uint32_t seq;
+    uint32_t frame;
+    uint32_t next_frame;
+    float anim_time;
+    float anim_speed;
+    uint32_t flags;
+} openrac_game_pose;
+
+typedef struct openrac_game_play {
+    /* The levels, by the game's own numbers, and their names. */
+    int levels;
+    const char* const* level_names;
+    /* The phase now (OPENRAC_GAME_PHASE_*), the level played or loading (-1 none), and the level
+     * programs loaded since the start (a new count: the last level's mobys are gone). */
+    int (*phase)(int32_t* level);
+    uint32_t (*loads)(void);
+    /* The hero's pose as he is drawn: 1 and `out` filled, 0 with no hero now. */
+    int (*hero_pose)(openrac_game_pose* out);
+    /* A figure: a moby that looks like the hero and runs none of his logic, made in the level
+     * loaded (0: no room); whether `moby` is still the one made (the level's program not loaded
+     * again since, the moby not reused); put in a pose; taken out. */
+    gaddr (*figure_spawn)(void);
+    int (*figure_alive)(gaddr moby);
+    void (*figure_pose)(gaddr moby, const openrac_game_pose* pose);
+    void (*figure_remove)(gaddr moby);
+    /* From the front end: a new game in `level` (`save` null), or the `size` bytes of a save
+     * restored and continued in its level (or in `level` when 0 or more). 1 started, 0 refused (a
+     * save the game does not take). */
+    int (*start)(int level, const uint8_t* save, uint32_t size);
+    /* In a level: leaves it for `level`. 1 on the way, 0 refused. */
+    int (*travel)(int level);
+    /* The progress now as a save (the memory card file's bytes) into `out` when it has `size`
+     * bytes; returns the save's size, 0 for none. */
+    uint32_t (*save_capture)(uint8_t* out, uint32_t size);
+    /* The memory card's saves: the folder in the card's (openrac_game_card_dir) and the file name
+     * of save `slot` in it (printf's %d), how many slots there are, and what a save's bytes hold:
+     * 1 and the fields for one the game would load, 0 otherwise. */
+    const char* save_folder;
+    const char* save_file;
+    int save_slots;
+    int (*save_info)(
+        const uint8_t* save,
+        uint32_t size,
+        int32_t* level,
+        int32_t* bolts,
+        int32_t* gold_bolts,
+        int32_t* seconds
+    );
+} openrac_game_play;
+
+extern const openrac_game_play* openrac_game_play_host;
+
 /* The game sends a DMA chain (sceDmaSend): channel is the game address of
  * the channel's registers (0x10009000 is VIF1, the display list; 0x1000A000
  * is the GIF), tag the address of the chain's first tag. The renderer reads

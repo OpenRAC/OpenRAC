@@ -97,6 +97,7 @@ int (*openrac_game_camera_position)(float xyz[3]) = nullptr;
 int (*openrac_game_updating_moby)(openrac_game_moby* out) = nullptr;
 int (*openrac_game_hero)(float position[3], float rotation[3], int32_t* state) = nullptr;
 const openrac_front_end* openrac_game_front_end = nullptr;
+const openrac_game_play* openrac_game_play_host = nullptr;
 
 // The hook points of this disc's build, for mods (hostgen's hooks.c; mods.h's HookPoint is its
 // layout).
@@ -232,6 +233,8 @@ void load_mods() {
     host.pad_hook = &openrac_game_pad_report_hook;
     host.scripts = openrac_game_script_binding();  // generated (sdk/tools/gen_binding.py), or none
     host.input = mod_input;
+    host.play = openrac_game_play_host;
+    host.cards = openrac_game_card_dir != nullptr ? openrac_game_card_dir : "memcard";
     host.capture_savestate_runtime = [](mods::SavestateRuntime* state) {
         if (state == nullptr) {
             return false;

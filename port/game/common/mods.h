@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/openrac_mod.h"
 #include "openrac/script_binding.h"
@@ -79,6 +80,10 @@ struct Host {
     // The running game's essential host-side tick state and post-restore audio/renderer rebuild.
     bool (*capture_savestate_runtime)(SavestateRuntime* state) = nullptr;
     void (*restore_savestate_runtime)(const SavestateRuntime* state) = nullptr;
+    // The game's play (interface 1.8, game_host.h; null: none, and the play calls say so) and the
+    // memory card's folder its saves are in (openrac_game_card_dir).
+    const openrac_game_play* play = nullptr;
+    std::filesystem::path cards;
 };
 
 // Loads the mods the list has on. Returns the session header's line: "lock-strafe 1.0.0", "none",
@@ -110,6 +115,14 @@ void tick_boundary(std::uint32_t tick);
 
 // How many mods are loaded.
 int loaded_count();
+
+// A loaded mod's id ("multiplayer"), for the log; "a mod" for none.
+const char* mod_id(const openrac_mod* mod);
+
+// Play (interface 1.8, mod_play.h): the start or travel a mod asked for, done now, on the game's
+// thread after the frame's menus (frontend/frame.cpp, beside the developer menu's start); nothing
+// when none is pending.
+void play_update();
 
 // The front-end menu entries the mods added (interface 1.5), in load order: how many, and an
 // entry's label ("" past the list).

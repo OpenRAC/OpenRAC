@@ -107,7 +107,7 @@ void install_native(const fs::path& plugins) {
     write(
         dir / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.7", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.8", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": "lib/)" + library_name() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0},
