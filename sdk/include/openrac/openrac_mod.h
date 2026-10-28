@@ -48,9 +48,12 @@ extern "C" {
  * tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus
  * (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play
  * (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the
- * hero, a game started or a level travelled to from code, and the player's saves.
+ * hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world:
+ * the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's
+ * update with the hero standing in for another player, hits watched and posted, eyes that keep
+ * mobys running, and the bolts.
  */
-#define OPENRAC_MOD_API_MINOR 8
+#define OPENRAC_MOD_API_MINOR 9
 
 /* The interface a mod is built for, what its openrac_mod_query reports: its manifest's "api" minor,
  * which the SDK's openrac_add_mod passes in, else this header's. A mod for 1.1 built with a newer
@@ -632,6 +635,82 @@ typedef struct openrac_pose {
     uint32_t flags;
 } openrac_pose;
 
+/* ------------------------------------------------------------------------------------------ *
+ * The world: the level's mobys (since 1.9)
+ *
+ * For a mod that shares the world between games: one game runs it (its enemies, crates, doors,
+ * platforms), the others drive their copies from it. A moby is named by its slot (its index in
+ * the level's moby array, this game's own) and, when the level placed it, by its key (its record in
+ * the level's file: the same moby has the same key in every game that loads the level, whatever
+ * was killed before). A driven moby's own update no longer runs (its animation still plays and
+ * its collision follows it): the mod poses it. The gate (on_moby_update) is asked around each
+ * update the game runs; before one, the mod may have the hero stand in elsewhere for it (another
+ * player: the enemy then sees, chases and hits that player's figure). Hits the game posts are told
+ * to a mod (on_moby_hit), which may take them back, and a mod posts its own (moby_hit).
+ * ------------------------------------------------------------------------------------------ */
+
+/* openrac_moby.flags. Since 1.9. */
+/* It has an update of its own (the game runs it near the camera). */
+#define OPENRAC_MOBY_UPDATES 0x1u
+/* A mod drives it (moby_drive): its update does not run. */
+#define OPENRAC_MOBY_DRIVEN 0x2u
+/* The level placed it: it has a key. */
+#define OPENRAC_MOBY_PLACED 0x4u
+/* Its class is a creature (an enemy, a person). */
+#define OPENRAC_MOBY_CREATURE 0x8u
+
+/* A moby of the level (moby_list), or the pose a mod gives one (moby_pose, moby_spawn: position,
+ * rotation, scale and the animation are read). Since 1.9. */
+typedef struct openrac_moby {
+    /* sizeof(openrac_moby), set by the mod. */
+    uint32_t size;
+    /* Its slot in this game, its key (-1 for one the level did not place), its class. */
+    int32_t slot;
+    int32_t key;
+    int32_t oclass;
+    /* OPENRAC_MOBY_* flags, and its state (the game's own byte, below 0x80 while it lives). */
+    uint32_t flags;
+    uint32_t state;
+    /* As openrac_pose's. */
+    float position[3];
+    float rotation[3];
+    float scale;
+    uint32_t seq;
+    uint32_t frame;
+    uint32_t next_frame;
+    float anim_time;
+    float anim_speed;
+} openrac_moby;
+
+/* The gate's moments (openrac_moby_update_fn). Since 1.9. */
+#define OPENRAC_MOBY_BEFORE 0
+#define OPENRAC_MOBY_AFTER 1
+
+/* The gate (openrac_api.on_moby_update): called with the `user` pointer the mod gave, before and
+ * after the update of the moby in `slot` (not for one a mod drives). Before it, returns 1 to skip
+ * the update (then no call after), 0 to run it. Since 1.9. */
+typedef int (*openrac_moby_update_fn)(void* user, int slot, int phase);
+
+/* A hit (openrac_api.on_moby_hit, moby_hit): to the moby in `victim`, from `attacker` (-1 none), of
+ * the game's weapon or attack `mask`, `damage`, at `position` moving at `velocity`. Since 1.9. */
+typedef struct openrac_hit {
+    /* sizeof(openrac_hit), set by whoever fills it. */
+    uint32_t size;
+    int32_t victim;
+    int32_t attacker;
+    uint32_t mask;
+    float damage;
+    float position[3];
+    float velocity[3];
+} openrac_hit;
+
+/* Told a hit the game posted (openrac_api.on_moby_hit); returns 1 to take it back (the victim
+ * never reads it), 0 to leave it. Since 1.9. */
+typedef int (*openrac_hit_fn)(void* user, const openrac_hit* hit);
+
+/* The most eyes (openrac_api.play_eyes). Since 1.9. */
+#define OPENRAC_EYES_MAX 8
+
 /* The most figures the mods together have at once (openrac_api.figure_create). Since 1.8. */
 #define OPENRAC_FIGURES_MAX 8
 
@@ -914,7 +993,8 @@ typedef struct openrac_api {
     int (*play_start)(openrac_mod* mod, int level, const void* save, size_t size);
 
     /* In a level with the player in control (phase OPENRAC_PLAY_PLAYING): leaves it for `level`,
-     * after this frame, as the ship's travel does (the flight between planets, then the level).
+     * after this frame, as the ship's travel does (the flight between planets, then the level);
+     * -1 goes back to the title, as the pause menu's Quit Game does (since 1.9).
      * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN while a start or travel is still to happen, or
      * OPENRAC_HOOK_UNKNOWN otherwise. Since 1.8. */
     int (*play_travel)(openrac_mod* mod, int level);
@@ -932,6 +1012,64 @@ typedef struct openrac_api {
     /* The bytes of the memory card's save `slot`, for play_start: written to `out` when `size` is
      * large enough. Returns their size, or 0 for no save there. Since 1.8. */
     size_t (*save_read)(int slot, void* out, size_t size);
+
+    /* Fills `out` with the level's live mobys, at most `max` of them (each one's size set by the
+     * port), in slot order. Returns how many there are (more than `max`: the rest left out); 0
+     * outside a level. Since 1.9. */
+    int (*moby_list)(openrac_moby* out, int max);
+
+    /* Returns the slot of the placed moby `key`, or -1 for none (killed, or no such record). Since
+     * 1.9. */
+    int (*moby_slot)(int key);
+
+    /* Drives the moby in `slot` (`on` 1: its update no longer runs, the mod poses it) or lets it go
+     * (0). A drive ends with its level. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no
+     * moby there, or OPENRAC_HOOK_TAKEN when another mod drives it. Since 1.9. */
+    int (*moby_drive)(openrac_mod* mod, int slot, int on);
+
+    /* Puts the moby in `slot` in the pose `pose` gives (its position, rotation, scale when above 0,
+     * and animation, as figure_pose does). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no
+     * moby there. Since 1.9. */
+    int (*moby_pose)(openrac_mod* mod, int slot, const openrac_moby* pose);
+
+    /* Deletes the moby in `slot` as the game deletes one (a placed one stays dead until its level
+     * loads again). Returns OPENRAC_HOOK_OK or OPENRAC_HOOK_UNKNOWN. Since 1.9. */
+    int (*moby_kill)(openrac_mod* mod, int slot);
+
+    /* Makes a moby of class `oclass` (one the level has) in `pose`, driven by the mod. Returns its
+     * slot, or OPENRAC_HOOK_UNKNOWN (no level, no room, a class the level has not). Since 1.9. */
+    int (*moby_spawn)(openrac_mod* mod, int oclass, const openrac_moby* pose);
+
+    /* Returns the slot of the mod's figure `id` (figure_create), or of the hero's moby with -1;
+     * -1 for none. Since 1.9. */
+    int (*figure_slot)(openrac_mod* mod, int id);
+
+    /* Calls `fn(user, slot, phase)` around each moby's update (openrac_moby_update_fn). One mod's.
+     * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN when another mod has it, or
+     * OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.9. */
+    int (*on_moby_update)(openrac_mod* mod, openrac_moby_update_fn fn, void* user);
+
+    /* Only in the gate's call before an update: for that update the hero is at `position`, and his
+     * moby is the mod's figure `figure` (-1: his own), as another player would be there; put back
+     * after it. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside that call. Since 1.9. */
+    int (*hero_stand_in)(openrac_mod* mod, const float position[3], int figure);
+
+    /* Calls `fn(user, &hit)` for each hit the game posts (openrac_hit_fn). One mod's. Returns as
+     * on_moby_update. Since 1.9. */
+    int (*on_moby_hit)(openrac_mod* mod, openrac_hit_fn fn, void* user);
+
+    /* Posts `hit` to its victim as the game posts one (the victim's update reads it: an enemy
+     * takes the damage, the hero is hurt), not told to on_moby_hit. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for no victim there. Since 1.9. */
+    int (*moby_hit)(openrac_mod* mod, const openrac_hit* hit);
+
+    /* Sets up to OPENRAC_EYES_MAX points (x, y, z each) besides the camera: the mobys within their
+     * update distance of one run too (the world near other players). `count` 0 clears them.
+     * Returns OPENRAC_HOOK_OK. Since 1.9. */
+    int (*play_eyes)(openrac_mod* mod, const float* xyz, int count);
+
+    /* Adds `add` to the player's bolts (0: none) and returns them. Since 1.9. */
+    int (*bolts)(int add);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

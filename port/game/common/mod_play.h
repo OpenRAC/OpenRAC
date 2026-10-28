@@ -21,6 +21,10 @@ void fill_play_api(
     openrac_api& api, const openrac_game_play* play, const std::filesystem::path& cards
 );
 
+// The mod whose openrac_mod_load runs now (null: none): the gate and the hit watcher are taken
+// only then; and the game's calls into the world set (game_host.h).
+void play_loading(const openrac_mod* mod);
+
 // Forgets the figures and a pending start or travel (mods::reset, the tests).
 void reset_play();
 

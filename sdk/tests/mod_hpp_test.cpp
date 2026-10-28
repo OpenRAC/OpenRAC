@@ -420,6 +420,82 @@ size_t host_save_read(int slot, void* out, size_t size) {
     return slot == 0 ? host_save_capture(out, size) : 0;
 }
 
+// The world (interface 1.9): a level of g_world_count live mobys (slot i has key i, its class 100 +
+// i, its flags 0x5), slot 1 dead of a kill, what was asked of the game, and the bolts.
+int g_world_count = 3;
+int g_bolts = 100;
+std::vector<std::string> g_world;
+
+int host_moby_list(openrac_moby* out, int max) {
+    g_world.push_back("list " + std::to_string(max));
+    for (int i = 0; i < std::min(g_world_count, max); ++i) {
+        out[i] = {};
+        out[i].size = sizeof out[i];
+        out[i].slot = i;
+        out[i].key = i;
+        out[i].oclass = 100 + i;
+        out[i].flags = OPENRAC_MOBY_UPDATES | OPENRAC_MOBY_PLACED;
+    }
+    return g_world_count;
+}
+
+int host_moby_slot(int key) {
+    return key == 7 ? 7 : -1;
+}
+
+int host_moby_drive(openrac_mod*, int slot, int on) {
+    g_world.push_back("drive " + std::to_string(slot) + " " + std::to_string(on));
+    return slot < g_world_count ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int host_moby_pose(openrac_mod*, int slot, const openrac_moby* pose) {
+    g_world.push_back("pose " + std::to_string(slot) + " " + std::to_string(pose->seq));
+    return slot < g_world_count && pose->size == sizeof *pose ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int host_moby_kill(openrac_mod*, int slot) {
+    g_world.push_back("kill " + std::to_string(slot));
+    return slot < g_world_count ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int host_moby_spawn(openrac_mod*, int oclass, const openrac_moby* pose) {
+    g_world.push_back("spawn " + std::to_string(oclass) + " " + std::to_string(pose->size == sizeof *pose));
+    return oclass == 100 ? 12 : OPENRAC_HOOK_UNKNOWN;
+}
+
+int host_figure_slot(openrac_mod*, int id) {
+    return id < 0 ? 9 : (id == 0 ? 10 : -1);
+}
+
+int host_on_moby_update(openrac_mod*, openrac_moby_update_fn fn, void* user) {
+    g_world.push_back("gate " + std::to_string(fn != nullptr && user != nullptr));
+    return fn != nullptr ? OPENRAC_HOOK_OK : OPENRAC_HOOK_TOO_LATE;
+}
+
+int host_hero_stand_in(openrac_mod*, const float position[3], int figure) {
+    g_world.push_back("stand_in " + std::to_string(static_cast<int>(position[1])) + " " + std::to_string(figure));
+    return figure >= 0 && figure != 0 ? OPENRAC_HOOK_UNKNOWN : OPENRAC_HOOK_OK;
+}
+
+int host_on_moby_hit(openrac_mod*, openrac_hit_fn fn, void*) {
+    g_world.push_back("watch");
+    return fn != nullptr ? OPENRAC_HOOK_OK : OPENRAC_HOOK_TOO_LATE;
+}
+
+int host_moby_hit(openrac_mod*, const openrac_hit* hit) {
+    g_world.push_back("hit " + std::to_string(hit->victim) + " " + std::to_string(hit->size == sizeof *hit));
+    return hit->victim < g_world_count ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int host_play_eyes(openrac_mod*, const float* xyz, int count) {
+    g_world.push_back("eyes " + std::to_string(count) + " " + std::to_string(static_cast<int>(xyz[3])));
+    return OPENRAC_HOOK_OK;
+}
+
+int host_bolts(int add) {
+    return g_bolts += add;
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -478,6 +554,19 @@ openrac_api make_api() {
     api.save_capture = host_save_capture;
     api.save_slot = host_save_slot;
     api.save_read = host_save_read;
+    api.moby_list = host_moby_list;
+    api.moby_slot = host_moby_slot;
+    api.moby_drive = host_moby_drive;
+    api.moby_pose = host_moby_pose;
+    api.moby_kill = host_moby_kill;
+    api.moby_spawn = host_moby_spawn;
+    api.figure_slot = host_figure_slot;
+    api.on_moby_update = host_on_moby_update;
+    api.hero_stand_in = host_hero_stand_in;
+    api.on_moby_hit = host_on_moby_hit;
+    api.moby_hit = host_moby_hit;
+    api.play_eyes = host_play_eyes;
+    api.bolts = host_bolts;
     return api;
 }
 
@@ -605,6 +694,80 @@ void check_play(openrac::Mod& mod, openrac_api& api) {
     api.api_minor = 7;
     CHECK(!mod.has_play() && mod.play_status().phase == OPENRAC_PLAY_NONE && mod.figure_create() == -1);
     CHECK(mod.save_capture().empty() && mod.play_start(0) == OPENRAC_HOOK_UNKNOWN);
+    api.api_minor = OPENRAC_MOD_API_MINOR;
+}
+
+// Checks the world calls (1.9): the list (and again with room when the port has more than 256),
+// slots, drives, poses, kills, spawns, figure slots, the gate and watcher (taken during load, a
+// refusal thrown), the stand-in, hits, eyes and bolts; and none of it on a 1.8 port.
+int gate_fn(void*, int, int) {
+    return 0;
+}
+
+int hit_fn(void*, const openrac_hit*) {
+    return 0;
+}
+
+void check_world(openrac::Mod& mod, openrac_api& api) {
+    CHECK(mod.has_world());
+    g_world.clear();
+    const std::vector<openrac_moby> mobys = mod.moby_list();
+    CHECK(mobys.size() == 3 && mobys[2].slot == 2 && mobys[2].key == 2 && mobys[2].oclass == 102);
+    CHECK((mobys[0].flags & OPENRAC_MOBY_PLACED) != 0 && (mobys[0].flags & OPENRAC_MOBY_DRIVEN) == 0);
+    CHECK((g_world == std::vector<std::string>{"list 256"}));
+    // More than 256: asked again with room for all of them.
+    g_world.clear();
+    g_world_count = 300;
+    const std::vector<openrac_moby> many = mod.moby_list();
+    CHECK(many.size() == 300 && many[299].slot == 299 && many[299].size == sizeof(openrac_moby));
+    CHECK((g_world == std::vector<std::string>{"list 256", "list 300"}));
+    g_world_count = 3;
+    CHECK(mod.moby_slot(7) == 7 && mod.moby_slot(1) == -1);
+    g_world.clear();
+    CHECK(mod.moby_drive(1) && mod.moby_drive(1, false) && !mod.moby_drive(5));
+    openrac_moby pose{};
+    pose.seq = 4;
+    CHECK(mod.moby_pose(2, pose) && !mod.moby_pose(5, pose));
+    CHECK(mod.moby_kill(0) && !mod.moby_kill(8));
+    CHECK(mod.moby_spawn(100, pose) == 12 && mod.moby_spawn(101, pose) == -1);
+    CHECK(mod.figure_slot(-1) == 9 && mod.figure_slot(0) == 10 && mod.figure_slot(3) == -1);
+    const float where[3] = {1.0f, 2.0f, 3.0f};
+    CHECK(mod.hero_stand_in(where, -1) && !mod.hero_stand_in(where, 2));
+    openrac_hit hit{};
+    hit.victim = 1;
+    CHECK(mod.moby_hit(hit));
+    hit.victim = 6;
+    CHECK(!mod.moby_hit(hit));
+    mod.play_eyes({0.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f});
+    CHECK(mod.bolts() == 100 && mod.bolts(5) == 105);
+    mod.on_moby_update(gate_fn, &mod);
+    mod.on_moby_hit(hit_fn);
+    bool threw = false;
+    try {
+        mod.on_moby_update(nullptr);
+    } catch (const openrac::Error&) {
+        threw = true;
+    }
+    CHECK(threw);
+    CHECK((g_world == std::vector<std::string>{
+                          "drive 1 1", "drive 1 0", "drive 5 1", "pose 2 4", "pose 5 4", "kill 0",
+                          "kill 8", "spawn 100 1", "spawn 101 1", "stand_in 2 -1", "stand_in 2 2",
+                          "hit 1 1", "hit 6 1", "eyes 2 5", "gate 1", "watch", "gate 0"}));
+    // A 1.8 port: no world, and the calls answer nothing.
+    api.api_minor = 8;
+    g_world.clear();
+    CHECK(!mod.has_world() && mod.moby_list().empty() && mod.moby_slot(7) == -1);
+    CHECK(!mod.moby_drive(1) && !mod.moby_pose(2, pose) && !mod.moby_kill(0));
+    CHECK(mod.moby_spawn(100, pose) == -1 && mod.figure_slot(-1) == -1 && !mod.hero_stand_in(where, -1));
+    CHECK(!mod.moby_hit(hit) && mod.bolts(5) == 0);
+    mod.play_eyes({0.0f, 0.0f, 0.0f});
+    bool refused = false;
+    try {
+        mod.on_moby_hit(hit_fn);
+    } catch (const openrac::Error&) {
+        refused = true;
+    }
+    CHECK(refused && g_world.empty() && g_bolts == 105);
     api.api_minor = OPENRAC_MOD_API_MINOR;
 }
 
@@ -1045,6 +1208,7 @@ int main() {
     check_savestates(mod, api);
     check_ui(mod, api);
     check_play(mod, api);
+    check_world(mod, api);
     check_refused_loads(api, handle);
     check_reload(api, handle);
 

@@ -20,6 +20,17 @@
 #include "common/log.h"
 #include "mods.h"
 
+// The game's calls into the mods' world (game_host.h), set while mods are loaded.
+int (*openrac_game_moby_update)(std::int32_t slot, int phase) = nullptr;
+int (*openrac_game_moby_hit)(
+    std::int32_t victim,
+    std::int32_t attacker,
+    std::uint32_t mask,
+    float damage,
+    const float position[3],
+    const float velocity[3]
+) = nullptr;
+
 namespace openrac::mods {
 
 static_assert(OPENRAC_PLAY_NONE == OPENRAC_GAME_PHASE_NONE);
@@ -31,6 +42,9 @@ static_assert(OPENRAC_PLAY_MENU == OPENRAC_GAME_PHASE_MENU);
 // A pose is the game's after its size: copied as one block.
 static_assert(offsetof(openrac_pose, level) == sizeof(std::uint32_t));
 static_assert(sizeof(openrac_pose) == sizeof(std::uint32_t) + sizeof(openrac_game_pose));
+// So is a moby (interface 1.9).
+static_assert(offsetof(openrac_moby, slot) == sizeof(std::uint32_t));
+static_assert(sizeof(openrac_moby) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_state));
 
 namespace {
 
@@ -61,6 +75,34 @@ const openrac_game_play* g_play = nullptr;
 std::filesystem::path g_cards;
 std::array<Figure, OPENRAC_FIGURES_MAX> g_figures;
 Request g_request;
+
+// The world (interface 1.9): the mobys the mods drive, by slot (whose, in which level load), the
+// gate and the hit watcher (one mod's each), and the slot whose update the gate's call before it
+// is about (-1: none, where a stand-in is refused).
+constexpr std::size_t kSlots = 4096;
+
+struct Drive {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+};
+
+struct Gate {
+    const openrac_mod* mod = nullptr;
+    openrac_moby_update_fn fn = nullptr;
+    void* user = nullptr;
+};
+
+struct HitWatch {
+    const openrac_mod* mod = nullptr;
+    openrac_hit_fn fn = nullptr;
+    void* user = nullptr;
+};
+
+std::vector<Drive> g_drives(kSlots);
+Gate g_gate;
+HitWatch g_hits;
+int g_before_slot = -1;
+const openrac_mod* g_loading_mod = nullptr;
 
 int phase_now(std::int32_t* level) {
     *level = -1;
@@ -241,7 +283,7 @@ int api_play_travel(openrac_mod* mod, int level) {
     if (g_request.kind != Request::Kind::kNone) {
         return OPENRAC_HOOK_TAKEN;
     }
-    if (phase_now(&now) != OPENRAC_PLAY_PLAYING || level < 0 || level >= g_play->levels) {
+    if (phase_now(&now) != OPENRAC_PLAY_PLAYING || level < -1 || level >= g_play->levels) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     g_request = {Request::Kind::kTravel, mod, level, {}};
@@ -280,6 +322,210 @@ size_t api_save_read(int slot, void* out, size_t size) {
     return bytes.size();
 }
 
+// Whether a mod drives the moby in `slot` in this level load (whose: `mod` when given).
+const openrac_mod* driver(int slot) {
+    if (g_play == nullptr || slot < 0 || static_cast<std::size_t>(slot) >= kSlots) {
+        return nullptr;
+    }
+    const Drive& d = g_drives[static_cast<std::size_t>(slot)];
+    return d.mod != nullptr && d.loads == g_play->loads() ? d.mod : nullptr;
+}
+
+openrac_game_pose pose_of(const openrac_moby& m) {
+    openrac_game_pose p{};
+    std::copy(m.position, m.position + 3, p.position);
+    std::copy(m.rotation, m.rotation + 3, p.rotation);
+    p.scale = m.scale;
+    p.seq = m.seq;
+    p.frame = m.frame;
+    p.next_frame = m.next_frame;
+    p.anim_time = m.anim_time;
+    p.anim_speed = m.anim_speed;
+    p.item = -1;
+    return p;
+}
+
+int api_moby_list(openrac_moby* out, int max) {
+    if (g_play == nullptr || g_play->mobys == nullptr || max < 0) {
+        return 0;
+    }
+    std::vector<openrac_game_moby_state> states(static_cast<std::size_t>(max));
+    const int n = g_play->mobys(states.data(), max);
+    for (int i = 0; i < std::min(n, max) && out != nullptr; ++i) {
+        out[i].size = sizeof(openrac_moby);
+        std::memcpy(
+            &out[i].slot, &states[static_cast<std::size_t>(i)], sizeof(openrac_game_moby_state)
+        );
+        if (driver(out[i].slot) != nullptr) {
+            out[i].flags |= OPENRAC_MOBY_DRIVEN;
+        }
+    }
+    return n;
+}
+
+int api_moby_slot(int key) {
+    return g_play != nullptr && g_play->moby_slot != nullptr ? g_play->moby_slot(key) : -1;
+}
+
+gaddr moby_address(int slot) {
+    return g_play != nullptr && g_play->moby_at != nullptr ? g_play->moby_at(slot) : 0;
+}
+
+int api_moby_drive(openrac_mod* mod, int slot, int on) {
+    if (mod == nullptr || moby_address(slot) == 0 || static_cast<std::size_t>(slot) >= kSlots) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const openrac_mod* now = driver(slot);
+    if (now != nullptr && now != mod) {
+        return OPENRAC_HOOK_TAKEN;
+    }
+    g_drives[static_cast<std::size_t>(slot)] = on != 0 ? Drive{mod, g_play->loads()} : Drive{};
+    return OPENRAC_HOOK_OK;
+}
+
+int api_moby_pose(openrac_mod* mod, int slot, const openrac_moby* pose) {
+    const gaddr m = moby_address(slot);
+    if (mod == nullptr || m == 0 || pose == nullptr || pose->size < sizeof(openrac_moby)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const openrac_game_pose p = pose_of(*pose);
+    g_play->moby_pose(m, &p);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_moby_kill(openrac_mod* mod, int slot) {
+    const gaddr m = moby_address(slot);
+    if (mod == nullptr || m == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_play->moby_kill(m);
+    if (static_cast<std::size_t>(slot) < kSlots) {
+        g_drives[static_cast<std::size_t>(slot)] = Drive{};
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+int api_moby_spawn(openrac_mod* mod, int oclass, const openrac_moby* pose) {
+    if (mod == nullptr || g_play == nullptr || g_play->moby_spawn == nullptr || pose == nullptr
+        || pose->size < sizeof(openrac_moby)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const int slot = g_play->moby_spawn(oclass);
+    if (slot < 0 || static_cast<std::size_t>(slot) >= kSlots) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_drives[static_cast<std::size_t>(slot)] = Drive{mod, g_play->loads()};
+    api_moby_pose(mod, slot, pose);
+    return slot;
+}
+
+int api_figure_slot(openrac_mod* mod, int id) {
+    if (g_play == nullptr || g_play->hero_slot == nullptr) {
+        return -1;
+    }
+    if (id < 0) {
+        return g_play->hero_slot();
+    }
+    const Figure* f = own_figure(mod, id);
+    return f != nullptr ? g_play->slot_of(f->moby) : -1;
+}
+
+int api_on_moby_update(openrac_mod* mod, openrac_moby_update_fn fn, void* user) {
+    if (mod == nullptr || fn == nullptr || mod != g_loading_mod) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    if (g_gate.mod != nullptr) {
+        return OPENRAC_HOOK_TAKEN;
+    }
+    g_gate = {mod, fn, user};
+    return OPENRAC_HOOK_OK;
+}
+
+int api_hero_stand_in(openrac_mod* mod, const float position[3], int figure) {
+    if (mod == nullptr || mod != g_gate.mod || g_before_slot < 0 || position == nullptr
+        || g_play == nullptr || g_play->stand_in == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const Figure* f = figure >= 0 ? own_figure(mod, figure) : nullptr;
+    g_play->stand_in(position, f != nullptr ? f->moby : 0);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_on_moby_hit(openrac_mod* mod, openrac_hit_fn fn, void* user) {
+    if (mod == nullptr || fn == nullptr || mod != g_loading_mod) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    if (g_hits.mod != nullptr) {
+        return OPENRAC_HOOK_TAKEN;
+    }
+    g_hits = {mod, fn, user};
+    return OPENRAC_HOOK_OK;
+}
+
+int api_moby_hit(openrac_mod* mod, const openrac_hit* hit) {
+    const gaddr victim = hit != nullptr ? moby_address(hit->victim) : 0;
+    if (mod == nullptr || victim == 0 || hit->size < sizeof(openrac_hit)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_play->post_hit(
+        victim, moby_address(hit->attacker), hit->mask, hit->damage, hit->position, hit->velocity
+    );
+    return OPENRAC_HOOK_OK;
+}
+
+int api_play_eyes(openrac_mod* mod, const float* xyz, int count) {
+    if (mod == nullptr || g_play == nullptr || g_play->eyes == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_play->eyes(xyz, xyz != nullptr ? std::clamp(count, 0, OPENRAC_EYES_MAX) : 0);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_bolts(int add) {
+    return g_play != nullptr && g_play->bolts != nullptr ? g_play->bolts(add) : 0;
+}
+
+// The game's calls (game_host.h): the gate around an update, and a hit posted.
+int game_moby_update(std::int32_t slot, int phase) {
+    // A driven moby's update does not run, and the gate is not asked.
+    if (driver(slot) != nullptr) {
+        return phase == OPENRAC_MOBY_BEFORE ? 1 : 0;
+    }
+    if (g_gate.fn == nullptr) {
+        return 0;
+    }
+    if (phase != OPENRAC_MOBY_BEFORE) {
+        g_gate.fn(g_gate.user, slot, phase);
+        return 0;
+    }
+    g_before_slot = slot;
+    const int skip = g_gate.fn(g_gate.user, slot, phase);
+    g_before_slot = -1;
+    return skip != 0 ? 1 : 0;
+}
+
+int game_moby_hit(
+    std::int32_t victim,
+    std::int32_t attacker,
+    std::uint32_t mask,
+    float damage,
+    const float position[3],
+    const float velocity[3]
+) {
+    if (g_hits.fn == nullptr) {
+        return 0;
+    }
+    openrac_hit hit{};
+    hit.size = sizeof hit;
+    hit.victim = victim;
+    hit.attacker = attacker;
+    hit.mask = mask;
+    hit.damage = damage;
+    std::copy(position, position + 3, hit.position);
+    std::copy(velocity, velocity + 3, hit.velocity);
+    return g_hits.fn(g_hits.user, &hit) != 0 ? 1 : 0;
+}
+
 }  // namespace
 
 void fill_play_api(
@@ -298,6 +544,26 @@ void fill_play_api(
     api.save_capture = api_save_capture;
     api.save_slot = api_save_slot;
     api.save_read = api_save_read;
+    api.moby_list = api_moby_list;
+    api.moby_slot = api_moby_slot;
+    api.moby_drive = api_moby_drive;
+    api.moby_pose = api_moby_pose;
+    api.moby_kill = api_moby_kill;
+    api.moby_spawn = api_moby_spawn;
+    api.figure_slot = api_figure_slot;
+    api.on_moby_update = api_on_moby_update;
+    api.hero_stand_in = api_hero_stand_in;
+    api.on_moby_hit = api_on_moby_hit;
+    api.moby_hit = api_moby_hit;
+    api.play_eyes = api_play_eyes;
+    api.bolts = api_bolts;
+}
+
+void play_loading(const openrac_mod* mod) {
+    g_loading_mod = mod;
+    // The game asks only once a mod has a gate or a watcher; drives are checked in the gate.
+    openrac_game_moby_update = g_play != nullptr ? game_moby_update : nullptr;
+    openrac_game_moby_hit = g_play != nullptr ? game_moby_hit : nullptr;
 }
 
 void play_update() {
@@ -326,10 +592,10 @@ void play_update() {
     } else if (r.kind == Request::Kind::kTravel && phase == OPENRAC_PLAY_PLAYING) {
         const bool going = g_play->travel(r.level) != 0;
         log::info(
-            "mods: {} {} level {}",
+            "mods: {} {} {}",
             mod_id(r.mod),
             going ? "travels to" : "could not travel to",
-            r.level
+            r.level >= 0 ? "level " + std::to_string(r.level) : std::string("the title")
         );
     }
 }
@@ -337,6 +603,13 @@ void play_update() {
 void reset_play() {
     g_figures.fill(Figure{});
     g_request = Request{};
+    std::fill(g_drives.begin(), g_drives.end(), Drive{});
+    g_gate = Gate{};
+    g_hits = HitWatch{};
+    g_before_slot = -1;
+    g_loading_mod = nullptr;
+    openrac_game_moby_update = nullptr;
+    openrac_game_moby_hit = nullptr;
 }
 
 void drop_figures(const openrac_mod* mod) {
@@ -350,6 +623,17 @@ void drop_figures(const openrac_mod* mod) {
     }
     if (g_request.mod == mod) {
         g_request = Request{};
+    }
+    for (Drive& d : g_drives) {
+        if (d.mod == mod) {
+            d = Drive{};
+        }
+    }
+    if (g_gate.mod == mod) {
+        g_gate = Gate{};
+    }
+    if (g_hits.mod == mod) {
+        g_hits = HitWatch{};
     }
 }
 

@@ -78,7 +78,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.8",
+    const std::string& api = "1.9",
     const std::string& extra = ""
 ) {
     const fs::path dir = plugins / ("test-" + which);
@@ -101,7 +101,8 @@ void install(
                                   {"value": "menu", "name": "Menu"},
                                   {"value": "savestate", "name": "Savestate"},
                                   {"value": "game_ui", "name": "Game UI"},
-                                  {"value": "play", "name": "Play"}]},
+                                  {"value": "play", "name": "Play"},
+                                  {"value": "world", "name": "World"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -119,13 +120,29 @@ mods::Host host(const fs::path& plugins) {
     return h;
 }
 
-// The test's game play (interface 1.8, game_host.h): the phase and the level loads the test sets,
+// The test's game play (interface 1.9, game_host.h): the phase and the level loads the test sets,
 // five levels, a hero in state 7, figures alive until the next load (the loader checks), saves in
 // <cards>/SAVES whose first byte is 'S' and second the level, and what the game was asked to do.
 int g_phase = OPENRAC_GAME_PHASE_FRONT_END;
 std::uint32_t g_loads = 1;
 std::vector<std::string> g_played;
 const char* const kLevelNames[] = {"Veldin", "Novalis", "Aridia", "Kerwan", "Eudora"};
+
+// The fake level of the world calls: slots 0 to 2 live (keys 0, 1 and none; the first two placed),
+// a moby at 0x3000 + 0x100 * slot, a spawn making slot 3, the hero's moby in slot 9, and the bolts.
+bool g_live[8] = {true, true, true, false, false, false, false, false};
+int g_bolts = 100;
+constexpr std::int32_t kKeys[] = {0, 1, -1};
+
+void reset_world() {
+    std::fill(std::begin(g_live), std::end(g_live), false);
+    std::fill(g_live, g_live + 3, true);
+    g_bolts = 100;
+}
+
+std::int32_t slot_at(gaddr moby) {
+    return static_cast<std::int32_t>((moby - 0x3000) / 0x100);
+}
 
 const openrac_game_play kPlay = {
     5,
@@ -170,6 +187,65 @@ const openrac_game_play kPlay = {
         *bolts = *gold = *seconds = 0;
         return 1;
     },
+    [](openrac_game_moby_state* out, int max) {
+        int n = 0;
+        for (int slot = 0; slot < 8; ++slot) {
+            if (!g_live[slot]) {
+                continue;
+            }
+            if (n < max) {
+                out[n] = {};
+                out[n].slot = slot;
+                out[n].key = slot < 3 ? kKeys[slot] : -1;
+                out[n].flags = slot < 2 ? 0x1u | 0x4u : 0x1u;
+            }
+            ++n;
+        }
+        return n;
+    },
+    [](std::int32_t key) {
+        for (int slot = 0; slot < 3; ++slot) {
+            if (g_live[slot] && kKeys[slot] == key) {
+                return slot;
+            }
+        }
+        return -1;
+    },
+    [](std::int32_t slot) {
+        return slot >= 0 && slot < 8 && g_live[slot] ? gaddr(0x3000 + 0x100 * slot) : gaddr{0};
+    },
+    [](gaddr moby) { return moby >= 0x3000 ? slot_at(moby) : -1; },
+    [](gaddr moby, const openrac_game_pose* pose) {
+        g_played.push_back(
+            "moby_pose " + std::to_string(slot_at(moby)) + " "
+            + std::to_string(static_cast<int>(pose->position[0])) + " "
+            + std::to_string(static_cast<int>(pose->scale))
+        );
+    },
+    [](gaddr moby) {
+        g_played.push_back("moby_kill " + std::to_string(slot_at(moby)));
+        g_live[slot_at(moby)] = false;
+    },
+    [](std::int32_t oclass) {
+        g_played.push_back("moby_spawn " + std::to_string(oclass));
+        g_live[3] = true;
+        return 3;
+    },
+    [] { return 9; },
+    [](const float position[3], gaddr moby) {
+        g_played.push_back(
+            "stand_in " + std::to_string(static_cast<int>(position[0])) + " "
+            + std::to_string(static_cast<int>(position[2])) + " " + std::to_string(moby)
+        );
+    },
+    [](gaddr victim, gaddr attacker, std::uint32_t mask, float damage, const float*, const float*) {
+        g_played.push_back(
+            "post_hit " + std::to_string(slot_at(victim)) + " " + std::to_string(slot_at(attacker))
+            + " " + std::to_string(mask) + " " + std::to_string(static_cast<int>(damage))
+        );
+    },
+    [](const float*, int count) { g_played.push_back("eyes " + std::to_string(count)); },
+    [](std::int32_t add) { return g_bolts += add; },
 };
 
 // The state status.json gives a mod, and its reason.
@@ -287,7 +363,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.8", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.9", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -437,6 +513,117 @@ void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     mods::reset();
 }
 
+// The world (interface 1.9) on the test's fake level: the list and its flags, slots by key, drives
+// (refused for a dead slot, shown in the list, gone with the level), poses, kills, a spawn, the
+// hero's slot, eyes, bolts and a hit posted; the game's calls into the gate (a driven moby's update
+// is skipped without asking the mod, the mod's skip honoured, a stand-in accepted only before an
+// update) and the hit watcher (its answer decides the take-back); the gate and the watcher only
+// during load; and mods::reset clearing the game's pointers.
+void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "world"}}]})");
+    mods::Host h = host(plugins);
+    h.play = &kPlay;
+    h.cards = dir / "cards";
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    g_loads = 1;
+    g_played.clear();
+    reset_world();
+    // Nothing asks the mods before they load.
+    CHECK(openrac_game_moby_update == nullptr && openrac_game_moby_hit == nullptr);
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    CHECK(openrac_game_moby_update != nullptr && openrac_game_moby_hit != nullptr);
+    g_records.clear();
+    mods::frame();
+    CHECK(
+        (g_records
+         == std::vector<int>{
+             // The list: 3 mobys, keys 1, 2 (0 and 1 +1) and none, flags placed+updates / updates;
+             // a list of 2 still counts 3; the slot of key 1; no slot for key 7.
+             8000 + 3,
+             8011,
+             8025,
+             8012,
+             8025,
+             8010,
+             8021,
+             8033,
+             8041,
+             8050,
+             // Drive slot 0 on and off, slot 1 on; a dead slot refused; slot 1 shown driven.
+             8060,
+             8060,
+             8060,
+             8071,
+             8082,
+             // A pose, a pose of a dead slot; a kill, a kill of a dead slot; a spawn in slot 3
+             // (driven: the list ends with it driven, 3 live after the kill).
+             8100,
+             8111,
+             8120,
+             8131,
+             8143,
+             8163,
+             8172,
+             // The hero's slot; no figure 0; eyes (the count clamped to 8 in the game); bolts +5.
+             8189,
+             8190,
+             8200,
+             8210,
+             8220,
+             8305,
+             // A stand-in outside the gate; a hit posted, a hit to a dead slot; the gate and the
+             // watcher after load.
+             8401,
+             8500,
+             8501,
+             8903,
+             8913,
+         })
+    );
+    CHECK(
+        (g_played
+         == std::vector<std::string>{
+             "moby_pose 1 4 2",
+             "moby_kill 2",
+             "moby_spawn 77",
+             "moby_pose 3 4 2",
+             "eyes 2",
+             "eyes 8",
+             "eyes 0",
+             "post_hit 1 0 4 3",
+         })
+    );
+    // The game's gate: a driven moby (slot 1, 3) is skipped without asking the mod; others ask it,
+    // which has the hero stand in before the update (not after) and skips slot 2.
+    g_records.clear();
+    g_played.clear();
+    CHECK(openrac_game_moby_update(1, OPENRAC_MOBY_BEFORE) == 1);
+    CHECK(openrac_game_moby_update(1, OPENRAC_MOBY_AFTER) == 0);
+    CHECK(openrac_game_moby_update(3, OPENRAC_MOBY_BEFORE) == 1);
+    CHECK(g_records.empty() && g_played.empty());
+    CHECK(openrac_game_moby_update(0, OPENRAC_MOBY_BEFORE) == 0);
+    CHECK(openrac_game_moby_update(0, OPENRAC_MOBY_AFTER) == 0);
+    CHECK(openrac_game_moby_update(2, OPENRAC_MOBY_BEFORE) == 1);
+    CHECK((g_records == std::vector<int>{8700, 8710, 8720, 8702, 8710}));
+    CHECK((g_played == std::vector<std::string>{"stand_in 1 3 0", "stand_in 1 3 0"}));
+    // The game's hit: the watcher is told and decides (more than 5 damage: taken back).
+    const float at[3] = {0, 0, 0};
+    g_records.clear();
+    CHECK(openrac_game_moby_hit(1, -1, 4, 3.0f, at, at) == 0);
+    CHECK(openrac_game_moby_hit(1, 0, 4, 9.0f, at, at) == 1);
+    CHECK((g_records == std::vector<int>{8810, 8811}));
+    // The level loaded again: the drives are gone with it (and the fake level is whole again).
+    g_loads = 2;
+    reset_world();
+    g_records.clear();
+    mods::frame();
+    CHECK((g_records == std::vector<int>{8603, 8610}));
+    CHECK(openrac_game_moby_update(1, OPENRAC_MOBY_BEFORE) == 0);
+    mods::reset();
+    CHECK(openrac_game_moby_update == nullptr && openrac_game_moby_hit == nullptr);
+}
+
 // The pages of the game's own menus (interface 1.7): the pages and the main-menu item listed, a
 // page's content kept as the mod set it (a choice without choices a line of text), the cursor kept
 // off a line, the events reaching the mod, what it asks for kept for the front end only while one
@@ -580,7 +767,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.8", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.9", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -644,6 +831,7 @@ int main() {
     the_tick_boundary_reaches_the_mod(plugins);
     game_ui_pages_reach_the_front_end(plugins);
     play_reaches_the_game(plugins, dir);
+    the_world_reaches_the_game(plugins, dir);
     a_mod_for_1_5_still_loads(plugins);
     std::error_code e;
     fs::remove_all(dir, e);

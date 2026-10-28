@@ -242,6 +242,23 @@ typedef struct openrac_game_pose {
     uint32_t flags;
 } openrac_game_pose;
 
+/* A moby of the level as the world calls see it: openrac_moby's fields after its size. */
+typedef struct openrac_game_moby_state {
+    int32_t slot;
+    int32_t key;
+    int32_t oclass;
+    uint32_t flags;
+    uint32_t state;
+    float position[3];
+    float rotation[3];
+    float scale;
+    uint32_t seq;
+    uint32_t frame;
+    uint32_t next_frame;
+    float anim_time;
+    float anim_speed;
+} openrac_game_moby_state;
+
 typedef struct openrac_game_play {
     /* The levels, by the game's own numbers, and their names. */
     int levels;
@@ -282,9 +299,56 @@ typedef struct openrac_game_play {
         int32_t* gold_bolts,
         int32_t* seconds
     );
+
+    /* The world (interface 1.9): the level's mobys by slot (their index in its array). */
+    /* The live ones into `out` (at most `max`), how many there are; the slot of a placed moby by
+     * its key (its record in the level's file: the same on every machine), -1 for none. */
+    int (*mobys)(openrac_game_moby_state* out, int max);
+    int32_t (*moby_slot)(int32_t key);
+    /* A live moby's address by its slot, 0 for none; one put in a pose, deleted, made (of a class
+     * the level has: its slot, -1 for none). */
+    gaddr (*moby_at)(int32_t slot);
+    int32_t (*slot_of)(gaddr moby);
+    void (*moby_pose)(gaddr moby, const openrac_game_pose* pose);
+    void (*moby_kill)(gaddr moby);
+    int32_t (*moby_spawn)(int32_t oclass);
+    /* The hero's moby's slot, -1 for none. */
+    int32_t (*hero_slot)(void);
+    /* While a moby's update runs (a gate's call before it): the hero is at `position` for it, his
+     * moby the one at `moby` (0: his own); undone after the update. */
+    void (*stand_in)(const float position[3], gaddr moby);
+    /* A hit posted to `victim` (the game's message: MobyGetHitMessage reads it), from `attacker`
+     * (0: none), of the weapon or attack `mask`, `damage`, at `position` moving at `velocity`. */
+    void (*post_hit)(
+        gaddr victim,
+        gaddr attacker,
+        uint32_t mask,
+        float damage,
+        const float position[3],
+        const float velocity[3]
+    );
+    /* Up to 8 points besides the camera that keep the mobys near them running (each moby's update
+     * distance), until set again. */
+    void (*eyes)(const float* xyz, int count);
+    /* The player's bolts after adding `add`. */
+    int32_t (*bolts)(int32_t add);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;
+
+/* Set by the mods' loader (interface 1.9), called by the game: before (phase 0) and after (phase
+ * 1) a moby's update in the moby loop, by its slot; 1 before skips the update. And a hit posted to a
+ * moby (victim and attacker by slot, -1 for none): 1 takes it back, as if never posted. NULL: no
+ * mod asked. */
+extern int (*openrac_game_moby_update)(int32_t slot, int phase);
+extern int (*openrac_game_moby_hit)(
+    int32_t victim,
+    int32_t attacker,
+    uint32_t mask,
+    float damage,
+    const float position[3],
+    const float velocity[3]
+);
 
 /* The game sends a DMA chain (sceDmaSend): channel is the game address of
  * the channel's registers (0x10009000 is VIF1, the display list; 0x1000A000

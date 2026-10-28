@@ -21,7 +21,9 @@
  * page, which asks a question when it shows and plays a sound, and an answer is 6000 + 10 * yes +
  * the tag; a page and an item after load are refused (1400 and 1500 + that) (interface 1.7). With
  * "play" it uses the play calls on the test's game, a step a frame (play_frame: 7000s), and
- * starts a game with save 0 and later travels (interface 1.8). It reports the interface it is
+ * starts a game with save 0 and later travels (interface 1.8). With "world" it takes the gate and
+ * the hit watcher and uses the world calls on the test's fake level (world_frame: 8000s, and the
+ * gate's and the watcher's 8700s and 8800s) (interface 1.9). It reports the interface it is
  * built for
  * (OPENRAC_MOD_TARGET_MINOR): test-old is built for 1.5. */
 #include <stddef.h>
@@ -46,6 +48,7 @@ static int s_savestate;
 static int s_ui;
 static int s_ui_second = -1;
 static int s_play;
+static int s_world;
 static int s_figure = -1;
 
 /* The menu page: a white rectangle and "HELLO" each frame; Cross closes it. */
@@ -133,9 +136,100 @@ static void play_frame(void) {
     }
 }
 
+/* The gate (interface 1.9): around an update it reports the slot (8700 + slot before, 8720 + slot
+ * after); before one it has the hero stand in elsewhere (8710 + the refusal, 0 accepted) and skips
+ * the update of slot 2. */
+static int world_gate(void* user, int slot, int phase) {
+    const float where[3] = {1.0f, 2.0f, 3.0f};
+    (void)user;
+    if (phase == OPENRAC_MOBY_AFTER) {
+        s_record(8720 + slot);
+        return 0;
+    }
+    s_record(8700 + slot);
+    s_record(8710 + -s_api->hero_stand_in(s_mod, where, -1));
+    return slot == 2;
+}
+
+/* The hit watcher: reports victim and attacker (8800 + 10 * victim + attacker + 1) and takes back
+ * what hurts more than 5. */
+static int world_hit(void* user, const openrac_hit* hit) {
+    (void)user;
+    s_record(8800 + 10 * hit->victim + hit->attacker + 1);
+    return hit->damage > 5.0f;
+}
+
+/* Interface 1.9, on the test's fake level (3 live mobys, slots 0 to 2, keys 0, 1 and none), a step
+ * a frame (8000s). Frame 1: the list (count, keys, flags, a short buffer), slots by key, drives
+ * (a dead slot refused, the flag shown), poses, kills, a spawn (driven), the hero's slot, eyes,
+ * bolts, a stand-in outside the gate, a hit posted, and the gate and the watcher asked for after
+ * load (refused). Frame 2 (the level loaded again): no drive left. */
+static void world_frame(void) {
+    openrac_moby list[8];
+    openrac_moby pose = {0};
+    openrac_hit hit = {sizeof hit, 1, 0, 4, 3.0f, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}};
+    const float eyes[24] = {0};
+    const float where[3] = {0};
+    int i, n;
+    for (i = 0; i < 8; i++) {
+        list[i].size = sizeof list[i];
+    }
+    pose.size = sizeof pose;
+    if (s_frames == 1) {
+        n = s_api->moby_list(list, 8);
+        s_record(8000 + n);
+        for (i = 0; i < n; i++) {
+            s_record(8010 + list[i].key + 1);
+            s_record(8020 + (int)list[i].flags);
+        }
+        s_record(8030 + s_api->moby_list(list, 2));
+        s_record(8040 + s_api->moby_slot(1));
+        s_record(8050 + s_api->moby_slot(7) + 1);
+        s_record(8060 + -s_api->moby_drive(s_mod, 0, 1));
+        s_record(8060 + -s_api->moby_drive(s_mod, 0, 0));
+        s_record(8060 + -s_api->moby_drive(s_mod, 1, 1));
+        s_record(8070 + -s_api->moby_drive(s_mod, 5, 1));
+        s_api->moby_list(list, 8);
+        s_record(
+            8080 + (int)(list[0].flags & OPENRAC_MOBY_DRIVEN)
+            + (int)(list[1].flags & OPENRAC_MOBY_DRIVEN)
+        );
+        pose.position[0] = 4.0f;
+        pose.scale = 2.0f;
+        s_record(8100 + -s_api->moby_pose(s_mod, 1, &pose));
+        s_record(8110 + -s_api->moby_pose(s_mod, 5, &pose));
+        s_record(8120 + -s_api->moby_kill(s_mod, 2));
+        s_record(8130 + -s_api->moby_kill(s_mod, 5));
+        s_record(8140 + s_api->moby_spawn(s_mod, 77, &pose));
+        n = s_api->moby_list(list, 8);
+        s_record(8160 + n);
+        s_record(8170 + (int)(list[n - 1].flags & OPENRAC_MOBY_DRIVEN));
+        s_record(8180 + s_api->figure_slot(s_mod, -1));
+        s_record(8190 + s_api->figure_slot(s_mod, 0) + 1);
+        s_record(8200 + -s_api->play_eyes(s_mod, eyes, 2));
+        s_record(8210 + -s_api->play_eyes(s_mod, eyes, 20));
+        s_record(8220 + -s_api->play_eyes(s_mod, NULL, 0));
+        s_record(8300 + s_api->bolts(5) - 100);
+        s_record(8400 + -s_api->hero_stand_in(s_mod, where, -1));
+        s_record(8500 + -s_api->moby_hit(s_mod, &hit));
+        hit.victim = 5;
+        s_record(8500 + -s_api->moby_hit(s_mod, &hit));
+        s_record(8900 + -s_api->on_moby_update(s_mod, world_gate, NULL));
+        s_record(8910 + -s_api->on_moby_hit(s_mod, world_hit, NULL));
+    } else if (s_frames == 2) {
+        n = s_api->moby_list(list, 8);
+        s_record(8600 + n);
+        s_record(8610 + (int)(list[1].flags & OPENRAC_MOBY_DRIVEN));
+    }
+}
+
 static void on_frame(void* user) {
     (void)user;
     s_frames++;
+    if (s_world && s_record != NULL) {
+        world_frame();
+        return;
+    }
     if (s_play && s_record != NULL) {
         play_frame();
         return;
@@ -232,6 +326,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     s_savestate = 0;
     s_ui = 0;
     s_play = 0;
+    s_world = 0;
     s_figure = -1;
     s_tag = (int)api->setting_int(mod, "tag");
     s_record = (void (*)(int))api->function("Test_Record");
@@ -297,6 +392,23 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         s_play = 1;
         if (api->api_minor < 8 || s_record == NULL) {
             return 13;
+        }
+    }
+    if (behaviour[0] == 'w') { /* world */
+        const float where[3] = {0};
+        s_world = 1;
+        if (api->api_minor < 9 || s_record == NULL) {
+            return 14;
+        }
+        /* The gate and the watcher: one mod's each, taken during load; a second take (by this mod
+         * too) and a stand-in outside the gate are refused. */
+        if (api->on_moby_update(mod, world_gate, NULL) != OPENRAC_HOOK_OK
+            || api->on_moby_update(mod, world_gate, NULL) != OPENRAC_HOOK_TAKEN
+            || api->on_moby_update(mod, NULL, NULL) == OPENRAC_HOOK_OK
+            || api->on_moby_hit(mod, world_hit, NULL) != OPENRAC_HOOK_OK
+            || api->on_moby_hit(mod, world_hit, NULL) != OPENRAC_HOOK_TAKEN
+            || api->hero_stand_in(mod, where, -1) != OPENRAC_HOOK_UNKNOWN) {
+            return 15;
         }
     }
     if (behaviour[0] == 'g') { /* game_ui */

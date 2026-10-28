@@ -28,7 +28,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | Name | Value | |
 |---|---|---|
 | `OPENRAC_MOD_API_MAJOR` | `1` | The interface's major version. Changes when anything in the table changes or goes. |
-| `OPENRAC_MOD_API_MINOR` | `8` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves. |
+| `OPENRAC_MOD_API_MINOR` | `9` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts. |
 | `OPENRAC_MOD_TARGET_MINOR` | `OPENRAC_MOD_API_MINOR` |  |
 | `OPENRAC_MOD_EXPORT` | `__declspec(dllexport)` or `__attribute__((visibility("default")))` |  |
 | `OPENRAC_LOG_DEBUG` | `0` | The levels of openrac_api.log, from the most to the least talkative. Since 1.0. |
@@ -120,6 +120,13 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_PLAY_SCENE` | `4` | A level, a scene playing: a cutscene, a movie, a slideshow, the ship's landing or take-off. |
 | `OPENRAC_PLAY_MENU` | `5` | A level, a menu over it: paused, a vendor, a dialog. |
 | `OPENRAC_POSE_BLENDING` | `0x1u` | The animation is blending into `seq` from another: `frame` is where it arrives. |
+| `OPENRAC_MOBY_UPDATES` | `0x1u` | It has an update of its own (the game runs it near the camera). |
+| `OPENRAC_MOBY_DRIVEN` | `0x2u` | A mod drives it (moby_drive): its update does not run. |
+| `OPENRAC_MOBY_PLACED` | `0x4u` | The level placed it: it has a key. |
+| `OPENRAC_MOBY_CREATURE` | `0x8u` | Its class is a creature (an enemy, a person). |
+| `OPENRAC_MOBY_BEFORE` | `0` | The gate's moments (openrac_moby_update_fn). Since 1.9. |
+| `OPENRAC_MOBY_AFTER` | `1` |  |
+| `OPENRAC_EYES_MAX` | `8` | The most eyes (openrac_api.play_eyes). Since 1.9. |
 | `OPENRAC_FIGURES_MAX` | `8` | The most figures the mods together have at once (openrac_api.figure_create). Since 1.8. |
 | `OPENRAC_MOD_QUERY` | `"openrac_mod_query"` | The names the entry points are exported under, for the port's lookup. Since 1.0. |
 | `OPENRAC_MOD_LOAD` | `"openrac_mod_load"` |  |
@@ -160,6 +167,21 @@ typedef void (*openrac_ui_fn)(void* user, int page, const openrac_ui_event* even
 A mod's page (openrac_api.ui_page): called on the game's thread with the `user` pointer the mod
 gave, the page's id and each event. The calls of the table work from here (ui_set, ui_open, ...);
 what they ask for happens after the call. Since 1.7.
+
+```c
+typedef int (*openrac_moby_update_fn)(void* user, int slot, int phase);
+```
+
+The gate (openrac_api.on_moby_update): called with the `user` pointer the mod gave, before and
+after the update of the moby in `slot` (not for one a mod drives). Before it, returns 1 to skip
+the update (then no call after), 0 to run it. Since 1.9.
+
+```c
+typedef int (*openrac_hit_fn)(void* user, const openrac_hit* hit);
+```
+
+Told a hit the game posted (openrac_api.on_moby_hit); returns 1 to take it back (the victim
+never reads it), 0 to leave it. Since 1.9.
 
 ```c
 typedef void (*openrac_frame_fn)(void* user);
@@ -412,6 +434,43 @@ Since 1.8.
 | `float anim_speed` |  |
 | `uint32_t flags` |  |
 
+## `openrac_moby`
+
+A moby of the level (moby_list), or the pose a mod gives one (moby_pose, moby_spawn: position,
+rotation, scale and the animation are read). Since 1.9.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_moby), set by the mod. |
+| `int32_t slot` | Its slot in this game, its key (-1 for one the level did not place), its class. |
+| `int32_t key` |  |
+| `int32_t oclass` |  |
+| `uint32_t flags` | OPENRAC_MOBY_* flags, and its state (the game's own byte, below 0x80 while it lives). |
+| `uint32_t state` |  |
+| `float position[3]` | As openrac_pose's. |
+| `float rotation[3]` |  |
+| `float scale` |  |
+| `uint32_t seq` |  |
+| `uint32_t frame` |  |
+| `uint32_t next_frame` |  |
+| `float anim_time` |  |
+| `float anim_speed` |  |
+
+## `openrac_hit`
+
+A hit (openrac_api.on_moby_hit, moby_hit): to the moby in `victim`, from `attacker` (-1 none), of
+the game's weapon or attack `mask`, `damage`, at `position` moving at `velocity`. Since 1.9.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_hit), set by whoever fills it. |
+| `int32_t victim` |  |
+| `int32_t attacker` |  |
+| `uint32_t mask` |  |
+| `float damage` |  |
+| `float position[3]` |  |
+| `float velocity[3]` |  |
+
 ## `openrac_save_info`
 
 A save of the player's (openrac_api.save_slot), read from the game's own save file on the
@@ -484,7 +543,20 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*figure_pose)(openrac_mod* mod, int id, const openrac_pose* pose)` | Puts the mod's figure `id` in `pose`: where it is, its rotation and scale, and its animation (a new seq blends into it; the key followed only when it drifts more than a few keys, the figure animating by itself in between at anim_speed). Each tick the mod wants it to move. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a figure that is not the mod's or is gone with its level (then the mod makes another). Since 1.8. |
 | `int (*figure_remove)(openrac_mod* mod, int id)` | Takes the mod's figure `id` out of the level. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for one that is not the mod's (gone already). Since 1.8. |
 | `int (*play_start)(openrac_mod* mod, int level, const void* save, size_t size)` | From the front end (phase OPENRAC_PLAY_FRONT_END): starts a game, after this frame, as the title's New Game and Load Game do: with `save` null a new game in `level` (0 the first); otherwise the `size` bytes of `save` (a save as save_read or save_capture give it), which continue in its own level, or in `level` when that is 0 or more. Nothing is written to the memory card. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN while a start or travel asked before is still to happen, or OPENRAC_HOOK_UNKNOWN outside the front end, for a level the game has not, or a save it does not take. Since 1.8. |
-| `int (*play_travel)(openrac_mod* mod, int level)` | In a level with the player in control (phase OPENRAC_PLAY_PLAYING): leaves it for `level`, after this frame, as the ship's travel does (the flight between planets, then the level). Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN while a start or travel is still to happen, or OPENRAC_HOOK_UNKNOWN otherwise. Since 1.8. |
+| `int (*play_travel)(openrac_mod* mod, int level)` | In a level with the player in control (phase OPENRAC_PLAY_PLAYING): leaves it for `level`, after this frame, as the ship's travel does (the flight between planets, then the level); -1 goes back to the title, as the pause menu's Quit Game does (since 1.9). Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN while a start or travel is still to happen, or OPENRAC_HOOK_UNKNOWN otherwise. Since 1.8. |
 | `size_t (*save_capture)(void* out, size_t size)` | The game's progress now, as a save (the memory card's save file's bytes): written to `out` when `size` is large enough. Returns its size in bytes (call with a null `out` to ask), or 0 when there is none (no game started). Since 1.8. |
 | `int (*save_slot)(int slot, openrac_save_info* out)` | Fills `out` (its size set) with what the memory card's save `slot` holds. Returns 1 for a save, 0 for an empty slot (or one the game would not load), -1 past the game's last slot. Since 1.8. |
 | `size_t (*save_read)(int slot, void* out, size_t size)` | The bytes of the memory card's save `slot`, for play_start: written to `out` when `size` is large enough. Returns their size, or 0 for no save there. Since 1.8. |
+| `int (*moby_list)(openrac_moby* out, int max)` | Fills `out` with the level's live mobys, at most `max` of them (each one's size set by the port), in slot order. Returns how many there are (more than `max`: the rest left out); 0 outside a level. Since 1.9. |
+| `int (*moby_slot)(int key)` | Returns the slot of the placed moby `key`, or -1 for none (killed, or no such record). Since 1.9. |
+| `int (*moby_drive)(openrac_mod* mod, int slot, int on)` | Drives the moby in `slot` (`on` 1: its update no longer runs, the mod poses it) or lets it go (0). A drive ends with its level. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no moby there, or OPENRAC_HOOK_TAKEN when another mod drives it. Since 1.9. |
+| `int (*moby_pose)(openrac_mod* mod, int slot, const openrac_moby* pose)` | Puts the moby in `slot` in the pose `pose` gives (its position, rotation, scale when above 0, and animation, as figure_pose does). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no moby there. Since 1.9. |
+| `int (*moby_kill)(openrac_mod* mod, int slot)` | Deletes the moby in `slot` as the game deletes one (a placed one stays dead until its level loads again). Returns OPENRAC_HOOK_OK or OPENRAC_HOOK_UNKNOWN. Since 1.9. |
+| `int (*moby_spawn)(openrac_mod* mod, int oclass, const openrac_moby* pose)` | Makes a moby of class `oclass` (one the level has) in `pose`, driven by the mod. Returns its slot, or OPENRAC_HOOK_UNKNOWN (no level, no room, a class the level has not). Since 1.9. |
+| `int (*figure_slot)(openrac_mod* mod, int id)` | Returns the slot of the mod's figure `id` (figure_create), or of the hero's moby with -1; -1 for none. Since 1.9. |
+| `int (*on_moby_update)(openrac_mod* mod, openrac_moby_update_fn fn, void* user)` | Calls `fn(user, slot, phase)` around each moby's update (openrac_moby_update_fn). One mod's. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN when another mod has it, or OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.9. |
+| `int (*hero_stand_in)(openrac_mod* mod, const float position[3], int figure)` | Only in the gate's call before an update: for that update the hero is at `position`, and his moby is the mod's figure `figure` (-1: his own), as another player would be there; put back after it. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside that call. Since 1.9. |
+| `int (*on_moby_hit)(openrac_mod* mod, openrac_hit_fn fn, void* user)` | Calls `fn(user, &hit)` for each hit the game posts (openrac_hit_fn). One mod's. Returns as on_moby_update. Since 1.9. |
+| `int (*moby_hit)(openrac_mod* mod, const openrac_hit* hit)` | Posts `hit` to its victim as the game posts one (the victim's update reads it: an enemy takes the damage, the hero is hurt), not told to on_moby_hit. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no victim there. Since 1.9. |
+| `int (*play_eyes)(openrac_mod* mod, const float* xyz, int count)` | Sets up to OPENRAC_EYES_MAX points (x, y, z each) besides the camera: the mobys within their update distance of one run too (the world near other players). `count` 0 clears them. Returns OPENRAC_HOOK_OK. Since 1.9. |
+| `int (*bolts)(int add)` | Adds `add` to the player's bolts (0: none) and returns them. Since 1.9. |

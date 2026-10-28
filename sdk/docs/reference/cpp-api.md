@@ -216,6 +216,20 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `std::vector<std::uint8_t> save_capture() const` | Since 1.8: the game's progress now as a save, empty for none. |
 | `int save_slot(int slot, openrac_save_info& out) const` | Since 1.8: what the memory card's save `slot` holds, into `out`: 1 a save, 0 an empty slot, -1 past the last. |
 | `std::vector<std::uint8_t> save_read(int slot) const` | Since 1.8: the bytes of the memory card's save `slot`, for play_start; empty for none. |
+| `bool has_world() const` | Since 1.9: whether the port offers the world calls (moby_list() ... bolts()). |
+| `std::vector<openrac_moby> moby_list() const` | Since 1.9: the level's live mobys (each's size set), all of them. |
+| `int moby_slot(int key) const` | Since 1.9: the slot of placed moby `key`, -1 for none. |
+| `bool moby_drive(int slot, bool on = true) const` | Since 1.9: drives the moby in `slot` (or lets it go); false when refused. |
+| `bool moby_pose(int slot, const openrac_moby& pose) const` | Since 1.9: poses, kills or makes (driven; its slot, -1 for none) a moby. |
+| `bool moby_kill(int slot) const` |  |
+| `int moby_spawn(int oclass, const openrac_moby& pose) const` |  |
+| `int figure_slot(int id) const` | Since 1.9: the slot of figure `id` (-1: the hero's), -1 for none. |
+| `void on_moby_update(openrac_moby_update_fn fn, void* user = nullptr)` | Since 1.9: the gate around each moby's update, `fn(slot, phase)` returning true to skip it (before), and the watcher of the game's hits, `fn(hit)` returning true to take it back. A plain function each (the port keeps no state for a lambda's capture): `user` is passed on. Only during load; throws openrac::Error when refused. |
+| `void on_moby_hit(openrac_hit_fn fn, void* user = nullptr)` |  |
+| `bool hero_stand_in(const float position[3], int figure) const` | Since 1.9: in the gate's call before an update, the hero stands in at `position` with figure `figure` as his moby (-1: his own); false outside it. |
+| `bool moby_hit(const openrac_hit& hit) const` | Since 1.9: posts `hit` (its size set here); false for no victim. |
+| `void play_eyes(const std::vector<float>& xyz) const` | Since 1.9: the eyes besides the camera (x, y, z each), and the bolts after adding `add`. |
+| `int bolts(int add = 0) const` |  |
 | `Memory memory() const` | Returns a view of game memory. |
 | `gaddr relocate(gaddr address) const` | Return a global's address for the code loaded now: the executable's (`relocate`) or level `level`'s program's (`relocate_level`). Ask each time, because a level moves its globals. |
 | `gaddr relocate_level(int level, gaddr address) const` |  |

@@ -33,6 +33,7 @@
 #ifndef OPENRAC_MOD_HPP
 #define OPENRAC_MOD_HPP
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -1124,6 +1125,95 @@ public:
         }
         return bytes;
     }
+
+    // Since 1.9: whether the port offers the world calls (moby_list() ... bolts()).
+    bool has_world() const {
+        return m_api->api_minor >= 9 && m_api->size >= offsetof(openrac_api, bolts) + sizeof(void*)
+               && has_play();
+    }
+
+    // Since 1.9: the level's live mobys (each's size set), all of them.
+    std::vector<openrac_moby> moby_list() const {
+        if (m_api->api_minor < 9) {
+            return {};
+        }
+        std::vector<openrac_moby> out(256);
+        int n = m_api->moby_list(out.data(), static_cast<int>(out.size()));
+        // More than room for: again with room for all.
+        if (n > static_cast<int>(out.size())) {
+            out.resize(static_cast<std::size_t>(n));
+            n = m_api->moby_list(out.data(), n);
+        }
+        out.resize(static_cast<std::size_t>(std::max(0, std::min(n, static_cast<int>(out.size())))));
+        return out;
+    }
+
+    // Since 1.9: the slot of placed moby `key`, -1 for none.
+    int moby_slot(int key) const { return m_api->api_minor >= 9 ? m_api->moby_slot(key) : -1; }
+
+    // Since 1.9: drives the moby in `slot` (or lets it go); false when refused.
+    bool moby_drive(int slot, bool on = true) const {
+        return m_api->api_minor >= 9 && m_api->moby_drive(m_handle, slot, on ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: poses, kills or makes (driven; its slot, -1 for none) a moby.
+    bool moby_pose(int slot, const openrac_moby& pose) const {
+        openrac_moby p = pose;
+        p.size = sizeof p;
+        return m_api->api_minor >= 9 && m_api->moby_pose(m_handle, slot, &p) == OPENRAC_HOOK_OK;
+    }
+
+    bool moby_kill(int slot) const {
+        return m_api->api_minor >= 9 && m_api->moby_kill(m_handle, slot) == OPENRAC_HOOK_OK;
+    }
+
+    int moby_spawn(int oclass, const openrac_moby& pose) const {
+        openrac_moby p = pose;
+        p.size = sizeof p;
+        const int slot = m_api->api_minor >= 9 ? m_api->moby_spawn(m_handle, oclass, &p) : -1;
+        return slot >= 0 ? slot : -1;
+    }
+
+    // Since 1.9: the slot of figure `id` (-1: the hero's), -1 for none.
+    int figure_slot(int id) const { return m_api->api_minor >= 9 ? m_api->figure_slot(m_handle, id) : -1; }
+
+    // Since 1.9: the gate around each moby's update, `fn(slot, phase)` returning true to skip it
+    // (before), and the watcher of the game's hits, `fn(hit)` returning true to take it back. A
+    // plain function each (the port keeps no state for a lambda's capture): `user` is passed on.
+    // Only during load; throws openrac::Error when refused.
+    void on_moby_update(openrac_moby_update_fn fn, void* user = nullptr) {
+        if (m_api->api_minor < 9 || m_api->on_moby_update(m_handle, fn, user) != OPENRAC_HOOK_OK) {
+            throw Error("on_moby_update: refused (only during load, one mod's, interface 1.9)");
+        }
+    }
+
+    void on_moby_hit(openrac_hit_fn fn, void* user = nullptr) {
+        if (m_api->api_minor < 9 || m_api->on_moby_hit(m_handle, fn, user) != OPENRAC_HOOK_OK) {
+            throw Error("on_moby_hit: refused (only during load, one mod's, interface 1.9)");
+        }
+    }
+
+    // Since 1.9: in the gate's call before an update, the hero stands in at `position` with
+    // figure `figure` as his moby (-1: his own); false outside it.
+    bool hero_stand_in(const float position[3], int figure) const {
+        return m_api->api_minor >= 9 && m_api->hero_stand_in(m_handle, position, figure) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: posts `hit` (its size set here); false for no victim.
+    bool moby_hit(const openrac_hit& hit) const {
+        openrac_hit h = hit;
+        h.size = sizeof h;
+        return m_api->api_minor >= 9 && m_api->moby_hit(m_handle, &h) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: the eyes besides the camera (x, y, z each), and the bolts after adding `add`.
+    void play_eyes(const std::vector<float>& xyz) const {
+        if (m_api->api_minor >= 9) {
+            m_api->play_eyes(m_handle, xyz.data(), static_cast<int>(xyz.size() / 3));
+        }
+    }
+
+    int bolts(int add = 0) const { return m_api->api_minor >= 9 ? m_api->bolts(add) : 0; }
 
     // Returns a view of game memory.
     Memory memory() const { return Memory(m_api->memory); }

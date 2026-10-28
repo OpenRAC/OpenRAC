@@ -1006,8 +1006,10 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
     }
     mod->base = library::base_of(reinterpret_cast<const void*>(load));
     g_loading = mod.get();
+    play_loading(mod.get());
     const int result = load(&g_api, mod.get());
     g_loading = nullptr;
+    play_loading(nullptr);
     // A hook point asked for and not there (or of another signature) fails the load even when the
     // mod carries on: it would run with part of itself missing.
     if (result != 0 || mod->hook_refused) {
