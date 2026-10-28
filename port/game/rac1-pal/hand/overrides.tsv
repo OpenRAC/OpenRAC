@@ -6,3 +6,6 @@
 # name	file (relative to this table)
 func_001F6410	matched_outlined_rect.c
 func_L02_002DB810	matched_lock_arc.c
+func_00213C78	matched_moby_update_loop.c
+func_L00_002657B8	matched_moby_link_loop.c
+func_L08_002F7318	matched_flickering_mesh.c
