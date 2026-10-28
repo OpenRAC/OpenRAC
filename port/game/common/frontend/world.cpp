@@ -378,9 +378,12 @@ void effect_textures() {
     }
     const renderer::gs::Texa texa{0, false, 0x80};
     for (const State::EffectTextureId& e : g->effect_texture_ids) {
+        if (!g->renderer || e.effect >= g->effects.size()) {
+            continue;
+        }
         renderer::EffectQuad& q = g->effects[e.effect];
         const auto at = static_cast<std::size_t>(q.uploads);
-        if (!g->renderer || at + 1 >= g->effect_uploads.size()) {
+        if (q.uploads < 0 || at + 1 >= g->effect_uploads.size()) {
             continue;
         }
         const renderer::ImageUpload& palette = g->effect_uploads[at];
