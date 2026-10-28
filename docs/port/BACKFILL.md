@@ -263,23 +263,35 @@ candidate that makes more of them than retail differs. Retail gets 40 million
 instructions per state; a call that needs more waits for an interrupt, a
 frame or the disc, which no fcheck run delivers, and its state is skipped.
 
-What it covers today: **the boot executable only**, from two headless capture
-runs of the US disc: the boot, title and main menu with its Load, Options and
-New Game pages backed out of (`menu`), and New Game up to the first level's
-load, stopped before the level runs (`newgame`). Each run is cut into phases
-and takes two calls in each (`openrac-boot --capture-phases`,
-`--capture-spread`), so a function called every frame has states from each
-part. **Levels are not covered yet**: a `func_LNN_` row is written
-`not-executable` ("level captures are not built yet"), and a boot function
-that only levels call is `no-states`. What level support still needs: a rac2
-level start in the capture runs (the level-select word or a press script per
-level), the level catalogue (`config/levels/functions.tsv`, places `NN:ADDR`)
-turned into capture lines with each place's CRC, and a placement that
-resolves a level's symbols at its own addresses (rac1's
-`fcheck_level_build.py` is the model).
+What it covers today: **the boot executable and level 00** (Aranos, the
+tutorial), from three headless capture runs of the US disc: the boot, title
+and main menu with its Load, Options and New Game pages backed out of
+(`menu`), New Game up to the first level's load, stopped before the level
+runs (`newgame`), and New Game into level 00, played to frame 7000
+(`level00`: Cross through the intro, then running with the left stick
+(`openrac-boot --stick`), jumping, the wrench, the pause menu, weapons and the
+map). Each run is cut into phases and takes two calls in each
+(`openrac-boot --capture-phases`, `--capture-spread`), so a function called
+every frame has states from each part. A capture line holds the function's
+first bytes and their CRC-32, so a level function's place is taken only once
+level 00's program is loaded there. A function with a place in level 00's
+program (a `func_L00_` row, or a boot or shared function with a `00:` place in
+`config/levels/functions.tsv`) is checked there: its symbols resolve at level
+00's addresses (its function places, the values `tools/build.py level 00`
+derived, the boot's below 0x1A7C80, which stays resident, and boot data the
+level moved, read from the level's copies of boot functions, which are the
+same code), against level 00's bytes. A boot function below 0x1A7C80 called in
+the level is checked as the boot's. A function with states from both the boot
+runs and level 00 is built once for each and must be SAME in both. Level
+states are about 16 MB each (the boot's about 5). **Other levels are not
+covered yet**: a `func_LNN_` row of another level is written `not-executable`,
+and a function only they call is `no-states`. Each further level needs a way
+there in the interpreter (playing through is long: a level-select write or a
+saved game), its play script (a `level` entry in the driver's `SCRIPTS`) and
+its build (`tools/build.py level NN`); the placement is the same.
 
 ```sh
-# rac2-decomp built (python3 tools/build.py boot), its compiler reachable through
+# rac2-decomp built (python3 tools/build.py boot; tools/build.py level 00), its compiler reachable through
 # RAC2_LINUX (on a Mac: a container of rac2-build:latest mounting your home at the same path)
 docker run -d --name rac2-gate --platform linux/386 -v $HOME:$HOME rac2-build:latest sleep infinity
 export RAC2_LINUX="docker exec rac2-gate" OPENRAC_SOURCE_RAC2_NTSC=~/Projects/RAC/rac2-decomp
@@ -292,7 +304,7 @@ python3 tools/fcheck_gate.py calibrate -j 16 --mutants 20    # the harness's own
 The verdicts go to `port/game/rac2-ntsc/fcheck.tsv` (same columns; `fcheck` is
 the rac2-decomp commit), known harness artefacts to
 `port/game/rac2-ntsc/fcheck_artefacts.tsv`. States, test copies and logs are in
-the ignored `build/fcheck/rac2-ntsc/` (states are about 5 MB each). A single
+the ignored `build/fcheck/rac2-ntsc/` (states are about 5 MB each, level 00's about 16). A single
 function can be checked from rac2-decomp directly:
 `RAC2_FCHECK_STATES=<OpenRAC>/build/fcheck/rac2-ntsc/states python3
 tools/fcheck.py check func_XXXXXXXX nonmatching/functional/func_XXXXXXXX.c`.
@@ -309,7 +321,25 @@ On 2026-10-27, 513 of the 2,074 matched boot functions were called in the two
 runs: 502 SAME, 0 differs, 11 unchecked (retail waits for a frame or the disc
 in every state); of 20 wrong variants 14 differed, and the 6 that did not
 change a branch, a comparison boundary or a constant the captured calls never
-reach.
+reach. For level 00 (the same day), the 988 matched functions with level-00
+states (922 at their places in level 00's program, 66 resident boot ones; each
+also with its boot states, if any): 985 SAME, 0 differs, 3 unchecked (retail
+waits in every state). Getting there fixed the harness three times: the
+scratchpad is compared as memory is (a return address a callee saves on a
+stack it keeps there is the candidate's own code at the same distance from the
+entry), boot data a level moves is read from the level's copies of boot
+functions (the same code, so their references pair with the boot's) rather
+than guessed by alignment, and a boot function's own copy takes what its
+copy's code refers to (the level's own variant of a callback). Statically,
+all 2,394 functions level 00's build places, placed at their own addresses,
+give retail's bytes but for 23 jump-table addresses (the table is copied after
+the code). Of 20 wrong variants of level-placed functions 11 differed; the 9
+that did not change an index or offset that is 0 in the captured calls, a
+comparison whose two sides are equal there (one an equivalent `min`), or a
+branch whose two sides do the same in those calls. A function's own retail
+bytes, moved to 0x000A0000, can stand in for the C (`tools/fcheck.py check
+NAME --retail`): a DIFFERS on them is the harness's or the states', never the
+C's.
 
 **How a worker reports.** A backfill worker hands a function on as one of:
 
@@ -404,7 +434,7 @@ no tier left, or the port needs it now              -> functional C, with its co
 | | Ratchet & Clank (PAL) | Going Commando |
 |---|---|---|
 | Near misses | `nonmatching/<area>/` | `nonmatching/<area>/` |
-| Functional C | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac1-pal/fcheck.tsv` | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac2-ntsc/fcheck.tsv` (boot functions; levels pending) |
+| Functional C | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac1-pal/fcheck.tsv` | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac2-ntsc/fcheck.tsv` (boot functions and level 00; other levels pending) |
 | Pieces of one function | `config/overlays/joined.tsv` | the catalogue, `tools/levels.py` |
 | Handwritten | `ASM_FUNC`, counted as finished | `ASM_FUNC`, counted as finished |
 | Worker bound and protocol | `docs/QUEUE.md`, `docs/AGENT_WORKFLOW.md` | `docs/AGENT_WORKFLOW.md` |
