@@ -419,29 +419,97 @@ void rac1_world_post_hit(
 /* The world going on under a menu (interface 1.9, play_overlay_pause): while a mod asks for it,
  * the level's mobys are updated each tick under the pause menu (its update, func_L00_00277A88)
  * and under a freeze dialog (update_mode_freeze, func_001FD3E8), both wrapped (libraries.tsv), in
- * the level's own moby context; the hero, the camera and the picture stay as the menu left them.
- * A game in a party then never stops the others' world while its player looks at a menu. */
+ * the level's own moby context; the hero and the camera stay as the menu left them.
+ * A game in a party then never stops the others' world while its player looks at a menu.
+ *
+ * Under the pause menu the level's camera is put up around that update too, and the level is
+ * drawn. The menu puts a camera of its own in the camera block for its frame objects (at
+ * (256, 256, 64)): the run list (moby_pool.c) and the mobys' own updates measured their distances
+ * from it, so the mobys around the player stopped as out of reach, and those that leave when the
+ * camera is far went away, in the game that runs them and so in the others'. The menu also draws
+ * over a picture of the frame it opened on (transfer_draw_buffer_chunks, which the window answers
+ * with its last world) and runs no world renderer, so the paused player saw the world stand
+ * still. Each of its ticks, before its own update and drawing, the world renderers run here with
+ * the level's camera: TfragProc puts the world's marker in the display list (the menu's 2D goes
+ * over it) and has the window take this tick's world camera and the level's mobys
+ * (openrac_game_world_under_menu); the other layers are flagged as DrawWorld would, and PartProc
+ * hands over the particles. The window draws the menu's picture of the frame from that live world
+ * (frontend scene_hud.cpp). The menu's own camera, fog and mobys are put back after: its frame
+ * objects are drawn with them as before.
+ *
+ * The level's camera: the camera block (D_00187040 up to +0x400: MobyProc's rows at +0, the
+ * matrices, the position at +0x140 the run list reads, the view's rows at +0x350 the window
+ * reads) and the view context (D_0018CE00: the tangents, focal lengths and fog), as they are on
+ * the menu's first tick, before initialize_pause_menu puts its own there; swapped with the
+ * menu's, so what the level's update writes there is kept for the next tick. */
 static int keep_running;
 
 void rac1_world_keep_running(int on) {
     keep_running = on != 0;
 }
 
-static void run_world_under_menu(void) {
+#define CAMERA_BLOCK RAC1_ADDR(0x00187040u)
+#define VIEW_CONTEXT RAC1_ADDR(0x0018CE00u)
+enum { CAMERA_BYTES = 0x400, VIEW_BYTES = 0x240 };
+
+void func_002352C8(void);
+void func_00218B10(void);
+
+static struct {
+    uint32_t load; /* the level load it was saved in; ~0 none */
+    uint8_t camera[CAMERA_BYTES];
+    uint8_t view[VIEW_BYTES];
+} level_view = {0xFFFFFFFFu, {0}, {0}};
+
+static void swap_view(void) {
+    uint8_t held[CAMERA_BYTES];
+    memcpy(held, G(OPENRAC_DATA(CAMERA_BLOCK)), CAMERA_BYTES);
+    memcpy(G(OPENRAC_DATA(CAMERA_BLOCK)), level_view.camera, CAMERA_BYTES);
+    memcpy(level_view.camera, held, CAMERA_BYTES);
+    memcpy(held, G(OPENRAC_DATA(VIEW_CONTEXT)), VIEW_BYTES);
+    memcpy(G(OPENRAC_DATA(VIEW_CONTEXT)), level_view.view, VIEW_BYTES);
+    memcpy(level_view.view, held, VIEW_BYTES);
+}
+
+/* `pause_menu`: under the pause menu (the level's camera put up, the level drawn), else under a
+ * freeze dialog, which keeps the level's camera and draws the level itself. */
+static void run_world_under_menu(int pause_menu) {
     if (!keep_running || !in_level()) {
         return;
     }
+    /* The menu's first tick (it sets itself up in this update): the camera is still the level's. */
+    const int first = main_context();
+    const uint32_t load = rac1_program_loads();
+    int swapped = 0;
+    if (pause_menu && first) {
+        memcpy(level_view.camera, G(OPENRAC_DATA(CAMERA_BLOCK)), CAMERA_BYTES);
+        memcpy(level_view.view, G(OPENRAC_DATA(VIEW_CONTEXT)), VIEW_BYTES);
+        level_view.load = load;
+    } else if (pause_menu && level_view.load == load) {
+        swap_view();
+        swapped = 1;
+    }
     const int entered = enter_level_context();
     func_00213C78();
+    if (pause_menu && (first || swapped)) {
+        openrac_game_world_under_menu();
+        openrac_game_draw(OPENRAC_DRAW_SKY);
+        func_002352C8();
+        openrac_game_draw(OPENRAC_DRAW_TIES | OPENRAC_DRAW_SHRUBS | OPENRAC_DRAW_MOBYS);
+        func_00218B10();
+    }
     leave_level_context(entered);
+    if (swapped) {
+        swap_view();
+    }
 }
 
 void func_L00_00277A88(void) {
-    run_world_under_menu();
+    run_world_under_menu(1);
     func_L00_00277A88__game();
 }
 
 void func_001FD3E8(void) {
-    run_world_under_menu();
+    run_world_under_menu(0);
     func_001FD3E8__game();
 }
