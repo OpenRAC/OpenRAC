@@ -132,6 +132,10 @@ describe("Android launcher", () => {
     await expect(rebuild.count()).resolves.toBe(1);
     await expect(page.locator("main").evaluate((e) => e.scrollTop)).resolves.toBe(scrollTop);
     await expect(rebuild.evaluate((e) => document.activeElement === e)).resolves.toBe(true);
+    await page.locator("main").evaluate((e) => {
+      e.scrollTop = e.scrollTop > 0 ? 0 : e.scrollHeight;
+    });
+    await rebuild.waitFor({ state: "detached" });
   });
 
   it("draws a running step's strip over the band's picture, not under its shade", async () => {
