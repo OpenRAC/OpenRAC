@@ -14,7 +14,7 @@ the README). They are third-party mirrors of commercial software.
 
 | Binary | Mirror, as cloned | Used for |
 |---|---|---|
-| `bin/ee-gcc2953.exe`: GCC 2.95.3, **SN BUILD v1.14** | `sce_ps2_sdk_24` → `toolchain/sn-prodg-24/local/sce/ee/gcc/` | compiles all game code (`src/core/`, `src/game/`), both segments; also assembles every compiler-generated `.s` (`-c`) |
+| `bin/ee-gcc2953.exe`: GCC 2.95.3, **SN BUILD v1.14** | `sce_ps2_sdk_24` → `toolchain/sn-prodg-24/local/sce/ee/gcc/` | default game compiler; also assembles compiler-generated `.s` (`-c`) |
 | `bin/ee-gcc.exe`: Sony's **gcc 2.9-ee-991111** (or native Linux ELF `bin/ee-gcc` in `toolchain/ee-gcc-2.9-991111-01/`) | decompme/compilers or `sce_ps2_sdk_24` | compiles libgcc (`src/libgcc/`) and `ee29` SDK objects (`src/core/`) to `.s` |
 | `bin/ee-as.exe` | `SN-Systems-ProDG_for_PS2_3.01` → `toolchain/sn-prodg-3.01/usr/local/sce/ee/gcc/` | assembles the standalone data objects (`tools/build_sn_data.sh`) |
 | `bin/ee-ld.exe` | same | links everything at retail addresses |
@@ -25,6 +25,41 @@ the README). They are third-party mirrors of commercial software.
 The other SN sub-builds in the mirrors, v1.36 (`ee-gcc2953.exe` in
 `sn-prodg-3.01`) and v2.74 (`ee-gcc295.exe` in `sn-prodg-24`), are not
 used; see the next section.
+
+### PS2DEV GCC 3.2.3 C frontend
+
+The whole `fastfunc.c` object uses a public compiler frontend to reconstruct
+its scalar minimum/maximum wrappers without inline assembly. Prepare it once:
+
+```sh
+python tools/gcc323.py --setup
+```
+
+Windows and macOS use the existing build container automatically; Docker or
+Podman is required. Linux can build natively with GCC, make, patch and Python,
+or run the command through `tools/docker/run.sh`. Build the frontend in the
+same environment as the game. `RAC1_BUILD_IMAGE` selects a custom container;
+otherwise an existing local `rac1-build:latest` image is preferred. If an old
+image lacks `patch`, rebuild it from `tools/docker/Dockerfile`.
+
+Only the C frontend, driver, preprocessor and compiler headers are built.
+The original assembler, linker and libgcc remain unchanged. Compiler files
+are ignored under `toolchain/ps2dev-gcc323/`; source/build logs are ignored
+under `build-sn/gcc323-bootstrap/`. Host build flags enable large-file support
+for Windows bind-mount inodes and are separate from the PS2 file's flags.
+
+Pinned public inputs:
+
+| Input | Source | SHA-256 |
+|---|---|---|
+| GNU GCC 3.2.3 | [GNU release](https://ftp.gnu.org/gnu/gcc/gcc-3.2.3/gcc-3.2.3.tar.bz2) | `9229434cfdfb79d3183149ac09e1093be642d4be377cc491e75c23b856243fda` |
+| Published PS2DEV patch | [ps2toolchain at 33030016](https://github.com/ps2dev/ps2toolchain/blob/33030016e8d4d4f95ec62b0e088361c3cbe9aca3/patches/gcc-3.2.3-PS2.patch) | `0f563efed36319b8ad08c343aa324286c7c4038a239faa926826bde2e0afcfc7` |
+
+The setup verifies both downloads before extracting/building them. Installed
+binaries are checked against the setup manifest on every invocation. Missing
+or changed compiler files fail explicitly; there is no fallback to assembly
+or to a different compiler. This profile identifies a reproducible source
+reconstruction tool, not the compiler originally used for the handwritten code.
 
 ## Compilers and flags
 

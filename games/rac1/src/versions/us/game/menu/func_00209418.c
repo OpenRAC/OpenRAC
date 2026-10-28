@@ -5,5 +5,5 @@ void save_card_state_format_pending(void) {
         *(int *)(s + 0xE0) = 0;
         *(int *)(s + 0xDC) = 3;
     }
-    D_0015EFB0 = 8;
+    mode_freeze_state = 8;
 }

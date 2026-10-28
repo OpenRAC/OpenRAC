@@ -34,6 +34,29 @@ OLD_PLACES = list(enumerate((
 )))
 FILL_PLACES = [(6, 0x216EE4), (8, 0x2590B4), (11, 0x2749DC), (14, 0x25713C)]
 
+# Two more joins whose first bytes equal another function, so the catalogue cut them.
+# FLAG: level 0 0x261448 (48 bytes, all 19 levels) = 16-byte prefix (func_L00_0025D390's
+# second place) + func_L00_00261458 + the 8-byte return-zero func_001E97C8 tail.
+FLAG = "func_L00_00261448"
+FLAG_MID = "func_L00_00261458"
+FLAG_PREFIX = "func_L00_0025D390"
+FLAG_FP = "7820f76139466b04"
+FLAG_MID_PLACES = [(0, 0x261458), (1, 0x276290), (2, 0x2633C0), (3, 0x24FAB0), (4, 0x2540B0),
+                   (5, 0x28B4D8), (6, 0x26FFB8), (7, 0x289A28), (8, 0x26BAE8), (9, 0x280EC8),
+                   (10, 0x253EC8), (11, 0x286988), (12, 0x279E40), (13, 0x26D400),
+                   (14, 0x2697D8), (15, 0x250C90), (16, 0x25CCB8), (17, 0x25BD80), (18, 0x263728)]
+FLAG_PLACES = [(lv, a - 16) for lv, a in FLAG_MID_PLACES]
+# ORXON: level 10 0x2C0348 (408 bytes) = the 48-byte piece shared with func_L03_002DDDF8
+# + func_L10_002C0378/0388/03EC/04C4.
+ORXON = "func_L10_002C0348"
+ORXON_TWIN = "func_L03_002DDDF8"
+ORXON_FP = "6a87258ea69ecc03"
+ORXON_PIECES = (("func_L10_002C0378", 16, "870e434a010e83ef"),
+                ("func_L10_002C0388", 100, "0b59c0f14ae6fc20"),
+                ("func_L10_002C03EC", 216, "28a51f5330d5f425"),
+                ("func_L10_002C04C4", 28, "481517892b423ed5"))
+ORXON_PLACE = (10, 0x2C0348)
+
 MATCHED_MERGES = Path(__file__).resolve().parent.parent / "config/overlays/matched_boundaries.json"
 
 
@@ -101,9 +124,65 @@ def restore_matched_merges(by_name):
             require(not targets.intersection(pro[4]), f"{head}: absorbed prefix still overlaps the C function")
 
 
+def retail_blob(level, address, size):
+    image = rem.level_image(level)
+    return struct.pack("<" + "I" * (size // 4), *(image.word(at) for at in range(address, address + size, 4)))
+
+
+def verify_flag_and_orxon():
+    for level, address in FLAG_PLACES:
+        require(ov.fingerprint(retail_blob(level, address, 48)) == FLAG_FP,
+                f"L{level:02d} {address:08X}: flagged-word function bytes changed")
+    level, address = ORXON_PLACE
+    whole = retail_blob(level, address, 408)
+    require(ov.fingerprint(whole) == ORXON_FP, "L10 002C0348: function bytes changed")
+    require(whole[:48] == retail_blob(3, 0x2DDDF8, 48), "L10 002C0348: 48-byte piece differs from L03 002DDDF8")
+    at = 48
+    for _, size, fp in ORXON_PIECES:
+        require(ov.fingerprint(whole[at:at + size]) == fp, "L10 002C0348: piece boundaries changed")
+        at += size
+    require(at == 408, "L10 002C0348: pieces do not add up")
+
+
+def merge_flag(by_name):
+    """Rejoin 16-byte prefix + func_L00_00261458 + return-zero tail into one function."""
+    if FLAG in by_name:
+        require(by_name[FLAG] == (FLAG, "shared", 48, FLAG_FP, FLAG_PLACES) and FLAG_MID not in by_name,
+                f"{FLAG}: merged row differs from audited code")
+        return
+    mid = by_name.pop(FLAG_MID)
+    require(mid[1:5] == ("shared", 24, "077ea5b6ecdb23c4", FLAG_MID_PLACES), f"{FLAG_MID}: unexpected row")
+    pre, zero = by_name[FLAG_PREFIX], by_name[ZERO]
+    require(set(FLAG_PLACES) <= set(pre[4]), f"{FLAG_PREFIX}: missing audited prefix occurrence")
+    tails = {(lv, a + 40) for lv, a in FLAG_PLACES}
+    require(tails <= set(zero[4]), f"{ZERO}: missing audited tail occurrence")
+    by_name[FLAG_PREFIX] = (*pre[:4], [p for p in pre[4] if p not in set(FLAG_PLACES)])
+    by_name[ZERO] = (*zero[:4], [p for p in zero[4] if p not in tails])
+    by_name[FLAG] = (FLAG, "shared", 48, FLAG_FP, FLAG_PLACES)
+
+
+def merge_orxon(by_name):
+    """Make the four level-10 pieces and their shared 48-byte start one function."""
+    if ORXON in by_name:
+        require(by_name[ORXON] == (ORXON, "level", 408, ORXON_FP, [ORXON_PLACE]) and
+                not any(n in by_name for n, _, _ in ORXON_PIECES), f"{ORXON}: merged row differs")
+        return
+    at = ORXON_PLACE[1] + 48
+    for name, size, fp in ORXON_PIECES:
+        row = by_name.pop(name)
+        require(row[1:5] == ("level", size, fp, [(10, at)]), f"{name}: unexpected row")
+        at += size
+    twin = by_name[ORXON_TWIN]
+    require(twin[1:4] == ("shared", 48, "1bc047e59fb89dca") and twin[4] == [(3, 0x2DDDF8), ORXON_PLACE],
+            f"{ORXON_TWIN}: unexpected row")
+    by_name[ORXON_TWIN] = (ORXON_TWIN, "level", 48, twin[3], [(3, 0x2DDDF8)])
+    by_name[ORXON] = (ORXON, "level", 408, ORXON_FP, [ORXON_PLACE])
+
+
 def verify_retail():
     """Check 27 assembly boundaries and 76 placements of the four joins of executable code."""
     verify_matched_merges()
+    verify_flag_and_orxon()
     for level, address in OLD_PLACES:
         image = rem.level_image(level)
         expected = (rem.JR_RA, 0x27BD00C0, 0, 0x27BD0020, 0, 0x27BD0130, 0)
@@ -184,6 +263,8 @@ def corrected_rows(rows):
     require(row[1:4] == ("exe", 8, "0a5385cf4a659d30"), "return-zero canonical entry changed")
     by_name[ZERO] = (*row[:4], sorted(set(row[4]) | {(lv, a + 16) for lv, a in CAMERA_PLACES}))
     restore_matched_merges(by_name)
+    merge_flag(by_name)
+    merge_orxon(by_name)
     return sorted(by_name.values(), key=lambda r: (r[4][0][0], r[4][0][1]))
 
 
@@ -231,6 +312,10 @@ def main():
         print("PASS: corrected table and 27 assembly boundaries and 76 placements of executable code verified; original remnant rule unchanged")
     else:
         args.catalogue.write_text(serialize(after))
+        gone = {n for n, _, _ in ORXON_PIECES} | {FLAG_MID}
+        keep = [line for line in ov.VARIANTS.read_text().splitlines(True)
+                if line.split("\t")[0] not in gone and line.split("\t")[1] not in gone]
+        ov.VARIANTS.write_text("".join(keep))
         print(f"Wrote {args.catalogue}; no C function has been added by this repair")
 
 

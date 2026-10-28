@@ -1,5 +1,6 @@
 # text, in link order = retail address order. One object per line:
-#   build-sn/<NAME>.o <START>   <- src/<NAME>.c
+#   build-sn/<NAME>.o <START> [gcc323]   <- src/<NAME>.c
+# The optional compiler applies to the entire source object.
 # Makefile.sn, rac1.ld.sh and the tools all read this file.
 #
 # text has no linker fill between objects. The file names and boundaries
@@ -18,7 +19,7 @@ build-sn/game/cmecpu.o 0x001EE9F8
 build-sn/game/collproc.o 0x001EFD70
 build-sn/game/draw.o 0x001F0F30
 build-sn/game/drawquad.o 0x001F7C60
-build-sn/game/fastfunc.o 0x001F9810
+build-sn/game/fastfunc.o 0x001F9810 gcc323
 build-sn/game/framebuf.o 0x001FAA28
 build-sn/game/freeze.o 0x001FBC80
 build-sn/game/help.o 0x001FDF10

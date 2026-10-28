@@ -15,105 +15,105 @@
  * (func_0012D730, func_0012D760), which only 2.9-ee emits.
  */
 
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
-extern char D_00152470[];
-extern int func_00119088();
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
+extern char locale_lconv[];
+extern int libc_glue_read();
 extern long func_00116108_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00116108");
 extern long func_001188C8_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_001188C8");
 extern long func_00114518_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00114518");
-extern int func_00112468(int *errOut, int arg1);
-extern int func_00114060(int, void *);
-extern void func_00113AE0(void *);
-extern void func_00117118(void *, void *, int, int);
-extern int func_00119008();
-extern int D_0012FCF0 NOT_SDA;
-extern void func_00118E90(int arg0, void *arg1);
-extern void *D_00154A40 NOT_SDA;
-extern int D_00155080[];
-extern void func_001193F8(int);
-extern void func_00118AD0(int, int);
-extern int D_00154F54;
-extern int D_0012FD04;
-extern int D_00154F64 NOT_SDA;
-extern int D_00154F6C NOT_SDA;
-extern void func_0011AA90(int, int, int, int, int, int, int);
-extern void func_0011AA00(void);
-extern int D_0012FD08 NOT_SDA;
-extern int func_0011D960(void);
-extern void func_0011D9A8(void);
-extern int func_00118C70(void *);
-extern int D_0012FDA0;
-extern int D_0012FDA4;
-extern char D_00157E80[];
-extern int D_0012FD9C;
-extern void func_0011BBF0(void);
-extern int D_0012FD9C NOT_SDA;
-extern char D_0012FCEC[];
-extern char D_001580A8[];
-extern int D_0012FDA8;
-extern void func_001153FC(void *, int, int);
-extern int D_0012FD94;
-extern int D_0012FDAC;
-extern char D_00158140[];
-extern int D_00158180;
-extern int D_001581C0;
-extern char D_00158528[];
-extern int D_0012FDB4;
-extern int func_0011CE70(int arg0, int arg1, int arg2, void *arg3);
-extern void func_00118EC0(void);
-extern void func_0011D4E0(void);
-extern void func_00118EB0(void);
-extern int D_00130420;
-extern int D_00130424;
-extern int D_00130BD0[];
-extern char D_00130428[];
-extern int func_0011DC50(void);
-extern void func_00118D80(int);
-extern int func_00120F30(int);
-extern void *D_00159840;
-extern int D_001313E0;
-extern int D_001313E8;
-extern int D_001313EC;
-extern int D_001313F0;
-extern int D_001313E4;
-extern int D_001313FC;
-extern int func_0011B4C8();
-extern int func_00120D28(int);
-extern void func_00118C90(int);
-extern char D_00132590[];
-extern int D_00131440;
-extern void func_0011A6C8();
-extern int func_0011B6B8(void *);
-extern char D_00153000[];
-extern char D_00132E08[];
-extern int D_001313D0;
-extern int func_00121040(int);
-extern int D_001325C0;
-extern char D_00132E40[];
-extern void func_00123650(void *);
-extern char D_001534E0[];
-extern int D_00132E70[];
-extern int func_001238B0(int, int, int, int);
-extern int D_00132EA8;
-extern int *D_00159B28;
-extern int *D_00159B2C;
-extern int *D_00159B30;
-extern char D_0015B108[];
-extern int D_0015B180;
-extern void func_00124B60(void *);
-extern char D_00153658[];
-extern int func_00124920(int);
+extern int _close_r(int *errOut, int arg1);
+extern int __sfvwrite(int, void *);
+extern void __sinit(void *);
+extern void _vfprintf_r(void *, void *, int, int);
+extern int libc_glue_write();
+extern int CoreGlobalWord NOT_SDA;
+extern void Deci2Call(int arg0, void *arg1);
+extern void *InitBlockData NOT_SDA;
+extern int sif_sregs[];
+extern void disable_dmac_atomic(int);
+extern void remove_dmac_handler(int, int);
+extern int sif_cmd_dmac_handler_id;
+extern int sif_cmd_init_done;
+extern int sif_cmd_data_sys_handlers NOT_SDA;
+extern int sif_cmd_data_usr_handlers NOT_SDA;
+extern void sif_send_cmd_common(int, int, int, int, int, int, int);
+extern void sceSifExitCmd(void);
+extern int RpcCommandState NOT_SDA;
+extern int disable_interrupts(void);
+extern void enable_interrupts(void);
+extern int create_semaphore(void *);
+extern int fs_iob_sema;
+extern int fs_iob_sema_2;
+extern char fs_iob_table[];
+extern int fs_call_sema;
+extern void fs_call_sema_init(void);
+extern int fs_call_sema NOT_SDA;
+extern char sif_lib_version_string[];
+extern char FsResetBuffer[];
+extern int fs_expected_version;
+extern void libc_memset(void *, int, int);
+extern int FsResetState;
+extern int iop_heap_bind_state;
+extern char iop_heap_rpc_client[];
+extern int iop_heap_rpc_reply;
+extern int iop_heap_rpc_arg;
+extern char lf_iop_version[];
+extern int lf_expected_version;
+extern int _sceSifLoadModuleBuffer(int arg0, int arg1, int arg2, void *arg3);
+extern void tty_reset_init_flag(void);
+extern void init_tlb_32mb(void);
+extern void kernel_init_tlb(void);
+extern int FirstSemaphore;
+extern int SecondSemaphore;
+extern int osd_syscall_patch_table[];
+extern char osd_kernel_patch_code[];
+extern int PatchIsNeeded(void);
+extern void flush_cache(int);
+extern int sce_cd_sync_s(int);
+extern void *cd_user_callback;
+extern int cd_callback_sema;
+extern int cd_ncmd_sema;
+extern int cd_scmd_sema;
+extern int cd_ncmd_busy;
+extern int cd_poweroff_installing;
+extern int cd_poweroff_installed;
+extern int sif_call_rpc();
+extern int cd_ncmd_prechk(int);
+extern void signal_semaphore(int);
+extern char cd_ncmd_rpc_client[];
+extern int cd_ncmd_recv_buffer;
+extern void scePrintf();
+extern int sce_sif_check_stat_rpc(void *);
+extern char cd_scmd_wait_msg[];
+extern char cd_scmd_rpc_client[];
+extern int cd_debug_level;
+extern int cd_scmd_prechk(int);
+extern int cd_scmd_recv_buffer;
+extern char CoreDataTable[];
+extern void sceDmaPause(void *);
+extern char dma_sync_timeout_msg[];
+extern int DmaChannels[];
+extern int sce_mc_open(int, int, int, int);
+extern int mc_current_command;
+extern int *mc_get_info_type_out;
+extern int *mc_get_info_free_out;
+extern int *mc_get_info_format_out;
+extern char RpcQueueData[];
+extern int RpcReceiveData;
+extern void debug_print_stub(void *);
+extern char str_dbc_set_work_addr_error[];
+extern int sceDbcGetDepNumber(int);
 typedef struct {
     char unk_00[4];
     int  unk_04;
@@ -121,35 +121,35 @@ typedef struct {
     char *unk_0C;
     char unk_10[0x320];
 } Ent330;
-extern Ent330 D_0015B640[];
-extern void func_00119288(void *a, void *b);
-extern void func_001286E8(int, int);
-extern int D_00132F70[];
-extern void func_0012BCC8(int);
-extern void func_00128590(void *);
-extern void func_00128968(void *, int);
-extern int func_00128860(void *, int);
-extern int func_00128A58(void *, int);
-extern void func_00129180(void *);
-extern char D_00153A80[];
-extern void func_00116248_4(void *, char *, int, int) __asm__("func_00116248");
-extern void func_0012C468_a(void *, void *) __asm__("func_0012C468");
-extern void func_0012AAC8(void *, int);
-extern void func_0012C468(void *, void *);
-extern char D_00153B38[];
-extern void func_0012C0A0(void *);
-extern void func_0012BF40(void *);
-extern void func_0012C278(void *);
-extern void func_00129E30(void *, int, int, int);
-extern char D_00153BB8[];
-extern char D_00153BD8[];
-extern void func_00116248(void *);
-extern void func_0012C420(void *);
-extern char D_00153C48[];
-extern char D_00153C78[];
-extern char D_00153C90[];
-extern char D_00153CC8[];
-extern void func_0012CE48(unsigned int *);
+extern Ent330 pad2_sockets[];
+extern void sync_dcache_range(void *a, void *b);
+extern void ipu_vdec(int, int);
+extern int IpuCommandTable[];
+extern void dispatch_mpeg_cb_nodata(int);
+extern void wait_ipu_idle(void *);
+extern void _flushBuf(void *, int);
+extern int _peepBit(void *, int);
+extern int _nextBit(void *, int);
+extern void extra_bit_information(void *);
+extern char str_mpeg_buffer_too_small_fmt[];
+extern void sprintf_4(void *, char *, int, int) __asm__("func_00116248");
+extern void _Error_a(void *, void *) __asm__("func_0012C468");
+extern void sysbit_flush(void *, int);
+extern void _Error(void *, void *);
+extern char mpeg_work_area_size_too_small_msg[];
+extern void mpeg_decode_or_skip_field(void *);
+extern void mpeg_decode_or_skip_frame(void *);
+extern void mpeg_last_frame(void *);
+extern void _dispRefImage(void *, int, int, int);
+extern char mpeg_second_field_missing_msg[];
+extern char mpeg_error_format[];
+extern void sprintf(void *);
+extern void mpeg_print_error(void *);
+extern char mpeg_sequence_scalable_ext_msg[];
+extern char mpeg_unknown_extension_msg[];
+extern char mpeg_picture_spatial_scalable_ext_msg[];
+extern char mpeg_picture_temporal_scalable_ext_msg[];
+extern void sce_ipu_restart_dma(unsigned int *);
 
 /*
  * Write a CHCR value to IPU DMA channel 3 (fromIPU, 0x1000B000) or 4
@@ -162,20 +162,20 @@ extern void func_0012CE48(unsigned int *);
  * with a frame of its own the last call stayed a `jal` plus a full
  * epilogue, 3 words over (0x70 against 0x64).
  */
-void func_0012CC90(unsigned int chcr) {
-    func_0011D960();
+void set_d3_chcr(unsigned int chcr) {
+    disable_interrupts();
     *(volatile unsigned int *)0x1000F590 = *(volatile unsigned int *)0x1000F520 | 0x10000;
     *(volatile unsigned int *)0x1000B000 = chcr;
     *(volatile unsigned int *)0x1000F590 = *(volatile unsigned int *)0x1000F520 & 0xFFFEFFFF;
-    func_0011D9A8();
+    enable_interrupts();
 }
 
-void func_0012CCF8(unsigned int chcr) {
-    func_0011D960();
+void set_d4_chcr(unsigned int chcr) {
+    disable_interrupts();
     *(volatile unsigned int *)0x1000F590 = *(volatile unsigned int *)0x1000F520 | 0x10000;
     *(volatile unsigned int *)0x1000B400 = chcr;
     *(volatile unsigned int *)0x1000F590 = *(volatile unsigned int *)0x1000F520 & 0xFFFEFFFF;
-    func_0011D9A8();
+    enable_interrupts();
 }
 
 /* sceIpuStopDMA: request the IPU-in (D4/toIPU) DMA channel to stop
@@ -183,18 +183,18 @@ void func_0012CCF8(unsigned int chcr) {
  * the IPU's queued-command count (IPU_CTRL bits 4-7) to drain, stop the
  * IPU-out (D3/fromIPU) channel (func_0012CC90(0)) and save its
  * MADR/QWC/CHCR plus IPU_BP and IPU_CTRL into env[4..8]. */
-extern void func_0012CCF8(unsigned int);
-extern void func_0012CC90(unsigned int);
+extern void set_d4_chcr(unsigned int);
+extern void set_d3_chcr(unsigned int);
 
-void func_0012CD60(unsigned int *env) {
-    func_0012CCF8(1);
+void sce_ipu_stop_dma(unsigned int *env) {
+    set_d4_chcr(1);
     env[0] = *(volatile unsigned int *)0x1000B410;
     env[1] = *(volatile unsigned int *)0x1000B430;
     env[2] = *(volatile unsigned int *)0x1000B420;
     env[3] = *(volatile unsigned int *)0x1000B400;
     while ((*(volatile unsigned int *)0x10002010 & 0xF0) != 0) {
     }
-    func_0012CC90(0);
+    set_d3_chcr(0);
     env[4] = *(volatile unsigned int *)0x1000B010;
     env[5] = *(volatile unsigned int *)0x1000B020;
     env[6] = *(volatile unsigned int *)0x1000B000;
@@ -214,7 +214,7 @@ void func_0012CD60(unsigned int *env) {
  * `bp` again at the store keeps it alive across func_0012CC90 and moves
  * qwc4 and madr4 into the wrong saved registers. */
 
-void func_0012CE48(unsigned int *env) {
+void sce_ipu_restart_dma(unsigned int *env) {
     unsigned int bp = env[7];
     unsigned int bpLow = bp & 0x7F;
     unsigned int madrSaved = env[0];
@@ -226,7 +226,7 @@ void func_0012CE48(unsigned int *env) {
     if (d3madr != 0 && env[5] != 0) {
         *(volatile unsigned int *)0x1000B010 = d3madr;
         *(volatile unsigned int *)0x1000B020 = env[5];
-        func_0012CC90(env[6] | 0x100);
+        set_d3_chcr(env[6] | 0x100);
     }
 
     while (*(volatile int *)0x10002010 < 0) {
@@ -244,10 +244,10 @@ void func_0012CE48(unsigned int *env) {
     *(volatile unsigned int *)0x1000B410 = madr4;
     *(volatile unsigned int *)0x1000B430 = env[1];
     *(volatile unsigned int *)0x1000B420 = qwc4;
-    func_0012CCF8(env[3] | 0x100);
+    set_d4_chcr(env[3] | 0x100);
 }
 
-int func_0012CF98(int arg0) {
+int sce_ipu_sync(int arg0) {
     int ret = 0;
 
     switch (arg0) {
@@ -271,49 +271,49 @@ int func_0012CF98(int arg0) {
  * Byte-identical to func_0012CCF8 (setD4_CHCR's other copy, already
  * matched) since it is the same source compiled into a different object.
  */
-void func_0012D000(unsigned int chcr) {
-    func_0011D960();
+void set_d4_chcr_ipuinit(unsigned int chcr) {
+    disable_interrupts();
     *(volatile unsigned int *)0x1000F590 = *(volatile unsigned int *)0x1000F520 | 0x10000;
     *(volatile unsigned int *)0x1000B400 = chcr;
     *(volatile unsigned int *)0x1000F590 = *(volatile unsigned int *)0x1000F520 & 0xFFFEFFFF;
-    func_0011D9A8();
+    enable_interrupts();
 }
 
 typedef unsigned int u128 __attribute__((mode(TI), aligned(16)));
 
-extern void func_0012D000(unsigned int chcr);
-extern volatile u128 D_00133150[];
-extern u128 D_001331A0[];
+extern void set_d4_chcr_ipuinit(unsigned int chcr);
+extern volatile u128 ipu_init_quant_matrices[];
+extern u128 ipu_init_vq_clut[];
 
 #define IPU_CMD ((volatile unsigned int *)0x10002000)
 #define IPU_CTRL ((volatile int *)0x10002010)
 #define IPU_IN_FIFO ((volatile u128 *)0x10007010)
 
-/* sceIpuInit: reset the IPU, load its two fixed FIFO command tables, reset again. Adapted from Lombyte (GPL-3.0) for PAL: src/sdk/dma/sce_ipu_init.c, sceIpuInit. */
-void func_0012D068(void) {
-    func_0012D000(1);
+/* sceIpuInit: reset the IPU, load its two fixed FIFO command tables, reset again. Adapted from Lombyte's project (GPL-3.0) for PAL: src/sdk/dma/sce_ipu_init.c, sceIpuInit. */
+void sce_ipu_init(void) {
+    set_d4_chcr_ipuinit(1);
     *IPU_CTRL = 0x40000000;
     while (*IPU_CTRL < 0) {
     }
     *IPU_CMD = 0;
     while (*IPU_CTRL < 0) {
     }
-    *IPU_IN_FIFO = D_00133150[0];
-    *IPU_IN_FIFO = D_00133150[1];
-    *IPU_IN_FIFO = D_00133150[2];
-    *IPU_IN_FIFO = D_00133150[3];
-    *IPU_IN_FIFO = D_00133150[4];
-    *IPU_IN_FIFO = D_00133150[4];
-    *IPU_IN_FIFO = D_00133150[4];
-    *IPU_IN_FIFO = D_00133150[4];
+    *IPU_IN_FIFO = ipu_init_quant_matrices[0];
+    *IPU_IN_FIFO = ipu_init_quant_matrices[1];
+    *IPU_IN_FIFO = ipu_init_quant_matrices[2];
+    *IPU_IN_FIFO = ipu_init_quant_matrices[3];
+    *IPU_IN_FIFO = ipu_init_quant_matrices[4];
+    *IPU_IN_FIFO = ipu_init_quant_matrices[4];
+    *IPU_IN_FIFO = ipu_init_quant_matrices[4];
+    *IPU_IN_FIFO = ipu_init_quant_matrices[4];
     *IPU_CMD = 0x50000000;
     while (*IPU_CTRL < 0) {
     }
     *IPU_CMD = 0x58000000;
     while (*IPU_CTRL < 0) {
     }
-    *IPU_IN_FIFO = D_001331A0[0];
-    *IPU_IN_FIFO = D_001331A0[1];
+    *IPU_IN_FIFO = ipu_init_vq_clut[0];
+    *IPU_IN_FIFO = ipu_init_vq_clut[1];
     *IPU_CMD = 0x60000000;
     while (*IPU_CTRL < 0) {
     }
@@ -342,32 +342,32 @@ void func_0012D068(void) {
  * as retail does. D_001331D8 is `signed char` (the declaration below),
  * hence the cast on the return.
  */
-extern int func_0011BF80(void *, int);
-extern int func_0011C5C0(int, void *, int);
-extern void func_0011C208(int);
-extern signed char D_001331D8[];
-extern char D_00153D00[], D_00153D10[], D_00153D28[];
+extern int sceOpen(void *, int);
+extern int sceRead(int, void *, int);
+extern void sceClose(int);
+extern signed char RomNameStateData[];
+extern char scf_romver_path[], scf_romver_open_failed_msg[], scf_romver_read_failed_msg[];
 
-char *func_0012D2A0(void) {
+char *scf_read_romver(void) {
     int fd;
     if (RomNameStateData[0] == 0) {
-        fd = func_0011BF80(D_00153D00, 1);
+        fd = sceOpen(scf_romver_path, 1);
         if (fd == -1) {
-            func_0011A6C8(D_00153D10, RomNameStateData);
+            scePrintf(scf_romver_open_failed_msg, RomNameStateData);
         }
-        if (func_0011C5C0(fd, RomNameStateData, 0xE) == -1) {
-            func_0011A6C8(D_00153D28);
+        if (sceRead(fd, RomNameStateData, 0xE) == -1) {
+            scePrintf(scf_romver_read_failed_msg);
         }
-        func_0011C208(fd);
+        sceClose(fd);
     }
     return (char *)RomNameStateData;
 }
 
-extern char *func_0012D2A0(void);
+extern char *scf_read_romver(void);
 
-int func_0012D340(void) {
+int scf_is_t10k(void) {
     if (RomNameStateData[0] == 0) {
-        func_0012D2A0();
+        scf_read_romver();
     }
     return RomNameStateData[4] == 0x54;
 }
@@ -388,19 +388,19 @@ int func_0012D340(void) {
  * the other way round -- the early `return 0` written last, so the
  * zero case is the one that branches over.
  */
-extern unsigned char D_001331D4[];
+extern unsigned char ScfLanguage[];
 
 /* One return, the `== 0` arm first, and `v` unsigned (as func_0012D3F0). */
-int func_0012D380(void) {
+int sce_scf_get_language(void) {
     int buf[4];
     unsigned int v;
     int r;
 
-    func_00118CF0(buf);
-    if (func_0012D340() != 0) {
+    get_osd_config_param(buf);
+    if (scf_is_t10k() != 0) {
         r = ScfLanguage[0];
     } else {
-        func_00118CF0(buf);
+        get_osd_config_param(buf);
         v = buf[0];
         if (((v >> 13) & 7) == 0) {
             r = (v >> 4) & 1;
@@ -413,19 +413,19 @@ int func_0012D380(void) {
 
 LINKER_REMNANT("asm/remnants/core_text", func_0012D3E0);
 
-extern short D_001331D0 NOT_SDA;
+extern short scf_t10k_time_zone NOT_SDA;
 
 /* `r` assigned in both arms and returned once: a direct `return
    D_001331D0;` loads straight into $v0 and moves the address to $v1. */
-int func_0012D3F0(void) {
+int sce_scf_get_time_zone(void) {
     unsigned int local;
     unsigned int bits;
     int r;
 
-    if (func_0012D340() != 0) {
-        r = D_001331D0;
+    if (scf_is_t10k() != 0) {
+        r = scf_t10k_time_zone;
     } else {
-        func_00118CF0(&local);
+        get_osd_config_param(&local);
         bits = (local >> 13) & 7;
         if (bits == 0) {
             r = 0x21C;
@@ -438,31 +438,31 @@ int func_0012D3F0(void) {
 
 LINKER_REMNANT("asm/remnants/core_text", func_0012D440);
 
-extern unsigned char D_001331D6[];
-extern void func_00118DC0(void *, int, int);
+extern unsigned char scf_t10k_summer_time[];
+extern void GetOsdConfigParam2(void *, int, int);
 
-extern int func_00118DC0_i(void *, int, int) __asm__("func_00118DC0");
+extern int GetOsdConfigParam2_i(void *, int, int) __asm__("func_00118DC0");
 
 /* One return, and func_00118DC0 returns int. */
-int func_0012D448(void) {
+int sce_scf_get_summer_time(void) {
     unsigned char buf[16];
     int r;
 
-    if (func_0012D340() != 0) {
-        r = D_001331D6[0];
+    if (scf_is_t10k() != 0) {
+        r = scf_t10k_summer_time[0];
     } else {
-        func_00118CF0(buf);
+        get_osd_config_param(buf);
         if (((*(unsigned int *)buf >> 13) & 7) == 0) {
             r = 0;
         } else {
-            func_00118DC0_i(buf + 4, 1, 1);
+            GetOsdConfigParam2_i(buf + 4, 1, 1);
             r = (buf[4] >> 4) & 1;
         }
     }
     return r;
 }
 
-int func_0012D4B0(int arg0) {
+int scf_bin_to_bcd(int arg0) {
     unsigned int v = arg0 & 0xFF;
     return ((v / 10) * 6 + v) & 0xFF;
 }
@@ -489,42 +489,42 @@ int func_0012D4B0(int arg0) {
    `mflo` (the plain int form picks the R5900 three-operand mult). */
 /* The product goes through an unsigned char local: that gives retail's
    generic mult $0 + mflo instead of the three-operand mult. */
-int func_0012D4E0(int arg0) {
+int scf_bcd_to_bin(int arg0) {
     unsigned char v = arg0;
     unsigned char t = (v >> 4) * 6;
     return (unsigned char)(v - t);
 }
 
-extern int func_0012D4E0(int);
+extern int scf_bcd_to_bin(int);
 
 /* Convert the sceCdCLOCK fields (second..year) in place with the helper
    above. Exact under 2.9-ee, which saves $16 before $31 as retail does;
    2.95.3 saved them the other way round (4/104), the prologue-order
    residual that pointed at the SDK compiler in the first place. */
-void func_0012D500(unsigned char *p) {
-    p[7] = func_0012D4E0(p[7]);
-    p[6] = func_0012D4E0(p[6]);
-    p[5] = func_0012D4E0(p[5]);
-    p[3] = func_0012D4E0(p[3]);
-    p[2] = func_0012D4E0(p[2]);
-    p[1] = func_0012D4E0(p[1]);
+void decode_bcd_time_fields(unsigned char *p) {
+    p[7] = scf_bcd_to_bin(p[7]);
+    p[6] = scf_bcd_to_bin(p[6]);
+    p[5] = scf_bcd_to_bin(p[5]);
+    p[3] = scf_bcd_to_bin(p[3]);
+    p[2] = scf_bcd_to_bin(p[2]);
+    p[1] = scf_bcd_to_bin(p[1]);
 }
 
-extern int func_0012D4B0(int);
+extern int scf_bin_to_bcd(int);
 
 /* The inverse conversion, same shape; exact under 2.9-ee for the same
    reason as func_0012D500 (4/104 under 2.95.3). */
-void func_0012D568(unsigned char *p) {
-    p[7] = func_0012D4B0(p[7]);
-    p[6] = func_0012D4B0(p[6]);
-    p[5] = func_0012D4B0(p[5]);
-    p[3] = func_0012D4B0(p[3]);
-    p[2] = func_0012D4B0(p[2]);
-    p[1] = func_0012D4B0(p[1]);
+void encode_bcd_time_fields(unsigned char *p) {
+    p[7] = scf_bin_to_bcd(p[7]);
+    p[6] = scf_bin_to_bcd(p[6]);
+    p[5] = scf_bin_to_bcd(p[5]);
+    p[3] = scf_bin_to_bcd(p[3]);
+    p[2] = scf_bin_to_bcd(p[2]);
+    p[1] = scf_bin_to_bcd(p[1]);
 }
 
 typedef struct { char b[0xC]; } Cfg12;
-extern Cfg12 D_00153D40 NOT_SDA;
+extern Cfg12 MonthLengths NOT_SDA;
 
 /*
  * Tick the sceCdCLOCK at s (binary fields: [5] day, [6] month, [7] year)
@@ -539,7 +539,7 @@ extern Cfg12 D_00153D40 NOT_SDA;
  * load is a zero-extending load, a different expression to GCSE, so
  * the later byte load stays. (This C is exact under 2.95.3 as well.)
  */
-void func_0012D5D0(unsigned char *s) {
+void scf_add_day(unsigned char *s) {
     Cfg12 days;
     unsigned char m;
     int y = s[7];
@@ -577,7 +577,7 @@ void func_0012D5D0(unsigned char *s) {
  * year as an if/else with one store per arm, which cross-jumping merges
  * into retail's single `sb`. Exact under both compilers.
  */
-void func_0012D688(unsigned char *s) {
+void scf_sub_day(unsigned char *s) {
     Cfg12 days;
     int y = s[7];
 
@@ -606,24 +606,24 @@ void func_0012D688(unsigned char *s) {
  * 2.9-ee emits from this plain C. (Under 2.95.3, which has no sibling
  * calls, it was 8 bytes over.)
  */
-void func_0012D730(unsigned char *s) {
+void scf_add_hour(unsigned char *s) {
     s[3] = s[3] + 1;
     if (s[3] == 0x18) {
         s[3] = 0;
-        func_0012D5D0(s);
+        scf_add_day(s);
     }
 }
 
 /* The backward analog: the hour counts down, and at 0 it becomes 23 and
    the day ticks back, again through a conditional tail call. */
-void func_0012D760(unsigned char *s) {
+void scf_sub_hour(unsigned char *s) {
     unsigned char v = s[3];
     if (v != 0) {
         s[3] = v - 1;
         return;
     }
     s[3] = 0x17;
-    func_0012D688(s);
+    scf_sub_day(s);
 }
 
 /*
@@ -636,24 +636,24 @@ void func_0012D760(unsigned char *s) {
  * The `min >= 0` arm has to come first: retail lays the carry-up loop
  * inline and the carry-down loop after it.
  */
-void func_0012D788(unsigned char *s, int diff) {
+void scf_adjust_clock_minutes(unsigned char *s, int diff) {
     int min;
 
-    func_0012D500(s);
+    decode_bcd_time_fields(s);
     min = s[2] + diff;
     if (min >= 0) {
         while (min > 60) {
             min -= 60;
-            func_0012D730(s);
+            scf_add_hour(s);
         }
     } else {
         while (min < 0) {
             min += 60;
-            func_0012D760(s);
+            scf_sub_hour(s);
         }
     }
     s[2] = min;
-    func_0012D568(s);
+    encode_bcd_time_fields(s);
 }
 
 /*
@@ -662,11 +662,11 @@ void func_0012D788(unsigned char *s, int diff) {
  * (func_0012D448, hours), i.e. by tz - 540 + st * 60 minutes. Written in
  * that order: `tz + st * 60 - 540` associates differently (19/72).
  */
-void func_0012D818(unsigned char *s) {
+void sce_scf_get_local_time_from_rtc(unsigned char *s) {
     int tz, st;
-    tz = func_0012D3F0();
-    st = func_0012D448();
-    func_0012D788(s, tz - 540 + st * 60);
+    tz = sce_scf_get_time_zone();
+    st = sce_scf_get_summer_time();
+    scf_adjust_clock_minutes(s, tz - 540 + st * 60);
 }
 
 /* 8 bytes of post-endlabel nop padding in retail -- see func_001F6668. */

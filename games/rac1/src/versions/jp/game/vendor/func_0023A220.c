@@ -7,7 +7,7 @@ void render_vendor_buy_label_pass(char *unused, int x, int y) {
     int sz = 0x18;
 
     draw_framebuffer_rect(0, 0, 0x200, 0x80, 0x200, 0x80, 0);
-    ((void *(*)(void *, int, int))func_001153FC)(sp, 0, 0x18);
+    ((void *(*)(void *, int, int))libc_memset)(sp, 0, 0x18);
     *(short *)(sp + 0x2) = y;
     *(short *)(sp + 0x6) = x;
     *(short *)(sp + 0x8) = x >> 1;
@@ -45,9 +45,9 @@ void render_vendor_buy_label_pass(char *unused, int x, int y) {
     }
     if (m != 0) {
         *(unsigned short *)(sp + 0x12) |= 4;
-        func_001F75D0(sp, 0x80F0F0F0L, func_001FE540_id(m), -1);
+        font_print_window_small(sp, 0x80F0F0F0L, msg_string_id(m), -1);
         *(unsigned short *)(sp + 0x12) ^= 4;
         *(short *)(sp + 0xA) = (y - *(short *)(sp + 0xE)) >> 1;
-        func_001F75D0(sp, 0x80F0F0F0L, func_001FE540_id(m), -1);
+        font_print_window_small(sp, 0x80F0F0F0L, msg_string_id(m), -1);
     }
 }

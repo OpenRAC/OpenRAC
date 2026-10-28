@@ -11,7 +11,7 @@
  * into a tail call, which retail's is not).
  */
 
-extern void *D_0012F86C NOT_SDA; /* _impure_ptr */
+extern void *_impure_ptr NOT_SDA; /* _impure_ptr */
 
 /* newlib's FILE (struct __sFILE), 0x58 bytes. */
 typedef struct {
@@ -25,11 +25,11 @@ typedef struct {
     char _pad18[0x54 - 0x18];
     void *_data;                /* 0x54 */
 } NewlibFile;
-extern int func_001170A0(void *, const char *, va_list);
+extern int vfprintf(void *, const char *, va_list);
 
 /* sprintf: vfprintf into a string FILE of unbounded size, then terminate
    the string. */
-int func_00116248(char *str, const char *fmt, ...) {
+int sprintf(char *str, const char *fmt, ...) {
     int ret;
     va_list ap;
     NewlibFile f;
@@ -37,9 +37,9 @@ int func_00116248(char *str, const char *fmt, ...) {
     f._flags = 0x208;
     f._bf_base = f._p = (unsigned char *)str;
     f._bf_size = f._w = 0x7FFFFFFF;
-    f._data = D_0012F86C;
+    f._data = _impure_ptr;
     va_start(ap, fmt);
-    ret = func_001170A0(&f, fmt, ap);
+    ret = vfprintf(&f, fmt, ap);
     va_end(ap);
     *f._p = 0;
     return ret;

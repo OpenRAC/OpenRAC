@@ -13,7 +13,7 @@ LABEL org.opencontainers.image.description="Build environment for Ratchet & Clan
 
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      wine make git ca-certificates \
+      wine make git ca-certificates patch \
       python3 python3-pip python3-venv python3-dev gcc g++ cmake \
  && rm -rf /var/lib/apt/lists/*
 

@@ -11,9 +11,9 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
 
 /* newlib's stdio types (sys/reent.h, 1999-2000), under local names. */
 struct __sbuf_nl {
@@ -57,41 +57,41 @@ typedef struct {
 } FILE_nl;
 
 /* _impure_ptr, typed; the declaration in scope above is `void *`. */
-extern struct _reent_nl *D_0012F86C_r __asm__("D_0012F86C") NOT_SDA;
+extern struct _reent_nl *_impure_ptr_r __asm__("D_0012F86C") NOT_SDA;
 
 extern void func_0012DA28(int);  /* _exit (crt0) */
 
 /* exit, newlib's text: run the atexit handlers (LIFO), the reent's
    cleanup hook (_cleanup_r), then _exit, as a tail jump. */
-void func_001138B8(int code) {
+void libc_exit(int code) {
     register struct _atexit_nl *p;
     register int n;
 
-    for (p = D_0012F86C_r->_atexit; p; p = p->_next)
+    for (p = _impure_ptr_r->_atexit; p; p = p->_next)
         for (n = p->_ind; --n >= 0;)
             (*p->_fns[n]) ();
-    if (D_0012F86C_r->__cleanup)
-        (*D_0012F86C_r->__cleanup) (D_0012F86C_r);
+    if (_impure_ptr_r->__cleanup)
+        (*_impure_ptr_r->__cleanup) (_impure_ptr_r);
     func_0012DA28(code);
 }
 
-extern int func_00114438_i(struct _reent_nl *, int (*)(FILE_nl *)) __asm__("func_00114438");
-extern void func_00113AE0_r(struct _reent_nl *) __asm__("func_00113AE0");
+extern int _fwalk_i(struct _reent_nl *, int (*)(FILE_nl *)) __asm__("func_00114438");
+extern void __sinit_r(struct _reent_nl *) __asm__("func_00113AE0");
 
 /* fflush, newlib's text: a NULL fp flushes every FILE through _fwalk
    (func_00114438); CHECK_INIT keeps its `do { } while (0)`. */
-int func_00113968(FILE_nl *fp) {
+int libc_fflush(FILE_nl *fp) {
     register unsigned char *p;
     register int n, t;
 
     if (fp == 0)
-        return func_00114438_i(D_0012F86C_r, func_00113968);
+        return _fwalk_i(_impure_ptr_r, libc_fflush);
 
     do {
         if ((fp)->_data == 0)
-            (fp)->_data = D_0012F86C_r;
+            (fp)->_data = _impure_ptr_r;
         if (!(fp)->_data->__sdidinit)
-            func_00113AE0_r((fp)->_data);
+            __sinit_r((fp)->_data);
     } while (0);
 
     t = fp->_flags;

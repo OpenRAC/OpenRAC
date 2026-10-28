@@ -10,67 +10,67 @@
  */
 
 /* Declarations in scope here before the split. */
-extern char D_0013E650[];
-extern int D_0015F694;
-extern void func_001F9A98(void *, void *, int);
-extern char D_00189310[];
-extern char D_001899D0[];
-extern void *D_001871C0 NOT_SDA;
-extern DispatchRec D_001E8F80[];
-extern int D_0018A3B0[];
-extern void func_001F99B0();
-extern void func_001F2BC8(void);
-extern int D_0018C434 NOT_SDA;
-extern char D_001940C0[];
-extern long D_00151888[3];
-extern int D_0015F6FC;
-extern short D_0015F534;
-extern void func_001FB530(void);
-extern void func_001F3D78(void);
-extern int D_0015F564;
-extern int D_0018DD40[];
-extern int D_0018DC40[];
-extern short D_0015F59C;
-extern int func_001F65B0(unsigned char *arg0, int arg1, void *arg2);
-extern unsigned char D_001DF3D0[];
-extern unsigned char D_001DF770[];
-extern unsigned char D_001DFB10[];
-extern void func_001F6668(void *, void *, void *, void *, void *, int,
+extern char voice_pool[];
+extern int bank_sound_count;
+extern void FastMemCopy(void *, void *, int);
+extern char backup_cam[];
+extern char gCamBackupState[];
+extern void *cur_cam NOT_SDA;
+extern DispatchRec camera_types[];
+extern int draw_config[];
+extern void FastMemSet();
+extern void BuildOcclVisibility(void);
+extern int occl_update NOT_SDA;
+extern char occl_visibility[];
+extern long gs_display_settings[3];
+extern int space_load_in_progress;
+extern short draw_enable_mask;
+extern void append_gif_transfer_packet(void);
+extern void DrawDebugProfiler(void);
+extern int draw_callback_count;
+extern int draw_callback_args[];
+extern int draw_callback_funcs[];
+extern short GlobalStateFlag;
+extern int measure_text_width(unsigned char *arg0, int arg1, void *arg2);
+extern unsigned char normal_font_metrics[];
+extern unsigned char small_font_metrics[];
+extern unsigned char large_font_metrics[];
+extern void FontPrint(void *, void *, void *, void *, void *, int,
                           unsigned char *);
-extern int func_001F6600(unsigned char *, int);
-extern int func_001F6620(unsigned char *, int);
-extern int func_001F4868(int);
-extern void func_001FB498(void);
-extern void func_001F3008(void);
-extern void func_001F3140(void);
-extern int D_0018E840[];
-extern long D_00152178 NOT_SDA;
-extern int func_001FE4D0(void);
-extern char D_00199A68[];
-extern short D_0015F780;
-extern int D_001941CC NOT_SDA;
-extern int D_0019A4E8 NOT_SDA;
-extern int func_001FF668(int);
+extern int measure_text_width_regular(unsigned char *, int);
+extern int measure_text_width_small(unsigned char *, int);
+extern int GetEffectTex(int);
+extern void PutDrawBufferLarge(void);
+extern void InitViewContext(void);
+extern void UpdateViewContext(void);
+extern int bit_swap_lut[];
+extern long background_rgbaq NOT_SDA;
+extern int Help_FindIndex(void);
+extern char s_paradox_this_message_does_not[];
+extern short help_msgs;
+extern int hud_heap_base NOT_SDA;
+extern int hud_state NOT_SDA;
+extern int Hud_GetIconIndex(int);
 typedef struct {
     char b[0x13];
 } Cfg13;
-extern Cfg13 D_0019A540 NOT_SDA;
-extern Cfg13 D_001E7DD8 NOT_SDA;
-extern int func_00116810(void);
-extern void func_001166FC(Cfg13 *, void *);
-extern short D_0015F9D0;
-extern void func_00201960(int, int, int, int, int);
+extern Cfg13 message_text_buffer NOT_SDA;
+extern Cfg13 message_too_long_label NOT_SDA;
+extern int libc_strlen(void);
+extern void libc_strcpy(Cfg13 *, void *);
+extern short ResourceCounter;
+extern void draw_stretchable_ui_frame(int, int, int, int, int);
 
-extern char D_0019BEC0[];
-extern float D_00187198;
-extern char D_0019C2C0[];
-extern char D_0019C4C0[];
-extern float func_001FA748(float, float);
-extern float func_001F9F90(float);
-extern float func_001F9FA8(float);
-extern float func_001F9D10(void *, void *);
-extern void func_002023E0(int);
-extern void func_00202790(int);
+extern char dir_lights[];
+extern float gCamera_yaw;
+extern char point_lights[];
+extern char point_light_data[];
+extern float FastAddRots(float, float);
+extern float FastCos(float);
+extern float FastSin(float);
+extern float FastVecDist(void *, void *);
+extern void CreatePointLight(int);
+extern void RefreshPointLight(int);
 
 /* Per-frame light update: the ambient colour (0.8 grey, -0.3) and a key
    light 0.8 rad behind the camera heading, tilted down; then every
@@ -78,7 +78,7 @@ extern void func_00202790(int);
    D_0019C2C0) that has moved more than 8 units is re-placed and either
    created (state 1 -> 2) or refreshed (state 2). */
 void UpdateAllPointLights(void) {
-    char *l = D_0019BEC0;
+    char *l = dir_lights;
     float ang;
     int i;
 
@@ -86,14 +86,14 @@ void UpdateAllPointLights(void) {
     *(float *)(l + 0x340) = 0.8f;
     *(float *)(l + 0x344) = 0.8f;
     *(float *)(l + 0x348) = 0.8f;
-    ang = FastAddRots(D_00187198, -0.8f);
+    ang = FastAddRots(gCamera_yaw, -0.8f);
     *(float *)(l + 0x350) = FastCos(ang) * 0.866f;
     *(float *)(l + 0x354) = FastSin(ang) * 0.866f;
     *(float *)(l + 0x358) = -0.5f;
     *(int *)(l + 0x35C) = 0;
     for (i = 0; i < 8; i++) {
-        char *src = D_0019C2C0 + i * 0x20;
-        char *dst = D_0019C4C0 + i * 0x30;
+        char *src = point_lights + i * 0x20;
+        char *dst = point_light_data + i * 0x30;
 
         if (*(int *)(dst + 0x10) != 0 && FastVecDist(src + 0x10, dst + 0x20) > 8.0f) {
             qcopy(dst + 0x20, src + 0x10);
@@ -138,16 +138,16 @@ typedef struct {
     unsigned char pad38[8];
 } LtObj40;
 
-extern LtObj20 *D_00161050_o __asm__("D_00161050") MACRO_ADDR;
-extern LtObj20 *D_00161054_o __asm__("D_00161054") MACRO_ADDR;
-extern LtObj40 *D_00160F8C_o __asm__("D_00160F8C") MACRO_ADDR;
-extern int D_00160F90 MACRO_ADDR;
-extern LtObj20 *D_001604D4_o __asm__("D_001604D4") MACRO_ADDR;
-extern LtObj20 *D_001604D8_o __asm__("D_001604D8") MACRO_ADDR;
-extern int func_001F9D78(void *, void *);
-extern void func_001F9C48(void *, void *, float);
+extern LtObj20 *ties_o __asm__("D_00161050") MACRO_ADDR;
+extern LtObj20 *ties_end_o __asm__("D_00161054") MACRO_ADDR;
+extern LtObj40 *tfrag_render_records_o __asm__("D_00160F8C") MACRO_ADDR;
+extern int tfrag_render_record_count MACRO_ADDR;
+extern LtObj20 *shrubs_o __asm__("D_001604D4") MACRO_ADDR;
+extern LtObj20 *shrubs_end_o __asm__("D_001604D8") MACRO_ADDR;
+extern int spheres_intersect(void *, void *);
+extern void scale_vector(void *, void *, float);
 
-/* CreatePointLight: lists which objects of the three lists the light's sphere touches and records the light's index in their packed nibble field. Adapted from Lombyte (GPL-3.0) for PAL: src/rendering/create_point_light.c, create_point_light. */
+/* CreatePointLight: lists which objects of the three lists the light's sphere touches and records the light's index in their packed nibble field. Adapted from Lombyte's project (GPL-3.0) for PAL: src/rendering/create_point_light.c, create_point_light. */
 void CreatePointLight(int i) {
     LtSlot *slot;
     LtDef *def;
@@ -161,16 +161,16 @@ void CreatePointLight(int i) {
     int n3;
     unsigned int v;
 
-    slot = &((LtSlot *)D_0019C4C0)[i];
+    slot = &((LtSlot *)point_light_data)[i];
     p = slot->buf;
     end = p + 0x200;
-    def = &((LtDef *)D_0019C2C0)[i];
+    def = &((LtDef *)point_lights)[i];
     qcopy(&sphere, &def->sphere);
     sphere.v[3] += 8.0f;
     if (p < end) {
         slot->n0 = 0;
         n = 0;
-        for (o = D_00161050_o; o != D_00161054_o; o++, n++) {
+        for (o = ties_o; o != ties_end_o; o++, n++) {
             if (spheres_intersect(&sphere, o)) {
                 *p++ = n;
                 v = o->lights;
@@ -194,7 +194,7 @@ void CreatePointLight(int i) {
         if (p < end) {
             slot->n1 = slot->c0;
             scale_vector(&sphere, &sphere, 1024.0f);
-            m = D_00160F8C_o;
+            m = tfrag_render_records_o;
             for (n2 = 0; n2 < tfrag_render_record_count; n2++, m++) {
                 if (spheres_intersect(&sphere, m)) {
                     *p++ = n2;
@@ -219,7 +219,7 @@ void CreatePointLight(int i) {
             if (p < end) {
                 slot->n2 = p - slot->buf;
                 n3 = 0;
-                for (o = D_001604D4_o; o != D_001604D8_o; o++, n3++) {
+                for (o = shrubs_o; o != shrubs_end_o; o++, n3++) {
                     if (spheres_intersect(&sphere, o)) {
                         *p++ = n3;
                         v = o->lights;
@@ -245,7 +245,7 @@ void CreatePointLight(int i) {
     }
 }
 
-extern void func_002027C0(int);
+extern void DetachPointLight(int);
 
 /* RefreshPointLight */
 void RefreshPointLight(int arg0) {
@@ -289,14 +289,14 @@ struct PointLightLinks {
     s32 unkC;
 };
 
-extern u8 *D_001604D4 MACRO_ADDR;
-extern u8 *D_00160F8C MACRO_ADDR;
-extern u8 *D_00161050 MACRO_ADDR;
+extern u8 *shrubs MACRO_ADDR;
+extern u8 *tfrag_render_records MACRO_ADDR;
+extern u8 *ties MACRO_ADDR;
 
-extern u8 D_001E7E80[];
-extern u8 D_001E7EA0[];
-extern u8 D_001E7EC8[];
-extern s32 func_001E9730();
+extern u8 str_bad_point_light_tie[];
+extern u8 str_bad_point_light_tfrag[];
+extern u8 str_bad_point_light_shrub[];
+extern s32 STUB_printf();
 
 /* Remove one point light from three packed attachment lists. Each 16-bit
    reference stores up to four light IDs in nibbles; deleting one shifts
@@ -324,7 +324,7 @@ void DetachPointLight(s32 arg0) {
     struct PointLightLinks *links;
 
     firstNibble = arg0 & 0xFFFF;
-    links = (arg0 * 0x30) + D_0019C4C0;
+    links = (arg0 * 0x30) + point_light_data;
     secondNibble = (arg0 * 0x10) & 0xFFFF;
     thirdNibble = (arg0 << 8) & 0xFFFF;
     firstLinks = links->unkC + (links->unk0 * 2);
@@ -344,7 +344,7 @@ void DetachPointLight(s32 arg0) {
             } else if ((firstPacked & 0xF000) == fourthNibble) {
                 firstPacked |= 0xF000;
             } else {
-                STUB_printf(D_001E7E80);
+                STUB_printf(str_bad_point_light_tie);
             }
             firstLinks += 1;
             if (firstPacked == 0xFFFF) {
@@ -371,7 +371,7 @@ void DetachPointLight(s32 arg0) {
             } else if ((secondPacked & 0xF000) == fourthNibble) {
                 secondPacked |= 0xF000;
             } else {
-                STUB_printf(D_001E7EA0);
+                STUB_printf(str_bad_point_light_tfrag);
             }
             secondLinks += 1;
             if (secondPacked == 0xFFFF) {
@@ -398,7 +398,7 @@ void DetachPointLight(s32 arg0) {
             } else if ((thirdPacked & 0xF000) == fourthNibble) {
                 thirdPacked |= 0xF000;
             } else {
-                STUB_printf(D_001E7EC8);
+                STUB_printf(str_bad_point_light_shrub);
             }
             thirdLinks += 1;
             if (thirdPacked == 0xFFFF) {

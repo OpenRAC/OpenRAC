@@ -13,26 +13,26 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
-extern char D_00152470[];
-extern int func_00119088();
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
+extern char locale_lconv[];
+extern int libc_glue_read();
 extern long func_00116108_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00116108");
 extern long func_001188C8_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_001188C8");
 extern long func_00114518_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00114518");
-extern int func_00112468(int *errOut, int arg1);
+extern int _close_r(int *errOut, int arg1);
 
-extern int func_00114060(int, void *);
+extern int __sfvwrite(int, void *);
 
 /* newlib's stdio types (sys/reent.h, 1999-2000), under local names. */
 struct __sbuf_16FA0 {
@@ -78,14 +78,14 @@ struct __suio_16FA0 {
 
 /* __sprint, newlib's text: flush the uio through __sfvwrite
    (func_00114060) if it holds anything. */
-int func_00116FA0(FILE_16FA0 *fp, struct __suio_16FA0 *uio) {
+int vfprintf_sprint(FILE_16FA0 *fp, struct __suio_16FA0 *uio) {
     register int err;
 
     if (uio->uio_resid == 0) {
         uio->uio_iovcnt = 0;
         return (0);
     }
-    err = func_00114060((int)fp, uio);
+    err = __sfvwrite((int)fp, uio);
     uio->uio_resid = 0;
     uio->uio_iovcnt = 0;
     return (err);
@@ -93,12 +93,12 @@ int func_00116FA0(FILE_16FA0 *fp, struct __suio_16FA0 *uio) {
 
 /* vfprintf and fflush return int; the declarations in scope above say
    void. */
-extern int func_001170A0_f(FILE_16FA0 *, const char *, void *) __asm__("func_001170A0");
-extern int func_00113968_f(FILE_16FA0 *) __asm__("func_00113968");
+extern int vfprintf_f(FILE_16FA0 *, const char *, void *) __asm__("func_001170A0");
+extern int libc_fflush_f(FILE_16FA0 *) __asm__("func_00113968");
 
 /* __sbprintf, newlib's text: printf to an unbuffered file through a
    temporary 1 KB buffer (BUFSIZ), then copy the error status back. */
-int func_00116FE8(FILE_16FA0 *fp, const char *fmt, void *ap) {
+int vfprintf_sbprintf(FILE_16FA0 *fp, const char *fmt, void *ap) {
     int ret;
     FILE_16FA0 fake;
     unsigned char buf[1024];
@@ -116,15 +116,15 @@ int func_00116FE8(FILE_16FA0 *fp, const char *fmt, void *ap) {
     fake._lbfsize = 0;  /* not actually used, but Just In Case */
 
     /* do the work, then copy any error status */
-    ret = func_001170A0_f(&fake, fmt, ap);
-    if (ret >= 0 && func_00113968_f(&fake))
+    ret = vfprintf_f(&fake, fmt, ap);
+    if (ret >= 0 && libc_fflush_f(&fake))
         ret = -1;       /* EOF */
     if (fake._flags & 0x0040)   /* __SERR */
         fp->_flags |= 0x0040;
     return (ret);
 }
 
-extern void func_00113AE0(void *);
+extern void __sinit(void *);
 extern int func_00117118_i(struct _reent_16FA0 *, FILE_16FA0 *, const char *, void *)
     __asm__("func_00117118");
 
@@ -140,12 +140,12 @@ extern int func_00117118_i(struct _reent_16FA0 *, FILE_16FA0 *, const char *, vo
  * spelling was the right size but 20/120, with $17/$18 swapped.) It
  * returns the callee's value, so 2.9-ee keeps the call.
  */
-int func_001170A0(FILE_16FA0 *fp, const char *fmt0, void *ap) {
+int vfprintf(FILE_16FA0 *fp, const char *fmt0, void *ap) {
     do {
         if ((fp)->_data == 0)
-            (fp)->_data = (struct _reent_16FA0 *)D_0012F86C;
+            (fp)->_data = (struct _reent_16FA0 *)_impure_ptr;
         if (!(fp)->_data->__sdidinit)
-            func_00113AE0((fp)->_data);
+            __sinit((fp)->_data);
     } while (0);
     return func_00117118_i(fp->_data, fp, fmt0, ap);
 }
@@ -174,12 +174,12 @@ extern char vfprintf_string_00152648[] __asm__("D_00152648");
 extern char vfprintf_string_00152668[] __asm__("D_00152668");
 extern char vfprintf_string_00152670[] __asm__("D_00152670");
 typedef char *va_list;
-/* _vfprintf_r, adapted from newlib 1999 through Lombyte.
+/* _vfprintf_r, adapted from newlib 1999 through Lombyte's project.
  * The varargs cursor advances in eight-byte slots on the EE ABI.
  * PRINT/PAD/FLUSH are expanded here to keep their scope local; the build
  * compiles this C directly. See THIRD_PARTY_NOTICES.md.
  */
-s32 func_00117118(struct _reent_16FA0 *data, FILE_16FA0 *fp, const char *fmt0, va_list ap)
+s32 _vfprintf_r(struct _reent_16FA0 *data, FILE_16FA0 *fp, const char *fmt0, va_list ap)
 {
  register char *fmt;
  register int ch;
@@ -554,7 +554,7 @@ extern char *func_001126D8_d(void *, double, int, int, int *, int *, char **)
 /* cvt, newlib's text: convert a double for the %e/%f/%g conversions
    through _dtoa_r (func_001126D8), padding trailing zeros unless %g
    without the ALT flag. */
-char *func_00118630(void *data, double value, int ndigits, int flags,
+char *vfprintf_cvt(void *data, double value, int ndigits, int flags,
                     char *sign, int *decpt, int ch, int *length) {
     int mode, dsgn;
     char *digits, *bp, *rve;
@@ -598,7 +598,7 @@ char *func_00118630(void *data, double value, int ndigits, int flags,
 
 /* exponent, newlib's text, with its MAXEXP of 308: the 0x140 frame and
    `t = expbuf + 308` are retail's. */
-int func_001187E0(char *p0, int exp, int fmtch) {
+int vfprintf_exponent(char *p0, int exp, int fmtch) {
     register char *p, *t;
     char expbuf[308];
 

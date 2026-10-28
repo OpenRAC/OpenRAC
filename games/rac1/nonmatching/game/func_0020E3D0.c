@@ -16,7 +16,38 @@ static float ee_rate_0020E3D0(unsigned int bits) {
     return *(float *)&bits;
 }
 
-void func_0020E3D0(Moby *m) {
+/* The moby fields this candidate reads, at their offsets: the private layout mobyfunc.c had when
+   it was written (the file now uses include/moby.h, whose names differ). */
+typedef struct {
+    char _pad00[0x11];
+    unsigned char unk11; /* 0x11 */
+    unsigned char unk12; /* 0x12 */
+    char _pad13[0x1C - 0x13];
+    int frames[1]; /* 0x1C */
+} MobySeq_0020E3D0;
+typedef struct {
+    char _pad00[0x48];
+    MobySeq_0020E3D0 *seqs[1]; /* 0x48 */
+} MobyClass_0020E3D0;
+typedef struct {
+    char _pad00[0x24];
+    MobyClass_0020E3D0 *pClass; /* 0x24 */
+    char _pad28[0x50 - 0x28];
+    unsigned char frame;     /* 0x50 */
+    unsigned char prevFrame; /* 0x51 */
+    unsigned char seq;       /* 0x52 */
+    unsigned char prevSeq;   /* 0x53 */
+    char _pad54[0x68 - 0x54];
+    int frameData;     /* 0x68 */
+    int prevFrameData; /* 0x6C */
+    char _pad70[0x7C - 0x70];
+    unsigned char unk7C; /* 0x7C */
+    unsigned char unk7D; /* 0x7D */
+    unsigned char unk7E; /* 0x7E */
+} MobyAnim_0020E3D0;
+
+void func_0020E3D0(Moby *moby) {
+    MobyAnim_0020E3D0 *m = (MobyAnim_0020E3D0 *)moby;
     unsigned char *mp = (unsigned char *)m;
     unsigned int speedBits = *(unsigned int *)(mp + 0x58);
     unsigned int rateBits = *(unsigned int *)(mp + 0x5C);
@@ -31,7 +62,7 @@ void func_0020E3D0(Moby *m) {
     unsigned int loop = m->unk7C;
     unsigned int voice = m->unk7D;
     unsigned int trig = m->unk7E;
-    MobySeq *seq;
+    MobySeq_0020E3D0 *seq;
     int ti;
     int snap;
     int newA;

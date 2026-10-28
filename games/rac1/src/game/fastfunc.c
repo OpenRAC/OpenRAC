@@ -10,41 +10,41 @@
  */
 
 /* Declarations in scope here before the split. */
-extern char D_0013E650[];
-extern int D_0015F694;
-extern void func_001F9A98(void *, void *, int);
-extern char D_00189310[];
-extern char D_001899D0[];
-extern void *D_001871C0 NOT_SDA;
-extern DispatchRec D_001E8F80[];
-extern int D_0018A3B0[];
-extern void func_001F99B0();
-extern void func_001F2BC8(void);
-extern int D_0018C434 NOT_SDA;
-extern char D_001940C0[];
-extern long D_00151888[3];
-extern int D_0015F6FC;
-extern short D_0015F534;
-extern void func_001FB530(void);
-extern void func_001F3D78(void);
-extern int D_0015F564;
-extern int D_0018DD40[];
-extern int D_0018DC40[];
-extern short D_0015F59C;
-extern int func_001F65B0(unsigned char *arg0, int arg1, void *arg2);
-extern unsigned char D_001DF3D0[];
-extern unsigned char D_001DF770[];
-extern unsigned char D_001DFB10[];
-extern void func_001F6668(void *, void *, void *, void *, void *, int,
+extern char voice_pool[];
+extern int bank_sound_count;
+extern void FastMemCopy(void *, void *, int);
+extern char backup_cam[];
+extern char gCamBackupState[];
+extern void *cur_cam NOT_SDA;
+extern DispatchRec camera_types[];
+extern int draw_config[];
+extern void FastMemSet();
+extern void BuildOcclVisibility(void);
+extern int occl_update NOT_SDA;
+extern char occl_visibility[];
+extern long gs_display_settings[3];
+extern int space_load_in_progress;
+extern short draw_enable_mask;
+extern void append_gif_transfer_packet(void);
+extern void DrawDebugProfiler(void);
+extern int draw_callback_count;
+extern int draw_callback_args[];
+extern int draw_callback_funcs[];
+extern short GlobalStateFlag;
+extern int measure_text_width(unsigned char *arg0, int arg1, void *arg2);
+extern unsigned char normal_font_metrics[];
+extern unsigned char small_font_metrics[];
+extern unsigned char large_font_metrics[];
+extern void FontPrint(void *, void *, void *, void *, void *, int,
                           unsigned char *);
-extern int func_001F6600(unsigned char *, int);
-extern int func_001F6620(unsigned char *, int);
-extern int func_001F4868(int);
-extern void func_001FB498(void);
-extern void func_001F3008(void);
-extern void func_001F3140(void);
-extern int D_0018E840[];
-extern void func_001F7B40(void);
+extern int measure_text_width_regular(unsigned char *, int);
+extern int measure_text_width_small(unsigned char *, int);
+extern int GetEffectTex(int);
+extern void PutDrawBufferLarge(void);
+extern void InitViewContext(void);
+extern void UpdateViewContext(void);
+extern int bit_swap_lut[];
+extern void begin_draw_frame(void);
 
 LINKER_REMNANT("asm/remnants/text", func_001F9810);
 
@@ -134,34 +134,16 @@ float FastAbsF(float arg0) {
     return __builtin_fabsf(arg0);
 }
 
-/*
- * REVERTED to INCLUDE_ASM deliberately, and this one matters beyond
- * these two functions.
- *
- * They are max.s/min.s single-instruction wrappers. Retail is 8 bytes
- * each (max.s scheduled into the jr's delay slot). Written as inline asm
- * this compiler emits 12 bytes -- jr first, then the asm in dead-code
- * position, because inline asm is opaque to its scheduler. So they were
- * never matches; they were 4 bytes LONGER than retail each.
- *
- * A non-matching function that is *longer* than retail shifts every
- * later function in the segment, so these two were silently adding 8
- * bytes of drift to every downstream address reference in text.c --
- * func_001F7B40, for instance, was instruction-for-instruction identical
- * to retail yet reported 1/44 purely because its `jal` target had moved.
- * Reverting them restores the stubs' exact retail bytes and removes that
- * drift.
- *
- * General rule this establishes: a size-mismatched function should be
- * reverted to INCLUDE_ASM, not kept as documented-close C. Byte-diff
- * near-misses of the same size are harmless to keep; longer ones corrupt
- * verification for everything after them. (This is the same failure mode
- * as the old core_text func_00112380 drift, which is why that one was
- * worth fixing rather than tolerating.)
- */
-ASM_FUNC("asm/handwritten/text", func_001F9B90);
+/* The whole-file PS2DEV GCC 3.2.3 profile emits the R5900 scalar operation
+ * directly in the return slot. This comparison order preserves retail's
+ * operand order as well as its eight-byte function size. */
+float max_float(float a, float b) {
+    return b > a ? b : a;
+}
 
-ASM_FUNC("asm/handwritten/text", func_001F9B98);
+float min_float(float a, float b) {
+    return b < a ? b : a;
+}
 
 ASM_FUNC("asm/handwritten/text", func_001F9BA0);
 

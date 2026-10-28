@@ -5,7 +5,7 @@ int update_menu_choice_list(char *arg0) {
         return 0;
     }
     {
-        char *pad = D_0013CA40;
+        char *pad = g_controller_state;
         if (*(int *)(pad + 0x1C4) & 0xD00) {
             if (*(int *)(g + 0x124) == 0) {
                 return 1;
@@ -13,7 +13,7 @@ int update_menu_choice_list(char *arg0) {
         }
     }
     {
-        char *pad2 = D_0013CA40;
+        char *pad2 = g_controller_state;
         if (*(int *)(pad2 + 0x1C4) & 0x10) {
             char *g2 = menu_system;
             int t = *(int *)(*(char **)(g2 + 4) + 0x38);
@@ -27,13 +27,13 @@ int update_menu_choice_list(char *arg0) {
         }
     }
     {
-        char *pad3 = D_0013CA40;
+        char *pad3 = g_controller_state;
         int old = *(int *)(arg0 + 0x38);
         if ((*(int *)(pad3 + 0x1C4) & 0x1000) && old != 0) {
             *(int *)(arg0 + 0x38) = old - 1;
         }
         {
-            char *pad4 = D_0013CA40;
+            char *pad4 = g_controller_state;
             if (*(int *)(pad4 + 0x1C4) & 0x4000) {
                 int c = *(int *)(arg0 + 0x38);
                 if ((*(Row18 **)(arg0 + 0x34))[c + 1].w0 != 0) {
@@ -57,7 +57,7 @@ int update_menu_choice_list(char *arg0) {
                 n++;
             } while (e[n] != 0 && n < 4);
         }
-        pad5 = D_0013CA40;
+        pad5 = g_controller_state;
         if (*(int *)(pad5 + 0x1C4) & 0x60) {
             unsigned char *buf = rec->buf;
             if (buf != 0) {

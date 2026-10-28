@@ -33,6 +33,7 @@ opencode.json
 # Local agent context, which differs between contributors.
 /AGENTS.md
 /docs/claude-memory/
+.claude/
 
 # Stray artifacts from tool bootstrap scripts -- never part of the project.
 Python/

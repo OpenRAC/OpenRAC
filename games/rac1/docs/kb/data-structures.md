@@ -150,7 +150,7 @@ Ratchet: one 0x2300-byte singleton at **`D_0013F450`** (122 files).
 `D_0013F4D0` = hero + 0x80 = `motion.pos` (`gHeroPos` in names.tsv).
 
 - `hero.h` says `D_0013F350`: that is the US address.
-- `D_0013E633 + 0xE1D` (e.g. `src/overlays/shared/tieproc_00299108.c:144`)
+- `D_0013E633 + 0xE1D` (e.g. `src/overlays/shared/cutscene_and_movie_playback.c:144`)
   is the same object, a compiler address-materialisation artifact.
 
 Layout overview (offsets absolute in `Hero`):
@@ -359,7 +359,7 @@ hero.h.
 ## PadState (`include/pad.h`)
 
 0x350-byte singleton **`D_0013CA40`** (71 files; overlays also use
-`D_0013A5E0 + 0x2460`, e.g. `src/overlays/shared/help_00237B00.c:128`).
+`D_0013A5E0 + 0x2460`, e.g. `src/overlays/shared/hero_gadget_use.c:128`).
 Per frame, in `src/game/pad.c`: `func_00218908` (UpdatePad) ->
 `func_00217F68` (per-pad poll) -> `func_002181F0` (process_pad_input).
 
@@ -434,7 +434,7 @@ code agrees wherever checkable:
 - Commonest gameplay test: `pressed & 0x40` (69 sites; Cross = jump), then
   0x10, 0x20. Weapon swap tests 0x10 (Triangle) in `raw_released`.
 - Menus close on `pressed_unmasked & 0xD00` (Start|R3|Select) when not
-  locked (`src/overlays/shared/pause_00277208.c:688`). The header calls
+  locked (`src/overlays/shared/pause_menu.c:688`). The header calls
   0xD00 "accept"; the call sites read as "close menu" (likely).
 
 ### The held/pressed/released family
@@ -533,7 +533,7 @@ PAL memory-map sheet); the rest come from source comments.
 | `D_0013F450` | the hero (`Hero`, 0x2300 bytes) | hero.h; 122 files |
 | `D_0013F4D0` | hero + 0x80 = `motion.pos`, "gHeroPos" | names.tsv |
 | `D_0013CA40` | the pad (`PadState`, 0x350 bytes) | pad.h, `src/game/pad.c` |
-| `D_0013A5E0` | base symbol overlay code addresses globals from: `+0x2460` = the pad; `+0x2600`, `+0x2604`, `+0x2634`, `+0x2610` are also used (flags at +0x2600 tested for 0x2/0x8 in `func_L00_00229348`, `src/overlays/shared/help_00221A98.c`). What lives at 0x0013A5E0 itself is not established. | grep `D_0013A5E0 +` |
+| `D_0013A5E0` | base symbol overlay code addresses globals from: `+0x2460` = the pad; `+0x2600`, `+0x2604`, `+0x2634`, `+0x2610` are also used (flags at +0x2600 tested for 0x2/0x8 in `func_L00_00229348`, `src/overlays/shared/hero_vehicle_and_collision.c`). What lives at 0x0013A5E0 itself is not established. | grep `D_0013A5E0 +` |
 | `D_0015EE84` | current level index (0..18 for the 19 level overlays, inferred; s32, also read as s16) | `#define current_level_index` in `src/game/space.c:1693`; `1 << D_0015EE84` level masks in vendor code; `% 19` table index in `src/game/pause.c` |
 | `D_0015EEB0` | cheat flags, 8 bytes ("gCheats"); `D_0015EEB4` = mirrored levels | names.tsv; `src/game/pad.c` |
 | `D_0015EE98` | bolts ("gBolts") | names.tsv |

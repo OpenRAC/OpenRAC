@@ -14,29 +14,29 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
-extern char D_00152470[];
-extern int func_00119088();
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
+extern char locale_lconv[];
+extern int libc_glue_read();
 extern long func_00116108_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00116108");
 extern long func_001188C8_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_001188C8");
 extern long func_00114518_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00114518");
-extern int func_00112468(int *errOut, int arg1);
-extern int func_00114060(int, void *);
-extern void func_00113AE0(void *);
-extern void func_00117118(void *, void *, int, int);
-extern int func_00119008();
-extern int D_0012FCF0 NOT_SDA;
+extern int _close_r(int *errOut, int arg1);
+extern int __sfvwrite(int, void *);
+extern void __sinit(void *);
+extern void _vfprintf_r(void *, void *, int, int);
+extern int libc_glue_write();
+extern int CoreGlobalWord NOT_SDA;
 
 ASM_FUNC("asm/handwritten/core_text", func_00119328);
 
@@ -57,37 +57,37 @@ typedef struct {
     TopThreadEntry entries[0x200];
 } TopThreadContext;
 
-extern int D_00154600;
-extern char D_001527E8[];
-extern int func_00118CB0(int);
-extern int func_00118C10(int);
-extern int func_00118BC0(int);
-extern int func_00118C40(int);
-extern int func_0011A690(const char *, ...);
+extern int top_thread_semaphore;
+extern char top_thread_bad_request_message[];
+extern int wait_semaphore(int);
+extern int WakeupThread(int);
+extern int rotate_thread_ready_queue(int);
+extern int SuspendThread(int);
+extern int kprintf(const char *, ...);
 
-/* topThread: kernel service dispatcher. Adapted from Lombyte (GPL-3.0) for PAL. */
-void func_001194C8(void *arg0) {
+/* topThread: kernel service dispatcher. Adapted from Lombyte's project (GPL-3.0) for PAL. */
+void topThread(void *arg0) {
     TopThreadContext *ctx = (TopThreadContext *)arg0;
     int i;
     unsigned char type;
 
     for (;;) {
-        func_00118CB0(top_thread_semaphore);
+        wait_semaphore(top_thread_semaphore);
         i = ctx->counter & 0x1FF;
         ctx->counter = i + 1;
         type = ctx->entries[i].type;
         switch (type) {
         case 0:
-            func_00118C10(ctx->entries[i].id);
+            WakeupThread(ctx->entries[i].id);
             break;
         case 1:
-            func_00118BC0(ctx->entries[i].id);
+            rotate_thread_ready_queue(ctx->entries[i].id);
             break;
         case 2:
-            func_00118C40(ctx->entries[i].id);
+            SuspendThread(ctx->entries[i].id);
             break;
         default:
-            func_0011A690(D_001527E8);
+            kprintf(top_thread_bad_request_message);
             break;
         }
     }
@@ -112,15 +112,15 @@ void func_001194C8(void *arg0) {
  * with the store in the bltz slot. Under 2.95.3 the CreateThread failure
  * block is laid out after the success path (48/212, same size).
  */
-extern int func_00118C70(void *);
-extern int func_00118B50(void *);
-extern int func_00118B70(int, void *);
-extern int func_00118BA0(int, int);
-extern void func_001194C8(void *);
-extern int D_0012FCF8;
-extern char D_00154200[];
-extern char D_00166D00[];
-extern int D_00154608[];
+extern int create_semaphore(void *);
+extern int create_thread(void *);
+extern int start_thread(int, void *);
+extern int change_thread_priority(int, int);
+extern void topThread(void *);
+extern int top_thread_id;
+extern char top_thread_stack[];
+extern char gp_base[];
+extern int top_thread_queue[];
 
 typedef struct {
     int status;
@@ -146,7 +146,7 @@ typedef struct {
     unsigned int option;
 } SemaParam_1195A0;
 
-int func_001195A0(void) {
+int InitThread(void) {
     ThreadParam_1195A0 tp;
     SemaParam_1195A0 sp;
     int tid;
@@ -156,25 +156,25 @@ int func_001195A0(void) {
     }
     sp.maxCount = 0xFF;
     sp.initCount = 0;
-    top_thread_semaphore = func_00118C70(&sp);
+    top_thread_semaphore = create_semaphore(&sp);
     if (top_thread_semaphore < 0) {
         return -1;
     }
-    tp.entry = func_001194C8;
-    tp.stack = D_00154200;
+    tp.entry = topThread;
+    tp.stack = top_thread_stack;
     tp.stackSize = 0x400;
-    tp.gpReg = D_00166D00;
+    tp.gpReg = gp_base;
     tp.initPriority = 0;
-    tid = func_00118B50(&tp);
+    tid = create_thread(&tp);
     top_thread_id = tid;
     if (tid < 0) {
-        func_00118C80(top_thread_semaphore);
+        delete_semaphore(top_thread_semaphore);
         return -1;
     }
     top_thread_queue[0] = 0;
     top_thread_queue[1] = 0;
-    func_00118B70(tid, top_thread_queue);
-    func_00118BA0(func_00118BE0(), 1);
+    start_thread(tid, top_thread_queue);
+    change_thread_priority(get_thread_id(), 1);
     return top_thread_id;
 }
 
@@ -182,10 +182,10 @@ ASM_FUNC("asm/handwritten/core_text", func_00119678);
 
 LINKER_REMNANT("asm/remnants/core_text", func_00119710);
 
-extern int D_00154A10;
+extern int deci2_open_work_area;
 /* Deci2Call (syscall 0x7C) returns the result; the file's later
    `extern void func_00118E90(int, void *)` drops it, hence the alias. */
-extern int func_00118E90_ret(int, void *) __asm__("func_00118E90");
+extern int Deci2Call_ret(int, void *) __asm__("func_00118E90");
 
 /* libkernel sceDeci2Open(protocol, opt, handler): Deci2Call(1, {protocol,
    opt, handler, uncached &D_00154A10}). Returning the call's value is
@@ -194,54 +194,54 @@ extern int func_00118E90_ret(int, void *) __asm__("func_00118E90");
 /* sceDeci2Open: returns Deci2Call's int result (func_00118E90 is
    Deci2Call, declared void in this file, so it is reached through an
    alias). */
-int func_00119718(unsigned short arg0, void *arg1, void *arg2) {
+int sceDeci2Open(unsigned short arg0, void *arg1, void *arg2) {
     unsigned int buf[4];
 
     buf[0] = arg0;
     buf[1] = (unsigned int)arg1;
     buf[2] = (unsigned int)arg2;
-    buf[3] = (unsigned int)&D_00154A10 | 0x20000000;
-    return func_00118E90_ret(1, buf);
+    buf[3] = (unsigned int)&deci2_open_work_area | 0x20000000;
+    return Deci2Call_ret(1, buf);
 }
 
 LINKER_REMNANT("asm/remnants/core_text", func_00119760);
 
-extern void func_00118E90(int arg0, void *arg1);
+extern void Deci2Call(int arg0, void *arg1);
 
-void func_00119768(int arg0, signed char arg1) {
+void sceDeci2ReqSend(int arg0, signed char arg1) {
     int buf[4];
     buf[0] = arg0;
     buf[1] = arg1;
-    func_00118E90(0x3, buf);
+    Deci2Call(0x3, buf);
 }
 
 
-void func_00119798(int arg0) {
+void sceDeci2Poll(int arg0) {
     int local = arg0;
-    func_00118E90(0x4, &local);
+    Deci2Call(0x4, &local);
 }
 
-void func_001197C0(int arg0, int arg1, unsigned short arg2) {
+void isceDeci2ExRecv(int arg0, int arg1, unsigned short arg2) {
     int buf[4];
     buf[0] = arg0;
     buf[1] = arg1;
     buf[2] = arg2;
-    func_00118E90(-0x5, buf);
+    Deci2Call(-0x5, buf);
 }
 
-void func_001197F8(int arg0, int arg1, unsigned short arg2) {
+void isceDeci2ExSend(int arg0, int arg1, unsigned short arg2) {
     int buf[4];
     buf[0] = arg0;
     buf[1] = arg1;
     buf[2] = arg2;
-    func_00118E90(-0x6, buf);
+    Deci2Call(-0x6, buf);
 }
 
 LINKER_REMNANT("asm/remnants/core_text", func_00119830);
 
-void func_00119840(int arg0) {
+void kputs(int arg0) {
     int local = arg0;
-    func_00118E90(0x10, &local);
+    Deci2Call(0x10, &local);
 }
 
 INCLUDE_ASM("asm/nonmatchings/core_text", func_00119864);

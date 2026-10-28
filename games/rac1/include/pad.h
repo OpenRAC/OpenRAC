@@ -6,7 +6,7 @@
  * the private copies candidates carried to land without clashing with
  * their files.
  *
- * Adapted from Lombyte (GPL-3.0), the US decompilation:
+ * Adapted from Lombyte's project (GPL-3.0), the US decompilation:
  * include/rnc/input/pad_state.h at 42adb529, refreshed from the NTSC decomp
  * (the same project, GPL-3.0) at 4e1f255e. Function and data names in
  * the comments are Lombyte's, from the US build. See THIRD_PARTY_NOTICES.md.

@@ -21,12 +21,12 @@ typedef struct {
     u8 f0e;
     u8 f0f;
 } L00Entry;
-extern L00Entry D_00165580[8];
-extern f32 func_001FA888(s32);
-extern s32 func_001FA898(f32);
-extern f32 func_001F9F90(f32);
+extern L00Entry actuator_wave[8];
+extern f32 IntToFloat(s32);
+extern s32 truncate_float_to_s32(f32);
+extern f32 FastCos(f32);
 
-/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/start_001eaa08.c, FUN_L00_001eaa08. */
+/* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/start_001eaa08.c, FUN_L00_001eaa08. */
 s32 actuator_CalcPower(s32 *p1)
 {
     s32 aa[3][4];
@@ -134,13 +134,14 @@ s32 actuator_CalcPower(s32 *p1)
 
 LINKER_REMNANT("asm/remnants/text", func_001E94A0);
 
-extern int D_0015EF8C MACRO_ADDR;
-extern int D_0015F020 MACRO_ADDR;
-extern short D_0015EF74;
+extern int g_gs_texture_allocation_base MACRO_ADDR;
+extern int texture_alloc_counter MACRO_ADDR;
+extern short g_gs_texture_allocation_cursor;
 
+/* Reset the texture allocation count and the GS texture allocation cursor. */
 void initialize_streaming_state(void) {
     texture_alloc_counter = 0;
-    *(int *)&D_0015EF74 = D_0015EF8C;
+    *(int *)&g_gs_texture_allocation_cursor = g_gs_texture_allocation_base;
 }
 __asm__(".section .text
 	nop

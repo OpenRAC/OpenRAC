@@ -38,15 +38,15 @@ int voBufIsFull(VoBuf *vb) {
     return vb->count == vb->cap;
 }
 /* Updates or queries the decoded-frame ring. */
-extern int func_0011D960(void);
-extern void func_0011D9A8(void);
+extern int disable_interrupts(void);
+extern void enable_interrupts(void);
 /* voBufIncCount(VoBuf *) */
 void voBufIncCount(VoBuf *vb) {
-    func_0011D960();
+    disable_interrupts();
     *(int *)(vb->data + vb->wr * 0x138C0) = 2;
     vb->count++;
     vb->wr = (vb->wr + 1) % vb->cap;
-    func_0011D9A8();
+    enable_interrupts();
 }
 /* voBufGetData(VoBuf *) */
 char *voBufGetData(VoBuf *vb) {

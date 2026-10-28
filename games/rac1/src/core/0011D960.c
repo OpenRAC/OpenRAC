@@ -13,82 +13,82 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
-extern void *D_0012F86C NOT_SDA;
-extern int func_001162B8(void *arg0, void *arg1, void *arg2);
-extern int func_00116320(void *arg0, void *arg1, void *arg2);
-extern long func_001163A0(void *arg0, void *arg1, void *arg2);
-extern void func_00116408(void *arg0);
-extern void func_00113968(void);
-extern void func_00114438(void *, void *);
-extern char D_00152470[];
-extern int func_00119088();
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
+extern void *_impure_ptr NOT_SDA;
+extern int __sread(void *arg0, void *arg1, void *arg2);
+extern int __swrite(void *arg0, void *arg1, void *arg2);
+extern long __sseek(void *arg0, void *arg1, void *arg2);
+extern void __sclose(void *arg0);
+extern void libc_fflush(void);
+extern void _fwalk(void *, void *);
+extern char locale_lconv[];
+extern int libc_glue_read();
 extern long func_00116108_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00116108");
 extern long func_001188C8_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_001188C8");
 extern long func_00114518_wide(int *errOut, void *a, void *b, void *c)
     __asm__("func_00114518");
-extern int func_00112468(int *errOut, int arg1);
-extern int func_00114060(int, void *);
-extern void func_00113AE0(void *);
-extern void func_00117118(void *, void *, int, int);
-extern int func_00119008();
-extern int D_0012FCF0 NOT_SDA;
-extern void func_00118E90(int arg0, void *arg1);
-extern void *D_00154A40 NOT_SDA;
-extern int D_00155080[];
-extern void func_001193F8(int);
-extern void func_00118AD0(int, int);
-extern int D_00154F54;
-extern int D_0012FD04;
-extern int D_00154F64 NOT_SDA;
-extern int D_00154F6C NOT_SDA;
-extern void func_0011AA90(int, int, int, int, int, int, int);
-extern void func_0011AA00(void);
-extern int D_0012FD08 NOT_SDA;
-extern int func_0011D960(void);
-extern void func_0011D9A8(void);
-extern int D_0012FDA0;
-extern int D_0012FDA4;
-extern char D_00157E80[];
-extern int D_0012FD9C;
-extern void func_0011BBF0(void);
-extern int D_0012FD9C NOT_SDA;
-extern char D_0012FCEC[];
-extern char D_001580A8[];
-extern int D_0012FDA8;
-extern void func_001153FC(void *, int, int);
-extern int D_0012FD94;
-extern int D_0012FDAC;
-extern char D_00158140[];
-extern int D_00158180;
-extern int D_001581C0;
-extern char D_00158528[];
-extern int D_0012FDB4;
-extern int func_0011CE70(int arg0, int arg1, int arg2, void *arg3);
-extern void func_00118EC0(void);
-extern void func_0011D4E0(void);
-extern void func_00118EB0(void);
+extern int _close_r(int *errOut, int arg1);
+extern int __sfvwrite(int, void *);
+extern void __sinit(void *);
+extern void _vfprintf_r(void *, void *, int, int);
+extern int libc_glue_write();
+extern int CoreGlobalWord NOT_SDA;
+extern void Deci2Call(int arg0, void *arg1);
+extern void *InitBlockData NOT_SDA;
+extern int sif_sregs[];
+extern void disable_dmac_atomic(int);
+extern void remove_dmac_handler(int, int);
+extern int sif_cmd_dmac_handler_id;
+extern int sif_cmd_init_done;
+extern int sif_cmd_data_sys_handlers NOT_SDA;
+extern int sif_cmd_data_usr_handlers NOT_SDA;
+extern void sif_send_cmd_common(int, int, int, int, int, int, int);
+extern void sceSifExitCmd(void);
+extern int RpcCommandState NOT_SDA;
+extern int disable_interrupts(void);
+extern void enable_interrupts(void);
+extern int fs_iob_sema;
+extern int fs_iob_sema_2;
+extern char fs_iob_table[];
+extern int fs_call_sema;
+extern void fs_call_sema_init(void);
+extern int fs_call_sema NOT_SDA;
+extern char sif_lib_version_string[];
+extern char FsResetBuffer[];
+extern int fs_expected_version;
+extern void libc_memset(void *, int, int);
+extern int FsResetState;
+extern int iop_heap_bind_state;
+extern char iop_heap_rpc_client[];
+extern int iop_heap_rpc_reply;
+extern int iop_heap_rpc_arg;
+extern char lf_iop_version[];
+extern int lf_expected_version;
+extern int _sceSifLoadModuleBuffer(int arg0, int arg1, int arg2, void *arg3);
+extern void tty_reset_init_flag(void);
+extern void init_tlb_32mb(void);
+extern void kernel_init_tlb(void);
 
 ASM_FUNC("asm/handwritten/core_text", func_0011D960);
 
 ASM_FUNC("asm/handwritten/core_text", func_0011D9A8);
 
-extern int func_00118C70(void *);
-extern int D_00130420;
-extern int D_00130424;
+extern int create_semaphore(void *);
+extern int FirstSemaphore;
+extern int SecondSemaphore;
 
-void func_0011D9C0(void) {
+void supplement_crt0(void) {
     int a[8];
     int b[8];
     a[1] = 1;
     a[2] = 1;
     b[1] = 1;
     b[2] = 1;
-    FirstSemaphore = func_00118C70(a);
-    SecondSemaphore = func_00118C70(b);
+    FirstSemaphore = create_semaphore(a);
+    SecondSemaphore = create_semaphore(b);
 }
 
 /*
@@ -101,7 +101,7 @@ void func_0011D9C0(void) {
  * unfilled). Under 2.95.3 reorg sinks `dst++` into the slot, 52 bytes
  * against 56, which is what kept this a stub.
  */
-int func_0011DA08(int *dst, int *src, unsigned int nbytes) {
+int kCopy(int *dst, int *src, unsigned int nbytes) {
     unsigned int i;
     for (i = 0; i < nbytes >> 2; i++) {
         *dst++ = *src++;
@@ -112,7 +112,7 @@ int func_0011DA08(int *dst, int *src, unsigned int nbytes) {
 /* kFindAddress (libkernl.a:initsys.o): scan the words from p up to, not
  * including, end for val; returns the matching address, or 0 if the scan
  * reaches end. */
-int *func_0011DA40(int *p, int *end, int val) {
+int *kFindAddress(int *p, int *end, int val) {
     while (*p != val && p < end)
         p++;
     if (!(p < end))
@@ -124,10 +124,10 @@ ASM_FUNC("asm/handwritten/core_text", func_0011DA80);
 
 LINKER_REMNANT("asm/remnants/core_text", func_0011DA90);
 
-extern void func_0011DB98(int, int);
-extern int func_0011DA80(int, int, void *);
-extern int D_00130410[];
-extern int D_00130408;
+extern void initsys_set_syscall(int, int);
+extern int find_address(int, int, void *);
+extern int initsys_syscall_patch_table[];
+extern int initsys_kernel_scan_address;
 
 /* InitSystemCallTableAddress (libkernl.a:initsys.o): patches two kernel
    entry points found by scanning for known function bodies
@@ -139,49 +139,49 @@ extern int D_00130408;
    bytes -- whichever trails -- until they land on the same address) in
    D_00130408. `a`/`b` have to be unsigned: retail's convergence test is
    `sltu`. */
-void func_0011DA98(void) {
+void InitSystemCallTableAddress(void) {
     unsigned int a, b;
     int p1, p2;
 
-    func_0011DB98(D_00130410[0], D_00130410[1]);
-    func_0011DB98(D_00130410[2], D_00130410[3]);
+    initsys_set_syscall(initsys_syscall_patch_table[0], initsys_syscall_patch_table[1]);
+    initsys_set_syscall(initsys_syscall_patch_table[2], initsys_syscall_patch_table[3]);
 
-    p1 = func_0011DA80(0x80000000, 0x80080000, (void *)func_0011DA40);
-    p2 = func_0011DA80(0x80000000, 0x80080000, (void *)func_0011DA08);
+    p1 = find_address(0x80000000, 0x80080000, (void *)kFindAddress);
+    p2 = find_address(0x80000000, 0x80080000, (void *)kCopy);
     a = p1 - 0x20C;
     b = p2 - 0x168;
     while (a != b) {
         if (a < b) {
-            p1 = func_0011DA80(p1 + 4, 0x80080000, (void *)func_0011DA40);
+            p1 = find_address(p1 + 4, 0x80080000, (void *)kFindAddress);
             a = p1 - 0x20C;
         } else {
-            p2 = func_0011DA80(p2 + 4, 0x80080000, (void *)func_0011DA08);
+            p2 = find_address(p2 + 4, 0x80080000, (void *)kCopy);
             b = p2 - 0x168;
         }
     }
-    D_00130408 = a;
+    initsys_kernel_scan_address = a;
 }
 
 ASM_FUNC("asm/handwritten/core_text", func_0011DB98);
 
-extern void func_0011D9C0(void);
-extern void func_0011DA98(void);
-extern void func_0011DE38(void);
-extern void func_001195A0(void);
-extern void func_0011DCB8(void);
-extern void func_0011D3C8(void);
+extern void supplement_crt0(void);
+extern void InitSystemCallTableAddress(void);
+extern void InitAlarm(void);
+extern void InitThread(void);
+extern void InitExecPS2(void);
+extern void InitTLBFunctions(void);
 
 /* _InitSys (libkernl.a:initsys.o): the kernel's one-shot startup sequence,
    run once from the crt0 supplement. Chains six sub-system initialisers;
    the last (InitTLBFunctions, func_0011D3C8) is a tail call since this is
    void and it is the final statement. */
-void func_0011DBA8(void) {
-    func_0011D9C0();
-    func_0011DA98();
-    func_0011DE38();
-    func_001195A0();
-    func_0011DCB8();
-    func_0011D3C8();
+void _InitSys(void) {
+    supplement_crt0();
+    InitSystemCallTableAddress();
+    InitAlarm();
+    InitThread();
+    InitExecPS2();
+    InitTLBFunctions();
 }
 
 INCLUDE_ASM("asm/nonmatchings/core_text", func_0011DBE4);

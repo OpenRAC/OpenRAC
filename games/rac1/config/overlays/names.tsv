@@ -180,7 +180,7 @@ func_L02_002ED8F0	UpdateMoby_1212:02/09
 func_L02_002EE250	UpdateMoby_1213:02/09,UpdateMoby_1973:10
 func_L02_002EFCC8	UpdateMoby_1324:02
 func_L02_002F0458	UpdateMoby_1479:02
-func_L02_002F3398	UpdateMoby_1819:02,UpdateMoby_1827:03,UpdateMoby_1834:04,UpdateMoby_1844:08,UpdateMoby_1849:09,UpdateMoby_1859:11,UpdateMoby_1862:12
+func_L02_002F3398	UpdateMoby_1819:02
 func_L02_002FD6D0	InitCamera_18:02/03/06/07/08/12/18
 func_L03_00294040	UpdateMoby_822:03
 func_L03_00295DB0	UpdateMoby_868:03,UpdateMoby_905:03,UpdateMoby_928:03
@@ -195,7 +195,7 @@ func_L03_002CB280	UpdateMoby_578:03
 func_L03_002CD270	UpdateMoby_627:03
 func_L03_002CDDC8	UpdateMoby_631:03/07
 func_L03_002D4560	UpdateMoby_816:03
-func_L03_002D50A0	UpdateMoby_817:03,UpdateMoby_1686:07
+func_L03_002D50A0	UpdateMoby_817:03
 func_L03_002D5220	UpdateMoby_825:03
 func_L03_002D5790	UpdateMoby_833:03
 func_L03_002D5B88	UpdateMoby_848:03/07/15
@@ -206,12 +206,13 @@ func_L03_002DC920	UpdateMoby_909:03
 func_L03_002DD158	UpdateMoby_914:03
 func_L03_002DD6D8	UpdateMoby_915:03/10,UpdateMoby_916:03,UpdateMoby_917:03
 func_L03_002DD840	UpdateMoby_447:07/13,UpdateMoby_920:03/05/07/17
-func_L03_002DDD78	UpdateMoby_994:03,UpdateMoby_1260:14
-func_L03_002DDDF8	UpdateMoby_353:10,UpdateMoby_997:03
+func_L03_002DDD78	UpdateMoby_994:03
+func_L03_002DDDF8	UpdateMoby_997:03
 func_L03_002DE088	UpdateMoby_1012:03
 func_L03_002DF738	UpdateMoby_1221:03/07/12/15,UpdateMoby_1222:03/07/12/15
 func_L03_002E08E8	UpdateMoby_1342:03
 func_L03_002E1598	UpdateMoby_1548:03
+func_L03_002E3D10	UpdateMoby_1827:03
 func_L03_002E9C38	InitCamera_1:03/04
 func_L03_002E9D48	ExitCamera_1:03/04
 func_L03_002ECD40	ActivateCamera_14:03
@@ -239,6 +240,7 @@ func_L04_002E4458	UpdateMoby_1190:04
 func_L04_002E57F8	UpdateMoby_1343:04
 func_L04_002E6558	UpdateMoby_1516:04
 func_L04_002E6780	UpdateMoby_1549:04
+func_L04_002E8D88	UpdateMoby_1834:04
 func_L05_002D28D0	UpdateMoby_35:05
 func_L05_002D8388	UpdateMoby_79:05
 func_L05_002DBF10	UpdateMoby_133:05
@@ -309,8 +311,9 @@ func_L06_00309170	UpdateMoby_1302:06/10
 func_L06_003097F0	UpdateMoby_1348:06
 func_L06_0030A0A8	UpdateMoby_1512:06
 func_L06_0030A788	UpdateMoby_1551:06
-func_L06_0030ACA0	UpdateMoby_1650:07,UpdateMoby_1655:06,UpdateMoby_1663:07,UpdateMoby_1677:07
-func_L06_0030B248	UpdateMoby_1660:06,UpdateMoby_1664:06
+func_L06_0030ACA0	UpdateMoby_1655:06
+func_L06_0030B248	UpdateMoby_1660:06
+func_L06_0030B3E8	UpdateMoby_1664:06
 func_L06_0030D2A0	UpdateMoby_1898:06/18
 func_L07_002CE470	UpdateMoby_38:07
 func_L07_002CECE8	UpdateMoby_1474:07
@@ -341,6 +344,9 @@ func_L07_0031C2B0	UpdateMoby_104:13,UpdateMoby_106:13,UpdateMoby_1129:07
 func_L07_0031C7C0	UpdateMoby_1133:07
 func_L07_0031E6B0	UpdateMoby_1142:07
 func_L07_0031FF78	UpdateMoby_1552:07
+func_L07_003207A8	UpdateMoby_1650:07
+func_L07_00320980	UpdateMoby_1663:07,UpdateMoby_1677:07
+func_L07_00320B50	UpdateMoby_1686:07
 func_L07_00320CD0	UpdateMoby_1789:07
 func_L08_002B94B0	UpdateMoby_152:08
 func_L08_002D36F8	UpdateMoby_248:08
@@ -376,6 +382,7 @@ func_L08_00309998	UpdateMoby_1553:08
 func_L08_00309AB0	UpdateMoby_1629:08/14
 func_L08_0030A150	UpdateMoby_1641:08
 func_L08_0030AC70	UpdateMoby_1649:08
+func_L08_0030D0C0	UpdateMoby_1844:08
 func_L08_00318468	SoundFunc_4:08/14
 func_L09_002C3858	UpdateMoby_1182:09,UpdateMoby_1183:09,UpdateMoby_1184:09,UpdateMoby_1185:09,UpdateMoby_1186:09,UpdateMoby_1187:09,UpdateMoby_1188:09,UpdateMoby_1189:09
 func_L09_002C6B30	UpdateMoby_52:09/16
@@ -397,6 +404,7 @@ func_L09_00309118	UpdateMoby_1258:09/10
 func_L09_00309688	UpdateMoby_1285:09,UpdateMoby_1286:09,UpdateMoby_1287:09,UpdateMoby_1288:09
 func_L09_0030A560	UpdateMoby_1293:09,UpdateMoby_1320:09
 func_L09_0030AFB8	UpdateMoby_1766:09
+func_L09_0030BA28	UpdateMoby_1849:09
 func_L09_0030BF88	UpdateMoby_1885:09/13
 func_L09_0030C7F0	UpdateMoby_1886:09/13
 func_L10_00296BD8	UpdateMoby_1033:10
@@ -404,6 +412,7 @@ func_L10_00296DC0	UpdateMoby_1117:10
 func_L10_00299818	UpdateMoby_18:10
 func_L10_00299D18	UpdateMoby_22:10
 func_L10_002BFBB8	UpdateMoby_351:10,UpdateMoby_1301:10
+func_L10_002C0348	UpdateMoby_353:10
 func_L10_002C8DE0	UpdateMoby_702:10
 func_L10_002CB030	UpdateMoby_794:10
 func_L10_002CD6A8	UpdateMoby_819:10/11/15/17
@@ -468,6 +477,7 @@ func_L11_00319FA0	UpdateMoby_1297:11
 func_L11_0031ACA8	UpdateMoby_1319:11
 func_L11_0031BEF0	UpdateMoby_1350:11
 func_L11_0031BF78	UpdateMoby_1524:11
+func_L11_0031EC48	UpdateMoby_1859:11
 func_L11_0031F760	UpdateMoby_1903:11
 func_L11_003205C0	UpdateMoby_1919:11
 func_L12_002C0310	UpdateMoby_19:12
@@ -492,6 +502,7 @@ func_L12_00309590	UpdateMoby_1345:12
 func_L12_00309CF8	UpdateMoby_1371:12/15
 func_L12_0030A7A8	UpdateMoby_1404:12
 func_L12_0030A880	UpdateMoby_1557:12
+func_L12_0030CAA8	UpdateMoby_1862:12
 func_L12_0030D3D0	UpdateMoby_1901:12
 func_L13_002B2020	UpdateMoby_6:13
 func_L13_002B4B90	UpdateMoby_21:13,UpdateMoby_244:13
@@ -559,6 +570,7 @@ func_L14_00300468	UpdateMoby_924:14
 func_L14_00300AC8	UpdateMoby_933:14/16
 func_L14_00302288	UpdateMoby_1193:14
 func_L14_00302A58	UpdateMoby_1224:14/15/17
+func_L14_003047F8	UpdateMoby_1260:14
 func_L14_00304E68	UpdateMoby_1331:14/15
 func_L14_00306890	UpdateMoby_1352:14
 func_L14_00306BE0	UpdateMoby_1354:14

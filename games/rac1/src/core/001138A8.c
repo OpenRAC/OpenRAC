@@ -10,13 +10,13 @@
  */
 
 /* Declarations in scope here before the split. */
-extern long func_00116F68(int arg0, int arg1, int arg2);
-extern int D_0015ED10;
+extern long strtol(int arg0, int arg1, int arg2);
+extern int SbrkErrno;
 
-extern void *D_0012F86C NOT_SDA;
+extern void *_impure_ptr NOT_SDA;
 
-int func_001138A8(void) {
-    return (int)D_0012F86C;
+int __errno(void) {
+    return (int)_impure_ptr;
 }
 
 INCLUDE_ASM("asm/nonmatchings/core_text", func_001138B4);
