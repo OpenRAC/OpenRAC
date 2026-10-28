@@ -129,6 +129,13 @@ int main(int argc, char** argv) {
     check("a kernel call: its argument is compared", fcheck, dir, "sceCdSync", flush,
           function({addiu(v1, zero, 0x64), addiu(a0, zero, 2)}, true), 1);
 
+    // A retail run that jumps to address 0 (here on its first pass) slides through the empty
+    // memory below the program into it again and returns by chance: no reference, skipped.
+    u32 beq_a1 = (4u << 26) | (a1 << 21) | 3;  // beq a1, zero, +3 (to the jr ra)
+    u32 jr_zero = 8, clear_a1 = (a1 << 11) | 0x2D;  // jr zero; daddu a1, zero, zero
+    check("a retail run that jumps below the program is skipped", fcheck, dir, "sceCdSync",
+          {beq_a1, kNop, jr_zero, clear_a1, kJrRa, kNop}, {kJrRa, kNop}, 4);
+
     std::printf("%s\n", failures ? "FAILED" : "all passed");
     return failures ? 1 : 0;
 }

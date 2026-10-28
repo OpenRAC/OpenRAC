@@ -35,6 +35,9 @@ using namespace ps2;
 
 namespace {
 
+/** Where the games' programs start in memory; below are the kernel's area and the candidate. */
+constexpr u32 kProgramStart = 0x00100000;
+
 /** The most instructions a call may take before it counts as not returning. */
 u64 kLimit = 200'000'000;
 
@@ -91,6 +94,7 @@ int kernel_inputs(int number) {
 struct Result {
     bool returned = false;
     u64 instructions = 0, misaligned = 0;
+    u32 lowest_jump = ~0u;
     std::array<Ee::Reg, 32> gpr{};
     std::array<u32, 32> fpr{};
     std::vector<u8> ram, scratchpad;
@@ -285,6 +289,7 @@ int main(int argc, char** argv) {
         ee.next_pc = start + 4;
         log = &r.outside;
 
+        ee.lowest_jump = ~0u;
         Ee::Call call = ee.begin_call(start);
         while (!r.returned && r.instructions < limit) {
             r.returned = ee.run_call(1'000'000);
@@ -296,6 +301,7 @@ int main(int argc, char** argv) {
         r.gpr = ee.gpr;
         r.fpr = ee.fpr;
         r.misaligned = ee.misaligned;
+        r.lowest_jump = ee.lowest_jump;
         r.ram.assign(machine->memory.ram(0), machine->memory.ram(0) + GuestMemory::kRamBytes);
         r.scratchpad.assign(machine->memory.scratchpad(0),
                             machine->memory.scratchpad(0) + GuestMemory::kScratchpadBytes);
@@ -331,6 +337,17 @@ int main(int argc, char** argv) {
             std::printf("%s: SKIPPED (the retail function did not return within %llu instructions)\n",
                         path.c_str(), static_cast<unsigned long long>(kLimit));
             skipped_in_a_row++;
+            continue;
+        }
+        /*
+         * Retail jumped below the program, into the kernel's area at the bottom of memory where
+         * no code of the game is (the candidate's place): it went astray, as when a call needs
+         * what a state does not hold (the second processor's memory) and takes a path that
+         * returns to nowhere. Such a run is no reference, though it may come back by chance.
+         */
+        if (retail.lowest_jump < kProgramStart) {
+            std::printf("%s: SKIPPED (the retail function went astray: it jumped to %08x, below the program)\n",
+                        path.c_str(), retail.lowest_jump);
             continue;
         }
         skipped_in_a_row = 0;

@@ -317,6 +317,9 @@ public:
     /** True once the program counter left memory: the program is lost. */
     bool lost = false;
 
+    /** The lowest address a jump went to since it was last set (to all ones), for openrac-fcheck. */
+    u32 lowest_jump = ~0u;
+
     /**
      * Gives the last jumps (from, to), oldest first, to see how the program got lost.
      *
@@ -525,7 +528,10 @@ private:
      * @param from The address of the jump instruction.
      * @param to The address it jumps to.
      */
-    void note_jump(u32 from, u32 to) { jumps_[jump_next_++ & 15] = {from, to}; }
+    void note_jump(u32 from, u32 to) {
+        jumps_[jump_next_++ & 15] = {from, to};
+        lowest_jump = to < lowest_jump ? to : lowest_jump;
+    }
 
     /** The value `cycles` had when VU0 was last brought up to date. */
     u64 vu0_cycles_ = 0;
