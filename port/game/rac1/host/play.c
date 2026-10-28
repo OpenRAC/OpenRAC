@@ -28,9 +28,9 @@
  * save: NewGameInit's fresh state (func_00209DC0), then the save restored over it
  * (memcard_RestoreGame, func_00209CE8, with the port's options kept: options.c) from a copy in
  * game memory, the level its own, and the same start as a new game's (0x13E15A, the title's exit).
- * A travel is what Quit Game does with a level in place of -1: the level asked for
- * (initialize_global_state_entry, func_0022F4A0) and the level loop told to end
- * (level_loop_exit_requested, D_L00_0015F650), whose end runs DoSpaceTransition to it.
+ * A travel is what Quit Game does (to -1, the title), or the same with a level in place of -1:
+ * the level asked for (initialize_global_state_entry, func_0022F4A0) and the level loop told to
+ * end (level_loop_exit_requested, D_L00_0015F650), whose end runs DoSpaceTransition to it.
  *
  * Saves. A save file of the memory card (memcard_MakeWholeSave's layout, func_0020BA00): the sizes
  * of its game part and of each of its 20 level parts, then the game part, whose first blocks are
@@ -272,10 +272,9 @@ static int key_distance(int from, int to, int frames) {
     return frames - d < d ? frames - d : d;
 }
 
-static void figure_pose(gaddr moby, const openrac_game_pose* pose) {
-    if (!figure_alive(moby)) {
-        return;
-    }
+/* A moby put in a pose (rac1.h): its place, rotation and scale, and its animation, blended into a
+ * new seq and put back on the pose's key when it drifts. */
+void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose) {
     for (unsigned i = 0; i < 3; ++i) {
         GREF(float, moby + MOBY_POS + 4u * i) = pose->position[i];
         GREF(float, moby + MOBY_ROT + 4u * i) = pose->rotation[i];
@@ -306,6 +305,12 @@ static void figure_pose(gaddr moby, const openrac_game_pose* pose) {
         GREF(float, moby + MOBY_ANIM_TIME) = pose->anim_time;
     }
     GREF(float, moby + MOBY_ANIM_SPEED) = pose->anim_speed;
+}
+
+static void figure_pose(gaddr moby, const openrac_game_pose* pose) {
+    if (figure_alive(moby)) {
+        rac1_pose_moby(moby, pose);
+    }
 }
 
 static void figure_remove(gaddr moby) {
@@ -384,7 +389,8 @@ static int start(int level, const uint8_t* save, uint32_t size) {
 }
 
 static int travel(int level) {
-    if (level < 0 || level >= LEVELS || !in_level()) {
+    /* -1 is the title, as Quit Game goes there. */
+    if (level < -1 || level >= LEVELS || !in_level()) {
         return 0;
     }
     func_0022F4A0(level);
@@ -428,4 +434,16 @@ const openrac_game_play rac1_play = {
     .save_file = "save%d.bin",
     .save_slots = 5,
     .save_info = save_info,
+    .mobys = rac1_world_mobys,
+    .moby_slot = rac1_world_moby_slot,
+    .moby_at = rac1_world_moby_at,
+    .slot_of = rac1_moby_slot,
+    .moby_pose = rac1_pose_moby,
+    .moby_kill = rac1_world_moby_kill,
+    .moby_spawn = rac1_world_moby_spawn,
+    .hero_slot = rac1_world_hero_slot,
+    .stand_in = rac1_world_stand_in,
+    .post_hit = rac1_world_post_hit,
+    .eyes = rac1_world_eyes,
+    .bolts = rac1_world_bolts,
 };

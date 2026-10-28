@@ -54,7 +54,37 @@ uint32_t rac1_program_loads(void);
 extern const openrac_front_end rac1_front_end;
 extern const char* const rac1_level_names[19];
 
-/* play.c: what the mods' play calls need of the game (game_host.h, interface 1.8). */
+/* play.c: what the mods' play calls need of the game (game_host.h, interfaces 1.8 and 1.9), and a
+ * moby put in a pose (a figure, or a moby of the world a mod drives). */
 extern const openrac_game_play rac1_play;
+void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
+
+/* world.c: the level's mobys for the mods (interface 1.9): a moby's slot in the array (-1 none),
+ * the mods' gate around each update (UpdateMobys, crash_state.c: 1 before it skips it), the hero's
+ * stand-in ended after the update, and the points besides the camera that keep mobys near them
+ * running (moby_pool.c's run list). */
+int32_t rac1_moby_slot(gaddr moby);
+int rac1_moby_gate(gaddr moby, int phase);
+void rac1_stand_in_end(void);
+int rac1_moby_eyes(const float** xyz);
+/* world.c's calls of play.c's table (game_host.h, openrac_game_play: the same names without
+ * rac1_world_). */
+int rac1_world_mobys(openrac_game_moby_state* out, int max);
+int32_t rac1_world_moby_slot(int32_t key);
+gaddr rac1_world_moby_at(int32_t slot);
+void rac1_world_moby_kill(gaddr moby);
+int32_t rac1_world_moby_spawn(int32_t oclass);
+int32_t rac1_world_hero_slot(void);
+void rac1_world_stand_in(const float position[3], gaddr moby);
+void rac1_world_post_hit(
+    gaddr victim,
+    gaddr attacker,
+    uint32_t mask,
+    float damage,
+    const float position[3],
+    const float velocity[3]
+);
+void rac1_world_eyes(const float* xyz, int count);
+int32_t rac1_world_bolts(int32_t add);
 
 #endif /* OPENRAC_RAC1_H */

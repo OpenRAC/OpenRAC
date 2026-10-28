@@ -17,6 +17,10 @@
  * from game memory then (oclass at +0xA6, the position at +0x10, the placement id at +0xB2: moby.h)
  * and only once the address is known to lie in main memory, which is always there.
  *
+ * The mods' gate around each update (world.c, interface 1.9) sits in the same loop: a moby a mod
+ * drives from another game is not updated (its animation and matrix steps still run), and one a
+ * mod updates with the hero standing in elsewhere gets the hero back after its update.
+ *
  * The camera: the camera block's position (D_00187040 + 0x140, gCamera; the level's copy while a
  * level is loaded: OPENRAC_DATA), sampled once a frame with the hero.
  */
@@ -57,8 +61,12 @@ void func_00213C78(void) {
                 func_0020E3D0(m);
             }
             const gaddr update = GREF(gaddr, m + MOBY_UPDATE);
-            if (update != 0) {
+            /* The mods' gate (world.c, interface 1.9): an update a mod skips (a moby it drives
+             * from another game), or runs with the hero standing in elsewhere, undone after. */
+            if (update != 0 && !rac1_moby_gate(m, 0)) {
                 GFN(void (*)(gaddr), update)(m);
+                rac1_moby_gate(m, 1);
+                rac1_stand_in_end();
             }
             if (!(GREF(unsigned short, m + MOBY_FLAGS) & 0x4)) {
                 func_0020ED48(m);

@@ -170,6 +170,20 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_0020BA00 game_FUN_0020abb0
 #define RAC1_ADDR_0x0015F6E4u 0x0015F600u
 #define RAC1_ADDR_L00_0x0015F650u 0x0015F570u
+/* The world (world.c): PAL PostHitMessage func_L00_0025AC00 is FUN_L00_00259bc8 here, whose C has
+ * the damage last (RAC1_POST_HIT_DAMAGE_LAST), and record_moby_hit func_L00_0025AAC0 is
+ * FUN_L00_00259a88 (the NTSC decomp's find_moby_hit.c); the hit ring, PAL D_L00_00178200, is
+ * D_L00_00178100 (its hero_check_damage.c), the file-order table, PAL D_L00_001ACB00, D_L00_001AC780
+ * (its load_level_gameplay.c's moby_index_remap), and the end of the placed mobys, PAL D_0016001C,
+ * 0x15FF1C (`exact`). */
+#define RAC1_POST_HIT_DAMAGE_LAST 1
+#define func_L00_0025AC00 game_FUN_L00_00259bc8
+#define func_L00_0025AC00__game game_FUN_L00_00259bc8__game
+#define func_L00_0025AAC0 game_FUN_L00_00259a88
+#define func_L00_0025AAC0__game game_FUN_L00_00259a88__game
+#define RAC1_ADDR_L00_0x00178200u 0x00178100u
+#define RAC1_ADDR_L00_0x001ACB00u 0x001AC780u
+#define RAC1_ADDR_0x0016001Cu 0x0015FF1Cu
 
 /* ---- generated below ---- */
 

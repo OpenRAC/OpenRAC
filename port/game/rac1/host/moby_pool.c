@@ -198,6 +198,22 @@ static gaddr target_add(gaddr tgt, int idx, unsigned mode) {
     return tgt;
 }
 
+/* Whether moby `m` is within `reach2` (its update distance, squared) of one of the mods' eyes
+ * (world.c). */
+static int near_an_eye(gaddr m, float reach2) {
+    const float* eyes;
+    const int count = rac1_moby_eyes(&eyes);
+    for (int i = 0; i < count; ++i) {
+        const float dx = GREF(float, m + MOBY_POS) - eyes[3 * i];
+        const float dy = GREF(float, m + MOBY_POS + 4) - eyes[3 * i + 1];
+        const float dz = GREF(float, m + MOBY_POS + 8) - eyes[3 * i + 2];
+        if (dx * dx + dy * dy + dz * dz <= reach2) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* build_resident_visibility_list: the tick's run lists and target list built; the first run list's
  * head, every slot's list chained after it. */
 gaddr func_0020E6B8(void) {
@@ -245,8 +261,9 @@ gaddr func_0020E6B8(void) {
             t = t - dx * dx;
             t = t - dy * dy;
             t = t - dz * dz;
-            /* Farther than its update distance from the camera. */
-            if (t < 0.0f) {
+            /* Farther than its update distance from the camera, and from every eye a mod set
+             * (world.c: other players, in the game that runs the world). */
+            if (t < 0.0f && !near_an_eye(m, d * d)) {
                 continue;
             }
         }

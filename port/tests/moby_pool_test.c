@@ -60,6 +60,12 @@ gaddr openrac_relocate_level_data(int from, gaddr a) {
     return a;
 }
 
+/* The mods' eyes for the run list (world.c): none in this test. */
+int rac1_moby_eyes(const float** xyz) {
+    *xyz = 0;
+    return 0;
+}
+
 static int warnings;
 
 void openrac_game_warn(const char* message) {
