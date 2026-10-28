@@ -1,0 +1,2 @@
+# fcheck verdicts for the rows of functional.tsv (tools/fcheck_gate.py writes this; docs/port/BACKFILL.md, "The gate"). Only status same is done.
+# name	status	date	fcheck	csum	note

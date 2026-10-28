@@ -172,12 +172,25 @@ public:
      *
      * @param address Entry address of the program's function.
      * @param service Name given to `add_service`.
+     * @param inputs How many argument registers (a0-a3, then t0-t3) the program's function takes,
+     *        or -1 when the table does not say. Only openrac-fcheck reads it.
      * @return False when no service has that name.
      */
-    bool hook(u32 address, const std::string& service);
+    bool hook(u32 address, const std::string& service, int inputs = -1);
 
     /**
-     * Reads a table of `address service` lines; '#' starts a comment.
+     * For a SYSCALL code: whether it is the mark of a hooked function and, when it is, how many
+     * argument registers that function takes (-1 when its table line does not say).
+     *
+     * @param code The SYSCALL's code field.
+     * @param[out] inputs The count; may be null.
+     * @return True for a hooked function's mark.
+     */
+    bool hooked_call(u32 code, int* inputs) const;
+
+    /**
+     * Reads a table of `address service [inputs=N]` lines; '#' starts a comment. `inputs=N` says
+     * how many argument registers the replaced function takes (for openrac-fcheck).
      *
      * @param path Host path of the table.
      * @param[out] error Receives the reason when the call fails; may be null.
@@ -504,6 +517,9 @@ private:
 
     /** The names of `hooked_`, for the trace. */
     std::vector<std::string> hooked_names_;
+
+    /** The argument registers each of `hooked_` takes, -1 when not said. */
+    std::vector<int> hooked_inputs_;
 
     /** The first instruction of each hooked function before it was replaced, by address. */
     std::unordered_map<u32, u32> hooked_original_;
