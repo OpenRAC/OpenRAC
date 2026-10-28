@@ -1310,7 +1310,8 @@ typedef struct openrac_api {
      * other way). Since 1.9. */
     int (*moby_deletion)(int slot, openrac_moby_deletion* out);
 
-    /* Writes where the game's camera is (x, y, z, the level's units) into `out`. Returns
+    /* Writes where the game's camera is (x, y, z, the level's units) into `out`: the level's,
+     * also under a pause menu whose own camera is no place in the level. Returns
      * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level. Since 1.9. */
     int (*camera_position)(float out[3]);
 
