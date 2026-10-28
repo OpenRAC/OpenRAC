@@ -35,7 +35,9 @@ static int s_menu;
 static int menu_page(void* user, const openrac_menu_frame* frame) {
     (void)user;
     s_api->menu_rect(s_mod, 10, 20, 30, 40, OPENRAC_RGBA(255, 255, 255, 255));
-    s_api->menu_text(s_mod, 1, 2, 3, OPENRAC_RGBA(255, 0, 0, 255), frame->opened ? "HELLO" : "AGAIN");
+    s_api->menu_text(
+        s_mod, 1, 2, 3, OPENRAC_RGBA(255, 0, 0, 255), frame->opened ? "HELLO" : "AGAIN"
+    );
     return (frame->pressed & OPENRAC_PAD_CROSS) != 0 ? OPENRAC_MENU_CLOSE : OPENRAC_MENU_STAY;
 }
 
@@ -172,7 +174,8 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     }
     if (behaviour[0] == 'm') { /* menu */
         s_menu = 1;
-        if (api->api_minor < 5 || api->menu_entry(mod, "Join the fun", menu_page, NULL) != OPENRAC_HOOK_OK) {
+        if (api->api_minor < 5
+            || api->menu_entry(mod, "Join the fun", menu_page, NULL) != OPENRAC_HOOK_OK) {
             return 8;
         }
         /* An entry without a label or a page is refused. */
