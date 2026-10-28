@@ -447,13 +447,38 @@ int main(int argc, char** argv) {
             std::snprintf(text, sizeof(text), "... %d words of memory differ in all", words);
             notes.push_back(text);
         }
+        /*
+         * The scratchpad, as memory: a word that holds an address in the candidate's own code
+         * as far from the entry as retail's is from the function's start is the same (a return
+         * address a callee saves on a stack it keeps in the scratchpad), and so is a float
+         * within --ulps.
+         */
         if (ours.scratchpad != retail.scratchpad) {
+            int spr_words = 0;
             for (u32 at = 0; at < GuestMemory::kScratchpadBytes; at += 4) {
-                if (std::memcmp(ours.scratchpad.data() + at, retail.scratchpad.data() + at, 4) != 0) {
-                    std::snprintf(text, sizeof(text), "scratchpad differs, first at offset %04x", at);
-                    notes.push_back(text);
-                    break;
+                if (std::memcmp(ours.scratchpad.data() + at, retail.scratchpad.data() + at, 4) == 0) {
+                    continue;
                 }
+                u32 wa, wb;
+                std::memcpy(&wa, ours.scratchpad.data() + at, 4);
+                std::memcpy(&wb, retail.scratchpad.data() + at, 4);
+                bool own_code = false;
+                for (const Code& c : code) {
+                    if (wa >= c.address && wa < c.address + c.bytes.size()) {
+                        own_code = wa - entry == wb - state.address;
+                    }
+                }
+                if (own_code || near_float(wa, wb, ulps)) {
+                    continue;
+                }
+                if (spr_words++ < 4) {
+                    std::snprintf(text, sizeof(text), "scratchpad word at %04x: ours %08x, retail %08x", at, wa, wb);
+                    notes.push_back(text);
+                }
+            }
+            if (spr_words > 4) {
+                std::snprintf(text, sizeof(text), "... %d words of the scratchpad differ in all", spr_words);
+                notes.push_back(text);
             }
         }
 
