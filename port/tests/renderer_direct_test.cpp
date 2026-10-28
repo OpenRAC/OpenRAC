@@ -8,6 +8,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -197,6 +198,61 @@ std::vector<std::uint8_t> packets() {
     return p.bytes;
 }
 
+// A skipped tick retains a one-shot texture, but none of that tick's sprite geometry.
+void skipped_tick_uploads() {
+    Renderer renderer;
+    auto hud = std::make_unique<DirectRenderer>("hud", Bucket::Hud);
+    auto* direct = hud.get();
+    std::string error;
+    CHECK(renderer.add(std::move(hud), error));
+    CHECK(renderer.init(error));
+    // Gameplay can skip only after an initial frame has populated the GPU's fallback texture.
+    renderer.textures().gl_texture(renderer.textures().placeholder());
+    GifBuilder skipped;
+    std::vector<std::uint8_t> green;
+    for (int i = 0; i < 16; ++i) {
+        green.insert(green.end(), {0, 255, 0, 128});
+    }
+    skipped.image(0x1000, 1, gs::kPsmct32, 4, 4, green);
+    skipped.ad(
+        {{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+         {gs::kRgbaq, rgbaq(255, 0, 0, 128)},
+         {gs::kXyz2, xyz2(10, 10, 0)},
+         {gs::kXyz2, xyz2(20, 20, 0)}}
+    );
+    CHECK(direct->retain_uploads(skipped.bytes));
+    CHECK(direct->interpreter().vertices().empty());
+    CHECK(direct->interpreter().draws().empty());
+    const auto retained = renderer.textures().resolve(
+        gs::Tex0::decode(openrac::test::tex0(0x1000, 1, gs::kPsmct32, 2, 2, true)), {}
+    );
+    CHECK(retained != renderer.textures().placeholder());
+    GifBuilder shown;
+    shown.ad(
+        {{gs::kTest1,
+          openrac::test::test_reg(
+              false, gs::AlphaTest::Always, 0, gs::AlphaFail::Keep, gs::DepthTest::Always
+          )},
+         {gs::kScissor1, openrac::test::scissor(0, 511, 0, 447)},
+         {gs::kTex0_1, openrac::test::tex0(0x1000, 1, gs::kPsmct32, 2, 2, true)},
+         {gs::kTex1_1, 0},
+         {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+         {gs::kRgbaq, rgbaq(128, 128, 128, 128)},
+         {gs::kUv, openrac::test::uv(0, 0)},
+         {gs::kXyz2, xyz2(30, 30, 0)},
+         {gs::kUv, openrac::test::uv(4, 4)},
+         {gs::kXyz2, xyz2(40, 40, 0)}}
+    );
+    FrameBuffer frame;
+    CHECK(frame.create(kWidth, kHeight, error));
+    FrameInput input;
+    input.packets[static_cast<std::size_t>(Bucket::Hud)] = shown.bytes;
+    renderer.render(input, {frame.id(), kWidth, kHeight});
+    const Pixels pixels{frame.read_rgba()};
+    CHECK(close(pixels.at(15, 15), 0, 0, 0, 15, 15));
+    CHECK(close(pixels.at(35, 35), 0, 255, 0, 35, 35));
+}
+
 }  // namespace
 
 int main() {
@@ -206,6 +262,8 @@ int main() {
         std::printf("SKIP: no OpenGL 4.1 core context: %s\n", why.c_str());
         return openrac::test::kSkip;
     }
+
+    skipped_tick_uploads();
 
     Renderer renderer;
     std::string error;

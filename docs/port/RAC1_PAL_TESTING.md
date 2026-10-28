@@ -203,9 +203,10 @@ in ReRAC's `docs/plan/class_census.md` and the planet pages.
 
 A change to what `editor/port.py` writes that the port relies on bumps the
 export format: `FORMAT` there, `kManifestFormat` in `port/scene/level.h`,
-the stamp `verified-<format>.json` in `launcher/actions.json` and
-`tools/bundle_standalone.py`, and the test fixtures. The launcher then
-re-reads every player's levels before Play.
+the stamps `levels-<format>.json` (written by `editor/extract.py port` once
+every level is whole) and `verified-<format>.json` in `launcher/actions.json`
+and `tools/bundle_standalone.py`, and the test fixtures. The launcher then
+re-reads every player's levels, and checks them, before Play.
 
 ## 8. Checking a fix
 

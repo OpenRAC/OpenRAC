@@ -17,6 +17,9 @@
 #include <string_view>
 
 #include "common/json.h"
+#include "common/profiler.h"
+#include "enhanced/tools/probes/probe_fingerprint.h"
+#include "enhanced/tools/probes/probe_grid.h"
 #include "enhanced/tools/probes/report.h"
 
 namespace fs = std::filesystem;
@@ -67,13 +70,64 @@ std::array<float, N> plan_vector(const json::Value& value) {
     return result;
 }
 
+// Keeps exact repartitioned cell endpoints; ordinary authored plans still use world bounds.
+ProbeGrid batch_region_grid(
+    const BakeSceneExport& exported, const ProbeGrid& sparse, const json::Value& region
+) {
+    const auto spacing = plan_vector<3>(region["spacing"]);
+
+    // Repartitioned grids already have integer coverage, so float ceil must not expand them again.
+    if (region["lattice_bounds"].is_array()) {
+        return lattice_probe_grid(
+            exported, plan_vector<6>(region["lattice_bounds"]), spacing, sparse.map_resolution
+        );
+    }
+
+    const auto bounds = plan_vector<6>(region["bounds"]);
+    return bounded_probe_grid(
+        exported,
+        {bounds[0], bounds[1], bounds[2]},
+        {bounds[3], bounds[4], bounds[5]},
+        spacing,
+        sparse.map_resolution
+    );
+}
+
+// Optional allocation bounds leave transport geometry and cell-local visibility ranges unchanged.
+ProbeGrid batch_coarse_grid(
+    const BakeSceneExport& exported,
+    const ProbeGrid& sparse,
+    const json::Value& plan,
+    const BakeSettings& settings
+) {
+    auto coarse = sparse;
+
+    // Allocation can follow gameplay coverage while transport still sees the complete scene.
+    if (!plan["coarse_bounds"].is_null()) {
+        const auto bounds = plan_vector<6>(plan["coarse_bounds"]);
+        coarse = bounded_probe_grid(
+            exported,
+            {bounds[0], bounds[1], bounds[2]},
+            {bounds[3], bounds[4], bounds[5]},
+            sparse.spacing,
+            sparse.map_resolution
+        );
+        coarse.game_version = sparse.game_version;
+        coarse.level = sparse.level;
+        coarse.max_distance = sparse.max_distance;
+        coarse.settings_hash = probe_bake_settings_hash(coarse, settings);
+    }
+
+    return coarse;
+}
+
 // Parse all grids first so bad metadata or existing outputs cannot produce a partial fresh bake.
 std::vector<BatchJob> batch_jobs(
     const BakeSceneExport& exported, const ProbeGrid& sparse, const ProbeBatchOptions& options
 ) {
     json::Value plan;
     std::string error;
-    constexpr std::size_t kMaximumRegions = 512;  // runtime dense-region limit
+    constexpr std::size_t kMaximumRegions = 1024;  // runtime dense-region limit
 
     if (!json::parse(options.plan, plan, error) || plan["version"].number() != 1
         || plan["scene_hash"].string() != std::to_string(exported.scene_hash)
@@ -81,18 +135,11 @@ std::vector<BatchJob> batch_jobs(
         throw std::runtime_error("invalid or stale probe batch plan: " + error);
     }
 
-    std::vector<BatchJob> jobs{{options.output_directory / "sparse.orpg", sparse}};
+    const auto coarse = batch_coarse_grid(exported, sparse, plan, options.settings);
+    std::vector<BatchJob> jobs{{options.output_directory / "sparse.orpg", coarse}};
 
     for (const auto& region : plan["regions"].items()) {
-        const auto bounds = plan_vector<6>(region["bounds"]);
-        const auto spacing = plan_vector<3>(region["spacing"]);
-        auto grid = bounded_probe_grid(
-            exported,
-            {bounds[0], bounds[1], bounds[2]},
-            {bounds[3], bounds[4], bounds[5]},
-            spacing,
-            sparse.map_resolution
-        );
+        auto grid = batch_region_grid(exported, sparse, region);
 
         if (!region["max_distance"].is_number()) {
             throw std::runtime_error("probe batch moment distance missing");
@@ -180,6 +227,8 @@ void run_probe_batch(
     const ProbeBatchOptions& options,
     std::ostream& output
 ) {
+    const profiling::Zone trace("Bake level batch");
+
     const auto jobs = batch_jobs(exported, sparse_grid, options);
 
     if (probe_input_hash(level.dir) != options.source_snapshot) {
@@ -187,6 +236,7 @@ void run_probe_batch(
     }
 
     ProbeBaker baker(exported.scene, options.settings, options.threads);
+    const ProbeBakeReport descriptions(level, exported, options.settings, options.light_set);
     std::optional<ProbeVolume> coarse;
 
     // Progress over the whole level, in probes: every grid's, the ones kept counted as done.
@@ -204,6 +254,11 @@ void run_probe_batch(
     };
 
     for (const auto& job : jobs) {
+#ifdef OPENRAC_TRACY
+        // Formatting the dynamic label should cost nothing in an ordinary bake.
+        const profiling::Zone grid_trace(job.path.filename().string());
+#endif
+        profiling::frame("Probe volumes");
         const auto start = std::chrono::steady_clock::now();
         if (options.resume) {
             if (const auto bytes = finished_bytes(job)) {
@@ -261,15 +316,14 @@ void run_probe_batch(
                 coarse = std::move(checked);
             }
         }
-        auto report =
-            describe_probe_bake(level, exported, job.grid, options.settings, options.light_set);
+        auto report = descriptions.describe(job.grid);
         const auto valid =
             std::count_if(volume.probes.begin(), volume.probes.end(), [](const Probe& probe) {
                 return probe.valid;
             });
         const auto relocated =
             std::count_if(volume.probes.begin(), volume.probes.end(), [](const Probe& probe) {
-                return probe.offset != Float3{};
+                return probe.relocated;
             });
         report += std::format(
             "relocated_probes {}\nvalid_probes {}\ninvalid_probes {}\n"

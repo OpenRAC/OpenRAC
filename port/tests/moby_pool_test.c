@@ -28,6 +28,7 @@ enum {
 };
 
 uint8_t* openrac_guest_base;
+const struct openrac_map_config* openrac_game_map;
 
 static void map_guest(void) {
     const size_t span = GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE;
@@ -84,6 +85,35 @@ static int spare_of(gaddr at) {
     return GREF(int, at + SECTION + 4);
 }
 
+static void check_map_spawn(void) {
+    struct openrac_map_config map = {"Arena", 9, {20.0f, 30.0f, 4.0f}, 1.25f, 1};
+    const gaddr first = HEADER + SECTION + 0x10;
+    const gaddr hero = first + 0x78;
+    header(HEADER, 2, 256);
+    memset(G(first), 0, 2 * 0x78);
+    GREF(int, first + 0x18) = 500;
+    GREF(float, first + 0x30) = 99.0f;
+    GREF(float, hero + 0x30) = 132.0f;
+    openrac_game_map = &map;
+    GREF(int, 0x0015EE84u) = 8;
+    g_header = HEADER;
+    rac1_wad_decompressed(HEADER);
+    CHECK(GREF(float, hero + 0x30) == 132.0f); /* another level is untouched */
+    GREF(int, 0x0015EE84u) = map.level;
+    g_header = HEADER;
+    rac1_wad_decompressed(HEADER);
+    CHECK(GREF(float, first + 0x30) == 99.0f); /* other classes are untouched */
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        CHECK(GREF(float, hero + 0x30 + axis * 4) == map.spawn[axis]);
+    }
+    CHECK(GREF(float, hero + 0x44) == map.heading);
+    openrac_game_map = NULL;
+    GREF(float, hero + 0x30) = 123.0f;
+    g_header = HEADER;
+    rac1_wad_decompressed(HEADER);
+    CHECK(GREF(float, hero + 0x30) == 123.0f); /* normal campaign */
+}
+
 /* The loader as the game runs it: its header decompressed (with another WAD before it), the spare
  * count read as the C reads it. */
 static int shipped, seen, other_seen, loads, last_arg;
@@ -133,6 +163,7 @@ static int run_length(gaddr first) {
 
 int main(void) {
     map_guest();
+    check_map_spawn();
     GREF(int, 0x0015EE84u) = 9; /* Gaspar */
     GREF(gaddr, LOAD_STATE + 4) = HEADER;
 

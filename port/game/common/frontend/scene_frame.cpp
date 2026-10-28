@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "common/log.h"
+#include "common/profiler.h"
 #include "common/stats.h"
 #include "debug_overlay.h"
 #include "frontend.h"
@@ -107,6 +108,8 @@ void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
 
 // Sizes the render target and returns the original picture width within it.
 float prepare_target(SceneFrame& frame) {
+    const profiling::Zone trace("Prepare render targets");
+
     auto& output = frame.output;
     const auto& graphics = frame.graphics;
     frame_size(
@@ -147,10 +150,20 @@ void set_lighting(SceneFrame& frame) {
 
     const bool enhanced = enhanced_graphics_available() && graphics.enhanced_graphics;
     input.texture_filter = enhanced ? graphics.texture_filter : renderer::TextureFilter::Normal;
-    owner.scene
-        .set_probe_lighting(enhanced && graphics.probe_lighting, graphics.probe_gi_multiplier);
+    owner.scene.set_probe_lighting(enhanced, graphics.probe_gi_multiplier);
+    owner.scene.set_gameplay_rim(
+        enhanced && graphics.rim_light, graphics.rim_light_strength, graphics.rim_light_falloff
+    );
+    owner.scene.set_gameplay_rim_lift(
+        graphics.rim_shadow_lift, graphics.rim_lift_exponent, graphics.rim_lift_max_gain
+    );
     owner.scene.set_probe_bias(graphics.probe_normal_bias, graphics.probe_view_bias);
+    if (auto* lighting = owner.scene.level_lighting()) {
+        lighting->set_sunlight_direction(enhanced ? graphics.sunlight_direction() : std::nullopt);
+    }
     owner.scene.set_probe_spheres(graphics.probe_spheres);
+    owner.scene.set_area_lights(graphics.ceiling_area_lights);
+    input.shadow_quality = graphics.shadow_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera
                              && scene.level >= 0 && scene.level < 19;
@@ -290,7 +303,10 @@ void render_scene(
 ) {
     SceneFrame frame{owner, snapshot, graphics, output, {}, {}, false, 1};
     frame.temporal = prepare_temporal(frame);
-    upload_instances(frame);
+    {
+        const profiling::Zone trace("Upload scene");
+        upload_instances(frame);
+    }
     const auto scene_done = std::chrono::steady_clock::now();
     frame.picture_scale = prepare_target(frame);
     set_lighting(frame);
@@ -310,6 +326,8 @@ void render_scene(
 
     // Frame-cost diagnostics deliberately stall the GPU, matching their synchronous reference behaviour.
     if (output.measure_cost) {
+        const profiling::Zone trace("Diagnostic GPU wait");
+
         gl::glFinish();
     }
 

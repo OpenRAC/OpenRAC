@@ -216,3 +216,14 @@ draw for alpha-test fail modes, textures identified by the game's base
 pointer) follow OpenGOAL's renderer as
 [docs/port/OPENGOAL_NOTES.md](docs/port/OPENGOAL_NOTES.md) describes it; no
 code from OpenGOAL or from any emulator is in the port.
+
+## Tracy
+
+Optional development builds (`OPENRAC_TRACY=ON`) link the Tracy profiler client,
+version 0.14.1 at commit `30997d5ca6bb632cc10807a1da8a6d3de0aeeb3c` from
+[wolfpld/tracy](https://github.com/wolfpld/tracy). Ordinary builds do not fetch or
+link it. Tracy is licensed under the 3-clause BSD license, Copyright (c)
+2017-2026 Bartosz Taudul. Its [license](https://github.com/wolfpld/tracy/blob/30997d5ca6bb632cc10807a1da8a6d3de0aeeb3c/LICENSE)
+applies to the client and Vulkan profiling headers. Binary redistributions of
+profiling builds must include that license. OpenRAC's integration is in
+`port/common/profiler.*` and `port/renderer/vulkan/tracy.cpp`.

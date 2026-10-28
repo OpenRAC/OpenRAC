@@ -26,12 +26,18 @@
 #include "game/common/profile.h"
 #include "renderer/math.h"
 #include "renderer/renderer.h"
+#include "scene/object_picker.h"
 
 namespace openrac::frontend::debug_overlay {
 
 // Shown from the start (--debug-overlay), as OPENRAC_OVERLAY does.
 void request();
 
+// Capturing picker geometry is opt-in; pose capture reads this on the render worker.
+bool picker_enabled();
+void set_picker_enabled(bool enabled);
+
+// Any desktop overlay window holding the mouse, including Enhanced Settings.
 bool visible();
 
 // A window event: true if the overlay took it (its keys, or the mouse and keyboard while they are
@@ -71,6 +77,13 @@ struct Shown {
     double refresh_interval = 0.0;               // seconds; 0 unknown
     double cost = 0.0;                           // seconds: what a frame costs before its swap
     double tick_period = 0.0;                    // seconds
+    scene::ObjectPicker* picker = nullptr;
+    const scene::LevelData* picker_level = nullptr;
+    std::span<const scene::Instance> picker_live;
+    std::span<const renderer::Mat4> picker_palette;
+    int picker_level_number = -1;
+    std::uint64_t picker_tick = 0;
+    unsigned picker_layers = 0;
 };
 
 void draw(const Shown& shown);

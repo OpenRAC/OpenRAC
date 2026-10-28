@@ -5,6 +5,26 @@ uniform usamplerBuffer early_guides;
 uniform mat4 early_projection;
 uniform vec2 early_extent;
 
+uniform vec2 gameplay_rim_parameters;  // Strength and edge falloff.
+uniform vec2 gameplay_rim_lift;  // Luminance exponent (one disables lift) and maximum gain.
+
+// A bounded artistic edge light using the reconstructed GI, with no extra probe lookup.
+vec3 gameplay_rim(vec3 indirect, vec3 normal_view, vec3 toward_camera) {
+    float facing = clamp(dot(normal_view, normalize(toward_camera)), 0.0, 1.0);
+    float edge = 1.0 - facing;
+    vec3 diffuse = max(indirect, vec3(0.0)) / 3.14159265359;
+    if (gameplay_rim_lift.x < 1.0) {
+        // Apply one RGB gain in linear space: preserve hue, keep black black and bound near-zero GI.
+        // Lift only below 18% grey; brighter surroundings retain their existing contribution.
+        float luminance = dot(diffuse, vec3(0.2126, 0.7152, 0.0722));
+        float gain = pow(max(luminance / 0.18, 1e-6), gameplay_rim_lift.x - 1.0);
+        diffuse *= clamp(gain, 1.0, gameplay_rim_lift.y);
+    }
+    float peak = max(max(diffuse.r, diffuse.g), diffuse.b);
+    return gameplay_rim_parameters.x * pow(edge, gameplay_rim_parameters.y) * diffuse
+           / (1.0 + peak);
+}
+
 vec3 early_decode_normal(uint bits) {
     vec2 xy = vec2(bits & 255u, (bits >> 8u) & 255u) / 255.0 * 2.0 - 1.0;
     vec3 n = vec3(xy, 1.0 - abs(xy.x) - abs(xy.y));

@@ -3,6 +3,7 @@
   "sky_intensity": 0.5,
   "sky_weight": 0.3,
   "terrain_vertex_albedo": true,
+  "dense_spacing": [2.6666666666666665, 2.6666666666666665, 2.6666666666666665],
   "sunlight_direction": [
     0.7774236798286438,
     -0.3195972144603729,

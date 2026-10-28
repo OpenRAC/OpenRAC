@@ -333,6 +333,11 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     }
     platform::WindowConfig config;
     config.title = OPENRAC_GAME_TITLE;
+
+    if (openrac_game_map != nullptr) {
+        config.title += std::string(" - ") + openrac_game_map->name;
+    }
+
     config.width = 1280;
     config.height = 960;
     // The game ticks 60 times a second (main.cpp, every version) and the window draws at the

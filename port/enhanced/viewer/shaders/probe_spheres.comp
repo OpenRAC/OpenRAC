@@ -1,0 +1,94 @@
+#version 430 core
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+// Resident probe records are compacted after tiled region selection, with no host readback.
+layout(local_size_x = 128) in;
+layout(std430, binding = 9) readonly buffer SphereSource { uint source_words[]; };
+layout(std430, binding = 10) writeonly buffer SphereOutput { uint output_words[]; };
+layout(std430, binding = 11) buffer SphereArguments { uint arguments[]; };
+uniform int reset_command;
+uniform int source_count;
+uniform int index_count;
+uniform mat4 world_to_clip;
+uniform vec3 camera_position;
+uniform float draw_range;
+uniform int probe_gpu_selection;
+uniform vec2 probe_tile_extent;
+uniform usamplerBuffer probe_region_masks;
+uniform int cpu_regions[3];
+uniform float cpu_weights[3];
+const uint command_words = 5u;
+const uint sphere_words = 9u;
+const uint region_capacity = 1024u;
+
+// Tests a sphere against the same GL clip-space planes used by the world camera.
+bool in_frustum(vec4 sphere) {
+    mat4 rows = transpose(world_to_clip);
+    for (int axis = 0; axis < 3; ++axis) {
+        for (int side = -1; side <= 1; side += 2) {
+            vec4 plane = rows[3] + float(side) * rows[axis];
+            if (dot(plane, vec4(sphere.xyz, 1)) < -sphere.w * length(plane.xyz)) return false;
+        }
+    }
+    return true;
+}
+
+// Secondary views use selected regions without opaque depth masks; CPU fallback retains its fade.
+float region_opacity(int region, vec3 position) {
+    if (region < 0) return 1;
+    if (probe_gpu_selection == 0) {
+        for (int slot = 0; slot < 3; ++slot) {
+            if (cpu_regions[slot] == region) return cpu_weights[slot];
+        }
+        return 0;
+    }
+    if (uint(region) >= region_capacity) return 0;
+    uint selected = arguments[command_words + uint(region)];
+    if (selected == 0u) return 0;
+    if (probe_gpu_selection != 1) return 1;
+    vec4 centre = world_to_clip * vec4(position, 1);
+    if (centre.w <= 0) return 0;
+    ivec2 pixel = ivec2((centre.xy / centre.w * 0.5 + 0.5) * probe_tile_extent);
+    if (any(lessThan(pixel, ivec2(0))) || any(greaterThanEqual(pixel, ivec2(probe_tile_extent)))) return 0;
+    ivec2 tile = pixel / 16;
+    int tiles_x = (int(probe_tile_extent.x) + 15) / 16;
+    uint slot = selected - 1u;
+    uint bits = texelFetch(probe_region_masks,
+        129 + (tile.y * tiles_x + tile.x) * 4 + int(slot / 32u)).r;
+    return (bits & (1u << (slot % 32u))) != 0u ? 1 : 0;
+}
+
+void main() {
+    uint lane = gl_LocalInvocationID.x;
+    if (reset_command != 0) {
+        if (lane == 0u) {
+            arguments[0] = uint(index_count);
+            arguments[1] = 0u;
+            arguments[2] = 0u;
+            arguments[3] = 0u;
+            arguments[4] = 0u;
+        }
+        for (uint region = lane; region < region_capacity; region += 128u)
+            arguments[command_words + region] = 0u;
+        memoryBarrierBuffer();
+        barrier();
+        if (probe_gpu_selection != 0 && lane < texelFetch(probe_region_masks, 0).r) {
+            uint region = texelFetch(probe_region_masks, int(1u + lane)).r;
+            if (region < region_capacity) arguments[command_words + region] = lane + 1u;
+        }
+        return;
+    }
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= uint(source_count)) return;
+    uint source = index * sphere_words;
+    vec4 sphere = uintBitsToFloat(uvec4(source_words[source], source_words[source + 1u],
+        source_words[source + 2u], source_words[source + 3u]));
+    vec3 delta = sphere.xyz - camera_position;
+    if (dot(delta, delta) > draw_range * draw_range || !in_frustum(sphere)) return;
+    float opacity = region_opacity(int(source_words[source + 7u]), sphere.xyz);
+    if (opacity <= 0) return;
+    uint target = atomicAdd(arguments[1], 1u) * sphere_words;
+    for (uint word = 0u; word < sphere_words; ++word)
+        output_words[target + word] = source_words[source + word];
+    output_words[target + 8u] = floatBitsToUint(opacity);
+}

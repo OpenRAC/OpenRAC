@@ -133,7 +133,8 @@ static void direct_start(unsigned frame) {
     if (done) {
         return;
     }
-    if (openrac_game_start_level < 0 || openrac_env_string("OPENRAC_DIRECT") == NULL) {
+    if (openrac_game_start_level < 0
+        || (openrac_game_map == NULL && openrac_env_string("OPENRAC_DIRECT") == NULL)) {
         done = 1;
         return;
     }

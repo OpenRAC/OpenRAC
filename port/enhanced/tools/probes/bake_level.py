@@ -18,15 +18,20 @@ import subprocess
 from types import SimpleNamespace
 
 import seed_regions as seeds
+import automatic_interiors
+import emission_audit
 
 
 @dataclass
 class RegionSettings:
     enabled: bool = True
+    interior_lighting: bool = True
+    coarse_bounds: str = 'local_regions'
+    coarse_padding: float = 128
     padding: float = 8
     vertical_padding: float = 4
     max_probes: int = 4096
-    max_regions: int = 512
+    max_regions: int = 1024
     no_geometry_coverage: bool = False
     geometry_max_rise: float = 32
     geometry_padding: float = 3
@@ -34,17 +39,22 @@ class RegionSettings:
 
     @classmethod
     def load(cls, level_dir: Path):
-        path = level_dir/'probe-regions.json'
+        path = level_dir/'probe-bake.json'
         data = json.loads(path.read_text()) if path.exists() else {'version': 1}
         if not isinstance(data, dict) or data.get('version') != 1:
-            raise ValueError('probe-regions.json requires version 1')
-        values = {k: v for k, v in data.items() if k != 'version'}
+            raise ValueError('probe-bake.json requires version 1')
+        values = data.get('regions', {})
+        if not isinstance(values, dict):
+            raise ValueError('regions requires an object')
         if values.keys() - cls.__dataclass_fields__.keys():
             raise ValueError('unknown region planning setting')
         settings = cls(**values)
         defaults = asdict(cls())
         for key, value in asdict(settings).items():
-            if isinstance(defaults[key], bool):
+            if key == 'coarse_bounds':
+                if value not in ('scene', 'local_regions'):
+                    raise ValueError('coarse_bounds must be scene or local_regions')
+            elif isinstance(defaults[key], bool):
                 if not isinstance(value, bool):
                     raise ValueError(f'{key} requires a boolean')
             elif isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
@@ -53,15 +63,15 @@ class RegionSettings:
                 raise ValueError(f'{key} must not be negative')
         if not isinstance(settings.max_probes, int) or settings.max_probes < 64:
             raise ValueError('max_probes must be an integer of at least 64')
-        if not isinstance(settings.max_regions, int) or not 1 <= settings.max_regions <= 512:
-            raise ValueError('max_regions must be between 1 and 512')
+        if not isinstance(settings.max_regions, int) or not 1 <= settings.max_regions <= 1024:
+            raise ValueError('max_regions must be between 1 and 1024')
         if settings.geometry_max_rise <= 0:
             raise ValueError('geometry_max_rise must be positive')
         return settings
 
     def planner_options(self):
         return SimpleNamespace(**asdict(self), spacing=None, vertical_spacing=None,
-                               moby_whitelist=Path(__file__).with_name('moby_seed_whitelist.json'))
+                               moby_whitelist=None)
 
 
 def write_json(path, value, *, replace=False):
@@ -78,6 +88,23 @@ def remove_grids(directory: Path):
         path.unlink()
 
 
+def prepare_emission(level_dir):
+    """Resolve the same explicit material definitions used by normal level export."""
+    from enhanced.profiles import write_emission_profile
+    manifest = json.loads((level_dir/'manifest.json').read_text())
+    if all(key in manifest for key in ('game', 'version', 'level')):
+        level = SimpleNamespace(game=manifest['game'], version=manifest['version'], id=manifest['level'])
+        write_emission_profile(level, level_dir)
+
+
+def coarse_bounds(regions, settings):
+    """Bound allocation around local regions; levels without local coverage retain scene bounds."""
+    if settings.coarse_bounds == 'scene' or not regions:
+        return None
+    return ([min(r['bounds'][a] for r in regions) - settings.coarse_padding for a in range(3)]
+            + [max(r['bounds'][a + 3] for r in regions) + settings.coarse_padding for a in range(3)])
+
+
 def inspection(text):
     fields = {line.split(' ', 1)[0]: line.split(' ', 1)[1]
               for line in text.splitlines() if ' ' in line}
@@ -87,7 +114,7 @@ def inspection(text):
             'dimensions': list(map(int, fields['probe_dimensions'].split()))}
     emission = {key: fields[key] for key in (
         'emissive_triangles', 'automatic_liquid_triangles', 'point_emitters',
-        'bake_surfaces', 'emission', 'emission_masks', 'emission_vertex_colour_triangles') if key in fields}
+        'bake_surfaces', 'emission', 'emission_vertex_colour_triangles') if key in fields}
     return grid, emission, fields['scene_hash']
 
 
@@ -183,10 +210,18 @@ def bake_level(level_dir: Path, output_dir: Path, baker: Path, *, disc=None, opt
         raise ValueError('choose a new output directory; previous bakes are preserved')
     manifest = json.loads((level_dir/'manifest.json').read_text())
     settings = RegionSettings.load(level_dir)
-    gameplay = seeds.read_gameplay(level_dir, manifest, disc) if settings.enabled else None
+    gameplay = seeds.read_gameplay(level_dir, manifest, disc) if settings.enabled or settings.interior_lighting else None
     common = [str(baker), '--level-dir', str(level_dir), *options]
     profile = json.loads(subprocess.check_output(common+['--print-profile'], text=True))
     output_dir.mkdir(parents=True, exist_ok=resume)
+
+    # Resolve reviewed shared materials before the native scene snapshot, including older exports.
+    prepare_emission(level_dir)
+    emission_audit.audit(level_dir, output_dir)
+    if settings.interior_lighting:
+        automatic_interiors.prepare(level_dir, output_dir, baker, manifest, gameplay)
+    else:
+        automatic_interiors.remove_generated(level_dir)
 
     command = common + ['--batch-output', str(output_dir)] + (['--resume'] if resume else [])
     batch = NativeBatch(command, output_dir/'batch.log', append=resume, progress=progress)
@@ -227,8 +262,11 @@ def bake_level(level_dir: Path, output_dir: Path, baker: Path, *, disc=None, opt
         for region in plan['regions']:
             spacing = seeds.axis_spacing(region['spacing'])
             regions.append({'bounds': region['bounds'], 'spacing': spacing,
-                            'max_distance': 1.5*math.sqrt(sum(s*s for s in spacing))})
-        native.finish({'version': 1, 'scene_hash': source_hash, 'regions': regions})
+                            'max_distance': 1.5*math.sqrt(sum(s*s for s in spacing)),
+                            **({'lattice_bounds': region['lattice_bounds']} if 'lattice_bounds' in region else {})})
+        bounds = coarse_bounds(plan['regions'], settings)
+        native.finish({'version': 1, 'scene_hash': source_hash, 'regions': regions,
+                       **({'coarse_bounds': bounds} if bounds is not None else {})})
 
     sparse = output_dir/'sparse.orpg'
     assets = [output_dir/f'region-{i:03d}.orpg' for i in range(len(plan['regions']))]

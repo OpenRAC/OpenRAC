@@ -11,13 +11,19 @@ layout(location = 2) in vec4 colour;  // normalised bytes
 
 uniform mat4 view_projection;
 
+out vec3 v_world;
 out vec3 v_stq;
 out vec4 v_colour;  // the chip's units: 0..255, 0x80 = 1.0 when modulating
 out float v_fog;
 
 void main() {
-    gl_Position = view_projection * vec4(position, 1.0);
-    v_stq = vec3(st, 1.0);
+    v_world = position;
+    vec2 uv = st;
     v_colour = colour * 255.0;
+#ifdef OPENRAC_EFFECT_POSITION
+    effect_vertex(v_world, uv, v_colour);
+#endif
+    gl_Position = view_projection * vec4(v_world, 1.0);
+    v_stq = vec3(uv, 1.0);
     v_fog = 1.0;
 }

@@ -1,0 +1,232 @@
+#version 430 core
+// SPDX-License-Identifier: GPL-3.0-or-later
+layout(local_size_x=64) in;
+// State: displacement, x/y discharge, advected surface marker.
+layout(std430,binding=0) readonly buffer OldWaves { vec4 old_wave[]; };
+layout(std430,binding=1) writeonly buffer NewWaves { vec4 new_wave[]; };
+layout(std430,binding=2) readonly buffer Coast { vec4 coast[]; };
+layout(std430,binding=3) readonly buffer Bodies { vec4 bodies[]; };
+layout(std430,binding=5) writeonly buffer WavePixels { vec4 wave_pixels[]; };
+// Effective hydraulic depth, maintained current x/y, optical depth (rendering only).
+layout(std430,binding=6) readonly buffer Hydraulics { vec4 hydraulics[]; };
+layout(std430,binding=7) readonly buffer LocalCoast {vec4 local_coast[];};
+layout(std430,binding=8) readonly buffer LocalHydraulics {vec4 local_hydraulics[];};
+uniform vec4 water_atlas[64];
+uniform int atlas_width;
+uniform int cell_count;
+uniform vec4 hero;
+uniform vec3 previous_hero;
+uniform int hand_count;
+uniform vec4 hands[2];
+uniform vec3 previous_hands[2];
+uniform int reset_waves;
+uniform vec4 water_physics; // current scale, friction, outlet damping, interaction radius squared
+uniform float displacement_limit;
+uniform int transport_reference; // Test-only first-order Rusanov comparison.
+uniform float wake_strength;
+// Runtime uses one toroidal local grid. Zero retains the full-domain CPU/GPU fixture.
+uniform int local_window;
+uniform vec4 window_config; // world-cell lower corner, extent, selected baked body
+#define window_cells ivec4(window_config)
+uniform vec2 previous_window;
+#define previous_cells ivec2(previous_window)
+uniform float water_dt;
+const float gravity=9.81;
+#define dt (water_dt>0.?water_dt:1./120.)
+ivec2 window_world(int at) { return window_cells.xy+ivec2(at&(window_cells.z-1),at>>findMSB(window_cells.z)); }
+int window_physical(ivec2 world) {
+    // Power-of-two modulo also handles negative world cells without integer division.
+    ivec2 p=world & ivec2(window_cells.z-1);
+    return p.y*window_cells.z+p.x;
+}
+vec4 coast_at(int at) {return local_window!=0?local_coast[window_physical(window_world(at))]:coast[at];}
+vec4 hydraulic_base(int at) {return local_window!=0?local_hydraulics[window_physical(window_world(at))]:hydraulics[at];}
+vec4 hydraulic_at(int at) {vec4 b=hydraulic_base(at);b.yz*=water_physics.x;return b;}
+float marker_seed(vec2 p) {
+    return .5+.25*sin(dot(p,vec2(1.7,.9)))+.25*sin(dot(p,vec2(-.8,2.1)));
+}
+vec4 wave_at(int at) {
+    if(local_window==0) return old_wave[at];
+    ivec2 world=window_world(at),p=world-previous_cells;
+    if(any(lessThan(p,ivec2(0))) || any(greaterThanEqual(p,ivec2(window_cells.z)))) {
+        vec4 bed=hydraulic_at(at);
+        return vec4(0,bed.x*bed.yz,marker_seed((vec2(world)+.5)*.25));
+    }
+    return old_wave[window_physical(world)];
+}
+vec3 reference_state(vec4 bed) { return vec3(bed.x,bed.x*bed.yz); }
+vec3 state_at(int i) { vec4 w=wave_at(i);return vec3(hydraulic_base(i).x+w.x,w.yz); }
+// MUSCL reconstruction of perturbation height and velocity, not the authored
+// reference field. Minmod limits new extrema; walls/outlets use zero slope.
+vec3 perturbation_at(int at) {
+    vec4 bed=hydraulic_at(at);
+    vec3 q=state_at(at);
+    return vec3(wave_at(at).x,q.yz/max(q.x,.02)-bed.yz);
+}
+vec3 minmod(vec3 a,vec3 b) {
+    return .5*(sign(a)+sign(b))*min(abs(a),abs(b));
+}
+vec3 slope_at(int at,int stride,int width,int begin,int end) {
+    int x=(at-begin)%width;
+    if(at-stride<begin || at+stride>=end || (stride==1 && (x==0 || x==width-1))) return vec3(0);
+    if(coast_at(at-stride).x<.5 || coast_at(at+stride).x<.5) return vec3(0);
+    vec3 centre=perturbation_at(at);
+    return minmod(centre-perturbation_at(at-stride),perturbation_at(at+stride)-centre);
+}
+vec3 reconstruct(int at,vec3 slope,float side) {
+    vec4 bed=hydraulic_at(at);
+    vec3 perturbation=perturbation_at(at)+side*.5*slope;
+    float depth=max(.02,bed.x+perturbation.x);
+    return vec3(depth,depth*clamp(bed.yz+perturbation.yz,vec2(-2.5),vec2(2.5)));
+}
+// Hydrostatic reconstruction with HLL gravity waves and contact-upwind
+// transverse momentum. Sideways shear is transported by the mass flux rather
+// than smeared at the much larger gravity-wave speed.
+vec3 flux(vec3 a,vec3 b,float depth_a,float depth_b,vec2 n) {
+    float top=max(-depth_a,-depth_b);
+    float ha=max(0.,a.x-depth_a-top),hb=max(0.,b.x-depth_b-top);
+    vec2 ua=a.yz/max(a.x,.001),ub=b.yz/max(b.x,.001);
+    float va=dot(ua,n),vb=dot(ub,n);
+    vec3 qa=vec3(ha,ha*ua),qb=vec3(hb,hb*ub);
+    vec3 fa=vec3(ha*va,ha*va*ua+.5*gravity*ha*ha*n);
+    vec3 fb=vec3(hb*vb,hb*vb*ub+.5*gravity*hb*hb*n);
+    float ca=sqrt(gravity*ha),cb=sqrt(gravity*hb);
+    vec3 result;
+    if(transport_reference!=0) {
+        float speed=max(abs(va)+ca,abs(vb)+cb);
+        result=.5*(fa+fb-speed*(qb-qa));
+    } else {
+        float left=min(va-ca,vb-cb),right=max(va+ca,vb+cb);
+        if(left>=0.) result=fa;
+        else if(right<=0.) result=fb;
+        else result=(right*fa-left*fb+left*right*(qb-qa))/max(right-left,1e-6);
+        vec2 tangent=vec2(-n.y,n.x);
+        float transverse=result.x*dot(result.x>=0.?ua:ub,tangent);
+        result.yz+=tangent*(transverse-dot(result.yz,tangent));
+    }
+    return result+vec3(0,.5*gravity*(a.x*a.x-ha*ha)*n);
+}
+vec3 face_flux(int at,int other,int width,int begin,int end,vec2 n) {
+    vec4 bed=hydraulic_at(at),other_bed=bed;
+    int stride=n.x!=0.?1:width;
+    float side=n.x+n.y;
+    vec3 a=transport_reference!=0?state_at(at):reconstruct(at,slope_at(at,stride,width,begin,end),side);
+    vec3 r=reference_state(bed),b=a,s=r;
+    if(other>=begin && other<end && coast_at(other).x>.5) {
+        other_bed=hydraulic_at(other);
+        b=transport_reference!=0?state_at(other):reconstruct(other,slope_at(other,stride,width,begin,end),-side);
+        s=reference_state(other_bed);
+    } else if(coast_at(at).z>0.) {
+        b=r;s=r; // Open reservoir boundary; interior sponge damps reflected disturbances.
+    } else {
+        b.yz-=2.*dot(b.yz,n)*n;s.yz-=2.*dot(s.yz,n)*n; // Reflect normal discharge.
+    }
+    // Fixed forcing maintains the authored level/current, including sloped painted water.
+    // Subtracting the same reference flux on each face conserves perturbation mass internally.
+    return flux(a,b,bed.x,other_bed.x,n)-flux(r,s,bed.x,other_bed.x,n);
+}
+float marker_at(ivec2 p,int begin,ivec2 extent,float fallback) {
+    p=clamp(p,ivec2(0),extent-1);
+    int at=begin+p.y*extent.x+p.x;
+    return coast_at(at).x>.5?wave_at(at).w:fallback;
+}
+float advect_marker(ivec2 cell,vec2 velocity,float dx,int begin,ivec2 extent) {
+    int at=begin+cell.y*extent.x+cell.x;
+    vec2 back=clamp(vec2(cell)-velocity*dt/dx,vec2(0),vec2(extent-1));
+    ivec2 base=ivec2(floor(back));vec2 f=fract(back);
+    float centre=wave_at(at).w;
+    return mix(mix(marker_at(base,begin,extent,centre),marker_at(base+ivec2(1,0),begin,extent,centre),f.x),
+               mix(marker_at(base+ivec2(0,1),begin,extent,centre),marker_at(base+ivec2(1,1),begin,extent,centre),f.x),f.y);
+}
+// A divergence-free counter-rotating pair, centred behind the stroke. Its
+// circulation is carried by the shallow-water momentum, not a visual sine wave.
+vec2 wake_pair(vec2 p,vec2 centre,vec2 movement,float radius) {
+    float speed=length(movement);
+    if(speed<1e-5) return vec2(0);
+    vec2 forward=movement/speed,side=vec2(-forward.y,forward.x);
+    vec2 tail=centre-forward*radius*.8;
+    vec2 a=(p-tail-side*radius*.65)/radius;
+    vec2 b=(p-tail+side*radius*.65)/radius;
+    return vec2(-a.y,a.x)*exp(-dot(a,a))-vec2(-b.y,b.x)*exp(-dot(b,b));
+}
+void main() {
+    int at=int(gl_GlobalInvocationID.x);
+    if(at>=cell_count) return;
+    int body=(local_window!=0?window_cells.w:int(coast_at(at).w))*5;
+    vec4 origin=bodies[body],u=bodies[body+1],v=bodies[body+2],normal=bodies[body+3];
+    float dx=local_window!=0?.25:bodies[body+4].z;
+    int width=int(u.w),height=int(v.w),begin=int(normal.w),end=begin+width*height;
+    if(local_window!=0) {width=window_cells.z;height=width;begin=0;end=width*height;}
+    int local=at-begin,x=local%width,y=local/width;
+    ivec2 image_position=ivec2(water_atlas[body/5].xy)+ivec2(x,y);
+    int state_at_index=local_window!=0?window_physical(window_world(at)):at;
+    int image_at=local_window!=0?state_at_index:image_position.y*atlas_width+image_position.x;
+    vec4 bed=hydraulic_at(at);
+    if(coast_at(at).x<.5) {new_wave[state_at_index]=vec4(0);wave_pixels[image_at]=vec4(0);return;}
+    if(reset_waves!=0) {
+        float marker=marker_seed(local_window!=0?(vec2(window_world(at))+.5)*dx:(origin.xy+(vec2(x,y)+.5)*dx));
+        new_wave[state_at_index]=vec4(0,bed.x*bed.yz,marker);
+        wave_pixels[image_at]=vec4(0,bed.yz,marker);return;
+    }
+    vec3 q=state_at(at);
+    q-=dt/dx*(face_flux(at,x>0?at-1:-1,width,begin,end,vec2(-1,0))
+             +face_flux(at,x+1<width?at+1:-1,width,begin,end,vec2(1,0))
+             +face_flux(at,y>0?at-width:-1,width,begin,end,vec2(0,-1))
+             +face_flux(at,y+1<height?at+width:-1,width,begin,end,vec2(0,1)));
+    // Bounded depths/speeds keep the fixed substep inside the 2D CFL limit at the configured spacing/timestep.
+    q.x=clamp(q.x,.02,4.);
+    vec3 p=origin.xyz+u.xyz*(float(x)+.5)*dx+v.xyz*(float(y)+.5)*dx;
+    if(local_window!=0) p=vec3((vec2(window_world(at))+.5)*dx,0);
+    p+=normal.xyz*(coast_at(at).x-512.);
+    float marker=advect_marker(ivec2(x,y),state_at(at).yz/max(state_at(at).x,.02),dx,begin,ivec2(width,height));
+    marker=mix(marker,marker_seed(p.xy),1.-exp(-.04*dt));
+    float contact=dot(hero.xyz-p,normal.xyz);
+    if(hero.w>0. && contact> -1.8 && contact<.35) {
+        vec2 delta=vec2(dot(hero.xyz-previous_hero,u.xyz),dot(hero.xyz-previous_hero,v.xyz));
+        vec2 r=vec2(dot(p-previous_hero,u.xyz),dot(p-previous_hero,v.xyz));
+        float t=clamp(dot(r,delta)/max(dot(delta,delta),1e-5),0.,1.);
+        r-=t*delta;
+        // A pressure-like radial kick displaces water without removing mass.
+        vec2 kick=(r*2.+delta*.25)*exp(-dot(r,r)/water_physics.w);
+        // Keep the body ripple, but put more of a swimming stroke into the wake.
+        kick*=mix(1.,.45,clamp(wake_strength,0.,1.));
+        vec2 centre=vec2(dot(hero.xyz-origin.xyz,u.xyz),dot(hero.xyz-origin.xyz,v.xyz));
+        vec2 local=vec2(dot(p-origin.xyz,u.xyz),dot(p-origin.xyz,v.xyz));
+        vec2 eddy=wake_pair(local,centre,delta,max(1.,sqrt(water_physics.w)*1.5));
+        q.yz+=q.x*hero.w*(kick+wake_strength*eddy);
+        marker=clamp(marker+hero.w*.12*length(eddy)*wake_strength,0.,1.);
+    }
+    // Actual animated palm sweeps drag water along the stroke. Vertical entry
+    // also gives a small radial push, without injecting or removing water mass.
+    for(int hand=0;hand<hand_count;++hand) {
+        if(hands[hand].w<=0.) continue;
+        vec3 movement=hands[hand].xyz-previous_hands[hand];
+        float distance=length(movement);
+        if(distance<1e-5) continue;
+        vec3 surface=p+normal.xyz*(q.x-bed.x);
+        float t=clamp(dot(surface-previous_hands[hand],movement)/dot(movement,movement),0.,1.);
+        vec3 delta=surface-mix(previous_hands[hand],hands[hand].xyz,t);
+        float contact=dot(delta,normal.xyz);
+        if(abs(contact)>.4) continue;
+        vec2 r=vec2(dot(delta,u.xyz),dot(delta,v.xyz));
+        vec2 direction=vec2(dot(movement,u.xyz),dot(movement,v.xyz))/distance;
+        float radius2=max(water_physics.w*.36,.0036);
+        float weight=exp(-dot(r,r)/radius2-contact*contact/.04);
+        vec2 kick=direction+r*.75*abs(dot(movement,normal.xyz))/distance;
+        vec2 hand_centre=vec2(dot(hands[hand].xyz-origin.xyz,u.xyz),dot(hands[hand].xyz-origin.xyz,v.xyz));
+        vec2 local=vec2(dot(p-origin.xyz,u.xyz),dot(p-origin.xyz,v.xyz));
+        vec2 motion=vec2(dot(movement,u.xyz),dot(movement,v.xyz));
+        vec2 eddy=wake_pair(local,hand_centre,motion,max(.75,sqrt(radius2)));
+        float submerged=exp(-contact*contact/.04);
+        q.yz+=q.x*hands[hand].w*(weight*kick+wake_strength*.65*submerged*eddy);
+        marker=clamp(marker+hands[hand].w*.12*weight,0.,1.);
+    }
+    float damping=exp(-(water_physics.y+coast_at(at).z*water_physics.z)*dt);
+    q.yz=q.x*bed.yz+(q.yz-q.x*bed.yz)*damping;
+    float eta=(q.x-bed.x)*exp(-coast_at(at).z*water_physics.z*dt);
+    float depth=bed.x+eta;
+    vec2 momentum=clamp(q.yz*(depth/q.x),vec2(-2.5*depth),vec2(2.5*depth));
+    vec2 velocity=momentum/depth;
+    new_wave[state_at_index]=vec4(eta,momentum,marker);
+    wave_pixels[image_at]=vec4(clamp(eta,-displacement_limit,displacement_limit),velocity,marker);
+}

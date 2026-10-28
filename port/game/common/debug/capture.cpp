@@ -247,7 +247,7 @@ perf_capture::Context context(const Shown& shown) {
                 "{}{}{}{}",
                 graphics.enhanced_graphics ? "on" : "off",
                 graphics.enhanced_shadows ? ", modern shadows" : "",
-                graphics.probe_lighting ? ", probe lighting" : "",
+                graphics.enhanced_graphics ? ", probe lighting" : "",
                 graphics.gtao ? ", GTAO" : ""
             ));
     }

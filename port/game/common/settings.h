@@ -9,14 +9,17 @@
 // docs/port/SETTINGS.md lists every key, and what OpenGOAL and ReRAC offer beside them.
 #pragma once
 
+#include <array>
 #include <filesystem>
 #include <functional>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 
 #include "renderer/gtao_settings.h"
+#include "renderer/shadow_settings.h"
 #include "renderer/temporal_settings.h"
 #include "renderer/texture_filter.h"
 #include "renderer/ui/fps_counter.h"
@@ -92,11 +95,21 @@ struct Settings {
     bool enhanced_rendering = false;
     bool enhanced_graphics = true;  // F4 within it; retains individual feature preferences
     bool enhanced_shadows = true;   // cascades and Ratchet map; off restores original shadows
-    bool probe_lighting = true;     // uses a verified bake when one is loaded
+    renderer::ShadowQuality shadow_quality = renderer::ShadowQuality::High;
+    bool rim_light = true;
+    bool rim_shadow_lift = true;
+    float rim_lift_exponent = 0.09f;
+    float rim_lift_max_gain = 7.1f;
+    float rim_light_strength = 0.30f;
+    float rim_light_falloff = 6.46f;  // Higher values narrow the lit edge.
     bool probe_spheres = false;     // diagnostic placement/fade overlay
+    bool ceiling_area_lights = false;  // Baked source rectangles and emitting-direction arrows.
     float probe_gi_multiplier = 1.0f;
     float probe_normal_bias = 0.5f;  // receiver offsets in world units
     float probe_view_bias = 0.5f;
+    bool sun_direction_override = false;
+    float sun_azimuth = 0, sun_elevation = 45;  // Light-source angles, degrees; Z is up.
+    std::optional<std::array<float, 3>> sunlight_direction() const;
     bool gtao = true;  // ground-truth ambient occlusion when enhanced rendering is enabled
     renderer::TemporalQuality temporal_quality =
         renderer::TemporalQuality::Quality;  // Enhanced Vulkan only.

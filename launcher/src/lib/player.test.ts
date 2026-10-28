@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { extractorError, jobs } from "./app.svelte";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { acceptWarning, extractorError, forgetWarning, jobs } from "./app.svelte";
 import { isBuilt, isPlaying, playerState, rebuildSteps } from "./player.svelte";
 import type { Job } from "./queue";
 import type { ActionView, GameView, VersionView } from "./api";
@@ -125,5 +125,42 @@ describe("extractorError", () => {
 
   it("is nothing when the extractor named no error", () => {
     expect(extractorError([{ line: "Traceback (most recent call last):" }])).toBeUndefined();
+  });
+});
+
+describe("acceptWarning", () => {
+  const scope = { kind: "version" as const, key: "rac2/ntsc" };
+  const play = step("play", { kind: "play", warning: "For development only." });
+  let answer = true;
+  const confirm = vi.fn(() => answer);
+
+  beforeEach(() => {
+    // The browser preview asks with the page's confirm() (api.ts, ask).
+    vi.stubGlobal("window", { confirm });
+    confirm.mockClear();
+    answer = true;
+    forgetWarning(scope, "play");
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("starts an action that warns of nothing without asking", async () => {
+    expect(await acceptWarning(scope, step("play", { kind: "play", warning: null }))).toBe(true);
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it("asks before an action with a warning, with its words, and stops on Cancel", async () => {
+    answer = false;
+    expect(await acceptWarning(scope, play)).toBe(false);
+    expect(confirm).toHaveBeenCalledWith("For development only.");
+    answer = true;
+    expect(await acceptWarning(scope, play)).toBe(true);
+  });
+
+  it("asks once for a build and the start that follows it, and again next time", async () => {
+    expect(await acceptWarning(scope, play, true)).toBe(true);
+    expect(await acceptWarning(scope, play)).toBe(true);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(await acceptWarning(scope, play)).toBe(true);
+    expect(confirm).toHaveBeenCalledTimes(2);
   });
 });

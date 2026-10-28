@@ -125,6 +125,43 @@ class SurfaceCoverage(unittest.TestCase):
         self.assertTrue(report[0]['indoor_samples'])
         self.assertLessEqual(max(r['bounds'][3] for r in result),68)
 
+    def test_padded_seed_cannot_start_growth_behind_cliff_wall(self):
+        region = {**self.region, 'bounds': [40, 40, -4, 88, 56, 8], 'source_transitions': []}
+        markers = [{'index': 1, 'position': [48, 48, 0], 'ground_z': 0}]
+        geometry = room()+room(64, 32, 96, 64, floor=0, roof=32)
+        for triangles in (geometry, [list(reversed(t)) for t in geometry]):
+            result, report = extend_regions([region], triangles, self.coarse, [4]*3, markers=markers)
+            inaccessible = [r for r in result if r['bounds'][0] <= 80 <= r['bounds'][3]]
+            self.assertTrue(inaccessible)
+            self.assertEqual(max(r['bounds'][5] for r in inaccessible), 8)
+            self.assertGreater(report[0]['disconnected_samples'], 0)
+
+    def test_padded_height_cannot_seed_an_unreachable_upper_storey(self):
+        region = {**self.region, 'bounds': [40, 40, -4, 56, 56, 12], 'source_transitions': []}
+        markers = [{'index': 1, 'position': [48, 48, 0], 'ground_z': 0}]
+        geometry = room(roof=4)+room(floor=8, roof=32)
+        result, report = extend_regions([region], geometry, self.coarse, [4]*3, markers=markers)
+        self.assertEqual(max(r['bounds'][5] for r in result), 12)
+        self.assertGreater(report[0]['disconnected_samples'], 0)
+
+    def test_connected_growth_can_turn_around_an_internal_partition(self):
+        region = {**self.region, 'bounds': [40, 40, -4, 88, 88, 8], 'source_transitions': []}
+        markers = [{'index': 1, 'position': [48, 48, 0], 'ground_z': 0}]
+        geometry = room(32, 32, 96, 96, roof=20)
+        geometry += quad([64,32,0], [64,80,0], [64,80,20], [64,32,20])
+        result, _ = extend_regions([region], geometry, self.coarse, [4]*3, markers=markers)
+        around_corner = [r for r in result if r['bounds'][0] <= 80 <= r['bounds'][3]
+                         and r['bounds'][1] <= 48 <= r['bounds'][4]]
+        self.assertTrue(around_corner)
+        self.assertEqual(max(r['bounds'][5] for r in around_corner), 24)
+
+    def test_gameplay_anchor_preserves_connected_room_ceiling(self):
+        region = {**self.region, 'source_transitions': []}
+        markers = [{'index': 1, 'position': [48, 48, 0], 'ground_z': 0}]
+        result, report = extend_regions([region], room(roof=24), self.coarse, [4]*3, markers=markers)
+        self.assertEqual(max(r['bounds'][5] for r in result), 28)
+        self.assertGreater(report[0]['connected_cells_added'], 0)
+
     def test_shallow_floor_band_and_anisotropic_spacing(self):
         region={**self.region,'bounds':[39,40,-4,57,56,4]}
         result,report=extend_regions([region],room(),self.coarse,[3,4,4])

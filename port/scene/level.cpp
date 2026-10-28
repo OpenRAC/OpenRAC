@@ -10,12 +10,15 @@
 #include <cstring>
 #include <format>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <stb_image.h>
 #include <stdexcept>
+#include <vector>
 
 #include "common/json.h"
 #include "common/log.h"
+#include "common/profiler.h"
 
 namespace openrac::scene {
 
@@ -48,7 +51,8 @@ fs::path override_of(const fs::path& path, const LevelData& level, int* overridd
         return path;
     }
     const fs::path normal = path.lexically_normal();
-    for (const fs::path& root : {level.dir.lexically_normal(), level.overrides.lexically_normal()}) {
+    for (const fs::path& root :
+         {level.dir.lexically_normal(), level.overrides.lexically_normal()}) {
         const fs::path rel = normal.lexically_relative(root);
         if (rel.empty() || *rel.begin() == "..") {
             continue;
@@ -68,7 +72,8 @@ fs::path override_of(const fs::path& path, const LevelData& level, int* overridd
 
 int image_index(const fs::path& requested, LevelData& level) {
     int overridden = 0;
-    const std::string key = override_of(requested, level, &overridden).lexically_normal().generic_string();
+    const std::string key =
+        override_of(requested, level, &overridden).lexically_normal().generic_string();
     auto it = std::find(level.image_paths.begin(), level.image_paths.end(), key);
     if (it != level.image_paths.end()) {
         const auto index = static_cast<int>(it - level.image_paths.begin());
@@ -445,7 +450,9 @@ std::vector<renderer::Rgba8Image> load_sky_textures(const fs::path& dir) {
         renderer::Rgba8Image image;
         if (unsigned char* pixels = stbi_load(path.string().c_str(), &w, &h, &channels, 4)) {
             image = renderer::Rgba8Image(w, h);
-            std::copy(pixels, pixels + static_cast<std::ptrdiff_t>(w) * h * 4, image.pixels.begin());
+            std::copy(
+                pixels, pixels + static_cast<std::ptrdiff_t>(w) * h * 4, image.pixels.begin()
+            );
             stbi_image_free(pixels);
         }
         out.push_back(std::move(image));
@@ -463,6 +470,8 @@ Vec3 bounds_centre(const Model& model, const Mat4& matrix) {
 }
 
 bool load_level(const fs::path& dir, LevelData& out, std::string& error, const fs::path& edited) {
+    const profiling::Zone trace("Load level assets");
+
     out = LevelData{};
     out.dir = dir;
     if (!edited.empty()) {
@@ -479,11 +488,19 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
     if (format != kManifestFormat) {
         // Newer levels than the game: the game is the old part, and reading the levels again
         // would not help.
-        error = format > kManifestFormat
-                    ? std::format("{}: manifest format {}, newer than this game reads ({}): build the game again",
-                                  dir.string(), format, kManifestFormat)
-                    : std::format("{}: manifest format {} (this viewer reads {})", dir.string(), format,
-                                  kManifestFormat);
+        error = format > kManifestFormat ? std::format(
+                                               "{}: manifest format {}, newer than this game reads "
+                                               "({}): build the game again",
+                                               dir.string(),
+                                               format,
+                                               kManifestFormat
+                                           )
+                                         : std::format(
+                                               "{}: manifest format {} (this viewer reads {})",
+                                               dir.string(),
+                                               format,
+                                               kManifestFormat
+                                           );
         return false;
     }
     out.level = static_cast<int>(manifest["level"].number(-1));
@@ -510,7 +527,9 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
         if (!file.is_string()) {
             return std::nullopt;
         }
-        return load_model(override_of(dir / file.string(), out, &out.overridden_models), out, error);
+        return load_model(
+            override_of(dir / file.string(), out, &out.overridden_models), out, error
+        );
     };
 
     for (const json::Value& set : manifest["lights"].items()) {
@@ -618,6 +637,32 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
         out.moby_classes[id] = {cls.model, cls.box};
     }
 
+    json::Value emission_edits;
+    const auto emission_file = override_of(dir / "probe-emission.json", out, nullptr);
+    if (fs::exists(emission_file)
+        && !json::parse_file(emission_file.string(), emission_edits, error)) {
+        return false;
+    }
+    std::vector<int> emission_statics;
+    const auto& static_classes = emission_edits["static_mobys"];
+    // Source profiles may opt reviewed scenery into the bake, but cannot invent missing classes.
+    if (!static_classes.is_null() && !static_classes.is_array()) {
+        error = "static_mobys must be an array of loaded class IDs";
+        return false;
+    }
+    // Only reviewed classes present in this export can opt their scenery into transport.
+    for (const auto& item : static_classes.items()) {
+        const double number = item.number(-1);
+        // Reject malformed IDs before converting to the instance class type.
+        if (!item.is_number() || !std::isfinite(number) || number < 0
+            || number > std::numeric_limits<int>::max() || std::floor(number) != number
+            || !mobys.contains(static_cast<int>(number))) {
+            error = "invalid loaded class ID in static_mobys";
+            return false;
+        }
+        emission_statics.push_back(static_cast<int>(number));
+    }
+
     const std::string placements_file =
         manifest["placements"].is_string() ? manifest["placements"].string() : "placements.json";
     json::Value placements;
@@ -684,8 +729,12 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
                                         && id == 1855;
                 const auto& selection =
                     manifest["classes"]["moby"][std::to_string(id)]["bake_static"];
-                instance.bake_static =
-                    p["bake_static"].boolean(selection.boolean(metropolis_scenery || orxon_lamp));
+                const bool emission_static =
+                    std::find(emission_statics.begin(), emission_statics.end(), id)
+                    != emission_statics.end();
+                instance.bake_static = p["bake_static"].boolean(
+                    selection.boolean(metropolis_scenery || orxon_lamp || emission_static)
+                );
             }
             if (!read_matrix(p["matrix"], instance.matrix)) {
                 error = std::format(
@@ -721,12 +770,6 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
 
     // Explicit bake radiance overrides keyed by the base texture's relative path.
     // This is kept outside generated GLBs so an artistic intensity can be tuned.
-    json::Value emission_edits;
-    const auto emission_file = override_of(dir / "probe-emission.json", out, nullptr);
-    if (fs::exists(emission_file)
-        && !json::parse_file(emission_file.string(), emission_edits, error)) {
-        return false;
-    }
     for (const auto& surface : emission_edits["surfaces"].items()) {
         const fs::path mesh = fs::path(surface["mesh"].string()).lexically_normal();
         if (mesh.empty() || mesh.has_root_path() || *mesh.begin() == "..") {
@@ -756,26 +799,6 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
                               : fs::absolute(dir).lexically_normal();
         const auto relative = image_path.lexically_relative(root).generic_string();
         const auto& edit = emission_edits[relative];
-        if (manifest["game"].string() == "rac1" && manifest["version"].string() == "ntsc") {
-            for (const auto& profile : kAuthoredEmissions) {
-                if (profile.level == static_cast<unsigned>(out.level)
-                    && profile.texture == relative) {
-                    material.emission.fill(profile.intensity);
-                    material.emission_image = material.image;
-                    material.emission_mask = profile.mask;
-                    material.emission_vertex_colour = profile.vertex_colour;
-                    material.diffuse_scale = profile.diffuse_scale;
-                    // Metropolis already used this definition; invalidate changed built-in profiles only.
-                    if (out.level == 10) {
-                        out.emission_profile_revision = 2;
-                    }
-                    if (out.level == 9) {
-                        out.emission_profile_revision = 1;
-                    }
-                    break;
-                }
-            }
-        }
         if (!edit.is_object()) {
             continue;
         }
@@ -786,19 +809,40 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
         if (legacy_only) {
             continue;
         }
-        const bool radiance_edit = !edit["colour"].is_null() || !edit["intensity"].is_null();
-        if (radiance_edit) {
-            const float intensity = static_cast<float>(edit["intensity"].number(1));
-            for (unsigned c = 0; c < 3; ++c) {
-                const float colour = static_cast<float>(edit["colour"][c].number(1));
-                material.emission[c] = colour * intensity;
-                if (!std::isfinite(material.emission[c]) || colour < 0 || intensity < 0) {
-                    error = "invalid linear radiance in probe-emission.json";
-                    return false;
-                }
+        // Reject the retired ambiguous key rather than silently losing an authored light.
+        if (!edit["intensity"].is_null()) {
+            error = "rename emission intensity to runtime_intensity in probe-emission.json";
+            return false;
+        }
+        // Runtime intensity scales the texture's colour and supplies the default bake radiance.
+        if (!edit["runtime_intensity"].is_null()) {
+            const float runtime_intensity =
+                static_cast<float>(edit["runtime_intensity"].number(-1));
+
+            // Invalid intensities cannot define emission in either runtime or the bake.
+            if (!std::isfinite(runtime_intensity) || runtime_intensity < 0) {
+                error = "invalid runtime_intensity in probe-emission.json";
+                return false;
             }
+
+            material.emission.fill(runtime_intensity);
             material.emission_image = edit["use_base_texture"].boolean(true) ? material.image : -1;
         }
+
+        // A bake override controls transport independently of the visible material's glow.
+        if (!edit["bake_intensity"].is_null()) {
+            const float intensity = static_cast<float>(edit["bake_intensity"].number(-1));
+
+            // Reject invalid overrides instead of producing negative or non-finite radiance.
+            if (!std::isfinite(intensity) || intensity < 0) {
+                error = "invalid bake_intensity in probe-emission.json";
+                return false;
+            }
+
+            material.bake_intensity = intensity;
+            material.emission_image = edit["use_base_texture"].boolean(true) ? material.image : -1;
+        }
+
         if (!edit["use_base_texture"].is_null()) {
             material.emission_image = edit["use_base_texture"].boolean() ? material.image : -1;
         }
@@ -814,13 +858,12 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
                 return false;
             }
         }
-        if (!edit["mask"].is_null()) {
-            const auto name = edit["mask"].string();
-            if (name != "none" && name != "green") {
-                error = "unknown emission mask in probe-emission.json";
-                return false;
-            }
-            material.emission_mask = name == "green" ? EmissionMask::Green : EmissionMask::None;
+        material.emission_contrast =
+            edit["contrast"].is_null() ? 1.f : static_cast<float>(edit["contrast"].number(-1));
+        if (!std::isfinite(material.emission_contrast) || material.emission_contrast < 1
+            || material.emission_contrast > 4) {
+            error = "emission contrast must be between one and four";
+            return false;
         }
         material.emission_vertex_colour =
             edit["vertex_colour"].boolean(material.emission_vertex_colour);

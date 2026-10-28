@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -21,6 +22,7 @@
 #include <SDL3/SDL.h>
 
 #include "common/log.h"
+#include "common/profiler.h"
 #include "common/stats.h"
 #include "renderer/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
@@ -365,17 +367,34 @@ void publish_counters() {
     g->published = now;
 }
 
+// Selects the next slot without blocking simulation or CPU scene preparation after presentation.
 void advance() {
     g->frame = (g->frame + 1) % kFrames;
-    Frame& f = frame();
+    ++g->frame_count;
+    g->frame_pending = true;
+}
+
+// Pools and upload memory remain untouched until this slot's previous submission has completed.
+void prepare_frame() {
+    if (!g || !g->frame_pending) {
+        return;
+    }
+    const profiling::Zone trace("Prepare Vulkan frame slot");
+    Frame& f = g->frames[static_cast<std::size_t>(g->frame)];
     if (f.submitted) {
         const stats::Scope wait("vulkan frame wait");
         const Clock::time_point start = Clock::now();
-        vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX);
+        if (!check(
+                vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX), "frame-slot fence"
+            )) {
+            throw std::runtime_error("cannot reclaim Vulkan frame slot");
+        }
         g->measures.wait_s += seconds_since(start);
         timing_results(f);
         f.submitted = false;
     }
+    // Helpers below also access frame(); exclusive graphics ownership prevents concurrent reuse.
+    g->frame_pending = false;
     run_deferred(f);
     f.timings.clear();
     f.timestamp_used = 0;
@@ -387,7 +406,6 @@ void advance() {
     f.pool_at = 0;
     f.chunk_at = 0;
     f.chunk_used = 0;
-    ++g->frame_count;
     begin_buffers();
 
     // A copy that waited for a screen there was not (no window, or none shown): made now, so the
@@ -522,9 +540,13 @@ bool present_to_screen() {
     // The wait for a free image of the swapchain, measured: the game thread blocks here.
     const Clock::time_point acquiring = Clock::now();
     std::optional<stats::Scope> step(std::in_place, "vulkan acquire");
-    VkResult r = vkAcquireNextImageKHR(
-        g->device, g->swapchain, UINT64_MAX, f.acquired, VK_NULL_HANDLE, &index
-    );
+    VkResult r;
+    {
+        const profiling::Zone acquire_trace("Acquire swapchain image");
+        r = vkAcquireNextImageKHR(
+            g->device, g->swapchain, UINT64_MAX, f.acquired, VK_NULL_HANDLE, &index
+        );
+    }
     g->acquire_wait_s = seconds_since(acquiring);
     step.reset();
     if (r == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -589,7 +611,10 @@ bool present_to_screen() {
         g->present_serial = serial;
     }
 
-    r = vkQueuePresentKHR(g->queue, &info);
+    {
+        const profiling::Zone present_trace("Queue present");
+        r = vkQueuePresentKHR(g->queue, &info);
+    }
 #if defined(__ANDROID__)
     // Android says "suboptimal" for every frame of a turned screen that the system turns for us.
     const bool stale = r == VK_ERROR_OUT_OF_DATE_KHR;

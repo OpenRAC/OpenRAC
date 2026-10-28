@@ -27,6 +27,9 @@ import sys
 import tempfile
 import time
 
+sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
+from openrac_common import files as file_ops  # noqa: E402
+
 from disc import LEVEL_COUNT, Disc
 from formats import FormatError
 from godot import SCHEMA as GODOT_SCHEMA, SCRIPTS, LevelWriter, install_addon, write_project
@@ -36,7 +39,7 @@ from level import load_wad_level
 from occlusion import write_stamp as write_pvs_stamp
 from lighting import normal_table
 from pack import pack
-from port import PortLevelWriter
+from port import FORMAT as PORT_FORMAT, PortLevelWriter
 from util import sha256
 import wads
 
@@ -85,7 +88,8 @@ def level_schema(level_dir: Path) -> int | None:
         return None
 
 
-def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int) -> dict[str, list[int]]:
+def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int,
+                 gameplay_source: str | None = None) -> dict[str, list[int]]:
     """Brings the Godot projects in DEST (an earlier export of this command) up to date, keeping
     every edit: a level of the current SCHEMA is left as it is (its scene, with the player's
     edits, is the one they work on); a missing level is exported; a level an older extractor wrote
@@ -102,7 +106,9 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
         if not level_dir(i).is_dir():
             report["added"].append(i)
             todo.append(i)
-        elif level_schema(level_dir(i)) != schema:
+        elif (level_schema(level_dir(i)) != schema or
+              (gameplay_source is not None and
+               json.loads((level_dir(i) / "level.json").read_text()).get("gameplay_source") != gameplay_source)):
             report["replaced"].append(i)
             todo.append(i)
         else:
@@ -111,7 +117,7 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
         backup = dest.parent / f"{dest.name}-backups" / time.strftime("%Y%m%d-%H%M%S")
         backup.mkdir(parents=True, exist_ok=True)
         for i in report["replaced"]:
-            place(i).rename(backup / f"level_{i:02}")
+            file_ops.rename(place(i), backup / f"level_{i:02}")
         report["backup"] = backup
     if todo:
         fresh = Path(tempfile.mkdtemp(prefix=f".{dest.name}-", dir=dest.parent))
@@ -120,7 +126,7 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
             for i in todo:
                 source = fresh / f"level_{i:02}" if split else fresh / "levels" / f"level_{i:02}"
                 place(i).parent.mkdir(parents=True, exist_ok=True)
-                source.rename(place(i))
+                file_ops.rename(source, place(i))
         finally:
             shutil.rmtree(fresh, ignore_errors=True)
     for project in ([place(i) for i in levels] if split else [dest]):
@@ -135,14 +141,15 @@ def say_output(path: Path) -> None:
     print(f"openrac-output: {path}", flush=True)
 
 
-def export_godot(out: Path, levels: list[int], anywhere: bool, split: bool, export) -> str:
+def export_godot(out: Path, levels: list[int], anywhere: bool, split: bool, export,
+                 gameplay_source: str | None = None) -> str:
     """The godot command's output, made or updated (update_godot); a sentence saying what was done."""
     dest = output_path(out, anywhere, replace=True)
     ours(dest, "godot")
     if export_kind(dest) is None:
         publish(dest, lambda fresh: export(fresh, levels), anywhere, replace=True)
         return f"Godot project{'s, one per level' if split else ''}: {dest}"
-    report = update_godot(dest, levels, split, export, GODOT_SCHEMA)
+    report = update_godot(dest, levels, split, export, GODOT_SCHEMA, gameplay_source)
     said = [f"Godot project{'s' if split else ''} in {dest}:"]
     if report["kept"]:
         said.append(f"{len(report['kept'])} level(s) kept as they are, with your edits")
@@ -182,7 +189,7 @@ def adopt_flat_export(out: Path, version: str, kind: str = "port") -> bool:
     files = ("verified", "patches.tsv", "packed.json", "changes.txt")
     for item in sorted(parent.iterdir()):
         if (item.is_dir() and item.name.startswith("level_")) or (item.is_file() and item.name.startswith(files)):
-            item.rename(out / item.name)
+            file_ops.rename(item, out / item.name)
     return True
 
 
@@ -197,11 +204,11 @@ def publish(path: Path, build, anywhere: bool = False, replace: bool = False) ->
         build(temporary)
         if dest.exists():
             old = Path(tempfile.mkdtemp(prefix=f".{dest.name}-old-", dir=dest.parent))
-            dest.rename(old / dest.name)
-            temporary.rename(dest)
+            file_ops.rename(dest, old / dest.name)
+            file_ops.rename(temporary, dest)
             shutil.rmtree(old)
         else:
-            temporary.rename(dest)
+            file_ops.rename(temporary, dest)
     finally:
         if temporary.exists():
             shutil.rmtree(temporary)
@@ -268,7 +275,9 @@ def worker() -> None:
 def export_level(iso: Path, info: dict, out: Path, lod: int) -> dict:
     """One level of a Godot project; runs in its own process."""
     with Disc(iso) as disc:
-        return LevelWriter(out, load_level(disc, info), normals(disc)).write(lod)
+        writer = LevelWriter(out, load_level(disc, info), normals(disc))
+        writer.stats["gameplay_source"] = disc.version.gameplay
+        return writer.write(lod)
 
 
 def open_later(iso: Path) -> tuple[Disc, wads.WadDisc]:
@@ -342,6 +351,10 @@ def export_port_flight(iso: Path, survey: dict, out: Path, lod: int) -> dict:
         return PortLevelWriter(out, load_flight(disc, survey), normals(disc)).write(lod)
 
 
+def levels_stamp_name() -> str:
+    return f"levels-{PORT_FORMAT}.json"
+
+
 def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: Path, game: str = "rac1") -> None:
     """OUT/level_NN/ per level (port.py), written in parallel like godot(). A later game's levels
     have no title world or flight to add."""
@@ -364,6 +377,9 @@ def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: P
     if game == "rac1":
         # port.py wrote each level's visibility: the launcher has nothing to add (occlusion.py).
         write_pvs_stamp(out)
+    # Last: every level is whole. The launcher counts the levels as ready by this stamp, named
+    # after the export format, so a format bump reads them again before they are checked.
+    (out / levels_stamp_name()).write_text(json.dumps({"format": PORT_FORMAT}) + "\n")
 
 
 def raw_later(source: wads.WadDisc, level_id: int, out: Path) -> None:
@@ -492,7 +508,8 @@ def main() -> None:
                     return
                 print(export_godot(args.out, levels, args.anywhere, args.split,
                                    lambda out, todo: godot(args.iso, survey, todo, args.terrain_lod, max(1, args.jobs),
-                                                           out, args.split, disc.version.region)))
+                                                           out, args.split, disc.version.region),
+                                   gameplay_source=disc.version.gameplay if disc.version.key == "pal" else None))
                 say_output(args.out.resolve())
             elif args.command == "port":
                 levels = sorted(set(args.level or range(LEVEL_COUNT)))

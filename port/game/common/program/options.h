@@ -9,7 +9,10 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
+
+#include "custom_map.h"
 
 namespace openrac::program {
 
@@ -30,6 +33,8 @@ struct Options {
     fs::path plugins;   // the native mods' list (mods.h): <data>/plugins/plugins.json unless given
     fs::path probes;    // the player's probe bakes, a level_NN folder each (enhanced rendering)
     bool no_mods = false;  // purist mode: no native mod is loaded (docs/port/MODS.md)
+    bool expect_map = false;  // --map: the launcher requires map support, including on older builds
+    std::optional<CustomMap> custom_map;  // map.json of the stacked packs, only with mods on
     fs::path
         debug_dump;  // each frame's measurements, a JSON object a line (docs/port/DEBUGGING.md)
     bool debug_overlay = false;  // the debug overlay shown from the start (F3 shows and hides it)

@@ -324,7 +324,7 @@ void drawer_note(const char* line) {
 // Enhanced graphics (port/enhanced, the launcher's Mods entry) as the drawer's own rows: the
 // switches and the two values a player changes, large enough for a thumb and moved through by a
 // gamepad. The diagnostics (probe spheres, receiver biases, GTAO's directions and steps) are the
-// debug overlay's and the desktop's Enhanced menu's. When the game cannot have it, the card says
+// debug overlay's and the desktop's Enhanced Settings window's. When the game cannot have it, the card says
 // why and what to do instead of leaving the player to guess.
 void drawer_enhanced() {
 #if defined(OPENRAC_ENHANCED_RENDERING) && OPENRAC_ENHANCED_RENDERING
@@ -365,20 +365,30 @@ void drawer_enhanced() {
             set.enhanced_shadows = !set.enhanced_shadows;
             changed = true;
         }
-        if (drawer_switch("Bounced light", set.probe_lighting)) {
-            set.probe_lighting = !set.probe_lighting;
-            changed = true;
-        }
-        if (set.probe_lighting) {
-            const float gi = set.probe_gi_multiplier;
-            if (const int by = drawer_choice(
-                    "Bounce strength", std::format("{:g}x", gi), gi > 0.05f, gi < 4.95f
-                )) {
-                set.probe_gi_multiplier = std::clamp(
-                    std::round((gi + 0.25f * static_cast<float>(by)) * 4.0f) / 4.0f, 0.0f, 5.0f
-                );
+        if (set.enhanced_shadows) {
+            const bool high = set.shadow_quality == renderer::ShadowQuality::High;
+            if (drawer_choice("Shadow quality", high ? "High" : "Medium", high, !high)) {
+                set.shadow_quality =
+                    high ? renderer::ShadowQuality::Medium : renderer::ShadowQuality::High;
                 changed = true;
             }
+        }
+        if (drawer_switch("Gameplay rim light", set.rim_light)) {
+            set.rim_light = !set.rim_light;
+            changed = true;
+        }
+        if (set.rim_light && drawer_switch("Rim shadow lift", set.rim_shadow_lift)) {
+            set.rim_shadow_lift = !set.rim_shadow_lift;
+            changed = true;
+        }
+        const float gi = set.probe_gi_multiplier;
+        if (const int by = drawer_choice(
+                "Bounce strength", std::format("{:g}x", gi), gi > 0.05f, gi < 4.95f
+            )) {
+            set.probe_gi_multiplier = std::clamp(
+                std::round((gi + 0.25f * static_cast<float>(by)) * 4.0f) / 4.0f, 0.0f, 5.0f
+            );
+            changed = true;
         }
         if (drawer_switch("Ambient occlusion", set.gtao)) {
             set.gtao = !set.gtao;

@@ -83,5 +83,8 @@ void main() {
         discard;
     }
     // Alpha 0x80 is 1.0 for blending.
+#ifdef OPENRAC_EFFECT_MATERIAL
+    c.rgb = effect_material(c.rgb / 255.0) * 255.0;
+#endif
     out_colour = vec4(c.rgb / 255.0, c.a / 128.0);
 }

@@ -20,6 +20,8 @@
   const next = $derived(v ? playerState(game, v) : null);
   /** The tile offers the next step itself only when there is one to take. */
   const offers = $derived(!!next && !next.disabled && next.kind !== "installing" && (next.primary || !!next.job));
+  /** What Play warns of before it starts (actions.json `warning`), shown in short on the tile. */
+  const playWarning = $derived(v?.actions.find((a) => a.id === "play" && a.thisPlatform)?.warning ?? null);
   /** With developer tools on: how far each version's decompilation is. */
   const matched = $derived(
     app.config?.developer
@@ -50,6 +52,10 @@
           {#if next.job}<span class="spinner"></span>{:else}<span class="dot"></span>{/if}{next.status}
         </p>
         {#if matched}<p class="matched">{matched} matched</p>{/if}
+        {#if playWarning}
+          <!-- A game far from finished (actions.json `warning`): its page and Play say the whole of it. -->
+          <p class="crashed" title={playWarning}><Icon name="warn" size={13} />For development only</p>
+        {/if}
         {#if (app.crashes[game.id]?.recent ?? 0) > 0}
           <p class="crashed">
             <Icon name="warn" size={13} />Crashed recently<span class="where">: a report is on its page</span>

@@ -63,6 +63,21 @@ extern const char* openrac_game_disc_image;
  * both). The disc image itself is never changed. */
 extern const char* openrac_game_mods_dir;
 
+/* An enabled map mod, or NULL for the campaign. The runtime checked map.json against this disc.
+
+ * The map uses `level`'s program with its own data. Spawn is in game units, heading in radians.
+
+ * Map sessions start a fresh game with memory cards disabled. */
+struct openrac_map_config {
+    const char* name;
+    int level;
+    float spawn[3];
+    float heading;
+    int skip_movies;
+    int skip_cutscenes;
+};
+extern const struct openrac_map_config* openrac_game_map;
+
 /* The first memory card's folder (the second is beside it, <folder>.slot2). */
 extern const char* openrac_game_card_dir;
 
@@ -366,6 +381,9 @@ int openrac_game_pad_through_mods(int port, uint16_t* buttons, uint8_t analog[4]
 /* The game's text lookup, asked for a text id: the game address of a string of the port's own (the
  * rows it adds to the game's options), or 0 when the id is the game's. */
 gaddr openrac_game_text(int id);
+
+/* Nonzero only while the enhanced Novalis water replacement is ready and enabled. */
+int openrac_game_enhanced_water(void);
 
 /* ---- Inside the replacements ---- */
 

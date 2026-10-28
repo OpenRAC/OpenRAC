@@ -40,7 +40,8 @@
     if (!list) return;
     list.showPopover();
     place();
-    list.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    // Focusing the popover must not scroll the page and trigger moved() below.
+    list.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
   });
   const plain = $derived(items.filter((i) => !i.danger));
   const danger = $derived(items.filter((i) => i.danger));

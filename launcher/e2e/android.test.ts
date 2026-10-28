@@ -112,8 +112,26 @@ describe("Android launcher", () => {
     await expect(page.locator(".go .big").textContent()).resolves.toContain("Rebuild");
     await open("built&version=rac1/pal");
     await expect(page.locator(".go .big").textContent()).resolves.toContain("Play");
-    await page.locator(".go-row").getByRole("button", { name: "More actions" }).click();
-    await expect(page.getByRole("menuitem", { name: "Rebuild the game" }).count()).resolves.toBe(1);
+    const more = page.locator(".go-row").getByRole("button", { name: "More actions" });
+    await more.scrollIntoViewIfNeeded();
+    const scrollTop = await page.locator("main").evaluate((e) => e.scrollTop);
+    await more.click();
+    const rebuild = page.getByRole("menuitem", { name: "Rebuild the game" });
+    await rebuild.waitFor({ state: "visible" });
+    // Allow focus-triggered scrolling to arrive before checking that the menu stays open.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              resolve();
+            }),
+          ),
+        ),
+    );
+    await expect(rebuild.count()).resolves.toBe(1);
+    await expect(page.locator("main").evaluate((e) => e.scrollTop)).resolves.toBe(scrollTop);
+    await expect(rebuild.evaluate((e) => document.activeElement === e)).resolves.toBe(true);
   });
 
   it("draws a running step's strip over the band's picture, not under its shade", async () => {

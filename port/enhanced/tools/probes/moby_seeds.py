@@ -13,6 +13,11 @@ sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / 
 from openrac_common import paths  # noqa: E402
 
 
+def default_whitelist_path(game: str) -> Path:
+    """Game-wide class IDs belong with authored lighting profiles, shared by its disc versions."""
+    return paths.repo_root(__file__)/'port/enhanced/lighting/profiles'/game/'moby-seeds.json'
+
+
 def whitelist(path: Path) -> dict[int, dict]:
     data = json.loads(path.read_text())
     if data['version'] != 1 or data['game'] != 'rac1':
@@ -196,7 +201,7 @@ def combine(authored, mobys, coarse, spacing, budget, *, preserve_height=False):
     return out, skipped
 
 
-def merge_regions(regions, spacing, budget, *, preserve_height=False):
+def merge_regions(regions, spacing, budget, *, preserve_height=False, coverage_contains=None, merge_preserves=None):
     """Keep unchanged pair scores instead of rescanning every pair per merge."""
     from seed_regions import probe_count
 
@@ -209,7 +214,7 @@ def merge_regions(regions, spacing, budget, *, preserve_height=False):
 
     def candidate(i, j):
         a, b = active[i]['bounds'], active[j]['bounds']
-        if preserve_height and a[5] != b[5]:
+        if preserve_height and coverage_contains is None and a[5] != b[5]:
             # A union must not spread the taller top over the lower footprint.
             # Equal ceilings are safe; otherwise the taller footprint must
             # already contain the lower one (including the identical-XY case).
@@ -220,7 +225,13 @@ def merge_regions(regions, spacing, budget, *, preserve_height=False):
             return None
         bounds = [min(a[k], b[k]) for k in range(3)]
         bounds += [max(a[k+3], b[k+3]) for k in range(3)]
-        if preserve_height:
+        if merge_preserves is not None and not merge_preserves(bounds, a, b):
+            return None
+        if coverage_contains is not None:
+            # The final planner may fill a pair's gap only if other existing regions already cover it.
+            if not coverage_contains(bounds):
+                return None
+        elif preserve_height:
             volume = lambda box: math.prod(box[k+3]-box[k] for k in range(3))
             overlap = math.prod(max(0, min(a[k+3], b[k+3])-max(a[k], b[k])) for k in range(3))
             if volume(bounds) > volume(a)+volume(b)-overlap:

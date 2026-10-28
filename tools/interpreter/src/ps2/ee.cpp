@@ -447,6 +447,21 @@ void Ee::step() {
     s32 imm = imm_of(op);
     u32 address = static_cast<u32>(gpr[rs].lo) + static_cast<u32>(imm);
 
+    // An access the console would refuse with an address error is counted (see `misaligned`).
+    switch (op >> 26) {
+        case 0x21: case 0x25: case 0x29:
+            misaligned += address & 1;
+            break;
+        case 0x23: case 0x27: case 0x2B: case 0x31: case 0x39:
+            misaligned += (address & 3) != 0;
+            break;
+        case 0x37: case 0x3F:
+            misaligned += (address & 7) != 0;
+            break;
+        default:
+            break;
+    }
+
     // The opcode is bits 26-31 (documented).
     switch (op >> 26) {
         case 0x00:  // SPECIAL

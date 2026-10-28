@@ -80,6 +80,13 @@ objects retain instance-major ordering to preserve equal-depth alpha coverage. T
 reference is the registry's `fsr-motion-batch` switched off (`OPENRAC_RENDER_OPT_OFF=fsr-motion-batch`,
 [RENDER_PERF.md](../../../docs/port/RENDER_PERF.md#fsr-motion-batch-object-motion-in-batches)).
 
+## Late world effects
+
+After temporal resolve clears HUD depth, `late_world_depth.frag` restores display-resolution
+world depth for late effects such as pickup glimmers, compensating raster jitter. HUD packets
+retain their GS depth state; `before_hud` runs after restoration. `fsr3_frame` checks behind-wall
+occlusion, front visibility and exact HUD coverage in Quality, Performance and Native AA.
+
 ## Further reading
 
 [AMD's integration guide](https://gpuopen.com/manuals/fidelityfx_sdk/techniques/super-resolution-upscaler/).

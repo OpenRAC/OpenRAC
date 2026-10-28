@@ -40,7 +40,8 @@ SunCascades sun_cascades(
     renderer::Vec3 direction,
     renderer::Vec3 caster_low,
     renderer::Vec3 caster_high,
-    float distance = 256
+    float distance = 256,
+    renderer::ShadowQuality quality = renderer::ShadowQuality::High
 );
 
 // What a sun cascade's static casters (terrain, ties, shrubs) in the static shadow cache were

@@ -220,7 +220,7 @@ std::string Machine::format(u32 format_address, unsigned first_arg) {
 
 // --- replaced functions ---
 
-bool Machine::hook(u32 address, const std::string& service) {
+bool Machine::hook(u32 address, const std::string& service, int inputs) {
     auto found = services_.find(service);
 
     // No service has that name, so there is nothing to put at the address.
@@ -231,6 +231,7 @@ bool Machine::hook(u32 address, const std::string& service) {
     u32 index = static_cast<u32>(hooked_.size());
     hooked_.push_back(found->second);
     hooked_names_.push_back(service);
+    hooked_inputs_.push_back(inputs);
 
     // Keep the first instruction only the first time, so a second hook does not save a SYSCALL.
     if (!hooked_original_.count(address)) {
@@ -271,15 +272,27 @@ bool Machine::load_hooks(const std::string& path, std::string* error) {
         }
 
         std::istringstream words(line);
-        std::string address, service;
+        std::string address, service, extra;
 
         // A blank line or a comment alone has no address and name; skip it.
         if (!(words >> address >> service)) {
             continue;
         }
 
+        // An optional `inputs=N`: the argument registers the function takes. Anything else stops the load.
+        int inputs = -1;
+        if (words >> extra) {
+            if (extra.rfind("inputs=", 0) != 0 || extra.size() == 7 || extra.size() > 8 || extra[7] < '0' || extra[7] > '8') {
+                if (error) {
+                    *error = path + ":" + std::to_string(number) + ": expected inputs=0..8, not " + extra;
+                }
+                return false;
+            }
+            inputs = extra[7] - '0';
+        }
+
         // The address is hexadecimal. A name no service has stops the load.
-        if (!hook(static_cast<u32>(std::stoul(address, nullptr, 16)), service)) {
+        if (!hook(static_cast<u32>(std::stoul(address, nullptr, 16)), service, inputs)) {
             if (error) {
                 *error = path + ":" + std::to_string(number) + ": no service named " + service;
             }
@@ -287,6 +300,16 @@ bool Machine::load_hooks(const std::string& path, std::string* error) {
         }
     }
 
+    return true;
+}
+
+bool Machine::hooked_call(u32 code, int* inputs) const {
+    if (!(code & kHookCode) || (code & (kHookCode - 1)) >= hooked_.size()) {
+        return false;
+    }
+    if (inputs) {
+        *inputs = hooked_inputs_[code & (kHookCode - 1)];
+    }
     return true;
 }
 

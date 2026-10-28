@@ -6,8 +6,8 @@
 For each level whose scene differs from the disc, writes that level's
 gameplay file (the placements) as the game stores it, and a list of the disc
 sectors each file replaces. Either disc: each level header holds a gameplay
-copy per version, and each disc's game loads its own (disc.Version.gameplay),
-so that copy is the one read and replaced:
+copy per video mode. Both native ports select the 60 Hz copy on their own disc
+(disc.Version.gameplay), so that copy is the one read and replaced:
 
     <out>/level_NN/gameplay_<version>.wad   the level's gameplay file, compressed
     <out>/patches.tsv                 first sector, sector count, file: one line per file
@@ -392,6 +392,16 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
                                   project / name / "levels" / name / f"{name}.tscn") if s.is_file()), None)
         if scene is None:
             continue
+        if disc.version.key == "pal":
+            metadata = scene.with_name("level.json")
+            try:
+                source = json.loads(metadata.read_text()).get("gameplay_source")
+            except (OSError, ValueError, AttributeError):
+                source = None
+            if source != disc.version.gameplay:
+                raise FormatError(f"level {info['id']:02}: this PAL project predates the 60 Hz gameplay fix. "
+                                  "Extract the levels again to back up the old project and create a 60 Hz "
+                                  "project, then reapply your intended edits. Do not copy the whole old scene.")
         place = info["ranges"][disc.version.gameplay]
         stored = disc.sectors(place["lba"], place["sectors"])
         gameplay = decoded(stored)

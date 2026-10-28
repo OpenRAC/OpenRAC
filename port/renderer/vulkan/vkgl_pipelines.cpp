@@ -24,6 +24,7 @@
 #include <vector>
 #include <volk.h>
 
+#include "common/profiler.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "renderer/vulkan/pipeline_cache_file.h"
@@ -165,7 +166,8 @@ VkDescriptorPool new_pool() {
          {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 4096},
          {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4096},
          {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 2048},
-         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4096}};
+         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4096},
+         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 32}};
     VkDescriptorPoolCreateInfo info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
     info.maxSets = 2048;
     info.poolSizeCount = static_cast<std::uint32_t>(std::size(sizes));
@@ -848,6 +850,7 @@ void record_manifest_key(const Program& p, const PipelineKey& k) {
 // The pre-warm worker: makes each queued job's pipeline, in order, until stop is set. Runs on its
 // own thread (PipelinePrewarm::worker) and touches nothing but `w` and the device.
 void run_prewarm_worker(PipelinePrewarm& w) {
+    profiling::thread_name("Pipeline warmup");
     std::unique_lock lock(w.mutex);
 
     // Ends when stop_pipeline_prewarm sets stop.
@@ -1118,6 +1121,8 @@ FixedState fixed_state(const Target& t) {
 VkPipeline pipeline_for(
     Program& p, GLenum mode, const Target& t, const Input* inputs, std::uint32_t count
 ) {
+    const profiling::Zone trace("Vulkan pipeline");
+
     const State& s = g->state;
     PipelineKey k;
     std::memset(&k, 0, sizeof k);
@@ -1794,6 +1799,8 @@ VkDescriptorSet descriptors_cached(Program& p, std::span<const Sampled> samplers
 }  // namespace
 
 VkDescriptorSet descriptors(Program& p, std::span<const Sampled> samplers) {
+    const profiling::Zone trace("Vulkan descriptors");
+
     // A program with no resources has no set.
     if (p.set_layout == VK_NULL_HANDLE) {
         return VK_NULL_HANDLE;
@@ -1808,6 +1815,7 @@ VkDescriptorSet descriptors(Program& p, std::span<const Sampled> samplers) {
 }
 
 void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z) {
+    prepare_frame();
     auto* p = g->programs.find(g->state.program);
     if (!p || !p->linked || !p->compute_pipeline || !x || !y || !z) {
         return;
@@ -1848,8 +1856,28 @@ void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z) {
     g->bound_pipeline = VK_NULL_HANDLE;
 }
 
-void OPENRAC_GLAPI memory_barrier(GLbitfield) {
+void OPENRAC_GLAPI memory_barrier(GLbitfield bits) {
+    prepare_frame();
     end_rendering(PassEnd::Barrier);
+    // GPU-generated geometry needs read/write ordering across repeated draws and subsequent dispatches.
+    if (bits & (GL_COMMAND_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT)) {
+        constexpr VkPipelineStageFlags kStages =
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT
+            | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT
+            | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        constexpr VkAccessFlags kAccess = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT
+                                          | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT
+                                          | VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+        VkMemoryBarrier dependency{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+        dependency.srcAccessMask = kAccess;
+        dependency.dstAccessMask = kAccess;
+        vkCmdPipelineBarrier(
+            frame().main, kStages, kStages, 0, 1, &dependency, 0, nullptr, 0, nullptr
+        );
+        count_barrier(kStages, kStages);
+        return;
+    }
+
     // Shader writes (compute's, the only shaders that write) before every later use of what they
     // wrote: shader and uniform reads, vertices and indices, indirect arguments, copies (the R-08
     // table). The reference path: every stage.

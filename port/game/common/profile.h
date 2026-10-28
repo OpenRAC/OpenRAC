@@ -132,6 +132,9 @@ public:
     // Whether the port has the game's levels extracted (editor/port.py), so that a level whose
     // scenery cannot be read is something missing, not a game with no scenery yet.
     virtual bool has_levels() const { return false; }
+
+    // Returns whether this class is a gameplay subject, rather than scenery or an effect.
+    virtual bool gameplay_essential(int /*class_id*/) const { return false; }
 };
 
 // Returns the profile of the game version `game` (its port id, "rac1-pal"), which lives as long as

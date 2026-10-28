@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -35,6 +36,7 @@
 #include "common/env.h"
 #include "common/log.h"
 #include "common/parallel.h"
+#include "common/profiler.h"
 #include "common/stats.h"
 #include "debug_menu.h"
 #include "debug_overlay.h"
@@ -56,6 +58,9 @@
 namespace openrac::frontend {
 
 namespace {
+
+// Bound consecutive omitted pictures so a heavily loaded game still presents regularly.
+constexpr int kMostSkipped = 3;
 
 // A range of frames, both ends included.
 struct FrameRange {
@@ -191,6 +196,10 @@ std::vector<std::uint8_t> direct_packets(
     const std::uint8_t* strip_xyz = nullptr;
     std::uint32_t strip_count = 0;
     bool strip_tag = false;
+    std::uint32_t surface = 0;
+    renderer::EffectUvMotion uv_motion{};
+    std::array<float, 4> uv_offsets{};
+    bool second_texture = false;
     // The images sent through the DIRECT data (BITBLTBUF, TRXREG, then IMAGE data), latest per
     // destination block: a strip takes the ones at its TEX0's blocks.
     std::uint64_t reg_bitbltbuf = 0, reg_trxreg = 0;
@@ -247,6 +256,24 @@ std::vector<std::uint8_t> direct_packets(
                     std::memcpy(&value, d + p, 8);
                     std::memcpy(&address, d + p + 8, 8);
                     switch (address & 0xFF) {
+                        case 0x7F:
+                            if ((value >> 48) == 0x5754) {
+                                surface = static_cast<std::uint32_t>(value);
+                                uv_motion = {};
+                                uv_offsets = {};
+                            } else if ((value >> 48) == 0x5755) {
+                                const auto field = static_cast<unsigned>((value >> 32) & 0xFFFF);
+                                const auto bits = static_cast<std::uint32_t>(value);
+                                if (field == 0) {
+                                    uv_motion.enabled = true;
+                                    uv_motion.amplitude = std::bit_cast<float>(bits);
+                                } else if (field == 1) {
+                                    uv_motion.phase = bits;
+                                } else if (field < 6) {
+                                    uv_offsets[field - 2] = std::bit_cast<float>(bits);
+                                }
+                            }
+                            break;
                         case 0x50:
                             reg_bitbltbuf = value;
                             break;
@@ -360,6 +387,7 @@ std::vector<std::uint8_t> direct_packets(
                     std::memcpy(&tag, data, 8);
                     strip_tag = ((tag >> 47) & 7) == 4 && (tag & 0x7FFF) >= 3;
                     strip_count = static_cast<std::uint32_t>(tag & 0x7FFF);
+                    second_texture = ((tag >> 56) & 1) != 0;
                     strip_st = strip_rgba = strip_xyz = nullptr;
                 } else if (strip_tag && address == 1 && vn == 1 && vl == 0
                            && count == strip_count) {
@@ -387,6 +415,13 @@ std::vector<std::uint8_t> direct_packets(
                 strip.tex1 = reg_tex1;
                 strip.clamp = reg_clamp;
                 strip.alpha = reg_alpha;
+                strip.surface = surface;
+                strip.uv_motion = uv_motion;
+                const auto uv_at = second_texture ? 2u : 0u;
+                strip.uv_motion.offset = {uv_offsets[uv_at], uv_offsets[uv_at + 1]};
+                if (second_texture) {
+                    strip.uv_motion.amplitude = -strip.uv_motion.amplitude;
+                }
                 if (uploads != nullptr) {
                     const std::uint32_t tbp = static_cast<std::uint32_t>(reg_tex0 & 0x3FFF);
                     const std::uint32_t cbp = static_cast<std::uint32_t>((reg_tex0 >> 37) & 0x3FFF);
@@ -871,6 +906,8 @@ TickMobys pose_mobys(
     bool only_own_camera,
     bool debug
 ) {
+    const profiling::Zone trace("Pose mobys");
+
     // The live mobys, by class, each in the pose its animation fields give (viewer/moby_pose.h):
     // its joint palette goes to the scene, which skins the class's mesh with it. OPENRAC_ANIM=0
     // draws every moby in its bind pose.
@@ -893,6 +930,7 @@ TickMobys pose_mobys(
     };
 
     std::vector<PoseJob> pose_jobs;
+    std::array<std::optional<renderer::Vec3>, 2> water_hands{};
     // Mobys the game drew into a texture, and the ones it drew that are not in its list. The game
     // renders some mobys into a target the 2D layer then copies onto the screen: the vendor's item
     // and salesman screens (ReRAC interaction.md 9.3), the page menus' widgets (the 3D Ratchet and
@@ -992,6 +1030,7 @@ TickMobys pose_mobys(
             continue;
         }
         scene::Instance instance{cls->second.first, m.matrix, {1, 1, 1, 1}};
+        instance.gameplay_essential = g->profile->gameplay_essential(m.class_id);
         instance.occlusion = m.occlusion;
         if (extra || into_texture.contains(m.address)) {
             instance.occlusion = scene::Pvs::always;
@@ -1129,6 +1168,7 @@ TickMobys pose_mobys(
         instance.hero_shadow_caster = (owned_by_hero || instance.hero_shadow_anchor)
                                       && g->loaded >= 0 && g->loaded < 19
                                       && instance.moby_light[3] < 1.5f && instance.tint[3] > 0;
+        instance.gameplay_essential |= owned_by_hero || instance.hero_shadow_anchor;
         live_joints.push_back(instance.palette >= 0 ? joints : 0);
         if (g->profile->shadow_directions() != 0 && g->loaded >= 0 && g->loaded < 19 && animate
             && m.class_id == 0 && !extra && instance.moby_light[3] < 1.5f
@@ -1153,6 +1193,28 @@ TickMobys pose_mobys(
                     shadow_state.heights[1],
                     shadow_state.scale
                 );
+            }
+        }
+        if (animate && instance.hero_shadow_anchor && g->game == "rac1-ntsc" && g->loaded == 1
+            && enhanced_graphics_available() && settings::get().enhanced_graphics) {
+            const auto pose = scene::moby_pose_matrices(ram, m.address);
+            // Ratchet's two palm roots, identified by their finger children in the
+            // extracted class-0 skeleton; joint 56 also carries the wrench attachment.
+            constexpr std::array<unsigned, 2> palms{56, 76};
+            for (unsigned hand = 0; hand < palms.size(); ++hand) {
+                if (palms[hand] >= pose.size()) {
+                    continue;
+                }
+                const auto& translation = pose[palms[hand]][3];
+                const auto point = renderer::transform_point(
+                    m.matrix,
+                    {translation[0] / 1024.f, translation[1] / 1024.f, translation[2] / 1024.f}
+                );
+                if (std::all_of(point.begin(), point.end(), [](float value) {
+                        return std::isfinite(value);
+                    })) {
+                    water_hands[hand] = point;
+                }
             }
         }
         live.push_back(instance);
@@ -1204,7 +1266,8 @@ TickMobys pose_mobys(
         std::move(shadows),
         shadow_moby,
         shadow_state,
-        std::move(target_mobys)
+        std::move(target_mobys),
+        water_hands
     };
 }
 
@@ -1239,6 +1302,8 @@ void keep_tick(
     std::uint32_t draws,
     TickMobys&& mobys
 ) {
+    const profiling::Zone trace("Capture world");
+
     // What this tick drew, kept for the frames drawn until the next one (between): the scene
     // then moves from the last tick's camera and mobys to this one's.
     Kept& k = *g->kept;
@@ -1251,12 +1316,13 @@ void keep_tick(
         k.shadow_moby = 0;
         k.level = g->loaded;
     }
+    const bool adjacent = g->index == k.frame + 1;
     k.prev_state = k.state;
-    k.has_prev_state = k.has_state;
+    k.has_prev_state = k.has_state && adjacent;
     k.prev_matrices.clear();
     k.prev_spheres.clear();
     k.prev_poses.clear();
-    for (std::size_t i = 0; i < k.live.size() && i < k.addresses.size(); ++i) {
+    for (std::size_t i = 0; adjacent && i < k.live.size() && i < k.addresses.size(); ++i) {
         k.prev_matrices[k.addresses[i]] = k.live[i].matrix;
         k.prev_spheres[k.addresses[i]] = k.live[i].world_sphere;
         if (i < k.joints.size() && k.joints[i] > 0 && k.live[i].palette >= 0) {
@@ -1266,10 +1332,17 @@ void keep_tick(
     k.prev_palette = std::move(k.palette);
     k.prev_shadows = std::move(k.shadows);
     k.prev_shadow_moby = k.shadow_moby;
+    // A captured-pose gap has no valid one-tick interpolation endpoint.
+    if (!adjacent) {
+        k.prev_palette.clear();
+        k.prev_shadows.clear();
+        k.prev_shadow_moby = 0;
+    }
     k.shadows = std::move(mobys.shadows);
     k.shadow_moby = mobys.shadow_moby;
     k.prev_shadow_state = k.shadow_state;
     k.shadow_state = mobys.shadow_state;
+    k.water_hands = mobys.water_hands;
     k.hero_airborne = g->profile->hero_state() != 0
                           ? scene::hero_airborne(ram, OPENRAC_DATA(g->profile->hero_state()))
                           : std::nullopt;
@@ -1287,20 +1360,33 @@ void keep_tick(
     k.frame = g->index++;
 }
 
+// The current tick's packet data is cheap to capture even when its world pose will be dropped.
+struct TickPackets {
+    std::vector<std::uint8_t> packets;
+    std::vector<renderer::EffectVertex> strip_vertices;
+    std::vector<renderer::EffectStrip> strips;
+    std::size_t before_world = 0;
+    const std::vector<renderer::UiQuad>* named_quads = nullptr;
+};
+
 // Keeps this tick's 2D path (the display list's direct GIF data, from `chain` where the game
 // sends it so, else the list the game's profile says is shown in the program `level`) and where its
 // world goes in it. Returns the native quads its markers name, if they are still kept.
-const std::vector<renderer::UiQuad>* keep_2d_path(
-    std::span<const std::uint8_t> ram, std::uint32_t chain, int level, bool debug
+TickPackets capture_2d_path(
+    std::span<const std::uint8_t> ram,
+    std::uint32_t chain,
+    int level,
+    std::uint32_t draws,
+    bool debug
 ) {
-    Kept& k = *g->kept;
+    TickPackets k;
     // OPENRAC_DUMP_DRAWS=N or N-M: the frames whose 2D draws are logged.
     static const std::optional<FrameRange> dump_at = env_frames(env::Var::DumpDraws);
     if (dump_at) {
-        renderer::g_dump_draws = dump_at->holds(k.frame);
+        renderer::g_dump_draws = dump_at->holds(g->index);
     }
     if (renderer::g_dump_draws) {
-        log::info("frame {}: the 2D path's draws", k.frame);
+        log::info("frame {}: the 2D path's draws", g->index);
     }
     // The 2D path: the frame's direct GIF data, drawn by the direct renderer.
     // RAC1 keeps two alternating list buffers and the sent list is one tick behind; Deadlocked
@@ -1370,11 +1456,12 @@ const std::vector<renderer::UiQuad>* keep_2d_path(
     if (world_marker != SIZE_MAX) {
         before_world = std::min(before_world, world_marker);
     }
-    if (before_world == SIZE_MAX && (k.draws & 0x10u) != 0) {
+    if (before_world == SIZE_MAX && (draws & 0x10u) != 0) {
         before_world = first_offscreen;
     }
     k.before_world = level >= 0 && level < 19 ? std::min(before_world, k.packets.size()) : 0;
-    return named_quads;
+    k.named_quads = named_quads;
+    return k;
 }
 
 // Decides how this tick's frames start (frontend/tick_picture.h): the last frame standing, the last
@@ -1417,12 +1504,14 @@ void choose_repeat_frame(int level, bool debug) {
 }
 
 // Keeps the world effects, the sky and the particles the game drew this tick, and the native
-// quads its 2D list names (`named_quads`, keep_2d_path), and clears what was gathered.
+// quads its 2D list names (`named_quads`, capture_2d_path), and clears what was gathered.
 void keep_effects(
     std::span<const std::uint8_t> ram,
     const host::GameState& state,
     const std::vector<renderer::UiQuad>* named_quads
 ) {
+    const profiling::Zone trace("Capture effects");
+
     Kept& k = *g->kept;
     effect_textures();  // before the sky's sprites go in front of the effect quads
     sky_sprite_quads(state);
@@ -1510,6 +1599,16 @@ bool sends_image(std::span<const std::uint8_t> packets) {
     return false;
 }
 
+// A skipped gameplay picture still applies its uploads; menu/background copies need a drawn frame.
+bool retain_tick_uploads() {
+    const Kept& tick = *g->kept;
+    if (!sends_image(tick.packets)) {
+        return true;
+    }
+    return g->hud && (tick.draws & OPENRAC_DRAW_TERRAIN) != 0
+           && g->hud->retain_uploads(tick.packets);
+}
+
 // Whether the tick's own frame is left out because the tick came late. Counts and warns.
 bool leave_late_frame() {
     // The tick's own frame (when frames are drawn between ticks, part way from the last tick's
@@ -1517,7 +1616,6 @@ bool leave_late_frame() {
     // machine draws frames slower than the game ticks) is not drawn, so that drawing never slows
     // the game's time: the next tick's frame shows where the game got to. At most three in a row,
     // so that a picture still comes; a machine slower than that runs the game slow, as it must.
-    constexpr int kMostSkipped = 3;
     // Said when it goes on (a quarter of a hundred ticks' frames left out), not for the odd tick
     // that comes late after the system held the program up.
     static int ticks = 0;
@@ -1539,7 +1637,7 @@ bool leave_late_frame() {
         left_out = 0;
     }
     if (pacing.late > pacing.period && g->skipped < kMostSkipped && g->kept->has_camera
-        && g->index > 1 && !sends_image(g->kept->packets)) {
+        && g->index > 1 && retain_tick_uploads()) {
         ++g->skipped;
         ++left_out;
         return true;
@@ -1583,7 +1681,7 @@ void draw_tick_frame() {
     // The frame cap may hold the tick's own frame back: the tick is never made to wait for it. The
     // frame is then drawn between ticks, when it is due (between), or not at all when the next
     // tick comes first (a cap under the game's tick rate).
-    if (!frame_due(std::chrono::steady_clock::now())) {
+    if (!frame_due(std::chrono::steady_clock::now()) && retain_tick_uploads()) {
         pacing.first_pending = true;
         return;
     }
@@ -1621,6 +1719,8 @@ bool finish_tick(
 }  // namespace
 
 bool prepare_frame(std::span<const std::uint8_t> ram) try {
+    const profiling::Zone trace("Prepare next scene");
+
     // A tick prepared on an earlier vsync whose frame() never ran (an undrawn tick keeps the last
     // picture, program/undrawn_ticks.h) is that tick's, not this one's: drawn, the galactic map's
     // first tick showed the level's mobys from the tick before.
@@ -1639,6 +1739,10 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
         return true;
     }
 
+    // Late ticks may discard their world snapshot after retaining the packet uploads.
+    if (pacing.late > pacing.period && g->skipped < kMostSkipped && g->world_camera) {
+        return true;
+    }
     const auto started = std::chrono::steady_clock::now();
     PreparedTick prepared;
     prepared.level = g->loaded;
@@ -1663,6 +1767,8 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
 }
 
 bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws) {
+    const profiling::Zone trace("Capture tick");
+
     // Resource changes require exclusive graphics ownership.
     if (!finish_render()) {
         return false;
@@ -1711,6 +1817,22 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         log_tick_state(ram, state, level, draws);
     }
     log_mobys_near_hero(ram, state);
+    auto packets = capture_2d_path(ram, chain, level, draws, debug);
+    // Catch up before posing hundreds of objects for a picture that will never be displayed.
+    if (pacing.late > pacing.period && g->skipped < kMostSkipped && g->index > 1 && world_ran
+        && (draws & OPENRAC_DRAW_TERRAIN) != 0 && g->hud
+        && g->hud->retain_uploads(packets.packets)) {
+        ++g->skipped;
+        ++g->index;
+        g->ui_quads.clear();
+        g->moby_cameras.clear();
+        g->effects.clear();
+        g->effect_uploads.clear();
+        g->particles.clear();
+        g->sky_sprites.clear();
+        g->sky_shell_mask = 0;
+        return true;
+    }
     part.emplace("moby poses");
     TickMobys mobys = prepared ? std::move(prepared->mobys)
                                : pose_mobys(ram, state, world_ran, only_own_camera, debug);
@@ -1720,10 +1842,12 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     light_scene(ram, state);
     part.emplace("tick kept");
     keep_tick(ram, state, draws, std::move(mobys));
-    part.emplace("2d path");
-    const std::vector<renderer::UiQuad>* named_quads = keep_2d_path(ram, chain, level, debug);
+    g->kept->packets = std::move(packets.packets);
+    g->kept->strip_vertices = std::move(packets.strip_vertices);
+    g->kept->strips = std::move(packets.strips);
+    g->kept->before_world = packets.before_world;
     part.reset();
-    return finish_tick(ram, state, named_quads, level, debug, scene);
+    return finish_tick(ram, state, packets.named_quads, level, debug, scene);
 }
 
 }  // namespace openrac::frontend

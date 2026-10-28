@@ -14,8 +14,8 @@ using Float2 = std::array<float, 2>;
 using Float3 = std::array<float, 3>;
 
 // Only the current GPU-ready layout is accepted. Older assets must be rebaked.
-inline constexpr std::uint32_t kProbeFormatVersion = 3;
-inline constexpr std::uint32_t kProbeBakeVersion = 1;
+inline constexpr std::uint32_t kProbeFormatVersion = 4;
+inline constexpr std::uint32_t kProbeBakeVersion = 3;
 inline constexpr unsigned kProbeAtlasTilesX = 64;
 
 // Baking and CPU reference sampling use linear E; files store fifth-root E.
@@ -44,6 +44,7 @@ struct ProbeGrid {
 struct Probe {
     Float3 offset{};  // relocation from nominal grid position
     bool valid = false;
+    bool relocated = false;  // Individual relocation changed the shared aligned starting position.
 };
 
 struct ProbeVolume {
@@ -91,7 +92,11 @@ std::optional<ProbeSample> sample_probes(
     Float3 view_offset = {}
 );
 std::optional<ProbeSample> sample_local_probes(
-    const ProbeVolume& volume, Float3 position, Float3 normal
+    const ProbeVolume& volume,
+    Float3 position,
+    Float3 normal,
+    float normal_bias = 0.02f,
+    Float3 view_offset = {}
 );
 
 // Pair validation and fixed-local sampling. Camera-selected regions

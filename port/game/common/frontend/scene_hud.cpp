@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Binds captured HUD data and offscreen menu objects without accessing live game memory.
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <string>
@@ -94,6 +95,21 @@ void set_packets(SceneFrame& frame) {
     // Mesh shaders apply AO to indirect lighting before direct light is added.
     input.gtao = enhanced && graphics.gtao && has_camera && (scene.draws & 0x1Fu) != 0;
     input.frame = scene.frame;
+    input.enhanced_water = enhanced;
+    input.water_hands = scene.water_hands;
+    for (const auto& instance : scene.live) {
+        if (instance.hero_shadow_anchor) {
+            const renderer::Vec3 point{
+                instance.matrix[12], instance.matrix[13], instance.matrix[14]
+            };
+            if (std::all_of(point.begin(), point.end(), [](float value) {
+                    return std::isfinite(value);
+                })) {
+                input.water_interactor = point;
+            }
+            break;
+        }
+    }
     // Shadow direction easing follows display time rather than the number of rendered frames.
     input.seconds = std::chrono::duration<double>(started.time_since_epoch()).count();
     input.strip_vertices = scene.strip_vertices;

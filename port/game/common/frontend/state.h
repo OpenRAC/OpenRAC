@@ -39,9 +39,14 @@
 #include "scene/level.h"
 #include "scene/level_renderer.h"
 #include "scene/moby_shadow.h"
+#include "scene/object_picker.h"
 #include "settings.h"
 
 union SDL_Event;
+
+namespace openrac::renderer {
+class DirectRenderer;
+}
 
 // The environment's variables (common/env.h), named here only for env_string's declaration.
 namespace openrac::env {
@@ -65,6 +70,7 @@ struct Kept {
     std::uint32_t shadow_moby = 0, prev_shadow_moby = 0;
     scene::MobyShadowState shadow_state, prev_shadow_state;
     std::optional<bool> hero_airborne;
+    std::array<std::optional<renderer::Vec3>, 2> water_hands{};
     // The last tick's poses, by moby: where its joints start in prev_palette and how many.
     std::vector<scene::LevelScene::JointColumns> prev_palette;
     std::unordered_map<std::uint32_t, std::pair<int, int>> prev_poses;
@@ -103,6 +109,7 @@ struct TickMobys {
     std::uint32_t shadow_moby = 0;                         // Identity of the shadow owner.
     scene::MobyShadowState shadow_state;                   // Captured shadow direction and scale.
     std::vector<Kept::TargetMoby> target_mobys;            // Mobys drawn in private camera spaces.
+    std::array<std::optional<renderer::Vec3>, 2> water_hands{};
 };
 
 // The producer's next scene while the worker owns the previous rendered snapshot.
@@ -120,6 +127,10 @@ struct FramePresentation {
     std::chrono::steady_clock::time_point
         finished{};           // Worker completion, excluding handoff idle time.
     renderer::Camera camera;  // Camera of the submitted scene, for the debug UI.
+    std::vector<scene::Instance> picker_live;
+    std::vector<renderer::Mat4> picker_palette;
+    int picker_level = -1;
+    unsigned picker_layers = 0;
     std::uint64_t tick = 0;   // Submitted window-frame number, including interpolation metadata.
 
     int window_width = 0;   // Drawable window extent, read on the window thread.
@@ -131,6 +142,7 @@ struct FramePresentation {
     Box box{};              // Picture rectangle in the window.
 
     bool first = false;         // First displayed frame for this game tick.
+    bool dump_draws = false;    // Draw diagnostics captured before graphics ownership transfers.
     bool measure_cost = false;  // Enables the deliberately blocking frame-cost diagnostic.
     double scene_seconds = 0;   // Snapshot interpolation and pose upload time.
     double record_seconds = 0;  // World and native HUD command recording time.
@@ -161,6 +173,8 @@ struct State {
     bool capture_wanted = false;  // a mod's asking (capture_mouse)
     bool keyboard_taken = false;  // a mod took the keyboard (take_keyboard)
     std::unique_ptr<renderer::Renderer> renderer;
+    renderer::DirectRenderer* hud =
+        nullptr;  // Owned by renderer; consumes uploads on skipped ticks.
     std::unique_ptr<enhanced::Fsr3>
         temporal;  // Optional enhanced upscaler, released before the window.
     renderer::FrameBuffer frame;
@@ -173,6 +187,7 @@ struct State {
     std::array<renderer::FrameBuffer, 4> views;
     std::vector<std::pair<unsigned, unsigned>> view_targets;  // the mod's texture, its framebuffer
     scene::LevelData level;
+    scene::ObjectPicker picker;
     scene::LevelScene scene;
     int loaded = -2;  // the level whose geometry is uploaded; -2 none
     std::uint64_t index = 0;

@@ -173,6 +173,9 @@ inline constexpr GLenum GL_COMPUTE_SHADER = 0x91B9;
 inline constexpr GLenum GL_SHADER_STORAGE_BUFFER = 0x90D2;
 inline constexpr GLbitfield GL_SHADER_STORAGE_BARRIER_BIT = 0x2000;
 inline constexpr GLbitfield GL_UNIFORM_BARRIER_BIT = 0x0004;
+// Compute-written instance attributes and device-generated draw arguments.
+inline constexpr GLbitfield GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT = 0x0001;
+inline constexpr GLbitfield GL_COMMAND_BARRIER_BIT = 0x0040;
 inline constexpr GLenum GL_COMPILE_STATUS = 0x8B81;
 inline constexpr GLenum GL_LINK_STATUS = 0x8B82;
 inline constexpr GLenum GL_INFO_LOG_LENGTH = 0x8B84;
@@ -260,6 +263,7 @@ inline constexpr GLenum GL_FRAMEBUFFER_COMPLETE = 0x8CD5;
                                      const void *pointer))                                         \
     X(void, glVertexAttribDivisor, (GLuint index, GLuint divisor))                                 \
     X(void, glDrawArrays, (GLenum mode, GLint first, GLsizei count))                               \
+    X(void, glDrawArraysInstanced, (GLenum mode, GLint first, GLsizei count, GLsizei instances))   \
     X(void, glDrawElements, (GLenum mode, GLsizei count, GLenum type, const void *indices))        \
     X(void, glDrawElementsInstanced, (GLenum mode, GLsizei count, GLenum type,                     \
                                       const void *indices, GLsizei instances))                     \

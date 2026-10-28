@@ -9,7 +9,7 @@ namespace openrac::lighting {
 // same GPU buffer through a texture-buffer view, without selection readback.
 class ProbeSelection {
 public:
-    static constexpr unsigned capacity = 512, selected_capacity = 128, tile_size = 16;
+    static constexpr unsigned capacity = 1024, selected_capacity = 128, tile_size = 16;
     static bool supported();
     bool prepare(
         std::span<const lighting::ProbeGrid> grids,
