@@ -149,6 +149,7 @@
     "func_L00_00251CE8"
   ],
   "hand": "hand/hand.tsv",
+  "overrides": "hand/overrides.tsv",
   "drafts": {
     "guard": "NON_MATCHING",
     "units": "drafts.tsv"

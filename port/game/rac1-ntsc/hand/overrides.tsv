@@ -1,0 +1,7 @@
+# The port's own C for functions the decompilation has as matching C (hostgen.json "overrides"):
+# the matched definition is left out of hostgen's prepared copy and this C goes at the end of its
+# file, translated like the game's C. For what the port has to do otherwise than the matching C says;
+# the decompilation stays as it matches. Each file says why. The name is the one the definition
+# spells in the decompilation's file.
+# name	file (relative to this table)
+draw_flickering_mesh_effect	matched_flickering_mesh.c
