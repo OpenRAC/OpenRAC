@@ -342,7 +342,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac1/pal/level_99/manifest.json",
+        "artifact": "assets/port/rac1/pal/levels-4.json",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. The same command from a shell on macOS wrote what the port draws from. --replace: run again, it puts a new export in the old one's place once the new one is whole."
       },
@@ -367,7 +367,7 @@
         "makes": "assets/port/rac1/pal/visibility-1.json",
         "needs": [
           {
-            "path": "assets/port/rac1/pal/level_99/manifest.json",
+            "path": "assets/port/rac1/pal/levels-4.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -403,7 +403,7 @@
         "makes": "assets/port/rac1/pal/verified-4.json",
         "needs": [
           {
-            "path": "assets/port/rac1/pal/level_99/manifest.json",
+            "path": "assets/port/rac1/pal/levels-4.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -516,7 +516,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac1/pal/level_99/manifest.json",
+            "path": "assets/port/rac1/pal/levels-4.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -547,7 +547,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac1/pal/level_99/manifest.json",
+            "path": "assets/port/rac1/pal/levels-4.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -976,7 +976,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac1/ntsc/level_99/manifest.json",
+        "artifact": "assets/port/rac1/ntsc/levels-4.json",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. The same command from a shell on macOS wrote all 21 levels from SCUS_971.99 (2026-10-16). --replace: run again, it puts a new export in the old one's place once the new one is whole."
       },
@@ -1001,7 +1001,7 @@
         "makes": "assets/port/rac1/ntsc/visibility-1.json",
         "needs": [
           {
-            "path": "assets/port/rac1/ntsc/level_99/manifest.json",
+            "path": "assets/port/rac1/ntsc/levels-4.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -1037,7 +1037,7 @@
         "makes": "assets/port/rac1/ntsc/verified-4.json",
         "needs": [
           {
-            "path": "assets/port/rac1/ntsc/level_99/manifest.json",
+            "path": "assets/port/rac1/ntsc/levels-4.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -1150,7 +1150,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac1/ntsc/level_99/manifest.json",
+            "path": "assets/port/rac1/ntsc/levels-4.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -1181,7 +1181,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac1/ntsc/level_99/manifest.json",
+            "path": "assets/port/rac1/ntsc/levels-4.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -1494,7 +1494,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac2/ntsc/level_00/manifest.json",
+        "artifact": "assets/port/rac2/ntsc/levels-4.json",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
       },
@@ -1531,7 +1531,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/level_00/manifest.json",
+            "path": "assets/port/rac2/ntsc/levels-4.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -1562,7 +1562,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/level_00/manifest.json",
+            "path": "assets/port/rac2/ntsc/levels-4.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -1615,7 +1615,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/level_00/manifest.json",
+            "path": "assets/port/rac2/ntsc/levels-4.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -1838,7 +1838,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac3/ntsc/level_01/manifest.json",
+        "artifact": "assets/port/rac3/ntsc/levels-4.json",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
       },
@@ -1875,7 +1875,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/level_01/manifest.json",
+            "path": "assets/port/rac3/ntsc/levels-4.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -1906,7 +1906,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/level_01/manifest.json",
+            "path": "assets/port/rac3/ntsc/levels-4.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -1959,7 +1959,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/level_01/manifest.json",
+            "path": "assets/port/rac3/ntsc/levels-4.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -2178,7 +2178,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac4/ntsc/level_00/manifest.json",
+        "artifact": "assets/port/rac4/ntsc/levels-4.json",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
       },
@@ -2215,7 +2215,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac4/ntsc/level_00/manifest.json",
+            "path": "assets/port/rac4/ntsc/levels-4.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -2246,7 +2246,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac4/ntsc/level_00/manifest.json",
+            "path": "assets/port/rac4/ntsc/levels-4.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -2299,7 +2299,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac4/ntsc/level_00/manifest.json",
+            "path": "assets/port/rac4/ntsc/levels-4.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],

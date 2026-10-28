@@ -23,6 +23,13 @@ class LevelsStamp(unittest.TestCase):
         actions = (bundle.ROOT / "launcher" / "actions.json").read_text(encoding="utf-8")
         stamps = set(re.findall(r"verified-(\d+)\.json", actions))
         self.assertEqual(stamps, {str(expected)})
+        # The levels are ready by a stamp of their own, named after the format too, so a bump
+        # reads them again before the check runs.
+        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)), {str(expected)})
+        self.assertEqual(bundle.LEVELS_STAMP, f"levels-{expected}.json")
+        extract = (bundle.ROOT / "editor" / "extract.py").read_text(encoding="utf-8")
+        self.assertIn('f"levels-{PORT_FORMAT}.json"', extract)
+        self.assertNotIn("level_99/manifest.json", actions)
 
 
 class PlayerActions(unittest.TestCase):
@@ -48,7 +55,7 @@ class PlayerActions(unittest.TestCase):
                 self.assertNotIn("editor-pack", actions)
                 levels = actions["port-levels"]
                 self.assertEqual(levels["args"][-3:], ["{data}/port/ntsc", "--anywhere", "--replace"])
-                self.assertEqual(levels["artifact"], f"{{data}}/port/ntsc/level_{first}/manifest.json")
+                self.assertEqual(levels["artifact"], f"{{data}}/port/ntsc/levels-4.json")
                 self.assertEqual(actions["editor-extract"]["args"][-3:], ["{data}/levels/ntsc", "--split", "--anywhere"])
                 self.assertEqual([n["path"] for n in actions["assets-export"]["needs"]], [levels["artifact"]])
 
@@ -64,7 +71,7 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual(stack[stack.index("--levels") + 1], "{data}/port/pal")
         exported = self.pal["assets-export"]
         self.assertEqual(exported["args"][2], "{data}/port/pal")
-        self.assertEqual([need["path"] for need in exported["needs"]], ["{data}/port/pal/level_99/manifest.json"])
+        self.assertEqual([need["path"] for need in exported["needs"]], ["{data}/port/pal/levels-4.json"])
         edited = self.pal["play-edited"]
         self.assertEqual(edited["args"][edited["args"].index("--levels") + 1], "{data}/port/pal")
         self.assertEqual([need["path"] for need in edited["needs"]], [self.pal["port-levels-check"]["makes"]])
@@ -80,7 +87,7 @@ class PlayerActions(unittest.TestCase):
     def test_levels_go_to_the_data_folder(self):
         levels = self.pal["port-levels"]
         self.assertEqual(levels["args"][-3:], ["{data}/port/pal", "--anywhere", "--replace"])
-        self.assertEqual(levels["artifact"], "{data}/port/pal/level_99/manifest.json")
+        self.assertEqual(levels["artifact"], "{data}/port/pal/levels-4.json")
 
     def test_play_reads_them_there(self):
         play = self.pal["play"]
@@ -107,7 +114,7 @@ class PlayerActions(unittest.TestCase):
         # <data> is the game's, shared by PAL and NTSC-U: each version's levels are <data>/port/<version>.
         levels, check = self.ntsc["port-levels"], self.ntsc["port-levels-check"]
         self.assertEqual(levels["args"][-3:], ["{data}/port/ntsc", "--anywhere", "--replace"])
-        self.assertEqual(levels["artifact"], "{data}/port/ntsc/level_99/manifest.json")
+        self.assertEqual(levels["artifact"], "{data}/port/ntsc/levels-4.json")
         at = check["args"].index("--levels")
         self.assertEqual(check["args"][at + 1], "{data}/port/ntsc")
         self.assertEqual(check["makes"], "{data}/port/ntsc/verified-4.json")
