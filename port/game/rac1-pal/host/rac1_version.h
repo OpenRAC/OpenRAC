@@ -13,12 +13,12 @@
 
 /* Level vtbl records carry moby update functions; the executable's vtbl is an empty sentinel. */
 #define RAC1_MOBY_VTBL(level) rac1_moby_vtbl_address(level)
+
 static inline unsigned rac1_moby_vtbl_address(int level) {
     static const unsigned addresses[19] = {
-        0x001EA680u, 0x0020BE00u, 0x001FB280u, 0x001E3B80u, 0x001DCC00u,
-        0x00219000u, 0x00201F00u, 0x00212000u, 0x001FCC00u, 0x00209600u,
-        0x001DD900u, 0x0021BC00u, 0x0020CE80u, 0x001F5B80u, 0x001FD600u,
-        0x001E3980u, 0x001E8C00u, 0x001E7400u, 0x001F3000u,
+        0x001EA680u, 0x0020BE00u, 0x001FB280u, 0x001E3B80u, 0x001DCC00u, 0x00219000u, 0x00201F00u,
+        0x00212000u, 0x001FCC00u, 0x00209600u, 0x001DD900u, 0x0021BC00u, 0x0020CE80u, 0x001F5B80u,
+        0x001FD600u, 0x001E3980u, 0x001E8C00u, 0x001E7400u, 0x001F3000u,
     };
     return level >= 0 && level < 19 ? addresses[level] : 0;
 }

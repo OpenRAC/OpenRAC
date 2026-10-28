@@ -99,6 +99,7 @@ struct PadCallback {
     void* user;
     openrac_mod* mod;
 };
+
 struct TickBoundaryCallback {
     openrac_tick_boundary_fn fn;
     void* user;
@@ -141,9 +142,8 @@ openrac_mod* g_vulkan_mod = nullptr;
 std::vector<crash::ModImage> g_images;
 openrac_api g_api;
 const std::uint64_t g_snapshot_session = [] {
-    const auto clock = static_cast<std::uint64_t>(
-        std::chrono::steady_clock::now().time_since_epoch().count()
-    );
+    const auto clock =
+        static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
     const auto address = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(&g_api));
     return clock ^ address;
 }();
@@ -180,8 +180,7 @@ std::size_t snapshot_size() {
 
 int snapshot_save(void* output, std::size_t size) {
     if (!g_in_tick_boundary || g_tick_mod == nullptr || output == nullptr || snapshot_size() == 0
-        || size != snapshot_size()
-        || g_host == nullptr || g_host->loaded_level == nullptr) {
+        || size != snapshot_size() || g_host == nullptr || g_host->loaded_level == nullptr) {
         return -1;
     }
     SavestateRuntime state{};
@@ -213,8 +212,7 @@ int snapshot_save(void* output, std::size_t size) {
 
 int snapshot_load(const void* input, std::size_t size) {
     if (!g_in_tick_boundary || g_tick_mod == nullptr || input == nullptr || snapshot_size() == 0
-        || size != snapshot_size()
-        || g_host == nullptr || g_host->loaded_level == nullptr
+        || size != snapshot_size() || g_host == nullptr || g_host->loaded_level == nullptr
         || g_host->restore_savestate_runtime == nullptr) {
         return -1;
     }
@@ -239,7 +237,8 @@ int snapshot_load(const void* input, std::size_t size) {
     }
     const auto* bytes = static_cast<const std::uint8_t*>(input);
     if (!runtime::Memory::get().restore_snapshot(
-            std::span(bytes + sizeof(header), size - sizeof(header)))) {
+            std::span(bytes + sizeof(header), size - sizeof(header))
+        )) {
         return -1;
     }
     openrac_guest_sp = header.stack_pointer;
