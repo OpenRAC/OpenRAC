@@ -98,7 +98,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_UI_BUTTON` | `0u` | A line Cross chooses: OPENRAC_UI_CHOOSE. |
 | `OPENRAC_UI_CHOICE` | `1u` | A line with a value among `choices`: Left and Right step it back and on, Cross on (around the ends), each an OPENRAC_UI_CHANGE. Shown as the label and the value. |
 | `OPENRAC_UI_TEXT` | `2u` | A line of text (a status, a name): the cursor passes over it. |
-| `OPENRAC_UI_DISABLED` | `0x1u` | Drawn dim, as the game's locked entries; the cursor passes over it (while every item is disabled it stays on the first), and choosing it plays the game's refusal, and no event. |
+| `OPENRAC_UI_DISABLED` | `0x1u` | Drawn dim, as the game's locked entries; the cursor passes over it, and choosing it plays the game's refusal, and no event. |
 | `OPENRAC_UI_OWN_BACK` | `0x1u` | Triangle comes to the mod as OPENRAC_UI_BACK instead of going back: the mod goes back itself (openrac_api.ui_open with OPENRAC_UI_GO_BACK), for one that asks first. |
 | `OPENRAC_UI_SHOW` | `0u` | The page came on the screen (from the main menu, ui_open, or back from a page under it). |
 | `OPENRAC_UI_FRAME` | `1u` | Each tick the page is on the screen, after the tick's other events. |
