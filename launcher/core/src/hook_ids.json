@@ -654,6 +654,7 @@
    "Moby_Wrench_Update": "rac1.moby.wrench.update",
    "Pad_ProcessReport": "rac1.pad.process_report",
    "Planet_Unlock": "rac1.planet.unlock",
+   "Ship_TravelTo": "rac1.ship.travel_to",
    "Vendor_BuildItemList": "rac1.vendor.build_item_list",
    "Vendor_InitLevelStock": "rac1.vendor.init_level_stock",
    "Weapon_TakeAmmo": "rac1.weapon.take_ammo"

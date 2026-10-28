@@ -652,6 +652,7 @@ rac1.player.set_planar_velocity	pal:L00:00212790	FUN_L00_002120d8,Hero_SetPlanar
 rac1.player.take_damage	pal:L00:002056D8	FUN_L00_002050c0,Hero_TakeDamage,func_L00_002056D8
 rac1.player.turn_to_heading	pal:L00:002124E8	FUN_L00_00211e30,Hero_TurnToHeading,func_L00_002124E8
 rac1.player.update_motion_input	pal:L00:00211D28	FUN_L00_00211670,Hero_UpdateMotionInput,func_L00_00211D28
+rac1.ship.travel_to	pal:L00:00290030	FUN_L00_0028ed58,Ship_TravelTo,func_L00_00290030
 rac1.vendor.build_item_list	pal:L00:0029B770	FUN_L00_0029a400,Vendor_BuildItemList,func_L00_0029B770
 rac1.vendor.init_level_stock	pal:L00:0023DB30	FUN_L00_0023d198,Vendor_InitLevelStock,func_L00_0023DB30
 rac1.weapon.take_ammo	pal:L00:00234638	FUN_L00_00233db8,Weapon_TakeAmmo,func_L00_00234638

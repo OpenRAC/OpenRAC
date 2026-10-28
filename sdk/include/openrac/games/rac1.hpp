@@ -147,6 +147,14 @@ struct Hero_ApproachSpeed {
     using fn = void (*)(float, float);
 };
 
+// The ship's travel from the planet select (ShipTravelTo), once its menu closes: to the planet it is on (dest the level now), the landing again, as backing out of the select does; to another, the game saved to the card and the ship's flight out of the level, whose loop then ends and flies to dest. After the take-off; a level's only way to another planet by ship.
+struct Ship_TravelTo {
+    static constexpr const char* id = "rac1.ship.travel_to";
+    static constexpr const char* name = "Ship_TravelTo";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
 struct Moby_Class1750_Update {
     static constexpr const char* id = "rac1.moby.class_1750.update";
@@ -7189,6 +7197,9 @@ namespace hooks {
         using turn_to_heading = rac1::Hero_TurnToHeading;
         using update_motion_input = rac1::Hero_UpdateMotionInput;
     }  // namespace player
+    namespace ship {
+        using travel_to = rac1::Ship_TravelTo;
+    }  // namespace ship
     namespace vendor {
         using build_item_list = rac1::Vendor_BuildItemList;
         using init_level_stock = rac1::Vendor_InitLevelStock;

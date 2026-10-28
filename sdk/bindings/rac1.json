@@ -245,6 +245,19 @@
         "ntsc": "FUN_L00_00212088"
       },
       "about": "Eases the hero's ground speed (+0x194, the speed Hero_SetPlanarVelocity moves him at) toward his target speed (+0x190) by up when below it and by down when above, each tick he moves on foot, in every level."
+    },
+    {
+      "id": "rac1.ship.travel_to",
+      "name": "Ship_TravelTo",
+      "signature": "void(i32)",
+      "params": [
+        "dest"
+      ],
+      "symbols": {
+        "pal": "func_L00_00290030",
+        "ntsc": "FUN_L00_0028ed58"
+      },
+      "about": "The ship's travel from the planet select (ShipTravelTo), once its menu closes: to the planet it is on (dest the level now), the landing again, as backing out of the select does; to another, the game saved to the card and the ship's flight out of the level, whose loop then ends and flies to dest. After the take-off; a level's only way to another planet by ship."
     }
   ],
   "bases": {

@@ -27,6 +27,7 @@ game address.
 | `rac1.moby.record_death` | `Moby_RecordDeath` | `void(u32,i32,i32)` | moby, flags, index | pal, ntsc | Records a placed moby's death or a crate's break (SetDeathBits): its save id's killed bits (none for a save id below 0), its mission, then drops its bolts: about the s16 at +0xB4 (or what a tallied source has left of +0xB6), which it then clears. |
 | `rac1.level.load_gameplay` | `Level_LoadGameplay` | `u32(i32)` | full | pal, ntsc | Loads a level's gameplay file into the level heap (LoadLevelGameplay), once per level start: the settings, the placed mobys and their pvars, the spare moby pool, the paths and the rest; returns the heap cursor. After it, every placed moby exists and none has run. |
 | `rac1.player.approach_speed` | `Hero_ApproachSpeed` | `void(f32,f32)` | up, down | pal, ntsc | Eases the hero's ground speed (+0x194, the speed Hero_SetPlanarVelocity moves him at) toward his target speed (+0x190) by up when below it and by down when above, each tick he moves on foot, in every level. |
+| `rac1.ship.travel_to` | `Ship_TravelTo` | `void(i32)` | dest | pal, ntsc | The ship's travel from the planet select (ShipTravelTo), once its menu closes: to the planet it is on (dest the level now), the landing again, as backing out of the select does; to another, the game saved to the card and the ship's flight out of the level, whose loop then ends and flies to dest. After the take-off; a level's only way to another planet by ship. |
 
 ## Fields
 

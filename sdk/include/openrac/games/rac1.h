@@ -154,6 +154,14 @@ typedef openrac_gaddr (*openrac_rac1_Level_LoadGameplay)(int32_t full);
 #define OPENRAC_RAC1_SIG_Hero_ApproachSpeed "void(f32,f32)"
 typedef void (*openrac_rac1_Hero_ApproachSpeed)(float up, float down);
 
+/* Ship_TravelTo (func_L00_00290030, rac1.ship.travel_to): the ship's travel from the planet
+ * select (ShipTravelTo), once its menu closes: to the planet it is on, the landing again (as
+ * backing out of the select does); to another, the save to the card and the ship's flight out of
+ * the level, which then ends and flies to dest. */
+#define OPENRAC_RAC1_HOOK_Ship_TravelTo "Ship_TravelTo"
+#define OPENRAC_RAC1_SIG_Ship_TravelTo "void(i32)"
+typedef void (*openrac_rac1_Ship_TravelTo)(int32_t dest);
+
 /* ------------------------------------------------------------------------------------------ *
  * Taking a hook point
  * ------------------------------------------------------------------------------------------ */
