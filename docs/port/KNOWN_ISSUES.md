@@ -92,7 +92,10 @@ discs. The pool size is data, not a fixed array:
   name the moby being updated, which helps spot them. docs/TODO.md has the
   rest.
 - **Behaviour:** more effects alive at once than on a PS2
-  (differences.json, `bigger-moby-pool`).
+  (differences.json, `bigger-moby-pool`). The fix `fix_bigger_moby_pool`
+  (More room for effects, on by default) switches it back: off, every level
+  keeps the disc's 255 slots and the target list runs unbounded, as on a
+  console (from the next level load).
 
 Evidence and scripts: the port census (`OPENRAC_TMP_CENSUS`, a temporary
 patch to `port/game/common/frontend.cpp`, not kept) and the fcheck census of
