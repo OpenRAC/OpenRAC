@@ -11,9 +11,12 @@
 
 #include "game/common/profile.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <format>
+#include <iterator>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -21,11 +24,9 @@
 
 #include "game/rac1/game_state.h"
 #include "game/rac1/gameplay_lighting.h"
+#include "game/rac1/host/collision_notes.h"
 #include "openrac/guest.h"
 #include "renderer/math.h"
-
-// Developer tools: host/collision.c's note of the last particle line query.
-extern "C" int openrac_rac1_coll_note(std::uint32_t* words);
 
 namespace openrac::game::rac1 {
 namespace {
@@ -38,16 +39,21 @@ constexpr int kLevels = 19;
 struct ExecutableAddresses {
     std::uint32_t shadow_directions;  // The four directions the hero's shadow is cast along.
     std::uint32_t hero_state;         // The hero's record (games/rac1's D_0013F450 on PAL).
-    std::uint32_t world_update_time;  // The frame clock create_moby compares a free slot's +0x38 with.
+    std::uint32_t
+        world_update_time;  // The frame clock create_moby compares a free slot's +0x38 with.
+    std::uint32_t particle_updates;  // The particle updates, by a particle record's type byte.
 };
 
 // Each disc's executable addresses: PAL's as games/rac1 has them, NTSC-U's the same data in
 // SCUS-97199 (rac1-ntsc's rac1_version.h pairs the hero's record).
-constexpr ExecutableAddresses kPalExecutable{0x001CAE00u, 0x0013F450u, 0x0015F6F0u};
-constexpr ExecutableAddresses kNtscExecutable{0x001CAA80u, 0x0013F350u, 0x0015F60Cu};
+constexpr ExecutableAddresses kPalExecutable{0x001CAE00u, 0x0013F450u, 0x0015F6F0u, 0x001CE100u};
+constexpr ExecutableAddresses kNtscExecutable{0x001CAA80u, 0x0013F350u, 0x0015F60Cu, 0x001CDD80u};
 
-std::string drone_notes(
-    std::span<const std::uint8_t> ram, const GameAddresses& a, std::uint32_t hero, std::uint32_t clock
+std::string notes(
+    std::span<const std::uint8_t> ram,
+    const GameAddresses& a,
+    const host::GameState& state,
+    std::uint32_t clock
 );
 
 // One disc's profile: its boot program's table, its level programs' tables and its executable's
@@ -94,8 +100,17 @@ public:
 
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
 
-    std::string diagnostics(std::span<const std::uint8_t> ram, int level, std::uint32_t hero) const override {
-        return drone_notes(ram, addresses(level), hero, OPENRAC_DATA(m_executable.world_update_time));
+    std::uint32_t particle_updates() const override { return m_executable.particle_updates; }
+
+    std::string diagnostics(
+        std::span<const std::uint8_t> ram, int level, const host::GameState& state
+    ) const override {
+        return notes(ram, addresses(level), state, OPENRAC_DATA(m_executable.world_update_time));
+    }
+
+    void diagnostics_off() const override {
+        constexpr float kNowhere[3] = {};
+        openrac_rac1_coll_watch(kNowhere, 0.0f);
     }
 
 private:
@@ -115,14 +130,15 @@ private:
     const ExecutableAddresses& m_executable;   // The executable's addresses, a constant.
 };
 
-// Developer tools: the Drone Device's state for a diagnostics recording. The hero's record keeps
-// the drones' count at +0x1FF4 to +0x1FF7 (the update's counter, the pending use, the drones made,
-// the drones orbiting) and their six mobys at +0x2020; the ammo is the word of item 0x18 in the
-// counts 0x1F28 below it. Each drone moby: its state (+0x20), class record (+0x24), scale (+0x2C),
-// mode (+0x34), class id (+0xA6) and position; and every moby of the drone class (479) in the
-// table, with the table's free slots (state 0xFE or more).
-std::string drone_notes(
-    std::span<const std::uint8_t> ram, const GameAddresses& a, std::uint32_t hero, std::uint32_t clock
+// Developer tools, for a diagnostics recording: the moby table's spawn range (create_moby takes a
+// slot there whose state is 0xFE or more and whose +0x38 the frame clock has reached), with its free
+// slots and the classes of the mobys spawned in it; and the collision queries (host/collision.c) that
+// started near Ratchet in the last tick, after which it watches him again for the next.
+std::string notes(
+    std::span<const std::uint8_t> ram,
+    const GameAddresses& a,
+    const host::GameState& state,
+    std::uint32_t clock
 ) {
     const auto word = [&](std::uint32_t at) -> std::uint32_t {
         at &= 0x01FFFFFFu;
@@ -137,69 +153,92 @@ std::string drone_notes(
         at &= 0x01FFFFFFu;
         return at < ram.size() ? ram[at] : 0u;
     };
-    const auto real = [&](std::uint32_t at) -> float {
-        const std::uint32_t v = word(at);
-        float f;
-        std::memcpy(&f, &v, 4);
-        return f;
+    const auto number = [](float v) {
+        return std::isfinite(v) ? std::format("{:.6g}", v) : std::string("null");
     };
-    const auto moby = [&](std::uint32_t m) {
-        return std::format(
-            "{{\"at\":\"{:06X}\",\"state\":{},\"class\":{},\"record\":\"{:08X}\",\"scale\":{:.4g},"
-            "\"mode\":\"{:04X}\",\"pos\":[{:.4g},{:.4g},{:.4g}]}}",
-            m, byte(m + 0x20), static_cast<std::int16_t>(word(m + 0xA4) >> 16), word(m + 0x24), real(m + 0x2C),
-            word(m + 0x34) & 0xFFFFu, real(m + 0x10), real(m + 0x14), real(m + 0x18));
-    };
-    std::string out = std::format(
-        "{{\"counter\":{},\"pending\":{},\"made\":{},\"orbiting\":{},\"ammo\":{},\"slots\":[",
-        byte(hero + 0x1FF4), byte(hero + 0x1FF5), byte(hero + 0x1FF6), byte(hero + 0x1FF7),
-        static_cast<std::int32_t>(word(hero - 0x1F28 + 0x18 * 4)));
-    for (int i = 0; i < 6; ++i) {
-        const std::uint32_t m = word(hero + 0x2020 + 4u * static_cast<std::uint32_t>(i)) & 0x01FFFFFFu;
-        out += i ? "," : "";
-        out += m != 0 ? moby(m) : std::string("null");
-    }
-    out += "],\"class_479\":[";
-    auto first = word(a.moby_first) & 0x01FFFFFFu;
-    const auto end = word(a.moby_end) & 0x01FFFFFFu;
+
+    const std::uint32_t first = word(a.moby_first) & 0x01FFFFFFu;
+    const std::uint32_t end = word(a.moby_end) & 0x01FFFFFFu;
+    std::string free_slots;
     unsigned free = 0;
-    bool any = false;
-    std::string slots;
+    std::map<int, unsigned> classes;
     if (first != 0 && end > first && end <= ram.size() && (end - first) % 0x100 == 0) {
         for (std::uint32_t m = first; m < end; m += 0x100) {
-            if (byte(m + 0x20) >= 0xFE) {
-                if (free < 24) {
-                    slots += std::format("{}[\"{:06X}\",{},{},{}]", free ? "," : "", m, byte(m + 0x20),
-                                         word(m + 0x38), word(m + 0x3C));
-                }
-                ++free;
+            if (byte(m + 0x20) < 0xFE) {
+                ++classes[static_cast<std::int16_t>(word(m + 0xA4) >> 16)];
                 continue;
             }
-            if (static_cast<std::int16_t>(word(m + 0xA4) >> 16) == 479) {
-                out += any ? "," : "";
-                out += moby(m);
-                any = true;
+            if (free < 24) {
+                free_slots += std::format(
+                    "{}[\"{:06X}\",{},{},{}]",
+                    free ? "," : "",
+                    m,
+                    byte(m + 0x20),
+                    word(m + 0x38),
+                    word(m + 0x3C)
+                );
             }
+            ++free;
         }
     }
-    out += std::format("],\"free_slots\":{},\"free\":[{}],\"clock\":[\"{:06X}\",{}],\"range\":[\"{:06X}\",\"{:06X}\"]",
-                       free, slots, clock, word(clock), first, end);
-    // The last particle line query: its counts this tick, where it wrote CollOutput and where the
-    // particle's C reads the hit normal, the particle, the result, the segment and CollOutput +0x18..
-    std::uint32_t note[38];
-    openrac_rac1_coll_note(note);
-    out += std::format(",\"coll\":{{\"calls\":{},\"hits\":{},\"out\":\"{:06X}\",\"normal_at\":\"{:06X}\","
-                       "\"particle\":\"{:06X}\",\"result\":{},\"words\":\"",
-                       note[0], note[1], note[2], note[3], note[4], note[5]);
-    for (int i = 6; i < 38; ++i) {
-        out += std::format("{}{:08X}", i > 6 ? " " : "", note[i]);
+    std::string out = std::format(
+        "{{\"mobys\":{{\"range\":[\"{:06X}\",\"{:06X}\"],\"clock\":{},\"free\":{},\"free_slots\":[{"
+        "}],"
+        "\"classes\":{{",
+        first,
+        end,
+        static_cast<std::int32_t>(word(clock)),
+        free,
+        free_slots
+    );
+    bool any = false;
+    for (const auto& [id, count] : classes) {
+        out += std::format("{}\"{}\":{}", any ? "," : "", id, count);
+        any = true;
     }
-    // The moby hit (CollOutput +0x18) and its class.
-    const std::uint32_t hit = note[12] & 0x01FFFFFFu;
-    out += std::format("\",\"hit_class\":{}", hit != 0 ? static_cast<std::int16_t>(word(hit + 0xA4) >> 16) : -1);
-    out += std::format(",\"at_normal\":\"{:08X} {:08X} {:08X}\",\"at_point\":\"{:08X} {:08X} {:08X}\"}}}}",
-                       word(note[3]), word(note[3] + 4), word(note[3] + 8), word(note[3] - 0x20),
-                       word(note[3] - 0x1C), word(note[3] - 0x18));
+    out += "}},\"collision\":";
+
+    const OpenracCollNotes* seen = openrac_rac1_coll_notes();
+    out += std::format("{{\"calls\":{},\"hits\":{},\"near\":[", seen->calls, seen->hits);
+    for (std::uint32_t i = 0; i < seen->count && i < std::size(seen->notes); ++i) {
+        const OpenracCollNote& n = seen->notes[i];
+        out += std::format(
+            "{}{{\"entry\":{},\"flags\":\"{:X}\",\"ignore\":[\"{:06X}\",\"{:08X}\"],\"template\":"
+            "\"{:06X}\","
+            "\"result\":{},\"out\":\"{:06X}\",\"a\":[{},{},{}],\"b\":[{},{},{}],\"output\":\"",
+            i ? "," : "",
+            n.entry,
+            n.flags,
+            n.ignore,
+            n.ignore_word,
+            n.tmpl,
+            n.result,
+            n.out,
+            number(n.a[0]),
+            number(n.a[1]),
+            number(n.a[2]),
+            number(n.b[0]),
+            number(n.b[1]),
+            number(n.b[2])
+        );
+        for (std::size_t k = 0; k < std::size(n.output); ++k) {
+            out += std::format("{}{:08X}", k ? " " : "", n.output[k]);
+        }
+        const std::uint32_t hit = n.output[0] & 0x01FFFFFFu;  // CollOutput +0x18, the moby hit
+        out += std::format(
+            "\",\"hit_class\":{}}}",
+            hit != 0 ? static_cast<std::int16_t>(word(hit + 0xA4) >> 16) : -1
+        );
+    }
+    out += "]}}";
+
+    for (const host::LiveMoby& m : state.mobys) {
+        if (m.class_id == 0) {
+            const float at[3] = {m.matrix[12], m.matrix[13], m.matrix[14]};
+            openrac_rac1_coll_watch(at, 3.0f);
+            break;
+        }
+    }
     return out;
 }
 

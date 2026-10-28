@@ -127,7 +127,7 @@ void begin_capture(const Shown& shown, double seconds, std::string path) {
         return;
     }
     c.path = std::move(path);
-    effects_dump::arm(true);  // the frame's effects, for one drawn out of place
+    effects_dump::arm(true);  // snapshots of effects and the game's notes (effects_dump.h)
     sampler::start();  // where the window and render threads' time goes (common/sampler.h)
     c.clocks_at_start = system_info::cpu_clocks();
     c.thermal_at_start = system_info::thermal();
@@ -312,7 +312,9 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
             entries.push_back({base + ".jsonl", file_bytes(frames)});
         }
         if (const std::string effects = effects_dump::latest(); !effects.empty()) {
-            entries.push_back({base + "_effects.json", std::vector<std::uint8_t>(effects.begin(), effects.end())});
+            entries.push_back(
+                {base + "_effects.json", std::vector<std::uint8_t>(effects.begin(), effects.end())}
+            );
         }
         std::string error;
         const std::filesystem::path zip = dir / (base + ".zip");

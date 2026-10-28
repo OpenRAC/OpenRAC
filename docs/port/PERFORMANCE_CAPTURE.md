@@ -18,8 +18,8 @@ While it records, a red `REC` line shows at the top and the debug panel is hidde
 Paused frames and movies are not counted.
 
 When it finishes, the report is **copied to the clipboard** and saved as
-`perf_<game>_<date>-<time>.zip`, which holds the report (`.md`) and every frame (`.jsonl`).
-Send the whole zip.
+`perf_<game>_<date>-<time>.zip`, which holds the report (`.md`), every frame (`.jsonl`)
+and snapshots of the game's state (`_effects.json`, below). Send the whole zip.
 
 - Android: the **Diagnostics recordings** folder in the Files app.
 - Desktop: `perf/` next to the game.
@@ -52,6 +52,23 @@ weak phone. Works on Linux, Android and macOS.
 - **Hot functions** (Linux and Android): the 30 functions each thread spends the most time
   in, found by sampling.
 
+## Snapshots of the game's state
+
+`_effects.json` holds a snapshot every 20 frames (the last 400) for finding a picture or
+gameplay bug:
+
+- the effect strips and quads drawn within 6 units of Ratchet, with their GS state, bounds,
+  colours and distance;
+- the particles by type, with the update each type runs, and the whole records of those
+  near Ratchet;
+- the game's own notes. For RAC1: the moby table's spawn range (the frame clock, the free
+  slots with their spawn frames, the classes spawned) and the collision queries that started
+  within 3 units of Ratchet in the last tick (entry, flags, what they ignored, the segment
+  or volume, the result and what CollOutput held after).
+
+**Hide effect strips** and **Hide effect quads** (Developer tools) leave out one of the two
+for the session, to tell which one draws something out of place.
+
 ## What is measured, and where
 
 | | Desktop | Android |
@@ -83,3 +100,7 @@ The report tells you *which* part is slow. To look inside it:
   saving and copying.
 - [common/sampler.h](../../port/common/sampler.h): hot functions.
 - [common/slow_cpu.h](../../port/common/slow_cpu.h): slow CPU simulation.
+- [game/common/frontend/effects_dump.h](../../port/game/common/frontend/effects_dump.h): the
+  snapshots; the game's notes come from `GameProfile::diagnostics` (RAC1:
+  [game/rac1/profile.cpp](../../port/game/rac1/profile.cpp),
+  [host/collision_notes.h](../../port/game/rac1/host/collision_notes.h)).

@@ -1754,8 +1754,13 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
     PreparedTick prepared;
     prepared.level = g->loaded;
     prepared.state = g->profile->read_state(ram, level);
-    if (effects_dump::armed() && g->profile->hero_state() != 0) {
-        effects_dump::note(g->profile->diagnostics(ram, level, OPENRAC_DATA(g->profile->hero_state())));
+    static bool noting = false;  // the profile's diagnostics run (the game's thread, at its vsync)
+    if (effects_dump::armed()) {
+        effects_dump::note(g->profile->diagnostics(ram, level, prepared.state));
+        noting = true;
+    } else if (noting) {
+        g->profile->diagnostics_off();
+        noting = false;
     }
     const bool world_ran = g->world_camera.has_value();
     const bool only_own_camera = !world_ran && !g->moby_cameras.empty();

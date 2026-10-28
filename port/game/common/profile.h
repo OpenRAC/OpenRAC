@@ -137,13 +137,21 @@ public:
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
 
+    // Returns the executable's address of the particle updates, one per particle type byte
+    // (relocated when read); 0 for a game without them.
+    virtual std::uint32_t particle_updates() const { return 0; }
+
     // Developer tools: what of the game's state a diagnostics recording carries beside its
-    // snapshots, as a JSON value ("" for nothing), read from `ram` with the hero's record at `hero`.
+    // snapshots, as a JSON value ("" for nothing), read each tick from `ram` and the tick's `state`
+    // while a recording runs. It may watch the next tick; diagnostics_off() stops that.
     virtual std::string diagnostics(
-        std::span<const std::uint8_t> /*ram*/, int /*level*/, std::uint32_t /*hero*/
+        std::span<const std::uint8_t> /*ram*/, int /*level*/, const GameState& /*state*/
     ) const {
         return {};
     }
+
+    // Developer tools: the recording has ended; what diagnostics() watched is let go.
+    virtual void diagnostics_off() const {}
 };
 
 // Returns the profile of the game version `game` (its port id, "rac1-pal"), which lives as long as

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Developer tools: a snapshot of the frame's effect strips and quads (what the effects pass draws:
-// the game's draw callbacks), as JSON, for a diagnostics recording. Each item carries its GS state,
-// its bounds and how far it is from Ratchet, so one drawn where it should not be can be told apart
-// and traced back to the code that sent it.
+// Developer tools: snapshots for a diagnostics recording, as JSON, every so many frames. Each has
+// the frame's effect strips and quads near Ratchet (what the effects pass draws: the game's draw
+// callbacks) with their GS state, bounds and distance, so one drawn where it should not be can be
+// traced back to the code that sent it; the particles near him; and the game's own notes
+// (GameProfile::diagnostics: for rac1 the moby table's spawn range and the collision queries near him).
 #pragma once
 
 #include <optional>
@@ -21,7 +22,7 @@ void arm(bool on);
 // Whether a recording runs (a game's notes are worth reading).
 bool armed();
 
-// The game's own notes for the next snapshot (GameProfile::diagnostics), from the tick's thread.
+// The game's own notes for the next snapshot (GameProfile::diagnostics), from the game's thread.
 void note(std::string json);
 
 // The game's particles near Ratchet for the next snapshot (particle_quads), as JSON.

@@ -44,6 +44,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "collision_notes.h"
 #include "openrac/host_env.h"
 #include "openrac/ps2float.h"
 #include "rac1.h"
@@ -1762,19 +1763,75 @@ static void trace(int kind, int hit) {
 
 /* ---- The entry points ---- */
 
-static struct {
-    uint32_t calls, hits, out, normal, ignore, result;
-    uint32_t a[3], b[3];
-    uint32_t output[26]; /* CollOutput +0x18 .. +0x7F: moby, kind, point, +0x30, normal, triangle */
-} g_note;
+/* Developer tools: the queries near the watched point (collision_notes.h). Off until watched. */
+static OpenracCollNotes g_notes;
+static float g_watch[3], g_watch_rr;
 
-int openrac_rac1_coll_note(uint32_t* words);
+void openrac_rac1_coll_watch(const float point[3], float radius) {
+    memcpy(g_watch, point, sizeof g_watch);
+    g_watch_rr = radius * radius;
+    g_notes.calls = g_notes.hits = g_notes.count = 0;
+}
 
-/* Developer tools: copies the particle line query note (above) into words, 38 of them, and starts its counts again; returns 38. */
-int openrac_rac1_coll_note(uint32_t* words) {
-    memcpy(words, &g_note, sizeof g_note);
-    g_note.calls = g_note.hits = 0;
-    return (int)(sizeof g_note / 4);
+const OpenracCollNotes* openrac_rac1_coll_notes(void) {
+    return &g_notes;
+}
+
+static void note(
+    uint32_t entry,
+    const Ctx* x,
+    const float a[3],
+    const float b[3],
+    uint32_t fl,
+    gaddr ignore,
+    gaddr tmpl,
+    int r
+) {
+    if (g_watch_rr <= 0.0f) {
+        return;
+    }
+    g_notes.calls++;
+    g_notes.hits += r != 0;
+    const float dx = a[0] - g_watch[0], dy = a[1] - g_watch[1], dz = a[2] - g_watch[2];
+    if (!(dx * dx + dy * dy + dz * dz < g_watch_rr) || g_notes.count >= 16) {
+        return;
+    }
+    OpenracCollNote* n = &g_notes.notes[g_notes.count++];
+    n->entry = entry;
+    n->flags = fl;
+    n->ignore = ignore;
+    n->ignore_word = ignore != 0 ? U32(ignore) : 0;
+    n->tmpl = tmpl;
+    n->result = (uint32_t)r;
+    n->out = x->out;
+    memcpy(n->a, a, sizeof n->a);
+    memcpy(n->b, b, sizeof n->b);
+    memcpy(n->output, G(x->out + 0x18), sizeof n->output);
+}
+
+static void note_line(
+    uint32_t entry, const Ctx* x, gaddr pa, gaddr pb, int fl, int ignore, int tmpl, int r
+) {
+    float a[3], b[3];
+    memcpy(a, G(pa), sizeof a);
+    memcpy(b, G(pb), sizeof b);
+    note(entry, x, a, b, (uint32_t)fl, (gaddr)ignore, (gaddr)tmpl, r);
+}
+
+static void note_volume(
+    uint32_t entry,
+    const Ctx* x,
+    gaddr centre,
+    float radius,
+    float height,
+    int fl,
+    gaddr ignore,
+    int r
+) {
+    float a[3];
+    const float b[3] = {radius, height, 0.0f};
+    memcpy(a, G(centre), sizeof a);
+    note(entry, x, a, b, (uint32_t)fl, ignore, 0, r);
 }
 
 /* The globals of the level program loaded: level 0's addresses moved to the loaded level's. */
@@ -1797,6 +1854,7 @@ int func_001EFE10(gaddr a0, gaddr a1, int a2, int a3, int a4) {
     const Ctx* x = openrac_game_loaded_overlay() >= 0 ? level_ctx() : &BOOT;
     const int r = coll_line(x, a0, a1, (uint32_t)a2, (gaddr)a3, (gaddr)a4);
     trace(5, r);
+    note_line(5, x, a0, a1, a2, a3, a4, r);
     fesetround(fr);
     return r;
 }
@@ -1809,20 +1867,7 @@ int func_L00_001EFFF0(gaddr a0, gaddr a1, int a2, int a3, int a4) {
     const Ctx* x = level_ctx();
     const int r = coll_line(x, a0, a1, (uint32_t)a2, (gaddr)a3, (gaddr)a4);
     trace(0, r);
-    /* Developer tools: the last line query of a type 6 particle (flags 4, no template, the particle's
-     * record to ignore, its first byte its type) for a diagnostics recording, with where it wrote and
-     * where level 0's coll_hit_normal is found in the loaded level (openrac_rac1_coll_note). */
-    if (a2 == 4 && a4 == 0 && a3 != 0 && U8((gaddr)a3) == 6) {
-        g_note.calls++;
-        g_note.hits += r != 0;
-        g_note.out = x->out;
-        g_note.normal = OPENRAC_LDATA(0, LEVEL0.out + 0x40u);
-        g_note.ignore = (uint32_t)a3;
-        g_note.result = (uint32_t)r;
-        memcpy(g_note.a, G(a0), 12);
-        memcpy(g_note.b, G(a1), 12);
-        memcpy(g_note.output, G(x->out + 0x18), sizeof g_note.output);
-    }
+    note_line(0, x, a0, a1, a2, a3, a4, r);
     fesetround(fr);
     return r;
 }
@@ -1832,8 +1877,10 @@ int func_L00_001EFFF0(gaddr a0, gaddr a1, int a2, int a3, int a4) {
 int func_L00_001F10E0(float a0, gaddr a1, int a2, gaddr a3) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
-    const int r = coll_volume(level_ctx(), a0, 0.0f, a1, (uint32_t)a2, a3, 0);
+    const Ctx* x = level_ctx();
+    const int r = coll_volume(x, a0, 0.0f, a1, (uint32_t)a2, a3, 0);
     trace(1, r);
+    note_volume(1, x, a1, a0, 0.0f, a2, a3, r);
     fesetround(fr);
     return r;
 }
@@ -1842,8 +1889,10 @@ int func_L00_001F10E0(float a0, gaddr a1, int a2, gaddr a3) {
 int func_L00_001F1D20(float a0, float a1, gaddr a2, int a3, int a4) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
-    const int r = coll_volume(level_ctx(), a0, a1, a2, (uint32_t)a3, (gaddr)a4, 1);
+    const Ctx* x = level_ctx();
+    const int r = coll_volume(x, a0, a1, a2, (uint32_t)a3, (gaddr)a4, 1);
     trace(2, r);
+    note_volume(2, x, a2, a0, a1, a3, (gaddr)a4, r);
     fesetround(fr);
     return r;
 }

@@ -619,12 +619,10 @@ std::uint32_t particle_texture(
     return key;
 }
 
-}  // namespace
-
 // Developer tools, for a diagnostics recording: the frame's particles by type, each type with the
-// update its record's type byte picks (the game's particle callbacks, RAC1's D_001CDD80 on the US
-// disc and D_001CE100 on PAL), and the records within 6 units of Ratchet, whole, in hex.
-static void note_particles(std::span<const std::uint8_t> ram, const host::GameState& state) {
+// update its record's type byte picks (GameProfile::particle_updates), and the records within 6
+// units of Ratchet, whole, in hex.
+void note_particles(std::span<const std::uint8_t> ram, const host::GameState& state) {
     const host::LiveMoby* hero = nullptr;
     for (const host::LiveMoby& m : state.mobys) {
         if (m.class_id == 0) {
@@ -632,7 +630,7 @@ static void note_particles(std::span<const std::uint8_t> ram, const host::GameSt
             break;
         }
     }
-    const gaddr table = g->game == "rac1-ntsc" ? 0x001CDD80u : g->game == "rac1-pal" ? 0x001CE100u : 0u;
+    const gaddr table = g->profile->particle_updates();
     const auto callback = [&](unsigned type) -> std::string {
         if (table == 0) {
             return "?";
@@ -646,6 +644,7 @@ static void note_particles(std::span<const std::uint8_t> ram, const host::GameSt
         const char* name = openrac_guest_function_name(fn);
         return std::format("{:#x} {}", fn, name != nullptr ? name : "(no C)");
     };
+    constexpr float kNear = 6.0f;
     std::array<int, 256> counts{};
     std::string near;
     int listed = 0;
@@ -659,15 +658,21 @@ static void note_particles(std::span<const std::uint8_t> ram, const host::GameSt
         std::memcpy(pos, r + 0x10, sizeof(pos));
         const float dx = pos[0] - hero->matrix[12], dy = pos[1] - hero->matrix[13],
                     dz = pos[2] - hero->matrix[14];
-        if (!(dx * dx + dy * dy + dz * dz < 36.0f)) {
+        if (!(dx * dx + dy * dy + dz * dz < kNear * kNear)) {
             continue;
         }
         std::string hex;
         for (std::size_t i = 0; i < p.record.size(); ++i) {
             hex += std::format("{:02x}", r[i]);
         }
-        near += std::format("{}{{\"type\":{},\"pixels\":\"{:x}\",\"clut\":\"{:x}\",\"record\":\"{}\"}}",
-                            listed ? "," : "", r[0], p.pixels, p.clut, hex);
+        near += std::format(
+            "{}{{\"type\":{},\"pixels\":\"{:x}\",\"clut\":\"{:x}\",\"record\":\"{}\"}}",
+            listed ? "," : "",
+            r[0],
+            p.pixels,
+            p.clut,
+            hex
+        );
         ++listed;
     }
     std::string out = "{\"types\":[";
@@ -676,13 +681,20 @@ static void note_particles(std::span<const std::uint8_t> ram, const host::GameSt
         if (counts[t] == 0) {
             continue;
         }
-        out += std::format("{}{{\"type\":{},\"count\":{},\"update\":\"{}\"}}", first ? "" : ",", t,
-                           counts[t], callback(t));
+        out += std::format(
+            "{}{{\"type\":{},\"count\":{},\"update\":\"{}\"}}",
+            first ? "" : ",",
+            t,
+            counts[t],
+            callback(t)
+        );
         first = false;
     }
     out += "],\"near\":[" + near + "]}";
     effects_dump::particles(std::move(out));
 }
+
+}  // namespace
 
 // The frame's particles as effect quads, as the game's VU1 sprite program draws them (ReRAC's
 // particle notes, docs/plan/particles.md section 7; ISC License, Copyright (c) 2026 ReRAC
