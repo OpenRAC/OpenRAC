@@ -139,6 +139,17 @@ int main(int argc, char** argv) {
 
     std::vector<Press> presses;
 
+    /** Scripted left stick: hold it at X, Y (0x80 centred, 0 left/up, 0xFF right/down) for some fields. */
+    struct Stick {
+        /** The first field and how many fields it lasts. */
+        int frame, length;
+
+        /** The axes. */
+        unsigned x, y;
+    };
+
+    std::vector<Stick> sticks;
+
     /**
      * A scripted change of the program's memory: a word kept at a value for some fields. For
      * reaching a state that no script of presses reaches, such as starting in a later level.
@@ -157,15 +168,36 @@ int main(int argc, char** argv) {
      * For checking functions by what they do (`openrac-fcheck`): the machine's state is written at
      * the first calls of each listed function. The list has a line per function: its address,
      * how many of its first bytes to compare and their CRC-32 (so that a level's function is
-     * taken only where that level's code is loaded), its name, and how many calls to take.
+     * taken only where that level's code is loaded), its name, and how many calls to take
+     * (3 when left out; 0 only counts the calls, for `--calls`).
      */
     struct Capture {
         unsigned address, bytes, crc, wanted, taken;
         std::string name;
+
+        /** Calls met (after the CRC check), and their first and last fields. */
+        unsigned long long calls;
+        long long first, last;
+
+        /** The phase (`--capture-phases`) the last call was in, its calls so far and the states taken in it. */
+        int phase;
+        unsigned long long seen;
+        unsigned phase_taken;
     };
 
     std::vector<Capture> captures;
-    std::string capture_dir;
+    std::string capture_dir, calls_file;
+
+    /*
+     * Which calls become states. The run is cut into phases at the listed fields (by default one
+     * phase from field 0): up to `wanted` calls are taken in each phase, so that the states of a
+     * function called all the time come from each part of the run (the title, a menu page, the
+     * load) and not only its first frames. With `--capture-spread` the calls taken in a phase
+     * are those numbered 1, 2, 4, 8, ... in it rather than the first ones. Calls before the first
+     * phase are counted but not taken.
+     */
+    std::vector<long long> phases{0};
+    bool capture_spread = false;
     sys::Machine machine;
 
     // One option per pass; a value-taking option reads the next argument as well.
@@ -183,12 +215,31 @@ int main(int argc, char** argv) {
                 char name[128] = "";
 
                 // Lines that do not parse (comments, blank lines) are skipped.
-                if (std::sscanf(line.c_str(), "%x %u %x %127s %u", &c.address, &c.bytes, &c.crc, name, &c.wanted) >= 4) {
+                int got = std::sscanf(line.c_str(), "%x %u %x %127s %u", &c.address, &c.bytes, &c.crc, name, &c.wanted);
+
+                if (got >= 4) {
                     c.name = name;
-                    c.wanted = c.wanted ? c.wanted : 3;
+                    c.wanted = got == 5 ? c.wanted : 3;
+                    c.first = c.last = -1;
+                    c.phase = -1;
                     captures.push_back(c);
                 }
             }
+        } else if (arg == "--capture-phases" && i + 1 < argc) {
+            // FIELD[,FIELD...]: where each phase of the capture starts, in increasing order.
+            phases.clear();
+            for (const char* s = argv[++i]; *s;) {
+                char* end = nullptr;
+                phases.push_back(std::strtoll(s, &end, 10));
+                s = *end == ',' ? end + 1 : end + std::strlen(end);
+            }
+            std::sort(phases.begin(), phases.end());
+        } else if (arg == "--capture-spread") {
+            // Take calls 1, 2, 4, 8, ... rather than the first ones.
+            capture_spread = true;
+        } else if (arg == "--calls" && i + 1 < argc) {
+            // At the end, write each listed function's call count and first and last field.
+            calls_file = argv[++i];
         } else if (arg == "--hooks" && i + 1 < argc) {
             // The table that says which addresses of the program are which library functions.
             hooks = argv[++i];
@@ -210,6 +261,11 @@ int main(int argc, char** argv) {
             Press p{0, 4, 0};
             std::sscanf(argv[++i], "%d:%x:%d", &p.frame, &p.buttons, &p.length);
             presses.push_back(p);
+        } else if (arg == "--stick" && i + 1 < argc) {
+            // FRAME:X:Y[:FRAMES], the left stick's axes in hexadecimal (80 centred); 4 fields by default.
+            Stick s{0, 4, 0x80, 0x80};
+            std::sscanf(argv[++i], "%d:%x:%x:%d", &s.frame, &s.x, &s.y, &s.length);
+            sticks.push_back(s);
         } else if (arg == "--write" && i + 1 < argc) {
             // FRAME:ADDRESS:VALUE[:FRAMES], address and value in hexadecimal; one field by default.
             Write w{0, 1, 0, 0};
@@ -292,12 +348,12 @@ int main(int argc, char** argv) {
                 stderr,
                 "usage: openrac-boot DISC.iso [--hooks FILE] [--frames N] [--report N] [--verbose "
                 "N] "
-                "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--gs-states "
+                "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--stick FRAME:X:Y[:FRAMES]] [--gs-states "
                 "FRAME] "
                 "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | "
                 "--no-card] [--wav FILE] [--native LIBRARY] [--native-check CALLS] [--native-range "
                 "FIRST:LAST] [--native-skip FILE] [--native-calls FILE] [--write "
-                "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs] [--capture LIST DIRECTORY]\n"
+                "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs] [--capture LIST DIRECTORY] [--capture-phases FIELD,...] [--capture-spread] [--calls FILE]\n"
             );
             return 2;
         }
@@ -360,12 +416,36 @@ int main(int argc, char** argv) {
             for (Capture& c : captures) {
                 bool here = (c.address & (GuestMemory::kRamBytes - 1)) == (address & (GuestMemory::kRamBytes - 1));
 
-                if (!here || c.taken >= c.wanted) {
+                if (!here) {
                     continue;
                 }
 
                 // Another program's code is at this address now (a level's).
                 if (crc32(0, machine.memory.ram(c.address), c.bytes) != c.crc) {
+                    continue;
+                }
+
+                long long field = static_cast<long long>(machine.frames);
+                c.calls++;
+                c.first = c.first < 0 ? field : c.first;
+                c.last = field;
+
+                // The phase of this call: a new one starts its counts afresh.
+                int phase = static_cast<int>(std::upper_bound(phases.begin(), phases.end(), field) - phases.begin()) - 1;
+                if (phase != c.phase) {
+                    c.phase = phase;
+                    c.seen = 0;
+                    c.phase_taken = 0;
+                }
+
+                // Before the first phase, or enough taken in this one.
+                if (phase < 0 || c.phase_taken >= c.wanted) {
+                    continue;
+                }
+
+                // Spread: only calls whose number in the phase is a power of two.
+                unsigned long long n = ++c.seen;
+                if (capture_spread && (n & (n - 1)) != 0) {
                     continue;
                 }
 
@@ -377,6 +457,7 @@ int main(int argc, char** argv) {
                 // The file is counted only when it was written.
                 if (state.save(path)) {
                     c.taken++;
+                    c.phase_taken++;
                 }
             }
 
@@ -531,6 +612,15 @@ int main(int argc, char** argv) {
             // The press covers fields from its start for its length.
             if (frame >= p.frame && frame < p.frame + p.length) {
                 machine.pad.buttons |= static_cast<u16>(p.buttons);
+            }
+        }
+
+        // The left stick for this field: centred, or the last scripted position that covers it.
+        machine.pad.left_x = machine.pad.left_y = 0x80;
+        for (const Stick& s : sticks) {
+            if (frame >= s.frame && frame < s.frame + s.length) {
+                machine.pad.left_x = static_cast<u8>(s.x);
+                machine.pad.left_y = static_cast<u8>(s.y);
             }
         }
 
@@ -804,6 +894,17 @@ int main(int argc, char** argv) {
         // What host code ran, the 20 busiest functions first.
         if (!native.empty()) {
             machine.native.report(stderr, 20);
+        }
+
+        // The listed functions' calls were asked for: name, calls, first and last field (-1: none).
+        if (!calls_file.empty()) {
+            // If the file cannot be made nothing is written and no message is given.
+            if (std::FILE* out = std::fopen(calls_file.c_str(), "w")) {
+                for (const Capture& c : captures) {
+                    std::fprintf(out, "%s\t%llu\t%lld\t%lld\t%u\n", c.name.c_str(), c.calls, c.first, c.last, c.taken);
+                }
+                std::fclose(out);
+            }
         }
 
         // The counted calls were asked for.

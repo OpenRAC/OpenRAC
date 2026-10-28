@@ -64,6 +64,32 @@ static int heap_full(int level) {
 /* Where the running loader decompresses its header; 0 while no loader runs. */
 static gaddr g_header;
 
+/* The class-0 placement is the hero's start (initialize_hero in help_00203E98.c). Change its
+ * unpacked record before the game's loader creates it, so collision, the camera and the hero's
+ * motion state are initialized together. This buffer belongs to this load; the disc is untouched. */
+static void map_spawn(gaddr header) {
+    if (openrac_game_map == NULL
+        || GREF(int, OPENRAC_DATA(CURRENT_LEVEL)) != openrac_game_map->level) {
+        return;
+    }
+    const int offset = GREF(int, header + HEADER_MOBYS);
+    if (offset <= 0) {
+        return;
+    }
+    const gaddr table = header + (gaddr)offset;
+    const int count = GREF(int, table);
+    for (int i = 0; i < count; ++i) {
+        const gaddr record = table + 0x10u + (gaddr)i * 0x78u;
+        if (GREF(int, record + 0x18u) == 0) {
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                GREF(float, record + 0x30u + axis * 4u) = openrac_game_map->spawn[axis];
+            }
+            GREF(float, record + 0x44u) = openrac_game_map->heading;
+            return;
+        }
+    }
+}
+
 /* The gameplay header decompressed to `to`, while a loader that named it runs: its spare count raised
  * to SPARE (once a run; a level that ships more keeps its own, and so does one without room). */
 void rac1_wad_decompressed(gaddr to) {
@@ -72,6 +98,7 @@ void rac1_wad_decompressed(gaddr to) {
         return;
     }
     g_header = 0;
+    map_spawn(to);
     /* Rilgar, Blarg Station and Quartu: 192 KiB more would run past the heap's top. */
     if (heap_full(GREF(int, OPENRAC_DATA(CURRENT_LEVEL)))) {
         return;

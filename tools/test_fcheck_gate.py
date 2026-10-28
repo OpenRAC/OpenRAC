@@ -109,6 +109,61 @@ class GateTests(unittest.TestCase):
 
 
 
+class Rac2ProfileTests(unittest.TestCase):
+    """The rac2 profile: its oracle's constants, a two-segment executable, its library table and
+    the calibration's wrong variants."""
+
+    def test_profile(self):
+        self.assertEqual(g.RAC2.gp, 0x1AEFF0)
+        self.assertEqual(g.RAC2.resident_max, 0x1A7C80)
+        self.assertEqual(g.RAC2.verdicts, g.ROOT / "port/game/rac2-ntsc/fcheck.tsv")
+        self.assertTrue(str(g.RAC2.states).startswith(str(g.ROOT / "build")))     # ignored, never in git
+        self.assertTrue(g.RAC2.level_fn.fullmatch("func_L00_002BA7D8"))
+        self.assertFalse(g.RAC2.level_fn.fullmatch("func_002BA7D8"))
+        # level 00 has a capture script (the driver's level00); other levels are not checked yet
+        self.assertIn("level00", g.RAC2.scripts)
+        self.assertEqual(g.RAC2.levels_checked, {0})
+
+    def test_two_load_segments(self):
+        import struct
+        raw = bytearray(0x3000)
+        struct.pack_into("<I", raw, 0x1C, 0x34)                   # e_phoff
+        struct.pack_into("<HH", raw, 0x2A, 32, 2)                 # e_phentsize, e_phnum
+        struct.pack_into("<5I", raw, 0x34, 1, 0x1000, 0x100080, 0x100080, 0x800)
+        struct.pack_into("<5I", raw, 0x54, 1, 0x2000, 0x1800000, 0x1800000, 0x10)
+        raw[0x1004:0x1008] = b"ABCD"
+        raw[0x2008:0x200C] = b"WXYZ"
+        self.assertEqual(g.load_segments(bytes(raw)), [(0x100080, 0x1000, 0x800), (0x1800000, 0x2000, 0x10)])
+        self.assertEqual(g.exe_bytes(bytes(raw), 0x100084, 4), b"ABCD")
+        self.assertEqual(g.exe_bytes(bytes(raw), 0x1800008, 4), b"WXYZ")
+        self.assertEqual(g.exe_bytes(bytes(raw), 0x180000C, 8), bytes(4))   # clipped at the segment's end
+        self.assertEqual(g.exe_bytes(bytes(raw), 0x200000, 4), b"")
+
+    def test_prepare_with_rac2_library(self):
+        t = g.prepare("void func_00200000(char *d) {\n    memset(d, 0, 4);\n}\n", "func_00200000",
+                      libm=g.RAC2.libm, prelude=g.RAC2.prelude)
+        self.assertIn("#define memset func_00115484", t)
+        self.assertIn("extern void *func_00115484(void *, int, unsigned int);", t)
+        self.assertNotIn("func_001153FC", t)
+
+    def test_classify_not_called(self):
+        self.assertEqual(g.classify(3, "", g.RAC2.not_called), ("no-states", g.RAC2.not_called))
+        self.assertEqual(g.classify(0, "a.snap: SAME\ncompared 2 of 2 states\nf: SAME on 2 real calls\n"), ("same", "2 calls"))
+        self.assertEqual(g.classify(4, "compared 0 of 2 states\n")[0], "unchecked")
+        s, note = g.classify(1, "f: compiled in its unit\nmenu/f.0.snap: DIFFERS\n    returns 1, retail 2\n")
+        self.assertEqual(s, "differs")
+        self.assertNotIn("compiled", note)
+
+    def test_mutants(self):
+        d = "int func_00200000(int a)\n{\n    if (a == 3) {\n        return a + 0x10;\n    }\n    return 0;\n}\n"
+        got = list(g.mutants(d))
+        self.assertTrue(got)
+        for what, text in got:
+            self.assertNotEqual(text, d)
+            self.assertTrue(text.startswith("int func_00200000(int a)\n{"))   # the header is left alone
+        self.assertIn("a == 4", got[0][1])
+
+
 class DecompRootTests(unittest.TestCase):
     """OPENRAC_DECOMP when set, else games.source_checkout for rac1/pal (this checkout's game.json)."""
 

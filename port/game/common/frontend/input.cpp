@@ -150,6 +150,15 @@ void capture_mouse(bool capture) {
 }
 
 void skip_after_mods(int port, std::uint16_t& buttons) {
+    if (port == 0 && g && openrac_game_map != nullptr && openrac_game_map->skip_cutscenes
+        && openrac_game_skip_buttons != nullptr && (g->index & 1) != 0) {
+        const int skip = openrac_game_skip_buttons();
+        if (skip != 0) {
+            // Use the game's scene teardown. Pulse rather than hold: a scene can ignore presses
+            // during its first ticks, then needs a fresh Start (or Cross for a ship scene).
+            buttons = static_cast<std::uint16_t>(buttons & ~((skip & 0xFFFF) | 0x8));
+        }
+    }
     if (port == 0 && settings::get().skip_cutscenes && (buttons & 0x8) == 0) {
         if (openrac_game_skip_buttons != nullptr) {
             buttons = static_cast<std::uint16_t>(buttons & ~(openrac_game_skip_buttons() & 0xFFFF));

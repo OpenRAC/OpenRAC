@@ -317,6 +317,9 @@ public:
     /** True once the program counter left memory: the program is lost. */
     bool lost = false;
 
+    /** The lowest address a jump went to since it was last set (to all ones), for openrac-fcheck. */
+    u32 lowest_jump = ~0u;
+
     /**
      * Gives the last jumps (from, to), oldest first, to see how the program got lost.
      *
@@ -326,6 +329,13 @@ public:
 
     /** How many instructions the core does not know. */
     u64 unknown = 0;
+
+    /**
+     * Loads and stores of a halfword, word or doubleword at an address not a multiple of its size
+     * (LH, LHU, SH, LW, LWU, SW, LWC1, SWC1, LD, SD). The console raises an address error there;
+     * the model does the access and counts it (openrac-fcheck compares the count).
+     */
+    u64 misaligned = 0;
 
     /** The address and the word of the last instruction the core did not know. */
     u32 last_unknown_pc = 0, last_unknown = 0;
@@ -518,7 +528,10 @@ private:
      * @param from The address of the jump instruction.
      * @param to The address it jumps to.
      */
-    void note_jump(u32 from, u32 to) { jumps_[jump_next_++ & 15] = {from, to}; }
+    void note_jump(u32 from, u32 to) {
+        jumps_[jump_next_++ & 15] = {from, to};
+        lowest_jump = to < lowest_jump ? to : lowest_jump;
+    }
 
     /** The value `cycles` had when VU0 was last brought up to date. */
     u64 vu0_cycles_ = 0;

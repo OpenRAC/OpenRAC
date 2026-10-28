@@ -1572,6 +1572,7 @@ function samplePack(name: string): PackView {
     author: "you",
     description: "",
     enabled: true,
+    isMap: false,
     levels: 19,
     textures: 80,
     models: 19,

@@ -58,6 +58,7 @@ pub struct PackView {
     pub textures: usize,
     pub models: usize,
     pub level_files: usize,
+    pub is_map: bool,
 }
 
 fn read_state(dir: &Path) -> Result<State, String> {
@@ -120,6 +121,7 @@ fn view(dir: &Path, entry: &Entry) -> PackView {
         description: text("description"),
         id: entry.id.clone(),
         enabled: entry.enabled,
+        is_map: manifest.get("format").and_then(Value::as_u64) == Some(3),
         levels,
         textures,
         models,
@@ -202,6 +204,13 @@ mod tests {
         assert_eq!(packs.iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), ["hd", "green"]);
         assert_eq!((packs[0].levels, packs[0].textures, packs[0].models, packs[0].level_files), (2, 2, 1, 1));
         assert_eq!((packs[1].name.as_str(), packs[1].enabled), ("Green Ratchet", true));
+        assert!(!packs[0].is_map);
+
+        let manifest_path = dir.join("packs/green").join(MANIFEST);
+        let mut map: Value = serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
+        map["format"] = Value::from(3);
+        std::fs::write(&manifest_path, serde_json::to_string(&map).unwrap()).unwrap();
+        assert!(list(dir).unwrap()[1].is_map);
 
         let packs = move_pack(dir, "green", true).unwrap();
         assert_eq!(packs[0].id, "green");

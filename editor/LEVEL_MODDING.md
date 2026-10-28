@@ -1,5 +1,8 @@
 # Modding levels: placements, gameplay data and collision
 
+To export an edited world as its own named map mod, with a start position and
+direct launch, see [Map mods](MAP_MODDING.md).
+
 Ratchet & Clank's levels open in Godot 4 (tested with 4.7.2), one project per
 level. You move, add and delete objects, change their values, reshape volumes,
 paths and cameras, and edit the collision, then pack the level back and play it
