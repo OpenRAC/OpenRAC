@@ -42,7 +42,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_OMIT_func_L05_0031AAA8 1 /* FUN_L05_00319598, FUN_L16_002e4be0 */
 #define RAC1_OMIT_func_L12_002C08A0 1 /* FUN_L12_002bf6d0 */
 #define RAC1_OMIT_func_L13_0030AD88 1 /* FUN_L13_003098d0 */
-#define RAC1_OMIT_func_L00_00261448 1 /* FUN_L00_002603d0 */
 /* PlayMovieEntryIfIdle's second copy in levels 2, 8 and 16 (variants.c): PAL's own, not mapped for
  * this disc yet. */
 #define RAC1_OMIT_func_L02_00299F28 1
@@ -288,7 +287,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_002A20E0 func_L00_002A0E50
 #define func_L00_002A2148 func_L00_002A0EB8
 #define func_L00_002A8A20 game_FUN_L00_002a7780
-#define func_L00_002D8898 game_FUN_L00_002d73e8
 #define func_L00_002D9EA0 game_FUN_L00_002d89f0
 #define func_L00_002D9EA0__hooked game_FUN_L00_002d89f0__hooked
 #define func_L02_0020A690 func_L02_0020A390
