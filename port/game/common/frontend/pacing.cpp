@@ -30,9 +30,12 @@ steady_clock::time_point shown_at(
 }
 
 float tick_alpha(
-    steady_clock::time_point display, steady_clock::time_point tick, duration<double> period
+    steady_clock::time_point display,
+    steady_clock::time_point tick,
+    duration<double> period,
+    double lag
 ) {
-    const double t = duration<double>(display - tick).count() / period.count() - kLagTicks;
+    const double t = duration<double>(display - tick).count() / period.count() - lag;
     return static_cast<float>(std::clamp(t, 0.0, 1.0));
 }
 

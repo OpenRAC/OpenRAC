@@ -131,9 +131,17 @@ std::chrono::steady_clock::time_point next_display(std::chrono::steady_clock::ti
     return shown_at(now, pacing.cost, pacing.interval, pacing.last_swap);
 }
 
+// How far behind the kept tick the scene runs: half a tick while frames may still be shown after
+// the next tick starts (a swap that waits for a refresh, or the render thread's jobs), none when
+// between() stops before the tick (a swap that does not wait, on the window's thread).
+double lag_ticks() {
+    return !threaded_rendering() && g->swap == platform::SwapInterval::Immediate ? kNoWaitLagTicks
+                                                                                 : kLagTicks;
+}
+
 // How far the scene is from the last tick's to the kept one's at that refresh.
 float alpha_at(std::chrono::steady_clock::time_point display) {
-    return tick_alpha(display, pacing.tick, pacing.period);
+    return tick_alpha(display, pacing.tick, pacing.period, lag_ticks());
 }
 
 // Swaps the window's buffers for the frame begun at `started`, and keeps what the swap tells the
@@ -543,8 +551,9 @@ int between(std::chrono::steady_clock::time_point next_tick) {
         }
     }
     // A frame only for a refresh the kept tick is still shown at (the next tick's, with the lag).
-    const auto lag =
-        std::chrono::duration_cast<std::chrono::steady_clock::duration>(pacing.period * kLagTicks);
+    const auto lag = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+        pacing.period * lag_ticks()
+    );
     auto now = std::chrono::steady_clock::now();
     // The frame cap: a frame not due before the next tick is left to after it; one due sooner is
     // waited for here.

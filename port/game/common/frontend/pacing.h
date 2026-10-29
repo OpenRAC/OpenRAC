@@ -28,13 +28,20 @@ std::chrono::steady_clock::time_point shown_at(
     std::chrono::steady_clock::time_point last_swap
 );
 
+// Frames that cannot be shown after the next tick starts (a swap that does not wait, drawn on the
+// window's thread: between() stops before the tick) are not held back: lagged, they would only
+// reach half way to the kept tick before the next one came, and the scene would stand still for
+// half a tick and then jump.
+constexpr double kNoWaitLagTicks = 0.0;
+
 // How far the scene is from the last tick's to the kept one's at the refresh `display`, from 0 to
-// 1: `tick` is when the kept tick came, `period` the game's tick length, and the scene runs
-// kLagTicks behind.
+// 1: `tick` is when the kept tick came, `period` the game's tick length, and the scene runs `lag`
+// ticks behind.
 float tick_alpha(
     std::chrono::steady_clock::time_point display,
     std::chrono::steady_clock::time_point tick,
-    std::chrono::duration<double> period
+    std::chrono::duration<double> period,
+    double lag = kLagTicks
 );
 
 // Whether the frame cap lets a frame start at `now` (within a millisecond: a sleep wakes that
