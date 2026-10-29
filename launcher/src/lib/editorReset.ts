@@ -1,4 +1,4 @@
-// The Level editor tab's "Start over" (components/EditorReset.svelte): what each reset lists, what
+// The Level editor tab's resets, under Your levels (components/EditorReset.svelte): what each reset lists, what
 // it removes with the player's choice, when it cannot run, and what a failure says to a player. The
 // folders themselves are chosen and checked by the Rust core (core/src/reset.rs); the page only
 // shows them, and sends the version and the choice, never a path.
@@ -20,14 +20,15 @@ export const PART_TEXT: Record<ResetPart, { title: string; line: string }> = {
 };
 
 export const RESET = {
-  title: "Start over",
+  title: "Your levels",
   lead: "When levels look wrong, or for a clean editor. Your disc, saves and gameplay mods are never touched.",
-  levelsTitle: "Read the levels again",
-  levelsLine: "Reads the game's levels from your disc again. Your edits and packs are kept.",
+  levelsTitle: "Read the game's levels again",
+  levelsLine: "The copy of the levels the game plays, not your Godot projects. Your edits and packs are kept.",
   levelsButton: "Read again…",
-  editorTitle: "Reset the level editor",
-  editorLine: "Clears the levels opened in Godot and the models and textures you exported.",
-  editorButton: "Reset…",
+  editorTitle: "Delete the level project",
+  editorLine:
+    "Deletes this disc's Godot projects, changes not packed included. Packed levels and edits stay unless you tick them.",
+  editorButton: "Delete…",
   busy: "Wait for the game and the tasks running to end first.",
   noDisc: "Set the game up from your disc first.",
   checking: "Looking at what is there…",
@@ -36,9 +37,10 @@ export const RESET = {
   removes: "To delete",
   inAll: (bytes: string) => `In all: ${bytes}`,
   keeps: "Kept",
+  replaced: "Replaced",
   withEdits: "Also delete my own edits and packs",
   cancel: "Cancel",
-  confirmLevels: "Read the levels again",
+  confirmLevels: "Read the game's levels again",
   confirmEditor: "Delete",
   working: "Deleting…",
   previewFailed: "The launcher could not look in the editor's folders. Check the install folder in Settings.",

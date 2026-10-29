@@ -991,7 +991,7 @@ fn reset_layout(state: &State<'_, AppState>, version: &str) -> Result<reset::Lay
 }
 
 /// What a reset of `version`'s level editor data would remove, and how much (the Mods page's
-/// Start over asks with it).
+/// Your levels section asks with it).
 #[tauri::command]
 async fn reset_preview(
     state: State<'_, AppState>,

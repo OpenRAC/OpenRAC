@@ -92,7 +92,7 @@ CPU core at a time. Options:
 Nothing the extractor writes is kept in git, so a fresh checkout has none
 of it: run the command above to make it. The same disc always gives
 byte-identical files. To rebuild a project, delete its directory and run
-the command again (in the launcher: **Reset the level editor**, below); the extractor never overwrites an existing directory.
+the command again (in the launcher: **Delete the level project**, below, or **Export the levels again**, which keeps your edits); the extractor never overwrites an existing directory.
 Godot rebuilds its import cache (`.godot/`) the next time it opens the
 project.
 
@@ -110,22 +110,33 @@ WorldEnvironment, for instance), so after updating it, move your changes
 into the new scene instead. Godot saves a scene as text, so a diff
 against a fresh export shows each edit.
 
-## Start over
+## Your levels
 
 The launcher's **Mods** page, **Level editor** tab, has a status panel that
 says where you are (no levels yet, ready to edit, changes to pack, packed, or
-needs an update) and offers the next step as its main button. Its
-**Troubleshoot and start over** fold holds the two resets below, for levels
-that look wrong or an editor to begin again with. Each button asks first, listing what goes, with its size, and what stays.
-Neither runs while the game or another task does. Close Godot first.
+needs an update) and offers the next step as its main button. While a step
+runs, a bar says which one and how far along it is, by level ("Reading levels,
+Kerwan, 3 of 18"), from the tools' `openrac-progress:` lines
+([progress_line.py](progress_line.py)). Under it, always open, **Your levels**
+holds what can be done with the levels there. Each button but Pack again asks
+first, saying what goes or is replaced and what stays. None runs while the game
+or another task does. Close Godot first.
 
-- **Read the levels again** deletes the game's copy of the levels (what Play
+- **Pack again** packs what you saved in Godot now, even when the launcher saw
+  no change.
+- **Export the levels again** (`extract.py godot … --again`) reads every level
+  from your disc into its Godot project again, even an up-to-date one: the
+  projects there move to `<disc>-backups/<time>/` first, with your edits, and
+  your moby edits are carried onto the fresh ones as an update does (Ratchet &
+  Clank's; [carry.py](carry.py)). What cannot be carried is listed, to redo by
+  hand. Your packed levels, edits, packs and saves are kept.
+- **Read the game's levels again** deletes the game's copy of the levels (what Play
   and Models and textures read, with its `levels-<format>.json` and
   `verified-<format>.json` stamps and its visibility data) and the enhanced
   lighting baked from it, then reads the levels from the disc again straight
   away. The Godot projects, your packed levels, edits, packs, exports and
   saves are kept.
-- **Reset the level editor** deletes the Godot projects of that disc (with
+- **Delete the level project** deletes the Godot projects of that disc (with
   Godot's import cache, and any change saved in Godot but not packed) and the
   models and textures exported for the game. **Open in Godot** then reads
   fresh copies from the disc. A tick box, off at first, also deletes your own

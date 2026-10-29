@@ -106,6 +106,16 @@ export function editorStage(input: FlowInput): Stage {
     };
   }
   if (input.extracting) {
+    if (input.extracting.actionId === "editor-reexport") {
+      return {
+        ...base,
+        kind: "updating",
+        tone: "busy",
+        title: "Exporting the levels again…",
+        line: "Backing up your levels, reading fresh ones from your disc and carrying your changes over.",
+        primary: null,
+      };
+    }
     const updating = (state?.outdated.length ?? 0) > 0 || (state?.broken.length ?? 0) > 0;
     return updating
       ? {
@@ -263,3 +273,49 @@ export function updateNoteLine(note: UpdateNote): string {
     : "";
   return head + redo + " Your old levels are in the backup folder.";
 }
+
+// ---- Your levels: what can be done with the levels there, always in view under the status ----
+
+/** The section's name: the error sentences point to it by this name (lib/toolErrors.ts). */
+export const LEVELS_SECTION = "Your levels";
+
+/** The panel's own rows of the section; the resets' rows (read the game's levels again, delete the
+ *  level project) are EditorReset.svelte's and follow them. */
+export type LevelTool = "pack-again" | "export-again";
+
+export const LEVEL_TOOL_TEXT = {
+  "pack-again": {
+    title: "Pack again",
+    line: "Packs what you saved in Godot now, even if the launcher saw no change. Your levels stay as they are.",
+    button: "Pack again",
+  },
+  "export-again": {
+    title: "Export the levels again",
+    line: "Reads every level from your disc into Godot again. The ones there go to a backup first, and your changes are carried over.",
+    button: "Export again…",
+  },
+} as const;
+
+/** The panel's own rows: Pack again where packing is offered and there is a project, Export the
+ *  levels again wherever levels have been read. The resets (read the game's levels, delete) follow. */
+export function levelTools(state: EditorState | null, early: boolean, discFound: boolean): LevelTool[] {
+  const project = (state?.levels.length ?? 0) > 0;
+  const tools: LevelTool[] = [];
+  if (project && !early) tools.push("pack-again");
+  if (project && discFound) tools.push("export-again");
+  return tools;
+}
+
+/** The export-again confirmation: what is replaced, and what is kept. */
+export const EXPORT_AGAIN = {
+  title: "Export the levels again",
+  replaced:
+    "Every level's Godot project is written again from your disc. The ones there now are moved to a backup folder first, with your changes in them.",
+  carried:
+    "The objects you moved, changed, added or deleted are carried onto the fresh levels. Anything that cannot be carried is listed afterwards, to redo by hand.",
+  carriedLater: "This game's changes are not carried over yet: redo them from the backup folder.",
+  kept: "Your packed levels, imported edits and packs, the game's copy of the levels and your saves.",
+  closeGodot: "Close Godot first if a level is open in it.",
+  confirm: "Export again",
+  cancel: "Cancel",
+} as const;

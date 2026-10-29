@@ -8,6 +8,7 @@
 //
 // editor/test_errors.py fails when a tool raises a code that is not in TOOL_ERRORS.
 import { hidePaths } from "./paths";
+import { PROGRESS_LINE } from "./progress";
 import type { Line } from "./queue";
 
 /** The line a tool says its code on (editor/errors.py LINE). */
@@ -17,7 +18,7 @@ export const ERROR_LINE = "openrac-error: ";
 export type NextStep =
   | "update" // Update project: back up, read again, carry the edits over
   | "retry" // the same step again, once the player fixed what is said
-  | "start-over" // the Troubleshoot section's resets (read again, reset)
+  | "start-over" // the Your levels section: export again, delete
   | "set-up" // set the disc up again
   | "open" // open a level in Godot (it reads the levels first)
   | "settings" // the install folder, in Settings
@@ -63,12 +64,12 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
   },
   "folder-exists": {
     title: "A folder is in the way",
-    line: "Clear the editor's folders under Troubleshoot, then try again.",
+    line: "Delete the level project under Your levels, then try again.",
     next: "start-over",
   },
   "folder-not-ours": {
     title: "A folder holds something else",
-    line: "One of the editor's folders holds files OpenRAC did not make. Move them somewhere else, or clear the folder under Troubleshoot.",
+    line: "One of the editor's folders holds files OpenRAC did not make. Move them somewhere else, or delete the level project under Your levels.",
     next: "start-over",
   },
   "no-project": {
@@ -103,12 +104,12 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
   },
   "file-missing": {
     title: "A file is missing",
-    line: "Some of the files this step needs are gone. Read the levels again under Troubleshoot.",
+    line: "Some of the files this step needs are gone. Export the levels again under Your levels.",
     next: "start-over",
   },
   "file-error": {
     title: "A file could not be read or written",
-    line: "Try again. If it keeps happening, look under Troubleshoot.",
+    line: "Try again. If it keeps happening, export the levels again under Your levels.",
     next: "retry",
   },
   "carry-failed": {
@@ -136,7 +137,7 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
 /** What a failure without a known code says. */
 export const UNKNOWN_ERROR: ToolError = {
   title: "That step did not finish",
-  line: "Try again. If it keeps happening, Show details says what went wrong, and Troubleshoot usually helps.",
+  line: "Try again. If it keeps happening, Show details says what went wrong, and exporting the levels again under Your levels usually helps.",
   next: "retry",
 };
 
@@ -155,7 +156,7 @@ export function errorCode(lines: Pick<Line, "line">[]): string | null {
 }
 
 /** The marker lines the launcher reads, never shown even in the details. */
-const MARKERS = [ERROR_LINE, "openrac-output: ", "openrac-carry: "];
+const MARKERS = [ERROR_LINE, "openrac-output: ", "openrac-carry: ", PROGRESS_LINE];
 
 /** A failed job of a tool, said for a player: never the tool's own words in the sentence. */
 export function toolFailure(lines: Pick<Line, "line">[], count = 15): ToolFailure {

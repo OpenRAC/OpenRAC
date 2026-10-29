@@ -6,6 +6,8 @@ import EditorFlow from "../components/EditorFlow.svelte";
 import type { GameView, VersionView } from "./api";
 import { jobs } from "./app.svelte";
 import type { Job } from "./queue";
+import { LEVELS_SECTION } from "./editorFlow";
+import { RESET } from "./editorReset";
 import { TOOL_ERRORS, UNKNOWN_ERROR } from "./toolErrors";
 
 const RAW =
@@ -81,9 +83,33 @@ describe("EditorFlow", () => {
     expect(body).not.toContain("Traceback");
   });
 
-  it("keeps the resets in the panel, under Troubleshoot", () => {
+  it("shows Your levels open, with the resets in view", () => {
     const { body } = render(EditorFlow, { props: { game, version } });
-    expect(body).toContain("Troubleshoot");
-    expect(body).toContain("Reset the level editor");
+    expect(body).toContain(LEVELS_SECTION);
+    expect(body).toContain(RESET.editorTitle);
+    expect(body).toContain(RESET.levelsTitle);
+    expect(body).not.toContain("<details");
+    expect(body).not.toContain("Troubleshoot");
+  });
+
+  it("shows a step mid-way: its words, the level by name and the bar's value", () => {
+    jobs.list.push({
+      ...failedPack(),
+      actionId: "editor-extract",
+      title: "Extract the levels",
+      state: "running",
+      endedAt: null,
+      code: null,
+      lines: [`openrac-progress: read 0/18`, `openrac-progress: read 3/18 3`].map((line) => ({
+        stream: "stdout" as const,
+        line,
+      })),
+    });
+    const { body } = render(EditorFlow, { props: { game, version } });
+    expect(body).toContain("Reading levels");
+    expect(body).toContain("Kerwan, 3 of 18");
+    expect(body).toContain('role="progressbar"');
+    expect(body).toContain('aria-valuenow="17"');
+    expect(body).not.toContain("openrac-progress");
   });
 });

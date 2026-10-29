@@ -1,7 +1,8 @@
 <script lang="ts">
   // The Level editor tab's one panel: where the player is with this disc's levels, in a sentence,
-  // and the step that comes next as the main button; the other steps beside it, and Troubleshoot
-  // (the resets) folded at the bottom. The state is the core's look at the editor's folders
+  // and the step that comes next as the main button (Open in Godot beside it where it applies), how
+  // far along a running step is, and under it Your levels, always in view: pack again, export the
+  // levels again, read the game's levels again and delete the level project. The state is the core's look at the editor's folders
   // (core/src/editor_state.rs), asked again when the tab opens, when the window comes back into
   // focus (the player saved in Godot) and when one of the editor's jobs ends; the words and the
   // order of the states are lib/editorFlow.ts's. A failed step is said in a player's words
@@ -9,6 +10,9 @@
   import { api, pickFile, type EditorState, type GameView, type VersionView } from "$lib/api";
   import { app, guardShown, jobs, run, runChain, saveConfig, toast } from "$lib/app.svelte";
   import {
+    LEVEL_TOOL_TEXT,
+    LEVELS_SECTION,
+    levelTools,
     OPEN_ANYWAY,
     OPEN_ANYWAY_HINT,
     STEP_LABEL,
@@ -27,12 +31,14 @@
   import { onMount } from "svelte";
   import EditorReset from "./EditorReset.svelte";
   import Icon from "./Icon.svelte";
+  import JobProgress from "./JobProgress.svelte";
 
   let { game, version, onchanged }: { game: GameView; version: VersionView; onchanged?: () => void } = $props();
 
   const scope = $derived({ kind: "version" as const, key: version.key });
   const action = (id: string) => version.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
   const extract = $derived(action("editor-extract"));
+  const reexport = $derived(action("editor-reexport"));
   const edit = $derived(action("editor-open"));
   const pack = $derived(action("editor-pack"));
   const early = $derived(!pack);
@@ -42,7 +48,7 @@
   const live = (j: Job) => j.state === "queued" || j.state === "running";
   const jobsOf = (ids: string[]) =>
     jobs.list.filter((j) => j.scope.kind === "version" && j.scope.key === version.key && ids.includes(j.actionId));
-  const extracting = $derived(jobsOf(["editor-extract", "editor-import"]).find(live) ?? null);
+  const extracting = $derived(jobsOf(["editor-extract", "editor-reexport", "editor-import"]).find(live) ?? null);
   const packing = $derived(jobsOf(["editor-pack"]).find(live) ?? null);
 
   // ---- What the core found, asked again when it may have changed ----
@@ -82,7 +88,9 @@
 
   // An editor job ended (here, from Activity or from the game page): look again.
   const ended = $derived(
-    jobsOf(["editor-extract", "editor-import", "editor-pack", "overrides-stack"]).filter((j) => !live(j)).length,
+    jobsOf(["editor-extract", "editor-reexport", "editor-import", "editor-pack", "overrides-stack"]).filter(
+      (j) => !live(j),
+    ).length,
   );
   // (It runs once at first too: the tab's first look.)
   $effect(() => {
@@ -93,7 +101,7 @@
 
   let dismissed = $state<number | null>(null);
   const failed = $derived.by(() => {
-    const last = jobsOf(["editor-extract", "editor-pack"])
+    const last = jobsOf(["editor-extract", "editor-reexport", "editor-pack"])
       .filter((j) => !live(j))
       .at(-1);
     return last?.state === "failed" && last.key !== dismissed ? last : null;
@@ -193,6 +201,7 @@
       case "retry":
         if (failed?.actionId === "editor-pack") return take("pack");
         if (failed?.actionId === "editor-extract") return take("update");
+        if (failed?.actionId === "editor-reexport") return exportAgain();
         return;
       case "pack":
         if (pack) await run(scope, pack);
@@ -204,7 +213,8 @@
         app.page = "game";
         return;
       case "start-over":
-        troubleshoot = true;
+        levelsHeading?.scrollIntoView({ behavior: "smooth", block: "start" });
+        levelsHeading?.focus({ preventScroll: true });
         return;
       case "settings":
         app.page = "settings";
@@ -221,7 +231,7 @@
   const NEXT_LABEL: Partial<Record<NextStep, string>> = {
     update: STEP_LABEL.update,
     retry: "Try again",
-    "start-over": "Troubleshoot",
+    "start-over": `Go to ${LEVELS_SECTION}`,
     "set-up": STEP_LABEL["set-up"],
     open: STEP_LABEL.open,
     settings: "Open Settings",
@@ -257,8 +267,33 @@
   const pickerBefore = $derived(lacksGodot ? null : (steps.find(picksLevel) ?? null));
   const label = (step: Step) => (step === "open" && stage.kind === "needs-update" ? OPEN_ANYWAY : STEP_LABEL[step]);
 
-  let troubleshoot = $state(false);
   const backup = $derived(found?.backups[0] ?? null);
+
+  // ---- Your levels ----
+
+  let levelsHeading = $state<HTMLHeadingElement | null>(null);
+  let resets = $state<ReturnType<typeof EditorReset> | null>(null);
+  const tools = $derived(levelTools(unreadable ? null : found, early, discFound));
+  /** The running step the bar is about: reading, exporting again or packing. */
+  const working = $derived(extracting ?? packing);
+
+  async function exportAgain() {
+    if (!reexport || busy) return;
+    busy = "update";
+    try {
+      await runChain(scope, [reexport]);
+    } finally {
+      busy = null;
+    }
+    await look();
+    onchanged?.();
+  }
+
+  /** The row's own step is running: its button turns. */
+  const running = (tool: "pack-again" | "export-again") =>
+    tool === "pack-again" ? packing !== null : extracting?.actionId === "editor-reexport";
+  const toolDisabled = (tool: "pack-again" | "export-again") =>
+    !!busy || !!extracting || !!packing || (tool === "pack-again" ? !pack?.runnable : !reexport?.runnable);
 </script>
 
 <section class="panel flow" aria-labelledby="flow-title" aria-busy={stage.tone === "busy"}>
@@ -272,6 +307,10 @@
     <h2 id="flow-title">{stage.title}</h2>
     {#if stage.line}<p class="line">{stage.line}</p>{/if}
   </div>
+
+  {#if working}
+    <div class="working"><JobProgress job={working} plain /></div>
+  {/if}
 
   {#if failureShown && failure && failed}
     <div class="failure" role="alert">
@@ -320,11 +359,6 @@
             <button onclick={() => void chooseGodot()}><Icon name="folder" size={16} />{EDITOR.chooseGodot}</button>
           {/if}
         {/each}
-        {#if !early && stage.kind === "packed"}
-          <button class="ghost" disabled={disabled("pack")} onclick={() => void take("pack")}
-            ><Icon name="save" size={16} />Pack again</button
-          >
-        {/if}
       </div>
       {#if stage.kind === "needs-update" && stage.secondary.includes("open")}
         <p class="hint">{OPEN_ANYWAY_HINT}</p>
@@ -351,12 +385,9 @@
     </div>
   {/if}
 
-  <details class="trouble" bind:open={troubleshoot}>
-    <summary><Icon name="reset" size={14} />Troubleshoot</summary>
-    <p class="muted">
-      Read the levels again or reset the editor, when levels look wrong in Godot or in the game, or for a clean start.
-      Your disc, saves and gameplay mods are never touched.
-    </p>
+  <section class="levels" aria-labelledby="levels-title">
+    <h3 id="levels-title" tabindex="-1" bind:this={levelsHeading}>{LEVELS_SECTION}</h3>
+    <p class="muted">Your disc, saves and gameplay mods are never touched here.</p>
     {#if backup}
       <p class="muted">
         Older copies of your levels, kept by updates, are in the backup folder ({found?.backups.length ?? 0}
@@ -364,8 +395,35 @@
         <button class="link" onclick={() => void guardShown(api.openOutput(backup.path))}>Open it</button>
       </p>
     {/if}
-    <EditorReset {version} bare onchanged={() => (void look(), onchanged?.())} />
-  </details>
+    <EditorReset
+      bind:this={resets}
+      {version}
+      bare
+      onchanged={() => (void look(), onchanged?.())}
+      exportAgain={{ carries: version.game === "rac1", run: () => void exportAgain() }}
+    >
+      {#snippet rows()}
+        {#each tools as tool (tool)}
+          <li>
+            <div class="text">
+              <h3>{LEVEL_TOOL_TEXT[tool].title}</h3>
+              <p class="muted">{LEVEL_TOOL_TEXT[tool].line}</p>
+            </div>
+            <button
+              class="small"
+              disabled={toolDisabled(tool)}
+              onclick={() => (tool === "pack-again" ? void take("pack") : resets?.askExport())}
+            >
+              {#if running(tool)}<span class="spinner"></span>{:else}<Icon
+                  name={tool === "pack-again" ? "save" : "refresh"}
+                  size={14}
+                />{/if}{LEVEL_TOOL_TEXT[tool].button}
+            </button>
+          </li>
+        {/each}
+      {/snippet}
+    </EditorReset>
+  </section>
 </section>
 
 <style>
@@ -560,29 +618,30 @@
     outline-offset: 2px;
   }
 
-  .trouble {
+  .levels {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
     border-top: 1px solid var(--line);
-    padding-top: 12px;
+    padding-top: 14px;
   }
 
-  .trouble > summary {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--soft);
+  .levels > h3 {
+    font-size: 1rem;
   }
 
-  .trouble > summary:focus-visible {
+  .levels > h3:focus-visible {
     outline: 2px solid var(--amber);
     outline-offset: 2px;
   }
 
-  .trouble > p {
-    margin: 10px 0 0;
+  .levels > p {
+    margin: 0;
     font-size: 0.8125rem;
+  }
+
+  .working {
+    padding: 2px 0;
   }
 
   .link {

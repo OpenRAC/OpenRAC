@@ -1,12 +1,12 @@
-//! Starting the level editor over: the Mods page's "Start over" (src/components/EditorReset.svelte).
+//! Starting the level editor over: the resets under the Mods page's "Your levels" (src/components/EditorReset.svelte).
 //!
 //! Two resets, each for one version of a game:
 //!
-//! - [`Reset::Levels`], "Read the levels again": the game's copy of the levels (what Play and Models
+//! - [`Reset::Levels`], "Read the game's levels again": the game's copy of the levels (what Play and Models
 //!   and textures read, with its readiness stamps `levels-<format>.json` and `verified-<format>.json`
 //!   and the visibility added to it) and the enhanced lighting baked from them. The page reads them
 //!   from the disc again straight after. Nothing the player made is touched.
-//! - [`Reset::Editor`], "Reset the level editor": the Godot projects the levels were read into and
+//! - [`Reset::Editor`], "Delete the level project": the Godot projects the levels were read into and
 //!   the models and textures exported from them. With `with_edits`, also what the player made: the
 //!   packed levels and the mods put together from them, the imported edits and added packs, and the
 //!   copies of older projects the extractor kept aside.

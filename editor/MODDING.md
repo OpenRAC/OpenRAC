@@ -46,11 +46,11 @@ Everything below is on the **Mods** page, under **Models and textures**:
    game page's Play plays the levels as they are on the disc. If a pack has
    anything that does not fit your disc's levels, the activity log lists
    what was left out.
-6. **Start over**, at the bottom of the **Level editor** tab: **Reset the
-   level editor** deletes the exported folders along with the level projects;
+6. **Your levels**, under the **Level editor** tab's status: **Delete the
+   level project** deletes the exported folders along with the level projects;
    its tick box, off at first, deletes your imported edits and packs too.
-   **Read the levels again** reads the levels the exports are made from again
-   and keeps all of these (README.md, "Start over").
+   **Read the game's levels again** reads the levels the exports are made from
+   again and keeps all of these (README.md, "Your levels").
 
 ## Editing textures
 

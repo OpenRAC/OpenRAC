@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditorState } from "./api";
-import { editorStage, levelList, updateNote, updateNoteLine, type FlowInput } from "./editorFlow";
+import { editorStage, levelList, levelTools, updateNote, updateNoteLine, type FlowInput } from "./editorFlow";
 import type { Job } from "./queue";
 
 const state = (over: Partial<EditorState> = {}): EditorState => ({
@@ -115,5 +115,23 @@ describe("the update's note", () => {
     expect(levelList("rac1", [0])).toBe("Veldin");
     expect(levelList("rac1", [0, 1])).toBe("Veldin and Novalis");
     expect(levelList("rac1", [0, 1, 2, 3, 4])).toMatch(/ and 2 more$/);
+  });
+});
+
+describe("Your levels", () => {
+  it("offers Pack again and Export the levels again once levels are read", () => {
+    expect(levelTools(state(), false, true)).toEqual(["pack-again", "export-again"]);
+    expect(levelTools(state({ levels: [] }), false, true)).toEqual([]);
+    expect(levelTools(null, false, true)).toEqual([]);
+    // Early access packs nothing; without the disc nothing can be read again.
+    expect(levelTools(state(), true, true)).toEqual(["export-again"]);
+    expect(levelTools(state(), false, false)).toEqual(["pack-again"]);
+  });
+
+  it("says an export again while it runs", () => {
+    const s = editorStage(input({ extracting: job("editor-reexport") }));
+    expect(s.kind).toBe("updating");
+    expect(s.title).toBe("Exporting the levels again…");
+    expect(s.primary).toBeNull();
   });
 });
