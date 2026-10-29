@@ -199,7 +199,9 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const GameAdd
     // the RGBAQ of the frame's clear packet. The edges of the sky show it.
     std::array<float, 3> background{};
     for (int c = 0; c < 3; ++c) {
-        background[c] = static_cast<float>(at<std::uint32_t>(ram, a.view_context + 0x23C + 4 * c) & 0xFF) / 255.0f;
+        background[c] =
+            static_cast<float>(at<std::uint32_t>(ram, a.view_context + 0x23C + 4 * c) & 0xFF)
+            / 255.0f;
     }
     s.background_colour = background;
 

@@ -437,7 +437,9 @@ std::uint32_t add_box_model(LevelData& level) {
     return static_cast<std::uint32_t>(level.models.size() - 1);
 }
 
-std::vector<renderer::Rgba8Image> load_sky_textures(const fs::path& dir, const fs::path& overrides) {
+std::vector<renderer::Rgba8Image> load_sky_textures(
+    const fs::path& dir, const fs::path& overrides
+) {
     std::vector<renderer::Rgba8Image> out;
     LevelData level;
     level.dir = dir;

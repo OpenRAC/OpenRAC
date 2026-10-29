@@ -939,7 +939,9 @@ void overrides(const fs::path& dir) {
     write_png(dir / "textures" / "sky_0000.png", 10, 20, 30);
     write_png(dir / "textures" / "sky_0001.png", 40, 50, 60);
     std::vector<std::uint8_t> hd(16 * 8 * 4, 255);
-    stbi_write_png((mods / "textures" / "sky_0001.png").string().c_str(), 16, 8, 4, hd.data(), 16 * 4);
+    stbi_write_png(
+        (mods / "textures" / "sky_0001.png").string().c_str(), 16, 8, 4, hd.data(), 16 * 4
+    );
     const auto sky = scene::load_sky_textures(dir, level.overrides);
     CHECK(sky.size() == 2);
     CHECK(sky.size() == 2 && sky[0].width == 2 && (sky[0].texel(0, 0) & 0xFF) == 10);
@@ -1121,7 +1123,9 @@ void moby_draw_distance() {
 void background_colour() {
     std::vector<std::uint8_t> ram(32u * 1024 * 1024);
     const auto& a = game::rac1::kRac1PalLevels[1];
-    const auto word = [&](std::uint32_t at, std::uint32_t v) { std::memcpy(ram.data() + at, &v, sizeof(v)); };
+    const auto word = [&](std::uint32_t at, std::uint32_t v) {
+        std::memcpy(ram.data() + at, &v, sizeof(v));
+    };
     word(a.view_context + 0x230, 105);
     word(a.view_context + 0x23C, 100);
     word(a.view_context + 0x240, 255);
@@ -1135,7 +1139,10 @@ void background_colour() {
     const std::array<float, 3> extracted{0.0f, 0.0f, 0.0f};
     CHECK(s.background_or(extracted) == *s.background_colour);
     // A program that keeps no such colour (the later games' profiles): the extracted level's.
-    CHECK(host::GameState{}.background_or({0.1f, 0.2f, 0.3f}) == (std::array<float, 3>{0.1f, 0.2f, 0.3f}));
+    CHECK(
+        host::GameState{}.background_or({0.1f, 0.2f, 0.3f})
+        == (std::array<float, 3>{0.1f, 0.2f, 0.3f})
+    );
 }
 
 // The authored sphere is world-space and packed independently of the model's scale.
