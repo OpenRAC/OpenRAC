@@ -77,14 +77,19 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 /** Why levels need updating, in a player's words: the first reason found says it. */
 export const OUTDATED_LINE: Record<OutdatedReason, string> = {
   gameplay:
-    "The editor now makes PAL levels from the 60 Hz version of the game, the one OpenRAC plays. Yours were made from the 50 Hz version, so they cannot be packed as they are.",
+    "The editor now builds PAL levels from the 60 Hz version of the game, the one OpenRAC plays. Yours come from the 50 Hz version, so they cannot be packed as they are.",
   schema:
-    "This version of the editor puts more into each level than the one that made yours, so they need to be read again before they can be packed.",
+    "This editor puts more into each level than the one that made yours, so they need reading again before they can be packed.",
   version: "They were read from another version of the game's disc than the one set up now.",
 };
 
+/** Said right above the Update button: what it does, and that nothing is lost. */
 export const UPDATE_DETAIL =
-  "Update project copies your levels to a backup folder, reads fresh ones from your disc and carries over the objects you moved, changed, added or deleted. Anything it cannot carry is listed afterwards, to redo by hand. About 20 seconds.";
+  "Your changes are not lost. Update project keeps a backup of your levels, reads fresh ones from your disc and carries over the objects you moved, changed, added or deleted; anything it cannot carry is listed afterwards. About 20 seconds.";
+
+/** The Open button while levels need an update, and what it is good for. */
+export const OPEN_ANYWAY = "Open anyway";
+export const OPEN_ANYWAY_HINT = "Opening an outdated level works for looking around. Pack it after the update.";
 
 /** Where the player is, and what comes next. */
 export function editorStage(input: FlowInput): Stage {
@@ -142,10 +147,7 @@ export function editorStage(input: FlowInput): Stage {
       tone: "warn",
       title:
         levels.length === state.levels.length ? "Your levels need an update" : "Some of your levels need an update",
-      line:
-        (levels.length === state.levels.length ? "" : `${levelList(game, levels)}. `) +
-        OUTDATED_LINE[reason] +
-        " Your changes are not lost.",
+      line: (levels.length === state.levels.length ? "" : `${levelList(game, levels)}. `) + OUTDATED_LINE[reason],
       detail: UPDATE_DETAIL,
       primary: "update",
       secondary: opening,
@@ -157,7 +159,7 @@ export function editorStage(input: FlowInput): Stage {
       kind: "broken",
       tone: "warn",
       title: "Some level files are missing",
-      line: `${levelList(game, state.broken)}: ${state.broken.length === 1 ? "its" : "their"} files are incomplete. Repair keeps a backup and reads ${state.broken.length === 1 ? "it" : "them"} again from your disc.`,
+      line: `${levelList(game, state.broken)}: some of ${state.broken.length === 1 ? "its" : "their"} files are missing. Repair keeps a backup and reads ${state.broken.length === 1 ? "it" : "them"} again from your disc.`,
       primary: "repair",
       secondary: opening,
       levels: state.broken,
@@ -213,7 +215,7 @@ export function editorStage(input: FlowInput): Stage {
       kind: "packed",
       tone: "ok",
       title: "Your changes are packed",
-      line: `${plural(state.packedLevels, "level")} changed. Play with your edits starts the game with them; Mods under Play turns them on or off.`,
+      line: `${plural(state.packedLevels, "level")} changed. Play with your edits starts the game with them; you can turn them off again in Mods, under Play.`,
       primary: "play",
       secondary: ["open"],
     };
@@ -254,10 +256,10 @@ export function updateNote(game: string, carried: Carried[]): UpdateNote | null 
 export function updateNoteLine(note: UpdateNote): string {
   const head =
     note.carried === 0
-      ? `${plural(note.levels, "level")} updated. There were no changes of yours to carry over.`
-      : `${plural(note.levels, "level")} updated, and ${plural(note.carried, "change")} of yours carried over.`;
+      ? `${plural(note.levels, "level")} updated. You had no changes to carry over.`
+      : `${plural(note.levels, "level")} updated, with ${plural(note.carried, "change")} of yours carried over.`;
   const redo = note.redo.length
     ? ` ${plural(note.redo.length, "change")} could not be carried: redo ${note.redo.length === 1 ? "it" : "them"} in Godot.`
     : "";
-  return head + redo + " Your old levels are kept in the backup folder.";
+  return head + redo + " Your old levels are in the backup folder.";
 }

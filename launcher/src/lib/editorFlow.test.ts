@@ -106,7 +106,7 @@ describe("the update's note", () => {
     expect(note.carried).toBe(2);
     expect(note.redo).toEqual(["Veldin: Camera_0001: moved"]);
     expect(updateNoteLine(note)).toBe(
-      "2 levels updated, and 2 changes of yours carried over. 1 change could not be carried: redo it in Godot. Your old levels are kept in the backup folder.",
+      "2 levels updated, with 2 changes of yours carried over. 1 change could not be carried: redo it in Godot. Your old levels are in the backup folder.",
     );
     expect(updateNote("rac1", [])).toBeNull();
   });

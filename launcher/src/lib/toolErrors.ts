@@ -17,7 +17,7 @@ export const ERROR_LINE = "openrac-error: ";
 export type NextStep =
   | "update" // Update project: back up, read again, carry the edits over
   | "retry" // the same step again, once the player fixed what is said
-  | "start-over" // the Troubleshoot section's resets
+  | "start-over" // the Troubleshoot section's resets (read again, reset)
   | "set-up" // set the disc up again
   | "open" // open a level in Godot (it reads the levels first)
   | "settings" // the install folder, in Settings
@@ -33,7 +33,7 @@ export interface ToolError {
 export const TOOL_ERRORS: Record<string, ToolError> = {
   "project-outdated-gameplay": {
     title: "Your levels need an update",
-    line: "They were made before the editor switched to the 60 Hz version of the game that OpenRAC plays, so they cannot be packed as they are. Updating keeps a backup and carries your changes over.",
+    line: "They were made before the editor moved to the 60 Hz version of the game that OpenRAC plays, so they cannot be packed as they are. Updating keeps a backup and carries your changes over.",
     next: "update",
   },
   "project-outdated": {
@@ -63,12 +63,12 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
   },
   "folder-exists": {
     title: "A folder is in the way",
-    line: "Clear the editor's folders with Start over, then try again.",
+    line: "Clear the editor's folders under Troubleshoot, then try again.",
     next: "start-over",
   },
   "folder-not-ours": {
     title: "A folder holds something else",
-    line: "One of the editor's folders holds files OpenRAC did not make. Move them somewhere else, or clear the folder with Start over.",
+    line: "One of the editor's folders holds files OpenRAC did not make. Move them somewhere else, or clear the folder under Troubleshoot.",
     next: "start-over",
   },
   "no-project": {
@@ -103,12 +103,12 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
   },
   "file-missing": {
     title: "A file is missing",
-    line: "Some of the files this step needs are gone. Read the levels again from Start over.",
+    line: "Some of the files this step needs are gone. Read the levels again under Troubleshoot.",
     next: "start-over",
   },
   "file-error": {
     title: "A file could not be read or written",
-    line: "Try again. If it keeps happening, use Start over.",
+    line: "Try again. If it keeps happening, look under Troubleshoot.",
     next: "retry",
   },
   "carry-failed": {
@@ -136,7 +136,7 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
 /** What a failure without a known code says. */
 export const UNKNOWN_ERROR: ToolError = {
   title: "That step did not finish",
-  line: "Try again. If it keeps happening, the details say what went wrong, and Start over usually helps.",
+  line: "Try again. If it keeps happening, Show details says what went wrong, and Troubleshoot usually helps.",
   next: "retry",
 };
 
