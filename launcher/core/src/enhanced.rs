@@ -457,7 +457,8 @@ pub fn view(data_home: &Path, game: &str, version: &str, bake: BakeStatus) -> En
             name: "Enhanced graphics".into(),
             version: "Experimental".into(),
             author: "OpenRAC".into(),
-            description: "Improved lighting and effects whilst preserving the charm of the original visuals we all love.".into(),
+            description:
+                "Improved lighting and effects whilst preserving the charm of the original visuals we all love.".into(),
             homepage: String::new(),
             license: "GPL-3.0-or-later".into(),
             enabled,
@@ -635,10 +636,7 @@ mod tests {
         set_enabled(&home, "rac1", "pal", true).unwrap();
         set_setting(&home, "rac1", "pal", "motion_blur", &Value::Bool(true)).unwrap();
         set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("low")).unwrap();
-        assert_eq!(
-            value(&view(&home, "rac1", "pal", BakeStatus::default()), "shadow_quality"),
-            Value::from("low")
-        );
+        assert_eq!(value(&view(&home, "rac1", "pal", BakeStatus::default()), "shadow_quality"), Value::from("low"));
         set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("medium")).unwrap();
         set_setting(&home, "rac1", "pal", "gtao_quality", &Value::from("quality")).unwrap();
         set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("off")).unwrap();
