@@ -240,7 +240,13 @@ void capture_frame(const FramePresentation& output) {
         const std::string path = shots().prefix + std::to_string(output.tick)
                                  + (first ? std::string() : "_b" + std::to_string(between_index))
                                  + ".png";
-        scene::write_png(path, width, height, renderer::read_rgba(shown, width, height));
+        // As the screen shows it: the frame's alpha is what the GS blends wrote, not a picture's
+        // coverage, and a viewer that shows it draws the sky full of the effects' blotches.
+        std::vector<std::uint8_t> pixels = renderer::read_rgba(shown, width, height);
+        for (std::size_t i = 3; i < pixels.size(); i += 4) {
+            pixels[i] = 0xFF;
+        }
+        scene::write_png(path, width, height, pixels);
         log::info("frame {} written to {}", output.tick, path);
     }
 }
