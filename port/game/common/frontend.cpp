@@ -406,6 +406,12 @@ void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int cou
     }
 }
 
+void world_under_menu() {
+    if (g) {
+        g->world_under_menu = true;
+    }
+}
+
 void world_drawn(std::span<const std::uint8_t> ram) {
     if (!g || g->world_camera) {
         return;

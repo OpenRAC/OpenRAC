@@ -50,6 +50,12 @@ void rac1_wad_decompressed(gaddr to);
 /* boot.c: the level programs ParseBin loaded since the start. */
 uint32_t rac1_program_loads(void);
 
+/* Whether a level runs: its program loaded and its loop not told to end (play.c). After the end
+ * (a travel, the ship's flight out, Quit Game) the level's program is still there while the
+ * flight between planets plays (DoSpaceTransition), with the space scene's mobys in place of the
+ * level's: nothing of the level may be read or written then. */
+int rac1_level_running(void);
+
 /* front_end.c: what the window's menus need of the game (game_host.h), and the levels' names. */
 extern const openrac_front_end rac1_front_end;
 extern const char* const rac1_level_names[19];
@@ -73,6 +79,18 @@ int rac1_world_mobys(openrac_game_moby_state* out, int max);
 int32_t rac1_world_moby_slot(int32_t key);
 gaddr rac1_world_moby_at(int32_t slot);
 void rac1_world_moby_kill(gaddr moby);
+/* CreateMoby (func_0020D348) of a moby of the level's, also while the pause menu's mobys are the
+ * current ones; 0 for none. */
+gaddr rac1_world_create_moby(int32_t oclass);
+void rac1_world_moby_hide(gaddr moby, int hidden);
+int rac1_world_moby_deletion(int32_t slot, openrac_game_moby_deletion* out);
+int rac1_world_camera_position(float out[3]);
+int rac1_world_moby_run(int32_t slot, openrac_game_moby_run* out);
+/* moby_pool.c's last run list of the level's mobys: how it treated `slot` (OPENRAC_MOBY_RUN_*, -1
+ * not looked at, or none built this level load), how many were built and its camera; world.c's
+ * whether the level's mobys are the current context (not the pause menu's). */
+int rac1_moby_run(int32_t slot, uint32_t* runs, float camera[3]);
+int rac1_level_mobys_current(void);
 int32_t rac1_world_moby_spawn(int32_t oclass);
 int32_t rac1_world_hero_slot(void);
 void rac1_world_stand_in(const float position[3], gaddr moby);
@@ -86,5 +104,31 @@ void rac1_world_post_hit(
 );
 void rac1_world_eyes(const float* xyz, int count);
 int32_t rac1_world_bolts(int32_t add);
+void rac1_world_keep_running(int on);
+
+/* play.c: whether `moby` is a figure made in this level load. figure_items.c: what a figure wears
+ * and holds and the shots it fires (interface 1.9; play.c's table), its pieces put on its joints
+ * after the moby loop, taken off with it, and whether a moby is a figure's (its shots: they hit
+ * nothing here). crash_state.c: the moby whose update runs now, 0 for none. */
+int rac1_figure_alive(gaddr moby);
+int rac1_hero_held(openrac_game_held* out);
+void rac1_figure_held(gaddr figure, const openrac_game_held* held);
+int rac1_hero_shots(openrac_game_shot* out, int max);
+int rac1_figure_shot(gaddr figure, const openrac_game_shot* shot);
+void rac1_figure_items_tick(void);
+void rac1_figure_items_remove(gaddr figure);
+int rac1_figure_owned(gaddr moby);
+void rac1_figure_hit_dropped(const char* what);
+gaddr rac1_updating_moby(void);
+
+/* scenes.c: the level's in-game scenes for the mods (interface 1.9; play.c's table): the one
+ * playing and a mod's to start, around the moby loop (crash_state.c: the game mode as it begins; a
+ * scene its mobys started, and a mod's started once the player is in control, after it); and
+ * whether a moby is an actor of the scene playing (world.c's listing). */
+int32_t rac1_scene_playing(int32_t* frame);
+int rac1_scene_start(int32_t scene);
+void rac1_scenes_loop_begin(void);
+void rac1_scenes_tick(void);
+int rac1_scene_actor(gaddr moby);
 
 #endif /* OPENRAC_RAC1_H */

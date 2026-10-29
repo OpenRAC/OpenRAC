@@ -27,6 +27,7 @@
  * built for
  * (OPENRAC_MOD_TARGET_MINOR): test-old is built for 1.5. */
 #include <stddef.h>
+#include <string.h>
 
 #ifndef TEST_MOD_ID
 #define TEST_MOD_ID "test-a"
@@ -62,12 +63,15 @@ static int menu_page(void* user, const openrac_menu_frame* frame) {
 }
 
 /* The pages of the game's own menus: each event reported; the first page's first item opens the
- * second, which asks when it shows. */
+ * second, which asks when it shows; its second opens the first itself (the main menu's item's page,
+ * interface 1.9). */
 static void ui_page(void* user, int page, const openrac_ui_event* event) {
     (void)user;
     s_record(5000 + 100 * page + 10 * (int)event->kind + event->item + 1);
     if (event->kind == OPENRAC_UI_CHOOSE && event->item == 0) {
         s_record(5900 + -s_api->ui_open(s_mod, s_ui_second));
+    } else if (event->kind == OPENRAC_UI_CHOOSE && event->item == 1) {
+        s_record(5800 + -s_api->ui_open(s_mod, 0));
     } else if (event->kind == OPENRAC_UI_SHOW && page == s_ui_second) {
         s_api->ui_confirm(s_mod, page, "Leave the party?", 7);
         s_api->ui_sound(s_mod, OPENRAC_UI_SOUND_SELECT);
@@ -99,15 +103,20 @@ static void on_tick_boundary(void* user, uint32_t tick) {
 
 /* Play (interface 1.8), a step a frame: in the front end (frame 1) the status, a figure refused,
  * save 0 read and started with (twice: the second waits for the first); in a level (frame 2) a
- * figure made and posed, the hero's pose, a travel and a level's name; after a new load (frame 3)
- * the figure is gone. */
+ * figure made and posed, the hero's pose, what he holds and his shots (1.9), a travel and a level's
+ * name; after a new load (frame 3) the figure is gone. */
 static void play_frame(void) {
     openrac_play_status status = {sizeof status, 0, 0, 0, 0};
     openrac_pose pose = {0};
     openrac_save_info info = {sizeof info, 0, 0, 0, 0};
+    openrac_held held;
+    openrac_shot shots[4];
     unsigned char save[16];
     size_t size;
     pose.size = sizeof pose;
+    memset(&held, 0, sizeof held);
+    held.size = sizeof held;
+    memset(shots, 0, sizeof shots);
     s_record(7000 + 10 * -s_api->play_status(&status) + status.phase);
     if (s_frames == 1) {
         s_record(7100 + -s_api->figure_create(s_mod));
@@ -125,6 +134,15 @@ static void play_frame(void) {
         pose.state = 42;
         s_record(7600 + -s_api->figure_pose(s_mod, s_figure, &pose));
         s_record(7700 + -s_api->hero_pose(&pose) + pose.state);
+        /* Interface 1.9: what the hero holds, a figure made to hold it (not another's id), the
+         * hero's shots, a figure firing one (a weapon the game cannot fire for it refused). */
+        s_record(7720 + -s_api->hero_held(&held) + held.count);
+        s_record(7730 + -s_api->figure_held(s_mod, s_figure, &held));
+        s_record(7730 + -s_api->figure_held(s_mod, s_figure + 1, &held));
+        s_record(7740 + s_api->hero_shots(shots, 4) + 2 * shots[0].item);
+        s_record(7760 + -s_api->figure_shot(s_mod, s_figure, &shots[0]));
+        shots[0].item = 3;
+        s_record(7760 + -s_api->figure_shot(s_mod, s_figure, &shots[0]));
         s_record(7800 + -s_api->play_travel(s_mod, 4));
         s_record(
             7900 + (s_api->level_name(1) != NULL && s_api->level_name(1)[0] == 'N')
@@ -132,7 +150,11 @@ static void play_frame(void) {
         );
     } else if (s_frames == 3) {
         s_record(7600 + -s_api->figure_pose(s_mod, s_figure, &pose));
+        s_record(7730 + -s_api->figure_held(s_mod, s_figure, &held));
         s_record(7600 + -s_api->figure_remove(s_mod, s_figure));
+    } else if (s_frames == 4) {
+        /* Interface 1.9: a travel from the level's menu (a party's member taken along). */
+        s_record(7810 + -s_api->play_travel(s_mod, 3));
     }
 }
 
@@ -163,14 +185,17 @@ static int world_hit(void* user, const openrac_hit* hit) {
  * a frame (8000s). Frame 1: the list (count, keys, flags, a short buffer), slots by key, drives
  * (a dead slot refused, the flag shown), poses, kills, a spawn (driven), the hero's slot, eyes,
  * bolts, a stand-in outside the gate, a hit posted, and the gate and the watcher asked for after
- * load (refused). Frame 2 (the level loaded again): no drive left. */
+ * load (refused); the level's scenes (none playing, one started and then playing with its frames,
+ * a request dropped). Frame 2 (the level loaded again): no drive left. */
 static void world_frame(void) {
     openrac_moby list[8];
+    openrac_moby_deletion deletion = {sizeof deletion, 0, 0, 0, 0, 0};
+    float camera[3] = {0};
     openrac_moby pose = {0};
     openrac_hit hit = {sizeof hit, 1, 0, 4, 3.0f, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}};
     const float eyes[24] = {0};
     const float where[3] = {0};
-    int i, n;
+    int i, n, frame = -1;
     for (i = 0; i < 8; i++) {
         list[i].size = sizeof list[i];
     }
@@ -210,6 +235,22 @@ static void world_frame(void) {
         s_record(8210 + -s_api->play_eyes(s_mod, eyes, 20));
         s_record(8220 + -s_api->play_eyes(s_mod, NULL, 0));
         s_record(8300 + s_api->bolts(5) - 100);
+        s_record(8320 + -s_api->play_overlay_pause(s_mod, 1));
+        s_record(8330 + -s_api->play_skip(s_mod));
+        s_record(8340 + -s_api->play_notice(s_mod, "Waiting for the other players to arrive"));
+        s_record(8350 + s_api->scene_playing(&frame) + 1 + frame);
+        s_record(8360 + -s_api->play_scene(s_mod, 3));
+        s_record(8370 + s_api->scene_playing(&frame));
+        s_record(8380 + (frame == 42));
+        s_record(8390 + -s_api->play_scene(s_mod, -1));
+        s_record(8600 + -s_api->moby_hide(s_mod, 1, 1));
+        s_record(8610 + -s_api->moby_hide(s_mod, 5, 1));
+        s_record(8620 + -s_api->moby_deletion(2, &deletion));
+        s_record(8630 + deletion.by);
+        s_record(8640 + deletion.by_mod);
+        s_record(8650 + -s_api->moby_deletion(1, &deletion));
+        s_record(8660 + -s_api->camera_position(camera));
+        s_record(8670 + (int)camera[0]);
         s_record(8400 + -s_api->hero_stand_in(s_mod, where, -1));
         s_record(8500 + -s_api->moby_hit(s_mod, &hit));
         hit.victim = 5;
@@ -250,6 +291,7 @@ static void on_frame(void* user) {
             if (s_ui) {
                 s_record(1400 + -s_api->ui_page(s_mod, 0, ui_page, NULL));
                 s_record(1500 + -s_api->ui_main_item(s_mod, OPENRAC_UI_OPTIONS, "Late", 0));
+                s_record(1600 + -s_api->ui_pause_item(s_mod, "Late", 0));
             }
             /* Interface 1.6: the tick boundary after load is refused. */
             if (s_savestate) {
@@ -440,6 +482,17 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->ui_set(mod, home, &content) != OPENRAC_HOOK_OK
             || api->ui_set(mod, 5, &content) != OPENRAC_HOOK_UNKNOWN) {
             return 12;
+        }
+        /* Interface 1.9: the pause menu's Options items, without a label or of no page of the
+         * mod's refused, two at most. */
+        if (api->api_minor >= 9
+            && (api->ui_pause_item(mod, "", home) != OPENRAC_HOOK_UNKNOWN
+                || api->ui_pause_item(mod, NULL, home) != OPENRAC_HOOK_UNKNOWN
+                || api->ui_pause_item(mod, "X", 9) != OPENRAC_HOOK_UNKNOWN
+                || api->ui_pause_item(mod, "Multiplayer", home) != OPENRAC_HOOK_OK
+                || api->ui_pause_item(mod, "Party", s_ui_second) != OPENRAC_HOOK_OK
+                || api->ui_pause_item(mod, "Third", home) != OPENRAC_HOOK_UNKNOWN)) {
+            return 13;
         }
     }
     if (api->hook(mod, "Test_Add", "i32(i32)", (void*)add, (void**)&s_add) != OPENRAC_HOOK_OK) {

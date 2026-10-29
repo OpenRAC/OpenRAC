@@ -25,6 +25,8 @@ type HookPoint =
     | "rac1.moby.record_death"
     | "rac1.level.load_gameplay"
     | "rac1.player.approach_speed"
+    | "rac1.ship.travel_to"
+    | "rac1.moby.collect_bolt"
     | "rac1.moby.class_1750.update"
     | "rac1.moby.class_676.update"
     | "rac1.moby.class_482.update"
@@ -1011,6 +1013,7 @@ type HookPoint =
     | "Moby_Class99_Update"
     | "Moby_CodebotSlot_Update"
     | "Moby_Codebot_Update"
+    | "Moby_CollectBolt"
     | "Moby_Commando_Update"
     | "Moby_ConstructionArm_Update"
     | "Moby_Constructorbot1208_Update"
@@ -1313,6 +1316,7 @@ type HookPoint =
     | "Moby_Wrench_Update"
     | "Pad_ProcessReport"
     | "Planet_Unlock"
+    | "Ship_TravelTo"
     | "Vendor_BuildItemList"
     | "Vendor_InitLevelStock"
     | "Weapon_TakeAmmo"
@@ -1366,6 +1370,10 @@ type Moby_RecordDeathFn = (moby: number, flags: number, index: number) -> ()
 type Level_LoadGameplayFn = (full: number) -> number
 -- rac1.player.approach_speed (Hero_ApproachSpeed) void(f32,f32): Eases the hero's ground speed (+0x194, the speed Hero_SetPlanarVelocity moves him at) toward his target speed (+0x190) by up when below it and by down when above, each tick he moves on foot, in every level.
 type Hero_ApproachSpeedFn = (up: number, down: number) -> ()
+-- rac1.ship.travel_to (Ship_TravelTo) void(i32): The ship's travel from the planet select (ShipTravelTo), once its menu closes: to the planet it is on (dest the level now), the landing again, as backing out of the select does; to another, the game saved to the card and the ship's flight out of the level, whose loop then ends and flies to dest. After the take-off; a level's only way to another planet by ship.
+type Ship_TravelToFn = (dest: number) -> ()
+-- rac1.moby.collect_bolt (Moby_CollectBolt) void(u32): Collects a bolt (collect_bolt), called by the bolt update (classes 13 to 16) once the bolt reaches the hero: adds its value (1, or 5 / 20 / 50 for classes 14 / 15 / 16) to the bolt count, the level's total and its source's stats, shows the bolt counter and makes two sparkles at it. The bolt update then deletes the bolt (a placed one marked taken) whether or not this ran.
+type Moby_CollectBoltFn = (bolt: number) -> ()
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 

@@ -496,6 +496,90 @@ int host_bolts(int add) {
     return g_bolts += add;
 }
 
+// What the hero holds (one piece, the wrench's class) and his shots (two, items 15 and 10); the
+// figure calls recorded in g_world.
+int host_hero_held(openrac_held* out) {
+    if (out->size < sizeof *out) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->count = 1;
+    out->pieces[0].oclass = 0x47;
+    return OPENRAC_HOOK_OK;
+}
+
+int host_figure_held(openrac_mod*, int id, const openrac_held* held) {
+    g_world.push_back("held " + std::to_string(id) + " " + std::to_string(held->count) + " "
+                      + std::to_string(held->size == sizeof *held));
+    return id == 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int host_hero_shots(openrac_shot* out, int max) {
+    const int items[2] = {15, 10};
+    int n = 0;
+    for (; n < 2 && n < max; ++n) {
+        out[n].size = sizeof out[n];
+        out[n].item = items[n];
+    }
+    return n;
+}
+
+int host_figure_shot(openrac_mod*, int id, const openrac_shot* shot) {
+    g_world.push_back("shot " + std::to_string(id) + " " + std::to_string(shot->item));
+    return id == 0 && shot->size == sizeof *shot ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+// The level's scene (1.9): -1 none; a scene asked for plays at once, at frame 30.
+int g_scene = -1;
+
+int host_scene_playing(int* frame) {
+    *frame = g_scene >= 0 ? 30 : 0;
+    return g_scene;
+}
+
+int host_play_scene(openrac_mod*, int scene) {
+    g_world.push_back("scene " + std::to_string(scene));
+    g_scene = scene;
+    return OPENRAC_HOOK_OK;
+}
+
+// A moby hidden or shown, and a deletion seen of slot 7 only (by slot 3's update, class 120).
+int host_moby_hide(openrac_mod*, int slot, int hidden) {
+    g_world.push_back("hide " + std::to_string(slot) + " " + std::to_string(hidden));
+    return slot >= 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int host_moby_deletion(int slot, openrac_moby_deletion* out) {
+    if (slot != 7 || out->size < sizeof *out) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->by = 3;
+    out->by_class = 120;
+    out->by_mod = 0;
+    out->oclass = 500;
+    out->loads = 2;
+    return OPENRAC_HOOK_OK;
+}
+
+// The last run: slot 4 left out by distance, 30 from the camera; the pause menu's level camera.
+int host_moby_run(int slot, openrac_moby_run* out) {
+    if (out->size < sizeof *out) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->runs = 9;
+    out->menu = OPENRAC_RUN_MENU_LEVEL_CAMERA;
+    out->ran = slot == 4 ? OPENRAC_MOBY_RUN_FAR : OPENRAC_MOBY_RUN_NONE;
+    out->update_dist = slot == 4 ? 20 : 0;
+    out->distance = slot == 4 ? 30.0f : 0.0f;
+    return OPENRAC_HOOK_OK;
+}
+
+int host_camera_position(float out[3]) {
+    out[0] = 1.0f;
+    out[1] = 2.0f;
+    out[2] = 3.0f;
+    return OPENRAC_HOOK_OK;
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -567,6 +651,16 @@ openrac_api make_api() {
     api.moby_hit = host_moby_hit;
     api.play_eyes = host_play_eyes;
     api.bolts = host_bolts;
+    api.hero_held = host_hero_held;
+    api.figure_held = host_figure_held;
+    api.hero_shots = host_hero_shots;
+    api.figure_shot = host_figure_shot;
+    api.scene_playing = host_scene_playing;
+    api.play_scene = host_play_scene;
+    api.moby_hide = host_moby_hide;
+    api.moby_deletion = host_moby_deletion;
+    api.camera_position = host_camera_position;
+    api.moby_run = host_moby_run;
     return api;
 }
 
@@ -769,6 +863,73 @@ void check_world(openrac::Mod& mod, openrac_api& api) {
     }
     CHECK(refused && g_world.empty() && g_bolts == 105);
     api.api_minor = OPENRAC_MOD_API_MINOR;
+}
+
+// Checks the held pieces and the shots (1.9): what the hero holds, a figure made to hold it (its
+// size set), the hero's shots, a figure firing one; none of it on a port whose table ends before
+// them.
+void check_held(openrac::Mod& mod, openrac_api& api) {
+    CHECK(mod.has_held());
+    g_world.clear();
+    openrac_held held{};
+    CHECK(mod.hero_held(held) && held.count == 1 && held.pieces[0].oclass == 0x47);
+    openrac_held unsized{};
+    CHECK(mod.figure_held(0, unsized) && !mod.figure_held(2, held));
+    const std::vector<openrac_shot> shots = mod.hero_shots();
+    CHECK(shots.size() == 2 && shots[0].item == 15 && shots[1].item == 10);
+    openrac_shot shot{};
+    shot.item = 15;
+    CHECK(mod.figure_shot(0, shot) && !mod.figure_shot(1, shot));
+    CHECK((g_world == std::vector<std::string>{"held 0 0 1", "held 2 1 1", "shot 0 15", "shot 1 15"}));
+    // A port whose table ends at play_skip: no pieces, no shots.
+    const std::uint32_t size = api.size;
+    api.size = static_cast<std::uint32_t>(offsetof(openrac_api, play_skip) + sizeof(void*));
+    g_world.clear();
+    CHECK(!mod.has_held() && !mod.hero_held(held) && held.count == 0);
+    CHECK(!mod.figure_held(0, held) && mod.hero_shots().empty() && !mod.figure_shot(0, shot));
+    CHECK(g_world.empty());
+    api.size = size;
+}
+
+// Checks the level's scenes (1.9): none playing, one started and then playing with its frames, a
+// request dropped; nothing on a port whose table ends before them.
+void check_scenes(openrac::Mod& mod, openrac_api& api) {
+    CHECK(mod.has_scenes());
+    g_world.clear();
+    int frame = -1;
+    CHECK(mod.scene_playing(&frame) == -1 && frame == 0 && mod.scene_playing() == -1);
+    CHECK(mod.play_scene(4) && mod.scene_playing(&frame) == 4 && frame == 30);
+    CHECK(mod.play_scene(-1) && mod.scene_playing() == -1);
+    CHECK((g_world == std::vector<std::string>{"scene 4", "scene -1"}));
+    // A port whose table ends at ui_pause_item: no scenes.
+    const std::uint32_t size = api.size;
+    api.size = static_cast<std::uint32_t>(offsetof(openrac_api, ui_pause_item) + sizeof(void*));
+    g_world.clear();
+    frame = -1;
+    CHECK(!mod.has_scenes() && mod.scene_playing(&frame) == -1 && frame == 0 && !mod.play_scene(4));
+    CHECK(g_world.empty());
+    api.size = size;
+}
+
+// Checks a moby hidden and shown, its deletion and the camera read (1.9); nothing on a port whose table ends
+// at play_scene.
+void check_moby_detail(openrac::Mod& mod, openrac_api& api) {
+    CHECK(mod.has_moby_detail());
+    g_world.clear();
+    CHECK(mod.moby_hide(5, true) && mod.moby_hide(5, false) && !mod.moby_hide(-1, true));
+    CHECK((g_world == std::vector<std::string>{"hide 5 1", "hide 5 0", "hide -1 1"}));
+    openrac_moby_deletion d{};
+    CHECK(mod.moby_deletion(7, d) && d.by == 3 && d.by_class == 120 && d.oclass == 500 && d.loads == 2);
+    CHECK(!mod.moby_deletion(8, d) && d.by == 0);
+    float camera[3] = {0, 0, 0};
+    CHECK(mod.camera_position(camera) && camera[0] == 1.0f && camera[2] == 3.0f);
+    const std::uint32_t size = api.size;
+    api.size = static_cast<std::uint32_t>(offsetof(openrac_api, play_scene) + sizeof(void*));
+    g_world.clear();
+    CHECK(!mod.has_moby_detail() && !mod.moby_hide(5, true) && !mod.moby_deletion(7, d));
+    CHECK(!mod.camera_position(camera));
+    CHECK(g_world.empty());
+    api.size = size;
 }
 
 // Checks that openrac_mod_query reports the interface the mod was built for and its id and version.
@@ -1209,6 +1370,19 @@ int main() {
     check_ui(mod, api);
     check_play(mod, api);
     check_world(mod, api);
+    check_held(mod, api);
+    check_scenes(mod, api);
+    check_moby_detail(mod, api);
+    {
+        // The last run read (1.9); nothing on a port whose table ends at camera_position.
+        openrac_moby_run run{};
+        CHECK(mod.has_moby_run() && mod.moby_run(4, run) && run.runs == 9 && run.ran == 0);
+        CHECK(run.update_dist == 20 && run.distance == 30.0f && run.menu == OPENRAC_RUN_MENU_LEVEL_CAMERA);
+        const std::uint32_t size = api.size;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, camera_position) + sizeof(void*));
+        CHECK(!mod.has_moby_run() && !mod.moby_run(4, run) && run.runs == 0);
+        api.size = size;
+    }
     check_refused_loads(api, handle);
     check_reload(api, handle);
 

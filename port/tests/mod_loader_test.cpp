@@ -19,6 +19,7 @@
 #include "check.h"
 #include "common/json.h"
 #include "mod_manifest.h"
+#include "mod_play.h"
 #include "mods.h"
 #include "openrac/guest.h"
 #include "openrac/script_binding.h"
@@ -132,12 +133,15 @@ const char* const kLevelNames[] = {"Veldin", "Novalis", "Aridia", "Kerwan", "Eud
 // a moby at 0x3000 + 0x100 * slot, a spawn making slot 3, the hero's moby in slot 9, and the bolts.
 bool g_live[8] = {true, true, true, false, false, false, false, false};
 int g_bolts = 100;
+// The level's scene playing (-1 none): a scene asked for plays at once, at frame 42.
+std::int32_t g_scene = -1;
 constexpr std::int32_t kKeys[] = {0, 1, -1};
 
 void reset_world() {
     std::fill(std::begin(g_live), std::end(g_live), false);
     std::fill(g_live, g_live + 3, true);
     g_bolts = 100;
+    g_scene = -1;
 }
 
 std::int32_t slot_at(gaddr moby) {
@@ -246,6 +250,58 @@ const openrac_game_play kPlay = {
     },
     [](const float*, int count) { g_played.push_back("eyes " + std::to_string(count)); },
     [](std::int32_t add) { return g_bolts += add; },
+    [](int on) { g_played.push_back("keep " + std::to_string(on)); },
+    // What the hero holds (two pieces) and his shots (one of item 15), the figure's.
+    [](openrac_game_held* out) {
+        *out = {};
+        out->count = 2;
+        return g_phase == OPENRAC_GAME_PHASE_PLAYING ? 1 : 0;
+    },
+    [](gaddr, const openrac_game_held* held) {
+        g_played.push_back("held " + std::to_string(held->count));
+    },
+    [](openrac_game_shot* out, int max) {
+        if (max < 1) {
+            return 0;
+        }
+        out[0] = {};
+        out[0].item = 15;
+        return 1;
+    },
+    [](gaddr, const openrac_game_shot* shot) {
+        g_played.push_back("shot " + std::to_string(shot->item));
+        return shot->item == 15 ? 1 : 0;
+    },
+    [](std::int32_t* frame) {
+        *frame = 42;
+        return g_scene;
+    },
+    [](std::int32_t scene) {
+        g_played.push_back("scene_start " + std::to_string(scene));
+        if (scene >= 0) {
+            g_scene = scene;
+        }
+        return 1;
+    },
+    // A moby hidden or shown; a deletion seen of slot 2 only (a mod's, in slot 4's update); the
+    // camera at x 7.
+    [](gaddr moby, int hidden) {
+        g_played.push_back(
+            "moby_hide " + std::to_string(slot_at(moby)) + " " + std::to_string(hidden)
+        );
+    },
+    [](std::int32_t slot, openrac_game_moby_deletion* out) {
+        if (slot != 2) {
+            return 0;
+        }
+        *out = {4, 120, 1, 300, 1};
+        return 1;
+    },
+    [](float out[3]) {
+        out[0] = 7.0f;
+        out[1] = out[2] = 0.0f;
+        return 1;
+    },
 };
 
 // The state status.json gives a mod, and its reason.
@@ -475,8 +531,9 @@ void a_menu_page_draws_through_the_host(const fs::path& plugins) {
 }
 
 // Play (interface 1.8): the phase and level, figures only in a level and gone with it, a pose
-// reaching the game, the saves on the card read through the game's save_info, a start and a travel
-// kept until play_update (one at a time), and the levels' names.
+// reaching the game, what the hero holds and his shots and a figure's (1.9), the saves on the card
+// read through the game's save_info, a start and a travel kept until play_update (one at a time),
+// and the levels' names.
 void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "play"}}]})");
@@ -501,15 +558,32 @@ void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     g_phase = OPENRAC_GAME_PHASE_PLAYING;
     g_records.clear();
     mods::frame();
-    CHECK((g_records == std::vector<int>{7003, 7500, 7601, 7600, 7707, 7800, 7903}));
+    CHECK(
+        (g_records
+         == std::vector<int>{
+             7003, 7500, 7601, 7600, 7707, 7722, 7730, 7731, 7771, 7760, 7761, 7800, 7903
+         })
+    );
     mods::play_update();
-    CHECK((g_played == std::vector<std::string>{"start -1 5", "pose 42", "travel 4"}));
+    CHECK(
+        (g_played
+         == std::vector<std::string>{
+             "start -1 5", "pose 42", "held 2", "shot 15", "shot 3", "travel 4"
+         })
+    );
     // The level loaded again: the figure is gone.
     g_loads = 2;
     g_records.clear();
     mods::frame();
-    CHECK((g_records == std::vector<int>{7003, 7601, 7601}));
-    CHECK(g_played.size() == 3);
+    CHECK((g_records == std::vector<int>{7003, 7601, 7731, 7601}));
+    CHECK(g_played.size() == 6);
+    // In the level's pause menu (1.9): a travel leaves from there too.
+    g_phase = OPENRAC_GAME_PHASE_MENU;
+    g_records.clear();
+    mods::frame();
+    CHECK((g_records == std::vector<int>{7005, 7810}));
+    mods::play_update();
+    CHECK(g_played.back() == "travel 3");
     mods::reset();
 }
 
@@ -572,6 +646,26 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              8210,
              8220,
              8305,
+             // The world kept running under the game's menus; a skip asked for; no scene playing
+             // (its frame left 0), scene 3 started and playing at frame 42, a request dropped.
+             8320,
+             8330,
+             8340,
+             8350,
+             8360,
+             8373,
+             8381,
+             8390,
+             // A moby hidden, a dead one refused; slot 2's deletion (by slot 4, a mod's), none of
+             // slot 1; the camera.
+             8600,
+             8611,
+             8620,
+             8634,
+             8641,
+             8651,
+             8660,
+             8677,
              // A stand-in outside the gate; a hit posted, a hit to a dead slot; the gate and the
              // watcher after load.
              8401,
@@ -591,6 +685,10 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              "eyes 2",
              "eyes 8",
              "eyes 0",
+             "keep 1",
+             "scene_start 3",
+             "scene_start -1",
+             "moby_hide 1 1",
              "post_hit 1 0 4 3",
          })
     );
@@ -620,8 +718,38 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     mods::frame();
     CHECK((g_records == std::vector<int>{8603, 8610}));
     CHECK(openrac_game_moby_update(1, OPENRAC_MOBY_BEFORE) == 0);
+    // The skip the mod asked for is pressed over the next pad reads, then no more; reset forgets it,
+    // and the mod's line over the picture.
+    CHECK(mods::play_skipping() && mods::play_skipping());
+    // Only while what it was asked in plays: out of a scene, or the next one, is pressed nothing.
+    {
+        openrac_api api{};
+        int owner = 0;
+        mods::fill_play_api(api, &kPlay, dir / "cards");
+        g_phase = OPENRAC_GAME_PHASE_SCENE;
+        g_scene = 3;
+        CHECK(api.play_skip(reinterpret_cast<openrac_mod*>(&owner)) == OPENRAC_HOOK_OK);
+        CHECK(mods::play_skipping());
+        g_phase = OPENRAC_GAME_PHASE_PLAYING;
+        g_scene = -1;
+        CHECK(!mods::play_skipping());
+        g_phase = OPENRAC_GAME_PHASE_SCENE;
+        g_scene = 4;
+        CHECK(!mods::play_skipping());
+        CHECK(api.play_skip(reinterpret_cast<openrac_mod*>(&owner)) == OPENRAC_HOOK_OK);
+        g_scene = 5;
+        CHECK(!mods::play_skipping());
+        g_phase = OPENRAC_GAME_PHASE_PLAYING;
+        g_scene = -1;
+    }
+    CHECK(mods::play_notice() == "Waiting for the other players to arrive");
+    g_played.clear();
     mods::reset();
+    CHECK(!mods::play_skipping());
+    CHECK(mods::play_notice().empty());
     CHECK(openrac_game_moby_update == nullptr && openrac_game_moby_hit == nullptr);
+    // Reset lets the world stop under menus again, and drops a scene still to start.
+    CHECK((g_played == std::vector<std::string>{"scene_start -1", "keep 0"}));
 }
 
 // The pages of the game's own menus (interface 1.7): the pages and the main-menu item listed, a
@@ -640,6 +768,17 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
         && item->page == 0
     );
     CHECK(mods::ui_main_item(1) == nullptr && mods::ui_page(2) == nullptr);
+    // The pause menu's Options items (interface 1.9), in the order added.
+    CHECK(mods::ui_pause_item_count() == 2);
+    CHECK(
+        mods::ui_pause_item(0) != nullptr && mods::ui_pause_item(0)->label == "Multiplayer"
+        && mods::ui_pause_item(0)->page == 0
+    );
+    CHECK(
+        mods::ui_pause_item(1) != nullptr && mods::ui_pause_item(1)->label == "Party"
+        && mods::ui_pause_item(1)->page == 1
+    );
+    CHECK(mods::ui_pause_item(2) == nullptr && mods::ui_pause_item(-1) == nullptr);
     const mods::UiPage* home = mods::ui_page(0);
     CHECK(home != nullptr && home->title == "Multiplayer" && home->items.size() == 4);
     CHECK(
@@ -669,6 +808,24 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
     mods::ui_send(0, e);
     CHECK(std::find(g_records.begin(), g_records.end(), 5900 + 1) != g_records.end());
     CHECK(!mods::take_ui_requests().open);
+    // From the title's main menu (no page of the mod's on the screen), interface 1.9: its main-menu
+    // item's page opens, not another of its pages; with the main menu gone, neither.
+    mods::ui_set_main_menu(true);
+    g_records.clear();
+    mods::ui_send(0, e);
+    CHECK(std::find(g_records.begin(), g_records.end(), 5900 + 1) != g_records.end());
+    CHECK(!mods::take_ui_requests().open);
+    openrac_ui_event own = e;
+    own.item = 1;
+    mods::ui_send(0, own);
+    CHECK(std::find(g_records.begin(), g_records.end(), 5800) != g_records.end());
+    mods::UiRequests main = mods::take_ui_requests();
+    CHECK(main.open && main.page == 0);
+    mods::ui_set_main_menu(false);
+    g_records.clear();
+    mods::ui_send(0, own);
+    CHECK(std::find(g_records.begin(), g_records.end(), 5800 + 1) != g_records.end());
+    CHECK(!mods::take_ui_requests().open);
     mods::ui_set_shown(0, false);
     mods::ui_send(0, e);
     CHECK(std::find(g_records.begin(), g_records.end(), 5000 + 20 + 1) != g_records.end());
@@ -695,9 +852,11 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
     mods::frame();
     CHECK(std::find(g_records.begin(), g_records.end(), 1400 + 3) != g_records.end());
     CHECK(std::find(g_records.begin(), g_records.end(), 1500 + 3) != g_records.end());
+    CHECK(std::find(g_records.begin(), g_records.end(), 1600 + 3) != g_records.end());
     mods::ui_send(7, e);  // no such page: nothing
     mods::reset();
     CHECK(mods::ui_page_count() == 0 && mods::ui_main_item_count() == 0);
+    CHECK(mods::ui_pause_item_count() == 0);
 }
 
 // The tick boundary and the snapshot calls (interface 1.6): the boundary taken during load only,

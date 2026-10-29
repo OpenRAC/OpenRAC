@@ -150,7 +150,7 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `UiPage(const openrac_api* api, openrac_mod* handle, int id)` | The page `id` of the mod `handle`, through `api`. |
 | `int id() const` | Returns the page's id. |
 | `void set(const UiContent& content) const` | Puts `content` on the page. Throws openrac::Error when refused (no such page). |
-| `bool open() const` | Return whether the port took it: shows this page (from another of the mod's on the screen), goes back a level, asks `question` on this page (answered by an OPENRAC_UI_ANSWER with `tag`), plays a menu sound (OPENRAC_UI_SOUND_*). |
+| `bool open() const` | Return whether the port took it: shows this page (from another of the mod's on the screen, or since 1.9 a main-menu item's page from the title's main menu), goes back a level, asks `question` on this page (answered by an OPENRAC_UI_ANSWER with `tag`), plays a menu sound (OPENRAC_UI_SOUND_*). |
 | `bool back() const` |  |
 | `bool confirm(const std::string& question, std::uint32_t tag = 0) const` |  |
 | `bool sound(int sound) const` |  |
@@ -230,6 +230,27 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool moby_hit(const openrac_hit& hit) const` | Since 1.9: posts `hit` (its size set here); false for no victim. |
 | `void play_eyes(const std::vector<float>& xyz) const` | Since 1.9: the eyes besides the camera (x, y, z each), and the bolts after adding `add`. |
 | `int bolts(int add = 0) const` |  |
+| `bool play_skip() const` | Since 1.9: skips the scene playing as the game's own skip does; false for a game without. |
+| `bool has_held() const` | Since 1.9: whether the port offers the held pieces and the shots (hero_held() ... figure_shot()). |
+| `bool hero_held(openrac_held& out) const` | Since 1.9: what the hero wears and holds into `out`; false when there is no hero now. |
+| `bool figure_held(int id, const openrac_held& held) const` | Since 1.9: has figure `id` wear and hold `held` (its size set here), each tick it is posed; false for a figure gone with its level. |
+| `std::vector<openrac_shot> hero_shots() const` | Since 1.9: the shots the hero fired since the last call, oldest first. |
+| `bool figure_shot(int id, const openrac_shot& shot) const` | Since 1.9: has figure `id` fire `shot` (its size set here), hitting nothing in this game; false for a figure gone or a weapon the port cannot fire for one. |
+| `bool has_notice() const` | Since 1.9: whether the port offers play_notice(). |
+| `bool play_notice(const std::string& text) const` | Since 1.9: a line at the top of the game's picture until replaced or cleared (""); false for a port without it. |
+| `bool has_pause_items() const` | Since 1.9: whether the port offers items of the pause menu's Options page (ui_pause_item()). |
+| `void ui_pause_item(const char* label, const UiPage& page)` | Since 1.9: adds an item named `label` to the Options page of the pause menu in a level, opening `page`. Throws openrac::Error when refused. Only during load. |
+| `bool has_scenes() const` | Since 1.9: whether the port offers the level's scenes (scene_playing(), play_scene()). |
+| `int scene_playing(int* frame = nullptr) const` | Since 1.9: the in-level scene playing (its number in the level), -1 for none; `frame` (when not null) gets how many of its frames have played. |
+| `bool play_scene(int scene) const` | Since 1.9: starts the level's scene `scene` from its start as the game's own trigger does, once the player is in control (-1 drops a request still waiting); false outside a level or for a port without scenes. |
+| `bool has_moby_detail() const` | Since 1.9: whether the port offers moby_hide(), moby_deletion() and camera_position(). |
+| `bool moby_hide(int slot, bool hidden) const` | Since 1.9: hides the moby in `slot` from drawing (`hidden`) or shows it again; false for no moby there or a port without it. |
+| `bool moby_deletion(int slot, openrac_moby_deletion& out) const` | Since 1.9: the last deletion the game made of the moby in `slot` in this level load into `out`; false for none seen or a port without it. |
+| `bool camera_position(float (&out)[3]) const` | Since 1.9: where the game's camera is into `out` (x, y, z); false outside a level or for a port without it. |
+| `bool has_moby_run() const` | Since 1.9: whether the port offers moby_run(). |
+| `bool moby_run(int slot, openrac_moby_run& out) const` | Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1: none) in it, into `out`; false outside a level or for a port without it. |
+| `int moby_slot_of(gaddr moby) const` | Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none. |
+| `bool play_overlay_pause(bool on) const` | Since 1.9: the world keeps running under the game's menus while `on`; false for a game without it. |
 | `Memory memory() const` | Returns a view of game memory. |
 | `gaddr relocate(gaddr address) const` | Return a global's address for the code loaded now: the executable's (`relocate`) or level `level`'s program's (`relocate_level`). Ask each time, because a level moves its globals. |
 | `gaddr relocate_level(int level, gaddr address) const` |  |

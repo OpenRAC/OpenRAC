@@ -33,6 +33,7 @@
 #include "common/stats.h"
 #include "debug/overlay.h"
 #include "frontend.h"
+#include "mods.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
 #include "renderer/ui/imgui_gl.h"
@@ -663,8 +664,8 @@ void draw(const Shown& shown) {
     }
     stats::lap("present");
     s.window = shown.window;
-    const bool badge =
-        s.paused || s.stretch != 1.0 || !s.toast.empty() || !s.notice.empty() || capture_busy();
+    const bool badge = s.paused || s.stretch != 1.0 || !s.toast.empty() || !s.notice.empty()
+                       || capture_busy() || !mods::play_notice().empty();
     const bool drawer_out =
         s.drawer_open || s.drawer_at > 0.0f || s.shot_when_shut || s.touch_editing;
     if (!(s.visible || s.enhanced_settings || picker_enabled() || menu_bar_shown() || badge

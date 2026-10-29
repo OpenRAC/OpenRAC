@@ -358,6 +358,8 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_TRACE_SIF` | any value but the empty string | Prints the first 32 SIF RPC binds and the first 32 SIF RPC calls on stderr, with their clients and servers. | `port/game/common/lib/kernel.c` |
 | `OPENRAC_SOUND_LOG` | any (set) | Prints each command the game sends its sound driver, with its first four words and the reply, on stderr. | `port/game/rac1/host/hand.c` |
 | `OPENRAC_HIT_LOG` | any (set) | Prints each hit sphere with a template, and the mobys it listed, on stderr. | `port/game/rac1/host/collision.c` |
+| `OPENRAC_ITEMS_DEBUG` | `1` (not `0`) | Prints what the hero and each co-op figure hold, the pieces made, the classes decoded and the shots fired or kept from hitting, on stderr. | `port/game/rac1/host/figure_items.c` |
+| `OPENRAC_ANIM_TRACE` | any (set) | Prints each co-op figure's animation as it is posed (its seq, blend target, key, next key, time and speed before and after, and what was done: run, blend, blending, snap) on stderr, one `ATRACE F` line each; the multiplayer mod prints the poses it sends, receives and shows beside them. | `port/game/rac1/host/play.c` |
 | `OPENRAC_COLL_TRACE` | any (set) | Counts collision queries and hits by kind (line, sphere, capsule, sphere-mobys, hero-groups, boot line) and prints the totals on stderr every 2000 queries. | `port/game/rac1/host/collision.c` |
 | `OPENRAC_UI_LOG` | any (set) | Logs the caller of each 2D quad routine call and each emitted quad. | `port/game/rac1/host/ui2d.c` |
 

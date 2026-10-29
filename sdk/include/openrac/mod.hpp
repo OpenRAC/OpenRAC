@@ -421,8 +421,8 @@ public:
         }
     }
 
-    // Return whether the port took it: shows this page (from another of the mod's on the screen),
-    // goes back a level, asks `question` on this page (answered by an OPENRAC_UI_ANSWER with
+    // Return whether the port took it: shows this page (from another of the mod's on the screen,
+    // or since 1.9 a main-menu item's page from the title's main menu), goes back a level, asks `question` on this page (answered by an OPENRAC_UI_ANSWER with
     // `tag`), plays a menu sound (OPENRAC_UI_SOUND_*).
     bool open() const { return m_api != nullptr && m_api->ui_open(m_handle, m_id) == OPENRAC_HOOK_OK; }
 
@@ -1128,7 +1128,8 @@ public:
 
     // Since 1.9: whether the port offers the world calls (moby_list() ... bolts()).
     bool has_world() const {
-        return m_api->api_minor >= 9 && m_api->size >= offsetof(openrac_api, bolts) + sizeof(void*)
+        return m_api->api_minor >= 9
+               && m_api->size >= offsetof(openrac_api, play_skip) + sizeof(void*)
                && has_play();
     }
 
@@ -1214,6 +1215,158 @@ public:
     }
 
     int bolts(int add = 0) const { return m_api->api_minor >= 9 ? m_api->bolts(add) : 0; }
+
+    // Since 1.9: skips the scene playing as the game's own skip does; false for a game without.
+    bool play_skip() const {
+        return has_world() && m_api->play_skip(m_handle) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: whether the port offers the held pieces and the shots (hero_held() ...
+    // figure_shot()).
+    bool has_held() const {
+        return has_world() && m_api->size >= offsetof(openrac_api, figure_shot) + sizeof(void*);
+    }
+
+    // Since 1.9: what the hero wears and holds into `out`; false when there is no hero now.
+    bool hero_held(openrac_held& out) const {
+        out = openrac_held{};
+        out.size = sizeof out;
+        return has_held() && m_api->hero_held(&out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: has figure `id` wear and hold `held` (its size set here), each tick it is posed;
+    // false for a figure gone with its level.
+    bool figure_held(int id, const openrac_held& held) const {
+        openrac_held h = held;
+        h.size = sizeof h;
+        return has_held() && m_api->figure_held(m_handle, id, &h) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: the shots the hero fired since the last call, oldest first.
+    std::vector<openrac_shot> hero_shots() const {
+        if (!has_held()) {
+            return {};
+        }
+        std::vector<openrac_shot> shots(OPENRAC_SHOTS_MAX);
+        const int n = m_api->hero_shots(shots.data(), static_cast<int>(shots.size()));
+        shots.resize(static_cast<std::size_t>(n > 0 ? n : 0));
+        return shots;
+    }
+
+    // Since 1.9: has figure `id` fire `shot` (its size set here), hitting nothing in this game;
+    // false for a figure gone or a weapon the port cannot fire for one.
+    bool figure_shot(int id, const openrac_shot& shot) const {
+        openrac_shot s = shot;
+        s.size = sizeof s;
+        return has_held() && m_api->figure_shot(m_handle, id, &s) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: whether the port offers play_notice().
+    bool has_notice() const {
+        return has_world() && m_api->size >= offsetof(openrac_api, play_notice) + sizeof(void*);
+    }
+
+    // Since 1.9: a line at the top of the game's picture until replaced or cleared (""); false for
+    // a port without it.
+    bool play_notice(const std::string& text) const {
+        return has_notice() && m_api->play_notice(m_handle, text.c_str()) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: whether the port offers items of the pause menu's Options page (ui_pause_item()).
+    bool has_pause_items() const {
+        return has_ui() && m_api->api_minor >= 9
+               && m_api->size >= offsetof(openrac_api, ui_pause_item) + sizeof(void*);
+    }
+
+    // Since 1.9: adds an item named `label` to the Options page of the pause menu in a level,
+    // opening `page`. Throws openrac::Error when refused. Only during load.
+    void ui_pause_item(const char* label, const UiPage& page) {
+        if (!has_pause_items()) {
+            throw Error("ui_pause_item: requires interface 1.9");
+        }
+
+        // Refused once load is over, with no label or another mod's page, and past the most.
+        if (const int result = m_api->ui_pause_item(m_handle, label, page.id());
+            result != OPENRAC_HOOK_OK) {
+            throw Error(
+                result == OPENRAC_HOOK_TOO_LATE
+                    ? "ui_pause_item: refused (only during load)"
+                    : "ui_pause_item: refused (no label, not the mod's page, or too many)"
+            );
+        }
+    }
+
+    // Since 1.9: whether the port offers the level's scenes (scene_playing(), play_scene()).
+    bool has_scenes() const {
+        return has_world() && m_api->size >= offsetof(openrac_api, play_scene) + sizeof(void*);
+    }
+
+    // Since 1.9: the in-level scene playing (its number in the level), -1 for none; `frame` (when
+    // not null) gets how many of its frames have played.
+    int scene_playing(int* frame = nullptr) const {
+        int played = 0;
+        const int scene = has_scenes() ? m_api->scene_playing(&played) : -1;
+        if (frame != nullptr) {
+            *frame = scene >= 0 ? played : 0;
+        }
+        return scene;
+    }
+
+    // Since 1.9: starts the level's scene `scene` from its start as the game's own trigger does,
+    // once the player is in control (-1 drops a request still waiting); false outside a level or
+    // for a port without scenes.
+    bool play_scene(int scene) const {
+        return has_scenes() && m_api->play_scene(m_handle, scene) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: whether the port offers moby_hide(), moby_deletion() and camera_position().
+    bool has_moby_detail() const {
+        return has_world() && m_api->size >= offsetof(openrac_api, camera_position) + sizeof(void*);
+    }
+
+    // Since 1.9: hides the moby in `slot` from drawing (`hidden`) or shows it again; false for no
+    // moby there or a port without it.
+    bool moby_hide(int slot, bool hidden) const {
+        return has_moby_detail()
+               && m_api->moby_hide(m_handle, slot, hidden ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: the last deletion the game made of the moby in `slot` in this level load into
+    // `out`; false for none seen or a port without it.
+    bool moby_deletion(int slot, openrac_moby_deletion& out) const {
+        out = {};
+        out.size = sizeof out;
+        return has_moby_detail() && m_api->moby_deletion(slot, &out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: where the game's camera is into `out` (x, y, z); false outside a level or for a
+    // port without it.
+    bool camera_position(float (&out)[3]) const {
+        return has_moby_detail() && m_api->camera_position(out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: whether the port offers moby_run().
+    bool has_moby_run() const {
+        return has_world() && m_api->size >= offsetof(openrac_api, moby_run) + sizeof(void*);
+    }
+
+    // Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1:
+    // none) in it, into `out`; false outside a level or for a port without it.
+    bool moby_run(int slot, openrac_moby_run& out) const {
+        out = {};
+        out.size = sizeof out;
+        return has_moby_run() && m_api->moby_run(slot, &out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none.
+    int moby_slot_of(gaddr moby) const { return has_world() ? m_api->moby_slot_of(moby) : -1; }
+
+    // Since 1.9: the world keeps running under the game's menus while `on`; false for a game
+    // without it.
+    bool play_overlay_pause(bool on) const {
+        return has_world()
+               && m_api->play_overlay_pause(m_handle, on ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
 
     // Returns a view of game memory.
     Memory memory() const { return Memory(m_api->memory); }

@@ -259,6 +259,65 @@ typedef struct openrac_game_moby_state {
     float anim_speed;
 } openrac_game_moby_state;
 
+/* How a moby of the level was deleted (interface 1.9): openrac_moby_deletion's fields after its
+ * size. */
+typedef struct openrac_game_moby_deletion {
+    int32_t by;
+    int32_t by_class;
+    int32_t by_mod;
+    int32_t oclass;
+    uint32_t loads;
+} openrac_game_moby_deletion;
+
+/* How the game ran the level's mobys in the last tick, and a moby in it (interface 1.9):
+ * openrac_moby_run's fields after its size. */
+typedef struct openrac_game_moby_run {
+    uint32_t runs;
+    float camera[3];
+    uint32_t menu_ticks;
+    int32_t menu;
+    float level_camera[3];
+    int32_t level_mode;
+    int32_t context;
+    int32_t update_dist;
+    int32_t draw_dist;
+    int32_t drawn;
+    int32_t ran;
+    float distance;
+} openrac_game_moby_run;
+
+/* What a body wears and holds, and a shot (interface 1.9): openrac_held's and openrac_shot's
+ * fields after their size. */
+#define OPENRAC_GAME_HELD_MAX 8
+
+typedef struct openrac_game_held_piece {
+    int32_t slot;
+    int32_t part;
+    int32_t item;
+    int32_t oclass;
+    int32_t joint;
+    uint32_t flags;
+    float position[3];
+    float rotation[3];
+    uint32_t seq;
+    uint32_t frame;
+    uint32_t next_frame;
+    float anim_time;
+    float anim_speed;
+} openrac_game_held_piece;
+
+typedef struct openrac_game_held {
+    int32_t count;
+    openrac_game_held_piece pieces[OPENRAC_GAME_HELD_MAX];
+} openrac_game_held;
+
+typedef struct openrac_game_shot {
+    int32_t item;
+    float position[3];
+    float velocity[3];
+    float aim[4];
+} openrac_game_shot;
+
 typedef struct openrac_game_play {
     /* The levels, by the game's own numbers, and their names. */
     int levels;
@@ -332,6 +391,34 @@ typedef struct openrac_game_play {
     void (*eyes)(const float* xyz, int count);
     /* The player's bolts after adding `add`. */
     int32_t (*bolts)(int32_t add);
+    /* The level's mobys kept running under the game's menus (1) or not (0). */
+    void (*keep_running)(int on);
+    /* What the hero wears and holds (1 and `out` filled, 0 with no hero); a figure made to wear and
+     * hold `held` (each tick it is posed: what is left out comes off); the shots the hero fired
+     * since the last call (at most `max` into `out`, how many); a figure firing `shot`, hitting
+     * nothing (1, or 0 for a weapon it cannot fire). NULL for a game without them. */
+    int (*hero_held)(openrac_game_held* out);
+    void (*figure_held)(gaddr figure, const openrac_game_held* held);
+    int (*hero_shots)(openrac_game_shot* out, int max);
+    int (*figure_shot)(gaddr figure, const openrac_game_shot* shot);
+    /* The level's scenes (interface 1.9: openrac_api.scene_playing, play_scene): the one playing
+     * (its number in the level, -1 for none) and its frames played into `frame`; a scene to start
+     * as the level's own trigger does, once the player is in control (-1 drops one waiting): 1
+     * asked, 0 refused (no level). NULL for a game without them. */
+    int32_t (*scene_playing)(int32_t* frame);
+    int (*scene_start)(int32_t scene);
+    /* A moby hidden from drawing (1, as the game hides one) or shown (0) (interface 1.9:
+     * openrac_api.moby_hide); the last deletion the game made of the moby in `slot` this level
+     * load into `out` (1, or 0 for none seen: openrac_api.moby_deletion). NULL for a game without
+     * them. */
+    void (*moby_hide)(gaddr moby, int hidden);
+    int (*moby_deletion)(int32_t slot, openrac_game_moby_deletion* out);
+    /* Where the game's camera is into `out` (1, or 0 outside a level: openrac_api.camera_position).
+     * NULL for a game without it. */
+    int (*camera_position)(float out[3]);
+    /* How the last tick ran the level's mobys and the moby in `slot` (-1 none) into `out` (1, or 0
+     * outside a level: openrac_api.moby_run). NULL for a game without it. */
+    int (*moby_run)(int32_t slot, openrac_game_moby_run* out);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;
@@ -397,6 +484,13 @@ void openrac_game_store_image(const openrac_game_image* image);
 #define OPENRAC_DRAW_SHRUBS 8u
 #define OPENRAC_DRAW_MOBYS 16u
 void openrac_game_draw(unsigned layers);
+/* The world drawn next this frame (its terrain, openrac_game_draw) is a level's whose mobys a menu's
+ * own moby context hides (Ratchet & Clank's pause menu while a party plays): the window takes the
+ * mobys listed when the terrain is drawn for the frame's world, and draws the menu's picture of the
+ * frame (sceGsExecStoreImage, read back once as it opens) from that live world. All of the menu's
+ * 2D goes over that world, and the mobys it draws with its own camera (its frame objects) are drawn
+ * on the screen at their place in its 2D, with that camera, after the world's depth is cleared. */
+void openrac_game_world_under_menu(void);
 /* Rendering notification only: an explicit gameplay write to a moby's RGB. */
 void openrac_game_moby_colour(gaddr object, unsigned colour);
 

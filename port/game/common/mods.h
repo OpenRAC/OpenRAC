@@ -124,6 +124,14 @@ const char* mod_id(const openrac_mod* mod);
 // when none is pending.
 void play_update();
 
+// Whether a mod asked for the scene playing to be skipped (openrac_api.play_skip), for this pad
+// read: the skip is pressed for a while (frontend/input.cpp, skip_after_mods).
+bool play_skipping();
+
+// The line a mod shows over the game's picture (openrac_api.play_notice), empty for none; the
+// debug overlay draws it. From any thread.
+std::string play_notice();
+
 // The front-end menu entries the mods added (interface 1.5), in load order: how many, and an
 // entry's label ("" past the list).
 int menu_entry_count();
@@ -169,6 +177,13 @@ struct UiMainItem {
     int page = 0;
 };
 
+// An item of the pause menu's Options page (openrac_api.ui_pause_item, since 1.9): its label,
+// its page.
+struct UiPauseItem {
+    std::string label;
+    int page = 0;
+};
+
 // What the mods asked of the screen during their events since the last take, for the front end.
 struct UiRequests {
     bool open = false;  // ui_open: `page`, or OPENRAC_UI_GO_BACK
@@ -185,10 +200,16 @@ int ui_page_count();
 const UiPage* ui_page(int page);
 int ui_main_item_count();
 const UiMainItem* ui_main_item(int index);
+// The pause menu's Options items, in order.
+int ui_pause_item_count();
+const UiPauseItem* ui_pause_item(int index);
 
 // The front end's side: the page on the screen (-1 none; whose mod may then open, ask and play),
 // whether a question is open on it, where a page's cursor is now.
 void ui_set_shown(int page, bool question_open);
+// Whether the title's main menu is on the screen, settled (a mod may open its main-menu item's
+// page from it, since 1.9).
+void ui_set_main_menu(bool up);
 void ui_set_cursor(int page, int item);
 // A choice the player stepped: shown so until the mod sets the page again.
 void ui_set_choice(int page, int item, std::uint32_t choice);
