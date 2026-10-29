@@ -659,11 +659,10 @@ std::uint32_t text(int id) {
  * program (each has its own menu data).
  *
  * The port's Exit item (exit_menu.h) goes at the end, after Quit Game, an item the game ignores
- * (action 0x7F), with a hint of its own and an empty picture entry (the stream keeps Quit Game's
- * picture). Cross on it asks in place: the list's items become Yes and No (the cursor on No), the
- * hint box says what is lost, the pictures stay. Cross on Yes closes the game, on No gives the list
- * its items back with the cursor on Exit; Triangle leaves the page as the game's back does, and the
- * items come back with the page. */
+ * (action 0x7F), with a hint of its own and Quit Game's picture. Cross on it asks in place: the
+ * list's items become Yes and No (the cursor on No), the hint box says what is lost, the pictures
+ * stay. Cross on Yes closes the game, on No gives the list its items back with the cursor on Exit;
+ * Triangle leaves the page as the game's back does, and the items come back with the page. */
 namespace pause_page {
 
 constexpr std::int16_t kSoundText = 20258;   // the Options items' "Sound" and "Camera"
@@ -940,7 +939,7 @@ void pictures(gaddr options_page, gaddr list, gaddr game_items) {
             m.extra,
             static_cast<std::uint32_t*>(G(m.pictures)),
             1
-        );  // and Exit's at the end
+        );  // and Exit's at the end, Quit Game's
     }
     GREF(std::uint32_t, screen + pause_options::kStreamEntries) = m.pictures;
 }

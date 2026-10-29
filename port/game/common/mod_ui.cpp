@@ -162,6 +162,7 @@ constexpr gaddr kMobySeq = 0x52;
 constexpr gaddr kMobyFrame = 0x78;  // pvars: the frame's corners, then its box on the screen
 constexpr gaddr kMobyRows = 0xC0;
 constexpr gaddr kAcross = 4;  // a vector's y: the screen's x
+constexpr gaddr kUpward = 8;  // a vector's z: the screen's y
 constexpr std::uint16_t kOwnRows = 0x100;
 constexpr std::uint16_t kRowFlipped = 0x8000;  // row 1 negated at each update: left alone
 constexpr gaddr kCornerFirst = 0x00;
@@ -231,6 +232,16 @@ struct Fit {
     int game = -1, page = -1;  // the page shown whose stretch it is
 };
 
+// The main menu's rows raised as a block, so that the rows under the game's leave it centred where
+// the game's three were: each row's frame moby moved up along z (the screen's y) by `by` of
+// `height`, half the extra rows' height, learnt from the rows' frames once they are settled.
+struct Raise {
+    std::array<gaddr, kRowSlots.size()> moby{};  // 0: not moved
+    std::array<float, kRowSlots.size()> position_z{};
+    float height = 0.0f;  // 0: not learnt yet
+    float by = 0.0f;
+};
+
 struct State {
     bool built = false;
     std::array<GamePage, kGamePages> pages{};
@@ -255,6 +266,7 @@ struct State {
     std::uint16_t swallow = 0;  // held as a page left: kept from the game until let go
     std::array<int, kDirections.size()> held_for{};
     Fit fit;
+    Raise raise;
 };
 
 State s;
@@ -951,6 +963,109 @@ void unfit(const openrac_front_end& fe) {
     s.fit.page = -1;
 }
 
+// The centre of the frame of the moby in `slot` along the world's z (the screen's y), or false
+// while it is not the row's `seq` settled.
+bool row_middle(const openrac_front_end& fe, int slot, std::int32_t seq, float& middle) {
+    const gaddr moby = panel(fe, slot);
+    const gaddr frame = moby != 0 ? word(moby + kMobyFrame) : 0;
+
+    if (frame == 0 || GREF(std::uint8_t, moby + kMobySeq) != seq) {
+        return false;
+    }
+
+    middle = (GREF(float, frame + kCornerFirst + kUpward)
+              + GREF(float, frame + kCornerOpposite + kUpward))
+             / 2.0f;
+    return true;
+}
+
+// Once a tick: the main menu's rows raised by the part of the height the main menu has on the
+// screen (all of it while shown, along a switch to or from it as the frames fly, none on another
+// page), each moby put back as the game made it once it has none.
+void raise_rows(const openrac_front_end& fe) {
+    Raise& r = s.raise;
+    const int rows = kGameRows + s.extra_rows;
+    const gaddr menu = fe.page_menu;
+    const bool switching = GREF(std::int32_t, menu + kState) == kSwitching;
+    const bool main_menu = word(menu + kCurrent) == fe.main_page;
+
+    // Learnt on the main menu settled, before any row is moved: half the way from the game's last
+    // row's centre to the last row's.
+    if (r.height == 0.0f && s.extra_rows > 0 && main_menu && !switching) {
+        float game_last = 0.0f;
+        float last = 0.0f;
+        const auto g = static_cast<std::size_t>(kGameRows - 1);
+        const auto l = static_cast<std::size_t>(rows - 1);
+
+        if (row_middle(fe, kRowSlots[g], kRowSeqs[g], game_last)
+            && row_middle(fe, kRowSlots[l], kRowSeqs[l], last)) {
+            r.height = (game_last - last) / 2.0f;
+        }
+    }
+
+    float goal = main_menu ? 1.0f : 0.0f;
+
+    if (switching) {
+        const auto left = static_cast<float>(GREF(std::int32_t, menu + kTimer));
+        const float done = std::clamp((kSwitchTicks - left + 1.0f) / kSwitchTicks, 0.0f, 1.0f);
+        const bool in = word(menu + kNext) == fe.main_page;
+        const bool out = word(menu + kPrevious) == fe.main_page;
+        goal = in == out ? (in ? 1.0f : 0.0f) : (in ? done : 1.0f - done);
+        r.by = goal;
+    } else {
+        r.by += (goal - r.by) * kEase;
+
+        if (std::fabs(goal - r.by) < 0.002f) {
+            r.by = goal;
+        }
+    }
+
+    for (int i = 0; i < rows; ++i) {
+        const auto row = static_cast<std::size_t>(i);
+        const gaddr moby = panel(fe, kRowSlots[row]);
+
+        // One the menu made anew is not the one moved: that one is gone.
+        if (r.moby[row] != 0 && r.moby[row] != moby) {
+            r.moby[row] = 0;
+        }
+
+        if (moby == 0) {
+            continue;
+        }
+
+        if (r.by == 0.0f || r.height == 0.0f) {
+            if (r.moby[row] != 0) {
+                GREF(float, moby + kMobyPosition + kUpward) = r.position_z[row];
+                r.moby[row] = 0;
+            }
+
+            continue;
+        }
+
+        if (r.moby[row] == 0) {
+            r.moby[row] = moby;
+            r.position_z[row] = GREF(float, moby + kMobyPosition + kUpward);
+        }
+
+        GREF(float, moby + kMobyPosition + kUpward) = r.position_z[row] + r.height * r.by;
+    }
+}
+
+// The menu gone: the rows' mobys put back where they are still the menu's.
+void unraise(const openrac_front_end& fe) {
+    Raise& r = s.raise;
+
+    for (std::size_t row = 0; fe.panel_slots != 0 && row < kRowSlots.size(); ++row) {
+        if (r.moby[row] != 0 && r.moby[row] == panel(fe, kRowSlots[row])) {
+            GREF(float, r.moby[row] + kMobyPosition + kUpward) = r.position_z[row];
+        }
+
+        r.moby[row] = 0;
+    }
+
+    r.by = 0.0f;
+}
+
 void cue(const openrac_front_end& fe, int sound) {
     if (s.game >= 0) {
         fe.menu_cue(sound, word(s.pages[static_cast<std::size_t>(s.game)].list + kMoby));
@@ -1490,6 +1605,7 @@ void update(int loaded_overlay) {
 
         if (fe != nullptr && s.built) {
             unfit(*fe);
+            unraise(*fe);
         }
 
         s.game = -1;
@@ -1552,6 +1668,7 @@ void update(int loaded_overlay) {
     }
 
     fit_frames(*fe);
+    raise_rows(*fe);
 }
 
 void filter_pad(std::uint16_t& buttons) {

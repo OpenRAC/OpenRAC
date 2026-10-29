@@ -3,12 +3,13 @@
 //
 // The port's Exit item: it closes the game, after asking. In Ratchet & Clank the title's main menu
 // gets an Exit row under the game's (and the mods') rows, which opens a page asking "Exit?" with
-// Yes and No (a copy of the Language page, as the developer menu's Planets page is); the pause
-// menu's Options page gets an Exit item after Quit Game, whose list then asks in place
-// (options_menu.cpp). The answers are the game's own list, moved by the pad as the game's menus
-// are; Cross on Yes closes the window as its close button does (an ordinary end, exit code 0: no
-// crash report, nothing for the launcher to report), No or Triangle goes back. Texts in the game's
-// language (exit_words.h). A game without a front end (game_host.h, openrac_front_end) shows none.
+// Yes and No (a copy of the Options page with the Language page's title and list, as a mod's page
+// is); the pause menu's Options page gets an Exit item after Quit Game, whose list then asks in
+// place (options_menu.cpp). The answers are the game's own list, moved by the pad as the game's
+// menus are; Cross on Yes closes the window as its close button does (an ordinary end, exit code 0:
+// no crash report, nothing for the launcher to report), No or Triangle goes back. Texts in the
+// game's language (exit_words.h). A game without a front end (game_host.h, openrac_front_end) shows
+// none.
 
 #pragma once
 
@@ -50,7 +51,7 @@ private:
     bool m_armed = false;
 };
 
-// The main menu's question page, made the first time (from the boot program's Language page).
+// The main menu's question page, made the first time (from the boot program's Options page).
 gaddr title_page(const openrac_front_end& fe);
 
 // Once a tick while the boot program runs: Cross on the question page's Yes or No.

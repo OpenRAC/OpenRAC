@@ -52,9 +52,11 @@ constexpr gaddr kListCursor = 0x40;
 constexpr gaddr kListScroll = 0x44;
 constexpr gaddr kLabelText = 0x34;
 
-// What of the Language page, its title and its list the question page copies (as the developer
-// menu's Planets page, debug_menu.cpp).
-constexpr gaddr kPageCopy = 0xA0;
+// What of the Options page and of the Language page's title and list the question page copies (as
+// a mod's page, mod_ui.cpp). The Options page's seqs, because going back plays the page's own
+// backwards: the Options page's land on the main menu's rows, the Language page's on the Options
+// page's frames, which the main menu then kept.
+constexpr gaddr kPageCopy = 0x88;
 constexpr gaddr kWidgetCopy = 0x60;
 
 // A text list item {label, action, argument, sublabel, timer}, and the action the game's list
@@ -164,7 +166,7 @@ gaddr title_page(const openrac_front_end& fe) {
     s.title = openrac_guest_static(kWidgetCopy);
     s.list = openrac_guest_static(kWidgetCopy);
     s.items = openrac_guest_static(kItemBytes * 3);
-    std::memcpy(G(s.page), G(fe.language_page), kPageCopy);
+    std::memcpy(G(s.page), G(fe.options_page), kPageCopy);
     std::memcpy(G(s.title), G(fe.language_title), kWidgetCopy);
     std::memcpy(G(s.list), G(fe.language_list), kWidgetCopy);
     std::memset(G(s.items), 0, kItemBytes * 3);
