@@ -66,6 +66,7 @@
 #include "enhanced/viewer/probe_lighting.h"
 #include "frontend.h"
 #include "mod_menu.h"
+#include "platform/bindings.h"
 #include "platform/input.h"
 #include "platform/pump.h"
 #include "platform/window.h"
@@ -486,6 +487,9 @@ int main(int argc, char** argv) {
     if (g_options.window) {
         std::string why;
         settings::load(g_options.settings);
+        // What the player bound each pad button to, into the pad's own table (platform/bindings.h).
+        // A button with no binding keeps the port's default.
+        platform::set_bindings(settings::get().bindings);
         log::header("settings  " + settings::summary(), false);
         // The console's languages game_host.h names (openrac_game_language): 1 English to 5 Italian.
         constexpr int kFirstLanguage = 1;

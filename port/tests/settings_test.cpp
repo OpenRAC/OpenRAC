@@ -139,6 +139,29 @@ void test_game_options_are_saved_when_they_change(const std::filesystem::path& f
     CHECK(read_file(file).find("game_language = 4\n") != std::string::npos);
 }
 
+// The player's bindings load as the file wrote them, and survive a save the game makes for another
+// setting: save() rewrites the whole file, so a key it did not write back would be lost.
+void test_bindings_survive_a_save(const std::filesystem::path& file) {
+    namespace settings = openrac::settings;
+    std::ofstream(file) << "bind_cross = KeyF,PadWest\nbind_l2 = Digit1,PadLeftTrigger\n"
+                           "bind_square =\ngame_language = 1\n";
+    settings::load(file);
+    const auto& binds = settings::get().bindings;
+    CHECK(binds.size() == 3);
+    CHECK(binds.at("bind_cross") == "KeyF,PadWest");
+    CHECK(binds.at("bind_l2") == "Digit1,PadLeftTrigger");
+    // An empty value is kept as it is: it means the port's default (platform/bindings.h).
+    CHECK(binds.at("bind_square").empty());
+
+    // The game sets one of its own options, which rewrites the file.
+    settings::set_game_option("game_language", 4);
+    const std::string written = read_file(file);
+    CHECK(written.find("bind_cross = KeyF,PadWest\n") != std::string::npos);
+    CHECK(written.find("bind_l2 = Digit1,PadLeftTrigger\n") != std::string::npos);
+    settings::load(file);
+    CHECK(settings::get().bindings.at("bind_cross") == "KeyF,PadWest");
+}
+
 }  // namespace
 
 int main() {
@@ -164,6 +187,7 @@ int main() {
     test_frame_counter_modes(file);
     test_game_options_load_from_the_file(file);
     test_game_options_are_saved_when_they_change(file);
+    test_bindings_survive_a_save(file);
     CHECK(settings::get().texture_filter == renderer::TextureFilter::EdgeAware);
     CHECK(settings::get().anisotropy == 0);
     CHECK(settings::get().anisotropy_samples(true) == 4);

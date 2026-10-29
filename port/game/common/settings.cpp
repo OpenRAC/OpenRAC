@@ -347,6 +347,11 @@ void load(const std::filesystem::path& file) {
             s.touch_layout = value;  // TouchPad::set_layout leaves out what it does not know
         } else if (key == "verbose_log") {
             known = parse_bool(value, s.verbose_log);
+        } else if (key.starts_with(kBindPrefix)) {
+            // What the player bound a pad button to. The names are read where the pad is
+            // (platform/bindings.h), not here: this file knows nothing of SDL. An empty value is
+            // kept as it is, and means the port's default.
+            s.bindings[key] = value;
         } else if (key.starts_with(kGameOptionPrefix)) {
             // An option the game keeps itself (game_option): any whole number in the file's range.
             int number = 0;
@@ -485,6 +490,14 @@ void save() {
     // The game's own options, as it last set them (set_game_option).
     for (const auto& [key, value] : s.game_options) {
         out << key << " = " << value << "\n";
+    }
+    // The player's bindings, written back as they were read: this file is rewritten whole, so a
+    // key left out here would be lost the next time any setting changed.
+    if (!s.bindings.empty()) {
+        out << "# What the player bound each pad button to (the launcher's Controls)\n";
+        for (const auto& [key, value] : s.bindings) {
+            out << key << " = " << value << "\n";
+        }
     }
     if (fixes::count() > 0) {
         out << "# Game fixes: 1 the port's, 0 the console's behaviour (Options, Game fixes)\n";

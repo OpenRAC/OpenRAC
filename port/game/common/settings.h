@@ -142,6 +142,10 @@ struct Settings {
     // Options the game keeps in its own memory, which a console forgets at power off (keys
     // game_*; game_host.h, openrac_game_option): the port remembers them between runs.
     std::map<std::string, int, std::less<>> game_options;
+    // What the player bound each pad button to (keys bind_*, values as platform/bindings.h names
+    // them: "Space,PadSouth"). Kept as the file wrote them, so this file needs nothing of SDL;
+    // platform::set_bindings reads the names. A button with no binding keeps the port's default.
+    std::map<std::string, std::string, std::less<>> bindings;
 };
 
 // The settings in use.
@@ -164,6 +168,9 @@ float output_gain();
 
 // The start of every key of Settings::game_options in the file.
 inline constexpr std::string_view kGameOptionPrefix = "game_";
+
+// The prefix of a key that binds a pad button (platform/bindings.h names the values).
+inline constexpr std::string_view kBindPrefix = "bind_";
 
 // Returns the game's option `key` (`game_` and a name, one of Settings::game_options), or
 // `fallback` while none is remembered. openrac_game_option's body (program/game_host.cpp).
