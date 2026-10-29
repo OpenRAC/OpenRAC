@@ -225,6 +225,32 @@ void Input::update() {
     m_mouse_went_down = 0;
     m_dx = m_dy = m_wheel_x = m_wheel_y = 0.0f;
 
+    refresh_pads();
+    for (int port = 0; port < kPadPorts; ++port) {
+        // The large motor has a speed, the small one is on or off: they
+        // drive SDL's low- and high-frequency rumble. Renewed each frame,
+        // so a short duration stops it when the game stops asking.
+        const Pad& pad = m_pads[static_cast<std::size_t>(port)];
+        if (SDL_Gamepad* g = gamepad(port); g != nullptr) {
+            const auto low = static_cast<Uint16>(pad.large_motor * 257);
+            const auto high = static_cast<Uint16>(pad.small_motor ? 0xFFFF : 0);
+            SDL_RumbleGamepad(g, low, high, 100);
+        }
+    }
+}
+
+void Input::refresh_pads() {
+    // SDL brings the gamepads' state up to date as it reads the events; the events themselves
+    // stay queued for the next read of the window's events.
+    SDL_UpdateGamepads();
+    int key_count = 0;
+    const bool* state = SDL_GetKeyboardState(&key_count);
+    const bool keyboard_ours =
+        SDL_GetKeyboardFocus() != nullptr && (SDL_GetModState() & SDL_KMOD_GUI) == 0;
+    const std::span<const bool> keys(
+        state, state != nullptr && keyboard_ours ? static_cast<std::size_t>(key_count) : 0
+    );
+
     for (int port = 0; port < kPadPorts; ++port) {
         Pad& pad = m_pads[static_cast<std::size_t>(port)];
         // Fresh state each frame, keeping the motors the game asked for.
@@ -272,12 +298,6 @@ void Input::update() {
                 pad.right_x,
                 pad.right_y
             );
-            // The large motor has a speed, the small one is on or off: they
-            // drive SDL's low- and high-frequency rumble. Renewed each frame,
-            // so a short duration stops it when the game stops asking.
-            const auto low = static_cast<Uint16>(large_motor * 257);
-            const auto high = static_cast<Uint16>(small_motor ? 0xFFFF : 0);
-            SDL_RumbleGamepad(g, low, high, 100);
         }
         if (port == 0) {
             if (m_keyboard_table) {

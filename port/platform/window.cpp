@@ -816,6 +816,19 @@ SwapInterval Window::set_swap_interval(SwapInterval interval) {
     return SwapInterval::Immediate;
 }
 
+void Window::set_low_latency(bool on) {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        vkgl::set_low_latency(on);
+        return;
+    }
+#endif
+    m_low_latency = on;
+    if (on && m_gl_finish == nullptr) {
+        m_gl_finish = reinterpret_cast<void (*)()>(SDL_GL_GetProcAddress("glFinish"));
+    }
+}
+
 float Window::refresh_rate() const {
     const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(m_window));
     return mode != nullptr ? mode->refresh_rate : 0.0f;
@@ -833,6 +846,9 @@ void Window::swap() {
     }
 #endif
     SDL_GL_SwapWindow(m_window);
+    if (m_low_latency && m_gl_finish != nullptr) {
+        m_gl_finish();  // the next frame begins once this one is done, not queued behind it
+    }
 }
 
 void Window::drawable_size(int& width, int& height) const {

@@ -28,13 +28,20 @@ std::chrono::steady_clock::time_point shown_at(
     std::chrono::steady_clock::time_point last_swap
 );
 
+// The player's low-latency frames do not hold the scene back: between() then stops at the next
+// tick, which starts on time, and the frames drawn before it reach the kept tick. Without a swap
+// that waits, the lag would only let them reach half way before the next tick came (the scene
+// stood still for half a tick and then jumped).
+constexpr double kLowLatencyLagTicks = 0.0;
+
 // How far the scene is from the last tick's to the kept one's at the refresh `display`, from 0 to
-// 1: `tick` is when the kept tick came, `period` the game's tick length, and the scene runs
-// kLagTicks behind.
+// 1: `tick` is when the kept tick came, `period` the game's tick length, and the scene runs `lag`
+// ticks behind.
 float tick_alpha(
     std::chrono::steady_clock::time_point display,
     std::chrono::steady_clock::time_point tick,
-    std::chrono::duration<double> period
+    std::chrono::duration<double> period,
+    double lag = kLagTicks
 );
 
 // Whether the frame cap lets a frame start at `now` (within a millisecond: a sleep wakes that

@@ -1003,6 +1003,9 @@ struct Context {
     // there): a new one is made from the window SDL holds before the next frame is shown.
     std::atomic<bool> surface_lost{false};
     int interval = 1;  // -1 adaptive, 0 immediate, 1 vsync
+    // The player's low-latency frames (set_low_latency): the fewest swapchain images, and one
+    // frame at a time on the GPU.
+    bool low_latency = false;
     VkFormat depth_format = VK_FORMAT_UNDEFINED;
     VkPipelineCache pipeline_cache = VK_NULL_HANDLE;
     StaticMemory static_memory;  // Where a static buffer's own copy goes (vkgl_resources.cpp).

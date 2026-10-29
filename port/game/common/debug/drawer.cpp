@@ -565,6 +565,13 @@ void drawer(const Shown& shown) {
             )) {
             change_setting(options_menu::kShowFps, by);
         }
+        // Fewer frames queued for the display, and none held back half a tick (settings.h). Off
+        // by default: the picture then comes as players have learnt its timing.
+        if (drawer_switch("Low-latency frames", settings::get().low_latency_frames)) {
+            settings::get().low_latency_frames = !settings::get().low_latency_frames;
+            settings::save();
+            s.settings_changed = true;
+        }
         card_end();
 
         drawer_enhanced();
@@ -579,6 +586,12 @@ void drawer(const Shown& shown) {
         }
         if (drawer_switch("Skip cutscenes", settings::get().skip_cutscenes)) {
             change_setting(options_menu::kSkipCutscenes, 1);
+        }
+        // The pad read again just before each tick (settings.h). Off by default: a press then
+        // reaches the game a tick later, as players have learnt it.
+        if (drawer_switch("Fresh pad input", settings::get().fresh_input)) {
+            settings::get().fresh_input = !settings::get().fresh_input;
+            settings::save();
         }
         card_end();
 
