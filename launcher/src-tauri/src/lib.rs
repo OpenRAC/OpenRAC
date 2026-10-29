@@ -533,11 +533,15 @@ async fn set_game_fix(
 // No page shows them yet; these are what a controls page will call. The game reads a changed
 // file within a second, so they may run while it plays.
 
-/// The controls as `game` reads them (over every game's), or every game's alone.
+/// The controls as `game` reads them (over every game's), or every game's alone; for every player,
+/// or as `player` (0 or 1) reads them.
 #[tauri::command]
-async fn controls_view(game: Option<String>) -> Result<openrac_launcher_core::controls::ControlsView, String> {
+async fn controls_view(
+    game: Option<String>,
+    player: Option<u8>,
+) -> Result<openrac_launcher_core::controls::ControlsView, String> {
     let home = openrac_launcher_core::saves::data_home();
-    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::controls::view(&home, game.as_deref()))
+    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::controls::view(&home, game.as_deref(), player))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -576,6 +580,18 @@ async fn controls_reset(
         launcher_log::line(&what);
     }
     result
+}
+
+/// One player's own controls out of `scope`'s file: they read every player's again.
+#[tauri::command]
+async fn controls_reset_player(
+    scope: openrac_launcher_core::controls::Scope,
+    player: u8,
+) -> Result<openrac_launcher_core::controls::ControlsView, String> {
+    let home = openrac_launcher_core::saves::data_home();
+    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::controls::reset_player(&home, &scope, player))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// The players back to the defaults.
@@ -1727,6 +1743,7 @@ pub fn run() {
             controls_set,
             controls_reset,
             controls_reset_players,
+            controls_reset_player,
             controls_export,
             controls_import,
             controls_copy,

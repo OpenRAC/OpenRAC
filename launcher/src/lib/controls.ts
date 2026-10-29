@@ -70,9 +70,18 @@ export function layerLabel(layer: ControlsLayer): string {
       return "Default";
     case "global":
       return "All games";
+    case "globalPlayer":
+      return "All games, this player";
     case "game":
       return "This game";
+    case "gamePlayer":
+      return "This game, this player";
   }
+}
+
+/** A key as a page edits it: one player's own (`p2.bind_cross`) while a player is chosen. */
+export function playerKey(key: string, player: number | null): string {
+  return player === null ? key : `p${player + 1}.${key}`;
 }
 
 /** The browser's standard mapping's buttons (w3c.github.io/gamepad) by the port's names: both are

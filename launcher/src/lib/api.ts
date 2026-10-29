@@ -283,11 +283,14 @@ export const api = {
   /** What the port does otherwise than the PS2 game, for one version (`rac1`, `pal`). */
   differences: (game: string, version: string) => call<Differences>("differences", { game, version }),
   // The controls files (core/src/controls.rs); no page shows them yet.
-  controlsView: (game: string | null) => call<ControlsView>("controls_view", { game }),
+  controlsView: (game: string | null, player: number | null = null) =>
+    call<ControlsView>("controls_view", { game, player }),
   controlsSet: (scope: ControlsScope, key: string, value: string | null) =>
     call<ControlsView>("controls_set", { scope, key, value }),
   controlsReset: (scope: ControlsScope) => call<ControlsView>("controls_reset", { scope }),
   controlsResetPlayers: () => call<ControlsView>("controls_reset_players"),
+  controlsResetPlayer: (scope: ControlsScope, player: number) =>
+    call<ControlsView>("controls_reset_player", { scope, player }),
   controlsExport: (scope: ControlsScope, path: string) => call<null>("controls_export", { scope, path }),
   controlsImport: (scope: ControlsScope, path: string) => call<ControlsView>("controls_import", { scope, path }),
   controlsCopy: (from: string, to: string) => call<ControlsView>("controls_copy", { from, to }),

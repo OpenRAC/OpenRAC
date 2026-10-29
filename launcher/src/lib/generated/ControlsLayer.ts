@@ -3,4 +3,4 @@
 /**
  * Where a value comes from.
  */
-export type ControlsLayer = "default" | "global" | "game";
+export type ControlsLayer = "default" | "global" | "globalPlayer" | "game" | "gamePlayer";

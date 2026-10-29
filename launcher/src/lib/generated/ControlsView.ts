@@ -8,7 +8,11 @@ import type { TuningRow } from "./TuningRow";
 /**
  * The controls as a game reads them (or the global ones alone, without a game), for a page.
  */
-export type ControlsView = { game: string | null, globalFile: string, gameFile: string | null, 
+export type ControlsView = { game: string | null, 
+/**
+ * The player the view is of (0 or 1), or none: every player's.
+ */
+player: number | null, globalFile: string, gameFile: string | null, 
 /**
  * A newer build wrote it: it is shown, never changed.
  */

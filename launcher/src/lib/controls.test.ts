@@ -12,6 +12,7 @@ import {
   PAD_NONE,
   padLabel,
   padWith,
+  playerKey,
   withPad,
   type PadReading,
 } from "./controls";
@@ -59,6 +60,9 @@ describe("the port's names", () => {
     expect(padLabel("PadLeftShoulder+PadSouth")).toBe("Left shoulder + South (A, Cross)");
     expect(padLabel("Unknown")).toBe("Unknown");
     expect(layerLabel("game")).toBe("This game");
+    expect(layerLabel("gamePlayer")).toBe("This game, this player");
+    expect(playerKey("bind_cross", 1)).toBe("p2.bind_cross");
+    expect(playerKey("bind_cross", null)).toBe("bind_cross");
   });
 });
 

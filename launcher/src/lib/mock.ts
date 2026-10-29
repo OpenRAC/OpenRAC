@@ -13,6 +13,7 @@ import { mockEnhanced } from "./mockEnhanced";
 import {
   mockControlsCopy,
   mockControlsReset,
+  mockControlsResetPlayer,
   mockControlsResetPlayers,
   mockControlsSet,
   mockControlsView,
@@ -2570,7 +2571,14 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay<Differences>(mockDifferences(now.game, now.version));
     }
     case "controls_view":
-      return delay<ControlsView>(mockControlsView(typeof args.game === "string" ? args.game : null));
+      return delay<ControlsView>(
+        mockControlsView(
+          typeof args.game === "string" ? args.game : null,
+          typeof args.player === "number" ? args.player : null,
+        ),
+      );
+    case "controls_reset_player":
+      return delay<ControlsView>(mockControlsResetPlayer(args.scope as ControlsScope, Number(args.player)));
     case "controls_set":
       return delay<ControlsView>(
         mockControlsSet(

@@ -247,14 +247,42 @@ const HINTS: &[(&str, &str, &str)] = &[
 /// Where a value comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
 #[ts(rename = "ControlsLayer")]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "camelCase")]
 pub enum Layer {
     /// The port's own.
     Default,
-    /// The global file: every game.
+    /// The global file: every game, every player.
     Global,
-    /// The game's own file.
+    /// The global file's keys for one player (`p2.bind_cross`).
+    GlobalPlayer,
+    /// The game's own file, every player.
     Game,
+    /// The game's own file's keys for one player.
+    GamePlayer,
+}
+
+/// The players a file can hold keys of their own for (the port's `kPlayers`).
+pub const PLAYER_COUNT: u8 = 2;
+
+/// The start of player `player`'s own keys (0 is `p1.`): port/platform/bindings.h's player_prefix.
+pub fn player_prefix(player: u8) -> String {
+    format!("p{}.", player + 1)
+}
+
+/// A key's player, if it is one player's own (`p2.bind_cross`), and the key without it.
+pub fn split_player(key: &str) -> (Option<u8>, &str) {
+    for player in 0..PLAYER_COUNT {
+        if let Some(rest) = key.strip_prefix(&player_prefix(player)) {
+            return (Some(player), rest);
+        }
+    }
+    (None, key)
+}
+
+/// A binding's or a controller setting's key, for every player or one player's own.
+fn is_controls_key(key: &str) -> bool {
+    let (_, key) = split_player(key);
+    key.starts_with("bind_") || key.starts_with("pad_")
 }
 
 /// Which file a change goes to.
@@ -336,6 +364,8 @@ pub struct ControlsIssue {
 #[serde(rename_all = "camelCase")]
 pub struct ControlsView {
     pub game: Option<String>,
+    /// The player the view is of (0 or 1), or none: every player's.
+    pub player: Option<u8>,
     pub global_file: String,
     pub game_file: Option<String>,
     /// A newer build wrote it: it is shown, never changed.
@@ -544,6 +574,13 @@ fn check_player(value: &str) -> String {
 /// A key and its value checked as the port reads them, and written the way it writes them: the
 /// value to put in the file, or why it cannot go there.
 pub fn checked(scope: &Scope, key: &str, value: &str) -> Result<String, String> {
+    // One player's own key is checked as the key it is for.
+    if let (Some(_), rest) = split_player(key) {
+        if rest.starts_with("bind_") || rest.starts_with("pad_") {
+            return checked(scope, rest, value);
+        }
+        return Err(format!("{key} is not one of the controls' keys"));
+    }
     if let Some(target) = TARGETS.iter().find(|t| t.key == key) {
         let read = read_value(target, value);
         if let Some(why) = read.dropped.first() {
@@ -571,14 +608,36 @@ pub fn checked(scope: &Scope, key: &str, value: &str) -> Result<String, String> 
 
 // ---- The view ----
 
+/// One player's own keys in a file, without their prefix.
+fn own_values(text: &str, player: u8) -> Vec<(String, String)> {
+    let prefix = player_prefix(player);
+    values(text).into_iter().filter_map(|(k, v)| k.strip_prefix(&prefix).map(|k| (k.to_string(), v))).collect()
+}
+
 /// Everything a page shows of the controls: `game`'s (over the global ones) or the global ones
-/// alone.
-pub fn view(data_home: &Path, game: Option<&str>) -> Result<ControlsView, String> {
+/// alone, for every player or, with `player`, as that player reads them (their own keys over every
+/// player's in each file). The rows' `global` and `game` values are those of the keys this view
+/// edits: the player's own with `player`.
+pub fn view(data_home: &Path, game: Option<&str>, player: Option<u8>) -> Result<ControlsView, String> {
+    if player.is_some_and(|p| p >= PLAYER_COUNT) {
+        return Err("there are two players".to_string());
+    }
     let global_path = file_of(data_home, &Scope::Global)?;
     let game_path = game.map(|g| file_of(data_home, &Scope::Game(g.to_string()))).transpose()?;
     let global = read(&global_path);
     let game_text = game_path.as_deref().map(read).unwrap_or_default();
-    let layers = [(Layer::Global, values(&global)), (Layer::Game, values(&game_text))];
+    let mut layers = vec![(Layer::Global, values(&global))];
+    if let Some(p) = player {
+        layers.push((Layer::GlobalPlayer, own_values(&global, p)));
+    }
+    layers.push((Layer::Game, values(&game_text)));
+    if let Some(p) = player {
+        layers.push((Layer::GamePlayer, own_values(&game_text, p)));
+    }
+    let edited = |key: &str| match player {
+        Some(p) => format!("{}{key}", player_prefix(p)),
+        None => key.to_string(),
+    };
     let mut issues = Vec::new();
 
     let mut bindings = Vec::new();
@@ -612,8 +671,8 @@ pub fn view(data_home: &Path, game: Option<&str>) -> Result<ControlsView, String
             pad,
             keys_from,
             pad_from,
-            global: value_of(&global, target.key),
-            game: game.and_then(|_| value_of(&game_text, target.key)),
+            global: value_of(&global, &edited(target.key)),
+            game: game.and_then(|_| value_of(&game_text, &edited(target.key))),
             shared: Vec::new(),
         });
     }
@@ -679,6 +738,7 @@ pub fn view(data_home: &Path, game: Option<&str>) -> Result<ControlsView, String
 
     Ok(ControlsView {
         game: game.map(str::to_string),
+        player,
         global_file: global_path.to_string_lossy().into_owned(),
         game_file: game_path.as_ref().map(|p| p.to_string_lossy().into_owned()),
         global_read_only: format_of(&global) > FORMAT,
@@ -726,7 +786,7 @@ pub fn set(data_home: &Path, scope: &Scope, key: &str, value: Option<&str>) -> R
     if changed != text {
         write(&path, &changed)?;
     }
-    view(data_home, game_of(scope))
+    view(data_home, game_of(scope), split_player(key).0)
 }
 
 /// Puts `scope` back to what it inherits: the game's file goes; the global file loses its
@@ -741,13 +801,13 @@ pub fn reset(data_home: &Path, scope: &Scope) -> Result<ControlsView, String> {
             }
         }
         Scope::Global => {
-            let changed = without_keys(&text, |k| k.starts_with("bind_") || k.starts_with("pad_"));
+            let changed = without_keys(&text, is_controls_key);
             if changed != text {
                 write(&path, &changed)?;
             }
         }
     }
-    view(data_home, game_of(scope))
+    view(data_home, game_of(scope), None)
 }
 
 /// The players back to the defaults, in the global file.
@@ -758,7 +818,23 @@ pub fn reset_players(data_home: &Path) -> Result<ControlsView, String> {
     if changed != text {
         write(&path, &changed)?;
     }
-    view(data_home, None)
+    view(data_home, None, None)
+}
+
+/// Takes one player's own bindings and settings out of `scope`'s file, so the player reads every
+/// player's again; the view returned is that player's.
+pub fn reset_player(data_home: &Path, scope: &Scope, player: u8) -> Result<ControlsView, String> {
+    if player >= PLAYER_COUNT {
+        return Err("there are two players".to_string());
+    }
+    let path = file_of(data_home, scope)?;
+    let text = writable(&path)?;
+    let prefix = player_prefix(player);
+    let changed = without_keys(&text, |k| k.starts_with(&prefix));
+    if changed != text {
+        write(&path, &changed)?;
+    }
+    view(data_home, game_of(scope), Some(player))
 }
 
 /// The bindings and controller settings of `scope`, as a file of their own (a profile to share).
@@ -766,7 +842,7 @@ pub fn export(data_home: &Path, scope: &Scope, to: &Path) -> Result<(), String> 
     let text = read(&file_of(data_home, scope)?);
     let mut out = format!("# OpenRAC controls (docs/port/CONTROLS.md)\nformat = {FORMAT}\n");
     for (k, v) in values(&text) {
-        if k.starts_with("bind_") || k.starts_with("pad_") {
+        if is_controls_key(&k) {
             out.push_str(&format!("{k} = {v}\n"));
         }
     }
@@ -783,10 +859,10 @@ pub fn import(data_home: &Path, scope: &Scope, from: &Path) -> Result<ControlsVi
     }
     let path = file_of(data_home, scope)?;
     let text = writable(&path)?;
-    let mut changed = without_keys(&text, |k| k.starts_with("bind_") || k.starts_with("pad_"));
+    let mut changed = without_keys(&text, is_controls_key);
     let mut skipped = Vec::new();
     for (k, v) in values(&incoming) {
-        if !(k.starts_with("bind_") || k.starts_with("pad_")) {
+        if !is_controls_key(&k) {
             continue;
         }
         match checked(scope, &k, &v) {
@@ -795,7 +871,7 @@ pub fn import(data_home: &Path, scope: &Scope, from: &Path) -> Result<ControlsVi
         }
     }
     write(&path, &changed)?;
-    let mut view = view(data_home, game_of(scope))?;
+    let mut view = view(data_home, game_of(scope), None)?;
     for mut issue in skipped {
         issue.message = format!("not imported: {}", issue.message);
         view.issues.push(issue);
@@ -850,7 +926,7 @@ mod tests {
     #[test]
     fn the_defaults_are_the_ports() {
         let h = home();
-        let v = view(h.path(), Some("rac1")).unwrap();
+        let v = view(h.path(), Some("rac1"), None).unwrap();
         assert_eq!(row(&v, "bind_cross").keys, ["Space"]);
         assert_eq!(row(&v, "bind_cross").pad, ["PadSouth"]);
         assert_eq!(row(&v, "bind_l2").pad, ["PadLeftTrigger"]);
@@ -883,7 +959,7 @@ mod tests {
         let dz = v.tuning.iter().find(|t| t.key == "pad_left_deadzone").unwrap();
         assert_eq!((dz.value.as_str(), dz.from), ("12", Layer::Game));
         // Another game sees the global file only.
-        let other = view(h.path(), Some("rac2")).unwrap();
+        let other = view(h.path(), Some("rac2"), None).unwrap();
         assert_eq!(row(&other, "bind_cross").pad, ["PadEast"]);
     }
 
@@ -932,7 +1008,7 @@ mod tests {
         assert!(set(h.path(), &Scope::Game("rac1".into()), "bind_cross", Some("PadWest")).is_err());
         assert!(reset(h.path(), &Scope::Game("rac1".into())).is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "format = 5\nbind_cross = PadEast\n");
-        assert!(view(h.path(), Some("rac1")).unwrap().game_read_only);
+        assert!(view(h.path(), Some("rac1"), None).unwrap().game_read_only);
     }
 
     #[test]
@@ -983,12 +1059,54 @@ mod tests {
     }
 
     #[test]
+    fn a_player_reads_their_own_keys_over_every_players() {
+        let h = home();
+        let game = Scope::Game("rac1".into());
+        set(h.path(), &Scope::Global, "bind_cross", Some("Space,PadEast")).unwrap();
+        let v = set(h.path(), &Scope::Global, "p2.bind_cross", Some("PadNorth")).unwrap();
+        assert_eq!(v.player, Some(1));
+        assert_eq!(row(&v, "bind_cross").pad, ["PadNorth"]);
+        assert_eq!(row(&v, "bind_cross").pad_from, Layer::GlobalPlayer);
+        assert_eq!(row(&v, "bind_cross").keys, ["Space"]); // every player's key stays
+        assert_eq!(row(&v, "bind_cross").global.as_deref(), Some("PadNorth"));
+        // A game's change for every player wins over the global file's for one player.
+        set(h.path(), &game, "bind_cross", Some("PadWest")).unwrap();
+        let v = view(h.path(), Some("rac1"), Some(1)).unwrap();
+        assert_eq!(row(&v, "bind_cross").pad, ["PadWest"]);
+        assert_eq!(row(&v, "bind_cross").pad_from, Layer::Game);
+        set(h.path(), &game, "p2.pad_left_deadzone", Some("20")).unwrap();
+        let v = view(h.path(), Some("rac1"), Some(1)).unwrap();
+        let dz = v.tuning.iter().find(|t| t.key == "pad_left_deadzone").unwrap();
+        assert_eq!((dz.value.as_str(), dz.from), ("20", Layer::GamePlayer));
+        // Player 1 and every player's view know nothing of player 2's.
+        let v = view(h.path(), None, Some(0)).unwrap();
+        assert_eq!(row(&v, "bind_cross").pad, ["PadEast"]);
+        let v = view(h.path(), None, None).unwrap();
+        assert_eq!(row(&v, "bind_cross").pad, ["PadEast"]);
+        assert!(checked(&game, "p3.bind_cross", "PadEast").is_err());
+        assert!(checked(&game, "p1.player1", "auto").is_err());
+        assert!(view(h.path(), None, Some(2)).is_err());
+
+        // Export carries the players' own keys; player 2's reset takes only theirs.
+        let out = h.path().join("mine.ini");
+        export(h.path(), &Scope::Global, &out).unwrap();
+        assert!(std::fs::read_to_string(&out).unwrap().contains("p2.bind_cross = PadNorth"));
+        let v = reset_player(h.path(), &Scope::Global, 1).unwrap();
+        assert_eq!(row(&v, "bind_cross").pad, ["PadEast"]);
+        assert_eq!(row(&v, "bind_cross").global, None);
+        set(h.path(), &Scope::Global, "p1.bind_l1", Some("PadMisc1")).unwrap();
+        reset(h.path(), &Scope::Global).unwrap();
+        let text = std::fs::read_to_string(file_of(h.path(), &Scope::Global).unwrap()).unwrap();
+        assert!(!text.contains("p1.") && !text.contains("bind_cross"));
+    }
+
+    #[test]
     fn devices_the_port_saw_are_listed() {
         let h = home();
         let dir = controls_dir(h.path());
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("devices.ini"), "format = 1\n030000abcd = DualSense Wireless Controller\n").unwrap();
-        let v = view(h.path(), None).unwrap();
+        let v = view(h.path(), None, None).unwrap();
         assert_eq!(v.devices, [DeviceSeen { id: "030000abcd".into(), name: "DualSense Wireless Controller".into() }]);
     }
 }

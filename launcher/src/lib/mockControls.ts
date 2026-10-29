@@ -63,9 +63,18 @@ function read(value: string): { keys: string[] | null; pad: string[] | null } {
   };
 }
 
-export function mockControlsView(game: string | null): ControlsView {
+/** One player's own keys in a file, without their prefix. */
+function own(values: Map<string, string>, player: number): Map<string, string> {
+  const prefix = `p${player + 1}.`;
+  return new Map([...values].filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k.slice(prefix.length), v]));
+}
+
+export function mockControlsView(game: string | null, player: number | null = null): ControlsView {
   const layers: [ControlsLayer, Map<string, string>][] = [["global", file("global")]];
+  if (player !== null) layers.push(["globalPlayer", own(file("global"), player)]);
   if (game) layers.push(["game", file(game)]);
+  if (game && player !== null) layers.push(["gamePlayer", own(file(game), player)]);
+  const edited = (key: string) => (player === null ? key : `p${player + 1}.${key}`);
   const bindings: BindingRow[] = TARGETS.map(([key, label, keys, pad]) => {
     const row: BindingRow = {
       key,
@@ -76,8 +85,8 @@ export function mockControlsView(game: string | null): ControlsView {
       pad: [...pad],
       keysFrom: "default",
       padFrom: "default",
-      global: file("global").get(key) ?? null,
-      game: game ? (file(game).get(key) ?? null) : null,
+      global: file("global").get(edited(key)) ?? null,
+      game: game ? (file(game).get(edited(key)) ?? null) : null,
       shared: [],
     };
     for (const [layer, values] of layers) {
@@ -94,6 +103,7 @@ export function mockControlsView(game: string | null): ControlsView {
   }
   return {
     game,
+    player,
     globalFile: "~/.local/share/openrac/controls/global.ini",
     gameFile: game ? `~/.local/share/openrac/controls/${game}.ini` : null,
     globalReadOnly: false,
@@ -140,15 +150,14 @@ export function mockControlsSet(scope: ControlsScope, key: string, value: string
   const f = file(fileKey(scope));
   if (value === null) f.delete(key);
   else f.set(key, value);
-  return mockControlsView(scope.kind === "game" ? scope.game : null);
+  const player = /^p([12])\./.exec(key);
+  return mockControlsView(scope.kind === "game" ? scope.game : null, player ? Number(player[1]) - 1 : null);
 }
 
 export function mockControlsReset(scope: ControlsScope): ControlsView {
   const name = fileKey(scope);
   if (scope.kind === "game") files.delete(name);
-  else
-    for (const key of [...file(name).keys()])
-      if (key.startsWith("bind_") || key.startsWith("pad_")) file(name).delete(key);
+  else for (const key of [...file(name).keys()]) if (/^(p[12]\.)?(bind_|pad_)/.test(key)) file(name).delete(key);
   return mockControlsView(scope.kind === "game" ? scope.game : null);
 }
 
@@ -161,4 +170,10 @@ export function mockControlsResetPlayers(): ControlsView {
 export function mockControlsCopy(from: string, to: string): ControlsView {
   files.set(to, new Map(file(from)));
   return mockControlsView(to);
+}
+
+export function mockControlsResetPlayer(scope: ControlsScope, player: number): ControlsView {
+  const f = file(fileKey(scope));
+  for (const key of [...f.keys()]) if (key.startsWith(`p${player + 1}.`)) f.delete(key);
+  return mockControlsView(scope.kind === "game" ? scope.game : null, player);
 }
