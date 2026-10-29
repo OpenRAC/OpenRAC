@@ -610,6 +610,8 @@ bool read_window_events() {
         g->input.handle_event(event);
     }
     apply_mouse_capture();
+    // A controls file changed beside the game (the launcher) is applied within a second.
+    g->controls.poll(static_cast<double>(SDL_GetTicks()) / 1000.0);
     g->input.update();
     // The port's rows on the game's Video options page (options_menu.h), and the overlay's drawer
     // and menus: a changed one is applied. Before the debug menu, which adds its entry to the

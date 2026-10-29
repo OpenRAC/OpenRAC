@@ -182,9 +182,35 @@ void read_binding(std::string_view key, std::string_view value, int target, Bind
 // separated; "none" for an empty slot.
 std::string binding_value(const Bindings::Slot& slot);
 
+// The keys and values of one file's bindings and pad_* settings.
+using BindingValues = std::map<std::string, std::string, std::less<>>;
+
+// Where a target's kind or a setting came from: the port's defaults, the player's global
+// controls, or the game's own (docs/port/CONTROLS.md).
+enum class Layer : std::uint8_t {
+    Default,
+    Global,
+    Game,
+};
+
+// For each target, where its keys and its pad inputs came from; for each pad_* key a layer set,
+// which one.
+struct Origins {
+    std::array<Layer, kTargetCount> keys{};
+    std::array<Layer, kTargetCount> pad{};
+    std::map<std::string, Layer, std::less<>> tuning;
+};
+
+// The layers' bindings, each read over the ones before it from the defaults on, the first layer
+// Global and the second Game: a kind of a target a layer names replaces that kind, and a pad_* key
+// a layer sets replaces its value. Where each came from is written to `origins` if given.
+Bindings compile_layers(
+    const BindingValues* global, const BindingValues* game, Origins* origins = nullptr
+);
+
 // The player's bindings, as the settings file holds them (settings.h's Settings::bindings), read
-// over the defaults with read_binding, and the pad_* keys with read_tuning.
-Bindings compile_bindings(const std::map<std::string, std::string, std::less<>>& bindings);
+// over the defaults with read_binding, and the pad_* keys with read_tuning: one layer.
+Bindings compile_bindings(const BindingValues& bindings);
 
 // One gamepad as SDL last reported it: every button, and every axis in SDL's range (sticks
 // -32768..32767, triggers 0..32767), by SDL's numbers.

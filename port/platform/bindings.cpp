@@ -660,17 +660,51 @@ std::string binding_value(const Bindings::Slot& slot) {
     return out.empty() ? std::string(kUnbound) : out;
 }
 
-Bindings compile_bindings(const std::map<std::string, std::string, std::less<>>& bindings) {
+Bindings compile_layers(const BindingValues* global, const BindingValues* game, Origins* origins) {
     Bindings out = default_bindings();
-    for (const auto& [key, value] : bindings) {
-        const int target = target_of_key(key);
-        if (target >= 0) {
-            read_binding(key, value, target, out.slots[static_cast<std::size_t>(target)]);
-        } else if (key.starts_with(kTuningPrefix)) {
-            read_tuning(key, value, out.tuning);
+    Origins found;
+    const std::pair<const BindingValues*, Layer> layers[] = {
+        {global, Layer::Global},
+        {game, Layer::Game},
+    };
+    for (const auto& [values, layer] : layers) {
+        if (values == nullptr) {
+            continue;
+        }
+        for (const auto& [key, value] : *values) {
+            const int target = target_of_key(key);
+            if (target >= 0) {
+                // Read into an empty slot whose counts say "not named": what the value names comes
+                // back with a count, and replaces that kind.
+                Bindings::Slot read;
+                read.key_count = -1;
+                read.pad_count = -1;
+                read_binding(key, value, target, read);
+                Bindings::Slot& slot = out.slots[static_cast<std::size_t>(target)];
+                const auto t = static_cast<std::size_t>(target);
+                if (read.key_count >= 0) {
+                    slot.keys = read.keys;
+                    slot.key_count = read.key_count;
+                    found.keys[t] = layer;
+                }
+                if (read.pad_count >= 0) {
+                    slot.pad = read.pad;
+                    slot.pad_count = read.pad_count;
+                    found.pad[t] = layer;
+                }
+            } else if (key.starts_with(kTuningPrefix) && read_tuning(key, value, out.tuning)) {
+                found.tuning[key] = layer;
+            }
         }
     }
+    if (origins != nullptr) {
+        *origins = std::move(found);
+    }
     return out;
+}
+
+Bindings compile_bindings(const BindingValues& bindings) {
+    return compile_layers(nullptr, &bindings);
 }
 
 void apply_keys(const Bindings& bindings, std::span<const bool> keys, Pad& pad) {

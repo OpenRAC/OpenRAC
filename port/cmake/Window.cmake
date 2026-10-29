@@ -51,6 +51,7 @@ add_library(openrac_platform STATIC
   platform/audio.cpp
   platform/bindings.cpp
   platform/clock.cpp
+  platform/controls_file.cpp
   platform/gpu_driver.cpp
   platform/input.cpp
   platform/pad.cpp

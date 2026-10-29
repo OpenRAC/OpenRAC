@@ -124,6 +124,10 @@ openrac_add_test(render_worker SOURCES tests/render_worker_test.cpp
   game/common/frontend/render_worker.cpp INCLUDES . LIBS openrac_common Threads::Threads)
 openrac_add_test(settings SOURCES tests/settings_test.cpp game/common/settings.cpp
                           LIBS openrac_common)
+# The controls files and the store that layers them (platform/controls_file.h,
+# game/common/controls_store.h).
+openrac_add_test(controls SOURCES tests/controls_test.cpp game/common/controls_store.cpp
+                          INCLUDES . game/common LIBS openrac_platform)
 # The launcher's colours for the options drawer (game/common/ui_colors.h).
 openrac_add_test(ui_colors SOURCES tests/ui_colors_test.cpp game/common/ui_colors.cpp
                            INCLUDES . LIBS openrac_common)

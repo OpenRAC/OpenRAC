@@ -146,9 +146,23 @@ void take_keyboard() {
     }
 }
 
-void set_bindings(const platform::Bindings& bindings) {
-    if (g) {
+void open_controls(const std::filesystem::path& dir, const std::string& game) {
+    if (!g) {
+        return;
+    }
+    g->controls.open(dir, game, [](const platform::Bindings& bindings) {
         g->input.set_bindings(bindings);
+    });
+    settings::Settings& set = settings::get();
+    if (!set.bindings.empty() && !g->controls.file(controls::Scope::Game).read_only()) {
+        const int moved = g->controls.adopt(set.bindings);
+        log::info(
+            "controls: {} binding(s) of the settings file moved to {}",
+            moved,
+            g->controls.path(controls::Scope::Game).string()
+        );
+        set.bindings.clear();
+        settings::save();
     }
 }
 

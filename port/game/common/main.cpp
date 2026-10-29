@@ -522,9 +522,8 @@ int main(int argc, char** argv) {
             log::fatalf("no window: {}", why);
         }
         g_window = true;
-        // What the player bound each pad button to, into the pad's own table (platform/bindings.h).
-        // A button with no binding keeps the port's default.
-        frontend::set_bindings(platform::compile_bindings(settings::get().bindings));
+        // The player's controls (controls_store.h): the global file, then the game's own over it.
+        frontend::open_controls(g_options.controls, openrac_game.game);
         if (mods_loaded) {
             apply_early_mod_input();
         }

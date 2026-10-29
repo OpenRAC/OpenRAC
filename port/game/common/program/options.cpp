@@ -29,7 +29,7 @@ namespace {
     log::error(
         "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--stop-on-missing] "
         "[--level N] [--skip-movies] [--mods DIR] [--map] [--ship-map] [--destinations] "
-        "[--settings FILE] "
+        "[--settings FILE] [--controls DIR] "
         "[--plugins FILE] [--probes DIR] [--no-mods] [--debug-overlay] [--debug-dump FILE]",
         program_name(),
         openrac_game.game
@@ -193,6 +193,8 @@ Options parse(int argc, char** argv) {
             o.expect_map = true;
         } else if (a == "--settings") {
             o.settings = value();
+        } else if (a == "--controls") {
+            o.controls = value();
         } else if (a == "--plugins") {
             o.plugins = value();
         } else if (a == "--probes") {
@@ -252,6 +254,12 @@ Options parse(int argc, char** argv) {
 
     if (o.settings.empty()) {
         o.settings = default_settings();
+    }
+
+    // The controls are the player's, not a version's: every version of a game reads the same
+    // folder (controls_store.h).
+    if (o.controls.empty()) {
+        o.controls = data_home() / "controls";
     }
 
     if (o.plugins.empty()) {
