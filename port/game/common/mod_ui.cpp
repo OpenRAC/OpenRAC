@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <format>
 #include <span>
 #include <string>
 #include <utility>
@@ -159,15 +158,9 @@ struct GamePage {
  */
 constexpr gaddr kMobyPosition = 0x10;
 constexpr gaddr kMobyMode = 0x34;
-constexpr gaddr kPanelSlots = 14;  // the menu's frame mobys (update_menu_system)
-constexpr gaddr kMobyClass = 0x24;
-constexpr gaddr kMobyFrameIndex = 0x50;  // the seq's frame, then the next one
 constexpr gaddr kMobySeq = 0x52;
 constexpr gaddr kMobyAnimTime = 0x54;  // from a frame to the next, 0 to 1
-constexpr gaddr kMobySpeed = 0x58;
-constexpr gaddr kClassSeqs = 0x48;  // the class's seqs, each with its frame count at +0x10
-constexpr gaddr kSeqFrames = 0x10;
-constexpr gaddr kMobyFrame = 0x78;  // pvars: the frame's corners, then its box on the screen
+constexpr gaddr kMobyFrame = 0x78;     // pvars: the frame's corners, then its box on the screen
 constexpr gaddr kMobyRows = 0xC0;
 constexpr gaddr kAcross = 4;  // a vector's y: the screen's x
 constexpr gaddr kUpward = 8;  // a vector's z: the screen's y
@@ -1166,118 +1159,6 @@ void raise_rows(const openrac_front_end& fe) {
     }
 }
 
-// For OPENRAC_LOG=verbose, to compare the rows' flights: a page switch to or from the main menu
-// from its first tick to kTraceAfter ticks after it, as each tick leaves it (after the port's own
-// changes). At the start, the seqs of both pages for every slot; each tick, the switch's timer, the
-// raise and the stretch, and for every panel slot its moby's seq, frame (of the seq's frames),
-// speed, mode and place, its frame's corners (across, up) and its box on the screen.
-constexpr int kTraceAfter = 4;
-
-void trace_switch(const openrac_front_end& fe) {
-    static int after = 0;
-    static int tick = 0;
-    const gaddr menu = fe.page_menu;
-    const bool switching = GREF(std::int32_t, menu + kState) == kSwitching;
-    const gaddr from = word(menu + kPrevious);
-    const gaddr to = word(menu + kNext);
-
-    if (!log::verbose_on() || fe.panel_slots == 0) {
-        return;
-    }
-
-    if (switching && (to == fe.main_page || from == fe.main_page)) {
-        if (GREF(std::int32_t, menu + kTimer) == kSwitchTicks) {
-            std::string seqs;
-
-            for (gaddr slot = 0; slot < kPanelSlots; ++slot) {
-                seqs += std::format(
-                    " {}:{}/{}",
-                    slot,
-                    from != 0 ? GREF(std::int32_t, from + kSeqs + 4 * slot) : -1,
-                    to != 0 ? GREF(std::int32_t, to + kSeqs + 4 * slot) : -1
-                );
-            }
-
-            log::verbose(
-                "mod ui trace: switch {:#x} -> {:#x} (main {:#x}), extra rows {}, seqs from/to{}",
-                from,
-                to,
-                fe.main_page,
-                s.extra_rows,
-                seqs
-            );
-            tick = 0;
-        }
-
-        after = kTraceAfter;
-    } else if (after > 0) {
-        --after;
-    } else {
-        return;
-    }
-
-    std::string slots;
-
-    for (gaddr slot = 0; slot < kPanelSlots; ++slot) {
-        const gaddr moby = panel(fe, static_cast<int>(slot));
-
-        if (moby == 0) {
-            continue;
-        }
-
-        const gaddr frame = word(moby + kMobyFrame);
-        const auto seq = GREF(std::uint8_t, moby + kMobySeq);
-        const gaddr seqs = word(moby + kMobyClass) + kClassSeqs;
-        const gaddr seq_data = word(seqs + 4 * static_cast<gaddr>(seq));
-        slots += std::format(
-            "\n  slot {}: seq {} frame {}/{} next {} speed {:.2f} mode {:#x} at {:.2f} {:.2f} "
-            "{:.2f}",
-            slot,
-            seq,
-            GREF(std::uint8_t, moby + kMobyFrameIndex),
-            seq_data != 0 ? GREF(std::uint8_t, seq_data + kSeqFrames) : 0,
-            GREF(std::uint8_t, moby + kMobyFrameIndex + 1),
-            GREF(float, moby + kMobySpeed),
-            GREF(std::uint16_t, moby + kMobyMode),
-            GREF(float, moby + kMobyPosition),
-            GREF(float, moby + kMobyPosition + kAcross),
-            GREF(float, moby + kMobyPosition + kUpward)
-        );
-
-        if (frame != 0) {
-            slots += std::format(
-                " corners across {:.2f}..{:.2f} up {:.2f}..{:.2f} box {} {} {}x{}",
-                GREF(float, frame + kCornerFirst + kAcross),
-                GREF(float, frame + kCornerOpposite + kAcross),
-                GREF(float, frame + kCornerFirst + kUpward),
-                GREF(float, frame + kCornerOpposite + kUpward),
-                GREF(std::int32_t, frame + kFrameX),
-                GREF(std::int32_t, frame + kFrameX + 4),
-                GREF(std::int32_t, frame + kFrameWidth),
-                GREF(std::int32_t, frame + kFrameWidth + 4)
-            );
-        }
-    }
-
-    log::verbose(
-        "mod ui trace: tick {} state {} timer {} current {:#x} next {:#x}, raise by {:.3f} height "
-        "{:.2f} step {:.2f} learnt {}, following {:#x} (out {}), stretch {:.3f}{}",
-        tick++,
-        GREF(std::int32_t, menu + kState),
-        GREF(std::int32_t, menu + kTimer),
-        word(menu + kCurrent),
-        to,
-        s.raise.by,
-        s.raise.height,
-        s.raise.step,
-        s.raise.learnt,
-        s.follow_page,
-        s.follow_out,
-        s.fit.by,
-        slots
-    );
-}
-
 // The menu gone: the rows' mobys put back where they are still the menu's.
 void unraise(const openrac_front_end& fe) {
     Raise& r = s.raise;
@@ -1898,7 +1779,6 @@ void update(int loaded_overlay) {
     // After all that may ask for a switch (the game's pages, the Exit question, the mods' pages).
     follow_switch(*fe);
     raise_rows(*fe);
-    trace_switch(*fe);
 }
 
 void filter_pad(std::uint16_t& buttons) {
