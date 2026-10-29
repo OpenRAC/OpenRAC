@@ -40,6 +40,18 @@ void apply_keyboard(Pad& pad, std::span<const bool> keys) {
     apply_keys(defaults, keys, pad);
 }
 
+void Input::set_bindings(const Bindings& bindings) {
+    if (!differ(bindings, m_bindings)) {
+        return;
+    }
+    for (int port = 0; port < kPadPorts; ++port) {
+        const auto p = static_cast<std::size_t>(port);
+        latch_held(m_last[p], m_bindings.tuning.trigger_threshold, m_latch[p]);
+    }
+    latch_held_keys(m_last_keys, m_key_latch);
+    m_bindings = bindings;
+}
+
 Input::~Input() {
     for (const Connected& c : m_gamepads) {
         SDL_CloseGamepad(c.gamepad);
@@ -243,9 +255,16 @@ void Input::refresh_pads() {
     const bool* state = SDL_GetKeyboardState(&key_count);
     const bool keyboard_ours =
         SDL_GetKeyboardFocus() != nullptr && (SDL_GetModState() & SDL_KMOD_GUI) == 0;
-    const std::span<const bool> keys(
-        state, state != nullptr && keyboard_ours ? static_cast<std::size_t>(key_count) : 0
-    );
+    // The keys as the pad reads them: those held back since the bindings changed read as let go.
+    std::array<bool, kKeyCount> held_keys{};
+    if (state != nullptr && keyboard_ours) {
+        std::copy_n(
+            state, std::min(static_cast<std::size_t>(key_count), kKeyCount), held_keys.begin()
+        );
+    }
+    m_last_keys = held_keys;
+    hold_back_keys(held_keys, m_key_latch);
+    const std::span<const bool> keys(held_keys);
 
     for (int port = 0; port < kPadPorts; ++port) {
         Pad& pad = m_pads[static_cast<std::size_t>(port)];
@@ -278,13 +297,22 @@ void Input::refresh_pads() {
                 swap_face_labels(inputs);
             }
             // A stick's gate is what its own gamepad has shown: another one on the port starts
-            // afresh.
+            // afresh, with nothing held back.
             auto& gates = m_gates[static_cast<std::size_t>(port)];
             if (m_gates_of[static_cast<std::size_t>(port)] != g) {
                 m_gates_of[static_cast<std::size_t>(port)] = g;
                 gates = {};
+                m_latch[static_cast<std::size_t>(port)] = {};
             }
+            m_last[static_cast<std::size_t>(port)] = inputs;
+            hold_back(
+                inputs, m_bindings.tuning.trigger_threshold, m_latch[static_cast<std::size_t>(port)]
+            );
             apply_pad(m_bindings, inputs, gates, pad);
+        } else {
+            // Gone, or not read: nothing of it is held, so nothing is held back either.
+            m_last[static_cast<std::size_t>(port)] = {};
+            m_latch[static_cast<std::size_t>(port)] = {};
         }
         if (port == 0) {
             if (m_keyboard_table) {

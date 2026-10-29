@@ -446,6 +446,60 @@ void swap_face_labels(PadInputs& inputs) {
     std::swap(inputs.buttons[SDL_GAMEPAD_BUTTON_WEST], inputs.buttons[SDL_GAMEPAD_BUTTON_NORTH]);
 }
 
+void latch_held(const PadInputs& inputs, std::uint8_t threshold, Latch& latch) {
+    for (std::size_t b = 0; b < inputs.buttons.size(); ++b) {
+        latch.buttons[b] = latch.buttons[b] || inputs.buttons[b];
+    }
+    for (const auto axis : {SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER}) {
+        latch.triggers[axis] = latch.triggers[axis] || trigger_byte(inputs.axes[axis]) >= threshold;
+    }
+}
+
+void hold_back(PadInputs& inputs, std::uint8_t threshold, Latch& latch) {
+    for (std::size_t b = 0; b < inputs.buttons.size(); ++b) {
+        latch.buttons[b] = latch.buttons[b] && inputs.buttons[b];
+        inputs.buttons[b] = inputs.buttons[b] && !latch.buttons[b];
+    }
+    for (const auto axis : {SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER}) {
+        latch.triggers[axis] = latch.triggers[axis] && trigger_byte(inputs.axes[axis]) >= threshold;
+        if (latch.triggers[axis]) {
+            inputs.axes[axis] = 0;
+        }
+    }
+}
+
+void latch_held_keys(std::span<const bool> keys, std::span<bool> latch) {
+    for (std::size_t k = 0; k < latch.size(); ++k) {
+        latch[k] = latch[k] || (k < keys.size() && keys[k]);
+    }
+}
+
+void hold_back_keys(std::span<bool> keys, std::span<bool> latch) {
+    for (std::size_t k = 0; k < latch.size(); ++k) {
+        const bool held = k < keys.size() && keys[k];
+        latch[k] = latch[k] && held;
+        if (held && latch[k]) {
+            keys[k] = false;
+        }
+    }
+}
+
+bool differ(const Bindings& a, const Bindings& b) {
+    if (!(a.tuning == b.tuning)) {
+        return true;
+    }
+    for (std::size_t t = 0; t < a.slots.size(); ++t) {
+        const Bindings::Slot& x = a.slots[t];
+        const Bindings::Slot& y = b.slots[t];
+        if (x.key_count != y.key_count || x.pad_count != y.pad_count
+            || !std::equal(x.keys.begin(), x.keys.begin() + x.key_count, y.keys.begin())
+            || !std::equal(x.pad.begin(), x.pad.begin() + x.pad_count, y.pad.begin())) {
+            return true;
+        }
+    }
+    return false;
+}
+
 int target_of(Button button) {
     return button_target(button);
 }

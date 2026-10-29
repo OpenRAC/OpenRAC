@@ -500,6 +500,62 @@ void test_trigger_threshold_and_labels() {
     CHECK(pad_from(openrac::platform::default_bindings(), nintendo).held(Button::Cross));
 }
 
+// A button held as the bindings change does not press its new control until let go and pressed
+// again; one pressed afterwards presses at once, and the triggers are held back the same way.
+void test_held_back_until_let_go() {
+    PadInputs held;
+    held.buttons[SDL_GAMEPAD_BUTTON_SOUTH] = true;
+    held.axes[SDL_GAMEPAD_AXIS_RIGHT_TRIGGER] = 32767;
+    openrac::platform::Latch latch;
+    openrac::platform::latch_held(held, 0x20, latch);
+
+    // Rebound to Start, South held all along: no Start yet.
+    set_bindings({{"bind_start", "PadSouth"}, {"bind_cross", "PadNorth"}});
+    PadInputs now = held;
+    now.buttons[SDL_GAMEPAD_BUTTON_WEST] = true;  // pressed after the change: it counts
+    openrac::platform::hold_back(now, 0x20, latch);
+    Pad pad = pad_from(g_bindings, now);
+    CHECK(!pad.held(Button::Start));
+    CHECK(!pad.held(Button::R2));
+    CHECK(pad.held(Button::Square));
+
+    // Let go, then pressed again: Start.
+    PadInputs released;
+    openrac::platform::hold_back(released, 0x20, latch);
+    CHECK(latch == openrac::platform::Latch{});
+    now = held;
+    openrac::platform::hold_back(now, 0x20, latch);
+    pad = pad_from(g_bindings, now);
+    CHECK(pad.held(Button::Start));
+    CHECK(pad.held(Button::R2));
+
+    // The keys the same way.
+    std::array<bool, 8> keys{};
+    std::array<bool, 8> key_latch{};
+    keys[3] = true;
+    openrac::platform::latch_held_keys(keys, key_latch);
+    std::array<bool, 8> read = keys;
+    read[5] = true;
+    openrac::platform::hold_back_keys(read, key_latch);
+    CHECK(!read[3] && read[5]);
+    std::array<bool, 8> none{};
+    openrac::platform::hold_back_keys(none, key_latch);
+    read = keys;
+    openrac::platform::hold_back_keys(read, key_latch);
+    CHECK(read[3]);
+}
+
+// Bindings that press alike are the same; a slot or a setting apart is a change.
+void test_differ() {
+    const Bindings a = openrac::platform::default_bindings();
+    Bindings b = openrac::platform::compile_bindings({{"bind_cross", "PadSouth"}});
+    CHECK(!openrac::platform::differ(a, b));  // the default, said again
+    b = openrac::platform::compile_bindings({{"bind_cross", "PadEast"}});
+    CHECK(openrac::platform::differ(a, b));
+    b = openrac::platform::compile_bindings({{"pad_left_deadzone", "10"}});
+    CHECK(openrac::platform::differ(a, b));
+}
+
 }  // namespace
 
 int main() {
@@ -518,5 +574,7 @@ int main() {
     test_tuning_reads();
     test_tuned_sticks();
     test_trigger_threshold_and_labels();
+    test_held_back_until_let_go();
+    test_differ();
     return openrac::test::result();
 }

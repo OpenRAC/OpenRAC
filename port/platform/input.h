@@ -83,8 +83,9 @@ public:
     // The keyboard and mouse as update() last read them, for the mods.
     const KeyboardMouse& keyboard_mouse() const { return m_km; }
 
-    // What the keys and gamepads press from now on (bindings.h): the next read uses it.
-    void set_bindings(const Bindings& bindings) { m_bindings = bindings; }
+    // What the keys and gamepads press from now on (bindings.h): the next read uses it. What is
+    // held as they change is held back until let go (bindings.h's Latch).
+    void set_bindings(const Bindings& bindings);
 
     const Bindings& bindings() const { return m_bindings; }
 
@@ -121,6 +122,12 @@ private:
     // that showed it: another one on the port starts afresh.
     std::array<std::array<StickGate, 2>, kPadPorts> m_gates{};
     Bindings m_bindings = default_bindings();
+    // What each port's gamepad and the keyboard held at the last read, and what was held back when
+    // the bindings last changed.
+    std::array<PadInputs, kPadPorts> m_last{};
+    std::array<Latch, kPadPorts> m_latch{};
+    std::array<bool, kKeyCount> m_last_keys{};
+    std::array<bool, kKeyCount> m_key_latch{};
     std::array<SDL_Gamepad*, kPadPorts> m_gates_of{};
     TouchPad m_touch;
     KeyboardMouse m_km;

@@ -207,6 +207,30 @@ void tune_stick(float& x, float& y, const StickTuning& tuning);
 // the button labelled A (PadTuning::face_labels).
 void swap_face_labels(PadInputs& inputs);
 
+// What was held when the bindings changed, and is not counted until it is let go: a button held
+// as it is bound to something else does not press its new control until pressed again, so a
+// capture's own press, or a remap made with a thumb on the button, never presses through. The
+// sticks are not held back: they are moved, not pressed.
+struct Latch {
+    std::array<bool, SDL_GAMEPAD_BUTTON_COUNT> buttons{};
+    std::array<bool, SDL_GAMEPAD_AXIS_COUNT> triggers{};  // by axis; only the triggers' are used
+
+    bool operator==(const Latch&) const = default;
+};
+
+// Holds back in `latch` every button and trigger `inputs` hold now.
+void latch_held(const PadInputs& inputs, std::uint8_t threshold, Latch& latch);
+
+// Lets go of what `inputs` no longer hold, and reads what is still held back as released.
+void hold_back(PadInputs& inputs, std::uint8_t threshold, Latch& latch);
+
+// The keys' latch: the same for the keyboard, by SDL scancode.
+void latch_held_keys(std::span<const bool> keys, std::span<bool> latch);
+void hold_back_keys(std::span<bool> keys, std::span<bool> latch);
+
+// Says whether `a` and `b` press anything differently (their slots or their tuning differ).
+bool differ(const Bindings& a, const Bindings& b);
+
 // Presses `pad`'s buttons from the keys held (`keys`, by SDL scancode, as SDL_GetKeyboardState
 // gives them), and moves its sticks from the port's stick keys (input.h). Escape is Start, whatever
 // Start is bound to.
