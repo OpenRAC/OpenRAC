@@ -20,16 +20,23 @@ namespace openrac::renderer {
 
 using namespace gl;
 
-bool liquid_strip(std::uint64_t alpha) {
-    return (alpha & 0xFF) == 0x64 && ((alpha >> 32) & 0xFF) > 0x60;
+bool liquid_strip(std::uint64_t alpha, std::uint64_t test) {
+    // A TEST whose alpha test never passes and keeps only the colour writes no Z: a layer over
+    // the picture, not a surface (Batalia's ice, the first of its passes, drawn from callback
+    // list 1 after the mobys).
+    const gs::Test t = gs::Test::decode(test);
+    const bool writes_z =
+        !(t.ate && t.atst == gs::AlphaTest::Never
+          && (t.afail == gs::AlphaFail::FbOnly || t.afail == gs::AlphaFail::RgbOnly));
+    return (alpha & 0xFF) == 0x64 && ((alpha >> 32) & 0xFF) > 0x60 && writes_z;
 }
 
 bool EffectRenderer::draws(const EffectStrip& strip) const {
     switch (m_part) {
         case EffectPart::Liquids:
-            return liquid_strip(strip.alpha);
+            return liquid_strip(strip.alpha, strip.test);
         case EffectPart::Rest:
-            return !liquid_strip(strip.alpha);
+            return !liquid_strip(strip.alpha, strip.test);
         case EffectPart::All:
             break;
     }
@@ -78,6 +85,8 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     m_tex_alpha_scale = m_shader.uniform("tex_alpha_scale");
     m_fog_enable = m_shader.uniform("fog_enable");
     m_view = m_shader.uniform("view");
+    m_source_scale = m_shader.uniform("source_scale");
+    m_source_fix = m_shader.uniform("source_fix");
     m_fog_colour = m_shader.uniform("fog_colour");
     m_fog_line = m_shader.uniform("fog_line");
     m_alpha_test = m_shader.uniform("alpha_test");
@@ -450,6 +459,8 @@ bool EffectRenderer::apply(
         glBlendEquation(b.equation);
         glBlendFuncSeparate(b.src, b.dst, GL_ONE, GL_ZERO);
         glBlendColor(0.0f, 0.0f, 0.0f, b.constant);
+        glUniform1i(m_source_scale, static_cast<GLint>(b.source_scale));
+        glUniform1f(m_source_fix, b.fix);
         m_applied.alpha_bits = alpha_bits;
     }
     return texture != state.textures.placeholder();

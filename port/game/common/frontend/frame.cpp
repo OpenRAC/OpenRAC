@@ -196,7 +196,7 @@ std::vector<std::uint8_t> direct_packets(
     // writes), and the strip being unpacked: its GIF tag at VU address 0, then ST (V2-32) at 1,
     // RGBA (V4-8) at 2 and positions (V3-32) at 3, drawn by an MSCAL (func_L00_001FDE48's packet).
     std::uint64_t reg_tex0 = 0, reg_tex1 = 0, reg_clamp = 0, reg_alpha = 0x44;
-    std::uint64_t reg_prim = 0, reg_fogcol = 0;
+    std::uint64_t reg_prim = 0, reg_fogcol = 0, reg_test = 0;
     // The fog line the liquid grid's packet gives the strip program (build_interpolated_dma_packet,
     // func_L02_002A52D0, unpacks it to VU addresses 0x3AC to 0x3AF): the view context's fog_mul
     // (0x3AC.w), screen_bias with fog_add in w (0x3AE), then the far and near F (0x3AF.x, .y).
@@ -316,6 +316,9 @@ std::vector<std::uint8_t> direct_packets(
                             break;
                         case 0x42:
                             reg_alpha = value;
+                            break;
+                        case 0x47:
+                            reg_test = value;
                             break;
                         case 0x4C:
                         case 0x4D:
@@ -448,6 +451,7 @@ std::vector<std::uint8_t> direct_packets(
                 strip.tex1 = reg_tex1;
                 strip.clamp = reg_clamp;
                 strip.alpha = reg_alpha;
+                strip.test = reg_test;
                 strip.surface = surface;
                 strip.uv_motion = uv_motion;
                 if (strip_fog && (vu_fog_set & 0xD) == 0xD) {

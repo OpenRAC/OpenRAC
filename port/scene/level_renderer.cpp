@@ -1106,10 +1106,15 @@ void LevelScene::draw_layer(
                 continue;
             }
             if (effects) {
+                // Additive: the shader writes Cs * As (mesh.frag, effect_additive).
                 glBlendFuncSeparate(
-                    GL_SRC_ALPHA, g.blend == 2 ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE
+                    g.blend == 2 ? GL_ONE : GL_SRC_ALPHA,
+                    g.blend == 2 ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA,
+                    GL_ZERO,
+                    GL_ONE
                 );
             }
+            glUniform1i(program->uniform("effect_additive"), effects && g.blend == 2 ? 1 : 0);
             glUniform1i(program->uniform("probe_effect"), g.blend == 2 ? 1 : 0);
             glUniform1i(program->uniform("hero_shadow_receiver"), g.hero_shadow_caster ? 1 : 0);
             glUniform1i(

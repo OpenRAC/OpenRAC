@@ -35,6 +35,9 @@ uniform int translucent_pass;
 // Mobys MobyProc blends (an explosion's flash, a fading pickup): every face and texel, its alpha
 // the texel's times the moby's (the tint), blended by the pass.
 uniform int effect_pass;
+// The additive ones (mode bit 0x200, Cs * As + Cd): the shader weighs Cs by As itself, as the GS
+// reaches about 2.0 (0xFF) where GL's SRC_ALPHA stops at 1; drawn with ONE, ONE.
+uniform int effect_additive;
 // The metal pass: the chrome or glass texel times the vertex colour, its alpha the texel's times the
 // shine, blended over the moby (mesh.vert; ALPHA 0x44 as the moby's own).
 uniform int metal_pass;
@@ -322,6 +325,10 @@ void main() {
         e = probe_surface(texel, e);
         if (fog_colour.w > 0.5) {
             e = mix(fog_colour.rgb, e, v_fog);
+        }
+        if (effect_additive != 0) {
+            out_colour = vec4(min(e * clamp(c.a, 0.0, 255.0 / 128.0), vec3(1.0)), 0.0);
+            return;
         }
         out_colour = vec4(e, clamp(c.a, 0.0, 1.0));
         return;

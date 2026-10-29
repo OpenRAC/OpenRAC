@@ -97,6 +97,7 @@ struct EffectUvMotion {
 struct EffectStrip {
     std::uint32_t first = 0, count = 0;
     std::uint64_t clamp = 0, tex0 = 0, tex1 = 0, alpha = 0x44;
+    std::uint64_t test = 0;  // TEST as the DIRECT data before the strip leaves it (0: none seen)
     // FrameInput::effect_uploads[uploads..uploads + upload_count): the images the game sent to
     // TEX0's blocks just before the strip; put in the pool before it is drawn.
     int uploads = -1, upload_count = 0;
