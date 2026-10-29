@@ -21,6 +21,7 @@ use openrac_launcher_core::overrides::{self, PackView};
 use openrac_launcher_core::plugins::{self, Installed, PluginView};
 use openrac_launcher_core::remote;
 use openrac_launcher_core::reports::{self, ReportEntry};
+use openrac_launcher_core::reset;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_opener::OpenerExt;
@@ -976,6 +977,53 @@ fn overrides_remove(state: State<'_, AppState>, game: String, id: String) -> Res
     overrides::remove(&overrides_dir(&state, &game)?, &id)
 }
 
+/// Where `version`'s level editor data is (core reset.rs), from the checkout and the install folder
+/// in Settings; the version must be one the checkout's catalogue knows.
+fn reset_layout(state: &State<'_, AppState>, version: &str) -> Result<reset::Layout, String> {
+    let config = state.config.lock().unwrap().clone();
+    let root = config.root()?.to_path_buf();
+    let install = config.install_dir.clone().ok_or("no install folder (Settings)")?;
+    let catalog = openrac_launcher_core::catalog::load(&root)?;
+    let v = catalog.version(version).ok_or_else(|| format!("{version} is not a version OpenRAC knows"))?;
+    let installed = state.bundled.as_deref().is_some_and(|copy| detect::on_the_copy(Some(&root), copy));
+    reset::Layout::new(&root, &install, &v.game, &v.name, installed)
+}
+
+/// What a reset of `version`'s level editor data would remove, and how much (the Mods page's
+/// Start over asks with it).
+#[tauri::command]
+async fn reset_preview(
+    state: State<'_, AppState>,
+    version: String,
+    reset: reset::Reset,
+) -> Result<reset::ResetPreview, String> {
+    let layout = reset_layout(&state, &version)?;
+    tauri::async_runtime::spawn_blocking(move || reset::preview(&layout, reset)).await.map_err(|e| e.to_string())?
+}
+
+/// Removes it: never while a job runs (an extraction writing those folders, the game reading them).
+#[tauri::command]
+async fn reset_apply(
+    state: State<'_, AppState>,
+    version: String,
+    reset: reset::Reset,
+    with_edits: bool,
+) -> Result<reset::ResetDone, String> {
+    if !state.jobs.running().is_empty() {
+        return Err("busy: wait for what is running to end".into());
+    }
+    let layout = reset_layout(&state, &version)?;
+    launcher_log::line(&format!("reset: {version} {reset:?} with_edits={with_edits}"));
+    let done = tauri::async_runtime::spawn_blocking(move || reset::apply(&layout, reset, with_edits))
+        .await
+        .map_err(|e| e.to_string())?;
+    match &done {
+        Ok(d) => launcher_log::line(&format!("reset: removed {} folder(s), {} file(s)", d.folders, d.files)),
+        Err(e) => launcher_log::line(&format!("reset: {e}")),
+    }
+    done
+}
+
 /// A game's native mods' folder (`<data>/plugins`, docs/port/MODS.md), from the install folder in
 /// Settings.
 fn plugins_dir(state: &State<'_, AppState>, game: &str) -> Result<PathBuf, String> {
@@ -1445,6 +1493,8 @@ pub fn run() {
             overrides_set_enabled,
             overrides_move,
             overrides_remove,
+            reset_preview,
+            reset_apply,
             plugins_list,
             enhanced_view,
             enhanced_set_enabled,

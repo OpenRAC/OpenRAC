@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 
 use openrac_launcher_core::{
     actions, config, detect, differences, disc_choice, discs, enhanced, jobs, library, overrides, pcsx2_card, plugins,
-    remote, reports, save_edit, saves, update,
+    remote, reports, reset, save_edit, saves, update,
 };
 use ts_rs::{Config, TS};
 
@@ -52,6 +52,9 @@ fn export_all(cfg: &Config) {
         remote::Sources,
         remote::Update,
         reports::ReportEntry,
+        reset::Reset,
+        reset::ResetDone,
+        reset::ResetPreview,
         save_edit::SaveChange,
         save_edit::WriteResult,
         saves::GameSaveStatus,
