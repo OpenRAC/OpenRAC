@@ -159,7 +159,8 @@ struct GamePage {
 constexpr gaddr kMobyPosition = 0x10;
 constexpr gaddr kMobyMode = 0x34;
 constexpr gaddr kMobySeq = 0x52;
-constexpr gaddr kMobyFrame = 0x78;  // pvars: the frame's corners, then its box on the screen
+constexpr gaddr kMobyAnimTime = 0x54;  // from a frame to the next, 0 to 1
+constexpr gaddr kMobyFrame = 0x78;     // pvars: the frame's corners, then its box on the screen
 constexpr gaddr kMobyRows = 0xC0;
 constexpr gaddr kAcross = 4;  // a vector's y: the screen's x
 constexpr gaddr kUpward = 8;  // a vector's z: the screen's y
@@ -231,6 +232,17 @@ struct Fit {
     bool switching = false;
     int game = -1, page = -1;  // the page shown whose stretch it is
 };
+
+// A switch to or from the main menu, in its ticks (the first is 1): the game's rows shrink to their
+// smallest by tick 4 going away (frames 1 to 3 of their flight) and are smallest at tick 6 coming
+// back (the same frames backwards), where the rows below them are merged into Options; they part
+// from it over the 3 ticks before (away) or after (back). And how far below the screen their mobys
+// are put while out of sight, past the 4 units a moby may move between two ticks and still be drawn
+// part way (frontend/geometry.cpp).
+constexpr float kMergedAway = 4.0f;
+constexpr float kMergedBack = 6.0f;
+constexpr float kPartTicks = 3.0f;
+constexpr float kHiddenBelow = 100.0f;
 
 // The main menu's rows raised as a block, so that the rows under the game's leave it centred where
 // the game's three were: each row's frame moby moved up along z (the screen's y) by `by` of
@@ -518,6 +530,11 @@ void patch_main(const openrac_front_end& fe) {
     );
 }
 
+// The frame moby in panel slot `slot`, or 0.
+gaddr panel(const openrac_front_end& fe, int slot) {
+    return word(fe.panel_slots + 4 * static_cast<gaddr>(slot));
+}
+
 // The seq page `page` gives slot `slot` in a switch.
 std::int32_t& page_seq(gaddr page, int slot) {
     return GREF(std::int32_t, page + kSeqs + 4 * static_cast<gaddr>(slot));
@@ -529,11 +546,12 @@ std::int32_t& page_seq(gaddr page, int slot) {
 // the last): the main menu's own rows morph into that page's frames and back, and the rows below
 // would play the page's seqs for their slots, which park them off the screen to the left. So once
 // the game asked for such a switch, before it begins, that page's seqs for those slots are Options'
-// for the switch, and the game plays them in step with Options' own; raise_rows keeps each row its
-// steps below Options as the flight goes, less (away) or more (back) at each tick. Once the switch
-// is over the page has its seqs back and the rows their own: parked on the page (as the page's
-// seqs leave them), or the row on the main menu (its seq's first frame, as the game's open leaves
-// it).
+// for the switch, and the game plays them in step with Options' own. raise_rows moves them: away,
+// they merge into Options as the frames shrink and are then out of sight; back, out of sight until
+// Options' frame is at its smallest, then out of it, growing with it into their own. Once the
+// switch is over the page has its seqs back and the rows their own, settled: parked on the page (as
+// the page's seqs leave them), or the row on the main menu (its seq's first frame, as the game's
+// open leaves it). Called after all that may ask for a switch, so that none begins unseen.
 void follow_switch(const openrac_front_end& fe) {
     const gaddr menu = fe.page_menu;
     const bool switching = GREF(std::int32_t, menu + kState) == kSwitching;
@@ -570,9 +588,17 @@ void follow_switch(const openrac_front_end& fe) {
             if (s.follow_seen && s.follow_out && current == s.follow_page) {
                 fe.panel_animation(slot, own, 1, 1.0f);
             } else if (s.follow_seen && !s.follow_out && current == fe.main_page) {
+                // Its seq's first frame, held: the main menu's seqs fly the rows in played
+                // backwards (the last frame is off the screen to the left), and a frame moby whose
+                // seq ended backwards keeps its time at 1 (quad_moby_update), which would show the
+                // second frame.
                 fe.panel_animation(
-                    slot, kRowSeqs[static_cast<std::size_t>(kGameRows + r)], 0, -1.0f
+                    slot, kRowSeqs[static_cast<std::size_t>(kGameRows + r)], 0, 0.0f
                 );
+
+                if (panel(fe, slot) != 0) {
+                    GREF(float, panel(fe, slot) + kMobyAnimTime) = 0.0f;
+                }
             }
         }
 
@@ -681,10 +707,6 @@ void show(int game, int page) {
 
     std::memset(G(g.footer_items + kItemBytes * static_cast<gaddr>(ids.size())), 0, kItemBytes);
     put_word(g.footer + kListItems, ids.empty() ? g.game_footer_items : g.footer_items);
-}
-
-gaddr panel(const openrac_front_end& fe, int slot) {
-    return word(fe.panel_slots + 4 * static_cast<gaddr>(slot));
 }
 
 std::span<const std::uint8_t> glyphs(const openrac_front_end& fe, int font) {
@@ -1058,11 +1080,21 @@ void raise_rows(const openrac_front_end& fe) {
     }
 
     float goal = main_menu ? 1.0f : 0.0f;
-    float done = 1.0f;
+    // The rows below the game's along a switch they follow (follow_switch): how far apart from
+    // Options they are (1 at their rows, 0 merged into it), or out of sight.
+    float apart = 1.0f;
+    bool hidden = s.follow_page != 0 && !switching && !s.follow_out && !s.follow_seen;
 
     if (switching) {
         const auto left = static_cast<float>(GREF(std::int32_t, menu + kTimer));
-        done = std::clamp((kSwitchTicks - left + 1.0f) / kSwitchTicks, 0.0f, 1.0f);
+        const float ticks = kSwitchTicks - left + 1.0f;  // this one's included
+        const float done = std::clamp(ticks / kSwitchTicks, 0.0f, 1.0f);
+        // Away, they merge as the frames shrink and then go; back, they come out of Options at its
+        // smallest and grow with it into their rows.
+        apart = std::clamp(
+            (s.follow_out ? kMergedAway - ticks : ticks - kMergedBack) / kPartTicks, 0.0f, 1.0f
+        );
+        hidden = s.follow_page != 0 && (s.follow_out ? ticks > kMergedAway : ticks < kMergedBack);
         const bool out = word(menu + kPrevious) == fe.main_page;
         goal = coming == out ? (coming ? 1.0f : 0.0f) : (coming ? done : 1.0f - done);
         r.by = goal;
@@ -1087,6 +1119,19 @@ void raise_rows(const openrac_front_end& fe) {
             continue;
         }
 
+        // A row below the game's out of sight: its moby put far below the screen (beyond what the
+        // frames between ticks blend, so it neither slides away nor back).
+        if (i >= kGameRows && hidden) {
+            if (r.moby[row] == 0) {
+                r.moby[row] = moby;
+                r.own_z[row] = GREF(float, moby + kMobyPosition + kUpward);
+            }
+
+            r.put_z[row] = r.own_z[row] - kHiddenBelow;
+            GREF(float, moby + kMobyPosition + kUpward) = r.put_z[row];
+            continue;
+        }
+
         if (r.by == 0.0f || r.height == 0.0f) {
             if (r.moby[row] != 0) {
                 lower(r, row);
@@ -1105,11 +1150,9 @@ void raise_rows(const openrac_front_end& fe) {
 
         r.put_z[row] = r.own_z[row] + r.height * r.by;
 
-        // Flying Options' flight: from its own row (away) or to it (back), `row - Options` steps
-        // below Options at the row, none at the page.
+        // Flying Options' flight, `row - Options` steps below Options at the row and none merged.
         if (s.follow_page != 0 && switching && i >= kGameRows) {
-            r.put_z[row] -= r.step * static_cast<float>(i - (kGameRows - 1))
-                            * (s.follow_out ? 1.0f - done : done);
+            r.put_z[row] -= r.step * static_cast<float>(i - (kGameRows - 1)) * apart;
         }
 
         GREF(float, moby + kMobyPosition + kUpward) = r.put_z[row];
@@ -1691,7 +1734,6 @@ void update(int loaded_overlay) {
 
     build(*fe);
     patch_main(*fe);
-    follow_switch(*fe);
     exit_menu::update_title(*fe);
     // A page is on the screen once its switch is over.
     const bool settled = GREF(std::int32_t, fe->page_menu + kState) != kSwitching;
@@ -1734,6 +1776,8 @@ void update(int loaded_overlay) {
     }
 
     fit_frames(*fe);
+    // After all that may ask for a switch (the game's pages, the Exit question, the mods' pages).
+    follow_switch(*fe);
     raise_rows(*fe);
 }
 
