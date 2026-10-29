@@ -150,9 +150,11 @@ void open_controls(const std::filesystem::path& dir, const std::string& game) {
     if (!g) {
         return;
     }
-    g->controls.open(dir, game, [](const platform::Bindings& bindings) {
+    const auto apply = [](const platform::Bindings& bindings, const platform::Players& players) {
         g->input.set_bindings(bindings);
-    });
+        g->input.set_players(players);
+    };
+    g->controls.open(dir, game, apply);
     settings::Settings& set = settings::get();
     if (!set.bindings.empty() && !g->controls.file(controls::Scope::Game).read_only()) {
         const int moved = g->controls.adopt(set.bindings);

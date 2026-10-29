@@ -12,6 +12,7 @@
 
 #include "controls_store.h"
 #include "platform/controls_file.h"
+#include "platform/players.h"
 #include "tests/check.h"
 
 namespace {
@@ -80,7 +81,13 @@ void test_layers_and_resets(const fs::path& dir) {
     std::ofstream(dir / "rac1.ini") << "format = 1\nbind_cross = PadNorth\nbind_select = none\n";
     Store store;
     int applied = 0;
-    store.open(dir, "rac1", [&applied](const openrac::platform::Bindings&) { ++applied; });
+    store.open(
+        dir,
+        "rac1",
+        [&applied](const openrac::platform::Bindings&, const openrac::platform::Players&) {
+            ++applied;
+        }
+    );
     CHECK(applied == 1);
 
     const auto& cross = store.bindings().of(Button::Cross);
@@ -170,6 +177,74 @@ void test_store_keeps_a_newer_file(const fs::path& dir) {
     CHECK(read_file(dir / "rac4.ini") == "format = 7\nbind_cross = PadEast\n");
 }
 
+using openrac::platform::Assignment;
+using openrac::platform::Players;
+
+// The defaults are the port's old order: the keyboard and the first controller player 1, the
+// second player 2; a third is nobody's.
+void test_default_players() {
+    const Players players = openrac::platform::default_players();
+    CHECK(openrac::platform::assign(players, {}) == (Assignment{{-1, -1}, 0}));
+    const std::string one[] = {"a"};
+    CHECK(openrac::platform::assign(players, one) == (Assignment{{0, -1}, 0}));
+    const std::string three[] = {"a", "b", "c"};
+    CHECK(openrac::platform::assign(players, three) == (Assignment{{0, 1}, 0}));
+}
+
+// A player's own controller is theirs whichever order it connected in, and comes back to them;
+// "auto" takes what is left; the keyboard goes where it is named.
+void test_named_players() {
+    Players players;
+    players.wants[0] = openrac::platform::read_player("keyboard, pad-b, auto");
+    players.wants[1] = openrac::platform::read_player("pad-a");
+    const std::string both[] = {"pad-a", "pad-b"};
+    CHECK(openrac::platform::assign(players, both) == (Assignment{{1, 0}, 0}));
+    // Player 2's controller gone: player 2 has none (no "auto"), player 1 keeps theirs.
+    const std::string b_only[] = {"pad-b"};
+    CHECK(openrac::platform::assign(players, b_only) == (Assignment{{0, -1}, 0}));
+    // Player 1's gone: their "auto" takes the one left, unless player 2 named it.
+    const std::string a_c[] = {"pad-a", "pad-c"};
+    CHECK(openrac::platform::assign(players, a_c) == (Assignment{{1, 0}, 0}));
+
+    players.wants[0] = openrac::platform::read_player("none");
+    players.wants[1] = openrac::platform::read_player("keyboard,auto");
+    CHECK(openrac::platform::assign(players, both) == (Assignment{{-1, 0}, 1}));
+    CHECK(openrac::platform::player_value(players.wants[0]) == "none");
+    CHECK(openrac::platform::player_value(players.wants[1]) == "keyboard, auto");
+}
+
+// The same model twice without serials is told apart by order; a serial is part of the id.
+void test_controller_ids() {
+    CHECK(openrac::platform::controller_id("0300abcd", "", {}) == "0300abcd");
+    const std::string one[] = {"0300abcd"};
+    CHECK(openrac::platform::controller_id("0300abcd", "", one) == "0300abcd#2");
+    const std::string two[] = {"0300abcd", "0300abcd#2"};
+    CHECK(openrac::platform::controller_id("0300abcd", "", two) == "0300abcd#3");
+    CHECK(openrac::platform::controller_id("0300abcd", "SN1", one) == "0300abcd-SN1");
+    // The first gone, the next of the model takes its id back.
+    const std::string second[] = {"0300abcd#2"};
+    CHECK(openrac::platform::controller_id("0300abcd", "", second) == "0300abcd");
+}
+
+// The global file's players are the store's; a game's file does not choose them.
+void test_store_players(const fs::path& dir) {
+    fs::create_directories(dir);
+    std::ofstream(dir / "global.ini") << "format = 1\nplayer2 = keyboard, pad-x\n";
+    std::ofstream(dir / "rac1.ini") << "format = 1\nplayer1 = none\n";
+    Store store;
+    Players applied;
+    store.open(dir, "rac1", [&applied](const openrac::platform::Bindings&, const Players& players) {
+        applied = players;
+    });
+    CHECK(applied.wants[0] == std::vector<std::string>({"keyboard", "auto"}));
+    CHECK(applied.wants[1] == std::vector<std::string>({"keyboard", "pad-x"}));
+    store.remember({{"pad-x", "Pad X", 1}, {"pad-y", "Pad Y", -1}});
+    store.remember({{"pad-y", "Pad Y", 0}});
+    const std::string devices = read_file(dir / "devices.ini");
+    CHECK(devices.find("pad-x = Pad X") != std::string::npos);
+    CHECK(devices.find("pad-y = Pad Y") != std::string::npos);
+}
+
 }  // namespace
 
 int main() {
@@ -182,6 +257,10 @@ int main() {
     test_adopt(dir / "adopt");
     test_poll(dir / "poll");
     test_store_keeps_a_newer_file(dir / "newer");
+    test_default_players();
+    test_named_players();
+    test_controller_ids();
+    test_store_players(dir / "players");
     fs::remove_all(dir, error);
     return openrac::test::result();
 }

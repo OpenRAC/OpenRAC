@@ -22,6 +22,8 @@
 
 #include "platform/bindings.h"
 #include "platform/controls_file.h"
+#include "platform/input.h"
+#include "platform/players.h"
 
 namespace openrac::controls {
 
@@ -33,7 +35,7 @@ enum class Scope {
 
 class Store {
 public:
-    using Apply = std::function<void(const platform::Bindings&)>;
+    using Apply = std::function<void(const platform::Bindings&, const platform::Players&)>;
 
     // Reads the controls of `game` ("rac1") in `dir`, and applies them. A missing file is an empty
     // one, made when something is first written to it.
@@ -52,6 +54,14 @@ public:
     const platform::Bindings& bindings() const { return m_bindings; }
 
     const platform::Origins& origins() const { return m_origins; }
+
+    // Which controller each player reads: the global file's player1 and player2, the defaults
+    // where it has none. A game's file does not choose them.
+    const platform::Players& players() const { return m_players; }
+
+    // Remembers the controllers connected now in devices.ini beside the controls, by id and name,
+    // with those seen before: the launcher offers them to the players by name.
+    void remember(const std::vector<platform::Device>& devices);
 
     const platform::ControlsFile& file(Scope scope) const {
         return scope == Scope::Global ? m_global : m_game;
@@ -91,6 +101,7 @@ private:
     double m_polled = -1.0;
     platform::Bindings m_bindings = platform::default_bindings();
     platform::Origins m_origins;
+    platform::Players m_players = platform::default_players();
 };
 
 }  // namespace openrac::controls

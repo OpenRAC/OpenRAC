@@ -61,8 +61,14 @@ void Store::compile() {
     const platform::BindingValues global = m_global.values();
     const platform::BindingValues game = m_game.values();
     m_bindings = platform::compile_layers(&global, &game, &m_origins);
+    m_players = platform::default_players();
+    for (int p = 0; p < platform::kPlayers; ++p) {
+        if (const auto value = m_global.get(platform::player_key(p))) {
+            m_players.wants[static_cast<std::size_t>(p)] = platform::read_player(*value);
+        }
+    }
     if (m_apply) {
-        m_apply(m_bindings);
+        m_apply(m_bindings, m_players);
     }
 }
 
@@ -146,6 +152,33 @@ bool Store::reset(Scope scope) {
     }
     compile();
     return done;
+}
+
+void Store::remember(const std::vector<platform::Device>& devices) {
+    if (m_dir.empty() || devices.empty()) {
+        return;
+    }
+    const fs::path path = m_dir / "devices.ini";
+    platform::ControlsFile file = platform::ControlsFile::parse(read_text(path));
+    bool changed = false;
+    for (const platform::Device& d : devices) {
+        if (file.get(d.id) != d.name) {
+            file.set(d.id, d.name);
+            changed = true;
+        }
+    }
+    if (!changed || file.read_only()) {
+        return;
+    }
+    std::error_code error;
+    fs::create_directories(m_dir, error);
+    fs::path fresh = path;
+    fresh += ".new";
+    {
+        std::ofstream out(fresh, std::ios::binary | std::ios::trunc);
+        out << file.text();
+    }
+    fs::rename(fresh, path, error);
 }
 
 int Store::adopt(const platform::BindingValues& old) {

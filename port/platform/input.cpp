@@ -4,6 +4,7 @@
 #include "platform/input.h"
 
 #include <algorithm>
+#include <utility>
 
 #include <SDL3/SDL.h>
 
@@ -63,22 +64,36 @@ void Input::handle_event(const SDL_Event& event) {
         case SDL_EVENT_GAMEPAD_ADDED: {
             SDL_Gamepad* g = SDL_OpenGamepad(event.gdevice.which);
             if (g != nullptr) {
+                // Its id is its model's GUID and its serial, which stay the same from one run to
+                // the next, where SDL's instance number does not (players.h).
+                char guid[33] = {};
+                SDL_GUIDToString(SDL_GetGamepadGUIDForID(event.gdevice.which), guid, sizeof guid);
+                const char* serial = SDL_GetGamepadSerial(g);
                 const char* name = SDL_GetGamepadName(g);
-                log::info(
-                    "gamepad connected: {} ({:04x}:{:04x})",
-                    name != nullptr ? name : "?",
-                    SDL_GetGamepadVendor(g),
-                    SDL_GetGamepadProduct(g)
-                );
+                std::vector<std::string> taken;
+                for (const Device& d : m_devices) {
+                    taken.push_back(d.id);
+                }
+                Device device{
+                    controller_id(guid, serial != nullptr ? serial : "", taken),
+                    name != nullptr ? name : "Controller",
+                    -1,
+                };
+                log::info("gamepad connected: {} ({})", device.name, device.id);
                 m_gamepads.push_back({g});
+                m_devices.push_back(std::move(device));
+                assign_players();
             }
             break;
         }
         case SDL_EVENT_GAMEPAD_REMOVED: {
             const auto it = find(event.gdevice.which);
             if (it != m_gamepads.end()) {
-                log::info("gamepad disconnected");
-                if (static_cast<std::size_t>(it - m_gamepads.begin()) < m_used) {
+                const auto index = it - m_gamepads.begin();
+                log::info(
+                    "gamepad disconnected: {}", m_devices[static_cast<std::size_t>(index)].name
+                );
+                if (static_cast<std::size_t>(index) < m_used) {
                     --m_used;
                 }
                 // A gamepad opened later at the same address is another one: its sticks start afresh.
@@ -90,6 +105,8 @@ void Input::handle_event(const SDL_Event& event) {
                 );
                 SDL_CloseGamepad(it->gamepad);
                 m_gamepads.erase(it);
+                m_devices.erase(m_devices.begin() + index);
+                assign_players();
             }
             break;
         }
@@ -173,18 +190,19 @@ void Input::pressed(std::uint32_t which, std::uint64_t ns) {
     // was found before the controller no longer holds port 0. A button only: such a device may
     // rest off centre.
     if (static_cast<std::size_t>(it - m_gamepads.begin()) >= m_used) {
-        const auto to = m_gamepads.begin() + static_cast<std::ptrdiff_t>(m_used);
-        std::rotate(to, it, it + 1);
-        it = to;
+        move_gamepad(static_cast<std::size_t>(it - m_gamepads.begin()), m_used);
+        it = m_gamepads.begin() + static_cast<std::ptrdiff_t>(m_used);
         ++m_used;
+        assign_players();
     }
     // Port 0 changes hands when its gamepad has been left alone a while, nothing on it pressed or
     // pushed (a stick held all the way sends nothing more): the player has picked up another
     // controller. Two players playing at once keep their ports.
     const Connected& front = m_gamepads.front();
     if (it != m_gamepads.begin() && ns >= front.active_ns + kHandOverNs && !held(front.gamepad)) {
-        std::rotate(m_gamepads.begin(), it, it + 1);
+        move_gamepad(static_cast<std::size_t>(it - m_gamepads.begin()), 0);
         it = m_gamepads.begin();
+        assign_players();
         log::info(
             "gamepad on port 0: {}",
             SDL_GetGamepadName(it->gamepad) ? SDL_GetGamepadName(it->gamepad) : "?"
@@ -193,9 +211,68 @@ void Input::pressed(std::uint32_t which, std::uint64_t ns) {
     it->active_ns = ns;
 }
 
+void Input::move_gamepad(std::size_t from, std::size_t to) {
+    const auto rotate = [&](auto& v) {
+        const auto a = v.begin() + static_cast<std::ptrdiff_t>(std::min(from, to));
+        const auto b = v.begin() + static_cast<std::ptrdiff_t>(std::max(from, to));
+        if (from > to) {
+            std::rotate(a, b, b + 1);
+        } else {
+            std::rotate(a, a + 1, b + 1);
+        }
+    };
+    rotate(m_gamepads);
+    rotate(m_devices);
+}
+
 SDL_Gamepad* Input::gamepad(int port) const {
-    const auto index = static_cast<std::size_t>(port);
-    return index < m_gamepads.size() ? m_gamepads[index].gamepad : nullptr;
+    const int index = m_assignment.pad[static_cast<std::size_t>(port)];
+    return index >= 0 && static_cast<std::size_t>(index) < m_gamepads.size()
+               ? m_gamepads[static_cast<std::size_t>(index)].gamepad
+               : nullptr;
+}
+
+void Input::set_players(const Players& players) {
+    if (players == m_players) {
+        return;
+    }
+    m_players = players;
+    assign_players();
+}
+
+bool Input::take_devices_changed() {
+    return std::exchange(m_devices_changed, false);
+}
+
+void Input::assign_players() {
+    std::vector<std::string> ids;
+    for (const Device& d : m_devices) {
+        ids.push_back(d.id);
+    }
+    const Assignment was = m_assignment;
+    m_assignment = assign(m_players, ids);
+    for (Device& d : m_devices) {
+        d.player = -1;
+    }
+    for (int p = 0; p < kPlayers; ++p) {
+        const int index = m_assignment.pad[static_cast<std::size_t>(p)];
+        if (index >= 0) {
+            m_devices[static_cast<std::size_t>(index)].player = p;
+        }
+    }
+    if (!(was == m_assignment)) {
+        for (int p = 0; p < kPlayers; ++p) {
+            const int index = m_assignment.pad[static_cast<std::size_t>(p)];
+            log::info(
+                "player {}: {}{}",
+                p + 1,
+                index >= 0 ? m_devices[static_cast<std::size_t>(index)].name
+                           : std::string("no controller"),
+                m_assignment.keyboard == p ? " and the keyboard" : ""
+            );
+        }
+    }
+    m_devices_changed = true;
 }
 
 void Input::update() {
@@ -276,7 +353,8 @@ void Input::refresh_pads() {
         pad.large_motor = large_motor;
 
         SDL_Gamepad* g = gamepad(port);
-        pad.connected = port == 0 || g != nullptr;
+        const bool keyboard_here = m_assignment.keyboard == port;
+        pad.connected = port == 0 || g != nullptr || keyboard_here;
         // The controllers stand still while another window has the keyboard, if the player asked.
         const bool read =
             g != nullptr && (m_bindings.tuning.background || SDL_GetKeyboardFocus() != nullptr);
@@ -314,10 +392,10 @@ void Input::refresh_pads() {
             m_last[static_cast<std::size_t>(port)] = {};
             m_latch[static_cast<std::size_t>(port)] = {};
         }
+        if (keyboard_here && m_keyboard_table) {
+            apply_keys(m_bindings, keys, pad);
+        }
         if (port == 0) {
-            if (m_keyboard_table) {
-                apply_keys(m_bindings, keys, pad);
-            }
             m_touch.idle(SDL_GetTicks());
             m_touch.apply(pad);
         }
