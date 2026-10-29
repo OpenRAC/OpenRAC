@@ -82,7 +82,9 @@ int main(int argc, char** argv) {
         level.materials.push_back({});
         level.instances[static_cast<std::size_t>(scene::Layer::Terrain)].push_back({});
         const bool uploaded = scene.upload(level, renderer.textures(), error);
-        if (!uploaded) std::fprintf(stderr, "%s\n", error.c_str());
+        if (!uploaded) {
+            std::fprintf(stderr, "%s\n", error.c_str());
+        }
         CHECK(uploaded);
         CHECK(!scene.probe_data_available());
         {

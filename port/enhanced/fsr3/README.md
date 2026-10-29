@@ -109,92 +109,57 @@ occlusion, front visibility and exact HUD coverage in Quality, Performance and N
 
 ## Camera-target-relative motion blur
 
-Enhanced Settings offers **Motion blur** (off by default) and **Blur strength**
-(0–1, default 0.5). Gameplay uses the game camera rig's smoothed tracking focus as
-its translation reference, rather than Ratchet's body or the orbiting camera eye.
-Ratchet can jump relative to that focus without applying his full vertical velocity
-to the scenery. Scenery still responds to actual focus movement. Manual camera
-rotation/orbit does not itself move the reference. Gameplay sky and the HUD stay sharp.
+Motion blur is off by default. Enable it in Enhanced Settings or the launcher's enhanced graphics
+settings. Gameplay blur is relative to the camera rig's smoothed tracking focus: jumping and
+orbiting the camera do not apply Ratchet's full motion to the scenery. The HUD and gameplay sky
+stay sharp. Real-time RAC1 cutscenes use camera-relative blur, including sky rotation.
+Prerendered movies are unchanged.
 
-RAC1's reader follows the active camera pointer at eye address +0x40, checks the
-default follow record's id (+0x86 == 0), then reads its saved state (+0x70) and focus
-(+0x40). The layout is shared by PAL/NTSC and their per-level address tables. Other
-camera records are left unknown rather than interpreting a different saved-state
-layout. Camera record/state identity changes, missing data, nonfinite values and
-large target jumps suppress gameplay blur until matching history returns. There is
-no fallback to Ratchet's root. The focus is captured on the game thread and interpolated
-with the displayed camera, then compared with the previous displayed focus.
+The Motion Blur section controls exposure, maximum trail length, samples, minimum motion,
+trail spread, depth tolerance and the cutscene multiplier. Strength 1 is a 1/60-second exposure;
+the default 0.5 is 1/120 second, adjusted for the displayed-frame interval. Trails default to
+128 display pixels. Ranges and defaults are in [settings](../../../docs/port/SETTINGS.md).
+With FSR Off, enabling blur selects Native AA; disabling it restores the saved Off choice.
+Unsupported builds retain native rendering.
 
-Each depth pixel projects a hypothetical previous position travelling with that focus
-through the previous camera. Subtracting this reference velocity from FSR motion handles
-perspective and depth without subtracting a single screen-space vector everywhere.
-Opaque object and skinned motion remain; transparent effects have no independent velocity.
+The game thread reads the active follow camera's focus and record/state identity for both PAL
+and NTSC, then interpolates it with the displayed camera. Missing or invalid focus, identity
+changes and large jumps suppress gameplay blur until matching history returns. Other camera
+records are not interpreted as follow cameras, and there is no fallback to Ratchet's root.
+Mode transitions skip one blur frame without resetting FSR history; camera cuts reset it normally.
 
-Real-time RAC1 cutscenes (level mode 2) use normal camera-relative blur from the original
-FSR vectors, including camera/object movement and sky rotation. No focus or visible hero
-is required. Both modes share the controls. Mode transitions skip one blur frame without
-resetting FSR history; camera cuts retain their usual reset. Prerendered movies are unchanged.
+Each depth pixel projects a previous position travelling with the focus through the previous
+camera. Subtracting this reference from FSR motion preserves perspective, depth and opaque
+object/skinned motion. Transparent effects have no independent motion vectors.
 
-Blur runs after reconstruction, leaving SDK input/history unchanged. With FSR Off it
-selects Native AA; disabling blur restores the saved Off choice. This uses single-sample
-rendering while active. Unsupported builds retain native rendering. The dedicated Motion Blur section exposes persistent exposure, radius, sampling,
-minimum-motion, JFA spread, depth tolerance and cutscene multiplier controls; see
-[settings](../../../docs/port/SETTINGS.md). Strength 1 is a 1/60-second exposure and 0.5 is
-1/120 second, normalized by the displayed-frame interval. Trails default to a 128-display-pixel cap, adjustable from 1 to 128 pixels. Jump-flood velocity dilation is adapted from SphynxMotionBlurToolkit's
-`jfp_simple.glsl` at commit `d0c16fc1581eb757e993ff6eaf5877078c8d24cd` (MIT; full notice
-in [THIRD_PARTY_NOTICES.md](../../../THIRD_PARTY_NOTICES.md)). The Godot wrappers,
-experimental history filter and demo assets are not imported.
+Blur runs after reconstruction, leaving SDK input and history unchanged. Jump flooding carries
+source coordinates through eight neighbours at decreasing power-of-two jumps. Two R32UI targets
+pack exact 16-bit X/Y coordinates, including above 2048 pixels. The first pass initializes seeds
+implicitly; stationary pixels are invalid seeds. Candidate selection uses velocity-space reach,
+side allowance and foreground-depth priority. The final gather includes the exact propagated
+source so thin features cannot fall between trail samples.
 
-Every moving render pixel initializes its source coordinate; stationary pixels use an
-explicit invalid seed. The first flood generates seeds directly, avoiding a separate initialization pass.
-Two R32UI targets pack exact 16-bit X/Y coordinates in four bytes per pixel and
-ping-pong through eight-neighbour passes at
-power-of-two jumps down to one pixel, covering the configured display-pixel blur radius. Seed
-coordinates stay exact even above 2048 pixels. Candidate selection follows the upstream
-velocity-space reach/side tests and gives nearer depth priority over background speed.
-The final gather samples the propagated source directly as well as its velocity trail,
-so a thin source cannot fall between all reconstruction taps. No tile-max reduction
-precedes JFA. The flood starts from implicit per-pixel seeds every frame, including after resize;
-previous seed contents are never read by the initial pass. Duplicate candidates and
-candidates behind an accepted foreground source are rejected early. The final gather
-discards stationary fragments, preserving the existing display without fetching or
-rewriting their colour. Resolution, sample count and blur selection rules are unchanged.
-`motion blur JFA passes` records the pass count in frame diagnostics.
+The jump flood is adapted from SphynxMotionBlurToolkit's `jfp_simple.glsl` at commit
+`d0c16fc1581eb757e993ff6eaf5877078c8d24cd` (MIT; full notice in
+[THIRD_PARTY_NOTICES.md](../../../THIRD_PARTY_NOTICES.md)). Its Godot wrappers, experimental history
+filter and demo assets are not imported.
 
-The full-resolution flood costs extra bandwidth and render passes. This remains an
-approximate single-frame filter: hidden surfaces and complicated overlapping motion can
-still show artifacts; JFA does not reconstruct unseen background.
+`motion-blur-fast-path` is on by default. It preserves candidate order and depth/fitness ties,
+rejects duplicate candidates, prefetches seed coordinates and uses integer gathers for interior
+stride-one pixels. On eligible frames, FSR reconstructs directly into the blur input and the
+resolve writes unchanged pixels too, avoiding a separate full-size colour copy. Reset,
+mode-transition and unknown-target frames reconstruct into the normal display. If blur fails,
+its unblurred input is presented before the HUD. The reference path remains available with
+`OPENRAC_RENDER_OPT_OFF=motion-blur-fast-path`; there is no CPU readback or extra history.
+`motion blur JFA passes` reports the flood pass count in diagnostics.
+
+The full-resolution flood adds bandwidth and render passes. This single-frame filter cannot
+reconstruct hidden background; overlapping motion and occlusion can still show artifacts.
 
 `camera_target` checks focus reads and invalid data for both versions and all levels.
-`motion_blur` covers target identity, jumps with a stationary focus, eye-motion independence,
-normal cutscene blur, different receiver depths, exposure, foreground occlusion,
-thin opposing motion, multi-jump radius/edge coverage and stale-seed rejection.
-`fsr3_frame` checks HUD preservation, mode transitions and the Native AA fallback;
-`settings` checks persistence and invalid values.
-
-
-The `motion-blur-fast-path` optimisation retains the reference path for exact comparisons
-(`OPENRAC_RENDER_OPT_OFF=motion-blur-fast-path`). It unrolls the eight neighbours in the
-same order, caches a repeated rejected source and omits the redundant minimum-speed
-check on seeds that passed it in the initial flood. Candidate fitness, depth priority,
-resolution, radius and sample counts stay unchanged.
-
-On eligible frames FSR writes directly to the blur's storage-capable colour input. The
-final gather also copies unchanged pixels into the display, eliminating the separate
-full-size snapshot blit. Reset, mode-transition and unknown-target frames still dispatch
-straight into the normal display. If the blur fails after reconstruction, its unblurred
-input is presented before the HUD. There is no CPU readback or additional history.
-
-The `motion_blur` regression compares 36 complete synthetic images byte-for-byte against
-the reference, including dense motion/depth discontinuities and odd 4099x11 dimensions.
-`fsr3_frame` compares 13 complete reconstructed world/HUD frames across quality changes,
-Native AA, output replacement and cinematic transitions. Both paths use Vulkan validation.
-
-
-Later jump-flood passes prefetch all independent seed coordinates before the dependent
-motion/fitness lookups. For interior pixels at stride one, four integer texture gathers
-supply the same centre and eight neighbours; quarter-texel coordinates avoid selection
-boundaries. Image edges use the original bounds-checked integer fetches. The implicit
-initial-seed pass keeps its direct candidate evaluation. All candidates are considered
-in the original order, preserving depth/fitness ties exactly. No passes, neighbours,
-resolution or precision are removed. The same pixel-exact regressions cover both paths.
+`motion_blur` covers focus identity, jumps, eye-motion independence, cutscenes, depth, exposure,
+foreground occlusion, thin opposing motion, radius/edge coverage and stale seeds. It compares
+36 complete synthetic frames against the reference, including odd 4099x11 dimensions.
+`fsr3_frame` compares 13 world/HUD frames across quality changes, Native AA, output replacement
+and cinematic transitions. Both GPU suites use Vulkan validation. `settings` checks persistence
+and invalid values.

@@ -129,8 +129,15 @@ int main() {
         VkPhysicalDeviceFeatures2 available{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
         available.pNext = &features;
         vkGetPhysicalDeviceFeatures2(device.physical, &available);
-        CHECK(device.float16 == bool(features.shaderFloat16 && openrac::renderer::render_opt::enabled(
-            openrac::renderer::render_opt::Opt::ShaderFloat16)));
+        CHECK(
+            device.float16
+            == bool(
+                features.shaderFloat16
+                && openrac::renderer::render_opt::enabled(
+                    openrac::renderer::render_opt::Opt::ShaderFloat16
+                )
+            )
+        );
         const auto before = openrac::vkgl::submission_counters().shader_fp16_ops;
         build(
             "precision capability",

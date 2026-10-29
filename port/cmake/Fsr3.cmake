@@ -55,7 +55,8 @@ else()
 endif()
 
 add_library(openrac_fsr3 STATIC enhanced/fsr3/sdk_context.cpp enhanced/fsr3/frame_target.cpp
-  enhanced/fsr3/fsr3.cpp enhanced/fsr3/fsr3_frame.cpp enhanced/fsr3/motion_blur.cpp)
+  enhanced/fsr3/fsr3.cpp enhanced/fsr3/fsr3_frame.cpp enhanced/fsr3/motion_blur.cpp
+  enhanced/fsr3/motion_blur_targets.cpp)
 target_link_libraries(openrac_fsr3 PUBLIC openrac_renderer_vulkan PRIVATE openrac_renderer
   openrac_scene_renderer openrac_fsr3_sdk)
 openrac_embed_shaders(openrac_fsr3 fsr3 openrac::enhanced
@@ -87,6 +88,7 @@ set_tests_properties(fsr3_motion PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
   "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_VULKAN_PIPELINE_CACHE=0")
 
 openrac_add_test(motion_blur SOURCES enhanced/tests/motion_blur_test.cpp
+  enhanced/tests/motion_blur_fixture.cpp
   LIBS openrac_fsr3 openrac_platform)
 set_tests_properties(motion_blur PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
   "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_VULKAN_PIPELINE_CACHE=0")

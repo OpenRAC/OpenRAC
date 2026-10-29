@@ -151,8 +151,8 @@ host::GameState blend_camera(const host::GameState& from, const host::GameState&
     c.camera_position = pose.position;
     if (from.camera_target && to.camera_target && from.camera_target_id == to.camera_target_id) {
         for (std::size_t i = 0; i < 3; ++i) {
-            (*c.camera_target)[i] = (*from.camera_target)[i]
-                + ((*to.camera_target)[i] - (*from.camera_target)[i]) * t;
+            (*c.camera_target)[i] =
+                (*from.camera_target)[i] + ((*to.camera_target)[i] - (*from.camera_target)[i]) * t;
         }
     }
     c.forward = pose.forward;

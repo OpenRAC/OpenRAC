@@ -250,20 +250,20 @@ void Fsr3::State::resolve(renderer::RenderTarget& target) {
 
     if (resolved && delta) {
         const bool blurred = blur.apply(
-            display,
-            {world.width(), world.height()},
-            motion.texture(),
-            world.depth_texture(),
-            inverse_raster,
-            view.previous,
-            dispatch.jitter,
-            camera.position,
-            *delta,
-            camera_blur,
-            blur_strength,
-            dispatch.milliseconds,
-            blur_settings,
-            blur_output
+            {display,
+             {world.width(), world.height()},
+             motion.texture(),
+             world.depth_texture(),
+             inverse_raster,
+             view.previous,
+             dispatch.jitter,
+             camera.position,
+             *delta,
+             camera_blur,
+             blur_strength,
+             dispatch.milliseconds,
+             blur_settings,
+             blur_output}
         );
         // Resource failures still present the complete reconstructed world and HUD.
         if (!blurred && blur_output) {

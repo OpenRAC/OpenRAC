@@ -41,9 +41,11 @@ void test_temporal_settings(const std::filesystem::path& file) {
 
 void test_motion_blur_tuning(const std::filesystem::path& file) {
     using namespace openrac;
-    std::ofstream(file) << "motion_blur_radius = 96\nmotion_blur_samples = 48\n"
-                        << "motion_blur_min_motion = 1.25\nmotion_blur_spread = 0.75\n"
-                        << "motion_blur_depth_tolerance = 0.025\nmotion_blur_cutscene_multiplier = 1.5\n";
+    std::ofstream(
+        file
+    ) << "motion_blur_radius = 96\nmotion_blur_samples = 48\n"
+      << "motion_blur_min_motion = 1.25\nmotion_blur_spread = 0.75\n"
+      << "motion_blur_depth_tolerance = 0.025\nmotion_blur_cutscene_multiplier = 1.5\n";
     settings::load(file);
     for (int roundtrip = 0; roundtrip < 2; ++roundtrip) {
         const auto& blur = settings::get().motion_blur_settings;
@@ -53,9 +55,11 @@ void test_motion_blur_tuning(const std::filesystem::path& file) {
         settings::save();
         settings::load(file);
     }
-    std::ofstream(file) << "motion_blur_radius = 129\nmotion_blur_samples = 7\n"
-                        << "motion_blur_min_motion = nan\nmotion_blur_spread = 2\n"
-                        << "motion_blur_depth_tolerance = -1\nmotion_blur_cutscene_multiplier = inf\n";
+    std::ofstream(
+        file
+    ) << "motion_blur_radius = 129\nmotion_blur_samples = 7\n"
+      << "motion_blur_min_motion = nan\nmotion_blur_spread = 2\n"
+      << "motion_blur_depth_tolerance = -1\nmotion_blur_cutscene_multiplier = inf\n";
     settings::load(file);
     const auto& blur = settings::get().motion_blur_settings;
     CHECK(blur.max_radius == 128 && blur.samples == 32);

@@ -491,7 +491,8 @@ void save() {
         << "motion_blur_min_motion = " << s.motion_blur_settings.min_motion << "\n"
         << "motion_blur_spread = " << s.motion_blur_settings.spread << "\n"
         << "motion_blur_depth_tolerance = " << s.motion_blur_settings.depth_tolerance << "\n"
-        << "motion_blur_cutscene_multiplier = " << s.motion_blur_settings.cutscene_multiplier << "\n"
+        << "motion_blur_cutscene_multiplier = " << s.motion_blur_settings.cutscene_multiplier
+        << "\n"
         << "temporal_sharpness = " << s.temporal_sharpness << "\n"
         << "anisotropy = " << (s.anisotropy ? std::to_string(s.anisotropy) : "auto") << "\n"
         << "vsync = " << kVSync[static_cast<int>(s.vsync)] << "\n"

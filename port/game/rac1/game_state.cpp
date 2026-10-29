@@ -172,8 +172,7 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const GameAdd
     // whose +0x40 focus is eased by follow_cam_focus_velocity/follow_camera_springs.
     // Other camera records have different saved-state layouts: never interpret them as follow data.
     const auto record = at<std::uint32_t>(ram, a.camera_position + 0x40) & 0x1FFFFFFFu;
-    if (record != 0 && record + 0xA0 <= ram.size()
-        && at<std::int16_t>(ram, record + 0x86) == 0) {
+    if (record != 0 && record + 0xA0 <= ram.size() && at<std::int16_t>(ram, record + 0x86) == 0) {
         const auto saved = at<std::uint32_t>(ram, record + 0x70) & 0x1FFFFFFFu;
         if (saved != 0 && saved + 0x50 <= ram.size()) {
             const auto focus = vec3(ram, saved + 0x40);
