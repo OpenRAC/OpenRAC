@@ -164,7 +164,8 @@ void open_controls(const std::filesystem::path& dir, const std::string& game) {
             log::info("controls: {} controller mapping(s) from {}", added, mappings.string());
         }
     }
-    const auto apply = [](const platform::Bindings& bindings, const platform::Players& players) {
+    const auto apply = [](const controls::Store::PlayerBindings& bindings,
+                          const platform::Players& players) {
         g->input.set_bindings(bindings);
         g->input.set_players(players);
     };

@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <array>
 #include <filesystem>
 #include <functional>
 #include <string>
@@ -35,7 +36,8 @@ enum class Scope {
 
 class Store {
 public:
-    using Apply = std::function<void(const platform::Bindings&, const platform::Players&)>;
+    using PlayerBindings = std::array<platform::Bindings, platform::kPlayers>;
+    using Apply = std::function<void(const PlayerBindings&, const platform::Players&)>;
 
     // Reads the controls of `game` ("rac1") in `dir`, and applies them. A missing file is an empty
     // one, made when something is first written to it.
@@ -50,10 +52,15 @@ public:
     // Returns how many moved.
     int adopt(const platform::BindingValues& old);
 
-    // What the pad is pressed from now, and where each of it came from.
-    const platform::Bindings& bindings() const { return m_bindings; }
+    // What a player's pad is pressed from now (`player` 0 or 1), or what every player's is before
+    // any key of one player's own (-1), and where each of it came from.
+    const platform::Bindings& bindings(int player = -1) const {
+        return player < 0 ? m_shared : m_player[static_cast<std::size_t>(player)];
+    }
 
-    const platform::Origins& origins() const { return m_origins; }
+    const platform::Origins& origins(int player = -1) const {
+        return player < 0 ? m_shared_origins : m_player_origins[static_cast<std::size_t>(player)];
+    }
 
     // Which controller each player reads: the global file's player1 and player2, the defaults
     // where it has none. A game's file does not choose them.
@@ -79,8 +86,13 @@ public:
     bool erase(Scope scope, std::string_view key);
 
     // Puts `scope` back to what it inherits. The game's: its file goes. The global: its bindings
-    // and controller settings go (bind_*, pad_*), the rest of the file (the players) stays.
+    // and controller settings go (bind_*, pad_*, and each player's own), the rest of the file (the
+    // players' controllers) stays.
     bool reset(Scope scope);
+
+    // Removes one player's own bindings and settings from `scope`'s file (p1.*, p2.*), so the
+    // player reads what every player reads.
+    bool reset_player(Scope scope, int player);
 
 private:
     platform::ControlsFile& file_of(Scope scope) {
@@ -99,8 +111,10 @@ private:
     std::filesystem::file_time_type m_global_time{};
     std::filesystem::file_time_type m_game_time{};
     double m_polled = -1.0;
-    platform::Bindings m_bindings = platform::default_bindings();
-    platform::Origins m_origins;
+    platform::Bindings m_shared = platform::default_bindings();
+    platform::Origins m_shared_origins;
+    PlayerBindings m_player{platform::default_bindings(), platform::default_bindings()};
+    std::array<platform::Origins, platform::kPlayers> m_player_origins;
     platform::Players m_players = platform::default_players();
 };
 

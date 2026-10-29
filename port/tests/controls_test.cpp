@@ -82,9 +82,7 @@ void test_layers_and_resets(const fs::path& dir) {
     Store store;
     int applied = 0;
     store.open(
-        dir,
-        "rac1",
-        [&applied](const openrac::platform::Bindings&, const openrac::platform::Players&) {
+        dir, "rac1", [&applied](const Store::PlayerBindings&, const openrac::platform::Players&) {
             ++applied;
         }
     );
@@ -126,6 +124,59 @@ void test_layers_and_resets(const fs::path& dir) {
     CHECK(global.find("player2 = auto") != std::string::npos);
     CHECK(store.bindings().of(Button::Cross).keys[0] == SDL_SCANCODE_SPACE);
     CHECK(store.bindings().tuning.sticks[0].deadzone == 0);
+}
+
+// A player's own keys (p2.bind_cross) over every player's, kind by kind; the game's keys for every
+// player over the global file's for one player; another player's keys not read; each player's
+// reset on its own.
+void test_players_own_controls(const fs::path& dir) {
+    fs::create_directories(dir);
+    std::ofstream(dir / "global.ini") << "format = 1\nbind_cross = KeyJ,PadEast\n"
+                                         "p2.bind_cross = PadNorth\np2.bind_l1 = PadMisc1\n"
+                                         "p2.pad_right_invert_y = 1\n";
+    std::ofstream(dir / "rac1.ini") << "format = 1\nbind_l1 = PadLeftPaddle1\n"
+                                       "p1.bind_r1 = PadRightPaddle1\n";
+    Store store;
+    Store::PlayerBindings applied{};
+    store.open(
+        dir, "rac1", [&applied](const Store::PlayerBindings& b, const openrac::platform::Players&) {
+            applied = b;
+        }
+    );
+    const auto pad0 = [&](int player, Button button) {
+        return store.bindings(player).of(button).pad[0].input.value;
+    };
+    // Player 1: every player's Cross, its own R1.
+    CHECK(pad0(0, Button::Cross) == SDL_GAMEPAD_BUTTON_EAST);
+    CHECK(pad0(0, Button::R1) == SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1);
+    CHECK(!store.bindings(0).tuning.sticks[1].invert_y);
+    // Player 2: its own Cross, keeping every player's key; its own L1 under the game's for everyone.
+    CHECK(pad0(1, Button::Cross) == SDL_GAMEPAD_BUTTON_NORTH);
+    CHECK(store.bindings(1).of(Button::Cross).keys[0] == SDL_SCANCODE_J);
+    CHECK(pad0(1, Button::L1) == SDL_GAMEPAD_BUTTON_LEFT_PADDLE1);
+    CHECK(pad0(1, Button::R1) == SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
+    CHECK(store.bindings(1).tuning.sticks[1].invert_y);
+    const int cross = openrac::platform::target_of(Button::Cross);
+    CHECK(store.origins(1).pad[static_cast<std::size_t>(cross)] == Layer::GlobalPlayer);
+    CHECK(store.origins(1).keys[static_cast<std::size_t>(cross)] == Layer::Global);
+    CHECK(
+        store.origins(0).pad[static_cast<std::size_t>(openrac::platform::target_of(Button::R1))]
+        == Layer::GamePlayer
+    );
+    // Every player's view knows no player's keys; what is applied is each player's own.
+    CHECK(pad0(-1, Button::Cross) == SDL_GAMEPAD_BUTTON_EAST);
+    CHECK(applied[1].of(Button::Cross).pad[0].input.value == SDL_GAMEPAD_BUTTON_NORTH);
+
+    // Player 2 back to every player's: only its own keys go.
+    CHECK(store.reset_player(Scope::Global, 1));
+    CHECK(pad0(1, Button::Cross) == SDL_GAMEPAD_BUTTON_EAST);
+    CHECK(read_file(dir / "global.ini").find("bind_cross = KeyJ,PadEast") != std::string::npos);
+    CHECK(!store.reset_player(Scope::Global, 1));  // nothing left of its own
+    CHECK(pad0(0, Button::R1) == SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1);
+    // The global reset takes the players' own keys too.
+    store.set(Scope::Global, "p1.bind_square", "PadMisc1");
+    CHECK(store.reset(Scope::Global));
+    CHECK(read_file(dir / "global.ini").find("p1.") == std::string::npos);
 }
 
 // The bindings the version's settings file held move into the game's file, unless it has them.
@@ -233,7 +284,7 @@ void test_store_players(const fs::path& dir) {
     std::ofstream(dir / "rac1.ini") << "format = 1\nplayer1 = none\n";
     Store store;
     Players applied;
-    store.open(dir, "rac1", [&applied](const openrac::platform::Bindings&, const Players& players) {
+    store.open(dir, "rac1", [&applied](const Store::PlayerBindings&, const Players& players) {
         applied = players;
     });
     CHECK(applied.wants[0] == std::vector<std::string>({"keyboard", "auto"}));
@@ -261,6 +312,7 @@ int main() {
     test_named_players();
     test_controller_ids();
     test_store_players(dir / "players");
+    test_players_own_controls(dir / "own");
     fs::remove_all(dir, error);
     return openrac::test::result();
 }

@@ -666,18 +666,40 @@ std::string binding_value(const Bindings::Slot& slot) {
     return out.empty() ? std::string(kUnbound) : out;
 }
 
-Bindings compile_layers(const BindingValues* global, const BindingValues* game, Origins* origins) {
+std::string player_prefix(int player) {
+    return "p" + std::to_string(player + 1) + ".";
+}
+
+Bindings compile_layers(
+    const BindingValues* global, const BindingValues* game, Origins* origins, int player
+) {
     Bindings out = default_bindings();
     Origins found;
-    const std::pair<const BindingValues*, Layer> layers[] = {
-        {global, Layer::Global},
-        {game, Layer::Game},
+    const std::string own = player >= 0 ? player_prefix(player) : std::string();
+
+    struct Read {
+        const BindingValues* values;
+        Layer layer;
+        bool players;  // the player's own keys (own...), else those for every player
     };
-    for (const auto& [values, layer] : layers) {
-        if (values == nullptr) {
+
+    const Read layers[] = {
+        {global, Layer::Global, false},
+        {global, Layer::GlobalPlayer, true},
+        {game, Layer::Game, false},
+        {game, Layer::GamePlayer, true},
+    };
+    for (const auto& [values, layer, players] : layers) {
+        if (values == nullptr || (players && own.empty())) {
             continue;
         }
-        for (const auto& [key, value] : *values) {
+        for (const auto& [full_key, value] : *values) {
+            // Another player's key, or (in the player's layer) a key for every player: not this one.
+            if (players != std::string_view(full_key).starts_with(own) && !own.empty()) {
+                continue;
+            }
+            const std::string_view key = players ? std::string_view(full_key).substr(own.size())
+                                                 : std::string_view(full_key);
             const int target = target_of_key(key);
             if (target >= 0) {
                 // Read into an empty slot whose counts say "not named": what the value names comes
@@ -699,7 +721,7 @@ Bindings compile_layers(const BindingValues* global, const BindingValues* game, 
                     found.pad[t] = layer;
                 }
             } else if (key.starts_with(kTuningPrefix) && read_tuning(key, value, out.tuning)) {
-                found.tuning[key] = layer;
+                found.tuning[std::string(key)] = layer;
             }
         }
     }

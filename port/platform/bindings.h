@@ -193,8 +193,14 @@ using BindingValues = std::map<std::string, std::string, std::less<>>;
 enum class Layer : std::uint8_t {
     Default,
     Global,
+    GlobalPlayer,  // the global file's keys for one player (p1.bind_cross)
     Game,
+    GamePlayer,  // the game's file's keys for one player
 };
+
+// The start of a key that is one player's only: "p1." for player 0, "p2." for player 1. A file's
+// `p2.bind_cross` binds Cross for player 2 over its `bind_cross`, which every player reads.
+std::string player_prefix(int player);
 
 // For each target, where its keys and its pad inputs came from; for each pad_* key a layer set,
 // which one.
@@ -204,11 +210,15 @@ struct Origins {
     std::map<std::string, Layer, std::less<>> tuning;
 };
 
-// The layers' bindings, each read over the ones before it from the defaults on, the first layer
-// Global and the second Game: a kind of a target a layer names replaces that kind, and a pad_* key
-// a layer sets replaces its value. Where each came from is written to `origins` if given.
+// The layers' bindings, each read over the ones before it from the defaults on: the global file's
+// keys for every player, then its keys for `player` (-1: none), then the game's for every player,
+// then the game's for `player`. A kind of a target a layer names replaces that kind, and a pad_*
+// key a layer sets replaces its value. Where each came from is written to `origins` if given.
 Bindings compile_layers(
-    const BindingValues* global, const BindingValues* game, Origins* origins = nullptr
+    const BindingValues* global,
+    const BindingValues* game,
+    Origins* origins = nullptr,
+    int player = -1
 );
 
 // The player's bindings, as the settings file holds them (settings.h's Settings::bindings), read

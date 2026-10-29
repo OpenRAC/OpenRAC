@@ -115,6 +115,7 @@ struct Scroll {
 // what it last said.
 struct ControlsWindow {
     bool global = false;      // the global file; else the running game's own
+    int player = -1;          // the player whose own controls are changed (0, 1); -1 every player's
     int tab = 0;              // 0 bindings, 1 sticks and triggers, 2 players
     char filter[64] = {};     // the bindings' rows shown: those naming this
     int capture_target = -1;  // the target a press is being captured for; -1 none

@@ -98,11 +98,12 @@ public:
     // The keyboard and mouse as update() last read them, for the mods.
     const KeyboardMouse& keyboard_mouse() const { return m_km; }
 
-    // What the keys and gamepads press from now on (bindings.h): the next read uses it. What is
-    // held as they change is held back until let go (bindings.h's Latch).
-    void set_bindings(const Bindings& bindings);
+    // What each player's keys and gamepad press from now on (bindings.h), by player: the next read
+    // uses them. What is held on a player's controller as theirs change, and the keys held as the
+    // keyboard's player's change, are held back until let go (bindings.h's Latch).
+    void set_bindings(const std::array<Bindings, kPadPorts>& bindings);
 
-    const Bindings& bindings() const { return m_bindings; }
+    const Bindings& bindings(int port) const { return m_bindings[static_cast<std::size_t>(port)]; }
 
     // Which controller each player reads (players.h): applied at once, and again whenever a
     // controller connects or leaves.
@@ -183,7 +184,7 @@ private:
     // Each port's sticks, left and right, as their gamepad has shown them (pad.h), and the gamepad
     // that showed it: another one on the port starts afresh.
     std::array<std::array<StickGate, 2>, kPadPorts> m_gates{};
-    Bindings m_bindings = default_bindings();
+    std::array<Bindings, kPadPorts> m_bindings{default_bindings(), default_bindings()};
     // What each port's gamepad and the keyboard held at the last read, and what was held back when
     // the bindings last changed.
     std::array<PadInputs, kPadPorts> m_last{};

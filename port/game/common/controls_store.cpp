@@ -60,7 +60,11 @@ void Store::read() {
 void Store::compile() {
     const platform::BindingValues global = m_global.values();
     const platform::BindingValues game = m_game.values();
-    m_bindings = platform::compile_layers(&global, &game, &m_origins);
+    m_shared = platform::compile_layers(&global, &game, &m_shared_origins);
+    for (int p = 0; p < platform::kPlayers; ++p) {
+        const auto i = static_cast<std::size_t>(p);
+        m_player[i] = platform::compile_layers(&global, &game, &m_player_origins[i], p);
+    }
     m_players = platform::default_players();
     for (int p = 0; p < platform::kPlayers; ++p) {
         if (const auto value = m_global.get(platform::player_key(p))) {
@@ -68,7 +72,7 @@ void Store::compile() {
         }
     }
     if (m_apply) {
-        m_apply(m_bindings, m_players);
+        m_apply(m_player, m_players);
     }
 }
 
@@ -148,6 +152,9 @@ bool Store::reset(Scope scope) {
     } else {
         file.erase_prefix(platform::kBindPrefix);
         file.erase_prefix(platform::kTuningPrefix);
+        for (int p = 0; p < platform::kPlayers; ++p) {
+            file.erase_prefix(platform::player_prefix(p));
+        }
         done = write(scope);
     }
     compile();
@@ -179,6 +186,16 @@ void Store::remember(const std::vector<platform::Device>& devices) {
         out << file.text();
     }
     fs::rename(fresh, path, error);
+}
+
+bool Store::reset_player(Scope scope, int player) {
+    platform::ControlsFile& file = file_of(scope);
+    if (file.read_only() || file.erase_prefix(platform::player_prefix(player)) == 0) {
+        return false;
+    }
+    const bool written = write(scope);
+    compile();
+    return written;
 }
 
 int Store::adopt(const platform::BindingValues& old) {

@@ -129,8 +129,12 @@ const char* layer_name(platform::Layer layer) {
             return "default";
         case platform::Layer::Global:
             return "all games";
+        case platform::Layer::GlobalPlayer:
+            return "all games, player";
         case platform::Layer::Game:
             return "this game";
+        case platform::Layer::GamePlayer:
+            return "this game, player";
     }
     return "";
 }
@@ -140,19 +144,29 @@ Scope scope() {
 }
 
 platform::Layer scope_layer() {
+    if (s.controls.player >= 0) {
+        return s.controls.global ? platform::Layer::GlobalPlayer : platform::Layer::GamePlayer;
+    }
     return s.controls.global ? platform::Layer::Global : platform::Layer::Game;
 }
 
-// The pad inputs a target has now, wherever they came from.
+// A key as the window writes it: the player's own (p2.bind_cross) while one player is chosen.
+std::string key_for(std::string_view key) {
+    return s.controls.player >= 0 ? platform::player_prefix(s.controls.player) + std::string(key)
+                                  : std::string(key);
+}
+
+// The pad inputs a target has now for the player chosen (or every player), wherever they came
+// from.
 std::vector<PadChord> pad_of(const controls::Store& store, int target) {
-    const auto& slot = store.bindings().slots[static_cast<std::size_t>(target)];
+    const auto& slot = store.bindings(s.controls.player).slots[static_cast<std::size_t>(target)];
     return {slot.pad.begin(), slot.pad.begin() + slot.pad_count};
 }
 
 // Writes `pad` as the target's pad inputs in the window's file, keeping the keys that file names
 // for it (the keyboard is not changed here).
 void write_pad(controls::Store& store, int target, const std::vector<PadChord>& pad) {
-    const char* key = platform::key_of_target(target);
+    const std::string key = key_for(platform::key_of_target(target));
     platform::Bindings::Slot named;
     named.key_count = -1;
     if (const auto value = store.file(scope()).get(key)) {
@@ -364,7 +378,7 @@ void bindings_tab(controls::Store& store, platform::Input& input) {
         }
 
         ImGui::TableNextColumn();
-        const platform::Layer from = store.origins().pad[static_cast<std::size_t>(target)];
+        const platform::Layer from = store.origins(w.player).pad[static_cast<std::size_t>(target)];
         ImGui::TextColored(from == scope_layer() ? kGreen : kDim, "%s", layer_name(from));
 
         ImGui::TableNextColumn();
@@ -381,9 +395,9 @@ void bindings_tab(controls::Store& store, platform::Input& input) {
             start_capture(input, target, ControlsWindow::Mode::ChordFirst);
         }
         ImGui::SameLine();
-        ImGui::BeginDisabled(!store.file(scope()).get(*key));
+        ImGui::BeginDisabled(!store.file(scope()).get(key_for(*key)));
         if (ImGui::SmallButton("Reset")) {
-            store.erase(scope(), *key);
+            store.erase(scope(), key_for(*key));
         }
         ImGui::EndDisabled();
         ImGui::EndDisabled();
@@ -447,12 +461,14 @@ void stick_picture(
 // The sticks' dead zones, sensitivity and inversion, the triggers' threshold, the face buttons'
 // labels, and whether the controllers count in the background.
 void tuning_tab(controls::Store& store, platform::Input& input) {
-    const platform::PadTuning& tuning = store.bindings().tuning;
+    const platform::PadTuning& tuning = store.bindings(s.controls.player).tuning;
     const bool locked = store.file(scope()).read_only();
-    // The stick drawn is the first player's controller's, else the first connected.
+    // The stick drawn is the chosen player's controller's (the first player's for every player),
+    // else the first connected.
     std::size_t shown = 0;
+    const int whose = std::max(s.controls.player, 0);
     for (std::size_t d = 0; d < input.devices().size(); ++d) {
-        if (input.devices()[d].player == 0) {
+        if (input.devices()[d].player == whose) {
             shown = d;
         }
     }
@@ -465,15 +481,27 @@ void tuning_tab(controls::Store& store, platform::Input& input) {
         ImGui::SeparatorText(stick == 0 ? "Left stick" : "Right stick");
         ImGui::BeginGroup();
         tuning_slider(
-            store, "Dead zone", std::format("pad_{}_deadzone", side), t.deadzone, 0, 50, "%d%%"
+            store,
+            "Dead zone",
+            key_for(std::format("pad_{}_deadzone", side)),
+            t.deadzone,
+            0,
+            50,
+            "%d%%"
         );
         tuning_slider(
-            store, "Outer edge", std::format("pad_{}_outer", side), t.outer, 50, 100, "%d%%"
+            store,
+            "Outer edge",
+            key_for(std::format("pad_{}_outer", side)),
+            t.outer,
+            50,
+            100,
+            "%d%%"
         );
         tuning_slider(
             store,
             "Sensitivity",
-            std::format("pad_{}_sensitivity", side),
+            key_for(std::format("pad_{}_sensitivity", side)),
             t.sensitivity,
             25,
             300,
@@ -481,29 +509,31 @@ void tuning_tab(controls::Store& store, platform::Input& input) {
         );
         bool invert_x = t.invert_x;
         if (ImGui::Checkbox("Invert horizontal", &invert_x)) {
-            store.set(scope(), std::format("pad_{}_invert_x", side), invert_x ? "1" : "0");
+            store.set(scope(), key_for(std::format("pad_{}_invert_x", side)), invert_x ? "1" : "0");
         }
         bool invert_y = t.invert_y;
         if (ImGui::Checkbox("Invert vertical", &invert_y)) {
-            store.set(scope(), std::format("pad_{}_invert_y", side), invert_y ? "1" : "0");
+            store.set(scope(), key_for(std::format("pad_{}_invert_y", side)), invert_y ? "1" : "0");
         }
         if (ImGui::SmallButton("Reset this stick")) {
             for (const char* name : {"deadzone", "outer", "sensitivity", "invert_x", "invert_y"}) {
-                store.erase(scope(), std::format("pad_{}_{}", side, name));
+                store.erase(scope(), key_for(std::format("pad_{}_{}", side, name)));
             }
         }
         ImGui::EndGroup();
         ImGui::SameLine(0.0f, dp(24));
-        stick_picture(live, stick, store.bindings());
+        stick_picture(live, stick, store.bindings(s.controls.player));
         ImGui::PopID();
     }
     ImGui::SeparatorText("Triggers and buttons");
     const int percent = (static_cast<int>(tuning.trigger_threshold) * 100 + 127) / 255;
-    tuning_slider(store, "Trigger press point", "pad_trigger_threshold", percent, 1, 100, "%d%%");
+    tuning_slider(
+        store, "Trigger press point", key_for("pad_trigger_threshold"), percent, 1, 100, "%d%%"
+    );
     int labels = tuning.face_labels ? 1 : 0;
     ImGui::SetNextItemWidth(dp(200));
     if (ImGui::Combo("Face buttons", &labels, "By position\0By label (Nintendo pads)\0")) {
-        store.set(scope(), "pad_face_buttons", labels == 1 ? "labels" : "position");
+        store.set(scope(), key_for("pad_face_buttons"), labels == 1 ? "labels" : "position");
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip(
@@ -512,7 +542,7 @@ void tuning_tab(controls::Store& store, platform::Input& input) {
     }
     bool background = tuning.background;
     if (ImGui::Checkbox("Controllers work while another window is in front", &background)) {
-        store.set(scope(), "pad_background", background ? "1" : "0");
+        store.set(scope(), key_for("pad_background"), background ? "1" : "0");
     }
     ImGui::EndDisabled();
     ImGui::TextDisabled("The game has its own dead zone: the port adds none unless set here.");
@@ -661,6 +691,30 @@ void controls_window() {
         w.global ? "Every game reads these, unless its own controls change them."
                  : "Only this game: what is not changed here comes from Every game."
     );
+    // Whose controls: every player's, or one player's own over them.
+    ImGui::TextUnformatted("For:");
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Every player", w.player < 0)) {
+        w.player = -1;
+    }
+    for (int p = 0; p < platform::kPlayers; ++p) {
+        ImGui::SameLine();
+        if (ImGui::RadioButton(std::format("Player {}", p + 1).c_str(), w.player == p)) {
+            w.player = p;
+        }
+    }
+    if (w.player >= 0) {
+        ImGui::SameLine();
+        ImGui::BeginDisabled(store->file(scope()).read_only() || w.capture_target >= 0);
+        if (ImGui::SmallButton(std::format("Player {} as every player", w.player + 1).c_str())) {
+            store->reset_player(scope(), w.player);
+            w.message = std::format("Player {} reads every player's controls again", w.player + 1);
+        }
+        ImGui::EndDisabled();
+        ImGui::TextDisabled(
+            "Player %d's own controls: what is not changed here is every player's.", w.player + 1
+        );
+    }
     if (store->file(scope()).read_only()) {
         ImGui::TextColored(
             kRed,

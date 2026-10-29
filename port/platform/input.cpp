@@ -41,16 +41,18 @@ void apply_keyboard(Pad& pad, std::span<const bool> keys) {
     apply_keys(defaults, keys, pad);
 }
 
-void Input::set_bindings(const Bindings& bindings) {
-    if (!differ(bindings, m_bindings)) {
-        return;
-    }
+void Input::set_bindings(const std::array<Bindings, kPadPorts>& bindings) {
     for (int port = 0; port < kPadPorts; ++port) {
         const auto p = static_cast<std::size_t>(port);
-        latch_held(m_last[p], m_bindings.tuning.trigger_threshold, m_latch[p]);
+        if (!differ(bindings[p], m_bindings[p])) {
+            continue;
+        }
+        latch_held(m_last[p], m_bindings[p].tuning.trigger_threshold, m_latch[p]);
+        if (m_assignment.keyboard == port) {
+            latch_held_keys(m_last_keys, m_key_latch);
+        }
+        m_bindings[p] = bindings[p];
     }
-    latch_held_keys(m_last_keys, m_key_latch);
-    m_bindings = bindings;
 }
 
 Input::~Input() {
@@ -297,7 +299,7 @@ void Input::begin_capture() {
     m_capture_held.clear();
     for (SDL_Gamepad* g : m_gamepads) {
         m_capture_held.push_back(
-            pressed_inputs(read_gamepad(g), m_bindings.tuning.trigger_threshold)
+            pressed_inputs(read_gamepad(g), m_bindings[0].tuning.trigger_threshold)
         );
     }
     m_captured.reset();
@@ -317,7 +319,7 @@ void Input::capture_step() {
     }
     for (std::size_t d = 0; d < m_gamepads.size() && !m_captured; ++d) {
         const std::vector<Binding> now =
-            pressed_inputs(read_gamepad(m_gamepads[d]), m_bindings.tuning.trigger_threshold);
+            pressed_inputs(read_gamepad(m_gamepads[d]), m_bindings[0].tuning.trigger_threshold);
         std::vector<Binding>& held = m_capture_held[d];
         for (const Binding& b : now) {
             if (std::find(held.begin(), held.end(), b) == held.end()) {
@@ -450,11 +452,12 @@ void Input::refresh_pads() {
         // The controllers stand still while another window has the keyboard, if the player asked.
         // While the controls window captures a press, every pad reads as nothing held.
         const bool read = g != nullptr && !m_capturing
-                          && (m_bindings.tuning.background || SDL_GetKeyboardFocus() != nullptr);
+                          && (m_bindings[static_cast<std::size_t>(port)].tuning.background
+                              || SDL_GetKeyboardFocus() != nullptr);
         if (read) {
             PadInputs inputs = read_gamepad(g);
             // A pad labelled Nintendo's way (A east), read by its labels: A is PadSouth.
-            if (m_bindings.tuning.face_labels
+            if (m_bindings[static_cast<std::size_t>(port)].tuning.face_labels
                 && SDL_GetGamepadButtonLabel(g, SDL_GAMEPAD_BUTTON_SOUTH)
                        == SDL_GAMEPAD_BUTTON_LABEL_B) {
                 swap_face_labels(inputs);
@@ -469,16 +472,18 @@ void Input::refresh_pads() {
             }
             m_last[static_cast<std::size_t>(port)] = inputs;
             hold_back(
-                inputs, m_bindings.tuning.trigger_threshold, m_latch[static_cast<std::size_t>(port)]
+                inputs,
+                m_bindings[static_cast<std::size_t>(port)].tuning.trigger_threshold,
+                m_latch[static_cast<std::size_t>(port)]
             );
-            apply_pad(m_bindings, inputs, gates, pad);
+            apply_pad(m_bindings[static_cast<std::size_t>(port)], inputs, gates, pad);
         } else {
             // Gone, or not read: nothing of it is held, so nothing is held back either.
             m_last[static_cast<std::size_t>(port)] = {};
             m_latch[static_cast<std::size_t>(port)] = {};
         }
         if (keyboard_here && m_keyboard_table && !m_capturing) {
-            apply_keys(m_bindings, keys, pad);
+            apply_keys(m_bindings[static_cast<std::size_t>(port)], keys, pad);
         }
         if (port == 0) {
             m_touch.idle(SDL_GetTicks());

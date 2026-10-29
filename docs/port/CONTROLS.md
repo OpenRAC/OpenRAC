@@ -41,11 +41,21 @@ runs.
 
 ## 2. Layers
 
-The game reads its controls from three layers, the later over the earlier:
+Each player's controls are read from these layers, the later over the
+earlier:
 
 1. the port's defaults (the table below);
-2. `global.ini`;
-3. `<game>.ini`.
+2. `global.ini`, its keys for every player;
+3. `global.ini`, the player's own keys;
+4. `<game>.ini`, its keys for every player;
+5. `<game>.ini`, the player's own keys.
+
+A player's own key is any `bind_*` or `pad_*` key with `p1.` or `p2.` in
+front: `p2.bind_cross = PadNorth` makes North Cross for player 2 only, and
+`p2.pad_right_invert_y = 1` turns over player 2's right stick. A player with
+none of their own reads what every player reads. A game's change for every
+player wins over the global file's change for one player, as the more
+specific file always does.
 
 A `bind_*` value replaces only the kinds it names: keys, or pad inputs. A
 value with only pad inputs leaves the keys to the layer below, and the other
@@ -58,8 +68,11 @@ Resetting:
 
 - one control: its line in that file goes, and the layer below shows;
 - a game: its file goes;
-- every game: `global.ini` loses its `bind_*` and `pad_*` lines and keeps the
-  rest (the players).
+- every game: `global.ini` loses its `bind_*` and `pad_*` lines, the
+  players' own included, and keeps the rest (which controller each player
+  is);
+- one player: that player's own lines (`p1.*` or `p2.*`) leave the file, and
+  the player reads every player's controls again.
 
 The bindings that [#123](https://github.com/OpenRAC/OpenRAC/pull/123) kept in
 `settings/<id>.ini` (`bind_*` keys) move once into `<game>.ini` at the next
@@ -150,7 +163,8 @@ new each time, are never kept.
 
 F13, or Controls in the menu bar (Windows and Linux), the macOS menu, or the
 touch drawer, opens it over the game. It changes the running game's file or
-the global one:
+the global one, for every player or for player 1 or 2 alone ("For:"; a
+player chosen, "Player N as every player" takes their own controls away):
 
 - **Bindings**: each control, what presses it on a controller, where that
   came from (default, every game, this game), and a mark on a pad input
