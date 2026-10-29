@@ -18,9 +18,9 @@ namespace openrac::frontend::exit_menu {
 
 namespace {
 
-// The texts' ids: past the mods' pages' (0x7C00 on, mod_ui.cpp) and below the options page's
-// (0x7E00 on, options_menu.cpp).
-constexpr int kTextFirst = 0x7D00;
+// The texts' ids: past the mods' pages' and their pause items' (0x7C00 and 0x7D00 on, mod_ui.cpp)
+// and below the options page's (0x7E00 on, options_menu.cpp).
+constexpr int kTextFirst = 0x7D80;
 constexpr gaddr kTextBytes = 64;  // a text's room, its end byte included
 
 // The page menu (rac1-decomp pause.c, include/menu.h; mod_ui.cpp describes it): its state (1 while

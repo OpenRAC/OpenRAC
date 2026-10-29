@@ -1336,13 +1336,13 @@ void change_page(const openrac_front_end& fe, int game) {
 namespace pause {
 
 constexpr int kRows = options_menu::kPauseRowsShown;
-// The texts' ids, past the main menu pages' (kTextFirst + kTexts) and below the options page's:
-// the items' labels, the page's title, its rows' labels, then their values.
+// The texts' ids, past the main menu pages' (kTextFirst + kTexts) and below the port's Exit's
+// (0x7D80, exit_menu.cpp): the items' labels, the page's title, its rows' labels, then their values.
 constexpr int kItemText = 0x7D00;
 constexpr int kTitleText = kItemText + OPENRAC_UI_PAUSE_ITEMS_MAX;
 constexpr int kRowText = kTitleText + 1;
 constexpr int kAllTexts = kRowText + 2 * kRows - kItemText;
-static_assert(kTextFirst + kTexts <= kItemText);
+static_assert(kTextFirst + kTexts <= kItemText && kItemText + kAllTexts <= 0x7D80);
 // The row widget's list: its cursor (its rows at +0x34); a row's bytes and its int's value at rest.
 constexpr gaddr kCursorAt = 0x38;
 constexpr gaddr kRowBytes = 0x18;

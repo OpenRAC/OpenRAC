@@ -21,7 +21,7 @@
 namespace openrac::frontend::exit_menu {
 
 // A text's id for the game's text lookup (past the game's ids, under 0x7000, and beside the mods'
-// pages' and the options page's: 0x7C00 and 0x7E00 on).
+// pages' and pause items' and the options page's: 0x7C00, 0x7D00 and 0x7E00 on).
 int text_id(Text text);
 
 // Returns the address of text `id` in the game's language now, written into game memory, or 0 for
