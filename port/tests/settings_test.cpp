@@ -72,7 +72,8 @@ void test_agx_preview(const std::filesystem::path& file) {
     CHECK(settings::Settings{}.agx_exposure == .25f);
     CHECK(settings::Settings{}.agx_brightness == .5f);
     for (float brightness : {0.f, .5f, 1.f}) {
-        std::ofstream(file) << "agx_preview = 1\nagx_exposure = 1.5\nagx_brightness = " << brightness << "\n";
+        std::ofstream(file) << "agx_preview = 1\nagx_exposure = 1.5\nagx_brightness = "
+                            << brightness << "\n";
         settings::load(file);
         for (int n = 0; n < 2; ++n) {
             const auto& s = settings::get();
@@ -253,10 +254,14 @@ int main() {
     settings::load(file);
     CHECK(settings::get().gtao);
     CHECK(!settings::get().ceiling_area_lights);
+    CHECK(!settings::get().medial_axis_debug);
+    CHECK(!settings::get().environment_probe_debug);
+    settings::get().medial_axis_debug = true;
     settings::get().ceiling_area_lights = true;
     settings::save();
     settings::load(file);
     CHECK(settings::get().ceiling_area_lights);
+    CHECK(settings::get().medial_axis_debug);
     CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
     test_temporal_settings(file);
     test_reset_enhanced();
@@ -346,6 +351,7 @@ int main() {
     options.enhanced_graphics = false;
     options.enhanced_shadows = false;
     options.probe_spheres = true;
+    options.environment_probe_debug = true;
     CHECK(options.probe_normal_bias == 0.5f && options.probe_view_bias == 0.5f);
     options.rim_shadow_lift = false;
     options.rim_lift_exponent = 0.09f;
@@ -362,6 +368,7 @@ int main() {
     CHECK(options.enhanced_rendering);
     CHECK(!options.enhanced_graphics);
     CHECK(options.probe_spheres);
+    CHECK(options.environment_probe_debug);
     CHECK(!options.enhanced_shadows);
     CHECK(!options.rim_shadow_lift);
     CHECK(options.rim_lift_exponent == 0.09f);

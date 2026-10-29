@@ -22,7 +22,8 @@ struct BakeTriangle {
     float alpha_cutoff = 0.5f;
     // Authored unlit moby multipliers, not terrain/tie prelighting.
     std::array<std::array<float, 4>, 3> multipliers{{{1, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 1}}};
-    Float3 emission{};  // linear radiance; independent of diffuse reflectance
+    Float3 emission{};          // linear radiance; independent of diffuse reflectance
+    Float3 visible_emission{};  // Runtime surface radiance, before bake-only emitter boosts.
     // Explicit bake intensities bypass automatic interior emitter boosts.
     bool fixed_emission = false;
     int emission_texture = -1;  // sRGB emission texture, alpha comes from the diffuse material
@@ -96,7 +97,15 @@ struct SurfaceEmissionRegion {
     float scale = 1;   // Absolute bake gain; the last matching region wins.
 };
 
+// Conservative planning limits, configurable per level; not a replacement for gameplay physics.
+struct BakeTraversalSettings {
+    float jump_distance = 12, jump_rise = 4, jump_drop = 8;
+    float player_radius = .5f, player_height = 2.5f;
+    float minimum_swim_depth = 1;  // Shallower water uses supported walking floors.
+};
+
 struct BakeSettings {
+    BakeTraversalSettings traversal{};
     bool use_level_sky = true;
     float sky_intensity = 1.0f;
     float surface_emission_scale = 1.0f;  // Bake-only gain for geometric emissive surfaces.

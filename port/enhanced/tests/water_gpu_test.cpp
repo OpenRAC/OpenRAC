@@ -917,6 +917,7 @@ void main(){
         compute, read, error, pixels, buffers, bodies, texture, image_buffer, vertex
     };
     test::water::check_optics(fixture);
+    test::water::check_environment(fixture);
     test::water::check_window(fixture);
     glDeleteVertexArrays(1, &vao);
     glDeleteTextures(1, &texture);

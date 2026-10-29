@@ -24,6 +24,14 @@ struct DebugLineVertex {
     renderer::Vec3 colour{};    // Display colour, independent of scene lighting.
 };
 
+// Appends the twelve edges of a world-space axis-aligned box, in stable corner order.
+void append_debug_box(
+    std::vector<DebugLineVertex>& vertices,
+    renderer::Vec3 minimum,
+    renderer::Vec3 maximum,
+    renderer::Vec3 colour
+);
+
 // Render-thread-owned line mesh; its graphics context outlives this object or release().
 class DebugLines {
 public:

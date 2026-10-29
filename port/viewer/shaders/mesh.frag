@@ -99,6 +99,11 @@ vec3 surface_emission(vec4 texel) {
     return emitted;
 }
 
+uniform int object_reflection_enabled;
+uniform vec3 object_reflection_material; // Perceptual roughness, F0, reflection strength.
+uniform vec4 object_reflection_tint; // Linear tint and authored-opacity multiplier.
+vec4 chrome_surface(vec3 original);
+
 // probes.glsl is inserted after the version line by probe_mesh_fragment().
 #ifdef OPENRAC_EARLY_LIGHTING
 uniform int gameplay_rim_enabled;
@@ -291,6 +296,11 @@ void main() {
         vec4 metal = sample_upscaled_texture_colours(v_uv);
         vec4 m = vec4(vec3(mp_vec3(metal.rgb) * mp_vec3(v_colour.rgb)), metal.a * v_colour.a);
         vec3 mrgb = min(m.rgb, vec3(1.0));
+#if defined(OPENRAC_ENHANCED_RENDERING) && !defined(OPENRAC_COLOUR_SPECIALISED)
+        vec4 reflected = chrome_surface(mrgb);
+        mrgb = reflected.rgb;
+        m.a *= reflected.a;
+#endif
 #ifdef OPENRAC_EARLY_LIGHTING
         // Chrome blends over the diffuse pass: give both layers the edge reflection so the
         // overlay's opacity cannot erase it. Use cached GI without another probe lookup.

@@ -57,9 +57,11 @@ struct Options {
     platform::DisplayMode mode = platform::DisplayMode::Windowed;
     bool vsync = true;
     bool lighting = true;
+    bool medial_axis = false;
+    bool reflection_probes = false;
     renderer::TextureFilter texture_filter = renderer::TextureFilter::EdgeAware;
     bool camera_given = false;
-    float camera[5] = {};  // x, y, z, yaw and pitch in degrees
+    float camera[5] = {};         // x, y, z, yaw and pitch in degrees
     std::filesystem::path state;  // a 32 MB memory picture of the running game
 };
 
@@ -73,6 +75,8 @@ constexpr const char* kUsage =
     "  --camera X,Y,Z,YAW,PITCH   start here (game units; degrees) instead of framing the level\n"
     "  --fullscreen | --borderless\n"
     "  --no-vsync  --no-lighting\n"
+    "  --medial-axis        show baked centre paths and junctions\n"
+    "  --reflection-probes  show reflection spheres and all influence bounds\n"
     "  --state FILE         the game's main memory at one frame (32 MB): its camera and live "
     "mobys\n";
 
@@ -143,6 +147,10 @@ bool parse(int argc, char** argv, Options& o) {
             o.vsync = false;
         } else if (arg == "--state") {
             o.state = std::filesystem::path(next());
+        } else if (arg == "--medial-axis") {
+            o.medial_axis = true;
+        } else if (arg == "--reflection-probes") {
+            o.reflection_probes = true;
         } else if (arg == "--no-lighting") {
             o.lighting = false;
         } else if (!arg.empty() && arg[0] != '-' && o.level.empty()) {
@@ -218,6 +226,8 @@ int run(const Options& options) {
         log::error("{}", error);
         return 1;
     }
+    scene.set_medial_axis_debug(options.medial_axis);
+    scene.set_environment_probe_debug(options.reflection_probes);
     for (std::size_t layer = 0; layer < scene::kLayerCount; ++layer) {
         renderer.add(
             std::make_unique<scene::LayerRenderer>(scene, static_cast<scene::Layer>(layer)), error
@@ -252,7 +262,8 @@ int run(const Options& options) {
         }
         scene.set_instances(scene::Layer::Mobys, live);
         log::info(
-            "game state: camera at {:.1f} {:.1f} {:.1f}, {} live mobys ({} of classes the level does not have)",
+            "game state: camera at {:.1f} {:.1f} {:.1f}, {} live mobys ({} of classes the level "
+            "does not have)",
             game->camera_position[0],
             game->camera_position[1],
             game->camera_position[2],
@@ -374,10 +385,11 @@ int run(const Options& options) {
         scene.update_probe_regions(input.camera, seconds);
         input.after_world_depth =
             scene.compute_probe_selection()
-                ? std::function<void(unsigned, int, int)>([&](unsigned depth, int width, int height
-                                                          ) {
-                      scene.select_visible_probe_regions(depth, input.camera, width, height);
-                  })
+                ? std::function<void(unsigned, int, int)>(
+                      [&](unsigned depth, int width, int height) {
+                          scene.select_visible_probe_regions(depth, input.camera, width, height);
+                      }
+                  )
                 : std::function<void(unsigned, int, int)>{};
         input.seconds = static_cast<double>(now - start) / 1e9;
         renderer.render(input, {frame.id(), width, height});

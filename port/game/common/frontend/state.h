@@ -25,8 +25,8 @@
 #include <vector>
 
 #include "enhanced/fsr3/fsr3.h"
-#include "enhanced/renderer/agx.h"
 #include "enhanced/game/scripted_moby_colour.h"
+#include "enhanced/renderer/agx.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/render_worker.h"
 #include "game/common/frontend/tick_picture.h"

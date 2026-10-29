@@ -15,6 +15,7 @@
 
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
@@ -41,6 +42,7 @@ std::string Water::fragment_source() const {
            + std::string(lighting::shaders::water_swell_glsl) + "\n"
            + std::string(lighting::shaders::shading_brdf_glsl) + "\n"
            + std::string(lighting::shaders::probes_glsl) + "\n"
+           + std::string(lighting::shaders::environment_glsl) + "\n"
            + std::string(lighting::shaders::water_glsl);
 }
 
@@ -107,6 +109,13 @@ void Water::bind(
         return;
     }
     m_bound = true;
+    const auto material = reflection_material_settings(ReflectionSurface::Water);
+    glUniform3f(
+        shader.uniform("water_material"),
+        material.roughness,
+        material.reflectivity,
+        material.strength
+    );
     m_scene.bind_surface_lighting(shader, input.camera);
     glUniform1i(shader.uniform("water_bodies"), 11);
     glUniform1i(shader.uniform("water_coast_map"), 12);

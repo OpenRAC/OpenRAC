@@ -166,6 +166,8 @@ void set_lighting(SceneFrame& frame) {
     }
     owner.scene.set_probe_spheres(graphics.probe_spheres);
     owner.scene.set_area_lights(graphics.ceiling_area_lights);
+    owner.scene.set_medial_axis_debug(graphics.medial_axis_debug);
+    owner.scene.set_environment_probe_debug(graphics.environment_probe_debug);
     input.shadow_quality = graphics.shadow_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera
@@ -357,10 +359,13 @@ bool draw_world(SceneFrame& frame) {
         if (graphics.agx_preview && graphics.enhanced_graphics && enhanced_graphics_available()
             && scene.has_camera && !input.keep_colour && (scene.draws & 0x1Fu) != 0) {
             auto before_hud = std::move(input.before_hud);
-            input.before_hud = [&owner, exposure = graphics.adjusted_agx_exposure(),
+            input.before_hud = [&owner,
+                                exposure = graphics.adjusted_agx_exposure(),
                                 before_hud = std::move(before_hud)] {
                 owner.agx.apply(owner.frame, exposure);
-                if (before_hud) { before_hud(); }
+                if (before_hud) {
+                    before_hud();
+                }
             };
         }
         owner.renderer->render(input, target);

@@ -56,12 +56,14 @@ vec3 water_smooth_normal(vec3 rest_normal,vec2 gradient) {
     return normalize(vec3(-(rest_gradient+gradient),1.));
 }
 // Air/water interface (IOR 1.333); shared Schlick Fresnel and GGX/Smith BRDF.
+uniform vec3 water_material; // Roughness, normal-incidence reflectivity, reflection strength.
 float water_fresnel(float cosine) {
+    // Keep the water interface response FP32 while retaining live material controls.
     float f=1.-clamp(cosine,0.,1.);
-    return .02037+(1.-.02037)*f*f*f*f*f;
+    return water_material.y+(1.-water_material.y)*f*f*f*f*f;
 }
 float water_specular(vec3 n, vec3 eye, vec3 light, float roughness) {
-    return ggx_specular_fp32(n, eye, light, roughness, .02037);
+    return ggx_specular_fp32(n, eye, light, roughness, water_material.y);
 }
 vec3 water_transmittance(float depth,float nv) {
 #ifdef OPENRAC_USE_FP16
@@ -260,7 +262,7 @@ vec3 effect_material(vec3 painted) {
     // Shadow the actual displaced receiver; do not retain the opaque shader's 10% sun floor.
     float visibility=sun_shadow_visibility(v_world,n,surface_normal);
     vec3 direct;
-    vec3 specular=water_direct_specular(v_world,n,eye,.22,visibility,direct);
+    vec3 specular=water_direct_specular(v_world,n,eye,water_material.x,visibility,direct);
     vec3 illumination=max(cached.rgb/3.14159265+direct,vec3(0));
     float nv=max(dot(n,eye),.001),fresnel=water_fresnel(nv);
     // Refracted ray angle from Snell's law, measured against the surface normal.
@@ -272,10 +274,10 @@ vec3 effect_material(vec3 painted) {
     mp_vec3 transmitted=mp_vec3(transmittance);
     // Bounded colour math can use half; widen before HDR transport.
     vec3 transmission=vec3(bed*transmitted+body_colour*(mp_float(1)-transmitted))*illumination;
-    // Low-frequency probe approximation until environment reflection maps are available.
-    vec3 reflection=max(cached.rgb/3.14159265,vec3(0));
-    vec3 lit=(1.-fresnel)*transmission+fresnel*reflection;
-    lit+=specular;
+    // Missing capture coverage uses the same broad local-GI fallback as chrome and glass.
+    vec3 fallback=gi_specular_fallback(cached.rgb*probe_gi_multiplier,nv,water_material.y);
+    vec3 reflection=environment_specular(v_world,n,eye,water_material.x,water_material.y,fallback);
+    vec3 lit=(1.-fresnel)*transmission+(reflection+specular)*water_material.z;
     float shore_phase=coast.y*5.5-water_time*1.4;
     float shore=exp(-coast.y*.7)*coast.x;
     float crest=smoothstep(.006,.025,h)+smoothstep(.83,.97,sin(shore_phase))*shore*.35

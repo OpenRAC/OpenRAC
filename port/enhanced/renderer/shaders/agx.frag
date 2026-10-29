@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // AgX matrices adapted from Filament be858f42ab95cf0ba6e224ac2dc3950bdb172080.
 // Exposure uses an analytical sigmoid and a 40% display-hue blend.
-// See agx-preview.md and agx-LICENSE.txt for attribution and the SDR limitations.
+// See ../lighting/README.md and agx-LICENSE.txt for attribution and SDR limitations.
 uniform sampler2D tex_T0;
 uniform float exposure_ev;
 out vec4 colour;

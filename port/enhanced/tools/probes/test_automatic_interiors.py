@@ -49,6 +49,18 @@ class AutomaticInteriors(unittest.TestCase):
             self.assertEqual(run.call_count, 2)
             self.assertEqual(json.loads(self.sidecar.read_text())['source_sha256'], 'b'*64)
 
+    def test_missing_report_and_stale_report_are_regenerated_safely(self):
+        with patch.object(automatic, 'prepare_export', return_value=self.inputs), \
+             patch.object(automatic.subprocess, 'run', side_effect=self.generate) as run:
+            self.prepare()
+            (self.output/'interior-inference.json').unlink()
+            self.prepare()
+            self.assertEqual(run.call_count, 2)
+            self.inputs['source_sha256'] = 'c'*64
+            self.prepare()  # Existing report/log must not block regeneration.
+            self.assertEqual(run.call_count, 3)
+        self.assertFalse(list(self.output.glob('.interior-inference-*')))
+
     def test_explicit_sources_are_preserved(self):
         self.sidecar.write_text('{"version":1,"samples":[]}')
         with patch.object(automatic, 'prepare_export') as read:
@@ -91,6 +103,24 @@ class AutomaticInteriors(unittest.TestCase):
             with self.assertRaises(subprocess.CalledProcessError):
                 self.prepare()
         self.assertFalse(self.sidecar.exists())
+
+    def test_failed_inference_keeps_report_and_native_diagnostics(self):
+        report_path = self.output/'interior-inference.json'
+        report_path.write_text('previous verified report')
+
+        def fail(command, **kwargs):
+            kwargs['stdout'].write('native inference failure fixture\n')
+            Path(command[2]).write_text('partial report')
+            raise subprocess.CalledProcessError(1, command)
+
+        with patch.object(automatic, 'prepare_export', return_value=self.inputs), \
+             patch.object(automatic.subprocess, 'run', side_effect=fail):
+            with self.assertRaises(automatic.diagnostics.NativeFailure) as caught:
+                self.prepare()
+        self.assertIn('native inference failure fixture', caught.exception.output)
+        self.assertEqual(report_path.read_text(), 'previous verified report')
+        self.assertFalse(self.sidecar.exists())
+        self.assertFalse(list(self.output.glob('.interior-inference-*')))
 
     def test_non_gameplay_scenes_skip_inference(self):
         with patch.object(automatic, 'prepare_export') as read:

@@ -186,6 +186,19 @@ public:
         }
     }
 
+    // Shows reflection diagnostics through the registered lighting provider.
+    void set_medial_axis_debug(bool shown) {
+        if (m_lighting) {
+            m_lighting->set_medial_axis_debug(shown);
+        }
+    }
+
+    void set_environment_probe_debug(bool shown) {
+        if (m_lighting) {
+            m_lighting->set_environment_probe_debug(shown);
+        }
+    }
+
     void update_probe_regions(const renderer::Camera& camera, float seconds = -1) {
         // Without registered lighting there are no probe regions to stream.
         if (m_lighting) {
@@ -277,6 +290,7 @@ private:
         int instances = 1,
         bool floats_on_water = false
     );
+
     struct CasterBounds {
         renderer::Vec3 low{}, high{};
         bool valid = false;

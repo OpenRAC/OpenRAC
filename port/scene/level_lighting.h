@@ -56,6 +56,9 @@ public:
     // Temporal history is retained when the optional deformation is inactive.
     virtual bool deformation_active() const { return false; }
 
+    // Optional shading of the authored material on the current model.
+    virtual void bind_material(const renderer::Shader&, std::uint32_t, const Material&) const {}
+
     // Returns the scene's mesh fragment shader `source` as the early-lit variant draws it.
     virtual std::string early_fragment(std::string source) const = 0;
 
@@ -105,6 +108,11 @@ public:
 
     // Shows generated ceiling-source markers when the lighting provider supports them.
     virtual void set_area_lights(bool /*shown*/) {}
+
+    // Shows capture positions and reflection influence boxes when the provider supports them.
+    virtual void set_medial_axis_debug(bool /*shown*/) {}
+
+    virtual void set_environment_probe_debug(bool /*shown*/) {}
 
     // Returns whether the probe regions are chosen on the GPU from the frame's depth.
     virtual bool compute_selection() const = 0;

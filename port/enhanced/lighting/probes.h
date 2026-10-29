@@ -14,9 +14,17 @@ using Float2 = std::array<float, 2>;
 using Float3 = std::array<float, 3>;
 
 // Only the current GPU-ready layout is accepted. Older assets must be rebaked.
-inline constexpr std::uint32_t kProbeFormatVersion = 4;
-inline constexpr std::uint32_t kProbeBakeVersion = 3;
+inline constexpr std::uint32_t kProbeFormatVersion = 5;
+inline constexpr std::uint32_t kProbeBakeVersion = 4;
 inline constexpr unsigned kProbeAtlasTilesX = 64;
+
+// Upright orthonormal frame, shared by GI grids and reflection influence/projection boxes.
+struct ProbeFrame {
+    Float2 axis{1, 0};  // Cosine/sine of the local X axis in world XY; Z remains vertical.
+    Float3 to_local(Float3 world) const;
+    Float3 to_world(Float3 local) const;
+    bool valid() const;
+};
 
 // Baking and CPU reference sampling use linear E; files store fifth-root E.
 inline constexpr float kProbeIrradianceGamma = 5.0f;
@@ -27,6 +35,7 @@ float encode_probe_irradiance(float linear);
 struct ProbeGrid {
     std::uint32_t bake_version = kProbeBakeVersion;
     Float3 origin{};
+    ProbeFrame frame;
     Float3 spacing{16, 16, 16};
     std::array<std::uint32_t, 3> dimensions{2, 2, 2};
     std::uint32_t map_resolution = 6;  // interior; one gutter texel on every side
@@ -78,6 +87,9 @@ struct ProbeSample {
     float confidence = 0;
     // Available normal-weighted support before visibility rejection.
     float coverage = 0;
+    // Local CPU sampler diagnostic: moment visibility after validity/receiver-plane weighting, before the
+    // low-support fade. Unlike confidence, this does not treat empty-space wrap as occlusion.
+    float visibility = 0;
 };
 
 // Empty means use original lighting. Biases are world-space offsets; view_offset

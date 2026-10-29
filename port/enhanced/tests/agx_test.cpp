@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// Checks SDR colour treatment against analytical curve values, preserving alpha across resizes.
+
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -17,10 +21,12 @@ int main(int argc, char**) {
         std::fprintf(stderr, "%s\n", error.c_str());
         return test::kSkip;
     }
-    if (argc > 1) { CHECK(enhanced_rendering_available()); }
+    if (argc > 1) {
+        CHECK(enhanced_rendering_available());
+    }
     enhanced::AgxPreview agx;
     renderer::FrameBuffer target;
-    // Expected bytes evaluated independently from the HLSL CPU reference equations.
+    // Expected bytes come from evaluating the neutral curve before UNORM rounding.
     const std::array<std::array<int, 3>, 6> input{
         {{0, 0, 0}, {128, 128, 128}, {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {64, 128, 192}}
     };

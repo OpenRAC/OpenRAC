@@ -9,6 +9,15 @@ float dielectric_fresnel(float cosine, float f0) {
     return float(base + (mp_float(1) - base) * f * f * f * f * f);
 }
 
+// Broad indirect reflection when no local radiance capture covers the receiver.
+// Irradiance is already cosine-filtered: E/pi supplies local colour, not sharp reflected detail.
+vec3 gi_specular_fallback(vec3 irradiance,float cosine,float f0) {
+    return max(irradiance,vec3(0))/3.14159265359
+        *dielectric_fresnel(cosine,clamp(f0,0.,1.));
+}
+
+// GGX distribution and height-correlated Smith visibility, multiplied by NoL.
+// Directions and the normal are unit vectors; roughness is perceptual roughness.
 float ggx_specular_fp32(vec3 n, vec3 eye, vec3 light, float roughness, float f0) {
     float nv = max(dot(n, eye), 0.), nl = max(dot(n, light), 0.);
     vec3 sum = eye + light;

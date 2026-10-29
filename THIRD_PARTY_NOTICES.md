@@ -261,3 +261,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## AgX colour conversion matrices
+
+`port/enhanced/renderer/shaders/agx.frag` adapts the AgX colour conversion matrices from
+[Google Filament's ToneMapper.cpp](https://github.com/google/filament/blob/be858f42ab95cf0ba6e224ac2dc3950bdb172080/filament/src/ToneMapper.cpp),
+pinned at `be858f42ab95cf0ba6e224ac2dc3950bdb172080`. Copyright (C) 2021 The Android Open Source
+Project, licensed under Apache-2.0. The shader retains that notice; distributions must include
+[`agx-LICENSE.txt`](port/enhanced/renderer/agx-LICENSE.txt).

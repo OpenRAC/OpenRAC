@@ -1150,6 +1150,12 @@ void LevelScene::draw_layer(
                 if (run_count == 0) {
                     return;
                 }
+                // Model-specific reflection overrides may change even when the material is shared.
+                if (m_lighting && metal && !state.depth_prepass) {
+                    m_lighting->bind_material(
+                        *program, g.model, m_materials[static_cast<std::size_t>(run_material)]
+                    );
+                }
                 // The material's state is set only when it is not the last draw's: a model's parts
                 // mostly share a few, and each call into the driver costs more than the test.
                 if (!(state.depth_prepass && solid) && run_material != set_material) {

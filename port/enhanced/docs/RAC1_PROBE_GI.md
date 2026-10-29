@@ -42,7 +42,7 @@ ambiguous. Correcting triangle winding alone cannot resolve them.
 
 ## Probe data and sampling
 
-Format 4, bake revision 3 stores bordered octahedral irradiance/distance-moment maps,
+Format 5, bake revision 4 stores bordered octahedral irradiance/distance-moment maps,
 relocation and validity as directly uploadable planes. Older formats or stale scene/settings
 hashes are rejected.
 

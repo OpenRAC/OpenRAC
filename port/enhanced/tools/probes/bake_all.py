@@ -107,13 +107,17 @@ def level_stamp(level: Path, baker_hash: str, options) -> dict:
         levels_format = json.loads(manifest.read_text()).get('format')
     except (ValueError, AttributeError):
         levels_format = None
+    config = json.loads((level/'probe-bake.json').read_text()) if (level/'probe-bake.json').exists() else {}
+    reflections = config.get('environment_probes', {}).get('enabled', False)
     return {'version': STAMP_VERSION, 'planner_sha256': planner_hash(),
             'region_settings_sha256': digest.sha256(level/'probe-regions.json') if (level/'probe-regions.json').exists() else None,
             'profile_sha256': digest.sha256(level/'probe-bake.json') if (level/'probe-bake.json').exists() else None,
             'emission_sha256': digest.sha256(level/'probe-emission.json') if (level/'probe-emission.json').exists() else None,
             'interiors_sha256': digest.sha256(level/'probe-interiors.json') if (level/'probe-interiors.json').exists() else None,
             'manifest_sha256': digest.sha256(manifest), 'levels_format': levels_format,
-            'baker_profile_sha256': baker_hash, 'options': bake_options(options)}
+            'baker_profile_sha256': baker_hash, 'options': bake_options(options),
+            'water_mask_sha256': digest.sha256(level/'water.bin') if (level/'water.bin').exists() else None,
+            **({'environment_probes': 20} if reflections else {})}
 
 
 def up_to_date(output: Path, stamp: dict, profile: dict | None = None) -> bool:
@@ -139,11 +143,14 @@ def up_to_date(output: Path, stamp: dict, profile: dict | None = None) -> bool:
                 return False
     except (OSError, ValueError, TypeError):
         return False
+    if stamp.get('environment_probes') and not (output/'environment.orpe').is_file():
+        return False
     if old == stamp:
         return True
     if not isinstance(old, dict) or old.get('version') != 2 or profile is None:
         return False
-    same = ('manifest_sha256', 'levels_format', 'region_settings_sha256', 'profile_sha256', 'options')
+    same = ('manifest_sha256', 'levels_format', 'region_settings_sha256', 'profile_sha256',
+            'water_mask_sha256', 'options')
     if any(old.get(key) != stamp.get(key) for key in same):
         return False
     try:

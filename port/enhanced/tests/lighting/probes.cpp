@@ -49,6 +49,48 @@ ProbeVolume constant() {
     return v;
 }
 
+void oriented_grid() {
+    ProbeGrid grid;
+    grid.spacing = {4, 2, 2};
+    auto reference = ProbeVolume::allocate(grid);
+    for (unsigned i = 0; i < reference.probes.size(); ++i) {
+        reference.probes[i].valid = true;
+        for (unsigned t = 0; t < grid.texels_per_probe(); ++t) {
+            reference.irradiance[i * grid.texels_per_probe() + t] = {1 + float(i) * .1f, 2, 3};
+            reference.distance_moments[i * grid.texels_per_probe() + t] = {32, 1024};
+        }
+    }
+    auto rotated = reference;
+    rotated.grid.origin = {5, -3, 1};
+    rotated.grid.frame.axis = {.6f, .8f};
+    for (auto local : {Float3{1, 1, .5f}, Float3{3, .5f, 1.5f}}) {
+        auto world = rotated.grid.frame.to_world(local);
+        for (unsigned a = 0; a < 3; ++a) {
+            world[a] += rotated.grid.origin[a];
+        }
+        const auto a = sample_probes(reference, local, {0, 0, 1}, 0);
+        const auto b = sample_probes(rotated, world, {0, 0, 1}, 0);
+        CHECK(a && b);
+        if (a && b) {
+            for (unsigned c = 0; c < 3; ++c) {
+                CHECK(near(a->irradiance[c], b->irradiance[c]));
+            }
+        }
+        CHECK(near(
+            probe_boundary_weight(reference.grid, local), probe_boundary_weight(rotated.grid, world)
+        ));
+    }
+    rotated.probes[0].offset = rotated.grid.frame.to_world({.2f, .1f, 0});
+    const auto decoded = decode_probes(encode_probes(rotated));
+    CHECK(decoded.grid.frame.axis == rotated.grid.frame.axis);
+    for (unsigned a = 0; a < 3; ++a) {
+        CHECK(std::abs(decoded.probes[0].offset[a] - rotated.probes[0].offset[a]) < .001f);
+    }
+    CHECK(encode_probes(decoded) == encode_probes(rotated));
+    rotated.grid.frame.axis = {1, 1};
+    rejects([&] { rotated.grid.validate(); });
+}
+
 void coordinates() {
     const Float3 directions[] =
         {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {0, 0, -1}, {-1, -2, 3}, {-3, 2, -1}};
@@ -505,6 +547,7 @@ void gutters() {
 }  // namespace
 
 int main() {
+    oriented_grid();
     coordinates();
     sampling();
     encoded_interpolation();

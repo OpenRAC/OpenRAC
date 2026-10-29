@@ -23,6 +23,12 @@ water from another storey. Shared GPU texture bindings use reserved units 18-20.
 coverage, disabled attachments and missing bodies. `camera_target` also verifies the lily-only
 profile selection for both regions.
 
+## Reflections
+
+Water uses the shared [environment reflections](../lighting/README.md#environment-reflections)
+and material controls. Missing capture coverage falls back to local GI. Reflection capture and
+the water simulation bake are independent.
+
 ## Bake local water data
 
 The baker reads initialized water tables from a local RAM snapshot, capturing all boundaries

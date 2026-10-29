@@ -25,6 +25,8 @@ struct Context {
 
 // Compare swell, optical shading and smooth/fine normals with independent analytic values.
 void check_optics(Context& fixture);
+// Check the actual packed reflection atlas and box-projected spatial blend.
+void check_environment(Context& fixture);
 // Check toroidal history, adjacent body metadata, seam sampling and lighting receivers.
 void check_window(Context& fixture);
 }  // namespace openrac::test::water

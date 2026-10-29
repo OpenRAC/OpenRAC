@@ -177,7 +177,7 @@ layouts even when the native baker executable has not changed.
 
 ## Formats and compatibility
 
-Only **file format 4, bake revision 3** is supported. Rebake older data.
+Only **file format 5, bake revision 4** is supported. Rebake older data.
 Each texel integrates a regular 2x2 angular footprint, including emission.
 Irradiance and distance moments combine the four directions before normalising.
 The footprint softens visibility boundaries; thin walls can still leak.
@@ -185,6 +185,9 @@ The footprint softens visibility boundaries; thin walls can still leak.
 Patterns cache by resolution/rounding mode; rotations and bounce/emitter directions stay
 per-probe. Portable C++ integrates four texels together in unchanged accumulation order.
 Exponent 32 uses repeated squaring, others `pow`; no SIMD library or fast-math flags are needed.
+
+Upright grid frames rotate XY cell coordinates while rays and irradiance directions stay in world space.
+Relocation is stored in the grid frame for direct GPU upload; CPU reference offsets are world-space.
 
 Headers contain game/level identity, scene/settings hashes and grid/atlas
 layout. Values are little-endian; texture planes upload without repacking:
@@ -375,3 +378,96 @@ snapshot independently of camera selection and relocation. Hidden edges are fain
 
 Optional [Tracy profiling](../../../docs/port/PROFILING.md) covers the native baker's
 Embree construction, placement, transport and integration on each worker.
+
+`OPENRAC_PROBE_SPHERES=all` shows every GI volume bound and nearby resident probe positions,
+independently of lighting selection. It uses the CPU diagnostic filter; normal lighting is unchanged.
+
+## Environment reflections
+
+Enable `environment_probes.enabled` in a level's `probe-bake.json`. After all GI grids verify,
+the baker captures static HDR surroundings using the runtime GI reference, shadowed sun,
+visible emission and the skybox. Bake-only emission gains affect transport, not visible surfaces.
+Water and authored chrome/glass packets use these captures in enhanced mode.
+
+Captures sit near floor-space centres, normally 3 units above their actual supporting floor.
+Low ceilings can lower them to 2.55 units. The shared playable-floor analysis keeps walls,
+separate storeys, authored lighting boundaries and above/below swimming-water domains separate.
+It connects supported walking and jumping routes; shallow wading water shares dry-floor spaces.
+See [placement and adaptive density](../tools/probes/README.md#environment-captures).
+
+Placement and pruning retain coverage at floor, body and head height. Close visible captures
+must merge or relocate until at least `minimum_capture_spacing` (6 units) apart. Walls, separate
+storeys and water media exempt pairs. Other merges require 85% shared receiver area and similar
+GI signatures: Rec.709 luminance within 2:1 plus 0.02, and Oklab distance at most 0.06 at a common
+18% luminance. These are placement heuristics, not comparisons of finished cubemaps.
+Every accepted replacement preserves every receiver; unresolved coverage or spacing fails baking.
+
+`maximum_probes` defaults to 512 as a safety limit. Captures use 128x128 source faces and 128 GGX
+samples. `environment.orpe` version 5 stores a GPU-ready R11G11B10F atlas, oriented influence and
+parallax bounds, and a split-sum BRDF lookup. Seven saved GGX levels span 64x64 to 1x1; the source
+128x128 level is filtered but omitted from storage. Roughness is clamped to the first retained
+level's 1/7 value. Runtime validates scene/settings and every GI payload before upload.
+
+Conservative 16x16 screen tiles select candidates from all 512 captures. Pixels blend two
+box-projected captures, fading to local GI outside influence bounds. Opaque depth does not cull
+reflection candidates because water/glass can lie on either side. Missing compute selection uses
+the full reference loop. Masks persist until the view or capture data changes; metadata uploads
+once. Reflection bindings use units 21-23, separate from water deformation's units 18-20.
+
+Captures omit moving objects, transparent effects and recursive reflections. Upright boxes
+approximate irregular rooms, and floor inference does not replay gameplay physics. Local GI
+provides broad fallback colour and brightness, without sharp reflected objects. Placement,
+coverage and atlas details are recorded in `environment-placement-report.json` and
+`environment-report.json`.
+
+Enhanced > Diagnostics > **Environment probes** displays captured reflections on mirror spheres
+and cyan influence boxes. **Medial axis** shows orange centre paths, dashed orange jump arcs,
+pink junctions and white component centres. Hidden edges remain faintly visible. These controls
+do not change lighting or selection.
+
+## Reflection material controls
+
+In enhanced mode, every authored chrome/glass packet uses a PBR specular layer: box-projected
+GGX environment reflections plus shadowed GGX directional highlights and local point highlights.
+The original painted/diffuse layer, packet alpha, distance fade and emission remain intact. Missing
+reflection coverage uses local normal-dependent GI, converted from irradiance to a broad reflection
+with the material's Fresnel response. Chrome keeps its original effect only when neither GI nor
+reflection data covers the receiver. This does not add refraction or convert painted surfaces into
+metals.
+
+Enhanced > **Reflection materials** exposes session-only roughness, normal-incidence reflectivity
+(F0), strength and reset controls for each profile. Chrome profiles also expose linear reflection
+tint and an authored-opacity multiplier. Water uses its profile for reflections and direct highlights.
+
+| Profile | Roughness | Reflectivity (F0) | Strength |
+| --- | --- | --- | --- |
+| Water | 0.22 | 0.02037 | 1 |
+| Chrome | 0.25 | 0.65 | 1 |
+| Glass | 0.08 | 0.04 | 1 |
+| Stylised | 0.35 | 0.12 | 0.65 |
+| Clank | 0.26 | 0.65 | 1 |
+| Wrench | 0.18 | 0.75 | 1 |
+
+`metal_glass` selects Glass. `metal_stylised`/`metal_stylized` select Stylised; other chrome uses
+Chrome, with Clank/wrench defaults selected by authored object class. **Object overrides** lists
+loaded objects with chrome packets and can force any chrome profile for that class, including
+its glass packets. Automatic restores the authored selection; clearing overrides resets every class.
+Stylised exceptions are explicit, never inferred from texture colour. Controls do not change bakes.
+
+
+## Colour correction
+
+Enhanced Settings > Post Processing enables AgX by default at 0.25 EV. Exposure spans -4 to +4
+stops; Brightness adds `(brightness - 0.5) * 1.6` EV, defaulting to the neutral midpoint. The
+settings are `agx_preview`, `agx_exposure` and `agx_brightness`. Original graphics, OpenGL and
+loading/menu snapshots bypass the pass.
+
+The shader transforms world colour after FSR/motion blur and before native HUD rendering. It
+decodes sRGB, applies exposure and a log-domain sigmoid with 40% hue blending, then encodes sRGB
+once, preserving alpha. A separate source image prevents attachment feedback; no CPU readback
+is used. Existing RGBA8 buffers have already clipped highlights, so this SDR treatment cannot
+recover HDR detail.
+
+AgX matrices are adapted from Google Filament's `ToneMapper.cpp` at
+`be858f42ab95cf0ba6e224ac2dc3950bdb172080` (Apache-2.0); see
+[the retained licence](../renderer/agx-LICENSE.txt) and the third-party notices.

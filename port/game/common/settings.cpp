@@ -141,8 +141,8 @@ bool parse_pair(const std::string& value, char between, int& a, int& b) {
     int second = 0;
     char sep = 0;
     char after = 0;
-    if (std::sscanf(value.c_str(), "%d%c%d%c", &first, &sep, &second, &after) != 3 || sep != between || first < 1
-        || second < 1 || first > 100000 || second > 100000) {
+    if (std::sscanf(value.c_str(), "%d%c%d%c", &first, &sep, &second, &after) != 3 || sep != between
+        || first < 1 || second < 1 || first > 100000 || second > 100000) {
         return false;
     }
     a = first;
@@ -303,8 +303,12 @@ void load(const std::filesystem::path& file) {
             known = parse_bool(value, ignored);
         } else if (key == "probe_spheres") {
             known = parse_bool(value, s.probe_spheres);
+        } else if (key == "medial_axis_debug") {
+            known = parse_bool(value, s.medial_axis_debug);
         } else if (key == "ceiling_area_lights") {
             known = parse_bool(value, s.ceiling_area_lights);
+        } else if (key == "environment_probe_debug") {
+            known = parse_bool(value, s.environment_probe_debug);
         } else if (key == "probe_normal_bias") {
             known = parse_float(value, 0.0f, 2.0f, s.probe_normal_bias);
         } else if (key == "probe_view_bias") {
@@ -421,16 +425,24 @@ void load(const std::filesystem::path& file) {
             }
         }
         if (!known) {
-            log::warn("{}: {} = {} is not a value the port knows; the default is used", file.string(), key, value);
+            log::warn(
+                "{}: {} = {} is not a value the port knows; the default is used",
+                file.string(),
+                key,
+                value
+            );
         }
     }
     if (has_frame_rate && !has_vsync) {
         s.vsync = s.frame_rate == FrameRate::Display ? VSync::On : VSync::Off;
     }
     if (old_strafe) {
-        log::info("{}: the strafe is a mod now, lock-strafe (OpenRAC/rac1-mods): add it in the launcher's "
-                  "Mods tab. This file's strafe setting is left out.",
-                  file.string());
+        log::info(
+            "{}: the strafe is a mod now, lock-strafe (OpenRAC/rac1-mods): add it in the "
+            "launcher's "
+            "Mods tab. This file's strafe setting is left out.",
+            file.string()
+        );
     }
     g_gain = gain_now();
     log::info("settings from {}: {}", file.string(), summary());
@@ -476,7 +488,8 @@ void save() {
         return;
     }
     const Settings& s = g_settings;
-    out << "# OpenRAC: the port's settings (the Video options page of the game's menu changes them;\n"
+    out << "# OpenRAC: the port's settings (the Video options page of the game's menu changes "
+           "them;\n"
         << "# docs/port/SETTINGS.md says what each is)\n"
         << "display_mode = " << kDisplayMode[static_cast<int>(s.display_mode)] << "\n"
         << "monitor = " << s.monitor << "\n"
@@ -505,7 +518,9 @@ void save() {
         << "rim_light_strength = " << s.rim_light_strength << "\n"
         << "rim_light_falloff = " << s.rim_light_falloff << "\n"
         << "probe_spheres = " << (s.probe_spheres ? 1 : 0) << "\n"
+        << "medial_axis_debug = " << (s.medial_axis_debug ? 1 : 0) << "\n"
         << "ceiling_area_lights = " << (s.ceiling_area_lights ? 1 : 0) << "\n"
+        << "environment_probe_debug = " << (s.environment_probe_debug ? 1 : 0) << "\n"
         << "probe_gi_multiplier = " << s.probe_gi_multiplier << "\n"
         << "probe_normal_bias = " << s.probe_normal_bias << "\n"
         << "probe_view_bias = " << s.probe_view_bias << "\n"
@@ -601,12 +616,18 @@ float aspect_ratio(const Settings& settings, int window_width, int window_height
             return 32.0f / 9.0f;
         case Aspect::Custom:
             // Never narrower than the game's own picture, as the window's shape is not.
-            return std::max(4.0f / 3.0f, static_cast<float>(settings.aspect_custom_x)
-                                             / static_cast<float>(std::max(1, settings.aspect_custom_y)));
+            return std::max(
+                4.0f / 3.0f,
+                static_cast<float>(settings.aspect_custom_x)
+                    / static_cast<float>(std::max(1, settings.aspect_custom_y))
+            );
         case Aspect::Window:
             // The game's picture is never narrower than its own: a tall window gets bars.
             return window_width > 0 && window_height > 0
-                       ? std::max(4.0f / 3.0f, static_cast<float>(window_width) / static_cast<float>(window_height))
+                       ? std::max(
+                             4.0f / 3.0f,
+                             static_cast<float>(window_width) / static_cast<float>(window_height)
+                         )
                        : 4.0f / 3.0f;
         case Aspect::Standard:
         case Aspect::Count:

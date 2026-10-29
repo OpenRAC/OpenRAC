@@ -42,20 +42,25 @@ def prepare(level_dir, output_dir, baker, manifest, gameplay):
     identity = hashlib.sha256(inputs['source_sha256'].encode()+executable.read_bytes())
     for name in ('automatic_interiors.py', 'prepare_interiors.py', 'prepare_interior_lights.py'):
         identity.update(Path(__file__).with_name(name).read_bytes())
-    if previous is not None and previous.get('generation_sha256') == identity.hexdigest():
+    if (previous is not None and previous.get('generation_sha256') == identity.hexdigest()
+            and (output_dir/'interior-inference.json').is_file()):
         print('Interior sources are current:', sidecar, flush=True)
         return
     input_path, report_path = output_dir/'interior-input.json', output_dir/'interior-inference.json'
     input_path.write_text(json.dumps(inputs, separators=(',', ':'), allow_nan=False)+'\n')
+    # Regeneration may reuse an output directory; publish only a complete inference report.
     log_path = output_dir/'interior-inference.log'
-    try:
-        with log_path.open('w', encoding='utf-8') as log:
-            subprocess.run([str(executable), str(input_path), str(report_path)],
-                           stdout=log, stderr=subprocess.STDOUT, check=True)
-    except subprocess.CalledProcessError as error:
-        tail = log_path.read_text(encoding='utf-8', errors='replace')[-12000:]
-        raise diagnostics.NativeFailure(error.returncode, error.cmd, tail, log_path) from error
-    plan = source_plan(diagnostics.read_json(report_path), manifest)
+    with tempfile.TemporaryDirectory(prefix='.interior-inference-', dir=output_dir) as staged:
+        temporary = Path(staged)/report_path.name
+        try:
+            with log_path.open('w', encoding='utf-8') as log:
+                subprocess.run([str(executable), str(input_path), str(temporary)],
+                               stdout=log, stderr=subprocess.STDOUT, check=True)
+        except subprocess.CalledProcessError as error:
+            tail = log_path.read_text(encoding='utf-8', errors='replace')[-12000:]
+            raise diagnostics.NativeFailure(error.returncode, error.cmd, tail, log_path) from error
+        plan = source_plan(diagnostics.read_json(temporary), manifest)
+        temporary.replace(report_path)
     plan['generator'] = 'openrac-interiors-v1'
     plan['generation_sha256'] = identity.hexdigest()
     # Replace only this tool's derived output, after successful inference and validation.

@@ -7,6 +7,7 @@ uniform sampler2D probe_moments;
 uniform sampler2D probe_metadata;
 uniform vec3 probe_origin;
 uniform vec3 probe_spacing;
+uniform vec2 probe_frame;
 uniform vec3 probe_dimensions;
 uniform float probe_resolution;
 uniform int probe_tiles_x;
@@ -19,6 +20,7 @@ uniform float probe_normal_bias;
 uniform float probe_view_bias;
 uniform vec3 probe_dense_origin[3];
 uniform vec3 probe_dense_spacing[3];
+uniform vec2 probe_dense_frame[3];
 uniform vec3 probe_dense_dimensions[3];
 uniform int probe_dense_offset[3];
 uniform float probe_dense_weight[3];
@@ -73,6 +75,10 @@ vec2 probe_map_uv(ivec2 tile, vec3 direction) {
     return pixel / vec2(textureSize(probe_irradiance, 0));
 }
 
+
+vec2 probe_axis(vec2 axis) { return dot(axis,axis)>.5 ? axis : vec2(1,0); }
+vec3 probe_local(vec3 p,vec2 axis) { axis=probe_axis(axis);return vec3(dot(p.xy,axis),dot(p.xy,vec2(-axis.y,axis.x)),p.z); }
+vec3 probe_world(vec3 p,vec2 axis) { axis=probe_axis(axis);return vec3(axis.x*p.x-axis.y*p.y,axis.y*p.x+axis.x*p.y,p.z); }
 // Keep the irradiance power decode FP32: half SFU/conversion overhead regresses GI passes.
 bool sample_probe_grid(
     vec3 p,
@@ -80,6 +86,7 @@ bool sample_probe_grid(
     vec3 surface_bias,
     vec3 origin,
     vec3 spacing,
+    vec2 frame,
     vec3 dimensions,
     int index_offset,
     bool preserve_occlusion,
@@ -88,14 +95,14 @@ bool sample_probe_grid(
 ) {
     irradiance = vec3(0.0);
     confidence = 0.0;
-    vec3 coordinate = (p - origin) / spacing;
+    vec3 coordinate = probe_local(p - origin,frame) / spacing;
     if (any(lessThan(coordinate, vec3(0.0))) || any(greaterThan(coordinate, dimensions - 1.0))) {
         return false;
     }
     vec3 receiver = p + surface_bias;
     // Select and interpolate the same biased receiver used for visibility.
     // Keep volume membership and the behind-surface guard at the real surface.
-    coordinate = clamp((receiver - origin) / spacing, vec3(0.0), dimensions - 1.0);
+    coordinate = clamp(probe_local(receiver - origin,frame) / spacing, vec3(0.0), dimensions - 1.0);
     ivec3 cell = min(ivec3(floor(coordinate)), ivec3(dimensions) - 2);
     mp_vec3 fraction = mp_vec3(coordinate - vec3(cell));
 #ifdef OPENRAC_USE_FP16
@@ -123,7 +130,7 @@ bool sample_probe_grid(
             continue;
         }
 #endif
-        vec3 position = origin + vec3(at) * spacing + metadata.xyz;
+        vec3 position = origin + probe_world(vec3(at) * spacing + metadata.xyz,frame);
         vec3 delta = receiver - position;
         float distance = length(delta);
         if (distance > 1e-6) {
@@ -229,7 +236,7 @@ ivec3 probe_choose_regions(vec3 p) {
             }
             int id = int(texelFetch(probe_region_masks, 1 + slot).r);
             vec3 step = probe_regions[id * 3 + 1].xyz;
-            vec3 c = (p - probe_regions[id * 3].xyz) / step;
+            vec3 c = probe_local(p - probe_regions[id * 3].xyz,vec2(probe_regions[id*3+1].w,probe_regions[id*3+2].w)) / step;
             vec3 edge = min(c, probe_regions[id * 3 + 2].xyz - 1.0 - c);
             float influence = smoothstep(0.0, 1.0, min(edge.x, min(edge.y, edge.z)));
             float score = influence / (step.x * step.y * step.z);
@@ -270,6 +277,7 @@ bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradia
         vec3 origin = probe_dense_origin[slot];
         float weight = probe_dense_weight[slot];
         vec3 spacing = probe_dense_spacing[slot];
+        vec2 frame = probe_dense_frame[slot];
         vec3 dimensions = probe_dense_dimensions[slot];
         int offset = probe_dense_offset[slot];
         if (probe_gpu_selection != 0) {
@@ -278,11 +286,12 @@ bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradia
             spacing = probe_regions[id * 3 + 1].xyz;
             dimensions = probe_regions[id * 3 + 2].xyz;
             offset = int(probe_regions[id * 3].w);
+            frame = vec2(probe_regions[id*3+1].w,probe_regions[id*3+2].w);
         }
         if (weight <= 0.0) {
             continue;
         }
-        vec3 coordinate = (p - origin) / spacing;
+        vec3 coordinate = probe_local(p - origin,frame) / spacing;
         vec3 edge = min(coordinate, dimensions - 1.0 - coordinate);
         float boundary = smoothstep(0.0, 1.0, min(edge.x, min(edge.y, edge.z))) * weight;
         // Zero-influence borders cannot contribute even when their probes are valid.
@@ -291,7 +300,7 @@ bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradia
         }
         vec3 local;
         bool local_valid = sample_probe_grid(
-            p, n, surface_bias, origin, spacing, dimensions, offset, true, local, confidence
+            p, n, surface_bias, origin, spacing, frame, dimensions, offset, true, local, confidence
         );
         if (local_valid) {
             float blend = boundary * smoothstep(0.0, 1.0, confidence);
@@ -309,6 +318,7 @@ bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradia
         surface_bias,
         probe_origin,
         probe_spacing,
+        probe_frame,
         probe_dimensions,
         0,
         true,

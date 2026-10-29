@@ -31,9 +31,8 @@ void AgxPreview::apply(renderer::FrameBuffer& output, float exposure) {
     }
     std::string error;
     if ((!m_shader.id()
-         && !m_shader.build(
-             "AgX", renderer::shaders::gtao_vert, renderer::shaders::agx_frag, error
-         ))
+         && !m_shader
+                 .build("AgX", renderer::shaders::gtao_vert, renderer::shaders::agx_frag, error))
         || ((m_copy.width() != output.width() || m_copy.height() != output.height())
             && !m_copy.create(output.width(), output.height(), error))) {
         log::error("AgX disabled: {}", error);

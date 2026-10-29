@@ -40,6 +40,9 @@ class RegionSettings:
     geometry_max_rise: float = 32
     geometry_padding: float = 3
     no_moby_seeds: bool = False
+    adaptive_density: bool = False
+    adaptive_relative_error: float = 0.1
+    adaptive_absolute_error: float = 0.02
 
     @classmethod
     def load(cls, level_dir: Path):
@@ -71,6 +74,8 @@ class RegionSettings:
             raise ValueError('max_regions must be between 1 and 1024')
         if settings.geometry_max_rise <= 0:
             raise ValueError('geometry_max_rise must be positive')
+        if settings.adaptive_relative_error > 0.25 or settings.adaptive_absolute_error > 0.1:
+            raise ValueError('adaptive error limits must not exceed 0.25 relative or 0.1 absolute')
         return settings
 
     def planner_options(self):
@@ -253,6 +258,8 @@ def bake_level(level_dir: Path, output_dir: Path, baker: Path, *, disc=None, opt
     common = [str(baker), '--level-dir', str(level_dir), *options]
     profile = diagnostics.stage('Read baker profile', lambda: diagnostics.parse_profile(diagnostics.capture(common+['--print-profile'])))
     output_dir.mkdir(parents=True, exist_ok=resume)
+    # Only a completed native validation may publish a density report for this run.
+    (output_dir/'probe-density-report.json').unlink(missing_ok=True)
 
     # Resolve reviewed shared materials before the native scene snapshot, including older exports.
     diagnostics.stage('Prepare emission', prepare_emission, level_dir)
@@ -304,8 +311,12 @@ def bake_level(level_dir: Path, output_dir: Path, baker: Path, *, disc=None, opt
                             'max_distance': 1.5*math.sqrt(sum(s*s for s in spacing)),
                             **({'lattice_bounds': region['lattice_bounds']} if 'lattice_bounds' in region else {})})
         bounds = coarse_bounds(plan['regions'], settings)
-        diagnostics.stage('Bake and verify grids', native.finish, {'version': 1, 'scene_hash': source_hash, 'regions': regions,
-                       **({'coarse_bounds': bounds} if bounds is not None else {})})
+        diagnostics.stage('Bake and verify grids', native.finish,
+                          {'version': 1, 'scene_hash': source_hash, 'regions': regions,
+                           'adaptive_density': {'enabled': settings.adaptive_density,
+                                                'relative_error': settings.adaptive_relative_error,
+                                                'absolute_error': settings.adaptive_absolute_error},
+                           **({'coarse_bounds': bounds} if bounds is not None else {})})
 
     sparse = output_dir/'sparse.orpg'
     assets = [output_dir/f'region-{i:03d}.orpg' for i in range(len(plan['regions']))]
@@ -319,7 +330,10 @@ def bake_level(level_dir: Path, output_dir: Path, baker: Path, *, disc=None, opt
         'version': 1, 'game_version': coarse['game_version'], 'level': coarse['level'],
         'scene_hash': source_hash, 'sparse': sparse.name, 'regions': registry['regions'],
         'probe_format_version': profile['probe_format_version'],
-        'bake_version': profile['bake_version'], 'verified': True, 'emission': emission})
+        'bake_version': profile['bake_version'], 'verified': True, 'emission': emission,
+        **({'density_report': 'probe-density-report.json'}
+           if (output_dir/'probe-density-report.json').is_file() else {}),
+        **({'environment': 'environment.orpe'} if (output_dir/'environment.orpe').is_file() else {})})
     print('Verified level bake:', sparse, flush=True)
     return sparse
 

@@ -18,6 +18,10 @@
 
 #include "common/json.h"
 #include "common/profiler.h"
+#include "enhanced/lighting/probe_density.h"
+#include "enhanced/lighting/room_layout.h"
+#include "enhanced/tools/probes/density_stage.h"
+#include "enhanced/tools/probes/environment_stage.h"
 #include "enhanced/tools/probes/probe_fingerprint.h"
 #include "enhanced/tools/probes/probe_grid.h"
 #include "enhanced/tools/probes/report.h"
@@ -49,6 +53,46 @@ struct BatchJob {
     fs::path path;
     ProbeGrid grid;
 };
+
+// Allocation policy is level-local and participates in resume through the report identity.
+bake_detail::ProbeDensitySettings density_settings(const std::string& text) {
+    json::Value plan;
+    std::string error;
+
+    if (!json::parse(text, plan, error)) {
+        throw std::runtime_error("invalid probe density plan: " + error);
+    }
+
+    const auto& value = plan["adaptive_density"];
+    bake_detail::ProbeDensitySettings settings;
+
+    if (!value.is_null()) {
+        if (value["enabled"].type() != json::Value::Type::Bool
+            || !value["relative_error"].is_number() || !value["absolute_error"].is_number()) {
+            throw std::runtime_error("invalid adaptive probe settings");
+        }
+
+        settings.enabled = value["enabled"].boolean();
+        settings.relative_error = float(value["relative_error"].number());
+        settings.absolute_error = float(value["absolute_error"].number());
+    }
+
+    settings.validate();
+    return settings;
+}
+
+// A resumed reduced grid is reusable only for this exact fine grid and validation policy.
+std::string density_identity(
+    const ProbeGrid& grid, const bake_detail::ProbeDensitySettings& settings
+) {
+    return std::format(
+        "adaptive_source_hash {}\nadaptive_policy 2 {} {} {}\n",
+        grid.settings_hash,
+        settings.enabled,
+        settings.relative_error,
+        settings.absolute_error
+    );
+}
 
 // Reject malformed vector settings before any volume output is written.
 template <std::size_t N>
@@ -123,7 +167,11 @@ ProbeGrid batch_coarse_grid(
 
 // Parse all grids first so bad metadata or existing outputs cannot produce a partial fresh bake.
 std::vector<BatchJob> batch_jobs(
-    const BakeSceneExport& exported, const ProbeGrid& sparse, const ProbeBatchOptions& options
+    const BakeSceneExport& exported,
+    const ProbeGrid& sparse,
+    const ProbeBatchOptions& options,
+    std::vector<EnvironmentFloorSample>& floors,
+    bake_detail::RoomLayout& layout
 ) {
     json::Value plan;
     std::string error;
@@ -136,10 +184,30 @@ std::vector<BatchJob> batch_jobs(
     }
 
     const auto coarse = batch_coarse_grid(exported, sparse, plan, options.settings);
+
+    if (fs::exists(options.output_directory / "interior-inference.json")
+        && fs::exists(options.output_directory / "seed-plan.json")) {
+        floors = read_environment_floors(
+            options.output_directory, options.level_directory, options.settings.traversal
+        );
+        layout = bake_detail::prepare_room_layout(
+            exported.scene, floors, options.settings, options.threads
+        );
+    }
+
+    if (!floors.empty()) {
+        write_medial_axis_report(options.output_directory, layout, floors);
+    }
+
     std::vector<BatchJob> jobs{{options.output_directory / "sparse.orpg", coarse}};
+    const bool adaptive = density_settings(options.plan).enabled;
 
     for (const auto& region : plan["regions"].items()) {
         auto grid = batch_region_grid(exported, sparse, region);
+
+        if (!floors.empty()) {
+            grid = bake_detail::fit_room_grid(grid, exported.scene, floors, layout, adaptive);
+        }
 
         if (!region["max_distance"].is_number()) {
             throw std::runtime_error("probe batch moment distance missing");
@@ -158,9 +226,11 @@ std::vector<BatchJob> batch_jobs(
     for (const auto& job : jobs) {
         for (const auto& suffix : {"", ".txt", ".tmp", ".txt.tmp"}) {
             const auto path = job.path.string() + suffix;
+
             if (!fs::exists(path)) {
                 continue;
             }
+
             // Resuming: a write that was cut off is thrown away; a finished grid is checked later.
             if (options.resume && std::string_view(suffix).ends_with(".tmp")) {
                 fs::remove(path);
@@ -179,13 +249,16 @@ std::optional<std::vector<std::uint8_t>> finished_bytes(const BatchJob& job) {
     if (!fs::exists(job.path) || !fs::exists(job.path.string() + ".txt")) {
         return std::nullopt;
     }
+
     std::ifstream input(job.path, std::ios::binary);
     std::vector<std::uint8_t> bytes(
         (std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>()
     );
+
     if (!input.good() && !input.eof()) {
         return std::nullopt;
     }
+
     return bytes;
 }
 
@@ -229,21 +302,32 @@ void run_probe_batch(
 ) {
     const profiling::Zone trace("Bake level batch");
 
-    const auto jobs = batch_jobs(exported, sparse_grid, options);
+    std::vector<EnvironmentFloorSample> floors;
+    bake_detail::RoomLayout layout;
+    const auto jobs = batch_jobs(exported, sparse_grid, options, floors, layout);
+    const auto density = density_settings(options.plan);
+    const auto receivers =
+        density.enabled && !floors.empty()
+            ? bake_detail::probe_density_receivers(
+                  exported.scene, floors, layout, options.settings, options.threads
+              )
+            : std::vector<bake_detail::ProbeDensityReceiver>{};
 
     if (probe_input_hash(level.dir) != options.source_snapshot) {
         throw std::runtime_error("source level changed during planning; no batch started");
     }
 
-    ProbeBaker baker(exported.scene, options.settings, options.threads);
+    auto baker = std::make_unique<ProbeBaker>(exported.scene, options.settings, options.threads);
     const ProbeBakeReport descriptions(level, exported, options.settings, options.light_set);
     std::optional<ProbeVolume> coarse;
 
     // Progress over the whole level, in probes: every grid's, the ones kept counted as done.
     std::size_t total = 0, done = 0, shown = 0;
+
     for (const auto& job : jobs) {
         total += job.grid.probe_count();
     }
+
     output << "Probe batch probes " << total << '\n' << std::flush;
     const auto report_done = [&](std::size_t now) {
         // Each half per cent at most: a level has up to a few million probes.
@@ -260,22 +344,41 @@ void run_probe_batch(
 #endif
         profiling::frame("Probe volumes");
         const auto start = std::chrono::steady_clock::now();
+        const auto identity = density_identity(job.grid, density);
+        auto final_job = job;
+
         if (options.resume) {
             if (const auto bytes = finished_bytes(job)) {
                 try {
                     RuntimeRounding rounding;
-                    auto checked = verify_batch_file(job, *bytes);
+
+                    if (density.enabled && coarse) {
+                        std::ifstream report_file(job.path.string() + ".txt");
+                        const std::string report((std::istreambuf_iterator<char>(report_file)), {});
+
+                        if (report.find(identity) == std::string::npos) {
+                            throw std::runtime_error("kept probe grid has another density policy");
+                        }
+
+                        final_job.grid = decode_probes(*bytes).grid;
+                    }
+
+                    auto checked = verify_batch_file(final_job, *bytes);
+
                     if (checked.grid.settings_hash
                         != probe_bake_settings_hash(checked.grid, options.settings)) {
                         throw std::runtime_error("kept probe grid has other settings");
                     }
+
                     if (coarse) {
                         validate_probe_pair(*coarse, checked);
                     } else {
                         coarse = std::move(checked);
                     }
+
                     output << "Kept " << job.path.filename().string() << '\n'
-                           << "Verified " << job.path.filename().string() << '\n' << std::flush;
+                           << "Verified " << job.path.filename().string() << '\n'
+                           << std::flush;
                     done += job.grid.probe_count();
                     report_done(done);
                     continue;
@@ -285,23 +388,64 @@ void run_probe_batch(
                            << std::flush;
                 }
             }
+
             // What is left of a grid the stop cut short (written, its report not yet): baked again.
             fs::remove(job.path);
             fs::remove(job.path.string() + ".txt");
         }
+
         output << "Baking " << job.path.filename().string() << '\n' << std::flush;
-        const auto volume = baker.bake(
+        auto volume = baker->bake(
             job.grid,
             [&](std::size_t baked, std::size_t) { report_done(done + baked); },
             options.threads
         );
         done += job.grid.probe_count();
         report_done(done);
+        bake_detail::ProbeDensityReport density_report;
+
+        if (coarse && density.enabled) {
+            const auto fine_bytes = encode_probes(volume);
+            const auto fine_report = descriptions.describe(job.grid) + identity
+                                     + std::format(
+                                         "adaptive_original_probes {}\nadaptive_final_probes {}\n"
+                                         "adaptive_overlap_restored 1\n",
+                                         volume.probes.size(),
+                                         volume.probes.size()
+                                     );
+            volume = bake_detail::simplify_probe_density(
+                std::move(volume), *coarse, receivers, density, density_report
+            );
+            volume.grid.settings_hash = probe_bake_settings_hash(volume.grid, options.settings);
+            final_job.grid = volume.grid;
+            const auto reference =
+                job.path.parent_path() / "adaptive-reference" / job.path.filename();
+            fs::remove(reference);
+            fs::remove(reference.string() + ".txt");
+
+            if (volume.probes.size() < job.grid.probe_count()) {
+                fs::create_directories(reference.parent_path());
+                write_bake_file(reference, fine_bytes);
+                write_bake_file(
+                    reference.string() + ".txt",
+                    std::span(
+                        reinterpret_cast<const std::uint8_t*>(fine_report.data()),
+                        fine_report.size()
+                    )
+                );
+            }
+
+            output << "Adaptive " << job.path.filename().string() << ' '
+                   << density_report.original_probes << " -> " << density_report.final_probes
+                   << " probes, " << density_report.receivers << " receivers\n"
+                   << std::flush;
+        }
+
         const auto encoded = encode_probes(volume);
         write_bake_file(job.path, encoded);
         {
             RuntimeRounding rounding;
-            auto checked = verify_batch_file(job, encoded);
+            auto checked = verify_batch_file(final_job, encoded);
 
             if (checked.grid.settings_hash
                 != probe_bake_settings_hash(checked.grid, options.settings)) {
@@ -318,7 +462,24 @@ void run_probe_batch(
                 coarse = std::move(checked);
             }
         }
-        auto report = descriptions.describe(job.grid);
+        auto report = descriptions.describe(final_job.grid);
+        report += identity;
+
+        if (coarse && density.enabled && density_report.original_probes) {
+            report += std::format(
+                "adaptive_original_probes {}\nadaptive_final_probes {}\nadaptive_receivers {}\n"
+                "adaptive_comparisons {}\nadaptive_accepted_axes {}\nadaptive_rejected_axes {}\n"
+                "adaptive_maximum_error {}\n",
+                density_report.original_probes,
+                density_report.final_probes,
+                density_report.receivers,
+                density_report.comparisons,
+                density_report.accepted_axes,
+                density_report.rejected_axes,
+                density_report.maximum_error
+            );
+        }
+
         const auto valid =
             std::count_if(volume.probes.begin(), volume.probes.end(), [](const Probe& probe) {
                 return probe.valid;
@@ -342,6 +503,34 @@ void run_probe_batch(
         );
         output << "Verified " << job.path.filename().string() << '\n' << std::flush;
     }
+
+    // Release GI acceleration before constructing reflection capture state.
+    baker.reset();
+
+    if (density.enabled && !receivers.empty()) {
+        std::vector<fs::path> paths;
+
+        for (const auto& job : jobs) {
+            paths.push_back(job.path);
+        }
+
+        verify_probe_density_field(paths, receivers, density, output);
+    }
+
+    // A resumed stage regenerates captures only after every GI grid has passed read-back checks.
+    if (options.resume) {
+        std::filesystem::remove(options.output_directory / "environment.orpe");
+        std::filesystem::remove(options.output_directory / "environment.orpe.tmp");
+    }
+
+    bake_level_environment(
+        level.dir,
+        options.output_directory,
+        exported.scene,
+        options.settings,
+        options.threads,
+        output
+    );
 
     if (probe_input_hash(level.dir) != options.source_snapshot) {
         throw std::runtime_error(

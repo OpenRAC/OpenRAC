@@ -54,6 +54,8 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | FSR temporal upscaling | `temporal_quality` | `off`, `native-aa`, `quality` (default), `balanced`, `performance` | Enhanced Vulkan only, with compatible probe data. Reconstructs the world before the full-resolution HUD; no frame generation. Quality uses a 1.5x display-to-render ratio, Balanced 1.7x and Performance 2x. Native AA uses the existing render resolution. Active FSR replaces MSAA while preserving its saved setting. Requires a build with `OPENRAC_FSR3`; unsupported backends keep native rendering |
 | FSR sharpening | `temporal_sharpness` | `0.0` to `1.0` (default `0.2`) | RCAS sharpening after temporal reconstruction; zero disables sharpening |
 | Probe spheres | `probe_spheres` | `0` (default), `1` | Enhanced Settings window placement overlay: cyan sparse, green dense, gold relocated, magenta invalid. Spheres follow camera/region selection and CPU-region fades; lighting blends up to three local regions per fragment |
+| Medial axis | `medial_axis_debug` | `0` (default), `1` | Enhanced > Diagnostics: green centre paths, pink junctions and white component centres from the bake |
+| Environment probes | `environment_probe_debug` | `0` (default), `1` | Enhanced > Diagnostics: mirror spheres show each capture; cyan reflection bounds and faint hidden wire markers show coverage |
 | Modern shadows | `enhanced_shadows` | `1` (default), `0` | Independently toggles sun cascades and Ratchet's shadow map in the Enhanced Settings window. Off restores original stencil shadows while keeping GI and GTAO preferences |
 | Shadow quality | `shadow_quality` | `high` (default), `medium`, `low` | High uses 2048x2048 for the nearest sun cascade, 1024x1024 for the other cascades and 512x512 for Ratchet. Medium halves the sun map dimensions but keeps Ratchet at 512x512. Low quarters the sun map dimensions and uses 256x256 for Ratchet. Changes apply immediately, including the scrolling shadow cache |
 | Probe normal bias | `probe_normal_bias` | `0.0` to `2.0` world units (default `0.5`) | Offsets the GI visibility receiver along the camera-facing surface normal; updates immediately |
@@ -299,7 +301,7 @@ Left, with what it costs:
 
 | What | Cost | Why it is left |
 |---|---|---|
-| The terrain is 1,269 of the 2,010 draw calls for 28,000 triangles: one model whose primitives are a few triangles each, by material and tfrag | about 2 ms of the 3.3 ms `submit` on Apple's OpenGL (1.6 µs a call) | Joining them means ordering a model's primitives by material, which changes the order coplanar faces and translucent texels are drawn in. It wants a check of every level's picture, not a blind change |
+| The terrain is 1,269 of the 2,010 draw calls for 28,000 triangles: one model whose primitives are a few triangles each, by material and tfrag | about 2 ms of the 3.3 ms `submit` on Apple's OpenGL (1.6 ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµs a call) | Joining them means ordering a model's primitives by material, which changes the order coplanar faces and translucent texels are drawn in. It wants a check of every level's picture, not a blind change |
 | No culling: every tie, shrub and terrain part of the level is drawn every frame, 1.1 million triangles | most of the 3 ms `gpu` at this size | The game's own visibility is not carried over yet; the world renderers in `renderer/world` replay it and are not the ones drawing |
 | The mobys are drawn in three passes (solid, glow, translucent) and every part is sent in the first two | 81 draw calls here | The glow faces are told apart in the shader, not on the CPU |
 | The frame is read back with `glReadPixels` when the game reads its draw buffer (a page menu opening) and scaled on the CPU | one full frame, once as a menu opens | Not per frame |
@@ -470,7 +472,7 @@ Enhanced Settings has a dedicated Motion Blur section with live controls, toolti
 Gameplay uses the camera rig's smoothed tracking target as its translation reference,
 so Ratchet's jump does not impose his full vertical movement on the scenery. Real-time
 cutscenes use normal camera-relative blur. Both modes share the controls and keep the HUD sharp.
-The saved keys are `motion_blur` (default `1`) and `motion_blur_strength` (0–1,
+The saved keys are `motion_blur` (default `1`) and `motion_blur_strength` (0â€“1,
 default `0.5`). With FSR off it uses Native AA to obtain motion vectors; this temporarily
 uses single-sample rendering. See [camera-target-relative motion blur](../../port/enhanced/fsr3/README.md#camera-target-relative-motion-blur).
 
@@ -479,12 +481,12 @@ Motion Blur tuning is saved with the graphics settings:
 
 | Key | Range | Default |
 |---|---|---|
-| `motion_blur_radius` | 1–128 display pixels | 128 |
-| `motion_blur_samples` | 8–64 | 32 |
-| `motion_blur_min_motion` | 0.1–4 display pixels | 0.5 |
-| `motion_blur_spread` | 0–1 | 0.5 |
-| `motion_blur_depth_tolerance` | 0.001–0.05 | 0.009 |
-| `motion_blur_cutscene_multiplier` | 0–2 | 1 |
+| `motion_blur_radius` | 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“128 display pixels | 128 |
+| `motion_blur_samples` | 8ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“64 | 32 |
+| `motion_blur_min_motion` | 0.1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“4 display pixels | 0.5 |
+| `motion_blur_spread` | 0ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“1 | 0.5 |
+| `motion_blur_depth_tolerance` | 0.001ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“0.05 | 0.009 |
+| `motion_blur_cutscene_multiplier` | 0ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“2 | 1 |
 
 Longer trails and more samples increase GPU cost. Minimum motion suppresses tiny
 movements; trail spread controls JFA's sideways reach; depth tolerance controls

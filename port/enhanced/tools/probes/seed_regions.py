@@ -141,24 +141,25 @@ def coarse_header(path: Path) -> dict:
     with path.open('rb') as source:
         header = source.read(256)
     magic, version = struct.unpack_from('<2I', header)
-    if magic != 0x5047524f or version != 4:
+    if magic != 0x5047524f or version != 5:
         raise ValueError("unsupported sparse asset header")
     bake_version = struct.unpack_from('<I', header, 8)[0]
     name_at = 16
     size, = struct.unpack_from('<I', header, name_at - 4)
-    if bake_version != 1 or not 1 <= size <= 64:
+    if bake_version != 4 or not 1 <= size <= 64:
         raise ValueError("unsupported sparse asset header")
     at = name_at + size
     level, = struct.unpack_from('<I', header, at)
     origin = list(struct.unpack_from('<3f', header, at + 20))
-    spacing = list(struct.unpack_from('<3f', header, at + 32))
-    dimensions = list(struct.unpack_from('<3I', header, at + 44))
-    maximum, = struct.unpack_from('<f', header, at + 60)
+    spacing = list(struct.unpack_from('<3f', header, at + 40))
+    dimensions = list(struct.unpack_from('<3I', header, at + 52))
+    maximum, = struct.unpack_from('<f', header, at + 68)
     return {
         'game_version': header[name_at:name_at + size].decode('ascii'),
         'level': level,
         'origin': origin,
         'spacing': spacing,
+        'orientation': list(struct.unpack_from('<2f', header, at + 32)),
         'dimensions': dimensions,
         'max_distance': maximum,
         'probe_format_version': version,

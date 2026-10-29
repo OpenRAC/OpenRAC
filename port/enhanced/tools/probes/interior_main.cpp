@@ -111,6 +111,11 @@ int main(int argc, char** argv) {
             out << '[' << c.position[0] << ',' << c.position[1] << ',' << c.position[2] << ','
                 << c.component << ',' << c.sky << ']';
         }
+        out << "],\"walkable_edges\":[";
+        for (unsigned i = 0; i < result.walkable_edges.size(); ++i) {
+            const auto edge = result.walkable_edges[i];
+            out << (i ? "," : "") << '[' << edge[0] << ',' << edge[1] << ']';
+        }
         out << "],\"regions\":[";
         for (unsigned i = 0; i < result.regions.size(); ++i) {
             if (i) {

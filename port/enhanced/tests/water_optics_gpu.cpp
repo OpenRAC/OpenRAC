@@ -165,6 +165,7 @@ void main() {
     renderer::Shader physical_test;
     CHECK(physical_test.build("water physical lighting", vertex, physical.c_str(), error));
     physical_test.use();
+    glUniform3f(physical_test.uniform("water_material"), .22f, .02037f, 1);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     const double refracted_cosine = std::sqrt(1. - 1. / (1.333 * 1.333));
@@ -186,6 +187,30 @@ void main() {
         const float actual = std::bit_cast<float>(bits);
         CHECK(std::isfinite(actual));
         CHECK(std::abs(actual - expected_light[x % 8]) < optical_error);
+    }
+    // The shared fallback preserves GI colour, applies Fresnel once and keeps black GI black.
+    const std::string fallback_source =
+        std::string("#version 410 core\n") + std::string(lighting::shaders::shading_brdf_glsl) + R"(
+layout(location=0) out vec4 result;
+void main() {
+    int test=int(gl_FragCoord.x)%4;
+    vec3 colour=gi_specular_fallback(test==3 ? vec3(0) : vec3(3.14159265,0,0),test==1 ? 0. : 1.,.04);
+    float value=test==2 ? colour.g : colour.r;
+    uint bits=floatBitsToUint(value);
+    result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;
+})";
+    renderer::Shader fallback_test;
+    CHECK(fallback_test.build("local GI reflection fallback", vertex, fallback_source, error));
+    fallback_test.use();
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    const std::array<float, 4> expected_fallback{.04f, 1, 0, 0};
+    for (unsigned x = 0; x < kWidth; ++x) {
+        const auto at = x * 4;
+        const auto bits = std::uint32_t(pixels[at]) | (std::uint32_t(pixels[at + 1]) << 8)
+                          | (std::uint32_t(pixels[at + 2]) << 16)
+                          | (std::uint32_t(pixels[at + 3]) << 24);
+        CHECK(std::abs(std::bit_cast<float>(bits) - expected_fallback[x % 4]) < 1e-5f);
     }
     // Smooth slopes must preserve a planar ramp at subcell positions and atlas borders.
     // Poison outside the selected 8x8 body catches cross-body filtering.
