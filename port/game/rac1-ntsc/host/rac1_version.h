@@ -233,6 +233,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x0015F808u 0x0015F728u
 #define RAC1_ADDR_L00_0x0015FB28u 0x0015FA70u
 #define RAC1_ADDR_L00_0x0015FB2Cu 0x0015FA74u
+/* The title loop's exit (front_end.c title_exit), PAL space_load_pending D_0015F690, which
+ * transition.c's title loop waits on: the NTSC decomp's transition_do_transition waits on
+ * space_load_pending D_0015F5B0 (its game_globals.h). 0x15F590 is freeze_fmt_time, a format string
+ * (draw_dialog_text.c), never 0: the port's main menu rows (Exit, the mods') were never put in. */
+#define RAC1_ADDR_0x0015F690u 0x0015F5B0u
 
 /* ---- generated below ---- */
 
@@ -440,7 +445,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0015F558u 0x0015F458u
 #define RAC1_ADDR_0x0015F56Cu 0x0015F46Cu
 #define RAC1_ADDR_0x0015F570u 0x0015F470u
-#define RAC1_ADDR_0x0015F690u 0x0015F590u
 #define RAC1_ADDR_0x0015F6E8u 0x0015F604u
 #define RAC1_ADDR_0x0015F6FCu 0x0015F618u
 #define RAC1_ADDR_0x00160018u 0x0015FF18u
