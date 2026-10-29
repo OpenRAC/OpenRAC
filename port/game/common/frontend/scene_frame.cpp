@@ -354,6 +354,15 @@ bool draw_world(SceneFrame& frame) {
             }
         }
 
+        if (graphics.agx_preview && graphics.enhanced_graphics && enhanced_graphics_available()
+            && scene.has_camera && !input.keep_colour && (scene.draws & 0x1Fu) != 0) {
+            auto before_hud = std::move(input.before_hud);
+            input.before_hud = [&owner, exposure = graphics.adjusted_agx_exposure(),
+                                before_hud = std::move(before_hud)] {
+                owner.agx.apply(owner.frame, exposure);
+                if (before_hud) { before_hud(); }
+            };
+        }
         owner.renderer->render(input, target);
         return true;
     }

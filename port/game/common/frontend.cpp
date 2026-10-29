@@ -530,6 +530,7 @@ void close() {
         release_views(*g);
         // Temporal histories reference the target and scene, so retire them before either owner.
         g->temporal.reset();
+        g->agx.release();
         g->frame.release();
         g->picture.release();
         g->last_world.release();

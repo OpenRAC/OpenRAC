@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "enhanced/fsr3/fsr3.h"
+#include "enhanced/renderer/agx.h"
 #include "enhanced/game/scripted_moby_colour.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/render_worker.h"
@@ -184,6 +185,7 @@ struct State {
         nullptr;  // Owned by renderer; consumes uploads on skipped ticks.
     std::unique_ptr<enhanced::Fsr3>
         temporal;  // Optional enhanced upscaler, released before the window.
+    enhanced::AgxPreview agx;
     renderer::FrameBuffer frame;
     renderer::FrameBuffer picture;  // show_picture's: a movie frame, a boot still
     // The last frame the game drew its world in: what its draw buffer still holds on a frame it

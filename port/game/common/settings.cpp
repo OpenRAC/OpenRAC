@@ -17,6 +17,38 @@
 
 namespace openrac::settings {
 
+void Settings::reset_enhanced() {
+    const Settings defaults;
+    enhanced_graphics = defaults.enhanced_graphics;
+    enhanced_shadows = defaults.enhanced_shadows;
+    shadow_quality = defaults.shadow_quality;
+    rim_light = defaults.rim_light;
+    rim_shadow_lift = defaults.rim_shadow_lift;
+    rim_lift_exponent = defaults.rim_lift_exponent;
+    rim_lift_max_gain = defaults.rim_lift_max_gain;
+    rim_light_strength = defaults.rim_light_strength;
+    rim_light_falloff = defaults.rim_light_falloff;
+    probe_spheres = defaults.probe_spheres;
+    ceiling_area_lights = defaults.ceiling_area_lights;
+    probe_gi_multiplier = defaults.probe_gi_multiplier;
+    probe_normal_bias = defaults.probe_normal_bias;
+    probe_view_bias = defaults.probe_view_bias;
+    sun_direction_override = defaults.sun_direction_override;
+    sun_azimuth = defaults.sun_azimuth;
+    sun_elevation = defaults.sun_elevation;
+    gtao = defaults.gtao;
+    gtao_settings = defaults.gtao_settings;
+    temporal_quality = defaults.temporal_quality;
+    agx_preview = defaults.agx_preview;
+    agx_exposure = defaults.agx_exposure;
+    agx_brightness = defaults.agx_brightness;
+    motion_blur = defaults.motion_blur;
+    motion_blur_settings = defaults.motion_blur_settings;
+    motion_blur_strength = defaults.motion_blur_strength;
+    temporal_sharpness = defaults.temporal_sharpness;
+    texture_filter = defaults.texture_filter;
+}
+
 std::optional<std::array<float, 3>> Settings::sunlight_direction() const {
     if (!sun_direction_override) {
         return std::nullopt;
@@ -301,6 +333,12 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 3.0f, s.gtao_settings.strength);
         } else if (key == "temporal_quality") {
             known = parse(value, renderer::kTemporalKeys, s.temporal_quality);
+        } else if (key == "agx_preview") {
+            known = parse_bool(value, s.agx_preview);
+        } else if (key == "agx_exposure") {
+            known = parse_float(value, -4.0f, 4.0f, s.agx_exposure);
+        } else if (key == "agx_brightness") {
+            known = parse_float(value, 0.0f, 1.0f, s.agx_brightness);
         } else if (key == "motion_blur") {
             known = parse_bool(value, s.motion_blur);
         } else if (key == "motion_blur_strength") {
@@ -484,6 +522,9 @@ void save() {
         << "texture_filter = " << kTextureFilter[static_cast<int>(s.texture_filter)] << "\n"
         << "temporal_quality = " << renderer::kTemporalKeys[static_cast<int>(s.temporal_quality)]
         << "\n"
+        << "agx_preview = " << (s.agx_preview ? 1 : 0) << "\n"
+        << "agx_exposure = " << s.agx_exposure << "\n"
+        << "agx_brightness = " << s.agx_brightness << "\n"
         << "motion_blur = " << (s.motion_blur ? 1 : 0) << "\n"
         << "motion_blur_strength = " << s.motion_blur_strength << "\n"
         << "motion_blur_radius = " << s.motion_blur_settings.max_radius << "\n"

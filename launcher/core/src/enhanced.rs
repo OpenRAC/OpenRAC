@@ -132,6 +132,19 @@ pub fn settings() -> Vec<SettingSpec> {
         quality,
         texture_filter,
         temporal,
+        spec(
+            "agx_preview",
+            "Color Correction",
+            "bool",
+            true.into(),
+            "Balances colour and contrast for a softer, more natural image, and lets you adjust brightness.",
+        ),
+        range(
+            spec("agx_brightness", "Brightness", "float", 0.5.into(), "Makes the image darker or brighter."),
+            0.0,
+            1.0,
+            0.01,
+        ),
         spec("motion_blur", "Motion blur", "bool", true.into(), "Subtle motion blur to enhance animations."),
         advanced(range(spec("temporal_sharpness", "FSR sharpening", "float", 0.2.into(), ""), 0.0, 1.0, 0.05)),
     ]
@@ -592,7 +605,7 @@ mod tests {
         let home = temp("settings");
         let file = settings_file(&home, "rac1", "pal");
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-        std::fs::write(&file, "msaa = 4\ngtao = 1\nprobe_lighting = 0\n").unwrap();
+        std::fs::write(&file, "msaa = 4\ngtao = 1\nprobe_lighting = 0\nagx_exposure = 1.5\n").unwrap();
         let v = view(&home, "rac1", "pal", BakeStatus::default());
         assert!(!v.entry.enabled);
         let value =
@@ -604,8 +617,21 @@ mod tests {
         assert_eq!(value(&v, "temporal_quality"), Value::from("quality"));
         assert_eq!(value(&v, "shadow_quality"), Value::from("high"));
         assert_eq!(value(&v, "temporal_sharpness"), Value::from(0.2));
+        assert_eq!(value(&v, "agx_preview"), Value::Bool(true));
         assert_eq!(value(&v, "motion_blur"), Value::Bool(true));
 
+        assert_eq!(value(&v, "agx_brightness"), Value::from(0.5));
+        for brightness in [0.0, 0.5, 1.0] {
+            set_setting(&home, "rac1", "pal", "agx_brightness", &Value::from(brightness)).unwrap();
+            assert_eq!(
+                value(&view(&home, "rac1", "pal", BakeStatus::default()), "agx_brightness"),
+                Value::from(brightness)
+            );
+        }
+        assert!(set_setting(&home, "rac1", "pal", "agx_brightness", &Value::from(1.01)).is_err());
+        assert!(set_setting(&home, "rac1", "pal", "agx_brightness", &Value::from(-0.01)).is_err());
+        set_setting(&home, "rac1", "pal", "agx_preview", &Value::Bool(false)).unwrap();
+        assert_eq!(value(&view(&home, "rac1", "pal", BakeStatus::default()), "agx_preview"), Value::Bool(false));
         set_enabled(&home, "rac1", "pal", true).unwrap();
         set_setting(&home, "rac1", "pal", "motion_blur", &Value::Bool(true)).unwrap();
         set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("low")).unwrap();
@@ -627,6 +653,8 @@ mod tests {
             "enhanced_shadows = 1",
             "shadow_quality = medium",
             "texture_filter = normal",
+            "agx_exposure = 1.5",
+            "agx_preview = 0",
             "motion_blur = 1",
         ] {
             assert!(text.lines().any(|l| l == line), "{line} in {text}");

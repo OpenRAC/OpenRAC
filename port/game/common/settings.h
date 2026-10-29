@@ -111,9 +111,15 @@ struct Settings {
     bool sun_direction_override = false;
     float sun_azimuth = 0, sun_elevation = 45;  // Light-source angles, degrees; Z is up.
     std::optional<std::array<float, 3>> sunlight_direction() const;
+    // Restore this window's preferences without changing general graphics/audio or startup enablement.
+    void reset_enhanced();
     bool gtao = true;  // ground-truth ambient occlusion when enhanced rendering is enabled
     renderer::TemporalQuality temporal_quality =
         renderer::TemporalQuality::Quality;  // Enhanced Vulkan only.
+    bool agx_preview = true;  // SDR-only AgX colour treatment experiment.
+    float agx_exposure = 0.25f;  // Base exposure in stops, before AgX.
+    float agx_brightness = 0.5f;  // 0..1 adds -0.8..+0.8 EV; midpoint is neutral.
+    float adjusted_agx_exposure() const { return agx_exposure + (agx_brightness - .5f) * 1.6f; }
     bool motion_blur = true;                // Motion relative to the tracking focus.
     renderer::MotionBlurSettings motion_blur_settings;
     float motion_blur_strength = 0.5f;       // Exposure strength in [0, 1].

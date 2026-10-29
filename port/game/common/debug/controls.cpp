@@ -230,6 +230,17 @@ void enhanced_settings_window() {
     }
     ImGui::BeginDisabled(!available);
     bool changed = ImGui::Checkbox("Enhanced graphics (F4)", &graphics.enhanced_graphics);
+    if (ImGui::Button("Reset to Defaults##enhanced")) {
+        graphics.reset_enhanced();
+        enhanced::set_wetness_material_settings({});
+        enhanced::set_wetness_debug_view(false);
+        enhanced::set_water_debug_settings({});
+        enhanced::reset_water_simulation();
+        changed = true;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Restore enhanced graphics, post processing and session tuning defaults.");
+    }
     ImGui::BeginDisabled(!graphics.enhanced_graphics);
     ImGui::PushItemWidth(dp(190));
 
@@ -282,7 +293,25 @@ void enhanced_settings_window() {
     }
     ImGui::EndDisabled();
 
-    changed |= motion_blur_controls(graphics);
+    if (ImGui::CollapsingHeader("Post Processing", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Indent();
+        ImGui::SeparatorText("AgX");
+        changed |= ImGui::Checkbox("AgX", &graphics.agx_preview);
+        ImGui::TextWrapped(
+            "Colour treatment only: existing SDR buffers have already clipped highlights. "
+            "HUD colours are unchanged."
+        );
+        ImGui::BeginDisabled(!graphics.agx_preview);
+        changed |= ImGui::SliderFloat(
+            "Exposure (EV)", &graphics.agx_exposure, -4, 4, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        changed |= ImGui::SliderFloat(
+            "Brightness", &graphics.agx_brightness, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        ImGui::EndDisabled();
+        changed |= motion_blur_controls(graphics);
+        ImGui::Unindent();
+    }
 
     if (ImGui::CollapsingHeader("Advanced")) {
         ImGui::BeginDisabled(!enhanced::Fsr3::available());

@@ -167,6 +167,7 @@ add_library(openrac_renderer STATIC
   renderer/direct.cpp
   renderer/effects.cpp
   renderer/framebuffer.cpp
+  enhanced/renderer/agx.cpp
   enhanced/renderer/gtao.cpp
   renderer/gl.cpp
   renderer/gl_stats.cpp
@@ -182,6 +183,7 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shading_normal.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/surface_normal.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/upscaled_texture_colours.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/agx.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao_common.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao_evaluate.comp"
@@ -703,3 +705,12 @@ target_include_directories(water_host_test PRIVATE enhanced/tests/water_host_stu
   game/common/include runtime/include)
 openrac_warnings(water_host_test)
 add_test(NAME water_host COMMAND water_host_test)
+
+# Optional AgX SDR prototype: reference colours and compatibility bypass.
+openrac_add_test(agx SOURCES enhanced/tests/agx_test.cpp LIBS openrac_renderer openrac_platform)
+set_tests_properties(agx PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=desktop;OPENRAC_ENHANCED=1")
+if(OPENRAC_VULKAN)
+  add_test(NAME agx_vulkan COMMAND agx_test --expect-on)
+  set_tests_properties(agx_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_VALIDATION=1")
+endif()

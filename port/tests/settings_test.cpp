@@ -35,8 +35,72 @@ void test_temporal_settings(const std::filesystem::path& file) {
     settings::load(file);
     CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
     CHECK(settings::get().temporal_sharpness == .2f);
-    CHECK(!settings::get().motion_blur);
+    CHECK(settings::get().motion_blur);
     CHECK(settings::get().motion_blur_strength == .5f);
+}
+
+void test_reset_enhanced() {
+    using namespace openrac;
+    settings::Settings s;
+    s.enhanced_rendering = true;
+    s.enhanced_graphics = false;
+    s.volume = 37;
+    s.render_scale = 75;
+    s.frame_cap = 144;
+    s.texture_filter = renderer::TextureFilter::Normal;
+    s.shadow_quality = renderer::ShadowQuality::Low;
+    s.agx_preview = false;
+    s.agx_exposure = 2;
+    s.agx_brightness = 1;
+    s.sun_direction_override = true;
+    s.probe_spheres = true;
+    s.motion_blur = false;
+    s.motion_blur_settings.samples = 64;
+    s.reset_enhanced();
+    CHECK(s.enhanced_rendering && s.enhanced_graphics);
+    CHECK(s.volume == 37 && s.render_scale == 75 && s.frame_cap == 144);
+    CHECK(s.texture_filter == renderer::TextureFilter::EdgeAware);
+    CHECK(s.shadow_quality == renderer::ShadowQuality::High);
+    CHECK(s.agx_preview && s.agx_exposure == .25f && s.agx_brightness == .5f);
+    CHECK(!s.sun_direction_override && !s.probe_spheres);
+    CHECK(s.motion_blur && s.motion_blur_settings.samples == 32);
+}
+
+void test_agx_preview(const std::filesystem::path& file) {
+    using namespace openrac;
+    CHECK(settings::Settings{}.agx_preview);
+    CHECK(settings::Settings{}.agx_exposure == .25f);
+    CHECK(settings::Settings{}.agx_brightness == .5f);
+    for (float brightness : {0.f, .5f, 1.f}) {
+        std::ofstream(file) << "agx_preview = 1\nagx_exposure = 1.5\nagx_brightness = " << brightness << "\n";
+        settings::load(file);
+        for (int n = 0; n < 2; ++n) {
+            const auto& s = settings::get();
+            CHECK(s.agx_exposure == 1.5f);
+            CHECK(s.agx_brightness == brightness);
+            CHECK(std::abs(s.adjusted_agx_exposure() - (1.5f + brightness * 1.6f - .8f)) < 1e-6f);
+            settings::save();
+            settings::load(file);
+        }
+    }
+    for (const char* invalid : {"nan", "-0.01", "1.01"}) {
+        std::ofstream(file) << "agx_exposure = 0.25\nagx_brightness = " << invalid << "\n";
+        settings::load(file);
+        CHECK(settings::get().agx_brightness == .5f);
+        CHECK(settings::get().adjusted_agx_exposure() == .25f);
+    }
+    std::ofstream(file) << "agx_preview = invalid\nagx_exposure = nan\n";
+    settings::load(file);
+    CHECK(settings::get().agx_preview);
+    CHECK(settings::get().agx_exposure == .25f);
+    CHECK(settings::get().agx_brightness == .5f);
+    std::ofstream(file) << "agx_preview = 0\nagx_exposure = 0\nagx_brightness = 0\n";
+    settings::load(file);
+    settings::save();
+    settings::load(file);
+    CHECK(!settings::get().agx_preview);
+    CHECK(settings::get().agx_exposure == 0.f);
+    CHECK(settings::get().agx_brightness == 0.f);
 }
 
 void test_motion_blur_tuning(const std::filesystem::path& file) {
@@ -195,6 +259,8 @@ int main() {
     CHECK(settings::get().ceiling_area_lights);
     CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
     test_temporal_settings(file);
+    test_reset_enhanced();
+    test_agx_preview(file);
     test_motion_blur_tuning(file);
     test_shadow_quality(file);
     test_sunlight_settings(file);
