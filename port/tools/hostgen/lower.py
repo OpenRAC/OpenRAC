@@ -1049,6 +1049,36 @@ class Unit:
     # register, and passes them on whole. Here such a call keeps its 64 bits, and a local that only
     # receives it is declared 64-bit.
 
+    def _wide_cast_callee(self, c: dict) -> ctype.Type | None:
+        """The 64-bit result type of a function the call site casts to one returning int, as
+        `((int (*)(int))get_effect_texture)(i)` (the smoke and fire emitter's draw, a fakematch):
+        the cast is no instruction on the EE, whose register still holds the 64 bits the function
+        returned, and the caller's sd stores them all. Called through the cast's type, the TEX0's
+        upper word (CBP, CPSM, CSM) came back as the sign of the lower one, and the fires of
+        Oltanis's buildings drew with no palette. None for any other callee."""
+        if c.get("kind") != "CStyleCastExpr":
+            return None
+        pt = self.resolve(self.ty(c))
+        ft = self.resolve(pt.to) if isinstance(pt, ctype.Ptr) else pt
+        if not isinstance(ft, ctype.Func) or self.cls(ft.ret) != "int" or self._wide(ft.ret):
+            return None
+        inner = _strip_parens(_inner(c)[0])
+        if inner.get("kind") != "ImplicitCastExpr" or inner.get("castKind") != "FunctionToPointerDecay":
+            return None
+        target = _strip_parens(_inner(inner)[0])
+        if target.get("kind") != "DeclRefExpr" or target["referencedDecl"].get("kind") != "FunctionDecl":
+            return None
+        own = self.resolve(self.ty(target))
+        if isinstance(own, ctype.Func) and self._wide(own.ret):
+            return self._canon_type(own.ret)
+        sym = self._callee_symbol(target)
+        if sym in getattr(self.program, "returns_64", ()):
+            own_f = self.program.lookup(self.unit, sym)
+            if own_f is not None and self._wide(own_f.sig.ret):
+                return self._canon_type(own_f.sig.ret)
+            return ctype.Base("long long")
+        return None
+
     def _wide_call(self, n: dict) -> bool:
         while n.get("kind") in ("ParenExpr", "ImplicitCastExpr", "CStyleCastExpr"):
             if n.get("kind") == "CStyleCastExpr" and self.cls(self.ty(n)) != "int":
@@ -1057,6 +1087,8 @@ class Unit:
         if n.get("kind") != "CallExpr":
             return False
         c = _strip_parens(_inner(n)[0])
+        if self._wide_cast_callee(c) is not None:
+            return True
         if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "FunctionToPointerDecay":
             target = _strip_parens(_inner(c)[0])
             if target.get("kind") == "DeclRefExpr" and target["referencedDecl"].get("kind") == "FunctionDecl":
@@ -1995,7 +2027,7 @@ class Unit:
         if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "BuiltinFnToFnPtr":
             return self.builtin_call(_strip_parens(_inner(c)[0]), args)
         named = None  # the function a call by name reaches through a code address
-        wide_ret = None
+        wide_ret = self._wide_cast_callee(c)
         if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "FunctionToPointerDecay":
             target = _strip_parens(_inner(c)[0])
             if target.get("kind") == "DeclRefExpr" and target["referencedDecl"].get("kind") == "FunctionDecl":

@@ -358,6 +358,26 @@ class Translate(unittest.TestCase):
         self.assertIn("GFN(void (*)(gaddr, int, float, float), ", self.last_generated)
         self.assertNotIn("GFN(void (*)(gaddr, float, float, int), ", self.last_generated)
 
+    def test_a_cast_to_an_int_result_keeps_the_64_bits(self):
+        # rac1's smoke and fire emitter draw calls GetEffectTex as `((int (*)(int))f)(i)` and stores
+        # the result in a u64 (a fakematch): the EE's register holds the TEX0's 64 bits, and the
+        # sd stores them all. Through the cast's type, the upper word was the lower one's sign.
+        out = self.run_program({
+            "callee.c": """
+                long long func_00110000(int i) { return (long long)i << 40 | 0x80000000ll; }
+            """,
+            "caller.c": """
+                extern long long func_00110000(int);
+                int test_main(void) {
+                    unsigned long long t = ((int (*)(int))func_00110000)(3);
+                    test_print((int)(t >> 32));
+                    return 0;
+                }
+            """,
+        })
+        self.assertEqual(out, ["768"])
+        self.assertIn("GFN(long long (*)(int), ", self.last_generated)
+
     def test_a_cast_to_fewer_arguments_passes_the_callers_own(self):
         # rac3's text code casts a width function to take only its float (`((s32 (*)(f32))f)(1.0f)`):
         # the integers stay what the caller's registers held. Through the definition's type, as a
