@@ -28,6 +28,20 @@ set(OPENRAC_REPO_DIR "${CMAKE_CURRENT_LIST_DIR}/../..")
 # How the games' C is compiled: as the console's C expects (wrapping integers,
 # signed char, no type-based aliasing, no fused multiply-add).
 set(OPENRAC_GAME_C_FLAGS -fno-strict-aliasing -fwrapv -fsigned-char -ffp-contract=off)
+# Locals the C reads before it sets them start at zero. The console's compiler leaves whatever the
+# register held; to clang the read is undefined, and at -O2 it drops the code that depends on it.
+# replenish_hero_drones passes its unset moby to spawn_hero_drone the first time round its loop,
+# and clang removed the whole loop, so the Drone Device spent its ammo and made no drones
+# (tests/uninitialized_locals_test.c).
+include(CheckCCompilerFlag)
+check_c_compiler_flag(-ftrivial-auto-var-init=zero OPENRAC_HAS_ZERO_INIT)
+if(OPENRAC_HAS_ZERO_INIT)
+  list(APPEND OPENRAC_GAME_C_FLAGS -ftrivial-auto-var-init=zero)
+else()
+  message(WARNING "${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION} has no "
+                  "-ftrivial-auto-var-init=zero: the games' C that reads unset locals is "
+                  "miscompiled (the Drone Device makes no drones); use clang 16 or later")
+endif()
 
 # The library replacements every game shares (port/game/common/lib).
 file(GLOB openrac_game_common_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/lib/*.c"

@@ -342,6 +342,12 @@ include(Render)
 if(OPENRAC_PORT_GAMES)
   include(Games)
   openrac_add_games()
+  # The games' C reads some locals before it sets them (replenish_hero_drones' first moby): compiled
+  # with the games' own options, such a loop still runs (cmake/Games.cmake).
+  openrac_add_c_test(uninitialized_locals
+    SOURCES tests/uninitialized_locals_test.c tests/uninitialized_locals_game.c)
+  set_source_files_properties(tests/uninitialized_locals_game.c PROPERTIES
+                              COMPILE_OPTIONS "${OPENRAC_GAME_C_FLAGS};-w")
   # Each rac1 version's table names every function and address the shared host C uses, and nothing
   # else (port/game/rac1/README.md); no disc needed.
   foreach(version rac1-pal rac1-ntsc)

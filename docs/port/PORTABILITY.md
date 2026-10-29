@@ -85,6 +85,10 @@ globals by offset, and offset-based access is in essentially every file.
   source).
 - **Integers**: `char` is signed (`-fsigned-char`), signed overflow wraps
   (`-fwrapv`), aliasing is loose (`-fno-strict-aliasing`).
+- **Unset locals**: the console's compiler reads whatever the register held;
+  to clang the read is undefined and it may drop the code that depends on it
+  (the Drone Device's loop). The port starts them at zero
+  (`-ftrivial-auto-var-init=zero`, `port/cmake/Games.cmake`).
 
 ## 3. Matching artefacts
 
