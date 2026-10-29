@@ -240,7 +240,8 @@ struct Fit {
 struct Raise {
     std::array<gaddr, kRowSlots.size()> moby{};  // 0: not moved
     std::array<float, kRowSlots.size()> own_z{}, put_z{};
-    float height = 0.0f;  // 0: not learnt yet
+    float height = 0.0f;  // 0: none seen yet
+    bool learnt = false;  // the height of the settled rows
     float by = 0.0f;
 };
 
@@ -262,7 +263,6 @@ struct State {
     std::uint32_t tag = 0;            // its tag
     std::int32_t kind = 0;            // the prompt kind it replaced
     bool switch_seen = false;         // the page switch running was looked at
-    gaddr restore_on = 0;             // the page whose own seqs the main menu's rows go back to
     std::uint16_t previous = 0xFFFF;  // pad 0 as last seen (active low)
     std::uint16_t held = 0, pressed = 0;
     std::uint16_t swallow = 0;  // held as a page left: kept from the game until let go
@@ -514,46 +514,23 @@ void patch_main(const openrac_front_end& fe) {
     );
 }
 
-// A page switch to or from the main menu: the rows below the game's fly in and out with its own.
-// The page switched to plays its seq for their slots, a park, at once; the rows' own seqs are
-// played instead, on (to the off pose, as the menu's close) or back (to the row, as its open), and
-// once a switch away is over the slots go back to the page's own.
+// A page switch to the main menu: the rows below the game's fly in with its own, their own seqs
+// played back (to the row, as the menu's open). A switch away leaves them the page's seqs, parks,
+// so they go at once as the game's rows become the next page's frames.
 void follow_switch(const openrac_front_end& fe) {
     const gaddr menu = fe.page_menu;
     const bool starting = GREF(std::int32_t, menu + kState) == kSwitching
                           && GREF(std::int32_t, menu + kTimer) == kSwitchTicks;
 
-    if (starting && !s.switch_seen) {
-        const gaddr from = word(menu + kPrevious);
-        const gaddr to = word(menu + kNext);
-        const bool in = to == fe.main_page && from != fe.main_page;
-        const bool out = from == fe.main_page && to != fe.main_page && to != 0;
-
-        for (int r = 0; (in || out) && r < s.extra_rows; ++r) {
+    if (starting && !s.switch_seen && word(menu + kNext) == fe.main_page
+        && word(menu + kPrevious) != fe.main_page) {
+        for (int r = 0; r < s.extra_rows; ++r) {
             const auto row = static_cast<std::size_t>(kGameRows + r);
-            fe.panel_animation(kRowSlots[row], kRowSeqs[row], in ? 1 : 0, in ? -1.0f : 1.0f);
+            fe.panel_animation(kRowSlots[row], kRowSeqs[row], 1, -1.0f);
         }
-
-        s.restore_on = out ? to : 0;
     }
 
     s.switch_seen = starting;
-
-    // The switch away is over: the page's own seqs (parks, one frame) for those slots.
-    if (s.restore_on != 0 && GREF(std::int32_t, menu + kState) != kSwitching
-        && word(menu + kCurrent) == s.restore_on) {
-        for (int r = 0; r < s.extra_rows; ++r) {
-            const int slot = kRowSlots[static_cast<std::size_t>(kGameRows + r)];
-            fe.panel_animation(
-                slot,
-                GREF(std::int32_t, s.restore_on + kSeqs + 4 * static_cast<gaddr>(slot)),
-                1,
-                1.0f
-            );
-        }
-
-        s.restore_on = 0;
-    }
 }
 
 // The game page `page` is, or -1.
@@ -1002,15 +979,23 @@ void raise_rows(const openrac_front_end& fe) {
     const bool switching = GREF(std::int32_t, menu + kState) == kSwitching;
     const bool main_menu = word(menu + kCurrent) == fe.main_page;
 
-    // Learnt on the main menu settled: the game's first two rows' step, half of it per extra row.
-    if (r.height == 0.0f && s.extra_rows > 0 && main_menu && !switching) {
+    // The game's first two rows' step, half of it per extra row: followed while the main menu's
+    // rows fly in (both play the same flight, a step apart), so that the rows are raised from their
+    // first showing, and kept once the main menu is settled.
+    const bool coming = switching && word(menu + kNext) == fe.main_page;
+
+    if (!r.learnt && s.extra_rows > 0 && (main_menu || coming)) {
         float first = 0.0f;
         float second = 0.0f;
 
         if (row_middle(fe, kRowSlots[0], kRowSeqs[0], first)
             && row_middle(fe, kRowSlots[1], kRowSeqs[1], second)) {
             r.height = (first - second) * static_cast<float>(s.extra_rows) / 2.0f;
-            log::verbose("mod ui: the main menu's rows raised by {}", r.height);
+            r.learnt = main_menu && !switching;
+
+            if (r.learnt) {
+                log::verbose("mod ui: the main menu's rows raised by {}", r.height);
+            }
         }
     }
 
@@ -1019,9 +1004,8 @@ void raise_rows(const openrac_front_end& fe) {
     if (switching) {
         const auto left = static_cast<float>(GREF(std::int32_t, menu + kTimer));
         const float done = std::clamp((kSwitchTicks - left + 1.0f) / kSwitchTicks, 0.0f, 1.0f);
-        const bool in = word(menu + kNext) == fe.main_page;
         const bool out = word(menu + kPrevious) == fe.main_page;
-        goal = in == out ? (in ? 1.0f : 0.0f) : (in ? done : 1.0f - done);
+        goal = coming == out ? (coming ? 1.0f : 0.0f) : (coming ? done : 1.0f - done);
         r.by = goal;
     } else {
         r.by += (goal - r.by) * kEase;
