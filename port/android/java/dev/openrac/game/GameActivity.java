@@ -45,6 +45,8 @@ public class GameActivity extends SDLActivity {
 
     private String library = "openrac-rac1-pal";
     private String[] arguments = new String[0];
+    /** The activity's thread, where SDL's commands run (coverScreen after a style change). */
+    private final Handler uiThread = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -128,7 +130,7 @@ public class GameActivity extends SDLActivity {
         boolean sent = super.sendCommand(command, data);
         if (command == COMMAND_CHANGE_WINDOW_STYLE) {
             // After SDL's own handling of it, which runs on the same thread's queue.
-            new Handler(Looper.getMainLooper()).post(this::coverScreen);
+            uiThread.post(this::coverScreen);
         }
         return sent;
     }

@@ -1915,4 +1915,15 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     return finish_tick(ram, state, packets.named_quads, level, debug, scene);
 }
 
+bool keep_picture() {
+    if (!g) {
+        return true;
+    }
+    if (!read_window_events()) {
+        return false;
+    }
+    draw_kept(false);
+    return !g->render_failed;
+}
+
 }  // namespace openrac::frontend

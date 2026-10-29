@@ -247,6 +247,15 @@ int vsync() {
     } resume;
 
     stats::begin_frame(stats::FrameKind::Tick, static_cast<std::uint64_t>(g_frame));
+    // A blank with no display list sent since the last one: the game drew nothing new into the
+    // chip, and the console's screen shows the picture it showed. Waiting on a load the game sends
+    // nothing (rac1: DoSpaceTransition's waits after the flight, the whole load once Start skipped
+    // it), and the list buffers the window would read again are the old program's, which the load
+    // writes over: drawn, they came out as flat red planes and lines over the stars. Before the
+    // game's first list there is no picture to keep.
+    static bool sent_once = false;
+    const bool sent = !g_vsync_since_kick;
+    sent_once = sent_once || sent;
     g_vsync_since_kick = true;
     // With a window, the renderer draws the frame from the game's memory; without one, a frame is
     // only paced, at the game's frame rate.
@@ -278,10 +287,14 @@ int vsync() {
         const bool keep = undrawn.keep(g_reports_draws, draws, in_level);
         g_draws = 0;
 
-        if (!keep
-            && !frontend::frame(
-                std::span<const std::uint8_t>(ram, GUEST_RAM_SIZE), g_chain, draws
-            )) {
+        if (!sent && sent_once) {
+            if (!frontend::keep_picture()) {
+                leave();
+            }
+        } else if (!keep
+                   && !frontend::frame(
+                       std::span<const std::uint8_t>(ram, GUEST_RAM_SIZE), g_chain, draws
+                   )) {
             leave();
         }
 

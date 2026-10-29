@@ -183,6 +183,10 @@ void set_view_source(const openrac_view_source* source);
 // window's events until the overlay lets a tick through. False once the window was closed.
 bool hold();
 
+// A tick on which the game sent nothing to draw (program/vsync.cpp): the last tick drawn again
+// and the window's events read. False once the window was closed.
+bool keep_picture();
+
 // Current level has validated, uploaded probes and a supported renderer.
 bool enhanced_graphics_available();
 std::string enhanced_graphics_error();
