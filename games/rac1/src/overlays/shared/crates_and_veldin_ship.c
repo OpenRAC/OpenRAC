@@ -1125,7 +1125,7 @@ void decoy_glove_aim_throw(int collision_arg, Moby *carrier, float *position)
                 }
             }
         } else {
-            *(int *)&((struct Hero *)((char *)&hero_globals_base_r + 0xE1D))->throw_target = 0;
+            ((struct Hero *)((char *)&hero_globals_base_r + 0xE1D))->throw_target = 0;
         }
     }
     compute_glove_of_doom_launch_velocity_r(anchor_ptr, aim, output + 4, g_frame_time_sq_r * 9.0f, 0.00000999999975f,

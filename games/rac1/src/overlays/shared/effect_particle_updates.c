@@ -5,6 +5,7 @@
 #include "vector.h"
 #include "moby.h"
 #include "hero.h"
+#include "camera.h"
 
 extern void load_display_text_resource_entry(float *arg0, int *arg1);
 extern void FastVecAdd(void *, void *, void *);
@@ -109,46 +110,54 @@ extern int rand_range(int, int);
 extern float level_wind_state[];
 extern char g_debug_camera[];
 
+struct PartType03Data {
+    Vec4 wind_drift;           /* 0x00: drift vector computed from level_wind_state */
+    u8 *spawn_flag;            /* 0x10: cleared to 0 when particle dies */
+    s32 fade_mode;             /* 0x14: 0 = fade in, 1 = fade out */
+    s32 out_of_view_count;     /* 0x18: increments when angle from camera > 60 deg */
+    s32 collision_timer;       /* 0x1C: checks coll_sphere when >= 3 */
+};
+
 /* part type 3 update: spawn, drift toward a target, fade, and expire */
 void update_drifting_effect_particle_with_distance_fade(struct PartBase *m) {
-    char *p = (char *)m->data;
+    struct PartType03Data *p = (struct PartType03Data *)m->data;
     float v[4];
     float d, a;
     int t, s, k;
     float *g;
     char *q;
-    char *B;
-    t = *(int *)(p + 0x1C);
+    CameraSystem *B;
+    t = p->collision_timer;
     if (t >= 3) {
         s = m->timer;
         if (s > scale_ticks(0x78) && coll_sphere(7.99f, &m->pos, 0x12, 0)) {
-            *(int *)(p + 0x14) = 1;
+            p->fade_mode = 1;
             m->timer = scale_ticks(0x78);
-            *(int *)(p + 0x1C) = -1;
+            p->collision_timer = -1;
         } else {
-            *(int *)(p + 0x1C) = 0;
+            p->collision_timer = 0;
         }
     } else {
         if (t < 0) goto after;
-        *(int *)(p + 0x1C) = t + 1;
+        p->collision_timer = t + 1;
     }
-    if (*(int *)(p + 0x1C) >= 0) {
+    if (p->collision_timer >= 0) {
         g = level_wind_state;
-        *(float *)p = FastCos(g[1]) * g[5] / 2.5f;
-        *(float *)(p + 4) = FastSin(g[1]) * g[5] / 2.5f;
-        *(int *)(p + 8) = 0;
-        FastVecAdd(&m->pos, &m->pos, p);
+        p->wind_drift.f[0] = FastCos(g[1]) * g[5] / 2.5f;
+        p->wind_drift.f[1] = FastSin(g[1]) * g[5] / 2.5f;
+        p->wind_drift.f[2] = 0.0f;
+        FastVecAdd(&m->pos, &m->pos, &p->wind_drift);
     }
 after:
     q = g_debug_camera;
-    B = q - 0x140;
+    B = (CameraSystem *)(q - 0x140);
     d = FastVecDist(&m->pos, q);
-    a = FastSubRots(fast_atan2(m->pos.f[0] - *(float *)(B + 0x140), m->pos.f[1] - *(float *)(B + 0x144)), *(float *)(B + 0x158));
+    a = FastSubRots(fast_atan2(m->pos.f[0] - B->pos.f[0], m->pos.f[1] - B->pos.f[1]), B->rot.f[2]);
     if (FastAbsF(a) > 1.0471976f) {
-        if ((*(int *)(p + 0x18))++ >= 6) goto kill;
-        v[0] = FastCos(FastAddRots(*(float *)(B + 0x158), a > 0.0f ? -1.0471976f : 1.0471976f)) * d;
-        v[1] = FastSin(FastAddRots(*(float *)(B + 0x158), a > 0.0f ? -1.0471976f : 1.0471976f)) * d;
-        v[2] = m->pos.f[2] - *(float *)(B + 0x148);
+        if (p->out_of_view_count++ >= 6) goto kill;
+        v[0] = FastCos(FastAddRots(B->rot.f[2], a > 0.0f ? -1.0471976f : 1.0471976f)) * d;
+        v[1] = FastSin(FastAddRots(B->rot.f[2], a > 0.0f ? -1.0471976f : 1.0471976f)) * d;
+        v[2] = m->pos.f[2] - B->pos.f[2];
         FastVecAdd(&m->pos, v, q);
         qcopy(v, &m->pos);
         v[2] = v[2] + 32.0f;
@@ -157,7 +166,7 @@ after:
     if ((level_frame_counter & 3) == 0) (*(char *)&m->spin)++;
     s = m->timer;
     if (scale_ticks(0x78) >= s) {
-        if (*(int *)(p + 0x14)) {
+        if (p->fade_mode) {
             k = m->timer * 0x14 / scale_ticks(0x78);
         } else {
             k = (scale_ticks(0x78) - m->timer) * 0x14 / scale_ticks(0x78);
@@ -173,12 +182,12 @@ after:
     }
     m->color = (k << 24) | (m->color & 0xFFFFFF);
     if (FastDecTimer(&m->timer)) {
-        if (*(int *)(p + 0x14)) {
+        if (p->fade_mode) {
 kill:
-            **(char **)(p + 0x10) = 0;
+            *p->spawn_flag = 0;
             KillPart(m);
         } else {
-            *(int *)(p + 0x14) = 1;
+            p->fade_mode = 1;
             m->timer = rand_range(scale_ticks(0x78) * 3, scale_ticks(0x78) * 9);
         }
     }
@@ -295,10 +304,39 @@ extern void KillPart(void *);
 extern f32 coll_hit_normal[];
 typedef int u128_6AB __attribute__((mode(TI)));
 
+typedef struct PartType06Def {
+    Vec4 accel;          /* 0x00 */
+    Vec4 min_bounds;     /* 0x10 */
+    Vec4 max_bounds;     /* 0x20 */
+    f32 size_rate;       /* 0x30 */
+    f32 spin_rate;       /* 0x34 */
+    f32 alpha_rate;      /* 0x38 */
+    f32 bounce_scale;    /* 0x3C */
+    f32 max_speed;       /* 0x40 */
+    f32 min_alpha;       /* 0x44 */
+    f32 max_alpha;       /* 0x48 */
+    f32 color_rate[3];   /* 0x4C: R, G, B */
+    f32 min_color[3];    /* 0x58: min R, G, B */
+    f32 max_color[3];    /* 0x64: max R, G, B */
+    s32 flags;           /* 0x70 */
+    f32 min_size;        /* 0x74 */
+    f32 max_size;        /* 0x78 */
+    Moby *moby;          /* 0x7C */
+} PartType06Def;
+
+typedef struct PartType06Data {
+    Vec3f vel;                 /* 0x00 */
+    struct PartType06Def *def; /* 0x0C */
+    f32 alpha;                 /* 0x10 */
+    f32 spin;                  /* 0x14 */
+    u8 color_frac[3];          /* 0x18 */
+    u8 flags;                  /* 0x1B */
+} PartType06Data;
+
 /* Particle type 6 update: moves the particle, clamps its velocity and colour, then kills it when it leaves its bounds. */
 void update_colliding_effect_particle(struct PartBase *m) {
-    unsigned char *t;
-    unsigned char *e;
+    PartType06Def *t;
+    PartType06Data *e;
     float tmp[4];
     float o[4];
     float v2[4];
@@ -310,20 +348,20 @@ void update_colliding_effect_particle(struct PartBase *m) {
     int bb;
     int r4, r5, r6, r7;
 
-    e = (unsigned char *)m->data;
-    t = *(unsigned char **)(e + 0xC);
-    tmp[0] = m->pos.f[0] + *(float *)((unsigned char *)m + 0x20);
-    tmp[1] = m->pos.f[1] + *(float *)(e + 0x4);
-    tmp[2] = m->pos.f[2] + *(float *)(e + 0x8);
+    e = (PartType06Data *)m->data;
+    t = e->def;
+    tmp[0] = m->pos.f[0] + e->vel.x;
+    tmp[1] = m->pos.f[1] + e->vel.y;
+    tmp[2] = m->pos.f[2] + e->vel.z;
 
-    if ((*(int *)(t + 0x70) & 1) && coll_line(&m->pos, tmp, 4, (int)m, 0)) {
-        v2[0] = *(float *)((unsigned char *)m + 0x20);
-        v2[1] = *(float *)(e + 0x4);
-        v2[2] = *(float *)(e + 0x8);
-        subtract_homogeneous_scaled_vector_xyz(o, v2, coll_hit_normal, *(float *)(t + 0x3C));
-        *(float *)((unsigned char *)m + 0x20) = o[0];
-        *(float *)(e + 0x4) = o[1];
-        *(float *)(e + 0x8) = o[2];
+    if ((t->flags & 1) && coll_line(&m->pos, tmp, 4, (int)m, 0)) {
+        v2[0] = e->vel.x;
+        v2[1] = e->vel.y;
+        v2[2] = e->vel.z;
+        subtract_homogeneous_scaled_vector_xyz(o, v2, coll_hit_normal, t->bounce_scale);
+        e->vel.x = o[0];
+        e->vel.y = o[1];
+        e->vel.z = o[2];
         vec_scale_to_length(v3, coll_hit_normal, 0.055f);
         FastVecAdd(&m->pos, (char *)coll_hit_normal - 0x20, v3);
     } else {
@@ -334,118 +372,118 @@ void update_colliding_effect_particle(struct PartBase *m) {
         else *(u128_6AB *)&m->pos = *(u128_6AB *)tmp;
     }
 
-    fl = *(int *)(t + 0x70);
+    fl = t->flags;
     if (fl & 2) {
-        f24 = IntToFloat((*(unsigned char *)&m->color << 8) | e[0x18]) / 65535.0f;
-        f23 = (float)truncate_float_to_s32((float)((m->color & 0xFF00) | e[0x19])) / 65535.0f;
-        f22 = (float)truncate_float_to_s32((float)((int)(((unsigned int)m->color >> 8) & 0xFF00) | e[0x1A])) / 65535.0f;
+        f24 = IntToFloat((*(unsigned char *)&m->color << 8) | e->color_frac[0]) / 65535.0f;
+        f23 = (float)truncate_float_to_s32((float)((m->color & 0xFF00) | e->color_frac[1])) / 65535.0f;
+        f22 = (float)truncate_float_to_s32((float)((int)(((unsigned int)m->color >> 8) & 0xFF00) | e->color_frac[2])) / 65535.0f;
 
-        if (e[0x1B] & 0x10) {
-            f24 = f24 - *(float *)(t + 0x4C) * frame_scale;
+        if (e->flags & 0x10) {
+            f24 = f24 - t->color_rate[0] * frame_scale;
             k = frame_scale;
         } else {
-            f24 = f24 + *(float *)(t + 0x4C) * frame_scale;
+            f24 = f24 + t->color_rate[0] * frame_scale;
             k = frame_scale;
         }
-        if (e[0x1B] & 0x20) {
-            f23 = f23 - *(float *)(t + 0x50) * k;
+        if (e->flags & 0x20) {
+            f23 = f23 - t->color_rate[1] * k;
         } else {
-            f23 = f23 + *(float *)(t + 0x50) * k;
+            f23 = f23 + t->color_rate[1] * k;
         }
-        if (e[0x1B] & 0x40) {
-            f22 = f22 - *(float *)(t + 0x54) * frame_scale;
+        if (e->flags & 0x40) {
+            f22 = f22 - t->color_rate[2] * frame_scale;
         } else {
-            f22 = f22 + *(float *)(t + 0x54) * frame_scale;
+            f22 = f22 + t->color_rate[2] * frame_scale;
         }
 
-        if (*(float *)(t + 0x64) < f24) {
-            f24 = *(float *)(t + 0x64);
-            if (*(int *)(t + 0x70) & 0x100) e[0x1B] ^= 0x10;
+        if (t->max_color[0] < f24) {
+            f24 = t->max_color[0];
+            if (t->flags & 0x100) e->flags ^= 0x10;
         }
-        if (f24 < *(float *)(t + 0x58)) {
-            f24 = *(float *)(t + 0x58);
-            if (*(int *)(t + 0x70) & 0x10) e[0x1B] ^= 0x10;
+        if (f24 < t->min_color[0]) {
+            f24 = t->min_color[0];
+            if (t->flags & 0x10) e->flags ^= 0x10;
         }
-        if (*(float *)(t + 0x68) < f23) {
-            f23 = *(float *)(t + 0x68);
-            if (*(int *)(t + 0x70) & 0x200) e[0x1B] ^= 0x20;
+        if (t->max_color[1] < f23) {
+            f23 = t->max_color[1];
+            if (t->flags & 0x200) e->flags ^= 0x20;
         }
-        if (f23 < *(float *)(t + 0x5C)) {
-            f23 = *(float *)(t + 0x5C);
-            if (*(int *)(t + 0x70) & 0x20) e[0x1B] ^= 0x20;
+        if (f23 < t->min_color[1]) {
+            f23 = t->min_color[1];
+            if (t->flags & 0x20) e->flags ^= 0x20;
         }
-        if (*(float *)(t + 0x6C) < f22) {
-            f22 = *(float *)(t + 0x6C);
-            if (*(int *)(t + 0x70) & 0x400) e[0x1B] ^= 0x40;
+        if (t->max_color[2] < f22) {
+            f22 = t->max_color[2];
+            if (t->flags & 0x400) e->flags ^= 0x40;
         }
-        if (f22 < *(float *)(t + 0x60)) {
-            f22 = *(float *)(t + 0x60);
-            if (*(int *)(t + 0x70) & 0x40) e[0x1B] ^= 0x40;
+        if (f22 < t->min_color[2]) {
+            f22 = t->min_color[2];
+            if (t->flags & 0x40) e->flags ^= 0x40;
         }
 
         {
         float c65 = 65535.0f;
         float c255;
         /* never taken (m[4] is a byte); splits the block so 65535.0f gets $f21 and 255.0f $f20 like retail */
-        if (*(unsigned char *)&m->color & 0x100) e[0x18] = 0;
+        if (*(unsigned char *)&m->color & 0x100) e->color_frac[0] = 0;
         c255 = 255.0f;
-        e[0x18] = truncate_float_to_s32(f24 * c65);
-        e[0x19] = truncate_float_to_s32(f23 * c65);
-        e[0x1A] = truncate_float_to_s32(f22 * c65);
+        e->color_frac[0] = truncate_float_to_s32(f24 * c65);
+        e->color_frac[1] = truncate_float_to_s32(f23 * c65);
+        e->color_frac[2] = truncate_float_to_s32(f22 * c65);
         r4 = truncate_float_to_s32(f24 * c255);
         r5 = truncate_float_to_s32(f23 * c255);
         r6 = truncate_float_to_s32(f22 * c255);
-        r7 = truncate_float_to_s32(*(float *)(e + 0x10) * c255);
+        r7 = truncate_float_to_s32(e->alpha * c255);
         }
         m->color = (r4 & 0xFF) | ((r5 & 0xFF) << 8) | ((r6 & 0xFF) << 16) | (r7 << 24);
         goto dtest;
     }
     if (!(fl & 4)) goto b0b0;
-    r7 = truncate_float_to_s32(*(float *)(e + 0x10) * 255.0f);
+    r7 = truncate_float_to_s32(e->alpha * 255.0f);
     m->color = (m->color & 0xFFFFFF) | (r7 << 24);
 dtest:
-    if (*(int *)(t + 0x70) & 4) {
+    if (t->flags & 4) {
         k = frame_scale;
-        if (e[0x1B] & 0x80) {
-            *(float *)(e + 0x10) = *(float *)(e + 0x10) - *(float *)(t + 0x38) * k;
+        if (e->flags & 0x80) {
+            e->alpha = e->alpha - t->alpha_rate * k;
         } else {
-            *(float *)(e + 0x10) = *(float *)(e + 0x10) + *(float *)(t + 0x38) * k;
+            e->alpha = e->alpha + t->alpha_rate * k;
         }
-        if (*(float *)(e + 0x10) > *(float *)(t + 0x48)) {
-            *(float *)(e + 0x10) = *(float *)(t + 0x48);
-            if (*(int *)(t + 0x70) & 0x800) e[0x1B] ^= 0x80;
+        if (e->alpha > t->max_alpha) {
+            e->alpha = t->max_alpha;
+            if (t->flags & 0x800) e->flags ^= 0x80;
         }
-        if (*(float *)(e + 0x10) < *(float *)(t + 0x44)) {
-            *(float *)(e + 0x10) = *(float *)(t + 0x44);
-            if (*(int *)(t + 0x70) & 0x80) e[0x1B] ^= 0x80;
+        if (e->alpha < t->min_alpha) {
+            e->alpha = t->min_alpha;
+            if (t->flags & 0x80) e->flags ^= 0x80;
         }
     }
 b0b0:
-    m->spin = truncate_float_to_s32(*(float *)(e + 0x14) * 255.0f);
+    m->spin = truncate_float_to_s32(e->spin * 255.0f);
 
-    if (*(int *)(t + 0x70) & 8) {
-        tmp[0] = *(float *)(e + 0x0);
-        tmp[1] = *(float *)(e + 0x4);
-        tmp[2] = *(float *)(e + 0x8);
-        if (*(int *)(t + 0x70) & 0x8000) {
-            euler_to_matrix(v4, *(char **)(t + 0x7C) + 0x40);
+    if (t->flags & 8) {
+        tmp[0] = e->vel.x;
+        tmp[1] = e->vel.y;
+        tmp[2] = e->vel.z;
+        if (t->flags & 0x8000) {
+            euler_to_matrix(v4, &t->moby->rot);
             transform_vector(o, t, v4);
         } else {
             *(u128_6AB *)o = *(u128_6AB *)t;
         }
         FastVecAdd(tmp, tmp, o);
-        clamp_vec_length(tmp, tmp, *(float *)(t + 0x40));
-        *(float *)(e + 0x0) = tmp[0];
-        *(float *)(e + 0x4) = tmp[1];
-        *(float *)(e + 0x8) = tmp[2];
+        clamp_vec_length(tmp, tmp, t->max_speed);
+        e->vel.x = tmp[0];
+        e->vel.y = tmp[1];
+        e->vel.z = tmp[2];
     }
 
-    m->size = m->size + *(float *)(t + 0x30) * frame_scale;
-    if (m->size < *(float *)(t + 0x74)) m->size = *(float *)(t + 0x74);
-    if (m->size > *(float *)(t + 0x78)) m->size = *(float *)(t + 0x78);
+    m->size = m->size + t->size_rate * frame_scale;
+    if (m->size < t->min_size) m->size = t->min_size;
+    if (m->size > t->max_size) m->size = t->max_size;
 
-    *(float *)(e + 0x14) = *(float *)(e + 0x14) + *(float *)(t + 0x34) * frame_scale;
-    if (*(float *)(e + 0x10) <= 0.0f || FastDecTimer(&m->timer) || m->pos.f[0] < *(float *)(t + 0x10) || m->pos.f[1] < *(float *)(t + 0x14) || m->pos.f[2] < *(float *)(t + 0x18) || *(float *)(t + 0x20) < m->pos.f[0] || *(float *)(t + 0x24) < m->pos.f[1] || *(float *)(t + 0x28) < m->pos.f[2]) {
+    e->spin = e->spin + t->spin_rate * frame_scale;
+    if (e->alpha <= 0.0f || FastDecTimer(&m->timer) || m->pos.f[0] < t->min_bounds.f[0] || m->pos.f[1] < t->min_bounds.f[1] || m->pos.f[2] < t->min_bounds.f[2] || t->max_bounds.f[0] < m->pos.f[0] || t->max_bounds.f[1] < m->pos.f[1] || t->max_bounds.f[2] < m->pos.f[2]) {
         KillPart(m);
     }
 }
@@ -505,23 +543,31 @@ void update_animated_fading_effect_particle(struct PartBase *m) {
 }
 extern short rotating_gray_particle_fade_ticks;
 
+typedef struct PartType09Data {
+    int timer;                         /* 0x00 */
+    int pad_04;                        /* 0x04 */
+    float rot_speed;                   /* 0x08 */
+    float angle;                       /* 0x0C */
+    int max_alpha;                     /* 0x10 */
+} PartType09Data;
+
 /* updates a particle: kills it when expired, else spins and fades by lifetime */
 void update_rotating_grayscale_effect_particle(struct PartBase *particle) {
-    int *particle_data = (int *)particle->data;
+    PartType09Data *particle_data = (PartType09Data *)particle->data;
     int faded_alpha;
     if (fast_dec_timer(particle_data)) {
         KillPart(particle);
         return;
     }
-    *(float *)&particle_data[3] = FastAddRots(*(float *)&particle_data[3], *(float *)&particle_data[2]);
-    particle->spin = truncate_float_to_s32_r(*(float *)&particle_data[3] * 128.0f / 3.1415927f) - 0x80;
-    if (scale_ticks(*(int *)&rotating_gray_particle_fade_ticks) * 3 / 4 < particle_data[0]) {
+    particle_data->angle = FastAddRots(particle_data->angle, particle_data->rot_speed);
+    particle->spin = truncate_float_to_s32_r(particle_data->angle * 128.0f / 3.1415927f) - 0x80;
+    if (scale_ticks(*(int *)&rotating_gray_particle_fade_ticks) * 3 / 4 < particle_data->timer) {
         int scaled_fade_duration = scale_ticks(*(int *)&rotating_gray_particle_fade_ticks);
-        faded_alpha = particle_data[4] * (scaled_fade_duration - particle_data[0]) / (scale_ticks(*(int *)&rotating_gray_particle_fade_ticks) / 4);
-    } else if (particle_data[0] < scale_ticks(*(int *)&rotating_gray_particle_fade_ticks) / 4) {
-        faded_alpha = particle_data[4] * particle_data[0] / (scale_ticks(*(int *)&rotating_gray_particle_fade_ticks) / 4);
+        faded_alpha = particle_data->max_alpha * (scaled_fade_duration - particle_data->timer) / (scale_ticks(*(int *)&rotating_gray_particle_fade_ticks) / 4);
+    } else if (particle_data->timer < scale_ticks(*(int *)&rotating_gray_particle_fade_ticks) / 4) {
+        faded_alpha = particle_data->max_alpha * particle_data->timer / (scale_ticks(*(int *)&rotating_gray_particle_fade_ticks) / 4);
     } else {
-        faded_alpha = particle_data[4];
+        faded_alpha = particle_data->max_alpha;
     }
     particle->color = (faded_alpha << 24) + (particle->blend == 0x48 ? 0x4F4F4F : 0x7F7F7F);
 }
@@ -564,10 +610,22 @@ extern float level_draw_frame_load MACRO_ADDR;
 extern unsigned char *part_type11_textures;
 typedef int u128 __attribute__((mode(TI)));
 
+typedef struct PartType11Data {
+    Vec3f vel;                         /* 0x00 */
+    float speed_factor;                /* 0x0C */
+    int color_start;                   /* 0x10 */
+    int color_end;                     /* 0x14 */
+    unsigned char timer_18;            /* 0x18 */
+    unsigned char flags;               /* 0x19 */
+    unsigned char branch_count;        /* 0x1A */
+    unsigned char max_timer;           /* 0x1B */
+    float scale;                       /* 0x1C */
+} PartType11Data;
+
 // Spawns a type-11 particle, skipped by chance under load. Adapted from Lombyte's project (GPL-3.0) for PAL: src/overlays/shared/rendering_00269290.c, FUN_L00_0026a9f0.
 void PartType11Spawn(void *pos, void *dir, int col, int d, int n, int b1A, int b18, float x, int b19, float y) {
     struct PartBase *m;
-    unsigned char *q;
+    PartType11Data *q;
     Vec4 t;
     Vec4 v;
 
@@ -598,7 +656,7 @@ void PartType11Spawn(void *pos, void *dir, int col, int d, int n, int b1A, int b
     m->unk_09 = truncate_float_to_s32_r(4.0f) - 0x60;
     m->blend = (random_integer_below(100) < 0x14) ? 0x44 : 0x48;
     m->unk_01 = 0;
-    q = (unsigned char *)m->data;
+    q = (PartType11Data *)m->data;
     *(int *)&m->size = 0;
     m->spin = func_001160D8();
     m->texture = *part_type11_textures;
@@ -609,15 +667,15 @@ void PartType11Spawn(void *pos, void *dir, int col, int d, int n, int b1A, int b
     t.q = v.q;
     vec_scale_to_length(&t, &t, y);
     FastVecAdd(q, dir, &t);
-    *(float *)(q + 0xC) = y * 0.75f;
+    q->speed_factor = y * 0.75f;
     m->timer = n;
-    q[0x1B] = n;
-    q[0x18] = b1A;
-    *(float *)(q + 0x1C) = x;
-    *(int *)(q + 0x10) = col;
-    *(int *)(q + 0x14) = d;
-    q[0x1A] = b18;
-    q[0x19] = b19;
+    q->max_timer = n;
+    q->timer_18 = b1A;
+    q->scale = x;
+    q->color_start = col;
+    q->color_end = d;
+    q->branch_count = b18;
+    q->flags = b19;
 }
 extern float random_float_between(float, float);
 extern void PartType11Spawn(void *, void *, int, int, int, int, int, float, int, float);
@@ -628,33 +686,33 @@ extern float cpu_frame_load MACRO_ADDR;
 
 /* Per-tick update of a particle type 11: moves, drags, fades and kills it. */
 void update_branching_and_fading_effect_particle(struct PartBase *m) {
-    char *p = (char *)m->data;
+    PartType11Data *p = (PartType11Data *)m->data;
     (*(char *)&m->spin)++;
-    if ((p[0x19] ^ 1) & 1) {
+    if ((p->flags ^ 1) & 1) {
         int i;
         FastVecAdd(&m->pos, &m->pos, p);
-        if (p[0x19] & 4) {
-            *(float *)(p + 8) += g_frame_time_sq * 9.8f;
+        if (p->flags & 4) {
+            p->vel.z += g_frame_time_sq * 9.8f;
         }
         {
             float s = 0.8f;
-            if (p[0x19] & 2) s = 0.6f;
+            if (p->flags & 2) s = 0.6f;
             FastVecScale(p, p, s);
         }
-        if (m->timer == truncate_float_to_s32_r((float)(unsigned char)p[0x1B] * 0.85f)
-            && (unsigned char)p[0x1A] < 2 && !(p[0x19] & 4)) {
+        if (m->timer == truncate_float_to_s32_r((float)p->max_timer * 0.85f)
+            && p->branch_count < 2 && !(p->flags & 4)) {
             for (i = 4; i >= 0; i--) {
-                int a = truncate_float_to_s32_r((float)(unsigned char)p[0x1B] * random_float_between(0.9f, 1.1f));
-                int k = (unsigned char)p[0x18];
+                int a = truncate_float_to_s32_r((float)p->max_timer * random_float_between(0.9f, 1.1f));
+                int k = p->timer_18;
                 float g = random_float_between(0.85f, 1.0f);
-                PartType11Spawn(&m->pos, p, *(int *)(p + 0x10), *(int *)(p + 0x14), a,
-                                  k, (unsigned char)p[0x1A] + 1,
-                                  *(float *)(p + 0x1C), (unsigned char)p[0x19], *(float *)(p + 0xC) * g);
+                PartType11Spawn(&m->pos, p, p->color_start, p->color_end, a,
+                                  k, p->branch_count + 1,
+                                  p->scale, p->flags, p->speed_factor * g);
             }
         }
-        if (!(p[0x19] & 4)) {
-            float x = *(float *)(p + 0x1C);
-            float A = IntToFloat((unsigned char)p[0x1B]);
+        if (!(p->flags & 4)) {
+            float x = p->scale;
+            float A = IntToFloat(p->max_timer);
             float B = (A * 8.0f - A * 3.0f * x) / (x * 8.0f * x + x * 8.0f);
             float C = (A * 3.0f + B * 8.0f * x) / (x * -8.0f);
             float F = IntToFloat(m->timer);
@@ -669,42 +727,42 @@ void update_branching_and_fading_effect_particle(struct PartBase *m) {
                 m->size *= d * 0.075f + 0.25f;
             }
         }
-        if (p[0x19] & 2) {
-            m->color = FastTweenColor(*(int *)(p + 0x10), 0xFFFFFFF,
-                                            (float)m->timer / (float)(unsigned char)p[0x1B]);
+        if (p->flags & 2) {
+            m->color = FastTweenColor(p->color_start, 0xFFFFFFF,
+                                            (float)m->timer / (float)p->max_timer);
         } else {
-            m->color = FastTweenColor(*(int *)(p + 0x14), *(int *)(p + 0x10),
-                                            (float)m->timer / (float)(unsigned char)p[0x1B]);
+            m->color = FastTweenColor(p->color_end, p->color_start,
+                                            (float)m->timer / (float)p->max_timer);
         }
-        fast_subtract_rotations_cf((char *)m + 0x38);
+        fast_subtract_rotations_cf(&p->timer_18);
         if (FastDecTimer(&m->timer)) {
-            if (p[0x19] & 2) {
-                int t = (unsigned char)p[0x1B] * 3;
+            if (p->flags & 2) {
+                int t = p->max_timer * 3;
                 m->timer = t;
-                p[0x1B] = t;
-                p[0x19] = (p[0x19] & 0xFD) | 4;
-                vec_scale_to_length(p, p, *(float *)(p + 0xC) * random_float_between(1.6f, 2.0f));
+                p->max_timer = t;
+                p->flags = (p->flags & 0xFD) | 4;
+                vec_scale_to_length(p, p, p->speed_factor * random_float_between(1.6f, 2.0f));
             } else {
                 int r;
-                *(int *)(p + 0x10) = *(int *)(p + 0x14);
-                *(int *)(p + 0x14) = ((unsigned char)*(char *)&m->blend == 0x48) ? 0 : 0xF2F3F3F;
-                p[0x19] |= 1;
-                r = rand_range((unsigned char)p[0x1B] * 2, (unsigned char)p[0x1B] * 3);
-                if (p[0x19] & 8) r *= 5;
-                p[0x1B] = r;
+                p->color_start = p->color_end;
+                p->color_end = ((unsigned char)*(char *)&m->blend == 0x48) ? 0 : 0xF2F3F3F;
+                p->flags |= 1;
+                r = rand_range(p->max_timer * 2, p->max_timer * 3);
+                if (p->flags & 8) r *= 5;
+                p->max_timer = r;
                 m->timer = (unsigned char)r;
             }
         }
     } else {
-        int n1 = truncate_float_to_s32_r((float)(unsigned char)p[0x1B] * 0.75f) + 1;
-        int n2 = truncate_float_to_s32_r((float)(unsigned char)p[0x1B] * 0.25f) + 1;
+        int n1 = truncate_float_to_s32_r((float)p->max_timer * 0.75f) + 1;
+        int n2 = truncate_float_to_s32_r((float)p->max_timer * 0.25f) + 1;
         int life;
-        *(float *)(p + 8) += g_frame_time_sq * 3.0f;
+        p->vel.z += g_frame_time_sq * 3.0f;
         FastVecAdd(&m->pos, &m->pos, p);
         FastVecScale(p, p, 0.98f);
         life = m->timer;
         if (n1 < life) {
-            m->color = FastTweenColor(*(int *)(p + 0x14), *(int *)(p + 0x10), (float)(life - n1) / (float)n2);
+            m->color = FastTweenColor(p->color_end, p->color_start, (float)(life - n1) / (float)n2);
         } else if ((unsigned char)*(char *)&m->blend == 0x48) {
             m->timer = 0;
         } else {
@@ -736,6 +794,18 @@ extern short spin_particle_alt_life_max;
 extern unsigned char * part_type12_textures;
 extern unsigned char * part_type24_textures;
 extern unsigned char gold_weapon_purchased[];
+
+typedef struct PartType12Data {
+    Vec3f vel;                         /* 0x00 */
+    float pad_0C;                      /* 0x0C */
+    float size;                        /* 0x10 */
+    int color_start;                   /* 0x14 */
+    int color_end;                     /* 0x18 */
+    unsigned char pad_1C;              /* 0x1C */
+    unsigned char max_timer;           /* 0x1D */
+    signed char spin_rate;             /* 0x1E */
+    unsigned char flags;               /* 0x1F */
+} PartType12Data;
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/rendering/00269290.c, FUN_L00_0026b230. */
 unsigned char *spawn_spinning_and_fading_effect_particle(void *pos, void *vel, unsigned char flags, float size) {
@@ -823,28 +893,28 @@ extern float ApproachWithVelocity(float *, float *, float, float, float, float);
 
 /* per-frame update of a spinning particle: fades, scales and kills it when out of range */
 void update_spinning_and_fading_effect_particle(struct PartBase *m) {
-    unsigned char *p = (unsigned char *)m->data;
+    PartType12Data *p = (PartType12Data *)m->data;
     float r;
     float w = 1.0f;
     float ratio;
-    m->spin = m->spin + p[0x1E];
-    if (p[0x1F] & 4) {
+    m->spin = m->spin + p->spin_rate;
+    if (p->flags & 4) {
         w = IntToFloat(screen_globals_base[0x4D6]) * 0.5f + w;
     }
     FastVecAdd(&m->pos, &m->pos, p);
     r = -FastVecLength(p);
-    ApproachWithVelocity((float *)((unsigned char *)m + 0x30), &r, 0.0f, 0.0f, *(float *)&spin_particle_speed_decay * g_frame_time_sq, r);
+    ApproachWithVelocity(&p->size, &r, 0.0f, 0.0f, *(float *)&spin_particle_speed_decay * g_frame_time_sq, r);
     vec_scale_to_length(p, p, -r);
     m->pos.f[2] = m->pos.f[2] + *(float *)&spin_particle_rise_speed * g_frame_time;
-    ratio = IntToFloat(m->timer) / IntToFloat(p[0x1D]);
-    if (p[0x1F] & 1) {
+    ratio = IntToFloat(m->timer) / IntToFloat(p->max_timer);
+    if (p->flags & 1) {
         float lo = *(float *)&spin_particle_alt_end_size * w;
         m->size = ((*(float *)&spin_particle_alt_start_size - lo) * ratio + lo) * 210000.0f;
     } else {
         float lo = *(float *)&spin_particle_end_size * w;
         m->size = ((*(float *)&spin_particle_start_size - lo) * ratio + lo) * 210000.0f;
     }
-    m->color = FastTweenColor(*(int *)(p + 0x18), *(int *)(p + 0x14), ratio);
+    m->color = FastTweenColor(p->color_end, p->color_start, ratio);
     if (m->timer < scale_ticks(15)) {
         float q = IntToFloat(m->timer);
         float t = q / IntToFloat(scale_ticks(10));
@@ -855,7 +925,7 @@ void update_spinning_and_fading_effect_particle(struct PartBase *m) {
         m->pos.f[2] < 2.0f || m->pos.f[2] > 1021.0f ||
         FastDecTimer(&m->timer) != 0) {
         KillPart(m);
-    } else if (*(float *)(p + 0x10) < 0.01f) {
+    } else if (p->size < 0.01f) {
         m->timer = m->timer - 1;
     }
 }
@@ -863,6 +933,16 @@ extern float randf_sym(float lo, float hi);
 extern int random_integer_below(int);
 extern float random_float_between(float, float);
 extern unsigned char *part_type13_textures;
+
+typedef struct PartType13Data {
+    u8 pad_0[4];
+    s32 state;                         /* 0x04: 0 = fade in, 1 = fade out */
+    u8 spin_speed;                     /* 0x08 */
+    u8 pad_9[3];
+    f32 size_scale;                    /* 0x0C */
+    f32 vel_z;                         /* 0x10 */
+    s32 base_color;                    /* 0x14 */
+} PartType13Data;
 
 /* Spawns a type-13 particle at pos with randomised offset, sign-flipped spin and a packed colour. */
 unsigned char *spawn_spinning_fade_in_out_effect_particle(void *pos, int spin, int col, float range, float f1, float f2, float f3, float scale) {
@@ -894,15 +974,6 @@ unsigned char *spawn_spinning_fade_in_out_effect_particle(void *pos, int spin, i
     }
     return r;
 }
-typedef struct PartType13Data {
-    u8 pad_0[4];
-    s32 state;                         /* 0x04: 0 = fade in, 1 = fade out */
-    u8 spin_speed;                     /* 0x08 */
-    u8 pad_9[3];
-    f32 size_scale;                    /* 0x0C */
-    f32 vel_z;                         /* 0x10 */
-    s32 base_color;                    /* 0x14 */
-} PartType13Data;
 
 /* particle update: fade in over a random delay, then fade out with a sine-shaped alpha */
 void update_spinning_fade_in_out_effect_particle(struct PartBase *particle) {
@@ -935,15 +1006,22 @@ extern void FastVecSub(void *, void *, void *);
 extern void vec_scale_to_length(void *, void *, float);
 extern char g_debug_camera[];
 
+typedef struct PartType14Data {
+    s8 spin_speed;                     /* 0x00 */
+    u8 pad[3];                         /* 0x01 */
+    s32 state;                         /* 0x04 */
+    Moby *target;                      /* 0x08 */
+} PartType14Data;
+
 /* part type 14 update: steer toward a target, or fade out and kill */
 void update_attached_or_fading_effect_particle(struct PartBase *m) {
     float v[4];
-    char *p = (char *)m->data;
+    PartType14Data *p = (PartType14Data *)m->data;
     char *q;
-    m->spin = *(char *)&m->spin + ((char *)m)[0x20];
-    if (*(int *)(p + 4) == 0) {
+    m->spin += p->spin_speed;
+    if (p->state == 0) {
         q = (char *)&m->pos;
-        qcopy(q, *(char **)(p + 8) + 0x10);
+        qcopy(q, &p->target->pos);
         FastVecSub(v, g_debug_camera, q);
         vec_scale_to_length(v, v, 0.01f);
         FastVecAdd(q, q, v);
@@ -957,10 +1035,20 @@ void update_attached_or_fading_effect_particle(struct PartBase *m) {
 }
 extern unsigned char *part_type15_textures;
 
+typedef struct PartType15Data {
+    Vec3f vel;                         /* 0x00 */
+    float pad_0C;                      /* 0x0C */
+    int color_start;                   /* 0x10 */
+    int color_end;                     /* 0x14 */
+    short max_timer;                   /* 0x18 */
+    short spawn_flag;                  /* 0x1A */
+    float base_size;                   /* 0x1C */
+} PartType15Data;
+
 /* spawns a type-15 particle with given position, velocity and color */
 void *spawn_shrinking_effect_particle_with_gravity_and_secondary_spawns(void *pos, void *vel, int a2, int a3, int cnt, int s, int c, int col, float f) {
     struct PartBase *p;
-    char *q;
+    PartType15Data *q;
     if (cnt == 0) return 0;
     p = (struct PartBase *)create_part(0xF);
     if (p != 0) {
@@ -980,13 +1068,13 @@ void *spawn_shrinking_effect_particle_with_gravity_and_secondary_spawns(void *po
         } else {
             p->texture = c;
         }
-        q = (char *)p->data;
+        q = (PartType15Data *)p->data;
         p->timer = cnt;
-        *(short *)(q + 0x18) = cnt;
-        *(float *)(q + 0x1C) = f;
-        *(int *)(q + 0x10) = a2;
-        *(int *)(q + 0x14) = a3;
-        *(short *)(q + 0x1A) = s;
+        q->max_timer = cnt;
+        q->base_size = f;
+        q->color_start = a2;
+        q->color_end = a3;
+        q->spawn_flag = s;
         qcopy(q, vel);
     }
     return (char *)p;
@@ -1008,7 +1096,7 @@ unsigned char *func_L00_0026CA10_26bca8(void *, void *, int, int, int, float, in
 /* Particle update: counts down its life, applies velocity and gravity, and now and then spawns a child particle with a random kick. Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/shared/rendering_00269290.c, FUN_L00_0026bca8. */
 void update_shrinking_effect_particle_with_gravity_and_secondary_spawns(struct PartBase *m) {
     Vec4 u, t, w;
-    unsigned char *o = (unsigned char *)m->data;
+    PartType15Data *o = (PartType15Data *)m->data;
     unsigned char *p;
     float a, b;
     if (func_001F9938_26bca8(&m->timer)) {
@@ -1017,16 +1105,16 @@ void update_shrinking_effect_particle_with_gravity_and_secondary_spawns(struct P
     }
     p = (unsigned char *)&m->pos;
     a = func_001FA888_26bca8(m->timer);
-    b = func_001FA888_26bca8(*(short *)(o + 0x18));
-    a *= *(float *)(o + 0x1C);
+    b = func_001FA888_26bca8(o->max_timer);
+    a *= o->base_size;
     a /= b;
     m->size = a;
     a = func_001FA888_26bca8(m->timer);
-    m->color = func_L00_00237B70_26bca8(*(int *)(o + 0x14), *(int *)(o + 0x10), a / func_001FA888_26bca8(*(short *)(o + 0x18)));
+    m->color = func_L00_00237B70_26bca8(o->color_end, o->color_start, a / func_001FA888_26bca8(o->max_timer));
     func_001F9BD8_26bca8(p, p, o);
-    *(float *)(o + 8) -= g_frame_time_sq_r * 14.6f;
+    o->vel.z -= g_frame_time_sq_r * 14.6f;
     qcopy(&u, p);
-    if (*(short *)(o + 0x1A) && (level_frame_counter_r & 1)) {
+    if (o->spawn_flag && (level_frame_counter_r & 1)) {
         w.q = 0;
         w.f[0] = func_002140F8_26bca8(-1.0f, 1.0f);
         w.f[1] = func_002140F8_26bca8(-1.0f, 1.0f);
@@ -1036,7 +1124,7 @@ void update_shrinking_effect_particle_with_gravity_and_secondary_spawns(struct P
         func_L00_001FF4B0_26bca8(&t, &t, b * func_002140F8_26bca8(0.15f, 0.25f));
         func_001F9BD8_26bca8(&t, &t, o);
         func_001F9C30_26bca8(&t, &t, func_002140F8_26bca8(0.75f, 0.95f));
-        func_L00_0026CA10_26bca8(p, &t, m->color, *(int *)(o + 0x14), func_001F9850_26bca8(func_L00_00258BC8_26bca8(0xF, 0x1E)), m->size, 0, m->texture, m->blend);
+        func_L00_0026CA10_26bca8(p, &t, m->color, o->color_end, func_001F9850_26bca8(func_L00_00258BC8_26bca8(0xF, 0x1E)), m->size, 0, m->texture, m->blend);
     } else {
         func_001F9C30_26bca8(o, o, 0.96f);
     }
@@ -1044,10 +1132,19 @@ void update_shrinking_effect_particle_with_gravity_and_secondary_spawns(struct P
 extern float cpu_frame_load MACRO_ADDR;
 extern unsigned char *part_type16_textures;
 
+typedef struct PartType16Data {
+    float vel[4];
+    int c10;
+    int c14;
+    short life;
+    short kind;
+    float f1C;
+} PartType16Data;
+
 /* spawns a type-16 particle at a position, unless the particle budget is over threshold */
 char *mine_debris(float f, char *a, char *b, int c, int d, int e, int g) {
     struct PartBase *p;
-    char *q;
+    PartType16Data *q;
     int r;
     unsigned char *t;
     unsigned char *s;
@@ -1065,30 +1162,22 @@ char *mine_debris(float f, char *a, char *b, int c, int d, int e, int g) {
         p->blend = 0x44;
         p->unk_09 = r + 0x40;
         p->spin = func_001160D8();
-        q = (char *)p->data;
+        q = (PartType16Data *)p->data;
         t = part_type16_textures;
         s = t + g;
         if (g == 3) s = t;
         p->texture = *s;
         p->timer = e;
-        *(short *)(q + 0x18) = e;
-        *(float *)(q + 0x1C) = f;
-        *(int *)(q + 0x10) = c;
-        *(int *)(q + 0x14) = d;
-        *(short *)(q + 0x1A) = g;
+        q->life = e;
+        q->f1C = f;
+        q->c10 = c;
+        q->c14 = d;
+        q->kind = g;
         qcopy(q, b);
-        *(float *)(q + 0xC) = *(float *)(a + 8) - 0.5f;
+        q->vel[3] = *(float *)(a + 8) - 0.5f;
     }
     return (char *)p;
 }
-typedef struct PartType16Data {
-    float vel[4];
-    int c10;
-    int c14;
-    short life;
-    short kind;
-    float f1C;
-} PartType16Data;
 extern float cpu_frame_load_r __asm__("D_L00_0015F6B4") MACRO_ADDR;
 extern char g_debug_camera_r[] __asm__("D_L00_00166EC0");
 extern float IntToFloat_r(int) __asm__("func_001FA888");
@@ -1410,13 +1499,23 @@ void update_shrinking_effect_particle_with_secondary_spawns(struct PartBase *par
 extern char *part_type22_textures;
 extern float g_frame_time_sq MACRO_ADDR;
 
+typedef struct PartType22Data {
+    Vec3f vel;                         /* 0x00 */
+    float gravity;                     /* 0x0C */
+    int color_start;                   /* 0x10 */
+    int color_end;                     /* 0x14 */
+    short max_timer;                   /* 0x18 */
+    short pad_1A;                      /* 0x1A */
+    float size_step;                   /* 0x1C */
+} PartType22Data;
+
 /* spawns a type 22 particle with the given position, velocity, colour and lifetime */
 void spawn_effect_particle_with_target_scalar(void *pos, void *vel, int c, int d, int e, float x) {
     struct PartBase *m = (struct PartBase *)create_part(0x16);
-    char *p;
+    PartType22Data *p;
     int r;
     if (m != 0) {
-        p = (char *)m->data;
+        p = (PartType22Data *)m->data;
         m->color = c;
         r = truncate_float_to_s32_r(4.0f) + 0x70;
         m->unk_01 = 0;
@@ -1426,13 +1525,13 @@ void spawn_effect_particle_with_target_scalar(void *pos, void *vel, int c, int d
         m->spin = func_001160D8();
         m->texture = *part_type22_textures;
         m->timer = e;
-        *(short *)(p + 0x18) = e;
-        *(float *)(p + 0x1C) = (x - m->size) / IntToFloat(e);
-        *(int *)(p + 0x10) = c;
-        *(int *)(p + 0x14) = d;
+        p->max_timer = e;
+        p->size_step = (x - m->size) / IntToFloat(e);
+        p->color_start = c;
+        p->color_end = d;
         qcopy(p, vel);
         qcopy(&m->pos, pos);
-        *(float *)(p + 0xC) = g_frame_time_sq * 1.24f;
+        p->gravity = g_frame_time_sq * 1.24f;
     }
 }
 extern unsigned char *part_type23_textures;
@@ -1468,56 +1567,67 @@ void *PartType23Spawn(void *pos, int spd, void *pos2, int col, float a, float b,
     }
     return p;
 }
+typedef struct PartType23Data {
+    int color;                         /* 0x00 */
+    int state;                         /* 0x04 */
+    char spin_speed;                   /* 0x08 */
+    char pad_09;                       /* 0x09 */
+    unsigned char alpha_scale;         /* 0x0A */
+    unsigned char max_timer;           /* 0x0B */
+    float size_scale;                  /* 0x0C */
+    Vec4 vel;                          /* 0x10 */
+} PartType23Data;
+
 // updates a type 23 particle
 void update_moving_spinning_fade_in_out_effect_particle(struct PartBase *m) {
-    unsigned char *p = (char *)m->data;
+    PartType23Data *p = (PartType23Data *)m->data;
     int t;
     float s;
     int x;
 
-    *(char *)&m->spin += p[8];
-    FastVecAdd(&m->pos, &m->pos, (char *)m + 0x30);
-    m->size *= (*(float *)(p + 0xC) - 1.0f) * frame_scale + 1.0f;
-    t = *(int *)(p + 4);
+    *(char *)&m->spin += p->spin_speed;
+    FastVecAdd(&m->pos, &m->pos, &p->vel);
+    m->size *= (p->size_scale - 1.0f) * frame_scale + 1.0f;
+    t = p->state;
     if (t == 0) {
         if (FastDecTimer(&m->timer)) {
-            *(int *)(p + 4) = 1;
+            p->state = 1;
             m->timer = scale_ticks(0x14);
-            m->color = *(int *)p | 0x7F000000;
+            m->color = p->color | 0x7F000000;
         } else {
             int a = scale_ticks(0xA);
             float r = 96.0f / (float)scale_ticks(0xA);
             x = truncate_float_to_s32_r((float)(a - m->timer) * r);
-            m->color = ((x + 0x20) << 24) | *(int *)p;
+            m->color = ((x + 0x20) << 24) | p->color;
         }
     } else if (t == 2) {
         if (FastDecTimer(&m->timer)) {
             KillPart(m);
             return;
         }
-        s = IntToFloat(p[0xB]);
-        x = truncate_float_to_s32_r((float)p[0xA] * ((float)m->timer / s) + 0.0f);
-        m->color = (x << 24) | (*(int *)p & 0xFFFFFF);
+        s = IntToFloat(p->max_timer);
+        x = truncate_float_to_s32_r((float)p->alpha_scale * ((float)m->timer / s) + 0.0f);
+        m->color = (x << 24) | (p->color & 0xFFFFFF);
     } else if (t == 3) {
         float f;
         FastDecTimer(&m->timer);
-        f = IntToFloat(p[0xB] - m->timer);
+        f = IntToFloat(p->max_timer - m->timer);
         f = f / IntToFloat(scale_ticks(0x1E));
         if (f > 1.0f) {
             f = 1.0f;
         }
-        x = truncate_float_to_s32_r((float)p[0xA] * f + 0.0f);
-        m->color = (x << 24) | (*(int *)p & 0xFFFFFF);
-        if (p[0xB] - m->timer >= scale_ticks(0x1E)) {
-            p[0xB] -= scale_ticks(0x1E);
-            *(int *)(p + 4) = 2;
+        x = truncate_float_to_s32_r((float)p->alpha_scale * f + 0.0f);
+        m->color = (x << 24) | (p->color & 0xFFFFFF);
+        if (p->max_timer - m->timer >= scale_ticks(0x1E)) {
+            p->max_timer -= scale_ticks(0x1E);
+            p->state = 2;
         }
     } else if (FastDecTimer(&m->timer)) {
         KillPart(m);
     } else {
         float r = 127.0f / (float)scale_ticks(0x14);
         x = truncate_float_to_s32_r((float)m->timer * r);
-        m->color = (x << 24) | *(int *)p;
+        m->color = (x << 24) | p->color;
     }
 }
 typedef struct Src_26d470 {
@@ -1700,23 +1810,31 @@ void update_color_decaying_effect_particle_with_collision(struct PartBase *parti
 extern void Moby_GetJointWorldPos(void *, int, void *);
 extern char *part_type26_textures;
 
+typedef struct PartType26Data {
+    Moby *moby;               /* 0x00 the moby the particle is attached to */
+    s16 timer;                /* 0x04 frames left; the alpha ramps while it is under total_life / 5 */
+    s16 joint;                /* 0x06 joint index on moby; -1 uses moby's position */
+    s32 total_life;           /* 0x08 full lifetime */
+    s32 peak_alpha;           /* 0x0C peak alpha */
+} PartType26Data;
+
 /* spawns a type 26 particle attached to a moby, with colour, lifetime and size */
 char *spawn_source_attached_fading_effect_particle(char *src, int col, int w, int v, float x) {
     char *m = create_part(0x1A);
-    char *p;
+    PartType26Data *p;
     if (m != 0) {
         float a[4];
         float b[4];
-        p = m + 0x20;
-        *(char **)(m + 0x20) = src;
-        *(int *)(p + 8) = w;
-        *(short *)(p + 4) = w;
-        *(int *)(p + 0xC) = col >> 24;
-        *(short *)(p + 6) = v;
+        p = (PartType26Data *)(m + 0x20);
+        p->moby = (Moby *)src;
+        p->total_life = w;
+        p->timer = w;
+        p->peak_alpha = col >> 24;
+        p->joint = v;
         if ((short)v == -1) {
             qcopy(m + 0x10, src + 0x10);
         } else {
-            Moby_GetJointWorldPos(*(void **)(m + 0x20), (short)v, a);
+            Moby_GetJointWorldPos(p->moby, (short)v, a);
             FastVecSub(b, g_debug_camera, a);
             vec_scale_to_length(b, b, 0.4f);
             FastVecAdd(m + 0x10, a, b);
@@ -1731,15 +1849,6 @@ char *spawn_source_attached_fading_effect_particle(char *src, int col, int w, in
     }
     return m;
 }
-extern void Moby_GetJointWorldPos(void *, int, void *);
-
-typedef struct PartType26Data {
-    Moby *moby;               /* 0x00 the moby the particle is attached to */
-    s16 timer;                /* 0x04 frames left; the alpha ramps while it is under total_life / 5 */
-    s16 joint;                /* 0x06 joint index on moby; -1 uses moby's position */
-    s32 total_life;           /* 0x08 full lifetime */
-    s32 peak_alpha;           /* 0x0C peak alpha */
-} PartType26Data;
 
 /* part type 26 update: follow a target moby, fading in the alpha */
 void update_source_attached_fading_effect_particle(struct PartBase *particle) {
@@ -1768,11 +1877,18 @@ extern void *create_part(int);
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
 extern unsigned char *part_type27_textures;
 
+typedef struct PartType27Data {
+    Vec4 vel;                          /* 0x00 */
+    s32 timer;                         /* 0x10 */
+    s32 lifetime;                      /* 0x14 */
+    s32 peak_alpha;                    /* 0x18 */
+} PartType27Data;
+
 /* spawns a type-0x1B particle with the given position, velocity and timers */
 char *PartType27Spawn(char *pos, char *vel, int c, int d, float f) {
     char *p = create_part(0x1B);
     if (p != 0) {
-        char *q = p + 0x20;
+        PartType27Data *q = (PartType27Data *)(p + 0x20);
         qcopy(p + 0x10, pos);
         p[8] = func_001160D8();
         *(int *)(p + 4) = c;
@@ -1781,20 +1897,20 @@ char *PartType27Spawn(char *pos, char *vel, int c, int d, float f) {
         *(float *)(p + 0xC) = f;
         p[1] = 0;
         p[2] = *part_type27_textures;
-        *(int *)(q + 0x18) = p[7];
+        q->peak_alpha = p[7];
         qcopy(q, vel);
-        *(int *)(q + 0x10) = d;
-        *(int *)(q + 0x14) = d;
+        q->timer = d;
+        q->lifetime = d;
     }
     return p;
 }
 /* Type 27 particle update: moves it by the velocity at +0x20, sets the colour's alpha to
    peak alpha (+0x38) * timer (+0x30) / lifetime (+0x34), and kills it when the timer at +0x30 runs out. */
 void move_and_fade_effect_particle_by_lifetime(struct PartBase *a) {
-    char *b = (char *)a->data;
+    PartType27Data *b = (PartType27Data *)a->data;
     FastVecAdd(&a->pos, &a->pos, b);
-    a->color = (*(unsigned *)&a->color & 0xFFFFFF) + (((*(int *)(b + 0x18) * *(int *)(b + 0x10)) / *(int *)(b + 0x14)) << 24);
-    if (fast_dec_timer((char *)a + 0x30)) KillPart(a);
+    a->color = (*(unsigned *)&a->color & 0xFFFFFF) + (((b->peak_alpha * b->timer) / b->lifetime) << 24);
+    if (fast_dec_timer(&b->timer)) KillPart(a);
 }
 typedef struct PartType28Data {
     f32 f0;
@@ -2125,6 +2241,16 @@ extern float random_float_between(float, float);
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
 extern float frame_scale MACRO_ADDR;
 
+typedef struct PartType32Data {
+    void *parent;                      /* 0x00 */
+    float alpha;                       /* 0x04 */
+    float alpha_rate;                  /* 0x08 */
+    float phase;                       /* 0x0C */
+    float r;                           /* 0x10 */
+    float g;                           /* 0x14 */
+    float b;                           /* 0x18 */
+} PartType32Data;
+
 /* Spawns a type 0x20 particle riding on ARG0 (a moby or particle, kept at +0x20): white at ARG0's position, phase 0,
    fade speed from the frame time (D_0015EE60 * 0.016), random brightness and unit colour channels at +0x30..+0x38.
    Returns the particle, 0 when none is free. */
@@ -2133,23 +2259,23 @@ void *spawn_moby_bound_effect_particle(void *arg0) {
 
     if (p != 0) {
         float scaled = frame_scale * 0.016f;
-        char *q = (char *)p->data;
+        PartType32Data *q = (PartType32Data *)p->data;
 
-        *(void **)((char *)p + 0x20) = arg0;
-        *(float *)(q + 4) = 0.0f;
-        *(float *)(q + 8) = scaled;
-        *(float *)(q + 0xC) = random_float_between(*(float *)(q + 4), 1.0f);
-        *(float *)(q + 0x10) = 1.0f;
-        *(float *)(q + 0x14) = 1.0f;
-        *(float *)(q + 0x18) = 1.0f;
+        q->parent = arg0;
+        q->alpha = 0.0f;
+        q->alpha_rate = scaled;
+        q->phase = random_float_between(q->alpha, 1.0f);
+        q->r = 1.0f;
+        q->g = 1.0f;
+        q->b = 1.0f;
         qcopy(&p->pos, (char *)arg0 + 0x10);
 
-        p->color = PackColorRGBA(1.0f, 1.0f, 1.0f, *(float *)(q + 4));
+        p->color = PackColorRGBA(1.0f, 1.0f, 1.0f, q->alpha);
         p->unk_09 = (char)(truncate_float_to_s32_r(4.0f) + 0x40);
         p->unk_01 = 0;
         p->blend = 0x48;
         p->size = random_float_between(50000.0f, 50000.0f);
-        p->spin = (char)truncate_float_to_s32_r(*(float *)(q + 0xC) * 255.0f);
+        p->spin = (char)truncate_float_to_s32_r(q->phase * 255.0f);
         p->texture = *part_type08_textures;
     }
 
@@ -2319,27 +2445,35 @@ void update_swaying_and_fading_effect_particle(struct PartBase *m) {
 extern float g_frame_time_sq MACRO_ADDR;
 extern unsigned char *part_type35_textures;
 
+typedef struct BallisticParticleData {
+    Vec4f vel;                 /* 0x00 added to pos each frame; vel.z is lowered by gravity */
+    s32 mode;                  /* 0x10 0 free flight, 1 and 3 contact handling, others contact with spawn */
+    s32 frames;                /* 0x14 frames left; the particle expires at 0 */
+    f32 floor_z;               /* 0x18 killed when pos.z drops below this */
+    f32 gravity;              /* 0x1C subtracted from vel.z each frame */
+} BallisticParticleData;
+
 /* spawns a type 35 particle at a position with a velocity vector */
 void PartType35Spawn(void *pos, void *vel, int mode, int life) {
     char *p = create_part(0x23);
 
     if (p != 0) {
-        char *q;
+        BallisticParticleData *q;
 
         qcopy(p + 0x10, pos);
         *(int *)(p + 4) = 0x80808080;
-        q = p + 0x20;
+        q = (BallisticParticleData *)(p + 0x20);
         p[9] = (char)(truncate_float_to_s32_r(2.0f) + 0x10);
         p[1] = 0;
         p[3] = 0x44;
         *(float *)(p + 0xC) = random_float_between(10500.0f, 16800.0f);
         p[2] = *part_type35_textures;
         qcopy(q, vel);
-        *(int *)(q + 0x14) = life;
-        *(int *)(q + 0x10) = mode;
-        *(float *)(q + 0x18) = *(float *)(p + 0x18);
-        if (mode == 2) *(int *)(q + 0x18) = 0;
-        *(float *)(q + 0x1C) = random_float_between(g_frame_time_sq * 10.5f, g_frame_time_sq * 18.0f);
+        q->frames = life;
+        q->mode = mode;
+        q->floor_z = *(float *)(p + 0x18);
+        if (mode == 2) *(int *)&q->floor_z = 0;
+        q->gravity = random_float_between(g_frame_time_sq * 10.5f, g_frame_time_sq * 18.0f);
     }
 }
 typedef struct { int a[4]; } V __attribute__((aligned(16)));
@@ -2350,14 +2484,6 @@ extern int coll_line(void *, void *, int, int, int);
 extern int CollType(void);
 extern void spawn_moving_resizing_height_snapped_alpha_fade_particle(void *, int, int, float, float);
 extern void spawn_random_planar_drift_particle(void *, int, float, float);
-
-typedef struct BallisticParticleData {
-    Vec4f vel;                 /* 0x00 added to pos each frame; vel.z is lowered by gravity */
-    s32 mode;                  /* 0x10 0 free flight, 1 and 3 contact handling, others contact with spawn */
-    s32 frames;                /* 0x14 frames left; the particle expires at 0 */
-    f32 floor_z;               /* 0x18 killed when pos.z drops below this */
-    f32 gravity;              /* 0x1C subtracted from vel.z each frame */
-} BallisticParticleData;
 
 /* Moves a particle by its velocity according to its mode, bouncing or killing it on contact. */
 void update_ballistic_effect_particle_with_contact_spawns(struct PartBase *p) {
@@ -2543,12 +2669,22 @@ void update_animated_offset_effect_particle(struct PartBase *particle) {
 }
 extern unsigned char *part_type12_textures;
 
+typedef struct PartType40Data {
+    f32 x, y, z, w_26ff10;
+    f32 t;
+    s16 f14;
+    s16 f16;
+    u8 f18;
+    char pad19[3];
+    void *f1C;
+} PartType40Data;
+
 /* Spawns a particle at a with velocity b, colour class c and tag d. */
 void *spawn_splitting_effect_particle_with_collision_response_and_fade(char *a, char *b, unsigned char c, int d) {
     struct PartBase *p = (struct PartBase *)create_part(0x28);
 
     if (p != 0) {
-        char *q = (char *)p->data;
+        PartType40Data *q = (PartType40Data *)p->data;
         float f;
         int rnd;
 
@@ -2559,12 +2695,12 @@ void *spawn_splitting_effect_particle_with_collision_response_and_fade(char *a, 
         p->unk_01 = 0;
         p->blend = 0x44;
         f = random_angle_radians();
-        *(float *)(q + 0x10) = f;
+        q->t = f;
         p->spin = (char)(int)(f * 256.0f);
         p->texture = part_type12_textures[func_001160D8() & 7];
-        q[0x18] = c;
-        *(short *)(q + 0x14) = 0;
-        *(short *)(q + 0x16) = 0;
+        q->f18 = c;
+        q->f14 = 0;
+        q->f16 = 0;
         if (c < 5) {
             int n;
             int y;
@@ -2578,21 +2714,12 @@ void *spawn_splitting_effect_particle_with_collision_response_and_fade(char *a, 
             p->timer = (int)(8.0f / (frame_scale * 0.443f));
             p->size = 10000.0f;
         }
-        *(int *)(q + 0x1C) = d;
+        q->f1C = (void *)d;
     }
     return (char *)p;
 }
 typedef unsigned int U128 __attribute__((mode(TI)));
 typedef union { U128 q_26ff10; f32 f[4]; } VV_26ff10;
-typedef struct PartType40Data {
-    f32 x, y, z, w_26ff10;
-    f32 t;
-    s16 f14;
-    s16 f16;
-    u8 f18;
-    char pad19[3];
-    void *f1C;
-} PartType40Data;
 typedef struct { VV_26ff10 v_26ff10; void *f10; s32 f14; s32 f18; f32 f1C; s32 f20; char pad[0xC]; } S_26ff10;
 extern u8 * part_type12_textures;
 extern f32 coll_hit_normal[];
@@ -2763,12 +2890,14 @@ void tick_finite_effect_particle_lifetime(struct PartBase *a) {
         }
     }
 }
+typedef struct PartType42Data { Vec4 v; f32 x10; s16 h14; s16 h16; u8 b18; u8 pad[3]; s32 x1C; } PartType42Data;
+
 /* Spawns a particle of type 0x2A at a with velocity b, class c and tag d. */
 void *spawn_splitting_effect_particle_with_collision_and_fade(char *a, char *b, unsigned char c, int d) {
     struct PartBase *p = (struct PartBase *)create_part(0x2A);
 
     if (p != 0) {
-        char *q = (char *)p->data;
+        PartType42Data *q = (PartType42Data *)p->data;
         float f;
         int rnd;
 
@@ -2779,12 +2908,12 @@ void *spawn_splitting_effect_particle_with_collision_and_fade(char *a, char *b, 
         p->unk_01 = 0;
         p->blend = 0x44;
         f = random_float_between(0.0f, 1.0f);
-        *(float *)(q + 0x10) = f;
+        q->x10 = f;
         p->spin = (char)(int)(f * 256.0f);
         p->texture = part_type12_textures[func_001160D8() & 7];
-        q[0x18] = c;
-        *(short *)(q + 0x14) = 0;
-        *(short *)(q + 0x16) = 0;
+        q->b18 = c;
+        q->h14 = 0;
+        q->h16 = 0;
         if (c < 5) {
             int n;
             int y;
@@ -2798,7 +2927,7 @@ void *spawn_splitting_effect_particle_with_collision_and_fade(char *a, char *b, 
             p->timer = (int)(8.0f / (frame_scale * 0.443f));
             p->size = 10000.0f;
         }
-        *(int *)(q + 0x1C) = d;
+        q->x1C = d;
     }
     return (char *)p;
 }
@@ -2817,7 +2946,6 @@ void func_L00_002688A8_717E8g(void *) __asm__("func_L00_002688A8");
 void func_001F9BD8_717E8f(void *, void *, void *) __asm__("func_001F9BD8");
 extern void KillPart_717E8h(void *) __asm__("func_L00_002688A8");
 typedef unsigned int Q_270948 __attribute__((mode(TI)));
-typedef struct PartType42Data { Vec4 v; f32 x10; s16 h14; s16 h16; u8 b18; u8 pad[3]; s32 x1C; } PartType42Data;
 typedef struct { Vec4 v; s32 x10; s32 x14; u8 pad[4]; f32 x1C; s32 x20; } C_270948;
 extern u8 * part_type12_textures_r[] __asm__("D_L00_001B2430");
 extern s32 FastDecTimer_r4(s16 *) __asm__("func_001F9938");
@@ -2922,32 +3050,40 @@ void update_splitting_effect_particle_with_collision_and_fade(struct PartBase *m
 }
 extern float g_frame_scale_sq MACRO_ADDR;
 
+typedef struct PartType43Data {
+    Vec3f vel;                         /* 0x00 */
+    float pad_0C;                      /* 0x0C */
+    u8 pad_10[4];                      /* 0x10 */
+    u8 r, g, b, a;                     /* 0x14 */
+    short max_timer;                   /* 0x18 */
+} PartType43Data;
+
 // Updates a fading colour particle: interpolates its packed colour and alpha over its life and drifts it upward. Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/shared/rendering_00269290.c, FUN_L00_002710a0.
 void update_accelerating_fade_in_out_effect_particle(struct PartBase *p) {
-    unsigned char *q = (unsigned char *)p->data;
+    PartType43Data *q = (PartType43Data *)p->data;
     short t;
     float f, x;
     unsigned char r, g, b, a;
     t = ++p->timer;
-    if (*(short *)(q + 0x18) < t) {
+    if (q->max_timer < t) {
         KillPart(p);
         return;
     }
     f = IntToFloat(t);
-    f = f / IntToFloat(*(short *)(q + 0x18));
+    f = f / IntToFloat(q->max_timer);
     f = 1.0f - f;
-    r = truncate_float_to_s32_r(IntToFloat(q[0x14]) + f * -0.001f);
-    g = truncate_float_to_s32_r(IntToFloat(q[0x15]) + f * -0.0011f);
-    b = truncate_float_to_s32_r(IntToFloat(q[0x16]) + f * -0.00111f);
+    r = truncate_float_to_s32_r(IntToFloat(q->r) + f * -0.001f);
+    g = truncate_float_to_s32_r(IntToFloat(q->g) + f * -0.0011f);
+    b = truncate_float_to_s32_r(IntToFloat(q->b) + f * -0.00111f);
     if (p->timer < scale_ticks(0x1E)) {
         f = IntToFloat(p->timer);
         f = f / IntToFloat(scale_ticks(0x1E));
-        x = IntToFloat(q[0x17]);
+        x = IntToFloat(q->a);
         a = truncate_float_to_s32_r(x * f);
     } else {
         f = IntToFloat(p->timer - scale_ticks(0x1E));
-        f = f / IntToFloat(*(short *)(q + 0x18) - scale_ticks(0x1E));
-        x = IntToFloat(q[0x17]);
+        f = f / IntToFloat(q->max_timer - scale_ticks(0x1E));
+        x = IntToFloat(q->a);
         f = 1.0f - f;
         a = truncate_float_to_s32_r(x * f);
     }
@@ -2960,5 +3096,5 @@ void update_accelerating_fade_in_out_effect_particle(struct PartBase *p) {
     }
     p->spin++;
     FastVecAdd(&p->pos, &p->pos, q);
-    *(float *)(q + 8) += g_frame_scale_sq * 0.0005f;
+    q->vel.z += g_frame_scale_sq * 0.0005f;
 }

@@ -66,8 +66,8 @@ void initialize_vendor_screen(char *m, int lvl) {
     reset_hud_and_suspend_weapon_updates();
     clear_active_help_record();
     Hero_SetMoveState(100, 1);
-    *(char *)&g->item_use_locked = 1;
-    *(char *)&g->unk20A5 = 1;
+    g->item_use_locked = 1;
+    g->unk20A5 = 1;
     HeroSetObjectFlags();
     matrix_mul_vec3(sc, &novalis_vendor_screen_anchor_offset, m + 0xC0);
     FastVecAdd(sc, sc, m + 0x10);

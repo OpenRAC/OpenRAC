@@ -473,5 +473,14 @@ typedef enum RaC1GadgetId {
     GADGET_PERSUADER        = 28
 } RaC1GadgetId;
 
+typedef struct HelpState {
+    s32 state;    /* 0x00 */
+    s32 x04;      /* 0x04 */
+    s32 pad[7];   /* 0x08 */
+    s32 x24;      /* 0x24 */
+    s32 x28;      /* 0x28 */
+    s32 count;    /* 0x2C: entries in the D_0015F780 table */
+} HelpState;
+
 #endif /* STRUCTS_H */
 

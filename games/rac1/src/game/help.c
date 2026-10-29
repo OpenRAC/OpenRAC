@@ -242,14 +242,6 @@ void draw_level_selection_map(s32 left, s32 right, s32 top, s32 bottom) {
     DoGifPaging();
 }
 
-typedef struct {
-    int state;    /* 0x00 */
-    int x04;      /* 0x04 */
-    int pad[7];   /* 0x08 */
-    int x24;      /* 0x24 */
-    int x28;      /* 0x28 */
-    int count;    /* 0x2C: entries in the D_0015F780 table */
-} HelpState;
 extern char g_help_state[];
 
 /* Advances the help screen's state (D_001997D0). Every access goes

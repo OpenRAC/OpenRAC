@@ -26,7 +26,10 @@ typedef struct McCard {
     s32 type;                 /* 0x08: 2 for PS2 memory card */
     s32 free;                 /* 0x0C: free blocks */
     s32 format;               /* 0x10: formatted state */
-    s32 x14;                  /* 0x14: card error status */
+    union {
+        s32 x14;              /* 0x14: card error status */
+        s32 save_index;
+    };
     s32 x18;                  /* 0x18 */
     s32 result;               /* 0x1C: last card result (-2 unformatted, 0 formatted, -1 error) */
     McSaveSlot slots[5];      /* 0x20: 5 save slots, 0x1C bytes each */
@@ -50,11 +53,17 @@ typedef struct MemoryCardState {
     s32 sub;                  /* 0xE0: sub-state */
     s32 err;                  /* 0xE4: error code (-1 if none) */
     s32 errCard;              /* 0xE8: error card (-1 if none) */
-    void *buf;                /* 0xEC: buffer / error latch */
+    union {
+        void *buf;            /* 0xEC: buffer / error latch */
+        s32 err_latch;
+    };
     s32 size;                 /* 0xF0: buffer size */
     s32 padF4;                /* 0xF4 */
     s32 padF8;                /* 0xF8 */
-    s32 field_fc;             /* 0xFC: flag passed to mode_freeze_init */
+    union {
+        s32 field_fc;         /* 0xFC: flag passed to mode_freeze_init */
+        s32 unkFC;
+    };
 } MemoryCardState;            /* 0x100 */
 
 #endif /* MEMCARD_H */

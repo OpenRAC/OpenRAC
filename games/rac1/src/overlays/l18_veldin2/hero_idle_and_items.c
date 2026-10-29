@@ -1498,9 +1498,9 @@ int HeroL18_SetMoveState(int a, int b) {
             struct Hero *q;
             if (b) set_hero_animation(0x2C, 7, (float)scale_ticks(9));
             q = (struct Hero *)(hero_globals_base + 0xE1D);
-            if (q->items[0].item_id == 0xA && *(char **)&q->throw_target != 0) {
+            if (q->items[0].item_id == 0xA && q->throw_target != 0) {
                 q->heading_locked = 1;
-                q->attack_target_yaw = fast_atan2(*(float *)(*(char **)&q->throw_target + 0x10) - q->motion.pos.f[0], *(float *)(*(char **)&q->throw_target + 0x14) - q->motion.pos.f[1]);
+                q->attack_target_yaw = fast_atan2(q->throw_target->pos.x - q->motion.pos.f[0], q->throw_target->pos.y - q->motion.pos.f[1]);
             }
             break;
         }

@@ -3,6 +3,7 @@
 #include "callees.h"
 #include "include_asm.h"
 #include "moby.h"
+#include "records.h"
 #include "hero.h"
 
 /* Robot dog: speed and turn state, plus the three glow points (also AimData_1BB0 below). */
@@ -640,7 +641,6 @@ extern void update_entity_matrix(char *, void *, void *, void *);
 extern char pad_globals_base[];
 extern unsigned char help_stats_base[] NOT_SDA;
 extern int g_current_level_index_m __asm__("D_0015EE84") MACRO_ADDR;
-typedef struct { char pad0[0x454]; unsigned char collected[1]; } LevelState;
 extern LevelState fleet_moby_collected;
 typedef int u128_2F3450 __attribute__((mode(TI)));
 extern int fleet_moby_killed_bits[];

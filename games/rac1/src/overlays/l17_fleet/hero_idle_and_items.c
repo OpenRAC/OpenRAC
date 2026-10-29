@@ -6,8 +6,6 @@
 #include "moby.h"
 
 typedef struct { int a; int b; int c; char pad[0x20]; } T2C_21ED38;
-typedef struct { char pad[0x194]; float f194; } H194_21ED38;
-typedef struct { char pad[0x694]; float f694; } H694_21ED38;
 extern void clear_moby_transform_history(char *o);
 extern void exit_hero_vehicle_mode_if_mode_three(void);
 extern void create_missing_hero_item_slot_animations(int a, int b);
@@ -224,7 +222,7 @@ int HeroL17_SetMoveState(int a, int b) {
         ((struct Hero *)p)->health.hp = 0;
         ((struct Hero *)p)->unk694 = ((struct Hero *)p)->motion.displacement.f[2] * 0.2f;
         ((struct Hero *)p)->unk69C = ((struct Hero *)p)->water_surface_z - 0.37f;
-        if (((struct Hero *)p)->unk694 < g_frame_time * -7.0f) ((H694_21ED38 *)p)->f694 = g_frame_time * -7.0f;
+        if (((struct Hero *)p)->unk694 < g_frame_time * -7.0f) ((struct Hero *)p)->unk694 = g_frame_time * -7.0f;
         ((struct Hero *)p)->item_select_blocked = 1;
         ((struct Hero *)p)->unk6A0 = 0;
         ((struct Hero *)p)->unk690 = ((struct Hero *)p)->motion.pos.f[2] - ((struct Hero *)p)->unk69C;
@@ -531,7 +529,7 @@ int HeroL17_SetMoveState(int a, int b) {
         {
             char *t = (char *)hero_globals_base + 0xE1D;
             if (((struct Hero *)t)->on_ice_ground != 0 || ((struct Hero *)t)->state.current == 0x2F) {
-                if (g_frame_time * 7.7f < ((struct Hero *)t)->ground_speed) ((H194_21ED38 *)t)->f194 = g_frame_time * 7.7f;
+                if (g_frame_time * 7.7f < ((struct Hero *)t)->ground_speed) ((struct Hero *)t)->ground_speed = g_frame_time * 7.7f;
                 ((struct Hero *)t)->motion.velocity.f[2] = 0.0f;
                 ClampVectorLength(&((struct Hero *)t)->motion.velocity, g_frame_time * 7.7f);
                 ((struct Hero *)t)->unk3B4.i = 0;
@@ -1640,9 +1638,9 @@ int HeroL17_SetMoveState(int a, int b) {
             struct Hero *q;
             if (b) set_hero_animation(0x2C, 7, (float)scale_ticks(9));
             q = (struct Hero *)((char *)hero_globals_base + 0xE1D);
-            if (q->items[0].item_id == 0xA && *(char **)&q->throw_target != 0) {
+            if (q->items[0].item_id == 0xA && q->throw_target != 0) {
                 q->heading_locked = 1;
-                q->attack_target_yaw = fast_atan2(*(float *)(*(char **)&q->throw_target + 0x10) - q->motion.pos.f[0], *(float *)(*(char **)&q->throw_target + 0x14) - q->motion.pos.f[1]);
+                q->attack_target_yaw = fast_atan2(q->throw_target->pos.x - q->motion.pos.f[0], q->throw_target->pos.y - q->motion.pos.f[1]);
             }
             break;
         }

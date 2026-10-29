@@ -606,11 +606,6 @@ typedef struct
   s32 offset;
   s32 pad[3];
 } TextEntry_EABE8;
-typedef struct 
-{
-  u8 pad0[0x2C];
-  s32 count;
-} HelpState_EABE8;
 extern s32 g_gs_texture_allocation_cursor_r __asm__("D_0015EF74") MACRO_ADDR;
 extern s32 g_gs_texture_allocation_start_r __asm__("D_0015EF78") MACRO_ADDR;
 extern s32 g_gs_texture_allocation_base_r __asm__("D_0015EF8C") MACRO_ADDR;
@@ -633,7 +628,7 @@ extern u8 level_init_cleared_block_r[] __asm__("D_00186410");
 extern SoundBanks_EABE8 render_sequence_r __asm__("D_0018CC20");
 extern LoadState_EABE8 level_resource_buffers_r __asm__("D_001941C0");
 extern u8 coll_output_aux_buffer_r[] __asm__("D_00194280");
-extern HelpState_EABE8 g_help_state_r __asm__("D_001997D0");
+extern HelpState g_help_state_r __asm__("D_001997D0");
 extern u64 special_material_template_r[] __asm__("D_0019E7C0");
 extern MobyClass *moby_class_resources_r[] __asm__("D_001B3580");
 extern u8 resident_class_slot_by_id_r[] __asm__("D_001B3E40");

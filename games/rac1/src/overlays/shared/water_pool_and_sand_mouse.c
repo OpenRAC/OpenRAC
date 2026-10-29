@@ -3,6 +3,7 @@
 #include "callees.h"
 #include "include_asm.h"
 #include "vector.h"
+#include "records.h"
 #include "hero.h"
 #include "moby.h"
 /* Novalis elevator: rides its path while the hero stands on it. */
@@ -585,8 +586,7 @@ next_entity:
 }
 extern char hero_globals_base[];
 extern char *novalis_paths[];
-typedef struct { char pad0[0x454]; unsigned char collected[1]; } CapLevelState;
-extern CapLevelState novalis_checkpoint_level_state;
+extern LevelState novalis_checkpoint_level_state;
 extern unsigned char help_stats_base[] NOT_SDA;
 extern int g_current_level_index_m __asm__("D_0015EE84") MACRO_ADDR;
 extern int moby_killed[];
