@@ -13,6 +13,7 @@ use openrac_launcher_core::config::{self, Config};
 use openrac_launcher_core::detect::{self, Check, Detected, Tool};
 use openrac_launcher_core::disc_choice::{self, DiscChoice};
 use openrac_launcher_core::discs::{self, FoundDisc};
+use openrac_launcher_core::editor_state;
 use openrac_launcher_core::install;
 use openrac_launcher_core::jobs::{Event, Jobs, Started};
 use openrac_launcher_core::launcher_log;
@@ -21,6 +22,7 @@ use openrac_launcher_core::overrides::{self, PackView};
 use openrac_launcher_core::plugins::{self, Installed, PluginView};
 use openrac_launcher_core::remote;
 use openrac_launcher_core::reports::{self, ReportEntry};
+use openrac_launcher_core::reset;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_opener::OpenerExt;
@@ -976,6 +978,67 @@ fn overrides_remove(state: State<'_, AppState>, game: String, id: String) -> Res
     overrides::remove(&overrides_dir(&state, &game)?, &id)
 }
 
+/// Where `version`'s level editor data is (core reset.rs), from the checkout and the install folder
+/// in Settings; the version must be one the checkout's catalogue knows.
+fn reset_layout(state: &State<'_, AppState>, version: &str) -> Result<reset::Layout, String> {
+    let config = state.config.lock().unwrap().clone();
+    let root = config.root()?.to_path_buf();
+    let install = config.install_dir.clone().ok_or("no install folder (Settings)")?;
+    let catalog = openrac_launcher_core::catalog::load(&root)?;
+    let v = catalog.version(version).ok_or_else(|| format!("{version} is not a version OpenRAC knows"))?;
+    let installed = state.bundled.as_deref().is_some_and(|copy| detect::on_the_copy(Some(&root), copy));
+    reset::Layout::new(&root, &install, &v.game, &v.name, installed)
+}
+
+/// What a reset of `version`'s level editor data would remove, and how much (the Mods page's
+/// Your levels section asks with it).
+#[tauri::command]
+async fn reset_preview(
+    state: State<'_, AppState>,
+    version: String,
+    reset: reset::Reset,
+) -> Result<reset::ResetPreview, String> {
+    let layout = reset_layout(&state, &version)?;
+    tauri::async_runtime::spawn_blocking(move || reset::preview(&layout, reset)).await.map_err(|e| e.to_string())?
+}
+
+/// Removes it: never while a job runs (an extraction writing those folders, the game reading them).
+#[tauri::command]
+async fn reset_apply(
+    state: State<'_, AppState>,
+    version: String,
+    reset: reset::Reset,
+    with_edits: bool,
+) -> Result<reset::ResetDone, String> {
+    if !state.jobs.running().is_empty() {
+        return Err("busy: wait for what is running to end".into());
+    }
+    let layout = reset_layout(&state, &version)?;
+    launcher_log::line(&format!("reset: {version} {reset:?} with_edits={with_edits}"));
+    let done = tauri::async_runtime::spawn_blocking(move || reset::apply(&layout, reset, with_edits))
+        .await
+        .map_err(|e| e.to_string())?;
+    match &done {
+        Ok(d) => launcher_log::line(&format!("reset: removed {} folder(s), {} file(s)", d.folders, d.files)),
+        Err(e) => launcher_log::line(&format!("reset: {e}")),
+    }
+    done
+}
+
+/// Where the player is with `version`'s level editor (core editor_state.rs): the Mods page's status
+/// panel asks on opening, on focus and when an editor job ends.
+#[tauri::command]
+async fn editor_state(state: State<'_, AppState>, version: String) -> Result<editor_state::EditorState, String> {
+    let layout = reset_layout(&state, &version)?;
+    let root = state.config.lock().unwrap().root()?.to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        let format = editor_state::ProjectFormat::load(&root);
+        editor_state::inspect(&layout, format.as_ref())
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// A game's native mods' folder (`<data>/plugins`, docs/port/MODS.md), from the install folder in
 /// Settings.
 fn plugins_dir(state: &State<'_, AppState>, game: &str) -> Result<PathBuf, String> {
@@ -1445,6 +1508,9 @@ pub fn run() {
             overrides_set_enabled,
             overrides_move,
             overrides_remove,
+            reset_preview,
+            editor_state,
+            reset_apply,
             plugins_list,
             enhanced_view,
             enhanced_set_enabled,

@@ -3,6 +3,7 @@
 #include "callees.h"
 #include "include_asm.h"
 #include "vector.h"
+#include "records.h"
 #include "hero.h"
 #include "moby.h"
 
@@ -3162,8 +3163,7 @@ typedef struct { unsigned int c[3]; } CapColors;
 
 extern unsigned char help_stats_base[] NOT_SDA;
 extern CapColors novalis_falling_rock_debris_colors;
-typedef struct { char pad0[0x454]; unsigned char collected[1]; } CapLevelState;
-extern CapLevelState novalis_checkpoint_level_state;
+extern LevelState novalis_checkpoint_level_state;
 typedef struct { char pad0[0x160]; float shake; char pad164[4]; int shake_time; } CapCamera;
 extern CapCamera novalis_player_camera;
 extern float g_frame_time_sq MACRO_ADDR;

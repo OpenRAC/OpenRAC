@@ -138,6 +138,9 @@ openrac_add_test(moby_passes INCLUDES .)
 # How each tick's frames start: cleared, the last picture, or under the tick's 2D
 # (game/common/frontend/tick_picture.h).
 openrac_add_test(tick_picture INCLUDES .)
+# Where a menu's mobys drawn with a camera of their own go, alone and over a level's world drawn
+# under it (game/common/frontend/menu_layers.h).
+openrac_add_test(menu_layers INCLUDES .)
 
 # The game fixes (game/common/fixes.h): rac1's list of differences, checked as the configure reads it
 # (cmake/Differences.cmake), and its fixes through the settings file. Needs no game.
@@ -176,6 +179,20 @@ openrac_add_test(runtime SOURCES tests/runtime_test.cpp tests/guest_c.c LIBS ope
 openrac_add_c_test(host_env LIBS openrac_runtime)
 
 # ---- native mods (docs/port/MODS.md): manifests, the list, the loader ----
+openrac_add_c_test(level_descriptor
+  SOURCES tests/level_descriptor_test.c
+  INCLUDES game/common/include runtime/include)
+
+openrac_add_test(ship_destination
+  SOURCES tests/ship_destination_test.cpp game/rac1-pal/host/destinations.c
+  INCLUDES tests/ship_destination_stubs game/common/include
+  LIBS openrac_runtime)
+
+openrac_add_test(cdvd_mount
+  SOURCES tests/cdvd_mount_test.cpp game/common/lib/cdvd.c
+  INCLUDES game/common/include
+  LIBS openrac_runtime)
+
 openrac_add_test(custom_map
   SOURCES tests/custom_map_test.cpp game/common/program/custom_map.cpp
   INCLUDES game/common LIBS openrac_common)
@@ -193,6 +210,8 @@ target_link_libraries(openrac_mods PUBLIC openrac_runtime ${CMAKE_DL_LIBS}
 openrac_warnings(openrac_mods)
 
 openrac_add_test(mod_manifest LIBS openrac_mods)
+# When the mods' pages of the game's menus take the pad (mod_ui.h): only while the title stays.
+openrac_add_test(mod_ui_menus INCLUDES game/common)
 
 # A mod built as a mod is (a shared library against the SDK's header alone), loaded by the real
 # loader with hook points of the test's own; test-old is built for interface 1.5, as a mod made
@@ -292,8 +311,16 @@ openrac_add_c_test(effect_quad NO_STRICT_ALIASING NO_FP_CONTRACT
 openrac_add_c_test(scene_actors NO_STRICT_ALIASING WRAPV
   INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
 
+# The shared rac1 host C's posed mobys' animation (a co-op figure, a moby the host drives).
+openrac_add_c_test(pose_anim MATH)
+
 # The shared rac1 host C's bigger moby pool, with PAL's table and the same stand-in.
 openrac_add_c_test(moby_pool NO_STRICT_ALIASING WRAPV
+  INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
+
+# The shared rac1 host C's level world under the pause menu (the mods' mobys made and deleted
+# among the level's, the level's camera), with PAL's table and the same stand-in.
+openrac_add_c_test(world_menu NO_STRICT_ALIASING WRAPV MATH
   INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
 
 openrac_add_c_test(resource_bank NO_STRICT_ALIASING)

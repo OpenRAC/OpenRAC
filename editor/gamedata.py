@@ -75,6 +75,7 @@ SHAPES = (("cuboid", 0x60, "Cuboids", "Cuboid"), ("sphere", 0x64, "Spheres", "Sp
           ("cylinder", 0x68, "Cylinders", "Cylinder"), ("pill", 0x6C, "Pills", "Pill"))
 SHAPE_SIZE, CAMERA_SIZE, SOUND_SIZE, GRIND_SIZE = 0x80, 0x20, 0x90, 0x20
 SETTINGS_SIZE = 0x50
+COLOUR_SETTINGS = ("background", "fog_colour")  # Settings that are display bytes, 0..255 each.
 CAMERA = struct.Struct("<i3f3fi")
 SOUND_HEAD = struct.Struct("<hhIif")
 SETTINGS_RECORD = struct.Struct("<3i3i4ff3ff3i2i")
@@ -291,20 +292,59 @@ class Pvars:
 
 
 _layouts = None
+PACKAGED_LAYOUTS = Path(__file__).with_name("pvar_layouts.json")
+
+
+def read_layouts(path: Path) -> dict[int, list[tuple]]:
+    """Read the generated field facts carried by an installed editor, without source headers."""
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise FormatError(f"Cannot read packaged pvar layouts; update the level tools ({error})") from None
+    if not isinstance(document, dict) or document.get("format") != 1 or not isinstance(document.get("classes"), dict):
+        raise FormatError("The packaged pvar layouts are incompatible; update the level tools")
+    result = {}
+    for ident, fields in document["classes"].items():
+        if not ident.isdecimal() or not isinstance(fields, list):
+            raise FormatError("Invalid class in the packaged pvar layouts")
+        known = set()
+        checked = []
+        for field in fields:
+            if (not isinstance(field, list) or len(field) != 4 or not isinstance(field[0], str)
+                    or not field[0] or field[0] in known or type(field[1]) is not int or field[1] < 0
+                    or not isinstance(field[2], str) or field[2] not in SCALARS
+                    or type(field[3]) is not int or field[3] < 0):
+                raise FormatError(f"Invalid field in packaged pvar class {ident}")
+            known.add(field[0])
+            checked.append(tuple(field))
+        result[int(ident)] = checked
+    return result
+
+
+def export_layouts(path: Path) -> None:
+    """Generate data-only layouts while building the installed tools; no game/SDK bytes are copied."""
+    layouts = class_layouts()
+    if not layouts:
+        raise FormatError("Cannot build the editor package without the qualified pvar layouts")
+    data = {"format": 1, "source": "games/rac1/include/moby_pvars.h",
+            "classes": {str(c): fields for c, fields in sorted(layouts.items())}}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=1, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
 
 
 def class_layouts() -> dict[int, list[tuple]]:
     """class -> the typed fields of its pvars (name, offset, scalar type, array length or 0), from
     the decompilation's moby_pvars.h: `struct update<class>`. A struct whose offsets as parsed differ
-    from those its comments give is left out (its words are still shown). Empty without
-    games/rac1 in the checkout."""
+    from those its comments give is left out (its words are still shown). Installed copies
+    read the same field facts generated at bundle time instead of requiring the checkout."""
     global _layouts
     if _layouts is not None:
         return _layouts
-    _layouts = {}
     header = DECOMPILATION / "include" / "moby_pvars.h"
     if not header.is_file():
+        _layouts = read_layouts(PACKAGED_LAYOUTS) if PACKAGED_LAYOUTS.is_file() else {}
         return _layouts
+    _layouts = {}
     from cparse import Types
     types = Types()
     for name in ("common.h", "structs.h"):
@@ -1290,6 +1330,11 @@ def pack_settings(original: bytes, out: bytearray, nodes: dict, changes: list[st
                 or not all(isinstance(v, int) and not isinstance(v, bool) and -(1 << 31) <= v < (1 << 31) for v in values)):
             problems.append(f"LevelSettings: rc1_{key} = {value!r} cannot be packed")
             continue
+        if key in COLOUR_SETTINGS and not all(0 <= v <= 255 for v in values):
+            # SetBackgroundColor ORs the three words into one RGBAQ unmasked: 256 would turn green.
+            problems.append(f"LevelSettings: rc1_{key} = {value!r} needs red, green and blue from 0 to 255; "
+                            "not packed")
+            continue
         if key in counts and not all(-1 <= v < counts[key] for v in values):
             problems.append(f"LevelSettings: rc1_{key} = {value!r} names none of the level's "
                             f"{'paths' if key == 'ship_path' else 'cuboids'}; not packed")
@@ -1314,3 +1359,14 @@ def pack_settings(original: bytes, out: bytearray, nodes: dict, changes: list[st
         at = start(original, SETTINGS)
         out[at:at + SETTINGS_SIZE] = write_settings(new)
         changes.append(f"level settings: {', '.join(edits)}")
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate the typed pvar layouts for installed level tools")
+    parser.add_argument("--export-layouts", type=Path, required=True)
+    args = parser.parse_args()
+    try:
+        export_layouts(args.export_layouts)
+    except (OSError, ValueError) as error:
+        parser.exit(1, f"pvar layouts: {error}\n")

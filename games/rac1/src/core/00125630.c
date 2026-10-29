@@ -125,99 +125,6 @@ extern Ent330 pad2_sockets[];
 extern void sync_dcache_range(void *a, void *b);
 
 struct MpegDecoder;
-extern void _errMessage(void *, char *, int);
-extern void _getAllRefs(struct MpegDecoder *d, int bx, int by, int mb_type, int motion_type,
-                          int pmv[2][2][2], int mvfs[2][2], int *dmvector);
-extern void dma_ref_image(void *);
-extern char str_mpeg_invalid_motion_type[];
-
-typedef struct {
-    char pad0[0x128];
-    int unk128;
-    int unk12C;
-    int unk130;
-    int unk134;
-    int unk138;
-    int unk13C;
-} Elem00125630;
-
-typedef struct {
-    int unk0;
-    int pad4[3];
-    int unk10;
-} Ref00125630;
-
-typedef struct {
-    char pad0[0x11C];
-    int unk11C;
-    char pad120[0xC];
-    int unk12C;
-    char pad130[0x44];
-    int unk174;
-    char pad178[0x48];
-    Ref00125630 *unk1C0;
-    char pad1C4[0xC];
-    Ref00125630 *unk1D0;
-    char pad1D4[0xC];
-    Ref00125630 *unk1E0;
-    char pad1E4[0x3AC];
-    Elem00125630 e[2];
-    int unk810;
-} Dec00125630;
-
-/* Motion-compensate one macroblock (or wait for the intra IDCT) and record its output slot. */
-int _motionComp0(void *arg0, int mbAddr, int arg2, int mbType, int motionType,
-                  void *pmv, void *mvfs, void *dmv) {
-    Dec00125630 *d = (Dec00125630 *)arg0;
-    int intra;
-    int x;
-    int y;
-    int bx;
-    int by;
-    Ref00125630 *ref;
-
-    intra = mbType & 1;
-    y = mbAddr / d->unk12C;
-    x = mbAddr % d->unk12C;
-    by = y * 16;
-    bx = x * 16;
-    if (intra) {
-        while ((*(volatile unsigned int *)0x1000D400 >> 8) & 1)
-            ;
-        d->e[d->unk810].unk138 = 0;
-    } else {
-        if ((unsigned int)(motionType - 1) >= 3) {
-            _errMessage(d, str_mpeg_invalid_motion_type, motionType);
-            d->unk11C = 1;
-            return 0;
-        }
-        _getAllRefs((struct MpegDecoder *)d, bx, by, mbType, motionType,
-                      pmv, mvfs, dmv);
-        while ((*(volatile unsigned int *)0x1000D400 >> 8) & 1)
-            ;
-        dma_ref_image(d);
-        d->e[d->unk810].unk138 = 1;
-    }
-    if (arg2 == 1 && (mbType & 2)) {
-        d->e[d->unk810].unk134 = arg2;
-    } else {
-        d->e[d->unk810].unk134 = 0;
-    }
-    d->e[d->unk810].unk130 = intra;
-    if (d->unk174 == 3) {
-        d->e[d->unk810].unk128 = d->unk1C0->unk0 + (x * d->unk1C0->unk10 + y) * 0x180;
-    } else {
-        if (d->unk174 == 2) {
-            ref = d->unk1E0;
-        } else {
-            ref = d->unk1D0;
-        }
-        d->e[d->unk810].unk128 = ref->unk0 + (x * ref->unk10 + y) * 0x180;
-    }
-    return 1;
-}
-
-struct MpegDecoder;
 struct sceMpeg {
     s32 width;
     s32 height;
@@ -253,7 +160,7 @@ struct MpegRefImage {
     s32 display_horizontal_size;           /* 0x5C */
     s32 display_vertical_size;             /* 0x60 */
 };
-typedef void (*MpegMcFunc)(void);
+typedef void (*MpegMcFunc)(void *);
 struct MpegMcFetch {
     u8 *addr;
     s32 x;
@@ -275,7 +182,7 @@ struct MpegMbBuffer {
     s32 unk128; /* read by _doMC */
     s32 fetch_count; /* queued fetches; loop count in _doMC */
     s32 unk130; /* read by _doMC */
-    u8 pad_134[0x4];
+    s32 unk134;
     s32 unk138; /* _doMC skips the work when 0 */
     s32 unk13C; /* set 1 by _decMB0/_skipMB0, 0 by _slice0 */
 };
@@ -285,11 +192,14 @@ struct MpegDecoder {
     s32 unk8;
     u8 pad_C[0x40];
     u8 ipu_dma_state; /* &ipu_dma_state passed to suspend_mpeg_decoder_ipu_dma */
-    u8 pad_4D[0x33];
+    u8 pad_4D[0x23];
+    s32 unk70;
+    u8 pad_74[0x4];
+    s64 unk78;
     s32 unk80;
     u8 pad_84[0x4];
     u64 unk88;
-    u8 pad_90[0x4];
+    s32 unk90;
     s32 unk94;
     s32 unk98;
     s32 unk9C;
@@ -315,7 +225,8 @@ struct MpegDecoder {
     s32 out_max_size; /* >= unkC * unk10 of the picture */
 
     s32 unkE8;
-    u8 pad_EC[0xC];
+    s32 pad_EC;
+    s64 unkF0;
     s32 unkF8; /* 1 -> 2 in _outputFrame */
     s32 frame_buffers[3]; /* reserved in _sequenceHeader, passed to _initRefImages */
     u8 pad_108[0x10];
@@ -388,6 +299,64 @@ struct MpegDecoder {
     s32 temporal_reference_gop_reset;
     struct sceMpeg *mpeg; /* owning sceMpeg (_dispRefImage writes its pts/dts/flags) */
 };
+
+extern void _errMessage(void *, char *, int);
+extern void _getAllRefs(struct MpegDecoder *d, int bx, int by, int mb_type, int motion_type,
+                          int pmv[2][2][2], int mvfs[2][2], int *dmvector);
+extern void dma_ref_image(void *);
+extern char str_mpeg_invalid_motion_type[];
+
+/* Motion-compensate one macroblock (or wait for the intra IDCT) and record its output slot. */
+int _motionComp0(void *arg0, int mbAddr, int arg2, int mbType, int motionType,
+                  void *pmv, void *mvfs, void *dmv) {
+    struct MpegDecoder *d = (struct MpegDecoder *)arg0;
+    int intra;
+    int x;
+    int y;
+    int bx;
+    int by;
+    struct MpegRefImage *ref;
+
+    intra = mbType & 1;
+    y = mbAddr / d->mb_width;
+    x = mbAddr % d->mb_width;
+    by = y * 16;
+    bx = x * 16;
+    if (intra) {
+        while ((*(volatile unsigned int *)0x1000D400 >> 8) & 1)
+            ;
+        d->mb_buf[d->mb_buf_index].unk138 = 0;
+    } else {
+        if ((unsigned int)(motionType - 1) >= 3) {
+            _errMessage(d, str_mpeg_invalid_motion_type, motionType);
+            d->unk11C = 1;
+            return 0;
+        }
+        _getAllRefs((struct MpegDecoder *)d, bx, by, mbType, motionType,
+                      pmv, mvfs, dmv);
+        while ((*(volatile unsigned int *)0x1000D400 >> 8) & 1)
+            ;
+        dma_ref_image(d);
+        d->mb_buf[d->mb_buf_index].unk138 = 1;
+    }
+    if (arg2 == 1 && (mbType & 2)) {
+        d->mb_buf[d->mb_buf_index].unk134 = arg2;
+    } else {
+        d->mb_buf[d->mb_buf_index].unk134 = 0;
+    }
+    d->mb_buf[d->mb_buf_index].unk130 = intra;
+    if (d->picture_structure == 3) {
+        d->mb_buf[d->mb_buf_index].unk128 = (int)d->ref_images[2]->data + (x * d->ref_images[2]->unk10 + y) * 0x180;
+    } else {
+        if (d->picture_structure == 2) {
+            ref = d->ref_images[10];
+        } else {
+            ref = d->ref_images[6];
+        }
+        d->mb_buf[d->mb_buf_index].unk128 = (int)ref->data + (x * ref->unk10 + y) * 0x180;
+    }
+    return 1;
+}
 extern char str_mpeg_invalid_motion_type_a[];
 extern char str_mpeg_invalid_motion_type_b[];
 extern char str_mpeg_invalid_motion_type_c[];
@@ -609,51 +578,28 @@ extern void mpeg_clamp_pack_block(int, int);
 extern void mpeg_add_block_clamp(int, int, int);
 extern char str_mpeg_intra_skip_mb[];
 
-typedef struct {
-    int unk0;
-    int unk4;
-    char pad8[0x20];
-    void (*fa[4])(void *);
-    void (*fb[4])(void *);
-    char a[4][0x1C];
-    char b[4][0x1C];
-    int unk128;
-    int count;
-    int unk130;
-    int pad134;
-    int unk138;
-    int unk13C;
-} Elem001263A8;
-
-typedef struct {
-    char pad0[0x590];
-    Elem001263A8 e[2];
-    char pad810[0xC];
-    int unk81C;
-} Dec001263A8;
-
 void func_001263A8_r(void *arg0, int idx) __asm__("func_001263A8");
 
 /* Run a channel's per-block callbacks, then hand its buffer to the output routine. */
 void func_001263A8_r(void *arg0, int idx) {
-    Dec001263A8 *p = (Dec001263A8 *)arg0;
+    struct MpegDecoder *p = (struct MpegDecoder *)arg0;
     int i;
 
-    if (p->e[idx].unk138 != 0) {
-        for (i = 0; i < p->e[idx].count; i++) {
-            p->e[idx].fa[i](p->e[idx].a[i]);
-            p->e[idx].fb[i](p->e[idx].b[i]);
+    if (p->mb_buf[idx].unk138 != 0) {
+        for (i = 0; i < p->mb_buf[idx].fetch_count; i++) {
+            p->mb_buf[idx].luma_func[i](&p->mb_buf[idx].luma[i]);
+            p->mb_buf[idx].chroma_func[i](&p->mb_buf[idx].chroma[i]);
         }
     }
-    if (p->e[idx].unk130 != 0 && p->e[idx].unk13C != 0) {
+    if (p->mb_buf[idx].unk130 != 0 && p->mb_buf[idx].unk13C != 0) {
         _Error(p, str_mpeg_intra_skip_mb);
     }
-    if (p->e[idx].unk130 != 0) {
-        mpeg_clamp_pack_block(p->e[idx].unk128, p->e[idx].unk4);
-    } else if (p->e[idx].unk13C != 0) {
-        mpeg_clamp_pack_block(p->e[idx].unk128, p->unk81C);
+    if (p->mb_buf[idx].unk130 != 0) {
+        mpeg_clamp_pack_block(p->mb_buf[idx].unk128, p->mb_buf[idx].ipu_out);
+    } else if (p->mb_buf[idx].unk13C != 0) {
+        mpeg_clamp_pack_block(p->mb_buf[idx].unk128, (int)p->mc_work);
     } else {
-        mpeg_add_block_clamp(p->e[idx].unk128, p->unk81C, p->e[idx].unk4);
+        mpeg_add_block_clamp(p->mb_buf[idx].unk128, (int)p->mc_work, p->mb_buf[idx].ipu_out);
     }
 }
 
@@ -698,14 +644,6 @@ void ipu_set_mpeg1(int arg0) {
     *p = (*p & 0xFF7FFFFF) | (arg0 << 23);
 }
 
-typedef struct {
-    unsigned char pad0[0x838];
-    int unk838;
-    int unk83C;
-    unsigned char pad840[0x18];
-    void *cbData;
-} MpegDec;
-
 extern char str_mpeg_bdec_error[];
 extern void wait_ipu_idle(void *);
 extern void dispatch_mpeg_callback(int, void *);
@@ -723,7 +661,7 @@ extern void _Error(void *, void *);
 
 /* _waitBdecOut (libmpeg). Adapted from Lombyte's project (GPL-3.0) for PAL. */
 int _waitBdecOut(void *arg0) {
-    MpegDec *d = arg0;
+    struct MpegDecoder *d = (struct MpegDecoder *)arg0;
     int cb1[8];
     int cb2[8];
     int ret;
@@ -738,26 +676,26 @@ int _waitBdecOut(void *arg0) {
         do {
             if (*D3_QWC == 0 && !(*D3_CHCR & 0x100)) {
                 cb1[0] = 1;
-                dispatch_mpeg_callback((int)d->cbData, cb1);
+                dispatch_mpeg_callback((int)d->mpeg, cb1);
             }
         } while (*D4_QWC != 0 && !(*IPU_CTRL & 0x4000));
     }
     bp = *IPU_BP;
     top = *IPU_TOP;
-    d->unk838 = top;
+    d->bit_buffer = top;
     if (top < 0) {
         rest = bp & 0x1F;
-        d->unk83C = rest ? 32 - rest : 0;
+        d->bit_count = rest ? 32 - rest : 0;
     } else {
-        d->unk83C = 32;
+        d->bit_count = 32;
     }
     if (*IPU_CTRL & 0x4000) {
         _Error(d, str_mpeg_bdec_error);
         cb2[0] = 2;
-        dispatch_mpeg_callback((int)d->cbData, cb2);
+        dispatch_mpeg_callback((int)d->mpeg, cb2);
         *(unsigned int *)0x10002010 = 0x40000000;
         cb2[0] = 3;
-        dispatch_mpeg_callback((int)d->cbData, cb2);
+        dispatch_mpeg_callback((int)d->mpeg, cb2);
         intr = disable_interrupts();
         *D_ENABLEW = *D_ENABLER | 0x10000;
         *D4_CHCR = 0;
@@ -2268,35 +2206,35 @@ int mpeg_mark_picture_output(void *arg0) {
 }
 
 long _getPtsDtsFlags(void *arg0, void *arg1, void *arg2, void *arg3, void *arg4) {
-    char *s = arg0;
+    struct MpegDecoder *s = (struct MpegDecoder *)arg0;
     struct MpegRefImage *t = (struct MpegRefImage *)arg1;
-    long *o1 = arg2;
+    long *o1 = (long *)arg2;
     long v;
     long packed;
 
-    if (*(int *)(s + 0x70) != 0) {
+    if (s->unk70 != 0) {
         int base;
         extern long func_0011EEC8(long, long);
         v = t->pts;
-        if (v >= 0 || (base = *(int *)(s + 0x80)) < 0) {
+        if (v >= 0 || (base = s->unk80) < 0) {
             *o1 = v;
         } else {
-            int n = *(long *)(s + 0x88);
-            long r = func_0011EEC8(n & 1, *(long *)(s + 0x78) & 1);
-            int cnt = *(int *)(s + 0x90);
+            int n = (long)s->unk88;
+            long r = func_0011EEC8(n & 1, s->unk78 & 1);
+            int cnt = s->unk90;
             int a = func_0011EEC8(r, cnt & 1);
-            *o1 = base + ((int)(func_0011EEC8(*(long *)(s + 0x78), n) >> 1) + a);
-            if (func_0011EEC8(n & 1, *(long *)(s + 0x78) & 1)) {
-                *(int *)(s + 0x90) = cnt + 1;
+            *o1 = base + ((int)(func_0011EEC8(s->unk78, n) >> 1) + a);
+            if (func_0011EEC8(n & 1, s->unk78 & 1)) {
+                s->unk90 = cnt + 1;
             }
         }
     } else {
         *o1 = t->pts;
     }
-    if (*(int *)(s + 0xF8) == 2 && (v = *(long *)(s + 0xF0)) >= 0) {
+    if (s->unkF8 == 2 && (v = s->unkF0) >= 0) {
         *o1 = v;
-        *(int *)(s + 0xF8) = 0;
-        *(long *)(s + 0xF0) = -1;
+        s->unkF8 = 0;
+        s->unkF0 = -1;
     }
     *(long *)arg3 = t->dts;
     packed = ((long)t->unk13C << 8) | ((long)t->progressive_frame << 7)
@@ -2316,10 +2254,10 @@ void _dispRefImage(char *s_arg, char *t_arg) {
     long x;
 
     base = s->mpeg;
-    _getPtsDtsFlags(s, t, (char *)base + 0x10, (char *)base + 0x18, (char *)base + 0x20);
+    _getPtsDtsFlags(s, t, &base->pts, &base->dts, &base->flags);
     base = s->mpeg;
-    x = *(long *)((char *)base + 0x20);
-    s->unk80 = *(int *)((char *)base + 0x10);
+    x = *(long *)&base->flags;
+    s->unk80 = *(int *)&base->pts;
     s->unk88 = mpeg_display_field_count_table[(int)(x >> 5) & 0xF];
     s->unkCC = t->display_horizontal_size;
     s->unkD0 = t->display_vertical_size;
@@ -2411,24 +2349,9 @@ void _dispRefImageField(char *s, char *a1, char *a2) {
 
 extern char mpeg_ref_image_chain[];
 
-struct DmaEnt {
-    int unk0;
-    int unk4;
-    int a[4];
-    int b[69];
-    int n;
-    int pad[4];
-};
-
-struct DmaObj {
-    unsigned char pad_0[0x590];
-    struct DmaEnt e[2];
-    int unk810;
-};
-
 /* Builds a DMA tag chain (two 64-bit tags per entry) at the uncached alias of D_0015E940, then starts DMA channel 0x1000D400 on it. */
 void dma_ref_image(void *arg0) {
-    struct DmaObj *s = arg0;
+    struct MpegDecoder *s = (struct MpegDecoder *)arg0;
     int m;
     int n;
     int i;
@@ -2438,13 +2361,13 @@ void dma_ref_image(void *arg0) {
     int hi;
     int r;
 
-    m = s->unk810;
+    m = s->mb_buf_index;
     p = (long *)(((unsigned int)mpeg_ref_image_chain & 0x0FFFFFFF) | 0x20000000);
-    n = s->e[m].n;
+    n = s->mb_buf[m].fetch_count;
     i = 0;
     if (n > 0) do {
-        lo = s->e[m].a[i] & 0x0FFFFFFF;
-        hi = s->e[m].b[i] & 0x0FFFFFFF;
+        lo = (int)s->mb_buf[m].luma_ref[i] & 0x0FFFFFFF;
+        hi = (int)s->mb_buf[m].chroma_ref[i] & 0x0FFFFFFF;
         tag = 3;
         if (i == n - 1)
             tag = 0;
@@ -2454,7 +2377,7 @@ void dma_ref_image(void *arg0) {
     } while (++i < n);
     r = disable_interrupts();
     __asm__ __volatile__("sync");
-    *(volatile int *)0x1000D480 = s->e[s->unk810].unk0;
+    *(volatile int *)0x1000D480 = s->mb_buf[s->mb_buf_index].spr_base;
     *(volatile int *)0x1000D430 = (int)mpeg_ref_image_chain;
     *(volatile int *)0x1000D420 = 0;
     *(volatile int *)0x1000D400 = 0x105;

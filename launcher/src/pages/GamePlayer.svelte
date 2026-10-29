@@ -12,6 +12,7 @@
   import FolderPrompt from "$components/FolderPrompt.svelte";
   import GamesFrame from "$components/GamesFrame.svelte";
   import Icon from "$components/Icon.svelte";
+  import { toolFailure } from "$lib/toolErrors";
   import JobProgress from "$components/JobProgress.svelte";
   import ProgressBar from "$components/ProgressBar.svelte";
   import Menu, { type MenuItem } from "$components/Menu.svelte";
@@ -98,7 +99,14 @@
    *  runs: the page says so under the main button, with the way to what it printed. */
   const stopped = $derived.by(() => {
     if (!v || next?.job) return null;
-    const ids = [`install:${v.game}`, "port-build", "port-rebuild", "port-levels", "port-levels-check"];
+    const ids = [
+      `install:${v.game}`,
+      "port-build",
+      "port-rebuild",
+      "port-levels",
+      "port-levels-check",
+      "overrides-stack",
+    ];
     const mine = jobs.list.filter(
       (j) => ids.includes(j.actionId) && (j.scope.kind === "repository" || j.scope.key === v.key),
     );
@@ -336,7 +344,7 @@
             {#if lastPlayed && next.kind === "play"}<p class="line last">{lastPlayed}</p>{/if}
             {#if stopped}
               <p class="stopped">
-                <Icon name="warn" size={14} />{stopped.title} stopped with an error.
+                <Icon name="warn" size={14} />{stopped.title} stopped: {toolFailure(stopped.lines).title.toLowerCase()}.
                 <button class="link" onclick={() => (app.page = "tasks")}>See what it printed</button>
               </p>
             {/if}

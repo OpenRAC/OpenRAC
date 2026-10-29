@@ -194,13 +194,18 @@ triangles in Blender as you would a tile. The details are in the
 
 ## Projects from an older extractor
 
-The extractor never overwrites a project, so a project made before the
-editable collision (no `collision/` folder in the level) keeps the old
-display-only `Collision` node: its other edits still pack, its collision is
-left as the disc has it. To get the new scene and keep your edits: move the
-project aside, extract the level again, and redo the edits in the new scene
-(Godot saves scenes as text, so a diff of your old scene against a fresh
-export of the same extractor shows each edit).
+A project an older extractor made (an older `schema` in its level.json, or a
+PAL project read from the 50 Hz gameplay copy) is found by the launcher, whose
+Level editor tab then says "Your levels need an update". **Update project**
+extracts the levels again: the old project moves to `<disc>-backups/<time>/`
+with your edits, a fresh one takes its place, and your moby edits (moved,
+turned, scaled, class, values, added, deleted) are carried over onto it
+([carry.py](carry.py)). What cannot be carried is listed on the panel and in
+`carried.json` beside the scene, to redo by hand in the new scene (Godot saves
+scenes as text, so a diff of your old scene against the backup shows each
+edit). **Export the levels again**, under **Your levels** below the status,
+does the same for every level whenever you want fresh copies, and the section
+also holds Pack again and the resets (README.md, "Your levels").
 
 A project made before the Collision dock gets it the next time you extract the
 levels into the same folder (the launcher's **Extract the levels**): the dock is

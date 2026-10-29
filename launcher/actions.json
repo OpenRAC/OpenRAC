@@ -176,6 +176,30 @@
         "todo": "Run it from the desktop app. From a shell on macOS the same command wrote the per-level projects, and refused an existing folder with a clear message."
       },
       {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its Godot project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac1/pal",
+          "--split",
+          "--again"
+        ],
+        "output": "assets/levels/rac1/pal",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
         "id": "editor-import",
         "label": "Import a level into Godot",
         "description": "Has Godot read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time (a few seconds per level).",
@@ -808,6 +832,30 @@
         "todo": "Run it from the desktop app. From a shell on macOS the same command wrote level 0's project from SCUS_971.99."
       },
       {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its Godot project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac1/ntsc",
+          "--split",
+          "--again"
+        ],
+        "output": "assets/levels/rac1/ntsc",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
         "id": "editor-preview",
         "label": "Preview a level in Godot",
         "description": "Opens one extracted level in Godot's player, to fly around it. This is Godot showing the editor's scene, not the game.",
@@ -1396,6 +1444,30 @@
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
       },
       {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its Godot project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac2/ntsc",
+          "--split",
+          "--again"
+        ],
+        "output": "assets/levels/rac2/ntsc",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
         "id": "editor-preview",
         "label": "Preview a level in Godot",
         "description": "Opens one extracted level in Godot's player, to fly around it. This is Godot showing the editor's scene, not the game.",
@@ -1736,6 +1808,30 @@
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
       },
       {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its Godot project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac3/ntsc",
+          "--split",
+          "--again"
+        ],
+        "output": "assets/levels/rac3/ntsc",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
         "id": "editor-preview",
         "label": "Preview a level in Godot",
         "description": "Opens one extracted level in Godot's player, to fly around it. This is Godot showing the editor's scene, not the game.",
@@ -2074,6 +2170,30 @@
         ],
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its Godot project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac4/ntsc",
+          "--split",
+          "--again"
+        ],
+        "output": "assets/levels/rac4/ntsc",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
       },
       {
         "id": "editor-preview",

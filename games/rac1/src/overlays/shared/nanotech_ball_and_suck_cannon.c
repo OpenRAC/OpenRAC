@@ -342,8 +342,8 @@ typedef struct Ext_2D9EA0 {
     short h1E;
 } Ext_2D9EA0;
 typedef struct D_2D9EA0 {
-    float f0;
-    float f4;
+    float bob_offset;
+    float bob_phase;
     short h8;
     short hA;
     struct Moby *owner;
@@ -432,10 +432,10 @@ void nanotech_ball_update(Moby *m) {
         qcopy(&m->pos, &c->pos);
         qcopy(&m->rot, &c->rot);
         qcopy(&d->pos, &m->pos);
-        *(int *)&d->f0 = 0;
+        *(int *)&d->bob_offset = 0;
         d->h8 = 0;
         d->pos.z += 0.5f;
-        d->f4 = random_float_between_r(d->f0, 3.1415927f);
+        d->bob_phase = random_float_between_r(d->bob_offset, 3.1415927f);
         d->h56 = 0;
         d->hA = 0;
         for (i = 0; i < 4; i++) d->f60[i] = (float)random_integer_below_r(0xFF);
@@ -544,8 +544,8 @@ void nanotech_ball_update(Moby *m) {
                 }
             }
         }
-        d->f0 = D_L00_00161AE0_2D9EA0 * FastSin_r(d->f4);
-        d->f4 = FastAddRots_r(d->f4, D_L00_00161ADC_2D9EA0);
+        d->bob_offset = D_L00_00161AE0_2D9EA0 * FastSin_r(d->bob_phase);
+        d->bob_phase = FastAddRots_r(d->bob_phase, D_L00_00161ADC_2D9EA0);
         if (primary_nanotech_ball_moby_r == m) update_nanotech_ball_slot_offsets_r();
         qcopy(&v0, &m->pos);
         v0.z += 0.5f;
@@ -705,47 +705,6 @@ typedef struct {
     float texcoords[8];
     u64 texture[4];
 } __attribute__((aligned(16))) GeometryQuad_2DACC0;
-typedef struct { float x, y, z, w; } __attribute__((aligned(16))) V_2DACC0;
-
-typedef struct { float x, y, z; } V3_2DACC0;
-
-typedef struct Part_2DACC0 {
-    int f0;
-    int f4;
-    unsigned char b8;
-    char p9[3];
-    float fC;
-    V_2DACC0 pos;
-} Part_2DACC0;
-
-typedef struct Ext_2DACC0 {
-    int f0;
-    union {
-        struct { struct Moby *owner; float scale; float ang; } s;
-        V3_2DACC0 a;
-    } u;
-    V3_2DACC0 b;
-    short h1C;
-    short h1E;
-} Ext_2DACC0;
-
-typedef struct D_2DACC0 {
-    float bob_offset;
-    float bob_phase;
-    short h8;
-    short hA;
-    struct Moby *owner;
-    V_2DACC0 pos;
-    V_2DACC0 v20;
-    Part_2DACC0 *slots[8];
-    int f50;
-    short h54;
-    short h56;
-    short h58[4];
-    float f60[4];
-    char p70[0xC];
-    int f7C;
-} D_2DACC0;
 extern float D_L00_00161AE0_2DACC0 SDATA(D_L00_00161AE0);
 extern int D_L00_00161B90_2DACC0 SDATA(D_L00_00161B90);
 extern int D_L00_00161B94_2DACC0 SDATA(D_L00_00161B94);
@@ -801,7 +760,7 @@ void draw_nanotech_ball(Moby *moby) {
     float view_dir[4] __attribute__((aligned(16)));
     float to_camera[4] __attribute__((aligned(16)));
     float vertex[4] __attribute__((aligned(16)));
-    D_2DACC0 *vars = (D_2DACC0 *)moby->pvars;
+    D_2D9EA0 *vars = (D_2D9EA0 *)moby->pvars;
     Moby *owner;
     float pulse = vars->bob_offset / D_L00_00161AE0_2DACC0;
     int i, j, color;
@@ -937,14 +896,13 @@ void draw_nanotech_ball(Moby *moby) {
     }
     vu1_add_g_sregister_2DACC0(0x47, 0x5360b);
 }
-typedef struct { char pad[0x2084]; int f; int pad2; int mode; } G;
-extern G g_hero NOT_SDA;
+extern Hero g_hero NOT_SDA;
 
 /* tests a state value against a set of cases */
 int is_suck_cannon_suction_blocked_by_hero_state(void) {
-    G *g = &g_hero;
+    Hero *g = &g_hero;
     int r = 1;
-    switch (g->mode) {
+    switch (g->state.control_mode) {
     case 0:
     case 1:
     case 5:
@@ -953,7 +911,7 @@ int is_suck_cannon_suction_blocked_by_hero_state(void) {
         break;
     case 2:
     case 4:
-        if (g_hero.f != 0x3C) r = 0;
+        if (g_hero.state.current != 0x3C) r = 0;
         break;
     }
     return r;
@@ -973,8 +931,7 @@ void compose_moby_rotation_with_euler_offset(char *a, char *b, void *c) {
     ((Moby *)b)->flags |= 4;
     moby_anim_sphere_lerp(b);
 }
-typedef struct { u8 pad0[0x2050]; char *slot[10]; s32 i2078; s32 i207C; } G_2db508;
-extern G_2db508 g_hero_r __asm__("D_0013F450") __attribute__((section(".data")));
+extern Hero g_hero_r __asm__("D_0013F450") __attribute__((section(".data")));
 extern unsigned char gGoldSuckCannon_r __asm__("D_0013E629") __attribute__((section(".data")));
 extern int scale_ticks(int);
 extern void MobyBlendAnimation(void *, int, int, int);
@@ -986,7 +943,7 @@ int process_suck_cannon_suction_candidate(u8 *p, void *q, void *m_, void *r_, vo
     char *r = (char *)r_;
     int ret = 0;
     int (*fn)(void *, void *, void *) = **(int (***)(void *, void *, void *))(*(char **)&((Moby *)m)->pclass + 0x2C);
-    G_2db508 *g;
+    Hero *g;
     char *x;
     int c;
     int n;
@@ -995,7 +952,7 @@ int process_suck_cannon_suction_candidate(u8 *p, void *q, void *m_, void *r_, vo
         ret = fn(m, buf, p);
         if (ret == 2 && *(short *)(r + 0x68) != 3) {
             g = &g_hero_r;
-            n = g->i2078 + g->i207C;
+            n = g->sucked_moby_count + g->suck_cannon_incoming;
             if (gGoldSuckCannon_r == 0 ? n < 5 : n < 10) {
                 x = *(char **)(r + 0x70);
                 if (((Moby *)m)->prev_seq != (unsigned char)x[3]) {
@@ -1006,10 +963,10 @@ int process_suck_cannon_suction_candidate(u8 *p, void *q, void *m_, void *r_, vo
                 ((Moby *)m)->anim_speed = 1.0f;
                 *(float *)(r + 0x64) = vec_distance_xy(&((Moby *)m)->pos, buf);
                 for (i = 0; i < (gGoldSuckCannon_r == 0 ? 5 : 10); i++) {
-                    if (g_hero_r.slot[i] == 0) {
-                        g_hero_r.slot[i] = m;
+                    if (g_hero_r.unk2050[i] == 0) {
+                        g_hero_r.unk2050[i] = (Moby *)m;
                         *(short *)(r + 0x6A) = i;
-                        g_hero_r.i207C++;
+                        g_hero_r.suck_cannon_incoming++;
                         break;
                     }
                 }
@@ -1071,10 +1028,8 @@ typedef struct M_da360 {
 } M_da360;
 typedef struct { u8 p0[0x68]; s16 h68; s16 h6a; } R;
 extern M_da360 * suck_moby_list MACRO_ADDR;
-typedef struct { u8 p[9]; u8 b9; } G1T;
-typedef struct { u8 p[0x2078]; s32 i2078; } G2T;
-extern G1T gold_weapon_purchased;
-extern G2T g_hero_r2 __asm__("D_0013F450");
+extern u8 gold_weapon_purchased[];
+extern Hero g_hero_r2 __asm__("D_0013F450");
 extern void noop_callback_l(void);
 extern void compute_suck_cannon_suction_aim_and_origin_r(void *, f32 *, f32 *, void *) __asm__("func_L00_002DB700");
 extern void suck_beam_update(void *, void *);
@@ -1108,7 +1063,7 @@ void update_suck_cannon_suction(u8 *p, void *q)
             if (r != 0 && r->h68 < 6) {
                 d = vec_distance_xy(p + 0x10, &m->pos);
                 if (d < 15.0f && !is_suck_cannon_suction_blocked_by_hero_state() &&
-                    ((n = (&g_hero_r2)->i2078), (&gold_weapon_purchased)->b9 == 0 ? n < 5 : n < 10)) {
+                    ((n = g_hero_r2.sucked_moby_count), gold_weapon_purchased[9] == 0 ? n < 5 : n < 10)) {
                     if (r->h68 < 3) {
                         thr = 0.043864909559488297f;
                         if (d < 3.0f) thr = 3.68587064743042f;
@@ -1135,31 +1090,29 @@ void update_suck_cannon_suction(u8 *p, void *q)
         }
     }
 }
-typedef struct { u8 pad0[0x2050]; u8 *slot[10]; s32 i2078; s32 i207C; } G_002da660;
-extern G_002da660 g_hero_r3 __asm__("D_0013F450") __attribute__((section(".data")));
-typedef struct { u8 p[9]; u8 b9; } H_002da660;
-extern H_002da660 gold_weapon_purchased_r __asm__("D_0013E620") __attribute__((section(".data")));
+extern Hero g_hero_r3 __asm__("D_0013F450") __attribute__((section(".data")));
+extern u8 gold_weapon_purchased_r[] __asm__("D_0013E620") __attribute__((section(".data")));
 extern char suck_cannon_cleaned_up_moby_fmt_r[] __asm__("D_L00_001EA368") __attribute__((section(".data")));
 u8 *func_L00_002DCD40_002da660(u8 *) __asm__("func_L00_002DCD40");
 void func_001E9730_002da660(void *, s32, s32) __asm__("func_001E9730");
 /* Update. Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/shared/unclassified_002d7f88.c, FUN_L00_002da660. */
 void refresh_suck_cannon_slots(void) {
     s32 i;
-    g_hero_r3.i207C = 0;
-    g_hero_r3.i2078 = 0;
-    for (i = 0; i < (gold_weapon_purchased_r.b9 == 0 ? 5 : 10); i++) {
+    g_hero_r3.suck_cannon_incoming = 0;
+    g_hero_r3.sucked_moby_count = 0;
+    for (i = 0; i < (gold_weapon_purchased_r[9] == 0 ? 5 : 10); i++) {
         u8 *o;
         s32 k;
-        if (g_hero_r3.slot[i] == 0) continue;
-        o = func_L00_002DCD40_002da660(g_hero_r3.slot[i]);
+        if (g_hero_r3.unk2050[i] == 0) continue;
+        o = func_L00_002DCD40_002da660((u8 *)g_hero_r3.unk2050[i]);
         if (o == 0 || (k = *(s16 *)(o + 0x68)) < 3 || k >= 5 || *(s16 *)(o + 0x6A) == -1) {
-            u8 *m = g_hero_r3.slot[i];
+            u8 *m = (u8 *)g_hero_r3.unk2050[i];
             func_001E9730_002da660(suck_cannon_cleaned_up_moby_fmt_r, *(s16 *)(m + 0xB2), *(s16 *)(m + 0xA6));
-            g_hero_r3.slot[i] = 0;
+            g_hero_r3.unk2050[i] = 0;
         } else if (k == 3) {
-            g_hero_r3.i207C++;
+            g_hero_r3.suck_cannon_incoming++;
         } else if (k == 4) {
-            g_hero_r3.i2078++;
+            g_hero_r3.sucked_moby_count++;
         }
     }
 }
@@ -1893,9 +1846,9 @@ void spawn_suck_cannon_projectile_explosion(char *self, char *q) {
     *(u128_DD3D8 *)b = *(u128_DD3D8 *)c;
     *(u128_DD3D8 *)c = 0;
     c[2] = 1.0f;
-    f22 = IntToFloat((&gold_weapon_purchased)->b9) + 1.0f;
+    f22 = IntToFloat(gold_weapon_purchased[9]) + 1.0f;
     step = 1;
-    if ((&gold_weapon_purchased)->b9 == 0) step = 2;
+    if (gold_weapon_purchased[9] == 0) step = 2;
     FastVecScale(b, b, f22);
     FastVecSub(a, g_debug_camera, &((Moby *)self)->pos);
     f23 = FastVecLength(a);
@@ -1913,7 +1866,7 @@ void spawn_suck_cannon_projectile_explosion(char *self, char *q) {
         FastVecAdd(e, e, b);
         {
             int h = scale_ticks(60);
-            SpawnFallingSpark((char *)&((Moby *)self)->pos, (char *)e, rand_range(h, scale_ticks(120)), 0, (&gold_weapon_purchased)->b9);
+            SpawnFallingSpark((char *)&((Moby *)self)->pos, (char *)e, rand_range(h, scale_ticks(120)), 0, gold_weapon_purchased[9]);
         }
     }
     for (j = 0; j < 4 / step; j++) {
@@ -1930,7 +1883,7 @@ void spawn_suck_cannon_projectile_explosion(char *self, char *q) {
         FastVecAdd(e, e, b);
         {
             int h = scale_ticks(60);
-            SpawnFallingSpark((char *)&((Moby *)self)->pos, (char *)e, rand_range(h, scale_ticks(90)), 1, (&gold_weapon_purchased)->b9);
+            SpawnFallingSpark((char *)&((Moby *)self)->pos, (char *)e, rand_range(h, scale_ticks(90)), 1, gold_weapon_purchased[9]);
         }
     }
     *(u128_DD3D8 *)g = 0;
@@ -1945,7 +1898,7 @@ void spawn_suck_cannon_projectile_explosion(char *self, char *q) {
     clamp_vec_length(e, e, g_frame_time * 10.0f);
     {
         int h = scale_ticks(60);
-        SpawnFallingSpark((char *)&((Moby *)self)->pos, (char *)e, rand_range(h, scale_ticks(90)), 1, (&gold_weapon_purchased)->b9);
+        SpawnFallingSpark((char *)&((Moby *)self)->pos, (char *)e, rand_range(h, scale_ticks(90)), 1, gold_weapon_purchased[9]);
     }
     if (f23 < 6.0f) {
         k = truncate_float_to_s32_r(f23) + 1;
@@ -1964,8 +1917,8 @@ void spawn_suck_cannon_projectile_explosion(char *self, char *q) {
             float big;
             t1 = suck_cannon_explosion_colors_a;
             t2 = suck_cannon_explosion_colors_b;
-            A = swap_packed_color_channels(t1.v[random_integer_below(6)], (&gold_weapon_purchased)->b9);
-            B = swap_packed_color_channels(t2.v[random_integer_below(6)], (&gold_weapon_purchased)->b9);
+            A = swap_packed_color_channels(t1.v[random_integer_below(6)], gold_weapon_purchased[9]);
+            B = swap_packed_color_channels(t2.v[random_integer_below(6)], gold_weapon_purchased[9]);
             big = f22 * 400000.0f;
             r1 = rand_range(scale_ticks(15), scale_ticks(20));
             r2 = rand_range(scale_ticks(25), scale_ticks(30));
@@ -1978,13 +1931,13 @@ void spawn_suck_cannon_projectile_explosion(char *self, char *q) {
         r0 = 0x7F;
         g0 = 0x20;
         b0 = 0;
-        swap_color_channel_words(&r0, &g0, &b0, (&gold_weapon_purchased)->b9);
+        swap_color_channel_words(&r0, &g0, &b0, gold_weapon_purchased[9]);
         spawn_randomly_rotated_colored_moby_r(s4, self, &((Moby *)self)->pos, b, scale_ticks(24), r0, g0, b0, 0x20);
     }
     r1 = 0x7F;
     g1 = 0x3F;
     b1 = 0;
-    swap_color_channel_words(&r1, &g1, &b1, (&gold_weapon_purchased)->b9);
+    swap_color_channel_words(&r1, &g1, &b1, gold_weapon_purchased[9]);
     {
         float s = f22 * 4.0f;
         spawn_randomly_rotated_colored_moby_r(s, self, &((Moby *)self)->pos, b, scale_ticks(20), r1, g1, b1, 0x30);
@@ -1992,7 +1945,7 @@ void spawn_suck_cannon_projectile_explosion(char *self, char *q) {
     r1 = 0x60;
     g1 = 0x10;
     b1 = 0;
-    swap_color_channel_words(&r1, &g1, &b1, (&gold_weapon_purchased)->b9);
+    swap_color_channel_words(&r1, &g1, &b1, gold_weapon_purchased[9]);
     {
         float s = f22 * 3.5f;
         spawn_randomly_rotated_colored_moby_r(s, self, &((Moby *)self)->pos, b, scale_ticks(27), r1, g1, b1, 0x40);
@@ -2000,7 +1953,7 @@ void spawn_suck_cannon_projectile_explosion(char *self, char *q) {
     r1 = 0x20;
     g1 = 0;
     b1 = 0;
-    swap_color_channel_words(&r1, &g1, &b1, (&gold_weapon_purchased)->b9);
+    swap_color_channel_words(&r1, &g1, &b1, gold_weapon_purchased[9]);
     {
         float s = f22 * 3.0f;
         spawn_randomly_rotated_colored_moby_r(s, self, &((Moby *)self)->pos, b, scale_ticks(29), r1, g1, b1, 0x20);
@@ -2008,7 +1961,7 @@ void spawn_suck_cannon_projectile_explosion(char *self, char *q) {
     player_camera_r.f160 = (f23 < 20.0f) ? 0.4f - f23 * 0.0175f : 0.050000012f;
     player_camera_r.i168 = scale_ticks(25);
     mine_camera_blast((char *)&blk, (char *)&((Moby *)self)->pos, 0, 0);
-    if ((&gold_weapon_purchased)->b9) {
+    if (gold_weapon_purchased[9]) {
         k = coll_sphere_mobys_r(3.0f, &((Moby *)self)->pos, 0x10, self, 0);
         *(u128_DD3D8 *)e = *(u128_DD3D8 *)&((Moby *)self)->pos;
         SendRadialMessageToMobys(self, e, coll_sphere_moby_hits, k, 0, 0x830000, 2, 1, 2.0f, 1.0f, 1.0f);
@@ -2071,7 +2024,7 @@ extern float g_frame_scale_sq_r __asm__("D_0015EE64") MACRO_ADDR;
 extern float g_frame_time_sq_r __asm__("D_0015EE70") MACRO_ADDR;
 extern unsigned char gGoldSuckCannon_r2[] __asm__("D_0013E629");
 extern unsigned char hero_gadget_switch_lock_r[] __asm__("D_001404FC");
-extern char g_hero_r4[] __asm__("D_0013F450");
+extern Hero g_hero_r4 __asm__("D_0013F450");
 extern char gHeroPos_r[] __asm__("D_0013F4D0");
 extern char hero_basis_r[] __asm__("D_0013FA90");
 extern char coll_hit_result_r[] __asm__("D_L00_00173F40");
@@ -2197,10 +2150,10 @@ int CarriedMobyUpdate(Moby *self, char *q) {
                 self->collision = 0;
             }
             if (f20 < m->f98) {
-                ((Hero *)g_hero_r4)->suck_cannon_incoming--;
-                ((Hero *)g_hero_r4)->sucked_moby_count++;
+                g_hero_r4.suck_cannon_incoming--;
+                g_hero_r4.sucked_moby_count++;
                 invoke_optional_moby_callback_or_return_one_r(self, &fr.v[0]);
-                ((Hero *)g_hero_r4)->unk2050[m->idx]->flags &= 0xEFFF;
+                g_hero_r4.unk2050[m->idx]->flags &= 0xEFFF;
             } else {
                 matrix_from_basis_rows_r(&fr.v[5], hero_basis_r);
                 FastVecSub_r2(&fr.v[2], &self->pos, &fr.v[0]);
@@ -2904,44 +2857,43 @@ int get_next_moby_in_group(void *, s32, s32, s32);
 void draw_offset_textured_effect_quad(void *, void *, f32, f32);
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002d7f88.c, FUN_L00_002df3d8. */
-void draw_red_orb_group_effect_quads(u8 *p) {
+void draw_red_orb_group_effect_quads(Moby *p) {
     u8 *it[2] __attribute__((aligned(16)));
     f32 s = 1.2f;
     if (g_current_level_index == 0 || g_current_level_index == 0x12) {
         s = 1.0f;
     }
-    get_first_moby_in_group(it, p[0x21], 0, 0);
+    get_first_moby_in_group(it, p->group, 0, 0);
     while (it[0] != 0) {
-        u8 *q = it[0];
-        if (((Moby *)q)->visible != 0) {
-            void **m = ((void * *)((Moby *)q)->pvars);
-            if (((Moby *)q)->oclass == *(s16 *)(p + 0xA6)) {
-                draw_offset_textured_effect_quad(q + 0x10, m[1], s, 0.5f);
+        Moby *q = (Moby *)it[0];
+        if (q->visible != 0) {
+            void **m = (void **)q->pvars;
+            if (q->oclass == p->oclass) {
+                draw_offset_textured_effect_quad(&q->pos, m[1], s, 0.5f);
             }
         }
         get_next_moby_in_group(it, it[0], 0, 0);
     }
 }
 extern short level_frame_counter;
-typedef struct { char pad[8]; s32 **p; } S09;
-typedef struct { char pad[0x78]; S09 *s; } M09;
-typedef void (*CB09)(M09 *);
-void func_L00_002E0888_E0958(M09 *) __asm__("func_L00_002E0888");
-void func_001F49B0_E0958(CB09, M09 *) __asm__("func_001F49B0");
+typedef struct {
+    u8 pad[8];
+    s32 *p;
+} RedOrbVars;
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_002d7f88.c, FUN_L00_002df4a8. */
-void enqueue_red_orb_group_draw_if_cache_changed(M09 *m) {
+void enqueue_red_orb_group_draw_if_cache_changed(Moby *m) {
     u8 b;
     s32 v;
-    S09 *s;
-    b = m->pad[0x21];
+    RedOrbVars *s;
+    b = m->group;
     if (b == 0xFF) return;
-    s = m->s;
+    s = (RedOrbVars *)m->pvars;
     v = (*(s32 *)&level_frame_counter);
     if (v == 0) return;
     if (v != *s->p) {
         *s->p = v;
-        func_001F49B0_E0958(func_L00_002E0888_E0958, m);
+        AddDrawCallback((void (*)(void))draw_red_orb_group_effect_quads, (int)m);
     }
 }
 extern float FastAddRots(float, float);

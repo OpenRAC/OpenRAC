@@ -3,6 +3,7 @@
 #include "callees.h"
 #include "include_asm.h"
 #include "vector.h"
+#include "records.h"
 #include "hero.h"
 #include "moby.h"
 
@@ -76,7 +77,7 @@ typedef struct {
     s32 count;
     u8 pad4[0xC];
     Vec4 pts[1]; /* 0x10 */
-} RailPath_F7700;
+} CameraPath;
 typedef struct {
     s32 paths[0x18];
     f32 speed; /* 0x60: speed it pulls the hero along with */
@@ -85,7 +86,7 @@ typedef struct {
     u8 pad6C[4];
     s32 count; /* 0x70 */
 } RailVars_F7700;
-extern RailPath_F7700 * novalis_paths_r[] __asm__("D_L01_001B0C30");
+extern CameraPath * novalis_paths_r[] __asm__("D_L01_001B0C30");
 extern s32 g_current_level_index_r __asm__("D_0015EE84") MACRO_ADDR;
 extern short D_0015EE60_F7700 SDATA(D_0015EE60);
 extern f32 g_frame_scale_sq_r __asm__("D_0015EE64") MACRO_ADDR;
@@ -110,8 +111,8 @@ extern f32 Spring_r(f32 *value, f32 target, f32 *speed, f32 accel, f32 decel, f3
    Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/entities/002f6328.c, FUN_L01_002f6328. */
 void update_rail_hero_motion(struct Moby *m) {
     RailVars_F7700 *d = (RailVars_F7700 *)m->pvars;
-    RailPath_F7700 *path;
-    RailPath_F7700 *best_path;
+    CameraPath *path;
+    CameraPath *best_path;
     Vec4 best_pt;
     Vec4 pt;
     Vec4 dir;
@@ -133,7 +134,7 @@ void update_rail_hero_motion(struct Moby *m) {
     if (d->ready == 0) {
         d->ready = 1;
         for (i = 0; i < d->count; i++) {
-            RailPath_F7700 *p = novalis_paths_r[d->paths[i]];
+            CameraPath *p = novalis_paths_r[d->paths[i]];
             for (j = 0; j < p->count - 1; j++) {
                 p->pts[j].f[3] = FastVecDist_r(&p->pts[j], &p->pts[j + 1]);
             }
@@ -653,8 +654,7 @@ void attach_cutscene_fixed_scale_manipulator(void) {
 }
 extern void attach_cutscene_fixed_scale_manipulator_m(char *) __asm__("func_L01_002FC890");
 extern char cutscene_trigger_error_fmt[];
-typedef struct { char pad0[0x454]; unsigned char collected[1]; } TpLevelState_fc988;
-extern TpLevelState_fc988 novalis_checkpoint_level_state_s __asm__("D_L01_001BB9C0");
+extern LevelState novalis_checkpoint_level_state_s __asm__("D_L01_001BB9C0");
 extern char camera_pos_c[] __asm__("D_L01_001672C0");
 extern char *camera_points_c __asm__("D_L01_0016016C") MACRO_ADDR;
 extern int cutscene_active MACRO_ADDR;
@@ -1001,12 +1001,8 @@ typedef struct {
     s32 in_volume; /* 0x14 */
     s32 spawn_slot; /* 0x18: slot in the level's D_0014C050 row, -1 for none */
 } PickupVars_015F8;
-typedef struct {
-    u8 pad0[0x454];
-    u8 collected[1];
-} L01LevelState_015F8;
-extern L01LevelState_015F8 novalis_checkpoint_level_state_r __asm__("D_L01_001BB9C0");
-extern L01LevelState_015F8 novalis_current_level_state_r __asm__("D_L01_001BAD60");
+extern LevelState novalis_checkpoint_level_state_r __asm__("D_L01_001BB9C0");
+extern LevelState novalis_current_level_state_r __asm__("D_L01_001BAD60");
 extern s32 moby_killed_r[] __asm__("D_L01_001BAC60");
 extern u8 saved_mission_state_r[] __asm__("D_0014C150");
 extern u8 hero_vehicle_mode_r __asm__("D_001414F4") NOT_SDA;
@@ -1637,8 +1633,7 @@ void activate_teleporter_and_record_state(char *moby) {
     if (t != 0xFF) set_moby_list_state((char *)t, 1);
     else moby[0x20] = 1;
 }
-typedef struct { char pad0[0x454]; unsigned char collected[1]; } TpLevelState;
-extern TpLevelState novalis_checkpoint_level_state;
+extern LevelState novalis_checkpoint_level_state;
 extern char hero_globals_base[];
 extern char pad_globals_base[];
 extern float g_frame_time_sq MACRO_ADDR;
@@ -3122,12 +3117,8 @@ typedef struct {
     CameraControl control; /* 0x74 */
     u8 pad80[4];
     s16 preset; /* 0x84: row of D_L01_0015EF50 */
+    s16 id;     /* 0x86 */
 } Camera;
-typedef struct {
-    s32 count;
-    u8 pad4[0xC];
-    Vec4 pts[1]; /* 0x10 */
-} CameraPath;
 typedef struct {
     u8 pad0[0x20];
     s32 track_path; /* 0x20: D_L01_001B0930 path the first path is measured along */
@@ -3541,109 +3532,18 @@ void update_camera_position_and_orientation_from_paths(Cam_316730 *cam) {
     vec_scale_to_length(cam->f10, cam->f10, 1.0f);
     FastVecCross(cam->f20, cam->f10, cam->f0);
 }
-typedef u32 u128_171B8 __attribute__((mode(TI), aligned(16)));
-typedef int OvlQuad_171B8 __attribute__((mode(TI)));
-typedef struct {
-    Vec4 pos; /* 0x00 */
-    u8 pad10[0x30];
-    s32 state; /* 0x40 */
-    u8 pad44[4];
-    f32 max_angle; /* 0x48 */
-    f32 dist; /* 0x4C */
-    u8 pad50[0x10];
-} CameraFocus_171B8;
-typedef struct {
-    Vec4 vel; /* 0x00 */
-    u8 pad10[0x10];
-    f32 unk20; /* 0x20 */
-    f32 unk24; /* 0x24 */
-    f32 unk28; /* 0x28 */
-    s16 unk2C; /* 0x2C */
-    u8 pad2E[0x22];
-} CameraView_171B8;
-typedef struct {
-    f32 dist; /* 0x00 */
-    f32 unk4; /* 0x04 */
-    u8 pad8[8];
-    f32 height; /* 0x10 */
-    u8 pad14[0xC];
-} CameraSpring_171B8;
-typedef struct {
-    Vec4 vel; /* 0x00 */
-    u8 pad10[0x10];
-    Vec4 accel; /* 0x20 */
-    f32 unk30; /* 0x30 */
-    f32 unk34; /* 0x34 */
-    f32 unk38; /* 0x38 */
-    s32 unk3C; /* 0x3C */
-    f32 unk40; /* 0x40 */
-    u8 pad44[0xC];
-} CameraTrack_171B8;
-typedef struct {
-    s32 unk0;
-    s32 unk4;
-    s32 unk8;
-    s32 unkC;
-    s32 unk10;
-} CameraBlend_171B8;
-typedef struct {
-    Vec4 axis; /* 0x00 */
-    f32 unk10; /* 0x10 */
-    f32 unk14; /* 0x14 */
-    s32 unk18; /* 0x18 */
-    s16 mode; /* 0x1C */
-    u8 pad1E[2];
-    f32 unk20; /* 0x20 */
-    s32 unk24; /* 0x24 */
-    u8 pad28[8];
-    CameraView_171B8 view; /* 0x30 */
-    CameraFocus_171B8 focus; /* 0x80 */
-    CameraSpring_171B8 spring; /* 0xE0 */
-    CameraTrack_171B8 track; /* 0x100 */
-    CameraBlend_171B8 blend; /* 0x150 */
-} CameraOrbit_171B8;
-typedef struct {
-    u8 padA[0xA];
-    s16 mode; /* 0x7E */
-} CameraControl_171B8;
-typedef struct {
-    u8 pad0[0x70];
-    CameraOrbit_171B8 *orbit; /* 0x70 */
-    CameraControl_171B8 control; /* 0x74 */
-    u8 pad80[4];
-    s16 preset; /* 0x84: row of D_L01_0015EF50 */
-} Camera_171B8;
-typedef struct {
-    s32 count;
-    u8 pad4[0xC];
-    Vec4 pts[1]; /* 0x10 */
-} CameraPath_171B8;
-typedef struct {
-    u8 pad0[0x20];
-    s32 track_path; /* 0x20: D_L01_001B0930 path the first path is measured along */
-    s32 target; /* 0x24: row of D_L01_0015F70C */
-    s32 path; /* 0x28: D_L01_001B0930 path */
-    s32 look_path; /* 0x2C: D_L01_001B0930 path measured along the target's path */
-    s32 kind; /* 0x30 */
-    s16 ready; /* 0x34: paths prepared */
-} CameraPreset_171B8;
-typedef struct {
-    u8 pad0[0x1C];
-    CameraPreset_171B8 *preset; /* 0x1C */
-} CameraPresetRow_171B8;
-extern CameraPresetRow_171B8 * novalis_camera_descriptors_r2 __asm__("D_L01_0015F050") MACRO_ADDR;
-extern CameraPath_171B8 * novalis_paths_r4[] __asm__("D_L01_001B0C30");
-void func_L01_00316270_171B8(Camera_171B8 *cam) __asm__("func_L01_00316270");
-extern Camera_171B8 * novalis_camera_init_source;
+extern CameraPresetRow * novalis_camera_descriptors_r2 __asm__("D_L01_0015F050") MACRO_ADDR;
+extern CameraPath * novalis_paths_r4[] __asm__("D_L01_001B0C30");
+extern Camera * novalis_camera_init_source;
 extern Vec4 gHeroPos_r3 __asm__("D_0013F4D0");
 extern f32 FastVecDist(void *, void *);
 extern f32 FastVecDot(void *, void *);
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/vendor/0030b618.c, FUN_L01_00315de0. */
-void initialize_camera_transform_and_paths(Camera_171B8 *cam) {
-    CameraPresetRow_171B8 *rows = novalis_camera_descriptors_r2;
-    Camera_171B8 *src = novalis_camera_init_source;
-    CameraPreset_171B8 *s = rows[cam->preset].preset;
+void initialize_camera_transform_and_paths(Camera *cam) {
+    CameraPresetRow *rows = novalis_camera_descriptors_r2;
+    Camera *src = novalis_camera_init_source;
+    CameraPreset *s = rows[cam->preset].preset;
     Vec4 at, delta, to_camera;
     s32 seg;
     f32 t;
@@ -3655,7 +3555,7 @@ void initialize_camera_transform_and_paths(Camera_171B8 *cam) {
     qcopy((char *)cam + 0x40, cam);
 
     if (s->track_path >= 0) {
-        CameraPath_171B8 *path;
+        CameraPath *path;
         s32 i;
         s32 next;
         path = novalis_paths_r4[s->track_path];
@@ -3667,7 +3567,7 @@ void initialize_camera_transform_and_paths(Camera_171B8 *cam) {
 
     *(s16 *)((char *)s + 0x36) = 0;
     if (s->kind == 3) {
-        CameraPath_171B8 *path;
+        CameraPath *path;
         s32 next;
         path = novalis_paths_r4[s->track_path];
         seg = 0;
@@ -3686,50 +3586,25 @@ void initialize_camera_transform_and_paths(Camera_171B8 *cam) {
             }
         }
     }
-    func_L01_00316270_171B8(cam);
+    reset_camera_state_and_prepare_preset_paths(cam);
 }
-typedef struct {
-    u8 pad00[0x24];
-    s32 target;
-    u8 pad28[8];
-    s32 kind;
-} CamData_00317408;
-typedef struct {
-    u8 pad00[0x1C];
-    CamData_00317408 *data;
-} CamSlot_00317408;
-typedef struct {
-    u8 pad00[0x10];
-    s32 unk10;
-    u8 pad14[0xC];
-} CamTarget_00317408;
-typedef struct {
-    u8 pad00[0x7E];
-    s16 mode;
-    u8 pad80[4];
-    s16 slot;
-    s16 unk86;
-} CamUser_00317408;
-extern CamSlot_00317408 *novalis_camera_descriptors_r3 __asm__("D_L01_0015F050") MACRO_ADDR;
-extern CamTarget_00317408 *novalis_rails_r2 __asm__("D_L01_0015F7EC") MACRO_ADDR;
-
 /* Exit function of camera 3: unless the hero is still on this camera's target, sets the camera object's mode to 3, or 5 for kind 3.
    Adapted from Lombyte's project (GPL-3.0) for PAL: src/overlays/shared/gameplay/vendor/0030b618.c, FUN_L01_00316030. */
-void update_camera_mode_from_preset(CamUser_00317408 *o) {
-    CamData_00317408 *d = novalis_camera_descriptors_r3[o->slot].data;
+void update_camera_mode_from_preset(Camera *o) {
+    CameraPreset *d = novalis_camera_descriptors_r[o->preset].preset;
 
-    if (hero_00309078.unk2284 == o->unk86) {
+    if (hero_00309078.unk2284 == o->id) {
         if (d->target < 0) {
             return;
         }
-        if (hero_00309078.rail_spline == novalis_rails_r2[d->target].unk10 && hero_00309078.rail_off_frames == 0) {
+        if (hero_00309078.rail_spline == (s32)novalis_rails_r[d->target].path && hero_00309078.rail_off_frames == 0) {
             return;
         }
     }
     if (d->kind == 3) {
-        o->mode = 5;
+        o->control.mode = 5;
     } else {
-        o->mode = 3;
+        o->control.mode = 3;
     }
 }
 extern char *find_camera_record_by_id(int);
@@ -3737,12 +3612,12 @@ extern char *novalis_camera_moby;
 
 // Stores two floats into the record at 0xE0 of the data of the moby a global points at, or of moby 5.
 void set_camera_5_track_acceleration_yz(float a, float b) {
-    char *m = novalis_camera_moby;
-    char *t;
+    Camera *m = (Camera *)novalis_camera_moby;
+    Camera *t;
     char *d;
-    if (*(short *)(m + 0x86) != 5) t = find_camera_record_by_id(5);
+    if (m->id != 5) t = (Camera *)find_camera_record_by_id(5);
     else t = m;
-    d = *(char **)(t + 0x70) + 0xE0;
+    d = (char *)t->orbit + 0xE0;
     *(float *)(d + 0x44) = a;
     *(float *)(d + 0x48) = b;
 }

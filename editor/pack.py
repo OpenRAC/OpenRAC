@@ -45,6 +45,7 @@ from disc import SECTOR
 from formats import FormatError, unpack
 from level import decoded, load_level
 import gamedata
+import progress_line
 import gameplay as gp
 from mobys import (ALWAYS, FIELDS, POINTER, RECORD, SIZE, USUAL, matrix, moby_class_names,
                    moby_instances, node_name)
@@ -178,8 +179,10 @@ def apply(node: dict, record: dict, original: dict | None, whole: bool, problems
     if node["class_id"] is not None and node["class_id"] != record["class_id"]:
         edits.append(f"class {record['class_id']} -> {node['class_id']}")
         record["class_id"] = node["class_id"]
-    # rc1_class is the class scene's own; Godot saves it on each instance too.
-    meta = {k: v for k, v in node["meta"].items() if k not in ("index", "class") and not gamedata.owns(k)}
+    # Godot may save inherited class metadata on every instance. These facts describe
+    # the class; they are not editable gameplay fields and must not become false edits.
+    descriptive = ("index", "class", "class_name", "source", "update")
+    meta = {k: v for k, v in node["meta"].items() if k not in descriptive and not gamedata.owns(k)}
     if original is None or not same_fields(meta, original["fields"]):
         for key in ALWAYS:
             if key in meta:
@@ -385,13 +388,15 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
     """Writes OUT from the scenes of PROJECT, for DISC's version. Returns (levels packed, mobys changed)."""
     import scenery          # it reads the scene with this module's reader
     patches, report, packed, total = [], [], 0, 0
-    for info in survey["levels"]:
+
+    def scene_of(info: dict) -> Path | None:
+        """The level's scene: one project with every level, or a project per level (`godot --split`)."""
         name = f"level_{info['id']:02}"
-        # one project with every level, or a project per level (`godot --split`)
-        scene = next((s for s in (project / "levels" / name / f"{name}.tscn",
-                                  project / name / "levels" / name / f"{name}.tscn") if s.is_file()), None)
-        if scene is None:
-            continue
+        return next((s for s in (project / "levels" / name / f"{name}.tscn",
+                                 project / name / "levels" / name / f"{name}.tscn") if s.is_file()), None)
+    found = [(info, scene) for info in survey["levels"] if (scene := scene_of(info)) is not None]
+    for info, scene in progress_line.counted("pack", found, lambda item: item[0]["id"]):
+        name = f"level_{info['id']:02}"
         if disc.version.key == "pal":
             metadata = scene.with_name("level.json")
             try:
@@ -399,13 +404,19 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
             except (OSError, ValueError, AttributeError):
                 source = None
             if source != disc.version.gameplay:
-                raise FormatError(f"level {info['id']:02}: this PAL project predates the 60 Hz gameplay fix. "
-                                  "Extract the levels again to back up the old project and create a 60 Hz "
-                                  "project, then reapply your intended edits. Do not copy the whole old scene.")
+                raise FormatError(f"level {info['id']:02}: this PAL project was read from the 50 Hz gameplay "
+                                  f"copy ({source or 'gameplay_pal'}); the game plays {disc.version.gameplay}. "
+                                  "Extracting the levels again backs it up and carries its edits over (carry.py).",
+                                  code="project-outdated-gameplay")
         place = info["ranges"][disc.version.gameplay]
         stored = disc.sectors(place["lba"], place["sectors"])
         gameplay = decoded(stored)
         text = scene.read_text()
+        import static_assets
+        try:
+            static_instances = static_assets.placements(scene.parents[2], text)
+        except (ValueError, KeyError, IndexError) as error:
+            raise FormatError(f'Static import placement: {error}', code="static-import") from None
         edited, changes, problems = pack_level(info["id"], gameplay, text)
         # Ties and shrubs: the port draws them from the extractor's files, so they are packed as
         # those are (scenery.py), beside the gameplay file.
@@ -415,8 +426,20 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         # Collision, the level's and its moby classes': the level data's core (collision_scene.py,
         # moby_collision_scene.py), only when the scenes' differ.
         collision_changes, collision_problems, wrote = pack_collision(disc, info, scene, text, out, patches)
+        if any(solid for _, _, _, solid in static_instances) and collision_problems:
+            raise FormatError('Static import collision could not be packed: ' + '; '.join(collision_problems),
+                              code="static-import")
+        try:
+            static_bake = static_assets.write_packed(scene.parents[2], scene.parent, text, out / name)
+        except (ValueError, KeyError, IndexError) as error:
+            raise FormatError(f'Static import geometry: {error}', code="static-import") from None
         scenery_changes += collision_changes
         scenery_problems += collision_problems
+        if static_bake is not None:
+            scenery_changes.append(f"static imports: {static_bake['instances']} instance(s) baked into terrain")
+            if not changes and placements is None and not wrote:
+                packed += 1
+                total += static_bake['instances']
         if wrote:
             packed += 0 if changes or placements is not None else 1
             total += len(collision_changes)
@@ -433,11 +456,11 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
             continue
         stream = compress(edited, stored[:16])
         if decoded(stream) != edited:
-            raise FormatError(f"level {info['id']}: the packed file does not read back")
+            raise FormatError(f"level {info['id']}: the packed file does not read back", code="pack-internal")
         room = place["sectors"] * SECTOR
         if len(stream) > room:
             raise FormatError(f"level {info['id']}: the packed gameplay file is {len(stream)} bytes, "
-                              f"{len(stream) - room} more than its place on the disc")
+                              f"{len(stream) - room} more than its place on the disc", code="level-too-big")
         name = f"{name}/gameplay_{disc.version.key}.wad"
         (out / name).parent.mkdir(parents=True, exist_ok=True)
         (out / name).write_bytes(stream + bytes(room - len(stream)))

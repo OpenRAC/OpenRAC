@@ -75,12 +75,13 @@ if __name__ == '__main__':
     parser.add_argument('image', type=Path)
     parser.add_argument('levels', type=Path)
     args = parser.parse_args()
+    import progress_line
     with Disc(args.image) as disc:
-        for info in disc.survey()['levels']:
+        found = [info for info in disc.survey()['levels']
+                 if (args.levels / f"level_{info['id']:02}" / 'manifest.json').is_file()]
+        for info in progress_line.counted("visibility", found, lambda info: info['id']):
             directory = args.levels / f"level_{info['id']:02}"
             manifest = directory / 'manifest.json'
-            if not manifest.is_file():
-                continue
             identity = json.loads(manifest.read_text())
             if (identity.get('game'), identity.get('version'), identity.get('level')) != (
                     'rac1', disc.version.key, info['id']):

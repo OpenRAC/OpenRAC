@@ -4,6 +4,8 @@
 #include "include_asm.h"
 #include "pad.h"
 #include "vector.h"
+#include "menu.h"
+#include "hero.h"
 
 typedef unsigned int Q_277208 __attribute__((mode(TI), aligned(16)));
 
@@ -74,10 +76,6 @@ typedef struct {
     float f228;
     int i22C;
 } Cam_277208;
-typedef struct {
-    unsigned char pad0[0xC];
-    unsigned char bC;
-} Cnt_277208;
 
 typedef struct {
     unsigned char pad0[0x224];
@@ -111,7 +109,7 @@ extern short level_vu1_chain_reserved_bytes;
 extern int screen_globals_base[];
 extern int draw_buffer_address MACRO_ADDR;
 extern int g_gs_texture_allocation_start MACRO_ADDR;
-extern char *moby_class_headers[] NOT_SDA;
+extern MobyClass *moby_class_headers[] NOT_SDA;
 extern unsigned char help_stats_base NOT_SDA;
 extern struct HEnt *menu_preview_mobys[];
 extern char player_camera[];
@@ -294,8 +292,8 @@ void initialize_pause_menu(void) {
         }
     }
     select_moby_context(1);
-    (*(Menu_277208 *)level_menu_system).unkCC = ((Cnt_277208 *)moby_class_headers[0])->bC;
-    ((Cnt_277208 *)moby_class_headers[0])->bC += 0x1C;
+    (*(Menu_277208 *)level_menu_system).unkCC = moby_class_headers[0]->seq_count;
+    moby_class_headers[0]->seq_count += 0x1C;
     for (n = 0; n < 4; n++) {
         (*(Menu_277208 *)level_menu_system).unk30[n] = ((int *)(&help_stats_base + 0x45))[n];
     }
@@ -328,7 +326,7 @@ extern unsigned char hero_globals_base NOT_SDA;
 extern int gBolts MACRO_ADDR;
 extern int g_gs_texture_allocation_start MACRO_ADDR;
 extern struct HEnt *menu_preview_mobys[];
-extern char *moby_class_headers[] NOT_SDA;
+extern MobyClass *moby_class_headers[] NOT_SDA;
 extern unsigned char texture_group_header[];
 extern int coll_hit_result[];
 extern void VU1_syncChain(int);
@@ -350,8 +348,6 @@ void close_pause_menu(void) {
     int i;
     int value;
     int handle;
-    char *obj;
-    void (*callback)(char *, int);
     unsigned char *table;
     char *st = level_menu_system;
 
@@ -361,41 +357,40 @@ void close_pause_menu(void) {
         if (*(int *)(st + 4) != 0) {
             {
                 for (i = 0; i < 14; i++) {
-                    char *s = level_menu_system;
-                    obj = (*(struct { char p[0x44]; char *a[14]; } **)(s + 4))->a[i];
-                    if (obj != 0) {
-                        callback = *(void (**)(char *, int))(obj + 0xC);
-                        if (callback != 0) {
-                            callback(obj, 0);
+                    MenuSystem *s = (MenuSystem *)level_menu_system;
+                    MenuScreen *screen = s->current->screens[i];
+                    if (screen != 0) {
+                        if (screen->leave != 0) {
+                            screen->leave(screen, 0);
                         }
                     }
                 }
             }
             {
-                char *s = level_menu_system;
-                *(int *)(s + 4) = 0;
+                MenuSystem *s = (MenuSystem *)level_menu_system;
+                s->current = 0;
             }
         }
         {
             int i;
             int value = 0x26;
             for (i = 3; i >= 0; i--) {
-                char *s = level_menu_system;
-                char *h = (char *)&hero_globals_base + 0xE1D;
-                if (((int *)(&help_stats_base + 0x45))[3 - i] != ((int *)s)[15 - i]) {
-                    ((int *)(h + 0x20B8))[3 - i] =
-                        ((int *)s)[15 - i] != 0
-                            ? ((int *)s)[15 - i]
+                MenuSystem *s = (MenuSystem *)level_menu_system;
+                struct Hero *h = (struct Hero *)((char *)&hero_globals_base + 0xE1D);
+                if (((int *)(&help_stats_base + 0x45))[3 - i] != s->equipped[3 - i]) {
+                    h->pending_item[3 - i] =
+                        s->equipped[3 - i] != 0
+                            ? s->equipped[3 - i]
                             : value;
                 }
             }
         }
         {
-            char *state = level_menu_system;
+            MenuSystem *state = (MenuSystem *)level_menu_system;
             int value;
             table = texture_group_header;
             value = *(int *)(*(char **)(table + 0x18) + 0x74);
-            *(int *)&g_gs_texture_allocation_start = *(int *)(state + 0x18);
+            *(int *)&g_gs_texture_allocation_start = state->saved_texture_start;
             Hud_SendResidentBank(0, value, 0);
         }
         apply_group_entry_adjustment(2);
@@ -421,14 +416,14 @@ void close_pause_menu(void) {
             *(int *)s = 0x14;
             *(int *)(s + 0x14) = 2;
             value = *(int *)(s + 0xCC);
-            while (value < ((unsigned char *)moby_class_headers[0])[0xC]) {
-                ((struct { char p[0x48]; char *a[1]; } *)moby_class_headers[0])->a[value] = 0;
+            while (value < moby_class_headers[0]->seq_count) {
+                moby_class_headers[0]->seqs[value] = 0;
                 value++;
             }
         }
         {
             char *s = level_menu_system;
-            ((unsigned char *)moby_class_headers[0])[0xC] = *(unsigned char *)(s + 0xCC);
+            moby_class_headers[0]->seq_count = *(unsigned char *)(s + 0xCC);
         }
         skip_frame = 1;
         {

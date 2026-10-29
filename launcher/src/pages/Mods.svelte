@@ -16,22 +16,22 @@
   import AddMod from "$components/AddMod.svelte";
   import AssetsPanel from "$components/AssetsPanel.svelte";
   import CommandBox from "$components/CommandBox.svelte";
+  import EditorFlow from "$components/EditorFlow.svelte";
   import GameChip from "$components/GameChip.svelte";
   import GamesFrame from "$components/GamesFrame.svelte";
   import Icon from "$components/Icon.svelte";
   import PacksPanel from "$components/PacksPanel.svelte";
   import ModLoadSummary from "$components/ModLoadSummary.svelte";
   import PluginsPanel from "$components/PluginsPanel.svelte";
-  import { api, onAndroid, pickFile, type ActionView, type GameView, type VersionView } from "$lib/api";
-  import { app, guardShown, jobs, run, runChain, saveConfig, toast } from "$lib/app.svelte";
-  import { levelName, levelsOf, type EntryState } from "$lib/labels";
-  import { GODOT_URL, SITE_URL } from "$lib/links";
+  import { api, onAndroid, type ActionView, type GameView, type VersionView } from "$lib/api";
+  import { app, guardShown, jobs, run } from "$lib/app.svelte";
+  import type { EntryState } from "$lib/labels";
+  import { SITE_URL } from "$lib/links";
   import { EDITOR, GAME_LIST, PAGE } from "$lib/modsText";
-  import { foundDisc, playerVersion, setUp } from "$lib/player.svelte";
+  import { playerVersion } from "$lib/player.svelte";
   import type { Job } from "$lib/queue";
   import { arrive, enter } from "$lib/motion";
   import { followHistory, modFromAddress, modNav, openMod, resetMod } from "$lib/modNav.svelte";
-  import { hidePaths } from "$lib/paths";
   import { onMount } from "svelte";
   import { tablist } from "$lib/tabs";
   import { themeStyle } from "$lib/themes";
@@ -79,7 +79,6 @@
   const jobsOf = (v: VersionView, ids: string[]) =>
     jobs.list.filter((j) => j.scope.kind === "version" && j.scope.key === v.key && ids.includes(j.actionId));
   const running = (v: VersionView, ids: string[]) => jobsOf(v, ids).find(live) ?? null;
-  const needs = (a: ActionView | null) => (a?.blockers ?? []).map((b) => b.replace(/^needs /, ""));
 
   /** Early access: the editor reads the game's levels, but they are not packed back and the game
    *  is not playable yet (the version has no editor-pack, and its play is planned). */
@@ -140,7 +139,9 @@
 
   /** The page's tab: My mods, the level editor, or models and textures. */
   type Tab = "mine" | "editor" | "assets";
-  let tab = $state<Tab>("mine");
+  // ?tab=editor (or assets) opens that tab at start: handy for screenshots, as ?page= is (App.svelte).
+  const askedTab = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("tab");
+  let tab = $state<Tab>(askedTab === "editor" || askedTab === "assets" ? askedTab : "mine");
   const TABS: { id: Tab; label: string; icon: "library" | "edit" | "folder" }[] = [
     { id: "mine", label: PAGE.tabMine, icon: "library" },
     { id: "editor", label: PAGE.tabEditor, icon: "edit" },
@@ -154,7 +155,6 @@
     if (what.plugin) pluginsReload += 1;
     if (what.pack) reload += 1;
   };
-  let opening = $state<string | null>(null);
 
   // A mod's own page (PluginsPanel shows it in place of My mods' lists): Back and Escape return;
   // another game or tab leaves it. ?mod=<id> opens one at start.
@@ -174,61 +174,6 @@
     if (v ? !playable(v) : !played) resetMod();
     else tab = "mine";
   });
-  /** A job's line on the page: no folder in it (lib/paths.ts). */
-  const lineOf = (line: string | undefined) => (line === undefined ? undefined : hidePaths(line).text);
-  /** The level the editor opens, per game. Each level is a Godot project of its own. */
-  const level = $state<Record<string, number>>({});
-
-  /** The picker is open: a second press opens no other. */
-  let pickingGodot = false;
-
-  async function chooseGodot() {
-    if (!app.config || pickingGodot) return;
-    pickingGodot = true;
-    const picked = await pickFile(EDITOR.pickGodot).finally(() => (pickingGodot = false));
-    if (!picked) return;
-    // Settings checks a pick the same way: the zip, a Godot 3 or another program is said at once,
-    // not when a level does not open.
-    const check = await guardShown(api.checkTool("godot", picked));
-    if (!check) return;
-    if (!check.ok) {
-      toast(hidePaths(EDITOR.notGodot(check.message)).text, "error");
-      return;
-    }
-    await saveConfig({ ...app.config, godot: picked });
-  }
-
-  /** Opens the chosen level in Godot (api.openLevelInGodot); the first time, reads the levels from
-   *  the disc before. */
-  async function editLevels(v: VersionView) {
-    const edit = action(v, "editor-open");
-    if (!edit) return;
-    const which = level[v.game] ?? levelsOf(v.game)[0]?.number ?? 0;
-    opening = v.key;
-    let done: boolean;
-    if (edit.runnable) {
-      done = (await guardShown(api.openLevelInGodot(v.key, which))) !== undefined;
-    } else {
-      const extract = action(v, "editor-extract");
-      done = await runChain({ kind: "version", key: v.key }, extract ? [extract, edit] : [edit], which);
-    }
-    opening = null;
-    if (done) toast(EDITOR.opening(levelName(v.game, which)));
-  }
-
-  /** The last pack, from the line the packer printed ("Packed 1 level(s), 3 moby edit(s): …"), and
-   *  the folder it wrote, for Open folder. */
-  function packed(v: VersionView): { text: string; failed: boolean; folder: string | null } | null {
-    const last = jobsOf(v, ["editor-pack"]).at(-1);
-    if (!last || live(last)) return null;
-    if (last.state !== "succeeded") return { text: EDITOR.packStopped, failed: true, folder: null };
-    const folder = last.outputs[0] ?? null;
-    const line = last.lines.findLast((l) => l.line.startsWith("Packed "))?.line ?? "";
-    const found = /^Packed (\d+) level\(s\), (\d+) moby edit\(s\)/.exec(line);
-    if (!found) return { text: EDITOR.packed, failed: false, folder };
-    const [levels, edits] = [Number(found[1]), Number(found[2])];
-    return { text: levels ? EDITOR.packedSome(edits, levels) : EDITOR.packedNone, failed: false, folder };
-  }
 </script>
 
 <!-- Android: no game list; the mods are for the game picked in Games, named at the top right. -->
@@ -284,14 +229,7 @@
           </section>
         {:else}
           {@const scope = { kind: "version" as const, key: v.key }}
-          {@const edit = action(v, "editor-open")}
-          {@const pack = action(v, "editor-pack")}
           {@const adder = action(v, "overrides-add")}
-          {@const preparing = running(v, ["editor-extract", "editor-import"])}
-          {@const packing = running(v, ["editor-pack"])}
-          {@const result = packed(v)}
-          {@const lacksGodot = needs(edit).some((b) => b.startsWith("Godot"))}
-          {@const noDisc = v.status.disc.state !== "found"}
           {@const dirs = folders(v)}
 
           {#if early(v)}
@@ -342,92 +280,14 @@
                   >
                 </p>
               {:else if tab === "editor"}
-                <section class="panel">
-                  <p class="muted tab-lead">{early(v) ? EDITOR.leadEarly : EDITOR.lead}</p>
-                  <ol class="steps">
-                    <li>
-                      <div class="text">
-                        <h3>{EDITOR.openTitle}</h3>
-                        <p class="muted">
-                          {#if noDisc}
-                            {EDITOR.noDisc}
-                          {:else if lacksGodot}
-                            {EDITOR.noGodot}
-                          {:else if preparing}
-                            {preparing.title}: {lineOf(preparing.lines.at(-1)?.line) ?? "…"}
-                          {:else if edit?.runnable}
-                            {early(v) ? EDITOR.readyEarly : EDITOR.ready}
-                          {:else}
-                            {early(v) ? EDITOR.firstTimeEarly : EDITOR.firstTime}
-                          {/if}
-                        </p>
-                      </div>
-                      <div class="controls">
-                        {#if noDisc}
-                          <button onclick={() => void setUp(shown.id, shown.title, foundDisc(shown.id)?.path)}
-                            ><Icon name="disc" size={16} />{EDITOR.setUp}</button
-                          >
-                        {:else if lacksGodot}
-                          <button class="ghost" onclick={() => void guardShown(api.openUrl(GODOT_URL))}
-                            ><Icon name="external" size={16} />{EDITOR.getGodot}</button
-                          >
-                          <button onclick={() => void chooseGodot()}
-                            ><Icon name="folder" size={16} />{EDITOR.chooseGodot}</button
-                          >
-                        {:else}
-                          <select
-                            aria-label={EDITOR.levelLabel}
-                            value={level[v.game] ?? levelsOf(v.game)[0]?.number ?? 0}
-                            onchange={(e) => (level[v.game] = Number(e.currentTarget.value))}
-                          >
-                            {#each levelsOf(v.game) as l (l.number)}<option value={l.number}>{l.name}</option>{/each}
-                          </select>
-                          <button disabled={opening === v.key || !!preparing} onclick={() => void editLevels(v)}>
-                            {#if opening === v.key || preparing}<span class="spinner"></span>{:else}<Icon
-                                name="edit"
-                                size={16}
-                              />{/if}
-                            {edit?.runnable ? EDITOR.open : EDITOR.prepare}
-                          </button>
-                        {/if}
-                      </div>
-                    </li>
-                    <li>
-                      <div class="text">
-                        <h3>{EDITOR.packTitle}</h3>
-                        <p class="muted" class:failed={result?.failed} class:done={result && !result.failed}>
-                          {#if !pack && early(v)}
-                            {EDITOR.packEarly}
-                          {:else if packing}
-                            {lineOf(packing.lines.at(-1)?.line) ?? EDITOR.packReading}
-                          {:else if result}
-                            {result.text}
-                          {:else}
-                            {EDITOR.packLine}
-                          {/if}
-                        </p>
-                      </div>
-                      <div class="controls">
-                        {#if result?.folder}
-                          {@const folder = result.folder}
-                          <button class="ghost" onclick={() => void guardShown(api.openOutput(folder))}
-                            ><Icon name="folder" size={16} />{EDITOR.openFolder}</button
-                          >
-                        {/if}
-                        <button disabled={!pack?.runnable || !!packing} onclick={() => pack && void run(scope, pack)}>
-                          {#if packing}<span class="spinner"></span>{:else}<Icon
-                              name="save"
-                              size={16}
-                            />{/if}{EDITOR.pack}
-                        </button>
-                      </div>
-                    </li>
-                  </ol>
-                </section>
+                <EditorFlow game={shown} version={v} onchanged={() => reload++} />
                 {#if v.game === "rac1"}
                   <ModLoadSummary
                     version={v}
-                    refreshKey={`${reload}:${result?.text ?? ""}:${jobsOf(v, ["overrides-stack"]).at(-1)?.state ?? ""}`}
+                    refreshKey={`${reload}:${jobsOf(v, ["editor-pack", "overrides-stack"])
+                      .filter((j) => !live(j))
+                      .map((j) => j.key)
+                      .join(",")}`}
                     canPrepare={!!action(v, "overrides-stack")?.runnable && !running(v, ["overrides-stack"])}
                     prepare={() => {
                       const stack = action(v, "overrides-stack");
@@ -608,19 +468,6 @@
     gap: 10px;
     margin: 4px 0 0;
     font-size: 0.875rem;
-  }
-
-  .tab-lead {
-    margin: 0 0 4px;
-    font-size: 0.875rem;
-  }
-
-  .failed {
-    color: var(--err);
-  }
-
-  .done {
-    color: var(--ok);
   }
 
   .sdk {

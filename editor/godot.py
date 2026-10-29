@@ -43,7 +43,7 @@ from moby_class import GREY, METAL_CHROME, METAL_GLASS, UNTEXTURED, MobyClass, m
 import moby_collision_scene
 from mobys import LEVEL_NAMES, moby_logic, node_name, moby_class_names, moby_instances
 from shrubs import shrub_classes, shrub_instances
-from sky import panorama, sky
+from sky import level_sky, panorama
 from terrain import terrain
 from ties import tie_classes, tie_instances
 
@@ -56,8 +56,10 @@ GAME_TO_GODOT = [1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 1]  # (x, y, z) -
 STORED_W = struct.unpack("<f", struct.pack("<f", 0.01))[0]
 # level.json's schema: what a Godot level of this extractor holds. Raised when the scene changes in
 # a way the packer or a newer extractor tells apart (3: the editable collision); extract.py writes a
-# level of an older schema again, after backing it up with its edits.
-SCHEMA = 3
+# level of an older schema again, after backing it up with its edits (and carry.py carries them
+# over). It is in project_format.json, which the launcher reads too, to say a project is outdated.
+PROJECT_FORMAT = json.loads((Path(__file__).parent / "project_format.json").read_text())
+SCHEMA = PROJECT_FORMAT["schema"]
 COLLISION_ALPHA = 0.55
 MIN_SCALE = 1e-4  # the smallest joint scale the editor's models get (LevelWriter.scale)
 PANORAMA = (2048, 1024)  # About one texel per pixel around the horizon.
@@ -302,8 +304,7 @@ class LevelWriter:
                             "packs from. Edits here are not packed back into the game yet: the level "
                             "packer reads Ratchet & Clank's levels only.")
         problems = level.problems if fmt.lenient else None
-        sky_offset, = unpack("<I", level.index, 0x10)
-        self.write_environment(sky(level.block(sky_offset), fmt) if sky_offset else None)
+        self.write_environment(level_sky(level, fmt))
         self.scene.node("Game", ".", "Node3D", transform=transform(GAME_TO_GODOT))
         lights = (light_bank(level.gameplay), self.normals) if self.normals is not None and fmt.lighting else None
         self.write_terrain(terrain(level.block(unpack("<I", level.index, 0x08)[0]), lod, lights, problems)

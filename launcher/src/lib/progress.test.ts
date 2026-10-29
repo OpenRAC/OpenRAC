@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { backgroundStatus, isGame, phaseLabel, readProgress, STARTING_MS, tailLines } from "./progress";
+import {
+  backgroundStatus,
+  isGame,
+  parseProgress,
+  phaseLabel,
+  PROGRESS_LINE,
+  progressPercent,
+  readProgress,
+  STARTING_MS,
+  STEP_WORDS,
+  tailLines,
+  timeLeft,
+  toolProgress,
+} from "./progress";
 
 const out = (...lines: string[]) => lines.map((line) => ({ stream: "stdout" as const, line }));
 const job = (actionId: string, state: "queued" | "running" = "running", startedAt: number | null = 0) => ({
@@ -115,5 +128,53 @@ describe("backgroundStatus", () => {
   it("stays between the steps of a chain and ends after the last", () => {
     expect(backgroundStatus(undefined, 1, null)?.percent).toBeNull();
     expect(backgroundStatus(undefined, 0, { name: "x.iso", copied: 4, total: 4 })).toBeNull();
+  });
+});
+
+describe("the editor tools' progress lines (editor/progress_line.py)", () => {
+  it("reads a step, its count and its level", () => {
+    expect(parseProgress(`${PROGRESS_LINE}read 3/18 4`)).toEqual({
+      step: "read",
+      words: STEP_WORDS.read,
+      done: 3,
+      total: 18,
+      level: 4,
+    });
+    expect(parseProgress(`${PROGRESS_LINE}pack 0/2`)).toMatchObject({ done: 0, total: 2, level: null });
+    expect(parseProgress(`${PROGRESS_LINE}project`)).toMatchObject({ step: "project", done: null, total: null });
+  });
+
+  it("leaves other lines, unknown steps and impossible counts alone", () => {
+    expect(parseProgress("level 03: 12 meshes placed")).toBeNull();
+    expect(parseProgress(`${PROGRESS_LINE}dance 1/2`)).toBeNull();
+    expect(parseProgress(`${PROGRESS_LINE}read 5/2`)).toBeNull();
+    expect(parseProgress(`${PROGRESS_LINE}read three`)).toBeNull();
+  });
+
+  it("the newest line wins, and it is the job's bar", () => {
+    const lines = out(
+      `${PROGRESS_LINE}read 18/18 17`,
+      `${PROGRESS_LINE}carry 0/4`,
+      `${PROGRESS_LINE}carry 1/4 3`,
+      "noise",
+    );
+    expect(toolProgress(lines)).toMatchObject({ step: "carry", done: 1, total: 4, level: 3 });
+    expect(progressPercent(toolProgress(lines))).toBe(25);
+    expect(readProgress("editor-extract", lines).percent).toBe(25);
+    expect(readProgress("editor-extract", out(`${PROGRESS_LINE}project`)).percent).toBeNull();
+    expect(toolProgress(out("nothing counted"))).toBeNull();
+  });
+
+  it("never shows the lines in the Details box", () => {
+    expect(tailLines(out("a", `${PROGRESS_LINE}read 1/2 0`, "b"))).toEqual(["a", "b"]);
+  });
+
+  it("guesses the time left only after two levels and a few seconds", () => {
+    const first = { step: "read", done: 1, at: 0 };
+    expect(timeLeft(first, { step: "read", done: 2, at: 10_000 }, 18)).toBeNull();
+    expect(timeLeft(first, { step: "read", done: 3, at: 2_000 }, 18)).toBeNull();
+    expect(timeLeft(first, { step: "read", done: 3, at: 20_000 }, 18)).toBe("about 3 minutes left");
+    expect(timeLeft(first, { step: "read", done: 17, at: 20_000 }, 18)).toBe("less than a minute left");
+    expect(timeLeft(first, { step: "carry", done: 3, at: 20_000 }, 18)).toBeNull();
   });
 });

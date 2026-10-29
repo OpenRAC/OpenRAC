@@ -25,6 +25,7 @@
 #include "game/common/frontend/state.h"
 #include "mod_menu.h"
 #include "mod_ui.h"
+#include "mods.h"
 #include "openrac/game_host.h"
 #include "renderer/ui/touch_overlay.h"
 #include "settings.h"
@@ -159,7 +160,14 @@ void menus_after_mods(int port, std::uint16_t& buttons) {
 }
 
 void skip_after_mods(int port, std::uint16_t& buttons) {
-    if (port == 0 && g && openrac_game_map != nullptr && openrac_game_map->skip_cutscenes
+    // A mod's skip (openrac_api.play_skip: a party's scenes ending together) presses as a map's
+    // own skip does.
+    const bool asked = port == 0 && mods::play_skipping();
+    if (asked && openrac_game_skip != nullptr) {
+        openrac_game_skip();
+    }
+    if (port == 0 && g
+        && (asked || (openrac_game_map != nullptr && openrac_game_map->skip_cutscenes))
         && openrac_game_skip_buttons != nullptr && (g->index & 1) != 0) {
         const int skip = openrac_game_skip_buttons();
         if (skip != 0) {

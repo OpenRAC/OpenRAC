@@ -15,9 +15,11 @@
 #include <limits>
 #include <memory>
 #include <sstream>
+#include <string_view>
 #include <utility>
 #include <vector>
 
+#include "common/build_info.h"
 #include "common/c_boundary.h"
 #include "common/crash.h"
 #include "common/log.h"
@@ -142,12 +144,16 @@ std::vector<std::unique_ptr<openrac_mod>> g_loaded;
 std::vector<FrameCallback> g_frames;
 std::vector<PadCallback> g_pads;
 std::vector<MenuCallback> g_menus;
+std::vector<DeveloperMenu> g_developer_menus;
 // The pages of the game's own menus and the main-menu items (interface 1.7); the page on the
-// screen (-1 none), whether a question is open on it, and what the mods asked of the screen.
+// screen (-1 none), whether a question is open on it, whether the title's main menu is (since
+// 1.9 a mod opens its main-menu item's page from it), and what the mods asked of the screen.
 std::vector<UiPageCallback> g_ui_pages;
 std::vector<UiMainItem> g_ui_main;
+std::vector<UiPauseItem> g_ui_pause;
 int g_ui_shown = -1;
 bool g_ui_question = false;
+bool g_ui_main_menu = false;
 UiRequests g_ui_requests;
 // The mod whose menu page callback runs now: its drawing reaches the page, anyone else's is ignored.
 openrac_mod* g_drawing = nullptr;
@@ -175,7 +181,8 @@ struct SnapshotHeader {
     std::uint32_t header_size;
     std::uint64_t frame;
     std::uint64_t session;
-    std::uint64_t allocation_generation;
+    std::uint32_t metadata_size;
+    openrac_guest_allocation_state allocations;
     gaddr stack_pointer;
     gaddr display_chain;
     unsigned draws;
@@ -184,19 +191,23 @@ struct SnapshotHeader {
     std::int32_t overlay;
     char game[16];
     char disc[16];
+    char build[32];
 };
 
 constexpr char kSnapshotMagic[8] = {'O', 'R', 'A', 'C', 'S', 'T', '1', '\0'};
-constexpr std::uint32_t kSnapshotVersion = 2;
+constexpr std::uint32_t kSnapshotVersion = 5;
 
 std::size_t snapshot_size() {
     if (g_host == nullptr || g_host->game != "rac1"
         || (g_host->version != "pal" && g_host->version != "ntsc")
         || g_host->capture_savestate_runtime == nullptr
-        || g_host->restore_savestate_runtime == nullptr) {
+        || g_host->restore_savestate_runtime == nullptr || g_host->savestate_extra_size == nullptr
+        || g_host->savestate_extra_save == nullptr || g_host->savestate_extra_load == nullptr
+        || g_host->prepare_cold_savestate == nullptr) {
         return 0;
     }
-    return sizeof(SnapshotHeader) + runtime::Memory::snapshot_size();
+    return sizeof(SnapshotHeader) + runtime::Memory::snapshot_size()
+           + openrac_guest_snapshot_metadata_capacity() + g_host->savestate_extra_size();
 }
 
 int snapshot_save(void* output, std::size_t size) {
@@ -214,7 +225,7 @@ int snapshot_save(void* output, std::size_t size) {
     header.header_size = sizeof(header);
     header.frame = state.frame;
     header.session = g_snapshot_session;
-    header.allocation_generation = openrac_guest_allocation_generation();
+    openrac_guest_get_allocation_state(&header.allocations);
     header.stack_pointer = openrac_guest_sp;
     header.display_chain = state.display_chain;
     header.draws = state.draws;
@@ -223,17 +234,37 @@ int snapshot_save(void* output, std::size_t size) {
     header.overlay = state.overlay;
     std::snprintf(header.game, sizeof(header.game), "%s", g_host->game.c_str());
     std::snprintf(header.disc, sizeof(header.disc), "%s", g_host->version.c_str());
+    std::snprintf(header.build, sizeof(header.build), "%s", build_info::commit());
     auto* bytes = static_cast<std::uint8_t*>(output);
+    const std::size_t memory_size = runtime::Memory::snapshot_size();
+    std::size_t metadata_size = 0;
+    const std::size_t allocation_capacity = openrac_guest_snapshot_metadata_capacity();
+    const std::size_t extra_size = g_host->savestate_extra_size();
+    if (!runtime::Memory::get().save_snapshot(std::span(bytes + sizeof(header), memory_size))
+        || openrac_guest_snapshot_metadata_save(
+               bytes + sizeof(header) + memory_size, allocation_capacity, &metadata_size
+           ) != 0
+        || g_host->savestate_extra_save(
+               bytes + sizeof(header) + memory_size + allocation_capacity, extra_size
+           ) != 0) {
+        return -1;
+    }
+    if (metadata_size > std::numeric_limits<std::uint32_t>::max()) {
+        return -1;
+    }
+    header.metadata_size = static_cast<std::uint32_t>(metadata_size);
     std::memcpy(bytes, &header, sizeof(header));
-    const bool saved = runtime::Memory::get().save_snapshot(
-        std::span(bytes + sizeof(header), size - sizeof(header))
-    );
-    return saved ? 0 : -1;
+    return 0;
 }
 
 int snapshot_load(const void* input, std::size_t size) {
     if (!g_in_tick_boundary || g_tick_mod == nullptr || input == nullptr || snapshot_size() == 0
-        || size != snapshot_size() || g_host == nullptr || g_host->loaded_level == nullptr
+        || g_host == nullptr || g_host->loaded_level == nullptr
+        || g_host->savestate_extra_size == nullptr || g_host->savestate_extra_load == nullptr
+        || g_host->prepare_cold_savestate == nullptr
+        || size < sizeof(SnapshotHeader) + runtime::Memory::snapshot_size()
+        || size > sizeof(SnapshotHeader) + runtime::Memory::snapshot_size()
+                      + openrac_guest_snapshot_metadata_capacity() + g_host->savestate_extra_size()
         || g_host->restore_savestate_runtime == nullptr) {
         return -1;
     }
@@ -241,25 +272,48 @@ int snapshot_load(const void* input, std::size_t size) {
     std::memcpy(&header, input, sizeof(header));
     if (std::memcmp(header.magic, kSnapshotMagic, sizeof(kSnapshotMagic)) != 0
         || header.version != kSnapshotVersion || header.header_size != sizeof(header)
-        || header.session != g_snapshot_session
         || std::strncmp(header.game, g_host->game.c_str(), sizeof(header.game)) != 0
         || std::strncmp(header.disc, g_host->version.c_str(), sizeof(header.disc)) != 0
+        || std::strncmp(header.build, build_info::commit(), sizeof(header.build)) != 0
+        || header.metadata_size < sizeof(std::uint32_t)
+        || header.metadata_size > openrac_guest_snapshot_metadata_capacity()
+        || size
+               != sizeof(SnapshotHeader) + runtime::Memory::snapshot_size()
+                      + openrac_guest_snapshot_metadata_capacity() + g_host->savestate_extra_size()
         || header.frame > static_cast<std::uint64_t>(std::numeric_limits<long>::max())
         || header.stack_pointer < GUEST_STACK_BOTTOM || header.stack_pointer > GUEST_STACK_TOP) {
         return -1;
     }
-    if (header.allocation_generation != openrac_guest_allocation_generation()) {
-        log::warn(
-            "mod {}: savestate load refused because new guest statics or strings were allocated "
-            "after the snapshot; save again after visiting the new area",
-            g_tick_mod->id
-        );
+    const auto* bytes = static_cast<const std::uint8_t*>(input);
+    const bool cold = header.session != g_snapshot_session;
+    const std::size_t memory_size = runtime::Memory::snapshot_size();
+    const auto* allocation_metadata = bytes + sizeof(header) + memory_size;
+    const std::size_t allocation_capacity = openrac_guest_snapshot_metadata_capacity();
+    const auto* extra = allocation_metadata + allocation_capacity;
+    if (cold) {
+        // Validate and install the target allocation maps before changing the
+        // current overlay or guest memory. The loader rejects malformed
+        // metadata without leaving the running game half-switched.
+        if (openrac_guest_snapshot_metadata_load(
+                allocation_metadata, header.metadata_size, &header.allocations
+            )
+            != 0) {
+            return -1;
+        }
+        g_host->prepare_cold_savestate(header.overlay);
+        if (header.overlay >= 0 && !openrac_guest_prepare_level_program(header.overlay)) {
+            return -1;
+        }
+        if (header.overlay >= 0 && openrac_guest_restore_level_program(header.overlay) != 0) {
+            return -1;
+        }
+    }
+    if (!runtime::Memory::get().restore_snapshot(
+            std::span(bytes + sizeof(header), memory_size), header.allocations
+        )) {
         return -1;
     }
-    const auto* bytes = static_cast<const std::uint8_t*>(input);
-    if (!runtime::Memory::get().restore_snapshot(
-            std::span(bytes + sizeof(header), size - sizeof(header))
-        )) {
+    if (g_host->savestate_extra_load(extra, g_host->savestate_extra_size()) != 0) {
         return -1;
     }
     openrac_guest_sp = header.stack_pointer;
@@ -397,6 +451,107 @@ int api_on_tick_boundary(openrac_mod* mod, openrac_tick_boundary_fn fn, void* us
     }
     g_tick_boundaries.push_back({fn, user, mod});
     return OPENRAC_HOOK_OK;
+}
+
+int api_developer_menu(
+    openrac_mod* mod,
+    const char* title,
+    const openrac_developer_menu_item* items,
+    std::uint32_t count
+) {
+    if (mod == nullptr || mod != g_loading) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    if (title == nullptr || title[0] == '\0' || (count != 0 && items == nullptr)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    constexpr std::array<const char*, 4> built_in_titles =
+        {"View", "Graphics", "Sound", "Developer"};
+    if (std::find(built_in_titles.begin(), built_in_titles.end(), std::string_view(title))
+        != built_in_titles.end()) {
+        return OPENRAC_HOOK_TAKEN;
+    }
+    if (std::any_of(
+            g_developer_menus.begin(), g_developer_menus.end(), [title](const DeveloperMenu& menu) {
+                return menu.title == title;
+            }
+        )) {
+        return OPENRAC_HOOK_TAKEN;
+    }
+    DeveloperMenu menu;
+    menu.mod = mod;
+    menu.title = title;
+    for (std::uint32_t i = 0; i < count; ++i) {
+        if (items[i].label == nullptr || items[i].action == 0) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        if (std::any_of(menu.items.begin(), menu.items.end(), [&](const DeveloperMenuItem& item) {
+                return item.action == items[i].action;
+            })) {
+            return OPENRAC_HOOK_TAKEN;
+        }
+        const bool action_taken = std::any_of(
+            g_developer_menus.begin(), g_developer_menus.end(), [&](const DeveloperMenu& entry) {
+                return entry.mod == mod
+                       && std::any_of(
+                           entry.items.begin(),
+                           entry.items.end(),
+                           [&](const DeveloperMenuItem& item) {
+                               return item.action == items[i].action;
+                           }
+                       );
+            }
+        );
+        if (action_taken) {
+            return OPENRAC_HOOK_TAKEN;
+        }
+        menu.items.push_back(
+            {items[i].label,
+             items[i].shortcut != nullptr ? items[i].shortcut : "",
+             items[i].group != nullptr ? items[i].group : "",
+             items[i].action}
+        );
+    }
+    g_developer_menus.push_back(std::move(menu));
+    return OPENRAC_HOOK_OK;
+}
+
+std::uint32_t api_take_developer_menu_action(openrac_mod* mod) {
+    if (mod == nullptr || mod != g_tick_mod || !g_in_tick_boundary) {
+        return 0;
+    }
+    const auto menu = std::find_if(
+        g_developer_menus.begin(), g_developer_menus.end(), [mod](const DeveloperMenu& entry) {
+            return entry.mod == mod;
+        }
+    );
+    if (menu == g_developer_menus.end() || menu->actions.empty()) {
+        return 0;
+    }
+    const std::uint32_t action = menu->actions.front();
+    menu->actions.pop_front();
+    return action;
+}
+
+int api_developer_menu_set_label(openrac_mod* mod, std::uint32_t action, const char* label) {
+    if (mod == nullptr || mod != g_tick_mod || !g_in_tick_boundary || label == nullptr) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    for (DeveloperMenu& menu : g_developer_menus) {
+        if (menu.mod != mod) {
+            continue;
+        }
+        const auto item = std::find_if(
+            menu.items.begin(), menu.items.end(), [action](const DeveloperMenuItem& entry) {
+                return entry.action == action;
+            }
+        );
+        if (item != menu.items.end()) {
+            item->label = label;
+            return OPENRAC_HOOK_OK;
+        }
+    }
+    return OPENRAC_HOOK_UNKNOWN;
 }
 
 int api_on_pad(openrac_mod* mod, openrac_pad_fn fn, void* user) {
@@ -586,6 +741,16 @@ bool shows_mod(openrac_mod* mod) {
     return g_ui_shown >= 0 && mod_page(mod, g_ui_shown) != nullptr;
 }
 
+// Whether the title's main menu is on the screen and `page` is one of `mod`'s main-menu items'.
+bool main_item_opens(openrac_mod* mod, int page) {
+    return g_ui_main_menu && g_ui_shown < 0 && mod_page(mod, page) != nullptr
+           && std::any_of(
+               g_ui_main.begin(),
+               g_ui_main.end(),
+               [&](const UiMainItem& item) { return item.page == page; }
+           );
+}
+
 // A cursor kept on an item it takes: the last when past the end, else the nearest below, else
 // above; 0 when it takes none.
 int settle_cursor(const UiPage& page, int cursor) {
@@ -632,6 +797,19 @@ int api_ui_main_item(openrac_mod* mod, const char* after, const char* label, int
         return OPENRAC_HOOK_UNKNOWN;
     }
     g_ui_main.push_back({after, ui_text(label), page});
+    return OPENRAC_HOOK_OK;
+}
+
+int api_ui_pause_item(openrac_mod* mod, const char* label, int page) {
+    if (mod == nullptr || mod != g_loading) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    // A name, a page of the mod's own, and room on the page.
+    if (label == nullptr || label[0] == '\0' || mod_page(mod, page) == nullptr
+        || g_ui_pause.size() >= OPENRAC_UI_PAUSE_ITEMS_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_ui_pause.push_back({ui_text(label), page});
     return OPENRAC_HOOK_OK;
 }
 
@@ -683,8 +861,10 @@ int api_ui_set(openrac_mod* mod, int page, const openrac_ui_content* content) {
 }
 
 int api_ui_open(openrac_mod* mod, int page) {
-    // From one of the mod's pages on the screen, to one of its pages or back.
-    if (!shows_mod(mod) || (page != OPENRAC_UI_GO_BACK && mod_page(mod, page) == nullptr)) {
+    // From one of the mod's pages on the screen, to one of its pages or back; or from the title's
+    // main menu, to one of its main-menu items' pages.
+    if ((!shows_mod(mod) || (page != OPENRAC_UI_GO_BACK && mod_page(mod, page) == nullptr))
+        && !main_item_opens(mod, page)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     g_ui_requests.open = true;
@@ -768,6 +948,9 @@ void fill_api(const Host& host) {
     g_api.menu_rect = api_menu_rect;
     g_api.menu_text = api_menu_text;
     g_api.on_tick_boundary = api_on_tick_boundary;
+    g_api.developer_menu = api_developer_menu;
+    g_api.take_developer_menu_action = api_take_developer_menu_action;
+    g_api.developer_menu_set_label = api_developer_menu_set_label;
     g_api.savestate_size = snapshot_size;
     g_api.savestate_save = snapshot_save;
     g_api.savestate_load = snapshot_load;
@@ -778,6 +961,7 @@ void fill_api(const Host& host) {
     g_api.ui_confirm = api_ui_confirm;
     g_api.ui_cursor = api_ui_cursor;
     g_api.ui_sound = api_ui_sound;
+    g_api.ui_pause_item = api_ui_pause_item;
     fill_play_api(g_api, host.play, host.cards);
 }
 
@@ -915,8 +1099,12 @@ void undo(openrac_mod* mod) {
     std::erase_if(g_frames, [&](const FrameCallback& c) { return c.mod == mod; });
     std::erase_if(g_pads, [&](const PadCallback& c) { return c.mod == mod; });
     std::erase_if(g_menus, [&](const MenuCallback& c) { return c.mod == mod; });
-    // Its main-menu items, then its pages (the last made: no other mod's id moves).
+    std::erase_if(g_developer_menus, [&](const DeveloperMenu& menu) { return menu.mod == mod; });
+    // Its main-menu and pause items, then its pages (the last made: no other mod's id moves).
     std::erase_if(g_ui_main, [&](const UiMainItem& m) { return mod_page(mod, m.page) != nullptr; });
+    std::erase_if(g_ui_pause, [&](const UiPauseItem& m) {
+        return mod_page(mod, m.page) != nullptr;
+    });
     std::erase_if(g_ui_pages, [&](const UiPageCallback& c) { return c.mod == mod; });
     std::erase_if(g_tick_boundaries, [&](const TickBoundaryCallback& c) { return c.mod == mod; });
     drop_figures(mod);
@@ -1233,9 +1421,25 @@ const UiMainItem* ui_main_item(int index) {
     return &g_ui_main[static_cast<std::size_t>(index)];
 }
 
+int ui_pause_item_count() {
+    return static_cast<int>(g_ui_pause.size());
+}
+
+const UiPauseItem* ui_pause_item(int index) {
+    // An index past the items names none.
+    if (index < 0 || index >= ui_pause_item_count()) {
+        return nullptr;
+    }
+    return &g_ui_pause[static_cast<std::size_t>(index)];
+}
+
 void ui_set_shown(int page, bool question_open) {
     g_ui_shown = page >= 0 && page < ui_page_count() ? page : -1;
     g_ui_question = g_ui_shown >= 0 && question_open;
+}
+
+void ui_set_main_menu(bool up) {
+    g_ui_main_menu = up;
 }
 
 void ui_set_cursor(int page, int item) {
@@ -1292,6 +1496,30 @@ void tick_boundary(std::uint32_t tick) {
     g_in_tick_boundary = false;
 }
 
+const std::vector<DeveloperMenu>& developer_menus() {
+    return g_developer_menus;
+}
+
+void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action) {
+    if (mod == nullptr || action == 0) {
+        return;
+    }
+    for (DeveloperMenu& menu : g_developer_menus) {
+        if (menu.mod != mod) {
+            continue;
+        }
+        const bool registered = std::any_of(
+            menu.items.begin(), menu.items.end(), [action](const DeveloperMenuItem& item) {
+                return item.action == action;
+            }
+        );
+        if (registered) {
+            menu.actions.push_back(action);
+        }
+        return;
+    }
+}
+
 int loaded_count() {
     return static_cast<int>(g_loaded.size());
 }
@@ -1314,10 +1542,13 @@ void reset() {
     g_frames.clear();
     g_pads.clear();
     g_menus.clear();
+    g_developer_menus.clear();
     g_ui_pages.clear();
     g_ui_main.clear();
+    g_ui_pause.clear();
     g_ui_shown = -1;
     g_ui_question = false;
+    g_ui_main_menu = false;
     g_ui_requests = UiRequests{};
     reset_play();
     g_tick_boundaries.clear();

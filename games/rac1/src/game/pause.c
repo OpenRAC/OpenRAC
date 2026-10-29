@@ -271,14 +271,14 @@ void PauseAllSounds(int arg0) {
     }
     {
         struct MenuSystem *g = (struct MenuSystem *)menu_system;
-        char *a = pause_menu_screen_a;
+        MenuScreen *a = (MenuScreen *)pause_menu_screen_a;
         g->unkDC = arg0 == 0x23;
-        *(char **)(a + 0x38) = g->unkD8 ? pause_menu_screen_optional : pause_menu_screen_b;
+        a->data.list.up = g->unkD8 ? (MenuScreen *)pause_menu_screen_optional : (MenuScreen *)pause_menu_screen_b;
     }
     {
         struct MenuSystem *g = (struct MenuSystem *)menu_system;
-        char *b = pause_menu_screen_b;
-        *(char **)(b + 0x3C) = g->unkD8 ? pause_menu_screen_optional : pause_menu_screen_a;
+        MenuScreen *b = (MenuScreen *)pause_menu_screen_b;
+        b->data.list.down = g->unkD8 ? (MenuScreen *)pause_menu_screen_optional : (MenuScreen *)pause_menu_screen_a;
     }
     {
         struct MenuSystem *g = (struct MenuSystem *)menu_system;
@@ -307,12 +307,12 @@ LINKER_REMNANT("asm/remnants/text", func_00219E48);
 
 /* Switches to game mode 3 and puts the menu system in state 0x2D, clearing its +0xC, +0x10 and +0x110 words. */
 void initialize_transfer_command(void) {
-    char *p = menu_system;
+    MenuSystem *p = (MenuSystem *)menu_system;
     g_game_mode = 3;
-    *(int *)p = 0x2D;
-    *(int *)(p + 0xC) = 0;
-    *(int *)(p + 0x10) = 0;
-    *(int *)(p + 0x110) = 0;
+    p->state = 0x2D;
+    p->close_request = 0;
+    p->unk10 = 0;
+    p->update_count = 0;
 }
 
 extern s32 g_gs_texture_allocation_start_r __asm__("D_0015EF78") MACRO_ADDR;
@@ -420,12 +420,6 @@ typedef struct { char pad[0x44]; char *items[14]; } ObjList;
 /* Pause teardown: calls each object's +0xC handler, then refreshes the
    14 D_001D6120 handles. Retail's register copies come from gcse, so the
    base is re-read inside each block (and inside the loop body). */
-struct PauseMenuScreen {
-    s32 (*update)(struct PauseMenuScreen *);       /* 0x00 */
-    u8 pad_04[0x4];
-    void (*enter)(struct PauseMenuScreen *, s32);  /* 0x08 */
-    void (*leave)(struct PauseMenuScreen *, s32);  /* 0x0C */
-};
 
 /* Closes the menu once it has run 10 updates: calls every screen's leave hook,
    drops the current page, deletes the panel mobys and sets state 0x14 with a 2-frame timer. */
@@ -439,9 +433,9 @@ void close_menu_system(void) {
         int i;
         for (i = 0; i < 14; i++) {
             struct MenuSystem *g2 = (struct MenuSystem *)menu_system;
-            struct PauseMenuScreen *screen = g2->current->screens[i];
+            struct MenuScreen *screen = g2->current->screens[i];
             if (screen != 0) {
-                void (*fn)(struct PauseMenuScreen *, s32) = screen->leave;
+                void (*fn)(struct MenuScreen *, s32) = screen->leave;
                 if (fn != 0) {
                     fn(screen, 0);
                 }
@@ -881,7 +875,7 @@ void render_level_effects_and_screen_sprites(void) {
 int Pause_PageInput(int arg0) {
     struct MenuSystem *g = (struct MenuSystem *)menu_system;
 
-    if (*(int *)(*(char **)&g->current + 0x40) != arg0) {
+    if ((int)g->current->focus != arg0) {
         return 0;
     }
     {
@@ -896,9 +890,9 @@ int Pause_PageInput(int arg0) {
         PadState *pad2 = (PadState *)g_controller_state;
         if (*(int *)&pad2->pressed_unmasked & 0x10) {
             struct MenuSystem *g2 = (struct MenuSystem *)menu_system;
-            int t = *(int *)(*(char **)&g2->current + 0x38);
+            MenuPage *t = g2->current->back;
             if (t != 0) {
-                *(int *)&g2->next = t;
+                g2->next = t;
                 return 0;
             }
             if (g2->close_locked == 0) {
@@ -932,9 +926,9 @@ int update_menu_icon_list(MenuScreen *arg0) {
         PadState *pad2 = (PadState *)g_controller_state;
         if (*(int *)&pad2->pressed_unmasked & 0x10) {
             struct MenuSystem *g = (struct MenuSystem *)menu_system;
-            int t = *(int *)(*(char **)&g->current + 0x38);
+            MenuPage *t = g->current->back;
             if (t != 0) {
-                *(int *)&g->next = t;
+                g->next = t;
                 return 0;
             }
             if (g->close_locked == 0) {
@@ -1795,7 +1789,7 @@ int fade_menu_color(int start, int col1, int col2) {
    own copy is why GCSE leaves its +0x138 load in the loop (only +0x134,
    read first in the body, is hoisted by loop.c), and the last block's
    copy is retail's kept %hi. */
-int find_next_pause_page(char *arg0, int arg1) {
+int find_next_pause_page(MenuScreen *arg0, int arg1) {
     int ok = 0;
     int found = 0;
 
@@ -1804,28 +1798,28 @@ int find_next_pause_page(char *arg0, int arg1) {
     }
     {
         struct MenuSystem *g = (struct MenuSystem *)menu_system;
-        if (g->unk134 != 0 && (*(int *)(arg0 + 0x30) & 8)) {
+        if (g->unk134 != 0 && (arg0->data.grid.flags & 8)) {
             ok = 1;
         }
-        if (g->unk138 != 0 && (*(int *)(arg0 + 0x30) & 4)) {
+        if (g->unk138 != 0 && (arg0->data.grid.flags & 4)) {
             ok = 1;
         }
     }
     while (ok) {
         struct MenuSystem *g = (struct MenuSystem *)menu_system;
         found = 1;
-        arg0 = *(char **)(arg0 + 0x4C);
+        arg0 = arg0->data.grid.up;
         ok = 0;
-        if (g->unk134 != 0 && (*(int *)(arg0 + 0x30) & 8)) {
+        if (g->unk134 != 0 && (arg0->data.grid.flags & 8)) {
             ok = 1;
         }
-        if (g->unk138 != 0 && (*(int *)(arg0 + 0x30) & 4)) {
+        if (g->unk138 != 0 && (arg0->data.grid.flags & 4)) {
             ok = 1;
         }
     }
     if (found) {
         struct MenuSystem *g2 = (struct MenuSystem *)menu_system;
-        *(char **)(*(char **)&g2->current + 0x80) = arg0;
+        g2->current->pending_focus = arg0;
     }
     return 0;
 }
@@ -2363,7 +2357,7 @@ extern int collect_mission_ids(void *, void *, void *, int);
 int enter_menu_mission_list(void *arg0) {
     int *p;
 
-    update_mission_list(arg0);
+    update_mission_list((void *)arg0);
     *(int *)((char *)arg0 + 0x7C) =
         collect_mission_ids((void *)0x70000000, (void *)0, (void *)0x70000100, 1);
     p = (int *)((char *)arg0 + 0x30);
@@ -2512,8 +2506,8 @@ typedef struct {
    advances. The three conditions are one `&&` (one shared exit) and the
    time is compared call-first, as retail evaluates them. */
 int update_menu_item_slots(SelList_0021D7A0 *arg0) {
-    char *q = *(char **)(current_menu_page + 0x40);
-    int item = *(short *)(*(int *)(q + 0x3C) * 10 + *(char **)(q + 0x48) + 6);
+    MenuScreen *q = ((MenuPage *)current_menu_page)->focus;
+    int item = q->data.grid.cells[q->data.grid.selected_cell].id;
     int old = arg0->idx;
     PadState *pad = (PadState *)g_controller_state;
     int i;
@@ -2916,8 +2910,8 @@ extern void copy_memory_aligned(void *, void *, int);
 /* The slot count at D_001997D0+0x2C, read through its own base pointer:
    retail's loop keeps a separate copy of the D_001997D0 address. */
 static inline int pauseSlotCount(void) {
-    char *b = g_help_state;
-    return *(int *)(b + 0x2C);
+    HelpState *b = (HelpState *)g_help_state;
+    return b->count;
 }
 
 /* Pause sub-state machine at arg0+0x50 (func_00221688's family). State 0
@@ -2949,15 +2943,15 @@ int update_menu_help_text_load(MenuScreen *arg0) {
             int *p = (int *)((char *)tbl + tbl[g_game_language]);
             int n = *p++;
             int sz = *p++;
-            char *b;
+            HelpState *b;
             int *t;
             int i;
 
             copy_memory_aligned(tbl, p, ((sz + 3) & ~3) - 8);
-            b = g_help_state;
+            b = (HelpState *)g_help_state;
             arg0->data.raw.saved_text_table = help_msgs_m;
-            arg0->data.raw.saved_text_count = *(int *)(b + 0x2C);
-            *(int *)(b + 0x2C) = n;
+            arg0->data.raw.saved_text_count = b->count;
+            b->count = n;
             t = *(int **)&g->help_text_buffer;
             help_msgs_m = (int)t;
             for (i = 0; i < pauseSlotCount(); i++) {
@@ -3028,7 +3022,7 @@ int draw_menu_text_list(Menu *menu) {
     size = 12;
     kind = 1;
     font = normal_font_metrics;
-    focused = *(Menu **)(current_menu_page + 0x40) == menu;
+    focused = ((MenuPage *)current_menu_page)->focus == (MenuScreen *)menu;
     if (menu->flags & 4) {
         size = 14;
         kind = 3;
@@ -3319,15 +3313,15 @@ int enter_item_preview(void *arg0) {
     MenuScreen *p = (MenuScreen *)((char *)arg0);
     p->data.preview.rotation_angle = 3.14159274f;
     p->data.preview.state = 0;
-    *(int *)&p->data.preview.moby = 0;
-    *(int *)&p->data.preview.second_moby = 0;
+    p->data.preview.moby = 0;
+    p->data.preview.second_moby = 0;
     return 0;
 }
 
 /* Deletes both preview mobys (+0x44, +0x48) and clears their slots. */
 int clear_menu_preview_pair(MenuScreen *arg0) {
-    *(int *)&arg0->data.preview.moby = delete_moby(*(int *)&arg0->data.preview.moby);
-    *(int *)&arg0->data.preview.second_moby = delete_moby(*(int *)&arg0->data.preview.second_moby);
+    arg0->data.preview.moby = (struct Moby *)delete_moby((int)arg0->data.preview.moby);
+    arg0->data.preview.second_moby = (struct Moby *)delete_moby((int)arg0->data.preview.second_moby);
     return 0;
 }
 
@@ -3368,7 +3362,7 @@ typedef struct ItemPreviewCamera {
 /* Spawns or swaps the 3D preview moby for the selected item cell, in front of the camera. */
 int update_item_preview_moby(char *arg0) {
     ItemPreviewScreen *menu = (ItemPreviewScreen *)arg0;
-    PreviewGridScreen *grid = *(PreviewGridScreen **)(current_menu_page + 0x40);
+    PreviewGridScreen *grid = (PreviewGridScreen *)((MenuPage *)current_menu_page)->focus;
     int item = grid->cells[grid->selected_cell].id;
     short current_preview_class;
     ItemPreviewInfo *rec;
@@ -3745,12 +3739,12 @@ extern int space_load_pending MACRO_ADDR;
 /* Pad handler (func_0021ACD8's family). A separate `char *` local for
    each block that reads the pad word gives retail's pattern: the %hi
    kept in a register and the %lo rebuilt before each use. */
-int Menu_BackInput(char *arg0) {
+int Menu_BackInput(MenuScreen *arg0) {
     PadState *pad = (PadState *)g_controller_state;
     int v = *(int *)&pad->pressed_unmasked;
 
     if (v & 0xD00) {
-        if (*(int *)(arg0 + 0x30) & 0x20) {
+        if (arg0->data.grid.flags & 0x20) {
             selected_level_index = g_current_level_index;
         }
         return -1;
@@ -3758,7 +3752,7 @@ int Menu_BackInput(char *arg0) {
     if (v & 0x10) {
         struct MenuSystem *g;
         int t;
-        if (*(int *)(arg0 + 0x30) & 0x20) {
+        if (arg0->data.grid.flags & 0x20) {
             selected_level_index = g_current_level_index;
         }
         g = (struct MenuSystem *)menu_system;
@@ -3834,7 +3828,7 @@ int DrawQuitGameMenu(MenuScreen *arg0) {
 }
 
 extern char gCamera[];
-extern void rotate_preview_moby_x(void *);
+extern void rotate_preview_moby_x(Moby *);
 extern void *create_menu_preview_moby_a(int) __asm__("func_00226720");
 
 /* Attach marker object 0x46E to arg0, parked just above the camera
@@ -3873,7 +3867,7 @@ extern int delete_moby(int);
 
 /* Deletes the item preview moby (+0x44) and clears its slot. */
 int release_item_preview_moby(MenuScreen *arg0) {
-    *(int *)&arg0->data.preview.moby = delete_moby(*(int *)&arg0->data.preview.moby);
+    arg0->data.preview.moby = (struct Moby *)delete_moby((int)arg0->data.preview.moby);
     return 0;
 }
 
@@ -4044,14 +4038,15 @@ extern void font_print_right_c(int, int, long, char *, int) __asm__("func_001F6C
 int DrawGBsShipMenu__maybe(char *arg0) {
     char buf[0x100];
     CameraSystem *t = (CameraSystem *)gCamera;
-    char *o = *(char **)(arg0 + 0x44);
+    MenuScreen *screen = (MenuScreen *)arg0;
+    Moby *o = screen->data.preview.moby;
     int count;
 
-    *(float *)(o + 0x10) = t->pos.f[0] + 8.0f;
-    *(float *)(o + 0x14) = t->pos.f[1] + gold_bolt_marker_y_offset_f;
-    *(float *)(o + 0x18) = t->pos.f[2] - 0.1f;
-    if (*(int *)(arg0 + 0x44) != 0) {
-        DrawMobyList(*(int *)(arg0 + 0x44), 1);
+    o->pos.x = t->pos.f[0] + 8.0f;
+    o->pos.y = t->pos.f[1] + gold_bolt_marker_y_offset_f;
+    o->pos.z = t->pos.f[2] - 0.1f;
+    if (screen->data.preview.moby != 0) {
+        DrawMobyList((int)screen->data.preview.moby, 1);
     }
     SetupGifPaging(0);
     count = 0;
@@ -4065,9 +4060,9 @@ int DrawGBsShipMenu__maybe(char *arg0) {
     }
     sprintf(buf, fmt_gold_bolt_count_line, msg_string_id(0x4F4F), count,
                   msg_string_id(0x4F53), map_gold_bolt_totals[level_map_selection[0x89]]);
-    font_print_right_c(*(int *)(arg0 + 0x20) - 0x10, (g_screen_extent[1] >> 1) - 8,
+    font_print_right_c(screen->width - 0x10, (g_screen_extent[1] >> 1) - 8,
                     0x80000000L, buf, -1);
-    font_print_right_c(*(int *)(arg0 + 0x20) - 0x11, (g_screen_extent[1] >> 1) - 9,
+    font_print_right_c(screen->width - 0x11, (g_screen_extent[1] >> 1) - 9,
                     0x80FFA888L, buf, -1);
     DoGifPaging();
     if (0) {
@@ -4080,9 +4075,8 @@ int DrawGBsShipMenu__maybe(char *arg0) {
 extern float FastAddRots(float, float);
 
 /* Moby update for a rotating preview: spins its +0x40 angle by 0.02 a frame. */
-void rotate_preview_moby_x(void *arg0) {
-    *(float *)((char *)arg0 + 0x40) =
-        FastAddRots(*(float *)((char *)arg0 + 0x40), 0.02f);
+void rotate_preview_moby_x(Moby *arg0) {
+    arg0->rot.x = FastAddRots(arg0->rot.x, 0.02f);
 }
 
 /* func_00234C98's second parameter is 64-bit (as in draw.c and
@@ -4106,20 +4100,20 @@ extern char fmt_number_thousands[]; /* "%d,%03d" */
 int draw_selected_item_ammo(char *arg0) {
     char text[0x50];
     short box[10];
-    char *p = *(char **)(current_menu_page + 0x40);
-    int id = *(short *)(*(int *)(p + 0x3C) * 10 + *(char **)(p + 0x48) + 6);
+    MenuScreen *p = ((MenuPage *)current_menu_page)->focus;
+    int id = p->data.grid.cells[p->data.grid.selected_cell].id;
     int have, total;
-    char *rec;
+    VendorItemPrice *rec;
 
     if (((unsigned char *)&item_available)[id] == 0) {
         return 0;
     }
     have = weapon_ammo_counts[id];
-    rec = vendor_item_prices + id * 0x18;
-    total = *(unsigned short *)(rec + 0xE);
+    rec = (VendorItemPrice *)vendor_item_prices + id;
+    total = rec->max_ammo;
     VU1_addGSregister_l(0x42, 0x44);
     VU1_addGSregister_l(0x47, 0xB);
-    if (*(unsigned short *)(rec + 8) == 0) {
+    if (rec->ammo_price == 0) {
         sprintf(text, msg_string_id(0x4F52));
     } else {
         char *q;
@@ -5179,8 +5173,15 @@ struct PauseState {
 /* One 0x4C-byte icon-info record (the D_001864D0 table). */
 struct MenuItemInfo {
     u8 pad_00[0x38];
-    u16 unk38;                          /* 0x38: icon id for GetIconFrame */
-    u8 pad_3A[0x12];
+    union {
+        u16 unk38;                      /* 0x38: icon id for GetIconFrame */
+        u16 icon;
+    };
+    u8 pad_3A[0x6];
+    s16 unk40;                          /* 0x40 */
+    s16 unk42;                          /* 0x42 */
+    s16 unk44;                          /* 0x44 */
+    u8 pad_46[0x6];
 };
 
 /* Draws the pause/quick-select ring of item icons around the screen center. */
@@ -5264,7 +5265,7 @@ typedef struct {
    and the cursor compare is written new != old, as retail's beq has it. */
 int update_menu_option_list(struct MenuScreen *arg0) {
     struct MenuSystem *g = (struct MenuSystem *)menu_system;
-    int sel = *(char **)(*(char **)&g->current + 0x40) == (char *)arg0;
+    int sel = g->current->focus == arg0;
 
     if (arg0->data.options.fade_timer != 0) {
         int t = arg0->data.options.fade_timer - 1;
@@ -5287,9 +5288,9 @@ int update_menu_option_list(struct MenuScreen *arg0) {
         PadState *pad2 = (PadState *)g_controller_state;
         if (*(int *)&pad2->pressed_unmasked & 0x10) {
             struct MenuSystem *g2 = (struct MenuSystem *)menu_system;
-            int t = *(int *)(*(char **)&g2->current + 0x38);
+            MenuPage *t = g2->current->back;
             if (t != 0) {
-                *(int *)&g2->next = t;
+                g2->next = t;
                 return 0;
             }
             if (g2->close_locked == 0) {
@@ -5443,7 +5444,7 @@ typedef struct {
 int update_menu_choice_list(struct MenuScreen *arg0) {
     struct MenuSystem *g = (struct MenuSystem *)menu_system;
 
-    if (*(char **)(*(char **)&g->current + 0x40) != (char *)arg0) {
+    if (g->current->focus != arg0) {
         return 0;
     }
     {
@@ -5458,9 +5459,9 @@ int update_menu_choice_list(struct MenuScreen *arg0) {
         PadState *pad2 = (PadState *)g_controller_state;
         if (*(int *)&pad2->pressed_unmasked & 0x10) {
             struct MenuSystem *g2 = (struct MenuSystem *)menu_system;
-            int t = *(int *)(*(char **)&g2->current + 0x38);
+            MenuPage *t = g2->current->back;
             if (t != 0) {
-                *(int *)&g2->next = t;
+                g2->next = t;
                 return 0;
             }
             if (g2->close_locked == 0) {
@@ -5567,26 +5568,26 @@ extern char pause_weapon_menu_grid[];
 int build_pause_item_list(void) {
     int i;
     int n = 0;
-    char *m;
+    MenuScreen *m;
 
     for (i = 0; i < 15; i++) {
         int id = pause_weapon_menu_slots[i].id;
         if (((unsigned char *)&item_available)[id] != 0) {
             Item0A *out = &pause_weapon_menu_items[n];
-            char *rec = item_info_table + id * 0x4C;
+            struct MenuItemInfo *rec = (struct MenuItemInfo *)(item_info_table + id * 0x4C);
             unsigned char b = gold_weapon_purchased[id];
             int f = b != 0;
-            out->a = *(unsigned short *)(rec + 0x38);
+            out->a = rec->icon;
             out->b = f << 2;
             out->c = 0;
             out->id = id;
             out->idx = i;
-            pause_weapon_menu_item_field40[n] = b ? *(short *)(rec + 0x42) : *(short *)(rec + 0x40);
+            pause_weapon_menu_item_field40[n] = b ? rec->unk42 : rec->unk40;
             n++;
         }
     }
-    m = pause_weapon_menu_grid;
-    *(int *)(m + 0x40) = n;
+    m = (MenuScreen *)pause_weapon_menu_grid;
+    m->data.icons.count = n;
     return 0;
 }
 
@@ -5600,30 +5601,12 @@ extern int gadget_menu_item_field44[];
 extern char item_info_table[];
 extern char gadget_menu_grid[];
 
-/* One 0x4C-byte record of D_001864D0, indexed by item id: the icon the
-   filtered list shows, and the two values it copies out. */
-struct Info {
-    u8 pad_00[0x38];
-    u16 icon;                  /* 0x38 */
-    u8 pad_3A[0x6];
-    s16 a;                     /* 0x40 */
-    u8 pad_42[0x2];
-    s16 b;                     /* 0x44 */
-    u8 pad_46[0x6];
-};
-
-/* The filtered-list header at D_001D1408: its entry count sits at 0x40. */
-struct FilteredItemList {
-    u8 pad_00[0x40];
-    s32 count;                 /* 0x40 */
-};
-
 /* func_00222640's sibling over four source tables. */
 int build_filtered_menu_item_list(void) {
     int filtered_item_count;
     int i;
     int id;
-    struct Info *item_info;
+    struct MenuItemInfo *item_info;
 
     filtered_item_count = 0;
     for (i = 0; i < 14; i++) {
@@ -5637,18 +5620,18 @@ int build_filtered_menu_item_list(void) {
             id = gadget_menu_slots_row3[i - 12].id;
         }
         if (((unsigned char *)&item_available)[id] != 0) {
-            item_info = &((struct Info *)item_info_table)[id];
+            item_info = &((struct MenuItemInfo *)item_info_table)[id];
             gadget_menu_items[filtered_item_count].a = item_info->icon;
             gadget_menu_items[filtered_item_count].b = 0;
             gadget_menu_items[filtered_item_count].c = 0;
             gadget_menu_items[filtered_item_count].id = id;
             gadget_menu_items[filtered_item_count].idx = i;
-            gadget_menu_item_field40[filtered_item_count] = item_info->a;
-            gadget_menu_item_field44[filtered_item_count] = item_info->b;
+            gadget_menu_item_field40[filtered_item_count] = item_info->unk40;
+            gadget_menu_item_field44[filtered_item_count] = item_info->unk44;
             filtered_item_count++;
         }
     }
-    ((struct FilteredItemList *)gadget_menu_grid)->count = filtered_item_count;
+    ((MenuScreen *)gadget_menu_grid)->data.icons.count = filtered_item_count;
     return 0;
 }
 
@@ -5747,9 +5730,9 @@ int handle_menu_action_buttons(MenuScreen *arg0) {
 
     if (v & 0x10) {
         struct MenuSystem *g = (struct MenuSystem *)menu_system;
-        int t = *(int *)(*(char **)&g->current + 0x38);
+        MenuPage *t = g->current->back;
         if (t != 0) {
-            *(int *)&g->next = t;
+            g->next = t;
         } else if (g->close_locked == 0) {
             return -1;
         }
@@ -5775,7 +5758,7 @@ extern char *current_menu_page NOT_SDA;
 
 /* Enter hook for the prompt screen: clears the page's +0x84 word and takes a stream buffer. */
 int enter_menu_prompt(struct MenuScreen *arg0) {
-    *(int *)(current_menu_page + 0x84) = 0;
+    ((MenuPage *)current_menu_page)->confirmed = 0;
     arg0->data.prompt.buffer = acquire_menu_stream_buffer(0);
     return 0;
 }
@@ -5817,8 +5800,7 @@ extern char menu_system[] NOT_SDA;
 int Menu_ConfirmPromptInput(void) {
     if (mode_freeze_state_m != 0x10 && mode_freeze_state_m != 1) {
         struct MenuSystem *g = (struct MenuSystem *)menu_system;
-        int val = *(int *)(*(char **)&g->current + 0x38);
-        *(int *)&g->next = val;
+        g->next = g->current->back;
         return 0;
     }
     {
@@ -5826,12 +5808,12 @@ int Menu_ConfirmPromptInput(void) {
         if (v & 0x20) {
             struct MenuSystem *g = (struct MenuSystem *)menu_system;
             g->unkD4 = 0;
-            *(int *)&g->next = *(int *)(*(char **)&g->current + 0x38);
-            *(int *)(*(char **)&g->current + 0x84) = 1;
+            g->next = g->current->back;
+            g->current->confirmed = 1;
         } else if (v & 0x10) {
             struct MenuSystem *g = (struct MenuSystem *)menu_system;
-            *(int *)&g->next = *(int *)(*(char **)&g->current + 0x38);
-            *(int *)(*(char **)&g->current + 0x84) = 0;
+            g->next = g->current->back;
+            g->current->confirmed = 0;
         }
     }
     return 0;
@@ -5897,8 +5879,8 @@ extern int pause_level_sprite_lists[];
 
 /* `D_001D48A8[(unsigned)D_0015EE84 % 19]`; the older near-miss
    predated MACRO_ADDR. */
-int assign_pause_level_sprite_list(char *arg0) {
-    *(int *)(arg0 + 0x34) = pause_level_sprite_lists[(unsigned int)g_current_level_index % 19];
+int assign_pause_level_sprite_list(MenuScreen *screen) {
+    *(int *)((char *)screen + 0x34) = pause_level_sprite_lists[(unsigned int)g_current_level_index % 19];
     return 0;
 }
 
@@ -5911,7 +5893,7 @@ int handle_cyclic_menu_selection_input(struct MenuScreen *arg0) {
     int w, old;
 
     if (*(int *)&pad->pressed_unmasked & 0xD00) {
-        if (*(int *)(menu_system + 0x124) == 0) {
+        if (((MenuSystem *)menu_system)->close_locked == 0) {
             return 1;
         }
     }
@@ -5919,9 +5901,9 @@ int handle_cyclic_menu_selection_input(struct MenuScreen *arg0) {
         PadState *pad2 = (PadState *)g_controller_state;
         if (*(int *)&pad2->pressed_unmasked & 0x10) {
             struct MenuSystem *g = (struct MenuSystem *)menu_system;
-            int t = *(int *)(*(char **)&g->current + 0x38);
+            MenuPage *t = g->current->back;
             if (t != 0) {
-                *(int *)&g->next = t;
+                g->next = t;
                 return 0;
             }
             if (g->close_locked == 0) {
@@ -5953,7 +5935,7 @@ int update_menu_cycle_selection(struct MenuScreen *arg0) {
     int w;
 
     if (*(int *)&pad->pressed_unmasked & 0xD00) {
-        if (*(int *)(menu_system + 0x124) == 0) {
+        if (((MenuSystem *)menu_system)->close_locked == 0) {
             return 1;
         }
     }
@@ -5961,9 +5943,9 @@ int update_menu_cycle_selection(struct MenuScreen *arg0) {
         PadState *pad2 = (PadState *)g_controller_state;
         if (*(int *)&pad2->pressed_unmasked & 0x10) {
             struct MenuSystem *g = (struct MenuSystem *)menu_system;
-            int t = *(int *)(*(char **)&g->current + 0x38);
+            MenuPage *t = g->current->back;
             if (t != 0) {
-                *(int *)&g->next = t;
+                g->next = t;
                 return 0;
             }
             if (g->close_locked == 0) {
@@ -6033,8 +6015,8 @@ extern void FontPrintCenter(int, int, long, void *, int);
    arguments inline: gcc evaluates them in order, so x and y are computed
    before the nested func_001FE540 call. */
 int draw_selected_menu_item_text(MenuScreen *arg0) {
-    char *p = *(char **)(current_menu_page + 0x40);
-    int row = *(int *)(*(char **)(p + 0x34) + *(int *)(p + 0x40) * 12 + 4);
+    MenuScreen *p = ((MenuPage *)current_menu_page)->focus;
+    int row = p->data.list.items[p->data.list.selected].param.value;
 
     SetupGifPaging(0);
     if (row == -1) {
@@ -6121,10 +6103,10 @@ int process_global_state_flags(void) {
 }
 
 /* Enter hook for the timed text sequence below: resets its scroll, countdown and step. */
-int enter_timed_menu_sequence(void *arg0) {
-    *(int *)((char *)arg0 + 0x40) = 0;
-    *(int *)((char *)arg0 + 0x50) = 0;
-    *(int *)((char *)arg0 + 0x3C) = 0;
+int enter_timed_menu_sequence(MenuScreen *screen) {
+    screen->data.textbox.countdown = 0;
+    screen->data.textbox.step = 0;
+    screen->data.textbox.scroll = 0;
     return 0;
 }
 
@@ -6159,9 +6141,9 @@ int update_timed_menu_sequence(char *arg0) {
             PadState *pad2 = (PadState *)g_controller_state;
             if (*(int *)&pad2->pressed_unmasked & 0x10) {
                 struct MenuSystem *g2 = (struct MenuSystem *)menu_system;
-                int t = *(int *)(*(char **)&g2->current + 0x38);
+                MenuPage *t = g2->current->back;
                 if (t != 0) {
-                    *(int *)&g2->next = t;
+                    g2->next = t;
                     return 0;
                 }
                 if (g2->close_locked == 0) {
@@ -6316,7 +6298,7 @@ int update_timed_menu_sequence(char *arg0) {
    bottom; states 4, 11, 15 and 19 draw the single text id at +0x34. The
    line count's low nibble goes through `& 0xF` (retail's lbu + dsrl) and
    the start subtracts its own variable, which keeps retail's order. */
-int draw_menu_text_box(char *arg0) {
+int draw_menu_text_box(MenuScreen *screen) {
     short box[12];
     int ypos;
     int n;
@@ -6325,16 +6307,16 @@ int draw_menu_text_box(char *arg0) {
     VU1_addGSregister_l(0x47, 0x30000);
     VU1_addGSregister_l(0x42, 0x8000000044L);
     SetupGifPaging(0);
-    pack_image_descriptor(box, arg0);
+    pack_image_descriptor(box, (char *)screen);
     box[9] = 9;
-    box[3] = *(int *)(arg0 + 0x18) + *(int *)(arg0 + 0x20);
-    box[0] = *(int *)(arg0 + 0x1C) + 4;
-    box[1] = *(int *)(arg0 + 0x1C) + *(int *)(arg0 + 0x24) - 4;
-    box[2] = *(int *)(arg0 + 0x18);
-    box[4] = *(int *)(arg0 + 0x18) + (*(int *)(arg0 + 0x20) >> 1);
+    box[3] = screen->x + screen->width;
+    box[0] = screen->y + 4;
+    box[1] = screen->y + screen->height - 4;
+    box[2] = screen->x;
+    box[4] = screen->x + (screen->width >> 1);
     box[10] = 0;
     box[11] = 0;
-    switch (*(int *)(arg0 + 0x50)) {
+    switch (screen->data.textbox.step) {
     case 1:
     case 2:
     case 3:
@@ -6350,26 +6332,26 @@ int draw_menu_text_box(char *arg0) {
     case 16:
     case 17:
     case 18:
-        n = (*(int *)(arg0 + 0x3C) >> 4) - 4;
-        ypos = *(int *)(arg0 + 0x1C) - n;
-        for (i = 0; (*(int **)(arg0 + 0x34))[i] != -1; i++) {
+        n = (screen->data.textbox.scroll >> 4) - 4;
+        ypos = screen->y - n;
+        for (i = 0; screen->data.textbox.text_list[i] != -1; i++) {
             box[5] = ypos;
-            box[11] = (*(int *)(arg0 + 0x3C) >> 4) & 0xF;
+            box[11] = (screen->data.textbox.scroll >> 4) & 0xF;
             font_print_window_regular(box, 0x80FFA888L,
-                          msg_string_id((*(int **)(arg0 + 0x34))[i]), -1);
+                          msg_string_id(screen->data.textbox.text_list[i]), -1);
             ypos += box[7];
             ypos += 10;
         }
-        if (ypos + 0x18 < *(int *)(arg0 + 0x1C) + *(int *)(arg0 + 0x24)) {
-            *(int *)(arg0 + 0x54) = 1;
+        if (ypos + 0x18 < screen->y + screen->height) {
+            screen->data.textbox.scroll_done = 1;
         }
         break;
     case 4:
     case 11:
     case 15:
     case 19:
-        box[5] = *(int *)(arg0 + 0x1C) + 0x20;
-        font_print_window_regular(box, 0x80FFA888L, msg_string_id(*(int *)(arg0 + 0x34)), -1);
+        box[5] = screen->y + 0x20;
+        font_print_window_regular(box, 0x80FFA888L, msg_string_id(screen->data.textbox.text_id), -1);
         break;
     case 0:
         break;
@@ -6572,14 +6554,14 @@ int saving_data_menu(struct MenuScreen *arg0) {
     int s;
     int old;
 
-    if (*(char **)(*(char **)&g->current + 0x40) != (char *)arg0) {
+    if (g->current->focus != arg0) {
         return 0;
     }
     s = arg0->data.save.step;
     if (s == 0) {
-        char *m = *(char **)&g->previous;
-        if (m == save_overwrite_confirm_page) {
-            if (*(int *)(m + 0x84) != 0) {
+        MenuPage *m = g->previous;
+        if (m == (MenuPage *)save_overwrite_confirm_page) {
+            if (m->confirmed != 0) {
                 arg0->data.save.step = 1;
             }
         }
@@ -6644,9 +6626,9 @@ int saving_data_menu(struct MenuScreen *arg0) {
         PadState *pad = (PadState *)g_controller_state;
         if (*(int *)&pad->pressed_unmasked & 0x10) {
             struct MenuSystem *g2 = (struct MenuSystem *)menu_system;
-            int t = *(int *)(*(char **)&g2->current + 0x38);
+            MenuPage *t = g2->current->back;
             if (t != 0) {
-                *(int *)&g2->next = t;
+                g2->next = t;
                 return 0;
             }
             if (g2->close_locked == 0) {
@@ -6656,7 +6638,7 @@ int saving_data_menu(struct MenuScreen *arg0) {
     }
     if (mode_freeze_state_m != 0x10 && mode_freeze_state_m != 1) {
         struct MenuSystem *g2 = (struct MenuSystem *)menu_system;
-        *(int *)&g2->next = *(int *)(*(char **)&g2->current + 0x38);
+        g2->next = g2->current->back;
         return 0;
     }
     {
@@ -6776,9 +6758,9 @@ int loading_data_menu(struct MenuScreen *arg0) {
         PadState *pad = (PadState *)g_controller_state;
         if (*(int *)&pad->pressed_unmasked & 0x10) {
             struct MenuSystem *g2 = (struct MenuSystem *)menu_system;
-            int t = *(int *)(*(char **)&g2->current + 0x38);
+            MenuPage *t = g2->current->back;
             if (t != 0) {
-                *(int *)&g2->next = t;
+                g2->next = t;
                 return 0;
             }
             if (g2->close_locked == 0) {
@@ -6788,7 +6770,7 @@ int loading_data_menu(struct MenuScreen *arg0) {
     }
     if (mode_freeze_state_m != 0x10 && mode_freeze_state_m != 1) {
         struct MenuSystem *g2 = (struct MenuSystem *)menu_system;
-        *(int *)&g2->next = *(int *)(*(char **)&g2->current + 0x38);
+        g2->next = g2->current->back;
         return 0;
     }
     {
@@ -6858,24 +6840,8 @@ int loading_data_menu(struct MenuScreen *arg0) {
 typedef struct __attribute__((packed)) {
     s64 v;
 } Unaligned64_pv;
-struct MemoryCardState_pv {
-    u8 pad_0[8];
-    s32 type;
-    u8 pad_C[8];
-    s32 save_index;
-    u8 pad_18[4];
-    s32 sync_result;
-    u8 pad_20[0xBC];
-    s32 state;
-    u8 pad_E0[4];
-    s32 pending_state;
-    u8 pad_E8[4];
-    s32 err;
-    u8 pad_F0[0xC];
-    s32 unkFC;
-};
 #define menu_system_pv (*(MenuSystem *)D_001D5F70)
-#define memory_card_state_pv (*(struct MemoryCardState_pv *)D_0013D390)
+#define memory_card_state_pv (*(MemoryCardState *)D_0013D390)
 #define controller_state_pv (*(struct PadState *)D_0013CA40)
 extern char save_menu_overwrite_confirm_page[];
 extern char save_menu_load_confirm_page[];
@@ -6919,11 +6885,11 @@ s32 saving_data_menu2(MenuScreen *w) {
     w->data.save.step = 2;
 
     if (menu_system_pv.card_op_pending != 0) {
-        if (memory_card_state_pv.state >= 3 || memory_card_state_pv.pending_state >= 0 || menu_system_pv.ticks < 0xB) {
+        if (memory_card_state_pv.state >= 3 || memory_card_state_pv.err >= 0 || menu_system_pv.ticks < 0xB) {
             return 0;
         }
         menu_system_pv.card_op_pending = 0;
-        if (memory_card_state_pv.err != 0 || memory_card_state_pv.sync_result != 0 || memory_card_error_latch != 0) {
+        if (memory_card_state_pv.err_latch != 0 || memory_card_state_pv.card[0].result != 0 || memory_card_error_latch != 0) {
             if (pause_restart_reset_flag != 0) {
                 mode_freeze_flags_m |= 0x80;
                 mode_freeze_init(8, menu_system_pv.current, memory_card_state_pv.unkFC);
@@ -6937,11 +6903,11 @@ s32 saving_data_menu2(MenuScreen *w) {
             }
         }
         memory_card_state_pv.unkFC = 1;
-        *(s32 *)((u8 *)&memory_card_state_pv + memory_card_state_pv.save_index * 0x1C + 0x24) = gBolts;
-        *(s32 *)((u8 *)&memory_card_state_pv + memory_card_state_pv.save_index * 0x1C + 0x20) = g_current_level_index_mm;
-        *(s32 *)((u8 *)&memory_card_state_pv + memory_card_state_pv.save_index * 0x1C + 0x2C) = game_clock_ticks;
-        *(SaveWord2 *)((u8 *)&memory_card_state_pv + memory_card_state_pv.save_index * 0x1C + 0x30) = save_clock_time_s;
-        *(s32 *)((u8 *)&memory_card_state_pv + memory_card_state_pv.save_index * 0x1C + 0x28) = D_0015EF20;
+        memory_card_state_pv.card[0].slots[memory_card_state_pv.card[0].save_index].bolts = gBolts;
+        memory_card_state_pv.card[0].slots[memory_card_state_pv.card[0].save_index].id = g_current_level_index_mm;
+        memory_card_state_pv.card[0].slots[memory_card_state_pv.card[0].save_index].time = game_clock_ticks;
+        *(SaveWord2 *)&memory_card_state_pv.card[0].slots[memory_card_state_pv.card[0].save_index].name = save_clock_time_s;
+        memory_card_state_pv.card[0].slots[memory_card_state_pv.card[0].save_index].gold_bolts = D_0015EF20;
         initialize_global_state_entry(0);
         screen_globals_base[0] = 1;
         return 0;
@@ -6963,8 +6929,8 @@ s32 saving_data_menu2(MenuScreen *w) {
         menu_system_pv.next = menu_system_pv.current->back;
         return 0;
     }
-    if (memory_card_state_pv.state >= 3 || memory_card_state_pv.pending_state >= 0 || menu_system_pv.ticks < 0xB ||
-        memory_card_state_pv.type != 2) {
+    if (memory_card_state_pv.state >= 3 || memory_card_state_pv.err >= 0 || menu_system_pv.ticks < 0xB ||
+        memory_card_state_pv.card[0].type != 2) {
         return 0;
     }
 
@@ -6985,8 +6951,8 @@ s32 saving_data_menu2(MenuScreen *w) {
     }
     cursor = w->data.save.slot;
     memcard_selected_slot = cursor;
-    if ((pad & 0x40) && memory_card_state_pv.type == 2) {
-        if (*(s32 *)((u8 *)&memory_card_state_pv + cursor * 0x1C + 0x20) != -1) {
+    if ((pad & 0x40) && memory_card_state_pv.card[0].type == 2) {
+        if (memory_card_state_pv.card[0].slots[cursor].id != -1) {
             menu_system_pv.next = (w->data.save.flags & 0x2000) ? ((MenuPage *)save_menu_load_confirm_page) : ((MenuPage *)save_menu_overwrite_confirm_page);
             menu_system_pv.unkD4 = (w->data.save.flags & 0x2000) ? 2 : 1;
             save_confirm_slot = w->data.save.slot;
@@ -8098,11 +8064,12 @@ extern void DeleteMoby(void *); /* DeleteMoby */
 /* Deletes moby arg0 (if any) and stamps its +0x38 with D_0015F6F0. Always
    returns 0 so callers can clear their handle with it. */
 int delete_moby(int arg0) {
-    if (arg0 == 0) {
+    struct Moby *moby = (struct Moby *)arg0;
+    if (moby == 0) {
         return 0;
     }
-    DeleteMoby((void *)arg0);
-    *(long *)(arg0 + 0x38) = world_update_time;
+    DeleteMoby(moby);
+    *(long *)&moby->spawn_frame = world_update_time;
     return 0;
 }
 
@@ -8117,32 +8084,32 @@ void helper_moby_update_noop(void);
    buffer; h+0x34 becomes 3 when either the spawn or the buffer fails.
    The hook store before the pi store and the vars stores in field order
    give retail's schedule. */
-int HelperMobyMenu_Init(char *h) {
-    char *m;
+int HelperMobyMenu_Init(MenuScreen *h) {
+    struct Moby *m;
     int *v;
     int r;
 
-    m = (char *)create_menu_preview_moby(0x7A5);
-    *(int *)(h + 0x34) = 0;
+    m = (struct Moby *)create_menu_preview_moby(0x7A5);
+    h->data.raw.unk34 = 0;
     if (m != 0) {
-        *(char **)(h + 0x44) = m;
-        *(short *)&((Moby *)m)->flags = 0;
-        v = ((int *)((Moby *)m)->pvars);
-        ((Moby *)m)->pos.x = gCamera_r.pos.f[0] + 2.2f;
-        ((Moby *)m)->pos.y = gCamera_r.pos.f[1] + 0.0f;
-        ((Moby *)m)->pos.z = gCamera_r.pos.f[2] + -1.6f;
-        *(void **)(m + 0x74) = (void *)helper_moby_update_noop;
-        ((Moby *)m)->rot.z = 3.1415927f;
+        h->data.raw.slots[0] = (s32)m;
+        m->flags = 0;
+        v = (int *)m->pvars;
+        m->pos.x = gCamera_r.pos.f[0] + 2.2f;
+        m->pos.y = gCamera_r.pos.f[1] + 0.0f;
+        m->pos.z = gCamera_r.pos.f[2] + -1.6f;
+        m->update = (void (*)(struct Moby *))helper_moby_update_noop;
+        m->rot.z = 3.1415927f;
         v[0] = (int)h;
         v[1] = 0;
         v[2] = 0;
     } else {
-        *(int *)(h + 0x34) = 3;
+        h->data.raw.unk34 = 3;
     }
     r = acquire_menu_stream_buffer(1);
-    *(int *)(h + 0x3C) = r;
+    h->data.raw.unk3C = r;
     if (r == 0) {
-        *(int *)(h + 0x34) = 3;
+        h->data.raw.unk34 = 3;
     }
     return 0;
 }
@@ -8959,18 +8926,18 @@ extern void save_map_coverage(void *);
 /* Gathers the game state into save buffer arg0 (object positions, map coverage)
    and stores arg0 and arg1 in the memory card state; starts state 0x13 when idle. */
 void prepare_save_game(int arg0, int arg1) {
-    char *b = memory_card_state;
+    MemoryCardState *b = (MemoryCardState *)memory_card_state;
     sce_cd_read_clock(save_clock_time);
     sce_scf_get_local_time_from_rtc(save_clock_time);
     copy_level_object_positions();
     save_map_coverage(level_map_coverage + (g_current_level_index << 11));
     memcard_MakeWholeSave((char *)arg0);
-    *(int *)(b + 0xF4) = arg0;
-    *(int *)(b + 0x14) = arg1;
-    *(int *)(b + 0xC8) = 0;
-    if (((MemoryCardState *)b)->err < 0) {
-        *(int *)(b + 0xE8) = 0;
-        ((MemoryCardState *)b)->err = 0x13;
+    b->padF4 = arg0;
+    b->card[0].x14 = arg1;
+    b->xC8 = 0;
+    if (b->err < 0) {
+        b->errCard = 0;
+        b->err = 0x13;
     }
 }
 
@@ -8989,14 +8956,14 @@ void start_memory_card_save(int arg0, int arg1) {
     sce_scf_get_local_time_from_rtc(save_clock_time);
     memcard_MakeWholeSave((char *)arg0);
     {
-        char *b = memory_card_state;
-        *(int *)(b + 0xC8) = 0;
-        *(int *)(b + 0x14) = arg1;
-        *(int *)(b + arg1 * 0x1C + 0x20) = 0;
-        *(int *)(b + 0xF4) = arg0;
-        if (((MemoryCardState *)b)->err < 0) {
-            *(int *)(b + 0xE8) = 0;
-            ((MemoryCardState *)b)->err = 0x13;
+        MemoryCardState *b = (MemoryCardState *)memory_card_state;
+        b->xC8 = 0;
+        b->card[0].x14 = arg1;
+        b->card[0].slots[arg1].id = 0;
+        b->padF4 = arg0;
+        if (b->err < 0) {
+            b->errCard = 0;
+            b->err = 0x13;
         }
     }
 }

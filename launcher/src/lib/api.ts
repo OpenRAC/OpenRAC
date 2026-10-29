@@ -48,6 +48,14 @@ import type { RemoteInstalled } from "./generated/RemoteInstalled";
 import type { RemoteMod } from "./generated/RemoteMod";
 import type { RemotePreview } from "./generated/RemotePreview";
 import type { ReportEntry } from "./generated/ReportEntry";
+import type { EditorState } from "./generated/EditorState";
+import type { Carried } from "./generated/Carried";
+import type { OutdatedReason } from "./generated/OutdatedReason";
+import type { ResetDone } from "./generated/ResetDone";
+import type { ResetKind } from "./generated/ResetKind";
+import type { ResetPart } from "./generated/ResetPart";
+import type { ResetPartView } from "./generated/ResetPartView";
+import type { ResetPreview } from "./generated/ResetPreview";
 import type { SaveBackupInfo } from "./generated/SaveBackupInfo";
 import type { SaveChange } from "./generated/SaveChange";
 import type { SaveFields } from "./generated/SaveFields";
@@ -102,6 +110,8 @@ export type { ModSources };
 export type { ModUpdate };
 export type { Nanotech };
 export type { PackView };
+export type { ResetDone, ResetKind, ResetPart, ResetPartView, ResetPreview };
+export type { Carried, EditorState, OutdatedReason };
 export type { PluginPreset };
 export type { PluginSetting };
 export type { PluginView };
@@ -283,6 +293,14 @@ export const api = {
     call<PackView[]>("overrides_set_enabled", { game, id, enabled }),
   overridesMove: (game: string, id: string, up: boolean) => call<PackView[]>("overrides_move", { game, id, up }),
   overridesRemove: (game: string, id: string) => call<PackView[]>("overrides_remove", { game, id }),
+  /** What starting the level editor over would delete for `version` ("rac1/pal"), with sizes (core reset.rs). */
+  resetPreview: (version: string, reset: ResetKind) => call<ResetPreview>("reset_preview", { version, reset }),
+  /** Where the player is with `version`'s level editor (core editor_state.rs): outdated projects,
+   *  edits not packed, the last update's notes, the backups. */
+  editorState: (version: string) => call<EditorState>("editor_state", { version }),
+  /** Deletes it; the player's own edits and packs only `withEdits`. Refused while a job runs. */
+  resetApply: (version: string, reset: ResetKind, withEdits: boolean) =>
+    call<ResetDone>("reset_apply", { version, reset, withEdits }),
   /** A game's native mods (core/src/plugins.rs) for its disc `version` ("pal"), in load order. */
   pluginsList: (game: string, version: string) => call<PluginView[]>("plugins_list", { game, version }),
   pluginsSetEnabled: (game: string, version: string, id: string, enabled: boolean) =>

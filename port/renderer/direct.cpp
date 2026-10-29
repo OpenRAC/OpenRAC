@@ -342,6 +342,17 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
                     }
                 }
                 m_draws.push_back(d);
+            } else if ((value >> 48) == kMobyMarker && m_screen_mobys) {
+                // A menu's mobys on the screen over a world drawn under it: the first of the frame
+                // clear the world's depth, the others share theirs.
+                DirectDraw d;
+                d.first = static_cast<std::uint32_t>(m_vertices.size());
+                d.mobys = value;
+                d.clear_depth =
+                    std::none_of(m_draws.begin(), m_draws.end(), [](const DirectDraw& o) {
+                        return o.mobys != 0 && o.state.target == 0;
+                    });
+                m_draws.push_back(d);
             }
             return;
         case gs::kPrim:
@@ -1523,6 +1534,7 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
         return;
     }
     m_interpreter->set_ui_quads(input.ui_quads);
+    m_interpreter->set_screen_mobys(static_cast<bool>(input.screen_mobys));
     m_interpreter->set_picture(state.target.picture_scale_x, state.target.wide_2d);
     m_frame = &input;
     {
@@ -1713,6 +1725,18 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
             glBindFramebuffer(GL_FRAMEBUFFER, o.framebuffer);
             m_frame->target_mobys(d.mobys, o.framebuffer, kOffscreenPixels * kOffscreenScale, d.centre_x, d.centre_y,
                                   d.clear_depth);
+            glDisable(GL_CULL_FACE);
+            glDisable(GL_SCISSOR_TEST);
+            m_shader.use();
+            glBindVertexArray(m_vao);
+            glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+            glActiveTexture(GL_TEXTURE0);
+        } else if (m_frame != nullptr && m_frame->screen_mobys && s.target == 0) {
+            // A menu's mobys on the screen, over the world drawn under it.
+            glBindFramebuffer(GL_FRAMEBUFFER, render_state.target.framebuffer);
+            glViewport(0, 0, render_state.target.width, render_state.target.height);
+            glDisable(GL_SCISSOR_TEST);
+            m_frame->screen_mobys(d.mobys, render_state.target, d.clear_depth);
             glDisable(GL_CULL_FACE);
             glDisable(GL_SCISSOR_TEST);
             m_shader.use();

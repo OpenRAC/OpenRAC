@@ -3,17 +3,53 @@
   // when the output says how far along it is, an animated bar when it does not) and, behind
   // "Details", the last lines it printed. A strip of fixed layout across the hero card: nothing
   // here changes the width of the button above it, and no line of output can push it wider.
+  // An editor tool says its step and count itself (editor/progress_line.py): then the step is in
+  // its words, the count names the level ("Kerwan, 3 of 18"), and once a few levels are done, how
+  // long is left. Only a change of step is read out; the count is in the bar's value. `plain`: in
+  // a panel of its own (the level editor's), without the strip's box.
+  import { levelName } from "$lib/labels";
   import type { Job } from "$lib/queue";
-  import { isGame, phaseLabel, readProgress, tailLines } from "$lib/progress";
+  import {
+    isGame,
+    phaseLabel,
+    progressPercent,
+    readProgress,
+    tailLines,
+    timeLeft,
+    toolProgress,
+    type Sample,
+  } from "$lib/progress";
   import Icon from "./Icon.svelte";
 
-  let { job, now }: { job: Job; now: number } = $props();
+  let { job, now = Date.now(), plain = false }: { job: Job; now?: number; plain?: boolean } = $props();
 
   let open = $state(false);
   let box = $state<HTMLPreElement | null>(null);
 
-  const phase = $derived(phaseLabel(job, now));
-  const progress = $derived(readProgress(job.actionId, job.lines));
+  const tool = $derived(toolProgress(job.lines));
+  const phase = $derived(job.state === "queued" || !tool ? phaseLabel(job, now) : tool.words);
+  const game = $derived(job.scope.kind === "version" ? (job.scope.key.split("/")[0] ?? "") : "");
+  /** "Kerwan, 3 of 18"; "3 of 18" before a level is named. */
+  const count = $derived.by(() => {
+    if (tool?.done == null || tool.total === null) return null;
+    const of = `${tool.done} of ${tool.total}`;
+    return tool.level !== null && game ? `${levelName(game, tool.level)}, ${of}` : of;
+  });
+  const progress = $derived(
+    tool ? { percent: progressPercent(tool), note: null } : readProgress(job.actionId, job.lines),
+  );
+
+  // The first count seen of this step and the newest, with when: how long is left.
+  let first = $state<Sample | null>(null);
+  let latest = $state<Sample | null>(null);
+  $effect(() => {
+    if (tool?.done == null) return;
+    const seen = { step: tool.step, done: tool.done, at: Date.now() };
+    if (latest?.step === seen.step && latest.done === seen.done) return;
+    if (first?.step !== seen.step || seen.done < first.done) first = seen;
+    latest = seen;
+  });
+  const left = $derived(tool ? timeLeft(first, latest, tool.total) : (progress.left ?? null));
   const queued = $derived(job.state === "queued");
   /** The game itself has nothing to count: a bar would only wait for the end of the session. */
   const bar = $derived(!isGame(job));
@@ -26,10 +62,12 @@
   });
 </script>
 
-<div class="job" aria-live="off">
+<div class="job" class:plain aria-live="off">
   <div class="top">
     <span class="phase" role="status">{phase}{queued ? "…" : ""}</span>
-    {#if percent !== null}
+    {#if count}
+      <span class="pct">{count}</span>
+    {:else if percent !== null}
       <span class="pct">{percent} %</span>
     {:else if progress.note}
       <span class="pct">{progress.note}</span>
@@ -47,6 +85,7 @@
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent ?? undefined}
+      aria-valuetext={count ?? undefined}
     >
       {#if queued}
         <i style:width="0%"></i>
@@ -56,6 +95,10 @@
         <i class="moving"></i>
       {/if}
     </div>
+  {/if}
+
+  {#if left && !queued}
+    <span class="left">{left}</span>
   {/if}
 
   {#if open}
@@ -77,6 +120,30 @@
     background: color-mix(in srgb, var(--ink-deep) 72%, transparent);
     border: 1px solid var(--line);
     backdrop-filter: blur(6px);
+  }
+
+  .job.plain {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    backdrop-filter: none;
+  }
+
+  /* In a panel the step's name is the message: it keeps its words, and the count goes under it
+     when both do not fit. */
+  .plain .top {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .plain .phase {
+    min-width: min(100%, 14em);
+  }
+
+  .left {
+    font-size: 0.8125rem;
+    color: var(--soft);
   }
 
   .top {

@@ -110,6 +110,27 @@ if(OPENRAC_VULKAN)
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/shader_compiler_internal.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gpu_draw.inc"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gpu_materials.inc")
+  # And every file holding a shader's text, wherever it is (a C++ file's own GLSL too): two builds
+  # whose shaders differ must not read each other's cache, which MoltenVK has taken for the same
+  # pipelines (another build's menus came out as blank white boxes).
+  file(GLOB_RECURSE openrac_renderer_shader_candidates
+    LIST_DIRECTORIES false RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.vert" "${CMAKE_CURRENT_SOURCE_DIR}/*.frag"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.comp" "${CMAKE_CURRENT_SOURCE_DIR}/*.glsl"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.inc")
+  list(FILTER openrac_renderer_shader_candidates EXCLUDE REGEX "^(build|tests)/")
+  list(SORT openrac_renderer_shader_candidates)
+  foreach(candidate IN LISTS openrac_renderer_shader_candidates)
+    set(candidate "${CMAKE_CURRENT_SOURCE_DIR}/${candidate}")
+    if(candidate IN_LIST openrac_renderer_vulkan_pipeline_sources)
+      continue()
+    endif()
+    file(STRINGS "${candidate}" shader_version REGEX "#version [0-9]" LIMIT_COUNT 1)
+    if(shader_version)
+      list(APPEND openrac_renderer_vulkan_pipeline_sources "${candidate}")
+    endif()
+  endforeach()
   set(openrac_renderer_vulkan_pipeline_text "")
   foreach(source IN LISTS openrac_renderer_vulkan_pipeline_sources)
     file(SHA256 "${source}" source_hash)

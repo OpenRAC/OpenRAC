@@ -33,6 +33,8 @@
 #include "common/stats.h"
 #include "debug/overlay.h"
 #include "frontend.h"
+#include "mods.h"
+#include "openrac/game_host.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
 #include "renderer/ui/imgui_gl.h"
@@ -339,7 +341,7 @@ void panel(const Shown& shown) {
             drag_scroll(s.panel_scroll);
         }
         const Averages a = averages();
-        const std::string where = s.level >= 0 && s.level < 19 ? kLevelNames[static_cast<std::size_t>(s.level)] : "boot";
+        const std::string where = openrac_game_level_name(s.level);
         text_coloured(kYellow, "OpenRAC {}  {}  tick {}  {:.0f} tps  {:.0f} fps", s.game, where, s.tick, a.tps, a.fps);
         if (ImGui::Button(keys ? (s.paused ? "resume (F5)" : "pause (F5)") : (s.paused ? "resume" : "pause"))) {
             s.paused = !s.paused;
@@ -663,8 +665,8 @@ void draw(const Shown& shown) {
     }
     stats::lap("present");
     s.window = shown.window;
-    const bool badge =
-        s.paused || s.stretch != 1.0 || !s.toast.empty() || !s.notice.empty() || capture_busy();
+    const bool badge = s.paused || s.stretch != 1.0 || !s.toast.empty() || !s.notice.empty()
+                       || capture_busy() || !mods::play_notice().empty();
     const bool drawer_out =
         s.drawer_open || s.drawer_at > 0.0f || s.shot_when_shut || s.touch_editing;
     if (!(s.visible || s.enhanced_settings || picker_enabled() || menu_bar_shown() || badge

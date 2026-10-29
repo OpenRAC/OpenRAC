@@ -52,6 +52,9 @@ static volatile gaddr g_updating;
  * flag 0x40), its own update when it has one, its post-update step (unless flag 0x4). */
 void func_00213C78(void) {
     const gaddr outer = g_updating; /* an update that ran the loop itself (none known) */
+    if (outer == 0) {
+        rac1_scenes_loop_begin();
+    }
     gaddr m = func_0020E6B8();
     GREF(gaddr, OPENRAC_DATA(MOBY_HEAD)) = m;
     while (m != 0) {
@@ -75,6 +78,17 @@ void func_00213C78(void) {
         }
         m = GREF(gaddr, m + MOBY_NEXT);
     }
+    /* The figures' pieces on their joints, now that the figures are posed (figure_items.c); a
+     * scene the loop's mobys started noted, and one a mod asked for started where a trigger's
+     * update would start it (scenes.c). */
+    if (outer == 0) {
+        rac1_figure_items_tick();
+        rac1_scenes_tick();
+    }
+}
+
+gaddr rac1_updating_moby(void) {
+    return g_updating;
 }
 
 static int updating_moby(openrac_game_moby *out) {

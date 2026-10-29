@@ -89,7 +89,7 @@ extern int FastDecTimer_r(void *) __asm__("func_001F9938");
 void timed_activation_pads_update(unsigned char *moby)
 {
     struct TimedPadsVars *d;
-    char *p;
+    struct Hero *p;
     float o[4];
     float q[16];
     int flag;
@@ -111,14 +111,14 @@ void timed_activation_pads_update(unsigned char *moby)
     }
 
     if (d->active == 0) {
-        p = (char *)hero_globals_base_r + 0xE1D;
-        if (*(short *)(p + 0x30E) == 0)
-            flag = *(unsigned char **)(p + 0x2FC) == moby;
+        p = (struct Hero *)((char *)hero_globals_base_r + 0xE1D);
+        if (p->air_frames.s == 0)
+            flag = (unsigned char *)p->ground_moby == moby;
         if (0.7853982f < FastAbsF_r(((Moby *)moby)->rot.y)) {
-            if (vec_distance_xy_r(moby + 0x10, p + 0x80) < 2.0f) {
-                if (*(int *)(p + 0x2084) == 0x11) {
-                    if (*(float *)(p + 0xAA8) < 7.0f) {
-                        FastVecSub_r(o, moby + 0x10, p + 0x80);
+            if (vec_distance_xy_r(moby + 0x10, (char *)&p->motion.pos) < 2.0f) {
+                if (p->state.current == 0x11) {
+                    if (p->anim_frame < 7.0f) {
+                        FastVecSub_r(o, moby + 0x10, (char *)&p->motion.pos);
                         set_identity_matrix_r(q);
                         matrix_from_basis_rows_r(q, moby + 0xC0);
                         transform_vector_r(o, o, q);

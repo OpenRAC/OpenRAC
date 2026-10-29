@@ -84,30 +84,39 @@ std::uint32_t options_stream(Read32 read, std::uint32_t page, std::uint32_t list
     return 0;
 }
 
-// The stream's entries for the port's list: the game's `count` entries (two words each) with an empty
-// one (no sectors: the stream reads nothing and keeps the picture it has) at `before`, where the list
-// has its Video item, and `after` more empty ones at the end (the port's Exit). `out` holds
-// 2 * (count + 1 + after) words.
-inline void entries_with_video(
-    const std::uint32_t* game, int count, int before, std::uint32_t* out, int after = 0
+// The stream's entries for the port's list: the game's `count` entries (two words each) with `extra`
+// empty ones (no sectors: the stream reads nothing and keeps the picture it has) at `before`, where
+// the list has its Video item and the mods' after it, and `after` more at the end (the port's
+// Exit). `out` holds 2 * (count + extra + after) words.
+inline void entries_with_extra(
+    const std::uint32_t* game, int count, int before, int extra, std::uint32_t* out, int after = 0
 ) {
-    for (int i = 0, o = 0; i < count; ++i, ++o) {
+    before = before < 0 ? 0 : before > count ? count : before;
+    int o = 0;
+    for (int i = 0; i <= count; ++i) {
         if (i == before) {
-            out[2 * o] = 0;
-            out[2 * o + 1] = 0;
+            for (int e = 0; e < extra; ++e, ++o) {
+                out[2 * o] = 0;
+                out[2 * o + 1] = 0;
+            }
+        }
+        if (i < count) {
+            out[2 * o] = game[2 * i];
+            out[2 * o + 1] = game[2 * i + 1];
             ++o;
         }
-        out[2 * o] = game[2 * i];
-        out[2 * o + 1] = game[2 * i + 1];
     }
-    if (before >= count) {
-        out[2 * count] = 0;
-        out[2 * count + 1] = 0;
+    for (int e = 0; e < after; ++e, ++o) {
+        out[2 * o] = 0;
+        out[2 * o + 1] = 0;
     }
-    for (int i = 0; i < after; ++i) {
-        out[2 * (count + 1 + i)] = 0;
-        out[2 * (count + 1 + i) + 1] = 0;
-    }
+}
+
+// The same with Video's one empty entry only. `out` holds 2 * (count + 1) words.
+inline void entries_with_video(
+    const std::uint32_t* game, int count, int before, std::uint32_t* out
+) {
+    entries_with_extra(game, count, before, 1, out);
 }
 
 }  // namespace openrac::frontend::pause_options

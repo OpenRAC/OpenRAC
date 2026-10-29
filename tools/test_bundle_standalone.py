@@ -165,6 +165,8 @@ class Bundle(unittest.TestCase):
             for path in (editor / folder).rglob("*"):
                 if path.is_file() and path.suffix != ".uid":
                     self.assertTrue(bundle.editor_file(path.relative_to(editor)), path)
+        # godot.py reads it, and so does the launcher, to tell an outdated project.
+        self.assertTrue(bundle.editor_file(Path("project_format.json")))
 
     def test_a_copy_without_game_or_python(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -183,6 +185,17 @@ class Bundle(unittest.TestCase):
                         "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"):
                 self.assertTrue((out / rel).is_file(), rel)
             self.assertFalse(list(out.rglob("test_*.py")))
+            self.assertFalse((out / "games/rac1/include/moby_pvars.h").exists())
+            layouts = json.loads((out / "editor/pvar_layouts.json").read_text())
+            self.assertIn(["moveSpeed", 0xB0, "f32", 0], layouts["classes"]["726"])
+            # Resolve layouts from the installed copy, in a process that cannot accidentally
+            # reuse the source checkout's cached module or headers.
+            script = ("import sys\n"
+                      "sys.path.insert(0, sys.argv[1])\n"
+                      "import gamedata\n"
+                      "assert not (gamedata.DECOMPILATION / 'include/moby_pvars.h').exists()\n"
+                      "assert ('moveSpeed', 0xb0, 'f32', 0) in gamedata.class_layouts()[726]\n")
+            subprocess.run([sys.executable, "-I", "-c", script, str(out / "editor")], cwd=tmp, check=True)
             json.loads((out / "launcher/actions.json").read_text())
             # The copy's tools run from it: their helpers are carried, and find the copy's root.
             self.assertTrue((out / "tools/openrac_common/__init__.py").is_file())

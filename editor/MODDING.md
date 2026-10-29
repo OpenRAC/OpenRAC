@@ -46,6 +46,11 @@ Everything below is on the **Mods** page, under **Models and textures**:
    game page's Play plays the levels as they are on the disc. If a pack has
    anything that does not fit your disc's levels, the activity log lists
    what was left out.
+6. **Your levels**, under the **Level editor** tab's status: **Delete the
+   level project** deletes the exported folders along with the level projects;
+   its tick box, off at first, deletes your imported edits and packs too.
+   **Read the game's levels again** reads the levels the exports are made from
+   again and keeps all of these (README.md, "Your levels").
 
 ## Editing textures
 
@@ -264,9 +269,10 @@ mods, with `stack.json` saying what it holds and what was left out).
 
 ## Limits
 
-- Sky textures the sky's sprites use and the game's 2D pictures (the HUD,
-  menus, fonts) cannot be replaced yet; terrain, tie and shrub textures
-  can, and the terrain's geometry.
+- The game's 2D pictures (the HUD, menus, fonts) cannot be replaced yet;
+  terrain, tie, shrub and sky textures (sky_NNNN.png, the sky's shells and
+  its sprites alike) can, and the terrain's geometry. The sky's model
+  itself (its shells and their colours) cannot be edited yet.
 - A replacement model or terrain draws in the port only; the game's
   collision, bone points (where Ratchet holds things) and bounds stay the
   original's. The game's own terrain data (what it culls and lights at

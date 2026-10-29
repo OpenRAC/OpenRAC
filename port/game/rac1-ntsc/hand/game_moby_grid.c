@@ -19,6 +19,9 @@ extern unsigned char exe_grid[] __asm__("D_001B76E0");
 extern unsigned int exe_grid_used[] __asm__("D_001C76E0");
 extern void exe_grid_trap(void) __asm__("func_001F97B0");
 
+/* FUN_0020db40 and its level copies (0x00250A40 in level 0, ...): the only C at that address, as
+ * func_0020DBA0 is FUN_0020dba0's. The grid updater below calls it; its globals go through the
+ * relocation, so a level's copy clears that level's bitmap. */
 void func_0020DB40(int first, int blocks) {
     int i;
     /* Invalid ranges are fatal instead of accessing past the native pool. */

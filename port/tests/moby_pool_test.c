@@ -67,6 +67,15 @@ int rac1_moby_eyes(const float** xyz) {
     return 0;
 }
 
+/* The run list's record (world.c, play.c): the level's mobys current, one level load. */
+int rac1_level_mobys_current(void) {
+    return 1;
+}
+
+uint32_t rac1_program_loads(void) {
+    return 1;
+}
+
 static int warnings;
 
 void openrac_game_warn(const char* message) {

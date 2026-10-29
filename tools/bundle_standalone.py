@@ -195,7 +195,10 @@ def player_actions() -> dict:
 
 def editor_file(rel: Path) -> bool:
     """Whether the copy takes editor/REL: the tools and what a level's Godot project gets
-    (editor/godot.py copies rc1/ and the Collision dock's addon, plugin.cfg included)."""
+    (editor/godot.py copies rc1/ and the Collision dock's addon, plugin.cfg included), and the
+    project format the editor and the launcher both read (project_format.json)."""
+    if rel.as_posix() == "project_format.json":
+        return True
     return not rel.name.startswith("test_") and rel.suffix in (".py", ".tsv", ".gd", ".cfg", "")
 
 
@@ -259,6 +262,10 @@ def main() -> int:
     # the STANDALONE note written below).
     files.copy_tree(ROOT / "tools/openrac_common", out / "tools/openrac_common", lambda rel: rel.suffix == ".py")
     files.copy_tree(ROOT / "editor", out / "editor", editor_file)
+    # Players have no decompilation headers. Carry the same validated typed fields the
+    # checkout uses, or edits such as Novalis's moveSpeed would be ignored when packed.
+    proc.run([sys.executable, ROOT / "editor/gamedata.py", "--export-layouts",
+              out / "editor/pvar_layouts.json"])
     # Enhanced graphics' baker's Python half; on Android its program is the APK's library
     # (libopenrac-probe-bake.so, tools/build_android.py).
     files.copy_tree(ROOT / PROBE_TOOLS, out / PROBE_TOOLS,

@@ -115,6 +115,10 @@ void load_level_program(int level) {
     }
 }
 
+extern "C" void openrac_game_clear_level_programs(void) {
+    openrac_guest_clear_level_programs();
+}
+
 #ifdef OPENRAC_FRONTEND
 int check_levels(const fs::path& levels) {
     const fs::path stamp = levels / std::format("verified-{}.json", scene::kManifestFormat);

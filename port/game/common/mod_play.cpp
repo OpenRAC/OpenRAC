@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -42,9 +43,22 @@ static_assert(OPENRAC_PLAY_MENU == OPENRAC_GAME_PHASE_MENU);
 // A pose is the game's after its size: copied as one block.
 static_assert(offsetof(openrac_pose, level) == sizeof(std::uint32_t));
 static_assert(sizeof(openrac_pose) == sizeof(std::uint32_t) + sizeof(openrac_game_pose));
+// So are the held pieces and a shot.
+static_assert(OPENRAC_HELD_MAX == OPENRAC_GAME_HELD_MAX);
+static_assert(sizeof(openrac_held_piece) == sizeof(openrac_game_held_piece));
+static_assert(offsetof(openrac_held, count) == sizeof(std::uint32_t));
+static_assert(sizeof(openrac_held) == sizeof(std::uint32_t) + sizeof(openrac_game_held));
+static_assert(offsetof(openrac_shot, item) == sizeof(std::uint32_t));
+static_assert(sizeof(openrac_shot) == sizeof(std::uint32_t) + sizeof(openrac_game_shot));
 // So is a moby (interface 1.9).
 static_assert(offsetof(openrac_moby, slot) == sizeof(std::uint32_t));
 static_assert(sizeof(openrac_moby) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_state));
+static_assert(offsetof(openrac_moby_run, runs) == sizeof(std::uint32_t));
+static_assert(sizeof(openrac_moby_run) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_run));
+static_assert(offsetof(openrac_moby_deletion, by) == sizeof(std::uint32_t));
+static_assert(
+    sizeof(openrac_moby_deletion) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_deletion)
+);
 
 namespace {
 
@@ -275,6 +289,13 @@ int api_play_start(openrac_mod* mod, int level, const void* save, size_t size) {
     return OPENRAC_HOOK_OK;
 }
 
+// A level's phases, where a travel may leave it from (1.9: its scenes and menus too, as the pause
+// menu's Quit Game leaves from the menu: a party's member goes with its host from anywhere).
+bool in_a_level(int phase) {
+    return phase == OPENRAC_PLAY_PLAYING || phase == OPENRAC_PLAY_SCENE
+           || phase == OPENRAC_PLAY_MENU;
+}
+
 int api_play_travel(openrac_mod* mod, int level) {
     std::int32_t now = -1;
     if (mod == nullptr || g_play == nullptr) {
@@ -283,7 +304,7 @@ int api_play_travel(openrac_mod* mod, int level) {
     if (g_request.kind != Request::Kind::kNone) {
         return OPENRAC_HOOK_TAKEN;
     }
-    if (phase_now(&now) != OPENRAC_PLAY_PLAYING || level < -1 || level >= g_play->levels) {
+    if (!in_a_level(phase_now(&now)) || level < -1 || level >= g_play->levels) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     g_request = {Request::Kind::kTravel, mod, level, {}};
@@ -481,8 +502,175 @@ int api_play_eyes(openrac_mod* mod, const float* xyz, int count) {
     return OPENRAC_HOOK_OK;
 }
 
+int api_play_overlay_pause(openrac_mod* mod, int on) {
+    if (mod == nullptr || g_play == nullptr || g_play->keep_running == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_play->keep_running(on != 0 ? 1 : 0);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_moby_slot_of(openrac_gaddr moby) {
+    return g_play != nullptr && g_play->slot_of != nullptr
+                   && moby_address(g_play->slot_of(moby)) == moby
+               ? g_play->slot_of(moby)
+               : -1;
+}
+
+// A skip a mod asked for: the ticks it is pressed for still (play_skipping), and what it was asked
+// in (the phase, the level's scene: -1 none), so it never presses into the next scene or movie.
+constexpr int kSkipTicks = 40;
+int g_skip_ticks = 0;
+int g_skip_phase = OPENRAC_PLAY_NONE;
+std::int32_t g_skip_scene = -1;
+
+std::int32_t scene_now() {
+    std::int32_t played = 0;
+    return g_play != nullptr && g_play->scene_playing != nullptr ? g_play->scene_playing(&played)
+                                                                 : -1;
+}
+
+int api_play_skip(openrac_mod* mod) {
+    if (mod == nullptr || g_play == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::int32_t level = -1;
+    g_skip_ticks = kSkipTicks;
+    g_skip_phase = phase_now(&level);
+    g_skip_scene = scene_now();
+    return OPENRAC_HOOK_OK;
+}
+
 int api_bolts(int add) {
     return g_play != nullptr && g_play->bolts != nullptr ? g_play->bolts(add) : 0;
+}
+
+int api_hero_held(openrac_held* out) {
+    if (out == nullptr || out->size < sizeof(openrac_held) || g_play == nullptr
+        || g_play->hero_held == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_held held{};
+    if (g_play->hero_held(&held) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::memcpy(&out->count, &held, sizeof held);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_figure_held(openrac_mod* mod, int id, const openrac_held* held) {
+    Figure* f = own_figure(mod, id);
+    if (f == nullptr || held == nullptr || held->size < sizeof(openrac_held)
+        || g_play->figure_held == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_held h{};
+    std::memcpy(&h, &held->count, sizeof h);
+    h.count = std::clamp<std::int32_t>(h.count, 0, OPENRAC_GAME_HELD_MAX);
+    g_play->figure_held(f->moby, &h);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_hero_shots(openrac_shot* out, int max) {
+    if (out == nullptr || max <= 0 || g_play == nullptr || g_play->hero_shots == nullptr) {
+        return 0;
+    }
+    std::array<openrac_game_shot, OPENRAC_SHOTS_MAX> shots{};
+    const int n = g_play->hero_shots(shots.data(), std::min(max, OPENRAC_SHOTS_MAX));
+    for (int i = 0; i < n; ++i) {
+        out[i].size = sizeof(openrac_shot);
+        std::memcpy(&out[i].item, &shots[static_cast<std::size_t>(i)], sizeof(openrac_game_shot));
+    }
+    return n;
+}
+
+int api_figure_shot(openrac_mod* mod, int id, const openrac_shot* shot) {
+    Figure* f = own_figure(mod, id);
+    if (f == nullptr || shot == nullptr || shot->size < sizeof(openrac_shot)
+        || g_play->figure_shot == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_shot s{};
+    std::memcpy(&s, &shot->item, sizeof s);
+    return g_play->figure_shot(f->moby, &s) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+// One line over the game's picture, the last mod's to set it: set on the game's thread, drawn on
+// the window's.
+std::mutex g_notice_lock;
+std::string g_notice;
+
+int api_play_notice(openrac_mod* mod, const char* text) {
+    if (mod == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_notice_lock);
+    g_notice = text != nullptr ? text : "";
+    return OPENRAC_HOOK_OK;
+}
+
+// The level's scenes: the one playing, and one to start as the level's own trigger does (the game
+// starts it once the player is in control; -1 drops a request still waiting).
+int api_scene_playing(int* frame) {
+    std::int32_t played = 0;
+    const std::int32_t scene =
+        g_play != nullptr && g_play->scene_playing != nullptr ? g_play->scene_playing(&played) : -1;
+    if (frame != nullptr) {
+        *frame = scene >= 0 ? played : 0;
+    }
+    return scene >= 0 ? scene : -1;
+}
+
+int api_play_scene(openrac_mod* mod, int scene) {
+    if (mod == nullptr || g_play == nullptr || g_play->scene_start == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->scene_start(scene < 0 ? -1 : scene) != 0 ? OPENRAC_HOOK_OK
+                                                            : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_moby_hide(openrac_mod* mod, int slot, int hidden) {
+    const gaddr m = moby_address(slot);
+    if (mod == nullptr || m == 0 || g_play->moby_hide == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_play->moby_hide(m, hidden != 0 ? 1 : 0);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_moby_deletion(int slot, openrac_moby_deletion* out) {
+    if (out == nullptr || out->size < sizeof(openrac_moby_deletion) || g_play == nullptr
+        || g_play->moby_deletion == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_moby_deletion d{};
+    if (g_play->moby_deletion(slot, &d) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->size = sizeof(openrac_moby_deletion);
+    std::memcpy(&out->by, &d, sizeof d);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_moby_run(int slot, openrac_moby_run* out) {
+    if (out == nullptr || out->size < sizeof(openrac_moby_run) || g_play == nullptr
+        || g_play->moby_run == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_moby_run r{};
+    if (g_play->moby_run(slot, &r) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->size = sizeof(openrac_moby_run);
+    std::memcpy(&out->runs, &r, sizeof r);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_camera_position(float out[3]) {
+    if (out == nullptr || g_play == nullptr || g_play->camera_position == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->camera_position(out) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
 // The game's calls (game_host.h): the gate around an update, and a hit posted.
@@ -557,6 +745,20 @@ void fill_play_api(
     api.moby_hit = api_moby_hit;
     api.play_eyes = api_play_eyes;
     api.bolts = api_bolts;
+    api.play_overlay_pause = api_play_overlay_pause;
+    api.moby_slot_of = api_moby_slot_of;
+    api.play_skip = api_play_skip;
+    api.hero_held = api_hero_held;
+    api.figure_held = api_figure_held;
+    api.hero_shots = api_hero_shots;
+    api.figure_shot = api_figure_shot;
+    api.play_notice = api_play_notice;
+    api.scene_playing = api_scene_playing;
+    api.play_scene = api_play_scene;
+    api.moby_hide = api_moby_hide;
+    api.moby_deletion = api_moby_deletion;
+    api.camera_position = api_camera_position;
+    api.moby_run = api_moby_run;
 }
 
 void play_loading(const openrac_mod* mod) {
@@ -589,7 +791,7 @@ void play_update() {
             r.save.empty() ? "a new game in level " + std::to_string(r.level)
                            : "a save" + (r.level >= 0 ? " in level " + std::to_string(r.level) : "")
         );
-    } else if (r.kind == Request::Kind::kTravel && phase == OPENRAC_PLAY_PLAYING) {
+    } else if (r.kind == Request::Kind::kTravel && in_a_level(phase)) {
         const bool going = g_play->travel(r.level) != 0;
         log::info(
             "mods: {} {} {}",
@@ -600,7 +802,35 @@ void play_update() {
     }
 }
 
+bool play_skipping() {
+    if (g_skip_ticks <= 0) {
+        return false;
+    }
+    // The scene it was asked in is over (out of it, or another in its place): nothing more pressed.
+    std::int32_t level = -1;
+    if (phase_now(&level) != g_skip_phase || scene_now() != g_skip_scene) {
+        g_skip_ticks = 0;
+        return false;
+    }
+    --g_skip_ticks;
+    return true;
+}
+
+std::string play_notice() {
+    const std::lock_guard<std::mutex> lock(g_notice_lock);
+    return g_notice;
+}
+
 void reset_play() {
+    {
+        const std::lock_guard<std::mutex> lock(g_notice_lock);
+        g_notice.clear();
+    }
+    g_skip_ticks = 0;
+    // A scene a mod asked for and the game has not started yet.
+    if (g_play != nullptr && g_play->scene_start != nullptr) {
+        g_play->scene_start(-1);
+    }
     g_figures.fill(Figure{});
     g_request = Request{};
     std::fill(g_drives.begin(), g_drives.end(), Drive{});
@@ -608,6 +838,9 @@ void reset_play() {
     g_hits = HitWatch{};
     g_before_slot = -1;
     g_loading_mod = nullptr;
+    if (g_play != nullptr && g_play->keep_running != nullptr) {
+        g_play->keep_running(0);
+    }
     openrac_game_moby_update = nullptr;
     openrac_game_moby_hit = nullptr;
 }

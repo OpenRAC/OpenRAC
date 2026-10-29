@@ -32,6 +32,7 @@ says so at run time, and the report lists why.
 
 from __future__ import annotations
 
+import hashlib
 import re
 
 from dataclasses import dataclass, field
@@ -750,9 +751,20 @@ class Unit:
                     prologue.append(f"    {self._mem_text(p['id'])} = {n};")
         for vid, var in fn.statics.items():
             d = self.decls[vid]
+            loc = d.get("loc", {})
+            site_key = f"{self.unit}\0{fn.name}\0{fn.home}\0{loc.get('offset', 0)}\0{var}"
+            site = int.from_bytes(hashlib.blake2b(site_key.encode(), digest_size=8).digest(), "little")
+            generation = f"{var}cache_generation_"
+            fresh = f"{var}fresh_"
+            prologue.insert(0, f"    static uint64_t {generation} = UINT64_MAX;")
             prologue.insert(0, f"    static gaddr {var};")
             init = self._static_init(d, var)
-            prologue.append(f"    if ({var} == 0) {{ {var} = openrac_guest_static(sizeof({self.host(self.ty(d))})); {init}}}")
+            prologue.append(
+                f"    if ({generation} != openrac_guest_cache_generation()) {{ "
+                f"int {fresh} = 0; {var} = openrac_guest_static_site(sizeof({self.host(self.ty(d))}), "
+                f"0x{site:016X}ULL, &{fresh}); {generation} = openrac_guest_cache_generation(); "
+                f"if ({fresh}) {{ {init} }} }}"
+            )
         if getattr(fn, "uses_alloca", False):
             # alloca's space is the frame's: given back when the function returns, by any path.
             prologue.insert(0, "    gaddr openrac_alloca_sp_ __attribute__((cleanup(openrac_guest_frame_end))) = "

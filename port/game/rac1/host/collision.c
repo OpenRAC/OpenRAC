@@ -1863,6 +1863,11 @@ int func_001EFE10(gaddr a0, gaddr a1, int a2, int a3, int a4) {
 /* CollLine_Fix(a, b, flags, ignore, hit template): the hit nearest a on the segment a -> b, world mesh
  * then mobys; 1 with CollOutput filled, else 0. */
 int func_L00_001EFFF0(gaddr a0, gaddr a1, int a2, int a3, int a4) {
+    /* A figure's shot posts no hit records (figure_items.c). */
+    if (a4 != 0 && rac1_figure_owned(rac1_updating_moby())) {
+        a4 = 0;
+        rac1_figure_hit_dropped("line hit template");
+    }
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
     const Ctx* x = level_ctx();
@@ -1903,6 +1908,10 @@ int func_L00_001F1D20(float a0, float a1, gaddr a2, int a3, int a4) {
  * first, +0x1C = 0x3F, +0x20 = (0, 0, 0, 1); with a template each listed moby with mode bit 0x4000 gets
  * a hit record. */
 int func_L00_001F2BE8(float a0, gaddr a1, int a2, gaddr a3, gaddr a4) {
+    if (a4 != 0 && rac1_figure_owned(rac1_updating_moby())) {
+        a4 = 0;
+        rac1_figure_hit_dropped("sphere hit template");
+    }
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
     const Ctx* x = level_ctx();

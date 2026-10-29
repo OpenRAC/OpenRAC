@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
 #include "common/log.h"
 
@@ -328,18 +329,101 @@ bool Memory::save_snapshot(std::span<std::uint8_t> out) const {
     return true;
 }
 
-bool Memory::restore_snapshot(std::span<const std::uint8_t> in) {
-    if (in.size() != snapshot_size()) {
+bool Memory::restore_snapshot(
+    std::span<const std::uint8_t> in, const openrac_guest_allocation_state& allocations
+) {
+    try {
+        if (in.size() != snapshot_size()) {
+            return false;
+        }
+        openrac_guest_allocation_state current{};
+        openrac_guest_get_allocation_state(&current);
+        if (allocations.strings_end < GUEST_STRINGS
+            || allocations.strings_end > GUEST_STRINGS + GUEST_STRINGS_SIZE
+            || current.strings_end > GUEST_STRINGS + GUEST_STRINGS_SIZE
+            || allocations.statics_end < GUEST_STATICS
+            || current.statics_end > GUEST_STATICS + GUEST_STATICS_SIZE
+            || allocations.statics_end > allocations.static_sites_begin
+            || current.statics_end > current.static_sites_begin
+            || current.static_sites_begin < GUEST_STATICS
+            || current.static_sites_begin > GUEST_STATICS + GUEST_STATICS_SIZE
+            || allocations.static_sites_begin > GUEST_STATICS + GUEST_STATICS_SIZE) {
+            return false;
+        }
+        const std::size_t strings_tail_size = allocations.strings_end <= current.strings_end
+                                                  ? current.strings_end - allocations.strings_end
+                                                  : 0;
+        const std::size_t statics_tail_size = allocations.statics_end <= current.statics_end
+                                                  ? current.statics_end - allocations.statics_end
+                                                  : 0;
+        const std::size_t static_sites_tail_size =
+            current.static_sites_begin <= allocations.static_sites_begin
+                ? allocations.static_sites_begin - current.static_sites_begin
+                : 0;
+        std::vector<std::uint8_t> strings_tail(strings_tail_size);
+        std::vector<std::uint8_t> statics_tail(statics_tail_size);
+        std::vector<std::uint8_t> static_sites_tail(static_sites_tail_size);
+        if (!strings_tail.empty()) {
+            std::memcpy(strings_tail.data(), base_ + allocations.strings_end, strings_tail.size());
+        }
+        if (!statics_tail.empty()) {
+            std::memcpy(statics_tail.data(), base_ + allocations.statics_end, statics_tail.size());
+        }
+        if (!static_sites_tail.empty()) {
+            std::memcpy(
+                static_sites_tail.data(),
+                base_ + current.static_sites_begin,
+                static_sites_tail.size()
+            );
+        }
+        if (allocations.strings_end > current.strings_end) {
+            std::memset(
+                base_ + current.strings_end, 0, allocations.strings_end - current.strings_end
+            );
+        }
+        if (allocations.statics_end > current.statics_end) {
+            std::memset(
+                base_ + current.statics_end, 0, allocations.statics_end - current.statics_end
+            );
+        }
+        if (allocations.static_sites_begin < current.static_sites_begin) {
+            std::memset(
+                base_ + allocations.static_sites_begin,
+                0,
+                current.static_sites_begin - allocations.static_sites_begin
+            );
+        }
+        std::size_t at = 0;
+        std::memcpy(base_ + GUEST_RAM, in.data() + at, GUEST_RAM_SIZE);
+        at += GUEST_RAM_SIZE;
+        for (const Region& r : kPlainRegions) {
+            std::memcpy(base_ + r.address, in.data() + at, r.size);
+            at += r.size;
+        }
+        if (!strings_tail.empty()) {
+            std::memcpy(base_ + allocations.strings_end, strings_tail.data(), strings_tail.size());
+        }
+        if (!statics_tail.empty()) {
+            std::memcpy(base_ + allocations.statics_end, statics_tail.data(), statics_tail.size());
+        }
+        if (!static_sites_tail.empty()) {
+            std::memcpy(
+                base_ + current.static_sites_begin,
+                static_sites_tail.data(),
+                static_sites_tail.size()
+            );
+        }
+        if (allocations.static_sites_begin > current.static_sites_begin) {
+            std::memset(
+                base_ + current.static_sites_begin,
+                0,
+                allocations.static_sites_begin - current.static_sites_begin
+            );
+        }
+        return true;
+    } catch (const std::bad_alloc&) {
         return false;
     }
-    std::size_t at = 0;
-    std::memcpy(base_ + GUEST_RAM, in.data() + at, GUEST_RAM_SIZE);
-    at += GUEST_RAM_SIZE;
-    for (const Region& r : kPlainRegions) {
-        std::memcpy(base_ + r.address, in.data() + at, r.size);
-        at += r.size;
-    }
-    return true;
 }
 
 bool Memory::contains(const void* host, gaddr* address) const {

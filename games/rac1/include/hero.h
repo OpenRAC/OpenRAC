@@ -581,7 +581,7 @@ struct Hero {
     f32 roll_spring_velocity;      /* 0x9E4 */
     f32 rail_ride_pitch_vel;       /* 0x9E8 */
     u8 pad_9EC[0x64];
-    u8 *throw_target;              /* 0xA50 */
+    struct Moby *throw_target;     /* 0xA50 */
     struct Moby *melee_target;     /* 0xA54 */
     s32 heading_locked;            /* 0xA58 */
     f32 attack_target_yaw;         /* 0xA5C */

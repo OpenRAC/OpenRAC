@@ -119,6 +119,8 @@ bool store_image(
             glTexImage2D(
                 GL_TEXTURE_2D, 0, GL_RGBA8, snap_w, snap_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr
             );
+            snap.width = snap_w;
+            snap.height = snap_h;
         }
         glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, snap_w, snap_h);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

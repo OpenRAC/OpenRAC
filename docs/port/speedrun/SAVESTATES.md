@@ -1,10 +1,12 @@
 # Save states
 
-The port exposes the minimal primitives for an **optional warm, in-session
-RAC1 savestate mod**. The mod owns save/load logic, controls and file I/O.
-Without that mod, no snapshot callback is registered. Cold restore is out of
-scope; these notes describe the relevant design constraints and current
-limits.
+The port exposes generic snapshot primitives for an **optional RAC1 PAL/NTSC
+savestate mod**. Project Save Clank owns save/load policy, controls, slot files
+and labels. With that mod absent or disabled, the game follows its normal code
+path. The snapshot API supports warm restores and cross-launch restores made
+with the same exact OpenRAC build and matching disc. Cold restore means loading
+a state into a new process; it does not mean changing OpenRAC builds or game
+revisions.
 
 ## 1. What exists, and what it is not
 
@@ -16,12 +18,13 @@ easy to confuse.
 | **The memory card** | The game's own save data: bolts, inventory, per-level flags, in the retail `save%d.bin` chunk format with a CRC-16. On the port a card is **a folder of ordinary files** on disk. | `port/game/common/lib/mc.c`; the format in `port/assets/disc/save_game.h` |
 | **The game's checkpoint** | The level's own checkpoint block, copied in and out within game memory. Entirely inside the guest RAM. | `port/game/rac1-pal/hand/level_checkpoint_restore.c` |
 | **A RAM dump** | The game's 32 MB of main memory written to a file. `OPENRAC_DUMP_RAM=FRAME` writes `ram_<frame>.bin`. The viewer can **read one back**. | `port/game/common/frontend.cpp:2320-2329`; `port/viewer/game_state.cpp` |
-| **Warm savestate** | A private snapshot restored in the same process at a post-vblank tick boundary. | Separate `project-save-clank` mod project; primitives in `sdk/include/openrac/openrac_mod.h`, `port/runtime/` |
+| **Mod savestate** | A private snapshot restored at a post-vblank tick boundary. Project Save Clank persists opaque port bytes in slot files. | Separate `project-save-clank` project; generic primitives in `sdk/include/openrac/openrac_mod.h`, `port/runtime/` |
 
-The RAM dump remains a debugging aid, not the mod's state format. The warm
-snapshot API copies all backed guest regions plus essential runtime fields;
-the separate mod persists the returned opaque bytes only for the current
-process.
+The RAM dump remains a debugging aid, not the mod's state format. The snapshot
+API captures backed guest regions, allocation maps, essential game/runtime
+fields, and the emulated IOP/interrupt state. The separate mod persists these
+opaque bytes. OpenRAC validates game, disc, and exact build identity before
+accepting them.
 
 ## 2. Why a save state is unusually feasible here
 
@@ -119,18 +122,20 @@ The translated game code caches them too: hostgen emits a per-call-site
 `static gaddr` (`port/tools/hostgen/lower.py:704-708`), and `GSTR` caches in
 `guest.h:140-147`.
 
-- **A warm restore** is safe only while the runtime's guest static/string
-  allocation set has not changed since capture. Translated call sites cache
-  those addresses in process memory, outside guest RAM.
+- **A warm restore** must keep newer guest static/string allocations at their
+  existing addresses. Translated call sites cache those addresses in process
+  memory, outside guest RAM. The warm snapshot records each allocator's end;
+  restore copies the post-snapshot tails aside, restores guest memory, then
+  puts those tails back without rewinding either allocator.
 - **A cold restore** (a fresh process loads the state) does **not**: the
   first-use order differs, so the new process hands out *different* addresses,
   while the restored memory contains *pointers* to the snapshot's addresses.
 
-The warm snapshot records the guest allocation generation and refuses a load
-if new guest statics or strings were allocated after capture. Save again after
-visiting a new area before relying on that state. This conservative check
-prevents rewound guest memory from being paired with newer process-side caches.
-Cold restore still needs the allocator state and call-site caches serialized.
+The snapshot records stable generated static-site IDs and addresses, and a
+string-to-address map. A cold load restores these maps and bumps a cache
+generation so each generated call site and `GSTR` refreshes its process-local
+address before use. Warm loads keep post-snapshot allocations and cached
+addresses intact.
 
 ### 3.3 The renderer
 
@@ -148,7 +153,7 @@ correct world. But four pieces of renderer state are not re-derivable:
 - the frontend's **interpolation cache** and which level's geometry is
   uploaded (`frontend.cpp:74-109`, `:127-131`).
 
-**Warm restore:** the frontend drops the current renderer, scene, interpolation
+**Restore:** the frontend drops the current renderer, scene, interpolation
 and frame caches, then rebuilds from restored guest memory and the next frame's
 display list. This accepts a one-frame visual discontinuity. The port also
 drops remembered out-of-list uploads so future texture contents are not reused.
@@ -161,34 +166,36 @@ serialised and must not be: they are rebuildable from the pool and the level.
 
 ### 3.4 The audio
 
-`SoundPlayer` (banks, grain scripts, voices, master volumes) and the VAG
-streams (music and speech) are entirely host-side and have no serialisation
-accessors today:
+`SoundPlayer` banks and master volume groups, and VAG streams (music and
+speech), are host-side. The snapshot records loaded bank files, their game
+handles, and group volumes so a restored level does not use another planet's
+banks. It does not record active grain scripts, voices, or stream positions:
 
 - `port/audio/sound_player.h:131-143` — the voice and bank state;
 - `port/game/common/lib/sound_engine.cpp:84-100` — `Stream::position` is a
   **sample offset** into the decoded track, which is the only faithful way to
   resume music mid-track.
 
-**Warm restore:** the port stops all voices and streams. The game's own
+**Restore:** the port rebuilds the saved banks under their original handles,
+restores group volumes, and stops transient voices and streams. The game's own
 idea of "what is playing" is asked of the engine
-(`openrac_sound_playing`, `port/game/common/include/openrac/sound_engine.h:35`), so the
-game stays consistent; the music restarts from the top, which is audible but
-not state-breaking.
+(`openrac_sound_playing`, `port/game/common/include/openrac/sound_engine.h:35`),
+so effects and music can restart from game logic. A song does not resume at its
+saved sample position.
 
-**Exact fix:** serialise `SoundPlayer` and `Stream`, and take the engine's
-lock (`sound_engine.cpp:31`) while restoring so the audio thread cannot render
-mid-restore.
+The engine lock (`sound_engine.cpp:31`) excludes the audio thread while the
+bank set is replaced. Exact mid-sound restoration would also need to serialize
+grain scripts, voice envelopes, and each stream's decoded position.
 
 ### 3.5 Also worth knowing
 
 | | |
 |---|---|
 | **The memory card's open handles** | Up to 8 `FILE*`s and the per-port current directory (`port/game/common/lib/mc.c:136`, `:79`). The *files* survive on disk; the handles do not. Restoring the handle table is easy but needs new accessors. |
-| **The IOP "stash"** | A 2 MB host array *outside* the 4 GB reservation holding what the game parked there via `sceSifSetDma` (`port/game/common/lib/kernel.c:242-243`). Small in practice; lost on restore. |
-| **The wall clock** | `g_next_frame` and the frontend's `Pacing` must be rebased to "now", or the first tick after a load is due in the past. |
+| **The IOP "stash"** | The 2 MB host array, RPC bindings and EE interrupt handler tables are included in the opaque snapshot by `kernel.c`. |
+| **The wall clock** | `g_next_frame` is reset to "now" when the game runtime is restored; frontend frame pacing continues from the restored tick. |
 | **Determinism** | The port is not bit-deterministic by default, because the audio device pulls at the real clock's rate. `OPENRAC_AUDIO_TICKED=1` makes the sounds advance one tick's samples per tick, so every answer the game gets lands on the same tick (`port/game/common/main.cpp:477-490`). **A deterministic save-state system wants that flag on.** |
-| **The floating-point environment** | Thread state, set at start (`port/runtime/ee.cpp:31-46`, `main.cpp:1392`). A warm restore keeps it; a cold one must set it again. |
+| **The floating-point environment** | Thread state is process configuration set at start (`port/runtime/ee.cpp:31-46`, `main.cpp:1392`); a new process sets it before game execution. |
 
 ## 4. Where to save and restore
 
@@ -209,18 +216,24 @@ there (`main.cpp:811-824`). A save point must cover both.
 (`graph.c:68-70` → `kernel.c:54-63`). The callback follows the handler call,
 so restoring does not re-run the restored tick's handlers.
 
-Hotkeys live in the separate mod (Numpad 1 saves, Numpad 2 loads),
-and do not change F5 pause or F6 step.
+Hotkeys live in the separate mod (Shift + Numpad 0–9 saves, Ctrl + Numpad
+0–9 loads), and do not change F5 pause or F6 step.
 
 ## 5. A design
 
-### The cold-restore file (out of scope)
+### The persistent state file (Project Save Clank)
 
 ```
 openrac-savestate-<game>-<version>.state
 ```
 
-A header followed by the regions. Roughly:
+A small mod-owned header (disc, planet label, payload length and checksum)
+followed by OpenRAC's opaque snapshot payload. Slot naming and UI remain in the
+mod. The port header validates game, disc and exact OpenRAC build before any
+snapshot is applied. Allocation metadata records guest strings and stable
+hostgen static-local site IDs/addresses; these rebind process-local caches on
+the first call in the new process. The payload also carries the selected
+overlay's guest program bytes and host-side state kept by the port.
 
 ```c
 struct SaveStateHeader {
@@ -237,20 +250,22 @@ struct SaveStateHeader {
 };
 ```
 
-The allocator state — the strings map, `g_strings_next`, the statics
-high-water mark — is what makes a **cold** restore possible. It is small (a
-few hundred entries at most) and it is the difference between a save state
-that only works in the process that made it and one that works anywhere.
-
-The warm mod uses the port's opaque in-memory blob and removes its file at
-startup. The header shown above is a possible future portable format, not the
-format of the current warm blob.
+This format is intentionally private and build-specific. A state is rejected
+after changing the executable build, selected disc, or game identity. The
+snapshot restores game memory, tick/display state, allocator records, overlay
+program bytes, IOP/RPC/interrupt state, loaded sound banks and group volumes,
+and resets renderer/audio playback state for reconstruction. GPU resources,
+audio voices/stream positions, open memory-card handles, host file descriptors,
+window/device state, and external mod-owned state are not serialized. Therefore
+restored music may restart and memory-card operations already in flight are
+outside the supported save boundary.
 
 ### The mod's keybindings
 
-The separate `project-save-clank` mod uses **Numpad 1** to save and **Numpad 2** to load.
-It has one slot per disc, does not add a port-owned UI, and leaves the existing
-F5 pause and F6 step keys alone.
+The separate `project-save-clank` mod uses **Shift + Numpad 0–9** to save and
+**Ctrl + Numpad 0–9** to load. It keeps ten persistent slots per disc, labels
+occupied slots with the saved planet, adds its Savestates developer menu, and
+leaves the existing F5 pause and F6 step keys alone.
 
 ### Where it should live in the code
 
@@ -283,19 +298,20 @@ the regression harness runs with `OPENRAC_UNCAPPED=1` and
 
 ## 6. Verdict
 
-Warm save/load is implemented as optional mod-facing infrastructure for RAC1
-PAL and NTSC. This does not implement cold restore or make the snapshot a
-portable save format.
+Warm and cross-launch save/load are implemented as optional mod-facing
+infrastructure for RAC1 PAL and NTSC. The blob is private to an exact port
+build and disc, not a portable format across builds.
 
 | | |
 |---|---|
-| **Implemented** | Backed guest regions, game stack pointer, frame/display-list state, overlay mirror and pacing rebase at a post-vblank boundary; renderer caches are invalidated and audio is stopped. |
-| **Mod-owned** | Numpad 1/2 hotkeys, a reusable buffer and state-file I/O in `project-save-clank`. |
-| **Known limits** | Audio resumes from the game's subsequent requests; exact stream position/voices, card handles and the IOP stash are not restored. |
-| **Out of scope** | Cold restore, cross-build or cross-disc blobs, and portable state files. |
+| **Implemented** | Backed guest regions, stack pointer, tick/display state, allocation maps, selected overlay program bytes, IOP stash/RPC/interrupt state, overlay mirror and pacing rebase; renderer caches are invalidated and audio is stopped. |
+| **Mod-owned** | Persistent slot files, checksums, planet labels, Shift/Ctrl+Numpad 0–9 controls and the Savestates developer menu in `project-save-clank`. |
+| **Known limits** | States require the exact same OpenRAC build and disc. Audio resumes from the game's subsequent requests; exact stream position/voices, open memory-card handles and other mod-owned host state are not restored. |
+| **Out of scope** | Cross-build or cross-disc blobs, portable interchange formats, and exact host audio/device serialization. |
 
 The implementation uses the 4 GB reservation and the region map in `guest.h`;
-the runtime copies those regions while the mod stores its opaque warm blob.
+the runtime copies those regions and its associated allocation/service metadata
+while the mod stores the opaque build-specific blob.
 
 ## 7. Related reading
 

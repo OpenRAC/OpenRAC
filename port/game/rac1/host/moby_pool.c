@@ -43,6 +43,8 @@
  * replacement, or the game's C), so a mod's run of the original sees the bigger pool, and so does
  * what it reads of the pool afterwards.
  */
+#include <string.h>
+
 #include "rac1.h"
 
 /* The level load's state (Load244110 in loaders_00240398.c): +4 the gameplay file's header. */
@@ -230,9 +232,49 @@ static int near_an_eye(gaddr m, float reach2) {
     return 0;
 }
 
+/* What the last run list of the level's mobys did with each slot (interface 1.9, moby_run: the
+ * OPENRAC_MOBY_RUN_* values, -1 not looked at), the camera it measured from, and how many were
+ * built in the level load. The pause menu's own mobys' lists are not kept. */
+#define RUN_SLOTS 4096
+
+static struct {
+    uint32_t load;
+    uint32_t runs;
+    float camera[3];
+    int8_t ran[RUN_SLOTS];
+} last_run = {0xFFFFFFFFu, 0, {0, 0, 0}, {0}};
+
+static int8_t* run_slots;
+
+static void run_note(int idx, int8_t how) {
+    if (run_slots != NULL && idx >= 0 && idx < RUN_SLOTS) {
+        run_slots[idx] = how;
+    }
+}
+
+int rac1_moby_run(int32_t slot, uint32_t* runs, float camera[3]) {
+    if (last_run.load != rac1_program_loads()) {
+        return -1;
+    }
+    *runs = last_run.runs;
+    memcpy(camera, last_run.camera, sizeof last_run.camera);
+    return slot >= 0 && slot < RUN_SLOTS ? last_run.ran[slot] : -1;
+}
+
 /* build_resident_visibility_list: the tick's run lists and target list built; the first run list's
  * head, every slot's list chained after it. */
 gaddr func_0020E6B8(void) {
+    run_slots = NULL;
+    if (rac1_level_mobys_current()) {
+        if (last_run.load != rac1_program_loads()) {
+            last_run.load = rac1_program_loads();
+            last_run.runs = 0;
+        }
+        ++last_run.runs;
+        memcpy(last_run.camera, G(OPENRAC_DATA(CAMERA_BLOCK) + 0x140), sizeof last_run.camera);
+        memset(last_run.ran, -1, sizeof last_run.ran);
+        run_slots = last_run.ran;
+    }
     for (gaddr q = SLOTS; q != SLOTS_END; q += 4) {
         GREF(int, q) = 0;
     }
@@ -267,6 +309,7 @@ gaddr func_0020E6B8(void) {
         }
         const unsigned drawn = GREF(unsigned char, m + MOBY_DRAWN);
         const unsigned dist = GREF(unsigned char, m + MOBY_DIST);
+        int8_t how = drawn != 0 ? 1 : 2; /* OPENRAC_MOBY_RUN_DRAWN, _ALWAYS */
         /* Not drawn last tick and with an update distance (0xFF: always): run only within it. */
         if (drawn == 0 && dist != 0xFF) {
             const float dx = GREF(float, m + MOBY_POS) - GREF(float, cam);
@@ -280,9 +323,12 @@ gaddr func_0020E6B8(void) {
             /* Farther than its update distance from the camera, and from every eye a mod set
              * (world.c: other players, in the game that runs the world). */
             if (t < 0.0f && !near_an_eye(m, d * d)) {
+                run_note(idx, 0); /* OPENRAC_MOBY_RUN_FAR */
                 continue;
             }
+            how = t < 0.0f ? 4 : 3; /* OPENRAC_MOBY_RUN_EYE, _NEAR */
         }
+        run_note(idx, how);
         /* Every active moby flags its group (group -1 writes 0x70000C7F, as retail's delay slot
          * does); a group's members are added by the group pass. */
         const int group = GREF(signed char, m + MOBY_GROUP);
@@ -315,6 +361,7 @@ gaddr func_0020E6B8(void) {
             }
             tgt = target_add(tgt, member, mode);
             run_list_append(m);
+            run_note(member, 5); /* OPENRAC_MOBY_RUN_GROUP */
         }
     }
 

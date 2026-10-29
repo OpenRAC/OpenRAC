@@ -34,6 +34,9 @@ struct Options {
     fs::path probes;    // the player's probe bakes, a level_NN folder each (enhanced rendering)
     bool no_mods = false;  // purist mode: no native mod is loaded (docs/port/MODS.md)
     bool expect_map = false;  // --map: the launcher requires map support, including on older builds
+    bool ship_map = false;    // opt-in PAL ship destination, with campaign cards disabled
+    bool expect_destinations = false;     // requires the new registry on older launchers/builds
+    std::vector<CustomMap> destinations;  // installed worlds, each with its own private mount
     std::optional<CustomMap> custom_map;  // map.json of the stacked packs, only with mods on
     fs::path
         debug_dump;  // each frame's measurements, a JSON object a line (docs/port/DEBUGGING.md)

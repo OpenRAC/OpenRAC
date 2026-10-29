@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 /// The mod interface this launcher's port has: `OPENRAC_MOD_API_MAJOR` and `_MINOR` of
 /// `sdk/include/openrac/openrac_mod.h`. Change them with it.
 pub const API_MAJOR: u32 = 1;
-pub const API_MINOR: u32 = 9;
+pub const API_MINOR: u32 = 10;
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
 
@@ -1143,7 +1143,7 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
         &std::fs::read_to_string(root.join(MANIFEST)).map_err(|e| format!("{MANIFEST} cannot be read ({e})"))?,
     )
     .map_err(|e| format!("{MANIFEST} cannot be read ({e})"))?;
-    if matches!(raw.get("format").and_then(Value::as_u64), Some(1 | 3)) {
+    if matches!(raw.get("format").and_then(Value::as_u64), Some(1 | 3 | 4)) {
         return Ok(Installed::Pack);
     }
     let m = read_manifest(&root)?;
@@ -1335,8 +1335,8 @@ mod tests {
         assert!(m.runs_on("rac2", "ntsc", Some(here())).unwrap_err().contains("not for rac2"));
         assert!(m.runs_on("rac1", "pal", Some("windows-arm64")).unwrap_err().contains("Not built"));
         assert!(m.runs_on("rac1", "pal", None).unwrap_err().contains("do not run"));
-        let newer: Manifest = serde_json::from_value(manifest("a", json!({"api": "1.10"}))).unwrap();
-        assert!(newer.runs_on("rac1", "pal", Some(here())).unwrap_err().contains("interface 1.10"));
+        let newer: Manifest = serde_json::from_value(manifest("a", json!({"api": "1.11"}))).unwrap();
+        assert!(newer.runs_on("rac1", "pal", Some(here())).unwrap_err().contains("interface 1.11"));
         let other: Manifest = serde_json::from_value(manifest("a", json!({"api": "2.0"}))).unwrap();
         assert!(other.runs_on("rac1", "pal", Some(here())).is_err());
         let data: Manifest = serde_json::from_value(manifest("a", json!({"plugin": {}, "api": null}))).unwrap();
@@ -1388,8 +1388,8 @@ mod tests {
         assert!(m.runs_on("rac1", "pal", None).is_ok());
         assert!(m.runs_on("rac1", "pal", Some("windows-arm64")).is_ok());
         assert!(m.runs_on("rac1", "ntsc", None).unwrap_err().contains("Not for this disc"));
-        let newer: Manifest = serde_json::from_value(script("swap", json!({"api": "1.10"}))).unwrap();
-        assert!(newer.runs_on("rac1", "pal", None).unwrap_err().contains("interface 1.10"));
+        let newer: Manifest = serde_json::from_value(script("swap", json!({"api": "1.11"}))).unwrap();
+        assert!(newer.runs_on("rac1", "pal", None).unwrap_err().contains("interface 1.11"));
     }
 
     #[test]
@@ -1613,7 +1613,7 @@ mod tests {
         let dir = tmp.path();
         installed_mod(dir, "pal-only", json!({"games": {"rac1": ["pal"]}}));
         installed_mod(dir, "fine", json!({"version": "1.1.0"}));
-        installed_mod(dir, "newer-api", json!({"api": "1.10"}));
+        installed_mod(dir, "newer-api", json!({"api": "1.11"}));
         std::fs::create_dir_all(dir.join("broken")).unwrap();
         std::fs::write(dir.join("broken").join(MANIFEST), "{ nope").unwrap();
         std::fs::write(
@@ -1626,7 +1626,7 @@ mod tests {
         assert_eq!(view(&views, "pal-only").state, "refused");
         assert!(view(&views, "pal-only").reason.contains("Not for this disc"));
         assert_eq!(view(&views, "fine").state, "ready");
-        assert!(view(&views, "newer-api").reason.contains("interface 1.10"));
+        assert!(view(&views, "newer-api").reason.contains("interface 1.11"));
         assert!(view(&views, "broken").reason.contains("Cannot be read"));
         assert_eq!(view(&views, "broken").name, "broken");
 
@@ -1913,6 +1913,9 @@ mod tests {
         let map = tmp.path().join("map.zip");
         zip_of(&map, &[("openrac-mod.json", br#"{"format": 3, "game": "rac1", "map": {}}"#)]);
         assert_eq!(install(&dir, "rac1", "pal", &map).unwrap(), Installed::Pack);
+        let destination = tmp.path().join("destination.zip");
+        zip_of(&destination, &[("openrac-mod.json", br#"{"format": 4, "game": "rac1", "map": {}}"#)]);
+        assert_eq!(install(&dir, "rac1", "pal", &destination).unwrap(), Installed::Pack);
 
         // Another game's mod.
         let other = tmp.path().join("other.zip");

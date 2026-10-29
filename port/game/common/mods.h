@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -31,7 +32,7 @@ struct HookPoint {
     void* original;
 };
 
-// The game's tick and display-list state needed by a warm snapshot. The executable supplies these
+// The game's tick and display-list state needed by a snapshot. The executable supplies these
 // callbacks through Host so the mod loader stays usable without linking the game program (tests,
 // manifest tools). `overlay` is the game's host-side mirror of the guest level.
 struct SavestateRuntime {
@@ -41,6 +42,20 @@ struct SavestateRuntime {
     bool reports_draws = false;
     bool vsync_since_kick = false;
     int overlay = -1;
+};
+
+struct DeveloperMenuItem {
+    std::string label;
+    std::string shortcut;
+    std::string group;
+    std::uint32_t action = 0;
+};
+
+struct DeveloperMenu {
+    openrac_mod* mod = nullptr;
+    std::string title;
+    std::vector<DeveloperMenuItem> items;
+    std::deque<std::uint32_t> actions;
 };
 
 // What the loader needs of the program.
@@ -80,6 +95,10 @@ struct Host {
     // The running game's essential host-side tick state and post-restore audio/renderer rebuild.
     bool (*capture_savestate_runtime)(SavestateRuntime* state) = nullptr;
     void (*restore_savestate_runtime)(const SavestateRuntime* state) = nullptr;
+    std::size_t (*savestate_extra_size)(void) = nullptr;
+    int (*savestate_extra_save)(void* out, std::size_t size) = nullptr;
+    int (*savestate_extra_load)(const void* in, std::size_t size) = nullptr;
+    void (*prepare_cold_savestate)(int overlay) = nullptr;
     // The game's play (interface 1.8, game_host.h; null: none, and the play calls say so) and the
     // memory card's folder its saves are in (openrac_game_card_dir).
     const openrac_game_play* play = nullptr;
@@ -113,6 +132,10 @@ inline void frame() {
 // callbacks run.
 void tick_boundary(std::uint32_t tick);
 
+// Optional mod-provided top-level menus for the in-window menu bar.
+const std::vector<DeveloperMenu>& developer_menus();
+void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action);
+
 // How many mods are loaded.
 int loaded_count();
 
@@ -123,6 +146,14 @@ const char* mod_id(const openrac_mod* mod);
 // thread after the frame's menus (frontend/frame.cpp, beside the developer menu's start); nothing
 // when none is pending.
 void play_update();
+
+// Whether a mod asked for the scene playing to be skipped (openrac_api.play_skip), for this pad
+// read: the skip is pressed for a while (frontend/input.cpp, skip_after_mods).
+bool play_skipping();
+
+// The line a mod shows over the game's picture (openrac_api.play_notice), empty for none; the
+// debug overlay draws it. From any thread.
+std::string play_notice();
 
 // The front-end menu entries the mods added (interface 1.5), in load order: how many, and an
 // entry's label ("" past the list).
@@ -169,6 +200,13 @@ struct UiMainItem {
     int page = 0;
 };
 
+// An item of the pause menu's Options page (openrac_api.ui_pause_item, since 1.9): its label,
+// its page.
+struct UiPauseItem {
+    std::string label;
+    int page = 0;
+};
+
 // What the mods asked of the screen during their events since the last take, for the front end.
 struct UiRequests {
     bool open = false;  // ui_open: `page`, or OPENRAC_UI_GO_BACK
@@ -185,10 +223,16 @@ int ui_page_count();
 const UiPage* ui_page(int page);
 int ui_main_item_count();
 const UiMainItem* ui_main_item(int index);
+// The pause menu's Options items, in order.
+int ui_pause_item_count();
+const UiPauseItem* ui_pause_item(int index);
 
 // The front end's side: the page on the screen (-1 none; whose mod may then open, ask and play),
 // whether a question is open on it, where a page's cursor is now.
 void ui_set_shown(int page, bool question_open);
+// Whether the title's main menu is on the screen, settled (a mod may open its main-menu item's
+// page from it, since 1.9).
+void ui_set_main_menu(bool up);
 void ui_set_cursor(int page, int item);
 // A choice the player stepped: shown so until the mod sets the page again.
 void ui_set_choice(int page, int item, std::uint32_t choice);
