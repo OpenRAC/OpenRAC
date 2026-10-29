@@ -284,7 +284,8 @@ void test_usable_camera_refuses_what_cannot_be_drawn() {
 // The matrices themselves: finite, a rotation that keeps volumes, a projection that looks ahead.
 void test_usable_view_refuses_broken_matrices() {
     const Mat4 view = openrac::renderer::look_along({10, 20, 30}, {0, 1, 0}, {0, 0, 1});
-    const Mat4 projection = openrac::renderer::perspective_reversed(1.0f, 16.0f / 9.0f, 0.05f, 2000.0f);
+    const Mat4 projection =
+        openrac::renderer::perspective_reversed(1.0f, 16.0f / 9.0f, 0.05f, 2000.0f);
     CHECK(usable_view(view, projection));
     Mat4 broken = view;
     broken[13] = std::numeric_limits<float>::quiet_NaN();
