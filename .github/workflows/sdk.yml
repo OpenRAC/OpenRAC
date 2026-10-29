@@ -1,8 +1,9 @@
 # The mod SDK as one archive (sdk/tools/package_sdk.py): what a modder downloads to write a native
 # mod without a copy of OpenRAC (docs/port/MODS.md, sdk/README.md). Each run makes the archive,
-# checks its tools and that the docs' API reference is current (gen_reference.py), builds the template (C++) and the example (C) and runs the C++ layer's test on
-# Windows (MSVC), Linux (GCC) and macOS (Clang) from the archive alone, unpacked away from the
-# checkout; the archive is the run's artifact. A tag
+# checks its tools and that the docs' API reference is current (gen_reference.py), builds the
+# template (C++) and the example (C) and runs the C++ layer's test on Windows (MSVC), Linux (GCC)
+# and macOS (Clang), and builds the two for Android (the NDK), from the archive alone, unpacked
+# away from the checkout; the archive is the run's artifact. A tag
 # `sdk-v<version>` (sdk/VERSION, whose MAJOR.MINOR is the interface's) also publishes it, with its
 # SHA-256, on a release of that name, which mods pin (OpenRAC/rac1-mods). The archive is the same
 # bytes wherever it is made, so the pin holds.
@@ -64,6 +65,13 @@ jobs:
           - { name: linux-x86_64, os: ubuntu-24.04 }
           - { name: macos-arm64, os: macos-15 }
           - { name: windows-x86_64, os: windows-2025 }
+          # The runner's NDK, cross-built: Android's mods (android-arm64), no test run here.
+          - name: android-arm64
+            os: ubuntu-24.04
+            configure: >-
+              -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake
+              -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28
+            cross: true
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -98,12 +106,14 @@ jobs:
           for mod in template examples/frame-counter; do
             src="$RUNNER_TEMP/build/$(basename "$mod")"
             cp -r "$SDK/$mod" "$src"
-            cmake -S "$src" -B "$src/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DOpenRACMod_DIR="$SDK/cmake"
+            cmake -S "$src" -B "$src/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DOpenRACMod_DIR="$SDK/cmake" \
+              ${{ matrix.configure }}
             cmake --build "$src/build"
             python "$SDK/tools/package_mod.py" -o "$RUNNER_TEMP/dist" "$src"/build/package/*
           done
           ls "$RUNNER_TEMP/dist"
       - name: Test the C++ layer
+        if: ${{ !matrix.cross }}
         run: |
           cmake -S "$SDK/tests" -B "$RUNNER_TEMP/build/sdk-tests" -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build "$RUNNER_TEMP/build/sdk-tests"

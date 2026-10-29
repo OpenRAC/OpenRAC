@@ -13,7 +13,8 @@
 // question is the memory card's prompt box in the list's place. In a level, the mods' items of the
 // pause menu's Options page (1.9: ui_pause_item) open copies of the game's Camera page made by
 // options_menu.cpp, whose title and rows this fills from the mod's page (pause_row, pause_scroll);
-// there the game's widget has the cursor. A game without a front end (game_host.h,
+// there the game's widget has the cursor. The port's Exit row (exit_menu.h) goes under the mods'
+// rows of the main menu where a slot is left. A game without a front end (game_host.h,
 // openrac_front_end) shows none.
 
 #pragma once

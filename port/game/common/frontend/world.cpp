@@ -33,6 +33,7 @@
 #include "enhanced/renderer/water.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "frontend.h"
+#include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/state.h"
 #include "game/common/particle_texture_cache.h"
@@ -232,7 +233,7 @@ void use_level(int number) {
         g->renderer->init(error);
     }
     // The sky's textures at pool keys of their own (kSkyTextureKey + number), for its sprites.
-    const auto sky = scene::load_sky_textures(dir);
+    const auto sky = scene::load_sky_textures(dir, g->level.overrides);
     for (std::size_t i = 0; i < sky.size(); ++i) {
         if (sky[i].width > 0) {
             const renderer::TextureHandle h = g->renderer->textures().add(
@@ -622,6 +623,81 @@ std::uint32_t particle_texture(
     return key;
 }
 
+// Developer tools, for a diagnostics recording: the frame's particles by type, each type with the
+// update its record's type byte picks (GameProfile::particle_updates), and the records within 6
+// units of Ratchet, whole, in hex.
+void note_particles(std::span<const std::uint8_t> ram, const host::GameState& state) {
+    const host::LiveMoby* hero = nullptr;
+    for (const host::LiveMoby& m : state.mobys) {
+        if (m.class_id == 0) {
+            hero = &m;
+            break;
+        }
+    }
+    const gaddr table = g->profile->particle_updates();
+    const auto callback = [&](unsigned type) -> std::string {
+        if (table == 0) {
+            return "?";
+        }
+        const gaddr at = (OPENRAC_DATA(table) + 4u * type) & 0x01FFFFFFu;
+        if (at + 4 > ram.size()) {
+            return "?";
+        }
+        std::uint32_t fn;
+        std::memcpy(&fn, ram.data() + at, 4);
+        const char* name = openrac_guest_function_name(fn);
+        return std::format("{:#x} {}", fn, name != nullptr ? name : "(no C)");
+    };
+    constexpr float kNear = 6.0f;
+    std::array<int, 256> counts{};
+    std::string near;
+    int listed = 0;
+    for (const State::Particle& p : g->particles) {
+        const std::uint8_t* r = p.record.data();
+        ++counts[r[0]];
+        if (hero == nullptr || listed >= 40) {
+            continue;
+        }
+        float pos[3];
+        std::memcpy(pos, r + 0x10, sizeof(pos));
+        const float dx = pos[0] - hero->matrix[12], dy = pos[1] - hero->matrix[13],
+                    dz = pos[2] - hero->matrix[14];
+        if (!(dx * dx + dy * dy + dz * dz < kNear * kNear)) {
+            continue;
+        }
+        std::string hex;
+        for (std::size_t i = 0; i < p.record.size(); ++i) {
+            hex += std::format("{:02x}", r[i]);
+        }
+        near += std::format(
+            "{}{{\"type\":{},\"pixels\":\"{:x}\",\"clut\":\"{:x}\",\"record\":\"{}\"}}",
+            listed ? "," : "",
+            r[0],
+            p.pixels,
+            p.clut,
+            hex
+        );
+        ++listed;
+    }
+    std::string out = "{\"types\":[";
+    bool first = true;
+    for (unsigned t = 0; t < counts.size(); ++t) {
+        if (counts[t] == 0) {
+            continue;
+        }
+        out += std::format(
+            "{}{{\"type\":{},\"count\":{},\"update\":\"{}\"}}",
+            first ? "" : ",",
+            t,
+            counts[t],
+            callback(t)
+        );
+        first = false;
+    }
+    out += "],\"near\":[" + near + "]}";
+    effects_dump::particles(std::move(out));
+}
+
 }  // namespace
 
 // The frame's particles as effect quads, as the game's VU1 sprite program draws them (ReRAC's
@@ -665,6 +741,9 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
         ++texture_resolves;
         return particle_texture(ram, pixels, palette);
     };
+    if (effects_dump::armed()) {
+        note_particles(ram, state);
+    }
     for (const State::Particle& p : g->particles) {
         const std::uint8_t* r = p.record.data();
         const int kind = r[1] & 3;

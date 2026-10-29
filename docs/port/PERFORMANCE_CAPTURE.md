@@ -18,8 +18,8 @@ While it records, a red `REC` line shows at the top and the debug panel is hidde
 Paused frames and movies are not counted.
 
 When it finishes, the report is **copied to the clipboard** and saved as
-`perf_<game>_<date>-<time>.zip`, which holds the report (`.md`) and every frame (`.jsonl`).
-Send the whole zip.
+`perf_<game>_<date>-<time>.zip`, which holds the report (`.md`), every frame (`.jsonl`)
+and snapshots of the game's state (`_effects.json`, below). Send the whole zip.
 
 - Android: the **Diagnostics recordings** folder in the Files app.
 - Desktop: `perf/` next to the game.
@@ -52,6 +52,18 @@ weak phone. Works on Linux, Android and macOS.
 - **Hot functions** (Linux and Android): the 30 functions each thread spends the most time
   in, found by sampling.
 
+## Snapshots of the game's state
+
+`_effects.json` holds a snapshot every 20 frames (the last 400), to help find a picture or
+gameplay bug. Each one lists:
+
+- the effect strips and quads drawn within 6 units of Ratchet (GS state, bounds, colours,
+  distance);
+- the particles by type, with the update each type runs, and the full records of those near
+  Ratchet;
+- the game's own notes. RAC1: the moby table's free slots and spawned classes, and the
+  collision queries that started within 3 units of Ratchet in the last tick, with their result.
+
 ## What is measured, and where
 
 | | Desktop | Android |
@@ -83,3 +95,7 @@ The report tells you *which* part is slow. To look inside it:
   saving and copying.
 - [common/sampler.h](../../port/common/sampler.h): hot functions.
 - [common/slow_cpu.h](../../port/common/slow_cpu.h): slow CPU simulation.
+- [game/common/frontend/effects_dump.h](../../port/game/common/frontend/effects_dump.h): the
+  snapshots; the game's notes come from `GameProfile::diagnostics` (RAC1:
+  [game/rac1/profile.cpp](../../port/game/rac1/profile.cpp),
+  [host/collision_notes.h](../../port/game/rac1/host/collision_notes.h)).

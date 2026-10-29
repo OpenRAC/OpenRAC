@@ -92,7 +92,7 @@ CPU core at a time. Options:
 Nothing the extractor writes is kept in git, so a fresh checkout has none
 of it: run the command above to make it. The same disc always gives
 byte-identical files. To rebuild a project, delete its directory and run
-the command again (in the launcher: **Reset the level editor**, below); the extractor never overwrites an existing directory.
+the command again (in the launcher: **Delete the level project**, below, or **Export the levels again**, which keeps your edits); the extractor never overwrites an existing directory.
 Godot rebuilds its import cache (`.godot/`) the next time it opens the
 project.
 
@@ -110,20 +110,33 @@ WorldEnvironment, for instance), so after updating it, move your changes
 into the new scene instead. Godot saves a scene as text, so a diff
 against a fresh export shows each edit.
 
-## Start over
+## Your levels
 
-The launcher's **Mods** page has a **Start over** panel at the bottom of the
-**Level editor** tab, for levels that look wrong or an editor to begin again
-with. Each button asks first, listing what goes, with its size, and what stays.
-Neither runs while the game or another task does. Close Godot first.
+The launcher's **Mods** page, **Level editor** tab, has a status panel that
+says where you are (no levels yet, ready to edit, changes to pack, packed, or
+needs an update) and offers the next step as its main button. While a step
+runs, a bar says which one and how far along it is, by level ("Reading levels,
+Kerwan, 3 of 18"), from the tools' `openrac-progress:` lines
+([progress_line.py](progress_line.py)). Under it, always open, **Your levels**
+holds what can be done with the levels there. Each button but Pack again asks
+first, saying what goes or is replaced and what stays. None runs while the game
+or another task does. Close Godot first.
 
-- **Read the levels again** deletes the game's copy of the levels (what Play
+- **Pack again** packs what you saved in Godot now, even when the launcher saw
+  no change.
+- **Export the levels again** (`extract.py godot … --again`) reads every level
+  from your disc into its Godot project again, even an up-to-date one: the
+  projects there move to `<disc>-backups/<time>/` first, with your edits, and
+  your moby edits are carried onto the fresh ones as an update does (Ratchet &
+  Clank's; [carry.py](carry.py)). What cannot be carried is listed, to redo by
+  hand. Your packed levels, edits, packs and saves are kept.
+- **Read the game's levels again** deletes the game's copy of the levels (what Play
   and Models and textures read, with its `levels-<format>.json` and
   `verified-<format>.json` stamps and its visibility data) and the enhanced
   lighting baked from it, then reads the levels from the disc again straight
   away. The Godot projects, your packed levels, edits, packs, exports and
   saves are kept.
-- **Reset the level editor** deletes the Godot projects of that disc (with
+- **Delete the level project** deletes the Godot projects of that disc (with
   Godot's import cache, and any change saved in Godot but not packed) and the
   models and textures exported for the game. **Open in Godot** then reads
   fresh copies from the disc. A tick box, off at first, also deletes your own
@@ -214,12 +227,25 @@ the disc it was packed from only; the
 Mods page stacks it for that disc and leaves it out for the other
 ([overrides.py](overrides.py)).
 
-After updating from a packer that targeted PAL's 50 Hz copy, run **Extract the
-levels** again. Old PAL projects are backed up with their edits and replaced by
-60 Hz projects; reapply the intended edits there, then pack. Do not copy whole
-old scenes back: they contain different unedited gameplay values too. Packing
-an old PAL project is refused with this explanation. Renaming an old WAD does
-not update its sector mapping. NTSC-U projects do not need this migration.
+A PAL project made before this read the 50 Hz copy. The launcher says so
+("Your levels need an update") and its **Update project** runs **Extract the
+levels** again: each old project moves to `<disc>-backups/<time>/` and a 60 Hz
+one takes its place, then [carry.py](carry.py) carries your edits over. It
+compares the old scene with the 50 Hz copy it was read from, the way the packer
+does, and makes the same changes in the new scene: mobys moved, turned, scaled,
+given another class or other values (pvars and links included), added or
+deleted. It never copies the whole old scene, whose unedited gameplay values
+are the 50 Hz ones. What it cannot carry (cameras, volumes, sounds, paths, moby
+groups, level settings, ties and shrubs, collision, imported static models) is
+listed per level in `carried.json` beside the new scene, and on the launcher's
+panel, to redo by hand. Packing an old PAL project is refused with the code
+`project-outdated-gameplay`. Renaming an old WAD does not update its sector
+mapping. NTSC-U projects do not need this migration.
+
+Every tool says why it stopped as `openrac-error: <code>` on a line of its own
+before its message ([errors.py](errors.py)); the launcher shows the sentence it
+has for that code (launcher/src/lib/toolErrors.ts) and keeps the message for
+"Show details".
 
 The disc image is never written. The native port reads the folder with
 `--mods assets/packed/rac1/pal` and serves those sectors from the files
@@ -442,6 +468,8 @@ and packed back like the mobys ([gamedata.py](gamedata.py); the formats are in
 | `Game/Volumes/Cuboids/Cuboid_NNNN`, `Spheres`, `Cylinders`, `Pills` | the unit shape through the record's matrix, translucent (hidden until you show `Volumes`) | moved, turned, scaled, added |
 | `Game/Paths/Path_NNNN` | a `Path3D`: the points in its curve, `rc1_w` each point's fourth float | points moved, added or removed; paths added |
 | `Game/GrindPaths/GrindPath_NNNN` | as paths, with `rc1_bounding_sphere` (x, y, z, r) and `rc1_flag` | the same |
+
+`rc1_background` is the colour the game clears the frame to before it draws the sky (SetBackgroundColor). It is not a sky tint: it shows only where the sky's shells leave gaps or are see-through. In 15 of the 19 levels the sky's first shell is an opaque dome coloured per vertex (Novalis, Kerwan, Pokitaru and most others), which hides the background completely; there the sky's colour is that dome's, part of the sky model. The background shows in Rilgar and Umbris, and below the horizon in Orxon and Quartu. `rc1_background` and `rc1_fog_colour` take red, green and blue from 0 to 255. The editor's sky panorama is baked over the background when the level is extracted, so an edit shows in the game, not in the editor's sky until the next extraction.
 
 On a moby, camera or sound with a pvar block (its class's private
 variables, `rc1_pvar_index`):
@@ -774,7 +802,8 @@ Approximations:
   left out of an animation. The two helper classes 1 and 2, which animate
   joints of another skeleton, stay static. The gadget classes (the wrench
   and weapons in Ratchet's hand) are not extracted.
-- The sky is baked into a 2048×1024 panorama. The game centres its sky
+- The sky is baked into a 2048×1024 panorama, over the level settings'
+  background colour (what the game clears to). The game centres its sky
   shells on the camera and never moves them, so a panorama loses nothing.
   Their blending follows the PS2's usual texture and alpha modes, which is
   inferred rather than traced in the game's code. Sprites the game adds

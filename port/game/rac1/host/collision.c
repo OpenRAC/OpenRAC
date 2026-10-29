@@ -44,6 +44,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "collision_notes.h"
+#include "openrac/game_host.h"
 #include "openrac/host_env.h"
 #include "openrac/ps2float.h"
 #include "rac1.h"
@@ -1762,6 +1764,77 @@ static void trace(int kind, int hit) {
 
 /* ---- The entry points ---- */
 
+/* Developer tools: a query that starts near the watched point (collision_notes.h) is noted. */
+static OpenracCollWatch g_watch;
+
+/* Whether a recording watches the queries. Hands the watch to the profile first, which turns it
+ * on. */
+static inline int watching(void) {
+    openrac_game_diagnostics = &g_watch;
+    return g_watch.rr > 0.0f;
+}
+
+static void note(
+    uint32_t entry,
+    const Ctx* x,
+    const float a[3],
+    const float b[3],
+    uint32_t fl,
+    gaddr ignore,
+    gaddr tmpl,
+    int r
+) {
+    OpenracCollWatch* w = &g_watch;
+    w->calls++;
+    w->hits += r != 0;
+    const float dx = a[0] - w->point[0], dy = a[1] - w->point[1], dz = a[2] - w->point[2];
+    if (!(dx * dx + dy * dy + dz * dz < w->rr) || w->count >= 16) {
+        return;
+    }
+    OpenracCollNote* n = &w->notes[w->count++];
+    n->entry = entry;
+    n->flags = fl;
+    n->ignore = ignore;
+    n->ignore_word = ignore != 0 ? U32(ignore) : 0;
+    n->tmpl = tmpl;
+    n->result = (uint32_t)r;
+    n->out = x->out;
+    memcpy(n->a, a, sizeof n->a);
+    memcpy(n->b, b, sizeof n->b);
+    memcpy(n->output, G(x->out + 0x18), sizeof n->output);
+}
+
+static void note_line(
+    uint32_t entry, const Ctx* x, gaddr pa, gaddr pb, int fl, int ignore, int tmpl, int r
+) {
+    if (!watching()) {
+        return;
+    }
+    float a[3], b[3];
+    memcpy(a, G(pa), sizeof a);
+    memcpy(b, G(pb), sizeof b);
+    note(entry, x, a, b, (uint32_t)fl, (gaddr)ignore, (gaddr)tmpl, r);
+}
+
+static void note_volume(
+    uint32_t entry,
+    const Ctx* x,
+    gaddr centre,
+    float radius,
+    float height,
+    int fl,
+    gaddr ignore,
+    int r
+) {
+    if (!watching()) {
+        return;
+    }
+    float a[3];
+    const float b[3] = {radius, height, 0.0f};
+    memcpy(a, G(centre), sizeof a);
+    note(entry, x, a, b, (uint32_t)fl, ignore, 0, r);
+}
+
 /* The globals of the level program loaded: level 0's addresses moved to the loaded level's. */
 static const Ctx* level_ctx(void) {
     static Ctx x;
@@ -1782,6 +1855,7 @@ int func_001EFE10(gaddr a0, gaddr a1, int a2, int a3, int a4) {
     const Ctx* x = openrac_game_loaded_overlay() >= 0 ? level_ctx() : &BOOT;
     const int r = coll_line(x, a0, a1, (uint32_t)a2, (gaddr)a3, (gaddr)a4);
     trace(5, r);
+    note_line(5, x, a0, a1, a2, a3, a4, r);
     fesetround(fr);
     return r;
 }
@@ -1796,8 +1870,10 @@ int func_L00_001EFFF0(gaddr a0, gaddr a1, int a2, int a3, int a4) {
     }
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
-    const int r = coll_line(level_ctx(), a0, a1, (uint32_t)a2, (gaddr)a3, (gaddr)a4);
+    const Ctx* x = level_ctx();
+    const int r = coll_line(x, a0, a1, (uint32_t)a2, (gaddr)a3, (gaddr)a4);
     trace(0, r);
+    note_line(0, x, a0, a1, a2, a3, a4, r);
     fesetround(fr);
     return r;
 }
@@ -1807,8 +1883,10 @@ int func_L00_001EFFF0(gaddr a0, gaddr a1, int a2, int a3, int a4) {
 int func_L00_001F10E0(float a0, gaddr a1, int a2, gaddr a3) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
-    const int r = coll_volume(level_ctx(), a0, 0.0f, a1, (uint32_t)a2, a3, 0);
+    const Ctx* x = level_ctx();
+    const int r = coll_volume(x, a0, 0.0f, a1, (uint32_t)a2, a3, 0);
     trace(1, r);
+    note_volume(1, x, a1, a0, 0.0f, a2, a3, r);
     fesetround(fr);
     return r;
 }
@@ -1817,8 +1895,10 @@ int func_L00_001F10E0(float a0, gaddr a1, int a2, gaddr a3) {
 int func_L00_001F1D20(float a0, float a1, gaddr a2, int a3, int a4) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
-    const int r = coll_volume(level_ctx(), a0, a1, a2, (uint32_t)a3, (gaddr)a4, 1);
+    const Ctx* x = level_ctx();
+    const int r = coll_volume(x, a0, a1, a2, (uint32_t)a3, (gaddr)a4, 1);
     trace(2, r);
+    note_volume(2, x, a2, a0, a1, a3, (gaddr)a4, r);
     fesetround(fr);
     return r;
 }

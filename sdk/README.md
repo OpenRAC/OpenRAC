@@ -170,7 +170,9 @@ mod out as its archive holds it in `build/package/<target>/`: the manifest
 with its `plugin` naming this platform's library (`lib/<platform>/<file>`),
 the library, and the README and LICENSE beside the manifest. The platforms are
 `macos-arm64`, `macos-x86_64`, `linux-x86_64`, `linux-aarch64`,
-`windows-x86_64` and `windows-arm64`.
+`windows-x86_64`, `windows-arm64` and `android-arm64` (the NDK's toolchain
+file: `-DCMAKE_TOOLCHAIN_FILE=<NDK>/build/cmake/android.toolchain.cmake
+-DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28`).
 
 ## Packaging
 

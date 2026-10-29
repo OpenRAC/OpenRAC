@@ -31,6 +31,7 @@
 #include "common/system_info.h"
 #include "common/zip_writer.h"
 #include "debug/overlay.h"
+#include "game/common/frontend/effects_dump.h"
 #include "openrac/game_host.h"
 #include "options_menu.h"
 #include "renderer/gl.h"
@@ -127,6 +128,7 @@ void begin_capture(const Shown& shown, double seconds, std::string path) {
         return;
     }
     c.path = std::move(path);
+    effects_dump::arm(true);  // snapshots of effects and the game's notes (effects_dump.h)
     sampler::start();  // where the window and render threads' time goes (common/sampler.h)
     c.clocks_at_start = system_info::cpu_clocks();
     c.thermal_at_start = system_info::thermal();
@@ -310,6 +312,11 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
         if (c.opened_dump) {
             entries.push_back({base + ".jsonl", file_bytes(frames)});
         }
+        if (const std::string effects = effects_dump::latest(); !effects.empty()) {
+            entries.push_back(
+                {base + "_effects.json", std::vector<std::uint8_t>(effects.begin(), effects.end())}
+            );
+        }
         std::string error;
         const std::filesystem::path zip = dir / (base + ".zip");
         written = zip_writer::write(zip, entries, deflate, error);
@@ -327,6 +334,7 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
         }
     }
     c.opened_dump = false;
+    effects_dump::arm(false);
     if (!written) {
         if (std::ofstream out(path, std::ios::binary); out) {
             out << report;

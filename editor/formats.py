@@ -11,7 +11,15 @@ import zlib
 
 
 class FormatError(ValueError):
-    """Data outside the layouts this extractor supports."""
+    """Data outside the layouts this extractor supports, or a request the tools refuse.
+
+    CODE names the case for the launcher, which says it in a player's words
+    (launcher/src/lib/toolErrors.ts) and keeps the message for "Show details": a refusal it can
+    explain gets a code of its own; one without is a damaged or unexpected disc ("disc-data")."""
+
+    def __init__(self, message: str, code: str | None = None):
+        super().__init__(message)
+        self.code = code
 
 
 def check(ok: bool, message: str) -> None:

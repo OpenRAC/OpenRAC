@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -61,6 +62,16 @@ struct GameState {
     float fog_near_f = 255.0f;  // F at the near depth.
     float fog_far_f = 255.0f;   // F at the far depth.
 
+    // The colour the game clears the frame to (SetBackgroundColor, the level settings' background
+    // the gameplay loader leaves in the view context): what shows wherever no sky shell covers.
+    // Display bytes, 0..1. Unset when the program keeps none: the level's own colour stands in.
+    std::optional<std::array<float, 3>> background_colour;
+
+    // Returns the colour to clear the frame to: the game's when it gave one, else `fallback`.
+    std::array<float, 3> background_or(const std::array<float, 3>& fallback) const {
+        return background_colour ? *background_colour : fallback;
+    }
+
     // Returns the camera's view matrix, in the renderer's convention (looking down -Z, Y up).
     renderer::Mat4 view() const { return renderer::look_along(camera_position, forward, up); }
 
@@ -71,6 +82,14 @@ struct GameState {
             2.0f * std::atan(tan_half_fov_y), aspect, near_z, far_z
         );
     }
+};
+
+// What a profile's diagnostics get from the running program beside the game's memory.
+struct DiagnosticsInput {
+    // An executable address to the loaded program's copy of it.
+    std::uint32_t (*relocate)(std::uint32_t address) = nullptr;
+    // What the game's host C keeps for them (openrac_game_diagnostics, game_host.h), or null.
+    void* game = nullptr;
 };
 
 // What one game version tells the host program about its memory.
@@ -135,6 +154,26 @@ public:
 
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
+
+    // Returns the executable's address of the particle updates, one per particle type byte
+    // (relocated when read); 0 for a game without them.
+    virtual std::uint32_t particle_updates() const { return 0; }
+
+    // Developer tools: what of the game's state a diagnostics recording carries beside its
+    // snapshots, as a JSON value ("" for nothing), read each tick from `ram` and the tick's `state`
+    // while a recording runs. It may watch the next tick through `input.game`; diagnostics_off()
+    // stops that.
+    virtual std::string diagnostics(
+        std::span<const std::uint8_t> /*ram*/,
+        int /*level*/,
+        const GameState& /*state*/,
+        const DiagnosticsInput& /*input*/
+    ) const {
+        return {};
+    }
+
+    // Developer tools: the recording has ended; what diagnostics() watched is let go.
+    virtual void diagnostics_off(const DiagnosticsInput& /*input*/) const {}
 };
 
 // Returns the profile of the game version `game` (its port id, "rac1-pal"), which lives as long as

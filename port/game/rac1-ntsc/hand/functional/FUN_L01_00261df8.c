@@ -29,7 +29,7 @@ void FUN_L01_00261df8(float *arg0) {
     float k65 = 65536.5f;
     float cc = 1.0f;
     union { unsigned int u; float f; } bits;
-    float k3 = 3.25f;
+    float k3 = 4.25f; /* vaddx.w $vf14, $vf0, 3.25: $vf0.w is 1, so 4.25 */
     float *hrow = (float *)0x70000070;
     float *uvp = (float *)0x70000780;
     unsigned int *colp = (unsigned int *)0x70001088;
@@ -92,7 +92,7 @@ void FUN_L01_00261df8(float *arg0) {
             ez = eye[2] - pz;
             sq2 = (ex * ex + ey * ey) + 1.0f * (ez * ez);
             q2 = 1.0f / sqrtf(sq2);
-            /* shade = clamp((dot(light, -n) - cc) * 3.25 + cc, 0, 1) */
+            /* shade = clamp((dot(light, -n) - cc) * 4.25 + cc, 0, 1) */
             t = (c21[0] * lx + c21[1] * ly) + 1.0f * (c21[2] * lz);
             t = t - cc;
             t = t * k3;

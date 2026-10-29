@@ -7,7 +7,7 @@ RGBA colour per vertex (Wrench reads those as coordinates too).
 """
 
 from array import array
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 import struct
 
@@ -19,7 +19,9 @@ from util import cross
 
 @dataclass
 class Sky:
-    background: tuple[int, int, int]   # Header +0: shows where no shell covers.
+    # Where no shell covers. sky() reads the sky header's +0, which the game's draw never reads;
+    # level_sky() puts the game's real clear colour here (clear_colour).
+    background: tuple[int, int, int]
     textures: list[Texture]
     shells: list[Mesh]                 # Drawn in order, each blended over the last.
 
@@ -81,6 +83,32 @@ def sky(data: bytes, fmt: games.Format = games.RAC1) -> Sky:
                 mesh.add_face(None if texture == 0xff else ("sky", texture), (first + c, first + b, first + a))
         result.shells.append(mesh)
     return result
+
+
+def clear_colour(gameplay: bytes, fmt: games.Format = games.RAC1) -> tuple[int, int, int] | None:
+    """The colour Ratchet & Clank clears the frame to, behind the sky: the level settings'
+    background (the gameplay file's first section, three s32, rc1_background in the editor).
+
+    The gameplay loader hands it to SetBackgroundColor, whose RGBAQ is the frame clear packet's
+    colour; the sky header's +0 is not used for it. None for the later games (their settings are
+    laid out differently) or a gameplay file without the section.
+    """
+    if fmt.game != "rac1" or len(gameplay) < 4:
+        return None
+    at, = struct.unpack_from("<i", gameplay, 0)
+    if at <= 0 or at + 12 > len(gameplay):
+        return None
+    return tuple(v & 0xFF for v in struct.unpack_from("<3i", gameplay, at))
+
+
+def level_sky(level, fmt: games.Format = games.RAC1) -> Sky | None:
+    """The level's sky (core index +0x10), over the colour the game clears to; None without one."""
+    sky_offset, = unpack("<I", level.index, 0x10)
+    if not sky_offset:
+        return None
+    data = sky(level.block(sky_offset), fmt)
+    background = clear_colour(level.gameplay, fmt)
+    return data if background is None else replace(data, background=background)
 
 
 def unit(p):

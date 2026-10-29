@@ -12,6 +12,9 @@
 #else
 #include <dlfcn.h>
 #endif
+#if defined(__ANDROID__)
+#include <sys/stat.h>
+#endif
 
 namespace openrac::mods::library {
 
@@ -58,6 +61,11 @@ const void* base_of(const void* address) {
 #else
 
 void* open(const std::filesystem::path& path, std::string& error) {
+#if defined(__ANDROID__)
+    // Android 14 loads code from the app's own files only when they are read-only. The launcher
+    // replaces a mod's folder whole when it updates it, so the library itself never changes.
+    chmod(path.c_str(), 0500);
+#endif
     void* library = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (library == nullptr) {
         const char* why = dlerror();

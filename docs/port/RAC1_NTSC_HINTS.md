@@ -233,8 +233,8 @@ See 4.3.
 - **Where.** The follow camera's per-frame update, `FUN_001edaa8`, and the
   hero state machine (`FUN_L00_002070d0`, hero_frame_update, and
   `FUN_L00_00217970`, the state update); the steering helper
-  `game_FUN_L00_001eb328` in `host/camera.c` is the camera code the port
-  replaces by hand.
+  `FUN_L00_001eb328` (rope_spring_turn) now runs the NTSC decomp's matched C,
+  no longer the port's own.
 - **Port today.** Unknown.
 
 ### 2.4 A cutscene that starts during a strafe keeps the strafe pose

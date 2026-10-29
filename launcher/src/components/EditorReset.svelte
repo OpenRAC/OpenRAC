@@ -1,11 +1,13 @@
 <script lang="ts">
-  // The Level editor tab's "Start over": two rows under the editor's steps, each a button that asks
-  // first, in a dialog that lists what goes, with its size, and what stays.
-  // - Read the levels again: the game's copy of the levels (and the lighting baked from them) goes,
-  //   then is read from the disc at once, as a job like any other (Activity shows it).
-  // - Reset the level editor: the Godot projects and the exported models and textures go; with the
-  //   tick box, unticked at first, the player's own packed levels, edits and packs too. Opening a
-  //   level afterwards reads fresh copies from the disc.
+  // The Level editor tab's resets, rows of the panel's Your levels section, each a button that
+  // asks first, in a dialog that lists what goes, with its size, and what stays.
+  // - Read the game's levels again: the game's copy of the levels (and the lighting baked from
+  //   them) goes, then is read from the disc at once, as a job like any other (Activity shows it).
+  // - Delete the level project: the Godot projects and the exported models and textures go; with
+  //   the tick box, unticked at first, the player's own packed levels, edits and packs too. Opening
+  //   a level afterwards reads fresh copies from the disc.
+  // The panel's own rows (`rows`) come first in the same list, and Export the levels again asks
+  // here too (`exportAgain`, askExport), in the same kind of dialog: what is replaced, what is kept.
   // The folders are chosen and checked by the core (core/src/reset.rs); this page sends the version
   // and the choice, never a path. Neither runs while the game or a job does. The words are
   // lib/editorReset.ts's; what the core says when it fails goes to the log, not to the player.
@@ -24,12 +26,42 @@
     theirParts,
     total,
   } from "$lib/editorReset";
+  import { EXPORT_AGAIN } from "$lib/editorFlow";
   import { size } from "$lib/format";
-  import { hidePaths } from "$lib/paths";
   import { modal } from "$lib/portal";
+  import type { Snippet } from "svelte";
   import Icon from "./Icon.svelte";
+  import JobProgress from "./JobProgress.svelte";
 
-  let { version, onchanged }: { version: VersionView; onchanged?: () => void } = $props();
+  // `bare`: inside the status panel's Your levels section (EditorFlow.svelte), which names it: no
+  // panel or title of its own.
+  let {
+    version,
+    onchanged,
+    bare = false,
+    rows,
+    exportAgain,
+  }: {
+    version: VersionView;
+    onchanged?: () => void;
+    bare?: boolean;
+    rows?: Snippet;
+    /** Export the levels again: whether this game's changes are carried over, and the step itself. */
+    exportAgain?: { carries: boolean; run: () => void };
+  } = $props();
+
+  /** The export-again dialog, while it is open. */
+  let exporting = $state(false);
+  export function askExport() {
+    if (!asking && exportAgain) exporting = true;
+  }
+  function closeExport() {
+    exporting = false;
+  }
+  function confirmExport() {
+    exporting = false;
+    exportAgain?.run();
+  }
 
   const developer = $derived(app.config?.developer ?? false);
   const action = (v: VersionView, id: string) => v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
@@ -112,22 +144,26 @@
 
   function onkeydown(e: KeyboardEvent) {
     if (e.key === "Escape" && asking) close();
+    if (e.key === "Escape" && exporting) closeExport();
   }
 </script>
 
 <svelte:window {onkeydown} />
 
-<section class="panel start-over" aria-labelledby="start-over-title">
-  <h2 id="start-over-title">{RESET.title}</h2>
-  <p class="muted lead">{RESET.lead}</p>
+<section class="start-over" class:panel={!bare} class:bare aria-label={bare ? undefined : RESET.title}>
+  {#if !bare}
+    <h2>{RESET.title}</h2>
+    <p class="muted lead">{RESET.lead}</p>
+  {/if}
   <ul>
+    {@render rows?.()}
     {#if levels}
       <li>
         <div class="text">
           <h3>{RESET.levelsTitle}</h3>
           <p class="muted">
             {#if reading}
-              {reading.title}: {hidePaths(reading.lines.at(-1)?.line ?? "…").text}
+              {RESET.reading}
             {:else if noDisc}
               {RESET.noDisc}
             {:else if blocked}
@@ -140,6 +176,7 @@
         <button class="small" disabled={!!blocked || noDisc || !!asking} onclick={() => void ask("levels")}>
           {#if reading}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}{RESET.levelsButton}
         </button>
+        {#if reading}<div class="job"><JobProgress job={reading} plain /></div>{/if}
       </li>
     {/if}
     <li>
@@ -217,6 +254,25 @@
   </div>
 {/if}
 
+{#if exporting}
+  <div class="overlay" role="presentation" use:modal>
+    <button class="backdrop" onclick={closeExport} tabindex="-1" aria-label={EXPORT_AGAIN.cancel}></button>
+    <div class="dialog rise" role="dialog" aria-modal="true" aria-labelledby="export-title" tabindex="-1">
+      <h2 id="export-title">{EXPORT_AGAIN.title}</h2>
+      <h3>{RESET.replaced}</h3>
+      <p class="kept">{EXPORT_AGAIN.replaced}</p>
+      <p class="kept">{exportAgain?.carries ? EXPORT_AGAIN.carried : EXPORT_AGAIN.carriedLater}</p>
+      <h3>{RESET.keeps}</h3>
+      <p class="muted kept">{EXPORT_AGAIN.kept}</p>
+      <p class="muted"><Icon name="info" size={14} /> {EXPORT_AGAIN.closeGodot}</p>
+      <div class="actions">
+        <button class="ghost" onclick={closeExport}>{EXPORT_AGAIN.cancel}</button>
+        <button class="primary" onclick={confirmExport}><Icon name="refresh" size={16} />{EXPORT_AGAIN.confirm}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .start-over {
     display: flex;
@@ -239,35 +295,35 @@
     list-style: none;
   }
 
-  .start-over li {
+  .start-over :global(li) {
     display: flex;
     align-items: center;
     gap: 8px 16px;
     padding: 10px 0;
   }
 
-  .start-over li + li {
+  .start-over :global(li + li) {
     border-top: 1px solid var(--line);
   }
 
-  .text {
-    flex: 1 1 0;
+  .start-over :global(.text) {
+    flex: 1 1 220px;
     min-width: 0;
   }
 
-  .text h3 {
+  .start-over :global(.text h3) {
     font-family: var(--font-sans);
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--text);
   }
 
-  .text p {
+  .start-over :global(.text p) {
     margin: 2px 0 0;
     font-size: 0.8125rem;
   }
 
-  .start-over li > button {
+  .start-over :global(li > button) {
     flex: none;
     min-width: 120px;
     justify-content: center;
@@ -418,6 +474,21 @@
   .grow {
     flex: 1 1 auto;
     font-size: 0.875rem;
+  }
+
+  .start-over :global(li) {
+    flex-wrap: wrap;
+  }
+
+  .job {
+    flex: 1 1 100%;
+  }
+
+  @media (max-width: 600px) {
+    .start-over :global(li > button) {
+      flex: 1 1 100%;
+      min-height: 44px;
+    }
   }
 
   .danger-solid {

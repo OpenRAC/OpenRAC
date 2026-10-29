@@ -122,9 +122,9 @@ void func_L00_002E9A88(float a, float b) {
 #endif
 
 #if !RAC1_OMIT(func_L05_0031AAA8)
-/* func_L05_0031AAA8 (levels 5 and 16; no C in the decompilation): the moby of the class list
- * D_L05_001AC040[moby +0x21] (moby indices, the last with its top bit set) whose variables
- * (+0x78) hold ID at +0xB4, or 0. Level 16's copy compares +0xAC. */
+/* func_L16_002E6048, level 16's copy of FindMobyByDataId (func_L05_0031AAA8, whose matched C the
+ * levels it is placed in run): the moby of the class list D_L05_001AC040[moby +0x21] (moby indices,
+ * the last with its top bit set) whose variables (+0x78) hold ID at +0xAC, not +0xB4, or 0. */
 static gaddr moby_with_id(gaddr moby, int id, uint32_t field) {
     const gaddr list = GREF(gaddr, OPENRAC_LDATA(5, RAC1_LADDR(05, 0x001AC040u)) + 4u * GREF(uint8_t, moby + 0x21));
     if (list == 0) {
@@ -143,7 +143,6 @@ static gaddr moby_with_id(gaddr moby, int id, uint32_t field) {
     }
 }
 
-gaddr func_L05_0031AAA8(gaddr moby, int id) { return moby_with_id(moby, id, 0xB4); }
 gaddr func_L16_002E6048(gaddr moby, int id) { return moby_with_id(moby, id, 0xAC); }
 #endif
 

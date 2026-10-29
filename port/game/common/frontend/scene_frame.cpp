@@ -272,17 +272,17 @@ void set_camera(SceneFrame& frame) {
     );
     camera.position = state.camera_position;
     // No camera yet (loading, fades between programs): a black frame, not the level's background.
-    // Nor one the guard refuses with no good one to draw instead.
+    // Nor one the guard refuses with no good one to draw instead. With one, the colour the game
+    // clears to (the level settings' background, which a mod can change), else the extracted
+    // level's.
     const std::optional<renderer::Camera> drawn =
         scene.has_camera ? guard_camera(owner, state, camera, scene.frame) : std::nullopt;
     const bool has_camera = drawn.has_value();
     frame.has_camera = has_camera;
-    input.clear_colour =
-        has_camera
-            ? std::array<
-                  float,
-                  4>{owner.level.background[0], owner.level.background[1], owner.level.background[2], 1}
-            : std::array<float, 4>{0, 0, 0, 1};
+    const auto background = scene.state.background_or(owner.level.background);
+    input.clear_colour = has_camera
+                             ? std::array<float, 4>{background[0], background[1], background[2], 1}
+                             : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
     input.camera = drawn.value_or(camera);
     owner.scene.choose_scenery(

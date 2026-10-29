@@ -48,10 +48,96 @@ const LEFT = /\(((?:about|less than) [^)]* left)\)\s*$/;
 
 const clamp = (n: number) => Math.min(100, Math.max(0, n));
 
+// ---- The editor's tools: one line per step of work (editor/progress_line.py) ----
+
+/** The line a tool says how far along it is on (editor/progress_line.py LINE). */
+export const PROGRESS_LINE = "openrac-progress: ";
+
+/** Each step a tool counts, in a player's words (editor/test_progress_line.py checks the list). */
+export const STEP_WORDS: Record<string, string> = {
+  read: "Reading levels",
+  project: "Making the Godot project",
+  carry: "Carrying your changes over",
+  pack: "Packing",
+  visibility: "Adding what the game can see",
+  textures: "Showing your packs' textures",
+};
+
+export interface ToolProgress {
+  /** The tool's step, as it said it ("read"). */
+  step: string;
+  /** The step in a player's words. */
+  words: string;
+  /** Done and total, when the step is counted; null for a step that is not (a bar without an end). */
+  done: number | null;
+  total: number | null;
+  /** The level the newest item was, by number. */
+  level: number | null;
+}
+
+const STEP_LINE = /^([a-z]+)(?: (\d+)\/(\d+)(?: (\d+))?)?$/;
+
+/** One progress line read, or null for any other line (or a step this launcher does not know). */
+export function parseProgress(line: string): ToolProgress | null {
+  if (!line.startsWith(PROGRESS_LINE)) return null;
+  const m = STEP_LINE.exec(line.slice(PROGRESS_LINE.length).trim());
+  const step = m?.[1];
+  if (!m || !step || !(step in STEP_WORDS)) return null;
+  const n = (s: string | undefined) => (s === undefined ? null : Number(s));
+  const done = n(m[2]);
+  const total = n(m[3]);
+  if (done !== null && total !== null && done > total) return null;
+  return { step, words: STEP_WORDS[step] ?? step, done, total, level: n(m[4]) };
+}
+
+/** The newest progress line a job printed, or null when it printed none. */
+export function toolProgress(lines: Pick<Line, "line">[]): ToolProgress | null {
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const text = lines[i]?.line ?? "";
+    if (text.startsWith(PROGRESS_LINE)) {
+      const said = parseProgress(text);
+      if (said) return said;
+    }
+  }
+  return null;
+}
+
+/** A count's share, 0 to 100; null when the step has no count (or counts nothing). */
+export const progressPercent = (p: ToolProgress | null): number | null =>
+  p?.done != null && p.total ? clamp((p.done / p.total) * 100) : null;
+
+/** When a count was seen: what a time-left estimate starts from. */
+export interface Sample {
+  step: string;
+  done: number;
+  at: number;
+}
+
+/**
+ * How long is left, in words, from the first count seen of this step (FIRST) and the newest
+ * (NOW): null until two items are done and a few seconds have passed, so a guess from one
+ * level is never shown.
+ */
+export function timeLeft(first: Sample | null, now: Sample | null, total: number | null): string | null {
+  if (!first || !now || total === null || first.step !== now.step) return null;
+  const items = now.done - first.done;
+  const spent = now.at - first.at;
+  if (items < 2 || spent < 5_000 || now.done >= total) return null;
+  const left = (spent / items) * (total - now.done);
+  if (left < 60_000) return "less than a minute left";
+  const minutes = Math.round(left / 60_000);
+  return `about ${minutes} ${minutes === 1 ? "minute" : "minutes"} left`;
+}
+
 /** How far along a job is, from what it printed. The newest counter wins. */
 export function readProgress(actionId: string, lines: Pick<Line, "line">[]): JobProgress {
   for (let i = lines.length - 1; i >= Math.max(0, lines.length - 200); i--) {
     const text = lines[i]?.line ?? "";
+    if (text.startsWith(PROGRESS_LINE)) {
+      const said = parseProgress(text);
+      if (!said) continue;
+      return { percent: progressPercent(said), note: null };
+    }
     const n = NINJA.exec(text);
     if (n && Number(n[2]) > 0) return { percent: clamp((Number(n[1]) / Number(n[2])) * 100), note: null };
     const p = PERCENT.exec(text);
@@ -66,7 +152,10 @@ export function readProgress(actionId: string, lines: Pick<Line, "line">[]): Job
 
 /** The last COUNT lines of output, for the Details box. */
 export function tailLines(lines: Pick<Line, "line">[], count = 8): string[] {
-  return lines.slice(-count).map((l) => l.line);
+  return lines
+    .filter((l) => !l.line.startsWith(PROGRESS_LINE))
+    .slice(-count)
+    .map((l) => l.line);
 }
 
 /** What the Android notification says while the launcher works with its window closed. */

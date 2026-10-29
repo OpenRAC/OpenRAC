@@ -10,6 +10,8 @@
   import { levelName, levelsOf } from "$lib/labels";
   import { ASSETS } from "$lib/modsText";
   import { hidePaths } from "$lib/paths";
+  import type { Job } from "$lib/queue";
+  import { toolFailure } from "$lib/toolErrors";
   import CommandBox from "./CommandBox.svelte";
 
   let { version: v, onimported }: { version: VersionView; onimported?: () => void } = $props();
@@ -47,12 +49,15 @@
   );
 
   /** The last line a finished job of ACTION printed, and whether it succeeded. */
-  function ending(id: string): { line: string; ok: boolean; refused: number; folder: string | null } | null {
+  function ending(
+    id: string,
+  ): { line: string; lines: Job["lines"]; ok: boolean; refused: number; folder: string | null } | null {
     const job = jobs.list.filter((j) => j.scope.kind === "version" && j.actionId === id).at(-1);
     if (!job) return null;
     const lines = job.lines.map((l) => l.line);
     return {
       line: lines.findLast((l) => l.trim() !== "") ?? "",
+      lines: job.lines,
       ok: job.state === "succeeded",
       refused: lines.filter((l) => l.startsWith("refused: ")).length,
       folder: job.outputs[0] ?? null,
@@ -102,8 +107,9 @@
         failed: !!end?.refused,
       };
     } else {
-      const why = end?.line.replace(/^assets: /, "") ?? "";
-      said = { text: why.length > 0 ? why : ASSETS.importStopped, failed: true };
+      // In a player's words, never the tool's (lib/toolErrors.ts); Activity has what it printed.
+      const failure = toolFailure(end?.lines ?? []);
+      said = { text: `${failure.title}. ${failure.line}`, failed: true };
     }
     onimported?.();
   }

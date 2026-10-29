@@ -354,8 +354,10 @@ void scripts() {
 
 void platform() {
     const std::string p = platform_key();
-    CHECK(p == "macos-arm64" || p == "macos-x86_64" || p == "linux-x86_64" || p == "linux-aarch64"
-          || p == "windows-x86_64" || p == "windows-arm64");
+    CHECK(
+        p == "macos-arm64" || p == "macos-x86_64" || p == "linux-x86_64" || p == "linux-aarch64"
+        || p == "windows-x86_64" || p == "windows-arm64" || p == "android-arm64"
+    );
 }
 
 // ---- The shared cases ----

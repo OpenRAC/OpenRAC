@@ -1,12 +1,12 @@
-//! Starting the level editor over: the Mods page's "Start over" (src/components/EditorReset.svelte).
+//! Starting the level editor over: the resets under the Mods page's "Your levels" (src/components/EditorReset.svelte).
 //!
 //! Two resets, each for one version of a game:
 //!
-//! - [`Reset::Levels`], "Read the levels again": the game's copy of the levels (what Play and Models
+//! - [`Reset::Levels`], "Read the game's levels again": the game's copy of the levels (what Play and Models
 //!   and textures read, with its readiness stamps `levels-<format>.json` and `verified-<format>.json`
 //!   and the visibility added to it) and the enhanced lighting baked from them. The page reads them
 //!   from the disc again straight after. Nothing the player made is touched.
-//! - [`Reset::Editor`], "Reset the level editor": the Godot projects the levels were read into and
+//! - [`Reset::Editor`], "Delete the level project": the Godot projects the levels were read into and
 //!   the models and textures exported from them. With `with_edits`, also what the player made: the
 //!   packed levels and the mods put together from them, the imported edits and added packs, and the
 //!   copies of older projects the extractor kept aside.
@@ -153,6 +153,36 @@ impl Layout {
         }
     }
 
+    /// The level editor's Godot projects, one folder per level (`level_NN`).
+    pub fn projects(&self) -> PathBuf {
+        self.assets_of("levels")
+    }
+
+    /// Where the extractor keeps the projects it replaced (`<time>/level_NN`).
+    pub fn backups(&self) -> PathBuf {
+        self.projects().with_file_name(format!("{}-backups", self.version))
+    }
+
+    /// The packed levels (`changes.txt`, `packed.json`, `level_NN/`).
+    pub fn packed(&self) -> PathBuf {
+        self.assets_of("packed")
+    }
+
+    /// The game's copy of the levels (`levels-<format>.json`).
+    pub fn port(&self) -> PathBuf {
+        self.assets_of("port")
+    }
+
+    /// `rac1/pal`.
+    pub fn key(&self) -> String {
+        format!("{}/{}", self.game, self.version)
+    }
+
+    /// The version id, `pal`.
+    pub fn version(&self) -> &str {
+        &self.version
+    }
+
     /// The folders a reset may remove (they need not be there): the roots, with every folder of
     /// each part under one of them.
     fn roots(&self) -> [&Path; 2] {
@@ -185,10 +215,7 @@ impl Layout {
                 out
             }
             Part::Overrides => vec![self.data.join("overrides")],
-            Part::Backups => {
-                let projects = self.assets_of("levels");
-                vec![projects.with_file_name(format!("{v}-backups"))]
-            }
+            Part::Backups => vec![self.backups()],
         }
     }
 }

@@ -103,7 +103,7 @@ class WriterTests(unittest.TestCase):
             {"index": 1, "class_id": 99, "fields": {"spawn_id": 2, "group": -1, "pvar_index": -1, "colour": [0, 0, 0]},
              "rotation": (0.0, 0.0, 0.0), "scale": 1.0, "matrix": translated(0, 0, 0)}]
         empty_collision = SimpleNamespace(cells=0, faces=0, triangles=[], surfaces=dict, hero_groups=0)
-        with mock.patch.object(port, "sky", lambda block, *_: synthetic_sky()), \
+        with mock.patch.object(port, "level_sky", lambda level, *_: synthetic_sky()), \
                 mock.patch.object(port, "PANORAMA", (16, 8)), \
                 mock.patch.object(port, "terrain", lambda block, lod, lights=None, problems=None: [square("terrain_000", ("terrain", 0), 2.0)]), \
                 mock.patch.object(port, "tie_classes", lambda level: ties), \
