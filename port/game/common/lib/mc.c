@@ -13,6 +13,7 @@
  * (openrac_game_mc_state). The structures and codes are the
  * library's public interface as the game uses them
  * (docs/port/RAC1_PAL_SURVEY.md, section 7). */
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -195,7 +196,46 @@ static void mark_path(const char* save_path, char* out, size_t size) {
     }
 }
 
-/* Writes or removes the mark beside the save at `path`, which the game has just written. */
+/* Whether the file at `path` holds a game the player saved, rather than one of the blank slots the
+ * game writes when it makes its folder on a fresh card. The host answers it: save_info reads the
+ * save and says whether it is one the game would load (game_host.h, rac1/host/play.c). Without a
+ * host answer nothing is marked, which leaves a save plain rather than marking every slot. */
+static int is_a_players_save(const char* path) {
+    if (openrac_game_play_host == NULL || openrac_game_play_host->save_info == NULL) {
+        return 0;
+    }
+    FILE* f = fopen(path, "rb");
+    if (f == NULL) {
+        return 0;
+    }
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return 0;
+    }
+    const long size = ftell(f);
+    if (size <= 0 || fseek(f, 0, SEEK_SET) != 0) {
+        fclose(f);
+        return 0;
+    }
+    uint8_t* bytes = (uint8_t*)malloc((size_t)size);
+    if (bytes == NULL) {
+        fclose(f);
+        return 0;
+    }
+    const size_t read = fread(bytes, 1, (size_t)size, f);
+    fclose(f);
+    int32_t level = 0, bolts = 0, gold_bolts = 0, seconds = 0;
+    const int real = read == (size_t)size
+                     && openrac_game_play_host->save_info(
+                            bytes, (uint32_t)size, &level, &bolts, &gold_bolts, &seconds
+                        ) != 0;
+    free(bytes);
+    return real;
+}
+
+/* Writes or removes the mark beside the save at `path`, which the game has just written. An empty
+ * slot never keeps one: the game writes all five files when it makes its folder on a fresh card,
+ * and only the ones the player saved into are marked. */
 static void mark_save(const char* path) {
     const char* mods = openrac_game_loaded_mods != NULL ? openrac_game_loaded_mods : "[]";
     char mark[1100];
@@ -203,8 +243,9 @@ static void mark_save(const char* path) {
     if (*mark == '\0') {
         return;
     }
-    if (strcmp(mods, "[]") == 0) {
-        remove(mark); /* played without mods: the save is plain again */
+    if (strcmp(mods, "[]") == 0 || !is_a_players_save(path)) {
+        /* Played without mods, or a slot with no game in it: the save is plain. */
+        remove(mark);
         return;
     }
     char when[32];
