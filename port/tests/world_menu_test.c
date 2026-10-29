@@ -94,6 +94,8 @@ gaddr func_0020D348(int oclass) {
     const gaddr m = base + 300u * MOBY_SIZE;
     memset(G(m), 0, MOBY_SIZE);
     GREF(int16_t, m + MOBY_OCLASS) = (int16_t)oclass;
+    /* A class the level has (a bolt's) has its class header. */
+    GREF(gaddr, m + MOBY_CLASS) = oclass == 13 ? 0x00300000u : 0u;
     return m;
 }
 
@@ -277,6 +279,18 @@ int main(void) {
     memcpy(G(OPENRAC_DATA(CAMERA_POSITION)), level, sizeof level);
     CHECK(rac1_world_camera_position(at));
     CHECK(memcmp(at, level, sizeof at) == 0);
+
+    /* A moby a mod makes (a host's bolt in a member's game): updated and drawn in range as the
+     * game's spawners make theirs, not left at CreateMoby's 0 distances. */
+    const int32_t bolt = rac1_world_moby_spawn(13);
+    const gaddr made = LEVEL_ARRAY + 300u * MOBY_SIZE;
+    CHECK(bolt >= 0);
+    CHECK(GREF(uint8_t, made + MOBY_DIST) == 0xFFu && GREF(int16_t, made + MOBY_DRAW_DIST) == 0xFF);
+    CHECK(
+        GREF(uint8_t, made + MOBY_DRAWN) == 1 && GREF(uint16_t, made + MOBY_OCCLUSION) == 0x7F80u
+    );
+    /* A class the level has not: none. */
+    CHECK(rac1_world_moby_spawn(14) == -1);
 
     printf("world_menu ok\n");
     return 0;

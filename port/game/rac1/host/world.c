@@ -66,6 +66,7 @@ enum {
     MOBY_DRAWN = 0x31,
     MOBY_DRAW_DIST = 0x32,
     MOBY_MODE = 0x34,
+    MOBY_OCCLUSION = 0x36,
     MOBY_ROT = 0x40,
     MOBY_FRAME = 0x50,
     MOBY_NEXT_FRAME = 0x51,
@@ -339,6 +340,22 @@ int32_t rac1_world_moby_spawn(int32_t oclass) {
         func_0020D678(m);
         leave_level_context(entered);
         return -1;
+    }
+    /* CreateMoby leaves the distances it is updated and drawn within at 0 (never in range): the
+     * game's spawners set them (spawn_bolt_by_value 0x40, others 0xFF), its visible byte and its
+     * occlusion bits. A mod's moby gets what the spawners give where CreateMoby left nothing: a
+     * driven one is drawn, one let go runs (its update's own first state may set them again). */
+    if (m != 0) {
+        if (GREF(uint8_t, m + MOBY_DIST) == 0) {
+            GREF(uint8_t, m + MOBY_DIST) = 0xFFu;
+        }
+        if (GREF(int16_t, m + MOBY_DRAW_DIST) == 0) {
+            GREF(int16_t, m + MOBY_DRAW_DIST) = 0xFF;
+        }
+        if (GREF(uint16_t, m + MOBY_OCCLUSION) == 0) {
+            GREF(uint16_t, m + MOBY_OCCLUSION) = 0x7F80u;
+        }
+        GREF(uint8_t, m + MOBY_DRAWN) = 1;
     }
     leave_level_context(entered);
     return m != 0 ? rac1_moby_slot(m) : -1;
