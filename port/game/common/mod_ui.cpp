@@ -264,14 +264,16 @@ struct State {
     std::array<gaddr, kGameRows> game_widgets{};  // the game's items' widgets, by row
     gaddr exit_widget = 0, exit_item = 0;         // the port's Exit row
     int extra_rows = 0;                           // the rows under the game's: the mods' and Exit
-    int second = -1;                  // the mod page the second level shows
-    int game = -1;                    // the game page on the screen (pages' index), or -1
-    int shown = -1;                   // the mod page on the screen, or -1
-    bool asking = false;              // a question is open
-    std::uint32_t tag = 0;            // its tag
-    std::int32_t kind = 0;            // the prompt kind it replaced
-    bool switch_seen = false;         // the page switch running was looked at
-    gaddr leaving_to = 0;             // the page the main menu's rows follow Options' flight to
+    int second = -1;                              // the mod page the second level shows
+    int game = -1;             // the game page on the screen (pages' index), or -1
+    int shown = -1;            // the mod page on the screen, or -1
+    bool asking = false;       // a question is open
+    std::uint32_t tag = 0;     // its tag
+    std::int32_t kind = 0;     // the prompt kind it replaced
+    gaddr follow_page = 0;     // whose seqs the rows below fly a switch with (follow_switch)
+    bool follow_out = false;   // that switch goes away from the main menu
+    bool follow_seen = false;  // it began
+    std::array<std::int32_t, OPENRAC_UI_MAIN_ITEMS_MAX> follow_seqs{};  // the page's own
     std::uint16_t previous = 0xFFFF;  // pad 0 as last seen (active low)
     std::uint16_t held = 0, pressed = 0;
     std::uint16_t swallow = 0;  // held as a page left: kept from the game until let go
@@ -523,56 +525,76 @@ void patch_main(const openrac_front_end& fe) {
     );
 }
 
-// A page switch to or from the main menu: the rows below the game's fly with its own. To it, their
-// own seqs are played back (to the row, as the menu's open). Away from it, they play the next
-// page's seq for Options' slot, the last game row, which takes Options up into that page: from
-// their own rows (raise_rows keeps them that far below, less as the flight goes) into Options'
-// frame, and once the switch is over the slots go back to the page's own seqs, parks.
+// The seq page `page` gives slot `slot` in a switch.
+std::int32_t& page_seq(gaddr page, int slot) {
+    return GREF(std::int32_t, page + kSeqs + 4 * static_cast<gaddr>(slot));
+}
+
+// A page switch to or from the main menu: the rows below the game's fly as Options does. The game
+// gives every slot its seq when the switch begins (update_menu_system), from the page coming (its
+// seqs from the first frame) or, going back, from the page leaving (its own, played backwards from
+// the last): the main menu's own rows morph into that page's frames and back, and the rows below
+// would play the page's seqs for their slots, which park them off the screen to the left. So once
+// the game asked for such a switch, before it begins, that page's seqs for those slots are Options'
+// for the switch, and the game plays them in step with Options' own; raise_rows keeps each row its
+// steps below Options as the flight goes, less (away) or more (back) at each tick. Once the switch
+// is over the page has its seqs back and the rows their own: parked on the page (as the page's
+// seqs leave them), or the row on the main menu (its seq's first frame, as the game's open leaves
+// it).
 void follow_switch(const openrac_front_end& fe) {
     const gaddr menu = fe.page_menu;
-    const bool starting = GREF(std::int32_t, menu + kState) == kSwitching
-                          && GREF(std::int32_t, menu + kTimer) == kSwitchTicks;
+    const bool switching = GREF(std::int32_t, menu + kState) == kSwitching;
+    const gaddr current = word(menu + kCurrent);
+    const gaddr next = word(menu + kNext);
+    const int options = kRowSlots[static_cast<std::size_t>(kGameRows - 1)];
 
-    if (starting && !s.switch_seen) {
-        const gaddr from = word(menu + kPrevious);
-        const gaddr to = word(menu + kNext);
+    if (s.follow_page == 0 && !switching && next != 0 && s.extra_rows > 0) {
+        const bool out = current == fe.main_page && next != fe.main_page;
+        const bool back = next == fe.main_page && current != 0 && current != fe.main_page
+                          && word(current + kBack) == fe.main_page;
+        const gaddr page = out ? next : back ? current : 0;
 
-        if (to == fe.main_page && from != fe.main_page) {
-            for (int r = 0; r < s.extra_rows; ++r) {
-                const auto row = static_cast<std::size_t>(kGameRows + r);
-                fe.panel_animation(kRowSlots[row], kRowSeqs[row], 1, -1.0f);
-            }
-        } else if (from == fe.main_page && to != fe.main_page && to != 0) {
-            const auto options =
-                static_cast<gaddr>(kRowSlots[static_cast<std::size_t>(kGameRows - 1)]);
-            const std::int32_t seq = GREF(std::int32_t, to + kSeqs + 4 * options);
+        for (int r = 0; page != 0 && r < s.extra_rows; ++r) {
+            std::int32_t& seq = page_seq(page, kRowSlots[static_cast<std::size_t>(kGameRows + r)]);
+            s.follow_seqs[static_cast<std::size_t>(r)] = seq;
+            seq = page_seq(page, options);
+        }
 
-            for (int r = 0; r < s.extra_rows; ++r) {
+        s.follow_page = page;
+        s.follow_out = out;
+        s.follow_seen = false;
+    }
+
+    s.follow_seen = s.follow_seen || (s.follow_page != 0 && switching);
+
+    // The switch over (or not made): the page's seqs back, and the rows their own.
+    if (s.follow_page != 0 && !switching && next == 0) {
+        for (int r = 0; r < s.extra_rows; ++r) {
+            const int slot = kRowSlots[static_cast<std::size_t>(kGameRows + r)];
+            const std::int32_t own = s.follow_seqs[static_cast<std::size_t>(r)];
+            page_seq(s.follow_page, slot) = own;
+
+            if (s.follow_seen && s.follow_out && current == s.follow_page) {
+                fe.panel_animation(slot, own, 1, 1.0f);
+            } else if (s.follow_seen && !s.follow_out && current == fe.main_page) {
                 fe.panel_animation(
-                    kRowSlots[static_cast<std::size_t>(kGameRows + r)], seq, 0, 1.0f
+                    slot, kRowSeqs[static_cast<std::size_t>(kGameRows + r)], 0, -1.0f
                 );
             }
-
-            s.leaving_to = s.extra_rows > 0 ? to : 0;
-        }
-    }
-
-    s.switch_seen = starting;
-
-    // The switch away is over: the page's own seqs (parks, one frame) for those slots.
-    if (s.leaving_to != 0 && GREF(std::int32_t, menu + kState) != kSwitching) {
-        for (int r = 0; word(menu + kCurrent) == s.leaving_to && r < s.extra_rows; ++r) {
-            const int slot = kRowSlots[static_cast<std::size_t>(kGameRows + r)];
-            fe.panel_animation(
-                slot,
-                GREF(std::int32_t, s.leaving_to + kSeqs + 4 * static_cast<gaddr>(slot)),
-                1,
-                1.0f
-            );
         }
 
-        s.leaving_to = 0;
+        s.follow_page = 0;
     }
+}
+
+// The menus gone: a page whose seqs a switch borrowed has them back.
+void unfollow() {
+    for (int r = 0; s.follow_page != 0 && r < s.extra_rows; ++r) {
+        page_seq(s.follow_page, kRowSlots[static_cast<std::size_t>(kGameRows + r)]) =
+            s.follow_seqs[static_cast<std::size_t>(r)];
+    }
+
+    s.follow_page = 0;
 }
 
 // The game page `page` is, or -1.
@@ -1090,16 +1112,18 @@ void raise_rows(const openrac_front_end& fe) {
 
         r.put_z[row] = r.own_z[row] + r.height * r.by;
 
-        // Flying Options' flight away: from its own row, Options' less `row - Options` steps.
-        if (s.leaving_to != 0 && i >= kGameRows) {
-            r.put_z[row] -= r.step * static_cast<float>(i - (kGameRows - 1)) * (1.0f - done);
+        // Flying Options' flight: from its own row (away) or to it (back), `row - Options` steps
+        // below Options at the row, none at the page.
+        if (s.follow_page != 0 && switching && i >= kGameRows) {
+            r.put_z[row] -= r.step * static_cast<float>(i - (kGameRows - 1))
+                            * (s.follow_out ? 1.0f - done : done);
         }
 
         GREF(float, moby + kMobyPosition + kUpward) = r.put_z[row];
     }
 }
 
-// In the log (for now at every level, not only verbose), to compare the rows' flights: a page switch to or from the main menu
+// For OPENRAC_LOG=verbose, to compare the rows' flights: a page switch to or from the main menu
 // from its first tick to kTraceAfter ticks after it, as each tick leaves it (after the port's own
 // changes). At the start, the seqs of both pages for every slot; each tick, the switch's timer, the
 // raise and the stretch, and for every panel slot its moby's seq, frame (of the seq's frames),
@@ -1114,7 +1138,7 @@ void trace_switch(const openrac_front_end& fe) {
     const gaddr from = word(menu + kPrevious);
     const gaddr to = word(menu + kNext);
 
-    if (fe.panel_slots == 0) {
+    if (!log::verbose_on() || fe.panel_slots == 0) {
         return;
     }
 
@@ -1131,7 +1155,7 @@ void trace_switch(const openrac_front_end& fe) {
                 );
             }
 
-            log::info(
+            log::verbose(
                 "mod ui trace: switch {:#x} -> {:#x} (main {:#x}), extra rows {}, seqs from/to{}",
                 from,
                 to,
@@ -1192,9 +1216,9 @@ void trace_switch(const openrac_front_end& fe) {
         }
     }
 
-    log::info(
+    log::verbose(
         "mod ui trace: tick {} state {} timer {} current {:#x} next {:#x}, raise by {:.3f} height "
-        "{:.2f} step {:.2f} learnt {}, leaving to {:#x}, stretch {:.3f}{}",
+        "{:.2f} step {:.2f} learnt {}, following {:#x} (out {}), stretch {:.3f}{}",
         tick++,
         GREF(std::int32_t, menu + kState),
         GREF(std::int32_t, menu + kTimer),
@@ -1204,7 +1228,8 @@ void trace_switch(const openrac_front_end& fe) {
         s.raise.height,
         s.raise.step,
         s.raise.learnt,
-        s.leaving_to,
+        s.follow_page,
+        s.follow_out,
         s.fit.by,
         slots
     );
@@ -1765,6 +1790,7 @@ void update(int loaded_overlay) {
         if (fe != nullptr && s.built) {
             unfit(*fe);
             unraise(*fe);
+            unfollow();
         }
 
         s.game = -1;
