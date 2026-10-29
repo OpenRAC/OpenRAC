@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <functional>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -185,7 +186,7 @@ void set_lighting(SceneFrame& frame) {
 void set_buckets(SceneFrame& frame) {
     State& owner = frame.owner;
     const Kept& scene = frame.scene;
-    const bool has_camera = scene.has_camera;
+    const bool has_camera = frame.has_camera;
 
     // Native HUD remains available even when the game submits no world.
     for (auto& bucket : owner.renderer
@@ -202,6 +203,52 @@ void set_buckets(SceneFrame& frame) {
     }
 }
 
+// Returns the camera to draw the world from: `camera`, or when usable_camera or usable_view
+// refuses it (non-finite, degenerate, out past every level: a frame of it is a black screen
+// crossed by a few smeared triangles), the last one they accepted, and none before any was. The
+// first frame of each run of refused ones is logged (a few runs a session), with the camera's
+// numbers, so that a report carries them.
+std::optional<renderer::Camera> guard_camera(
+    State& owner, const host::GameState& state, const renderer::Camera& camera, std::uint64_t tick
+) {
+    const CameraPose pose{state.camera_position, state.forward, state.left, state.up};
+
+    // A usable camera is drawn, and kept for frames that have none.
+    if (usable_camera(pose) && usable_view(camera.view, camera.projection)) {
+        if (owner.refused_camera_frames != 0) {
+            log::info("camera usable again after {} refused frame(s)", owner.refused_camera_frames);
+            owner.refused_camera_frames = 0;
+        }
+        owner.good_camera = camera;
+        return camera;
+    }
+
+    // The first frame of a run is logged; a session logs at most a few runs.
+    constexpr int kMostLogged = 4;
+    if (owner.refused_camera_frames++ == 0 && owner.refused_camera_logs < kMostLogged) {
+        ++owner.refused_camera_logs;
+        log::warn(
+            "camera: tick {} has an unusable camera (eye {} {} {}, forward {} {} {}, up {} {} {}, "
+            "tangents {} {}); {}",
+            tick,
+            state.camera_position[0],
+            state.camera_position[1],
+            state.camera_position[2],
+            state.forward[0],
+            state.forward[1],
+            state.forward[2],
+            state.up[0],
+            state.up[1],
+            state.up[2],
+            state.tan_half_fov_x,
+            state.tan_half_fov_y,
+            owner.good_camera ? "drawing the last good one" : "drawing no world"
+        );
+    }
+
+    return owner.good_camera;
+}
+
 // Configures visible buckets, the interpolated camera and probe selection.
 void set_camera(SceneFrame& frame) {
     State& owner = frame.owner;
@@ -211,29 +258,35 @@ void set_camera(SceneFrame& frame) {
     const auto state = scene.has_prev_state && frame.output.alpha < 1.0f
                            ? blend_camera(scene.prev_state, scene.state, frame.output.alpha)
                            : scene.state;
-    // No camera yet (loading, fades between programs): a black frame, not the level's background.
-    // With one, the colour the game clears to (the level settings' background, which a mod can
-    // change), else the extracted level's.
-    const bool has_camera = scene.has_camera;
-    const auto background = scene.state.background_or(owner.level.background);
-    input.clear_colour = has_camera
-                             ? std::array<float, 4>{background[0], background[1], background[2], 1}
-                             : std::array<float, 4>{0, 0, 0, 1};
-    set_buckets(frame);
-    input.camera.view = state.view();
+    renderer::Camera camera;
+    camera.view = state.view();
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
     // the TV's 4:3, which they were made for), not the window's shape. A wider picture keeps the
     // vertical one and opens the horizontal one by as much as the picture is wider: the game's
     // view is its middle.
-    input.camera.projection = state.projection(
+    camera.projection = state.projection(
         (state.tan_half_fov_y > 0.0f ? state.tan_half_fov_x / state.tan_half_fov_y : 4.0f / 3.0f)
             / picture_scale,
         0.05f,
         2000.0f
     );
-    input.camera.position = state.camera_position;
+    camera.position = state.camera_position;
+    // No camera yet (loading, fades between programs): a black frame, not the level's background.
+    // Nor one the guard refuses with no good one to draw instead. With one, the colour the game
+    // clears to (the level settings' background, which a mod can change), else the extracted
+    // level's.
+    const std::optional<renderer::Camera> drawn =
+        scene.has_camera ? guard_camera(owner, state, camera, scene.frame) : std::nullopt;
+    const bool has_camera = drawn.has_value();
+    frame.has_camera = has_camera;
+    const auto background = scene.state.background_or(owner.level.background);
+    input.clear_colour = has_camera
+                             ? std::array<float, 4>{background[0], background[1], background[2], 1}
+                             : std::array<float, 4>{0, 0, 0, 1};
+    set_buckets(frame);
+    input.camera = drawn.value_or(camera);
     owner.scene.choose_scenery(
-        frame.graphics.original_lod, state.camera_position, input.camera.projection
+        frame.graphics.original_lod, input.camera.position, input.camera.projection
     );
     owner.scene.update_probe_regions(input.camera);
     input.after_world_depth =

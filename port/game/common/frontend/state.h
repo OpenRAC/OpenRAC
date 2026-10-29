@@ -202,6 +202,12 @@ struct State {
     std::vector<renderer::ImageUpload> images;
     // The camera the game's world renderers drew with this frame (world_drawn), if they ran.
     std::optional<host::GameState> world_camera;
+    // The last camera a frame drew its world from that usable_camera and usable_view accepted
+    // (scene_frame.cpp's set_camera), drawn again in place of one they refuse; how many frames in
+    // a row were refused, and how many runs of them were logged.
+    std::optional<renderer::Camera> good_camera;
+    std::uint64_t refused_camera_frames = 0;
+    int refused_camera_logs = 0;
     // That world was drawn under a menu with its own mobys (world_under_menu): world_camera's
     // mobys are the frame's.
     bool world_under_menu = false;
