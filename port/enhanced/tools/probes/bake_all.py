@@ -35,6 +35,7 @@ sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / 
 from openrac_common import background, digest, files as file_ops  # noqa: E402
 
 import bake_level  # noqa: E402
+import diagnostics  # noqa: E402
 import seed_regions as seeds  # noqa: E402
 
 # Each level's record of what its bake was made from (--update compares it).
@@ -93,8 +94,8 @@ def baker_profile(baker: Path, level: Path, options) -> str:
     version and every value that decides a bake, the same text for the same baker however often
     it is built. Its digest stands for the baker in a level's stamp; the baker's file did until
     2026-10-24, and every build of a new commit changed it, so each one baked every level again."""
-    return subprocess.check_output([str(baker), '--level-dir', str(level), *bake_options(options),
-                                    '--print-profile'], text=True).strip()
+    return diagnostics.capture([str(baker), '--level-dir', str(level), *bake_options(options),
+                                '--print-profile']).strip()
 
 
 def level_stamp(level: Path, baker_hash: str, options) -> dict:
@@ -124,7 +125,19 @@ def up_to_date(output: Path, stamp: dict, profile: dict | None = None) -> bool:
         old = json.loads((output/STAMP).read_text())
     except (OSError, ValueError):
         return False
-    if not ((output/'sparse.orpg').is_file() or empty_bake(output)) or not (output/'bake-result.json').is_file():
+    try:
+        result = json.loads((output/'bake-result.json').read_text())
+        if not isinstance(result, dict) or result.get('verified') is not True:
+            return False
+        if not empty_bake(output):
+            regions = result.get('regions', [])
+            if not isinstance(regions, list):
+                return False
+            names = ['sparse.orpg', *regions]
+            if any(not isinstance(name, str) or Path(name).name != name or not name.endswith('.orpg')
+                   or not (output/name).is_file() or (output/name).stat().st_size == 0 for name in names):
+                return False
+    except (OSError, ValueError, TypeError):
         return False
     if old == stamp:
         return True
@@ -214,9 +227,37 @@ def largest_first(levels, sizes=None) -> list[int]:
     return sorted(range(len(levels)), key=lambda i: -sizes[i])
 
 
+def publish(work, final):
+    previous = final.with_name('.'+final.name+'.previous')
+    if previous.exists():
+        if not final.exists():
+            file_ops.rename(previous, final)
+        else:
+            shutil.rmtree(previous)
+    moved = final.exists()
+    if moved:
+        file_ops.rename(final, previous)
+    try:
+        file_ops.rename(work, final)
+    except Exception as error:
+        error.bake_code = 'publish'
+        if moved:
+            try:
+                file_ops.rename(previous, final)
+            except Exception as rollback:
+                raise RuntimeError(f'Installation failed: {error}; previous lighting remains at {previous}; restoration failed: {rollback}') from error
+        raise
+    if moved:
+        try:
+            shutil.rmtree(previous)
+        except OSError as error:
+            print(f'Lighting warning: new bake installed; old backup retained at {previous}: {error}', file=sys.stderr, flush=True)
+
+
 def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
              options=(), dry_run=False, update=False, jobs=1):
     levels_dir, output_dir, baker = levels_dir.resolve(), output_dir.resolve(), baker.resolve()
+    print(f'Bake inputs: {levels_dir}\nBake cache: {output_dir}\nNative baker: {baker}', flush=True)
     levels = discover_levels(levels_dir)
     # Check everything before starting the first potentially expensive bake.
     if output_dir.is_relative_to(levels_dir):
@@ -284,22 +325,16 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
             show_progress()
         return heard
 
-    def bake(index):
+    def bake_work(index):
         level = levels[index]
         result = report['levels'][index]
         final = output_dir/level.name
         stamp = profile = None
-        try:
-            bake_level.prepare_emission(level)
-            if update:
-                text = baker_profile(baker, level, options)
-                profile = json.loads(text)
-                stamp = level_stamp(level, hashlib.sha256(text.encode()).hexdigest(), options)
-        except (OSError, ValueError, subprocess.CalledProcessError) as error:
-            result['error'] = str(error)
-            print(f'{level.name}: {error}', file=sys.stderr, flush=True)
-            finished(index, result, 'failed')
-            return
+        diagnostics.stage('Prepare emission', bake_level.prepare_emission, level)
+        if update:
+            text = diagnostics.stage('Read baker profile', baker_profile, baker, level, options)
+            profile = diagnostics.parse_profile(text)
+            stamp = level_stamp(level, hashlib.sha256(text.encode()).hexdigest(), options)
         if update and up_to_date(final, stamp, profile):
             if json.loads((final/STAMP).read_text()) != stamp:
                 (final/STAMP).write_text(json.dumps(stamp, indent=2)+'\n', encoding='utf-8')
@@ -309,6 +344,8 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
                 result.update(verified=True, sparse=f'{level.name}/sparse.orpg', kept=True)
             finished(index, result, 'up to date')
             return
+        if final.exists():
+            print(f'{level.name}: cached lighting is outdated or incomplete; rebuilding', flush=True)
         # A cache's level is baked beside the one in place, which it replaces once verified. What
         # a stopped bake left there is gone on from when it was made from the same inputs.
         work = output_dir/f'.{level.name}.partial' if update else final
@@ -318,40 +355,39 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
             except (OSError, ValueError):
                 same = False
             if work.exists() and not same:
+                print(f'{level.name}: unfinished cache inputs differ or cannot be read; rebuilding partial grids', flush=True)
                 shutil.rmtree(work)
             work.mkdir(parents=True, exist_ok=True)
             (work/PARTIAL_STAMP).write_text(json.dumps(stamp, indent=2)+'\n', encoding='utf-8')
             if same:
                 print(f'{level.name}: going on from the bake that was stopped', flush=True)
-        try:
-            sparse = bake_level.bake_level(level, work, baker, disc=disc, options=options, resume=update,
-                                           progress=level_progress(index))
-            # Preparation can refresh generated interior sources beside the export.
-            stamp = level_stamp(level, hashlib.sha256(text.encode()).hexdigest(), options) if update else None
-        except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
-            result['error'] = str(error)
-            print(f'{level.name}: {error}', file=sys.stderr, flush=True)
-            if update and work.exists():
-                failed = output_dir/f'.{level.name}.failed'
-                if failed.exists():
-                    shutil.rmtree(failed)
-                file_ops.rename(work, failed)  # its logs, for the report
-            finished(index, result, 'failed')
-            return
+        sparse = diagnostics.stage('Bake and verify lighting', bake_level.bake_level, level, work, baker,
+                                   disc=disc, options=options, resume=update, progress=level_progress(index))
+        # Preparation can refresh generated interior sources beside the export.
+        stamp = level_stamp(level, hashlib.sha256(text.encode()).hexdigest(), options) if update else None
         if update:
-            (work/PARTIAL_STAMP).unlink(missing_ok=True)
             (work/STAMP).write_text(json.dumps(stamp, indent=2)+'\n', encoding='utf-8')
-            if final.exists():
-                shutil.rmtree(final)
-            file_ops.rename(work, final)
+            diagnostics.stage('Install verified lighting', publish, work, final)
+            (final/PARTIAL_STAMP).unlink(missing_ok=True)
             sparse = final/sparse.name if sparse is not None else None
-            shutil.rmtree(output_dir/f'.{level.name}.failed', ignore_errors=True)
+
         if sparse is None:
             result.update(verified=True, empty=True)
             finished(index, result, 'nothing to bake (it keeps its own lighting)')
             return
         result.update(verified=True, sparse=sparse.relative_to(output_dir).as_posix())
         finished(index, result, 'baked')
+
+    def bake(index):
+        level = levels[index]
+        result = report['levels'][index]
+        try:
+            bake_work(index)
+        except Exception as error:
+            result['error'] = str(error)
+            result['diagnostic'] = diagnostics.failed(error, level=level.name, log=output_dir/'probe-bake.log')
+            print(f'{level.name}: partial grids and native logs retained for diagnosis and retry', file=sys.stderr, flush=True)
+            finished(index, result, 'failed')
 
     save_report()
     show_progress(force=True)
@@ -367,10 +403,14 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
     print(f'Verified {passed}/{len(levels)} levels. Summary: '
           f'{output_dir/"bake-all-result.json"}', flush=True)
     print(f'openrac-output: {output_dir}', flush=True)
+    failures = [item for item in report['levels'] if not item['verified']]
+    if failures and failures[0].get('diagnostic'):
+        print(diagnostics.PREFIX + json.dumps(dict(failures[0]['diagnostic'], failed_levels=len(failures))), file=sys.stderr, flush=True)
     return passed == len(levels)
 
 
 def main():
+    diagnostics.configure_streams()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--levels-dir', type=Path, required=True,
                         help='one exported version containing level_XX directories')
@@ -396,11 +436,24 @@ def main():
         if value is not None:
             options.extend(('--'+key, str(value)))
     try:
-        success = bake_all(args.levels_dir, args.output_dir, args.baker,
-                           disc=args.disc, options=options, dry_run=args.dry_run,
-                           update=args.update, jobs=args.jobs)
-    except (OSError, ValueError) as error:
-        parser.exit(1, f'{error}\n')
+        if args.dry_run:
+            success = bake_all(args.levels_dir, args.output_dir, args.baker, disc=args.disc,
+                               options=options, dry_run=True, update=args.update, jobs=args.jobs)
+        else:
+            if args.output_dir.resolve().is_relative_to(args.levels_dir.resolve()):
+                raise ValueError('bake outputs must be outside the source levels directory')
+            if args.output_dir.exists() and not args.update:
+                raise ValueError('choose a new output directory; previous bakes are preserved')
+            with diagnostics.transcript(args.output_dir) as log:
+                try:
+                    success = bake_all(args.levels_dir, args.output_dir, args.baker, disc=args.disc,
+                                       options=options, update=True, jobs=args.jobs)
+                except Exception as error:
+                    diagnostics.failed(error, log=log)
+                    return 1
+    except Exception as error:
+        diagnostics.failed(error)
+        return 1
     return 0 if success else 1
 
 

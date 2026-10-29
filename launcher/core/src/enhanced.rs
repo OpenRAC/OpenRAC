@@ -265,6 +265,32 @@ fn made_by(stamp: &Value, baked: &Path, profile: &str) -> bool {
     ["bake_version", "probe_format_version"].iter().all(|k| !result[k].is_null() && result[k] == profile[k])
 }
 
+fn verified_bake(baked: &Path) -> bool {
+    let Some(result) = std::fs::read_to_string(baked.join("bake-result.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+    else {
+        return false;
+    };
+    if result["verified"] != Value::Bool(true) {
+        return false;
+    }
+    if result["empty"] == Value::Bool(true) {
+        return true;
+    }
+    let present = |name: &str| {
+        Path::new(name).file_name().and_then(|n| n.to_str()) == Some(name)
+            && name.ends_with(".orpg")
+            && std::fs::metadata(baked.join(name)).is_ok_and(|m| m.is_file() && m.len() > 0)
+    };
+    present("sparse.orpg")
+        && match result.get("regions") {
+            None => true,
+            Some(Value::Array(regions)) => regions.iter().all(|r| r.as_str().is_some_and(&present)),
+            _ => false,
+        }
+}
+
 /// The bake status of the levels in `levels` against the bakes in `probes`, made by `baker`.
 pub fn bake_status(levels: &Path, probes: &Path, baker: &Path) -> BakeStatus {
     bake_status_on(levels, probes, baker, SHIPS_BAKER, &|level| baker_profile(baker, level))
@@ -286,6 +312,9 @@ fn bake_status_on(
         out.no_baker_here = true;
         out.why = NO_BAKER_HERE.into();
     }
+    let failures: Option<Value> = std::fs::read_to_string(probes.join("bake-all-result.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok());
     let Ok(entries) = std::fs::read_dir(levels) else {
         if !out.no_baker_here {
             out.why = "the levels are not ready yet".into();
@@ -304,26 +333,22 @@ fn bake_status_on(
         let baked = probes.join(&name);
         let stamp: Option<Value> =
             std::fs::read_to_string(baked.join(STAMP)).ok().and_then(|t| serde_json::from_str(&t).ok());
-        // A level with nothing for light to bounce off (the flight between planets) is done with no
-        // bake: the game keeps its own lighting there (bake_all.py, empty_bake).
-        let empty = || {
-            std::fs::read_to_string(baked.join("bake-result.json"))
-                .ok()
-                .and_then(|t| serde_json::from_str::<Value>(&t).ok())
-                .is_some_and(|r| r["empty"] == Value::Bool(true))
-        };
         let current = stamp.as_ref().is_some_and(|s| {
             s["manifest_sha256"].as_str() == sha256(&manifest).as_deref()
                 && has_baker
-                && (baked.join("sparse.orpg").is_file() || empty())
+                && verified_bake(&baked)
                 && profile(&entry.path()).is_some_and(|p| made_by(s, &baked, &p))
         });
         if current {
             out.ready += 1;
+        } else if probes.join(format!(".{name}.failed")).is_dir()
+            || failures.as_ref().and_then(|r| r["levels"].as_array()).is_some_and(|rows| {
+                rows.iter().any(|row| row["level"].as_str() == Some(name.as_str()) && row["error"].is_string())
+            })
+        {
+            out.failed += 1;
         } else if probes.join(format!(".{name}.partial")).is_dir() {
             out.partial += 1;
-        } else if probes.join(format!(".{name}.failed")).is_dir() {
-            out.failed += 1;
         }
     }
     if out.no_baker_here {
@@ -337,6 +362,25 @@ fn bake_status_on(
         out.available = true;
     }
     out
+}
+
+/// Resolve only a real .log file inside this version's lighting cache. Canonical paths reject
+/// traversal and symlinks pointing outside the cache; tool output alone grants no file access.
+pub fn bake_log(config: &crate::config::Config, key: &str, path: &Path) -> Result<PathBuf, String> {
+    let (_, probes, _) = bake_folders(config, key)?;
+    checked_bake_log(&probes, path)
+}
+
+fn checked_bake_log(probes: &Path, path: &Path) -> Result<PathBuf, String> {
+    let root = probes.canonicalize().map_err(|e| format!("Lighting folder: {e}"))?;
+    let target = path.canonicalize().map_err(|e| format!("Lighting log: {e}"))?;
+    if !target.starts_with(&root)
+        || !target.is_file()
+        || !target.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("log"))
+    {
+        return Err("Only log files inside this game's lighting folder can be opened".into());
+    }
+    Ok(target)
 }
 
 /// A version's (`rac1/pal`) exported levels, its bakes' folder and its baker, from its probe-bake
@@ -380,9 +424,13 @@ fn delete_bake_folder(probes: &Path) -> Result<(), String> {
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
         let level = name.trim_start_matches('.');
-        let level = level.strip_suffix(".partial").or_else(|| level.strip_suffix(".failed")).unwrap_or(level);
+        let level = level
+            .strip_suffix(".partial")
+            .or_else(|| level.strip_suffix(".failed"))
+            .or_else(|| level.strip_suffix(".previous"))
+            .unwrap_or(level);
         let bake = level.strip_prefix("level_").is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
-        if !bake && !name.starts_with("bake-all-result.json") {
+        if !bake && !name.starts_with("bake-all-result.json") && name != "probe-bake.log" && name != "probe-bake.lock" {
             return Err(format!("{} holds {name}, which is not a bake: nothing was deleted", probes.display()));
         }
     }
@@ -474,6 +522,46 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn unverified_or_incomplete_lighting_is_not_ready() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("sparse.orpg"), "probe bytes").unwrap();
+        for text in [r#"{"verified":false}"#, r#"{"verified":true,"regions":["missing.orpg"]}"#] {
+            std::fs::write(root.join("bake-result.json"), text).unwrap();
+            assert!(!verified_bake(root));
+        }
+        std::fs::write(root.join("bake-result.json"), r#"{"verified":true,"regions":[]}"#).unwrap();
+        assert!(verified_bake(root));
+        std::fs::write(root.join("sparse.orpg"), "").unwrap();
+        assert!(!verified_bake(root));
+    }
+
+    #[test]
+    fn lighting_logs_stay_inside_the_versions_cache() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("lighting");
+        std::fs::create_dir(&root).unwrap();
+        let log = root.join("probe-bake.log");
+        std::fs::write(&log, "test diagnostic").unwrap();
+        assert_eq!(checked_bake_log(&root, &log).unwrap(), log.canonicalize().unwrap());
+        let outside = temp.path().join("other.log");
+        std::fs::write(&outside, "outside").unwrap();
+        assert!(checked_bake_log(&root, &outside).is_err());
+        assert!(checked_bake_log(&root, &root.join("../other.log")).is_err());
+        let executable = root.join("tool.exe");
+        std::fs::write(&executable, "not a log").unwrap();
+        assert!(checked_bake_log(&root, &executable).is_err());
+        assert!(checked_bake_log(&root, &root).is_err());
+        assert!(checked_bake_log(&root, &root.join("missing.log")).is_err());
+        #[cfg(unix)]
+        {
+            let link = root.join("outside.log");
+            std::os::unix::fs::symlink(&outside, &link).unwrap();
+            assert!(checked_bake_log(&root, &link).is_err());
+        }
     }
 
     #[test]
@@ -580,7 +668,8 @@ mod tests {
         let stamp = |name: &str, manifest: &str| {
             let dir = probes.join(name);
             std::fs::create_dir_all(&dir).unwrap();
-            std::fs::write(dir.join("sparse.orpg"), "").unwrap();
+            std::fs::write(dir.join("sparse.orpg"), "probe bytes").unwrap();
+            std::fs::write(dir.join("bake-result.json"), r#"{"verified":true}"#).unwrap();
             let text = serde_json::json!({
                 "version": 3,
                 "manifest_sha256": format!("{:x}", Sha256::digest(manifest.as_bytes())),
@@ -620,14 +709,18 @@ mod tests {
         std::fs::write(&baker, "a build").unwrap();
         let dir = probes.join("level_00");
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("sparse.orpg"), "").unwrap();
+        std::fs::write(dir.join("sparse.orpg"), "probe bytes").unwrap();
         let old = serde_json::json!({
             "version": 2,
             "manifest_sha256": format!("{:x}", Sha256::digest(b"level_00")),
             "baker_sha256": "an older build",
         });
         std::fs::write(dir.join(STAMP), old.to_string()).unwrap();
-        std::fs::write(dir.join("bake-result.json"), r#"{"bake_version": 1, "probe_format_version": 3}"#).unwrap();
+        std::fs::write(
+            dir.join("bake-result.json"),
+            r#"{"verified":true, "bake_version": 1, "probe_format_version": 3}"#,
+        )
+        .unwrap();
         let profile = |_: &Path| Some(r#"{"bake_version":1,"probe_format_version":3,"rays":1024}"#.to_string());
         assert_eq!(bake_status_on(&levels, &probes, &baker, true, &profile).ready, 1);
         let newer = |_: &Path| Some(r#"{"bake_version":2,"probe_format_version":3}"#.to_string());
@@ -639,10 +732,12 @@ mod tests {
     fn deleting_the_bakes_empties_only_a_folder_of_bakes() {
         let root = temp("delete");
         let probes = root.join("probes");
-        for dir in ["level_00", ".level_01.partial", ".level_02.failed"] {
+        for dir in ["level_00", ".level_01.partial", ".level_02.failed", ".level_03.previous"] {
             std::fs::create_dir_all(probes.join(dir)).unwrap();
         }
         std::fs::write(probes.join("bake-all-result.json"), "{}").unwrap();
+        std::fs::write(probes.join("probe-bake.log"), "diagnostic").unwrap();
+        std::fs::write(probes.join("probe-bake.lock"), "0").unwrap();
         delete_bake_folder(&probes).unwrap();
         assert!(!probes.exists());
         // Nothing baked: nothing to do.

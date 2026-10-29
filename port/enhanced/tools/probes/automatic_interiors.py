@@ -6,6 +6,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 
+import diagnostics
+
 from prepare_interiors import prepare_export
 from prepare_interior_lights import source_plan
 
@@ -19,7 +21,7 @@ def inference_tool(baker):
 def remove_generated(level_dir):
     """An opt-out removes only this tool's derived sources, never explicit sidecars."""
     path = level_dir/'probe-interiors.json'
-    if path.exists() and json.loads(path.read_text()).get('generator') == 'openrac-interiors-v1':
+    if path.exists() and diagnostics.read_json(path).get('generator') == 'openrac-interiors-v1':
         path.unlink()
         print('Removed automatically generated interior sources', flush=True)
 
@@ -27,7 +29,7 @@ def remove_generated(level_dir):
 def prepare(level_dir, output_dir, baker, manifest, gameplay):
     """Preserve explicit sidecars; refresh owned derived sources when their inputs change."""
     sidecar = level_dir/'probe-interiors.json'
-    previous = json.loads(sidecar.read_text()) if sidecar.exists() else None
+    previous = diagnostics.read_json(sidecar) if sidecar.exists() else None
     if previous is not None and previous.get('generator') != 'openrac-interiors-v1':
         print('Using explicit interior sources:', sidecar, flush=True)
         return
@@ -45,10 +47,15 @@ def prepare(level_dir, output_dir, baker, manifest, gameplay):
         return
     input_path, report_path = output_dir/'interior-input.json', output_dir/'interior-inference.json'
     input_path.write_text(json.dumps(inputs, separators=(',', ':'), allow_nan=False)+'\n')
-    with (output_dir/'interior-inference.log').open('x') as log:
-        subprocess.run([str(executable), str(input_path), str(report_path)],
-                       stdout=log, stderr=subprocess.STDOUT, check=True)
-    plan = source_plan(json.loads(report_path.read_text()), manifest)
+    log_path = output_dir/'interior-inference.log'
+    try:
+        with log_path.open('w', encoding='utf-8') as log:
+            subprocess.run([str(executable), str(input_path), str(report_path)],
+                           stdout=log, stderr=subprocess.STDOUT, check=True)
+    except subprocess.CalledProcessError as error:
+        tail = log_path.read_text(encoding='utf-8', errors='replace')[-12000:]
+        raise diagnostics.NativeFailure(error.returncode, error.cmd, tail, log_path) from error
+    plan = source_plan(diagnostics.read_json(report_path), manifest)
     plan['generator'] = 'openrac-interiors-v1'
     plan['generation_sha256'] = identity.hexdigest()
     # Replace only this tool's derived output, after successful inference and validation.

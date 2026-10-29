@@ -279,8 +279,10 @@ void run_probe_batch(
                     done += job.grid.probe_count();
                     report_done(done);
                     continue;
-                } catch (const std::exception&) {
-                    // Not this plan's grid, or damaged: baked again below.
+                } catch (const std::exception& error) {
+                    output << "Lighting warning: rebuilding rejected cached grid "
+                           << job.path.filename().string() << ": " << error.what() << '\n'
+                           << std::flush;
                 }
             }
             // What is left of a grid the stop cut short (written, its report not yet): baked again.

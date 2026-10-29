@@ -2,6 +2,7 @@
 // job queue. Pages read `app` and call the functions below; nothing else
 // talks to the Rust side except through api.ts.
 import { hidePaths } from "./paths";
+import { bakeFailure, type BakeFailure } from "./bakeFailure";
 import {
   api,
   ask,
@@ -34,6 +35,12 @@ import { checkForUpdate, offerUpdate, readPutOff, type UpdateInfo } from "./upda
 
 export type Page = "library" | "game" | "mods" | "tasks" | "develop" | "settings";
 
+export interface BakeNotice {
+  failure: BakeFailure;
+  version: string;
+  jobKey: number;
+}
+
 interface AppState {
   info: AppInfo | null;
   config: Config | null;
@@ -52,7 +59,12 @@ interface AppState {
   version: string | null;
   /** What Develop shows: "checkout", "console", or a version's key (`rac1/pal`). */
   develop: string;
-  toasts: { id: number; text: string; kind: "info" | "error" }[];
+  toasts: {
+    id: number;
+    text: string;
+    kind: "info" | "error";
+    bake?: BakeNotice;
+  }[];
   update: UpdateInfo | null;
   showUpdateModal: boolean;
   /** The game stopped unexpectedly: the notice on its Play page, until dismissed. */
@@ -202,9 +214,9 @@ function expire(id: number) {
 }
 
 /** Says something for a moment; an error stays until it is dismissed, as it may need reading twice. */
-export function toast(text: string, kind: "info" | "error" = "info") {
+export function toast(text: string, kind: "info" | "error" = "info", bake?: BakeNotice) {
   const id = ++toastId;
-  app.toasts.push({ id, text, kind });
+  app.toasts.push({ id, text, kind, bake });
   // No more than four errors at once: the oldest gives way.
   const errors = app.toasts.filter((t) => t.kind === "error");
   if (errors.length > 4 && errors[0]) expire(errors[0].id);
@@ -362,7 +374,10 @@ function handleExit(job: Job) {
   // The game stopping on its own is not a failed task: the Play page says what happened.
   if (job.state === "failed" && played) void gameStopped(job);
   // Setting a game up says why it stopped itself (installFromDisc).
-  else if (job.state === "failed" && !job.actionId.startsWith("install:")) toast(`${job.title} failed`, "error");
+  else if (job.state === "failed" && job.actionId === "probe-bake" && version !== null) {
+    const failure = bakeFailure(job);
+    toast(failure.title, "error", { failure, version, jobKey: job.key });
+  } else if (job.state === "failed" && !job.actionId.startsWith("install:")) toast(`${job.title} failed`, "error");
   // Played to the end since: the notice folds to a line (CrashNotice), the report still a click away.
   if (job.state === "succeeded" && played && app.stopped && version.startsWith(`${app.stopped.game}/`)) {
     app.stopped = { ...app.stopped, playedSince: true };

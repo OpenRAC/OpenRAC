@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <new>
 #include <stdexcept>
 
 #include "common/json.h"
@@ -150,6 +151,10 @@ int main(int argc, char** argv) {
                       << " label " << s.label << '\n';
         }
         return 0;
+    } catch (const std::bad_alloc&) {
+        std::cerr << "probe bake: out of memory; close other large apps and retry; use --jobs 1 "
+                     "for command-line baking\n";
+        return 1;
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
         return 1;

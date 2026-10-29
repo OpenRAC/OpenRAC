@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <new>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
@@ -434,6 +435,10 @@ int main(int argc, char** argv) {
     } catch (const NothingToBake& nothing) {
         std::cerr << "probe bake: " << nothing.what() << '\n';
         return kNothingToBake;
+    } catch (const std::bad_alloc&) {
+        std::cerr << "probe bake: out of memory; close other large apps and retry; use --jobs 1 "
+                     "for command-line baking\n";
+        return 1;
     } catch (const std::exception& error) {
         std::cerr << "probe bake: " << error.what() << '\n';
         return 1;
