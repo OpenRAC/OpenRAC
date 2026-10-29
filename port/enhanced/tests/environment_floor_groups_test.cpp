@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
+#include <algorithm>
+
 #include "enhanced/lighting/environment_floor_map.h"
 #include "enhanced/lighting/room_distance_field.h"
 #include "enhanced/lighting/room_layout.h"

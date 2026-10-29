@@ -280,7 +280,7 @@ fn verified_bake(baked: &Path) -> bool {
     present("sparse.orpg")
         && match result.get("regions") {
             None => true,
-            Some(Value::Array(regions)) => regions.iter().all(|r| r.as_str().is_some_and(&present)),
+            Some(Value::Array(regions)) => regions.iter().all(|r| r.as_str().is_some_and(present)),
             _ => false,
         }
 }
@@ -493,7 +493,7 @@ pub fn set_setting(data_home: &Path, game: &str, version: &str, key: &str, value
     let text = std::fs::read_to_string(&file).unwrap_or_default();
     let text = if key == "shadow_quality" {
         // Keep the renderer's quality enum and legacy enable switch compatible.
-        let enabled = value != Value::from("off");
+        let enabled = value != "off";
         let text = with_value(&text, "enhanced_shadows", if enabled { "1" } else { "0" });
         if enabled {
             with_value(&text, key, &written(&value))

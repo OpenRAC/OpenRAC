@@ -233,6 +233,7 @@ public:
             watch->rr = 0.0f;
         }
     }
+
     // The water lily class is shared by PAL and NTSC (editor/moby_classes.tsv).
     bool floats_on_water(int class_id) const override { return class_id == 695; }
 
