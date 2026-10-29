@@ -358,21 +358,21 @@ float shadow_bilinear_rect(sampler2D map, ivec4 rect, vec3 position, float bias,
     vec2 pixel = position.xy * vec2(size) - 0.5;
     ivec2 base = ivec2(floor(pixel));
     vec2 f = fract(pixel);
-    mp_float result = mp_float(0);
+    float result = 0.0;
     for (int y = 0; y < 2; ++y) {
         for (int x = 0; x < 2; ++x) {
             ivec2 at = base + ivec2(x, y);
-            mp_vec2 weight = mix(mp_vec2(1) - mp_vec2(f), mp_vec2(f), mp_vec2(x, y));
+            vec2 weight = mix(vec2(1) - f, f, vec2(x, y));
             bool outside = any(lessThan(at, ivec2(0))) || any(greaterThanEqual(at, size));
             float receiver = position.z + dot(slope, (vec2(at) + 0.5) / vec2(size) - position.xy);
             float visibility = 1.0;
             if (!outside) {
                 visibility = receiver + bias >= texelFetch(map, rect.xy + at, 0).r ? 1.0 : 0.0;
             }
-            result += mp_float(mp_float(visibility) * weight.x * weight.y);
+            result += visibility * weight.x * weight.y;
         }
     }
-    return float(result);
+    return result;
 }
 
 // Retained comparison path: nine bilinear taps, 36 depth reads.
@@ -399,14 +399,14 @@ float shadow_pcf_unique_rect(sampler2D map, ivec4 rect, vec3 position, float bia
     vec2 pixel = position.xy * vec2(size) - 0.5;
     ivec2 base = ivec2(floor(pixel)) - 1;
     vec2 f = fract(pixel);
-    // Receiver/bias/depth stay FP32; FP16 mode narrows the short filter sum.
-    mp_vec4 wx = mp_vec4(mp_float(1) - mp_float(f.x), mp_float(1), mp_float(1), mp_float(f.x));
-    mp_vec4 wy = mp_vec4(mp_float(1) - mp_float(f.y), mp_float(1), mp_float(1), mp_float(f.y));
+    // Both kernels retain FP32 weights so bilinear and gathered sums agree.
+    vec4 wx = vec4(1.0 - f.x, 1.0, 1.0, f.x);
+    vec4 wy = vec4(1.0 - f.y, 1.0, 1.0, f.y);
     if (tent) {
-        wx.y += mp_float(1) - mp_float(f.x);
-        wx.z += mp_float(f.x);
-        wy.y += mp_float(1) - mp_float(f.y);
-        wy.z += mp_float(f.y);
+        wx.y += 1.0 - f.x;
+        wx.z += f.x;
+        wy.y += 1.0 - f.y;
+        wy.z += f.y;
     }
 #ifdef OPENRAC_SHADOW_GATHER
     // Four 2x2 gathers cover exactly the same 4x4 texels. GLSL gather
@@ -418,7 +418,7 @@ float shadow_pcf_unique_rect(sampler2D map, ivec4 rect, vec3 position, float bia
     depths[2] = textureGather(map, (vec2(rect.xy + base) + vec2(1.0, 3.0)) * inverse_size, 0);
     depths[3] = textureGather(map, (vec2(rect.xy + base) + vec2(3.0, 3.0)) * inverse_size, 0);
 #endif
-    mp_float result = mp_float(0);
+    float result = 0.0;
     for (int y = 0; y < 4; ++y) {
         for (int x = 0; x < 4; ++x) {
             ivec2 at = base + ivec2(x, y);
@@ -434,10 +434,10 @@ float shadow_pcf_unique_rect(sampler2D map, ivec4 rect, vec3 position, float bia
 #endif
                 visibility = receiver + bias >= depth ? 1.0 : 0.0;
             }
-            result += mp_float(mp_float(visibility) * wx[x] * wy[y]);
+            result += visibility * wx[x] * wy[y];
         }
     }
-    return float(result / mp_float(tent ? 16.0 : 9.0));
+    return result / (tent ? 16.0 : 9.0);
 }
 
 float shadow_pcf_kernel_rect(sampler2D map, ivec4 rect, vec3 position, float bias, vec2 slope, bool tent) {
