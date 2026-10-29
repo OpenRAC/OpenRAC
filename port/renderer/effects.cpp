@@ -3,7 +3,6 @@
 
 #include "renderer/effects.h"
 
-#include <atomic>
 #include <cstddef>
 #include <optional>
 #include <set>
@@ -21,36 +20,11 @@ namespace openrac::renderer {
 
 using namespace gl;
 
-namespace {
-// Set from the drawer on the window thread, read by the render thread.
-std::atomic<bool> g_strips_hidden{false};
-std::atomic<bool> g_quads_hidden{false};
-}  // namespace
-
-void set_effect_strips_hidden(bool hidden) {
-    g_strips_hidden.store(hidden);
-}
-
-bool effect_strips_hidden() {
-    return g_strips_hidden.load();
-}
-
-void set_effect_quads_hidden(bool hidden) {
-    g_quads_hidden.store(hidden);
-}
-
-bool effect_quads_hidden() {
-    return g_quads_hidden.load();
-}
-
 bool liquid_strip(std::uint64_t alpha) {
     return (alpha & 0xFF) == 0x64 && ((alpha >> 32) & 0xFF) > 0x60;
 }
 
 bool EffectRenderer::draws(const EffectStrip& strip) const {
-    if (effect_strips_hidden()) {
-        return false;
-    }
     switch (m_part) {
         case EffectPart::Liquids:
             return liquid_strip(strip.alpha);
@@ -127,8 +101,7 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
 }
 
 void EffectRenderer::render(const FrameInput& input, RenderState& state) {
-    const bool quads =
-        m_part != EffectPart::Liquids && !input.effects.empty() && !effect_quads_hidden();
+    const bool quads = m_part != EffectPart::Liquids && !input.effects.empty();
     bool any = quads;
     for (const EffectStrip& strip : input.strips) {
         any = any || draws(strip);

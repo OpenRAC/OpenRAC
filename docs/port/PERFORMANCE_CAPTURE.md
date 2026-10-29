@@ -64,9 +64,6 @@ gameplay bug. Each one lists:
 - the game's own notes. RAC1: the moby table's free slots and spawned classes, and the
   collision queries that started within 3 units of Ratchet in the last tick, with their result.
 
-**Hide Ratchet's shadow**, **Hide effect strips** and **Hide effect quads** (Developer tools)
-each leave one pass out for the session, to tell which one draws something out of place.
-
 ## What is measured, and where
 
 | | Desktop | Android |

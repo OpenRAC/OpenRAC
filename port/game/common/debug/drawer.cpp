@@ -22,9 +22,7 @@
 #include "fixes.h"
 #include "frontend.h"
 #include "options_menu.h"
-#include "renderer/effects.h"
 #include "renderer/gl.h"
-#include "renderer/shadows.h"
 #include "settings.h"
 #include "ui_colors.h"
 
@@ -632,23 +630,6 @@ void drawer(const Shown& shown) {
             }
             if (drawer_switch("Keep paused", s.keep_paused)) {
                 s.keep_paused = !s.keep_paused;
-            }
-            if (drawer_switch(
-                    "Hide Ratchet's shadow", ::openrac::renderer::classic_shadow_hidden()
-                )) {
-                ::openrac::renderer::set_classic_shadow_hidden(
-                    !::openrac::renderer::classic_shadow_hidden()
-                );
-            }
-            if (drawer_switch("Hide effect strips", ::openrac::renderer::effect_strips_hidden())) {
-                ::openrac::renderer::set_effect_strips_hidden(
-                    !::openrac::renderer::effect_strips_hidden()
-                );
-            }
-            if (drawer_switch("Hide effect quads", ::openrac::renderer::effect_quads_hidden())) {
-                ::openrac::renderer::set_effect_quads_hidden(
-                    !::openrac::renderer::effect_quads_hidden()
-                );
             }
             if (drawer_row("Step one tick")) {
                 s.keep_paused = true;

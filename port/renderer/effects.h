@@ -39,13 +39,6 @@ enum class EffectPart : std::uint8_t {
 // A strip drawn as a solid surface: ALPHA 0x64 ((Cs - Cd) FIX + Cd) with FIX above 0x60.
 bool liquid_strip(std::uint64_t alpha);
 
-// Developer tools: the strips or the quads left out, to tell which draws something out of place.
-// For this session only; the game's picture is the one with them.
-void set_effect_strips_hidden(bool hidden);
-bool effect_strips_hidden();
-void set_effect_quads_hidden(bool hidden);
-bool effect_quads_hidden();
-
 // A material-owned mesh for one strip; counts let core keep its existing rendering statistics.
 struct EffectMesh {
     std::size_t handle = 0;
