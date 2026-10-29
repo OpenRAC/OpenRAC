@@ -2,12 +2,14 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The keyboard and SDL's gamepads, turned into the two DualShock 2 ports the
-// game reads (pad.h). Port 0 is the keyboard together with the first gamepad;
-// port 1 is the second gamepad. A gamepad counts from its first press, ahead of
-// those not pressed yet (a dock's or a keyboard's device that SDL also lists as
-// one), and a gamepad pressed while port 0's has been left alone for two seconds
-// takes port 0 (the player picked up another controller). Gamepad buttons are mapped by position, so the bottom face button is
-// Cross on any controller.
+// game reads (pad.h). By default port 0 is the keyboard together with the first
+// gamepad and port 1 the second gamepad; the players' controllers can be chosen
+// (players.h). A gamepad counts from its first press, ahead of those not pressed
+// yet (a dock's or a keyboard's device that SDL also lists as one), and one
+// pressed while port 0's has been left alone for two seconds takes port 0 (the
+// player picked up another controller). Gamepad buttons are read by position, so
+// the bottom face button is Cross on any controller unless the player binds it
+// otherwise.
 //
 // Default keyboard (by key position, whatever the layout):
 //
@@ -15,8 +17,8 @@
 //   d-pad       arrow keys     Cross Space, Square F, Circle E, Triangle R
 //   L1 Left Shift, R1 Q, L2 1, R2 3, L3 C, R3 V, Start Return, Select Backspace
 //
-// Remapping comes with the settings file; the table is in input.cpp. A touch screen gets an
-// on-screen pad (touch_pad.h), also on port 0. A mod may take the keyboard (mod interface 1.2,
+// What presses each control is the player's controls (bindings.h, docs/port/CONTROLS.md), the
+// defaults above included. A touch screen gets an on-screen pad (touch_pad.h), always on port 0. A mod may take the keyboard (mod interface 1.2,
 // openrac_api.take_input): the table then stops, and the mod presses pad 0's buttons itself from
 // the keyboard and mouse state below (KeyboardMouse), which is read for it every frame.
 

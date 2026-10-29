@@ -16,6 +16,7 @@ Parsed by `Options parse(int argc, char** argv)`
 | `--window` | Open the window and run the game with graphics and input. Without it the game runs headless (no pad, no collision, no disc movies). | off |
 | `--mods <dir>` | Levels edited in the editor and packed, read *instead of* the disc's. | none |
 | `--settings <file>` | The player's settings INI. | `<data home>/openrac/settings/<id>.ini` |
+| `--controls <dir>` | The player's controls files ([CONTROLS.md](../CONTROLS.md)). | `<data home>/openrac/controls` |
 | `--plugins <file>` | The native mods' list (the manifest). | `<data>/plugins/plugins.json` |
 | `--no-mods` | **Purist mode**: load no native mod at all. | off |
 | `--levels <dir>` | The extracted levels the window draws (`level_00` … `level_18`, `level_98` flight world, `level_99` title world). | `<data>/port/<version>` |

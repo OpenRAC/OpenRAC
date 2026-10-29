@@ -410,13 +410,13 @@ follows ReRAC's idea and says so in
 
 | Setting | OpenGOAL | ReRAC | OpenRAC | |
 |---|---|---|---|---|
-| Choose the controller, port mapping | yes | first pad only | first two gamepads, in order | **later** |
-| Rebind controller, keyboard, mouse | yes | no | no: the table in `input.cpp` | **later**: its own page and its own file section; input is not this work's |
-| Stick deadzone, sensitivity | yes | fixed scale 1.33 | the game's own | **later**, with rebinding |
+| Choose the controller, port mapping | yes | first pad only | each player's controller by its id, or the next free one ([CONTROLS.md](CONTROLS.md)) | **now** |
+| Rebind controller, keyboard, mouse | yes | no | the controller's buttons and sticks, chords, every game's and each game's own, in their own files and a window in the game ([CONTROLS.md](CONTROLS.md)); keys on the buttons only | **now** for the controller; keyboard and mouse **later** |
+| Stick deadzone, sensitivity | yes | fixed scale 1.33 | the game's own, and the port's per stick if set, with inversion | **now** |
 | Vibration on or off | yes | no rumble | rumble as the game drives it, no switch | **later**: a row on the game's own options |
 | Camera inverted, speed | its own page | the game's Camera page | the game's Camera page | **never** in the port: the game has it |
 | Keyboard, mouse camera and movement | yes | mouse as right stick | keyboard as a pad, no mouse | **later** |
-| Ignore the controller while unfocused | yes | no | no | **later**, beside `mute_unfocused` |
+| Ignore the controller while unfocused | yes | no | `pad_background = 0` ([CONTROLS.md](CONTROLS.md)) | **now** |
 | Controller LED, trigger effects, pressure | yes | no | no | **never** for the LED and triggers (nothing in the game drives them); pressure **later** |
 
 ### Other
