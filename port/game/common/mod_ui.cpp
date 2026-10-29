@@ -240,11 +240,15 @@ struct Fit {
     int game = -1, page = -1;  // the page shown whose stretch it is
 };
 
-// The ticks the game's rows shrink in as a switch away from the main menu begins (frames 1 to 3 of
-// their flight), in which the rows below them merge into Options; and how far below the screen
-// their mobys are put while out of sight, past the 4 units a moby may move between two ticks and
-// still be drawn part way (frontend/geometry.cpp).
-constexpr float kMergeTicks = 4.0f;
+// A switch to or from the main menu, in its ticks (the first is 1): the game's rows shrink to their
+// smallest by tick 4 going away (frames 1 to 3 of their flight) and are smallest at tick 6 coming
+// back (the same frames backwards), where the rows below them are merged into Options; they part
+// from it over the 3 ticks before (away) or after (back). And how far below the screen their mobys
+// are put while out of sight, past the 4 units a moby may move between two ticks and still be drawn
+// part way (frontend/geometry.cpp).
+constexpr float kMergedAway = 4.0f;
+constexpr float kMergedBack = 6.0f;
+constexpr float kPartTicks = 3.0f;
 constexpr float kHiddenBelow = 100.0f;
 
 // The main menu's rows raised as a block, so that the rows under the game's leave it centred where
@@ -551,10 +555,10 @@ std::int32_t& page_seq(gaddr page, int slot) {
 // the game asked for such a switch, before it begins, that page's seqs for those slots are Options'
 // for the switch, and the game plays them in step with Options' own. raise_rows moves them: away,
 // they merge into Options as the frames shrink and are then out of sight; back, out of sight until
-// Options' frame grows into its row, then out of it to their own. Once the switch is over the page
-// has its seqs back and the rows their own, settled: parked on the page (as the page's seqs leave
-// them), or the row on the main menu (its seq's first frame, as the game's open leaves it). Called
-// after all that may ask for a switch, so that none begins unseen.
+// Options' frame is at its smallest, then out of it, growing with it into their own. Once the
+// switch is over the page has its seqs back and the rows their own, settled: parked on the page (as
+// the page's seqs leave them), or the row on the main menu (its seq's first frame, as the game's
+// open leaves it). Called after all that may ask for a switch, so that none begins unseen.
 void follow_switch(const openrac_front_end& fe) {
     const gaddr menu = fe.page_menu;
     const bool switching = GREF(std::int32_t, menu + kState) == kSwitching;
@@ -1092,16 +1096,12 @@ void raise_rows(const openrac_front_end& fe) {
         const auto left = static_cast<float>(GREF(std::int32_t, menu + kTimer));
         const float ticks = kSwitchTicks - left + 1.0f;  // this one's included
         const float done = std::clamp(ticks / kSwitchTicks, 0.0f, 1.0f);
-        // Away, they merge as the frames shrink and then go; back, they come out of Options as its
-        // frame grows into the row, the same ticks in reverse.
+        // Away, they merge as the frames shrink and then go; back, they come out of Options at its
+        // smallest and grow with it into their rows.
         apart = std::clamp(
-            s.follow_out ? 1.0f - ticks / kMergeTicks
-                         : (ticks - (kSwitchTicks - kMergeTicks + 1)) / kMergeTicks,
-            0.0f,
-            1.0f
+            (s.follow_out ? kMergedAway - ticks : ticks - kMergedBack) / kPartTicks, 0.0f, 1.0f
         );
-        hidden = s.follow_page != 0
-                 && (s.follow_out ? ticks > kMergeTicks : ticks < kSwitchTicks - kMergeTicks + 1);
+        hidden = s.follow_page != 0 && (s.follow_out ? ticks > kMergedAway : ticks < kMergedBack);
         const bool out = word(menu + kPrevious) == fe.main_page;
         goal = coming == out ? (coming ? 1.0f : 0.0f) : (coming ? done : 1.0f - done);
         r.by = goal;
