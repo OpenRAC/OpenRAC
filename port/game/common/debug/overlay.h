@@ -56,28 +56,6 @@ enum Section : std::size_t {
 constexpr std::array<const char*, kSectionCount> kSectionNames =
     {"frame", "renderer", "memory", "mobys", "game", "shaders"};
 
-// Ratchet & Clank's levels by level number, 0 to 18 (the game section's level line).
-constexpr std::array<const char*, 19> kLevelNames =
-    {"Veldin",
-     "Novalis",
-     "Aridia",
-     "Kerwan",
-     "Eudora",
-     "Rilgar",
-     "Blarg Station",
-     "Umbris",
-     "Batalia",
-     "Gaspar",
-     "Orxon",
-     "Pokitaru",
-     "Hoven",
-     "Gemlik Base",
-     "Oltanis",
-     "Quartu",
-     "Kalebo III",
-     "Drek's Fleet",
-     "Veldin (final)"};
-
 // The pad's buttons by bit (active low in the report).
 constexpr std::array<const char*, 16> kButtonNames =
     {"select",

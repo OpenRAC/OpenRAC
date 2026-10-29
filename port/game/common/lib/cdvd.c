@@ -28,6 +28,7 @@ static struct {
     FILE* file;
 } patches[MAX_PATCHES];
 static int patch_count = -1; /* -1: the list has not been read yet */
+static unsigned patch_generation;
 
 static void load_patches(void) {
     char path[4096], line[4096], name[2048];
@@ -65,6 +66,13 @@ static void load_patches(void) {
 static void apply_patches(unsigned sector, unsigned count, unsigned char* out) {
     int p;
     unsigned i;
+    if (patch_generation != openrac_game_mods_generation) {
+        for (p = 0; p < patch_count; ++p) {
+            fclose(patches[p].file);
+        }
+        patch_count = -1;
+        patch_generation = openrac_game_mods_generation;
+    }
     if (patch_count < 0) {
         load_patches();
     }

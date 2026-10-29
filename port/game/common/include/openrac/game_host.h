@@ -82,6 +82,14 @@ struct openrac_map_config {
 };
 extern const struct openrac_map_config* openrac_game_map;
 
+/* A registered ship destination, separate from the active map and its guest template ID. */
+extern const struct openrac_map_config* openrac_game_destinations;
+extern unsigned openrac_game_destination_count;
+extern int
+    openrac_game_active_destination; /* -1: the campaign; otherwise an index in that registry */
+extern unsigned openrac_game_mods_generation;
+void openrac_game_select_destination(int index);
+
 /* The first memory card's folder (the second is beside it, <folder>.slot2). */
 extern const char* openrac_game_card_dir;
 
@@ -440,6 +448,29 @@ extern int (*openrac_game_moby_hit)(
     const float position[3],
     const float velocity[3]
 );
+
+/* Host rendering and menus use the game's descriptor, not a particular disc's level count.
+ * These are program/template IDs; a named map still runs one of those programs. */
+static inline int openrac_front_end_has_level(const openrac_front_end* front_end, int level) {
+    return front_end != NULL && level >= 0 && level < front_end->levels;
+}
+
+/* Whether the running game's descriptor contains this template program. */
+static inline int openrac_game_has_level(int level) {
+    return openrac_front_end_has_level(openrac_game_front_end, level);
+}
+
+/* The active map's name, or the descriptor's label; no duplicate host name table. */
+static inline const char* openrac_game_level_name(int level) {
+    if (!openrac_game_has_level(level)) {
+        return "boot";
+    }
+    if (openrac_game_map != NULL && level == openrac_game_map->level) {
+        return openrac_game_map->name;
+    }
+    return openrac_game_front_end->level_names != NULL ? openrac_game_front_end->level_names[level]
+                                                       : "unnamed level";
+}
 
 /* The game sends a DMA chain (sceDmaSend): channel is the game address of
  * the channel's registers (0x10009000 is VIF1, the display list; 0x1000A000

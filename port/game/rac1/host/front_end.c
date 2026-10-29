@@ -10,15 +10,33 @@
 #include "hero_attachments.h"
 #include "rac1.h"
 
-const char* const rac1_level_names[19] = {
+const char* const rac1_level_names[] = {
     "Veldin",  "Novalis", "Aridia",     "Kerwan",       "Eudora",         "Rilgar", "Blarg Station",
     "Umbris",  "Batalia", "Gaspar",     "Orxon",        "Pokitaru",       "Hoven",  "Gemlik Base",
     "Oltanis", "Quartu",  "Kalebo III", "Drek's Fleet", "Veldin (final)",
 };
 
 /* The planet names in the game's text, by level (the final Veldin is Veldin again). */
-static const int16_t planet_texts[19] = {20190, 20173, 20174, 20175, 20176, 20177, 20159, 20179, 20180, 20181,
-                                         20182, 20183, 20184, 20166, 20186, 20187, 20188, 20170, 20190};
+static const int16_t planet_texts[] =
+    {20190,
+     20173,
+     20174,
+     20175,
+     20176,
+     20177,
+     20159,
+     20179,
+     20180,
+     20181,
+     20182,
+     20183,
+     20184,
+     20166,
+     20186,
+     20187,
+     20188,
+     20170,
+     20190};
 
 static void menu_sound(int sound, gaddr moby) {
     func_0022ED80(0, sound, moby);
@@ -64,8 +82,14 @@ static unsigned hero_shadow_casters(gaddr* addresses, unsigned capacity) {
     );
 }
 
+_Static_assert(
+    sizeof(rac1_level_names) / sizeof(rac1_level_names[0])
+        == sizeof(planet_texts) / sizeof(planet_texts[0]),
+    "Each level needs a planet label"
+);
+
 const openrac_front_end rac1_front_end = {
-    .levels = 19,
+    .levels = sizeof(rac1_level_names) / sizeof(rac1_level_names[0]),
     .level_names = rac1_level_names,
     .start_level = rac1_start_level,
     .menu_sound = menu_sound,

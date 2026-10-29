@@ -138,11 +138,20 @@ pub fn read(data: &Path, packed: &Path, version: &str) -> Result<ModLoadSummary,
             }
         }
         for pack in &selected {
-            result.packs.push(SummaryPack {
-                id: pack.id.clone(),
-                name: pack.name.clone(),
-                applied_files: files.values().filter(|v| v.as_str() == Some(&pack.id)).count(),
-            });
+            let applied_files = if pack.is_destination {
+                let child =
+                    json(&data.join("mods").join(version).join("destinations").join(&pack.id).join("stack.json"))?
+                        .ok_or("Prepared destination is missing; prepare the mods again")?;
+                child["files"]
+                    .as_object()
+                    .ok_or("Prepared destination has no file list")?
+                    .values()
+                    .filter(|v| v.as_str() == Some(&pack.id))
+                    .count()
+            } else {
+                files.values().filter(|v| v.as_str() == Some(&pack.id)).count()
+            };
+            result.packs.push(SummaryPack { id: pack.id.clone(), name: pack.name.clone(), applied_files });
         }
     } else {
         result.packs =
@@ -164,6 +173,27 @@ mod tests {
         let p = root.join(path);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
         std::fs::write(p, value.to_string()).unwrap();
+    }
+    #[test]
+    fn destination_counts_are_read_without_claiming_the_campaign_was_replaced() {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path();
+        write(p, "overrides/packs/harbor/openrac-mod.json", serde_json::json!({"name":"Harbor","format":4}));
+        write(p, "overrides/overrides.json", serde_json::json!({"format":1,"packs":[{"id":"harbor","enabled":true}]}));
+        write(
+            p,
+            "mods/pal/destinations/harbor/stack.json",
+            serde_json::json!({"files":{"level_02/core_pal.bin":"harbor"}}),
+        );
+        write(
+            p,
+            "mods/pal/stack.json",
+            serde_json::json!({"version":"pal","layers":[{"id":"harbor"}],"files":{},"notes":["1 added ship destination prepared separately from the campaign"]}),
+        );
+        let s = read(p, &p.join("packed/pal"), "pal").unwrap();
+        assert!(!s.stale);
+        assert_eq!(s.packs[0].applied_files, 1);
+        assert!(s.gameplay_levels.is_empty() && s.collision_levels.is_empty());
     }
     #[test]
     fn missing_records_are_not_reported_as_a_successful_empty_load() {

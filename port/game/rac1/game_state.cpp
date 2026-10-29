@@ -11,6 +11,7 @@
 #include <cstring>
 #include <format>
 #include <fstream>
+#include <iterator>
 #include <string_view>
 
 namespace openrac::game::rac1 {
@@ -254,15 +255,20 @@ const GameAddresses kRac1NtscLevels[19] = {
 
 const GameAddresses& rac1_addresses(std::string_view game, int level) {
     const bool ntsc = game == "rac1-ntsc";
-    if (level >= 0 && level < 19) {
-        return ntsc ? kRac1NtscLevels[level] : kRac1PalLevels[level];
+    const std::span<const GameAddresses> levels =
+        ntsc ? std::span<const GameAddresses>(kRac1NtscLevels)
+             : std::span<const GameAddresses>(kRac1PalLevels);
+    if (level >= 0 && static_cast<std::size_t>(level) < levels.size()) {
+        return levels[level];
     }
     return ntsc ? kRac1Ntsc : kRac1Pal;
 }
 
 const GameAddresses& rac1_pal_addresses(std::span<const std::uint8_t> ram) {
     const auto level = at<std::int32_t>(ram, 0x0015EE84);
-    return level >= 0 && level < 19 ? kRac1PalLevels[level] : kRac1Pal;
+    return level >= 0 && static_cast<std::size_t>(level) < std::size(kRac1PalLevels)
+               ? kRac1PalLevels[level]
+               : kRac1Pal;
 }
 
 bool load_memory(const std::filesystem::path& path, std::vector<std::uint8_t>& out, std::string& error) {

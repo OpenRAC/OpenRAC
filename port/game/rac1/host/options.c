@@ -9,6 +9,12 @@
  * empty string for an id it does not have). The port's own ids, which the table never has, are
  * answered with the port's strings (libraries.tsv, port = wrap). */
 RAC1_TYPE_func_001FE540_result func_001FE540(int id) {
+#ifdef RAC1_DESTINATION_TEXT
+    const gaddr destination = RAC1_DESTINATION_TEXT(id);
+    if (destination != 0) {
+        return (RAC1_TYPE_func_001FE540_result)destination;
+    }
+#endif
     const gaddr own = openrac_game_text(id);
     return own != 0 ? (RAC1_TYPE_func_001FE540_result)own : func_001FE540__game(id);
 }

@@ -74,6 +74,7 @@ gaddr light_bank_address() {
 // Uploads a level's geometry; while the boot program runs (the title and the main menu), the title
 // world's, or level 0's when the title world was not extracted.
 void use_level(int number) {
+    static unsigned loaded_generation;
     int wanted = number;
     if (number == -2
         && std::filesystem::exists(g->levels / std::format("level_{:02d}", kFlightWorld))) {
@@ -83,9 +84,10 @@ void use_level(int number) {
                      ? kTitleWorld
                      : 0;
     }
-    if (wanted == g->loaded) {
+    if (wanted == g->loaded && loaded_generation == openrac_game_mods_generation) {
         return;
     }
+    loaded_generation = openrac_game_mods_generation;
     g->loaded = wanted;
     // One renderer for the whole run: a new level replaces the subsystem renderers, but its texture
     // pool is the GS memory, which keeps what the game uploaded (a card's text uploaded through the
@@ -176,7 +178,7 @@ void use_level(int number) {
         "OPENRAC_HERO_SHADOW",
         "Ratchet-only shadow map: sun direction grounded, downward platforming cue airborne"
     );
-    const bool sun_shadow = enhanced_graphics_available() && wanted >= 0 && wanted < 19
+    const bool sun_shadow = enhanced_graphics_available() && openrac_game_has_level(wanted)
                             && env::flag(env::Var::SunShadows);
     if (!g->scene.enable_sun_shadow(sun_shadow, error)) {
         log::warn("Cascaded sun shadows unavailable: {}", error);

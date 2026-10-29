@@ -31,6 +31,7 @@
 #include "common/system_info.h"
 #include "common/zip_writer.h"
 #include "debug/overlay.h"
+#include "openrac/game_host.h"
 #include "options_menu.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
@@ -107,8 +108,8 @@ std::filesystem::path capture_dir() {
 }
 
 std::string level_name(int level) {
-    return level >= 0 && level < static_cast<int>(kLevelNames.size())
-               ? std::format("{} (level {})", kLevelNames[static_cast<std::size_t>(level)], level)
+    return openrac_game_has_level(level)
+               ? std::format("{} (level {})", openrac_game_level_name(level), level)
                : std::string("the boot program");
 }
 

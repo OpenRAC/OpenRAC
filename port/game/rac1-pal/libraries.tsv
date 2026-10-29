@@ -1037,3 +1037,6 @@ func_L18_002FD058	moby	Moby_Gadgebot1906_Update	hook	The update of class gadgebo
 # ---- end of the generated hook points ----
 func_L00_0029A940	mpeg	prepare_movie_playback	wrap	a movie in a level: the RAM the console's decoder needs is parked in the GS's memory, which the port's player has no use for; run with the image transfers off, or the parked strips covered the HUD's textures (the vendor's icons) (rac1/host/movie.c)	void (int, int, int)
 func_L00_0029AB38	mpeg	unpark_movie_memory	wrap	after a movie in a level: the parked RAM read back from the GS's memory; run with the image transfers off, as the park was (rac1/host/movie.c)	void (void)
+func_00222848	port	ship_destination_menu	wrap	Append a host-owned ship destination without extending retail arrays	int (gaddr)
+func_0021BB90	port	ship_destination_selection	wrap	Track logical destinations while the native list keeps template IDs	int (gaddr)
+func_L00_00290030	port	ship_destination_travel	wrap	Mount the selected map and request a real level load, including template aliases	void (int)
