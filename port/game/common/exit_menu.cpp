@@ -50,6 +50,7 @@ constexpr gaddr kListDown = 0x3C;
 constexpr gaddr kListCursor = 0x40;
 constexpr gaddr kListScroll = 0x44;
 constexpr gaddr kLabelText = 0x34;
+constexpr gaddr kHeight = 0x24;  // set each frame from the panel's frame on the screen
 
 // What of the Options page and of the Language page's title and list the question page copies (as
 // a mod's page, mod_ui.cpp). The Options page's seqs, because going back plays the page's own
@@ -78,6 +79,11 @@ constexpr int kConfirmSound = 0x11;
 // The question's rows.
 constexpr std::int32_t kYesRow = 0;
 constexpr std::int32_t kNoRow = 1;
+
+// Where draw_menu_text_list puts the two rows in the normal font (12) with font-high rows: the
+// first's top at the row height (15) less half the font, each row a line (14) and 8 apart. The
+// middle of the pair, from the list's top before its scroll.
+constexpr std::int32_t kRowsMiddle = (15 - 12 / 2) + (14 + 8 + 14) / 2;
 
 // Returns the 32-bit word of game memory at `at`.
 gaddr word(gaddr at) {
@@ -227,6 +233,13 @@ void update_title(const openrac_front_end& fe) {
         GREF(std::int32_t, s.list + kListCursor) = kNoRow;
         s.cross.take(fe, false);
         return;
+    }
+
+    // Yes and No in the middle of the panel, whose height the drawing set last frame.
+    const std::int32_t height = GREF(std::int32_t, s.list + kHeight);
+
+    if (height > 0) {
+        GREF(std::int32_t, s.list + kListScroll) = kRowsMiddle - height / 2;
     }
 
     const bool ready =
