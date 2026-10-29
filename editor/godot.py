@@ -56,8 +56,10 @@ GAME_TO_GODOT = [1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 1]  # (x, y, z) -
 STORED_W = struct.unpack("<f", struct.pack("<f", 0.01))[0]
 # level.json's schema: what a Godot level of this extractor holds. Raised when the scene changes in
 # a way the packer or a newer extractor tells apart (3: the editable collision); extract.py writes a
-# level of an older schema again, after backing it up with its edits.
-SCHEMA = 3
+# level of an older schema again, after backing it up with its edits (and carry.py carries them
+# over). It is in project_format.json, which the launcher reads too, to say a project is outdated.
+PROJECT_FORMAT = json.loads((Path(__file__).parent / "project_format.json").read_text())
+SCHEMA = PROJECT_FORMAT["schema"]
 COLLISION_ALPHA = 0.55
 MIN_SCALE = 1e-4  # the smallest joint scale the editor's models get (LevelWriter.scale)
 PANORAMA = (2048, 1024)  # About one texel per pixel around the horizon.

@@ -32,10 +32,11 @@ from openrac_common import files as file_ops  # noqa: E402
 
 from disc import LEVEL_COUNT, Disc
 from formats import FormatError
+import errors
 from godot import SCHEMA as GODOT_SCHEMA, SCRIPTS, LevelWriter, install_addon, write_project
 from spaceships import add_spaceships
 from level import load_flight, load_level, load_title
-from level import load_wad_level
+from level import decoded, load_wad_level
 from occlusion import write_stamp as write_pvs_stamp
 from lighting import normal_table
 from pack import pack
@@ -52,9 +53,10 @@ def output_path(path: Path, anywhere: bool = False, replace: bool = False) -> Pa
     REPLACE: it may exist."""
     resolved = path.resolve()
     if not anywhere and not any(root in resolved.parents for root in (ROOT / "assets", ROOT / "build")):
-        raise FormatError("output must be a new directory under this repository's assets/ or build/")
+        raise FormatError("output must be a new directory under this repository's assets/ or build/",
+                          code="folder-not-allowed")
     if resolved.exists() and not replace:
-        raise FormatError(f"{resolved} already exists; choose a new directory")
+        raise FormatError(f"{resolved} already exists; choose a new directory", code="folder-exists")
     return resolved
 
 
@@ -77,7 +79,8 @@ def ours(path: Path, kind: str) -> None:
     if found not in (None, kind):
         what = {"port": "levels extracted for the game", "godot": "Godot projects of the level editor",
                 "other": "files that are not an export"}[found]
-        raise FormatError(f"{path} holds {what}, not what this command writes; choose another folder")
+        raise FormatError(f"{path} holds {what}, not what this command writes; choose another folder",
+                          code="folder-not-ours")
 
 
 def level_schema(level_dir: Path) -> int | None:
@@ -89,24 +92,31 @@ def level_schema(level_dir: Path) -> int | None:
 
 
 def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int,
-                 gameplay_source: str | None = None) -> dict[str, list[int]]:
+                 gameplay_source: str | None = None, carry=None) -> dict[str, list[int]]:
     """Brings the Godot projects in DEST (an earlier export of this command) up to date, keeping
     every edit: a level of the current SCHEMA is left as it is (its scene, with the player's
     edits, is the one they work on); a missing level is exported; a level an older extractor wrote
     moves to DEST's backups folder, edits and all, and a new one takes its place. EXPORT(out,
     levels) writes those levels as a fresh export into OUT, the way godot() does. The editor's
     scripts (rc1/) and the Collision dock (addons/openrac_collision, enabled in project.godot)
-    are refreshed in every project. Returns the levels "kept", "added" and "replaced", and the
-    "backup" folder when one was made."""
+    are refreshed in every project. CARRY(level, old level folder, new level folder, backup) carries
+    the player's edits from a replaced level's backup onto its fresh one (carry.py) and returns its
+    report. Returns the levels "kept", "added" and "replaced", the "backup" folder when one was
+    made, and the "carried" reports."""
     place = (lambda i: dest / f"level_{i:02}") if split else (lambda i: dest / "levels" / f"level_{i:02}")
     level_dir = (lambda i: place(i) / "levels" / f"level_{i:02}") if split else place
-    report: dict = {"kept": [], "added": [], "replaced": [], "backup": None}
+    report: dict = {"kept": [], "added": [], "replaced": [], "backup": None, "carried": []}
+
+    def whole(i: int) -> bool:
+        """The level's scene, and its project (a project per level), are there: one with files
+        missing is written again (backed up first, as an outdated one is)."""
+        return (level_dir(i) / f"level_{i:02}.tscn").is_file() and (not split or (place(i) / "project.godot").is_file())
     todo = []
     for i in levels:
         if not level_dir(i).is_dir():
             report["added"].append(i)
             todo.append(i)
-        elif (level_schema(level_dir(i)) != schema or
+        elif (level_schema(level_dir(i)) != schema or not whole(i) or
               (gameplay_source is not None and
                json.loads((level_dir(i) / "level.json").read_text()).get("gameplay_source") != gameplay_source)):
             report["replaced"].append(i)
@@ -129,11 +139,39 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
                 file_ops.rename(source, place(i))
         finally:
             shutil.rmtree(fresh, ignore_errors=True)
+    if carry is not None and report["backup"] is not None:
+        for i in report["replaced"]:
+            old = report["backup"] / f"level_{i:02}"
+            old_dir = old / "levels" / f"level_{i:02}" if split else old
+            try:
+                report["carried"].append(carry(i, old_dir, level_dir(i), report["backup"]))
+            except Exception as exc:     # noqa: BLE001 -- the fresh level stays; the player hears why
+                report["carried"].append({"level": i, "carried": [], "not_carried": [f"carrying failed: {exc}"],
+                                          "mobys": 0, "failed": True, "backup": str(report["backup"])})
     for project in ([place(i) for i in levels] if split else [dest]):
         if (project / "project.godot").is_file():
             shutil.copytree(SCRIPTS, project / "rc1", dirs_exist_ok=True)
             install_addon(project)
     return report
+
+
+def carry_edits(disc, survey: dict, level: int, old_dir: Path, new_dir: Path, backup: Path) -> dict:
+    """Carries a replaced level's edits from OLD_DIR (its backup) onto NEW_DIR (carry.py): the old
+    one was read from the gameplay copy its level.json names (a PAL project from before the 60 Hz
+    fix names none: it was read from the PAL copy), the new one from the one this disc plays."""
+    import carry
+    try:
+        stats = json.loads((old_dir / "level.json").read_text())
+    except (OSError, ValueError):
+        stats = {}
+    source = stats.get("gameplay_source") or ("gameplay_pal" if disc.version.key == "pal" else disc.version.gameplay)
+    info = next(entry for entry in survey["levels"] if entry["id"] == level)
+
+    def gameplay(name: str) -> bytes:
+        place = info["ranges"][name]
+        return decoded(disc.sectors(place["lba"], place["sectors"]))
+    project = old_dir.parents[1] if old_dir.parent.name == "levels" else backup
+    return carry.carry_project(project, old_dir, new_dir, gameplay(source), gameplay(disc.version.gameplay), backup)
 
 
 def say_output(path: Path) -> None:
@@ -142,14 +180,17 @@ def say_output(path: Path) -> None:
 
 
 def export_godot(out: Path, levels: list[int], anywhere: bool, split: bool, export,
-                 gameplay_source: str | None = None) -> str:
+                 gameplay_source: str | None = None, carry=None) -> str:
     """The godot command's output, made or updated (update_godot); a sentence saying what was done."""
     dest = output_path(out, anywhere, replace=True)
     ours(dest, "godot")
     if export_kind(dest) is None:
         publish(dest, lambda fresh: export(fresh, levels), anywhere, replace=True)
         return f"Godot project{'s, one per level' if split else ''}: {dest}"
-    report = update_godot(dest, levels, split, export, GODOT_SCHEMA, gameplay_source)
+    report = update_godot(dest, levels, split, export, GODOT_SCHEMA, gameplay_source, carry)
+    for done in report["carried"]:
+        # One line per level for the launcher (launcher/src/lib/editorFlow.ts, CARRY_LINE).
+        print(f"openrac-carry: {json.dumps(done, separators=(',', ':'))}", flush=True)
     said = [f"Godot project{'s' if split else ''} in {dest}:"]
     if report["kept"]:
         said.append(f"{len(report['kept'])} level(s) kept as they are, with your edits")
@@ -158,6 +199,10 @@ def export_godot(out: Path, levels: list[int], anywhere: bool, split: bool, expo
     if report["replaced"]:
         said.append(f"{len(report['replaced'])} made by an older extractor written again; the old ones, with "
                     f"any edits, are in {report['backup']}")
+    carried = sum(done["mobys"] for done in report["carried"])
+    left = sum(len(done["not_carried"]) for done in report["carried"])
+    if report["carried"]:
+        said.append(f"{carried} edit(s) carried over" + (f", {left} to redo by hand" if left else ""))
     return " ".join(said[:1]) + " " + "; ".join(said[1:]) + "."
 
 
@@ -277,6 +322,7 @@ def export_level(iso: Path, info: dict, out: Path, lod: int) -> dict:
     with Disc(iso) as disc:
         writer = LevelWriter(out, load_level(disc, info), normals(disc))
         writer.stats["gameplay_source"] = disc.version.gameplay
+        writer.stats["version"] = disc.version.key
         return writer.write(lod)
 
 
@@ -409,11 +455,13 @@ def later_main(args, parser, disc: Disc, version: wads.Version) -> None:
         return
     if args.command == "pack":
         raise FormatError(f"packing levels back is Ratchet & Clank's only for now; {version.game}'s levels "
-                          "can be extracted, opened in Godot and used for texture and model packs")
+                          "can be extracted, opened in Godot and used for texture and model packs",
+                          code="game-not-packable")
     wanted = sorted(set(args.level or numbers))
     unknown = [n for n in wanted if n not in numbers]
     if unknown:
-        raise FormatError(f"{version.game} has no level {unknown[0]}; its levels are {', '.join(map(str, numbers))}")
+        raise FormatError(f"{version.game} has no level {unknown[0]}; its levels are {', '.join(map(str, numbers))}",
+                          code="no-such-level")
     if args.command == "godot":
         print(export_godot(args.out, wanted, args.anywhere, args.split,
                            lambda out, todo: godot(args.iso, survey, todo, args.terrain_lod, max(1, args.jobs), out,
@@ -494,7 +542,7 @@ def main() -> None:
                 return
             # Ratchet & Clank: its 19 levels, numbered 0 to 18.
             if getattr(args, "level", None) and any(n not in range(LEVEL_COUNT) for n in args.level):
-                raise FormatError(f"Ratchet & Clank's levels are 0 to {LEVEL_COUNT - 1}")
+                raise FormatError(f"Ratchet & Clank's levels are 0 to {LEVEL_COUNT - 1}", code="no-such-level")
             survey = disc.survey()
             if args.command == "survey":
                 json.dump(survey, sys.stdout, indent=2)
@@ -509,7 +557,8 @@ def main() -> None:
                 print(export_godot(args.out, levels, args.anywhere, args.split,
                                    lambda out, todo: godot(args.iso, survey, todo, args.terrain_lod, max(1, args.jobs),
                                                            out, args.split, disc.version.region),
-                                   gameplay_source=disc.version.gameplay if disc.version.key == "pal" else None))
+                                   gameplay_source=disc.version.gameplay if disc.version.key == "pal" else None,
+                                   carry=lambda i, old, new, backup: carry_edits(disc, survey, i, old, new, backup)))
                 say_output(args.out.resolve())
             elif args.command == "port":
                 levels = sorted(set(args.level or range(LEVEL_COUNT)))
@@ -531,14 +580,16 @@ def main() -> None:
                 if adopt_flat_export(dest, disc.version.key, "packed"):
                     print(f"moved the packed levels made before into {dest}")
                 if not args.anywhere and not any(root in dest.parents for root in (ROOT / "assets", ROOT / "build")):
-                    raise FormatError("output must be a directory under this repository's assets/ or build/")
+                    raise FormatError("output must be a directory under this repository's assets/ or build/",
+                                      code="folder-not-allowed")
                 if not (args.project / "project.godot").is_file() and not list(args.project.glob("level_*/project.godot")):
                     raise FormatError(f"{args.project} is not the editor's Godot project or its folder of "
-                                      "per-level projects (run `godot` first)")
+                                      "per-level projects (run `godot` first)", code="no-project")
                 for stats in [*args.project.glob("levels/*/level.json"), *args.project.glob("level_*/levels/*/level.json")]:
                     game = json.loads(stats.read_text()).get("game", "rac1")
                     if game != "rac1":
-                        raise FormatError(f"{args.project} holds {game}'s levels, which are not packed back yet")
+                        raise FormatError(f"{args.project} holds {game}'s levels, which are not packed back yet",
+                                          code="game-not-packable")
                 levels, mobys = pack(disc, survey, args.project, dest)
                 print((dest / "changes.txt").read_text(), end="")
                 print(f"Packed {levels} level(s), {mobys} moby edit(s): {dest}")
@@ -547,7 +598,12 @@ def main() -> None:
                 dest = publish(args.out, lambda out: raw(disc, survey, args.level[0], out))
                 print(f"Level {args.level[0]} sections: {dest}")
     except (OSError, FormatError, struct.error) as exc:
+        errors.say(exc)
         parser.exit(1, f"extract: {exc}\n")
+    except Exception:
+        # Not one of the cases above: the launcher says its generic sentence, the log has the trace.
+        errors.say(Exception())
+        raise
 
 
 if __name__ == "__main__":

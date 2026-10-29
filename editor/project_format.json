@@ -1,0 +1,5 @@
+{
+  "about": "What a level project of this editor is made of, read by the editor (godot.py SCHEMA) and by the launcher, which says a project is outdated when its level.json differs (launcher/core/src/editor_state.rs). Raise schema when the scene changes in a way the packer or a newer extractor tells apart; gameplay names the gameplay copy each version's projects are read from (disc.Version.gameplay).",
+  "schema": 3,
+  "gameplay": { "rac1/pal": "gameplay_ntsc" }
+}

@@ -401,9 +401,10 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
             except (OSError, ValueError, AttributeError):
                 source = None
             if source != disc.version.gameplay:
-                raise FormatError(f"level {info['id']:02}: this PAL project predates the 60 Hz gameplay fix. "
-                                  "Extract the levels again to back up the old project and create a 60 Hz "
-                                  "project, then reapply your intended edits. Do not copy the whole old scene.")
+                raise FormatError(f"level {info['id']:02}: this PAL project was read from the 50 Hz gameplay "
+                                  f"copy ({source or 'gameplay_pal'}); the game plays {disc.version.gameplay}. "
+                                  "Extracting the levels again backs it up and carries its edits over (carry.py).",
+                                  code="project-outdated-gameplay")
         place = info["ranges"][disc.version.gameplay]
         stored = disc.sectors(place["lba"], place["sectors"])
         gameplay = decoded(stored)
@@ -412,7 +413,7 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         try:
             static_instances = static_assets.placements(scene.parents[2], text)
         except (ValueError, KeyError, IndexError) as error:
-            raise FormatError(f'Static import placement: {error}') from None
+            raise FormatError(f'Static import placement: {error}', code="static-import") from None
         edited, changes, problems = pack_level(info["id"], gameplay, text)
         # Ties and shrubs: the port draws them from the extractor's files, so they are packed as
         # those are (scenery.py), beside the gameplay file.
@@ -423,11 +424,12 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         # moby_collision_scene.py), only when the scenes' differ.
         collision_changes, collision_problems, wrote = pack_collision(disc, info, scene, text, out, patches)
         if any(solid for _, _, _, solid in static_instances) and collision_problems:
-            raise FormatError('Static import collision could not be packed: ' + '; '.join(collision_problems))
+            raise FormatError('Static import collision could not be packed: ' + '; '.join(collision_problems),
+                              code="static-import")
         try:
             static_bake = static_assets.write_packed(scene.parents[2], scene.parent, text, out / name)
         except (ValueError, KeyError, IndexError) as error:
-            raise FormatError(f'Static import geometry: {error}') from None
+            raise FormatError(f'Static import geometry: {error}', code="static-import") from None
         scenery_changes += collision_changes
         scenery_problems += collision_problems
         if static_bake is not None:
@@ -451,11 +453,11 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
             continue
         stream = compress(edited, stored[:16])
         if decoded(stream) != edited:
-            raise FormatError(f"level {info['id']}: the packed file does not read back")
+            raise FormatError(f"level {info['id']}: the packed file does not read back", code="pack-internal")
         room = place["sectors"] * SECTOR
         if len(stream) > room:
             raise FormatError(f"level {info['id']}: the packed gameplay file is {len(stream)} bytes, "
-                              f"{len(stream) - room} more than its place on the disc")
+                              f"{len(stream) - room} more than its place on the disc", code="level-too-big")
         name = f"{name}/gameplay_{disc.version.key}.wad"
         (out / name).parent.mkdir(parents=True, exist_ok=True)
         (out / name).write_bytes(stream + bytes(room - len(stream)))

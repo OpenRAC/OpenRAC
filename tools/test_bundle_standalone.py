@@ -165,6 +165,8 @@ class Bundle(unittest.TestCase):
             for path in (editor / folder).rglob("*"):
                 if path.is_file() and path.suffix != ".uid":
                     self.assertTrue(bundle.editor_file(path.relative_to(editor)), path)
+        # godot.py reads it, and so does the launcher, to tell an outdated project.
+        self.assertTrue(bundle.editor_file(Path("project_format.json")))
 
     def test_a_copy_without_game_or_python(self):
         with tempfile.TemporaryDirectory() as tmp:

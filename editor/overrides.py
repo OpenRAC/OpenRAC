@@ -1059,6 +1059,8 @@ def main(argv: list[str] | None = None) -> int:
         save_state(args.into, state)
         return 0
     except (PackError, OSError, zipfile.BadZipFile) as exc:
+        import errors
+        errors.say(exc, code=None if isinstance(exc, OSError) else "pack-invalid")
         print(f"overrides: {exc}", file=sys.stderr)
         return 1
 
