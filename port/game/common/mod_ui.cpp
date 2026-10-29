@@ -234,10 +234,12 @@ struct Fit {
 
 // The main menu's rows raised as a block, so that the rows under the game's leave it centred where
 // the game's three were: each row's frame moby moved up along z (the screen's y) by `by` of
-// `height`, half the extra rows' height, learnt from the rows' frames once they are settled.
+// `height`, half the extra rows' height (the game's rows' step, learnt from their frames once they
+// are settled). A moby's own z is taken again whenever the game moved it since (a switch's flight),
+// so the rows only ever sit `height` above where the game puts them.
 struct Raise {
     std::array<gaddr, kRowSlots.size()> moby{};  // 0: not moved
-    std::array<float, kRowSlots.size()> position_z{};
+    std::array<float, kRowSlots.size()> own_z{}, put_z{};
     float height = 0.0f;  // 0: not learnt yet
     float by = 0.0f;
 };
@@ -979,9 +981,20 @@ bool row_middle(const openrac_front_end& fe, int slot, std::int32_t seq, float& 
     return true;
 }
 
+// A row's moby at its own z, where it was moved.
+void lower(Raise& r, std::size_t row) {
+    const gaddr moby = r.moby[row];
+
+    if (GREF(float, moby + kMobyPosition + kUpward) == r.put_z[row]) {
+        GREF(float, moby + kMobyPosition + kUpward) = r.own_z[row];
+    }
+
+    r.moby[row] = 0;
+}
+
 // Once a tick: the main menu's rows raised by the part of the height the main menu has on the
 // screen (all of it while shown, along a switch to or from it as the frames fly, none on another
-// page), each moby put back as the game made it once it has none.
+// page), each moby put back at its own z once it has none.
 void raise_rows(const openrac_front_end& fe) {
     Raise& r = s.raise;
     const int rows = kGameRows + s.extra_rows;
@@ -989,17 +1002,15 @@ void raise_rows(const openrac_front_end& fe) {
     const bool switching = GREF(std::int32_t, menu + kState) == kSwitching;
     const bool main_menu = word(menu + kCurrent) == fe.main_page;
 
-    // Learnt on the main menu settled, before any row is moved: half the way from the game's last
-    // row's centre to the last row's.
+    // Learnt on the main menu settled: the game's first two rows' step, half of it per extra row.
     if (r.height == 0.0f && s.extra_rows > 0 && main_menu && !switching) {
-        float game_last = 0.0f;
-        float last = 0.0f;
-        const auto g = static_cast<std::size_t>(kGameRows - 1);
-        const auto l = static_cast<std::size_t>(rows - 1);
+        float first = 0.0f;
+        float second = 0.0f;
 
-        if (row_middle(fe, kRowSlots[g], kRowSeqs[g], game_last)
-            && row_middle(fe, kRowSlots[l], kRowSeqs[l], last)) {
-            r.height = (game_last - last) / 2.0f;
+        if (row_middle(fe, kRowSlots[0], kRowSeqs[0], first)
+            && row_middle(fe, kRowSlots[1], kRowSeqs[1], second)) {
+            r.height = (first - second) * static_cast<float>(s.extra_rows) / 2.0f;
+            log::verbose("mod ui: the main menu's rows raised by {}", r.height);
         }
     }
 
@@ -1035,19 +1046,22 @@ void raise_rows(const openrac_front_end& fe) {
 
         if (r.by == 0.0f || r.height == 0.0f) {
             if (r.moby[row] != 0) {
-                GREF(float, moby + kMobyPosition + kUpward) = r.position_z[row];
-                r.moby[row] = 0;
+                lower(r, row);
             }
 
             continue;
         }
 
-        if (r.moby[row] == 0) {
+        const float z = GREF(float, moby + kMobyPosition + kUpward);
+
+        // New, or moved by the game since: its own z is where it is now.
+        if (r.moby[row] == 0 || z != r.put_z[row]) {
             r.moby[row] = moby;
-            r.position_z[row] = GREF(float, moby + kMobyPosition + kUpward);
+            r.own_z[row] = z;
         }
 
-        GREF(float, moby + kMobyPosition + kUpward) = r.position_z[row] + r.height * r.by;
+        r.put_z[row] = r.own_z[row] + r.height * r.by;
+        GREF(float, moby + kMobyPosition + kUpward) = r.put_z[row];
     }
 }
 
@@ -1057,7 +1071,7 @@ void unraise(const openrac_front_end& fe) {
 
     for (std::size_t row = 0; fe.panel_slots != 0 && row < kRowSlots.size(); ++row) {
         if (r.moby[row] != 0 && r.moby[row] == panel(fe, kRowSlots[row])) {
-            GREF(float, r.moby[row] + kMobyPosition + kUpward) = r.position_z[row];
+            lower(r, row);
         }
 
         r.moby[row] = 0;
