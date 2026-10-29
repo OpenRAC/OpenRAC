@@ -28,6 +28,10 @@ python3 port/tools/regress/regress.py run --game rac1-ntsc --build ../other/port
   `assets/port/rac1/pal` (PAL) or `build/ntsc-data` and `build/ntsc-levels`
   (US); in a worktree, the main checkout's.
 - `--jobs N` runs N levels at once (default 6).
+- `--env KEY=VALUE` gives every run a switch (the runner clears the caller's
+  own `OPENRAC_` variables). On a machine without a graphics card, as a cloud
+  container: `SDL_VIDEODRIVER=offscreen ... --env OPENRAC_SOFTWARE_GL=1`
+  (Mesa's llvmpipe; a level takes two to four minutes, so `--jobs 2`).
 - A run without `--out` becomes `latest:<game>`, the default of `baseline
   save` and `check`; one with `--out` (another build's) is kept apart.
 

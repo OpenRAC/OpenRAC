@@ -6,7 +6,8 @@ the port left undrawn (frontend/draw_coverage.h).
 Two kinds of rows: a VU1 program start no renderer of the port reads, by its signature (command,
 entry, the microcode's hash and the layout of the data unpacked for it), and a particle type some of
 whose particles particle_quads leaves out, by reason. Each is ranked by how many routes saw it, then
-by its count, with an example of where its data came from in game memory.
+by its count, with an example of where its data came from in game memory. A start SETUP names
+(a program's set-up, which draws nothing) is left out.
 """
 
 from __future__ import annotations
@@ -14,6 +15,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+
+
+# Program starts that draw nothing, by their microcode's hash and entry: what each sets up.
+SETUP = {
+    ("d859b12145f6f10e", "0x0"): "the effect strip program's set-up (its constants at 0x3A4, BASE and OFFSET)",
+}
 
 
 @dataclass
@@ -55,7 +62,7 @@ def merge(files: list[tuple[str, int | str, dict]]) -> dict[str, tuple[list[Prog
             where = f"{route}@{level}" if str(route) != str(level) else str(level)
             for p in entry.get("programs", []):
                 undrawn = int(p["calls"]) - int(p["drawn"])
-                if undrawn <= 0:
+                if undrawn <= 0 or (p["code"], p["entry"]) in SETUP:
                     continue
                 key = (p["command"], p["entry"], p["code"], p["layout"])
                 row = programs.setdefault(game, {}).setdefault(key, Program(*key))
@@ -68,7 +75,8 @@ def merge(files: list[tuple[str, int | str, dict]]) -> dict[str, tuple[list[Prog
             for p in entry.get("particles", []):
                 if not p.get("left_out"):
                     continue
-                key = (int(p["type"]), p.get("update", "?"))
+                # By the update's name: each level's program has the function at an address of its own.
+                key = (int(p["type"]), p.get("update", "?").split(" ", 1)[-1])
                 row = particles.setdefault(game, {}).setdefault(key, Particle(*key))
                 row.routes.add(where)
                 row.drawn += int(p.get("drawn", 0))

@@ -197,6 +197,11 @@ void begin_tick(int level, std::uint64_t tick) {
 void program(std::uint32_t at, std::span<const std::uint8_t> code) {
     if (Coverage* c = coverage()) {
         c->code[at] = fnv(code);
+        // What was unpacked before belongs to the program before, which started no draw with it.
+        c->layout.clear();
+        c->unpacks = 0;
+        c->ram.reset();
+        c->sample.clear();
     }
 }
 

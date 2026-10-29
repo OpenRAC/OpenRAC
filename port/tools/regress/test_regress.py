@@ -229,6 +229,11 @@ class Coverage(unittest.TestCase):
         self.assertEqual(particles[0].left_out, {"lines": 5, "beyond": 2})
         self.assertIn("0x30", coverage.table("rac1-ntsc", programs, particles, 10))
 
+    def test_a_programs_set_up_is_left_out(self):
+        setup = dict(self.program("0x0", 4, 0), code="d859b12145f6f10e")
+        files = [("g", 14, {"levels": {"14": {"programs": [setup]}}})]
+        self.assertNotIn("g", coverage.merge(files))
+
     def test_a_set_route_names_its_level(self):
         files = [("g", "14-fire", {"levels": {"14": {"programs": [self.program("0x10", 1, 0)]}}})]
         self.assertEqual(coverage.merge(files)["g"][0][0].routes, {"14-fire@14"})
