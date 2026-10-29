@@ -59,6 +59,7 @@ pub struct PackView {
     pub models: usize,
     pub level_files: usize,
     pub is_map: bool,
+    pub is_destination: bool,
 }
 
 fn read_state(dir: &Path) -> Result<State, String> {
@@ -121,7 +122,8 @@ fn view(dir: &Path, entry: &Entry) -> PackView {
         description: text("description"),
         id: entry.id.clone(),
         enabled: entry.enabled,
-        is_map: manifest.get("format").and_then(Value::as_u64) == Some(3),
+        is_map: matches!(manifest.get("format").and_then(Value::as_u64), Some(3 | 4)),
+        is_destination: manifest.get("format").and_then(Value::as_u64) == Some(4),
         levels,
         textures,
         models,
@@ -211,6 +213,9 @@ mod tests {
         map["format"] = Value::from(3);
         std::fs::write(&manifest_path, serde_json::to_string(&map).unwrap()).unwrap();
         assert!(list(dir).unwrap()[1].is_map);
+        map["format"] = Value::from(4);
+        std::fs::write(dir.join("packs/green").join(MANIFEST), map.to_string()).unwrap();
+        assert!(list(dir).unwrap()[1].is_destination);
 
         let packs = move_pack(dir, "green", true).unwrap();
         assert_eq!(packs[0].id, "green");

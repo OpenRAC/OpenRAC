@@ -16,6 +16,7 @@
   import AddMod from "$components/AddMod.svelte";
   import AssetsPanel from "$components/AssetsPanel.svelte";
   import CommandBox from "$components/CommandBox.svelte";
+  import EditorReset from "$components/EditorReset.svelte";
   import GameChip from "$components/GameChip.svelte";
   import GamesFrame from "$components/GamesFrame.svelte";
   import Icon from "$components/Icon.svelte";
@@ -435,6 +436,7 @@
                     }}
                   />
                 {/if}
+                <EditorReset version={v} onchanged={() => reload++} />
               {:else}
                 <section class="panel">
                   <AssetsPanel version={v} onimported={() => reload++} />

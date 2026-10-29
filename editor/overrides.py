@@ -90,6 +90,7 @@ STATE = "overrides.json"
 MARKER = ".openrac-stack"
 PACK_FORMAT = 1
 MAP_PACK_FORMAT = 3  # map packs must be refused by builds that only replace campaign levels
+DESTINATION_PACK_FORMAT = 4  # separate worlds, never merged into campaign level files
 GAME = "rac1"  # the game of a pack whose manifest does not say
 VERSIONS = tuple(v.key for v in disc.VERSIONS)  # Ratchet & Clank's discs: pal, ntsc (games.VERSIONS for every game)
 LEVELS_FORMAT = FORMAT
@@ -117,16 +118,22 @@ class PackError(ValueError):
 def map_settings(manifest: dict) -> dict | None:
     """A map is one named world in a data pack, started separately from the campaign."""
     if "map" not in manifest:
-        if manifest.get("format") == MAP_PACK_FORMAT:
+        if manifest.get("format") in (MAP_PACK_FORMAT, DESTINATION_PACK_FORMAT):
             raise PackError('a map pack needs "map" settings')
         return None
-    if manifest.get("format") != MAP_PACK_FORMAT:
+    if manifest.get("format") not in (MAP_PACK_FORMAT, DESTINATION_PACK_FORMAT):
         raise PackError('map packs use "format": 3; older builds must not install them as level replacements')
     value = manifest["map"]
     if manifest.get("game") != "rac1" or not isinstance(value, dict):
         raise PackError('"map" must be an object in a Ratchet & Clank pack')
     if manifest.get("version") not in ("pal", "ntsc"):
         raise PackError('map packs must name their disc version ("pal" or "ntsc")')
+    if manifest.get("format") == DESTINATION_PACK_FORMAT and manifest.get("version") != "pal":
+        raise PackError('ship destinations currently require RAC1 PAL')
+    if manifest.get("format") == DESTINATION_PACK_FORMAT and "export" in manifest:
+        identity = manifest["export"]
+        if not isinstance(identity, str) or not identity.startswith("destination:") or len(identity) > 132:
+            raise PackError('a destination update needs the identity written by map_mod.py --map-id')
     name = manifest.get("name")
     if not isinstance(name, str) or not name.strip() or len(name.encode("utf-8")) > 120:
         raise PackError('map "name" must contain up to 120 UTF-8 bytes of text')
@@ -181,9 +188,9 @@ def read_manifest(data: bytes, where: str) -> dict:
         raise PackError(f"{where}: {MANIFEST} is not readable JSON ({exc})") from None
     if not isinstance(manifest, dict):
         raise PackError(f"{where}: {MANIFEST} is not a JSON object")
-    if manifest.get("format") not in (PACK_FORMAT, MAP_PACK_FORMAT):
+    if manifest.get("format") not in (PACK_FORMAT, MAP_PACK_FORMAT, DESTINATION_PACK_FORMAT):
         raise PackError(f"{where}: pack format {manifest.get('format')!r}; this OpenRAC reads data packs "
-                        f"{PACK_FORMAT} and map packs {MAP_PACK_FORMAT}")
+                        f"{PACK_FORMAT}, map packs {MAP_PACK_FORMAT} and destination packs {DESTINATION_PACK_FORMAT}")
     if not games.known(manifest.get("game"), manifest.get("version", "pal" if manifest.get("game") == GAME else None)):
         raise PackError(f"{where} is not a pack for a game OpenRAC reads ({manifest.get('game')}/"
                         f"{manifest.get('version')})")
@@ -399,7 +406,8 @@ def add(source_path: Path, folder: Path) -> tuple[str, list[str], list[str]]:
                 target = staged / rel
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(source.read(rel))
-            new = install(staged, folder)
+            identity = manifest.get("export") if manifest.get("format") == DESTINATION_PACK_FORMAT else None
+            new = install(staged, folder, replace_export=identity)
     finally:
         source.close()
     return new, ignored, problems
@@ -756,6 +764,65 @@ def cross_disc(root: Path, manifest: dict, target: Target) -> tuple[dict, list[s
     return out, skipped
 
 
+def write_layers(layers, target, temporary: Path) -> dict:
+    """Compose one isolated world from ordered layers; no destination shares an output folder."""
+    temporary.mkdir(parents=True, exist_ok=True)
+    owners, patches, notes, skipped = {}, {}, [], {}
+    for name, ident, root, manifest in layers:
+        made = manifest if isinstance(manifest, str) else manifest.get("version", "pal")
+        game = GAME if isinstance(manifest, str) else manifest.get("game", GAME)
+        if target is not None and game != target.game:
+            # Another game's textures and models never fit these levels.
+            skipped[ident] = sorted(layer_files(root))
+            notes.append(f"{name} is a pack for {games.title(game)}, not for {games.title(target.game)}: left out")
+            continue
+        if target is None or made == target.version:
+            files = layer_files(root)
+        elif ident == "packed":
+            skipped[ident] = sorted(layer_files(root))
+            notes.append("your packed levels were packed from the other disc's levels, so they are left "
+                         "out: pack them again")
+            continue
+        else:
+            files, skipped[ident] = cross_disc(root, manifest, target)
+            if skipped[ident]:
+                shown = skipped[ident][:6]
+                notes.append(f"{name} was made from the other disc's levels; left out, with no match here: "
+                             + "; ".join(shown) + (f"; and {len(skipped[ident]) - 6} more" if
+                                                   len(skipped[ident]) > 6 else ""))
+        for rel, source in files.items():
+            if rel == "patches.tsv":
+                for line in source.read_text().splitlines():
+                    fields = line.split("\t")
+                    if line.startswith("#") or len(fields) != 3:
+                        continue
+                    key = (int(fields[0]), int(fields[1]))
+                    if key in patches and patches[key][1] != ident:
+                        notes.append(f"{name} replaces the level file {patches[key][1]} put at sector {key[0]}")
+                    patches[key] = (fields[2], ident)
+                continue
+            if rel in owners and owners[rel] != ident:
+                notes.append(f"{rel}: {name} wins over {owners[rel]}")
+            if (temporary / rel).exists():
+                (temporary / rel).unlink()
+            if isinstance(source, bytes):
+                (temporary / rel).parent.mkdir(parents=True, exist_ok=True)
+                (temporary / rel).write_bytes(source)
+            else:
+                place(source, temporary / rel)
+            owners[rel] = ident
+    (temporary / "patches.tsv").write_text(
+        "# first sector\tsectors\tfile (beside this list)\n"
+        + "".join(f"{first}\t{count}\t{file}\n" for (first, count), (file, _) in sorted(patches.items())))
+    summary = {"format": 1, "version": target.version if target else None,
+               "layers": [{"id": ident, "name": name} for name, ident, _, _ in layers],
+               "files": dict(sorted(owners.items())), "notes": notes,
+               "skipped": {k: v for k, v in skipped.items() if v}}
+    (temporary / "stack.json").write_text(json.dumps(summary, indent=1) + "\n")
+
+    return summary
+
+
 def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Path | None = None) -> dict:
     """Write MODS (out) from the packer's output and the enabled packs, for LEVELS (the levels the
     game will play; without them every pack goes in as it is); returns what it holds."""
@@ -773,7 +840,8 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
                 root = Path(folder) / "packs" / entry["id"]
                 manifest = read_json(root / MANIFEST)
                 layers.append((manifest.get("name", entry["id"]), entry["id"], root, manifest))
-    maps = []
+    requested_layers = list(layers)
+    maps, destinations = [], []
     for name, ident, root, manifest in layers:
         if not isinstance(manifest, dict):
             continue
@@ -783,8 +851,20 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
         if target is not None and (target.game != manifest.get("game")
                                    or target.version != manifest.get("version", "pal")):
             raise PackError(f'{name}: this map was made for another disc; turn it off or pack it for this disc')
-        maps.append({"format": 1, "id": ident, "name": name, "game": manifest["game"],
-                     "version": manifest.get("version", "pal"), **settings})
+        entry = {"format": 1, "id": ident, "name": name, "game": manifest["game"],
+                 "version": manifest.get("version", "pal"), **settings}
+        if manifest.get("format") == DESTINATION_PACK_FORMAT:
+            destinations.append((entry, (name, ident, root, manifest)))
+        else:
+            maps.append(entry)
+    if destinations and maps:
+        raise PackError("Standalone maps cannot be enabled with ship destinations")
+    if len(destinations) > 256:
+        raise PackError("At most 256 ship destinations fit the reserved menu text IDs")
+    if destinations:
+        destination_ids = {entry["id"] for entry, _ in destinations}
+        # Raw authoring output must not accidentally replace the original template planet.
+        layers = [layer for layer in layers if layer[1] != "packed" and layer[1] not in destination_ids]
     if len(maps) > 1:
         raise PackError("Choose one map at a time: " + ", ".join(m["name"] for m in maps))
     if (out.parent / MARKER).is_file():
@@ -792,61 +872,21 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
         shutil.rmtree(out.parent)
     out.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=f".{out.name}-", dir=out.parent))
-    owners, patches, notes, skipped = {}, {}, [], {}
     try:
-        for name, ident, root, manifest in layers:
-            made = manifest if isinstance(manifest, str) else manifest.get("version", "pal")
-            game = GAME if isinstance(manifest, str) else manifest.get("game", GAME)
-            if target is not None and game != target.game:
-                # Another game's textures and models never fit these levels.
-                skipped[ident] = sorted(layer_files(root))
-                notes.append(f"{name} is a pack for {games.title(game)}, not for {games.title(target.game)}: left out")
-                continue
-            if target is None or made == target.version:
-                files = layer_files(root)
-            elif ident == "packed":
-                skipped[ident] = sorted(layer_files(root))
-                notes.append("your packed levels were packed from the other disc's levels, so they are left "
-                             "out: pack them again")
-                continue
-            else:
-                files, skipped[ident] = cross_disc(root, manifest, target)
-                if skipped[ident]:
-                    shown = skipped[ident][:6]
-                    notes.append(f"{name} was made from the other disc's levels; left out, with no match here: "
-                                 + "; ".join(shown) + (f"; and {len(skipped[ident]) - 6} more" if
-                                                       len(skipped[ident]) > 6 else ""))
-            for rel, source in files.items():
-                if rel == "patches.tsv":
-                    for line in source.read_text().splitlines():
-                        fields = line.split("\t")
-                        if line.startswith("#") or len(fields) != 3:
-                            continue
-                        key = (int(fields[0]), int(fields[1]))
-                        if key in patches and patches[key][1] != ident:
-                            notes.append(f"{name} replaces the level file {patches[key][1]} put at sector {key[0]}")
-                        patches[key] = (fields[2], ident)
-                    continue
-                if rel in owners and owners[rel] != ident:
-                    notes.append(f"{rel}: {name} wins over {owners[rel]}")
-                if (temporary / rel).exists():
-                    (temporary / rel).unlink()
-                if isinstance(source, bytes):
-                    (temporary / rel).parent.mkdir(parents=True, exist_ok=True)
-                    (temporary / rel).write_bytes(source)
-                else:
-                    place(source, temporary / rel)
-                owners[rel] = ident
-        (temporary / "patches.tsv").write_text(
-            "# first sector\tsectors\tfile (beside this list)\n"
-            + "".join(f"{first}\t{count}\t{file}\n" for (first, count), (file, _) in sorted(patches.items())))
-        summary = {"format": 1, "version": target.version if target else None,
-                   "layers": [{"id": ident, "name": name} for name, ident, _, _ in layers],
-                   "files": dict(sorted(owners.items())), "notes": notes,
-                   "skipped": {k: v for k, v in skipped.items() if v}}
-        (temporary / "stack.json").write_text(json.dumps(summary, indent=1) + "\n")
+        summary = write_layers(layers, target, temporary)
         if maps:
             (temporary / "map.json").write_text(json.dumps(maps[0], indent=1, allow_nan=False) + "\n")
+        if destinations:
+            entries = []
+            for entry, layer in sorted(destinations, key=lambda pair: pair[0]["id"]):
+                write_layers(layers + [layer], target, temporary / "destinations" / entry["id"])
+                entries.append(entry)
+            registry = {"format": 1, "game": "rac1", "version": "pal", "destinations": entries}
+            (temporary / "destinations.json").write_text(json.dumps(registry, indent=1, allow_nan=False) + "\n")
+            summary["destinations"] = [{"id": m["id"], "name": m["name"]} for m in entries]
+            summary["layers"] = [{"id": ident, "name": name} for name, ident, _, _ in requested_layers if ident != "packed"]
+            summary["notes"].append(f"{len(entries)} added ship destination(s) prepared separately from the campaign")
+            (temporary / "stack.json").write_text(json.dumps(summary, indent=1) + "\n")
         (temporary / MARKER).write_text("made by editor/overrides.py stack; it is replaced each time\n")
         if out.exists():
             old = Path(tempfile.mkdtemp(prefix=f".{out.name}-old-", dir=out.parent))
@@ -971,13 +1011,18 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"ignored: {rel} (not a file the game reads)")
             for problem in problems:
                 print(f"left out: {problem}")
-            print(f"Added {args.source.name} as {new}, on, last in the order.")
+            entries = load_state(args.into)["packs"]
+            position = next(i for i, entry in enumerate(entries) if entry["id"] == new)
+            enabled = "on" if entries[position].get("enabled", True) else "off"
+            print(f"Installed {args.source.name} as {new}, {enabled}, position {position + 1} of {len(entries)}.")
             return 0
         if args.command == "stack":
             summary = stack(args.into, args.out, args.packed, args.levels)
             for note in summary["notes"]:
                 print(f"note: {note}")
-            print(f"Stacked {len(summary['layers'])} layer(s), {len(summary['files'])} file(s): {args.out.resolve()}")
+            added = len(summary.get('destinations', []))
+            print(f"Stacked {len(summary['layers'])} layer(s), {len(summary['files'])} campaign file(s), "
+                  f"{added} added destination(s): {args.out.resolve()}")
             return 0
         state = load_state(args.into)
         if args.command == "list":

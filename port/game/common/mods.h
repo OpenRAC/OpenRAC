@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -31,7 +32,7 @@ struct HookPoint {
     void* original;
 };
 
-// The game's tick and display-list state needed by a warm snapshot. The executable supplies these
+// The game's tick and display-list state needed by a snapshot. The executable supplies these
 // callbacks through Host so the mod loader stays usable without linking the game program (tests,
 // manifest tools). `overlay` is the game's host-side mirror of the guest level.
 struct SavestateRuntime {
@@ -41,6 +42,20 @@ struct SavestateRuntime {
     bool reports_draws = false;
     bool vsync_since_kick = false;
     int overlay = -1;
+};
+
+struct DeveloperMenuItem {
+    std::string label;
+    std::string shortcut;
+    std::string group;
+    std::uint32_t action = 0;
+};
+
+struct DeveloperMenu {
+    openrac_mod* mod = nullptr;
+    std::string title;
+    std::vector<DeveloperMenuItem> items;
+    std::deque<std::uint32_t> actions;
 };
 
 // What the loader needs of the program.
@@ -80,6 +95,10 @@ struct Host {
     // The running game's essential host-side tick state and post-restore audio/renderer rebuild.
     bool (*capture_savestate_runtime)(SavestateRuntime* state) = nullptr;
     void (*restore_savestate_runtime)(const SavestateRuntime* state) = nullptr;
+    std::size_t (*savestate_extra_size)(void) = nullptr;
+    int (*savestate_extra_save)(void* out, std::size_t size) = nullptr;
+    int (*savestate_extra_load)(const void* in, std::size_t size) = nullptr;
+    void (*prepare_cold_savestate)(int overlay) = nullptr;
     // The game's play (interface 1.8, game_host.h; null: none, and the play calls say so) and the
     // memory card's folder its saves are in (openrac_game_card_dir).
     const openrac_game_play* play = nullptr;
@@ -112,6 +131,10 @@ inline void frame() {
 // Called after the game's vertical-blank handlers. Snapshot APIs are valid only while these
 // callbacks run.
 void tick_boundary(std::uint32_t tick);
+
+// Optional mod-provided top-level menus for the in-window menu bar.
+const std::vector<DeveloperMenu>& developer_menus();
+void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action);
 
 // How many mods are loaded.
 int loaded_count();

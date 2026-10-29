@@ -28,7 +28,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | Name | Value | |
 |---|---|---|
 | `OPENRAC_MOD_API_MAJOR` | `1` | The interface's major version. Changes when anything in the table changes or goes. |
-| `OPENRAC_MOD_API_MINOR` | `9` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts. |
+| `OPENRAC_MOD_API_MINOR` | `10` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods. |
 | `OPENRAC_MOD_TARGET_MINOR` | `OPENRAC_MOD_API_MINOR` |  |
 | `OPENRAC_MOD_EXPORT` | `__declspec(dllexport)` or `__attribute__((visibility("default")))` |  |
 | `OPENRAC_LOG_DEBUG` | `0` | The levels of openrac_api.log, from the most to the least talkative. Since 1.0. |
@@ -588,6 +588,18 @@ memory card. Since 1.8.
 | `int32_t gold_bolts` |  |
 | `int32_t seconds` |  |
 
+## `openrac_developer_menu_item`
+
+One entry in a mod's top-level desktop menu. `group` is an optional submenu label; `action` is
+a nonzero mod-defined id. Since 1.10.
+
+| Member | |
+|---|---|
+| `const char* label` |  |
+| `const char* shortcut` |  |
+| `uint32_t action` |  |
+| `const char* group` |  |
+
 ## `openrac_api`
 
 What the port offers a mod. Filled by the port; valid for the life of the program. Every function
@@ -679,3 +691,6 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*moby_deletion)(int slot, openrac_moby_deletion* out)` | Fills `out` (its size set by the mod) with the last deletion the game made of the moby in `slot` in this level load: whose update did it, or a mod. For a mod that wants to know why a moby left the level (a spawned one's slot is used again: ask on the tick it went). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for none seen (none, or it left the level some other way). Since 1.9. |
 | `int (*camera_position)(float out[3])` | Writes where the game's camera is (x, y, z, the level's units) into `out`: the level's, also under a pause menu whose own camera is no place in the level. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level. Since 1.9. |
 | `int (*moby_run)(int slot, openrac_moby_run* out)` | Fills `out` (its size set by the mod) with how the game ran the level's mobys in the last tick (the run list's camera, what the last menu update did) and the moby in `slot` (-1: none) in it (openrac_moby_run). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or for a game without it. Since 1.9. |
+| `int (*developer_menu)( openrac_mod* mod, const char* title, const openrac_developer_menu_item* items, uint32_t item_count )` | Adds a top-level menu beside View, Graphics, Sound and Developer to the in-window desktop menu bar. `title`, item labels, shortcuts and groups are copied. Selections are queued for the mod and retrieved from its tick-boundary callback; this never calls mod code from UI drawing. Items may be placed in groups (submenus), and use nonzero mod-defined action ids. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN for a duplicate title or action, OPENRAC_HOOK_UNKNOWN for invalid items, or OPENRAC_HOOK_TOO_LATE unless called during openrac_mod_load. Since 1.10. |
+| `uint32_t (*take_developer_menu_action)(openrac_mod* mod)` | Returns and removes the next queued action for this mod, or 0 if none. Only from its on_tick_boundary callback. Since 1.10. |
+| `int (*developer_menu_set_label)(openrac_mod* mod, uint32_t action, const char* label)` | Changes a registered item's label, copying `label`. Only from this mod's tick-boundary callback. Since 1.10. |
