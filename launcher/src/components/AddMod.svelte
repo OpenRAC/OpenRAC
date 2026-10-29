@@ -42,6 +42,9 @@
   const developer = $derived(app.config?.developer ?? false);
 
   let link = $state("");
+  /** The links this game's mods were already added from (sources.json): each a button that fills
+   *  the field, so a player checks a repository again without finding the address once more. */
+  let saved = $state<string[]>([]);
   let reading = $state(false);
   let preview = $state<RemotePreview | null>(null);
   let previewError = $state<string | null>(null);
@@ -52,6 +55,39 @@
   let said = $state<{ text: string; failed: boolean } | null>(null);
 
   const message = (e: unknown) => (typeof e === "string" ? e : String(e));
+
+  /** A link as it reads on the page: the host dropped, so only the repository shows. */
+  const sourceLabel = (url: string) => url.replace(/^https?:\/\/(www\.)?/, "").replace(/\.git$/, "");
+
+  $effect(() => {
+    if (!links || !v.game) {
+      saved = [];
+      return;
+    }
+    const game = v.game;
+    void api
+      .pluginsSources(game)
+      .then((sources) => {
+        if (v.game !== game) return;
+        saved = [...new Set(Object.values(sources.mods).map((s) => s.url))];
+      })
+      .catch(() => (saved = []));
+  });
+
+  /** A saved link, picked: the field is filled and the repository read, as typing it would. */
+  async function readSaved(url: string) {
+    link = url;
+    reading = true;
+    preview = null;
+    previewError = null;
+    said = null;
+    try {
+      preview = await api.pluginsPreview(v.game, v.name, url);
+    } catch (err) {
+      previewError = message(err);
+    }
+    reading = false;
+  }
 
   async function readLink(e: SubmitEvent) {
     e.preventDefault();
@@ -174,6 +210,19 @@
           >{#if reading}<span class="spinner"></span>{/if}{T.ADD.go}</button
         >
       </form>
+      {#if saved.length}
+        <div class="saved">
+          <span class="dim">{T.SAVED_SOURCES.label}</span>
+          {#each saved as url (url)}
+            <button
+              class="small ghost"
+              disabled={reading}
+              title={T.SAVED_SOURCES.hint(sourceLabel(url))}
+              onclick={() => void readSaved(url)}>{sourceLabel(url)}</button
+            >
+          {/each}
+        </div>
+      {/if}
     {/if}
     {#if files}
       <div class="files">
@@ -305,6 +354,24 @@
   .files {
     display: flex;
     gap: 8px;
+  }
+
+  /* The links already used, on their own line under the field: a repository checked again without
+     finding its address a second time. */
+  .saved {
+    flex: 1 0 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8125rem;
+  }
+
+  .adds .saved button {
+    padding: 3px 10px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    border-color: var(--line);
   }
 
   .adds button {

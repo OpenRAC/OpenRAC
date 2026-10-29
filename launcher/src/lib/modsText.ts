@@ -302,6 +302,12 @@ export const cannotSwitchOn = (why: string) => `Cannot be switched on: ${why}`;
 export const removeConfirm = (name: string) => `Remove ${name}? The launcher's copy and its settings are deleted.`;
 export const withName = (name: string, why: string) => `${name}: ${why}`;
 
+/** The links a mod was already added from, under the link field (AddMod). */
+export const SAVED_SOURCES = {
+  label: "Added from before",
+  hint: (source: string) => `Read ${source} again`,
+};
+
 /** The prompt when the launcher starts and the day's look found newer mods (modUpdates). */
 export const START_UPDATES = {
   title: "Your mods have updates",

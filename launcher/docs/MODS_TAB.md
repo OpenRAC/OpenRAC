@@ -58,13 +58,14 @@ One panel for every kind: the player never says which kind a mod is.
 `lib/addMods.ts` sends a native or script mod to the gameplay mods and a
 texture and model pack to the packs.
 
-| Element      | Words                                                                                                 | Notes                                                                                                               |
-| ------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Title        | `T.ADD.title`                                                                                         | Browse mods (`T.ADD.browse`, opens `T.ADD.modsUrl`) beside it for Ratchet & Clank                                   |
-| Link field   | placeholder `T.ADD.linkPlaceholder`, label `T.ADD.linkLabel`, button `T.ADD.go`                       | accepts https, http, no scheme, `.git`, `/tree/<branch>/<folder>`, `/releases/tag/<v>`, `git@github.com:o/r`, `o/r` |
-| File, Folder | `T.ADD.file`, `T.ADD.folder`; pickers `T.ADD.pickZip`, `T.ADD.pickFolder`                             | a format-1 pack chosen here goes to the packs                                                                       |
-| Drop hint    | `T.ADD.drop`, while a file is held over the window `T.ADD.dropHere` (the panel's border dashes amber) | in the app only                                                                                                     |
-| Result       | a line under the bar                                                                                  | `T.added.*`, `T.installedFrom.*`, or the error in `--err`                                                           |
+| Element           | Words                                                                                                 | Notes                                                                                                               |
+| ----------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Title             | `T.ADD.title`                                                                                         | Browse mods (`T.ADD.browse`, opens `T.ADD.modsUrl`) beside it for Ratchet & Clank                                   |
+| Link field        | placeholder `T.ADD.linkPlaceholder`, label `T.ADD.linkLabel`, button `T.ADD.go`                       | accepts https, http, no scheme, `.git`, `/tree/<branch>/<folder>`, `/releases/tag/<v>`, `git@github.com:o/r`, `o/r` |
+| Added from before | `T.SAVED_SOURCES.label`, one button per link in `sources.json`                                        | only with a link already saved; a click fills the field and reads the repository, as typing it would                |
+| File, Folder      | `T.ADD.file`, `T.ADD.folder`; pickers `T.ADD.pickZip`, `T.ADD.pickFolder`                             | a format-1 pack chosen here goes to the packs                                                                       |
+| Drop hint         | `T.ADD.drop`, while a file is held over the window `T.ADD.dropHere` (the panel's border dashes amber) | in the app only                                                                                                     |
+| Result            | a line under the bar                                                                                  | `T.added.*`, `T.installedFrom.*`, or the error in `--err`                                                           |
 
 ### A link's preview
 

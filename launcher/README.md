@@ -145,7 +145,8 @@ game is downloaded
 
 **Add from a link** takes a GitHub repository or release. Before installing
 anything, the launcher shows the mods, their author, and whether this
-computer's game can run them.
+computer's game can run them. Links you already added from are listed under
+the field: one click reads that repository again.
 
 - A gameplay mod is installed from its release `.zip`, and only when
   `SHA256SUMS` lists the same hash. Nothing is compiled locally.
