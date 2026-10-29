@@ -528,6 +528,99 @@ async fn set_game_fix(
     result
 }
 
+// ---- The controls files (core/src/controls.rs) ----
+//
+// No page shows them yet; these are what a controls page will call. The game reads a changed
+// file within a second, so they may run while it plays.
+
+/// The controls as `game` reads them (over every game's), or every game's alone.
+#[tauri::command]
+async fn controls_view(game: Option<String>) -> Result<openrac_launcher_core::controls::ControlsView, String> {
+    let home = openrac_launcher_core::saves::data_home();
+    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::controls::view(&home, game.as_deref()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Sets a control, a controller setting or a player in `scope`'s file; None removes it.
+#[tauri::command]
+async fn controls_set(
+    scope: openrac_launcher_core::controls::Scope,
+    key: String,
+    value: Option<String>,
+) -> Result<openrac_launcher_core::controls::ControlsView, String> {
+    let home = openrac_launcher_core::saves::data_home();
+    let what = format!("controls: {key} = {} ({scope:?})", value.as_deref().unwrap_or("(inherited)"));
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        openrac_launcher_core::controls::set(&home, &scope, &key, value.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    if result.is_ok() {
+        launcher_log::line(&what);
+    }
+    result
+}
+
+/// Puts `scope` back to what it inherits.
+#[tauri::command]
+async fn controls_reset(
+    scope: openrac_launcher_core::controls::Scope,
+) -> Result<openrac_launcher_core::controls::ControlsView, String> {
+    let home = openrac_launcher_core::saves::data_home();
+    let what = format!("controls: reset {scope:?}");
+    let result = tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::controls::reset(&home, &scope))
+        .await
+        .map_err(|e| e.to_string())?;
+    if result.is_ok() {
+        launcher_log::line(&what);
+    }
+    result
+}
+
+/// The players back to the defaults.
+#[tauri::command]
+async fn controls_reset_players() -> Result<openrac_launcher_core::controls::ControlsView, String> {
+    let home = openrac_launcher_core::saves::data_home();
+    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::controls::reset_players(&home))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Writes `scope`'s bindings and controller settings to a file of the player's choosing.
+#[tauri::command]
+async fn controls_export(scope: openrac_launcher_core::controls::Scope, path: String) -> Result<(), String> {
+    let home = openrac_launcher_core::saves::data_home();
+    tauri::async_runtime::spawn_blocking(move || {
+        openrac_launcher_core::controls::export(&home, &scope, std::path::Path::new(&path))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Replaces `scope`'s bindings and controller settings with a file's.
+#[tauri::command]
+async fn controls_import(
+    scope: openrac_launcher_core::controls::Scope,
+    path: String,
+) -> Result<openrac_launcher_core::controls::ControlsView, String> {
+    let home = openrac_launcher_core::saves::data_home();
+    tauri::async_runtime::spawn_blocking(move || {
+        openrac_launcher_core::controls::import(&home, &scope, std::path::Path::new(&path))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Copies one game's own controls over another's.
+#[tauri::command]
+async fn controls_copy(from: String, to: String) -> Result<openrac_launcher_core::controls::ControlsView, String> {
+    let home = openrac_launcher_core::saves::data_home();
+    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::controls::copy_game(&home, &from, &to))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 // ---- Logs and crash reports (core/src/reports.rs) ----
 
 /// A game's data folder, where its logs and crash reports are.
@@ -1630,6 +1723,13 @@ pub fn run() {
             open_reports_folder,
             differences,
             set_game_fix,
+            controls_view,
+            controls_set,
+            controls_reset,
+            controls_reset_players,
+            controls_export,
+            controls_import,
+            controls_copy,
             android::pick_disc,
             android::pick_zip,
             android::show_files,

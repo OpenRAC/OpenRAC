@@ -19,6 +19,8 @@ import type { BakeStatus } from "./generated/BakeStatus";
 import type { Candidate } from "./generated/Candidate";
 import type { Check } from "./generated/Check";
 import type { Config } from "./generated/Config";
+import type { ControlsScope } from "./generated/ControlsScope";
+import type { ControlsView } from "./generated/ControlsView";
 import type { Detected } from "./generated/Detected";
 import type { DifferenceKind } from "./generated/DifferenceKind";
 import type { DifferenceView } from "./generated/DifferenceView";
@@ -95,6 +97,8 @@ export type { BakeStatus };
 export type { Candidate };
 export type { Check };
 export type { Config };
+export type { ControlsScope };
+export type { ControlsView };
 export type { Detected };
 export type { DifferenceKind };
 export type { DifferenceView };
@@ -278,6 +282,15 @@ export const api = {
   reportDelete: (game: string, file: string) => call<null>("report_delete", { game, file }),
   /** What the port does otherwise than the PS2 game, for one version (`rac1`, `pal`). */
   differences: (game: string, version: string) => call<Differences>("differences", { game, version }),
+  // The controls files (core/src/controls.rs); no page shows them yet.
+  controlsView: (game: string | null) => call<ControlsView>("controls_view", { game }),
+  controlsSet: (scope: ControlsScope, key: string, value: string | null) =>
+    call<ControlsView>("controls_set", { scope, key, value }),
+  controlsReset: (scope: ControlsScope) => call<ControlsView>("controls_reset", { scope }),
+  controlsResetPlayers: () => call<ControlsView>("controls_reset_players"),
+  controlsExport: (scope: ControlsScope, path: string) => call<null>("controls_export", { scope, path }),
+  controlsImport: (scope: ControlsScope, path: string) => call<ControlsView>("controls_import", { scope, path }),
+  controlsCopy: (from: string, to: string) => call<ControlsView>("controls_copy", { from, to }),
   /** Switches a game fix on (the port's) or off (as the original plays) in the version's settings. */
   setGameFix: (game: string, version: string, id: string, on: boolean) =>
     call<Differences>("set_game_fix", { game, version, id, on }),
