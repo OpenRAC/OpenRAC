@@ -39,6 +39,8 @@ struct LiveMoby {
 // The game's state at one frame: the camera the world is drawn from, and the live mobys.
 struct GameState {
     renderer::Vec3 camera_position{};  // The eye, in game units.
+    std::optional<renderer::Vec3> camera_target;  // Smoothed follow focus, when known.
+    std::uint64_t camera_target_id = 0;  // Camera record and saved-state identity.
     renderer::Vec3 forward{1, 0, 0};   // The unit axis the camera looks along.
     renderer::Vec3 left{0, 1, 0};      // The unit axis to its left.
     renderer::Vec3 up{0, 0, 1};        // The unit axis above it.

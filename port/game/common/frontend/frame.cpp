@@ -1390,6 +1390,10 @@ void keep_tick(
     k.hero_airborne = g->profile->hero_state() != 0
                           ? scene::hero_airborne(ram, OPENRAC_DATA(g->profile->hero_state()))
                           : std::nullopt;
+    std::uint32_t mode = 0;
+    // RAC1's level mode 2 is a real-time cutscene. Movies bypass world reconstruction.
+    k.cutscene = g->game.starts_with("rac1-") && openrac_game_mode != nullptr
+                 && openrac_game_mode(&mode) != 0 && mode == 2;
     k.state = state;
     k.has_state = true;
     k.live = std::move(mobys.live);

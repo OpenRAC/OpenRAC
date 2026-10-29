@@ -301,6 +301,22 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 3.0f, s.gtao_settings.strength);
         } else if (key == "temporal_quality") {
             known = parse(value, renderer::kTemporalKeys, s.temporal_quality);
+        } else if (key == "motion_blur") {
+            known = parse_bool(value, s.motion_blur);
+        } else if (key == "motion_blur_strength") {
+            known = parse_float(value, 0.0f, 1.0f, s.motion_blur_strength);
+        } else if (key == "motion_blur_radius") {
+            known = parse_int(value, 1, 128, s.motion_blur_settings.max_radius);
+        } else if (key == "motion_blur_samples") {
+            known = parse_int(value, 8, 64, s.motion_blur_settings.samples);
+        } else if (key == "motion_blur_min_motion") {
+            known = parse_float(value, 0.1f, 4.0f, s.motion_blur_settings.min_motion);
+        } else if (key == "motion_blur_spread") {
+            known = parse_float(value, 0.0f, 1.0f, s.motion_blur_settings.spread);
+        } else if (key == "motion_blur_depth_tolerance") {
+            known = parse_float(value, 0.001f, 0.05f, s.motion_blur_settings.depth_tolerance);
+        } else if (key == "motion_blur_cutscene_multiplier") {
+            known = parse_float(value, 0.0f, 2.0f, s.motion_blur_settings.cutscene_multiplier);
         } else if (key == "temporal_sharpness") {
             known = parse_float(value, 0.0f, 1.0f, s.temporal_sharpness);
         } else if (key == "texture_filter") {
@@ -468,6 +484,14 @@ void save() {
         << "texture_filter = " << kTextureFilter[static_cast<int>(s.texture_filter)] << "\n"
         << "temporal_quality = " << renderer::kTemporalKeys[static_cast<int>(s.temporal_quality)]
         << "\n"
+        << "motion_blur = " << (s.motion_blur ? 1 : 0) << "\n"
+        << "motion_blur_strength = " << s.motion_blur_strength << "\n"
+        << "motion_blur_radius = " << s.motion_blur_settings.max_radius << "\n"
+        << "motion_blur_samples = " << s.motion_blur_settings.samples << "\n"
+        << "motion_blur_min_motion = " << s.motion_blur_settings.min_motion << "\n"
+        << "motion_blur_spread = " << s.motion_blur_settings.spread << "\n"
+        << "motion_blur_depth_tolerance = " << s.motion_blur_settings.depth_tolerance << "\n"
+        << "motion_blur_cutscene_multiplier = " << s.motion_blur_settings.cutscene_multiplier << "\n"
         << "temporal_sharpness = " << s.temporal_sharpness << "\n"
         << "anisotropy = " << (s.anisotropy ? std::to_string(s.anisotropy) : "auto") << "\n"
         << "vsync = " << kVSync[static_cast<int>(s.vsync)] << "\n"

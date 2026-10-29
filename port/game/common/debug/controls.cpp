@@ -18,6 +18,68 @@ namespace openrac::frontend::debug_overlay {
 
 namespace {
 
+// Persistent blur tuning lives in its own section, separate from lighting diagnostics.
+bool motion_blur_controls(settings::Settings& graphics) {
+    if (!ImGui::CollapsingHeader("Motion Blur", ImGuiTreeNodeFlags_DefaultOpen)) {
+        return false;
+    }
+    ImGui::BeginDisabled(!enhanced::Fsr3::available());
+    bool changed = ImGui::Checkbox("Enabled##motion_blur", &graphics.motion_blur);
+    ImGui::TextWrapped("Camera-target-relative during play; normal camera blur in cutscenes.");
+    ImGui::BeginDisabled(!graphics.motion_blur);
+    ImGui::PushItemWidth(dp(190.f));
+    auto& blur = graphics.motion_blur_settings;
+    const auto tip = [](const char* text) {
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            ImGui::SetTooltip("%s", text);
+        }
+    };
+    changed |= ImGui::SliderFloat(
+        "Strength", &graphics.motion_blur_strength, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+    );
+    tip("Exposure strength. 0.5 is a 1/120-second exposure; 1 is 1/60 second.");
+    changed |= ImGui::SliderFloat(
+        "Cutscene multiplier",
+        &blur.cutscene_multiplier,
+        0,
+        2,
+        "%.2fx",
+        ImGuiSliderFlags_AlwaysClamp
+    );
+    tip("Scales strength only in real-time cutscenes. Zero disables cutscene blur.");
+    changed |= ImGui::SliderInt(
+        "Max trail length", &blur.max_radius, 1, 128, "%d px", ImGuiSliderFlags_AlwaysClamp
+    );
+    tip("Caps trails in display pixels. Longer limits can require more jump-flood passes.");
+    changed |=
+        ImGui::SliderInt("Samples", &blur.samples, 8, 64, "%d", ImGuiSliderFlags_AlwaysClamp);
+    tip("Higher counts make trails smoother, at a higher GPU cost.");
+    changed |= ImGui::SliderFloat(
+        "Minimum motion", &blur.min_motion, .1f, 4, "%.2f px", ImGuiSliderFlags_AlwaysClamp
+    );
+    tip("Ignores tiny movements after exposure scaling. Raise it to suppress subtle smearing.");
+    changed |= ImGui::SliderFloat(
+        "Trail spread", &blur.spread, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+    );
+    tip("Sideways reach of jump-flood candidates. Higher values find more nearby motion but may "
+        "introduce halos.");
+    changed |= ImGui::SliderFloat(
+        "Depth tolerance", &blur.depth_tolerance, .001f, .05f, "%.3f", ImGuiSliderFlags_AlwaysClamp
+    );
+    tip("Allowed relative depth difference when gathering colour. Lower values protect occlusion "
+        "edges; higher values blend more freely.");
+    ImGui::PopItemWidth();
+    ImGui::EndDisabled();
+    if (ImGui::Button("Reset blur tuning")) {
+        graphics.motion_blur_strength = .5f;
+        blur = renderer::MotionBlurSettings{};
+        changed = true;
+    }
+    tip("Restores tuning defaults and keeps the Enabled switch unchanged.");
+    ImGui::EndDisabled();
+    return changed;
+}
+
 // Live, session-only water controls; the render worker consumes a locked copy.
 void water_controls() {
     auto options = enhanced::water_debug_settings();
@@ -219,6 +281,8 @@ void enhanced_settings_window() {
         changed = true;
     }
     ImGui::EndDisabled();
+
+    changed |= motion_blur_controls(graphics);
 
     if (ImGui::CollapsingHeader("Advanced")) {
         ImGui::BeginDisabled(!enhanced::Fsr3::available());

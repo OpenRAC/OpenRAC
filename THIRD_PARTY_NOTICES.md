@@ -227,3 +227,37 @@ link it. Tracy is licensed under the 3-clause BSD license, Copyright (c)
 applies to the client and Vulkan profiling headers. Binary redistributions of
 profiling builds must include that license. OpenRAC's integration is in
 `port/common/profiler.*` and `port/renderer/vulkan/tracy.cpp`.
+
+## SphynxMotionBlurToolkit jump-flood velocity dilation
+
+`port/enhanced/fsr3/shaders/blur_jump.frag` adapts the source-coordinate propagation,
+velocity-space fitness and depth selection from
+[jfp_simple.glsl](https://github.com/sphynx-owner/JFA_driven_motion_blur_demo/blob/d0c16fc1581eb757e993ff6eaf5877078c8d24cd/addons/SphynxMotionBlurToolkit/JumpFlood/ShaderFiles/jfp_simple.glsl),
+by sphynx-owner, pinned at `d0c16fc1581eb757e993ff6eaf5877078c8d24cd`.
+OpenRAC uses full render-resolution seeds, explicit invalid entries, retained centre
+candidates, power-of-two jumps and reversed-depth selection. Godot integration, demo
+assets, the experimental history filter and third-party shader helper snippets are
+not copied. The adaptation is under the upstream MIT licence; the surrounding
+renderer remains GPL-3.0-or-later. The notice below must accompany distributions.
+
+MIT License
+
+Copyright (c) 2024 sphynx-owner
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

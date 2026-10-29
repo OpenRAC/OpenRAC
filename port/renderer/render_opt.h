@@ -52,6 +52,7 @@ enum class Opt : std::uint8_t {
     VkLastPipeline,   // vk-last-pipeline: a program's last pipeline taken again by its key
     ShadowDrawCache,  // shadow-draw-cache: static shadow ranges prepared with level geometry
     ShadowScrollReuse,  // shadow-scroll-reuse: retain static texels in the opt-in scrolling experiment
+    MotionBlurFastPath,  // motion-blur-fast-path: exact flood and colour-copy reductions
     FsrMotionBatch,     // fsr-motion-batch: FSR object motion drawn in pose-buffer batches
     MobyGlowSkip,       // moby-glow-skip: the glow pass leaves out primitives with no glow vertex
     GtaoDirectDepth,  // gtao-direct-depth: the colour composite samples the prepass depth, no copy

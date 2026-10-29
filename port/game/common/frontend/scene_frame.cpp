@@ -37,7 +37,8 @@ bool prepare_temporal(SceneFrame& frame) {
     const Kept& scene = frame.scene;
     const auto& graphics = frame.graphics;
     const bool temporal_wanted = enhanced_graphics_available() && graphics.enhanced_graphics
-                                 && graphics.temporal_quality != renderer::TemporalQuality::Off
+                                 && (graphics.temporal_quality != renderer::TemporalQuality::Off
+                                     || (graphics.motion_blur && graphics.motion_blur_strength > 0))
                                  && enhanced::Fsr3::available() && scene.has_camera
                                  && (scene.draws & 0x1Fu) != 0;
 
@@ -260,6 +261,8 @@ void set_camera(SceneFrame& frame) {
                            : scene.state;
     renderer::Camera camera;
     camera.view = state.view();
+    camera.target = state.camera_target;
+    camera.target_id = state.camera_target_id;
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
     // the TV's 4:3, which they were made for), not the window's shape. A wider picture keeps the
     // vertical one and opens the horizontal one by as much as the picture is wider: the game's
@@ -330,7 +333,16 @@ bool draw_world(SceneFrame& frame) {
         if (temporal_wanted && !input.keep_colour) {
             std::string temporal_error;
             const enhanced::TemporalFrame temporal{
-                input, target, owner.frame, owner.scene, owner.renderer->textures(), scene.level
+                input,
+                target,
+                owner.frame,
+                owner.scene,
+                owner.renderer->textures(),
+                scene.level,
+                graphics.motion_blur,
+                graphics.motion_blur_strength,
+                scene.cutscene,
+                graphics.motion_blur_settings
             };
             const bool active = owner.temporal->begin(
                 temporal, graphics.temporal_quality, graphics.temporal_sharpness, temporal_error

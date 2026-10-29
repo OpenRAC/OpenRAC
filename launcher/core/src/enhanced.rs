@@ -131,6 +131,14 @@ pub fn settings() -> Vec<SettingSpec> {
         quality,
         texture_filter,
         temporal,
+        spec("motion_blur", "Motion blur", "bool", false.into(), "Camera-target-relative during play, camera-relative in cutscenes. Uses Native AA when FSR is off."),
+        range(spec("motion_blur_strength", "Blur strength", "float", 0.5.into(), ""), 0.0, 1.0, 0.05),
+        advanced(range(spec("motion_blur_radius", "Max blur trail length", "int", 128.into(), "Display pixels; larger limits can cost more GPU time."), 1.0, 128.0, 1.0)),
+        advanced(range(spec("motion_blur_samples", "Blur samples", "int", 32.into(), "Higher values smooth trails at a higher GPU cost."), 8.0, 64.0, 1.0)),
+        advanced(range(spec("motion_blur_min_motion", "Minimum blur motion", "float", 0.5.into(), "Ignore exposed motion below this many display pixels."), 0.1, 4.0, 0.1)),
+        advanced(range(spec("motion_blur_spread", "Blur trail spread", "float", 0.5.into(), "Sideways reach of jump-flood candidates."), 0.0, 1.0, 0.05)),
+        advanced(range(spec("motion_blur_depth_tolerance", "Blur depth tolerance", "float", 0.009.into(), "Lower values protect foreground occlusion edges."), 0.001, 0.05, 0.001)),
+        advanced(range(spec("motion_blur_cutscene_multiplier", "Cutscene blur multiplier", "float", 1.0.into(), "Scales blur strength in real-time cutscenes; zero disables it."), 0.0, 2.0, 0.05)),
         advanced(range(spec("temporal_sharpness", "FSR sharpening", "float", 0.2.into(), ""), 0.0, 1.0, 0.05)),
         advanced(range(
             spec("probe_gi_multiplier", "Bounce light", "float", 1.0.into(), "How bright the bounced light is."),
@@ -155,6 +163,7 @@ fn read_setting(text: &str, spec: &SettingSpec) -> Value {
     let raw = read_value(text, &spec.key);
     let value = match (spec.kind.as_str(), raw) {
         ("bool", _) => read_switch(text, &spec.key).map(Value::Bool),
+        ("int", Some(v)) => v.parse::<i64>().ok().map(Value::from),
         ("float", Some(v)) => v.parse::<f64>().ok().map(Value::from),
         ("choice", Some(v)) => Some(Value::String(v)),
         _ => None,
@@ -484,8 +493,16 @@ mod tests {
         assert_eq!(value(&v, "temporal_quality"), Value::from("quality"));
         assert_eq!(value(&v, "shadow_quality"), Value::from("high"));
         assert_eq!(value(&v, "temporal_sharpness"), Value::from(0.2));
+        assert_eq!(value(&v, "motion_blur"), Value::Bool(false));
+        assert_eq!(value(&v, "motion_blur_strength"), Value::from(0.5));
+        assert_eq!(value(&v, "motion_blur_radius"), Value::from(128));
+        assert_eq!(value(&v, "motion_blur_samples"), Value::from(32));
 
         set_enabled(&home, "rac1", "pal", true).unwrap();
+        set_setting(&home, "rac1", "pal", "motion_blur", &Value::Bool(true)).unwrap();
+        set_setting(&home, "rac1", "pal", "motion_blur_strength", &Value::from(0.75)).unwrap();
+        set_setting(&home, "rac1", "pal", "motion_blur_radius", &Value::from(64)).unwrap();
+        set_setting(&home, "rac1", "pal", "motion_blur_samples", &Value::from(48)).unwrap();
         set_setting(&home, "rac1", "pal", "probe_gi_multiplier", &Value::from(2.5)).unwrap();
         set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("medium")).unwrap();
         set_setting(&home, "rac1", "pal", "gtao_quality", &Value::from("quality")).unwrap();
@@ -500,6 +517,10 @@ mod tests {
             "enhanced_shadows = 0",
             "shadow_quality = medium",
             "texture_filter = normal",
+            "motion_blur = 1",
+            "motion_blur_strength = 0.75",
+            "motion_blur_radius = 64",
+            "motion_blur_samples = 48",
         ] {
             assert!(text.lines().any(|l| l == line), "{line} in {text}");
         }
@@ -508,6 +529,11 @@ mod tests {
         assert_eq!(value(&v, "probe_gi_multiplier"), Value::from(2.5));
         assert_eq!(value(&v, "texture_filter"), Value::from("normal"));
         assert_eq!(value(&v, "shadow_quality"), Value::from("medium"));
+        assert_eq!(value(&v, "motion_blur"), Value::Bool(true));
+        assert_eq!(value(&v, "motion_blur_strength"), Value::from(0.75));
+        assert_eq!(value(&v, "motion_blur_radius"), Value::from(64));
+        assert_eq!(value(&v, "motion_blur_samples"), Value::from(48));
+        assert!(set_setting(&home, "rac1", "pal", "motion_blur_strength", &Value::from(1.1)).is_err());
         // Out of the port's range, another type, or not one of the entry's: refused, file kept.
         assert!(set_setting(&home, "rac1", "pal", "probe_gi_multiplier", &Value::from(9.0)).is_err());
         assert!(set_setting(&home, "rac1", "pal", "gtao", &Value::from("yes")).is_err());

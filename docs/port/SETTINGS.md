@@ -465,3 +465,29 @@ Ratchet & Clank's fixes now, all on by default and all for both discs:
 | `fix_wide_liquids` | the draw callback lists and the liquid grid's cull ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: seas, lava and sand are missing near the sides |
 
 At 4:3 none of them changes anything.
+
+Enhanced Settings has a dedicated Motion Blur section with live controls, tooltips and a reset button.
+Gameplay uses the camera rig's smoothed tracking target as its translation reference,
+so Ratchet's jump does not impose his full vertical movement on the scenery. Real-time
+cutscenes use normal camera-relative blur. Both modes share the controls and keep the HUD sharp.
+The saved keys are `motion_blur` (default `0`) and `motion_blur_strength` (0–1,
+default `0.5`). With FSR off it uses Native AA to obtain motion vectors; this temporarily
+uses single-sample rendering. See [camera-target-relative motion blur](../../port/enhanced/fsr3/README.md#camera-target-relative-motion-blur).
+
+
+Motion Blur tuning is saved with the graphics settings:
+
+| Key | Range | Default |
+|---|---|---|
+| `motion_blur_radius` | 1–128 display pixels | 128 |
+| `motion_blur_samples` | 8–64 | 32 |
+| `motion_blur_min_motion` | 0.1–4 display pixels | 0.5 |
+| `motion_blur_spread` | 0–1 | 0.5 |
+| `motion_blur_depth_tolerance` | 0.001–0.05 | 0.009 |
+| `motion_blur_cutscene_multiplier` | 0–2 | 1 |
+
+Longer trails and more samples increase GPU cost. Minimum motion suppresses tiny
+movements; trail spread controls JFA's sideways reach; depth tolerance controls
+colour gathering across depth differences. A zero cutscene multiplier disables
+cutscene blur. Reset blur tuning restores these defaults and strength 0.5 while
+preserving the Enabled switch.

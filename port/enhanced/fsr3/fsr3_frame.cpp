@@ -219,12 +219,22 @@ void Fsr3::State::resolve(renderer::RenderTarget& target) {
     draw_motion();
     draw_reactive();
     std::string error;
+    // Select the reference before dispatch: only frames that will blur borrow its output.
+    const bool blur_frame = !dispatch.reset && !blur_mode_changed && blur_strength > 0
+                            && (!camera_blur || blur_settings.cutscene_multiplier > 0);
+    const auto delta = !blur_frame   ? std::optional<renderer::Vec3>{}
+                       : camera_blur ? std::optional{renderer::Vec3{}}
+                                     : fsr3_detail::reference_displacement(camera, old_camera);
+    const unsigned blur_output =
+        delta && renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurFastPath)
+            ? blur.reconstruction_output(display.width, display.height)
+            : 0;
     const std::array<unsigned, 5> inputs{
         world.colour_texture(),
         depth.texture(),
         motion.texture(),
         reactive.texture(),
-        output_texture
+        blur_output ? blur_output : output_texture
     };
     const bool resolved = [&] {
         const stats::Scope upscaler("FSR upscaler", stats::kGpu);
@@ -236,6 +246,29 @@ void Fsr3::State::resolve(renderer::RenderTarget& target) {
         log::error("{}", error);
         world.blit_to(display.framebuffer, display.width, display.height);
         failed = true;
+    }
+
+    if (resolved && delta) {
+        const bool blurred = blur.apply(
+            display,
+            {world.width(), world.height()},
+            motion.texture(),
+            world.depth_texture(),
+            inverse_raster,
+            view.previous,
+            dispatch.jitter,
+            camera.position,
+            *delta,
+            camera_blur,
+            blur_strength,
+            dispatch.milliseconds,
+            blur_settings,
+            blur_output
+        );
+        // Resource failures still present the complete reconstructed world and HUD.
+        if (!blurred && blur_output) {
+            blur.present_reconstruction(display);
+        }
     }
 
     previous.clear();

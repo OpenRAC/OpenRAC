@@ -55,7 +55,7 @@ else()
 endif()
 
 add_library(openrac_fsr3 STATIC enhanced/fsr3/sdk_context.cpp enhanced/fsr3/frame_target.cpp
-  enhanced/fsr3/fsr3.cpp enhanced/fsr3/fsr3_frame.cpp)
+  enhanced/fsr3/fsr3.cpp enhanced/fsr3/fsr3_frame.cpp enhanced/fsr3/motion_blur.cpp)
 target_link_libraries(openrac_fsr3 PUBLIC openrac_renderer_vulkan PRIVATE openrac_renderer
   openrac_scene_renderer openrac_fsr3_sdk)
 openrac_embed_shaders(openrac_fsr3 fsr3 openrac::enhanced
@@ -64,7 +64,10 @@ openrac_embed_shaders(openrac_fsr3 fsr3 openrac::enhanced
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/motion.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/motion.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/reactive.frag"
-  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/late_world_depth.frag")
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/late_world_depth.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/blur_velocity.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/blur_jump.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/fsr3/shaders/blur_resolve.frag")
 target_include_directories(openrac_fsr3 SYSTEM PRIVATE ${sdk_includes})
 openrac_warnings(openrac_fsr3)
 
@@ -81,4 +84,9 @@ set_tests_properties(fsr3_frame PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
 openrac_add_test(fsr3_motion SOURCES enhanced/tests/fsr3_motion_test.cpp
   INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_fsr3 openrac_platform openrac_enhanced_viewer)
 set_tests_properties(fsr3_motion PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+  "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_VULKAN_PIPELINE_CACHE=0")
+
+openrac_add_test(motion_blur SOURCES enhanced/tests/motion_blur_test.cpp
+  LIBS openrac_fsr3 openrac_platform)
+set_tests_properties(motion_blur PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
   "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_VULKAN_PIPELINE_CACHE=0")

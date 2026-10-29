@@ -201,6 +201,15 @@ bool Fsr3::begin(
 ) {
     State& state = *m_state;
 
+    if (quality == renderer::TemporalQuality::Off && frame.motion_blur
+        && frame.motion_blur_strength > 0) {
+        quality = renderer::TemporalQuality::NativeAA;
+    }
+    state.blur_strength = frame.motion_blur ? frame.motion_blur_strength : 0.0f;
+    state.blur_settings = frame.blur_settings;
+    state.blur_mode_changed = state.camera_blur != frame.camera_motion_blur;
+    state.camera_blur = frame.camera_motion_blur;
+
     // Unsupported or failed modes retain native rendering without per-frame retries.
     if (quality == renderer::TemporalQuality::Off || state.failed || !available()) {
         return false;
@@ -239,6 +248,7 @@ void Fsr3::reset() {
 void Fsr3::release() {
     auto& state = *m_state;
     state.sdk.release();
+    state.blur.release();
     state.motion.release();
     state.depth.release();
     state.reactive.release();

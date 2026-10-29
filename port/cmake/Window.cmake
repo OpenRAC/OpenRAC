@@ -402,6 +402,7 @@ add_library(openrac_game_rac1_profile STATIC
 )
 target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer)
 openrac_warnings(openrac_game_rac1_profile)
+openrac_add_test(camera_target LIBS openrac_game_rac1_profile)
 
 # Tests are registered through openrac_add_test (cmake/Tests.cmake), which makes the program
 # <subject>_test and the ctest test <subject>; a program that runs under more names gets them with

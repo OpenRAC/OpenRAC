@@ -59,6 +59,7 @@ namespace openrac::frontend {
 // (between), and the last tick's camera and moby matrices to move them from.
 struct Kept {
     int level = -3;  // the level the mobys belong to: another one starts over
+    bool cutscene = false;  // Captured game state, never queried by the render worker.
     host::GameState state, prev_state;
     bool has_state = false, has_prev_state = false;
     std::vector<scene::Instance> live;

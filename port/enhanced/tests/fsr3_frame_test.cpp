@@ -9,6 +9,7 @@
 #include "enhanced/fsr3/temporal_math.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/renderer.h"
 #include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
@@ -18,6 +19,9 @@
 namespace {
 using namespace openrac;
 using namespace openrac::gl;
+std::vector<std::vector<unsigned char>> reference_frames;
+std::size_t compared_frames = 0;
+bool compare_direct = false;
 
 // Procedural world/HUD buckets keep expected colours independent of game assets.
 class TestBucket final : public renderer::BucketRenderer {
@@ -122,7 +126,9 @@ void check_temporal_frame(
     scene::LevelScene& scene,
     enhanced::Fsr3& upscaler,
     renderer::FrameBuffer& display,
-    renderer::TemporalQuality quality
+    renderer::TemporalQuality quality,
+    bool blur = false,
+    bool cinematic = false
 ) {
     std::string error;
     renderer::FrameInput input;
@@ -132,7 +138,14 @@ void check_temporal_frame(
     input.before_hud = [&] {
         before_hud_called = true;
     };
-    const enhanced::TemporalFrame frame{input, target, display, scene, renderer.textures(), 0};
+    if (!cinematic) {
+        input.camera.target = renderer::Vec3{};
+        input.camera.target_id = 1;
+    }
+    upscaler.set_scene({}, {});
+    const enhanced::TemporalFrame frame{
+        input, target, display, scene, renderer.textures(), 0, blur, .5f, cinematic
+    };
     const bool prepared = upscaler.begin(frame, quality, 0, error);
     CHECK(prepared);
 
@@ -145,6 +158,15 @@ void check_temporal_frame(
     renderer.render(input, target);
     CHECK(before_hud_called);
     const auto pixels = display.read_rgba();
+    if (compare_direct) {
+        CHECK(compared_frames < reference_frames.size());
+        if (compared_frames < reference_frames.size()) {
+            CHECK(pixels == reference_frames[compared_frames]);
+        }
+        ++compared_frames;
+    } else {
+        reference_frames.push_back(pixels);
+    }
     // read_rgba returns top row first; GL pixel (48,36) is row 35.
     const std::size_t at = (std::size_t{35} * 96 + 48) * 4;
     CHECK(pixels[at] == 255 && pixels[at + 1] == 0 && pixels[at + 2] == 0);
@@ -171,7 +193,7 @@ void test_world_resolve_and_native_hud() {
     CHECK(display.create(96, 72, error));
 
     // Preset switches resize history; replacing the output at the same extent tests recycled texture names.
-    for (int n = 0; n < 6; ++n) {
+    for (int n = 0; n < 13; ++n) {
         auto quality = renderer::TemporalQuality::Quality;
         world_size = {64, 48};
 
@@ -187,6 +209,11 @@ void test_world_resolve_and_native_hud() {
             world_size = {96, 72};
         }
 
+        if (n >= 7) {
+            quality = renderer::TemporalQuality::Off;
+            world_size = {96, 72};
+        }
+
         bool recreated = true;
 
         // A recreated framebuffer can reuse its previous texture name without retaining storage usage.
@@ -195,7 +222,9 @@ void test_world_resolve_and_native_hud() {
         }
 
         CHECK(recreated);
-        check_temporal_frame(renderer, scene, upscaler, display, quality);
+        check_temporal_frame(
+            renderer, scene, upscaler, display, quality, n >= 6, n == 9 || n == 10
+        );
     }
 
     upscaler.release();
@@ -217,7 +246,14 @@ int main() {
             return test::kSkip;
         }
 
-        test_world_resolve_and_native_hud();
+        for (bool direct : {false, true}) {
+            renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurFastPath, direct);
+            compare_direct = direct;
+            test_world_resolve_and_native_hud();
+        }
+        CHECK(compared_frames == reference_frames.size());
+        std::cout << "Compared " << compared_frames << " complete FSR/HUD frames byte-for-byte\n";
+        renderer::render_opt::reset();
         return test::result();
     } catch (...) {
         return 1;

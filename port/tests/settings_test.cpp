@@ -17,18 +17,50 @@ void test_temporal_settings(const std::filesystem::path& file) {
     // These are the five published player choices, including an explicit opt-out.
     for (std::size_t n = 0; n < std::size(renderer::kTemporalKeys); ++n) {
         std::ofstream(file) << "temporal_quality = " << renderer::kTemporalKeys[n]
-                            << "\ntemporal_sharpness = 0.75\n";
+                            << "\ntemporal_sharpness = 0.75\n"
+                            << "motion_blur = 1\nmotion_blur_strength = 0.8\n";
         settings::load(file);
         CHECK(settings::get().temporal_quality == static_cast<renderer::TemporalQuality>(n));
         CHECK(settings::get().temporal_sharpness == .75f);
+        CHECK(settings::get().motion_blur);
+        CHECK(settings::get().motion_blur_strength == .8f);
         settings::save();
         settings::load(file);
         CHECK(settings::get().temporal_quality == static_cast<renderer::TemporalQuality>(n));
+        CHECK(settings::get().motion_blur);
+        CHECK(settings::get().motion_blur_strength == .8f);
     }
-    std::ofstream(file) << "temporal_quality = unsupported\ntemporal_sharpness = nan\n";
+    std::ofstream(file) << "temporal_quality = unsupported\ntemporal_sharpness = nan\nmotion_blur "
+                           "= invalid\nmotion_blur_strength = nan\n";
     settings::load(file);
     CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
     CHECK(settings::get().temporal_sharpness == .2f);
+    CHECK(!settings::get().motion_blur);
+    CHECK(settings::get().motion_blur_strength == .5f);
+}
+
+void test_motion_blur_tuning(const std::filesystem::path& file) {
+    using namespace openrac;
+    std::ofstream(file) << "motion_blur_radius = 96\nmotion_blur_samples = 48\n"
+                        << "motion_blur_min_motion = 1.25\nmotion_blur_spread = 0.75\n"
+                        << "motion_blur_depth_tolerance = 0.025\nmotion_blur_cutscene_multiplier = 1.5\n";
+    settings::load(file);
+    for (int roundtrip = 0; roundtrip < 2; ++roundtrip) {
+        const auto& blur = settings::get().motion_blur_settings;
+        CHECK(blur.max_radius == 96 && blur.samples == 48);
+        CHECK(blur.min_motion == 1.25f && blur.spread == .75f);
+        CHECK(blur.depth_tolerance == .025f && blur.cutscene_multiplier == 1.5f);
+        settings::save();
+        settings::load(file);
+    }
+    std::ofstream(file) << "motion_blur_radius = 129\nmotion_blur_samples = 7\n"
+                        << "motion_blur_min_motion = nan\nmotion_blur_spread = 2\n"
+                        << "motion_blur_depth_tolerance = -1\nmotion_blur_cutscene_multiplier = inf\n";
+    settings::load(file);
+    const auto& blur = settings::get().motion_blur_settings;
+    CHECK(blur.max_radius == 128 && blur.samples == 32);
+    CHECK(blur.min_motion == .5f && blur.spread == .5f);
+    CHECK(blur.depth_tolerance == .009f && blur.cutscene_multiplier == 1.f);
 }
 
 // Invalid or missing keys keep High; both published choices survive save/load.
@@ -159,6 +191,7 @@ int main() {
     CHECK(settings::get().ceiling_area_lights);
     CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
     test_temporal_settings(file);
+    test_motion_blur_tuning(file);
     test_shadow_quality(file);
     test_sunlight_settings(file);
     test_frame_counter_modes(file);

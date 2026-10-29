@@ -19,6 +19,7 @@
 #include <string_view>
 
 #include "renderer/gtao_settings.h"
+#include "renderer/motion_blur_settings.h"
 #include "renderer/shadow_settings.h"
 #include "renderer/temporal_settings.h"
 #include "renderer/texture_filter.h"
@@ -113,6 +114,9 @@ struct Settings {
     bool gtao = true;  // ground-truth ambient occlusion when enhanced rendering is enabled
     renderer::TemporalQuality temporal_quality =
         renderer::TemporalQuality::Quality;  // Enhanced Vulkan only.
+    bool motion_blur = false;              // Motion relative to the tracking focus.
+    renderer::MotionBlurSettings motion_blur_settings;
+    float motion_blur_strength = 0.5f;      // Exposure strength in [0, 1].
     float temporal_sharpness = 0.2f;         // AMD RCAS strength in [0, 1].
     renderer::TextureFilter texture_filter = renderer::TextureFilter::EdgeAware;
     int anisotropy = 0;  // 0: mode default; otherwise 1 (off), 2, 4, 8, 16
