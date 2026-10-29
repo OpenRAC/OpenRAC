@@ -12,19 +12,15 @@
 
 namespace openrac::program {
 
-bool parse_custom_map(
-    std::string_view text,
+namespace {
+// Validate a map record without changing the caller's output on failure.
+bool read_map(
+    const json::Value& root,
     std::string_view game,
     std::string_view version,
     CustomMap& out,
     std::string& error
 ) {
-    json::Value root;
-
-    if (!json::parse(text, root, error)) {
-        return false;
-    }
-
     if (!root.is_object() || !root["format"].is_number() || root["format"].number() != 1
         || !root["game"].is_string() || root["game"].string() != game || game != "rac1"
         || !root["version"].is_string() || root["version"].string() != version) {
@@ -101,6 +97,67 @@ bool parse_custom_map(
     }
 
     out = std::move(map);
+    return true;
+}
+
+}  // namespace
+
+bool parse_custom_map(
+    std::string_view text,
+    std::string_view game,
+    std::string_view version,
+    CustomMap& out,
+    std::string& error
+) {
+    json::Value root;
+    return json::parse(text, root, error) && read_map(root, game, version, out, error);
+}
+
+bool parse_destinations(
+    std::string_view text,
+    std::string_view game,
+    std::string_view version,
+    std::vector<CustomMap>& out,
+    std::string& error
+) {
+    json::Value root;
+    if (!json::parse(text, root, error)) {
+        return false;
+    }
+    const auto& entries = root["destinations"];
+    if (root["format"].number() != 1 || root["game"].string() != game || game != "rac1"
+        || root["version"].string() != version || version != "pal" || !entries.is_array()
+        || entries.items().empty() || entries.items().size() > 256) {
+        error = "destinations.json must contain 1 to 256 destinations for RAC1 PAL";
+        return false;
+    }
+    std::vector<CustomMap> maps;
+    for (const auto& entry : entries.items()) {
+        CustomMap map;
+        if (!read_map(entry, game, version, map, error)) {
+            return false;
+        }
+        // IDs also name the stack's private subdirectories: never accept paths here.
+        if (map.id.empty() || map.id == "." || map.id == ".."
+            || std::any_of(
+                map.id.begin(),
+                map.id.end(),
+                [](unsigned char c) {
+                    return !(
+                        (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_'
+                    );
+                }
+            )
+            || std::any_of(maps.begin(), maps.end(), [&](const auto& old) {
+                   return old.id == map.id;
+               })) {
+            error =
+                "destination IDs must be unique folder IDs using lowercase letters, digits, - or _";
+            return false;
+        }
+        maps.push_back(std::move(map));
+    }
+    out = std::move(maps);
     return true;
 }
 

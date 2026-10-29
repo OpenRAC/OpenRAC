@@ -524,6 +524,13 @@ impl Action {
             {
                 args.push("--map".to_string());
             }
+            if ctx.config.play_with_mods
+                && args
+                    .windows(2)
+                    .any(|pair| pair[0] == "--mods" && Path::new(&pair[1]).join("destinations.json").is_file())
+            {
+                args.push("--destinations".to_string());
+            }
         }
         let cwd = match (&self.cwd, ctx.version) {
             (Some(cwd), _) => abs(ctx.root, &fill(cwd)?),
@@ -905,6 +912,12 @@ mod tests {
         std::fs::write(map_folder.path().join("map.json"), "{}").unwrap();
         assert!(map_play.plan(&ctx(&with_mods)).unwrap().args.iter().any(|a| a == "--map"));
         assert!(!map_play.plan(&ctx(&installed)).unwrap().args.iter().any(|a| a == "--map"));
+        std::fs::remove_file(map_folder.path().join("map.json")).unwrap();
+        std::fs::write(map_folder.path().join("destinations.json"), "{}").unwrap();
+        let added = map_play.plan(&ctx(&with_mods)).unwrap();
+        assert!(added.args.iter().any(|a| a == "--destinations"));
+        assert!(!added.args.iter().any(|a| a == "--map"));
+        assert!(!map_play.plan(&ctx(&installed)).unwrap().args.iter().any(|a| a == "--destinations"));
         // Settings, "Detailed game logs": the game's verbose log.
         let detailed = Config { detailed_game_log: true, ..installed.clone() };
         let plan = play.plan(&ctx(&detailed)).unwrap();

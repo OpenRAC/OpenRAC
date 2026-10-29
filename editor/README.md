@@ -1,7 +1,8 @@
 # Level editor
 
-[Map mods](MAP_MODDING.md) describes exporting a world as an installable mod,
-with its own name and start, using the existing editor and packer.
+[Map mods](MAP_MODDING.md) explains how to create, export, install and test your
+own world as an additional ship destination, keeping the original planets.
+It also covers standalone maps and updates to an installed world.
 
 The editor turns the levels on your own disc of Ratchet & Clank (PAL,
 `SCES_509.16` v2.00, or NTSC-U, `SCUS_971.99` v1.00) into a Godot 4 project.
