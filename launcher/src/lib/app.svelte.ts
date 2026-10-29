@@ -106,10 +106,17 @@ export const app = $state<AppState>({
  *  in front and after a start. */
 export async function readGame() {
   if (!onAndroid) return;
+  const wasRunning = app.game?.running ?? false;
   try {
     app.game = await api.gameStatus();
   } catch {
     app.game = null;
+  }
+  // The game's activity ended since (its own process: no job ends with it): its log and any crash
+  // report are new, so the lists read them again.
+  if (wasRunning && !app.game?.running) {
+    app.reportsChanged++;
+    void countCrashes();
   }
 }
 

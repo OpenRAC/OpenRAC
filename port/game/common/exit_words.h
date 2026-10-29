@@ -12,10 +12,8 @@
 namespace openrac::frontend::exit_menu {
 
 enum Text {
-    kExit,      // the item: the main menu's row, the pause menu's Options item
-    kExitHint,  // the pause menu's hint box for it
-    kAsk,       // the main menu's question page's title
-    kAskHint,   // the pause menu's hint box while it asks
+    kExit,  // the main menu's row
+    kAsk,   // the question page's title
     kYes,
     kNo,
     kTextCount
@@ -26,20 +24,13 @@ struct Words {
 };
 
 // The longest each text may be, in the game's letters (one byte each): the title in the large font
-// and the rows in the frames they share with the game's own; the hint boxes as wide as the Video
-// item's hint (options_menu.cpp).
-constexpr std::size_t kLongest[kTextCount] = {16, 44, 12, 44, 8, 8};
+// and the rows in the frames they share with the game's own.
+constexpr std::size_t kLongest[kTextCount] = {16, 12, 8, 8};
 
 // UTF-8; the accented letters are among options_menu::game_text's.
 constexpr Words kWords[kTextCount] = {
     {{"Exit", "Quitter", "Beenden", "Salir", "Esci"}},
-    {{"Close OpenRAC", "Fermer OpenRAC", "OpenRAC schließen", "Cerrar OpenRAC", "Chiudi OpenRAC"}},
     {{"Exit?", "Quitter ?", "Beenden?", "¿Salir?", "Uscire?"}},
-    {{"Exit? Unsaved progress will be lost",
-      "Quitter ? Progrès non sauvegardés perdus",
-      "Beenden? Nicht Gespeichertes geht verloren",
-      "¿Salir? Se pierde lo no guardado",
-      "Uscire? Progressi non salvati persi"}},
     {{"Yes", "Oui", "Ja", "Sí", "Sì"}},
     {{"No", "Non", "Nein", "No", "No"}},
 };

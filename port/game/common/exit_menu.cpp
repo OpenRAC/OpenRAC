@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The port's Exit item (exit_menu.h): its texts, the main menu's question page and the close. The
-// pause menu's question is options_menu.cpp's, on that page's own list.
+// The port's Exit item (exit_menu.h): its texts, the main menu's question page and the close.
 
 #include "exit_menu.h"
 
@@ -19,9 +18,9 @@ namespace openrac::frontend::exit_menu {
 
 namespace {
 
-// The texts' ids: past the mods' pages' (0x7C00 on, mod_ui.cpp) and below the options page's
-// (0x7E00 on, options_menu.cpp).
-constexpr int kTextFirst = 0x7D00;
+// The texts' ids: past the mods' pages' and their pause items' (0x7C00 and 0x7D00 on, mod_ui.cpp)
+// and below the options page's (0x7E00 on, options_menu.cpp).
+constexpr int kTextFirst = 0x7D80;
 constexpr gaddr kTextBytes = 64;  // a text's room, its end byte included
 
 // The page menu (rac1-decomp pause.c, include/menu.h; mod_ui.cpp describes it): its state (1 while
@@ -51,6 +50,7 @@ constexpr gaddr kListDown = 0x3C;
 constexpr gaddr kListCursor = 0x40;
 constexpr gaddr kListScroll = 0x44;
 constexpr gaddr kLabelText = 0x34;
+constexpr gaddr kHeight = 0x24;  // set each frame from the panel's frame on the screen
 
 // What of the Options page and of the Language page's title and list the question page copies (as
 // a mod's page, mod_ui.cpp). The Options page's seqs, because going back plays the page's own
@@ -80,6 +80,44 @@ constexpr int kConfirmSound = 0x11;
 constexpr std::int32_t kYesRow = 0;
 constexpr std::int32_t kNoRow = 1;
 
+// Where draw_menu_text_list puts the two rows in the normal font (12) with font-high rows: the
+// first's top at the row height (15) less half the font, each row a line (14) and 8 apart. The
+// middle of the pair, from the list's top before its scroll.
+constexpr std::int32_t kRowsMiddle = (15 - 12 / 2) + (14 + 8 + 14) / 2;
+
+// Returns the 32-bit word of game memory at `at`.
+gaddr word(gaddr at) {
+    return GREF(std::uint32_t, at);
+}
+
+// A Cross press on the question page. A press counts once Cross was let go while the page was
+// ready, so the press that opened the page is not taken, nor one a later frame reads again.
+class CrossPress {
+public:
+    // Returns true for a new press of Cross on the first pad. `ready`: the page is settled with
+    // its list in hand; false forgets any release seen.
+    bool take(const openrac_front_end& fe, bool ready) {
+        // Not ready: a release seen before does not count for the page that comes next.
+        if (!ready) {
+            m_armed = false;
+            return false;
+        }
+
+        // Let go: the next press is the player's.
+        if ((word(fe.pad + kPadPressed) & kPadCross) == 0) {
+            m_armed = true;
+            return false;
+        }
+
+        const bool pressed = m_armed;
+        m_armed = false;
+        return pressed;
+    }
+
+private:
+    bool m_armed = false;
+};
+
 // What the module made in game memory, and the main menu's question's Cross.
 struct State {
     gaddr texts = 0;  // kTextCount texts of kTextBytes
@@ -89,22 +127,46 @@ struct State {
 
 State s;
 
-// Returns the 32-bit word of game memory at `at`.
-gaddr word(gaddr at) {
-    return GREF(std::uint32_t, at);
+// Makes the texts' room in game memory, outside the game's text lookup (which then only fills it).
+void prepare() {
+    // Made once: the room stays the texts' for the whole run.
+    if (s.texts == 0) {
+        s.texts = openrac_guest_static(kTextBytes * kTextCount);
+    }
+}
+
+// Writes at `at` a text list item labelled `label` with an action the game ignores (0x7F, drawn as
+// any item): the port answers Cross on it.
+void put_item(gaddr at, Text label) {
+    GREF(std::int16_t, at) = static_cast<std::int16_t>(text_id(label));
+    GREF(std::int16_t, at + 2) = kIgnoredAction;
+    GREF(std::uint32_t, at + 4) = 0;
+    GREF(std::int16_t, at + 8) = 0;
+    GREF(std::int16_t, at + 10) = 0;
+}
+
+// Plays the menus' confirm sound on the moby of text list `widget`.
+void cue(const openrac_front_end& fe, gaddr widget) {
+    // A front end without the menus' sounds stays silent.
+    if (fe.menu_sound != nullptr) {
+        fe.menu_sound(kConfirmSound, word(widget + kMoby));
+    }
+}
+
+// The game closed, as the window's close button closes it: logged, the window's quit event sent
+// (the frame loop ends the program normally).
+void quit() {
+    log::info("exit: chosen in the main menu, closing the game");
+    SDL_Event event;
+    SDL_zero(event);
+    event.type = SDL_EVENT_QUIT;
+    SDL_PushEvent(&event);
 }
 
 }  // namespace
 
 int text_id(Text text) {
     return kTextFirst + static_cast<int>(text);
-}
-
-void prepare() {
-    // Made once: the room stays the texts' for the whole run.
-    if (s.texts == 0) {
-        s.texts = openrac_guest_static(kTextBytes * kTextCount);
-    }
 }
 
 std::uint32_t text(int id) {
@@ -120,39 +182,6 @@ std::uint32_t text(int id) {
     const std::string shown = options_menu::game_text(kWords[index].text[options_menu::language()]);
     std::snprintf(static_cast<char*>(G(at)), kTextBytes, "%s", shown.c_str());
     return at;
-}
-
-void put_item(gaddr at, Text label) {
-    GREF(std::int16_t, at) = static_cast<std::int16_t>(text_id(label));
-    GREF(std::int16_t, at + 2) = kIgnoredAction;
-    GREF(std::uint32_t, at + 4) = 0;
-    GREF(std::int16_t, at + 8) = 0;
-    GREF(std::int16_t, at + 10) = 0;
-}
-
-void cue(const openrac_front_end& fe, gaddr widget) {
-    // A front end without the menus' sounds stays silent.
-    if (fe.menu_sound != nullptr) {
-        fe.menu_sound(kConfirmSound, word(widget + kMoby));
-    }
-}
-
-bool CrossPress::take(const openrac_front_end& fe, bool ready) {
-    // Not ready: a release seen before does not count for the page that comes next.
-    if (!ready) {
-        m_armed = false;
-        return false;
-    }
-
-    // Let go: the next press is the player's.
-    if ((word(fe.pad + kPadPressed) & kPadCross) == 0) {
-        m_armed = true;
-        return false;
-    }
-
-    const bool pressed = m_armed;
-    m_armed = false;
-    return pressed;
 }
 
 gaddr title_page(const openrac_front_end& fe) {
@@ -206,6 +235,13 @@ void update_title(const openrac_front_end& fe) {
         return;
     }
 
+    // Yes and No in the middle of the panel, whose height the drawing set last frame.
+    const std::int32_t height = GREF(std::int32_t, s.list + kHeight);
+
+    if (height > 0) {
+        GREF(std::int32_t, s.list + kListScroll) = kRowsMiddle - height / 2;
+    }
+
     const bool ready =
         GREF(std::int32_t, menu + kState) != kSwitching && word(s.page + kFocus) == s.list;
 
@@ -218,18 +254,10 @@ void update_title(const openrac_front_end& fe) {
 
     // Yes closes the game; No goes back to the main menu, as Triangle does.
     if (GREF(std::int32_t, s.list + kListCursor) == kYesRow) {
-        quit("the main menu");
+        quit();
     } else {
         GREF(std::uint32_t, menu + kNext) = fe.main_page;
     }
-}
-
-void quit(const char* where) {
-    log::info("exit: chosen in {}, closing the game", where);
-    SDL_Event event;
-    SDL_zero(event);
-    event.type = SDL_EVENT_QUIT;
-    SDL_PushEvent(&event);
 }
 
 }  // namespace openrac::frontend::exit_menu

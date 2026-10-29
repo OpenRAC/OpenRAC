@@ -107,15 +107,5 @@ int main() {
     for (int i = 0; i < 14; ++i) {
         CHECK(none[i] == game[i]);
     }
-    // And the port's Exit after Quit Game: Quit Game's entry again at the end, the rest as above.
-    std::uint32_t exit[22];
-    for (std::uint32_t& w : exit) {
-        w = 0xFFFFFFFFu;
-    }
-    entries_with_extra(game, 7, 4, 3, exit, 1);
-    for (int i = 0; i < 20; ++i) {
-        CHECK(exit[i] == want3[i]);
-    }
-    CHECK(exit[20] == game[12] && exit[21] == game[13]);
     return openrac::test::result();
 }
