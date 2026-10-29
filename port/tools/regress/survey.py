@@ -12,12 +12,12 @@ holds the hero at each for 80 frames, facing the level's middle. The run hides t
 other 10 frames (OPENRAC_HIDE_PASSES_EVERY), and a picture is shot every 10 frames, so each place is
 shot with the pass, without it and with it again once the camera has come to the hero: the pixels
 alike in the two pictures with the pass and unlike the one without it are the pass (what moves by
-itself, rain or an enemy, differs between the two with it and is left out). The game's logic runs as ever (only the picture
-changes), at a quarter of the resolution, without a graphics card.
+itself, rain or an enemy, differs between the two with it and is left out). The game's logic runs
+as ever (only the picture changes), at 640x480 with half the render scale, on the software
+rasteriser.
 
 DIR/report.json lists the places, the most of the picture the pass covers first, each with the
-hero's position and yaw (a route's teleport, or pine.py's writes to hero + 0x80 and + 0x98 in
-PCSX2), and DIR/best.png shows the best of them with the pass's pixels marked.
+hero's position and yaw (a route's teleport; in PCSX2, writes to the hero's position and yaw), and DIR/best.png shows the best of them with the pass's pixels marked.
 """
 
 from __future__ import annotations
@@ -239,8 +239,9 @@ def main(argv: list[str] | None = None) -> int:
             cmd += ["--build", o.build]
         procs.append(subprocess.Popen(cmd, env={**os.environ, "SDL_VIDEODRIVER": "offscreen"}))
     print(f"{len(pts)} places in {jobs} runs, {HOLD} frames each")
-    for p in procs:
-        p.wait()
+    failed = [j for j, p in enumerate(procs) if p.wait() != 0]
+    if failed:
+        raise SystemExit(f"survey run(s) {failed} failed: see {run_dir}")
     rows = locate([run_dir / str(j) / f"{o.level:02d}-survey-{j}" / "trace.jsonl" for j in range(jobs)],
                   [f"{shots / str(j)}/s_" for j in range(jobs)], out)
     for r in rows[:8]:

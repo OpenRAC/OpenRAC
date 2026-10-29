@@ -502,7 +502,7 @@ std::vector<std::uint8_t> direct_packets(
                 strip.surface = surface;
                 strip.uv_motion = uv_motion;
                 static const bool& strip_fog_off = stats::probe(
-                    "OPENRAC_STRIP_FOG_OFF", "Reference: the effect strips drawn without the GS fog"
+                    "OPENRAC_STRIP_FOG_OFF", "reference: the effect strips drawn without the GS fog"
                 );
                 if (strip_fog && (vu_fog_set & 0xD) == 0xD && !strip_fog_off) {
                     // UpdateViewContext's terms (renderer/world/fog.h): the slope per integer unit

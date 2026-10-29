@@ -21,6 +21,7 @@ import coverage
 import reach
 import routes
 import runner
+import regress
 import survey
 
 
@@ -442,6 +443,16 @@ class Outcome(unittest.TestCase):
         self.assertEqual(runner.notes(lines), ["access (SIGBUS) at game address 0x43348F7B, which is not mapped",
                                                "in game_FUN_00210850 < game_FUN_L00_0024f7c8"])
         self.assertEqual(runner.notes(["a", "[error] b", "c"]), ["[error] b"])
+
+
+class KeyValueTest(unittest.TestCase):
+    def test_env_and_settings_split_at_the_first_equals(self):
+        self.assertEqual(regress.key_value("OPENRAC_SHOT=10:a=b"), ("OPENRAC_SHOT", "10:a=b"))
+        self.assertEqual(regress.key_value("OPENRAC_X="), ("OPENRAC_X", ""))
+
+    def test_a_word_without_equals_is_refused(self):
+        with self.assertRaises(SystemExit), patch("sys.stderr"):
+            regress.main(["run", "--game", "rac1-ntsc", "--env", "OPENRAC_X"])
 
 
 class SurveyTest(unittest.TestCase):

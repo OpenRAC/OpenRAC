@@ -81,8 +81,7 @@ def cmd_run(args) -> int:
     out = runner.run(args.game, levels, build, Path(args.out) if args.out else None, args.jobs,
                      Path(args.data) if args.data else None, Path(args.level_data) if args.level_data else None,
                      Path(args.routes) if args.routes else None, route_set=args.set, only=only,
-                     env=dict(e.split("=", 1) for e in args.env or []),
-                     settings=dict(e.split("=", 1) for e in args.setting or []))
+                     env=dict(args.env or []), settings=dict(args.setting or []))
     meta = json.loads((out / "run.json").read_text())
     counts = {}
     for r in meta["levels"].values():
@@ -257,6 +256,14 @@ def cmd_coverage(args) -> int:
     return 0
 
 
+def key_value(text: str) -> tuple[str, str]:
+    """KEY=VALUE as --env and --setting take it."""
+    key, eq, value = text.partition("=")
+    if not key or not eq:
+        raise argparse.ArgumentTypeError(f"{text!r} is not KEY=VALUE")
+    return key, value
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="command", required=True)
@@ -272,9 +279,9 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--routes", help="another routes file")
     r.add_argument("--set", help="a route set of routes.json (default: standard, the level routes)")
     r.add_argument("--only", help="a set's routes by name: 11-drown,05-long")
-    r.add_argument("--env", action="append", metavar="KEY=VALUE",
+    r.add_argument("--env", action="append", type=key_value, metavar="KEY=VALUE",
                    help="a switch every run gets, after the run's own (OPENRAC_SOFTWARE_GL=1 without a graphics card)")
-    r.add_argument("--setting", action="append", metavar="KEY=VALUE",
+    r.add_argument("--setting", action="append", type=key_value, metavar="KEY=VALUE",
                    help="a settings.ini line every run starts from (render_scale=25: a quicker picture)")
     r.set_defaults(fn=cmd_run)
 

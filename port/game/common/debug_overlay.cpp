@@ -644,8 +644,11 @@ void begin(bool first, bool held, float alpha, std::uint64_t tick_number) {
 void before_render(renderer::Renderer* renderer, std::uint64_t frame) {
     using namespace openrac::gl;
     // OPENRAC_HIDE_PASSES_EVERY=N: the passes are hidden in every other N frames only, so a place
-    // the hero is held at is shot with them and without them in one run (tools: locate.py).
-    static const auto every = static_cast<std::uint64_t>(std::max<std::int64_t>(0, env::integer(env::Var::HidePassesEvery, 0)));
+    // the hero is held at is shot with them and without them in one run (port/tools/regress/
+    // survey.py). `frame` is the tick's window frame, the trace's and OPENRAC_SHOT's number.
+    static const auto every = static_cast<std::uint64_t>(
+        std::max<std::int64_t>(0, env::integer(env::Var::HidePassesEvery, 0))
+    );
     if (renderer != nullptr && !s.hidden.empty()) {
         const bool hide = every == 0 || (frame / every) % 2 == 1;
         for (const auto& r : renderer->renderers()) {
