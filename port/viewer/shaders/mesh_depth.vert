@@ -61,9 +61,17 @@ void main() {
 #endif
     }
     vec4 world = model * p;
+#ifdef OPENRAC_WATER_FLOAT
+    mat4 water_pose = water_float_pose(model[3].xyz);
+    world = water_pose * world;
+#endif
 #ifdef OPENRAC_DEPTH_NORMALS
     // Match mesh.vert's smooth normal, including skinning and nonuniform model scale.
-    v_surface_normal = mat3(view) * transpose(inverse(mat3(model))) * n;
+    vec3 world_normal = transpose(inverse(mat3(model))) * n;
+#ifdef OPENRAC_WATER_FLOAT
+    world_normal = mat3(water_pose) * world_normal;
+#endif
+    v_surface_normal = mat3(view) * world_normal;
     v_surface_position = (view * world).xyz;
 #endif
     gl_Position = view_projection * world;

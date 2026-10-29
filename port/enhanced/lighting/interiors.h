@@ -49,6 +49,8 @@ struct Result {
     std::vector<Cell> cells;
     std::vector<Seed> seeds;
     std::vector<Region> regions;
+    // Physical walkability includes edges across authored lighting transitions.
+    std::vector<std::array<unsigned, 2>> walkable_edges;
     unsigned blocked_portal_edges = 0;
 };
 

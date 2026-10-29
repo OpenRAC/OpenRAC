@@ -11,11 +11,15 @@ namespace openrac::lighting {
 float probe_region_distance(const ProbeGrid& grid, Float3 point) {
     float squared = 0;
     for (unsigned a = 0; a < 3; ++a) {
+        point[a] -= grid.origin[a];
+    }
+    point = grid.frame.to_local(point);
+    for (unsigned a = 0; a < 3; ++a) {
         if (!std::isfinite(point[a])) {
             return std::numeric_limits<float>::infinity();
         }
-        const float end = grid.origin[a] + grid.spacing[a] * float(grid.dimensions[a] - 1);
-        const float d = std::max({grid.origin[a] - point[a], point[a] - end, 0.0f});
+        const float end = grid.spacing[a] * float(grid.dimensions[a] - 1);
+        const float d = std::max({-point[a], point[a] - end, 0.0f});
         squared += d * d;
     }
     return std::sqrt(squared);
@@ -30,10 +34,15 @@ bool probe_region_in_frustum(const ProbeGrid& grid, const std::array<float, 16>&
     for (unsigned axis = 0; axis < 3; ++axis) {
         for (float sign : {-1.0f, 1.0f}) {
             float maximum = clip[15] + sign * clip[12 + axis];
+            Float3 normal{};
             for (unsigned a = 0; a < 3; ++a) {
-                const float normal = clip[4 * a + 3] + sign * clip[4 * a + axis];
-                const float end = grid.origin[a] + grid.spacing[a] * float(grid.dimensions[a] - 1);
-                maximum += normal * (normal >= 0 ? end : grid.origin[a]);
+                normal[a] = clip[4 * a + 3] + sign * clip[4 * a + axis];
+                maximum += normal[a] * grid.origin[a];
+            }
+            normal = grid.frame.to_local(normal);
+            for (unsigned a = 0; a < 3; ++a) {
+                maximum +=
+                    std::max(0.f, normal[a]) * grid.spacing[a] * float(grid.dimensions[a] - 1);
             }
             if (maximum < -1e-4f) {
                 return false;
@@ -108,12 +117,16 @@ void ProbeRegionSelector::update(
 }
 
 std::optional<ProbeSample> sample_probe_regions(
-    const ProbeVolume& coarse, std::span<const WeightedProbeRegion> regions, Float3 p, Float3 n
+    const ProbeVolume& coarse,
+    std::span<const WeightedProbeRegion> regions,
+    Float3 p,
+    Float3 n,
+    ProbeReceiverBias bias
 ) {
     if (regions.size() > kDenseProbeSlots) {
         throw std::runtime_error("too many active probe regions");
     }
-    auto base = sample_probes(coarse, p, n);
+    auto base = sample_probes(coarse, p, n, bias.normal, bias.view);
     ProbeSample local{};
     float total = 0;
     for (const auto& region : regions) {
@@ -121,7 +134,7 @@ std::optional<ProbeSample> sample_probe_regions(
             continue;
         }
         // Valid but occluded local support stays dark, never bright coarse GI.
-        const auto sample = sample_local_probes(*region.volume, p, n);
+        const auto sample = sample_local_probes(*region.volume, p, n, bias.normal, bias.view);
         if (!sample) {
             continue;
         }

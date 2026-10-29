@@ -53,6 +53,9 @@ jobs:
       - name: OpenRAC tools
         run: python -m unittest discover -s tools -v
 
+      - name: PAL and NTSC rendering host-hook parity
+        run: python -m unittest discover -s port/tools/hostgen -p test_host_hook_parity.py -v
+
       - name: Level editor (synthetic data only)
         run: python -m unittest discover -s editor -v
 

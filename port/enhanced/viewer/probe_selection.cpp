@@ -85,6 +85,8 @@ bool ProbeSelection::prepare(
             metadata[i * 3 + 2][a] = float(grids[i].dimensions[a]);
         }
         metadata[i * 3][3] = float(offsets[i]);
+        metadata[i * 3 + 1][3] = grids[i].frame.axis[0];
+        metadata[i * 3 + 2][3] = grids[i].frame.axis[1];
     }
     glBindBuffer(wgl::GL_UNIFORM_BUFFER, m_buffers[0]);
     glBufferData(wgl::GL_UNIFORM_BUFFER, sizeof(metadata), metadata.data(), GL_STATIC_DRAW);

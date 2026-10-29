@@ -366,10 +366,15 @@ void drawer_enhanced() {
             changed = true;
         }
         if (set.enhanced_shadows) {
-            const bool high = set.shadow_quality == renderer::ShadowQuality::High;
-            if (drawer_choice("Shadow quality", high ? "High" : "Medium", high, !high)) {
-                set.shadow_quality =
-                    high ? renderer::ShadowQuality::Medium : renderer::ShadowQuality::High;
+            const int quality = static_cast<int>(set.shadow_quality);
+            const int last = static_cast<int>(renderer::ShadowQuality::Count) - 1;
+            if (const int by = drawer_choice(
+                    "Shadow quality",
+                    renderer::kShadowQualityNames[quality],
+                    quality > 0,
+                    quality < last
+                )) {
+                set.shadow_quality = static_cast<renderer::ShadowQuality>(quality + by);
                 changed = true;
             }
         }

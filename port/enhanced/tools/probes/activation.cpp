@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "enhanced/tools/probes/activation.h"
 
+#include <bit>
 #include <cfenv>
 #include <cmath>
 #include <fstream>
@@ -60,6 +61,7 @@ std::vector<SurfaceEmissionRegion> read_surface_emission_regions(const json::Val
     }
 
     std::vector<SurfaceEmissionRegion> regions;
+
     for (const auto& entry : value.items()) {
         // Each room supplies lower/upper triples and a finite nonnegative absolute gain.
         if (!entry.is_object() || !entry["minimum"].is_array() || !entry["maximum"].is_array()
@@ -71,21 +73,167 @@ std::vector<SurfaceEmissionRegion> read_surface_emission_regions(const json::Val
 
         SurfaceEmissionRegion region;
         region.scale = static_cast<float>(entry["scale"].number());
+
         for (unsigned axis = 0; axis < 3; ++axis) {
             const auto& low = entry["minimum"][axis];
             const auto& high = entry["maximum"][axis];
+
             // Reversed or nonfinite bounds cannot define a room.
             if (!low.is_number() || !high.is_number() || !std::isfinite(low.number())
                 || !std::isfinite(high.number()) || std::abs(low.number()) > 1e6
                 || std::abs(high.number()) > 1e6 || low.number() > high.number()) {
                 throw std::runtime_error("invalid surface emission region bounds");
             }
+
             region.minimum[axis] = static_cast<float>(low.number());
             region.maximum[axis] = static_cast<float>(high.number());
         }
+
         regions.push_back(region);
     }
+
     return regions;
+}
+
+// Per-level planning limits stay separate from the transport solver's light intensities.
+BakeTraversalSettings read_traversal_profile(
+    const json::Value& value, BakeTraversalSettings result
+) {
+    if (!value.is_object()) {
+        throw std::runtime_error("playable_space requires an object");
+    }
+
+    for (const auto& [key, setting] : value.members()) {
+        const double n = setting.number(-1);
+
+        if (!setting.is_number() || !std::isfinite(n) || n < 0 || n > 64) {
+            throw std::runtime_error("playable space setting requires a finite value from 0 to 64");
+        }
+
+        if (key == "jump_distance") {
+            result.jump_distance = float(n);
+        } else if (key == "jump_rise") {
+            result.jump_rise = float(n);
+        } else if (key == "jump_drop") {
+            result.jump_drop = float(n);
+        } else if (key == "player_radius" && n >= .1 && n <= 2) {
+            result.player_radius = float(n);
+        } else if (key == "player_height" && n >= .5 && n <= 8) {
+            result.player_height = float(n);
+        } else if (key == "minimum_swim_depth" && n >= .25 && n <= 8) {
+            result.minimum_swim_depth = static_cast<float>(n);
+        } else {
+            throw std::runtime_error("unknown or invalid playable space setting");
+        }
+    }
+
+    return result;
+}
+
+// Shared strict reflection schema, including partial overrides in a mod profile.
+EnvironmentBakeSettings read_environment_profile(
+    const json::Value& value, EnvironmentBakeSettings result
+) {
+    if (!value.is_object()) {
+        throw std::runtime_error("environment_probes requires an object");
+    }
+
+    for (const auto& [key, setting] : value.members()) {
+        if (key == "enabled" || key == "merge_enabled") {
+            if (setting.type() != json::Value::Type::Bool) {
+                throw std::runtime_error("environment enabled requires a boolean");
+            }
+
+            (key == "enabled" ? result.enabled : result.merge_enabled) = setting.boolean();
+            continue;
+        }
+
+        const double n = setting.number(-1);
+
+        if (!setting.is_number() || !std::isfinite(n)) {
+            throw std::runtime_error("environment setting requires a finite number");
+        }
+
+        if (key == "resolution" || key == "maximum_probes" || key == "filter_samples"
+            || key == "merge_max_misses") {
+            const unsigned limit = key == "resolution"
+                                       ? 256u
+                                       : (key == "maximum_probes"     ? kEnvironmentProbeLimit
+                                          : key == "merge_max_misses" ? 8u
+                                                                      : 4096u);
+
+            if (n < (key == "merge_max_misses" ? 0 : 1) || n > limit || std::floor(n) != n) {
+                throw std::runtime_error("invalid environment integer setting");
+            }
+
+            const auto integer = static_cast<unsigned>(n);
+
+            if (key == "resolution") {
+                if (integer < 4 || !std::has_single_bit(integer)) {
+                    throw std::runtime_error(
+                        "environment resolution requires a power of two from 4 to 256"
+                    );
+                }
+
+                result.resolution = integer;
+            } else if (key == "maximum_probes") {
+                result.maximum_probes = integer;
+            } else if (key == "merge_max_misses") {
+                result.merge_max_misses = integer;
+            } else {
+                result.filter_samples = integer;
+            }
+        } else if (key == "merge_brightness_ratio" || key == "merge_colour_distance") {
+            const bool brightness = key == "merge_brightness_ratio";
+
+            if (n < (brightness ? 1 : 0) || n > (brightness ? 8 : 1)) {
+                throw std::runtime_error("environment colour threshold outside permitted range");
+            }
+
+            (brightness ? result.merge_brightness_ratio : result.merge_colour_distance) =
+                static_cast<float>(n);
+        } else if (key == "minimum_capture_spacing") {
+            if (n < 0 || n > 64) {
+                throw std::runtime_error("minimum capture spacing must be from zero to 64");
+            }
+
+            result.minimum_capture_spacing = static_cast<float>(n);
+        } else if (key == "minimum_space_area") {
+            if (n < 0 || n > 256) {
+                throw std::runtime_error("environment minimum space area must be from zero to 256");
+            }
+
+            result.minimum_space_area = static_cast<float>(n);
+        } else if (key == "merge_overlap" || key == "merge_loss_fraction") {
+            const double low = key == "merge_overlap" ? .8 : 0,
+                         high = key == "merge_overlap" ? 1 : .01;
+
+            if (n < low || n > high) {
+                throw std::runtime_error("environment merge threshold outside permitted range");
+            }
+
+            (key == "merge_overlap" ? result.merge_overlap : result.merge_loss_fraction) =
+                static_cast<float>(n);
+        } else if (key == "spacing" || key == "box_distance") {
+            if (n <= 1 || n > 1024) {
+                throw std::runtime_error(
+                    "environment distances must exceed one and be at most 1024"
+                );
+            }
+
+            (key == "spacing" ? result.spacing : result.box_distance) = static_cast<float>(n);
+        } else if (key == "normal_bias" || key == "view_bias") {
+            if (n < 0 || n > 4) {
+                throw std::runtime_error("environment GI bias must be from zero to four");
+            }
+
+            (key == "normal_bias" ? result.normal_bias : result.view_bias) = static_cast<float>(n);
+        } else {
+            throw std::runtime_error("unknown environment setting: " + key);
+        }
+    }
+
+    return result;
 }
 
 void apply_profile(const std::filesystem::path& path, LevelBakeProfile& profile) {
@@ -191,6 +339,10 @@ void apply_profile(const std::filesystem::path& path, LevelBakeProfile& profile)
             profile.sparse_spacing = vector(value, 0.001f);
         } else if (key == "dense_spacing") {
             profile.dense_spacing = vector(value, 0.001f);
+        } else if (key == "environment_probes") {
+            profile.environment = read_environment_profile(value, profile.environment);
+        } else if (key == "playable_space") {
+            bake.traversal = read_traversal_profile(value, bake.traversal);
         } else if (key == "regions") {
             // Offline region planning shares the profile file but is validated by its Python owner.
             if (!value.is_object()) {

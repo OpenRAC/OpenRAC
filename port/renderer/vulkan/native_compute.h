@@ -13,6 +13,8 @@ struct NativeDevice {
     VkDevice device = VK_NULL_HANDLE;               // Device owned by the renderer.
     VkPhysicalDevice physical = VK_NULL_HANDLE;     // Selected physical device.
     PFN_vkGetDeviceProcAddr device_proc = nullptr;  // Renderer-loaded device entry points.
+    bool float16 = false;          // Enabled shaderFloat16 arithmetic; no implied 16-bit storage.
+    bool int16 = false;            // Enabled shaderInt16 arithmetic (independent of float16).
     bool storage_formats = false;  // Extended storage formats and formatless writes are enabled.
 };
 

@@ -14,7 +14,8 @@ vec4 sample_upscaled_texture_colours(vec2 uv) {
   if (footprint >= 1.0) {
     return original;
   }
-  original.rgb = mix(textureLod(upscaled_texture_colours, uv, 0.0).rgb, original.rgb,
-                     smoothstep(0.5, 1.0, footprint));
+  // Texture coordinates/derivatives and alpha remain FP32; blend only bounded RGB.
+  mp_vec3 filtered = mp_vec3(textureLod(upscaled_texture_colours, uv, 0.0).rgb);
+  original.rgb = vec3(mix(filtered, mp_vec3(original.rgb), mp_float(smoothstep(0.5, 1.0, footprint))));
   return original;
 }

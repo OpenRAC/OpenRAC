@@ -35,6 +35,7 @@ constexpr ShadowAtlasLayout shadow_atlas_layout(renderer::ShadowQuality quality)
             coordinate /= divisor;
         }
     }
+    layout.rects[4][2] = layout.rects[4][3] = renderer::hero_shadow_resolution(quality);
     return layout;
 }
 }  // namespace openrac::scene

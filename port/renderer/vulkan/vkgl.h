@@ -45,7 +45,7 @@ struct Config {
     // The window to present to (made with SDL_WINDOW_VULKAN), or null: drawing without a screen,
     // for the tests (glReadPixels reads the default framebuffer).
     SDL_Window* window = nullptr;
-    int width = 0;   // the default framebuffer without a window
+    int width = 0;  // the default framebuffer without a window
     int height = 0;
     bool vsync = true;
     // A Vulkan driver of the player's (platform/gpu_driver.h): its vkGetInstanceProcAddr; null for
@@ -236,6 +236,7 @@ struct SubmissionCounters {
     // Bytes the CPU writes for the GPU-driven instances: each batch's payload as it is built, and
     // its copy into the mapped input page at the end of the recording.
     std::uint64_t gpu_payload_bytes = 0;
+    std::uint64_t shader_fp16_ops = 0, shader_fp32_ops = 0, shader_fp16_modules = 0;
     std::uint64_t shader_compiles = 0;  // glslang runs: shaders checked, programs compiled.
     double shader_compile_s = 0.0;      // The seconds those compiles took.
 };

@@ -10,6 +10,7 @@
 
 #include "enhanced/fsr3/frame_target.h"
 #include "enhanced/fsr3/fsr3.h"
+#include "enhanced/fsr3/motion_blur.h"
 #include "enhanced/fsr3/sdk_context.h"
 #include "renderer/framebuffer.h"
 #include "renderer/renderer.h"
@@ -20,6 +21,11 @@
 namespace openrac::enhanced {
 // Render-thread state, retaining the previous displayed frame rather than a previous simulation tick.
 struct Fsr3::State {
+    fsr3_detail::MotionBlur blur;
+    float blur_strength = 0;
+    renderer::MotionBlurSettings blur_settings;
+    bool camera_blur = false;
+    bool blur_mode_changed = false;
     fsr3_detail::SdkContext sdk;        // AMD pipelines and GPU history.
     renderer::FrameBuffer world;        // Render-resolution colour and sampleable opaque depth.
     fsr3_detail::FrameTarget motion;    // RGBA16F: pixel velocity XY and reactive coverage Z.
@@ -27,13 +33,13 @@ struct Fsr3::State {
     fsr3_detail::FrameTarget reactive;  // R channel, particle and disocclusion reactivity.
     fsr3_detail::FrameTarget opaque;    // World colour before the particle bucket.
 
-    renderer::Shader camera_motion;  // Static world and sky motion, or float depth copy.
-    renderer::Shader object_motion;  // Rigid and skinned dynamic velocities.
+    renderer::Shader camera_motion;     // Static world and sky motion, or float depth copy.
+    renderer::Shader object_motion;     // Rigid and skinned dynamic velocities.
     renderer::Shader late_world_depth;  // Display-resolution depth for late world effects.
-    renderer::Shader reactive_mask;  // Particle colour-difference mask.
-    unsigned vao = 0;                // Empty VAO for fullscreen triangles.
-    unsigned previous_palette = 0;   // Previous displayed joint matrices.
-    unsigned output_texture = 0;     // Display texture last made storage-capable.
+    renderer::Shader reactive_mask;     // Particle colour-difference mask.
+    unsigned vao = 0;                   // Empty VAO for fullscreen triangles.
+    unsigned previous_palette = 0;      // Previous displayed joint matrices.
+    unsigned output_texture = 0;        // Display texture last made storage-capable.
 
     std::vector<scene::Instance> instances;  // Current displayed live mobys.
     std::vector<renderer::Mat4> palette;     // Current displayed joints, padded only on upload.

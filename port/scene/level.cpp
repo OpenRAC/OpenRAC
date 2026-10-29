@@ -109,6 +109,7 @@ int image_index(const fs::path& requested, LevelData& level) {
 int material_index(const cgltf_material* source, const fs::path& base, LevelData& level) {
     Material m;
     if (source != nullptr) {
+        m.name = source->name ? source->name : "";
         m.cutout = source->alpha_mode == cgltf_alpha_mode_mask;
         m.metal = source->name != nullptr && std::strncmp(source->name, "metal_", 6) == 0;
         m.blend = source->alpha_mode == cgltf_alpha_mode_blend;
@@ -155,7 +156,8 @@ int material_index(const cgltf_material* source, const fs::path& base, LevelData
         const Material& o = level.materials[i];
         if (o.image == m.image && o.cutout == m.cutout && o.blend == m.blend && o.metal == m.metal
             && o.clamp_s == m.clamp_s && o.clamp_t == m.clamp_t && o.colour == m.colour
-            && o.emission == m.emission && o.emission_image == m.emission_image) {
+            && o.emission == m.emission && o.emission_image == m.emission_image
+            && (!m.metal || o.name == m.name)) {
             return static_cast<int>(i);
         }
     }

@@ -167,6 +167,23 @@ bool moby_beyond_draw_distance(const std::uint8_t* moby, const renderer::Vec3& e
 host::GameState read_game_state(std::span<const std::uint8_t> ram, const GameAddresses& a) {
     host::GameState s;
     s.camera_position = vec3(ram, a.camera_position);
+    // Camera block +0x180 is the active UpdateCam pointer; the eye is at +0x140.
+    // The default follow record (id +0x86 == 0) owns FollowCamState at +0x70,
+    // whose +0x40 focus is eased by follow_cam_focus_velocity/follow_camera_springs.
+    // Other camera records have different saved-state layouts: never interpret them as follow data.
+    const auto record = at<std::uint32_t>(ram, a.camera_position + 0x40) & 0x1FFFFFFFu;
+    if (record != 0 && record + 0xA0 <= ram.size() && at<std::int16_t>(ram, record + 0x86) == 0) {
+        const auto saved = at<std::uint32_t>(ram, record + 0x70) & 0x1FFFFFFFu;
+        if (saved != 0 && saved + 0x50 <= ram.size()) {
+            const auto focus = vec3(ram, saved + 0x40);
+            if (std::all_of(focus.begin(), focus.end(), [](float v) {
+                    return std::isfinite(v) && std::abs(v) < 1000000.f;
+                })) {
+                s.camera_target = focus;
+                s.camera_target_id = (std::uint64_t(record) << 32) | saved;
+            }
+        }
+    }
     s.forward = vec3(ram, a.camera_rows);
     s.left = vec3(ram, a.camera_rows + 0x10);
     s.up = vec3(ram, a.camera_rows + 0x20);

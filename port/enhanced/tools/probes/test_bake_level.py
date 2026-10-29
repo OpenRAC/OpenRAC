@@ -25,6 +25,18 @@ scene_hash 42
 
 
 class LevelBake(unittest.TestCase):
+    def test_adaptive_density_settings_are_explicit_and_bounded(self):
+        self.assertFalse(batch.RegionSettings().adaptive_density)
+        for fields in ({'adaptive_density': 1}, {'adaptive_relative_error': .3},
+                       {'adaptive_absolute_error': -.1}, {'adaptive_absolute_error': .2}):
+            (self.level/'probe-bake.json').write_text(json.dumps({'version': 1, 'regions': fields}))
+            with self.assertRaises(ValueError):
+                batch.RegionSettings.load(self.level)
+        (self.level/'probe-bake.json').write_text(json.dumps({
+            'version': 1, 'regions': {'adaptive_density': True, 'adaptive_relative_error': .08}}))
+        self.assertTrue(batch.RegionSettings.load(self.level).adaptive_density)
+        self.assertEqual(batch.RegionSettings.load(self.level).adaptive_relative_error, .08)
+
     def test_local_region_bounds_include_padding_and_scene_mode_is_unchanged(self):
         regions = [{'bounds': [1, 2, 3, 4, 5, 6]}, {'bounds': [-2, 4, 1, 8, 9, 10]}]
         settings = batch.RegionSettings(coarse_bounds='local_regions', coarse_padding=2)

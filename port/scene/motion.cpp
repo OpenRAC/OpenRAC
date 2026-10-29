@@ -7,6 +7,7 @@
 
 #include "common/stats.h"
 #include "renderer/gl.h"
+#include "scene/level_lighting.h"
 #include "scene/level_renderer.h"
 
 namespace openrac::scene {
@@ -93,12 +94,14 @@ void LevelScene::prepare_motion_batches(std::span<const MotionInstance> instance
         }
         // Multiple materials retain instance-major order, including equal-depth alpha coverage.
         if (m_motion_batches.empty() || m_motion_batches.back().model != instance.model
+            || m_motion_batches.back().floats_on_water != instance.floats_on_water
             || m_models[instance.model].primitives.size() != 1) {
             m_motion_batches.push_back(
                 {instance.model,
                  m_motion_groups[instance.model],
                  static_cast<int>(m_motion_words.size() / 36),
-                 0}
+                 0,
+                 instance.floats_on_water}
             );
         }
         ++m_motion_batches.back().count;
@@ -125,7 +128,7 @@ void LevelScene::draw_motion_batches(
     for (const auto& batch : m_motion_batches) {
         glBindVertexArray(groups[batch.group].vao);
         glUniform1i(shader.uniform("motion_first"), batch.first);
-        draw_motion_materials(shader, batch.model, textures, batch.count);
+        draw_motion_materials(shader, batch.model, textures, batch.count, batch.floats_on_water);
     }
 }
 
@@ -153,15 +156,19 @@ void LevelScene::draw_motion_instance(
     glUniform1f(shader.uniform("instance_alpha"), instance.alpha);
     glUniform1f(shader.uniform("reactive"), instance.reactive ? 1.0f : 0.0f);
     glUniform1i(shader.uniform("exclude_glow"), instance.exclude_glow ? 1 : 0);
-    draw_motion_materials(shader, instance.model, textures);
+    draw_motion_materials(shader, instance.model, textures, 1, instance.floats_on_water);
 }
 
 void LevelScene::draw_motion_materials(
     const renderer::Shader& shader,
     std::uint32_t model,
     renderer::TexturePool& textures,
-    int instances
+    int instances,
+    bool floats_on_water
 ) {
+    if (m_lighting) {
+        m_lighting->bind_deformation(shader, floats_on_water);
+    }
     // Material runs use their original alpha texture, matching world depth coverage.
     for (const auto& primitive : m_models[model].primitives) {
         const auto& material = m_materials[static_cast<std::size_t>(primitive.material)];

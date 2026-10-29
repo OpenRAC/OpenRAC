@@ -228,7 +228,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "the sky intensity the probe bake must have been made with"},
     {Var::ProbeSpheres, "OPENRAC_PROBE_SPHERES",
      Kind::Text, Truth::NotAFlag, "off",
-     "1 or xray: the probes' positions, coloured by status"},
+     "1 or xray: selected probe positions; all: resident positions and every volume bound"},
     {Var::ProbeTiledReference, "OPENRAC_PROBE_TILED_REFERENCE",
      Kind::Flag, Truth::Set, "off",
      "reference: every resident probe volume evaluated per fragment, not tile masks"},

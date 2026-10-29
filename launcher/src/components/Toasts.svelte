@@ -2,8 +2,9 @@
   // What the launcher says for a moment, at the window's corner. Information goes after a few
   // seconds and waits while the pointer or the focus is on it; an error stays until it is
   // dismissed, and is read out at once (an assertive region), not after what is being read.
-  import { onAndroid } from "$lib/api";
-  import { app, dismissToast, holdToasts } from "$lib/app.svelte";
+  import { api, onAndroid } from "$lib/api";
+  import { app, dismissToast, holdToasts, guard, type BakeNotice } from "$lib/app.svelte";
+  import { hidePaths } from "$lib/paths";
   import { reduced } from "$lib/motion";
   import { flip } from "svelte/animate";
   import { cubicOut } from "svelte/easing";
@@ -16,6 +17,10 @@
   const into = { y: 16, opacity: 0, duration: still ? 0 : 240, easing: cubicOut };
   const away = { duration: still ? 0 : 160 };
   const move = { duration: still ? 0 : 220, easing: cubicOut };
+
+  function openLog(bake?: BakeNotice) {
+    if (bake?.failure.log) void guard(api.openBakeLog(bake.version, bake.failure.log));
+  }
 
   const infos = $derived(app.toasts.filter((t) => t.kind !== "error"));
   const errors = $derived(app.toasts.filter((t) => t.kind === "error"));
@@ -54,7 +59,35 @@
     {#each errors as t (t.id)}
       <div class="toast error" class:rise={!onAndroid} in:fly={into} out:fade={away} animate:flip={move}>
         <Icon name="warn" size={16} />
-        <span class="grow">{t.text}</span>
+        <div class="grow message">
+          <strong>{t.text}</strong>
+          {#if t.bake}
+            <p>{t.bake.failure.explanation}</p>
+            <p class="fix"><strong>Try this:</strong> {t.bake.failure.suggestion}</p>
+            <details class="error-details">
+              <summary>Error details</summary>
+              {#if t.bake.failure.stage}<p>{t.bake.failure.stage}</p>{/if}
+              <pre>{hidePaths(t.bake.failure.detail).text}</pre>
+            </details>
+            <div class="actions">
+              {#if t.bake.failure.log && !onAndroid}
+                <button
+                  class="small"
+                  onclick={() => {
+                    openLog(t.bake);
+                  }}>Open log</button
+                >
+              {/if}
+              <button
+                class="ghost small"
+                onclick={() => {
+                  app.page = "tasks";
+                }}>View details</button
+              >
+            </div>
+            <small>{t.bake.failure.level ? `${t.bake.failure.level} - ` : ""}{t.bake.failure.code}</small>
+          {/if}
+        </div>
         <button
           class="ghost small"
           onclick={() => {
@@ -113,6 +146,45 @@
     padding: 10px 8px 10px 14px;
     font-size: 0.875rem;
     box-shadow: var(--shadow-sm);
+  }
+
+  .message {
+    min-width: 0;
+  }
+  .message p {
+    margin: 6px 0;
+    line-height: 1.45;
+  }
+  .error-details {
+    margin-top: 8px;
+  }
+  .error-details summary {
+    cursor: pointer;
+  }
+  .error-details pre {
+    max-height: 160px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 0.75rem;
+  }
+  .message > strong {
+    display: block;
+  }
+  .message small {
+    display: block;
+    margin-top: 8px;
+    color: var(--soft);
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .toast .actions button {
+    margin: 0;
+    padding: 6px 10px;
   }
 
   .toast > :global(svg) {

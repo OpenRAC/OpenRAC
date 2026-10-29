@@ -17,6 +17,38 @@
 
 namespace openrac::settings {
 
+void Settings::reset_enhanced() {
+    const Settings defaults;
+    enhanced_graphics = defaults.enhanced_graphics;
+    enhanced_shadows = defaults.enhanced_shadows;
+    shadow_quality = defaults.shadow_quality;
+    rim_light = defaults.rim_light;
+    rim_shadow_lift = defaults.rim_shadow_lift;
+    rim_lift_exponent = defaults.rim_lift_exponent;
+    rim_lift_max_gain = defaults.rim_lift_max_gain;
+    rim_light_strength = defaults.rim_light_strength;
+    rim_light_falloff = defaults.rim_light_falloff;
+    probe_spheres = defaults.probe_spheres;
+    ceiling_area_lights = defaults.ceiling_area_lights;
+    probe_gi_multiplier = defaults.probe_gi_multiplier;
+    probe_normal_bias = defaults.probe_normal_bias;
+    probe_view_bias = defaults.probe_view_bias;
+    sun_direction_override = defaults.sun_direction_override;
+    sun_azimuth = defaults.sun_azimuth;
+    sun_elevation = defaults.sun_elevation;
+    gtao = defaults.gtao;
+    gtao_settings = defaults.gtao_settings;
+    temporal_quality = defaults.temporal_quality;
+    agx_preview = defaults.agx_preview;
+    agx_exposure = defaults.agx_exposure;
+    agx_brightness = defaults.agx_brightness;
+    motion_blur = defaults.motion_blur;
+    motion_blur_settings = defaults.motion_blur_settings;
+    motion_blur_strength = defaults.motion_blur_strength;
+    temporal_sharpness = defaults.temporal_sharpness;
+    texture_filter = defaults.texture_filter;
+}
+
 std::optional<std::array<float, 3>> Settings::sunlight_direction() const {
     if (!sun_direction_override) {
         return std::nullopt;
@@ -109,8 +141,8 @@ bool parse_pair(const std::string& value, char between, int& a, int& b) {
     int second = 0;
     char sep = 0;
     char after = 0;
-    if (std::sscanf(value.c_str(), "%d%c%d%c", &first, &sep, &second, &after) != 3 || sep != between || first < 1
-        || second < 1 || first > 100000 || second > 100000) {
+    if (std::sscanf(value.c_str(), "%d%c%d%c", &first, &sep, &second, &after) != 3 || sep != between
+        || first < 1 || second < 1 || first > 100000 || second > 100000) {
         return false;
     }
     a = first;
@@ -271,8 +303,12 @@ void load(const std::filesystem::path& file) {
             known = parse_bool(value, ignored);
         } else if (key == "probe_spheres") {
             known = parse_bool(value, s.probe_spheres);
+        } else if (key == "medial_axis_debug") {
+            known = parse_bool(value, s.medial_axis_debug);
         } else if (key == "ceiling_area_lights") {
             known = parse_bool(value, s.ceiling_area_lights);
+        } else if (key == "environment_probe_debug") {
+            known = parse_bool(value, s.environment_probe_debug);
         } else if (key == "probe_normal_bias") {
             known = parse_float(value, 0.0f, 2.0f, s.probe_normal_bias);
         } else if (key == "probe_view_bias") {
@@ -301,6 +337,28 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 3.0f, s.gtao_settings.strength);
         } else if (key == "temporal_quality") {
             known = parse(value, renderer::kTemporalKeys, s.temporal_quality);
+        } else if (key == "agx_preview") {
+            known = parse_bool(value, s.agx_preview);
+        } else if (key == "agx_exposure") {
+            known = parse_float(value, -4.0f, 4.0f, s.agx_exposure);
+        } else if (key == "agx_brightness") {
+            known = parse_float(value, 0.0f, 1.0f, s.agx_brightness);
+        } else if (key == "motion_blur") {
+            known = parse_bool(value, s.motion_blur);
+        } else if (key == "motion_blur_strength") {
+            known = parse_float(value, 0.0f, 1.0f, s.motion_blur_strength);
+        } else if (key == "motion_blur_radius") {
+            known = parse_int(value, 1, 128, s.motion_blur_settings.max_radius);
+        } else if (key == "motion_blur_samples") {
+            known = parse_int(value, 8, 64, s.motion_blur_settings.samples);
+        } else if (key == "motion_blur_min_motion") {
+            known = parse_float(value, 0.1f, 4.0f, s.motion_blur_settings.min_motion);
+        } else if (key == "motion_blur_spread") {
+            known = parse_float(value, 0.0f, 1.0f, s.motion_blur_settings.spread);
+        } else if (key == "motion_blur_depth_tolerance") {
+            known = parse_float(value, 0.001f, 0.05f, s.motion_blur_settings.depth_tolerance);
+        } else if (key == "motion_blur_cutscene_multiplier") {
+            known = parse_float(value, 0.0f, 2.0f, s.motion_blur_settings.cutscene_multiplier);
         } else if (key == "temporal_sharpness") {
             known = parse_float(value, 0.0f, 1.0f, s.temporal_sharpness);
         } else if (key == "texture_filter") {
@@ -367,16 +425,24 @@ void load(const std::filesystem::path& file) {
             }
         }
         if (!known) {
-            log::warn("{}: {} = {} is not a value the port knows; the default is used", file.string(), key, value);
+            log::warn(
+                "{}: {} = {} is not a value the port knows; the default is used",
+                file.string(),
+                key,
+                value
+            );
         }
     }
     if (has_frame_rate && !has_vsync) {
         s.vsync = s.frame_rate == FrameRate::Display ? VSync::On : VSync::Off;
     }
     if (old_strafe) {
-        log::info("{}: the strafe is a mod now, lock-strafe (OpenRAC/rac1-mods): add it in the launcher's "
-                  "Mods tab. This file's strafe setting is left out.",
-                  file.string());
+        log::info(
+            "{}: the strafe is a mod now, lock-strafe (OpenRAC/rac1-mods): add it in the "
+            "launcher's "
+            "Mods tab. This file's strafe setting is left out.",
+            file.string()
+        );
     }
     g_gain = gain_now();
     log::info("settings from {}: {}", file.string(), summary());
@@ -422,7 +488,8 @@ void save() {
         return;
     }
     const Settings& s = g_settings;
-    out << "# OpenRAC: the port's settings (the Video options page of the game's menu changes them;\n"
+    out << "# OpenRAC: the port's settings (the Video options page of the game's menu changes "
+           "them;\n"
         << "# docs/port/SETTINGS.md says what each is)\n"
         << "display_mode = " << kDisplayMode[static_cast<int>(s.display_mode)] << "\n"
         << "monitor = " << s.monitor << "\n"
@@ -451,7 +518,9 @@ void save() {
         << "rim_light_strength = " << s.rim_light_strength << "\n"
         << "rim_light_falloff = " << s.rim_light_falloff << "\n"
         << "probe_spheres = " << (s.probe_spheres ? 1 : 0) << "\n"
+        << "medial_axis_debug = " << (s.medial_axis_debug ? 1 : 0) << "\n"
         << "ceiling_area_lights = " << (s.ceiling_area_lights ? 1 : 0) << "\n"
+        << "environment_probe_debug = " << (s.environment_probe_debug ? 1 : 0) << "\n"
         << "probe_gi_multiplier = " << s.probe_gi_multiplier << "\n"
         << "probe_normal_bias = " << s.probe_normal_bias << "\n"
         << "probe_view_bias = " << s.probe_view_bias << "\n"
@@ -467,6 +536,18 @@ void save() {
         << "gtao_strength = " << s.gtao_settings.strength << "\n"
         << "texture_filter = " << kTextureFilter[static_cast<int>(s.texture_filter)] << "\n"
         << "temporal_quality = " << renderer::kTemporalKeys[static_cast<int>(s.temporal_quality)]
+        << "\n"
+        << "agx_preview = " << (s.agx_preview ? 1 : 0) << "\n"
+        << "agx_exposure = " << s.agx_exposure << "\n"
+        << "agx_brightness = " << s.agx_brightness << "\n"
+        << "motion_blur = " << (s.motion_blur ? 1 : 0) << "\n"
+        << "motion_blur_strength = " << s.motion_blur_strength << "\n"
+        << "motion_blur_radius = " << s.motion_blur_settings.max_radius << "\n"
+        << "motion_blur_samples = " << s.motion_blur_settings.samples << "\n"
+        << "motion_blur_min_motion = " << s.motion_blur_settings.min_motion << "\n"
+        << "motion_blur_spread = " << s.motion_blur_settings.spread << "\n"
+        << "motion_blur_depth_tolerance = " << s.motion_blur_settings.depth_tolerance << "\n"
+        << "motion_blur_cutscene_multiplier = " << s.motion_blur_settings.cutscene_multiplier
         << "\n"
         << "temporal_sharpness = " << s.temporal_sharpness << "\n"
         << "anisotropy = " << (s.anisotropy ? std::to_string(s.anisotropy) : "auto") << "\n"
@@ -535,12 +616,18 @@ float aspect_ratio(const Settings& settings, int window_width, int window_height
             return 32.0f / 9.0f;
         case Aspect::Custom:
             // Never narrower than the game's own picture, as the window's shape is not.
-            return std::max(4.0f / 3.0f, static_cast<float>(settings.aspect_custom_x)
-                                             / static_cast<float>(std::max(1, settings.aspect_custom_y)));
+            return std::max(
+                4.0f / 3.0f,
+                static_cast<float>(settings.aspect_custom_x)
+                    / static_cast<float>(std::max(1, settings.aspect_custom_y))
+            );
         case Aspect::Window:
             // The game's picture is never narrower than its own: a tall window gets bars.
             return window_width > 0 && window_height > 0
-                       ? std::max(4.0f / 3.0f, static_cast<float>(window_width) / static_cast<float>(window_height))
+                       ? std::max(
+                             4.0f / 3.0f,
+                             static_cast<float>(window_width) / static_cast<float>(window_height)
+                         )
                        : 4.0f / 3.0f;
         case Aspect::Standard:
         case Aspect::Count:

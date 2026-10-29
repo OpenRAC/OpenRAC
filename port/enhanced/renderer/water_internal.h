@@ -43,7 +43,7 @@ extern std::atomic<bool> water_ready;
 extern std::mutex water_debug_mutex;
 extern WaterDebugSettings water_debug;
 extern std::atomic<std::uint64_t> water_reset_epoch;
-extern const Water* contact_source;
+extern Water* contact_source;
 bool water_disabled();
 
 class Water final : public renderer::EffectMaterial {
@@ -66,9 +66,16 @@ public:
         const renderer::EffectUvMotion& motion
     ) override;
     void bind_contact(const renderer::Shader& shader) const;
+    // Prepares displacement once, without restarting the liquid mesh collector.
+    void prepare_deformation(const renderer::FrameInput& input);
+    // Binds the same maps and timing used by the liquid vertex shader.
+    void bind_deformation(const renderer::Shader& shader) const;
     void release() override;
 
 private:
+    // Geometry consumers need waves before depth; liquid lighting waits for current shadows.
+    void prepare_frame(const renderer::FrameInput& input, bool lighting);
+    bool m_lighting_pending = false;
     void remember_tick(
         const renderer::FrameInput& input, const renderer::Vec3& hero, std::uint64_t epoch
     );

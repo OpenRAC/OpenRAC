@@ -21,13 +21,16 @@ uniform vec3 camera_position;
 shared float distances[1024];
 shared uint indices[1024];
 
+vec2 region_axis(uint id) { vec2 a=vec2(regions[id*3+1].w,regions[id*3+2].w);return dot(a,a)>.5?a:vec2(1,0); }
+vec3 region_local(uint id,vec3 p) { vec2 a=region_axis(id);return vec3(dot(p.xy,a),dot(p.xy,vec2(-a.y,a.x)),p.z); }
 bool intersects_region(uint id, vec4 frustum[6]) {
     vec3 lo = regions[id * 3].xyz;
-    vec3 hi = lo + regions[id * 3 + 1].xyz * (regions[id * 3 + 2].xyz - 1.0);
+    vec3 size = regions[id * 3 + 1].xyz * (regions[id * 3 + 2].xyz - 1.0);
     for (int p = 0; p < 6; ++p) {
         vec4 plane = frustum[p];
-        vec3 support = mix(lo, hi, greaterThanEqual(plane.xyz, vec3(0)));
-        if (dot(plane, vec4(support, 1)) < -0.001 * length(plane.xyz)) return false;
+        vec3 local_plane=region_local(id,plane.xyz);
+        float support=dot(plane,vec4(lo,1))+dot(max(local_plane,vec3(0)),size);
+        if (support < -0.001 * length(plane.xyz)) return false;
     }
     return true;
 }
@@ -41,8 +44,9 @@ void select_closest(uint lane) {
         float distance = uintBitsToFloat(0x7f800000u);
         if (id < uint(region_count) && intersects_region(id, frustum)) {
             vec3 lo = regions[id * 3].xyz;
-            vec3 hi = lo + regions[id * 3 + 1].xyz * (regions[id * 3 + 2].xyz - 1.0);
-            vec3 delta = camera_position - clamp(camera_position, lo, hi);
+            vec3 size = regions[id * 3 + 1].xyz * (regions[id * 3 + 2].xyz - 1.0);
+            vec3 local=region_local(id,camera_position-lo);
+            vec3 delta = local - clamp(local,vec3(0),size);
             distance = dot(delta, delta);
         }
         distances[id] = distance;

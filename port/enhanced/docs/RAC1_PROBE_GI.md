@@ -42,7 +42,7 @@ ambiguous. Correcting triangle winding alone cannot resolve them.
 
 ## Probe data and sampling
 
-Format 4, bake revision 3 stores bordered octahedral irradiance/distance-moment maps,
+Format 5, bake revision 4 stores bordered octahedral irradiance/distance-moment maps,
 relocation and validity as directly uploadable planes. Older formats or stale scene/settings
 hashes are rejected.
 
@@ -102,3 +102,33 @@ Exports and bakes stay local. PAL and NTSC need separate data and identities.
 - [Embree overview](https://github.com/RenderKit/embree/blob/master/doc/src/overview.md).
 - NVIDIA DDGI [algorithms](https://github.com/NVIDIAGameWorks/RTXGI-DDGI/blob/main/docs/Algorithms.md)
   and [sampling](https://github.com/NVIDIAGameWorks/RTXGI-DDGI/blob/main/rtxgi-sdk/shaders/ddgi/Irradiance.hlsl).
+
+
+## Preparation failures and logs
+
+Lighting preparation writes `probe-bake.log` in the version's probe-cache root.
+It records the tool/input locations, preparation stages, native error output,
+Python tracebacks and suggested recovery steps. Per-level `batch.log` and
+`interior-inference.log` retain the native tools' full output in the level's
+partial folder. Logs are local files and may contain local paths.
+
+A failed launcher task shows the reason in its persistent error notice, with a
+plain-language explanation and a suggested fix. **Error details** expands the
+native reason (paths are shortened); **View details** opens Activity, where the
+whole task output can be copied. On desktop, **Open log** opens the associated
+text log. The launcher only opens `.log` files inside that version's lighting
+cache, with canonical-path checks against traversal and external symlinks.
+Android uses Activity for the output rather than a desktop log viewer.
+
+Failures also emit a versioned `openrac-bake-error: {JSON}` line, retained in
+`bake-all-result.json` for each failed level. The error categories and recovery
+text live in [diagnostics.py](../tools/probes/diagnostics.py). Older tools without
+that record still get an explicit fallback notice and Activity access.
+
+A failed level does not discard a previously verified bake. Partial verified
+grids and native logs remain available for retry. Installing a replacement uses
+a recoverable `.level_NN.previous` backup instead of deleting the previous bake
+first. A failed rollback reports the backup location. A cache lock prevents two
+CLI preparations from writing the same cache at once; the OS releases it when
+the process stops. Empty menu/flight levels are successful no-bake results,
+not errors. Incomplete or unverified cached results are rebuilt.

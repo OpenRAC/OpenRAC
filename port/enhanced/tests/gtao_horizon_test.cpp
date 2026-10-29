@@ -11,6 +11,7 @@
 #include "gtao_horizon_reference.h"
 #include "gtao_reference_shaders.h"
 #include "renderer/framebuffer.h"
+#include "renderer/render_opt.h"
 #include "renderer/shader.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
@@ -166,6 +167,8 @@ void cpu_predicates() {
 }  // namespace
 
 int main(int argc, char** argv) {
+    // This fixture isolates algebraic horizon optimisations against FP32 CPU and shader references.
+    openrac::renderer::render_opt::set(openrac::renderer::render_opt::Opt::ShaderFloat16, false);
     cpu_predicates();
     if (test::failures() || (argc > 1 && std::string_view(argv[1]) == "--cpu")) {
         return test::result();

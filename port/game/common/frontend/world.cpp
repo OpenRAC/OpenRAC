@@ -290,6 +290,7 @@ void savestate_restored(std::uint64_t tick) {
     g->repeat_frame = false;
     g->overdraw = false;
     g->skipped = 0;
+    g->agx.release();
     g->frame.release();
     g->picture.release();
     g->last_world.release();

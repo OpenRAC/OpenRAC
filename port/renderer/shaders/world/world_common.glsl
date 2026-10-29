@@ -48,7 +48,7 @@ float fog_coefficient(float depth) {
 
 // The GS fog (PRIM FGE): RGB only, C = FOGCOL + (C - FOGCOL) * F / 255.
 vec3 apply_fog(vec3 rgb, float f) {
-    return u_fog_colour.w > 0.5 ? mix(u_fog_colour.rgb, rgb, f) : rgb;
+    return u_fog_colour.w > 0.5 ? vec3(mix(mp_vec3(u_fog_colour.rgb), mp_vec3(rgb), mp_float(f))) : rgb;
 }
 
 // The GS mip rule (TEX1 LCM = 0, L = 0): LOD = log2(1 / |Q|) + K with
