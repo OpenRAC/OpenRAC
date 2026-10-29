@@ -60,6 +60,22 @@ renderer::Mat4 blend_matrix(const renderer::Mat4& from, const renderer::Mat4& to
 // below 0.7, is `to`. `t`: how far, from 0 (`from`) to 1 (`to`).
 CameraPose blend_pose(const CameraPose& from, const CameraPose& to, float t);
 
+// The farthest an eye may be from the world's origin, along any axis, and still be a camera the
+// world is drawn from (game units): far past every level, which span a few thousand units, and well
+// short of where a float can no longer tell a unit apart.
+constexpr float kFarthestEye = 1.0e6f;
+
+// Whether the world can be drawn from `pose`: every number finite, the eye no farther out than
+// kFarthestEye, forward and up near unit length (0.5 to 2: the game keeps them unit) and not
+// within about 2.5 degrees of parallel (a cosine of 0.999), so that look_along has a side axis.
+// The left axis is not read: the view is built from forward and up only.
+bool usable_camera(const CameraPose& pose);
+
+// Whether a view and a projection can draw a frame: every entry finite, the view's rotation a
+// rotation (its determinant near 1, not squashed flat or flipped), and the projection's two
+// focal entries positive.
+bool usable_view(const renderer::Mat4& view, const renderer::Mat4& projection);
+
 // Returns a world sphere (centre, radius) that holds a moby drawn with `drawn`, a matrix part way
 // between `from` and `to`, whose joint poses blend between the ones `from_sphere` and `to_sphere`
 // bound at those ticks: a conservative bound for linearly blended joint poses and model matrices.

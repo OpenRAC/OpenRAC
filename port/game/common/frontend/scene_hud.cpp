@@ -147,7 +147,7 @@ void set_packets(SceneFrame& frame) {
     auto& input = frame.input;
     const auto& graphics = frame.graphics;
     const bool enhanced = enhanced_graphics_available() && graphics.enhanced_graphics;
-    const bool has_camera = scene.has_camera;
+    const bool has_camera = frame.has_camera;
     const auto started = frame.output.started;
     input.gtao_settings = graphics.gtao_settings;
     // Honor the user's GTAO setting alongside probe GI and modern shadows.
@@ -214,7 +214,7 @@ void retain_background(SceneFrame& frame) {
     const Kept& scene = frame.scene;
     auto& input = frame.input;
     const bool first = frame.output.first;
-    const bool has_camera = scene.has_camera;
+    const bool has_camera = frame.has_camera;
     const int width = frame.output.width;
     const int height = frame.output.height;
     // A tick that draws no world and has no picture of its own to put under its 2D (the page
