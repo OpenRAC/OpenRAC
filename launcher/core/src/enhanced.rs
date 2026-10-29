@@ -93,9 +93,10 @@ pub fn settings() -> Vec<SettingSpec> {
         "Shadow quality",
         "choice",
         "high".into(),
-        "Medium uses smaller shadow textures. High keeps the sharpest shadows.",
+        "Low uses the smallest shadow textures. Medium balances detail and cost. High keeps the sharpest shadows.",
     );
     shadows.choices = vec![
+        Choice { value: "low".into(), name: "Low".into() },
         Choice { value: "medium".into(), name: "Medium".into() },
         Choice { value: "high".into(), name: "High".into() },
     ];
@@ -504,6 +505,11 @@ mod tests {
         set_setting(&home, "rac1", "pal", "motion_blur_radius", &Value::from(64)).unwrap();
         set_setting(&home, "rac1", "pal", "motion_blur_samples", &Value::from(48)).unwrap();
         set_setting(&home, "rac1", "pal", "probe_gi_multiplier", &Value::from(2.5)).unwrap();
+        set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("low")).unwrap();
+        assert_eq!(
+            value(&view(&home, "rac1", "pal", BakeStatus::default()), "shadow_quality"),
+            Value::from("low")
+        );
         set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("medium")).unwrap();
         set_setting(&home, "rac1", "pal", "gtao_quality", &Value::from("quality")).unwrap();
         set_setting(&home, "rac1", "pal", "enhanced_shadows", &Value::Bool(false)).unwrap();

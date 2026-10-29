@@ -3,16 +3,21 @@
 #pragma once
 
 namespace openrac::renderer {
-// Medium halves both dimensions of every enhanced shadow map.
+// Medium halves sun map dimensions; Low quarters them. Ratchet keeps a separate resolution.
 enum class ShadowQuality {
+    Low,
     Medium,
     High,
     Count
 };
-inline constexpr const char* kShadowQualityKeys[] = {"medium", "high"};
-inline constexpr const char* kShadowQualityNames[] = {"Medium", "High"};
+inline constexpr const char* kShadowQualityKeys[] = {"low", "medium", "high"};
+inline constexpr const char* kShadowQualityNames[] = {"Low", "Medium", "High"};
 
 constexpr int shadow_resolution_divisor(ShadowQuality quality) {
-    return quality == ShadowQuality::Medium ? 2 : 1;
+    return quality == ShadowQuality::Low ? 4 : quality == ShadowQuality::Medium ? 2 : 1;
+}
+
+constexpr int hero_shadow_resolution(ShadowQuality quality) {
+    return quality == ShadowQuality::Low ? 256 : 512;
 }
 }  // namespace openrac::renderer

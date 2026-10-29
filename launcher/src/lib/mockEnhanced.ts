@@ -30,10 +30,11 @@ export const mockEnhanced: EnhancedView = {
         default: "high",
         value: "high",
         choices: [
+          { value: "low", name: "Low" },
           { value: "medium", name: "Medium" },
           { value: "high", name: "High" },
         ],
-        description: "Medium uses smaller shadow textures. High keeps the sharpest shadows.",
+        description: "Low uses the smallest shadow textures. Medium balances detail and cost. High keeps the sharpest shadows.",
       },
       {
         key: "gtao",
