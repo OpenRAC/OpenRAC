@@ -352,6 +352,7 @@
    "Moby_Class99_Update": "rac1.moby.moby99.update",
    "Moby_CodebotSlot_Update": "rac1.moby.codebot_slot.update",
    "Moby_Codebot_Update": "rac1.moby.moby1428.update",
+   "Moby_CollectBolt": "rac1.moby.collect_bolt",
    "Moby_Commando_Update": "rac1.moby.commando.update",
    "Moby_ConstructionArm_Update": "rac1.moby.construction_arm.update",
    "Moby_Constructorbot1208_Update": "rac1.moby.shard_debris.update",

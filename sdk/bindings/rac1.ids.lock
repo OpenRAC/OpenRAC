@@ -98,6 +98,7 @@ rac1.moby.clip_volume_door.update	pal:L15:002A4D88	FUN_L15_002a3ba8,Moby_Gate93_
 rac1.moby.clip_volume_trigger.update	pal:L13:002B2020	FUN_L13_002b0e80,Moby_Class6_Update,func_L13_002B2020
 rac1.moby.codebot_slot.update	pal:L15:002ED420	FUN_L15_002ec030,Moby_CodebotSlot_Update,func_L15_002ED420
 rac1.moby.collapsing_platform.update	pal:L01:002FA458	FUN_L01_002f9080,Moby_FallingRock_Update,func_L01_002FA458
+rac1.moby.collect_bolt	pal:L00:002A7E10	FUN_L00_002a6b70,Moby_CollectBolt,func_L00_002A7E10
 rac1.moby.collectable.update	pal:L04:002E2BB8	FUN_L04_002e17d8,Moby_UpperDoor_Update,func_L04_002E2BB8
 rac1.moby.collectible_pickup.update	pal:L14:00306BE0	FUN_L14_00305758,Moby_Morphoray1354_Update,func_L14_00306BE0
 rac1.moby.collectible_spawner.update	pal:L06:002F86B8	FUN_L06_002f7288,Moby_EnergySphereHolder_Update,func_L06_002F86B8

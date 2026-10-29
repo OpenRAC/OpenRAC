@@ -162,6 +162,14 @@ typedef void (*openrac_rac1_Hero_ApproachSpeed)(float up, float down);
 #define OPENRAC_RAC1_SIG_Ship_TravelTo "void(i32)"
 typedef void (*openrac_rac1_Ship_TravelTo)(int32_t dest);
 
+/* Moby_CollectBolt (func_L00_002A7E10, rac1.moby.collect_bolt): collects a bolt (collect_bolt),
+ * from the bolt update once the bolt reaches the hero: its value (1, or 5 / 20 / 50 for classes
+ * 14 / 15 / 16) added to the bolt count and the level's totals, the bolt counter shown, two
+ * sparkles. The bolt update deletes the bolt after it, whether or not this ran. */
+#define OPENRAC_RAC1_HOOK_Moby_CollectBolt "Moby_CollectBolt"
+#define OPENRAC_RAC1_SIG_Moby_CollectBolt "void(u32)"
+typedef void (*openrac_rac1_Moby_CollectBolt)(openrac_gaddr bolt);
+
 /* ------------------------------------------------------------------------------------------ *
  * Taking a hook point
  * ------------------------------------------------------------------------------------------ */

@@ -155,6 +155,14 @@ struct Ship_TravelTo {
     using fn = void (*)(int32_t);
 };
 
+// Collects a bolt (collect_bolt), called by the bolt update (classes 13 to 16) once the bolt reaches the hero: adds its value (1, or 5 / 20 / 50 for classes 14 / 15 / 16) to the bolt count, the level's total and its source's stats, shows the bolt counter and makes two sparkles at it. The bolt update then deletes the bolt (a placed one marked taken) whether or not this ran.
+struct Moby_CollectBolt {
+    static constexpr const char* id = "rac1.moby.collect_bolt";
+    static constexpr const char* name = "Moby_CollectBolt";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
 struct Moby_Class1750_Update {
     static constexpr const char* id = "rac1.moby.class_1750.update";
@@ -5546,6 +5554,7 @@ namespace hooks {
         namespace collapsing_platform {
             using update = rac1::Moby_FallingRock_Update;
         }  // namespace collapsing_platform
+        using collect_bolt = rac1::Moby_CollectBolt;
         namespace collectable {
             using update = rac1::Moby_UpperDoor_Update;
         }  // namespace collectable
