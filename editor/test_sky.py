@@ -6,7 +6,10 @@ import unittest
 
 from formats import FormatError, Texture
 from mesh import Mesh
-from sky import Sky, panorama, sky
+from types import SimpleNamespace
+
+import games
+from sky import Sky, clear_colour, level_sky, panorama, sky
 
 
 def fixture(textured=True):
@@ -69,6 +72,34 @@ class SkyTests(unittest.TestCase):
         data[0xe7] = 0  # A textured face on an untextured shell.
         with self.assertRaises(FormatError):
             sky(data)
+
+
+class ClearColourTests(unittest.TestCase):
+    """The colour behind the sky is the level settings' background, not the sky header's +0."""
+
+    @staticmethod
+    def gameplay(rgb):
+        g = bytearray(0x100)
+        struct.pack_into("<i", g, 0, 0xa0)          # Section 0, the level settings.
+        struct.pack_into("<3i", g, 0xa0, *rgb)
+        return bytes(g)
+
+    def test_reads_the_settings_background(self):
+        self.assertEqual(clear_colour(self.gameplay((100, 255, 255))), (100, 255, 255))
+        self.assertIsNone(clear_colour(bytes(0x100)))      # No settings section.
+        self.assertIsNone(clear_colour(self.gameplay((1, 2, 3)), games.RAC3))
+
+    def test_level_sky_bakes_over_the_clear_colour(self):
+        data = fixture()
+        data[0:4] = bytes((45, 47, 38, 0x80))             # A header colour the game does not clear with.
+        index = bytearray(0x20)
+        struct.pack_into("<I", index, 0x10, 0x1000)
+        level = SimpleNamespace(index=bytes(index), gameplay=self.gameplay((15, 75, 170)),
+                                block=lambda offset: bytes(data))
+        self.assertEqual(level_sky(level).background, (15, 75, 170))
+        self.assertEqual(level_sky(level, games.RAC3).background, (45, 47, 38))
+        level.index = bytes(0x20)
+        self.assertIsNone(level_sky(level))
 
 
 class PanoramaTests(unittest.TestCase):

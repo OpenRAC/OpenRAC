@@ -232,7 +232,7 @@ void use_level(int number) {
         g->renderer->init(error);
     }
     // The sky's textures at pool keys of their own (kSkyTextureKey + number), for its sprites.
-    const auto sky = scene::load_sky_textures(dir);
+    const auto sky = scene::load_sky_textures(dir, g->level.overrides);
     for (std::size_t i = 0; i < sky.size(); ++i) {
         if (sky[i].width > 0) {
             const renderer::TextureHandle h = g->renderer->textures().add(

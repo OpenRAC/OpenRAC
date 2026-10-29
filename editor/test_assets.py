@@ -671,6 +671,82 @@ class TerrainTests(unittest.TestCase):
         self.assertEqual(summary["skipped"]["dense"], ["level_00/terrain.glb (the level's terrain is another here)"])
 
 
+def add_sky(levels: Path, level: int) -> None:
+    """Give a level of write_levels' a sky.glb as the port's writer has it: an untextured dome
+    (Sky_0) and a textured band (Sky_1) using sky_0000, with the background in the manifest."""
+    from port import sky_glb
+    from sky import Sky
+    dome = Mesh("Sky_0", [(0, 0, 1), (1, 0, 0), (0, 1, 0)], [(0, 0)] * 3,
+                colours=[(0.2, 0.3, 0.6, 1.0)] * 3)
+    dome.add_face(None, (0, 1, 2))
+    band = Mesh("Sky_1", [(1, 0, 0), (0, 1, 0), (0, 0, -1)], [(0, 0), (1, 0), (0, 1)],
+                colours=[(1.0, 1.0, 1.0, 1.0)] * 3)
+    band.add_face(("sky", 0), (0, 1, 2))
+    directory = levels / f"level_{level:02}"
+    sky = Sky((100, 255, 255), [texture((50, 60, 70))], [dome, band])
+    (directory / "sky.glb").write_bytes(sky_glb(sky, lambda i: f"textures/sky_{i:04}.png"))
+    (directory / "textures" / "sky_0000.png").write_bytes(sky.textures[0].png())
+    manifest = json.loads((directory / "manifest.json").read_text())
+    manifest["sky"] = {"mesh": "sky.glb", "panorama": "sky.png", "background": [100, 255, 255]}
+    manifest["textures"] = sorted(set(manifest["textures"]) | {"textures/sky_0000.png"})
+    (directory / "manifest.json").write_text(json.dumps(manifest))
+
+
+class SkyExportTests(unittest.TestCase):
+    """The sky's model exported to look at; its pictures come back, the model is refused."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.levels = write_levels(self.root)
+        add_sky(self.levels, 0)
+        self.export = self.root / "export"
+        quiet(assets.export, self.levels, self.export, [0], "sky")
+        self.folder = self.export / "level_00/sky"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def import_(self):
+        report = assets.Report()
+        pack, out = quiet(assets.import_edits, self.export, self.levels, report)
+        return pack, report, out
+
+    def test_export_layout_and_manifest(self):
+        summary = json.loads((self.export / "export.json").read_text())
+        self.assertEqual((summary["what"], summary["models"], summary["textures"]), ("sky", 1, 1))
+        manifest = json.loads((self.folder / "asset.json").read_text())
+        self.assertEqual((manifest["kind"], manifest["shells"], manifest["background"], manifest["importable"]),
+                         ("sky", ["Sky_0", "Sky_1"], [100, 255, 255], False))
+        self.assertEqual(manifest["textures"], {"sky_0000": [4, 2]})
+        document = gltf_read.read(self.folder / "sky.gltf")
+        self.assertEqual([n["name"] for n in document.list("nodes")], ["Sky_0", "Sky_1"])
+        self.assertEqual(document.list("images")[0]["uri"], "../textures/sky_0000.png")
+        dome = document.list("meshes")[0]["primitives"][0]
+        self.assertTrue(close(document.accessor(dome["attributes"]["POSITION"])[0], to_gltf((0, 0, 1))))
+        self.assertTrue(close(document.accessor(dome["attributes"]["COLOR_0"])[0], (0.2, 0.3, 0.6, 1.0)))
+
+    def test_not_part_of_everything_and_none_without_a_sky(self):
+        quiet(assets.export, self.levels, self.root / "all", [0], "all")
+        self.assertFalse((self.root / "all/level_00/sky").exists())
+        with self.assertRaisesRegex(assets.AssetError, "no sky"):
+            quiet(assets.export, self.levels, self.root / "none", [1], "sky")
+
+    def test_unchanged_sky_imports_nothing(self):
+        pack, report, _ = self.import_()
+        self.assertEqual((pack.files, report.refused), ({}, 0))
+
+    def test_an_edited_sky_model_is_refused_and_its_pictures_come_back(self):
+        gltf = self.folder / "sky.gltf"
+        gltf.write_text(gltf.read_text().replace('"Sky_1"', '"Sky_1 edited"'))
+        (self.export / "level_00/textures/sky_0000.png").write_bytes(rgb_png(16, 8, (255, 0, 0)))
+        pack, report, out = self.import_()
+        self.assertEqual(report.refused, 1, out)
+        self.assertIn("sky's model cannot be imported yet", out)
+        self.assertEqual(list(pack.files), ["level_00/textures/sky_0000.png"])
+        self.assertEqual(pngio.size(pack.files["level_00/textures/sky_0000.png"]), (16, 8))
+
+
 class SkinTests(unittest.TestCase):
     def test_quantise_sums_to_256(self):
         self.assertEqual(assets.quantise(((0, 1 / 3), (1, 1 / 3), (2, 1 / 3))), ((0, 86), (1, 85), (2, 85)))

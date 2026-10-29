@@ -469,6 +469,8 @@ and packed back like the mobys ([gamedata.py](gamedata.py); the formats are in
 | `Game/Paths/Path_NNNN` | a `Path3D`: the points in its curve, `rc1_w` each point's fourth float | points moved, added or removed; paths added |
 | `Game/GrindPaths/GrindPath_NNNN` | as paths, with `rc1_bounding_sphere` (x, y, z, r) and `rc1_flag` | the same |
 
+`rc1_background` is the colour the game clears the frame to before it draws the sky (SetBackgroundColor). It is not a sky tint: it shows only where the sky's shells leave gaps or are see-through. In 15 of the 19 levels the sky's first shell is an opaque dome coloured per vertex (Novalis, Kerwan, Pokitaru and most others), which hides the background completely; there the sky's colour is that dome's, part of the sky model. The background shows in Rilgar and Umbris, and below the horizon in Orxon and Quartu. `rc1_background` and `rc1_fog_colour` take red, green and blue from 0 to 255. The editor's sky panorama is baked over the background when the level is extracted, so an edit shows in the game, not in the editor's sky until the next extraction.
+
 On a moby, camera or sound with a pvar block (its class's private
 variables, `rc1_pvar_index`):
 
@@ -800,7 +802,8 @@ Approximations:
   left out of an animation. The two helper classes 1 and 2, which animate
   joints of another skeleton, stay static. The gadget classes (the wrench
   and weapons in Ratchet's hand) are not extracted.
-- The sky is baked into a 2048×1024 panorama. The game centres its sky
+- The sky is baked into a 2048×1024 panorama, over the level settings'
+  background colour (what the game clears to). The game centres its sky
   shells on the camera and never moves them, so a panorama loses nothing.
   Their blending follows the PS2's usual texture and alpha modes, which is
   inferred rather than traced in the game's code. Sprites the game adds

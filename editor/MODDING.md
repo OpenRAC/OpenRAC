@@ -269,9 +269,10 @@ mods, with `stack.json` saying what it holds and what was left out).
 
 ## Limits
 
-- Sky textures the sky's sprites use and the game's 2D pictures (the HUD,
-  menus, fonts) cannot be replaced yet; terrain, tie and shrub textures
-  can, and the terrain's geometry.
+- The game's 2D pictures (the HUD, menus, fonts) cannot be replaced yet;
+  terrain, tie, shrub and sky textures (sky_NNNN.png, the sky's shells and
+  its sprites alike) can, and the terrain's geometry. The sky's model
+  itself (its shells and their colours) cannot be edited yet.
 - A replacement model or terrain draws in the port only; the game's
   collision, bone points (where Ratchet holds things) and bounds stay the
   original's. The game's own terrain data (what it culls and lights at

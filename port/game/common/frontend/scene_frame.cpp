@@ -212,13 +212,12 @@ void set_camera(SceneFrame& frame) {
                            ? blend_camera(scene.prev_state, scene.state, frame.output.alpha)
                            : scene.state;
     // No camera yet (loading, fades between programs): a black frame, not the level's background.
+    // With one, the colour the game clears to (the level settings' background, which a mod can
+    // change), else the extracted level's.
     const bool has_camera = scene.has_camera;
-    input.clear_colour =
-        has_camera
-            ? std::array<
-                  float,
-                  4>{owner.level.background[0], owner.level.background[1], owner.level.background[2], 1}
-            : std::array<float, 4>{0, 0, 0, 1};
+    const auto background = scene.state.background_or(owner.level.background);
+    input.clear_colour = has_camera ? std::array<float, 4>{background[0], background[1], background[2], 1}
+                                    : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
     input.camera.view = state.view();
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is

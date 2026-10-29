@@ -567,6 +567,7 @@ void copy_world_camera(host::GameState& state) {
         state.fog_far = g->world_camera->fog_far;
         state.fog_near_f = g->world_camera->fog_near_f;
         state.fog_far_f = g->world_camera->fog_far_f;
+        state.background_colour = g->world_camera->background_colour;
         // A level's world under a menu's moby context: its mobys, not the menu's in the globals.
         if (g->world_under_menu) {
             state.mobys = g->world_camera->mobys;

@@ -43,7 +43,7 @@ from mesh import Mesh
 from moby_class import MobyClass, moby_classes
 from mobys import moby_class_names, moby_instances
 from shrubs import shrub_billboard_fades, shrub_class_normals, shrub_classes, shrub_instances
-from sky import Sky, panorama, sky
+from sky import Sky, level_sky, panorama
 from terrain import terrain
 from occlusion import export_pvs
 from ties import tie_classes, tie_instances, tie_slot_normals
@@ -131,8 +131,7 @@ class PortLevelWriter(LevelWriter):
         level, fmt = self.level, self.fmt
         self.dir.mkdir(parents=True)
         problems = level.problems if fmt.lenient else None
-        sky_offset, = unpack("<I", level.index, 0x10)
-        self.write_environment(sky(level.block(sky_offset), fmt) if sky_offset else None)
+        self.write_environment(level_sky(level, fmt))
         # The game's lighting at level load needs the executable's normal table, which only
         # Ratchet & Clank's is known for (disc.Version.normal_table): the later games' levels go
         # out unlit, their vertex colours left to the renderer's defaults.

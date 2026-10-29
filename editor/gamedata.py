@@ -75,6 +75,7 @@ SHAPES = (("cuboid", 0x60, "Cuboids", "Cuboid"), ("sphere", 0x64, "Spheres", "Sp
           ("cylinder", 0x68, "Cylinders", "Cylinder"), ("pill", 0x6C, "Pills", "Pill"))
 SHAPE_SIZE, CAMERA_SIZE, SOUND_SIZE, GRIND_SIZE = 0x80, 0x20, 0x90, 0x20
 SETTINGS_SIZE = 0x50
+COLOUR_SETTINGS = ("background", "fog_colour")  # Settings that are display bytes, 0..255 each.
 CAMERA = struct.Struct("<i3f3fi")
 SOUND_HEAD = struct.Struct("<hhIif")
 SETTINGS_RECORD = struct.Struct("<3i3i4ff3ff3i2i")
@@ -1328,6 +1329,11 @@ def pack_settings(original: bytes, out: bytearray, nodes: dict, changes: list[st
         if (not isinstance(value, type(old)) or len(values) != len(old if isinstance(old, list) else [old])
                 or not all(isinstance(v, int) and not isinstance(v, bool) and -(1 << 31) <= v < (1 << 31) for v in values)):
             problems.append(f"LevelSettings: rc1_{key} = {value!r} cannot be packed")
+            continue
+        if key in COLOUR_SETTINGS and not all(0 <= v <= 255 for v in values):
+            # SetBackgroundColor ORs the three words into one RGBAQ unmasked: 256 would turn green.
+            problems.append(f"LevelSettings: rc1_{key} = {value!r} needs red, green and blue from 0 to 255; "
+                            "not packed")
             continue
         if key in counts and not all(-1 <= v < counts[key] for v in values):
             problems.append(f"LevelSettings: rc1_{key} = {value!r} names none of the level's "
