@@ -216,8 +216,9 @@ void set_camera(SceneFrame& frame) {
     // change), else the extracted level's.
     const bool has_camera = scene.has_camera;
     const auto background = scene.state.background_or(owner.level.background);
-    input.clear_colour = has_camera ? std::array<float, 4>{background[0], background[1], background[2], 1}
-                                    : std::array<float, 4>{0, 0, 0, 1};
+    input.clear_colour = has_camera
+                             ? std::array<float, 4>{background[0], background[1], background[2], 1}
+                             : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
     input.camera.view = state.view();
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
