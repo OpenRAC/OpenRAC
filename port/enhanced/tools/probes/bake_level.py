@@ -16,8 +16,11 @@ import math
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 from types import SimpleNamespace
+
+sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
 
 import seed_regions as seeds
 import automatic_interiors
