@@ -13,6 +13,7 @@ import gameplay as gp
 from godot import Scene, transform
 from mobys import FIELDS, RECORD, SIZE, USUAL, moby_instances
 from pack import pack_level
+from sky import clear_colour
 
 LAYOUT = {500: [("speed", 0x10, "f32", 0), ("count", 0x14, "s16", 0), ("ids", 0x18, "u8", 4)]}
 
@@ -392,6 +393,26 @@ class GameData(unittest.TestCase):
         self.assertAlmostEqual(settings["ship_yaw"], math.pi / 2, places=6)
         at = gp.offset(out, gd.SETTINGS)
         self.assertTrue(all(at <= i < at + gd.SETTINGS_SIZE for i in changed_bytes(self.g, out)))
+
+    def test_the_background_colour_packs_where_the_game_reads_it(self):
+        # rc1_background: the settings' first three words, which the gameplay loader hands to
+        # SetBackgroundColor (the frame's clear colour), and what the extractor now bakes the sky over.
+        text = edit(self.text, "LevelSettings", "metadata/rc1_background", "[200, 100, 50]")
+        out, changes, problems = self.pack(text)
+        self.assertEqual((problems, changes), ([], ["level settings: background"]))
+        self.assertEqual(gd.read_settings(out)["background"], [200, 100, 50])
+        at = gp.offset(out, gd.SETTINGS)
+        self.assertEqual(struct.unpack_from("<3i", out, at), (200, 100, 50))
+        self.assertTrue(all(at <= i < at + 12 for i in changed_bytes(self.g, out)))
+        self.assertEqual(clear_colour(out), (200, 100, 50))
+
+    def test_colours_out_of_range_are_not_packed(self):
+        for key, value in (("background", "[256, 0, 0]"), ("fog_colour", "[0, -1, 0]")):
+            with self.subTest(key=key):
+                out, changes, problems = self.pack(edit(self.text, "LevelSettings", f"metadata/rc1_{key}", value))
+                self.assertEqual((out, changes), (self.g, []))
+                self.assertEqual(len(problems), 1)
+                self.assertIn("from 0 to 255", problems[0])
 
     def test_bad_settings_are_not_packed(self):
         text = edit(self.text, "LevelSettings", "metadata/rc1_fog_near", "nan")
