@@ -41,6 +41,7 @@ import type { Scope } from "./generated/Scope";
 import type { Started } from "./generated/Started";
 import type { VersionStatus } from "./generated/VersionStatus";
 import type { VersionView } from "./generated/VersionView";
+import type { EditorState } from "./generated/EditorState";
 import type { WriteResult } from "./generated/WriteResult";
 import type { AppInfo, DiscScan, GpuDriver, GpuDrivers } from "./api";
 import type { UpdateInfo, UpdateProgressCallback } from "./updates";
@@ -512,6 +513,64 @@ function findAction(scope: Scope, id: string): RawAction | undefined {
 }
 
 /** What a few actions print at the end in the preview, so the pages that read it can be tried. */
+// The level editor's status panel (EditorFlow.svelte): ?editor=none|ready|unpacked|packed|outdated|
+// broken|carried|repack picks where the player is; extracting and packing move it along as the real
+// folders would. ?toolerror=<code> makes the next extract or pack stop with that code and a raw
+// message (that must never show), e.g. ?editor=outdated&toolerror=project-outdated-gameplay.
+let mockEditor = query.get("editor") ?? "ready";
+
+function mockEditorState(): EditorState {
+  const all = Array.from({ length: 19 }, (_, i) => i);
+  const now = Date.now();
+  const state: EditorState = {
+    levels: mockEditor === "none" ? [] : all,
+    outdated: [],
+    unpacked: [],
+    broken: [],
+    packedAt: null,
+    packedLevels: 0,
+    packedOtherVersion: false,
+    carried: [],
+    backups: [],
+    gameLevelsFound: true,
+    formatKnown: true,
+  };
+  const backup = {
+    name: "20261028-101500",
+    path: "/home/you/OpenRAC/assets/levels/rac1/pal-backups/20261028-101500",
+    levels: all,
+  };
+  switch (mockEditor) {
+    case "unpacked":
+      return { ...state, unpacked: [0, 3] };
+    case "packed":
+      return { ...state, packedAt: now - 60_000, packedLevels: 2 };
+    case "repack":
+      return { ...state, packedAt: now - 60_000, packedLevels: 2, packedOtherVersion: true };
+    case "outdated":
+      return { ...state, outdated: all.map((level) => ({ level, reason: "gameplay" as const })) };
+    case "broken":
+      return { ...state, broken: [5] };
+    case "carried":
+      return {
+        ...state,
+        unpacked: [0],
+        backups: [backup],
+        carried: [
+          {
+            level: 0,
+            carried: ["Bolt_0002: moved", "Bolt_0003: deleted", "Bolt_0002_copy: added"],
+            notCarried: ["Camera_0001: moved"],
+            failed: false,
+          },
+          { level: 3, carried: [], notCarried: [], failed: false },
+        ],
+      };
+    default:
+      return state;
+  }
+}
+
 function lastLines(id: string, args: Record<string, unknown>): string[] {
   const data = `${config.installDir ?? ""}/active/rac1/data`;
   const level = String(typeof args.level === "number" ? args.level : 0).padStart(2, "0");
@@ -1639,6 +1698,16 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
       );
     }
   }
+  // ?toolerror=<code>: the editor's extract or pack stops as the tool does, its code first.
+  const toolError = query.get("toolerror");
+  if (toolError && (id === "editor-pack" || id === "editor-extract")) {
+    const raw = [
+      ...lines.slice(0, 3),
+      `openrac-error: ${toolError}`,
+      "extract: level 00: this PAL project predates the 60 Hz gameplay fix. Extract the levels again to back up the old project and create a 60 Hz project, then reapply your intended edits. Do not copy the whole old scene.",
+    ];
+    return fakeJob(action.label, command, raw, () => undefined, 1);
+  }
   // ?fail: every job stops with an error, to see how a failure reads.
   if (query.has("fail")) {
     const failed = [...lines.slice(0, 3), "error: the step could not finish (browser preview)"];
@@ -1658,7 +1727,11 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
             `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
           ]
         : [];
-  return fakeJob(action.label, command, lines, () => undefined, 0, outputs);
+  const moved = () => {
+    if (id === "editor-extract") mockEditor = ["outdated", "broken"].includes(mockEditor) ? "carried" : "ready";
+    if (id === "editor-pack") mockEditor = "packed";
+  };
+  return fakeJob(action.label, command, lines, moved, 0, outputs);
 }
 
 /** A job that prints LINES one by one, then ends with CODE (0: it worked) and calls DONE. */
@@ -2065,6 +2138,8 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
             ];
       return delay<ResetPreview>({ reset: args.reset as ResetPreview["reset"], parts });
     }
+    case "editor_state":
+      return delay<EditorState>(mockEditorState());
     case "reset_apply":
       if (query.get("reset") === "fail") throw new Error("cannot remove /home/player/x: Directory not empty");
       return delay<ResetDone>({ bytes: 858_000_000, files: 9_732, folders: 2 });

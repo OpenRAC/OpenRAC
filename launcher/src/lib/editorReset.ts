@@ -46,6 +46,7 @@ export const RESET = {
   failed: "Some files could not be deleted. Close Godot and any window showing them, then try again.",
   levelsStopped: "Reading the levels stopped. The activity log says why.",
   levelsDone: "The levels were read again from your disc.",
+  reading: "Reading the levels from your disc…",
 } as const;
 
 /** What a reset keeps, in a line under its list: so that nobody wonders about their own work. */

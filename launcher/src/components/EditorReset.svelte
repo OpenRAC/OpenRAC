@@ -25,11 +25,12 @@
     total,
   } from "$lib/editorReset";
   import { size } from "$lib/format";
-  import { hidePaths } from "$lib/paths";
   import { modal } from "$lib/portal";
   import Icon from "./Icon.svelte";
 
-  let { version, onchanged }: { version: VersionView; onchanged?: () => void } = $props();
+  // `bare`: inside the status panel's Troubleshoot fold (EditorFlow.svelte), which names it: no
+  // panel or title of its own.
+  let { version, onchanged, bare = false }: { version: VersionView; onchanged?: () => void; bare?: boolean } = $props();
 
   const developer = $derived(app.config?.developer ?? false);
   const action = (v: VersionView, id: string) => v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
@@ -117,9 +118,11 @@
 
 <svelte:window {onkeydown} />
 
-<section class="panel start-over" aria-labelledby="start-over-title">
-  <h2 id="start-over-title">{RESET.title}</h2>
-  <p class="muted lead">{RESET.lead}</p>
+<section class="start-over" class:panel={!bare} class:bare aria-label={RESET.title}>
+  {#if !bare}
+    <h2>{RESET.title}</h2>
+    <p class="muted lead">{RESET.lead}</p>
+  {/if}
   <ul>
     {#if levels}
       <li>
@@ -127,7 +130,7 @@
           <h3>{RESET.levelsTitle}</h3>
           <p class="muted">
             {#if reading}
-              {reading.title}: {hidePaths(reading.lines.at(-1)?.line ?? "…").text}
+              {RESET.reading}
             {:else if noDisc}
               {RESET.noDisc}
             {:else if blocked}
