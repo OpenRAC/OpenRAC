@@ -24,6 +24,7 @@
 //! - [`overrides`]: a game's overrides packs (replacement textures and models): list, order, on/off.
 //! - [`plugins`]: a game's native mods (docs/port/MODS.md): install, list, order, on/off, settings.
 //! - [`reset`]: starting the level editor over: what it removes, checked to stay in OpenRAC's folders.
+//! - [`editor_state`]: where a player is with the level editor: outdated projects, edits not packed, the last update's notes.
 //! - [`library`]: all of the above, put together for the UI.
 //! - [`multiplayer`]: the player's name for online mods, and the variable the game gets it in.
 //! - [`progress_sync`]: the decompilations' latest progress from bytematch.dev, kept for offline starts.
@@ -43,6 +44,7 @@ pub mod differences;
 pub mod disc_choice;
 pub mod discord;
 pub mod discs;
+pub mod editor_state;
 pub mod enhanced;
 pub mod hook_ids;
 pub mod install;

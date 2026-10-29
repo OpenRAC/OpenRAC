@@ -13,6 +13,7 @@ use openrac_launcher_core::config::{self, Config};
 use openrac_launcher_core::detect::{self, Check, Detected, Tool};
 use openrac_launcher_core::disc_choice::{self, DiscChoice};
 use openrac_launcher_core::discs::{self, FoundDisc};
+use openrac_launcher_core::editor_state;
 use openrac_launcher_core::install;
 use openrac_launcher_core::jobs::{Event, Jobs, Started};
 use openrac_launcher_core::launcher_log;
@@ -1024,6 +1025,20 @@ async fn reset_apply(
     done
 }
 
+/// Where the player is with `version`'s level editor (core editor_state.rs): the Mods page's status
+/// panel asks on opening, on focus and when an editor job ends.
+#[tauri::command]
+async fn editor_state(state: State<'_, AppState>, version: String) -> Result<editor_state::EditorState, String> {
+    let layout = reset_layout(&state, &version)?;
+    let root = state.config.lock().unwrap().root()?.to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        let format = editor_state::ProjectFormat::load(&root);
+        editor_state::inspect(&layout, format.as_ref())
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// A game's native mods' folder (`<data>/plugins`, docs/port/MODS.md), from the install folder in
 /// Settings.
 fn plugins_dir(state: &State<'_, AppState>, game: &str) -> Result<PathBuf, String> {
@@ -1494,6 +1509,7 @@ pub fn run() {
             overrides_move,
             overrides_remove,
             reset_preview,
+            editor_state,
             reset_apply,
             plugins_list,
             enhanced_view,
