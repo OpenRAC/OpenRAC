@@ -41,7 +41,7 @@ bool has_key(Button button, SDL_Scancode key) {
 bool has_pad_input(Button button, Binding::Kind kind, int value) {
     const Bindings::Slot& slot = g_bindings.of(button);
     for (int i = 0; i < slot.pad_count; ++i) {
-        const Binding& b = slot.pad[static_cast<std::size_t>(i)];
+        const Binding& b = slot.pad[static_cast<std::size_t>(i)].input;
         if (b.kind == kind && b.value == value) {
             return true;
         }
@@ -97,15 +97,25 @@ void test_names() {
     CHECK(std::string(openrac::platform::binding_name(trigger)) == "PadLeftTrigger");
 }
 
-// Each of the sixteen keys names its button, and nothing else does.
+// Each of the sixteen buttons' keys names its button, the sticks' eight name their directions,
+// and nothing else names either.
 void test_keys_name_their_buttons() {
     const char* const* keys = openrac::platform::binding_keys();
     int count = 0;
+    int buttons = 0;
     for (; keys[count] != nullptr; ++count) {
         Button button{};
-        CHECK(openrac::platform::button_of_key(keys[count], button));
+        buttons += openrac::platform::button_of_key(keys[count], button) ? 1 : 0;
+        const int target = openrac::platform::target_of_key(keys[count]);
+        CHECK(target >= 0);
+        CHECK(std::string(openrac::platform::key_of_target(target)) == keys[count]);
     }
-    CHECK(count == 16);
+    CHECK(count == openrac::platform::kTargetCount);
+    CHECK(buttons == 16);
+    CHECK(
+        openrac::platform::target_of_key("bind_lstick_up")
+        == static_cast<int>(openrac::platform::Target::LeftStickUp)
+    );
     Button ignored{};
     CHECK(!openrac::platform::button_of_key("bind_nothing", ignored));
     CHECK(!openrac::platform::button_of_key("game_language", ignored));
@@ -276,6 +286,124 @@ void test_a_rebound_pad_button_presses() {
     CHECK(!pad.held(Button::Cross));
 }
 
+using openrac::platform::Target;
+
+// The sticks' directions and the extra pad buttons have names, which read back as themselves.
+void test_stick_names() {
+    const Binding up = openrac::platform::parse_binding("PadLeftStickUp");
+    CHECK(up.kind == Binding::Kind::PadAxis);
+    CHECK(up.value == SDL_GAMEPAD_AXIS_LEFTY && up.sign == -1);
+    const Binding right = openrac::platform::parse_binding("PadRightStickRight");
+    CHECK(right.kind == Binding::Kind::PadAxis);
+    CHECK(right.value == SDL_GAMEPAD_AXIS_RIGHTX && right.sign == 1);
+    CHECK(std::string(openrac::platform::binding_name(up)) == "PadLeftStickUp");
+    const Binding misc = openrac::platform::parse_binding("PadMisc6");
+    CHECK(misc.kind == Binding::Kind::PadButton && misc.value == SDL_GAMEPAD_BUTTON_MISC6);
+    // The stick's click keeps its name, which is not one of the directions'.
+    CHECK(openrac::platform::parse_binding("PadLeftStick").kind == Binding::Kind::PadButton);
+}
+
+// The sticks swapped, one axis turned over, and the d-pad as the left stick.
+void test_sticks_rebound() {
+    set_bindings({
+        {"bind_lstick_up", "PadRightStickUp"},
+        {"bind_lstick_down", "PadRightStickDown"},
+        {"bind_lstick_left", "PadRightStickLeft"},
+        {"bind_lstick_right", "PadRightStickRight"},
+        {"bind_rstick_up", "PadLeftStickDown"},  // the right stick's vertical turned over
+        {"bind_rstick_down", "PadLeftStickUp"},
+        {"bind_rstick_left", "PadLeftStickLeft"},
+        {"bind_rstick_right", "PadLeftStickRight"},
+    });
+    PadInputs inputs;
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX] = 32767;  // right stick fully right
+    inputs.axes[SDL_GAMEPAD_AXIS_LEFTY] = -32768;  // left stick fully up
+    Pad pad = pad_from(g_bindings, inputs);
+    CHECK(pad.left_x == 0xFF && pad.left_y == 0x80);
+    CHECK(pad.right_x == 0x80 && pad.right_y == 0xFF);  // turned over: down
+
+    set_bindings({
+        {"bind_lstick_up", "PadDpadUp,PadLeftStickUp"},
+        {"bind_lstick_left", "PadDpadLeft,PadLeftStickLeft"},
+    });
+    PadInputs dpad;
+    dpad.buttons[SDL_GAMEPAD_BUTTON_DPAD_UP] = true;
+    dpad.buttons[SDL_GAMEPAD_BUTTON_DPAD_LEFT] = true;
+    pad = pad_from(g_bindings, dpad);
+    CHECK(pad.left_x == 0x00 && pad.left_y == 0x00);        // a digital push is a full one
+    CHECK(pad.held(Button::Up) && pad.held(Button::Left));  // the d-pad's own bindings stay
+    // Both ways at once cancel, as two opposite keys do.
+    set_bindings({{"bind_lstick_left", "PadWest"}, {"bind_lstick_right", "PadEast"}});
+    PadInputs both;
+    both.buttons[SDL_GAMEPAD_BUTTON_WEST] = true;
+    both.buttons[SDL_GAMEPAD_BUTTON_EAST] = true;
+    CHECK(pad_from(g_bindings, both).left_x == 0x80);
+
+    // A key on a stick's direction is left out: the pad's default stays.
+    set_bindings({{"bind_lstick_up", "KeyW"}});
+    CHECK(g_bindings.slots[static_cast<std::size_t>(Target::LeftStickUp)].key_count == 0);
+    CHECK(g_bindings.slots[static_cast<std::size_t>(Target::LeftStickUp)].pad_count == 1);
+}
+
+// A stick's direction or a trigger presses a button from half way or an eighth, with its pressure.
+void test_a_stick_presses_a_button() {
+    set_bindings({{"bind_select", "PadRightStickDown"}, {"bind_cross", "PadLeftTrigger"}});
+    PadInputs inputs;
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTY] = 8000;  // a quarter: not yet
+    Pad pad = pad_from(g_bindings, inputs);
+    CHECK(!pad.held(Button::Select));
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTY] = 32767;
+    inputs.axes[SDL_GAMEPAD_AXIS_LEFT_TRIGGER] = 16384;
+    pad = pad_from(g_bindings, inputs);
+    CHECK(pad.held(Button::Select));
+    CHECK(pad.held(Button::Cross));
+    CHECK(pad.pressure[static_cast<std::size_t>(openrac::platform::Pressure::Cross)] == 0x80);
+    // The right stick still moves as well: a direction may press a button and its stick.
+    CHECK(pad.right_y == 0xFF);
+}
+
+// A chord presses only with its first input held, and takes its second from that input's own
+// binding while it does.
+void test_chords() {
+    set_bindings({{"bind_select", "PadLeftShoulder+PadSouth"}});
+    PadInputs inputs;
+    inputs.buttons[SDL_GAMEPAD_BUTTON_SOUTH] = true;
+    Pad pad = pad_from(g_bindings, inputs);
+    CHECK(pad.held(Button::Cross));  // alone, South is Cross
+    CHECK(!pad.held(Button::Select));
+    inputs.buttons[SDL_GAMEPAD_BUTTON_LEFT_SHOULDER] = true;
+    pad = pad_from(g_bindings, inputs);
+    CHECK(pad.held(Button::Select));
+    CHECK(pad.held(Button::L1));      // the first input keeps its own binding
+    CHECK(!pad.held(Button::Cross));  // the second does not press twice
+    // A chord of a key, or of one input with itself, is no chord.
+    set_bindings({{"bind_select", "KeyA+PadSouth,PadSouth+PadSouth"}});
+    CHECK(g_bindings.of(Button::Select).pad_count == 1);  // the default stays
+    CHECK(g_bindings.of(Button::Select).pad[0].input.value == SDL_GAMEPAD_BUTTON_BACK);
+}
+
+// "none" binds nothing, of either kind; a slot reads back as the file would write it.
+void test_none_and_values() {
+    set_bindings({{"bind_l3", "none"}, {"bind_r3", "KeyV,PadMisc1,PadLeftShoulder+PadNorth"}});
+    CHECK(g_bindings.of(Button::L3).key_count == 0);
+    CHECK(g_bindings.of(Button::L3).pad_count == 0);
+    PadInputs inputs;
+    inputs.buttons[SDL_GAMEPAD_BUTTON_LEFT_STICK] = true;
+    CHECK(!pad_from(g_bindings, inputs).held(Button::L3));
+    CHECK(openrac::platform::binding_value(g_bindings.of(Button::L3)) == "none");
+    CHECK(
+        openrac::platform::binding_value(g_bindings.of(Button::R3))
+        == "KeyV,PadMisc1,PadLeftShoulder+PadNorth"
+    );
+    // Four of a kind at most, and a name twice is once.
+    set_bindings({{"bind_cross", "PadSouth,PadSouth,PadEast,PadWest,PadNorth,PadBack"}});
+    CHECK(g_bindings.of(Button::Cross).pad_count == 4);
+    CHECK(
+        openrac::platform::binding_value(g_bindings.of(Button::Cross))
+        == "Space,PadSouth,PadEast,PadWest,PadNorth"
+    );
+}
+
 }  // namespace
 
 int main() {
@@ -286,5 +414,10 @@ int main() {
     test_two_of_a_kind_and_a_trigger();
     test_defaults_press_as_before();
     test_a_rebound_pad_button_presses();
+    test_stick_names();
+    test_sticks_rebound();
+    test_a_stick_presses_a_button();
+    test_chords();
+    test_none_and_values();
     return openrac::test::result();
 }
