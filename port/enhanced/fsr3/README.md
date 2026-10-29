@@ -109,7 +109,7 @@ occlusion, front visibility and exact HUD coverage in Quality, Performance and N
 
 ## Camera-target-relative motion blur
 
-Motion blur is off by default. Enable it in Enhanced Settings or the launcher's enhanced graphics
+Motion blur is on by default. Toggle it in Enhanced Settings or the launcher's enhanced graphics
 settings. Gameplay blur is relative to the camera rig's smoothed tracking focus: jumping and
 orbiting the camera do not apply Ratchet's full motion to the scenery. The HUD and gameplay sky
 stay sharp. Real-time RAC1 cutscenes use camera-relative blur, including sky rotation.

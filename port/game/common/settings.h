@@ -114,7 +114,7 @@ struct Settings {
     bool gtao = true;  // ground-truth ambient occlusion when enhanced rendering is enabled
     renderer::TemporalQuality temporal_quality =
         renderer::TemporalQuality::Quality;  // Enhanced Vulkan only.
-    bool motion_blur = false;                // Motion relative to the tracking focus.
+    bool motion_blur = true;                // Motion relative to the tracking focus.
     renderer::MotionBlurSettings motion_blur_settings;
     float motion_blur_strength = 0.5f;       // Exposure strength in [0, 1].
     float temporal_sharpness = 0.2f;         // AMD RCAS strength in [0, 1].

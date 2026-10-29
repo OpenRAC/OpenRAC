@@ -96,6 +96,7 @@ pub fn settings() -> Vec<SettingSpec> {
         "Low uses the smallest shadow textures. Medium balances detail and cost. High keeps the sharpest shadows.",
     );
     shadows.choices = vec![
+        Choice { value: "off".into(), name: "Off".into() },
         Choice { value: "low".into(), name: "Low".into() },
         Choice { value: "medium".into(), name: "Medium".into() },
         Choice { value: "high".into(), name: "High".into() },
@@ -126,41 +127,21 @@ pub fn settings() -> Vec<SettingSpec> {
         Choice { value: "performance".into(), name: "Performance".into() },
     ];
     vec![
-        spec("enhanced_shadows", "Modern shadows", "bool", true.into(), "Sharp sun shadows, and Ratchet's own."),
         shadows,
         spec("gtao", "Ambient occlusion", "bool", true.into(), "Soft shade in corners and under objects."),
         quality,
         texture_filter,
         temporal,
-        spec("motion_blur", "Motion blur", "bool", false.into(), "Camera-target-relative during play, camera-relative in cutscenes. Uses Native AA when FSR is off."),
-        range(spec("motion_blur_strength", "Blur strength", "float", 0.5.into(), ""), 0.0, 1.0, 0.05),
-        advanced(range(spec("motion_blur_radius", "Max blur trail length", "int", 128.into(), "Display pixels; larger limits can cost more GPU time."), 1.0, 128.0, 1.0)),
-        advanced(range(spec("motion_blur_samples", "Blur samples", "int", 32.into(), "Higher values smooth trails at a higher GPU cost."), 8.0, 64.0, 1.0)),
-        advanced(range(spec("motion_blur_min_motion", "Minimum blur motion", "float", 0.5.into(), "Ignore exposed motion below this many display pixels."), 0.1, 4.0, 0.1)),
-        advanced(range(spec("motion_blur_spread", "Blur trail spread", "float", 0.5.into(), "Sideways reach of jump-flood candidates."), 0.0, 1.0, 0.05)),
-        advanced(range(spec("motion_blur_depth_tolerance", "Blur depth tolerance", "float", 0.009.into(), "Lower values protect foreground occlusion edges."), 0.001, 0.05, 0.001)),
-        advanced(range(spec("motion_blur_cutscene_multiplier", "Cutscene blur multiplier", "float", 1.0.into(), "Scales blur strength in real-time cutscenes; zero disables it."), 0.0, 2.0, 0.05)),
+        spec("motion_blur", "Motion blur", "bool", true.into(), "Subtle motion blur to enhance animations."),
         advanced(range(spec("temporal_sharpness", "FSR sharpening", "float", 0.2.into(), ""), 0.0, 1.0, 0.05)),
-        advanced(range(
-            spec("probe_gi_multiplier", "Bounce light", "float", 1.0.into(), "How bright the bounced light is."),
-            0.0,
-            5.0,
-            0.1,
-        )),
-        advanced(range(spec("gtao_strength", "Occlusion strength", "float", 1.0.into(), ""), 0.0, 3.0, 0.05)),
-        advanced(range(spec("gtao_radius", "Occlusion radius", "float", 1.25.into(), ""), 0.05, 8.0, 0.05)),
-        advanced(spec(
-            "gtao_half_resolution",
-            "Half-resolution occlusion",
-            "bool",
-            true.into(),
-            "Faster; edges a little softer.",
-        )),
     ]
 }
 
 /// A setting's value as the settings file holds it, or its default.
 fn read_setting(text: &str, spec: &SettingSpec) -> Value {
+    if spec.key == "shadow_quality" && read_switch(text, "enhanced_shadows") == Some(false) {
+        return "off".into();
+    }
     let raw = read_value(text, &spec.key);
     let value = match (spec.kind.as_str(), raw) {
         ("bool", _) => read_switch(text, &spec.key).map(Value::Bool),
@@ -463,7 +444,7 @@ pub fn view(data_home: &Path, game: &str, version: &str, bake: BakeStatus) -> En
             name: "Enhanced graphics".into(),
             version: "Experimental".into(),
             author: "OpenRAC".into(),
-            description: "Bounced light, modern shadows and ambient occlusion.".into(),
+            description: "Improved lighting and effects whilst preserving the charm of the original visuals we all love.".into(),
             homepage: String::new(),
             license: "GPL-3.0-or-later".into(),
             enabled,
@@ -496,7 +477,19 @@ pub fn set_setting(data_home: &Path, game: &str, version: &str, key: &str, value
     let value = check_value(spec, value).ok_or_else(|| format!("{} cannot be {value}", spec.name))?;
     let file = settings_file(data_home, game, version);
     let text = std::fs::read_to_string(&file).unwrap_or_default();
-    write_settings(&file, &with_value(&text, key, &written(&value)))
+    let text = if key == "shadow_quality" {
+        // Keep the renderer's quality enum and legacy enable switch compatible.
+        let enabled = value != Value::from("off");
+        let text = with_value(&text, "enhanced_shadows", if enabled { "1" } else { "0" });
+        if enabled {
+            with_value(&text, key, &written(&value))
+        } else {
+            text
+        }
+    } else {
+        with_value(&text, key, &written(&value))
+    };
+    write_settings(&file, &text)
 }
 
 /// What Play adds: environment variables, then arguments.
@@ -565,6 +558,36 @@ mod tests {
     }
 
     #[test]
+    fn simplified_settings_preserve_shadow_compatibility() {
+        let home = temp("shadow-options");
+        let all = settings();
+        assert_eq!(
+            all.iter().filter(|s| s.group == "advanced").map(|s| s.key.as_str()).collect::<Vec<_>>(),
+            vec!["temporal_sharpness"]
+        );
+        assert!(all
+            .iter()
+            .all(|s| s.key != "enhanced_shadows" && (s.key == "motion_blur" || !s.key.starts_with("motion_blur_"))));
+        for version in ["pal", "ntsc"] {
+            let file = settings_file(&home, "rac1", version);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(&file, "enhanced_shadows = 0\nshadow_quality = low\nmotion_blur = 0\n").unwrap();
+            let shadow = all.iter().find(|s| s.key == "shadow_quality").unwrap();
+            let text = std::fs::read_to_string(&file).unwrap();
+            assert_eq!(read_setting(&text, shadow), Value::from("off"));
+            for quality in ["low", "medium", "high", "off"] {
+                set_setting(&home, "rac1", version, "shadow_quality", &Value::from(quality)).unwrap();
+                let text = std::fs::read_to_string(&file).unwrap();
+                assert_eq!(read_setting(&text, shadow), Value::from(quality));
+                assert_eq!(read_switch(&text, "enhanced_shadows"), Some(quality != "off"));
+                assert_eq!(read_switch(&text, "motion_blur"), Some(false));
+                assert_ne!(read_value(&text, "shadow_quality"), Some("off".into()));
+            }
+        }
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
     fn off_until_switched_on_and_settings_land_in_the_ports_file() {
         let home = temp("settings");
         let file = settings_file(&home, "rac1", "pal");
@@ -577,22 +600,14 @@ mod tests {
         assert_eq!(value(&v, "gtao"), Value::Bool(true));
         assert!(v.entry.settings.iter().all(|s| s.spec.key != "probe_lighting"));
         assert!(set_setting(&home, "rac1", "pal", "probe_lighting", &Value::Bool(false)).is_err());
-        assert_eq!(value(&v, "probe_gi_multiplier"), Value::from(1.0));
         assert_eq!(value(&v, "texture_filter"), Value::from("edge-aware"));
         assert_eq!(value(&v, "temporal_quality"), Value::from("quality"));
         assert_eq!(value(&v, "shadow_quality"), Value::from("high"));
         assert_eq!(value(&v, "temporal_sharpness"), Value::from(0.2));
-        assert_eq!(value(&v, "motion_blur"), Value::Bool(false));
-        assert_eq!(value(&v, "motion_blur_strength"), Value::from(0.5));
-        assert_eq!(value(&v, "motion_blur_radius"), Value::from(128));
-        assert_eq!(value(&v, "motion_blur_samples"), Value::from(32));
+        assert_eq!(value(&v, "motion_blur"), Value::Bool(true));
 
         set_enabled(&home, "rac1", "pal", true).unwrap();
         set_setting(&home, "rac1", "pal", "motion_blur", &Value::Bool(true)).unwrap();
-        set_setting(&home, "rac1", "pal", "motion_blur_strength", &Value::from(0.75)).unwrap();
-        set_setting(&home, "rac1", "pal", "motion_blur_radius", &Value::from(64)).unwrap();
-        set_setting(&home, "rac1", "pal", "motion_blur_samples", &Value::from(48)).unwrap();
-        set_setting(&home, "rac1", "pal", "probe_gi_multiplier", &Value::from(2.5)).unwrap();
         set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("low")).unwrap();
         assert_eq!(
             value(&view(&home, "rac1", "pal", BakeStatus::default()), "shadow_quality"),
@@ -600,36 +615,28 @@ mod tests {
         );
         set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("medium")).unwrap();
         set_setting(&home, "rac1", "pal", "gtao_quality", &Value::from("quality")).unwrap();
-        set_setting(&home, "rac1", "pal", "enhanced_shadows", &Value::Bool(false)).unwrap();
+        set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("off")).unwrap();
+        assert_eq!(value(&view(&home, "rac1", "pal", BakeStatus::default()), "shadow_quality"), Value::from("off"));
+        set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("medium")).unwrap();
         set_setting(&home, "rac1", "pal", "texture_filter", &Value::from("normal")).unwrap();
         let text = std::fs::read_to_string(&file).unwrap();
         assert!(text.starts_with("msaa = 4\ngtao = 1\n"), "{text}");
         for line in [
             "enhanced_rendering = 1",
-            "probe_gi_multiplier = 2.5",
             "gtao_quality = quality",
-            "enhanced_shadows = 0",
+            "enhanced_shadows = 1",
             "shadow_quality = medium",
             "texture_filter = normal",
             "motion_blur = 1",
-            "motion_blur_strength = 0.75",
-            "motion_blur_radius = 64",
-            "motion_blur_samples = 48",
         ] {
             assert!(text.lines().any(|l| l == line), "{line} in {text}");
         }
         let v = view(&home, "rac1", "pal", BakeStatus::default());
         assert!(v.entry.enabled);
-        assert_eq!(value(&v, "probe_gi_multiplier"), Value::from(2.5));
         assert_eq!(value(&v, "texture_filter"), Value::from("normal"));
         assert_eq!(value(&v, "shadow_quality"), Value::from("medium"));
         assert_eq!(value(&v, "motion_blur"), Value::Bool(true));
-        assert_eq!(value(&v, "motion_blur_strength"), Value::from(0.75));
-        assert_eq!(value(&v, "motion_blur_radius"), Value::from(64));
-        assert_eq!(value(&v, "motion_blur_samples"), Value::from(48));
-        assert!(set_setting(&home, "rac1", "pal", "motion_blur_strength", &Value::from(1.1)).is_err());
         // Out of the port's range, another type, or not one of the entry's: refused, file kept.
-        assert!(set_setting(&home, "rac1", "pal", "probe_gi_multiplier", &Value::from(9.0)).is_err());
         assert!(set_setting(&home, "rac1", "pal", "gtao", &Value::from("yes")).is_err());
         assert!(set_setting(&home, "rac1", "pal", "probe_spheres", &Value::Bool(true)).is_err());
         assert!(set_setting(&home, "rac1", "pal", "texture_filter", &Value::from("unknown")).is_err());

@@ -470,7 +470,7 @@ Enhanced Settings has a dedicated Motion Blur section with live controls, toolti
 Gameplay uses the camera rig's smoothed tracking target as its translation reference,
 so Ratchet's jump does not impose his full vertical movement on the scenery. Real-time
 cutscenes use normal camera-relative blur. Both modes share the controls and keep the HUD sharp.
-The saved keys are `motion_blur` (default `0`) and `motion_blur_strength` (0–1,
+The saved keys are `motion_blur` (default `1`) and `motion_blur_strength` (0–1,
 default `0.5`). With FSR off it uses Native AA to obtain motion vectors; this temporarily
 uses single-sample rendering. See [camera-target-relative motion blur](../../port/enhanced/fsr3/README.md#camera-target-relative-motion-blur).
 
