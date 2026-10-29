@@ -18,7 +18,10 @@ flat in int v_lit;
 flat in int v_glow;
 in vec3 v_script_emission;
 in vec3 v_emission_colour;
-noperspective in float v_fog;
+// GS F / 255 times the vertex's clip w, and that w (mesh.vert): their ratio is F interpolated in
+// screen space, as the GS does.
+in vec2 v_fog_w;
+float v_fog;
 
 uniform sampler2D tex_T0;
 uniform vec4 material_colour;
@@ -263,6 +266,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
 // OPENRAC_UPSCALED_TEXTURE_COLOURS_SOURCE
 
 void main() {
+    v_fog = v_fog_w.x / v_fog_w.y;
 #ifdef OPENRAC_OPAQUE_COLOUR
     if (opaque_solid != 0) {
 #endif

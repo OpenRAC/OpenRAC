@@ -65,8 +65,11 @@ flat out int v_lit;
 flat out int v_glow;  // a glow packet's vertex drawn in the moby's glow colour
 out vec3 v_script_emission;
 out vec3 v_emission_colour;
-// GS F / 255: interpolated in screen space, as the GS does.
-noperspective out float v_fog;
+// GS F / 255, interpolated in screen space as the GS does: F times the clip w and w, both
+// interpolated perspective-correctly, whose ratio mesh.frag takes. A noperspective F gave NaN
+// where a triangle crossed the near plane (Mesa, lavapipe): black wedges at the screen's edges
+// when the camera stood by a wall.
+out vec2 v_fog_w;
 
 const int kPaletteWidth = 1024;
 const int kLightWidth = 1024;
@@ -117,7 +120,8 @@ void main() {
     gl_ClipDistance[1] = in_picture ? picture_scale * gl_Position.w + gl_Position.x : 1.0;
     // Camera depth in the game's raw units (game units x 1024); the view looks down -Z.
     float depth = -(view * world).z * 1024.0;
-    v_fog = trunc(clamp(depth * fog_params.x + fog_params.y, fog_params.z, fog_params.w)) / 255.0;
+    float fog = trunc(clamp(depth * fog_params.x + fog_params.y, fog_params.z, fog_params.w)) / 255.0;
+    v_fog_w = vec2(fog, 1.0) * gl_Position.w;
     v_uv = uv;
     v_colour = colour * tint;
     v_lit = 0;
