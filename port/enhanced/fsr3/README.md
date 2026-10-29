@@ -20,12 +20,28 @@ the SDK's GLSL; no extra shader compiler is required. SDK files stay in the buil
 not needed at runtime.
 
 `prepare_sdk.py` embeds the shader dependency closure and corrects Vulkan integration details:
-the core memory-requirements entry point, unified-memory allocation requiring all requested flags,
+the core memory-requirements entry point and Float16 feature query, unified-memory allocation requiring all requested flags,
 the FP16 luma-history image declaration, and the unused frame-generation swapchain callback.
 AMD licence notices remain in generated sources.
 The generated upscaler header also sizes context storage for the platform's wide characters;
 the SDK and its callers use this same header. `sdk_compat.h` supplies missing standard includes
 and bounded diagnostic formatting on non-Windows platforms.
+
+## Mixed precision
+
+Supported Vulkan devices use the SDK's optional FP16 history-colour sampler in the accumulation
+passes (`FFX_HALF=1` and `FFX_FSR3UPSCALER_OPTION_REPROJECT_SAMPLERS_USE_DATA_HALF=1`). Both
+`shaderFloat16` and `shaderInt16` must be enabled; input extents must fit the sampler's signed
+16-bit indexing. Unsupported devices use FP32. `prepare_sdk.py` queries the promoted Vulkan 1.2
+Float16 feature even when the old extension name is absent.
+
+The pinned half pyramid callbacks are incomplete, so luma/shading-change pyramids remain FP32.
+RCAS, reprojection coordinates and temporal accumulation also remain FP32. Resource formats and
+storage layouts are unchanged. The runtime log reports actual SDK pipeline selection.
+
+`OPENRAC_RENDER_OPT_OFF=fsr-float16` forces only FSR history filtering back to FP32 for comparison;
+`shader-float16` disables the renderer's Float16 feature globally. Changing precision recreates
+SDK histories. FP16 filtering introduces small numerical differences, particularly on thin detail.
 
 ## State and threads
 
@@ -62,8 +78,8 @@ See [settings](../../../docs/port/SETTINGS.md) for the enhanced master switches.
 
 ## Tests
 
-- `fsr3_shaders`: supported FP32 shader variants and descriptor reflection.
-- `fsr3_sdk`: uniform RGB preservation and history reset on the GPU.
+- `fsr3_shaders`: FP32/FP16 variants, typed FP16 SPIR-V arithmetic, unchanged descriptors and pyramid fallback.
+- `fsr3_sdk`: uniform RGB, moving-detail FP32/FP16 comparisons, sharpening, history reset and precision changes on the GPU.
 - `fsr3_frame`: preset extents, camera inversion and native-pixel HUD coverage.
 - `fsr3_motion`: rigid/skinned velocities, history rejection and exact batched/individual coverage,
   including alpha cutouts and glow exclusion.

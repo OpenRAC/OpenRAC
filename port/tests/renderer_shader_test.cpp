@@ -18,10 +18,15 @@
 #include "enhanced/viewer/probe_lighting.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/shader.h"
 #include "renderer_gl_context.h"
 #include "renderer_shaders.h"
 #include "scene_shaders.h"
+#ifdef OPENRAC_VULKAN
+#include "renderer/vulkan/native_compute.h"
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 namespace {
 
@@ -83,15 +88,21 @@ void multisampled() {
     if (!made) {
         return;
     }
-    std::printf("multisampled frame: %d samples, %s\n", frame.samples(),
-                frame.resolves_itself() ? "resolved by the GPU" : "resolved by a copy");
+    std::printf(
+        "multisampled frame: %d samples, %s\n",
+        frame.samples(),
+        frame.resolves_itself() ? "resolved by the GPU" : "resolved by a copy"
+    );
     glBindFramebuffer(GL_FRAMEBUFFER, frame.id());
     glViewport(0, 0, 16, 8);
     glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     const std::vector<std::uint8_t> pixels = frame.read_rgba();
     CHECK(pixels.size() == 16u * 8u * 4u);
-    CHECK(pixels.size() >= 4 && pixels[0] == 255 && pixels[1] == 0 && pixels[2] == 0 && pixels[3] == 255);
+    CHECK(
+        pixels.size() >= 4 && pixels[0] == 255 && pixels[1] == 0 && pixels[2] == 0
+        && pixels[3] == 255
+    );
     CHECK(pixels.size() >= 4 && pixels[pixels.size() - 4] == 255 && pixels[pixels.size() - 3] == 0);
     CHECK(glGetError() == GL_NO_ERROR);
     frame.release();
@@ -108,6 +119,35 @@ int main() {
         std::printf("SKIP: no OpenGL context: %s\n", why.c_str());
         return openrac::test::failures() == 0 ? openrac::test::kSkip : openrac::test::result();
     }
+#ifdef OPENRAC_VULKAN
+    if (openrac::gl::is_vulkan()) {
+        openrac::vkgl::NativeDevice device;
+        CHECK(openrac::vkgl::native_device(device));
+        VkPhysicalDeviceVulkan12Features features{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES
+        };
+        VkPhysicalDeviceFeatures2 available{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+        available.pNext = &features;
+        vkGetPhysicalDeviceFeatures2(device.physical, &available);
+        CHECK(device.float16 == bool(features.shaderFloat16 && openrac::renderer::render_opt::enabled(
+            openrac::renderer::render_opt::Opt::ShaderFloat16)));
+        const auto before = openrac::vkgl::submission_counters().shader_fp16_ops;
+        build(
+            "precision capability",
+            "#version 410 core\nvoid main(){gl_Position=vec4(0,0,0,1);}",
+            "#version 410 core\nuniform vec4 colour;layout(location=0) out vec4 result;"
+            "void main(){mp_vec3 c=mp_vec3(colour.rgb)*mp_float(.75);"
+            "result=vec4(vec3(clamp(c,mp_vec3(0),mp_vec3(1))),colour.a);}"
+        );
+        const auto after = openrac::vkgl::submission_counters().shader_fp16_ops;
+        CHECK(device.float16 ? after > before : after == before);
+        std::printf(
+            "Enabled FP16 arithmetic: %d; typed SPIR-V operations: %llu\n",
+            int(device.float16),
+            static_cast<unsigned long long>(after - before)
+        );
+    }
+#endif
     namespace renderer_src = openrac::renderer::shaders;
     namespace viewer_src = openrac::scene::shaders;
     build("direct", renderer_src::direct_vert, renderer_src::direct_frag);

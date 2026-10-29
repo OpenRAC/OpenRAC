@@ -15,5 +15,6 @@ layout(location = 0) out vec4 out_colour;
 // OPENRAC_UPSCALED_TEXTURE_COLOURS_SOURCE
 
 void main() {
-    out_colour = sample_upscaled_texture_colours(v_uv) * v_colour;
+    vec4 texel = sample_upscaled_texture_colours(v_uv);
+    out_colour = vec4(vec3(mp_vec3(texel.rgb) * mp_vec3(v_colour.rgb)), texel.a * v_colour.a);
 }

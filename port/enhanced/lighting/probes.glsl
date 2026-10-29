@@ -73,6 +73,7 @@ vec2 probe_map_uv(ivec2 tile, vec3 direction) {
     return pixel / vec2(textureSize(probe_irradiance, 0));
 }
 
+// Keep the irradiance power decode FP32: half SFU/conversion overhead regresses GI passes.
 bool sample_probe_grid(
     vec3 p,
     vec3 n,
@@ -96,15 +97,18 @@ bool sample_probe_grid(
     // Keep volume membership and the behind-surface guard at the real surface.
     coordinate = clamp((receiver - origin) / spacing, vec3(0.0), dimensions - 1.0);
     ivec3 cell = min(ivec3(floor(coordinate)), ivec3(dimensions) - 2);
-    vec3 fraction = coordinate - vec3(cell);
+    mp_vec3 fraction = mp_vec3(coordinate - vec3(cell));
+#ifdef OPENRAC_USE_FP16
+    mp_vec3 short_irradiance = mp_vec3(0);
+#endif
     float total = 0.0;
     float support = 0.0;
     float valid_support = 0.0;
     float facing_support = 0.0;
     for (int corner = 0; corner < 8; ++corner) {
         ivec3 high = ivec3(corner & 1, (corner >> 1) & 1, (corner >> 2) & 1);
-        vec3 f = mix(1.0 - fraction, fraction, vec3(high));
-        float weight = f.x * f.y * f.z;
+        mp_vec3 f = mix(mp_vec3(1) - fraction, fraction, mp_vec3(high));
+        float weight = float(f.x * f.y * f.z);
         ivec3 at = cell + high;
         int index = index_offset + at.x + int(dimensions.x) * (at.y + int(dimensions.y) * at.z);
         ivec2 tile = ivec2(index % probe_tiles_x, index / probe_tiles_x);
@@ -162,9 +166,19 @@ bool sample_probe_grid(
 #endif
         // Partially decode to sqrt(E) for interpolation between probes.
         vec3 encoded = texture(probe_irradiance, probe_map_uv(tile, n)).rgb;
+#ifdef OPENRAC_USE_FP16
+        vec3 contribution=pow(max(encoded,vec3(0)),vec3(2.5))*weight;
+        // Eight bounded taps fit FP16; preserve exceptional imported HDR in a wide side sum.
+        if(all(lessThanEqual(contribution,vec3(4096)))) short_irradiance+=mp_vec3(contribution);
+        else irradiance+=contribution;
+#else
         irradiance += pow(max(encoded, vec3(0.0)), vec3(2.5)) * weight;
+#endif
         total += weight;
     }
+#ifdef OPENRAC_USE_FP16
+    irradiance+=vec3(short_irradiance);
+#endif
     if (valid_support <= 0.0) {
         return false;
     }
@@ -334,21 +348,21 @@ float shadow_bilinear_rect(sampler2D map, ivec4 rect, vec3 position, float bias,
     vec2 pixel = position.xy * vec2(size) - 0.5;
     ivec2 base = ivec2(floor(pixel));
     vec2 f = fract(pixel);
-    float result = 0.0;
+    mp_float result = mp_float(0);
     for (int y = 0; y < 2; ++y) {
         for (int x = 0; x < 2; ++x) {
             ivec2 at = base + ivec2(x, y);
-            vec2 weight = mix(1.0 - f, f, vec2(x, y));
+            mp_vec2 weight = mix(mp_vec2(1) - mp_vec2(f), mp_vec2(f), mp_vec2(x, y));
             bool outside = any(lessThan(at, ivec2(0))) || any(greaterThanEqual(at, size));
             float receiver = position.z + dot(slope, (vec2(at) + 0.5) / vec2(size) - position.xy);
             float visibility = 1.0;
             if (!outside) {
                 visibility = receiver + bias >= texelFetch(map, rect.xy + at, 0).r ? 1.0 : 0.0;
             }
-            result += visibility * weight.x * weight.y;
+            result += mp_float(mp_float(visibility) * weight.x * weight.y);
         }
     }
-    return result;
+    return float(result);
 }
 
 // Retained comparison path: nine bilinear taps, 36 depth reads.
@@ -375,13 +389,14 @@ float shadow_pcf_unique_rect(sampler2D map, ivec4 rect, vec3 position, float bia
     vec2 pixel = position.xy * vec2(size) - 0.5;
     ivec2 base = ivec2(floor(pixel)) - 1;
     vec2 f = fract(pixel);
-    vec4 wx = vec4(1.0 - f.x, 1.0, 1.0, f.x);
-    vec4 wy = vec4(1.0 - f.y, 1.0, 1.0, f.y);
+    // Receiver/bias/depth stay FP32; FP16 mode narrows the short filter sum.
+    mp_vec4 wx = mp_vec4(mp_float(1) - mp_float(f.x), mp_float(1), mp_float(1), mp_float(f.x));
+    mp_vec4 wy = mp_vec4(mp_float(1) - mp_float(f.y), mp_float(1), mp_float(1), mp_float(f.y));
     if (tent) {
-        wx.y += 1.0 - f.x;
-        wx.z += f.x;
-        wy.y += 1.0 - f.y;
-        wy.z += f.y;
+        wx.y += mp_float(1) - mp_float(f.x);
+        wx.z += mp_float(f.x);
+        wy.y += mp_float(1) - mp_float(f.y);
+        wy.z += mp_float(f.y);
     }
 #ifdef OPENRAC_SHADOW_GATHER
     // Four 2x2 gathers cover exactly the same 4x4 texels. GLSL gather
@@ -393,7 +408,7 @@ float shadow_pcf_unique_rect(sampler2D map, ivec4 rect, vec3 position, float bia
     depths[2] = textureGather(map, (vec2(rect.xy + base) + vec2(1.0, 3.0)) * inverse_size, 0);
     depths[3] = textureGather(map, (vec2(rect.xy + base) + vec2(3.0, 3.0)) * inverse_size, 0);
 #endif
-    float result = 0.0;
+    mp_float result = mp_float(0);
     for (int y = 0; y < 4; ++y) {
         for (int x = 0; x < 4; ++x) {
             ivec2 at = base + ivec2(x, y);
@@ -409,10 +424,10 @@ float shadow_pcf_unique_rect(sampler2D map, ivec4 rect, vec3 position, float bia
 #endif
                 visibility = receiver + bias >= depth ? 1.0 : 0.0;
             }
-            result += visibility * wx[x] * wy[y];
+            result += mp_float(mp_float(visibility) * wx[x] * wy[y]);
         }
     }
-    return result / (tent ? 16.0 : 9.0);
+    return float(result / mp_float(tent ? 16.0 : 9.0));
 }
 
 float shadow_pcf_kernel_rect(sampler2D map, ivec4 rect, vec3 position, float bias, vec2 slope, bool tent) {
@@ -548,11 +563,15 @@ vec3 probe_direct(vec3 p, vec3 n, vec4 selector, float visibility) {
         if (light == 0 && probe_sunlight_direction.w != 0.0) {
             direction = probe_sunlight_direction.xyz;
         }
-        float d = dot(-direction, n);
+        float d = float(dot(mp_vec3(-direction), mp_vec3(n)));
         float response = probe_backlight != 0 ? max(d, -abs(colour.w) * d) : max(d, 0.0);
         // Both the primary sun and secondary directional fill retain 10%.
         vec3 correction = light == 0 ? probe_sunlight_scale : vec3(1.0);
-        direct += max(colour.rgb, vec3(0.0)) * correction * response * mix(0.1, 1.0, visibility);
+        // Authored light colours are byte-scaled and sunlight correction is bounded to 0..4.
+        // Keep the multi-light sum and all positions/distances/visibility decisions FP32.
+        mp_vec3 contribution = max(mp_vec3(colour.rgb), mp_vec3(0)) * mp_vec3(correction)
+            * mp_float(response) * mp_float(mix(0.1, 1.0, visibility));
+        direct += vec3(contribution);
     }
     for (int i = 0; i < 8; ++i) {
         vec3 delta = probe_point_position[i].xyz - p;
@@ -561,14 +580,17 @@ vec3 probe_direct(vec3 p, vec3 n, vec4 selector, float visibility) {
         if (radius <= 0.0 || distance >= radius || distance <= 1e-6) {
             continue;
         }
-        float d = dot(delta / distance, n);
+        float d = float(dot(mp_vec3(delta / distance), mp_vec3(n)));
         float response =
             probe_backlight != 0 ? max(d, -abs(probe_point_colour[i].w) * d) : max(d, 0.0);
-        direct += max(probe_point_colour[i].rgb, vec3(0.0)) * response * (1.0 - distance / radius);
+        mp_vec3 contribution = max(mp_vec3(probe_point_colour[i].rgb), mp_vec3(0))
+            * mp_float(response) * mp_float(1.0 - distance / radius);
+        direct += vec3(contribution);
     }
     return direct;
 }
 
+// Keep the display transfer curves FP32: chained half powers amplify byte-level banding.
 vec3 probe_linear(vec3 c) {
     c = max(c, vec3(0.0));
     return mix(pow((c + 0.055) / 1.055, vec3(2.4)), c / 12.92, lessThanEqual(c, vec3(0.04045)));

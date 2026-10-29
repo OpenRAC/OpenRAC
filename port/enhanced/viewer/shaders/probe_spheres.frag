@@ -8,6 +8,7 @@ layout(location = 0) out vec4 out_colour;
 
 void main() {
     // Diagnostic colours identify placement state, not irradiance magnitude.
-    float shape = 0.35 + 0.65 * max(dot(normalize(v_normal), normalize(vec3(0.4, -0.6, 0.7))), 0.0);
-    out_colour = vec4(v_colour * shape, debug_alpha * v_opacity);
+    mp_float shape = mp_float(0.35) + mp_float(0.65) * max(
+        dot(mp_vec3(normalize(v_normal)), mp_vec3(normalize(vec3(0.4, -0.6, 0.7)))), mp_float(0));
+    out_colour = vec4(vec3(mp_vec3(v_colour) * shape), debug_alpha * v_opacity);
 }

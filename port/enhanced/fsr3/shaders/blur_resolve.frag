@@ -76,6 +76,8 @@ void main() {
         incoming += texture(colour_texture, sample_uv).rgb;
         coverage += 1;
     }
-    if (coverage > 0) base = mix(base, incoming / coverage, coverage / float(sample_count));
+    // Keep sample coordinates, rejection, reprojection and the long colour sums FP32.
+    // Only blend the final bounded LDR averages in mixed precision.
+    if (coverage > 0) base = vec3(mix(mp_vec3(base), mp_vec3(incoming / coverage), mp_float(coverage / float(sample_count))));
     result = vec4(base, centre_colour.a);
 }

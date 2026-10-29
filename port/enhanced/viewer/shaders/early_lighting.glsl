@@ -21,8 +21,16 @@ vec3 gameplay_rim(vec3 indirect, vec3 normal_view, vec3 toward_camera) {
         diffuse *= clamp(gain, 1.0, gameplay_rim_lift.y);
     }
     float peak = max(max(diffuse.r, diffuse.g), diffuse.b);
+#ifdef OPENRAC_USE_FP16
+    // Normalize HDR diffuse before narrowing; the edge response and resulting colour are bounded.
+    mp_vec3 colour = mp_vec3(diffuse / (1.0 + peak));
+    mp_float response = mp_float(gameplay_rim_parameters.x)
+        * pow(mp_float(edge), mp_float(gameplay_rim_parameters.y));
+    return vec3(response * colour);
+#else
     return gameplay_rim_parameters.x * pow(edge, gameplay_rim_parameters.y) * diffuse
            / (1.0 + peak);
+#endif
 }
 
 vec3 early_decode_normal(uint bits) {

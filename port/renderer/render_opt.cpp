@@ -103,6 +103,12 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::GtaoDirectDepth, "gtao-direct-depth",
      "GTAO's colour composite samples the prepass's own depth instead of a copy of it",
      true, Tolerance{}},
+    {Opt::FsrFloat16, "fsr-float16",
+       "vendor FP16 history filtering; incomplete pyramids and temporal state remain FP32",
+       true, Tolerance{1.0, 4}},
+    {Opt::ShaderFloat16, "shader-float16",
+     "audited local FP16 arithmetic on enabled Vulkan devices; shader interfaces remain FP32",
+     true, Tolerance{1.0, 1}},
 }};
 // clang-format on
 

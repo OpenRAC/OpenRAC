@@ -53,13 +53,15 @@ enum class Opt : std::uint8_t {
     ShadowDrawCache,  // shadow-draw-cache: static shadow ranges prepared with level geometry
     ShadowScrollReuse,  // shadow-scroll-reuse: retain static texels in the opt-in scrolling experiment
     MotionBlurFastPath,  // motion-blur-fast-path: exact flood and colour-copy reductions
-    FsrMotionBatch,     // fsr-motion-batch: FSR object motion drawn in pose-buffer batches
-    MobyGlowSkip,       // moby-glow-skip: the glow pass leaves out primitives with no glow vertex
+    FsrMotionBatch,      // fsr-motion-batch: FSR object motion drawn in pose-buffer batches
+    MobyGlowSkip,        // moby-glow-skip: the glow pass leaves out primitives with no glow vertex
     GtaoDirectDepth,  // gtao-direct-depth: the colour composite samples the prepass depth, no copy
+    FsrFloat16,       // fsr-float16: vendor half-precision history filtering
+    ShaderFloat16,    // shader-float16: audited local mixed-precision arithmetic
 };
 
-// The number of entries: GtaoDirectDepth is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::GtaoDirectDepth) + 1;
+// The number of entries: ShaderFloat16 is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::ShaderFloat16) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in

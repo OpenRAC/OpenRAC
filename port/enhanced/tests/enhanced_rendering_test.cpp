@@ -81,7 +81,9 @@ int main(int argc, char** argv) {
         level.models.push_back(model);
         level.materials.push_back({});
         level.instances[static_cast<std::size_t>(scene::Layer::Terrain)].push_back({});
-        CHECK(scene.upload(level, renderer.textures(), error));
+        const bool uploaded = scene.upload(level, renderer.textures(), error);
+        if (!uploaded) std::fprintf(stderr, "%s\n", error.c_str());
+        CHECK(uploaded);
         CHECK(!scene.probe_data_available());
         {
             // A level without a bake under the player's probe folder keeps the original lighting.

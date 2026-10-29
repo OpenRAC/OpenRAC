@@ -71,7 +71,7 @@ vec4 over(vec4 under, vec4 top) {
 // The DualShock 2's black plastic, translucent over the game: lighter where the light falls
 // at the top, a fine rim.
 vec4 glass(float d, float lift) {
-    vec4 body = vec4(mix(vec3(0.20, 0.20, 0.21), vec3(0.05, 0.05, 0.055), v_at.y * 0.5 + 0.5),
+    vec4 body = vec4(vec3(mix(mp_vec3(0.20, 0.20, 0.21), mp_vec3(0.05, 0.05, 0.055), mp_float(v_at.y * 0.5 + 0.5))),
                      0.48 + 0.15 * held);
     body.rgb = mix(body.rgb, accent * 0.55, 0.45 * held * lift);
     vec4 c = vec4(body.rgb, body.a * fill(d));
@@ -191,7 +191,7 @@ void main() {
             const float size = 0.38;  // half a letter's height
             vec2 at = q / size;
             s = min(letter(label0, at + vec2(0.8, 0.0)), letter(label1, at - vec2(0.8, 0.0))) * size - 0.07;
-            ink.rgb = mix(vec3(0.95), accent, 0.5 * held);
+            ink.rgb = vec3(mix(mp_vec3(0.95), mp_vec3(accent), mp_float(0.5) * mp_float(held)));
         }
         // A sheen across the top of the glass, which a press dims as the button sinks.
         float sheen = fill(d + 0.10) * (1.0 - smoothstep(-0.85, 0.1, p.y / press));

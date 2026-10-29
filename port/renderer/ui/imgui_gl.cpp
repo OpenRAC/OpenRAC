@@ -39,7 +39,8 @@ in vec4 v_colour;
 uniform sampler2D tex_T0;
 out vec4 out_colour;
 void main() {
-    out_colour = v_colour * texture(tex_T0, v_uv);
+    vec4 texel = texture(tex_T0, v_uv);
+    out_colour = vec4(vec3(mp_vec3(v_colour.rgb) * mp_vec3(texel.rgb)), v_colour.a * texel.a);
 }
 )glsl";
 

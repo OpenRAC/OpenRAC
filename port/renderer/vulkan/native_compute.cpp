@@ -19,6 +19,8 @@ bool native_device(NativeDevice& out) {
         {g->device,
          g->physical,
          vkGetDeviceProcAddr,
+         g->shader_float16,
+         bool(g->features.shaderInt16),
          bool(
              g->features.shaderStorageImageExtendedFormats
              && g->features.shaderStorageImageWriteWithoutFormat

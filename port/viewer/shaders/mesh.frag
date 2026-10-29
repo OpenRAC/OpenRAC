@@ -269,15 +269,16 @@ void main() {
     // per draw, preserving their texture/derivative and alpha-test ordering.
     // It only runs with reused EQUAL depth and depth writes disabled.
     vec4 texel = sample_upscaled_texture_colours(v_uv);
+    // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
     vec4 c = texel * v_colour * material_colour;
     float light = 1.0;
     if (lighting != 0 && v_lit == 0) {
-        light = 0.55 + 0.45 * abs(dot(normalize(v_normal), kSun));
+        light = float(mp_float(0.55) + mp_float(0.45) * abs(dot(mp_vec3(normalize(v_normal)), mp_vec3(kSun))));
     }
     vec3 rgb = min(c.rgb * light, vec3(1.0));
     rgb = probe_surface(texel, rgb);
     if (fog_colour.w > 0.5) {
-        rgb = mix(fog_colour.rgb, rgb, v_fog);
+        rgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(rgb), mp_float(v_fog)));
     }
     out_colour = vec4(rgb, 1.0);
 #ifdef OPENRAC_OPAQUE_COLOUR
@@ -287,7 +288,8 @@ void main() {
 #endif
 #ifndef OPENRAC_SOLID
     if (metal_pass != 0) {
-        vec4 m = sample_upscaled_texture_colours(v_uv) * v_colour;
+        vec4 metal = sample_upscaled_texture_colours(v_uv);
+        vec4 m = vec4(vec3(mp_vec3(metal.rgb) * mp_vec3(v_colour.rgb)), metal.a * v_colour.a);
         vec3 mrgb = min(m.rgb, vec3(1.0));
 #ifdef OPENRAC_EARLY_LIGHTING
         // Chrome blends over the diffuse pass: give both layers the edge reflection so the
@@ -307,7 +309,7 @@ void main() {
         }
 #endif
         if (fog_colour.w > 0.5) {
-            mrgb = mix(fog_colour.rgb, mrgb, v_fog);
+            mrgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(mrgb), mp_float(v_fog)));
         }
         out_colour = vec4(mrgb, clamp(m.a, 0.0, 1.0));
         return;
@@ -316,12 +318,13 @@ void main() {
         discard;
     }
     vec4 texel = sample_upscaled_texture_colours(v_uv);
+    // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
     vec4 c = texel * v_colour * material_colour;
     if (effect_pass != 0) {
         vec3 e = min(c.rgb, vec3(1.0));
         e = probe_surface(texel, e);
         if (fog_colour.w > 0.5) {
-            e = mix(fog_colour.rgb, e, v_fog);
+            e = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(e), mp_float(v_fog)));
         }
         out_colour = vec4(e, clamp(c.a, 0.0, 1.0));
         return;
@@ -340,13 +343,13 @@ void main() {
     float light = 1.0;
     if (lighting != 0 && v_lit == 0) {
         // Double-sided: a face lit from behind is lit too.
-        light = 0.55 + 0.45 * abs(dot(normalize(v_normal), kSun));
+        light = float(mp_float(0.55) + mp_float(0.45) * abs(dot(mp_vec3(normalize(v_normal)), mp_vec3(kSun))));
     }
     vec3 rgb = min(c.rgb * light, vec3(1.0));
     rgb = probe_surface(texel, rgb);
     // The GS's fog, after the texture: RGB only.
     if (fog_colour.w > 0.5) {
-        rgb = mix(fog_colour.rgb, rgb, v_fog);
+        rgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(rgb), mp_float(v_fog)));
     }
     out_colour = vec4(rgb, v_glow != 0 || translucent_pass != 0 ? clamp(c.a, 0.0, 1.0) : 1.0);
 #endif

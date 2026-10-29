@@ -32,6 +32,14 @@ optimisation: its name, what it makes cheaper, whether it is on by default, and 
   may differ and by how much in a channel. A tolerance is the maintainers' to accept, in the
   package's report.
 
+Shader arithmetic has one FP16 path, enabled by default on Vulkan devices supporting
+`shaderFloat16`. It covers eligible colour, lighting, probe GI, GTAO, shadow-filter and water
+calculations. Positions, depth reconstruction, shadow comparisons, probe visibility, water
+normal derivatives and specular angles retain FP32; shader interfaces and storage layouts are
+unchanged. OpenGL and unsupported Vulkan devices use FP32. Set
+`OPENRAC_RENDER_OPT_OFF=shader-float16` to use FP32 renderer arithmetic. FSR's vendor history
+filtering has its separate `fsr-float16` entry; disable both entries for an entirely FP32 run.
+
 The twelve older `*_OFF` switches of [RAC1_GPU_DRIVEN.md](RAC1_GPU_DRIVEN.md) stay what they are;
 no optimisation adds an environment variable of its own.
 
