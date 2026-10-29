@@ -251,6 +251,15 @@ class Bundle(unittest.TestCase):
             water_profile = "port/enhanced/water/profiles/rac1-ntsc/level_01/water-boundaries.json"
             self.assertEqual((out / water_profile).read_bytes(), (bundle.ROOT / water_profile).read_bytes())
             self.assertEqual((exported / "water-boundaries.json").read_bytes(), (bundle.ROOT / water_profile).read_bytes())
+            # Import from the packaged copy in isolation: no checkout paths may supply water tools.
+            script = ("import sys\n"
+                      "from pathlib import Path\n"
+                      "sys.path.insert(0, sys.argv[1])\n"
+                      "import bake_level\n"
+                      "assert Path(bake_level.prepare_water.__file__).resolve().is_relative_to(Path(sys.argv[2]))\n"
+                      "bake_level.prepare_water.prepare(Path(sys.argv[2]), {'game':'rac1','version':'pal','level':1})\n")
+            subprocess.run([sys.executable, "-I", "-c", script,
+                            str(out / bundle.PROBE_TOOLS), str(out.resolve())], cwd=tmp, check=True)
 
     def test_probe_baker_carries_its_interior_inference_companion(self):
         for suffix in ("", ".exe"):

@@ -337,6 +337,8 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
         result = report['levels'][index]
         final = output_dir/level.name
         stamp = profile = None
+        diagnostics.stage('Prepare water', bake_level.prepare_water.prepare, level,
+                          diagnostics.read_json(level/'manifest.json'), disc)
         diagnostics.stage('Prepare emission', bake_level.prepare_emission, level)
         if update:
             text = diagnostics.stage('Read baker profile', baker_profile, baker, level, options)

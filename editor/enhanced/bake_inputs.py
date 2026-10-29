@@ -14,6 +14,12 @@ def write_bake_inputs(level, directory):
     # Empty synthetic exports are permitted; the planner bounds-checks its input.
     (directory / "gameplay.bin").write_bytes(level.gameplay)
     metadata = {"gameplay": "rac1-v1"}
+    if level.id == 1:
+        overlay = level.stored.get("overlay")
+        if not overlay:
+            raise ValueError("Novalis water bake input missing: overlay")
+        (directory / "overlay.bin").write_bytes(overlay)
+        return {**metadata, "water": f"rac1-{level.version}-novalis-v1"}
     if level.id != 9:
         return metadata
     for name in ("overlay", "core_index", "core_data"):

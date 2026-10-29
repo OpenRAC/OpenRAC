@@ -12,6 +12,33 @@ import bake_all as batch
 
 
 class AllLevelBake(unittest.TestCase):
+    def test_water_is_prepared_before_baking_or_reusing_cached_lighting(self):
+        level = self.levels/'level_01'
+        level.mkdir()
+        (level/'manifest.json').write_text('{"game":"rac1","version":"ntsc","level":1}')
+
+        def prepare(path, manifest, disc):
+            if manifest.get('level') == 1:
+                (path/'water.bin').write_bytes(b'coastline')
+                (path/'water.mesh').write_bytes(b'mesh')
+
+        native = self.fake_bake()
+
+        def bake(path, output, baker, **kwargs):
+            if path == level:
+                self.assertTrue((path/'water.mesh').is_file())
+            return native(path, output, baker, **kwargs)
+
+        with patch.object(batch.bake_level.prepare_water, 'prepare', side_effect=prepare), \
+             patch.object(batch.bake_level, 'bake_level', side_effect=bake) as run:
+            self.assertTrue(batch.bake_all(self.levels, self.output, self.baker, update=True))
+            self.assertEqual(run.call_count, 5)
+            run.reset_mock()
+            (level/'water.mesh').unlink()
+            self.assertTrue(batch.bake_all(self.levels, self.output, self.baker, update=True))
+            self.assertTrue((level/'water.mesh').is_file())
+            run.assert_not_called()
+
     def test_missing_environment_asset_invalidates_cache(self):
         """An enabled reflection bake cannot be skipped just because its diffuse grids remain."""
         with tempfile.TemporaryDirectory() as temp:

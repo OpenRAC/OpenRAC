@@ -91,6 +91,7 @@ GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc", "openrac-rac2-ntsc")
 TOOLS = ("openrac-probe-bake", "openrac-interior-infer")
 # Its Python half (bake_all.py and what it imports), without the tests.
 PROBE_TOOLS = "port/enhanced/tools/probes"
+WATER_TOOLS = "port/enhanced/tools/water"
 # Authored settings travel with the exporter, rather than depending on a source checkout.
 PROBE_PROFILES = "port/enhanced/lighting/profiles"
 WATER_PROFILES = "port/enhanced/water/profiles"
@@ -275,8 +276,9 @@ def main() -> int:
               out / "editor/pvar_layouts.json"])
     # Enhanced graphics' baker's Python half; on Android its program is the APK's library
     # (libopenrac-probe-bake.so, tools/build_android.py).
-    files.copy_tree(ROOT / PROBE_TOOLS, out / PROBE_TOOLS,
-                    lambda rel: not rel.name.startswith("test_") and rel.suffix in (".py", ".json"))
+    for directory in (PROBE_TOOLS, WATER_TOOLS):
+        files.copy_tree(ROOT / directory, out / directory,
+                        lambda rel: not rel.name.startswith("test_") and rel.suffix in (".py", ".json"))
     files.copy_tree(ROOT / PROBE_PROFILES, out / PROBE_PROFILES,
                     lambda rel: rel.suffix == ".json")
     files.copy_tree(ROOT / WATER_PROFILES, out / WATER_PROFILES,

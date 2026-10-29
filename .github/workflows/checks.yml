@@ -62,6 +62,9 @@ jobs:
       - name: Probe bake planning (synthetic data only)
         run: python -m unittest discover -s port/enhanced/tools/probes -v
 
+      - name: Water bake preparation (synthetic data only)
+        run: python -m unittest discover -s port/enhanced/tools/water -v
+
       # The port's countable conventions (port/docs/CODING_CONVENTIONS.md): the rules for every
       # file, and the new-code rules on what this push or pull request adds. A line it changes that
       # clang-format would lay out differently fails the step (--strict-touched; the page, section

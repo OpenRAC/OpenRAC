@@ -58,9 +58,23 @@ class BakeInputs(unittest.TestCase):
 
     def test_gameplay_retained_for_all_rac1_levels(self):
         for version in ('pal', 'ntsc'):
-            level = SimpleNamespace(game='rac1', version=version, id=1, gameplay=b'authored gameplay')
+            level = SimpleNamespace(game='rac1', version=version, id=2, gameplay=b'authored gameplay')
             with tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
                 self.assertEqual(write_bake_inputs(level, root), {'gameplay': 'rac1-v1'})
                 self.assertEqual((root/'bake-inputs/gameplay.bin').read_bytes(), level.gameplay)
                 self.assertEqual(len(list((root/'bake-inputs').iterdir())), 1)
+
+    def test_novalis_export_retains_water_overlay(self):
+        from test_port import synthetic_level
+        from port import PortLevelWriter
+        level = synthetic_level()
+        level.id, level.version = 1, 'ntsc'
+        level.stored = {'overlay': b'authored water tables'}
+        with tempfile.TemporaryDirectory() as temporary:
+            writer = PortLevelWriter(Path(temporary), level)
+            writer.dir.mkdir(parents=True)
+            writer.finish()
+            manifest = json.loads((writer.dir/'manifest.json').read_text())
+            self.assertEqual(manifest['bake_inputs']['water'], 'rac1-ntsc-novalis-v1')
+            self.assertEqual((writer.dir/'bake-inputs/overlay.bin').read_bytes(), level.stored['overlay'])

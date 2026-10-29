@@ -413,6 +413,20 @@ def disc_version(output):
     return version or 'ntsc'
 
 
+def bake(ram, collision, output, boundaries=None, version=None):
+    """Bake the same rest geometry from a snapshot or offline initialized overlay tables."""
+    version=version or disc_version(output)
+    surfaces=read_surfaces(ram,version)
+    config=load_boundaries(output,boundaries)
+    solids,water_collision=collision_triangles(collision)
+    bodies=[bake_body(*surface,open_edges=config.get('open_edges',[]),solids=solids,water_collision=water_collision) for surface in surfaces]
+    fingerprint=hashlib.sha256(json.dumps([VERSION,CELL_SIZE,surfaces,config],sort_keys=True).encode()+collision.read_bytes()).digest()
+    output.parent.mkdir(parents=True,exist_ok=True)
+    count=write_bake(output,bodies,fingerprint,solids)
+    write_rest_mesh(output.with_suffix('.mesh'), surfaces, struct.unpack_from('<2f',ram,ADDRESSES[version]['grid']+0x10),fingerprint)
+    print(f'Baked {len(bodies)} water bodies, {count} cells, {output.stat().st_size} bytes',flush=True)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--ram',type=Path,required=True)
@@ -421,16 +435,7 @@ def main():
     parser.add_argument('--boundaries',type=Path,help='Override the exported water-boundaries.json: {"open_edges":[{"a":[x,y,z],"b":[x,y,z],"width":2}]}')
     parser.add_argument('--version',choices=sorted(ADDRESSES),help="The snapshot's disc; default: the export's manifest.json, else ntsc")
     args=parser.parse_args()
-    version=args.version or disc_version(args.output)
-    surfaces=read_surfaces(args.ram.read_bytes(),version)
-    config=load_boundaries(args.output,args.boundaries)
-    solids,water_collision=collision_triangles(args.collision)
-    bodies=[bake_body(*surface,open_edges=config.get('open_edges',[]),solids=solids,water_collision=water_collision) for surface in surfaces]
-    fingerprint=hashlib.sha256(json.dumps([VERSION,CELL_SIZE,surfaces,config],sort_keys=True).encode()+args.collision.read_bytes()).digest()
-    args.output.parent.mkdir(parents=True,exist_ok=True)
-    count=write_bake(args.output,bodies,fingerprint,solids)
-    write_rest_mesh(args.output.with_suffix('.mesh'), surfaces, struct.unpack_from('<2f',args.ram.read_bytes(),ADDRESSES[version]['grid']+0x10),fingerprint)
-    print(f'Baked {len(bodies)} water bodies, {count} cells, {args.output.stat().st_size} bytes')
+    bake(args.ram.read_bytes(),args.collision,args.output,args.boundaries,args.version)
 
 
 if __name__=='__main__': main()

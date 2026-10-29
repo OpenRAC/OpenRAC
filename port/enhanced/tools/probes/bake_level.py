@@ -28,6 +28,9 @@ import emission_audit
 import diagnostics
 from openrac_common import files as file_ops
 
+sys.path.insert(1, str(Path(__file__).resolve().parent.parent/'water'))
+import prepare_water  # noqa: E402
+
 
 @dataclass
 class RegionSettings:
@@ -255,6 +258,7 @@ def bake_level(level_dir: Path, output_dir: Path, baker: Path, *, disc=None, opt
     if output_dir.exists() and not resume:
         raise ValueError('choose a new output directory; previous bakes are preserved')
     manifest = diagnostics.stage('Read level manifest', diagnostics.read_json, level_dir/'manifest.json')
+    diagnostics.stage('Prepare water', prepare_water.prepare, level_dir, manifest, disc)
     settings = diagnostics.stage('Read lighting settings', RegionSettings.load, level_dir)
     gameplay = diagnostics.stage('Read gameplay seeds', seeds.read_gameplay, level_dir, manifest, disc) \
         if settings.enabled or settings.interior_lighting else None

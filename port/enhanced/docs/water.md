@@ -31,11 +31,15 @@ the water simulation bake are independent.
 
 ## Bake local water data
 
-The baker reads initialized water tables from a local RAM snapshot, capturing all boundaries
-independently of the camera. Start unmodified Novalis with `OPENRAC_DUMP_RAM=600` to write
-`ram_600.bin` in the working directory. Use matching exported collision; keep snapshots/assets ignored.
-The disc comes from the export's `manifest.json` (`--version ntsc|pal` overrides); each reads its own
-records. Other levels/versions are unsupported. The port's hooks are each disc's `host/water.c`.
+The launcher's enhanced-lighting preparation automatically bakes Novalis (NTSC-U and PAL) water before GI
+and reflections. Export retains the original overlay in `bake-inputs/overlay.bin`; preparation
+reads its authored tables and applies the game's initial grid spacing and strip rest heights.
+No game launch or RAM snapshot is required. Older exports recover the input from `--disc`, or
+must be exported again. Other levels are unsupported.
+
+`water-bake.json` records input and output hashes. Unchanged water is kept; missing or changed
+files, collision, outlet settings or baker code trigger preparation again. Outputs stay beside
+the level manifest. The standalone snapshot tool remains available for comparison:
 
 ```sh
 python port/enhanced/tools/water/bake_water.py --ram build/water/ram_600.bin \
@@ -51,7 +55,7 @@ templates/barycentric mappings upload once.
 
 Versioned metadata hashes interpreted surfaces, settings and collision with SHA-256. Runtime checks
 counts, bounds, finite data and matching mesh/coastline fingerprints, not live geometry. Rebake after
-input changes; water and probes bake independently.
+input changes; automatic preparation updates water before fingerprinting the probe bake.
 
 Export copies the matching tracked profile from
 `port/enhanced/water/profiles/<game>-<version>/level_NN/water-boundaries.json`.

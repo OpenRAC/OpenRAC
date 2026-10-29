@@ -82,6 +82,9 @@ class LevelBake(unittest.TestCase):
         self.profile = {'dense_spacing': [4, 4, 4], 'probe_format_version': 4, 'bake_version': 1}
         self.output = self.root/'bake'
         self.calls = []
+        water = patch.object(batch.prepare_water, 'prepare')
+        self.water_prepare = water.start()
+        self.addCleanup(water.stop)
         self.failure = None
         self.changed = False
 
@@ -140,6 +143,7 @@ class LevelBake(unittest.TestCase):
 
     def test_complete_bake_plans_geometry_and_registers_verified_regions(self):
         sparse = self.bake()
+        self.water_prepare.assert_called_once_with(self.level.resolve(), self.manifest, None)
         self.assertTrue(self.interiors_called)
         plan = json.loads((self.output/'seed-plan.json').read_text())
         self.assertTrue(plan['regions'])
