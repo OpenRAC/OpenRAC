@@ -624,8 +624,8 @@ std::uint32_t particle_texture(
 }
 
 // Developer tools, for a diagnostics recording: the frame's particles by type, each type with the
-// update its record's type byte picks (GameProfile::particle_updates), and the records within 6
-// units of Ratchet, whole, in hex.
+// update its record's type byte picks (GameProfile::particle_updates) and how many of them are not
+// drawn, and the records within 6 units of Ratchet, whole, in hex.
 void note_particles(std::span<const std::uint8_t> ram, const host::GameState& state) {
     const host::LiveMoby* hero = nullptr;
     for (const host::LiveMoby& m : state.mobys) {
@@ -650,11 +650,27 @@ void note_particles(std::span<const std::uint8_t> ram, const host::GameState& st
     };
     constexpr float kNear = 6.0f;
     std::array<int, 256> counts{};
+    // Per type, those particle_quads leaves out: lines (kind 2, not drawn yet), those without a
+    // texture, and those outside the record's near and far depth.
+    std::array<int, 256> lines{}, untextured{}, beyond{};
     std::string near;
     int listed = 0;
     for (const State::Particle& p : g->particles) {
         const std::uint8_t* r = p.record.data();
         ++counts[r[0]];
+        float at[3];
+        std::memcpy(at, r + 0x10, sizeof(at));
+        const float z = (at[0] - state.camera_position[0]) * state.forward[0]
+                        + (at[1] - state.camera_position[1]) * state.forward[1]
+                        + (at[2] - state.camera_position[2]) * state.forward[2];
+        const int z12 = static_cast<int>(z * 4096.0f);
+        if ((r[1] & 3) == 2) {
+            ++lines[r[0]];
+        } else if (p.pixels == 0 || p.clut == 0) {
+            ++untextured[r[0]];
+        } else if (z12 <= (r[9] & 0xF) << 10 || z12 >= std::min((r[9] >> 4) << 17, 0x1F4000)) {
+            ++beyond[r[0]];
+        }
         if (hero == nullptr || listed >= 40) {
             continue;
         }
@@ -686,10 +702,14 @@ void note_particles(std::span<const std::uint8_t> ram, const host::GameState& st
             continue;
         }
         out += std::format(
-            "{}{{\"type\":{},\"count\":{},\"update\":\"{}\"}}",
+            "{}{{\"type\":{},\"count\":{},\"lines\":{},\"untextured\":{},\"beyond\":{},"
+            "\"update\":\"{}\"}}",
             first ? "" : ",",
             t,
             counts[t],
+            lines[t],
+            untextured[t],
+            beyond[t],
             callback(t)
         );
         first = false;
