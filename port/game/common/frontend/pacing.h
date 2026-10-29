@@ -28,11 +28,11 @@ std::chrono::steady_clock::time_point shown_at(
     std::chrono::steady_clock::time_point last_swap
 );
 
-// Frames that cannot be shown after the next tick starts (a swap that does not wait, drawn on the
-// window's thread: between() stops before the tick) are not held back: lagged, they would only
-// reach half way to the kept tick before the next one came, and the scene would stand still for
-// half a tick and then jump.
-constexpr double kNoWaitLagTicks = 0.0;
+// The player's low-latency frames do not hold the scene back: between() then stops at the next
+// tick, which starts on time, and the frames drawn before it reach the kept tick. Without a swap
+// that waits, the lag would only let them reach half way before the next tick came (the scene
+// stood still for half a tick and then jumped).
+constexpr double kLowLatencyLagTicks = 0.0;
 
 // How far the scene is from the last tick's to the kept one's at the refresh `display`, from 0 to
 // 1: `tick` is when the kept tick came, `period` the game's tick length, and the scene runs `lag`

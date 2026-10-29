@@ -111,6 +111,7 @@ void apply_settings() {
         g->swap = g->window->set_swap_interval(g->swap_asked);
         pacing.last_swap = {};
     }
+    g->window->set_low_latency(s.low_latency_frames);
 }
 
 // The window's own keys: F11 and Alt+Return change between fullscreen and the window, F9 and F10

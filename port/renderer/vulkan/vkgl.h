@@ -300,6 +300,11 @@ void present();
 // Returns what the screen allows: the nearest of those.
 int set_swap_interval(int interval);
 
+// Low-latency frames: as few swapchain images as the surface allows (at least two) and a frame
+// begun only once the one before it is done on the GPU, so that fewer finished frames wait to be
+// shown. Off: one more image than the surface needs (at least three) and two frames in flight.
+void set_low_latency(bool on);
+
 // The device and driver, for the log: "Adreno (TM) 740", "Qualcomm 512.744.0", "1.3.284".
 const std::string& device_name();
 const std::string& driver_version();

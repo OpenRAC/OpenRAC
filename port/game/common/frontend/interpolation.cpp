@@ -131,12 +131,11 @@ std::chrono::steady_clock::time_point next_display(std::chrono::steady_clock::ti
     return shown_at(now, pacing.cost, pacing.interval, pacing.last_swap);
 }
 
-// How far behind the kept tick the scene runs: half a tick while frames may still be shown after
-// the next tick starts (a swap that waits for a refresh, or the render thread's jobs), none when
-// between() stops before the tick (a swap that does not wait, on the window's thread).
+// How far behind the kept tick the scene runs: none with the player's low-latency frames (not
+// for the render thread's jobs, which may be shown after the next tick starts), else half a tick.
 double lag_ticks() {
-    return !threaded_rendering() && g->swap == platform::SwapInterval::Immediate ? kNoWaitLagTicks
-                                                                                 : kLagTicks;
+    return settings::get().low_latency_frames && !threaded_rendering() ? kLowLatencyLagTicks
+                                                                       : kLagTicks;
 }
 
 // How far the scene is from the last tick's to the kept one's at that refresh.

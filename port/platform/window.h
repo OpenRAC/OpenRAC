@@ -183,6 +183,10 @@ public:
     // anything as Immediate when the driver refuses to wait.
     SwapInterval set_swap_interval(SwapInterval interval);
 
+    // Low-latency frames (the player's setting): fewer finished frames wait to be shown. Vulkan:
+    // vkgl::set_low_latency. OpenGL: each swap waits for the graphics card to finish (glFinish).
+    void set_low_latency(bool on);
+
     // The refresh rate of the display the window is on now, in hertz; 0 when it does not say.
     float refresh_rate() const;
 
@@ -223,6 +227,8 @@ private:
     SDL_Window* m_window = nullptr;
     SDL_GLContextState* m_context = nullptr;
     bool m_vulkan = false;
+    bool m_low_latency = false;
+    void (*m_gl_finish)() = nullptr;  // OpenGL's glFinish, for m_low_latency
     bool m_vulkan_library = false;  // macOS: the Vulkan library this window had SDL load
     DisplayMode m_mode = DisplayMode::Windowed;
     std::string m_gl_version;

@@ -187,7 +187,7 @@ void skip_after_mods(int port, std::uint16_t& buttons) {
 }
 
 void refresh_pads() {
-    if (g && g->window) {
+    if (g && g->window && settings::get().fresh_input) {
         g->input.refresh_pads();
     }
 }

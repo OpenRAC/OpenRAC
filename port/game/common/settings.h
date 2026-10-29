@@ -131,6 +131,12 @@ struct Settings {
     FrameCounter show_fps = FrameCounter::Off;  // Counter mode in the picture's corner.
     bool menu_bar = true;   // the menus along the window's top (not on macOS, whose menu bar has them); Alt hides and shows it
     bool mute_unfocused = false;  // silence while another window has the keyboard
+    // Lower input latency (both change only when input is read and frames are shown, never the
+    // game's ticks; off, the timing players know). fresh_input: the pad read again just before each
+    // tick. low_latency_frames: frames between ticks not held half a tick back, and fewer finished
+    // frames queued for the display.
+    bool fresh_input = false;
+    bool low_latency_frames = false;
     bool skip_cutscenes = true;   // Start skips an in-game cutscene (without the game's L1 L2 R1 R2 hold)
     int volume = 100;  // of everything the port plays, 0 (nothing at all) to 100 (as mixed)
     // The on-screen pad (platform/touch_pad.h): its controls' size and the camera's speed, in

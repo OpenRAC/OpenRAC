@@ -18,7 +18,7 @@ namespace {
 
 using openrac::frontend::frame_may_start;
 using openrac::frontend::kLagTicks;
-using openrac::frontend::kNoWaitLagTicks;
+using openrac::frontend::kLowLatencyLagTicks;
 using openrac::frontend::shown_at;
 using openrac::frontend::tick_alpha;
 using std::chrono::duration;
@@ -110,17 +110,17 @@ void test_the_alpha_runs_over_a_tick() {
     }
 }
 
-// Without the lag (a swap that does not wait) the alpha runs from 0 at the tick to 1 a tick later,
+// Without the lag (low-latency frames) the alpha runs from 0 at the tick to 1 a tick later,
 // so the frames drawn before the next tick reach the kept tick.
 void test_the_alpha_without_a_lag_reaches_the_kept_tick() {
     // PAL's tick and NTSC's.
     for (const int rate : kTickRates) {
         const duration<double> period{1.0 / rate};
         const auto tick = start();
-        CHECK(tick_alpha(tick, tick, period, kNoWaitLagTicks) == 0.0f);
-        CHECK(near(tick_alpha(tick + span(0.5 / rate), tick, period, kNoWaitLagTicks), 0.5f));
-        CHECK(near(tick_alpha(tick + span(1.0 / rate), tick, period, kNoWaitLagTicks), 1.0f));
-        CHECK(tick_alpha(tick + span(5.0 / rate), tick, period, kNoWaitLagTicks) == 1.0f);
+        CHECK(tick_alpha(tick, tick, period, kLowLatencyLagTicks) == 0.0f);
+        CHECK(near(tick_alpha(tick + span(0.5 / rate), tick, period, kLowLatencyLagTicks), 0.5f));
+        CHECK(near(tick_alpha(tick + span(1.0 / rate), tick, period, kLowLatencyLagTicks), 1.0f));
+        CHECK(tick_alpha(tick + span(5.0 / rate), tick, period, kLowLatencyLagTicks) == 1.0f);
     }
 }
 

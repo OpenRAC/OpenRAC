@@ -67,13 +67,13 @@ Gamepad buttons are mapped **by position**, so the bottom face button is
 Cross on a DualSense and A on an Xbox pad
 (`port/platform/input.cpp:46-62`).
 
-The pads are read twice a tick: with the window's events at the end of a tick
+With the `fresh_input` setting (off by default, docs/port/SETTINGS.md) the pads are read twice a tick: with the window's events at the end of a tick
 (`Input::update`, which also gathers the mods' keyboard and mouse and plays the
 motors), and again just before the next tick runs, after the wait for its time
 and the frames drawn between ticks (`Input::refresh_pads`, called at the end of
 `program::vsync`). The second read is what the tick sees, so the sticks and
 buttons are as they were when the tick started, not up to a tick earlier, at
-any frame rate. The game still reads one state of the pad a tick, as on the console.
+any frame rate. Off, only the first read happens, and the tick sees the pad as the last tick's end left it. Either way the game reads one state of the pad a tick, as on the console.
 
 ### The three things SDL3 gives the port that it does not use
 

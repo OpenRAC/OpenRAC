@@ -358,6 +358,14 @@ int set_swap_interval(int interval) {
     return mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR ? -1 : mode == VK_PRESENT_MODE_FIFO_KHR ? 1 : 0;
 }
 
+void set_low_latency(bool on) {
+    if (!active() || g->low_latency == on) {
+        return;
+    }
+    g->low_latency = on;
+    g->swapchain_stale = true;
+}
+
 const std::string& device_name() {
     static const std::string none;
     return g != nullptr ? g->device_name : none;

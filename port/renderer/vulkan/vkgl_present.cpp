@@ -263,7 +263,8 @@ bool make_swapchain() {
     if (extent.width == 0 || extent.height == 0) {
         return false;  // minimised: made again when it is shown
     }
-    std::uint32_t count = std::max(caps.minImageCount + 1, 3u);
+    std::uint32_t count =
+        g->low_latency ? std::max(caps.minImageCount, 2u) : std::max(caps.minImageCount + 1, 3u);
     if (caps.maxImageCount != 0) {
         count = std::min(count, caps.maxImageCount);
     }
@@ -381,6 +382,19 @@ void prepare_frame() {
     }
     const profiling::Zone trace("Prepare Vulkan frame slot");
     Frame& f = g->frames[static_cast<std::size_t>(g->frame)];
+    // Low-latency frames: the frame before this one is done on the GPU first (one in flight).
+    if (Frame& last = g->frames[static_cast<std::size_t>((g->frame + kFrames - 1) % kFrames)];
+        g->low_latency && last.submitted) {
+        const stats::Scope wait("vulkan frame wait");
+        const Clock::time_point start = Clock::now();
+        if (!check(
+                vkWaitForFences(g->device, 1, &last.fence, VK_TRUE, UINT64_MAX),
+                "previous frame fence"
+            )) {
+            throw std::runtime_error("cannot wait for the previous Vulkan frame");
+        }
+        g->measures.wait_s += seconds_since(start);
+    }
     if (f.submitted) {
         const stats::Scope wait("vulkan frame wait");
         const Clock::time_point start = Clock::now();

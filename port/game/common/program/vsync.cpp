@@ -459,8 +459,8 @@ int vsync() {
     if (g_window && !frontend::hold()) {
         leave();
     }
-    // The tick about to run reads the pad as it is now: read at the last tick's end, it was the
-    // wait (and the frames drawn between ticks) old, up to a tick at a high frame rate.
+    // With fresh_input, the tick about to run reads the pad as it is now: read at the last tick's
+    // end, it was the wait (and the frames drawn between ticks) old, up to a tick.
     if (g_window) {
         frontend::refresh_pads();
     }
