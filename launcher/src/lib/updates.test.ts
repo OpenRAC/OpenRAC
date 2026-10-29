@@ -73,7 +73,7 @@ describe("updateSourceOf", () => {
   const sources = (repository: string) => {
     const releases = `https://github.com/${repository}/releases`;
     const stable = { repository, fork: repository !== "OpenRAC/OpenRAC", channel: null, manifest: "", page: releases };
-    const dev = { ...stable, channel: "launcher-dev-master", page: `${releases}/tag/launcher-dev-master` };
+    const dev = { ...stable, channel: "launcher-dev-develop", page: `${releases}/tag/launcher-dev-develop` };
     return { updates: stable, updateChannels: { stable, dev } } as unknown as AppInfo;
   };
   const config = (updateChannel: "stable" | "dev", updateBranch: string | null) =>

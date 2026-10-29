@@ -68,10 +68,13 @@ git tag launcher-vX.Y.Z
 
 ## 4. Push and CI Automation
 
-Push the commit to `master` and the tag to GitHub:
+Work lands on `develop` through pull requests; `master` is protected and only moves by a release
+pull request from `develop`. Merge that pull request, then tag the merged commit on `master` and
+push the tag:
 
 ```bash
-git push origin master
+git fetch origin && git checkout master && git pull --ff-only
+git tag launcher-vX.Y.Z
 git push origin launcher-vX.Y.Z
 ```
 
@@ -120,13 +123,14 @@ git push origin launcher-vX.Y.Z
    launchers built from a branch read that pre-release; one built from a tag reads the
    repository's latest release. Either way the updater asks the repository that built it
    (`github.repository`), so a fork's builds update from the fork's releases with no setting.
-   The player can switch channels in Settings: Stable (the latest release) or Development
-   (`launcher-dev-<branch>` of the branch the launcher was built from; `launcher-dev-master` for a
-   release's build). A fork's launcher can pick another branch of the fork for Development
-   (Settings, Branch). A switch takes effect with the first build on that channel newer than the
+   The player can switch channels in Settings: Stable (the latest release, tagged on `master`) or
+   Development (`launcher-dev-develop`, the builds of `develop`, for OpenRAC's own launcher
+   whatever branch it was built from; `update.rs`, `DEV_BRANCH`). A fork's launcher follows the
+   branch it was built from (`develop` for a release's build) and can pick another branch of the
+   fork (Settings, Branch). A switch takes effect with the first build on that channel newer than the
    one installed, since neither version numbers nor Android go back: from Development to Stable,
    the next release. So that Development stays ahead of the latest release, raise the version in
-   `tauri.conf.json` on master once a release is tagged. Until then a branch's builds take the
+   `tauri.conf.json` on `develop` once a release is tagged. Until then a branch's builds take the
    next patch by themselves (`scripts/dev_version.sh` skips a version that has a `launcher-v`
    tag). The APK carries `X.Y.Z-dev.<run>` as its version; the
    desktop packages keep `X.Y.Z` (an MSI takes no `-dev`, an RPM no `-`) and carry the run in the

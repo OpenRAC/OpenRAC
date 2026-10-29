@@ -133,9 +133,10 @@ pub enum Channel {
     Dev,
 }
 
-/// The branch whose builds the development channel follows for a launcher built from no branch
-/// (a release's): the repository's own.
-pub const DEV_BRANCH: &str = "master";
+/// The branch whose builds the development channel follows: OpenRAC's own launcher always (master
+/// is only updated by release PRs, so its builds are the releases'), a fork's when built from no
+/// branch (a release's).
+pub const DEV_BRANCH: &str = "develop";
 
 impl UpdateSource {
     /// The channel this source is: a release's tag (a branch's rolling one) or the latest release.
@@ -147,11 +148,18 @@ impl UpdateSource {
         }
     }
 
-    /// The same repository's `channel`: its latest release, or the development builds of the branch
-    /// this launcher was built from (of DEV_BRANCH when it was built from none). A source that is
-    /// not on GitHub has no other channel and stays as it is.
+    /// The same repository's `channel`: its latest release, or its development builds. OpenRAC's own
+    /// launcher's are always DEV_BRANCH's, so one built from another branch (master's, before
+    /// develop) moves over; a fork's are those of the branch it was built from (DEV_BRANCH when it
+    /// was built from none). A source that is not on GitHub has no other channel and stays as it is.
     pub fn on(&self, channel: Channel) -> UpdateSource {
-        if self.kind() == channel || !self.manifest.starts_with("https://github.com/") {
+        if !self.manifest.starts_with("https://github.com/") {
+            return self.clone();
+        }
+        if channel == Channel::Dev && !self.fork && self.channel.as_deref() != Some(dev_tag(DEV_BRANCH).as_str()) {
+            return self.on_branch(DEV_BRANCH);
+        }
+        if self.kind() == channel {
             return self.clone();
         }
         let repository = &self.repository;
@@ -251,12 +259,18 @@ mod tests {
         let release = source("https://github.com/OpenRAC/OpenRAC/releases/latest/download/latest.json");
         let branch = source("https://github.com/someone/OpenRAC/releases/download/launcher-dev-feature-x/latest.json");
         assert_eq!((release.kind(), branch.kind()), (Channel::Stable, Channel::Dev));
-        // Its own channel is itself; a release's development builds are the default branch's.
+        // Its own channel is itself; a release's development builds are develop's.
         assert_eq!(release.on(Channel::Stable), release);
         assert_eq!(
             release.on(Channel::Dev).manifest,
-            "https://github.com/OpenRAC/OpenRAC/releases/download/launcher-dev-master/latest.json"
+            "https://github.com/OpenRAC/OpenRAC/releases/download/launcher-dev-develop/latest.json"
         );
+        // OpenRAC's own launcher built from master (before develop) moves to develop's builds, and
+        // one built from develop stays.
+        let master = source("https://github.com/OpenRAC/OpenRAC/releases/download/launcher-dev-master/latest.json");
+        assert_eq!(master.on(Channel::Dev).channel.as_deref(), Some("launcher-dev-develop"));
+        let develop = master.on(Channel::Dev);
+        assert_eq!(develop.on(Channel::Dev), develop);
         assert_eq!(branch.on(Channel::Dev), branch);
         let stable = branch.on(Channel::Stable);
         assert_eq!(stable.manifest, "https://github.com/someone/OpenRAC/releases/latest/download/latest.json");
